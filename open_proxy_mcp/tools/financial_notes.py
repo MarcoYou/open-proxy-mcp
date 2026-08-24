@@ -17,6 +17,73 @@ from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import ToolEnvelope
 
 
+def _against_totals(rec: dict, total_view: dict | None) -> str:
+    """세부표 잎 합을 **원문 합계표**와 맞춰 본다. 260824 마스터 지시.
+
+    🔴 **「안 맞으면 틀렸다」로 쓰지 않는다.** 합계표는 현재가치할인차금·손실충당금을
+       반영한 수라 세부표(총장부금액) 잎 합과 원래 다를 수 있다. 그래서 **똑같은 값이
+       있으면 ✅(정렬이 맞았다는 증거)** 로만 쓰고, 없으면 원문 값을 나란히 적어 준다.
+       260824 NH 실측 — 예치금·미수금·미수수익 셋은 정확히 일치했고, 대출채권·기타채권은
+       차감 항목만큼 달랐다(14,765,043 vs 14,735,015 = 28,267 + 1,761).
+    """
+    if not total_view:
+        return ""
+    g = rec["group"]
+    mine = [c for c in total_view["columns"]
+            if c["label"] == g or c["label"].startswith(g + " › ")]
+    if not mine:
+        return ""
+    vals = [c["values"][0] for c in mine if c["values"] and c["values"][0].strip()]
+    if not vals:
+        return ""
+    if rec["sum"] in vals:
+        return f" → 원문 합계표에 같은 값 있음 ✅"
+    return f" → 원문 합계표: {' · '.join(vals)} (차감 항목만큼 다를 수 있다)"
+
+
+_CK_LIMIT = 12
+
+
+def _checksum_lines(view: dict | None, total_view: dict | None = None,
+                    transposed: bool = True) -> list[str]:
+    """열 묶음별 검산. **도구가 더한 값은 그렇다고 밝힌다.**
+
+    이 도구는 값을 만들지 않는 것이 계약이라, 여기서 나오는 수에는 전부 출처를 붙인다.
+    원문에 합계 열이 있으면 대조해 ✅/🔴 를 내고, 없으면 「도구가 더함」으로만 적는다.
+    """
+    if not view:
+        return []
+    # 보통 표(행=항목 · 열=시점) — 「합계」 행을 나머지 행과 맞춘다. 이게 진짜 검산이다.
+    if not transposed:
+        rc = svc.row_checksums(view)
+        if not rc:
+            return []
+        head = ["> 🧮 **검산** — 원문 「{}」 행을 나머지 행의 합과 맞춰 봤다.".format(rc[0]["row"])]
+        for r in rc[:_CK_LIMIT]:
+            mark = "✅ 일치" if r["ok"] else "🔴 **불일치 — 표를 그대로 인용하지 말 것**"
+            head.append(f">  · {r['column']}: {r['n']}행 합 {r['sum']} / 원문 {r['stated']} → {mark}")
+        head.append("")
+        return head
+    rows = svc.checksums(view, transposed=True)
+    if not rows:
+        return []
+    multi = len(view["rows"]) > 1
+    out = ["> 🧮 **검산** — 아래 합은 **도구가 위 표의 잎을 더한 값**이다(원문에 없는 수). "
+           "원문에 합계 열이 있으면 대조해 표시했다."]
+    for r in rows[:_CK_LIMIT]:
+        where = f"{r['group']}" + (f" · {r['row']}" if multi and r["row"] else "")
+        if "stated" in r:
+            mark = "✅ 일치" if r.get("ok") else "🔴 **불일치**"
+            out.append(f">  · {where} — 잎 {r['n']}열 합 {r['sum']} / 원문 합계 {r['stated']} → {mark}")
+        else:
+            line = f">  · {where} — 잎 {r['n']}열 합 **{r['sum']}** (도구가 더함)"
+            out.append(line + _against_totals(r, total_view))
+    if len(rows) > _CK_LIMIT:
+        out.append(f">  · … 외 {len(rows) - _CK_LIMIT}건은 줄였다")
+    out.append("")
+    return out
+
+
 def _render(payload: dict) -> str:
     """표를 **그대로** 마크다운으로. 합치거나 나누지 않는다."""
     L = [f"# {payload['company']} 재무제표 주석",
@@ -36,6 +103,10 @@ def _render(payload: dict) -> str:
         #    여러 표를 모아 내되, **연결과 별도가 섞여 있을 수 있으니** 합산 전에 알린다.
         by_kind: dict[str, int] = {}
         for t in res["tables"]:
+            # 🔴 원문의 짝(세부표 ↔ 합계표)은 「표가 여러 개」 경고 대상이 아니다.
+            #    그건 우리가 일부러 함께 낸 것이고, 바로 아래에 🧾 로 따로 알린다.
+            if t.get("role") == "합계":
+                continue
             by_kind[t["kind"]] = by_kind.get(t["kind"], 0) + 1
         for k, n in by_kind.items():
             if n > 1:
@@ -54,7 +125,10 @@ def _render(payload: dict) -> str:
                     hint = ("원문이 여러 주석에 나눠 실었다(예: 현금및현금성자산 · 예치금). "
                             "`기준` 이 같으면 더해도 되지만, 같은 계정을 두 번 세지 않는지 볼 것.")
                 L += ["", f"> 🔴 **{label} 표가 {n}개다** — {hint}", ""]
-        for t in res["tables"]:
+        # 🔴 **표를 다 편 다음에 훑는다.** 합계표가 세부표보다 뒤에 오므로, 훑으면서
+        #    펴면 세부표 차례에 대조할 상대가 아직 없다(260824 실측 — 대조가 통째로 빠졌다).
+        views = [svc.column_view(x) for x in res["tables"]]
+        for idx, t in enumerate(res["tables"]):
             kind = {"restricted": "사용제한", "pledged": "담보제공"}.get(t["kind"], t["kind"])
             # 🔴 **제목 대조 성공을 명시한다.** 성공과 미대조가 똑같이 무표시면 읽는 쪽은
             #    「경고 없음 = 맞음」으로 읽고, 그러면 틀린다(260823 T보고).
@@ -125,6 +199,10 @@ def _render(payload: dict) -> str:
                          f"「{t['anchor']}…내역/공시」라는 제목을 붙이지 않았다. "
                          "위험·공정가치수준별 같은 **다른 표일 수 있으니 그대로 인용하지 말 것.** "
                          "위 「원문 제목」 한 줄로 무슨 표인지 먼저 확인할 것.")
+            if t.get("role") == "합계":
+                L.append("> 🧾 **원문이 따로 실은 합계표다** — 바로 위 세부표의 짝이다. "
+                         "세부표의 잎을 더한 값과 여기 값이 맞아야 정렬이 맞은 것이다. "
+                         "**세부표와 이 표를 더하지 말 것 — 같은 자산이다.**")
             if t.get("shared_with"):
                 L.append(f"> ℹ️ 이 표는 **{', '.join(t['shared_with'])} 와 같은 표**다 — "
                          f"회사가 한 표에 함께 공시했다. 중복 반환이 아니다.")
@@ -132,19 +210,47 @@ def _render(payload: dict) -> str:
                 L.append(f"> 🔴 **행마다 열 수가 다르다**(열 폭 {t['widths']}). 병합 셀 때문이며 "
                          f"그대로 읽으면 값이 밀린다. 병합 폭은 각 칸의 `colspan` 에 있다.")
             L.append("")
-            for row in t["rows"]:
-                cells = []
-                for c in row:
-                    s = c["text"] or " "
-                    if c.get("colspan"):
-                        s += f" <{c['colspan']}칸>"
-                    if c.get("basis"):
-                        s += f" ({c['basis']})"
-                    if c.get("acode"):
-                        s += f" [{c['acode']}]"
-                    cells.append(s)
-                L.append("| " + " | ".join(cells) + " |")
+
+            # 🔴 **머리가 깊은 표는 물리 행 그대로 내보내면 읽는 쪽이 정렬을 복원해야 한다.**
+            #    260824 NH투자증권 — 머리 8행 × 값 1행 × 27열 전치표에서 시험자도 렌더 UI도
+            #    둘 다 열을 밀려 읽었다(예치금 소계를 12,731,887 로 냈다. 원문은 12,131,887).
+            #    격자를 편 뒤 **값마다 열 경로를 붙여** 내보내면 복원할 것이 없다.
+            #    칸을 옮겨 적을 뿐 합치거나 나누지 않는다 — 계약은 그대로다.
+            view = views[idx]
+            # 전치표 — 머리가 여러 단으로 쌓이고 열이 **항목**인 표. 여기서만 열을 더한다.
+            transposed = bool(view and view["depth"] >= 3 and view["n_cols"] >= 6)
+            if transposed:
+                L.append(f"> 🧭 **격자로 폈다 — {view['n_cols']}열 × {t['n_rows']}행"
+                         f"(머리 {view['depth']}행).** 병합 칸을 채워 열 이름과 값을 같은 열에 "
+                         f"맞췄다. **원문 칸을 그대로 옮긴 것이다** — 합치거나 나누지 않았다.")
+                if view["common"]:
+                    L.append(f"> 🧷 값열 전부가 공유하는 머리: {' › '.join(view['common'])}")
+                L.append("")
+                L.append("| 열 이름(경로) | " + " | ".join(x or " " for x in view["rows"]) + " |")
+                for c in view["columns"]:
+                    L.append("| " + (c["label"] or " ") + " | "
+                             + " | ".join(v or " " for v in c["values"]) + " |")
+            else:
+                for row in t["rows"]:
+                    cells = []
+                    for c in row:
+                        s = c["text"] or " "
+                        if c.get("colspan"):
+                            s += f" <{c['colspan']}칸>"
+                        if c.get("basis"):
+                            s += f" ({c['basis']})"
+                        if c.get("acode"):
+                            s += f" [{c['acode']}]"
+                        cells.append(s)
+                    L.append("| " + " | ".join(cells) + " |")
             L.append("")
+
+            # 🧮 검산 — 260824 마스터 지시. 잎을 더해 원문 합계와 맞춰 본다.
+            #    맞으면 **열 정렬이 맞았다는 증거**이고, 틀리면 그 자리가 어긋난 것이다.
+            total_view = next((views[j] for j, o in enumerate(res["tables"])
+                               if o.get("role") == "합계" and j != idx), None)
+            for line in _checksum_lines(view, total_view, transposed):
+                L.append(line)
     if payload.get("basis") not in (None, "전체", "둘다", "all", "both"):
         L += ["", f"> ℹ️ **{payload.get('basis')} 기준만 받았다.** 다른 기준이 필요하면 "
                   f"`basis` 를 지정해 다시 부를 것 — 두 기준을 함께 받으면 시간이 두 배다.", ""]

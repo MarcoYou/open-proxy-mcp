@@ -318,3 +318,128 @@ def test_basis_defaults_to_consolidated_and_halves_the_fetch() -> None:
     assert _basis_wanted("별도") == {"별도"}
     assert _basis_wanted("전체") is None          # 제한 없음
     assert _basis_wanted("둘다") is None
+
+
+# ── 260824 NH투자증권 — 병합 격자·열 경로·검산 ──────────────────────────────
+#
+# 발단: 「7. 상각후원가측정금융자산」(머리 8행 × 값 1행 × 27열 전치표)에서 시험자도
+# 렌더 UI 도 열을 밀려 읽어 예치금 소계를 12,731,887 로 냈다. 원문 합계표의 값은
+# 12,131,887 이다. 원인 셋을 여기서 못 박는다.
+
+_NH = (
+    "<TABLE border='1'>"
+    "<THEAD>"
+    "<TR><TH>　</TH><TH colspan='6'>금융자산의 범주</TH></TR>"
+    "<TR><TH>　</TH><TH colspan='3'>예치금</TH><TH colspan='3'>기타금융자산</TH></TR>"
+    "<TR><TH>　</TH>"
+    "<TH rowspan='2'>청약예치금</TH><TH rowspan='2'>기타 예치금</TH>"
+    "<TH rowspan='2'>당좌개설보증금</TH>"
+    "<TH colspan='3'>미수금</TH></TR>"
+    "<TR><TH>　</TH><TH>증권미수금</TH><TH>기타 미수금</TH><TH>미수수수료</TH></TR>"
+    "</THEAD>"
+    "<TBODY><TR><TD>상각후원가로 측정하는 금융자산</TD>"
+    "<TD>17</TD><TD>2,853,625</TD><TD>47</TD>"
+    "<TD>21,733,958</TD><TD>1,173,435</TD><TD>88,403</TD></TR></TBODY>"
+    "</TABLE>"
+)
+
+
+def test_rowspan_is_counted_so_a_rectangular_table_is_not_called_ragged() -> None:
+    # colspan 만 더하던 시절 이 표는 [2, 3, 5, 5] 로 세어져 🔴 오경보가 나갔다.
+    parsed = parse_table(_NH)
+
+    assert parsed["widths"] == [7, 7, 7, 7, 7]
+    assert parsed["ragged"] is False
+
+
+def test_single_quoted_colspan_is_read() -> None:
+    # DART 뷰어가 내려주는 절 HTML 은 속성을 홑따옴표로 쓴다. 겹따옴표만 받으면
+    # 병합 폭을 한 번도 못 잡고, 그러면 격자를 펼 수 없다.
+    parsed = parse_table("<TABLE><TR><TD colspan='3'>가</TD></TR>"
+                         "<TR><TD>1</TD><TD>2</TD><TD>3</TD></TR></TABLE>")
+
+    assert parsed["rows"][0][0]["colspan"] == 3
+    assert parsed["widths"] == [3, 3]
+
+
+def test_column_view_gives_every_value_its_full_column_name() -> None:
+    from open_proxy_mcp.services.financial_notes import column_view
+
+    view = column_view(parse_table(_NH))
+    labels = {c["label"]: c["values"][0] for c in view["columns"]}
+
+    assert view["n_cols"] == 7
+    assert view["rows"] == ["상각후원가로 측정하는 금융자산"]
+    # 🔴 이 한 줄이 이번 사건의 핵심이다 — 21,733,958 은 총계가 아니라 증권미수금이다.
+    assert labels["기타금융자산 › 미수금 › 증권미수금"] == "21,733,958"
+    assert labels["예치금 › 청약예치금"] == "17"
+
+
+def test_checksum_sums_each_column_group_of_a_transposed_table() -> None:
+    from open_proxy_mcp.services.financial_notes import checksums, column_view
+
+    got = {c["group"]: c["sum"] for c in checksums(column_view(parse_table(_NH)))}
+
+    assert got["예치금"] == "2,853,689"                     # 17 + 2,853,625 + 47
+    assert got["기타금융자산 › 미수금"] == "22,995,796"
+
+
+def test_checksum_refuses_to_add_measure_columns() -> None:
+    # 묶음마다 잎 이름이 똑같으면 그건 항목이 아니라 측정 축이다 — 더하면 뜻이 없다.
+    from open_proxy_mcp.services.financial_notes import checksums, column_view
+
+    html = ("<TABLE><THEAD>"
+            "<TR><TH>　</TH><TH colspan='2'>예치금</TH><TH colspan='2'>대출채권</TH></TR>"
+            "<TR><TH>　</TH><TH>총장부금액</TH><TH>손상차손누계액</TH>"
+            "<TH>총장부금액</TH><TH>손상차손누계액</TH></TR></THEAD>"
+            "<TBODY><TR><TD>금융자산</TD><TD>12,131,887</TD><TD>(7,010)</TD>"
+            "<TD>14,735,015</TD><TD>(313,781)</TD></TR></TBODY></TABLE>")
+
+    assert checksums(column_view(parse_table(html))) == []
+
+
+def test_ordinary_table_is_checked_by_row_not_by_column() -> None:
+    # KB손해보험 사용제한표 — 열이 「당반기말·전기말」이라 열을 더하면 44+44=88 이 나온다.
+    from open_proxy_mcp.services.financial_notes import (
+        checksums, column_view, row_checksums,
+    )
+
+    html = ("<TABLE>"
+            "<TR><TH>구분</TH><TH>당반기말</TH><TH>전기말</TH><TH>사용제한 내용</TH></TR>"
+            "<TR><TD>특정예금</TD><TD>44</TD><TD>44</TD><TD>당좌개설보증금</TD></TR>"
+            "<TR><TD>기타예금</TD><TD>14,963</TD><TD>380,800</TD><TD>압류계좌</TD></TR>"
+            "<TR><TD>외화정기예금 등</TD><TD>11,349</TD><TD>10,238</TD><TD>영업보증금</TD></TR>"
+            "<TR><TD>합계</TD><TD>26,356</TD><TD>391,082</TD><TD></TD></TR></TABLE>")
+    view = column_view(parse_table(html))
+
+    assert checksums(view, transposed=False) == []
+    got = {r["column"]: r for r in row_checksums(view)}
+    assert got["당반기말"]["sum"] == "26,356" and got["당반기말"]["ok"] is True
+    assert got["전기말"]["sum"] == "391,082" and got["전기말"]["ok"] is True
+
+
+def test_row_checksum_flags_a_total_that_does_not_add_up() -> None:
+    from open_proxy_mcp.services.financial_notes import column_view, row_checksums
+
+    html = ("<TABLE>"
+            "<TR><TH>구분</TH><TH>금액</TH></TR>"
+            "<TR><TD>가</TD><TD>10</TD></TR>"
+            "<TR><TD>나</TD><TD>20</TD></TR>"
+            "<TR><TD>합계</TD><TD>31</TD></TR></TABLE>")
+
+    (rec,) = row_checksums(column_view(parse_table(html)))
+    assert rec["sum"] == "30" and rec["stated"] == "31" and rec["ok"] is False
+
+
+def test_caption_stops_at_the_previous_value_table() -> None:
+    # 「…, 합계」 제목표가 앞 표의 숫자 잔해에 밀려 「제목 없음」으로 나가던 문제.
+    from open_proxy_mcp.services.financial_notes import caption_before
+
+    html = ("<TABLE><TR><TD>1,111</TD><TD>2,222</TD><TD>3,333</TD></TR></TABLE>"
+            "<TABLE class='nb'><TR><TD>상각후원가측정금융자산의 내역, 합계</TD></TR>"
+            "<TR><TD>당반기말</TD><TD>(단위 : 백만원)</TD></TR></TABLE>"
+            "<TABLE border='1'>")
+
+    cap = caption_before(html, html.rindex("<TABLE border='1'>"))
+    assert "1,111" not in cap
+    assert "상각후원가측정금융자산의 내역, 합계" in cap
