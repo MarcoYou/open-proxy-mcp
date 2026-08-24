@@ -98,6 +98,7 @@ def build_mcp() -> MCPServer:
     async def _health(_request):
         from starlette.responses import JSONResponse
         from open_proxy_mcp.dart.client import cache_stats
+        from open_proxy_mcp.db import pool_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
         #   여기 실어 배포 직후 눈으로 확인할 수 있게 한다. 0 이면 status 를 degraded 로 낮춘다.
@@ -117,6 +118,9 @@ def build_mcp() -> MCPServer:
             "tools": len(await mcp.list_tools()),
             "data": _data,
             "cache": cache_stats(),
+            # 풀이 실제로 서고 있나 · 대기가 쌓이나. 「빠르게 하려고 둔 것」이 조용히
+            #   fail-open 으로 꺼져 있으면 숫자로만은 알 수 없어서 함께 낸다.
+            "pg_pool": pool_stats(),
         })
 
     return mcp

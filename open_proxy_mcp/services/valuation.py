@@ -260,18 +260,16 @@ async def _resolve_listed(query: str) -> tuple[dict | None, dict | None]:
 
 
 def _pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
-    """None = DB 미설정/장애(no_data와 구분 — 오진 방지, QA), [] = 정상 조회·데이터 없음."""
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return None
-    try:
-        import psycopg
-        with psycopg.connect(url, connect_timeout=8) as c:
-            return c.execute(sql, params).fetchall()
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("스냅샷 DB 조회 실패: %s", e)
-        return None
+    """None = DB 미설정/장애(no_data와 구분 — 오진 방지, QA), [] = 정상 조회·데이터 없음.
+
+    260824: 질의마다 새로 접속하던 것을 **커넥션 풀**로 옮겼다(`open_proxy_mcp.db`).
+      실측 핸드셰이크 124ms vs 질의 63ms — 연결이 질의보다 2배 비쌌고, `firm_history` 는
+      이 함수를 8번 지나 1.68초 중 1초가 접속이었다. 호출부 20곳은 그대로 두고 **여기 한
+      곳만** 갈아끼운다 — 시그니처·반환 계약(None vs [])이 같아야 호출부가 안 흔들린다.
+      풀이 없거나 실패하면 예전처럼 직접 접속한다(fail-open).
+    """
+    from open_proxy_mcp.db import pg_rows
+    return pg_rows(sql, params)
 
 
 _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, 잠시 후 재시도. (배치 미실행과 다름)"

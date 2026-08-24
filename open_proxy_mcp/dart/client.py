@@ -808,7 +808,13 @@ class DartClient:
         self._last_web_request = 0.0
         # Rolling window rate limiter (분당 한도 강제) — DART 1000/min 정책 hard guard
         self._api_call_timestamps: collections.deque[float] = collections.deque()
-        self._api_rate_lock = asyncio.Lock()
+        # ★ 락은 **만든 이벤트루프에 묶인다.** 이 클라이언트는 키별 모듈 싱글턴이라
+        #   루프가 바뀌면(테스트의 asyncio.run 여러 번, 재기동 등) 「다른 루프에 묶임」으로
+        #   깨진다. 그래서 생성자에서 만들지 않고 **쓰는 루프에서** 잡는다
+        #   (`_corp_code_lock` 이 이미 같은 이유로 lazy 다).
+        self._api_rate_lock: asyncio.Lock | None = None
+        self._web_rate_lock: asyncio.Lock | None = None
+        self._lock_loop = None
         # Document caching (메모리 + 디스크)
         # 메모리 캐시는 **프로세스 전역**이다(모듈 상단 _DOC_CACHE 주석 참조 — 인스턴스 소유면
         # API 키 수만큼 예산이 곱해진다). 여기서는 그 전역 캐시를 가리키기만 한다.
@@ -1555,6 +1561,19 @@ class DartClient:
 
     # ── Rate Limiting ──
 
+    def _loop_locks(self) -> tuple["asyncio.Lock", "asyncio.Lock"]:
+        """현재 루프에 묶인 (api, web) 락. 루프가 바뀌었으면 새로 잡는다.
+
+        검사-후-설정 사이에 `await` 가 없으므로 단일 루프에서는 원자적이다 —
+        두 코루틴이 각각 락을 만들어 서로 다른 락을 잡는 일은 생기지 않는다.
+        """
+        loop = asyncio.get_running_loop()
+        if self._lock_loop is not loop or self._api_rate_lock is None:
+            self._api_rate_lock = asyncio.Lock()
+            self._web_rate_lock = asyncio.Lock()
+            self._lock_loop = loop
+        return self._api_rate_lock, self._web_rate_lock
+
     async def _throttle_api(self):
         """API 요청 분당 한도 hard guard (rolling window 60s).
 
@@ -1566,7 +1585,8 @@ class DartClient:
         2. 윈도우 가득 차면 oldest 만료까지 sleep (하나 expire 후 진행)
         3. 그 외엔 _MIN_INTERVAL_API (race 방지) 만 강제
         """
-        async with self._api_rate_lock:
+        api_lock, _ = self._loop_locks()
+        async with api_lock:
             now = time.monotonic()
             # purge timestamps older than 60s
             while self._api_call_timestamps and now - self._api_call_timestamps[0] > 60:
@@ -1604,14 +1624,18 @@ class DartClient:
         """
         import random
         _note_doc(counter)
-        wait = random.uniform(*_WEB_INTERVAL_RANGE)
-        elapsed = time.monotonic() - self._last_web_request
-        if elapsed < wait:
-            sleep_for = wait - elapsed
-            logger.debug(f"[웹 스크래핑] {sleep_for:.1f}초 대기 ({counter})")
-            await asyncio.sleep(sleep_for)
-            _note_web_wait(sleep_for)
-        self._last_web_request = time.monotonic()
+        # 락 안에서 재고-자고-찍는다. 락 밖에서 자면 두 코루틴이 같은 `_last_web_request` 를
+        #   보고 같은 만큼 자다가 동시에 깨어난다 — 그게 260824 에 잡힌 레이스다.
+        _, web_lock = self._loop_locks()
+        async with web_lock:
+            wait = random.uniform(*_WEB_INTERVAL_RANGE)
+            elapsed = time.monotonic() - self._last_web_request
+            if elapsed < wait:
+                sleep_for = wait - elapsed
+                logger.debug(f"[웹 스크래핑] {sleep_for:.1f}초 대기 ({counter})")
+                await asyncio.sleep(sleep_for)
+                _note_web_wait(sleep_for)
+            self._last_web_request = time.monotonic()
 
     async def _throttle_web(self):
         """DART 웹 원문 viewer 용 — 간격은 `_throttle_scrape` 가 하나로 관리한다."""

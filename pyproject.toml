@@ -11,7 +11,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
-    "psycopg[binary]>=3.2.0",
+    "psycopg[binary,pool]>=3.2.0",
     # law_lookup Signal C: 조문 전문 BM25용 형태소 분석기(순수 C++·오프라인·결정적, Java 불필요).
     # 런타임 질의 토큰화 + sync 인덱스 빌드가 동일 morph_tokens를 씀. kiwipiepy_model 자동 동반.
     "kiwipiepy>=0.20.0",

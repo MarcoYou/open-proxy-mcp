@@ -15,7 +15,7 @@
 """
 
 from __future__ import annotations
-from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 
@@ -36,16 +36,32 @@ _KST = timezone(timedelta(hours=9))
 # 시장스캔 하드캡: corp_code 없는 전체시장 검색은 3개월(92일)까지만.
 _MARKET_SCAN_MAX_DAYS = 92
 
-# scan 페이지 throttle / 상한
-_SCAN_PAGE_SLEEP = 0.7      # 페이지 사이 sleep(레이트리밋 가드)
+# scan 상한
 _SCAN_MAX_PAGES = 20        # 코드당 최대 페이지(전체시장 폭주 방지)
 _PAGE_COUNT = 100
 
-# details 러닝 가드
+# ── 260824: 호출측 sleep 을 걷어내고 **클라이언트 스로틀에 맡긴다** ──────────────
+#
+# 종전엔 페이지마다 0.7초, 상세마다 0.8초를 여기서 쉬었다. 실측하니 그 대기가 응답의
+# **87%**(kospi200·details=ON 42.3초 중 36.7초)였고, 실사용 p95 116초·최대 306초의 몸통이었다.
+# 5분이면 클라이언트가 먼저 끊으므로 그 응답은 아무에게도 닿지 않는다.
+#
+# 걷어내도 되는 근거 — 한도는 **지켜야 할 곳에서 이미 지키고 있다**:
+#   · `_throttle_api`  롤링 60초 윈도우 910/분 + 최소간격, `_api_rate_lock` 으로 직렬화.
+#     실측: 동시 100건 → 실효 903/분, 최소간격 위반 0건.
+#   · `_throttle_scrape` 웹·KIND 1~2초 랜덤 공유 시계. **260824 에 락을 채웠다** —
+#     그전엔 동시 4건에서 간격 0.299초·0.151초로 하한 1.0초를 뚫었다. 호출측 sleep 이
+#     그 결함을 가리고 있었던 셈이라, 가린 것을 걷어내려면 결함부터 고쳐야 했다.
+#
+# 그래서 여기서는 **양을 제한**(캡)하고 **속도는 클라이언트가** 잡는다. 두 곳에서 같은 일을
+# 하면 한쪽만 고쳐진다.
 _DETAILS_TOTAL_CALL_CAP = 300   # run당 총 DART 콜 러닝카운터
 _DETAILS_UNIVERSE_MAX = 300     # details 허용 유니버스 상한(초과=너무 넓음 → off)
-_DETAILS_CONCURRENCY = 2
-_DETAILS_SLEEP = 0.8
+#: 상세 동시성. 웹 폴백이 섞이면 `_throttle_scrape` 락에서 알아서 줄을 선다 —
+#: 올려도 웹 예절이 깨지지 않고, API 만 쓰는 건은 그만큼 빨라진다.
+_DETAILS_CONCURRENCY = 6
+#: 스캔 코드 동시성. 코드 5개는 서로 독립이라 순차로 돌 이유가 없었다.
+_SCAN_CONCURRENCY = 5
 
 # ── 정정 프리픽스 감지 ──────────────────────────────────────────────
 _CORRECTION_RE = re.compile(r"^\s*\[[^\]]*정정[^\]]*\]")
@@ -343,7 +359,14 @@ def _krx_mktcap_map(tickers: Iterable[str], price_dd: str) -> dict[str, int]:
 
 
 def _krx_top_mktcap(n: int, price_dd: str, market: str | None = None) -> set[str]:
-    """시총 상위 N 단축코드. market(KOSPI/KOSDAQ) 지정 시 그 시장만 — 시장 혼합 방지."""
+    """시총 상위 N 단축코드. market 지정 시 그 시장만 — 시장 혼합 방지.
+
+    ★ market 은 `to_db` 로 **정규화해서** 묻는다. krx_weekly 는 260823 개명 뒤 KS/KQ 를
+      담는데 호출부가 "KOSPI" 를 넘기면 질의가 죽지 않고 **0건**을 준다. 그러면 위쪽
+      `_rank` 가 그걸 「조회 실패」로 읽어 조용히 전체시장으로 대체한다 — 사용자는
+      kospi200 을 물었는데 2,764종목을 받고, 에러는 어디에도 안 뜬다(260824 실측).
+      호출부를 상수로 바꾸는 것과 **둘 다** 한다. 경계에서 막아야 다음에 또 안 샌다.
+    """
     url = os.getenv("DATABASE_URL")
     if not url:
         return set()
@@ -353,7 +376,7 @@ def _krx_top_mktcap(n: int, price_dd: str, market: str | None = None) -> set[str
         params: list = [price_dd]
         if market:
             q += " AND market=%s"
-            params.append(market)
+            params.append(to_db(market))
         q += " ORDER BY mktcap DESC LIMIT %s"
         params.append(n)
         with psycopg.connect(url, connect_timeout=10) as c:
@@ -372,7 +395,7 @@ def _krx_market_codes(market: str, price_dd: str) -> set[str]:
         with psycopg.connect(url, connect_timeout=10) as c:
             rows = c.execute(
                 "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND market=%s AND mktcap IS NOT NULL",
-                (price_dd, market),
+                (price_dd, to_db(market)),      # 정규화 — `_krx_top_mktcap` 주석 참조
             ).fetchall()
             return {r[0] for r in rows}
     except Exception:
@@ -478,17 +501,17 @@ async def resolve_universe(universe: str) -> UniverseFilter:
             n = int(spec.split(":", 1)[1])
         except ValueError:
             return UniverseFilter(label=spec, resolved=False, notice="kospi:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
-        return _rank(n, "KOSPI", f"KOSPI 시총상위 {n}")
+        return _rank(n, MKT_KS, f"KOSPI 시총상위 {n}")
     if low.startswith("kosdaq:") or low.startswith("kosdaq_top:"):
         try:
             n = int(spec.split(":", 1)[1])
         except ValueError:
             return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
-        return _rank(n, "KOSDAQ", f"KOSDAQ 시총상위 {n}")
+        return _rank(n, MKT_KQ, f"KOSDAQ 시총상위 {n}")
 
     # KOSPI200 → 지수 원장 부재라 KOSPI 시총상위 200으로 대체(시장 분리됨, 안내)
     if low.startswith("kospi200"):
-        uf = _rank(200, "KOSPI", "KOSPI200(→KOSPI 시총상위200 대체)")
+        uf = _rank(200, MKT_KS, "KOSPI200(→KOSPI 시총상위200 대체)")
         if uf.resolved:
             uf.notice = "KOSPI200 구성종목 원장이 없어 KOSPI 시총상위 200으로 대체했다(코스닥 미포함)."
         return uf
@@ -531,21 +554,43 @@ async def _scan_code(client, detail_ty: str, bgn_de: str, end_de: str,
         if exc.status == "013":  # 해당 없음 = 정상 no-data
             return [], 0, False, None
         return [], 0, False, exc.status
+    except Exception as exc:      # noqa: BLE001
+        # ★ 전송 오류는 `DartClientError` 로 안 온다 — `_request` 가 원래 예외(httpx)를
+        #   그대로 올린다(260824 실측: DNS 실패 시 httpx.ConnectError). 종전 `except
+        #   DartClientError` 만으로는 못 잡아 스캔 전체가 죽었다.
+        return [], 0, False, f"transport:{type(exc).__name__}"
     total = int(first.get("total_count", 0) or 0)
     items.extend(first.get("list", []))
     total_pages = max(1, math.ceil(total / _PAGE_COUNT)) if total else 1
     fetch_pages = min(total_pages, max_pages)
     truncated = total_pages > max_pages
-    for p in range(2, fetch_pages + 1):
-        await asyncio.sleep(_SCAN_PAGE_SLEEP)
-        try:
-            page = await client.search_filings(
-                bgn_de=bgn_de, end_de=end_de, pblntf_detail_ty=detail_ty,
-                page_no=p, page_count=_PAGE_COUNT)
-        except DartClientError as exc:
-            return items, total, truncated, exc.status  # 즉시 중단(레이트리밋 가드)
+    if fetch_pages < 2:
+        return items, total, truncated, None
+
+    # 2페이지부터는 서로 독립이다 — 1페이지가 총량을 알려주므로 나머지는 한꺼번에 던진다.
+    #   속도는 `_throttle_api`(910/분 롤링윈도우 + 락)가 잡는다. 여기서 또 재우면 두 곳이
+    #   같은 일을 하게 되고, 실측상 그 대기가 응답의 대부분이었다.
+    async def _page(p: int):
+        return p, await client.search_filings(
+            bgn_de=bgn_de, end_de=end_de, pblntf_detail_ty=detail_ty,
+            page_no=p, page_count=_PAGE_COUNT)
+
+    results = await asyncio.gather(*[_page(p) for p in range(2, fetch_pages + 1)],
+                                   return_exceptions=True)
+    # ★ 순서를 복원한다. gather 는 입력 순서로 돌려주지만 예외가 섞이므로 페이지 번호를
+    #   함께 들고 다니며 정렬한다 — 공시 목록의 순서가 뒤집히면 dedup(정정=최신본)이 흔들린다.
+    pages, err = [], None
+    for r in results:
+        if isinstance(r, DartClientError):
+            err = err or r.status          # 첫 오류를 보고 (부분 결과는 살린다)
+            continue
+        if isinstance(r, BaseException):
+            err = err or f"transport:{type(r).__name__}"
+            continue
+        pages.append(r)
+    for _p, page in sorted(pages, key=lambda t: t[0]):
         items.extend(page.get("list", []))
-    return items, total, truncated, None
+    return items, total, truncated, err
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -857,19 +902,34 @@ async def _build_screener_payload_impl(
     raw_items: list[dict] = []
     scanned = 0
     truncated_scan = False
-    for code in scan_codes:
-        items, total, trunc, err = await _scan_code(client, code, bgn_de, end_de, max_pages)
+    # 코드 5개는 서로 독립이라 순차로 돌 이유가 없었다. 총 콜 수는 그대로고
+    #   속도만 `_throttle_api` 가 잡는다(910/분). 결과는 코드 순서로 복원한다.
+    _scan_sem = asyncio.Semaphore(_SCAN_CONCURRENCY)
+
+    async def _one(code: str):
+        async with _scan_sem:
+            return code, await _scan_code(client, code, bgn_de, end_de, max_pages)
+
+    # `return_exceptions=True` — 한 코드가 죽어도 나머지 결과를 받는다. 안 주면 첫 예외가
+    #   즉시 올라오면서 나머지 태스크가 **완료되지 않은 채 남는다**(고아 태스크).
+    #   종전 순차 루프는 첫 실패에서 break 라 뒤 코드를 아예 안 봤으니, 이쪽이 더 낫다.
+    _scanned_raw = await asyncio.gather(*[_one(c) for c in scan_codes], return_exceptions=True)
+    _ok: list[tuple] = []
+    for code, r in zip(scan_codes, _scanned_raw):
+        if isinstance(r, BaseException):
+            _ok.append((code, ([], 0, False, f"transport:{type(r).__name__}")))
+        else:
+            _ok.append(r)
+    for code, (items, total, trunc, err) in sorted(_ok, key=lambda t: t[0]):
         raw_items.extend(items)
         scanned += total
         truncated_scan = truncated_scan or trunc
         if err:
+            # 병렬이라 「즉시 중단」은 못 한다(이미 다 던졌다). 대신 **전부 보고**한다 —
+            #   종전 `break` 는 뒤 코드를 아예 안 돌아 어디까지 봤는지 알 수 없었다.
             scan_status = "partial"
             scan_error = err
-            warnings.append(f"{code} 스캔 중단(DART {err}) — 부분 결과만 반영.")
-            if err in ("020", "011", "012") or err.startswith("0"):
-                break  # 레이트리밋/차단 계열은 즉시 전면 중단
-        if code != scan_codes[-1]:
-            await asyncio.sleep(_SCAN_PAGE_SLEEP)
+            warnings.append(f"{code} 스캔 일부 실패(DART {err}) — 그 코드의 부분 결과만 반영.")
 
     # ── 분류 + universe 필터 + dedup ───────────────────────────────────
     allowed_selset = set(sel_types)
@@ -948,7 +1008,8 @@ async def _build_screener_payload_impl(
 
         async def _run(h):
             async with sem:
-                await asyncio.sleep(_DETAILS_SLEEP)
+                # sleep 없음 — 속도는 클라이언트 스로틀이 잡는다(위 상수 주석 참조).
+                #   웹 폴백이 섞이면 `_throttle_scrape` 락에서 줄을 선다.
                 res = await _fetch_detail(h, running)
                 h["detail_status"] = res["detail_status"]
                 h["detail_fields"] = res.get("fields", {})
