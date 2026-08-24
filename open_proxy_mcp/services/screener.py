@@ -15,6 +15,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.dart.client import LruByteCache, _env_mb
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
@@ -63,6 +64,23 @@ _DETAILS_UNIVERSE_MAX = 300     # details 허용 유니버스 상한(초과=너�
 _DETAILS_CONCURRENCY = 6
 #: 스캔 코드 동시성. 코드 5개는 서로 독립이라 순차로 돌 이유가 없었다.
 _SCAN_CONCURRENCY = 5
+
+# ── 스캔 결과 캐시 (260824) ──────────────────────────────────────────────────
+#
+# 스캔은 **공시유형 × 기간**만으로 정해진다 — 누가 물었는지와 무관하게 답이 같은 시장 데이터다
+# (CLAUDE.md 의 「시장 snapshot」 인프라 예외). 그래서 키별이 아니라 **전역**으로 나눠 쓴다.
+# 실측: 한 사용자가 08-23 에 58건, 08-18 에 35건을 몰아 썼다. 그 안에서 universe·types·details
+# 만 바꾸는 탐색이 대부분이라 스캔은 같은 것을 반복해서 받고 있었다.
+#
+# ★ **페이지 단위로 캐시하면 안 된다.** 새 공시가 들어오면 페이지 경계가 밀리므로, 캐시된
+#   1페이지와 새로 받은 2페이지를 섞으면 같은 건이 두 번 들어오거나 사이가 빈다.
+#   그래서 `_scan_code` **한 코드의 결과를 통째로** 담는다 — 한 시점에서 온 것끼리만 합쳐진다.
+#
+# ★ 부분 실패(err)는 담지 않는다. 담으면 그 순간의 장애가 TTL 동안 굳는다.
+#
+# TTL 이 짧은 이유: 스크리너의 질문은 「방금 무엇이 떴나」다. 길게 잡으면 그 답이 낡는다.
+_SCAN_CACHE_TTL = float(os.environ.get("OPM_SCAN_CACHE_TTL_SEC", "300") or 300)
+_SCAN_CACHE = LruByteCache(_env_mb("OPM_SCAN_CACHE_MB", 24), _SCAN_CACHE_TTL, "screener_scan")
 
 # ── 정정 프리픽스 감지 ──────────────────────────────────────────────
 _CORRECTION_RE = re.compile(r"^\s*\[[^\]]*정정[^\]]*\]")
@@ -205,6 +223,9 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
 ]
 
 _BY_CODE = {t["code"]: t for t in TYPE_REGISTRY}
+#: 원장 라벨도 그대로 받는다 — 표에 보이는 이름을 사용자가 되돌려 주는 일이 흔하다.
+_LABEL_TO_CODE = {t["label"].strip().lower(): t["code"] for t in TYPE_REGISTRY if t.get("label")}
+_KNOWN_PERIOD_CODES = {"today", "yesterday", "since_yesterday", "last_7d", "last_30d", "30d", "custom"}
 
 # 유형 → 상세페이지로 이어질 OPM tool 힌트(카드의 suggested_tool)
 _SUGGESTED_TOOL = {
@@ -271,6 +292,151 @@ def _yyyymmdd(d: date) -> str:
     return d.strftime("%Y%m%d")
 
 
+# ══════════════════════════════════════════════════════════════════════
+#  자연어 앞단 (260824) — 우리가 만든 코드 어휘를 사람 말로도 받는다
+#
+#  screener 만 `period="last_7d"` · `universe="kospi:30"` · `custom_start=` 같은
+#  **우리끼리 정한 어휘**를 요구했다. 나머지 tool 은 전부 `company` 에 회사명을 그냥 받고
+#  기간은 `start_date`/`end_date` 로 받는다. 부르는 쪽(LLM)이 그 어휘를 외워야 했고,
+#  틀리면 조용히 기본값(`since_yesterday`·전체시장)으로 빠졌다.
+#
+#  ★ 여기서는 **정규화만** 한다 — 사람 말을 기존 코드로 바꿔서 원래 리졸버에 넘긴다.
+#    리졸버를 다시 쓰면 지금 도는 것들이 함께 흔들린다. 옛 코드도 그대로 받는다(하위호환).
+# ══════════════════════════════════════════════════════════════════════
+
+#: 기간 — 말 → 기존 코드. 긴 표현이 먼저 걸려야 하므로 순서를 지킨다
+#: ("지난 한 달" 이 "한 달" 보다 앞).
+_NL_PERIOD = [
+    (("오늘", "금일", "today"), "today"),
+    (("어제부터", "어제 이후", "전일부터", "since yesterday"), "since_yesterday"),
+    (("어제", "전일", "yesterday"), "yesterday"),
+    (("지난 3개월", "최근 3개월", "3개월", "분기", "last 3 months", "last_90d"), "custom:90"),
+    (("지난 한 달", "최근 한 달", "지난달", "최근 30일", "한 달", "한달", "last month", "30일"), "last_30d"),
+    (("지난 2주", "최근 2주", "2주", "보름", "14일"), "custom:14"),
+    (("지난 일주일", "최근 일주일", "지난주", "최근 7일", "일주일", "1주일", "한 주",
+      "last week", "7일"), "last_7d"),
+]
+
+#: 유형 — 말 → 코드. TYPE_REGISTRY 의 label 도 자동으로 받는다(아래에서 합친다).
+_NL_TYPES = {
+    "자사주": "treasury", "자기주식": "treasury", "자사주매입": "treasury", "소각": "treasury",
+    "배당": "dividend", "현금배당": "dividend",
+    "수주": "order", "공급계약": "order", "계약": "order", "단일판매": "order",
+    "증자": "dilutive", "유상증자": "dilutive", "전환사채": "dilutive", "cb": "dilutive",
+    "bw": "dilutive", "신주인수권": "dilutive",
+    "주총": "agm_notice", "주주총회": "agm_notice", "소집": "agm_notice", "소집공고": "agm_notice",
+    "주총결과": "agm_result", "의결": "agm_result",
+    "지분": "ownership5", "대량보유": "ownership5", "5%": "ownership5", "지분공시": "ownership5",
+    "실적": "earnings", "잠정실적": "earnings", "영업실적": "earnings", "어닝": "earnings",
+    "합병": "restructuring", "분할": "restructuring", "영업양수도": "restructuring",
+    "구조조정": "restructuring",
+    "타법인": "stake_deal", "주식양수도": "stake_deal",
+    "최대주주변경": "control_change", "경영권": "control_change",
+    "소송": "litigation", "제재": "litigation", "위험": "litigation",
+    "임원": "insider10", "내부자": "insider10",
+}
+
+_UNIVERSE_ALIASES = {
+    "전체": "all", "전체시장": "all", "시장전체": "all", "다": "all", "everything": "all",
+    "코스피": "market:kospi", "kospi": "market:kospi", "유가증권": "market:kospi",
+    "코스닥": "market:kosdaq", "kosdaq": "market:kosdaq",
+    "코스피200": "kospi200", "kospi200": "kospi200", "코스피 200": "kospi200",
+}
+
+
+def _nl_period(period: str, start_date: str, end_date: str,
+               custom_start: str, custom_end: str) -> tuple[str, str, str]:
+    """(period, custom_start, custom_end) 로 정규화.
+
+    `start_date`/`end_date` 는 **레포의 다른 tool 과 같은 이름**이다 — screener 만
+    `custom_start`/`custom_end` 를 쓰고 있었다. 둘 다 받고 새 이름을 우선한다.
+    """
+    cs = (start_date or custom_start or "").strip().replace("-", "")
+    ce = (end_date or custom_end or "").strip().replace("-", "")
+    raw = (period or "").strip()
+    low = raw.lower()
+
+    # 날짜가 직접 왔으면 그게 이긴다 — 말보다 구체적이다
+    if re.fullmatch(r"\d{8}", cs):
+        return "custom", cs, (ce if re.fullmatch(r"\d{8}", ce) else cs)
+
+    # "20260801~20260820" · "2026-08-01 ~ 2026-08-20" 을 period 안에 넣는 경우
+    m = re.fullmatch(r"\s*(\d{4}-?\d{2}-?\d{2})\s*[~\-–]\s*(\d{4}-?\d{2}-?\d{2})\s*", raw)
+    if m:
+        return "custom", m.group(1).replace("-", ""), m.group(2).replace("-", "")
+    if re.fullmatch(r"\d{4}-?\d{2}-?\d{2}", raw):
+        d = raw.replace("-", "")
+        return "custom", d, d
+
+    if not raw:
+        return "since_yesterday", cs, ce
+    if low in _KNOWN_PERIOD_CODES:
+        return low, cs, ce
+
+    # "최근 N일" · "N일" — 숫자를 직접 준 경우
+    m = re.search(r"(?:최근\s*)?(\d{1,3})\s*일", raw)
+    if m:
+        return f"custom:{int(m.group(1))}", cs, ce
+
+    for words, code in _NL_PERIOD:
+        if any(w in low for w in words):
+            return code, cs, ce
+    return low, cs, ce      # 못 알아들으면 원래 리졸버가 notice 를 단다
+
+
+def _nl_types(types: str) -> str:
+    """말 → 코드 목록. 못 알아들은 조각은 그대로 넘겨 원래 검증이 걸러낸다."""
+    raw = (types or "").strip()
+    if not raw or raw.lower() in ("core", "all"):
+        return raw or "core"
+    out, unknown = [], []
+    for tok in re.split(r"[,\s·/]+", raw):
+        t = tok.strip().lower()
+        if not t:
+            continue
+        if t in _BY_CODE:
+            out.append(t)
+        elif t in _NL_TYPES:
+            out.append(_NL_TYPES[t])
+        elif t in _LABEL_TO_CODE:
+            out.append(_LABEL_TO_CODE[t])
+        else:
+            hit = next((c for k, c in _NL_TYPES.items() if k in t), None)
+            (out if hit else unknown).append(hit or tok)
+    seen: set[str] = set()
+    ordered = [c for c in out if not (c in seen or seen.add(c))]
+    return ",".join(ordered + unknown) if (ordered or unknown) else raw
+
+
+def _nl_universe(universe: str) -> str:
+    """말 → 기존 universe 문법. 「코스피 시총 상위 30」 같은 표현을 받는다."""
+    raw = (universe or "").strip()
+    if not raw:
+        return "all"
+    low = raw.lower()
+    if low in _UNIVERSE_ALIASES:
+        return _UNIVERSE_ALIASES[low]
+    # 이미 기존 문법이면 그대로 (kospi:30 · top_mktcap:50 · custom:… · market:kospi)
+    if re.match(r"^(all|kospi200|kospi:|kosdaq:|kospi_top:|kosdaq_top:|top_mktcap:|market:|custom:)",
+                low):
+        return raw
+    # "코스피 시총 상위 30" · "코스닥 상위 50" · "시총 상위 100"
+    m = re.search(r"(\d{1,4})\s*(?:개|종목)?\s*$", low)
+    if m and any(w in low for w in ("상위", "top", "시총")):
+        n = m.group(1)
+        if "코스피" in low or "kospi" in low:
+            return f"kospi:{n}"
+        if "코스닥" in low or "kosdaq" in low:
+            return f"kosdaq:{n}"
+        return f"top_mktcap:{n}"
+    if low in ("코스피 전체", "코스피전체"):
+        return "market:kospi"
+    if low in ("코스닥 전체", "코스닥전체"):
+        return "market:kosdaq"
+    # 남은 것은 종목 이름·코드 나열로 본다 — `custom:` 이 이름도 코드화한다
+    return f"custom:{raw}"
+
+
 def resolve_period(period: str, *, cursor: str = "",
                    custom_start: str = "", custom_end: str = "") -> tuple[str, str, list[str]]:
     """period → (bgn_de, end_de, notices). 시장스캔 3개월 하드캡.
@@ -291,6 +457,9 @@ def resolve_period(period: str, *, cursor: str = "",
         bgn, end = today - timedelta(days=7), today
     elif period in ("last_30d", "30d"):
         bgn, end = today - timedelta(days=30), today
+    elif period.startswith("custom:") and period[7:].isdigit():
+        # 자연어 앞단이 만든 「최근 N일」 — 코드 어휘를 늘리지 않고 여기서만 푼다
+        bgn, end = today - timedelta(days=int(period[7:])), today
     elif period == "custom":
         try:
             bgn = datetime.strptime(custom_start, "%Y%m%d").date()
@@ -509,6 +678,26 @@ async def resolve_universe(universe: str) -> UniverseFilter:
 
 async def _scan_code(client, detail_ty: str, bgn_de: str, end_de: str,
                      max_pages: int) -> tuple[list[dict], int, bool, str | None]:
+    """캐시 앞단 — 실제 수집은 `_scan_code_uncached`. 키는 **공시유형 × 기간 × 페이지상한**뿐이라
+    누가 물었는지가 안 들어간다(시장 데이터)."""
+    key = f"{detail_ty}|{bgn_de}|{end_de}|{max_pages}"
+    hit = _SCAN_CACHE.get(key)
+    if hit is not None:
+        items, total, trunc = hit
+        # 리스트를 그대로 내주면 호출측이 고칠 때 캐시가 함께 바뀐다 — 얕은 복사로 끊는다.
+        return list(items), total, trunc, None
+    items, total, trunc, err = await _scan_code_uncached(
+        client, detail_ty, bgn_de, end_de, max_pages)
+    if err is None:
+        # ★ **복사해서 담는다.** 같은 리스트를 담고 그대로 돌려주면, 호출측이 그 리스트를
+        #   고치는 순간 캐시가 함께 바뀐다(미스 경로에서 실제로 그랬다). 적중 경로만
+        #   복사하면 첫 호출자가 캐시를 오염시킨다 — 넣는 쪽에서 끊는 게 맞다.
+        _SCAN_CACHE.put(key, (list(items), total, trunc))
+    return items, total, trunc, err
+
+
+async def _scan_code_uncached(client, detail_ty: str, bgn_de: str, end_de: str,
+                              max_pages: int) -> tuple[list[dict], int, bool, str | None]:
     """한 detail 코드의 전체시장 필러를 페이지네이션(순차 + sleep). ReadError/차단코드 즉시 중단."""
     items: list[dict] = []
     try:
@@ -824,13 +1013,35 @@ async def _build_screener_payload_impl(
     cursor: str = "",
     custom_start: str = "",
     custom_end: str = "",
+    start_date: str = "",
+    end_date: str = "",
 ) -> dict[str, Any]:
     """범용 공시 스크리너 페이로드. scan(싸게) + (details=true면) 파서 디스패치.
 
     아침 디제스트 디폴트: types=core · period=since_yesterday · universe=all · details=false.
+
+    260824: 인자를 **사람 말로도** 받는다(`_nl_*`). 「지난주」·「코스피 시총 상위 30」·
+      「자사주, 배당」 같은 표현을 기존 코드로 정규화한 뒤 원래 리졸버에 넘긴다.
+      옛 코드도 그대로 받는다.
     """
     warnings: list[str] = []
     client = get_dart_client()
+    # ── 자연어 앞단 — 정규화만 하고 아래 로직은 그대로 ──
+    _in = (types, period, universe)
+    period, custom_start, custom_end = _nl_period(
+        period, start_date, end_date, custom_start, custom_end)
+    types = _nl_types(types)
+    universe = _nl_universe(universe)
+    # 무엇을 어떻게 알아들었는지 밝힌다 — 조용히 다른 걸 조회하면 사용자가 모른다.
+    #   ★ 날짜를 직접 준 경우의 period 변화는 싣지 않는다. 사용자는 "since_yesterday" 라고
+    #     말한 적이 없는데 「since_yesterday→custom」이라고 나오면 무슨 말인지 모른다
+    #     (그 값은 함수 기본값이다). 해석 결과는 아래 기간 표시가 이미 보여준다.
+    _date_driven = bool((start_date or end_date).strip())
+    _chg = [f"{a}→`{b}`" for i, (a, b) in
+            enumerate(zip(_in, (types, period, universe)))
+            if a != b and not (i == 1 and _date_driven)]
+    if _chg:
+        warnings.append("입력 해석: " + " · ".join(_chg))
     calls_start = client.api_call_snapshot()
 
     sel_types, tnotes = _resolve_types(types)

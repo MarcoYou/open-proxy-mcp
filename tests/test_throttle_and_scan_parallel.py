@@ -35,6 +35,19 @@ def fast_web(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _clear_scan_cache():
+    """`_SCAN_CACHE` 는 **프로세스 전역**이다(시장 데이터라 키별로 나눌 이유가 없다).
+    그래서 앞 테스트가 담은 것을 뒤 테스트가 받는다 — 실제로 그렇게 깨졌다:
+    성공 케이스가 `B001|20260101|20260131|5` 를 캐시해 두니 전송오류 케이스가 그 값을 받았다.
+    프로덕션에서는 그게 바로 원하는 동작이므로 **캐시를 고치는 게 아니라 테스트를 격리**한다.
+    """
+    from open_proxy_mcp.services.screener import _SCAN_CACHE
+    _SCAN_CACHE.clear()
+    yield
+    _SCAN_CACHE.clear()
+
+
+@pytest.fixture(autouse=True)
 def _dummy_key(monkeypatch):
     """CI 에는 키가 없다. 이 파일의 테스트는 **스로틀만** 보고 네트워크를 안 타므로
     더미 키로 클라이언트를 세운다 — 키가 없으면 생성자가 ValueError 를 낸다.
@@ -191,3 +204,65 @@ def test_one_dead_scan_code_does_not_kill_the_others():
     finally:
         S._scan_code = orig
     assert p["status"] == "ok", "한 코드가 죽었다고 전체가 실패하면 안 된다"
+
+
+# ── 스캔 캐시 (260824) ────────────────────────────────────────────────
+def test_scan_result_is_cached_per_type_and_period():
+    """스캔은 **공시유형 × 기간**만으로 정해진다 — 같은 조합이면 다시 안 부른다.
+    실측: 같은 기간을 5번 묻는 흐름에서 마지막 호출이 DART 0콜."""
+    import open_proxy_mcp.services.screener as S
+
+    calls = {"n": 0}
+
+    class _C:
+        async def search_filings(self, **kw):
+            calls["n"] += 1
+            return {"total_count": 1, "list": [{"rcept_no": "a"}]}
+
+    async def _go():
+        for _ in range(3):
+            await S._scan_code(_C(), "B001", "20260801", "20260807", 5)
+
+    asyncio.run(_go())
+    assert calls["n"] == 1, f"캐시가 안 든다 — {calls['n']}번 불렀다"
+
+
+def test_failed_scan_is_not_cached():
+    """★ 부분 실패를 담으면 그 순간의 장애가 TTL 동안 굳는다."""
+    import open_proxy_mcp.services.screener as S
+
+    state = {"fail": True, "n": 0}
+
+    class _C:
+        async def search_filings(self, **kw):
+            state["n"] += 1
+            if state["fail"]:
+                raise ConnectionError("일시 장애")
+            return {"total_count": 1, "list": [{"rcept_no": "a"}]}
+
+    async def _go():
+        _, _, _, err = await S._scan_code(_C(), "D001", "20260801", "20260807", 5)
+        assert err and err.startswith("transport:")
+        state["fail"] = False
+        items, _, _, err2 = await S._scan_code(_C(), "D001", "20260801", "20260807", 5)
+        assert err2 is None and items, "장애가 캐시돼 복구 후에도 빈 결과를 준다"
+
+    asyncio.run(_go())
+    assert state["n"] == 2
+
+
+def test_cached_scan_hands_out_a_copy():
+    """캐시된 리스트를 그대로 내주면 호출측이 고칠 때 캐시가 함께 바뀐다."""
+    import open_proxy_mcp.services.screener as S
+
+    class _C:
+        async def search_filings(self, **kw):
+            return {"total_count": 1, "list": [{"rcept_no": "a"}]}
+
+    async def _go():
+        a, *_ = await S._scan_code(_C(), "I001", "20260801", "20260807", 5)
+        a.append({"rcept_no": "오염"})
+        b, *_ = await S._scan_code(_C(), "I001", "20260801", "20260807", 5)
+        assert len(b) == 1, "캐시가 오염됐다"
+
+    asyncio.run(_go())
