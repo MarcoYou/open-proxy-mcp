@@ -1121,6 +1121,9 @@ def _mark_shared_tables(out: dict[str, Any]) -> None:
 
 _TOTALISH = ("합계", "총계", "소계", "계")
 
+#: 값이 아니라 **행 이름**을 이고 있는 머리말. 이런 열은 이름칸이다.
+_STUB_LABELS = ("구분", "항목", "과목", "내역", "계정", "계정과목", "분류", "종류", "자산")
+
 #: 음수 표기 — 회계는 △·▲·괄호를 쓴다. 셋 다 마이너스다.
 _NEG = ("△", "▲", "-")
 
@@ -1188,17 +1191,24 @@ def column_view(parsed: dict[str, Any]) -> dict[str, Any] | None:
     if depth < 1 or not body or n_cols < 2:
         return None
 
-    # 앞쪽 「이름칸」 — 머리가 비었거나(NH), 「구분」처럼 이름이 붙었어도 **본문이 숫자가
-    # 아닌** 열은 이름칸이다(KB손보 「구분」·「담보제공처」). 여기를 틀리면 행 이름이
-    # 통째로 비고, 이름칸이 값열로 섞여 들어간다.
+    # 앞쪽 「이름칸」 — 머리가 통째로 빈 열(NH 전치표)이거나, 「구분」처럼 **이름표 구실을
+    # 하는 말**이 붙고 본문이 숫자가 아닌 열(KB손보)이다.
+    # 🔴 **「본문이 숫자가 아니면 이름칸」으로 잡으면 안 된다.** 260824 실측 — NH 합계표는
+    #    값이 비어 있는 열이 앞에 둘 있는데(이연부대손익·현재가치할인차금) 그걸 이름칸으로
+    #    먹어버려 예치금 묶음이 잎 2개짜리가 됐고, 측정 축 판별이 깨져 뜻 없는 합
+    #    12,124,877(= 12,131,887 + (7,010)) 이 검산으로 나갔다. **이름이 붙어 있으면 값열이다.**
     stub = 0
     while stub < n_cols - 1:
-        blank_head = all(not grid[r][stub]["text"] for r in range(depth))
-        no_numbers = all(not _NUMISH.match(r[stub]["text"]) for r in body)
-        if blank_head or no_numbers:
+        path = [grid[r][stub]["text"] for r in range(depth) if grid[r][stub]["text"]]
+        if not path:
             stub += 1
-        else:
-            break
+            continue
+        # 🔴 띄어쓰기가 흔들린다 — 우리은행은 「구 분」·「구  분」 이다. 붙여서 견준다.
+        if (path[-1].replace(" ", "") in _STUB_LABELS
+                and all(not _NUMISH.match(r[stub]["text"]) for r in body)):
+            stub += 1
+            continue
+        break
     if stub >= n_cols:
         return None
 

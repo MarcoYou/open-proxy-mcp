@@ -518,3 +518,36 @@ def test_unrelated_tables_are_not_called_the_same_assets() -> None:
                     "<TR><TD>다</TD><TD>500</TD></TR><TR><TD>라</TD><TD>900</TD></TR></TABLE>")
 
     assert same_assets(column_view(a), column_view(b)) is False
+
+
+def test_blank_value_columns_are_not_swallowed_into_the_name_column() -> None:
+    # 260824 배포 직후 잡음 — NH 합계표는 값이 빈 열이 앞에 둘 있는데 그걸 이름칸으로
+    # 먹어 예치금 묶음이 잎 2개가 됐고, 측정 축 판별이 깨져 12,131,887 + (7,010) =
+    # 12,124,877 이라는 뜻 없는 합이 검산으로 나갔다. **이름이 붙어 있으면 값열이다.**
+    from open_proxy_mcp.services.financial_notes import checksums, column_view
+
+    html = ("<TABLE><THEAD>"
+            "<TR><TH>　</TH><TH colspan='2'>예치금</TH><TH colspan='2'>대출채권</TH></TR>"
+            "<TR><TH>　</TH><TH>이연부대손익</TH><TH>손상차손누계액</TH>"
+            "<TH>이연부대손익</TH><TH>손상차손누계액</TH></TR></THEAD>"
+            "<TBODY><TR><TD>금융자산</TD><TD>　</TD><TD>(7,010)</TD>"
+            "<TD>(28,267)</TD><TD>(313,781)</TD></TR></TBODY></TABLE>")
+    view = column_view(parse_table(html))
+
+    assert view["rows"] == ["금융자산"]
+    assert len(view["columns"]) == 4
+    assert checksums(view) == []          # 묶음마다 잎 이름이 같다 = 측정 축
+
+
+def test_name_column_is_recognised_even_when_its_label_has_spaces() -> None:
+    # 우리은행은 「구 분」·「구  분」 으로 띄어 쓴다.
+    from open_proxy_mcp.services.financial_notes import column_view, row_checksums
+
+    html = ("<TABLE>"
+            "<TR><TH>구 분</TH><TH>금액</TH></TR>"
+            "<TR><TD>한국은행 원화예치금</TD><TD>12,314,445</TD></TR>"
+            "<TR><TD>외화예치금</TD><TD>8,458,375</TD></TR>"
+            "<TR><TD>합  계</TD><TD>20,772,820</TD></TR></TABLE>")
+
+    (rec,) = row_checksums(column_view(parse_table(html)))
+    assert rec["sum"] == "20,772,820" and rec["ok"] is True
