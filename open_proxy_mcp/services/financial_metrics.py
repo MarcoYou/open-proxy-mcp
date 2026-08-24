@@ -15,6 +15,7 @@ import asyncio
 import os
 import re
 import time
+from datetime import date, timedelta
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
@@ -1909,7 +1910,9 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
 
     warnings: list[str] = []
     out: list[dict[str, Any]] = []
-    years = list(range(end_year - 2, end_year + 1))
+    # DART bsns_year와 fiscal_year는 결산월이 3·6월인 회사에서 어긋난다.
+    # FY-3까지 수집해야 FY-2 Q1부터 FY Q4까지 12개 fiscal quarter를 복원할 수 있다.
+    years = list(range(end_year - 3, end_year + 1))
     quarter_labels = {"11013": "Q1", "11012": "Q2", "11014": "Q3", "11011": "Q4"}
     tasks = []
     keys = []
@@ -1968,6 +1971,11 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
         })
+
+    # 요청한 fiscal year 밖의 자료는 최신 12행을 채우기 위해 수집했더라도 버린다.
+    # 기존에는 3·6월 결산사의 다음 FY-Q1이 out[-12:]에 섞일 수 있었다.
+    target_min_year = end_year - 2
+    out = [r for r in out if target_min_year <= r["fiscal_year"] <= end_year]
 
     # CFS 요청인데 일부/전부 분기가 OFS면 경고 (조용한 폴백·분기 간 기준 혼재 방지).
     if fs_div == "CFS" and "OFS" in fs_seen:
@@ -2087,6 +2095,37 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "net_profit_margin_pp": _pp_diff(row.get("net_profit_margin_pct"), prev_y.get("net_profit_margin_pct") if prev_y else None),
         }
     return out[-num_quarters:], warnings
+
+
+def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
+                      fiscal_month: int | None, as_of: date | None = None) -> dict[str, Any]:
+    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출로 구분한다."""
+    as_of = as_of or date.today()
+    present = {r.get("fiscal_quarter") for r in rows if r.get("fiscal_year") == fiscal_year}
+    result: dict[str, Any] = {"fiscal_year": fiscal_year, "missing": []}
+    if not fiscal_month:
+        return result
+
+    for q in range(1, 5):
+        label = f"Q{q}"
+        if label in present:
+            continue
+        end_month = ((fiscal_month + (3 * q) - 1) % 12) + 1
+        end_year = fiscal_year if end_month <= fiscal_month else fiscal_year - 1
+        # 월말을 정확히 계산하지 않아도 제출기한 판정에는 충분하다.
+        next_month = date(end_year + (1 if end_month == 12 else 0),
+                          1 if end_month == 12 else end_month + 1, 1)
+        period_end = next_month - timedelta(days=1)
+        if period_end > as_of:
+            # 아직 결산일이 오지 않은 분기는 누락이나 미제출로 표시하지 않는다.
+            continue
+        item = {
+            "fiscal_quarter": label,
+            "period_end": period_end.isoformat(),
+            "status": "미제출" if as_of > period_end else "제출기한 전",
+        }
+        result["missing"].append(item)
+    return result
 
 
 # ── public payload builder ──
@@ -2281,6 +2320,12 @@ async def build_financial_metrics_payload(
         rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month)
         warnings.extend(ws)
         data["quarterly"] = rows
+        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month)
+        for missing in data["quarterly_status"]["missing"]:
+            if missing["status"] == "미제출":
+                warnings.append(
+                    f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']})는 기간 종료 후 공시가 없어 미제출로 표시함."
+                )
         filing_count = len(rows)
         if rows:
             ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], rows[-1].get("reprt_code"))
