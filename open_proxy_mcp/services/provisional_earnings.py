@@ -27,7 +27,9 @@ _METRICS = {
     "매출액": "revenue", "영업수익": "revenue",
     "영업이익": "operating_profit",
     "법인세비용차감전계속사업이익": "pretax_profit", "법인세비용차감전순이익": "pretax_profit",
+    "법인세차감전이익": "pretax_profit", "법인세차감전순이익": "pretax_profit",
     "당기순이익": "net_income",
+    "자본금": "capital_stock",
     "지배기업소유주지분순이익": "net_income_controlling",
     "지배기업소유주지분에귀속되는당기순이익": "net_income_controlling",
     "지배기업소유주지분에귀속되는순이익": "net_income_controlling",
@@ -90,6 +92,18 @@ def _clean_render(table) -> str:
     grid = _table_to_grid(table)
     rows = []
     for r in grid:
+        # DART 정정/주석 표는 rowspan 확장으로 같은 긴 문장이 여러 셀에 복제된다.
+        # 숫자 표의 동일값(당기=전기 등)은 보존해야 하므로, 장문 주석 행에서만 접는다.
+        joined_raw = " ".join(c.strip() for c in r if c.strip())
+        note_row = "※" in joined_raw or any(len(c.strip()) >= 35 for c in r)
+        if note_row:
+            compact_r = []
+            for cell in r:
+                cell = cell.strip()
+                if cell and compact_r and cell == compact_r[-1]:
+                    continue
+                compact_r.append(cell)
+            r = compact_r
         joined = " ".join(c.strip() for c in r if c.strip())
         if "정보제공" in joined:   # 이후는 IR 담당·배포일 등 메타 — 실적표 아님
             break
@@ -130,6 +144,31 @@ def _headline_from_grid(grid: list[list[str]], factor: float) -> dict[str, Any]:
     return {k: v for k, v in head.items() if v.get("value_krw") is not None}
 
 
+def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
+    """[기재정정] 표의 정정후 열을 headline으로 노출한다."""
+    table = next((t for t in soup.find_all("table")
+                  if re.search(r"정정\s*후", t.get_text())
+                  and any(label in t.get_text() for label in ("매출액", "영업이익", "당기순이익"))), None)
+    if table is None:
+        return {}
+    head: dict[str, Any] = {}
+    for row in _table_to_grid(table):
+        labels = [(i, re.sub(r"^[-\s]+", "", re.sub(r"\s+", "", c or "")))
+                  for i, c in enumerate(row)]
+        hit = next(((i, _METRICS[label]) for i, label in labels if label in _METRICS), None)
+        if not hit:
+            continue
+        idx, key = hit
+        tail = row[idx + 1:]
+        numeric = [n for n in (_num(c) for c in tail) if n is not None]
+        if not numeric:
+            continue
+        # 정정전·정정후 순서가 표준이며, 비표준 표도 마지막 숫자를 정정후로 본다.
+        head[key] = {"value_krw": numeric[-1] * factor,
+                     "prior_value_krw": numeric[0] * factor if len(numeric) > 1 else None}
+    return head
+
+
 def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
     """영업(잠정)실적 원문 → markdown-primary. table_markdown(항상, colspan확장) + headline(best-effort).
     재무형=매출/영업익 표, 비재무형(자동차 판매대수 등)=도메인 표. 둘 다 table_markdown이 통째로 담음."""
@@ -150,6 +189,12 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
         period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"} if ym else None
 
     tables = soup.find_all("table")
+    correction_headline = _correction_headline(soup, factor) if "정정" in (report_nm or "") else {}
+    if correction_headline:
+        return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
+                **_period_metadata(period), "kind": "financial", "correction": True,
+                "headline": correction_headline,
+                "table_markdown": "\n\n".join(p for p in (_clean_render(t) for t in tables) if p)[:6000] or None}
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
                       and ("매출액" in t.get_text() or "영업수익" in t.get_text())), None)
     headline = _headline_from_grid(_table_to_grid(fin_table), factor) if fin_table is not None else {}

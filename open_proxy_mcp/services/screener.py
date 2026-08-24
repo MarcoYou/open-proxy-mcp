@@ -899,6 +899,8 @@ def _extract_earnings(payload: dict, rcept_no: str) -> dict:
         "revenue_krw": _v("revenue"),
         "operating_profit_krw": _v("operating_profit"),
         "net_income_krw": _v("net_income"),
+        "pretax_profit_krw": _v("pretax_profit"),
+        "capital_stock_krw": _v("capital_stock"),
         "revenue_yoy_pct": _y("revenue"),
         "op_yoy_pct": _y("operating_profit"),
         "consolidated": d.get("consolidated"),
@@ -910,6 +912,7 @@ def _extract_earnings(payload: dict, rcept_no: str) -> dict:
         "period_kind": d.get("period_kind"),
         "fiscal_year_end_month": d.get("fiscal_year_end_month"),
         "comparison_basis": d.get("comparison_basis"),
+        "correction": d.get("correction"),
     }
 
 

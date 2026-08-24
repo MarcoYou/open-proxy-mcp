@@ -9,7 +9,7 @@ from open_proxy_mcp.services.provisional_earnings import build_provisional_earni
 from open_proxy_mcp.services.contracts import as_pretty_json
 
 _LABEL = {"revenue": "매출액", "operating_profit": "영업이익", "pretax_profit": "법인세차감전이익",
-          "net_income": "당기순이익", "net_income_controlling": "지배주주순이익"}
+          "net_income": "당기순이익", "net_income_controlling": "지배주주순이익", "capital_stock": "자본금"}
 
 
 def _won(v):
@@ -36,6 +36,8 @@ def _render(p: dict) -> str:
     rep = d.get("report", {})
     per = d.get("period") or {}
     label = "결산 잠정치" if d.get("provisional_type") == "fiscal_year_change" else "영업(잠정)실적"
+    if d.get("correction"):
+        label += " · 정정후"
     if d.get("fiscal_year"):
         if d.get("period_kind") == "annual":
             label = f"{d['fiscal_year']} 사업연도 {label}"
@@ -53,12 +55,13 @@ def _render(p: dict) -> str:
     comparison_basis = d.get("comparison_basis") or "전년동기 대비"
     if head:
         parts = []
-        for key in ("revenue", "operating_profit", "net_income"):
+        for key in ("revenue", "operating_profit", "pretax_profit", "net_income", "capital_stock"):
             m = head.get(key)
             if m and m.get("value_krw") is not None:
                 yoy = f" ({comparison_basis} {m['yoy_pct']:+.1f}%)" if m.get("yoy_pct") is not None else ""
+                prior = f" (직전 {_won(m['prior_value_krw'])})" if m.get("prior_value_krw") is not None and key == "capital_stock" else ""
                 turn = f" · {m['turnover']}" if m.get('turnover') else ""
-                parts.append(f"**{_LABEL[key]}** {_won(m['value_krw'])}{yoy}{turn}")
+                parts.append(f"**{_LABEL[key]}** {_won(m['value_krw'])}{prior}{yoy}{turn}")
         if parts:
             L.append("\n" + " · ".join(parts))
     elif d.get("kind") == "non_financial":
