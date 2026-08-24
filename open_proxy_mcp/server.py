@@ -239,8 +239,15 @@ class ApiKeyMiddleware:
             # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
             # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
             # 하류가 값을 올려보내게 하면 안 된다 — ContextVar 는 위로 안 흐른다.
-            from open_proxy_mcp.dart.client import new_request_ledger
+            from open_proxy_mcp.dart.client import (
+                new_request_ledger, ledger_enter, ledger_exit)
             ledger = new_request_ledger()
+            ledger_enter(ledger)
+            # 이 요청이 도는 동안 **프로세스 전체**가 쓴 CPU 시간. 이 요청 「자신의」 CPU 가
+            # 아니다 — 단일 이벤트루프라 남의 코루틴이 태운 것도 여기 들어온다. 그게 노림수다:
+            # 기다린 시간(네트워크)과 코어가 실제로 일한 시간을 가르는 것이 목적이지, 누가
+            # 태웠는지를 가리는 건 `inflight_max` 가 한다. 둘을 함께 읽는 법은 client.py 참조.
+            cpu0 = _t.process_time()
 
             idx = 0
 
@@ -333,9 +340,17 @@ class ApiKeyMiddleware:
                                          for w in ledger["weak_resolutions"]) or None),
                                      # 조용한 대체의 **종류만**. 이 값이 갑자기 늘면 우리가
                                      #   무언가를 깨뜨린 것이다 — 오류율로는 안 보인다.
-                                     degraded=(",".join(ledger.get("degradations") or []) or None))
+                                     degraded=(",".join(ledger.get("degradations") or []) or None),
+                                     # 260824: 「느리다」의 원인을 그 자리에서 가른다.
+                                     #   여태는 latency 하나뿐이라 **스스로 느린 것**과
+                                     #   **줄에 서 있던 것**이 같은 숫자로 보였다.
+                                     inflight=ledger.get("inflight_max") or None,
+                                     cpu_ms=int((_t.process_time() - cpu0) * 1000))
                 await send(message)
-            await self.app(scope, replay, send_wrapper)
+            try:
+                await self.app(scope, replay, send_wrapper)
+            finally:
+                ledger_exit(ledger)     # 예외로 빠져나가도 반드시 뺀다
         else:
             await self.app(scope, receive, send)
 
