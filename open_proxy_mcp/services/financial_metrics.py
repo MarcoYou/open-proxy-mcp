@@ -21,6 +21,7 @@ from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
+from open_proxy_mcp.services.fiscal_period import fiscal_year_from_end
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -1681,6 +1682,10 @@ async def _fetch_year_metrics(
         induty_code=induty_code,
     )
     metrics["year"] = year
+    period_end = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "").replace(".", "-")
+                       for r in rows_curr if r.get("thstrm_dt") or r.get("stlm_dt")), None)
+    metrics["period_end"] = period_end
+    metrics["fiscal_year"] = fiscal_year_from_end(period_end) or year
     metrics["fs_div"] = actual_fs  # 요청값이 아니라 실제 사용된 기준 (CFS 미작성 시 OFS)
     metrics["reprt_code"] = used_rc
     metrics["period_basis"] = "annual" if used_rc == _REPRT_BUSINESS else f"cumulative_{pm_cum}m"
@@ -1940,7 +1945,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                            for r in rows if r.get("thstrm_dt") or r.get("stlm_dt")), None)
         out.append({
             "year": year,
-            "fiscal_year": (int(period_end[:4]) if period_end and len(period_end) >= 4 else year),
+            "fiscal_year": (fiscal_year_from_end(period_end, fiscal_month) or year),
             "quarter": label,
             "fiscal_quarter": label,
             "fiscal_year_end_month": fiscal_month or 12,
@@ -2342,6 +2347,20 @@ async def build_financial_metrics_payload(
         filing_count = audit_data.get("summary", {}).get("history_years", 0)
         evidence_refs.extend(audit_ev)
     _mark(f"scope.{scope}", stage_started_at)
+
+    # 모든 확정치 scope가 잠정실적과 같은 회계기간 메타데이터를 공유하도록 한다.
+    def _tag_fiscal(row: dict[str, Any] | None) -> None:
+        if row is not None:
+            row.setdefault("fiscal_year_end_month", fiscal_month)
+            row.setdefault("fiscal_year", row.get("year", target_year))
+
+    _tag_fiscal(data.get("summary"))
+    for row in data.get("yearly", []) or []:
+        _tag_fiscal(row)
+    for branch in (data.get("yoy"), data.get("qoq")):
+        if isinstance(branch, dict):
+            _tag_fiscal(branch.get("current"))
+            _tag_fiscal(branch.get("prior"))
 
     filing_meta = build_filing_meta(filing_count=filing_count, parsing_failures=parsing_failures)
     if filing_meta["no_filing"]:

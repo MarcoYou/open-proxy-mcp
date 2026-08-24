@@ -20,6 +20,10 @@ from bs4 import BeautifulSoup
 from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
 from open_proxy_mcp.services.segment_candidates import _table_to_grid
+from open_proxy_mcp.services.fiscal_period import period_metadata
+
+# 기존 내부 테스트·호출부 호환 alias
+_period_metadata = period_metadata
 
 _UNIT = {"조원": 1e12, "십억원": 1e9, "억원": 1e8, "백만원": 1e6, "천원": 1e3, "원": 1.0}
 # 재무 잠정실적 표준 5행(별도는 지배주주 line 없어 4행). 정규화 키로 매핑.
@@ -35,40 +39,6 @@ _METRICS = {
     "지배기업소유주지분에귀속되는순이익": "net_income_controlling",
 }
 _PROV_PAT = re.compile(r"영업\s*\(?잠정\)?\s*실적|영업잠정실적")
-
-
-def _period_metadata(period: dict[str, str] | None, *, annual: bool = False) -> dict[str, Any]:
-    """실적기간을 달력분기가 아닌 회사 사업연도 기준 메타데이터로 정규화한다.
-
-    I001 결산 공시는 종료월이 결산월이므로 이를 직접 사용한다. I002 분기 공시는
-    당해 분기의 시작월로 결산월을 역산한다(예: 4~6월 → 3월 결산). 원문 기간을
-    해석할 수 없으면 숫자 라벨을 만들지 않고 metadata만 비운다.
-    """
-    if not period:
-        return {}
-    try:
-        start = date.fromisoformat(period["start"])
-        end = date.fromisoformat(period["end"])
-    except (KeyError, TypeError, ValueError):
-        return {}
-
-    if annual:
-        fiscal_end_month = end.month
-    else:
-        # 분기 시작월은 결산월 다음 달이다. 1월 시작이면 12월 결산.
-        fiscal_end_month = 12 if start.month == 1 else start.month - 1
-    fiscal_year = end.year if end.month == fiscal_end_month else end.year + (1 if end.month > fiscal_end_month else 0)
-    months_from_fy_start = (start.month - fiscal_end_month - 1) % 12
-    quarter = (months_from_fy_start // 3) + 1 if not annual else None
-    duration_days = (end - start).days + 1
-    period_kind = "annual" if annual or duration_days >= 300 else "quarter"
-    return {
-        "fiscal_year": fiscal_year,
-        "fiscal_year_end_month": fiscal_end_month,
-        "period_kind": period_kind,
-        "fiscal_quarter": quarter,
-        "comparison_basis": "직전사업연도 대비" if period_kind == "annual" else "전년동기 대비",
-    }
 
 
 def _is_structure_change_report(report_nm: str) -> bool:
@@ -210,7 +180,7 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
         table_markdown = "\n\n".join(p for p in parts if p)
     table_markdown = (table_markdown or "")[:6000] or None
     return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
-            **_period_metadata(period), "kind": kind, "headline": headline,
+            **period_metadata(period), "kind": kind, "headline": headline,
             "table_markdown": table_markdown}
 
 
@@ -259,7 +229,7 @@ def _parse_structure_change(html: str) -> dict[str, Any]:
 
     table_markdown = _clean_render(table)[:6000] if table is not None else None
     return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
-            **_period_metadata(period, annual=True),
+            **period_metadata(period, annual=True),
             "kind": "financial", "provisional_type": "fiscal_year_change",
             "headline": headline, "table_markdown": table_markdown}
 
