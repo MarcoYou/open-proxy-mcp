@@ -87,7 +87,7 @@ sequenceDiagram
     participant P as 유형별 파서 (details)
     U->>S: types·period·universe·details
     S->>S: period 해석(3개월 하드캡·커서) + universe 해석
-    S->>L: 유형별 detail코드 합집합 스캔 (페이지네이션 + sleep 0.7s)
+    S->>L: 유형별 detail코드 합집합 스캔 (코드 5개 병렬 · 페이지 2..N 병렬)
     L-->>S: 전체시장 공시 (report_nm)
     S->>S: report_nm 키워드 분류 + 정정 감지 + 단계 태깅
     S->>K: hit stock_code 배치 시총 조회 (1쿼리)
@@ -132,8 +132,38 @@ sequenceDiagram
 ## 기술 상세
 
 - 서비스: `open_proxy_mcp/services/screener.py` (로직 SSOT) · tool: `open_proxy_mcp/tools/screener.py` (디제스트 렌더)
-- 스캔: `client.search_filings`(corp_code 無 전체시장 필러, 100/page) 페이지네이션 + sleep 0.7s + 코드당 20페이지 상한.
-- 레이트리밋 가드: scan 순차 + ReadError/상태 020·011·012 즉시 중단 · details 동시성 2 · sleep 0.8s · **run당 300콜 러닝카운터**(per-type 캡 우선, 초과 시 truncated).
+- 스캔: `client.search_filings`(corp_code 無 전체시장 필러, 100/page) + 코드당 20페이지 상한. **코드 5개와 페이지 2..N 을 병렬로 던진다**(260824) — 순서는 페이지 번호로 복원한다(공시 순서가 뒤집히면 dedup=정정 최신본만 이 흔들린다).
+- 레이트리밋 가드: **호출측 sleep 없음**(260824 제거) — 속도는 클라이언트 스로틀 한 곳에서 잡는다
+  ([[data-collection]] 「호출측이 아니라 스로틀에서」). 여기서는 **양만 제한**한다:
+  코드당 20페이지 · details 동시성 6 · **run당 300콜 러닝카운터**(per-type 캡 우선, 초과 시 truncated).
+  전송 오류(httpx)는 `DartClientError` 가 아니라 그대로 올라오므로 따로 잡아 `transport:` 로 분류하고,
+  코드 gather 는 `return_exceptions=True` 라 한 코드가 죽어도 나머지를 살린다.
+
+### 왜 느렸나 (260824)
+
+응답의 **87%** 가 자기 sleep 이었다 — kospi200·details=ON 42.3초 중 36.7초. 실사용 p95 116초·
+최대 306초였고, 5분이면 클라이언트가 먼저 끊어 그 응답은 아무에게도 닿지 않았다.
+
+| 케이스 | 전 | 후 |
+|---|---|---|
+| `types=all · last_7d · scan` | 14.9초 | **1.7초** |
+| `kospi200 · last_7d · details=ON` | 42.3초 | **12.1초** |
+| `kospi:30 · last_7d · details=ON` | 20.8초 | **4.0초** |
+
+출력은 **완전 동일**하다(옛 코드와 전수 대조: counts 일치, hits 583건 집합·순서 일치).
+한도 준수 실측: 60초창 최대 83콜(cap 910) · 웹 하한 위반 0건.
+
+### universe 가 조용히 전체시장으로 빠지던 결함 (260824 수정)
+
+`krx_weekly` 가 260823 개명 뒤 KS/KQ 를 담는데 `resolve_universe` 가 `"KOSPI"` 를 넘겼다.
+**질의가 죽지 않고 0건을 냈고**, `_rank` 가 그걸 「조회 실패」로 읽어 전체시장으로 대체했다.
+에러는 어디에도 뜨지 않는다.
+
+    _krx_top_mktcap(market="KOSPI") → 0종목 / "KS" → 200종목
+    screener(kospi200, last_7d, details=ON): hit 581·details 0 → hit 48·details 29
+
+`kospi200`·`kospi:N`·`kosdaq:N` 셋이 영향권이었다. 바로 위 `market:kospi` 는 상수를 제대로
+쓰고 있었다 — **한쪽만 고쳐진** 형태다. 그래서 호출부 상수와 **경계 정규화(`to_db`)** 를 둘 다 넣었다.
 - 공시코드 매핑: [[공시유형코드체계]] (I001 주요경영사항 · B001 주요사항보고서 · D001 5%대량보유 · I002 잠정실적).
 - 검증(2026-07-15): scan 라이브(전체시장 하루 172건→91포착, 4콜) · details 6/6 파싱(삼성전자 자사주 3,228억 시총대비·삼성물산 19.7% 경영참여·기업은행 DPS 210원·한국가스공사 임시주총 안건·SK하이닉스 유상증자·수주 매출대비%).
 
