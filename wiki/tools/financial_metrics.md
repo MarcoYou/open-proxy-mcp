@@ -9,6 +9,7 @@ related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석,
 related_decisions: [open-proxy-guideline, free-paid-분리, cross-domain-체이닝]
 related_audits: [260501_2030_audit_financial_metrics-200기업]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # financial_metrics

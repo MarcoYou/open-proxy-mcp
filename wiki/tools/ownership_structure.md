@@ -9,6 +9,7 @@ related_concepts: [최대주주, 특수관계인, 대주주, 동일인, 5%-대�
 related_decisions: [stkrt-vs-ctr_stkrt, free-paid-분리, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260427_1145_fix_ownership-stockknd, 260429_0216_fix_speed-optimization-9건, 260503_2345_audit_ownership_baseline]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # ownership_structure

@@ -9,6 +9,7 @@ related_concepts: [자사주, 주주환원]
 related_decisions: [배당공시유형, free-paid-분리, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0216_fix_speed-optimization-9건]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # treasury_share

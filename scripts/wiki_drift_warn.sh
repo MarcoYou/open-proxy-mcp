@@ -18,12 +18,28 @@ esac
 
 staged=$(git diff --cached --name-only 2>/dev/null)
 has_code=0; has_wiki=0
-printf '%s\n' "$staged" | grep -qE '^open_proxy_mcp/' && has_code=1
-printf '%s\n' "$staged" | grep -qE '^wiki/' && has_wiki=1
+printf '%s\n' "$staged" | grep -qE '^open_proxy_mcp/(tools|services)/' && has_code=1
+printf '%s\n' "$staged" | grep -qE '^wiki/(tools|architecture|rules)/' && has_wiki=1
 
 if [ "$has_code" = 1 ] && [ "$has_wiki" = 0 ]; then
   msg="⚠️ wiki 동기화 점검: 이번 커밋에 코드(open_proxy_mcp/)가 포함됐는데 wiki/ 변경이 없습니다. tool·동작·구조가 바뀌었다면 관련 wiki(tools/·rules/·architecture/)와 wiki_index.md를 갱신했는지 확인하세요. (문서/설정 등 wiki 무관 변경이면 그대로 진행)"
   ctx=$(printf '%s' "$msg" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))")
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$ctx"
 fi
+
+# Tool pages changed in a commit must carry an updated date. This remains a warning
+# in the local hook; CI's wiki_lint is the blocking check.
+today=$(date +%F)
+while IFS= read -r page; do
+  [ -z "$page" ] && continue
+  if printf '%s\n' "$page" | grep -qE '^wiki/tools/[^/]+\.md$'; then
+    if ! grep -qE "^updated: $today$" "$page" 2>/dev/null; then
+      msg="⚠️ 문서 날짜 점검: $page 를 수정했지만 updated: $today 가 없습니다. tool 문서 변경일을 갱신하세요."
+      ctx=$(printf '%s' "$msg" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))")
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$ctx"
+    fi
+  fi
+done <<EOF
+$staged
+EOF
 exit 0

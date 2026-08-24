@@ -8,6 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [NAV, 청산가치, 지주사할인, FVOCI, FVPL, 지분법, 공시지가]
 related_decisions: [markdown-primary-anchor-260719]
 created: 2026-07-20
+updated: 2026-08-25
 ---
 
 # asset_holdings

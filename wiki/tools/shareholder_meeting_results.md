@@ -2,6 +2,7 @@
 type: tool
 title: shareholder_meeting_results
 domain: data
+updated: 2026-08-25
 description: 주주총회 의결 결과 (사후) — KIND scraping 기반
 related: [shareholder_meeting_notice, evidence]
 ---

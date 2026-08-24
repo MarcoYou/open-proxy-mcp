@@ -2,6 +2,7 @@
 type: tool
 title: order_contracts — 수주 추적
 domain: data
+updated: 2026-08-25
 scope: [기본 단일]
 data_source: [DART OpenAPI list.json (I001) + 단일판매ㆍ공급계약체결/해지 키워드 + 원문 BeautifulSoup 파싱]
 related: [corporate_deals, financial_metrics, evidence]

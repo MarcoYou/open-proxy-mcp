@@ -9,6 +9,7 @@ related_concepts: []
 related_decisions: [pblntf-ty-필터링, free-paid-분리]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # company

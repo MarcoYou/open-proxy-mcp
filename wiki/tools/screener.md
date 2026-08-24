@@ -2,6 +2,7 @@
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
 domain: action
+updated: 2026-08-25
 scope: [core preset, all, 유형 CSV]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + krx_weekly (시총, DART 0콜) + 유형별 파서 재사용(details)]
 related: [order_contracts, treasury_share, dividend, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
@@ -15,6 +16,15 @@ related: [order_contracts, treasury_share, dividend, dilutive_issuance, sharehol
 
 개별 tool(order_contracts·dividend 등)이 **한 회사를 깊게** 판다면, screener는 **전체시장을 얕게**
 훑어 "무엇이 떴나"를 싸게 답한다. 거버넌스는 유형의 부분집합 — 범용 공시 디제스트다.
+
+### 회계기간 메타데이터
+
+잠정실적·정기보고서 카드에는 다음 기간 필드를 함께 표시합니다.
+
+- `fiscal_year`: 회사의 사업연도
+- `period_kind`: 연간·분기 등 보고기간 종류
+- `fiscal_quarter`: 회사 결산월 기준 분기
+- `comparison_basis`: 전년동기·직전분기 등 비교 기준
 
 > **왜 Action Tool인가** (domain: action): `proxy_advise_before_meeting`·`shareholder_commitment`과
 > 같은 계열 — upstream data tool을 오케스트레이션해 판단/요약을 만든다. details=true면 유형별 파서

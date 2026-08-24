@@ -35,6 +35,7 @@ import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parent.parent
 WIKI = ROOT / "wiki"
@@ -49,6 +50,8 @@ RELATED_BLOCK = re.compile(rf"^({LINK_KEYS}):\s*\n((?:\s*-\s*[^\n]+\n)+)", re.MU
 RELATED_INLINE = re.compile(rf"^({LINK_KEYS}):\s*\[([^\]]*)\]", re.MULTILINE)
 REL_ENTRY = re.compile(r"-\s*([^\s\n]+)")
 MD_LINK = re.compile(r"\]\(([^)]+\.md)\)")
+ANY_MD_LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)(?:\s+['\"][^)]*)?\)")
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"}
 
 
 def _git_tracked_wiki() -> set[str] | None:
@@ -425,6 +428,54 @@ def check_missing_doc_refs(pages) -> list[str]:
     return issues
 
 
+def _git_tracked_markdown() -> list[Path]:
+    """Return every tracked Markdown file, including README/docs outside wiki."""
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "-z", "*.md"],
+            capture_output=True, timeout=10, check=True,
+        )
+        return [ROOT / item for item in out.stdout.decode().split("\0") if item]
+    except (OSError, subprocess.SubprocessError):
+        return list(ROOT.rglob("*.md"))
+
+
+def check_repo_links() -> list[str]:
+    """Check relative Markdown/image links across the repository."""
+    issues: list[str] = []
+    for path in _git_tracked_markdown():
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for raw in ANY_MD_LINK.findall(text):
+            target = unquote(raw.strip().split("#", 1)[0].split("?", 1)[0])
+            if not target or target in {"name.md", "상대경로.md", "상대경로/page.md"} or target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            rel = path.relative_to(ROOT).as_posix()
+            if rel == "wiki/wiki_schema.md" and target.startswith("architecture/audits/"):
+                continue  # schema syntax example, not a live repository link
+            candidate = (path.parent / target).resolve() if not target.startswith("/") else Path(target)
+            try:
+                candidate.relative_to(ROOT)
+            except ValueError:
+                continue
+            if candidate.exists():
+                continue
+            if candidate.suffix.lower() in IMAGE_EXTENSIONS or target.endswith(".md") or "/" in target:
+                issues.append(f"없는 상대 링크: {rel} → {raw}")
+    return sorted(set(issues))
+
+
+def check_tool_updated_fields() -> list[str]:
+    """Every tool page carries an auditable last-updated date."""
+    issues = []
+    date_re = re.compile(r"^updated:\s*20\d\d-\d\d-\d\d\s*$", re.MULTILINE)
+    for path in sorted((WIKI / "tools").glob("*.md")):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        if "type: tool" in text.split("---", 2)[0:2][-1] and not date_re.search(text):
+            issues.append(f"tool updated 누락/형식 오류: {path.relative_to(ROOT)}")
+    return issues
+
+
 def check_empty_stubs(pages) -> list[str]:
     """링크만 뜯겨 라벨·불릿만 남은 자리. lint 대상이 사라져 어떤 축에도 안 걸린다."""
     issues = []
@@ -624,6 +675,8 @@ def main():
     stub_issues = check_empty_stubs(pages)
     law_date_issues = check_law_dates(pages)
     index_rule_leaks = check_index_no_rules()
+    repo_link_issues = check_repo_links()
+    updated_issues = check_tool_updated_fields()
 
     if args.json:
         print(json.dumps({
@@ -636,6 +689,8 @@ def main():
             "archive_superseded_issues": archive_issues,
             "law_date_issues": law_date_issues,
             "index_rule_leaks": index_rule_leaks,
+            "repo_link_issues": repo_link_issues,
+            "updated_issues": updated_issues,
         }, ensure_ascii=False, indent=2))
     else:
         print(f"[wiki_lint] 총 페이지: {len(pages)}")
@@ -697,10 +752,20 @@ def main():
         if len(stub_issues) > 20:
             print(f"  ... +{len(stub_issues) - 20} 건")
 
-        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues):
+        print(f"\n[11] 저장소 전체 상대 링크 (README/docs 포함): {len(repo_link_issues)} 건")
+        for v in repo_link_issues[:40]:
+            print(f"  ✗ {v}")
+        if len(repo_link_issues) > 40:
+            print(f"  ... +{len(repo_link_issues) - 40} 건")
+
+        print(f"\n[12] tool updated 필드: {len(updated_issues)} 건")
+        for v in updated_issues[:20]:
+            print(f"  ✗ {v}")
+
+        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues or repo_link_issues or updated_issues):
             print("\n✓ 모든 정책 충족")
 
-    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues):
+    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues or repo_link_issues or updated_issues):
         sys.exit(1)
 
 

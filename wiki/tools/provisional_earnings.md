@@ -2,17 +2,18 @@
 type: tool
 title: provisional_earnings
 domain: data
-scope: [영업잠정실적, 매출, 영업이익, 순이익, YoY, QoQ]
-data_source: [DART search list.json I002(공정공시) 발견, get_document 원문 HTML 파싱]
+scope: [영업잠정실적, 결산잠정치, 매출, 영업이익, 순이익, YoY, QoQ]
+data_source: [DART search list.json I001(결산잠정치)/I002(공정공시) 발견, get_document 원문 HTML 파싱]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [영업잠정실적, 공정공시, 잠정치, 연결_별도]
 related_decisions: [ksic-sector-mapping]
 created: 2026-07-19
+updated: 2026-08-25
 ---
 
 ## 한 줄
 
-DART **영업(잠정)실적(공정공시 I002)** 에서 분기 **잠정 매출·영업이익·순이익 + YoY/QoQ** 추출.
+DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 분기·연간 **잠정 매출·영업이익·순이익 + YoY/QoQ** 추출.
 정기보고서 확정치([[financial_metrics]])보다 **먼저 나오는 가장 빠른 실적 신호**(분기말 며칠 뒤).
 
 ## 사용법

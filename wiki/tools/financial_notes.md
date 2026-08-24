@@ -7,6 +7,7 @@ data_source: [DART get_document(III.재무에 관한 사항 — 연결/별도 �
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [unencumbered cash, 사용제한 예치금, 담보제공자산, 헤어컷, FVPL, FVOCI, 상각후원가]
 created: 2026-08-23
+updated: 2026-08-25
 ---
 
 # financial_notes

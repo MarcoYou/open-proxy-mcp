@@ -9,6 +9,7 @@ related_concepts: [집중투표, 감사위원-의결권-제한, 의결권, 정�
 related_decisions: [BeautifulSoup-파서-선택, XML-vs-PDF, cross-domain-체이닝]
 related_audits: [260422_0005_audit_parsing-14scope-15기업, 260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0942_fix_corp_gov_report-financial-holding]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # corp_gov_report

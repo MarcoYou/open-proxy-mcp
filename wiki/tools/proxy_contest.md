@@ -9,6 +9,7 @@ related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참�
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04, 회사측-vs-주주측-위임장, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0216_fix_speed-optimization-9건, 260503_2330_audit_proxy_contest_baseline]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # proxy_contest

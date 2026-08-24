@@ -7,6 +7,7 @@ data_source: [wiki/decisions/open-proxy-guideline.md (OPM 자체 의결권 행�
 related_disclosures: [주주총회소집공고]
 related_concepts: [정관변경, 집중투표, 감사위원-의결권-제한]
 created: 2026-08-13
+updated: 2026-08-25
 ---
 
 # proxy_guideline — 의결권 판단 기준 문서 조회

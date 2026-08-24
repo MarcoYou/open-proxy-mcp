@@ -2,12 +2,16 @@
 """Fail when the runtime MCP tool surface and wiki catalog drift apart."""
 
 import asyncio
+import re
+import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 from open_proxy_mcp.server import build_mcp
 
 
-ROOT = Path(__file__).resolve().parents[1]
 CATALOG_DIR = ROOT / "wiki" / "tools"
 SUPPORT_PAGES = {
     "README",
@@ -40,6 +44,43 @@ def main() -> int:
     unlisted = sorted(t for t in runtime_tools if f"]({t}.md)" not in readme)
     if unlisted:
         problems.append("README 「도구 한눈에」 표에 없음: " + ", ".join(unlisted))
+
+    # 루트 README도 사람이 보는 공개 카탈로그다. wiki/tools/README만 검사하면
+    # tool 개명·신설 때 사용자 진입점이 조용히 낡는다.
+    for path in (ROOT / "README.md", ROOT / "README_ENG.md"):
+        text = path.read_text(encoding="utf-8")
+        missing = sorted(t for t in runtime_tools if f"wiki/tools/{t}.md" not in text)
+        if missing:
+            problems.append(f"{path.name}에 tool 링크 없음: " + ", ".join(missing))
+        count_patterns = (
+            r"Tool 구조 \((\d+)개\)", r"Tool Structure \((\d+) tools\)",
+            r"총 (\d+)개 tool", r"(\d+) tools in total",
+        )
+        claims = {int(m.group(1)) for rx in count_patterns if (m := re.search(rx, text))}
+        if claims != {len(runtime_tools)}:
+            problems.append(f"{path.name} tool 수 주장 불일치: {sorted(claims) or '없음'} vs {len(runtime_tools)}")
+
+    # 구 tool 페이지 링크는 basename resolver가 살려주지 않는 일반 Markdown 링크다.
+    stale_links: set[str] = set()
+    for path in ROOT.rglob("*.md"):
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for name in re.findall(r"\]\([^)]*wiki/tools/([a-z0-9_]+)\.md(?:#[^)]*)?\)", text):
+            if name not in runtime_tools and name not in SUPPORT_PAGES:
+                stale_links.add(name)
+    if stale_links:
+        problems.append("runtime에 없는 tool 링크: " + ", ".join(sorted(stale_links)))
+
+    # 영문 릴리즈노트와 기능 문서는 한국어 정본과 짝을 이뤄야 한다.
+    ko_release = (ROOT / "docs/RELEASE_NOTES.md").read_text(encoding="utf-8")
+    en_release = (ROOT / "docs/RELEASE_NOTES_ENG.md").read_text(encoding="utf-8")
+    ko_head = re.search(r"^## (.+)$", ko_release, re.MULTILINE)
+    if ko_head and ko_head.group(1) not in en_release:
+        problems.append("RELEASE_NOTES_ENG.md에 최신 섹션 없음: " + ko_head.group(1))
+    ko_features = {p.stem for p in (ROOT / "docs/features").glob("*.md")}
+    en_features = {p.stem for p in (ROOT / "docs/features/en").glob("*.md")}
+    if ko_features != en_features:
+        problems.append("한/영 feature 문서 비대칭: "
+                       f"ko-only={sorted(ko_features - en_features)}, en-only={sorted(en_features - ko_features)}")
 
     domains: dict[str, str] = {}
     for name in sorted(documented_tools):

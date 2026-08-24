@@ -9,6 +9,7 @@ related_concepts: [주주환원, 배당성향]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04, cross-domain-체이닝]
 related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
 created: 2026-05-01
+updated: 2026-08-25
 ---
 
 # value_up

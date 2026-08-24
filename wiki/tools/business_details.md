@@ -8,6 +8,7 @@ related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: [사업부문, 영업부문, K-IFRS 1108, SOTP, 부문 영업이익, 연구개발비, 수주잔고, 고객집중]
 related_decisions: [260717_1220_decision_business-content-tool-roadmap, XML-vs-PDF, ksic-sector-mapping]
 created: 2026-07-18
+updated: 2026-08-25
 ---
 
 # business_details

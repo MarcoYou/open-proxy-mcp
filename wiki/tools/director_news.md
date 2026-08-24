@@ -7,6 +7,7 @@ data_source: [네이버 뉴스 검색 API]
 related_disclosures: [주주총회소집공고]
 related_concepts: [이사 선임, 후보 적격성, 부정 뉴스]
 created: 2026-08-20
+updated: 2026-08-25
 ---
 
 # director_news

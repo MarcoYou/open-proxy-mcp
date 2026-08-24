@@ -2,6 +2,19 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-08-25
+
+### Stronger fiscal-period filtering in `financial_metrics`
+
+- Collects nearby fiscal years and classifies FY/Q using `period_end` and the company's fiscal-year-end month, instead of relying on `bsns_year` alone.
+- Returns the requested fiscal year and the two preceding fiscal years, preventing the next fiscal year's quarter from leaking into the result.
+- Shows `period_end` and `fiscal_year_end_month` on quarterly rows so labels can be checked against the filing period.
+- Calculates QoQ only when the immediately preceding quarter exists.
+- Marks a past but unfiled quarter as `미제출` and hides future quarters.
+- Calculates Q4 as annual cumulative minus Q3 cumulative.
+
+Verified with beta commit `62f702e`, 1,110 tests, and live-data regressions for Shinyoung Securities (001720), Hyungji Elite (093240), and SK hynix (000660).
+
 ## v2.5.2 (2026-08-05)
 
 Fixes a case where a mistyped or colloquial company name **silently returned a different company's answer**. It affects all 25 tools.

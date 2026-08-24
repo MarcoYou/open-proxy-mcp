@@ -7,6 +7,7 @@ data_source: [legalize-kr 원문(상법·자본시장법·공정거래법·외�
 related_disclosures: [주주총회소집공고]
 related_concepts: [정관변경, 집중투표, 감사위원-의결권-제한, 5%-대량보유]
 created: 2026-07-13
+updated: 2026-08-25
 ---
 
 # law_lookup — 정관↔법령 양방향 조회

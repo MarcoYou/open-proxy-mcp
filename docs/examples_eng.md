@@ -8,7 +8,7 @@ Real results from asking OpenProxy questions in natural language.
 
 > "Show Samsung Electronics ownership structure"
 
-![Samsung Ownership](../screenshot/pr_materials/openproxy_05_s_legacy_ownership_EN.png)
+*Screenshots are not kept in the repository; the descriptions below reflect current tool responses.*
 
 View largest shareholders, treasury shares, and 5% block holders at a glance.
 
@@ -18,7 +18,6 @@ View largest shareholders, treasury shares, and 5% block holders at a glance.
 
 > "Tell me about Samsung Electronics dividends"
 
-![Samsung Dividend](../screenshot/pr_materials/openproxy_06_s_legacy_dividend_EN.png)
 
 Compare 3-year dividend trends, dividend yield, and payout ratio.
 
@@ -28,7 +27,6 @@ Compare 3-year dividend trends, dividend yield, and payout ratio.
 
 > "What are LG Chem's AGM agenda items?"
 
-![LG Chem AGM](../screenshot/pr_materials/openproxy_07_lgchem_agm_EN.png)
 
 All items, sub-item classification, and shareholder proposals marked.
 
@@ -38,6 +36,5 @@ All items, sub-item classification, and shareholder proposals marked.
 
 > "Analyze the Korea Zinc management dispute"
 
-![Korea Zinc Dispute](../screenshot/pr_materials/openproxy_08_koreazinc_voting_EN.png)
 
 Proxy solicitation, litigation, and both-side comparison analysis.
