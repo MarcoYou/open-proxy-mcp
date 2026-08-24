@@ -436,6 +436,39 @@ def is_note_heading(caption: str, kws: list[str] | tuple[str, ...]) -> bool:
     return False
 
 
+#: 필드마다 「이 범주를 가리키는 말」. 제목이 **다른 필드의 범주**를 말하고 있으면
+#: 그 표는 요청한 범주의 표가 아니다.
+_FIELD_MARKS = {
+    "FVPL": ("당기손익-공정가치", "당기손익인식"),
+    "FVOCI": ("기타포괄손익-공정가치",),
+    "상각후원가": ("상각후원가",),
+}
+
+
+def title_says_other_field(title: str, field: str) -> str | None:
+    """제목이 **다른 범주**를 말하고 있으면 그 범주 이름을 돌려준다.
+
+    🔴 260824 T보고 — 메리츠증권 `상각후원가` 요청에 「8-4. …**기타포괄손익-공정가치측정
+       금융자산평가손익**의 내역」 표가 나왔다. 축이 유형별이라 ⚠️ 로 통과했는데,
+       축이 맞아도 **범주가 다르면 다른 표다.** 앵커가 걸린 것은 표 안에 「상각후원가」
+       라는 **열 이름**이 있어서다. 제목이 이 필드의 범주를 말하지 않고 다른 범주를
+       말하면 🔴 로 되돌린다.
+    """
+    head = (title or "").split("(단위")[0]
+    if not head:
+        return None
+    mine = _FIELD_MARKS.get(field, ())
+    if any(m in head for m in mine):
+        return None
+    for other, marks in _FIELD_MARKS.items():
+        if other == field:
+            continue
+        for m in marks:
+            if m in head:
+                return other
+    return None
+
+
 def title_weakness(caption: str) -> int:
     """제목에 「장부금액과 공정가치」·「증감내역」처럼 **내역이 아님**을 알리는 말이 몇 개인가."""
     tail = title_only(caption)
@@ -654,14 +687,45 @@ def balance_sheet(html: str, basis: str | None) -> dict[str, Any] | None:
         return {"accounts": accounts, "unit": parsed["unit"]}
 
 
+#: 계정명 꼬리에 붙는 주석 참조. `현금및현금성자산 (주35,37)` 처럼 붙어 온다.
+_NOTE_REF = re.compile(r"\s*[\(（]\s*주[\s\d,，.·]*[\)）]\s*$")
+
+
+def norm_account(name: str) -> str:
+    """계정명에서 주석 참조 꼬리를 뗀다. 260824 실측 — NH투자증권 재무상태표는
+    `현금및현금성자산 (주35,37)` 로 실려 있어 완전일치가 **꼬리 때문에만** 깨졌다."""
+    return _NOTE_REF.sub("", (name or "").strip()).strip()
+
+
 def lookup_account(bs: dict[str, Any] | None, account: str) -> dict[str, Any] | None:
-    """재무상태표에서 **완전일치**하는 계정만 돌려준다. 부분일치는 쓰지 않는다."""
+    """재무상태표에서 계정을 찾는다. **틀린 분모를 만들지 않는 것이 첫째다.**
+
+    260824 T보고 — 6사 중 5사가 「분모 없음」으로 나갔다. 원인이 셋으로 갈린다.
+      ① 주석 참조 꼬리 때문에만 안 맞음(NH `현금및현금성자산 (주35,37)`) → **정규화하면 맞는다.**
+      ② 은행·증권은 「**현금및예치금**」으로 현금과 **묶여** 있다(국민은행·메리츠증권).
+         → 예치금만의 잔액이 아니다. **그대로 분모로 쓰면 unencumbered 가 과대계상된다.**
+            값을 주되 `contains=True` 로 「묶여 있다」고 밝히고 쓰지 말라고 한다.
+      ③ 보험사는 그 계정 자체가 없다(KB손보·현대해상) → 없는 것이 맞다.
+    ①과 ②를 ③과 같은 「분모 없음」으로 뭉개면 읽는 쪽이 취할 행동이 달라진다.
+    """
     if not bs or not account:
         return None
-    vals = bs["accounts"].get(account)
-    if not vals:
-        return None
-    return {"values": vals, "unit": bs["unit"]}
+    want = norm_account(account)
+    index = {norm_account(k): (k, v) for k, v in bs["accounts"].items()}
+    hit = index.get(want)
+    if hit:
+        return {"values": hit[1], "unit": bs["unit"], "matched": hit[0]}
+    # 묶여 있는 계정 — 이름이 통째로 들어 있고 그 계정이 더 긴 경우만
+    wider = [(k, v) for k, (orig, v) in index.items()
+             if want and want in k and k != want and len(k) > len(want)]
+    if len(wider) == 1:
+        k, v = wider[0]
+        return {"values": v, "unit": bs["unit"], "matched": k, "contains": True}
+    if len(wider) > 1:
+        # 「금융자산」처럼 여러 계정에 걸치는 이름 — 「없다」와는 다른 상황이다
+        return {"values": [], "unit": bs["unit"],
+                "spread": [k for k, _ in wider[:4]]}
+    return None
 
 
 
@@ -942,6 +1006,8 @@ def extract_regions(
                         if entry["account"]:
                             entry["account_total"] = lookup_account(
                                 bs_cache.get(basis), entry["account"])
+                        # 🔴 제목이 **다른 범주**를 말하면 축이 맞아도 다른 표다(260824 T보고).
+                        entry["other_field"] = title_says_other_field(entry["title"], field)
                         if (title_matches(parsed["caption"], kin_kws)
                                 and not is_off_topic(entry["title"])):
                             entry["title_matched"] = entry["weak"] == 0
@@ -1254,3 +1320,49 @@ def row_checksums(view: dict[str, Any] | None) -> list[dict[str, Any]]:
                     "stated": _fmt(stated), "ok": abs(stated - s) < 0.5,
                     "row": names[ti]})
     return out
+
+
+def numeric_total(view: dict[str, Any] | None, drop_totals: bool = True) -> float | None:
+    """표 안 값의 총합. 표끼리 「같은 자산인가」를 묻는 데만 쓴다 — 내보내는 수가 아니다.
+
+    합계 행·열을 빼는 쪽과 넣는 쪽을 둘 다 쓴다. 어느 쪽이 맞는지는 표마다 다르기
+    때문이다 — 현대해상 범주별 요약표는 **열 이름 자체가 「금융자산의 종류 합계」**라
+    빼고 나면 값이 하나만 남는다(그러면 총합이 안 나온다).
+    """
+    if not view:
+        return None
+    tot = 0.0
+    n = 0
+    for i, name in enumerate(view["rows"]):
+        if drop_totals and is_totalish(name):
+            continue
+        for cc in view["columns"]:
+            if drop_totals and is_totalish(cc["leaf"]):
+                continue
+            v = to_number(cc["values"][i])
+            if v is not None:
+                tot += v
+                n += 1
+    return tot if n >= 1 else None
+
+
+def totals_of(view: dict[str, Any] | None) -> set[float]:
+    """그 표가 「전체 얼마짜리 표인가」의 후보들. 합계를 빼고/넣고 둘 다."""
+    out = {numeric_total(view, True), numeric_total(view, False)}
+    return {v for v in out if v is not None and v != 0}
+
+
+def same_assets(a: dict[str, Any] | None, b: dict[str, Any] | None) -> bool:
+    """두 표가 **같은 자산을 다르게 자른 것**인가 — 총합이 같으면 그렇다.
+
+    🔴 260824 T보고 — 현대해상 담보제공은 표가 둘인데 하나는 **범주별 요약**,
+       하나는 **유형별 세부**다. 둘 다 연결 기준이라 「기준이 같으면 더해도 된다」는
+       예전 안내를 따르면 **정확히 2배**가 된다. 실측 총합이 양쪽 다
+       2,310,215,724 천원으로 같다 — 그러면 같은 자산이다.
+    """
+    ta, tb = totals_of(a), totals_of(b)
+    for x in ta:
+        for y in tb:
+            if abs(x - y) <= max(1.0, abs(x) * 1e-9):
+                return True
+    return False

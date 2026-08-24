@@ -443,3 +443,78 @@ def test_caption_stops_at_the_previous_value_table() -> None:
     cap = caption_before(html, html.rindex("<TABLE border='1'>"))
     assert "1,111" not in cap
     assert "상각후원가측정금융자산의 내역, 합계" in cap
+
+
+# ── 260824 T 4회차 보고 3건 ────────────────────────────────────────────────
+
+def test_account_lookup_ignores_the_note_reference_tail() -> None:
+    # NH투자증권 재무상태표는 `현금및현금성자산 (주35,37)` 로 실려 있다.
+    # 꼬리 때문에만 완전일치가 깨져 「분모 없음」이 나갔다.
+    from open_proxy_mcp.services.financial_notes import lookup_account
+
+    bs = {"accounts": {"현금및현금성자산 (주35,37)": ["3,684,431"]}, "unit": "백만원"}
+
+    got = lookup_account(bs, "현금및현금성자산")
+    assert got["values"] == ["3,684,431"]
+    assert got["matched"] == "현금및현금성자산 (주35,37)"
+
+
+def test_account_that_is_bundled_with_another_is_flagged_not_used() -> None:
+    # 은행·증권은 「현금및예치금」으로 현금과 묶여 있다. 그대로 분모로 쓰면
+    # 현금까지 분모에 들어가 unencumbered 가 과대계상된다.
+    from open_proxy_mcp.services.financial_notes import lookup_account
+
+    bs = {"accounts": {"현금및예치금": ["32,554,519"]}, "unit": "백만원"}
+
+    got = lookup_account(bs, "예치금")
+    assert got["contains"] is True and got["matched"] == "현금및예치금"
+
+
+def test_account_spread_over_many_lines_is_not_guessed() -> None:
+    from open_proxy_mcp.services.financial_notes import lookup_account
+
+    bs = {"accounts": {"당기손익-공정가치측정금융자산": ["1"],
+                       "상각후원가측정금융자산": ["2"]}, "unit": "백만원"}
+
+    got = lookup_account(bs, "금융자산")
+    assert got["values"] == [] and len(got["spread"]) == 2
+
+
+def test_title_of_another_category_is_reported_even_when_the_axis_fits() -> None:
+    # 메리츠증권 — `상각후원가` 요청에 FVOCI 평가손익표가 나왔다. 축이 유형별이라
+    # ⚠️ 로 통과했는데, 축이 맞아도 범주가 다르면 다른 표다.
+    from open_proxy_mcp.services.financial_notes import title_says_other_field
+
+    t = "8-4. 보고기간종료일 현재 기타포괄손익-공정가치측정금융자산평가손익의 내역"
+
+    assert title_says_other_field(t, "상각후원가") == "FVOCI"
+    assert title_says_other_field(t, "FVOCI") is None
+    assert title_says_other_field("7. 상각후원가측정금융자산의 내역", "상각후원가") is None
+
+
+def test_two_tables_with_the_same_total_are_the_same_assets() -> None:
+    # 현대해상 담보제공 — 범주별 요약과 유형별 세부가 짝이다. 더하면 정확히 2배다.
+    from open_proxy_mcp.services.financial_notes import column_view, same_assets
+
+    summary = parse_table(
+        "<TABLE><TR><TH>　</TH><TH>상각후원가</TH><TH>FVPL</TH><TH>FVOCI</TH></TR>"
+        "<TR><TD>담보로 제공된 금융자산</TD><TD>7,209,074</TD>"
+        "<TD>3,602,583</TD><TD>2,299,404,067</TD></TR></TABLE>")
+    detail = parse_table(
+        "<TABLE><TR><TH>구분</TH><TH>금액</TH></TR>"
+        "<TR><TD>미국지점 예치금</TD><TD>7,209,074</TD></TR>"
+        "<TR><TD>출자금 등</TD><TD>3,602,583</TD></TR>"
+        "<TR><TD>국공채</TD><TD>2,299,404,067</TD></TR></TABLE>")
+
+    assert same_assets(column_view(summary), column_view(detail)) is True
+
+
+def test_unrelated_tables_are_not_called_the_same_assets() -> None:
+    from open_proxy_mcp.services.financial_notes import column_view, same_assets
+
+    a = parse_table("<TABLE><TR><TH>구분</TH><TH>금액</TH></TR>"
+                    "<TR><TD>가</TD><TD>100</TD></TR><TR><TD>나</TD><TD>200</TD></TR></TABLE>")
+    b = parse_table("<TABLE><TR><TH>구분</TH><TH>금액</TH></TR>"
+                    "<TR><TD>다</TD><TD>500</TD></TR><TR><TD>라</TD><TD>900</TD></TR></TABLE>")
+
+    assert same_assets(column_view(a), column_view(b)) is False
