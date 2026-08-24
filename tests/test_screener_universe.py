@@ -35,8 +35,17 @@ class _Rec:
 
 @pytest.fixture
 def rec(monkeypatch):
+    """`psycopg.connect` 를 가로채 **어떤 params 로 물었는지**만 본다.
+
+    풀은 꺼 둔다 — 켜두면 가짜 URL 로 진짜 접속을 시도하다 타임아웃만큼 기다린 뒤에야
+    폴백한다(260824 실측: 테스트마다 5.01초). 여기서 보려는 건 질의 파라미터지
+    풀 동작이 아니다.
+    """
     sink: list = []
     monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
+    import open_proxy_mcp.db as db
+    monkeypatch.setattr(db, "_pool", None)
+    monkeypatch.setattr(db, "_pool_disabled_until", float("inf"))
     import psycopg
     monkeypatch.setattr(psycopg, "connect",
                         lambda *a, **k: _Rec(sink, [("005930",), ("000660",)]))

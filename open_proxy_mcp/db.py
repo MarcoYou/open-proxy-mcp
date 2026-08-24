@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +32,47 @@ logger = logging.getLogger(__name__)
 _POOL_MAX = int(os.environ.get("OPM_PG_POOL_MAX", "5") or 5)
 _POOL_MIN = int(os.environ.get("OPM_PG_POOL_MIN", "1") or 1)
 #: 풀이 꽉 찼을 때 기다리는 한계. 넘으면 직접 접속으로 빠진다(막히느니 느린 게 낫다).
-_POOL_TIMEOUT = float(os.environ.get("OPM_PG_POOL_TIMEOUT", "5") or 5)
+#: ★ 짧아야 한다. 폴백(직접 접속)이 실측 124ms 인데 여기서 5초를 기다리면 **풀이 고장난 순간
+#:   모든 질의가 종전보다 40배 느려진다** — 빠르게 하려고 둔 것이 정반대로 작동한다.
+#:   260824 실측: 5초일 때 테스트 스위트가 15초 → 76초가 됐다(질의마다 5초를 물었다).
+_POOL_TIMEOUT = float(os.environ.get("OPM_PG_POOL_TIMEOUT", "2") or 2)
+#: 풀이 실패한 뒤 다시 세워보기까지의 냉각 시간. 영구히 끄면 일시 장애가 재기동 때까지 남고,
+#: 냉각 없이 매번 재시도하면 장애 때마다 생성 비용을 다시 문다.
+_POOL_RETRY_SEC = float(os.environ.get("OPM_PG_POOL_RETRY_SEC", "60") or 60)
 
 _pool = None
 _pool_lock = threading.Lock()
-_pool_failed = False        # 한 번 실패하면 매 질의마다 재시도하지 않는다
+_pool_disabled_until = 0.0  # 이 시각까지는 풀을 쓰지 않는다 (0 = 정상)
+
+
+def _disable_pool(reason: str) -> None:
+    """풀을 내리고 냉각에 들어간다. **한 번 실패하면 그 뒤 질의는 곧장 직접 접속으로 간다** —
+    안 그러면 고장난 풀을 질의마다 다시 물어 매번 타임아웃만큼 느려진다."""
+    global _pool, _pool_disabled_until
+    with _pool_lock:
+        if _pool is not None:
+            try:
+                _pool.close()
+            except Exception:             # noqa: BLE001
+                pass
+        _pool = None
+        _pool_disabled_until = time.monotonic() + _POOL_RETRY_SEC
+    logger.warning("PG 커넥션 풀 비활성 %.0f초 — 직접 접속으로 진행: %s", _POOL_RETRY_SEC, reason)
 
 
 def _get_pool():
     """지연 생성 싱글턴. DATABASE_URL 이 없거나 생성이 실패하면 None(→ 직접 접속)."""
-    global _pool, _pool_failed
-    if _pool is not None or _pool_failed:
+    global _pool, _pool_disabled_until
+    if _pool is not None:
         return _pool
+    if time.monotonic() < _pool_disabled_until:
+        return None
     with _pool_lock:
-        if _pool is not None or _pool_failed:
+        if _pool is not None or time.monotonic() < _pool_disabled_until:
             return _pool
         url = os.getenv("DATABASE_URL")
         if not url:
-            _pool_failed = True
+            _pool_disabled_until = time.monotonic() + _POOL_RETRY_SEC
             return None
         try:
             from psycopg_pool import ConnectionPool
@@ -64,7 +88,7 @@ def _get_pool():
             )
             logger.info("PG 커넥션 풀 생성 (min=%d max=%d)", _POOL_MIN, _POOL_MAX)
         except Exception as exc:              # noqa: BLE001 — 풀 없이도 돌아야 한다
-            _pool_failed = True
+            _pool_disabled_until = time.monotonic() + _POOL_RETRY_SEC
             logger.warning("PG 커넥션 풀 생성 실패 — 직접 접속으로 진행: %s", exc)
             return None
     return _pool
@@ -86,7 +110,8 @@ def pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
         except Exception as exc:              # noqa: BLE001
             # 풀 고갈·커넥션 문제일 수 있다 → 직접 접속으로 한 번 더 시도한다.
             #   질의 자체가 틀린 경우에도 한 번 더 가지만, 그건 아래에서 같은 예외로 끝난다.
-            logger.warning("풀 경유 조회 실패 — 직접 접속 재시도: %s", exc)
+            #   ★ 그리고 풀을 내린다 — 안 내리면 다음 질의도 같은 타임아웃을 다시 문다.
+            _disable_pool(f"{type(exc).__name__}: {exc}")
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
@@ -100,7 +125,9 @@ def pool_stats() -> dict:
     """/health 용. 풀이 없으면 그 사실을 낸다 — 「있는데 비어 있음」과 구분되어야 한다."""
     pool = _pool
     if pool is None:
-        return {"enabled": False, "reason": "미생성 또는 생성 실패"}
+        left = max(0.0, _pool_disabled_until - time.monotonic())
+        return {"enabled": False,
+                "reason": "미생성 또는 실패", "retry_in_sec": round(left)}
     try:
         s = pool.get_stats()
     except Exception:                         # noqa: BLE001

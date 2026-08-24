@@ -34,7 +34,7 @@ def test_pool_creation_failure_falls_back_to_direct_connect(db, monkeypatch):
     """★ fail-open. 풀을 못 만들어도 조회는 돌아야 한다."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
     monkeypatch.setattr(db, "_pool", None)
-    monkeypatch.setattr(db, "_pool_failed", False)
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
 
     import psycopg_pool
     monkeypatch.setattr(psycopg_pool, "ConnectionPool",
@@ -53,7 +53,7 @@ def test_pool_creation_failure_falls_back_to_direct_connect(db, monkeypatch):
 
     assert db.pg_rows("SELECT 1") == [("ok",)]
     assert calls == ["SELECT 1"], "직접 접속으로 빠지지 않았다"
-    assert db._pool_failed is True, "실패를 기억해야 매 질의마다 재시도하지 않는다"
+    assert db._pool_disabled_until > 0, "실패를 기억해야 매 질의마다 재시도하지 않는다"
 
 
 def test_pool_error_retries_via_direct_connect(db, monkeypatch):
@@ -63,7 +63,7 @@ def test_pool_error_retries_via_direct_connect(db, monkeypatch):
     class _BadPool:
         def connection(self): raise RuntimeError("풀 고갈")
     monkeypatch.setattr(db, "_pool", _BadPool())
-    monkeypatch.setattr(db, "_pool_failed", False)
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
 
     class _FakeConn:
         def __enter__(self): return self
@@ -80,7 +80,7 @@ def test_total_failure_returns_none(db, monkeypatch):
     """풀도 직접 접속도 안 되면 None — 여기서 [] 를 주면 오진이 된다."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
     monkeypatch.setattr(db, "_pool", None)
-    monkeypatch.setattr(db, "_pool_failed", True)
+    monkeypatch.setattr(db, "_pool_disabled_until", float("inf"))
     import psycopg
     monkeypatch.setattr(psycopg, "connect",
                         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("죽음")))
@@ -121,3 +121,54 @@ def test_trading_inherits_the_pool():
     from open_proxy_mcp.services.trading import _pg_rows as t
     from open_proxy_mcp.services.valuation import _pg_rows as v
     assert t is v
+
+
+# ── 냉각 회로 (260824) ───────────────────────────────────────────────
+def test_broken_pool_is_taken_down_so_later_queries_go_straight(db, monkeypatch):
+    """★ 이게 없으면 「빠르게 하려고 둔 것」이 정반대로 작동한다.
+
+    풀이 고장났는데 그대로 두면 **질의마다 타임아웃만큼** 기다린 뒤 폴백한다.
+    폴백은 실측 124ms 인데 타임아웃이 2초면 16배 느려진다 —
+    260824 실측: 타임아웃 5초일 때 테스트 스위트가 15초 → 76초가 됐다.
+    """
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
+    tries = {"n": 0}
+
+    class _BadPool:
+        def connection(self):
+            tries["n"] += 1
+            raise RuntimeError("고장")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(db, "_pool", _BadPool())
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
+
+    class _FakeConn:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, *a, **k):
+            return type("R", (), {"fetchall": lambda s: [(1,)]})()
+
+    import psycopg
+    monkeypatch.setattr(psycopg, "connect", lambda *a, **k: _FakeConn())
+
+    for _ in range(5):
+        assert db.pg_rows("SELECT 1") == [(1,)]
+    assert tries["n"] == 1, f"고장난 풀을 {tries['n']}번 다시 물었다 — 한 번이면 내려야 한다"
+    assert db._pool is None
+
+
+def test_pool_timeout_is_short_enough_to_be_worth_falling_back(db):
+    """폴백이 124ms 인데 타임아웃이 길면 기다리는 게 손해다."""
+    assert db._POOL_TIMEOUT <= 2.0, "폴백보다 한참 오래 기다리면 안 된다"
+    assert db._POOL_RETRY_SEC >= 10, "냉각이 너무 짧으면 장애 때마다 생성 비용을 다시 문다"
+
+
+def test_pool_stats_reports_retry_countdown(db, monkeypatch):
+    """/health 로 「지금 풀이 내려가 있고 언제 다시 서나」를 봐야 한다."""
+    monkeypatch.setattr(db, "_pool", None)
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
+    st = db.pool_stats()
+    assert st["enabled"] is False and "retry_in_sec" in st

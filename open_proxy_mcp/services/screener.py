@@ -15,6 +15,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution
@@ -322,16 +323,8 @@ def resolve_period(period: str, *, cursor: str = "",
 # ══════════════════════════════════════════════════════════════════════
 
 def _krx_latest_dd() -> str | None:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return None
-    try:
-        import psycopg
-        with psycopg.connect(url, connect_timeout=8) as c:
-            r = c.execute("SELECT MAX(price_dd) FROM krx_weekly").fetchone()
-            return r[0] if r and r[0] else None
-    except Exception:
-        return None
+    rows = pg_rows("SELECT MAX(price_dd) FROM krx_weekly")
+    return rows[0][0] if rows and rows[0][0] else None
 
 
 def _krx_mktcap_map(tickers: Iterable[str], price_dd: str) -> dict[str, int]:
@@ -342,20 +335,9 @@ def _krx_mktcap_map(tickers: Iterable[str], price_dd: str) -> dict[str, int]:
     url = os.getenv("DATABASE_URL")
     if not url:
         return {}
-    try:
-        import psycopg
-        out: dict[str, int] = {}
-        with psycopg.connect(url, connect_timeout=10) as c:
-            rows = c.execute(
-                "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s AND ticker = ANY(%s)",
-                (price_dd, codes),
-            ).fetchall()
-            for isu, mktcap in rows:
-                if mktcap:
-                    out[isu] = int(mktcap)
-        return out
-    except Exception:
-        return {}
+    rows = pg_rows("SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s AND ticker = ANY(%s)",
+                   (price_dd, codes)) or []
+    return {isu: int(mktcap) for isu, mktcap in rows if mktcap}
 
 
 def _krx_top_mktcap(n: int, price_dd: str, market: str | None = None) -> set[str]:
@@ -367,39 +349,22 @@ def _krx_top_mktcap(n: int, price_dd: str, market: str | None = None) -> set[str
       kospi200 을 물었는데 2,764종목을 받고, 에러는 어디에도 안 뜬다(260824 실측).
       호출부를 상수로 바꾸는 것과 **둘 다** 한다. 경계에서 막아야 다음에 또 안 샌다.
     """
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return set()
-    try:
-        import psycopg
-        q = "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND mktcap IS NOT NULL"
-        params: list = [price_dd]
-        if market:
-            q += " AND market=%s"
-            params.append(to_db(market))
-        q += " ORDER BY mktcap DESC LIMIT %s"
-        params.append(n)
-        with psycopg.connect(url, connect_timeout=10) as c:
-            return {r[0] for r in c.execute(q, tuple(params)).fetchall()}
-    except Exception:
-        return set()
+    q = "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND mktcap IS NOT NULL"
+    params: list = [price_dd]
+    if market:
+        q += " AND market=%s"
+        params.append(to_db(market))
+    q += " ORDER BY mktcap DESC LIMIT %s"
+    params.append(n)
+    return {r[0] for r in (pg_rows(q, tuple(params)) or [])}
 
 
 def _krx_market_codes(market: str, price_dd: str) -> set[str]:
     """한 시장(KOSPI/KOSDAQ) 전 종목 단축코드."""
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return set()
-    try:
-        import psycopg
-        with psycopg.connect(url, connect_timeout=10) as c:
-            rows = c.execute(
-                "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND market=%s AND mktcap IS NOT NULL",
-                (price_dd, to_db(market)),      # 정규화 — `_krx_top_mktcap` 주석 참조
-            ).fetchall()
-            return {r[0] for r in rows}
-    except Exception:
-        return set()
+    return {r[0] for r in (pg_rows(
+        "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND market=%s AND mktcap IS NOT NULL",
+        (price_dd, to_db(market)),              # 정규화 — `_krx_top_mktcap` 주석 참조
+    ) or [])}
 
 
 @dataclass(slots=True)

@@ -78,31 +78,16 @@ def _iso_wk_range(price_dd: str) -> tuple[str, str]:
 
 
 def _krx_db_latest_dd() -> str | None:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return None
-    try:
-        import psycopg
-        with psycopg.connect(url, connect_timeout=8) as c:
-            r = c.execute("SELECT MAX(price_dd) FROM krx_weekly").fetchone()
-            return r[0] if r and r[0] else None
-    except Exception:
-        return None
+    rows = _pg_rows("SELECT MAX(price_dd) FROM krx_weekly")
+    return rows[0][0] if rows and rows[0][0] else None
 
 
 def _krx_db_get(price_dd: str, ticker: str) -> dict:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return {}
-    try:
-        import psycopg
-        with psycopg.connect(url, connect_timeout=8) as c:
-            r = c.execute("SELECT close, mktcap, list_shrs FROM krx_weekly "
-                          "WHERE price_dd=%s AND ticker=%s", (price_dd, ticker)).fetchone()
-            if r and r[0]:
-                return {"price": r[0], "date": price_dd, "common_mktcap": r[1], "list_shrs": r[2]}
-    except Exception:
-        return {}
+    rows = _pg_rows("SELECT close, mktcap, list_shrs FROM krx_weekly "
+                    "WHERE price_dd=%s AND ticker=%s", (price_dd, ticker))
+    if rows and rows[0][0]:
+        r = rows[0]
+        return {"price": r[0], "date": price_dd, "common_mktcap": r[1], "list_shrs": r[2]}
     return {}
 
 
