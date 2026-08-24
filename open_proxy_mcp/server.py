@@ -257,7 +257,13 @@ class ApiKeyMiddleware:
             from open_proxy_mcp.dart.client import (
                 new_request_ledger, ledger_enter, ledger_exit)
             ledger = new_request_ledger()
-            ledger_enter(ledger)
+            # **tools/call 만 센다.** streamable-http 클라이언트는 `GET /mcp` 로 스트림을
+            #   열어 **세션 내내 붙들고 있다.** 그걸 함께 세면 「지금 CPU 를 다투는 요청 수」가
+            #   아니라 「열려 있는 연결 수」가 되어, 64ms 짜리 호출도 inflight=12 로 적힌다.
+            #   실측(260824 첫 배포): 기록 19건 **전부 6 이상**, 1 이 한 번도 안 나왔다.
+            #   핸드셰이크(initialize·ping)도 뺀다 — 비용이 0 에 가까워 줄을 만들지 않는다.
+            if is_call:
+                ledger_enter(ledger)
             # 이 요청이 도는 동안 **프로세스 전체**가 쓴 CPU 시간. 이 요청 「자신의」 CPU 가
             # 아니다 — 단일 이벤트루프라 남의 코루틴이 태운 것도 여기 들어온다. 그게 노림수다:
             # 기다린 시간(네트워크)과 코어가 실제로 일한 시간을 가르는 것이 목적이지, 누가
@@ -365,6 +371,8 @@ class ApiKeyMiddleware:
             try:
                 await self.app(scope, replay, send_wrapper)
             finally:
+                # 조건 없이 부른다 — 등록 안 된 장부면 no-op 이다. 여기에도 `if is_call`
+                # 을 달면 **한쪽만 고쳐질 자리**가 하나 더 생긴다(이 레포에서 다섯 번 겪었다).
                 ledger_exit(ledger)     # 예외로 빠져나가도 반드시 뺀다
         else:
             await self.app(scope, receive, send)

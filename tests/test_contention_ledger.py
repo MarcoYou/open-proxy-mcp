@@ -130,8 +130,10 @@ def test_middleware_releases_the_slot_even_on_failure():
     from open_proxy_mcp import server
     src = inspect.getsource(server)
     i = src.index("await self.app(scope, replay, send_wrapper)")
-    around = src[i - 200:i + 200]
-    assert "finally:" in around and "ledger_exit(ledger)" in around
+    before, after = src[i - 120:i], src[i:i + 900]
+    assert "try:" in before, "호출이 try 밖에 있다"
+    j = after.index("finally:")
+    assert "ledger_exit(ledger)" in after[j:], "finally 안에서 안 뺀다"
 
 
 # ── 집계 쪽 ───────────────────────────────────────────────────────────
@@ -188,7 +190,7 @@ def test_the_column_order_matches_the_query():
 # ── 미들웨어 왕복 ─────────────────────────────────────────────────────
 # 위의 소스 문자열 검사는 「호출부가 있다」까지만 본다. 여기서는 실제로 미들웨어를
 # 돌려 **기록된 값**을 본다 — 배선이 끊겨도 문자열 검사는 통과하기 때문이다.
-def _drive(app_body, n=1):
+def _drive(app_body, n=1, method="POST", rpc="tools/call"):
     """가짜 ASGI 앱을 미들웨어에 물려 n건을 동시에 흘리고, record() 인자를 모은다."""
     import asyncio
     import json
@@ -205,12 +207,11 @@ def _drive(app_body, n=1):
                     "more_body": False})
 
     mw = server.ApiKeyMiddleware(app)
-    body = json.dumps({"method": "tools/call",
-                       "params": {"name": "t"}}).encode()
+    body = json.dumps({"method": rpc, "params": {"name": "t"}}).encode() if rpc else b""
 
     async def one():
         scope = {"type": "http", "path": "/mcp", "query_string": b"opendart=k" * 1,
-                 "headers": []}
+                 "headers": [], "method": method}
         sent = []
 
         async def receive():
@@ -299,3 +300,33 @@ def test_health_can_tell_the_machines_apart_without_naming_them():
     assert a != b, "두 머신이 같은 표식을 낸다 — 구별이 안 된다"
     assert "832e73a7701738" not in a and "84e667b22d22d8" not in b, "ID 원문이 샌다"
     assert len(a) == 8
+
+
+def test_a_held_stream_is_not_a_competitor():
+    """★ 이 지표가 **첫 배포에서 조용히 틀렸던** 지점이다.
+
+    streamable-http 클라이언트는 `GET /mcp` 로 스트림을 열어 세션 내내 붙들고 있다.
+    그걸 함께 세면 「지금 CPU 를 다투는 요청 수」가 아니라 「열려 있는 연결 수」가 된다 —
+    실측으로 기록 19건이 **전부 6 이상**이었고 64ms 짜리 호출도 inflight=12 로 적혔다.
+    1 이 한 번도 안 나오는 지표는 「모두가 줄에 서 있다」고 말하는 것과 같다.
+    """
+    import asyncio
+
+    async def hold():
+        await asyncio.sleep(0.08)
+
+    # 스트림만 흘려 보면 아무것도 등록되지 않아야 한다
+    _drive(hold, n=6, method="GET", rpc=None)
+    assert inflight_now() == 0
+
+    calls = [c for c in _drive(hold, n=1) if "inflight" in c]
+    assert calls and calls[0]["inflight"] == 1, \
+        f"붙들린 스트림이 tools/call 의 동시 수를 부풀린다: {calls}"
+
+
+def test_handshakes_do_not_count_either():
+    """initialize·ping 은 비용이 0 에 가까워 줄을 만들지 않는다 — 세면 잡음만 된다."""
+    async def quick():
+        return
+    _drive(quick, n=4, rpc="initialize")
+    assert inflight_now() == 0
