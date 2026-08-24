@@ -21,7 +21,11 @@ from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
-from open_proxy_mcp.services.fiscal_period import fiscal_year_from_end
+from open_proxy_mcp.services.fiscal_period import (
+    fiscal_quarter_from_end,
+    fiscal_year_from_end,
+    normalize_period_end,
+)
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -1906,12 +1910,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     warnings: list[str] = []
     out: list[dict[str, Any]] = []
     years = list(range(end_year - 2, end_year + 1))
-    quarter_labels = {
-        "11013": "Q1",
-        "11012": "Q2",
-        "11014": "Q3",
-        "11011": "Q4",
-    }
+    quarter_labels = {"11013": "Q1", "11012": "Q2", "11014": "Q3", "11011": "Q4"}
     tasks = []
     keys = []
     for y in years:
@@ -1920,6 +1919,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             keys.append((y, rc, label))
     results = await asyncio.gather(*tasks)
 
+    # 요청한 DART bsns_year가 사업연도와 같다는 보장이 없다(3·6월 결산).
+    # 이후 모든 grouping은 요청연도가 아니라 실제 period_end에서 계산한 FY/Q를 쓴다.
     cum9_by_year: dict[int, dict[str, int | None]] = {}  # Q3 보고서의 9개월 누적 (Q4 차분용)
     q_standalone_by_year: dict[int, dict[str, dict[str, int | None]]] = {}
     fs_seen: set[str] = set()  # 실제 사용된 fs_div 추적 (CFS/OFS 폴백·혼재 감지)
@@ -1937,17 +1938,26 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         bs_is = _build_account_map(rows)
         if not bs_is:
             continue
-        if rc == "11014":
-            cum9_by_year[year] = _build_account_map(rows, period="thstrm_add")
-        if rc != "11011":
-            q_standalone_by_year.setdefault(year, {})[label] = bs_is
-        period_end = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "").replace(".", "-")
+        period_end_raw = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "")
                            for r in rows if r.get("thstrm_dt") or r.get("stlm_dt")), None)
+        period_end = normalize_period_end(period_end_raw)
+        fiscal_year = fiscal_year_from_end(period_end, fiscal_month) or year
+        fiscal_quarter = fiscal_quarter_from_end(period_end, fiscal_month)
+        if fiscal_quarter is None:
+            # 레거시/fixture 응답에 기간 종료일이 없을 때만 API 요청연도·코드로 fallback.
+            fiscal_quarter = int(label[1:])
+            warnings.append(f"{year}-{label}: period_end 없음 — 요청연도 기준으로 임시 분류")
+        fiscal_label = f"Q{fiscal_quarter}"
+        if fiscal_quarter == 3:
+            cum9_by_year[fiscal_year] = _build_account_map(rows, period="thstrm_add")
+        if fiscal_quarter != 4:
+            q_standalone_by_year.setdefault(fiscal_year, {})[fiscal_label] = bs_is
         out.append({
-            "year": year,
-            "fiscal_year": (fiscal_year_from_end(period_end, fiscal_month) or year),
-            "quarter": label,
-            "fiscal_quarter": label,
+            # year/quarter는 호환 필드지만 이제 실제 사업연도·분기와 동일하게 유지한다.
+            "year": fiscal_year,
+            "fiscal_year": fiscal_year,
+            "quarter": fiscal_label,
+            "fiscal_quarter": fiscal_label,
             "fiscal_year_end_month": fiscal_month or 12,
             "period_end": period_end,
             "reprt_code": rc,
@@ -1972,7 +1982,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         if row["quarter"] != "Q4":
             row["basis"] = "standalone_3m"
             continue
-        year = row["year"]
+        year = row["fiscal_year"]
         cum9 = cum9_by_year.get(year, {})
         qs = q_standalone_by_year.get(year, {})
         failed_keys = []
@@ -2003,7 +2013,16 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         row["operating_margin_pct"] = _safe_pct(row.get("operating_profit_krw"), row.get("revenue_krw"))
         row["net_profit_margin_pct"] = _safe_pct(row.get("net_income_krw"), row.get("revenue_krw"))
 
-    out.sort(key=lambda x: (x["year"], list(quarter_labels.values()).index(x["quarter"])))
+    out.sort(key=lambda x: (x["fiscal_year"], int(str(x["fiscal_quarter"]).lstrip("Q"))))
+
+    # 같은 fiscal period가 여러 API 요청에서 들어오면 최신/연간 우선으로 1건만 남긴다.
+    deduped: dict[tuple[int, str], dict[str, Any]] = {}
+    for row in out:
+        key = (row["fiscal_year"], row["fiscal_quarter"])
+        old = deduped.get(key)
+        if old is None or (row["reprt_code"] == "11011" and old["reprt_code"] != "11011"):
+            deduped[key] = row
+    out = sorted(deduped.values(), key=lambda x: (x["fiscal_year"], int(str(x["fiscal_quarter"]).lstrip("Q"))))
 
     # 정합성 점검: 4분기 standalone 합 ≠ 연간이면 기중 연결범위 변동·재작성 가능성
     # (한화에어로스페이스 2024 실측 — 인적분할로 Q1·Q2 당시 보고치와 연간 재작성치 불일치).
@@ -2046,10 +2065,12 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         warnings.append("매출액 계정 없음 — 금융사(이자수익 구조)로 추정. 영업이익·순이익 기준으로 해석할 것.")
 
     # QoQ/YoY 기본 동봉 (slice 전 전체 이력 기준 — 표시 첫 분기도 직전·전년 비교 가능)
-    index = {(r["year"], r["quarter"]): r for r in out}
+    index = {(r["fiscal_year"], r["fiscal_quarter"]): r for r in out}
     for i, row in enumerate(out):
-        prev_q = out[i - 1] if i > 0 else None
-        prev_y = index.get((row["year"] - 1, row["quarter"]))
+        q_no = int(str(row["fiscal_quarter"]).lstrip("Q"))
+        prev_key = (row["fiscal_year"], f"Q{q_no - 1}") if q_no > 1 else (row["fiscal_year"] - 1, "Q4")
+        prev_q = index.get(prev_key)
+        prev_y = index.get((row["fiscal_year"] - 1, row["fiscal_quarter"]))
         row["qoq_pct"] = {
             "revenue": _qchg_pct(row.get("revenue_krw"), prev_q.get("revenue_krw") if prev_q else None),
             "operating_profit": _qchg_pct(row.get("operating_profit_krw"), prev_q.get("operating_profit_krw") if prev_q else None),
