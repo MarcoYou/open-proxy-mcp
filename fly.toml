@@ -56,11 +56,20 @@ primary_region = 'nrt'
   # 260729 사고: 헬스체크가 없어 fly 가 「VM 이 켜졌다」만 보고 배포를 성공 처리했다.
   # 앱은 부팅 즉시 죽어 8000 포트에 아무도 리스닝하지 않았는데도 CI 는 초록이었다.
   # 이제 /health 가 200 을 못 내면 fly 가 그 머신을 unhealthy 로 보고 배포가 실패한다.
+  # 260824: timeout 5s → 15s. **바쁜 머신을 죽은 머신으로 오인하던 것을 멈춘다.**
+  #   실측: 동시 12건을 걸자 그 머신의 /health 가 `context deadline exceeded` 로 critical
+  #   이 됐다(파싱이 동기 코드라 이벤트루프가 5초 안에 /health 를 잡아 주지 못한다).
+  #   부하를 옮기자 **두 머신이 서로 자리를 바꿔** critical/passing 이 뒤집혔다 — 머신이
+  #   고장난 게 아니라 **일하고 있는 쪽이 탈락**하는 것이다. fly 는 그 머신을 빼면서
+  #   "Services exposed on ports [80,443] will have intermittent failures" 를 낸다.
+  #   이 검사를 둔 이유(260729)는 「부팅 직후 죽어 8000 에 아무도 안 듣는데 배포가 초록」
+  #   이었다. 그 고장은 **연결 거부로 즉시** 실패하므로 timeout 을 늘려도 안 놓친다.
+  #   늘려서 잃는 건 「느린 머신을 빼는 능력」뿐인데, 그건 애초에 원한 적이 없다.
   [[http_service.checks]]
     grace_period = '15s'
     interval = '30s'
     method = 'GET'
-    timeout = '5s'
+    timeout = '15s'
     path = '/health'
 
 # 260804 사고: 768MB 로는 doc 캐시가 찬 상태에서 OOM(exit_code=137)이 나 머신이
