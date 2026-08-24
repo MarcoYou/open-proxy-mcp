@@ -129,3 +129,43 @@ def test_interpretation_is_reported_to_the_user():
     from open_proxy_mcp.services import screener
     src = inspect.getsource(screener._build_screener_payload_impl)
     assert "입력 해석" in src
+
+
+# ── 스캔 캐시 수명 (260824) ────────────────────────────────────────────
+def test_closed_window_lives_longer_than_live_window():
+    """★ 수명은 한 값으로 정할 문제가 아니었다.
+
+    끝날짜가 오늘이면 지금도 공시가 들어오지만, 끝날짜가 과거면 **그 구간의 답은 더 안
+    변한다**(공시는 접수일로 색인되고 정정도 새 접수번호=오늘 날짜를 받아 과거 창에 안 들어온다).
+    """
+    from open_proxy_mcp.services.screener import (
+        _SCAN_TTL_CLOSED, _SCAN_TTL_LIVE, _scan_ttl, _today_kst, _yyyymmdd,
+    )
+    from datetime import timedelta
+    today = _today_kst()
+    assert _scan_ttl(_yyyymmdd(today)) == _SCAN_TTL_LIVE
+    assert _scan_ttl(_yyyymmdd(today + timedelta(days=1))) == _SCAN_TTL_LIVE, "미래도 살아있는 창"
+    assert _scan_ttl(_yyyymmdd(today - timedelta(days=1))) == _SCAN_TTL_CLOSED
+    assert _SCAN_TTL_CLOSED > _SCAN_TTL_LIVE
+
+
+def test_live_ttl_sits_at_the_knee_of_the_benefit_curve():
+    """260824 실측 — 호출 간격 p50 18초·p75 98초인데 p90 은 27분. 이득의 대부분이
+    첫 2~3분에 나온다. 3분: 적중 80.7%·평균 0.6건 놓침 / 5분: 85.3%·1.0건.
+    상수를 여기 박아 두는 게 아니라 **범위**를 잠근다 — 근거 없이 늘어나는 걸 막는다."""
+    from open_proxy_mcp.services.screener import _SCAN_TTL_LIVE
+    assert 60 <= _SCAN_TTL_LIVE <= 300, "이득 곡선의 무릎(2~5분)을 벗어났다"
+
+
+def test_per_entry_ttl_is_actually_honored():
+    """캐시가 항목별 수명을 받아 쓰는지 — 안 받으면 분기해 봐야 의미가 없다."""
+    import time as _t
+
+    from open_proxy_mcp.dart.client import LruByteCache
+    c = LruByteCache(1024 * 1024, 3600, "t")
+    c.put("short", "x" * 100, ttl_sec=0.05)
+    c.put("long", "x" * 100)
+    assert c.get("short") is not None
+    _t.sleep(0.08)
+    assert c.get("short") is None, "항목별 TTL 이 무시됐다"
+    assert c.get("long") is not None, "공통 TTL 항목까지 죽었다"

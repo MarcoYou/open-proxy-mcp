@@ -304,7 +304,12 @@ class LruByteCache:
             self._entries[key] = entry
             return value
 
-    def put(self, key: str, value) -> None:
+    def put(self, key: str, value, ttl_sec: float | None = None) -> None:
+        """`ttl_sec` 로 **항목마다** 수명을 달리 줄 수 있다.
+
+        만료 시각은 원래부터 항목마다 들고 있었다 — 상한만 캐시 공통이었을 뿐이다.
+        260824: screener 가 「끝날짜가 과거면 안 변한다」를 쓰려고 열었다.
+        """
         nbytes = _cache_entry_bytes(value)
         with self._lock:
             old = self._entries.pop(key, None)
@@ -343,7 +348,8 @@ class LruByteCache:
                 oldest = next(iter(self._entries))
                 self._total_bytes -= self._entries.pop(oldest)[2]
                 self.evictions += 1
-            self._entries[key] = (value, time.time() + self._ttl_sec, nbytes)
+            ttl = self._ttl_sec if ttl_sec is None else ttl_sec
+            self._entries[key] = (value, time.time() + ttl, nbytes)
             self._total_bytes += nbytes
 
     def pop(self, key: str, default=None):

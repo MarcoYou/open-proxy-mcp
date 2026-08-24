@@ -78,9 +78,27 @@ _SCAN_CONCURRENCY = 5
 #
 # ★ 부분 실패(err)는 담지 않는다. 담으면 그 순간의 장애가 TTL 동안 굳는다.
 #
-# TTL 이 짧은 이유: 스크리너의 질문은 「방금 무엇이 떴나」다. 길게 잡으면 그 답이 낡는다.
-_SCAN_CACHE_TTL = float(os.environ.get("OPM_SCAN_CACHE_TTL_SEC", "300") or 300)
-_SCAN_CACHE = LruByteCache(_env_mb("OPM_SCAN_CACHE_MB", 24), _SCAN_CACHE_TTL, "screener_scan")
+# ★ 수명은 **창이 닫혔나**로 가른다 — 한 값으로 정할 문제가 아니었다.
+#
+#   · 끝날짜가 오늘  = 살아 있는 창. 지금도 공시가 들어온다 → 짧게.
+#   · 끝날짜가 과거  = 닫힌 창. **그 구간의 답은 더 안 변한다** — 공시는 접수일로 색인되고
+#     정정도 새 접수번호(오늘 날짜)를 받아 과거 창에 안 들어온다 → 길게.
+#
+# 살아 있는 창을 180초로 잡은 근거(260824 실측):
+#   호출 간격이 양극단이다 — p50 18초 · p75 98초인데 p90 은 27분으로 뛴다. 그래서 이득의
+#   대부분이 첫 2~3분에 나오고 그 뒤로는 신선도만 잃는다.
+#     TTL  1분 71.6% 적중 / 2분 77.1% / 3분 80.7% / 5분 85.3% / 10분 88.1% / 30분 91.7%
+#   유입은 영업일 평균 254건(0.38건/분)이고 균일하지 않다(점심 9분간 0건 실측, 장 마감 후 몰림).
+#   3분이면 평균 0.6건·피크 1.2건을 놓친다. 5분은 적중 4.6%p 더 얻고 놓침이 두 배가 된다.
+_SCAN_TTL_LIVE = float(os.environ.get("OPM_SCAN_CACHE_TTL_SEC", "180") or 180)
+#: 닫힌 창. 「안 변한다」를 완전히 믿지는 않는다 — 뒤늦은 등록·재색인 여지를 두고 1시간.
+_SCAN_TTL_CLOSED = float(os.environ.get("OPM_SCAN_CACHE_TTL_CLOSED_SEC", "3600") or 3600)
+_SCAN_CACHE = LruByteCache(_env_mb("OPM_SCAN_CACHE_MB", 24), _SCAN_TTL_CLOSED, "screener_scan")
+
+
+def _scan_ttl(end_de: str) -> float:
+    """끝날짜가 오늘이면 짧게, 과거면 길게."""
+    return _SCAN_TTL_LIVE if end_de >= _yyyymmdd(_today_kst()) else _SCAN_TTL_CLOSED
 
 # ── 정정 프리픽스 감지 ──────────────────────────────────────────────
 _CORRECTION_RE = re.compile(r"^\s*\[[^\]]*정정[^\]]*\]")
@@ -692,7 +710,7 @@ async def _scan_code(client, detail_ty: str, bgn_de: str, end_de: str,
         # ★ **복사해서 담는다.** 같은 리스트를 담고 그대로 돌려주면, 호출측이 그 리스트를
         #   고치는 순간 캐시가 함께 바뀐다(미스 경로에서 실제로 그랬다). 적중 경로만
         #   복사하면 첫 호출자가 캐시를 오염시킨다 — 넣는 쪽에서 끊는 게 맞다.
-        _SCAN_CACHE.put(key, (list(items), total, trunc))
+        _SCAN_CACHE.put(key, (list(items), total, trunc), ttl_sec=_scan_ttl(end_de))
     return items, total, trunc, err
 
 
