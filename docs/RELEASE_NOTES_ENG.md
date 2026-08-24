@@ -17,9 +17,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 - When concurrent requests need the same filing, only one DART `document.xml` request runs and the other callers share its result.
 - `doc_misses` now counts actual DART round trips rather than every caller that observed a cache miss.
-- The full beta test suite passes 1,131 tests.
+- Existing response formats and single-request behavior are preserved; the full beta test suite passes 1,131 tests.
+- This change is limited to the `beta` branch and has not been deployed to live OPM.
 
-Verified with beta commit `62f702e`, 1,110 tests, and live-data regressions for Shinyoung Securities (001720), Hyungji Elite (093240), and SK hynix (000660).
+Verified with beta commit `0879021`, the concurrent-request single-flight regression test, and the full 1,131-test suite.
 
 ## v2.5.2 (2026-08-05)
 
