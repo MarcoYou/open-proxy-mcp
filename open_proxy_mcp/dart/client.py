@@ -264,6 +264,16 @@ if not 0 < _CACHE_LOW_RATIO < _CACHE_HIGH_RATIO <= 1.0:   # 뒤집힌 값이면 
     _CACHE_HIGH_RATIO, _CACHE_LOW_RATIO = 0.95, 0.75
 
 
+#: **살아 있는 캐시 장부.** `cache_stats()` 가 여기를 훑는다.
+#:
+#: 종전엔 `/health` 가 캐시 셋을 **손으로 나열**했다. 그 사이 `krx`(32MB)·`proxy_advise`(128MB)·
+#: `screener_scan`(24MB) 이 생겼고 전부 관측 밖이었다 — 선언 예산 296MB 중 184MB 가
+#: 안 보였다(260824 실측). 「예산을 정해 놓고 채워지는 걸 못 보면 같은 일이 반복된다」는
+#: 게 이 함수가 있는 이유인데 정작 그 함수가 그러고 있었다.
+#: 이제 캐시가 **스스로 등록**하므로 새로 만들면 자동으로 보인다.
+_CACHE_REGISTRY: "list[LruByteCache]" = []
+
+
 class LruByteCache:
     """LRU + TTL 캐시 — 항목 수가 아니라 **총 바이트**로 evict 한다.
 
@@ -287,6 +297,7 @@ class LruByteCache:
         self.evictions = 0
         self.rejections = 0   # 단일 항목이 예산보다 커서 안 담긴 횟수
         self.sweeps = 0       # 고수위에 닿아 저수위까지 쓸어낸 횟수 (evict 와 따로 센다)
+        _CACHE_REGISTRY.append(self)
 
     def get(self, key: str):
         """LRU + TTL get. 만료면 제거하고 None."""
@@ -550,9 +561,16 @@ def cache_stats() -> dict:
     260804 OOM 은 「죽고 나서야」 보였다. 예산을 정해 놓고 채워지는 걸 못 보면 같은 일이
     반복되므로, 예산 대비 점유율·evict 횟수를 상시 관측 가능하게 둔다.
     (검색 캐시는 인스턴스 소유 + 실측 0.5MB 규모라 여기 넣지 않는다.)
+
+    260824: 셋을 손으로 나열하던 것을 **장부 순회**로 바꿨다. 나열식이면 캐시를 더할 때
+    한쪽만 고쳐지고, 실제로 184MB 가 관측 밖에 있었다. 이제 만들면 자동으로 보인다.
     """
-    return {"document": _DOC_CACHE.stats(), "dividend": _DIVIDEND_CACHE.stats(),
-            "document_disk": _disk_cache_stats()}
+    out = {c._name: c.stats() for c in _CACHE_REGISTRY}
+    out["document_disk"] = _disk_cache_stats()
+    # 선언된 메모리 예산 총합 — 1GB 머신에서 이 합이 어디까지 갔는지가 OOM 의 선행 지표다.
+    out["_budget_mb"] = round(sum(c._max_bytes for c in _CACHE_REGISTRY) / 1024 / 1024)
+    out["_used_mb"] = round(sum(c._total_bytes for c in _CACHE_REGISTRY) / 1024 / 1024, 1)
+    return out
 
 
 # ── sqlite master cache (KIS 참고, iter27 ship) ──

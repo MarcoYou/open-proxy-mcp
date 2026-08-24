@@ -140,3 +140,47 @@ def test_all_instances_share_the_policy(name, mb):
     c = LruByteCache(mb * 1024 * 1024, 3600, name)
     assert c._high_bytes == int(mb * 1024 * 1024 * _CACHE_HIGH_RATIO)
     assert c._low_bytes == int(mb * 1024 * 1024 * _CACHE_LOW_RATIO)
+
+
+# ── 관측 (260824) ─────────────────────────────────────────────────────
+def test_every_cache_is_visible_in_health():
+    """★ `/health` 가 캐시를 **손으로 나열**하고 있었다. 그 사이 krx(32MB)·proxy_advise(128MB)·
+    screener_scan(24MB) 이 생겼고 전부 관측 밖이었다 — 선언 예산 296MB 중 **184MB 가 안 보였다**.
+
+    「예산을 정해 놓고 채워지는 걸 못 보면 같은 일이 반복된다」가 이 함수가 있는 이유인데
+    (260804 OOM) 정작 그 함수가 그러고 있었다. 이제 캐시가 스스로 등록한다.
+    """
+    # 캐시를 만드는 모듈을 전부 import 해야 등록이 끝난다
+    import open_proxy_mcp.services.proxy_advise  # noqa: F401
+    import open_proxy_mcp.services.screener  # noqa: F401
+    import open_proxy_mcp.services.valuation  # noqa: F401
+    from open_proxy_mcp.dart.client import _CACHE_REGISTRY, cache_stats
+
+    st = cache_stats()
+    names = {c._name for c in _CACHE_REGISTRY}
+    for expected in ("document", "dividend", "krx", "proxy_advise", "screener_scan"):
+        assert expected in names, f"{expected} 캐시가 장부에 없다"
+        assert expected in st, f"{expected} 가 /health 에 안 보인다"
+    assert "document_disk" in st
+
+
+def test_health_reports_total_declared_budget():
+    """1GB 머신에서 **선언 예산 총합**이 OOM 의 선행 지표다 — 개별 점유율만으로는 안 보인다."""
+    import open_proxy_mcp.services.proxy_advise  # noqa: F401
+    import open_proxy_mcp.services.screener  # noqa: F401
+    import open_proxy_mcp.services.valuation  # noqa: F401
+    from open_proxy_mcp.dart.client import cache_stats
+
+    st = cache_stats()
+    assert st["_budget_mb"] > 0 and st["_used_mb"] >= 0
+    assert st["_budget_mb"] < 1024, "선언 예산이 머신 메모리를 넘었다"
+
+
+def test_new_cache_registers_itself():
+    """나열식이면 캐시를 더할 때 한쪽만 고쳐진다 — 그 형태를 없앤 것이 요점이다."""
+    from open_proxy_mcp.dart.client import _CACHE_REGISTRY, LruByteCache
+
+    before = len(_CACHE_REGISTRY)
+    LruByteCache(1024, 60, "테스트캐시")
+    assert len(_CACHE_REGISTRY) == before + 1
+    _CACHE_REGISTRY.pop()

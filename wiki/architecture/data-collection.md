@@ -630,9 +630,18 @@ OPM 운영(2026-07-12~ XML 단독):
 | document.xml + viewer 본문 | 메모리 LRU (`_DOC_CACHE`, 전역) | **96MB** + TTL 24h | `doc:` / `viewer:` 네임스페이스 |
 | 과거 배당(alotMatter) | 메모리 LRU (`_DIVIDEND_CACHE`, 전역) | **16MB** + TTL 24h | corp_code + 연도 |
 | list.json (검색) | 인스턴스 dict | 50건 (실측 ~0.5MB) | corp_code+bgn+end+pblntf_ty (단일 corp + page1 + count100만) |
+| 스크리너 스캔 | 메모리 LRU (`_SCAN_CACHE`, 전역) | **24MB** + TTL 3분/1시간 | 공시유형+기간 (→ [[screener]]) |
+| proxy_advise | 메모리 LRU (`_PROXY_ADVISE_CACHE`, 전역) | **128MB** + TTL 1h | 회사+연도 |
+| KRX 전종목 스냅샷 | 메모리 LRU (`_KRX_CACHE`, 전역) | **32MB** + TTL 48h | 기준일자 |
 | 문서 디스크 캐시 | **볼륨** `/data/opm_cache/{rcept_no}.json` | **640MB**, LRU 청소 (32MB 쓸 때마다) | 단일 파일 per rcept_no |
 
-네 캐시 모두 evict 는 **고수위 95% → 저수위 75%** 다(아래 절).
+메모리 캐시는 모두 evict 가 **고수위 95% → 저수위 75%** 다(아래 절). 선언 예산 합 **296MB**
+(머신 1GB) — `/health` 의 `cache._budget_mb`·`_used_mb` 가 그 합을 낸다.
+
+**캐시는 스스로 장부에 등록한다**(`_CACHE_REGISTRY`). 종전엔 `/health` 가 셋을 손으로
+나열했고, 그 사이 생긴 `krx`·`proxy_advise`·`screener_scan` **184MB 가 관측 밖**이었다
+(260824 실측). 「예산을 정해 놓고 채워지는 걸 못 보면 같은 일이 반복된다」가 그 함수가 있는
+이유인데(260804 OOM) 정작 그 함수가 그러고 있었다 — 나열식은 한쪽만 고쳐진다.
 
 ### evict 는 고수위/저수위로 (260824)
 
