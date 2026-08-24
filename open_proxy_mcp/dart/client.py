@@ -934,6 +934,10 @@ class DartClient:
         # 문서화된 예산의 두 배(400개)를 담을 수 있었다. 키 앞에 네임스페이스를 붙여 구분한다.
         self._doc_cache = _DOC_CACHE
         self._disk_cache_dir = _DISK_CACHE_DIR      # 전역 (모듈 상단 주석 참조)
+        # 같은 문서를 동시에 요청하면 첫 요청만 DART를 호출하고 나머지는 결과를
+        # 함께 기다린다. 서비스별 asyncio.gather가 겹치는 경로에서 중복 다운로드를
+        # 막는 per-client single-flight 등록부다.
+        self._doc_inflight: dict[str, asyncio.Task] = {}
         # Search result caching (세션 기반, TTL 없음)
         # 실측 평균 9.8KB · 최대 16.2KB(page_count=100) → 50건이면 ~0.5MB. 문서 캐시의
         # 1/500 수준이라 개수 상한으로 충분하다(260804 OOM 조사에서 확인, 변경 불필요).
@@ -2749,21 +2753,40 @@ class DartClient:
             self._doc_cache.put(cache_key, disk_doc)
             _note_doc("doc_disk_hits")         # 메모리 예산과 무관 — 따로 센다
             return disk_doc
-        _note_doc("doc_misses")                # DART 왕복 — fetch 가 병목인 구간
-        doc = await self.get_document(rcept_no)
-        self._doc_cache.put(cache_key, doc)
-        self._save_to_disk(rcept_no, doc)
-        # 이미지 기반 공고 감지
-        images = doc.get("images", [])
-        notice_images = [img for img in images if any(
-            kw in img for kw in ["소집", "통지", "주총", "공고"]
-        )]
-        if notice_images:
-            logger.warning(
-                f"[IMAGE_NOTICE] 소집공고 본문이 이미지에 포함된 것으로 추정: "
-                f"{rcept_no} | images={notice_images}"
-            )
-        return doc
+        task = self._doc_inflight.get(cache_key)
+        if task is None:
+            _note_doc("doc_misses")            # 실제 DART 왕복은 single-flight owner만 센다
+            task = asyncio.create_task(self._fetch_and_cache_document(rcept_no, cache_key))
+            self._doc_inflight[cache_key] = task
+        try:
+            # 호출자 취소가 공동 fetch까지 취소하지 않도록 보호한다.
+            return await asyncio.shield(task)
+        finally:
+            if task.done() and self._doc_inflight.get(cache_key) is task:
+                self._doc_inflight.pop(cache_key, None)
+
+    async def _fetch_and_cache_document(self, rcept_no: str, cache_key: str) -> dict:
+        """문서 1건을 받아 메모리·디스크 캐시에 저장하는 single-flight 본체."""
+        try:
+            doc = await self.get_document(rcept_no)
+            self._doc_cache.put(cache_key, doc)
+            self._save_to_disk(rcept_no, doc)
+            # 이미지 기반 공고 감지
+            images = doc.get("images", [])
+            notice_images = [img for img in images if any(
+                kw in img for kw in ["소집", "통지", "주총", "공고"]
+            )]
+            if notice_images:
+                logger.warning(
+                    f"[IMAGE_NOTICE] 소집공고 본문이 이미지에 포함된 것으로 추정: "
+                    f"{rcept_no} | images={notice_images}"
+                )
+            return doc
+        finally:
+            # 예외가 난 task도 다음 호출이 재시도할 수 있게 한다. 대기 중인 호출은
+            # 같은 예외를 받고, 등록부는 owner/대기자 중 마지막 호출이 정리한다.
+            if self._doc_inflight.get(cache_key) is asyncio.current_task():
+                self._doc_inflight.pop(cache_key, None)
 
 
 # ── Client Factory ──

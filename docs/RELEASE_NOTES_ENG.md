@@ -13,6 +13,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - Marks a past but unfiled quarter as `미제출` and hides future quarters.
 - Calculates Q4 as annual cumulative minus Q3 cumulative.
 
+### Coalesced duplicate DART document requests
+
+- When concurrent requests need the same filing, only one DART `document.xml` request runs and the other callers share its result.
+- `doc_misses` now counts actual DART round trips rather than every caller that observed a cache miss.
+- The full beta test suite passes 1,131 tests.
+
 Verified with beta commit `62f702e`, 1,110 tests, and live-data regressions for Shinyoung Securities (001720), Hyungji Elite (093240), and SK hynix (000660).
 
 ## v2.5.2 (2026-08-05)
