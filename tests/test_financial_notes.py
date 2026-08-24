@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from open_proxy_mcp.services.financial_notes import (
     EXTRACTION_FAILED,
+    is_wrong_direction,
     NOT_APPLICABLE,
     OK,
     extract,
@@ -242,11 +243,11 @@ def test_note_heading_beats_a_look_alike_table() -> None:
     # 골라도 ✅ 를 주지 않는다 — 여기서는 표제가 붙은 쪽이 골라진다.
 
 
-def test_one_table_holding_both_kinds_is_emitted_once() -> None:
-    """「사용이 제한된 예치금 **및** 담보제공자산 등」 — 한 표를 두 번 내면 두 배가 된다.
+def test_a_table_caught_twice_is_emitted_once() -> None:
+    """같은 표가 사용제한·담보제공 양쪽 앵커에 걸려도 한 번만 낸다.
 
-    260823 메리츠증권 실측: 문서위치 14바이트 차이로 같은 표가 사용제한·담보제공
-    양쪽에 잡혔고, 합계 8,396,466,252 천원이 성격별로 더해져 두 배가 됐다.
+    260823 메리츠증권 실측: 문서위치 14바이트 차이로 같은 표가 두 번 잡혔고,
+    합계 8,396,466,252 천원이 성격별로 더해져 두 배가 됐다.
     """
     html = _doc(
         '<P>31. 사용이 제한된 예치금 및 담보제공자산 등 31-1. 보고기간종료일 현재 '
@@ -259,7 +260,38 @@ def test_one_table_holding_both_kinds_is_emitted_once() -> None:
     tables = extract(html, ["사용제한"])["사용제한"]["tables"]
 
     assert len(tables) == 1
-    assert tables[0]["also_kinds"] == ["pledged"]
+    # 🔴 260824 T 5회차 정정 — 담보라는 말은 **주석 제목**(「31. …및 담보제공자산 등」)에
+    #    있을 뿐 이 표는 순수 사용제한 예치금표다. 담보는 31-2 로 따로 있어 성격별로
+    #    더해도 두 배가 되지 않는다. 「두 성격이 함께 있다」고 말하면 위양성이다.
+    assert "also_kinds" not in tables[0]
+
+
+def test_both_kinds_is_reported_only_when_the_title_itself_says_both() -> None:
+    html = _doc(
+        '<P>(3) 보고기간말 현재 사용이 제한된 예치금 및 담보제공자산의 내역은 '
+        '다음과 같습니다(단위:백만원).</P>'
+        '<TABLE><TR><TD>구분</TD><TD>금액</TD></TR>'
+        '<TR><TD>정기예금</TD><TD>1,000</TD></TR>'
+        '<TR><TD>합계</TD><TD>1,000</TD></TR></TABLE>'
+    )
+
+    (table,) = extract(html, ["사용제한"])["사용제한"]["tables"]
+
+    assert table["also_kinds"] == ["pledged"]
+
+
+def test_pledged_note_is_matched_when_the_filing_says_provided_not_pledged() -> None:
+    # 메리츠증권 31-2 — 「담보로 **제공한** 자산」. 앵커 셋 어디에도 안 걸려
+    # 「제목 대조 실패」 위양성이 났다. 제목은 명백한데 말이 달랐을 뿐이다.
+    from open_proxy_mcp.services.financial_notes import ANCHORS, title_matches
+
+    kws = [k for k, kd in ANCHORS["사용제한"] if kd == "pledged"]
+    t = ("31-2. 보고기간종료일 현재 연결기업의 파생상품거래, 대차거래 및 차입금 등과 "
+         "관련하여 금융기관 등에 담보로 제공한 자산은 다음과 같습니다.")
+
+    assert title_matches(t, kws)
+    # 받은 담보는 여전히 아니다
+    assert is_wrong_direction("담보로 제공받은 자산의 내역은 다음과 같습니다.")
 
 
 def test_restricted_table_carries_the_account_it_sits_in() -> None:
@@ -612,3 +644,19 @@ def test_checksum_handles_a_table_that_has_subtotals_as_well_as_a_total() -> Non
     (rec,) = row_checksums(column_view(parse_table(html)))
     # 소계를 같이 더했으면 정확히 두 배가 됐다
     assert rec["n"] == 6 and rec["sum"] == "29,989,042" and rec["ok"] is True
+
+
+def test_hierarchical_table_does_not_double_count_parent_rows_in_the_checksum() -> None:
+    # 국민은행 「계정별 장부금액 및 공정가치」 — 대분류 밑에 하위 항목이 달려 있다.
+    # 그대로 더하면 두 배 가까이 어긋나 🔴 위양성이 난다.
+    from open_proxy_mcp.services.financial_notes import column_view, row_checksums
+
+    html = ("<TABLE><TR><TH>구분</TH><TH>장부금액</TH></TR>"
+            "<TR><TD>현금 및 예치금</TD><TD>100</TD></TR>"
+            "<TR><TD>당기손익-공정가치 측정 금융자산</TD><TD>60</TD></TR>"
+            "<TR><TD>채무증권</TD><TD>45</TD></TR>"
+            "<TR><TD>지분증권</TD><TD>15</TD></TR>"
+            "<TR><TD>합계</TD><TD>160</TD></TR></TABLE>")
+
+    (rec,) = row_checksums(column_view(parse_table(html)))
+    assert rec["sum"] == "160" and rec["ok"] is True

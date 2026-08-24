@@ -64,6 +64,15 @@ ANCHORS: dict[str, list[tuple[str, str]]] = {
         ("사용제한 금융자산", "restricted"), ("사용제한 예치금", "restricted"),
         ("사용제한", "restricted"),
         ("담보제공자산", "pledged"), ("담보로 제공된 금융자산", "pledged"),
+        # 🔴 **회사마다 말이 다르다.** 260824 T 5회차 — 메리츠증권 31-2 는
+        #    「담보로 **제공한** 자산」이라 앵커 어디에도 안 걸려 「제목 대조 실패」
+        #    위양성이 났다. 제목은 명백한데 말이 달랐을 뿐이다.
+        #    [미해결] 현대해상 투자부동산 담보(306,940,647 천원)는 앵커
+        #    「담보로 제공된 비금융자산」이 문서에 그대로 있는데도 못 싣는다 —
+        #    그 표가 **값 한 칸짜리**(공시금액 / 306,940,647)라 `_table_for` 의
+        #    「값이 든 표인가」 관문(n_numeric >= 2)에 걸린다. 관문을 낮추면 캡션 표가
+        #    값표로 통과하므로 여기서 건드리지 않는다.
+        ("담보로 제공한 자산", "pledged"),
     ],
     "FVPL": [("당기손익-공정가치측정금융자산", "fvpl"), ("당기손익인식금융자산", "fvpl"),
              ("당기손익-공정가치 측정 금융자산", "fvpl")],
@@ -304,6 +313,16 @@ _STATEMENT_CAPTIONS = ("요약재무정보", "요약연결재무정보", "재무
 #:    → **표 앞 문장에 「<앵커>…내역/공시」가 있는 표**를 고른다. 원문이 스스로 붙인 제목이라
 #:    금지어 목록을 손으로 관리하는 것보다 안전하다.
 _TITLE_MARKS = ("구성내역", "세부내역", "내역", "공시", "내용", "장부금액")
+
+#: 🔴 **「다음과 같습니다」는 좁게만 받는다.** 260824 T 5회차 — 메리츠증권 31-2 제목은
+#:    「…담보로 제공한 자산**은 다음과 같습니다**」로 끝나 「내역」도 「공시」도 없다.
+#:    그래서 제목이 명백한데 🔴 위양성이 났다. 그런데 이 말을 넓게 받으면 **앵커를 스쳐
+#:    지나가기만 한 문장까지 제목으로 인정된다** — 국민은행 FVOCI 가 「기타포괄손익-공정가치
+#:    측정 항목으로 지정한 지분상품으로부터 인식한 **배당금수익**은 다음과 같습니다」로
+#:    걸려 배당금 표가 뽑혔다(실측). **앵커가 그 문장의 주어일 때만** 인정한다 —
+#:    앵커 바로 뒤에 조사만 붙는 경우다.
+_TITLE_MARKS_TIGHT = ("다음과 같",)
+_TITLE_GAP_TIGHT = 8
 #: 앵커와 표지어 사이에 끼는 말의 길이. 「18. 담보제공자산 및 담보로 제공받은 자산(1) 당기말과
 #: 전기말 현재 담보로 제공한 자산의 내역」처럼 45자까지 벌어진다(신한은행).
 _TITLE_GAP = 60
@@ -842,6 +861,9 @@ def title_matches(caption: str, kws: tuple[str, ...] | list[str] | str) -> bool:
             tail = cap[i + len(kw): i + len(kw) + _TITLE_GAP]
             if any(m in tail for m in _TITLE_MARKS):
                 return True
+            near = cap[i + len(kw): i + len(kw) + _TITLE_GAP_TIGHT]
+            if any(m in near for m in _TITLE_MARKS_TIGHT):
+                return True
             i += len(kw)
     return False
 
@@ -1051,12 +1073,20 @@ def extract_regions(
                         if body in seen_tables:
                             continue
                         seen_tables.add(body)
-                        if body in emitted_bodies:
-                            # 메리츠증권처럼 한 표가 두 성격에 걸리는 경우 — 한 번만 낸다
-                            emitted_bodies[body].setdefault("also_kinds", []).append(kind)
-                            continue
                         if is_wrong_direction(parsed["caption"]):
                             skipped_direction += 1
+                            continue
+                        if body in emitted_bodies:
+                            # 🔴 **한 표가 두 성격에 걸렸다고 말하려면 제목이 실제로 둘 다
+                            #    말해야 한다.** 260824 T 5회차 — 메리츠증권 31-1 은 순수
+                            #    사용제한 예치금표인데, **주석 제목**(「31. 사용이 제한된
+                            #    예치금 및 담보제공자산」)에 담보 앵커가 들어 있어 표까지
+                            #    담보로 걸렸고 「성격별로 더하면 두 배」 경고가 나갔다.
+                            #    담보는 31-2 로 따로 있어 두 배가 되지 않는다. 3회차 연속
+                            #    지적된 위양성이다. **제목 대조를 통과한 때만 표시한다.**
+                            if (title_matches(parsed["caption"], kin_kws)
+                                    and not is_off_topic(title_only(parsed["caption"]))):
+                                emitted_bodies[body].setdefault("also_kinds", []).append(kind)
                             continue
                         entry = {"anchor": kw, "kind": kind, "pos": pos,
                                  "axis": axis_of(parsed),
@@ -1407,6 +1437,14 @@ def row_checksums(view: dict[str, Any] | None) -> list[dict[str, Any]]:
     others = [i for i in range(len(names)) if i not in set(tot)]
     if len(others) < 2:
         return []
+    # 🔴 **계층 표에서 부모 행을 같이 더하면 두 번 센다.** 260824 실측 — 국민은행
+    #    「계정별 장부금액 및 공정가치」는 대분류(당기손익-공정가치 측정 금융자산
+    #    26,697,998) 밑에 채무증권·지분증권·대출채권·기타가 달려 있다. 그대로 더하면
+    #    22행 합 1,276,111,656 대 원문 585,258,157 — **정확히 두 배 가까이 어긋나고
+    #    🔴 위양성이 난다.** 값으로 부모를 찾아 뺀다(뒤따르는 연속 행의 합과 같은 행).
+    others = [i for i in others if i not in _parent_rows(view, others)]
+    if len(others) < 2:
+        return []
     out: list[dict[str, Any]] = []
     for cc in view["columns"]:
         stated = to_number(cc["values"][ti])
@@ -1466,3 +1504,39 @@ def same_assets(a: dict[str, Any] | None, b: dict[str, Any] | None) -> bool:
             if abs(x - y) <= max(1.0, abs(x) * 1e-9):
                 return True
     return False
+
+
+def _parent_rows(view: dict[str, Any], rows: list[int]) -> set[int]:
+    """값으로 「대분류 행」을 찾는다 — 바로 뒤 연속 행들의 합과 같은 행.
+
+    제목만 봐서는 대분류인지 알 수 없다(들여쓰기가 HTML 에 안 남는 경우가 많다).
+    숫자가 말해 준다. ⚠️ **우연히 맞아떨어지는 행도 부모로 잡힌다** — 그래서 이 판정은
+    검산을 **돌려 보기 위한 보정**에만 쓰고, 결과가 안 맞을 때 「도구가 틀렸다」고
+    말하지 않는다(⚠️ 로만 적는다). 기준 열은 숫자가 가장 많이 든 열 하나만 쓴다 — 열마다 따로
+    판정하면 같은 행이 어떤 열에서는 부모, 어떤 열에서는 잎이 되어 뒤죽박죽이 된다.
+    """
+    best, best_n = None, 0
+    for cc in view["columns"]:
+        vals = [to_number(cc["values"][i]) for i in rows]
+        n = sum(1 for v in vals if v is not None)
+        if n > best_n:
+            best, best_n = vals, n
+    if not best or best_n < 4:
+        return set()
+    parents: set[int] = set()
+    for a in range(len(best)):
+        top = best[a]
+        if top is None or top <= 0:
+            continue
+        acc = 0.0
+        for b in range(a + 1, len(best)):
+            v = best[b]
+            if v is None or v < 0:
+                break
+            acc += v
+            if b > a and abs(acc - top) < 0.5:
+                parents.add(rows[a])
+                break
+            if acc > top + 0.5:
+                break
+    return parents
