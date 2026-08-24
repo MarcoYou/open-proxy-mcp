@@ -95,6 +95,8 @@ _BOOL_COLS = {"is_error"}
 _TL_COLS = ("tool", "key_hash", "latency_ms", "is_error")
 _ERR_COLS = ("ts_ns", "key_hash", "is_error")
 _OUT_COLS = ("key_hash", "tool", "is_error", "error_kind", "weak_kinds")
+#: 조용한 대체 — 「원래 답을 못 줘서 다른 것으로 답한」 경우. 오류율로는 안 보인다.
+_DEG_COLS = ("ts_ns", "key_hash", "tool", "degraded")
 _PATH_COLS = ("ts_ns", "tool", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms")
 
 
@@ -262,6 +264,84 @@ def fetch_tool_latency():
             return merge_drained([(*r, None) for r in db().execute(old).fetchall()], _TL_COLS)
         except sqlite3.OperationalError:
             return merge_drained([], _TL_COLS)
+
+
+def fetch_degradations():
+    """(ts_ns, key_hash, tool, degraded) — 조용한 대체 기록.
+
+    260824 신설. `screener` 유니버스 폴백이 **모든 kospi200 호출에서 100% 발화**하는데도
+    아무 데도 안 쌓이던 것이 계기다. 오류율은 그동안 1% 대로 조용했다.
+    구스키마(컬럼 없음)면 빈 목록 — 경보가 아니라 「그 전 기간」이라는 뜻이다.
+    """
+    sql = "SELECT ts_ns, key_hash, tool, degraded FROM {} WHERE degraded IS NOT NULL AND degraded <> ''"
+    if using_pg():
+        con = _pg_conn()
+        try:
+            rows = con.execute(sql.format("ops_tool_calls")).fetchall()
+        except Exception:
+            con.rollback(); rows = []
+        finally:
+            con.close()
+    else:
+        try:
+            rows = db().execute(sql.format("events")).fetchall()
+        except sqlite3.OperationalError:
+            rows = []
+    return merge_drained(rows, _DEG_COLS)
+
+
+def degradation_stats(rows):
+    """(종류별 건수, tool×종류, 날짜별) — 「언제부터 늘었나」가 핵심 질문이다."""
+    kinds, per_tool, per_day, users = defaultdict(int), defaultdict(int), defaultdict(int), defaultdict(set)
+    import datetime as _dt
+    for ts, h, tool, deg in rows:
+        # ★ **드레인 백업에는 이 컬럼이 없다** — `merge_drained` 가 None 으로 채운다
+        #   (컬럼이 생기기 전 주는 그 값을 가진 적이 없으므로 0 이 아니라 「없음」이 맞다).
+        #   DB 쪽 `WHERE degraded IS NOT NULL` 은 합류분에 안 걸리므로 여기서 다시 거른다.
+        #   이걸 빠뜨리면 `str(None)` 이 "None" 이라는 **가짜 범주**가 되어 65,500건으로
+        #   집계된다(260824 첫 실행에서 실제로 그랬다 — 새 지표가 첫날부터 조용히 틀렸다).
+        if not deg or h in SELF_HASHES or is_protocol(tool):
+            continue
+        day = _dt.datetime.fromtimestamp(int(ts) / 1e9, KST).strftime("%m-%d") if ts else "?"
+        for k in str(deg).split(","):
+            k = k.strip()
+            if not k or k == "None":
+                continue
+            kinds[k] += 1
+            per_tool[(canon_tool(tool), k)] += 1
+            per_day[(day, k)] += 1
+            users[k].add(h)
+    return kinds, per_tool, per_day, users
+
+
+def print_degradations():
+    """[조용한 대체] — **오류가 아닌 고장**을 낸다.
+
+    260824 계기: `screener` 유니버스 폴백이 「전체시장으로 대체」를 모든 kospi200 호출에서
+    발화하는데도 아무 데도 안 쌓였다. 그동안 오류율은 1% 대로 조용했고 경보도 없었다.
+    실측으로 그 사용자는 우리가 깨뜨린 2시간 반 뒤부터 밤새 58건을 다시 눌렀다.
+
+    **날짜별을 함께 내는 이유**: 총량보다 「언제부터 늘었나」가 답이다. 대체는 원래 조금씩
+    일어난다(사용자가 이상한 기간을 넣는 등) — 배포 직후 튀는 것이 우리가 깨뜨린 신호다.
+    """
+    rows = fetch_degradations()
+    if not rows:
+        return          # 기록 전 기간이거나 대체가 없었다 — 경보 아님
+    kinds, per_tool, per_day, users = degradation_stats(rows)
+    if not kinds:
+        return
+    total = sum(kinds.values())
+    print(f"\n[조용한 대체] 총 {total:,}건 — 오류가 아니라 **다른 답으로 바꿔 답한** 경우")
+    for k, n in sorted(kinds.items(), key=lambda kv: -kv[1]):
+        print(f"  {k:20s} {n:>6,}건 · 사용자 {len(users[k])}명")
+    tops = sorted(per_tool.items(), key=lambda kv: -kv[1])[:6]
+    if tops:
+        print("  ├ tool×종류: " + " · ".join(f"{t}/{k} {n:,}" for (t, k), n in tops))
+    days = sorted({d for d, _ in per_day})[-10:]
+    if len(days) > 1:
+        line = " ".join(f"{d}:{sum(n for (dd, _), n in per_day.items() if dd == d)}" for d in days)
+        print(f"  └ 최근 날짜별: {line}")
+        print("     ※ 배포 직후 튀면 우리가 조용히 깨뜨린 것이다 — 오류율로는 안 보인다.")
 
 
 def migrate_local_to_pg():
@@ -768,6 +848,7 @@ def stats(all_rows):
     # 결말 분해 — 종전 [오류종류]는 `WHERE is_error=true` 만 봐서 상류실패·자료없음·
     # 판정불가를 전부 놓쳤다. outcome_breakdown 주석 참조.
     print_outcomes()
+    print_degradations()
 
     print("\n[사용자 Top 15]  요청  활성일  기간(일)  세션  총사용(분)   최초 ~ 최종")
     for h, v in list(users.items())[:15]:

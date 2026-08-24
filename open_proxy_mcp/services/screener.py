@@ -15,7 +15,7 @@
 """
 
 from __future__ import annotations
-from open_proxy_mcp.dart.client import LruByteCache, _env_mb
+from open_proxy_mcp.dart.client import LruByteCache, _env_mb, note_degradation
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
@@ -483,9 +483,11 @@ def resolve_period(period: str, *, cursor: str = "",
             bgn = datetime.strptime(custom_start, "%Y%m%d").date()
             end = datetime.strptime(custom_end or custom_start, "%Y%m%d").date()
         except (ValueError, TypeError):
+            note_degradation("period_fallback")
             notices.append(f"custom 기간 파싱 실패(start={custom_start!r},end={custom_end!r}) → since_yesterday로 대체.")
             bgn, end = today - timedelta(days=1), today
     else:
+        note_degradation("period_fallback")
         notices.append(f"알 수 없는 period={period!r} → since_yesterday로 대체.")
         bgn, end = today - timedelta(days=1), today
 
@@ -631,6 +633,9 @@ async def resolve_universe(universe: str) -> UniverseFilter:
     def _rank(n: int, market: str | None, label: str) -> UniverseFilter:
         allowed = _krx_top_mktcap(n, price_dd, market) if price_dd else set()
         if not allowed:
+            # ★ 260824 계기 지점. 이 폴백이 **모든 kospi200 호출에서 100% 발화**하고 있었는데
+            #   문장이 사용자 응답에만 실려 나가고 우리가 보는 곳엔 안 쌓였다.
+            note_degradation("universe_fallback")
             return UniverseFilter(label=label, resolved=False,
                                   notice="krx_weekly 조회 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
         return UniverseFilter(label=label, resolved=True, allowed=allowed, price_dd=price_dd)
@@ -638,11 +643,15 @@ async def resolve_universe(universe: str) -> UniverseFilter:
     # 시장 전체(랭킹 없음) — exact 매칭(kospi200/kospi:N 흡수 방지)
     if low in ("market:kospi", "kospi"):
         codes = _krx_market_codes(MKT_KS, price_dd) if price_dd else set()
+        if not codes:
+            note_degradation("universe_fallback")
         return UniverseFilter(label="KOSPI 전체", resolved=bool(codes),
                               notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
                               allowed=codes or None, price_dd=price_dd)
     if low in ("market:kosdaq", "kosdaq"):
         codes = _krx_market_codes(MKT_KQ, price_dd) if price_dd else set()
+        if not codes:
+            note_degradation("universe_fallback")
         return UniverseFilter(label="KOSDAQ 전체", resolved=bool(codes),
                               notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
                               allowed=codes or None, price_dd=price_dd)
@@ -652,12 +661,14 @@ async def resolve_universe(universe: str) -> UniverseFilter:
         try:
             n = int(spec.split(":", 1)[1])
         except ValueError:
+            note_degradation("universe_fallback")
             return UniverseFilter(label=spec, resolved=False, notice="kospi:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
         return _rank(n, MKT_KS, f"KOSPI 시총상위 {n}")
     if low.startswith("kosdaq:") or low.startswith("kosdaq_top:"):
         try:
             n = int(spec.split(":", 1)[1])
         except ValueError:
+            note_degradation("universe_fallback")
             return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
         return _rank(n, MKT_KQ, f"KOSDAQ 시총상위 {n}")
 

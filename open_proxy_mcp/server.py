@@ -330,7 +330,10 @@ class ApiKeyMiddleware:
                                      # 이미 corp_codes 에 정규화된 코드로 들어간다.
                                      weak_kinds=(",".join(
                                          w.get("kind") or "unknown"
-                                         for w in ledger["weak_resolutions"]) or None))
+                                         for w in ledger["weak_resolutions"]) or None),
+                                     # 조용한 대체의 **종류만**. 이 값이 갑자기 늘면 우리가
+                                     #   무언가를 깨뜨린 것이다 — 오류율로는 안 보인다.
+                                     degraded=(",".join(ledger.get("degradations") or []) or None))
                 await send(message)
             await self.app(scope, replay, send_wrapper)
         else:

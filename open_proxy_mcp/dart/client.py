@@ -62,6 +62,8 @@ def new_request_ledger() -> dict:
         # 여기 없는 것이 정상이다. web_wait_ms 는 웹 스로틀에서 **실제로 잠든** 시간(ms).
         "fetch_viewer": 0, "fetch_kind": 0, "web_wait_ms": 0,
         "corp_codes": [], "weak_resolutions": [],
+        # 260824: **조용한 대체**. 원래 답을 못 줘서 다른 것으로 바꿔 답한 경우의 종류.
+        "degradations": [],
     }
     _ctx_ledger.set(ledger)
     return ledger
@@ -121,6 +123,49 @@ def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int)
 def weak_resolutions() -> list[dict]:
     ledger = _ctx_ledger.get()
     return list((ledger or {}).get("weak_resolutions") or [])
+
+
+#: **조용한 대체의 종류 — 닫힌 목록.**
+#:
+#: 오타로 새 범주가 생기면 집계가 조용히 갈라진다(그것 자체가 오늘 고치려는 병이다).
+#: 새 종류를 더할 땐 여기에 먼저 적는다 — 테스트가 호출부의 문자열을 이 목록과 대조한다.
+DEGRADATION_KINDS = frozenset({
+    "universe_fallback",   # 요청한 종목 범위를 못 만들어 **더 넓은 범위**로 답했다
+    "period_fallback",     # 요청한 기간을 못 읽어 기본 기간으로 답했다
+    "report_substituted",  # 요청한 보고서가 없어 다른 보고서(반기·분기·전년)로 답했다
+    "statement_basis",     # 연결(CFS)이 없어 별도(OFS)로 답했다 — 기준이 섞인다
+    "year_substituted",    # 요청·추정한 연도를 못 찾아 다른 연도로 답했다
+    "parse_timeout",       # 파싱이 시간을 넘겨 더 거친 경로로 답했다
+})
+
+#: 한 요청이 같은 종류를 여러 번 밟아도 한 번만 센다(상한도 겸한다).
+_LEDGER_MAX_DEGRADATIONS = 16
+
+
+def note_degradation(kind: str) -> None:
+    """원래 답 대신 **다른 것으로 대체해 답했다**를 적는다. 종류만 — 원문·회사명은 안 적는다.
+
+    ★ 왜 필요한가(260824). `screener` 의 유니버스 폴백이 「krx_weekly 조회 실패 → 전체시장으로
+      대체」를 **모든 kospi200 호출에서 100% 발화**하고 있었다. 그 문장은 사용자 응답에
+      실려 나갔지만 우리가 보는 곳 어디에도 안 쌓였고, 오류율은 1% 대로 조용했다.
+      실측: 그 사용자는 우리가 깨뜨린 2시간 반 뒤부터 밤새 58건을 다시 눌렀다.
+      **에러가 아니라 대체**로 나타나는 고장을 보려면 대체를 세야 한다.
+
+    적는 곳은 대체가 확정되는 지점, 읽는 곳은 미들웨어 하나다(`weak_resolutions` 와 같은 구조).
+    장부가 없으면(스크립트·테스트) 조용히 통과한다.
+    """
+    ledger = _ctx_ledger.get()
+    if ledger is None or not kind:
+        return
+    seen = ledger.setdefault("degradations", [])
+    if kind in seen or len(seen) >= _LEDGER_MAX_DEGRADATIONS:
+        return
+    seen.append(kind)
+
+
+def degradations() -> list[str]:
+    ledger = _ctx_ledger.get()
+    return list((ledger or {}).get("degradations") or [])
 
 
 def set_request_api_key(opendart: str):

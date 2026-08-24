@@ -11,31 +11,28 @@ def test_usage_insert_columns_match_placeholders_and_tuple():
     """컬럼 수 · 플레이스홀더 · 큐 튜플이 어긋나면 **조용히 다른 컬럼에 값이 들어간다**.
 
     260704 mkt_fund_hist 사고가 그것이었다(DDL 선언 순서와 실제 컬럼 순서가 어긋나
-    문자열이 double precision 컬럼에 들어감). INSERT 는 컬럼명을 명시하고 있으니
-    남은 위험은 **개수 불일치**뿐이라 그것만 계약으로 고정한다.
+    문자열이 double precision 컬럼에 들어감).
+
+    260824: 네 곳에 손으로 나열하던 목록을 `_EVENT_COLUMNS` 한 곳에서 만들도록 바꿔
+    **어긋날 자리를 없앴다**. 그래도 검사는 남긴다 — 「구조가 지킨다」는 주장 자체가
+    회귀 대상이고, 누군가 다시 손으로 나열하면 여기서 걸려야 한다.
     """
     import re
 
+    from open_proxy_mcp.usage import _EVENT_COLUMNS, _insert_sql
+
+    n = len(_EVENT_COLUMNS)
+    for table, ph in (("ops_tool_calls", "%s"), ("events", "?")):
+        sql = _insert_sql(table, ph)
+        cols = [c for c in sql[sql.index("(") + 1:sql.index(")")].split(",") if c.strip()]
+        vals = sql[sql.index("VALUES"):]
+        assert len(cols) == n, f"{table} 컬럼 {len(cols)} ≠ SSOT {n}"
+        assert vals.count(ph) == n, f"{table} 플레이스홀더 {vals.count(ph)} ≠ SSOT {n}"
+
+    # 큐 튜플도 같은 목록에서 조립돼야 한다 — 손으로 나열하면 여기서 걸린다.
     src = open("open_proxy_mcp/usage.py", encoding="utf-8").read()
-
-    def _count(pattern):
-        m = re.search(pattern, src, re.S)
-        cols = [c for c in re.sub(r'["\n]', " ", m.group(1)).split(",") if c.strip()]
-        ph = [x for x in re.sub(r'["\n\s]', "", m.group(2)).split(",") if x]
-        return len(cols), len(ph)
-
-    pg_c, pg_p = _count(r"INSERT INTO ops_tool_calls\((.*?)\).*?VALUES\((.*?)\)")
-    sq_c, sq_p = _count(r"INSERT OR IGNORE INTO events\((.*?)\).*?VALUES\((.*?)\)")
-    tup = re.search(r"_q\.put_nowait\(\((.*?)\)\)", src, re.S).group(1)
-    tup_n = len([x for x in re.sub(r"\s", "", tup).split(",") if x])
-
-    assert pg_c == pg_p, f"Postgres 컬럼 {pg_c} ≠ 플레이스홀더 {pg_p}"
-    assert sq_c == sq_p, f"SQLite 컬럼 {sq_c} ≠ 플레이스홀더 {sq_p}"
-    # 260817 로 `corp_codes` 가 이벤트 행에 돌아와 큐 튜플과 컬럼 수가 **같아졌다**.
-    # 다르면 어딘가에서 값이 조용히 버려지거나 밀려 들어간다는 뜻이다 —
-    # 260810~260817 사이에는 정확히 하나 많은 것이 정상이었다(그때는 일부러 뺐다).
-    assert pg_c == sq_c, f"Postgres 컬럼 {pg_c} ≠ SQLite 컬럼 {sq_c}"
-    assert tup_n == pg_c, f"큐 튜플 {tup_n} ≠ 이벤트 컬럼 {pg_c}"
+    assert re.search(r"_q\.put_nowait\(tuple\(vals\[c\] for c in _EVENT_COLUMNS\)\)", src), \
+        "큐 튜플이 _EVENT_COLUMNS 순서로 조립되지 않는다"
 
 
 def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
@@ -53,9 +50,10 @@ def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
     """
     import re
 
+    from open_proxy_mcp.usage import _EVENT_COLUMNS
+
     src = open("open_proxy_mcp/usage.py", encoding="utf-8").read()
-    m = re.search(r"INSERT INTO ops_tool_calls\((.*?)\)", src, re.S)
-    cols = {c.strip() for c in re.sub(r'["\n]', " ", m.group(1)).split(",") if c.strip()}
+    cols = set(_EVENT_COLUMNS)
 
     assert "ops_corp_daily" in src, "집계 경로가 사라졌다 — 드레인 뒤 기업 신호가 통째로 없어진다"
     for banned in ("company", "stock_code", "args", "arguments", "rcept_no",

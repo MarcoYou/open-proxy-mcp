@@ -125,7 +125,8 @@ def _sqlite_connect():
                 "doc_mem_hits INTEGER", "doc_disk_hits INTEGER", "doc_misses INTEGER",
                 "corp_codes TEXT",
                 "fetch_viewer INTEGER", "fetch_kind INTEGER",
-                "web_wait_ms INTEGER", "weak_kinds TEXT"):  # 기존 테이블 마이그레이션
+                "web_wait_ms INTEGER", "weak_kinds TEXT",
+                "degraded TEXT"):  # 기존 테이블 마이그레이션
         try:
             con.execute(f"ALTER TABLE events ADD COLUMN {col}")
         except sqlite3.OperationalError:
@@ -133,16 +134,30 @@ def _sqlite_connect():
     return con
 
 
+#: **이벤트 1건의 컬럼 순서 — 여기가 단일 출처다.**
+#:
+#: 종전엔 이 목록이 네 곳(sqlite DDL·sqlite INSERT·PG INSERT·`record()` 튜플)에 손으로
+#: 나열돼 있었다. 이름 기반 ALTER 는 빠뜨려도 **에러가 나서** 바로 보이지만, INSERT 목록과
+#: 튜플 순서가 어긋나면 **조용히 다른 컬럼에 값이 들어간다**(260704 mkt_fund_hist 사고).
+#: 컬럼을 더할 때 한쪽만 고쳐지는 자리를 없앤다 — 260824 에 이 레포에서 네 번 겪은 형태다.
+_EVENT_COLUMNS = (
+    "event_id", "ts_ns", "key_hash", "status",
+    "tool", "latency_ms", "is_error", "error_kind", "response_bytes",
+    "doc_mem_hits", "doc_disk_hits", "doc_misses", "corp_codes",
+    "fetch_viewer", "fetch_kind", "web_wait_ms", "weak_kinds",
+    "degraded",
+)
+
+
+def _insert_sql(table: str, ph: str) -> str:
+    cols = ", ".join(_EVENT_COLUMNS)
+    return f"INSERT INTO {table}({cols}) VALUES({', '.join([ph] * len(_EVENT_COLUMNS))})"
+
+
 def _sqlite_write(con, batch):
     # 컬럼명을 반드시 명시한다 — ADD COLUMN 으로 물리적 순서가 바뀌면 위치 의존 INSERT 는
     # **조용히 다른 컬럼에 값을 넣는다**(260704 mkt_fund_hist 사고).
-    con.executemany(
-        "INSERT OR IGNORE INTO events(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
-        "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        batch
-    )
+    con.executemany(_insert_sql("events", "?").replace("INSERT INTO", "INSERT OR IGNORE INTO"), batch)
     rows = [(str(d), c, n) for (d, c), n in _corp_counts(batch).items()]
     if rows:
         con.executemany(
@@ -192,6 +207,14 @@ def _pg_connect():
     # **사용자가 친 원문(`query`)은 절대 싣지 않는다** — 여기 넣으면 「질의 원문 미보관」
     # 정책이 그 자리에서 깨진다. 방식 이름만 남겨도 「우리가 얼마나 자주 찍었나」는 답한다.
     con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS weak_kinds text")
+    # 260824: **조용한 대체**를 센다. 원래 답을 못 줘서 다른 것으로 바꿔 답한 경우의 **종류**만.
+    #   계기: `screener` 의 유니버스 폴백이 「krx_weekly 조회 실패 → 전체시장으로 대체」를
+    #   **모든 kospi200 호출에서 100% 발화**하고 있었는데(260823 개명이 KS/KQ 로 바꾸면서
+    #   질의가 0건을 냈다) 그 문장이 사용자 응답에만 실려 나가고 우리가 보는 곳엔 아무 데도
+    #   안 쌓였다. 오류율은 1% 대로 조용했고 아무 경보도 없었다.
+    #   실측: 그 사용자는 개명 2시간 반 뒤부터 밤새 58건을 다시 눌렀다.
+    #   여기 종류만 남긴다 — 회사명·질의 원문은 `weak_kinds` 와 같은 이유로 싣지 않는다.
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS degraded text")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON ops_tool_calls(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON ops_tool_calls(ts_ns)")
     # ops_corp_daily 는 corp_codes 를 되돌린 뒤에도 **계속 쓴다**(260817, 위 모듈 주석).
@@ -207,12 +230,7 @@ def _pg_connect():
 def _pg_write(con, batch):
     # 컬럼명 명시 — 위치 의존 INSERT 는 ADD COLUMN 후 조용히 어긋난다(260704 사고).
     con.cursor().executemany(
-        "INSERT INTO ops_tool_calls(event_id, ts_ns, key_hash, status, tool, latency_ms, is_error, error_kind, "
-        "response_bytes, doc_mem_hits, doc_disk_hits, doc_misses, corp_codes, "
-        "fetch_viewer, fetch_kind, web_wait_ms, weak_kinds) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (event_id) DO NOTHING",
-        batch,
-    )
+        _insert_sql("ops_tool_calls", "%s") + " ON CONFLICT (event_id) DO NOTHING", batch)
     rows = [(d, c, n) for (d, c), n in _corp_counts(batch).items()]
     if rows:
         con.cursor().executemany(
@@ -266,7 +284,8 @@ def _ensure_worker() -> None:
 def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=None,
            error_kind=None, response_bytes=None,
            doc_mem_hits=None, doc_disk_hits=None, doc_misses=None, corp_codes=None,
-           fetch_viewer=None, fetch_kind=None, web_wait_ms=None, weak_kinds=None) -> None:
+           fetch_viewer=None, fetch_kind=None, web_wait_ms=None, weak_kinds=None,
+           degraded=None) -> None:
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
@@ -279,6 +298,8 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     fetch_viewer/fetch_kind=폴백 경로로 나간 웹 요청 수(주 경로는 doc_misses 가 센다),
     web_wait_ms=그 폴백의 예의 간격 때문에 실제로 잠든 시간(ms),
     weak_kinds=이름이 정확히 안 맞아 추정으로 고른 해석의 **방식**만(원문 미보관).
+    degraded=원래 답을 못 줘서 다른 것으로 **대체해 답한** 경우의 종류만(260824). 이 값이
+    갑자기 늘면 우리가 무언가를 조용히 깨뜨린 것이다 — 오류율로는 안 보이는 고장이다.
     corp_codes=이 요청이 **해석해 낸** 기업 코드 목록(사용자가 친 원문은 남기지 않는다).
 
     260804 이전에는 「회사는 기록하지 않는다」였다. 집계로 무엇이 많이 쓰이는지 보려고
@@ -295,10 +316,15 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
         ts_ns = time.time_ns()
         ev_id = f"{ts_ns}-{MACHINE}-{next(_counter)}"
         codes = ",".join(corp_codes) if corp_codes else None
-        _q.put_nowait((ev_id, ts_ns, khash, int(status), tool, latency_ms, is_error,
-                       error_kind, response_bytes, doc_mem_hits, doc_disk_hits,
-                       doc_misses, codes, fetch_viewer, fetch_kind, web_wait_ms,
-                       weak_kinds))
+        # **SSOT 순서로 조립한다** — 손으로 나열하면 컬럼을 더할 때 짝이 어긋난다.
+        vals = {"event_id": ev_id, "ts_ns": ts_ns, "key_hash": khash, "status": int(status),
+                "tool": tool, "latency_ms": latency_ms, "is_error": is_error,
+                "error_kind": error_kind, "response_bytes": response_bytes,
+                "doc_mem_hits": doc_mem_hits, "doc_disk_hits": doc_disk_hits,
+                "doc_misses": doc_misses, "corp_codes": codes,
+                "fetch_viewer": fetch_viewer, "fetch_kind": fetch_kind,
+                "web_wait_ms": web_wait_ms, "weak_kinds": weak_kinds, "degraded": degraded}
+        _q.put_nowait(tuple(vals[c] for c in _EVENT_COLUMNS))
     except Exception:
         pass
 

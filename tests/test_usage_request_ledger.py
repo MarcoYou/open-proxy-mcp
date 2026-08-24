@@ -44,7 +44,7 @@ def test_ledger_starts_empty():
     assert led == {
         "doc_mem_hits": 0, "doc_disk_hits": 0, "doc_misses": 0,
         "fetch_viewer": 0, "fetch_kind": 0, "web_wait_ms": 0,
-        "corp_codes": [], "weak_resolutions": [],
+        "corp_codes": [], "weak_resolutions": [], "degradations": [],
     }
 
 
@@ -326,21 +326,23 @@ def test_event_insert_carries_corp_codes_and_keeps_the_aggregate():
     이 테스트가 지키는 건 「적는다」가 아니라 **둘 다 간다**는 쪽이다. 이벤트만 남기면
     드레인이 완결 주를 가져갈 때 기업 조회 순위가 통째로 사라진다 — 드레인은 부채의
     수명 상한이라 멈출 수 없고, 그러면 장기 계열이 없어진다."""
-    from pathlib import Path
+    from open_proxy_mcp.usage import _EVENT_COLUMNS, _insert_sql
 
-    src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
-    text = src.read_text(encoding="utf-8")
-    for stmt in ("INSERT OR IGNORE INTO events(", "INSERT INTO ops_tool_calls("):
-        i = text.index(stmt)
-        head = text[i:i + 600]
-        cols = head[:head.index("VALUES")]
-        assert "corp_codes" in cols, f"이벤트 INSERT 가 기업을 안 싣는다: {stmt}"
+    for table, ph in (("events", "?"), ("ops_tool_calls", "%s")):
+        sql = _insert_sql(table, ph)
+        cols = sql[:sql.index("VALUES")]
+        assert "corp_codes" in cols, f"이벤트 INSERT 가 기업을 안 싣는다: {table}"
         # 컬럼 수 = 플레이스홀더 수. 하나라도 어긋나면 **조용히 밀려 다른 컬럼에 들어간다**
         # (260704 mkt_fund_hist 사고와 같은 실패 모드).
-        ph = head[head.index("VALUES"):]
-        ph = ph[:ph.index(")") + 1]
-        assert cols.count(",") + 1 == ph.count("%s") + ph.count("?"), \
-            f"컬럼 수와 값 자리 수가 다르다: {stmt}"
+        #   260824: 목록을 `_EVENT_COLUMNS` 한 곳에서 만들도록 바꿔 **어긋날 자리를 없앴다** —
+        #   그래도 검사를 남긴다. 구조가 지킨다는 주장 자체가 회귀 대상이다.
+        vals = sql[sql.index("VALUES"):]
+        assert cols.count(",") + 1 == vals.count(ph) == len(_EVENT_COLUMNS), \
+            f"컬럼 수와 값 자리 수가 다르다: {table}"
+
+    from pathlib import Path
+    src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
+    text = src.read_text(encoding="utf-8")
     assert "ops_corp_daily" in text, "집계 테이블로 올리는 경로가 없다"
 
 

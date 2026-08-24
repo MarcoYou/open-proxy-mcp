@@ -18,6 +18,7 @@ import time
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.contracts import (
@@ -1594,6 +1595,7 @@ async def _fetch_year_metrics(
         if not rows_curr:
             return {}, [fb_err or f"{year}년 데이터 미공시"], 0
         if used_rc != _REPRT_BUSINESS:
+            note_degradation("report_substituted")
             warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={used_rc}로 대체 (반기/분기)")
     else:
         rows_curr, err_curr = await _safe_fetch_acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
@@ -1948,6 +1950,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
     # CFS 요청인데 일부/전부 분기가 OFS면 경고 (조용한 폴백·분기 간 기준 혼재 방지).
     if fs_div == "CFS" and "OFS" in fs_seen:
         if "CFS" in fs_seen:
+            note_degradation("statement_basis")
             warnings.append("일부 분기에 연결재무제표(CFS)가 없어 별도(OFS)로 대체됨 — 분기 간 기준 혼재 주의.")
         else:
             warnings.append("연결재무제표(CFS) 미작성 — 별도(OFS) 기준 분기 산출. 연결 기준 수치 아님.")
