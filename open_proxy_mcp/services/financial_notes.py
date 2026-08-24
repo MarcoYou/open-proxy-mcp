@@ -36,11 +36,16 @@ OK = "OK"
 _TABLE_OPEN = re.compile(r"<TABLE", re.I)
 _TE = re.compile(r"<TE\s[^>]*ACODE=", re.I)
 _ROW = re.compile(r"<TR[^>]*>(.*?)</TR>", re.S | re.I)
-_CELL = re.compile(r"<T[DHE]([^>]*)>(.*?)</T[DHE]>", re.S | re.I)
-_ACODE = re.compile(r'ACODE="([^"]*)"', re.I)
-_ACTX = re.compile(r'ACONTEXT="([^"]*)"', re.I)
-_COLSPAN = re.compile(r'COLSPAN\s*=\s*"?(\d+)"?', re.I)
-_ROWSPAN = re.compile(r'ROWSPAN\s*=\s*"?(\d+)"?', re.I)
+_CELL = re.compile(r"<(T[DHE])([^>]*)>(.*?)</T[DHE]>", re.S | re.I)
+#: 🔴 **따옴표 종류를 가리면 안 된다.** 260824 실측 — DART 뷰어가 내려주는 절 HTML 은
+#:    속성을 **홑따옴표**로 쓴다(`colspan='26'`). 겹따옴표만 받던 예전 정규식은 뷰어
+#:    경로에서 colspan/rowspan 을 **한 번도 못 잡았다.** 그래서 "병합 폭은 colspan 에
+#:    있다"고 안내해 놓고 정작 그 값을 실어 보내지 않았고, 27열 표가 2열로 세어졌다.
+#:    (document.xml 전체를 받는 경로는 겹따옴표라 여태 드러나지 않았다.)
+_ACODE = re.compile(r"""ACODE\s*=\s*(?:"([^"]*)"|'([^']*)')""", re.I)
+_ACTX = re.compile(r"""ACONTEXT\s*=\s*(?:"([^"]*)"|'([^']*)')""", re.I)
+_COLSPAN = re.compile(r"""COLSPAN\s*=\s*["']?(\d+)["']?""", re.I)
+_ROWSPAN = re.compile(r"""ROWSPAN\s*=\s*["']?(\d+)["']?""", re.I)
 _TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"\s+")
 
@@ -145,6 +150,48 @@ def table_at(html: str, pos: int) -> str | None:
     return html[span[0]:span[1]] if span else None
 
 
+def grid_of(rows: list[list[dict[str, Any]]]) -> list[list[dict[str, Any]]]:
+    """colspan·rowspan 을 채워 **진짜 직사각 행렬**로 편다.
+
+    🔴 **260824 NH투자증권 실측 — 이걸 안 하면 27열짜리 온전한 표가 「행마다 열 수가
+       다르다」로 읽힌다.** 예전에는 `sum(colspan)` 만 셌는데, `rowspan` 으로 위 행이
+       아래 행의 열을 먹고 있으면 아래 행은 물리 칸이 모자란다. 그래서 머리 5행이
+       27이 아니라 10으로 세어졌고, 멀쩡한 표에 🔴 오경보가 나갔다.
+       **격자를 펴야 열 이름과 값이 같은 열 번호로 만난다** — 그게 이 함수의 전부다.
+
+    이어받은 칸은 `spanned=True` 사본으로 표시한다(원본 셀 dict 는 건드리지 않는다).
+    """
+    out: list[list[dict[str, Any]]] = []
+    carry: dict[int, tuple[int, dict[str, Any]]] = {}   # 시작열 → (남은 행수, 셀)
+    for row in rows:
+        line: list[dict[str, Any]] = []
+        col = 0
+        fresh: dict[int, tuple[int, dict[str, Any]]] = {}
+
+        def _drain(col: int) -> int:
+            while col in carry:
+                _, up = carry[col]
+                for _i in range(up.get("colspan", 1)):
+                    line.append(dict(up, spanned=True))
+                col += up.get("colspan", 1)
+            return col
+
+        for cell in row:
+            col = _drain(col)
+            span = cell.get("colspan", 1)
+            line.append(cell)
+            for _i in range(span - 1):
+                line.append(dict(cell, spanned=True))
+            if cell.get("rowspan", 1) > 1:
+                fresh[col] = (cell["rowspan"] - 1, cell)
+            col += span
+        _drain(col)
+        out.append(line)
+        carry = {c: (n - 1, up) for c, (n, up) in carry.items() if n - 1 > 0}
+        carry.update(fresh)
+    return out
+
+
 def parse_table(tbl: str, context: str = "") -> dict[str, Any]:
     """표 하나 → 행렬 + 형식 판정. **셀을 합치거나 나누지 않는다.**
 
@@ -155,8 +202,11 @@ def parse_table(tbl: str, context: str = "") -> dict[str, Any]:
     rows: list[list[dict[str, Any]]] = []
     for raw in _ROW.findall(tbl):
         cells = []
-        for attrs, body in _CELL.findall(raw):
+        for tag, attrs, body in _CELL.findall(raw):
             cell: dict[str, Any] = {"text": _clean(body)}
+            # 머리칸/값칸 구분. 열 경로를 세우려면 어디까지가 머리인지 알아야 한다.
+            if tag.upper() == "TH":
+                cell["th"] = True
             # 260823 T보고: 「열 이름 10개 · 값 9개」로 값이 한 칸씩 밀려 읽혔다.
             # 원인은 병합 셀이고, 병합 폭을 버리면 읽는 쪽이 복원할 수 없다. 실어 보낸다.
             mc = _COLSPAN.search(attrs)
@@ -168,10 +218,10 @@ def parse_table(tbl: str, context: str = "") -> dict[str, Any]:
             if tagged:
                 m = _ACODE.search(attrs)
                 if m:
-                    cell["acode"] = m.group(1)
+                    cell["acode"] = m.group(1) or m.group(2)
                 m2 = _ACTX.search(attrs)
                 if m2:
-                    ctx = m2.group(1)
+                    ctx = m2.group(1) or m2.group(2)
                     cell["acontext"] = ctx
                     # 연결/별도는 문맥에 박혀 있다 — 열 위치로 짐작하지 않는다
                     if "ConsolidatedMember" in ctx:
@@ -183,11 +233,14 @@ def parse_table(tbl: str, context: str = "") -> dict[str, Any]:
             rows.append(cells)
     header = next(([c["text"] for c in r] for r in rows if len(r) >= 2 and any(c["text"] for c in r)), [])
     n_num = sum(1 for r in rows for c in r if _NUMISH.match(c["text"]))
-    # 병합 폭까지 세어 본 「논리 열 수」. 행마다 다르면 그 표는 그대로 읽으면 어긋난다.
-    widths = [sum(c.get("colspan", 1) for c in r) for r in rows] or [0]
+    # 🔴 열 폭은 **격자를 편 뒤에** 센다. colspan 만 더하면 rowspan 이 먹은 열을 빠뜨려
+    #    멀쩡한 직사각형 표가 「행마다 열 수가 다르다」로 나온다(260824 NH 실측).
+    grid = grid_of(rows)
+    widths = [len(r) for r in grid] or [0]
     return {
         "format": "xbrl_tagged" if tagged else "html_table",
         "rows": rows,
+        "grid": grid,
         "n_rows": len(rows),
         "n_numeric": n_num,
         "header": header,
@@ -270,6 +323,12 @@ _MULTI_TABLE_LIMIT = 3
 _OFF_TOPIC = ("특수관계자", "신용위험", "기대신용손실", "최대노출", "부문별", "집중",
               "익스포져", "공정가치체계", "수준별", "민감도", "위험 집중",
               "등급별", "서열체계", "가치평가기법")
+
+
+def is_totalish_title(title: str) -> bool:
+    """원문이 「…, 합계」·「… 총계」로 따로 실은 표인가. 세부표의 짝이다."""
+    head = (title or "").split("(단위")[0]
+    return any(k in head for k in ("합계", "총계"))
 
 
 def is_off_topic(caption: str) -> bool:
@@ -375,6 +434,39 @@ def is_note_heading(caption: str, kws: list[str] | tuple[str, ...]) -> bool:
                 return True
             i += len(kw)
     return False
+
+
+#: 필드마다 「이 범주를 가리키는 말」. 제목이 **다른 필드의 범주**를 말하고 있으면
+#: 그 표는 요청한 범주의 표가 아니다.
+_FIELD_MARKS = {
+    "FVPL": ("당기손익-공정가치", "당기손익인식"),
+    "FVOCI": ("기타포괄손익-공정가치",),
+    "상각후원가": ("상각후원가",),
+}
+
+
+def title_says_other_field(title: str, field: str) -> str | None:
+    """제목이 **다른 범주**를 말하고 있으면 그 범주 이름을 돌려준다.
+
+    🔴 260824 T보고 — 메리츠증권 `상각후원가` 요청에 「8-4. …**기타포괄손익-공정가치측정
+       금융자산평가손익**의 내역」 표가 나왔다. 축이 유형별이라 ⚠️ 로 통과했는데,
+       축이 맞아도 **범주가 다르면 다른 표다.** 앵커가 걸린 것은 표 안에 「상각후원가」
+       라는 **열 이름**이 있어서다. 제목이 이 필드의 범주를 말하지 않고 다른 범주를
+       말하면 🔴 로 되돌린다.
+    """
+    head = (title or "").split("(단위")[0]
+    if not head:
+        return None
+    mine = _FIELD_MARKS.get(field, ())
+    if any(m in head for m in mine):
+        return None
+    for other, marks in _FIELD_MARKS.items():
+        if other == field:
+            continue
+        for m in marks:
+            if m in head:
+                return other
+    return None
 
 
 def title_weakness(caption: str) -> int:
@@ -595,14 +687,45 @@ def balance_sheet(html: str, basis: str | None) -> dict[str, Any] | None:
         return {"accounts": accounts, "unit": parsed["unit"]}
 
 
+#: 계정명 꼬리에 붙는 주석 참조. `현금및현금성자산 (주35,37)` 처럼 붙어 온다.
+_NOTE_REF = re.compile(r"\s*[\(（]\s*주[\s\d,，.·]*[\)）]\s*$")
+
+
+def norm_account(name: str) -> str:
+    """계정명에서 주석 참조 꼬리를 뗀다. 260824 실측 — NH투자증권 재무상태표는
+    `현금및현금성자산 (주35,37)` 로 실려 있어 완전일치가 **꼬리 때문에만** 깨졌다."""
+    return _NOTE_REF.sub("", (name or "").strip()).strip()
+
+
 def lookup_account(bs: dict[str, Any] | None, account: str) -> dict[str, Any] | None:
-    """재무상태표에서 **완전일치**하는 계정만 돌려준다. 부분일치는 쓰지 않는다."""
+    """재무상태표에서 계정을 찾는다. **틀린 분모를 만들지 않는 것이 첫째다.**
+
+    260824 T보고 — 6사 중 5사가 「분모 없음」으로 나갔다. 원인이 셋으로 갈린다.
+      ① 주석 참조 꼬리 때문에만 안 맞음(NH `현금및현금성자산 (주35,37)`) → **정규화하면 맞는다.**
+      ② 은행·증권은 「**현금및예치금**」으로 현금과 **묶여** 있다(국민은행·메리츠증권).
+         → 예치금만의 잔액이 아니다. **그대로 분모로 쓰면 unencumbered 가 과대계상된다.**
+            값을 주되 `contains=True` 로 「묶여 있다」고 밝히고 쓰지 말라고 한다.
+      ③ 보험사는 그 계정 자체가 없다(KB손보·현대해상) → 없는 것이 맞다.
+    ①과 ②를 ③과 같은 「분모 없음」으로 뭉개면 읽는 쪽이 취할 행동이 달라진다.
+    """
     if not bs or not account:
         return None
-    vals = bs["accounts"].get(account)
-    if not vals:
-        return None
-    return {"values": vals, "unit": bs["unit"]}
+    want = norm_account(account)
+    index = {norm_account(k): (k, v) for k, v in bs["accounts"].items()}
+    hit = index.get(want)
+    if hit:
+        return {"values": hit[1], "unit": bs["unit"], "matched": hit[0]}
+    # 묶여 있는 계정 — 이름이 통째로 들어 있고 그 계정이 더 긴 경우만
+    wider = [(k, v) for k, (orig, v) in index.items()
+             if want and want in k and k != want and len(k) > len(want)]
+    if len(wider) == 1:
+        k, v = wider[0]
+        return {"values": v, "unit": bs["unit"], "matched": k, "contains": True}
+    if len(wider) > 1:
+        # 「금융자산」처럼 여러 계정에 걸치는 이름 — 「없다」와는 다른 상황이다
+        return {"values": [], "unit": bs["unit"],
+                "spread": [k for k, _ in wider[:4]]}
+    return None
 
 
 
@@ -738,6 +861,32 @@ def is_statement_table(parsed: dict[str, Any]) -> bool:
     return False
 
 
+#: 표 앞 문장을 자를 때 「앞 표의 숫자 잔해」를 끊는 데 쓴다.
+_NUM_RUN = re.compile(r"[\d,]{3,}")
+
+
+def caption_before(html: str, tstart: int, window: int = 2000) -> str:
+    """표 바로 앞의 **제목 문장만** 돌려준다. 앞 표의 숫자는 끊는다.
+
+    🔴 **260824 NH투자증권 실측 — 제목이 통째로 숫자 잔해로 나갔다.** DART 뷰어는
+       제목을 `class='nb'` 짜리 **작은 표**로 얹는다(「상각후원가측정금융자산의 내역,
+       합계」 / 「당반기말」 / 「(단위 : 백만원)」). 그런데 앞 2000자를 그대로 쓰면
+       그 앞 값표의 숫자가 먼저 들어차서 제목이 밀려난다. 그러면 제목 대조가 실패하고
+       「원문에 제목 문장이 없다」로 나간다 — **있는데 못 읽은 것이다.**
+       그래서 창 안에서 **값이 든 표가 끝난 지점**까지 잘라내고 그 뒤만 본다.
+    """
+    seg = html[max(0, tstart - window):tstart]
+    cut = 0
+    for m in re.finditer(r"</TABLE\s*>", seg, re.I):
+        # 이 </TABLE> 로 닫히는 표가 값표였나 — 직전 <TABLE 부터 숫자 뭉치를 센다
+        open_at = seg.upper().rfind("<TABLE", 0, m.start())
+        chunk = seg[open_at:m.start()] if open_at >= 0 else seg[:m.start()]
+        # 🔴 태그를 벗기고 센다 — `<COL width='600'>` 의 600 을 값으로 세면 제목표까지 잘린다.
+        if len(_NUM_RUN.findall(_TAG.sub(" ", chunk))) >= 3:
+            cut = m.end()
+    return seg[cut:]
+
+
 def _table_for(html: str, p: int) -> tuple[str, dict[str, Any]] | None:
     """앵커 위치 `p` 가 가리키는 **값이 든 표** 하나. 캡션 표면 바로 뒤 표를 한 번 더 본다."""
     span = table_span(html, p)
@@ -745,7 +894,7 @@ def _table_for(html: str, p: int) -> tuple[str, dict[str, Any]] | None:
         return None
     tstart, tend = span
     tbl = html[tstart:tend]
-    parsed = parse_table(tbl, context=html[max(0, tstart - 2000):tstart])
+    parsed = parse_table(tbl, context=caption_before(html, tstart))
     # 260823 실측: NH 「사용이 제한된」은 캡션 표(2행·숫자 0칸)를 먼저 물었다.
     # 행 수만 보면 캡션이 통과한다 — **값이 든 표인가**를 함께 묻는다.
     if parsed["n_rows"] >= 2 and parsed["n_numeric"] >= 2:
@@ -758,7 +907,7 @@ def _table_for(html: str, p: int) -> tuple[str, dict[str, Any]] | None:
     if not nspan:
         return None
     ntbl = html[nspan[0]:nspan[1]]
-    nparsed = parse_table(ntbl, context=html[max(0, nspan[0] - 2000):nspan[0]])
+    nparsed = parse_table(ntbl, context=caption_before(html, nspan[0]))
     if nparsed["n_rows"] >= 2 and nparsed["n_numeric"] >= 2:
         return ntbl, nparsed
     return None
@@ -857,6 +1006,8 @@ def extract_regions(
                         if entry["account"]:
                             entry["account_total"] = lookup_account(
                                 bs_cache.get(basis), entry["account"])
+                        # 🔴 제목이 **다른 범주**를 말하면 축이 맞아도 다른 표다(260824 T보고).
+                        entry["other_field"] = title_says_other_field(entry["title"], field)
                         if (title_matches(parsed["caption"], kin_kws)
                                 and not is_off_topic(entry["title"])):
                             entry["title_matched"] = entry["weak"] == 0
@@ -884,7 +1035,18 @@ def extract_regions(
                     0 if e.get("axis") == "유형별" else (2 if e.get("axis") == "범주별" else 1),
                     e.get("pos", 0),
                 ))
+                # 🔴 **원문이 따로 실은 「…, 합계」 표는 버리지 않는다.** 260824 실측 —
+                #    NH 「7. 상각후원가측정금융자산」은 세부표(27열)와 합계표(21열)가 짝이다.
+                #    합계표에는 손실충당금·현재가치할인차금이 들어 있어 세부표 잎을 더한
+                #    값과 대조가 된다(예치금 12,131,887 정확히 일치). 성격·기준당 1표만
+                #    남기던 규칙이 **검산 재료를 통째로 버리고 있었다.**
+                total_tbl = next((e for e in bucket[1:]
+                                  if is_totalish_title(e.get("title", ""))
+                                  and e.get("period") != "전기"), None)
                 bucket = bucket[:1]
+                if total_tbl is not None:
+                    total_tbl["role"] = "합계"
+                    bucket.append(total_tbl)
             elif len(bucket) > _MULTI_TABLE_LIMIT:
                 bucket = bucket[:_MULTI_TABLE_LIMIT]
             found.extend(bucket)
@@ -946,3 +1108,261 @@ def _mark_shared_tables(out: dict[str, Any]) -> None:
             for t in res.get("tables", []):
                 if t["pos"] == pos:
                     t["shared_with"] = [f for f in fields if f != field]
+
+
+# ── 격자 읽기: 열 경로와 검산 ────────────────────────────────────────────────
+#
+# 🔴 **왜 필요한가 (260824 NH투자증권).** 「7. 상각후원가측정금융자산」은 머리 8행 ×
+#    값 1행짜리 **전치표**다. 열 이름이 4단으로 쌓여 있고 값은 한 줄에 26개가 늘어선다.
+#    표를 물리 행 그대로 내보내면 읽는 쪽은 27열 정렬을 손으로 복원해야 하는데,
+#    실제로 시험자도 렌더 UI 도 **둘 다 틀렸다**(예치금 소계를 12,731,887 로 냈다.
+#    원문 「…, 합계」 표의 값은 12,131,887 이다).
+#    격자를 편 다음 **값마다 열 경로를 붙여** 내보내면 복원할 것이 없어진다.
+
+_TOTALISH = ("합계", "총계", "소계", "계")
+
+#: 음수 표기 — 회계는 △·▲·괄호를 쓴다. 셋 다 마이너스다.
+_NEG = ("△", "▲", "-")
+
+
+def to_number(text: str) -> float | None:
+    """표의 칸 하나 → 수. 셀 수 없으면 None. **검산에만 쓴다.**"""
+    t = (text or "").strip().replace(",", "").replace("　", "")
+    if not t:
+        return None
+    neg = False
+    if t.startswith("(") and t.endswith(")"):
+        neg, t = True, t[1:-1].strip()
+    for mark in _NEG:
+        if t.startswith(mark):
+            neg, t = True, t[len(mark):].strip()
+            break
+    if not t or not t.replace(".", "", 1).isdigit():
+        return None
+    v = float(t)
+    return -v if neg else v
+
+
+def _fmt(v: float) -> str:
+    n = round(v)
+    s = f"{abs(n):,}"
+    return f"({s})" if n < 0 else s
+
+
+def is_totalish(label: str) -> bool:
+    t = (label or "").replace(" ", "")
+    return any(t == k or t.endswith(k) for k in _TOTALISH)
+
+
+def header_depth(grid: list[list[dict[str, Any]]]) -> int:
+    """머리가 몇 행인가. `<TH>` 가 있으면 그것을 믿고, 없으면 숫자가 없는 앞머리로 본다."""
+    if any(c.get("th") for r in grid for c in r):
+        n = 0
+        for r in grid:
+            if not all(c.get("th") for c in r):
+                break
+            n += 1
+        return n
+    n = 0
+    for r in grid:
+        if any(_NUMISH.match(c["text"]) for c in r):
+            break
+        n += 1
+    return min(n, len(grid) - 1) if len(grid) > 1 else 0
+
+
+def column_view(parsed: dict[str, Any]) -> dict[str, Any] | None:
+    """격자 → **열 경로 × 값**. 값을 만들지 않는다 — 같은 칸을 다르게 놓을 뿐이다.
+
+    돌려주는 것
+      `common`  모든 값열이 똑같이 이고 있는 머리 (한 번만 쓴다)
+      `columns` [{path: [...], leaf: str, group: str, values: [str, ...]}]
+      `rows`    본문 행 이름 (values 의 순서와 같다)
+    """
+    grid = parsed.get("grid") or []
+    if not grid or parsed.get("ragged"):
+        return None
+    n_cols = len(grid[0])
+    depth = header_depth(grid)
+    body = grid[depth:]
+    if depth < 1 or not body or n_cols < 2:
+        return None
+
+    # 앞쪽 「이름칸」 — 머리가 비었거나(NH), 「구분」처럼 이름이 붙었어도 **본문이 숫자가
+    # 아닌** 열은 이름칸이다(KB손보 「구분」·「담보제공처」). 여기를 틀리면 행 이름이
+    # 통째로 비고, 이름칸이 값열로 섞여 들어간다.
+    stub = 0
+    while stub < n_cols - 1:
+        blank_head = all(not grid[r][stub]["text"] for r in range(depth))
+        no_numbers = all(not _NUMISH.match(r[stub]["text"]) for r in body)
+        if blank_head or no_numbers:
+            stub += 1
+        else:
+            break
+    if stub >= n_cols:
+        return None
+
+    cols = []
+    for c in range(stub, n_cols):
+        path: list[str] = []
+        for r in range(depth):
+            t = grid[r][c]["text"]
+            if t and (not path or path[-1] != t):
+                path.append(t)
+        cols.append({"path": path, "col": c})
+    if not cols:
+        return None
+
+    # 모든 값열이 공유하는 머리는 한 번만 쓴다 (「금융자산의 범주」처럼 26열 전부에 붙는 것)
+    common = [p for p in cols[0]["path"]
+              if all(p in cc["path"] for cc in cols)]
+    for cc in cols:
+        rest = [p for p in cc["path"] if p not in common]
+        cc["leaf"] = rest[-1] if rest else (cc["path"][-1] if cc["path"] else "")
+        cc["group"] = " › ".join(rest[:-1])
+        cc["label"] = " › ".join(rest) or cc["leaf"]
+
+    names = []
+    for r in body:
+        parts: list[str] = []
+        for i in range(stub):
+            x = r[i]["text"]
+            # 병합 칸을 폈으니 같은 글자가 이어 나온다 — 「합계 합계」가 되지 않게 한 번만.
+            if x and (not parts or parts[-1] != x):
+                parts.append(x)
+        names.append(" ".join(parts))
+    for cc in cols:
+        cc["values"] = [r[cc["col"]]["text"] for r in body]
+    return {"common": common, "columns": cols, "rows": names,
+            "n_cols": n_cols, "depth": depth}
+
+
+def checksums(view: dict[str, Any] | None, transposed: bool = True) -> list[dict[str, Any]]:
+    """열 묶음마다 잎을 더해 본다. **원문에 합계가 있으면 대조하고, 없으면 더한 값을 적는다.**
+
+    🔴 이 도구는 값을 만들지 않는 것이 계약이다. 그래서 여기서 나오는 수는 전부
+       `source` 로 출처를 밝힌다 — `원문` 인지 `도구가 더함` 인지.
+       260824 마스터 지시로 넣었다. 정렬이 어긋나면 합이 원문 합계와 안 맞으므로,
+       **검산은 정렬이 맞았다는 증거이기도 하다.**
+    """
+    # 🔴 **보통 표에서 열을 더하면 안 된다.** 260824 실측 — KB손해보험 사용제한표는
+    #    열이 「당반기말 · 전기말」이라 더하면 44+44=88 처럼 **시점이 다른 값을 합친
+    #    무의미한 수**가 나온다. 열을 더해도 되는 것은 열이 **항목**인 전치표뿐이다.
+    #    보통 표의 검산은 `row_checksums` — 「합계」 **행**을 나머지 행과 맞춘다.
+    if not view or not transposed:
+        return []
+    out: list[dict[str, Any]] = []
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for cc in view["columns"]:
+        groups.setdefault(cc["group"], []).append(cc)
+
+    # 🔴 **잎이 항목이 아니라 「측정 축」이면 더하면 안 된다.** 260824 실측 — NH 합계표는
+    #    묶음마다 잎이 (이연부대손익 · 현재가치할인차금 · 손실충당금 반영 전 장부금액 ·
+    #    손상차손누계액) 로 **똑같다.** 이건 항목이 넷인 게 아니라 **같은 항목의 측정값이
+    #    넷**이라는 뜻이고, 더하면 뜻 없는 수가 나온다(12,124,877 같은).
+    #    판별은 간단하다 — **다른 묶음과 잎 이름이 같으면 축이다.**
+    shapes: dict[tuple[str, ...], int] = {}
+    for gname, members in groups.items():
+        shapes[tuple(m["leaf"] for m in members)] = shapes.get(
+            tuple(m["leaf"] for m in members), 0) + 1
+
+    for gname, members in groups.items():
+        if len(groups) > 1 and shapes.get(tuple(m["leaf"] for m in members), 0) > 1:
+            continue                       # 측정 축 — 더하지 않는다
+        leaves = [m for m in members if not is_totalish(m["leaf"])]
+        totals = [m for m in members if is_totalish(m["leaf"])]
+        if len(leaves) < 2:
+            continue
+        for i, rowname in enumerate(view["rows"]):
+            vals = [to_number(m["values"][i]) for m in leaves]
+            got = [v for v in vals if v is not None]
+            if len(got) < 2:
+                continue
+            s = sum(got)
+            rec = {"group": gname or "(전체)", "row": rowname, "n": len(got),
+                   "sum": _fmt(s)}
+            if totals:
+                tv = to_number(totals[0]["values"][i])
+                if tv is not None:
+                    rec["stated"] = _fmt(tv)
+                    rec["ok"] = abs(tv - s) < 0.5
+            out.append(rec)
+    return out
+
+
+def row_checksums(view: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """본문에 「합계」 **행**이 있으면 나머지 행을 더해 맞춰 본다.
+
+    보통 표(행=항목 · 열=시점)의 올바른 검산은 이쪽이다. 260824 실측 —
+    KB손해보험 사용제한: 44 + 14,963 + 11,349 = 26,356 (원문 합계와 일치),
+    담보제공: 1,754,354 + 92,383 + 3,723 = 1,850,460 (일치).
+    **합계 행이 여럿이면(합계와 소계가 같이 있으면) 손대지 않는다** — 무엇을 무엇과
+    맞춰야 하는지 표마다 다르고, 틀린 검산은 검산이 없는 것보다 나쁘다.
+    """
+    if not view:
+        return []
+    names = view["rows"]
+    tot = [i for i, n in enumerate(names) if is_totalish(n)]
+    if len(tot) != 1 or len(names) < 3:
+        return []
+    ti = tot[0]
+    others = [i for i in range(len(names)) if i != ti]
+    out: list[dict[str, Any]] = []
+    for cc in view["columns"]:
+        stated = to_number(cc["values"][ti])
+        if stated is None:
+            continue
+        got = [v for v in (to_number(cc["values"][i]) for i in others) if v is not None]
+        if len(got) < 2:
+            continue
+        s = sum(got)
+        out.append({"column": cc["label"] or cc["leaf"], "n": len(got), "sum": _fmt(s),
+                    "stated": _fmt(stated), "ok": abs(stated - s) < 0.5,
+                    "row": names[ti]})
+    return out
+
+
+def numeric_total(view: dict[str, Any] | None, drop_totals: bool = True) -> float | None:
+    """표 안 값의 총합. 표끼리 「같은 자산인가」를 묻는 데만 쓴다 — 내보내는 수가 아니다.
+
+    합계 행·열을 빼는 쪽과 넣는 쪽을 둘 다 쓴다. 어느 쪽이 맞는지는 표마다 다르기
+    때문이다 — 현대해상 범주별 요약표는 **열 이름 자체가 「금융자산의 종류 합계」**라
+    빼고 나면 값이 하나만 남는다(그러면 총합이 안 나온다).
+    """
+    if not view:
+        return None
+    tot = 0.0
+    n = 0
+    for i, name in enumerate(view["rows"]):
+        if drop_totals and is_totalish(name):
+            continue
+        for cc in view["columns"]:
+            if drop_totals and is_totalish(cc["leaf"]):
+                continue
+            v = to_number(cc["values"][i])
+            if v is not None:
+                tot += v
+                n += 1
+    return tot if n >= 1 else None
+
+
+def totals_of(view: dict[str, Any] | None) -> set[float]:
+    """그 표가 「전체 얼마짜리 표인가」의 후보들. 합계를 빼고/넣고 둘 다."""
+    out = {numeric_total(view, True), numeric_total(view, False)}
+    return {v for v in out if v is not None and v != 0}
+
+
+def same_assets(a: dict[str, Any] | None, b: dict[str, Any] | None) -> bool:
+    """두 표가 **같은 자산을 다르게 자른 것**인가 — 총합이 같으면 그렇다.
+
+    🔴 260824 T보고 — 현대해상 담보제공은 표가 둘인데 하나는 **범주별 요약**,
+       하나는 **유형별 세부**다. 둘 다 연결 기준이라 「기준이 같으면 더해도 된다」는
+       예전 안내를 따르면 **정확히 2배**가 된다. 실측 총합이 양쪽 다
+       2,310,215,724 천원으로 같다 — 그러면 같은 자산이다.
+    """
+    ta, tb = totals_of(a), totals_of(b)
+    for x in ta:
+        for y in tb:
+            if abs(x - y) <= max(1.0, abs(x) * 1e-9):
+                return True
+    return False
