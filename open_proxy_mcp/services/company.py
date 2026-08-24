@@ -475,6 +475,7 @@ async def build_company_payload(
             "sector_code": "",
             "induty_code": company_info.get("induty_code", ""),
             "fiscal_month": company_info.get("acc_mt", ""),
+            "fiscal_year_end_month": company_info.get("acc_mt", ""),
         },
         "names": {
             "ko": corp_name,

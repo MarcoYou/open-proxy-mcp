@@ -15,12 +15,18 @@ import asyncio
 import os
 import re
 import time
+from datetime import date, timedelta
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
-from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
+from open_proxy_mcp.services.fiscal_period import (
+    fiscal_quarter_from_end,
+    fiscal_year_from_end,
+    normalize_period_end,
+)
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -1681,6 +1687,10 @@ async def _fetch_year_metrics(
         induty_code=induty_code,
     )
     metrics["year"] = year
+    period_end = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "").replace(".", "-")
+                       for r in rows_curr if r.get("thstrm_dt") or r.get("stlm_dt")), None)
+    metrics["period_end"] = period_end
+    metrics["fiscal_year"] = fiscal_year_from_end(period_end) or year
     metrics["fs_div"] = actual_fs  # 요청값이 아니라 실제 사용된 기준 (CFS 미작성 시 OFS)
     metrics["reprt_code"] = used_rc
     metrics["period_basis"] = "annual" if used_rc == _REPRT_BUSINESS else f"cumulative_{pm_cum}m"
@@ -1885,7 +1895,8 @@ def _pp_diff(curr: float | None, prev: float | None) -> float | None:
     return round(curr - prev, 2)
 
 
-async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quarters: int = 12) -> tuple[list[dict[str, Any]], list[str]]:
+async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
+                           num_quarters: int = 12, fiscal_month: int | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
 
     DART 필드 실측 (SK하이닉스 2025, 2026-06-12):
@@ -1899,13 +1910,10 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
 
     warnings: list[str] = []
     out: list[dict[str, Any]] = []
-    years = list(range(end_year - 2, end_year + 1))
-    quarter_labels = {
-        "11013": "Q1",
-        "11012": "Q2",
-        "11014": "Q3",
-        "11011": "Q4",
-    }
+    # DART bsns_year와 fiscal_year는 결산월이 3·6월인 회사에서 어긋난다.
+    # FY-3까지 수집해야 FY-2 Q1부터 FY Q4까지 12개 fiscal quarter를 복원할 수 있다.
+    years = list(range(end_year - 3, end_year + 1))
+    quarter_labels = {"11013": "Q1", "11012": "Q2", "11014": "Q3", "11011": "Q4"}
     tasks = []
     keys = []
     for y in years:
@@ -1914,6 +1922,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             keys.append((y, rc, label))
     results = await asyncio.gather(*tasks)
 
+    # 요청한 DART bsns_year가 사업연도와 같다는 보장이 없다(3·6월 결산).
+    # 이후 모든 grouping은 요청연도가 아니라 실제 period_end에서 계산한 FY/Q를 쓴다.
     cum9_by_year: dict[int, dict[str, int | None]] = {}  # Q3 보고서의 9개월 누적 (Q4 차분용)
     q_standalone_by_year: dict[int, dict[str, dict[str, int | None]]] = {}
     fs_seen: set[str] = set()  # 실제 사용된 fs_div 추적 (CFS/OFS 폴백·혼재 감지)
@@ -1931,13 +1941,28 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
         bs_is = _build_account_map(rows)
         if not bs_is:
             continue
-        if rc == "11014":
-            cum9_by_year[year] = _build_account_map(rows, period="thstrm_add")
-        if rc != "11011":
-            q_standalone_by_year.setdefault(year, {})[label] = bs_is
+        period_end_raw = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "")
+                           for r in rows if r.get("thstrm_dt") or r.get("stlm_dt")), None)
+        period_end = normalize_period_end(period_end_raw)
+        fiscal_year = fiscal_year_from_end(period_end, fiscal_month) or year
+        fiscal_quarter = fiscal_quarter_from_end(period_end, fiscal_month)
+        if fiscal_quarter is None:
+            # 레거시/fixture 응답에 기간 종료일이 없을 때만 API 요청연도·코드로 fallback.
+            fiscal_quarter = int(label[1:])
+            warnings.append(f"{year}-{label}: period_end 없음 — 요청연도 기준으로 임시 분류")
+        fiscal_label = f"Q{fiscal_quarter}"
+        if fiscal_quarter == 3:
+            cum9_by_year[fiscal_year] = _build_account_map(rows, period="thstrm_add")
+        if fiscal_quarter != 4:
+            q_standalone_by_year.setdefault(fiscal_year, {})[fiscal_label] = bs_is
         out.append({
-            "year": year,
-            "quarter": label,
+            # year/quarter는 호환 필드지만 이제 실제 사업연도·분기와 동일하게 유지한다.
+            "year": fiscal_year,
+            "fiscal_year": fiscal_year,
+            "quarter": fiscal_label,
+            "fiscal_quarter": fiscal_label,
+            "fiscal_year_end_month": fiscal_month or 12,
+            "period_end": period_end,
             "reprt_code": rc,
             "revenue_krw": bs_is.get("revenue"),
             "operating_profit_krw": bs_is.get("operating_profit"),
@@ -1946,6 +1971,11 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
         })
+
+    # 요청한 fiscal year 밖의 자료는 최신 12행을 채우기 위해 수집했더라도 버린다.
+    # 기존에는 3·6월 결산사의 다음 FY-Q1이 out[-12:]에 섞일 수 있었다.
+    target_min_year = end_year - 2
+    out = [r for r in out if target_min_year <= r["fiscal_year"] <= end_year]
 
     # CFS 요청인데 일부/전부 분기가 OFS면 경고 (조용한 폴백·분기 간 기준 혼재 방지).
     if fs_div == "CFS" and "OFS" in fs_seen:
@@ -1960,7 +1990,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
         if row["quarter"] != "Q4":
             row["basis"] = "standalone_3m"
             continue
-        year = row["year"]
+        year = row["fiscal_year"]
         cum9 = cum9_by_year.get(year, {})
         qs = q_standalone_by_year.get(year, {})
         failed_keys = []
@@ -1991,7 +2021,16 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
         row["operating_margin_pct"] = _safe_pct(row.get("operating_profit_krw"), row.get("revenue_krw"))
         row["net_profit_margin_pct"] = _safe_pct(row.get("net_income_krw"), row.get("revenue_krw"))
 
-    out.sort(key=lambda x: (x["year"], list(quarter_labels.values()).index(x["quarter"])))
+    out.sort(key=lambda x: (x["fiscal_year"], int(str(x["fiscal_quarter"]).lstrip("Q"))))
+
+    # 같은 fiscal period가 여러 API 요청에서 들어오면 최신/연간 우선으로 1건만 남긴다.
+    deduped: dict[tuple[int, str], dict[str, Any]] = {}
+    for row in out:
+        key = (row["fiscal_year"], row["fiscal_quarter"])
+        old = deduped.get(key)
+        if old is None or (row["reprt_code"] == "11011" and old["reprt_code"] != "11011"):
+            deduped[key] = row
+    out = sorted(deduped.values(), key=lambda x: (x["fiscal_year"], int(str(x["fiscal_quarter"]).lstrip("Q"))))
 
     # 정합성 점검: 4분기 standalone 합 ≠ 연간이면 기중 연결범위 변동·재작성 가능성
     # (한화에어로스페이스 2024 실측 — 인적분할로 Q1·Q2 당시 보고치와 연간 재작성치 불일치).
@@ -2034,10 +2073,12 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
         warnings.append("매출액 계정 없음 — 금융사(이자수익 구조)로 추정. 영업이익·순이익 기준으로 해석할 것.")
 
     # QoQ/YoY 기본 동봉 (slice 전 전체 이력 기준 — 표시 첫 분기도 직전·전년 비교 가능)
-    index = {(r["year"], r["quarter"]): r for r in out}
+    index = {(r["fiscal_year"], r["fiscal_quarter"]): r for r in out}
     for i, row in enumerate(out):
-        prev_q = out[i - 1] if i > 0 else None
-        prev_y = index.get((row["year"] - 1, row["quarter"]))
+        q_no = int(str(row["fiscal_quarter"]).lstrip("Q"))
+        prev_key = (row["fiscal_year"], f"Q{q_no - 1}") if q_no > 1 else (row["fiscal_year"] - 1, "Q4")
+        prev_q = index.get(prev_key)
+        prev_y = index.get((row["fiscal_year"] - 1, row["fiscal_quarter"]))
         row["qoq_pct"] = {
             "revenue": _qchg_pct(row.get("revenue_krw"), prev_q.get("revenue_krw") if prev_q else None),
             "operating_profit": _qchg_pct(row.get("operating_profit_krw"), prev_q.get("operating_profit_krw") if prev_q else None),
@@ -2054,6 +2095,37 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str, num_quart
             "net_profit_margin_pp": _pp_diff(row.get("net_profit_margin_pct"), prev_y.get("net_profit_margin_pct") if prev_y else None),
         }
     return out[-num_quarters:], warnings
+
+
+def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
+                      fiscal_month: int | None, as_of: date | None = None) -> dict[str, Any]:
+    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출로 구분한다."""
+    as_of = as_of or date.today()
+    present = {r.get("fiscal_quarter") for r in rows if r.get("fiscal_year") == fiscal_year}
+    result: dict[str, Any] = {"fiscal_year": fiscal_year, "missing": []}
+    if not fiscal_month:
+        return result
+
+    for q in range(1, 5):
+        label = f"Q{q}"
+        if label in present:
+            continue
+        end_month = ((fiscal_month + (3 * q) - 1) % 12) + 1
+        end_year = fiscal_year if end_month <= fiscal_month else fiscal_year - 1
+        # 월말을 정확히 계산하지 않아도 제출기한 판정에는 충분하다.
+        next_month = date(end_year + (1 if end_month == 12 else 0),
+                          1 if end_month == 12 else end_month + 1, 1)
+        period_end = next_month - timedelta(days=1)
+        if period_end > as_of:
+            # 아직 결산일이 오지 않은 분기는 누락이나 미제출로 표시하지 않는다.
+            continue
+        item = {
+            "fiscal_quarter": label,
+            "period_end": period_end.isoformat(),
+            "status": "미제출" if as_of > period_end else "제출기한 전",
+        }
+        result["missing"].append(item)
+    return result
 
 
 # ── public payload builder ──
@@ -2161,6 +2233,12 @@ async def build_financial_metrics_payload(
 
     selected = resolution.selected
     corp_code = selected["corp_code"]
+    company_info, company_info_warning = await _safe_company_info(corp_code)
+    fiscal_month_raw = company_info.get("acc_mt") or ""
+    try:
+        fiscal_month = int(fiscal_month_raw)
+    except (TypeError, ValueError):
+        fiscal_month = None
     # 금융사 판별 2차 신호(KSIC 업종) — mkt_fundamentals에서 DART 콜 없이 조회. 수신 없어(예수부채 無)
     # BS신호가 놓치는 카드·캐피탈·VC(삼성카드·미래에셋벤처투자 등) 보완. DB 미설정/미수록이면 None(무해).
     induty_code = await asyncio.to_thread(_lookup_induty_code, corp_code, selected.get("stock_code", ""))
@@ -2179,6 +2257,8 @@ async def build_financial_metrics_payload(
         target_year = _default_recent_year()
 
     warnings: list[str] = []
+    if company_info_warning:
+        warnings.append(f"회사 결산월 조회 실패 — 분기 라벨은 DART 조회연도 기준: {company_info_warning}")
     evidence_refs: list[EvidenceRef] = []
     data: dict[str, Any] = {
         "query": company_query,
@@ -2192,6 +2272,7 @@ async def build_financial_metrics_payload(
         "year": target_year,
         "fs_div": fs_div,
         "consolidated": consolidated,
+        "fiscal_year_end_month": fiscal_month,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
@@ -2236,9 +2317,15 @@ async def build_financial_metrics_payload(
             ))
 
     elif scope == "quarterly":
-        rows, ws = await _build_quarterly(corp_code, target_year, fs_div)
+        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month)
         warnings.extend(ws)
         data["quarterly"] = rows
+        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month)
+        for missing in data["quarterly_status"]["missing"]:
+            if missing["status"] == "미제출":
+                warnings.append(
+                    f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']})는 기간 종료 후 공시가 없어 미제출로 표시함."
+                )
         filing_count = len(rows)
         if rows:
             ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], rows[-1].get("reprt_code"))
@@ -2292,7 +2379,8 @@ async def build_financial_metrics_payload(
             ))
 
     elif scope == "qoq":
-        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, num_quarters=4)
+        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, num_quarters=4,
+                                           fiscal_month=fiscal_month)
         warnings.extend(ws)
         # 직전 분기 vs 당기 비교
         if len(rows) >= 2:
@@ -2325,6 +2413,20 @@ async def build_financial_metrics_payload(
         filing_count = audit_data.get("summary", {}).get("history_years", 0)
         evidence_refs.extend(audit_ev)
     _mark(f"scope.{scope}", stage_started_at)
+
+    # 모든 확정치 scope가 잠정실적과 같은 회계기간 메타데이터를 공유하도록 한다.
+    def _tag_fiscal(row: dict[str, Any] | None) -> None:
+        if row is not None:
+            row.setdefault("fiscal_year_end_month", fiscal_month)
+            row.setdefault("fiscal_year", row.get("year", target_year))
+
+    _tag_fiscal(data.get("summary"))
+    for row in data.get("yearly", []) or []:
+        _tag_fiscal(row)
+    for branch in (data.get("yoy"), data.get("qoq")):
+        if isinstance(branch, dict):
+            _tag_fiscal(branch.get("current"))
+            _tag_fiscal(branch.get("prior"))
 
     filing_meta = build_filing_meta(filing_count=filing_count, parsing_failures=parsing_failures)
     if filing_meta["no_filing"]:

@@ -212,7 +212,7 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
         return ["## 분기 추이", "_데이터 없음_"]
     lines = ["## 분기 추이 (최근 12분기, 전 행 standalone 3개월 기준)"]
     lines.append("")
-    lines.append("| 연도-분기 | 매출 | QoQ | YoY | 영업이익 | QoQ | YoY | 순이익 | 영업이익률 |")
+    lines.append("| 사업연도-분기 | 매출 | QoQ | YoY | 영업이익 | QoQ | YoY | 순이익 | 영업이익률 |")
     lines.append("|-----------|------|-----|-----|----------|-----|-----|--------|------------|")
     has_cumulative_q4 = False
     for r in rows:
@@ -223,7 +223,8 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
             mark = " ⚠연간"
             has_cumulative_q4 = True
         lines.append(
-            f"| {r.get('year')}-{r.get('quarter')}{mark} | "
+            f"| {r.get('fiscal_year', r.get('year'))}-{r.get('fiscal_quarter', r.get('quarter'))}"
+            f" [{r.get('period_end') or '기간종료 미상'} / 결산월 {r.get('fiscal_year_end_month') or '-'}월]{mark} | "
             f"{_format_krw_human(r.get('revenue_krw'))} | "
             f"{_chg(qoq.get('revenue'))} | {_chg(yoy.get('revenue'))} | "
             f"{_format_krw_human(r.get('operating_profit_krw'))} | "
@@ -235,6 +236,15 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
     lines.append("> Q4는 사업보고서 연간치에서 3개 분기 누적을 차분한 standalone 값. QoQ/YoY는 전기가 적자·결측이면 `-`.")
     if has_cumulative_q4:
         lines.append("> ⚠연간 표시 행은 분기 보고서 결측으로 차분 불가 — 연간 누적치이므로 분기 비교에 쓰지 말 것.")
+    status = data.get("quarterly_status") or {}
+    missing = status.get("missing") or []
+    if missing:
+        lines.append("")
+        for item in missing:
+            lines.append(
+                f"> 상태: {status.get('fiscal_year')}-{item.get('fiscal_quarter')} "
+                f"({item.get('period_end')}) — **{item.get('status', '확인 필요')}**"
+            )
     return lines
 
 

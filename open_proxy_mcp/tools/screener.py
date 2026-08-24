@@ -119,6 +119,24 @@ def _detail_line(card: dict) -> str | None:
         if f.get("purpose"):
             parts.append(f"목적 {f['purpose']}")
         return " · ".join(parts) or None
+    if tc == "earnings":
+        parts = []
+        if f.get("fiscal_year"):
+            if f.get("period_kind") == "annual":
+                parts.append(f"{f['fiscal_year']} 사업연도 결산 잠정치")
+            elif f.get("fiscal_quarter"):
+                parts.append(f"{f['fiscal_year']} 사업연도 {f['fiscal_quarter']}분기")
+        if f.get("period"):
+            per = f["period"]
+            if per.get("start") and per.get("end"):
+                parts.append(f"기간 {per['start']}~{per['end']}")
+        if f.get("revenue_krw") is not None:
+            parts.append(f"매출 {_won(f['revenue_krw'])}")
+        if f.get("operating_profit_krw") is not None:
+            parts.append(f"영업이익 {_won(f['operating_profit_krw'])}")
+        if f.get("comparison_basis"):
+            parts.append(f["comparison_basis"])
+        return " · ".join(parts) or None
     return None
 
 
@@ -238,7 +256,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: **전체시장 공시 스크리너 / 아침 공시 디제스트.** 직전 실행 이후~오늘 전종목에 뜬 주요 공시를 카드형으로 요약(기업명+시총+유형+단계+정정+DART/naver 링크). 무인자 호출=오늘 아침 디제스트. scan(무엇이 떴나, 싸게)=디폴트, details=true면 필요 건만 문서 열어 유형별 핵심숫자(금액·분모%·DPS·안건·지분%).
         when: "오늘/어제 무슨 공시 떴어", "최근 며칠/일주일 잠정실적 발표", 매일 아침 공시 브리핑, 전체시장 **영업(잠정)실적**·수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. 특정 회사 1곳 심층은 개별 tool(provisional_earnings·order_contracts·dividend 등).
-        types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(영업잠정실적: 매출·영업익·YoY),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10.
+        types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(잠정실적: 회계연도·기간·매출·영업익),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10.
         period: **사람 말로 받는다** — "오늘"/"어제"/"어제부터"/"지난주"/"최근 7일"/"지난 한 달"/"최근 3개월"/"최근 45일", 날짜범위 "20260801~20260820"·"2026-08-01~2026-08-20", 단일일 "20260820". 또는 `start_date`/`end_date`(레포 공통 인자, YYYYMMDD). 옛 코드(today/yesterday/since_yesterday/last_7d/last_30d/custom+custom_start·custom_end)도 그대로 동작. 디폴트 since_yesterday. 시장스캔 3개월 하드캡.
         universe: **사람 말로 받는다** — "전체"(디폴트) / "코스피"·"코스닥"(시장 전체) / "코스피200" / "코스피 시총 상위 30"·"코스닥 상위 50"·"시총 상위 100" / "삼성전자, SK하이닉스"(이름 나열, 자동 코드화). 옛 문법(all·kospi200·kospi:N·kosdaq:N·top_mktcap:N·market:kospi|kosdaq·custom:…)도 그대로 동작. 각 카드에 시총 병기.
         details: false(디폴트, scan만) / true(문서 열어 숫자 — universe=all이거나 기간>30일이면 안전상 자동 off, 기간>7일이면 preview).

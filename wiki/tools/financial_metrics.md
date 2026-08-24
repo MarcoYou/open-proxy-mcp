@@ -16,6 +16,32 @@ created: 2026-05-01
 ## 한 줄 요약
 DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/운전자본 회전일수/회계 risk 지표. 한국 표준(연결, 지배주주 귀속). 듀퐁 3단 분해, FCF, NWC, CCC, accruals_gap, 감사의견 추이 자동 산출.
 
+## 분기 기간 판정 (2026-08-25, beta)
+
+`quarterly`는 DART `bsns_year`를 사업연도로 그대로 사용하지 않는다.
+
+- 대상 FY 주변의 DART 보고서를 넓게 수집한 뒤 `period_end`와 회사 결산월(`acc_mt`)로 `fiscal_year`·`fiscal_quarter`를 다시 계산한다.
+- 결과에는 각 분기별 `period_end`와 `fiscal_year_end_month`를 함께 싣는다. 예: 신영증권(001720)은 `2025-06-30 / 결산월 3월`을 `FY2026-Q1`로 표시한다.
+- 반환 범위는 요청 FY와 직전 2개 FY로 제한한다. 수집 과정에서 다음 FY 자료가 들어와도 결과에 섞지 않는다.
+- QoQ는 같은 FY의 바로 앞 분기가 실제로 존재할 때만 계산한다. 분기가 건너뛰면 `-`다.
+- 결산일이 지난 대상 분기가 공시 목록에 없으면 행을 조용히 생략하지 않고 `quarterly_status.missing`과 markdown의 `미제출` 상태로 표시한다. 아직 기간 종료일이 오지 않은 미래 분기는 표시하지 않는다.
+- Q4는 사업보고서 연간 누적액에서 3분기 누적액을 차감해 standalone 3개월 값으로 만든다. 차분할 수 없으면 `⚠연간`으로 표시하고 QoQ를 계산하지 않는다.
+
+JSON 핵심 필드:
+
+```json
+{
+  "fiscal_year": 2026,
+  "fiscal_quarter": "Q1",
+  "period_end": "2025-06-30",
+  "fiscal_year_end_month": 3,
+  "quarterly_status": {
+    "fiscal_year": 2026,
+    "missing": [{"fiscal_quarter": "Q4", "period_end": "2026-06-30", "status": "미제출"}]
+  }
+}
+```
+
 ## 사용법
 ```
 financial_metrics(
