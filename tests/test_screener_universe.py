@@ -109,3 +109,19 @@ def test_empty_result_is_reported_as_unresolved_not_silently_widened(rec, monkey
     assert uf.resolved is False
     assert uf.allowed is None
     assert "전체시장" in uf.notice
+
+
+@pytest.mark.parametrize("spec,corp_cls", [("market:kospi", "Y"), ("market:kosdaq", "K")])
+def test_market_filter_falls_back_to_dart_market_class(rec, monkeypatch, spec, corp_cls):
+    """시총 DB가 죽어도 KOSPI/KOSDAQ 경계를 전체시장으로 넓히지 않는다."""
+    import asyncio
+
+    from open_proxy_mcp.services import screener
+    monkeypatch.setattr(screener, "_krx_latest_dd", lambda: "20260821")
+    monkeypatch.setattr(screener, "_krx_market_codes", lambda *a, **k: set())
+    uf = asyncio.run(screener.resolve_universe(spec))
+    assert uf.resolved is False
+    assert uf.allowed is None
+    assert uf.corp_cls == corp_cls
+    assert uf.contains("", corp_cls)
+    assert not uf.contains("", "K" if corp_cls == "Y" else "Y")

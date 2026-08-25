@@ -563,10 +563,11 @@ class UniverseFilter:
     notice: str = ""
     allowed: set[str] | None = None   # None = 전체시장(필터 없음)
     price_dd: str | None = None
+    corp_cls: str | None = None       # krx_weekly 장애 시 DART 시장코드 fallback
 
-    def contains(self, stock_code: str) -> bool:
+    def contains(self, stock_code: str, corp_cls: str = "") -> bool:
         if self.allowed is None:
-            return True
+            return not self.corp_cls or (corp_cls or "").strip() == self.corp_cls
         return (stock_code or "").strip() in self.allowed
 
 
@@ -646,15 +647,17 @@ async def resolve_universe(universe: str) -> UniverseFilter:
         if not codes:
             note_degradation("universe_fallback")
         return UniverseFilter(label="KOSPI 전체", resolved=bool(codes),
-                              notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
-                              allowed=codes or None, price_dd=price_dd)
+                              notice="" if codes else "krx_weekly 조회 실패 → DART corp_cls=Y로 제한.",
+                              allowed=codes or None, price_dd=price_dd,
+                              corp_cls=None if codes else "Y")
     if low in ("market:kosdaq", "kosdaq"):
         codes = _krx_market_codes(MKT_KQ, price_dd) if price_dd else set()
         if not codes:
             note_degradation("universe_fallback")
         return UniverseFilter(label="KOSDAQ 전체", resolved=bool(codes),
-                              notice="" if codes else "krx_weekly 조회 실패 → 전체시장으로 대체.",
-                              allowed=codes or None, price_dd=price_dd)
+                              notice="" if codes else "krx_weekly 조회 실패 → DART corp_cls=K로 제한.",
+                              allowed=codes or None, price_dd=price_dd,
+                              corp_cls=None if codes else "K")
 
     # 시장별 시총 상위 N
     if low.startswith("kospi:") or low.startswith("kospi_top:"):
@@ -1154,7 +1157,7 @@ async def _build_screener_payload_impl(
         if type_code is None or type_code not in allowed_selset:
             continue
         stock_code = (it.get("stock_code") or "").strip()
-        if not uni.contains(stock_code):
+        if not uni.contains(stock_code, it.get("corp_cls", "")):
             continue
         tdef = _BY_CODE[type_code]
         rcept_dt = it.get("rcept_dt", "")
