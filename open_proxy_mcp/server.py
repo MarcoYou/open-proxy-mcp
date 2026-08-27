@@ -255,7 +255,9 @@ class ApiKeyMiddleware:
             # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
             # 하류가 값을 올려보내게 하면 안 된다 — ContextVar 는 위로 안 흐른다.
             from open_proxy_mcp.dart.client import (
-                new_request_ledger, ledger_enter, ledger_exit)
+                new_request_ledger, ledger_enter, ledger_exit,
+                ensure_lag_sampler, loop_lag_ms)
+            ensure_lag_sampler()
             ledger = new_request_ledger()
             # **tools/call 만 센다.** streamable-http 클라이언트는 `GET /mcp` 로 스트림을
             #   열어 **세션 내내 붙들고 있다.** 그걸 함께 세면 「지금 CPU 를 다투는 요청 수」가
@@ -269,6 +271,9 @@ class ApiKeyMiddleware:
             # 기다린 시간(네트워크)과 코어가 실제로 일한 시간을 가르는 것이 목적이지, 누가
             # 태웠는지를 가리는 건 `inflight_max` 가 한다. 둘을 함께 읽는 법은 client.py 참조.
             cpu0 = _t.process_time()
+            # 이 요청이 도는 동안 **이벤트루프가 얼마나 밀렸나**. `cpu_ms` 가 낮은 요청이
+            # 「네트워크를 기다린 것」인지 「CPU 차례를 못 받은 것」인지는 이 값이 가른다.
+            lag0 = loop_lag_ms()
 
             idx = 0
 
@@ -366,7 +371,8 @@ class ApiKeyMiddleware:
                                      #   여태는 latency 하나뿐이라 **스스로 느린 것**과
                                      #   **줄에 서 있던 것**이 같은 숫자로 보였다.
                                      inflight=ledger.get("inflight_max") or None,
-                                     cpu_ms=int((_t.process_time() - cpu0) * 1000))
+                                     cpu_ms=int((_t.process_time() - cpu0) * 1000),
+                                     lag_ms=int(loop_lag_ms() - lag0))
                 await send(message)
             try:
                 await self.app(scope, replay, send_wrapper)

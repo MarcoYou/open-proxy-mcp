@@ -88,7 +88,7 @@ except ImportError:                      # `import scripts.usage_tracker` 로 �
 DRAINED_GLOB = "*_user_log.csv"
 _INT_COLS = {"ts_ns", "status", "latency_ms", "response_bytes", "doc_mem_hits",
              "doc_disk_hits", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms",
-             "inflight", "cpu_ms"}
+             "inflight", "cpu_ms", "lag_ms"}
 _BOOL_COLS = {"is_error"}
 
 #: 각 조회 함수의 SELECT 순서. **쿼리와 여기가 어긋나면 값이 조용히 다른 자리로 들어간다**
@@ -100,7 +100,7 @@ _OUT_COLS = ("key_hash", "tool", "is_error", "error_kind", "weak_kinds")
 _DEG_COLS = ("ts_ns", "key_hash", "tool", "degraded")
 _PATH_COLS = ("ts_ns", "tool", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms")
 #: 느린 이유 — 「스스로 느린 것」과 「줄에 서 있던 것」을 가른다(260824 신설).
-_SLOW_COLS = ("ts_ns", "tool", "latency_ms", "inflight", "cpu_ms")
+_SLOW_COLS = ("ts_ns", "tool", "latency_ms", "inflight", "cpu_ms", "lag_ms")
 
 
 def _db_event_ids() -> set:
@@ -353,7 +353,7 @@ def fetch_slow(min_ms: int = 10_000):
     260824 신설. 그 전 기간은 두 컬럼이 없어 빈 목록이 나온다 — 경보가 아니라 「그때는
     안 쟀다」는 뜻이다.
     """
-    sql = ("SELECT ts_ns, tool, latency_ms, inflight, cpu_ms FROM {} "
+    sql = ("SELECT ts_ns, tool, latency_ms, inflight, cpu_ms, lag_ms FROM {} "
            "WHERE latency_ms IS NOT NULL AND latency_ms >= %d" % min_ms)
     if using_pg():
         con = _pg_conn()
@@ -371,29 +371,47 @@ def fetch_slow(min_ms: int = 10_000):
     return merge_drained(rows, _SLOW_COLS)
 
 
-def contention_stats(rows):
-    """느린 호출을 세 갈래로 나눈다 — 줄 / 자신이 무겁다 / 네트워크 대기.
+#: CPU 를 「쓰고 있었다」고 볼 경계 — 한 요청이 제 시간의 절반 넘게 코어를 태웠다면
+#: 그 시간은 대기가 아니었다. 경계 근처는 어차피 섞이므로 비율만 본다.
+_BUSY = 0.5
+#: 루프가 「밀렸다」고 볼 경계. 표본기가 0.1초마다 깨므로 그보다 훨씬 커야 신호다.
+#: 제 시간의 1/4 을 못 돌았으면 이 요청은 **차례를 기다린** 것이다.
+_LAGGED = 0.25
 
-    **판별은 두 숫자를 함께 읽어야 한다.** latency 하나로는 셋이 구별되지 않는다.
-      cpu ≳ latency 의 절반 & inflight > 1 → 줄에 서 있었다 (피해자)
-      cpu ≳ latency 의 절반 & inflight = 1 → 이 호출 자신이 무겁다 (원인)
-      cpu < latency 의 절반               → 기다렸다 (네트워크·스로틀)
-    절반을 경계로 두는 건 임의가 아니라 **한 요청이 CPU 를 절반 넘게 쓰고 있었다면 그
-    시간은 대기가 아니었다**는 뜻이라서다. 경계 근처는 어차피 섞이므로 셋의 비율만 본다.
+
+def contention_stats(rows):
+    """느린 호출을 네 갈래로 나눈다 — 줄 / 자신이 무겁다 / CPU 못 받음 / 네트워크 대기.
+
+    **셋이 아니라 넷이다.** 260827 까지는 셋이었고 그게 틀렸다. `cpu` 가 낮은 요청을
+    전부 「네트워크 대기」로 몰았는데, 그 안에 **CPU 차례를 못 받은 것**이 섞여 있었다.
+    실측: `law_lookup` 은 `await` 도 HTTP 도 없는 순수 로컬 조회인데 15.1~16.4초가
+    걸렸다(할 일은 3.8초어치 = 코어의 1/4). 기다릴 상대가 없는데 늦었는데도
+    「대기(네트워크)」로 적혔다. 지표가 오답을 내고 있었다.
+
+      cpu 높음 & lag 낮음              → 이 호출 자신이 무겁다 (원인)
+      cpu 높음 & lag 높음 & inflight>1 → 줄에 서 있었다 (피해자 — 고칠 곳은 동시성)
+      cpu 낮음 & lag 높음              → **CPU 를 못 받았다** (VM 스로틀 — 코드 문제 아님)
+      cpu 낮음 & lag 낮음              → 기다렸다 (네트워크·스로틀)
+
+    `lag` 이 없는 행(260827 이전)은 종전 규칙으로 읽되 **「CPU 못 받음」 후보를 네트워크로
+    단정하지 않는다** — 「모름」으로 따로 센다. 없던 컬럼을 0 으로 읽으면 그 기간이 통째로
+    한 범주에 쏠린다(`degraded` 가 첫날 None 을 65,500건짜리 범주로 만든 그 형태다).
     """
     out = defaultdict(lambda: defaultdict(int))
     seen = 0
-    for ts, tool, lat, inflight, cpu in rows:
+    for ts, tool, lat, inflight, cpu, lag in rows:
         if lat is None or cpu is None:
-            continue            # 두 컬럼이 생기기 전(260824 이전) — 0 이 아니라 「없음」
+            continue            # 계측 전(260824 이전) — 0 이 아니라 「없음」
         seen += 1
-        busy = cpu >= lat * 0.5
-        if not busy:
-            kind = "대기(네트워크)"
-        elif (inflight or 1) > 1:
-            kind = "줄"
+        busy = cpu >= lat * _BUSY
+        if lag is None:
+            kind = ("줄" if (inflight or 1) > 1 else "자신이 무겁다") if busy else "모름(lag 계측 전)"
         else:
-            kind = "자신이 무겁다"
+            lagged = lag >= lat * _LAGGED
+            if busy:
+                kind = "줄" if (lagged and (inflight or 1) > 1) else "자신이 무겁다"
+            else:
+                kind = "CPU 못 받음" if lagged else "대기(네트워크)"
         out[tool][kind] += 1
     return out, seen
 
@@ -415,7 +433,8 @@ def print_contention(min_ms: int = 10_000):
         parts = " · ".join(f"{k} {n:,}({n / tot * 100:.0f}%)"
                            for k, n in sorted(kinds.items(), key=lambda kv: -kv[1]))
         print(f"  {tool:<28} {tot:>5,}건  {parts}")
-    print("     ※ 「줄」이 많으면 고칠 곳은 그 tool 이 아니라 **동시성**이다.")
+    print("     ※ 「줄」이 많으면 고칠 곳은 동시성, 「CPU 못 받음」이 많으면 **머신 등급**,")
+    print("        「자신이 무겁다」가 많으면 그 tool 의 계산량이다.")
 
 
 def migrate_local_to_pg():
