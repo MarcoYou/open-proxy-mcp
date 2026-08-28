@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import krw_scaled
 from open_proxy_mcp.services.valuation import (
     build_valuation_payload,
     build_market_val_payload,
@@ -108,7 +109,7 @@ def _render_sector(p: dict[str, Any]) -> str:
         for s in rows:
             mark = " ◀" if c and s["sector"] == c["sector"] else ""
             lines.append(f"| {s['label']}{mark} | {s['n']} | {_f(s['per_ttm'])} | {_f(s['pbr_mrq'])} "
-                         f"| {(s['cap_krw'] or 0)/1e12:,.1f}조 |")
+                         f"| {krw_scaled(s['cap_krw'])} |")
         lines.append("")
     lines.append("> PER N/M = 섹터 합산 지배순이익≤0(적자 우세) — 그 경우 PBR로 비교.")
     for w in p.get("warnings", []):
@@ -131,14 +132,14 @@ def _render_firm_history(p: dict[str, Any]) -> str:
             ym = f"{s['asof'][:4]}-{s['asof'][4:6]}"
             lines.append(f"| {ym} | {_f(s.get('per_fy0'))} | {_f(s.get('per_ttm'))} "
                          f"| {_f(s.get('pbr'))} | {_f(s.get('pbr_mrq'))} "
-                         f"| {(s.get('cap_krw') or 0)/1e12:,.2f}조 | {s.get('marker','')} |")
+                         f"| {krw_scaled(s.get('cap_krw'))} | {s.get('marker','')} |")
     # ── 연말 PIT 밴드(장기 맥락) — 연 1점, FY0 기준(그 시점 최신 확정 연재무) ──
     if band:
         lines += ["", "## 연말 밴드 (장기 · FY0 기준)", "",
                   "| 연말 | PER(FY0) | PBR(FY0) | 시총(보통주) |", "|---|---|---|---|"]
         for h in reversed(band):
             lines.append(f"| {h['period']} | {_f(h.get('per_fy0'))} | {_f(h.get('pbr'))} "
-                         f"| {(h.get('cap_krw') or 0)/1e12:,.2f}조 |")
+                         f"| {krw_scaled(h.get('cap_krw'))} |")
     if series:
         lines += ["", f"> 📈 차트용 전 구간 주간 곡선 {len(series)}개"
                   f"({series[0]['asof']}~{series[-1]['asof']}) = `data.series`(per_fy0·per_ttm·pbr·pbr_mrq). "

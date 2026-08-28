@@ -197,3 +197,17 @@ def test_downsample_weekly_is_identity():
     from open_proxy_mcp.services.trading import _downsample
     series = [{"asof": "20260703", "market": "KS"}, {"asof": "20260710", "market": "KS"}]
     assert _downsample(series, "weekly") == series
+
+
+def test_krw_scaled_keeps_small_cap_visible():
+    """260828 T 재검토 — 시총이 「0.0조」로 나오면 200억원 쟁점을 판단할 수 없다.
+
+    조 고정 표기가 소형주를 지웠다. 값 크기에 맞는 단위로 찍는지 본다.
+    """
+    from open_proxy_mcp.tools._shared import krw_scaled
+
+    assert krw_scaled(19_800_000_000) == "198억원"      # 관리종목 시총 200억 미달 구간
+    assert krw_scaled(1_234_500_000_000) == "1.23조원"  # 1~10조는 소수 2자리
+    assert krw_scaled(6_156_000_000_000_000).startswith("6,156.0조")
+    assert krw_scaled(None) == "-"
+    assert krw_scaled(0) == "0원"

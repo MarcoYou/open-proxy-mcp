@@ -6,6 +6,7 @@ from typing import Any
 
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import krw_scaled
 from open_proxy_mcp.services.trading import (
     build_cap_agg_payload,
     build_firm_series_payload,
@@ -18,12 +19,14 @@ _STATUS_TITLE = {
     "unlisted": "비상장 — 시세 없음",
     "ambiguous": "회사 식별 모호 — 후보에서 선택",
     "no_data": "데이터 없음",
-    "db_error": "DB 연결 실패 (일시 장애)",
+    "db_error": "DB 연결 실패 (일시 장애 — 잠시 후 재시도)",
+    # ★ 위와 반드시 갈라 둔다. 「일시 장애」는 재시도가 답이지만 미연결은 **재시도가 답이 아니다.**
+    #   한 문구로 합치면 영원히 안 될 조회를 계속 다시 부르게 된다(260828 U 지적 A-1).
+    "db_unconfigured": "스냅샷 DB 미연결 — 이 서버에서는 제공되지 않음",
 }
 
 
-def _조(v):
-    return f"{(v or 0)/1e12:,.1f}조"
+_조 = krw_scaled   # md 표기 전용 — 값 크기에 맞춰 조원/억원/원 (260828)
 
 
 def _render_status(p: dict[str, Any]) -> str:
@@ -66,6 +69,25 @@ def _render_firm(p: dict[str, Any]) -> str:
     return "\n".join(L)
 
 
+def _render_firm_live(p: dict[str, Any]) -> str:
+    """DB 미연결 폴백 — 최신 1시점만. **시계열이 아니라는 것**을 표 위아래로 두 번 말한다."""
+    d = p["data"]; lt = d["latest"]
+    def n(v, unit="원"):
+        return f"{v:,}{unit}" if v is not None else "-"
+    L = [f"# {p['subject']} 최신 시세 [{d['market']}]", "",
+         f"> ⛔ **시계열 없음** — 이 서버에는 스냅샷 DB 가 연결돼 있지 않습니다. "
+         f"아래는 KRX 에서 직접 받아온 **{d['as_of']} 한 시점**입니다.", "",
+         "| 항목 | 값 |", "|---|---|",
+         f"| 기준일 | {d['as_of']} |",
+         f"| 종가 | {n(lt.get('close_krw'))} |",
+         f"| 시가총액 | {_조(lt.get('mktcap_krw'))} |",
+         f"| 상장주식수 | {n(lt.get('list_shrs'), '주')} |",
+         f"| 출처 | {d.get('source')} |", "",
+         f"> {d['method']}"]
+    L += [f"> {w}" for w in p.get("warnings", [])]
+    return "\n".join(L)
+
+
 def _render_market(p: dict[str, Any]) -> str:
     d = p["data"]
     L = [f"# 시장 시가총액 — KOSPI·KOSDAQ (기준 {d['as_of']})", "",
@@ -85,7 +107,10 @@ def _render_market(p: dict[str, Any]) -> str:
             by = {mkt_label(s["market"]): s for s in yearly[yr]}
             L.append(f"| {yr} | {_조(by.get('KOSPI', {}).get('cap_krw'))} "
                      f"| {_조(by.get('KOSDAQ', {}).get('cap_krw'))} |")
-    L += ["", f"> 📈 전 구간 주간 곡선 {d['points']}시점 = `data.series`.", "", f"> {d['method']}"]
+    # 시계열이 없을 수도 있다(DB 미연결 → KRX 라이브 폴백). 그때 "전 구간 곡선" 이라고 쓰면 거짓말이다.
+    L += ["", (f"> 📈 전 구간 주간 곡선 {d['points']}시점 = `data.series`." if d.get("series")
+               else "> ⛔ **시계열 없음** — 위는 KRX 에서 직접 받아온 한 시점입니다."),
+          "", f"> {d['method']}"]
     L += [f"> {w}" for w in p.get("warnings", [])]
     return "\n".join(L)
 
@@ -158,7 +183,7 @@ def register_tools(mcp):
         """desc: 거래·규모 데이터 — 종목의 주가·시가총액·상장주식수 시계열(주간, 2015-12~), 시장·섹터 시총 집계 시계열, 특정 거래일 전체 시세(OHLC·거래량·거래대금·등락률). KRX 정보데이터시스템 공식값.
         when: "주가 추이"·"시총 얼마"·"상장주식수 변화"(scope=firm) / "코스피 전체 시총"·"시장 규모 추이"(market) / "업종별 시총"·"반도체 섹터 비중"(sector, bucket 으로 특정 섹터 시계열) / "그날 거래량·거래대금·시고저가"(quote, as_of=YYYYMMDD). **PER·PBR·배당수익률 배수는 `price_multiple_data`** — 여기는 가격·규모 그 자체만.
         rule: scope=firm/market/sector = Supabase 저장분(krx_weekly · krx_cap_agg) — DART·KRX 0콜. scope=quote 만 KRX 라이브(최대 2콜, 오늘분은 캐시 적중 시 0콜). **`close_krw` 는 수정주가가 아니다** — 액면분할·병합 시점에 불연속이며 산출물이 `price_adjusted:false` 와 조정 이벤트 목록으로 명시한다. 연속 비교에는 `mktcap_krw`(조정 불변)를 쓴다. **시총 = 그 날 상장 전 종목(우선주 포함) 합** — `price_multiple_data` 의 Σ시총(배수 분모를 가진 종목만)보다 3~4% 크다. 섹터는 WICS 이며 미분류 종목을 버리지 않고 `_UNCLASSIFIED` 로 남겨 **섹터 합 == 시장 합**이 성립한다. 업종분류는 2026-08 부터 관측이라 그 이전은 소급(sector_asof 로 명시). 시계열 해상도 `freq` — 기본은 firm=weekly / market·sector=monthly(집계는 주간 해상도가 payload 만 4배로 키우고 알려주는 게 없다). `data.points_weekly` 로 원본 관측수를 함께 준다. md 표는 다시 월말·연말 발췌. 값 raw KRX int(_krw).
-        status: ok / invalid / not_found(우선주는 그 우선주 코드로 직접) / unlisted / no_data(휴장일·상장 전·배치 미실행) / db_error.
+        status: ok / invalid / not_found(우선주는 그 우선주 코드로 직접) / unlisted / no_data(휴장일·상장 전·배치 미실행) / db_error(일시 장애 — 재시도 유효) / **db_unconfigured**(이 서버에 스냅샷 DB 미연결 — 재시도해도 안 됨. firm·market 은 KRX 라이브 최신 1시점으로 폴백하며 그때 `data.scope="firm_live"` · `timeseries_available:false` · `source:"KRX 라이브"` 가 붙는다. sector 는 WICS 매핑이 DB 에만 있어 폴백 없음).
        
         ref: price_multiple_data, screener, financial_metrics
         """
@@ -180,5 +205,5 @@ def register_tools(mcp):
         if payload.get("status") != "ok":
             return _render_status(payload)
         out = payload["data"]["scope"]
-        return {"firm": _render_firm, "quote": _render_quote,
+        return {"firm": _render_firm, "firm_live": _render_firm_live, "quote": _render_quote,
                 "market": _render_market, "sector": _render_sector}[out](payload)

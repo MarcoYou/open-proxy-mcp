@@ -25,6 +25,7 @@ from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.valuation import (
     _DB_ERROR_PAYLOAD_WARN,
     _KRX_CACHE,
+    _fetch_live_snapshot,
     _num,
     _pg_rows,
     _resolve_listed,
@@ -67,7 +68,67 @@ def _err(subject: str, status: str, *warns: str) -> dict[str, Any]:
     return {"tool": TOOL, "status": status, "subject": subject, "warnings": list(warns)}
 
 
+# ── DB 미연결 vs DB 장애 ──────────────────────────────────────────────────────
+# `_pg_rows` 는 **둘 다 None** 으로 돌려준다(`DATABASE_URL` 미설정 / 접속 실패). 종전에는 그 None
+# 을 전부 「일시 장애 · 잠시 후 재시도」로 안내했는데, 스냅샷 DB 를 아예 붙이지 않은 서버에서는
+# 그 안내가 **거짓**이다 — 재시도해도 영원히 안 된다(260828 U 실사용 지적 A-1). 여기서 갈라
+# 낸다: 미설정이면 그렇게 말하고, 줄 수 있는 최신 1시점은 KRX 라이브로 준다.
+_DB_UNSET_WARN = ("이 서버에는 스냅샷 DB(`DATABASE_URL`)가 연결돼 있지 않습니다 — **재시도해도 "
+                  "되지 않습니다.** 저장 시계열(krx_weekly · krx_cap_agg)을 쓰는 조회는 이 서버에서 "
+                  "제공되지 않습니다.")
+_LIVE_ONLY_WARN = ("⚠ **KRX 라이브 · 시계열 아님** — 스냅샷 DB 가 없어 최신 1시점만 KRX 에서 직접 "
+                   "받아온 값입니다. 과거 추이·기간 비교는 이 서버에서 할 수 없습니다.")
+
+
+def _db_configured() -> bool:
+    return bool(os.getenv("DATABASE_URL"))
+
+
+def _db_missing_payload(subject: str, *extra: str) -> dict[str, Any]:
+    """DB 미설정(영구) 과 접속 실패(일시)를 status 로 가른다."""
+    if _db_configured():
+        return _err(subject, "db_error", _DB_ERROR_PAYLOAD_WARN)
+    return _err(subject, "db_unconfigured", _DB_UNSET_WARN, *extra)
+
+
+async def _live_split() -> tuple[str | None, dict[str, dict], dict[str, list]]:
+    """KRX 최신 거래일 전종목 스냅샷 — (거래일, {단축코드: row}, {"KOSPI": [...], "KOSDAQ": [...]}).
+
+    `_fetch_live_snapshot` 이 `_KRX_CACHE` 에 시장별 원본(`:split`)을 함께 넣어 둔다. 시장 합계는
+    그 시장 태그가 있어야 계산되므로 여기서 같이 꺼낸다(추가 콜 없음).
+    """
+    dd, snap = await _fetch_live_snapshot()
+    if not dd:
+        return None, {}, {}
+    return dd, snap, (_KRX_CACHE.get(dd + ":split") or {})
+
+
 # ── 1. 종목 시계열 ────────────────────────────────────────────────────────────
+async def _firm_live_fallback(name: str, ticker: str) -> dict[str, Any]:
+    """스냅샷 DB 가 없을 때의 **최신 1시점** 폴백 — KRX 라이브 종가·시총·상장주식수.
+
+    시계열은 못 준다. 그래도 「아무것도 못 준다」와 「최신값은 준다」는 다르고, 같은 서버에서
+    `price_multiple_data` 는 이 경로로 시총을 정상 반환하고 있었다(260828 U 실사용). 값의 출처와
+    한계(`source` · `timeseries_available`)를 payload 와 md 양쪽에 박아 둔다.
+    """
+    dd, snap, _ = await _live_split()
+    row = snap.get(ticker) if dd else None
+    if not row:
+        return _db_missing_payload(
+            name, "KRX 라이브 폴백도 실패했습니다 — KRX 키 미설정이거나 상류가 응답하지 않습니다.")
+    latest = {"asof": dd, "close_krw": _num(row.get("TDD_CLSPRC")),
+              "mktcap_krw": _num(row.get("MKTCAP")), "list_shrs": _num(row.get("LIST_SHRS"))}
+    return {"tool": TOOL, "status": "ok", "subject": f"{name}({ticker})",
+            "data": {"scope": "firm_live", "ticker": ticker,
+                     "market": mkt_label(row.get("MKT_NM") or ""),
+                     "as_of": dd, "latest": latest, "series": [],
+                     "timeseries_available": False, "source": "KRX 라이브",
+                     "price_adjusted": False,
+                     "method": "KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본 — "
+                               "그 거래일 실제 종가. 수정주가가 아닙니다."},
+            "warnings": [_DB_UNSET_WARN, _LIVE_ONLY_WARN]}
+
+
 async def build_firm_series_payload(company: str, format: str = "md",
                                     since: str = "", freq: str = "") -> dict[str, Any]:
     """한 종목의 종가·시총·상장주식수 시계열 (krx_weekly). DB 1콜."""
@@ -88,7 +149,10 @@ async def build_firm_series_payload(company: str, format: str = "md",
     args = (ticker, since) if since else (ticker,)
     rows = await asyncio.to_thread(_pg_rows, sql, args)
     if rows is None:
-        return _err(corp.get("corp_name", company), "db_error", _DB_ERROR_PAYLOAD_WARN)
+        name = corp.get("corp_name", company)
+        if _db_configured():
+            return _err(name, "db_error", _DB_ERROR_PAYLOAD_WARN)
+        return await _firm_live_fallback(name, ticker)
     if not rows:
         return _err(corp.get("corp_name", company), "no_data",
                     f"krx_weekly 에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).")
@@ -127,6 +191,32 @@ async def build_firm_series_payload(company: str, format: str = "md",
 
 
 # ── 2. 시장·섹터 시총 집계 ────────────────────────────────────────────────────
+async def _market_live_fallback() -> dict[str, Any]:
+    """스냅샷 DB 가 없을 때의 시장 시총 — KRX 최신 스냅샷을 시장별로 합산한다(추가 콜 없음).
+
+    모집단은 저장분과 같다(그 날 상장된 전 종목, 우선주 포함) — 합계 정의가 바뀌지 않는다.
+    바뀌는 것은 **시계열이 없다**는 것뿐이다.
+    """
+    dd, _, split = await _live_split()
+    if not dd or not (split.get("KOSPI") and split.get("KOSDAQ")):
+        return _db_missing_payload(
+            "시장 시총",
+            "KRX 라이브 폴백도 실패했습니다 — KRX 키 미설정이거나 상류가 응답하지 않습니다.")
+    latest = []
+    for mkt, rows in (("KS", split["KOSPI"]), ("KQ", split["KOSDAQ"])):
+        caps = [_num(r.get("MKTCAP")) for r in rows]
+        caps = [c for c in caps if c]
+        latest.append({"asof": dd, "market": mkt, "cap_krw": sum(caps), "n": len(caps)})
+    return {"tool": TOOL, "status": "ok", "subject": "시장 시가총액 (KOSPI·KOSDAQ)",
+            "data": {"scope": "market", "scheme": "market", "scheme_desc": _SCHEMES["market"],
+                     "as_of": dd, "points": 1, "freq": "none", "points_weekly": 1,
+                     "latest": latest, "series": [],
+                     "timeseries_available": False, "source": "KRX 라이브",
+                     "method": "Σ시총 = 그 거래일 상장된 **전 종목**(우선주 포함) 합 — KRX 일별매매정보 "
+                               "원본을 시장별로 합산. 저장분(krx_cap_agg)과 모집단 정의가 같습니다."},
+            "warnings": [_DB_UNSET_WARN, _LIVE_ONLY_WARN]}
+
+
 async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
                                 since: str = "", bucket: str = "",
                                 freq: str = "") -> dict[str, Any]:
@@ -146,6 +236,8 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
                + (" AND price_dd>=%s" if since else "") + " ORDER BY price_dd, market")
         rows = await asyncio.to_thread(_pg_rows, sql, (since,) if since else ())
         if rows is None:
+            if not _db_configured():
+                return await _market_live_fallback()
             return _err("시장 시총", "db_error", _DB_ERROR_PAYLOAD_WARN)
         if not rows:
             return _err("시장 시총", "no_data", "krx_cap_agg 비어있음 — krx_cap_agg.py 배치 미실행.")
@@ -173,7 +265,11 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
                   "WHERE scheme=%s AND price_dd=(SELECT max(price_dd) FROM krx_cap_agg WHERE scheme=%s) "
                   "ORDER BY market, cap DESC", (scheme, scheme))
     if snap is None:
-        return _err("섹터 시총", "db_error", _DB_ERROR_PAYLOAD_WARN)
+        return _db_missing_payload(
+            "섹터 시총",
+            "섹터 집계는 KRX 라이브로 대체할 수 없습니다 — WICS 업종분류 매핑이 DB 에만 있습니다. "
+            "시장 전체 시총(`scope=\"market\"`)과 종목 최신 시총(`scope=\"firm\"`)은 KRX 라이브로 "
+            "받을 수 있습니다.")
     if not snap:
         return _err("섹터 시총", "no_data", "krx_cap_agg 비어있음 — krx_cap_agg.py 배치 미실행.")
     as_of = snap[0][6]
