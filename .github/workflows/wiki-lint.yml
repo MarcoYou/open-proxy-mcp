@@ -7,7 +7,6 @@ on:
       - 'wiki/**'
       - '**/*.md'
       - 'scripts/wiki_lint.py'
-      - 'scripts/check_tool_catalog.py'
       - 'scripts/gen_index.py'
       - 'scripts/check_documentation_contract.py'
       - 'open_proxy_mcp/services/business_details.py'
@@ -21,8 +20,6 @@ on:
       - 'wiki/**'
       - '**/*.md'
       - 'scripts/wiki_lint.py'
-      - 'scripts/gen_index.py'
-      - 'scripts/check_tool_catalog.py'
       - 'scripts/gen_index.py'
       - 'scripts/check_documentation_contract.py'
       - 'open_proxy_mcp/services/business_details.py'
@@ -43,7 +40,5 @@ jobs:
         run: uv run python scripts/gen_index.py --check
       - name: Run wiki_lint (strict)
         run: uv run python scripts/wiki_lint.py --strict
-      - name: Check runtime tool catalog and public docs
-        run: uv run python scripts/check_tool_catalog.py
       - name: Check public documentation contract
         run: uv run python scripts/check_documentation_contract.py

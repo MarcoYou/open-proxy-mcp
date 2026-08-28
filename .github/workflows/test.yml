@@ -8,6 +8,16 @@ on:
       - 'tests/**'
       - 'scripts/check_tool_catalog.py'
       - 'wiki/tools/**'
+      # check_tool_catalog 이 **읽는** 공개 문서들. 여기가 빠져 있어서 README 만 고친
+      # 변경은 그 검사를 안 거쳤다 — 그래서 260827 에 wiki-lint 쪽에 같은 검사가
+      # 한 벌 더 붙었는데, 그 워크플로엔 의존성 설치가 없어 ModuleNotFoundError 로
+      # 죽었다. 검사를 옮기는 대신 **이미 도는 곳의 트리거를 넓힌다** — 두 벌로 두면
+      # 한쪽만 고쳐진다.
+      - 'README.md'
+      - 'README_ENG.md'
+      - 'docs/RELEASE_NOTES.md'
+      - 'docs/RELEASE_NOTES_ENG.md'
+      - 'docs/features/**'
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/test.yml'
@@ -17,6 +27,16 @@ on:
       - 'tests/**'
       - 'scripts/check_tool_catalog.py'
       - 'wiki/tools/**'
+      # check_tool_catalog 이 **읽는** 공개 문서들. 여기가 빠져 있어서 README 만 고친
+      # 변경은 그 검사를 안 거쳤다 — 그래서 260827 에 wiki-lint 쪽에 같은 검사가
+      # 한 벌 더 붙었는데, 그 워크플로엔 의존성 설치가 없어 ModuleNotFoundError 로
+      # 죽었다. 검사를 옮기는 대신 **이미 도는 곳의 트리거를 넓힌다** — 두 벌로 두면
+      # 한쪽만 고쳐진다.
+      - 'README.md'
+      - 'README_ENG.md'
+      - 'docs/RELEASE_NOTES.md'
+      - 'docs/RELEASE_NOTES_ENG.md'
+      - 'docs/features/**'
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/test.yml'

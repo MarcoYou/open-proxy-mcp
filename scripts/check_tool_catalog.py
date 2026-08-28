@@ -7,6 +7,20 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+#: 스캔에서 뺄 폴더. **레포의 문서가 아닌 것**은 읽지 않는다.
+#: 260827: `.claude/worktrees/` 안의 옛 사본(다른 세션이 만든 git worktree)까지 읽고
+#: 「runtime에 없는 tool 링크: valuation」으로 죽었다. CI 는 깨끗한 체크아웃이라 통과하고
+#: 로컬만 실패하니, **사람이 고칠 곳이 없는 오탐**으로 시간을 쓰게 된다.
+_SKIP_DIRS = {".git", ".claude", ".venv", "venv", "node_modules",
+              "__pycache__", ".mypy_cache", ".pytest_cache", "build", "dist"}
+
+
+def _repo_markdown():
+    """레포에 실제로 속한 .md 만 훑는다(위 폴더는 통째로 건너뛴다)."""
+    for path in ROOT.rglob("*.md"):
+        if _SKIP_DIRS.isdisjoint(path.relative_to(ROOT).parts):
+            yield path
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from open_proxy_mcp.server import build_mcp
@@ -62,7 +76,7 @@ def main() -> int:
 
     # 구 tool 페이지 링크는 basename resolver가 살려주지 않는 일반 Markdown 링크다.
     stale_links: set[str] = set()
-    for path in ROOT.rglob("*.md"):
+    for path in _repo_markdown():
         text = path.read_text(encoding="utf-8", errors="ignore")
         for name in re.findall(r"\]\([^)]*wiki/tools/([a-z0-9_]+)\.md(?:#[^)]*)?\)", text):
             if name not in runtime_tools and name not in SUPPORT_PAGES:

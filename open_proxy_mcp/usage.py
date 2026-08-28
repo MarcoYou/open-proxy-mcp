@@ -127,7 +127,8 @@ def _sqlite_connect():
                 "fetch_viewer INTEGER", "fetch_kind INTEGER",
                 "web_wait_ms INTEGER", "weak_kinds TEXT",
                 "degraded TEXT",
-                "inflight INTEGER", "cpu_ms INTEGER"):  # 기존 테이블 마이그레이션
+                "inflight INTEGER", "cpu_ms INTEGER",
+                "lag_ms INTEGER"):  # 기존 테이블 마이그레이션
         try:
             con.execute(f"ALTER TABLE events ADD COLUMN {col}")
         except sqlite3.OperationalError:
@@ -147,7 +148,7 @@ _EVENT_COLUMNS = (
     "doc_mem_hits", "doc_disk_hits", "doc_misses", "corp_codes",
     "fetch_viewer", "fetch_kind", "web_wait_ms", "weak_kinds",
     "degraded",
-    "inflight", "cpu_ms",
+    "inflight", "cpu_ms", "lag_ms",
 )
 
 
@@ -225,6 +226,11 @@ def _pg_connect():
     #           / cpu≪latency → 네트워크 대기.
     con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS inflight int")
     con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS cpu_ms int")
+    # 260827: **CPU 차례를 못 받은 것**을 네트워크 대기와 가른다. 계기는 `law_lookup` —
+    #   `await` 도 HTTP 도 없는 순수 로컬 조회인데 15.1~16.4초가 걸렸다(할 일은 3.8초어치).
+    #   기다릴 상대가 없는데 늦었으니 남는 설명은 하나인데, 집계는 「대기(네트워크)」라고 적었다.
+    #   lag_ms = 이 요청이 도는 동안 이벤트루프가 밀린 시간(0.1초 표본기의 지각 누적).
+    con.execute("ALTER TABLE ops_tool_calls ADD COLUMN IF NOT EXISTS lag_ms int")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_hash ON ops_tool_calls(key_hash)")
     con.execute("CREATE INDEX IF NOT EXISTS idx_events_ts ON ops_tool_calls(ts_ns)")
     # ops_corp_daily 는 corp_codes 를 되돌린 뒤에도 **계속 쓴다**(260817, 위 모듈 주석).
@@ -295,7 +301,7 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
            error_kind=None, response_bytes=None,
            doc_mem_hits=None, doc_disk_hits=None, doc_misses=None, corp_codes=None,
            fetch_viewer=None, fetch_kind=None, web_wait_ms=None, weak_kinds=None,
-           degraded=None, inflight=None, cpu_ms=None) -> None:
+           degraded=None, inflight=None, cpu_ms=None, lag_ms=None) -> None:
     """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
@@ -312,8 +318,10 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     갑자기 늘면 우리가 무언가를 조용히 깨뜨린 것이다 — 오류율로는 안 보이는 고장이다.
     inflight=이 요청이 도는 동안 함께 돌던 요청의 최대 수(260824),
     cpu_ms=그동안 **프로세스 전체**가 쓴 CPU 시간(ms — 이 요청 자신의 것이 아니다).
-    둘은 함께 읽는다: cpu≈latency 이고 inflight>1 이면 줄에 선 것이고, inflight=1 이면
-    그 호출 자신이 무거운 것이며, cpu≪latency 면 네트워크를 기다린 것이다.
+    lag_ms=그동안 이벤트루프가 밀린 시간(ms — 260827). cpu 가 낮은 요청이 「네트워크를
+    기다린 것」인지 「CPU 차례를 못 받은 것」인지는 이 값만 가른다. 셋을 함께 읽는다:
+    cpu 높음+lag 낮음 → 이 호출이 무겁다 / cpu 높음+lag 높음+inflight>1 → 줄 /
+    cpu 낮음+lag 높음 → CPU 를 못 받았다(VM 스로틀) / cpu 낮음+lag 낮음 → 네트워크 대기.
     corp_codes=이 요청이 **해석해 낸** 기업 코드 목록(사용자가 친 원문은 남기지 않는다).
 
     260804 이전에는 「회사는 기록하지 않는다」였다. 집계로 무엇이 많이 쓰이는지 보려고
@@ -338,7 +346,7 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
                 "doc_misses": doc_misses, "corp_codes": codes,
                 "fetch_viewer": fetch_viewer, "fetch_kind": fetch_kind,
                 "web_wait_ms": web_wait_ms, "weak_kinds": weak_kinds, "degraded": degraded,
-                "inflight": inflight, "cpu_ms": cpu_ms}
+                "inflight": inflight, "cpu_ms": cpu_ms, "lag_ms": lag_ms}
         _q.put_nowait(tuple(vals[c] for c in _EVENT_COLUMNS))
     except Exception:
         pass

@@ -112,6 +112,64 @@ def inflight_now() -> int:
     return len(_ACTIVE_LEDGERS)
 
 
+# ── 이벤트루프 지연(lag) 표본기 ──
+# **왜 필요한가.** `cpu_ms` 가 낮은 요청이 두 종류인데 구분이 안 됐다:
+#   ① 네트워크를 기다린 것 — 루프는 한가하다
+#   ② **CPU 차례를 못 받은 것** — 루프가 돌고 싶어도 못 돈다
+# 260827 실측이 그 벽이었다. `law_lookup` 은 `await` 도 HTTP 도 없는 **순수 로컬 조회**인데
+# 15.1~16.4초가 걸렸다(할 일은 3.8초어치, 즉 코어의 1/4). 기다릴 상대가 없는데 늦었으니
+# 남는 설명은 「우리 차례가 안 왔다」뿐이다. 그런데 집계는 그걸 「대기(네트워크)」라고 적었다.
+#
+# 재는 법: 0.1초마다 깨는 표본기를 두고 **얼마나 늦게 깼는지**를 누적한다. 루프가 한가하면
+# 0 에 가깝고, 동기 코드가 붙들고 있거나 VM 이 CPU 를 못 받으면 그만큼 밀린다.
+# 둘의 구분은 `cpu_ms` 가 한다 — 붙들려 있으면 CPU 를 쓰고 있고, 못 받으면 안 쓰고 있다.
+_LAG_INTERVAL = 0.1
+_lag_total_ms = 0.0
+_lag_due = 0.0          # 표본기가 **깨기로 한** 시각(loop.time 기준)
+_lag_task = None
+_lag_loop = None
+
+
+async def _lag_sampler() -> None:
+    global _lag_total_ms, _lag_due
+    loop = asyncio.get_running_loop()
+    while True:
+        _lag_due = loop.time() + _LAG_INTERVAL
+        await asyncio.sleep(_LAG_INTERVAL)
+        drift = loop.time() - _lag_due
+        if drift > 0:
+            _lag_total_ms += drift * 1000
+
+
+def ensure_lag_sampler() -> None:
+    """서빙 루프에서 표본기를 띄운다(없으면). 루프가 바뀌면 다시 띄운다 —
+    `asyncio.Task` 도 락처럼 만든 루프에 묶인다(`_loop_locks` 와 같은 이유)."""
+    global _lag_task, _lag_loop
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return                      # 루프 밖(스크립트·import 시점) — 조용히 통과
+    if _lag_task is not None and _lag_loop is loop and not _lag_task.done():
+        return
+    _lag_loop = loop
+    _lag_task = loop.create_task(_lag_sampler())
+
+
+def loop_lag_ms() -> float:
+    """켠 이래 누적된 지연(ms). 요청 시작·끝에서 두 번 읽어 **차이**를 쓴다.
+
+    ★ 누적분에 **진행 중인 지각**을 더해서 낸다. 표본기는 다음에 깨어날 때야 자기
+    지각을 적는데, 요청은 막힌 **직후** 이 값을 읽는다 — 더하지 않으면 그 요청의
+    lag 이 0 으로 적히고, 정작 **막혔던 그 요청만** 신호를 놓친다(260827 실측: 루프를
+    0.8초 붙들었는데 lag=0). 다음 요청에 뒤늦게 얹히면 엉뚱한 쪽을 범인으로 만든다.
+    """
+    try:
+        pending = asyncio.get_running_loop().time() - _lag_due
+    except RuntimeError:
+        pending = 0.0
+    return _lag_total_ms + max(0.0, pending) * 1000
+
+
 def _note_doc(kind: str) -> None:
     """문서 1건의 출처를 장부에 적는다. 장부가 없으면(스크립트·테스트) 조용히 통과."""
     ledger = _ctx_ledger.get()

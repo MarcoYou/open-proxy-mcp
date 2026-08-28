@@ -120,6 +120,7 @@ def test_middleware_passes_both_numbers():
     src = inspect.getsource(server)
     assert "inflight=ledger.get(\"inflight_max\")" in src
     assert "cpu_ms=" in src and "process_time()" in src
+    assert "lag_ms=" in src and "loop_lag_ms()" in src
 
 
 def test_middleware_releases_the_slot_even_on_failure():
@@ -147,16 +148,38 @@ def _tracker():
     return m
 
 
-def test_three_causes_are_told_apart():
+def test_four_causes_are_told_apart():
+    """★ 260827 까지 셋이었고 그게 틀렸다. `cpu` 가 낮은 것을 전부 「네트워크 대기」로
+    몰았는데, 그 안에 **CPU 차례를 못 받은 것**이 섞여 있었다."""
     ut = _tracker()
-    rows = [
-        (1, "bd", 100_000, 5, 90_000),     # 코어는 일했고 나는 5명 중 하나 → 줄
-        (2, "bd", 100_000, 1, 90_000),     # 코어는 일했고 나뿐          → 자신이 무겁다
-        (3, "bd", 100_000, 4, 1_000),      # 코어는 놀았다               → 네트워크 대기
+    rows = [                      # ts, tool, latency, inflight, cpu, lag
+        (1, "bd", 100_000, 5, 90_000, 40_000),   # 태웠고·밀렸고·여럿 → 줄
+        (2, "bd", 100_000, 1, 90_000,    100),   # 태웠고·안 밀렸고·혼자 → 자신이 무겁다
+        (3, "bd", 100_000, 1,  1_000, 40_000),   # 안 태웠는데 밀렸다 → CPU 못 받음
+        (4, "bd", 100_000, 4,  1_000,    100),   # 안 태웠고 루프도 한가 → 네트워크 대기
     ]
     per_tool, seen = ut.contention_stats(rows)
-    assert seen == 3
-    assert dict(per_tool["bd"]) == {"줄": 1, "자신이 무겁다": 1, "대기(네트워크)": 1}
+    assert seen == 4
+    assert dict(per_tool["bd"]) == {"줄": 1, "자신이 무겁다": 1,
+                                    "CPU 못 받음": 1, "대기(네트워크)": 1}
+
+
+def test_the_local_only_tool_is_no_longer_called_a_network_wait():
+    """실측 재현: 네트워크를 한 줄도 안 타는 tool 이 15.1초 걸렸다(할 일 3.8초어치).
+    종전 분류는 이걸 「대기(네트워크)」라고 적었다 — 기다릴 상대가 없는 tool 인데."""
+    ut = _tracker()
+    rows = [(1, "law_lookup", 15_100, 1, 3_800, 11_000)]
+    per_tool, seen = ut.contention_stats(rows)
+    assert dict(per_tool["law_lookup"]) == {"CPU 못 받음": 1}
+
+
+def test_rows_before_lag_existed_are_not_forced_into_a_category():
+    """lag 이 없는 기간을 0 으로 읽으면 그 기간이 통째로 「네트워크 대기」로 쏠린다 —
+    없던 컬럼을 0 으로 읽는 것이 `degraded` 를 첫날 망친 형태다."""
+    ut = _tracker()
+    rows = [(1, "bd", 100_000, 1, 1_000, None)]
+    per_tool, seen = ut.contention_stats(rows)
+    assert dict(per_tool["bd"]) == {"모름(lag 계측 전)": 1}
 
 
 def test_rows_from_before_the_columns_existed_are_not_a_category():
@@ -164,7 +187,7 @@ def test_rows_from_before_the_columns_existed_are_not_a_category():
     컬럼이 없어 `merge_drained` 가 None 으로 채우는데, 그걸 안 거르면 「없음」이
     하나의 원인 범주로 둔갑해 65,500건짜리 유령이 된다(260824 실측)."""
     ut = _tracker()
-    rows = [(1, "bd", 100_000, None, None), (2, "bd", 100_000, 3, 90_000)]
+    rows = [(1, "bd", 100_000, None, None, None), (2, "bd", 100_000, 3, 90_000, 40_000)]
     per_tool, seen = ut.contention_stats(rows)
     assert seen == 1, "계측 전 행이 분모에 들어갔다"
     assert dict(per_tool["bd"]) == {"줄": 1}
@@ -330,3 +353,63 @@ def test_handshakes_do_not_count_either():
         return
     _drive(quick, n=4, rpc="initialize")
     assert inflight_now() == 0
+
+
+# ── 루프 지연 표본기 ──────────────────────────────────────────────────
+def test_the_sampler_stays_near_zero_when_the_loop_is_free():
+    """네트워크를 기다리는 요청은 루프를 붙들지 않는다 — 지연이 안 쌓여야 한다.
+    안 그러면 모든 대기가 「CPU 못 받음」으로 오분류된다."""
+    import asyncio
+
+    from open_proxy_mcp.dart import client as C
+
+    async def main():
+        C.ensure_lag_sampler()
+        a = C.loop_lag_ms()
+        await asyncio.sleep(0.5)          # 순수 대기 — 루프는 한가하다
+        return C.loop_lag_ms() - a
+    assert asyncio.run(main()) < 50, "한가한 루프인데 지연이 쌓였다"
+
+
+def test_the_sampler_catches_a_blocked_loop():
+    """동기 코드가 루프를 붙들면 표본기가 제때 못 깬다 — 그 지각이 신호다."""
+    import asyncio
+    import time
+
+    from open_proxy_mcp.dart import client as C
+
+    async def main():
+        C.ensure_lag_sampler()
+        await asyncio.sleep(0.15)         # 표본기가 한 번 돌게 둔다
+        a = C.loop_lag_ms()
+        time.sleep(0.6)                   # ★ await 없이 붙든다
+        # **막힌 직후 바로 읽는다** — 미들웨어가 하는 것과 같다. 여기서 await 을 하나
+        # 끼우면 표본기가 따라잡아 통과해 버리는데, 정작 실전에서 놓치는 건 이 순간이다.
+        return C.loop_lag_ms() - a
+    assert asyncio.run(main()) > 300, "루프가 0.6초 막혔는데 lag 이 0 이다"
+
+
+def test_the_sampler_follows_the_loop_it_was_started_on():
+    """`asyncio.Task` 도 락처럼 만든 루프에 묶인다. 루프가 바뀌면 다시 띄워야 한다 —
+    안 그러면 배포 뒤 조용히 0 만 기록된다."""
+    import asyncio
+
+    from open_proxy_mcp.dart import client as C
+
+    async def go():
+        C.ensure_lag_sampler()
+        await asyncio.sleep(0.15)
+        # **루프 안에서** 본다 — asyncio.run 이 끝나면 남은 task 를 취소하므로
+        # 밖에서 본 done() 은 아무 뜻이 없다.
+        return C._lag_task, asyncio.get_running_loop(), C._lag_task.done()
+    t1, l1, alive1 = asyncio.run(go())
+    t2, l2, alive2 = asyncio.run(go())
+    assert l1 is not l2, "전제: 서로 다른 루프"
+    assert t1 is not t2, "루프가 바뀌었는데 옛 task 를 그대로 쓴다"
+    assert not alive1 and not alive2, "표본기가 도는 중에 죽었다"
+
+
+def test_outside_a_loop_it_is_silent():
+    """스크립트·import 시점에는 루프가 없다. 죽지 말고 조용히 통과해야 한다."""
+    from open_proxy_mcp.dart.client import ensure_lag_sampler
+    ensure_lag_sampler()
