@@ -37,6 +37,11 @@ from open_proxy_mcp.services.contracts import (
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
+from open_proxy_mcp.services.exchange_actions import (
+    EXTRA_CATEGORIES,
+    EXTRA_DETAIL_GUIDE,
+    EXTRA_PARSERS,
+)
 
 # ── 카테고리 정의 ──────────────────────────────────────────────
 # keywords: report_nm 부분 매칭 (공백 제거 후). 순서 = 분류 우선순위.
@@ -49,9 +54,28 @@ _CATEGORIES: dict[str, dict[str, Any]] = {
     "dissolution": {"label": "해산", "keywords": ("해산사유",)},
 }
 
-# 활성 스콥 — 기본(category 미지정) 조회는 이 3종만. 나머지는 mute:
-# 파서·검증(359건)은 완료된 채 보존, 명시적 category 요청 시에만 동작 (2026-06-11 결정).
-_ACTIVE_CATEGORIES = ("serious_accident", "embezzlement", "production_halt")
+# 기존 6종은 I001+B001 에 산다. 그 뒤에 거래소 시장조치·규제 계열을 잇는다.
+# 🔴 **뒤에 잇는 것이 중요하다** — `_classify` 는 위에서부터 먼저 걸리는 것이
+# 이긴다. 앞에 두면 `주권매매거래정지(횡령·배임혐의발생)` 이 지금의
+# `embezzlement` 에서 `trading_halt` 로 옮겨 가 검증된 분류가 조용히 바뀐다.
+_BASE_CHANNELS = ("I001", "B001")
+_CATEGORIES.update(EXTRA_CATEGORIES)
+
+#: 카테고리별 채널. 미지정이면 기존 두 채널.
+_CATEGORY_CHANNELS: dict[str, tuple[str, ...]] = {
+    cat: tuple(cfg.get("channels") or _BASE_CHANNELS) for cat, cfg in _CATEGORIES.items()
+}
+
+# 활성 스콥 — 기본(category 미지정) 조회에 뜨는 것들. 나머지는 mute:
+# 파서·검증은 완료된 채 보존, 명시적 category 요청 시에만 동작 (2026-06-11 결정).
+# 2026-08-27 추가분 중 `trading_halt`·`listing_review`·`litigation`·
+# `capital_impairment` 은 기본에 넣는다 — 신호가 뚜렷하고 하루 몇 건이다.
+# `inquiry_disclosure`(풍문·조회)와 `investment_judgment`(잡탕)은 양이 많아
+# 다른 카드를 묻는다. 켜려면 category 로 지정한다.
+_ACTIVE_CATEGORIES = (
+    "serious_accident", "embezzlement", "production_halt",
+    "trading_halt", "listing_review", "litigation", "capital_impairment",
+)
 _MUTED_CATEGORIES = tuple(c for c in _CATEGORIES if c not in _ACTIVE_CATEGORIES)
 
 _ALL_KEYWORDS = tuple(kw for cat in _ACTIVE_CATEGORIES for kw in _CATEGORIES[cat]["keywords"])
@@ -74,6 +98,53 @@ _STAGE_MARKERS = (
 
 # 수시공시 항목 신설 시점 (중대재해 — 실측 최초 공시 2025-10-29)
 _DISCLOSURE_REGIME_START = "20251001"
+
+# ── 원문 창 ────────────────────────────────────────────────────
+#
+# 🔴 **자른 요약만 주면 판단 재료가 사라진다** (2026-08-28, 실사용 시험 두 세션 연속 지적).
+# 관리종목 지정에서 알아야 할 것은 「지정됐다」가 아니라 **무슨 사유로 · 언제까지 ·
+# 무엇을 하면 풀리나** 인데, 그 셋은 정형 칸이 아니라 안내문 줄글에 있다.
+# 실측(2026-08 I003)에서 거래소 안내문은 200~750자로 짧아 **문서가 통째로 창에 들어온다.**
+# 그래서 파서를 늘리는 대신 **원문을 같이 싣고 창을 넓힐 손잡이(`source_chars`)를 준다.**
+_SOURCE_CHARS_DEFAULT = 4000
+_SOURCE_CHARS_MAX = 20000
+
+#: 카테고리별 「어디를 보나 · 없으면 어디로 가나」. 거래소 계열은 exchange_actions 가 준다.
+_DETAIL_GUIDE: dict[str, dict[str, Any]] = {
+    "serious_accident": {
+        "where": "재해 내용 · 발생 장소 · 사망자 수 · 부상자 수 · 조치사항 및 향후대책 칸.",
+        "alt": "처벌 확정은 뒤따르는 「중대재해 발생(처벌확인)」 공시에 있다. "
+               "비상장 자회사 사고는 상장 모회사가 「(종속회사의 주요경영사항)」 으로 낸다.",
+        "next": "산재 통계 정본은 고용노동부다 — 공시 무건수를 무사고로 읽지 말 것.",
+    },
+    "embezzlement": {
+        "where": "혐의자 · 혐의발생금액 · 자기자본대비 비율 칸. 뒤에 진행사항·판결 공시가 이어진다.",
+        "alt": "경영권 분쟁과 얽힌 건은 `proxy_contest`, 이사 개인 건은 `director_board`.",
+        "next": "같은 사건의 후속은 「횡령·배임 사실확인」·「진행사항」 공시로 나간다.",
+    },
+    "derivative_loss": {
+        "where": "손실누계잔액(원) 또는 손실발생금액(원) · 자기자본대비 비율 칸.",
+        "alt": "분기 실적 반영은 `provisional_earnings`, 파생 잔액 주석은 `financial_notes`.",
+        "next": "손실이 누적되면 같은 서식으로 다시 공시된다 — 최근 건만 보지 말 것.",
+    },
+    "rehabilitation": {
+        "where": "관할법원 · 신청일자/결정일자 · 부도금액 칸.",
+        "alt": "개시 결정 이후 거래정지·상장적격성 심사가 뒤따른다 — `trading_halt`·`listing_review`.",
+        "next": "회생 절차 단계는 신청 → 개시결정 → 종결/폐지 순으로 각각 공시된다.",
+    },
+    "production_halt": {
+        "where": "생산중단(영업정지) 분야 · 매출액 대비 비율 · 중단 사유 · 향후 대책 칸.",
+        "alt": "재개는 별도 공시로 나가고, 사업부 비중은 `business_details` 의 부문 표에 있다.",
+        "next": "중단이 길어지면 「주된 영업 정지」 로 관리종목 사유가 될 수 있다 — `listing_review`.",
+    },
+    "dissolution": {
+        "where": "해산 사유와 일자. 서식이 짧아 아래 원문이 사실상 전부다.",
+        "alt": "청산·상장폐지 절차는 거래소 「기타시장안내」 로 이어진다.",
+        "next": "합병에 따른 해산이면 `corporate_restructuring`.",
+    },
+}
+_DETAIL_GUIDE.update(EXTRA_DETAIL_GUIDE)
+
 
 _MARKET_SCAN_DEFAULT_DAYS = 30
 _MARKET_SCAN_MAX_DAYS = 90
@@ -226,21 +297,48 @@ _PARSERS = {
     "rehabilitation": _parse_rehabilitation,
     "dissolution": _parse_generic,
 }
+_PARSERS.update(EXTRA_PARSERS)
 
 
-def _parse_document(html: str, category: str, stage: str) -> dict[str, Any]:
+#: 원문 자체를 담는 칸 — 파서가 채운 칸인지 세는 자리에서 빼야 한다.
+_SOURCE_KEYS = ("source_text", "source_text_chars", "source_text_truncated")
+
+
+def _parse_document(
+    html: str, category: str, stage: str, source_chars: int = _SOURCE_CHARS_DEFAULT,
+) -> tuple[dict[str, Any], str]:
+    """(파싱 결과, 못 준 이유) — **원문을 항상 같이 싣는다.**
+
+    파서가 칸을 못 채워도 빈손으로 돌려보내지 않는다. 서식이 갈리는 거래소
+    안내문에서 사유·유예기간·해소요건은 정형 칸이 아니라 줄글에 있어, 잘라 낸
+    요약만 주면 판단 재료가 통째로 사라진다(2026-08-28 실사용 시험 지적).
+    """
     text = _extract_text(html)
-    # 일부 거래소 채널 공시(예: 영업정지(종속회사)) 본문이 빈 문서 — parsing failure로 집계
+    # 일부 거래소 채널 공시(예: 영업정지(종속회사)) 본문이 빈 문서 — 원문 자체가 없다.
     if len(text.strip()) < 30:
-        return {}
+        return {}, "원문 없음 — 이 접수번호의 DART 문서에 읽을 본문이 없다(빈 문서·이미지 전용)."
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     parser = _PARSERS.get(category, _parse_generic)
-    return parser(text, lines, stage)
+    parsed = dict(parser(text, lines, stage) or {})
+
+    body = "\n".join(lines)
+    limit = max(200, min(int(source_chars or _SOURCE_CHARS_DEFAULT), _SOURCE_CHARS_MAX))
+    parsed["source_text"] = body[:limit]
+    parsed["source_text_chars"] = len(body)
+    parsed["source_text_truncated"] = len(body) > limit
+
+    filled = [k for k, v in parsed.items()
+              if k not in _SOURCE_KEYS and k != "summary_excerpt" and v not in (None, "", "-", [], 0)]
+    note = "" if filled else (
+        "서식이 달라 항목으로 나누지 못했다 — 값을 지어내지 않고 아래 원문을 그대로 싣는다."
+    )
+    return parsed, note
 
 
 async def _enrich_with_document_details(
     rows: list[dict[str, Any]],
     max_docs: int = 5,
+    source_chars: int = _SOURCE_CHARS_DEFAULT,
 ) -> tuple[list[dict[str, Any]], list[str], int]:
     client = get_dart_client()
     warnings: list[str] = []
@@ -260,12 +358,24 @@ async def _enrich_with_document_details(
     results = await asyncio.gather(*[_safe_fetch(row["rcept_no"]) for row in targets])
     doc_calls = 0
     for row, (html, err) in zip(targets, results):
+        # 🔴 **못 준 것은 왜 못 줬는지를 구분해 남긴다** — 조회 실패 / 원문 없음 /
+        # 서식 다름은 읽는 쪽이 취할 다음 수가 서로 다르다. 「없음」 한 단어로 뭉개지 않는다.
         if err:
             warnings.append(err)
+            row["details"] = {}
+            row["detail_note"] = err
             continue
         doc_calls += 1
-        if html:
-            row["details"] = _parse_document(html, row.get("category", ""), row.get("stage", ""))
+        if not html:
+            row["details"] = {}
+            row["detail_note"] = "원문 없음 — DART 가 이 접수번호에 본문을 주지 않았다."
+            continue
+        parsed, note = _parse_document(
+            html, row.get("category", ""), row.get("stage", ""), source_chars,
+        )
+        row["details"] = parsed
+        if note:
+            row["detail_note"] = note
     return rows, warnings, doc_calls
 
 
@@ -324,6 +434,31 @@ def _event_counts(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return counts
 
 
+def _guide_for(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """실린 공시의 카테고리만큼만 「어디를 보나 · 없으면 어디로」를 붙인다.
+
+    안 나온 카테고리 안내까지 다 실으면 정작 읽어야 할 줄이 묻힌다.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        cat = row.get("category", "")
+        if cat in _DETAIL_GUIDE and cat not in out:
+            out[cat] = {"label": _CATEGORIES.get(cat, {}).get("label", cat), **_DETAIL_GUIDE[cat]}
+    return out
+
+
+def _channels_for(category: str) -> tuple[str, ...]:
+    """조회할 list.json `pblntf_detail_ty`. 카테고리 미지정이면 활성 전체의 합집합."""
+    if category and category in _CATEGORY_CHANNELS:
+        return _CATEGORY_CHANNELS[category]
+    chans: list[str] = []
+    for cat in _ACTIVE_CATEGORIES:
+        for ch in _CATEGORY_CHANNELS.get(cat, _BASE_CHANNELS):
+            if ch not in chans:
+                chans.append(ch)
+    return tuple(chans)
+
+
 def _category_filter_keywords(category: str) -> tuple[str, ...]:
     if category and category in _CATEGORIES:
         return _CATEGORIES[category]["keywords"]
@@ -347,6 +482,7 @@ async def _build_market_scan_payload(
     end_date: str = "",
     include_details: bool = False,
     details_limit: int = 5,
+    source_chars: int = _SOURCE_CHARS_DEFAULT,
 ) -> dict[str, Any]:
     """회사 미지정 — 시장 전체 최근 리스크 공시 스캔 (기본 30일, 최대 90일)."""
     warnings: list[str] = []
@@ -396,10 +532,23 @@ async def _build_market_scan_payload(
         return items, calls
 
     try:
-        # I001(거래소 주요경영사항) + B001(주요사항보고서 — 회생신청/부도/영업정지/해산) 양 채널
-        (i_items, i_calls), (b_items, b_calls) = await asyncio.gather(_sweep("I001"), _sweep("B001"))
-        api_calls += i_calls + b_calls
-        for item in i_items + b_items:
+        # I001(거래소 주요경영사항) + B001(주요사항보고서) + I003(거래소 시장조치·안내).
+        # 🔴 **I003 이 2026-08-27 에 추가됐다** — 매매거래정지·관리종목·상장적격성·
+        # 정리매매·개선기간이 전부 그쪽에 있어 그전까지 한 건도 못 읽었다.
+        channels = _channels_for(category)
+        swept = await asyncio.gather(*[_sweep(ch) for ch in channels])
+        raw_items: list[dict[str, Any]] = []
+        for got, calls in swept:
+            api_calls += calls
+            raw_items.extend(got)
+        # 한 공시가 두 채널에 겹쳐 오는 일이 있다 — 접수번호로 한 번만 센다.
+        seen_rcept: set[str] = set()
+        for item in raw_items:
+            rc = item.get("rcept_no") or ""
+            if rc and rc in seen_rcept:
+                continue
+            if rc:
+                seen_rcept.add(rc)
             nm = (item.get("report_nm") or "").replace(" ", "")
             if not any(kw in nm for kw in keywords):
                 continue
@@ -415,7 +564,9 @@ async def _build_market_scan_payload(
     rows.sort(key=lambda r: (r.get("rcept_dt", ""), r.get("rcept_no", "")), reverse=True)
 
     if include_details and rows:
-        rows, detail_warnings, doc_calls = await _enrich_with_document_details(rows, max_docs=details_limit)
+        rows, detail_warnings, doc_calls = await _enrich_with_document_details(
+            rows, max_docs=details_limit, source_chars=source_chars,
+        )
         warnings.extend(detail_warnings)
         api_calls += doc_calls
 
@@ -436,6 +587,8 @@ async def _build_market_scan_payload(
         **filing_meta,
         "usage": {"dart_api_calls": api_calls, "mcp_tool_calls": 1, "dart_daily_limit_per_minute": 1000},
         "supported_categories": list(_ACTIVE_CATEGORIES), "muted_categories": list(_MUTED_CATEGORIES),
+        "details_guide": _guide_for(rows) if include_details else None,
+        "source_window": {"source_chars": source_chars, "max": _SOURCE_CHARS_MAX} if include_details else None,
     }
     if filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 시장 전체 리스크 공시 없음.")
@@ -470,6 +623,7 @@ async def build_risk_events_payload(
     end_date: str = "",
     include_details: bool = False,
     details_limit: int = 5,
+    source_chars: int = _SOURCE_CHARS_DEFAULT,
 ) -> dict[str, Any]:
     from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 
@@ -484,6 +638,7 @@ async def build_risk_events_payload(
             end_date=end_date,
             include_details=include_details,
             details_limit=details_limit,
+            source_chars=source_chars,
         )
 
     resolution = await resolve_company_query(company_query)
@@ -539,7 +694,7 @@ async def build_risk_events_payload(
         bgn_de=bgn_de,
         end_de=end_de,
         pblntf_tys="",
-        pblntf_detail_ty=["I001", "B001"],  # 거래소 주요경영사항 + 주요사항보고서 양 채널
+        pblntf_detail_ty=list(_channels_for(category)),  # 거래소 주요경영사항·주요사항보고서·시장조치
         keywords=keywords,
         strip_spaces=True,
     )
@@ -557,7 +712,9 @@ async def build_risk_events_payload(
     rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
 
     if include_details and rows:
-        rows, detail_warnings, doc_calls = await _enrich_with_document_details(rows, max_docs=details_limit)
+        rows, detail_warnings, doc_calls = await _enrich_with_document_details(
+            rows, max_docs=details_limit, source_chars=source_chars,
+        )
         warnings.extend(detail_warnings)
         total_api_calls += doc_calls
 
@@ -585,6 +742,8 @@ async def build_risk_events_payload(
         **filing_meta,
         "usage": {"dart_api_calls": total_api_calls, "mcp_tool_calls": 1, "dart_daily_limit_per_minute": 1000},
         "supported_categories": list(_ACTIVE_CATEGORIES), "muted_categories": list(_MUTED_CATEGORIES),
+        "details_guide": _guide_for(rows) if include_details else None,
+        "source_window": {"source_chars": source_chars, "max": _SOURCE_CHARS_MAX} if include_details else None,
     }
 
     evidence_refs: list[EvidenceRef] = []
