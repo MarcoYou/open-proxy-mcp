@@ -28,6 +28,9 @@ from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd,
 
 _SUPPORTED_SCOPES = {
     "summary",
+    # 발행 뒤에 물량을 되돌리거나 확정하는 공시 — 만기전취득·발행가액확정·청약결과.
+    # 🔴 **발행 결정만 세면 실제로 안 나간 물량까지 센다** (2026-08-27 추가).
+    "followup",
     "rights_offering",
     "convertible_bond",
     "warrant_bond",
@@ -36,6 +39,14 @@ _SUPPORTED_SCOPES = {
 }
 
 # 교환사채(EB) 원본 문서 검색 키워드 (주요사항보고서 B / 상세 B001)
+from open_proxy_mcp.services.dilution_followup import fetch_dilution_followup
+from open_proxy_mcp.services.dilution_allottees import (
+    SECTION_CHARS_DEFAULT,
+    clamp_section_chars,
+    enrich_third_party_allottees,
+    fetch_equity_offering_channel,
+)
+
 _EB_REPORT_KEYWORDS = ("교환사채권발행결정",)
 
 
@@ -131,9 +142,24 @@ def _fdpp_breakdown(item: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _blank_int(value: Any) -> int | None:
+    """DART 가 `-` 로 주는 자리는 **0 이 아니라 「모른다」다.**
+
+    정정·철회된 유상증자는 구조화 응답이 전 항목 `-` 로 온다. 이걸 0 으로 찍으면
+    읽는 사람은 「신주 0주 증자」로 읽는다 — 빈 것은 빈 채로 내보낸다 (2026-08-28).
+    """
+    text = _clean(value)
+    return _to_int(text) if text else None
+
+
 def _normalize_rights_offering(item: dict[str, Any]) -> dict[str, Any]:
-    existing = _to_int(item.get("bfic_tisstk_ostk", "0"))
-    new_common = _to_int(item.get("nstk_ostk_cnt", "0"))
+    existing = _blank_int(item.get("bfic_tisstk_ostk"))
+    new_common = _blank_int(item.get("nstk_ostk_cnt"))
+    dilution = (
+        _pct_of_existing(new_common, existing)
+        if new_common is not None and existing is not None
+        else None
+    )
     return {
         "type": "rights_offering",
         "event_label": "유상증자결정",
@@ -143,15 +169,23 @@ def _normalize_rights_offering(item: dict[str, Any]) -> dict[str, Any]:
         "issuance_method": _clean(item.get("ic_mthn", "")),  # 제3자배정/주주배정/일반공모
         "face_value_per_share": _clean(item.get("fv_ps", "")),
         "new_shares_common": new_common,
-        "new_shares_preferred": _to_int(item.get("nstk_estk_cnt", "0")),
+        "new_shares_preferred": _blank_int(item.get("nstk_estk_cnt")),
         "existing_shares_common": existing,
-        "dilution_pct_approx": _pct_of_existing(new_common, existing),
+        "dilution_pct_approx": dilution,
         "fund_purpose": _fdpp_breakdown(item),
         "lock_up": {
             "applicable": _clean(item.get("ssl_at", "")),
             "begin_date": _clean(item.get("ssl_bgd", "")),
             "end_date": _clean(item.get("ssl_edd", "")),
         },
+        # 값이 비었을 때만 채워지는 자리 — 아래 원문 복원이 쓴다.
+        "values_missing": new_common is None,
+        "is_withdrawal": False,
+        "original_filed_on": "",
+        "withdrawal_reason": "",
+        "recovered_from_document": False,
+        "recovery_note": "",
+        "original_plan": {},
     }
 
 
@@ -300,6 +334,281 @@ def _normalize_capital_reduction(item: dict[str, Any]) -> dict[str, Any]:
             "new_share_listing": _clean(item.get("crsc_nstklstprd", "")),
         },
     }
+
+
+# ── 유상증자 원문 복원 (정정·철회로 구조화 응답이 빈 경우) ─────────────
+#
+# `piicDecsn` 은 정정·철회된 유상증자를 **최신본 한 건만** 주고 그 안의 신주수·발행가·
+# 자금목적을 전부 `-` 로 비운다. 그러면 「신주 0주 / 희석 0.00%」로 읽힌다.
+# 여기서 (1) 빈 것을 빈 것으로 표시하고, (2) 같은 정정 체인의 **직전 판**을 원문으로 읽어
+# 「철회 전 원안」이 얼마짜리였는지를 복원한다. 복원값은 원안 자리에만 넣는다 —
+# 발행된 적 없는 물량을 발행 물량 자리에 넣으면 처음 문제로 되돌아간다.
+
+_RO_REPORT_KEYWORDS = ("유상증자결정",)
+_RO_WITHDRAWAL_RE = re.compile(r"유상증자\s*철회|증자\s*철회|철회를\s*결정|철회하기로|철회하고")
+_RO_NUM_LINE_RE = re.compile(r"-?[\d,]+(?:\.\d+)?")
+
+
+def _ro_terms_blank(row: dict[str, Any]) -> bool:
+    return row.get("type") == "rights_offering" and row.get("new_shares_common") is None
+
+
+def _seek_line(lines: list[str], label: str, start: int = 0) -> int:
+    for i in range(max(start, 0), len(lines)):
+        if lines[i].startswith(label):
+            return i
+    return -1
+
+
+def _value_line(lines: list[str], idx: int) -> str:
+    """라벨 다음 값. `-` 는 값이 아니라 빈칸이다.
+
+    서식이 둘이다 — 값이 **다음 줄**에 오는 것(하이퍼코퍼레이션형)과 라벨 뒤 `:` 다음
+    **같은 줄**에 오는 것(고려아연형). 뒤엣것을 못 읽어 철회 원안 복원이 통째로
+    빗나갔다 (2026-08-28).
+    """
+    if idx < 0 or idx >= len(lines):
+        return ""
+    inline = lines[idx]
+    if ":" in inline:
+        tail = inline.split(":", 1)[1].strip()
+        if tail and tail != "-":
+            return tail
+    if idx + 1 >= len(lines):
+        return ""
+    value = lines[idx + 1].strip()
+    return "" if value in ("-", "") else value
+
+
+def _numeric_value_line(lines: list[str], idx: int) -> str:
+    value = _value_line(lines, idx).replace(" ", "")
+    return value if value and _RO_NUM_LINE_RE.fullmatch(value) else ""
+
+
+def _parse_rights_offering_document(text: str) -> dict[str, Any]:
+    """`주요사항보고서(유상증자결정)` 원문 → 신주수·기존주식수·발행가·자금목적.
+
+    앞머리 정정 표에도 같은 라벨(`8. 신주배정기준일` 등)이 나오므로 **본문 표부터** 읽는다.
+    """
+    lines = [ln.strip() for ln in (text or "").split("\n") if ln.strip()]
+    body_at = -1
+    for i, ln in enumerate(lines):
+        if ln.startswith("1. 신주의 종류와 수"):
+            body_at = i  # 마지막 것이 본문
+    if body_at < 0:
+        return {}
+    body = lines[body_at:]
+
+    out: dict[str, Any] = {}
+    out["new_shares_common"] = _numeric_value_line(body, _seek_line(body, "보통주식 (주)", 0))
+    out["face_value_per_share"] = _numeric_value_line(body, _seek_line(body, "2. 1주당 액면가액"))
+    at_existing = _seek_line(body, "3. 증자전 발행주식총수")
+    out["existing_shares_common"] = _numeric_value_line(
+        body, _seek_line(body, "보통주식 (주)", at_existing) if at_existing >= 0 else -1)
+
+    at_purpose = _seek_line(body, "4. 자금조달의 목적")
+    at_method = _seek_line(body, "5. 증자방식")
+    purpose: dict[str, str] = {}
+    for key, label in (
+        ("facility", "시설자금 (원)"),
+        ("business_acquisition", "영업양수자금 (원)"),
+        ("operating", "운영자금 (원)"),
+        ("debt_repayment", "채무상환자금 (원)"),
+        ("other_corp_share_acq", "타법인 증권취득자금 (원)"),
+        ("etc", "기타자금 (원)"),
+    ):
+        at = _seek_line(body, label, at_purpose)
+        inside = at >= 0 and (at_method < 0 or at < at_method)
+        purpose[key] = _numeric_value_line(body, at) if inside else ""
+    out["fund_purpose"] = purpose
+    out["issuance_method"] = _value_line(body, at_method)
+
+    at_price = _seek_line(body, "6. 신주 발행가액")
+    at_planned = _seek_line(body, "예정발행가", at_price)
+    at_fixed = _seek_line(body, "확정발행가", at_price)
+    out["planned_price_won"] = _numeric_value_line(
+        body, _seek_line(body, "보통주식 (원)", at_planned) if at_planned >= 0 else -1)
+    out["fixed_price_won"] = _numeric_value_line(
+        body, _seek_line(body, "보통주식 (원)", at_fixed) if at_fixed >= 0 else -1)
+    if not out["planned_price_won"] and not out["fixed_price_won"] and at_price >= 0:
+        # 제3자배정 서식엔 확정/예정 구분이 없다 — 발행가액이 바로 붙는다.
+        out["fixed_price_won"] = _numeric_value_line(
+            body, _seek_line(body, "보통주식 (원)", at_price))
+    out["board_decision_date"] = _value_line(body, _seek_line(body, "19. 이사회결의일"))
+    out["payment_date"] = _value_line(body, _seek_line(body, "12. 납입일"))
+    out["listing_date"] = _value_line(body, _seek_line(body, "16. 신주의 상장예정일"))
+
+    total = sum(_to_int(v) for v in purpose.values() if v)
+    if total:
+        out["planned_proceeds_won_derived"] = total  # 자금조달 목적 합계(원문 값의 합)
+    return out
+
+
+def _parse_ro_correction_header(text: str) -> dict[str, str]:
+    """정정신고 머리 — 무엇의 정정인지(최초제출일)와 철회인지 여부."""
+    lines = [ln.strip() for ln in (text or "").split("\n") if ln.strip()]
+    original = format_iso_date(_value_line(lines, _seek_line(lines, "2. 정정대상 공시서류의 최초제출일")))
+    reason = _truncate(_value_line(lines, _seek_line(lines, "24. 기타 투자판단에 참고할 사항")), 300)
+    return {
+        "original_filed_on": original,
+        "reason": reason,
+        "is_withdrawal": "Y" if _RO_WITHDRAWAL_RE.search(text or "") else "",
+    }
+
+
+async def _recover_one_rights_offering(
+    row: dict[str, Any],
+    filings: list[dict[str, Any]],
+) -> tuple[int, list[str]]:
+    """빈 유상증자 행 하나를 복원. Returns (doc_calls, warnings)."""
+    client = get_dart_client()
+    warnings: list[str] = []
+    calls = 0
+    own_rcept = row.get("rcept_no", "")
+    own_dt = re.sub(r"\D", "", row.get("rcept_dt", ""))[:8] or own_rcept[:8]
+
+    try:
+        doc = await client.get_document_cached(own_rcept)
+        calls += 1
+    except Exception as exc:  # noqa: BLE001 — 한 건 실패가 전체를 죽이지 않는다
+        warnings.append(f"유상증자 정정 원문 조회 실패 ({own_rcept}): {exc}")
+        row["recovery_note"] = "값이 빈 이유를 원문에서 확인하지 못했다 — 신주수·희석률을 0 으로 읽지 말 것."
+        return calls, warnings
+
+    text = doc.get("text", "") if isinstance(doc, dict) else ""
+    header = _parse_ro_correction_header(text)
+    row["is_withdrawal"] = bool(header["is_withdrawal"])
+    row["original_filed_on"] = header["original_filed_on"]
+    if row["is_withdrawal"]:
+        row["withdrawal_reason"] = header["reason"]
+    if not row.get("board_decision_date") and header["original_filed_on"]:
+        pass  # 철회본에는 이사회결의일이 비어 있다 — 원안에서 가져온다(아래).
+
+    if not header["original_filed_on"]:
+        row["recovery_note"] = (
+            "원안 규모를 복원하지 못했다 — 정정 원문에 「최초제출일」이 없어 "
+            "어느 공시의 정정인지 특정할 수 없다. DART 원문 확인 필요.")
+        return calls, warnings
+
+    # 같은 정정 체인만 후보로 둔다 — 최초제출일 이후, 이 접수일 이전.
+    # 이 울타리가 없으면 **다른 유상증자의 숫자**를 원안이라고 붙이게 된다.
+    low = header["original_filed_on"].replace("-", "")
+    chain = [
+        f for f in filings
+        if f.get("rcept_no") != own_rcept and low <= (f.get("rcept_dt") or "") <= own_dt
+    ]
+    chain.sort(key=lambda f: (f.get("rcept_dt", ""), f.get("rcept_no", "")), reverse=True)
+
+    for candidate in chain[:4]:
+        try:
+            cand_doc = await client.get_document_cached(candidate.get("rcept_no", ""))
+            calls += 1
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"유상증자 원안 원문 조회 실패 ({candidate.get('rcept_no', '')}): {exc}")
+            continue
+        parsed = _parse_rights_offering_document(cand_doc.get("text", "") if isinstance(cand_doc, dict) else "")
+        if not parsed.get("new_shares_common"):
+            continue
+        # 배정방식이 어긋나면 다른 증자다 — 붙이지 않는다.
+        if parsed.get("issuance_method") and row.get("issuance_method") \
+                and parsed["issuance_method"].replace(" ", "") != row["issuance_method"].replace(" ", ""):
+            continue
+        _merge_ro_plan_into_row(row, parsed, candidate)
+        return calls, warnings
+
+    row["recovery_note"] = (
+        f"원안 규모를 복원하지 못했다 — 정정 체인({header['original_filed_on']} 이후) "
+        f"{len(chain)}건의 원문에서 신주수를 읽지 못했다. DART 원문 확인 필요.")
+    return calls, warnings
+
+
+def _merge_ro_plan_into_row(
+    row: dict[str, Any],
+    parsed: dict[str, Any],
+    source: dict[str, Any],
+) -> None:
+    """복원한 원안을 **원안 자리에만** 넣는다. 발행 물량 자리는 비운 채로 둔다."""
+    new_common = _to_int(parsed.get("new_shares_common"))
+    existing = _to_int(parsed.get("existing_shares_common"))
+    plan: dict[str, Any] = {
+        "new_shares_common": new_common,
+        "existing_shares_common": existing or None,
+        "dilution_pct_approx": _pct_of_existing(new_common, existing) if existing else None,
+        "planned_price_won": _to_int(parsed.get("planned_price_won")) or None,
+        "fixed_price_won": _to_int(parsed.get("fixed_price_won")) or None,
+        "planned_proceeds_won_derived": parsed.get("planned_proceeds_won_derived"),
+        "issuance_method": parsed.get("issuance_method", ""),
+        "face_value_per_share": parsed.get("face_value_per_share", ""),
+        "fund_purpose": parsed.get("fund_purpose", {}),
+        "board_decision_date": parsed.get("board_decision_date", ""),
+        "payment_date": parsed.get("payment_date", ""),
+        "listing_date": parsed.get("listing_date", ""),
+        "source_rcept_no": source.get("rcept_no", ""),
+        "source_rcept_dt": format_iso_date(source.get("rcept_dt", "")),
+    }
+    row["original_plan"] = {k: v for k, v in plan.items() if v not in (None, "", {})}
+    _normalize_row_dates(row)  # 원문의 `2026년 05월 13일` → ISO (전 tool 관행)
+    row["recovered_from_document"] = True
+    label = "철회 직전 마지막 기재" if row.get("is_withdrawal") else "정정 직전 기재"
+    row["recovery_note"] = (
+        f"구조화 응답이 비어 원본 공시에서 복원했다. 위 숫자는 {label}"
+        f"(공시번호 {source.get('rcept_no', '')}, {format_iso_date(source.get('rcept_dt', ''))}) 기준 "
+        f"**원안**이며, " + ("철회로 실제 발행되지 않았다." if row.get("is_withdrawal")
+                            else "이후 정정으로 바뀌었을 수 있다.")
+    )
+
+
+async def _ensure_rights_offering_coverage(
+    ro_rows: list[dict[str, Any]],
+    corp_code: str,
+    bgn_de: str,
+    end_de: str,
+) -> tuple[list[str], int]:
+    """빈 유상증자 행이 있을 때만 list.json + 원문을 읽는다. Returns (warnings, api_calls)."""
+    warnings: list[str] = []
+    api_calls = 0
+    blanks = [r for r in ro_rows if _ro_terms_blank(r)]
+    if not blanks:
+        return warnings, api_calls
+
+    try:
+        filings, notices, error = await search_filings_by_report_name(
+            corp_code=corp_code,
+            bgn_de=bgn_de,
+            end_de=end_de,
+            pblntf_tys="B",
+            pblntf_detail_ty="B001",
+            keywords=_RO_REPORT_KEYWORDS,
+            strip_spaces=True,
+            max_pages=3,
+        )
+        api_calls += 1
+    except DartClientError as exc:
+        warnings.append(f"유상증자 원문 검색 실패: {exc.status}")
+        filings, error = [], ""
+    else:
+        warnings.extend(notices)
+        if error:
+            warnings.append(f"유상증자 원문 검색 실패: {error}")
+
+    for row in blanks:
+        calls, notes = await _recover_one_rights_offering(row, filings or [])
+        api_calls += calls
+        warnings.extend(notes)
+        plan = row.get("original_plan") or {}
+        head = "철회" if row.get("is_withdrawal") else "정정"
+        if plan.get("new_shares_common"):
+            warnings.append(
+                f"유상증자 1건({format_iso_date(row.get('rcept_dt', '') or row.get('rcept_no', '')[:8])}, "
+                f"{row.get('issuance_method', '')})은 {head}되어 구조화 응답이 비어 있다 — "
+                f"신주수·희석률을 0 으로 읽지 말 것. {head} 전 원안은 신주 "
+                f"{plan['new_shares_common']:,}주다.")
+        else:
+            warnings.append(
+                f"유상증자 1건({format_iso_date(row.get('rcept_dt', '') or row.get('rcept_no', '')[:8])}, "
+                f"{row.get('issuance_method', '')})은 {head}되어 구조화 응답이 비어 있다 — "
+                f"신주수·희석률을 0 으로 읽지 말 것. 원안 규모는 복원하지 못했다.")
+    return warnings, api_calls
 
 
 # ── EB 원문 복원 (구조화 응답이 정정/철회로 빈 경우) ──────────────────
@@ -669,6 +978,9 @@ async def _fetch_scope(
         rows.extend(r)
     for row in rows:
         _normalize_row_dates(row)  # DART 원본 '2026년 02월 11일' → ISO (전 tool 관행 통일)
+        if not row.get("rcept_dt"):
+            # 구조화 응답은 접수일을 안 준다. 공시번호 앞 8자리가 접수일이다.
+            row["rcept_dt"] = format_iso_date(row.get("rcept_no", "")[:8])
     rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
     return rows, warnings, api_calls
 
@@ -693,9 +1005,11 @@ async def build_dilutive_issuance_payload(
     scope: str = "summary",
     start_date: str = "",
     end_date: str = "",
+    section_chars: int = SECTION_CHARS_DEFAULT,
 ) -> dict[str, Any]:
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
+    section_chars = clamp_section_chars(section_chars)
 
     resolution = await resolve_company_query(company_query)
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
@@ -754,6 +1068,15 @@ async def build_dilutive_issuance_payload(
     for row in rows:
         by_type.setdefault(row.get("type", ""), []).append(row)
 
+    # 유상증자 보정: 정정·철회로 구조화가 빈 행이 있으면 원문으로 「철회 전 원안」을 복원.
+    # 빈 행이 없으면 추가 호출 없음.
+    if scope in ("summary", "rights_offering"):
+        ro_warnings, ro_calls = await _ensure_rights_offering_coverage(
+            by_type.get("rights_offering", []), selected["corp_code"], bgn_de, end_de,
+        )
+        warnings.extend(ro_warnings)
+        api_calls += ro_calls
+
     # EB 보정: 구조화가 정정/철회로 blank이거나(태광형) 0건이면(한라IMS형)
     # list.json+원문으로 복원/추가. 구조화가 EB 완전 제공 시 추가 호출 없음.
     if scope in ("summary", "exchangeable_bond"):
@@ -778,6 +1101,35 @@ async def build_dilutive_issuance_payload(
             # 복원으로 행 추가/rcept_dt 변경 반영 — timeline 정렬 갱신.
             rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
 
+    # 발행의 「그 뒤」 — 만기전취득·발행가액확정·청약결과.
+    # 정형 API 가 없어 원문을 읽는다. `summary` 와 `followup` 에서만 부른다.
+    followup_rows: list[dict[str, Any]] = []
+    if scope in ("summary", "followup"):
+        followup_rows, fu_warnings, fu_calls = await fetch_dilution_followup(
+            selected["corp_code"], bgn_de, end_de,
+        )
+        warnings.extend(fu_warnings)
+        api_calls += fu_calls
+
+    # 「누가 받았나」 — 배정 대상자는 **정형 API 에 없다**. 원문 대목을 그대로 실어 준다.
+    # 제3자배정 행이 없으면 추가 호출 0 (2026-08-28).
+    if scope in ("summary", "rights_offering"):
+        tpa_warnings, tpa_calls = await enrich_third_party_allottees(
+            by_type.get("rights_offering", []), section_chars=section_chars,
+        )
+        warnings.extend(tpa_warnings)
+        api_calls += tpa_calls
+
+    # C 채널(발행공시 — 지분증권). 주요사항보고서(B)는 「무엇을 결정했나」까지고,
+    # **인수인·자금사용 목적·실제 배정 결과**는 여기 있다. 지분 발행 사건이 있을 때만 연다.
+    equity_channel: dict[str, Any] = {}
+    if scope in ("summary", "rights_offering") and by_type.get("rights_offering"):
+        equity_channel, c_warnings, c_calls = await fetch_equity_offering_channel(
+            selected["corp_code"], bgn_de, end_de, section_chars=section_chars,
+        )
+        warnings.extend(c_warnings)
+        api_calls += c_calls
+
     usage = {
         "dart_api_calls": api_calls,
         "mcp_tool_calls": 1,
@@ -786,9 +1138,12 @@ async def build_dilutive_issuance_payload(
 
     # 사건 발견 vs 진짜 partial 분리.
     # 4개 결정 API 모두 DART 구조화 응답이라 결과 0건은 사건 자체가 없는 정상 케이스.
+    # 후속 공시(만기전취득·발행가액확정·청약결과)도 「공시를 찾았다」에 센다 —
+    # 발행 결정이 조사 구간 밖이고 후속만 들어온 회사가 `no_filing` 으로
+    # 나가면 **되돌림이 있었는데 없다고 답한 셈**이 된다 (2026-08-27).
     filing_meta = build_filing_meta(
-        filing_count=len(rows),
-        parsing_failures=0,
+        filing_count=len(rows) + len(followup_rows),
+        parsing_failures=sum(1 for r in followup_rows if r.get("parse_error")),
     )
 
     data: dict[str, Any] = {
@@ -800,6 +1155,7 @@ async def build_dilutive_issuance_payload(
             "corp_code": selected.get("corp_code", ""),
         },
         "scope": scope,
+        "section_chars": section_chars,
         "window": {"start_date": bgn_de, "end_date": end_de},
         "event_count": {
             "total": len(rows),
@@ -808,29 +1164,52 @@ async def build_dilutive_issuance_payload(
             "exchangeable_bond": len(by_type.get("exchangeable_bond", [])),
             "warrant_bond": len(by_type.get("warrant_bond", [])),
             "capital_reduction": len(by_type.get("capital_reduction", [])),
+            "followup": len(followup_rows),
         },
         **filing_meta,
         "usage": usage,
         "supported_scopes": sorted(_SUPPORTED_SCOPES),
     }
 
-    # 단일 통합 응답 — timeline + 4 type detail 모두 노출 (scope 분기 폐지).
-    data["events_timeline"] = [
+    # 단일 통합 응답 — timeline + 5 type detail 모두 노출 (scope 분기 폐지).
+    # 🔴 발행 결정만 세우면 **희석을 되돌린 사건이 안 보인다** — 만기전취득·발행가액확정·
+    # 청약결과를 같은 줄에 세우되 `direction` 으로 방향을 밝힌다 (2026-08-28, U 지적).
+    timeline = [
         {
             "type": row.get("type", ""),
             "event_label": row.get("event_label", ""),
-            "rcept_dt": row.get("rcept_dt", ""),
+            "direction": _event_direction(row),
+            "rcept_dt": _row_rcept_iso(row),
             "board_decision_date": row.get("board_decision_date", ""),
             "headline_metric": _summary_headline(row),
             "rcept_no": row.get("rcept_no", ""),
         }
         for row in rows
     ]
+    timeline.extend(
+        {
+            "type": row.get("type", ""),
+            "event_label": _followup_event_label(row),
+            "direction": row.get("direction", ""),
+            "rcept_dt": _row_rcept_iso(row),
+            "board_decision_date": (row.get("details") or {}).get("decided_on", ""),
+            "headline_metric": _followup_headline(row),
+            "rcept_no": row.get("rcept_no", ""),
+        }
+        for row in followup_rows
+    )
+    timeline.sort(key=lambda ev: (ev.get("rcept_dt", ""), ev.get("rcept_no", "")), reverse=True)
+    data["events_timeline"] = timeline
+    # 발행의 「그 뒤」. 발행 결정 목록과 섞지 않는다 — 방향이 반대인 사건이다.
+    data["followup_events"] = followup_rows
     data["rights_offering_events"] = by_type.get("rights_offering", [])
     data["convertible_bond_events"] = by_type.get("convertible_bond", [])
     data["exchangeable_bond_events"] = by_type.get("exchangeable_bond", [])
     data["warrant_bond_events"] = by_type.get("warrant_bond", [])
     data["capital_reduction_events"] = by_type.get("capital_reduction", [])
+    # 발행공시(C001) — 목록 + 최근 증권발행실적보고서의 지분변동 원문.
+    if equity_channel:
+        data["equity_offering_channel"] = equity_channel
 
     evidence_refs: list[EvidenceRef] = []
     for row in rows[:5]:
@@ -861,19 +1240,113 @@ async def build_dilutive_issuance_payload(
         evidence_refs=evidence_refs,
         next_actions=[
             "잠재 희석률은 convertible_bond/warrant_bond의 pct_of_total_shares 참조",
-            "3자배정 유상증자는 ownership_structure(scope=changes)와 교차 확인",
+            "3자배정 유상증자는 rights_offering_events[].third_party_allotment 의 원문 대목을 읽고 "
+            "ownership_structure(scope=changes)·5% 대량보유보고와 교차 확인",
+            "인수인·자금사용 목적·실제 배정 결과는 equity_offering_channel 의 증권신고서(지분증권)·"
+            "증권발행실적보고서 — viewer_url 또는 evidence tool 로 열 것",
+            "원문 대목이 잘렸으면 section_chars 를 올려 다시 호출 (기본 4000, 최대 40000)",
             "EB(교환사채)는 교환대상이 자기주식이면 treasury_share와 교차 확인 (의결권 희석)",
         ],
     ).to_dict()
+
+
+#: 타임라인 각 줄이 희석을 어느 쪽으로 미는지. 판정이 아니라 사건의 성격이다.
+_EVENT_DIRECTION = {
+    "rights_offering": "희석 확대",
+    "convertible_bond": "희석 확대(잠재)",
+    "warrant_bond": "희석 확대(잠재)",
+    "exchangeable_bond": "의결권 희석(잠재)",
+    "capital_reduction": "주식수 감소",
+}
+
+_FOLLOWUP_EVENT_LABELS = {
+    "early_redemption": "자기사채 만기전취득",
+    "issue_price_fixed": "유상증자 발행가액 확정",
+    "subscription_result": "유상증자 청약결과",
+}
+
+
+def _row_rcept_iso(row: dict[str, Any]) -> str:
+    """접수일. 구조화 응답이 안 주면 **공시번호 앞 8자리**가 접수일이다."""
+    return format_iso_date(row.get("rcept_dt", "")) or format_iso_date(row.get("rcept_no", "")[:8])
+
+
+def _event_direction(row: dict[str, Any]) -> str:
+    if row.get("type") == "rights_offering" and row.get("is_withdrawal"):
+        return "철회 — 발행되지 않음"
+    return _EVENT_DIRECTION.get(row.get("type", ""), "")
+
+
+def _followup_event_label(row: dict[str, Any]) -> str:
+    return _FOLLOWUP_EVENT_LABELS.get(row.get("type", ""), row.get("label", "") or "후속 공시")
+
+
+def _followup_headline(row: dict[str, Any]) -> str:
+    """후속 공시 한 줄. **읽지 못한 것은 읽지 못했다고 쓴다.**"""
+    if row.get("parse_error"):
+        return f"원문을 읽지 못했다 — {row['parse_error']}"
+    detail = row.get("details")
+    if detail is None:
+        return f"{row.get('report_nm', '')} — 원문 미열람(공시 목록만 확인)"
+    if detail.get("unparsed"):
+        return detail.get("unparsed_note", "원문 서식이 맞지 않아 금액을 읽지 못했다")
+    t = row.get("type", "")
+    if t == "early_redemption":
+        parts: list[str] = []
+        if detail.get("series"):
+            parts.append(f"{detail['series']}회차")
+        face = detail.get("acquired_face_won")
+        parts.append(f"권면 {face:,}원 취득" if face else "취득 권면액 미확인")
+        ratio = detail.get("acquired_ratio_pct_derived")
+        if ratio is not None:
+            parts.append(f"발행총액의 {ratio:.2f}%")
+        remaining = detail.get("remaining_face_won_after")
+        if remaining is not None:
+            parts.append(f"취득 후 잔액 {remaining:,}원")
+        return " / ".join(parts)
+    if t == "issue_price_fixed":
+        stage = detail.get("price_stage", "")
+        price = detail.get("final_price_won") or detail.get("common_price_won")
+        head = f"{stage} 발행가 {price:,}원" if price else f"{stage} — 발행가 미확인"
+        shares = detail.get("planned_shares")
+        if shares:
+            head += f" / 주식수 {shares:,}주"
+        return head
+    if t == "subscription_result":
+        rate = detail.get("subscription_rate_pct")
+        head = f"청약률 {rate:.2f}%" if rate is not None else "청약률 미확인"
+        subscribed = detail.get("subscribed_shares")
+        planned = detail.get("planned_shares")
+        if subscribed and planned:
+            head += f" / 청약 {subscribed:,}주 (예정 {planned:,}주)"
+        return head
+    return row.get("report_nm", "")
 
 
 def _summary_headline(row: dict[str, Any]) -> str:
     """summary timeline에서 한 줄 지표."""
     t = row.get("type", "")
     if t == "rights_offering":
-        dilution = row.get("dilution_pct_approx", 0)
-        method = row.get("issuance_method", "")
-        return f"{method} / 신주 {row.get('new_shares_common', 0):,}주 (기존대비 ~{dilution:.2f}%)"
+        method = row.get("issuance_method", "") or "-"
+        if row.get("new_shares_common") is None:
+            # 🔴 **빈칸을 0 으로 찍지 않는다.** 「신주 0주 / 희석 0.00%」로 나가면
+            # 읽는 사람은 0주 증자가 있었던 것으로 읽는다 (2026-08-28, U 지적).
+            head = f"{method} / " + (
+                "철회 — 신주수 미확인(구조화 응답 공란)" if row.get("is_withdrawal")
+                else "신주수 미확인 — 정정으로 구조화 응답 공란")
+            plan = row.get("original_plan") or {}
+            if plan.get("new_shares_common"):
+                head += f" · 원안 신주 {plan['new_shares_common']:,}주"
+                if plan.get("dilution_pct_approx") is not None:
+                    head += f"(기존대비 ~{plan['dilution_pct_approx']:.2f}%)"
+                if plan.get("planned_proceeds_won_derived"):
+                    head += f" · 예정 조달 {plan['planned_proceeds_won_derived']:,}원"
+            else:
+                head += " · 원안 규모 미복원"
+            return head
+        dilution = row.get("dilution_pct_approx")
+        tail = f" (기존대비 ~{dilution:.2f}%)" if dilution is not None else " (기존 주식수 미확인)"
+        return f"{method} / 신주 {row.get('new_shares_common', 0):,}주{tail}"
     if t == "convertible_bond":
         cv = row.get("conversion", {})
         return f"{row.get('total_issue_amount', '-')}원 / 전환가 {cv.get('price', '-')} / 희석 {cv.get('pct_of_total_shares', '-')}%"
