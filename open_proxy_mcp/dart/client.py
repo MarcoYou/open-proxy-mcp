@@ -33,7 +33,43 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
+from open_proxy_mcp.dart.as_of import clamp_end_de, get_as_of, note_row_drop, window_is_empty
+
 load_dotenv()
+
+def _as_of_filter_rows(endpoint: str, data: dict) -> dict:
+    """기준일 이후 접수분을 응답 행에서 걷어낸다.
+
+    `search_filings` 의 `end_de` 잘라내기만으로는 **날짜 인자가 없는 API 가 새어 나온다.**
+    260828 실측: 게이트를 걸고도 대량보유 상황보고 2026-04-07(주총 12일 후)이 지분 근거로
+    들어왔다 — `majorstock.json` 은 corp_code 하나로 전 기간을 돌려주기 때문이다.
+    행마다 `rcept_dt` 가 붙어 오므로 그 값으로 거른다. **`rcept_dt` 가 없는 응답은 건드리지
+    않는다**(재무제표 API 등) — 모르는 것을 자르지 않는다.
+
+    게이트가 꺼져 있으면(기본값) 아무 일도 하지 않는다.
+    """
+    as_of = get_as_of()
+    if not as_of:
+        return data
+    rows = data.get("list")
+    if not isinstance(rows, list) or not rows:
+        return data
+    def _after(row) -> bool:
+        if not isinstance(row, dict):
+            return False
+        # 서식이 API 마다 갈린다 — `20260407`(list.json) 와 `2026-04-07`(majorstock.json)
+        # 둘 다 온다. 문자열로 그냥 비교하면 하이픈 쪽이 항상 작게 나와 **필터가 통째로
+        # 사문이 된다**(260828 실측: 걸었는데 한 건도 안 걸러졌다). 숫자만 남겨 비교한다.
+        digits = "".join(ch for ch in (row.get("rcept_dt") or "") if ch.isdigit())
+        return len(digits) == 8 and digits > as_of
+
+    kept = [r for r in rows if not _after(r)]
+    if len(kept) != len(rows):
+        note_row_drop(endpoint, len(rows) - len(kept))
+        data = dict(data)
+        data["list"] = kept
+    return data
+
 
 # ── 요청별 API 키 (URL 쿼리 파라미터 → contextvar) ──
 _ctx_opendart_key: ContextVar[str | None] = ContextVar("opendart_key", default=None)
@@ -1076,11 +1112,11 @@ class DartClient:
                 data = response.json()
                 status = data.get("status", "")
                 if status == "000":
-                    return data
+                    return _as_of_filter_rows(endpoint, data)
             message = data.get("message", "알 수 없는 에러")
             raise DartClientError(status, message)
 
-        return data
+        return _as_of_filter_rows(endpoint, data)
 
     async def _request_binary(self, endpoint: str, params: dict) -> bytes:
         """공통 API 호출 메서드 (바이너리 응답용 — ZIP 등)
@@ -1605,6 +1641,18 @@ class DartClient:
         Returns:
             {"list": [...], "total_count": ..., ...}
         """
+        # ── as_of 게이트 (260828) ──
+        # list.json 은 이 서버의 **모든** 공시 목록 조회가 지나는 유일한 통로다. 기준일이
+        # 걸려 있으면 여기서 종료일을 잘라, 어느 upstream 이 무엇을 부르든 기준일 이후 접수분은
+        # 애초에 손에 들어오지 않게 한다. 서비스마다 인자를 심으면 한 곳만 빠뜨려도 구멍이 나고
+        # 그 구멍은 조용하다. 게이트가 꺼져 있으면(기본값) 아무 일도 하지 않는다.
+        end_de = clamp_end_de(end_de)
+        if window_is_empty(bgn_de, end_de):
+            # 조회 구간 전체가 기준일 이후 — 그 시점엔 볼 것이 없었다는 뜻이다.
+            # DART 가 빈 구간에 주는 것과 같은 「데이터 없음」으로 돌려준다(전 호출부가 처리 중).
+            raise DartClientError(
+                "013", f"조회된 데이터가 없습니다 (기준일 {get_as_of()} 이후 구간은 보지 않습니다)")
+
         # 캐싱: corp_code 있고 page_no==1, page_count==100일 때만
         _cacheable = bool(corp_code) and not corp_name and not corp_cls and page_no == 1 and page_count == 100
         if _cacheable:

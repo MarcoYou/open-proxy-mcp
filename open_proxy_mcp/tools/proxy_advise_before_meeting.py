@@ -93,6 +93,23 @@ _INDEP_RESULT_KO = {
 }
 
 
+#: 안건 제안 주체 → 표기. 위임장 경쟁에서는 이 한 칸만 있어도 판이 보인다.
+_PROPOSER_KO = {
+    "company": "이사회",
+    "shareholder_proposal": "**주주**",
+    "unknown": "미상",
+}
+
+#: 안건 사이의 관계 유형 → 한글. 코드 이름이 화면에 그대로 나가지 않게 한다.
+_RELATION_TYPE_KO = {
+    "contested": "⚔️ 경합",
+    "depends_on": "🔗 선행 의존",
+    "precedes": "🔗 선행 안건",
+    "conditional_on": "🔗 조건부 상정",
+    "bundled": "📦 일괄표결",
+}
+
+
 def _indep_evidence_lines(c: dict[str, Any]) -> list[str]:
     """후보 독립성 sub_factor별 결과 + 근거(경력 raw/관계 raw) 구조화 — 사외이사/감사위원."""
     role = c.get("role_type", "") or ""
@@ -343,6 +360,34 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"> {data['meeting_closed_hint']}")
         lines.append("")
     lines.append(f"- 안건 {data.get('agenda_count')}건 · 이사 후보 {data.get('candidates_count')}명")
+
+    # ── 기준 시점 — 이 메모가 「그때 볼 수 있던 것」만 봤다는 사실을 머리에서 밝힌다 ──
+    ao = data.get("as_of") or {}
+    if ao.get("date"):
+        if ao.get("gate_enabled"):
+            lines.append(
+                f"- 🕒 **기준 시점 {ao['date']}** — 이 날까지 접수된 공시만 읽었습니다"
+                f" ({ao.get('basis')}). 그 뒤에 나온 자료는 그 시점에 존재하지 않았으므로 "
+                f"쓰지 않습니다 — 지배구조보고서 등이 전년도판인 것은 정상입니다.")
+        else:
+            lines.append(
+                f"- 🕒 **기준 시점 {ao['date']}** ({ao.get('basis')}) — "
+                f"`include_after_meeting` 이 켜져 있어 **기준일 이후 자료도 읽었습니다.** "
+                f"해당 항목에는 ⚠ 를 붙였습니다.")
+        if ao.get("audit_year_note"):
+            lines.append(f"  - {ao['audit_year_note']}")
+        if ao.get("filings_after_as_of"):
+            lines.append(f"  - ⚠ 기준일 이후 접수분 {len(ao['filings_after_as_of'])}건이 섞여 "
+                         f"있습니다: {' · '.join(ao['filings_after_as_of'][:5])}")
+        if ao.get("meeting_results_excluded"):
+            lines.append("  - 이 회차의 의결 결과는 사전 권고에 쓰지 않습니다 — "
+                         "결과가 필요하시면 주주총회 결과를 따로 물어보세요.")
+    eb = data.get("evidence_budget") or {}
+    if eb.get("trimmed"):
+        lines.append(
+            f"- ✂ 원문 발췌를 줄였습니다: {' · '.join(eb['trimmed'])} — "
+            f"`evidence_chars`(현재 {eb.get('evidence_chars'):,}, 최대 {eb.get('max_chars'):,})를 "
+            f"올려 다시 부르시면 넓어집니다.")
     lines.append("")
 
     # 안건별 결정 표 (운용사 보고서 스타일)
@@ -357,10 +402,27 @@ def _render(payload: dict[str, Any]) -> str:
                      "사실·위험 신호를 읽고 직접 정하세요. 근거가 사실과 다르면 그 판정은 "
                      "쓰지 마시고 원문을 확인하시면 됩니다.")
         lines.append("")
-        lines.append("| # | 안건 | 행사방향 | 사유 |")
-        lines.append("|---|------|---------|------|")
+        _linked = [ag for ag in decisions if ag.get("agenda_relation_links")]
+        if _linked:
+            _contested = [ag for ag in _linked
+                          if any(l.get("type") == "contested"
+                                 for l in ag["agenda_relation_links"])]
+            lines.append(
+                "> 🔴 **이 주총은 안건 사이에 관계가 있습니다 — 안건을 하나씩 따로 판단하면 "
+                f"안 됩니다.** 관계가 걸린 안건 {len(_linked)}건"
+                + (f" (그중 {len(_contested)}건은 같은 자리를 두고 맞선 **경합** — 둘 다 "
+                   "찬성할 수 없습니다)" if _contested else "")
+                + ". 아래 「관계」 칸과 「안건별 결정 근거」의 안건 관계 항목을 먼저 읽으세요.")
+            lines.append("")
+        # 260828: **제안 주체와 안건 사이의 관계**를 표에 세운다. 위임장 경쟁에서는 「누가 낸
+        #   안건인가」와 「어느 안건과 맞서는가」가 판정만큼 중요한 재료다 — 이 둘이 없으면
+        #   같은 자리를 다투는 안건 넷이 나란히 같은 모습으로 보인다.
+        lines.append("| # | 안건 | 제안 | 관계 | 행사방향 | 사유 |")
+        lines.append("|---|------|------|------|---------|------|")
         for i, ag in enumerate(decisions, 1):
             title = (ag.get("agenda_title") or "")[:60]
+            proposer = _PROPOSER_KO.get(ag.get("proposer_type") or "", "-")
+            relation = _one_line(ag.get("agenda_relation_label") or "", 60) or "-"
             decision = ag.get("decision", "-")
             reason_full = ag.get("reason") or ""
             # 표 셀에는 한 줄만 — 줄바꿈이 들어가면 그 지점에서 마크다운 표가 무너진다
@@ -377,8 +439,22 @@ def _render(payload: dict[str, Any]) -> str:
                 law_tag_marker = " 🛡️ 강행규정 위반"
             elif _ll.startswith("B1-") or _ll.startswith("B2-"):
                 law_tag_marker = " 🔍 우회 의심"
-            lines.append(f"| {i} | {title} | **{decision_emoji}**{law_tag_marker} | {reason} |")
+            lines.append(f"| {i} | {title} | {proposer} | {relation} | "
+                         f"**{decision_emoji}**{law_tag_marker} | {reason} |")
         lines.append("")
+
+        gap = data.get("agenda_relation_gap")
+        if gap:
+            lines.append(f"> ⚠️ **{gap.get('note')}**")
+            lines.append(">")
+            lines.append("> 올라온 안건 목록 (원문 순서):")
+            for _row in gap.get("agenda_list") or []:
+                lines.append(f"> - {_row}")
+            lines.append(">")
+            lines.append("> 어디를 더 보면 되나:")
+            for _w in gap.get("where_to_look") or []:
+                lines.append(f"> - {_w}")
+            lines.append("")
 
         # 안건별 결정 근거 detail (facts + risk + policy citation + 근거 공고)
         lines.append("### 안건별 결정 근거 (사실 + 위험 + 정책 + 출처)")
@@ -410,6 +486,12 @@ def _render(payload: dict[str, Any]) -> str:
                 # 확인하라」고 지시한다 — 있다고 말하면서 없다고 쓴 셈이고, 읽는 사람은 원문을 열
                 # 이유를 잃는다(SK이노베이션 SK E&S 흡수합병 실측). **못 뽑았다고 말한다.**
                 lines.append("- 사실: 이 안건에서 정량 수치를 추출하지 못했습니다 — 원문을 확인하세요")
+            _links = ag.get("agenda_relation_links") or []
+            if _links:
+                lines.append("- 안건 관계 (독립적으로 판단하지 마세요):")
+                for _l in _links:
+                    lines.append(f"  - {_RELATION_TYPE_KO.get(_l.get('type') or '', _l.get('type'))}"
+                                 f" → {', '.join(_l.get('with') or [])} : {_l.get('note') or ''}")
             if risks:
                 lines.append(f"- 위험 신호: {', '.join(risks)}")
             else:
@@ -772,6 +854,28 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"    · 가리킨 세부원칙 원문: {it['note_ref']}")
         lines.append("")
 
+    # 직전 회차 의결 결과 — 올해 판단의 기준선. 이번 회차 결과가 아니다.
+    pmr = data.get("prior_meeting_results") or {}
+    if pmr.get("items"):
+        lines.append(f"## 직전({pmr.get('year')}년) 정기주총 의결 결과 — 기준선")
+        lines.append(f"> {pmr.get('note')}")
+        if not pmr.get("numerical_vote_table_available"):
+            lines.append("> 이 공시에는 안건별 찬반율 표가 없어 가결 여부만 확인됩니다.")
+        lines.append("")
+        lines.append("| # | 안건 | 가결 | 찬성률(출석) | 반대율 |")
+        lines.append("|---|------|------|------------|--------|")
+        for it in pmr["items"][:20]:
+            lines.append(
+                f"| {it.get('number', '-')} | {_one_line(it.get('agenda') or '-', 50)} "
+                f"| {it.get('passed') or '-'} | {it.get('approval_rate_voted') or '-'} "
+                f"| {it.get('opposition_rate') or '-'} |")
+        if pmr.get("rcept_no"):
+            lines.append("")
+            lines.append(f"_출처: [{pmr.get('report_name') or '주주총회결과'}]"
+                         f"(https://dart.fss.or.kr/dsaf001/main.do?rcpNo={pmr['rcept_no']})"
+                         f" · {pmr.get('rcept_dt') or '-'} 접수_")
+        lines.append("")
+
     # 회사 펀더멘털 요약 (참고)
     fin = data.get("financial_summary") or {}
     if fin:
@@ -798,7 +902,10 @@ def _render(payload: dict[str, Any]) -> str:
             used = " · ".join(d.get("used_for") or [])
             # 원문 note 에 줄바꿈·파이프가 섞이면 표가 무너진다.
             note = " / ".join(d.get("notes") or []).replace("\n", " ").replace("|", "／")
-            lines.append(f"| [{name}]({url}) | {dt} | {used} | {note[:120]} |")
+            if d.get("after_as_of"):
+                dt = f"⚠ {dt}"
+                note = "⚠ 기준일 이후 접수 — 그 시점에는 볼 수 없던 문서입니다. " + note
+            lines.append(f"| [{name}]({url}) | {dt} | {used} | {note[:160]} |")
         lines.append("")
         lines.append(f"_접수번호로 직접 확인: {' · '.join(d.get('rcept_no', '') for d in read)}_")
         lines.append("")
@@ -826,6 +933,9 @@ def register_tools(mcp):
         vote_style: str = "open_proxy",
         check_audit_history: bool = False,
         segment_context_chars: int = 8000,
+        as_of: str = "",
+        include_after_meeting: bool = False,
+        evidence_chars: int = 4000,
         format: str = "md",
     ) -> str:
         """desc: 주총 **소집 전** 안건별 의결권 권고. 1회 호출로: 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts + risk_factors + policy_citation + 근거 공고 + 후보 평가 + 재무/거버넌스 summary.
@@ -837,6 +947,9 @@ def register_tools(mcp):
         meeting_type: `auto`(default — 정기/임시 중 지금 표를 던져야 하는 회차) / `annual` 정기만 / `extraordinary` 임시만. 임시주총을 보려고 따로 지정할 필요 없다.
         year: 미지정(0) 시 회의일이 과거 12개월~앞으로 90일 안인 회차를 자동 선택 — **아직 열리지 않은 예정 주총도 포함**되므로 다가오는 임시주총을 보려고 year를 따로 넣을 필요는 없다. 응답의 회차 선택 근거·정기/임시로 어느 회차인지 확인. 특정 과거 연도 분석에만 year 명시.
         segment_context_chars: 부문장 출신 사내이사의 담당부문 매핑 실패·정형 추출 저신뢰 시 첨부되는 부문표 원문 발췌 길이(기본 8000, 최대 30000). 응답에 '앞부분만 발췌' 표시가 뜨면 이 값을 늘려 재호출하거나 — 더 싸게는 business_details(fields="segments", bsns_year, reprt_code)로 전체를 직접 조회.
+        as_of: `YYYYMMDD`. **이 판단이 서는 시점.** 미지정 시 회의일이 과거면 회의일 전일, 미래면 오늘. 이 날 이후 접수된 공시는 읽지 않는다 — 주총 뒤에 나온 지배구조보고서·대량보유보고로 주총 전 판단을 만들지 않기 위한 것(look-ahead 차단). 그래서 지배구조보고서가 전년도판인 것이 정상이다. 과거 회차를 복기할 때 특히 중요.
+        include_after_meeting: True 면 기준일 이후 자료까지 읽는다(기본 False). 켜면 해당 공시에 ⚠ 표시가 붙는다. **해당 회차의 의결 결과는 이 옵션과 무관하게 절대 쓰지 않는다** — 결과는 `shareholder_meeting_results`.
+        evidence_chars: 안건에 붙는 소집공고 원문 발췌 창(기본 4000, 최대 30000). 응답에 '원문 발췌를 줄였습니다'가 뜨면 이 값을 올려 재호출. 같은 구간이 여러 안건에 겹치면 한 번만 싣고 나머지는 그 안건을 가리킨다.
         ref: shareholder_meeting_notice, financial_metrics, corp_gov_report, ownership_structure, proxy_contest, value_up, shareholder_meeting_results
         """
         payload = await build_proxy_advise_payload(
@@ -847,6 +960,9 @@ def register_tools(mcp):
             scope="decisions",  # 단일 scope — 모든 specialized scope 폐지 (각 tool 직접 호출 권장)
             check_audit_history=check_audit_history,
             segment_context_chars=segment_context_chars,
+            as_of=as_of,
+            include_after_meeting=include_after_meeting,
+            evidence_chars=evidence_chars,
         )
         if format == "json":
             return as_pretty_json(payload)

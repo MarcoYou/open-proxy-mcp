@@ -35,6 +35,9 @@ _POLICIES = _ROOT / "open_proxy_mcp" / "data" / "asset_managers" / "policies"
 _ENGINE_ONLY = {
     "audit_compensation", "capital_reduction", "merger_or_restructuring",
     "other", "retirement_pay", "stock_option_grant",
+    # 260828 신설 — 주식(액면)분할. 종전엔 '분할' 키워드로 merger_or_restructuring 에 섞여
+    # 합병비율·주식매수청구권 체크리스트가 붙었다(실측 대림제지 「주식분할 승인의 건」).
+    "stock_split",
 }
 #: 문서·정책에 있는데 엔진이 그 이름으로 조회하지 않는 것 = **사문화된 정책 규칙**.
 #: `merger`·`spin_off` 는 엔진에서 `merger_or_restructuring` 하나로 합쳐지고,

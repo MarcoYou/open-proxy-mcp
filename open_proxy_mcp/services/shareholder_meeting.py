@@ -364,6 +364,335 @@ def _seat_count_in_title(title: str) -> int | None:
     return n if 1 <= n <= 30 else None
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 안건 사이의 관계 (260828) — 「같은 자리를 두고 맞선 안건에 같은 ✅ 를 주지 않는다」
+#
+# 안건을 하나씩 독립적으로만 보면 위임장 경쟁을 통째로 놓친다. 실측 대림제지(017650)
+# 2026 임시주총: 주주제안 감사위원 해임 3건은 ⚠️ 인데 그 빈 자리를 채울 선임 4건은 전부
+# ✅ 찬성으로 나갔다 — 이사회측 후보와 주주측 후보가 같은 자리에서 맞붙었는데 「둘 다
+# 찬성」은 **실행할 수 없는 지시서**다.
+#
+# 여기서 잡는 관계는 넷이다. **판정을 대신하지 않는다 — 관계를 화면에 쓸 뿐이다.**
+#   · contested        경합 — 같은 자리를 두고 이사회제안 후보와 주주제안 후보가 맞섰다
+#   · depends_on       선행 의존 — 해임이 통과해야 그 자리 선임이 의미를 갖는다
+#   · conditional_on   조건부 상정 — 공고 본문이 「제N호 의안이 가결될 경우」라고 밝혔다
+#   · bundled          묶음(일괄표결) — 개별 찬반이 불가능하다 (proxy_advise 가 후보 수를
+#                      알아야 판정할 수 있어 여기서는 만들지 않는다)
+#
+# **좁게 잡는다.** 관계를 잘못 붙이면 정상 안건의 판정을 지운다 — 경합은 「같은 형제 층 ·
+# 같은 선임 카테고리 · 제안 주체가 갈릴 때」만, 의존은 「같은 자리(role scope)의 해임이
+# 같은 주총에 올라와 있을 때」만 본다. 실측 금호석유화학(011780)은 전원 회사제안이라
+# 아무 관계도 붙지 않아야 한다(위양성 감시 종목).
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: 관계를 볼 선임 안건의 카테고리. 정관변경·보수한도는 자리를 다투지 않는다.
+_ELECTION_CATEGORIES = ("director_election", "audit_committee_election")
+
+#: 조건절이 **의존**을 말하는지 가르는 표지. 「제4-1호 … 의안에 대해서는 보통결의」처럼
+#: 결의요건만 밝히는 문장은 의존이 아니다 — 표지가 없으면 링크를 만들지 않는다.
+_DEPENDENCY_MARKERS = (
+    "가결", "부결", "선임된", "선출된", "승인된", "승인될", "통과",
+    "한하여", "한해", "전제", "폐기", "조건으로", "다득표",
+)
+
+#: 참조 **바로 뒤**에 붙어 「이 안건이 저 안건에 걸린다」를 말하는 어구. 명단 나열
+#: (「제4-1호, 제4-2호 의안에 대해서는」)과 방향성 참조를 가르는 것이 이것이다.
+_DIRECTIONAL_REFERENCE = (
+    "의안에서", "에서 선임", "에서 선출", "의안이 가결", "의안이 부결", "의안의 가결",
+    "이 가결", "가 가결", "이 부결", "가 부결", "가결될", "부결될", "가결되는", "부결되는",
+    "가결시", "가결 시", "승인될", "승인되는", "의안이 승인",
+)
+
+
+def _is_election_title(title: str) -> bool:
+    t = (title or "")
+    return "선임" in t and "해임" not in t
+
+
+#: 「해임」이 **이 안건이 하려는 일**일 때만 해임 안건이다. 「감사위원 선·해임 시 의결권 제한
+#: 조항 삽입의 건」은 정관변경이지 해임이 아닌데, 글자만 보면 걸린다 — 실측 한국앤컴퍼니
+#: 제2-5호·태광산업 제2-2호가 그렇게 걸려 감사위원 선임 안건 전부에 「가결이 전제」가 붙었다.
+_REMOVAL_ACT_RE = re.compile(r"해임(?:의)?\s*(?:건|안|승인|요구)")
+_REMOVAL_EXCLUDE = ("선·해임", "선해임", "선임·해임", "선임 및 해임", "선임및해임", "선/해임")
+
+
+def _is_removal_title(title: str, category: str | None = None) -> bool:
+    t = title or ""
+    if any(x in t for x in _REMOVAL_EXCLUDE):
+        return False
+    if category in ("articles_amendment", "director_compensation", "audit_compensation"):
+        return False
+    return bool(_REMOVAL_ACT_RE.search(t))
+
+
+def _seat_scope(title: str) -> str:
+    """그 안건이 다투는 **자리**. 감사위원 자리와 일반 이사 자리는 별개다."""
+    t = (title or "").replace(" ", "")
+    if "감사위원" in t:
+        return "감사위원"
+    if "감사" in t:
+        return "감사"
+    if "이사" in t:
+        return "이사"
+    return ""
+
+
+def _proposer_side(proposer_type: str | None) -> str:
+    if proposer_type == "shareholder_proposal":
+        return "주주제안"
+    if proposer_type == "company":
+        return "이사회제안"
+    return ""
+
+
+_AGENDA_NUM_RE = re.compile(r"제\s*(\d+(?:\s*-\s*\d+)*)\s*호")
+
+#: 안건 머리말에서 이만큼만 그 안건의 구간으로 본다(상호참조는 후보자 표·비고칸에 있다).
+_AGENDA_SECTION_CHARS = 2500
+
+
+def _norm_agenda_no(raw: str) -> str:
+    return "제" + re.sub(r"\s+", "", raw or "") + "호"
+
+
+def _agenda_sections(notice_text: str, rows: list[dict[str, Any]]) -> dict[str, str]:
+    """공고 원문을 안건 번호 머리말로 잘라 「그 안건의 구간」을 돌려준다.
+
+    조건부 상정 문구(「제4호 의안에서 선임된 독립이사 중 선임」)는 제목이 아니라 후보자 표의
+    비고칸에 있다 — 제목만 보면 영영 못 잡는다.
+
+    **번호만 보고 자르지 않는다.** 소집공고에는 첨부된 이사회 의사록이 함께 실려 있고 거기에도
+    「제5호 의안 : … 가결」이 줄줄이 나온다. 번호의 첫 등장을 그대로 머리말로 삼으면 이사 보수한도
+    안건이 **작년 이사회 의사록 구간**을 자기 본문으로 물고, 거기 있는 「가결」을 자기 조건절로
+    읽는다(실측 태광산업 제7호). 그래서 **번호 뒤에 그 안건의 제목이 실제로 오는 자리**만
+    머리말로 인정한다. 못 찾으면 그 안건은 dict 에 넣지 않는다 — 빈 문자열로 채우면
+    「봤는데 없었다」로 읽힌다.
+    """
+    if not notice_text:
+        return {}
+    title_by_no = {r["number"]: (r.get("title") or "") for r in rows}
+    picked: list[tuple[int, int, str]] = []
+    for no, title in title_by_no.items():
+        head = re.sub(r"\s+", "", title)[:8]
+        chosen: tuple[int, int] | None = None
+        first: tuple[int, int] | None = None
+        for m in _AGENDA_NUM_RE.finditer(notice_text):
+            if _norm_agenda_no(m.group(1)) != no:
+                continue
+            if first is None:
+                first = (m.start(), m.end())
+            if len(head) < 4:
+                chosen = (m.start(), m.end())
+                break
+            # 번호 **바로 뒤에** 그 안건의 제목이 오나 — 공백을 지우고 본다(원문은 줄바꿈이 많다).
+            # 「어딘가에 들어 있나」로 느슨하게 보면 안 된다. 나열 안의 번호
+            # (「제4-1호, 제4-2호 의안에 대해서는 …」)도 200자 안에 다음 안건의 제목을 품고 있어
+            # 나열이 머리말로 뽑힌다. 머리말은 「번호 · 의안 · 콜론 · 제목」 순서로 붙어 있다.
+            probe = re.sub(r"\s+", "", notice_text[m.end():m.end() + 160])
+            # 머리말과 제목 사이에 끼는 것들 — 「의안」·콜론·하이픈·※·괄호 주기
+            # (「제 3 호 의안 (주주제안) : 주주 제안의 건」). 이걸 못 벗기면 그 안건의 머리말을
+            # 못 찾고, 앞 안건의 구간이 그 자리를 삼켜 남의 조건절을 자기 것으로 문다
+            # (실측 LG화학 제2호가 제3호의 「제2-7호 가결 시」를 물었다).
+            probe = re.sub(r"^(?:의안|[:：\-–·.,※]|\([^)]*\)|\[[^\]]*\])+", "", probe)
+            if probe.startswith(head):
+                chosen = (m.start(), m.end())
+                break
+        if chosen is None:
+            # 제목을 못 맞히면 머리말을 확정하지 못한 것이다. 제목이 너무 짧아 검사를 못 한
+            # 경우에만 첫 등장으로 떨어진다(그때도 아래 창 상한이 걸린다).
+            if len(head) >= 4:
+                continue
+            chosen = first if first else None
+        if chosen:
+            picked.append((chosen[0], chosen[1], no))
+    if not picked:
+        return {}
+    picked.sort()
+    out: dict[str, str] = {}
+    for i, (_hstart, pos, no) in enumerate(picked):
+        end = picked[i + 1][0] if i + 1 < len(picked) else len(notice_text)
+        # 상호참조는 안건 머리말 가까이에 있다 — 창을 그만큼만 연다. 마지막 안건이 공고 꼬리
+        # (참고사항·정관 원문·위임장 양식)를 통째로 삼키는 것을 막는다.
+        # 머리말의 **번호 자체는 뺀다** — 안 그러면 「자기도 명단에 있나」 검사가 자기 머리말에
+        # 걸려 항상 참이 된다.
+        out[no] = notice_text[pos:min(end, pos + _AGENDA_SECTION_CHARS)]
+    return out
+
+
+#: 「제4-1호, 제4-2호, 제4-3호, 제4-4호 의안에 대해서는 …」처럼 **한 문장 안에 나란히 나열된**
+#: 번호 묶음. 사이에 들어와도 되는 것은 구분자와 「의안」뿐이다 — 그 사이에 다른 말이 끼면
+#: (「제5호 의안 : 이사 보수한도 요청의 건 가결 … 제6호 의안 : …」) 그건 나열이 아니라
+#: 이사회 의사록이다. 이 구분이 없으면 공고 꼬리에 붙은 의사록이 택일 규칙으로 읽힌다.
+_ENUM_RE = re.compile(
+    r"(?:제\s*\d+(?:\s*-\s*\d+)*\s*호)"
+    r"(?:(?:[\s,·、]|및|과|와|의안)*(?:제\s*\d+(?:\s*-\s*\d+)*\s*호))+")
+
+
+def _enumeration_groups(text: str) -> list[list[str]]:
+    out: list[list[str]] = []
+    for m in _ENUM_RE.finditer(text or ""):
+        out.append([_norm_agenda_no(x.group(1))
+                    for x in _AGENDA_NUM_RE.finditer(m.group(0))])
+    return out
+
+
+def build_agenda_relation_links(
+    rows: list[dict[str, Any]],
+    notice_text: str = "",
+) -> dict[str, list[dict[str, Any]]]:
+    """안건 사이의 관계를 안건 번호별 링크 목록으로 돌려준다.
+
+    rows 의 각 원소는 최소한 `number`(제N호) · `title` · `category` · `proposer_type` ·
+    `parent_number`(없으면 "") 를 가진다. 번호가 없는 행은 가리킬 이름이 없어 건너뛴다 —
+    「4번과 경합」이라고 쓰려면 그 4번이 화면에 있어야 한다.
+    """
+    rows = [r for r in rows if (r.get("number") or "").strip()]
+    if not rows:
+        return {}
+    # category 가 안 실려 오면(제목만 있는 폴백 경로) 여기서 분류한다 — 분류기를 두 벌 두지
+    # 않으려고 proxy_advise 의 것을 그대로 부른다(순환 import 회피로 함수 안에서 import).
+    if any(r.get("category") is None for r in rows):
+        from open_proxy_mcp.services.proxy_advise import _classify_agenda
+        by_no = {r.get("number"): r for r in rows}
+        for r in rows:
+            if r.get("category") is None:
+                parent = by_no.get(r.get("parent_number") or "")
+                r = r  # noqa: PLW0127 — 원본 dict 를 그대로 고친다
+                r["category"] = _classify_agenda(
+                    r.get("title") or "", parent_title=(parent or {}).get("title") or "")
+    links: dict[str, list[dict[str, Any]]] = {}
+
+    def _add(no: str, link: dict[str, Any]) -> None:
+        bucket = links.setdefault(no, [])
+        for existing in bucket:
+            if existing["type"] == link["type"] and existing["with"] == link["with"]:
+                return
+        bucket.append(link)
+
+    # ── ① 경합 — 같은 형제 층 · 같은 선임 카테고리에서 제안 주체가 갈린다 ────────
+    groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for r in rows:
+        if r.get("category") not in _ELECTION_CATEGORIES:
+            continue
+        if not _is_election_title(r.get("title") or ""):
+            continue
+        groups.setdefault(((r.get("parent_number") or ""), r["category"]), []).append(r)
+    for (_parent, _cat), group in groups.items():
+        board = [r for r in group if r.get("proposer_type") == "company"]
+        holder = [r for r in group if r.get("proposer_type") == "shareholder_proposal"]
+        if not board or not holder:
+            continue          # 한쪽뿐이면 경합이 아니다 — 금호석유화학이 여기서 걸러진다
+        scope = _seat_scope(group[0].get("title") or "") or "이사"
+        for side, other, side_ko, other_ko in (
+            (board, holder, "이사회제안", "주주제안"),
+            (holder, board, "주주제안", "이사회제안"),
+        ):
+            other_nos = [r["number"] for r in other]
+            for r in side:
+                _add(r["number"], {
+                    "type": "contested",
+                    "with": other_nos,
+                    "note": (f"{', '.join(other_nos)}({other_ko})과 같은 {scope} 자리를 두고 "
+                             f"맞선 {side_ko} 안건입니다 — **둘 다 찬성할 수 없습니다.** "
+                             f"어느 진영을 지지할지 먼저 정하고 그 진영의 안건에만 찬성하세요."),
+                })
+
+    # ── ② 선행 의존 — 같은 자리의 해임이 같은 주총에 올라와 있다 ────────────────
+    removals = [r for r in rows
+                if _is_removal_title(r.get("title") or "", r.get("category"))]
+    if removals:
+        by_scope: dict[str, list[str]] = {}
+        for r in removals:
+            scope = _seat_scope(r.get("title") or "")
+            if scope:
+                by_scope.setdefault(scope, []).append(r["number"])
+        for r in rows:
+            if not _is_election_title(r.get("title") or ""):
+                continue
+            if r.get("category") not in _ELECTION_CATEGORIES:
+                continue
+            scope = _seat_scope(r.get("title") or "")
+            targets = by_scope.get(scope)
+            if not targets:
+                continue
+            _add(r["number"], {
+                "type": "depends_on",
+                "with": targets,
+                "note": (f"{', '.join(targets)}({scope} 해임)이 가결돼야 채울 자리가 생깁니다 — "
+                         f"해임이 부결되면 이 선임은 상정 자체가 무의미해질 수 있습니다. "
+                         f"두 안건을 따로 판단하지 마세요."),
+            })
+            for t in targets:
+                _add(t, {
+                    "type": "precedes",
+                    "with": [r["number"]],
+                    "note": f"이 해임이 가결돼야 {r['number']} 선임이 의미를 갖습니다.",
+                })
+
+    # ── ③ 조건부 상정 — 공고 본문이 다른 안건을 가리킨다 ──────────────────────
+    numbers = [r["number"] for r in rows]
+    sections = _agenda_sections(notice_text, rows)
+    for r in rows:
+        no = r["number"]
+        text = " ".join(x for x in [sections.get(no, ""), (r.get("conditional") or "")] if x)
+        if not text:
+            continue
+        for m in _AGENDA_NUM_RE.finditer(text):
+            ref = _norm_agenda_no(m.group(1))
+            if ref == no or ref not in numbers:
+                continue
+            window = text[max(0, m.start() - 60):m.end() + 80]
+            tail = text[m.end():m.end() + 20]
+            # ⓐ **방향성 참조** — 「제4호 의안에서 선임된」·「제2호가 가결될 경우」처럼 이 안건이
+            #    저 안건에 걸린다고 문장이 직접 말한다.
+            directional = any(k in tail for k in _DIRECTIONAL_REFERENCE)
+            # ⓑ **자기도 같은 나열에 있는 참조** — 「제4-1호, 제4-2호, 제4-3호, 제4-4호 의안에
+            #    대해서는 … 다득표 의안이 가결된 것으로 합니다」. 같은 묶음의 택일 규칙이다.
+            #    번호가 창 안에 있기만 하면 안 된다 — **한 나열 안에 함께** 있어야 한다.
+            group = next((g for g in _enumeration_groups(window)
+                          if no in g and ref in g), None)
+            self_listed = bool(group) and any(k in window for k in _DEPENDENCY_MARKERS)
+            if not directional and not self_listed:
+                # 남는 것은 **공고 꼬리의 ※ 각주**가 옆 안건 구간에 흘러든 경우다. 실측 태광산업
+                # 이사 보수한도(제7호)가 바로 뒤에 붙은 「※ 제2-2-1호 … 다득표」를 자기 조건으로
+                # 물고 나갔다 — 사실이 아니다. 근거가 이 둘 중 하나가 아니면 링크를 만들지 않는다.
+                continue
+            quote = re.sub(r"\s+", " ", window).strip()
+            # 같은 문장이 여러 안건을 나열하면 **전부** 가리킨다 — 하나만 쓰면 판이 안 보인다.
+            refs = [x for x in dict.fromkeys(group or [])
+                    if x != no and x in numbers] or [ref]
+            _add(no, {
+                "type": "conditional_on",
+                "with": refs,
+                "note": (
+                    (f"공고 본문이 {ref}을 가리킵니다 — 「…{quote}…」. "
+                     f"{ref}의 결과에 따라 이 안건의 상정·효력이 갈립니다.")
+                    if directional else
+                    (f"공고가 이 안건을 {', '.join(refs)}과 **한 묶음의 택일**로 처리한다고 "
+                     f"밝혔습니다 — "
+                     f"「…{quote}…」. 전부 찬성하면 표가 흩어집니다.")),
+            })
+            break
+    return links
+
+
+#: 관계 유형 → 표에 찍을 짧은 라벨. 판정 자리가 아니라 **관계** 자리에 쓴다.
+AGENDA_RELATION_LINK_LABEL = {
+    "contested": "⚔️ {nos}와 경합 — 둘 다 찬성 불가",
+    "depends_on": "🔗 {nos} 가결이 전제",
+    "precedes": "🔗 {nos} 선임의 선행 안건",
+    "conditional_on": "🔗 {nos} 결과에 연동",
+    "bundled": "📦 일괄표결 — 개별 찬반 불가",
+}
+
+
+def agenda_relation_link_label(link: dict[str, Any]) -> str:
+    nos = ", ".join(link.get("with") or [])
+    tpl = AGENDA_RELATION_LINK_LABEL.get(link.get("type") or "", "")
+    return tpl.format(nos=nos) if tpl else ""
+
+
+
 def _compact_meeting_info(info: dict[str, Any], scope: str) -> dict[str, Any]:
     """summary 응답에서는 긴 안내문을 빼고 주총 식별 필드만 남긴다."""
     if scope != "summary":
@@ -1028,6 +1357,7 @@ async def resolve_latest_meeting_year(
     *,
     meeting_type: str = "annual",
     lookback_months: int = 12,
+    year: int | None = None,
 ) -> dict[str, Any] | None:
     """최신 소집공고 기준 주총 회차(연도) pre-resolution.
 
@@ -1045,6 +1375,14 @@ async def resolve_latest_meeting_year(
     if meeting_type not in _ALLOWED_MEETING_TYPES:
         return None
     today = date.today()
+    # `year` 를 주면 그 해의 회차를 집는다. 260828: 이 인자가 없어서, 사용자가 연도를 직접
+    # 지정하면 **회의일을 아예 모르는 채로** 분석이 진행됐다. 회의일을 모르면 「그 시점에 볼 수
+    # 있던 공시」의 경계도 그을 수 없다 — proxy_advise 의 as_of 기본값이 여기서 나온다.
+    if year:
+        window_start = date(year, 1, 1)
+        window_end = date(year, 12, 31)
+        return await _resolve_meeting_in_window(
+            corp_code, meeting_type, window_start, window_end)
     # meeting window end를 미래로 확장 (260723 리뷰 CRITICAL 수정): 필터가 '회의일' 기준이라
     # end=today면 회의일이 미래인 공고(= 소집공고 발행 후 ~ 주총 전, 이 pre-resolution의 1차
     # 사용 구간)가 통째로 탈락해 작년 회차를 "최신"으로 오선택했다. 공고→회의 간격은 상법상
@@ -1052,6 +1390,17 @@ async def resolve_latest_meeting_year(
     # (DART list.json의 미래 end_de는 무해 — 접수일 필터일 뿐이며 기존 연도지정 경로도 12/31 사용)
     window_end = today + timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
     window_start = today - timedelta(days=lookback_months * 31)
+    return await _resolve_meeting_in_window(
+        corp_code, meeting_type, window_start, window_end)
+
+
+async def _resolve_meeting_in_window(
+    corp_code: str,
+    meeting_type: str,
+    window_start: date,
+    window_end: date,
+) -> dict[str, Any] | None:
+    """주어진 회의일 구간에서 최신 소집공고 하나를 골라 회차 메타를 돌려준다."""
     types = ["annual", "extraordinary"] if meeting_type == "auto" else [meeting_type]
     results = await asyncio.gather(*[
         _candidate_notices_in_meeting_window(

@@ -18,10 +18,17 @@ SRC = Path(__file__).resolve().parents[1] / "open_proxy_mcp/services/proxy_advis
 TREE = ast.parse(SRC.read_text(encoding="utf-8"))
 
 
+#: payload 본체. 260828 as_of 게이트가 붙으면서 `build_proxy_advise_payload` 는 게이트를
+#: 되돌리는 얇은 껍데기가 됐고 배선은 `_build_proxy_advise_payload` 로 옮겨졌다.
+#: 이 테스트가 재는 것은 **배선이 있는 쪽**이다 — 껍데기를 보면 호출이 하나도 안 보인다.
+_BODY_NAMES = ("_build_proxy_advise_payload", "build_proxy_advise_payload")
+
+
 def _calls(func_name: str) -> list[ast.Call]:
-    """`build_proxy_advise_payload` 안에서 `func_name` 을 부르는 지점 전부."""
-    fn = next(n for n in ast.walk(TREE)
-              if isinstance(n, ast.AsyncFunctionDef) and n.name == "build_proxy_advise_payload")
+    """payload 본체 안에서 `func_name` 을 부르는 지점 전부."""
+    bodies = [n for n in ast.walk(TREE)
+              if isinstance(n, ast.AsyncFunctionDef) and n.name in _BODY_NAMES]
+    fn = max(bodies, key=lambda n: len(list(ast.walk(n))))
     return [n for n in ast.walk(fn)
             if isinstance(n, ast.Call) and getattr(n.func, "id", None) == func_name]
 

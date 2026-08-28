@@ -26,13 +26,14 @@ import asyncio
 import json
 import re
 import time
-from datetime import date
+from datetime import date, timedelta
 import logging
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 from open_proxy_mcp.dart.client import get_dart_client, LruByteCache, _env_mb
+from open_proxy_mcp.dart.as_of import clamps as as_of_clamps, reset_as_of, set_as_of
 from open_proxy_mcp.services.provisional_financial_statement import (
     parse_provisional_financial_statement,
     extract_metrics as _extract_provisional_fs_metrics,
@@ -102,6 +103,7 @@ _CATEGORY_KO = {
     "director_election": "이사 선임", "audit_committee_election": "감사위원/감사 선임",
     "director_compensation": "이사 보수한도", "audit_compensation": "감사 보수한도",
     "capital_reduction": "자본 감소", "stock_option_grant": "주식매수선택권 부여",
+    "stock_split": "주식분할(액면분할)",
     "other": "기타",
 }
 
@@ -962,6 +964,13 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
     # (§360-2·§360-15)인데 종전 키워드는 붙임표기 「주식교환」뿐이었다 — 회사가 법문대로
     # 쓰면 안 걸리고 `other` 로 떨어져 **자동 FOR** 가 났다(260811 실측). 「합병」은 잡히고
     # 같은 급의 포괄적 교환은 안 잡히는 상태였다.
+    # 260828 실측(대림제지 20260814003207 「주식분할 승인의 건」): 「주식분할」·「액면분할」이
+    # 아래 '분할' 키워드에 걸려 **회사분할(상법 §530-2)로 분류**됐다. 합병비율·외부평가기관
+    # 의견·주식매수청구권 체크리스트가 붙었는데, 액면분할에는 그런 것이 없다 — 액면가를 쪼개
+    # 주식 수를 늘리는 자본거래이고 지분율·자본금·의결권 비율이 그대로다.
+    # 「분할합병」은 진짜 구조개편이라 제외한다.
+    if ("주식분할" in t_flat or "액면분할" in t_flat) and "분할합병" not in t_flat:
+        return "stock_split"
     if any(k.replace(" ", "") in t_flat for k in (
             "합병", "분할", "주식교환", "주식이전", "포괄적 교환", "포괄적 이전",
             "영업양도", "영업양수", "영업 양도", "영업 양수", "자산양수", "자산 양수")):
@@ -1014,12 +1023,17 @@ _MATCH_FAIL_AFTER = 19_000
 
 def _raw_window(full_text: str, title: str, *,
                 before: int = _MATCH_FAIL_BEFORE,
-                after: int = _MATCH_FAIL_AFTER) -> str | None:
+                after: int = _MATCH_FAIL_AFTER,
+                source_url: str = "") -> dict[str, Any] | None:
     """안건 제목을 원문에서 찾아 **앞 before / 뒤 after** 자를 뜬다.
 
     `_raw_excerpt` 와 달리 창이 비대칭이고 넓다. 이름 매칭이 실패한 안건 —
     즉 우리가 구조를 잘못 읽었을 가능성이 큰 자리 — 에 붙여 AI 가 원문으로
     직접 판단하게 하려는 용도다. 못 찾으면 원문 앞부분을 준다.
+
+    260828: 좌표(start·end)와 **줄인 양**을 함께 돌려준다. 같은 공고에서 뜬 창이 여러 안건에
+    겹쳐 실리는 것을 호출측이 막을 수 있어야 하고(실측 대림제지 4건 × 12.8k = 51k),
+    자른 자리에는 얼마나 잘랐고 어떻게 넓히는지가 남아야 한다.
     """
     if not full_text:
         return None
@@ -1030,13 +1044,24 @@ def _raw_window(full_text: str, title: str, *,
         if len(token) >= 2:
             idx = full_text.find(token)
     if idx < 0:
-        body = full_text[: before + after]
+        start, end = 0, before + after
         prefix = "[원문 앞부분 — 안건 위치 미확인] "
     else:
-        body = full_text[max(0, idx - before): idx + after]
+        start, end = max(0, idx - before), idx + after
         prefix = "[원문 발췌 — 후보 이름 매칭 실패 지점] "
-    body = re.sub(r"[ \t]+", " ", body).strip()
-    return (prefix + body) if body else None
+    end = min(end, len(full_text))
+    body = re.sub(r"[ \t]+", " ", full_text[start:end]).strip()
+    if not body:
+        return None
+    omitted = max(0, len(full_text) - (end - start))
+    tail = ""
+    if omitted:
+        tail = (f"\n[여기서 {omitted:,}자를 줄였습니다 — 공고 원문 {len(full_text):,}자 중 "
+                f"{end - start:,}자만 실었습니다. evidence_chars 를 올리면 창이 넓어집니다"
+                f"(최대 {_EVIDENCE_MAX_CHARS:,})"
+                + (f" · 전문: {source_url}]" if source_url else "]"))
+    return {"text": prefix + body + tail, "start": start, "end": end,
+            "chars": len(prefix) + len(body) + len(tail), "omitted": omitted}
 
 
 def _raw_excerpt(full_text: str, title: str, *, limit: int = 1800) -> str | None:
@@ -1161,6 +1186,60 @@ def _enforce_seat_budget(agenda_decisions: list[dict[str, Any]],
             r["reason"] = note + " 원문에서 어느 안건이 실제 표결 대상인지 확인하세요."
             r.setdefault("risk_factors", []).append("표결 구조 미확정 (좌석 수 초과)")
         notes.append(note)
+    return notes
+
+
+def _apply_relation_links(agenda_decisions: list[dict[str, Any]]) -> list[str]:
+    """**같은 자리를 두고 맞선 안건에 같은 ✅ 를 내보내지 않는다.**
+
+    개별 안건 판정이 다 끝난 뒤 관계를 한 번 더 본다(정책 default 적용 뒤여야 한다 —
+    앞에서 내려도 `_apply_policy_default` 가 다시 FOR 로 올린다).
+
+    · 경합(contested) — 이사회측 후보와 주주측 후보가 같은 자리에서 맞붙었다. 어느 쪽이
+      옳은지는 도구가 정할 일이 아니다. 찬성을 거두고 **진영과 선택지**를 준다.
+    · 선행 의존(depends_on) — 해임이 부결되면 그 자리 선임은 상정 자체가 무의미해진다.
+      해임을 보류하면서 선임만 자동 찬성하는 것은 앞뒤가 맞지 않는다.
+    · 조건부 상정(conditional_on) — 다른 안건 결과에 효력이 걸린다.
+
+    반대(AGAINST)는 내리지 않는다 — 결격이 발견된 안건은 경합 여부와 무관하게 반대다.
+    반환: 적용된 관계 메모(호출측이 warnings 로 올린다).
+    """
+    from open_proxy_mcp.services.shareholder_meeting import agenda_relation_link_label
+    notes: list[str] = []
+    for row in agenda_decisions:
+        links = row.get("agenda_relation_links") or []
+        if not links:
+            continue
+        labels = [x for x in (agenda_relation_link_label(l) for l in links) if x]
+        if labels:
+            row["agenda_relation_label"] = " · ".join(labels)
+        blocking = [l for l in links
+                    if l.get("type") in ("contested", "depends_on", "conditional_on")]
+        if not blocking:
+            continue
+        # 관계를 **찾았다는 사실 자체**를 먼저 남긴다. 종전에는 판정을 내린 행만 세어서,
+        # 이미 ⚠️ 인 안건뿐이면 「관계를 못 잡았다」는 안내가 같이 나갔다(실측 대림제지).
+        notes.append(f"{row.get('agenda_title', '')[:40]} — {' · '.join(labels)}")
+        if row.get("decision") not in ("FOR", "NO_DATA"):
+            row["reason"] = ((row.get("reason") or "") + " · "
+                             + " ".join(l.get("note") or "" for l in blocking).strip())
+            for l in blocking:
+                tag = agenda_relation_link_label(l)
+                if tag and tag not in row.setdefault("risk_factors", []):
+                    row["risk_factors"].append(tag)
+            continue
+        row["relation_downgraded_from"] = row.get("decision")
+        row["decision"] = "REVIEW"
+        row["reason"] = (
+            "이 안건은 다른 안건과 묶여 있어 혼자 판정할 수 없습니다. "
+            + " ".join(l.get("note") or "" for l in blocking).strip()
+            + f" (관계를 보기 전 판정: {row.get('relation_downgraded_from')} — "
+            + f"{(row.get('reason') or '')[:200]})")
+        row.setdefault("risk_factors", [])
+        for l in blocking:
+            tag = agenda_relation_link_label(l)
+            if tag and tag not in row["risk_factors"]:
+                row["risk_factors"].append(tag)
     return notes
 
 
@@ -2104,7 +2183,59 @@ def _decide_financial_statements(
 #: 상한 표기는 「이하」와 「이내」 둘 다 쓴다 — 한진칼은 「11인 이내 → 9인 이내」라 「이하」만
 #: 보면 정원 축소를 통째로 놓친다.
 _DIRECTOR_CAP = re.compile(r"(\d+)\s*\)?\s*인\s*(?:이하|이내)")
-_AUTHORIZED_SHARES = re.compile(r"발행할\s*주식의\s*총수[^\d]{0,30}([\d,]{4,})")
+#: 「발행할 주식의 총수」 뒤에 오는 수량. **아라비아 숫자만 보던 것이 260828 사고의 원인이다** —
+#: 대림제지 정관은 「일억이천만주 → 육억주」로 적었고, 숫자를 못 찾은 정규식은 조용히 빈손으로
+#: 돌아왔다. 그 결과 5배 증가가 「수권주식 증가 없음」으로 찍히고 판정이 FOR 로 나갔다.
+#: 한글 수사(일·이·…·십·백·천·만·억·조)도 같이 받는다.
+_KO_NUM_CHARS = "영일이삼사오육륙칠팔구십백천만억조"
+_AUTHORIZED_SHARES = re.compile(
+    r"발행할\s*주식의\s*총수[^\d" + _KO_NUM_CHARS + r"]{0,30}([\d,]{4,}|[" + _KO_NUM_CHARS + r"]{2,})")
+
+_KO_DIGIT = {"영": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5,
+             "육": 6, "륙": 6, "칠": 7, "팔": 8, "구": 9}
+_KO_SMALL_UNIT = {"십": 10, "백": 100, "천": 1000}
+_KO_BIG_UNIT = {"만": 10 ** 4, "억": 10 ** 8, "조": 10 ** 12}
+
+
+def _korean_number(text: str) -> int | None:
+    """「일억이천만」 → 120000000. 못 읽으면 None (0 으로 채우지 않는다)."""
+    if not text:
+        return None
+    total = 0          # 확정된 큰 단위까지의 합
+    section = 0        # 현재 큰 단위(만·억·조) 구간의 값
+    digit = 0          # 직전 한 자리 수
+    seen = False
+    for ch in text:
+        if ch in _KO_DIGIT:
+            digit = _KO_DIGIT[ch]
+            seen = True
+        elif ch in _KO_SMALL_UNIT:
+            section += (digit or 1) * _KO_SMALL_UNIT[ch]
+            digit = 0
+            seen = True
+        elif ch in _KO_BIG_UNIT:
+            section = (section + digit) or 1
+            total += section * _KO_BIG_UNIT[ch]
+            section = 0
+            digit = 0
+            seen = True
+        else:
+            return None                     # 모르는 글자 — 추측하지 않는다
+    value = total + section + digit
+    return value if (seen and value) else None
+
+
+def _parse_share_count(raw: str) -> int | None:
+    """수권주식 수량 문자열 → 정수. 아라비아 숫자·한글 수사 둘 다."""
+    token = (raw or "").strip()
+    if not token:
+        return None
+    if re.fullmatch(r"[\d,]+", token):
+        try:
+            return int(token.replace(",", ""))
+        except ValueError:
+            return None
+    return _korean_number(token)
 
 
 def _articles_body_risks(amendment: dict[str, Any] | None) -> list[str]:
@@ -2133,14 +2264,25 @@ def _articles_body_risks(amendment: dict[str, Any] | None) -> list[str]:
         elif not caps_before and caps_after and "이사" in after:
             risks.append(f"이사 정원 상한 신설 ({max(caps_after)}인)")
 
-    # 수권주식 — 늘면 향후 희석 여지다.
+    # 수권주식 — 늘면 향후 희석 여지다. 회사는 이 숫자를 한글 수사로도 적는다(「육억주」).
     sb = _AUTHORIZED_SHARES.search(before)
     sa = _AUTHORIZED_SHARES.search(after)
     if sb and sa:
-        n_before = int(sb.group(1).replace(",", ""))
-        n_after = int(sa.group(1).replace(",", ""))
-        if n_after > n_before:
-            risks.append(f"수권주식 증가 ({n_before:,}주 → {n_after:,}주)")
+        n_before = _parse_share_count(sb.group(1))
+        n_after = _parse_share_count(sa.group(1))
+        if n_before and n_after and n_after > n_before:
+            _mult = n_after / n_before
+            risks.append(
+                f"수권주식 증가 ({n_before:,}주 → {n_after:,}주, {_mult:.1f}배)"
+                + (" — 액면분할 동반(액면가가 같은 배수로 낮아지면 희석 여지는 늘지 않습니다. "
+                   "변경 후 액면가를 원문에서 확인하세요)"
+                   if ("액면분할" in (amendment.get("reason") or "")
+                       or "액면분할" in (amendment.get("label") or "")) else ""))
+        elif not (n_before and n_after):
+            # **못 읽었으면 「증가 없음」이 아니다.** 원문 두 조각을 그대로 실어 판단을 넘긴다.
+            risks.append(
+                f"수권주식 수량을 읽지 못했습니다 — 개정 전 「{sb.group(1)}」 / 개정 후 「{sa.group(1)}」"
+                " (원문 대조 필요)")
 
     # 집중투표 배제 — 신설된 경우만(원래 있던 조항은 이번 안건의 변경 사항이 아니다).
     if ("집중투표" in after and any(k in after for k in ("적용하지 아니", "배제", "적용하지 않"))
@@ -2268,6 +2410,7 @@ _POLICY_CITATIONS = {
     "capital_reduction": "OPM Guideline §자본감소 — 원칙 반대·예외 찬성(회생/구조조정 불가피·상장폐지 회피·주주가치 미훼손 유상감자·자사주 소각). 유형을 확정하지 못하면 검토 필요로 두고 원문 판단에 맡깁니다",
     "stock_option_grant": "OPM Guideline §주식매수선택권 — 희석률 한도·행사가격·부여대상 검토 필수. 검토 필요로 두고 원문 판단에 맡깁니다",
     "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
+    "stock_split": "OPM Guideline §주식분할 — 지분율·자본금 불변이라 원칙 찬성. 다만 동반 정관변경(발행예정주식총수·액면가)은 따로 봅니다",
     "shareholder_proposal": "OPM Guideline §주주제안 — 본문 검토",
     "other": "OPM Guideline §기타 — 위험 키워드 (감자/적대적/포이즌/CB) 없으면 일반 안건으로 보고 찬성",
 }
@@ -2973,20 +3116,63 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
 # ── 메인 advise builder ──
 
 _SEGMENT_CONTEXT_DEFAULT_CHARS = 8000
+
+#: 안건에 붙이는 소집공고 원문 발췌의 기본 창(자). 종전에는 `_MATCH_FAIL_AFTER`(19,000자)를
+#: 그대로 썼고, 이름 매칭이 실패한 안건마다 **같은 공고 원문을 통째로 다시** 실었다.
+#: 260828 실측 대림제지: 안건 4건 × 12.8k = 51k — 응답 62,812자 중 대부분이 같은 글의 사본이었고
+#: 호출측에서 잘렸다. 기본값을 줄이되 **줄인 자리에 얼마나 줄였는지와 넓히는 방법을 남긴다.**
+_EVIDENCE_DEFAULT_CHARS = 4000
+_EVIDENCE_MAX_CHARS = 30000
 _SEGMENT_CONTEXT_MAX_CHARS = 30000  # proxy_advise 응답이 이미 대형 — business_details(6만)보다 낮게 cap
 
 
 async def build_proxy_advise_payload(
     company_query: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """`_build_proxy_advise_payload` 의 얇은 껍데기 — as_of 게이트를 반드시 되돌린다.
+
+    게이트는 ContextVar 라 이 코루틴이 도는 task 의 문맥에만 걸리지만, 같은 task 에서
+    이 함수를 두 번 부르면 앞 호출의 기준일이 남는다. 「켠 적 없는 게이트가 걸려 있는」 상태는
+    조용해서 더 나쁘다 — 끝나면 무조건 원복한다.
+    """
+    gate_holder: dict[str, Any] = {}
+    try:
+        return await _build_proxy_advise_payload(company_query, _gate_holder=gate_holder, **kwargs)
+    finally:
+        tokens = gate_holder.get("tokens")
+        if tokens is not None:
+            try:
+                reset_as_of(tokens)
+            except ValueError:
+                pass          # 다른 Context 에서 만들어진 토큰 — 되돌릴 것이 애초에 없다
+
+
+async def _build_proxy_advise_payload(
+    company_query: str,
     *,
+    _gate_holder: dict[str, Any] | None = None,
     year: int | None = None,
     meeting_type: str = "annual",
     vote_style: str = "open_proxy",
     scope: str = "decisions",
     check_audit_history: bool = False,
     segment_context_chars: int = _SEGMENT_CONTEXT_DEFAULT_CHARS,
+    as_of: str | None = None,
+    include_after_meeting: bool = False,
+    evidence_chars: int = _EVIDENCE_DEFAULT_CHARS,
 ) -> dict[str, Any]:
     """proxy_advise_before_meeting payload.
+
+    as_of (YYYYMMDD, 260828 신설):
+        **이 판단이 서는 시점.** 기본값은 회의일이 과거면 회의일 전일, 미래면 오늘.
+        이 시점 이후에 접수된 공시는 어느 upstream 도 보지 못한다(list.json 게이트).
+        결과로 「전년도 기업지배구조보고서를 쓰는」 것이 정상 동작이다 — 최신본은 그 주총
+        시점에 존재하지 않았다.
+    include_after_meeting:
+        기준일 이후 자료까지 보고 싶을 때만 True. 그 경우 해당 공시에 ⚠ 를 붙인다.
+        **해당 회차의 의결 결과는 이 옵션과 무관하게 끌어오지 않는다** — 그건
+        `shareholder_meeting_results` 의 일이다.
 
     scope (spec [[wiki/tools/proxy_advise_before_meeting]]):
     - decisions (default): 안건별 FOR/AGAINST/REVIEW + 결정 사유 (모든 6 upstream)
@@ -2999,6 +3185,8 @@ async def build_proxy_advise_payload(
     """
     total_started_at = time.perf_counter()
     timings_ms: dict[str, int] = {}
+    _gate_holder = {} if _gate_holder is None else _gate_holder
+    evidence_chars = max(500, min(int(evidence_chars or _EVIDENCE_DEFAULT_CHARS), _EVIDENCE_MAX_CHARS))
 
     def _mark(stage: str, started_at: float) -> None:
         timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
@@ -3051,20 +3239,37 @@ async def build_proxy_advise_payload(
     #   - 공고 미발견 시 종전 기본값(전년) fallback + warning.
     year_resolution: dict[str, Any]
     pre_resolved: dict[str, Any] | None = None
+    # 260828: 연도를 직접 준 경우에도 이 선행 조회를 돌린다. 종전에는 건너뛰어 **회의일을 모른 채**
+    # 분석이 진행됐고, 회의일을 모르면 「그 시점에 볼 수 있던 공시」의 경계(as_of)도, 「주총 시점에
+    # 이미 나와 있던 확정 재무제표」(confirmed_year)도 그을 수 없다. 비용은 list.json 1콜이다.
+    # 이 조회 자체는 as_of 게이트 **밖**이다 — 우리가 표를 던질 그 주총의 공고를 찾는 일이라
+    # 시점 문제가 성립하지 않는다.
+    stage_started_at = time.perf_counter()
+    resolve_error: str | None = None
+    try:
+        pre_resolved = await resolve_latest_meeting_year(
+            selected["corp_code"], meeting_type=meeting_type, year=year,
+        )
+    except Exception as exc:  # 260723 리뷰: '조회 실패'를 '공고 없음'으로 위장하지 않는다
+        pre_resolved = None
+        resolve_error = type(exc).__name__
+    _mark("resolve_meeting_year", stage_started_at)
     if year:
         target_year = year
         year_resolution = {"mode": "user_specified", "basis": f"사용자 지정 연도 {year}"}
+        if pre_resolved:
+            _md0 = pre_resolved.get("meeting_date")
+            year_resolution.update({
+                "resolved_meeting_type": pre_resolved["meeting_type"],
+                "notice_rcept_no": pre_resolved.get("notice_rcept_no"),
+                "meeting_phase": pre_resolved.get("meeting_phase"),
+                "basis": (
+                    f"사용자 지정 연도 {year} — 그 해 "
+                    f"{_MEETING_TYPE_KO.get(pre_resolved['meeting_type'], pre_resolved['meeting_type'])}주총 "
+                    f"소집공고({pre_resolved.get('notice_date', '?')} 공시) 기준 회의일 "
+                    f"{_md0.isoformat() if _md0 else '파싱 실패'}"),
+            })
     else:
-        stage_started_at = time.perf_counter()
-        resolve_error: str | None = None
-        try:
-            pre_resolved = await resolve_latest_meeting_year(
-                selected["corp_code"], meeting_type=meeting_type,
-            )
-        except Exception as exc:  # 260723 리뷰: '조회 실패'를 '공고 없음'으로 위장하지 않는다
-            pre_resolved = None
-            resolve_error = type(exc).__name__
-        _mark("resolve_meeting_year", stage_started_at)
         if pre_resolved:
             target_year = pre_resolved["year"]
             _md = pre_resolved.get("meeting_date")
@@ -3097,6 +3302,43 @@ async def build_proxy_advise_payload(
                     f"찾지 못해 달력 전년({target_year})으로 대체했습니다 — 연도를 직접 지정해 다시 조회하실 수 있습니다"
                 ),
             }
+    # ── as_of: 이 판단이 서는 시점 (260828 신설) ──
+    # 이 도구는 주총 **전** 의결권 권고다. 그런데 종전에는 upstream 들이 각자 「최신」 공시를
+    # 집어 왔고, 그 최신본이 주총 **뒤** 문서인 경우가 있었다. 실측 금호석유화학 2026-03-26
+    # 정기주총: 기업지배구조보고서공시 2026-06-01(주총 66일 후)에서 미준수 지표 6건을 인용했고,
+    # 그 보고서 본문에는 「2026년 3월 26일 정기주주총회에서 정관변경을 완료하였으며」가 실려
+    # 있었다 — **우리가 표를 던지라고 조언하는 주총의 결과**를 근거로 쓴 셈이다.
+    # 대량보유 상황보고 2026-04-07(주총 12일 후)도 지분 근거로 들어와 있었다.
+    #
+    # 기준일 이후 접수분은 `DartClient.search_filings`(모든 list.json 조회의 유일한 통로)에서
+    # 잘린다. 그 결과 「전년도 기업지배구조보고서를 쓰는」 것이 정상 동작이다 — 최신본은 그
+    # 주총 시점에 존재하지 않았다.
+    _today = date.today()
+    _meeting_date_pre = (pre_resolved or {}).get("meeting_date")
+    _as_of_arg = (as_of or "").strip()
+    if len(_as_of_arg) == 8 and _as_of_arg.isdigit():
+        as_of_ymd = _as_of_arg
+        as_of_basis = f"사용자 지정 기준일 {as_of_ymd[:4]}-{as_of_ymd[4:6]}-{as_of_ymd[6:]}"
+    elif _meeting_date_pre and _meeting_date_pre <= _today:
+        as_of_ymd = (_meeting_date_pre - timedelta(days=1)).strftime("%Y%m%d")
+        as_of_basis = (f"회의일({_meeting_date_pre.isoformat()}) 전일 — 이미 열린 회차라 "
+                       f"그 전날까지 접수된 공시만 봅니다")
+    elif _meeting_date_pre:
+        as_of_ymd = _today.strftime("%Y%m%d")
+        as_of_basis = f"회의일({_meeting_date_pre.isoformat()})이 아직 오지 않아 오늘까지 봅니다"
+    else:
+        as_of_ymd = _today.strftime("%Y%m%d")
+        as_of_basis = "회의일을 읽지 못해 오늘을 기준일로 둡니다 — 회의가 과거면 사후 자료가 섞일 수 있습니다"
+
+    if include_after_meeting:
+        # 게이트를 끄되 **끈 사실을 산출물 머리에 남긴다.** 해당 회차의 의결 결과는 이 옵션과
+        # 무관하게 들어오지 않는다 — advise scope 는 결과공시를 fetch 하지 않고, 아래에서
+        # 목록에서도 걸러낸다.
+        as_of_tokens = set_as_of("")
+    else:
+        as_of_tokens = set_as_of(as_of_ymd)
+    _gate_holder["tokens"] = as_of_tokens
+
     # 재무 fiscal year 매핑 — 기준은 하나다: **주총일 시점에 이미 제출된 가장 최근 사업보고서.**
     #
     # 종전에는 `target_year - 2` 로 못박았다. 그 값이 맞는 이유는 3월 정기주총 일정에 있다 —
@@ -3121,11 +3363,14 @@ async def build_proxy_advise_payload(
     confirmed_ref: dict[str, Any] | None = None
     _meeting_iso = (pre_resolved or {}).get("meeting_date")
     _is_egm = (pre_resolved or {}).get("meeting_type") == "extraordinary"
-    if _meeting_iso is not None:
+    _ref_fy: int | None = None
+    if True:
         stage_started_at = time.perf_counter()
         try:
+            # 기준일은 as_of 다 — 회의일이 아니라. 둘은 보통 하루 차이지만, 사용자가 as_of 를
+            # 직접 주면(예: 소집공고 직후 시점으로 되돌려 보기) 그 시점 기준이어야 한다.
             _annual_ref = await latest_annual_report_before(
-                selected["corp_code"], _meeting_iso.strftime("%Y%m%d"))
+                selected["corp_code"], as_of_ymd)
         except Exception:      # 조회 실패는 「없음」이 아니다 — 종전 기준연도로 물러난다
             _annual_ref = None
         _mark("latest_annual_report", stage_started_at)
@@ -3134,7 +3379,7 @@ async def build_proxy_advise_payload(
             # 임시주총은 승인 대상이 따로 없다 — 그 시점 최신 확정치가 곧 분석 기준이다.
             fin_year = _ref_fy
             fin_year_basis = (
-                f"주총일({_meeting_iso.isoformat()}) 시점 최신 사업보고서"
+                f"기준일({as_of_ymd}) 시점 최신 사업보고서"
                 f"({_annual_ref.get('report_nm', '')}, {_annual_ref.get('rcept_dt', '')} 제출) 기준"
             )
         elif _ref_fy and not _is_egm and _ref_fy > fin_year:
@@ -3179,7 +3424,9 @@ async def build_proxy_advise_payload(
         #   1회차 False 로 계산해 저장하면 2회차 True 요청이 같은 열쇠라 옛 결과를 받았고,
         #   회계 이력 교차검증은 실행조차 안 된 채 화면엔 「해당 이력 없음」이 찍혔다.
         #   켠 적 없는 검사가 통과로 보고되는 형태라, 없는 근거를 있다고 말하는 것과 같다.
-        cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"), kw.get("check_audit_history"))
+        # 260828: as_of 를 넣지 않으면 **기준일이 다른 두 호출이 같은 답을 받는다** —
+        #   검사한 적 없는 시점의 결과가 검사한 것처럼 나가는 형태다(check_audit_history 와 같은 사고).
+        cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"), kw.get("check_audit_history"), as_of_ymd, include_after_meeting)
         cached = _PROXY_ADVISE_CACHE.get(str(cache_key))
         if cached is not None:
             if timing_label:
@@ -3233,6 +3480,15 @@ async def build_proxy_advise_payload(
     # reference 는 FY(N-2)지만 이 안건이 승인하려는 건 **FY(N-1)** 이라 그쪽을 물어야 한다
     # (한 번 부르면 당기·전기·전전기 3년치가 함께 온다).
     audit_year = target_year - 1
+    # 감사의견은 연도로 부르는 정형 API 라 list.json 게이트가 안 걸린다 — 여기서 직접 가둔다.
+    # FY(N-1) 감사의견은 FY(N-1) 사업보고서에 실려 나온다. 그 보고서가 기준일에 아직 없었다면
+    # 그 감사의견도 그때는 볼 수 없었다. 「기준일 시점 최신 사업보고서의 사업연도」로 내린다.
+    audit_year_note: str | None = None
+    if _ref_fy and _ref_fy < audit_year:
+        audit_year_note = (
+            f"감사의견 기준연도를 {audit_year} → {_ref_fy} 사업연도로 내렸습니다 — "
+            f"기준일({as_of_ymd})에는 {audit_year}사업연도 사업보고서가 아직 제출되지 않았습니다")
+        audit_year = _ref_fy
     # 정기주총에서 FY(N-1) 사업보고서가 주총 전에 이미 나온 경우(시장 전수 기준 최소 81.7%),
     # 승인 대상 연도의 **확정치**를 함께 가져온다. 공고의 잠정치와 나란히 놓으면 감사 과정에서
     # 무엇이 바뀌었는지 보이고, 안 가져오면 「잠정만 있는 회사」와 구분이 안 된다.
@@ -3244,8 +3500,21 @@ async def build_proxy_advise_payload(
             build_financial_metrics_payload, company_query,
             timing_label="financial_metrics.confirmed", scope="summary", year=confirmed_year)
 
+    # ── 직전 회차 의결 결과 (260828 신설) ──
+    # look-ahead 를 막는 것과 **과거를 안 보는 것**은 다르다. 「작년 이 안건에 반대가 몇 %였나」는
+    # 올해 판단의 기준선이라 값이 크다 — 보수한도·재무제표 승인에 20% 반대가 붙었던 회사와
+    # 99% 찬성이던 회사는 같은 안건도 다르게 읽힌다. 기준일 게이트 안에서 도는 조회라
+    # **해당 회차의 결과는 구조적으로 들어올 수 없다**(그건 as_of 이후에나 접수된다).
+    async def _prior_results():
+        if target_year <= 1900:
+            return None
+        return await _safe_throttled(
+            build_shareholder_meeting_payload, company_query,
+            timing_label="shareholder_meeting.prior_results",
+            scope="results", year=target_year - 1, meeting_type="annual")
+
     (meeting_full, ownership, gov_report, fin_metrics, director_eval, audit_opinion,
-     fin_confirmed) = await asyncio.gather(
+     fin_confirmed, prior_results) = await asyncio.gather(
         _safe_throttled(build_shareholder_meeting_payload, company_query, timing_label="shareholder_meeting.advise", scope="advise", year=target_year, meeting_type=meeting_type),
         _safe_throttled(build_ownership_structure_payload, company_query, timing_label="ownership_structure.control_map", scope="control_map"),
         _safe_throttled(build_corp_gov_report_payload, company_query, timing_label="corp_gov_report.summary", scope="summary"),
@@ -3253,6 +3522,7 @@ async def build_proxy_advise_payload(
         _safe_throttled(build_director_evaluation_payload, company_query, timing_label="director_evaluation", year=target_year, meeting_type=meeting_type, check_audit_history=check_audit_history),
         _safe_throttled(build_financial_metrics_payload, company_query, timing_label="financial_metrics.audit_opinion", scope="audit_opinion", year=audit_year),
         _confirmed_metrics(),
+        _prior_results(),
     )
     # full payload가 summary/agenda/compensation/aoi_change 데이터를 모두 포함 — 다운스트림 4개 참조에 동일 객체 할당
     meeting_summary = meeting_agenda = meeting_comp = meeting_aoi = meeting_full
@@ -3281,6 +3551,8 @@ async def build_proxy_advise_payload(
         (gov_report, "기업지배구조보고서"),
         (ownership, "지분 구조"),
     ]
+    if ((prior_results or {}).get("data") or {}).get("results"):
+        read_payloads.append((prior_results, f"직전({target_year - 1}년) 정기주총 결과"))
 
     # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
     # 260505 ralph 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
@@ -3341,7 +3613,7 @@ async def build_proxy_advise_payload(
     agenda_summary = agenda_data.get("agenda_summary", {}) or {}
     agenda_tree = agenda_data.get("agendas") or []
 
-    def _flatten_agenda_rows(items: list) -> list[dict[str, Any]]:
+    def _flatten_agenda_rows(items: list, parent_number: str = "") -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         for it in items or []:
             title = (it.get("title") or "").strip() if isinstance(it, dict) else ""
@@ -3349,6 +3621,13 @@ async def build_proxy_advise_payload(
                 rows.append({
                     "title": title,
                     "agenda_id": it.get("agenda_id"),
+                    # 260828: 관계(경합·의존)를 화면에 쓰려면 **가리킬 이름**이 있어야 한다 —
+                    #   「4번과 경합」이라고 쓰려면 그 4번이 응답에 있어야 한다.
+                    "number": it.get("number") or "",
+                    "parent_number": parent_number,
+                    # 트리가 이미 분류해 둔 값. 아래 루프는 `_classify_agenda` 를 다시 부르지만
+                    # 관계 판정은 루프 **전에** 서야 해서 여기서 같이 실어 보낸다.
+                    "category": it.get("category"),
                     "agenda_relation_type": it.get("agenda_relation_type") or "normal",
                     "agenda_relation_reasons": it.get("agenda_relation_reasons") or [],
                     "proposer_type": it.get("proposer_type"),
@@ -3367,7 +3646,8 @@ async def build_proxy_advise_payload(
                     "resolution_note": it.get("resolution_note"),
                 })
             if isinstance(it, dict):
-                rows.extend(_flatten_agenda_rows(it.get("children") or []))
+                rows.extend(_flatten_agenda_rows(it.get("children") or [],
+                                                 parent_number=it.get("number") or ""))
         return rows
 
     agenda_rows = _flatten_agenda_rows(agenda_tree)
@@ -3384,6 +3664,12 @@ async def build_proxy_advise_payload(
                 {"title": title, "agenda_relation_type": "normal", "agenda_relation_reasons": []}
                 for title in fallback_titles
             ]
+
+    # 안건 사이의 관계(경합·선행 의존·조건부 상정). **판정을 대신하지 않는다** — 관계를 붙여
+    # 두면 아래 `_apply_relation_links` 가 「같은 자리에 둘 다 찬성」을 막고, 렌더러가 각 줄에
+    # 「N번과 경합」을 쓴다. 규칙은 shareholder_meeting 에 한 벌만 둔다.
+    from open_proxy_mcp.services.shareholder_meeting import build_agenda_relation_links
+    relation_links_by_no = build_agenda_relation_links(agenda_rows, notice_full_text)
 
     # parent_title map: title → parent_title (agenda tree에서 추출)
     # title → children 수 map (D 패턴 식별용 — children 0 + 정관변경 top + amendments 있음)
@@ -3809,6 +4095,14 @@ async def build_proxy_advise_payload(
     _meeting_date = _parse_notice_meeting_date(_meeting_dt_text or "")
     law_gate_iso = _meeting_date.isoformat() if _meeting_date else _today_iso
 
+    # ── 원문 발췌 예산 (260828) ──
+    # 같은 소집공고에서 뜬 창을 안건마다 다시 실으면 응답이 같은 글의 사본으로 채워진다
+    # (실측 대림제지: 안건 4건이 각각 12.8k — 응답 62,812자 중 51k). **잘라내되 잘랐다고 쓴다.**
+    _evidence_budget = evidence_chars * 2
+    _evidence_spent = 0
+    _evidence_windows: list[tuple[int, int, int]] = []   # (start, end, 안건 번호)
+    evidence_trim_notes: list[str] = []
+
     # aoi_change scope에서 amendments raw 추출 — B1/B2 hit 시 본문 인용용 (260510 raw 보강)
     aoi_amendments: list[dict[str, Any]] = []
     try:
@@ -3858,6 +4152,8 @@ async def build_proxy_advise_payload(
         title = agenda_row.get("title") or ""
         agenda_relation_type = agenda_row.get("agenda_relation_type") or "normal"
         agenda_relation_reasons = agenda_row.get("agenda_relation_reasons") or []
+        agenda_relation_links = list(
+            relation_links_by_no.get(agenda_row.get("number") or "", []))
         proposer_type = agenda_row.get("proposer_type")
         parent_for_title = title_to_parent.get(title, "")
         category = _classify_agenda(title, parent_title=parent_for_title)
@@ -3886,7 +4182,8 @@ async def build_proxy_advise_payload(
         # 묶음 안건에서 **이 안건에 속한** 후보만 담는다(없으면 None). 사유·근거가 같은
         # 모집단을 말하게 하려고 루프 머리에서 초기화한다 — 이전 안건 값이 새면 안 된다.
         bundle_evals: list[dict[str, Any]] | None = None
-        name_match_raw: str | None = None   # 이름 매칭 실패 잎 안건의 원문 창
+        name_match_raw: dict[str, Any] | None = None   # 이름 매칭 실패 잎 안건의 원문 창
+        articles_body_risks_for_agenda: list[str] = []
         law_layer_hit: tuple[str, str, str, str] | None = None
 
         # 0. 법령 layer 우선 적용 (1·2·3차 상법 개정 + 정관 우회 시나리오)
@@ -4001,7 +4298,12 @@ async def build_proxy_advise_payload(
                 #   구조를 잘못 읽었을 가능성이 큰 자리이므로 원문을 넓게 실어
                 #   AI 가 직접 판단하게 한다(판정 자체는 바꾸지 않는다 — 전수 diff 전).
                 if not _kids:
-                    _w = _raw_window(notice_full_text, title)
+                    _w = _raw_window(
+                        notice_full_text, title,
+                        before=min(_MATCH_FAIL_BEFORE, max(200, evidence_chars // 4)),
+                        after=evidence_chars,
+                        source_url=(f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={agm_rcept}"
+                                    if agm_rcept else ""))
                     if _w:
                         name_match_raw = _w
                 if category == "audit_committee_election" and not _scoped:
@@ -4040,6 +4342,35 @@ async def build_proxy_advise_payload(
                 elif inside_perf_weak:
                     weak_names = [ev.get("name", "?") for ev in inside_evals if (ev.get("performance") or {}).get("classification") == "weak"]
                     decision, reason = "REVIEW", f"묶음 안건 — 사내이사 재직 성과 부진 ({', '.join(weak_names[:3])}) — 사용자 검토"
+                elif not _kids:
+                    # 🔴 260828 — **「확인 못 함」이 「문제 없음」으로 흐르던 자리다.**
+                    #   자식이 없는데 이름 매칭이 실패했다는 것은 이 안건의 후보가 누구인지
+                    #   모른다는 뜻이다. 그런데 종전에는 이 주총의 후보 전원을 한 덩어리로 묶어
+                    #   「결격사유 없음 → ✅ 찬성」을 냈다. 실측 대림제지(017650) 2026 임시주총:
+                    #   이사회측 후보와 주주측 후보가 같은 감사위원 자리에서 맞붙은 4개 안건이
+                    #   **전부 같은 사유로 찬성**이 됐다 — 실행할 수 없는 지시서다.
+                    #   판정을 내리지 않고, **무엇을 확인 못 했는지**를 판정 자리에 쓴다.
+                    #   후보 평가 자체는 그대로 근거란에 실린다(위 relevant_evals) — 지우지 않는다.
+                    decision = "REVIEW"
+                    _flag = []
+                    if disq_red:
+                        _flag.append("검사된 후보 중 결격사유 발견")
+                    if audit_history_red:
+                        _flag.append("검사된 후보 중 회계 위험 이력")
+                    if indep_concerns_outside:
+                        _flag.append("검사된 사외이사 후보 중 독립성 우려")
+                    reason = (
+                        f"이 안건의 후보를 확인하지 못했습니다 — 안건 제목에서 후보 이름을 찾지 "
+                        f"못해 이 주총의 후보 {len(relevant_evals)}명을 한 덩어리로 검사했습니다. "
+                        f"그래서 이 안건에 걸린 후보가 누구인지 특정되지 않았고, 결격 검사 결과를 "
+                        f"이 안건의 판정으로 쓸 수 없습니다. "
+                        f"확인할 것: ① 이 안건이 후보 여러 명을 한 표로 묶은 **일괄표결**인지, "
+                        f"후보 1명인데 이름을 못 맞힌 것인지 ② 그 후보가 아래 후보 평가 "
+                        f"{len(relevant_evals)}명 중 누구인지. 아래 「후보 이름 매칭 실패 — 원문 "
+                        f"발췌」의 안건 구간을 읽으면 후보자 표가 그대로 있습니다"
+                        + (f" (원문 전문: https://dart.fss.or.kr/dsaf001/main.do?rcpNo={agm_rcept})"
+                           if agm_rcept else "")
+                        + (" · 참고로 " + " · ".join(_flag) if _flag else ""))
                 else:
                     note = f" (사외 {len(outside_evals)}명 중 일부 indep concerns — 개별 사외이사 안건에서 검토)" if indep_concerns_outside else ""
                     decision, reason = "FOR", f"묶음 안건 — 결격사유 없음, 후보 {len(relevant_evals)}명{note}"
@@ -4122,13 +4453,18 @@ async def build_proxy_advise_payload(
         elif category == "cash_dividend":
             decision, reason = _decide_dividend(title, state_metrics, selected.get("corp_name") or "")
         elif category == "articles_amendment":
+            _am_for_title = _find_amendment_for_title(title)
             decision, reason = _decide_articles_amendment(
                 title,
                 retirement_payload=retirement_payload,
                 comp_payload=meeting_comp,
                 fin_metrics_payload=state_metrics,
-                amendment=_find_amendment_for_title(title),
+                amendment=_am_for_title,
             )
+            # 조문 본문에서 읽은 위험 신호를 **위험 신호 칸에도** 싣는다. 260828 실측:
+            # 사유는 「수권주식 증가 5.0배」라고 쓰면서 바로 아래 위험 신호 칸은
+            # 「이 경로에서는 위험 신호를 판정하지 않았습니다」였다 — 한 안건이 자기 말을 뒤집었다.
+            articles_body_risks_for_agenda = _articles_body_risks(_am_for_title)
         elif category == "treasury_share":
             decision, reason = _decide_treasury_share(title)
         elif category == "capital_reduction":
@@ -4165,6 +4501,16 @@ async def build_proxy_advise_payload(
                       "② 제안 내용이 회사·전체주주 이익에 부합하는지 ③ 이사회 반대의견의 근거 "
                       "④ 경영권 분쟁 국면이면 양측 주장 대조. 제안자 측 자료와 회사 측 자료를 "
                       "모두 읽고 판단 — 구간 원문 참조")
+        elif category == "stock_split":
+            # 260828: 종전엔 '분할' 키워드로 merger_or_restructuring 에 섞여 합병비율·
+            # 주식매수청구권을 확인하라고 했다 — 액면분할에는 없는 항목이다.
+            decision = "FOR"
+            reason = ("주식분할(액면분할) — 액면가를 쪼개 주식 수를 늘리는 자본거래입니다. "
+                      "지분율·자본금·의결권 비율은 변하지 않습니다(회사분할 §530-2 아님). "
+                      "확인사항: ① 분할비율과 변경 후 1주 액면가 ② **발행예정주식총수(수권주식)를 "
+                      "함께 늘리는 정관변경이 붙어 있는지** — 액면가가 같은 배수로 낮아지면 희석 "
+                      "여지는 그대로지만, 액면가보다 크게 늘리면 그만큼이 새 발행 여력입니다 "
+                      "③ 매매거래정지·신주권 교부(변경상장) 일정")
         elif category == "stock_option_grant":
             # 260724 스튜어드십 리뷰: 'other'→자동FOR로 새던 동종 구멍 봉쇄
             decision = "REVIEW"
@@ -4367,12 +4713,38 @@ async def build_proxy_advise_payload(
         # 파싱 퀄리티 미달(NO_DATA) → 소집공고 원문 발췌 폴백 (260710 코붕이 지시).
         # 구조화 파싱이 실패해도 사람/LLM이 원문을 직접 읽고 판단할 수 있게 raw 첨부.
         if decision == "NO_DATA":
-            _raw = _raw_excerpt(notice_full_text, title)
+            _raw = _raw_excerpt(notice_full_text, title, limit=evidence_chars)
             if _raw:
                 facts["raw_text_fallback"] = _raw
                 facts["parsing_quality"] = "low_fallback_to_raw"
         if name_match_raw:
-            facts["name_match_failed_raw"] = name_match_raw
+            _ordinal = len(agenda_decisions) + 1
+            _ws, _we = name_match_raw["start"], name_match_raw["end"]
+            # ① 앞 안건이 이미 실은 구간과 크게 겹치나 — 겹치면 그 안건을 가리킨다
+            _dup_of = None
+            for _ps, _pe, _pn in _evidence_windows:
+                _ov = min(_we, _pe) - max(_ws, _ps)
+                if _ov > 0 and _ov / max(1, _we - _ws) >= 0.6:
+                    _dup_of = _pn
+                    break
+            if _dup_of is not None:
+                facts["name_match_failed_raw"] = (
+                    f"[{_dup_of}번 안건에 실은 원문 발췌와 같은 구간입니다 — 여기서 "
+                    f"{name_match_raw['chars']:,}자를 덜어냈습니다. 그 안건의 발췌를 보세요]")
+            elif _evidence_spent + name_match_raw["chars"] > _evidence_budget:
+                # ② 예산 초과 — 조용히 자르지 않고, 얼마를 못 실었고 어떻게 넓히는지 남긴다
+                facts["name_match_failed_raw"] = (
+                    f"[원문 발췌 예산({_evidence_budget:,}자)을 다 써 이 안건 발췌 "
+                    f"{name_match_raw['chars']:,}자를 싣지 않았습니다 — evidence_chars 를 올리거나 "
+                    f"공고 원문을 직접 보세요"
+                    + (f": https://dart.fss.or.kr/dsaf001/main.do?rcpNo={agm_rcept}]"
+                       if agm_rcept else "]"))
+                evidence_trim_notes.append(
+                    f"{_ordinal}번 안건 원문 발췌 {name_match_raw['chars']:,}자 생략(예산 초과)")
+            else:
+                facts["name_match_failed_raw"] = name_match_raw["text"]
+                _evidence_spent += name_match_raw["chars"]
+                _evidence_windows.append((_ws, _we, _ordinal))
             facts["parsing_quality"] = "name_match_failed_see_raw"
         cumulative_threshold = _cumulative_voting_threshold(title)
         if cumulative_threshold:
@@ -4416,6 +4788,9 @@ async def build_proxy_advise_payload(
                 f"이사회 여성 0명 (등기이사 {_board_gender.get('male', 0)}명 전원 남성, "
                 f"{_board_gender.get('as_of')} 기준) — 자산 2조원 이상 상장사는 이사회를 특정 성의 "
                 "이사로만 구성할 수 없습니다(자본시장법 §165조의20)"]
+        if articles_body_risks_for_agenda:
+            risk_factors = list(risk_factors) + [
+                r for r in articles_body_risks_for_agenda if r not in risk_factors]
         policy_citation = _policy_citation(category)
         if agenda_relation_type == "withdrawn":
             # 카테고리별 정책을 인용하면 「이 안건을 이 기준으로 판단했다」로 읽힌다 — 판단한 적이 없다.
@@ -4471,6 +4846,7 @@ async def build_proxy_advise_payload(
             "agenda_id": agenda_row.get("agenda_id"),
             "agenda_relation_type": agenda_relation_type,
             "agenda_relation_reasons": agenda_relation_reasons,
+            "agenda_relation_links": agenda_relation_links,
             "proposer_type": proposer_type,
             "decision": decision,
             "reason": reason,
@@ -4499,6 +4875,34 @@ async def build_proxy_advise_payload(
     # 1.9. **좌석 예산 하드 블록** — 개별 판정이 다 끝난 뒤 결과를 한 번 더 본다.
     # 앞의 분류·판정이 못 잡은 경우까지 **산출물에서** 막는 안전망이다(정확도를 올리는 일과,
     # 틀렸을 때 표가 안 나가게 하는 일은 다르다). 상세는 `_enforce_seat_budget` 주석.
+    relation_notes = _apply_relation_links(agenda_decisions)
+    # 🔴 관계를 못 잡았을 때 조용히 넘어가지 않는다. 주주제안 선임 안건이 올라와 있다는 것은
+    #   표 대결일 확률이 높은데 링크가 하나도 안 붙었다면, 그건 「관계가 없다」가 아니라
+    #   **「우리가 못 읽었다」**일 수 있다. 억지로 추정하지 말고 그 사실과 갈 길을 남긴다.
+    _sp_election = [r for r in agenda_decisions
+                    if r.get("proposer_type") == "shareholder_proposal"
+                    and r.get("agenda_category") in ("director_election",
+                                                     "audit_committee_election")]
+    agenda_relation_gap: dict[str, Any] | None = None
+    if _sp_election and not relation_notes:
+        agenda_relation_gap = {
+            "note": ("주주제안 선임 안건이 올라와 있는데 안건 사이의 관계(경합·선행 의존·조건부 "
+                     "상정)를 판정하지 못했습니다 — 각 안건의 판정을 서로 독립으로 읽지 마세요."),
+            "shareholder_proposal_agendas": [
+                f"{r.get('agenda_id') or ''} {r.get('agenda_title', '')}".strip()
+                for r in _sp_election],
+            "agenda_list": [
+                f"{r.get('agenda_id') or ''} {r.get('agenda_title', '')} "
+                f"[{'주주제안' if r.get('proposer_type') == 'shareholder_proposal' else '이사회제안'}]".strip()
+                for r in agenda_decisions],
+            "where_to_look": [
+                "소집공고 「회의목적사항 / 부의안건」 절 — 안건 머리말 아래 후보자 표와 비고칸에 "
+                "「제N호 의안에서 선임된」·「제N호 의안이 가결될 경우」 같은 연결 문구가 있습니다",
+                "`evidence_chars` 를 올려(최대 30,000) 각 안건의 원문 창을 넓혀 보세요",
+                "`proxy_contest` — 위임장 경쟁이 벌어졌는지, 양측이 각각 무엇을 냈는지",
+                "`shareholder_meeting_notice` — 안건 트리와 조건절 원문(안건 범위로 조회)",
+            ],
+        }
     seat_budget_notes = _enforce_seat_budget(agenda_decisions, title_to_parent)
 
     # 통합 evidence_refs + 읽은 공시 목록
@@ -4540,6 +4944,43 @@ async def build_proxy_advise_payload(
             note = (ref.get("note") or "").strip()
             if note and note not in entry["notes"]:
                 entry["notes"].append(note)
+
+    # 직전 회차 의결 결과 — 기준선. 못 받았으면 못 받았다고 쓴다(빈 표를 만들지 않는다).
+    prior_meeting_results: dict[str, Any] | None = None
+    _pr_data = ((prior_results or {}).get("data") or {}).get("results") or {}
+    if _pr_data.get("items"):
+        prior_meeting_results = {
+            "year": target_year - 1,
+            "meeting_type": "annual",
+            "rcept_no": _pr_data.get("rcept_no"),
+            "rcept_dt": _pr_data.get("rcept_dt"),
+            "report_name": _pr_data.get("report_name"),
+            "numerical_vote_table_available": _pr_data.get("numerical_vote_table_available"),
+            "items": _pr_data.get("items"),
+            "note": ("직전 정기주총 결과입니다 — 이번 회차의 결과가 아닙니다. "
+                     "같은 안건에 작년 반대율이 얼마였는지가 올해 판단의 기준선이 됩니다."),
+        }
+
+    # ── 기준일 검증 (260828) ──
+    # 게이트를 걸었으니 여기엔 기준일 이후 문서가 없어야 한다. **있으면 그렇다고 쓴다** —
+    # 게이트를 통과하지 않는 경로(정형 API·직접 접수번호 조회)가 남아 있을 수 있고,
+    # `include_after_meeting=True` 면 일부러 들여온 것이다. 조용히 섞이는 것만 막으면 된다.
+    after_as_of: list[str] = []
+    _as_of_dash = f"{as_of_ymd[:4]}-{as_of_ymd[4:6]}-{as_of_ymd[6:]}"
+    for _d in disclosures:
+        _dt = (_d.get("rcept_dt") or "").strip()
+        if _dt and _dt != "-" and _dt > _as_of_dash:
+            _d["after_as_of"] = True
+            after_as_of.append(f"{_d.get('report_nm')} ({_dt})")
+    # 🔴 **해당 회차의 의결 결과는 어떤 옵션으로도 끌어오지 않는다.** 그건
+    # `shareholder_meeting_results` 의 일이고, 사전 권고에 섞이면 결과를 보고 권고를 쓰는 꼴이다.
+    # advise scope 가 결과공시를 fetch 하지 않으므로 구조적으로 들어올 길이 없지만,
+    # upstream 이 근거 목록에 얹는 경우까지 여기서 막는다.
+    _result_names = ("주주총회결과", "주주총회 결과", "정기주주총회결과", "임시주주총회결과")
+    _dropped_results = [d for d in disclosures
+                        if any(k in (d.get("report_nm") or "") for k in _result_names)]
+    if _dropped_results:
+        disclosures = [d for d in disclosures if d not in _dropped_results]
 
     # filing meta
     # 260710: parsing_failures를 하드코딩 0 → 실제 NO_DATA(구조화 파싱 실패로 권고 불가) 안건
@@ -4588,6 +5029,22 @@ async def build_proxy_advise_payload(
         "meeting_closed_hint": meeting_closed_hint,
         "fin_reference_year": fin_year,
         "fin_reference_basis": fin_year_basis,
+        # 「그때 알 수 있던 것」의 경계 — 무엇을 기준으로 이 메모가 섰는지.
+        "as_of": {
+            "date": _as_of_dash,
+            "basis": as_of_basis,
+            "gate_enabled": not include_after_meeting,
+            "include_after_meeting": include_after_meeting,
+            "filings_after_as_of": after_as_of or None,
+            "audit_year_note": audit_year_note,
+            "meeting_results_excluded": bool(_dropped_results) or None,
+            "searches_clamped": len(as_of_clamps()) or None,
+        },
+        "evidence_budget": {
+            "evidence_chars": evidence_chars,
+            "max_chars": _EVIDENCE_MAX_CHARS,
+            "trimmed": evidence_trim_notes or None,
+        },
         "meeting_type": meeting_type,
         "vote_style": _public_vote_style_label(vote_style),
         "vote_style_policy_id": _public_vote_style_label(vote_style),
@@ -4596,6 +5053,8 @@ async def build_proxy_advise_payload(
         "scope": scope,
         "agenda_count": len(agenda_rows),
         "agenda_decisions": agenda_decisions,
+        # 관계를 못 잡았을 때 — 「없다」가 아니라 「못 읽었다」임을 말하고 갈 길을 남긴다.
+        "agenda_relation_gap": agenda_relation_gap,
         "candidates_count": len(director_evals),
         "candidates_evaluations": director_evals,
         "segment_reference": segment_reference,
@@ -4620,6 +5079,7 @@ async def build_proxy_advise_payload(
             if isinstance(it, dict) and (it.get("current") or "").strip().upper() == "X"
         ] or None,
         "financial_summary": (fin_metrics.get("data") or {}).get("summary"),
+        "prior_meeting_results": prior_meeting_results,
         # 이 메모를 만들며 읽은 공시 전부. 판정을 되짚으려면 무엇을 봤는지 알아야 한다.
         "disclosures_read": disclosures,
         **filing_meta,
@@ -4643,6 +5103,12 @@ async def build_proxy_advise_payload(
     # 좌석 예산 초과는 **경고로 반드시 올라가야 한다** — 개별 안건의 NO_VOTE 만 보면
     # 사용자는 「이 안건들만 보류」로 읽고, 표결 구조 자체가 미확정이라는 걸 놓친다.
     envelope_warnings.extend(seat_budget_notes)
+    # 안건 사이의 관계(경합·선행 의존)도 경고로 올린다 — 개별 줄의 ⚠️ 만 보면 「이 안건만
+    # 애매하다」로 읽히고, **표 대결이 벌어지고 있다**는 사실 자체를 놓친다.
+    if relation_notes:
+        envelope_warnings.append(
+            "안건 사이의 관계가 잡혔습니다 — 독립적으로 판단하면 안 됩니다: "
+            + " / ".join(relation_notes[:6]))
 
     return ToolEnvelope(
         tool="proxy_advise_before_meeting",
