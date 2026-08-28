@@ -343,3 +343,43 @@ def test_every_classified_category_has_a_decision_branch():
     have = set(re.findall(r'category == "([a-z_]+)"', dispatch))
     missing = sorted(cats - have)
     assert not missing, f"판정 분기 없는 카테고리(자동 FOR 위험): {missing}"
+
+
+# ── 260828 태광산업 「참석률 183.3%」 회귀 ──
+
+def test_agm_result_table_parser_records_approval_base():
+    """찬성률 분모가 의결권 기준인지 발행총수 기준인지 머리글에서 잡아 둔다."""
+    soup = BeautifulSoup(
+        """
+        <table>
+          <tr><th>번호</th><th>결의구분</th><th>회의목적사항</th><th>가결여부</th>
+              <th>의결권 있는 발행주식 총수 기준(1)</th><th>(1)중 의결권 행사 주식수 기준</th><th>비고</th></tr>
+          <tr><th>찬성률(%)</th><th>찬성률(%)</th><th>반대, 기권 등 비율(%)</th></tr>
+          <tr><td>1</td><td>보통결의</td><td>재무제표 승인</td><td>가결</td><td>76.6</td><td>82.3</td><td>17.7</td></tr>
+        </table>
+        """,
+        "html.parser",
+    )
+    rows = parse_agm_result_table(soup)
+    assert rows[0]["approval_base"] == "voting"
+    assert "의결권" in rows[0]["approval_base_label"]
+    assert rows[0]["estimated_attendance"] == 93.1
+
+
+def test_vote_math_does_not_mix_issued_and_voting_bases():
+    """자사주 24%인 회사에서 특수관계인 제외 참석률이 100%를 넘지 않는다."""
+    from open_proxy_mcp.services.proxy_contest import _dominant_approval_base
+
+    items = [
+        {"estimated_attendance": 93.1, "approval_base": "voting"},
+        {"estimated_attendance": 93.0, "approval_base": "voting"},
+    ]
+    assert _dominant_approval_base(items) == "voting"
+
+    # 태광산업 실측값으로 손계산 대조
+    representative, related, treasury = 93.1, 54.53, 24.41
+    voting_base = 100.0 - treasury
+    related_voting = related / voting_base * 100
+    contestable = representative - related_voting
+    ex_related = contestable / (100.0 - related_voting) * 100
+    assert 70.0 < ex_related < 80.0

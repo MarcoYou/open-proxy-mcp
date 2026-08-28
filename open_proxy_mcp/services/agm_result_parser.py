@@ -3,6 +3,33 @@
 import re
 
 
+def _classify_approval_base(label: str) -> str:
+    """찬성률 분모가 「의결권 있는 주식」인지 「발행주식총수」인지 가른다.
+
+    DART 주주총회결과 표의 첫 찬성률 열 머리는 회사마다 다르게 적힌다.
+    태광산업은 「의결권 있는 발행주식 총수 기준(1)」 — 자사주가 빠진 모수다.
+    이 구분을 잃으면 자사주 비중이 큰 회사에서 참석률이 모수를 넘어선다(183.3% 사고).
+    """
+    text = re.sub(r"\s+", "", label or "")
+    if not text:
+        return "unknown"
+    if "의결권" in text:
+        return "voting"
+    if "발행주식" in text:
+        return "issued"
+    return "unknown"
+
+
+def _approval_base_label(rows, data_start: int) -> str:
+    """찬성률(1) 열의 머리글 원문을 header/subheader에서 찾아 돌려준다."""
+    for row in rows[:data_start]:
+        cells = [c.get_text(strip=True) for c in row.find_all(["td", "th"])]
+        for cell in cells:
+            if "기준" in cell and ("의결권" in cell or "발행주식" in cell):
+                return cell
+    return ""
+
+
 def parse_agm_result_table(soup) -> list[dict]:
     """Parse the standard agenda-by-agenda voting result table."""
     for table in soup.find_all("table"):
@@ -17,6 +44,9 @@ def parse_agm_result_table(soup) -> list[dict]:
         subheader = " ".join(c.get_text(strip=True) for c in rows[1].find_all(["td", "th"]))
         if "찬성률" in subheader:
             data_start = 2
+
+        base_label = _approval_base_label(rows, data_start)
+        approval_base = _classify_approval_base(base_label)
 
         items = []
         for row in rows[data_start:]:
@@ -38,6 +68,9 @@ def parse_agm_result_table(soup) -> list[dict]:
                 "approval_rate_voted": cells[5] if len(cells) > 5 else "",
                 "opposition_rate": cells[6] if len(cells) > 6 else "",
                 "estimated_attendance": attendance,
+                # 참석률의 분모가 무엇인지 — 자사주 포함 발행총수인지, 의결권 있는 주식인지.
+                "approval_base": approval_base,
+                "approval_base_label": base_label,
             })
         if items:
             return items
@@ -123,6 +156,8 @@ def parse_agm_result_summary(soup) -> list[dict]:
                     "approval_rate_voted": "",
                     "opposition_rate": "",
                     "estimated_attendance": None,
+                    "approval_base": "unknown",
+                    "approval_base_label": "",
                 })
         current = None
         current_children = {}

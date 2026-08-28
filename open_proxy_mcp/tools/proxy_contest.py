@@ -449,15 +449,22 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if attendance.get("min_pct") is not None and attendance.get("max_pct") is not None:
             lines.append(f"- 안건별 추정참석률 범위: {attendance.get('min_pct')}% ~ {attendance.get('max_pct')}%")
         lines.append(f"- 방법론: {attendance.get('methodology', '-')}")
+        base_ko = {"voting": "의결권 있는 주식", "issued": "발행주식총수(자사주 포함)"}.get(attendance.get("base"), "확인 못 함")
+        base_label = attendance.get("base_label") or ""
+        lines.append(f"- 참석률의 분모: {base_ko}" + (f" (공시 표기 「{base_label}」)" if base_label else " (공시에 머리글 없음 — 추정)"))
 
-        lines.extend(["", "## 표 구조"])
+        lines.extend(["", "## 표 구조 (발행주식총수 기준)"])
         lines.append(f"- 특수관계인 합계: {capital.get('related_total_pct', 0)}%")
         lines.append(f"- 자사주: {capital.get('treasury_pct', 0)}%")
         lines.append(f"- 의결권 기준 모수(자사주 차감 후): {capital.get('voting_share_base_pct', 0)}%")
-        lines.append(f"- 특수관계인 제외 추정 참석분: {capital.get('contestable_turnout_pct') if capital.get('contestable_turnout_pct') is not None else '-'}%")
-        lines.append(f"- 특수관계인 제외 추정 참석률: {capital.get('ex_related_turnout_pct') if capital.get('ex_related_turnout_pct') is not None else '-'}%")
         lines.append(f"- 명부와 안 겹치는 능동 블록 합계: {capital.get('active_external_block_total_pct', 0)}%")
         lines.append(f"- 명부와 겹치는 능동 블록 합계: {capital.get('active_overlap_block_total_pct', 0)}%")
+
+        lines.extend(["", "## 표 구조 (의결권 있는 주식 = 100% 기준)"])
+        lines.append(f"- 특수관계인 합계: {capital.get('related_total_pct_voting_base') if capital.get('related_total_pct_voting_base') is not None else '-'}%")
+        lines.append(f"- 추정 참석률: {capital.get('attendance_pct_voting_base') if capital.get('attendance_pct_voting_base') is not None else '-'}%")
+        lines.append(f"- 특수관계인 제외 추정 참석분: {capital.get('contestable_turnout_pct') if capital.get('contestable_turnout_pct') is not None else '-'}%p")
+        lines.append(f"- 특수관계인 제외 추정 참석률(유통물량 대비): {capital.get('ex_related_turnout_pct') if capital.get('ex_related_turnout_pct') is not None else '-'}%")
 
         lines.extend(["", "## 압박 신호"])
         lines.append(f"- 주주측 제출인: {', '.join(pressure.get('shareholder_side_filers', [])) or '없음'}")

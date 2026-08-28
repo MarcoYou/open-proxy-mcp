@@ -1134,6 +1134,8 @@ def _representative_attendance(items: list[dict[str, Any]]) -> tuple[list[dict[s
             "approval_rate_voted": _to_float(item.get("approval_rate_voted")),
             "opposition_rate": _to_float(item.get("opposition_rate")),
             "estimated_attendance": round(_to_float(item.get("estimated_attendance")), 1) if item.get("estimated_attendance") is not None else None,
+            "approval_base": item.get("approval_base", "unknown"),
+            "approval_base_label": item.get("approval_base_label", ""),
         }
         if exclusion:
             excluded.append({**normalized, "reason": exclusion})
@@ -1146,6 +1148,19 @@ def _representative_attendance(items: list[dict[str, Any]]) -> tuple[list[dict[s
     counts = Counter(item["estimated_attendance"] for item in comparable if item.get("estimated_attendance") is not None)
     representative = counts.most_common(1)[0][0] if counts else None
     return comparable, excluded, representative
+
+
+def _dominant_approval_base(items: list[dict[str, Any]]) -> str:
+    """비교 대상 안건들이 쓴 찬성률 분모를 하나로 모은다. 갈리면 unknown."""
+    bases = {
+        item.get("approval_base", "unknown")
+        for item in items
+        if item.get("estimated_attendance") is not None
+    }
+    bases.discard("unknown")
+    if len(bases) == 1:
+        return bases.pop()
+    return "unknown"
 
 
 def _high_opposition_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1243,18 +1258,54 @@ async def _vote_math_scope_data(
     ), 2)
     active_overlap_total_pct = round(sum(_to_float(row.get("ownership_pct")) for row in control_map.get("active_overlap_blocks", [])), 2)
 
+    # 참석률과 지분율은 분모가 다르다. 참석률은 결과공시 표의 「의결권 있는 발행주식 총수 기준」
+    # 열에서 역산한 값이고, 특수관계인·자사주 지분율은 발행주식총수 기준이다. 이걸 그대로 빼면
+    # 자사주가 큰 회사에서 참석률이 모수를 넘는다(태광산업 183.3% 사고). 모두 의결권 기준으로 옮긴다.
+    attendance_base = _dominant_approval_base(comparable_items)
+    attendance_base_source = "disclosure_header"
+    attendance_on_voting_base = None
+    if representative_attendance is not None:
+        if attendance_base == "unknown":
+            # 머리글이 없으면 성립 가능성으로 가른다 — 발행총수 기준이면 참석률이 모수를 못 넘는다.
+            attendance_base = "voting" if representative_attendance > voting_share_base_pct else "issued"
+            attendance_base_source = "inferred_from_feasibility"
+        if attendance_base == "issued":
+            attendance_on_voting_base = (
+                round(representative_attendance / voting_share_base_pct * 100, 1)
+                if voting_share_base_pct > 0 else None
+            )
+        else:
+            attendance_on_voting_base = representative_attendance
+
+    related_pct_voting_base = (
+        round(related_total_pct / voting_share_base_pct * 100, 2) if voting_share_base_pct > 0 else None
+    )
+
     contestable_turnout_pct = None
     ex_related_turnout_pct = None
-    if representative_attendance is not None:
-        contestable_turnout_pct = round(max(representative_attendance - related_total_pct, 0.0), 1)
-        free_float_base_pct = max(voting_share_base_pct - related_total_pct, 0.0)
+    turnout_warning = None
+    if attendance_on_voting_base is not None and related_pct_voting_base is not None:
+        contestable_exact = max(attendance_on_voting_base - related_pct_voting_base, 0.0)
+        contestable_turnout_pct = round(contestable_exact, 1)
+        free_float_base_pct = round(max(100.0 - related_pct_voting_base, 0.0), 2)
         if free_float_base_pct > 0:
-            ex_related_turnout_pct = round(contestable_turnout_pct / free_float_base_pct * 100, 1)
+            # 반올림한 참석분으로 나누면 비율이 0.2%p까지 밀린다 — 나눗셈은 원값으로 한다.
+            raw_pct = round(contestable_exact / (100.0 - related_pct_voting_base) * 100, 1)
+            if raw_pct > 100:
+                # 100%를 넘으면 계산이 아니라 전제가 깨진 것이다 — 특수관계인 지분 기준일과
+                # 의결권행사기준일이 다르거나, 명부 지분이 실제보다 크게 잡혔다는 뜻.
+                turnout_warning = (
+                    f"특수관계인 제외 참석률 역산값이 {raw_pct}%로 100%를 넘어 값을 내지 않았다. "
+                    f"특수관계인 지분({related_total_pct}%, {summary.get('ownership_basis_year') or '최근'}년 정기보고서 기준)과 "
+                    "의결권행사기준일 명부가 달라졌을 가능성이 크다."
+                )
+            else:
+                ex_related_turnout_pct = raw_pct
 
     status = AnalysisStatus.EXACT
     interpretation_notes: list[str] = [
         "vote_math는 승패 예측이 아니라 표 구조 신호를 보는 참고 지표다.",
-        "대표 추정참석률은 보통결의 안건의 발행기준/행사기준 찬성률 역산값 최빈값을 사용한다.",
+        "대표 추정참석률은 보통결의 안건의 (1)기준 찬성률 / 행사기준 찬성률 역산값 최빈값을 사용한다.",
     ]
     if result_payload.get("status") == AnalysisStatus.ERROR or result_data.get("result_status") != "available":
         status = AnalysisStatus.REQUIRES_REVIEW
@@ -1272,6 +1323,26 @@ async def _vote_math_scope_data(
             warnings.append("보통결의 안건 간 추정참석률 편차가 커 대표값 해석에 주의가 필요하다.")
         if excluded_items:
             interpretation_notes.append("감사위원·집중투표 등 분모가 달라질 수 있는 안건은 대표 참석률 계산에서 제외했다.")
+
+    if turnout_warning:
+        warnings.append(turnout_warning)
+        if status == AnalysisStatus.EXACT:
+            status = AnalysisStatus.PARTIAL
+    if representative_attendance is not None:
+        if attendance_base == "voting":
+            interpretation_notes.append(
+                "참석률의 분모는 의결권 있는 주식이다. 특수관계인·자사주 지분율(발행주식총수 기준)과 "
+                "직접 빼지 않고, 의결권 기준으로 환산해 계산했다."
+            )
+        else:
+            interpretation_notes.append("참석률의 분모는 자사주를 포함한 발행주식총수다. 의결권 기준으로 환산해 계산했다.")
+        if attendance_base_source == "inferred_from_feasibility":
+            warnings.append(
+                "결과공시 표에 찬성률 분모 머리글이 없어 참석률 기준을 성립 가능성으로 추정했다. "
+                "분모 해석이 바뀌면 특수관계인 제외 참석률도 바뀐다."
+            )
+            if status == AnalysisStatus.EXACT:
+                status = AnalysisStatus.PARTIAL
 
     signal_level = _signal_level(
         shareholder_side_count=summary.get("shareholder_side_count", 0),
@@ -1297,7 +1368,10 @@ async def _vote_math_scope_data(
             "excluded_item_count": len(excluded_items),
             "min_pct": min((item["estimated_attendance"] for item in comparable_items), default=None),
             "max_pct": max((item["estimated_attendance"] for item in comparable_items), default=None),
-            "methodology": "보통결의 안건의 발행기준 찬성률 / 출석주식수 기준 찬성률 역산값 최빈값",
+            "methodology": "보통결의 안건의 (1)기준 찬성률 / 출석주식수 기준 찬성률 역산값 최빈값",
+            "base": attendance_base,
+            "base_label": next((item.get("approval_base_label") for item in comparable_items if item.get("approval_base_label")), ""),
+            "base_source": attendance_base_source,
             "items": comparable_items[:10],
             "excluded_items": excluded_items[:10],
         },
@@ -1305,6 +1379,9 @@ async def _vote_math_scope_data(
             "related_total_pct": related_total_pct,
             "treasury_pct": treasury_pct,
             "voting_share_base_pct": voting_share_base_pct,
+            # 아래 세 값의 분모는 「의결권 있는 주식 = 100%」다. 발행주식총수 기준인 위 두 값과 섞지 않는다.
+            "related_total_pct_voting_base": related_pct_voting_base,
+            "attendance_pct_voting_base": attendance_on_voting_base,
             "contestable_turnout_pct": contestable_turnout_pct,
             "ex_related_turnout_pct": ex_related_turnout_pct,
             "active_external_block_total_pct": active_external_total_pct,
@@ -1596,6 +1673,8 @@ async def build_proxy_contest_payload(
             "top_holder": control_context.get("top_holder", {}),
             "related_total_pct": control_context.get("related_total_pct", 0.0),
             "treasury_pct": control_context.get("treasury_pct", 0.0),
+            # 지분율의 기준연도. 참석률(의결권행사기준일)과 기준일이 다를 수 있어 경고에 쓴다.
+            "ownership_basis_year": control_context.get("year", ""),
             "active_external_block_count": len(active_external_blocks),
             "active_overlap_block_count": len(overlap_blocks),
             # 임원·주요주주 소유상황(D002). 분쟁 신호 판정(has_contest_signal)에는 넣지 않는다 —
