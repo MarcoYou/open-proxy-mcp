@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import calendar
 from datetime import date
 import re
 import time
@@ -62,6 +63,52 @@ _CAPITAL_RESERVE_KEYWORDS = (
     "이익잉여금전입",
     "감액배당",
 )
+
+
+# ── 회계연도 라벨 기준 ────────────────────────────────────────────────
+# 이 도구의 FY는 **결산 종료연도** 기준이다 — FY2025 = 2025년에 끝나는 사업연도.
+# 6월 결산 회사는 회사 IR 문서가 시작연도로 부르는 일이 많아(포시에스 「FY2025」=
+# 2025-07-01~2026-06-30) 같은 라벨이 다른 12개월을 가리킨다. 2026-08-28 U 지적 B-6 —
+# 「어느 쪽도 기준을 밝히지 않아 40% 약속이 어느 해 것인지 확정하지 못했다」.
+# → 라벨 옆에 항상 날짜 구간과 결산월을 붙이고, 기준을 한 줄로 적는다.
+FISCAL_YEAR_BASIS = "이 도구의 FY는 결산 종료연도 기준 (FY2025 = 2025년에 끝나는 사업연도)"
+
+
+def _fiscal_end_month(stlm_dt: str | None) -> int | None:
+    """alotMatter `stlm_dt`(결산기준일, 예 `2025-06-30`) → 결산월. 모르면 None."""
+    digits = "".join(ch for ch in (stlm_dt or "") if ch.isdigit())
+    if len(digits) < 6:
+        return None
+    month = int(digits[4:6])
+    return month if 1 <= month <= 12 else None
+
+
+def _fiscal_period(fiscal_year: int, end_month: int | None) -> dict[str, str] | None:
+    """FY(결산 종료연도) + 결산월 → 사업연도 날짜 구간. 결산월을 모르면 지어내지 않는다."""
+    if not end_month:
+        return None
+    last_day = calendar.monthrange(fiscal_year, end_month)[1]
+    end = date(fiscal_year, end_month, last_day)
+    start = date(fiscal_year, 1, 1) if end_month == 12 else date(fiscal_year - 1, end_month + 1, 1)
+    return {"start": start.isoformat(), "end": end.isoformat()}
+
+
+def _fiscal_period_fields(fiscal_year: int, end_month: int | None) -> dict[str, Any]:
+    """summary/history row 에 붙일 회계연도 메타."""
+    period = _fiscal_period(fiscal_year, end_month)
+    return {
+        "fiscal_year": fiscal_year,
+        "fiscal_year_end_month": end_month,
+        "period_start": (period or {}).get("start"),
+        "period_end": (period or {}).get("end"),
+    }
+
+
+def _latest_completed_fiscal_year(today: date, end_month: int | None) -> int | None:
+    """오늘 기준 **결산이 이미 끝난** 가장 최근 사업연도(종료연도 라벨)."""
+    if not end_month:
+        return None
+    return today.year if today.month > end_month else today.year - 1
 
 
 def _year_window(end_year: int, years: int) -> list[int]:
@@ -135,6 +182,10 @@ async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], st
     summary = build_dividend_summary(items, "사업보고서(기말)")
     if summary:
         summary["source"] = "alotMatter"
+        end_month = _fiscal_end_month(summary.get("stlm_dt"))
+        digits = "".join(ch for ch in (summary.get("stlm_dt") or "") if ch.isdigit())
+        fy = int(digits[:4]) if len(digits) >= 4 else year
+        summary.update(_fiscal_period_fields(fy, end_month))
     return summary, None
 
 
@@ -157,6 +208,9 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
     if len(digits) < 4:
         return {}
     base_year = int(digits[:4])
+    # 결산월을 stlm_dt에서 읽는다. 예전엔 아래에서 stlm_dt를 f"{fy}-12-31"로 박아
+    # 6월 결산 회사의 사업연도 구간이 통째로 틀렸다(2026-08-28 U 지적 B-6).
+    end_month = _fiscal_end_month(stlm)
     # 컬럼 → 사업연도 offset (당기=base, 전기=-1, 전전기=-2)
     columns = {"current": 0, "previous": -1, "before_previous": -2}
     out: dict[int, dict[str, Any]] = {}
@@ -205,9 +259,11 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
         existed = col_has_face_value or net_income != 0
         if cash_dps <= 0 and total_amount <= 0 and payout is None and not existed:
             continue
+        fiscal = _fiscal_period_fields(fy, end_month)
         out[fy] = {
             "period": f"{fy} 사업보고서(기말)",
-            "stlm_dt": f"{fy}-12-31",
+            "stlm_dt": fiscal["period_end"] or f"{fy}-12-31",
+            **fiscal,
             "cash_dps": cash_dps,
             "cash_dps_preferred": cash_dps_pref,
             "stock_dps": 0,
@@ -421,7 +477,9 @@ async def _record_date_from_notices(notices: list[dict[str, Any]], target_year: 
     return None
 
 
-def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> dict[str, Any]:
+def _decisions_summary_for_year(
+    decisions: list[dict[str, Any]], year: int, end_month: int | None = None
+) -> dict[str, Any]:
     """해당 연도 배당결정 공시를 합산해 summary 형식으로 반환.
 
     `alotMatter`가 비어 있을 때(사업보고서 미제출 또는 무배당 회사가 특별배당·분기배당
@@ -441,9 +499,11 @@ def _decisions_summary_for_year(decisions: list[dict[str, Any]], year: int) -> d
     total_amount_mil = sum(int((d.get("total_amount") or 0)) for d in year_decisions) // 1_000_000
     special_dps = sum(int(d.get("dps_common") or 0) for d in year_decisions if d.get("has_special") or d.get("dividend_type") == "특별배당")
 
+    fiscal = _fiscal_period_fields(year, end_month)
     return {
         "period": f"{year} 배당결정 공시 합산",
-        "stlm_dt": f"{year}-12-31",
+        "stlm_dt": fiscal["period_end"] or f"{year}-12-31",
+        **fiscal,
         "cash_dps": cash_dps_total,
         "cash_dps_preferred": cash_dps_pref_total,
         "stock_dps": 0,
@@ -603,6 +663,9 @@ def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], de
             pattern = "무배당"
         history.append({
             "year": year,
+            "period_start": summary.get("period_start"),
+            "period_end": summary.get("period_end"),
+            "fiscal_year_end_month": summary.get("fiscal_year_end_month"),
             "annual_dps": annual_dps,
             "decision_count": len(yearly),
             "payout_ratio": summary.get("payout_ratio_dart"),
@@ -912,8 +975,13 @@ async def build_dividend_payload(
     _mark("decision_details", stage_started_at)
 
     # alotMatter가 비어있거나 cash_dps=0이면 해당 연도 배당결정 공시 합산을 source of truth로 대체.
+    # 결산월은 사업보고서 alotMatter의 stlm_dt가 권위. 못 읽으면 None으로 두고
+    # 사업연도 구간을 아예 표시하지 않는다(12월 결산으로 단정하지 않는다).
+    fiscal_end_month = _fiscal_end_month((latest_summary or {}).get("stlm_dt"))
+    # 창(window)으로 잘라내기 전의 결정공시 — 「그 사업연도에 결의가 있었나」 판정용.
+    details_all = list(details)
     if (not latest_summary or int(latest_summary.get("cash_dps") or 0) == 0) and details:
-        fallback = _decisions_summary_for_year(details, target_year)
+        fallback = _decisions_summary_for_year(details, target_year, fiscal_end_month)
         if fallback and fallback.get("cash_dps", 0) > 0:
             latest_summary = fallback
             warnings.append(f"{target_year}년 사업보고서 배당 요약이 비어 있어 해당 연도 배당결정 공시 {fallback.get('decision_count', 0)}건을 합산해 요약을 구성했습니다.")
@@ -954,7 +1022,7 @@ async def build_dividend_payload(
         if y in alot_multi:
             summary = alot_multi[y]
         elif (not summary or int(summary.get("cash_dps") or 0) == 0):
-            fallback = _decisions_summary_for_year(details, y)
+            fallback = _decisions_summary_for_year(details, y, fiscal_end_month)
             if fallback and fallback.get("cash_dps", 0) > 0:
                 summary = fallback
         if summary:
@@ -969,6 +1037,37 @@ async def build_dividend_payload(
         for y in history_years
     } if history_years else annual_summaries
     history = _history_rows(target_year, selected_annual_summaries, details)
+
+    # 결산은 끝났는데 배당 결의가 아직 없는 사업연도를 「미결의」로 세운다.
+    # 비12월 결산 회사는 target_year(=작년) 뒤에 이미 끝난 사업연도가 하나 더 있는데,
+    # 예전엔 그 해가 화면에서 통째로 빠져 직전 연도 배당이 최신인 것처럼 읽혔다
+    # (포시에스: 회사 공시는 「FY2025 결산 배당 아직 없음」인데 도구는 FY2025 지급 완료로 표시).
+    undecided_fiscal_years: list[dict[str, Any]] = []
+    latest_completed_fy = _latest_completed_fiscal_year(date.today(), fiscal_end_month)
+    newest_reported_fy = max(annual_summaries) if annual_summaries else target_year
+    if latest_completed_fy is not None:
+        decided_fys = {_bucket_fiscal_year(d) for d in details_all}
+        for fy in range(newest_reported_fy + 1, latest_completed_fy + 1):
+            if fy in decided_fys or fy in annual_summaries:
+                continue
+            fiscal = _fiscal_period_fields(fy, fiscal_end_month)
+            undecided_fiscal_years.append(fiscal)
+            history.append({
+                **fiscal,
+                "year": fy,
+                "annual_dps": 0,
+                "decision_count": 0,
+                "payout_ratio": None,
+                "yield_pct": None,
+                "has_special": False,
+                "pattern": "미결의 (결산 종료 · 배당 결의 공시·사업보고서 모두 미확인)",
+                "pending_confirmation": True,
+            })
+            warnings.append(
+                f"FY{fy}({fiscal['period_start']}~{fiscal['period_end']})은 결산이 끝났으나 "
+                "배당 결의 공시도 사업보고서 배당 항목도 확인되지 않는다 — 미결의. "
+                "아래 수치는 그 이전 사업연도의 것이다."
+            )
 
     if meta_task is not None:
         await meta_task
@@ -1070,6 +1169,9 @@ async def build_dividend_payload(
             "corp_code": selected.get("corp_code", ""),
         },
         "year": target_year,
+        "fiscal_year_basis": FISCAL_YEAR_BASIS,
+        "fiscal_year_end_month": fiscal_end_month,
+        "undecided_fiscal_years": undecided_fiscal_years,
         "window": {
             "start_date": start_ymd,
             "end_date": end_ymd,

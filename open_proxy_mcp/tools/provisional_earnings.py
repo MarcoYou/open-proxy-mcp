@@ -58,7 +58,9 @@ def _render(p: dict) -> str:
         for key in ("revenue", "operating_profit", "pretax_profit", "net_income", "capital_stock"):
             m = head.get(key)
             if m and m.get("value_krw") is not None:
-                yoy = f" ({comparison_basis} {m['yoy_pct']:+.1f}%)" if m.get("yoy_pct") is not None else ""
+                # 원문에 증감비율 열이 없어 우리가 계산한 값은 그렇다고 밝힌다(재무현황 절).
+                yoy_note = " · 계산값" if m.get("yoy_basis") == "computed" else ""
+                yoy = f" ({comparison_basis} {m['yoy_pct']:+.1f}%{yoy_note})" if m.get("yoy_pct") is not None else ""
                 prior = f" (직전 {_won(m['prior_value_krw'])})" if m.get("prior_value_krw") is not None and key == "capital_stock" else ""
                 turn = f" · {m['turnover']}" if m.get('turnover') else ""
                 parts.append(f"**{_LABEL[key]}** {_won(m['value_krw'])}{prior}{yoy}{turn}")

@@ -56,6 +56,17 @@ def _won(n) -> str:
     return raw
 
 
+def _fiscal_meta_line(summary: dict[str, Any], data: dict[str, Any]) -> str:
+    """비12월 결산일 때만 사업연도 구간·결산월·FY 라벨 기준을 한 줄로 붙인다.
+    12월 결산은 FY와 달력연도가 같아 군더더기다. provisional_earnings 의 표기를 따른다."""
+    end_month = summary.get("fiscal_year_end_month") or data.get("fiscal_year_end_month")
+    if not end_month or end_month == 12:
+        return ""
+    start, end = summary.get("period_start"), summary.get("period_end")
+    span = f"사업연도 {start}~{end} · " if start and end else ""
+    return f"_{span}{end_month}월 결산 · {data.get('fiscal_year_basis', '')}_"
+
+
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
@@ -77,6 +88,11 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         # 몇 년치인지 없으면 리포트에 인용할 때 위험하다(260728 QA 지적)
         _fy = summary.get("fiscal_year") or summary.get("year") or data.get("year")
         lines.append(f"## 연간 요약" + (f" (FY{_fy})" if _fy else ""))
+        # 비12월 결산은 같은 FY 라벨이 회사 IR 문서와 다른 12개월을 가리킨다 —
+        # 구간·결산월·라벨 기준을 붙여야 어느 해 이야기인지 확정된다 (U 지적 B-6).
+        _meta = _fiscal_meta_line(summary, data)
+        if _meta:
+            lines.append(_meta)
         lines.append(f"- 연간 DPS(보통주): {summary.get('cash_dps', 0):,}원")
         if summary.get("cash_dps_preferred"):
             lines.append(f"- 연간 DPS(우선주): {summary.get('cash_dps_preferred', 0):,}원")
@@ -118,11 +134,24 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         ])
 
     if scope == "history":
-        lines.extend(["", "## 최근 연도 추이", "| 연도 | 연간 DPS | 공시 수 | 배당성향 | 수익률 | 패턴 |", "|------|----------|--------|----------|--------|------|"])
+        _em = data.get("fiscal_year_end_month")
+        _span_col = bool(_em) and _em != 12
+        if _span_col:
+            lines.extend(["", "## 최근 연도 추이", f"_{_em}월 결산 · {data.get('fiscal_year_basis', '')}_",
+                          "| FY | 결산기간 | 연간 DPS | 공시 수 | 배당성향 | 수익률 | 패턴 |",
+                          "|----|----------|----------|--------|----------|--------|------|"])
+        else:
+            lines.extend(["", "## 최근 연도 추이", "| 연도 | 연간 DPS | 공시 수 | 배당성향 | 수익률 | 패턴 |", "|------|----------|--------|----------|--------|------|"])
         for item in data.get("history", []):
             payout = f"{item['payout_ratio']}%" if item.get("payout_ratio") is not None else "-"
             yld = f"{item['yield_pct']}%" if item.get("yield_pct") is not None else "-"
-            lines.append(f"| {item['year']} | {item['annual_dps']:,}원 | {item['decision_count']} | {payout} | {yld} | {item['pattern']} |")
+            # 미결의 연도는 0원을 지급액처럼 보이게 두지 않는다.
+            dps = "-" if item.get("pattern", "").startswith("미결의") else f"{item['annual_dps']:,}원"
+            if _span_col:
+                span = f"{item.get('period_start') or '?'}~{item.get('period_end') or '?'}"
+                lines.append(f"| {item['year']} | {span} | {dps} | {item['decision_count']} | {payout} | {yld} | {item['pattern']} |")
+            else:
+                lines.append(f"| {item['year']} | {dps} | {item['decision_count']} | {payout} | {yld} | {item['pattern']} |")
         # 최신연도 분기별 — 정기보고서 누적차분(권위). 결정공시 버킷팅 오귀속·중복 없음, 무배당 분기 0 포함.
         qf = data.get("quarterly_full") or []
         if qf:

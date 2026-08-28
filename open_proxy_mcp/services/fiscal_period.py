@@ -1,7 +1,7 @@
 """회사 결산월에 종속되지 않는 회계기간 메타데이터."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 import re
 from typing import Any
 
@@ -66,3 +66,40 @@ def period_metadata(period: dict[str, str] | None, *, annual: bool = False) -> d
         "fiscal_quarter": (offset // 3) + 1 if kind == "quarter" else None,
         "comparison_basis": "직전사업연도 대비" if kind == "annual" else "전년동기 대비",
     }
+
+
+def fiscal_year_span(
+    fiscal_year: int | None, fiscal_end_month: int | None
+) -> tuple[str, str] | None:
+    """사업연도 번호 + 결산월 → 그 사업연도가 실제로 덮는 12개월(시작·종료 ISO).
+
+    「사업연도 2025」는 결산월에 따라 전혀 다른 12개월이다 — 12월 결산이면
+    2025-01-01~2025-12-31, 6월 결산이면 2024-07-01~2025-06-30. 라벨만 보고
+    1년을 통째로 오독하는 자리라 라벨 옆에 이 구간을 붙인다(260828 U 지적 B-5).
+    """
+    if not fiscal_year or not fiscal_end_month or not 1 <= fiscal_end_month <= 12:
+        return None
+    end_year = fiscal_year
+    # 결산월 말일 = 다음 달 1일 - 1일 (윤년·30/31일 분기 없이 안전)
+    if fiscal_end_month == 12:
+        end = date(end_year, 12, 31)
+    else:
+        end = date(end_year, fiscal_end_month + 1, 1) - timedelta(days=1)
+    start_month = fiscal_end_month % 12 + 1
+    start_year = end_year if fiscal_end_month == 12 else end_year - 1
+    start = date(start_year, start_month, 1)
+    return start.isoformat(), end.isoformat()
+
+
+def fiscal_period_label(fiscal_year: int | None, fiscal_end_month: int | None) -> str | None:
+    """`2024-07-01~2025-06-30 · 6월 결산` / 12월 결산이면 `2025-01-01~2025-12-31`.
+
+    `provisional_earnings` 의 실적기간 표기와 형태를 맞춘다.
+    """
+    span = fiscal_year_span(fiscal_year, fiscal_end_month)
+    if not span:
+        return None
+    start, end = span
+    if fiscal_end_month == 12:
+        return f"{start}~{end}"
+    return f"{start}~{end} · {fiscal_end_month}월 결산"

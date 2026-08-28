@@ -44,7 +44,12 @@ _PROV_PAT = re.compile(r"영업\s*\(?잠정\)?\s*실적|영업잠정실적")
 def _is_structure_change_report(report_nm: str) -> bool:
     """I001 손익구조 변경 공시 중 실적표 본문인 것만 통과시킨다."""
     compact = re.sub(r"\s+", "", report_nm or "")
-    return compact.startswith("매출액또는손익구조30%") and "이상변경" in compact
+    # 🔴 **코스피는 「변경」, 코스닥은 「변동」이다** (2026-08-27 실측).
+    # `이상변경` 만 보던 탓에 코스닥 공시가 통째로 잠정실적 분기로 새어
+    # `당기실적` 표를 못 찾고 period·headline·fiscal_year 가 전부 빠졌다.
+    # 표본 5/5 가 4칸만 나왔다(코스피 같은 서식은 10.4칸).
+    return compact.startswith("매출액또는손익구조30%") and (
+        "이상변경" in compact or "이상변동" in compact)
 
 
 def _num(s: str) -> float | None:
@@ -184,6 +189,28 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
             "table_markdown": table_markdown}
 
 
+# 「매출액 또는 손익구조 변동」 서식은 **절마다 열 구성이 다르다**(2026-08-28 실측, 포시에스).
+#   3. 손익구조변동내용 → 당해 · 직전 · 증감금액 · 증감비율(%) · 흑자적자전환여부
+#   4. 재무현황       → 당해 · 직전 뿐 (증감 열이 아예 없다)
+# 예전엔 라벨 뒤 숫자를 세어 `numeric[3]` 을 증감비율로 썼다. 재무현황 행은 숫자가 당해·직전만
+# 반복돼 **자본금 액수(13,660,984,500)가 그대로 % 로 찍혔다**. 열은 절 머리행으로 식별한다.
+_STRUCT_COL_ROLES = (
+    ("당해사업연도", "value"), ("직전사업연도", "prior"),
+    ("증감금액", "change"), ("증감비율", "yoy"), ("흑자적자전환", "turnover"),
+)
+
+
+def _struct_column_map(row: list[str]) -> dict[str, int] | None:
+    """구조변동 표의 절 머리행 → {역할: 열번호}. 머리행이 아니면 None."""
+    roles: dict[str, int] = {}
+    for j, cell in enumerate(row):
+        compact = re.sub(r"\s+", "", cell or "")
+        for token, role in _STRUCT_COL_ROLES:
+            if token in compact and role not in roles:
+                roles[role] = j
+    return roles if "value" in roles else None
+
+
 def _parse_structure_change(html: str) -> dict[str, Any]:
     """I001 「매출액 또는 손익구조 30% 이상 변경」 표를 같은 headline 계약으로 변환."""
     soup = BeautifulSoup(html, "lxml")
@@ -208,7 +235,12 @@ def _parse_structure_change(html: str) -> dict[str, Any]:
                   if "당해사업연도" in t.get_text() and "영업이익" in t.get_text()), None)
     grid = _table_to_grid(table) if table is not None else []
     headline: dict[str, Any] = {}
+    cols: dict[str, int] | None = None
     for row in grid:
+        section_cols = _struct_column_map(row)
+        if section_cols is not None:
+            cols = section_cols
+            continue
         labels = [(i, re.sub(r"^[-\s]+", "", re.sub(r"\s+", "", c or "")))
                   for i, c in enumerate(row)]
         hit = next(((i, _METRICS[label]) for i, label in labels if label in _METRICS), None)
@@ -216,16 +248,42 @@ def _parse_structure_change(html: str) -> dict[str, Any]:
             continue
         idx, key = hit
         tail = row[idx + 1:]
-        nums = [_num(c) for c in tail]
-        numeric = [n for n in nums if n is not None]
-        if not numeric:
-            continue
-        yoy = numeric[3] if len(numeric) >= 4 else None
         turn = next((c.strip() for c in tail if c.strip() in ("흑자전환", "적자전환")), None)
-        headline[key] = {"value_krw": numeric[0] * factor,
-                         "prior_value_krw": numeric[1] * factor if len(numeric) > 1 else None,
-                         "change_krw": numeric[2] * factor if len(numeric) > 2 else None,
-                         "yoy_pct": yoy, "turnover": turn}
+
+        def _cell(role: str) -> float | None:
+            j = (cols or {}).get(role)
+            return _num(row[j]) if j is not None and idx < j < len(row) else None
+
+        value = _cell("value")
+        if cols is None or value is None:
+            # 머리행을 못 찾은 비표준 표 — 예전 위치 기반으로 폴백(증감비율은 지어내지 않는다).
+            numeric = [n for n in (_num(c) for c in tail) if n is not None]
+            if not numeric:
+                continue
+            headline[key] = {
+                "value_krw": numeric[0] * factor,
+                "prior_value_krw": numeric[1] * factor if len(numeric) > 1 else None,
+                "change_krw": numeric[2] * factor if len(numeric) > 2 else None,
+                "yoy_pct": numeric[3] if len(numeric) >= 4 else None,
+                "yoy_basis": "filing" if len(numeric) >= 4 else None,
+                "turnover": turn,
+            }
+            continue
+        prior = _cell("prior")
+        change = _cell("change")
+        yoy = _cell("yoy")
+        yoy_basis = "filing" if yoy is not None else None
+        if yoy is None and "yoy" not in cols and prior:
+            # 재무현황 절처럼 원문에 증감비율 열이 **없을 때만** 직접 계산하고 그렇다고 밝힌다.
+            # 열은 있는데 값이 '-'(적자전환 등)이면 회사가 비워둔 것이므로 계산하지 않는다.
+            yoy = round((value - prior) / abs(prior) * 100, 2)
+            yoy_basis = "computed"
+        headline[key] = {
+            "value_krw": value * factor,
+            "prior_value_krw": prior * factor if prior is not None else None,
+            "change_krw": change * factor if change is not None else None,
+            "yoy_pct": yoy, "yoy_basis": yoy_basis, "turnover": turn,
+        }
 
     table_markdown = _clean_render(table)[:6000] if table is not None else None
     return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,

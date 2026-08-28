@@ -86,3 +86,60 @@ def test_parse_i002_correction_prefers_corrected_values():
     assert parsed["correction"] is True
     assert parsed["headline"]["revenue"]["value_krw"] == 171_500_000_000_000
     assert parsed["headline"]["operating_profit"]["value_krw"] == 89_490_000_000_000
+
+
+# 「4. 재무현황」 절에는 증감금액·증감비율 열이 없다(당해/직전만 colspan 으로 반복).
+# 예전 위치 기반 파싱은 자본금 액수를 증감비율로 읽어 +13660984500.0% 를 찍었다.
+FINANCIAL_STATUS_HTML = """
+<table>
+  <tr><td>2. 결산기간</td><td>당해사업연도</td><td>당해사업연도</td><td>직전사업연도</td><td>직전사업연도</td><td>직전사업연도</td></tr>
+  <tr><td>- 시작일</td><td>2025-07-01</td><td>2025-07-01</td><td>2024-07-01</td><td>2024-07-01</td><td>2024-07-01</td></tr>
+  <tr><td>- 종료일</td><td>2026-06-30</td><td>2026-06-30</td><td>2025-06-30</td><td>2025-06-30</td><td>2025-06-30</td></tr>
+  <tr><td>3. 매출액 또는 손익구조변동내용(단위: 원)</td><td>당해사업연도</td><td>직전사업연도</td>
+      <td>증감금액</td><td>증감비율(%)</td><td>흑자적자전환여부</td></tr>
+  <tr><td>- 매출액</td><td>35,517,233,415</td><td>32,888,839,235</td><td>2,628,394,180</td><td>7.99</td><td>-</td></tr>
+  <tr><td>- 영업이익</td><td>5,813,056,155</td><td>4,399,159,063</td><td>1,413,897,092</td><td>32.14</td><td>-</td></tr>
+  <tr><td>4. 재무현황(단위 : 원)</td><td>당해사업연도</td><td>당해사업연도</td><td>직전사업연도</td><td>직전사업연도</td><td>직전사업연도</td></tr>
+  <tr><td>- 자본금</td><td>13,660,984,500</td><td>13,660,984,500</td><td>13,660,984,500</td><td>13,660,984,500</td><td>13,660,984,500</td></tr>
+</table>
+"""
+
+
+def test_financial_status_section_does_not_read_amount_as_percent():
+    parsed = parse_provisional_earnings(
+        FINANCIAL_STATUS_HTML,
+        "매출액또는손익구조30%(대규모법인은15%)이상변동",
+    )
+    capital = parsed["headline"]["capital_stock"]
+    assert capital["value_krw"] == 13_660_984_500
+    assert capital["prior_value_krw"] == 13_660_984_500
+    # 원문에 증감비율 열이 없다 → 계산값 0.0%, 그리고 계산했다고 표시한다.
+    assert capital["yoy_pct"] == 0.0
+    assert capital["yoy_basis"] == "computed"
+    # 3절은 원문 증감비율을 그대로 쓴다.
+    assert parsed["headline"]["revenue"]["yoy_pct"] == 7.99
+    assert parsed["headline"]["revenue"]["yoy_basis"] == "filing"
+
+
+def test_financial_status_capital_reduction_ratio_is_negative():
+    """감자 뒤 자본금 급감(하이퍼코퍼레이션 표본) — 액수가 아니라 감소율이 나와야 한다."""
+    html = FINANCIAL_STATUS_HTML.replace(
+        "<tr><td>- 자본금</td><td>13,660,984,500</td><td>13,660,984,500</td>"
+        "<td>13,660,984,500</td><td>13,660,984,500</td><td>13,660,984,500</td></tr>",
+        "<tr><td>- 자본금</td><td>6,667,608,000</td><td>6,667,608,000</td>"
+        "<td>53,340,865,500</td><td>53,340,865,500</td><td>53,340,865,500</td></tr>",
+    )
+    capital = parse_provisional_earnings(html, "매출액또는손익구조30%(대규모법인은15%)이상변동")["headline"]["capital_stock"]
+    assert capital["yoy_pct"] == -87.5
+    assert capital["yoy_basis"] == "computed"
+
+
+def test_blank_ratio_cell_is_not_backfilled():
+    """증감비율 열은 있는데 '-'(적자전환)이면 회사가 비워둔 것 — 계산해 채우지 않는다."""
+    html = FINANCIAL_STATUS_HTML.replace(
+        "<td>- 영업이익</td><td>5,813,056,155</td><td>4,399,159,063</td><td>1,413,897,092</td><td>32.14</td>",
+        "<td>- 영업이익</td><td>5,813,056,155</td><td>-4,399,159,063</td><td>10,212,215,218</td><td>-</td>",
+    )
+    op = parse_provisional_earnings(html, "매출액또는손익구조30%(대규모법인은15%)이상변동")["headline"]["operating_profit"]
+    assert op["yoy_pct"] is None
+    assert op["yoy_basis"] is None
