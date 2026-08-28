@@ -136,8 +136,57 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             filing_id = item.get("rcept_no") or item.get("acptno", "")
             lines.append(f"| {item.get('disclosure_date', '')} | {item.get('report_name', '')} | {item.get('filer_name', '')} | `{filing_id}` |")
 
+    # 수치 목표 ↔ 최신 실적 대조. **핵심 문장(원문)보다 위에 두되 원문을 대체하지 않는다.**
+    target_rows = data.get("numeric_targets") or []
+    unparsed = data.get("numeric_targets_unparsed") or []
+    if target_rows or unparsed:
+        lines.extend(["", "## 수치 목표 vs 최신 실적"])
+    if target_rows:
+        lines.extend([
+            "목표는 회사 공시 원문에서 뽑았고, 실적은 **다른 도구가 이미 내는 값을 그대로** 가져왔다"
+            "(재무비율=`financial_metrics` · PER/PBR·배당수익률=`price_multiple_data`). 새로 계산하지 않았다.",
+            "",
+            "| 지표 | 목표(원문) | 최신 실적 | 달성 | 실적 기준 |",
+            "|------|-----------|-----------|------|-----------|",
+        ])
+        _mark = {"달성": "✅ 달성", "미달": "❌ 미달",
+                 "판정 보류": "⚠️ 판정 보류", "대조 못 함": "— 대조 못 함"}
+        for row in target_rows:
+            unit = row.get("unit", "")
+            actual = row.get("actual")
+            actual_txt = f"{actual:,.2f}{unit}" if isinstance(actual, (int, float)) else "—"
+            verdict = _mark.get(row.get("verdict", ""), row.get("verdict", ""))
+            note = row.get("verdict_note") or ""
+            if note:
+                verdict = f"{verdict} ({note})"
+            lines.append(
+                f"| {row.get('metric_label', '')} | {row.get('target_text', '')} | {actual_txt} | "
+                f"{verdict} | {row.get('actual_basis', '')} |")
+        lines.extend([
+            "",
+            "> 목표가 「중장기」로 적힌 경우 단년 미달이 곧 미이행은 아니다. 배당 목표는 회사가 본문에서 "
+            "지급 시점을 따로 밝히는 일이 있으니 아래 **핵심 문장(원문)**을 반드시 함께 읽어라.",
+        ])
+        caveats = [(r.get("metric_label", ""), r["caveat"]) for r in target_rows if r.get("caveat")]
+        if caveats:
+            lines.extend(["", "### 이 대조에서 조심할 것"])
+            seen_caveat: set[str] = set()
+            for label, text in caveats:
+                if text in seen_caveat:
+                    continue
+                seen_caveat.add(text)
+                lines.append(f"- **{label}**: {text}")
+        lines.extend(["", "### 목표별 원문 (공시 본문 그대로)"])
+        for row in target_rows:
+            lines.append(f"- **{row.get('metric_label', '')}**: {row.get('source_text', '')}")
+    if unparsed:
+        lines.extend(["", "### 대조 못 한 목표 (원문 그대로)",
+                      "수치를 정형으로 읽지 못했다. **없다는 뜻이 아니다** — 원문을 직접 읽고 판단해라."])
+        for item in unparsed:
+            lines.append(f"- **{item.get('metric_label', '')}**: {item.get('source_text', '')}")
+
     if scope in {"summary", "plan", "commitments"}:
-        lines.extend(["", "## 핵심 문장"])
+        lines.extend(["", "## 핵심 문장 (회사 공시 원문)"])
         for item in data.get("highlights", []):
             lines.append(f"- {item}")
 
@@ -184,8 +233,17 @@ def register_tools(mcp):
         """desc: 기업가치제고계획(밸류업) 공시 + commitment 문장. 주주환원 **정책·미래 약속**. 자사주 소각 이행 교차참조 포함.
         when: 밸류업 계획, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 미래 약속. 실제 배당은 `dividend`, 자사주 사실은 `treasury_share`.
         rule: DART I 밸류업 키워드 → 없으면 KIND 0184 fallback. 공시 카테고리: plan/progress/meta_amendment(고배당기업 재공시). 최신이 meta_amendment면 실계획 본문을 latest_plan으로 별도. summary/commitments에 24개월 자사주 이벤트 treasury_cross_ref 포함.
-        scope: `summary` / `plan` 원문 발췌 / `commitments` 핵심 약속+이행 교차참조 / `timeline` 공시 이력
-        ref: dividend, treasury_share, ownership_structure, company, evidence
+        scope: `summary` / `plan` 원문 발췌 / `commitments` 핵심 약속 + **수치 목표↔실적 대조표** + 이행 교차참조 / `timeline` 공시 이력
+        commitments: 「목표 대비 어디까지 왔나」는 여기서 본다. `numeric_targets` 는 회사 원문에서 뽑은
+          수치 목표(`target_text` = 원문 조각)에 최신 실적을 붙인 것이다. 실적값은 이 도구가 새로
+          계산하지 않고 `financial_metrics`(재무비율) · `price_multiple_data`(PER/PBR·배당수익률)가
+          내는 값을 그대로 가져온다 — **`actual_basis`(사업연도·연결·확정/정정·주가 기준일)를 반드시
+          함께 인용해라.** 재무비율과 PBR 은 시점이 다르므로 같은 기준인 척 나란히 쓰지 마라.
+          `verdict` 는 `달성`/`미달`/`판정 보류`(목표 문구에 이상·이하 방향이 없다)/`대조 못 함`(실적 미확보)이다.
+          `numeric_targets_unparsed` 는 **지표는 언급됐는데 수치를 못 읽은 자리**이며 원문 조각이 담겨 있다 —
+          「목표가 없다」로 읽지 마라. 표에 없는 약속(자사주 소각·IR 확대 등 비수치 약속)은
+          `highlights`(원문 문장)에 그대로 있으니 표만 보고 결론내지 마라.
+        ref: dividend, treasury_share, ownership_structure, financial_metrics, price_multiple_data, company, evidence
         """
         payload = await build_value_up_payload(
             company,

@@ -70,6 +70,229 @@ def _extract_highlights(text: str, keywords: tuple[str, ...], limit: int = 6) ->
     return hits
 
 
+# ── 수치 목표 ↔ 최신 실적 대조 (260828) ────────────────────────────────────────
+# U 실사용 시험(260828): 「목표 4개 중 ROE·PBR 달성 여부를 도구가 대조해주지 않아
+# 내가 직접 나눠 계산했다」. 그래서 **뽑히는 목표만** 실적과 나란히 놓는다.
+#
+# 원칙 (CLAUDE.md 「이 서버가 무엇을 하는 물건인가」):
+#   - 원문을 지우고 표로 대체하지 않는다. `highlights`(핵심 문장)는 그대로 두고 표를 **더한다.**
+#   - 정형화가 안 돼 못 뽑는 목표는 억지로 맞히지 않는다 — **원문 조각을 그대로 싣고
+#     「대조 못 함」**이라 적는다.
+#   - 실적값은 새로 계산하지 않는다. `financial_metrics` · `price_multiple_data` 가
+#     이미 내는 값을 **그대로 가져다** 쓰고, 그 값의 기준(사업연도·연결·확정/정정·주가일)을
+#     행마다 붙인다. 기준이 다른 값을 기준 없이 나란히 놓지 않는다.
+_TARGET_METRICS: tuple[tuple[str, str, tuple[str, ...], str, str], ...] = (
+    # (key, 라벨, 원문 표기, 실적 출처, 단위)
+    ("debt_ratio", "부채비율", ("부채비율",), "fm:debt_ratio_pct", "%"),
+    ("operating_margin", "영업이익률", ("영업이익률",), "fm:operating_margin_pct", "%"),
+    ("net_margin", "순이익률", ("순이익률", "당기순이익률"), "fm:net_profit_margin_pct", "%"),
+    ("roe", "ROE", ("ROE", "자기자본이익률"), "fm:roe_pct", "%"),
+    ("roa", "ROA", ("ROA", "총자산이익률"), "fm:roa_pct", "%"),
+    ("roic", "ROIC", ("ROIC", "투하자본이익률"), "fm:roic_pct", "%"),
+    ("payout_ratio", "배당성향", ("배당성향",), "fm:payout_ratio_pct", "%"),
+    ("current_ratio", "유동비율", ("유동비율",), "fm:current_ratio_pct", "%"),
+    ("pbr", "PBR", ("PBR", "주가순자산비율"), "val:pbr_mrq", "배"),
+    ("per", "PER", ("PER", "주가수익비율"), "val:per_fy0", "배"),
+    ("dividend_yield", "배당수익률", ("배당수익률",), "val:dividend_yield_pct", "%"),
+)
+
+# 지표 표기 바로 뒤의 「숫자(범위) + 단위 + 비교어」. 범위(30~40%)를 함께 잡는다.
+_TARGET_VALUE_RE = re.compile(
+    r"(?P<low>\d+(?:\.\d+)?)\s*(?:[~∼～\-–]\s*(?P<high>\d+(?:\.\d+)?))?\s*"
+    r"(?P<unit>%|퍼센트|배|배수)?\s*"
+    r"(?P<cmp>이상|이하|초과|미만|수준|내외|달성|유지)?"
+)
+_CMP_KO = {"이상": "이상", "초과": "초과", "이하": "이하", "미만": "미만"}
+
+# 기준이 갈리는 지표에만 붙는 상시 주의. 특정 회사 사정이 아니라 **지표의 성질**이다.
+_METRIC_CAVEATS: dict[str, str] = {
+    "payout_ratio": "배당성향은 「귀속 사업연도」 기준과 「실제 지급 시점」 기준이 다르다. "
+                    "회사가 본문에서 「아직 미지급」이라고 밝히는 경우 이 실적값과 어긋난다 — "
+                    "`dividend` 로 지급 여부를 따로 확인해라.",
+    "dividend_yield": "배당수익률은 주가(시세일)와 DPS(사업연도)의 시점이 섞인 값이다.",
+    "pbr": "PBR·PER 은 시세 기준일 값이라 사업연도 재무비율과 시점이 다르다.",
+    "per": "PBR·PER 은 시세 기준일 값이라 사업연도 재무비율과 시점이 다르다.",
+}
+
+
+# 원문 조각을 낱말 중간에서 자르지 않는다 — 앞쪽 절 구분자(`3.` · `a.` · `-` 등)에 맞춘다.
+_CLAUSE_BREAK_RE = re.compile(r"[.·\-–\]]\s")
+
+
+def _clause_start(text: str, pos: int, lead: int = 45) -> int:
+    head = text[max(0, pos - lead):pos]
+    last = None
+    for m in _CLAUSE_BREAK_RE.finditer(head):
+        last = m
+    return max(0, pos - lead) + last.end() if last else pos
+
+
+def _num(value: str | None) -> float | None:
+    try:
+        return float(value) if value not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def extract_numeric_targets(text: str) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """밸류업 계획 원문에서 수치 목표를 뽑는다.
+
+    돌려주는 것 둘:
+      1. `targets`   — 지표·목표값·비교방향 + **그 목표가 적힌 원문 조각**
+      2. `unparsed`  — 지표는 언급됐는데 수치를 못 읽은 자리. **원문 조각을 그대로 담는다.**
+                       비워 두지 않는 것이 요점이다 — 읽는 쪽이 직접 판단할 수 있어야 한다.
+
+    `target_text`·`source_text` 는 손대지 않은 원문이다. 인용해도 된다.
+    """
+    clean = re.sub(r"\s+", " ", text or "")
+    targets: list[dict[str, Any]] = []
+    unparsed: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    for key, label, aliases, source, unit in _TARGET_METRICS:
+        for alias in aliases:
+            for m in re.finditer(re.escape(alias), clean):
+                if key in seen:
+                    break
+                tail = clean[m.end():m.end() + 45]
+                vm = _TARGET_VALUE_RE.search(tail)
+                snippet_start = _clause_start(clean, m.start())
+                if not vm or not vm.group("low"):
+                    unparsed.append({
+                        "metric_key": key,
+                        "metric_label": label,
+                        "source_text": clean[snippet_start:m.end() + 70].strip(),
+                        "reason": "지표는 언급됐으나 목표 수치를 읽지 못했다 — 원문을 직접 읽어라.",
+                    })
+                    continue
+                low, high = _num(vm.group("low")), _num(vm.group("high"))
+                comparator = _CMP_KO.get(vm.group("cmp") or "")
+                if high is not None:
+                    comparator = "범위"
+                seen.add(key)
+                targets.append({
+                    "metric_key": key,
+                    "metric_label": label,
+                    "unit": unit,
+                    "target_low": low,
+                    "target_high": high,
+                    "comparator": comparator or "",           # "" = 방향 불명 → 달성 판정 보류
+                    "comparator_raw": vm.group("cmp") or "",
+                    "actual_source": source,
+                    # 원문 그대로 — 표가 원문을 대체하지 않는다는 뜻이다.
+                    "target_text": clean[m.start():m.end() + vm.end()].strip(),
+                    "source_text": clean[snippet_start:m.end() + vm.end() + 55].strip(),
+                })
+    # 같은 지표를 여러 번 말했는데 한 번도 수치를 못 읽은 것만 남긴다.
+    unparsed = [u for u in unparsed if u["metric_key"] not in seen]
+    deduped: list[dict[str, str]] = []
+    for u in unparsed:
+        if u["metric_key"] not in {d["metric_key"] for d in deduped}:
+            deduped.append(u)
+    return targets, deduped
+
+
+def _judge(actual: float | None, target: dict[str, Any]) -> tuple[str, str]:
+    """달성 여부 판정. 판정할 수 없으면 그렇다고 말한다 — 추정하지 않는다."""
+    if actual is None:
+        return "대조 못 함", "실적값 미확보"
+    low, high, cmp_ = target["target_low"], target["target_high"], target["comparator"]
+    if cmp_ == "범위" and low is not None and high is not None:
+        return ("달성" if low <= actual <= high else "미달"), ""
+    if cmp_ == "이상":
+        return ("달성" if actual >= low else "미달"), ""
+    if cmp_ == "초과":
+        return ("달성" if actual > low else "미달"), ""
+    if cmp_ == "이하":
+        return ("달성" if actual <= low else "미달"), ""
+    if cmp_ == "미만":
+        return ("달성" if actual < low else "미달"), ""
+    return "판정 보류", f"목표 문구에 방향(이상/이하)이 없다 — 원문 「{target['target_text']}」 확인"
+
+
+async def compare_targets_with_actuals(
+    targets: list[dict[str, Any]],
+    company_ref: str,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """목표에 최신 실적값을 붙인다. **다른 도구가 이미 내는 값을 그대로 가져온다.**
+
+    - `fm:` = `financial_metrics` summary (연결·최신 확정 사업연도)
+    - `val:` = `price_multiple_data` firm (주가 기준일 명시)
+    두 기준은 **시점이 다르다** — 행마다 「실적 기준」을 붙이고, 섞였으면 경고로 말한다.
+    """
+    warnings: list[str] = []
+    if not targets:
+        return [], warnings
+    need_fm = any(t["actual_source"].startswith("fm:") for t in targets)
+    need_val = any(t["actual_source"].startswith("val:") for t in targets)
+
+    fm_data: dict[str, Any] = {}
+    fm_basis = ""
+    val_data: dict[str, Any] = {}
+    val_basis = ""
+
+    async def _load_fm():
+        from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
+        return await build_financial_metrics_payload(company_ref, scope="summary")
+
+    async def _load_val():
+        from open_proxy_mcp.services.valuation import build_valuation_payload
+        return await build_valuation_payload(company=company_ref)
+
+    tasks = []
+    if need_fm:
+        tasks.append(("fm", _load_fm()))
+    if need_val:
+        tasks.append(("val", _load_val()))
+    results = await asyncio.gather(*(t[1] for t in tasks), return_exceptions=True)
+
+    for (tag, _), res in zip(tasks, results):
+        if isinstance(res, Exception) or not isinstance(res, dict):
+            warnings.append(f"목표 대조용 실적 조회 실패({tag}) — 목표는 원문 그대로 싣고 대조는 비운다.")
+            continue
+        data = res.get("data") or {}
+        if tag == "fm":
+            fm_data = data.get("summary") or {}
+            period = (data.get("fiscal_period") or {}).get("label", "")
+            report = data.get("source_report") or {}
+            corrected = " · 정정본" if report.get("is_correction") else ""
+            basis_kind = "연결" if data.get("consolidated") else "별도"
+            fm_basis = " · ".join(x for x in (
+                f"사업연도 {period}" if period else "",
+                basis_kind,
+                f"{report.get('report_nm', '')}{corrected}".strip(),
+            ) if x)
+        else:
+            val_data = data.get("multiples") or {}
+            price_date = data.get("price_date") or ""
+            val_basis = " · ".join(x for x in (
+                f"주가 {price_date} 종가" if price_date else "",
+                f"FY{data.get('fiscal_year')} 재무" if data.get("fiscal_year") else "",
+            ) if x)
+
+    rows: list[dict[str, Any]] = []
+    for t in targets:
+        tag, field = t["actual_source"].split(":", 1)
+        actual = (fm_data if tag == "fm" else val_data).get(field)
+        basis = fm_basis if tag == "fm" else val_basis
+        verdict, note = _judge(actual if isinstance(actual, (int, float)) else None, t)
+        rows.append({
+            **t,
+            "actual": actual if isinstance(actual, (int, float)) else None,
+            "actual_basis": basis or "실적 기준 미확인",
+            "actual_tool": "financial_metrics" if tag == "fm" else "price_multiple_data",
+            "verdict": verdict,
+            "verdict_note": note,
+            "caveat": _METRIC_CAVEATS.get(t["metric_key"], ""),
+        })
+
+    if fm_basis and val_basis and any(r["actual_tool"] == "price_multiple_data" for r in rows):
+        warnings.append(
+            "목표 대조표에 **기준이 다른 두 실적**이 섞여 있다 — 재무비율은 확정 사업연도 결산치, "
+            f"PER/PBR·배당수익률은 시장 시세({val_basis}) 기준이다. 같은 시점 값이 아니다.")
+    return rows, warnings
+
+
 def _clean_text(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
@@ -711,6 +934,30 @@ async def build_value_up_payload(
     highlight_source_length = len(highlight_source_text)
     highlights = _extract_highlights(highlight_source_text, _COMMITMENT_KEYWORDS)
 
+    # 수치 목표 ↔ 최신 실적 대조 (260828). commitments scope 에서만 — 실적 조회가 2 tool 붙는다.
+    # **원문(highlights·implementation_sections)은 그대로 두고 표를 더한다.**
+    target_rows: list[dict[str, Any]] = []
+    unparsed_targets: list[dict[str, str]] = []
+    if scope == "commitments" and highlight_source_text:
+        parsed_targets, unparsed_targets = extract_numeric_targets(highlight_source_text)
+        if parsed_targets:
+            company_ref = selected.get("stock_code") or selected.get("corp_name") or company_query
+            stage_started_at = time.perf_counter()
+            try:
+                target_rows, target_warnings = await compare_targets_with_actuals(
+                    parsed_targets, company_ref)
+                warnings.extend(target_warnings)
+            except Exception as exc:  # 대조 실패가 밸류업 공시 자체를 못 보게 만들면 안 된다
+                target_rows = []
+                warnings.append(
+                    f"수치 목표 대조 실패({type(exc).__name__}) — 목표 원문은 「핵심 문장」에 그대로 있다. "
+                    "financial_metrics·price_multiple_data 로 직접 확인해라.")
+            _mark("compare_targets_with_actuals", stage_started_at)
+        if unparsed_targets:
+            warnings.append(
+                "수치를 읽지 못한 목표 지표가 있다 — 원문 조각을 「대조 못 한 목표」에 그대로 실었다. "
+                f"({', '.join(u['metric_label'] for u in unparsed_targets)})")
+
     # 자사주 소각 교차참조: 정책 tool이라도 최근 소각 건수·규모를 함께 보여줘
     # "약속 vs 이행"의 한 축을 드러낸다.
     treasury_cross_ref: dict[str, Any] = {}
@@ -879,6 +1126,10 @@ async def build_value_up_payload(
         data["latest_excerpt"] = latest_excerpt
         data["highlights"] = highlights
         data["highlight_source_text_length"] = highlight_source_length
+    if scope == "commitments":
+        # 표는 원문을 대체하지 않는다 — highlights 와 **함께** 나간다.
+        data["numeric_targets"] = target_rows
+        data["numeric_targets_unparsed"] = unparsed_targets
     if scope in {"summary", "commitments"} and treasury_cross_ref:
         data["treasury_cross_ref"] = treasury_cross_ref
 

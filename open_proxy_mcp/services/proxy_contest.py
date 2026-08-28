@@ -35,7 +35,7 @@ from open_proxy_mcp.services.ownership_structure import (
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 from open_proxy_mcp.services.ownership_parser import parse_holding_purpose, parse_holding_purpose_from_document
 
-_SUPPORTED_SCOPES = {"summary", "fight", "litigation", "signals", "timeline", "vote_math"}
+_SUPPORTED_SCOPES = {"summary", "fight", "litigation", "signals", "timeline", "vote_math", "insiders"}
 _PROXY_KEYWORDS = (
     "의결권대리행사권유",
     "위임장권유참고서류",
@@ -136,7 +136,10 @@ async def _proxy_items(
         bgn_de=bgn_de,
         end_de=end_de,
         pblntf_tys="",
-        pblntf_detail_ty=["D001", "D003", "D004"],  # 5%대량보유/위임장/공개매수. D002(임원수천건) 제외로 페이지컷 truncation 교정(삼성 +8)
+        # 5%대량보유/위임장/공개매수. 임원·주요주주 소유상황은 여기 넣지 않는다 —
+        # `_PROXY_KEYWORDS` 에 그 제목이 없어 한 건도 안 늘고 페이지컷만 유발한다(삼성 +8콜,
+        # 가짜 truncation 경고). 그 정보는 `_insider_holdings`(elestock)가 따로 가져온다.
+        pblntf_detail_ty=["D001", "D003", "D004"],
         keywords=_PROXY_KEYWORDS,
     )
     if error:
@@ -159,6 +162,325 @@ async def _proxy_items(
         })
     rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
     return rows, notices, None
+
+
+# ── 임원·주요주주 특정증권등 소유상황보고 (DART D002 / elestock) ────────────────
+#
+# 260828 재개방. 종전 주석은 「D002(임원수천건) 제외로 페이지컷 truncation 교정」이었고
+# 그 판단 자체는 옳았다 — 다만 **끄는 방식이 정보를 통째로 버렸다.**
+#
+# 실측(260828, 최근 12개월 창):
+#   한국앤컴퍼니 D002 3건 · 태광산업 0건(013) · 금호석유화학 36건 · 고려아연 2건 · 삼성전자 2,739건
+#   → 분쟁 종목은 2~36건으로 감당된다. 폭주하는 것은 삼성전자류 대형주뿐이다.
+#
+# **list.json(D002)로는 이 정보가 애초에 나오지 않는다.** `_proxy_items` 는 제목 키워드
+# (`_PROXY_KEYWORDS`)로 거르는데 「임원ㆍ주요주주특정증권등소유상황보고서」는 거기 없다.
+# 실측: `_proxy_items` 에 D002 를 넣어도 matched 는 5사 전부 그대로였고, 삼성만 API 콜이
+# 3→11 로 늘고 「28페이지 중 10페이지만 확인」이라는 **가짜 truncation 경고**가 붙었다.
+# 그래서 `_proxy_items` 의 상세유형은 손대지 않는다(페이지컷 회귀 위험 0).
+#
+# 같은 공시를 주는 **정형 API `elestock.json` 을 회사 단위에서만** 켠다 — 1콜로 전체 이력을
+# 주고 보고자·직위·등기여부·주요주주구분·소유수·증감수·소유비율까지 파싱된 채 온다.
+# 분쟁 국면에서 지배주주·특수관계인이 5% 문턱 아래로 매집하는 움직임이 정확히 여기 있다.
+_INSIDER_ROWS_LIMIT_DEFAULT = 500
+_INSIDER_ROWS_LIMIT_MAX = 5000
+_INSIDER_RECENT_DAYS = 90
+_INSIDER_REPORT_NAME = "임원ㆍ주요주주 특정증권등 소유상황보고서"
+# 「주요주주 아님」을 뜻하는 DART 빈칸 표기.
+_INSIDER_BLANKS = frozenset({"", "-", "–", "—", "해당사항없음", "N/A"})
+
+
+def _insider_int(value: Any) -> int | None:
+    """DART 콤마 숫자 → int. 빈칸("-")은 **0이 아니라 None** (회사가 안 적은 것)."""
+    text = str(value or "").strip().replace(",", "").replace(" ", "")
+    if text in _INSIDER_BLANKS:
+        return None
+    try:
+        return int(float(text))
+    except ValueError:
+        return None
+
+
+def _insider_float(value: Any) -> float | None:
+    text = str(value or "").strip().replace(",", "").replace("%", "").replace(" ", "")
+    if text in _INSIDER_BLANKS:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def _insider_text(value: Any) -> str | None:
+    text = str(value or "").strip()
+    return None if text in _INSIDER_BLANKS else text
+
+
+def _insider_shift_days(yyyymmdd: str, days: int) -> str:
+    try:
+        anchor = date(int(yyyymmdd[0:4]), int(yyyymmdd[4:6]), int(yyyymmdd[6:8]))
+    except (ValueError, IndexError):
+        return ""
+    return format_yyyymmdd(anchor - timedelta(days=days))
+
+
+def _aggregate_insider_rows(
+    rows: list[dict[str, Any]],
+    *,
+    recent_since: str,
+) -> list[dict[str, Any]]:
+    """보고 건별 raw 를 **보고자 단위**로 접는다 — 누가 · 기간 · 순증감 · 최근 매집.
+
+    임원 보고를 건별로 다 나열하면 노이즈다(삼성 2,739건). 분쟁 판단에 쓰이는 축만 남기고
+    원문 접근 경로(접수번호)는 보고자마다 최근 5건까지 붙여 둔다.
+
+    🔴 **증감수를 그냥 더하면 안 된다** (260828 실측, 금호석유화학 국민연금공단).
+    elestock 에는 `sp_stock_lmp_irds_cnt == sp_stock_lmp_cnt` 인 행이 섞여 있다 — 보유 전량을
+    「증감」칸에 적는 **신규·재보고** 행이다. 이걸 같이 더하면 국민연금 순증감이 +13,710,029주로
+    나오는데 실제 보유는 2,752,107주다(9.77%). 5배 과장이다.
+    그래서 순증감은 **보유 수량의 차이**(창 안 첫 보고 → 최근 보고)로 낸다. 이 값은 신규보고
+    행이 끼어도 흔들리지 않는다. 보고서가 스스로 적은 증감 합계는 신규·재보고 행을 빼고
+    `reported_change_sum` 으로 **따로** 준다 — 두 값이 갈리면 그 사실 자체가 정보다.
+
+    **못 읽은 값은 0으로 채우지 않는다.** 소유수/증감수가 공시에 「-」로 비어 있으면 None 이
+    그대로 올라가고, 그런 보고가 몇 건이었는지 `unparsed_change_count` 로 같이 준다.
+    """
+    by_reporter: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        name = (row.get("repror") or "").strip()
+        if not name:
+            continue
+        by_reporter.setdefault(name, []).append(row)
+
+    out: list[dict[str, Any]] = []
+    for name, group in by_reporter.items():
+        chrono = sorted(group, key=lambda r: (_normalize_date_key(r.get("rcept_dt", "")), r.get("rcept_no", "")))
+
+        parsed = []
+        for r in chrono:
+            shares = _insider_int(r.get("sp_stock_lmp_cnt"))
+            change = _insider_int(r.get("sp_stock_lmp_irds_cnt"))
+            # 신규·재보고 행 — 보유 전량이 증감칸에 그대로 들어간다. 매수가 아니다.
+            initial = shares is not None and change is not None and shares == change and shares != 0
+            parsed.append({"row": r, "shares": shares, "change": change, "initial": initial})
+
+        incremental = [p for p in parsed if not p["initial"] and p["change"] is not None]
+        reported_sum = sum(p["change"] for p in incremental) if incremental else None
+        initial_count = sum(1 for p in parsed if p["initial"])
+        unparsed = sum(1 for p in parsed if p["change"] is None)
+
+        levels = [p["shares"] for p in parsed if p["shares"] is not None]
+        shares_first = levels[0] if levels else None
+        shares_last = levels[-1] if levels else None
+        # 순증감 = 보유 수량의 차이(기준 1). 보고가 1건뿐이면 회사가 그 보고에 적은 증감을
+        # 쓴다(기준 2) — 다만 신규·재보고 행은 전량이 증감칸에 들어가므로 쓸 수 없다.
+        # 둘 다 없으면 **모른다**고 말한다. 0으로 채우지 않는다.
+        if len(levels) >= 2:
+            net_change = shares_last - shares_first
+            net_basis = "levels"
+        elif reported_sum is not None:
+            net_change = reported_sum
+            net_basis = "reported"
+        else:
+            net_change = None
+            net_basis = "initial_report_only" if initial_count else "unknown"
+
+        recent = [
+            p for p in parsed
+            if recent_since and _normalize_date_key(p["row"].get("rcept_dt", "")) >= recent_since
+        ]
+        recent_incremental = [p for p in recent if not p["initial"] and p["change"] is not None]
+        recent_sum = sum(p["change"] for p in recent_incremental) if recent_incremental else None
+        recent_levels = [p["shares"] for p in recent if p["shares"] is not None]
+        recent_net = (
+            recent_levels[-1] - recent_levels[0] if len(recent_levels) >= 2 else None
+        )
+
+        pct_first = _insider_float(parsed[0]["row"].get("sp_stock_lmp_rate"))
+        pct_last = _insider_float(parsed[-1]["row"].get("sp_stock_lmp_rate"))
+
+        if net_change is None:
+            direction = "unknown"
+        elif net_change > 0:
+            direction = "increasing"
+        elif net_change < 0:
+            direction = "decreasing"
+        else:
+            direction = "flat"
+
+        # 직위·등기여부·주요주주구분은 보고마다 바뀔 수 있어 **최신 보고** 값을 쓴다.
+        latest = parsed[-1]["row"]
+        out.append({
+            "reporter": name,
+            "position": _insider_text(latest.get("isu_exctv_ofcps")),
+            "registered_executive": _insider_text(latest.get("isu_exctv_rgist_at")),
+            # "10%이상주주" / "사실상지배주주" 등. 임원일 뿐이면 None.
+            "major_shareholder_type": _insider_text(latest.get("isu_main_shrholdr")),
+            "report_count": len(parsed),
+            "first_date": format_iso_date(_normalize_date_key(parsed[0]["row"].get("rcept_dt", ""))),
+            "last_date": format_iso_date(_normalize_date_key(latest.get("rcept_dt", ""))),
+            "shares_first": shares_first,
+            "shares_last": shares_last,
+            # 보유 수량 차이. 신규보고 행이 섞여도 흔들리지 않는 기준이다.
+            "net_change_shares": net_change,
+            "net_change_basis": net_basis,
+            # 공시가 스스로 적은 증감의 합 (신규·재보고 행 제외). net_change 와 갈릴 수 있다 —
+            # 갈리면 신규보고 행에 담긴 변동이 증감칸에 안 잡혔다는 뜻이다.
+            "reported_change_sum": reported_sum,
+            "initial_report_count": initial_count,
+            "initial_report_in_window": bool(parsed and parsed[0]["initial"]),
+            "unparsed_change_count": unparsed,
+            "ownership_pct_first": pct_first,
+            "ownership_pct_last": pct_last,
+            "ownership_pct_change_pp": (
+                round(pct_last - pct_first, 4) if pct_first is not None and pct_last is not None else None
+            ),
+            "direction": direction,
+            "recent_window": {
+                "days": _INSIDER_RECENT_DAYS,
+                "since": format_iso_date(recent_since) if recent_since else "",
+                "report_count": len(recent),
+                "net_change_shares": recent_net,
+                "reported_change_sum": recent_sum,
+                # 최근 창에서 **순증가**면 매집. 신규보고 행은 빼고 본다(전량이 증감으로 잡혀
+                # 「매집」으로 오인된다). 보유 수량 차이가 있으면 그것을 먼저 믿는다.
+                "accumulating": bool(
+                    (recent_net is not None and recent_net > 0)
+                    or (recent_net is None and recent_sum is not None and recent_sum > 0)
+                ),
+            },
+            # 원문으로 가는 길 — 최근 5건. 전건이 필요하면 scope=insiders 의 raw 를 본다.
+            "recent_filings": [
+                {
+                    "date": format_iso_date(_normalize_date_key(p["row"].get("rcept_dt", ""))),
+                    "rcept_no": p["row"].get("rcept_no", ""),
+                    "change_shares": p["change"],
+                    "shares": p["shares"],
+                    "initial_report": p["initial"],
+                }
+                for p in reversed(parsed[-5:])
+            ],
+        })
+
+    def _rank(item: dict[str, Any]) -> tuple:
+        return (
+            bool(item.get("major_shareholder_type")),      # 지배주주·10%이상주주 먼저
+            item["recent_window"]["accumulating"],          # 최근 매집자
+            item.get("initial_report_in_window", False),    # 창 안에서 처음 등장한 보고자
+            abs(item.get("net_change_shares") or item.get("reported_change_sum") or 0),
+            item.get("ownership_pct_last") or 0.0,
+        )
+
+    out.sort(key=_rank, reverse=True)
+    return out
+
+
+async def _insider_holdings(
+    corp_code: str,
+    bgn_de: str,
+    end_de: str,
+    *,
+    rows_limit: int = _INSIDER_ROWS_LIMIT_DEFAULT,
+) -> tuple[dict[str, Any], list[str]]:
+    """임원·주요주주 소유상황보고(D002)를 elestock 1콜로 받아 보고자 단위로 접는다.
+
+    반환 data 의 `status_reason` 은 **못 가져온 이유를 구분**한다:
+      - `ok`          정상 (건수 0 이어도 조회는 성공)
+      - `no_data`     DART 013 — 이 회사엔 D002 보고 자체가 없다 (도구 문제 아님)
+      - `fetch_failed` 호출은 했는데 오류가 났다 (키·서버 — 「없음」과 다르다)
+    """
+    client = get_dart_client()
+    limit = max(1, min(int(rows_limit or _INSIDER_ROWS_LIMIT_DEFAULT), _INSIDER_ROWS_LIMIT_MAX))
+    warnings: list[str] = []
+    base: dict[str, Any] = {
+        "source": {
+            "endpoint": "elestock",
+            "pblntf_detail_ty": "D002",
+            "report_name": _INSIDER_REPORT_NAME,
+            "note": (
+                "5% 대량보유(D001)는 5% 이상만 잡는다. 그 문턱 아래에서 움직이는 "
+                "임원·특수관계인 매집은 이 보고에만 남는다."
+            ),
+        },
+        "status_reason": "ok",
+        "coverage": {},
+        "reporters": [],
+        "reporter_count": 0,
+    }
+
+    try:
+        response = await client.get_executive_holdings(corp_code)
+    except DartClientError as exc:
+        if exc.status == "013":
+            base["status_reason"] = "no_data"
+            base["coverage"] = {
+                "rows_all_history": 0, "rows_in_window": 0, "rows_analyzed": 0,
+                "rows_dropped": 0, "truncated": False, "rows_limit": limit,
+            }
+            warnings.append(
+                "[데이터 없음] 임원·주요주주 특정증권등 소유상황보고(D002)가 DART에 없다 — "
+                "조회는 정상이고 해당 보고가 없는 것이다."
+            )
+            return base, warnings
+        base["status_reason"] = "fetch_failed"
+        base["reporters"] = None
+        base["coverage"] = {"rows_limit": limit}
+        warnings.append(
+            f"[호출 실패] 임원·주요주주 소유상황보고(elestock/D002) 조회 실패 — DART 응답코드 {exc.status}. "
+            "「보고가 없다」는 뜻이 아니다 — 이 구간의 임원 매집 여부는 확인하지 못했다."
+        )
+        return base, warnings
+
+    all_rows = list(response.get("list") or [])
+    in_window = [
+        row for row in all_rows
+        if _in_window(row.get("rcept_dt", ""), bgn_de, end_de)
+    ]
+    in_window.sort(key=lambda r: (_normalize_date_key(r.get("rcept_dt", "")), r.get("rcept_no", "")), reverse=True)
+
+    truncated = len(in_window) > limit
+    analyzed = in_window[:limit] if truncated else in_window
+    oldest = _normalize_date_key(analyzed[-1].get("rcept_dt", "")) if analyzed else ""
+
+    base["coverage"] = {
+        "rows_all_history": len(all_rows),
+        "rows_in_window": len(in_window),
+        "rows_analyzed": len(analyzed),
+        "rows_dropped": len(in_window) - len(analyzed),
+        "truncated": truncated,
+        "rows_limit": limit,
+        "analyzed_from_date": format_iso_date(oldest) if oldest else "",
+        "window": {"start_date": bgn_de, "end_date": end_de},
+    }
+    base["reporters"] = _aggregate_insider_rows(
+        analyzed,
+        recent_since=_insider_shift_days(end_de, _INSIDER_RECENT_DAYS),
+    )
+    base["reporter_count"] = len(base["reporters"])
+
+    if truncated:
+        # 조용히 자르지 않는다 — 무엇을 몇 건 못 셌는지, 어떻게 넓히는지까지 쓴다.
+        warnings.append(
+            f"[상한 도달] 임원·주요주주 소유상황보고가 조사구간에 {len(in_window):,}건 있어 "
+            f"최근 {len(analyzed):,}건({base['coverage']['analyzed_from_date']} 이후)만 집계했다 — "
+            f"{base['coverage']['rows_dropped']:,}건은 순증감 합계에 **빠져 있다**. "
+            f"전 구간이 필요하면 `insider_rows_limit`을 올리거나(최대 {_INSIDER_ROWS_LIMIT_MAX:,}) "
+            "`start_date`/`end_date`로 구간을 좁혀 다시 불러라."
+        )
+    return base, warnings
+
+
+def _annotate_insider_reporters(
+    insiders: dict[str, Any],
+    *,
+    registry_names: set[str],
+    block_names: set[str],
+) -> None:
+    """보고자가 명부상 특수관계인인지 / 5% 블록 보고자인지 교차 표시 (판정은 하지 않는다)."""
+    for item in insiders.get("reporters") or []:
+        key = _normalize_entity_name(item.get("reporter", ""))
+        item["in_registry"] = bool(key and key in registry_names)
+        item["in_5pct_block"] = bool(key and key in block_names)
 
 
 _LIT_CORRECTION_MARKERS = ("[기재정정]", "[첨부정정]", "[정정]", "[연장결정]")
@@ -299,68 +621,226 @@ def _dedup_name(name: str) -> str:
     return re.sub(r"\s+", " ", name).strip()
 
 
-_CASE_NAME_RE = re.compile(
-    r"사건의?\s*명칭\s*[:：]?\s*(.{1,50}?)(?:사건\s*번호|\d\s*[.)]|원고|신청인|채권자|당사자)"
+# ── 소송 공시 본문 파서 ──────────────────────────────────────────────────────
+# DART 「소송 등의 제기ㆍ신청」·「소송 등의 판결ㆍ결정」은 번호 붙은 고정 서식이다.
+# 목적은 필드를 다 캐내는 것이 **아니다** — 사건명 같은 쉬운 값은 뽑되, 청구취지·주문처럼
+# 자유서술인 대목은 **원문 그대로 실어** 읽는 쪽(LLM·애널리스트)이 판단하게 한다(260828).
+#
+# 서식 두 종의 항목 이름이 다르다:
+#   제기ㆍ신청: 1 사건의 명칭 / 사건번호 · 2 원고(신청인) · 3 청구내용 · 4 관할법원
+#               · 5 향후대책 · 6 제기ㆍ신청일자 · 7 확인일자 · 8 기타
+#   판결ㆍ결정: 1 사건의 명칭 / 사건번호 · 2 원고ㆍ신청인 · 3 판결ㆍ결정내용
+#               · 4 판결ㆍ결정사유 · 5 관할법원 · 6 판결ㆍ결정일자 · 7 확인일자 · 8 기타
+# 앵커 위치를 찾아 **사이를 통째로 잘라** 값으로 쓴다. 잘린 조각이 곧 원문이다.
+_LIT_FIELD_ANCHORS: tuple[tuple[str, str], ...] = (
+    ("case_name", r"사건의?\s*명칭"),
+    ("case_number", r"사건\s*번호"),
+    ("parties", r"원고\s*(?:[ㆍ·・]\s*신청인|\(\s*신청\s*인\s*\))"),
+    ("claim", r"청구\s*내용"),
+    ("ruling", r"판결\s*[ㆍ·・]?\s*결정\s*내용"),
+    ("ruling_reason", r"판결\s*[ㆍ·・]?\s*결정\s*사유"),
+    ("court", r"관할\s*법원"),
+    ("future_plan", r"향후\s*대책"),
+    ("filed_date", r"제기\s*[ㆍ·・]?\s*신청\s*일자"),
+    ("decided_date", r"판결\s*[ㆍ·・]?\s*결정\s*일자"),
+    ("confirmed_date", r"확인\s*일자"),
+    ("other_material", r"기타\s*투자\s*판단(?:과\s*관련한?\s*중요\s*사항)?"),
+    ("related_filings", r"관련\s*공시"),
 )
+# 번호(`3.`)는 있을 때만. 서식이 번호를 떼도 이름만으로 걸린다.
+_LIT_ANCHOR_RE = re.compile(
+    "|".join(f"(?P<{key}>(?:\\d+\\s*[.)]\\s*)?(?:{pat})\\s*[:：]?)" for key, pat in _LIT_FIELD_ANCHORS)
+)
+
+# 회사가 「아직 안 적었다」는 뜻으로 넣는 값들. 파싱 실패와 뜻이 다르다.
+_LIT_PLACEHOLDERS = frozenset({"", "-", "–", "—", ".", "-.", "해당사항없음", "해당없음", "없음"})
+
+
+def _lit_html_to_text(html: str) -> str:
+    """공시 HTML → 한 줄 텍스트. 스타일 블록(.xforms{...})을 먼저 걷어낸다."""
+    body = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", html or "")
+    body = re.sub(r"<[^>]+>", " ", body)
+    body = re.sub(r"&nbsp;?", " ", body)
+    body = re.sub(r"\{[^{}]*\}", " ", body)  # 남은 CSS 규칙 본문
+    return re.sub(r"\s+", " ", body).strip()
+
+
+def _is_placeholder(value: str) -> bool:
+    return value.replace(" ", "").strip(" .·ㆍ") in _LIT_PLACEHOLDERS
+
+
+def parse_litigation_form(html: str) -> dict[str, Any]:
+    """소송 공시 본문에서 서식 항목을 잘라낸다 + 원문 발췌를 함께 돌려준다.
+
+    반환 `status`:
+      - `parsed`            사건의 명칭을 읽었다
+      - `case_name_absent`  서식은 읽혔는데 사건명 칸이 비어 있다(회사가 안 적음). **파싱 실패가 아니다**
+      - `form_unrecognized` 아는 서식이 아니다 — 원문을 직접 봐야 한다
+
+    값은 손대지 않은 원문 조각이다. 요약·정규화하지 않는다 — 인용해도 되는 문자열이다.
+    """
+    text = _lit_html_to_text(html)
+    matches = list(_LIT_ANCHOR_RE.finditer(text))
+    if not matches:
+        return {
+            "status": "form_unrecognized",
+            "fields": {},
+            "excerpt": text[:1500],
+        }
+
+    # 1단계 — 진짜 항목 칸만 고른다. 본문 안내문이 "상기 '1. 사건의 명칭'…" 처럼 항목
+    # 이름을 다시 부르는 일이 잦아, 그것을 칸으로 세면 뒤 칸이 거기서 잘린다(260828).
+    accepted: list[tuple[str, Any]] = []
+    seen: set[str] = set()
+    for idx, m in enumerate(matches):
+        key = m.lastgroup
+        if key in seen:
+            continue  # 첫 등장만
+        # 사건번호는 서식상 「사건의 명칭」 바로 뒤 칸이다. 회사가 그 칸을 비우면
+        # 「기타 투자판단」 안내문의 "…사건번호는 서울중앙지방법원 2026가합3015 입니다"가
+        # 첫 등장이 돼 값으로 새어 들어왔다 — 인접했을 때만 인정한다.
+        # 앞 칸이 **채택된** 사건의 명칭일 때만. 안내문이 항목 이름을 되부르는 경우
+        # (`상기 '1. 사건의 명칭'의 사건번호는 …`) 그 사건명은 중복이라 버려지므로 여기서 걸린다.
+        if key == "case_number" and not (
+            accepted and accepted[-1][0] == "case_name" and accepted[-1][1] is matches[idx - 1]
+        ):
+            continue
+        seen.add(key)
+        accepted.append((key, m))
+
+    # 2단계 — 채택된 칸 사이를 통째로 잘라 값으로 쓴다. 잘린 조각이 곧 원문이다.
+    fields: dict[str, str] = {}
+    for i, (key, m) in enumerate(accepted):
+        end = accepted[i + 1][1].start() if i + 1 < len(accepted) else len(text)
+        fields[key] = text[m.end():end].strip(" :：.·ㆍ")
+
+    # 서식이 「-」로 비워 둔 칸은 값이 아니라 「회사가 아직 안 적음」이다.
+    absent = sorted(k for k, v in fields.items() if _is_placeholder(v))
+    for key in absent:
+        fields[key] = ""
+
+    excerpt = text[matches[0].start():matches[0].start() + 1500]
+    status = "parsed" if fields.get("case_name") else "case_name_absent"
+    return {"status": status, "fields": fields, "excerpt": excerpt, "absent_fields": absent}
 
 
 def _extract_case_name(html: str) -> str:
-    """소송 공시 본문에서 '1. 사건의 명칭' 필드 추출 (정형).
-
-    예: "신주발행금지 가처분" / "임시총회소집허가" / "장부등열람허용가처분"
-    공시명에 사건명이 없는 미상 케이스를 본문으로 보완한다.
-    """
-    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or ""))
-    m = _CASE_NAME_RE.search(text)
-    return m.group(1).strip(" ㆍ·,") if m else ""
+    """소송 공시 본문 '1. 사건의 명칭' 값 (하위 호환 · 얇은 래퍼)."""
+    return parse_litigation_form(html)["fields"].get("case_name", "")
 
 
-async def _resolve_unspecified_by_document(
+# 서식 항목 → 사람이 읽는 이름. 렌더러가 그대로 쓴다(사전을 두 벌 두면 한쪽만 고쳐진다).
+LIT_FIELD_LABELS_KO: dict[str, str] = {
+    "case_name": "사건의 명칭",
+    "case_number": "사건번호",
+    "parties": "원고ㆍ신청인",
+    "claim": "청구내용",
+    "ruling": "판결ㆍ결정내용",
+    "ruling_reason": "판결ㆍ결정사유",
+    "court": "관할법원",
+    "future_plan": "향후대책",
+    "filed_date": "제기ㆍ신청일자",
+    "decided_date": "판결ㆍ결정일자",
+    "confirmed_date": "확인일자",
+    "related_filings": "관련공시",
+    "other_material": "기타 투자판단과 관련한 중요사항",
+}
+
+# 산출물에 실어 보내는 항목 (기타 투자판단 안내문 등 정형 문구는 뺀다).
+_LIT_CARRY_FIELDS = (
+    "case_name", "case_number", "parties", "claim", "ruling",
+    "ruling_reason", "court", "filed_date", "decided_date", "other_material",
+    "related_filings",
+)
+
+
+async def _enrich_litigation_documents(
     primary: list[dict[str, Any]],
     *,
     max_lookups: int = 30,
 ) -> dict[str, int]:
-    """미상 소송의 본문 '사건의 명칭'을 파싱해 경영권/상거래 재분류 (260607 B안).
+    """소송 row 전건의 본문을 열어 서식 항목 + 원문 발췌를 붙인다 (260828 전면 개편).
 
-    dispute_kind=unspecified인 row만 document를 열어(cache hit이면 호출 0)
-    사건명으로 _litigation_dispute_kind를 재적용. row를 in-place 갱신하고
-    재분류 통계 + 파싱 timing을 반환한다.
+    이전(260607)에는 `dispute_kind=unspecified` 인 row 만 열었고, 사건명을 읽고도
+    **경영권/상거래로 재분류될 때만 `case_name` 을 남겼다** — 「손해배상」·「증거보전」·
+    「가처분 이의에 대한 즉시항고」처럼 분류가 안 되는 사건명은 뽑아 놓고 버려서
+    화면에 「미상」으로만 나갔다. 공시명만 뜨던 row 는 아예 본문을 안 열었다.
+    지금은 **전건을 열고, 읽은 것은 분류 여부와 무관하게 전부 남긴다.**
 
-    max_lookups: 본문 조회 상한 (병목 방지). 초과분은 미상 유지 → LLM 위임.
+    row 에 붙는 것:
+      - `case_fields`   서식 항목 원문 조각 (dict, 값은 손대지 않은 문자열)
+      - `case_excerpt`  본문 발췌 원문 (인용 가능)
+      - `case_name` / `case_number` / `parties` 편의 평면 필드
+      - `document_status`  parsed / case_name_absent / form_unrecognized
+                           / fetch_failed / not_looked_up
+      - `absent_fields`    회사가 「-」로 비워 둔 항목 (파싱 실패와 구분)
+
+    max_lookups 초과분은 `not_looked_up` 으로 남긴다 — 조용히 버리지 않는다.
     """
     client = get_dart_client()
-    timings: dict[str, int] = {"wall_ms": 0, "parse_ms": 0, "lookups": 0, "hits": 0}
-    unspec = [r for r in primary if r.get("dispute_kind") == "unspecified" and r.get("rcept_no")]
-    targets = unspec[:max_lookups]
+    stats: dict[str, int] = {
+        "wall_ms": 0, "parse_ms": 0, "lookups": 0,
+        "parsed": 0, "case_name_absent": 0, "form_unrecognized": 0,
+        "fetch_failed": 0, "not_looked_up": 0, "reclassified": 0,
+    }
+    targets = [r for r in primary if r.get("rcept_no")][:max_lookups]
+    for r in primary:
+        r.setdefault("document_status", "not_looked_up")
+    stats["not_looked_up"] = len(primary) - len(targets)
     if not targets:
-        return timings
+        return stats
 
-    async def _fetch(r):
+    async def _fetch(row):
         try:
-            return r, await client.get_document_cached(r["rcept_no"])
+            return row, await client.get_document_cached(row["rcept_no"])
         except Exception:
-            return r, None
+            return row, None
 
     wall0 = time.perf_counter()
-    docs = await asyncio.gather(*[_fetch(r) for r in targets])  # 병렬 조회
-    timings["wall_ms"] = int((time.perf_counter() - wall0) * 1000)
+    docs = await asyncio.gather(*[_fetch(r) for r in targets])  # 병렬 조회 (cache hit이면 호출 0)
+    stats["wall_ms"] = int((time.perf_counter() - wall0) * 1000)
 
     parse0 = time.perf_counter()
     for r, doc in docs:
         if doc is None:
+            r["document_status"] = "fetch_failed"
+            stats["fetch_failed"] += 1
             continue
-        timings["lookups"] += 1
-        case_name = _extract_case_name(doc.get("html", "") or "")
-        if not case_name:
-            continue
-        kind = _litigation_dispute_kind(case_name)
-        if kind != "unspecified":
-            r["dispute_kind"] = kind
-            r["dispute_kind_source"] = "document"
+        stats["lookups"] += 1
+        parsed = parse_litigation_form(doc.get("html", "") or "")
+        r["document_status"] = parsed["status"]
+        stats[parsed["status"]] = stats.get(parsed["status"], 0) + 1
+
+        fields = parsed["fields"]
+        carried = {k: fields[k] for k in _LIT_CARRY_FIELDS if fields.get(k)}
+        if carried:
+            r["case_fields"] = carried
+        if parsed.get("absent_fields"):
+            r["absent_fields"] = [
+                LIT_FIELD_LABELS_KO.get(k, k) for k in parsed["absent_fields"]
+                if k in _LIT_CARRY_FIELDS
+            ]
+        if parsed.get("excerpt"):
+            r["case_excerpt"] = parsed["excerpt"]
+
+        # 편의 평면 필드 — 표에 바로 쓴다. **분류 성공 여부와 무관하게 남긴다.**
+        case_name = fields.get("case_name", "")
+        if case_name:
             r["case_name"] = case_name
-            timings["hits"] += 1
-    timings["parse_ms"] = int((time.perf_counter() - parse0) * 1000)
-    return timings
+        if fields.get("case_number"):
+            r["case_number"] = fields["case_number"]
+        if fields.get("parties"):
+            r["parties"] = fields["parties"]
+
+        # 사건명으로 성격 재분류 (되면 좋고, 안 되면 unspecified 유지 → 읽는 쪽에 위임)
+        if case_name and r.get("dispute_kind") == "unspecified":
+            kind = _litigation_dispute_kind(case_name)
+            if kind != "unspecified":
+                r["dispute_kind"] = kind
+                r["dispute_kind_source"] = "document"
+                stats["reclassified"] += 1
+    stats["parse_ms"] = int((time.perf_counter() - parse0) * 1000)
+    return stats
 
 
 async def _litigation_items(
@@ -392,16 +872,21 @@ async def _litigation_items(
     raw_rows.sort(key=lambda row: (row["disclosure_date"], row["rcept_no"]), reverse=True)
     primary_rows, dedup_meta = _classify_litigation(raw_rows)
 
-    # B안 (260607): 미상 소송 본문 '사건의 명칭' 파싱 재분류 (옵션 — 호출 증가)
+    # 260828: 전건 본문 파싱 — 사건명·사건번호·원고·청구내용 원문을 row 에 붙인다.
     if parse_documents:
-        doc_timings = await _resolve_unspecified_by_document(
+        doc_stats = await _enrich_litigation_documents(
             primary_rows, max_lookups=max_document_lookups)
         # 재분류 후 카운트 갱신
         dedup_meta["management_count"] = sum(1 for r in primary_rows if r["dispute_kind"] == "management")
         dedup_meta["commercial_count"] = sum(1 for r in primary_rows if r["dispute_kind"] == "commercial")
         dedup_meta["unspecified_count"] = sum(1 for r in primary_rows if r["dispute_kind"] == "unspecified")
-        dedup_meta["document_resolved"] = doc_timings["hits"]
-        dedup_meta["document_timings_ms"] = doc_timings
+        dedup_meta["document_resolved"] = doc_stats["reclassified"]
+        dedup_meta["document_stats"] = doc_stats
+        # 「못 준 것」을 세어서 그대로 노출한다 — 뭉개면 읽는 쪽이 없는 줄 안다.
+        dedup_meta["case_name_from_document"] = sum(1 for r in primary_rows if r.get("case_name"))
+        dedup_meta["case_name_absent_in_document"] = doc_stats["case_name_absent"]
+        dedup_meta["document_fetch_failed"] = doc_stats["fetch_failed"]
+        dedup_meta["document_not_looked_up"] = doc_stats["not_looked_up"]
 
     return primary_rows, dedup_meta, notices, None
 
@@ -429,6 +914,7 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
             "related_total_pct": 0.0,
             "treasury_pct": 0.0,
             "control_map": {},
+            "registry_names": [],
         }, warnings
     if isinstance(major_res, BaseException):
         raise major_res
@@ -470,6 +956,8 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         "related_total_pct": _related_total(major_rows),
         "treasury_pct": treasury_snapshot["treasury_pct"],
         "control_map": control_map,
+        # 임원 보고자가 명부상 특수관계인인지 대조하는 데 쓴다 (추가 API 콜 0).
+        "registry_names": [row.get("name", "") for row in major_rows if row.get("name")],
     }, warnings
 
 
@@ -848,6 +1336,7 @@ async def build_proxy_contest_payload(
     start_date: str = "",
     end_date: str = "",
     lookback_months: int = 12,
+    insider_rows_limit: int = _INSIDER_ROWS_LIMIT_DEFAULT,
 ) -> dict[str, Any]:
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
@@ -911,11 +1400,21 @@ async def build_proxy_contest_payload(
         parse_documents=parse_lit_docs,
     )
     control_task = _control_context(selected["corp_code"], company_query, window_year)
-    (
-        (proxy_rows, proxy_notices, proxy_warning),
-        (litigation_rows, litigation_dedup, litigation_notices, lit_warning),
-        (control_context, control_warnings),
-    ) = await asyncio.gather(proxy_task, litigation_task, control_task)
+    # 임원·주요주주 소유상황(D002)은 **회사 단위 조회에서만** 켠다. 전종목 스캔 경로가 쓰는
+    # `_proxy_items`(list.json)는 손대지 않았다 — 페이지컷 회귀 위험이 그쪽에 있다.
+    # elestock 은 corp_code 하나짜리 정형 API 라 1콜이면 끝난다.
+    wants_insiders = scope in {"summary", "signals", "insiders"}
+    tasks: list[Any] = [proxy_task, litigation_task, control_task]
+    if wants_insiders:
+        tasks.append(_insider_holdings(
+            selected["corp_code"], bgn_de, end_de, rows_limit=insider_rows_limit,
+        ))
+    gathered = await asyncio.gather(*tasks)
+    (proxy_rows, proxy_notices, proxy_warning) = gathered[0]
+    (litigation_rows, litigation_dedup, litigation_notices, lit_warning) = gathered[1]
+    (control_context, control_warnings) = gathered[2]
+    insiders, insider_warnings = gathered[3] if wants_insiders else (None, [])
+    warnings.extend(insider_warnings)
 
     warnings.extend(proxy_notices)
     warnings.extend(litigation_notices)
@@ -941,6 +1440,23 @@ async def build_proxy_contest_payload(
         for row in (control_map.get("non_overlap_blocks", []) + control_map.get("overlap_blocks", []))
         if row.get("coheld_with_registry") and _normalize_entity_name(row.get("reporter", ""))
     }
+
+    # 임원 보고자 ↔ 명부/5%블록 대조 (판정은 하지 않는다 — 사실 플래그만).
+    if insiders and insiders.get("reporters"):
+        _block_reporter_names = {
+            _normalize_entity_name(row.get("reporter", ""))
+            for row in (control_map.get("overlap_blocks", []) + control_map.get("non_overlap_blocks", []))
+            if _normalize_entity_name(row.get("reporter", ""))
+        }
+        _annotate_insider_reporters(
+            insiders,
+            registry_names={
+                _normalize_entity_name(name)
+                for name in (control_context.get("registry_names") or [])
+                if _normalize_entity_name(name)
+            },
+            block_names=_block_reporter_names,
+        )
 
     # 교차 참조 힌트 — 주체(filer) 중심 annotation.
     # 자동 binary 분류(proxy_fight/proxy_campaign) 대신 사실 플래그만 제공하고
@@ -1082,6 +1598,15 @@ async def build_proxy_contest_payload(
             "treasury_pct": control_context.get("treasury_pct", 0.0),
             "active_external_block_count": len(active_external_blocks),
             "active_overlap_block_count": len(overlap_blocks),
+            # 임원·주요주주 소유상황(D002). 분쟁 신호 판정(has_contest_signal)에는 넣지 않는다 —
+            # 임원 보고는 스톡옵션 행사·상속 등 분쟁과 무관한 사유가 태반이라 자동 판정 재료가 아니다.
+            # 여기서는 「누가 문턱 아래에서 움직였나」만 세어 노출하고 판단은 읽는 쪽에 맡긴다.
+            "insider_status": (insiders or {}).get("status_reason") if insiders else "not_requested",
+            "insider_reporter_count": (insiders or {}).get("reporter_count") if insiders else None,
+            "insider_accumulating_count": (
+                sum(1 for r in (insiders.get("reporters") or []) if r["recent_window"]["accumulating"])
+                if insiders and insiders.get("reporters") is not None else None
+            ),
         },
         **filing_meta,
         "players": {
@@ -1092,7 +1617,7 @@ async def build_proxy_contest_payload(
             "active_overlap_blocks": overlap_blocks,
         },
         "control_context": control_map,
-        "available_scopes": ["summary", "fight", "litigation", "signals", "timeline", "vote_math"],
+        "available_scopes": ["summary", "fight", "litigation", "signals", "timeline", "vote_math", "insiders"],
     }
     if scope in {"summary", "fight"}:
         data["fight"] = enriched_proxy_rows
@@ -1102,6 +1627,8 @@ async def build_proxy_contest_payload(
         data["signals"] = activist_signals
         # 5% 대량보유 시계열 신호 (목적 전환 / 추가매입 / 보고 빈도) 명시 노출 (260605)
         data["block_holder_dynamics"] = control_map.get("block_holder_dynamics", [])
+    if wants_insiders and insiders is not None:
+        data["insider_holdings"] = insiders
     if scope == "timeline":
         data["timeline"] = combined_timeline[:50]
 
