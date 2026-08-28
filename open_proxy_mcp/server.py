@@ -6,6 +6,7 @@ import os
 import re
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
+from open_proxy_mcp.capture import CaptureMiddleware
 from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.resources import register_all_resources
 from open_proxy_mcp.tools import register_all_tools
@@ -446,6 +447,11 @@ def build_app(server=None):
         # 그 구멍은 이 이관과 무관한 기존 구조이고 따로 다뤄야 한다.
         max_request_body_size=4 * 1024 * 1024,
     )
+    # 안쪽부터 바깥쪽 순서로 읽는다 — Starlette 의 add_middleware 는 **앞에 끼우므로**
+    # 나중에 더한 ApiKeyMiddleware 가 바깥이 된다. 그게 맞다: 키 게이트를 통과한 진짜
+    # 호출만 기록에 남고, 401 로 되돌아간 요청은 섞이지 않는다.
+    # CaptureMiddleware 는 `OPM_CAPTURE_DIR` 이 있을 때만 실제로 일한다(운영에는 없다).
+    app.add_middleware(CaptureMiddleware)
     app.add_middleware(ApiKeyMiddleware)
     return app
 
