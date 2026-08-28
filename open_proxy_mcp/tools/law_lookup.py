@@ -145,6 +145,11 @@ def register_tools(mcp):
         (`law_lookup_synonyms.json`)만, false-friend guard(이사↮사외이사 등), difflib 없음. 삭제 조문 보존+경고.
         미시행: 전문 시행예정본은 조문별 현행여부 '확인필요'로 유보(단정 X), 진짜 조문별 미래시행만 SSOT
         effective_date로 flag. 조문번호 법령 미지정+중복 → ambiguous. 강매치 아니면 폴백 유형별 안내(fallback).
+        **범위 밖은 조문을 붙이지 않는다** — 거래소 상장규정·공시규정·업무규정(관리종목·상장폐지·실질심사·
+        불성실공시·정리매매 등)은 이 4법 원문에 없으므로 어휘가 겹쳐도 조문을 반환하지 않고 범위 안내로 끝낸다
+        (fallback.type=out_of_corpus_topic · data.results_suppressed). 용어 자체를 못 알아본 질의(too_vague·
+        too_generic)는 전문 없이 후보 표만, 약한 매칭(weak_match)은 전문을 상위 3건만 붙인다
+        (data.full_text_suppressed · full_text_limited_to). 전문이 더 필요하면 조문번호로 다시 묻는다.
         query: 정관 조항 텍스트 · 키워드 · 조문번호(예: 제542조의8) · 자유 질의
         direction: auto(기본) | clause_to_law(정관/키워드→법) | law_to_clause(법조문/키워드→정관·안건)
         law: 법령 필터 "" (전체) | 상법 | 자본시장법 | 공정거래법 | 외부감사법 (시행령 포함)

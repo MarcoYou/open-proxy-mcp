@@ -61,10 +61,23 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.append("## 지분 구성")
         lines.append(f"- 명부상 최대주주(본인 단독): {top.get('name', '-') or '-'} {top.get('ownership_pct', 0):.2f}%")
         if top_block:
+            _tb_self = top_block.get("reporter_self_pct")
+            _tb_self_txt = (
+                f", 그중 보고자 본인 {_tb_self:.2f}%" if _tb_self is not None else ""
+            )
             lines.append(
                 f"- 5% 대량보유 실세: {top_block.get('reporter', '-')} "
-                f"{top_block.get('ownership_pct', 0):.2f}% ({top_block.get('purpose', '')}) — 보고자 합산 기준"
+                f"{top_block.get('ownership_pct', 0):.2f}% ({top_block.get('purpose', '')}) "
+                f"— 본인 + 특별관계자 합산{_tb_self_txt}"
             )
+        _camps = (data.get("block_camps") or {}).get("camps") or []
+        if any((c.get("block_count") or 1) > 1 for c in _camps):
+            _top_camp = _camps[0]
+            if _top_camp.get("net_pct") is not None:
+                lines.append(
+                    f"- 겹치는 몫을 걷어낸 최대 진영: {_top_camp.get('label','')} "
+                    f"{_top_camp['net_pct']:.2f}% (아래 진영별 표)"
+                )
         # 100% 정합 분해 — 명부(본인+특관)/자사주/기타로 발행총수를 중복 없이 나눈다.
         # 5% 대량보유는 보고자 공동보유·중복이라 합산 100%가 안 되므로 여기엔 쓰지 않는다.
         _tr = data.get("treasury", {})
@@ -103,27 +116,98 @@ def _render(payload: dict[str, Any], scope: str) -> str:
 
     if scope in {"summary", "blocks", "control_map"}:
         blocks = data.get("blocks", []) or []
-        lines.extend(["", "## 5% 대량보유 최신", "| 보고자 | 지분율 | 보유목적 | 날짜 | 공시번호 |", "|--------|--------|----------|------|----------|"])
+        lines.extend([
+            "", "## 5% 대량보유 최신",
+            "> 지분율은 **보고자 본인 + 특별관계자 합산**이다. 「본인」은 보고자가 직접 가진 몫.",
+            "> 보고자끼리 같은 특별관계자를 품고 있을 수 있어 이 표의 지분율은 더하면 안 된다.",
+            "",
+            "| 보고자 | 지분율(본인+특관) | 본인 | 보유목적 | 날짜 | 공시번호 |",
+            "|--------|------------------|------|----------|------|----------|",
+        ])
         for row in blocks[:15]:
-            lines.append(f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | {row['report_date']} | `{row['rcept_no']}` |")
+            _self = row.get("reporter_self_pct")
+            self_cell = "미확인" if _self is None else f"{_self:.2f}%"
+            if _self is not None and _self == 0:
+                self_cell = "0.00% ⚠"
+            lines.append(
+                f"| {row['reporter']} | {row['ownership_pct']:.2f}% | {self_cell} | "
+                f"{row['purpose']} | {row['report_date']} | `{row['rcept_no']}` |"
+            )
+        # 본인 지분이 0 인 보고자 — 「41.13%를 보고한 주체가 한 주도 없다」가 무슨 뜻인지 적는다.
+        # 왜 0 인지는 대량보유보고서만으로 알 수 없어 단정하지 않는다.
+        for row in blocks[:15]:
+            if row.get("reporter_self_note"):
+                lines.append("")
+                lines.append(f"- ⚠ **{row['reporter']} 본인 0.00%** — {row['reporter_self_note']} "
+                             f"(원문 공시번호 `{row.get('rcept_no','')}`)")
         # 공동보유자 분해 — 헤드라인 지분율은 보고자 본인+특별관계자 합산이라, 누가 얼마씩인지 표기.
         co_blocks = [r for r in blocks[:15] if r.get("co_holders")]
         if co_blocks:
             lines.append("")
             lines.append("## 공동보유자 분해 (보고자 본인 vs 특별관계자)")
-            lines.append("> 헤드라인 지분율 = 보고자 본인 + 특별관계자 **합산**. 아래는 그 내역.")
+            lines.append("> 5% 보고 지분율 = 보고자 본인 + 특별관계자 **합산**. 아래는 그 내역이다.")
+            lines.append("> 0.00% 보유자는 접었다 — `format=\"json\"` 으로 부르면 전원 다 나온다.")
             for r in co_blocks:
                 verified = r.get("co_holders_verified")
-                vtag = "" if verified else "  ⚠합계 미검증(원문 대조 권장)"
+                vtag = "" if verified else "  ⚠합계가 보고 지분율과 안 맞는다(원문 대조 필요)"
                 lines.append("")
                 lines.append(f"### {r['reporter']} {r['ownership_pct']:.2f}% "
                              f"(본인 {r.get('reporter_self_pct')}% + 특관, 합산 {r.get('co_holders_total_pct')}%){vtag}")
                 lines.append("| 공동보유자 | 지분율 | 명부 최대주주 |")
                 lines.append("|------------|--------|----------------|")
                 lines.append(f"| {r['reporter']} (보고자 본인) | {r.get('reporter_self_pct')}% | - |")
-                for ch in sorted(r["co_holders"], key=lambda x: -(x.get("ownership_pct") or 0)):
+                _co = sorted(r["co_holders"], key=lambda x: -(x.get("ownership_pct") or 0))
+                _zero = [c for c in _co if round(c.get("ownership_pct") or 0, 2) == 0]
+                for ch in _co:
+                    if round(ch.get("ownership_pct") or 0, 2) == 0:
+                        continue
                     reg = "✓" if ch.get("is_registry_holder") else ""
                     lines.append(f"| {ch.get('name','')} | {ch.get('ownership_pct')}% | {reg} |")
+                if _zero:
+                    _zero_reg = sum(1 for c in _zero if c.get("is_registry_holder"))
+                    _reg_cell = f"{_zero_reg}명 ✓" if _zero_reg else ""
+                    lines.append(f"| +{len(_zero)}명 (각 0.0%) | 0.0% | {_reg_cell} |")
+
+        # 진영별 순 지분 — 5% 보고를 그냥 더하면 100%를 넘는 문제(같은 주식의 이중 신고)를 푼다.
+        camps_data = data.get("block_camps") or {}
+        camps = camps_data.get("camps") or []
+        _merged = any((c.get("block_count") or 1) > 1 for c in camps)
+        if camps and (_merged or camps_data.get("exceeds_100")):
+            lines.append("")
+            lines.append("## 진영별 순 지분 (겹치는 몫을 한 번만 계산)")
+            lines.append(
+                f"> 위 5% 보고를 그냥 더하면 {camps_data.get('headline_total_pct', 0):.2f}%다 — "
+                "보고자들이 같은 특별관계자를 서로 품고 있어 같은 주식이 여러 번 신고된 결과다."
+            )
+            lines.append("> 아래는 겹치는 보고자를 한 편으로 묶고, 한 편 안에서 같은 이름을 한 번만 센 값이다.")
+            lines.append("")
+            lines.append("| 진영 | 보고 합산 | 순 지분 | 어떻게 구했나 |")
+            lines.append("|------|-----------|---------|----------------|")
+            for camp in camps:
+                net = camp.get("net_pct")
+                net_cell = "계산 불가" if net is None else f"**{net:.2f}%**"
+                lines.append(
+                    f"| {camp.get('label','')} | {camp.get('headline_sum_pct', 0):.2f}% | "
+                    f"{net_cell} | {camp.get('net_basis','')} |"
+                )
+            _net_total = camps_data.get("net_total_pct")
+            if _net_total is not None:
+                lines.append(
+                    f"| **합계** | {camps_data.get('headline_total_pct', 0):.2f}% | "
+                    f"**{_net_total:.2f}%** | 5% 보고가 잡아낸 몫만. 나머지는 5% 미만 주주 |"
+                )
+            pairs = camps_data.get("shared_holders_between_reporters") or []
+            if pairs:
+                lines.append("")
+                lines.append("**어느 보고자끼리 누구를 함께 안고 있나**")
+                for pair in pairs:
+                    who = " ↔ ".join(pair.get("reporters", []))
+                    held = pair.get("shared_holders", [])
+                    shown = ", ".join(
+                        f"{h.get('name','')} {h.get('ownership_pct', 0):.2f}%" for h in held[:4]
+                    )
+                    more = f" 외 {len(held) - 4}명" if len(held) > 4 else ""
+                    lines.append(f"- {who}: {shown}{more}")
 
     # 자사주는 요약줄 + 100% 지분 구성표에 이미 노출되므로 별도 섹션은 두지 않는다(중복 제거).
     # 자사주 상세(취득/처분 이력 등)는 treasury_share tool.
@@ -245,7 +329,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 최대주주·특수관계인·5% 대량보유 지분 구조 + **공동보유자 분해**. 자사주 detail은 `treasury_share` 별도.
         when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널, **"OO의 N% 지분이 누구누구 공동보유냐 / 보고자 본인 지분은 얼마냐"** 질의.
-        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None.
+        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None. **5% 보고 지분율끼리 더하지 말 것** — 보고자들이 같은 특별관계자를 공유해 같은 주식이 중복 신고된다(고려아연 단순합 111.84%). 중복을 걷어낸 진영별 순 지분은 `block_camps.camps[].net_pct`, 겹침 내역은 `block_camps.shared_holders_between_reporters`, 총합은 `block_camps.net_total_pct`(null이면 계산 불가 — 지어내지 말 것). `reporter_self_pct=0`이면 `reporter_self_note`에 뜻이 담긴다(보고자 본인 직접 보유 없음; 사유는 본 보고서로 확정 불가). DART 013/014/404는 실패가 아니라 「해당 자료 없음」으로 표기된다.
         scope: `summary` 최대주주+5%블록(+공동보유자 분해)+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력+공동보유자 분해 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동)+공동보유자 / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) 통합
         ref: treasury_share, proxy_contest, evidence
         """

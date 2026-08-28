@@ -770,14 +770,57 @@ def _record_public(rec: dict[str, Any], *, include_full_text: bool, as_of_iso: s
 # ── 폴백 유형 분류 (검색이 '깨끗한 정답'이 아닐 때 이유별 안내) ─────────────
 _LAWS_LABEL = "상법·자본시장법·공정거래법·외부감사법"
 
+#: **질의 용어 자체를 알아보지 못한** 유형. 이때는 조문 전문·항·호를 붙이지 않는다 —
+#: "법령 용어를 알아보지 못했어요" 라고 말하면서 조문 20건을 쏟는 것이 260828 U 지적 A-4 의
+#: 실체다(md 23,513자). 알아본 게 없으면 붙일 근거도 없다. 표(법령·조문·제목·score)까지만.
+_NO_FULLTEXT_FALLBACKS = {"too_vague", "too_generic", "no_match"}
+#: 용어는 알아봤지만(희소 anchor 있음) 정확한 조문은 못 짚은 유형. 여기서는 전문을 **버리지 않고
+#: 상위 몇 건으로 줄인다** — `집중투표`·`대량보유` 같은 정상 키워드 조회가 전부 이쪽이라
+#: 통째로 막으면 도구의 주 용도가 죽는다.
+_LIMIT_FULLTEXT_FALLBACKS = {"weak_match", "deleted_only"}
+#: 각각의 상한.
+_NO_FULLTEXT_SHOW_MAX = 5
+_LIMIT_FULLTEXT_TOPN = 3
+
+
+#: corpus 밖 **규범 체계** — 한국거래소 자율규정(상장·공시·업무규정) 영역. 사전(JSON)의
+#: `out_of_corpus`(차등의결권 등 개별 제도)와 목적이 같고 층위만 다르다: 이쪽은 "그 법이 아니라
+#: 거래소 규정" 이라는 답을 준다.
+#:
+#: 260828 U 실사용 지적 A-4 — "코스닥 관리종목 지정 시가총액 요건"을 물었더니 외부감사법 §14 ·
+#: 자본시장법 §246 · §86 전문이 23KB 쏟아졌다. 4법 원문에 그 요건이 **없는데도** BM25 가 어휘만
+#: 겹치는 조문을 끌어온 것이다. 모르는 영역은 모른다고 말한다.
+#:
+#: ★ 이 표는 **강한 매칭(E/B/강C)이 없을 때만** 본다(`_classify_fallback` 의 `if strong: return None`
+#:   아래). 진짜 그 법 조문이 강하게 걸리면 그건 그대로 준다 — 예: 자본시장법 §390(상장규정 위임).
+_EXCHANGE_RULE_TOPICS: dict[str, str] = {
+    "관리종목": "한국거래소 유가증권·코스닥시장 상장규정 (자본시장법 제390조가 거래소에 위임)",
+    "투자주의환기종목": "한국거래소 코스닥시장 상장규정",
+    "상장적격성": "한국거래소 상장규정(상장적격성 실질심사)",
+    "실질심사": "한국거래소 상장규정(상장적격성 실질심사)",
+    "상장폐지": "한국거래소 유가증권·코스닥시장 상장규정",
+    "상장유지": "한국거래소 유가증권·코스닥시장 상장규정",
+    "상장예비심사": "한국거래소 유가증권·코스닥시장 상장규정",
+    "우회상장": "한국거래소 유가증권·코스닥시장 상장규정",
+    "상장규정": "한국거래소 유가증권·코스닥시장 상장규정",
+    "불성실공시": "한국거래소 유가증권·코스닥시장 공시규정",
+    "공시불이행": "한국거래소 유가증권·코스닥시장 공시규정",
+    "공시번복": "한국거래소 유가증권·코스닥시장 공시규정",
+    "정리매매": "한국거래소 유가증권·코스닥시장 업무규정",
+    "매매거래정지": "한국거래소 유가증권·코스닥시장 업무규정",
+    "투자경고종목": "한국거래소 시장감시규정(시장경보)",
+    "투자위험종목": "한국거래소 시장감시규정(시장경보)",
+    "단기과열종목": "한국거래소 시장감시규정(시장경보)",
+}
+
 
 def _out_of_corpus_hit(q: str, tokens: set[str]) -> tuple[str, str] | None:
-    """질의가 현재 4법 범위 밖 주제(차등의결권 등)를 가리키나 → (용어, 근거법령)."""
-    ooc = load_synonyms().get("out_of_corpus", {})
-    if not ooc:
-        return None
+    """질의가 현재 4법 범위 밖 주제(차등의결권·거래소 상장규정 등)를 가리키나 → (용어, 근거)."""
+    ooc = {**load_synonyms().get("out_of_corpus", {}), **_EXCHANGE_RULE_TOPICS}
     nq = normalize(q)
     for term, where in ooc.items():
+        if term.startswith("_"):          # 사전의 `_note` 같은 메타 키는 매칭 대상이 아니다
+            continue
         if term in tokens or normalize(term) in nq:
             return term, where
     return None
@@ -824,8 +867,13 @@ def _classify_fallback(
         term, where = ooc
         return {
             "type": "out_of_corpus_topic",
-            "message": f"'{term}'은 지금 담긴 4개 법에는 없는 주제예요. 관련 근거는 {where}에 있습니다.",
-            "actions": [f"지금 찾을 수 있는 법은 {_LAWS_LABEL}이에요. 이 안의 비슷한 주제로 물어보셔도 돼요."],
+            "message": f"'{term}'은(는) 이 도구의 범위 밖이에요. 이 도구가 담고 있는 법은 "
+                       f"{_LAWS_LABEL}(각 시행령 포함)뿐이고, 물어보신 근거는 {where}에 있습니다. "
+                       f"거래소 상장규정·공시규정·업무규정은 여기 들어 있지 않아요.",
+            # ★ 어휘만 겹친 조문을 붙이지 않는다. 붙이면 「범위 밖」이라고 말해 놓고 화면은 그 반대가
+            #   된다 — 260828 U 실사용: 범위 밖 질의에 무관 조문 전문 23KB.
+            "actions": [f"이 도구로 답할 수 있는 것은 {_LAWS_LABEL} 안의 주제예요.",
+                        "거래소 규정은 KRX 홈페이지 또는 국가법령정보센터에서 확인하셔야 해요."],
         }
     if law_filter and not candidates:
         law_txt = ", ".join(law_filter)
@@ -926,8 +974,7 @@ def build_law_lookup_payload(
 
     total = len(candidates)
     shown = candidates[:max(1, top_k)]
-    if total > len(shown):
-        warnings.append(f"후보 {total}건 중 상위 {len(shown)}건만 표시(top_k={top_k}).")
+    # "상위 N건만 표시" 경고는 **자르기가 다 끝난 뒤**에 낸다(아래 약한-매칭 트림이 N을 더 줄인다).
 
     # status 도출
     _meta = idx.get("meta", {})
@@ -946,12 +993,44 @@ def build_law_lookup_payload(
     else:
         status = AnalysisStatus.AMBIGUOUS
 
+    # ── 폴백 유형을 **직렬화 前에** 분류한다 ────────────────────────────────────
+    # 종전에는 조문 전문을 다 만든 뒤에 분류했다. 그래서 「범위 밖이에요」·「용어를 알아보지
+    # 못했어요」라고 말하면서 동시에 조문 전문 20건을 붙여 내보냈다(260828 U 실사용 A-4:
+    # md 23,513자). 무엇을 붙일지는 **왜 약한지를 알고 난 뒤**에 정해야 한다.
+    exact_hits = any(c["e"] for c in candidates)
+    fallback = _classify_fallback(
+        q=q, tokens=tokens, refs=refs, law_filter=law_filter,
+        candidates=candidates, shown=shown, collision=collision, collision_laws=collision_laws,
+        has_anchor=has_anchor, exact_hits=exact_hits)
+    ftype = (fallback or {}).get("type")
+
+    # 범위 밖 주제 → 조문을 **아예 붙이지 않는다.** 어휘만 겹친 후보라 붙일수록 해롭다.
+    if ftype == "out_of_corpus_topic":
+        shown = []
+        status = AnalysisStatus.REQUIRES_REVIEW
+    # 용어를 못 알아본 경우 → 표까지만. 화면을 한참 넘기게 만드는 것이 전문이고,
+    #   그 전문이 질의와 무관하면 넘긴 만큼이 통째로 손해다.
+    elif ftype in _NO_FULLTEXT_FALLBACKS:
+        shown = shown[:_NO_FULLTEXT_SHOW_MAX]
+        include_full_text = False
+    trimmed_weak = ftype in _NO_FULLTEXT_FALLBACKS
+    # 용어는 알아봤으나 약한 매칭 → 전문은 상위 몇 건만.
+    limit_ft = _LIMIT_FULLTEXT_TOPN if ftype in _LIMIT_FULLTEXT_FALLBACKS else None
+    if total > len(shown) and shown:      # 통째로 뺀 경우(범위 밖)는 위 안내가 이미 이유를 말한다
+        warnings.append(f"후보 {total}건 중 상위 {len(shown)}건만 표시"
+                        + (f" (용어를 못 알아봐 {_NO_FULLTEXT_SHOW_MAX}건으로 줄임)." if trimmed_weak
+                           else f"(top_k={top_k})."))
+
     # 후보 직렬화
     results = []
     version_warned: set[str] = set()  # 전문 시행예정본 경고는 법령당 1회만
-    for c in shown:
+    for _i, c in enumerate(shown):
         rec = c["record"]
-        item = _record_public(rec, include_full_text=include_full_text, as_of_iso=as_of_iso)
+        tail = limit_ft is not None and _i >= limit_ft   # 약한 매칭의 꼬리 — 표에만 남긴다
+        item = _record_public(rec, include_full_text=include_full_text and not tail,
+                              as_of_iso=as_of_iso)
+        if trimmed_weak or tail:
+            item["hang"], item["ho"] = [], {}   # 표만 남긴다 — 약한 후보의 본문은 노이즈다
         item["score"] = c["score"]
         item["signals"] = sorted(c["signals"])
         # ① 진짜 조문별 미래시행은 SSOT(조항 대장)의 effective_date로만 단정.
@@ -996,16 +1075,18 @@ def build_law_lookup_payload(
                  f"@commit {meta.get('source_commit', '')[:8]} 시행 {linfo.get('enforcement', '')}",
         ))
 
-    # 폴백 유형 분류 → 유형별 안내(문구는 warnings 맨 앞, 행동은 next_actions).
-    exact_hits = any(c["e"] for c in candidates)
-    fallback = _classify_fallback(
-        q=q, tokens=tokens, refs=refs, law_filter=law_filter,
-        candidates=candidates, shown=shown, collision=collision, collision_laws=collision_laws,
-        has_anchor=has_anchor, exact_hits=exact_hits)
+    # 폴백 안내 배치 (문구는 warnings 맨 앞, 행동은 next_actions). 분류 자체는 위에서 끝났다.
     next_actions: list[str] = []
     if fallback:
         warnings.insert(0, fallback["message"])  # 사람이 읽는 친근한 문구(유형 태그는 data.fallback.type에)
         next_actions.extend(fallback["actions"])
+    if trimmed_weak and results:
+        warnings.insert(1, f"강한 매칭이 아니라 **조문 전문을 붙이지 않았습니다** — 아래 {len(results)}건은 "
+                           f"어휘가 겹친 참고 후보입니다(전체 {total}건). 전문이 필요하면 조문번호"
+                           f"(예: 제542조의8)로 다시 물어보세요.")
+    elif limit_ft is not None and len(results) > limit_ft:
+        warnings.insert(1, f"딱 맞는 조문을 짚지 못해 **전문은 상위 {limit_ft}건만** 붙였습니다 — "
+                           f"나머지는 표에만 있습니다. 전문이 더 필요하면 조문번호로 다시 물어보세요.")
     next_actions.append("정관 본문↔안건 판단은 proxy_advise_before_meeting")
 
     fresh = corpus_freshness(as_of_iso)
@@ -1019,6 +1100,11 @@ def build_law_lookup_payload(
         "law_filter": law_filter, "detected_laws": laws,
         "query_tokens": sorted(tokens), "article_refs": refs,
         "total_candidates": total, "results": results,
+        # 전문을 뺐는지/후보를 통째로 뺐는지를 payload 에도 남긴다 — md 만 보고 "조문이 없다"로
+        # 읽히면 안 된다. 없는 것이 아니라 **약해서 안 붙인 것**이다.
+        "full_text_suppressed": bool(trimmed_weak) or ftype == "out_of_corpus_topic",
+        "full_text_limited_to": limit_ft,
+        "results_suppressed": ftype == "out_of_corpus_topic",
         "fallback": fallback,  # None이면 깨끗한 정답
         "corpus_asof": fresh["asof"], "corpus_age_days": fresh["age_days"],
         "usage": build_usage(0),

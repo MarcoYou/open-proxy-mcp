@@ -22,6 +22,7 @@ from open_proxy_mcp.services.contracts import (
     build_usage,
     status_from_filing_meta,
 )
+from open_proxy_mcp.services.dart_safety import _NOT_A_FAILURE, classify_degrade
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.holder_table import holder_table_total, parse_holder_table
 from open_proxy_mcp.services.ownership_parser import parse_holding_purpose, parse_holding_purpose_from_document
@@ -40,6 +41,25 @@ _SUPPORTED_SCOPES = {
 _REPRT_CODE_FALLBACK = ["11011", "11014", "11012", "11013"]
 
 _SUBTOTAL_NAMES = {"계", "합계", "소계", "총계", "총합계"}
+
+
+def _dart_read_note(exc: DartClientError, *, empty_text: str, fail_text: str) -> tuple[bool, str]:
+    """DART 응답 코드를 「자료가 없다」와 「조회가 실패했다」로 가른다.
+
+    013(조회된 데이타가 없습니다)·014(원본 파일 없음)·404(회사·문서 못 찾음)는 **실패가
+    아니라 답**이다. 이것을 실패로 찍으면 읽는 사람은 도구가 고장난 줄 알고 재시도한다.
+    (U 지적 C-8 — 에스제이그룹 changes 가 「변동신고서 DART 검색 실패: 013」으로 나왔고,
+    U 는 변동신고서 구간을 못 본 채로 끝냈다. 실제로는 그 구간에 변동신고서가 없었다.)
+    키 오류·점검·과호출 등 사람이 조치해야 하는 것만 실패로 남긴다.
+    코드 분류표는 dart_safety 한 곳에서만 관리한다(도구마다 다시 적지 않는다).
+
+    Returns:
+        (is_failure, message) — is_failure=False 면 정상적인 「없음」 안내다.
+    """
+    kind, guide = classify_degrade(exc)
+    if kind in _NOT_A_FAILURE:
+        return False, empty_text
+    return True, f"{fail_text} — {guide}"
 
 
 def _to_float(value: Any) -> float:
@@ -173,10 +193,13 @@ async def _fetch_major_with_fallback(
             data = await client.get_major_shareholders(corp_code, try_year, try_code)
         except DartClientError as exc:
             last_status = exc.status
-            if exc.status != "013":
-                warnings.append(
-                    f"hyslrSttus 호출 실패 ({try_year}/{try_code}): {exc.status}"
-                )
+            failed, note = _dart_read_note(
+                exc,
+                empty_text="",
+                fail_text=f"최대주주 명부 조회 실패 ({try_year}년 {try_code} 보고서)",
+            )
+            if failed:
+                warnings.append(note)
             continue
         rows = _major_holders_rows(data)
         if rows:
@@ -224,8 +247,11 @@ async def _fetch_largest_shareholder_from_blocks(
     try:
         data = await client.get_block_holders(corp_code)
     except DartClientError as exc:
-        if exc.status != "013":
-            warnings.append(f"5% 대량보유 대체 실패: {exc.status}")
+        failed, note = _dart_read_note(
+            exc, empty_text="", fail_text="5% 대량보유 보고 조회 실패(최대주주 추정 경로)",
+        )
+        if failed:
+            warnings.append(note)
         return [], warnings
 
     latest_by_reporter: dict[str, dict[str, Any]] = {}
@@ -314,11 +340,155 @@ def _enrich_co_holders(blocks: list[dict[str, Any]], major_rows: list[dict[str, 
                 co_verified = abs(co_total - headline) <= max(headline * 0.05, 0.5)
         row["self_pct"] = self_pct
         row["reporter_self_pct"] = self_pct            # 보고자 본인 지분
+        # 「본인 0.0% + 특관」의 뜻을 산출물에 실어 보낸다(U 지적 D-10 — 영풍 41.13% 인데
+        # 본인 0.0%). 왜 0 인지(처분인지 상호주 의결권 제한인지)는 대량보유보고서만으로는
+        # 알 수 없으므로 **단정하지 않고** 원문 확인 대상으로 남긴다.
+        row["reporter_self_note"] = (
+            "보고자 본인은 직접 보유가 없고, 위 지분율은 전부 특별관계자 몫이다. "
+            "본인 보유가 0 인 사유(처분·의결권 제한 등)는 이 보고서로는 알 수 없어 원문 확인이 필요하다."
+            if self_pct is not None and self_pct == 0 and co_holders
+            else ""
+        )
         row["co_holders"] = co_holders                 # 공동보유자 명세 [{name, ownership_pct, is_registry_holder}]
         row["co_holders_total_pct"] = co_total         # 본인+특관 합 (헤드라인 검산)
         row["co_holders_verified"] = co_verified       # 합≈헤드라인이면 True, 불일치 False(미검증)
         row["coheld_with_registry"] = bool(coheld_names)
         row["coheld_names"] = coheld_names
+
+
+def _block_member_map(row: dict[str, Any]) -> tuple[dict[str, tuple[str, float]], bool]:
+    """5% 블록 하나가 품고 있는 사람·법인 목록 → {정규화이름: (표기이름, 지분율)}.
+
+    합계표를 읽은 블록은 보고자 본인 + 특별관계자 전원을, 못 읽은 블록은 보고자 이름
+    하나만 헤드라인 지분율로 담는다(두 번째 반환값이 「분해했는가」).
+    """
+    members: dict[str, tuple[str, float]] = {}
+    reporter = _clean_name(row.get("reporter", ""))
+    co_holders = row.get("co_holders")
+    if not co_holders:
+        key = _normalize_entity_name(reporter)
+        if key:
+            members[key] = (reporter, _to_float(row.get("ownership_pct")))
+        return members, False
+    self_key = _normalize_entity_name(reporter)
+    if self_key:
+        members[self_key] = (reporter, _to_float(row.get("reporter_self_pct")))
+    for holder in co_holders:
+        name = _clean_name(holder.get("name", ""))
+        key = _normalize_entity_name(name)
+        if not key:
+            continue
+        pct = _to_float(holder.get("ownership_pct"))
+        # 같은 이름이 두 번 나오면 큰 쪽을 남긴다(보고서 간 반올림 차이 흡수).
+        if key not in members or pct > members[key][1]:
+            members[key] = (name, pct)
+    return members, True
+
+
+def _build_block_camps(blocks: list[dict[str, Any]]) -> dict[str, Any]:
+    """5% 보고 지분율을 단순히 더하면 100% 를 넘는 문제를 푼다(U 지적 D-11).
+
+    같은 사람·법인을 특별관계자로 함께 안고 있는 보고자끼리는 **같은 지분을 두 번 신고**한다.
+    고려아연이 그렇다 — 영풍 41.13% 와 한국기업투자홀딩스 36.92% 가 (유)와이피씨 25.21% 를
+    서로 품고 있어, 5% 보고를 그냥 더하면 111.84% 가 된다.
+
+    여기서는 겹치는 보고자들을 한 편으로 묶고, 편 안에서 **같은 이름을 한 번만 세어**
+    편별 순 지분을 낸다. 편 전원의 합계표가 읽혔고 각 보고서의 합이 헤드라인과 맞을 때만
+    순 지분을 확정값으로 내고, 하나라도 못 읽었으면 숫자를 내지 않고 겹침 사실만 보여준다.
+    """
+    if not blocks:
+        return {}
+
+    member_maps: list[dict[str, tuple[str, float]]] = []
+    decomposed: list[bool] = []
+    for row in blocks:
+        members, ok = _block_member_map(row)
+        member_maps.append(members)
+        decomposed.append(ok)
+
+    # 같은 이름을 공유하는 보고자끼리 잇는다(union-find).
+    parent = list(range(len(blocks)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    shared_pairs: list[dict[str, Any]] = []
+    for i in range(len(blocks)):
+        for j in range(i + 1, len(blocks)):
+            common = set(member_maps[i]) & set(member_maps[j])
+            if not common:
+                continue
+            shared = sorted(
+                (
+                    {
+                        "name": member_maps[i][k][0],
+                        "ownership_pct": max(member_maps[i][k][1], member_maps[j][k][1]),
+                    }
+                    for k in common
+                ),
+                key=lambda h: -h["ownership_pct"],
+            )
+            shared_pairs.append({
+                "reporters": [blocks[i].get("reporter", ""), blocks[j].get("reporter", "")],
+                "shared_holders": shared,
+            })
+            ri, rj = find(i), find(j)
+            if ri != rj:
+                parent[ri] = rj
+
+    groups: dict[int, list[int]] = {}
+    for i in range(len(blocks)):
+        groups.setdefault(find(i), []).append(i)
+
+    camps: list[dict[str, Any]] = []
+    for members_idx in groups.values():
+        members_idx.sort(key=lambda i: -_to_float(blocks[i].get("ownership_pct")))
+        reporters = [blocks[i].get("reporter", "") for i in members_idx]
+        headline_sum = round(sum(_to_float(blocks[i].get("ownership_pct")) for i in members_idx), 2)
+        all_decomposed = all(decomposed[i] for i in members_idx)
+        all_verified = all(blocks[i].get("co_holders_verified") for i in members_idx) if all_decomposed else False
+        net_pct = None
+        basis = ""
+        if len(members_idx) == 1:
+            # 겹치는 보고자가 없으면 걷어낼 중복도 없다 — 공시된 지분율을 그대로 쓴다.
+            # (합계표를 다시 더하면 반올림 때문에 공시값과 0.01%p 어긋난 값을 만들게 된다.)
+            net_pct = headline_sum
+            basis = "보고 지분율 그대로 (겹치는 보고자 없음)"
+        elif all_decomposed and all_verified:
+            union: dict[str, float] = {}
+            for i in members_idx:
+                for key, (_name, pct) in member_maps[i].items():
+                    if key not in union or pct > union[key]:
+                        union[key] = pct
+            net_pct = round(sum(union.values()), 2)
+            basis = f"{len(members_idx)}건의 보고서 합계표를 합쳐 같은 이름을 한 번만 계산"
+        else:
+            basis = "합계표를 못 읽은 보고자가 있어 겹친 몫을 걷어내지 못함"
+        camps.append({
+            "reporters": reporters,
+            "label": " · ".join(reporters),
+            "headline_sum_pct": headline_sum,
+            "net_pct": net_pct,
+            "net_basis": basis,
+            "block_count": len(members_idx),
+        })
+    camps.sort(key=lambda c: -(c["net_pct"] if c["net_pct"] is not None else c["headline_sum_pct"]))
+
+    headline_total = round(sum(_to_float(row.get("ownership_pct")) for row in blocks), 2)
+    net_total = (
+        round(sum(c["net_pct"] for c in camps), 2)
+        if all(c["net_pct"] is not None for c in camps) else None
+    )
+    return {
+        "headline_total_pct": headline_total,
+        "exceeds_100": headline_total > 100.0,
+        "net_total_pct": net_total,
+        "camps": camps,
+        "shared_holders_between_reporters": shared_pairs,
+    }
 
 
 def _build_control_map(
@@ -427,7 +597,12 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
     try:
         data = await client.get_block_holders(corp_code)
     except DartClientError as exc:
-        return [], [], f"대량보유 공시 조회 실패: {exc.status}"
+        _failed, note = _dart_read_note(
+            exc,
+            empty_text="5% 대량보유 공시 없음 (해당 회사에 5% 이상 보고자가 없거나 보고 이력이 없음)",
+            fail_text="5% 대량보유 공시 조회 실패",
+        )
+        return [], [], note
 
     latest_by_reporter: dict[str, dict[str, Any]] = {}
     for item in data.get("list", []):
@@ -692,7 +867,12 @@ async def _fetch_change_filings(
             page_count=20,             # [:5]만 본문 파싱 — 12개월 window 최다 16건(삼성)이라 20이면 충분
         )
     except DartClientError as exc:
-        return [], [f"변동신고서 DART 검색 실패: {exc.status}"]
+        _failed, note = _dart_read_note(
+            exc,
+            empty_text="조사 구간 내 최대주주등소유주식변동신고서 없음 (DART 에 접수된 건이 없음)",
+            fail_text="최대주주등소유주식변동신고서 조회 실패",
+        )
+        return [], [note]
 
     filings_raw = [
         item for item in result.get("list", [])
@@ -726,7 +906,12 @@ async def _fetch_change_filings(
                 html = await client.kind_fetch_document(acptno)
                 source_used = "kind_scraping"
             except DartClientError as exc:
-                warnings.append(f"DART/KIND 변동신고서 모두 실패 ({rcept_no}): {exc.status}")
+                _failed, note = _dart_read_note(
+                    exc,
+                    empty_text=f"변동신고서 원문이 DART·KIND 양쪽에 없음 ({rcept_no})",
+                    fail_text=f"변동신고서 원문 조회 실패 ({rcept_no})",
+                )
+                warnings.append(note)
                 continue
 
         parsed = _parse_change_filing(html, rcept_no, rcept_dt)
@@ -857,7 +1042,13 @@ async def build_ownership_structure_payload(
                 tool="ownership_structure",
                 status=AnalysisStatus.ERROR,
                 subject=selected.get("corp_name", company_query),
-                warnings=[f"최대주주 API 조회 실패: {major_res.status}"],
+                warnings=[
+                    _dart_read_note(
+                        major_res,
+                        empty_text="최대주주 명부 자료 없음",
+                        fail_text="최대주주 명부 조회 실패",
+                    )[1]
+                ],
                 data={
                     "query": company_query,
                     "scope": scope,
@@ -875,7 +1066,12 @@ async def build_ownership_structure_payload(
 
     if isinstance(stock_total_res, DartClientError):
         stock_total = {"list": []}
-        warnings.append(f"주식총수 API 조회 실패: {stock_total_res.status}")
+        _failed, _note = _dart_read_note(
+            stock_total_res,
+            empty_text="발행주식총수 자료 없음 (해당 사업연도 정기보고서에 주식총수 항목이 없음)",
+            fail_text="발행주식총수 조회 실패",
+        )
+        warnings.append(_note)
     elif isinstance(stock_total_res, BaseException):
         raise stock_total_res
     else:
@@ -883,7 +1079,12 @@ async def build_ownership_structure_payload(
 
     if isinstance(treasury_res, DartClientError):
         treasury_data = {"list": []}
-        warnings.append(f"자사주 API 조회 실패: {treasury_res.status}")
+        _failed, _note = _dart_read_note(
+            treasury_res,
+            empty_text="자기주식 취득·처분 자료 없음 (해당 사업연도 정기보고서에 해당 항목이 없음)",
+            fail_text="자기주식 조회 실패",
+        )
+        warnings.append(_note)
     elif isinstance(treasury_res, BaseException):
         raise treasury_res
     else:
@@ -968,6 +1169,20 @@ async def build_ownership_structure_payload(
     top_holder = _top_holder_summary(major_rows)
     # 공동보유자 분해를 모든 scope의 5% 블록에 부착 (summary/blocks에서도 노출되도록).
     _enrich_co_holders(latest_blocks, major_rows)
+    # 보고자끼리 같은 특별관계자를 품고 있으면 5% 보고 지분율은 단순 합산이 안 된다.
+    block_camps = _build_block_camps(latest_blocks)
+    if block_camps.get("exceeds_100"):
+        _net = block_camps.get("net_total_pct")
+        _tail = (
+            f" 겹치는 몫을 한 번만 세면 {_net:.2f}%다."
+            if _net is not None
+            else " 겹치는 보고자 목록은 아래에 있으나, 합계표를 못 읽은 보고자가 있어 순 지분은 계산하지 않았다."
+        )
+        warnings.append(
+            f"5% 대량보유 보고 지분율을 그냥 더하면 {block_camps['headline_total_pct']:.2f}%로 100%를 넘는다 — "
+            "보고자들이 같은 특별관계자를 서로 품고 있어 같은 주식이 여러 번 신고되기 때문이다. 단순 합산은 하면 안 된다."
+            + _tail
+        )
     active_signals = [
         row for row in latest_blocks
         if row["purpose"] not in ("단순투자", "단순투자/일반투자", "불명")
@@ -1017,6 +1232,8 @@ async def build_ownership_structure_payload(
         data["major_holders"] = major_rows
     if scope in {"summary", "blocks", "control_map"}:
         data["blocks"] = latest_blocks
+        if block_camps:
+            data["block_camps"] = block_camps
     if scope == "blocks":
         # blocks scope에는 latest + 이력 timeline 통합 (timeline scope 폐지 흡수)
         data["timeline"] = timeline_rows[:50]

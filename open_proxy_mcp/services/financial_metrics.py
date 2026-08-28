@@ -23,8 +23,10 @@ from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.fiscal_period import (
+    fiscal_period_label,
     fiscal_quarter_from_end,
     fiscal_year_from_end,
+    fiscal_year_span,
     normalize_period_end,
 )
 from open_proxy_mcp.services.contracts import (
@@ -1097,9 +1099,23 @@ def _compute_metrics(
         )
 
     # ── 회계 risk ──
+    # 비율만 주면 분모(영업이익)가 적자·0 근처일 때 부호가 뒤집히고 크기가 뻥튀기된다.
+    # 하이퍼코퍼레이션 2025 실측 — 영업이익 -42.8억 / CFO -82.9억이라 현금이 이익보다 40억
+    # **더** 빠졌는데 비율은 -93.67%(= 현금이 더 좋아 보이는 부호)로 나온다. 금액차를 같이
+    # 내고 비율의 신뢰도를 표시한다(260828 U 지적 D-9).
     accruals_gap_pct = None
-    if operating_profit is not None and cfo is not None and operating_profit != 0:
-        accruals_gap_pct = round((operating_profit - cfo) / operating_profit * 100, 2)
+    accruals_gap_krw = None
+    accruals_gap_reliability = None
+    if operating_profit is not None and cfo is not None:
+        accruals_gap_krw = operating_profit - cfo
+        if operating_profit != 0:
+            accruals_gap_pct = round((operating_profit - cfo) / operating_profit * 100, 2)
+        if operating_profit is None or operating_profit <= 0:
+            accruals_gap_reliability = "negative_op"
+        elif revenue and abs(operating_profit) < abs(revenue) * 0.02:
+            accruals_gap_reliability = "thin_op"
+        else:
+            accruals_gap_reliability = "ok"
     ar_to_revenue_pct = _safe_pct(accounts_receivable, revenue)
     inv_to_revenue_pct = _safe_pct(inventory, revenue)
 
@@ -1214,6 +1230,8 @@ def _compute_metrics(
         "is_annualized_basis": period_months == 12,
         # ── 회계 risk ──
         "accruals_gap_pct": accruals_gap_pct,
+        "accruals_gap_krw": accruals_gap_krw,          # 영업이익 − 영업CF (부호 왜곡 없는 원본)
+        "accruals_gap_reliability": accruals_gap_reliability,  # ok / negative_op / thin_op
         "ar_to_revenue_pct": ar_to_revenue_pct,
         "inv_to_revenue_pct": inv_to_revenue_pct,
         # ── 배당/유보 ──
@@ -1329,7 +1347,11 @@ def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
 
     # 회계 risk
     acc = curr.get("accruals_gap_pct")
-    if acc is not None and abs(acc) > 30:
+    acc_rel = curr.get("accruals_gap_reliability")
+    if acc_rel in ("negative_op", "thin_op"):
+        # 분모가 적자·0 근처 — 비율은 뒤집히거나 뻥튀기된다. red 로 단정하지 않고 금액차를 보게 한다.
+        alerts.append("accruals_ratio_unreliable")
+    elif acc is not None and abs(acc) > 30:
         alerts.append("accruals_red")
     ar = curr.get("ar_to_revenue_pct")
     ar_prev_pct = prev.get("ar_to_revenue_pct") if prev else None
@@ -1453,6 +1475,15 @@ async def latest_annual_report_before(corp_code: str, as_of: str) -> dict[str, A
     }
 
 
+#: DART 정정 보고서는 보고서명 앞에 `[기재정정]`·`[첨부정정]`·`[첨부추가]` 등 대괄호 머리가 붙는다.
+_CORRECTION_NM = re.compile(r"\[[^\]]*(정정|추가|보완)[^\]]*\]")
+
+
+def _is_correction_report(report_nm: str | None) -> bool:
+    """보고서명이 정정본인지. 숫자가 정정 전인지 후인지 모르면 인용을 못 한다(260828 U 지적 A-3)."""
+    return bool(_CORRECTION_NM.search(report_nm or ""))
+
+
 async def _periodic_filing_ref(corp_code: str, year: int, reprt_code: str | None = None) -> dict[str, str] | None:
     """해당 연도 정기보고서(정기공시)의 rcept 메타 — evidence 원문 링크용.
 
@@ -1475,10 +1506,26 @@ async def _periodic_filing_ref(corp_code: str, year: int, reprt_code: str | None
     cand = narrowed or items
     cand.sort(key=lambda x: x.get("rcept_dt", ""), reverse=True)
     top = cand[0]
+    top_nm = (top.get("report_nm") or "").strip()
+    top_dt = (top.get("rcept_dt") or "").strip()
+    is_corr = _is_correction_report(top_nm)
+    # 「같은 날 함께 정정된 정기보고서」는 이미 받아온 목록(pblntf_ty=A) 안에서만 센다 —
+    # 추가 조회 없이 공짜다. 정기공시 밖(수시공시) 정정은 여기 안 잡힌다.
+    same_day = 0
+    if is_corr and top_dt:
+        same_day = sum(
+            1 for i in items
+            if (i.get("rcept_dt") or "").strip() == top_dt
+            and _is_correction_report(i.get("report_nm") or "")
+            and i.get("rcept_no") != top.get("rcept_no")
+        )
     return {
         "rcept_no": top.get("rcept_no", ""),
-        "rcept_dt": (top.get("rcept_dt") or "").strip(),
-        "report_nm": (top.get("report_nm") or "").strip(),
+        "rcept_dt": top_dt,
+        "report_nm": top_nm,
+        "is_correction": is_corr,
+        "correction_dt": top_dt if is_corr else "",
+        "same_day_corrections": same_day,
     }
 
 
@@ -2275,6 +2322,16 @@ async def build_financial_metrics_payload(
         "fiscal_year_end_month": fiscal_month,
         "available_scopes": sorted(_SUPPORTED_SCOPES),
     }
+    # 「사업연도 N」이 어느 12개월인지 라벨에 박는다 — 6월 결산 회사에서 1년을 통째로
+    # 오독하는 자리다(260828 U 지적 B-5). 결산월을 못 얻으면 붙이지 않는다(추측 금지).
+    _span = fiscal_year_span(target_year, fiscal_month)
+    if _span:
+        data["fiscal_period"] = {
+            "start": _span[0],
+            "end": _span[1],
+            "fiscal_year_end_month": fiscal_month,
+            "label": fiscal_period_label(target_year, fiscal_month),
+        }
 
     parsing_failures = 0
     filing_count = 0
@@ -2287,6 +2344,7 @@ async def build_financial_metrics_payload(
             data["summary"] = metrics
             filing_count = 1
             ref = await _periodic_filing_ref(corp_code, target_year, metrics.get("reprt_code"))
+            data["source_report"] = ref or {}
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_summary_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
@@ -2306,6 +2364,7 @@ async def build_financial_metrics_payload(
         filing_count = len(rows)
         if rows:
             ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], "11011")
+            data["source_report"] = ref or {}
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_yearly_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
@@ -2329,6 +2388,7 @@ async def build_financial_metrics_payload(
         filing_count = len(rows)
         if rows:
             ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], rows[-1].get("reprt_code"))
+            data["source_report"] = ref or {}
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_quarterly_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
@@ -2368,6 +2428,7 @@ async def build_financial_metrics_payload(
         filing_count = (1 if curr else 0) + (1 if prev else 0)
         if curr:
             ref = await _periodic_filing_ref(corp_code, target_year, curr.get("reprt_code"))
+            data["source_report"] = ref or {}
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_yoy_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
@@ -2396,6 +2457,7 @@ async def build_financial_metrics_payload(
         filing_count = len(rows)
         if rows:
             ref = await _periodic_filing_ref(corp_code, rows[-1]["year"], rows[-1].get("reprt_code"))
+            data["source_report"] = ref or {}
             evidence_refs.append(EvidenceRef(
                 evidence_id=f"ev_fm_qoq_{corp_code}_{target_year}",
                 source_type=SourceType.DART_API,
