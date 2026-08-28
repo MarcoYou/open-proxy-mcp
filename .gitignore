@@ -166,3 +166,10 @@ scratchpad_*.json
 
 # Claude Code 로컬 설정 (개인 경로·권한 허용목록 — 커밋 금지)
 .claude/settings.local.json
+
+# 작업 중 만든 백업 사본 (커밋 금지)
+*.bak-*
+
+# 에이전트 로컬 설정
+.agents/
+.codex/
