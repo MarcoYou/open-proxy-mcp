@@ -13,6 +13,7 @@ revenue_metric으로 그대로 노출한다.
 """
 from __future__ import annotations
 
+import html as _html
 import re
 
 from bs4 import BeautifulSoup
@@ -656,6 +657,17 @@ _ATTR_VALUE_RE = re.compile(
     r"(귀속시켰|귀속하였|귀속됩니다|귀속되어|기초하여\s*구분|소재지에\s*기초|"
     r"소재지\s*기준|소재지를?\s*기준|인도되는\s*국가|제공되는\s*국가)")
 _ATTR_LABEL_TAIL_RE = re.compile(r"대한\s*기술\s*$")
+_ATTR_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _attr_prefilter_text(table_html: str) -> str:
+    """표 원문을 **셀 텍스트와 같은 모양**으로 싸게 편다 — 재조립 없이.
+
+    셀 쪽은 `get_text(" ", strip=True)` 뒤 공백을 한 칸으로 접는다. 여기도 태그를
+    공백으로 바꾸고 엔티티를 풀고 공백을 접어야 「셀에서 잡히는 건 여기서도
+    잡힌다」가 성립한다.
+    """
+    return re.sub(r"\s+", " ", _html.unescape(_ATTR_TAG_RE.sub(" ", table_html)))
 
 
 def _mark_attribution(geo: dict, full_html: str) -> None:
@@ -678,6 +690,15 @@ def _mark_attribution(geo: dict, full_html: str) -> None:
     for m in _TABLE_RE.finditer(full_html, b[0]):
         if m.start() >= b[1]:
             break
+        # **글자로 먼저 거른다.** 표를 객체로 재조립하는 건 이 파일에서 제일 비싼 일인데,
+        #   찾는 건 문장 하나다. 표 원문에 그 문장의 흔적조차 없으면 재조립해도 없다.
+        #   같은 수법이 `segment_candidates.find_segment_candidates` 에 이미 있다.
+        #   실측(사용자가 조회한 120사, 표 2,536개): 통과 3개 — 재조립 2,536회 → 3회.
+        #   ⚠️ 셀 텍스트와 **같은 정규화**를 걸어야 필요조건이 성립한다. 엔티티를 안 풀면
+        #      `고객&nbsp;소재지` 를, 공백을 안 접으면 줄바꿈이 낀 문장을 놓친다 —
+        #      그러면 이건 「값싼 사전 검사」가 아니라 조용한 회귀다.
+        if not _ATTR_VALUE_RE.search(_attr_prefilter_text(m.group(0))):
+            continue
         try:
             tb = BeautifulSoup(m.group(0), "lxml").find("table")
         except Exception:
