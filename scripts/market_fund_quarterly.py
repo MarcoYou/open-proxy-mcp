@@ -313,6 +313,23 @@ def _is_net(e) -> bool:
     return any(t in type(e).__name__ for t in _NET) or any(t in str(e) for t in _NET)
 
 
+def _self_ref_map(con) -> dict:
+    """종목 → 자기 규모의 자(尺). 연간 자본(정정치 우선)의 중앙값과 최근값 중 큰 쪽.
+
+    260829 신설. 종전 가드는 시장 최댓값(삼성전자)을 앵커로 써서 「삼성보다 큰가」를 물었다 —
+    소형주의 1,000배 오류는 통과시키고 대형주의 정상 실적은 오탐했다. 회사마다 자를 따로 든다.
+    """
+    import collections
+    import statistics as _st
+    ann = collections.defaultdict(list)
+    for t, fy, eq, eqr in con.execute(
+            "SELECT ticker, fy, eq, eq_restated FROM dart_finstat_y ORDER BY fy"):
+        v = eqr if eqr is not None else eq
+        if v:
+            ann[t].append(abs(v))
+    return {t: max(_st.median(vs), vs[-1]) for t, vs in ann.items() if vs}
+
+
 async def fetch(years, pilot=None, conc=2) -> None:
     """동시성 conc(기본 2, CLAUDE.md 허용) 워커풀. DART client _throttle_api가 910/분 강제하므로
     안전. 큐에서 분기 작업을 꺼내 CFS→OFS + backoff 재시도. 지속 outage면 stop 세팅 → 워커 종료 →
@@ -333,6 +350,9 @@ async def fetch(years, pilot=None, conc=2) -> None:
     done = {(r[0], r[1], r[2]) for r in con.execute(
         "SELECT ticker, fy, quarter FROM dart_finstat_q WHERE quarter != 4 "
         "AND (fetched IS NULL OR fetched NOT LIKE 'err:%')")}
+    # 260829: 가드에 넘길 「그 회사 자신의 자」 — 연간 자본의 중앙값과 가장 최근 연간 자본 중 큰 쪽.
+    #   중앙값만 쓰면 실제로 커진 회사(증자)를 오탐한다. 실측 74,918행에서 오탐 0·목표 8행 전부 적중.
+    self_ref = _self_ref_map(con)
     con.close()
     todo = [(i, c, y, q, rc) for i, c in firms for y in years
             for q, rc in QFETCH if (i, y, q) not in done and _disclosed(y, q)]
@@ -406,7 +426,8 @@ async def fetch(years, pilot=None, conc=2) -> None:
                     async with lock:
                         buf.append((isu, yr, q, rc, None, None, None, fx_err, "ERR", "ERR"))
                 else:
-                    v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total)
+                    v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total,
+                                     self_ref=self_ref.get(isu))
                     if v["tier"] == "hard":
                         print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
                         ni = eq = None; ni_case = eq_case = "SCALE_GUARD"
