@@ -721,6 +721,18 @@ def _ctrl_ni(rows, field="thstrm_amount"):
     return total - nci
 
 
+def _ctrl_ni_cum(rows):
+    """분기보고서의 **당기 누적** 지배순이익.
+
+    🔴 DART 분기 원장은 `thstrm_amount`(당기 3개월)와 `thstrm_add_amount`(당기 누적)를
+    따로 준다. **1분기는 둘이 같아서** 이 차이가 여태 드러나지 않았다 — TTM 이 1분기에
+    못 박혀 있었기 때문이다(2026-08-30). 반기·3분기로 옮기는 순간 `thstrm_amount` 는
+    그 분기 3개월치라 TTM 이 통째로 틀린다. 누적을 먼저 보고, 없을 때만 3개월로 내려간다.
+    """
+    ni = _ctrl_ni(rows, "thstrm_add_amount")
+    return ni if ni is not None else _ctrl_ni(rows, "thstrm_amount")
+
+
 def _eps_disclosed(rows: list, *fields: str) -> float | None:
     """공시 기본주당이익 — fields 우선순위로 첫 유효값. 3단 매칭(100사 스윕 실측으로 확장):
     ① 표준 `ifrs-full_BasicEarningsLossPerShare`
@@ -889,11 +901,30 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         _shares_outstanding(client, cc, fy),
         _annual_summary(cc, fy),
     )
-    # P3: 분기 재무원장 — 연간에서 확정한 fs(연결/별도) 강제(TTM 혼용 방지) → 당해·전년 병렬.
-    (qc_rows, _), (qp_rows, _) = await asyncio.gather(
-        _acntall(client, cc, q_cur, "11013", fs_used),
-        _acntall(client, cc, q_prev, "11013", fs_used),
-    )
+    # P3: 분기 재무원장 — 연간에서 확정한 fs(연결/별도) 강제(TTM 혼용 방지).
+    #
+    # 🔴 **여기가 「11013」(1분기)으로 못 박혀 있었다** (2026-08-30 U 6차 실측).
+    #    그래서 반기보고서가 나온 8월 이후에도 TTM 이 **1분기 누적에 머물렀다**. 같은 날
+    #    태광산업 TTM PER 이 firm 29.96 / 스냅샷 8.61 로 3.5배 갈린 이유가 이것이다 —
+    #    스냅샷 배치는 최신 분기를 쓰고 이 경로만 한 분기 뒤처졌다. 검산:
+    #      FY2025 808억 + 2026반기 868억 − 2025반기 489억 = **1,187억**(스냅샷과 일치)
+    #      FY2025 808억 + 2026 1Q 283억 − 2025 1Q 750억 =   341억(이 경로가 내던 값)
+    #    한 종목이 아니라 **전 종목**에 걸린 문제였다.
+    #
+    #    이제 **최신 분기부터 내려오며** 찾는다(3Q → 반기 → 1Q). 🔴 **당해와 전년은 반드시
+    #    같은 분기여야 한다** — 다른 분기끼리 빼면 없는 실적을 만들어낸다. 그래서 당해에서
+    #    고른 코드를 전년에 그대로 쓰고, 전년이 비면 그 코드를 버리고 다음 후보로 내려간다.
+    _Q_CODES = ("11014", "11012", "11013")  # 3분기누적 · 반기누적 · 1분기누적
+    qc_rows, qp_rows, q_code = [], [], "11013"
+    for _rc in _Q_CODES:
+        _qc, _ = await _acntall(client, cc, q_cur, _rc, fs_used)
+        if not _qc:
+            continue
+        _qp, _ = await _acntall(client, cc, q_prev, _rc, fs_used)
+        if not _qp:
+            continue          # 짝이 없으면 뺄 수 없다 — 다음(더 이른) 분기로 내려간다
+        qc_rows, qp_rows, q_code = _qc, _qp, _rc
+        break
 
     # 통화 환산: 기능통화≠KRW(두산밥캣=USD 등)면 회계기말 환율로 KRW 환산 — KRW 주가/시총과
     # 통화 일치시켜야 배수가 유효(미환산 시 환율배수만큼 왜곡: 두산밥캣 PBR 1,238 오탐). wiki §9.
@@ -926,8 +957,12 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     eps_adj = None  # 보정 발동 시 {"current": f, "prior_q": f} — 근거 투명(explain에 표시)
     shares_unadjusted = None  # 계수 누락 탐지 시 {"shares_ratio": r, "factor": f} — PER 무효화
     if stock_code and any(x is not None for x in (eps_fy_disc, eps_qc_disc, eps_qp_disc)):
-        f_cur = await _eps_adj_factor(stock_code, f"{fy + 1}0331")  # 연간·당해1Q 결산기준일 이후
-        f_qp = await _eps_adj_factor(stock_code, f"{fy}0331")       # 전년1Q 결산기준일 이후
+        # 🔴 결산기준일도 **고른 분기**를 따라가야 한다 — 분기를 최신으로 옮겨 놓고 날짜만
+        #    0331 로 두면 그 사이의 액면분할·무상증자를 한 번 더 세거나 빠뜨린다.
+        _QEND = {"11013": "0331", "11012": "0630", "11014": "0930"}
+        _qe = _QEND.get(q_code, "0331")
+        f_cur = await _eps_adj_factor(stock_code, f"{fy + 1}{_qe}")  # 연간·당해분기 결산기준일 이후
+        f_qp = await _eps_adj_factor(stock_code, f"{fy}{_qe}")       # 전년동기 결산기준일 이후
         if f_cur != 1.0 or f_qp != 1.0:
             eps_adj = {"current": round(f_cur, 6), "prior_q": round(f_qp, 6)}
         if eps_fy_disc is not None:
@@ -937,15 +972,15 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         if eps_qp_disc is not None:
             eps_qp_disc *= f_qp
         # 계수 누락 탐지 — 조용히 틀린 값을 내느니 N/M 을 낸다
-        r_cur = await _shares_ratio(stock_code, f"{fy + 1}0331")
+        r_cur = await _shares_ratio(stock_code, f"{fy + 1}{_qe}")
         if r_cur and not (_ADJ_INVARIANT_LO <= f_cur * r_cur <= _ADJ_INVARIANT_HI):
             shares_unadjusted = {"shares_ratio": round(r_cur, 4), "factor": round(f_cur, 4)}
     eps_ttm_disc = (eps_fy_disc + eps_qc_disc - eps_qp_disc) \
         if None not in (eps_fy_disc, eps_qc_disc, eps_qp_disc) else None
 
     ni_fy = _fx(_ctrl_ni(fy_rows))
-    ni_qc = _fx(_ctrl_ni(qc_rows))
-    ni_qp = _fx(_ctrl_ni(qp_rows))
+    ni_qc = _fx(_ctrl_ni_cum(qc_rows))
+    ni_qp = _fx(_ctrl_ni_cum(qp_rows))
     ni_ttm = (ni_fy + ni_qc - ni_qp) if None not in (ni_fy, ni_qc, ni_qp) else None
     eq_mrq = _fx(_ctrl_equity(qc_rows))
     eq_fy = _fx(_ctrl_equity(fy_rows))
@@ -1122,6 +1157,11 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "shares_unadjusted": shares_unadjusted,  # 계수 누락 탐지 — 있으면 PER 무효(N/M)
                 "bps_krw": bps, "roe_pct": roe,
                 "net_income_fy0_krw": ni_fy, "net_income_ttm_krw": ni_ttm,
+                # TTM 이 **어느 분기까지** 반영한 것인지. 이 값이 없어서 한 분기 뒤처진
+                # 것을 아무도 못 봤다(2026-08-30). 기준은 값에 붙어 다녀야 한다.
+                "ttm_quarter": {"11013": "1분기 누적", "11012": "반기 누적",
+                                "11014": "3분기 누적"}.get(q_code, q_code),
+                "ttm_quarter_year": q_cur,
                 "controlling_equity_krw": ctrl_equity,
                 "shares_common": shares_common, "shares_total": shares_total,
                 "dps_krw": dps, "revenue_fy0_krw": revenue_fy,
@@ -1161,6 +1201,8 @@ def _render_md(p: dict[str, Any]) -> str:
         "",
         "## 인풋 (근거 투명)",
         f"- EPS {g(i['eps_fy0_krw'],'','{:,}')}(FY0)/{g(i['eps_ttm_krw'],'','{:,}')}(TTM) · BPS {g(i['bps_krw'],'','{:,}')} · ROE {g(i['roe_pct'],'%')} · DPS {g(i['dps_krw'],'','{:,}')}",
+        f"- TTM 기준: {i.get('ttm_quarter_year')}년 {i.get('ttm_quarter','-')} "
+        f"(= {d['fiscal_year']} 연간 + 당해 누적 − 전년 동기 누적)",
         f"- 지배순이익 {g(i['net_income_fy0_krw'],'','{:,}')}(FY0)/{g(i['net_income_ttm_krw'],'','{:,}')}(TTM) · 지배자본 {g(i['controlling_equity_krw'],'','{:,}')} · 유통주식 보통 {g(i['shares_common'],'','{:,}')}/합계 {g(i['shares_total'],'','{:,}')}",
         f"- 보통주 시총 {g(i['common_market_cap_krw'],'','{:,}')} (업종구분: {'금융·지주' if d['sector_class']=='financial' else '일반(비금융)'})",
     ]
