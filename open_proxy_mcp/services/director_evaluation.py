@@ -1136,6 +1136,31 @@ _CONCURRENT_OUTSIDE_RE = re.compile(r'(?:사외|독립)\s*이사')
 _CONTENT_NORMALIZE_RE = re.compile(r'[\s㈜㈱()주식회사]')
 
 
+# 합쳐진 기간 칸을 구간별로 끊는다.
+# 실측 「2010~20141988~20242022 ~ 現」 → (2010,2014) · (1988,2024) · (2022,None).
+# 끝이 「現/현재/재직」이면 **열린 구간**(진행 중)이라 None 으로 둔다.
+_PERIOD_SPLIT_RE = re.compile(
+    r"((?:19|20)\d{2}(?:[.\-/]\d{1,2})?)\s*[~\-–]\s*"
+    r"((?:19|20)\d{2}(?:[.\-/]\d{1,2})?|現|현재|재직|至今|present)", re.I)
+
+
+def split_merged_periods(period: str) -> dict[str, Any]:
+    """기간 칸 문자열 → 구간 목록. **남은 글자를 함께 돌려준다.**
+
+    남은 글자가 있으면 우리가 다 못 읽은 것이다 — 조용히 삼키지 않고 표면화한다.
+    """
+    text = period or ""
+    spans, open_ended = [], False
+    for m in _PERIOD_SPLIT_RE.finditer(text):
+        start, end = m.group(1), m.group(2)
+        if not end[:1].isdigit():
+            end, open_ended = None, True
+        spans.append({"start": start, "end": end})
+    residue = _PERIOD_SPLIT_RE.sub("", text).strip()
+    return {"spans": spans, "open_ended": open_ended,
+            "residue": residue or None, "raw": text or None}
+
+
 def count_outside_director_positions(
     candidate: dict[str, Any],
     own_company_name: str,
@@ -1155,6 +1180,7 @@ def count_outside_director_positions(
     own_in_career = False
     signals: list[str] = []
     period_merged = False
+    merged_periods: list[dict[str, Any]] = []
     for cd in career_details:
         period = cd.get("period", "") or ""
         content = cd.get("content", "") or ""
@@ -1165,6 +1191,7 @@ def count_outside_director_positions(
             continue
         if len(_PERIOD_RANGE_RE.findall(period)) > 1:
             period_merged = True
+            merged_periods.append(split_merged_periods(period))
         in_career += len(matches)
         signals.append(f"{period} | {content[:140]}")
         content_norm = _CONTENT_NORMALIZE_RE.sub('', content).lower()
@@ -1192,6 +1219,9 @@ def count_outside_director_positions(
         "total": total,
         "countable": countable,
         "text_mentions_outside": text_mentions_outside,
+        # 합쳐진 기간을 구간으로 끊어 둔 것 — 어느 항목의 것인지는 **여전히 모른다**.
+        # 항목 수와 구간 수가 안 맞는 표가 흔하다(실측 이행희: 경력 7줄 vs 구간 3개).
+        "merged_periods": merged_periods or None,
         "in_career_count": in_career,
         "own_in_career": own_in_career,
         "signals": signals[:3],

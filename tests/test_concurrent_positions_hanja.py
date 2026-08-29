@@ -96,3 +96,35 @@ def test_no_conflict_when_text_is_silent() -> None:
     }, _OWN)
     assert out["total"] == 1
     assert out["countable"] is True
+
+
+def test_merged_period_is_split_into_spans() -> None:
+    """합쳐진 기간 칸을 구간으로 끊는다 — 「2010~20141988~20242022 ~ 現」.
+
+    마스터 지시(2026-08-29): 뒷부분 기간을 2010~2014 / 1988~2024 / 2022~null 로 갈라 달라.
+    끝이 「現」이면 진행 중이라 end 를 None 으로 둔다.
+    """
+    from open_proxy_mcp.services.director_evaluation import split_merged_periods
+    out = split_merged_periods("2010~20141988~20242022 ~ 現")
+    assert [(s["start"], s["end"]) for s in out["spans"]] == [
+        ("2010", "2014"), ("1988", "2024"), ("2022", None)]
+    assert out["open_ended"] is True
+    assert out["residue"] is None      # 남은 글자가 없다 = 다 읽었다
+
+
+def test_month_precision_and_residue_are_kept() -> None:
+    from open_proxy_mcp.services.director_evaluation import split_merged_periods
+    out = split_merged_periods("2015.03~2020.02 2021~현재")
+    assert out["spans"][0]["start"] == "2015.03"
+    assert out["spans"][-1]["end"] is None
+
+    # 못 읽은 글자는 삼키지 않는다
+    bad = split_merged_periods("취임 이후")
+    assert bad["spans"] == []
+    assert bad["residue"] == "취임 이후"
+
+
+def test_merged_periods_reach_the_caller() -> None:
+    out = count_outside_director_positions({"careerDetails": [_REAL]}, _OWN)
+    assert out["merged_periods"]
+    assert out["merged_periods"][0]["open_ended"] is True
