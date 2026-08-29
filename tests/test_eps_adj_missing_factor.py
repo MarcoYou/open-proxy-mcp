@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import inspect
 
-import open_proxy_mcp.services.valuation as V
-import open_proxy_mcp.tools.valuation as T
+import open_proxy_mcp.services.price_multiple_data as V
+import open_proxy_mcp.tools.price_multiple_data as T
 
 
 def test_multiples_are_cap_based_not_per_share():

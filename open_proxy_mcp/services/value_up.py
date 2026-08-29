@@ -236,7 +236,7 @@ async def compare_targets_with_actuals(
         return await build_financial_metrics_payload(company_ref, scope="summary")
 
     async def _load_val():
-        from open_proxy_mcp.services.valuation import build_valuation_payload
+        from open_proxy_mcp.services.price_multiple_data import build_valuation_payload
         return await build_valuation_payload(company=company_ref)
 
     tasks = []

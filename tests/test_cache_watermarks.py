@@ -153,7 +153,7 @@ def test_every_cache_is_visible_in_health():
     # 캐시를 만드는 모듈을 전부 import 해야 등록이 끝난다
     import open_proxy_mcp.services.proxy_advise  # noqa: F401
     import open_proxy_mcp.services.screener  # noqa: F401
-    import open_proxy_mcp.services.valuation  # noqa: F401
+    import open_proxy_mcp.services.price_multiple_data  # noqa: F401
     from open_proxy_mcp.dart.client import _CACHE_REGISTRY, cache_stats
 
     st = cache_stats()
@@ -168,7 +168,7 @@ def test_health_reports_total_declared_budget():
     """1GB 머신에서 **선언 예산 총합**이 OOM 의 선행 지표다 — 개별 점유율만으로는 안 보인다."""
     import open_proxy_mcp.services.proxy_advise  # noqa: F401
     import open_proxy_mcp.services.screener  # noqa: F401
-    import open_proxy_mcp.services.valuation  # noqa: F401
+    import open_proxy_mcp.services.price_multiple_data  # noqa: F401
     from open_proxy_mcp.dart.client import cache_stats
 
     st = cache_stats()

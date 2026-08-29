@@ -33,7 +33,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 from scripts.market_val_weekly import bucket, label
-from open_proxy_mcp.services.valuation import _pit_quarter, _ttm_ni, _mrq_eq
+from open_proxy_mcp.services.price_multiple_data import _pit_quarter, _ttm_ni, _mrq_eq
 
 DDL_MIGRATE = (
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS per_fy0 double precision",

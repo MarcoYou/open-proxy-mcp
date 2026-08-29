@@ -135,7 +135,7 @@ def test_quote_cache_is_separate_from_krx_snapshot_cache():
     """임의 과거일 조회가 `_KRX_CACHE`(32MB, 오늘 스냅샷) 를 밀어내면 배수 산출이 매 요청마다
     KRX 를 다시 부른다. 장부를 나눠 뒀는지 확인한다."""
     from open_proxy_mcp.services import trading
-    from open_proxy_mcp.services.valuation import _KRX_CACHE
+    from open_proxy_mcp.services.price_multiple_data import _KRX_CACHE
     assert trading._QUOTE_CACHE is not _KRX_CACHE
     assert isinstance(trading._QUOTE_CACHE_MAX, int) and trading._QUOTE_CACHE_MAX > 0
 

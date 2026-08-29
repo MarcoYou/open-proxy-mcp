@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import inspect
 
-import open_proxy_mcp.services.valuation as V
+import open_proxy_mcp.services.price_multiple_data as V
 
 
 def test_every_market_aggregate_query_pins_a_scheme():

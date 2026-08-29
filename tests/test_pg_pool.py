@@ -104,7 +104,7 @@ def test_pool_stats_distinguishes_absent_from_empty(db, monkeypatch):
 def test_valuation_pg_rows_delegates_to_pool(monkeypatch):
     """호출부 20곳은 안 건드리고 `_pg_rows` 한 곳만 갈아끼웠다 — 계약이 같은지 확인."""
     import open_proxy_mcp.db as m
-    from open_proxy_mcp.services.valuation import _pg_rows
+    from open_proxy_mcp.services.price_multiple_data import _pg_rows
     seen = {}
 
     def _spy(sql, params=()):
@@ -119,7 +119,7 @@ def test_valuation_pg_rows_delegates_to_pool(monkeypatch):
 def test_trading_inherits_the_pool():
     """`trading` 은 `valuation._pg_rows` 를 import 한다 — 같은 함수여야 풀을 함께 쓴다."""
     from open_proxy_mcp.services.trading import _pg_rows as t
-    from open_proxy_mcp.services.valuation import _pg_rows as v
+    from open_proxy_mcp.services.price_multiple_data import _pg_rows as v
     assert t is v
 
 

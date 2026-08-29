@@ -57,7 +57,7 @@ def test_weak_resolution_reaches_the_rendered_markdown() -> None:
     고른 사실이 **아무 경고 없이** 완결된 밸류에이션으로 나왔다 — 틀린 회사를 조용히 분석한다.
     계약(payload)이 아니라 동작(출력)으로 잰다.
     """
-    from open_proxy_mcp.services.valuation import _render_md
+    from open_proxy_mcp.services.price_multiple_data import _render_md
     weak = "「현대」를 **현대자동차**(으)로 추정했습니다 — 이름이 정확히 일치하지 않습니다 (다른 후보 28곳)."
 
     out = _render_md(_valuation_payload(envelope_warnings=[weak], data_warnings=[]))
@@ -78,7 +78,7 @@ def test_weak_resolution_reaches_the_explain_scope_too() -> None:
 
     데이터 경고가 하나라도 있으면 봉투 경고가 통째로 사라진다 — 같은 결함의 다른 자리.
     """
-    from open_proxy_mcp.tools.valuation import _render_explain_firm
+    from open_proxy_mcp.tools.price_multiple_data import _render_explain_firm
     weak = "「현대」를 **현대자동차**(으)로 추정했습니다 — 이름이 정확히 일치하지 않습니다 (다른 후보 28곳)."
     p = _valuation_payload(envelope_warnings=[weak], data_warnings=["스케일가드 주의"])
     p["data"]["data_quality"] = {"scale_tier": "ok"}
@@ -90,7 +90,7 @@ def test_weak_resolution_reaches_the_explain_scope_too() -> None:
 def test_the_hand_built_services_wrap_their_entry_point() -> None:
     """dict 를 직접 만드는 서비스는 return 이 여러 곳이라 진입점 래핑만이 안전하다."""
     for name, entry in (
-        ("valuation.py", "build_valuation_payload"),
+        ("price_multiple_data.py", "build_valuation_payload"),
         ("asset_holdings.py", "build_asset_holdings_payload"),
         ("screener.py", "build_screener_payload"),
     ):

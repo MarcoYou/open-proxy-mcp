@@ -22,7 +22,7 @@ import os
 from typing import Any
 
 from open_proxy_mcp.market_codes import to_label as mkt_label
-from open_proxy_mcp.services.valuation import (
+from open_proxy_mcp.services.price_multiple_data import (
     _DB_ERROR_PAYLOAD_WARN,
     _KRX_CACHE,
     _fetch_live_snapshot,
@@ -346,7 +346,7 @@ async def _krx_quote_row(basDd: str, ticker: str) -> dict | None:
     import httpx
 
     from open_proxy_mcp.dart.krx_meter import bump
-    from open_proxy_mcp.services.valuation import _KRX_URL, _KSQ_URL
+    from open_proxy_mcp.services.price_multiple_data import _KRX_URL, _KSQ_URL
 
     async def _one(h, url):
         try:
@@ -395,7 +395,7 @@ async def build_quote_payload(company: str, format: str = "md",
         #   `_fetch_live_snapshot` 이 평일을 거슬러 올라가며 그걸 한다. 이 경로는 전종목
         #   스냅샷을 `_KRX_CACHE` 에 넣지만, 최신일 스냅샷은 `_market_for` 도 쓰는 것이라
         #   오염이 아니라 공유다(임의 과거일만 따로 처리한다).
-        from open_proxy_mcp.services.valuation import _fetch_live_snapshot
+        from open_proxy_mcp.services.price_multiple_data import _fetch_live_snapshot
         dd, snap = await _fetch_live_snapshot()
         if not dd:
             return _err(corp.get("corp_name", company), "no_data",

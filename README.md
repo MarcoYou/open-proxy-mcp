@@ -28,7 +28,7 @@ OpenProxy는 주주총회 의결권 분석을 위해 태어났습니다. 그런�
 
 - **[주총 의결권 보조](docs/features/proxy-voting.md)**: 소집공고 안건을 구조화하고 안건별 FOR/AGAINST/REVIEW 권고와 근거를 제시합니다.
 - **[재무지표](docs/features/financials.md)**: 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이. 분기는 누적(YTD)·당기(3개월) 두 기준으로 QoQ·YoY 제공.
-- **[밸류에이션](docs/features/valuation.md)**: PER·PBR·배당수익률(기업 심층) + 시장·산업·종목 히스토리. `scope="explain"`으로 계산 과정·출처까지 답합니다. (runtime: `price_multiple_data`)
+- **[밸류에이션](docs/features/price_multiple_data.md)**: PER·PBR·배당수익률(기업 심층) + 시장·산업·종목 히스토리. `scope="explain"`으로 계산 과정·출처까지 답합니다. (runtime: `price_multiple_data`)
 - **[자산주 스크리닝](docs/features/asset-holdings.md)**: 보유 자산(현금성·투자부동산·지분증권)을 티어로 나누고 상장 보유지분은 시가로 마킹 — 시총 대비 잉여자산·지분NAV 배수로 "숨은 자산"을 찾습니다.
 - **[사업의 내용](docs/features/business-details.md)**: 사업부문별 매출·이익, 생산설비·가동률, 연구개발, 수주잔고, 주요 고객, **원재료·투입원가와 제품·서비스 가격 추이** — "II. 사업의 내용"을 통째로 읽어줍니다.
 - **[잠정실적 속보](docs/features/provisional-earnings.md)**: 분기 영업(잠정)실적 공시를 표·증감률로 정리합니다.

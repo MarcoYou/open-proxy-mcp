@@ -999,7 +999,7 @@ async def build_dividend_payload(
     if latest_summary and int(latest_summary.get("cash_dps") or 0) > 0:
         _isu = (resolution.selected or {}).get("stock_code")
         if _isu:
-            from open_proxy_mcp.services.valuation import _market_for
+            from open_proxy_mcp.services.price_multiple_data import _market_for
             _mk = await _market_for(_isu)
             if _mk.get("price"):
                 latest_summary["yield_current_pct"] = round(

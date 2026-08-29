@@ -17,7 +17,7 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
-import open_proxy_mcp.services.valuation as V
+import open_proxy_mcp.services.price_multiple_data as V
 
 ROOT = Path(__file__).resolve().parent.parent
 

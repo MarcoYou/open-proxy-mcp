@@ -15,7 +15,7 @@
   "services/segment_grid.py": 1,
   "services/shareholder_meeting.py": 3,
   "services/treasury_share.py": 1,
-  "services/valuation.py": 4,
+  "services/price_multiple_data.py": 4,
   "services/value_up.py": 1,
   "tools/director_board.py": 1,
   "tools/law_lookup.py": 1,

@@ -6,7 +6,7 @@ from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.tools._shared import krw_scaled
-from open_proxy_mcp.services.valuation import (
+from open_proxy_mcp.services.price_multiple_data import (
     build_valuation_payload,
     build_market_val_payload,
     build_sector_val_payload,

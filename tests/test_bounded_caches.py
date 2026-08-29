@@ -28,7 +28,7 @@ def test_proxy_advise_cache_is_bounded():
 
 
 def test_krx_cache_is_bounded():
-    from open_proxy_mcp.services.valuation import _KRX_CACHE as c
+    from open_proxy_mcp.services.price_multiple_data import _KRX_CACHE as c
     assert isinstance(c, LruByteCache)
     c.clear()
     _flood(c, 200, 1_000_000)  # 200MB 부으면 32MB 예산으로 캡

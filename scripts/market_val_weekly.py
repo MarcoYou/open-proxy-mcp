@@ -37,7 +37,7 @@ load_dotenv(ROOT / ".env")
 import httpx, psycopg
 
 from open_proxy_mcp.dart.fx import fx_to_krw
-from open_proxy_mcp.services.valuation import _ensure_krx_fresh, _iso_wk_range
+from open_proxy_mcp.services.price_multiple_data import _ensure_krx_fresh, _iso_wk_range
 
 FY = 2025
 FY_END = f"{FY}1231"  # 비KRW 재무 환산 기준(회계기말 환율) — valuation tool과 동일 규칙

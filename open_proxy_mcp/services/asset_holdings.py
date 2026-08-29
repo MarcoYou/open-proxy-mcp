@@ -236,7 +236,7 @@ import datetime  # noqa: E402
 
 from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
 from open_proxy_mcp.services import business_details as _bd  # noqa: E402
-from open_proxy_mcp.services import valuation as _val  # noqa: E402
+from open_proxy_mcp.services import price_multiple_data as _val  # noqa: E402
 from open_proxy_mcp.services.company import resolve_company_query  # noqa: E402
 
 _YEAR = re.compile(r"\((\d{4})\.\d{2}\)")

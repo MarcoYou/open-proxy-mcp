@@ -43,7 +43,7 @@ from open_proxy_mcp.services.value_up import build_value_up_payload
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
 from open_proxy_mcp.services.dividend import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
-from open_proxy_mcp.services.valuation import _shares_outstanding, _pg_rows
+from open_proxy_mcp.services.price_multiple_data import _shares_outstanding, _pg_rows
 from open_proxy_mcp.services.date_utils import resolve_date_window, format_yyyymmdd
 
 _SANITY_LOW, _SANITY_HIGH = 0.3, 3.0

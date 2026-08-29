@@ -2,7 +2,7 @@
 type: tool
 title: price_multiple_data
 domain: data
-status: 등록 완료 (260705 — tools/valuation.py) · 260824 `valuation` 에서 개명
+status: 등록 완료 (260705 — tools/price_multiple_data.py) · 260824 `valuation` 에서 개명
 scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
@@ -235,7 +235,7 @@ sequenceDiagram
 - 2026-07-06: 시장·섹터 히스토리 테이블 병합(`mkt_val_history` + `'_ALL'` 센티넬) ·
   테이블 개명(`mkt_finstat_y`/`mkt_finstat_q`/`firm_valuation_snapshot`) ·
   비KRW 환산을 저장 시점으로 이동 · FY0+TTM+MRQ 78개월 백필 완료.
-- 2026-07-05: tool 등록(`tools/valuation.py`). 공용 리졸버 채택 · EPS 대칭화 · 섹터 소속 시계열 ·
+- 2026-07-05: tool 등록(`tools/price_multiple_data.py`). 공용 리졸버 채택 · EPS 대칭화 · 섹터 소속 시계열 ·
   KRX 시세를 `krx_weekly` 서빙으로 · fetch 3단계 병렬화.
 
 ## 관련

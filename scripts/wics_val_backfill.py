@@ -44,7 +44,7 @@ load_dotenv(ROOT / ".env")
 import psycopg
 
 from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS
-from open_proxy_mcp.services.valuation import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
+from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
 
 UPSERT = """
 INSERT INTO opm_val_market
