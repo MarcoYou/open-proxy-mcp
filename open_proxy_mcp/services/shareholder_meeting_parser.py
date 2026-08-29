@@ -3833,7 +3833,15 @@ def _build_personnel_summary(appointments: list[dict]) -> dict:
     """인사 안건 요약"""
     summary = {
         "total_appointments": len(appointments),
+        # 🔴 이 값은 **안건별 등장 횟수**다 — 같은 사람이 묶음 안건(제3호)과 개별 안건
+        # (제3-1호)에 겹쳐 나온다. 실측 한국앤컴퍼니 11회 / 고유 5명. 「11명 중 5명만
+        # 추출됐다」로 읽혀 빠진 후보를 찾게 만든 자리다(2026-08-29 U 5차 지적).
         "total_candidates": sum(len(a.get("candidates", [])) for a in appointments),
+        "unique_candidates": len({
+            (c.get("name") or "").strip()
+            for a in appointments for c in (a.get("candidates") or [])
+            if (c.get("name") or "").strip()
+        }),
         "directors": 0,
         "outside_directors": 0,
         "auditors": 0,

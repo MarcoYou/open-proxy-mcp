@@ -1309,7 +1309,11 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
             return "REVIEW", "사외이사 독립성 우려 (최대주주 관계 또는 회사와 거래 또는 이전 회사 직원)"
         # 겸직 과다 (3곳 이상) — 충실의무 수행 여력 검토 (260710 계산-후-폐기 신호 반영)
         if concurrent == "strong_concerns_concurrent":
-            return "REVIEW", f"{_role} 겸직 과다 (타사 사외이사 3곳 이상) — 충실의무 수행 여력 검토 (concurrent overboarding, 원문 확인 권고)"
+            return "REVIEW", (
+                f"{_role} 겸직 과다 — 타사 사외이사 **3곳 이상**이면 한 자리에 쏟을 시간이 "
+                f"모자란다고 보아 검토 대상으로 둡니다(OPM 가이드라인 기준). "
+                f"부적격이라는 뜻이 아니라, 이사회·위원회 출석률과 임기 만료 시점을 "
+                f"함께 보고 판단하시라는 표시입니다 (원문 확인 권고)")
         # 최대주주 관계 약한 신호(iter18/27 calibration: 단독은 약신호) — 결정은 FOR 유지하되
         # reason을 정직화("모두 clean" 거짓 금지, 260710 한화오션 발행회사 관계 사고).
         if indep == "weak_concerns":
@@ -2885,8 +2889,12 @@ def _extract_facts(
                     facts["concurrent_summary"] = co.get("summary")
                     if co.get("total") is None:
                         facts["concurrent_note"] = (
-                            "겸직 수를 세지 못했다 — 이 후보의 경력 항목이 파싱되지 않았다. "
-                            "추천사유 원문과 소집공고 후보자 표를 직접 읽어야 한다")
+                            "겸직 수를 세지 못했습니다 — 우리 파서가 경력 항목에서 타사 "
+                            "사외이사 줄을 찾지 못했습니다. 아래 원문과 이 후보의 "
+                            "「경력 (소집공고 세부경력 원문)」 절을 직접 세십시오")
+                        # 못 센 것을 말로만 알리지 않는다 — 셀 수 있는 원문을 같이 낸다.
+                        if co.get("mention_excerpt"):
+                            facts["concurrent_evidence_raw"] = co["mention_excerpt"]
                     # 기간 칸이 합쳐져 들어와 「어느 줄이 현직인가」를 우리가 못 가른 경우.
                     # 숫자만 내보내면 읽는 쪽이 확정치로 받는다 — 그 사실을 같이 낸다.
                     if co.get("period_merged"):
@@ -3119,7 +3127,17 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
     if payout is not None and payout > _th("cash_dividend", "payout_ratio_high_pct"):
         return "REVIEW", f"배당성향 {payout}% (>200%) — 명백한 과도 배당"
     if ni is not None and ni > 0 and cap_status != "partial":
-        return "FOR", f"흑자 + 자본 양호 (배당성향 {payout if payout is not None else '?'}%)"
+        # 🔴 「흑자」 한 단어가 본업 적자를 가린다 (2026-08-29 U 5차 — 태광산업:
+        #    순이익 808억은 흑자인데 영업이익은 −360억이었고, 화면엔 「흑자」만 나갔다).
+        #    판정은 그대로 두되 **무엇이 흑자인지**를 밝히고, 본업이 적자면 그것도 말한다.
+        _op = summary.get("operating_profit_krw")
+        _op_note = ""
+        if _op is not None:
+            _op_note = (f" · 영업손익 {_won(_op)}" if _op >= 0
+                        else f" · ⚠️영업손익 {_won(_op)} (본업은 적자입니다 — "
+                             f"순이익 흑자가 영업외 항목에서 나왔는지 확인하십시오)")
+        return "FOR", (f"당기순이익 흑자 {_won(ni)}{_op_note} + 자본 양호 "
+                       f"(배당성향 {payout if payout is not None else '?'}%)")
     if ni is None and cap_status is None and payout is None:
         return "NO_DATA", "재무 fact 미확인 — 배당 적정성 본문 검토 필요"
     return "REVIEW", "배당 적정성 본문 검토 필요"

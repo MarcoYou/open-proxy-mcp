@@ -245,9 +245,20 @@ def _is_recent_employee(career_details: list[dict[str, Any]] | None, current_yea
 #   · 태광산업 윤상녕 — 추천사유 원문에 **「제안주주 소속 주주권행사팀장」**
 # 위임장 대결에서 이건 회사와의 관계보다 큰 이해상충이다. 독립성을 못 박지 않고
 # **표면화**한다 — 판정은 읽는 쪽이 한다(못 준 것을 0으로 채우지 않는다).
-_PROPOSER_AFFILIATION_KEYWORDS = (
-    "제안주주", "제안 주주", "주주제안자", "주주권행사", "주주권 행사",
-    "제안한 주주", "추천주주", "추천 주주",
+# 🔴 **「제안주주」라는 말이 나왔다고 그 주주 소속인 것이 아니다** (2026-08-29 실측).
+#    태광산업 채이배 추천사유는 「제안주주는 채이배 후보자의 전문성을 고려할 때…」로,
+#    **제안주주가 말하는 문장**이지 후보의 소속이 아니다. 같은 공고의 윤상녕은
+#    「제안주주 **소속의** 주주권행사팀장」 — 이쪽이 소속이다. 한 단어로 뭉뚱그리면
+#    외부 회계사와 그 주주의 직원이 같은 판정을 받는다(U 5차가 잡은 바로 그 결함).
+#    그래서 **소속을 말하는 꼴**만 강한 신호로 본다.
+_PROPOSER_EMPLOY_RE = re.compile(
+    r"(?:제안|추천)\s*주주\s*(?:소속|측)"          # 「제안주주 소속」·「추천주주 측」
+    r"|(?:제안|추천)\s*주주\s*의\s*[^.\n]{0,20}?(?:재직|근무|임직원|직원|팀장|운용역)"
+    r"|주주권\s*행사\s*팀"                          # 운용사 주주권행사팀 = 제안주주 조직
+)
+# 아래는 **약한 신호**다 — 제안 주체를 가리킬 뿐 소속을 말하지 않는다.
+_PROPOSER_MENTION_KEYWORDS = (
+    "제안주주", "제안 주주", "주주제안자", "제안한 주주", "추천주주", "추천 주주",
 )
 # 「주주제안 / 주주 제안」은 **이 후보 것**일 때만 신호다. 추천사유가 한 덩어리로 와서
 # (`recommendationReasonShared`) 이사회제안 후보와 주주제안 후보가 같은 글에 섞여 있으면
@@ -271,7 +282,8 @@ def _proposer_affiliation(candidate: dict[str, Any],
             texts.append(c.strip())
     blob = " / ".join(texts)
 
-    hits = [k for k in _PROPOSER_AFFILIATION_KEYWORDS if k in blob]
+    employ_hit = _PROPOSER_EMPLOY_RE.search(blob)
+    hits = [k for k in _PROPOSER_MENTION_KEYWORDS if k in blob]
     name = (candidate.get("name") or "").strip()
     is_solicitor = bool(name and proxy_solicitors and name in proxy_solicitors)
 
@@ -285,12 +297,23 @@ def _proposer_affiliation(candidate: dict[str, Any],
                 near = blob[max(0, m.start()):m.end() + hit.end()]
                 break
 
+    # 🔴 **한 라벨로 묶지 않는다** (2026-08-29 U 5차 — 「채이배(외부 회계사)와 윤상녕
+    #    (제안주주 현직 팀장)이 똑같은 라벨을 받았다. 이 둘은 독립성이 전혀 다르다」).
+    #    · 소속 표현이 있으면(「제안주주 소속」·「주주권행사팀장」) → 그 주주에 **고용된 사람**
+    #    · 이름 근처에 「주주제안」만 있으면 → 그 주주가 **지명했을 뿐** 소속은 확인되지 않았다
+    #    지명만으로 소속이라 말하면 없는 고용관계를 만들어낸다.
     if is_solicitor:
         result, ev = "proxy_solicitor_self", f"{name} — 의결권 대리행사 권유자 본인"
-    elif hits:
-        result, ev = "affiliated_with_proposer", f"추천사유·경력 원문에 {', '.join(hits)}"
-    elif near:
-        result, ev = "affiliated_with_proposer", f"추천사유 원문: 「{near.strip()[:80]}…」"
+    elif employ_hit:
+        _s = max(0, employ_hit.start() - 40)
+        result, ev = "employed_by_proposer", (
+            f"추천사유·경력 원문: 「{blob[_s:employ_hit.end() + 40].strip()}」 — "
+            f"제안한 주주에 **소속**된 사람입니다")
+    elif hits or near:
+        _q = (near or "").strip()[:80] or f"{', '.join(hits)} 언급"
+        result, ev = "proposed_by_shareholder", (
+            f"추천사유 원문: 「{_q}…」 — 주주가 제안한 후보입니다. "
+            f"제안주주에 **소속**되었다는 표현은 원문에 없습니다")
     else:
         result, ev = "no_signal", None
     return {"result": result, "evidence": ev, "raw": blob[:400] or None,
@@ -383,12 +406,18 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int,
     # 5. 제안한 쪽 소속인가 — 회사와의 관계와 별개 축이다
     aff = _proposer_affiliation(candidate, proxy_solicitors)
     out["sub_factors"]["proposer_affiliation"] = aff
-    aff_flag = aff["result"] in ("affiliated_with_proposer", "proxy_solicitor_self")
+    # 소속(고용)과 지명은 다른 무게다 — 요약도 갈라 낸다.
+    aff_strong = aff["result"] in ("employed_by_proposer", "proxy_solicitor_self",
+                                   "affiliated_with_proposer")
+    aff_weak = aff["result"] == "proposed_by_shareholder"
 
-    if aff_flag:
+    if aff_strong:
         # 🔴 이것만으로 부적격이라 말하지 않는다. 다만 **「독립적」이라고는 말하지 않는다** —
         #    그 한 마디가 읽는 쪽의 검토를 멈춰 세운다.
         out["summary"] = "proposer_side_concerns"
+    elif aff_weak:
+        # 지명된 것뿐이다 — 소속이라 말하지 않되, 「독립적」이라고 못 박지도 않는다.
+        out["summary"] = "proposer_nominated"
     elif five_year_signal and _is_oversight:
         # 장기연임은 audit/사외이사 모두 strong concerns
         out["summary"] = "long_tenure_concerns"
@@ -873,6 +902,9 @@ async def evaluate_faithfulness(
             "own_in_career": co["own_in_career"],
             "signals": co["signals"],
             "countable": co.get("countable"),
+            # 못 센 경우 읽는 쪽이 직접 셀 수 있게 원문 그 대목을 함께 넘긴다.
+            # 🔴 이 화이트리스트가 새 키를 조용히 떨어뜨린다 — 여기 안 적으면 안 나간다.
+            "mention_excerpt": co.get("mention_excerpt"),
             "period_merged": co.get("period_merged"),
             "summary": co_summary,
         }
@@ -972,6 +1004,9 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
             "own_in_career": co["own_in_career"],
             "signals": co["signals"],
             "countable": co.get("countable"),
+            # 못 센 경우 읽는 쪽이 직접 셀 수 있게 원문 그 대목을 함께 넘긴다.
+            # 🔴 이 화이트리스트가 새 키를 조용히 떨어뜨린다 — 여기 안 적으면 안 나간다.
+            "mention_excerpt": co.get("mention_excerpt"),
             "period_merged": co.get("period_merged"),
             "summary": co_summary,
         }
@@ -1231,7 +1266,15 @@ def count_outside_director_positions(
     other_text = " ".join(str(candidate.get(k) or "") for k in
                           ("recommendationReason", "recommendationReasonShared",
                            "dutyPlan", "mainJob"))
-    text_mentions_outside = bool(_CONCURRENT_OUTSIDE_RE.search(other_text))
+    _m_outside = _CONCURRENT_OUTSIDE_RE.search(other_text)
+    text_mentions_outside = bool(_m_outside)
+    # 🔴 **못 셌다고만 말하지 않는다 — 그 대목 원문을 같이 낸다** (2026-08-29 U 5차:
+    #    「원문 표에는 다 적혀 있는데 도구가 못 셌다. 도구가 못 한 걸 내가 눈으로 셌다」).
+    #    우리가 못 세면 세지 말고, 읽는 쪽이 셀 수 있게 그 문장을 옮겨 준다.
+    mention_excerpt = None
+    if _m_outside:
+        _s = max(0, _m_outside.start() - 90)
+        mention_excerpt = other_text[_s:_m_outside.end() + 90].strip()
     conflict = in_career == 0 and text_mentions_outside
 
     countable = bool(career_details) and not conflict
@@ -1240,6 +1283,8 @@ def count_outside_director_positions(
         "total": total,
         "countable": countable,
         "text_mentions_outside": text_mentions_outside,
+        # 못 센 경우 읽는 쪽이 직접 셀 수 있도록 원문 그 대목을 싣는다.
+        "mention_excerpt": mention_excerpt,
         # 합쳐진 기간을 구간으로 끊어 둔 것 — 어느 항목의 것인지는 **여전히 모른다**.
         # 항목 수와 구간 수가 안 맞는 표가 흔하다(실측 이행희: 경력 7줄 vs 구간 3개).
         "merged_periods": merged_periods or None,

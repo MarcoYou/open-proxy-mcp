@@ -16,7 +16,11 @@ _INDEPENDENCE_LABELS = {
     "long_tenure_concerns": "장기연임 우려 (5년 룰 위반)",
     "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     # 「회사와의 관계」와 다른 축이다 — 제안한 쪽 사람인가. 부적격이라 말하지 않고 표면화한다.
-    "proposer_side_concerns": "제안 측 인사 — 회사 기준 독립성과 별개로 이해상충 검토 필요",
+    # 「제안 측」은 한 덩어리가 아니다 — 제안한 주주에 **고용된 사람**과 그 주주가
+    # 지명했을 뿐인 **외부인**은 독립성이 전혀 다르다(2026-08-29 U 5차).
+    "proposer_side_concerns": "제안주주 소속 인사 — 제안한 주주에 소속·직결된 사람. 구조적 이해상충 검토 필요",
+    "proposer_nominated": "주주가 제안한 후보 — 제안주주와의 소속 관계는 확인되지 않음",
+    "not_applicable_inside": "비대상 (사내이사 — 독립성은 사외이사에 적용하는 잣대)",
     "no_data": "데이터 부족",
     "-": "-",
 }
@@ -123,6 +127,15 @@ def _indep_evidence_lines(c: dict[str, Any]) -> list[str]:
     if not subs or not any(k in role for k in ("사외", "감사", "독립")):
         return []
     out = [f"- 독립성 근거 (종합: {_ind_label(ind.get('summary', '-'))}):"]
+    # 🔴 용어를 뜻 없이 던지지 않는다 (2026-08-29 U 5차 — 「5년 임기 룰이 왜 기준이고
+    #    넘으면 무엇이 문제인지 안 알려주니, 통과했다는 사실만 알 뿐 좋은 건지 나쁜 건지
+    #    모른 채 지나갔다」). 판정하지 않고 **무엇을 보는 잣대인지**만 적는다.
+    out.append("  - ⓘ 네 항목은 「이 후보가 회사와 얽혀 있지 않은가」를 보는 잣대입니다. "
+               "**5년 임기 룰** — 같은 회사 사외이사를 오래 하면 경영진과 가까워진다고 보아 "
+               "누적 5년을 넘기면 독립성이 약해진 것으로 봅니다(OPM 가이드라인 기준). "
+               "통과는 「문제가 없다」가 아니라 「이 항목에서는 걸리지 않았다」는 뜻입니다. "
+               "독립성은 **적합성(그 자리를 볼 줄 아는가)과 다른 축**이며, 이 도구는 "
+               "적합성을 판정하지 않습니다 — 경력 원문을 직접 보고 판단하십시오.")
     for key in ("major_shareholder_relation", "recent_3y_transactions", "recent_2y_employee", "five_year_rule"):
         sf = subs.get(key) or {}
         if not sf:
@@ -206,7 +219,7 @@ _FACT_LABEL: dict[str, str] = {
     "total_candidates": "후보 수", "disqualified_count": "결격 후보 수",
     "disqualification": "결격사유", "independence": "독립성",
     "concurrent_outside_positions": "겸직 수", "concurrent_summary": "겸직 요약",
-    "concurrent_note": "겸직 수 주의",
+    "concurrent_note": "겸직 수 주의", "concurrent_evidence_raw": "원문에서 「사외이사」가 나온 대목(겸직인지는 읽고 판단)",
     "candidate_summary": "후보 요약", "candidate_review_profile": "후보 상세",
     "audit_history_check": "회계 위험 이력 확인", "composition": "이사회 구성",
     # 정관변경·기타
@@ -248,8 +261,13 @@ _FACT_VALUE: dict[str, str] = {
     "moderate_increase": "완만한 인상",
     "long_tenure_concerns": "장기 재직 우려", "potential_long_tenure": "장기 재직 가능성",
     "weak_concerns": "약한 우려", "concerns_concurrent": "겸직 우려",
-    "proposer_side_concerns": "제안 측 인사",
-    "affiliated_with_proposer": "제안주주 소속", "proxy_solicitor_self": "위임장 권유자 본인",
+    "proposer_side_concerns": "제안주주 소속 인사",
+    "proposer_nominated": "주주제안 후보(소속 관계 미확인)",
+    "not_applicable_inside": "비대상(사내이사)",
+    "affiliated_with_proposer": "제안주주 소속",
+    "employed_by_proposer": "⚠️제안주주 소속 직원",
+    "proposed_by_shareholder": "주주가 제안(소속 관계 미확인)",
+    "proxy_solicitor_self": "위임장 권유자 본인",
     "no_signal": "신호 없음",
     "strong_concerns_concurrent": "겸직 우려 큼",
     "strong_review": "정밀 검토 필요", "strong_review_signal": "정밀 검토 신호",
@@ -571,13 +589,19 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("|------|------|---------|------|--------|---------|-------|------|")
         for c in cands:
             indep_code = c.get("independence", {}).get("summary", "-")
+            # 🔴 사내이사는 독립성 평가 **비대상**이다. 본문은 그렇게 쓰는데 이 표만
+            #    「독립적 (세부 항목 모두 충족)」으로 찍혀 한 화면에서 서로 어긋났다
+            #    (2026-08-29 U 5차 — 「표만 보면 회사 부사장이 독립적이라고 읽힌다」).
+            if not any(k in (c.get("role_type") or "") for k in ("사외", "독립", "감사")):
+                indep_code = "not_applicable_inside"
             disq_code = c.get("disqualification", {}).get("summary", "-")
             audit_code = c.get("faithfulness", {}).get("audit_history_check", {}).get("summary", "-")
             action = c.get("agenda_action", "-") or "-"
             five_y_code = ((c.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result", "-")
             # 비고: independence concerns 시 어떤 sub-factor 위반했는지 한국어로
             note = ""
-            if indep_code in ("concerns", "weak_concerns", "proposer_side_concerns"):
+            if indep_code in ("concerns", "weak_concerns", "proposer_side_concerns",
+                              "proposer_nominated"):
                 ind_subs = c.get("independence", {}).get("sub_factors", {})
                 concern_kr = [
                     _SUB_FACTOR_LABELS.get(k, k)
@@ -707,6 +731,14 @@ def _render(payload: dict[str, Any]) -> str:
                 # 평가를 안 한 것이지 「저조」가 아니다 — 점수·기간을 None 으로 찍지 않는다.
                 lines.append(f"- **재직 중 성과**: 평가하지 않음 — "
                              f"{perf.get('rationale') or '등기이사 재직 이력을 확인하지 못했습니다.'}")
+                # 🔴 같은 화면에서 「재선임」이라 해놓고 「등기 재직 이력 없음」이라 쓰면
+                #    읽는 쪽은 둘 중 무엇이 틀렸는지 알 수 없다(2026-08-29 U 5차 —
+                #    「하나가 틀렸다면 다른 항목도 못 믿게 된다」). 어긋난다는 사실을 밝힌다.
+                if (c.get("appointment_type") or {}).get("type") == "renewed":
+                    lines.append(
+                        "  - ⚠️ 선임 유형은 「재선임」인데 **등기이사 재직 이력은 확인되지 "
+                        "않았습니다.** 미등기 임원이었다면 이번이 첫 등기 선임입니다 — "
+                        "둘 중 어느 쪽인지는 이 공시만으로 가릴 수 없고 법인등기부가 필요합니다")
                 # 판단 근거가 된 임원현황 행을 통째로 — 사유 문장만으로는 읽는 쪽이 검증할 수
                 # 없다(대웅제약 박은경: 「재직기간 2010.1 ~現」이 취임연령 게이트에 걸렸는데
                 # 그 표기를 볼 방법이 없었다). 확정된 경우엔 붙지 않는다.
@@ -728,6 +760,14 @@ def _render(payload: dict[str, Any]) -> str:
                 _est = " (추정 기간 기준)" if "추정" in (perf.get("tenure_source") or "") else ""
                 lines.append(f"- **재직 중 성과**: {cls_emoji} **{cls_ko}**{_est} "
                              f"(총점 {perf.get('total_score')}/12, 재직 {perf.get('tenure_period', '-')})")
+                # 🔴 등급만 주면 무엇을 뜻하는지 모른다 — 실측 3/12 가 「양호」로 나가
+                #    읽는 쪽이 등급을 통째로 버렸다(2026-08-29 U 5차:
+                #    「3/12 가 왜 양호인지 설명하지 않아 이 등급을 근거로 쓸 수 없었다」).
+                lines.append(
+                    "  - 등급 기준: ROE 평균·추세, 부채비율 평균·누적변화, CSR 환원율 평균·추세 "
+                    "6개 항목에 각 −1~2점 → 합계 −6~12점. "
+                    "**7점 이상 우수 · 3~6점 양호 · 0~2점 부진 · 0점 미만 저조.** "
+                    "중간값이 아니라 항목별 절대 기준의 합이라 총점이 낮아도 「양호」가 나올 수 있습니다")
                 # 점수를 좌우하는 건 「재직 몇 년」이다 — 그 기간이 어디서 왔는지 밝히지 않으면
                 # 읽는 쪽이 검증할 수 없다(계산은 되고 있었는데 렌더가 빠져 있었다).
                 if perf.get("tenure_source"):

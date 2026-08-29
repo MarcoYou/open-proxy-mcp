@@ -298,7 +298,14 @@ def render_board(payload: dict[str, Any]) -> str:
 
     lines.append("## 요약")
     lines.append(f"- 총 인사 안건: {summary.get('total_appointments', 0)}건")
-    lines.append(f"- 총 후보자 수: {summary.get('total_candidates', 0)}명")
+    _tc = summary.get("total_candidates", 0)
+    _uc = summary.get("unique_candidates")
+    if _uc is not None and _uc != _tc:
+        # 같은 사람이 묶음 안건과 개별 안건에 겹쳐 나온 것이지 후보가 빠진 것이 아니다.
+        lines.append(f"- 총 후보자 수: 고유 {_uc}명 (안건별 등장 {_tc}회 — "
+                     f"같은 후보가 묶음 안건과 개별 안건에 겹쳐 나옵니다)")
+    else:
+        lines.append(f"- 총 후보자 수: {_tc}명")
     lines.append(f"- 사외이사 후보: {summary.get('outside_directors', 0)}명")
     lines.append(f"- 감사위원 후보: {summary.get('audit_committee', 0)}명")
     lines.append("")
