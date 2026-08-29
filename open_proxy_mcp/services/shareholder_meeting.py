@@ -1105,6 +1105,11 @@ async def _notice_info_with_fallback(
     return meeting_info, "dart_xml"
 
 
+# 결과공시는 회의일로부터 이 날수 안에 접수된 것만 그 회차의 결과로 본다.
+# 거래소 규정상 당일~익영업일이 보통이나 정정·지연 접수를 감안해 넉넉히 둔다.
+_RESULT_WINDOW_DAYS = 30
+
+
 async def _find_meeting_result_filing(
     corp_code: str,
     target_year: int,
@@ -1124,6 +1129,31 @@ async def _find_meeting_result_filing(
         return None, "주주총회결과 공시를 찾지 못했다.", notices
 
     meeting_date = _parse_notice_meeting_date(notice.get("datetime", ""))
+
+    # 🔴 **결과는 회의 뒤에만 있다.** 예전엔 그 해 전체에서 «가장 가까운» 결과공시를 집었고,
+    #    거리에 부호가 없어 **아직 열리지 않은 회차에 지난 회차의 결과가 붙었다**
+    #    (2026-08-28 실측 — 대림제지 2026-09-04 임시주총 머리에 「결과 공시 확보」,
+    #    참석률 73.1%는 3월 정기주총 결과였다. 주총 «전» 판단에 사후 정보가 새는 자리다).
+    #    ① 회의일이 아직 안 왔으면 결과는 없다. ② 있어도 **회의일 당일 이후** 접수분만 본다.
+    if meeting_date:
+        if meeting_date > date.today():
+            return None, "회의일이 아직 오지 않아 결과공시는 존재할 수 없다.", notices
+        after = []
+        for it in result_items:
+            rcept_dt = it.get("rcept_dt", "")
+            if len(rcept_dt) != 8:
+                continue
+            try:
+                filing_date = datetime.strptime(rcept_dt, "%Y%m%d").date()
+            except ValueError:
+                continue
+            if meeting_date <= filing_date <= meeting_date + timedelta(days=_RESULT_WINDOW_DAYS):
+                after.append(it)
+        if not after:
+            return (None,
+                    f"회의일({meeting_date.isoformat()}) 이후 {_RESULT_WINDOW_DAYS}일 안에 "
+                    "접수된 주주총회결과 공시가 없다.", notices)
+        result_items = after
 
     def sort_key(item: dict[str, Any]) -> tuple[int, str]:
         rcept_dt = item.get("rcept_dt", "")
