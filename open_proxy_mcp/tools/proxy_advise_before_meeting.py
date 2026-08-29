@@ -15,6 +15,8 @@ _INDEPENDENCE_LABELS = {
     "concerns": "우려 (세부 항목 다수 위반)",
     "long_tenure_concerns": "장기연임 우려 (5년 룰 위반)",
     "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
+    # 「회사와의 관계」와 다른 축이다 — 제안한 쪽 사람인가. 부적격이라 말하지 않고 표면화한다.
+    "proposer_side_concerns": "제안 측 인사 — 회사 기준 독립성과 별개로 이해상충 검토 필요",
     "no_data": "데이터 부족",
     "-": "-",
 }
@@ -73,6 +75,7 @@ _SUB_FACTOR_LABELS = {
     "recent_3y_transactions": "최근 3년 거래",
     "recent_2y_employee": "최근 2년 직원 이력",
     "five_year_rule": "5년 임기 룰",
+    "proposer_affiliation": "제안 측 소속 여부",
 }
 
 # 독립성 sub_factor result → 한글 (⚠️=독립성 우려). 화면 후보 평가 근거 노출용.
@@ -201,6 +204,7 @@ _FACT_LABEL: dict[str, str] = {
     "total_candidates": "후보 수", "disqualified_count": "결격 후보 수",
     "disqualification": "결격사유", "independence": "독립성",
     "concurrent_outside_positions": "겸직 수", "concurrent_summary": "겸직 요약",
+    "concurrent_note": "겸직 수 주의",
     "candidate_summary": "후보 요약", "candidate_review_profile": "후보 상세",
     "audit_history_check": "회계 위험 이력 확인", "composition": "이사회 구성",
     # 정관변경·기타
@@ -233,6 +237,7 @@ _FACT_VALUE: dict[str, str] = {
     "renewed": "재선임", "independent": "독립적", "clean": "결격사유 없음",
     "concerns": "우려 있음", "weak": "부진", "strong": "우수",
     "single_position": "겸직 1곳",
+    "unknown_no_career_data": "겸직 수 미상 (경력 원문 미파싱)",
     # 25사 라이브 스윕에서 남아 있던 것 — 코드 값 목록에서 전수로 뽑아 채웠다(260728)
     "borderline_150_to_200": "150~200%(경계)", "borderline_50m_to_100m": "5천만~1억원(경계)",
     "normal_70_to_100": "70~100%", "ordinary_under_80": "80% 미만",
@@ -240,6 +245,9 @@ _FACT_VALUE: dict[str, str] = {
     "moderate_increase": "완만한 인상",
     "long_tenure_concerns": "장기 재직 우려", "potential_long_tenure": "장기 재직 가능성",
     "weak_concerns": "약한 우려", "concerns_concurrent": "겸직 우려",
+    "proposer_side_concerns": "제안 측 인사",
+    "affiliated_with_proposer": "제안주주 소속", "proxy_solicitor_self": "위임장 권유자 본인",
+    "no_signal": "신호 없음",
     "strong_concerns_concurrent": "겸직 우려 큼",
     "strong_review": "정밀 검토 필요", "strong_review_signal": "정밀 검토 신호",
     "low_attendance": "출석률 낮음", "mid_term_resigned": "임기 중 사임",
@@ -336,6 +344,35 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
     for c in data.get("candidates", []):
         lines.append(f"| {c.get('corp_name')} | `{c.get('corp_code')}` |")
     return "\n".join(lines)
+
+
+
+_FS_DIV_KO = {"CFS": "연결", "OFS": "별도"}
+_REPRT_KO = {
+    "11011": "사업보고서(연간)",
+    "11012": "반기보고서(상반기 누적)",
+    "11013": "1분기보고서(1~3월 누적)",
+    "11014": "3분기보고서(1~9월 누적)",
+}
+
+
+def _fin_basis_line(fin: dict) -> str:
+    """재무 숫자가 어느 자로 잰 것인지 한 줄. 없는 조각은 쓰지 않는다(지어내지 않는다)."""
+    parts = []
+    year = fin.get("fiscal_year") or fin.get("year")
+    if year:
+        parts.append(f"{year} 사업연도")
+    fs = _FS_DIV_KO.get(str(fin.get("fs_div") or "").upper())
+    if fs:
+        parts.append(fs)
+    rc = _REPRT_KO.get(str(fin.get("reprt_code") or ""))
+    if rc:
+        parts.append(rc)
+    m = fin.get("fiscal_year_end_month")
+    if m and str(m) not in ("12", "12.0"):
+        parts.append(f"{int(float(m))}월 결산")
+    parts.append("순이익은 지배주주 귀속")
+    return " · ".join(parts)
 
 
 def _render(payload: dict[str, Any]) -> str:
@@ -537,12 +574,13 @@ def _render(payload: dict[str, Any]) -> str:
             five_y_code = ((c.get("independence") or {}).get("sub_factors") or {}).get("five_year_rule", {}).get("result", "-")
             # 비고: independence concerns 시 어떤 sub-factor 위반했는지 한국어로
             note = ""
-            if indep_code in ("concerns", "weak_concerns"):
+            if indep_code in ("concerns", "weak_concerns", "proposer_side_concerns"):
                 ind_subs = c.get("independence", {}).get("sub_factors", {})
                 concern_kr = [
                     _SUB_FACTOR_LABELS.get(k, k)
                     for k, v in ind_subs.items()
-                    if v.get("result") not in ("independent", "no_transactions", "outsider", "first_term_or_short")
+                    if v.get("result") not in ("independent", "no_transactions", "outsider",
+                                               "first_term_or_short", "no_signal")
                 ]
                 if concern_kr:
                     note = f"위반: {', '.join(concern_kr)}"
@@ -877,14 +915,24 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
 
     # 회사 펀더멘털 요약 (참고)
+    #
+    # 🔴 **기준을 반드시 같이 쓴다.** 예전엔 숫자만 실었는데, 안건 분석부는 소집공고
+    #    확정치(FY·연결/별도가 다를 수 있다)를 쓰므로 **한 응답 안에 같은 이름의 숫자가 둘**
+    #    나온다. 2026-08-28 실측 태광산업 — 여기 「영업이익 -271억」, 안건부 「영업이익 -360억」.
+    #    읽는 AI 는 기준이 없으면 둘 중 아무 거나 집는다(실제로 그렇게 답했다).
+    #    기준이 붙으면 두 값이 **어긋난 것이 아니라 다른 자(尺)**임이 드러난다.
     fin = data.get("financial_summary") or {}
     if fin:
         lines.append("## 회사 재무 (참고)")
+        lines.append(f"- 기준: {_fin_basis_line(fin)}")
         lines.append(f"- 매출액 {_won(fin.get('revenue_krw'))} · 영업이익 {_won(fin.get('operating_profit_krw'))}")
         lines.append(f"- ROE {fin.get('roe_pct') or '-'}% · 부채비율 {fin.get('debt_ratio_pct') or '-'}%")
         _imp = {"normal": "자본잠식 없음", "partial": "부분 자본잠식", "full": "완전 자본잠식"}
         _st = fin.get("capital_impairment_status")
         lines.append(f"- {_imp.get(_st, _st or '-')}")
+        lines.append("- ※ 이 블록은 **정기보고서** 기준이다. 안건 분석부의 재무 수치는 "
+                     "소집공고·확정 재무제표 기준이라 기간·연결 여부가 다를 수 있다 — "
+                     "**두 값을 나란히 놓고 비교하지 않는다.**")
         lines.append("")
 
     # 읽은 공시 — 이 메모가 무엇을 보고 나왔는지. 예전에는 upstream 당 2건 + 표시 5건으로 두 번
