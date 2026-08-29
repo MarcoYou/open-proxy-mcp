@@ -26,6 +26,12 @@ on:
         description: "WICS 집계 재적재 시작월(기본 20260101 · 전 구간은 20200101)"
         required: false
         default: "20260101"
+      market_history:
+        # 260829: 과거 시장·KSIC섹터 밴드 재적재. 평소엔 불필요(과거는 안 변한다) — 컬럼을
+        #   새로 붙였을 때처럼 옛 행을 다시 써야 할 때만 켠다. 80여 개 월말을 훑어 느리다.
+        description: "과거 시장 밴드까지 다시 쌓기(yes/no)"
+        required: false
+        default: "no"
 
 permissions:
   contents: read
@@ -88,6 +94,12 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/wics_val_backfill.py --since ${{ inputs.wics_since || '20260101' }} --include-current
+
+      - name: 과거 시장·섹터 밴드 재적재 (수동 요청 시만 · DART·KRX 0콜)
+        if: ${{ inputs.market_history == 'yes' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/market_val_history_backfill.py
 
       - name: Run weekly valuation snapshot
         env:

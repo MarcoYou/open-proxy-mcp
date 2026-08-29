@@ -78,8 +78,8 @@ def _render_market(p: dict[str, Any]) -> str:
         for dd in reversed(dds):
             by = {mkt_label(h["market"]): h for h in hist if h["snap_dd"] == dd}
             k, q = by.get("KOSPI", {}), by.get("KOSDAQ", {})
-            lines.append(f"| {dd} | {_f(k.get('per_ttm'))} / {_f(k.get('pbr_mrq'))} "
-                         f"| {_f(q.get('per_ttm'))} / {_f(q.get('pbr_mrq'))} |")
+            lines.append(f"| {dd} | {_fni(k.get('per_ttm'), k.get('ni_ttm_krw'))} / {_f(k.get('pbr_mrq'))} "
+                         f"| {_fni(q.get('per_ttm'), q.get('ni_ttm_krw'))} / {_f(q.get('pbr_mrq'))} |")
     lines += ["", f"> {d['method']}"]
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
