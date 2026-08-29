@@ -33,7 +33,8 @@ from open_proxy_mcp.services.scale_guard import assess, propose_scale_fix
 
 # 260829: 가드가 비운 행의 **원문**. 비우기만 하면 나중에 고칠 근거가 사라진다.
 #   DART 재조회로 떠서 파일로 남겨 뒀다(단위 배수가 덧곱해진 상태 그대로).
-SEED = ROOT / "scripts/data/scale_repair_seed.json"
+# 🔴 scripts/data/ 는 .gitignore 의 `data/` 에 걸려 러너에 안 올라간다(260829 실측).
+SEED = ROOT / "scripts/scale_repair_seed.json"
 
 MIGRATE = (
     # 연간표에는 있는데 분기표에는 없었다. 그래서 고치면 원본을 덮어쓸 수밖에 없었다.
@@ -128,11 +129,14 @@ def main() -> int:
         print(f"  {t}({mkt.get(t)}) {fy}Q{q} ni {ni or 0:.3e} eq {eq or 0:.3e} "
               f"· 자 {r:.3e} · {','.join(why)}")
 
-    if not hits:
-        print("\n비울 것 없음.")
-        return 0
     if not a.apply:
-        print("\n(dry-run — 실제로 비우려면 --apply)")
+        print("\n(dry-run — 실제로 비우고 복구하려면 --apply)")
+        return 0
+    if not hits:
+        # 🔴 260829: 여기서 return 하고 있었다. 이미 비워진 행은 hits 에 안 잡히는데
+        #   복구(_seed_and_restate)는 **비워진 행**을 대상으로 한다 — 영영 안 돌았다.
+        print("\n비울 것 없음 — 복구 단계로 넘어간다.")
+        _seed_and_restate(con, ref)
         return 0
 
     with con.cursor() as cur:
