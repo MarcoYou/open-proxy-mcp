@@ -820,6 +820,10 @@ async def evaluate_faithfulness(
         "recommendation_reason_shared": candidate.get("recommendationReasonShared") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
+        # 🔴 **경력 한 줄 = 한 항목**으로 편 것 (2026-08-29). 원문을 지우지 않고 **덧붙인다**.
+        #    `aligned=false` 면 짝을 못 지은 것이다 — 그때 기간은 `periods` 로 따로 온다.
+        #    짝을 지어내지 않는다. 표본 10사·26명 실측 짝맞춤 20/26.
+        "careers_normalized": candidate.get("careersNorm") or None,
         # 기간이 항목별로 안 갈린 경우 원문 기간 셀 — 짝을 지어 보여주면 거짓이 된다
         "career_period_unpaired": _career_period_unpaired(candidate),
         "career_content_raw": _career_content_raw(candidate),
@@ -918,6 +922,10 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
         "recommendation_reason_shared": candidate.get("recommendationReasonShared") or None,
         "main_job": candidate.get("mainJob"),
         "recommender": candidate.get("recommender"),
+        # 🔴 **경력 한 줄 = 한 항목**으로 편 것 (2026-08-29). 원문을 지우지 않고 **덧붙인다**.
+        #    `aligned=false` 면 짝을 못 지은 것이다 — 그때 기간은 `periods` 로 따로 온다.
+        #    짝을 지어내지 않는다. 표본 10사·26명 실측 짝맞춤 20/26.
+        "careers_normalized": candidate.get("careersNorm") or None,
         # async 경로와 **같은 계약**을 유지한다 — 한쪽에만 넣으면 sync 소비자가 조용히 빈다.
         "career_raw": [{"period": (d.get("period") or "").strip(),
                         "content": (d.get("content") or "").strip()}

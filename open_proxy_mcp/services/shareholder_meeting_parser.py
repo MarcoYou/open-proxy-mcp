@@ -22,6 +22,7 @@ from typing import Optional
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 import warnings
 
+from open_proxy_mcp.services.career_normalize import build_careers
 from open_proxy_mcp.dart.client import html_to_text
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
@@ -3532,6 +3533,12 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                             # 내용 셀도 보존한다 — 항목 분할이 회사명 중간을 자른다
                             # (「네이버㈜(구, 엔에이치엔㈜) 수석부장」 → 「㈜(구, 엔에이치엔」/「㈜) 수석부장」).
                             c["careerContentRaw"] = re.sub(r"\s+", " ", contents_raw or "").strip()
+                            # 🔴 **경력 한 줄 = 한 항목**으로 편 것을 함께 싣는다(2026-08-29).
+                            # careerDetails 는 기존 소비처가 많아 건드리지 않고 **덧붙인다**.
+                            # 짝이 안 맞으면 `aligned=false` 로 오고 기간은 따로 온다 —
+                            # 짝을 지어내지 않는다. 표본 10사 실측 짝맞춤 20/26.
+                            c["careersNorm"] = build_careers(
+                                c["careerPeriodRaw"], c["careerContentRaw"])
                         elif periods_raw or contents_raw:
                             c["careerDetails"] = _clean_career_details(
                                 [{"period": periods_raw, "content": contents_raw}], name
