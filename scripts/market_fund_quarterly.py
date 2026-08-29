@@ -353,6 +353,11 @@ async def fetch(years, pilot=None, conc=2) -> None:
     # 260829: 가드에 넘길 「그 회사 자신의 자」 — 연간 자본의 중앙값과 가장 최근 연간 자본 중 큰 쪽.
     #   중앙값만 쓰면 실제로 커진 회사(증자)를 오탐한다. 실측 74,918행에서 오탐 0·목표 8행 전부 적중.
     self_ref = _self_ref_map(con)
+    # 260829(마스터 착안): 그 보고서의 「전기」 칸과 대조할 **우리가 아는 그 기간의 값**.
+    #   분기보고서의 전기 = 직전 사업연도말이므로 연간표에서 (종목, fy-1) 로 찾는다.
+    prev_eq = {(r[0], int(r[1])): (r[3] if r[3] is not None else r[2])
+               for r in con.execute("SELECT ticker, fy, eq, eq_restated FROM dart_finstat_y")
+               if (r[3] if r[3] is not None else r[2])}
     con.close()
     todo = [(i, c, y, q, rc) for i, c in firms for y in years
             for q, rc in QFETCH if (i, y, q) not in done and _disclosed(y, q)]
@@ -411,6 +416,8 @@ async def fetch(years, pilot=None, conc=2) -> None:
                 assets = gid_exact(rows, "ifrs-full_Assets", ("BS",))
                 liab = gid_exact(rows, "ifrs-full_Liabilities", ("BS",))
                 eq_total = gid_exact(rows, "ifrs-full_Equity", ("BS",))
+                # 전기 칸(직전 사업연도말) — 같은 기간의 같은 숫자라 우리 보유값과 일치해야 한다.
+                eq_frm = gid_exact(rows, "ifrs-full_Equity", ("BS",), field="frmtrm_amount")
                 # 통화 근본해법(260706): 그 분기 응답 자체에서 통화 감지 후 KRW 환산(저장은 항상 KRW) —
                 # market_val_series.py 연간 fetch와 동일 패턴(statement_currency+fx_to_krw) 재사용.
                 stmt_cur = statement_currency(rows)
@@ -427,10 +434,21 @@ async def fetch(years, pilot=None, conc=2) -> None:
                         buf.append((isu, yr, q, rc, None, None, None, fx_err, "ERR", "ERR"))
                 else:
                     v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total,
-                                     self_ref=self_ref.get(isu))
+                                     self_ref=self_ref.get(isu),
+                                     frmtrm_equity=eq_frm, known_prev_equity=prev_eq.get((isu, yr - 1)))
                     if v["tier"] == "hard":
-                        print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
-                        ni = eq = None; ni_case = eq_case = "SCALE_GUARD"
+                        pm = v["diagnostics"].get("prior_period_mismatch") or {}
+                        if pm.get("triggered"):
+                            # 배수를 알면 무효화 대신 **고쳐서** 담는다 — 보고서가 통째로 틀리므로
+                            # 전기 칸에서 나온 배수가 당기 값에도 그대로 적용된다(260829 실측 7/7).
+                            d = pm["fix_divisor"]
+                            print(f"[가드] {isu} {yr}Q{q} 단위오류 ÷{d:,} — 전기칸 대조로 복구", flush=True)
+                            ni = ni / d if ni is not None else None
+                            eq = eq / d if eq is not None else None
+                            ni_case = eq_case = f"SCALE_FIXED_DIV{d}"
+                        else:
+                            print(f"[가드] {isu} {yr}Q{q} 스케일오류({v['hard_hit']}) — 무효화", flush=True)
+                            ni = eq = None; ni_case = eq_case = "SCALE_GUARD"
                     st = "ok" if (ni is not None or eq is not None) else "nodata"
                     async with lock:
                         buf.append((isu, yr, q, rc, fs, ni, eq, st, ni_case, eq_case))
