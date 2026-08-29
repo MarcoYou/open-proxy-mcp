@@ -103,6 +103,15 @@ _PATH_COLS = ("ts_ns", "tool", "doc_misses", "fetch_viewer", "fetch_kind", "web_
 _SLOW_COLS = ("ts_ns", "tool", "latency_ms", "inflight", "cpu_ms", "lag_ms")
 
 
+def event_table() -> str:
+    """이벤트 표 이름 — **여기가 정본이다.** PG 는 `ops_tool_calls`(260706 rename),
+    sqlite 는 `events`. 260828 사고: `startup_metrics.fetch_full` 이 옛 이름
+    `tool_call_events` 를 사본으로 들고 있다가 rename 이후 회차에서 UndefinedTable 로
+    죽었다 — 이름을 두 곳에 두면 한쪽만 고쳐진다(SELF_HASHES 와 같은 이중장부).
+    """
+    return "ops_tool_calls" if using_pg() else "events"
+
+
 def _db_event_ids() -> set:
     """DB 에 지금 있는 event_id. 드레인은 내보낸 뒤 지우므로 원래 안 겹치지만,
     중단·재실행이 있었다면 겹친다 — **겹침을 가정하지 않는 쪽이 위험하다**(이중 계상)."""

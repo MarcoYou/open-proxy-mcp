@@ -463,3 +463,72 @@ def test_outside_segment_note_message_does_not_send_the_reader_hunting():
     out = "\n".join(_geo_lines({"status": "NOT_COLLECTED", **got}, "###"))
     assert "표 없음" in out
     assert "위치 다름" not in out
+
+
+# ── 귀속기준 프리필터 (260829) ─────────────────────────────────────────
+# `_mark_attribution` 은 표를 하나씩 객체로 **재조립**해 셀을 뒤졌다. 실측(사용자가
+# 조회한 120사): 표 2,536개를 재조립해 찾아낸 건 2개뿐이었다. 그래서 재조립 전에
+# 글자로 먼저 거른다 — 다만 그게 성립하려면 **셀 텍스트와 같은 정규화**를 거쳐야 한다.
+# 아래는 그 필요조건("셀에서 잡히는 건 프리필터도 통과한다")을 못 박는다.
+def _cell_matches(html: str) -> bool:
+    """지금 코드가 셀 단위로 하던 판정 그대로."""
+    import re as _re
+
+    from bs4 import BeautifulSoup
+
+    from open_proxy_mcp.services.segment_grid import (
+        _ATTR_LABEL_TAIL_RE, _ATTR_VALUE_RE, _CELL_TAGS)
+    tb = BeautifulSoup(html, "lxml").find("table")
+    if tb is None:
+        return False
+    for c in tb.find_all(_CELL_TAGS):
+        s = _re.sub(r"\s+", " ", c.get_text(" ", strip=True))
+        if 10 < len(s) < 200 and _ATTR_VALUE_RE.search(s) \
+                and not _ATTR_LABEL_TAIL_RE.search(s):
+            return True
+    return False
+
+
+def _prefilter_passes(html: str) -> bool:
+    from open_proxy_mcp.services.segment_grid import _ATTR_VALUE_RE, _attr_prefilter_text
+    return bool(_ATTR_VALUE_RE.search(_attr_prefilter_text(html)))
+
+
+def test_prefilter_keeps_the_real_case_measured_in_the_market():
+    """실측으로 유일하게 잡힌 문장(HPSP). 이게 떨어지면 기능이 죽는다."""
+    html = "<table><tr><td>수익은 고객의 소재지에 기초한 국가에 귀속시킴.</td></tr></table>"
+    assert _cell_matches(html)
+    assert _prefilter_passes(html)
+
+
+def test_prefilter_survives_entities():
+    """★ `&nbsp;` 를 안 풀면 셀에선 잡히는데 프리필터가 떨군다 — 조용한 회귀."""
+    html = "<table><tr><td>수익은&nbsp;고객의&nbsp;소재지에 기초한 국가에 귀속시킴.</td></tr></table>"
+    assert _cell_matches(html), "전제: 셀 판정은 잡는다"
+    assert _prefilter_passes(html), "엔티티를 안 풀어 놓쳤다"
+
+
+def test_prefilter_survives_line_breaks_and_inner_tags():
+    """줄바꿈·중첩 태그로 문장이 갈려도 셀 쪽은 공백 하나로 접어 잡는다."""
+    html = ("<table><tr><td>수익은 고객의\n   <b>소재지</b>\n  기준으로\n"
+            "국가에 귀속시켰습니다.</td></tr></table>")
+    assert _cell_matches(html), "전제: 셀 판정은 잡는다"
+    assert _prefilter_passes(html), "공백을 안 접어 놓쳤다"
+
+
+def test_prefilter_drops_tables_that_could_never_match():
+    """거르는 값어치 — 문장 없는 표는 재조립까지 가지 않는다."""
+    html = "<table><tr><td>매출액</td><td>1,234,567</td></tr></table>"
+    assert not _cell_matches(html)
+    assert not _prefilter_passes(html)
+
+
+def test_prefilter_is_a_necessary_condition_not_a_replacement():
+    """프리필터는 **느슨해야** 한다 — 통과했다고 셀 판정을 건너뛰면 안 된다.
+    길이 제한(≥200)에 걸리는 문장은 프리필터를 통과하되 최종 판정에서 떨어진다."""
+    long_cell = ("연결회사의 성과를 평가할 때 최고영업의사결정자는 " * 9
+                 + "수익은 고객의 소재지에 기초한 국가에 귀속시킴.")
+    assert len(long_cell) >= 200, "전제: 길이 제한에 걸릴 만큼 길다"
+    html = f"<table><tr><td>{long_cell}</td></tr></table>"
+    assert _prefilter_passes(html), "프리필터는 통과시켜야 한다(느슨한 쪽)"
+    assert not _cell_matches(html), "최종 판정은 길이로 떨군다"

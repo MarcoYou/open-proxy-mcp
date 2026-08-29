@@ -95,7 +95,7 @@ jobs:
         #   원장(krx_shares_ledger)에서 파생되므로 위 스윕 다음에 온다.
         # 🔴 260829: 이 단계에만 `env:` 가 빠져 있어 `KeyError: 'DATABASE_URL'` 로 죽었다.
         #   앞뒤 단계는 다 갖고 있는데 여기만 없었다 — 신설(260823) 때 빠뜨린 것이다.
-        #   main 에는 고쳐져 있었고 beta 만 낡아 있었다(260829 실측).
+        #   같은 워크플로가 08-28·08-29 두 번 연속 실패했다.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/krx_stock_flags.py
