@@ -536,9 +536,11 @@ async def _annual_pit_band(ticker: str, currency: str = "KRW",
             continue
         ni_k, eq_k = fin[pit_fy]
         cap = float(cap)
+        # 260829: 완전자본잠식 시점은 배수를 내지 않는다(마스터 지시) — 집계와 같은 규칙.
+        _impaired = eq_k is not None and eq_k <= 0
         band.append({
             "period": yr_s, "asof": price_dd, "pit_fy": pit_fy, "cap_krw": round(cap),
-            "per_fy0": round(cap / ni_k, 2) if ni_k and ni_k > 0 else None,
+            "per_fy0": round(cap / ni_k, 2) if (ni_k and ni_k > 0 and not _impaired) else None,
             "pbr_fy0": round(cap / eq_k, 2) if eq_k and eq_k > 0 else None,
             "source": f"연말(PIT FY{pit_fy})",
         })
@@ -568,11 +570,14 @@ async def _weekly_series(ticker: str, currency: str = "KRW",
         aq_fy, aq_q = _pit_quarter(price_dd)
         ttm = _ttm_ni(fin, finq, aq_fy, aq_q)
         mrq = _mrq_eq(fin, finq, aq_fy, aq_q)
+        # 260829: 완전자본잠식 시점은 배수를 내지 않는다(마스터 지시).
+        _eq_now = mrq if mrq is not None else eq_k
+        _impaired = _eq_now is not None and _eq_now <= 0
         series.append({
             "asof": price_dd, "pit_fy": fy, "pit_q": f"{aq_fy}Q{aq_q}", "cap_krw": round(cap),
-            "per_fy0": round(cap / ni_k, 3) if ni_k and ni_k > 0 else None,
+            "per_fy0": round(cap / ni_k, 3) if (ni_k and ni_k > 0 and not _impaired) else None,
             "pbr": round(cap / eq_k, 3) if eq_k and eq_k > 0 else None,
-            "per_ttm": round(cap / ttm, 3) if ttm and ttm > 0 else None,
+            "per_ttm": round(cap / ttm, 3) if (ttm and ttm > 0 and not _impaired) else None,
             "pbr_mrq": round(cap / mrq, 3) if mrq and mrq > 0 else None,
         })
     return series

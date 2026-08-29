@@ -129,6 +129,10 @@ async def main() -> None:
             if not f and ni_ttm is None and eq_mrq is None:
                 continue
             ni_fy0, eq_fy0 = f if f else (None, None)
+            # 260829: 완전자본잠식은 모든 집계에서 뺀다(마스터 지시) — 위 두 스크립트와 같은 규칙.
+            _eq_now = eq_mrq if eq_mrq is not None else eq_fy0
+            if _eq_now is not None and _eq_now <= 0:
+                continue
             s = bucket(ind, isu) if ind and ind not in ("none", "err") else None
             for acc in (mk[market], sec[(market, s)] if s else None):
                 if acc is None:

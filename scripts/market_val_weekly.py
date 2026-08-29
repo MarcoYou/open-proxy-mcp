@@ -170,6 +170,15 @@ async def run(dry: bool = False) -> None:
                 fx_skipped.append(isu); continue
             nf, nt, ef, em = (x * r if x is not None else None for x in (nf, nt, ef, em))
         firms.append((isu, market, ind or "", nf, nt, ef, em))
+    # 260829(마스터 지시): **완전자본잠식(지배주주 자본 ≤ 0)은 모든 연산·출력에서 뺀다.**
+    #   수집은 그대로 한다 — 빼는 것은 집계와 화면뿐이다. 자본이 0 이하인 회사의 PER·PBR 은
+    #   뜻이 없고, 그 적자가 분모에 섞여 시장 배수를 흔든다(실측: 코스닥 20251031 PER
+    #   298.3 → 230.2, −22.8%). 코스피는 −0.1% 수준으로 거의 안 움직인다.
+    _n0 = len(firms)
+    firms = [f for f in firms if not (((f[6] if f[6] is not None else f[5])) is not None
+                                      and (f[6] if f[6] is not None else f[5]) <= 0)]
+    if _n0 != len(firms):
+        print(f"  자본잠식 제외 {_n0 - len(firms)}사 (지배주주 자본 ≤ 0)")
     if fx_skipped:
         print(f"  ⚠ FX 미확보로 제외: {fx_skipped}")
 
