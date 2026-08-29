@@ -118,8 +118,55 @@ def check_self_relative(value, self_ref, factor: float = _SELF_FACTOR) -> dict:
     return {"triggered": ratio > factor, "ratio": ratio}
 
 
+def trailing_zeros(value) -> int:
+    """원문 숫자 끝에 0이 몇 개인가. 단위 배수가 덧곱해지면 그만큼 0이 붙는다(260829 실측 8/8)."""
+    if value is None:
+        return 0
+    s = str(abs(int(value)))
+    return len(s) - len(s.rstrip("0"))
+
+
+def propose_scale_fix(value, ref, max_pow: int = 9, band: tuple = (0.2, 5.0)) -> dict:
+    """단위 배수가 덧곱해진 값의 **나눌 배수**를 특정한다.
+
+    두 신호가 **독립적으로** 같은 10ⁿ 을 가리킬 때만 제안한다.
+      ① 원문 끝의 0 개수가 n 이상 — 배수가 곱해졌으면 그만큼 0이 붙는다
+      ② value/10ⁿ 이 그 회사 평소 규모(ref)의 band 안에 든다
+    둘 다 맞을 확률은 우연으로 나오지 않는다(260829 실측: 8건 전부 두 신호 일치).
+
+    ⚠️ 이 값은 **공시된 값이 아니다.** 원본 칸에 쓰지 말고 restated 칸에 근거와 함께 남긴다.
+    """
+    if not value or not ref:
+        return {"ok": False}
+    tz = trailing_zeros(value)
+    lo, hi = band
+    for n in range(1, min(max_pow, tz) + 1):
+        cand = abs(value) / 10 ** n
+        if lo < cand / ref < hi:
+            return {"ok": True, "power": n, "fixed": value / 10 ** n,
+                    "trailing_zeros": tz, "ratio_to_ref": cand / ref}
+    return {"ok": False, "trailing_zeros": tz}
+
+
+def check_cross_report_jump(value, prev_value, tol: float = _POWER_TOLERANCE) -> dict:
+    """①-b(260829 신설) **보고서 사이** 배수점프.
+
+    기존 ①은 같은 응답 안의 당기 vs 전기를 봤다. 그런데 실측(260829) 결과 단위 오류는
+    **그 보고서가 통째로** 틀린다 — 당기·전기가 같이 부풀려져 비율이 0.87~1.22 로
+    지극히 정상이었다. 그래서 보고서 안에서는 절대 안 잡힌다.
+    **직전 분기(다른 보고서)의 저장값**과 대야 10ⁿ 점프가 드러난다.
+    """
+    if not value or not prev_value:
+        return {"triggered": False}
+    ratio = abs(value) / abs(prev_value)
+    n = _near_power_of_ten(ratio, tol)
+    if n is not None and abs(n) >= 2:
+        return {"triggered": True, "power": n, "ratio": ratio}
+    return {"triggered": False, "ratio": ratio}
+
+
 def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=None,
-           mktcap=None, market_max=None, self_ref=None) -> dict:
+           mktcap=None, market_max=None, self_ref=None, prev_equity=None) -> dict:
     """4개 체크 종합. tier: 'hard'(②③ 중 하나라도 → N/M 무효화) / 'soft'(①④만 → 경고만) / 'clean'.
     market_max 제공 시 ③은 시장최댓값 대비 배수(원칙적, 회사규모 무관 작동) — 없으면 자릿수 백스톱.
 
@@ -142,6 +189,9 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
         hard["self_relative_ni"] = check_self_relative(thstrm, self_ref)
         if equity is not None:
             hard["self_relative_eq"] = check_self_relative(equity, self_ref)
+    # 260829: 직전 분기(다른 보고서) 대비 10ⁿ 점프. 보고서 안에서는 안 보이는 신호다.
+    if prev_equity:
+        hard["cross_report_jump_eq"] = check_cross_report_jump(equity, prev_equity)
     soft = {
         "magnitude_jump": check_magnitude_jump(thstrm, frmtrm),
         "mktcap_ratio": check_mktcap_ratio(thstrm, mktcap),

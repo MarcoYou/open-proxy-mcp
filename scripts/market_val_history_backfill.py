@@ -94,7 +94,7 @@ async def main() -> None:
     # 분기 재무 — 종목별 dict {(fy,q):(ni_cum,eq)}
     finq_all: dict[str, dict[tuple, tuple]] = {}
     for isu, fy, q, ni_cum, eq in con.execute(
-            "SELECT ticker, fy, quarter, ni_cum, eq FROM dart_finstat_q WHERE quarter != 4"):
+            "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
         finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
     # 월말 날짜(각 YYYYMM 마지막 거래주), 2020~현재월 이전
     months = [r[0] for r in con.execute(

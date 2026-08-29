@@ -479,7 +479,7 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW") -> dict[tuple, tupl
     """종목 (fy,quarter)별 (지배순이익 누적, 지배자본 잔액) — KRW 환산. dart_finstat_q.
     비KRW는 분기말 환율(Q1 0331·Q2 0630·Q3 0930·Q4 1231)로 환산 — 누적순익은 분기말 근사."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT fy, quarter, ni_cum, eq FROM dart_finstat_q WHERE ticker=%s", (ticker,)) or []
+        "SELECT fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE ticker=%s", (ticker,)) or []
     finq: dict[tuple, tuple] = {}
     for fy, q, ni, eq in rows:
         finq[(int(fy), int(q))] = (float(ni) if ni is not None else None,
