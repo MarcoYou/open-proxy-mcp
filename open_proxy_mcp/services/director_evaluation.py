@@ -533,6 +533,15 @@ def career_split_doubt(candidate: dict[str, Any]) -> list[str]:
     pers = {(d.get("period") or "").strip() for d in det}
     if len(det) >= 2 and len(pers) == 1 and next(iter(pers)):
         out.append("기간이 항목별로 갈리지 않음")
+    # 🔴 **일부만 기간이 붙은 것은 「정상」이 아니다** (2026-08-30 U 6차 실측).
+    #    한국앤컴퍼니 이행희 — 기간 셀은 구간 3개(「2010~20141988~20242022 ~ 現」)인데
+    #    경력은 7줄이다. 파서가 앞 3줄에 순서대로 갖다 붙이고 나머지 4줄은 비웠다.
+    #    그 결과 화면에 「1988~2024 대표이사」와 「2022~現 사업부장」이 나란히 서서
+    #    U 가 「이 사람 지금 소속을 못 읽겠다」고 했다. **구간 수와 항목 수가 다르면
+    #    짝은 우리 추측이다** — 그 사실을 밝히고 원문 두 칸을 함께 싣는다.
+    _with = sum(1 for d in det if (d.get("period") or "").strip())
+    if 0 < _with < len(det):
+        out.append(f"기간이 {len(det)}줄 중 {_with}줄에만 붙음 — 짝은 순서 추측")
     if any(len(_CORP_MARK.findall(d.get("content") or "")) >= 2 for d in det):
         out.append("한 항목에 회사가 여럿(뭉침)")
     if any(_CAREER_CUT.search(d.get("content") or "") for d in det):

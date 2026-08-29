@@ -5064,10 +5064,19 @@ async def _build_proxy_advise_payload(
     meeting_closed_hint: str | None = None
     if _meeting_phase in ("post_meeting_pre_result", "post_result"):
         _mt_ko = _MEETING_TYPE_KO.get(_selected_mt, _selected_mt)
+        # 🔴 **「그럼 지금 표를 던질 게 있나」에 답해야 한다** (2026-08-30 U 6차 —
+        #    「끝난 회차라고 밝혀 준 건 좋은데, 예정된 주총이 있는지 없는지는 끝내
+        #    안 알려줍니다. 개인 주주가 알고 싶은 건 그건데요」).
+        #    회차 선택은 **과거 12개월 ~ 앞으로 90일** 창에서 하므로, 그 창에서 과거
+        #    회차가 뽑혔다는 것은 **앞으로 90일 안에 공고된 회차가 없다**는 뜻이다.
+        #    「주총이 없다」가 아니라 「이 시점까지 공고된 것이 없다」로 적는다 —
+        #    아직 공고 전일 수 있고, 그 둘은 다르다.
         meeting_closed_hint = (
             f"이 {_mt_ko}주총({_selected_meeting_date})은 이미 종료된 회차입니다 — "
-            f"이 분석은 사후 복기용입니다. 이후 열렸거나 예정된 임시주총, 또는 이 회차의 "
-            f"실제 의결 결과가 필요하시면 말씀해 주세요."
+            f"이 분석은 사후 복기용입니다. **지금 표를 던질 회차는 없습니다** — "
+            f"기준 시점까지 공고된 것 중 앞으로 90일 안에 열리는 주총이 없다는 뜻이며, "
+            f"아직 공고 전일 수는 있습니다(공고는 보통 회의일 2~4주 전). "
+            f"이 회차의 실제 의결 결과가 필요하시면 말씀해 주세요."
         )
 
     # ── data dict 구성 (Step 3: scope param 단순 expose) ──

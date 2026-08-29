@@ -128,3 +128,27 @@ def test_proposer_speaking_is_not_proposer_employment() -> None:
     assert yoon["result"] == "employed_by_proposer"
     assert chae["result"] == "proposed_by_shareholder", "제안주주가 말한 것을 소속으로 읽으면 안 된다"
     assert chae["result"] != yoon["result"]
+
+
+def test_partial_period_pairing_is_flagged_as_doubt() -> None:
+    """🔴 일부 줄에만 기간이 붙은 것은 정상이 아니다 (2026-08-30 U 6차 실측).
+
+    한국앤컴퍼니 이행희 — 기간 셀 구간 3개에 경력 7줄. 앞 3줄에만 순서대로 붙고
+    나머지는 비었다. 화면엔 「1988~2024 대표이사」와 「2022~現 사업부장」이 나란히
+    서서 현재 소속을 읽을 수 없었다.
+    """
+    from open_proxy_mcp.services.director_evaluation import career_split_doubt
+
+    doubt = career_split_doubt({"careerDetails": [
+        {"period": "2010~2014", "content": "다국적기업 최고경영자 협회 회장"},
+        {"period": "1988~2024", "content": "한국코닝(주) 대표이사 (사장)"},
+        {"period": "2022 ~ 現", "content": "한국코닝(주) 자동차환경 사업부장"},
+        {"period": "", "content": "(주)포스코인터내셔널 사외이사"},
+        {"period": "", "content": "(주)무신사 사외이사"},
+    ]})
+    assert any("짝은 순서 추측" in d for d in doubt)
+    # 전부 붙어 있으면 의심하지 않는다 — 정상까지 흔들면 신호가 죽는다.
+    assert not any("짝은 순서 추측" in d for d in career_split_doubt({"careerDetails": [
+        {"period": "2019~2022", "content": "해군본부 법무관"},
+        {"period": "2022~현재", "content": "트러스톤자산운용 주주권행사팀장"},
+    ]}))
