@@ -1164,6 +1164,20 @@ def _render_md(p: dict[str, Any]) -> str:
         f"- 지배순이익 {g(i['net_income_fy0_krw'],'','{:,}')}(FY0)/{g(i['net_income_ttm_krw'],'','{:,}')}(TTM) · 지배자본 {g(i['controlling_equity_krw'],'','{:,}')} · 유통주식 보통 {g(i['shares_common'],'','{:,}')}/합계 {g(i['shares_total'],'','{:,}')}",
         f"- 보통주 시총 {g(i['common_market_cap_krw'],'','{:,}')} (업종구분: {'금융·지주' if d['sector_class']=='financial' else '일반(비금융)'})",
     ]
+    # 🔴 **두 주식수를 한 화면에 나란히 두고 무엇이 다른지 안 밝히면 틀린 것처럼 보인다**
+    #    (2026-08-30 U 6차 실측 태광산업 — 「시총 1조 221억 ÷ 주가 918,000원 = 111만 주인데
+    #    표기 유통주식은 841,631주, 27만 주 어긋난다」). 계산은 맞다. 시총은 **상장주식수**
+    #    (자기주식 포함, KRX 관행)이고 표기 유통주식은 **자기주식 제외**다. 자기주식 비중이
+    #    큰 회사(태광산업 24.4%)일수록 벌어진다. 값을 고치지 않고 **차이를 드러낸다.**
+    _cap, _px, _sc = i.get("common_market_cap_krw"), d.get("price_krw"), i.get("shares_common")
+    if _cap and _px and _sc:
+        _listed = round(_cap / _px)
+        if abs(_listed - _sc) > max(1, _sc * 0.005):
+            lines.append(
+                f"  - ⓘ 시총 ÷ 주가 = {_listed:,}주로 위 유통주식({_sc:,}주)과 {_listed - _sc:,}주 "
+                f"다릅니다 — **시총은 상장주식수(자기주식 포함, KRX 관행), 유통주식은 자기주식 "
+                f"제외**라서입니다. 둘 다 맞는 값이며 배수 분자는 시총 쪽입니다. "
+                f"자기주식 규모는 `treasury_share` 로 확인하십시오")
     # 봉투(payload["warnings"])와 데이터(data["warnings"])를 **둘 다** 싣는다.
     # 「이 회사가 맞나」를 묻는 추정 경고는 declare_weak_resolution 이 봉투에 다는데,
     # 종전에는 데이터 쪽만 읽어 통째로 버렸다 — 「현대」를 물으면 28곳 중 하나를 고른 사실이

@@ -59,7 +59,12 @@ def test_contested_seats_are_linked_both_ways():
     for no, other in (("제5호", "제7호"), ("제6호", "제7호")):
         con = [l for l in links[no] if l["type"] == "contested"]
         assert con and con[0]["with"] == [other]
-        assert "둘 다 찬성할 수 없습니다" in con[0]["note"]
+        # 대림 공고에는 선출 인원 문구가 없다 — **숫자를 지어내지 않고** 무엇을 확인해야
+        # 하는지만 말해야 한다(2026-08-30 U 6차: 자리가 둘인데 「둘 다 불가」라고 해서
+        # 표를 버릴 뻔했다).
+        assert "몇 명을 뽑는지" in con[0]["note"]
+        assert "둘 다 찬성할 수 없습니다" not in con[0]["note"]
+        assert con[0]["seats"] is None
     con7 = [l for l in links["제7호"] if l["type"] == "contested"]
     assert con7 and set(con7[0]["with"]) == {"제5호", "제6호"}
 
@@ -186,3 +191,84 @@ def test_proposer_column_is_rendered():
     out = _render(payload)
     assert "| # | 안건 | 제안 | 관계 | 행사방향 | 사유 |" in out
     assert "| 이사회 |" in out and "| **주주** |" in out
+
+
+def test_two_seat_contest_does_not_say_only_one() -> None:
+    """🔴 자리가 둘이면 양쪽에서 한 명씩 찬성할 수 있다 (2026-08-30 U 6차 실측).
+
+    한국앤컴퍼니 제4호 — 후보 3명·자리 2개 순차표결. 예전엔 세 후보 전부에
+    「둘 다 찬성할 수 없습니다」가 붙어, 그대로 따르면 **던질 수 있는 표를 하나 버렸다.**
+    """
+    from open_proxy_mcp.services.shareholder_meeting import agenda_relation_link_label
+
+    rows = [
+        {"number": "제4-1호", "title": "감사위원이 되는 사외이사 이행희 선임의 건",
+         "category": "audit_committee_election", "proposer_type": "company", "parent_number": "제4호"},
+        {"number": "제4-2호", "title": "감사위원이 되는 사외이사 여치경 선임의 건",
+         "category": "audit_committee_election", "proposer_type": "company", "parent_number": "제4호"},
+        {"number": "제4-3호", "title": "감사위원이 되는 사외이사 김유니스경희 선임의 건",
+         "category": "audit_committee_election", "proposer_type": "shareholder_proposal",
+         "parent_number": "제4호"},
+    ]
+    notice = ("제4호 은 순차표결에 의한 방식으로 진행하며, 다만 결의요건을 충족한 후보가 "
+              "2인 이상일 경우 찬성률이 높은 후보 순으로 2인의 감사위원이 되는 사외이사를 "
+              "선임합니다.")
+    links = build_agenda_relation_links(rows, notice)
+    con = [l for l in links["제4-3호"] if l["type"] == "contested"]
+    assert con, "이사회제안과 주주제안이 같은 자리를 다투므로 경합이 붙어야 한다"
+    link = con[0]
+    assert link["seats"] == 2 and link["candidates"] == 3
+    assert "최대 2명까지 찬성할 수 있습니다" in link["note"]
+    # 🔴 이 문구가 남아 있으면 읽는 쪽이 표를 버린다.
+    assert "둘 다 찬성할 수 없습니다" not in link["note"]
+    # 표에 찍히는 짧은 라벨도 같이 바뀌어야 한다 — 라벨이 먼저 읽힌다.
+    assert agenda_relation_link_label(link) == "⚔️ 제4-1호, 제4-2호와 경합 — 2명까지 찬성 가능"
+
+
+def test_single_seat_contest_still_says_only_one() -> None:
+    """자리가 하나면 예전 문구가 맞다 — 완화하다가 진짜 택일을 놓치면 안 된다."""
+    rows = [
+        {"number": "제3호", "title": "사외이사 갑 선임의 건", "category": "director_election",
+         "proposer_type": "company", "parent_number": "제2호"},
+        {"number": "제4호", "title": "사외이사 을 선임의 건", "category": "director_election",
+         "proposer_type": "shareholder_proposal", "parent_number": "제2호"},
+    ]
+    notice = "제3호, 제4호 의안에 대해서는 다득표 의안 1개 안건이 가결된 것으로 합니다."
+    links = build_agenda_relation_links(rows, notice)
+    con = [l for l in links["제3호"] if l["type"] == "contested"]
+    assert con and con[0]["seats"] == 1
+    assert "둘 다 찬성할 수 없습니다" in con[0]["note"]
+
+
+def test_director_cap_is_read_when_written_with_myeong() -> None:
+    """🔴 회사는 「인」과 「명」을 섞어 쓴다 (2026-08-30 U 6차 실측 한국앤컴퍼니).
+
+    「3명 이상 15명 이내 → 3명 이상 11명 이내」는 **정원 4자리 축소**인데, 「인」만 보던
+    정규식이 통째로 놓쳐 「이사 정원 축소 … 없음 → 찬성」으로 나갔다.
+    """
+    from open_proxy_mcp.services.proxy_advise import _articles_body_risks
+
+    risks = _articles_body_risks({
+        "before": "제32조(이사의 수) ① 본 회사의 이사는 3명 이상 15명 이내로 하고",
+        "after": "제32조(이사의 수) ① 본 회사의 이사는 3명 이상 11명 이내로 하고",
+    })
+    assert risks == ["이사 정원 상한 축소 (15인 → 11인)"]
+    # 「이상」은 하한이다 — 상한으로 읽으면 없는 축소를 만들어낸다.
+    assert _articles_body_risks({
+        "before": "이사는 3명 이상으로 한다", "after": "이사는 5명 이상으로 한다"}) == []
+
+
+def test_bundle_agenda_does_not_bury_a_child_risk() -> None:
+    """🔴 묶음 안건이 자식의 위험을 「없음」으로 덮으면 한 응답이 자기 말을 뒤집는다."""
+    from open_proxy_mcp.services.proxy_advise import _decide_articles_amendment
+
+    dec, reason = _decide_articles_amendment(
+        "정관 변경의 건", amendment={"before": "제1조 목적", "after": "제1조 목적(수정)"},
+        sibling_risks=["이사 정원 상한 축소 (15인 → 11인)"])
+    assert dec == "REVIEW"
+    assert "같은 정관변경 묶음의 다른 조문" in reason
+    assert "15인 → 11인" in reason
+    # 형제 위험이 없으면 예전대로 FOR 다 — 완화가 아니라 시야 확대다.
+    dec2, _ = _decide_articles_amendment(
+        "정관 변경의 건", amendment={"before": "제1조 목적", "after": "제1조 목적(수정)"})
+    assert dec2 == "FOR"

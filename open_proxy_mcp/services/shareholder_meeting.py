@@ -355,6 +355,42 @@ def _propagate_relation(children: list[dict[str, Any]], relation: str) -> None:
         _propagate_relation(child.get("children") or [], relation)
 
 
+#: 🔴 **경합은 「둘 중 하나」가 아니다** (2026-08-30 U 6차 실측).
+#: 한국앤컴퍼니 제4호는 후보 3명·**자리 2개** 순차표결인데 세 후보 전부에 「둘 다 찬성할 수
+#: 없습니다」가 붙었다. 그대로 따르면 **찬성할 수 있는 표를 하나 버린다** — 자리가 둘이면
+#: 이사회측 1명 + 주주측 1명에 동시에 찬성하는 것이 가능하다.
+#: 그래서 공고가 밝힌 **선출 인원**을 먼저 읽는다. 못 읽으면 숫자를 지어내지 않고
+#: 「몇 명을 뽑는지 못 읽었다」고 말한다 — 「둘 다 안 된다」고는 하지 않는다.
+#:
+#: 실측 두 꼴 —
+#:   태광산업   「…보통결의 요건 충족 의안이 3개 이상일 경우 **다득표 의안 2개** 안건이 가결…」
+#:   한국앤컴퍼니 「…충족한 후보가 2인 이상일 경우 찬성률이 높은 후보 순으로 **2인**의 …선임합니다」
+#: 「2인 이상일 경우」는 **문턱**이지 자리 수가 아니다 — 그래서 뒤쪽 형태만 잡는다.
+_ELECTED_SEATS_RES = (
+    re.compile(r"다득표\s*(?:의안|후보)?\s*(\d+)\s*(?:개|건|인|명)"),
+    re.compile(r"찬성(?:률|표)[^.\n]{0,20}?높은\s*(?:후보|순)[^.\n]{0,15}?(\d+)\s*(?:인|명)"),
+    re.compile(r"상위\s*(\d+)\s*(?:인|명)"),
+)
+
+
+def _elected_seats_in_notice(notice_text: str) -> tuple[int | None, str | None]:
+    """공고 본문에서 **선출 인원**과 그 근거 문장. 못 읽으면 (None, None).
+
+    지어내지 않는다 — 근거 문장을 함께 돌려주어 읽는 쪽이 대볼 수 있게 한다.
+    """
+    text = notice_text or ""
+    for rx in _ELECTED_SEATS_RES:
+        m = rx.search(text)
+        if not m:
+            continue
+        n = int(m.group(1))
+        if not 1 <= n <= 30:
+            continue
+        quote = re.sub(r"\s+", " ", text[max(0, m.start() - 70):m.end() + 40]).strip()
+        return n, quote
+    return None, None
+
+
 def _seat_count_in_title(title: str) -> int | None:
     """제목에서 선임 인원. 연도·금액이 섞여 들어오지 않게 상한을 둔다."""
     m = re.search(r"(\d+)\s*(?:인|명)", title or "")
@@ -583,6 +619,22 @@ def build_agenda_relation_links(
         if not board or not holder:
             continue          # 한쪽뿐이면 경합이 아니다 — 금호석유화학이 여기서 걸러진다
         scope = _seat_scope(group[0].get("title") or "") or "이사"
+        # 🔴 몇 자리를 뽑는지가 이 관계의 뜻을 바꾼다 — 한 자리면 택일, 여러 자리면 상한이다.
+        seats, seats_quote = _elected_seats_in_notice(notice_text)
+        n_cand = len(group)
+        if seats is not None and seats >= 2 and n_cand > seats:
+            _how = (f"이 묶음은 후보 {n_cand}명 중 **{seats}명**을 뽑습니다 — "
+                    f"**최대 {seats}명까지 찬성할 수 있습니다.** 진영을 하나로 정할 필요는 "
+                    f"없고, 양쪽에서 골라도 됩니다. 다만 {seats}명을 넘겨 찬성하면 표가 "
+                    f"흩어집니다." + (f" 근거: 「…{seats_quote}…」" if seats_quote else ""))
+        elif seats == 1 or (seats is None and n_cand == 2):
+            _how = ("**둘 다 찬성할 수 없습니다.** 어느 진영을 지지할지 먼저 정하고 "
+                    "그 진영의 안건에만 찬성하세요.")
+        else:
+            # 못 읽었으면 숫자를 지어내지 않는다 — 무엇을 확인해야 하는지만 말한다.
+            _how = (f"**몇 명을 뽑는지 이 공고에서 읽지 못했습니다** — 원문의 선출 인원을 "
+                    f"먼저 확인하세요(후보는 {n_cand}명입니다). 후보 수보다 적게 뽑는다면 "
+                    f"전원 찬성은 표를 나눕니다.")
         for side, other, side_ko, other_ko in (
             (board, holder, "이사회제안", "주주제안"),
             (holder, board, "주주제안", "이사회제안"),
@@ -592,9 +644,10 @@ def build_agenda_relation_links(
                 _add(r["number"], {
                     "type": "contested",
                     "with": other_nos,
+                    "seats": seats,
+                    "candidates": n_cand,
                     "note": (f"{', '.join(other_nos)}({other_ko})과 같은 {scope} 자리를 두고 "
-                             f"맞선 {side_ko} 안건입니다 — **둘 다 찬성할 수 없습니다.** "
-                             f"어느 진영을 지지할지 먼저 정하고 그 진영의 안건에만 찬성하세요."),
+                             f"맞선 {side_ko} 안건입니다 — {_how}"),
                 })
 
     # ── ② 선행 의존 — 같은 자리의 해임이 같은 주총에 올라와 있다 ────────────────
@@ -678,7 +731,8 @@ def build_agenda_relation_links(
 
 #: 관계 유형 → 표에 찍을 짧은 라벨. 판정 자리가 아니라 **관계** 자리에 쓴다.
 AGENDA_RELATION_LINK_LABEL = {
-    "contested": "⚔️ {nos}와 경합 — 둘 다 찬성 불가",
+    # 자리 수를 모를 때의 기본 문구. 자리가 둘 이상이면 아래 함수가 갈아 끼운다.
+    "contested": "⚔️ {nos}와 경합 — 선출 인원 확인 필요",
     "depends_on": "🔗 {nos} 가결이 전제",
     "precedes": "🔗 {nos} 선임의 선행 안건",
     "conditional_on": "🔗 {nos} 결과에 연동",
@@ -688,6 +742,14 @@ AGENDA_RELATION_LINK_LABEL = {
 
 def agenda_relation_link_label(link: dict[str, Any]) -> str:
     nos = ", ".join(link.get("with") or [])
+    if link.get("type") == "contested":
+        # 🔴 라벨 한 줄이 표에서 제일 먼저 읽힌다 — 여기서 「둘 다 불가」라고 쓰면
+        #    본문을 안 읽은 사람이 자리 둘짜리 안건에서 표를 버린다(2026-08-30 U 6차).
+        seats = link.get("seats")
+        if isinstance(seats, int) and seats >= 2:
+            return f"⚔️ {nos}와 경합 — {seats}명까지 찬성 가능"
+        if seats == 1:
+            return f"⚔️ {nos}와 경합 — 둘 다 찬성 불가"
     tpl = AGENDA_RELATION_LINK_LABEL.get(link.get("type") or "", "")
     return tpl.format(nos=nos) if tpl else ""
 

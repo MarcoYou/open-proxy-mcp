@@ -465,11 +465,21 @@ def _render(payload: dict[str, Any]) -> str:
             _contested = [ag for ag in _linked
                           if any(l.get("type") == "contested"
                                  for l in ag["agenda_relation_links"])]
+            _seats = next((l.get("seats") for ag in _contested
+                           for l in ag["agenda_relation_links"]
+                           if l.get("type") == "contested" and l.get("seats") is not None),
+                          None)
             lines.append(
                 "> 🔴 **이 주총은 안건 사이에 관계가 있습니다 — 안건을 하나씩 따로 판단하면 "
                 f"안 됩니다.** 관계가 걸린 안건 {len(_linked)}건"
-                + (f" (그중 {len(_contested)}건은 같은 자리를 두고 맞선 **경합** — 둘 다 "
-                   "찬성할 수 없습니다)" if _contested else "")
+                + (f" (그중 {len(_contested)}건은 같은 자리를 두고 맞선 **경합**"
+                   # 🔴 머리말이 본문보다 먼저 읽힌다 — 자리가 둘인데 여기서 「둘 다 불가」라고
+                   #    쓰면 아래를 안 읽은 사람이 표를 버린다(2026-08-30 U 6차).
+                   + (f" — 이 묶음은 **{_seats}명**까지 찬성할 수 있습니다"
+                      if isinstance(_seats, int) and _seats >= 2
+                      else " — 둘 다 찬성할 수 없습니다" if _seats == 1
+                      else " — 선출 인원을 먼저 확인하세요")
+                   + ")" if _contested else "")
                 + ". 아래 「관계」 칸과 「안건별 결정 근거」의 안건 관계 항목을 먼저 읽으세요.")
             lines.append("")
         # 260828: **제안 주체와 안건 사이의 관계**를 표에 세운다. 위임장 경쟁에서는 「누가 낸

@@ -2186,7 +2186,10 @@ def _decide_financial_statements(
 #: 괄호 안 아라비아 숫자를 기준으로 읽는다.
 #: 상한 표기는 「이하」와 「이내」 둘 다 쓴다 — 한진칼은 「11인 이내 → 9인 이내」라 「이하」만
 #: 보면 정원 축소를 통째로 놓친다.
-_DIRECTOR_CAP = re.compile(r"(\d+)\s*\)?\s*인\s*(?:이하|이내)")
+#: 🔴 **회사는 「인」과 「명」을 섞어 쓴다.** 「인」만 보던 정규식이 한국앤컴퍼니의
+#: 「3명 이상 15명 이내 → 3명 이상 11명 이내」를 통째로 놓쳤다 — 정원 4자리 축소가
+#: 「위험 신호 없음」으로 나갔다(2026-08-30 U 6차). 「이상」은 하한이라 안 잡는다.
+_DIRECTOR_CAP = re.compile(r"(\d+)\s*\)?\s*[인명]\s*(?:이하|이내)")
 #: 「발행할 주식의 총수」 뒤에 오는 수량. **아라비아 숫자만 보던 것이 260828 사고의 원인이다** —
 #: 대림제지 정관은 「일억이천만주 → 육억주」로 적었고, 숫자를 못 찾은 정규식은 조용히 빈손으로
 #: 돌아왔다. 그 결과 5배 증가가 「수권주식 증가 없음」으로 찍히고 판정이 FOR 로 나갔다.
@@ -2307,6 +2310,7 @@ def _decide_articles_amendment(
     comp_payload: dict[str, Any] | None = None,
     fin_metrics_payload: dict[str, Any] | None = None,
     amendment: dict[str, Any] | None = None,
+    sibling_risks: list[str] | None = None,
 ) -> tuple[str, str]:
     """정관변경 안건 → 제목 키워드 + **조문 본문**.
 
@@ -2382,10 +2386,20 @@ def _decide_articles_amendment(
     # default FOR. **검사한 범위만 말한다** — 예전에는 조문을 보지도 않고 「이사 축소 … 없음」이라고
     # 적극적으로 안심시켰다(미탐지보다 나쁘다).
     checked = "제목과 조문 본문" if amendment else "제목"
-    return "FOR", (
-        f"정관변경 — {checked}에서 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 정원 축소 / "
-        f"수권주식 증가 / 전자주총 배제 / 퇴직금 / 보수한도) 없음"
-    )
+    base = (f"정관변경 — {checked}에서 위험 신호 (집중투표 배제 / 의결권 제한 / 이사 정원 축소 / "
+            f"수권주식 증가 / 전자주총 배제 / 퇴직금 / 보수한도) 없음")
+    # 🔴 **묶음 안건이 자식의 위험을 덮으면 안 된다** (2026-08-30 U 6차 실측 —
+    #    한국앤컴퍼니: 제2-7호는 이사 정원 15→11 축소로 위험 표시가 붙었는데, 그것을
+    #    품고 있는 제2호는 「이사 정원 축소 … 없음 → 찬성」이었다. 한 응답이 같은 사실을
+    #    두고 반대로 말한다). 내 조문에 없다는 사실은 그대로 두고, **다른 조문에 있다는
+    #    사실을 덧붙인다** — 판정을 바꾸지 않고 시야만 넓힌다.
+    if sibling_risks:
+        return "REVIEW", (
+            f"{base}. 다만 **같은 정관변경 묶음의 다른 조문**에 위험 신호가 있습니다 — "
+            f"{' · '.join(sibling_risks)}. 이 안건만 떼어 보고 정하지 마시고 그 안건과 "
+            f"함께 보십시오"
+        )
+    return "FOR", base
 
 
 def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
@@ -4484,12 +4498,22 @@ async def _build_proxy_advise_payload(
             decision, reason = _decide_dividend(title, state_metrics, selected.get("corp_name") or "")
         elif category == "articles_amendment":
             _am_for_title = _find_amendment_for_title(title)
+            # 이 안건 조문 **말고** 나머지 조문에서 나온 위험 신호. 묶음 안건이 자식의
+            # 위험을 「없음」으로 덮는 것을 막는다(2026-08-30 U 6차).
+            _sib_risks: list[str] = []
+            for _am in (aoi_amendments or []):
+                if _am is _am_for_title:
+                    continue
+                for _r in _articles_body_risks(_am):
+                    if _r not in _sib_risks:
+                        _sib_risks.append(_r)
             decision, reason = _decide_articles_amendment(
                 title,
                 retirement_payload=retirement_payload,
                 comp_payload=meeting_comp,
                 fin_metrics_payload=state_metrics,
                 amendment=_am_for_title,
+                sibling_risks=_sib_risks or None,
             )
             # 조문 본문에서 읽은 위험 신호를 **위험 신호 칸에도** 싣는다. 260828 실측:
             # 사유는 「수권주식 증가 5.0배」라고 쓰면서 바로 아래 위험 신호 칸은
