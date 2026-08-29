@@ -39,7 +39,7 @@ permissions:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30   # 260829: 과거 밴드 재적재(수동)를 켜면 15분으로는 잘린다
     steps:
       - uses: actions/checkout@v6
 
