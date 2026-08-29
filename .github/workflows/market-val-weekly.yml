@@ -26,6 +26,12 @@ on:
         description: "WICS 집계 재적재 시작월(기본 20260101 · 전 구간은 20200101)"
         required: false
         default: "20260101"
+      scale_sweep:
+        # 260829: 새 가드(회사 자기 규모 기준)를 기존 행에 소급 적용. 평소엔 불필요 —
+        #   수집 단계가 이미 같은 가드를 통과시킨다. 가드를 고친 날에만 켠다.
+        description: "기존 분기재무에 스케일 가드 소급 적용(yes/no)"
+        required: false
+        default: "no"
       market_history:
         # 260829: 과거 시장·KSIC섹터 밴드 재적재. 평소엔 불필요(과거는 안 변한다) — 컬럼을
         #   새로 붙였을 때처럼 옛 행을 다시 써야 할 때만 켠다. 80여 개 월말을 훑어 느리다.
@@ -48,6 +54,14 @@ jobs:
 
       - name: Sync deps
         run: uv sync
+
+      # 260829: 파생·집계보다 **먼저** 온다. 오염된 분기값이 남은 채로 파생하면
+      #   그 뒤 단계가 전부 오염을 물고 간다(실측: 코스닥 시장 PER 34개 시점 붕괴).
+      - name: 스케일 가드 소급 적용 (수동 요청 시만 · DART·KRX 0콜)
+        if: ${{ inputs.scale_sweep == 'yes' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/scale_sweep_apply.py --apply
 
       - name: Derive mkt_fundamentals from SSOT (mkt_finstat_q) — DART 0콜
         env:

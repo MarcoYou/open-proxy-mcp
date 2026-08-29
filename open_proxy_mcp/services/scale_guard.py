@@ -98,8 +98,28 @@ def check_mktcap_ratio(value, mktcap, cap_ratio: float = _MKTCAP_RATIO_CAP) -> d
     return {"triggered": ratio > cap_ratio, "ratio": ratio}
 
 
+_SELF_FACTOR = 20.0  # 그 회사 제 규모의 20배 — 자본이 한 분기에 20배 뛰는 회사는 없다
+
+
+def check_self_relative(value, self_ref, factor: float = _SELF_FACTOR) -> dict:
+    """③(260829 신설) **그 회사 자신**의 규모 대비 배수.
+
+    기존 ③은 시장 최댓값(삼성전자)을 앵커로 썼다. 그래서 「삼성보다 큰가」를 묻는 셈이라
+    **대형주는 오탐하고 소형주는 놓친다** — 실측(260829): 코스닥 소형주가 1,000배 틀려도
+    절대값이 삼성 밑이라 통과했고(JW생명과학 자본 125조·CMG제약 192조), 반대로
+    SK하이닉스의 정상 실적은 걸렸다.
+
+    self_ref = 그 회사 과거 자본(자기자본)의 중앙값. 회사마다 자를 따로 들게 하면
+    규모와 무관하게 「제 몸의 몇 배인가」로 판정된다.
+    """
+    if value is None or not self_ref:
+        return {"triggered": False}
+    ratio = abs(value) / self_ref
+    return {"triggered": ratio > factor, "ratio": ratio}
+
+
 def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=None,
-           mktcap=None, market_max=None) -> dict:
+           mktcap=None, market_max=None, self_ref=None) -> dict:
     """4개 체크 종합. tier: 'hard'(②③ 중 하나라도 → N/M 무효화) / 'soft'(①④만 → 경고만) / 'clean'.
     market_max 제공 시 ③은 시장최댓값 대비 배수(원칙적, 회사규모 무관 작동) — 없으면 자릿수 백스톱.
 
@@ -113,6 +133,15 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
         "balance_identity": check_balance_identity(assets, liabilities, equity),
         "market_relative_cap" if market_max else "digit_cap": hard_scale_check,
     }
+    # 260829: 자릿수 상한이 **순이익에만** 걸려 있었다. 자본은 아무도 안 봤다 —
+    #   소노스퀘어 2024Q3 자본 112,400조(18자리)가 그대로 통과했다. 자본도 본다.
+    if equity is not None:
+        hard["digit_cap_equity"] = check_digit_cap(equity)
+    # 260829: 회사 자기 규모 대비 — 위 두 절대 기준이 못 잡는 중간 배율(×1,000)을 잡는다.
+    if self_ref:
+        hard["self_relative_ni"] = check_self_relative(thstrm, self_ref)
+        if equity is not None:
+            hard["self_relative_eq"] = check_self_relative(equity, self_ref)
     soft = {
         "magnitude_jump": check_magnitude_jump(thstrm, frmtrm),
         "mktcap_ratio": check_mktcap_ratio(thstrm, mktcap),
