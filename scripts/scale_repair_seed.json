@@ -1,0 +1,95 @@
+{
+ "수집": "DART fnlttSinglAcntAll 원문 재조회",
+ "언제": "2026-08-29",
+ "왜": "가드가 비운 8행의 원문을 복구 근거로 보존한다. 이 값들은 공시된 그대로이고 단위 배수가 덧곱해진 상태다 — 고치지 않고 그대로 담는다.",
+ "rows": [
+  {
+   "ticker": "007720",
+   "fy": 2024,
+   "quarter": 3,
+   "reprt_code": "11014",
+   "fs": "CFS",
+   "ni_cum_raw": 2294369196000000.0,
+   "eq_raw": 1.12352578013e+17,
+   "ni_case": "CIS_ID",
+   "eq_case": "BS_ID"
+  },
+  {
+   "ticker": "032080",
+   "fy": 2019,
+   "quarter": 3,
+   "reprt_code": "11014",
+   "fs": "OFS",
+   "ni_cum_raw": 3177621471000000.0,
+   "eq_raw": 9.3938122936e+16,
+   "ni_case": "TOTAL",
+   "eq_case": "TOTAL"
+  },
+  {
+   "ticker": "058820",
+   "fy": 2024,
+   "quarter": 1,
+   "reprt_code": "11013",
+   "fs": "CFS",
+   "ni_cum_raw": 2240802568000.0,
+   "eq_raw": 192483161296000.0,
+   "ni_case": "TOTAL",
+   "eq_case": "BS_ID"
+  },
+  {
+   "ticker": "060310",
+   "fy": 2022,
+   "quarter": 3,
+   "reprt_code": "11014",
+   "fs": "CFS",
+   "ni_cum_raw": 1987597002000000.0,
+   "eq_raw": 4.679899346e+16,
+   "ni_case": "CIS_ID",
+   "eq_case": "BS_ID"
+  },
+  {
+   "ticker": "069330",
+   "fy": 2020,
+   "quarter": 1,
+   "reprt_code": "11013",
+   "fs": "CFS",
+   "ni_cum_raw": -2976550236000000.0,
+   "eq_raw": 1.3284438543e+16,
+   "ni_case": "CIS_NM",
+   "eq_case": "BS_ID"
+  },
+  {
+   "ticker": "073540",
+   "fy": 2024,
+   "quarter": 1,
+   "reprt_code": "11013",
+   "fs": "CFS",
+   "ni_cum_raw": -662248408000.0,
+   "eq_raw": 57447670804000.0,
+   "ni_case": "CIS_NM",
+   "eq_case": "BS_ID"
+  },
+  {
+   "ticker": "234080",
+   "fy": 2021,
+   "quarter": 2,
+   "reprt_code": "11012",
+   "fs": "CFS",
+   "ni_cum_raw": 7228213427000.0,
+   "eq_raw": 125056289596000.0,
+   "ni_case": "CIS_ID",
+   "eq_case": "TOTAL"
+  },
+  {
+   "ticker": "323350",
+   "fy": 2024,
+   "quarter": 2,
+   "reprt_code": "11012",
+   "fs": "OFS",
+   "ni_cum_raw": -5281932709000000.0,
+   "eq_raw": 1.2990187922e+16,
+   "ni_case": "TOTAL",
+   "eq_case": "TOTAL"
+  }
+ ]
+}
