@@ -148,6 +148,34 @@ def propose_scale_fix(value, ref, max_pow: int = 9, band: tuple = (0.2, 5.0)) ->
     return {"ok": False, "trailing_zeros": tz}
 
 
+def check_prior_period_mismatch(frmtrm, known_prev, tol: float = _POWER_TOLERANCE) -> dict:
+    """①-c(260829 신설, 마스터 착안) **같은 기간의 같은 숫자**를 두 보고서에서 대조한다.
+
+    2026.03 보고서의 「전기」 칸과 2025.12 보고서의 「당기」 칸은 **같은 날짜의 같은
+    재무상태**다 — 원래 일치해야 한다. 다르면 변명의 여지가 없다.
+
+    이것이 다른 검사보다 강한 이유: 당기끼리 비교하면 실제 실적 변동과 섞이는데
+    (회사가 정말 10배 벌었을 수도 있다), 전기 칸은 **이미 확정된 과거**라 변할 이유가 없다.
+    실측(260829, 오염 8건 중 대조 가능한 7건): 전부 적중했고 비율이 1,000.0 · 1,000,000
+    처럼 깨끗하게 떨어졌다.
+
+    그리고 보고서는 **통째로** 틀리므로(같은 날 실측: 당기·전기가 같이 부풀려짐,
+    항등식 오차 0.0000%) 여기서 나온 배수가 **당기 값의 복구 배수**이기도 하다.
+    한 번의 비교로 탐지와 복구가 같이 나온다.
+
+    재작성·연결범위 변경은 비율이 1.07·0.93 처럼 어중간하다 — 10의 거듭제곱에
+    딱 붙을 때만 단위 오류로 본다.
+    """
+    if not frmtrm or not known_prev:
+        return {"triggered": False}
+    ratio = abs(frmtrm) / abs(known_prev)
+    n = _near_power_of_ten(ratio, tol)
+    if n is not None and abs(n) >= 2:
+        return {"triggered": True, "power": n, "ratio": ratio,
+                "fix_divisor": 10 ** n}   # 당기도 같은 배수로 나누면 된다
+    return {"triggered": False, "ratio": ratio}
+
+
 def check_cross_report_jump(value, prev_value, tol: float = _POWER_TOLERANCE) -> dict:
     """①-b(260829 신설) **보고서 사이** 배수점프.
 
@@ -166,7 +194,8 @@ def check_cross_report_jump(value, prev_value, tol: float = _POWER_TOLERANCE) ->
 
 
 def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=None,
-           mktcap=None, market_max=None, self_ref=None, prev_equity=None) -> dict:
+           mktcap=None, market_max=None, self_ref=None, prev_equity=None,
+           frmtrm_equity=None, known_prev_equity=None) -> dict:
     """4개 체크 종합. tier: 'hard'(②③ 중 하나라도 → N/M 무효화) / 'soft'(①④만 → 경고만) / 'clean'.
     market_max 제공 시 ③은 시장최댓값 대비 배수(원칙적, 회사규모 무관 작동) — 없으면 자릿수 백스톱.
 
@@ -192,6 +221,10 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
     # 260829: 직전 분기(다른 보고서) 대비 10ⁿ 점프. 보고서 안에서는 안 보이는 신호다.
     if prev_equity:
         hard["cross_report_jump_eq"] = check_cross_report_jump(equity, prev_equity)
+    # 260829: **가장 강한 신호.** 그 보고서의 전기 칸 vs 우리가 아는 그 기간의 값.
+    #   같아야 하는 숫자라 어긋나면 곧 오류이고, 어긋난 배수가 복구 배수다.
+    if frmtrm_equity and known_prev_equity:
+        hard["prior_period_mismatch"] = check_prior_period_mismatch(frmtrm_equity, known_prev_equity)
     soft = {
         "magnitude_jump": check_magnitude_jump(thstrm, frmtrm),
         "mktcap_ratio": check_mktcap_ratio(thstrm, mktcap),
