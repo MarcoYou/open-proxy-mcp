@@ -23,4 +23,4 @@
 
 - [재무지표](financials.md) — 확정 재무제표 기반 정밀 분석 (잠정 → 확정 순서)
 - [사업의 내용](business-details.md) — 부문·생산 구조로 실적의 배경 읽기
-- [밸류에이션](valuation.md) — 잠정 숫자가 움직이는 배수 확인
+- [밸류에이션](price_multiple_data.md) — 잠정 숫자가 움직이는 배수 확인

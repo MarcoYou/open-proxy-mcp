@@ -25,5 +25,5 @@
 ## Related features
 
 - [Business details](business-details.md) — sites/production facilities live there; footnote-level asset cost-vs-fair-value lives here
-- [Valuation](valuation.md) — market-cap/PER/PBR time series there; point-in-time asset composition here
+- [Valuation](price_multiple_data.md) — market-cap/PER/PBR time series there; point-in-time asset composition here
 - [Financial metrics](financials.md) — pair with debt/profitability ratios (these ratios are pre-debt)

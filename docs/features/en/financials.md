@@ -19,4 +19,4 @@
 ## See also
 
 - [Proxy Voting Support](proxy-voting.md) — capital impairment, audit opinion, and performance feed voting judgment
-- [Valuation](valuation.md) — these metrics are the denominator of the multiples
+- [Valuation](price_multiple_data.md) — these metrics are the denominator of the multiples

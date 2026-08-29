@@ -40,5 +40,5 @@ Every field follows the same response contract: structured numbers only when cer
 
 - [Financial metrics](financials.md) — company-wide financials there; segment/production/backlog structure here
 - [Provisional earnings](provisional-earnings.md) — preliminary numbers before quarterly finals
-- [Valuation](valuation.md) — segment profit feeds SOTP multiples
+- [Valuation](price_multiple_data.md) — segment profit feeds SOTP multiples
 - [Asset-holdings screen](asset-holdings.md) — land/investment-property/equity cost-vs-fair-value and NAV-to-market-cap live here

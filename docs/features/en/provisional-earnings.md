@@ -23,4 +23,4 @@
 
 - [Financial metrics](financials.md) — precise analysis on finalized statements (provisional → final)
 - [Business details](business-details.md) — read the segment/production context behind the numbers
-- [Valuation](valuation.md) — see the multiples the provisional numbers move
+- [Valuation](price_multiple_data.md) — see the multiples the provisional numbers move

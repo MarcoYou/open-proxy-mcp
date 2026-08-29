@@ -28,7 +28,7 @@ Click any feature for a detailed page.
 
 - **[AGM proxy voting](docs/features/en/proxy-voting.md)** — structures AGM notice agenda items and returns per-item FOR / AGAINST / REVIEW recommendations with rationale.
 - **[Financial metrics](docs/features/en/financials.md)** — profitability, stability, cash flow + DuPont breakdown and audit-opinion trend. Quarterly on two bases (YTD / 3-month) with QoQ·YoY.
-- **[Valuation](docs/features/en/valuation.md)** — PER · PBR · dividend yield (firm deep-dive) plus market/sector/ticker history. `scope="explain"` shows how each number was derived. (runtime: `price_multiple_data`)
+- **[Valuation](docs/features/en/price_multiple_data.md)** — PER · PBR · dividend yield (firm deep-dive) plus market/sector/ticker history. `scope="explain"` shows how each number was derived. (runtime: `price_multiple_data`)
 - **[Asset-holdings screen](docs/features/en/asset-holdings.md)** — tiers a firm's holdings (cash, investment property, equity stakes), marks listed stakes to market, and compares surplus-asset / equity-NAV to market cap to surface "hidden asset" plays.
 - **[Business details](docs/features/en/business-details.md)** — segment revenue & profit, production capacity & utilization, R&D, order backlog, key customers, raw-material/input-cost and product-price trends — reads the "Business Overview" section for you.
 - **[Provisional earnings](docs/features/en/provisional-earnings.md)** — quarterly preliminary earnings filings, tabulated with growth rates.

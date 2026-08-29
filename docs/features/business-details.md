@@ -40,5 +40,5 @@
 
 - [재무지표](financials.md) — 전사 재무는 이쪽, 부문·생산·수주 구조는 사업의 내용
 - [잠정실적 속보](provisional-earnings.md) — 분기 확정 전 잠정 숫자
-- [밸류에이션](valuation.md) — 부문 이익이 SOTP 배수의 입력
+- [밸류에이션](price_multiple_data.md) — 부문 이익이 SOTP 배수의 입력
 - [자산주 스크리닝](asset-holdings.md) — 토지·투자부동산·지분증권 원가vs공정가치, 시총 대비 NAV는 이쪽

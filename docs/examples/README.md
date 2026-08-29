@@ -22,7 +22,7 @@
 |---|---|
 | [ownership_structure](ownership_structure.md) | "최대주주 누구고 특수관계인 합쳐서 몇 %야?" |
 | [financial_metrics](financial_metrics.md) | "영업이익률이랑 ROE 얼마야?" |
-| [valuation](valuation.md) | "PER PBR 지금 얼마야?" |
+| [valuation](price_multiple_data.md) | "PER PBR 지금 얼마야?" |
 | [corp_gov_report](corp_gov_report.md) | "기업지배구조 핵심지표 몇 개나 준수해?" |
 | [director_board](director_board.md) | "등기이사 인당 보수 얼마야?" |
 
