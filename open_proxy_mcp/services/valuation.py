@@ -263,7 +263,7 @@ _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, �
 async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
     """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(opm_val_market)."""
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref "
+        "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref, ni_fy0 "
         "FROM opm_val_market WHERE sector='_ALL' AND scheme='market' ORDER BY snap_dd DESC, market")
     if rows is None:
         return {"tool": "price_multiple_data", "status": "db_error", "subject": "시장 밸류에이션",
@@ -275,7 +275,8 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
              "per_fy0": r[2] and round(r[2], 2), "per_ttm": r[3] and round(r[3], 2),
              "pbr_fy0": r[4] and round(r[4], 2), "pbr_mrq": r[5] and round(r[5], 2),
              "cap_krw": r[6], "ni_ttm_krw": r[7], "eq_krw": r[8],
-             "cap_pref_krw": r[9] if len(r) > 9 else None} for r in rows]
+             "cap_pref_krw": r[9] if len(r) > 9 else None,
+             "ni_fy0_krw": r[10] if len(r) > 10 else None} for r in rows]
     latest_dd = hist[0]["snap_dd"]
     return {"tool": "price_multiple_data", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
             "data": {"scope": "market", "as_of": latest_dd,
@@ -310,7 +311,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
         return {"tool": "price_multiple_data", "status": "invalid", "subject": "산업별 밸류에이션",
                 "warnings": [f"scheme '{scheme}' 없음 — {' / '.join(_SECTOR_SCHEMES)} 중 선택."]}
     rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0 FROM opm_val_market "
+        "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0, "
+        "ni_fy0, ni_ttm FROM opm_val_market "
         "WHERE sector != '_ALL' AND scheme=%s "
         "AND snap_dd=(SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL' AND scheme=%s) "
         "ORDER BY market, cap DESC", (scheme, scheme))
@@ -323,7 +325,9 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
     as_of = rows[0][0]
     sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
                 "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
-                "per_fy0": r[8] and round(r[8], 2), "pbr_fy0": r[9] and round(r[9], 2)}
+                "per_fy0": r[8] and round(r[8], 2), "pbr_fy0": r[9] and round(r[9], 2),
+                # 260829: 배수가 비었을 때 「적자」와 「자료없음」을 가르는 분모. None = 더한 회사 없음.
+                "ni_fy0_krw": r[10], "ni_ttm_krw": r[11]}
                for r in rows]
     company_ctx = None
     # 260823: scheme 을 열었는데 각주가 「KSIC 하이브리드」로 굳어 있었다 — WICS 로 조회해도
@@ -392,13 +396,15 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 # 소규모(_fold) 섹터면 fold 버킷 자체의 히스토리로 폴백(개별 sec 코드는 mkt_val_history에 없음).
                 hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
                 hrows = await asyncio.to_thread(_pg_rows,
-                    "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap FROM opm_val_market "
+                    "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_fy0, ni_ttm "
+                    "FROM opm_val_market "
                     "WHERE market=%s AND sector=%s AND scheme=%s ORDER BY snap_dd",
                     (market, hist_sector, scheme)) or []
                 if hrows:
                     company_ctx["sector_history"] = [
                         {"snap_dd": h[0], "per_fy0": h[1] and round(h[1], 2), "per_ttm": h[2] and round(h[2], 2),
-                         "pbr_fy0": h[3] and round(h[3], 2), "pbr_mrq": h[4] and round(h[4], 2), "cap_krw": h[5]}
+                         "pbr_fy0": h[3] and round(h[3], 2), "pbr_mrq": h[4] and round(h[4], 2),
+                         "cap_krw": h[5], "ni_fy0_krw": h[6], "ni_ttm_krw": h[7]}
                         for h in hrows]
             else:
                 warnings.append(f"'{company}' 종목 스냅샷 없음(비상장·미수집).")

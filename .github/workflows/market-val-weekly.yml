@@ -18,7 +18,14 @@ on:
     # (API QA 260705): KRX가 금요일 데이터를 지연 게시하는 실측 사례 — 일·월 실행이 없으면 지연
     # 복구분을 영영 못 담음(ISO주가 넘어가 수렴 기회 소멸). 배치가 멱등이라 매일 실행 부작용 0.
     - cron: "17 1 * * *"
-  workflow_dispatch: {}  # 수동 실행
+  workflow_dispatch:     # 수동 실행
+    inputs:
+      wics_since:
+        # 260829: 평소엔 올해분만 다시 쌓으면 된다(멱등·수렴). 컬럼을 새로 붙인 날처럼
+        #   과거 행까지 채워야 할 때만 20200101 을 넣어 전 구간을 한 번 다시 돌린다.
+        description: "WICS 집계 재적재 시작월(기본 20260101 · 전 구간은 20200101)"
+        required: false
+        default: "20260101"
 
 permissions:
   contents: read
@@ -80,7 +87,7 @@ jobs:
         #   스크립트가 현재월을 건너뛰므로 여기선 --since 로 최근만 훑어 비용을 줄인다.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: uv run python scripts/wics_val_backfill.py --since 20260101 --include-current
+        run: uv run python scripts/wics_val_backfill.py --since ${{ inputs.wics_since || '20260101' }} --include-current
 
       - name: Run weekly valuation snapshot
         env:

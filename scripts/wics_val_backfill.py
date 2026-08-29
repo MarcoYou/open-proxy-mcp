@@ -48,13 +48,22 @@ from open_proxy_mcp.services.valuation import _mrq_eq, _pit_fy, _pit_quarter, _t
 
 UPSERT = """
 INSERT INTO opm_val_market
-  (snap_dd, market, scheme, sector, label, n, cap, per_fy0, pbr_fy0, per_ttm, pbr_mrq)
-VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+  (snap_dd, market, scheme, sector, label, n, cap, per_fy0, pbr_fy0, per_ttm, pbr_mrq, ni_fy0, ni_ttm)
+VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
 ON CONFLICT (snap_dd, market, scheme, sector) DO UPDATE SET
   label=EXCLUDED.label, n=EXCLUDED.n, cap=EXCLUDED.cap,
   per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
-  per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq
+  per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq,
+  ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm
 """
+
+# 260829: PER 이 비었을 때 「적자」인지 「자료없음」인지 가르려면 **분모를 같이 남겨야** 한다.
+#   합이 0.0 인 것과 더한 회사가 하나도 없는 것이 지금은 구별되지 않는다 — 그래서 값이 아니라
+#   **더한 회사 수**로 판정하고(n_nif/n_nit), 0 이면 NULL 을 넣는다.
+MIGRATE = (
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS ni_fy0 double precision",
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS ni_ttm double precision",
+)
 
 
 def main() -> int:
@@ -66,6 +75,8 @@ def main() -> int:
 
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30)
     con.autocommit = True
+    for ddl in MIGRATE:
+        con.execute(ddl)
 
     snaps = [r[0] for r in con.execute(
         "SELECT DISTINCT snap_dd FROM wise_sector ORDER BY snap_dd")]
@@ -115,8 +126,9 @@ def main() -> int:
         caps = {r[0]: float(r[1] or 0) for r in con.execute(
             "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s", (d,))}
 
-        # (market, scheme, code) → [cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n]
-        acc: dict[tuple, list] = defaultdict(lambda: [0.0] * 8 + [0])
+        # (market, scheme, code) → [cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq,
+        #                            n, n_nif, n_nit]  (뒤 둘 = 분모를 실제로 더한 회사 수)
+        acc: dict[tuple, list] = defaultdict(lambda: [0.0] * 8 + [0, 0, 0])
         label: dict[tuple, str] = {}
         # 시장 구분은 그 날짜의 krx_weekly 에서 (상장 시장이 바뀔 수 있으므로 날짜별로 읽는다)
         mkts = {r[0]: r[1] for r in con.execute(
@@ -140,18 +152,19 @@ def main() -> int:
                 k = (market, scheme, code)
                 label[k] = nm
                 v = acc[k]
-                if ni_fy0 is not None: v[0] += cap; v[1] += ni_fy0
+                if ni_fy0 is not None: v[0] += cap; v[1] += ni_fy0; v[9] += 1
                 if eq_fy0 is not None: v[2] += cap; v[3] += eq_fy0
-                if ni_ttm is not None: v[4] += cap; v[5] += ni_ttm
+                if ni_ttm is not None: v[4] += cap; v[5] += ni_ttm; v[10] += 1
                 if eq_mrq is not None: v[6] += cap; v[7] += eq_mrq
                 v[8] += 1
 
         rows = []
-        for (market, scheme, code), (cpf, nif, cbf, eqf, cpt, nit, cbm, eqm, n) in acc.items():
+        for (market, scheme, code), (cpf, nif, cbf, eqf, cpt, nit, cbm, eqm, n, n_nif, n_nit) in acc.items():
             rows.append((d, market, scheme, code, label[(market, scheme, code)], n,
                          round(max(cpf, cbf, cpt, cbm)),
                          (cpf / nif) if nif > 0 else None, (cbf / eqf) if eqf > 0 else None,
-                         (cpt / nit) if nit > 0 else None, (cbm / eqm) if eqm > 0 else None))
+                         (cpt / nit) if nit > 0 else None, (cbm / eqm) if eqm > 0 else None,
+                         nif if n_nif else None, nit if n_nit else None))
         with con.cursor() as cur:
             cur.executemany(UPSERT, rows)
         n_rows += len(rows)

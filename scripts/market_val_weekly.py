@@ -62,6 +62,10 @@ DDL_MIGRATE = (
     # 현재(주간)·과거를 FY0 단일 기준으로 비교. 주간행은 per_ttm/pbr_mrq도 함께 채움.
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS per_fy0 double precision",
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS pbr_fy0 double precision",
+    # 260829: per_fy0 가 비는 이유를 「적자」와 「자료없음」으로 가르기 위한 분모 보존.
+    #   종전엔 둘 다 NULL 이라 사용자에게 N/M 하나로 뭉개져 나갔다(실측: 20260828 섹터 11칸이
+    #   전부 적자였는데 결측으로 오해). ni_ttm 은 이미 있었고 FY0 쪽만 없었다.
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS ni_fy0 double precision",
 )
 
 # 섹터 버킷 — market_val_sector.py의 KSIC 하이브리드와 동일 규칙
@@ -212,7 +216,8 @@ async def run(dry: bool = False) -> None:
         # 260823: _ALL(시장 전체)은 **섹터 분류와 무관한 값**이다 — 코스피 전체 PER 은 섹터를
         #   어떻게 나누든 같다. scheme='market' 으로 분류 축에서 떼어낸다.
         mkt_recs.append((snap_dd, market, "market", "_ALL", None, a["n"], per_f, per_t, pbr_f, pbr_m,
-                         a["cap"], a["cap_pref"], a["ni_ttm"], a["eq"]))
+                         a["cap"], a["cap_pref"], a["ni_ttm"], a["eq"],
+                         a["ni_fy"] if a["n"] else None))  # n>0 ⇔ ni_fy 를 실제로 더한 회사가 있다
         print(f"C. [{market}] {a['n']}사 PER {per_f:.2f}/{per_t:.2f} PBR {pbr_f:.2f}/{pbr_m:.2f}")
 
     # D. 섹터 aggregate (KSIC 하이브리드, 시장별 · MINB 미만은 fold)
@@ -280,12 +285,12 @@ async def run(dry: bool = False) -> None:
             per_ttm=EXCLUDED.per_ttm, pbr_fy0=EXCLUDED.pbr_fy0, pbr_mrq=EXCLUDED.pbr_mrq""", firm_recs)
         _wk_converge(cur, "opm_val_market", snap_dd)
         cur.executemany("""INSERT INTO opm_val_market
-            (snap_dd, market, scheme, sector, label, n, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, cap_pref, ni_ttm, eq)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            (snap_dd, market, scheme, sector, label, n, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, cap_pref, ni_ttm, eq, ni_fy0)
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (snap_dd, market, scheme, sector) DO UPDATE SET label=EXCLUDED.label, n=EXCLUDED.n,
             per_fy0=EXCLUDED.per_fy0, per_ttm=EXCLUDED.per_ttm, pbr_fy0=EXCLUDED.pbr_fy0,
             pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap, cap_pref=EXCLUDED.cap_pref,
-            ni_ttm=EXCLUDED.ni_ttm, eq=EXCLUDED.eq""", all_mkt_recs)
+            ni_ttm=EXCLUDED.ni_ttm, eq=EXCLUDED.eq, ni_fy0=EXCLUDED.ni_fy0""", all_mkt_recs)
     con.commit()
     if unmapped:
         print(f"(우선주 미매핑 시총 {unmapped/1e12:.1f}조 — 제외)")
