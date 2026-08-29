@@ -44,12 +44,42 @@ DDL_MIGRATE = (
 )
 
 
+# 🔴 260829: 종전 INSERT 는 `scheme` 을 안 줬고 ON CONFLICT 도 3열이었다. 260823 에 PK 가
+#   (snap_dd,market,scheme,sector) 4열로 바뀌었고 scheme 기본값은 'ksic' 다. 그대로 두면
+#   ① 4열 PK 에 3열 ON CONFLICT 라 터지고 ② 시장전체 행이 scheme='ksic' 로 들어가
+#   서비스가 읽는 scheme='market' 행을 영영 못 고친다. 축을 명시한다.
+UPSERT_MKT = """
+INSERT INTO opm_val_market
+  (snap_dd,market,scheme,sector,per_fy0,pbr_fy0,per_ttm,pbr_mrq,cap,ni_fy0,ni_ttm)
+VALUES (%s,%s,'market','_ALL',%s,%s,%s,%s,%s,%s,%s)
+ON CONFLICT (snap_dd,market,scheme,sector) DO UPDATE SET
+  per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
+  per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap,
+  ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm
+"""
+UPSERT_SEC = """
+INSERT INTO opm_val_market
+  (snap_dd,market,scheme,sector,label,n,cap,per_fy0,pbr_fy0,per_ttm,pbr_mrq,ni_fy0,ni_ttm)
+VALUES (%s,%s,'ksic',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+ON CONFLICT (snap_dd,market,scheme,sector) DO UPDATE SET
+  label=EXCLUDED.label, n=EXCLUDED.n, cap=EXCLUDED.cap,
+  per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
+  per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq,
+  ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm
+"""
+
+
 def _pit_fy(dd: str) -> int:
     y, m = int(dd[:4]), int(dd[4:6])
     return y - 1 if m >= 4 else y - 2
 
 
 async def main() -> None:
+    # 260829: 15분 job 한도에 걸려 79개 월말 중 26개에서 잘렸다. --since 로 이어서 돌린다.
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--since", default="20200101")
+    since = ap.parse_args().since
     con = psycopg.connect(os.environ["DATABASE_URL"]); con.autocommit = True
     for m in DDL_MIGRATE:
         con.execute(m)
@@ -68,8 +98,8 @@ async def main() -> None:
         finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
     # 월말 날짜(각 YYYYMM 마지막 거래주), 2020~현재월 이전
     months = [r[0] for r in con.execute(
-        "SELECT DISTINCT ON (substring(price_dd,1,6)) price_dd FROM krx_weekly WHERE price_dd>='20200101' "
-        "ORDER BY substring(price_dd,1,6), price_dd DESC")]
+        "SELECT DISTINCT ON (substring(price_dd,1,6)) price_dd FROM krx_weekly WHERE price_dd>=%s "
+        "ORDER BY substring(price_dd,1,6), price_dd DESC", (since,))]
     today = date.today(); cur_ym = f"{today.year}{today.month:02d}"
     months = sorted(d for d in months if d[:6] < cur_ym)
     print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · 종목 {len(meta)}", flush=True)
@@ -109,39 +139,30 @@ async def main() -> None:
                 if eq_mrq is not None: acc[6] += cap; acc[7] += eq_mrq
             if s:
                 sec[(market, s)][8] += 1
-        # 🔴 260829: 아래 두 INSERT 는 `scheme` 을 안 줬고 ON CONFLICT 도 3열이었다. 그런데
-        #   260823 에 PK 가 (snap_dd,market,scheme,sector) 4열로 바뀌었고 scheme 기본값은 'ksic' 다.
-        #   그대로 두면 ① 4열 PK 에 3열 ON CONFLICT 라 터지고 ② 시장전체 행이 scheme='ksic' 로
-        #   들어가 서비스가 읽는 scheme='market' 행을 영영 못 고친다. 축을 명시한다.
+        mk_rows, sec_rows = [], []
         for market, (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, _n, n_nif, n_nit) in mk.items():
             # 260706 병합: 시장전체 행 = sector='_ALL' 센티넬. 축은 분류와 무관하므로 scheme='market'.
-            con.execute("""INSERT INTO opm_val_market
-                (snap_dd,market,scheme,sector,per_fy0,pbr_fy0,per_ttm,pbr_mrq,cap,ni_fy0,ni_ttm)
-                VALUES(%s,%s,'market','_ALL',%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT(snap_dd,market,scheme,sector) DO UPDATE SET
-                per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
-                per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap,
-                ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm""",
-                (d, market, (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
-                 (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
-                 round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
-                 ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
-            nmk += 1
-        for (market, s), (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n, n_nif, n_nit) in sec.items():
+            mk_rows.append((
+                d, market,
+                (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
+                (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
+                round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
+                ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
+        for (market, s_), (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n, n_nif, n_nit) in sec.items():
             # 이 섹터 버킷은 KSIC 하이브리드(bucket())다 — WICS 는 wics_val_backfill.py 소관.
-            con.execute("""INSERT INTO opm_val_market
-                (snap_dd,market,scheme,sector,label,n,cap,per_fy0,pbr_fy0,per_ttm,pbr_mrq,ni_fy0,ni_ttm)
-                VALUES(%s,%s,'ksic',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT(snap_dd,market,scheme,sector) DO UPDATE SET
-                label=EXCLUDED.label, n=EXCLUDED.n, cap=EXCLUDED.cap,
-                per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
-                per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq,
-                ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm""",
-                (d, market, s, label(s), n, round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
-                 (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
-                 (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
-                 ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
-            nsec += 1
+            sec_rows.append((
+                d, market, s_, label(s_), n, round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
+                (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
+                (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
+                ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
+        # 260829: 행마다 왕복하던 것을 월 단위로 묶는다. 한 달에 100회 넘게 부르던 것이 2회가 된다
+        #   (실측: 15분 job 한도에 79개 월말 중 26개에서 잘렸다 — 원격 DB 라 지연이 곧 비용).
+        with con.cursor() as cur:
+            cur.executemany(UPSERT_MKT, mk_rows)
+            cur.executemany(UPSERT_SEC, sec_rows)
+        nmk += len(mk_rows); nsec += len(sec_rows)
+        if months.index(d) % 12 == 0:
+            print(f"  {d} … 시장 {nmk}행 + 섹터 {nsec}행", flush=True)
     print(f"✓ 과거 FY0+TTM/MRQ 밴드 저장: 시장 {nmk}행 + 섹터 {nsec}행 ({len(months)}개 월말)", flush=True)
     con.close()
 
