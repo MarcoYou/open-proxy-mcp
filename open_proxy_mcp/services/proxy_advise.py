@@ -2879,8 +2879,20 @@ def _extract_facts(
             if is_outside:
                 co = (eval_match.get("faithfulness") or {}).get("concurrent_outside_directors")
                 if co:
-                    facts["concurrent_outside_positions"] = co.get("total")
+                    # 못 센 경우 숫자를 비운다 — None 을 0/1 로 읽히게 두지 않는다
+                    facts["concurrent_outside_positions"] = (
+                        co.get("total") if co.get("total") is not None else "미상 (경력 원문 없음)")
                     facts["concurrent_summary"] = co.get("summary")
+                    if co.get("total") is None:
+                        facts["concurrent_note"] = (
+                            "겸직 수를 세지 못했다 — 이 후보의 경력 항목이 파싱되지 않았다. "
+                            "추천사유 원문과 소집공고 후보자 표를 직접 읽어야 한다")
+                    # 기간 칸이 합쳐져 들어와 「어느 줄이 현직인가」를 우리가 못 가른 경우.
+                    # 숫자만 내보내면 읽는 쪽이 확정치로 받는다 — 그 사실을 같이 낸다.
+                    if co.get("period_merged"):
+                        facts["concurrent_note"] = (
+                            "경력 표의 기간 칸이 여러 구간으로 합쳐져 있어 현직 여부를 "
+                            "가르지 못했다 — 겸직 수는 원문으로 확인 필요")
         elif all_evals:
             # 묶음 안건 — 종합 fact (개별 매칭 X)
             outsiders = sum(1 for e in all_evals if any(k in (e.get("role_type") or "") for k in ("사외", "독립")))

@@ -238,9 +238,70 @@ def _is_recent_employee(career_details: list[dict[str, Any]] | None, current_yea
     return False, (recent_raw[:100] or None)
 
 
-def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[str, Any]:
-    """독립성 4 sub-factor 평가 (모두 success).
+# 🔴 **후보가 어느 편에서 왔는지**를 보는 낱말들 (2026-08-28 실측).
+# 4개 sub-factor 는 전부 「회사와의 관계」만 본다 — 최대주주 관계·거래·직원이력·연임.
+# 그래서 **제안한 쪽에 속한 사람**이 「독립적(세부 항목 모두 충족)」으로 통과했다:
+#   · 대림제지 한병우 — **위임장 권유자 본인**
+#   · 태광산업 윤상녕 — 추천사유 원문에 **「제안주주 소속 주주권행사팀장」**
+# 위임장 대결에서 이건 회사와의 관계보다 큰 이해상충이다. 독립성을 못 박지 않고
+# **표면화**한다 — 판정은 읽는 쪽이 한다(못 준 것을 0으로 채우지 않는다).
+_PROPOSER_AFFILIATION_KEYWORDS = (
+    "제안주주", "제안 주주", "주주제안자", "주주권행사", "주주권 행사",
+    "제안한 주주", "추천주주", "추천 주주",
+)
+# 「주주제안 / 주주 제안」은 **이 후보 것**일 때만 신호다. 추천사유가 한 덩어리로 와서
+# (`recommendationReasonShared`) 이사회제안 후보와 주주제안 후보가 같은 글에 섞여 있으면
+# 통째로 매칭하면 셋 다 걸린다 — 실측 대림제지: 이민규(이사회제안)·전우석·한병우(주주제안)가
+# 한 문단에 있다. 그래서 **후보 이름 바로 뒤 창** 안에서만 본다.
+_SHAREHOLDER_PROPOSAL_RE = re.compile(r"주주\s*제안")
+_NAME_PROXIMITY_CHARS = 80
 
+
+def _proposer_affiliation(candidate: dict[str, Any],
+                          proxy_solicitors: set[str] | None = None) -> dict[str, Any]:
+    """후보가 **제안한 쪽 사람**인가. 신호가 없으면 없다고 말한다(지어내지 않는다)."""
+    texts = []
+    for key in ("recommendationReason", "recommendationReasonShared", "recommender", "mainJob"):
+        v = candidate.get(key)
+        if isinstance(v, str) and v.strip():
+            texts.append(v.strip())
+    for cd in (candidate.get("careerDetails") or []):
+        c = (cd or {}).get("content")
+        if isinstance(c, str) and c.strip():
+            texts.append(c.strip())
+    blob = " / ".join(texts)
+
+    hits = [k for k in _PROPOSER_AFFILIATION_KEYWORDS if k in blob]
+    name = (candidate.get("name") or "").strip()
+    is_solicitor = bool(name and proxy_solicitors and name in proxy_solicitors)
+
+    # 「주주제안」은 이 후보 이름 근처에 있을 때만 센다 (묶음 추천사유 오염 방지)
+    near = None
+    if name:
+        for m in re.finditer(re.escape(name), blob):
+            window = blob[m.end():m.end() + _NAME_PROXIMITY_CHARS]
+            hit = _SHAREHOLDER_PROPOSAL_RE.search(window)
+            if hit:
+                near = blob[max(0, m.start()):m.end() + hit.end()]
+                break
+
+    if is_solicitor:
+        result, ev = "proxy_solicitor_self", f"{name} — 의결권 대리행사 권유자 본인"
+    elif hits:
+        result, ev = "affiliated_with_proposer", f"추천사유·경력 원문에 {', '.join(hits)}"
+    elif near:
+        result, ev = "affiliated_with_proposer", f"추천사유 원문: 「{near.strip()[:80]}…」"
+    else:
+        result, ev = "no_signal", None
+    return {"result": result, "evidence": ev, "raw": blob[:400] or None,
+            "mapping": "soft-fail"}
+
+
+def evaluate_independence(candidate: dict[str, Any], current_year: int,
+                          proxy_solicitors: set[str] | None = None) -> dict[str, Any]:
+    """독립성 sub-factor 평가.
+
+    4개는 「회사와의 관계」, 5번째(`proposer_affiliation`)는 **「어느 편에서 왔나」**다.
     return: {sub_factors: {key: {result, evidence}}, summary: str}
     """
     out: dict[str, Any] = {"sub_factors": {}}
@@ -319,7 +380,16 @@ def evaluate_independence(candidate: dict[str, Any], current_year: int) -> dict[
     # (260710: 사내이사에 long_tenure_concerns 표시되던 cosmetic 잔재 제거. 결정경로는 원래 무영향).
     _role = candidate.get("roleType") or ""
     _is_oversight = any(k in _role for k in ("사외", "감사", "독립"))
-    if five_year_signal and _is_oversight:
+    # 5. 제안한 쪽 소속인가 — 회사와의 관계와 별개 축이다
+    aff = _proposer_affiliation(candidate, proxy_solicitors)
+    out["sub_factors"]["proposer_affiliation"] = aff
+    aff_flag = aff["result"] in ("affiliated_with_proposer", "proxy_solicitor_self")
+
+    if aff_flag:
+        # 🔴 이것만으로 부적격이라 말하지 않는다. 다만 **「독립적」이라고는 말하지 않는다** —
+        #    그 한 마디가 읽는 쪽의 검토를 멈춰 세운다.
+        out["summary"] = "proposer_side_concerns"
+    elif five_year_signal and _is_oversight:
         # 장기연임은 audit/사외이사 모두 strong concerns
         out["summary"] = "long_tenure_concerns"
     elif strong_flags or (not is_independent_from_major and msr_now):
@@ -770,7 +840,9 @@ async def evaluate_faithfulness(
     # 사외이사 겸직 카운트 (사외/독립이사 한정)
     if _is_outside_director_role(candidate.get("roleType") or "") and own_company_name:
         co = count_outside_director_positions(candidate, own_company_name)
-        if co["total"] >= 3:
+        if co["total"] is None:
+            co_summary = "unknown_no_career_data"
+        elif co["total"] >= 3:
             co_summary = "strong_concerns_concurrent"
         elif co["total"] >= 2:
             co_summary = "concerns_concurrent"
@@ -783,6 +855,8 @@ async def evaluate_faithfulness(
             "in_career_count": co["in_career_count"],
             "own_in_career": co["own_in_career"],
             "signals": co["signals"],
+            "countable": co.get("countable"),
+            "period_merged": co.get("period_merged"),
             "summary": co_summary,
         }
 
@@ -861,7 +935,9 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
     # 사외이사 겸직 카운트 (Ralph 9)
     if _is_outside_director_role(candidate.get("roleType") or "") and own_company_name:
         co = count_outside_director_positions(candidate, own_company_name)
-        if co["total"] >= 3:
+        if co["total"] is None:
+            co_summary = "unknown_no_career_data"
+        elif co["total"] >= 3:
             co_summary = "strong_concerns_concurrent"
         elif co["total"] >= 2:
             co_summary = "concerns_concurrent"
@@ -874,6 +950,8 @@ def evaluate_faithfulness_basic(candidate: dict[str, Any], own_company_name: str
             "in_career_count": co["in_career_count"],
             "own_in_career": co["own_in_career"],
             "signals": co["signals"],
+            "countable": co.get("countable"),
+            "period_merged": co.get("period_merged"),
             "summary": co_summary,
         }
         # summary 통합
@@ -1043,7 +1121,16 @@ def _normalize_corp_name(name: str) -> str:
 
 # ── 사외이사 겸직 카운트 (Ralph 9 — 260510) ──
 
-_CONCURRENT_CURRENT_KW = ("현재", "현직", "재직")
+# 🔴 **공시 원문은 한자를 쓴다.** 「2022 ~ 現」이 가장 흔한데 예전 목록엔 없어서
+# 그 줄이 통째로 건너뛰어졌다 — 2026-08-28 실측 한국앤컴퍼니 이행희: 원문에 사외이사
+# 두 곳(포스코인터내셔널·무신사)이 나란히 적혀 있는데 **겸직 수 1**로 나갔다
+# (본 회사 자동 +1 이 전부였다). 사람 눈엔 보이는 것이 파서에만 안 보였다.
+_CONCURRENT_CURRENT_KW = ("현재", "현직", "재직", "現", "현", "至今", "present", "Present")
+
+# 기간 칸에 연도 구간이 **여러 개 붙어 있는** 경우 — 원문 표가 항목별로 안 갈라져
+# 들어온 것이다(실측 「2010~20141988~20242022 ~ 現」). 어느 줄이 현직인지 알 수 없다.
+# 세되 **합쳐졌다는 사실을 같이 넘긴다** — 0으로 채우지도, 아는 척하지도 않는다.
+_PERIOD_RANGE_RE = re.compile(r"(?:19|20)\d{2}\s*[~\-–]")
 _CONCURRENT_OUTSIDE_RE = re.compile(r'(?:사외|독립)\s*이사')
 # careerDetails content 정규화 (회사명 substring 매칭용 — 공백/괄호/㈜ 제거)
 _CONTENT_NORMALIZE_RE = re.compile(r'[\s㈜㈱()주식회사]')
@@ -1067,6 +1154,7 @@ def count_outside_director_positions(
     in_career = 0
     own_in_career = False
     signals: list[str] = []
+    period_merged = False
     for cd in career_details:
         period = cd.get("period", "") or ""
         content = cd.get("content", "") or ""
@@ -1075,17 +1163,42 @@ def count_outside_director_positions(
         matches = _CONCURRENT_OUTSIDE_RE.findall(content)
         if not matches:
             continue
+        if len(_PERIOD_RANGE_RE.findall(period)) > 1:
+            period_merged = True
         in_career += len(matches)
         signals.append(f"{period} | {content[:140]}")
         content_norm = _CONTENT_NORMALIZE_RE.sub('', content).lower()
         if own_norm and own_norm in content_norm:
             own_in_career = True
-    total = in_career + (0 if own_in_career else 1)
+    # 🔴 **읽을 경력이 없었으면 「1곳」이라 말하지 않는다.**
+    #    예전엔 careerDetails 가 비어도 본 회사 자동 +1 로 **total=1** 을 내보냈다.
+    #    그건 「겸직이 한 곳뿐」이라는 확정 진술로 읽힌다 — 실측 한국앤컴퍼니 이행희는
+    #    추천사유 원문에 포스코인터내셔널·무신사 사외이사가 적혀 있는데 「겸직 1곳」이 나갔다.
+    #    못 센 것과 세어 보니 하나뿐인 것은 다르다. 그 둘을 갈라서 낸다.
+    #    실측 이행희는 careerDetails 가 **비어 있지 않았다** — 「1988~2024 한국코닝 대표이사」
+    #    「2022 ~ 현재 한국코닝 자동차환경 사업부장」이 들어 있었다. 다만 **사외이사 줄이 없었다.**
+    #    그런데 추천사유 원문에는 「포스코인터내셔널과 무신사 등 다양한 산업군의 사외이사로서」가
+    #    적혀 있다 — 즉 **경력 표에 안 실린 겸직이 원문에는 있다.** 이때 「1곳」은 확정 오답이다.
+    #    경력에서 0곳인데 원문이 타사 사외이사를 말하면 **세지 않고 미상으로 돌린다.**
+    other_text = " ".join(str(candidate.get(k) or "") for k in
+                          ("recommendationReason", "recommendationReasonShared",
+                           "dutyPlan", "mainJob"))
+    text_mentions_outside = bool(_CONCURRENT_OUTSIDE_RE.search(other_text))
+    conflict = in_career == 0 and text_mentions_outside
+
+    countable = bool(career_details) and not conflict
+    total = (in_career + (0 if own_in_career else 1)) if countable else None
     return {
         "total": total,
+        "countable": countable,
+        "text_mentions_outside": text_mentions_outside,
         "in_career_count": in_career,
         "own_in_career": own_in_career,
         "signals": signals[:3],
+        # 기간이 합쳐져 들어와 「어느 줄이 현직인가」를 우리가 못 가른 경우.
+        # 세되 그 사실을 넘긴다 — 읽는 쪽이 원문으로 내려갈 수 있어야 한다.
+        "period_merged": period_merged,
+        "confidence": "low" if period_merged else "normal",
     }
 
 
