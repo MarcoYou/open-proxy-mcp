@@ -97,7 +97,7 @@ def main() -> int:
             nir if nir is not None else ni, eqr if eqr is not None else eq)
     finq_all: dict[str, dict] = {}
     for isu, fy, q, ni_cum, eq in con.execute(
-            "SELECT ticker, fy, quarter, ni_cum, eq FROM dart_finstat_q WHERE quarter != 4"):
+            "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
         finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
 
     months = [r[0] for r in con.execute(

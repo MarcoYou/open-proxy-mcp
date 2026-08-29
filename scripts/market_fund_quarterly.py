@@ -219,7 +219,7 @@ def derive_fundamentals() -> None:
     con = _pg(); con.autocommit = True
     q: dict[str, dict] = defaultdict(dict)
     for isu, fy, quarter, ni, eq in con.execute(
-            "SELECT ticker, fy, quarter, ni_cum, eq FROM dart_finstat_q"):
+            "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q"):
         q[isu][(int(fy), int(quarter))] = (ni, eq)
     updated = 0
     for isu, m in q.items():
