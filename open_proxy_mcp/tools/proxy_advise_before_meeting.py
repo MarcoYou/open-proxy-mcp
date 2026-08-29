@@ -23,6 +23,7 @@ _INDEPENDENCE_LABELS = {
 
 _DISQUALIFICATION_LABELS = {
     "clean": "결격사유 없음",
+    "unknown_no_field": "결격 기재 없음 (이 서식에 결격·체납 칸이 없음 — 「없다」가 아님)",
     "red_flag": "결격사유 발견",
     "not_evaluated": "평가 미실시",
     "no_data": "데이터 부족",
@@ -93,6 +94,7 @@ _INDEP_RESULT_KO = {
     # 사전 감사(producer→사전 방향)에서 발견, 25사 스윕엔 해당 후보가 없어 안 잡혔다(260728).
     "minor": "⚠️미성년", "adult": "성년",
     "red_flag": "⚠️결격 신호 있음", "clean": "결격사유 없음",
+    "unknown_no_field": "결격 기재 없음 (이 서식에 결격·체납 칸이 없음 — 「없다」가 아님)",
 }
 
 
@@ -235,6 +237,7 @@ _FACT_VALUE: dict[str, str] = {
     "low_confidence": "신뢰도 낮음", "low_fallback_to_raw": "원문으로 대체",
     # 이사 후보 상태
     "renewed": "재선임", "independent": "독립적", "clean": "결격사유 없음",
+    "unknown_no_field": "결격 기재 없음(칸 없음)",
     "concerns": "우려 있음", "weak": "부진", "strong": "우수",
     "single_position": "겸직 1곳",
     "unknown_no_career_data": "겸직 수 미상 (경력 원문 미파싱)",
@@ -675,6 +678,25 @@ def _render(payload: dict[str, Any]) -> str:
                         lines.append(f"    · 기간 원문: {_praw[:300]}")
                     if _craw2:
                         lines.append(f"    · 내용 원문: {_craw2[:700]}")
+            # 편 경력 — 기간이 항목별로 붙은 경우에만 찍는다.
+            # 🔴 **원문을 대신하지 않는다.** 위 원문 블록은 그대로 두고 **아래에 덧붙인다** —
+            #    우리 정규화가 틀렸을 때 읽는 쪽이 바로 위 원문과 대볼 수 있어야 한다.
+            #    짝이 안 맞으면(`aligned:false`) 아무것도 안 찍는다 — 지어낸 짝을 보이지 않는다.
+            _norm = faith.get("careers_normalized") or {}
+            if _norm.get("aligned") and _norm.get("careers"):
+                lines.append("- 경력 (기간별로 편 것 — 위 원문을 정리한 것이며 원문이 우선입니다):")
+                for it in _norm["careers"][:8]:
+                    _end = it.get("end") or ("현재" if it.get("open_ended") else "-")
+                    _who = it.get("org") or (it.get("raw") or "")
+                    _role = f" / {it['role']}" if it.get("role") else ""
+                    lines.append(f"  - {it.get('start') or '-'} ~ {_end} | {_who}{_role}")
+                if len(_norm["careers"]) > 8:
+                    lines.append(f"  - … 외 {len(_norm['careers']) - 8}건")
+                _cur = [x for x in _norm["careers"] if x.get("open_ended")]
+                if _cur:
+                    lines.append("  - 진행 중: " + " · ".join(
+                        (x.get("org") or x.get("raw") or "")[:40] for x in _cur[:4]))
+
             # 독립성 4 sub_factor 결과 + 근거(경력 raw 등) — 사외이사/감사위원
             lines.extend(_indep_evidence_lines(c))
             if ah_red:

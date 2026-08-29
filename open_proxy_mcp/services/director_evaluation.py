@@ -451,16 +451,29 @@ def evaluate_disqualification(candidate: dict[str, Any], current_year: int) -> d
         else:
             has_red = True
             elig_flags[k] = v
+    # 🔴 **세 칸이 전부 비어 있으면 「없음」이 아니라 「모름」이다** (2026-08-29).
+    #    안건 밑 후보 표는 서식이 둘인데, 다수인 **6칸형에는 결격·체납·부실 칸이 아예 없다**
+    #    (표본 10사 중 7사). 예전엔 값이 없어도 has_red=False 라 `clean` 이 나가서,
+    #    「없다고 확인함」과 「물어본 적 없음」이 화면에 같은 글자로 찍혔다.
+    #    겸직 「1곳」과 같은 병이다 — 기본값이 확정 진술로 나갔다.
+    _asked = any(elig.get(k) for k in ("taxDelinquency", "insolventMgmt", "legalDisqualification"))
     out["sub_factors"]["eligibility"] = {
-        "result": "red_flag" if has_red else "clean",
+        "result": ("red_flag" if has_red else ("clean" if _asked else "unknown_no_field")),
         "raw_flags": {k: v for k, v in elig_flags.items() if v},
+        "asked": _asked,
         "mapping": "success",
     }
 
     # ⚠️ hard-fail (메모에 안 적음): 형사 처벌 / 파산 / 임원 자격 박탈 / 사적 관계
     # → 코드/메모에서 침묵 (코붕이 지시)
 
-    out["summary"] = "red_flag" if (is_minor or has_red) else "clean"
+    if is_minor or has_red:
+        out["summary"] = "red_flag"
+    elif _asked:
+        out["summary"] = "clean"
+    else:
+        # 나이는 봤지만 결격 세 칸을 못 봤다 — 「없음」이라 말하지 않는다
+        out["summary"] = "unknown_no_field"
     return out
 
 
