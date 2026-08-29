@@ -147,6 +147,11 @@ def main() -> int:
             if not f and ni_ttm is None and eq_mrq is None:
                 continue
             ni_fy0, eq_fy0 = f if f else (None, None)
+            # 260829: 완전자본잠식은 모든 집계에서 뺀다(마스터 지시). 자본이 0 이하면 배수가
+            #   뜻을 잃고, 그 적자가 분모에 섞여 시장·섹터 값을 흔든다.
+            _eq_now = eq_mrq if eq_mrq is not None else eq_fy0
+            if _eq_now is not None and _eq_now <= 0:
+                continue
             sc, s_nm, ic, i_nm = cls
             for scheme, code, nm in (("wics_sector", sc, s_nm), ("wics_industry", ic, i_nm)):
                 k = (market, scheme, code)
