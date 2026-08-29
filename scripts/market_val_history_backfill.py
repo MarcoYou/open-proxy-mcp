@@ -38,6 +38,9 @@ from open_proxy_mcp.services.valuation import _pit_quarter, _ttm_ni, _mrq_eq
 DDL_MIGRATE = (
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS per_fy0 double precision",
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS pbr_fy0 double precision",
+    # 260829: 배수가 빈 이유를 「적자」와 「자료없음」으로 가르려면 분모를 같이 남겨야 한다.
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS ni_fy0 double precision",
+    "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS ni_ttm double precision",
 )
 
 
@@ -81,8 +84,10 @@ async def main() -> None:
         # per_fy0 분자에 섞이면 분자(cap)만 커지고 분모(ni)는 안 커져 PER 왜곡(260706 실측: KOSPI
         # 2020-12 FY0 PER이 32.7→42.8로 오염, FY0 없이 TTM/MRQ만 있는 219사·426조가 원인).
         # market -> {cap_per_fy0, ni_fy0, cap_pbr_fy0, eq_fy0, cap_per_ttm, ni_ttm, cap_pbr_mrq, eq_mrq}
-        mk = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        sec = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0])
+        # 뒤 셋 = n(종목수) · n_nif/n_nit(분모를 실제로 더한 회사 수). 합이 0.0 인 것과 더한 회사가
+        # 하나도 없는 것을 금액만으로는 구별할 수 없어, NULL 판정은 **개수**로 한다(260829).
+        mk = defaultdict(lambda: [0.0] * 8 + [0, 0, 0])
+        sec = defaultdict(lambda: [0.0] * 8 + [0, 0, 0])
         for isu, (market, ind) in meta.items():
             cap = caps.get(isu)
             if not cap or market not in (MKT_KS, MKT_KQ):
@@ -98,31 +103,44 @@ async def main() -> None:
             for acc in (mk[market], sec[(market, s)] if s else None):
                 if acc is None:
                     continue
-                if ni_fy0 is not None: acc[0] += cap; acc[1] += ni_fy0
+                if ni_fy0 is not None: acc[0] += cap; acc[1] += ni_fy0; acc[9] += 1
                 if eq_fy0 is not None: acc[2] += cap; acc[3] += eq_fy0
-                if ni_ttm is not None: acc[4] += cap; acc[5] += ni_ttm
+                if ni_ttm is not None: acc[4] += cap; acc[5] += ni_ttm; acc[10] += 1
                 if eq_mrq is not None: acc[6] += cap; acc[7] += eq_mrq
             if s:
                 sec[(market, s)][8] += 1
-        for market, (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq) in mk.items():
-            # 260706 병합: 시장전체 행 = sector='_ALL' 센티넬. ON CONFLICT도 실제 PK(snap_dd,market,sector)로.
-            con.execute("""INSERT INTO opm_val_market(snap_dd,market,sector,per_fy0,pbr_fy0,per_ttm,pbr_mrq,cap)
-                VALUES(%s,%s,'_ALL',%s,%s,%s,%s,%s) ON CONFLICT(snap_dd,market,sector) DO UPDATE SET
+        # 🔴 260829: 아래 두 INSERT 는 `scheme` 을 안 줬고 ON CONFLICT 도 3열이었다. 그런데
+        #   260823 에 PK 가 (snap_dd,market,scheme,sector) 4열로 바뀌었고 scheme 기본값은 'ksic' 다.
+        #   그대로 두면 ① 4열 PK 에 3열 ON CONFLICT 라 터지고 ② 시장전체 행이 scheme='ksic' 로
+        #   들어가 서비스가 읽는 scheme='market' 행을 영영 못 고친다. 축을 명시한다.
+        for market, (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, _n, n_nif, n_nit) in mk.items():
+            # 260706 병합: 시장전체 행 = sector='_ALL' 센티넬. 축은 분류와 무관하므로 scheme='market'.
+            con.execute("""INSERT INTO opm_val_market
+                (snap_dd,market,scheme,sector,per_fy0,pbr_fy0,per_ttm,pbr_mrq,cap,ni_fy0,ni_ttm)
+                VALUES(%s,%s,'market','_ALL',%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT(snap_dd,market,scheme,sector) DO UPDATE SET
                 per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
-                per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap""",
+                per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap,
+                ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm""",
                 (d, market, (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
                  (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
-                 round(max(cap_pf, cap_bf, cap_pt, cap_bm))))
+                 round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
+                 ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
             nmk += 1
-        for (market, s), (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n) in sec.items():
-            con.execute("""INSERT INTO opm_val_market(snap_dd,market,sector,label,n,cap,per_fy0,pbr_fy0,per_ttm,pbr_mrq)
-                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(snap_dd,market,sector) DO UPDATE SET
+        for (market, s), (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n, n_nif, n_nit) in sec.items():
+            # 이 섹터 버킷은 KSIC 하이브리드(bucket())다 — WICS 는 wics_val_backfill.py 소관.
+            con.execute("""INSERT INTO opm_val_market
+                (snap_dd,market,scheme,sector,label,n,cap,per_fy0,pbr_fy0,per_ttm,pbr_mrq,ni_fy0,ni_ttm)
+                VALUES(%s,%s,'ksic',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT(snap_dd,market,scheme,sector) DO UPDATE SET
                 label=EXCLUDED.label, n=EXCLUDED.n, cap=EXCLUDED.cap,
                 per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
-                per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq""",
+                per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq,
+                ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm""",
                 (d, market, s, label(s), n, round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
                  (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
-                 (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None))
+                 (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
+                 ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
             nsec += 1
     print(f"✓ 과거 FY0+TTM/MRQ 밴드 저장: 시장 {nmk}행 + 섹터 {nsec}행 ({len(months)}개 월말)", flush=True)
     con.close()
