@@ -29,6 +29,21 @@ def _f(v, fmt="{:.2f}"):
     return fmt.format(v) if v is not None else "N/M"
 
 
+def _fni(v, ni, fmt="{:.2f}"):
+    """배수 렌더 — 비었으면 **왜** 비었는지로 갈라 쓴다(260829).
+
+    종전엔 적자든 자료없음이든 `N/M` 하나였다. 둘은 사용자가 취할 행동이 다르다 —
+    적자면 「PER 로는 못 본다, PBR 로 보라」이고, 자료없음이면 「우리가 못 채웠다」다.
+    실측(20260828): 섹터 11칸이 전부 적자였는데 결측으로 읽혔다.
+    ni 는 그 배수의 **분모 합**이고, None = 더한 회사가 하나도 없음(=자료없음).
+    """
+    if v is not None:
+        return fmt.format(v)
+    if ni is None:
+        return "자료없음"
+    return f"적자 {ni / 1e12:+,.2f}조"
+
+
 def _render_status(payload: dict[str, Any]) -> str:
     """ok가 아닌 상태 렌더."""
     status = payload.get("status", "error")
@@ -52,7 +67,8 @@ def _render_market(p: dict[str, Any]) -> str:
     lines.append("| 시장 | PER(FY0) | PER(TTM) | PBR(FY0) | PBR(MRQ) | Σ시총(보통주) | Σ우선주 |")
     lines.append("|---|---|---|---|---|---|---|")
     for h in d["latest"]:
-        lines.append(f"| {mkt_label(h['market'])} | {_f(h['per_fy0'])} | {_f(h['per_ttm'])} | "
+        lines.append(f"| {mkt_label(h['market'])} | {_fni(h['per_fy0'], h.get('ni_fy0_krw'))} "
+                     f"| {_fni(h['per_ttm'], h.get('ni_ttm_krw'))} | "
                      f"{_f(h['pbr_fy0'])} | {_f(h['pbr_mrq'])} | {(h['cap_krw'] or 0)/1e12:,.0f}조 "
                      f"| {(h.get('cap_pref_krw') or 0)/1e12:,.1f}조 |")
     hist = d["history"]
@@ -86,7 +102,8 @@ def _render_sector(p: dict[str, Any]) -> str:
                           "| 연말 | PER(FY0) | PER(TTM) | PBR(FY0) | PBR(MRQ) |", "|---|---|---|---|---|"]
                 for yr in sorted(yearly):
                     h = yearly[yr]
-                    lines.append(f"| {yr} | {_f(h.get('per_fy0'))} | {_f(h.get('per_ttm'))} "
+                    lines.append(f"| {yr} | {_fni(h.get('per_fy0'), h.get('ni_fy0_krw'))} "
+                                 f"| {_fni(h.get('per_ttm'), h.get('ni_ttm_krw'))} "
                                  f"| {_f(h.get('pbr_fy0'))} | {_f(h.get('pbr_mrq'))} |")
                 lines.append("")
             lines.append(f"> 📈 섹터 전체 시계열 {len(shist)}개월({shist[0]['snap_dd']}~{shist[-1]['snap_dd']}) = "
@@ -108,10 +125,13 @@ def _render_sector(p: dict[str, Any]) -> str:
                   "", "| 섹터 | 종목수 | PER(TTM) | PBR(MRQ) | Σ시총 |", "|---|---|---|---|---|"]
         for s in rows:
             mark = " ◀" if c and s["sector"] == c["sector"] else ""
-            lines.append(f"| {s['label']}{mark} | {s['n']} | {_f(s['per_ttm'])} | {_f(s['pbr_mrq'])} "
+            lines.append(f"| {s['label']}{mark} | {s['n']} "
+                         f"| {_fni(s['per_ttm'], s.get('ni_ttm_krw'))} | {_f(s['pbr_mrq'])} "
                          f"| {krw_scaled(s['cap_krw'])} |")
         lines.append("")
-    lines.append("> PER N/M = 섹터 합산 지배순이익≤0(적자 우세) — 그 경우 PBR로 비교.")
+    lines.append("> PER 칸의 **「적자 −N조」** = 섹터 합산 지배순이익이 0 이하라 PER 이 성립하지 않는다"
+                 "(옆의 금액이 그 합) — 그 경우 PBR로 비교. **「자료없음」** 은 순이익을 채운 회사가 "
+                 "하나도 없다는 뜻으로, 둘은 다른 상태다.")
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
     return "\n".join(lines)
