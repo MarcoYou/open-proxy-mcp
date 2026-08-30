@@ -400,7 +400,7 @@ def parse_bundles(bundle: str) -> tuple[set[str], list[str]]:
 
 async def build_forward_estimates_payload(
     company: str = "", bundle: str = "core", period_type: str = "FY",
-    actual_years: int = 4, format: str = "md",
+    actual_years: int = 2, format: str = "md",
 ) -> dict[str, Any]:
     """`fwd` 스냅샷 한 종목. status: ok / no_estimates / not_found / unlisted /
     ambiguous / db_error / invalid — **「없음」을 뭉뚱그리지 않는다.**"""
