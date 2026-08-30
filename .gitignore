@@ -173,3 +173,4 @@ scratchpad_*.json
 # 에이전트 로컬 설정
 .agents/
 .codex/
+.gjc/
