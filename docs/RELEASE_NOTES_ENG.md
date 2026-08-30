@@ -2,6 +2,23 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-08-31
+
+### New tool `forward_estimates_data` — consensus forward estimates
+
+A new tool that answers next- and following-year expected results and forward multiples. It reads an analyst-estimate snapshot (`fwd`); these are not DART filings.
+
+- **The ruler is carried twice** — once in the envelope `ruler` (as_of, `price_dd`, units, PER definition, multiple scope) and again on every row (`period`, `row_kind`, `basis`). `as_of` and `price_dd` diverge on weekends and holidays, so "PER as of `as_of`" is wrong.
+- **Rows split by `reported` (vendor source) vs `derived` (our computation), not by actual vs estimate.** Growth rates cross the actual/estimate boundary — 2,180 estimate rows have an actual row as their prior period.
+- **Multiples exist only on estimate FYs and the latest confirmed FY.** The previous data held 8,386 rows of "today's price ÷ an EPS from years ago" under the name PER, 80.5% of them past FYs. Those are no longer produced; `per_why` records why a cell is empty (loss-making, not the latest confirmed FY, and so on).
+- **The PER definition now matches `price_multiple_data`** — common-share market cap ÷ net income attributable to controlling interests. The vendor formula (price ÷ EPS) was dropped house-wide on 2026-08-23 because stock splits mix an old share count's EPS with a new price. Periods diverging by more than 10% are flagged in the response (Samsung Electronics FY2025: 33.95 vs 39.15).
+- **All monetary values are integer KRW.** The `_eok` (100-million-won) notation is gone — placed beside a won-denominated field in one answer it produces a 100-million-fold error.
+- **Widen with `bundle`** — `core` by default, plus `growth`, `quality`, `keys`, `all`. A full-column response for a single ticker (Samsung Electronics) is 31 KB (~8k tokens), so the default is narrow for size, not because it is the right answer.
+- **"Nothing found" splits three ways** — `no_estimates` (no analyst coverage; only 713 of 2,764 tickers have estimates), `not_found` (no such ticker), `db_error` (database failure). Collapsing them removes the distinction that decides what the caller should do next.
+- The number of contrast rows of reported actuals is set by `actual_years`, default 2.
+
+Verification: commit `332faa5`. `ok`, `no_estimates` and `not_found` confirmed through MCP calls; full suite of 1,406 tests passing.
+
 ## beta — 2026-08-25
 
 ### Stronger fiscal-period filtering in `financial_metrics`
