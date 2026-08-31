@@ -260,6 +260,84 @@ def _pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
 _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, 잠시 후 재시도. (배치 미실행과 다름)"
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# 배당수익률 — 두 벌(확정 · 선행). 260831 신설.
+#
+# 🔴 **PER·PBR 과 출처 표가 다르다.** PER·PBR 은 `opm_val_market`(주간 스냅샷),
+#    배당수익률은 `div_yield_hist`(사업연도 확정, 연 1회 갱신)와 `fwd_agg`(추정 스냅샷)다.
+#    그래서 기준일이 셋 다 다르다 — 한 표에 놓을 때 각각의 자를 같이 실어야 한다.
+# 🔴 **분모를 한 벌만 내면 코스닥이 왜곡된다.** `all`(무배당 포함)만 내면 코스닥은
+#    절반으로 눌린다 — 눌림의 정체는 배당력이 아니라 「배당하는 회사가 적다」는 구성 차이다
+#    (실측: KQ all→payers 최대 −59.7%, KS 는 −15.5~−20.8%). 두 벌을 같이 낸다.
+# 🔴 **PER 과 게이팅이 다르다.** PER 은 적자면 안 나오지만 배당수익률은 적자여도
+#    배당이 있으면 값이 난다. 왜 PER 은 비는데 이건 있는지 묻게 되는 자리라 각주로 밝힌다.
+# ══════════════════════════════════════════════════════════════════════════
+_DIV_METHOD = (
+    "배당수익률(%) = Σ(주당배당금 × 주식수) ÷ Σ보통주 시총 × 100 — 시총가중. **배(倍)가 아니라 %다.** "
+    "확정=`div_yield_hist`(사업연도 12월결산 확정 DPS, 시총은 그 해 12월 마지막 주. 연 1회 갱신) · "
+    "선행=`fwd_agg`(애널리스트 추정 DPS, 분모는 추정이 있는 종목의 시총 `covered`). "
+    "**둘은 기준일도 모집단도 다르다 — 나란히 놓되 차이를 배당의 증감으로 읽지 말 것.** "
+    "분모 두 벌: `all`=무배당·DPS미확정까지 다 센 시장 관행값(본값) / `payers`=배당하는 회사만. "
+    "코스닥은 둘을 반드시 같이 본다 — `all` 만 보면 배당력이 아니라 배당하는 회사 수가 적은 것을 본다. "
+    "PER·PBR 과 달리 **적자여도 배당이 있으면 값이 난다**(같은 게이팅을 쓰지 않는다)."
+)
+
+
+async def _div_yield_map(scheme: str) -> tuple[dict, dict, dict]:
+    """(확정, 선행, 자) — 키는 (market, bucket). 실패해도 None 이 아니라 빈 dict 를 낸다.
+
+    🔴 배당수익률이 없다고 PER·PBR 표까지 죽이지 않는다(fail-open). 표가 통째로 사라지는
+       것보다 한 칸이 비는 편이 낫다 — 대신 자(尺)에 「배당수익률 조회 실패」를 남긴다.
+    """
+    ruler: dict[str, Any] = {}
+    act: dict[tuple, dict] = {}
+    fwd: dict[tuple, dict] = {}
+
+    rows = await asyncio.to_thread(_pg_rows,
+        "SELECT market, bucket, denom_basis, div_yield_pct, fiscal_year, price_dd, "
+        "       n_total, n_div, cov_cap_pct "
+        "FROM div_yield_hist WHERE scheme=%s "
+        "AND fiscal_year=(SELECT MAX(fiscal_year) FROM div_yield_hist WHERE scheme=%s) "
+        "AND denom_basis IN ('all','payers')", (scheme, scheme))
+    if rows:
+        for mkt, bucket, basis, pct, fy, price_dd, n_total, n_div, cov in rows:
+            d = act.setdefault((mkt, bucket), {})
+            d[basis] = pct and round(pct, 4)
+            d.update(fiscal_year=fy, price_dd=price_dd, n_total=n_total, n_div=n_div,
+                     cov_cap_pct=cov and round(cov, 2))
+            ruler.setdefault("actual_fiscal_year", fy)
+            ruler.setdefault("actual_price_dd", price_dd)
+    elif rows is None:
+        ruler["actual_error"] = "확정 배당수익률 조회 실패 — div_yield_hist"
+
+    frows = await asyncio.to_thread(_pg_rows,
+        "SELECT market, bucket, fwd_div_yield_pct, n_dps, n_total, as_of, div_denom_basis "
+        "FROM fwd_agg WHERE scheme=%s AND as_of=(SELECT MAX(as_of) FROM fwd_agg)", (scheme,))
+    if frows:
+        for mkt, bucket, pct, n_dps, n_total, as_of, basis in frows:
+            fwd[(mkt, bucket)] = {"pct": pct and round(pct, 4), "n_dps": n_dps,
+                                  "n_total": n_total, "denom_basis": basis}
+            ruler.setdefault("forward_as_of", str(as_of))
+    elif frows is None:
+        ruler["forward_error"] = "선행 배당수익률 조회 실패 — fwd_agg"
+    return act, fwd, ruler
+
+
+def _attach_div(row: dict, key: tuple, act: dict, fwd: dict) -> None:
+    """행 하나에 배당수익률 칸을 붙인다. 없으면 붙이지 않는다(빈 칸을 0 으로 메우지 않는다)."""
+    a, f = act.get(key), fwd.get(key)
+    if a:
+        row["div_yield_pct_all"] = a.get("all")
+        row["div_yield_pct_payers"] = a.get("payers")
+        row["div_fiscal_year"] = a.get("fiscal_year")
+        row["div_price_dd"] = a.get("price_dd")
+        row["div_n_payers"] = a.get("n_div")
+        row["div_cov_cap_pct"] = a.get("cov_cap_pct")
+    if f:
+        row["fwd_div_yield_pct"] = f.get("pct")
+        row["fwd_div_n_dps"] = f.get("n_dps")
+
+
 async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
     """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(opm_val_market)."""
     rows = await asyncio.to_thread(_pg_rows,
@@ -278,10 +356,17 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
              "cap_pref_krw": r[9] if len(r) > 9 else None,
              "ni_fy0_krw": r[10] if len(r) > 10 else None} for r in rows]
     latest_dd = hist[0]["snap_dd"]
+    latest = [h for h in hist if h["snap_dd"] == latest_dd]
+    # 260831: 배당수익률 두 벌을 같은 표에 얹는다. 키는 (market, 'ALL').
+    div_act, div_fwd, div_ruler = await _div_yield_map("market")
+    for h in latest:
+        _attach_div(h, (h["market"], "ALL"), div_act, div_fwd)
     return {"tool": "price_multiple_data", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
             "data": {"scope": "market", "as_of": latest_dd,
-                     "latest": [h for h in hist if h["snap_dd"] == latest_dd],
+                     "latest": latest,
                      "history": hist,
+                     "div_yield_ruler": div_ruler or None,
+                     "div_yield_method": _DIV_METHOD if (div_act or div_fwd) else None,
                      "method": "**보통주 기준**(260705 확정): PER=Σ보통주 시총÷Σ지배순이익 · PBR=Σ보통주 "
                                "시총÷Σ지배자본(MRQ) — KRX 지수 PER 관행. 우선주 시총은 배수 제외, cap_pref_krw로 "
                                "별도 노출(분모 이익·자본엔 우선주 몫 포함 → 소폭 하향 편향, 클래스 분리는 공시 부재로 불가) · "
@@ -329,6 +414,14 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 # 260829: 배수가 비었을 때 「적자」와 「자료없음」을 가르는 분모. None = 더한 회사 없음.
                 "ni_fy0_krw": r[10], "ni_ttm_krw": r[11]}
                for r in rows]
+    # 260831: 배당수익률은 WICS 대분류로만 집계돼 있다(`wics_sector`). 다른 축에서는 안 붙인다 —
+    #   KSIC·WICS 하위업종에 억지로 맞추면 버킷이 어긋난 값이 붙는다.
+    #   키를 코드가 아니라 **label** 로 맞춘다(우리 표의 bucket 이 섹터 이름이다).
+    div_act, div_fwd, div_ruler = ({}, {}, {})
+    if scheme == "wics_sector":
+        div_act, div_fwd, div_ruler = await _div_yield_map("wics_sector")
+        for srow in sectors:
+            _attach_div(srow, (srow["market"], srow["label"]), div_act, div_fwd)
     company_ctx = None
     # 260823: scheme 을 열었는데 각주가 「KSIC 하이브리드」로 굳어 있었다 — WICS 로 조회해도
     #   KSIC 라고 말한다. 사용자가 다른 축을 봤다고 믿게 되는 자리다.
@@ -411,6 +504,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
     return {"tool": "price_multiple_data", "status": "ok", "subject": "산업별 밸류에이션",
             "data": {"scope": "sector", "as_of": as_of, "scheme": scheme,
                      "scheme_desc": _SECTOR_SCHEMES[scheme], "sectors": sectors,
+                     "div_yield_ruler": div_ruler or None,
+                     "div_yield_method": _DIV_METHOD if (div_act or div_fwd) else None,
                      "company": company_ctx},
             "warnings": warnings}
 

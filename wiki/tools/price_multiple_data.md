@@ -2,13 +2,13 @@
 type: tool
 title: price_multiple_data
 domain: data
-status: 등록 완료 (260705 — tools/price_multiple_data.py) · 260824 `valuation` 에서 개명
+status: 등록 완료 (260705 — tools/price_multiple_data.py) · 260824 `valuation` 에서 개명 · 260831 시장·산업 배당수익률 추가
 scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
 created: 2026-07-05
-updated: 2026-08-24
+updated: 2026-08-31
 ---
 
 # price_multiple_data
@@ -48,10 +48,31 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 | scope | 소스 | 갱신 | 내용 |
 |---|---|---|---|
 | `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
-| `market` | `mkt_val_history` (`sector='_ALL'` 행만) | 주간 스냅샷(cron) + 과거 76개월 백필 | KOSPI·KOSDAQ 시총가중 PER/PBR + 히스토리 |
-| `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시) |
+| `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `fwd_agg`(선행 배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 평일 | KOSPI·KOSDAQ 시총가중 PER/PBR + **배당수익률(확정·선행 × all·payers)** + 히스토리 |
+| `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) · `scheme='wics_sector'` 일 때만 **배당 두 표 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 배당수익률은 **WICS 대분류에만** — 집계 버킷이 그 축이라 ksic·wics_industry 에는 안 붙인다 |
 | `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
+
+### 배당수익률 (260831 추가)
+
+시장·산업 표의 배당수익률은 **PER·PBR 과 출처 표도 기준일도 모집단도 다르다.** 한 표에
+놓이지만 같은 자로 잰 값이 아니다 — 그래서 표 아래에 셋(주간 스냅샷·확정 사업연도·추정 as_of)을
+따로 적는다.
+
+| | 확정 | 선행 |
+|---|---|---|
+| 표 | `div_yield_hist` | `fwd_agg` |
+| DPS | 12월결산 확정 | 애널리스트 추정 |
+| 분모 시총 | 그 사업연도 **12월 마지막 주** | 추정 스냅샷의 `price_dd` |
+| 모집단 | 그 시점 상장 보통주 전체 | 추정이 있는 종목만(`covered`) |
+| 갱신 | 연 1회 (`run_div_hist_annual.sh`, 4월) | 평일 (`collect_y_run.sh`) |
+
+- **분모를 두 벌 낸다** — `all`(무배당·DPS미확정 포함, 본값) · `payers`(배당주만). 표기는 `1.60 (1.89)`.
+  🔴 **코스닥을 `all` 한 값으로만 내면 왜곡이다.** `all`→`payers` 에서 값이 두 배가 된다(FY2023 −59.7%,
+  코스피는 −15.5~−20.8%). 낮은 것은 사실이나 **눌림의 절반은 배당력이 아니라 구성 차이**다.
+- **PER 과 게이팅이 다르다** — 적자면 PER 은 안 나오지만 배당수익률은 배당이 있으면 값이 난다.
+- **fail-open** — 배당 조회가 실패해도 PER·PBR 표는 그대로 낸다. 칸만 비고 각주에 이유를 남긴다.
+- 소규모 섹터를 합치지 않는다. `n_total` 을 남겨 읽는 쪽이 판단한다.
 
 - **FY 라벨은 하드코딩하지 않는다**: `mkt_fundamentals.ni_fy/eq_fy`는 `derive_fundamentals`가
   `_latest_annual_fy()`로 덮어쓰는 **가변열**이다. 이 값을 담는 `fin[]` 키를 연도 리터럴로 박으면

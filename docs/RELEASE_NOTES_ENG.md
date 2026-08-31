@@ -4,6 +4,22 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-08-31
 
+### `price_multiple_data` — market and sector dividend yield
+
+Tables for `scope="market"` and `scope="sector"` (`scheme="wics_sector"`) now carry a **cap-weighted dividend yield** next to PER and PBR. KOSPI 1.60% and KOSDAQ 0.70% for confirmed FY2025 on the all-issuers basis.
+
+- **Two denominators, always together** — `all` (counts non-payers and issuers whose DPS is not yet confirmed; the market-convention headline) and `payers` (dividend-paying issuers only). The table prints them as `1.60 (1.89)`. Publishing one alone distorts KOSDAQ: its value doubles from `all` to `payers` (−59.7% in FY2023). **KOSDAQ really is lower, but half of the gap is composition — fewer companies pay at all — not payout capacity** (KOSPI moves only −15.5% to −20.8%). On `all`, the FY2024 KOSPI/KOSDAQ gap looks like 3.12x; on `payers` it is 1.64x.
+- **Confirmed and forward sit side by side** — confirmed comes from December-fiscal-year-end confirmed DPS (`div_yield_hist`, refreshed once a year), forward from analyst-estimated DPS (`fwd_agg`). **They differ in source table, as-of date, and population** — the confirmed denominator is market cap in the last week of that December, while forward counts only issuers that have an estimate. The response says so explicitly, because the difference between the two must not be read as a change in dividends.
+- **Gating differs from PER and PBR** — a loss suppresses PER, but dividend yield **still produces a value for a loss-making issuer that pays a dividend.** That is why PER can be blank in the same row, so it is stated in a footnote.
+- Three different as-of dates are in play (weekly snapshot, confirmed fiscal year, estimate as_of); each is printed under the table. If the dividend lookup fails, the PER/PBR table still renders — only the column goes blank, and the footnote says why.
+- Not attached for `scheme="ksic"` or `"wics_industry"` — the aggregate buckets are WICS sectors, and forcing them onto another axis would attach mismatched values.
+- Small sectors are not folded together. `n_total` is kept so the reader can judge (for example, KOSDAQ Utilities has 2 issuers).
+
+**[Unverified]** Confirmed FY2025 DPS is incomplete — 608 issuers (114 KOSPI, 494 KOSDAQ) are still blank, leaving 8.9% of KOSPI and 21.7% of KOSDAQ market cap unconfirmed. The `all` figure is suppressed by that much and will refresh when the annual load runs again after the March annual-report deadline.
+
+Verified: MCP calls for `scope=market`, `scope=sector(wics_sector)`, and `scope=sector(ksic)` as a regression check; all 1,406 tests pass.
+
+
 ### New tool `forward_estimates_data` — consensus forward estimates
 
 A new tool that answers next- and following-year expected results and forward multiples. It reads an analyst-estimate snapshot (`fwd`); these are not DART filings.
