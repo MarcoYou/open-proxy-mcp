@@ -51,6 +51,7 @@ wiki/                  # 도메인 지식 (wiki/wiki_schema.md 가 계약서)
 13. **컬럼·값 치환 후** 양쪽으로 센다 (새 값 N건 / 옛 값 0건 확인).
 14. **메모리 변경은 사용자 승인 필수.** 추가·수정·삭제 전에 보여주고 허락받는다.
 15. **이 레포는 PUBLIC.** private 자산(usage·lessons·Supabase 스키마)은 open-proxy-storage에.
+16. **회귀 캐시는 DART 응답 경계에서만.** `get_document_cached` 결과를 입력으로 쓴다. 중간 함수 결과 금지 — 함수가 아니라 입력이 기준.
 
 ## Workflow
 
