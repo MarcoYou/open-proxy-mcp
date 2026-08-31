@@ -7,7 +7,7 @@ data_source: [DART OpenAPI list.json (B/I) + 키워드 매칭 (타법인주식 4
 related_disclosures: [타법인주식및출자증권거래]
 related_concepts: [특수관계인, 동일인]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
+
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -171,7 +171,7 @@ sequenceDiagram
 - [[cross-domain-체이닝]] — RPT → OWN (지분 변화) / CORP (M&A 맥락) 체이닝
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — related_party_transaction.summary 67.3% exact
+- 260429_0912_audit_parsing-200기업-v2-no_filing — related_party_transaction.summary 67.3% exact
 
 ## 알려진 issue + TODO
 - 특수관계 자동 판별 (계열사 matrix 데이터 소스 확보 시 추가, TODO).

@@ -7,7 +7,7 @@ data_source: [DART OpenAPI list.json (I) + document.xml (밸류업 본문 + 키�
 related_disclosures: [기업가치제고계획, 자기주식취득결정, 자기주식소각결정, 자기주식의무소각-2026신법]
 related_concepts: [주주환원, 배당성향]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
+
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -200,7 +200,7 @@ KIND fallback +1, 진단검색 +2, role backfill +1, treasury cross-ref +1.
 - [[cross-domain-체이닝]] — VUP → DIV (사실) / TRS (자사주 이행) 체이닝
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — value_up.summary 50.5% exact
+- 260429_0912_audit_parsing-200기업-v2-no_filing — value_up.summary 50.5% exact
 - 계획서 명칭·주요 내용 이행 태그 전수 검증(KOSPI500 + KOSDAQ150) 기록: private storage
 
 ## 알려진 issue + TODO

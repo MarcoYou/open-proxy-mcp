@@ -3,7 +3,7 @@ type: architecture
 title: Multi-upstream Tool Pattern (concurrency + race fix 표준)
 date: 2026-05-03
 related_tools: [advise_vote_before_meeting, recap_vote_after_meeting, proxy_contest, ownership_structure, corp_gov_report]
-related_audits: [260503_1847_audit_phase4_final]
+
 ---
 
 # Multi-upstream Tool Pattern
@@ -133,8 +133,8 @@ for idx, candidate in enumerate(notices[:3]):
 |---|---|---|---|
 | `advise_vote_before_meeting` | 6 `build_*_payload` | ✅ Phase 4 적용 (commit `d949f68`) | - |
 | `recap_vote_after_meeting` | 8 `build_*_payload` (4+4) | ✅ 적용 (commit `21bdf58`) | - |
-| `proxy_contest` | 8 DART endpoint 직접 (4+4) | ⚪ baseline 100% — fix 불필요 ([[260503_2330_audit_proxy_contest_baseline]]) | - |
-| `ownership_structure` | 3 endpoint 직접 | ⚪ baseline 100% (max 1.8s) — fix 불필요 ([[260503_2345_audit_ownership_baseline]]) | - |
+| `proxy_contest` | 8 DART endpoint 직접 (4+4) | ⚪ baseline 100% — fix 불필요 (260503_2330_audit_proxy_contest_baseline) | - |
+| `ownership_structure` | 3 endpoint 직접 | ⚪ baseline 100% (max 1.8s) — fix 불필요 (260503_2345_audit_ownership_baseline) | - |
 | `corp_gov_report` | 2 + N doc gather | ❌ 부분 (소량) | 🟢 낮음 |
 
 ### 적용 판단 기준
@@ -177,6 +177,6 @@ advise_vote (`services/advise_vote.py`)를 reference 구현으로 복붙.
 
 ## 관련 문서
 
-- [[260503_1847_audit_phase4_final]] - Phase 4 검증 audit
-- [[architecture/3-tier-fallback]] - DART API → 웹 → OCR fallback (별개 패턴)
-- [[architecture/data-collection]] - 데이터 수집 전반
+- 260503_1847_audit_phase4_final - Phase 4 검증 audit
+- [[3-tier-fallback]] - DART API → 웹 → OCR fallback (별개 패턴)
+- [[data-collection]] - 데이터 수집 전반

@@ -7,7 +7,7 @@ data_source: [없음 — rcept_no 문자열 가공 (DART 뷰어 URL 유도). API
 related_disclosures: []
 related_concepts: []
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
+
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -95,7 +95,7 @@ sequenceDiagram
 - [[DART-KIND-매핑-화이트리스트-2026-04]] — DART vs KIND source_type 분기 규칙
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — evidence는 API 호출 0회라 별도 매트릭스 없음 (모든 data tool의 evidence_refs에서 사용)
+- 260429_0912_audit_parsing-200기업-v2-no_filing — evidence는 API 호출 0회라 별도 매트릭스 없음 (모든 data tool의 evidence_refs에서 사용)
 
 ## 알려진 issue + TODO
 - KIND 원문 URL 직접 접근 단절 (2026-04-21~) → DART 뷰어로 통일 (영향 없음, 정상 렌더링).

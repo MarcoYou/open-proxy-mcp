@@ -55,8 +55,8 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 - `director_performance` — 사내이사 성과 매트릭스 2x3
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
-### 참조
-- [[tool_call_budget]] · [[tool_disclosure_map]] · [[data_tool_disclosure_map]] · [[tool-changelog]]
+### 참조 (5)
+- [[tool_call_budget]] · [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
 - [[director_news]] · [[proxy_guideline]]
 
 ## Rules (0) - `rules/`

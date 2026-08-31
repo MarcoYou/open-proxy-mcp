@@ -61,13 +61,26 @@ updated: 2026-06-01
 | [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[LLM-fallback-설계]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
 | [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
 | [[tool-추가-검증-정책]] | 신규 tool 추가 시 소스·검증 정책 |
+| [[proxy-voting-decision-tree]] | 의결권 판단 프레임워크 |
+| [[3-tier-fallback]] · [[data-collection]] · [[multi-upstream-pattern]] | 데이터 수집·폴백·병렬 패턴 |
+| [[mcp-endpoints]] · [[environment-secrets]] · [[project_structure]] | 인프라·구조 |
+| [[proxy_advise_word_report_design]] · [[proxy_advise_word_report_spec]] | Word 보고서 양식 |
+
+## 시점 수정 (yymmdd_hhmm_fix_)
+
+| 파일 | 내용 |
+|---|---|
+| [[260427_1145_fix_ownership-stockknd]] | ownership_structure stockKnd 파싱 수정 |
+| [[260429_0216_fix_speed-optimization-9건]] | 속도 최적화 9건 |
+| [[260429_0942_fix_corp_gov_report-financial-holding]] | corp_gov_report 금융지주 분류 수정 |
+| [[260624_1503_fix_dilutive-exchangeable-bond]] | dilutive_issuance 교환사채 수정 |
 
 ## 여기 없는 것 (260806 이관)
 
 | 옮긴 것 | 어디로 | 왜 |
 |---|---|---|
 | `260429_0216_improvement_turnkey-11agent` · `260506_2330_decision_v1-dead-parsers-archive` · `파서-성능-추이` | private storage `wiki-private/decisions/` | 등장하는 tool·파서·PDF/OCR tier 가 현행 코드에 없다(v1 유물) |
-| [[archive/decisions/cross-domain-체이닝]] · [[archive/decisions/260721_1600_decision_getting-started-tool-vs-resource]] | `wiki/archive/decisions/` (🍂 낙엽) | 현행 tool 이름/구성과 어긋나지만 현재 페이지들이 아직 가리켜 링크는 살려 둠 |
+| `cross-domain-체이닝` · `260721_1600_decision_getting-started-tool-vs-resource` | 삭제 (260831 archive/ 정리) | 현행 코드와 어긋나는 v1 유물 |
 
 ## 관련 페이지
 

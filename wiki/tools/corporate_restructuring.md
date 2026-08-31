@@ -7,7 +7,7 @@ data_source: [DART OpenAPI 주요사항보고서 DS005 4종 — cmpMgDecsn + cmp
 related_disclosures: [회사합병결정, 회사분할결정, 회사분할합병결정, 주식교환·이전결정]
 related_concepts: [지분구조, 동일인]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
+
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -140,7 +140,7 @@ sequenceDiagram
 - [[cross-domain-체이닝]] — CORP → OWN (지분 변화) / AGM (관련 주총) 체이닝
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — corporate_restructuring 14.8% exact (no_filing 84.2% 정상)
+- 260429_0912_audit_parsing-200기업-v2-no_filing — corporate_restructuring 14.8% exact (no_filing 84.2% 정상)
 
 ## 알려진 issue + TODO
 - 물적분할 후 재상장 패턴(`dvfcmp_rlst_atn=예`) 자동 경보 추가 검토 (LG화학 → LG에너지솔루션 사례).

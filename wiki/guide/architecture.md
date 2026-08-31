@@ -100,8 +100,8 @@ OPM은 담당 영역별로 분리된 도구를 MCP로 제공합니다. AI 에이
 
 ## 더 깊이 (AI/개발자용)
 
-- 데이터 수집·폴백: [[architecture/data-collection]] · [[architecture/3-tier-fallback]]
-- 도구 오케스트레이션 패턴: [[architecture/multi-upstream-pattern]]
-- 의결권 판단 프레임워크: [[architecture/proxy-voting-decision-tree]]
+- 데이터 수집·폴백: [[data-collection]] · [[3-tier-fallback]]
+- 도구 오케스트레이션 패턴: [[multi-upstream-pattern]]
+- 의결권 판단 프레임워크: [[proxy-voting-decision-tree]]
 - 매트릭스 시스템(설계 자산): matrix-system
-- 프로젝트 구조: [[architecture/project_structure]]
+- 프로젝트 구조: [[project_structure]]

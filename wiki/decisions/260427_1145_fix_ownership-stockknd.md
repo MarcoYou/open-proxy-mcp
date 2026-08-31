@@ -261,4 +261,4 @@ false positive 가능성 < false negative 위험. 어차피 합계 행은 name �
 
 ## 관련
 
-[[260429_0912_audit_parsing-200기업-v2-no_filing]] [[260429_0942_fix_corp_gov_report-financial-holding]] [[최대주주]] [[대주주]] [[동일인]] [[5%-대량보유]]
+260429_0912_audit_parsing-200기업-v2-no_filing [[260429_0942_fix_corp_gov_report-financial-holding]] [[최대주주]] [[대주주]] [[동일인]] [[5%-대량보유]]
