@@ -9,7 +9,6 @@
 다루는 대상(= lint [4]가 검사하는 것과 정확히 동일 집합):
 - 폴더-앵커 헤더 `### X (N) - `folder/`` 의 N (괄호 안이 순수 숫자일 때만 — `(20 진입점)`처럼
   큐레이션 라벨이 붙은 카운트는 정규식이 매칭 안 하므로 건드리지 않는다)
-- `### archive/sub/ (N)` 의 N
 - `총 N markdown` 총계
 
 건드리지 않는 것(의도적): Data(14)·시스템 설계(6)·Tools(20 진입점) 등 **선별 목록 수**(폴더 파생이
@@ -29,7 +28,6 @@ import sys
 from wiki_lint import (
     INDEX_MD,
     HEADER_FOLDER_COUNT,
-    ARCHIVE_SUB_COUNT,
     TOTAL_CLAIM,
     collect_pages,
     _direct_md_count,
@@ -47,12 +45,6 @@ def sync_counts(text: str, pages) -> str:
         actual = _direct_md_count(m.group(2), pages)  # group(2)=folder
         if actual >= 0:
             s, e = m.span(1)  # group(1)=count digits
-            edits.append((s, e, str(actual)))
-
-    for m in ARCHIVE_SUB_COUNT.finditer(text):
-        actual = _direct_md_count(m.group(1), pages)  # group(1)=archive/sub
-        if actual >= 0:
-            s, e = m.span(2)  # group(2)=count digits
             edits.append((s, e, str(actual)))
 
     for m in TOTAL_CLAIM.finditer(text):

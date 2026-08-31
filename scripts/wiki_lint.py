@@ -2,19 +2,12 @@
 
 wiki_schema Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 검증:
 - [1] 뿌리 → 줄기 → 큰가지: 단방향 (위→아래만)
-- [2] 큰가지 ↔ 가지 ↔ 잎: 양방향 강제 / 잎 ↔ 잎·낙엽: 자유
-- [3] 폴더 README ← 직속 .md 전부 인덱스([[]] link) — 새 파일 추가하고 README 누락 시 실패 (archive 면제)
-- [4] wiki_index.md 카운트 검증 (260709 패널 검수) — 폴더 주석 헤더 `(N) - `folder/``·archive 하위
-  헤더·총계 주장을 파일시스템 실측과 대조 + 같은 라벨 상충 카운트(Action (1) vs (2)) 검출.
-  wiki_index.md는 wiki-first 라우팅 진입점인데 어떤 자동 검증도 안 받아 카운트 8곳 오류·4곳
-  자기모순이 축적됐던 confident-wrong 사고 재발 방지.
-- [5] 경로 오링크 — `[[a/b/c]]`처럼 경로를 명시한 wikilink가 실제 위치와 다르면(파일이 archive로
-  이동 등) 검출. resolver의 basename 폴백이 조용히 성공해 링크는 "동작"하지만 명시 경로가
-  거짓이 되는 drift를 잡는다.
-- [9] 없는 문서 참조 — 문서형 참조([[a/b]]·`yymmdd_...`·frontmatter related_*)가 가리키는 문서가
-  실제로 없으면 검출. [5]가 「경로가 틀렸다」라면 이건 「대상이 아예 없다」다. 개념 링크
-  (`[[PBR]]`)는 앞으로 쓸 자리라 대상이 아니고, archive(낙엽)는 당시 상태 보존이라 면제.
-- [10] 빈 스텁 — 링크만 걷어내고 라벨·불릿만 남은 자리. 링크가 사라져 어떤 축에도 안 걸린다.
+- [2] 큰가지 ↔ 가지 ↔ 잎: 양방향 강제 / 잎 ↔ 잎: 자유
+- [3] 폴더 README ← 직속 .md 전부 인덱스([[]] link) — 새 파일 추가하고 README 누락 시 실패
+- [4] wiki_index.md 카운트 검증 — 폴더 주석 헤더 `(N) - `folder/`` 주장을 파일시스템 실측과 대조.
+- [5] 경로 오링크 — `[[a/b/c]]`처럼 경로를 명시한 wikilink가 실제 위치와 다르면 검출.
+- [9] 없는 문서 참조 — 문서형 참조가 가리키는 문서가 실제로 없으면 검출. 개념 링크는 면제.
+- [10] 빈 스텁 — 링크만 걷어내고 라벨·불릿만 남은 자리.
 - [8] 규칙 이중장부 방지 (260712 패널 결정) — 규칙 SSOT는 wiki_schema.md. wiki_index.md는
   인벤토리/라우팅만. 명명 규칙·카테고리 정의·frontmatter schema 서술이 index에 재등장하면 실패
   (lint 안 받는 두 번째 사본 = confident-wrong drift 원천 차단).
@@ -164,16 +157,10 @@ def layer_of(rel: str) -> str:
         return "main_branch"
     if cat == "decisions":
         return "main_branch"
-    if cat == "architecture":
-        if len(parts) > 1 and parts[1] in ("audits", "fixes"):
-            return "branch"
-        return "main_branch"
     if cat == "lessons":
         return "branch"
     if cat == "ralph":
         return "branch"
-    if cat == "archive":
-        return "fallen_leaf"
     return "root_nav"  # wiki_index, log, wiki_schema
 
 
@@ -181,20 +168,13 @@ def layer_of(rel: str) -> str:
 DOWNWARD_ONLY = {
     ("trunk", "main_branch"),
     ("trunk", "branch"),
-    # archive (낙엽) → trunk OK (자유). archive → main_branch는 자유 (낙엽 ↔ 잎 자유)
 }
 
 
 # 양방향 강제 라인
 BIDIRECTIONAL_PAIRS = [
-    ("tools/", "architecture/audits/"),
-    ("tools/", "architecture/fixes/"),
     ("decisions/", "lessons/"),
     ("decisions/", "ralph/"),
-    ("decisions/", "architecture/audits/"),
-    ("architecture/audits/", "ralph/"),
-    ("architecture/audits/", "lessons/"),
-    ("architecture/fixes/", "lessons/"),
 ]
 
 
@@ -237,7 +217,7 @@ def check_bidirectional(outgoing) -> list[str]:
 
 
 # README 인덱스 drift: 폴더에 README가 있으면 그 폴더 직속 .md가 README에 링크돼야 함
-README_DRIFT_EXCLUDE = ("archive",)  # 보관소는 통합 안내만 (개별 인덱스 면제)
+README_DRIFT_EXCLUDE = ()  # 면제 폴더 없음
 
 
 def check_readme_drift(pages, outgoing) -> list[str]:
@@ -272,8 +252,6 @@ def check_readme_drift(pages, outgoing) -> list[str]:
 INDEX_MD = WIKI / "wiki_index.md"
 # `### Concepts (44) - `rules/concepts/`` 류 — 폴더 주석이 붙은 헤더는 직속 파일 수와 대조
 HEADER_FOLDER_COUNT = re.compile(r"^#{2,3} .*?\((\d+)\)[^\n]*?-\s*`([a-z_/]+)/`", re.MULTILINE)
-# `### archive/analysis/ (18)` 류 — 헤더 텍스트 자체가 폴더 경로
-ARCHIVE_SUB_COUNT = re.compile(r"^#{2,3} (archive/[\w가-힣_]+)/ \((\d+)\)", re.MULTILINE)
 TOTAL_CLAIM = re.compile(r"총 (\d+) markdown")
 # tool 카테고리 라벨 — 같은 라벨이 다른 수로 두 번 나오면 자기모순
 CATEGORY_LABEL = re.compile(r"(?:^#{2,3} |\*\*)(Company|Screening|Meeting|Data|Evidence|Action|Tools)\s*\((\d+)", re.MULTILINE)
@@ -300,12 +278,6 @@ def check_index_counts(pages) -> list[str]:
 
     for m in HEADER_FOLDER_COUNT.finditer(text):
         claimed, folder = int(m.group(1)), m.group(2)
-        actual = _direct_md_count(folder, pages)
-        if actual >= 0 and claimed != actual:
-            issues.append(f"index 카운트 불일치: `{folder}/` 주장 {claimed} vs 실측 {actual}")
-
-    for m in ARCHIVE_SUB_COUNT.finditer(text):
-        folder, claimed = m.group(1), int(m.group(2))
         actual = _direct_md_count(folder, pages)
         if actual >= 0 and claimed != actual:
             issues.append(f"index 카운트 불일치: `{folder}/` 주장 {claimed} vs 실측 {actual}")
@@ -354,11 +326,7 @@ def check_index_no_rules() -> list[str]:
 
 
 def check_path_links(pages) -> list[str]:
-    """경로 명시 wikilink([[a/b/c]])의 명시 경로가 실제 파일 위치와 다르면 검출.
-
-    resolver의 basename 폴백 때문에 링크 자체는 "동작"하지만, 파일이 archive로 이동한 뒤
-    옛 경로로 남은 링크는 독자(LLM)에게 거짓 위치를 자신있게 알려준다 — 그걸 잡는다.
-    """
+    """경로 명시 wikilink([[a/b/c]])의 명시 경로가 실제 파일 위치와 다르면 검출."""
     from posixpath import normpath
 
     by_rel = {rel for rel, _ in pages}
@@ -407,12 +375,10 @@ def _is_doclike(target: str) -> bool:
 
 
 def check_missing_doc_refs(pages) -> list[str]:
-    """문서형 참조가 가리키는 문서가 실제로 있는지. archive(낙엽)는 당시 상태 보존이라 면제."""
+    """문서형 참조가 가리키는 문서가 실제로 있는지."""
     known = {rel.split("/")[-1] for rel, _ in pages}
     issues = []
     for rel, path in pages:
-        if rel.startswith("archive/"):
-            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         targets = [m.split("#")[0].strip() for m in WIKILINK.findall(text)]
         head = re.match(r"(?s)^---\n(.*?)\n---", text)
@@ -436,7 +402,7 @@ def _git_tracked_markdown() -> list[Path]:
             ["git", "-C", str(ROOT), "ls-files", "-z", "*.md"],
             capture_output=True, timeout=10, check=True,
         )
-        return [ROOT / item for item in out.stdout.decode().split("\0") if item]
+        return [p for item in out.stdout.decode().split("\0") if item and (p := ROOT / item).exists()]
     except (OSError, subprocess.SubprocessError):
         return list(ROOT.rglob("*.md"))
 
@@ -451,8 +417,6 @@ def check_repo_links() -> list[str]:
             if not target or target in {"name.md", "상대경로.md", "상대경로/page.md"} or target.startswith(("http://", "https://", "mailto:", "#")):
                 continue
             rel = path.relative_to(ROOT).as_posix()
-            if rel == "wiki/wiki_schema.md" and target.startswith("architecture/audits/"):
-                continue  # schema syntax example, not a live repository link
             candidate = (path.parent / target).resolve() if not target.startswith("/") else Path(target)
             try:
                 candidate.relative_to(ROOT)
@@ -480,8 +444,6 @@ def check_empty_stubs(pages) -> list[str]:
     """링크만 뜯겨 라벨·불릿만 남은 자리. lint 대상이 사라져 어떤 축에도 안 걸린다."""
     issues = []
     for rel, path in pages:
-        if rel.startswith("archive/"):
-            continue  # 낙엽·서식 템플릿은 빈칸이 정상
         lines = path.read_text(encoding="utf-8", errors="ignore").split("\n")
         for i, line in enumerate(lines):
             stub = EMPTY_STUB.match(line)
@@ -495,32 +457,6 @@ def check_empty_stubs(pages) -> list[str]:
                 issues.append(f"빈 스텁: {rel}:{i + 1} → `{line.strip()}`")
             elif EMPTY_BULLET.match(line):
                 issues.append(f"빈 불릿: {rel}:{i + 1}")
-    return issues
-
-
-def check_archive_superseded(pages) -> list[str]:
-    """[6] archive 페이지의 superseded_by frontmatter 강제 (260709 패널 검수).
-
-    낙엽(archive) 페이지를 연 에이전트가 "이건 X로 대체됨"을 첫 화면에서 보도록 — 흡수된 지식을
-    현행으로 오독하는 리스크 차단. 값은 현행 페이지명 또는 null(역사 보존, 직접 대체 없음).
-    non-null 값은 실재 페이지로 resolve돼야 함(QA 260709: phantom 타깃 차단).
-    """
-    resolve = build_resolver(pages)
-    sup_re = re.compile(r"^superseded_by:\s*([^\n#]+)", re.MULTILINE)
-    issues = []
-    for rel, path in pages:
-        if not rel.startswith("archive/") or rel.endswith("/README") or rel == "archive/README":
-            continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        parts = text.split("---", 2)
-        fm = parts[1] if len(parts) >= 3 else ""
-        m = sup_re.search(fm)
-        if not m:
-            issues.append(f"archive frontmatter 누락: {rel} — superseded_by: 필드 없음")
-            continue
-        val = m.group(1).strip()
-        if val and val != "null" and resolve(val) is None:
-            issues.append(f"archive superseded_by phantom: {rel} — '{val}' 페이지가 실재하지 않음")
     return issues
 
 
@@ -670,7 +606,6 @@ def main():
     drift_issues = check_readme_drift(pages, outgoing)
     index_issues = check_index_counts(pages)
     path_issues = check_path_links(pages)
-    archive_issues = check_archive_superseded(pages)
     missing_ref_issues = check_missing_doc_refs(pages)
     stub_issues = check_empty_stubs(pages)
     law_date_issues = check_law_dates(pages)
@@ -686,7 +621,6 @@ def main():
             "readme_drift": drift_issues,
             "index_count_issues": index_issues,
             "path_link_issues": path_issues,
-            "archive_superseded_issues": archive_issues,
             "law_date_issues": law_date_issues,
             "index_rule_leaks": index_rule_leaks,
             "repo_link_issues": repo_link_issues,
@@ -724,12 +658,6 @@ def main():
         if len(path_issues) > 20:
             print(f"  ... +{len(path_issues) - 20} 건")
 
-        print(f"\n[6] archive superseded_by 누락: {len(archive_issues)} 건")
-        for v in archive_issues[:20]:
-            print(f"  ✗ {v}")
-        if len(archive_issues) > 20:
-            print(f"  ... +{len(archive_issues) - 20} 건")
-
         print(f"\n[7] 상법 시행일 3자 정합 (원본↔md표↔엔진): {len(law_date_issues)} 건")
         for v in law_date_issues[:20]:
             print(f"  ✗ {v}")
@@ -762,10 +690,10 @@ def main():
         for v in updated_issues[:20]:
             print(f"  ✗ {v}")
 
-        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues or repo_link_issues or updated_issues):
+        if not (uni_violations or bi_issues or drift_issues or index_issues or path_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues or repo_link_issues or updated_issues):
             print("\n✓ 모든 정책 충족")
 
-    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or archive_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues or repo_link_issues or updated_issues):
+    if args.strict and (uni_violations or bi_issues or drift_issues or index_issues or path_issues or law_date_issues or index_rule_leaks or missing_ref_issues or stub_issues or repo_link_issues or updated_issues):
         sys.exit(1)
 
 
