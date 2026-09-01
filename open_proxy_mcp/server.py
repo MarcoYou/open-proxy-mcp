@@ -101,7 +101,7 @@ def build_mcp() -> MCPServer:
     async def _health(_request):
         from starlette.responses import JSONResponse
         from open_proxy_mcp.dart.client import (cache_stats, client_registry_stats,
-                                        inflight_now)
+                                        doc_gate_stats, inflight_now)
         from open_proxy_mcp.db import pool_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
@@ -142,6 +142,9 @@ def build_mcp() -> MCPServer:
             #   (개당 실측 908KB × 하루 고유 키 139개). 이제 상한·유휴 만료가 있고,
             #   그것이 실제로 도는지 밖에서 보이도록 개수·퇴출수를 싣는다.
             "clients": client_registry_stats(),
+            # 260901: 문서 수신·파싱 동시 상한. 겹침이 곧 메모리 피크라
+            #   「문이 실제로 좁혀져 있나」를 밖에서 볼 수 있어야 한다.
+            "doc_gate": doc_gate_stats(),
         })
 
     # 캐시를 밖에서 비우고, **비워졌는지 같은 응답으로 확인**한다. (260901)

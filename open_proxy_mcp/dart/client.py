@@ -2902,7 +2902,26 @@ class DartClient:
                 self._doc_inflight.pop(cache_key, None)
 
     async def _fetch_and_cache_document(self, rcept_no: str, cache_key: str) -> dict:
-        """문서 1건을 받아 메모리·디스크 캐시에 저장하는 single-flight 본체."""
+        """문서 1건을 받아 메모리·디스크 캐시에 저장하는 single-flight 본체.
+
+        🔴 **여기서만 문을 좁힌다** (260901). 캐시 적중은 이 함수에 오지 않으므로
+        빠른 답이 느린 답 뒤에 서지 않는다 — 좁히는 것은 「새로 받아 파싱하는 길」뿐이다.
+
+        왜 — 문서 한 건 처리에 RSS 가 **+123MB** 튄다(13MB 사업보고서 실측). 동시 3~5건이면
+        370~600MB 가 한꺼번에 잡히고, 여기에 상시 점유가 얹혀 1,024MB 를 넘는다.
+        260901 실측: 08:30 두 머신 동시 OOM · 15:57 또 한 번. 그때 동시 건수가 3~5 였다.
+        2 로 두는 이유는 **계산이 어차피 직렬**이기 때문이다(단일 이벤트루프) — 3으로 늘려
+        얻는 것은 내려받기 겹침(0.4초)뿐인데 비용은 +123MB 다. 남는 장사가 아니다.
+        """
+        sem = _doc_gate()
+        try:
+            await asyncio.wait_for(sem.acquire(), timeout=_DOC_GATE_WAIT_SEC)
+        except asyncio.TimeoutError:
+            # 🔴 무한정 세워 두지 않는다 — 대기 줄 자체가 메모리를 먹고, 사용자는
+            #    답도 못 받고 붙들린다. 붐빈다는 사실을 그대로 돌려준다.
+            raise DartClientError(
+                "busy", f"지금 문서 조회가 붐빕니다({_DOC_GATE} 건 처리 중). "
+                        "잠시 뒤 다시 시도해 주세요.") from None
         try:
             doc = await self.get_document(rcept_no)
             self._doc_cache.put(cache_key, doc)
@@ -2919,10 +2938,35 @@ class DartClient:
                 )
             return doc
         finally:
+            sem.release()
             # 예외가 난 task도 다음 호출이 재시도할 수 있게 한다. 대기 중인 호출은
             # 같은 예외를 받고, 등록부는 owner/대기자 중 마지막 호출이 정리한다.
             if self._doc_inflight.get(cache_key) is asyncio.current_task():
                 self._doc_inflight.pop(cache_key, None)
+
+
+#: 문서 수신·파싱 동시 실행 상한 (260901). 프로세스 하나가 한 번에 이만큼만 받는다 —
+#: 메모리 피크는 **키가 아니라 프로세스**에서 겹치므로 모듈 수준이다.
+_DOC_GATE = int(os.environ.get("OPM_DOC_CONCURRENCY", "2"))
+_DOC_GATE_WAIT_SEC = float(os.environ.get("OPM_DOC_GATE_WAIT_SEC", "60"))
+_doc_gate_sem: "asyncio.Semaphore | None" = None
+
+
+def _doc_gate() -> "asyncio.Semaphore":
+    """★ 세마포어는 **만든 루프에 묶인다** — `_corp_code_lock` 과 같은 이유로 lazy 다."""
+    global _doc_gate_sem
+    if _doc_gate_sem is None:
+        _doc_gate_sem = asyncio.Semaphore(_DOC_GATE)
+    return _doc_gate_sem
+
+
+def doc_gate_stats() -> dict:
+    """/health 가 본다 — 문이 실제로 좁혀져 있나, 지금 몇이 통과 중인가."""
+    sem = _doc_gate_sem
+    free = getattr(sem, "_value", None) if sem is not None else None
+    return {"limit": _DOC_GATE, "wait_sec": _DOC_GATE_WAIT_SEC,
+            "in_use": (_DOC_GATE - free) if free is not None else 0,
+            "waiting": len(getattr(sem, "_waiters", None) or []) if sem is not None else 0}
 
 
 # ── Client Factory ──
