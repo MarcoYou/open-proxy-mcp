@@ -2875,6 +2875,15 @@ class DartClient:
             return
         _sweep_disk_cache(written)
 
+    def _own_gate(self) -> "asyncio.Semaphore":
+        """**이 키 전용** 문. 인스턴스가 곧 키다(`_instances` 가 키별 싱글턴).
+        세마포어는 만든 루프에 묶이므로 여기서도 lazy 하게 만든다."""
+        sem = getattr(self, "_doc_own_sem", None)
+        if sem is None:
+            sem = asyncio.Semaphore(_DOC_OWN_GATE)
+            self._doc_own_sem = sem
+        return sem
+
     async def get_document_cached(self, rcept_no: str) -> dict:
         """get_document 결과를 캐싱 (메모리 바이트예산 LRU + TTL 24h, 디스크는 보조).
         중복 API 호출 방지. 메모리에서 evict 돼도 디스크가 받아주므로 **DART 왕복은 안 는다**
@@ -2913,10 +2922,26 @@ class DartClient:
         2 로 두는 이유는 **계산이 어차피 직렬**이기 때문이다(단일 이벤트루프) — 3으로 늘려
         얻는 것은 내려받기 겹침(0.4초)뿐인데 비용은 +123MB 다. 남는 장사가 아니다.
         """
-        sem = _doc_gate()
+        # 문은 둘이다 — **내 것 먼저, 그다음 전체**. (260901)
+        #   순서가 중요하다: 전체 문을 먼저 잡으면 한 사용자가 자기 차례를 기다리는 동안
+        #   전체 자리를 붙들고 있게 된다. 내 문을 먼저 통과해야 전체 자리를 짚는다.
+        #   🔴 **키별 1건인 이유** — 260901 실측: 10초 넘은 문서 조회 70여 건 중 67건이
+        #   **한 사용자**였다. 전체 상한만 두면 그 한 사람이 두 자리를 다 차지해 나머지
+        #   153명이 밀린다. 계산은 어차피 직렬이라 그 사용자의 총 처리 시간은 거의 같고,
+        #   달라지는 것은 **남의 자리를 안 뺏는다**는 것뿐이다.
+        own, sem = self._own_gate(), _doc_gate()
+        deadline = time.monotonic() + _DOC_GATE_WAIT_SEC
         try:
-            await asyncio.wait_for(sem.acquire(), timeout=_DOC_GATE_WAIT_SEC)
+            await asyncio.wait_for(own.acquire(), timeout=_DOC_GATE_WAIT_SEC)
         except asyncio.TimeoutError:
+            raise DartClientError(
+                "busy", f"같은 키로 이미 문서를 받는 중입니다(동시 {_DOC_OWN_GATE}건). "
+                        "앞의 요청이 끝난 뒤 다시 시도해 주세요.") from None
+        try:
+            await asyncio.wait_for(sem.acquire(),
+                                   timeout=max(0.1, deadline - time.monotonic()))
+        except asyncio.TimeoutError:
+            own.release()
             # 🔴 무한정 세워 두지 않는다 — 대기 줄 자체가 메모리를 먹고, 사용자는
             #    답도 못 받고 붙들린다. 붐빈다는 사실을 그대로 돌려준다.
             raise DartClientError(
@@ -2939,6 +2964,7 @@ class DartClient:
             return doc
         finally:
             sem.release()
+            own.release()
             # 예외가 난 task도 다음 호출이 재시도할 수 있게 한다. 대기 중인 호출은
             # 같은 예외를 받고, 등록부는 owner/대기자 중 마지막 호출이 정리한다.
             if self._doc_inflight.get(cache_key) is asyncio.current_task():
@@ -2950,6 +2976,9 @@ class DartClient:
 _DOC_GATE = int(os.environ.get("OPM_DOC_CONCURRENCY", "2"))
 _DOC_GATE_WAIT_SEC = float(os.environ.get("OPM_DOC_GATE_WAIT_SEC", "60"))
 _doc_gate_sem: "asyncio.Semaphore | None" = None
+
+
+_DOC_OWN_GATE = int(os.environ.get("OPM_DOC_CONCURRENCY_PER_KEY", "1"))
 
 
 def _doc_gate() -> "asyncio.Semaphore":
@@ -2964,7 +2993,8 @@ def doc_gate_stats() -> dict:
     """/health 가 본다 — 문이 실제로 좁혀져 있나, 지금 몇이 통과 중인가."""
     sem = _doc_gate_sem
     free = getattr(sem, "_value", None) if sem is not None else None
-    return {"limit": _DOC_GATE, "wait_sec": _DOC_GATE_WAIT_SEC,
+    return {"limit": _DOC_GATE, "per_key": _DOC_OWN_GATE,
+            "wait_sec": _DOC_GATE_WAIT_SEC,
             "in_use": (_DOC_GATE - free) if free is not None else 0,
             "waiting": len(getattr(sem, "_waiters", None) or []) if sem is not None else 0}
 
