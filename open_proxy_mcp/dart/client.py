@@ -352,6 +352,7 @@ _TRANSIENT_HTTP_ERRORS = (
 )
 
 
+
 def html_to_text(html: str, images: list[str] | None = None) -> str:
     """HTML/XML을 파서 친화적인 평문으로 정규화.
 
@@ -359,6 +360,12 @@ def html_to_text(html: str, images: list[str] | None = None) -> str:
     전체 적용 결과의 해당 구간과 내용이 일치한다(치환이 전부 로컬) — 구간 슬라이스의
     text화에도 재사용(business_details._slice_getdoc_sections).
     """
+    # 260901: 치환을 한 번의 순회로 합치려다 **되돌렸다.** 옛 코드는 `<[^>]+>` 를 별도
+    #   패스로 돌리므로, 앞선 치환이 만들어 낸 새 `< ... >` 구간까지 한 번 더 먹는다.
+    #   깨진 태그가 섞인 원문에서 그 차이가 드러난다 — 무작위 3,000건 대조에서 589건이
+    #   갈렸다. 속도 이득도 없었다(1.4M자 0.04s vs 0.03s). **파서 출력이 바뀌는 위험을
+    #   0의 이득과 바꾸지 않는다.** transient 를 줄이려면 사본 횟수가 아니라 「문서 전체를
+    #   평문으로 만들지 않는 길」(구간 슬라이스)로 가야 한다.
     text = re.sub(r'<(?:br|BR)\s*/?>', '\n', html)
     text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE|td|TD|th|TH)>', '\n', text)
     text = re.sub(r'<[^>]+>', ' ', text)
@@ -2920,7 +2927,69 @@ class DartClient:
 
 # ── Client Factory ──
 
+#: 키별 인스턴스 등록부. **상한과 유휴 만료가 있다** (260901).
+#:
+#: 왜 — 종전에는 키가 하나 들어올 때마다 만들고 **영영 안 지웠다.** 실측 개당 908KB
+#:   (httpx.AsyncClient + ssl 컨텍스트 + 인스턴스 캐시들)이고, 하루 고유 키가 139개다
+#:   (`ops_tool_calls` 260901 실측, 7일 239개). 종일 살아 있는 머신 한 대가 그것만으로
+#:   125MB 를 쥔다 — 등록 캐시(296MB) 를 전부 비워도 810MB 가 안 줄던 자리가 여기다.
+#:   이 저장소에서 **유일하게 단조증가**하는 항목이었다.
+#:
+#: 🔴 **유휴한 것만 버린다.** throttle 시계가 인스턴스에 붙어 있어, 쓰는 중인 키를
+#:   버리면 그 키의 분당 한도(910회) 창이 리셋돼 **DART 가 그 키를 막을 수 있다.**
+#:   그래서 ① 마지막 사용이 10분 넘게 지난 것만 ② 진행 중 요청이 없는 것만 버린다.
+#:   분당 창이라 10분이면 남은 부채가 없다. 활성 사용자가 동시에 48명을 넘지 않는 한
+#:   버려지는 일 자체가 없다.
+#: 🔴 버릴 때 **소켓을 닫는다.** 그냥 참조만 끊으면 httpx 연결이 GC 될 때까지 남는다.
+_INSTANCE_MAX = int(os.environ.get("OPM_CLIENT_MAX", "48"))
+_INSTANCE_IDLE_SEC = float(os.environ.get("OPM_CLIENT_IDLE_SEC", "600"))
 _instances: dict[str, "DartClient"] = {}
+_instance_seen: dict[str, float] = {}
+_instance_evictions = 0
+
+
+def _close_client(cli: "DartClient") -> None:
+    """소켓을 닫는다. 루프가 없으면(동기 문맥) 조용히 넘어간다 — GC 가 걷는다."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    try:
+        loop.create_task(cli._http.aclose())
+    except Exception:                      # noqa: BLE001 — 청소가 요청을 깨면 본말전도
+        pass
+
+
+def _evict_idle_clients() -> None:
+    global _instance_evictions
+    if len(_instances) <= _INSTANCE_MAX:
+        return
+    now = time.time()
+    # 오래 안 쓴 것부터. 진행 중 문서 요청이 있는 인스턴스는 건너뛴다.
+    for key in sorted(_instance_seen, key=lambda k: _instance_seen.get(k, 0)):
+        if len(_instances) <= _INSTANCE_MAX:
+            break
+        if now - _instance_seen.get(key, 0) < _INSTANCE_IDLE_SEC:
+            break                          # 정렬돼 있으니 여기부터는 전부 최근 것이다
+        cli = _instances.get(key)
+        if cli is None:
+            _instance_seen.pop(key, None)
+            continue
+        if getattr(cli, "_doc_inflight", None):
+            continue                       # 아직 일하는 중 — 손대지 않는다
+        _instances.pop(key, None)
+        _instance_seen.pop(key, None)
+        _instance_evictions += 1
+        _close_client(cli)
+
+
+def client_registry_stats() -> dict:
+    """/health·/admin 이 본다. **크기는 개수 × 실측 908KB 로 어림한다** —
+    객체 안쪽을 재는 계산은 비싸고, 여기서 답할 질문은 「몇 개나 쥐고 있나」다."""
+    return {"entries": len(_instances), "max": _INSTANCE_MAX,
+            "evictions": _instance_evictions,
+            "est_mb": round(len(_instances) * 0.908, 1)}
+
 
 def get_dart_client() -> DartClient:
     """DartClient 팩토리 — API 키별 인스턴스 캐싱, 전 tool에서 throttle 공유"""
@@ -2928,4 +2997,6 @@ def get_dart_client() -> DartClient:
     cache_key = ctx_key or os.getenv("OPENDART_API_KEY") or "__default__"
     if cache_key not in _instances:
         _instances[cache_key] = DartClient()
+        _evict_idle_clients()
+    _instance_seen[cache_key] = time.time()
     return _instances[cache_key]

@@ -5,6 +5,7 @@ import hmac
 import logging
 import os
 import re
+import sys
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.capture import CaptureMiddleware
@@ -99,7 +100,8 @@ def build_mcp() -> MCPServer:
     @mcp.custom_route("/health", methods=["GET"])
     async def _health(_request):
         from starlette.responses import JSONResponse
-        from open_proxy_mcp.dart.client import cache_stats, inflight_now
+        from open_proxy_mcp.dart.client import (cache_stats, client_registry_stats,
+                                        inflight_now)
         from open_proxy_mcp.db import pool_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
@@ -136,6 +138,10 @@ def build_mcp() -> MCPServer:
             #   **프로세스 전체 RSS** 가 VM 한도(1,024MB)에 닿아 난다. 그 값을 여기 싣는다.
             #   fly Prometheus 로도 볼 수 있지만 조직 토큰이 필요해 앱 범위 토큰으로는 401 이다.
             "mem": _mem_stats(),
+            # 260901: 키별 DartClient 등록부. **여기가 유일하게 단조증가하던 자리**였다
+            #   (개당 실측 908KB × 하루 고유 키 139개). 이제 상한·유휴 만료가 있고,
+            #   그것이 실제로 도는지 밖에서 보이도록 개수·퇴출수를 싣는다.
+            "clients": client_registry_stats(),
         })
 
     # 캐시를 밖에서 비우고, **비워졌는지 같은 응답으로 확인**한다. (260901)
@@ -183,7 +189,34 @@ def build_mcp() -> MCPServer:
         from collections import Counter
 
         from starlette.responses import JSONResponse
-        from open_proxy_mcp.dart.client import _cache_entry_bytes, cache_stats
+        from open_proxy_mcp.dart.client import (cache_stats, client_registry_stats)
+
+        def _deep(obj, cap=20000):
+            """임의 객체의 대략 바이트. **`_cache_entry_bytes` 로는 못 잰다** —
+            그건 dict·list·tuple 만 파고들어서, 260901 에 `_instances` 를 개당
+            48바이트(실측 908KB)로 오보했다. 그 계측 때문에 「캐시 밖 810MB」의
+            정체를 반나절 못 짚었다. 여기서는 `gc.get_referents` 로 실제 참조를
+            따라간다. 무한히 퍼지지 않도록 방문 수를 `cap` 으로 자른다 —
+            잘렸으면 그 사실을 함께 낸다(어림값을 정확값처럼 쓰지 않는다)."""
+            seen, stack, total, n = set(), [obj], 0, 0
+            while stack and n < cap:
+                o = stack.pop()
+                i = id(o)
+                if i in seen:
+                    continue
+                seen.add(i)
+                n += 1
+                try:
+                    total += sys.getsizeof(o)
+                except Exception:
+                    continue
+                if isinstance(o, (str, bytes, bytearray, int, float, type(None))):
+                    continue
+                try:
+                    stack.extend(gc.get_referents(o))
+                except Exception:
+                    pass
+            return total, (n >= cap)
 
         want = os.environ.get("OPM_ADMIN_KEY")
         got = request.headers.get("x-admin-key")
@@ -214,20 +247,26 @@ def build_mcp() -> MCPServer:
                 n = len(obj)
             except Exception:
                 n = None
-            est = None
+            est, truncated = None, False
             if isinstance(obj, dict) and n:
-                sample = list(itertools.islice(obj.items(), 20))
-                per = sum(_cache_entry_bytes(k) + _cache_entry_bytes(v)
-                          for k, v in sample) / len(sample)
-                est = round(per * n / 1048576, 1)
+                sample = list(itertools.islice(obj.items(), 5))
+                per = 0.0
+                for k, v in sample:
+                    a, t1 = _deep(k)
+                    b, t2 = _deep(v)
+                    per += a + b
+                    truncated = truncated or t1 or t2
+                est = round(per / len(sample) * n / 1048576, 1)
             stores[f"{mod.split('.')[-1]}.{name}"] = {
-                "entries": n, "est_mb": est, "sampled": min(20, n or 0)}
+                "entries": n, "est_mb": est, "sampled": min(5, n or 0),
+                "truncated": truncated}
 
         counts = Counter(type(o).__name__ for o in gc.get_objects())
         return JSONResponse({
             "instance": _instance_tag(),
             "mem": _mem_stats(),
             "registry_mb": (cache_stats() or {}).get("_used_mb"),
+            "clients": client_registry_stats(),
             "off_registry": stores,
             "gc": {"objects": sum(counts.values()),
                    "collected_now": gc.collect(),
