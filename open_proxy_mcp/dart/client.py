@@ -755,6 +755,29 @@ def cache_stats() -> dict:
     return out
 
 
+def cache_clear(disk: bool = False) -> dict:
+    """메모리 캐시를 **전부** 비운다. 반환 = 비우기 전후 대조.
+
+    260901: 두 머신이 08:30 동시에 OOM(exit 137) 으로 죽었다. 그때 캐시 점유는 예산
+    296MB 중 33% 였는데 VM 실사용(anon)은 950MB 였다 — **예산 안에 있어도 죽는다.**
+    그래서 「지금 비워라」를 밖에서 부를 수 있어야 하고, 비운 것이 실제로 비워졌는지
+    같은 응답으로 확인할 수 있어야 한다(before/after 를 함께 낸다).
+
+    디스크는 기본으로 **안 건드린다.** RAM 예산 밖이라 OOM 과 무관하고, 지우면 되레
+    원문을 다시 받아 오느라 상류 호출이 는다. `disk=True` 는 볼륨을 비울 때만 쓴다.
+    """
+    before = cache_stats()
+    for c in _CACHE_REGISTRY:
+        c.clear()
+    freed = None
+    if disk:
+        freed = _sweep_disk_cache(force=True)
+    import gc
+    gc.collect()          # 비운 뒤 실제로 반납되는지 보려면 수거를 한 번 돌려야 한다
+    after = cache_stats()
+    return {"before": before, "after": after, "disk_freed_bytes": freed}
+
+
 # ── sqlite master cache (KIS 참고, iter27 ship) ──
 # corpCode.xml 50MB 영구 cache → cold start 6-15s → ms.
 # fly.io volume mount 시 machine restart에도 영구.

@@ -42,9 +42,29 @@ def test_falls_back_to_commit_date_on_old_manifest():
 
 
 def test_live_corpus_reports_promulgation():
-    """커밋된 corpus 로도 실제로 공포일이 나오나."""
+    """커밋된 corpus 로도 실제로 공포일이 나오나 — **날짜를 박지 않는다.**
+
+    260901: 종전에는 8개 법의 공포일을 리터럴로 적어 두고 `max()` 와 등치를 요구했다.
+    그러면 주간 배치(`law-corpus-weekly`)가 **제 일을 제대로 할 때마다** 이 테스트가
+    빨개지고, `needs: test` 인 배포가 통째로 막힌다 — 실제로 8/31 개정분(8-04 공포)이
+    들어오자 배포가 죽었고 live 는 옛 corpus(2,725조)로 남았다.
+    「데이터가 최신이 됐다」를 실패로 재는 자는 자가 틀린 것이다.
+
+    지켜야 할 성질(커밋일이 아니라 공포일을 쓴다)은 위 세 테스트가 mock 으로 이미
+    전부 덮는다. 여기서 볼 것은 **배선** — 실제 manifest 를 읽어 그 값이 그대로
+    나오는가, 그리고 형식이 날짜인가.
+    """
+    from open_proxy_mcp.services.law_lookup import load_manifest
+    import re
+
+    m = load_manifest()
     f = corpus_freshness()
-    m_dates = ["2026-03-06", "2026-06-23", "2026-05-12", "2026-06-30",
-               "2026-05-12", "2026-03-24", "2025-04-01", "2026-05-26",
-               "2026-08-04"]
-    assert f["asof"] == max(m_dates)
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", f["asof"]), f["asof"]
+    declared = m.get("source_promulgated_date")
+    if declared:
+        # sync 가 계산해 둔 값을 재계산 없이 그대로 쓴다.
+        assert f["asof"] == declared
+    else:
+        # 옛 형식 manifest — 파일들의 공포일 최대값과 맞아야 한다.
+        dates = [(x.get("frontmatter") or {}).get("공포일자") for x in m.get("files", [])]
+        assert f["asof"] == max(d for d in dates if d)

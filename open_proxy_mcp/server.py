@@ -1,6 +1,7 @@
 """OpenProxy MCP 서버 — MCPServer 진입점"""
 
 import argparse
+import hmac
 import logging
 import os
 import re
@@ -129,6 +130,41 @@ def build_mcp() -> MCPServer:
             #   fly 가 부하를 연결 수로 세는 한 그 편중은 로그로도 잘 안 보인다.
             "instance": _instance_tag(),
             "inflight": inflight_now(),
+            # 260901: **캐시 예산과 VM 한도는 다른 자다.** 08:30 두 머신이 동시에
+            #   exit_code=137·oom_killed 로 죽었는데, 그 직후 /health 의 캐시 점유는
+            #   296MB 중 33% 였다 — 「멀쩡하다」로 읽힌다. OOM 은 캐시가 아니라
+            #   **프로세스 전체 RSS** 가 VM 한도(1,024MB)에 닿아 난다. 그 값을 여기 싣는다.
+            #   fly Prometheus 로도 볼 수 있지만 조직 토큰이 필요해 앱 범위 토큰으로는 401 이다.
+            "mem": _mem_stats(),
+        })
+
+    # 캐시를 밖에서 비우고, **비워졌는지 같은 응답으로 확인**한다. (260901)
+    #   왜 — 08:30 두 머신이 동시에 OOM 으로 죽었다. 그때 손으로 할 수 있는 게
+    #   「머신을 재시작한다」뿐이었다. 그건 캐시만 비우는 게 아니라 서비스를 끊는다.
+    #   🔴 **머신을 골라 부를 수 있어야 한다.** 두 대가 각자 제 캐시를 들고 있어서
+    #   한 번 불러서는 한 대만 비워진다 — 부르는 쪽이 `Fly-Force-Instance-Id` 로
+    #   지정한다(scripts/opm_cache_clear.py). 응답에 어느 머신이 답했는지 싣는 이유다.
+    #   인증 — `OPM_ADMIN_KEY` 시크릿과 헤더가 같아야 한다. 시크릿이 없으면 **404 로
+    #   숨긴다**(403 은 「여기 뭔가 있다」를 알려 준다).
+    @mcp.custom_route("/admin/cache", methods=["POST"])
+    async def _admin_cache(request):
+        from starlette.responses import JSONResponse
+        from open_proxy_mcp.dart.client import cache_clear
+
+        want = os.environ.get("OPM_ADMIN_KEY")
+        got = request.headers.get("x-admin-key")
+        if not want or not got or not hmac.compare_digest(want, got):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        disk = request.query_params.get("disk") == "1"
+        mem_before = _mem_stats()
+        result = cache_clear(disk=disk)
+        return JSONResponse({
+            "instance": _instance_tag(),
+            "cleared": True,
+            "disk": disk,
+            "mem_before": mem_before,
+            "mem_after": _mem_stats(),
+            **result,
         })
 
     return mcp
@@ -187,6 +223,43 @@ _NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답
 #: 1 GB VM 에 OOM 이력(260804)이 있어 상한 없는 누적은 그대로 둘 수 없다.
 #: 여기서 멈춰도 replay 가 나머지를 receive() 로 흘려보내므로 하류는 온전한 본문을 받는다.
 _MAX_SNIFF_BYTES = 64 * 1024
+
+
+def _mem_stats() -> dict:
+    """프로세스·컨테이너의 실사용 메모리. **OOM 이 보는 자로 잰다.**
+
+    cgroup v2 의 `memory.current` 가 커널이 한도와 견주는 값이고, `VmRSS` 는 이
+    프로세스 몫이다. 둘을 같이 내야 「내가 먹었나, 옆이 먹었나」가 갈린다.
+    리눅스 밖(로컬 개발)에서는 읽을 게 없으므로 빈 칸으로 둔다 — 0 으로 채우지 않는다.
+    """
+    out: dict = {}
+    try:
+        import resource
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        # 리눅스는 KB, macOS 는 바이트로 준다.
+        out["peak_rss_mb"] = round(peak / (1024 if peak > 10 ** 7 else 1) / 1024, 1)
+    except Exception:
+        pass
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    out["rss_mb"] = round(int(line.split()[1]) / 1024, 1)
+                    break
+    except Exception:
+        pass
+    for name, key in (("/sys/fs/cgroup/memory.current", "cg_used_mb"),
+                      ("/sys/fs/cgroup/memory.max", "cg_limit_mb"),
+                      ("/sys/fs/cgroup/memory.peak", "cg_peak_mb")):
+        try:
+            v = open(name).read().strip()
+            if v != "max":
+                out[key] = round(int(v) / 1024 / 1024, 1)
+        except Exception:
+            pass
+    if out.get("cg_used_mb") and out.get("cg_limit_mb"):
+        out["cg_pct"] = round(out["cg_used_mb"] / out["cg_limit_mb"] * 100, 1)
+    return out
 
 
 def _instance_tag() -> str:

@@ -3,6 +3,8 @@ name: Deploy to Fly.io
 on:
   push:
     branches: [main]
+  # 데이터 배치의 커밋백은 push 이벤트를 못 만든다(GITHUB_TOKEN 푸시). 그쪽에서 이걸 부른다.
+  workflow_dispatch: {}
 
 # GITHUB_TOKEN에 deployments 쓰기 권한 부여 (배포 상태 기록용)
 permissions:

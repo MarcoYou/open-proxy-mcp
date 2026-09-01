@@ -31,6 +31,7 @@ on:
 
 permissions:
   contents: write  # 정적 맵(JSON) 커밋백
+  actions: write   # 커밋백 뒤 배포를 직접 부르기 위해 (260901)
 
 jobs:
   refresh:
@@ -92,6 +93,8 @@ jobs:
         run: uv run python scripts/wics_val_backfill.py
 
       - name: 정적 맵 커밋 (실질 변경 시)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -109,5 +112,11 @@ jobs:
               -m "WiseIndex WICS 대분류 10 / 하위업종 28. DART·KRX 0콜." \
               -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
             git push
+            # 데이터 자동 커밋은 `on: push` 를 트리거하지 않는다 — GITHUB_TOKEN 으로 민 푸시는
+            # 워크플로를 깨우지 않는 것이 GitHub 기본 동작이다. 그래서 커밋은 main 에 올라가는데
+            # **live 는 옛 데이터인 채로 남는다**(260901 실측: 법령 8/31 커밋이 배포되지 않아
+            # live 2,725조 vs main 2,734조). 커밋했을 때만 배포를 직접 부른다.
+            gh workflow run deploy.yml --ref main \
+              && echo "🚀 배포 요청함" || echo "🔴 배포 요청 실패 — 사람이 밀어야 한다"
             echo "✅ 커밋·푸시 완료 (${AS_OF})"
           fi
