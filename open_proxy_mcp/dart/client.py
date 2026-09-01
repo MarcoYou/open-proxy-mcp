@@ -2935,8 +2935,10 @@ class DartClient:
             await asyncio.wait_for(own.acquire(), timeout=_DOC_GATE_WAIT_SEC)
         except asyncio.TimeoutError:
             raise DartClientError(
-                "busy", f"같은 키로 이미 문서를 받는 중입니다(동시 {_DOC_OWN_GATE}건). "
-                        "앞의 요청이 끝난 뒤 다시 시도해 주세요.") from None
+                "busy",
+                "앞서 요청하신 자료를 아직 가져오는 중이에요. "
+                "한 번에 한 건씩 처리하고 있어서, 그것만 끝나면 바로 이어서 해드릴게요. "
+                "30초쯤 뒤에 다시 불러 주세요.") from None
         try:
             await asyncio.wait_for(sem.acquire(),
                                    timeout=max(0.1, deadline - time.monotonic()))
@@ -2945,8 +2947,10 @@ class DartClient:
             # 🔴 무한정 세워 두지 않는다 — 대기 줄 자체가 메모리를 먹고, 사용자는
             #    답도 못 받고 붙들린다. 붐빈다는 사실을 그대로 돌려준다.
             raise DartClientError(
-                "busy", f"지금 문서 조회가 붐빕니다({_DOC_GATE} 건 처리 중). "
-                        "잠시 뒤 다시 시도해 주세요.") from None
+                "busy",
+                "지금 큰 보고서를 여러 건 읽고 있어서 잠깐 순서를 기다려야 해요. "
+                "1분쯤 뒤에 다시 시도하시면 대개 바로 처리됩니다. "
+                "요청이 잘못된 것은 아니니 그대로 다시 물어보셔도 괜찮아요.") from None
         try:
             doc = await self.get_document(rcept_no)
             self._doc_cache.put(cache_key, doc)

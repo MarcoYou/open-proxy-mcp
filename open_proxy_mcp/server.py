@@ -407,8 +407,17 @@ class ApiKeyMiddleware:
             # 갱신 내부용)가 있으므로, 거절하지 않으면 env 폴백으로 서버 키가 조용히
             # 소모된다. 서빙은 반드시 유저 키(?opendart=)로.
             import json as _json
-            body = _json.dumps({"error": "opendart API key required",
-                                "hint": "connect with ?opendart=<your DART key>"}).encode()
+            # 260901: 첫 만남에서 보는 문구다. **무엇이 없고 · 어디서 받고 · 어떻게 붙이는지**
+            #   세 가지가 한 화면에 있어야 한다. 코드(`error`)는 그대로 두어 기계가 갈라 읽게 한다.
+            body = _json.dumps({
+                "error": "opendart API key required",
+                "message": "DART 오픈API 키가 필요해요. 금융감독원이 무료로 발급해 주고, "
+                           "신청하면 바로 받을 수 있어요.",
+                "how_to": "① https://opendart.fss.or.kr 에서 인증키를 신청하세요(무료·즉시 발급) "
+                          "② 받은 키를 접속 주소 뒤에 붙이면 됩니다 — ?opendart=<발급받은 키>",
+                "why": "키는 사용자마다 따로 쓰입니다. 그래야 한 사람의 조회가 다른 사람의 "
+                       "한도에 영향을 주지 않아요.",
+            }, ensure_ascii=False).encode()
             await send({"type": "http.response.start", "status": 401,
                         "headers": [(b"content-type", b"application/json")]})
             await send({"type": "http.response.body", "body": body})
