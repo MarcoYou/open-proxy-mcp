@@ -167,6 +167,73 @@ def build_mcp() -> MCPServer:
             **result,
         })
 
+    # 무엇이 램을 채우나 — **장부 밖 저장소**를 이름으로 지목해 센다. (260901)
+    #   10:49 실측: RSS 826MB 일 때 등록 캐시(`_CACHE_REGISTRY`) 를 전부 비워도 810MB 가
+    #   남았다. 즉 자라는 곳이 장부 밖이다. 260824 에도 같은 병으로 184MB 가 관측 밖에
+    #   있었다 — 그때는 나열에서 빠진 것이었고, 이번엔 아예 등록되지 않은 모듈 딕셔너리다.
+    #
+    #   🔴 **크기는 표본으로 어림한다.** 항목 수십만 개를 전수로 재면 그 계산 자체가
+    #   요청 경로를 붙든다. 표본 20개의 평균 × 개수로 내고, `sampled` 를 함께 실어
+    #   **어림값임이 드러나게** 한다. 정확도보다 「어느 방이 큰가」가 답할 질문이다.
+    @mcp.custom_route("/admin/memtop", methods=["GET"])
+    async def _admin_memtop(request):
+        import gc
+        import importlib
+        import itertools
+        from collections import Counter
+
+        from starlette.responses import JSONResponse
+        from open_proxy_mcp.dart.client import _cache_entry_bytes, cache_stats
+
+        want = os.environ.get("OPM_ADMIN_KEY")
+        got = request.headers.get("x-admin-key")
+        if not want or not got or not hmac.compare_digest(want, got):
+            return JSONResponse({"error": "not found"}, status_code=404)
+
+        # 장부 밖 후보 — 모듈 수준에 살면서 트래픽을 따라 자랄 수 있는 것들.
+        targets = [
+            ("open_proxy_mcp.services.financial_metrics", "_FM_CACHE"),
+            ("open_proxy_mcp.services.trading", "_QUOTE_CACHE"),
+            ("open_proxy_mcp.services.law_lookup", "_FULLTEXT_CACHE"),
+            ("open_proxy_mcp.services.law_lookup", "_INDEX_CACHE"),
+            ("open_proxy_mcp.services.shareholder_meeting_parser", "_LAST_CAREER_RAW"),
+            ("open_proxy_mcp.dart.client", "_instances"),
+            ("open_proxy_mcp.dart.fx", "_MEM"),
+        ]
+        stores = {}
+        for mod, name in targets:
+            try:
+                obj = getattr(importlib.import_module(mod), name, None)
+            except Exception as exc:
+                stores[f"{mod.split('.')[-1]}.{name}"] = {"error": str(exc)[:80]}
+                continue
+            if obj is None:
+                stores[f"{mod.split('.')[-1]}.{name}"] = {"entries": 0}
+                continue
+            try:
+                n = len(obj)
+            except Exception:
+                n = None
+            est = None
+            if isinstance(obj, dict) and n:
+                sample = list(itertools.islice(obj.items(), 20))
+                per = sum(_cache_entry_bytes(k) + _cache_entry_bytes(v)
+                          for k, v in sample) / len(sample)
+                est = round(per * n / 1048576, 1)
+            stores[f"{mod.split('.')[-1]}.{name}"] = {
+                "entries": n, "est_mb": est, "sampled": min(20, n or 0)}
+
+        counts = Counter(type(o).__name__ for o in gc.get_objects())
+        return JSONResponse({
+            "instance": _instance_tag(),
+            "mem": _mem_stats(),
+            "registry_mb": (cache_stats() or {}).get("_used_mb"),
+            "off_registry": stores,
+            "gc": {"objects": sum(counts.values()),
+                   "collected_now": gc.collect(),
+                   "top_types": counts.most_common(15)},
+        })
+
     return mcp
 
 
