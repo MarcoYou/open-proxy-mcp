@@ -7,7 +7,7 @@ data_source: [DART OpenAPI list.json (D/B/I) + document.xml (위임장 본문 �
 related_disclosures: [위임장권유참고서류, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과]
 related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 경영권-방어]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04, 회사측-vs-주주측-위임장, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0216_fix_speed-optimization-9건, 260503_2330_audit_proxy_contest_baseline]
+related_audits: [260429_0216_fix_speed-optimization-9건]
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -167,7 +167,7 @@ sequenceDiagram
 - [[cross-domain-체이닝]] — PRX → AGM (vote_math) / OWN (signals) 체이닝
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — proxy_contest.summary 92.9% exact
+- 260429_0912_audit_parsing-200기업-v2-no_filing — proxy_contest.summary 92.9% exact
 - [[260429_0216_fix_speed-optimization-9건]] — proxy_contest 4x 속도 향상 (asyncio.gather)
 
 ## 알려진 issue + TODO

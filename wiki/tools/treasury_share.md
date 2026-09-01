@@ -7,7 +7,7 @@ data_source: [DART OpenAPI tsstkAqDecsn + tsstkDpDecsn + tsstkAqTrctrCnsDecsn + 
 related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식처분결정, 자기주식소각결정, 자기주식신탁결정, 자기주식의무소각-2026신법, 사업보고서]
 related_concepts: [자사주, 주주환원]
 related_decisions: [배당공시유형, free-paid-분리, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260429_0216_fix_speed-optimization-9건]
+related_audits: [260429_0216_fix_speed-optimization-9건]
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -163,7 +163,7 @@ sequenceDiagram
 - [[cross-domain-체이닝]] — TRS → DIV (CSR) / VUP (commitment) / OWN (잔고) 체이닝
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — treasury_share.summary 51.0% exact
+- 260429_0912_audit_parsing-200기업-v2-no_filing — treasury_share.summary 51.0% exact
 - [[260429_0216_fix_speed-optimization-9건]] — 5 API 병렬 (asyncio.gather)
 
 ## 알려진 issue + TODO

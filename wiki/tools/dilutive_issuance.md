@@ -7,7 +7,7 @@ data_source: [DART OpenAPI 주요사항보고서 DS005 5종 — piicDecsn + cvbd
 related_disclosures: [유상증자결정, 전환사채발행결정, 교환사채권발행결정, 신주인수권부사채발행결정, 감자결정]
 related_concepts: [지분구조, 경영권-방어]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing, 260624_1503_fix_dilutive-exchangeable-bond]
+related_audits: [260624_1503_fix_dilutive-exchangeable-bond]
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -178,7 +178,7 @@ sequenceDiagram
 - [[cross-domain-체이닝]] — DIL → OWN (3자배정 지분 변동) / CORP (M&A 자금조달) / PRX (분쟁 자금조달) 체이닝
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — dilutive_issuance.summary 26.5% exact (no_filing 72.4%)
+- 260429_0912_audit_parsing-200기업-v2-no_filing — dilutive_issuance.summary 26.5% exact (no_filing 72.4%)
 
 ## 알려진 issue + TODO
 - 제3자배정 대상자 명세 본문 파싱 (TODO, phase 2).

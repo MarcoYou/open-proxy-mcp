@@ -48,7 +48,7 @@ related: [proxy_advise_before_meeting, proxy_advise_word_report_spec]
 
 검토한 OPM 기준:
 
-- [proxy_advise_word_report_spec.md](../../wiki/architecture/proxy_advise_word_report_spec.md)
+- [[proxy_advise_word_report_spec]]
 - [proxy_advise_before_meeting.md](../../wiki/tools/proxy_advise_before_meeting.md)
 - [proxy_advise.py](../../open_proxy_mcp/services/proxy_advise.py)
 - `open_proxy_mcp/tools/proxy_advise_before_meeting.py`

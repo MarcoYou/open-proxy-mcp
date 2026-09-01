@@ -1017,7 +1017,7 @@ title: Operation Log
 - 신임/연임 auto detect (career_company_groups + main_job fallback).
 - 1번 안건 FY 본문 raw 추출 (`agm_first_agenda_fy`).
 - KOSPI 100 + KOSDAQ 50 검증: G1 100%, G2 0% FP, G3 99.5% classified, G4 98.6%.
-- audit: [[260504_2200_audit_proxy_advise_framework_iter1-8]]
+- audit: 260504_2200_audit_proxy_advise_framework_iter1-8
 
 ## [2026-05-04] refactor | tools_v2 정리 (17→16 + scope 통합)
 - screen_events drop (외부 호출 0).
@@ -1039,7 +1039,7 @@ title: Operation Log
 - 영문 검증 통과: KIM JOONYOUNG / Takashi Abe / Edward Chin 등 정상
 - career_period 89.0% (target 95% 미달, 본문 데이터 한계 — parser fix 효과 X)
 - batch v8 regression: 4+ majority 99.36% 유지 ✅
-- audit: [[260504_0724_audit_parse_personnel_iter1-7]]
+- audit: 260504_0724_audit_parse_personnel_iter1-7
 
 ## [2026-05-04] feat + audit | proxy_advise rename + 9 scope 추가 — regression 0
 - Step 1 rename: services/{advise_vote→proxy_advise, recap_vote→proxy_result} + tools_v2 + 옛 wiki archive (commit 7b06b75)
@@ -1047,7 +1047,7 @@ title: Operation Log
 - Step 4a policy_basis — 모범 사례 + 특이 케이스 example 형태 (재설계, commit c937505)
 - Step 4b/c/d proxy_battle/engagement/evidence 추가 (commit 543293e)
 - Step 4e proxy_result.brief — vote_brief render 흡수 (commit 4a75b87)
-- 200×3 batch 결과: exact 492 / error 6 / no_filing 99 — Phase 4와 완전 동일, 일관성 100%, cross-match 197/197 ([[260504_0028_audit_proxy_advise_rename_regression]])
+- 200×3 batch 결과: exact 492 / error 6 / no_filing 99 — Phase 4와 완전 동일, 일관성 100%, cross-match 197/197 (260504_0028_audit_proxy_advise_rename_regression)
 
 ## [2026-05-04] docs | proxy_advise/proxy_result 신규 spec + 검증 ralph
 - [[proxy_advise_before_meeting]] (10 scope: decisions/agenda/candidates/financial/governance/ownership/policy_basis/proxy_battle/engagement/evidence)
@@ -1063,25 +1063,25 @@ title: Operation Log
 - multi-upstream-pattern 페이지 4 위치 ✅ 표시 + 표준 코드 스니펫 추가
 
 ## [2026-05-03] audit | ownership_structure baseline — 패턴 fix 불필요
-- 200×3: 100% 일치, max 1.8s, timeout 0 ([[260503_2345_audit_ownership_baseline]])
+- 200×3: 100% 일치, max 1.8s, timeout 0 (260503_2345_audit_ownership_baseline)
 - proxy_contest와 동일 결론: DART endpoint 직접 호출은 fix 효과 미미
 
 ## [2026-05-03] audit | proxy_contest baseline — 패턴 fix 불필요 결정
-- 200×3 baseline (fix 없이): 100% 일치, timeout 0, mean 1.09s ([[260503_2330_audit_proxy_contest_baseline]])
+- 200×3 baseline (fix 없이): 100% 일치, timeout 0, mean 1.09s (260503_2330_audit_proxy_contest_baseline)
 - 적용 판단 기준 정립: build_*_payload 재귀(적용) vs DART endpoint 직접(불필요)
 - multi-upstream-pattern 페이지 갱신 (체크리스트 + 기준 추가)
 
 ## [2026-05-03] fix | recap_vote multi-upstream-pattern 적용 + 100% 일치 검증
 - `services/recap_vote.py` 8 upstream gather에 5 요소 적용 (commit `21bdf58`)
-- 200×3 batch: 일치율 100.0% (195/195), timeout 0 ([[260503_2304_audit_recap_pattern]])
+- 200×3 batch: 일치율 100.0% (195/195), timeout 0 (260503_2304_audit_recap_pattern)
 - 패턴 일반화 입증 — advise_vote 특수 case가 아닌 OPM 표준
 
 ## [2026-05-03] fix + docs | advise_vote Phase 4 100% + multi-upstream 패턴 표준화
 - `dart/client.py` `_load_corp_codes`: asyncio.Lock + 3회 retry (1/2/4s) + corpCode timeout 60→120s
 - `services/advise_vote.py`: per-call wait_for(60s) + Semaphore(3) + process result cache + 명시 pre-warm
 - `services/director_evaluation.py`: notices[0] → 시간 desc 최대 3개 fallback (정정공고 처리)
-- 200×3 batch: 91.9% → 100.0%, timeout 15→0, regression 0 ([[260503_1847_audit_phase4_final]])
-- 신규 [[architecture/multi-upstream-pattern]] — 5 요소 표준 + 적용 대상 체크리스트
+- 200×3 batch: 91.9% → 100.0%, timeout 15→0, regression 0 (260503_1847_audit_phase4_final)
+- 신규 [[multi-upstream-pattern]] — 5 요소 표준 + 적용 대상 체크리스트
 - TO_DO: recap_vote / proxy_contest / ownership_structure 같은 패턴 적용 대상 등록
 
 ## [2026-05-02] feat | action tool 재편 (3 → 2, 시점 분리: advise/recap)

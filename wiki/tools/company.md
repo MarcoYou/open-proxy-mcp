@@ -7,7 +7,7 @@ data_source: [DART OpenAPI corpCode.xml + company.json + list.json, Naver profil
 related_disclosures: []
 related_concepts: []
 related_decisions: [pblntf-ty-필터링, free-paid-분리]
-related_audits: [260429_0912_audit_parsing-200기업-v2-no_filing]
+
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -161,7 +161,7 @@ sequenceDiagram
 - [[free-paid-분리]] — MCP(public) + Pipeline(private) 2-repo 구조에서 식별자 일관성
 
 ## 관련 audit/fix (architecture/)
-- [[260429_0912_audit_parsing-200기업-v2-no_filing]] — `company.summary` 98.5% exact (193/196 KOSPI 100 + KOSDAQ 96)
+- 260429_0912_audit_parsing-200기업-v2-no_filing — `company.summary` 98.5% exact (193/196 KOSPI 100 + KOSDAQ 96)
 
 ## 알려진 issue + TODO
 - ISIN/jurir_no/bizr_no는 DART company.json에 없는 경우 비어 있음 (TODO: KIND·KRX 보강).

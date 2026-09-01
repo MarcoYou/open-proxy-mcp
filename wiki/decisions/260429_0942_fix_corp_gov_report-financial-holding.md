@@ -225,4 +225,4 @@ if is_financial_form:
 
 ## 관련
 
-[[260429_0912_audit_parsing-200기업-v2-no_filing]] [[260429_0216_audit_parsing-200기업-v1]] [[corp_gov_report-design]]
+260429_0912_audit_parsing-200기업-v2-no_filing 260429_0216_audit_parsing-200기업-v1 [[corp_gov_report-design]]
