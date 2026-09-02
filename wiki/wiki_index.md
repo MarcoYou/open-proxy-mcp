@@ -75,20 +75,20 @@ corpus/: 상법·자본시장법·공정거래법·외부감사법 원문 (legal
 ## Decisions (40) - `decisions/`
 
 ### 설계·아키텍처
-[[open-proxy-guideline]] · [[proxy-voting-decision-tree]] · [[3-tier-fallback]] · [[data-collection]] · [[multi-upstream-pattern]] · [[mcp-endpoints]] · [[environment-secrets]] · [[project_structure]] · [[proxy_advise_word_report_design]] · [[proxy_advise_word_report_spec]]
+[[open-proxy-guideline]] · [[data-collection]] · [[multi-upstream-pattern]] · [[mcp-endpoints]] · [[environment-secrets]]
 
 ### 정책·판단
-[[BeautifulSoup-파서-선택]] · [[XML-vs-PDF]] · [[free-paid-분리]] · [[LLM-fallback-설계]] · [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] · [[ksic-sector-mapping]] · [[tool-추가-검증-정책]] · [[후보반환-설계]] · [[tool-changelog]]
+[[BeautifulSoup-파서-선택]] · [[XML-vs-PDF]] · [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] · [[ksic-sector-mapping]] · [[후보반환-설계]]
 
 ### 시점 결정
-[[260429_0059_decision_voting-policy-consensus-matrix]] · [[260505_1700_decision_inside-director-performance-matrix]] · [[260505_1900_decision_compensation-retirement-split]] · [[260506_0030_decision_notice-scope-cleanup-prov-financials]] · [[260507_2330_decision_httpx-connection-pool]] · [[260508_0030_decision_classify-agenda-parent-shortcircuit]] · [[260508_0200_decision_law-layer]] · [[260508_0700_decision_law-layer-precision]] · [[260510_0900_decision_d-pattern-body-fallback]] · [[260510_1015_decision_subagenda-mapping]] · [[260510_1130_decision_director-faithfulness]] · [[260510_1230_decision_career-parser-concat]] · [[260624_1503_fix_dilutive-exchangeable-bond]] · [[260702_1520_decision_usage-is-error-tracking]] · [[260717_1220_decision_business-content-tool-roadmap]] · [[260721_1500_decision_asset-holdings-purpose-buckets]] · [[260823_1720_decision_financial-notes-tool]]
+[[260429_0059_decision_voting-policy-consensus-matrix]] · [[260505_1700_decision_inside-director-performance-matrix]] · [[260505_1900_decision_compensation-retirement-split]] · [[260506_0030_decision_notice-scope-cleanup-prov-financials]] · [[260507_2330_decision_httpx-connection-pool]] · [[260508_0030_decision_classify-agenda-parent-shortcircuit]] · [[260508_0200_decision_law-layer]] · [[260508_0700_decision_law-layer-precision]] · [[260510_0900_decision_d-pattern-body-fallback]] · [[260510_1015_decision_subagenda-mapping]] · [[260510_1130_decision_director-faithfulness]] · [[260510_1230_decision_career-parser-concat]] · [[260702_1520_decision_usage-is-error-tracking]] · [[260717_1220_decision_business-content-tool-roadmap]] · [[260721_1500_decision_asset-holdings-purpose-buckets]] · [[260823_1720_decision_financial-notes-tool]]
 
 ### 시점 수정
-[[260427_1145_fix_ownership-stockknd]] · [[260429_0216_fix_speed-optimization-9건]] · [[260429_0942_fix_corp_gov_report-financial-holding]]
+(fix 분석문은 storage `wiki-private/archive/opm-decisions/` 로 이관 — 260902)
 
 ## 기타
 
-- [[log]] — 작업 로그 (시간순)
+- 작업 로그(구 `log.md`, 2026-04-05~08-25)는 storage `wiki-private/archive/opm-wiki-log.md` 로 이관(260902). 변경 이력은 `docs/RELEASE_NOTES.md` 와 각 tool 페이지 변경 이력을 본다.
 - [[wiki_schema]] — wiki 구조·명명·link 정책
 - `guide/` — [[guide/README]] · [[guide/architecture]] · [[guide/presentation]]
 - `handoff/` — [[handoff/README]]

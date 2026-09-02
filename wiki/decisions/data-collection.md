@@ -3,7 +3,7 @@ type: source
 title: OPM 데이터 수집 Architecture (전수 Entry Point + 파싱 방법)
 generated: 2026-04-29
 tags: [architecture, data-source, entry-point, dart, kind, naver, upstage, opendataloader, fallback]
-related: [DART-OpenAPI, KRX-KIND, 네이버-금융, Upstage-OCR, opendataloader, 3-tier-fallback, dart-kind-disclosure-taxonomy, pblntf-ty-필터링, DART-KIND-매핑-화이트리스트-2026-04, free-paid-분리]
+related: [DART-OpenAPI, KRX-KIND, 네이버-금융, dart-kind-disclosure-taxonomy, pblntf-ty-필터링, DART-KIND-매핑-화이트리스트-2026-04, XML-vs-PDF]
 ---
 
 # OPM 데이터 수집 Architecture
@@ -578,7 +578,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 
 ---
 
-# 10. 3-tier Fallback 체계 ([[3-tier-fallback]] 참조)
+# 10. 3-tier Fallback 체계 (OPM 은 XML tier 만 — [[XML-vs-PDF]]. PDF/OCR 은 open-proxy-ai 로 이관)
 
 > ⚠️ **2026-07-12: OPM은 XML 단독.** `_pdf`(get_document_pdf + opendataloader)·`_ocr`(Upstage) tier와
 > 관련 코드(`pdf_parser.py`, `get_document_pdf`, `agm_parse_fallback`)는 OPM에서 폐기하고
@@ -869,6 +869,6 @@ DB 쪽 필터만 걸어서 `str(None)`="None" 이 65,500건짜리 가짜 범주�
 # 관련 페이지
 
 [[DART-OpenAPI]] [[KRX-KIND]] [[네이버-금융]] [[Upstage-OCR]] [[opendataloader]]
-[[3-tier-fallback]] [[pblntf-ty-필터링]] [[DART-KIND-매핑-화이트리스트-2026-04]]
-[[free-paid-분리]] [[배당공시유형]] [[주주총회소집공고]] [[주주총회결과]]
+[[XML-vs-PDF]] [[pblntf-ty-필터링]] [[DART-KIND-매핑-화이트리스트-2026-04]]
+[[배당공시유형]] [[주주총회소집공고]] [[주주총회결과]]
 v4-스키마 [[OpenProxy-MCP]] [[release_v2-tool-아키텍처]]

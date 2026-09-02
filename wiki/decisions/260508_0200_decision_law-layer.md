@@ -80,7 +80,7 @@ stale 한 기준으로 판단하게 된다. forward-looking proxy advisory 를 �
 - `wiki/rules/laws/상법-2025-2026-종합.md` — 1·2·3차 통합본 + 4 시나리오 + 36 catalog (master)
 - `data/asset_managers/policies/open_proxy_v1.json` — 운용사 7→8 표기 통일
 - `wiki/decisions/open-proxy-guideline.md` — OPM 4 → 5 기준 (5번째 = 법령 layer)
-- `scripts/spot_law_layer.py` — 회귀 spot
+- `spot_law_layer.py` — 회귀 spot (260902 퇴역 → open-proxy-storage `wiki-private/archive/opm-scripts/` 에 보존)
 
 ## 검증
 

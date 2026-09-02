@@ -101,7 +101,7 @@ OPM은 담당 영역별로 분리된 도구를 MCP로 제공합니다. AI 에이
 
 ## 더 깊이 (AI/개발자용)
 
-- 데이터 수집·폴백: [[data-collection]] · [[3-tier-fallback]]
+- 데이터 수집·폴백: [[data-collection]] · [[XML-vs-PDF]]
 - 도구 오케스트레이션 패턴: [[multi-upstream-pattern]]
-- 의결권 판단 프레임워크: [[proxy-voting-decision-tree]]
-- 프로젝트 구조: [[project_structure]]
+- 의결권 판단 기준(사용자용): `docs/features/proxy-voting.md` · 정책 원문 [[open-proxy-guideline]]
+- 프로젝트 구조: `docs/ARCHITECTURE.md`

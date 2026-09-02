@@ -608,7 +608,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## ref
 
-- Word 보고서 설계: [[proxy_advise_word_report_design]]
+- Word 보고서(docx) 설계는 미구현 기획이라 storage `wiki-private/archive/opm-decisions/` 로 이관(260902)
 - 사후 결과: [[shareholder_meeting_results]]
 - 사전 안건 raw: [[shareholder_meeting_notice]]
 - 안건 파서·지표 gap 전수감사 기록: private storage `wiki-private/architecture/audits/`

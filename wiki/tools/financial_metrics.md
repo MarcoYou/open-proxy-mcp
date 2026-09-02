@@ -6,7 +6,7 @@ scope: [summary, yearly, quarterly, yoy, qoq, audit_opinion]
 data_source: [DART OpenAPI fnlttSinglAcnt (BS+IS 핵심 30행), fnlttSinglIndx (DART 산출 ROE/부채비율 보조), fnlttSinglAcntAll (CF + 세부 IS/BS 213행), accnutAdtorNmNdAdtOpinion (감사인+의견+KAM 3년 추이)]
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석, ROE, ROA, ROIC, FCF, NWC, 매출채권회전율, 재고자산회전율, 이자보상배율, 순현금]
-related_decisions: [open-proxy-guideline, free-paid-분리, cross-domain-체이닝]
+related_decisions: [open-proxy-guideline, cross-domain-체이닝]
 
 created: 2026-05-01
 updated: 2026-08-25

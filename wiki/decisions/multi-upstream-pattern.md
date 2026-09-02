@@ -178,5 +178,5 @@ advise_vote (`services/advise_vote.py`)를 reference 구현으로 복붙.
 ## 관련 문서
 
 - 260503_1847_audit_phase4_final - Phase 4 검증 audit
-- [[3-tier-fallback]] - DART API → 웹 → OCR fallback (별개 패턴)
+- [[XML-vs-PDF]] - OPM 은 XML 단독; PDF/OCR 폴백은 open-proxy-ai (별개 패턴)
 - [[data-collection]] - 데이터 수집 전반

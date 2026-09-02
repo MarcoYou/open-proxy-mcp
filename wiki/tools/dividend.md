@@ -6,8 +6,7 @@ scope: [summary, detail, history]
 data_source: [DART OpenAPI alotMatter (사업보고서 배당 요약, 다년 컬럼) + 현금ㆍ현물배당결정 공시 합산 fallback]
 related_disclosures: [현금배당결정, 주식배당결정, 배당기준일결정, 분기배당결정, 감액배당결정, 배당공시유형, 사업보고서, 자기주식취득결정]
 related_concepts: [배당성향, 배당수익률, 시가배당률, 분기배당, 특별배당, 감액배당, 자본준비금, 당기순이익, 주주환원]
-related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, free-paid-분리, cross-domain-체이닝]
-related_audits: [260429_0216_fix_speed-optimization-9건]
+related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, cross-domain-체이닝]
 created: 2026-05-01
 updated: 2026-08-25
 ---
@@ -162,12 +161,11 @@ sequenceDiagram
 ## 관련 결정 (decisions/)
 - [[배당공시유형]] — 배당 9종 + 자사주 5종 + 2026.03 신법 통합 비교
 - [[DART-KIND-매핑-화이트리스트-2026-04]] — KIND whitelist 정책
-- [[free-paid-분리]] — DPS 일관성
 - [[cross-domain-체이닝]] — DIV → VUP / TRS 체이닝
 
 ## 관련 audit/fix (architecture/)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — dividend.summary 75.0% exact
-- [[260429_0216_fix_speed-optimization-9건]] — dividend 3x 속도 향상 (asyncio.gather)
+- 260429 asyncio.gather 병렬화(3x) — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 - 21개 산술 지표 검증 기록: private storage
 
 ## 알려진 issue + TODO
