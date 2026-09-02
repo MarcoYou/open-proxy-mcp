@@ -641,6 +641,9 @@ def _record_by_key(key: tuple[str, str]) -> dict[str, Any] | None:
 # ── 후보 융합·랭킹 ──────────────────────────────────────────────────────
 TAU_EMIT = 0.30
 TAU_STRONG = 0.60
+#: 질의 용어가 조문 제목에 전부 들어 있을 때의 가산. 0.25 면 corpus 단독(≤0.5)이
+#: TAU_STRONG 을 넘어 전문이 붙는다 — 그 아래면 아무 효과가 없다.
+_TITLE_ANCHOR_BONUS = 0.25
 
 
 def _fuse(query: str, query_tokens: set[str], refs: list[dict], laws: list[str],
@@ -699,9 +702,30 @@ def _fuse(query: str, query_tokens: set[str], refs: list[dict], laws: list[str],
             return 0.0
         return 0.0 if ls in _domain_hint else -_EXPANDED_LAW_PENALTY
 
+    # ── 제목 앵커 승격(260902) ────────────────────────────────────────
+    #
+    # corpus 신호(C)는 가중치 0.5 라 단독으로는 TAU_STRONG(0.60)을 절대 못 넘는다.
+    # 4법 시절엔 bridge(B)가 대부분을 받쳐 줬는데, 확장 6법에는 bridge 룰이 없다 —
+    # 그래서 「적기시정조치 요건」처럼 **조문 제목이 질문 그대로인** 경우조차 약매칭으로
+    # 떨어져 전문이 안 붙었다(260902 실측).
+    #
+    # 질의의 도메인 용어가 **조문 제목에 전부** 들어 있으면 그건 그 조문이다. 그때만
+    # 올린다 — 본문에 섞여 나오는 것과는 다르다.
+    _q_anchor = {t for t in query_tokens if t}
+    def _title_anchor_bonus(rec: dict) -> float:
+        # 🔴 **확장 6법에만** 준다. 4법에 주면 「집중투표」·「자기주식 소각」처럼 한 단어짜리
+        #   질의가 전부 강매칭이 되어 전문 10건이 통째로 붙는다(260828 에 3건으로 줄여 둔
+        #   그 결함이 되살아난다). 4법은 bridge(B)가 이미 받쳐 주므로 이 가산이 필요 없다 —
+        #   필요한 쪽은 bridge 룰이 없는 확장 6법이다.
+        if not _q_anchor or rec.get("law_short") not in _EXPANDED_LAWS:
+            return 0.0
+        tt = set(rec.get("title_tokens") or [])
+        return _TITLE_ANCHOR_BONUS if tt and _q_anchor <= tt else 0.0
+
     out = []
     for k, s in cand.items():
-        score = 1.0 * s["e"] + 0.9 * s["b"] + 0.5 * s["c"] + _law_prior(s["record"])
+        score = (1.0 * s["e"] + 0.9 * s["b"] + 0.5 * s["c"]
+                 + _law_prior(s["record"]) + _title_anchor_bonus(s["record"]))
         # E/B/C(BM25 top-N) 신호가 있으면 emit — 랭킹+top_k 슬라이스가 상위만 노출.
         # (구 TAU_EMIT 게이트는 폐쇄어휘 legacy에서만 의미. BM25는 signal 자체가 상위 N 필터.)
         if not (s["e"] or s["b"] or s["c"] > 0):
