@@ -75,17 +75,26 @@ def main() -> int:
         print(f"SKIP: 경로 없음 ({base})")
         return 0
 
-    laws = ["상법", "자본시장과금융투자업에관한법률",
-            "독점규제및공정거래에관한법률", "주식회사등의외부감사에관한법률"]
-    print(f"=== 법령 corpus 온전성 검사 ({base}) ===\n")
+    # 🔴 법 목록은 sync_law_corpus.TARGETS 가 단일 출처다 — 여기 따로 적지 않는다.
+    #   260902 실측: 코퍼스를 4법 → 10법으로 넓혔는데 이 목록은 4법인 채였다. 스크립트는
+    #   「OK: 8개 파일 온전」을 찍었고, 새 6법 12파일(「다음 각 목」 199건)은 검사 밖이었다.
+    #   이 검사가 생긴 이유가 바로 원문 소스가 목을 통째로 잃은 사고인데, 그 사고가 새 법에서
+    #   나면 아무도 못 잡는 상태였다. 목록을 복제하면 다시 갈라진다.
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from sync_law_corpus import TARGETS  # noqa: E402  (source 폴더, law_short)
+    laws = [folder for folder, _short in TARGETS]
+    expected = len(laws) * 2
+    print(f"=== 법령 corpus 온전성 검사 ({base}) — {len(laws)}법 {expected}파일 ===\n")
     print(f"  {'파일':34s} {'다음각목':>8s} {'목없음':>7s} {'비율':>6s}  판정")
 
     failed = []
+    missing: list[str] = []
     checked = 0
     for law in laws:
         for kind in ("법률", "시행령"):
             p = base / law / f"{kind}.md"
             if not p.exists():
+                missing.append(f"{law}/{kind}.md")
                 continue
             checked += 1
             total, bad, samples = dangling(p.read_text(encoding="utf-8"))
@@ -99,6 +108,13 @@ def main() -> int:
     if not checked:
         print("\n::error::검사한 파일이 0개 — 경로·구조가 바뀌었는지 확인")
         return 1
+    # 커밋된 corpus 는 TARGETS 전부가 있어야 한다. 하나라도 비면 「온전」이 아니라 「일부만 봤다」다.
+    #   원문 소스(--corpus) 쪽은 아직 안 받은 법이 있을 수 있어 경고만 한다.
+    if missing:
+        level = "warning" if args.corpus else "error"
+        print(f"\n::{level}::{len(missing)}개 파일이 없어 검사하지 못했다: {', '.join(missing)}")
+        if not args.corpus:
+            return 1
 
     if failed:
         print(f"\n✗ FAIL: {len(failed)}개 파일에서 목(가./나./다.)이 누락됐다.")
@@ -110,7 +126,7 @@ def main() -> int:
         print("  40룰이 인용하는 조문의 하위 요건이 사라진다. 원문이 고쳐질 때까지 보류한다.")
         return 1
 
-    print(f"\nOK: {checked}개 파일 온전")
+    print(f"\nOK: {checked}/{expected}개 파일 온전")
     return 0
 
 
