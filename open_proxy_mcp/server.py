@@ -165,14 +165,57 @@ def build_mcp() -> MCPServer:
         if not want or not got or not hmac.compare_digest(want, got):
             return JSONResponse({"error": "not found"}, status_code=404)
         disk = request.query_params.get("disk") == "1"
-        mem_before = _mem_stats()
+        # 260902: 「비웠는데 왜 안 줄어드나」를 여기서 가른다.
+        #
+        #   RSS 750MB 순간의 장부는 등록 캐시 0.0MB · 장부 밖 20MB 뿐이었다 —
+        #   590MB 가 우리 장부에 없다. 두 가지 중 하나다:
+        #     (가) 누가 큰 문자열을 아직 붙잡고 있다  → gc 로도 안 준다
+        #     (나) 놓았는데 파이썬/ glibc 가 OS 에 안 돌려준다 → malloc_trim 이 준다
+        #   그래서 **세 단계로 나눠 잰다.** 한 번에 다 하고 총계만 보면 어느 쪽인지
+        #   영영 모른다. 이 세 값의 차이가 곧 진단이다.
+        steps = {"start": _mem_stats()}
         result = cache_clear(disk=disk)
+        steps["after_cache"] = _mem_stats()
+
+        import gc as _gc
+        _gc.collect()
+        steps["after_gc"] = _mem_stats()
+
+        trim = None
+        if request.query_params.get("trim", "1") != "0":
+            try:
+                import ctypes
+                import ctypes.util
+                _libc_path = ctypes.util.find_library("c") or "libc.so.6"
+                _libc = ctypes.CDLL(_libc_path)
+                # glibc 전용이다. musl(alpine)에는 없어 AttributeError 로 떨어진다 —
+                #   그 사실을 응답에 남긴다. 「해 봤는데 안 줄었다」와 「못 했다」는 다르다.
+                trim = {"called": True, "returned": int(_libc.malloc_trim(0))}
+            except Exception as exc:            # noqa: BLE001
+                trim = {"called": False, "error": f"{type(exc).__name__}: {exc}"}
+        steps["after_trim"] = _mem_stats()
+
+        def _drop(a, b):
+            try:
+                return round(a["rss_mb"] - b["rss_mb"], 1)
+            except Exception:                   # noqa: BLE001
+                return None
+
         return JSONResponse({
             "instance": _instance_tag(),
             "cleared": True,
             "disk": disk,
-            "mem_before": mem_before,
-            "mem_after": _mem_stats(),
+            "steps": steps,
+            "freed_mb": {
+                "cache": _drop(steps["start"], steps["after_cache"]),
+                "gc": _drop(steps["after_cache"], steps["after_gc"]),
+                "trim": _drop(steps["after_gc"], steps["after_trim"]),
+                "total": _drop(steps["start"], steps["after_trim"]),
+            },
+            "malloc_trim": trim,
+            # 옛 이름 — 부르는 쪽(scripts/opm_cache_clear.py · 파수꾼)이 아직 쓴다.
+            "mem_before": steps["start"],
+            "mem_after": steps["after_trim"],
             **result,
         })
 
