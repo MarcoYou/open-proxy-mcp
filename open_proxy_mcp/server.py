@@ -173,8 +173,13 @@ def build_mcp() -> MCPServer:
         #     (나) 놓았는데 파이썬/ glibc 가 OS 에 안 돌려준다 → malloc_trim 이 준다
         #   그래서 **세 단계로 나눠 잰다.** 한 번에 다 하고 총계만 보면 어느 쪽인지
         #   영영 모른다. 이 세 값의 차이가 곧 진단이다.
+        # `cache=0` — **비우지 않고 돌려주기만** 한다. 캐시를 비우면 다음 요청이 그만큼
+        #   DART 를 다시 부르므로 공짜가 아니다. 260902 실측에서 gc 는 0MB, trim 은 56.5MB
+        #   를 냈다 — 즉 **캐시를 건드리지 않고도 회수할 몫이 따로 있다.** 낮은 문턱에서는
+        #   이쪽만 돌리고, 캐시는 정말 급할 때 비운다.
+        do_cache = request.query_params.get("cache", "1") != "0"
         steps = {"start": _mem_stats()}
-        result = cache_clear(disk=disk)
+        result = cache_clear(disk=disk) if do_cache else {"skipped": "cache"}
         steps["after_cache"] = _mem_stats()
 
         import gc as _gc
@@ -203,7 +208,7 @@ def build_mcp() -> MCPServer:
 
         return JSONResponse({
             "instance": _instance_tag(),
-            "cleared": True,
+            "cleared": do_cache,
             "disk": disk,
             "steps": steps,
             "freed_mb": {
