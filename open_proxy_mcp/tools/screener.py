@@ -150,7 +150,14 @@ def _render_digest(payload: dict[str, Any]) -> str:
     # 헤더
     lines = [f"# 📬 공시 디제스트 · {as_of} KST", ""]
     span = f"{period.get('bgn_de','')}~{period.get('end_de','')}"
-    lines.append(f"**{uni.get('label','전체시장')}** · 기간 `{span}` · 스캔 {counts.get('scanned',0):,}건 → **{counts.get('hits',0)}건 포착**")
+    pg = p.get("paging", {})
+    _matched = pg.get("matched", counts.get("hits", 0))
+    _ret = pg.get("returned", counts.get("returned", 0))
+    _off = pg.get("offset", 0)
+    head = f"**{uni.get('label','전체시장')}** · 기간 `{span}` · 스캔 {counts.get('scanned',0):,}건 → **{_matched}건 포착**"
+    if _ret != _matched:
+        head += f" · 이 중 {_off+1}~{_off+_ret}번째를 아래 싣는다"
+    lines.append(head)
     lines.append("")
 
     # 조회실패 vs 신규없음 구분
@@ -221,8 +228,9 @@ def _render_digest(payload: dict[str, Any]) -> str:
 
     # 푸터
     foot = []
-    if counts.get("truncated_paging"):
-        foot.append(f"더 있음(상위 {len(hits)}건만 표시)")
+    if p.get("paging", {}).get("has_more"):
+        foot.append(f"전체 {p['paging']['matched']}건 중 {p['paging']['returned']}건만 실었다 — "
+                    f"이어받기 `offset={p['paging']['next_offset']}`")
     if counts.get("truncated_details"):
         foot.append("details 캡 초과분 존재")
     if counts.get("truncated_scan"):
@@ -247,6 +255,7 @@ def register_tools(mcp):
         universe: str = "all",
         details: bool = False,
         max_hits: int = 200,
+        offset: int = 0,
         cursor: str = "",
         custom_start: str = "",
         custom_end: str = "",
@@ -259,14 +268,15 @@ def register_tools(mcp):
         types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(잠정실적: 회계연도·기간·매출·영업익),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10.
         period: **사람 말로 받는다** — "오늘"/"어제"/"어제부터"/"지난주"/"최근 7일"/"지난 한 달"/"최근 3개월"/"최근 45일", 날짜범위 "20260801~20260820"·"2026-08-01~2026-08-20", 단일일 "20260820". 또는 `start_date`/`end_date`(레포 공통 인자, YYYYMMDD). 옛 코드(today/yesterday/since_yesterday/last_7d/last_30d/custom+custom_start·custom_end)도 그대로 동작. 디폴트 since_yesterday. 시장스캔 3개월 하드캡.
         universe: **사람 말로 받는다** — "전체"(디폴트) / "코스피"·"코스닥"(시장 전체) / "코스피200" / "코스피 시총 상위 30"·"코스닥 상위 50"·"시총 상위 100" / "삼성전자, SK하이닉스"(이름 나열, 자동 코드화). 옛 문법(all·kospi200·kospi:N·kosdaq:N·top_mktcap:N·market:kospi|kosdaq·custom:…)도 그대로 동작. 각 카드에 시총 병기.
-        details: false(디폴트, scan만) / true(문서 열어 숫자 — universe=all이거나 기간>30일이면 안전상 자동 off, 기간>7일이면 preview).
+        details: false(디폴트, scan만) / true(문서 열어 숫자 — **이번 페이지 건만** 연다. 기간>30일이면 자동 off, 기간>7일이면 preview. 유니버스 크기로는 더 이상 막지 않는다).
+        offset: 이어받기 위치(디폴트 0). 응답의 `paging.next_offset` 을 그대로 넣으면 다음 묶음이 온다. **매칭 수(`paging.matched`)와 이번에 실은 수(`paging.returned`)는 다른 값이다** — 표시된 건수를 전체로 읽지 말 것.
         rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(krx_weekly) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.
         ref: order_contracts·treasury_share·dividend·dilutive_issuance·shareholder_meeting_notice·ownership_structure (유형별 심층)
         """
         payload = await build_screener_payload(
             types=types, period=period, universe=universe, details=details,
             start_date=start_date, end_date=end_date,
-            max_hits=max(1, min(max_hits, 500)), cursor=cursor,
+            max_hits=max(1, min(max_hits, 500)), offset=max(0, offset), cursor=cursor,
             custom_start=custom_start, custom_end=custom_end,
         )
         if format == "json":

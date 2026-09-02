@@ -57,8 +57,17 @@ _PAGE_COUNT = 100
 #
 # 그래서 여기서는 **양을 제한**(캡)하고 **속도는 클라이언트가** 잡는다. 두 곳에서 같은 일을
 # 하면 한쪽만 고쳐진다.
-_DETAILS_TOTAL_CALL_CAP = 300   # run당 총 DART 콜 러닝카운터
-_DETAILS_UNIVERSE_MAX = 300     # details 허용 유니버스 상한(초과=너무 넓음 → off)
+# ── 260902: 캡을 「유니버스」가 아니라 「이번 페이지」에 건다 ──────────────────
+#
+# 종전엔 유니버스가 300종목을 넘으면 details 를 통째로 껐다. 그 가드가 필요했던 이유는
+# details 를 **자르기 전에** 돌렸기 때문이다 — 200건만 돌려줄 참이어도 문서는 전부 열었다.
+# 260902 에 details 를 페이징 뒤로 옮겼으므로 비용은 유니버스가 아니라 **이번에 돌려주는
+# 건수**에 비례한다. 그래서 캡도 그쪽으로 옮긴다.
+#
+# 한 응답이 쓰는 콜을 1,500(910/분 기준 약 100초어치)으로 묶고, 넘는 만큼은 자르지 않고
+# `next_offset` 으로 넘긴다. **이 값을 더 올리면 안 된다** — 60초 창은 사용자별이 아니라
+# 키 하나에 붙어 있어서, 한 요청이 오래 붙잡을수록 아침 디제스트와 공시 폴러가 같이 굶는다.
+_DETAILS_TOTAL_CALL_CAP = 1500  # 페이지당 DART 콜 러닝카운터
 #: 상세 동시성. 웹 폴백이 섞이면 `_throttle_scrape` 락에서 알아서 줄을 선다 —
 #: 올려도 웹 예절이 깨지지 않고, API 만 쓰는 건은 그만큼 빨라진다.
 _DETAILS_CONCURRENCY = 6
@@ -1052,6 +1061,7 @@ async def _build_screener_payload_impl(
     universe: str = "all",
     details: bool = False,
     max_hits: int = 200,
+    offset: int = 0,
     cursor: str = "",
     custom_start: str = "",
     custom_end: str = "",
@@ -1100,11 +1110,10 @@ async def _build_screener_payload_impl(
     details_effective = details
     details_preview = False
     if details:
-        # 게이트는 유니버스 "크기" — market:kospi(전종목)처럼 넓으면 좁힌 게 아니라 details off.
-        if uni.allowed is None or len(uni.allowed) > _DETAILS_UNIVERSE_MAX:
-            details_effective = False
-            warnings.append(f"유니버스가 너무 넓어(전체시장 또는 {_DETAILS_UNIVERSE_MAX}종목 초과) details를 껐다 — 콜 폭주 방지. 좁은 유니버스(top_mktcap:N / kospi:N ≤{_DETAILS_UNIVERSE_MAX} / custom:종목)에서만 켜진다.")
-        elif period_days > 30:
+        # 260902: 유니버스 크기로 막지 않는다. details 는 페이징 뒤에서 **이번 페이지에만**
+        #   돌고 콜은 `_DETAILS_TOTAL_CALL_CAP` 로 묶이므로, 전체시장이어도 비용이 유한하다.
+        #   남은 건 자르지 않고 `next_offset` 으로 넘긴다.
+        if period_days > 30:
             details_effective = False
             warnings.append("기간>30일 × details=true는 콜 폭주 위험 → details를 껐다.")
         elif period_days > 7:
@@ -1201,13 +1210,25 @@ async def _build_screener_payload_impl(
     # 시총 큰 순 정렬(디제스트 상단에 대형사) — 시총 없으면 뒤로, 동률은 최신순
     hits.sort(key=lambda r: (r.get("mktcap_won") or -1, r["rcept_no"]), reverse=True)
 
-    # ── details (선택 건만, per-type 캡 + 300콜 러닝가드) ───────────────
+    # ── 페이징: details 보다 **먼저** 자른다 (260902) ──────────────────
+    #
+    # 순서가 뒤바뀌어 있었다. 종전엔 details 를 전체 hits 에 돌린 뒤 `[:max_hits]` 로 잘랐다
+    # — 돌려주지도 않을 건의 문서를 열고 그 콜을 버린 셈이다. 유니버스 가드로 details 자체를
+    # 꺼야 했던 이유가 여기 있었다. 자르고 나서 열면 비용이 페이지 크기에 묶인다.
+    total_hits = len(hits)
+    offset = max(0, offset)
+    page = hits[offset:offset + max_hits]
+    next_offset = offset + len(page)
+    has_more = next_offset < total_hits
+    truncated_paging = has_more
+
+    # ── details (이번 페이지만, per-type 캡 + 콜 러닝가드) ──────────────
     truncated_details = False
     if details_effective:
         running = {"calls": 0}
         per_type_count: dict[str, int] = {}
         # 우선순위: force_detail 먼저, 그다음 시총순(이미 정렬됨)
-        ordered = sorted(hits, key=lambda r: (not r["_force_detail"],))
+        ordered = sorted(page, key=lambda r: (not r["_force_detail"],))
         detail_targets = []
         for h in ordered:
             if h["_detail_kind"] is None:
@@ -1237,16 +1258,17 @@ async def _build_screener_payload_impl(
         await asyncio.gather(*[_run(h) for h in detail_targets])
         if running["calls"] >= _DETAILS_TOTAL_CALL_CAP:
             truncated_details = True
-            warnings.append("details 300콜 러닝캡 도달 — 일부 건은 scan-only로 남았다.")
+            warnings.append(
+                f"details {_DETAILS_TOTAL_CALL_CAP}콜 러닝캡 도달 — 이 페이지의 일부 건은 "
+                "scan-only로 남았다. max_hits를 줄여 다시 부르면 전부 채워진다.")
 
     # scan-only(details 미실행) 건은 detail_status 명시
-    for h in hits:
+    for h in page:
         h.setdefault("detail_status", "scan_only" if not details_effective else
                      ("no_data" if h["_detail_kind"] else "scan_only"))
 
-    # ── 최종 카드 정리 + paging ────────────────────────────────────────
-    returned = hits[:max_hits]
-    truncated_paging = len(hits) > max_hits
+    # ── 최종 카드 정리 ────────────────────────────────────────────────
+    returned = page
     cards = [_finalize_card(h) for h in returned]
 
     no_new = len(hits) == 0
@@ -1271,10 +1293,16 @@ async def _build_screener_payload_impl(
         "types": {"selected": sel_types, "scan_codes": scan_codes,
                   "details": details_effective, "details_preview": details_preview},
         "counts": {"scanned": scanned, "classified": len(classified),
-                   "hits": len(hits), "returned": len(returned),
+                   # `matched` = 조건에 걸린 전체. `returned` = 이번 응답에 실은 수.
+                   #   둘을 한 칸에 담으면 표시 한도를 매칭 수로 읽는다(U7 실측).
+                   "matched": total_hits, "hits": total_hits, "returned": len(returned),
                    "truncated_scan": truncated_scan,
                    "truncated_details": truncated_details,
                    "truncated_paging": truncated_paging},
+        "paging": {"offset": offset, "page_size": max_hits,
+                   "matched": total_hits, "returned": len(returned),
+                   "has_more": has_more,
+                   "next_offset": next_offset if has_more else None},
         "warnings": warnings,
         "hits": cards,
         "next_cursor": end_de,   # 다음 실행은 이 값을 cursor로 → 반개구간[end_de, 다음)
