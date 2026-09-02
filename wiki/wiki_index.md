@@ -19,11 +19,11 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 | **tools/** | 33 + README | MCP tool 카탈로그 |
 | **decisions/** | 40 + README | 설계·정책·판단·시점 작업 |
 
-총 176 markdown (git-tracked, raw 제외).
+총 178 markdown (git-tracked, raw 제외).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 
-## Tools (33) - `tools/`
+## Tools (35) - `tools/`
 
 ### Company (1)
 - [[company]]
