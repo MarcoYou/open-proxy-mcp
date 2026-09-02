@@ -73,7 +73,7 @@ updated: 2026-09-02
 | 도구 | 무엇을 답하나 |
 |---|---|
 | [evidence](evidence.md) | 공시 원문 링크 (접수번호 → DART 열람 URL) |
-| [law_lookup](law_lookup.md) | 정관↔법령 양방향 조회 — 정관 조항/키워드 → 관련 법령 조문(전문), 또는 법조문 → 관련 정관 변경유형·우회·안건. 상법·자본시장법·공정거래법·외부감사법 원문. **회사·DART 무관** |
+| [law_lookup](law_lookup.md) | 정관↔법령 양방향 조회 — 정관 조항/키워드 → 관련 법령 조문(전문), 또는 법조문 → 관련 정관 변경유형·우회·안건. 상법·자본시장법·공정거래법·외부감사법 + 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법 원문(10법). **회사·DART 무관** |
 
 > 도구–공시 채널 매핑은 아래 「데이터 소스 매트릭스」와 각 페이지 frontmatter `data_source`, 도구별 DART 콜 수는
 > 각 페이지 「외부 호출」 절이 정본이다. 옛 시각 자료(17-tool 시점 도식·PPT·콜 budget 표)는 storage
@@ -170,7 +170,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | proxy_guideline | - | - | - | ✅ 패키지 데이터 open-proxy-guideline.md (API 0콜) |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - |
 | evidence | - | - | - | - (문자열 가공) |
-| law_lookup | - | - | - | ✅ legalize-kr 법령 corpus (상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge |
+| law_lookup | - | - | - | ✅ legalize-kr 법령 corpus 10법(4법 + 260902 확장 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법) + 40룰 bridge |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | 판단 규칙/records |
 | shareholder_commitment | ✅ value_up+corp_gov_report+dividend+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - |
 
@@ -192,7 +192,8 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-05-20: 도구–공시 매핑 페이지 추가 (260902 storage 이관 — 매트릭스와 frontmatter `data_source` 로 대체)
 - 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
 - 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
-- 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2
+- 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(당시 4법: 상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2
+- 2026-09-02: **law_lookup 코퍼스 4법 → 10법** — 금융회사 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법 추가(조문 2,734 → 3,949). 법 우선순위·제목 앵커로 옛 4법 질의 정확도 유지(harness recall@10 85%).
 - 2026-07-15: **screener 신규(22번째 tool)** — 전체시장 공시 스크리너 / 아침 디제스트. scan(전체시장 list.json market-scan, 하루 4콜)+details(유형별 파서 재사용). 시총=krx_weekly(DART 0콜)
 - 2026-07-15: **screener `domain: action` 재분류** — Screening 카테고리를 Action으로 흡수(2→3). upstream 파서 오케스트레이션 + 디제스트/루틴 구동(액션 산출물). 루틴 레시피 [docs/routines](../../docs/routines/screener-morning-digest.md) 연동
 - 2026-07-18: **business_details 신규(23번째 tool)** — "II.사업의 내용" 6필드(segments+사업장·가동률·rnd·수주·고객). markdown-primary.

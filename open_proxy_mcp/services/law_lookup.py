@@ -849,12 +849,44 @@ _EXPANDED_LAW_CUES: dict[str, tuple[str, ...]] = {
 }
 
 
+#: cue 바로 뒤에 이 말이 붙으면 그 cue 는 **그 영역이 아니라는 뜻**이다.
+#:   260902 실측 — 「금융회사 **아닌** 회사의 사외이사 자격」이 「금융회사」에 걸려 지배구조법이
+#:   1위로 올라왔다(힌트를 끄면 상법·자본시장법 §382). 부정문을 못 읽고 글자만 본 것이다.
+_EXPANDED_LAW_NEGATIONS: tuple[str, ...] = ("아닌", "아니", "제외", "이외", "외의", "말고", "빼고")
+#: cue 글자를 품고 있지만 그 법과 무관한 합성어. 매칭 전에 질의에서 지운다.
+#:   「임원배상책임**보험** 가입 안건」은 주총 안건이지 보험업법 이야기가 아니다.
+_EXPANDED_LAW_FALSE_FRIENDS: tuple[str, ...] = (
+    "배상책임보험", "책임보험", "보험료", "고용보험", "산재보험", "건강보험", "보험가입",
+)
+
+
+def _cue_hits(nq: str, cue: str) -> bool:
+    """cue 가 질의에 있고, 그 바로 뒤가 부정 표현이 아닌 자리가 하나라도 있나."""
+    start = 0
+    while True:
+        i = nq.find(cue, start)
+        if i < 0:
+            return False
+        tail = nq[i + len(cue): i + len(cue) + 4]   # 「가아닌」·「를제외한」까지 잡히게 4자
+        if not any(n in tail for n in _EXPANDED_LAW_NEGATIONS):
+            return True
+        start = i + 1
+
+
 def _expanded_law_hint(query: str) -> frozenset[str]:
-    """질의가 가리키는 확장 법 집합(시행령 포함). 없으면 빈 집합."""
+    """질의가 가리키는 확장 법 집합(시행령 포함). 없으면 빈 집합.
+
+    글자가 겹치는 것과 그 법을 가리키는 것은 다르다 — 부정문(「금융회사 아닌」)과
+    다른 뜻의 합성어(「배상책임보험」)는 걸러 낸다. 그 밖의 부분 일치는 그대로 둔다:
+    한국어 질의에는 어절 경계가 없고, 「은행 차입금」처럼 두 영역이 섞인 질의는 힌트가
+    켜져도 4법이 같은 자리에서 겨루므로 순위만 조금 흔들릴 뿐이다.
+    """
     nq = normalize(query)
+    for ff in _EXPANDED_LAW_FALSE_FRIENDS:
+        nq = nq.replace(normalize(ff), "")
     hit: set[str] = set()
     for law, cues in _EXPANDED_LAW_CUES.items():
-        if any(normalize(c) in nq for c in cues):
+        if any(_cue_hits(nq, normalize(c)) for c in cues):
             hit.add(law)
             hit.add(f"{law}시행령")
     return frozenset(hit)
@@ -1126,6 +1158,18 @@ def build_law_lookup_payload(
     trimmed_weak = ftype in _NO_FULLTEXT_FALLBACKS
     # 용어는 알아봤으나 약한 매칭 → 전문은 상위 몇 건만.
     limit_ft = _LIMIT_FULLTEXT_TOPN if ftype in _LIMIT_FULLTEXT_FALLBACKS else None
+    # 강한 매칭(exact)이라도 전문은 **강매칭 전부 + 최소 3건**까지만. 그 아래 꼬리는 표로만.
+    #   260902 실측 — 「적기시정조치 요건」은 1·2위(0.75·0.68)가 금산법 §10·§11 인데, 3위부터
+    #   0.38 아래로 절벽이고 그 뒤 6건은 「시정조치」 글자만 겹친 공정거래법 조문이었다. 그런데
+    #   status=exact 라는 이유로 10건 전부에 전문이 붙어 21KB 가 나갔다. 전문 10건 통째 붙이기는
+    #   4법 시절에도 있었지만 코퍼스가 10법이 되며 꼬리에 **다른 법**이 섞이기 시작했다.
+    #   약한 매칭에 이미 쓰는 자(_LIMIT_FULLTEXT_TOPN)와 같은 자를 쓴다 — 강한 것은 다 주고,
+    #   약한 꼬리는 약한 매칭과 같이 다룬다. 표에는 그대로 남으므로 「못 찾는」 일은 없다.
+    if limit_ft is None and ftype is None and shown:
+        n_strong = sum(1 for c in shown if c["score"] >= TAU_STRONG)
+        keep = max(n_strong, _LIMIT_FULLTEXT_TOPN)
+        if keep < len(shown):
+            limit_ft = keep
     if total > len(shown) and shown:      # 통째로 뺀 경우(범위 밖)는 위 안내가 이미 이유를 말한다
         warnings.append(f"후보 {total}건 중 상위 {len(shown)}건만 표시"
                         + (f" (용어를 못 알아봐 {_NO_FULLTEXT_SHOW_MAX}건으로 줄임)." if trimmed_weak
