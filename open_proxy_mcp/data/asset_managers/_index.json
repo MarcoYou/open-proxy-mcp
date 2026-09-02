@@ -237,8 +237,7 @@
       "ticker_mapping": "5자리 종목코드 + '0' = 한국 표준 6자리 티커 (검증 100%)",
       "use_case": "최대 기관투자자 의결권 행사 패턴 — 캠페인 표 예측 핵심 변수, KOSPI 200 대다수 5%+ 보유",
       "scope_id": "n_pension_record",
-      "records_dir": "n_pension_records/",
-      "details_dir": "n_pension_records/details/"
+      "records_note": "의결권 행사 기록 원본(n_pension_records/, 9파일 664KB)은 읽는 코드가 없어 260902 open-proxy-storage wiki-private/archive/services/n_pension_records/ 로 이관. 수집기 nps_client.py 도 같은 곳."
     }
   },
   "open_proxy_default": "open_proxy_v1",
