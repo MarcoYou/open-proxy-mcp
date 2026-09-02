@@ -19,7 +19,7 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 | **tools/** | 33 + README | MCP tool 카탈로그 |
 | **decisions/** | 40 + README | 설계·정책·판단·시점 작업 |
 
-총 177 markdown (git-tracked, raw 제외).
+총 163 markdown (git-tracked, raw 제외).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 
@@ -72,7 +72,7 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 [[상법-2025-2026-종합]]
 corpus/: 상법·자본시장법·공정거래법·외부감사법 원문 (legalize-kr 자동 복사)
 
-## Decisions (40) - `decisions/`
+## Decisions (27) - `decisions/`
 
 ### 설계·아키텍처
 [[open-proxy-guideline]] · [[data-collection]] · [[multi-upstream-pattern]] · [[mcp-endpoints]] · [[environment-secrets]]
