@@ -48,7 +48,7 @@ related:
 - `parse_provisional_financial_statement(html)` — 4 quadrant 반환 (consolidated/separate × balance_sheet/income_statement)
 - `extract_metrics(parsed)` — flat krw 추출 (proxy_advise facts evidence용)
 - BS4/lxml 직접 import — `parser.py` 의존성 0
-- 구 `agm_first_agenda_fy.py` archive (`wiki/archive/services/agm_first_agenda_fy_v1_regex.py`)
+- 구 `agm_first_agenda_fy.py` archive (storage `wiki-private/archive/services/agm_first_agenda_fy_v1_regex.py`)
 
 ### 4. data/action tool layer 분리 정합
 

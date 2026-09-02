@@ -14,7 +14,7 @@ from open_proxy_mcp.services.proxy_contest import (
 
 # 260813: 아래 세 값이 **영문 그대로 사용자 화면에 찍혔다**(실측 고려아연 답변에
 #   `| signal_level | contestable |` 이 표로 나감). 화면에 나가는 모든 값은 한글을 갖는다.
-#   producer 를 읽고 만든 사전이다 — services/proxy_contest.py:690 `_signal_level`,
+#   producer 를 읽고 만든 사전이다 — services/proxy_contest.py `_signal_level`,
 #   services/shareholder_meeting.py `_meeting_phase` 가 내는 값 전부.
 _SIGNAL_LEVEL_KO = {
     "contestable": "표 대결 성립 가능",

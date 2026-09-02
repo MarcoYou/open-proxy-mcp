@@ -11,8 +11,9 @@
   · `--apply` 는 되돌릴 수 없는 삭제다. 백업 커밋이 **사람 손으로** 확인된 뒤에 도는 게 맞다.
 감시는 **읽기만** 한다(SELECT + 용량 조회). 지우지도, 쓰지도 않는다.
 
-실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P]
+실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P] [--tables]
 종료코드: 0 정상 · 1 조치 필요(밀린 주 초과 또는 용량 경고)
+--tables: 테이블별 용량·행수 상위 12개를 덧붙인다(옛 DB 용량 리포트 스크립트 흡수, 260902). 없으면 출력 동일.
 """
 from __future__ import annotations
 
@@ -40,6 +41,8 @@ def main() -> int:
     ap.add_argument("--max-weeks", type=int, default=1,
                     help="이만큼 넘게 밀리면 실패 처리 (기본 1 — 한 주만 밀려도 바로 알린다)")
     ap.add_argument("--warn-pct", type=int, default=70, help="무료티어 경고선 %%")
+    ap.add_argument("--tables", action="store_true",
+                    help="테이블별 용량 breakdown(100KB 초과 상위 12개)도 출력 — 읽기만 한다")
     a = ap.parse_args()
 
     url = os.getenv("DATABASE_URL")
@@ -74,12 +77,22 @@ def main() -> int:
         cur_week = con.execute(
             "SELECT count(*) FROM ops_tool_calls WHERE ts_ns >= %s", (_to_ns(now_week),)
         ).fetchone()[0]
+        # --tables 일 때만 한 번 더 읽는다(옛 DB 용량 리포트와 같은 SQL). 기본 경로는 그대로.
+        tables = con.execute("""
+          SELECT relname, pg_total_relation_size(relid) b, n_live_tup
+          FROM pg_stat_user_tables JOIN pg_statio_user_tables USING(relid, relname)
+          WHERE pg_total_relation_size(relid) > 100*1024
+          ORDER BY 2 DESC LIMIT 12""").fetchall() if a.tables else None
     finally:
         con.close()
 
     pct = 100 * size_mb / 500        # Supabase 무료티어 500MB
     print(f"events {n:,}행 · {_kst(mn).date()} ~ {_kst(mx).date()}")
     print(f"DB {size_mb:.0f}MB / 500MB ({pct:.0f}%)")
+    if tables is not None:
+        total_b = float(size_mb) * 1024 * 1024
+        for name, b, live in tables:
+            print(f"  {name:<24} {b/1024/1024:>7.1f} MB  ({b / total_b * 100:>4.1f}%)  {live:>10,}행")
     print(f"진행 중인 주({now_week.date()}~) {cur_week:,}행 — 드레인 대상 아님")
 
     if weeks:

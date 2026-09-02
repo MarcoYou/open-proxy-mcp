@@ -19,4 +19,4 @@ Free Cash Flow. **영업활동현금흐름 − 자본적지출(CapEx)**. 영업�
 
 ## OPM에서의 처리
 
-`financial_metrics` tool이 현금흐름표의 영업활동현금흐름과 CapEx로 산출. `dividend_to_fcf_pct`로 배당의 FCF 대비 비중도 제공.
+OPM은 현금흐름표의 영업활동현금흐름과 CapEx로 산출한다. 배당총액 ÷ FCF 비중도 함께 제공.

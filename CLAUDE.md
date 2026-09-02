@@ -30,7 +30,7 @@ open_proxy_mcp/
   services/            # 도메인 분석 로직
   dart/client.py       # DART API + KIND + throttle + cache
   data/                # asset_managers/ (정책·매트릭스) · ksic/ (산업분류)
-scripts/               # wiki lint · spot check · 법령 검증
+scripts/               # wiki lint · 카탈로그 검사 · 법령 검증 · 시장 배치(cron) · 검증 하네스
 wiki/                  # 도메인 지식 (wiki/wiki_schema.md 가 계약서)
 ```
 

@@ -19,4 +19,4 @@ Net Working Capital. **영업 유동자산 − 영업 유동부채** (매출채�
 
 ## OPM에서의 처리
 
-`financial_metrics` tool이 매출채권·재고·매입채무 회전일(DSO/DIO/DPO/CCC)과 함께 운전자본 지표로 제공.
+OPM은 매출채권·재고·매입채무 회전일(DSO/DIO/DPO/CCC)과 함께 운전자본 지표로 제공한다.

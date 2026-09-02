@@ -50,7 +50,7 @@ XML 단독([[XML-vs-PDF]]) · 이름기반 열매핑(위치 금지) · 표별 �
 ## 구현 아키텍처 확정 (260717 오후 — flatten 한계 실증 후 전환)
 
 flatten 텍스트 파서는 2D표를 1D로 뭉개 정렬 whack-a-mole 천장에 걸린다. **표 선택**(수백 중첩표 중
-진짜 부문표 판별)은 regex 가 약하고 LLM 이 강한 문제라 — CLAUDE.md soft-fail 원칙([[LLM-fallback-설계]]) —
+진짜 부문표 판별)은 regex 가 약하고 LLM 이 강한 문제라 — CLAUDE.md soft-fail 원칙(원문 노출·읽는 AI 가 판단) —
 정식 추출 경로를 아래처럼 갈랐다.
 
 **segment_profit fallback (260718 최종확정 — 내부 LLM 폐기):**

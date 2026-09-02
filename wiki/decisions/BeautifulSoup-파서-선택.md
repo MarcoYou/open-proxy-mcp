@@ -2,7 +2,7 @@
 type: decision
 title: BeautifulSoup 파서 선택
 tags: [parser, benchmark, lxml, beautifulsoup]
-sources: [git history, wiki/archive/sources/devlog]
+sources: [git history]
 related: [OpenProxy-MCP, XML-vs-PDF]
 ---
 

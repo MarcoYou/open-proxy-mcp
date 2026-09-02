@@ -56,24 +56,16 @@ updated: 2026-06-01
 | 파일 | 용도 |
 |---|---|
 | [[open-proxy-guideline]] | OPM 자체 정책 master |
-| [[tool-changelog]] | tool 변경 이력 |
-| [[free-paid-분리]] | repo 운영 정책(public MCP / private pipeline) |
-| [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[LLM-fallback-설계]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
+| [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
 | [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
-| [[tool-추가-검증-정책]] | 신규 tool 추가 시 소스·검증 정책 |
-| [[proxy-voting-decision-tree]] | 의결권 판단 프레임워크 |
-| [[3-tier-fallback]] · [[data-collection]] · [[multi-upstream-pattern]] | 데이터 수집·폴백·병렬 패턴 |
-| [[mcp-endpoints]] · [[environment-secrets]] · [[project_structure]] | 인프라·구조 |
-| [[proxy_advise_word_report_design]] · [[proxy_advise_word_report_spec]] | Word 보고서 양식 |
+| [[data-collection]] · [[multi-upstream-pattern]] | 데이터 수집·병렬 패턴 (PDF/OCR 폴백은 open-proxy-ai 영역 — OPM 은 [[XML-vs-PDF]]) |
+| [[mcp-endpoints]] · [[environment-secrets]] | 인프라·구조 (코드 구조는 `docs/ARCHITECTURE.md`) |
 
 ## 시점 수정 (yymmdd_hhmm_fix_)
 
 | 파일 | 내용 |
 |---|---|
-| [[260427_1145_fix_ownership-stockknd]] | ownership_structure stockKnd 파싱 수정 |
-| [[260429_0216_fix_speed-optimization-9건]] | 속도 최적화 9건 |
-| [[260429_0942_fix_corp_gov_report-financial-holding]] | corp_gov_report 금융지주 분류 수정 |
-| [[260624_1503_fix_dilutive-exchangeable-bond]] | dilutive_issuance 교환사채 수정 |
+| (fix 분석문 4건 — ownership stockKnd · 속도 최적화 9건 · corp_gov_report 금융지주 · dilutive EB) | 회고 성격이라 storage `wiki-private/archive/opm-decisions/` 로 이관(260902). 살아 있는 규칙은 각 tool 페이지에 있다 |
 
 ## 여기 없는 것 (260806 이관)
 

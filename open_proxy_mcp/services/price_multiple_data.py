@@ -1090,7 +1090,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # hard 등급 = ②(항등식)·③(시장최댓값 배수). soft = ①(배수점프, 실측 오탐 97.5%)·④(시총비율).
     # ★개별 종목 조회에서는 값을 무효화(N/M)하지 않고 그대로 노출 + 강한 경고만 부착 — 이 tool의
     #  철학("배수·인풋·가정 모두 노출, 판단은 사용자")과 자본잠식 처리(값 유지+경고)에 일관.
-    #  (기계가 합산하는 시장 aggregate = market_val_agg/series에서는 반대로 무효화 — 경고문이
+    #  (기계가 합산하는 시장 aggregate = market_val_series·market_fund_quarterly 수집에서는 반대로 무효화 — 경고문이
     #   합산 연산에 무력하므로. 소비 맥락이 다르면 처리도 다르다.)
     # 스케일가드용 값도 KRW 환산(_fx) — market_max 앵커가 KRW(44조)이므로 통화 일치 필수.
     ni_fy_frmtrm = _fx(_ctrl_ni(fy_rows, "frmtrm_amount"))  # 지배순이익 부재사도 폴백 일관 적용

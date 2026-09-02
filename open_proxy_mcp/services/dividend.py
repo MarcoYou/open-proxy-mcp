@@ -25,7 +25,6 @@ from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd,
 from open_proxy_mcp.services.filing_search import (
     fetch_filings_for_title_scan,
     report_name_matches,
-    search_filings_by_report_name,
 )
 from open_proxy_mcp.services.dividend_parser import (
     DIVIDEND_KEYWORDS,
@@ -109,10 +108,6 @@ def _latest_completed_fiscal_year(today: date, end_month: int | None) -> int | N
     if not end_month:
         return None
     return today.year if today.month > end_month else today.year - 1
-
-
-def _year_window(end_year: int, years: int) -> list[int]:
-    return list(range(end_year - years + 1, end_year + 1))
 
 
 async def _search_dividend_filings(
@@ -517,43 +512,6 @@ def _decisions_summary_for_year(
         "decision_count": len(year_decisions),
         "source": "decisions",
     }
-
-
-async def _detect_pre_dividend_post_resolution(
-    corp_code: str,
-    year: int,
-) -> tuple[bool, list[dict[str, Any]]]:
-    """선배당-후결의 (2024 신법) 채택 여부 추정.
-
-    배당기준일결정/주주명부폐쇄 공시가 현금배당결정과 별도로 제출됐는지로 판단.
-    - 별도 제출 1건 이상 → True (신정관 채택 가능성)
-    - 0건 → False (전통 결산일=기준일 방식)
-
-    같은 사업연도(year) 내 + 다음 해 1-4월 (분기배당 후속분 포함)을 넓게 본다.
-    """
-
-    bgn_de = f"{year}0101"
-    end_de = f"{year + 1}0430"
-    filings, _notices, error = await search_filings_by_report_name(
-        corp_code=corp_code,
-        bgn_de=bgn_de,
-        end_de=end_de,
-        pblntf_tys="",
-        pblntf_detail_ty="I001",  # 배당 주주명부폐쇄도 I001 하위 (검증 완료)
-        keywords=_RECORD_DATE_NOTICE_KEYWORDS,
-        strip_spaces=True,
-    )
-    if error:
-        return False, []
-    rows = [
-        {
-            "rcept_no": item.get("rcept_no", ""),
-            "rcept_dt": item.get("rcept_dt", ""),
-            "report_nm": item.get("report_nm", ""),
-        }
-        for item in filings
-    ]
-    return bool(rows), rows
 
 
 async def _detect_capital_reserve_reduction(

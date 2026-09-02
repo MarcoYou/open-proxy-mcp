@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import date, timedelta
+from datetime import date
 import time
 from typing import Any
 
@@ -56,7 +56,6 @@ _ACQUISITION_RESULT_KEYWORDS = ("자기주식취득결과보고서", "자기주�
 _DISPOSAL_RESULT_KEYWORDS = ("자기주식처분결과보고서", "자기주식처분결과")
 _TRUST_ACQ_STATUS_KEYWORDS = ("신탁계약에의한취득상황보고서", "신탁계약에 의한 취득상황보고서", "신탁취득상황보고서")
 _TRUST_TERM_RESULT_KEYWORDS = ("신탁계약해지결과보고서", "신탁계약 해지 결과보고서", "신탁해지결과보고서")
-_ACQUISITION_KEYWORDS = ("자기주식취득결정", "자사주취득결정", "자기주식 취득 결정", "주식취득결정")
 
 
 def _to_int(value: Any) -> int:
@@ -389,7 +388,8 @@ def _acode_int(html: str, code: str) -> int | None:
 
 # 260707 실측 확인 버그 수정: 실행결과보고서 원문 표가 "(단위 : 백만원, 주)" 등으로 작성되면
 # ACODE 태그 안 숫자도 그 단위를 따르는데, _acode_int는 항상 원 단위로 가정해 최대 100만분의
-# 1로 축소됐다(현대차 등 KOSPI200 10개사 확인, scripts/treasury_unit_sweep.py). 주식수(_CNT/_QY류
+# 1로 축소됐다(현대차 등 KOSPI200 10개사 전수 스캔으로 확인 — 스캔 스크립트는 open-proxy-storage
+# wiki-private/archive/opm-scripts/treasury_unit_sweep.py 에 보존). 주식수(_CNT/_QY류
 # ACODE)는 이 배수를 적용하면 안 되므로(단위선언은 금액 컬럼에만 적용) 금액류만 별도 함수로 분리.
 _UNIT_MULT = {
     "원": 1, "천원": 1_000, "만원": 10_000, "십만원": 100_000,
@@ -676,118 +676,6 @@ def _parse_trust_termination_result_body(text: str, html: str = "") -> dict[str,
         result["termination_date"] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
     return {k: v for k, v in result.items() if v is not None}
-
-
-def _parse_acquisition_body(text: str) -> dict[str, Any]:
-    """자기주식 취득결정 공시 본문 파싱 — 취득 주식수·금액(KRW) 보강 추출.
-
-    DART 거래소공시 표준 서식(자기주식취득결정):
-      1. 취득예정 주식
-         - 종류 (보통주식 / 종류주식)
-         - 수량(주)
-         - 발행주식총수 대비 비율(%)
-      2. 취득예정 금액(원)
-      3. 취득예상 기간 (시작 ~ 종료)
-      4. 보유예상 기간
-      5. 취득 목적 (자유기재 — 주주가치 제고, 소각, 임직원 보상 등)
-      6. 취득 방법 (장내매수 / 장외매수 / 공개매수 / 신탁)
-      7. 위탁 투자중개업자
-      8. 취득 결정일 / 사외이사 참석여부 / 감사 참석여부
-
-    구조화 API(tsstkAqDecsn)가 보통주+종류주 별도 필드를 제공하지만 [기재정정] 공시
-    경우 본문 파싱이 더 안정적이므로 본문 정규식 폴백을 둔다 (CSR 산출 안정성).
-    """
-
-    if not text:
-        return {}
-
-    clean = re.sub(r"\.xforms[^}]+\}", "", text)
-    clean = re.sub(r"\s+", " ", clean).strip()
-
-    result: dict[str, Any] = {}
-
-    # 1. 취득예정 주식 — 통합 수량 패턴
-    qty = 0
-    for pat in (
-        r"취득\s*예정\s*주식\s*수\s*\(?\s*주\s*\)?\s*([\d,]+)",
-        r"취득\s*예정\s*주식\s*수량\s*\(?\s*주\s*\)?\s*([\d,]+)",
-        r"취득\s*주식수\s*\(?\s*주\s*\)?\s*([\d,]+)",
-    ):
-        mm = re.search(pat, clean)
-        if mm:
-            qty = _to_int(mm.group(1))
-            if qty:
-                break
-
-    # 보통주 + 종류주식 합산 (대형사 패턴)
-    if not qty:
-        block_match = re.search(
-            r"취득\s*예정\s*주식의?\s*종류\s*와?\s*수\s*[^.]{0,400}",
-            clean,
-        )
-        block = block_match.group(0) if block_match else ""
-        common = 0
-        kind = 0
-        m_common = re.search(r"보통주식\s*\(?\s*주\s*\)?\s*([\d,]+)", block)
-        if m_common:
-            common = _to_int(m_common.group(1))
-        m_kind = re.search(r"종류주식\s*\(?\s*주\s*\)?\s*([\d,]+)", block)
-        if m_kind:
-            kind = _to_int(m_kind.group(1))
-        if common or kind:
-            qty = common + kind
-            result["shares_common"] = common
-            result["shares_preferred"] = kind
-    result["shares"] = qty
-
-    # 2. 취득예정 금액(원) — 핵심 필드. 표기 변형 다수
-    amount = 0
-    for pat in (
-        r"취득\s*예정\s*금액\s*\(?\s*원\s*\)?\s*([\d,]+)",
-        r"취득\s*예정금액\s*\(?\s*원\s*\)?\s*([\d,]+)",
-        r"취득\s*금액\s*\(?\s*원\s*\)?\s*([\d,]+)",
-        r"취득\s*예정\s*금액[^\d]{0,30}([\d,]{6,})",
-    ):
-        mm = re.search(pat, clean)
-        if mm:
-            amount = _to_int(mm.group(1))
-            if amount:
-                break
-    result["amount_krw"] = amount
-
-    # 3. 발행주식총수 대비 비율
-    m = re.search(r"발행주식\s*총수\s*대비\s*비율\s*\(?\s*%\s*\)?\s*([\d.]+)", clean)
-    if m:
-        try:
-            result["pct_of_issued"] = float(m.group(1))
-        except ValueError:
-            result["pct_of_issued"] = None
-
-    # 4. 취득 방법
-    method = ""
-    if "장내매수" in clean:
-        method = "장내매수"
-    elif "장외매수" in clean:
-        method = "장외매수"
-    elif "공개매수" in clean:
-        method = "공개매수"
-    elif "신탁" in clean and re.search(r"취득\s*방법[^.]{0,30}신탁", clean):
-        method = "신탁"
-    result["method"] = method
-
-    # 5. 취득 목적 — 소각 commitment 식별
-    m = re.search(r"취득\s*목적\s*([^.\n]{2,120})", clean)
-    if m:
-        purpose = m.group(1).strip()[:120]
-        result["purpose"] = purpose
-        result["for_cancelation"] = "소각" in purpose
-
-    # 6. 이사회결의일
-    m = re.search(r"이사회\s*결의일(?:\s*\(?결정일\)?)?\s*(\d{4}-?\d{2}-?\d{2})", clean)
-    if m:
-        result["board_date"] = m.group(1)
-
-    return result
 
 
 def _normalize_cancelation_row(item: dict[str, Any]) -> dict[str, Any]:
@@ -1396,204 +1284,6 @@ def _dedupe_cancelation_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
         deduped.append(row)
     # 원래 정렬(최신순) 유지.
     return deduped
-
-
-async def fetch_cancelation_summary(
-    corp_code: str,
-    *,
-    year: int,
-) -> dict[str, Any]:
-    """단일 사업연도의 자사주 소각 합계 (수량·금액).
-
-    자사주 소각 정책 단독 분석용. CSR(`scope=cash_shareholder_return`) 분자에는
-    매입(acquire) 금액을 사용하므로 본 함수 결과는 사용하지 않는다.
-    회계기준은 `rcept_dt` (이사회 결의 연도) 기준.
-    [기재정정] 공시 중복은 board_date+amount+shares로 dedupe.
-
-    Returns:
-      {
-        "year": int,
-        "cancelation_count": int,
-        "cancelation_shares_total": int,
-        "cancelation_amount_total_krw": int,
-        "rows": [...],     # 메타 + 본문 파싱 결합 (dedupe 후)
-        "rows_raw_count": int,  # dedupe 전 원본 건수
-        "warnings": [...]  # 본문 파싱 실패 등
-      }
-    """
-
-    bgn_de = f"{year}0101"
-    end_de = f"{year}1231"
-    items, _notices, error = await search_filings_by_report_name(
-        corp_code=corp_code,
-        bgn_de=bgn_de,
-        end_de=end_de,
-        pblntf_tys="",
-        pblntf_detail_ty=["B001", "E001", "E002", "I001"],  # 자기주식 detail 좁힘 (차집합0 검증)
-        keywords=_CANCELATION_KEYWORDS,
-        strip_spaces=True,
-    )
-    warnings: list[str] = []
-    if error:
-        warnings.append(f"자사주 소각결정 조회 실패: {error}")
-        items = []
-
-    rows = [_normalize_cancelation_row(it) for it in items]
-    failures = await _enrich_cancelation_with_body(rows)
-    if failures:
-        warnings.append(
-            f"{year}년 자사주 소각결정 본문 파싱 실패 {failures}건 — 금액이 누락되었을 수 있다."
-        )
-    raw_count = len(rows)
-    rows = _dedupe_cancelation_rows(rows)
-    if len(rows) < raw_count:
-        warnings.append(
-            f"[기재정정] 중복 {raw_count - len(rows)}건을 제거해 {len(rows)}건으로 합산했다."
-        )
-
-    return {
-        "year": year,
-        "cancelation_count": len(rows),
-        "rows_raw_count": raw_count,
-        "cancelation_shares_total": sum(r.get("shares", 0) for r in rows),
-        "cancelation_amount_total_krw": sum(r.get("amount_krw", 0) for r in rows),
-        "rows": rows,
-        "warnings": warnings,
-    }
-
-
-def _dedupe_acquisition_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """[기재정정] 자기주식 취득결정 dedupe — (board_date, amount, shares) 기준.
-
-    cancelation과 동일 정책. 정정공시는 원공시를 대체하므로 같은 결의일·금액·수량
-    조합은 가장 최신 1건만 남긴다.
-    """
-
-    if not rows:
-        return rows
-
-    rows_sorted = sorted(rows, key=lambda r: (r.get("rcept_dt") or "", r.get("rcept_no") or ""), reverse=True)
-    seen: set[tuple] = set()
-    deduped: list[dict[str, Any]] = []
-    for row in rows_sorted:
-        key = (
-            row.get("board_date") or row.get("rcept_dt", ""),
-            int(row.get("amount_krw") or 0),
-            int(row.get("shares") or 0),
-        )
-        if all(not v for v in key):
-            deduped.append(row)
-            continue
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(row)
-    return deduped
-
-
-async def fetch_acquisition_summary(
-    corp_code: str,
-    *,
-    year: int,
-) -> dict[str, Any]:
-    """단일 사업연도의 자사주 **취득(매입)** 합계 (수량·금액).
-
-    `dividend.scope_cash_shareholder_return`(CSR) 분자 합산용. 한국 시장
-    정의의 주주환원에서는 회사가 실제로 시장에서 현금을 지출해 자사주를 매입한
-    금액을 환원으로 본다 (소각은 매입 후 회계 정리 단계).
-
-    데이터 소스:
-      1. 구조화 API tsstkAqDecsn (1차) — `aqpln_prc_ostk` + `aqpln_prc_estk`
-      2. 본문 파싱 (2차 폴백) — `_parse_acquisition_body` ([기재정정] 안정성)
-
-    회계기준은 이사회 결의 연도 (rcept_dt) 기준. [기재정정] 공시는
-    (board_date, amount, shares) tuple로 dedupe.
-
-    Returns:
-      {
-        "year": int,
-        "acquisition_count": int,
-        "acquisition_shares_total": int,
-        "acquisition_amount_total_krw": int,
-        "rows": [...],
-        "rows_raw_count": int,
-        "warnings": [...],
-      }
-    """
-
-    client = get_dart_client()
-    bgn_de = f"{year}0101"
-    end_de = f"{year}1231"
-    warnings: list[str] = []
-
-    # 1차: 구조화 API
-    try:
-        api_data = await client.get_treasury_acquisition(corp_code, bgn_de, end_de)
-        api_items = api_data.get("list", []) or []
-    except DartClientError as exc:
-        warnings.append(f"자사주 취득결정 API 조회 실패: {exc.status}")
-        api_items = []
-
-    rows: list[dict[str, Any]] = []
-    for item in api_items:
-        normalized = _normalize_acquisition(item)
-        # 회계 연도 필터: rcept_dt 연도가 target year와 일치해야 함.
-        rcept_dt = normalized.get("rcept_dt") or ""
-        if len(rcept_dt) >= 4 and rcept_dt[:4].isdigit():
-            if int(rcept_dt[:4]) != year:
-                continue
-        rows.append(normalized)
-
-    # 2차: API에 amount/shares가 0인 행은 본문 파싱으로 폴백
-    needs_body: list[dict[str, Any]] = [
-        r for r in rows if not r.get("amount_krw") or not r.get("shares")
-    ]
-
-    async def fetch(rcept_no: str):
-        if not rcept_no:
-            return None
-        try:
-            return await client.get_document_cached(rcept_no)
-        except Exception:
-            return None
-
-    if needs_body:
-        docs = await asyncio.gather(*[fetch(r.get("rcept_no", "")) for r in needs_body])
-        body_failures = 0
-        for row, doc in zip(needs_body, docs):
-            if not doc:
-                body_failures += 1
-                continue
-            parsed = _parse_acquisition_body(doc.get("text", "") or "")
-            if not parsed:
-                body_failures += 1
-                continue
-            for key in ("shares", "amount_krw", "method", "purpose",
-                        "pct_of_issued", "board_date", "for_cancelation"):
-                if key in parsed and parsed[key] not in (None, "", 0, False):
-                    row[key] = parsed[key]
-            row["body_parsed"] = True
-        if body_failures:
-            warnings.append(
-                f"{year}년 자사주 취득결정 본문 파싱 실패 {body_failures}건 — 금액이 누락되었을 수 있다."
-            )
-
-    raw_count = len(rows)
-    rows = _dedupe_acquisition_rows(rows)
-    if len(rows) < raw_count:
-        warnings.append(
-            f"[기재정정] 자사주 취득결정 중복 {raw_count - len(rows)}건을 제거해 {len(rows)}건으로 합산했다."
-        )
-
-    return {
-        "year": year,
-        "acquisition_count": len(rows),
-        "rows_raw_count": raw_count,
-        "acquisition_shares_total": sum(r.get("shares", 0) for r in rows),
-        "acquisition_amount_total_krw": sum(r.get("amount_krw", 0) for r in rows),
-        "rows": rows,
-        "warnings": warnings,
-    }
 
 
 async def fetch_treasury_signal_summary(

@@ -24,7 +24,7 @@ updated: 2026-08-30
 | company | str | yes | 회사명 / ticker(6자리) / corp_code. 공용 리졸버(`company` 도구와 동일 진입) | "" |
 | bundle | str | no | `core` / `growth` / `quality` / `keys` / `all`. 쉼표로 겹쳐 부른다(`"core,growth"`) | "core" |
 | period_type | str | no | `FY`(연간) / `Q`(분기) / `all` | "FY" |
-| actual_years | int | no | 대조용으로 실을 **실적** 행 수 | 4 |
+| actual_years | int | no | 대조용으로 실을 **실적** 행 수 | 2 |
 | format | str | no | "md" / "json" | "md" |
 
 ## 응답 구조 — 자(尺)를 두 겹으로 싣는다

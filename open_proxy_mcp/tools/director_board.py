@@ -429,7 +429,7 @@ def register_tools(mcp):
         사업보고서 원문에서 각주 본문을 자동 복구(마커 뜬 공시만 1회 fetch·캐시) — 실패 시 원문 발췌 폴백.
         year: 기준 사업연도(0=최근 확정 전년). lookback_years: 조회 기간(년), 기본 3 — 대부분 scope에서 YoY 적용
         resolve_footnotes: 각주 마커를 원문에서 해소할지(기본 True). False면 원문 fetch 없이 마커만 플래그.
-        ref: corp_gov_report, director_evaluation, shareholder_meeting
+        ref: corp_gov_report, shareholder_meeting_notice, proxy_advise_before_meeting
         """
         payload = await build_director_board_payload(
             company, scope=scope, year=year, lookback_years=lookback_years, format=format,

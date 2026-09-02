@@ -6,8 +6,7 @@ scope: [summary, detail, history]
 data_source: [DART OpenAPI alotMatter (사업보고서 배당 요약, 다년 컬럼) + 현금ㆍ현물배당결정 공시 합산 fallback]
 related_disclosures: [현금배당결정, 주식배당결정, 배당기준일결정, 분기배당결정, 감액배당결정, 배당공시유형, 사업보고서, 자기주식취득결정]
 related_concepts: [배당성향, 배당수익률, 시가배당률, 분기배당, 특별배당, 감액배당, 자본준비금, 당기순이익, 주주환원]
-related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, free-paid-분리, cross-domain-체이닝]
-related_audits: [260429_0216_fix_speed-optimization-9건]
+related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, cross-domain-체이닝]
 created: 2026-05-01
 updated: 2026-09-02
 ---
@@ -41,14 +40,22 @@ dividend(
 
 자연어 예시:
 - "KT&G 2024 배당" → `scope="summary"` (DPS·배당성향·시가배당률 + 선배당-후결의·감액배당 신호)
+- "작년 주당배당금·배당 총액 얼마였어?" → `scope="summary"` + `year` 지정
+- "배당성향 추이 어때?" → `scope="history"` (N년 추이 + 분기 breakdown + policy_signals)
 - "삼성전자 최근 배당 결정들" → `scope="detail"`
 - "메리츠금융지주 최근 3년 배당 추이" → `scope="history"`
+
+meta_signals 읽는 법:
+- `pre_dividend_post_resolution`: 같은 I001 검색에서 걸러낸 주주명부폐쇄(기준일)결정 notice가 1건 이상이면
+  True(신정관 선배당-후결의 가능성), 0건이면 False(전통 결산일=기준일 방식). [[배당기준일결정]] 참조.
+- `capital_reserve_reduction`: True면 `capital_reserve_agendas`에 자본준비금 감소 관련 주총 안건 목록이
+  함께 실린다 — [[감액배당결정]] cross-link. 감자(자본금 감소)와 혼동 금지.
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 6종 (아래 참조) | "summary" |
+| scope | str | no | 3종 (아래 참조) | "summary" |
 | year | int | no | 사업연도, 0이면 최신 | 0 |
 | years | int | no | history scope 누적 연수 | 3 |
 | start_date / end_date | str | no | YYYYMMDD | "" |
@@ -56,7 +63,7 @@ dividend(
 
 scope:
 - `summary`: 연간 DPS + 배당성향 + 시가배당률 + meta_signals (선배당-후결의, 감액배당) (기본)
-- `detail`: 요약 + 최근 결정 10건
+- `detail`: 요약 + 최근 결정 50건 (md 렌더는 10건까지 표시, json 은 전부)
 - `history`: 최근 N년 추이 (DPS / payout / yield / pattern)
 
 ## 출력 schema (data dict)
@@ -175,12 +182,11 @@ sequenceDiagram
 ## 관련 결정 (decisions/)
 - [[배당공시유형]] — 배당 9종 + 자사주 5종 + 2026.03 신법 통합 비교
 - [[DART-KIND-매핑-화이트리스트-2026-04]] — KIND whitelist 정책
-- [[free-paid-분리]] — DPS 일관성
 - [[cross-domain-체이닝]] — DIV → VUP / TRS 체이닝
 
 ## 관련 audit/fix (architecture/)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — dividend.summary 75.0% exact
-- [[260429_0216_fix_speed-optimization-9건]] — dividend 3x 속도 향상 (asyncio.gather)
+- 260429 asyncio.gather 병렬화(3x) — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 - 21개 산술 지표 검증 기록: private storage
 
 ## 알려진 issue + TODO

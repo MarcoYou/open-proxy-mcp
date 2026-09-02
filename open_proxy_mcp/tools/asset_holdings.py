@@ -123,10 +123,10 @@ def register_tools(mcp):
     @mcp.tool()
     async def asset_holdings(company: str, scope: str = "summary", format: str = "md") -> str:
         """desc: 회사가 **보유한 자산**(투자부동산·지분증권·현금성·관계기업 지분)을 감사 연결재무제표 계정에서 뽑고, **시총 대비 청산가치(NAV) 커버리지**로 자산저평가주를 스크리닝. "시총보다 보유 자산이 값진가"에 답합니다.
-        when: 자산주·NAV·청산가치·지주사 할인·숨은 부동산/지분 분석. "이 회사 자산 뭐 있어? 자산 대비 싸?"(summary) · 원문 명세로 직접 확인(detail). 전사 밸류(PER/PBR)는 `valuation`, 재무비율은 `financial_metrics`.
+        when: 자산주·NAV·청산가치·지주사 할인·숨은 부동산/지분 분석. "이 회사 자산 뭐 있어? 자산 대비 싸?"(summary) · 원문 명세로 직접 확인(detail). 전사 밸류(PER/PBR)는 `price_multiple_data`, 재무비율은 `financial_metrics`.
         scope: **`summary`(기본)** — 자산을 목적버킷(현금성/환금성증권·재테크형/우호제휴지분/지배관계사지분/투자용부동산/본업자산)으로 분류해 "재테크형·부동산 자산주형·지주사 할인형·우호지분형" 한 줄 서사(`asset_story`) + 세부 계정 + **상장 보유지분 시가마크** + 담보·우발 haircut 플래그 + 시총 대비 배수(잉여자산/지분NAV, 금융업은 미제공) / **`detail`** — III.주석 원문 markdown(토지 원가vs공정가치·지분증권·담보·우발) — summary에서 haircut 플래그가 뜨거나 숫자 원문을 직접 확인하고 싶을 때.
         rule: 구조화(계정·타법인출자)는 숫자, 주석(토지gap·담보·우발)은 **원문 markdown 반환→caller가 읽어 판단**. 시가마크는 상장 보유지분만(비상장은 장부가). **배수는 부채 미차감 gross → PBR 병용**. 담보·우발은 NAV에서 차감해야 정확(detail로 확인). **금융업(KSIC 64/65/66)은 투자자산=본업**이라 금융 리그 라벨.
-        ref: valuation, financial_metrics, business_details, treasury_share
+        ref: price_multiple_data, financial_metrics, business_details, treasury_share
         """
         payload = await build_asset_holdings_payload(company, scope=scope)
         if format == "json":

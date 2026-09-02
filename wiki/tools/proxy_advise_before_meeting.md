@@ -8,7 +8,7 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-08-06
+updated: 2026-09-02
 ---
 
 # proxy_advise_before_meeting
@@ -38,16 +38,24 @@ proxy_advise_before_meeting(
 )
 ```
 
+자연어 예시:
+- "KT&G 이번 주총 안건별로 찬성/반대 어떻게 봐야 해?" → 기본 호출(회차 자동 선택, 안건별 decision + facts + policy_citation)
+- "이 이사 재선임 반대할 근거 있어?" → 후보 평가(roster 교차검증·경력·risk_factors) + 정책 근거
+- "이 보수한도 인상 안건 어떻게 판단해?" → 보수 안건 facts + 판정 근거 (소진율·인상 이력 detail은 [[director_board]] `pay_agenda`)
+
 ## 입력 인자
 
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 — 최신 소집공고(12개월 lookback) 기준 회차. 공고 미발견 시 전년 fallback + warning. 응답 `year_resolution`에 선택 근거, 종료된 회차면 `meeting_closed_hint` 동봉 |
-| meeting_type | str | no | "annual" / "extraordinary" / "auto" | "annual" |
+| meeting_type | str | no | "auto" / "annual" / "extraordinary" | "auto" |
 | vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
+| as_of | str | no | `YYYYMMDD`. 판단이 서는 시점 — 이 날 이후 접수된 공시는 읽지 않는다(look-ahead 차단). 미지정 시 회의일이 과거면 회의일 전일, 미래면 오늘 | "" |
+| include_after_meeting | bool | no | True 면 기준일 이후 자료까지 읽고 해당 공시에 ⚠ 표시. 해당 회차 의결 결과는 그래도 쓰지 않는다 | False |
+| evidence_chars | int | no | 근거 원문 발췌 길이. 잘리면 응답에 전체 길이와 재호출 경로 안내 | 4000 |
 | format | str | no | "md" / "json" | "md" |
 
 ## 출력 schema (decisions)
@@ -605,8 +613,8 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## ref
 
-- Word 보고서 설계: [[proxy_advise_word_report_design]]
+- Word 보고서(docx) 설계는 미구현 기획이라 storage `wiki-private/archive/opm-decisions/` 로 이관(260902)
 - 사후 결과: [[shareholder_meeting_results]]
 - 사전 안건 raw: [[shareholder_meeting_notice]]
 - 안건 파서·지표 gap 전수감사 기록: private storage `wiki-private/architecture/audits/`
-- archive (옛 specialized scope service): `wiki/archive/services/policy_comparison.py` / `proxy_guideline.py`
+- archive (옛 specialized scope service): storage `wiki-private/archive/services/policy_comparison.py` / `proxy_guideline.py`

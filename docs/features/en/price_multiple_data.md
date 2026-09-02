@@ -1,6 +1,6 @@
 # Valuation
 
-**Combines DART filings with official KRX prices to compute relative-value multiples like PER, PBR, and dividend yield.** All figures are confirmed and **trailing** — it does **not** produce forward (analyst-estimate) numbers.
+**Combines DART filings with official KRX prices to compute relative-value multiples like PER, PBR, and dividend yield.** PER and PBR multiples are confirmed, **trailing** figures. Only the market/sector dividend-yield columns come in two flavors, confirmed (fiscal-year DPS) and forward (analyst-estimate DPS), side by side. Forward earnings multiples (next-year PER etc.) belong to `forward_estimates_data`.
 
 ## What it answers
 

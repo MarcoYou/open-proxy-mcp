@@ -18,4 +18,4 @@ Return on Assets. **순이익 ÷ 총자산**. 부채까지 포함한 전체 자�
 
 ## OPM에서의 처리
 
-`financial_metrics` tool이 순이익·총자산으로 산출. [[ROE]]·[[ROIC]]와 함께 수익성 3축으로 제공.
+OPM은 순이익·총자산으로 산출한다. [[ROE]]·[[ROIC]]와 함께 수익성 3축으로 제공.

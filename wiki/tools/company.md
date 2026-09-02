@@ -6,10 +6,10 @@ scope: [exact, ambiguous, error]
 data_source: [DART OpenAPI corpCode.xml + company.json + list.json, Naver profile (보조)]
 related_disclosures: []
 related_concepts: []
-related_decisions: [pblntf-ty-필터링, free-paid-분리]
+related_decisions: [pblntf-ty-필터링]
 
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # company
@@ -33,6 +33,7 @@ company(
 - "Samsung Fire 배당" → `query="Samsung Fire"` (DART 공식 영문명 토큰 조합)
 - "HD Hyundai Electric" → `query="HD Hyundai Electric"` (법인 접미사·구두점 정규화)
 - "삼성" / "Samsung" → 활성 상장 후보 중 시총 격차가 충분하면 삼성전자로 자동 추론하고 대안 표시
+- "'카카오'라는 이름으로 상장사 여러 개면 뭐뭐 있어?" → 동명·유사명 후보 목록(status `ambiguous`)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
@@ -158,7 +159,6 @@ sequenceDiagram
 
 ## 관련 결정 (decisions/)
 - [[pblntf-ty-필터링]] — recent_filings 조회 시 pblntf_ty 필수
-- [[free-paid-분리]] — MCP(public) + Pipeline(private) 2-repo 구조에서 식별자 일관성
 
 ## 관련 audit/fix (architecture/)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — `company.summary` 98.5% exact (193/196 KOSPI 100 + KOSDAQ 96)

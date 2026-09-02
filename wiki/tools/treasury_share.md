@@ -2,14 +2,13 @@
 type: tool
 title: treasury_share
 domain: data
-scope: [summary, events, acquisition, disposal, cancelation, annual]
+scope: [summary, annual]
 data_source: [DART OpenAPI tsstkAqDecsn + tsstkDpDecsn + tsstkAqTrctrCnsDecsn + tsstkAqTrctrCcDecsn + list.json (소각결정 키워드), 사업보고서 tesstkAcqsDspsSttus (annual scope)]
 related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식처분결정, 자기주식소각결정, 자기주식신탁결정, 자기주식의무소각-2026신법, 사업보고서]
 related_concepts: [자사주, 주주환원]
-related_decisions: [배당공시유형, free-paid-분리, cross-domain-체이닝]
-related_audits: [260429_0216_fix_speed-optimization-9건]
+related_decisions: [배당공시유형, cross-domain-체이닝]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # treasury_share
@@ -27,27 +26,32 @@ treasury_share(
 ```
 
 자연어 예시:
-- "삼성전자 2024 자사주 매입·소각 이력" → `scope="acquisition"` (취득 + 신탁체결)
-- "KT&G 자사주 소각결정만 보여줘" → `scope="cancelation"`
+- "삼성전자 2024 자사주 매입·소각 이력" → `scope="summary"` (결정 5종 + 결과보고서 4종, 사이클 매칭)
+- "KT&G 소각한 자사주 있어?" → `scope="summary"` 의 소각결정·소각목적 취득 breakdown
+- "신탁으로 산 거야 직접 산 거야?" → `scope="summary"` (직접 취득결정 vs 신탁계약 체결·해지 구분)
 - "현재 자사주 잔고" → `scope="annual"` (사업보고서 기준 발행/자기/유통)
+
+(구 `events`·`acquisition`·`disposal`·`cancelation` scope는 폐지 — 전부 `summary`에 통합.)
+
+`summary`의 events 행은 `phase`로 결정(`decision`)과 실행(`execution`)을 구분한다. 실행 행은
+[[자기주식취득결과보고서]]·[[자기주식처분결과보고서]]·[[신탁계약에의한취득상황보고서]](분기 반복)·
+[[신탁계약해지결과보고서]] 4종이며, 결정 행과 `linked_execution_rcept_nos` / `linked_decision_rcept_no`로
+양방향 링크된다(사이클 매칭). 신탁 체결은 취득, 신탁 해지는 처분과 같은 축에서 집계된다.
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 6종 (아래 참조) | "summary" |
+| scope | str | no | `summary` / `annual` (아래 참조) | "summary" |
 | year | int | no | 사업연도 (annual scope), 0이면 최신 | 0 |
 | start_date / end_date | str | no | YYYYMMDD | "" |
 | lookback_months | int | no | 이벤트 조사 구간 (개월) | 24 |
 | format | str | no | "md" / "json" | "md" |
 
 scope:
-- `summary`: 5종 집계 + 최신 5건 이벤트 (기본)
-- `events`: 전 이벤트 타임라인
-- `acquisition`: 취득결정 + 신탁체결
-- `disposal`: 처분결정 + 신탁해지
-- `cancelation`: 소각결정 (별도 API 없음, list.json 키워드)
+- `summary`: 모든 events(취득·처분·신탁체결·신탁해지·소각) + breakdown + 사이클 매칭 (기본)
 - `annual`: 연간 누적 (사업보고서 기준 잔고/소각/취득/처분)
+- 옛 `events`·`acquisition`·`disposal`·`cancelation` 은 폐지 — 넘기면 `REQUIRES_REVIEW` 로 돌아온다. 전부 `summary` 에 들어 있다.
 
 ## 출력 schema (data dict)
 ```json
@@ -159,12 +163,11 @@ sequenceDiagram
 
 ## 관련 결정 (decisions/)
 - [[배당공시유형]] — 자사주 5종 통합 비교
-- [[free-paid-분리]] — 잔고 / 이벤트 일관성
 - [[cross-domain-체이닝]] — TRS → DIV (CSR) / VUP (commitment) / OWN (잔고) 체이닝
 
 ## 관련 audit/fix (architecture/)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — treasury_share.summary 51.0% exact
-- [[260429_0216_fix_speed-optimization-9건]] — 5 API 병렬 (asyncio.gather)
+- 260429 5 API asyncio.gather 병렬화 — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 
 ## 알려진 issue + TODO
 - 신탁 자동 만기 해지 추적 미지원 (TODO).

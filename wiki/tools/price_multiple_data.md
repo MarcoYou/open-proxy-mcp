@@ -8,7 +8,7 @@ data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결�
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
 created: 2026-07-05
-updated: 2026-08-31
+updated: 2026-09-02
 ---
 
 # price_multiple_data
@@ -35,12 +35,15 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 - "두산밥캣 PBR" → USD 재무 자동 KRW 환산(ECOS 1,434.9) → PBR 0.86
 - "코스피 지금 싸?" → market: KOSPI PER 20.4(TTM)·PBR 2.23 + 주간 추이
 - "반도체 업종 밸류" → sector: KSIC 섹터별 PER/PBR 표
+- "두산밥캣 섹터 평균 대비 싸? 비싸?" → sector + company: 기업 vs 소속 섹터 비교 + 섹터 시계열
+- "배당수익률 얼마?" → firm: 현재가 기준(시장·섹터 집계 배당수익률은 market/sector)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
 | scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 곡선 + 월말 요약, DB 계산) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
+| scheme | str | no | sector 집계 축 — `wics_industry` / `wics_sector` / `ksic`. 배당수익률은 `wics_sector` 에만 붙는다 | "wics_industry" |
 | format | str | no | "md" / "json" | "md" |
 
 ## scope 라우팅 — 기능 → 데이터 소스 (DB-first)
@@ -209,7 +212,6 @@ price_date로 기준일 투명.
 fy 무관) → P2(연간원장·주식수·배당, fy 의존) → P3(1Q당해·전년, fs_used 의존). 실측 개별 조회 ~2.2s
 (순차 ~6.3s), 8종목 배치 20s(순차 50s).
 
-→ 실측 콜 수는 [[tool_call_budget]]에 반영돼 있다.
 
 ## Flow
 ```mermaid

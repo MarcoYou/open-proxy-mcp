@@ -13,7 +13,7 @@
   - 정형 API(DS002 정기보고서): exctvSttus(임원현황) · drctrAdtAllMendngSttus*(보수한도·실지급) ·
     hmvAuditIndvdlBySttus(개인별 5억+).
   - 원문 파서(지배구조보고서, scope=attendance): 개별 이사 출석률 매트릭스 · 표4-2-1 선임/변동 ·
-    표5-2-1 겸직. (v1은 정형+출석; 금융지주 PDF 별도양식은 v2 — 경고 반환)
+    표5-2-1 겸직. (정형+출석만; 금융지주 등 별도양식은 not_found 로 반환 — PDF/OCR 은 OPM 범위 밖)
 
 scope:
   - compensation : 인당보수·보수한도·소진율 (정형 API)          [🟢 바로]
@@ -985,7 +985,7 @@ async def _attendance_scope(client, corp_code: str, year: int, *, warnings: list
     if not board:
         return {"status": "not_found", "rcept_no": rcept_no,
                 "note": "사업보고서에서 이사회 개별 출석률 표 미발견 — 금융지주 등 지배구조보고서 "
-                        "별도양식이거나 소규모사 미기재(v2 OCR tier 대상)."}
+                        "별도양식이거나 소규모사 미기재."}
     directors = sorted(
         [{"name": n, "attendance_pct": p, "low": p < _ATTENDANCE_LOW} for n, p in board.items()],
         key=lambda d: d["attendance_pct"])
