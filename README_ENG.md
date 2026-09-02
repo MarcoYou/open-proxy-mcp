@@ -40,7 +40,7 @@ Click any feature for a detailed page.
 - **[Corporate risk events](docs/features/en/risk-events.md)** — serious accidents, embezzlement/breach-of-trust, production halts. Scans the whole market if no company is given.
 - **[Market-wide disclosure digest](wiki/tools/screener.md)** — sweeps orders, buybacks, dividends, capital increases, AGM notices, 5% blocks, and provisional earnings into a card digest — a morning disclosure-alert routine ([recipe](docs/routines/screener-morning-digest.md)).
 
-Plus source tracing, corporate governance reports, dilutive issuance (rights/CB), restructuring (mergers/splits), stake deals, trading/market-cap time series, and bidirectional articles↔statute lookup, voting-policy source lookup — **30 tools in total**.
+Plus source tracing, corporate governance reports, dilutive issuance (rights/CB), restructuring (mergers/splits), stake deals, trading/market-cap time series, and bidirectional articles↔statute lookup, voting-policy source lookup — **32 tools in total**.
 
 ---
 
@@ -95,7 +95,7 @@ More examples (director pay, control contests, financials, valuation) → **[doc
 
 ---
 
-## Tool Structure (30 tools)
+## Tool Structure (32 tools)
 
 Tools flow **Company → Meeting/Data/Evidence → Action** (statute lookup is a company-independent Reference).
 
@@ -103,7 +103,7 @@ Tools flow **Company → Meeting/Data/Evidence → Action** (statute lookup is a
 |---|---|---|
 | Company | [`company`](wiki/tools/company.md) | Company identification and common filing index |
 | Meeting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md) | Pre-/post-AGM data |
-| Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend`](wiki/tools/dividend.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`business_details`](wiki/tools/business_details.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Individual filing / financial / business / governance parsing |
+| Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend`](wiki/tools/dividend.md), [`dividend_history_data`](wiki/tools/dividend_history_data.md), [`dividend_screener`](wiki/tools/dividend_screener.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`business_details`](wiki/tools/business_details.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Individual filing / financial / business / governance parsing |
 | Evidence | [`evidence`](wiki/tools/evidence.md) | Source tracing by filing number |
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`screener`](wiki/tools/screener.md) | Orchestrate data tools into judgments, comparisons, digests |
 | Reference | [`law_lookup`](wiki/tools/law_lookup.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Bidirectional articles↔statute lookup · the voting-policy document cited in recommendations — zero API calls |
