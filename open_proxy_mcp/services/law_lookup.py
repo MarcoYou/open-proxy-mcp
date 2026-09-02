@@ -1238,6 +1238,12 @@ def build_law_lookup_payload(
         warnings.insert(1, f"강한 매칭이 아니라 **조문 전문을 붙이지 않았습니다** — 아래 {len(results)}건은 "
                            f"어휘가 겹친 참고 후보입니다(전체 {total}건). 전문이 필요하면 조문번호"
                            f"(예: 제542조의8)로 다시 물어보세요.")
+    elif limit_ft is not None and len(results) > limit_ft and ftype is None:
+        # exact 인데 꼬리를 잘랐다 — 「못 찾았다」가 아니라 「찾았고, 약한 꼬리만 표로 남겼다」.
+        #   260902 live 실측: 금산법 §10 을 정확히 짚고도 「딱 맞는 조문을 짚지 못해」라고 말했다.
+        warnings.insert(1, f"강하게 맞는 조문에는 전문을 붙였고(상위 {limit_ft}건), 그 아래 어휘만 겹친 "
+                           f"후보 {len(results) - limit_ft}건은 표에만 있습니다. 전문이 더 필요하면 "
+                           f"조문번호로 다시 물어보세요.")
     elif limit_ft is not None and len(results) > limit_ft:
         warnings.insert(1, f"딱 맞는 조문을 짚지 못해 **전문은 상위 {limit_ft}건만** 붙였습니다 — "
                            f"나머지는 표에만 있습니다. 전문이 더 필요하면 조문번호로 다시 물어보세요.")

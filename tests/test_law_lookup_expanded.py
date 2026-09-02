@@ -141,6 +141,9 @@ def test_exact_status_limits_full_text_to_strong_hits_plus_floor():
     assert not any(r.get("full_text") for r in res if r["law"] == "공정거래법"), \
         "글자만 겹친 다른 법 조문에 전문이 붙었다"
     assert d["full_text_suppressed"] is False
+    # 찾아 놓고 「못 찾았다」고 말하지 않는다 (260902 live 실측 문구 오류)
+    assert not any("짚지 못해" in w for w in p["warnings"]), p["warnings"]
+    assert any("표에만" in w for w in p["warnings"]), p["warnings"]
 
 
 def test_exact_status_never_drops_the_strong_hit_full_text():
