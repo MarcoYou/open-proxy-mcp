@@ -30,8 +30,7 @@ def test_no_sql_compares_market_against_the_old_labels():
     bad = []
     for d in ("open_proxy_mcp", "scripts"):
         for p in (ROOT / d).rglob("*.py"):
-            # 감사 스크립트(scripts/*_audit.py)는 DB 가 아니라 저장된 JSON 을 읽는다.
-            if p.name == "market_codes.py" or p.name.endswith("_audit.py"):
+            if p.name == "market_codes.py":
                 continue
             for i, line in enumerate(p.read_text(encoding="utf-8").split("\n"), 1):
                 if re.search(r"market\s*=\s*['\"]KOS(PI|DAQ)['\"]", line) or \

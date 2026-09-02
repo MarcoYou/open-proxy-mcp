@@ -21,12 +21,19 @@
 
 실행: python3 scripts/market_val_weekly.py            # 전체 A→D
       python3 scripts/market_val_weekly.py --dry      # B~D 저장 생략(산출만) — A(krx_weekly 갱신)·DDL은 수행
+      python3 scripts/market_val_weekly.py --backfill [--since 20151201] [--limit-weeks N]
+          # krx_weekly 과거 주간 백필만(스냅샷 B~D 는 돌지 않는다). 옛 KRX 주간 적재 스크립트의 --backfill 흡수
+          # (260902 · 원본은 open-proxy-storage archive/opm-scripts).
+          # 완결된 ISO주마다 금→월 순으로 그 주 마지막 거래일을 찾아 전종목 적재. 주 단위 commit·기적재 주 skip
+          # 이라 재개 가능. KRX 일 10,000콜 한도 — 콜 간 0.35s + 9,000콜에서 강제 중단.
+          # (구 --update 는 A 단계 _ensure_krx_fresh 가 매일 담당하므로 없앴다.)
 
-※ 스냅샷 저장의 단일 정본. 구 market_val_agg.py --report/--snapshot(·삭제된 market_val_sector.py)는
-  FX(비KRW 22사) 미환산이라 저장 경로로 쓰지 말 것(분석·비교용 조회만) — QA 260705.
+※ 스냅샷 저장의 단일 정본. 시장 aggregate 를 FX(비KRW 22사) 환산 없이 만들던 옛 경로
+  (옛 aggregate --report/--snapshot·market_val_sector.py, 둘 다 삭제)는 저장에 쓰지 않는다 — QA 260705.
 """
-import argparse, asyncio, json, os, sys
+import argparse, asyncio, json, os, ssl, sys, time
 from collections import defaultdict
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,6 +112,120 @@ async def _krx_kinds(price_dd: str) -> dict[str, str]:
             except Exception:
                 pass
     return kinds
+
+
+# ── krx_weekly 과거 백필 (옛 KRX 주간 적재 스크립트의 --backfill, 260902 흡수) ─────────────────────
+# KRX Open API 이용 한도(openapi.krx.co.kr, 2026-07 확인): 키당 1일 10,000회 이하, 전일 데이터는 익일
+# 오전 8시 갱신, 비상업적 목적 한정(원시세 재배포 금지 — 배수 산출 인풋으로만). DART 910/분과는 별개 채널.
+KRX_ENDPOINTS = [
+    (MKT_KS, "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"),
+    (MKT_KQ, "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"),
+]
+BACKFILL_THROTTLE_S = 0.35     # 콜 간 간격 (일 10,000 한도 대비 완충)
+BACKFILL_MAX_CALLS = 9_000     # 하루 한도의 90%에서 강제 중단
+BACKFILL_SINCE = "20151201"    # krx_weekly 는 2015-12 부터 — 기적재 주는 어차피 skip
+DDL_KRX_WEEKLY = """
+CREATE TABLE IF NOT EXISTS krx_weekly (
+  price_dd  text NOT NULL, ticker text NOT NULL, market text,
+  close bigint, mktcap bigint, list_shrs bigint,
+  PRIMARY KEY (price_dd, ticker));
+CREATE INDEX IF NOT EXISTS idx_krx_weekly_isu ON krx_weekly (ticker, price_dd);
+"""
+_backfill_calls = 0
+
+
+def _num(v):
+    try:
+        return int(str(v).replace(",", "")) if v not in (None, "", "-") else None
+    except Exception:
+        return None
+
+
+def _ssl_ctx():
+    """Windows 신뢰저장소(truststore) 우선, 실패 시 기본. KRX_INSECURE=1 이면 검증 끔(로컬 프록시용)."""
+    if os.getenv("KRX_INSECURE") == "1":
+        return False
+    try:
+        import truststore
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except Exception:
+        return True
+
+
+async def _backfill_fetch(h: httpx.AsyncClient, url: str, key: str, price_dd: str) -> list:
+    global _backfill_calls
+    if _backfill_calls >= BACKFILL_MAX_CALLS:
+        raise RuntimeError(f"BACKFILL_MAX_CALLS({BACKFILL_MAX_CALLS}) 도달 — 일 한도 보호를 위해 중단. 내일 재개.")
+    from open_proxy_mcp.dart.krx_meter import bump
+    _backfill_calls += 1
+    bump()
+    await asyncio.sleep(BACKFILL_THROTTLE_S)
+    r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": price_dd})
+    r.raise_for_status()
+    return next((v for v in r.json().values() if isinstance(v, list)), [])
+
+
+def _week_candidates(since: date, until: date) -> list[list[str]]:
+    """완결된 ISO주별 후보일 [금,목,수,화,월]. 진행 중인 이번 주는 제외(최근 주는 A 단계가 담당)."""
+    weeks = []
+    monday = since - timedelta(days=since.weekday())
+    last_full_monday = until - timedelta(days=until.weekday() + 7)  # 지난주 월요일
+    while monday <= last_full_monday:
+        weeks.append([(monday + timedelta(days=d)).strftime("%Y%m%d") for d in (4, 3, 2, 1, 0)])
+        monday += timedelta(days=7)
+    return weeks
+
+
+async def backfill(since: date, limit_weeks: int | None = None) -> None:
+    """krx_weekly 과거 주간 백필 — 주 단위 idempotent(DELETE 후 COPY, commit). 기적재 주 skip → 재개 가능."""
+    key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
+    assert key, "KRX_API_KEY 없음 (.env)"
+    con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20)
+    con.execute(DDL_KRX_WEEKLY)
+    con.commit()
+    done_days = {r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly").fetchall()}
+
+    weeks = _week_candidates(since, date.today())
+    todo = [c for c in weeks if not (set(c) & done_days)]   # 후보일 중 하나라도 있으면 그 주는 기적재
+    if limit_weeks:
+        todo = todo[:limit_weeks]
+    print(f"대상 주: {len(weeks)} | 기적재 skip: {len(weeks) - len(todo)} | 실행: {len(todo)}", flush=True)
+
+    t0 = time.time()
+    saved_weeks = empty_weeks = 0
+    async with httpx.AsyncClient(timeout=30, verify=_ssl_ctx()) as h:
+        for i, cands in enumerate(todo):
+            rows_by_mkt, used_day = None, None
+            for d in cands:  # 금→월 순으로 그 주 마지막 거래일 탐색
+                kospi = await _backfill_fetch(h, KRX_ENDPOINTS[0][1], key, d)
+                if not kospi:
+                    continue
+                kosdaq = await _backfill_fetch(h, KRX_ENDPOINTS[1][1], key, d)
+                rows_by_mkt, used_day = [(MKT_KS, kospi), (MKT_KQ, kosdaq)], d
+                break
+            if not rows_by_mkt:
+                empty_weeks += 1  # 그 주 전체 휴장(설·추석 등) 또는 API 제공범위 밖
+                continue
+            recs = [
+                (used_day, r.get("ISU_CD"), market, _num(r.get("TDD_CLSPRC")),
+                 _num(r.get("MKTCAP")), _num(r.get("LIST_SHRS")))
+                for market, rows in rows_by_mkt for r in rows if r.get("ISU_CD")
+            ]
+            with con.cursor() as cur:  # 컬럼명 명시 COPY — 위치 의존 금지
+                cur.execute("DELETE FROM krx_weekly WHERE price_dd = %s", (used_day,))
+                with cur.copy("COPY krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) FROM STDIN") as cp:
+                    for rec in recs:
+                        cp.write_row(rec)
+            con.commit()
+            saved_weeks += 1
+            if saved_weeks % 25 == 0 or i == len(todo) - 1:
+                print(f"  [{saved_weeks}/{len(todo)}] {used_day} {len(recs):,}행 | 콜 {_backfill_calls} | "
+                      f"{time.time() - t0:.0f}s", flush=True)
+
+    n = con.execute("SELECT count(*), count(DISTINCT price_dd), min(price_dd), max(price_dd) FROM krx_weekly").fetchone()
+    print(f"\n완료: 저장 {saved_weeks}주 / 휴장·범위밖 {empty_weeks}주 / 총 콜 {_backfill_calls}", flush=True)
+    print(f"테이블: {n[0]:,}행, {n[1]}개 주간포인트, {n[2]} ~ {n[3]}", flush=True)
+    con.close()
 
 
 def _wk_converge(cur, table: str, snap_dd: str, extra_where: str = "") -> None:
@@ -309,5 +430,14 @@ async def run(dry: bool = False) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry", action="store_true")
-    asyncio.run(run(dry=ap.parse_args().dry))
+    ap.add_argument("--dry", action="store_true", help="B~D 저장 생략(산출만)")
+    ap.add_argument("--backfill", action="store_true",
+                    help="krx_weekly 과거 주간 백필만 수행(스냅샷 B~D 미실행). 재개 가능")
+    ap.add_argument("--since", default=BACKFILL_SINCE, help="--backfill 시작일 YYYYMMDD (기본 20151201)")
+    ap.add_argument("--limit-weeks", type=int, default=None, help="--backfill 에서 이번 실행에 적재할 최대 주 수")
+    a = ap.parse_args()
+    if a.backfill:
+        _since = date(int(a.since[:4]), int(a.since[4:6]), int(a.since[6:8]))
+        asyncio.run(backfill(_since, a.limit_weeks))
+    else:
+        asyncio.run(run(dry=a.dry))

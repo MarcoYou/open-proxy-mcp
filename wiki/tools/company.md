@@ -9,7 +9,7 @@ related_concepts: []
 related_decisions: [pblntf-ty-필터링]
 
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # company
@@ -33,6 +33,7 @@ company(
 - "Samsung Fire 배당" → `query="Samsung Fire"` (DART 공식 영문명 토큰 조합)
 - "HD Hyundai Electric" → `query="HD Hyundai Electric"` (법인 접미사·구두점 정규화)
 - "삼성" / "Samsung" → 활성 상장 후보 중 시총 격차가 충분하면 삼성전자로 자동 추론하고 대안 표시
+- "'카카오'라는 이름으로 상장사 여러 개면 뭐뭐 있어?" → 동명·유사명 후보 목록(status `ambiguous`)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |

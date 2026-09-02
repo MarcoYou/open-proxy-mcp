@@ -8,7 +8,7 @@ related_disclosures: [위임장권유참고서류, 소송등의제기, 경영권
 related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 경영권-방어]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04, 회사측-vs-주주측-위임장, cross-domain-체이닝]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # proxy_contest
@@ -29,6 +29,7 @@ proxy_contest(
 - "고려아연 분쟁 신호 종합" → `scope="summary"`
 - "삼성전자 vote_math (표 구조)" → `scope="vote_math"` (주총 결과 있을 때)
 - "LG화학 위임장 fight" → `scope="fight"` (회사측 vs 주주측 vs retail_activism 분리)
+- "행동주의 펀드가 5% 경영참여 신고했어?" → `scope="signals"` (5% 대량보유 능동 블록 + 임원·주요주주 소유상황)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |

@@ -7,8 +7,7 @@ from typing import Any
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.law_lookup import build_law_lookup_payload
 
-_LAYER_LABEL = {"A": "관련 정관 변경유형", "B": "우회 시나리오", "C": "주총 안건신호"}
-_DIR_LABEL = {"clause_to_law": "정관/키워드 → 법령", "law_to_clause": "법령 → 정관·안건"}
+_DIR_LABEL ={"clause_to_law": "정관/키워드 → 법령", "law_to_clause": "법령 → 정관·안건"}
 
 
 def _decisions_lines(items: list[dict[str, Any]]) -> list[str]:

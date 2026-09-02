@@ -415,15 +415,6 @@ def _kind_html_to_text(html: str) -> str:
     return text.strip()
 
 
-def _filter_value_up_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    filtered = [
-        item for item in items
-        if any(keyword in (item.get("report_nm") or "").replace(" ", "") for keyword in _VALUATION_KEYWORDS)
-    ]
-    filtered.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
-    return filtered
-
-
 def _classify_value_up_item(report_name: str, plan_title: str = "") -> str:
     """기업가치제고 공시를 카테고리로 분류.
 
@@ -472,28 +463,6 @@ def _item_to_value_up_ref(item: dict[str, Any], *, category: str, plan_title: st
     if note:
         data["note"] = note
     return data
-
-
-def _select_latest_plan_item(items: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """items 중 실제 계획 본문을 담은 최신 항목 선택.
-
-    meta_amendment(고배당기업 형식 재공시)는 실제 계획 본문이 없으므로 제외한다.
-    plan 카테고리가 없으면 progress도 허용, 그것도 없으면 None.
-
-    [기재정정] 제외 우선 — 정정 본문이 변경 부분만 담을 위험 회피.
-    제외 후 빈 결과면 정정 포함 첫 번째 fallback.
-    참조: [[architecture/multi-upstream-pattern]] (정정공고 처리 표준).
-    """
-
-    plan_items = [it for it in items if _classify_value_up_item(_item_report_name(it)) == "plan"]
-    if plan_items:
-        non_corr = [it for it in plan_items if not _item_report_name(it).startswith("[기재정정]")]
-        return (non_corr or plan_items)[0]
-    progress_items = [it for it in items if _classify_value_up_item(_item_report_name(it)) == "progress"]
-    if progress_items:
-        non_corr = [it for it in progress_items if not _item_report_name(it).startswith("[기재정정]")]
-        return (non_corr or progress_items)[0]
-    return None
 
 
 async def _search_value_up_items(

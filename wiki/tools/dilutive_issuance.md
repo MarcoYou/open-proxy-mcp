@@ -2,13 +2,13 @@
 type: tool
 title: dilutive_issuance
 domain: data
-scope: [summary, rights_offering, convertible_bond, exchangeable_bond, warrant_bond, capital_reduction]
+scope: [summary]
 data_source: [DART OpenAPI 주요사항보고서 DS005 5종 — piicDecsn + cvbdIsDecsn + exbdIsDecsn + bdwtIsDecsn + crDecsn]
 related_disclosures: [유상증자결정, 전환사채발행결정, 교환사채권발행결정, 신주인수권부사채발행결정, 감자결정]
 related_concepts: [지분구조, 경영권-방어]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # dilutive_issuance
@@ -28,22 +28,23 @@ dilutive_issuance(
 - "EDGC 희석성 증권 (회생기업 패턴: 유상증자+CB+BW+감자)" → `scope="summary"`
 - "하이퍼코퍼레이션 CB 잠재 희석" → `scope="convertible_bond"` (44.69% 심각)
 - "나무기술 BW 발행조건" → `scope="warrant_bond"`
+- "유상증자 한 적 있어? 규모 얼마야?" → 유상증자 카드(신주수·발행가·조달금액·배정방식 + 3자배정이면 대상자 원문)
+- "감자 있었어?" → 감자 카드(비율·사유·자본금 변화·일정)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 5종 (아래 참조) | "summary" |
 | start_date / end_date | str | no | YYYYMMDD | "" (24개월 lookback) |
+| section_chars | int | no | 원문 발췌 길이 | 코드 기본값 |
 | format | str | no | "md" / "json" | "md" |
 
-scope:
-- `summary`: 5종 통합 timeline (기본)
-- `rights_offering`: 유상증자 카드 (배정방식, 희석률, 자금목적, 보호예수)
-- `convertible_bond`: CB 카드 (전환가, 잠재 희석률, refixing, 풋옵션)
-- `exchangeable_bond`: EB 카드 (교환가, 교환대상, 교환비율, 의결권 희석 경고, 정정/철회 시 원문 복원)
-- `warrant_bond`: BW 카드 (행사가, 분리/비분리, 대용납입, 잠재 희석)
-- `capital_reduction`: 감자 카드 (비율, 사유, 자본금 변화, 일정)
+`scope` 인자는 없다 — tool 은 항상 아래 5종을 통합한 timeline(`summary`)을 낸다. 카드별 내용:
+- 유상증자 카드 (배정방식, 희석률, 자금목적, 보호예수)
+- CB 카드 (전환가, 잠재 희석률, refixing, 풋옵션)
+- EB 카드 (교환가, 교환대상, 교환비율, 의결권 희석 경고, 정정/철회 시 원문 복원)
+- BW 카드 (행사가, 분리/비분리, 대용납입, 잠재 희석)
+- 감자 카드 (비율, 사유, 자본금 변화, 일정)
 
 ## 출력 schema (data dict)
 ```json

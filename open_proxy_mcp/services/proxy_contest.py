@@ -724,11 +724,6 @@ def parse_litigation_form(html: str) -> dict[str, Any]:
     return {"status": status, "fields": fields, "excerpt": excerpt, "absent_fields": absent}
 
 
-def _extract_case_name(html: str) -> str:
-    """소송 공시 본문 '1. 사건의 명칭' 값 (하위 호환 · 얇은 래퍼)."""
-    return parse_litigation_form(html)["fields"].get("case_name", "")
-
-
 # 서식 항목 → 사람이 읽는 이름. 렌더러가 그대로 쓴다(사전을 두 벌 두면 한쪽만 고쳐진다).
 LIT_FIELD_LABELS_KO: dict[str, str] = {
     "case_name": "사건의 명칭",

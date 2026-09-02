@@ -8,7 +8,7 @@ data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결�
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE]
 created: 2026-07-05
-updated: 2026-08-31
+updated: 2026-09-02
 ---
 
 # price_multiple_data
@@ -35,6 +35,8 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 - "두산밥캣 PBR" → USD 재무 자동 KRW 환산(ECOS 1,434.9) → PBR 0.86
 - "코스피 지금 싸?" → market: KOSPI PER 20.4(TTM)·PBR 2.23 + 주간 추이
 - "반도체 업종 밸류" → sector: KSIC 섹터별 PER/PBR 표
+- "두산밥캣 섹터 평균 대비 싸? 비싸?" → sector + company: 기업 vs 소속 섹터 비교 + 섹터 시계열
+- "배당수익률 얼마?" → firm: 현재가 기준(시장·섹터 집계 배당수익률은 market/sector)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |

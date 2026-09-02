@@ -2,6 +2,70 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## beta — 2026-09-02
+
+### 신설 tool 7종·개명 정리
+
+v2.5.2(08-05) 이후 노트에 적히지 않은 채 들어온 tool 을 한 번에 정리합니다. **25개 → 32개.** README 의 tools 배지도 32 로 맞췄습니다.
+
+셈은 이렇게 닫힙니다 — 07-22 시점 25개(`screener` 포함)에 그 뒤 신설 7종을 더해 32개입니다: `proxy_guideline`(08-13) · `director_news`(08-20) · `financial_notes`(08-23) · `trading_data`(08-24) · `forward_estimates_data`(08-30, 08-31 절에 기록) · `dividend_history_data`·`dividend_screener`(09-02). 날짜는 각 wiki 페이지의 `created` 입니다 — 이 레포의 git 이력이 2026-08-24 부터라 그 전 tool 의 첫 커밋은 이력 편입 커밋(`fd6eeb7`, 08-28)으로 잡혀 근거로 쓰지 않았습니다. `screener` 는 v2.5.2 이전부터 있었지만 릴리즈 노트에 한 번도 적히지 않아 여기 함께 정리합니다.
+
+### `valuation` → `price_multiple_data` 개명 (tool 이름 08-24 · 파일 08-30)
+
+- 「밸류에이션」 한 이름이 **배수(PER·PBR)와 규모(주가·시총)** 를 같이 들고 있어 `scope` 하나로 다섯 가지를 갈랐고, 「주가 하나 뽑아 달라」는 요청이 배수 산출 경로를 통째로 태웠습니다. 배수는 `price_multiple_data`, 규모·거래는 아래 `trading_data` 로 갈랐습니다.
+- tool 이름은 08-24 에 바뀌었고(wiki 「이름 (260824 개명)」), 파일 이름은 08-30 커밋 `a24a692` 에서 따라갔습니다. 옛 이름의 사용통계는 `usage_tracker.TOOL_ALIASES` 가 한 계열로 접습니다.
+- 정의는 그대로입니다 — **PER = 보통주 시총 ÷ 지배순이익 · PBR = 보통주 시총 ÷ 지배자본(MRQ)**(260823 전환). `scope=market/sector/firm_history` 는 Supabase 주간 스냅샷이라 **배치 미실행이면 `no_data`** 입니다.
+
+### `screener` — 전체시장 공시 스크리너 / 아침 디제스트 (v2.5.2 이전 신설·미기록, wiki updated 08-25)
+
+- 「오늘/어제 무슨 공시 떴어」에 답합니다. 직전 실행 이후~오늘 전종목에 뜬 주요 공시를 카드형(기업명+시총+유형+단계+정정+DART/naver 링크)으로 요약합니다. 무인자 호출이 곧 아침 디제스트입니다.
+- `types` — `core`(영업잠정실적·수주·자사주·배당·증자CB·주총소집·5%보유) / `all` / 사람 말 쉼표구분(「자사주, 배당」·「수주」·「실적」…). `scan`(무엇이 떴나, 싸게)이 기본이고 `details=true` 면 필요 건만 문서를 열어 유형별 핵심숫자(금액·분모%·DPS·안건·지분%)를 채웁니다 — 유형별 파서(`order_contracts` 등)를 재사용합니다.
+- 출처: DART `list.json` 전체시장 필러(corp_code 없이 유형별 detail 코드 스캔) + 시총은 `krx_weekly`(DART 0콜). 정정은 `[기재정정]` 프리픽스로 최신본만 남기고, 결정≠결과≠소각을 단계로 태깅합니다.
+- 빈 결과를 **`no_new`(신규 없음)와 `status=error`(조회 실패)로 가릅니다.** 한 회사 심층은 개별 tool 입니다.
+
+### `financial_notes` 신설 — 금융사 유동성·자산건전성 주석 (wiki created 08-23)
+
+- 은행·증권·보험의 **재무제표 주석 표를 가공 없이 원형 그대로** 뽑습니다. ①사용제한 예치금·담보제공자산(→ unencumbered cash) ②투자자산 유형별 구성 FVPL·FVOCI·상각후원가(→ 유형별 헤어컷). 크레딧·채권 애널리스트 요청으로 만들었습니다 — `financial_metrics` 는 전사 집계라 주석 내부 분해가 없고, `business_details` 는 「II. 사업의 내용」이라 장이 다릅니다.
+- `fields`(쉼표구분, 비우면 전부 — 문서 다운로드가 회사당 1회라 한 번에 부르는 편이 쌉니다) · `period`(`latest`/`annual`/`half`/`quarter`/`quarterly`) · `basis`(연결/별도) · `year`(사업연도, 260824 지적으로 추가 — 그 전엔 과거를 부를 길이 없었습니다).
+- 출처: DART `document.xml` 「III. 재무에 관한 사항」 주석. **표를 합치거나 나누지 않습니다** — 회사마다 표 형태가 다른 것 자체가 정보입니다.
+- 주의 두 가지가 docstring 에 박혀 있습니다. **당기말/전기말을 반드시 구분**(KB손보 사용제한: 전기말 391,082 → 당반기말 26,356, 1/15) · **단위가 회사마다, 같은 회사 안에서도 보고서마다 다릅니다**(현대해상 분기 `원` · 반기 `천원` · 사업 `원` — 그대로 이으면 1,000배). 「사용제한」과 「담보제공」은 `kind` 로 갈라 내고 합치지 않습니다. unencumbered cash 계산·헤어컷 적용은 이 tool 밖입니다.
+
+### `director_news` 신설 — 이사 후보 부정 뉴스 점검 (wiki created 08-20)
+
+- 이사·감사·감사위원 **후보 이름(+회사명)으로 네이버 뉴스를 훑어** 횡령·배임·수사·제재·해임 등 48개 부정 키워드에 걸린 기사만 남깁니다. `shareholder_meeting_notice` 가 주는 경력·겸직 밖의, 공시에 안 나오거나 뒤늦게 나오는 사건을 보기 위한 자리입니다.
+- 출처: NAVER API HUB 뉴스 검색 **1회 호출(최대 100건)** 후 로컬 필터. 검색 API 에 언론사 옵션이 없어 원문 링크 도메인으로 언론사 묶음을 가립니다. `extra_keywords`·`exclude_keywords` 로 넓히고 좁힙니다. DART 는 쓰지 않습니다.
+- **키워드가 걸렸다 ≠ 사실 확인** — 원문을 열어 봐야 하고, 동명이인은 가르지 못합니다. **0건은 「무혐의」가 아니라 「이 조건에서 안 걸림」** 입니다. 찬반은 정하지 않습니다.
+
+### `proxy_guideline` 신설 — 의결권 판단 기준 문서 조회 (wiki created 08-13)
+
+- `proxy_advise_before_meeting` 판정 사유에 「OPM Guideline §재무제표 — …」로 붙는 **인용의 원문**을 읽습니다. 종전엔 그 한 줄 뒤에 무엇이 있는지 확인할 길이 없었습니다. 회사·DART 무관, **API 호출 0.**
+- `section` 을 비우면 목차+전문, 주면 제목에 그 말이 든 절만(`재무제표`·`이사선임`·`정관`·`0-A`). 없는 절이면 쓸 수 있는 절 목록을 돌려줍니다. 상한 120,000자.
+- 같은 문서를 `opm://guideline` resource 로도 걸어 뒀지만 **Claude.ai 커넥터가 resource 를 모델에게 노출하지 않는 것**이 260813 실측으로 확인돼 tool 로도 둡니다.
+- **정책과 엔진은 의도적으로 다릅니다** — §0-A 정합표가 그 간극의 지도입니다. 정책이 `against` 를 선언해도 hard trigger 가 아니면 엔진은 REVIEW 로 둡니다.
+
+### `trading_data` 신설 — 주가·시총·주식수·시세 (wiki created 08-24)
+
+- 가격과 **규모 그 자체** — 종목의 주가·시가총액·상장주식수 시계열(주간, 2015-12~), 코스피·코스닥 시총 집계, WICS 섹터별 시총·비중, 특정 거래일 전체 시세(OHLC·거래량·거래대금·등락률). 배수는 `price_multiple_data` 몫입니다.
+- `scope` — `firm`(기본, `since`) / `market` / `sector`(`scheme=wics_industry` 28 · `wics_sector` 10, `bucket` 으로 한 섹터 시계열) / `quote`(`as_of=YYYYMMDD`). `freq` 기본은 firm=weekly, market·sector=monthly 이며 `data.points_weekly` 로 원본 관측수를 같이 줍니다.
+- 출처: `firm/market/sector` 는 Supabase 저장분(`krx_weekly`·`krx_cap_agg`, **DART·KRX 0콜**), `quote` 만 KRX 라이브(최대 2콜). status 는 `no_data`(휴장일·상장 전·**배치 미실행**) / `db_error`(재시도 유효) / `db_unconfigured`(스냅샷 DB 미연결 — firm·market 은 KRX 라이브 최신 1시점으로 폴백하고 `timeseries_available:false` 가 붙습니다. sector 는 폴백 없음)를 가릅니다.
+- **`close_krw` 는 수정주가가 아닙니다** — 액면분할·병합 시점에 불연속이며 `price_adjusted:false` 와 조정 이벤트 목록을 같이 냅니다. 연속 비교에는 `mktcap_krw` 를 쓰세요. 시총은 그 날 상장 전 종목(우선주 포함) 합이라 `price_multiple_data` 의 Σ시총보다 3~4% 큽니다. 미분류 종목은 `_UNCLASSIFIED` 로 남겨 **섹터 합 == 시장 합**이 성립합니다. 업종분류는 2026-08 부터 관측이라 그 이전은 소급(`sector_asof`)입니다.
+
+### `dividend_history_data` 신설 — 확정 배당 시계열 (09-02, `a0dbddb`)
+
+- DART 정기보고서 `alotMatter` **전수 수집본(코스피 828사 × FY2020~2025)** 에서 확정 배당의 시계열을 읽습니다. `scope=firm`(한 회사 여러 해) / `market`(코스피 전체 집계) / `sector`(WICS 섹터 집계), `year_from`·`year_to`. `dividend` 가 회사 하나를 실시간으로 깊게 본다면 이쪽은 가로·세로로 넓게 봅니다. **DART 를 실시간 호출하지 않습니다.**
+- **확정치만** 냅니다 — 추정도 결정공시 예고도 아닙니다. 총액은 **신고총액 하나만**(보통/우선 배분은 종류별 주식수가 없어 검산이 안 돼 내지 않습니다). 배당성향은 원문 `(연결)현금배당성향(%)` 을 그대로 실어 **우리가 계산한 값이 아닙니다.**
+- 빈칸을 **확정 / 무배당 / 항목없음 / 보고서없음** 으로 갈라 내고 0 으로 메우지 않습니다. 주식 종류는 `보통`/`우선`/`종류`/`미구분` 넷 — 상환주·전환주·트래킹스톡이 우선주 통에 섞여 있던 821행을 09-02 `90cc13b` 에서 갈랐습니다. 분기는 누적 차분이며 `음수차분` 이 붙은 줄은 전제가 깨진 구간입니다.
+- DB 조회가 실패하면 `status=db_error` 로 끝냅니다(일시 장애일 수 있어 잠시 뒤 재시도).
+
+### `dividend_screener` 신설 — 배당 조건 가로 스크리닝 (09-02, `a0dbddb`)
+
+- 한 사업연도(`bsns_year`)에서 **배당 조건으로 회사를 거릅니다** — `min_payout`/`max_payout`(배당성향 범위) · `min_dps` · `quarterly_only` · `sector`(WICS) · `limit`. 같은 전수 수집본을 읽습니다.
+- **보통주(`보통`·`미구분`) 행·확정치·DPS>0 만** 셉니다. 결과에 **모집단·매칭 수·이번에 실은 수**를 갈라 냅니다 — **`limit` 은 표시 한도지 매칭 수가 아닙니다.** 09-02 전에는 셋이 한 칸이라 「100사」로 읽힌 것이 실은 121사였습니다.
+- `quarterly_only` 는 **그 해 두 번 이상 배당한 회사**(분기 원장에서 배당액>0 인 분기 2개 이상)로 판정을 갈아엎었습니다(`90cc13b`).
+- 0건은 「그런 회사가 없다」이지 조회 실패가 아닙니다. 실패는 `status=db_error` 로 따로 옵니다.
+
+검증: `python3 scripts/check_tool_catalog.py` 로 런타임 MCP 등록 tool 수 32 확인(wiki 카탈로그·README 표·domain 통계 일치). `python3 scripts/wiki_lint.py --strict` 통과.
+
 ## beta — 2026-08-31
 
 ### `price_multiple_data` — 시장·산업 배당수익률 추가

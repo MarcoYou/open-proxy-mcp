@@ -9,7 +9,7 @@ related_concepts: [특수관계인, 동일인]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
 
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # corporate_deals
@@ -33,6 +33,8 @@ corporate_deals(
 자연어 예시:
 - "POSCO홀딩스 자회사 거래 패턴" → `scope="summary"` (지주회사 구조 신호)
 - "성호전자 타법인주식 양수" → `scope="equity_deal"` (M&A 활발)
+- "계열사 출자·회수 내역 뭐야?" → `scope="summary"` + `include_details=True` (상대방·관계·금액·자산대비비율)
+- "타법인 주식 매각 공시 있어?" → `scope="equity_deal"` (취득/처분 양방향)
 - "현대건설 단일공급계약" → [[order_contracts]] (공급계약은 일원화로 이전)
 
 ## 입력 인자

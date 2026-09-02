@@ -8,7 +8,7 @@ related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식
 related_concepts: [자사주, 주주환원]
 related_decisions: [배당공시유형, cross-domain-체이닝]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # treasury_share
@@ -26,9 +26,12 @@ treasury_share(
 ```
 
 자연어 예시:
-- "삼성전자 2024 자사주 매입·소각 이력" → `scope="acquisition"` (취득 + 신탁체결)
-- "KT&G 자사주 소각결정만 보여줘" → `scope="cancelation"`
+- "삼성전자 2024 자사주 매입·소각 이력" → `scope="summary"` (결정 5종 + 결과보고서 4종, 사이클 매칭)
+- "KT&G 소각한 자사주 있어?" → `scope="summary"` 의 소각결정·소각목적 취득 breakdown
+- "신탁으로 산 거야 직접 산 거야?" → `scope="summary"` (직접 취득결정 vs 신탁계약 체결·해지 구분)
 - "현재 자사주 잔고" → `scope="annual"` (사업보고서 기준 발행/자기/유통)
+
+(구 `events`·`acquisition`·`disposal`·`cancelation` scope는 폐지 — 전부 `summary`에 통합.)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |

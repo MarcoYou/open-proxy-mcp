@@ -2,14 +2,14 @@
 type: tool
 title: corporate_restructuring
 domain: data
-scope: [summary, merger, split, share_exchange]
+scope: [summary]
 data_source: [DART OpenAPI 주요사항보고서 DS005 4종 — cmpMgDecsn + cmpDvDecsn + cmpDvmgDecsn + stkExtrDecsn]
 related_disclosures: [회사합병결정, 회사분할결정, 회사분할합병결정, 주식교환·이전결정]
 related_concepts: [지분구조, 동일인]
 related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
 
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # corporate_restructuring
@@ -29,20 +29,20 @@ corporate_restructuring(
 - "이마트 share exchange 결정 (신세계건설/푸드 100% 자회사)" → `scope="share_exchange"`
 - "감성코퍼레이션 분할" → `scope="split"` (단순물적분할)
 - "일동제약 합병" → `scope="merger"`
+- "합병·분할 공시 있어?" → 기본 호출(24개월 lookback, 4종 통합 timeline)
+- "분할하면 존속·신설 어떻게 나뉘어?" → 분할 카드(분할형태·분할비율·이전 사업부문·신설회사 재상장 여부)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 4종 (아래 참조) | "summary" |
 | start_date / end_date | str | no | YYYYMMDD | "" (24개월 lookback) |
 | format | str | no | "md" / "json" | "md" |
 
-scope:
-- `summary`: 4종 통합 timeline (기본)
-- `merger`: 합병 카드 (비율, 상대방, 외부평가, 매수청구권, 풋옵션)
-- `split`: 분할 + 분할합병 카드 (분할형태, 존속회사, 신설회사 재상장)
-- `share_exchange`: 주식교환·이전 카드 (교환비율, 대상회사, 일정)
+`scope` 인자는 없다 — tool 은 항상 아래 4종을 통합한 timeline(`summary`)을 낸다. 카드별 내용:
+- 합병 카드 (비율, 상대방, 외부평가, 매수청구권, 풋옵션)
+- 분할 + 분할합병 카드 (분할형태, 존속회사, 신설회사 재상장)
+- 주식교환·이전 카드 (교환비율, 대상회사, 일정)
 
 ## 출력 schema (data dict)
 ```json

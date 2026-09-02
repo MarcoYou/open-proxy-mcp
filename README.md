@@ -92,7 +92,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 1. `최근 한 달 사이에 중대재해나 횡령 공시 낸 상장사 알려줘`
 2. `한화에어로스페이스 중대재해 이력을 사상자까지 자세히 보여줘`
 
-더 많은 예시(이사 보수·경영권 분쟁·재무·밸류 등 도구별 질문 모음) → **[docs/examples/](docs/examples/README.md)**
+더 많은 예시(이사 보수·경영권 분쟁·재무·밸류 등 도구별 질문) → **[wiki/tools 카탈로그](wiki/tools/README.md)** 의 각 도구 페이지 「사용법」 절
 
 ---
 
@@ -109,7 +109,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`screener`](wiki/tools/screener.md) | 여러 data tool을 묶어 판단·비교·디제스트 생성 |
 | Reference | [`law_lookup`](wiki/tools/law_lookup.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 정관↔법령 양방향 조회 (상법·자본시장법 등 원문) · 의결권 판단 기준 문서 원문 — API 0콜 |
 
-> 도구별 예시 질문 → [docs/examples/](docs/examples/README.md) · 상세 스키마·데이터 출처 → [wiki/tools 카탈로그](wiki/tools/README.md)
+> 도구별 예시 질문·상세 스키마·데이터 출처 → [wiki/tools 카탈로그](wiki/tools/README.md) (각 도구 페이지의 「사용법」 절에 자연어 예시)
 
 ### 의결권 정책
 

@@ -8,7 +8,7 @@ related_disclosures: [현금배당결정, 주식배당결정, 배당기준일결
 related_concepts: [배당성향, 배당수익률, 시가배당률, 분기배당, 특별배당, 감액배당, 자본준비금, 당기순이익, 주주환원]
 related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, cross-domain-체이닝]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # dividend
@@ -27,6 +27,8 @@ dividend(
 
 자연어 예시:
 - "KT&G 2024 배당" → `scope="summary"` (DPS·배당성향·시가배당률 + 선배당-후결의·감액배당 신호)
+- "작년 주당배당금·배당 총액 얼마였어?" → `scope="summary"` + `year` 지정
+- "배당성향 추이 어때?" → `scope="history"` (N년 추이 + 분기 breakdown + policy_signals)
 - "삼성전자 최근 배당 결정들" → `scope="detail"`
 - "메리츠금융지주 최근 3년 배당 추이" → `scope="history"`
 

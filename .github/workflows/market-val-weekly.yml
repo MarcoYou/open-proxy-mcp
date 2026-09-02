@@ -7,7 +7,7 @@
 # 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY (ECOS_API_KEY 불필요 — fx_rate는 DB 캐시 히트)
 #
 # 선행 step(260705): mkt_fundamentals 재무 4열을 SSOT(mkt_finstat_q 분기재무)에서 파생 — **DART 0콜**.
-# 신규 분기 공시분을 스냅샷 계산 전에 반영(구 market_val_agg는 done셋으로 갱신 불가였음). 분기 fetch는
+# 신규 분기 공시분을 스냅샷 계산 전에 반영(옛 시장 aggregate 스크립트는 done셋 고정이라 갱신 불가였음 — 260902 삭제). 분기 fetch는
 # 별도(연 4회 공시 후, DART 키 필요 → fly/수동, GitHub에 키 미복제). derive는 0-DART라 여기서 안전.
 
 name: market-val-weekly

@@ -8,7 +8,7 @@ related_disclosures: [공시유형코드체계]
 related_concepts: []
 related_decisions: [pblntf-ty-필터링]
 created: 2026-06-11
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # risk_events
@@ -30,6 +30,7 @@ risk_events()                                                # 시장 전체 최
 자연어 예시:
 - "한화오션 중대재해 공시 알려줘" / "최근 중대재해 발생한 기업들" (시장 스캔)
 - "태광산업 횡령 배임 공시 있어?" → 혐의발생→진행→사실확인 단계 추적
+- "생산 중단 공시 있어?" → `category="production_halt"` (생산중단·영업정지, 자회사 변형 포함)
 - "최근 한 달 사고·사건 터진 회사 어디야?" → 시장 스캔, 6카테고리 분류
 
 ## 입력 인자

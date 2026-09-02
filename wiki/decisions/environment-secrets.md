@@ -27,7 +27,6 @@ fly.toml `[env]`에는 경로 같은 **비밀 아닌 설정**만 둔다. API 키
 | `OPENDART_API_KEY_2` … `_N` | DART 보조 키 (배치·내부용 순번 회전). 분당 한도 910 은 키를 늘려도 그대로, 늘어나는 건 일일 쿼터뿐 | 권장 | opendart.fss.or.kr |
 | `KRX_OPEN_API_KEY` | KRX 시세·시총·상장주식수 (밸류에이션·수정주가) | 밸류에이션 필수 | data.krx.co.kr |
 | `ECOS_API_KEY` | 한국은행 환율(매매기준율) — 기능통화 USD사(두산밥캣) KRW 환산 | 밸류에이션 필수 | ecos.bok.or.kr → 오픈API 인증키 |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | `open_proxy_mcp/llm/client.py` 만 읽는다 — 어떤 tool 도 호출하지 않는 미사용 모듈 | 불필요 | — |
 | `OPM_ADMIN_KEY` | `/admin/cache`·`/admin/memtop` 인증. 없으면 404 로 숨김 | 운영 | (자체 생성) |
 | `OPM_MASTER_DB_PATH` / `OPM_DOC_CACHE_DIR` | corp_code sqlite · 문서 디스크 캐시 경로 (fly.toml `[env]`, 비밀 아님) | 운영 | — |
 | `FASTMCP_HOST` / `FASTMCP_PORT` / `FASTMCP_ALLOWED_HOSTS` | 바인드 주소·포트·허용 호스트 (`run_beta.sh`) | 로컬 | — |

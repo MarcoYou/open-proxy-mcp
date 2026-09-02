@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
-updated: 2026-08-25
+updated: 2026-09-02
 description: 주주총회 소집공고 (사전) — DART API/XML 기반
 related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_structure, proxy_contest, evidence]
 ---
@@ -142,6 +142,7 @@ sequenceDiagram
 ```
 "삼성전자 다음 주총 안건 알려줘"
 "LG화학 사외이사 후보 명단"
+"이사 후보 누구고 재선임이야 신임이야?"
 "카카오 보수한도 인상률 정보"
 "현대차 정관변경 변경 전/후 비교"
 "LG화학 주총소집공고 rcept_no=20260224004273으로 다시 파싱해줘"

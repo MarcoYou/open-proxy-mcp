@@ -978,44 +978,6 @@ def extract_backlog(biz_content_text: str) -> dict:
             "unit": parse_unit(t[:3000])[0]}
 
 
-def extract_customer_concentration(note_full_text: str) -> dict:
-    """10% 이상 외부고객(주요 고객에 대한 공시). 단일부문사의 매출분해 대체(F9)."""
-    t = note_full_text or ""
-    p = -1
-    for mk in ("주요 고객에 대한 공시", "주요고객에 대한 공시", "매출액의 10% 이상", "10% 이상인 고객"):
-        p = t.find(mk)
-        if p >= 0:
-            break
-    if p < 0:
-        return {"status": NOT_APPLICABLE, "na_reason": "주요 고객에 대한 공시가 없습니다",
-                "na_code": "no_customer_disclosure"}
-    region = t[p:p + 2500]
-    # 당기 블록만 — 2번째 '(단위'/기간마커에서 절단(주요고객 마커 컷은 쓰지 않음)
-    u1 = region.find("(단위")
-    if u1 >= 0:
-        u2 = region.find("(단위", u1 + 4)
-        if u2 > 0:
-            region = region[:u2]
-    pms = list(_PERIOD_MARK.finditer(region))
-    if len(pms) >= 2:
-        region = region[:pms[1].start()]
-    names = re.findall(r"주요\s*고객사?\s*\(\s*([A-Z])\s*\)|(?:^|\s)고객\s*(\d+|[A-Z])(?:\s|$)", region)
-    flat = [a or b for a, b in names if (a or b) not in ("합계", "고객")]
-    # 고객 매출 값행 (라벨 직후 순서대로, 0 포함)
-    _, vals = _find_row_values(region, ["주요 고객 매출액", "주요고객 매출액", "매출액", "수익(매출액)", "수익"])
-    # 트레일링 합계 제거: 마지막 값 ≈ 앞 값들 합이면 총계
-    if len(vals) >= 2 and vals[-1] != 0 and abs(sum(vals[:-1]) - vals[-1]) <= max(abs(vals[-1]), 1) * 0.02:
-        vals = vals[:-1]
-    if not flat and not vals:
-        return {"status": NOT_APPLICABLE, "na_reason": "주요 고객 표기는 있으나 값을 읽지 못했습니다",
-                "na_code": "customer_marker_no_data"}
-    # 이름 개수 기준 zip(이름 있으면) — 초과 값은 버림
-    n = len(flat) if flat else min(len(vals), 6)
-    customers = [{"customer": flat[i] if i < len(flat) else f"고객{i+1}",
-                  "revenue": vals[i] if i < len(vals) else None} for i in range(n)]
-    return {"status": OK, "customers": customers, "unit": parse_unit(region)[0]}
-
-
 def _seg_chapter(source: str) -> str:
     """`source` 는 어느 층에서 표를 얻었는지다 — note / note_grid / body / body_grid.
     접두로 판별한다: 정확일치 맵으로 두면 격자 경로(`note_grid`)가 빠져 장(章)이 빈
@@ -1205,27 +1167,6 @@ def _sp_to_dict(sp: "SegmentProfit") -> dict:
             # 구간을 무엇으로 짚었는지 — 층별 적용률을 운영에서 관측하기 위함
             "selection_method": sp.selection_method,
             "source_location": _seg_source_location(sp)}
-
-
-def build_details(biz_content_text: str, note_full_text: str, toc: list, note_source: str = "",
-                  note_html: str = "") -> dict:
-    """최상위 오케스트레이션 — 폼 게이트 후 필드 추출. 스콥: 금융·REIT는 UNSUPPORTED_FORM."""
-    form = detect_form(toc or [])
-    out = {"form_type": form}
-    if form in (FORM_FINANCIAL, FORM_REIT):
-        for f in ("segment_profit", "rnd", "backlog", "customer_concentration"):
-            out[f] = {"status": UNSUPPORTED_FORM, "na_reason": _UNSUPPORTED_FORM_KO,
-                      "na_code": f"form_{form}_not_supported_v1"}
-        return out
-    out["segment_profit"] = _sp_to_dict(extract_segment_profit(biz_content_text, note_full_text, note_source,
-                                                               note_html=note_html))
-    # 매핑 미탑재를 조용히 넘기지 않는다 — 미탑재면 텍스트 경로만 돌았다는 뜻이므로 표면화한다.
-    from open_proxy_mcp.services import coordinate_map as _cm
-    out["coordinate_map"] = _cm.status()
-    out["rnd"] = extract_rnd(biz_content_text)
-    out["backlog"] = extract_backlog(biz_content_text)
-    out["customer_concentration"] = extract_customer_concentration(note_full_text)
-    return out
 
 
 # ══════════════════════════════════════════════════════════════════

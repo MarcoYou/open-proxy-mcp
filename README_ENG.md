@@ -92,7 +92,7 @@ Once connected, just ask in natural language. You don't need to know tool names.
 1. `Which listed companies filed serious-accident or embezzlement disclosures in the last month?`
 2. `Show Hanwha Aerospace's serious-accident history in detail, including casualties`
 
-More examples (director pay, control contests, financials, valuation) → **[docs/examples/](docs/examples/README.md)**
+More examples (director pay, control contests, financials, valuation) → the "사용법" (usage) section of each tool page in the **[wiki/tools catalog](wiki/tools/README.md)**
 
 ---
 
@@ -109,7 +109,7 @@ Tools flow **Company → Meeting/Data/Evidence → Action** (statute lookup is a
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`screener`](wiki/tools/screener.md) | Orchestrate data tools into judgments, comparisons, digests |
 | Reference | [`law_lookup`](wiki/tools/law_lookup.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Bidirectional articles↔statute lookup · the voting-policy document cited in recommendations — zero API calls |
 
-> Per-tool example questions → [docs/examples/](docs/examples/README.md) · schemas & data sources → [wiki/tools catalog](wiki/tools/README.md)
+> Per-tool example questions, schemas & data sources → [wiki/tools catalog](wiki/tools/README.md) (natural-language examples live in each tool page's usage section)
 
 ### Voting policy
 

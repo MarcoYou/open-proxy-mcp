@@ -610,7 +610,8 @@ def _scan_windows(full_html: str, anchor: str) -> list[tuple[int, int, str]]:
         start = _find_geo_anchor_pos(full_html)
     wins.append((max(0, start) if start >= 0 else 0, len(full_html), ""))
     return wins
-_PRODUCT_CAPTION_RE = re.compile(r"제품|서비스\s*별|재화\s*(?:와|및)?\s*용역|수익\s*유형|매출\s*유형|품목|플랫폼|수익원|용역\s*별")
+
+
 _CAPTION_WINDOW = 600
 
 

@@ -8,7 +8,7 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-08-06
+updated: 2026-09-02
 ---
 
 # proxy_advise_before_meeting
@@ -37,6 +37,11 @@ proxy_advise_before_meeting(
     check_audit_history=False,
 )
 ```
+
+자연어 예시:
+- "KT&G 이번 주총 안건별로 찬성/반대 어떻게 봐야 해?" → 기본 호출(회차 자동 선택, 안건별 decision + facts + policy_citation)
+- "이 이사 재선임 반대할 근거 있어?" → 후보 평가(roster 교차검증·경력·risk_factors) + 정책 근거
+- "이 보수한도 인상 안건 어떻게 판단해?" → 보수 안건 facts + 판정 근거 (소진율·인상 이력 detail은 [[director_board]] `pay_agenda`)
 
 ## 입력 인자
 
