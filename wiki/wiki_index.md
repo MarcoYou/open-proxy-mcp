@@ -16,14 +16,15 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 |---|---|---|
 | **raw/** | ~39 files | 외부 원본 (수정 금지) |
 | **rules/** | 88 + README 4 | 한국 자본시장 사실 |
-| **tools/** | 33 + README | MCP tool 카탈로그 |
-| **decisions/** | 40 + README | 설계·정책·판단·시점 작업 |
+| **tools/** | 32 + README | MCP tool 카탈로그 |
+| **decisions/** | 27 + README | 설계·정책·판단·시점 작업 |
+| **guide/** · **handoff/** | 2 + 2 | 사람용 안내 · 세션 간 미해결 항목 (보조) |
 
-총 163 markdown (git-tracked, raw 제외).
+총 159 markdown (git-tracked, raw 제외 — corpus 사본 포함).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 
-## Tools (35) - `tools/`
+## Tools (32) - `tools/`
 
 ### Company (1)
 - [[company]]
@@ -56,8 +57,7 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 - `director_performance` — 사내이사 성과 매트릭스 2x3
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
-### 참조 (5)
-- [[tool_call_budget]] · [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
+### 참조 (2)
 - [[director_news]] · [[proxy_guideline]]
 
 ## Rules (0) - `rules/`
@@ -90,5 +90,5 @@ corpus/: 상법·자본시장법·공정거래법·외부감사법 원문 (legal
 
 - 작업 로그(구 `log.md`, 2026-04-05~08-25)는 storage `wiki-private/archive/opm-wiki-log.md` 로 이관(260902). 변경 이력은 `docs/RELEASE_NOTES.md` 와 각 tool 페이지 변경 이력을 본다.
 - [[wiki_schema]] — wiki 구조·명명·link 정책
-- `guide/` — [[guide/README]] · [[guide/architecture]] · [[guide/presentation]]
+- `guide/` — [[guide/README]] · [[guide/architecture]]
 - `handoff/` — [[handoff/README]]

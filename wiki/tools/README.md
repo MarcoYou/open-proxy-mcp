@@ -75,8 +75,9 @@ updated: 2026-09-02
 | [evidence](evidence.md) | 공시 원문 링크 (접수번호 → DART 열람 URL) |
 | [law_lookup](law_lookup.md) | 정관↔법령 양방향 조회 — 정관 조항/키워드 → 관련 법령 조문(전문), 또는 법조문 → 관련 정관 변경유형·우회·안건. 상법·자본시장법·공정거래법·외부감사법 원문. **회사·DART 무관** |
 
-> 📊 도구–공시 채널 매핑(시각 자료): [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
-> 📞 도구별 DART 콜 budget(기업당 최대 콜·유니버스 배치 안전 크기): [[tool_call_budget]]
+> 도구–공시 채널 매핑은 아래 「데이터 소스 매트릭스」와 각 페이지 frontmatter `data_source`, 도구별 DART 콜 수는
+> 각 페이지 「외부 호출」 절이 정본이다. 옛 시각 자료(17-tool 시점 도식·PPT·콜 budget 표)는 storage
+> `wiki-private/archive/opm-wiki-tools/`·`decks/opm-wiki-diagrams/` 로 이관(260902).
 
 ---
 
@@ -155,7 +156,18 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - |
 | corporate_deals | ✅ list+키워드 | - | - | - |
+| order_contracts | ✅ list(I001) 단일판매·공급계약 키워드 + 원문 파싱 | - | - | - |
 | risk_events | ✅ list(I001+B001)+키워드 | - | - | - |
+| provisional_earnings | ✅ list(I001 결산잠정치·I002 공정공시) + 원문 파싱 | - | - | - |
+| business_details | ✅ get_document 1콜(II.사업의 내용 + 주석 부문정보) + list(A001~A003) | - | - | - |
+| financial_notes | ✅ get_document(III.재무에 관한 사항 주석·재무상태표) | - | - | - |
+| price_multiple_data | ✅ 재무 4EP + company.json + fnlttSinglAcntAll + stockTotqySttus + alotMatter (firm) | - | - | ✅ Supabase 주간 스냅샷(market/sector/firm_history) · KRX 시세 · ECOS 환율 |
+| trading_data | - | - | - | ✅ Supabase krx_weekly·krx_cap_agg·krx_adj_events·wise_sector (quote 만 KRX 라이브) |
+| forward_estimates_data | - | - | - | ✅ Supabase `fwd` 컨센서스 스냅샷(벤더 원천, DART 아님) |
+| dividend_history_data | - (전수 수집본 조회) | - | - | ✅ Supabase div_declared·div_quarterly(alotMatter 수집본) + wise_sector |
+| dividend_screener | - (전수 수집본 조회) | - | - | ✅ Supabase div_declared·div_quarterly + wise_sector |
+| director_news | - | - | ✅ 뉴스 검색 API 1콜 | ✅ 부정 키워드 사전 |
+| proxy_guideline | - | - | - | ✅ 패키지 데이터 open-proxy-guideline.md (API 0콜) |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - |
 | evidence | - | - | - | - (문자열 가공) |
 | law_lookup | - | - | - | ✅ legalize-kr 법령 corpus (상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge |
@@ -177,7 +189,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 ## 변경 이력
 - 2026-05-01: 초기 tool 페이지 일괄 작성 + financial_metrics 신규
 - 2026-05-18: 현재 16 public tool 체계로 정리(구 tool 명칭 제거)
-- 2026-05-20: 도구–공시 매핑 [[data_tool_disclosure_map]] 추가
+- 2026-05-20: 도구–공시 매핑 페이지 추가 (260902 storage 이관 — 매트릭스와 frontmatter `data_source` 로 대체)
 - 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
 - 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
 - 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2

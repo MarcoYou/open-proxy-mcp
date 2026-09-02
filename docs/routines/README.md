@@ -83,6 +83,6 @@ git push -u origin main
 3. **정직한 degrade.** 값이 없으면 지어내지 말고 "미상"으로 두고 원문(DART) 링크를 남긴다. 빈 결과는
    "없음"으로 명시하고, 조회 실패는 실패라고 솔직히 — "빈 배열 = 성공" 금지.
 4. **콜 예산을 의식한다.** `universe`·`period`·`details`가 DART 콜 수를 정한다. market-scan vs
-   per-firm(details) 구분은 [tool_call_budget](../../wiki/tools/tool_call_budget.md) 참조.
+   per-firm(details) 구분은 [screener 페이지](../../wiki/tools/screener.md)의 파라미터 절 참조.
 5. **신규 vs 정정을 가른다.** 예정치(결정·소집결의)와 정정을 섞지 않는다. 정정의 뉴스는 "바뀐 값"이므로
    가능하면 정정전→정정후 diff를 보여준다.
