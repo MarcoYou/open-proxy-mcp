@@ -49,7 +49,7 @@ updated: 2026-07-22
 ### 🎁 주주환원 · 자본
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [dividend](dividend.md) | 배당 — 배당금·총액·배당성향·추이 |
+| [dividend_disclosure](dividend_disclosure.md) | 배당 **공시 원문** — 배당금·총액·배당성향·추이 (실시간) |
 | [dividend_history_data](dividend_history_data.md) | 확정 배당 시계열 — 회사·시장·섹터. DART 정기보고서 전수 수집본(코스피 828사 × FY2020~2025) |
 | [dividend_screener](dividend_screener.md) | 배당 조건으로 회사 거르기 — 배당성향·DPS·그 해 두 번 이상 배당·섹터 |
 | [treasury_share](treasury_share.md) | 자기주식 — 취득·처분·소각·신탁 |
@@ -168,7 +168,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 
 본 17 페이지가 흡수·대체한 archive/analysis/ 자료:
 - `company-tool-검증-예시` → `company.md` / `shareholder_meeting-tool-검증-예시` → `notice`·`results`
-- `ownership_structure`·`dividend`·`proxy_contest`·`value_up`·`evidence` 검증예시 → 각 동명 tool
+- `ownership_structure`·`dividend_disclosure`·`proxy_contest`·`value_up`·`evidence` 검증예시 → 각 동명 tool
 - `corporate_restructuring-design`·`dilutive_issuance-design` → 각 tool / `related_party_transaction-design`
   → `corporate_deals` / `corp_gov_report-design` → `corp_gov_report`
 - `cash-shareholder-return`·`total-shareholder-return` → archive 유지(CSR/TSR scope 제거)

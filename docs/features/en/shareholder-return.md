@@ -8,7 +8,7 @@
 - **Treasury shares**: matches the buy → dispose → cancel cycle. The key is that **buying without cancellation is weak return** — it checks whether cancellation was the stated purpose and whether it actually happened.
 - **Value-up**: cross-references the plan's promises against actual treasury-share cancellation to separate **"lip-service value-up" from real return.**
 - The dedicated `shareholder_commitment` feature tracks promise-vs-delivery in one shot, and even computes the **book-value gain/loss of cancellations against their purchase price, in KRW** (dividends shown separately, since their book-value effect runs the opposite direction).
-- Source: DART dividend-decision, business-report dividend section, treasury-share, and value-up filings. Detail → [dividend](../../../wiki/tools/dividend.md) · [treasury_share](../../../wiki/tools/treasury_share.md) · [value_up](../../../wiki/tools/value_up.md).
+- Source: DART dividend-decision, business-report dividend section, treasury-share, and value-up filings. Detail → [dividend](../../../wiki/tools/dividend_disclosure.md) · [treasury_share](../../../wiki/tools/treasury_share.md) · [value_up](../../../wiki/tools/value_up.md).
 
 ## Ask it like this
 

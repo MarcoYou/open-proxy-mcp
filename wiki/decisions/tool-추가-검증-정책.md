@@ -14,7 +14,7 @@ release_v2에서 새 tool은 먼저 `data tool`인지 `action tool`인지 분류
 
 - `data tool`
   - 애널리스트가 직접 보는 사실/원문/구조화 데이터 제공 도구
-  - 예: `shareholder_meeting`, `ownership_structure`, `dividend`
+  - 예: `shareholder_meeting`, `ownership_structure`, `dividend_disclosure`
 - `action tool`
   - 여러 data tool을 묶어 바로 쓰는 결과물을 만드는 도구
   - 예: `prepare_vote_brief`, `build_campaign_brief`

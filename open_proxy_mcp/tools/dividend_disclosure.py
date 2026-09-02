@@ -177,7 +177,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
 def register_tools(mcp):
 
     @mcp.tool()
-    async def dividend(
+    async def dividend_disclosure(
         company: str,
         scope: str = "summary",
         year: int = 0,

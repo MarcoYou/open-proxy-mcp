@@ -23,7 +23,7 @@ CASES: dict[str, list[dict]] = {
     "shareholder_meeting_notice": [{"company": "삼성전자"}, {"company": "솔루엠"}],
     "shareholder_meeting_results": [{"company": "삼성전자"}, {"company": "고려아연"}],
     "ownership_structure": [{"company": "고려아연"}, {"company": "셀트리온"}],
-    "dividend": [{"company": "삼성전자", "scope": "history"}, {"company": "KB금융"}],
+    "dividend_disclosure": [{"company": "삼성전자", "scope": "history"}, {"company": "KB금융"}],
     "financial_metrics": [{"company": "삼성전자"}, {"company": "솔루엠"}],
     "treasury_share": [{"company": "삼성전자"}, {"company": "미래에셋증권"}],
     "proxy_contest": [{"company": "고려아연"}, {"company": "솔루엠"}],

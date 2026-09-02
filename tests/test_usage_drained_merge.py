@@ -46,7 +46,7 @@ def test_headers_differ_across_weeks_and_rows_still_line_up(ut, tmp_path):
     """**핵심.** 옛 주에는 없던 컬럼이 새 주에 생긴다 — 그래도 행이 밀리면 안 된다."""
     _write(tmp_path / "260601-0607_user_log.csv",
            ["event_id", "ts_ns", "key_hash", "tool", "latency_ms", "is_error"],
-           [["e1", 1000, "hA", "dividend", 11, "False"],
+           [["e1", 1000, "hA", "treasury_share", 11, "False"],
             ["e2", 2000, "hB", "company", 22, "True"]])
     # 다음 주에 weak_kinds 가 생겼다(260810 실제 사례)
     _write(tmp_path / "260608-0614_user_log.csv",
@@ -64,12 +64,12 @@ def test_projection_follows_the_select_order(ut, tmp_path):
     """투영은 SELECT 순서를 그대로 따라야 한다 — 어긋나면 에러 없이 값만 뒤바뀐다."""
     _write(tmp_path / "260601-0607_user_log.csv",
            ["event_id", "ts_ns", "key_hash", "tool", "latency_ms", "is_error"],
-           [["e1", 1000, "hA", "dividend", 11, "False"]])
+           [["e1", 1000, "hA", "treasury_share", 11, "False"]])
 
     assert ut.merge_drained([], ("tool", "key_hash", "latency_ms", "is_error")) == \
-        [("dividend", "hA", 11, False)]
+        [("treasury_share", "hA", 11, False)]
     # 순서를 바꾸면 결과도 바뀐다 — 이 대조가 있어야 위 단언이 우연이 아니다.
-    assert ut.merge_drained([], ("key_hash", "tool")) == [("hA", "dividend")]
+    assert ut.merge_drained([], ("key_hash", "tool")) == [("hA", "treasury_share")]
     # 타입도 맞아야 한다. CSV 는 전부 문자열이라 안 고치면 하류 계산이 조용히 갈린다.
     (tool, kh, lat, err), = ut.merge_drained([], ("tool", "key_hash", "latency_ms", "is_error"))
     assert isinstance(lat, int) and err is False

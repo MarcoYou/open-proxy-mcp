@@ -8,7 +8,7 @@
 - **자기주식**: 취득 → 처분 → 소각 사이클을 매칭합니다. 취득만 하고 **소각까지 가지 않으면 환원 효과가 약하다**는 게 핵심 — 취득 목적에 소각이 명시됐는지, 실제 소각으로 이어졌는지를 봅니다.
 - **밸류업**: 기업가치제고계획의 약속을 실제 자사주 소각 집행과 **교차참조**해 "말뿐인 밸류업 vs 진짜 환원"을 가릅니다.
 - 이 셋을 한 번에 보는 전용 기능 `shareholder_commitment`은 약속 대비 실제 이행을 추적하고, 자사주 소각의 **매입가 대비 장부가 손익까지 원화로 계산**합니다.
-- 출처: DART 배당결정·사업보고서 배당사항·자기주식·밸류업 공시. 상세 → [dividend](../../wiki/tools/dividend.md) · [treasury_share](../../wiki/tools/treasury_share.md) · [value_up](../../wiki/tools/value_up.md).
+- 출처: DART 배당결정·사업보고서 배당사항·자기주식·밸류업 공시. 상세 → [dividend](../../wiki/tools/dividend_disclosure.md) · [treasury_share](../../wiki/tools/treasury_share.md) · [value_up](../../wiki/tools/value_up.md).
 
 ## 이렇게 물어보세요
 

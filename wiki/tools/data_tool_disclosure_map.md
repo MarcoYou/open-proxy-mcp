@@ -27,7 +27,7 @@ related_tools:
 | [[corp_gov_report]] | 기업지배구조보고서 | 지배구조 핵심지표, 원문 표 파싱 |
 | [[corporate_restructuring]] | 회사합병결정, 회사분할결정, 회사분할합병결정, 주식교환·이전결정 | DART 주요사항보고서 DS005 4종 |
 | [[dilutive_issuance]] | 유상증자결정, 전환사채발행결정, 신주인수권부사채발행결정, 감자결정 | 희석성 발행과 자본감소 이벤트 |
-| [[dividend]] | 현금배당결정, 주식배당결정, 배당기준일결정, 분기배당결정, 사업보고서 | 배당 결정 공시와 사업보고서 배당 요약을 함께 사용 |
+| [[dividend_disclosure]] | 현금배당결정, 주식배당결정, 배당기준일결정, 분기배당결정, 사업보고서 | 배당 결정 공시와 사업보고서 배당 요약을 함께 사용 |
 | [[financial_metrics]] | 사업보고서, 반기보고서, 분기보고서 | DART 재무제표 endpoint와 감사의견 endpoint |
 | [[ownership_structure]] | 대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서 | 최대주주, 5% 보유, 임원·주요주주, control map |
 | [[proxy_contest]] | 위임장권유참고서류, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과 | 위임장, 소송, 5% 활성 신호, vote math |
@@ -42,7 +42,7 @@ related_tools:
 - [[corp_gov_report]]
 - [[corporate_restructuring]]
 - [[dilutive_issuance]]
-- [[dividend]]
+- [[dividend_disclosure]]
 - [[financial_metrics]]
 - [[ownership_structure]]
 - [[proxy_contest]]

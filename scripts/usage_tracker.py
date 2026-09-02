@@ -196,6 +196,7 @@ def drained_columns() -> dict:
 #: 지우지 말 것 — 지우는 순간 과거가 다시 갈라진다.
 TOOL_ALIASES = {
     "valuation": "price_multiple_data",   # 260824 개명 (배수 ↔ 거래·규모 분리)
+    "dividend": "dividend_disclosure",    # 260902 개명 (공시 원문 ↔ DB 시계열 분리)
 }
 
 

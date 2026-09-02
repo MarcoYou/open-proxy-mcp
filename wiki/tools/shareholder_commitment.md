@@ -132,7 +132,7 @@ CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
 |---|---|---|
 | `value_up` | `commitments` | 밸류업 계획 원문 + 기존 `treasury_cross_ref`(소각 약속 vs 24개월 실제) |
 | `corp_gov_report` | `timeline` | 15개 지표 연도별 O/X 전환(`transitions`) |
-| `dividend` | `summary`, `history` | 실제 배당 총액·성향·연도별 DPS |
+| `dividend_disclosure` | `summary`, `history` | 실제 배당 총액·성향·연도별 DPS |
 | `treasury_share` | `summary` | 결정↔실행 사이클 + 정확한 실제금액(260707 단위버그 수정) |
 | `financial_metrics` | `summary`(과거연도) | `total_equity_krw` — BPS 분자 |
 | DART `stockTotqySttus` | (client 직접) | 유통주식수 — BPS 분모(`valuation.py`의 `_shares_outstanding` 재사용) |
@@ -154,5 +154,5 @@ CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
 
 ## 관련
 - [[proxy_advise_before_meeting]] — 유일한 다른 Action Tool, 주총 1회성 판단 vs 이 tool의 연중 추적
-- [[value_up]] / [[corp_gov_report]] / [[dividend]] / [[treasury_share]] — upstream 재사용 tool 4종
+- [[value_up]] / [[corp_gov_report]] / [[dividend_disclosure]] / [[treasury_share]] — upstream 재사용 tool 4종
 - [[financial_metrics]] — BPS 분자(총자본) 소스

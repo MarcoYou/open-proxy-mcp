@@ -17,7 +17,7 @@ from open_proxy_mcp.services.dividend import (
     _fiscal_period,
     _latest_completed_fiscal_year,
 )
-from open_proxy_mcp.tools.dividend import _render
+from open_proxy_mcp.tools.dividend_disclosure import _render
 
 
 def test_fiscal_end_month_reads_settlement_date():

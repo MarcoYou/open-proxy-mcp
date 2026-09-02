@@ -10,5 +10,5 @@
 ## 무엇이 돌아오나
 주당배당금·배당총액·배당성향·연도별 추이.
 
-> 상세·입출력·데이터 출처: [wiki/tools/dividend.md](../../wiki/tools/dividend.md)  
+> 상세·입출력·데이터 출처: [wiki/tools/dividend_disclosure.md](../../wiki/tools/dividend_disclosure.md)  
 > 전체 도구 카탈로그: [tools 카탈로그](../../wiki/tools/README.md)

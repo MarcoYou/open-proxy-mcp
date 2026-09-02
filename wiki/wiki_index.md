@@ -36,7 +36,7 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 - [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
 
 ### Data (22)
-- [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]]
+- [[ownership_structure]] · [[dividend_disclosure]] · [[financial_metrics]] · [[treasury_share]]
 - [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]]
 - [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]]
 - [[director_board]] · [[price_multiple_data]] · [[trading_data]] · [[business_details]]

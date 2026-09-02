@@ -15,7 +15,7 @@ updated: 2026-09-02
 
 ## 한 줄 요약
 한 사업연도에서 **배당 조건으로 회사를 가로로 거른다** — 배당성향 범위 · 최소 DPS ·
-그 해 두 번 이상 배당했나 · WICS 섹터. 회사 하나는 [[dividend]], 한 회사의 여러 해는
+그 해 두 번 이상 배당했나 · WICS 섹터. 회사 하나는 [[dividend_disclosure]], 한 회사의 여러 해는
 [[dividend_history_data]].
 
 ## 사용법
@@ -56,4 +56,4 @@ dividend_screener(bsns_year=2025, sector="금융", min_dps=1000)
 아니므로 뺀다** — 원문에 0 이 적혀 있어도 그렇다.
 
 ## 관련
-[[dividend]] · [[dividend_history_data]] · [[screener]] · [[price_multiple_data]] · [[evidence]]
+[[dividend_disclosure]] · [[dividend_history_data]] · [[screener]] · [[price_multiple_data]] · [[evidence]]

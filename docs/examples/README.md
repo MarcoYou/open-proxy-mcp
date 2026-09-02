@@ -30,7 +30,7 @@
 
 | 도구 | 예시 질문(대표) |
 |---|---|
-| [dividend](dividend.md) | "작년 주당배당금 얼마였어?" |
+| [dividend_disclosure](dividend_disclosure.md) | "작년 주당배당금 얼마였어?" |
 | [treasury_share](treasury_share.md) | "자사주 얼마나 취득했어?" |
 | [value_up](value_up.md) | "밸류업 계획 발표했어? 뭘 약속했어?" |
 | [shareholder_commitment](shareholder_commitment.md) | "작년에 발표한 배당·소각 약속 실제로 지켰어?" |

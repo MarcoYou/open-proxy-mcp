@@ -211,7 +211,7 @@ sequenceDiagram
 - [[260429_0942_fix_corp_gov_report-financial-holding]] — 금융지주 18건 partial → 0 (financial_form 감지, regression 0)
 
 ## 알려진 issue + TODO
-- 서식 표 32종 중 11종 노출. 나머지 22종 중 **배당 3종(1-4-1·1-5-1-1·1-5-1-2)은 [[dividend]],
+- 서식 표 32종 중 11종 노출. 나머지 22종 중 **배당 3종(1-4-1·1-5-1-1·1-5-1-2)은 [[dividend_disclosure]],
   발행주식 2종(2-1-1-1·2-1-1-2)은 [[ownership_structure]]·[[price_multiple_data]], 밸류업 2종(11-1·11-2)은
   [[value_up]] 과 중복**이라 열지 않는다(계산 지표 단일 소스 원칙). 위원회 3종(8-2-1~3)은 번호가
   위원회를 특정하지 못하고 채움률이 낮다(127·70·107사). 남은 후보는 4-1-2 이사회 구성 현황 ·

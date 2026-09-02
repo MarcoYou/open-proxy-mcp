@@ -16,7 +16,7 @@ updated: 2026-09-02
 ## 한 줄 요약
 DART 정기보고서 `alotMatter` **전수 수집본**(코스피 828사 × FY2020~2025)에서 **확정 배당의 시계열**을
 읽는다. 한 회사의 여러 해(`firm`), 시장 전체 집계(`market`), WICS 섹터별 집계(`sector`) 셋.
-[[dividend]] 가 회사 하나를 실시간으로 깊게 본다면, 이쪽은 **가로·세로로 넓게** 본다.
+[[dividend_disclosure]] 가 회사 하나를 실시간으로 깊게 본다면, 이쪽은 **가로·세로로 넓게** 본다.
 
 ## 사용법
 ```
@@ -45,4 +45,4 @@ dividend_history_data(scope="sector", sector="금융", year_from=2020, year_to=2
 - **정정 여부 칸이 없다.** 접수번호가 사업연도보다 뒤인 줄이 정정본일 수 있다.
 
 ## 관련
-[[dividend]] · [[dividend_screener]] · [[price_multiple_data]] · [[evidence]]
+[[dividend_disclosure]] · [[dividend_screener]] · [[price_multiple_data]] · [[evidence]]

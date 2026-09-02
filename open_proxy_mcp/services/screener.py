@@ -256,7 +256,8 @@ _KNOWN_PERIOD_CODES = {"today", "yesterday", "since_yesterday", "last_7d", "last
 
 # 유형 → 상세페이지로 이어질 OPM tool 힌트(카드의 suggested_tool)
 _SUGGESTED_TOOL = {
-    "order": "order_contracts", "treasury": "treasury_share", "dividend": "dividend",
+    "order": "order_contracts", "treasury": "treasury_share",
+    "dividend": "dividend_disclosure",
     "dilutive": "dilutive_issuance", "agm_notice": "shareholder_meeting_notice",
     "ownership5": "ownership_structure", "insider10": "ownership_structure",
     "earnings": "provisional_earnings", "agm_result": "shareholder_meeting_results",

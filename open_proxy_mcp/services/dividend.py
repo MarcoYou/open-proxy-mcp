@@ -789,7 +789,7 @@ def _policy_signals(history: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
     return ToolEnvelope(
-        tool="dividend",
+        tool="dividend_disclosure",
         status=AnalysisStatus.REQUIRES_REVIEW,
         subject=company_query,
         warnings=[f"`{scope}` scope는 아직 지원하지 않는다."],
@@ -823,7 +823,7 @@ async def build_dividend_payload(
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
-            tool="dividend",
+            tool="dividend_disclosure",
             status=AnalysisStatus.ERROR,
             subject=company_query,
             warnings=[company_not_found_warning(company_query)],
@@ -837,7 +837,7 @@ async def build_dividend_payload(
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
-            tool="dividend",
+            tool="dividend_disclosure",
             status=AnalysisStatus.AMBIGUOUS,
             subject=company_query,
             warnings=["회사 식별이 애매해 배당 데이터를 자동 선택하지 않았다."],
@@ -1347,7 +1347,7 @@ async def build_dividend_payload(
         next_actions = ["ownership_structure와 함께 보면 주주환원 맥락이 더 잘 보인다."]
 
     return ToolEnvelope(
-        tool="dividend",
+        tool="dividend_disclosure",
         status=status,
         subject=selected.get("corp_name", company_query),
         warnings=warnings,

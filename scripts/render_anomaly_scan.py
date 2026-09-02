@@ -34,7 +34,7 @@ from open_proxy_mcp.tools.ownership_structure import _render as r_own
 from open_proxy_mcp.services.corporate_deals import build_corporate_deals_payload as b_cd
 from open_proxy_mcp.tools.corporate_deals import _render as r_cd
 from open_proxy_mcp.services.dividend import build_dividend_payload as b_div
-from open_proxy_mcp.tools.dividend import _render as r_div
+from open_proxy_mcp.tools.dividend_disclosure import _render as r_div
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload as b_tre
 from open_proxy_mcp.tools.treasury_share import _render as r_tre
 from open_proxy_mcp.services.proxy_contest import build_proxy_contest_payload as b_pc

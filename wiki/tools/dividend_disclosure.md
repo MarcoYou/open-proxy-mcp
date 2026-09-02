@@ -1,6 +1,6 @@
 ---
 type: tool
-title: dividend
+title: dividend_disclosure
 domain: data
 scope: [summary, detail, history]
 data_source: [DART OpenAPI alotMatter (사업보고서 배당 요약, 다년 컬럼) + 현금ㆍ현물배당결정 공시 합산 fallback]
@@ -9,10 +9,23 @@ related_concepts: [배당성향, 배당수익률, 시가배당률, 분기배당,
 related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04, free-paid-분리, cross-domain-체이닝]
 related_audits: [260429_0216_fix_speed-optimization-9건]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
-# dividend
+# dividend_disclosure
+
+## 이름 (260902 개명)
+`dividend` → **`dividend_disclosure`**. 같은 날 DB 기반 [[dividend_history_data]]·[[dividend_screener]]
+가 생기면서 「dividend」라는 이름이 셋 중 어느 것인지 가리키지 못하게 됐다. 이 도구는
+**공시 원문을 그때그때 열어 읽는 쪽**이다 — 그 성격을 이름에 담았다. 옛 이름의 사용통계는
+`usage_tracker.TOOL_ALIASES` 가 접어 한 계열로 잇는다.
+
+## 셋을 어떻게 가르나
+| 도구 | 무엇 | DART 콜 |
+|---|---|---|
+| `dividend_disclosure` | 회사 하나를 실시간으로 깊게(결정공시·시가배당률·현재가 기준 수익률) | 있음 |
+| [[dividend_history_data]] | 여러 해·시장·섹터 확정 시계열 | 0 |
+| [[dividend_screener]] | 조건으로 회사 거르기 | 0 |
 
 ## 한 줄 요약
 실지급·확정된 배당 사실 탭. DPS, 총액, 배당성향, 시가배당률, 연도별 추이. 미래 정책·약속은 다루지 않는다(그건 [[value_up]]).

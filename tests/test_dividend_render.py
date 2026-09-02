@@ -19,7 +19,7 @@ import pytest
 
 from open_proxy_mcp.services.contracts import ToolEnvelope
 from open_proxy_mcp.services.dividend import _SUPPORTED_SCOPES, _policy_signals
-from open_proxy_mcp.tools import dividend as dividend_tool
+from open_proxy_mcp.tools import dividend_disclosure as dividend_tool
 
 _LATIN = re.compile(r"[A-Za-z]")
 
@@ -106,7 +106,7 @@ def _call(monkeypatch, payload: dict, **kwargs) -> str:
     monkeypatch.setattr(dividend_tool, "build_dividend_payload", _fake_payload)
     reg = _Registry()
     dividend_tool.register_tools(reg)
-    return asyncio.run(reg.tools["dividend"](company="테스트회사", **kwargs))
+    return asyncio.run(reg.tools["dividend_disclosure"](company="테스트회사", **kwargs))
 
 
 @pytest.mark.parametrize("scope", sorted(_SUPPORTED_SCOPES))

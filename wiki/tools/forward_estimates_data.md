@@ -111,5 +111,5 @@ DB 물리 칸이 아직 `_eok` 면 도구가 ×1e8 해서 원으로 통일한다
 ## 관련
 - [[price_multiple_data]] — 확정 실적 기반 현재 배수(정의 동일)
 - [[financial_metrics]] — DART 재무 원본
-- [[dividend]] — 배당 상세
+- [[dividend_disclosure]] — 배당 상세
 - [[company]] — 회사 식별
