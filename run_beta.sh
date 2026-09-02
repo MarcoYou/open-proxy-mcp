@@ -24,5 +24,7 @@ if [ -n "$OLD_PIDS" ]; then
   fi
 fi
 
-export OPENDART_API_KEY="$(cat ~/.openclaw/credentials/opendart-push.key)"
+# 🔴 260902 — D(공시 푸시) 전용 키를 쓰고 있었다. 로컬 시험이 D 의 하루 한도를 갉아먹고,
+#   D 가 막히면 원인이 여기라는 걸 아무도 모른다. 키 배정은 `notes/dart-api-keys.md`.
+export OPENDART_API_KEY="$(cat ~/.openclaw/credentials/opendart.key)"
 exec uv run python -m open_proxy_mcp --transport streamable-http
