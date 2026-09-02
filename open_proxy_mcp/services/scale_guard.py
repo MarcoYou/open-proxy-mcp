@@ -20,8 +20,8 @@ _MARKET_MAX_FACTOR = 3.0  # |값| / 시장내 실측 최댓값 > 3배 → 물리
 # 시장 내 실측 순이익 최댓값(삼성전자 FY2025 확인치, 260704) — market_relative_cap의 검증된 앵커.
 # DB의 살아있는 MAX() 값으로 동적 확장 금지: 이미 소프트센류 오염값이 섞여있으면 그 오염값 자체가
 # 앵커가 되어 가드가 통째로 무력화되는 자기오염 위험 실측 확인(mkt_finstat_y에서 재현, 260706 rename). 이 상수는
-# 다음 회계연도에 더 큰 회사가 나오면 수동 갱신(검증 후) — 세 호출부(valuation.py·market_val_agg.py·
-# market_val_series.py)가 모두 여기서 import해 단일 지점 갱신.
+# 다음 회계연도에 더 큰 회사가 나오면 수동 갱신(검증 후) — 호출부(services/price_multiple_data.py·
+# scripts/market_val_series.py)가 모두 여기서 import해 단일 지점 갱신.
 MARKET_MAX_NI_ANCHOR = 44_260_956_000_000
 
 # ③ 자릿수 상한의 한계(260704 시나리오 분석): 고정 절대값이라 회사 규모에 안 맞음 —

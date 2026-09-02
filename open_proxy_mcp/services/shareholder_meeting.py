@@ -473,14 +473,6 @@ def _seat_scope(title: str) -> str:
     return ""
 
 
-def _proposer_side(proposer_type: str | None) -> str:
-    if proposer_type == "shareholder_proposal":
-        return "주주제안"
-    if proposer_type == "company":
-        return "이사회제안"
-    return ""
-
-
 _AGENDA_NUM_RE = re.compile(r"제\s*(\d+(?:\s*-\s*\d+)*)\s*호")
 
 #: 안건 머리말에서 이만큼만 그 안건의 구간으로 본다(상호참조는 후보자 표·비고칸에 있다).

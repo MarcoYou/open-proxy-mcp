@@ -9,7 +9,7 @@
 - hard-fail: 데이터 자체 미존재 — 메모/코드 모두 침묵 (코붕이 명시 지시)
 
 Phase 1: 독립성 + 결격사유 (기본 매핑) + 후보 추출.
-Phase 2 (다음 iteration): 충실성 — 이사 회계 risk 이력 검증 (과거 회사 × 재직 기간 × 회계 risk).
+Phase 2: 충실성 — `evaluate_faithfulness` (과거 회사 × 재직 기간 × 회계 risk; `check_audit_history=True` 일 때만).
 """
 
 from __future__ import annotations
@@ -1979,21 +1979,6 @@ def apply_roster_tenure_long_tenure(ev: dict[str, Any], appointment_type: dict[s
     fyr["source"] = "roster_tenure"
     fyr["years"] = years  # floor — 6년 경계 tiering은 '이상'으로 안전측
     indep["summary"] = "long_tenure_concerns"
-
-
-def evaluate_candidate(candidate: dict[str, Any], current_year: int, own_company_name: str = "") -> dict[str, Any]:
-    """단일 후보 → 3축 평가 dict (이사 회계 risk 이력 검증 비활성, sync)."""
-    return {
-        "name": candidate.get("name"),  # success
-        "birth_date": candidate.get("birthDate"),  # success
-        "role_type": candidate.get("roleType"),  # success
-        # 후보자 표와 안건 제목이 직위를 다르게 밝힌 경우 — 어느 쪽도 덮지 않고 사실만 전달한다
-        "role_type_conflict": candidate.get("roleTypeConflict"),
-        "separate_election": candidate.get("separateElection"),  # success (감사위원 분리선임)
-        "independence": evaluate_independence(candidate, current_year),
-        "faithfulness": evaluate_faithfulness_basic(candidate, own_company_name),
-        "disqualification": evaluate_disqualification(candidate, current_year),
-    }
 
 
 async def evaluate_candidate_async(

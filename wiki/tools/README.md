@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — 도구 카탈로그
-updated: 2026-07-22
+updated: 2026-09-02
 ---
 
 # 도구(Tool) 카탈로그
@@ -10,7 +10,8 @@ updated: 2026-07-22
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
 > 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
-> 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다.
+> 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다. 「이런 질문에 답한다」류 자연어
+> 예시도 각 도구 페이지의 **「사용법」 절**에 있습니다(예전의 별도 예시 폴더는 여기로 흡수).
 
 ## 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
@@ -74,8 +75,9 @@ updated: 2026-07-22
 | [evidence](evidence.md) | 공시 원문 링크 (접수번호 → DART 열람 URL) |
 | [law_lookup](law_lookup.md) | 정관↔법령 양방향 조회 — 정관 조항/키워드 → 관련 법령 조문(전문), 또는 법조문 → 관련 정관 변경유형·우회·안건. 상법·자본시장법·공정거래법·외부감사법 원문. **회사·DART 무관** |
 
-> 📊 도구–공시 채널 매핑(시각 자료): [[tool_disclosure_map]] · [[data_tool_disclosure_map]]
-> 📞 도구별 DART 콜 budget(기업당 최대 콜·유니버스 배치 안전 크기): [[tool_call_budget]]
+> 도구–공시 채널 매핑은 아래 「데이터 소스 매트릭스」와 각 페이지 frontmatter `data_source`, 도구별 DART 콜 수는
+> 각 페이지 「외부 호출」 절이 정본이다. 옛 시각 자료(17-tool 시점 도식·PPT·콜 budget 표)는 storage
+> `wiki-private/archive/opm-wiki-tools/`·`decks/opm-wiki-diagrams/` 로 이관(260902).
 
 ---
 
@@ -132,8 +134,7 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 주요 data/action tool은 `data.timings_ms`를 노출한다. 공통 키는 `total`, `resolve_company`이고,
 tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_document` 같은 stage 키가
 추가된다. 최근 3개 회사 실측 기준 반복 병목은 `dividend.decision_details`,
-`treasury_share.fetch_decisions`였으며 상세 근거는 `architecture/audits/260510_data_tools_perf_audit.md`
-참조. `value_up`은 `classify_value_up_roles`, `role_backfill_search.dart`로 plan/status/result/meta 분리
+`treasury_share.fetch_decisions`였다(감사 기록은 private — open-proxy-storage). `value_up`은 `classify_value_up_roles`, `role_backfill_search.dart`로 plan/status/result/meta 분리
 비용을 노출한다.
 
 ## 데이터 소스 매트릭스
@@ -155,7 +156,18 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | corporate_restructuring | ✅ DS005 4종 병렬 | - | - | - |
 | dilutive_issuance | ✅ DS005 4종 병렬 | - | - | - |
 | corporate_deals | ✅ list+키워드 | - | - | - |
+| order_contracts | ✅ list(I001) 단일판매·공급계약 키워드 + 원문 파싱 | - | - | - |
 | risk_events | ✅ list(I001+B001)+키워드 | - | - | - |
+| provisional_earnings | ✅ list(I001 결산잠정치·I002 공정공시) + 원문 파싱 | - | - | - |
+| business_details | ✅ get_document 1콜(II.사업의 내용 + 주석 부문정보) + list(A001~A003) | - | - | - |
+| financial_notes | ✅ get_document(III.재무에 관한 사항 주석·재무상태표) | - | - | - |
+| price_multiple_data | ✅ 재무 4EP + company.json + fnlttSinglAcntAll + stockTotqySttus + alotMatter (firm) | - | - | ✅ Supabase 주간 스냅샷(market/sector/firm_history) · KRX 시세 · ECOS 환율 |
+| trading_data | - | - | - | ✅ Supabase krx_weekly·krx_cap_agg·krx_adj_events·wise_sector (quote 만 KRX 라이브) |
+| forward_estimates_data | - | - | - | ✅ Supabase `fwd` 컨센서스 스냅샷(벤더 원천, DART 아님) |
+| dividend_history_data | - (전수 수집본 조회) | - | - | ✅ Supabase div_declared·div_quarterly(alotMatter 수집본) + wise_sector |
+| dividend_screener | - (전수 수집본 조회) | - | - | ✅ Supabase div_declared·div_quarterly + wise_sector |
+| director_news | - | - | ✅ 뉴스 검색 API 1콜 | ✅ 부정 키워드 사전 |
+| proxy_guideline | - | - | - | ✅ 패키지 데이터 open-proxy-guideline.md (API 0콜) |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - |
 | evidence | - | - | - | - (문자열 가공) |
 | law_lookup | - | - | - | ✅ legalize-kr 법령 corpus (상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge |
@@ -177,7 +189,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 ## 변경 이력
 - 2026-05-01: 초기 tool 페이지 일괄 작성 + financial_metrics 신규
 - 2026-05-18: 현재 16 public tool 체계로 정리(구 tool 명칭 제거)
-- 2026-05-20: 도구–공시 매핑 [[data_tool_disclosure_map]] 추가
+- 2026-05-20: 도구–공시 매핑 페이지 추가 (260902 storage 이관 — 매트릭스와 frontmatter `data_source` 로 대체)
 - 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
 - 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
 - 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2
@@ -188,7 +200,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-07-19: **provisional_earnings 신규(24번째 tool)** — 영업(잠정)실적(I002 공정공시) 분기 잠정 매출·영업익·순익+YoY. financial_metrics 확정치보다 먼저. markdown-primary(table_markdown) + best-effort headline. 자동차 판매대수·조선 수주 등 비재무형 커버. screener `detail_kind=earnings` 연동.
 - 2026-07-20: **asset_holdings 신규(25번째 tool)** — 자산주·NAV 스크리닝(계정 티어 + 상장지분 시가마크 + 시총 대비 배수). business_details의 자산가치 opt-in 필드에서 분리. 2스콥(summary·detail). Data 12→13.
 - 2026-07-21: **business_details 확장** — `bsns_year`+`reprt_code`(DART 표준 11011/11012/11013/11014)로 특정 과거 시점 1건 조회 추가(`period`는 최신 스냅샷 전용, 시계열은 분기마다 반복 호출). 절대월 하드코딩 없이 `report_nm` 기수라벨 상대순서로 1/3분기 구분(비12월 결산법인 안전). [[260717_1220_decision_business-content-tool-roadmap]] 스코프 확장 참조.
-- 2026-07-22: **getting_started 제거(26→25 tool, Discovery 카테고리 폐지)** — capability 질문은 FastMCP `instructions` 의 서버 오리엔테이션 + 각 tool desc 로 답한다(클라이언트 모델이 tool 목록을 직접 읽는다). 설계 기록 260721_1600_decision_getting-started-tool-vs-resource.
+- 2026-07-22: **getting_started 제거(26→25 tool, Discovery 카테고리 폐지)** — capability 질문은 MCPServer `instructions` 의 서버 오리엔테이션 + 각 tool desc 로 답한다(클라이언트 모델이 tool 목록을 직접 읽는다).
 - 2026-07-23: **business_details 확장** — `raw_materials`(원재료 구성·매입 + 원재료 가격 추이)와 `product_pricing`(제품·서비스 가격·ASP·변동 원인) 추가. 전자는 두 소절을 독립 경계로 회수해 한 사업부의 기재 생략이 다른 유효 표를 덮지 않게 했고, 후자는 별도 가격 소절로 반환한다.
 - 2026-08-03: **business_details·asset_holdings 응답 계약 확장** — 부재를 `absence_kind` 넷(`not_disclosed`·`cross_reference`·`narrative_only`·`extraction_failed`)으로 가르고 `absence_note` 에 근거를 싣는다. 값이 있을 때는 **원문 위치**(그 회사의 소절 제목 / 주석 원문 문구 인용)를 함께 낸다. `asset_holdings` 주석 4필드에 **연결/별도 기준**(`basis`)과 불일치 경고(`basis_conflict`) 추가 — 문서가 셀마다 선언한 XBRL 컨텍스트를 읽고, 선언이 없으면 기준을 내지 않는다.
 - 2026-08-06: `wiki/tools/` 전반의 과정 서사를 현재형 설계 근거로 정리하고 회고는 private storage 로(경계 규칙 [[wiki_schema]] 0.0).

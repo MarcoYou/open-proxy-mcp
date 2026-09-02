@@ -33,7 +33,6 @@ NOT_COLLECTED = "NOT_COLLECTED"          # 문서를 못 받음(첨부정정 014
 EXTRACTION_FAILED = "EXTRACTION_FAILED"  # 표는 찾았는데 못 읽음 — 버그/엣지
 OK = "OK"
 
-_TABLE_OPEN = re.compile(r"<TABLE", re.I)
 _TE = re.compile(r"<TE\s[^>]*ACODE=", re.I)
 _ROW = re.compile(r"<TR[^>]*>(.*?)</TR>", re.S | re.I)
 _CELL = re.compile(r"<(T[DHE])([^>]*)>(.*?)</T[DHE]>", re.S | re.I)
@@ -145,18 +144,6 @@ def table_span(html: str, pos: int) -> tuple[int, int] | None:
     if e < 0 or e - s > _MAX_TABLE:
         return None
     return s, e + 8
-
-
-def _table_for_start(html: str, pos: int) -> int | None:
-    """`pos` 가 가리키는 표의 시작 위치. 분모를 찾으려면 표 경계가 필요하다."""
-    span = table_span(html, pos)
-    return span[0] if span else None
-
-
-def table_at(html: str, pos: int) -> str | None:
-    """`pos` 를 품은 `<TABLE>` 를 잘라낸다. 경계가 비정상이면 None."""
-    span = table_span(html, pos)
-    return html[span[0]:span[1]] if span else None
 
 
 def grid_of(rows: list[list[dict[str, Any]]]) -> list[list[dict[str, Any]]]:
@@ -793,7 +780,6 @@ def looks_like_debris(title: str) -> bool:
 #    회사에 따라 갈린다 — 주석 항목마다 lvl3 노드가 있는 곳(NH·현대해상)과
 #    주석이 lvl2 하나로 통째인 곳(KB손보 935KB·우리은행 1.0MB)이 있다. 둘 다 전체보다 훨씬 싸다.
 _NOTE_PARENT = ("연결재무제표 주석", "재무제표 주석")
-_FS_NODE = {"연결": "연결재무제표", "별도": "재무제표"}
 
 
 def _node_basis(node: dict) -> str:
@@ -1182,26 +1168,6 @@ def extract_regions(
                                    "공시하거나 그 주석이 없다")}
     _mark_shared_tables(out)
     return out
-
-
-def _mark_cross_field(out: dict[str, Any]) -> None:
-    for field, res in out.items():
-        tables = res.get("tables") or []
-        # 이 필드가 제대로 유형별을 물었으면 안내할 것이 없다
-        if any(t.get("axis") == "유형별" and t.get("title_matched") for t in tables):
-            continue
-        kws = [k for k, _ in ANCHORS.get(field, [])]
-        for other, ores in out.items():
-            if other == field:
-                continue
-            for t in ores.get("tables") or []:
-                if t.get("axis") != "유형별":
-                    continue
-                if any(kw in t.get("body", "") for kw in kws):
-                    res["see_field"] = other
-                    break
-            if res.get("see_field"):
-                break
 
 
 def _mark_shared_tables(out: dict[str, Any]) -> None:

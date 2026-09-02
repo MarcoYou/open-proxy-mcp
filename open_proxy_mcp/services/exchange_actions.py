@@ -633,9 +633,6 @@ def parse_litigation(text: str, lines: list[str], stage: str) -> dict[str, Any]:
 EXTRA_PARSERS["inquiry_disclosure"] = parse_inquiry_or_rumor
 EXTRA_PARSERS["litigation"] = parse_litigation
 
-#: 새 계열이 사는 채널 합집합 — `risk_events` 의 sweep 목록에 더한다.
-EXTRA_CHANNELS = tuple(sorted({c for cfg in EXTRA_CATEGORIES.values() for c in cfg["channels"]}))
-
 
 # ── 「길을 터준다」 — 원문 어디를 보나 · 없으면 어디로 가나 ──────
 #

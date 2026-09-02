@@ -30,13 +30,11 @@ from open_proxy_mcp.db import pg_rows
 
 logger = logging.getLogger(__name__)
 
-# 보고서 코드 → 사람이 읽는 이름. 표에 `reprt_label` 이 있으나 정렬은 코드로 한다.
-_REPRT_ORDER = {"11013": 1, "11012": 2, "11014": 3, "11011": 4}
 _ANNUAL = "11011"          # 사업보고서 — 연간 확정치는 여기만 본다
 # 🔴 `stock_kind` 실제 값은 `보통`·`우선`·`미구분`·`해당없음` 넷이다(`보통주` 가 아니다).
 #    「미구분」은 종류주식이 없는 회사가 종류 칸을 `-` 로 낸 것이라 **보통주로 취급한다** —
 #    빼면 3,209행이 통째로 사라진다(첫 구현이 그래서 모집단 0사를 냈다).
-_COMMON = ("보통", "미구분")
+#    실제 필터는 아래 SQL 리터럴 `stock_kind IN ('보통','미구분')` 4곳이다 — 바꿀 때 함께 바꾼다.
 
 
 def _rows(sql: str, params: tuple = ()) -> list[tuple] | None:

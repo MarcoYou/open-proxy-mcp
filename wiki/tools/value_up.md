@@ -9,7 +9,7 @@ related_concepts: [주주환원, 배당성향]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04, cross-domain-체이닝]
 
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # value_up
@@ -27,6 +27,8 @@ value_up(
 
 자연어 예시:
 - "KB금융 밸류업 commitment + 자사주 이행" → `scope="commitments"`
+- "목표 ROE·배당성향 제시했어?" → `scope="commitments"` (`numeric_targets` 목표↔실적 대조표)
+- "자사주 소각 계획 있어?" → `scope="commitments"` (`highlights` 비수치 약속 + `treasury_cross_ref` 이행)
 - "하나금융지주 밸류업 본문 발췌" → `scope="plan"`
 - "메리츠금융지주 밸류업 공시 timeline" → `scope="timeline"`
 

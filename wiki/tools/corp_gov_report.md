@@ -7,9 +7,8 @@ data_source: [DART OpenAPI list.json (I) + 키워드 "기업지배구조보고�
 related_disclosures: [기업지배구조보고서]
 related_concepts: [집중투표, 감사위원-의결권-제한, 의결권, 정관변경, 보수한도]
 related_decisions: [BeautifulSoup-파서-선택, XML-vs-PDF, cross-domain-체이닝]
-related_audits: [260429_0942_fix_corp_gov_report-financial-holding]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # corp_gov_report
@@ -30,6 +29,7 @@ corp_gov_report(
 자연어 예시:
 - "KT&G 거버넌스 준수율" → `scope="summary"` (KT&G 100%, POSCO홀딩스 100%)
 - "삼성전자 15지표 상세 + 비고" → `scope="metrics"` (86.7% 준수)
+- "집중투표제·전자투표 도입했어?" → `scope="metrics"` (15지표 중 「집중투표제 채택」·「전자투표 실시」 O/X)
 - "현대차 연도별 준수율 추이" → `scope="timeline"` (improved/regressed/changed 감지)
 - "삼성전자 이사들 이사회 출석률" · "이 회사 안건별 찬반 주식수" → `scope="tables"`
 
@@ -208,7 +208,7 @@ sequenceDiagram
 ## 관련 audit/fix (architecture/)
 - 260422_0005_audit_parsing-14scope-15기업 — 14 scope x 15 기업 + corp_gov_report 포함
 - 260429_0912_audit_parsing-200기업-v2-no_filing — corp_gov_report.summary 48.0% exact, partial 9.2%
-- [[260429_0942_fix_corp_gov_report-financial-holding]] — 금융지주 18건 partial → 0 (financial_form 감지, regression 0)
+- 260429 금융지주 financial_form 감지(18건 partial → 0) — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 
 ## 알려진 issue + TODO
 - 서식 표 32종 중 11종 노출. 나머지 22종 중 **배당 3종(1-4-1·1-5-1-1·1-5-1-2)은 [[dividend]],

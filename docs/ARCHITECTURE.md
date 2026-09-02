@@ -1,6 +1,6 @@
 # Architecture
 
-> The retired tool surface remains recoverable from the `open-proxy-mcp-v1.3.0` branch. The
+> The retired tool surface remains recoverable from the `v1.3.0` git tag. The
 > active codebase has one unversioned MCP tool surface.
 
 ## System Overview
@@ -17,11 +17,11 @@ flowchart TB
     V --> E["Structured result + evidence links"]
 ```
 
-- **Transport**: streamable HTTP in production; stdio and SSE are also supported.
+- **Transport**: streamable HTTP only (`server.py` accepts no other `--transport`; stdio and SSE were removed).
 - **Registration**: `open_proxy_mcp.tools.register_all_tools()` discovers public facade modules.
 - **Tool catalog SSOT**: runtime registration, checked against `wiki/tools/*.md` by
   `scripts/check_tool_catalog.py`.
-- **Legacy recovery**: Git history and the `open-proxy-mcp-v1.3.0` branch; no runtime mode switch.
+- **Legacy recovery**: Git history and the `v1.3.0` tag; no runtime mode switch.
 
 ## Code Structure
 
@@ -69,7 +69,7 @@ KIND fallback only when the higher-priority source cannot answer the request.
 ## Operational Boundaries
 
 - DART OpenAPI rolling cap: 910 calls per minute, below the external 1,000-call limit.
-- DART and KIND web access: at least two seconds between requests; no batch scraping.
+- DART and KIND web access: a random 1–2 second gap between requests; no batch scraping.
 - User query results are not persisted. Corp-code/document caches, market snapshots, and usage
   telemetry are explicit infrastructure exceptions.
 - API keys and key-bearing URLs must never appear in output, logs, exceptions, or fixtures.

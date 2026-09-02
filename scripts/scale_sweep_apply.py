@@ -11,6 +11,10 @@
 추정해서 채우면 그게 또 다른 오염이다. 비우면 집계가 그 종목을 빼고 간다.
 
 기본은 dry-run. 실제로 비우려면 --apply.
+
+연간표(dart_finstat_y)도 같은 가드로 **읽기만** 훑는다(260902 — 옛 read-only 스윕 스크립트 흡수).
+연간표는 raw 보존 칸이 없어 여기서 비우지 않는다. hard 행이 나오면 market_val_series.py 재수집
+(다음 해 보고서 전기 비교치 = ni_restated/eq_restated)으로 고친다.
 """
 from __future__ import annotations
 
@@ -54,6 +58,27 @@ def self_ref_map(con) -> dict:
         if v:
             ann[t].append(abs(v))
     return {t: max(st.median(vs), vs[-1]) for t, vs in ann.items() if vs}
+
+
+def sweep_annual(con, ref) -> list:
+    """dart_finstat_y 전수 read-only 스윕 — 분기표와 같은 가드(회사 자기 규모·자릿수·항등식).
+
+    옛 read-only 스윕 스크립트가 하던 일. 정정치(ni_restated/eq_restated)가 있으면 그쪽을 본다 —
+    이미 고쳐진 값을 다시 오류라고 세지 않기 위해서다. 반환 = hard 행 목록. DB 는 건드리지 않는다.
+    """
+    rows = con.execute(
+        "SELECT ticker, fy, COALESCE(ni_restated, ni), COALESCE(eq_restated, eq) "
+        "FROM dart_finstat_y WHERE ni IS NOT NULL OR eq IS NOT NULL ORDER BY ticker, fy").fetchall()
+    hits = []
+    for t, fy, ni, eq in rows:
+        v = assess(thstrm=ni, equity=eq, self_ref=ref.get(t))
+        if v["tier"] == "hard":
+            hits.append((t, int(fy), ni, eq, v["hard_hit"]))
+    print(f"연간표 검사 {len(rows):,}행 · hard {len(hits)}행 (read-only — 비우지 않는다)")
+    for t, fy, ni, eq, why in hits:
+        print(f"  {t} fy{fy} ni {ni if ni is None else f'{ni:.3e}'} eq {eq if eq is None else f'{eq:.3e}'} "
+              f"· 자 {ref.get(t) or 0:.3e} · {','.join(why)}")
+    return hits
 
 
 def _seed_and_restate(con, ref) -> None:
@@ -105,6 +130,8 @@ def _seed_and_restate(con, ref) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true", help="실제로 비운다(기본은 dry-run)")
+    ap.add_argument("--skip-annual", action="store_true",
+                    help="연간표(dart_finstat_y) read-only 스윕 생략(기본은 분기표와 함께 훑는다)")
     a = ap.parse_args()
 
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30)
@@ -123,11 +150,15 @@ def main() -> int:
         if v["tier"] == "hard":
             hits.append((t, fy, q, ni, eq, v["hard_hit"]))
 
-    print(f"검사 {len(rows):,}행 · hard {len(hits)}행\n")
+    print(f"분기표 검사 {len(rows):,}행 · hard {len(hits)}행\n")
     for t, fy, q, ni, eq, why in sorted(hits):
         r = ref.get(t) or 0
         print(f"  {t}({mkt.get(t)}) {fy}Q{q} ni {ni or 0:.3e} eq {eq or 0:.3e} "
               f"· 자 {r:.3e} · {','.join(why)}")
+
+    if not a.skip_annual:
+        print()
+        sweep_annual(con, ref)
 
     if not a.apply:
         print("\n(dry-run — 실제로 비우고 복구하려면 --apply)")

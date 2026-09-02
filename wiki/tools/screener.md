@@ -130,13 +130,15 @@ sequenceDiagram
   미해결분은 notice로 투명 고지). 시총·시장 소스 = `krx_weekly`(DART 0콜), 이름해석도 corp_code 캐시라 DART 0콜.
 - `details`: false(디폴트). **universe가 전체시장이거나 300종목 초과, 또는 기간>30일이면 콜 폭주 방지로 자동
   off**(게이트는 유니버스 "크기" — market:kospi 같은 넓은 유니버스는 details 안 켜짐), 기간>7일이면 preview(캡 1/2).
+- `max_hits`(기본 200, 최대 500) / `offset`(기본 0): 페이징. 응답 `paging.next_offset` 을 `offset` 에 넣으면
+  다음 묶음. `paging.matched`(매칭 수)와 `paging.returned`(이번에 실은 수)는 다른 값이다.
+- `start_date` / `end_date`(YYYYMMDD): 명시 기간 — `period=custom` 의 `custom_start`/`custom_end` 와 같은 뜻.
 - `cursor`(YYYYMMDD): 반개구간[cursor, end) 시작 오버라이드 — 루틴 idempotency(직전 실행 이후만). 응답 `next_cursor`를 다음 실행에 넘긴다.
 
 ## 함께 보면 좋은 기능
 
 - [[order_contracts]]·[[treasury_share]]·[[dividend]]·[[dilutive_issuance]]·[[shareholder_meeting_notice]]·[[ownership_structure]] — 유형별 심층(details 디스패치 대상)
 - [[risk_events]] — company 미지정 시장 스캔(리스크 3종 전담). screener는 범용·다유형
-- [[tool_call_budget]] — scan(market-scan) vs details(per-firm) 콜 budget
 - [아침 디제스트 루틴 레시피](../../docs/routines/screener-morning-digest.md) — 수주·임시주총·정기주총 매일 아침 자동 디제스트(`/schedule`용 프롬프트)
 
 ## 기술 상세

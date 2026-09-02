@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_results
 domain: data
-updated: 2026-08-25
+updated: 2026-09-02
 description: 주주총회 의결 결과 (사후) — KIND scraping 기반
 related: [shareholder_meeting_notice, evidence]
 ---
@@ -66,6 +66,7 @@ sequenceDiagram
 ```
 "삼성전자 2026 정기주총 결과"
 "LG화학 안건별 찬반율"
+"이번 주총에서 안건들 다 통과됐어? 부결된 안건 있어?"
 "고려아연 임시주총 의결 결과"
 ```
 

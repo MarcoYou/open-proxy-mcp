@@ -19,4 +19,4 @@ Return on Invested Capital. **세후영업이익(NOPAT) ÷ 투하자본**. 본�
 
 ## OPM에서의 처리
 
-`financial_metrics` tool이 영업이익·세율·투하자본으로 산출.
+OPM은 영업이익·세율·투하자본으로 산출한다.

@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
-updated: 2026-08-25
+updated: 2026-09-02
 description: 주주총회 소집공고 (사전) — DART API/XML 기반
 related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_structure, proxy_contest, evidence]
 ---
@@ -68,6 +68,8 @@ sequenceDiagram
 |---|---|
 | `include_coverage=false` (default) | 명시적 `annual`/`extraordinary` 조회에서 최근 12개월 정기/임시 coverage 재검색을 생략. 정기/임시 판별은 선택된 소집공고 본문으로 계속 수행. |
 | `include_coverage=true` | `meeting_coverage_12m`를 추가 계산. 최근 정기/임시 주총 존재 여부가 필요한 경우에만 사용. |
+| `year` (기본 0) | 미지정 시 회의일이 과거 12개월~앞으로 90일 안인 회차를 자동 선택(예정 주총 포함). 특정 과거 연도만 명시. |
+| `lookback_months` (기본 12) / `start_date`·`end_date` | 소집공고 검색 구간. 날짜를 주면 lookback 대신 그 구간을 쓴다. |
 | `rcept_no` | 이미 소집공고 접수번호를 알면 회사 식별/후보 검색을 건너뛰고 해당 원문을 직접 파싱. 리포트 재현과 timeout fallback에 유용. |
 | `fiscal_month` | `annual` + `year` 조회에서 OpenDART `company.json.acc_mt` 결산월을 읽어 정기주총 후보 window를 먼저 좁힘. fiscal window에서는 최신 후보 1건만 먼저 열고, 정기 매칭 실패 시 나머지 후보와 full-year 검색으로 fallback. |
 | `data.timings_ms` | `resolve_company`, `fiscal_month_lookup`, `select_notice_candidate`, `select_notice_candidate.search_filings`, `select_notice_candidate.fetch_top_documents`, `select_notice_candidate.parse_top_documents`, `select_notice_candidate.filter_meeting_window`, `select_notice_candidate.build_candidate`, `select_notice_candidate.full_year_fallback`, `coverage_search`, `load_notice_bundle`, `total` 등 stage별 소요 시간(ms). 병목 원인 확인용. |
@@ -140,6 +142,7 @@ sequenceDiagram
 ```
 "삼성전자 다음 주총 안건 알려줘"
 "LG화학 사외이사 후보 명단"
+"이사 후보 누구고 재선임이야 신임이야?"
 "카카오 보수한도 인상률 정보"
 "현대차 정관변경 변경 전/후 비교"
 "LG화학 주총소집공고 rcept_no=20260224004273으로 다시 파싱해줘"

@@ -2,7 +2,7 @@
 type: tool
 title: order_contracts — 수주 추적
 domain: data
-updated: 2026-08-25
+updated: 2026-09-02
 scope: [기본 단일]
 data_source: [DART OpenAPI list.json (I001) + 단일판매ㆍ공급계약체결/해지 키워드 + 원문 BeautifulSoup 파싱]
 related: [corporate_deals, financial_metrics, evidence]
@@ -68,7 +68,10 @@ sequenceDiagram
 
 ## 어떻게 쓰나
 
-> "에스티팜 수주 따낸 거 있어? 매출 대비 얼마나 커?"
+자연어 예시:
+- "에스티팜 수주 따낸 거 있어? 매출 대비 얼마나 커?"
+- "계약 해지된 거 있어?" (체결·해지 모두 파싱, 해지는 `계약명+해지일자`로 dedup)
+- "외부 고객 수주야 계열 일감이야?" (공시 '회사와의 관계' 필드로 외부/계열 카운트)
 
 수주 시그널 요약(건수·외부/내부·외부 총액·매출 대비 최대/합계·정정 건수) + 계약별 표(금액·매출대비·외부여부·정정 diff).
 

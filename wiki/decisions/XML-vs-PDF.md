@@ -2,8 +2,8 @@
 type: decision
 title: XML vs PDF — 왜 XML 단독인가
 tags: [parser, architecture, comparison]
-sources: [git history, wiki/archive/sources/devlog]
-related: [3-tier-fallback]
+sources: [git history]
+related: [data-collection]
 ---
 
 # XML vs PDF — 왜 XML 단독인가
@@ -12,7 +12,7 @@ related: [3-tier-fallback]
 
 **OPM 은 `document.xml` 단독으로 파싱한다.** PDF·OCR 폴백은 2026-07-12 OPM 에서 폐기하고 고급
 프로덕트 `open-proxy-ai` 로 이관했다. XML 이 불완전하면 원문을 호출측 AI 에 노출해 보정(soft-fail)하고,
-조작된 값을 만들어 내지 않는다. 아키텍처는 [[3-tier-fallback]].
+조작된 값을 만들어 내지 않는다. PDF/OCR 폴백 아키텍처는 open-proxy-ai 영역이다(옛 3-tier-fallback 문서는 storage 이관).
 
 ## 왜 XML 이 기본인가
 

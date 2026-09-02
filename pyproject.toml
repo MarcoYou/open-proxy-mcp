@@ -17,11 +17,10 @@ dependencies = [
     "kiwipiepy>=0.20.0",
 ]
 
-[project.optional-dependencies]
-llm = ["anthropic>=0.40.0", "openai>=1.50.0"]
 # NOTE: pdf extra(opendataloader-pdf, PyPDF2)는 2026-07-12 제거 —
 #       PDF 다운로드·OCR 경로를 open-proxy-ai로 이관하고 OPM은 XML 단독 유지.
-all = ["open-proxy-mcp[llm]"]
+#       llm extra(anthropic, openai)는 2026-09-02 제거 — open_proxy_mcp/llm/ 모듈이
+#       참조 0건이라 함께 삭제(open-proxy-storage/wiki-private/archive/services/llm/ 보관).
 
 [project.license]
 text = "LicenseRef-PolyForm-Noncommercial-1.0.0"

@@ -3,7 +3,7 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-30-orange.svg)](#tool-구조-30개)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-구조-32개)
 [![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English README](README_ENG.md)
@@ -92,7 +92,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 1. `최근 한 달 사이에 중대재해나 횡령 공시 낸 상장사 알려줘`
 2. `한화에어로스페이스 중대재해 이력을 사상자까지 자세히 보여줘`
 
-더 많은 예시(이사 보수·경영권 분쟁·재무·밸류 등 도구별 질문 모음) → **[docs/examples/](docs/examples/README.md)**
+더 많은 예시(이사 보수·경영권 분쟁·재무·밸류 등 도구별 질문) → **[wiki/tools 카탈로그](wiki/tools/README.md)** 의 각 도구 페이지 「사용법」 절
 
 ---
 
@@ -109,7 +109,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`screener`](wiki/tools/screener.md) | 여러 data tool을 묶어 판단·비교·디제스트 생성 |
 | Reference | [`law_lookup`](wiki/tools/law_lookup.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 정관↔법령 양방향 조회 (상법·자본시장법 등 원문) · 의결권 판단 기준 문서 원문 — API 0콜 |
 
-> 도구별 예시 질문 → [docs/examples/](docs/examples/README.md) · 상세 스키마·데이터 출처 → [wiki/tools 카탈로그](wiki/tools/README.md)
+> 도구별 예시 질문·상세 스키마·데이터 출처 → [wiki/tools 카탈로그](wiki/tools/README.md) (각 도구 페이지의 「사용법」 절에 자연어 예시)
 
 ### 의결권 정책
 
@@ -124,7 +124,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | 소스 | 용도 | 비고 |
 |------|------|------|
 | [DART OpenAPI](https://opendart.fss.or.kr/) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 910) |
-| DART 웹 (`dart.fss.or.kr`) | 공시 본문 파싱 (소집공고·주요사항보고서 등) | rate-limited (2–5초) |
+| DART 웹 (`dart.fss.or.kr`) | 공시 본문 파싱 (소집공고·주요사항보고서 등) | rate-limited (요청 간 1–2초 랜덤) |
 | [KRX KIND](https://kind.krx.co.kr/) | 거래소 공시 보조 확인 | 보조 소스 |
 | 익명화 기관 정책 corpus | 의결권 판단 cross-reference | 내부 정적 데이터, 실명 비노출 |
 

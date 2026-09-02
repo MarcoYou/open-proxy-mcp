@@ -26,6 +26,11 @@ Rate limit(하드룰 준수): 동시성 1 · 0.45s sleep(≈133콜/분, 910 안�
   python3 scripts/market_fund_quarterly.py --pilot 005930,000660,051910  # 소표본 전분기(검증용)
   python3 scripts/market_fund_quarterly.py --fetch             # 전 종목 Q1~Q3 백필(재개 가능, ~1.5h)
   python3 scripts/market_fund_quarterly.py --fetch --years 2020,2021,2022,2023,2024,2025
+  python3 scripts/market_fund_quarterly.py --include-new [--fetch]
+      # 신규 상장 보통주를 dart_fundamentals 에 등록(KRX 2~4콜 + DART 0콜). 옛 시장 aggregate 수집기(--fetch)의
+      # 유일한 잔존 기능(260902 흡수·원본은 open-proxy-storage archive/opm-scripts). 재무 4열은 넣지 않는다 —
+      # 이후 --fetch(분기)·market_val_series --fetch
+      # (연간)·--derive 가 채운다. --fetch 와 같이 주면 등록 직후 그 종목의 분기 수집까지 이어진다.
 """
 import argparse, asyncio, os, sys
 from datetime import date
@@ -213,7 +218,7 @@ def _pg():
 def derive_fundamentals() -> None:
     """dart_fundamentals 재무 4열(ni_fy·ni_ttm·eq_fy·eq_mrq)을 dart_finstat_q(분기+Q4연간)에서 파생 —
     **DART 0콜**. SSOT = dart_finstat_q. 원통화 raw 유지(daily cron이 fx_rate로 KRW 환산). 최신 공시분기
-    기준 TTM/MRQ라 분기 공시마다 자동 최신화(구 market_val_agg는 1Q 고정·done셋으로 갱신 불가였음).
+    기준 TTM/MRQ라 분기 공시마다 자동 최신화(옛 시장 aggregate 수집기는 1Q 고정·done셋이라 갱신 불가였음 — 260902 삭제).
       ni_fy/eq_fy = 최신 완결 FY(Q4) · eq_mrq = 최신 분기 자본 · ni_ttm = FY(y-1)+누적(y,q)−누적(y-1,q)."""
     from collections import defaultdict
     con = _pg(); con.autocommit = True
@@ -250,6 +255,59 @@ def derive_fundamentals() -> None:
         updated += 1
     con.close()
     print(f"derive: dart_fundamentals {updated}사 재무 4열 파생 갱신(DART 0콜)", flush=True)
+
+
+DDL_FUNDAMENTALS = """CREATE TABLE IF NOT EXISTS dart_fundamentals(
+  ticker text PRIMARY KEY, corp_code text, market text, fs text,
+  ni_fy double precision, ni_ttm double precision,
+  eq_fy double precision, eq_mrq double precision, fetched text)"""
+
+
+async def include_new_tickers() -> int:
+    """KRX 최신 거래일 상장 **보통주** 가운데 dart_fundamentals 에 없는 종목을 등록한다 — 옛 시장 aggregate
+    수집기(--fetch)가 하던 유일한 잔존 역할(260902 흡수). 이 표의 `fetched='ok'` 행이 분기(fetch)·연간
+    (market_val_series)·주간 스냅샷(market_val_weekly) 세 수집기의 대상 집합이라, 여기 없는 신규 상장사는
+    어디서도 안 잡힌다(구 스크립트는 done 셋 고정이라 갱신 불가였다).
+
+    재무 4열은 쓰지 않는다(NULL) — SSOT 는 dart_finstat_q 이고 파생(--derive)이 채운다. 옛 방식(1Q 고정
+    직접 수집)을 되살리지 않는다. corp_code 미해결이면 fetched='nocorp' 로 남겨 재시도 대상에서 뺀다.
+    콜: KRX ≤4(시세 2 는 _ensure_krx_fresh 가 이미 DB 에 있으면 0, 종목유형 2) · DART 0(corpCode 캐시).
+    """
+    from open_proxy_mcp.services.price_multiple_data import _ensure_krx_fresh
+    from market_val_weekly import _krx_kinds          # 같은 폴더 — 우선주/보통주 판별(KRX isu_base_info 2콜)
+    from open_proxy_mcp.dart.client import get_dart_client
+    snap_dd = await _ensure_krx_fresh()
+    if not snap_dd:
+        print("include-new: KRX 최신 거래일 확보 실패 — 건너뜀", flush=True)
+        return 0
+    kinds = await _krx_kinds(snap_dd)
+    if not kinds:
+        print("include-new: KRX 종목유형(kinds) 확보 실패 — 건너뜀(우선주를 보통주로 넣지 않기 위해)", flush=True)
+        return 0
+    con = _pg(); con.autocommit = True
+    con.execute(DDL_FUNDAMENTALS)
+    known = {r[0] for r in con.execute("SELECT ticker FROM dart_fundamentals")}
+    listed = con.execute("SELECT ticker, market FROM krx_weekly WHERE price_dd=%s", (snap_dd,)).fetchall()
+    new = [(t, m) for t, m in listed if t not in known and kinds.get(t) == "보통주"]
+    print(f"include-new: {snap_dd} 상장 {len(listed)} · 기등록 {len(known)} · 신규 보통주 {len(new)}", flush=True)
+    c = get_dart_client()
+    n_ok = n_nocorp = 0
+    for ticker, market in new:
+        corp = await c.lookup_corp_code(ticker)
+        if corp and corp.get("corp_code"):
+            con.execute("INSERT INTO dart_fundamentals(ticker, corp_code, market, fetched) "
+                        "VALUES(%s, %s, %s, 'ok') ON CONFLICT (ticker) DO NOTHING",
+                        (ticker, corp["corp_code"], market))
+            n_ok += 1
+        else:
+            con.execute("INSERT INTO dart_fundamentals(ticker, market, fetched) "
+                        "VALUES(%s, %s, 'nocorp') ON CONFLICT (ticker) DO NOTHING", (ticker, market))
+            n_nocorp += 1
+    # 양쪽으로 센다(CLAUDE.md 13): 새 행 N건이 실제로 들어갔는지.
+    after = con.execute("SELECT count(*) FROM dart_fundamentals").fetchone()[0]
+    con.close()
+    print(f"include-new: 등록 {n_ok}(ok) + {n_nocorp}(nocorp) → dart_fundamentals {len(known)} → {after}행", flush=True)
+    return n_ok
 
 
 def seed_q4() -> None:
@@ -471,12 +529,16 @@ if __name__ == "__main__":
     ap.add_argument("--pilot", type=str, help="소표본 ticker 콤마구분(전분기 수집·검증)")
     ap.add_argument("--fetch", action="store_true", help="Q1~Q3 백필")
     ap.add_argument("--derive", action="store_true", help="dart_fundamentals 재무 4열 파생(0콜)")
+    ap.add_argument("--include-new", action="store_true",
+                    help="KRX 신규 상장 보통주를 dart_fundamentals 에 등록(KRX ≤4콜·DART 0콜) — --fetch 앞에 수행")
     ap.add_argument("--years", type=str, help="콤마구분 연도(기본 2019~2026)")
     ap.add_argument("--conc", type=int, default=int(os.getenv("FUND_Q_CONC", "2")),
                     help="동시성(기본 2, CLAUDE.md 허용 1~2)")
     a = ap.parse_args()
     yrs = [int(y) for y in a.years.split(",")] if a.years else YEARS_DEFAULT
     conc = max(1, min(2, a.conc))  # 하드 상한 2(910 한도·CLAUDE.md 준수)
+    if a.include_new:
+        asyncio.run(include_new_tickers())   # fetch 가 firms 를 DB 에서 다시 읽으므로 같은 실행에서 이어진다
     if a.seed:
         seed_q4()
     if a.derive:

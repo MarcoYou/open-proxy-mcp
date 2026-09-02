@@ -6,7 +6,7 @@ Judgments follow OPM's **Open Proxy Guideline** (minority-shareholder protection
 
 ## What it answers
 
-- **AGAINST comes from only four clear triggers** — complete capital impairment (financial-statement approval), a qualified/adverse audit opinion, director disqualification, and a 5-year long tenure of an audit-committee member (independence). All four rest on law or listing rules.
+- **AGAINST comes only from clear triggers** — complete capital impairment (financial-statement approval), a qualified/adverse audit opinion, director disqualification, and breaches of mandatory Commercial Act rules (newly excluding cumulative voting, shrinking separate election, skipping the 3% rule, etc.). All rest on law or listing rules. Long tenure of an audit-committee member (5+ years) has no statutory basis and is returned as **REVIEW**, not AGAINST.
 - Other concerns (large pay hikes, removing cumulative voting, etc.) are **not asserted — they go to REVIEW.** OPM does not make the policy call for you.
 - **If no supporting filing is found, it never auto-approves** — it routes to REVIEW to prompt a read of the source (no baseless auto-FOR).
 - Company-nominated inside directors are judged **with their in-office performance** (profitability, stability, shareholder-return direction) — but weak performance yields REVIEW, not AGAINST (it is not a legal disqualification).

@@ -4,13 +4,13 @@ title: 임원보수-API스펙
 tags: [dart-api, director, compensation, exctvSttus, mendngSttus, empSttus]
 source: DART OpenAPI 개발가이드 (opendart.fss.or.kr/guide, DS002 정기보고서 주요정보)
 related: [사업보고서, 공시유형코드체계]
-purpose: director_board tool 구축·검증용 — 필드명 추론이 아닌 DART 공식 문서 기반 정확한 스펙
-updated: 2026-07-08
+purpose: 임원·보수 정형 API 구축·검증용 — 필드명 추론이 아닌 DART 공식 문서 기반 정확한 스펙
+updated: 2026-09-02
 ---
 
 # 임원·보수 관련 API 스펙 (DS002 정기보고서 주요정보)
 
-> `director_board` tool이 쓰는 6개 정형 API의 **공식 필드명 사전**. 영문 Element ↔ 한글 항목명
+> 임원·보수 분석이 쓰는 6개 정형 API의 **공식 필드명 사전**. 영문 Element ↔ 한글 항목명
 > 대응은 DART 개발가이드(opendart.fss.or.kr/guide, DS002)가 정본이다.
 
 관련: [[사업보고서]] · [[공시유형코드체계]]

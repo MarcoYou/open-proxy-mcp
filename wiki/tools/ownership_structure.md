@@ -2,14 +2,13 @@
 type: tool
 title: ownership_structure
 domain: data
-scope: [summary, major_holders, blocks, treasury, control_map, timeline, changes]
+scope: [summary, major_holders, blocks, control_map, changes]
 data_source: [DART OpenAPI 사업보고서 (대주주/지분/자사주) + majorstock + document.xml (5% 보유목적), KIND HTML (changes scope 원문)]
 related_disclosures: [대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서]
 related_concepts: [최대주주, 특수관계인, 대주주, 동일인, 5%-대량보유, 자사주, 소액주주, 지분구조]
-related_decisions: [stkrt-vs-ctr_stkrt, free-paid-분리, cross-domain-체이닝]
-related_audits: [260427_1145_fix_ownership-stockknd, 260429_0216_fix_speed-optimization-9건]
+related_decisions: [stkrt-vs-ctr_stkrt, cross-domain-체이닝]
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # ownership_structure
@@ -28,14 +27,17 @@ ownership_structure(
 
 자연어 예시:
 - "고려아연 control map" → `scope="control_map"` (3대 카테고리: 명부 등재 / 외부 능동 / 수동)
-- "삼성전자 5% 대량보유 타임라인" → `scope="timeline"`
+- "삼성전자 5% 대량보유 타임라인" → `scope="blocks"` (최신 + 이력; 구 `timeline` scope 통합)
 - "최대주주등소유주식변동신고서 (개인별 변동)" → `scope="changes"`
+- "최대주주 누구고 특수관계인 합쳐서 몇 %야?" → `scope="summary"` (특관 개별 내역은 `major_holders`)
+- "국민연금이 5% 넘게 들고 있어?" → `scope="blocks"` (5% 대량보유 보고자·보유목적)
+- "자사주 비율 얼마야?" → `scope="summary"` 의 자사주 snapshot (취득·소각 이벤트는 [[treasury_share]])
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 7종 (아래 참조) | "summary" |
+| scope | str | no | 5종 (아래 참조) | "summary" |
 | year | int | no | 사업연도, 0이면 최신 | 0 |
 | as_of_date | str | no | YYYYMMDD 기준일 | "" |
 | start_date / end_date | str | no | YYYYMMDD | "" |
@@ -44,11 +46,10 @@ ownership_structure(
 scope:
 - `summary`: 최대주주 + 특수관계인 + 자사주 + 5% signal count (기본)
 - `major_holders`: 최대주주 + 특수관계인 상세
-- `blocks`: 5% 대량보유 최신 N건 (보유목적 보강 포함)
-- `treasury`: 자사주 잔액
+- `blocks`: 5% 대량보유 최신 N건 + 보고 이력 시계열 (보유목적 보강 포함; 옛 `timeline` 을 흡수)
 - `control_map`: 3대 카테고리 (명부 등재 / 외부 능동 5% / 명부 겹침 5%)
-- `timeline`: 5% 보고 이력 시계열
 - `changes`: 최대주주등소유주식변동신고서 (KIND 원문 파싱, 개인별 변동)
+- 폐지: `treasury`(자사주는 `treasury_share` tool) · `timeline`(`blocks` 에 통합). 넘기면 지원하지 않는 scope 로 돌아온다.
 
 ## 출력 schema (data dict)
 ```json
@@ -162,13 +163,11 @@ sequenceDiagram
 
 ## 관련 결정 (decisions/)
 - [[stkrt-vs-ctr_stkrt]] — DART 대량보유 API: stkrt(합산) vs ctr_stkrt(주요계약) 차이
-- [[free-paid-분리]] — MCP / Pipeline 분리에서 지분구조 수치 일관성
 - [[cross-domain-체이닝]] — OWN → AGM/PRX 체이닝
 
 ## 관련 audit/fix (architecture/)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — ownership_structure 90.8% exact
-- [[260427_1145_fix_ownership-stockknd]] — 17건 partial → 0 (stock_knd 변형 positive matching + 3-tier fallback)
-- [[260429_0216_fix_speed-optimization-9건]] — ownership 3x 속도 향상 (asyncio.gather)
+- 260427 stockKnd 변형 positive matching(17건 partial → 0) · 260429 asyncio.gather 병렬화(3x) — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 
 ## 알려진 issue + TODO
 - 5% 보유목적이 `불명`으로 남는 경우 (원문 텍스트 추출 실패) — `requires_review`로 표시.

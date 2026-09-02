@@ -1,7 +1,7 @@
 """[실험] MCP resource — 공시 원문을 주소로 노출한다.
 
 왜 필요한가 (260813 실측):
-  소집공고 안건 파싱이 0건이면 `raw_text_fallback`(proxy_advise.py:4101)이 **안 붙는다**
+  소집공고 안건 파싱이 0건이면 `raw_text_fallback`(proxy_advise.py `_build_proxy_advise_payload`)이 **안 붙는다**
   — 그 코드는 「안건이 있고 그 안건의 decision 이 NO_DATA」일 때만 돈다. 안건 자체가
   없으면 원문이 응답에 한 글자도 안 실린다(실측: 페니트리움바이오 20260220000017).
   응답의 DART 웹 링크는 AI 가 열 수 없는 그냥 글자다.
@@ -63,8 +63,7 @@ def register_all_resources(mcp: MCPServer) -> None:
     #: 260813: 인용문은 `_POLICY_CITATIONS`(proxy_advise.py) 에 손으로 적어둔 14줄이고,
     #:   이 문서와 코드가 연결돼 있지 않다 — 셋(문서·라벨·판정 함수)이 수기 동기화 상태다.
     #:   최소한 **문서 자체를 열람 가능하게** 해서, 「왜 찬성이냐」에 원문으로 답할 수 있게 한다.
-    #: ⚠ 배포 주의: Dockerfile 이 `wiki/rules/laws/` 만 복사하므로 fly 이미지에 이 파일이 없다.
-    #:   없으면 그 사실을 그대로 말한다(조용히 빈 값을 주지 않는다 — 무표시 열화 금지).
+    #: 파일이 없으면 그 사실을 그대로 말한다(조용히 빈 값을 주지 않는다 — 무표시 열화 금지).
     @mcp.resource(
         "opm://guideline",
         name="Open Proxy Guideline",

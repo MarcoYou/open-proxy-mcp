@@ -13,7 +13,7 @@ updated: 2026-08-02
 > - **`live` = 사람들에게 배포해서 쓰게 하는 것.**
 >
 > 섞으면 "고쳤는데 왜 그대로지"가 되고, 반대로 시험 안 끝난 것이 사람들에게 나간다.
-> 셋업 키·시크릿은 [[environment-secrets]], 코드 구조는 [[project_structure]].
+> 셋업 키·시크릿은 [[environment-secrets]], 코드 구조는 `docs/ARCHITECTURE.md`.
 
 ## 두 엔드포인트
 
@@ -192,4 +192,4 @@ FLY=~/.fly/bin/flyctl
 ## 관련
 
 - [[environment-secrets]] — 어떤 키가 왜 필요한가 · 로컬 `.env` + fly secrets
-- [[project_structure]] — `server.py` 진입점과 transport
+- `docs/ARCHITECTURE.md` — `server.py` 진입점과 transport

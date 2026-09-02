@@ -49,7 +49,6 @@ _SUPPORTED_SCOPES = {
 }
 
 _REPRT_BUSINESS = "11011"  # 사업보고서 (연간)
-_QUARTER_REPRT_CODES = ("11013", "11012", "11014", "11011")  # Q1, Q2(반기), Q3, Q4(사업)
 
 
 # DART 사업보고서 fnlttSinglAcnt 표준 account_nm 매칭 키워드.
@@ -195,22 +194,6 @@ def normalize_amount(raw: Any) -> int | None:
     except (ValueError, TypeError):
         return None
     return -n if is_neg else n
-
-
-def normalize_pct(raw: Any) -> float | None:
-    """DART 지표 값 → float (% 형식, 11.5 = 11.5%).
-
-    fnlttSinglIndx의 idx_val은 string. None/공란 graceful.
-    """
-    if raw is None:
-        return None
-    s = str(raw).strip().rstrip("%").replace(",", "")
-    if not s or s == "-":
-        return None
-    try:
-        return float(s)
-    except (ValueError, TypeError):
-        return None
 
 
 #: 부분문자열 매칭이라 **다른 계정에 올라타는 조합**이 있다. 지금 이것들이 안 터지는 유일한
@@ -1141,11 +1124,11 @@ def _compute_metrics(
     # detail에 basic_eps_per_share / diluted_eps_per_share가 있으면 그대로 사용 (원/주).
     eps_krw = basic_eps_per_share
     diluted_eps_krw = diluted_eps_per_share
-    bps_krw = None  # Phase 2 — stockTotqySttus 호출 통합 시 채움
+    bps_krw = None  # 이 tool 은 BPS 를 내지 않는다(항상 None). BPS·PBR 은 price_multiple_data 가 계산.
 
     # ── 지배구조 cross-check ──
     # subsidiary_count: 종속회사 수. DART OpenAPI 4 endpoint 어디에도 직접 반환 X.
-    # 사업보고서 본문 (XML/PDF) "종속회사 명단" 섹션 파싱 필요 — Phase 2 (3-tier fallback 추가).
+    # 사업보고서 본문 "종속회사 명단" 섹션 파싱이 필요해 미구현 — 항상 None.
     subsidiary_count = None
 
     return {
@@ -1241,7 +1224,7 @@ def _compute_metrics(
         "retained_earnings_krw": retained_earnings,
         # ── NAV/주식 ──
         "nav_krw": nav_krw,
-        "bps_krw": bps_krw,  # Phase 2 — None until stockTotqySttus 통합
+        "bps_krw": bps_krw,  # 항상 None — price_multiple_data 참조
         "capital_stock_krw": capital_stock,
         # ── 자본잠식 (KOSDAQ 관리/폐지 사유 detect) ──
         "capital_impairment_ratio_pct": capital_impairment_ratio_pct,
@@ -1527,22 +1510,6 @@ async def _periodic_filing_ref(corp_code: str, year: int, reprt_code: str | None
         "correction_dt": top_dt if is_corr else "",
         "same_day_corrections": same_day,
     }
-
-
-async def _safe_fetch_indx(corp_code: str, year: int, reprt_code: str) -> dict[str, float | None]:
-    """4개 idx_cl_code 모두 호출 → 통합 dict (idx_nm: idx_val)."""
-    client = get_dart_client()
-    out: dict[str, float | None] = {}
-    for cl_code in ("M210000", "M220000", "M230000", "M240000"):
-        try:
-            data = await client.get_fnltt_singl_indx(corp_code, str(year), reprt_code, cl_code)
-            for row in (data.get("list") or []):
-                key = _strip(row.get("idx_nm"))
-                if key and key not in out:
-                    out[key] = normalize_pct(row.get("idx_val"))
-        except DartClientError:
-            continue
-    return out
 
 
 async def _safe_fetch_audit(corp_code: str, year: int) -> tuple[list[dict[str, Any]], str | None]:

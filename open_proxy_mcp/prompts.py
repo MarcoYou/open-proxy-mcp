@@ -30,7 +30,7 @@ def register_all_prompts(mcp) -> None:
             "순서:\n"
             "1. `company` 로 회사를 확정하고, 나온 이름·종목코드·corp_code 를 이어지는 호출에 그대로 넘긴다.\n"
             "2. `financial_metrics` — 매출·영업이익·순이익 추세, 차입과 이자보상배율\n"
-            "3. `valuation` — PER·PBR·배당수익률, 그리고 그 값이 어느 기준으로 계산됐는지\n"
+            "3. `price_multiple_data` — PER·PBR·배당수익률, 그리고 그 값이 어느 기준으로 계산됐는지\n"
             "4. `ownership_structure` — 최대주주와 지분율, 주요 주주 구성\n"
             "5. `dividend` — 최근 배당 추이와 배당성향\n"
             "\n"

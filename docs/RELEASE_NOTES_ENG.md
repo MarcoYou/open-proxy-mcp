@@ -2,6 +2,70 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-02
+
+### Seven new tools and one rename, written up
+
+Tools that landed after v2.5.2 (08-05) without a release note, collected in one place. **25 tools → 32.** The README tools badge now says 32.
+
+The arithmetic closes like this: 25 tools as of 07-22 (`screener` included) plus seven added since: `proxy_guideline` (08-13) · `director_news` (08-20) · `financial_notes` (08-23) · `trading_data` (08-24) · `forward_estimates_data` (08-30, written up in the 08-31 entry) · `dividend_history_data` and `dividend_screener` (09-02). Dates are each wiki page's `created` field — this repository's git history begins on 2026-08-24, so first commits of earlier tools resolve to the history-import commit (`fd6eeb7`, 08-28) and were not used as evidence. `screener` predates v2.5.2 but was never written up, so it is documented here as well.
+
+### `valuation` renamed to `price_multiple_data` (tool name 08-24, file 08-30)
+
+- One name, "valuation", carried both **multiples (PER, PBR) and size (price, market cap)**: a single `scope` had to split five things, and a request for "just the share price" ran the whole multiple-derivation path to return one close. Multiples stay in `price_multiple_data`; size and trading moved to `trading_data` below.
+- The tool name changed on 08-24 (wiki: "Name (renamed 260824)"); the file name followed in commit `a24a692` on 08-30. Usage statistics for the old name are folded into the same lineage by `usage_tracker.TOOL_ALIASES`.
+- Definitions are unchanged — **PER = common-share market cap ÷ net income attributable to controlling interests; PBR = common-share market cap ÷ controlling equity (MRQ)** (switched 260823). `scope=market/sector/firm_history` read Supabase weekly snapshots, so **they return `no_data` when the batch has not run.**
+
+### `screener` — market-wide filing screener / morning digest (added before v2.5.2, never written up; wiki updated 08-25)
+
+- Answers "what filings came out today / yesterday". Summarises the major filings across every listed company since the last run as cards (company + market cap + type + stage + correction flag + DART/Naver links). A call with no arguments is the morning digest.
+- `types` — `core` (provisional earnings, orders, treasury shares, dividends, capital increases/CBs, meeting notices, 5% holdings) / `all` / a comma-separated plain-language list ("treasury, dividend", "orders", "earnings", ...). `scan` (what appeared, cheaply) is the default; `details=true` opens only the filings it needs and fills in type-specific key figures (amount, % of base, DPS, agenda, stake %) by reusing the per-type parsers (`order_contracts` and the like).
+- Source: DART `list.json` market-wide pages (no corp_code, scanned by type detail code) plus market cap from `krx_weekly` (zero DART calls). Corrections keep only the latest version under a `[기재정정]` prefix, and stages are tagged so that decision ≠ result ≠ cancellation.
+- **An empty result is split into `no_new` (nothing new) and `status=error` (lookup failed).** Deep dives on one company belong to the individual tools.
+
+### New tool `financial_notes` — liquidity and asset-quality notes for financial companies (wiki created 08-23)
+
+- Extracts **financial-statement note tables from banks, brokers and insurers verbatim, without reshaping**: (1) restricted deposits and pledged assets (→ unencumbered cash), (2) investment assets by category — FVPL, FVOCI, amortised cost (→ per-category haircuts). Built at the request of credit and bond analysts: `financial_metrics` is a company-level aggregate with no note-level breakdown, and `business_details` covers "II. Business", a different chapter.
+- `fields` (comma-separated; empty means all — the document is downloaded once per company, so one call is cheaper) · `period` (`latest` / `annual` / `half` / `quarter` / `quarterly`) · `basis` (consolidated / separate) · `year` (fiscal year; added after a 260824 tester report — there was no way to ask for the past before).
+- Source: DART `document.xml`, notes under "III. Financial matters". **Tables are never merged or split** — that companies lay them out differently is itself information.
+- Two cautions are written into the docstring. **Always separate current-period-end from prior-period-end** (KB Insurance restricted deposits: prior year-end 391,082 → current half-year-end 26,356, a 15-fold drop) · **units differ by company and, within one company, by report** (Hyundai Marine: quarterly in `won`, half-year in `thousand won`, annual in `won` — chaining them as-is is off by 1,000x). "Restricted" and "pledged" are separated by `kind` and never added together. Computing unencumbered cash and applying haircuts is outside this tool.
+
+### New tool `director_news` — negative-news check on director candidates (wiki created 08-20)
+
+- Searches Naver News by **candidate name (plus company name)** for director, auditor and audit-committee nominees and keeps only articles matching 48 negative keywords (embezzlement, breach of trust, investigation, sanction, dismissal, ...). It fills the gap beside the career and concurrent-post data `shareholder_meeting_notice` gives: incidents that never reach a filing, or reach it late.
+- Source: **one NAVER API HUB news-search call (up to 100 items)**, filtered locally. The search API has no publisher option, so publisher groups are inferred from the article domain. Widen or narrow with `extra_keywords` / `exclude_keywords`. DART is not used.
+- **A keyword hit is not a confirmed fact** — open the article; namesakes cannot be separated. **Zero results means "nothing matched under these conditions", not "cleared".** The tool does not decide for or against.
+
+### New tool `proxy_guideline` — the voting-policy document itself (wiki created 08-13)
+
+- Reads the **full text behind the citation** that `proxy_advise_before_meeting` attaches to each verdict ("OPM Guideline §Financial statements — ..."). Before this there was no way to see what stood behind that one line. Company- and DART-independent, **zero API calls.**
+- Leave `section` empty for the table of contents plus full text; pass a word to get only sections whose title contains it (`재무제표`, `이사선임`, `정관`, `0-A`). An unknown section returns the list of available ones. Capped at 120,000 characters.
+- The same document is also exposed as the `opm://guideline` resource, but a 260813 test confirmed that **the Claude.ai connector does not surface resources to the model**, so it is a tool as well.
+- **The policy and the engine differ on purpose** — §0-A is the map of that gap. Even where the policy declares `against`, the engine returns REVIEW unless a hard trigger fires.
+
+### New tool `trading_data` — price, market cap, share count, quotes (wiki created 08-24)
+
+- Price and **size as such** — a ticker's weekly price / market cap / listed-share time series (from 2015-12), KOSPI and KOSDAQ market-cap aggregates, WICS sector market cap and weights, and the full quote for a given trading day (OHLC, volume, value traded, change). Multiples belong to `price_multiple_data`.
+- `scope` — `firm` (default, with `since`) / `market` / `sector` (`scheme=wics_industry` 28 buckets, `wics_sector` 10; `bucket` for one sector's series) / `quote` (`as_of=YYYYMMDD`). `freq` defaults to weekly for firm and monthly for market/sector; `data.points_weekly` reports the number of underlying observations.
+- Source: `firm/market/sector` read Supabase (`krx_weekly`, `krx_cap_agg`, **zero DART or KRX calls**); only `quote` hits KRX live (at most 2 calls). Status distinguishes `no_data` (market holiday, pre-listing, **batch not run**) / `db_error` (retry is valid) / `db_unconfigured` (no snapshot DB on this server — firm and market fall back to the latest single KRX live point with `timeseries_available:false`; sector has no fallback).
+- **`close_krw` is not an adjusted price** — it is discontinuous at splits and reverse splits, and the output says so with `price_adjusted:false` and the list of adjustment events. Use `mktcap_krw` for continuous comparison. Market cap is the sum of every issue listed that day, preferred shares included, so it runs 3–4% above the Σ market cap in `price_multiple_data`. Unclassified issues are kept as `_UNCLASSIFIED` so that **sector sum == market sum**. Sector classification is observed from 2026-08; earlier periods are back-filled (`sector_asof`).
+
+### New tool `dividend_history_data` — confirmed dividend time series (09-02, `a0dbddb`)
+
+- Reads confirmed dividends from a **full collection of DART periodic-report `alotMatter` tables (828 KOSPI companies × FY2020–2025)**. `scope=firm` (one company across years) / `market` (KOSPI aggregate) / `sector` (WICS sector aggregate), with `year_from` / `year_to`. Where `dividend` looks at one company deeply and live, this looks wide across companies and years. **DART is not called live.**
+- **Confirmed figures only** — no estimates, no decision-notice previews. Total payout is given as the **declared total only** (a common/preferred split cannot be reconciled without per-class share counts, so it is not produced). Payout ratio is the filing's own `(연결)현금배당성향(%)` — **consolidated, and not computed by us.**
+- Blanks are split into **confirmed / no dividend / item absent / no report** and never filled with 0. Share class is one of `보통` / `우선` / `종류` / `미구분`; redeemable, convertible and tracking shares that had been lumped in with preferred (821 rows) were separated on 09-02 in `90cc13b`. Quarterly values are cumulative differences; a row flagged `음수차분` is a range where that premise broke.
+- A failed database read ends with `status=db_error` (possibly transient — retry shortly).
+
+### New tool `dividend_screener` — screening companies by dividend conditions (09-02, `a0dbddb`)
+
+- **Filters companies in one fiscal year (`bsns_year`) by dividend conditions** — `min_payout` / `max_payout` (payout-ratio range) · `min_dps` · `quarterly_only` · `sector` (WICS) · `limit`. Reads the same full collection.
+- **Counts only common-share rows (`보통`, `미구분`), confirmed figures, DPS > 0.** The result separates **population, matches, and rows shown** — **`limit` is a display cap, not the match count.** Before 09-02 the three shared one cell, and what read as "100 companies" was in fact 121.
+- `quarterly_only` was redefined as **companies that paid two or more times in that year** (two or more quarters with payout > 0 in the quarterly ledger) in `90cc13b`.
+- Zero results means "no such company", not a failed lookup; failure comes back separately as `status=db_error`.
+
+Verified: `python3 scripts/check_tool_catalog.py` confirms 32 tools registered on the runtime MCP server (wiki catalog, README table and domain counts all match). `python3 scripts/wiki_lint.py --strict` passes.
+
 ## beta — 2026-08-31
 
 ### `price_multiple_data` — market and sector dividend yield
@@ -51,7 +115,7 @@ Verification: commit `332faa5`. `ok`, `no_estimates` and `not_found` confirmed t
 - When concurrent requests need the same filing, only one DART `document.xml` request runs and the other callers share its result.
 - `doc_misses` now counts actual DART round trips rather than every caller that observed a cache miss.
 - Existing response formats and single-request behavior are preserved; the full beta test suite passes 1,131 tests.
-- This change is limited to the `beta` branch and has not been deployed to live OPM.
+- At the time of writing this was on the `beta` branch only; it has since been merged into `main` and deployed.
 
 Verified with beta commit `0879021`, the concurrent-request single-flight regression test, and the full 1,131-test suite.
 

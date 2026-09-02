@@ -117,7 +117,7 @@ Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw
 - `services/proxy_advise.py`: `_classify_agenda` 카테고리 분리, `_decide_director_compensation` 강화 (13 분기), `_decide_audit_compensation` 신규 (11 분기), `_decide_retirement_pay` 신규 (12 분기), `_decide_articles_amendment` hybrid 통합
 - chain: `parse_retirement_pay_xml` 같은 doc에서 통합 fetch (extra DART 호출 0)
 - audit harness `scripts/ralph_compensation_retirement_audit.py`: articles_amendment hybrid reason-based detection
-- 운용사 majority cache `data/asset_managers/_majority_cache_compensation_retirement.json`
+- 운용사 majority cache `_majority_cache_compensation_retirement.json` (G3 검증용 일회성 산출물 — 코드가 읽지 않아 260902 에 `build_manager_majority_cache.py` 와 함께 open-proxy-storage `wiki-private/archive/opm-scripts/` 로 이관)
 
 ## 비목표
 

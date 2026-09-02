@@ -6,10 +6,10 @@ scope: [summary, yearly, quarterly, yoy, qoq, audit_opinion]
 data_source: [DART OpenAPI fnlttSinglAcnt (BS+IS 핵심 30행), fnlttSinglIndx (DART 산출 ROE/부채비율 보조), fnlttSinglAcntAll (CF + 세부 IS/BS 213행), accnutAdtorNmNdAdtOpinion (감사인+의견+KAM 3년 추이)]
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석, ROE, ROA, ROIC, FCF, NWC, 매출채권회전율, 재고자산회전율, 이자보상배율, 순현금]
-related_decisions: [open-proxy-guideline, free-paid-분리, cross-domain-체이닝]
+related_decisions: [open-proxy-guideline, cross-domain-체이닝]
 
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # financial_metrics
@@ -57,6 +57,9 @@ financial_metrics(
 - "SK하이닉스 turnaround 검증" → `scope="yoy"` → turnaround alert
 - "삼성전자 듀퐁 분해 + ROE 구성" → `scope="summary"` → ROE 13.07% = 16.63% × 0.62 × 1.27
 - "오스템임플란트 5년 감사의견" → `scope="audit_opinion"`
+- "영업이익률이랑 ROE 얼마야?" → `scope="summary"` (수익성 핵심 지표 1년)
+- "차입금 의존도 높아? 총차입금 얼마?" → `scope="summary"` (`total_debt`·`debt_dependency_pct`; 금융업은 n/a)
+- "회계상 리스크 신호 있어?" → `scope="yoy"` (accruals_gap·debt_surge 등 alerts)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |

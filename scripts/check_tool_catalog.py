@@ -29,9 +29,6 @@ from open_proxy_mcp.server import build_mcp
 CATALOG_DIR = ROOT / "wiki" / "tools"
 SUPPORT_PAGES = {
     "README",
-    "data_tool_disclosure_map",
-    "tool_call_budget",
-    "tool_disclosure_map",
 }
 
 

@@ -4,7 +4,6 @@ title: DartClient에 persistent httpx connection pool 도입
 date: 2026-05-07 23:30
 status: adopted
 related:
-  - wiki/log.md
 ---
 
 # DartClient persistent httpx connection pool
