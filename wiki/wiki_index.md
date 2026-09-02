@@ -35,12 +35,13 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 - [[shareholder_meeting_notice]] (사전 — DART)
 - [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
 
-### Data (20)
+### Data (22)
 - [[ownership_structure]] · [[dividend]] · [[financial_metrics]] · [[treasury_share]]
 - [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]]
 - [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]]
 - [[director_board]] · [[price_multiple_data]] · [[trading_data]] · [[business_details]]
 - [[provisional_earnings]] · [[asset_holdings]] · [[financial_notes]] · [[forward_estimates_data]]
+- [[dividend_history_data]] · [[dividend_screener]]
 
 ### Evidence (2)
 - [[evidence]]
