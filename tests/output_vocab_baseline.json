@@ -7,7 +7,7 @@
   "services/director_board.py": 4,
   "services/director_evaluation.py": 1,
   "services/dividend.py": 1,
-  "services/dividend_data.py": 4,
+  "services/dividend_data.py": 5,
   "services/financial_metrics.py": 2,
   "services/ownership_structure.py": 1,
   "services/price_multiple_data.py": 4,

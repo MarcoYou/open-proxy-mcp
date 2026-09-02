@@ -98,7 +98,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append(f"- 연간 DPS(우선주): {summary.get('cash_dps_preferred', 0):,}원")
         lines.append(f"- 배당총액: {_won(summary.get('total_amount_mil', 0) * 1_000_000)}")
         if summary.get("payout_ratio_dart") is not None:
-            lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}%")
+            lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}% _(공시 원문 `(연결)현금배당성향`. 연결 기준이며 우리가 계산한 값이 아니다)_")
         if summary.get("yield_dart") is not None:
             lines.append(f"- 시가배당률: {summary.get('yield_dart')}% (결의 당시 공시값)")
         if summary.get("yield_current_pct") is not None:

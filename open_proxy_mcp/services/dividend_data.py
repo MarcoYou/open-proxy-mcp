@@ -191,12 +191,23 @@ def screen(
 ) -> dict[str, Any]:
     """한 사업연도에서 조건으로 회사를 거른다 — 보통주 기준.
 
-    `quarterly_only` — 그 해 **4분기 모두** 분기 배당 원장이 확정된 회사만. 96개사뿐이다
-    (2026-09-02 실측). 대다수 회사는 분기보고서 배당칸을 비워 두므로 이 조건은 실질적으로
-    「분기·중간배당을 실제로 하는 곳」을 고른다.
+    `quarterly_only` — **그 해에 실제로 두 번 이상 배당한 회사**. 판정은 분기 원장에서
+    `quarterly_div_krw > 0` 인 분기가 2개 이상인지로 한다.
+
+    🔴 260902 에 갈아엎었다. 종전 판정은 「4칸이 모두 확정인가」였는데 그건 **데이터가
+    채워졌나**를 보는 조건이지 **분기배당을 하나**를 보는 조건이 아니다. 두 방향으로 틀렸다:
+      · 계룡건설(013580) — 연 1회 배당인데 1분기 보고서에 전기 배당액이 실려 4칸이 차서 들어왔다
+      · KB금융(105560) FY2025 — 실제 분기배당인데 H1·Q3 원장이 비어 빠졌다
+
+    두 번째 것은 「분기배당이 아니다」가 아니라 **모른다**이다. 그래서 결과에서 빼되
+    `n_unknown` 으로 몇 곳이 판단불가인지 함께 낸다 — 없다고 말하지 않는다.
     """
+    # `보통`·`미구분`만. 260902 4분류 뒤로 `종류`(상환·전환·무의결권·트래킹스톡)는 여기서
+    #   자동으로 빠진다 — 종전엔 그것들이 `우선` 통에 섞여 있었다.
+    # `dps_krw > 0` — 표 머리에 「무배당 제외」라고 써 놓고 DPS 0원 회사를 넣고 있었다
+    #   (씨티알모빌리티·DB, U7 실측). 원문에 0 이 적혀 있어도 그건 배당한 것이 아니다.
     where = ["d.reprt_code = %s", "d.bsns_year = %s", "d.stock_kind IN ('보통','미구분')",
-             "d.status = '확정'"]
+             "d.status = '확정'", "d.dps_krw > 0"]
     params: list[Any] = [_ANNUAL, bsns_year]
     if min_payout is not None:
         where.append("d.payout_pct >= %s"); params.append(min_payout)
@@ -210,11 +221,16 @@ def screen(
         join = ("JOIN wise_sector w ON w.ticker = d.tickers "
                 "AND w.snap_dd = (SELECT MAX(snap_dd) FROM wise_sector)")
         where.append("w.sector = %s"); params.append(sector)
+    _PAID_TWICE = (
+        "(SELECT COUNT(*) FROM div_quarterly q "
+        " WHERE q.corp_code = d.corp_code AND q.bsns_year = d.bsns_year "
+        "   AND q.status = '확정' AND q.quarterly_div_krw > 0) >= 2")
+    _LEDGER_FULL = (
+        "(SELECT COUNT(*) FROM div_quarterly q "
+        " WHERE q.corp_code = d.corp_code AND q.bsns_year = d.bsns_year "
+        "   AND q.status = '확정') = 4")
     if quarterly_only:
-        where.append(
-            "(SELECT COUNT(*) FROM div_quarterly q "
-            " WHERE q.corp_code = d.corp_code AND q.bsns_year = d.bsns_year "
-            "   AND q.status = '확정') = 4")
+        where.append(_PAID_TWICE)
 
     sql = f"""
         SELECT DISTINCT ON (d.corp_code)
@@ -228,14 +244,30 @@ def screen(
                  tuple(params) + (limit,))
     if rows is None:
         return {"status": "db_error"}
+    # 조건에 걸린 전체 수. `limit` 은 **표시 한도**일 뿐인데 종전엔 이 값이 없어서
+    #   돌려준 행 수를 매칭 수로 읽었다(U7: 「100사」가 실은 121사였다).
+    m = _rows(f"SELECT COUNT(*) FROM ({sql}) t", tuple(params))
+    matched = (m or [(None,)])[0][0]
     # 분모 — 조건을 걸기 전 그 해 모집단. 「몇 중 몇」이 없으면 결과를 못 읽는다.
     tot = _rows(
         "SELECT COUNT(DISTINCT corp_code) FROM div_declared "
         "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
         (_ANNUAL, bsns_year))
+    # 판단불가 — 분기 원장이 4칸을 못 채운 배당사. 「분기배당이 아니다」가 아니라 「모른다」다.
+    n_unknown = None
+    if quarterly_only:
+        u_where = [w for w in where if w != _PAID_TWICE] + [f"NOT {_LEDGER_FULL}"]
+        u = _rows(
+            f"SELECT COUNT(DISTINCT d.corp_code) FROM div_declared d {join} "
+            f"WHERE {' AND '.join(u_where)}", tuple(params))
+        n_unknown = (u or [(None,)])[0][0]
     return {
         "status": "ok",
         "n_universe": (tot or [(None,)])[0][0],
+        "matched": matched,
+        "returned": len(rows),
+        "limit": limit,
+        "n_unknown": n_unknown,
         "rows": [
             {"corp_code": r[0], "name": r[1], "ticker": r[2], "dps_krw": r[3],
              "div_total_krw": r[4], "payout_pct": r[5], "rcept_no": r[6]}
