@@ -9,7 +9,7 @@
 - hard-fail: 데이터 자체 미존재 — 메모/코드 모두 침묵 (코붕이 명시 지시)
 
 Phase 1: 독립성 + 결격사유 (기본 매핑) + 후보 추출.
-Phase 2 (다음 iteration): 충실성 — 이사 회계 risk 이력 검증 (과거 회사 × 재직 기간 × 회계 risk).
+Phase 2: 충실성 — `evaluate_faithfulness` (과거 회사 × 재직 기간 × 회계 risk; `check_audit_history=True` 일 때만).
 """
 
 from __future__ import annotations

@@ -37,7 +37,7 @@ _DISQUALIFICATION_LABELS = {
 _AUDIT_HISTORY_LABELS = {
     "not_checked": "미검증 (옵션 비활성)",
     # 260813: `no_red_flags` 는 **유령 항목**이었다 — 코드 어디서도 만들지 않는 값을
-    #   사전이 번역하고 있었고, 실제로 나오는 `clean`(director_evaluation.py:385·393·821)은
+    #   사전이 번역하고 있었고, 실제로 나오는 `clean`(director_evaluation.py `evaluate_disqualification`·`evaluate_faithfulness`)은
     #   사전에 없어 **영문 그대로 화면에 찍혔다**. 사전은 producer 를 읽고 만든다.
     "clean": "해당 이력 없음",
     "no_red_flags": "해당 이력 없음",   # 옛 이름 — 외부 저장분 호환용으로만 남긴다
@@ -59,7 +59,7 @@ _DECISION_KO = {
 
 #: 회계 위험 이력의 **유형** 코드 → 한글. `_audit_history` 표의 「유형」 칸에
 #: `non_clean_audit_opinion` 처럼 영문이 그대로 나가던 자리다.
-#: director_evaluation.py:654·662·682·705 가 내는 값 **전부**(4종).
+#: director_evaluation.py `_check_audit_history_overlap` 가 내는 값 **전부**(4종).
 _AUDIT_RISK_TYPE_KO = {
     "non_clean_audit_opinion": "감사의견 비적정",
     "capital_impairment_full": "완전 자본잠식",

@@ -41,6 +41,7 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 |---|---|---|---|---|
 | company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
 | scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 곡선 + 월말 요약, DB 계산) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
+| scheme | str | no | sector 집계 축 — `wics_industry` / `wics_sector` / `ksic`. 배당수익률은 `wics_sector` 에만 붙는다 | "wics_industry" |
 | format | str | no | "md" / "json" | "md" |
 
 ## scope 라우팅 — 기능 → 데이터 소스 (DB-first)

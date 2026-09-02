@@ -35,7 +35,7 @@ dividend(
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 6종 (아래 참조) | "summary" |
+| scope | str | no | 3종 (아래 참조) | "summary" |
 | year | int | no | 사업연도, 0이면 최신 | 0 |
 | years | int | no | history scope 누적 연수 | 3 |
 | start_date / end_date | str | no | YYYYMMDD | "" |
@@ -43,7 +43,7 @@ dividend(
 
 scope:
 - `summary`: 연간 DPS + 배당성향 + 시가배당률 + meta_signals (선배당-후결의, 감액배당) (기본)
-- `detail`: 요약 + 최근 결정 10건
+- `detail`: 요약 + 최근 결정 50건 (md 렌더는 10건까지 표시, json 은 전부)
 - `history`: 최근 N년 추이 (DPS / payout / yield / pattern)
 
 ## 출력 schema (data dict)

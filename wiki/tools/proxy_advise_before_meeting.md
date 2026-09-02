@@ -44,10 +44,13 @@ proxy_advise_before_meeting(
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 — 최신 소집공고(12개월 lookback) 기준 회차. 공고 미발견 시 전년 fallback + warning. 응답 `year_resolution`에 선택 근거, 종료된 회차면 `meeting_closed_hint` 동봉 |
-| meeting_type | str | no | "annual" / "extraordinary" / "auto" | "annual" |
+| meeting_type | str | no | "auto" / "annual" / "extraordinary" | "auto" |
 | vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
+| as_of | str | no | `YYYYMMDD`. 판단이 서는 시점 — 이 날 이후 접수된 공시는 읽지 않는다(look-ahead 차단). 미지정 시 회의일이 과거면 회의일 전일, 미래면 오늘 | "" |
+| include_after_meeting | bool | no | True 면 기준일 이후 자료까지 읽고 해당 공시에 ⚠ 표시. 해당 회차 의결 결과는 그래도 쓰지 않는다 | False |
+| evidence_chars | int | no | 근거 원문 발췌 길이. 잘리면 응답에 전체 길이와 재호출 경로 안내 | 4000 |
 | format | str | no | "md" / "json" | "md" |
 
 ## 출력 schema (decisions)

@@ -1141,11 +1141,11 @@ def _compute_metrics(
     # detail에 basic_eps_per_share / diluted_eps_per_share가 있으면 그대로 사용 (원/주).
     eps_krw = basic_eps_per_share
     diluted_eps_krw = diluted_eps_per_share
-    bps_krw = None  # Phase 2 — stockTotqySttus 호출 통합 시 채움
+    bps_krw = None  # 이 tool 은 BPS 를 내지 않는다(항상 None). BPS·PBR 은 price_multiple_data 가 계산.
 
     # ── 지배구조 cross-check ──
     # subsidiary_count: 종속회사 수. DART OpenAPI 4 endpoint 어디에도 직접 반환 X.
-    # 사업보고서 본문 (XML/PDF) "종속회사 명단" 섹션 파싱 필요 — Phase 2 (3-tier fallback 추가).
+    # 사업보고서 본문 "종속회사 명단" 섹션 파싱이 필요해 미구현 — 항상 None.
     subsidiary_count = None
 
     return {
@@ -1241,7 +1241,7 @@ def _compute_metrics(
         "retained_earnings_krw": retained_earnings,
         # ── NAV/주식 ──
         "nav_krw": nav_krw,
-        "bps_krw": bps_krw,  # Phase 2 — None until stockTotqySttus 통합
+        "bps_krw": bps_krw,  # 항상 None — price_multiple_data 참조
         "capital_stock_krw": capital_stock,
         # ── 자본잠식 (KOSDAQ 관리/폐지 사유 detect) ──
         "capital_impairment_ratio_pct": capital_impairment_ratio_pct,

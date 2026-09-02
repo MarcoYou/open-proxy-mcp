@@ -18,12 +18,12 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
-- [[260809_mcp-prompts-resources]] — MCP Prompts·Resources 실측. 양식은 데스크톱에서 안 뜨고
-  AI 도 못 본다(결론 부정). Resources 는 AI 가 읽지만 근거 하나뿐이라 **미착수**.
 - [[260807_proxy-advise-persona-validation]] — proxy_advise 3자 페르소나 검증. 결함 4가족 확인,
   **코드 미수정**. 수정 착수는 사용자 지시 대기.
 
-_(과거: 260705_valuation-timeseries 해결 완료, durable 지식은 data-storage-registry(private 이관)·
+_(과거: 260809_mcp-prompts-resources — Resources 는 `open_proxy_mcp/resources.py`(opm://filing·opm://guideline)로
+260813~14 구현·배포, 실측 결론은 [[mcp-endpoints]]·`tools/proxy_guideline` 에 기록돼 260902 삭제 /
+260705_valuation-timeseries 해결 완료, durable 지식은 data-storage-registry(private 이관)·
 aggregate-denominator-pairing-260706·`project_fund_currency` 메모리로 이관 후 260706 삭제 /
 260723 핸드오프 — 잔여 항목·회고 전부 private wiki로 이관 후 260724 삭제 /
 260802_geo-revenue-anchoring — 좀비 stdio는 [[mcp-endpoints]]로, 4축 재편·지역별 결함 3건은

@@ -2,7 +2,7 @@
 type: tool
 title: treasury_share
 domain: data
-scope: [summary, events, acquisition, disposal, cancelation, annual]
+scope: [summary, annual]
 data_source: [DART OpenAPI tsstkAqDecsn + tsstkDpDecsn + tsstkAqTrctrCnsDecsn + tsstkAqTrctrCcDecsn + list.json (소각결정 키워드), 사업보고서 tesstkAcqsDspsSttus (annual scope)]
 related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식처분결정, 자기주식소각결정, 자기주식신탁결정, 자기주식의무소각-2026신법, 사업보고서]
 related_concepts: [자사주, 주주환원]
@@ -35,19 +35,16 @@ treasury_share(
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 6종 (아래 참조) | "summary" |
+| scope | str | no | `summary` / `annual` (아래 참조) | "summary" |
 | year | int | no | 사업연도 (annual scope), 0이면 최신 | 0 |
 | start_date / end_date | str | no | YYYYMMDD | "" |
 | lookback_months | int | no | 이벤트 조사 구간 (개월) | 24 |
 | format | str | no | "md" / "json" | "md" |
 
 scope:
-- `summary`: 5종 집계 + 최신 5건 이벤트 (기본)
-- `events`: 전 이벤트 타임라인
-- `acquisition`: 취득결정 + 신탁체결
-- `disposal`: 처분결정 + 신탁해지
-- `cancelation`: 소각결정 (별도 API 없음, list.json 키워드)
+- `summary`: 모든 events(취득·처분·신탁체결·신탁해지·소각) + breakdown + 사이클 매칭 (기본)
 - `annual`: 연간 누적 (사업보고서 기준 잔고/소각/취득/처분)
+- 옛 `events`·`acquisition`·`disposal`·`cancelation` 은 폐지 — 넘기면 `REQUIRES_REVIEW` 로 돌아온다. 전부 `summary` 에 들어 있다.
 
 ## 출력 schema (data dict)
 ```json

@@ -51,7 +51,7 @@ Verification: commit `332faa5`. `ok`, `no_estimates` and `not_found` confirmed t
 - When concurrent requests need the same filing, only one DART `document.xml` request runs and the other callers share its result.
 - `doc_misses` now counts actual DART round trips rather than every caller that observed a cache miss.
 - Existing response formats and single-request behavior are preserved; the full beta test suite passes 1,131 tests.
-- This change is limited to the `beta` branch and has not been deployed to live OPM.
+- At the time of writing this was on the `beta` branch only; it has since been merged into `main` and deployed.
 
 Verified with beta commit `0879021`, the concurrent-request single-flight regression test, and the full 1,131-test suite.
 

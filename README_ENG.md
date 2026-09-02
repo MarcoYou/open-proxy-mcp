@@ -3,7 +3,7 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-30-orange.svg)](#tool-structure-30-tools)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-32-tools)
 [![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
 [Korean README](README.md)
@@ -28,7 +28,7 @@ Click any feature for a detailed page.
 
 - **[AGM proxy voting](docs/features/en/proxy-voting.md)** — structures AGM notice agenda items and returns per-item FOR / AGAINST / REVIEW recommendations with rationale.
 - **[Financial metrics](docs/features/en/financials.md)** — profitability, stability, cash flow + DuPont breakdown and audit-opinion trend. Quarterly on two bases (YTD / 3-month) with QoQ·YoY.
-- **[Valuation](docs/features/en/price_multiple_data.md)** — PER · PBR · dividend yield (firm deep-dive) plus market/sector/ticker history. `scope="explain"` shows how each number was derived. (runtime: `price_multiple_data`)
+- **[Valuation](docs/features/en/price_multiple_data.md)** — PER · PBR · dividend yield (firm deep-dive) plus market/sector/ticker history. Market and sector tables carry a **cap-weighted dividend yield** in confirmed and forward flavors, each with two denominators, `all` (non-payers included) and `payers` (dividend payers only) — on KOSDAQ the two differ by 2x, so reading one alone misleads. `scope="explain"` shows how each number was derived. (runtime: `price_multiple_data`)
 - **[Consensus forward estimates](wiki/tools/forward_estimates_data.md)** — next- and following-year revenue / operating profit / EPS plus **forward PER · PBR · PSR**, with two years of reported actuals for contrast. Built on an analyst-estimate snapshot (`fwd`), not DART filings; coverage is 713 of 2,764 tickers. Multiples are attached **only to estimate FYs and the latest confirmed FY** — today's price divided by a past year's earnings is not a multiple. (runtime: `forward_estimates_data`)
 - **[Asset-holdings screen](docs/features/en/asset-holdings.md)** — tiers a firm's holdings (cash, investment property, equity stakes), marks listed stakes to market, and compares surplus-asset / equity-NAV to market cap to surface "hidden asset" plays.
 - **[Business details](docs/features/en/business-details.md)** — segment revenue & profit, production capacity & utilization, R&D, order backlog, key customers, raw-material/input-cost and product-price trends — reads the "Business Overview" section for you.
@@ -38,6 +38,7 @@ Click any feature for a detailed page.
 - **[AGM agenda](docs/features/en/meeting-agenda.md)** — agenda items, nominees, compensation limits, articles amendments, plus post-AGM results and approval rates.
 - **[Control-contest signals](docs/features/en/control-contest.md)** — proxy solicitation, tender offers, litigation, 5% activism signals (no auto-verdict).
 - **[Corporate risk events](docs/features/en/risk-events.md)** — serious accidents, embezzlement/breach-of-trust, production halts. Scans the whole market if no company is given.
+- **[Financial-firm liquidity and asset quality](wiki/tools/financial_notes.md)** — pulls restricted deposits and pledged assets (→ unencumbered cash) and the composition of investment assets by type (→ haircuts) verbatim from bank/broker/insurer financial-statement notes, with the consolidated/separate basis, date, unit, and accounts to subtract identified alongside.
 - **[Market-wide disclosure digest](wiki/tools/screener.md)** — sweeps orders, buybacks, dividends, capital increases, AGM notices, 5% blocks, and provisional earnings into a card digest — a morning disclosure-alert routine ([recipe](docs/routines/screener-morning-digest.md)).
 
 Plus source tracing, corporate governance reports, dilutive issuance (rights/CB), restructuring (mergers/splits), stake deals, trading/market-cap time series, and bidirectional articles↔statute lookup, voting-policy source lookup — **32 tools in total**.

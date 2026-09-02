@@ -7,7 +7,7 @@ WORKDIR /app
 # 무관하게 배포만 깨진다(260729 실측: mcp 2.0.0 이 fastmcp 제거 → 운영 중단).
 COPY pyproject.toml uv.lock ./
 COPY open_proxy_mcp/ open_proxy_mcp/
-# 260814: 규칙 데이터(룰 40 · 조항 대장 SSOT · 동의어 사전 · misread guard, 합 62KB)는
+# 260814: 규칙 데이터(룰 40 · 조항 대장 SSOT · 동의어 사전)는
 #   `open_proxy_mcp/data/laws/` 로 옮겨 **코드와 함께** 배포된다 — 여기서 챙길 필요가 없다.
 #   종전에는 이 COPY 한 줄이 빠지면 룰 40개가 조용히 0이 되고 강행규정 판정이 통째로
 #   사라졌다(경고·로그·헬스체크 전무). 이제 로더가 로그를 남기고 /health 가 개수를 싣는다.

@@ -4,7 +4,7 @@
            원본 census(156사)·검증부록: wiki/_local/census-biz-content-260717/
 
 이 모듈은 순수 파싱 함수(text→struct)로 구성해 캐시로 오프라인 검증 가능하게 한다.
-live fetch 오케스트레이션(build_business_content_payload)은 P0-A/B 확정 후 추가.
+live fetch 오케스트레이션은 `build_business_details_payload`(파일 하단).
 
 파싱 원칙(CLAUDE.md): XML 단독 · 이름기반 열매핑(위치 금지) · 표별 단위 파싱 ·
 조정/총계 열 분리 · 결측 3분류(NOT_APPLICABLE/NOT_COLLECTED/EXTRACTION_FAILED).

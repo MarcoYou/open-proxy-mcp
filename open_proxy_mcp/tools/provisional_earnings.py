@@ -87,7 +87,7 @@ def register_tools(mcp):
         """desc: DART 영업(잠정)실적(공정공시 I002)과 결산 잠정치(I001)에서 **잠정 매출·영업이익·순이익**과 회계연도 기준 비교율을 추출. 정기보고서 확정치보다 **먼저 나오는 가장 빠른 실적 신호**.
         when: 최신 분기 실적을 정기보고서(financial_metrics 확정치) 나오기 전에 볼 때. **잠정치**(감사 전)라 확정과 다를 수 있음 — 확정 재무비율은 `financial_metrics`.
         rule: 재무형(매출·영업이익 표)은 구조화 반환. 자동차 판매대수 등 **비재무형**은 raw 마크다운(kind=non_financial). 연결/별도 basis·실적기간·단위 명시. 값은 원문 그대로(원 단위 정규화), 잠정치.
-        ref: financial_metrics, screener, valuation
+        ref: financial_metrics, screener, price_multiple_data
         """
         payload = await build_provisional_earnings_payload(company)
         if format == "json":

@@ -22,7 +22,7 @@
 실행: python3 scripts/market_val_weekly.py            # 전체 A→D
       python3 scripts/market_val_weekly.py --dry      # B~D 저장 생략(산출만) — A(krx_weekly 갱신)·DDL은 수행
 
-※ 스냅샷 저장의 단일 정본. 구 market_val_agg.py --report/--snapshot·market_val_sector.py는
+※ 스냅샷 저장의 단일 정본. 구 market_val_agg.py --report/--snapshot(·삭제된 market_val_sector.py)는
   FX(비KRW 22사) 미환산이라 저장 경로로 쓰지 말 것(분석·비교용 조회만) — QA 260705.
 """
 import argparse, asyncio, json, os, sys
@@ -68,7 +68,7 @@ DDL_MIGRATE = (
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS ni_fy0 double precision",
 )
 
-# 섹터 버킷 — market_val_sector.py의 KSIC 하이브리드와 동일 규칙
+# 섹터 버킷 — KSIC 하이브리드 규칙 (구 market_val_sector.py 에서 이관, 260902 삭제)
 _smap = json.load(open(ROOT / "open_proxy_mcp/data/ksic/opm_sector_map.json"))
 _ksic = json.load(open(ROOT / "open_proxy_mcp/data/ksic/ksic10_ko.json"))
 _L3 = set(_smap["level3_prefixes"]); _OVR = _smap["display_overrides"]

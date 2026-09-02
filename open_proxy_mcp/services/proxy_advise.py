@@ -1,7 +1,6 @@
 """proxy_advise — 주총 소집 전 다각도 심층 분석 + 안건별 의결권 권고.
 
 옛 advise_vote rename. spec: [[wiki/tools/proxy_advise_before_meeting]].
-검증 ralph: [[wiki/ralph/260503_0002_ralph_proxy-advise-verification]] (3 gate).
 
 핵심: 안건별 행사방향 (FOR / AGAINST / REVIEW) + 결정 사유 (정책 근거 + 사실 근거).
 **gap 비교 X, 검증 가능한 fact + 정책 근거만**.
@@ -437,54 +436,6 @@ def _law_provision_detail(rule_id: str) -> dict[str, Any] | None:
         "first_agm_trigger": bool(p.get("first_agm_trigger")),
         "summary": " · ".join(parts),
     }
-
-
-_LLM_MISREAD_PATTERNS_CACHE: list[dict[str, Any]] | None = None
-
-
-def _load_llm_misread_patterns() -> list[dict[str, Any]]:
-    """wiki/rules/laws/llm_misread_patterns.json 로드 (모듈 캐시).
-
-    LLM이 안건명 키워드만 보고 자체 결정 변경하는 misread 패턴 catalog.
-    새 패턴 발견 시 본 JSON에만 추가 — 코드 변경 X.
-    """
-    global _LLM_MISREAD_PATTERNS_CACHE
-    if _LLM_MISREAD_PATTERNS_CACHE is not None:
-        return _LLM_MISREAD_PATTERNS_CACHE
-    try:
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        path = repo_root / "wiki" / "rules" / "laws" / "llm_misread_patterns.json"
-        if not path.exists():
-            _LLM_MISREAD_PATTERNS_CACHE = []
-            return []
-        data = json.loads(path.read_text(encoding="utf-8"))
-        patterns = [p for p in (data.get("patterns") or []) if p.get("active", True) is not False]
-        _LLM_MISREAD_PATTERNS_CACHE = patterns
-        return patterns
-    except Exception:
-        _LLM_MISREAD_PATTERNS_CACHE = []
-        return []
-
-
-def _find_misread_guard(title: str, law_layer_id: str | None) -> str:
-    """안건 title + 법령 ID 매칭 → anti-misread inline guard 메시지.
-
-    catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic load.
-    매칭 우선순위: trigger_keywords (title 포함) → law_layer_id 매칭 → 기본 guard.
-    """
-    patterns = _load_llm_misread_patterns()
-    if not patterns:
-        return ""
-    for p in patterns:
-        keywords = p.get("trigger_keywords") or []
-        if any(kw in title for kw in keywords):
-            return p.get("anti_misread_inline", "")
-    # 폴백: law_layer_id 매칭
-    if law_layer_id:
-        for p in patterns:
-            if p.get("law_layer_id") == law_layer_id:
-                return p.get("anti_misread_inline", "")
-    return ""
 
 
 def _agenda_pattern_match(title: str, parent: str, pattern: dict[str, Any]) -> bool:
@@ -4625,8 +4576,6 @@ async def _build_proxy_advise_payload(
             # 조항 대장(SSOT) 상세 — 유예도래일·적용 티어·시행령 임계를 근거에 심화 (260709)
             law_detail = _law_provision_detail(ll_id)
             detail_line = f"\n📋 {law_detail['summary']}" if (law_detail and law_detail.get("summary")) else ""
-            # A1/A2 (강행규정) — LLM이 안건명만 보고 결정 뒤집는 케이스 빈번
-            # → catalog (wiki/rules/laws/llm_misread_patterns.json)에서 dynamic guard 매칭
             # 사유는 사람이 읽는 문장이다 — 내부 규칙 ID(`A1-1`) 대신 조문을 앞세운다.
             # ID 는 law_layer_id 필드로 따로 나가므로 기계 소비자·회귀 테스트는 그대로 쓴다.
             # LLM 이 안건명만 보고 결정을 뒤집는 것은 tool docstring 과 행 단위 🛡️ 마커가 막는다.

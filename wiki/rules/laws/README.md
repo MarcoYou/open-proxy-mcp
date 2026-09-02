@@ -15,7 +15,7 @@ updated: 2026-08-14
 
 | 파일 | 지금 위치 | 왜 |
 |---|---|---|
-| `law_provisions.json` · `law_layer_rules.json` · `law_lookup_synonyms.json` · `llm_misread_patterns.json` | **`open_proxy_mcp/data/laws/`** | 62KB. 코드와 함께 배포돼야 한다 |
+| `law_provisions.json` · `law_layer_rules.json` · `law_lookup_synonyms.json` | **`open_proxy_mcp/data/laws/`** | 코드와 함께 배포돼야 한다 |
 | `corpus/` (법률·시행령 원문 + 인덱스) | `wiki/rules/laws/corpus/` (여기) | 11MB. 휠에 싣지 않고 Dockerfile 이 복사 |
 | `상법-2025-2026-종합.md` · 이 README | `wiki/rules/laws/` (여기) | 사람이 읽는 문서 |
 

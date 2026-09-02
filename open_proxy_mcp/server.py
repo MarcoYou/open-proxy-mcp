@@ -152,7 +152,7 @@ def build_mcp() -> MCPServer:
     #   「머신을 재시작한다」뿐이었다. 그건 캐시만 비우는 게 아니라 서비스를 끊는다.
     #   🔴 **머신을 골라 부를 수 있어야 한다.** 두 대가 각자 제 캐시를 들고 있어서
     #   한 번 불러서는 한 대만 비워진다 — 부르는 쪽이 `Fly-Force-Instance-Id` 로
-    #   지정한다(scripts/opm_cache_clear.py). 응답에 어느 머신이 답했는지 싣는 이유다.
+    #   지정한다(운영 스크립트는 레포 밖 — open-proxy-storage). 응답에 어느 머신이 답했는지 싣는 이유다.
     #   인증 — `OPM_ADMIN_KEY` 시크릿과 헤더가 같아야 한다. 시크릿이 없으면 **404 로
     #   숨긴다**(403 은 「여기 뭔가 있다」를 알려 준다).
     @mcp.custom_route("/admin/cache", methods=["POST"])
@@ -218,7 +218,7 @@ def build_mcp() -> MCPServer:
                 "total": _drop(steps["start"], steps["after_trim"]),
             },
             "malloc_trim": trim,
-            # 옛 이름 — 부르는 쪽(scripts/opm_cache_clear.py · 파수꾼)이 아직 쓴다.
+            # 옛 이름 — 부르는 쪽(레포 밖 운영 스크립트 · 파수꾼)이 아직 쓴다.
             "mem_before": steps["start"],
             "mem_after": steps["after_trim"],
             **result,

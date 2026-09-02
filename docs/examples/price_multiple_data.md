@@ -1,4 +1,4 @@
-# valuation — 이런 질문에 답합니다
+# price_multiple_data — 이런 질문에 답합니다
 
 상대가치 배수 — PER·PBR·배당수익률(통화환산·스케일가드).
 
