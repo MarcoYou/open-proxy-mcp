@@ -617,4 +617,4 @@ OPM 자체 함수들 + vote_style 정책 wire:
 - 사후 결과: [[shareholder_meeting_results]]
 - 사전 안건 raw: [[shareholder_meeting_notice]]
 - 안건 파서·지표 gap 전수감사 기록: private storage `wiki-private/architecture/audits/`
-- archive (옛 specialized scope service): `wiki/archive/services/policy_comparison.py` / `proxy_guideline.py`
+- archive (옛 specialized scope service): storage `wiki-private/archive/services/policy_comparison.py` / `proxy_guideline.py`

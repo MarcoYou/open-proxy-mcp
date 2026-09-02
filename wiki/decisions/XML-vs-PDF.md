@@ -2,7 +2,7 @@
 type: decision
 title: XML vs PDF — 왜 XML 단독인가
 tags: [parser, architecture, comparison]
-sources: [git history, wiki/archive/sources/devlog]
+sources: [git history]
 related: [data-collection]
 ---
 

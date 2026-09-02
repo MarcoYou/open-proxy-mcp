@@ -32,6 +32,12 @@ dividend(
 - "삼성전자 최근 배당 결정들" → `scope="detail"`
 - "메리츠금융지주 최근 3년 배당 추이" → `scope="history"`
 
+meta_signals 읽는 법:
+- `pre_dividend_post_resolution`: 같은 I001 검색에서 걸러낸 주주명부폐쇄(기준일)결정 notice가 1건 이상이면
+  True(신정관 선배당-후결의 가능성), 0건이면 False(전통 결산일=기준일 방식). [[배당기준일결정]] 참조.
+- `capital_reserve_reduction`: True면 `capital_reserve_agendas`에 자본준비금 감소 관련 주총 안건 목록이
+  함께 실린다 — [[감액배당결정]] cross-link. 감자(자본금 감소)와 혼동 금지.
+
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|

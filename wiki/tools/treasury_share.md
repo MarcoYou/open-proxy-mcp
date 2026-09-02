@@ -33,6 +33,11 @@ treasury_share(
 
 (구 `events`·`acquisition`·`disposal`·`cancelation` scope는 폐지 — 전부 `summary`에 통합.)
 
+`summary`의 events 행은 `phase`로 결정(`decision`)과 실행(`execution`)을 구분한다. 실행 행은
+[[자기주식취득결과보고서]]·[[자기주식처분결과보고서]]·[[신탁계약에의한취득상황보고서]](분기 반복)·
+[[신탁계약해지결과보고서]] 4종이며, 결정 행과 `linked_execution_rcept_nos` / `linked_decision_rcept_no`로
+양방향 링크된다(사이클 매칭). 신탁 체결은 취득, 신탁 해지는 처분과 같은 축에서 집계된다.
+
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|

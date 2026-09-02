@@ -1,7 +1,7 @@
 ---
 type: readme
 title: disclosures/ — 공시 유형 사전
-updated: 2026-06-20
+updated: 2026-09-02
 ---
 
 # 공시 유형 사전 (disclosures)
@@ -13,9 +13,9 @@ updated: 2026-06-20
 
 ## 정기보고서
 [[사업보고서]] · [[반기보고서]] · [[분기보고서]]
-- **II.사업의 내용 KSIC별 양식**: `사업의내용_ksic별양식` (업종별 소절 양식·정보 존재율·헤딩 variant — business_details 파싱 근거. private: `open-proxy-storage/wiki-private/rules/`)
+- **II.사업의 내용 KSIC별 양식**: `사업의내용_ksic별양식` (업종별 소절 양식·정보 존재율·헤딩 variant — 사업의 내용 파싱 근거. private: `open-proxy-storage/wiki-private/rules/`)
 - **재무 API 스펙** (분기 시계열·TTM·PIT): [[분기재무-API스펙]] (fnlttSinglAcntAll 누적/당기/잔액 · account_id · 공시 타이밍)
-- **임원·보수 API 스펙** (director_board 6종): [[임원보수-API스펙]] (exctvSttus·drctrAdtAllMendngSttus 2종·개인별·미등기·직원현황 공식 필드명 사전)
+- **임원·보수 API 스펙** (정형 API 6종): [[임원보수-API스펙]] (exctvSttus·drctrAdtAllMendngSttus 2종·개인별·미등기·직원현황 공식 필드명 사전)
 
 ## 주주총회
 [[주주총회소집공고]] · [[주주총회결과]] · [[위임장권유참고서류]]
