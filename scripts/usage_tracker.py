@@ -197,6 +197,8 @@ def drained_columns() -> dict:
 TOOL_ALIASES = {
     "valuation": "price_multiple_data",   # 260824 개명 (배수 ↔ 거래·규모 분리)
     "dividend": "dividend_disclosure",    # 260902 개명 (공시 원문 ↔ DB 시계열 분리)
+    "dividend_history_data": "dividend_data",  # 260903 통합 (screener 와 합쳐 결정공시 기반으로 교체)
+    "dividend_screener": "dividend_data",      # 260903 통합 — quarterly_only 판정이 틀린 답을 내고 있었다
 }
 
 

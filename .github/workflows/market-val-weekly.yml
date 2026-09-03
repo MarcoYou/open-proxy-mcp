@@ -121,6 +121,16 @@ jobs:
           KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
         run: uv run python scripts/market_val_weekly.py
 
+      # 260903 신설 — `dividend_data` 가 「배당을 안 했다」와 「그해엔 상장 전이었다」를
+      #   가르는 데 쓰는 표. 0 으로 메우면 무배당 목록에 상장 3년차가 섞인다
+      #   (실측: 배당사 28곳이 FY2020 시점에 미상장 — 그만큼이 0회로 오독될 뻔했다).
+      #   `krx_weekly` 파생이라 위 스냅샷 단계 **뒤**에 온다. 자체 크론을 만들지 않는 이유이기도 하다.
+      #   요청마다 계산하면 279ms 라 도구 안에서는 못 쓴다 — 굽고 나면 3,257행/10ms.
+      - name: 상장 관측창 표 갱신 (DART·KRX 0콜)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/krx_listing.py
+
       # 260824 신설 — `trading_data` 의 시장·섹터 시총 시계열이 읽는 표.
       #   ★ `opm_val_market.cap`(위 스텝들이 만든 것)과 **다른 값**이다. 저쪽은 배수 분모를 가진
       #     종목만 더한 합이고(실측 KOSPI 5,497조/822사) 이쪽은 상장 전 종목이다(5,713조/942종목).

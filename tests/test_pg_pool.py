@@ -166,6 +166,76 @@ def test_pool_timeout_is_short_enough_to_be_worth_falling_back(db):
     assert db._POOL_RETRY_SEC >= 10, "냉각이 너무 짧으면 장애 때마다 생성 비용을 다시 문다"
 
 
+def test_stale_connection_retries_via_pool_without_taking_it_down(db, monkeypatch):
+    """★ 260903 — 빌릴 때 ping(실측 29ms) 을 걷어낸 자리를 이 재시도가 받는다.
+
+    커넥션 하나가 늙어 끊긴 것뿐인데 풀을 내리면, 그 뒤 60초 동안 **모든** 질의가
+    직접 접속(핸드셰이크 124ms)으로 떨어진다 — 아끼려던 것보다 크게 잃는다.
+    끊긴 커넥션은 반납 때 버려지므로 풀로 한 번 더 가면 성한 것이 온다.
+    """
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
+    import psycopg
+    n = {"borrow": 0}
+
+    class _Conn:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, *a, **k):
+            if n["borrow"] == 1:              # 첫 번째로 빌린 커넥션만 끊겨 있다
+                raise psycopg.OperationalError("server closed the connection")
+            return type("R", (), {"fetchall": lambda s: [("살아있다",)]})()
+
+    class _Pool:
+        def connection(self):
+            n["borrow"] += 1
+            return _Conn()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(db, "_pool", _Pool())
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
+    monkeypatch.setattr(psycopg, "connect",
+                        lambda *a, **k: pytest.fail("직접 접속으로 새지 않아야 한다"))
+
+    assert db.pg_rows("SELECT 1") == [("살아있다",)]
+    assert n["borrow"] == 2, "풀로 한 번 더 가지 않았다"
+    assert db._pool is not None, "커넥션 하나 끊긴 것으로 풀을 내리면 안 된다"
+
+
+def test_pool_is_autocommit_and_does_not_ping_on_borrow(db, monkeypatch):
+    """★ autocommit 이 아니면 SELECT 한 줄에 `BEGIN`·`COMMIT` 왕복이 더 붙는다(실측 +26ms).
+    빌릴 때 ping 은 +29ms 였다 — 질의 자체(10ms)보다 비쌌다.
+
+    🔴 이 풀에 쓰기를 태우게 되면 이 테스트부터 다시 읽는다 — 지금은 쓰는 곳이 전부
+       직접 접속으로 트랜잭션을 따로 잡는다.
+    """
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
+    monkeypatch.setattr(db, "_pool", None)
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
+    seen: dict = {}
+
+    class _Spy:
+        def __init__(self, url, **kw):
+            seen.update(kw)
+
+    import psycopg_pool
+    monkeypatch.setattr(psycopg_pool, "ConnectionPool", _Spy)
+    db._get_pool()
+
+    assert seen.get("kwargs", {}).get("autocommit") is True, "읽기 전용 풀은 autocommit 이어야 한다"
+    assert "check" not in seen, "빌릴 때 ping 은 질의보다 비쌌다 — 재시도로 대체했다"
+
+
+def test_conn_errors_never_swallows_everything(db):
+    """🔴 재시도 대상은 **연결 계열만**이다. 여기에 Exception 이 들어오면 고장난 풀을
+    질의마다 두 번씩 물게 되고, 냉각 회로가 무의미해진다."""
+    import psycopg
+    errs = db._conn_errors()
+    assert Exception not in errs and BaseException not in errs
+    assert psycopg.OperationalError in errs
+
+
 def test_pool_stats_reports_retry_countdown(db, monkeypatch):
     """/health 로 「지금 풀이 내려가 있고 언제 다시 서나」를 봐야 한다."""
     monkeypatch.setattr(db, "_pool", None)

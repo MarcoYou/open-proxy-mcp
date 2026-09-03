@@ -43,7 +43,7 @@ OPM은 담당 영역별로 분리된 도구를 MCP로 제공합니다. AI 에이
 | 지배·재무 | ownership_structure · financial_metrics · financial_notes · corp_gov_report · director_board · director_news | 지분 구조 · 재무 지표 · 금융사 재무제표 주석 · 지배구조보고서 · 개별 이사 보수/출석률 · 이사 후보 뉴스 |
 | 밸류·시세 | price_multiple_data · forward_estimates_data · trading_data · asset_holdings | PER/PBR/배당수익률(기업·시장·산업) · 컨센서스 포워드 추정 · 거래·시총 시계열 · 자산주 스크리닝 |
 | 실적·사업 | provisional_earnings · business_details | 영업(잠정)실적(확정 전 가장 빠른 실적) · II.사업의 내용 11필드(사업부문·생산·수주·고객·원재료·제품가격·금융/REIT) |
-| 환원·이벤트 | dividend · dividend_history_data · dividend_screener · treasury_share · value_up · corporate_restructuring · dilutive_issuance | 배당 · 배당 이력 데이터 · 배당 스크리너 · 자기주식 · 밸류업 · 합병/분할 · 증자/감자 |
+| 환원·이벤트 | dividend_disclosure · dividend_data · treasury_share · value_up · corporate_restructuring · dilutive_issuance | 배당(실시간) · 배당 시계열/스크리닝 · 자기주식 · 밸류업 · 합병/분할 · 증자/감자 |
 | 분쟁·거래 | proxy_contest · corporate_deals · order_contracts · risk_events | 위임장/분쟁 · 지분 인수/매각 · 수주 · 리스크 |
 | 스크리닝 | screener | 전체시장 공시 스캔 / 아침 디제스트(잠정실적 포함) |
 | 근거·법령 | evidence · law_lookup · proxy_guideline | 원문 접수번호 → 열람 링크 · 정관↔법령 양방향 조회 · 의결권 판단 기준 원문 |

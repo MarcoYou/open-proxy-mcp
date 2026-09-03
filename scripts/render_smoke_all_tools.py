@@ -55,7 +55,8 @@ CASES: dict[str, list[dict]] = {
     "order_contracts": [{"company": "HD현대중공업"}],   # 삼성전자는 단일판매·공급계약 공시가 드물다
     "proxy_guideline": [{}],
     "screener": [{}],
-    "dividend_screener": [{}],
+    "dividend_data": [{"company": "삼성전자", "scope": "firm"},
+                       {"scope": "screen", "bsns_year": 2024, "min_payments": 2}],
 }
 
 BAD_MARKERS = ("Traceback", "Exception", "NoneType", "KeyError")

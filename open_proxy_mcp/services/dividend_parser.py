@@ -34,6 +34,39 @@ _UNIT_MULTIPLIERS = {
 }
 
 
+# 11번 「기타 투자판단과 관련한 중요사항」 본문의 끝을 어디로 볼 것인가.
+# 🔴 예전 경계는 아무 ※ 에서나 끊었다. 실측(공시원문 3,831건) 결과 두 가지가 어긋났다.
+#   · 비고가 ※ 로 시작하는 서식에서는 본문이 통째로 사라졌다(15건).
+#   · 정정공시는 정정 후 본문 뒤에 **정정 전 본문 전체**가 이어 붙는데, 옛 경계는 그것을
+#     비고 안으로 끌고 들어왔다(60건). 그래서 배당결정 본문 머리글도 경계로 세운다.
+# ※ 를 그냥 무시하는 것도 안 된다 — 「※ 관련공시」 꼬리 뒤에 다른 공시가 붙는다(20240403800157).
+_REMARKS_RE = re.compile(
+    r"11\.\s*기타\s*투자판단과\s*관련한\s*중요사항\s*(.*?)"
+    r"(?:※\s*관련\s*공시"
+    r"|【"
+    r"|(?:현금\s*ㆍ?\s*현물배당|주식배당|분기\s*ㆍ?\s*중간배당)\s*결정\s*1\.\s*배당구분"
+    r"|\Z)"
+)
+
+# 「특별」 한 글자나 「추가」로 잡으면 안 된다. 실측 3,831건에서 옛 규칙은 23건을 물었는데
+# 그중 21건이 오탐이었다 — 정관상 우선주 액면배당률 1%p 「추가」 배당, 유상증자 「추가」 발행,
+# 주식배당 「추가」 결정, 전환사채 「추가」 주식, 자기주식 「추가」 취득이 전부 걸렸다.
+# 아래 규칙은 같은 코퍼스에서 2건(진성)만 물고, 비CASH 서식 표본 128건에서는 0건이다.
+_SPECIAL_RE = re.compile(r"특별\s*(?:현금\s*|현물\s*)?배당|기념\s*배당")
+
+# 남의 특별배당을 재원으로 쓴다는 문장은 이 회사의 특별배당이 아니다(20230403800799:
+# 「한성피씨건설(주)가 … 실시한 특별배당 … 의 일부를 재원으로」).
+# 🔴 근거가 이 1건뿐이다. 반례(당사를 「㈜○○」로 칭하며 특별배당을 알리는 서식)가 나오면 다시 재야 한다.
+_SPECIAL_OTHERS_RE = re.compile(
+    r"(?:\(주\)|㈜|주식회사)[^.]{0,40}특별\s*배당|특별\s*배당[^.]{0,60}재원"
+)
+
+# 옛 규칙은 「조원」만 봤다. 실제 문구는 「특별배당금 성격의 1,578원을 더하여」였고 아무것도 못 뽑았다.
+_SPECIAL_AMOUNT_RE = re.compile(
+    r"([\d][\d,]*(?:\.\d+)?)\s*(조원|억원|만원|원)\s*(?:을|를)?\s*(?:더하|추가|포함|합산)"
+)
+
+
 def safe_float(value) -> float:
     text = str(value).strip() if value is not None else ""
     if text in ("", "-", "N/A", "n/a", "－"):
@@ -99,14 +132,20 @@ def parse_dividend_decision(text: str) -> dict | None:
     match = re.search(r"8\.\s*주주총회\s*개최여부\s*(개최|미개최|미해당)", clean)
     result["agm_required"] = match.group(1) if match else None
 
-    match = re.search(r"11\.\s*기타\s*투자판단과\s*관련한\s*중요사항\s*(.*?)(?:※|【|\Z)", clean)
+    match = _REMARKS_RE.search(clean)
     remarks = match.group(1).strip() if match else ""
     result["remarks"] = remarks
-    result["has_special"] = bool(re.search(r"특별|추가.*배당|추가하여", remarks))
+    result["has_special"] = bool(
+        _SPECIAL_RE.search(remarks) and not _SPECIAL_OTHERS_RE.search(remarks)
+    )
     if result["has_special"]:
-        match = re.search(r"([\d,.]+)\s*조원을?\s*추가", remarks)
+        match = _SPECIAL_AMOUNT_RE.search(remarks)
         if match:
-            result["special_amount_description"] = f"{match.group(1)}조원 추가"
+            amount, unit = match.group(1), match.group(2)
+            result["special_amount_description"] = f"{amount}{unit} 추가"
+            # 「원」으로 더한 금액만 주당 특별배당금으로 본다. 조원·억원은 총액 문장이다.
+            if unit == "원":
+                result["special_dps_krw"] = safe_int(amount)
 
     preferred_stocks = []
     kind_match = re.search(r"【종류주식[^】]*】\s*(.*?)$", clean)

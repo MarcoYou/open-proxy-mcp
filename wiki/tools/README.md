@@ -51,8 +51,7 @@ updated: 2026-09-02
 | 도구 | 무엇을 답하나 |
 |---|---|
 | [dividend_disclosure](dividend_disclosure.md) | 배당 **공시 원문** — 배당금·총액·배당성향·추이 (실시간) |
-| [dividend_history_data](dividend_history_data.md) | 확정 배당 시계열 — 회사·시장·섹터. DART 정기보고서 전수 수집본(코스피 828사 × FY2020~2025) |
-| [dividend_screener](dividend_screener.md) | 배당 조건으로 회사 거르기 — 배당성향·DPS·그 해 두 번 이상 배당·섹터 |
+| [dividend_data](dividend_data.md) | 확정 배당 시계열·조건 스크리닝·시장/섹터 집계 — DART 정기보고서 전수 수집본(코스피 828사 × FY2020~2025) + 결정공시 횟수 집계(FY2020~2024) |
 | [treasury_share](treasury_share.md) | 자기주식 — 취득·처분·소각·신탁 |
 | [value_up](value_up.md) | 기업가치 제고(밸류업) 계획과 이행 현황 |
 | [shareholder_commitment](shareholder_commitment.md) | 밸류업·배당·소각 **약속 vs 실제 이행** 추적 (연중 스튜어드십) — 자사주소각 장부가 손익 계산 |
@@ -113,12 +112,13 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 
 ## 카테고리별 통계
 
-각 tool 페이지의 `domain:` 프론트매터가 근거다(합 32 = 런타임 tool 수). **표를 손으로 세지 말 것** —
-`scripts/check_tool_catalog.py` 가 이 합과 런타임을 대조한다.
+각 tool 페이지의 `domain:` 프론트매터가 근거다(합 31 = 런타임 tool 수, 260903
+`dividend_history_data`+`dividend_screener` → `dividend_data` 통합으로 32→31). **표를 손으로
+세지 말 것** — `scripts/check_tool_catalog.py` 가 이 합과 런타임을 대조한다.
 
 | 도메인 | tool 수 | 무엇이 다른가 |
 |--------|---------|---------|
-| data | 26 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
+| data | 25 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
 | action | 3 | **upstream data tool 을 불러 판단·요약**한다. `proxy_advise_before_meeting`(안건별 찬반) · `shareholder_commitment`(약속↔이행 대조, 신규 계산 1개 추가) · `screener`(전체시장 market-scan + hit 별 파서 디스패치) |
 | reference | 3 | **회사·DART 무관 · API 0회.** `evidence`(접수번호→뷰어 URL) · `law_lookup`(법령 원문) · `proxy_guideline`(OPM 의결권 정책 원문) |
 
@@ -164,8 +164,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | price_multiple_data | ✅ 재무 4EP + company.json + fnlttSinglAcntAll + stockTotqySttus + alotMatter (firm) | - | - | ✅ Supabase 주간 스냅샷(market/sector/firm_history) · KRX 시세 · ECOS 환율 |
 | trading_data | - | - | - | ✅ Supabase krx_weekly·krx_cap_agg·krx_adj_events·wise_sector (quote 만 KRX 라이브) |
 | forward_estimates_data | - | - | - | ✅ Supabase `fwd` 컨센서스 스냅샷(벤더 원천, DART 아님) |
-| dividend_history_data | - (전수 수집본 조회) | - | - | ✅ Supabase div_declared·div_quarterly(alotMatter 수집본) + wise_sector |
-| dividend_screener | - (전수 수집본 조회) | - | - | ✅ Supabase div_declared·div_quarterly + wise_sector |
+| dividend_data | - (전수 수집본·결정공시 집계 조회) | - | - | ✅ Supabase div_declared·div_quarterly(alotMatter 수집본) + div_payment·div_payment_scope(결정공시) + krx_listing + wise_sector |
 | director_news | - | - | ✅ 뉴스 검색 API 1콜 | ✅ 부정 키워드 사전 |
 | proxy_guideline | - | - | - | ✅ 패키지 데이터 open-proxy-guideline.md (API 0콜) |
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - |
