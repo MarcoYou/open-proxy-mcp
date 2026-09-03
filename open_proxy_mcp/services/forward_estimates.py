@@ -156,7 +156,127 @@ _ABSENT_ON_ESTIMATE = {
                          "주당값 검산은 봉투의 shares_common_latest(최근 실적 행 주식수)로 한다",
 }
 
-_BUNDLES = ("core", "growth", "quality", "keys")
+_BUNDLES = ("core", "growth", "quality", "keys", "revision")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# revision — 컨센서스가 **어디서 왔나** (260904 신설)
+#
+# `fwd` 는 「지금 얼마」만 답한다. 추정치의 방향 전환은 주가보다 먼저 움직이는 신호라
+# 「4주·12주 전 대비 얼마나 올랐/내렸나」를 `fwd_hist`(슬림 18칸 · 추정 보유 종목 · 주 1회 토 ·
+# 13주 롤링, 260904 신설)에서 읽는다. 기준일은 **목표일 이전의 가장 가까운 스냅샷**이다 —
+# 주 1회라 정확히 28일 전은 없다. 이력이 목표일까지 안 닿으면 가장 오래된 스냅샷을 쓰고
+# `partial=true` 로 밝힌다(「없음」과 「짧음」을 구별한다). 분모는 |기준값| — 적자에서 흑자로
+# 돌아선 것도 방향은 「상향」이다.
+# ─────────────────────────────────────────────────────────────────────────────
+_REV_WINDOWS: tuple[tuple[str, int], ...] = (("4w", 28), ("12w", 91))
+_REV_METRICS: tuple[str, ...] = ("rev_krw", "op_krw", "ni_ctrl_krw", "eps_krw", "dps_krw")
+_REV_MIN_GAP_DAYS = 6  # 이보다 가까운 스냅샷은 「전」이 아니다
+
+
+def _pct(now: Any, base: Any) -> float | None:
+    if now is None or base is None:
+        return None
+    try:
+        b = abs(float(base))
+        if b == 0:
+            return None
+        return round((float(now) - float(base)) / b * 100, 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def compute_revision(hist: list[dict[str, Any]], windows=_REV_WINDOWS) -> dict[str, Any]:
+    """`fwd_hist` 추정 행들(dict: as_of·period·period_type·<metrics>) → 리비전 표.
+
+    반환:
+      as_of_latest, snapshots(이력 날짜 수), baselines{win: {as_of, days, partial}},
+      rows[{period, period_type, now{...}, vs{win: {as_of, <metric>_pct...}}}],
+      summary{win: {up, down, flat, n, basis:"op_krw"}}
+    hist 가 비면 rows=[] 로 돌려준다 — 호출부가 「자료 없음」으로 말한다.
+    """
+    if not hist:
+        return {"as_of_latest": None, "snapshots": 0, "baselines": {}, "rows": [], "summary": {}}
+    import datetime as _dt
+
+    def _d(v: Any) -> _dt.date:
+        return v if isinstance(v, _dt.date) else _dt.date.fromisoformat(str(v)[:10])
+
+    by_day: dict[_dt.date, dict[tuple[str, str], dict[str, Any]]] = {}
+    for r in hist:
+        by_day.setdefault(_d(r["as_of"]), {})[(r["period"], r["period_type"])] = r
+    days = sorted(by_day)
+    latest = days[-1]
+    baselines: dict[str, dict[str, Any]] = {}
+    for name, span in windows:
+        target = latest - _dt.timedelta(days=span)
+        cands = [d for d in days if d <= target]
+        if cands:
+            b, partial = cands[-1], False
+        else:
+            older = [d for d in days if (latest - d).days >= _REV_MIN_GAP_DAYS]
+            if not older:
+                continue
+            b, partial = older[0], True
+        baselines[name] = {"as_of": b.isoformat(), "days": (latest - b).days, "partial": partial}
+
+    rows: list[dict[str, Any]] = []
+    summary: dict[str, dict[str, Any]] = {n: {"up": 0, "down": 0, "flat": 0, "n": 0, "basis": "op_krw"}
+                                          for n in baselines}
+    for key, cur in sorted(by_day[latest].items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        period, ptype = key
+        now = {m: cur.get(m) for m in _REV_METRICS if cur.get(m) is not None}
+        vs: dict[str, Any] = {}
+        for name, b in baselines.items():
+            base = by_day[_d(b["as_of"])].get(key)
+            if base is None:
+                vs[name] = {"as_of": b["as_of"], "absent": True}   # 그때는 이 기간 추정이 없었다
+                continue
+            cell: dict[str, Any] = {"as_of": b["as_of"]}
+            for m in _REV_METRICS:
+                p = _pct(cur.get(m), base.get(m))
+                if p is not None:
+                    cell[f"{m}_pct"] = p
+            vs[name] = cell
+            op = cell.get("op_krw_pct")
+            if op is not None and ptype == "FY":
+                s = summary[name]
+                s["n"] += 1
+                s["up" if op > 0.5 else "down" if op < -0.5 else "flat"] += 1
+        rows.append({"period": period, "period_type": ptype, "now": now, "vs": vs})
+    return {"as_of_latest": latest.isoformat(), "snapshots": len(days),
+            "baselines": baselines, "rows": rows, "summary": summary}
+
+
+_hist_cache: dict[str, Any] = {"at": 0.0, "ok": None}
+
+
+def _hist_available() -> bool | None:
+    """`fwd_hist` 표가 있나 — 10분 캐시. None = DB 장애.
+    없는 표를 바로 질의하면 db.pg_rows 가 풀을 60초 내린다(질의 오류를 장애로 본다) —
+    그래서 `to_regclass` 로 먼저 묻는다. 이건 표가 없어도 오류가 아니다."""
+    now = time.monotonic()
+    if _hist_cache["ok"] is not None and now - _hist_cache["at"] < 600:
+        return _hist_cache["ok"]
+    r = pg_rows("SELECT to_regclass('public.fwd_hist') IS NOT NULL")
+    if r is None:
+        return None
+    _hist_cache.update(at=now, ok=bool(r and r[0][0]))
+    return _hist_cache["ok"]
+
+
+def _fetch_hist(stock_code: str) -> list[dict[str, Any]] | None:
+    """`fwd_hist` 추정 행 전부(13주 롤링이라 많아야 ~150행). None = DB 장애. [] = 표 없음/이력 없음."""
+    avail = _hist_available()
+    if avail is None:
+        return None
+    if not avail:
+        return []
+    cols = ("as_of", "period", "period_type") + _REV_METRICS
+    rows = pg_rows(f"SELECT {', '.join(cols)} FROM fwd_hist "
+                   "WHERE stock_code=%s AND is_estimate ORDER BY as_of", (stock_code,))
+    if rows is None:
+        return None
+    return [dict(zip(cols, r)) for r in rows]
 
 #: 배수 분모 자 — PER 정의를 `price_multiple_data` 와 **맞춘다**(보통주 시총 ÷ 지배순이익).
 #: 왜: `fwd` 원본은 주가÷EPS 인데 그 식은 260823 에 하우스에서 **의도적으로 버린 것**이다
@@ -492,6 +612,27 @@ async def build_forward_estimates_payload(
     absent = {k: v for k, v in _ABSENT_ON_ESTIMATE.items()
               if _spec(k)[2] in bundles} if est_rows else {}
 
+    # ── revision: 4주·12주 전 대비 (fwd_hist) ──────────────────────────────────
+    revision: dict[str, Any] | None = None
+    if "revision" in bundles and est_rows:
+        hist = await asyncio.to_thread(_fetch_hist, isu)
+        if hist is None:
+            warnings.append("⚠ 리비전 이력(`fwd_hist`) 조회 실패 — **장애**다, 자료 없음이 아니다. "
+                            "현재 추정치는 정상이다. 재시도할 것.")
+        else:
+            revision = compute_revision(hist)
+            if not revision["rows"]:
+                warnings.append("리비전 이력이 없다 — `fwd_hist` 에 이 종목 추정 행이 없다"
+                                "(260904 신설 표, 주 1회 토요일 적재). 현재 추정치는 정상이다.")
+            elif not revision["baselines"]:
+                warnings.append(f"리비전 비교 불가 — 이력이 {revision['snapshots']}개 스냅샷뿐이라 "
+                                f"{_REV_MIN_GAP_DAYS}일 이상 떨어진 기준일이 없다. 다음 주부터 4w 가 잡힌다.")
+            else:
+                for name, b in revision["baselines"].items():
+                    if b["partial"]:
+                        warnings.append(f"리비전 {name}: 이력이 {b['days']}일치뿐이라 가장 오래된 "
+                                        f"스냅샷({b['as_of']})과 비교했다 — **{name} 가 아니다**, 이력이 짧아 부분 비교다.")
+
     ruler = {
         "as_of": str(env.get("as_of")) if env.get("as_of") else None,
         "price_dd": env.get("price_dd"),
@@ -526,10 +667,15 @@ async def build_forward_estimates_payload(
         data["fields_absent_note"] = ("아래 칸은 **이 회사에 자료가 없어서가 아니라** 벤더가 "
                                       "추정 행에 아예 채우지 않는 종류라서 비어 있다. "
                                       "회사 특성으로 읽지 말 것.")
-    if "growth" not in bundles or "quality" not in bundles or "keys" not in bundles:
+    if revision is not None:
+        revision["note"] = ("기준일은 목표일(4w=28일·12w=91일) **이전의 가장 가까운 주간 스냅샷**. "
+                            "%는 (지금−기준)/|기준|. 방향 집계는 FY 추정 행의 영업이익 기준 상향/하향 개수"
+                            "(±0.5% 안은 flat). 출처 `fwd_hist`(주 1회 토, 13주 롤링) — 그 너머는 없다.")
+        data["revision"] = revision
+    if len(bundles) < len(_BUNDLES):
         data["more"] = ("더 필요하면 bundle 을 넓히세요 — "
                         "growth(성장률·전기값·PEG) · quality(수익성·재무비율) · "
-                        "keys(내부키·회계연도 칸) · all(전부). "
+                        "keys(내부키·회계연도 칸) · revision(4주·12주 전 대비 추정 변화) · all(전부). "
                         "기본 core 는 크기를 줄이려고 자른 것이지 그것이 정답이라서가 아니다.")
     return {"tool": TOOL, "status": "ok" if est_rows else "no_estimates",
             "subject": subject, "data": data, "warnings": warnings}
