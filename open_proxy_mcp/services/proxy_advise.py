@@ -2363,30 +2363,173 @@ def _decide_treasury_share(agenda_title: str) -> tuple[str, str]:
     return "NO_DATA", "자사주 안건 세부 (소각/처분/취득) 미식별 — 본문 검토 필요"
 
 
-#: 판정 enum(FOR/REVIEW/AGAINST)은 산출물 표기가 한글(✅ 찬성·⚠️ 검토 필요·❌ 반대)인데
-#: 정책 인용문에만 영문이 남아 있었다 — 같은 문서에서 같은 것을 두 이름으로 부르면 읽는 사람이
-#: 다른 것으로 읽는다.
-_POLICY_CITATIONS = {
-    "financial_statements": "OPM Guideline §재무제표 — 감사의견 적정 + 자본잠식 없음이면 찬성",
-    "cash_dividend": "OPM Guideline §배당 — 흑자 + 배당성향 적정이면 찬성 (200% 초과 시 검토 필요)",
-    "director_election": "OPM Guideline §이사선임 — 사내이사: 결격만 검증 / 사외이사: 독립성 + 결격",
-    "audit_committee_election": "OPM Guideline §감사위원 — 엄격 검증 (장기연임 5년+ 소프트/6년+ 상법 시행령 §34조5항7호 + 독립성)",
-    "director_compensation": "OPM Guideline §보수 — 소진율 30% 미만 + 인상 / 적자+인상 / 50% 이상 인상은 검토 필요",
-    "audit_compensation": "참조 감사보수 규칙 — 1인당 평균 과소 / 50% 이상 인상 + 1인당 평균 과다는 검토 필요",
-    "retirement_pay": "참조 퇴직금 규칙 + OPM #6/#7 — 황금낙하산 / 사외이사 퇴직금 / 지급률 2배수 이상 인상은 검토 필요",
-    "articles_amendment": "OPM Guideline §정관변경 — 집중투표 배제 / 의결권 제한 / 이사 정원 축소 / 수권주식 증가 없으면 찬성",
-    "treasury_share": "OPM Guideline §자사주 — 소각은 찬성 / 처분은 검토 필요",
-    "capital_reduction": "OPM Guideline §자본감소 — 원칙 반대·예외 찬성(회생/구조조정 불가피·상장폐지 회피·주주가치 미훼손 유상감자·자사주 소각). 유형을 확정하지 못하면 검토 필요로 두고 원문 판단에 맡깁니다",
-    "stock_option_grant": "OPM Guideline §주식매수선택권 — 희석률 한도·행사가격·부여대상 검토 필수. 검토 필요로 두고 원문 판단에 맡깁니다",
-    "merger_or_restructuring": "OPM Guideline §구조개편 — 본문 검토",
-    "stock_split": "OPM Guideline §주식분할 — 지분율·자본금 불변이라 원칙 찬성. 다만 동반 정관변경(발행예정주식총수·액면가)은 따로 봅니다",
-    "shareholder_proposal": "OPM Guideline §주주제안 — 본문 검토",
-    "other": "OPM Guideline §기타 — 위험 키워드 (감자/적대적/포이즌/CB) 없으면 일반 안건으로 보고 찬성",
+#: ── 정책 인용 — 문서의 **실제 절 번호·항목**을 가리킨다 (260903) ─────────────────────
+#: 종전에는 「OPM Guideline §재무제표 — …」처럼 손으로 적은 요약 한 줄이었고, 문서
+#: (`data/guideline/open-proxy-guideline.md`)에 §재무제표라는 절은 없었다. 독자가 인용
+#: 라벨 → 정책 절 → 엔진 분기를 이을 수 없었다. 이제 각 항목은
+#:   section  문서 헤딩 번호 (`### 2.4 이사 선임 (director_election)` 의 「2.4」). None 이면
+#:            문서에 절이 없다는 뜻이고 라벨도 그렇게 말한다(없는 절을 지어내지 않는다).
+#:   title    그 헤딩의 제목 — 문서와 글자 그대로 같아야 한다.
+#:   items    (kind, 번호, 인용구) — 그 절의 `- **kind**:` 목록 번호째 항목에 인용구가 들어
+#:            있어야 한다. 엔진이 **실제로 쓰는** 항목만 적는다. 안 쓰는 항목은 `unused` 에.
+#:   also     다른 절의 항목을 함께 끌어올 때 (section, kind, 번호, 인용구).
+#:   engine   그 항목이 엔진에서 어느 판정으로 떨어지는가 — 정책 against 가 엔진 REVIEW 인
+#:            간극(§0-A)을 라벨 안에서 밝힌다.
+#: `tests/test_policy_citations_match_document.py` 가 이 표를 문서 헤딩·항목과 자동 대조한다.
+#: 문서 항목을 고치거나 순서를 바꾸면 그 테스트가 먼저 깨진다 — 라벨을 같이 고치라는 뜻이다.
+#: 판정 enum(FOR/REVIEW/AGAINST)은 산출물 표기가 한글(✅ 찬성·⚠️ 검토 필요·❌ 반대)이므로
+#: 라벨도 한글로만 쓴다.
+_POLICY_CITATIONS: dict[str, dict[str, Any]] = {
+    "financial_statements": {
+        "section": "2.1", "title": "재무제표 승인",
+        "items": [("for", 1, "외부감사인 적정의견"), ("against", 1, "적정 외 의견")],
+        "engine": "한정·부적정·의견거절 → 반대 · 적정 + 자본잠식 없음 → 찬성 · 의견 미확인·부분잠식 → 검토. "
+                  "완전 자본잠식 → 반대는 문서 항목이 아니라 §0-A 정합표의 엔진 게이트",
+    },
+    "cash_dividend": {
+        "section": "2.2", "title": "현금배당",
+        "items": [("for", 1, "합리적 배당정책"), ("against", 2, "과다 배당")],
+        "unused": [("against", 1, "과소 배당")],
+        "engine": "흑자 + 배당성향 적정 → 찬성 · 배당성향 200% 초과(과다 배당의 대리지표)·적자·자본잠식 → 검토 · "
+                  "과소 배당은 미구현",
+    },
+    "director_election": {
+        "section": "2.4", "title": "이사 선임",
+        "items": [("against", 1, "사외이사 5년 룰"), ("against", 2, "6년 초과 재직"),
+                  ("against", 3, "과도 겸임")],
+        "unused": [("against", 4, "이사회 출석률 75% 미만")],
+        "engine": "법정 결격 → 반대(§7 2단계) · ①② 장기연임 → 검토(5년 소프트 경보 / 6년 초과는 상법 시행령 "
+                  "§34⑤ 결격 가능, 재직기간이 하한 추정이라 확정 안 함) · ③ 타사 사외이사 3곳 이상 → 검토 · "
+                  "④ 출석률은 엔진 미반영(§0-A) · 사내이사는 결격 + 재직성과 2x3(§7 7단계)만",
+    },
+    "audit_committee_election": {
+        "section": "2.5", "title": "감사위원·감사 선임",
+        "items": [("against", 4, "5년 내 임직원/특수관계인")],
+        "also": [("2.4", "against", 1, "사외이사 5년 룰"), ("2.4", "against", 2, "6년 초과 재직")],
+        "engine": "법정 결격 → 반대 · 최대주주·회사 관계(독립성 우려) → 검토 · 장기연임(5년 소프트 / 6년 초과 "
+                  "§34⑤) → 검토 · 감사위원은 사외이사와 같은 문턱에 독립성 가중",
+    },
+    "director_compensation": {
+        "section": "2.6", "title": "이사 보수",
+        "items": [("against", 1, "성과 미연계"), ("against", 2, "적자/순이익 감소 + 보수한도 증액"),
+                  ("against", 6, "보수한도 50%+ 인상")],
+        "engine": "전부 검토(법정 금지 아님) — 소진율 30% 미만 + 인상 · 적자 + 인상 · 50% 이상 인상. "
+                  "한도·소진율·인상률·순익 증감을 근거로 동봉",
+    },
+    "audit_compensation": {
+        "section": None, "title": "감사 보수",
+        "engine": "정책 문서에 감사보수 절이 없다 — 운용사 참조 규칙(감사 보수 과소 = 감사 충실 훼손 / "
+                  "50% 이상 급증 = 경영진 동조 유인) 기준. 1인당 평균 과소 · 50% 이상 인상 + 1인당 과다 → 검토",
+    },
+    "retirement_pay": {
+        "section": "2.6", "title": "이사 보수",
+        "items": [("against", 5, "사외이사 퇴직혜택, 황금낙하산")],
+        "also": [("2.3", "against", 2, "황금낙하산")],
+        "engine": "황금낙하산 · 사외이사 퇴직금 신설 · 지급률 2배수 이상 인상 → 검토 · 퇴직연금 도입·표현 정비 → 찬성",
+    },
+    "articles_amendment": {
+        "section": "2.3", "title": "정관 변경",
+        "items": [("for", 1, "집중투표 배제 삭제"), ("against", 1, "주주의결권 축소"),
+                  ("against", 2, "초다수의결 신설"), ("against", 5, "이사회 규모 7명 미만 축소")],
+        "engine": "법령 강행규정 직접 저촉 → 반대 · 집중투표 배제·초다수결·이사 정원 축소·수권주식 증가·"
+                  "전자주총 배제 → 검토 · 위험 신호 없음 → 찬성",
+    },
+    "treasury_share": {
+        "section": "2.7", "title": "자기주식",
+        "items": [("for", 1, "1년 내 의무소각"), ("against", 1, "자사주 처분")],
+        "engine": "소각 → 찬성(주주환원) · 처분 → 검토(우호지분 형성 가능성, 자동 반대 없음) · 세부 미식별 → 자료 없음",
+    },
+    "capital_reduction": {
+        "section": "2.10", "title": "자본 증가/감소",
+        "items": [("for", 1, "비례 분할/병합"), ("against", 1, "무상감자")],
+        "engine": "전부 검토 — 무상/유상 구분 · 목적(결손보전·회생·구조조정 불가피면 통상 찬성) · 감자비율·"
+                  "주주평등 · 유상감자 환급가액. 주식(액면)병합은 자본금 감소가 아님을 문면에 밝힘",
+    },
+    "stock_option_grant": {
+        "section": "2.6", "title": "이사 보수",
+        "items": [("against", 3, "스톡옵션 repricing"), ("against", 4, "스톡옵션 2% 초과")],
+        "engine": "검토 — 희석률(통상 1~3% 한도) · 행사가격 · 부여 대상·수량 · 누적 희석을 원문에서 확인",
+    },
+    "merger_or_restructuring": {
+        "section": "2.8", "title": "합병/인수/영업양수도",
+        "items": [("against", 2, "MoM 미적용")],
+        "also": [("2.9", "against", 1, "물적분할 + 자회사 상장")],
+        "engine": "자동판정 미구현(§0-A) → 검토 — 합병·분할 비율 산정근거·외부평가 · 주식매수청구권 · 지배주주 "
+                  "지분 변동 · 계열사 간 이해상충을 원문에서 확인",
+    },
+    "stock_split": {
+        "section": "2.10", "title": "자본 증가/감소",
+        "items": [("for", 1, "비례 분할/병합")],
+        "engine": "주식(액면)분할 → 원칙 찬성(지분율·자본금 불변) · 동반 정관변경(발행예정주식총수·액면가)은 따로 봄",
+    },
+    "shareholder_proposal": {
+        "section": "2.12", "title": "주주제안",
+        "items": [("against", 1, "주주가치 훼손 명백"), ("review", 1, "이사회안과 경합")],
+        "engine": "검토 — 제안 주체·지분율·보유기간(상법 §363-2) · 제안 내용 · 이사회 반대의견 · 분쟁 국면 여부. "
+                  "자동 찬성/반대 없음",
+    },
+    "other": {
+        "section": "7", "title": "의사결정 7단계",
+        "engine": "위험 키워드(감자·적대적·포이즌·전환사채·해임·제3자배정 등) 없으면 일반 안건으로 보고 찬성 · "
+                  "있으면 검토",
+    },
 }
+
+#: 카테고리 밖에서 판정 문맥이 인용을 바꾸는 경우 — 같은 표기 규칙·같은 테스트를 적용한다.
+_CONTEXT_CITATIONS: dict[str, dict[str, Any]] = {
+    # 카테고리별 정책을 인용하면 「이 안건을 이 기준으로 판단했다」로 읽힌다 — 판단한 적이 없다.
+    "withdrawn": {
+        "section": None, "title": "상정 철회",
+        "engine": "상정이 철회된 안건에는 찬반을 내지 않는다 — 어느 절도 적용하지 않음",
+    },
+    # 260724 L-코드 진단 부수(감사의 선임 L0-0-2-5-0): 상법상 감사(상근·비상근)는 감사위원회
+    # 위원과 별개 기구 — 결정 경로(3%룰·후보검증)는 공유하되 인용 라벨만 구분.
+    # 260724 스튜어드십 리뷰 교정: 상장사 감사 선임은 최대주주만 합산 3%(§542-12④), 그 외 주주
+    # 개별 3%. 결격은 §542-10②(사외이사 결격 §382③·§542-8 과 별개).
+    "statutory_auditor": {
+        "section": "2.5", "title": "감사위원·감사 선임",
+        "items": [("against", 1, "3% 룰")],
+        "engine": "상법상 감사(감사위원회 위원 아님) — 최대주주 합산 3%·그 외 주주 개별 3% 의결권 제한"
+                  "(상법 §542-12④), 결격은 §542-10② 기준. 후보 독립성 검증은 감사위원 경로 준용",
+    },
+}
+
+_CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫"
+
+
+def _circled(no: int) -> str:
+    return _CIRCLED[no - 1] if 1 <= no <= len(_CIRCLED) else f"({no})"
+
+
+def _render_policy_citation(spec: dict[str, Any]) -> str:
+    """인용 표 한 항목 → 산출물의 「정책 인용」 한 줄.
+
+    모양: `OPM Guideline §2.4 이사 선임 — against ①「사외이사 5년 룰」·② … ▸ 엔진: …`
+    절이 없으면 `OPM Guideline 해당 절 없음(감사 보수) ▸ 엔진: …` — 없는 절을 지어내지 않는다.
+    """
+    sec = spec.get("section")
+    head = (f"OPM Guideline §{sec} {spec['title']}" if sec
+            else f"OPM Guideline 해당 절 없음({spec['title']})")
+    parts: list[str] = []
+    by_kind: dict[str, list[str]] = {}
+    for kind, no, quote in spec.get("items") or []:
+        by_kind.setdefault(kind, []).append(f"{_circled(no)}「{quote}」")
+    for kind, refs in by_kind.items():
+        parts.append(f"{kind} {'·'.join(refs)}")
+    for other_sec, kind, no, quote in spec.get("also") or []:
+        parts.append(f"§{other_sec} {kind} {_circled(no)}「{quote}」")
+    for kind, no, quote in spec.get("unused") or []:
+        parts.append(f"{kind} {_circled(no)}「{quote}」는 엔진 미반영")
+    body = f" — {' · '.join(parts)}" if parts else ""
+    return f"{head}{body} ▸ 엔진: {spec['engine']}"
 
 
 def _policy_citation(category: str) -> str:
-    return _POLICY_CITATIONS.get(category, _POLICY_CITATIONS["other"])
+    return _render_policy_citation(_POLICY_CITATIONS.get(category) or _POLICY_CITATIONS["other"])
+
+
+def _context_citation(context: str) -> str:
+    return _render_policy_citation(_CONTEXT_CITATIONS[context])
 
 
 def _cumulative_voting_threshold(title: str) -> dict[str, Any] | None:
@@ -4797,15 +4940,13 @@ async def _build_proxy_advise_payload(
         policy_citation = _policy_citation(category)
         if agenda_relation_type == "withdrawn":
             # 카테고리별 정책을 인용하면 「이 안건을 이 기준으로 판단했다」로 읽힌다 — 판단한 적이 없다.
-            policy_citation = "OPM Guideline §표결 — 상정이 철회된 안건에는 찬반을 내지 않습니다"
+            policy_citation = _context_citation("withdrawn")
         # 260724 L-코드 진단 부수(감사의 선임 L0-0-2-5-0): 상법상 감사(상근·비상근)는
         # 감사위원회 위원과 별개 기구 — 결정 경로(3%룰·후보검증)는 공유하되 인용 라벨만 구분.
         if category == "audit_committee_election" and _is_statutory_auditor_agenda(title):
             # 260724 스튜어드십 리뷰 교정: 상장사 감사 선임은 최대주주만 합산 3%(§542-12④),
             # 그 외 주주 개별 3%. 결격은 §542-10②(사외이사 결격 §382③·§542-8과 별개).
-            policy_citation = ("OPM Guideline §감사선임 — 상법상 감사(감사위원회 위원 아님): "
-                               "최대주주 합산 3%·그 외 주주 개별 3% 의결권 제한(상법 §542-12④), "
-                               "결격은 §542-10② 기준. 후보 독립성 검증은 감사위원 경로 준용")
+            policy_citation = _context_citation("statutory_auditor")
 
         # FOR로 결론났지만 재무 risk_factors(적자·자본잠식 등)가 계산돼 있으면 reason에 정직 병기.
         # 결정 자체는 안 바꾼다(예: 적자여도 보수한도 동결(+0%)은 정당) — 다만 reason이 위험을

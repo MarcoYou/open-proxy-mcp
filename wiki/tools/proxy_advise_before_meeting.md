@@ -8,7 +8,7 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # proxy_advise_before_meeting
@@ -68,7 +68,7 @@ proxy_advise_before_meeting(
 | `reason` | 결정 사유 한 줄 |
 | `facts` | 정량 fact dict (net_income / cap_status / 1번 안건 본문 FY raw / 후보 평가 등) |
 | `risk_factors` | 위험 신호 list ("완전 자본잠식", "장기연임", "이사 회계 risk 이력" 등) |
-| `policy_citation` | OPM Guideline 근거 ("§재무제표 — 적정 + 잠식 없음 시 FOR" 등) |
+| `policy_citation` | OPM Guideline 근거 — **문서의 절 번호·항목 번호**를 가리킨다 (「OPM Guideline §2.4 이사 선임 — against ①「사외이사 5년 룰」… ▸ 엔진: …」). `proxy_guideline(section="2.4")` 로 그 항목을 연다. 정책에 있지만 엔진이 안 쓰는 항목은 「…는 엔진 미반영」으로 라벨 안에서 밝힌다. 문서↔라벨은 `tests/test_policy_citations_match_document.py` 가 자동 대조 (260903) |
 | `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
 | `evidence_rcept_no` | 근거 공고 (DART viewer link) |
 | `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect. 소집공고 경력 텍스트만으로는 재선임을 신임으로 오분류하므로 **roster(임원현황 `exctvSttus`) 힌트**로 교정한다 — `source="roster_prior"`면 정형 재직 확인으로 승격. **힌트 정체성**: 승격만(downgrade X)·roster 부재는 소집공고 결과 유지(override 금지)·미등기는 제외 |
@@ -425,6 +425,17 @@ OPM 자체 함수들 + vote_style 정책 wire:
     전원에 같은 값을 채우는 **형식적 boilerplate**라 승격 금지 — 친족/최대주주 실관계만 weak_concerns
     승격, 그 외는 provenance만 기록.
   - **겸직 과다**(`concurrent_outside_directors=strong_concerns_concurrent`, 타사 사외이사 3곳+)→**REVIEW**(overboarding). **최대주주 관계 약한 신호**(`weak_concerns`)는 calibration상 결정은 FOR 유지하되 reason을 정직화("모두 clean" 거짓 금지, 발행회사/계열 관계 표기 명시). 개별 이사/감사위원 sub-안건이 "사내이사 김이태"처럼 "선임" 키워드 없이 와도 **부모 카테고리 상속**으로 올바른 검증 경로에 들어간다(auto-FOR 우회 차단). 후보 이름 영문 병기(`도진명 (Jim Myong Doh)`)도 core-name 매칭으로 eval 연결.
+  - **이사회 출석률(정책 §2.4 against ④ 「75% 미만 against」)은 엔진이 안 쓴다 (260903 확인).** 데이터는
+    [[director_board]] `attendance`(사업보고서 「이사회 활동내역」 개별 출석률, <75% `low_attendance`)와
+    [[corp_gov_report]] `tables` 표 7-2-1(3개년 개별 출석률)에 있지만 이 tool 은 어느 쪽도 읽지 않는다.
+    10사 표본(FY2025 사업보고서): 이사회 전원 파싱 4 / 일부(주로 사외이사)만 3 / 표 미발견 2 / 조회 실패 1.
+    75% 미만 실측 — 한국앤컴퍼니 조현범 33%·안종선 67%, SK하이닉스 박성하 50%(퇴임 직전 3개월 재직,
+    **분모 2회** 왜곡), KT 김영섭 정확히 75%(「미만」 아님). **판정 트리거로 넣지 않는 이유**: ① 시점 —
+    소집공고 시점엔 당기 사업보고서가 없어(공고 +7일 중앙값) 전기 값을 읽게 되고 지배구조보고서는 주총
+    기준 항상 전전기라, 그대로 쓰면 「1년 묵은 출석률로 올해 후보를 판정」하게 된다 ② 재직 짧은 이사의
+    분모 왜곡 ③ 표본 30%는 표가 없다. 다음 단계는 `facts` 노출(연도·출처 병기) → as_of 게이트 건 30사
+    표본 → 반영 여부 결정. 가장 정직한 출처는 소집공고 자체의 「사외이사 등의 활동내역」(회차별
+    출석·찬반, 당기, look-ahead 없음) — 파서 미구현. 정책 문서 §0-A 정합표에 같은 내용이 행으로 있다.
 - `_decide_financial_statements` — **감사의견 축과 자본잠식 축을 한 문장에 뭉치지 않는다.** 뭉쳐 있던
   동안 ① 감사의견을 한 번도 조회하지 않고 「적정」이라 단정했고(호출부가 `scope="summary"` 로만 불러
   `data["audit_opinion"]` 이 늘 비었다 — `scope="audit_opinion"` 전용 필드다) ② 부분 자본잠식도 「없음」으로
@@ -567,10 +578,14 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 - 형사 처벌 / 사적 관계 / 동명이인 (hard-fail)
 - 1주당 액면가 (treasury 공시에 없음)
+- 이사회 출석률 (정책 §2.4 against ④) — 데이터는 [[director_board]]·[[corp_gov_report]] 에 있지만 판정에 미반영. 이유·표본은 「결정 logic」 참조 (260903)
 - 1일 매수/매도 한도 (분석 가치 낮음)
 
 ## 변경 이력
 
+- 2026-09-03: `policy_citation` 이 정책 문서의 **절 번호·항목 번호**를 가리키도록 재구성(종전 「§재무제표」식
+  손글씨 요약 → 「§2.4 이사 선임 — against ①「사외이사 5년 룰」… ▸ 엔진: …」) + 문서↔라벨 자동 대조 테스트 ·
+  정책 §0-A 정합표에 출석률·5년 룰·겸임 3행 추가 · 출석률은 10사 표본 뒤 **엔진 미반영 유지**(시점·분모 왜곡·표 부재).
 - 2026-08-08: **확인하지 않은 부재를 「없다」고 말하지 않는다** — 본문 잠정 재무제표 내부 정합성
   검사 신설(순이익>매출 · 자산≠부채+자본). 영풍의 순이익 116배 오류가 「본문 파싱 정상」으로
   나가던 것을 차단. 「본문 파싱 정상」 → 「대조 항목: …」으로 범위 명시. 합병 안건의 「이 안건

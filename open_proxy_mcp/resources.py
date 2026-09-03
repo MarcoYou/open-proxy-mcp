@@ -59,10 +59,12 @@ def register_all_resources(mcp: MCPServer) -> None:
             return text[:_MAX_CHARS] + f"\n\n…(이후 {len(text) - _MAX_CHARS:,}자 생략)"
         return text
 
-    #: 의결권 판단 기준 문서. **판정 사유에 「OPM Guideline §재무제표 …」로 인용되는 그 문서다.**
-    #: 260813: 인용문은 `_POLICY_CITATIONS`(proxy_advise.py) 에 손으로 적어둔 14줄이고,
-    #:   이 문서와 코드가 연결돼 있지 않다 — 셋(문서·라벨·판정 함수)이 수기 동기화 상태다.
-    #:   최소한 **문서 자체를 열람 가능하게** 해서, 「왜 찬성이냐」에 원문으로 답할 수 있게 한다.
+    #: 의결권 판단 기준 문서. **판정 사유에 「OPM Guideline §2.4 이사 선임 — against ①…」로
+    #: 인용되는 그 문서다.**
+    #: 260813: 인용문은 `_POLICY_CITATIONS`(proxy_advise.py) 에 손으로 적어둔 요약이었고 문서와
+    #:   연결돼 있지 않았다. 최소한 **문서 자체를 열람 가능하게** 해서 원문으로 답할 수 있게 했다.
+    #: 260903: 인용문이 이 문서의 **절 번호·항목 번호**를 가리키고, 문서↔라벨은
+    #:   `tests/test_policy_citations_match_document.py` 가 자동 대조한다. 라벨↔판정 함수는 여전히 수기.
     #: 파일이 없으면 그 사실을 그대로 말한다(조용히 빈 값을 주지 않는다 — 무표시 열화 금지).
     @mcp.resource(
         "opm://guideline",
