@@ -6,7 +6,8 @@ wiki_schema Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 �
 - [3] 폴더 README ← 직속 .md 전부 인덱스([[]] link) — 새 파일 추가하고 README 누락 시 실패
 - [4] wiki_index.md 카운트 검증 — 폴더 주석 헤더 `(N) - `folder/`` 주장을 파일시스템 실측과 대조.
 - [5] 경로 오링크 — `[[a/b/c]]`처럼 경로를 명시한 wikilink가 실제 위치와 다르면 검출.
-- [9] 없는 문서 참조 — 문서형 참조가 가리키는 문서가 실제로 없으면 검출. 개념 링크는 면제.
+- [9] 없는 문서 참조 — 모든 `[[링크]]`·frontmatter 참조 키가 가리키는 문서가 실제로 없으면 검출
+      (260904 이후 개념 링크 면제 없음 — 면제 뒤에서 죽은 링크 93건이 통과한 사고).
 - [10] 빈 스텁 — 링크만 걷어내고 라벨·불릿만 남은 자리.
 - [8] 규칙 이중장부 방지 (260712 패널 결정) — 규칙 SSOT는 wiki_schema.md. wiki_index.md는
   인벤토리/라우팅만. 명명 규칙·카테고리 정의·frontmatter schema 서술이 index에 재등장하면 실패
@@ -16,8 +17,9 @@ wiki_schema Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 �
     python3 scripts/wiki_lint.py           # warning만 출력
     python3 scripts/wiki_lint.py --strict  # warning 있으면 exit 1 (CI / hook용)
 
-/ship 통합:
-    git diff 변경된 wiki/ 파일이 정책 위반시 ship 차단 가능.
+커밋 훅:
+    `.claude/settings.json` PreToolUse(git commit) → `scripts/wiki_drift_warn.sh` 가 코드 변경 시
+    영향 wiki 갱신 여부를 경고한다. CI 는 `.github/workflows/wiki-lint.yml` 이 --strict 로 막는다.
 """
 
 from __future__ import annotations
@@ -358,39 +360,76 @@ def check_path_links(pages) -> list[str]:
 # [9] 문서 참조가 실제로 있나 — 문서를 옮기거나 지우면 남는 죽은 참조·빈 자리를 잡는다.
 #: 「가리키는 문서가 없다」는 [5](경로가 틀렸다)와 다른 결함이다. 260806 이관에서 문서 20개를
 #: 옮겼을 때 죽은 참조 13곳과 링크 뜯긴 빈 자리 7곳이 남았는데 8축 전부 통과했다.
-#: 개념 링크(`[[PBR]]`·`[[이사회]]`)는 앞으로 쓸 자리로 일부러 비워 둔 것이라 대상이 아니다 —
-#: **문서형**(경로가 있거나 `yymmdd_` 로 시작하거나 문서 종류 접미가 붙은 것)만 본다.
-DOCLIKE = re.compile(r"^\d{6}_|_(?:audit|fix|ralph|decision|improvement)|_(?:goal|spec|checklist)$")
-FRONTMATTER_REF_KEYS = ("related_audits", "related_decisions", "related", "depends")
+#: **이제 `[[...]]` 와 frontmatter 참조 키 전부를 검사한다(260904).** 종전엔 문서형(경로가 있거나
+#: `yymmdd_` 로 시작하거나 문서 종류 접미가 붙은 것)만 보고 개념 링크는 「앞으로 쓸 자리」라며
+#: 면제했는데, 그 면제 뒤에서 죽은 링크 93건(`[[DART-OpenAPI]]` 36 · `[[KRX-KIND]]` 13 · 삭제된
+#: `cross-domain-체이닝` 10 …)이 lint 녹색으로 통과했다 — 독자는 404 를 만나는데 CI 는 조용했다.
+#: 앞으로 쓸 자리는 링크가 아니라 글로 적는다.
+#: 링크 대상으로 유효한 문서: lint 페이지(rules·tools·decisions·guide·handoff) + `raw/` 원본 + 실제 있는 레포 파일 경로.
+#: private 참조 키(`related_lessons`·`related_audits`)는 형제 디렉터리 `../open-proxy-storage/wiki-private/`
+#: 가 있을 때만 그 폴더에 대조하고, 없으면(CI) 건너뛴다 — public 에 없는 문서를 public 에서 요구할 수 없다.
+FRONTMATTER_REF_KEYS = ("related", "related_disclosures", "related_concepts", "related_decisions",
+                        "related_tools", "depends", "tools_audited")
+PRIVATE_REF_KEYS = {"related_lessons": "lessons", "related_audits": "architecture/audits"}
+PRIVATE_WIKI = ROOT.parent / "open-proxy-storage" / "wiki-private"
 #: 링크를 걷어내고 라벨만 남은 자리. 다음 줄에 하위 항목·표·인용·이미지가 붙으면 정상 문법이다.
 EMPTY_STUB = re.compile(r"(?m)^([ \t]*)[-*][ \t]+([^\n:]{1,40}):[ \t]*$")
 EMPTY_BULLET = re.compile(r"(?m)^[ \t]*[-*][ \t]*$")
 
 
-def _is_doclike(target: str) -> bool:
-    base = target.split("/")[-1]
-    if target.endswith("/") or "..." in target or " " in base:
-        return False  # 폴더 참조·플레이스홀더·산문
-    return "/" in target or bool(DOCLIKE.search(base))
+def _frontmatter_refs(text: str, keys) -> dict[str, list[str]]:
+    """frontmatter 참조 키의 값 목록 — `key: [a, b]` 인라인과 `key:\n  - a` 블록 둘 다 읽는다."""
+    head = re.match(r"(?s)^---\n(.*?)\n---", text)
+    out: dict[str, list[str]] = {}
+    if not head:
+        return out
+    fm = head.group(1)
+    for key in keys:
+        inline = re.search(rf"(?m)^{key}:\s*\[(.*?)\]", fm, re.S)
+        if inline:
+            vals = [x.strip() for x in inline.group(1).split(",") if x.strip()]
+        else:
+            block = re.search(rf"(?m)^{key}:\s*\n((?:[ \t]+-[^\n]*\n?)+)", fm)
+            vals = [m.group(1) for m in REL_ENTRY.finditer(block.group(1))] if block else []
+        if vals:
+            out[key] = vals
+    return out
+
+
+def _ref_basename(target: str) -> str:
+    base = target.split("#")[0].strip().rstrip("/").split("/")[-1]
+    return base[:-3] if base.endswith(".md") else base
 
 
 def check_missing_doc_refs(pages) -> list[str]:
-    """문서형 참조가 가리키는 문서가 실제로 있는지."""
-    known = {rel.split("/")[-1] for rel, _ in pages}
+    """모든 `[[링크]]`·frontmatter 참조가 가리키는 문서가 실제로 있는지."""
+    known = {rel.split("/")[-1] for rel, _ in pages} | {rel for rel, _ in pages}
+    known |= {p.stem for p in (WIKI / "raw").rglob("*.md")}  # raw 원본은 링크 대상으로 유효
+    private_known: dict[str, set[str] | None] = {}
+    for key, sub in PRIVATE_REF_KEYS.items():
+        d = PRIVATE_WIKI / sub
+        private_known[key] = {p.stem for p in d.glob("*.md")} if d.is_dir() else None
     issues = []
     for rel, path in pages:
         text = path.read_text(encoding="utf-8", errors="ignore")
-        targets = [m.split("#")[0].strip() for m in WIKILINK.findall(text)]
-        head = re.match(r"(?s)^---\n(.*?)\n---", text)
-        if head:
-            for key in FRONTMATTER_REF_KEYS:
-                found = re.search(rf"(?m)^{key}:\s*\[(.*?)\]", head.group(1), re.S)
-                if found:
-                    targets += [x.strip() for x in found.group(1).split(",") if x.strip()]
-        for target in targets:
-            if not target or target.split("/")[-1] in known or not _is_doclike(target):
+        targets = [(m.split("#")[0].strip(), None) for m in WIKILINK.findall(text)]
+        for key, vals in _frontmatter_refs(text, FRONTMATTER_REF_KEYS + tuple(PRIVATE_REF_KEYS)).items():
+            targets += [(v, key) for v in vals]
+        for target, key in targets:
+            if not target or target.endswith("/") or "..." in target:
+                continue  # 폴더 참조·플레이스홀더
+            base = _ref_basename(target)
+            if key in PRIVATE_REF_KEYS:
+                pk = private_known[key]
+                if pk is None or base in pk:
+                    continue
+                issues.append(f"없는 private 참조: {rel} → {key}: {target} (storage wiki-private/{PRIVATE_REF_KEYS[key]}/ 에 없음)")
                 continue
-            issues.append(f"없는 문서 참조: {rel} → {target}")
+            if base in known:
+                continue
+            if "/" in target and (ROOT / target.split("#")[0].strip()).exists():
+                continue  # 레포 파일 경로(코드·JSON)를 가리키는 참조 — 파일이 있으면 유효
+            issues.append(f"없는 문서 참조: {rel} → {target}" + (f" ({key})" if key else ""))
     return issues
 
 

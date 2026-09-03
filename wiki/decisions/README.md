@@ -1,20 +1,23 @@
 ---
 type: readme
 title: wiki/decisions/ — OPM 정책 + 결정 + 토론
-updated: 2026-06-01
+updated: 2026-09-04
 ---
 
 # wiki/decisions/ — OPM 정책 + 결정 + 토론
 
 > OPM 의사결정 추적. 정책 master + 시점별 결정 + 토론 transcript.
 
-## 핵심 master 파일
+## 정체성 문서 (시점 prefix 없음)
 
 | 파일 | 용도 |
 |---|---|
-| **`open-proxy-guideline.md`** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + N연기금 통합). **유일 master** |
-| `260429_0059_decision_voting-policy-consensus-matrix.md` | 8 운용사 합의 매트릭스 (79 토픽). 매트릭스 형태 보존 (master 보조) |
+| **[[open-proxy-guideline]]** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + N연기금 통합). **유일 master** — 보조 매트릭스는 [[260429_0059_decision_voting-policy-consensus-matrix]](8 운용사 79 토픽, 매트릭스 형태 보존) |
 | [[ksic-sector-mapping]] | OPM 자체 업종 분류 — KSIC 중분류 기본 + 6예외 소분류 (실측 분포 근거) |
+| [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
+| [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
+| [[data-collection]] · [[multi-upstream-pattern]] | 데이터 수집·병렬 패턴 (PDF/OCR 폴백은 open-proxy-ai 영역 — OPM 은 [[XML-vs-PDF]]) |
+| [[mcp-endpoints]] · [[environment-secrets]] | 인프라·구조 (코드 구조는 `docs/ARCHITECTURE.md`) |
 
 ## 사용 흐름
 
@@ -50,16 +53,6 @@ updated: 2026-06-01
 | **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 스코프·계약(IN/OUT 폼·필드, strict/candidate 문맥 계약)** |
 | **[[260823_1720_decision_financial-notes-tool]]** | **financial_notes tool — 금융사 주석 표 원형 추출 스코프·계약(TE/TD 런타임 판별·앵커·기준일 부착. census 41건)** |
 | [[260721_1500_decision_asset-holdings-purpose-buckets]] | asset_holdings 보유자산 목적버킷 6분류(회계사 검토) — 재테크형/부동산 자산주형/지주사 할인형/우호지분형 서사 근거 |
-
-## 정체성 문서 (시점 prefix 없음)
-
-| 파일 | 용도 |
-|---|---|
-| [[open-proxy-guideline]] | OPM 자체 정책 master |
-| [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
-| [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
-| [[data-collection]] · [[multi-upstream-pattern]] | 데이터 수집·병렬 패턴 (PDF/OCR 폴백은 open-proxy-ai 영역 — OPM 은 [[XML-vs-PDF]]) |
-| [[mcp-endpoints]] · [[environment-secrets]] | 인프라·구조 (코드 구조는 `docs/ARCHITECTURE.md`) |
 
 ## 시점 수정 (yymmdd_hhmm_fix_)
 

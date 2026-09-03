@@ -5,7 +5,7 @@ date: 2026-05-08 02:00
 status: adopted
 related:
   - wiki/rules/laws/상법-2025-2026-종합.md
-  - wiki/rules/laws/law_layer_rules.json
+  - open_proxy_mcp/data/laws/law_layer_rules.json
   - wiki/decisions/open-proxy-guideline.md
 related_lessons: [law-layer-precision-260508]
 ---

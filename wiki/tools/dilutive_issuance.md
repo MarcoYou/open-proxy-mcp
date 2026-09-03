@@ -5,10 +5,10 @@ domain: data
 scope: [summary]
 data_source: [DART OpenAPI 주요사항보고서 DS005 5종 — piicDecsn + cvbdIsDecsn + exbdIsDecsn + bdwtIsDecsn + crDecsn]
 related_disclosures: [유상증자결정, 전환사채발행결정, 교환사채권발행결정, 신주인수권부사채발행결정, 감자결정]
-related_concepts: [지분구조, 경영권-방어]
-related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
+related_concepts: [지분구조, 프록시-파이트]
+related_decisions: [pblntf-ty-필터링]
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # dilutive_issuance
@@ -171,13 +171,13 @@ sequenceDiagram
 
 ## 관련 개념 (rules/concepts/)
 - [[지분구조]] — 3자배정 시 최대주주 변경 가능
-- [[경영권-방어]] — CB/BW 사모 발행 → 우호 인수자에게 잠재 지분 부여
+- [[프록시-파이트|경영권 방어]] — CB/BW 사모 발행 → 우호 인수자에게 잠재 지분 부여
 
 ## 관련 결정 (decisions/)
 - [[pblntf-ty-필터링]] — DS005 코드 사용
-- [[cross-domain-체이닝]] — DIL → OWN (3자배정 지분 변동) / CORP (M&A 자금조달) / PRX (분쟁 자금조달) 체이닝
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — DIL → OWN (3자배정 지분 변동) / CORP (M&A 자금조달) / PRX (분쟁 자금조달) 체이닝
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — dilutive_issuance.summary 26.5% exact (no_filing 72.4%)
 
 ## 알려진 issue + TODO

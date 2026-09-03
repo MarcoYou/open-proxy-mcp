@@ -505,4 +505,4 @@ OPM은 본 매트릭스를 기반으로 다음 원칙에 따라 자체 정책 �
 
 - 정책 JSON: `/open_proxy_mcp/data/asset_managers/policies/`
 - 매트릭스 JSON: `/open_proxy_mcp/data/asset_managers/_consensus_matrix.json`
-- 관련 위키: `상법개정-타임라인-2026.md` (proxy-voting-decision-tree 는 storage 이관 — 사용자용 판정 기준은 `docs/features/proxy-voting.md`)
+- 관련 위키: `rules/laws/상법-2025-2026-종합.md` (proxy-voting-decision-tree 는 storage 이관 — 사용자용 판정 기준은 `docs/features/proxy-voting.md`)

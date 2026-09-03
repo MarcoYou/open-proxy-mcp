@@ -5,16 +5,26 @@ domain: data
 scope: [revenue_breakdown, sites, utilization, rnd, backlog, customers, raw_materials, product_pricing, financial_ops, financial_soundness, investment_property, key_contracts]
 data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json A001/A002/A003]
 related_disclosures: [사업보고서, 분기보고서, 반기보고서]
-related_concepts: [사업부문, 영업부문, K-IFRS 1108, SOTP, 부문 영업이익, 연구개발비, 수주잔고, 고객집중]
+related_concepts: []
 related_decisions: [260717_1220_decision_business-content-tool-roadmap, XML-vs-PDF, ksic-sector-mapping]
 created: 2026-07-18
-updated: 2026-08-25
+updated: 2026-09-04
 ---
 
 # business_details
 
 ## 한 줄 요약
 DART 사업보고서 **"II. 사업의 내용"**에서 **① 사업부문별 매출·영업이익 ② 사업장·생산설비 ③ 생산실적·가동률 ④ 연구개발 ⑤ 수주현황 ⑥ 주요 고객·매출처 ⑦ 원재료·투입원가 ⑧ 제품·서비스 가격 추이**를 추출. SOTP·부문 수익성·생산능력·수주잔고·고객집중·마진 분석의 1차 소스.
+
+## 이렇게 물어보세요
+
+> "에코프로비엠 생산능력이랑 가동률 어떻게 돼?"
+>
+> "HD한국조선해양 수주잔고 얼마나 쌓여 있어?"
+>
+> "삼성전자 사업부문별 매출이랑 영업이익 나눠서 보여줘"
+
+(`docs/features/` 의 같은 예시 — 자연어로 물으면 AI 가 이 도구를 고른다.)
 
 ## 사용법
 - `business_details(company, period="latest", fields="", format="md", bsns_year="", reprt_code="", context_mode="strict", context_chars=20000)`

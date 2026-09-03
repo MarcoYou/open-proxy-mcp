@@ -4,13 +4,14 @@ title: shareholder_meeting_notice scope 정리 + provisional_financial_statement
 date: 2026-05-06 00:30
 status: adopted
 related:
-  - feedback_data_action_tool_layers (data tool = parsing+computation, action tool = + decision evidence)
   - wiki/decisions/260505_1900_decision_compensation-retirement-split.md
 ---
 
 # shareholder_meeting_notice scope 정리 + provisional_financial_statement
 
 ## 배경
+
+> 원칙(feedback_data_action_tool_layers): data tool = parsing+computation, action tool = + decision evidence.
 
 - `full`은 병렬 wrapper, `agenda`는 `summary`와 겹쳐 scope 6개가 서로를 중복한다.
 - 1호 안건(재무제표 승인) raw 본문을 사용자가 직접 볼 경로가 없다.

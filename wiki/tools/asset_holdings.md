@@ -3,12 +3,12 @@ type: tool
 title: asset_holdings
 domain: data
 scope: [summary, detail]
-data_source: [DART fnlttSinglAcntAll(계정 API), DART otrCprInvstmntSttus(타법인출자현황), DART get_document(III.재무 주석), get_stock_price/get_stock_total(시가마크·시총)]
+data_source: [DART fnlttSinglAcntAll(계정 API), DART otrCprInvstmntSttus(타법인출자현황), DART get_document(III.재무 주석), get_stock_price(보유지분 시가마크), KRX krx_weekly 캐시(시총 — price_multiple_data._market_for 재사용)]
 related_disclosures: [사업보고서]
-related_concepts: [NAV, 청산가치, 지주사할인, FVOCI, FVPL, 지분법, 공시지가]
-related_decisions: [markdown-primary-anchor-260719]
+related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
+related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-08-25
+updated: 2026-09-04
 ---
 
 # asset_holdings
@@ -17,6 +17,18 @@ updated: 2026-08-25
 회사가 **보유한 자산**(현금성·투자부동산·지분증권·관계기업 지분)을 감사 연결재무제표 계정에서 뽑고,
 상장 보유지분은 **시가로 마킹**해 시총 대비 청산가치(NAV) 커버리지를 계산한다. "시총보다 보유 자산이
 값진가"에 답하는 자산주·지주사 할인 스크리닝 도구.
+
+전제 개념: [[시가총액]](배수 분모 — `_market_for` 재사용) · [[연결-별도]](CFS 우선·주석 `basis`) · [[PER-PBR]](함께 볼 배수) · [[단위-표기-규약]](`_krw`·`_cov`).
+
+## 이렇게 물어보세요
+
+> "영풍 보유 자산 좀 봐줘, 시총보다 많이 갖고 있어?"
+>
+> "이 회사 상장 자회사 지분 시가로 다시 계산하면 얼마야?"
+>
+> "천일고속 자산 구성이랑 시총 대비 잉여자산 비율 알려줘"
+
+(`docs/features/` 의 같은 예시 — 자연어로 물으면 AI 가 이 도구를 고른다.)
 
 ## 배경
 `business_details`(II.사업의 내용) 개발 중 자산가치(토지·투자부동산·지분증권 원가vs공정가치) opt-in
@@ -40,10 +52,19 @@ updated: 2026-08-25
   · `equity_nav_krw`/`equity_nav_cov`(지분 NAV = 관계기업[시가마크 반영]+FVOCI) ·
   **`mixed_combined_krw`/`mixed_combined_cov`**(결합계정 별도 참고라인 — 지배지분 섞여있어 위
   equity_nav엔 미포함) · `haircut_flags`(담보·우발 존재 시).
-- `listed_stakes`: 타법인출자 상장 건 top-12(장부가) 시가마크. `marked[].{book_krw,mkt_krw,gap_krw}`.
+- `listed_stakes`: 타법인출자 상장 건 top-12(장부가) 시가마크. `marked[].{name,book_krw,mkt_krw,gap_krw,px,qty}` ·
+  `listed_book_krw`/`listed_mkt_krw`/`unrealized_gap_krw` · `n_listed`(후보 수) · `n_marked`(시가 확보) · `n_unresolved`(시세
+  못 구해 **장부가로 유지**한 건 — 보수적, 이 수가 크면 시가마크 신뢰도 낮음).
+- `haircuts`: `{pledged, contingent}` 상태(담보·우발 주석 존재 여부).
 - `is_financial`(KSIC 64/65/66 게이트) · `is_reit`(사명 "리츠"/"REIT" 휴리스틱) — 둘 다 투자부동산이
   본업이라 잉여자산에서 제외하고 라벨링.
-- `market_cap_krw`: 유통주식수 × 최근 거래일 종가.
+- `market_cap_krw`: **[[price_multiple_data]] `_market_for` 의 `common_mktcap` 재사용** = KRX 상장주식수(`list_shrs`) ×
+  최신 주간 종가(`krx_weekly`, Supabase 캐시, DART 0콜). 유통주식수(자기주식 제외)가 아니다 — 260721 변경이력 참조.
+  `market_cap_meta`: `{shares, close, date}` 기준 명시. 시세 실패 시 `None` + `{reason}`.
+- `asset_buckets`: 목적버킷 6분류([[260721_1500_decision_asset-holdings-purpose-buckets]]) — `{라벨: {krw, desc}}`,
+  값 있는 버킷만 순서대로. 현금성/환금성증권/우호제휴지분/지배관계사지분/투자용부동산/본업자산.
+- `asset_story`: 본업·미분류를 뺀 **최대 버킷이 시총의 15% 이상**일 때만 자산 성격 한 줄 서사(재테크형/부동산 자산주형/
+  지주사 할인형/우호지분형), 아니면 `None`(잡음 방지).
 - **`scope="detail"` 주석 4필드**(`real_estate`·`equity_holdings`·`pledged_assets`·`contingent`) — 260803 계약 확장:
   - `basis`: 그 표가 **연결**인지 **별도**인지. DART `document.xml`이 주석 표의 셀마다 다는 XBRL 컨텍스트
     (`ACONTEXT`)의 선언을 읽는다. **선언이 없으면 내지 않는다** — 별도 자산을 연결로 믿고 NAV를 계산하면
@@ -97,7 +118,7 @@ updated: 2026-08-25
 
 ## 관련
 - [[business_details]] (II.사업의내용 — 원래 opt-in 필드였다가 분리된 원본)
-- `asset_valuation.py`(markdown-primary content-signature 엔진, [[markdown-primary-anchor-260719]] 계승)
+- `asset_valuation.py`(markdown-primary content-signature 엔진, `markdown-primary-anchor-260719` 원칙 계승 — private lesson)
 - [[price_multiple_data]] (전사 밸류에이션 PER/PBR — 시총 시계열은 이쪽, 자산 point-in-time은 asset_holdings)
 - [[financial_metrics]] (재무비율 — 부채 미차감 gross NAV 배수는 PBR과 병용 권장)
 - [[260721_1500_decision_asset-holdings-purpose-buckets]] (자산 목적버킷 6분류 — 회계사 검토·확정,

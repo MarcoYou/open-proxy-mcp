@@ -5,16 +5,28 @@ domain: data
 scope: [영업잠정실적, 결산잠정치, 매출, 영업이익, 순이익, YoY, QoQ]
 data_source: [DART search list.json I001(결산잠정치)/I002(공정공시) 발견, get_document 원문 HTML 파싱]
 related_disclosures: [사업보고서, 분기보고서]
-related_concepts: [영업잠정실적, 공정공시, 잠정치, 연결_별도]
+related_concepts: [연결-별도, 단위-표기-규약, 시점-제약]
 related_decisions: [ksic-sector-mapping]
 created: 2026-07-19
-updated: 2026-08-25
+updated: 2026-09-04
 ---
 
 ## 한 줄
 
 DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 분기·연간 **잠정 매출·영업이익·순이익 + YoY/QoQ** 추출.
 정기보고서 확정치([[financial_metrics]])보다 **먼저 나오는 가장 빠른 실적 신호**(분기말 며칠 뒤).
+
+전제 개념: [[연결-별도]](`consolidated` 판정, 지배주주 귀속 행) · [[단위-표기-규약]](`value_krw` 원 정규화 + `unit_raw`) · [[시점-제약]](잠정 ≠ 확정).
+
+## 이렇게 물어보세요
+
+> "삼성전자 이번 분기 잠정실적 나왔어?"
+>
+> "최근 일주일 사이 잠정실적 공시 낸 회사들 보여줘"
+>
+> "LG에너지솔루션 잠정실적, 전년 동기랑 비교해서 정리해줘"
+
+(`docs/features/` 의 같은 예시 — 자연어로 물으면 AI 가 이 도구를 고른다.)
 
 ## 사용법
 - `provisional_earnings(company, format="md")` — 최신 영업잠정실적(최근 6개월 내).

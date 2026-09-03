@@ -25,7 +25,7 @@ updated: 2026-08-02
 | **누가 보나** | 나 혼자 | 실제 사용자 |
 | **코드 시점** | 저장한 그 순간 | 마지막 배포 시점 |
 | **관리 주체** | 사람이 띄우고 내림 (`preview_start`/`preview_stop`) | `.github/workflows/deploy.yml` (fly 배포) |
-| **설정 위치** | `.mcp.json` + `.claude/launch.json` | `.mcp.json` (gitignore — 키가 URL에 들어감) |
+| **설정 위치** | `.mcp.json` + `.claude/launch.json` (둘 다 gitignore — 개인 경로·키가 들어가 머신마다 만든다. `preview_start` 가 `launch.json` 을 읽는다) | `.mcp.json` (gitignore — 키가 URL에 들어감) |
 | **전송 방식** | `streamable-http` (무상태) — **배포본과 동일** | `streamable-http` (무상태) |
 
 **따로 관리된다.** pilot은 사람이 손으로 띄우고 내리는 임시 프로세스라 언제든 꺼져 있어도

@@ -6,7 +6,7 @@ scope: [summary, metrics, principles, filings, timeline, tables, flags]
 data_source: [DART OpenAPI list.json (I) + 키워드 "기업지배구조보고서공시" + 원문 다운로드(get_document_cached) → 15 표준 지표·세부원칙은 bs4(lxml) 텍스트, 서식 표 11종은 lxml 트리에서 krx-cg 개념 코드로 대조]
 related_disclosures: [기업지배구조보고서]
 related_concepts: [집중투표, 감사위원-의결권-제한, 의결권, 정관변경, 보수한도]
-related_decisions: [BeautifulSoup-파서-선택, XML-vs-PDF, cross-domain-체이닝]
+related_decisions: [BeautifulSoup-파서-선택, XML-vs-PDF]
 created: 2026-05-01
 updated: 2026-09-02
 ---
@@ -203,9 +203,9 @@ sequenceDiagram
 ## 관련 결정 (decisions/)
 - [[BeautifulSoup-파서-선택]] — lxml 채택
 - [[XML-vs-PDF]] — HTML 본문만 (PDF 첨부 미수행)
-- [[cross-domain-체이닝]] — CGR → AGM (주총 운영) / OWN (지배구조) / PRX (분쟁 맥락) 체이닝
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — CGR → AGM (주총 운영) / OWN (지배구조) / PRX (분쟁 맥락) 체이닝
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260422_0005_audit_parsing-14scope-15기업 — 14 scope x 15 기업 + corp_gov_report 포함
 - 260429_0912_audit_parsing-200기업-v2-no_filing — corp_gov_report.summary 48.0% exact, partial 9.2%
 - 260429 금융지주 financial_form 감지(18건 partial → 0) — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관

@@ -65,4 +65,4 @@
 
 pilot 을 띄우고(`preview_start(name="pilot-opm")`) 스크래치패드의 `opm_call.py` 로 호출한다 —
 DART 키는 스크립트가 `.env` 에서 읽고 출력하지 않는다. 에이전트에는 **동시성 1 + 호출 간 sleep 6 +
-에러 즉시 중단**을 걸었다(하드룰 [[hard-rate-limit]]). 2라운드 46회 호출 중 레이트리밋 사고 0건.
+에러 즉시 중단**을 걸었다(하드룰: private lesson `hard-rate-limit`). 2라운드 46회 호출 중 레이트리밋 사고 0건.

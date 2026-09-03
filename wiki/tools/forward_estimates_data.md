@@ -6,9 +6,9 @@ status: 등록 완료 (260830 — tools/forward_estimates_data.py, 브랜치 bet
 scope: [firm]
 data_source: [Supabase `fwd` 컨센서스 추정치 스냅샷 (외부 벤더 원천 + 파생 계산)]
 related_disclosures: []
-related_concepts: [당기순이익, ROE, 배당수익률]
+related_concepts: [당기순이익, ROE, 배당수익률, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-08-30
-updated: 2026-08-30
+updated: 2026-09-04
 ---
 
 # forward_estimates_data
@@ -26,6 +26,8 @@ updated: 2026-08-30
 | period_type | str | no | `FY`(연간) / `Q`(분기) / `all` | "FY" |
 | actual_years | int | no | 대조용으로 실을 **실적** 행 수 | 2 |
 | format | str | no | "md" / "json" | "md" |
+
+전제 개념: [[PER-PBR]](포워드 배수도 시총 기반) · [[시가총액]] · [[연결-별도]](벤더 기준은 줄마다 `basis`) · [[단위-표기-규약]].
 
 ## 응답 구조 — 자(尺)를 두 겹으로 싣는다
 

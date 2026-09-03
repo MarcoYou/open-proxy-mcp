@@ -5,10 +5,10 @@ domain: data
 scope: [summary, fight, litigation, signals, timeline, vote_math]
 data_source: [DART OpenAPI list.json (D/B/I) + document.xml (위임장 본문 정규식), KIND HTML (vote_math, results 화이트리스트)]
 related_disclosures: [위임장권유참고서류, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과]
-related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 경영권-방어]
-related_decisions: [DART-KIND-매핑-화이트리스트-2026-04, 회사측-vs-주주측-위임장, cross-domain-체이닝]
+related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 주총-결의]
+related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # proxy_contest
@@ -159,14 +159,14 @@ sequenceDiagram
 - [[5%-대량보유]] — 5% 이상 보유 시 보유목적 공시 의무
 - [[참석률]] — vote_math 핵심 변수 (KOSPI 200 평균 73.3%)
 - [[감사위원-의결권-제한]] — 3% 룰 (vote_math 분모 영향)
-- [[경영권-방어]] — 4가지 방어 시나리오
+- [[프록시-파이트|경영권 방어]] — 4가지 방어 시나리오(프록시-파이트 「경영권 방어」 절)
 
 ## 관련 결정 (decisions/)
 - [[DART-KIND-매핑-화이트리스트-2026-04]] — KIND vote_math whitelist
-- [[회사측-vs-주주측-위임장]] — 위임장 문서 구조 차이, flr_nm 구분법
-- [[cross-domain-체이닝]] — PRX → AGM (vote_math) / OWN (signals) 체이닝
+- 회사측 vs 주주측 위임장 — 문서 구조 차이·`flr_nm` 구분법은 [[위임장권유참고서류]] 참조
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — PRX → AGM (vote_math) / OWN (signals) 체이닝
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — proxy_contest.summary 92.9% exact
 - 260429 asyncio.gather 병렬화(4x) — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 

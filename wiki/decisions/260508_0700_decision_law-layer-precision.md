@@ -5,7 +5,7 @@ date: 2026-05-08 07:00
 status: adopted
 related:
   - wiki/decisions/260508_0200_decision_law-layer.md
-  - wiki/rules/laws/law_layer_rules.json
+  - open_proxy_mcp/data/laws/law_layer_rules.json
 related_lessons: [law-layer-precision-260508, law-layer-body-260510, agenda-hierarchy-260510]
 ---
 

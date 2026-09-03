@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — 도구 카탈로그
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # 도구(Tool) 카탈로그
@@ -9,9 +9,12 @@ updated: 2026-09-03
 > OPM의 런타임 도구 목록입니다. 도구마다 **답해주는 정보가 다릅니다**. AI 에이전트는 질문에 맞는
 > 도구를 스스로 골라 호출합니다. 사용자는 "○○기업 분석해줘"처럼 자연어로 물어보면 됩니다.
 >
-> 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 시스템 동작은 [[guide/architecture]]
+> 👤 처음이라면 → **[[guide/README]]** (사람용 안내서) · 용어는 [[guide/용어-첫걸음]] · 시스템 동작은 [[guide/architecture]]
 > 각 도구의 입력·출력·데이터 출처는 도구 이름을 클릭하면 나옵니다. 「이런 질문에 답한다」류 자연어
-> 예시도 각 도구 페이지의 **「사용법」 절**에 있습니다(예전의 별도 예시 폴더는 여기로 흡수).
+> 예시도 각 도구 페이지의 **「사용법」·「이렇게 물어보세요」 절**에 있습니다(예전의 별도 예시 폴더는 여기로 흡수).
+>
+> **이 표가 도구 목록의 정본**입니다 — 루트 `README.md` 「Tool 구조」 표는 같은 분류로 이 표를 따르고,
+> `wiki_index.md`·`guide/architecture.md` 는 여기로 링크만 합니다.
 
 ## 도구 한눈에 — "무엇을 알고 싶을 때 무엇을 쓰나"
 
@@ -74,16 +77,18 @@ updated: 2026-09-03
 | [evidence](evidence.md) | 공시 원문 링크 (접수번호 → DART 열람 URL) |
 | [law_lookup](law_lookup.md) | 정관↔법령 양방향 조회 — 정관 조항/키워드 → 관련 법령 조문(전문), 또는 법조문 → 관련 정관 변경유형·우회·안건. 상법·자본시장법·공정거래법·외부감사법 + 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법 원문(10법). **회사·DART 무관** |
 
-> 도구–공시 채널 매핑은 아래 「데이터 소스 매트릭스」와 각 페이지 frontmatter `data_source`, 도구별 DART 콜 수는
-> 각 페이지 「외부 호출」 절이 정본이다. 옛 시각 자료(17-tool 시점 도식·PPT·콜 budget 표)는 storage
-> `wiki-private/archive/opm-wiki-tools/`·`decks/opm-wiki-diagrams/` 로 이관(260902).
+> 🛑 **여기서 읽기를 멈춰도 됩니다 — 아래는 tool 페이지를 쓰는 개발자용**입니다. 사람용 개요는 위 표와
+> [[guide/README]]·[[guide/architecture]] 로 충분합니다.
 
 ---
 
 # 개발자 · AI용 상세
 
-> 아래는 도구 설계·성능·데이터 출처 등 기술 상세입니다. 사람용 개요는 위 표와 [[guide/architecture]]를
-> 보세요. 각 도구 1페이지는 통일된 형식(아래 schema)을 따릅니다.
+> 아래는 도구 설계·성능·데이터 출처 등 기술 상세입니다. 각 도구 1페이지는 통일된 형식(아래 schema)을 따릅니다.
+>
+> 도구–공시 채널 매핑은 아래 「데이터 소스 매트릭스」와 각 페이지 frontmatter `data_source`, 도구별 DART 콜 수는
+> 각 페이지 「외부 호출」 절이 정본이다. 옛 시각 자료(17-tool 시점 도식·PPT·콜 budget 표)는 storage
+> `wiki-private/archive/opm-wiki-tools/`·`decks/opm-wiki-diagrams/` 로 이관(260902).
 
 ## 각 도구 페이지 통일 schema
 
@@ -97,7 +102,7 @@ data_source: [...]           # DART API / KIND / Naver / 정적 JSON
 related_disclosures: [...]   # rules/disclosures/ link
 related_concepts: [...]      # rules/concepts/ link
 related_decisions: [...]     # decisions/ link
-related_audits: [...]        # architecture/audits/ link
+related_audits: [...]        # private storage wiki-private/architecture/audits/ (public 엔 없다 — lint 는 storage 가 옆에 있을 때만 검사)
 created: 2026-05-01
 ---
 ```
@@ -105,7 +110,7 @@ created: 2026-05-01
 본문 섹션: 1. 한 줄 요약 · 2. 사용법(자연어 예시) · 3. 입력 인자 · 4. 출력 schema · 5. Data sources
 (호출 횟수) · 6. 파싱 전략(XML 단독·한계·regression audit) · 7~10. 관련 공시/개념/결정/audit
 link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공시 본문·정책은 본 폴더에 중복하지 않고
-`rules/`·`decisions/`·`architecture/`로 link만.)
+`rules/`·`decisions/`로 link만.)
 
 > **2026-05 정리**: screen_events drop · proxy_guideline archive · shareholder_meeting → notice+results
 > 분리 · proxy_advise scope 10→1(specialized scope은 각 data tool 직접 호출).
@@ -186,6 +191,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - `release_v2-action-tool-검증-초안` → `proxy_advise_before_meeting` / `KIND-주총결과` → `results` fallback 이력
 
 ## 변경 이력
+- 2026-09-04: **도구 목록 정본을 이 표 하나로** — `wiki_index.md` Tools 절·`guide/architecture.md` 도구표는 링크로 대체, 루트 README 표는 이 표의 분류를 따른다. 상단(사람용)/하단(개발자용) 경계에 「여기서 멈춰도 됩니다」 구분선.
 - 2026-05-01: 초기 tool 페이지 일괄 작성 + financial_metrics 신규
 - 2026-05-18: 현재 16 public tool 체계로 정리(구 tool 명칭 제거)
 - 2026-05-20: 도구–공시 매핑 페이지 추가 (260902 storage 이관 — 매트릭스와 frontmatter `data_source` 로 대체)

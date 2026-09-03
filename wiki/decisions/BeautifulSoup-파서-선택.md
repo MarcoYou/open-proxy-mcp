@@ -3,14 +3,14 @@ type: decision
 title: BeautifulSoup 파서 선택
 tags: [parser, benchmark, lxml, beautifulsoup]
 sources: [git history]
-related: [OpenProxy-MCP, XML-vs-PDF]
+related: [XML-vs-PDF, data-collection]
 ---
 
 # BeautifulSoup 파서 선택
 
 ## 결론
 
-**lxml 채택.** html.parser 대비 30% 빠르고 결과 동일. html5lib은 79% 느림. [[OpenProxy-MCP]]의 전 파서에서 사용하며, [[XML-vs-PDF]] 비교 분석의 XML tier 성능 기반.
+**lxml 채택.** html.parser 대비 30% 빠르고 결과 동일. html5lib은 79% 느림. OPM의 전 파서에서 사용하며, [[XML-vs-PDF]] 비교 분석의 XML tier 성능 기반.
 
 ## 벤치마크 (250건 전수)
 

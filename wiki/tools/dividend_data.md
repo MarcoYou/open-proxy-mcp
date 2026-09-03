@@ -5,10 +5,10 @@ domain: data
 status: 등록 완료 (260903 — tools/dividend_data.py) · dividend_history_data·dividend_screener 통합
 scope: [firm, screen, market, sector]
 data_source: [DART 정기보고서 alotMatter(사업·반기·분기, div_declared·div_quarterly), 결정공시 집계(div_payment·div_payment_scope), krx_listing(krx_weekly 파생), WISE 섹터 매핑(wise_sector)]
-related_disclosures: [사업보고서, 반기보고서, 분기보고서, 현금ㆍ현물배당결정]
-related_concepts: [배당성향, DPS, 분기배당, 중간배당]
+related_disclosures: [사업보고서, 반기보고서, 분기보고서, 현금배당결정]
+related_concepts: [배당성향, 배당수익률, 분기배당, 연결-별도, 단위-표기-규약, 시점-제약]
 created: 2026-09-02
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # dividend_data
@@ -21,6 +21,8 @@ updated: 2026-09-03
 회사 시계열과 스크리너가 어차피 같은 서비스 모듈(`services/dividend_data.py`)을 썼으므로
 따로 둘 이유가 없었고, 합치며 그 자리에서 옳은 소스로 갈아끼웠다. 옛 이름의 사용통계는
 `usage_tracker.TOOL_ALIASES` 가 접어 한 계열로 잇는다.
+
+전제 개념: [[연결-별도]](배당성향 분모 = `alotMatter` (연결)당기순이익 그대로) · [[단위-표기-규약]] · [[시점-제약]](확정·정정 접수 순서).
 
 ## 셋을 어떻게 가르나
 | 도구 | 무엇 | DART 콜 |
@@ -90,9 +92,11 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 - **기간**: 사업연도(`bsns_year`/`fiscal_year`). 12월 결산이 아니면 결산일/`acc_mt` 가
   실제 결산월이다(코스피 배당사 632/639 가 12월).
 - **배당성향의 분모**: 공시 원문 `(연결)현금배당성향(%)` 을 그대로 싣는다 — **연결 기준이며
-  우리가 계산한 값이 아니다.** 같은 회사에서 해마다 크게 튀면 회사가 신고한 분모가 바뀐
-  것이다(삼성전자 FY2022 17.9% ↔ FY2023 67.8%는 DPS·총액이 같은데도 그렇다). 원문은
-  [[evidence]] 로 본다.
+  우리가 계산한 값이 아니다.** 같은 회사에서 해마다 크게 튀면 대개 **분모(연결 지배순이익)가 움직인 것**이다 —
+  삼성전자 FY2022 17.9% ↔ FY2023 67.8% 는 배당총액이 9.81조로 같은데 지배순이익이 54.7조 → 14.5조로
+  급감한 결과다(9,809,438 ÷ 14,473,401 백만원 = 67.8%). 종전 서술 「회사가 신고한 분모 기준이 바뀐 것」은
+  큰 수치를 검증 없이 서사로 덮은 오판이었다(작업 원칙 2 위반, 260904 정정) — 튀는 값은 원문
+  [[evidence]] 와 순이익 추이로 먼저 확인한다.
 - **빈칸**: `확정` / `무배당` / `항목없음` / `보고서없음` 을 가른다. **0 으로 메우지 않는다.**
 - **주식 종류**: `보통` / `우선` / `종류` / `미구분` 네 갈래. `종류` 는 상환주·전환주·무의결권주·
   트래킹스톡이다.

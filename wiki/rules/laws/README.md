@@ -88,7 +88,7 @@ corpus 스냅샷이 개정 본문을 이미 담고 있어서(상법 법률 2026-
 SSOT(`law_provisions.json`)의 조문번호·시행일이 **권위 원문**과 실제 일치하는지 자동 대조한다.
 에이전트 웹추정·수기 편집 drift 차단 + 엔진이 인용하는 조문의 SSOT 누락 감지.
 
-- **원본**: [[reference_legalize_kr_law_corpus]] (github.com/MarcoYou/legalize-kr, `kr/상법/법률.md`·`시행령.md` — 본문 + 부칙 전문).
+- **원본**: legalize-kr 법령 원문 (github.com/MarcoYou/legalize-kr, `kr/상법/법률.md`·`시행령.md` — 본문 + 부칙 전문).
 - **도구**: `scripts/verify_law_against_corpus.py --corpus <경로>` (또는 `OPM_LEGALIZE_KR` 환경변수).
   corpus 미지정·부재 시 **graceful-skip**(종료 0). 9개 조항 조문+시행일
   원문 대조 + `REFERENCE_PROVISIONS`(엔진 인용·개정대장 밖 조문) 존재 확인.
