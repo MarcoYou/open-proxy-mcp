@@ -92,5 +92,5 @@ def test_summary_counts_only_fy_and_uses_flat_band():
 
 def test_revision_is_a_known_bundle_and_in_all():
     want, bad = fe.parse_bundles("revision")
-    assert want == {"revision"} and bad == []
+    assert want == {"revision", "core"} and bad == []   # revision 은 core 를 끌고 온다
     assert "revision" in fe.parse_bundles("all")[0]
