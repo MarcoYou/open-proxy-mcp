@@ -116,6 +116,32 @@ def _checksum_lines(view: dict | None, total_view: dict | None = None,
     return out
 
 
+def _md_cell(text: str) -> str:
+    """칸 하나. 세로줄은 표 구분자라 이스케이프하고, 빈 칸은 공백 하나로 둔다."""
+    return (text or "").replace("|", "\\|") or " "
+
+
+def _md_table(rows: list[list[str]]) -> list[str]:
+    """칸 행렬 → 마크다운 표 줄들. **첫 행이 머리, 그 다음 줄이 `|---|` 구분행이다.**
+
+    🔴 260904 실측(KB금융) — 구분행이 없어서 표가 한 줄도 표로 그려지지 않았다.
+       payload 는 맞았는데 렌더러가 규격을 안 지켜 사용자는 세로줄 문장을 봤다.
+    🔴 열 수를 맞춘다 — GFM 은 머리보다 긴 행의 **초과 칸을 버린다.** 병합 머리
+       (`장부금액 <18칸>`)가 물리 칸 2개인 표는 본문 19칸 중 17칸이 사라졌을 것이다.
+       머리를 가장 넓은 행에 맞춰 빈 칸으로 채운다 — 칸을 옮기거나 합치지 않는다.
+    """
+    if not rows:
+        return []
+    width = max(len(r) for r in rows)
+    out = []
+    for i, r in enumerate(rows):
+        cells = [_md_cell(c) for c in r] + [" "] * (width - len(r))
+        out.append("| " + " | ".join(cells) + " |")
+        if i == 0:
+            out.append("|" + "---|" * width)
+    return out
+
+
 def _render(payload: dict) -> str:
     """표를 **그대로** 마크다운으로. 합치거나 나누지 않는다."""
     L = [f"# {payload['company']} 재무제표 주석",
@@ -324,15 +350,16 @@ def _render(payload: dict) -> str:
                 if view["common"]:
                     L.append(f"> 🧷 값열 전부가 공유하는 머리: {' › '.join(view['common'])}")
                 L.append("")
-                L.append("| 열 이름(경로) | " + " | ".join(x or " " for x in view["rows"]) + " |")
+                grid_rows = [["열 이름(경로)"] + list(view["rows"])]
                 for c in view["columns"]:
-                    L.append("| " + (c["label"] or " ") + " | "
-                             + " | ".join(v or " " for v in c["values"]) + " |")
+                    grid_rows.append([c["label"]] + list(c["values"]))
+                L += _md_table(grid_rows)
             else:
+                phys_rows = []
                 for row in t["rows"]:
                     cells = []
                     for c in row:
-                        s = c["text"] or " "
+                        s = c["text"] or ""
                         if c.get("colspan"):
                             s += f" <{c['colspan']}칸>"
                         if c.get("basis"):
@@ -340,7 +367,8 @@ def _render(payload: dict) -> str:
                         if c.get("acode"):
                             s += f" [{c['acode']}]"
                         cells.append(s)
-                    L.append("| " + " | ".join(cells) + " |")
+                    phys_rows.append(cells)
+                L += _md_table(phys_rows)
             L.append("")
 
             # 🧮 검산 — 260824 마스터 지시. 잎을 더해 원문 합계와 맞춰 본다.
