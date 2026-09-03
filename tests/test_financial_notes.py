@@ -716,3 +716,89 @@ def test_a_year_with_no_filing_is_an_answer_not_an_exception() -> None:
     tool._find_report_for_bsns_year = boom
 
     assert asyncio.run(tool._candidates(None, "C", "half", "2019")) == []
+
+
+# ── 260904 KB금융 — md 표에 구분행이 없어 표가 그려지지 않았다 ──────────────────
+#
+# payload 는 맞았는데 렌더러가 GFM 규격(`|---|` 구분행)을 안 지켜 사용자는 세로줄이 박힌
+# 문장을 봤다. 「payload 가 맞아도 렌더러가 안 쓰면 사용자는 못 본다」 — 렌더 결과를 본다.
+
+_SEP = __import__("re").compile(r"^\|(---\|)+$")
+
+
+def _render_of(html: str, fields: list[str]) -> str:
+    from open_proxy_mcp.tools.financial_notes import _render
+
+    return _render({"company": "T", "report": {"report_nm": "반기보고서 (2026.06)", "rcept_no": "0"},
+                    "fields": fields, "notes": extract(html, fields), "basis": "연결"})
+
+
+def _table_blocks(md: str) -> list[list[str]]:
+    """연속된 `|` 줄 묶음 = 표 하나."""
+    blocks, cur = [], []
+    for ln in md.splitlines():
+        if ln.startswith("|"):
+            cur.append(ln)
+        elif cur:
+            blocks.append(cur)
+            cur = []
+    return blocks + ([cur] if cur else [])
+
+
+def test_every_rendered_table_has_a_separator_row_right_after_its_header() -> None:
+    md = _render_of(_doc(
+        '<P>(3) 보고기간말 현재 사용이 제한되어 있는 예치금 내역은 다음과 같습니다(단위:백만원).</P>'
+        '<TABLE><TR><TH>구분</TH><TH>당반기말</TH><TH>전기말</TH><TH>사용제한 내용</TH></TR>'
+        '<TR><TD>기타예금</TD><TD>26,356</TD><TD>391,082</TD><TD>압류계좌</TD></TR>'
+        '<TR><TD>합계</TD><TD>26,356</TD><TD>391,082</TD><TD></TD></TR></TABLE>'
+    ), ["사용제한"])
+
+    blocks = _table_blocks(md)
+    assert blocks, md
+    for b in blocks:
+        assert _SEP.match(b[1]), b
+        # 구분행의 열 수 = 머리의 열 수, 본문 어느 행도 그보다 넓지 않다(넓으면 GFM 이 버린다)
+        width = b[1].count("|") - 1
+        assert b[0].count("|") - 1 == width
+        assert all(ln.count("|") - 1 <= width for ln in b[2:])
+    assert "| 기타예금 | 26,356 | 391,082 | 압류계좌 |" in md
+
+
+def test_a_merged_header_is_padded_so_body_cells_are_not_dropped() -> None:
+    # 「장부금액 <18칸>」처럼 머리가 물리 칸 2개인 표 — 머리를 그대로 두면 GFM 은
+    # 본문 19칸 중 17칸을 버린다. 머리를 가장 넓은 행에 맞춰 빈 칸으로 채운다.
+    md = _render_of(_doc(
+        "<P>사용이 제한된 예치금의 내역은 다음과 같습니다(단위:천원).</P>"
+        "<TABLE><TR><TD colspan='3'>사용제한 예치금</TD></TR>"
+        "<TR><TD>구분</TD><TD>당기말</TD><TD>전기말</TD><TD>사유</TD></TR>"
+        "<TR><TD>정기예금</TD><TD>1,000</TD><TD>2,000</TD><TD>질권</TD></TR>"
+        "<TR><TD>합계</TD><TD>1,000</TD><TD>2,000</TD></TR></TABLE>"
+    ), ["사용제한"])
+
+    (block,) = _table_blocks(md)
+    assert block[0] == "| 사용제한 예치금 <3칸> |   |   |   |"
+    assert block[1] == "|---|---|---|---|"
+    assert block[2] == "| 구분 | 당기말 | 전기말 | 사유 |"
+    assert block[4] == "| 합계 | 1,000 | 2,000 |   |"
+
+
+def test_a_pipe_inside_a_cell_does_not_split_the_column() -> None:
+    from open_proxy_mcp.tools.financial_notes import _md_table
+
+    assert _md_table([["구분", "사유"], ["기타예금", "압류 | 질권"]]) == [
+        "| 구분 | 사유 |", "|---|---|", "| 기타예금 | 압류 \\| 질권 |"]
+
+
+def test_transposed_grid_view_is_also_a_real_table() -> None:
+    # NH 전치표(머리 4단 × 값 1행) — 격자로 편 「열 이름(경로)」 표도 같은 규격이어야 한다.
+    import pytest
+
+    markdown_it = pytest.importorskip("markdown_it")
+    md = _render_of(_doc("<P>7. 상각후원가측정금융자산의 내역은 다음과 같습니다(단위:천원).</P>"
+                         + _NH), ["상각후원가"])
+
+    toks = markdown_it.MarkdownIt("commonmark").enable("table").parse(md)
+    assert sum(1 for t in toks if t.type == "table_open") == 1
+    head = next(ln for ln in md.splitlines() if ln.startswith("| 열 이름(경로) |"))
+    body = md.splitlines()[md.splitlines().index(head) + 1]
+    assert _SEP.match(body)

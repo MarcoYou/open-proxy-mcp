@@ -44,7 +44,6 @@ from open_proxy_mcp.services.proxy_advise import (
     _agenda_pattern_match,
     _load_law_layer_rules,
     _load_law_provisions,
-    _law_provision_detail,
 )
 
 logger = logging.getLogger(__name__)
@@ -804,6 +803,125 @@ def _reverse_bridge(rec: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     return groups
 
 
+# ── 조문별 시행 게이트 — SSOT(law_provisions.json) ↔ 후보 조문, **항 단위** ──────────
+# 260903 실측: as_of=2026-09-03 에 §542의12·§542의7 을 조문번호로 조회하면 '현행'만 찍히고
+# §542의12②(분리선출 2명, 2026-09-10 시행)·§542의7③(정관 배제 금지, 2026-09-10 시행)에 아무
+# 표지가 없었다. 종전 flag 경로는 **bridge 룰의 첫 번째 룰**의 provision 만 봤다 — 조문번호 직접
+# 조회는 bridge 가 아예 없어 진입조차 안 했고, bridge 가 있어도 두 번째 룰(다른 조항)은 버렸다.
+# 게다가 룰의 law_reference 가 §382의2 를 가리키면 §382의2 에 §542의7③ 의 날짜가 붙었다(오귀속).
+# 이제 SSOT 조항을 **조문번호로 직접** 후보에 맞추고, article 의 '제N항'·`paragraphs` 로 항까지
+# 좁힌다. corpus 스냅샷은 개정 조문을 이미 담고 있으므로(상법 법률 2026-03-06 시행본) 전문이
+# '현행'이어도 그 안의 어떤 항은 as_of 시점 미시행일 수 있다 — 그걸 항 옆에 표지로 붙인다.
+_INT_TO_CIRCLED: dict[int, str] = {v: k for k, v in CIRCLED_TO_INT.items()}
+_PROVISIONS_BY_ARTICLE_CACHE: dict[str, list[tuple[dict[str, Any], list[int]]]] | None = None
+
+
+def _provision_paragraphs(prov: dict[str, Any]) -> dict[str, list[int]]:
+    """SSOT 조항 → {article_no: [항 번호...]}. article 문자열의 '제N항' + 선택 `paragraphs` 합집합.
+    항이 하나도 없으면 [] = 조문 전체."""
+    out: dict[str, list[int]] = {}
+    for ref in extract_article_refs(prov.get("article", "") or ""):
+        paras = out.setdefault(ref["article_no"], [])
+        if ref.get("hang") and ref["hang"] not in paras:
+            paras.append(ref["hang"])
+    explicit = [int(x) for x in (prov.get("paragraphs") or [])]
+    if explicit:
+        for art in out:
+            out[art] = sorted(set(out[art]) | set(explicit))
+    return out
+
+
+def _provisions_by_article() -> dict[str, list[tuple[dict[str, Any], list[int]]]]:
+    """{상법 article_no: [(provision, paragraphs)]} — SSOT 는 상법 개정 대장이라 법은 상법 하나."""
+    global _PROVISIONS_BY_ARTICLE_CACHE
+    if _PROVISIONS_BY_ARTICLE_CACHE is not None:
+        return _PROVISIONS_BY_ARTICLE_CACHE
+    table: dict[str, list[tuple[dict[str, Any], list[int]]]] = {}
+    for prov in _load_law_provisions().values():
+        for art, paras in _provision_paragraphs(prov).items():
+            table.setdefault(art, []).append((prov, paras))
+    _PROVISIONS_BY_ARTICLE_CACHE = table
+    return table
+
+
+def _paragraph_label(paras: list[int]) -> str:
+    return ("".join(_INT_TO_CIRCLED.get(n, f"({n})") for n in paras) + "항") if paras else "조문 전체"
+
+
+def provision_gates(rec: dict[str, Any], as_of_iso: str) -> list[dict[str, Any]]:
+    """이 조문에 걸린 SSOT 조항들의 as_of 기준 상태(항 단위).
+
+    state: pending(시행일 前) · grace(시행됐으나 유예 종료 前 — 미이행이 아직 위반 아님) · in_force.
+    label 은 md 에 그대로 붙는 표지: 「시행예정 YYYY-MM-DD」·「유예 종료 YYYY-MM-DD」. 상법 **법률**
+    조문에만 — 시행령은 SSOT 밖(threshold_decree 는 임계 출처일 뿐 개정 대장이 아니다).
+    """
+    if rec.get("law_short") != "상법" or (rec.get("law_tier") or 0) != 0:
+        return []
+    gates: list[dict[str, Any]] = []
+    for prov, paras in _provisions_by_article().get(rec.get("article_no") or "", []):
+        eff = prov.get("effective_date") or ""
+        obl = prov.get("obligation_date") or ""
+        if eff and eff > as_of_iso:
+            state, label = "pending", f"시행예정 {eff}"
+        elif obl and obl > as_of_iso:
+            state, label = "grace", f"유예 종료 {obl}"
+        else:
+            state, label = "in_force", ""
+        gates.append({
+            "provision_id": prov.get("provision_id"),
+            "paragraphs": list(paras),
+            "paragraph_label": _paragraph_label(paras),
+            "effective_date": eff or None,
+            "obligation_date": obl or None,
+            "first_agm_trigger": bool(prov.get("first_agm_trigger")),
+            "amendment": f"{prov.get('amendment_round_label') or ''} 개정 {prov.get('law_no') or ''}".strip(),
+            "content": prov.get("table_content"),
+            "applies_to": prov.get("table_applies_to"),
+            "state": state,
+            "label": label,
+        })
+    return gates
+
+
+def _apply_provision_gates(item: dict[str, Any], gates: list[dict[str, Any]]) -> None:
+    """게이트를 공개 item 에 새긴다 — flags(사람용 한 줄) · hang[*].gates(항 옆 표지) ·
+    gate_status(조문 요약: pending/partial_pending/grace/None) · gate_summary(표 '시행' 열용)."""
+    if not gates:
+        return
+    item["provision_gates"] = gates
+    active = [g for g in gates if g["state"] != "in_force"]
+    if not active:
+        return
+    # 항 옆 표지 — rec 의 hang 리스트는 인덱스 캐시와 공유되므로 **복사한 뒤** 새긴다.
+    hang = [dict(h) for h in (item.get("hang") or [])]
+    for g in active:
+        for h in hang:
+            if g["paragraphs"] and h.get("no") in g["paragraphs"]:
+                h.setdefault("gates", []).append(g["label"])
+    item["hang"] = hang
+    summaries: list[str] = []
+    for g in active:
+        head = f"{g['paragraph_label']} {g['label']}"
+        summaries.append(head)
+        note = f"{head} — {g['content'] or g['provision_id']} ({g['amendment']}"
+        if g.get("applies_to"):
+            note += f" · 적용 {g['applies_to']}"
+        note += ")"
+        if g["state"] == "pending" and g["first_agm_trigger"]:
+            note += " · 시행 후 최초 이사선임 주총부터 적용(주총일 기준)"
+        if g["state"] == "grace":
+            note += " · 시행됐으나 유예 종료 전 미이행은 위반 아님"
+        item.setdefault("flags", []).append(note)
+    whole_pending = any(g["state"] == "pending" and not g["paragraphs"] for g in active)
+    if whole_pending:
+        item["gate_status"] = "pending"
+    elif any(g["state"] == "pending" for g in active):
+        item["gate_status"] = "partial_pending"
+    else:
+        item["gate_status"] = "grace"
+    item["gate_summary"] = " · ".join(summaries)
+
+
 # ── payload ─────────────────────────────────────────────────────────────
 def _record_public(rec: dict[str, Any], *, include_full_text: bool, as_of_iso: str) -> dict[str, Any]:
     """후보 record → 공개 dict (조문 상세)."""
@@ -1200,16 +1318,13 @@ def build_law_lookup_payload(
             item["hang"], item["ho"] = [], {}   # 표만 남긴다 — 약한 후보의 본문은 노이즈다
         item["score"] = c["score"]
         item["signals"] = sorted(c["signals"])
-        # ① 진짜 조문별 미래시행은 SSOT(조항 대장)의 effective_date로만 단정.
-        det = _law_provision_detail((c.get("bridge") or {}).get("rules", [None])[0]) if c.get("bridge") else None
-        eff = (det or {}).get("effective_date") or ""
-        if eff and eff > as_of_iso:
-            note = f"미시행(시행 {eff})"
-            if det.get("first_agm_trigger"):
-                note += " · 시행 후 최초 이사선임 주총부터 적용(주총일 기준)"
-            item.setdefault("flags", []).append(note)
+        # ① 진짜 조문별 미래시행·유예는 SSOT(조항 대장)를 **조문번호로 직접** 맞춰 항 단위로 표시.
+        #    bridge 유무·룰 순서와 무관하다(260903 — 종전엔 bridge 첫 룰만 봐서 조문번호 조회에
+        #    표지가 전혀 안 붙었다). 표에만 남기는 약한 후보(hang 비움)에도 flags 는 남긴다.
+        _apply_provision_gates(item, provision_gates(rec, as_of_iso))
         # ② 전문(스냅샷) 자체가 시행예정본이면 조문별 현행여부 불명 — 확인필요 + 법령당 1회 경고.
-        elif item["in_force"] is None:
+        #    ①과 독립이다: 스냅샷이 미래본이어도 SSOT 가 아는 항의 시행 상태는 그대로 말한다.
+        if item["in_force"] is None:
             item.setdefault("flags", []).append("현행 여부 확인필요(전문 시행예정본)")
             lw = rec.get("law_short") or ""
             if lw not in version_warned:

@@ -6,36 +6,64 @@
 전부 「신규」로 재라벨됐고, 드레인 스크립트는 이 부작용을 경고까지 하고 있었다 —
 경고만 있고 합류 지점이 없었다. 백업이 아니라 무덤이었다.
 
+260904: 백업 형식이 CSV → parquet(`usage/events/{주}.parquet`) 로 바뀌었다. 읽는 쪽이 같이
+안 바뀌면 **글로브가 0건이라 위 사고가 조용히 재현된다** — 이 파일이 그걸 막는다.
+
 여기서 지키는 것은 「읽는다」가 아니라 **「읽되 어긋나지 않는다」**이다:
-  · 주마다 헤더가 다르다(컬럼이 260802·260804·260810·260817 로 늘었다). 헤더를 합집합으로
-    먼저 안 잡으면 늦게 생긴 열만 짧아져 **행이 통째로 밀린다**(실측: weak_kinds 에서 깨졌다)
+  · 주마다 컬럼 수가 다르다(260802·260804·260810·260817 로 늘었고, 실제 parquet 도 21/23 컬럼이
+    섞여 있다). 이름으로 합치지 않으면 늦게 생긴 열만 짧아져 **행이 통째로 밀린다**
   · 투영 순서가 SELECT 순서와 달라지면 값이 **조용히 다른 컬럼으로** 들어간다
     (260704 mkt_fund_hist 사고와 같은 실패 모드 — 에러가 안 나서 더 위험하다)
+  · 통합 재생성본(`usage/opm_events_all_*.parquet`)이 주별 폴더에 섞이면 **두 번 세어진다**
 """
 from __future__ import annotations
 
-import csv
 import importlib
 import sys
 from pathlib import Path
 
 import pytest
 
+duckdb = pytest.importorskip("duckdb")  # dev 그룹 — 서버 런타임 의존성이 아니다
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 
 @pytest.fixture
 def ut(tmp_path, monkeypatch):
-    """usage_tracker 를 임시 백업 폴더에 물려 놓는다. DB 는 안 쓴다."""
+    """usage_tracker 를 임시 백업 폴더(`<tmp>/events`)에 물려 놓는다. DB 는 안 쓴다."""
     monkeypatch.delenv("DATABASE_URL", raising=False)
     mod = importlib.reload(importlib.import_module("usage_tracker"))
-    monkeypatch.setattr(mod, "DRAINED_DIR", tmp_path)
+    (tmp_path / "events").mkdir()
+    monkeypatch.setattr(mod, "DRAINED_DIR", tmp_path / "events")
     monkeypatch.setattr(mod, "_drained_cache", None)
     monkeypatch.setattr(mod, "_db_event_ids", lambda: set())
     return mod
 
 
 def _write(path: Path, cols, rows):
+    """실제 드레인처럼 **타입이 있는** parquet 을 쓴다(값은 파이썬 타입 그대로)."""
+    con = duckdb.connect()
+    marks = ", ".join(["?"] * len(cols))
+    con.execute(f"CREATE TABLE t ({', '.join(f'{c} {_duck_type(cols, c, rows)}' for c in cols)})")
+    for r in rows:
+        con.execute(f"INSERT INTO t VALUES ({marks})", list(r))
+    con.execute(f"COPY (SELECT * FROM t ORDER BY ts_ns) TO '{path.as_posix()}' (FORMAT parquet)")
+    con.close()
+
+
+def _duck_type(cols, c, rows):
+    i = cols.index(c)
+    sample = next((r[i] for r in rows if r[i] is not None), None)
+    if isinstance(sample, bool):
+        return "BOOLEAN"
+    if isinstance(sample, int):
+        return "BIGINT"
+    return "VARCHAR"
+
+
+def _write_csv(path: Path, cols, rows):
+    import csv
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(cols)
@@ -44,48 +72,60 @@ def _write(path: Path, cols, rows):
 
 def test_headers_differ_across_weeks_and_rows_still_line_up(ut, tmp_path):
     """**핵심.** 옛 주에는 없던 컬럼이 새 주에 생긴다 — 그래도 행이 밀리면 안 된다."""
-    _write(tmp_path / "260601-0607_user_log.csv",
+    ev = tmp_path / "events"
+    _write(ev / "260601-0607.parquet",
            ["event_id", "ts_ns", "key_hash", "tool", "latency_ms", "is_error"],
-           [["e1", 1000, "hA", "treasury_share", 11, "False"],
-            ["e2", 2000, "hB", "company", 22, "True"]])
+           [["e1", 1000, "hA", "treasury_share", 11, False],
+            ["e2", 2000, "hB", "company", 22, True]])
     # 다음 주에 weak_kinds 가 생겼다(260810 실제 사례)
-    _write(tmp_path / "260608-0614_user_log.csv",
+    _write(ev / "260608-0614.parquet",
            ["event_id", "ts_ns", "key_hash", "tool", "latency_ms", "is_error", "weak_kinds"],
-           [["e3", 3000, "hC", "valuation", 33, "", "fuzzy"]])
+           [["e3", 3000, "hC", "valuation", 33, None, "fuzzy"]])
 
     d = ut.drained_columns()
     assert len({len(v) for v in d.values()}) == 1, f"열 길이가 어긋났다: {[(k, len(v)) for k, v in d.items()]}"
     assert len(d["ts_ns"]) == 3
     # 옛 주는 그 열을 **가진 적이 없다** — 0 이 아니라 None 이 맞다.
     assert d["weak_kinds"] == [None, None, "fuzzy"]
+    assert d["is_error"] == [False, True, None]
 
 
 def test_projection_follows_the_select_order(ut, tmp_path):
     """투영은 SELECT 순서를 그대로 따라야 한다 — 어긋나면 에러 없이 값만 뒤바뀐다."""
-    _write(tmp_path / "260601-0607_user_log.csv",
+    _write(tmp_path / "events" / "260601-0607.parquet",
            ["event_id", "ts_ns", "key_hash", "tool", "latency_ms", "is_error"],
-           [["e1", 1000, "hA", "treasury_share", 11, "False"]])
+           [["e1", 1000, "hA", "treasury_share", 11, False]])
 
     assert ut.merge_drained([], ("tool", "key_hash", "latency_ms", "is_error")) == \
         [("treasury_share", "hA", 11, False)]
     # 순서를 바꾸면 결과도 바뀐다 — 이 대조가 있어야 위 단언이 우연이 아니다.
     assert ut.merge_drained([], ("key_hash", "tool")) == [("hA", "treasury_share")]
-    # 타입도 맞아야 한다. CSV 는 전부 문자열이라 안 고치면 하류 계산이 조용히 갈린다.
+    # 타입도 맞아야 한다. parquet 은 타입을 지니지만, 문자열로 굳은 주가 섞여도 하류가 갈리면 안 된다.
     (tool, kh, lat, err), = ut.merge_drained([], ("tool", "key_hash", "latency_ms", "is_error"))
     assert isinstance(lat, int) and err is False
 
 
+def test_stringly_typed_week_is_normalised(ut, tmp_path):
+    """타입 없이 VARCHAR 로 굳은 주(옛 CSV 를 옮긴 것 등)도 int/bool 로 돌려놓는다."""
+    _write(tmp_path / "events" / "260601-0607.parquet",
+           ["event_id", "ts_ns", "key_hash", "latency_ms", "is_error"],
+           [["e1", 1000, "hA", "11", "True"], ["e2", 2000, "hB", "", ""]])
+    d = ut.drained_columns()
+    assert d["latency_ms"] == [11, None] and d["is_error"] == [True, None]
+
+
 def test_db_rows_come_first_and_are_untouched(ut, tmp_path):
-    _write(tmp_path / "260601-0607_user_log.csv",
+    _write(tmp_path / "events" / "260601-0607.parquet",
            ["event_id", "ts_ns", "key_hash"], [["e1", 1000, "hA"]])
     out = ut.merge_drained([(9999, "hDB")], ("ts_ns", "key_hash"))
     assert out == [(9999, "hDB"), (1000, "hA")]
 
 
 def test_rows_already_in_the_db_are_not_counted_twice(ut, tmp_path, monkeypatch):
-    """드레인은 내보낸 뒤 지우니 원래 안 겹친다. **중단·재실행이면 겹친다** —
-    겹침을 가정하지 않는 쪽이 위험하다(모든 지표가 부풀어도 아무도 모른다)."""
-    _write(tmp_path / "260601-0607_user_log.csv",
+    """드레인은 내보낸 뒤 지우니 원래 안 겹친다. **dry-run 이었거나 중단·재실행이면 겹친다** —
+    겹침을 가정하지 않는 쪽이 위험하다(모든 지표가 부풀어도 아무도 모른다).
+    실측 260904: 8/17~8/30 두 주가 parquet 과 DB 양쪽에 있었다."""
+    _write(tmp_path / "events" / "260601-0607.parquet",
            ["event_id", "ts_ns", "key_hash"], [["e1", 1000, "hA"], ["e2", 2000, "hB"]])
     monkeypatch.setattr(ut, "_db_event_ids", lambda: {"e1"})
     monkeypatch.setattr(ut, "_drained_cache", None)
@@ -93,18 +133,26 @@ def test_rows_already_in_the_db_are_not_counted_twice(ut, tmp_path, monkeypatch)
 
 
 def test_missing_backup_is_loud_not_silent(ut, tmp_path, capsys):
-    """**조용한 빈 결과가 이 사고의 원인이었다.** 없으면 반드시 경고한다."""
+    """**조용한 빈 결과가 이 사고의 원인이었다.** 없으면 반드시 경고한다 — 폴더가 비었든 없든."""
+    assert ut.drained_columns() == {}
+    assert "드레인 백업이 없다" in capsys.readouterr().err
+    ut._drained_cache = None
+    ut.DRAINED_DIR = tmp_path / "없는폴더"
     assert ut.drained_columns() == {}
     assert "드레인 백업이 없다" in capsys.readouterr().err
 
 
-def test_only_user_log_files_are_read(ut, tmp_path):
-    """같은 폴더의 `*_purged.csv` 는 **일부러 걷어낸 테스트 오염**이라 되살리면 안 된다."""
-    _write(tmp_path / "260601-0607_user_log.csv",
+def test_only_weekly_parquet_files_are_read(ut, tmp_path):
+    """`usage/events/*.parquet` 만. 한 폴더 위의 `opm_events_all_*.parquet`(통합 재생성본)은
+    **같은 이벤트의 사본**이라 읽으면 두 번 세어지고, `*_purged.csv` 는 **일부러 걷어낸 테스트
+    오염**이라 되살리면 안 되며, `user_registry.csv` 는 이벤트가 아니다."""
+    ev = tmp_path / "events"
+    _write(ev / "260601-0607.parquet", ["event_id", "ts_ns", "key_hash"], [["e1", 1000, "hA"]])
+    _write(tmp_path / "opm_events_all_260601-260607.parquet",
            ["event_id", "ts_ns", "key_hash"], [["e1", 1000, "hA"]])
-    _write(tmp_path / "260810_test-pollution_purged.csv",
-           ["event_id", "ts_ns", "key_hash"], [["bad", 1, "hPollution"]])
-    _write(tmp_path / "user_registry.csv", ["key_hash", "note"], [["hA", "x"]])
+    _write_csv(ev / "260810_test-pollution_purged.csv",
+               ["event_id", "ts_ns", "key_hash"], [["bad", 1, "hPollution"]])
+    _write_csv(tmp_path / "user_registry.csv", ["key_hash", "note"], [["hA", "x"]])
     assert ut.merge_drained([], ("key_hash",)) == [("hA",)]
 
 

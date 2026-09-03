@@ -19,6 +19,22 @@ def _decisions_lines(items: list[dict[str, Any]]) -> list[str]:
     return lines
 
 
+def _force_label(r: dict[str, Any]) -> str:
+    """표 '시행' 열. 조문 전체가 아직 시행 전이면 「시행예정 YYYY-MM-DD」, 일부 항만 시행 전·유예 중이면
+    「현행 (②항 시행예정 YYYY-MM-DD)」 — 260903 이전엔 개정 항이 미시행이어도 '현행'만 찍혔다."""
+    if r.get("deleted"):
+        return "삭제"
+    _if = r.get("in_force")
+    base = "현행" if _if is True else ("확인필요" if _if is None else "미시행")
+    summary = r.get("gate_summary") or ""
+    if not summary:
+        return base
+    if r.get("gate_status") == "pending":
+        # 조문 전체가 시행 전 — 항 라벨(「조문 전체」)을 떼고 날짜만.
+        return summary.replace("조문 전체 ", "", 1)
+    return f"{base} ({summary})"
+
+
 def _render(payload: dict[str, Any]) -> str:
     d = payload["data"]
     status = payload.get("status")
@@ -54,8 +70,7 @@ def _render(payload: dict[str, Any]) -> str:
     lines.append("| # | 법령 | 조문 | 제목 | 시행 | score | 근거 |")
     lines.append("|---|---|---|---|---|---|---|")
     for i, r in enumerate(results, 1):
-        _if = r.get("in_force")
-        force = "삭제" if r.get("deleted") else ("현행" if _if is True else ("확인필요" if _if is None else "미시행"))
+        force = _force_label(r)
         sig = "·".join(r.get("signals", []))
         lines.append(
             f"| {i} | {r.get('law')} | `{r.get('article_no')}` | {r.get('article_title') or '-'} | "
@@ -76,7 +91,8 @@ def _render(payload: dict[str, Any]) -> str:
         # 항/호
         for h in r.get("hang", [])[:12]:
             mark = " (삭제)" if h.get("deleted") else ""
-            lines.append(f"  - **{h.get('no')}항**{mark} {h.get('text', '')[:160]}")
+            gate = f" ⏳ {' · '.join(h['gates'])}" if h.get("gates") else ""
+            lines.append(f"  - **{h.get('no')}항**{mark}{gate} {h.get('text', '')[:160]}")
             for ho in (r.get("ho") or {}).get(str(h.get("no")), [])[:12]:
                 lines.append(f"    - {ho.get('no')}. {ho.get('text', '')[:120]}")
         if r.get("full_text"):
@@ -143,8 +159,10 @@ def register_tools(mcp):
         + B(40룰 bridge 재사용, `_agenda_pattern_match` — 정관패턴↔조문, free-text law_reference도 파싱)
         + C(corpus 키워드, idf·anchor 게이트 — 두루뭉술 질의는 requires_review). 보수적: 폐쇄 큐레이션 어휘
         (`law_lookup_synonyms.json`)만, false-friend guard(이사↮사외이사 등), difflib 없음. 삭제 조문 보존+경고.
-        미시행: 전문 시행예정본은 조문별 현행여부 '확인필요'로 유보(단정 X), 진짜 조문별 미래시행만 SSOT
-        effective_date로 flag. 조문번호 법령 미지정+중복 → ambiguous. 강매치 아니면 폴백 유형별 안내(fallback).
+        미시행: 전문 시행예정본은 조문별 현행여부 '확인필요'로 유보(단정 X). 진짜 조문별 미래시행·유예는 SSOT
+        (law_provisions.json)를 조문번호로 직접 맞춰 **항 단위**로 「시행예정 YYYY-MM-DD」·「유예 종료 YYYY-MM-DD」
+        표지를 붙인다(표 '시행' 열·flags·항 옆 ⏳, data.results[*].provision_gates) — 원문이 개정 조문을 이미
+        담고 있어도 as_of 시점에 아직 효력 없는 항을 '현행'으로 읽지 않게. 조문번호 법령 미지정+중복 → ambiguous. 강매치 아니면 폴백 유형별 안내(fallback).
         **범위 밖은 조문을 붙이지 않는다** — 거래소 상장규정·공시규정·업무규정(관리종목·상장폐지·실질심사·
         불성실공시·정리매매 등)과 아직 안 읽은 법률(법인세법·소득세법·신탁법·여신전문금융업법 등)은 원문에 없으므로 어휘가 겹쳐도 조문을 반환하지 않고 범위 안내로 끝낸다
         (fallback.type=out_of_corpus_topic · data.results_suppressed). 용어 자체를 못 알아본 질의(too_vague·
