@@ -613,8 +613,69 @@ def board_approval_special_case(text: str) -> dict:
 # 세분도 차이(사내이사 vs 이사 106건)까지 함께 깨진다. 판단은 호출측에 맡긴다.
 # 상법 1차 개정(§542의8, 공포 2025-07-22 · 시행 2026-07-23)으로 '사외이사'가 '독립이사'로
 # 바뀐다. 시행 전 공고와 이후 공고가 한동안 섞이므로 둘 다 같은 직위로 취급한다.
-_DECLARED_ROLE = (("독립이사", "사외이사"), ("사외이사", "사외이사"),
+#
+# 260904: 종전엔 여기서 「독립이사」를 「사외이사」로 **바꿔 적었다**. 그러자 후보자 표의
+# 「독립이사」(원문 그대로)와 제목에서 온 「사외이사」(바꿔 적은 것)가 문자열 비교에서 갈려
+# `roleTypeConflict` 오탐이 났다(실측 고려아연 2026-09-09 임시주총 — 제목은 「…독립이사
+# 백인규 선임의 건」이었는데 산출물은 「안건 제목「사외이사」」라고 했다. 원문에 없는 말이다).
+# 그래서 **원문 표기를 그대로 남기고**, 같은 직위인지는 `role_class()` 로 묻는다.
+_DECLARED_ROLE = (("독립이사", "독립이사"), ("사외이사", "사외이사"),
                   ("사내이사", "사내이사"), ("기타비상무이사", "기타비상무이사"))
+
+
+# ── 직위 어휘 — 한 벌만 둔다 ─────────────────────────────────────────────────
+# 「독립이사」와 「사외이사」는 같은 자리다(상법 §542의8 명칭 변경). 이 판단이 파서·후보 평가·
+# 의결권 권고에 각자 문자열 검사로 흩어져 있으면 한 곳만 고쳐지고 다른 곳에서 샌다 —
+# 실측: board 요약은 「사외이사 후보 0명」, proxy_advise 는 「사외/독립 4」로 같은 공고를 다르게
+# 읽었다. 그래서 직위 → 범주 대응을 여기 한 곳에 두고 모두 이걸 부른다.
+# 산출물에는 **원문 직위명을 그대로** 싣는다 — 범주는 판단용이지 표기를 바꾸는 장치가 아니다.
+ROLE_OUTSIDE = "outside"                    # 사외이사 · 독립이사
+ROLE_INSIDE = "inside"                      # 사내이사 · 상임이사 · 대표이사
+ROLE_OTHER_NON_EXECUTIVE = "other_non_executive"   # 기타비상무이사 · 비상임이사
+ROLE_AUDIT_COMMITTEE = "audit_committee"    # 감사위원 · 감사위원회 위원이 되는 사외(독립)이사
+ROLE_AUDITOR = "auditor"                    # (상근·비상근) 감사
+ROLE_DIRECTOR = "director"                  # 「이사」— 세분 미상
+
+
+def role_class(role: str | None) -> str:
+    """직위 표기 → 범주. 모르면 ''. 표기는 바꾸지 않는다 — 범주만 답한다.
+
+    감사위원이 가장 먼저다: 「감사위원회 위원이 되는 사외이사」는 사외이사 자격 문턱에
+    감사위원 엄격 검증이 얹히는 별도 선거 경로라, 집계·비교에서는 감사위원으로 묶는다.
+    사외/독립 여부만 물을 때는 `is_outside_role()` 을 쓴다(감사위원이어도 사외면 True).
+    """
+    r = re.sub(r"\s+", "", role or "")
+    if not r:
+        return ""
+    rl = r.lower()
+    if "감사위원" in r or "audit" in rl:
+        return ROLE_AUDIT_COMMITTEE
+    if "사외" in r or "독립" in r or "outside" in rl or "independent" in rl:
+        return ROLE_OUTSIDE
+    if "비상무" in r or "비상임" in r:
+        return ROLE_OTHER_NON_EXECUTIVE
+    if "사내" in r or "상임이사" in r or "상근이사" in r or "대표이사" in r or "inside" in rl:
+        return ROLE_INSIDE
+    if "감사" in r:
+        return ROLE_AUDITOR
+    if "이사" in r or "director" in rl:
+        return ROLE_DIRECTOR
+    return ""
+
+
+def is_outside_role(role: str | None) -> bool:
+    """사외이사 자격 문턱(독립성·§382③·시행령 §34⑤7호)이 적용되는 직위인가.
+
+    「감사위원회 위원이 되는 독립이사」처럼 감사위원 표기가 같이 있어도 True 다 —
+    독립성 검증은 사외 자격에 붙는 것이지 감사위원 표기에 가려지지 않는다.
+    """
+    r = re.sub(r"\s+", "", role or "")
+    return bool(r) and ("사외" in r or "독립" in r or "outside" in r.lower())
+
+
+def same_role_class(a: str | None, b: str | None) -> bool:
+    """두 직위 표기가 같은 범주인가 — 「독립이사」 vs 「사외이사」는 같다."""
+    return role_class(a) == role_class(b)
 
 
 # 직위가 제목에 나와도 선임 안건이 아니면 그 사람의 직위를 밝힌 게 아니다 —
@@ -661,8 +722,13 @@ def declared_role_for_candidate(
         for canon, seg in segs:
             if nm in seg:
                 return canon, "named"
-    roles = sorted({canon for canon, _ in segs})
-    if len(roles) != 1:
+    # 표기가 둘이어도(「사외이사(독립이사) 홍길동」) 같은 범주면 직위는 하나다. 돌려주는 값은
+    # 제목에 **먼저 나온 원문 표기**다 — 범주로 바꿔 적지 않는다.
+    roles: list[str] = []
+    for canon, _seg in segs:
+        if canon not in roles:
+            roles.append(canon)
+    if len({role_class(c) for c in roles}) != 1:
         return None, ""
     # 직위가 하나여도 **다른 후보가 지목돼 있으면** 그 직위는 그 사람 것이다.
     for sib in siblings:
@@ -670,6 +736,16 @@ def declared_role_for_candidate(
         if sn and sn != nm and any(sn in seg for _c, seg in segs):
             return None, ""
     return roles[0], "sole"
+
+
+def _audit_seat_compatible(title: str, role_type: str, declared: str) -> bool:
+    """「감사위원회 위원이 되는 사외이사 선임」에서 표(또는 구간 카테고리)가 「감사위원」, 제목 키워드가
+    「사외이사」로 읽혀도 모순이 아니다 — 그 사람은 둘 다다(상법 §542의12 분리선출).
+    실측 표본 163건(81사)에서 충돌 37건 중 18건이 이 모양이었다. 제목이 감사위원을 말하지 않는데
+    표만 감사위원이면 여전히 충돌이다.
+    """
+    return (role_class(role_type) == ROLE_AUDIT_COMMITTEE and role_class(declared) == ROLE_OUTSIDE
+            and "감사위원" in re.sub(r"\s+", "", title or ""))
 
 
 def annotate_declared_role(tree: list[dict]) -> None:
@@ -2679,11 +2755,14 @@ def parse_personnel_xml(html: str) -> dict:
             _c["declaredRole"] = _role
             _c["declaredRoleBasis"] = _basis
             _rt, _rb = (_c.get("roleType") or "").strip(), _c.get("roleTypeBasis")
-            if _basis == "named" and _rb in (None, "title") and _rt != _role:
+            # 비교는 **범주**로 한다 — 「독립이사」(표)와 「사외이사」(제목)는 같은 자리다.
+            # 문자열로 비교하면 명칭 변경(§542의8) 전후 표기가 섞인 공고마다 거짓 충돌이 난다.
+            if _basis == "named" and _rb in (None, "title") and not same_role_class(_rt, _role):
                 _c["roleTypeBefore"] = _rt or None
                 _c["roleType"] = _role
                 _c["roleTypeBasis"] = "title_named"
-            elif _rt and _rt != _role:
+            elif _rt and not same_role_class(_rt, _role) and not _audit_seat_compatible(
+                    title, _rt, _role):
                 _c["roleTypeConflict"] = {
                     "role_type": _rt, "role_type_basis": _rb or "none",
                     "declared_role": _role, "declared_role_basis": _basis,
@@ -3840,6 +3919,24 @@ def _build_personnel_summary(appointments: list[dict]) -> dict:
         "audit_committee": 0,
         "dismissals": 0,
     }
+    # 🔴 **후보의 직위로 센다, 안건 카테고리로 세지 않는다.** 종전엔 안건 카테고리(제목에서
+    # 온 것)로 셌다. 「집중투표에 의한 이사 4인 선임의 건」은 카테고리가 「이사」라 그 아래
+    # 독립이사 4명이 전부 사내로 집계됐고 요약은 「사외이사 후보: 0명」이 됐다(실측 고려아연
+    # 2026-09-09 임시주총 — 후보 6명 전원이 독립이사). 후보자 표의 직위 칸이 그 사람의 직위다.
+    # 카테고리는 후보 직위가 비었거나 세분 미상(「이사」)일 때만 쓴다. 단 **감사위원 선거는
+    # 카테고리가 우선**이다 — 「감사위원회 위원이 되는 독립이사」는 별도 선거(§542의12)라
+    # 감사위원으로 묶는다(종전과 같다).
+    #
+    # 사람 단위로 센다. 같은 사람이 묶음 안건(제3호)과 개별 안건(제3-1호)에 겹쳐 나오면
+    # 등장 횟수는 `total_candidates`, 사람 수는 `unique_candidates` 가 이미 갈라 놓았다 —
+    # 직위별 인원도 사람 수여야 「사외이사 후보: 8명」이 4명을 두 번 센 것이 되지 않는다
+    # (실측 한국앤컴퍼니 2025: 사외이사 후보 1명이 8명으로 나갔다).
+    # 칸은 **서로 배타적이지 않다** — 한 사람이 「사외이사 선임」(제3-1호)과 「감사위원 선임」
+    # (제5호)에 따로 오르는 2단계 선출이 흔하다(실측 삼성SDI 2026 윤종원). 그 사람은 사외이사
+    # 후보이기도 하고 감사위원 후보이기도 하다. 다만 세분 미상 「이사」 칸은 구체적인 칸에 진다.
+    names_in: dict[str, set[str]] = {k: set() for k in
+                                     ("directors", "outside_directors", "auditors",
+                                      "audit_committee", "dismissals")}
     for a in appointments:
         cat = a.get("category", "")
         action = a.get("action", "")
@@ -3847,20 +3944,39 @@ def _build_personnel_summary(appointments: list[dict]) -> dict:
         # (후보표 누락 공시 — 인원수 미상). 단 total_appointments에는 포함.
         if not a.get("candidates") and a.get("candidates_raw_fallback"):
             continue
-        count = len(a.get("candidates", [])) or 1
-
-        if action == "해임":
-            summary["dismissals"] += count
-        elif '감사위원' in cat:
-            summary["audit_committee"] += count
-        elif '감사' in cat:
-            summary["auditors"] += count
-        elif '사외' in cat or '독립' in cat:
-            summary["outside_directors"] += count
-        else:
-            summary["directors"] += count
+        for c in a.get("candidates") or [{}]:
+            bucket = _personnel_bucket(action, cat, c.get("roleType"))
+            name = re.sub(r"\s+", "", c.get("name") or "")
+            if name:
+                names_in[bucket].add(name)
+            else:
+                summary[bucket] += 1        # 이름 없는 후보(표가 없는 안건)는 등장 수로
+    specific = (names_in["outside_directors"] | names_in["audit_committee"]
+                | names_in["auditors"])
+    names_in["directors"] -= specific
+    for bucket, names in names_in.items():
+        summary[bucket] += len(names)
 
     return summary
+
+
+def _personnel_bucket(action: str, category: str, role_type: str | None) -> str:
+    """후보 한 명이 요약의 어느 칸에 들어가나.
+
+    해임 → 감사위원(안건 카테고리 우선) → 감사 → 사외(독립) → 이사. 감사위원·감사는 카테고리와
+    직위 어느 쪽이 밝혀도 그 칸이다. 사외/독립은 **직위 칸이 먼저**, 직위가 비었거나 세분
+    미상이면 카테고리로 본다.
+    """
+    if action == "해임":
+        return "dismissals"
+    rc, cc = role_class(role_type), role_class(category)
+    if ROLE_AUDIT_COMMITTEE in (rc, cc):
+        return "audit_committee"
+    if ROLE_AUDITOR in (rc, cc):
+        return "auditors"
+    if rc == ROLE_OUTSIDE or (rc in ("", ROLE_DIRECTOR) and cc == ROLE_OUTSIDE):
+        return "outside_directors"
+    return "directors"
 
 
 def _empty_personnel_summary() -> dict:

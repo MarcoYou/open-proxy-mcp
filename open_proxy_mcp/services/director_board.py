@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.executive_pay import parse_executive_pay, reconcile_with_api
+from open_proxy_mcp.services.shareholder_meeting_parser import is_outside_role
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     ToolEnvelope,
@@ -610,7 +611,8 @@ async def _roster_scope(
 
     # 사외이사 신규선임만 필터(QA 260709 발견 — 필터 없이 exctvSttus 전체 임원 diff와 비교하면
     # 미등기 임원까지 섞여 공식값과 규모 자체가 안 맞음, 예: 미래에셋증권 17 vs 공식 3).
-    our_outside_new = sum(1 for c in changes if "이탈" not in c["change"] and c.get("director_type") == "사외이사")
+    # 등기구분은 2026-07-23 이후 보고서부터 「독립이사」로 온다 — 파서의 직위 어휘 한 벌로 본다
+    our_outside_new = sum(1 for c in changes if "이탈" not in c["change"] and is_outside_role(c.get("director_type")))
     official_latest = next((o for o in official_changes if o["year"] == latest), None)
     diff_cross_check = None
     if official_latest is not None:
