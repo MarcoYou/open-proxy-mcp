@@ -65,6 +65,28 @@ def test_expanded_laws_are_not_listed_as_out_of_corpus():
     assert {"지배구조법", "상증세법", "금융지주회사법", "금산법", "은행법", "보험업법"} <= _EXPANDED_LAWS
 
 
+def test_law_filter_accepts_every_corpus_law():
+    """`law=` 필터가 4법만 알던 것(260903 실측: `law="보험업법"` → 거절 후 상법 §106 반환)의 회귀 가드."""
+    from sync_law_corpus import TARGETS
+    from open_proxy_mcp.services.law_lookup import _KNOWN_LAWS
+    corpus_short = {short for _folder, short in TARGETS}
+    assert corpus_short <= _KNOWN_LAWS, corpus_short - _KNOWN_LAWS
+
+
+@pytest.mark.parametrize("law,article,title_kw", [
+    ("보험업법", "제106조", "자산운용"),
+    ("금산법", "제24조", "주식소유한도"),
+    ("지배구조법", "제2조", "금융회사"),
+    ("금융회사의 지배구조에 관한 법률", "제6조", "사외이사"),
+])
+def test_article_lookup_with_expanded_law_filter(law, article, title_kw):
+    p = build_law_lookup_payload(article, law=law, top_k=2)
+    assert not any("인식되지 않는 법령" in w for w in p["warnings"]), p["warnings"]
+    top = p["data"]["results"][0]
+    assert top["article_no"] == article and title_kw in top["article_title"], top
+    assert top["law"] != "상법", "필터를 무시하고 상법 조문을 돌려줬다"
+
+
 # ── 2. 확장 6법 질의가 그 법 조문으로 강하게 잡힌다 (확장 커밋의 실측 3건) ─────
 @pytest.mark.parametrize("q,law,article", [
     ("적기시정조치 요건", "금산법", "제10조"),
