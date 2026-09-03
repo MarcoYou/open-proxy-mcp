@@ -76,7 +76,7 @@ def test_law_filter_accepts_every_corpus_law():
 @pytest.mark.parametrize("law,article,title_kw", [
     ("보험업법", "제106조", "자산운용"),
     ("금산법", "제24조", "주식소유한도"),
-    ("지배구조법", "제2조", "금융회사"),
+    ("지배구조법", "제2조", "정의"),   # 법률 §2 「정의」(1호가 금융회사) · 시행령 §2 는 「금융회사의 범위」
     ("금융회사의 지배구조에 관한 법률", "제6조", "사외이사"),
 ])
 def test_article_lookup_with_expanded_law_filter(law, article, title_kw):
