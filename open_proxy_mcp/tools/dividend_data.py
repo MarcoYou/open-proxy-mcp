@@ -14,6 +14,7 @@ from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services import dividend_data as dd
+from open_proxy_mcp.tools._shared import raw_cell
 
 _RULER = [
     "### 자(尺) — 이 표의 모든 숫자에 붙는 기준",
@@ -24,6 +25,9 @@ _RULER = [
     "- **횟수 출처**: 「현금ㆍ현물배당결정」 원문(결정공시) — 이사회 결의 시점 그대로. FY2020~2024 만 온전하다",
     "- **빈칸**: `확정`/`무배당`/`항목없음`/`보고서없음`을 가른다. 0 으로 메우지 않았다",
     "- **분기**: 누적 차분(3분기 누계 − 반기 누계). 앞 원장이 없으면 `미산출`",
+    "- **자유서술 칸**: 결정공시 비고(11번 항목)는 **요약하지 않고 원문 전문**을 싣는다 — "
+    "회사가 무엇이든 적는 칸이라 정규식으로 한 가지를 뽑으면 나머지가 사라진다. "
+    "파생 플래그(`특별배당(힌트)`)는 힌트일 뿐이고 **정본은 원문**이다",
 ]
 
 
@@ -53,6 +57,49 @@ def _num(v: Any, suffix: str = "", fmt: str = "{:,.2f}") -> str:
     return fmt.format(v) + suffix if v is not None else "-"
 
 
+def _remarks_block(decisions: list[dict[str, Any]], complete: set[int]) -> list[str]:
+    """결의 한 건 = 한 덩어리. 비고(11번 「기타 투자판단과 관련한 중요사항」) **전문**을 싣는다.
+
+    🔴 표 셀에 넣지 않고 인용 블록으로 낸다 — 중앙값 245자·최대 1,512자라 표 칸에 넣으면
+    다른 열이 읽히지 않는다. 대신 어느 결의의 비고인지 머리줄에 사업연도·결의일·구분·
+    DPS·접수번호를 붙여 못 헷갈리게 한다.
+    🔴 「특별배당이 있는 것만」 같은 조건을 걸지 않는다 — 그 구조가 260903 에 고친 문제다.
+    """
+    if not decisions:
+        return []
+    L = ["", "### 결정공시 비고 원문 — 11. 기타 투자판단과 관련한 중요사항", "",
+         "> 서식에 칸이 없는 사실이 전부 여기 몰려 있다 — 특별·기념배당, 자기주식 제외 산정, "
+         "감액배당 재원, 주총 갈음, 차등배당, 「감사·주총 과정에서 변동될 수 있음」 단서. "
+         "**요약하지 않고 원문 그대로** 싣는다. 판단은 읽는 쪽에서 한다.", ""]
+    n_empty = 0
+    for d in decisions:
+        text = raw_cell(d.get("remarks"))
+        fy = d.get("fiscal_year")
+        mark = "" if fy in complete else " ⚠️미완"
+        head = [f"FY{fy}{mark}"]
+        if d.get("board_date"):
+            head.append(f"{d['board_date']} 결의")
+        if d.get("dividend_type_filed"):
+            head.append(str(d["dividend_type_filed"]))
+        if d.get("dps_common") is not None:
+            head.append(f"DPS {d['dps_common']:,.0f}원")
+        if d.get("amended"):
+            head.append("정정")
+        if d.get("has_special"):
+            head.append("특별배당 힌트")
+        L.append(f"- **{' · '.join(head)}** `{d.get('rcept_no') or '-'}`")
+        if text:
+            L.append(f"  > {text}")
+        else:
+            n_empty += 1
+            # 「비고가 비었다」와 「원문을 못 붙였다」를 가른다 — 둘 다 침묵하면 같아 보인다.
+            L.append("  > _(비고 칸이 비어 있거나 원문을 붙이지 못했다 — "
+                     "「특이사항 없음」으로 읽지 말 것. `evidence` 로 원문을 확인하라.)_")
+    if n_empty:
+        L += ["", f"> 비고 원문이 없는 결의 {n_empty}건 — 위에 그 줄마다 표시했다."]
+    return L
+
+
 def _history_cell(years: list[int], vals: list[int | None] | None) -> str:
     """`[4,4,4,4,4]` → `24·23·22·21·20:4·4·4·4·4`. `null`은 `-`(상장 전이라 모름)."""
     if not vals:
@@ -69,10 +116,9 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
     pay_rows = pay.get("rows") or []
     if pay_rows:
         L += ["", "### 결정공시 — 몇 번 배당했나 (이사회 결의 기준)", "",
-              "| 사업연도 | 횟수 | 배당구분(원문) | DPS 합 | 총액 합 | 특별배당 | 이상 |",
+              "| 사업연도 | 횟수 | 배당구분(원문) | DPS 합 | 총액 합 | 특별배당(힌트) | 이상 |",
               "|---|---|---|---|---|---|---|"]
         complete = set(pay.get("complete_years") or [])
-        special_notes: list[str] = []
         for r in pay_rows:
             fy = r["fiscal_year"]
             mark = "" if fy in complete else " ⚠️미완"
@@ -82,17 +128,21 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
                 f"{_num(r.get('dps_sum'), '원', '{:,.0f}')} | {_won_short(r.get('total_sum'))} | "
                 f"{'있음' if r.get('has_special') else '-'} | "
                 f"{', '.join(r.get('anomalies') or []) or '-'} |")
-            special_notes += [n for n in (r.get("special_notes") or []) if n]
         L += ["", "> ⚠️미완 표시가 붙은 해는 수집창 경계라 그 해 결의가 통째로 빠졌을 수 있다 "
-              "— 「0회」로 읽지 말 것."]
-        if special_notes:
-            L += ["", "> 🔴 **특별배당 있음** = 비고에 「특별배당」·「기념배당」이 실제로 박힌 결의다. "
-                  "다른 회사의 특별배당을 재원으로 쓴다는 문장은 뺐다. "
-                  "정기·특별분이 한 결의에 섞여도 **이 표에서는 금액을 가르지 않는다**"
-                  "(서식에 분리 칸이 없다 — 비고에 적힌 회사만 예외적으로 갈린다) "
-                  "— 원문 근거만 남긴다:"]
-            for n in special_notes:
-                L.append(f"> - {n.lstrip('- ').strip()}")
+              "— 「0회」로 읽지 말 것.",
+              "> `특별배당(힌트)` 은 파서가 비고에서 「특별배당」·「기념배당」을 본 결의가 그 해에 "
+              "있었다는 **표시일 뿐 정본이 아니다.** 정본은 아래 비고 원문이다 — "
+              "특별배당 말고도 감액배당 재원·자기주식 제외 산정·주총 갈음·차등배당처럼 "
+              "**서식에 칸이 없어 비고에만 적히는 사실**은 원문에서만 읽힌다.",
+              "> 정기·특별분이 한 결의에 섞여도 **금액은 가르지 않는다** — 서식에 분리 칸이 없다."]
+        L += _remarks_block(pay.get("decisions") or [], complete)
+    elif pay.get("status") != "ok":
+        # 🔴 **조회 실패를 「없다」로 렌더하지 않는다.** 260903 실측: 표에서 죽은 칸을
+        # 지웠더니 배포본의 옛 쿼리가 깨졌는데, 화면에는 「결정공시 집계가 없다」로 나왔다
+        # — 「모른다」가 「안 했다」로 읽히는, 이 서비스가 내내 막아 온 바로 그 사고다.
+        L += ["", "> 🔴 **결정공시 집계를 읽지 못했다 (조회 실패).** "
+              "「배당 결의가 없다」가 아니라 **모른다**이다 — 아래 원장 표만 보고 "
+              "「몇 번 배당했나」를 판단하지 말라. 잠시 뒤 다시 시도하라."]
     else:
         L += ["", "> 이 회사의 결정공시 집계가 이 구간에 없다."]
 
@@ -220,8 +270,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 828사 × 2020~2025)과 결정공시 집계(FY2020~2024)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
         when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
-        scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` WICS 섹터(sector 필요)
-        rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 FY2020~2024 만 온전(그 밖은 `scope_incomplete`). 총액은 신고총액 하나만(보통/우선 배분 불가).
+        scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` WICS 섹터(sector 필요)
+        rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 FY2020~2024 만 온전(그 밖은 `scope_incomplete`). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**
         min_payments: screen 전용. **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사(결정공시 기준 — 원장 분기 빈칸 추정이 아니다). `quarterly_only=True` 는 `min_payments=2` 의 별칭(하위호환).
         ref: dividend, price_multiple_data, forward_estimates_data, screener, evidence
         """

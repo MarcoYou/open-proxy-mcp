@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
-from open_proxy_mcp.tools._shared import company_id_line
+from open_proxy_mcp.tools._shared import company_id_line, raw_cell
 from open_proxy_mcp.services.dividend import build_dividend_payload
 
 
@@ -67,6 +67,64 @@ def _fiscal_meta_line(summary: dict[str, Any], data: dict[str, Any]) -> str:
     return f"_{span}{end_month}월 결산 · {data.get('fiscal_year_basis', '')}_"
 
 
+def _decision_remarks_lines(decisions: list[dict[str, Any]]) -> list[str]:
+    """배당결정 원문 11번 「기타 투자판단과 관련한 중요사항」 — **결의마다 전문**을 낸다.
+
+    🔴 파서는 이 칸을 이미 통째로 들고 있었다(`parse_dividend_decision()["remarks"]`).
+    렌더러가 그걸 버리고 `has_special` 불리언만 내보내고 있었다 — 서식에 칸이 없는 사실
+    (감액배당 재원·자기주식 제외 산정·주총 갈음·차등배당·「변동될 수 있음」 단서)이
+    전부 이 칸에만 적히는데도 그랬다. 260903 마스터 지시로 원문을 그대로 낸다.
+    표 셀이 아니라 인용 블록인 이유는 길이다 — 중앙값 245자·최대 1,512자.
+    """
+    rows = [(d, raw_cell(d.get("remarks"))) for d in decisions]
+    if not any(text for _, text in rows):
+        return []
+    L = ["", "### 배당결정 비고 원문 (11. 기타 투자판단과 관련한 중요사항)", "",
+         "> 요약하지 않은 공시 원문이다. 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, "
+         "주총 갈음, 차등배당, 감사·주총 과정의 변동 단서가 이 칸에만 적힌다. "
+         "**읽고 판단하라** — 아래 파생 플래그는 힌트일 뿐이다.", ""]
+    for d, text in rows:
+        head = [d.get("rcept_dt") or "-"]
+        if d.get("dividend_type"):
+            head.append(str(d["dividend_type"]))
+        if d.get("dps_common"):
+            head.append(f"DPS {d['dps_common']:,}원")
+        if d.get("differential_dividend"):
+            head.append("차등배당 해당")
+        if d.get("has_special"):
+            head.append("특별배당 힌트")
+        L.append(f"- **{' · '.join(head)}** `{d.get('rcept_no', '')}`")
+        L.append(f"  > {text}" if text else
+                 "  > _(비고 칸이 비어 있다 — 「특이사항 없음」이 아니라 원문에 적힌 것이 "
+                 "없다는 뜻이다. `evidence` 로 원문을 확인하라.)_")
+    return L
+
+
+def _alot_items_lines(summary: dict[str, Any]) -> list[str]:
+    """사업보고서 `alotMatter` **행 원문**. 항목명·주식종류·당기/전기/전전기를 손대지 않고 낸다.
+
+    🔴 위 「연간 요약」은 이 행들을 키워드로 골라 만든 파생값이다(`build_dividend_summary`).
+    「주당 현금배당금」·「현금배당성향」 같은 문구가 서식마다 달라 골라내다 빠뜨리는 항목이
+    생기고(특별배당·주식배당·액면가·순이익 행), 고른 값도 종류주식 표기 50여 종에서 갈린다.
+    그래서 **고른 값과 원문 행을 나란히** 낸다 — 어긋나면 원문이 정본이다.
+    """
+    items = summary.get("items") or []
+    if not items:
+        return []
+    L = ["", "### 사업보고서 배당 항목 원문 (`alotMatter`)", "",
+         "| 항목(원문) | 주식종류 | 당기 | 전기 | 전전기 |", "|---|---|---|---|---|"]
+    for it in items:
+        L.append(
+            f"| {raw_cell(it.get('category'), inline=True) or '-'} "
+            f"| {raw_cell(it.get('stock_type'), inline=True) or '-'} "
+            f"| {raw_cell(it.get('current'), inline=True) or '-'} "
+            f"| {raw_cell(it.get('previous'), inline=True) or '-'} "
+            f"| {raw_cell(it.get('before_previous'), inline=True) or '-'} |")
+    L += ["", "> 위 「연간 요약」 숫자는 이 행들에서 골라낸 파생값이다. "
+          "**어긋나면 이 표가 정본이다.** 단위·기준(연결/별도)도 항목명에 적힌 그대로다."]
+    return L
+
+
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
@@ -115,18 +173,37 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             lines.append("- 감액배당 cross-link: 자본준비금 감소 안건 주총 상정 (이익잉여금 전입 → 배당 재원)")
 
     if scope in {"summary", "detail"}:
+        # 자리가 정해진 칸(날짜·구분·DPS·기준일)은 표로. 자유서술 칸(비고)은 아래 원문으로.
+        # detail 은 서비스가 따로 50건을 담아 둔다(`data["detail"]["latest_decisions"]`).
+        # 최상위 `latest_decisions` 는 두 스코프 공용이라 20건에서 잘려 있다.
+        _detail = data.get("detail") or {}
+        _decisions = (_detail.get("latest_decisions") if scope == "detail" else None) \
+            or data.get("latest_decisions", [])
+        _total = _detail.get("decision_count") or len(_decisions)
+        _shown = _decisions[: (50 if scope == "detail" else 10)]
         lines.extend(["", "## 최근 배당결정", "| 공시일 | 구분 | DPS(보통) | 기준일 | 공시번호 |", "|--------|------|-----------|--------|----------|"])
-        for item in data.get("latest_decisions", [])[:10]:
+        for item in _shown:
             lines.append(
                 f"| {item.get('rcept_dt', '')} | {item.get('dividend_type', '-') or '-'} | {item.get('dps_common', 0):,}원 | "
                 f"{item.get('record_date', '-') or '-'} | `{item.get('rcept_no', '')}` |"
             )
+        if _total > len(_shown):
+            tail = " 전부 보려면 `scope=\"detail\"`." if scope == "summary" else ""
+            lines.append(f"> 이 구간 결정공시 {_total}건 중 최근 {len(_shown)}건.{tail}")
+        lines.extend(_decision_remarks_lines(_shown))
+
+    if scope == "detail":
+        lines.extend(_alot_items_lines(summary))
 
     if scope == "summary":
         policy = data.get("policy_signals", {})
         lines.extend([
             "",
-            "## 정책 신호",
+            "## 정책 신호 (원문에서 뽑은 파생 힌트)",
+            "> 🔴 **정본이 아니다.** 아래 넷은 위 표·비고 원문에서 규칙으로 뽑은 요약이고, "
+            "규칙은 서식 변형을 놓친다 — 특히 `특별배당 이력` 은 비고에 「특별배당」·「기념배당」이 "
+            "박힌 경우만 참이다(코스피 전수 3,831건 중 2건). **아니오 = 없다가 아니다.** "
+            "판단은 위 비고 원문을 읽고 하라.",
             f"- 추세: {_TREND_KO.get(policy.get('trend'), policy.get('trend') or '-')}",
             f"- 분기/중간배당 패턴: {'예' if policy.get('has_quarterly_pattern') else '아니오'}",
             f"- 특별배당 이력: {'예' if policy.get('has_special_dividend') else '아니오'}",
@@ -188,8 +265,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률(결의 당시)+**현재가 기준 배당수익률**(최신 종가, krx_weekly), 분기별 추이. 미래 정책·약속 X.
         when: 실제 지급된 배당 확인. 분기배당 회사는 `history`로 분기별 breakdown. 미래 정책/약속은 `value_up`.
-        rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시 is_superseded 표시. 미래 약속 추가 금지.
-        scope: `summary` 선배당-후결의+감액배당 메타 / `detail` 요약+최근 결정 50건 / `history` N년 추이+분기 breakdown+policy_signals
+        rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시 is_superseded 표시. 미래 약속 추가 금지. 자유서술 칸은 **원문 전문**을 낸다 — 결정공시 비고(11번 「기타 투자판단과 관련한 중요사항」)는 결의마다, `alotMatter` 항목 행은 `detail` 에서. 특별·기념배당·감액배당 재원·자기주식 제외 산정·주총 갈음·차등배당은 그 칸에만 적히니 **파생 플래그(`정책 신호`)를 믿지 말고 원문을 읽어라.**
+        scope: `summary` 선배당-후결의+감액배당 메타+최근 결정 10건(비고 원문 포함) / `detail` 요약+최근 결정 50건(비고 원문 포함)+`alotMatter` 항목 행 원문 / `history` N년 추이+분기 breakdown+policy_signals
         ref: value_up, treasury_share, shareholder_meeting_notice, company, ownership_structure, evidence
         """
         payload = await build_dividend_payload(
