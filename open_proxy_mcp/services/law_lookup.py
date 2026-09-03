@@ -86,9 +86,22 @@ LAW_ALIASES: list[tuple[str, str]] = [
     ("공정거래법", "공정거래법"), ("공정거래", "공정거래법"),
     ("주식회사등의외부감사에관한법률", "외부감사법"), ("주식회사 등의 외부감사", "외부감사법"),
     ("외부감사법", "외부감사법"), ("외감법", "외부감사법"),
+    # ── 260902 확장 6법. 긴 정식 명칭이 먼저, 약칭이 뒤 ──
+    #   260903 실측: 코퍼스는 10법인데 이 표와 _KNOWN_LAWS 는 4법인 채라 `law="보험업법"` 이
+    #   「인식되지 않는 법령」으로 거절되고 상법 §106 이 돌아왔다. 도구 설명은 10법을 필터로
+    #   받는다고 적혀 있었다 — 말과 코드가 갈린 자리.
+    ("금융회사의지배구조에관한법률", "지배구조법"), ("금융회사 지배구조법", "지배구조법"),
+    ("금융회사지배구조법", "지배구조법"), ("지배구조법", "지배구조법"),
+    ("상속세및증여세법", "상증세법"), ("상속세 및 증여세법", "상증세법"), ("상증세법", "상증세법"),
+    ("금융지주회사법", "금융지주회사법"),
+    ("금융산업의구조개선에관한법률", "금산법"), ("금융산업 구조개선", "금산법"), ("금산법", "금산법"),
+    ("은행법", "은행법"),
+    ("보험업법", "보험업법"),
     ("상법", "상법"),  # 마지막(가장 짧아 다른 매치 우선). '상법 시행령'도 여기서 상법으로.
 ]
-_KNOWN_LAWS = {"상법", "자본시장법", "공정거래법", "외부감사법"}
+#: law= 필터로 받는 법. 코퍼스(`sync_law_corpus.TARGETS`)와 같은 집합이어야 한다 — 위 별칭표의
+#: law_short 전부. 여기만 4법으로 남으면 코퍼스에 있는 법을 필터로 못 고른다(260903 실측).
+_KNOWN_LAWS = {short for _alias, short in LAW_ALIASES}
 
 
 def _utc_now_iso() -> str:
@@ -849,12 +862,44 @@ _EXPANDED_LAW_CUES: dict[str, tuple[str, ...]] = {
 }
 
 
+#: cue 바로 뒤에 이 말이 붙으면 그 cue 는 **그 영역이 아니라는 뜻**이다.
+#:   260902 실측 — 「금융회사 **아닌** 회사의 사외이사 자격」이 「금융회사」에 걸려 지배구조법이
+#:   1위로 올라왔다(힌트를 끄면 상법·자본시장법 §382). 부정문을 못 읽고 글자만 본 것이다.
+_EXPANDED_LAW_NEGATIONS: tuple[str, ...] = ("아닌", "아니", "제외", "이외", "외의", "말고", "빼고")
+#: cue 글자를 품고 있지만 그 법과 무관한 합성어. 매칭 전에 질의에서 지운다.
+#:   「임원배상책임**보험** 가입 안건」은 주총 안건이지 보험업법 이야기가 아니다.
+_EXPANDED_LAW_FALSE_FRIENDS: tuple[str, ...] = (
+    "배상책임보험", "책임보험", "보험료", "고용보험", "산재보험", "건강보험", "보험가입",
+)
+
+
+def _cue_hits(nq: str, cue: str) -> bool:
+    """cue 가 질의에 있고, 그 바로 뒤가 부정 표현이 아닌 자리가 하나라도 있나."""
+    start = 0
+    while True:
+        i = nq.find(cue, start)
+        if i < 0:
+            return False
+        tail = nq[i + len(cue): i + len(cue) + 4]   # 「가아닌」·「를제외한」까지 잡히게 4자
+        if not any(n in tail for n in _EXPANDED_LAW_NEGATIONS):
+            return True
+        start = i + 1
+
+
 def _expanded_law_hint(query: str) -> frozenset[str]:
-    """질의가 가리키는 확장 법 집합(시행령 포함). 없으면 빈 집합."""
+    """질의가 가리키는 확장 법 집합(시행령 포함). 없으면 빈 집합.
+
+    글자가 겹치는 것과 그 법을 가리키는 것은 다르다 — 부정문(「금융회사 아닌」)과
+    다른 뜻의 합성어(「배상책임보험」)는 걸러 낸다. 그 밖의 부분 일치는 그대로 둔다:
+    한국어 질의에는 어절 경계가 없고, 「은행 차입금」처럼 두 영역이 섞인 질의는 힌트가
+    켜져도 4법이 같은 자리에서 겨루므로 순위만 조금 흔들릴 뿐이다.
+    """
     nq = normalize(query)
+    for ff in _EXPANDED_LAW_FALSE_FRIENDS:
+        nq = nq.replace(normalize(ff), "")
     hit: set[str] = set()
     for law, cues in _EXPANDED_LAW_CUES.items():
-        if any(normalize(c) in nq for c in cues):
+        if any(_cue_hits(nq, normalize(c)) for c in cues):
             hit.add(law)
             hit.add(f"{law}시행령")
     return frozenset(hit)
@@ -1126,6 +1171,18 @@ def build_law_lookup_payload(
     trimmed_weak = ftype in _NO_FULLTEXT_FALLBACKS
     # 용어는 알아봤으나 약한 매칭 → 전문은 상위 몇 건만.
     limit_ft = _LIMIT_FULLTEXT_TOPN if ftype in _LIMIT_FULLTEXT_FALLBACKS else None
+    # 강한 매칭(exact)이라도 전문은 **강매칭 전부 + 최소 3건**까지만. 그 아래 꼬리는 표로만.
+    #   260902 실측 — 「적기시정조치 요건」은 1·2위(0.75·0.68)가 금산법 §10·§11 인데, 3위부터
+    #   0.38 아래로 절벽이고 그 뒤 6건은 「시정조치」 글자만 겹친 공정거래법 조문이었다. 그런데
+    #   status=exact 라는 이유로 10건 전부에 전문이 붙어 21KB 가 나갔다. 전문 10건 통째 붙이기는
+    #   4법 시절에도 있었지만 코퍼스가 10법이 되며 꼬리에 **다른 법**이 섞이기 시작했다.
+    #   약한 매칭에 이미 쓰는 자(_LIMIT_FULLTEXT_TOPN)와 같은 자를 쓴다 — 강한 것은 다 주고,
+    #   약한 꼬리는 약한 매칭과 같이 다룬다. 표에는 그대로 남으므로 「못 찾는」 일은 없다.
+    if limit_ft is None and ftype is None and shown:
+        n_strong = sum(1 for c in shown if c["score"] >= TAU_STRONG)
+        keep = max(n_strong, _LIMIT_FULLTEXT_TOPN)
+        if keep < len(shown):
+            limit_ft = keep
     if total > len(shown) and shown:      # 통째로 뺀 경우(범위 밖)는 위 안내가 이미 이유를 말한다
         warnings.append(f"후보 {total}건 중 상위 {len(shown)}건만 표시"
                         + (f" (용어를 못 알아봐 {_NO_FULLTEXT_SHOW_MAX}건으로 줄임)." if trimmed_weak
@@ -1194,6 +1251,12 @@ def build_law_lookup_payload(
         warnings.insert(1, f"강한 매칭이 아니라 **조문 전문을 붙이지 않았습니다** — 아래 {len(results)}건은 "
                            f"어휘가 겹친 참고 후보입니다(전체 {total}건). 전문이 필요하면 조문번호"
                            f"(예: 제542조의8)로 다시 물어보세요.")
+    elif limit_ft is not None and len(results) > limit_ft and ftype is None:
+        # exact 인데 꼬리를 잘랐다 — 「못 찾았다」가 아니라 「찾았고, 약한 꼬리만 표로 남겼다」.
+        #   260902 live 실측: 금산법 §10 을 정확히 짚고도 「딱 맞는 조문을 짚지 못해」라고 말했다.
+        warnings.insert(1, f"강하게 맞는 조문에는 전문을 붙였고(상위 {limit_ft}건), 그 아래 어휘만 겹친 "
+                           f"후보 {len(results) - limit_ft}건은 표에만 있습니다. 전문이 더 필요하면 "
+                           f"조문번호로 다시 물어보세요.")
     elif limit_ft is not None and len(results) > limit_ft:
         warnings.insert(1, f"딱 맞는 조문을 짚지 못해 **전문은 상위 {limit_ft}건만** 붙였습니다 — "
                            f"나머지는 표에만 있습니다. 전문이 더 필요하면 조문번호로 다시 물어보세요.")

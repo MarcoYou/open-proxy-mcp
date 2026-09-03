@@ -3,11 +3,11 @@ type: tool
 title: law_lookup
 domain: reference
 scope: [단일 조회]
-data_source: [legalize-kr 원문(상법·자본시장법·공정거래법·외부감사법 각 법률+시행령), open_proxy_mcp/data/laws/{law_layer_rules,law_provisions,law_lookup_synonyms}.json(260814 패키지로 이동)]
+data_source: [legalize-kr 원문(상법·자본시장법·공정거래법·외부감사법 + 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법, 각 법률+시행령 — 260902 10법), open_proxy_mcp/data/laws/{law_layer_rules,law_provisions,law_lookup_synonyms}.json(260814 패키지로 이동)]
 related_disclosures: [주주총회소집공고]
 related_concepts: [정관변경, 집중투표, 감사위원-의결권-제한, 5%-대량보유]
 created: 2026-07-13
-updated: 2026-08-25
+updated: 2026-09-02
 ---
 
 # law_lookup — 정관↔법령 양방향 조회
@@ -27,10 +27,16 @@ updated: 2026-08-25
   260817 이전에는 포크 `MarcoYou/legalize-kr` 를 봤는데 7-02 에 멈춰 6주간 헛돌았다) 원문을
   `scripts/sync_law_corpus.py`가 vendored 복사 + 조 단위 인덱스(`law_index.json`) + **조문 전문 형태소
   BM25 인덱스(`law_bm25.json`, Signal C)** + 재현성 manifest.
-  v1 범위 = 상법·자본시장법·공정거래법·외부감사법 (각 법률+시행령) **2,725조**(BM25는 삭제 제외 2,599조).
+  범위 = 거버넌스 핵심 4법(상법·자본시장법·공정거래법·외부감사법) + 260902 확장 6법(금융회사 지배구조법·
+  상증세법·금융지주회사법·금산법·은행법·보험업법), 각 법률+시행령 → **10법 20파일 3,949조**.
+  확장 6법은 질의가 그 영역을 가리키는 말(금융회사·은행·보험·지주·상속·증여·적기시정조치 등)을 담고
+  있을 때만 4법과 동등하게 겨루고, 아니면 감점(0.35)해 4법을 앞세운다 — 넓힌 대가로 옛 질의 정확도가
+  떨어지는 것을 막는 장치(`_law_prior`). 부정문(「금융회사 아닌」)·합성어(「배상책임보험」)는 cue 로 치지
+  않는다. 조문 제목이 질의 용어를 전부 담으면 확장 6법에만 +0.25(`_title_anchor_bonus`) — 4법은 bridge
+  룰이 받쳐 주므로 주지 않는다(주면 한 단어 질의가 전부 강매칭이 된다).
 - **자동 갱신**: 원문 소스 legalize-kr은 국가법령정보센터를 **매일** 따라가는 살아있는 창고.
   OPM corpus는 그 스냅샷이라 자동으로 안 따라감 → `.github/workflows/law-corpus-weekly.yml`이 **매주
-  월요일** 재복사 + 색인 재생성. **4법 안의 개정·삭제·신설 조문은 자동 반영**(파서가 삭제/개정 마커
+  월요일** 재복사 + 색인 재생성. **10법 안의 개정·삭제·신설 조문은 자동 반영**(파서가 삭제/개정 마커
   인식). 새 '법' 추가만 수동(`sync_law_corpus.py`의 `TARGETS` 한 줄). DART 0콜·secrets 0(public repo).
   **결정성**: 색인은 `synced_at` 미포함 + df 키정렬 + tokenizer 타이브레이크 `(-len, surface)`로
   해시시드 무관 바이트 동일 → 내용 무변화 시 커밋 안 함(가짜 커밋 방지). 자료 기준일은 `corpus_freshness()`
@@ -51,7 +57,8 @@ updated: 2026-08-25
 ## 사용법
 `law_lookup(query, direction="auto", law="", as_of="", include_full_text=True, top_k=10, format="md")`
 - `direction`: `auto`(기본) · `clause_to_law`(정관/키워드→법) · `law_to_clause`(법조문/키워드→정관·안건)
-- `law`: 필터 `""`(전체) · 상법 · 자본시장법 · 공정거래법 · 외부감사법 (시행령 포함)
+- `law`: 필터 `""`(전체) · 상법 · 자본시장법 · 공정거래법 · 외부감사법 · 지배구조법 · 상증세법 · 금융지주회사법 · 금산법 · 은행법 · 보험업법 (시행령 포함)
+- `top_k`: 표시 후보 수(기본 10). 전문은 **강매칭(score ≥ 0.60) 전부 + 최소 3건**까지만 붙고 그 아래 꼬리는 표로만 남는다(`data.full_text_limited_to`) — exact 여도 「시정조치」처럼 글자만 겹친 다른 법 조문 전문이 딸려 나오지 않게(260902).
 - `as_of`: 기준일(기본 오늘) — 시행/미시행·명칭변경(사외이사↔독립이사) 게이팅
 - `include_full_text`: 조문 원문 전문 포함(기본 True)
 
@@ -92,7 +99,7 @@ SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-
 ## 성능 (260714)
 인덱스(`law_index.json`·`law_bm25.json`)·synonyms·fulltext는 전역캐시 — 프로세스당 1회 로드. Signal C
 형태소화에 **kiwipiepy**를 쓰는데 init이 무거워 **lazy 싱글턴**(첫 질의만 `cold ~1.1s`, kiwi 모델 로드 포함).
-이후 **warm ~1.3ms/query**(BM25는 2,599조 스코어링 포함해도 무시할 수준, DART 0콜). `data.timing_ms.build`로
+이후 **warm ~1.3ms/query**(측정 당시 2,599조 스코어링 기준 — 260902 10법 3,949조로 늘었으나 여전히 ms 단위, DART 0콜). `data.timing_ms.build`로
 관측. 실측 new-tools-perf-profiling-260714.
 
 ## 폴백 유형 (검색을 올바른 방향으로 유도 — 260713)
@@ -104,7 +111,7 @@ SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-
 |---|---|---|
 | `law_collision` | 조문번호가 여러 법에 존재(법령 미지정) | `law=` 로 법령 지정 |
 | `article_not_found` | 조문번호 줬으나 원문에 없음 | 번호 확인 · 범위 밖일 수 있음 · 키워드로 |
-| `out_of_corpus_topic` | 4법 밖 주제(차등의결권=벤처기업육성법 등) | 근거 법령 안내 + 인접 주제 |
+| `out_of_corpus_topic` | 10법 밖 주제 — 개별 제도(차등의결권=벤처기업육성법 등)·거래소 자율규정·아직 안 읽은 법률(법인세법·소득세법·신탁법·여신전문금융업법 등) | 근거 법령 안내 + 인접 주제, 조문은 붙이지 않음 |
 | `filtered_empty` | `law=` 필터 안 결과 0 | 필터 빼거나 다른 법 |
 | `too_vague` | 인식 키워드 0 | 조문번호·도메인 용어 넣기 |
 | `too_generic` | 형태소 있으나 anchor(≥2 or 희소) 미달 (이사·주식 등 단일 흔한 단어) | 구체적 조합·조문번호 |
@@ -131,7 +138,7 @@ SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-
   향후 핵심 AGM 조문 curated title→token 오버라이드로 보강(opm-enhance 대상).
 - **date-gate 사외이사↔독립이사**: 2026-07-23 이전엔 별개 → 그 전 "사외이사" 질의가 §542의8(독립이사)
   을 miss. 의도된 동작이나 사용자 관점 recall hole — 명칭변경 전 soft-link 검토.
-- **corpus 미수록 법령**: 차등의결권·복수의결권(벤처기업육성법) 등 8법 밖 주제는 미수록.
+- **corpus 미수록 법령**: 차등의결권·복수의결권(벤처기업육성법), 법인세법·소득세법·신탁법·여신전문금융업법 등 10법 밖 주제는 미수록 — `_OUT_OF_CORPUS_STATUTES`·사전 `out_of_corpus` 로 「범위 밖」 안내만 한다. 넣으면 그 표에서 지운다.
 
 ## 관련 페이지
 - [[proxy_advise_before_meeting]] — 회사 주총 안건 판단(정관 본문↔안건). law_lookup은 그 하위 법령 지식 조회.

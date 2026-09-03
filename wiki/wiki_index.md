@@ -70,7 +70,7 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 
 ### Laws (1 + corpus) - `rules/laws/`
 [[상법-2025-2026-종합]]
-corpus/: 상법·자본시장법·공정거래법·외부감사법 원문 (legalize-kr 자동 복사)
+corpus/: 10법 원문 — 상법·자본시장법·공정거래법·외부감사법 + 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법 (legalize-kr 자동 복사)
 
 ## Decisions (27) - `decisions/`
 
