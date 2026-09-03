@@ -16,15 +16,15 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 |---|---|---|
 | **raw/** | ~39 files | 외부 원본 (수정 금지) |
 | **rules/** | 88 + README 4 | 한국 자본시장 사실 |
-| **tools/** | 32 + README | MCP tool 카탈로그 |
+| **tools/** | 31 + README | MCP tool 카탈로그 |
 | **decisions/** | 27 + README | 설계·정책·판단·시점 작업 |
 | **guide/** · **handoff/** | 2 + 2 | 사람용 안내 · 세션 간 미해결 항목 (보조) |
 
-총 159 markdown (git-tracked, raw 제외 — corpus 사본 포함).
+총 158 markdown (git-tracked, raw 제외 — corpus 사본 포함).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 
-## Tools (32) - `tools/`
+## Tools (31) - `tools/`
 
 ### Company (1)
 - [[company]]
@@ -36,13 +36,13 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 - [[shareholder_meeting_notice]] (사전 — DART)
 - [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
 
-### Data (22)
+### Data (21)
 - [[ownership_structure]] · [[dividend_disclosure]] · [[financial_metrics]] · [[treasury_share]]
 - [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]]
 - [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]]
 - [[director_board]] · [[price_multiple_data]] · [[trading_data]] · [[business_details]]
 - [[provisional_earnings]] · [[asset_holdings]] · [[financial_notes]] · [[forward_estimates_data]]
-- [[dividend_history_data]] · [[dividend_screener]]
+- [[dividend_data]]
 
 ### Evidence (2)
 - [[evidence]]

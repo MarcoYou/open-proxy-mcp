@@ -3,7 +3,7 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-32-tools)
+[![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#tool-structure-31-tools)
 [![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
 [Korean README](README.md)
@@ -41,7 +41,7 @@ Click any feature for a detailed page.
 - **[Financial-firm liquidity and asset quality](wiki/tools/financial_notes.md)** — pulls restricted deposits and pledged assets (→ unencumbered cash) and the composition of investment assets by type (→ haircuts) verbatim from bank/broker/insurer financial-statement notes, with the consolidated/separate basis, date, unit, and accounts to subtract identified alongside.
 - **[Market-wide disclosure digest](wiki/tools/screener.md)** — sweeps orders, buybacks, dividends, capital increases, AGM notices, 5% blocks, and provisional earnings into a card digest — a morning disclosure-alert routine ([recipe](docs/routines/screener-morning-digest.md)).
 
-Plus source tracing, corporate governance reports, dilutive issuance (rights/CB), restructuring (mergers/splits), stake deals, trading/market-cap time series, and bidirectional articles↔statute lookup, voting-policy source lookup — **32 tools in total**.
+Plus source tracing, corporate governance reports, dilutive issuance (rights/CB), restructuring (mergers/splits), stake deals, trading/market-cap time series, and bidirectional articles↔statute lookup, voting-policy source lookup — **31 tools in total**.
 
 ---
 
@@ -96,7 +96,7 @@ More examples (director pay, control contests, financials, valuation) → the "�
 
 ---
 
-## Tool Structure (32 tools)
+## Tool Structure (31 tools)
 
 Tools flow **Company → Meeting/Data/Evidence → Action** (statute lookup is a company-independent Reference).
 
@@ -104,7 +104,7 @@ Tools flow **Company → Meeting/Data/Evidence → Action** (statute lookup is a
 |---|---|---|
 | Company | [`company`](wiki/tools/company.md) | Company identification and common filing index |
 | Meeting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md) | Pre-/post-AGM data |
-| Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_history_data`](wiki/tools/dividend_history_data.md), [`dividend_screener`](wiki/tools/dividend_screener.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`business_details`](wiki/tools/business_details.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Individual filing / financial / business / governance parsing |
+| Data | [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md), [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`business_details`](wiki/tools/business_details.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`ownership_structure`](wiki/tools/ownership_structure.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`proxy_contest`](wiki/tools/proxy_contest.md), [`risk_events`](wiki/tools/risk_events.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Individual filing / financial / business / governance parsing |
 | Evidence | [`evidence`](wiki/tools/evidence.md) | Source tracing by filing number |
 | Action | [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`screener`](wiki/tools/screener.md) | Orchestrate data tools into judgments, comparisons, digests |
 | Reference | [`law_lookup`](wiki/tools/law_lookup.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Bidirectional articles↔statute lookup · the voting-policy document cited in recommendations — zero API calls |

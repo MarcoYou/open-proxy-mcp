@@ -1,28 +1,47 @@
-"""dividend_data — 확정 배당 원장(`div_declared`·`div_quarterly`) 조회 서비스.
+"""dividend_data — 확정 배당 원장(`div_declared`·`div_quarterly`) + 결정공시 집계(`div_payment`) 조회 서비스.
 
-무엇 — DART 정기보고서 `alotMatter` 를 코스피 828사 × 사업연도 2020~2025 × 보고서 4종으로
-       전수 수집해 만든 표를 읽는다. **여기서 DART 를 호출하지 않는다.**
+무엇 — 두 갈래를 각자 그대로 읽는다. **여기서 DART 를 호출하지 않는다.**
+  · 원장 — DART 정기보고서 `alotMatter` 를 코스피 828사 × 사업연도 2020~2025 × 보고서 4종으로
+    전수 수집. **얼마·배당성향**(금액)의 유일한 출처.
+  · 결정공시 — 「현금ㆍ현물배당결정」 원문을 배당 한 번 = 한 행으로 접은 것(`div_payment`,
+    FY2020~2024 온전). **몇 번 배당했나**(횟수)의 유일한 출처. 실측(260903)으로 확인됨 —
+    원장 기반 분기배당 판정(구 `quarterly_only`)은 FY2024 「2회 이상」을 20사로 냈는데
+    실제는 84사다(누락 64사, 오탐 0). 원장의 분기 칸은 회사 절반이 비워 두므로 「안 했다」와
+    「모른다」를 못 가른다 — 결정공시는 실제로 접수된 건이므로 그 구멍이 없다.
 
 왜 `dividend` 와 따로 두나 — `dividend` 는 회사 하나를 깊게 보는 도구다(실시간 DART 호출,
-       결정공시 fallback, 정책 신호). 이쪽은 **여럿을 가로로** 본다 — 시계열과 전수 스크리닝.
+       미확정 최신분, 정책 신호). 이쪽은 **여럿을 가로로** 본다 — 시계열과 전수 스크리닝.
        같은 표를 쓰지 않으므로 둘의 값이 어긋날 수 있고, 어긋나면 그것이 검산 재료다.
        🔴 **두 소스를 합치지 않는다**(마스터 확정 2026-09-02) — 합치면 검산 수단이 사라진다.
+       같은 원칙으로 원장(금액)과 결정공시(횟수)도 한 표에 합치지 않는다 — 나란히만 낸다.
 
 🔴 자(尺) — 이 표의 모든 숫자에 붙는 기준
   - 단위: 금액은 **원(KRW)**, DPS 는 주당 원, 배당성향은 %.
-  - 기간: **사업연도**(`bsns_year`). 12월 결산이 아니면 `stlm_dt` 가 실제 결산일이다.
-  - 출처: 정기보고서 `alotMatter` — **확정치**다. 추정도, 결정공시 예고도 아니다.
+  - 기간: **사업연도**(`bsns_year`/`fiscal_year`). 12월 결산이 아니면 `stlm_dt`/`acc_mt` 가
+    실제 결산월이다(코스피 배당사 632/639 가 12월 — 3·6·9·11월 결산 7사는 예외).
+  - 출처: 정기보고서 `alotMatter`(원장) — **확정치**. 결정공시(`div_payment`)는 이사회
+    결의 시점 원문 — **결의된 그대로**이지 사업보고서로 재확인된 것은 아니다.
   - 빈칸: `확정`/`무배당`/`항목없음`/`보고서없음` 넷을 가른다. **0 으로 메우지 않는다.**
   - 분기: 누적 차분(3분기 누계 − 반기 누계). 앞 원장이 없으면 `미산출`.
     🔴 `anomaly='음수차분'` 은 버리지 않고 남긴다 — 분기 발표 뒤 결산에서 배당이 하향된
     사례가 실재한다(계룡건설 2023: 주당 500→400원). 그 행은 「누적」 전제가 깨진 것이다.
+  - **0회와 모름의 구분** — `krx_listing`(주간 시세 관측 파생)으로 가른다. 그 사업연도
+    말일 이전에 상장이 확인되면 결의가 없는 해는 `0`, 아직 상장 전이면 `null`이다.
+    🔴 `krx_listing.first_seen_dd` 는 **관측 시작일이지 상장일이 아니다** — 관측창
+    (2015-12-30~)전부터 있던 종목은 `before_window=True`로 표시되고 우리 배당 창
+    (2020~)을 통째로 덮으므로 판단엔 지장이 없다.
 
-🔴 못 하는 것 — **보통/우선 총액 배분은 내지 않는다.** `alotMatter` 에 종류별 발행주식수가
-   없어 `DPS × 주식수` 로 만든 배분값은 신고총액과 57.2% 만 5% 이내로 맞았다(2026-09-02 검산).
-   종류별 DPS 는 원문 그대로 내고, **총액은 신고총액 하나만** 낸다.
+🔴 못 하는 것
+  - **보통/우선 총액 배분은 내지 않는다.** `alotMatter` 에 종류별 발행주식수가 없어
+    `DPS × 주식수` 로 만든 배분값은 신고총액과 57.2% 만 5% 이내로 맞았다(2026-09-02 검산).
+    종류별 DPS 는 원문 그대로 내고, **총액은 신고총액 하나만** 낸다.
+  - **결정공시 횟수 집계는 FY2020~2024 만** 신뢰한다. FY2018·2019 는 수집창 이전 결의가
+    빠졌고, FY2025 는 결산 결의가 다음 해 접수라 아직 안 걷혔다 — `div_payment_scope` 가
+    그 사실을 표로 갖고 있다.
 """
 from __future__ import annotations
 
+import calendar
 import logging
 from typing import Any
 
@@ -112,6 +131,104 @@ def firm_history(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]
     }
 
 
+# ───────────────────────────────────────────────────────────── 결정공시 횟수 ──
+def payment_scope_years(market: str = "KOSPI") -> list[int]:
+    """온전하다고 표시된 사업연도만. 이 목록 밖에서 횟수를 세면 「모른다」를 「0」으로 잘못 읽는다."""
+    rows = _rows(
+        "SELECT fiscal_year FROM div_payment_scope WHERE market = %s AND is_complete "
+        "ORDER BY fiscal_year", (market,))
+    return [r[0] for r in (rows or [])]
+
+
+def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]:
+    """회사 하나 — 사업연도별 결정공시 횟수·배당구분·DPS합·이상표시. `firm` 스코프의 「몇 번」 답.
+
+    🔴 `dividend_type_filed` 를 그대로 낸다(판정값 아님) — 원문 표기가 어떻든 판정은
+    `dividend_type` 이 이미 했고, 다르면 `anomaly` 에 이유가 있다. 원문을 덮어쓰지 않는다.
+
+    `has_special` — 비고(11번 항목)에 「특별」이 실제로 박힌 결의가 그 해에 있었나(260903).
+    낮게 나오는 게 정상이다(코스피 FY2020~2024 전수에서 2/3,831) — 운영 파서의 느슨한
+    `추가.*배당` 휴리스틱은 여기 쓰지 않는다(같은 전수에서 22건 중 20건이 「우선주 가산배당」
+    같은 무관 문구 오탐이었다). **정기·특별분이 한 결의에 섞여도 금액은 못 가른다** — 서식에
+    분리 칸이 없다. `special_notes` 로 원문 근거만 남긴다.
+    """
+    rows = _rows(
+        """
+        SELECT fiscal_year, count(*), sum(dps_common), sum(total_amount),
+               array_agg(DISTINCT dividend_type_filed ORDER BY dividend_type_filed),
+               bool_or(amended), array_agg(DISTINCT anomaly) FILTER (WHERE anomaly IS NOT NULL AND anomaly <> ''),
+               bool_or(has_special),
+               array_agg(special_note) FILTER (WHERE has_special)
+          FROM div_payment
+         WHERE corp_code = %s AND fiscal_year BETWEEN %s AND %s
+         GROUP BY fiscal_year ORDER BY fiscal_year DESC
+        """,
+        (corp_code, year_from, year_to),
+    )
+    if rows is None:
+        return {"status": "db_error"}
+    return {
+        "status": "ok",
+        "complete_years": payment_scope_years(),
+        "rows": [
+            {"fiscal_year": r[0], "n_payments": r[1], "dps_sum": r[2], "total_sum": r[3],
+             "kinds_filed": r[4], "amended": r[5], "anomalies": r[6] or [],
+             "has_special": r[7], "special_notes": r[8] or []}
+            for r in rows
+        ],
+    }
+
+
+def payment_history(pairs: list[tuple[str, str | None]], year_from: int, year_to: int
+                     ) -> dict[str, list[int | None]]:
+    """(corp_code, stock_code) 목록 → corp_code 별 `[year_from..year_to]` 결정공시 횟수 배열.
+
+    한 칸에 세 뜻을 가른다 — **n**(그 해 실제 결의 횟수) · **0**(상장 중인데 결의 없음) ·
+    **null**(그 사업연도 말일 시점에 아직 상장 전이라 모른다). 상장 여부는 `krx_listing`
+    (모듈 docstring의 「0회와 모름의 구분」 참조). 티커가 없거나 `krx_listing` 에 없으면
+    상장 여부를 모르므로 그 회사의 전 구간이 `null` 이다 — 0 으로 메우지 않는다.
+
+    실측(260903): 3,257종목 전체를 매 호출 스캔하면 279ms — 그래서 `krx_listing` 을
+    먼저 구워 두고 여기서는 그 표만 좁혀 읽는다(대상 corp 수만큼, 통상 10ms 대).
+    """
+    codes = [c for c, _ in pairs]
+    tickers = [t for _, t in pairs]
+    if not codes:
+        return {}
+    rows = _rows(
+        """
+        WITH years AS (SELECT generate_series(%s::int, %s::int) AS fy),
+        input AS (SELECT * FROM unnest(%s::text[], %s::text[]) AS t(corp_code, ticker)),
+        acc AS (SELECT corp_code, max(acc_mt) AS acc_mt FROM div_payment
+                 WHERE corp_code = ANY(%s) GROUP BY 1),
+        cnt AS (SELECT corp_code, fiscal_year, count(*) AS n FROM div_payment
+                 WHERE corp_code = ANY(%s) GROUP BY 1, 2)
+        SELECT i.corp_code, y.fy, cnt.n, COALESCE(a.acc_mt, 12), l.first_seen_dd, l.before_window
+          FROM input i CROSS JOIN years y
+          LEFT JOIN cnt ON cnt.corp_code = i.corp_code AND cnt.fiscal_year = y.fy
+          LEFT JOIN acc a ON a.corp_code = i.corp_code
+          LEFT JOIN krx_listing l ON l.ticker = i.ticker
+         ORDER BY i.corp_code, y.fy
+        """,
+        (year_from, year_to, codes, tickers, codes, codes),
+    )
+    if rows is None:
+        return {c: [None] * (year_to - year_from + 1) for c in codes}
+
+    out: dict[str, list[int | None]] = {}
+    for corp_code, fy, n, acc_mt, first_seen_dd, before_window in rows:
+        last_day = calendar.monthrange(fy, acc_mt)[1]
+        fy_end = f"{fy:04d}{acc_mt:02d}{last_day:02d}"
+        if first_seen_dd is None:
+            val = None  # 티커를 모르거나 krx_listing 에 없다 — 상장 여부를 모른다
+        elif before_window or first_seen_dd <= fy_end:
+            val = n or 0
+        else:
+            val = None  # 그 사업연도 말일 시점에 아직 상장 전
+        out.setdefault(corp_code, []).append(val)
+    return out
+
+
 # ───────────────────────────────────────────────────────── 시장·섹터 시계열 ──
 def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dict[str, Any]:
     """시장(KOSPI) 또는 WICS 섹터의 사업연도별 배당 집계.
@@ -183,23 +300,27 @@ def screen(
     min_payout: float | None = None,
     max_payout: float | None = None,
     min_dps: float | None = None,
-    quarterly_only: bool = False,
+    min_payments: int | None = None,
     sector: str = "",
     limit: int = 50,
 ) -> dict[str, Any]:
-    """한 사업연도에서 조건으로 회사를 거른다 — 보통주 기준.
+    """한 사업연도에서 조건으로 회사를 거른다 — 보통주 기준. 금액(배당성향·DPS)은 원장
+    `div_declared`, **횟수**(`min_payments`)는 결정공시 `div_payment` — 자를 재료에서
+    만들지 않는다(원장 스스로 배당구분을 4칸으로 억지로 나눈 값이 아니라, 실제 접수건 수).
 
-    `quarterly_only` — **그 해에 실제로 두 번 이상 배당한 회사**. 판정은 분기 원장에서
-    `quarterly_div_krw > 0` 인 분기가 2개 이상인지로 한다.
+    `min_payments` — **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사. FY2020~2024
+    만 신뢰한다(`payment_scope_years()`) — 그 밖의 해에 걸면 `scope_incomplete` 를 낸다.
 
-    🔴 260902 에 갈아엎었다. 종전 판정은 「4칸이 모두 확정인가」였는데 그건 **데이터가
-    채워졌나**를 보는 조건이지 **분기배당을 하나**를 보는 조건이 아니다. 두 방향으로 틀렸다:
-      · 계룡건설(013580) — 연 1회 배당인데 1분기 보고서에 전기 배당액이 실려 4칸이 차서 들어왔다
-      · KB금융(105560) FY2025 — 실제 분기배당인데 H1·Q3 원장이 비어 빠졌다
-
-    두 번째 것은 「분기배당이 아니다」가 아니라 **모른다**이다. 그래서 결과에서 빼되
-    `n_unknown` 으로 몇 곳이 판단불가인지 함께 낸다 — 없다고 말하지 않는다.
+    🔴 260903 갈아엎음 — 종전(`quarterly_only`)은 분기 **원장**(`div_quarterly`)의 확정
+    칸이 2개 이상인지를 봤는데, 원장은 대다수 회사가 분기 배당칸을 비워 둔다. 실측
+    FY2024 「2회 이상」: 원장 기준 20사 vs 결정공시 기준 84사(누락 64, 오탐 0). 결정공시는
+    실제 접수된 결의 건수라 이 구멍이 없다 — `n_unknown`(판단불가) 개념 자체가 사라진다.
     """
+    if min_payments is not None and min_payments > 0:
+        complete = payment_scope_years()
+        if bsns_year not in complete:
+            return {"status": "scope_incomplete", "complete_years": complete}
+
     # `보통`·`미구분`만. 260902 4분류 뒤로 `종류`(상환·전환·무의결권·트래킹스톡)는 여기서
     #   자동으로 빠진다 — 종전엔 그것들이 `우선` 통에 섞여 있었다.
     # `dps_krw > 0` — 표 머리에 「무배당 제외」라고 써 놓고 DPS 0원 회사를 넣고 있었다
@@ -219,16 +340,11 @@ def screen(
         join = ("JOIN wise_sector w ON w.ticker = d.tickers "
                 "AND w.snap_dd = (SELECT MAX(snap_dd) FROM wise_sector)")
         where.append("w.sector = %s"); params.append(sector)
-    _PAID_TWICE = (
-        "(SELECT COUNT(*) FROM div_quarterly q "
-        " WHERE q.corp_code = d.corp_code AND q.bsns_year = d.bsns_year "
-        "   AND q.status = '확정' AND q.quarterly_div_krw > 0) >= 2")
-    _LEDGER_FULL = (
-        "(SELECT COUNT(*) FROM div_quarterly q "
-        " WHERE q.corp_code = d.corp_code AND q.bsns_year = d.bsns_year "
-        "   AND q.status = '확정') = 4")
-    if quarterly_only:
-        where.append(_PAID_TWICE)
+    if min_payments is not None and min_payments > 0:
+        where.append(
+            "(SELECT COUNT(*) FROM div_payment p "
+            " WHERE p.corp_code = d.corp_code AND p.fiscal_year = d.bsns_year) >= %s")
+        params.append(min_payments)
 
     sql = f"""
         SELECT DISTINCT ON (d.corp_code)
@@ -251,21 +367,12 @@ def screen(
         "SELECT COUNT(DISTINCT corp_code) FROM div_declared "
         "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
         (_ANNUAL, bsns_year))
-    # 판단불가 — 분기 원장이 4칸을 못 채운 배당사. 「분기배당이 아니다」가 아니라 「모른다」다.
-    n_unknown = None
-    if quarterly_only:
-        u_where = [w for w in where if w != _PAID_TWICE] + [f"NOT {_LEDGER_FULL}"]
-        u = _rows(
-            f"SELECT COUNT(DISTINCT d.corp_code) FROM div_declared d {join} "
-            f"WHERE {' AND '.join(u_where)}", tuple(params))
-        n_unknown = (u or [(None,)])[0][0]
     return {
         "status": "ok",
         "n_universe": (tot or [(None,)])[0][0],
         "matched": matched,
         "returned": len(rows),
         "limit": limit,
-        "n_unknown": n_unknown,
         "rows": [
             {"corp_code": r[0], "name": r[1], "ticker": r[2], "dps_krw": r[3],
              "div_total_krw": r[4], "payout_pct": r[5], "rcept_no": r[6]}

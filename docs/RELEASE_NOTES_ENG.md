@@ -2,6 +2,67 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-03
+
+### `dividend_history_data`+`dividend_screener` merged into `dividend_data` (32→31)
+
+An architecture review of the three dividend tools (`dividend_disclosure`,
+`dividend_history_data`, `dividend_screener`) found that these two weren't splitting up
+data so much as `dividend_screener` was **giving a wrong answer**. Its `quarterly_only`
+condition ("paid two or more times that year") read the quarterly ledger (`div_quarterly`),
+whose cells about half of companies leave blank. Measured (FY2024, "2+ payments"): the
+ledger gave **20 companies**; counting actual decision-disclosure filings gave **84**
+(64 missed, 0 false positives). Both tools already shared the same service module, so the
+merge swapped in the correct source in the same motion. `dividend_disclosure` (the live
+filing tool) is unchanged — only one of the three was actually broken.
+
+- New `dividend_data` — `scope=firm` (company time series + decision-disclosure counts),
+  `screen` (conditional screening), `market`, `sector`. `min_payments` (actual resolved
+  count from decision disclosures) replaces `quarterly_only`; `quarterly_only=True` is kept
+  as an alias for `min_payments=2` for backward compatibility.
+- **A new table distinguishes "zero" from "unknown."** `krx_listing` (derived from each
+  ticker's first appearance in the weekly `krx_weekly` price snapshot) tells apart a year
+  the company was listed but didn't pay (`0`) from a year it wasn't listed yet, so the
+  question doesn't apply (`null`). Measured: 28 dividend-paying companies weren't yet
+  listed as of FY2020's fiscal year-end — without this distinction, that many would have
+  been misread as "paid zero times."
+- **Decision-disclosure counts are only trusted for FY2020–2024**
+  (`div_payment_scope.is_complete`). `min_payments` on years outside that window returns
+  `status=scope_incomplete`.
+- Side finding — the serving-path Postgres connection pool was adding about 55ms per
+  query (a 29ms liveness ping on every borrow, plus a 26ms implicit transaction). Switched
+  the read-only pool to autocommit and replaced the ping with a retry on connection-class
+  errors — round-trip dropped from **65ms to 10ms**. This isn't dividend-specific: it
+  applies to every tool on this pool (`price_multiple_data`, `trading_data`,
+  `forward_estimates_data`, etc.).
+
+### `dividend_disclosure` special-dividend detection fixed — 21 false positives removed
+
+The same review re-ran the filing parser (`dividend_parser.py`) behind the live tool over
+**all 3,831** KOSPI decision disclosures. It flagged 23 filings as special dividends, and
+**21 of those were wrong**: "preferred shares receive an **additional** 1%p over the par
+dividend rate" (a charter provision for preferred shares, not a special dividend),
+"**additional** shares issued in a rights offering," and "**additional** treasury share
+purchases" all matched.
+
+- **Fixed the boundary that extracts the remarks section (item 11).** It previously cut at
+  any `※`, so in 15 filings whose remarks *begin* with `※` the entire body vanished.
+  Conversely, the **full pre-amendment body** that amended filings append afterwards was
+  pulled *into* the remarks in 60 filings. Narrowing the boundary to "※ 관련공시" and the
+  filing-body header corrected 115 filings; documents with empty remarks went 15 → 0.
+- **Narrowed the special-dividend test** to `특별배당`/`기념배당`: 23 → 2 hits on the same
+  corpus (0 false positives), and 0 hits on a **128-filing sample of non-cash forms**
+  (subsidiary, REIT, stock-dividend, record-date filings) that the same parser also reads.
+- A sentence saying the payout is **funded by another company's** special dividend no
+  longer counts as this company's special dividend.
+- **Extracts the per-share special amount.** The old rule only looked for 조원 (trillion
+  KRW), so it extracted nothing from Samsung Electronics' FY2020 "adding **1,578 KRW** in
+  the nature of a special dividend." Its absence also meant `special_dps` carried the
+  **entire** per-share dividend (1,932) instead of just the special portion — now aligned
+  with the ledger path's meaning (`total_dps = regular + special`).
+
+No change to existing dividend data (2 filings flagged, identical after reload).
+
 ## beta — 2026-09-02
 
 ### Seven new tools and one rename, written up

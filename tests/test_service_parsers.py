@@ -383,3 +383,85 @@ def test_vote_math_does_not_mix_issued_and_voting_bases():
     contestable = representative - related_voting
     ex_related = contestable / (100.0 - related_voting) * 100
     assert 70.0 < ex_related < 80.0
+
+
+# ── 260903 특별배당 판정 회귀 (공시원문 3,831건 실측 근거) ──
+# 옛 규칙 `특별|추가.*배당|추가하여` 는 23건을 물었고 그중 21건이 오탐이었다.
+# 새 규칙은 같은 코퍼스에서 2건(진성)만 물고, 비CASH 서식 표본 128건에서 0건이다.
+
+def _decision(remarks: str) -> dict:
+    """비고만 갈아끼운 최소 배당결정 공시 본문."""
+    return parse_dividend_decision(
+        "1. 배당구분 결산배당 2. 배당종류 현금배당 "
+        "3. 1주당 배당금(원) 보통주식 1,932 종류주식 1,933 "
+        "4. 시가배당율(%) 보통주식 2.6 종류주식 2.7 "
+        "5. 배당금총액(원) 13,124,000,000 6. 배당기준일 2020-12-31 "
+        "7. 배당금지급 예정일자 2021-04-16 8. 주주총회 개최여부 개최 "
+        "9. 주주총회 예정일자 2021-03-17 10. 이사회결의일(결정일) 2021-01-28 "
+        f"11. 기타 투자판단과 관련한 중요사항 {remarks}"
+    )
+
+
+def test_special_dividend_true_positive_with_per_share_amount():
+    """삼성전자 FY2020(20210128800069). 주당 특별배당분 1,578원을 숫자로 집어낸다."""
+    parsed = _decision(
+        "- 금번 결산배당은 기존 결산 배당금(보통주 주당 354원, 우선주 주당 355원)에, "
+        "'18~'20년 주주환원 정책에 따른 잔여재원이 발생하여 특별배당금 성격의 1,578원을 "
+        "더하여 실시함."
+    )
+    assert parsed["has_special"] is True
+    assert parsed["special_dps_krw"] == 1_578
+    assert parsed["special_amount_description"] == "1,578원 추가"
+
+
+def test_special_dividend_true_positive_without_amount():
+    """20220210801313. 특별배당은 맞지만 금액이 안 적혀 있다 — 억지로 만들어내지 않는다."""
+    parsed = _decision("- 상기 '3. 1주당 배당금'은 결산배당과 특별배당이 합산된 금액입니다.")
+    assert parsed["has_special"] is True
+    assert "special_dps_krw" not in parsed
+    assert "special_amount_description" not in parsed
+
+
+def test_preferred_share_par_rate_addition_is_not_a_special_dividend():
+    """20200304801049 계열 오탐. 정관상 우선주 액면배당률 1%p 가산은 특별배당이 아니다.
+
+    옛 규칙이 문 21건의 오탐 중 가장 흔한 형태였다.
+    """
+    parsed = _decision("- 당사 정관에 의거 우선주는 보통주 액면배당률의 1%P를 추가 배당함")
+    assert parsed["has_special"] is False
+
+
+def test_special_dividend_of_another_entity_is_not_ours():
+    """20230403800799. 자회사가 실시한 특별배당을 **재원**으로 쓴다는 문장이다."""
+    parsed = _decision(
+        "※ 금번 분기배당은 한성피씨건설(주)가 22년과 23년에 실시한 특별배당"
+        "(고양덕은 분양사업 관련 이익)의 일부를 재원으로 하고 있습니다."
+    )
+    assert parsed["has_special"] is False
+
+
+def test_remarks_survive_when_the_section_opens_with_a_reference_mark():
+    """비고가 ※ 로 시작하면 옛 경계는 본문을 통째로 버렸다(실측 3,831건 중 15건)."""
+    parsed = _decision("※ 금번 분기배당은 당사 투자용 현금 재원의 감소를 가져오지 않습니다.")
+    assert "투자용 현금 재원의 감소" in parsed["remarks"]
+
+
+def test_remarks_stop_before_the_related_disclosure_footer():
+    """「※ 관련공시」 꼬리 뒤에는 **다른 공시 본문**이 붙는다(20240403800157)."""
+    parsed = _decision(
+        "- 상기 5항의 배당금 총액은 자본준비금 감소를 통한 배당 재원입니다. "
+        "※ 관련 공시 2023-12-18 현금ㆍ현물배당 결정 1. 배당구분 결산배당 "
+        "2. 배당종류 현금배당 3. 1주당 배당금(원) 보통주식 500"
+    )
+    assert parsed["remarks"].endswith("배당 재원입니다.")
+
+
+def test_remarks_stop_before_a_repeated_body_in_an_amended_filing():
+    """정정공시는 정정 전 본문 전체를 뒤에 붙인다 — 옛 경계는 그것을 비고로 끌고 왔다(60건)."""
+    parsed = _decision(
+        "- 상기 7항의 배당금지급 예정일자는 상법 제464조의2에 의거합니다. "
+        "- 현금ㆍ현물배당 결정 1. 배당구분 결산배당 2. 배당종류 현금배당 "
+        "3. 1주당 배당금(원) 보통주식 500 종류주식 -"
+    )
+    assert "1. 배당구분" not in parsed["remarks"]
+    assert parsed["remarks"].startswith("- 상기 7항의")

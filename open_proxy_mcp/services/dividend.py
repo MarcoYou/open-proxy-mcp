@@ -492,7 +492,11 @@ def _decisions_summary_for_year(
     cash_dps_total = sum(int(d.get("dps_common") or 0) for d in year_decisions)
     cash_dps_pref_total = sum(int(d.get("dps_preferred") or 0) for d in year_decisions)
     total_amount_mil = sum(int((d.get("total_amount") or 0)) for d in year_decisions) // 1_000_000
-    special_dps = sum(int(d.get("dps_common") or 0) for d in year_decisions if d.get("has_special") or d.get("dividend_type") == "특별배당")
+    # 🔴 `special_dps`는 배당원장 경로에서 **특별배당분만**을 뜻한다(total_dps = cash + special).
+    # 예전에는 여기서 특별배당이 낀 결의의 주당배당금 **전액**을 더했다 — 삼성전자 FY2020이
+    # 1,578(실제 특별분)이 아니라 1,932(전액)로 나왔다. 비고에서 뽑아낸 특별분만 더한다.
+    # 금액을 못 뽑으면 0이다. 특별배당이 있었다는 사실 자체는 `has_special`이 따로 나른다.
+    special_dps = sum(int(d.get("special_dps_krw") or 0) for d in year_decisions)
 
     fiscal = _fiscal_period_fields(year, end_month)
     return {
