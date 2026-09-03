@@ -741,7 +741,7 @@ def declared_role_for_candidate(
 def _audit_seat_compatible(title: str, role_type: str, declared: str) -> bool:
     """「감사위원회 위원이 되는 사외이사 선임」에서 표(또는 구간 카테고리)가 「감사위원」, 제목 키워드가
     「사외이사」로 읽혀도 모순이 아니다 — 그 사람은 둘 다다(상법 §542의12 분리선출).
-    실측 표본 163건(81사)에서 충돌 37건 중 18건이 이 모양이었다. 제목이 감사위원을 말하지 않는데
+    실측 표본 173건(91사)에서 충돌 41건 중 18건이 이 모양이었다. 제목이 감사위원을 말하지 않는데
     표만 감사위원이면 여전히 충돌이다.
     """
     return (role_class(role_type) == ROLE_AUDIT_COMMITTEE and role_class(declared) == ROLE_OUTSIDE
