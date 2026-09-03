@@ -1644,6 +1644,18 @@ async def _select_notice_candidate(
     return selected, [], basis, None, search_notices
 
 
+async def latest_notice_coverage(corp_code: str, *, lookback_months: int = 12) -> dict[str, Any]:
+    """기본 선택 구간(오늘−lookback ~ 오늘+lead buffer)의 정기/임시 소집공고 존재 여부.
+
+    다른 tool이 「정기 소집공고가 없는데 임시만 있는가」를 물을 때 쓴다(director_board pay_agenda).
+    list.json(E006)·document 캐시를 그대로 타므로 같은 회사를 방금 조회했다면 DART 추가 왕복은 0에
+    가깝다. 반환 shape은 `_meeting_window_coverage`와 같다(has_annual / has_extraordinary /
+    latest_annual / latest_extraordinary …).
+    """
+    window_start, window_end, _ = _selection_window(None, lookback_months=lookback_months)
+    return await _meeting_window_coverage(corp_code, window_start, window_end, months=lookback_months)
+
+
 async def _meeting_window_coverage(
     corp_code: str,
     start_date: date,

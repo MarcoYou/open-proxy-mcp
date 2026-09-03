@@ -246,6 +246,9 @@ def _render(payload: dict[str, Any]) -> str:
     if agenda:
         lines.append("## 보수한도 주총안건 — 올해 제안 vs 작년 실적")
         lines.append("")
+        if agenda.get("notice_rcept_no"):
+            lines.append(f"- 근거 공고: 정기주총 소집공고 rcept {agenda.get('notice_rcept_no')}"
+                         + (f" (회의일 {agenda.get('meeting_date')})" if agenda.get("meeting_date") else ""))
         if not agenda.get("proposed_limit_krw"):
             lines.append(f"- {agenda.get('note')}")
             if agenda.get("fallback_limit_recent_krw"):
