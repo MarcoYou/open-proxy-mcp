@@ -73,5 +73,5 @@ sequenceDiagram
 ## ref
 
 - 사전 안건/후보: [[shareholder_meeting_notice]]
-- 후속 공시(배당/자사주/구조 등)는 dividend·treasury_share 등 각 tool 직접 호출 (proxy_result_after_meeting은 2026-06-13 archive)
+- 후속 공시(배당/자사주/구조 등)는 dividend_disclosure·treasury_share 등 각 tool 직접 호출 (proxy_result_after_meeting은 2026-06-13 archive)
 - 원문: [[evidence]]

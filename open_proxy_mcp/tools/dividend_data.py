@@ -101,7 +101,8 @@ def _remarks_block(decisions: list[dict[str, Any]], complete: set[int]) -> list[
 
 
 def _history_cell(years: list[int], vals: list[int | None] | None) -> str:
-    """`[4,4,4,4,4]` → `24·23·22·21·20:4·4·4·4·4`. `null`은 `-`(상장 전이라 모름)."""
+    """`[4,4,4,4,4]` → `4·4·4·4·4` (열 머리가 `20·21·22·23·24` 로 같은 순서 — 오름차순).
+    `null` 은 `-`(상장 여부를 모름: 상장 전이거나 관측표에 없음)."""
     if not vals:
         return "-"
     parts = [("-" if v is None else str(v)) for v in vals]
@@ -167,9 +168,13 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
             L += [f"> 종류주식 칸이 비어 있는 줄 {_folded}개는 접었다 — DART 서식이 회사가 "
                   "안 쓴 종류 칸도 줄 수를 맞춰 내보내는 것이라, 그대로 두면 「같은 해에 "
                   "배당했는데 무배당」으로 읽힌다. **무배당 판정이 아니다.**"]
+    elif d.get("annual_failed"):
+        # 🔴 연간 질의만 실패한 것 — 「원장에 없다」가 아니라 **못 읽었다**다(260903 점검).
+        L += ["", "> 🔴 **연간 원장을 읽지 못했다 (조회 실패).** 「이 표에 없다」도 「배당이 없다」도 "
+              "아니라 **모른다**이다 — 잠시 뒤 다시 시도하거나 `dividend_disclosure` 로 실시간 확인하라."]
     else:
         L += ["", "> 이 회사의 연간 확정 배당 원장이 이 구간에 없다. "
-              "「배당이 없다」가 아니라 「이 표에 없다」이다 — `dividend` 로 실시간 확인하라."]
+              "「배당이 없다」가 아니라 「이 표에 없다」이다 — `dividend_disclosure` 로 실시간 확인하라."]
 
     qtr = [q for q in (d.get("quarterly") or []) if q.get("row_status") == "확정"]
     if qtr:
@@ -185,6 +190,8 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
             L += ["", "> 🔴 `음수차분` 이 붙은 줄은 **누적이라는 전제가 깨진 구간**이다. "
                   "분기 발표 뒤 결산에서 배당이 하향된 사례가 실재한다 — 그 줄은 신뢰를 낮게 "
                   "잡고 `evidence` 로 원문을 확인하라."]
+    elif d.get("quarterly_failed"):
+        L += ["", "> 🔴 **분기 원장을 읽지 못했다 (조회 실패).** 「분기 확정 없음」이 아니라 **모른다**이다."]
     else:
         n_all = len(d.get("quarterly") or [])
         L += ["", f"> 원장 분기 확정 없음 (그 구간 {n_all}칸 모두 미산출·무배당·보고서없음). "
@@ -194,13 +201,23 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
 
 # ──────────────────────────────────────────────────────────────── screen ──
 def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
-                    hist_years: list[int], hist: dict[str, list[int | None]]) -> str:
+                    hist_years: list[int], hist: dict[str, list[int | None]] | None) -> str:
+    """`hist=None` 은 이력열 **조회 실패**다(빈 dict 는 「셀 회사가 없다」) — 둘을 가른다."""
     rows = d.get("rows") or []
-    matched = d.get("matched", len(rows))
-    head = f"**조건에 걸린 회사 {matched}사** (모집단 {d.get('n_universe')}사 중"
-    if len(rows) < matched:
-        head += f" · 아래에는 상위 {len(rows)}사만 실었다. 전부 보려면 `limit`을 올린다"
-    head += ")"
+    matched = d.get("matched")
+    n_uni = d.get("n_universe")
+    uni = f"모집단 {n_uni}사" if n_uni is not None else "모집단 조회 실패"
+    # 🔴 매칭 수·모집단 질의만 실패해도 예외로 죽거나 「None사」를 찍지 않는다 — 실은 행은
+    #   실은 행대로 내고, 못 센 것은 못 셌다고 말한다(260903 점검: `len(rows) < None` 이
+    #   TypeError 였다). 실은 수를 매칭 수로 읽히게 두지도 않는다.
+    if matched is None:
+        head = (f"**조건에 걸린 회사 수를 세지 못했다 (조회 실패)** — 아래 {len(rows)}사는 실은 "
+                f"것일 뿐 전체 매칭 수가 아니다 ({uni})")
+    else:
+        head = f"**조건에 걸린 회사 {matched}사** ({uni} 중"
+        if len(rows) < matched:
+            head += f" · 아래에는 상위 {len(rows)}사만 실었다. 전부 보려면 `limit`을 올린다"
+        head += ")"
     hist_label = "·".join(str(y - 2000) for y in hist_years) if hist_years else ""
     L = [f"## 배당 스크리닝 — FY{year}", "",
          f"_조건: {' · '.join(cond) if cond else '없음(배당 확정 전체)'}_",
@@ -220,17 +237,21 @@ def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
          f"| 회사 | 종목코드 | DPS | 배당총액(신고) | 배당성향 | 결정공시 이력({hist_label}) | 공시번호 |",
          "|---|---|---|---|---|---|---|"]
     for r in rows:
-        cell = _history_cell(hist_years, hist.get(r["corp_code"]))
+        cell = "?" if hist is None else _history_cell(hist_years, hist.get(r["corp_code"]))
         L.append(f"| {r['name']} | `{r['ticker']}` | {_num(r.get('dps_krw'), '원', '{:,.0f}')} | "
                  f"{_won_short(r.get('div_total_krw'))} | {_num(r.get('payout_pct'), '%')} | "
                  f"{cell} | `{r.get('rcept_no') or '-'}` |")
-    if not rows:
+    if not rows and matched is not None:
         L += ["", "> 조건에 맞는 회사가 없다. 조건을 넓히거나 사업연도를 바꿔 보라. "
               "**「그런 회사가 없다」이지 「조회가 실패했다」가 아니다.**"]
-    L += ["", "> 이력열의 `-` 는 그 사업연도 말일 시점에 **아직 상장 전**이라 모른다는 뜻이다 "
-          "(0회로 읽지 말 것). `0` 은 상장 중인데 실제로 결의가 없었다는 뜻이다.",
+    if hist is None:
+        L += ["", "> 🔴 **결정공시 이력열을 읽지 못했다 (조회 실패).** `?` 는 「결의 없음」도 "
+              "「상장 전」도 아니라 **모른다**이다 — 잠시 뒤 다시 시도하라."]
+    L += ["", "> 이력열의 `-` 는 **상장 여부를 모른다**는 뜻이다 — 그 사업연도 말일 시점에 아직 "
+          "상장 전이거나, 티커가 상장 관측표(`krx_listing`)에 없다. 0회로 읽지 말 것. "
+          "`0` 은 상장 중인데 실제로 결의가 없었다는 뜻이다.",
           "> 총액은 **신고총액** 하나만 낸다 — 보통/우선 배분값은 종류별 발행주식수가 "
-          "없어 검산에 실패해 내지 않는다. 회사 하나를 깊게 보려면 `dividend`."]
+          "없어 검산에 실패해 내지 않는다. 회사 하나를 깊게 보려면 `dividend_disclosure`."]
     return "\n".join(L)
 
 
@@ -269,11 +290,11 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 828사 × 2020~2025)과 결정공시 집계(FY2020~2024)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
-        when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
+        when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend_disclosure`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
         scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` WICS 섹터(sector 필요)
         rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 FY2020~2024 만 온전(그 밖은 `scope_incomplete`). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**
         min_payments: screen 전용. **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사(결정공시 기준 — 원장 분기 빈칸 추정이 아니다). `quarterly_only=True` 는 `min_payments=2` 의 별칭(하위호환).
-        ref: dividend, price_multiple_data, forward_estimates_data, screener, evidence
+        ref: dividend_disclosure, price_multiple_data, forward_estimates_data, screener, evidence
         """
         rng = dd.year_range()
         if rng is None:
@@ -341,11 +362,13 @@ def register_tools(mcp):
             complete = dd.payment_scope_years()
             hist_years = list(range(min(complete), max(complete) + 1)) if complete else []
             pairs = [(r["corp_code"], r["ticker"]) for r in (data.get("rows") or [])]
+            # None = 이력 질의 실패(렌더가 「모른다」로 낸다) · {} = 셀 회사가 없다.
             hist = dd.payment_history(pairs, hist_years[0], hist_years[-1]) if pairs and hist_years else {}
 
             if format == "json":
                 return as_pretty_json({"status": "ok", "data": data, "conditions": cond,
                                        "bsns_year": year, "payment_history": hist,
+                                       "payment_history_failed": hist is None,
                                        "payment_history_years": hist_years})
             return _render_screen(year, cond, data, lim, hist_years, hist)
 

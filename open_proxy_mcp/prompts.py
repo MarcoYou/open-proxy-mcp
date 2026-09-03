@@ -32,7 +32,7 @@ def register_all_prompts(mcp) -> None:
             "2. `financial_metrics` — 매출·영업이익·순이익 추세, 차입과 이자보상배율\n"
             "3. `price_multiple_data` — PER·PBR·배당수익률, 그리고 그 값이 어느 기준으로 계산됐는지\n"
             "4. `ownership_structure` — 최대주주와 지분율, 주요 주주 구성\n"
-            "5. `dividend` — 최근 배당 추이와 배당성향\n"
+            "5. `dividend_disclosure` — 최근 배당 추이와 배당성향\n"
             "\n"
             "정리할 때:\n"
             "- 맨 위에 확정된 회사명과 종목코드를 쓴다.\n"

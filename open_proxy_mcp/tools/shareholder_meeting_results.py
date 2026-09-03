@@ -24,10 +24,10 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 주주총회 **의결 결과** (사후). 안건별 가결/부결 + 찬반율. DART API 우선, KIND fallback.
-        when: 주총 종료 후 실제 의결 결과 확인. 사전 안건은 `shareholder_meeting_notice`. 후속 공시(배당/자사주/구조)는 dividend·treasury_share 등 각 tool 직접 호출.
+        when: 주총 종료 후 실제 의결 결과 확인. 사전 안건은 `shareholder_meeting_notice`. 후속 공시(배당/자사주/구조)는 dividend_disclosure·treasury_share 등 각 tool 직접 호출.
         rule: rcept_no 80 prefix (수시공시) 본문 fetch. 결과 미공시(KIND 노출 지연) 시 status=pending_or_missing.
         meeting_type: `auto` / `annual` / `extraordinary`
-        ref: shareholder_meeting_notice, dividend, treasury_share, proxy_contest, evidence
+        ref: shareholder_meeting_notice, dividend_disclosure, treasury_share, proxy_contest, evidence
         """
         payload = await build_shareholder_meeting_payload(
             company,

@@ -65,7 +65,8 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 |---|---|
 | `4`·`2`·`1` | 그 사업연도 실제 결의 횟수 |
 | `0` | **배당 안 함** — 그 사업연도 말일 시점에 상장 중이었는데 결의가 없었다 |
-| `-`(null) | **모름** — 아직 상장 전이라 애초에 물을 수 없다 |
+| `-`(null) | **모름** — 그 사업연도 말일 시점에 아직 상장 전이거나, 티커가 `krx_listing` 에 없어 상장 여부를 알 수 없다 |
+| `?` | **조회 실패** — 이력 질의 자체가 실패했다. `-` 로 메우지 않고 따로 표시한다 |
 
 상장 여부는 `krx_listing`(`krx_weekly` 주간 시세의 티커별 첫 관측일 파생, 별도 배치로
 구움 — 요청마다 계산하면 3,257종목 전 스캔이 280ms 라 도구 안에서 못 쓴다)으로 가른다.
@@ -128,6 +129,17 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 옛 쿼리가 깨졌는데 화면에는 「결정공시 집계가 없다」로 나왔다 — 이 서비스가 내내 막아 온
 바로 그 사고다. 회귀 테스트로 고정했다(`tests/test_dividend_raw_cells.py`).
 
+같은 원칙이 **질의 하나만 실패하는 부분 장애**에도 걸린다(260903 점검,
+`tests/test_dividend_data_failure_paths.py`):
+
+| 실패한 질의 | 전에는 | 지금은 |
+|---|---|---|
+| `firm` 연간 원장만 | 「원장이 이 구간에 없다」 | 「연간 원장을 읽지 못했다 — 모른다」 (`annual_failed`) |
+| `firm` 분기 원장만 | 「분기 확정 없음」 | 「분기 원장을 읽지 못했다」 (`quarterly_failed`) |
+| `screen` 매칭 수 COUNT | `len(rows) < None` 예외로 도구가 죽음 | 「매칭 수를 세지 못했다 — 실은 N사는 전체가 아니다」 |
+| `screen` 모집단 COUNT | 「모집단 None사」 | 「모집단 조회 실패」 |
+| `screen` 이력열 | 전 회사 `-`(상장 전으로 읽힘) | `?` + 「이력열을 읽지 못했다」 (`payment_history_failed`) |
+
 ## 못 하는 것 — 먼저 밝힌다
 - **보통/우선 배당총액 배분값을 내지 않는다.** 종류별 발행주식수가 서식에 없어 검산이 57.2%만
   맞았다. 신고총액 하나만 낸다.
@@ -145,3 +157,9 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 
 ## 관련
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
+
+## 변경 이력
+- 2026-09-03: 부분 장애 경로 정리 — 매칭 수·모집단·원장·이력열 질의 하나만 실패해도 예외나
+  「없다」 대신 「모른다」로 렌더. 이력열 `-` 범례를 「상장 여부를 모름」으로 넓히고 조회
+  실패는 `?` 로 분리. 도구 설명의 옛 이름 `dividend` → `dividend_disclosure`.
+- 2026-09-03: `dividend_history_data`+`dividend_screener` 통합으로 신설. 결정공시 비고 원문 전문 반환.

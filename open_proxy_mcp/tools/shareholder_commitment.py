@@ -134,11 +134,11 @@ def register_tools(mcp):
         계획을 실제로 지켰나"를 본다. 자사주 소각 사이클마다 매입시점 BPS 대비 실제 매입가를 비교해
         장부가(BPS) 기준 손익을 원화로 계산(내재가치 판단은 하지 않음, 장부가 사실만).
         when: 스튜어드십/기관투자자 engagement, 연례 보유종목 점검, "이 회사 약속 지켰나" 질문.
-        rule: value_up(계획)+corp_gov_report(준수변화)+dividend(실제배당)+treasury_share(실제소각,
+        rule: value_up(계획)+corp_gov_report(준수변화)+dividend_disclosure(실제배당)+treasury_share(실제소각,
         260707 원문단위버그 수정 완료)를 조합. 결정↔실행 매칭 오탐 의심 사이클은 sanity 필터로
         제외하고 data_quality_flags에 남김(알려진 treasury_share `_link_cycles` 별개 이슈 대응).
         lookback_years: 조회 기간(년), 기본 3
-        ref: value_up, corp_gov_report, dividend, treasury_share
+        ref: value_up, corp_gov_report, dividend_disclosure, treasury_share
         """
         payload = await build_shareholder_commitment_payload(company, lookback_years=lookback_years)
         if format == "json":
