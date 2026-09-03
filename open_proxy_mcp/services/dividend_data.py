@@ -22,6 +22,10 @@
   - 출처: 정기보고서 `alotMatter`(원장) — **확정치**. 결정공시(`div_payment`)는 이사회
     결의 시점 원문 — **결의된 그대로**이지 사업보고서로 재확인된 것은 아니다.
   - 빈칸: `확정`/`무배당`/`항목없음`/`보고서없음` 넷을 가른다. **0 으로 메우지 않는다.**
+  - 자유서술 칸: **통째로 낸다.** 결정공시 비고(11번 「기타 투자판단과 관련한 중요사항」)는
+    자리가 정해진 칸이 아니라 회사가 무엇이든 적는 칸이다 — 정규식으로 한 가지를 뽑으면
+    나머지가 사라진다. 읽는 쪽이 LLM 이므로 원문을 넘기고 판단은 읽는 쪽에서 한다.
+    파생 플래그(`has_special` 등)는 **힌트로만** 내고 원문 옆에 붙인다.
   - 분기: 누적 차분(3분기 누계 − 반기 누계). 앞 원장이 없으면 `미산출`.
     🔴 `anomaly='음수차분'` 은 버리지 않고 남긴다 — 분기 발표 뒤 결산에서 배당이 하향된
     사례가 실재한다(계룡건설 2023: 주당 500→400원). 그 행은 「누적」 전제가 깨진 것이다.
@@ -141,41 +145,75 @@ def payment_scope_years(market: str = "KOSPI") -> list[int]:
 
 
 def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]:
-    """회사 하나 — 사업연도별 결정공시 횟수·배당구분·DPS합·이상표시. `firm` 스코프의 「몇 번」 답.
+    """회사 하나 — 결의 한 건 = 한 행(`decisions`)과 그것을 사업연도로 접은 것(`rows`).
 
     🔴 `dividend_type_filed` 를 그대로 낸다(판정값 아님) — 원문 표기가 어떻든 판정은
     `dividend_type` 이 이미 했고, 다르면 `anomaly` 에 이유가 있다. 원문을 덮어쓰지 않는다.
 
-    `has_special` — 비고(11번 항목)에 「특별」이 실제로 박힌 결의가 그 해에 있었나(260903).
-    낮게 나오는 게 정상이다(코스피 FY2020~2024 전수에서 2/3,831) — 운영 파서의 느슨한
-    `추가.*배당` 휴리스틱은 여기 쓰지 않는다(같은 전수에서 22건 중 20건이 「우선주 가산배당」
-    같은 무관 문구 오탐이었다). **정기·특별분이 한 결의에 섞여도 금액은 못 가른다** — 서식에
-    분리 칸이 없다. `special_notes` 로 원문 근거만 남긴다.
+    🔴 `remarks` — 비고(11번 「기타 투자판단과 관련한 중요사항」) **칸 전문을 무조건**
+    싣는다. 자르지 않고, 플래그로 거르지도 않는다.
+    260903 이전엔 `array_agg(special_note) FILTER (WHERE has_special)` 였다 — 정규식이
+    「특별배당」을 본 결의에서만, 그것도 200자까지만 원문을 줬다. 그러면 감액배당 재원,
+    자기주식 제외 산정, 주총 갈음, 차등배당, 「변동될 수 있음」 단서처럼 **서식에 칸이
+    없어 비고에만 적히는 사실이 전부 사라진다.** 읽는 쪽이 LLM 이므로 원문을 넘기고
+    판단은 읽는 쪽에서 한다. 실측 3,831건: 중앙값 245자 · 최대 1,512자 · 빈 칸 0건.
+
+    `has_special` — 같은 비고에서 파서가 「특별배당」·「기념배당」을 본 결의인가. **힌트일
+    뿐 정본이 아니다** — 정본은 위 `remarks` 다. 낮게 나오는 게 정상이다(코스피
+    FY2020~2024 전수에서 2/3,831). 느슨한 `추가.*배당` 휴리스틱은 쓰지 않는다(같은 전수
+    22건 중 20건이 「우선주 가산배당」 같은 무관 문구 오탐이었다).
+    **정기·특별분이 한 결의에 섞여도 금액은 못 가른다** — 서식에 분리 칸이 없다.
+
+    연도 집계는 SQL 이 아니라 여기서 접는다 — 같은 행을 두 번 읽지 않으려는 것이다
+    (왕복 1회로 결의 원문과 연도 합계를 동시에 낸다).
     """
     rows = _rows(
         """
-        SELECT fiscal_year, count(*), sum(dps_common), sum(total_amount),
-               array_agg(DISTINCT dividend_type_filed ORDER BY dividend_type_filed),
-               bool_or(amended), array_agg(DISTINCT anomaly) FILTER (WHERE anomaly IS NOT NULL AND anomaly <> ''),
-               bool_or(has_special),
-               array_agg(special_note) FILTER (WHERE has_special)
+        SELECT fiscal_year, board_date, record_date, dividend_type_filed, dividend_type,
+               dps_common, total_amount, rcept_no, amended, anomaly, has_special, remarks
           FROM div_payment
          WHERE corp_code = %s AND fiscal_year BETWEEN %s AND %s
-         GROUP BY fiscal_year ORDER BY fiscal_year DESC
+         ORDER BY fiscal_year DESC, board_date DESC NULLS LAST, rcept_no DESC
         """,
         (corp_code, year_from, year_to),
     )
     if rows is None:
         return {"status": "db_error"}
+
+    decisions = [
+        {"fiscal_year": r[0], "board_date": r[1], "record_date": r[2],
+         "dividend_type_filed": r[3], "dividend_type": r[4],
+         "dps_common": r[5], "total_amount": r[6], "rcept_no": r[7],
+         "amended": r[8], "anomaly": r[9], "has_special": r[10], "remarks": r[11]}
+        for r in rows
+    ]
+
+    agg: dict[int, dict[str, Any]] = {}
+    for d in decisions:
+        a = agg.setdefault(d["fiscal_year"], {
+            "fiscal_year": d["fiscal_year"], "n_payments": 0,
+            "dps_sum": None, "total_sum": None, "kinds_filed": [],
+            "amended": False, "anomalies": [], "has_special": False})
+        a["n_payments"] += 1
+        # 🔴 None 을 0 으로 바꾸지 않는다 — 전부 빈 해는 합계도 빈 칸이어야 한다.
+        for src, dst in (("dps_common", "dps_sum"), ("total_amount", "total_sum")):
+            if d[src] is not None:
+                a[dst] = (a[dst] or 0) + d[src]
+        if d["dividend_type_filed"] and d["dividend_type_filed"] not in a["kinds_filed"]:
+            a["kinds_filed"].append(d["dividend_type_filed"])
+        if d["anomaly"] and d["anomaly"] not in a["anomalies"]:
+            a["anomalies"].append(d["anomaly"])
+        a["amended"] = a["amended"] or bool(d["amended"])
+        a["has_special"] = a["has_special"] or bool(d["has_special"])
+    for a in agg.values():
+        a["kinds_filed"].sort()
+        a["anomalies"].sort()
+
     return {
         "status": "ok",
         "complete_years": payment_scope_years(),
-        "rows": [
-            {"fiscal_year": r[0], "n_payments": r[1], "dps_sum": r[2], "total_sum": r[3],
-             "kinds_filed": r[4], "amended": r[5], "anomalies": r[6] or [],
-             "has_special": r[7], "special_notes": r[8] or []}
-            for r in rows
-        ],
+        "rows": [agg[fy] for fy in sorted(agg, reverse=True)],
+        "decisions": decisions,
     }
 
 
