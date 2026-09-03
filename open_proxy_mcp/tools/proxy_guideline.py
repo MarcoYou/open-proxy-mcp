@@ -6,8 +6,10 @@
   하나도 안 보인다"고 답했다. resource 만 두면 아무도 못 읽는다.
 
 무엇에 쓰나:
-  `proxy_advise_before_meeting` 의 판정 사유에 「OPM Guideline §재무제표 — 감사의견
-  적정 + 자본잠식 없음이면 찬성」 같은 인용이 붙는다. 그 근거의 원문이 여기 있다.
+  `proxy_advise_before_meeting` 의 판정 사유에 「OPM Guideline §2.4 이사 선임 — against
+  ①「사외이사 5년 룰」… ▸ 엔진: …」 같은 인용이 붙는다. §2.4 가 이 문서의 절 번호이고
+  ①이 그 절 against 목록의 항목 번호다 — `section="2.4"` 로 열면 그 항목이 그 자리에 있다
+  (tests/test_policy_citations_match_document.py 가 라벨↔문서를 자동 대조한다).
   「왜 이 안건이 찬성이냐」에 답할 때 이 문서를 읽고 인용하면 된다.
 
 정직 표시:
@@ -63,7 +65,8 @@ def register_tools(mcp) -> None:
         「왜 이 안건이 찬성/반대냐」의 근거를 원문으로 확인할 때 쓴다.
 
         section: 비우면 목차 + 전문. 값을 주면 제목에 그 말이 들어간 절만
-                 (예: "재무제표", "이사선임", "정관", "0-A").
+                 (예: "2.4" — 판정의 「정책 인용」이 가리키는 절 번호 / "재무제표", "이사 선임",
+                 "정관", "0-A").
         주의: 정책과 엔진은 의도적으로 다르다 — 문서 §0-A 정합표를 함께 읽을 것.
         """
         path = files("open_proxy_mcp.data.guideline") / "open-proxy-guideline.md"
