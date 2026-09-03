@@ -515,6 +515,10 @@ def parse_bundles(bundle: str) -> tuple[set[str], list[str]]:
             bad.append(tok)
     if not want:
         want = {"core"}
+    if "revision" in want:
+        # 리비전만 부르면 「추정·실적」 표가 빈칸으로 나간다(reported 칸이 core 묶음) —
+        # 「지금 값」 없이 「얼마나 바뀌었나」만 보는 것은 반쪽이라 core 를 같이 싣는다(260904).
+        want.add("core")
     return want, bad
 
 
