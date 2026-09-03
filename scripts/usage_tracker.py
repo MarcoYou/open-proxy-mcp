@@ -68,8 +68,8 @@ def _pg_conn():
     return psycopg.connect(DATABASE_URL, connect_timeout=15)
 
 
-# ── 드레인된 과거 주 합류 (260817) ──────────────────────────────────────────
-#: `events_drain.py` 가 완결 주를 CSV 로 내보내고 DB 에서 지운다. **DB 만 읽으면 지운 만큼
+# ── 드레인된 과거 주 합류 (260817 · 260904 parquet) ────────────────────────────
+#: `events_drain.py` 가 완결 주를 parquet 로 내보내고 DB 에서 지운다. **DB 만 읽으면 지운 만큼
 #: 과거가 통째로 사라진다** — 260817 실측: 7주를 드레인하자 362,994행이 5,511행이 되면서
 #: 오래 쓴 사용자가 전부 「신규」로 재라벨됐다. 백업은 있는데 되읽을 길이 없었다.
 #: 드레인은 앞으로도 계속 돌아야 하므로(무료티어 압박 + 사용자-기업 연결의 수명 상한)
@@ -83,9 +83,13 @@ except ImportError:                      # `import scripts.usage_tracker` 로 �
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from events_drain import OUT_DIR as DRAINED_DIR
 
-#: `*_user_log.csv` 만 읽는다. 같은 폴더의 `260810_test-pollution_purged.csv` 는
-#: **일부러 걷어낸 테스트 오염**이라 되살리면 안 되고, `user_registry.csv` 는 이벤트가 아니다.
-DRAINED_GLOB = "*_user_log.csv"
+#: `usage/events/*.parquet` 만 읽는다(260904 CSV→parquet — 주당 30MB 가 1.5MB). 한 폴더 위
+#: `usage/` 에 있는 `opm_events_all_*.parquet`(통합 재생성본)·`*_purged.csv`(일부러 걷어낸 테스트
+#: 오염)·`user_registry.csv` 는 글로브 밖이다. **통합본을 events/ 안에 두면 전 기간이 두 번
+#: 세어진다** — 통합본은 산출물이고 정본은 주별 파일이다.
+DRAINED_GLOB = "*.parquet"
+#: parquet 은 PG 스키마 타입을 그대로 옮긴다(events_drain._PG2DUCK). 그래도 문자열로 들어온
+#: 정수·불리언이 있으면 여기서 고친다 — 하류 계산이 조용히 갈리는 쪽보다 낫다.
 _INT_COLS = {"ts_ns", "status", "latency_ms", "response_bytes", "doc_mem_hits",
              "doc_disk_hits", "doc_misses", "fetch_viewer", "fetch_kind", "web_wait_ms",
              "inflight", "cpu_ms", "lag_ms"}
@@ -124,7 +128,10 @@ def _db_event_ids() -> set:
             finally:
                 con.close()
         return {r[0] for r in db().execute(f"SELECT event_id FROM {tbl}").fetchall()}
-    except Exception:
+    except Exception as e:
+        # 빈 집합을 조용히 돌려주면 dry-run 드레인 구간이 **두 번 세어진다**. 계속 가되 알린다.
+        print(f"⚠️  DB event_id 를 못 읽었다({type(e).__name__}) — 드레인 백업과의 중복 제거 없이 합류한다.",
+              file=sys.stderr)
         return set()
 
 
@@ -132,59 +139,74 @@ _drained_cache: dict | None = None
 
 
 def drained_columns() -> dict:
-    """드레인 CSV → {컬럼명: [값, ...]} (열 지향 — 투영이 공짜고 메모리가 싸다).
+    """드레인 parquet → {컬럼명: [값, ...]} (열 지향 — 투영이 공짜고 메모리가 싸다).
 
+    DuckDB `read_parquet(..., union_by_name=true)` 로 읽는다 — 주마다 컬럼 수가 다르다
+    (260817 이전 23개 · 이후 21개처럼). **이름으로 맞춰야** 늦게 생긴 열이 옛 주에서 NULL 로
+    정렬되고, 위치로 맞추면 행이 밀린다(CSV 시절 `weak_kinds` 에서 실제로 깨졌다).
     문자열이 반복되는 열(key_hash 346개·tool 30여 개)은 **interning** 한다 —
-    안 하면 35만 행이 수백 MB 가 된다.
-    폴더·파일이 없으면 **조용히 넘어가지 않는다.** 그 침묵이 이 사고의 원인이었다.
+    안 하면 48만 행이 수백 MB 가 된다.
+    폴더·파일이 없으면 **조용히 넘어가지 않는다.** 그 침묵이 260817 사고의 원인이었다.
     """
     global _drained_cache
     if _drained_cache is not None:
         return _drained_cache
-    import csv as _csv
 
-    if not DRAINED_DIR.is_dir() or not sorted(DRAINED_DIR.glob(DRAINED_GLOB)):
+    files = sorted(DRAINED_DIR.glob(DRAINED_GLOB)) if DRAINED_DIR.is_dir() else []
+    if not files:
         print(f"⚠️  드레인 백업이 없다({DRAINED_DIR}/{DRAINED_GLOB}) — DB 구간만 집계한다.\n"
               f"    OPM_STORAGE_REPO 가 맞는지 확인. 과거 지표는 실제보다 작게 나온다.",
               file=sys.stderr)
         _drained_cache = {}
         return _drained_cache
+    import duckdb  # 서버 런타임 의존성 아님 — 통계 경로 전용(dev 그룹)
 
     have = _db_event_ids()
-    files = sorted(DRAINED_DIR.glob(DRAINED_GLOB))
-    # **헤더를 먼저 합집합으로 잡는다.** 컬럼은 260802·260804·260810·260817 로 계속 늘었고
-    # 백업은 스키마 파생이라 **주마다 헤더가 다르다**. 읽어 가면서 열을 추가하면 늦게 등장한
-    # 열만 짧아져 행이 밀린다 — 실제로 `weak_kinds`(260810 신설)에서 그렇게 깨졌다.
-    cols: dict[str, list] = {}
-    for f in files:
-        with open(f, newline="", encoding="utf-8") as fh:
-            for name in (_csv.DictReader(fh).fieldnames or []):
-                cols.setdefault(name, [])
-    pool: dict = {}
-    n = dup = 0
-    for f in files:
-        with open(f, newline="", encoding="utf-8") as fh:
-            rd = _csv.DictReader(fh)
-            for r in rd:
-                if r["event_id"] in have:
+    paths = "[" + ", ".join("'" + f.as_posix().replace("'", "''") + "'" for f in files) + "]"
+    duck = duckdb.connect()
+    try:
+        src = f"read_parquet({paths}, union_by_name=true)"
+        # TIMESTAMPTZ(ts_kst) 를 파이썬 datetime 으로 바꾸려면 duckdb 가 pytz 를 요구한다 —
+        # 통계는 전부 ts_ns(정수) 로 계산하므로 시각 열은 문자열로 받는다(의존성 하나 덜).
+        sel = ", ".join(
+            f'CAST("{n}" AS VARCHAR) AS "{n}"' if "TIMESTAMP" in t.upper() or "DATE" in t.upper() else f'"{n}"'
+            for n, t, *_ in duck.execute(f"DESCRIBE SELECT * FROM {src}").fetchall())
+        cur = duck.execute(f"SELECT {sel} FROM {src} ORDER BY ts_ns")
+        names = [d[0] for d in cur.description]
+        if "event_id" not in names:
+            raise SystemExit(f"드레인 parquet 에 event_id 열이 없다 — 중복 제거를 할 수 없어 멈춘다: {names}")
+        eid = names.index("event_id")
+        cols: dict[str, list] = {k: [] for k in names}
+        pool: dict = {}
+        n = dup = 0
+        while True:
+            chunk = cur.fetchmany(50_000)
+            if not chunk:
+                break
+            for r in chunk:
+                if r[eid] in have:
                     dup += 1
                     continue
-                for k, lst in cols.items():
-                    v = r.get(k) or ""
-                    if not v:
-                        lst.append(None)
-                    elif k in _INT_COLS:
-                        lst.append(int(v))
-                    elif k in _BOOL_COLS:
-                        lst.append(v == "True")
+                for k, v in zip(names, r):
+                    if v is None or v == "":
+                        cols[k].append(None)
+                    elif isinstance(v, str):
+                        if k in _INT_COLS:
+                            cols[k].append(int(v))
+                        elif k in _BOOL_COLS:
+                            cols[k].append(v in ("True", "true", "t", "1"))
+                        else:
+                            cols[k].append(pool.setdefault(v, v))    # interning
                     else:
-                        lst.append(pool.setdefault(v, v))    # interning
+                        cols[k].append(v)
                 n += 1
+    finally:
+        duck.close()
     # 열 길이가 하나라도 다르면 그 뒤 모든 투영이 밀린다 — 조용히 틀리느니 여기서 멈춘다.
     bad = {k: len(v) for k, v in cols.items() if len(v) != n}
     if bad:
         raise SystemExit(f"드레인 백업의 열 길이가 어긋난다(기대 {n:,}): {bad}")
-    print(f"  · 드레인 백업 {n:,}건 합류"
+    print(f"  · 드레인 백업 {n:,}건 합류({len(files)}주 parquet)"
           f"{f' (DB 와 겹쳐 제외 {dup:,})' if dup else ''}", file=sys.stderr)
     _drained_cache = cols
     return cols

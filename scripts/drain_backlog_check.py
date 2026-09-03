@@ -113,7 +113,7 @@ def main() -> int:
     print("\n⚠️  " + " · ".join(bad))
     print("""
 조치 (private 레포 백업이 먼저다 — 지우는 쪽만 영속이고 남기는 쪽이 휘발이면 백업이 아니다):
-  1) python3 scripts/events_drain.py                 # dry-run: CSV 만 쓴다
+  1) python3 scripts/events_drain.py                 # dry-run: parquet 만 쓴다(usage/events/)
   2) open-proxy-storage 에서 usage/*.csv 커밋·푸시
   3) python3 scripts/events_drain.py --apply         # 검증 후 DELETE
   4) VACUUM FULL ops_tool_calls;                   # 여기까지 해야 용량이 실제로 돌아온다
