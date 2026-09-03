@@ -7,7 +7,7 @@ data_source: [legalize-kr 원문(상법·자본시장법·공정거래법·외�
 related_disclosures: [주주총회소집공고]
 related_concepts: [정관변경, 집중투표, 감사위원-의결권-제한, 5%-대량보유]
 created: 2026-07-13
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # law_lookup — 정관↔법령 양방향 조회
@@ -59,7 +59,7 @@ updated: 2026-09-02
 - `direction`: `auto`(기본) · `clause_to_law`(정관/키워드→법) · `law_to_clause`(법조문/키워드→정관·안건)
 - `law`: 필터 `""`(전체) · 상법 · 자본시장법 · 공정거래법 · 외부감사법 · 지배구조법 · 상증세법 · 금융지주회사법 · 금산법 · 은행법 · 보험업법 (시행령 포함)
 - `top_k`: 표시 후보 수(기본 10). 전문은 **강매칭(score ≥ 0.60) 전부 + 최소 3건**까지만 붙고 그 아래 꼬리는 표로만 남는다(`data.full_text_limited_to`) — exact 여도 「시정조치」처럼 글자만 겹친 다른 법 조문 전문이 딸려 나오지 않게(260902).
-- `as_of`: 기준일(기본 오늘) — 시행/미시행·명칭변경(사외이사↔독립이사) 게이팅
+- `as_of`: 기준일(기본 오늘) — 시행/미시행·유예(항 단위 게이트)·명칭변경(사외이사↔독립이사) 게이팅
 - `include_full_text`: 조문 원문 전문 포함(기본 True)
 
 ## 매칭 (3신호 융합 — 보수적)
@@ -83,8 +83,28 @@ difflib 없음. 삭제 조문 보존+경고, 조문번호 법령 중복 → `amb
 **미시행 유보 (260713 수정)**: corpus의 `enforcement`는 법 **전문(공포본)** 시행일자라 개별 조문의
 현행 여부로 쓰면 안 된다 — 미래 시행 개정본을 vendored하면 그 법 **모든 조문**이 거짓 '미시행'으로
 찍힌다(자본시장법 법률 599/599 오탐). 그래서 ① 전문 시행일이 미래면 조문 `in_force`를 **단정(False)하지
-않고** `None`(현행 여부 확인필요)로 두고 법령당 1회 버전 경고. ② 진짜 **조문별** 미래시행은
-SSOT(`law_provisions.json`)의 `effective_date`로만 `미시행(시행 YYYY-MM-DD)` flag(+first_agm_trigger).
+않고** `None`(현행 여부 확인필요)로 두고 법령당 1회 버전 경고. ② 진짜 **조문별** 미래시행·유예는
+SSOT(`law_provisions.json`)로만 말한다 — 아래 항 단위 게이트.
+
+**항 단위 시행 게이트 (260903)**: corpus 스냅샷은 **개정 조문을 이미 담고 있다**(상법 법률 2026-03-06
+시행본에 2차 개정 §542의12②·§542의7③ 본문이 들어 있다). 그래서 전문이 '현행'이어도 그 안의 어떤 항은
+`as_of` 시점 아직 효력이 없다. 260903 실측(as_of=2026-09-03): §542의12·§542의7 을 조문번호로 조회하면
+'시행' 열이 「현행」뿐이고 ②·③에 표지가 없었다 — 종전 flag 경로가 **bridge 첫 룰**의 provision 만
+봐서, 조문번호 직접 조회(bridge 없음)는 진입조차 못 했고 룰의 `law_reference`가 §382의2 를 가리키면
+그 조문에 §542의7③ 날짜가 붙었다(오귀속). 이제 `provision_gates()`가 SSOT 조항을 **조문번호로 직접**
+후보에 맞추고 `article`의 '제N항' + `paragraphs`(SSOT 신설 필드, 원문 `<개정 YYYY.M.D>` 마커로 대조)로
+항까지 좁힌다. 상법 **법률**만(시행령은 SSOT 밖).
+
+| as_of 위치 | state | 표지 | 표 '시행' 열 |
+|---|---|---|---|
+| 시행일 前 | `pending` | 「②항 시행예정 YYYY-MM-DD」(+first_agm_trigger 면 최초 이사선임 주총 주석) | 항 단위면 `현행 (②항 시행예정 …)`, 조문 전체면 `시행예정 …` |
+| 시행 後 · 유예 종료(`obligation_date`) 前 | `grace` | 「①항 유예 종료 YYYY-MM-DD · 미이행은 위반 아님」 | `현행 (①항 유예 종료 …)` |
+| 유예 종료 後 | `in_force` | 없음 (`provision_gates`에 근거만 남는다) | `현행` |
+
+출력 자리: `flags`(사람용 한 줄) · `hang[*].gates`(항 옆 ⏳) · `gate_status`/`gate_summary`(표) ·
+`provision_gates`(기계용 — provision_id·paragraphs·effective/obligation_date·state). `in_force`는 건드리지
+않는다(전문 단위 3-상태 그대로). 회귀: `tests/test_law_lookup_effective_gates.py`(§542의12②·§542의7③·
+§382의3 as_of 전/후 + md 표지 + 캐시 비오염 + SSOT paragraphs↔원문 실재).
 
 ## 추천 질문 (자연어 예시)
 | 방향 | 이럴 때 |
