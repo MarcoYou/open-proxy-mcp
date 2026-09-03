@@ -32,8 +32,47 @@ SUPPORT_PAGES = {
 }
 
 
+def _description_problems(tools, runtime_tools: set[str]) -> list[str]:
+    """도구 설명이 **없는 도구**를 가리키면 실패한다.
+
+    260903: 260902 에 `dividend` 가 `dividend_disclosure` 로 개명된 뒤 도구 설명의 `ref:`·`when:`
+    16곳이 옛 이름으로 남아 있었는데, 페이지·링크만 보던 이 스크립트는 통과시켰다. 읽는 쪽이
+    LLM 이라 없는 도구명을 그대로 호출한다. 두 가지를 본다 —
+      · `ref:` 줄의 도구명 토큰(밑줄이 든 식별자, 또는 은퇴한 이름)은 런타임에 있어야 한다
+        (괄호 주석 제외). `evidence` 의 「모든 data/action tool」 같은 산문 낱말은 안 본다.
+      · 은퇴한 이름(`usage_tracker.TOOL_ALIASES` 의 키)이 백틱 안이나 `ref:`·`when:` 줄에
+        단어로 서 있으면 안 된다. `types:` 같은 코드 목록(`screener` 의 유형 코드 `dividend`)은
+        도구명이 아니라 여기서 보지 않는다.
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from usage_tracker import TOOL_ALIASES
+    retired = set(TOOL_ALIASES)
+    problems: list[str] = []
+    for tool in tools:
+        desc = tool.description or ""
+        for name in retired:
+            if re.search(rf"`{name}`", desc):
+                problems.append(f"{tool.name} 설명에 은퇴한 도구명 `{name}` (→ {TOOL_ALIASES[name]})")
+        for line in desc.splitlines():
+            s = line.strip()
+            if not s.startswith(("ref:", "when:")):
+                continue
+            body = re.sub(r"\([^)]*\)", " ", s.split(":", 1)[1])
+            tokens = set(re.findall(r"(?<![a-z0-9_`])[a-z][a-z0-9_]+(?![a-z0-9_`])", body))
+            if s.startswith("ref:"):
+                # 도구명처럼 생긴 토큰(밑줄 포함)과 은퇴한 이름만 본다 — `evidence` 의
+                #   「모든 data/action tool」 같은 산문은 도구명이 아니다.
+                for tok in sorted(tokens - runtime_tools):
+                    if tok in retired or "_" in tok:
+                        problems.append(f"{tool.name} ref: 런타임에 없는 도구 {tok}")
+            for tok in sorted(tokens & retired):
+                problems.append(f"{tool.name} {s[:4]} 줄에 은퇴한 도구명 {tok} (→ {TOOL_ALIASES[tok]})")
+    return problems
+
+
 def main() -> int:
-    runtime_tools = {tool.name for tool in asyncio.run(build_mcp().list_tools())}
+    tools = asyncio.run(build_mcp().list_tools())
+    runtime_tools = {tool.name for tool in tools}
     documented_tools = {
         path.stem
         for path in CATALOG_DIR.glob("*.md")
@@ -46,6 +85,7 @@ def main() -> int:
         problems.append("Missing wiki tool pages: " + ", ".join(missing_docs))
     if stale_docs:
         problems.append("Wiki pages without runtime tools: " + ", ".join(stale_docs))
+    problems += _description_problems(tools, runtime_tools)
 
     # 페이지 존재만 봐서는 부족했다 (260817): proxy_guideline 은 페이지가 있는데도
     # README 의 「도구 한눈에」 표에 없어 사람이 읽는 목록에서만 빠져 있었고,

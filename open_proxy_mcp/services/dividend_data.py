@@ -9,7 +9,7 @@
     실제는 84사다(누락 64사, 오탐 0). 원장의 분기 칸은 회사 절반이 비워 두므로 「안 했다」와
     「모른다」를 못 가른다 — 결정공시는 실제로 접수된 건이므로 그 구멍이 없다.
 
-왜 `dividend` 와 따로 두나 — `dividend` 는 회사 하나를 깊게 보는 도구다(실시간 DART 호출,
+왜 `dividend_disclosure` 와 따로 두나 — 그쪽은 회사 하나를 깊게 보는 도구다(실시간 DART 호출,
        미확정 최신분, 정책 신호). 이쪽은 **여럿을 가로로** 본다 — 시계열과 전수 스크리닝.
        같은 표를 쓰지 않으므로 둘의 값이 어긋날 수 있고, 어긋나면 그것이 검산 재료다.
        🔴 **두 소스를 합치지 않는다**(마스터 확정 2026-09-02) — 합치면 검산 수단이 사라진다.
@@ -30,7 +30,8 @@
     🔴 `anomaly='음수차분'` 은 버리지 않고 남긴다 — 분기 발표 뒤 결산에서 배당이 하향된
     사례가 실재한다(계룡건설 2023: 주당 500→400원). 그 행은 「누적」 전제가 깨진 것이다.
   - **0회와 모름의 구분** — `krx_listing`(주간 시세 관측 파생)으로 가른다. 그 사업연도
-    말일 이전에 상장이 확인되면 결의가 없는 해는 `0`, 아직 상장 전이면 `null`이다.
+    말일 이전에 상장이 확인되면 결의가 없는 해는 `0`, 아직 상장 전이거나 티커가 그 표에
+    없어 상장 여부를 모르면 `null`이다. 질의 실패는 `null` 로 메우지 않고 따로 낸다.
     🔴 `krx_listing.first_seen_dd` 는 **관측 시작일이지 상장일이 아니다** — 관측창
     (2015-12-30~)전부터 있던 종목은 `before_window=True`로 표시되고 우리 배당 창
     (2020~)을 통째로 덮으므로 판단엔 지장이 없다.
@@ -99,8 +100,11 @@ def firm_history(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]
         """,
         (corp_code, year_from, year_to),
     )
-    if ann is None and qtr is None:
+    ann_failed, qtr_failed = ann is None, qtr is None
+    if ann_failed and qtr_failed:
         return {"status": "db_error"}
+    # 🔴 한쪽만 실패해도 그 쪽은 「없다」가 아니라 「못 읽었다」다 — 플래그로 나른다.
+    #   (260903 점검: 연간 질의만 실패하면 「원장이 이 구간에 없다」로 렌더되고 있었다.)
 
     # 🔴 **빈 종류 행을 「무배당」으로 보이게 두지 않는다.** DART 서식은 종류주식 칸을
     # 회사가 안 써도 줄 수를 맞춰 내보낸다 — 셀트리온 FY2025 는 「주당 현금배당금」이
@@ -119,6 +123,8 @@ def firm_history(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]
 
     return {
         "status": "ok",
+        "annual_failed": ann_failed,
+        "quarterly_failed": qtr_failed,
         "empty_kind_rows_folded": folded,
         "annual": [
             {"bsns_year": r[0], "stock_kind": r[1], "stock_knd_raw": r[2],
@@ -218,13 +224,16 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
 
 
 def payment_history(pairs: list[tuple[str, str | None]], year_from: int, year_to: int
-                     ) -> dict[str, list[int | None]]:
+                     ) -> dict[str, list[int | None]] | None:
     """(corp_code, stock_code) 목록 → corp_code 별 `[year_from..year_to]` 결정공시 횟수 배열.
 
     한 칸에 세 뜻을 가른다 — **n**(그 해 실제 결의 횟수) · **0**(상장 중인데 결의 없음) ·
-    **null**(그 사업연도 말일 시점에 아직 상장 전이라 모른다). 상장 여부는 `krx_listing`
-    (모듈 docstring의 「0회와 모름의 구분」 참조). 티커가 없거나 `krx_listing` 에 없으면
-    상장 여부를 모르므로 그 회사의 전 구간이 `null` 이다 — 0 으로 메우지 않는다.
+    **null**(상장 여부를 모른다: 그 사업연도 말일 시점에 아직 상장 전이거나, 티커가 없거나
+    `krx_listing` 에 없다). 상장 여부는 `krx_listing`(모듈 docstring의 「0회와 모름의 구분」
+    참조). 모르는 회사는 전 구간이 `null` 이다 — 0 으로 메우지 않는다.
+
+    🔴 **질의 자체가 실패하면 `None`** 을 돌려준다 — 「전 회사가 상장 전」처럼 보이는 null
+    배열로 메우지 않는다(260903 점검). 호출부가 `None` 을 「조회 실패」로 따로 렌더한다.
 
     실측(260903): 3,257종목 전체를 매 호출 스캔하면 279ms — 그래서 `krx_listing` 을
     먼저 구워 두고 여기서는 그 표만 좁혀 읽는다(대상 corp 수만큼, 통상 10ms 대).
@@ -251,7 +260,7 @@ def payment_history(pairs: list[tuple[str, str | None]], year_from: int, year_to
         (year_from, year_to, codes, tickers, codes, codes),
     )
     if rows is None:
-        return {c: [None] * (year_to - year_from + 1) for c in codes}
+        return None
 
     out: dict[str, list[int | None]] = {}
     for corp_code, fy, n, acc_mt, first_seen_dd, before_window in rows:

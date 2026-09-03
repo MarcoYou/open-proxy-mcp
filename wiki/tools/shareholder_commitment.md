@@ -3,7 +3,7 @@ type: tool
 title: shareholder_commitment
 domain: action
 scope: [단일 조회]
-data_source: [value_up(계획), corp_gov_report(준수변화), dividend(실제배당), treasury_share(실제소각), financial_metrics(자기자본), DART stockTotqySttus(유통주식수)]
+data_source: [value_up(계획), corp_gov_report(준수변화), dividend_disclosure(실제배당), treasury_share(실제소각), financial_metrics(자기자본), DART stockTotqySttus(유통주식수)]
 related_disclosures: [기업가치제고계획, 기업지배구조보고서, 배당결정, 자기주식결정]
 related_concepts: [자사주, 주주환원, BPS, PBR]
 created: 2026-07-07
@@ -42,7 +42,7 @@ sequenceDiagram
     participant T as shareholder_commitment
     participant V as value_up (commitments)
     participant G as corp_gov_report (timeline)
-    participant D as dividend (summary+history)
+    participant D as dividend_disclosure (summary+history)
     participant TS as treasury_share (summary)
     participant F as financial_metrics (summary)
     participant S as DART stockTotqySttus

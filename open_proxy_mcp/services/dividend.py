@@ -492,10 +492,15 @@ def _decisions_summary_for_year(
     cash_dps_total = sum(int(d.get("dps_common") or 0) for d in year_decisions)
     cash_dps_pref_total = sum(int(d.get("dps_preferred") or 0) for d in year_decisions)
     total_amount_mil = sum(int((d.get("total_amount") or 0)) for d in year_decisions) // 1_000_000
-    # 🔴 `special_dps`는 배당원장 경로에서 **특별배당분만**을 뜻한다(total_dps = cash + special).
-    # 예전에는 여기서 특별배당이 낀 결의의 주당배당금 **전액**을 더했다 — 삼성전자 FY2020이
-    # 1,578(실제 특별분)이 아니라 1,932(전액)로 나왔다. 비고에서 뽑아낸 특별분만 더한다.
-    # 금액을 못 뽑으면 0이다. 특별배당이 있었다는 사실 자체는 `has_special`이 따로 나른다.
+    # 🔴 `special_dps` 는 **비고에서 뽑아낸 특별배당분만**이다(정보용). 예전에는 특별배당이 낀
+    # 결의의 주당배당금 **전액**을 더했다 — 삼성전자 FY2020이 1,578(실제 특별분)이 아니라
+    # 1,932(전액)로 나왔다. 금액을 못 뽑으면 0이다. 특별배당이 있었다는 사실 자체는
+    # `has_special` 이 따로 나른다.
+    # 🔴 자(尺)가 원장 경로와 다르다 — 결정공시의 「1주당 배당금」은 정기·특별분이 **합산된**
+    # 한 숫자라 여기서는 `cash_dps` 에 특별분이 이미 들어 있고 `total_dps = cash_dps` 다
+    # (삼성전자 FY2020: cash 1,932 · special 1,578). 원장(`alotMatter`) 경로는 특별배당이
+    # 별도 행이라 `total_dps = cash + special` 로 더한다(`dividend_parser.py`). 두 경로의
+    # `cash_dps` 를 나란히 놓으면 특별분만큼 어긋난다 — `source` 칸이 어느 경로인지 말한다.
     special_dps = sum(int(d.get("special_dps_krw") or 0) for d in year_decisions)
 
     fiscal = _fiscal_period_fields(year, end_month)

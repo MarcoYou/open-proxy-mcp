@@ -5,7 +5,7 @@ domain: action
 updated: 2026-08-25
 scope: [core preset, all, 유형 CSV]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + krx_weekly (시총, DART 0콜) + 유형별 파서 재사용(details)]
-related: [order_contracts, treasury_share, dividend, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
+related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
 ---
 
 # screener — 전체시장 공시 스크리너 / 아침 디제스트
@@ -14,7 +14,7 @@ related: [order_contracts, treasury_share, dividend, dilutive_issuance, sharehol
 **매일 아침 출근길 공시 알람 디제스트** — "직전 실행 이후~오늘 전종목에 뭐가 떴나"를 폰에서 훑기 좋게
 (기업명 + 시총 + 유형 + 단계 + 정정 프리픽스 + 분모% + DART/naver 링크). 벤치마크는 텔레그램 AWAKE.
 
-개별 tool(order_contracts·dividend 등)이 **한 회사를 깊게** 판다면, screener는 **전체시장을 얕게**
+개별 tool(order_contracts·dividend_disclosure 등)이 **한 회사를 깊게** 판다면, screener는 **전체시장을 얕게**
 훑어 "무엇이 떴나"를 싸게 답한다. 거버넌스는 유형의 부분집합 — 범용 공시 디제스트다.
 
 ### 회계기간 메타데이터

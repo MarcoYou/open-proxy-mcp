@@ -108,7 +108,7 @@ _CMP_KO = {"이상": "이상", "초과": "초과", "이하": "이하", "미만":
 _METRIC_CAVEATS: dict[str, str] = {
     "payout_ratio": "배당성향은 「귀속 사업연도」 기준과 「실제 지급 시점」 기준이 다르다. "
                     "회사가 본문에서 「아직 미지급」이라고 밝히는 경우 이 실적값과 어긋난다 — "
-                    "`dividend` 로 지급 여부를 따로 확인해라.",
+                    "`dividend_disclosure` 로 지급 여부를 따로 확인해라.",
     "dividend_yield": "배당수익률은 주가(시세일)와 DPS(사업연도)의 시점이 섞인 값이다.",
     "pbr": "PBR·PER 은 시세 기준일 값이라 사업연도 재무비율과 시점이 다르다.",
     "per": "PBR·PER 은 시세 기준일 값이라 사업연도 재무비율과 시점이 다르다.",
@@ -1114,6 +1114,6 @@ async def build_value_up_payload(
         data=data,
         evidence_refs=_build_value_up_evidence(latest, latest_source, source_type, best_plan_item),
         next_actions=[
-            "commitments scope로 주주환원/ROE 관련 문장 확인" if scope == "summary" else "dividend, ownership_structure와 함께 보면 주주환원 맥락이 더 잘 보인다.",
+            "commitments scope로 주주환원/ROE 관련 문장 확인" if scope == "summary" else "dividend_disclosure, ownership_structure와 함께 보면 주주환원 맥락이 더 잘 보인다.",
         ],
     ).to_dict()

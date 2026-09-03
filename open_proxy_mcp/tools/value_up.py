@@ -231,7 +231,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 기업가치제고계획(밸류업) 공시 + commitment 문장. 주주환원 **정책·미래 약속**. 자사주 소각 이행 교차참조 포함.
-        when: 밸류업 계획, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 미래 약속. 실제 배당은 `dividend`, 자사주 사실은 `treasury_share`.
+        when: 밸류업 계획, ROE/PBR/배당성향 목표, 자사주 소각 계획 등 미래 약속. 실제 배당은 `dividend_disclosure`, 자사주 사실은 `treasury_share`.
         rule: DART I 밸류업 키워드 → 없으면 KIND 0184 fallback. 공시 카테고리: plan/progress/meta_amendment(고배당기업 재공시). 최신이 meta_amendment면 실계획 본문을 latest_plan으로 별도. summary/commitments에 24개월 자사주 이벤트 treasury_cross_ref 포함.
         scope: `summary` / `plan` 원문 발췌 / `commitments` 핵심 약속 + **수치 목표↔실적 대조표** + 이행 교차참조 / `timeline` 공시 이력
         commitments: 「목표 대비 어디까지 왔나」는 여기서 본다. `numeric_targets` 는 회사 원문에서 뽑은
@@ -243,7 +243,7 @@ def register_tools(mcp):
           `numeric_targets_unparsed` 는 **지표는 언급됐는데 수치를 못 읽은 자리**이며 원문 조각이 담겨 있다 —
           「목표가 없다」로 읽지 마라. 표에 없는 약속(자사주 소각·IR 확대 등 비수치 약속)은
           `highlights`(원문 문장)에 그대로 있으니 표만 보고 결론내지 마라.
-        ref: dividend, treasury_share, ownership_structure, financial_metrics, price_multiple_data, company, evidence
+        ref: dividend_disclosure, treasury_share, ownership_structure, financial_metrics, price_multiple_data, company, evidence
         """
         payload = await build_value_up_payload(
             company,

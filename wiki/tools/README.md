@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — 도구 카탈로그
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # 도구(Tool) 카탈로그
@@ -146,7 +146,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | shareholder_meeting_notice | ✅ list/document | - | - | - |
 | shareholder_meeting_results | ✅ list/document | 🔧 fallback | - | - |
 | ownership_structure | ✅ 사업보고서/majorstock | ✅ changes scope | - | - |
-| dividend | ✅ alotMatter | - | - | - |
+| dividend_disclosure | ✅ alotMatter | - | - | - |
 | financial_metrics | ✅ fnlttSinglAcnt + Indx + AcntAll + audit | - | - | - |
 | treasury_share | ✅ DS005 5종 | - | - | - |
 | value_up | ✅ list/document | ✅ 0184 fallback | - | - |
@@ -171,7 +171,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | evidence | - | - | - | - (문자열 가공) |
 | law_lookup | - | - | - | ✅ legalize-kr 법령 corpus 10법(4법 + 260902 확장 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법) + 40룰 bridge |
 | proxy_advise_before_meeting | upstream data tools | upstream | - | 판단 규칙/records |
-| shareholder_commitment | ✅ value_up+corp_gov_report+dividend+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - |
+| shareholder_commitment | ✅ value_up+corp_gov_report+dividend_disclosure+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - |
 
 ✅ = 1차 source / 🔧 = 보조
 
@@ -192,6 +192,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - 2026-05-31: financial_metrics 56 지표 확장 · value_up 역할 분리
 - 2026-06-20: 카탈로그를 사람용("무엇을 답하나")으로 재정리 + 개발 상세 분리
 - 2026-07-13: **law_lookup 신규(21번째 tool)** — 정관↔법령 양방향 조회. legalize-kr 원문 corpus(당시 4법: 상법·자본시장법·공정거래법·외부감사법) + 40룰 bridge, 회사·DART 무관. Evidence 카테고리 1→2
+- 2026-09-03: **옛 도구명 `dividend` 잔재 정리 + 카탈로그 검사 확장** — 260902 개명 뒤 도구 설명 `ref:`·`when:` 16곳과 wiki 5곳이 없는 이름 `dividend` 를 가리키고 있었다(읽는 쪽이 LLM 이라 그대로 호출한다). 전부 `dividend_disclosure` 로. `check_tool_catalog.py` 가 이제 `ref:` 토큰을 런타임과 대조하고, 은퇴한 이름(`usage_tracker.TOOL_ALIASES` 키)이 설명에 서 있으면 실패한다. 같은 날 `dividend_data` 의 부분 장애 경로(매칭 수·원장·이력열 질의 하나만 실패)를 「없다」·예외 대신 「모른다」로 렌더하도록 고침.
 - 2026-09-02: **law_lookup 코퍼스 4법 → 10법** — 금융회사 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법 추가(조문 2,734 → 3,949). 법 우선순위·제목 앵커로 옛 4법 질의 정확도 유지(harness recall@10 85%).
 - 2026-07-15: **screener 신규(22번째 tool)** — 전체시장 공시 스크리너 / 아침 디제스트. scan(전체시장 list.json market-scan, 하루 4콜)+details(유형별 파서 재사용). 시총=krx_weekly(DART 0콜)
 - 2026-07-15: **screener `domain: action` 재분류** — Screening 카테고리를 Action으로 흡수(2→3). upstream 파서 오케스트레이션 + 디제스트/루틴 구동(액션 산출물). 루틴 레시피 [docs/routines](../../docs/routines/screener-morning-digest.md) 연동

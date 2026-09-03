@@ -395,7 +395,7 @@ sequenceDiagram
 
 **+ 사내이사 연임 후보 detect 시 추가 chain (회사 단위 1회)**:
 
-7. dividend (history, 10년) — CSR avg/trend 계산
+7. dividend_disclosure (history, 10년) — CSR avg/trend 계산
 8. treasury_share (summary, **동적 lookback** 36~120개월) — 소각 events. 가장 오래 재직한
    사내이사 기준 `(target-min(earliest_start)+2)*12`로 좁힘(상한 120, detect fail시 120).
    소각은 재직기간만 CSR에 쓰여 정확도 보존

@@ -503,8 +503,8 @@ async def build_company_payload(
         warnings=warnings,
         data=payload,
         next_actions=[
-            ("Use company_id or ticker with downstream tools such as shareholder_meeting, ownership_structure, and dividend"
-             if _prefers_english(query, language) else "shareholder_meeting, ownership_structure, dividend 등 후속 data tool에서 company_id 또는 ticker 사용"),
+            ("Use company_id or ticker with downstream tools such as shareholder_meeting_notice, ownership_structure, and dividend_disclosure"
+             if _prefers_english(query, language) else "shareholder_meeting_notice, ownership_structure, dividend_disclosure 등 후속 data tool에서 company_id 또는 ticker 사용"),
         ],
     )
     return envelope.to_dict()
