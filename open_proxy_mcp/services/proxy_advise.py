@@ -1065,6 +1065,94 @@ def _seat_count(title: str) -> int | None:
 _SEAT_BUDGET_GROUPS = ("director_election", "audit_committee_election")
 
 
+#: 부모(묶음)와 자식(후보)의 판정이 어긋날 때의 규칙 — wiki/tools/proxy_advise_before_meeting.md
+#: 「부모→자식 상속」 절과 한 몸이다. 여기서 보는 모순은 **부모 ✅ · 자식 전원 비-✅** 하나다.
+_PARENT_CHILD_CATEGORIES = ("director_election", "audit_committee_election")
+
+
+def _reconcile_parent_child_decisions(agenda_decisions: list[dict[str, Any]],
+                                      title_to_parent: dict[str, str]) -> list[str]:
+    """**부모가 찬성인데 자식 후보 전원이 찬성이 아니면 부모 찬성을 거둔다.**
+
+    2026-09-04 실측 고려아연 임시주총: 제2호 「집중투표 4인 선임」 부모는 「4석·후보 4명·
+    결격 없음 → ✅」인데 자식 2-1~2-4 는 전원 「경합 → ⚠️」였다. 한 응답이 같은 표에 대해
+    두 말을 한 것이다. 원인(자식이 부모의 정원을 못 물려받음)은 관계 판정에서 고쳤고, 이 함수는
+    **남는 모순을 산출 전에 잡는 안전망**이다 — 어느 경로가 틀렸든 지시서가 자기 말을 뒤집은 채
+    나가지 않게 한다.
+
+    왜 부모를 내리나: 위임장에서 표를 차지하는 것은 자식(후보)이고 부모는 묶음 제목이다.
+    자식이 전원 보류·반대인데 부모만 찬성이면 읽는 쪽은 「그래서 찬성하라는 건가」를 알 수
+    없다. 자식을 부모 쪽으로 올리는 것은 자식이 본 사유(경합·결격)를 지우는 일이라 하지
+    않는다. 반대 방향(부모 ⚠️/❌ · 자식 ✅)은 건드리지 않는다 — 부모의 사유가 묶음 수준
+    신호(택일·조건부·묶음 결격)라 자식이 모르는 것을 보고 있을 수 있고, 자식은 이미
+    `_agenda_nodes` 가 부모의 관계(alternative/conditional)를 물려준 뒤다.
+    반환: 적용된 메모(호출측이 warnings 로 올린다).
+    """
+    notes: list[str] = []
+    by_title: dict[str, list[dict[str, Any]]] = {}
+    for r in agenda_decisions:
+        by_title.setdefault(r.get("agenda_title") or "", []).append(r)
+    for parent_title in sorted({p for p in title_to_parent.values() if p}):
+        parents = by_title.get(parent_title) or []
+        kids = [r for r in agenda_decisions
+                if title_to_parent.get(r.get("agenda_title") or "") == parent_title]
+        if not parents or not kids:
+            continue
+        parent = parents[0]
+        if parent.get("agenda_category") not in _PARENT_CHILD_CATEGORIES:
+            continue
+        if parent.get("decision") != "FOR":
+            continue
+        if any(k.get("decision") == "FOR" for k in kids):
+            continue
+        counts: dict[str, int] = {}
+        for k in kids:
+            d = k.get("decision") or "-"
+            counts[d] = counts.get(d, 0) + 1
+        _ko = {"REVIEW": "보류", "AGAINST": "반대", "NO_VOTE": "표결없음", "NO_DATA": "자료없음"}
+        breakdown = " · ".join(f"{_ko.get(d, d)} {n}" for d, n in sorted(counts.items()))
+        kid_reasons = "; ".join(
+            f"{(k.get('agenda_id') or k.get('agenda_title') or '')[:24]}: {(k.get('reason') or '')[:80]}"
+            for k in kids[:4])
+        parent["consistency_downgraded_from"] = "FOR"
+        parent["decision"] = "REVIEW"
+        parent["reason"] = (
+            f"묶음 안건의 자식 후보 {len(kids)}명 중 찬성이 하나도 없어({breakdown}) 묶음 찬성을 "
+            f"유지할 수 없습니다 — 표를 차지하는 것은 개별 후보 안건이므로 자식 판정을 따르세요. "
+            f"자식 사유: {kid_reasons}"
+            f" (자식을 보기 전 판정: FOR — {(parent.get('reason') or '')[:200]})")
+        parent.setdefault("risk_factors", [])
+        if "부모·자식 판정 불일치" not in parent["risk_factors"]:
+            parent["risk_factors"].append("부모·자식 판정 불일치")
+        notes.append(f"{parent_title[:40]} — 묶음 찬성 보류(자식 {len(kids)}명 전원 비찬성: {breakdown})")
+    return notes
+
+
+def _candidate_proposer_mix(agenda_decisions: list[dict[str, Any]],
+                            title_to_parent: dict[str, str]) -> None:
+    """묶음 부모에 **자식 후보의 제안 주체 분포**를 붙인다(in-place).
+
+    실측 고려아연 제2호는 마커 「[주주제안]」으로 부모가 「주주」인데 후보 4명 중 2명은
+    독립이사후보추천위원회(이사회 쪽) 추천이었다. 부모 한 칸만 보면 주주 슬레이트로 읽힌다 —
+    자식이 갈리면 부모 칸에 그 사실을 같이 쓴다. `proposer_type` 자체는 바꾸지 않는다(원문
+    마커가 말한 값이다).
+    """
+    for parent_title in {p for p in title_to_parent.values() if p}:
+        kids = [r for r in agenda_decisions
+                if title_to_parent.get(r.get("agenda_title") or "") == parent_title]
+        if len(kids) < 2:
+            continue
+        mix: dict[str, int] = {}
+        for k in kids:
+            pt = k.get("proposer_type") or "unknown"
+            mix[pt] = mix.get(pt, 0) + 1
+        if len(mix) < 2:
+            continue
+        for r in agenda_decisions:
+            if (r.get("agenda_title") or "") == parent_title:
+                r["candidate_proposer_mix"] = mix
+
+
 def _enforce_seat_budget(agenda_decisions: list[dict[str, Any]],
                          title_to_parent: dict[str, str]) -> list[str]:
     """**찬성 수가 좌석 수를 넘으면 그 선거의 개별 권고를 전부 보류한다.**
@@ -1164,13 +1252,15 @@ def _apply_relation_links(agenda_decisions: list[dict[str, Any]]) -> list[str]:
         labels = [x for x in (agenda_relation_link_label(l) for l in links) if x]
         if labels:
             row["agenda_relation_label"] = " · ".join(labels)
+            # 관계를 **찾았다는 사실 자체**를 먼저 남긴다. 종전에는 판정을 내린 행만 세어서,
+            # 이미 ⚠️ 인 안건뿐이면 「관계를 못 잡았다」는 안내가 같이 나갔다(실측 대림제지).
+            # 막지 않는 관계(🤝 같은 선거 — 자리가 후보 수 이상)도 여기 센다 — 안 그러면
+            # 주주제안 후보가 있는 정상 선거에 「관계를 판정하지 못했습니다」가 붙는다.
+            notes.append(f"{row.get('agenda_title', '')[:40]} — {' · '.join(labels)}")
         blocking = [l for l in links
                     if l.get("type") in ("contested", "depends_on", "conditional_on")]
         if not blocking:
             continue
-        # 관계를 **찾았다는 사실 자체**를 먼저 남긴다. 종전에는 판정을 내린 행만 세어서,
-        # 이미 ⚠️ 인 안건뿐이면 「관계를 못 잡았다」는 안내가 같이 나갔다(실측 대림제지).
-        notes.append(f"{row.get('agenda_title', '')[:40]} — {' · '.join(labels)}")
         if row.get("decision") not in ("FOR", "NO_DATA"):
             row["reason"] = ((row.get("reason") or "") + " · "
                              + " ".join(l.get("note") or "" for l in blocking).strip())
@@ -3608,7 +3698,8 @@ async def _build_proxy_advise_payload(
     agenda_summary = agenda_data.get("agenda_summary", {}) or {}
     agenda_tree = agenda_data.get("agendas") or []
 
-    def _flatten_agenda_rows(items: list, parent_number: str = "") -> list[dict[str, Any]]:
+    def _flatten_agenda_rows(items: list, parent_number: str = "",
+                             parent_title: str = "") -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
         for it in items or []:
             title = (it.get("title") or "").strip() if isinstance(it, dict) else ""
@@ -3620,6 +3711,9 @@ async def _build_proxy_advise_payload(
                     #   「4번과 경합」이라고 쓰려면 그 4번이 응답에 있어야 한다.
                     "number": it.get("number") or "",
                     "parent_number": parent_number,
+                    # 260904: 부모 제목은 그 선거의 **정원·집중투표 여부**를 말한다 — 자식(후보)
+                    #   행이 물려받아 경합 판정의 입력으로 쓴다(실측 고려아연 제2호 4인 선임).
+                    "parent_title": parent_title,
                     # 트리가 이미 분류해 둔 값. 아래 루프는 `_classify_agenda` 를 다시 부르지만
                     # 관계 판정은 루프 **전에** 서야 해서 여기서 같이 실어 보낸다.
                     "category": it.get("category"),
@@ -3642,7 +3736,8 @@ async def _build_proxy_advise_payload(
                 })
             if isinstance(it, dict):
                 rows.extend(_flatten_agenda_rows(it.get("children") or [],
-                                                 parent_number=it.get("number") or ""))
+                                                 parent_number=it.get("number") or "",
+                                                 parent_title=title))
         return rows
 
     agenda_rows = _flatten_agenda_rows(agenda_tree)
@@ -4750,6 +4845,28 @@ async def _build_proxy_advise_payload(
                 _evidence_windows.append((_ws, _we, _ordinal))
             facts["parsing_quality"] = "name_match_failed_see_raw"
         cumulative_threshold = _cumulative_voting_threshold(title)
+        # 260904: **자식은 부모의 선거 구조를 물려받는다.** 부모 「집중투표의 방법으로 이사 4인
+        #   선임의 건」이 4석·집중투표를 말하는데 자식 후보 행은 자기 제목(이름뿐)만 보고
+        #   판단하다 「몇 명을 뽑는지 못 읽었다」가 됐다(실측 고려아연 2026-09-09 임시주총).
+        #   정원·후보 수·투표 방식을 facts 와 사유에 같이 싣는다 — 판정(적격성)은 바꾸지 않는다.
+        if (parent_for_title and not cumulative_threshold
+                and category in _PARENT_CHILD_CATEGORIES):
+            _pseats = _seat_count(parent_for_title)
+            if _pseats:
+                _pcum = any(k in parent_for_title for k in ("집중투표", "누적투표"))
+                _nkids = sum(1 for _p in title_to_parent.values() if _p == parent_for_title)
+                facts["election_seats"] = _pseats
+                facts["election_candidates"] = _nkids
+                facts["election_method"] = "집중투표" if _pcum else "단순투표"
+                facts["election_structure_source"] = f"부모 안건 「{parent_for_title[:40]}」"
+                reason = (
+                    f"{reason} · 이 선거(부모 안건 기준): {'집중투표 ' if _pcum else ''}{_pseats}석에 "
+                    f"후보 {_nkids}명"
+                    + (" — 자리가 후보 수 이상이라 전원 찬성이 가능합니다"
+                       if _nkids <= _pseats else
+                       f" — 후보가 자리보다 많아 {_pseats}명을 넘겨 찬성하면 표가 흩어집니다")
+                    + (". 집중투표는 보유 의결권 × 석수를 나눠 던지는 구조라 특정 후보를 밀려면 "
+                       "표를 몰아야 합니다" if _pcum else ""))
         if cumulative_threshold:
             facts["cumulative_voting_threshold"] = cumulative_threshold
             # 260813: 문턱(1/(m+1))을 계산해 facts 에 넣어 두고도 렌더러가 dict 를
@@ -4906,6 +5023,10 @@ async def _build_proxy_advise_payload(
                 "`shareholder_meeting_notice` — 안건 트리와 조건절 원문(안건 범위로 조회)",
             ],
         }
+    # 260904: 관계를 붙인 뒤 **부모 ✅ · 자식 전원 비-✅** 모순을 산출 전에 잡는다. 좌석 예산
+    #   검사보다 먼저 — 예산 검사는 찬성 수를 세므로 부모의 거짓 찬성이 남아 있으면 안 된다.
+    parent_child_notes = _reconcile_parent_child_decisions(agenda_decisions, title_to_parent)
+    _candidate_proposer_mix(agenda_decisions, title_to_parent)
     seat_budget_notes = _enforce_seat_budget(agenda_decisions, title_to_parent)
 
     # 통합 evidence_refs + 읽은 공시 목록
@@ -5114,6 +5235,7 @@ async def _build_proxy_advise_payload(
         envelope_warnings.append(meeting_closed_hint)
     # 좌석 예산 초과는 **경고로 반드시 올라가야 한다** — 개별 안건의 NO_VOTE 만 보면
     # 사용자는 「이 안건들만 보류」로 읽고, 표결 구조 자체가 미확정이라는 걸 놓친다.
+    envelope_warnings.extend(parent_child_notes)
     envelope_warnings.extend(seat_budget_notes)
     # 안건 사이의 관계(경합·선행 의존)도 경고로 올린다 — 개별 줄의 ⚠️ 만 보면 「이 안건만
     # 애매하다」로 읽히고, **표 대결이 벌어지고 있다**는 사실 자체를 놓친다.

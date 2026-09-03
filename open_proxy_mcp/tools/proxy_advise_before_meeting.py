@@ -75,6 +75,10 @@ _FIVE_YEAR_LABELS = {
     "-": "-",
 }
 
+#: 독립성 sub_factor 결과 중 **「신호는 있으나 사실이 확정되지 않은」** 것. 비고에 「위반」이
+#: 아니라 「미확인」으로 적는다 — 지명됐다는 사실은 소속이 아니다(director_evaluation 주석 참조).
+_UNCONFIRMED_SUB_RESULTS = ("proposed_by_shareholder",)
+
 _SUB_FACTOR_LABELS = {
     "major_shareholder_relation": "최대주주 관계",
     "recent_3y_transactions": "최근 3년 거래",
@@ -112,6 +116,7 @@ _PROPOSER_KO = {
 #: 안건 사이의 관계 유형 → 한글. 코드 이름이 화면에 그대로 나가지 않게 한다.
 _RELATION_TYPE_KO = {
     "contested": "⚔️ 경합",
+    "same_election": "🤝 같은 선거 (자리 ≥ 후보)",
     "depends_on": "🔗 선행 의존",
     "precedes": "🔗 선행 안건",
     "conditional_on": "🔗 조건부 상정",
@@ -225,6 +230,8 @@ _FACT_LABEL: dict[str, str] = {
     # 정관변경·기타
     "amendments_count": "변경 조항 수", "amendments_sample": "변경 조항 예시",
     "agenda_action": "안건 성격", "cumulative_voting_threshold": "집중투표 기준",
+    "election_seats": "이 선거 정원(석)", "election_candidates": "이 선거 후보 수",
+    "election_method": "투표 방식", "election_structure_source": "선거 구조 출처",
     "treasury_pct": "자기주식 비율(%)", "treasury_pct_band": "자기주식 구간",
     "related_total_pct": "특수관계인 합계(%)", "active_signal_count": "행동주의 신호 수",
     "parsing_quality": "파싱 품질", "raw_text_fallback": "원문 폴백 사용",
@@ -490,6 +497,12 @@ def _render(payload: dict[str, Any]) -> str:
         for i, ag in enumerate(decisions, 1):
             title = (ag.get("agenda_title") or "")[:60]
             proposer = _PROPOSER_KO.get(ag.get("proposer_type") or "", "-")
+            # 260904: 부모 한 칸이 「주주」인데 후보는 주주 2·이사회 2 로 갈린다(실측 고려아연
+            #   제2호 — 4명 중 2명이 독립이사후보추천위원회 추천). 마커가 말한 값은 두고 분포를 덧붙인다.
+            _mix = ag.get("candidate_proposer_mix") or {}
+            if _mix:
+                proposer += " (후보: " + "·".join(
+                    f"{_PROPOSER_KO.get(k, k).strip('*')} {v}" for k, v in _mix.items()) + ")"
             relation = _one_line(ag.get("agenda_relation_label") or "", 60) or "-"
             decision = ag.get("decision", "-")
             reason_full = ag.get("reason") or ""
@@ -541,6 +554,9 @@ def _render(payload: dict[str, Any]) -> str:
             # reason full (표는 250자 truncate, detail은 full — 정관 본문 raw 포함)
             if full_reason:
                 lines.append(f"- 사유: {full_reason}")
+            if ag.get("consistency_downgraded_from"):
+                lines.append(f"- 부모·자식 정합: 묶음 판정 {_DECISION_KO.get(ag['consistency_downgraded_from'], ag['consistency_downgraded_from'])} 을 "
+                             f"거두고 자식 후보 판정을 따릅니다 — 위 사유의 자식 사유를 보세요")
             if facts:
                 # dict/list 값(candidate_review_profile 등)은 raw 노출 금지 — Python 객체가
                 # markdown에 통째로 박혀 None·내부 숫자가 새어 나온다. 스칼라만 표시,
@@ -613,14 +629,24 @@ def _render(payload: dict[str, Any]) -> str:
             if indep_code in ("concerns", "weak_concerns", "proposer_side_concerns",
                               "proposer_nominated"):
                 ind_subs = c.get("independence", {}).get("sub_factors", {})
-                concern_kr = [
-                    _SUB_FACTOR_LABELS.get(k, k)
-                    for k, v in ind_subs.items()
-                    if v.get("result") not in ("independent", "no_transactions", "outsider",
-                                               "first_term_or_short", "no_signal")
-                ]
-                if concern_kr:
-                    note = f"위반: {', '.join(concern_kr)}"
+                # 🔴 **확인하지 못한 것을 「위반」이라 적지 않는다** (2026-09-04 실측 고려아연).
+                #   `proposed_by_shareholder` 는 「주주가 제안한 후보 — 제안주주와의 소속 관계는
+                #   확인되지 않음」인데 비고에 「위반: 제안 측 소속 여부」로 찍혔다. 미확인은 미확인이다.
+                violated: list[str] = []
+                unconfirmed: list[str] = []
+                for k, v in ind_subs.items():
+                    r = (v or {}).get("result")
+                    if r in ("independent", "no_transactions", "outsider",
+                             "first_term_or_short", "no_signal"):
+                        continue
+                    (unconfirmed if r in _UNCONFIRMED_SUB_RESULTS else violated).append(
+                        _SUB_FACTOR_LABELS.get(k, k))
+                parts = []
+                if violated:
+                    parts.append(f"위반: {', '.join(violated)}")
+                if unconfirmed:
+                    parts.append(f"미확인: {', '.join(unconfirmed)}")
+                note = " · ".join(parts)
             lines.append(
                 f"| {c.get('name', '?')} | {c.get('role_type', '-')} | {action} | {_five_y_label(five_y_code)} | "
                 f"{_ind_label(indep_code)} | {_disq_label(disq_code)} | {_audit_label(audit_code)} | {note} |"
