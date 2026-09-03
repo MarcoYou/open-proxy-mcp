@@ -63,6 +63,7 @@ def test_tool_alias_folds_old_name():
 def test_merge_drained_folds_tool_column():
     """DB 행과 드레인 행이 **같은 함수**를 지나므로 접기는 한 곳이면 된다."""
     u = _load_script("usage_tracker")
+    u._drained_cache = {}   # 실제 드레인 parquet·DB 를 건드리지 않는다(network 0콜) — 접기만 본다
     rows = [("valuation", "h1", 10, 0), ("company", "h2", 5, 0)]
     got = [r[0] for r in u.merge_drained(rows, u._TL_COLS)][:2]
     assert got == ["price_multiple_data", "company"]

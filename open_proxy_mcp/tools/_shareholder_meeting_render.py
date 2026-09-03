@@ -306,7 +306,9 @@ def render_board(payload: dict[str, Any]) -> str:
                      f"같은 후보가 묶음 안건과 개별 안건에 겹쳐 나옵니다)")
     else:
         lines.append(f"- 총 후보자 수: {_tc}명")
-    lines.append(f"- 사외이사 후보: {summary.get('outside_directors', 0)}명")
+    # 상법 §542의8(2026-07-23 시행)로 「사외이사」가 「독립이사」로 바뀌었다 — 시행 전후 공고가
+    # 섞이므로 두 표기를 함께 쓴다. 후보 개인의 직위는 아래에 원문 표기 그대로 나온다.
+    lines.append(f"- 사외이사(독립이사) 후보: {summary.get('outside_directors', 0)}명")
     lines.append(f"- 감사위원 후보: {summary.get('audit_committee', 0)}명")
     lines.append("")
 

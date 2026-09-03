@@ -18,7 +18,8 @@
     "table_applies_to": "md 표 '적용 대상' 열 원문(자동생성).",
     "gate_dates": "엔진 룰 applies_after가 가질 수 있는 날짜 집합(통과·공포·시행). lint[7c]가 layer별로 더 좁게 검사(A2=시행일/A1=공포·시행).",
     "notes": "부가 설명.",
-    "threshold_decree": "자산·자본금 임계를 실제로 정하는 대통령령(상법 시행령) 조문. 임계는 법이 아니라 시행령이 정하므로(예: '자산 2조'=시행령 §33) 출처를 명시. 없으면 null(임계 없는 모든 상장사/회사 적용)."
+    "threshold_decree": "자산·자본금 임계를 실제로 정하는 대통령령(상법 시행령) 조문. 임계는 법이 아니라 시행령이 정하므로(예: '자산 2조'=시행령 §33) 출처를 명시. 없으면 null(임계 없는 모든 상장사/회사 적용).",
+    "paragraphs": "이 개정이 실제로 손댄 항(paragraph) 번호 배열. article 에 '제N항'이 있으면 그 항, 없고 이 배열도 null 이면 조문 전체. law_lookup 이 as_of 기준 시행예정·유예 중인 항을 항 단위로 표시하는 데 쓴다(260903). 원문 <개정 YYYY.M.D> 마커로 대조."
   },
   "provisions": [
     {
@@ -41,6 +42,7 @@
         }
       ],
       "threshold_decree": null,
+      "paragraphs": null,
       "sanction_scope": null,
       "table_content": "이사 충실의무 (회사+주주 양방향)",
       "table_applies_to": "모든 상장사",
@@ -69,6 +71,7 @@
         }
       ],
       "threshold_decree": null,
+      "paragraphs": null,
       "sanction_scope": null,
       "table_content": "사외이사 → 독립이사 명칭 변경",
       "table_applies_to": "모든 상장사 (공포+1년 유예)",
@@ -98,6 +101,7 @@
         }
       ],
       "threshold_decree": null,
+      "paragraphs": null,
       "sanction_scope": null,
       "table_content": "독립이사 의무선임 비율 1/3",
       "table_applies_to": "모든 상장사 (시행+1년 유예)",
@@ -133,6 +137,7 @@
         }
       ],
       "threshold_decree": "상법 시행령 §37①(감사위 의무설치·자산 2조+)·§36(자산총액 1천억+ 상근감사·자율 감사위 설치사 — 법 §542의10)",
+      "paragraphs": [4, 7],
       "sanction_scope": null,
       "table_content": "감사위원 합산 3% 룰 (사내·사외 무관)",
       "table_applies_to": "자산 2조+ 또는 1천억-2조 감사위 설치사",
@@ -162,6 +167,7 @@
         }
       ],
       "threshold_decree": "상법 시행령 §33(집중투표 특례 대상 — 자산 2조+)",
+      "paragraphs": null,
       "sanction_scope": null,
       "table_content": "자산 2조+ 집중투표 의무화 (정관 배제 불가)",
       "table_applies_to": "자산 2조+",
@@ -191,6 +197,7 @@
         }
       ],
       "threshold_decree": "상법 시행령 §37①(감사위 의무설치 — 자산 2조+)",
+      "paragraphs": [2],
       "sanction_scope": null,
       "table_content": "감사위원 분리선출 2명 이상 (기존 1명)",
       "table_applies_to": "자산 2조+",
@@ -220,6 +227,7 @@
         }
       ],
       "threshold_decree": null,
+      "paragraphs": null,
       "sanction_scope": "상장사 (과태료 제635조③제9호)",
       "table_content": "자사주 의무소각 (취득 후 1년 내) — 공포 즉시 시행",
       "table_applies_to": "모든 회사 (비상장 포함 · 과태료는 상장사만)",
@@ -249,6 +257,7 @@
         }
       ],
       "threshold_decree": null,
+      "paragraphs": null,
       "sanction_scope": null,
       "table_content": "자사주 합병·분할 시 신주 배정 금지",
       "table_applies_to": "모든 회사",
@@ -278,6 +287,7 @@
         }
       ],
       "threshold_decree": "상법 시행령(§542의14 규모 — 별도 대통령령으로 정함)",
+      "paragraphs": null,
       "sanction_scope": null,
       "table_content": "전자주주총회 의무 개최",
       "table_applies_to": "일정 규모+",

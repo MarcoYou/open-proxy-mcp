@@ -1,7 +1,7 @@
 ---
 type: readme
 title: rules/laws/ — 한국 자본시장 법령 자료
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # wiki/rules/laws/ — 한국 자본시장 법령 자료
@@ -29,7 +29,7 @@ updated: 2026-09-02
 
 | 파일 | 종류 | 용도 |
 |---|---|---|
-| **`law_provisions.json`** (패키지) | 원본(SSOT) | 조항 대장(9개). 조문번호·**시행일·공포일**·유예도래일(obligation_date)·적용대상 티어(scope)·최초주총 적용(first_agm_trigger)의 유일 출처. md 표 자동생성 + 엔진 날짜 검증의 기준 |
+| **`law_provisions.json`** (패키지) | 원본(SSOT) | 조항 대장(9개). 조문번호·**시행일·공포일**·유예도래일(obligation_date)·적용대상 티어(scope)·최초주총 적용(first_agm_trigger)·**개정 항 번호(paragraphs, 260903)**의 유일 출처. md 표 자동생성 + 엔진 날짜 검증 + `law_lookup` 항 단위 시행 표지의 기준 |
 | **`상법-2025-2026-종합.md`** | 사람 가독 | 1·2·3차 상법 개정 + 정관 우회 시나리오 + catalog. **유일 master**. '시행 타임라인' 표는 원본에서 자동생성(AUTOGEN 마커 — 직접 수정 금지) |
 | **`law_layer_rules.json`** (패키지) | 머신리더블 | proxy_advise._law_layer 직접 로드. 실제 개수는 `/health` 의 `data.law_rules` 로 본다 — 여기 숫자를 적으면 손으로 맞춰야 하고, 260814 에 docstring 이 「36 룰」인 채 실물은 40룰로 갈라져 있었다. 각 룰의 `provision` 필드가 원본 조항을 가리킴 |
 
@@ -47,6 +47,18 @@ updated: 2026-09-02
 3. 엔진 발화 시점(`law_layer_rules.json`의 `applies_after`)을 바꿔야 하면 거기서 수정
 4. `python3 scripts/wiki_lint.py --strict` → 검사[7]이 원본↔md표↔엔진 3자 정합 확인
    (날짜를 한 곳만 고쳐 나머지가 어긋나면 CI 실패)
+
+### 조항이 손댄 항(paragraph) — `paragraphs` 필드 (260903)
+`law_lookup`은 SSOT 조항을 **조문번호로 직접** 후보 조문에 맞추고, `article`의 '제N항' 또는 `paragraphs`
+배열로 항을 좁혀 `as_of` 기준 「시행예정 YYYY-MM-DD」·「유예 종료 YYYY-MM-DD」 표지를 **그 항 옆에** 붙인다.
+corpus 스냅샷이 개정 본문을 이미 담고 있어서(상법 법률 2026-03-06 시행본) 전문이 '현행'이어도 항은 미시행일
+수 있기 때문이다. 규칙:
+- `article`에 '제N항'이 있으면 그 항(§542의7③·§542의8①·§341의4①). 둘 다 없으면 **조문 전체**(§382의3·§542의14).
+- 한 조문에 여러 개정이 걸리면(§542의12: 1차 합산3% = ④⑦, 2차 분리선출 = ②) `paragraphs`로 나눈다.
+  원문 `<개정 YYYY.M.D>` 마커로 대조해 적는다 — `tests/test_law_lookup_effective_gates.py`가 가리킨 항이
+  원문에 실재하는지 확인한다.
+- 시행령 조문은 SSOT 밖(`threshold_decree`는 임계 출처일 뿐) — 표지가 붙지 않는다.
+- 새 조항을 넣을 때 항을 모르면 `null`로 두면 조문 전체로 표시된다. 틀린 항보다 넓은 표지가 낫다.
 
 ### 룰 패턴/판단 변경 시 (날짜 외)
 → `law_layer_rules.json` JSON 수정 (코드 변경 X)

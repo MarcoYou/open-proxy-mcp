@@ -29,7 +29,7 @@ from open_proxy_mcp.services.contracts import (
     build_filing_meta,
     build_usage,
 )
-from open_proxy_mcp.services.shareholder_meeting_parser import parse_personnel_xml
+from open_proxy_mcp.services.shareholder_meeting_parser import is_outside_role, parse_personnel_xml
 from open_proxy_mcp.services.company import company_not_found_warning
 
 
@@ -1308,9 +1308,8 @@ def count_outside_director_positions(
 
 
 def _is_outside_director_role(role_type: str) -> bool:
-    """사외이사/독립이사 role 식별."""
-    rt = role_type or ""
-    return any(k in rt for k in ("사외", "독립"))
+    """사외이사/독립이사 role 식별 — 어휘는 파서의 `is_outside_role` 한 벌을 쓴다."""
+    return is_outside_role(role_type)
 
 
 # 갭C (260710): 같은 회사 사외이사 재직 5년+ = 장기연임(독립성 훼손 우려).
@@ -1842,7 +1841,8 @@ def apply_roster_employee_check(
         if not (cbk[0] and mbk[0]):
             continue                      # 생년 대조 불가 → 신호로 쓰지 않는다(오탐 방지)
         dt = (m.get("director_type") or "").strip()
-        if m.get("full_time") == _FULLTIME_YES and "사외" not in dt:
+        # 임원현황 등기구분도 2026-07-23 이후 보고서부터 「독립이사」로 온다 — 같은 어휘로 본다
+        if m.get("full_time") == _FULLTIME_YES and not is_outside_role(dt):
             hits.append(m)
     if not hits:
         return
