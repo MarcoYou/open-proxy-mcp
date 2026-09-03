@@ -159,9 +159,17 @@ Pass2 나머지만 `birth_ym` 매칭(그 값이 남은 후보군에서 유일할
 기준이라, `compensation` scope의 사업보고서 기반 소진율과 연도 기준·집계 정의가 다를 수 있음(둘 다
 사실, 출처 다름). 찬반 판단 자체는 하지 않음(→ [[proxy_advise_before_meeting]]).
 
-**주의**: pay_agenda는 `year` 파라미터를 무시하고 항상 **최근 주총 소집공고**를 본다(주총은 연 1회라
-'올해 안건' 자체가 최신). 소집공고 안건 파싱에 실패하면 **compensation 표 승인한도 YoY로 폴백**하고
-출처를 밝힌다.
+**주의**: pay_agenda는 `year` 파라미터를 무시하고 **최근 정기주총 소집공고**를 본다(보수한도 승인은
+정기주총 안건이라 '올해 안건' 자체가 최신). "최근 공고"가 아니다 — 임시주총이 정기 뒤에 끼는 회사에서
+`auto`(임박 회차 우선)로 고르면 보수한도 안건이 없는 임시 공고를 읽는다(2026-09-04 실측 고려아연:
+09-09 임시주총 공고가 최신이라 3월 정기 제6호 120억 한도를 놓치고 `no_agenda`. 애경케미칼도 동일).
+그래서 `shareholder_meeting_notice(meeting_type="annual", lookback_months=13)` 경로로 list.json을
+`pblntf_detail_ty=E006`으로 먼저 좁힌 뒤 본문 정기/임시 표기로 고른다. 13개월인 이유: 12개월은 360일이라
+매년 같은 날 나오는 정기 공고가 성수기 직전에 며칠씩 구간 밖으로 밀린다. 구간에 정기 공고가 없고 임시만
+있으면 `status=no_annual_notice` + warnings에 임시주총 회의일·rcept를 적고(`data_quality_flags`
+kind `no_annual_notice`, 파싱 실패와 구분), 결과엔 근거 공고 `notice_rcept_no`·`meeting_date`를 싣는다.
+소집공고 안건 파싱에 실패하면 **compensation 표 승인한도 YoY로 폴백**하고 출처를 밝힌다(summary scope만 —
+pay_agenda 단독 scope는 compensation 표를 안 받으므로 폴백 없음).
 
 **`no_agenda`는 대개 정상 폴백이다** — 보수한도 안건 자체가 없거나(그 해 이사선임만), "규정 신설"류
 정관변경이라 금액이 없거나, 승인안건이 아닌 후보자 참고표인 경우다. `client.py`의 IMAGE_NOTICE
@@ -403,11 +411,13 @@ sequenceDiagram
 | `hmvAuditIndvdlBySttus` | 개인별 보수(5억+) |
 | `unrstExctvMendngSttus` | 미등기 집행임원 인원·연급여총액·1인평균 |
 | `empSttus` | 직원 부문·성별 인원·평균급여 (pay_gap 분모) |
-| shareholder_meeting notice (재사용) | 보수한도 주총안건 current/prior (pay_agenda) |
+| shareholder_meeting notice (재사용, `meeting_type=annual`) | 최근 정기주총 보수한도 안건 current/prior (pay_agenda) |
 | 사업보고서 원문 (document.xml) | 각주 본문 해소 + 이사회 출석률(attendance) + 보수 산정기준 VIII-2(pay_criteria) |
 | `hmvAuditIndvdlBySttus` (재사용) | pay_criteria 하이브리드 교차검증(파서 Σ vs API 공식총액) |
 
 ## 변경 이력
+- 2026-09-04: `pay_agenda` 회차 선택을 최근 공고(auto) → **최근 정기주총 소집공고**(annual, E006, 13개월)로.
+  임시주총만 있으면 `no_annual_notice` + warnings. 근거 공고 rcept·회의일 노출.
 - 2026-08-06: 검증 census·발견 경위 서술을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-07-30: roster 현재 명단을 최신 정기보고서 사다리로 + `changes_since_last_annual` 신설.
 - 2026-07-13: `pay_criteria` scope 신설(원문 VIII-2 파서 + API 하이브리드 교차검증) ·

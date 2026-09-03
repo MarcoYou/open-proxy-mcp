@@ -866,35 +866,92 @@ async def _pay_gap_scope(
 
 # ── pay_agenda: 주총 보수한도 안건(올해 제안) vs 작년 실적 ────────────────────
 
-async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[str, Any]:
+# pay_agenda 소집공고 lookback. 12개월(=360일)은 매년 같은 날짜에 나오는 정기 소집공고가 며칠씩
+# 구간 밖으로 밀려 「정기 없음」이 될 수 있어(주총 성수기 직전) 한 달 여유를 둔다. 보수한도 안건은
+# 연 1회 정기주총 안건이므로 구간 안에 정기 공고는 항상 1건 이상 있어야 정상.
+_PAY_AGENDA_LOOKBACK_MONTHS = 13
+
+
+async def _pay_agenda_scope(
+    company_query: str, corp_code: str = "", *, warnings: list[str]
+) -> dict[str, Any]:
     """주총 소집공고의 '이사 보수한도 승인' 안건을 재사용해 올해 제안 한도 vs 작년 한도·실지급 비교.
 
     소집공고 하나에 current(올해 제안)·prior(작년 한도+실지급)가 모두 들어있어(shareholder_meeting
     notice가 이미 파싱), 별도 계산 없이 '작년 소진율'과 '올해 인상률'을 뽑아 보수한도 안건 의결권
     판단 신호를 만든다. 가치판단(찬반)은 하지 않고 인상률·작년소진율 사실만.
+
+    회차 선택은 **최근 정기주총 소집공고**(meeting_type="annual")다 — 보수한도 승인은 정기주총 안건이라
+    `auto`(임박한 회차 우선)로 고르면 임시주총이 정기 뒤에 끼는 회사에서 안건이 없는 공고를 읽는다
+    (260904 실측 고려아연: 09-09 임시주총 공고가 최신이라 3월 정기 제6호 보수한도 120억을 놓치고
+    no_agenda). 검색은 list.json `pblntf_detail_ty=E006`(주주총회소집공고)으로 먼저 좁힌 뒤 본문의
+    정기/임시 표기로 분류한다(shareholder_meeting 공용 경로). 정기 공고가 구간에 없고 임시만 있으면
+    그 사실을 warnings에 적는다.
     """
-    from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
+    from open_proxy_mcp.services.shareholder_meeting import (
+        build_shareholder_meeting_payload,
+        latest_notice_coverage,
+    )
 
     # 소집공고 파싱을 8초로 제한(perf 260709: 일부 회사가 DART viewer HTML crawl 폴백에 6~21초
     # 낭비하는데 warning상 "개선 안 됨"=무용. director_board는 실패 시 compensation 표 승인한도
     # YoY 폴백이 이미 있으므로 타임아웃하면 자동 대체된다 — 한솔케미칼 21.6초→8초).
     try:
         payload = await asyncio.wait_for(
-            build_shareholder_meeting_payload(company_query, scope="compensation"), timeout=8.0)
+            build_shareholder_meeting_payload(
+                company_query, scope="compensation", meeting_type="annual",
+                lookback_months=_PAY_AGENDA_LOOKBACK_MONTHS,
+            ),
+            timeout=8.0)
     except asyncio.TimeoutError:
         warnings.append("[pay_agenda] 소집공고 파싱 8초 초과 — 사업보고서 승인한도 YoY 폴백으로 대체.")
         return {"status": "no_agenda",
                 "note": "주총 소집공고 파싱 타임아웃(viewer crawl) — 사업보고서 한도 YoY 폴백 사용."}
+    pdata = payload.get("data") or {}
+
+    # 정기 소집공고 자체가 구간에 없는 갈래 — 임시주총만 있는지 확인해 이유를 남긴다.
+    if payload.get("status") == AnalysisStatus.NO_FILING.value and corp_code:
+        try:
+            coverage = await asyncio.wait_for(
+                latest_notice_coverage(corp_code, lookback_months=_PAY_AGENDA_LOOKBACK_MONTHS),
+                timeout=8.0)
+        except (asyncio.TimeoutError, DartClientError):
+            coverage = {}
+        extraordinary = coverage.get("latest_extraordinary") or None
+        window = pdata.get("requested_window") or {}
+        span = f"{window.get('start_date', '')}~{window.get('end_date', '')}".strip("~")
+        if extraordinary:
+            when = extraordinary.get("meeting_date") or extraordinary.get("notice_date") or ""
+            warnings.append(
+                f"[pay_agenda] 조회 구간({span}) 소집공고는 임시주총({when}, rcept "
+                f"{extraordinary.get('notice_rcept_no', '')})뿐 — 보수한도 승인은 정기주총 안건이라 "
+                "임시주총 공고엔 없음(종합 조회에서는 사업보고서 승인한도 전년비로 대신함).")
+            return {"status": "no_annual_notice",
+                    "note": "조회 구간에 정기주총 소집공고 없음(임시주총 공고만) — 보수한도 안건 미확보.",
+                    "extraordinary_notice": extraordinary}
+        warnings.append(f"[pay_agenda] 조회 구간({span})에 정기주총 소집공고 없음"
+                        "(종합 조회에서는 사업보고서 승인한도 전년비로 대신함).")
+        return {"status": "no_annual_notice",
+                "note": "조회 구간에 정기주총 소집공고 없음 — 보수한도 안건 미확보."}
+
     for w in (payload.get("warnings") or []):
         warnings.append(f"[notice] {w}")
-    items = ((payload.get("data") or {}).get("compensation") or {}).get("items") or []
+    items = (pdata.get("compensation") or {}).get("items") or []
     director_item = next(
         (it for it in items if "이사" in (it.get("target") or "") and "감사" not in (it.get("target") or "")),
         items[0] if items else None,
     )
+    notice = pdata.get("notice") or {}
+    notice_ref = {
+        "notice_rcept_no": notice.get("rcept_no"),
+        "notice_date": notice.get("disclosure_date"),
+        "meeting_date": (pdata.get("selected_meeting") or {}).get("meeting_date"),
+        "meeting_type": pdata.get("meeting_type"),
+    }
     if not director_item:
         return {"status": "no_agenda",
-                "note": "최근 주총 소집공고에 이사 보수한도 안건이 없거나 파싱 실패."}
+                "note": "최근 정기주총 소집공고에 이사 보수한도 안건이 없거나 파싱 실패.",
+                **notice_ref}
 
     cur = director_item.get("current") or {}
     pri = director_item.get("prior") or {}
@@ -917,6 +974,7 @@ async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[
             signal = f"한도 동결/인하({limit_change_pct:+.1f}%)."
 
     return {
+        **notice_ref,
         "agenda_no": director_item.get("number"),
         "agenda_title": director_item.get("title"),
         "proposed_limit_krw": proposed,
@@ -925,7 +983,7 @@ async def _pay_agenda_scope(company_query: str, *, warnings: list[str]) -> dict[
         "limit_change_pct": limit_change_pct,
         "prior_utilization_pct": prior_util,
         "signal": signal,
-        "note": "주총 소집공고 보수한도 안건의 current(올해 제안)/prior(작년 한도·실지급) 컬럼 재사용. "
+        "note": "최근 정기주총 소집공고 보수한도 안건의 current(올해 제안)/prior(작년 한도·실지급) 컬럼 재사용. "
                 "인상률·작년 소진율은 사실 — 찬반 판단은 의결권 자문 도구(proxy_advise_before_meeting)에서 합니다.",
     }
 
@@ -1155,7 +1213,7 @@ async def build_director_board_payload(
             client, corp_code, year, lookback_years=lookback_years, comp_data=None, warnings=warnings),
             "pay_gap", timings)
     if scope in {"pay_agenda", "summary"}:
-        tasks["pay_agenda"] = _timed(_pay_agenda_scope(company_query, warnings=warnings),
+        tasks["pay_agenda"] = _timed(_pay_agenda_scope(company_query, corp_code, warnings=warnings),
                                      "pay_agenda", timings)
     if scope == "attendance":
         # v2(260709): 사업보고서 원문에서 개별 이사 출석률 파싱. summary 기본엔 제외 — 원문 fetch(8MB,
@@ -1313,9 +1371,13 @@ def _collect_data_quality_flags(data: dict[str, Any]) -> list[dict[str, Any]]:
     pa = data.get("pay_agenda") or {}
     if pa and not pa.get("proposed_limit_krw"):
         fb = bool(pa.get("fallback_limit_recent_krw"))
-        flags.append({"scope": "pay_agenda", "kind": "parse_failed",
+        # 정기 소집공고가 없어서(임시주총만) 못 읽은 것은 파싱 실패가 아니다 — kind를 구분한다.
+        no_annual = pa.get("status") == "no_annual_notice"
+        flags.append({"scope": "pay_agenda",
+                      "kind": "no_annual_notice" if no_annual else "parse_failed",
                       "severity": "info" if fb else "warn", "fallback_used": fb,
-                      "detail": "주총 소집공고에서 보수한도 안건 미파싱." +
+                      "detail": ("조회 구간에 정기주총 소집공고 없음(임시주총 공고만)."
+                                 if no_annual else "정기주총 소집공고에서 보수한도 안건 미파싱.") +
                                 (" 사업보고서 승인한도 YoY로 폴백 제공." if fb
                                  else " 폴백도 불가(compensation 연도별 한도 부족).")})
 
