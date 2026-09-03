@@ -26,7 +26,10 @@ dependencies = [
 text = "LicenseRef-PolyForm-Noncommercial-1.0.0"
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = [
+    "duckdb>=1.5.5",
+    "pytest>=8.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
