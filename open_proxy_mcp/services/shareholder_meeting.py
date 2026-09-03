@@ -403,6 +403,35 @@ def _seat_count_in_title(title: str) -> int | None:
     return n if 1 <= n <= 30 else None
 
 
+def _is_cumulative_title(title: str) -> bool:
+    t = title or ""
+    return "집중투표" in t or "누적투표" in t
+
+
+def _election_seats_for_group(
+    parent_title: str | None,
+    notice_text: str,
+) -> tuple[int | None, str | None, str | None]:
+    """한 선거(형제 묶음)의 **선출 인원**과 그 출처. (seats, quote, source).
+
+    🔴 순서가 뜻을 정한다 (2026-09-04 실측 고려아연 임시주총). 부모 「집중투표의 방법으로
+    이사 4인 선임의 건」은 4석을 제목에 박아 두었는데, 자식 후보 넷은 공고 전체에서
+    「다득표 N개」 문구만 찾다가 「몇 명을 뽑는지 읽지 못했습니다」로 떨어졌다 — 부모는
+    ✅ 인데 자식 전원 ⚠️ 인 모순이 그렇게 났다. **부모 제목이 그 선거의 정원이다.** 공고
+    본문의 다득표 규칙은 부모가 인원을 말하지 않을 때의 보조다(한국앤컴퍼니 제4호처럼).
+    인원을 세는 규칙은 proxy_advise._seat_count 한 벌만 쓴다(역할별 나열은 합산).
+    """
+    if parent_title:
+        from open_proxy_mcp.services.proxy_advise import _seat_count
+        n = _seat_count(parent_title)
+        if n:
+            return n, re.sub(r"\s+", " ", parent_title).strip(), "parent_title"
+    seats, quote = _elected_seats_in_notice(notice_text)
+    if seats is not None:
+        return seats, quote, "notice"
+    return None, None, None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 안건 사이의 관계 (260828) — 「같은 자리를 두고 맞선 안건에 같은 ✅ 를 주지 않는다」
 #
@@ -608,28 +637,63 @@ def build_agenda_relation_links(
         if not _is_election_title(r.get("title") or ""):
             continue
         groups.setdefault(((r.get("parent_number") or ""), r["category"]), []).append(r)
+    by_number = {r.get("number"): r for r in rows}
     for (_parent, _cat), group in groups.items():
         board = [r for r in group if r.get("proposer_type") == "company"]
         holder = [r for r in group if r.get("proposer_type") == "shareholder_proposal"]
         if not board or not holder:
             continue          # 한쪽뿐이면 경합이 아니다 — 금호석유화학이 여기서 걸러진다
         scope = _seat_scope(group[0].get("title") or "") or "이사"
-        # 🔴 몇 자리를 뽑는지가 이 관계의 뜻을 바꾼다 — 한 자리면 택일, 여러 자리면 상한이다.
-        seats, seats_quote = _elected_seats_in_notice(notice_text)
+        # 🔴 몇 자리를 뽑는지가 이 관계의 뜻을 바꾼다 — 한 자리면 택일, 여러 자리면 상한이고,
+        #    **자리가 후보 수 이상이면 경합이 아니다.** 정원은 부모 안건 제목이 먼저 말한다
+        #    (「이사 4인 선임」) — 자식은 부모의 정원·집중투표 여부를 물려받는다. 부모 행이
+        #    rows 에 없으면(호출측이 자식만 넘긴 경우) 자식 행의 `parent_title` 로 받는다.
+        parent_row = by_number.get(_parent) if _parent else None
+        parent_title = ((parent_row or {}).get("title")
+                        or next((r.get("parent_title") for r in group if r.get("parent_title")), None)
+                        or "")
+        seats, seats_quote, seats_source = _election_seats_for_group(parent_title, notice_text)
+        cumulative = _is_cumulative_title(parent_title) or any(
+            "cumulative_voting_title" in (r.get("agenda_relation_reasons") or []) for r in group)
         n_cand = len(group)
-        if seats is not None and seats >= 2 and n_cand > seats:
-            _how = (f"이 묶음은 후보 {n_cand}명 중 **{seats}명**을 뽑습니다 — "
-                    f"**최대 {seats}명까지 찬성할 수 있습니다.** 진영을 하나로 정할 필요는 "
-                    f"없고, 양쪽에서 골라도 됩니다. 다만 {seats}명을 넘겨 찬성하면 표가 "
-                    f"흩어집니다." + (f" 근거: 「…{seats_quote}…」" if seats_quote else ""))
+        _basis = ""
+        if seats_quote:
+            _basis = (f" 근거: 부모 안건 「{seats_quote}」" if seats_source == "parent_title"
+                      else f" 근거: 「…{seats_quote}…」")
+        if seats is not None and seats >= n_cand:
+            # 🤝 자리가 후보 수 이상 — 같은 선거에 양쪽 후보가 올라와 있을 뿐 맞서는 것이
+            #    아니다. 실측 고려아연 제2호: 집중투표 4석에 후보 4명(주주제안 2·이사회 2).
+            #    여기서 「둘 다 불가」·「몇 명을 뽑는지 못 읽었다」를 붙이면 던질 수 있는 표를
+            #    지운다. 관계는 남기되(제안 주체가 갈린 사실은 판을 보는 재료다) 판정은 막지 않는다.
+            _how = (f"이 선거는 {'집중투표 ' if cumulative else ''}**{seats}석**에 후보 "
+                    f"{n_cand}명이라 자리가 후보 수 이상입니다 — **전원 찬성이 가능**하고 진영을 "
+                    f"고를 필요가 없습니다."
+                    + (" 집중투표이므로 보유 의결권 × 석수를 후보에게 나눠 던지는 구조입니다 — "
+                       "특정 후보를 밀려면 표를 몰아야 합니다." if cumulative else "")
+                    + _basis)
+            link_type = "same_election"
+        elif seats is not None and seats >= 2 and n_cand > seats:
+            if cumulative:
+                _how = (f"이 선거는 **집중투표 {seats}석**에 후보 {n_cand}명입니다 — 보유 의결권 × "
+                        f"{seats} 를 후보에게 나눠 던집니다. 진영을 하나로 정할 필요는 없지만 "
+                        f"**{seats}명을 넘겨 찬성하면 표가 흩어져** 아무도 밀지 못합니다. "
+                        f"몰아줄 후보를 정하세요." + _basis)
+            else:
+                _how = (f"이 묶음은 후보 {n_cand}명 중 **{seats}명**을 뽑습니다 — "
+                        f"**최대 {seats}명까지 찬성할 수 있습니다.** 진영을 하나로 정할 필요는 "
+                        f"없고, 양쪽에서 골라도 됩니다. 다만 {seats}명을 넘겨 찬성하면 표가 "
+                        f"흩어집니다." + _basis)
+            link_type = "contested"
         elif seats == 1 or (seats is None and n_cand == 2):
             _how = ("**둘 다 찬성할 수 없습니다.** 어느 진영을 지지할지 먼저 정하고 "
-                    "그 진영의 안건에만 찬성하세요.")
+                    "그 진영의 안건에만 찬성하세요." + _basis)
+            link_type = "contested"
         else:
             # 못 읽었으면 숫자를 지어내지 않는다 — 무엇을 확인해야 하는지만 말한다.
             _how = (f"**몇 명을 뽑는지 이 공고에서 읽지 못했습니다** — 원문의 선출 인원을 "
                     f"먼저 확인하세요(후보는 {n_cand}명입니다). 후보 수보다 적게 뽑는다면 "
                     f"전원 찬성은 표를 나눕니다.")
+            link_type = "contested"
         for side, other, side_ko, other_ko in (
             (board, holder, "이사회제안", "주주제안"),
             (holder, board, "주주제안", "이사회제안"),
@@ -637,12 +701,18 @@ def build_agenda_relation_links(
             other_nos = [r["number"] for r in other]
             for r in side:
                 _add(r["number"], {
-                    "type": "contested",
+                    "type": link_type,
                     "with": other_nos,
                     "seats": seats,
+                    "seats_source": seats_source,
+                    "cumulative": cumulative,
                     "candidates": n_cand,
-                    "note": (f"{', '.join(other_nos)}({other_ko})과 같은 {scope} 자리를 두고 "
-                             f"맞선 {side_ko} 안건입니다 — {_how}"),
+                    "note": (
+                        (f"{', '.join(other_nos)}({other_ko})과 같은 {scope} 선거에 오른 "
+                         f"{side_ko} 안건입니다 — {_how}")
+                        if link_type == "same_election" else
+                        (f"{', '.join(other_nos)}({other_ko})과 같은 {scope} 자리를 두고 "
+                         f"맞선 {side_ko} 안건입니다 — {_how}")),
                 })
 
     # ── ② 선행 의존 — 같은 자리의 해임이 같은 주총에 올라와 있다 ────────────────
@@ -728,6 +798,8 @@ def build_agenda_relation_links(
 AGENDA_RELATION_LINK_LABEL = {
     # 자리 수를 모를 때의 기본 문구. 자리가 둘 이상이면 아래 함수가 갈아 끼운다.
     "contested": "⚔️ {nos}와 경합 — 선출 인원 확인 필요",
+    # 자리가 후보 수 이상 — 제안 주체는 갈리지만 맞서는 것이 아니다(판정을 막지 않는다).
+    "same_election": "🤝 {nos}와 같은 선거 — 전원 찬성 가능",
     "depends_on": "🔗 {nos} 가결이 전제",
     "precedes": "🔗 {nos} 선임의 선행 안건",
     "conditional_on": "🔗 {nos} 결과에 연동",
@@ -742,9 +814,17 @@ def agenda_relation_link_label(link: dict[str, Any]) -> str:
         #    본문을 안 읽은 사람이 자리 둘짜리 안건에서 표를 버린다(2026-08-30 U 6차).
         seats = link.get("seats")
         if isinstance(seats, int) and seats >= 2:
+            if link.get("cumulative"):
+                return f"⚔️ {nos}와 경합 — 집중투표 {seats}석, {seats}명 넘겨 찬성하면 표 분산"
             return f"⚔️ {nos}와 경합 — {seats}명까지 찬성 가능"
         if seats == 1:
             return f"⚔️ {nos}와 경합 — 둘 다 찬성 불가"
+    if link.get("type") == "same_election":
+        seats = link.get("seats")
+        n = link.get("candidates")
+        if isinstance(seats, int) and isinstance(n, int):
+            return (f"🤝 {nos}와 같은 선거 — {'집중투표 ' if link.get('cumulative') else ''}"
+                    f"{seats}석에 후보 {n}명, 전원 찬성 가능")
     tpl = AGENDA_RELATION_LINK_LABEL.get(link.get("type") or "", "")
     return tpl.format(nos=nos) if tpl else ""
 
