@@ -54,6 +54,7 @@ from open_proxy_mcp.services.financial_metrics import (
     latest_annual_report_before,
 )
 from open_proxy_mcp.services.ownership_structure import build_ownership_structure_payload
+from open_proxy_mcp.services.shareholder_meeting_parser import is_outside_role
 from open_proxy_mcp.services.shareholder_meeting import (
     build_shareholder_meeting_payload,
     resolve_latest_meeting_year,
@@ -881,7 +882,8 @@ def _classify_agenda(agenda_title: str, parent_title: str = "") -> str:
         return "treasury_share"
     if "배당" in t or "이익잉여금" in t:
         return "cash_dividend"
-    if "사외이사" in t or ("이사" in t and "선임" in t and "감사위원" not in t):
+    if ("사외이사" in t or "독립이사" in t
+            or ("이사" in t and "선임" in t and "감사위원" not in t)):
         return "director_election"
     if "감사위원" in t and "선임" in t:
         return "audit_committee_election"
@@ -1294,7 +1296,7 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     if not eval_match:
         return "NO_DATA", "후보 평가 데이터 없음 — 본문 검토 필요"
     role_type = eval_match.get("role_type") or ""
-    is_outside = "사외" in role_type or "outside" in role_type.lower() or "독립" in role_type
+    is_outside = is_outside_role(role_type)
     is_audit = "감사" in role_type
     # iter21: audit role 또는 audit-force는 사내이사 fallback X — strict 검증
     if is_audit or eval_match.get("_audit_force_strict"):
@@ -1326,7 +1328,7 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
             # 260724 스튜어드십 리뷰: 상근감사(감사위원 아님)에는 시행령 §34⑤7호(사외이사
             # 전용 결격)를 인용하지 않는다 — 장기재직 REVIEW 결론은 유지하되 소프트 경보로 서술.
             _rt = (eval_match.get("role_type") or "")
-            _statutory = ("감사" in _rt) and ("감사위원" not in _rt) and ("사외" not in _rt)
+            _statutory = ("감사" in _rt) and ("감사위원" not in _rt) and not is_outside_role(_rt)
             _who = ("감사(상근·감사위원 아님)" if _statutory
                     else "감사위원(사외)" if _is_audit else "사외이사")
             _audit_note = "(감사위원=사외이사 자격 동일 문턱, 독립성 가중)" if (_is_audit and not _statutory) else ""
@@ -1772,7 +1774,7 @@ _RETIREMENT_AGAINST_KEYWORDS_AFTER = (
     "황금낙하산", "Golden Parachute", "golden parachute",
     "경영권 변동", "경영권의 변동", "M&A시", "M&A 시",
 )
-_RETIREMENT_OUTSIDE_DIRECTOR_KEYWORDS = ("사외이사",)  # OPM #6
+_RETIREMENT_OUTSIDE_DIRECTOR_KEYWORDS = ("사외이사", "독립이사")  # OPM #6 — 상법 §542의8 명칭 변경 후 표기 포함
 _RETIREMENT_REVIEW_KEYWORDS_AFTER = (
     # 진짜 위험 신호만 (sample 분석 결과)
     "지급률", "배수", "특별공로금", "명예퇴직", "전직",
@@ -2584,7 +2586,7 @@ def _candidate_review_profile(eval_match: dict[str, Any]) -> dict[str, Any]:
     회사 context는 후보 개인 판단 근거로 섞지 않는다.
     """
     role = eval_match.get("role_type") or ""
-    is_outside = any(k in role for k in ("사외", "독립"))
+    is_outside = is_outside_role(role)
     apt = eval_match.get("appointment_type") or {}
     faithfulness = eval_match.get("faithfulness") or {}
     concurrent = faithfulness.get("concurrent_outside_directors") or {}
@@ -2713,7 +2715,7 @@ def _retirement_multiplier_evidence(amendments: list[dict[str, Any]]) -> list[di
 
 
 def _retirement_target_expansion(amendments: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    target_keywords = ("사외이사", "비등기임원", "고문", "상담역", "전직", "명예퇴직")
+    target_keywords = ("사외이사", "독립이사", "비등기임원", "고문", "상담역", "전직", "명예퇴직")
     expanded: list[dict[str, Any]] = []
     for amendment in amendments:
         before = amendment.get("before") or ""
@@ -2925,7 +2927,7 @@ def _extract_facts(
             if five_y:
                 facts["tenure_status"] = five_y
             # 사내이사는 독립성 평가 비대상 — "충족"으로 오인 방지 (Ralph 9, 260510)
-            is_outside = any(k in role for k in ("사외", "독립"))
+            is_outside = is_outside_role(role)
             if is_outside:
                 facts["independence"] = (eval_match.get("independence") or {}).get("summary")
             else:
@@ -2958,7 +2960,7 @@ def _extract_facts(
                             "가르지 못했다 — 겸직 수는 원문으로 확인 필요")
         elif all_evals:
             # 묶음 안건 — 종합 fact (개별 매칭 X)
-            outsiders = sum(1 for e in all_evals if any(k in (e.get("role_type") or "") for k in ("사외", "독립")))
+            outsiders = sum(1 for e in all_evals if is_outside_role(e.get("role_type")))
             insiders = len(all_evals) - outsiders
             disq_red = sum(1 for e in all_evals if (e.get("disqualification") or {}).get("summary") == "red_flag")
             apt_new = sum(1 for e in all_evals if (e.get("appointment_type") or {}).get("type") == "new")
@@ -2974,7 +2976,7 @@ def _extract_facts(
             facts["candidate_summary"] = []
             for ev in all_evals[:10]:  # 묶음 최대 10명
                 role = ev.get("role_type") or ""
-                is_outside_ev = any(k in role for k in ("사외", "독립"))
+                is_outside_ev = is_outside_role(role)
                 apt_type = (ev.get("appointment_type") or {}).get("type")
                 indep = "비대상 (사내)"
                 if is_outside_ev:
@@ -4403,8 +4405,7 @@ async def _build_proxy_advise_payload(
                     ] or list(name_to_eval.values())
 
                 def _is_outside(ev):
-                    rt = (ev.get("role_type") or "")
-                    return "사외" in rt or "outside" in rt.lower() or "독립" in rt
+                    return is_outside_role(ev.get("role_type"))
 
                 outside_evals = [ev for ev in relevant_evals if _is_outside(ev)]
                 # red_flag 검증은 모든 후보
@@ -4491,11 +4492,12 @@ async def _build_proxy_advise_payload(
                 # 건다 — 거기에 REVIEW 를 덧씌우면 오탐이다(실측: 삼진식품 「감사위원이 되는
                 # 사외이사 …」 2건). 그래서 순수 이사선임에서만 본다.
                 _declared = (agenda_row.get("declared_role") or "") if isinstance(agenda_row, dict) else ""
-                if (_declared == "사외이사" and decision == "FOR"
+                # declared_role 은 원문 표기(사외이사·독립이사)라 문자열이 아니라 범주로 묻는다
+                if (is_outside_role(_declared) and decision == "FOR"
                         and category == "director_election"
                         and not (matched_eval or {}).get("_audit_force_strict")):
                     _rt = (matched_eval or {}).get("role_type") or ""
-                    if not any(k in _rt for k in ("사외", "독립", "감사")):
+                    if not (is_outside_role(_rt) or "감사" in _rt):
                         decision = "REVIEW"
                         reason = (f"공고는 사외이사 선임으로 밝혔는데 후보자 표 파싱은 "
                                   f"'{_rt or '미상'}' — 사외이사 독립성 검증(최대주주 관계·거래·"

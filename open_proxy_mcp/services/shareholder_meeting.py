@@ -274,14 +274,17 @@ def _agenda_nodes(
 
 #: 역할이 다르면 **함께 뽑는** 안건이지 택일이 아니다 — 「사내이사 2인」과 「사외이사 3인」은
 #: 상호배타가 아니라 상보적이다. 역할 수식어가 갈리면 시나리오 판정을 하지 않는다.
-_ROLE_WORDS = ("사내이사", "사외이사", "기타비상무이사", "감사위원", "감사")
+#: 「독립이사」는 「사외이사」와 같은 범위다(상법 §542의8 명칭 변경) — 좌석 예산과 시나리오
+#: 판정에서 둘을 다른 역할로 보면 같은 선거를 두 선거로 쪼갠다.
+_ROLE_WORDS = ("사내이사", "사외이사", "독립이사", "기타비상무이사", "감사위원", "감사")
+_ROLE_SCOPE_ALIAS = {"독립이사": "사외이사"}
 
 
 def _role_scope(title: str) -> str:
     t = (title or "").replace(" ", "")
     for w in _ROLE_WORDS:
         if w.replace(" ", "") in t:
-            return w
+            return _ROLE_SCOPE_ALIAS.get(w, w)
     return ""
 
 

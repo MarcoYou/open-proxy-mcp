@@ -368,15 +368,25 @@ def test_declared_role_absent_when_title_is_silent():
 
 # ── 상법 1차 개정: 사외이사 → 독립이사 (§542의8, 시행 2026-07-23) ──────────
 def test_independent_director_is_the_same_role_as_outside_director():
-    """명칭만 바뀐 같은 직위다 — 시행 전후 공고가 섞이므로 둘 다 사외이사로 받는다."""
+    """명칭만 바뀐 같은 직위다 — 시행 전후 공고가 섞이므로 둘을 같은 범주로 본다.
+
+    260904: 종전엔 `declared_role` 에 「독립이사」를 「사외이사」로 **바꿔 적었다**. 그러자
+    후보자 표의 「독립이사」와 문자열이 갈려 거짓 충돌이 났다(실측 고려아연 2026-09 임시주총).
+    이제 산출물은 **원문 표기**를 남기고, 같은 직위인지는 `role_class` 로 묻는다.
+    """
+    from open_proxy_mcp.services.shareholder_meeting_parser import ROLE_OUTSIDE, role_class
     tree = [{"number": "제1호", "title": "이사 선임의 건", "children": [
         {"number": "제1-1호", "title": "독립이사 선임의 건 (후보자: 김철수)", "children": []},
         {"number": "제1-2호", "title": "사외이사 선임의 건 (후보자: 이영희)", "children": []},
         {"number": "제1-3호", "title": "사내이사 선임의 건 (후보자: 박민수)", "children": []},
     ]}]
     annotate_declared_role(tree)
-    assert [k["declared_role"] for k in tree[0]["children"]] == \
-        ["사외이사", "사외이사", "사내이사"], "독립이사도 사외이사로 취급"
+    kids = tree[0]["children"]
+    assert [k["declared_role"] for k in kids] == ["독립이사", "사외이사", "사내이사"], \
+        "원문 직위명을 그대로 남긴다 — 공고에 없는 말을 만들지 않는다"
+    assert role_class(kids[0]["declared_role"]) == role_class(kids[1]["declared_role"]) == ROLE_OUTSIDE, \
+        "독립이사와 사외이사는 같은 범주"
+    assert role_class(kids[2]["declared_role"]) != ROLE_OUTSIDE
 
 
 def test_independent_director_normalises_like_outside_director():
