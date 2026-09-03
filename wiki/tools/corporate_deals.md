@@ -6,7 +6,7 @@ scope: [summary, equity_deal]
 data_source: [DART OpenAPI list.json (B/I) + 키워드 매칭 (타법인주식 4종) + document.xml (include_details=True 시 본문 파싱)]
 related_disclosures: [타법인주식및출자증권거래]
 related_concepts: [특수관계인, 동일인]
-related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
+related_decisions: [pblntf-ty-필터링]
 
 created: 2026-05-01
 updated: 2026-09-02
@@ -170,9 +170,9 @@ sequenceDiagram
 
 ## 관련 결정 (decisions/)
 - [[pblntf-ty-필터링]] — B/I 코드 사용
-- [[cross-domain-체이닝]] — RPT → OWN (지분 변화) / CORP (M&A 맥락) 체이닝
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — RPT → OWN (지분 변화) / CORP (M&A 맥락) 체이닝
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — related_party_transaction.summary 67.3% exact
 
 ## 알려진 issue + TODO

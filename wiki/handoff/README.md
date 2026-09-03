@@ -9,7 +9,7 @@
 
 핸드오프 문서는 **다 풀리고 나면 사라져야 하는 임시 메모**다. 항목이 해결되면:
 1. **durable한 지식**(왜 이렇게 됐는지, 재발방지, 방법론)은 알맞은 wiki 카테고리로 옮겨 문서화한다
-   — `lessons/`(작업 이유·회고) · `decisions/`(설계 결정) · `architecture/`(구조 변경) 등, 성격에 맞게.
+   — `decisions/`(설계 결정) · private storage `wiki-private/lessons/`(작업 이유·회고) 등, 성격에 맞게.
 2. 옮긴 뒤 **그 핸드오프 문서는 바로 삭제**한다(부분 해결이면 남은 항목만 남기고 해결분은 제거).
 3. 삭제/이관 후 **바로 `python3 scripts/wiki_lint.py --strict` 실행** — README 인덱스 drift·양방향
    link 결손을 즉시 잡는다. 이 폴더의 README도 색인에서 제거 항목을 함께 갱신.

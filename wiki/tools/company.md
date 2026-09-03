@@ -160,7 +160,7 @@ sequenceDiagram
 ## 관련 결정 (decisions/)
 - [[pblntf-ty-필터링]] — recent_filings 조회 시 pblntf_ty 필수
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — `company.summary` 98.5% exact (193/196 KOSPI 100 + KOSDAQ 96)
 
 ## 알려진 issue + TODO

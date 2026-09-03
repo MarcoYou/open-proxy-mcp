@@ -33,7 +33,7 @@ private lessons `open-proxy-storage/wiki-private/lessons/agenda-parser-validatio
 - 표본: 기존 캐시 재사용 + 신규분만 fetch(중복 회피). 시장 분산 — KOSPI + KOSDAQ + 엣지케이스 ~10.
   - 시장구분·업종(induty)은 Postgres `mkt_fundamentals`(mkt·corp_code·induty)에서 (DART 아님).
   - corp_code는 `configs/master.db` 또는 mkt_fundamentals.
-- **DART 하드룰 (절대 위반 금지 — 위반 시 24h IP 차단)**: 동시성 **1~2** · 콜 사이 **sleep 0.9s+** ·
+- **DART 하드룰 (절대 위반 금지 — 위반 시 그 키가 차단 — 실측 2~3시간)**: 동시성 **1~2** · 콜 사이 **sleep 0.9s+** ·
   `httpx.ReadError`/status `020`/`011`/`012` 감지 시 **즉시 ABORT**. 100+사는 fly machine 고려.
 - 저장: BS만 필요하면 BS행만(회사당 1~2콜), induty·mkt·fs_div 동봉(교차검증용). jsonl 한 줄=한 회사.
 - 스크립트 골격: `scripts/` 골격 섹션 참조. 실행 후 "abort=False·오류 목록"을 반드시 확인.

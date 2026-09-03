@@ -6,7 +6,7 @@ scope: [summary]
 data_source: [DART OpenAPI 주요사항보고서 DS005 4종 — cmpMgDecsn + cmpDvDecsn + cmpDvmgDecsn + stkExtrDecsn]
 related_disclosures: [회사합병결정, 회사분할결정, 회사분할합병결정, 주식교환·이전결정]
 related_concepts: [지분구조, 동일인]
-related_decisions: [pblntf-ty-필터링, cross-domain-체이닝]
+related_decisions: [pblntf-ty-필터링]
 
 created: 2026-05-01
 updated: 2026-09-02
@@ -137,9 +137,9 @@ sequenceDiagram
 
 ## 관련 결정 (decisions/)
 - [[pblntf-ty-필터링]] — DS005 코드 사용
-- [[cross-domain-체이닝]] — CORP → OWN (지분 변화) / AGM (관련 주총) 체이닝
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — CORP → OWN (지분 변화) / AGM (관련 주총) 체이닝
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — corporate_restructuring 14.8% exact (no_filing 84.2% 정상)
 
 ## 알려진 issue + TODO

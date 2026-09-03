@@ -6,7 +6,7 @@ scope: [summary, annual]
 data_source: [DART OpenAPI tsstkAqDecsn + tsstkDpDecsn + tsstkAqTrctrCnsDecsn + tsstkAqTrctrCcDecsn + list.json (소각결정 키워드), 사업보고서 tesstkAcqsDspsSttus (annual scope)]
 related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식처분결정, 자기주식소각결정, 자기주식신탁결정, 자기주식의무소각-2026신법, 사업보고서]
 related_concepts: [자사주, 주주환원]
-related_decisions: [배당공시유형, cross-domain-체이닝]
+related_decisions: [배당공시유형]
 created: 2026-05-01
 updated: 2026-09-02
 ---
@@ -163,9 +163,9 @@ sequenceDiagram
 
 ## 관련 결정 (decisions/)
 - [[배당공시유형]] — 자사주 5종 통합 비교
-- [[cross-domain-체이닝]] — TRS → DIV (CSR) / VUP (commitment) / OWN (잔고) 체이닝
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — TRS → DIV (CSR) / VUP (commitment) / OWN (잔고) 체이닝
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — treasury_share.summary 51.0% exact
 - 260429 5 API asyncio.gather 병렬화 — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 

@@ -5,16 +5,18 @@ domain: action
 scope: [decisions]
 data_source: [shareholder_meeting (notice), ownership_structure, corp_gov_report, financial_metrics, director_evaluation (internal), agm_first_agenda_fy (internal)]
 related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구조보고서]
-related_concepts: [의결권, 사외이사, 감사위원, 보수한도, 정관변경, 집중투표, 자본잠식, 신임/연임 detect]
+related_concepts: [의결권, 보수한도, 정관변경, 집중투표, 시점-제약, 연결-별도, 주총-결의]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # proxy_advise_before_meeting
 
 ## 한 줄 요약
 주총 **사전** 안건별 의결권 권고 + 명확한 결정 근거 한 번에. 1회 호출로 결정 + facts + risk + 정책 근거 + 후보 raw 모두.
+
+전제 개념: [[시점-제약]](`as_of`·기준연도 3단·감사의견 접수일) · [[연결-별도]](자본잠식 판정 = 지배주주 귀속) · [[주총-결의]](보통/특별결의 요건).
 
 ## scope
 

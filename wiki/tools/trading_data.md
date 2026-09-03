@@ -6,9 +6,9 @@ status: 등록 완료 (260824 — tools/trading.py)
 scope: [firm, quote, market, sector]
 data_source: [KRX stk/ksq_bydd_trd(일별매매정보), Supabase krx_weekly(주간 시세), Supabase krx_cap_agg(시장·섹터 시총 집계), Supabase krx_adj_events(기준가 조정), Supabase wise_sector(WICS 업종분류)]
 related_disclosures: []
-related_concepts: [시가총액, 상장주식수, 수정주가]
+related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24
-updated: 2026-08-24
+updated: 2026-09-04
 ---
 
 # trading_data
@@ -17,6 +17,8 @@ updated: 2026-08-24
 가격과 **규모** 그 자체 — 종목의 주가·시가총액·상장주식수 시계열(주간, 2015-12~), 시장·섹터
 시총 집계 시계열, 특정 거래일의 전체 시세(OHLC·거래량·거래대금·등락률). 배수(PER·PBR)는
 [[price_multiple_data]] 가 맡는다.
+
+전제 개념: [[시가총액]](상장주식수 × 종가, `krx_weekly` 단일 소스) · [[단위-표기-규약]](`_krw`·`list_shrs`).
 
 ## 왜 갈랐나 (260824)
 한 tool(`valuation`) 이 배수와 규모를 함께 들고 있었다. 그런데 둘은 다른 질문이다 —
@@ -85,7 +87,7 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 | 스크립트 | 무엇을 | 언제 |
 |---|---|---|
 | `scripts/krx_cap_agg.py` | `krx_cap_agg` 재적재 (44,636행 · 8MB) | 일간 (krx_weekly 갱신 후) |
-| `scripts/refresh_wics.py` | `wise_sector` 업종분류 관측 | 월 1회 ([[wics-monthly]] cron) |
+| `scripts/refresh_wics.py` | `wise_sector` 업종분류 관측 | 월 1회 (`.github/workflows/wics-monthly.yml` cron) |
 
 ## 성능 (실측 260824)
 | 질의 | 사전계산 전 | 후 |

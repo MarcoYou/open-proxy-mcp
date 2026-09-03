@@ -159,8 +159,8 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + B외국계 �
   - 다양성 (성별·전문성 — 자본시장법 §165의20 ②)
   - LID 자율 도입, ESG·기후 위원회 위원
 - **against** (7/11 5/5 합의 + 4 OPM 강화):
-  - 사외이사 5년 룰 위반 (강행 §542의8)
-  - 6년 초과 재직 (계열사 합산 9년 — 강행)
+  - 사외이사 장기연임 5년+ — **OPM 자체 조기경보**(성문 규정 없음, 법정 결격 아님)
+  - 6년 초과 재직 (계열사 합산 9년) — 상법 시행령 §34⑤ 7호 **결격사유(강행)**
   - 과도 겸임 (사외이사 3개사 / 상장사 임원 2개사)
   - 이사회 출석률 75% 미만
   - 기업가치 훼손 / 주주권익 침해 이력
@@ -178,7 +178,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + B외국계 �
 ### 2.5 감사위원·감사 선임 (audit_committee_election)
 
 - **for**:
-  - 감사위원 분리선출 (§542의12 ④) — 2026.09 신법 2명 확대
+  - 감사위원 분리선출 (§542의12 ②) — 2026.09 신법(2차 개정) 2명 확대
   - 자산 2조 미만 회사 자율 감사위원회 설치
 - **against**:
   - 3% 룰 회피 목적 감사위원회 도입 (강행 §409 ②) — 5/5 만장일치
@@ -346,11 +346,11 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + B외국계 �
 ## 5. 한국 특수 룰
 
 - **§382의3 (2025) 충실의무 확장** — 모든 카테고리 적용 (회사+주주 양방향). A7 게임체인저
-- **§409 ② + §542의12 ④ 감사위원 분리선출 + 3% 룰** — for 강력
+- **§542의12 ② 감사위원 분리선출 + §409 ②·§542의12 ④ 3% 룰(최대주주 합산, 2026-07-23부터 사외이사 여부 무관)** — for 강력
 - **§382의2 + §542의7 집중투표** — 정관 배제 against, 청구권 사용 권고
 - **§366 소수주주 임시주총 소집청구권** — 강행규정, 정관 자치로 축소 시 against 절대
 - **§418 ② 제3자 신주배정** (경영상 목적 강행) — 위반 시 against
-- **§542의8 ② 사외이사 6년 룰 + 5년 룰** — 강행규정
+- **상법 시행령 §34⑤ 7호 사외이사 6년(계열 합산 9년) 결격** — 강행규정 / 5년은 OPM 자체 조기경보(성문 규정 아님)
 - **§340의2/§340의4 스톡옵션** 강행규정 (2년 vesting, repricing 금지)
 - **§341/§342 자기주식** — 2026.03 신법 1년 내 의무소각
 - **§530의12 물적분할** — 2026.07 신법 중복상장 원칙금지
@@ -410,7 +410,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + B외국계 �
 
 ### 8.2 산출물
 - **Open Proxy Guideline v1 JSON**: `open_proxy_mcp/data/asset_managers/policies/open_proxy_v1.json`
-- **매트릭스 시스템 문서**: `wiki/architecture/matrix-system.md` (구 `decision-matrix-design` + `matrix-auto-scoring` 통합)
+- **매트릭스 시스템 문서**: private storage `wiki-private/architecture/matrix-system.md` (구 `decision-matrix-design` + `matrix-auto-scoring` 통합, 260720 이관)
 - **토론 시뮬레이션 Transcript**: `wiki/decisions/260429_0059_debate_opm-guideline-7전문가.md`
 
 ### 8.3 관련 위키
@@ -459,7 +459,7 @@ OPM은 **8 운용사 평균 X**, 7 전문가 토론 + 2026 신법 + B외국계 �
 | **Director Accountability Extension** | reference — 거버넌스 실패자 미해임 시 그가 재직 모든 이사회에서 against |
 | **Two-tier Governance** | tier_1 — 자산 2조원+ 50% / 소형사 25% 정량 (한국 상법 §542의8 ① 정합) |
 | **Overboarded Outside Directors (>2 boards)** | tier_1 — concurrent_positions dim 강화 (한국 상법과 동일) |
-| **5-year Cooling-off** | tier_1 — outside_director_independence_5year (한국 상법 §542의8 ② 정합) |
+| **5-year Cooling-off** | tier_1 — outside_director_independence_5year (OPM 정책. 법정 냉각기간은 상법 §382③·§542의8② **2년**, 재임 상한은 시행령 §34⑤7호 6년/계열 9년 — 5년은 성문 규정이 아니다) |
 | **Stock Option Dilution** | tier_1 — 성숙기업 5% / 성장기업 10% 정량 (matrix_director_compensation 강화) |
 | **Pre-emption 20%** | tier_1 — preemptive_right dim 정량 (UK Pre-emption + B외국계 + 한국 상법 §418 ② 정합) |
 | **CB/BW Dilution 20%** | tier_1 — dilution_rate dim 강화 (신주발행과 동일 기준) |

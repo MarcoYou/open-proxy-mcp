@@ -6,9 +6,9 @@ status: 등록 완료 (260705 — tools/price_multiple_data.py) · 260824 `valua
 scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
-related_concepts: [배당수익률, 당기순이익, ROE]
+related_concepts: [배당수익률, 당기순이익, ROE, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-07-05
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # price_multiple_data
@@ -17,6 +17,8 @@ updated: 2026-09-02
 `valuation` → **`price_multiple_data`**. 「밸류에이션」이 배수(PER·PBR)와 규모(주가·시총)를 한 이름
 아래 묶고 있었는데, 실제로는 서로 다른 질문이고 파라미터가 서로 다투었다. 규모·거래 쪽은
 [[trading_data]] 로 갈랐다. 옛 이름의 사용통계는 `usage_tracker.TOOL_ALIASES` 가 접어 한 계열로 잇는다.
+
+전제 개념: [[PER-PBR]](산식 요약) · [[시가총액]](분자, 단일 소스 `_market_for`) · [[연결-별도]](분모 = 지배주주 귀속) · [[단위-표기-규약]].
 
 ## 한 줄 요약
 DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM) · PBR(MRQ) · 배당수익률. 지배주주
@@ -97,8 +99,8 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 - **섹터 소속 시계열**(sector scope + company 지정 시): `company_ctx.sector_history` —
   그 기업 소속 섹터의 78개월 전체 시계열(per_fy0·per_ttm·pbr_fy0·pbr_mrq·cap). md 렌더는 연말만
   발췌 표시, 전체는 json의 `data.company.sector_history`. 소규모(`_fold`) 섹터는 fold 버킷 시계열로 폴백.
-- **⚠ 방법론 이중성**: firm = 보통주 주가÷EPS(유통주식). 스냅샷 = **총시총(우선주 귀속)÷지배순이익**
-  (시총가중, 지수 표준) — 삼성 PER(TTM) 20.0(firm) vs 21.9(스냅샷)처럼 다를 수 있음. 출력에 명시.
+- **방법론 통일(260823)**: firm 도 스냅샷과 같이 **보통주 시총÷지배순이익**. 종전엔 firm=주가÷EPS 라 삼성 PER(TTM)
+  20.0(firm) vs 21.9(스냅샷)처럼 같은 이름으로 다른 정의가 나갔다. 남는 차이는 스냅샷 `cap_pref`(우선주 시총) 합산 여부.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
   조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수.
   - **단, firm scope 의 PER 은 EPS 기반이라 계수가 필요하다.** 위 「조정 불필요」는 **스냅샷**
@@ -137,12 +139,20 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 TTM 순이익   = ni_fy(연간) + ni_qc(1Q당해) − ni_qp(1Q전년)      # 지배순이익 기준
 EPS(FY0)     = 공시 기본주당이익 (연간 재무제표 직접, 3단 매칭)   # 결측 시 지배순이익÷보통주 폴백
 EPS(TTM)     = 공시 EPS 조립: FY0 + 분기누적(thstrm_add) − 전년동기누적  # FY0과 같은 공시 기준(대칭)
-BPS          = 지배자본(MRQ 우선, 없으면 FY0) ÷ shares_total(합계)
-PER(FY0/TTM) = 주가 ÷ EPS(FY0/TTM)
-PBR(MRQ)     = 주가 ÷ BPS
-배당수익률    = DPS ÷ 주가 × 100
+BPS          = 지배자본(MRQ 우선, 없으면 FY0) ÷ shares_total(합계 유통주식, 보통+우선, 자기주식 제외)
+보통주 시총   = KRX 상장주식수(list_shrs) × 최신 주간 종가(krx_weekly)        # common_mktcap
+PER(FY0)     = 보통주 시총 ÷ 지배순이익(FY0)                                # 260823: 주가÷EPS 에서 전환
+PER(TTM)     = 보통주 시총 ÷ TTM 지배순이익
+PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pbr_basis 로 표기)
+배당수익률    = FY0 DPS(alotMatter 보통주 현금배당) ÷ 현재가 × 100
 ```
-- **지배주주 귀속 일관**: EPS·BPS·PER·PBR 모두 지배지분(`_ctrl_*`). 지주사(NCI 큰) 과대 방지.
+- **배수는 시총 기반**(`multiples_basis: common_mktcap_over_controlling_income`, 260823 전환). 종전 「주가÷EPS·
+  주가÷BPS」는 분모에 주식수가 들어가 액면분할·병합 때 옛 주식수 EPS 와 새 주가가 섞였다(메이슨캐피탈 적자인데
+  PER 32.31). 시총÷이익은 주식수가 상쇄돼 조정성 이벤트에 불변이고, market/sector/firm_history 스냅샷과 정의가 같다.
+  대가 ①시총은 오늘 주식수만 봐 가중평균이 아니다(연중 증자 회사는 공시 EPS 기반과 벌어짐) ②분자는 보통주
+  시총인데 분모 지배순이익·지배자본에는 우선주 몫이 포함돼 배수가 소폭 낮다. EPS·BPS 는 인풋(`inputs`)으로 계속
+  노출한다 — 회사 공식값이라 대조용.
+- **지배주주 귀속 일관**: 지배순이익·지배자본(`_ctrl_*`)이 PER·PBR 분모, EPS·BPS 도 지배지분. 지주사(NCI 큰) 과대 방지.
   단 **스케일 항등식은 총자본**(지배+비지배, `_gid` Equity) — 지배자본만 쓰면 NCI만큼 상시 오탐.
 - **EPS 대칭화**: FY0·TTM 모두 공시 기본주당이익 기준(TTM=공시 EPS 조립) — 두 PER 직접
   비교 가능. 커버리지 99%(100사 스윕), 결측 시 지배NI÷보통주 폴백+경고. 기중 주식수 급변 시

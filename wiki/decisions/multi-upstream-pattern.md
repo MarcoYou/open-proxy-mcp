@@ -2,7 +2,7 @@
 type: architecture
 title: Multi-upstream Tool Pattern (concurrency + race fix 표준)
 date: 2026-05-03
-related_tools: [advise_vote_before_meeting, recap_vote_after_meeting, proxy_contest, ownership_structure, corp_gov_report]
+related_tools: [proxy_advise_before_meeting, shareholder_meeting_results, proxy_contest, ownership_structure, corp_gov_report]
 
 ---
 

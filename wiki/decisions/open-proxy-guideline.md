@@ -4,7 +4,7 @@ title: Open Proxy Guideline — OPM 자체 의결권 행사 정책 (실체 이�
 generated: 2026-04-28
 updated: 2026-08-14
 version: v1.2
-related: [voting-policy-consensus-matrix, decision-matrix-design, opm-guideline-debate-transcript, 2026 신법]
+related: [260429_0059_decision_voting-policy-consensus-matrix, 상법-2025-2026-종합]
 ---
 
 # Open Proxy Guideline — 실체는 패키지 안에 있습니다

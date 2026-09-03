@@ -5,9 +5,9 @@ domain: data
 scope: [사용제한, FVPL, FVOCI, 상각후원가]
 data_source: [DART get_document(III.재무에 관한 사항 — 연결/별도 재무제표 주석·재무상태표)]
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
-related_concepts: [unencumbered cash, 사용제한 예치금, 담보제공자산, 헤어컷, FVPL, FVOCI, 상각후원가]
+related_concepts: [연결-별도, 단위-표기-규약]
 created: 2026-08-23
-updated: 2026-08-25
+updated: 2026-09-04
 ---
 
 # financial_notes
@@ -15,6 +15,8 @@ updated: 2026-08-25
 ## 한 줄 요약
 은행·증권·보험의 **재무제표 주석 표를 가공 없이 원형 그대로** 뽑는다. ①사용이 제한된 예치금·
 담보제공자산(→ unencumbered cash) ②투자자산 유형별 구성 FVPL·FVOCI·상각후원가(→ 유형별 헤어컷).
+
+전제 개념: [[연결-별도]](셀마다 `basis` 연결/별도 판정) · [[단위-표기-규약]].
 
 ## 배경
 크레딧·채권 애널리스트 요청. `financial_metrics` 는 전사 집계라 주석 내부 분해가 없고,

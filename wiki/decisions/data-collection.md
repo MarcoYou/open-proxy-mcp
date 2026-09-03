@@ -3,7 +3,7 @@ type: source
 title: OPM 데이터 수집 Architecture (전수 Entry Point + 파싱 방법)
 generated: 2026-04-29
 tags: [architecture, data-source, entry-point, dart, kind, naver, upstage, opendataloader, fallback]
-related: [DART-OpenAPI, KRX-KIND, 네이버-금융, dart-kind-disclosure-taxonomy, pblntf-ty-필터링, DART-KIND-매핑-화이트리스트-2026-04, XML-vs-PDF]
+related: [DART-OpenAPI, KRX-KIND, 네이버-금융, 공시유형코드체계, pblntf-ty-필터링, DART-KIND-매핑-화이트리스트-2026-04, XML-vs-PDF]
 ---
 
 # OPM 데이터 수집 Architecture
@@ -69,7 +69,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 | `page_no`, `page_count` | 페이지·페이지당 건수 | `page_count` 최대 100 |
 
 - 캐시: `_search_cache` (corp_code 단독, page=1, count=100일 때만 메모리 캐시)
-- 사용 services: `shareholder_meeting`, `dividend`, `ownership_structure`, `proxy_contest`, `value_up`, `treasury_share`, `corporate_restructuring`, `dilutive_issuance`, `related_party_transaction`, `corp_gov_report`, `company`
+- 사용 services: `shareholder_meeting_notice`·`shareholder_meeting_results`(service 파일은 `shareholder_meeting.py` 하나), `dividend_disclosure`, `ownership_structure`, `proxy_contest`, `value_up`, `treasury_share`, `corporate_restructuring`, `dilutive_issuance`, `corporate_deals`·`order_contracts`(구 `related_party_transaction`), `corp_gov_report`, `company`
 
 ### `pblntf_ty` 코드표 ([[pblntf-ty-필터링]] 참조)
 
@@ -79,8 +79,8 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 | `B` | 주요사항보고 | 자기주식취득결정, 합병결정, 유상증자결정, CB·BW, 감자, 소송 | treasury_share, corporate_restructuring, dilutive_issuance, proxy_contest |
 | `C` | 발행공시 | 증권신고서 | (현재 미사용) |
 | `D` | 지분공시 | 5% 대량보유, 임원소유보고, 위임장권유참고서류, 공개매수 | ownership_structure, proxy_contest |
-| `E` | 기타공시 | 주주총회소집공고 | shareholder_meeting |
-| `I` | 거래소공시 | 주주총회결과, 현금ㆍ현물배당결정, 기업가치제고계획, 최대주주변경 | dividend, value_up, shareholder_meeting(results), ownership_structure(changes) |
+| `E` | 기타공시 | 주주총회소집공고 | shareholder_meeting_notice |
+| `I` | 거래소공시 | 주주총회결과, 현금ㆍ현물배당결정, 기업가치제고계획, 최대주주변경 | dividend_disclosure, value_up, shareholder_meeting_results, ownership_structure(changes) |
 | `J` | 공정위 공시 | 대규모기업집단 공시 | (현재 미사용) |
 
 ### 키워드 필터 패턴
@@ -148,7 +148,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 | `mrhlSttus.json` | get_minority_shareholders | ownership_structure (summary) |
 | `stockTotqySttus.json` | get_stock_total | ownership_structure, proxy_contest |
 | `tesstkAcqsDspsSttus.json` | get_treasury_stock | treasury_share (annual), proxy_contest |
-| `alotMatter.json` | get_dividend_info | dividend (사업보고서 배당 상세) |
+| `alotMatter.json` | get_dividend_info | dividend_disclosure (사업보고서 배당 상세) |
 
 ### DS003 — 재무제표·감사의견 (정기보고서)
 
@@ -219,7 +219,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 | 항목 | 값 | 출처 |
 |---|---|---|
 | 일일 한도 | 20,000건 | OpenDART 정책 |
-| 분당 한도 | 1,000건 | OpenDART 정책 (초과 시 24시간 IP 차단) |
+| 분당 한도 | 1,000건 (OPM cap 910) | OpenDART 정책 (초과 시 **그 키가** 차단 — 실측 2~3시간) |
 | 클라이언트 최소 간격 | 0.1초 | `_MIN_INTERVAL_API` (분당 600회 이하 보장) |
 | 키 회전 | rotate on status≠"000" 시 1회 | `_rotate_key()` |
 | build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute` | services/contracts.py |
@@ -242,7 +242,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 - URL: `https://dart.fss.or.kr/report/viewer.do`
 - 파라미터: `rcpNo`, `dcmNo`, `eleId`, `offset`, `length`, `dtd`
 - 용도: `get_viewer_document()`가 main.do의 노드별로 호출 (목차 단위)
-- 사용 service: `shareholder_meeting`, `corp_gov_report` 등 document.xml이 깨질 때 2차 경로
+- 사용 service: `shareholder_meeting_notice`/`_results`, `corp_gov_report` 등 document.xml이 깨질 때 2차 경로
 
 ## 2.3 pdf/download/pdf.do — PDF 다운로드 (open-proxy-ai 전용, 260712 이관)
 
@@ -320,7 +320,7 @@ viewer/KIND 요청이 전부 그 함수를 지나기 때문이다 — 호출측�
 3. 본문 URL GET → 최종 HTML 반환
 
 - BeautifulSoup `lxml` 파서로 후처리 (services/value_up._kind_html_to_text 등)
-- Rate limit: `_throttle_kind()` 1.0~3.0초 random
+- Rate limit: `_throttle_kind()` — DART 웹과 같은 1.0~2.0초 랜덤·같은 시계(`_WEB_INTERVAL_RANGE`, 260810 통일)
 
 ## 3.2 disclosure/details.do — 상세 검색 (POST)
 
@@ -359,7 +359,7 @@ KOSPI 200 8개 기업 전수 검증: 100% 매칭. 자세한 화이트리스트�
 
 | service | 호출 위치 | 용도 |
 |---|---|---|
-| shareholder_meeting | `_fetch_kind_results` (services/shareholder_meeting.py:696) | 주총결과 80→00 변환 후 본문 |
+| shareholder_meeting_results | `_fetch_kind_results` (services/shareholder_meeting.py) | 주총결과 80→00 변환 후 본문 |
 | ownership_structure | services/ownership_structure.py:375 | 변동신고서 본문 보강 |
 | value_up | services/value_up.py | 밸류업 plan 본문 + KIND 직접 검색 |
 
@@ -369,8 +369,8 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 
 | 항목 | 값 |
 |---|---|
-| 최소 간격 | 1.0~3.0초 random (`_throttle_kind`) |
-| 배치 시 | 추가로 15~30초 random 권장 (CLAUDE.md) |
+| 최소 간격 | 1.0~2.0초 random (`_WEB_INTERVAL_RANGE`) — DART 웹과 시계 공유 (260810 통일) |
+| 배치·병렬 | 금지 (CLAUDE.md) |
 | 공식 API | 아님 (HTML 크롤링) |
 | User-Agent | OpenProxyMCP/1.0 명시 |
 
@@ -453,7 +453,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 호출 위치: **open-proxy-ai `pipeline/pdf_parser.py`** (OPM에서 폐기·이관 2026-07-12)
 - 사용 흐름: DART 웹에서 PDF 다운로드 → opendataloader-pdf로 마크다운 변환(table_method="cluster", keep_line_breaks=True) → AGM 파서 재실행
 - 한국어 OCR 벤치마크 1위, KOSPI 200 198개 PDF 변환 완료
-- 한계: 일부 PDF에서 변환 품질 불안정 → Upstage OCR로 최종 fallback ([[opendataloader]] 참조)
+- 한계: 일부 PDF에서 변환 품질 불안정 → Upstage OCR로 최종 fallback (아래 7절 참조)
 - v2: 기본 미사용 (PDF 경로 제외)
 
 ---
@@ -492,7 +492,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - Source: DART API only
 - Scope: 1 (회사 식별 + recent filings)
 
-## 9.2 shareholder_meeting
+## 9.2 shareholder_meeting_notice · shareholder_meeting_results (구 shareholder_meeting — 2026-05 분리, service 파일은 하나)
 
 - Primary: `list.json` (pblntf_ty=E, "소집") + `document.xml` 본문
 - Results scope: `list.json` (pblntf_ty=I, "주주총회결과") + KIND `disclsviewer.do` (80→00 변환)
@@ -508,7 +508,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - changes scope: `list.json` (pblntf_ty=I, "최대주주등소유주식변동신고서") + KIND HTML
 - Scope: summary, major_holders, blocks, treasury, control_map, timeline, changes
 
-## 9.4 dividend
+## 9.4 dividend_disclosure (구 dividend — 260902 개명; DB 시계열은 dividend_data 로 분리)
 
 - Primary: DS002 `alotMatter.json` (사업보고서 alotMatter)
 - 보강: `list.json` (pblntf_ty=I, `_DIV_KEYWORDS` — 6 배당 공시유형 매칭) + `document.xml` (`_parse_dividend_decision`)
@@ -550,7 +550,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - Scope: summary, rights_offering, convertible_bond, warrant_bond, capital_reduction
 - 부가 계산: `_pct_of_existing` (기존 발행주식 대비 신주 비율 — 희석률 근사)
 
-## 9.10 related_party_transaction
+## 9.10 corporate_deals · order_contracts (구 related_party_transaction — equity_deal → corporate_deals, supply_contract → order_contracts)
 
 - Primary: `list.json` (pblntf_ty=B/I, `_EQUITY_DEAL_KEYWORDS` 4종 + `_SUPPLY_CONTRACT_KEYWORDS` 4종) + `document.xml`
 - DART 전용 구조화 endpoint 없음 (list+키워드 매칭)
@@ -826,15 +826,15 @@ DB 쪽 필터만 걸어서 `str(None)`="None" 이 65,500건짜리 가짜 범주�
 | Tool | 1차 source | 2차 (보강·KIND 화이트리스트) | 3차 (fallback) |
 |---|---|---|---|
 | company | corpCode.xml + list.json (180일) | — | — |
-| shareholder_meeting | list.json (E,I) + document.xml | KIND disclsviewer (주총결과 80→00) | viewer.do HTML / OCR (v1) |
+| shareholder_meeting_notice / _results | list.json (E,I) + document.xml | KIND disclsviewer (주총결과 80→00) | viewer.do HTML / OCR (v1) |
 | ownership_structure | DS002 4종 + DS004 majorstock + document.xml(PUR_OWN) | KIND HTML (변동신고서) | viewer.do HTML |
-| dividend | DS002 alotMatter + list.json (I) + document.xml | KIND HTML (현금ㆍ현물배당결정) | 배당결정 합산 fallback |
+| dividend_disclosure | DS002 alotMatter + list.json (I) + document.xml | KIND HTML (현금ㆍ현물배당결정) | 배당결정 합산 fallback |
 | treasury_share | DS005 4종 + list.json (소각) + DS002 tesstkAcqs | document.xml (소각 본문) | — |
 | proxy_contest | list.json (D,I,B) + document.xml + DS002+DS004 (vote_math) | KIND HTML (소송) | viewer.do HTML |
 | value_up | list.json (I, 밸류업) + document.xml | KIND search/fetch (코드 0184) | — |
 | corporate_restructuring | DS005 4종 (병렬) | — | — |
 | dilutive_issuance | DS005 4종 (병렬) | — | — |
-| related_party_transaction | list.json (B,I, 8종 키워드) + document.xml | — | — |
+| corporate_deals · order_contracts | list.json (B,I, 8종 키워드) + document.xml | — | — |
 | corp_gov_report | list.json (I, "기업지배구조보고서공시") + document.xml | viewer.do HTML | OCR (v1) |
 | (참고) news_check (v1) | Naver 뉴스 OpenAPI | — | — |
 | (참고) get_stock_price | KRX `stk_bydd_trd` | Naver Finance siseJson | — |
@@ -868,7 +868,7 @@ DB 쪽 필터만 걸어서 `str(None)`="None" 이 65,500건짜리 가짜 범주�
 
 # 관련 페이지
 
-[[DART-OpenAPI]] [[KRX-KIND]] [[네이버-금융]] [[Upstage-OCR]] [[opendataloader]]
+[[DART-OpenAPI]] [[KRX-KIND]] [[네이버-금융]] (Upstage OCR·opendataloader 는 open-proxy-ai 이관 — 위 6·7절)
 [[XML-vs-PDF]] [[pblntf-ty-필터링]] [[DART-KIND-매핑-화이트리스트-2026-04]]
 [[배당공시유형]] [[주주총회소집공고]] [[주주총회결과]]
-v4-스키마 [[OpenProxy-MCP]] [[release_v2-tool-아키텍처]]
+v4-스키마·release_v2 tool 아키텍처는 private storage(`wiki-private/concepts/`·`wiki-private/archive/`)

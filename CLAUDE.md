@@ -58,7 +58,8 @@ wiki/                  # 도메인 지식 (wiki/wiki_schema.md 가 계약서)
 - **검증은 MCP 호출 → 직접 import는 테스트·디버깅만.** tool wrapper·렌더러·인자 기본값·직렬화를 건너뛰는 경로는 사용자가 보는 것과 다른 것을 본다.
 - **정확성 > 속도.** 가설 → 엣지케이스 상상 → 표본 테스트 → 통계 검증 → 실행. 확인 전에 서사를 만들지 않는다.
 - **작업이 아니라 목표를 본다.** 시킨 일만 수행하지 말고 목표·원칙·전체 프로젝트 연관성을 함께 고려.
-- **wiki-first.** 도메인 지식은 `wiki/` 참조. `wiki/wiki_schema.md` → `wiki/index.md` → 필요한 페이지만.
+- **wiki-first.** 도메인 지식은 `wiki/` 참조. `wiki/wiki_schema.md` → `wiki/wiki_index.md` → 필요한 페이지만.
+- **무엇을 바꾸면 어디를 고치나** (tool 추가·필드·파라미터·사실·페이지 이동별 고칠 파일 + 돌릴 검사) → `wiki/wiki_schema.md` 「문서 운영 규칙」 표.
 - **streamable-http만.** stdio·SSE 없음. 로컬 검증은 pilot, 배포 후 확인은 live.
 - **커밋/푸시/배포는 사용자 명시 요청 시만.**
 

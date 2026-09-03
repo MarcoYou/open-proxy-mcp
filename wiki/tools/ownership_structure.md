@@ -6,7 +6,7 @@ scope: [summary, major_holders, blocks, control_map, changes]
 data_source: [DART OpenAPI 사업보고서 (대주주/지분/자사주) + majorstock + document.xml (5% 보유목적), KIND HTML (changes scope 원문)]
 related_disclosures: [대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서]
 related_concepts: [최대주주, 특수관계인, 대주주, 동일인, 5%-대량보유, 자사주, 소액주주, 지분구조]
-related_decisions: [stkrt-vs-ctr_stkrt, cross-domain-체이닝]
+related_decisions: []
 created: 2026-05-01
 updated: 2026-09-02
 ---
@@ -162,10 +162,10 @@ sequenceDiagram
 - [[지분구조]] — 최대주주/기관/자사주/소액주주 분포
 
 ## 관련 결정 (decisions/)
-- [[stkrt-vs-ctr_stkrt]] — DART 대량보유 API: stkrt(합산) vs ctr_stkrt(주요계약) 차이
-- [[cross-domain-체이닝]] — OWN → AGM/PRX 체이닝
+- stkrt vs ctr_stkrt(비교 분석문, 260831 삭제) — DART 대량보유 API: stkrt(합산) vs ctr_stkrt(주요계약) 차이
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — OWN → AGM/PRX 체이닝
 
-## 관련 audit/fix (architecture/)
+## 관련 audit/fix (private storage `wiki-private/architecture/audits/`)
 - 260429_0912_audit_parsing-200기업-v2-no_filing — ownership_structure 90.8% exact
 - 260427 stockKnd 변형 positive matching(17건 partial → 0) · 260429 asyncio.gather 병렬화(3x) — 분석문은 storage `wiki-private/archive/opm-decisions/` 이관
 

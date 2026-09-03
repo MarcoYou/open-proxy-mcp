@@ -2,7 +2,7 @@
 type: guide
 title: OpenProxy MCP — 아키텍처 (사람용)
 audience: human
-updated: 2026-07-22
+updated: 2026-09-04
 ---
 
 # 아키텍처 — 어떻게 동작하나
@@ -36,20 +36,9 @@ updated: 2026-07-22
 OPM은 담당 영역별로 분리된 도구를 MCP로 제공합니다. AI 에이전트는 안건·후보 유형에 따라
 필요한 도구만 골라 병렬로 호출합니다.
 
-| 분류 | 도구 | 역할 |
-|---|---|---|
-| 식별 | company | 기업 식별 + 최근 공시 |
-| 주총 | shareholder_meeting_notice / _results | 소집공고(사전) / 의결 결과(사후) |
-| 지배·재무 | ownership_structure · financial_metrics · financial_notes · corp_gov_report · director_board · director_news | 지분 구조 · 재무 지표 · 금융사 재무제표 주석 · 지배구조보고서 · 개별 이사 보수/출석률 · 이사 후보 뉴스 |
-| 밸류·시세 | price_multiple_data · forward_estimates_data · trading_data · asset_holdings | PER/PBR/배당수익률(기업·시장·산업) · 컨센서스 포워드 추정 · 거래·시총 시계열 · 자산주 스크리닝 |
-| 실적·사업 | provisional_earnings · business_details | 영업(잠정)실적(확정 전 가장 빠른 실적) · II.사업의 내용 11필드(사업부문·생산·수주·고객·원재료·제품가격·금융/REIT) |
-| 환원·이벤트 | dividend_disclosure · dividend_data · treasury_share · value_up · corporate_restructuring · dilutive_issuance | 배당(실시간) · 배당 시계열/스크리닝 · 자기주식 · 밸류업 · 합병/분할 · 증자/감자 |
-| 분쟁·거래 | proxy_contest · corporate_deals · order_contracts · risk_events | 위임장/분쟁 · 지분 인수/매각 · 수주 · 리스크 |
-| 스크리닝 | screener | 전체시장 공시 스캔 / 아침 디제스트(잠정실적 포함) |
-| 근거·법령 | evidence · law_lookup · proxy_guideline | 원문 접수번호 → 열람 링크 · 정관↔법령 양방향 조회 · 의결권 판단 기준 원문 |
-| 의결권 | proxy_advise_before_meeting · shareholder_commitment | 안건별 찬성/반대/검토 보조 · 약속 vs 이행 연중 추적(스튜어드십) |
-
-각 도구의 입출력·데이터 출처·파싱 전략은 [[tools/README]]에서 봅니다.
+도구 목록과 분류(회사 찾기 → 전체시장 스캔 → 주주총회·의결권 → 지분·재무·지배구조 → 주주환원·자본 →
+분쟁·거래·리스크 → 근거·참조)는 **[[tools/README]] 「무엇을 알고 싶을 때 무엇을 쓰나」 표가 정본**이라 여기서
+반복하지 않는다. 각 도구의 입출력·데이터 출처·파싱 전략은 [[tools/README]]에서 봅니다.
 
 ## 핵심 1 — 정규화 정밀화
 

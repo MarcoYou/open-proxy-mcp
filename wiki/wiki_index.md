@@ -2,7 +2,7 @@
 
 OPM은 한국 상장사 거버넌스 분석 MCP. 이 인덱스에서 시작.
 
-> 👤 **사람이 처음 오셨다면 → [[guide/README]]** (사람용 안내서).
+> 👤 **사람이 처음 오셨다면 → [[guide/README]]** (사람용 안내서) · 설치·연결은 루트 [`README.md` 「빠른 시작」](../README.md) · 용어는 [[guide/용어-첫걸음]].
 > 아래 인덱스는 AI 에이전트·개발자용 전체 카탈로그입니다.
 
 ## Quick Start
@@ -15,55 +15,29 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 | 카테고리 | 페이지 수 | 무엇 |
 |---|---|---|
 | **raw/** | ~39 files | 외부 원본 (수정 금지) |
-| **rules/** | 88 + README 4 | 한국 자본시장 사실 |
+| **rules/** | 90 + README 4 | 한국 자본시장 사실 |
 | **tools/** | 31 + README | MCP tool 카탈로그 |
 | **decisions/** | 27 + README | 설계·정책·판단·시점 작업 |
-| **guide/** · **handoff/** | 2 + 2 | 사람용 안내 · 세션 간 미해결 항목 (보조) |
+| **guide/** · **handoff/** | 3 + 2 | 사람용 안내(README·아키텍처·용어 첫걸음) · 세션 간 미해결 항목 (보조) |
 
-총 158 markdown (git-tracked, raw 제외 — corpus 사본 포함).
+총 161 markdown (git-tracked, raw·corpus 제외).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 
 ## Tools (31) - `tools/`
 
-### Company (1)
-- [[company]]
-
-### Screening (1)
-- [[screener]]
-
-### Meeting (2)
-- [[shareholder_meeting_notice]] (사전 — DART)
-- [[shareholder_meeting_results]] (사후 — DART 원문 우선, KIND fallback)
-
-### Data (21)
-- [[ownership_structure]] · [[dividend_disclosure]] · [[financial_metrics]] · [[treasury_share]]
-- [[proxy_contest]] · [[value_up]] · [[corporate_restructuring]] · [[dilutive_issuance]]
-- [[corporate_deals]] · [[order_contracts]] · [[risk_events]] · [[corp_gov_report]]
-- [[director_board]] · [[price_multiple_data]] · [[trading_data]] · [[business_details]]
-- [[provisional_earnings]] · [[asset_holdings]] · [[financial_notes]] · [[forward_estimates_data]]
-- [[dividend_data]]
-
-### Evidence (2)
-- [[evidence]]
-- [[law_lookup]]
-
-### Action (2)
-- [[proxy_advise_before_meeting]]
-- [[shareholder_commitment]]
+도구 목록·분류의 정본은 **[[tools/README]]** 「무엇을 알고 싶을 때 무엇을 쓰나」 표 하나다 — 여기서 반복하지
+않는다(`scripts/check_tool_catalog.py` 가 그 표와 런타임을 대조하고, 이 헤더의 수는 `gen_index.py` 가 채운다).
 
 ### Internal (MCP 노출 X)
 - `director_evaluation` — proxy_advise 후보 평가 chain
 - `director_performance` — 사내이사 성과 매트릭스 2x3
 - `agm_first_agenda_fy` — 1번 안건 본문 FY raw 파서
 
-### 참조 (2)
-- [[director_news]] · [[proxy_guideline]]
-
 ## Rules (0) - `rules/`
 
-### Concepts (43) - `rules/concepts/`
-[[5%-대량보유]] · [[FCF]] · [[NWC]] · [[ROA]] · [[ROE]] · [[ROIC]] · [[가결]] · [[감사위원-의결권-제한]] · [[감액배당]] · [[경영권-방어]] · [[당기순이익]] · [[대주주]] · [[동일인]] · [[듀퐁분석]] · [[배당성향]] · [[배당수익률]] · [[보고사항]] · [[보수한도]] · [[부결]] · [[분기배당]] · [[소액주주]] · [[소진율]] · [[순현금]] · [[시가배당률]] · [[시간순서-규칙]] · [[위임장-권유]] · [[위임장]] · [[의결권]] · [[이자보상배율]] · [[자본준비금]] · [[자사주]] · [[정관변경]] · [[주주제안]] · [[주주환원]] · [[지분구조]] · [[집중투표]] · [[찬반율]] · [[참석률]] · [[최대주주]] · [[특별배당]] · [[특수관계인]] · [[파서-판정-등급]] · [[프록시-파이트]]
+### Concepts (45) - `rules/concepts/`
+[[5%-대량보유]] · [[DART-OpenAPI]] · [[FCF]] · [[KRX-KIND]] · [[NWC]] · [[PER-PBR]] · [[ROA]] · [[ROE]] · [[ROIC]] · [[감사위원-의결권-제한]] · [[감액배당]] · [[국민연금]] · [[네이버-금융]] · [[단위-표기-규약]] · [[당기순이익]] · [[대주주]] · [[동일인]] · [[듀퐁분석]] · [[배당성향]] · [[배당수익률]] · [[보고사항]] · [[보수한도]] · [[분기배당]] · [[소액주주]] · [[순현금]] · [[시가총액]] · [[시점-제약]] · [[연결-별도]] · [[위임장-권유]] · [[의결권]] · [[이자보상배율]] · [[자본준비금]] · [[자사주]] · [[정관변경]] · [[주주제안]] · [[주주환원]] · [[주총-결의]] · [[지분구조]] · [[집중투표]] · [[참석률]] · [[최대주주]] · [[특별배당]] · [[특수관계인]] · [[파서-판정-등급]] · [[프록시-파이트]]
 
 ### Disclosures (44) - `rules/disclosures/`
 [[공시유형코드체계]] · [[감액배당결정]] · [[감자결정]] · [[경영권분쟁소송]] · [[교환사채권발행결정]] · [[기업가치제고계획]] · [[기업지배구조보고서]] · [[단일판매공급계약체결]] · [[대량보유상황보고서]] · [[반기보고서]] · [[배당공시유형]] · [[배당기준일결정]] · [[분기배당결정]] · [[분기보고서]] · [[분기재무-API스펙]] · [[사업보고서]] · [[소송등의제기]] · [[신주인수권부사채발행결정]] · [[신탁계약에의한취득상황보고서]] · [[신탁계약해지결과보고서]] · [[위임장권유참고서류]] · [[유상증자결정]] · [[임원·주요주주특정증권등소유상황보고서]] · [[임원보수-API스펙]] · [[자기주식결정]] · [[자기주식소각결정]] · [[자기주식신탁결정]] · [[자기주식의무소각-2026신법]] · [[자기주식처분결과보고서]] · [[자기주식처분결정]] · [[자기주식취득결과보고서]] · [[자기주식취득결정]] · [[전환사채발행결정]] · [[주식교환·이전결정]] · [[주식배당결정]] · [[주주총회결과]] · [[주주총회소집공고]] · [[최대주주등소유주식변동신고서]] · [[최대주주변경]] · [[타법인주식및출자증권거래]] · [[현금배당결정]] · [[회사분할결정]] · [[회사분할합병결정]] · [[회사합병결정]]
@@ -90,5 +64,5 @@ corpus/: 10법 원문 — 상법·자본시장법·공정거래법·외부감사
 
 - 작업 로그(구 `log.md`, 2026-04-05~08-25)는 storage `wiki-private/archive/opm-wiki-log.md` 로 이관(260902). 변경 이력은 `docs/RELEASE_NOTES.md` 와 각 tool 페이지 변경 이력을 본다.
 - [[wiki_schema]] — wiki 구조·명명·link 정책
-- `guide/` — [[guide/README]] · [[guide/architecture]]
+- `guide/` — [[guide/README]] · [[guide/architecture]] · [[guide/용어-첫걸음]]
 - `handoff/` — [[handoff/README]]

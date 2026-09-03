@@ -5,17 +5,19 @@ domain: data
 scope: [summary, yearly, quarterly, yoy, qoq, audit_opinion]
 data_source: [DART OpenAPI fnlttSinglAcnt (BS+IS 핵심 30행), fnlttSinglIndx (DART 산출 ROE/부채비율 보조), fnlttSinglAcntAll (CF + 세부 IS/BS 213행), accnutAdtorNmNdAdtOpinion (감사인+의견+KAM 3년 추이)]
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
-related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석, ROE, ROA, ROIC, FCF, NWC, 매출채권회전율, 재고자산회전율, 이자보상배율, 순현금]
-related_decisions: [open-proxy-guideline, cross-domain-체이닝]
+related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석, ROE, ROA, ROIC, FCF, NWC, 이자보상배율, 순현금, 연결-별도, 단위-표기-규약, 시점-제약]
+related_decisions: [open-proxy-guideline]
 
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # financial_metrics
 
 ## 한 줄 요약
 DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/운전자본 회전일수/회계 risk 지표. 한국 표준(연결, 지배주주 귀속). 듀퐁 3단 분해, FCF, NWC, CCC, accruals_gap, 감사의견 추이 자동 산출.
+
+기준·표기: [[연결-별도]](연결·지배주주 귀속이 기본 — `net_income_total_krw` 만 전체) · [[단위-표기-규약]](`_krw`·`_pct`·`_ratio`) · 어느 해 값을 쓰나 [[시점-제약]].
 
 ## 분기 기간 판정 (2026-08-25, beta)
 
@@ -252,7 +254,7 @@ sequenceDiagram
 
 ## 관련 결정 (decisions/)
 - [[open-proxy-guideline]] — 재무 risk 신호 (이자보상배율, FCF 음수 등) 채점에 사용
-- [[cross-domain-체이닝]] — financial_metrics → vote_brief / corp_gov_report 체이닝 (Phase 2)
+- cross-domain 체이닝(v1 설계문, 260831 삭제) — financial_metrics → vote_brief / corp_gov_report 체이닝 (Phase 2)
 
 ## 관련 audit/fix
 - 260501_2030_audit_financial_metrics-200기업 — 6기업 sanity부터 200기업 전수까지 통합한 기준 문서
