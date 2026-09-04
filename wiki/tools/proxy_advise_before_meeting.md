@@ -70,7 +70,7 @@ proxy_advise_before_meeting(
 | `reason` | 결정 사유 한 줄 |
 | `facts` | 정량 fact dict (net_income / cap_status / 1번 안건 본문 FY raw / 후보 평가 등) |
 | `risk_factors` | 위험 신호 list ("완전 자본잠식", "장기연임", "이사 회계 risk 이력" 등) |
-| `policy_citation` | OPM Guideline 근거 — **문서의 절 번호·항목 번호**를 가리킨다 (「OPM Guideline §2.4 이사 선임 — against ①「사외이사 5년 룰」… ▸ 엔진: …」). `proxy_guideline(section="2.4")` 로 그 항목을 연다. 정책에 있지만 엔진이 안 쓰는 항목은 「…는 엔진 미반영」으로 라벨 안에서 밝힌다. 문서↔라벨은 `tests/test_policy_citations_match_document.py` 가 자동 대조 (260903) |
+| `policy_citation` | OPM Guideline 근거 — **문서의 절 번호·항목 번호**를 가리킨다 (「OPM Guideline §2.4 이사 선임 — against ①「사외이사 장기연임 5년+」… ▸ 엔진: …」). `proxy_guideline(section="2.4")` 로 그 항목을 연다. 정책에 있지만 엔진이 안 쓰는 항목은 「…는 엔진 미반영」으로 라벨 안에서 밝힌다. 문서↔라벨은 `tests/test_policy_citations_match_document.py` 가 자동 대조 (260903) |
 | `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
 | `evidence_rcept_no` | 근거 공고 (DART viewer link) |
 | `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect. 소집공고 경력 텍스트만으로는 재선임을 신임으로 오분류하므로 **roster(임원현황 `exctvSttus`) 힌트**로 교정한다 — `source="roster_prior"`면 정형 재직 확인으로 승격. **힌트 정체성**: 승격만(downgrade X)·roster 부재는 소집공고 결과 유지(override 금지)·미등기는 제외 |
@@ -654,7 +654,7 @@ OPM 자체 함수들 + vote_style 정책 wire:
   분리. 규칙은 위 「부모→자식 상속」 절. 회귀 `tests/test_parent_child_seat_inheritance.py`(15건) ·
   `scripts/cumulative_parent_child_check.py`.
 - 2026-09-03: `policy_citation` 이 정책 문서의 **절 번호·항목 번호**를 가리키도록 재구성(종전 「§재무제표」식
-  손글씨 요약 → 「§2.4 이사 선임 — against ①「사외이사 5년 룰」… ▸ 엔진: …」) + 문서↔라벨 자동 대조 테스트 ·
+  손글씨 요약 → 「§2.4 이사 선임 — against ①「사외이사 장기연임 5년+」… ▸ 엔진: …」) + 문서↔라벨 자동 대조 테스트 ·
   정책 §0-A 정합표에 출석률·5년 룰·겸임 3행 추가 · 출석률은 10사 표본 뒤 **엔진 미반영 유지**(시점·분모 왜곡·표 부재).
 - 2026-08-08: **확인하지 않은 부재를 「없다」고 말하지 않는다** — 본문 잠정 재무제표 내부 정합성
   검사 신설(순이익>매출 · 자산≠부채+자본). 영풍의 순이익 116배 오류가 「본문 파싱 정상」으로

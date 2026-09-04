@@ -42,7 +42,7 @@ related: [260429_0059_decision_voting-policy-consensus-matrix, 상법-2025-2026-
 ## 인용 라벨 ↔ 원문 ↔ 엔진 (260903)
 
 `proxy_advise_before_meeting` 의 「정책 인용」은 원문의 **절 번호와 항목 번호**를 가리킨다 —
-「OPM Guideline §2.4 이사 선임 — against ①「사외이사 5년 룰」… ▸ 엔진: …」. 종전의 「§재무제표」식
+「OPM Guideline §2.4 이사 선임 — against ①「사외이사 장기연임 5년+」… ▸ 엔진: …」. 종전의 「§재무제표」식
 요약(문서에 없는 절)은 없어졌다. `tests/test_policy_citations_match_document.py` 가 라벨의 절·제목·항목을
 원문과 자동 대조하므로, **원문의 항목을 고치거나 순서를 바꾸면 라벨을 같이 고쳐야 한다.**
 읽는 법은 [[../tools/proxy_guideline]] 에.
