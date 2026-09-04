@@ -10,6 +10,7 @@ live fetch 오케스트레이션은 `build_business_details_payload`(파일 하�
 조정/총계 열 분리 · 결측 3분류(NOT_APPLICABLE/NOT_COLLECTED/EXTRACTION_FAILED).
 """
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import re
 from dataclasses import dataclass, field
@@ -1223,7 +1224,7 @@ async def _find_report_candidates(client, corp_code: str, period: str) -> list[d
     else:  # "latest"(기본) — 정기보고서 3종 중 가장 최근 제출분
         detail, toks = ["A001", "A002", "A003"], ["사업보고서", "분기보고서", "반기보고서"]
     from datetime import date
-    end = date.today().strftime("%Y%m%d")
+    end = today_kst().strftime("%Y%m%d")
     out: list[dict] = []
     for dty in detail:
         res = await client.search_filings(bgn_de="20240101", end_de=end, corp_code=corp_code,
@@ -1260,7 +1261,7 @@ async def _find_report_for_bsns_year(client, corp_code: str, bsns_year: str, rep
     detail_ty, toks = info
     year = int(bsns_year)
     from datetime import date
-    end = min(f"{year + 1}0630", date.today().strftime("%Y%m%d"))
+    end = min(f"{year + 1}0630", today_kst().strftime("%Y%m%d"))
     res = await client.search_filings(bgn_de=f"{year}0101", end_de=end, corp_code=corp_code,
                                        pblntf_ty="A", pblntf_detail_ty=detail_ty, page_count=100)
     cands = [r for r in res.get("list", [])

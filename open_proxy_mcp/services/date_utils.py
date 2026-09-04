@@ -1,6 +1,10 @@
-"""public tool 날짜 파라미터 유틸리티."""
+"""public tool 날짜 파라미터 유틸리티.
+
+「오늘」은 `today_kst`(open_proxy_mcp.clock) — DART 접수일은 한국 달력이고 서버는 UTC 다.
+"""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 from datetime import date, timedelta
 import re
@@ -45,7 +49,7 @@ def resolve_date_window(
     lookback_days: int | None = None,
 ) -> tuple[date, date, list[str]]:
     warnings: list[str] = []
-    end = parse_date_param(end_date) or default_end or date.today()
+    end = parse_date_param(end_date) or default_end or today_kst()
     start = parse_date_param(start_date)
 
     if start is None:

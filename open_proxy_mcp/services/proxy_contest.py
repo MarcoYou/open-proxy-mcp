@@ -1,6 +1,7 @@
 """proxy_contest facade 서비스."""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from collections import Counter
@@ -90,12 +91,12 @@ def _window_bounds(
         window_start, window_end, warnings = resolve_date_window(
             start_date=start_date,
             end_date=end_date,
-            default_end=date.today(),
+            default_end=today_kst(),
             lookback_months=lookback_months,
         )
         return format_yyyymmdd(window_start), format_yyyymmdd(window_end), window_end.year, warnings
 
-    today = date.today()
+    today = today_kst()
     if target_year and target_year < today.year:
         window_end = date(target_year, 12, 31)
     else:
@@ -889,7 +890,7 @@ async def _litigation_items(
 async def _control_context(corp_code: str, company_query: str, target_year: int | None) -> tuple[dict[str, Any], list[str]]:
     client = get_dart_client()
     warnings: list[str] = []
-    bsns_year = str((target_year or date.today().year) - 1)
+    bsns_year = str((target_year or today_kst().year) - 1)
 
     # 3개 정기보고서 + 5% 블록 API를 병렬 호출 (independent endpoints).
     major_task = client.get_major_shareholders(corp_code, bsns_year)

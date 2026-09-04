@@ -5,6 +5,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from datetime import date
@@ -1047,7 +1048,7 @@ async def build_dilutive_issuance_payload(
     window_start, window_end, window_warnings = resolve_date_window(
         start_date=start_date,
         end_date=end_date,
-        default_end=date.today(),
+        default_end=today_kst(),
         lookback_months=24,
     )
     bgn_de = format_yyyymmdd(window_start)

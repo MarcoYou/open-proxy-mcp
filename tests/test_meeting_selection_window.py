@@ -11,6 +11,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 from datetime import date, timedelta
 
@@ -24,10 +25,10 @@ from open_proxy_mcp.services.shareholder_meeting import (
 def test_upcoming_meetings_are_not_cut_off() -> None:
     """의결권 행사 대상은 미래 회의다 — 구간이 오늘에서 끝나면 그것만 사라진다."""
     _, end, _ = _selection_window(None)
-    assert end > date.today()
+    assert end > today_kst()
     # 애경케미칼처럼 공고~회의 2주짜리는 물론, 한 분기 뒤 회의도 잡혀야 한다.
-    assert end >= date.today() + timedelta(days=90)
-    assert end == date.today() + timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
+    assert end >= today_kst() + timedelta(days=90)
+    assert end == today_kst() + timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
 
 
 def test_the_past_window_does_not_shrink() -> None:
@@ -37,13 +38,13 @@ def test_the_past_window_does_not_shrink() -> None:
     과거 구간이 통째로 90일 밀린다. 그래서 버퍼는 역산이 끝난 **뒤** end에만 더한다.
     """
     start, _, _ = _selection_window(None)
-    assert start <= date.today() - timedelta(days=360)
+    assert start <= today_kst() - timedelta(days=360)
 
 
 def test_an_explicit_year_covers_that_whole_year() -> None:
     """연도를 주면 12/31까지라 예정 회차가 원래 잡혔다 — 기본 조회만 달랐던 이유다."""
     assert _selection_window(2024)[:2] == (date(2024, 1, 1), date(2024, 12, 31))
-    assert _selection_window(date.today().year)[1] > date.today()
+    assert _selection_window(today_kst().year)[1] > today_kst()
 
 
 def test_explicit_dates_are_left_alone() -> None:
@@ -72,7 +73,7 @@ def test_an_explicit_year_still_wins() -> None:
 def test_it_falls_back_to_the_filing_year_not_today() -> None:
     """회의일을 못 읽어도 공고 접수연도가 오늘보다 회의에 가깝다 — 공고는 회의 몇 주 前이다."""
     assert _round_year(None, None, "20251205000222") == 2025
-    assert _round_year(None, None, "") == date.today().year
+    assert _round_year(None, None, "") == today_kst().year
 
 
 def test_proxy_advise_does_not_default_to_annual_only() -> None:

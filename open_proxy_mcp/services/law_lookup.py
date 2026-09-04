@@ -20,6 +20,7 @@ C(corpus)는 260714 이전 '폐쇄 어휘 133개 overlap'이었으나 자유질�
 import해 인덱스 빌드와 질의 정규화를 **동일 로직**으로 맞춘다.
 """
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import json
 import math
@@ -421,7 +422,7 @@ def corpus_freshness(as_of_iso: str | None = None) -> dict[str, Any]:
     stale = False
     if src:
         try:
-            ref = date.fromisoformat((as_of_iso or date.today().isoformat())[:10])
+            ref = date.fromisoformat((as_of_iso or today_kst().isoformat())[:10])
             age = (ref - date.fromisoformat(src)).days
             stale = age is not None and age > _STALE_DAYS
         except Exception:
@@ -776,7 +777,7 @@ def _law_version_future(rec: dict[str, Any], as_of_iso: str | None = None) -> bo
     enf = rec.get("enforcement") or ""
     if not enf:
         return False
-    ref = as_of_iso or date.today().isoformat()
+    ref = as_of_iso or today_kst().isoformat()
     return enf > ref
 
 
@@ -1198,7 +1199,7 @@ def build_law_lookup_payload(
 ) -> dict[str, Any]:
     q = (query or "").strip()
     warnings: list[str] = []
-    as_of_iso = as_of.strip() or date.today().isoformat()
+    as_of_iso = as_of.strip() or today_kst().isoformat()
     _t0 = time.perf_counter()  # DART 0콜 인메모리 매칭 — 병목 관측용(실측 warm ~1ms/query, 인덱스 전역캐시)
 
     idx = load_index()

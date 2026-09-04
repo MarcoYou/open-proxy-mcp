@@ -8,6 +8,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from datetime import date, timedelta
@@ -37,7 +38,7 @@ _PAST_RESULT = {"rcept_no": "20260326901639", "rcept_dt": "20260326",
 
 def test_future_meeting_has_no_result() -> None:
     """회의일이 아직 안 왔으면 결과공시는 존재할 수 없다."""
-    future = date.today() + timedelta(days=30)
+    future = today_kst() + timedelta(days=30)
     filing, warn, _ = _run(_notice(future), [_PAST_RESULT])
     assert filing is None
     assert "아직" in (warn or "")
@@ -45,7 +46,7 @@ def test_future_meeting_has_no_result() -> None:
 
 def test_earlier_filing_is_not_this_round_result() -> None:
     """회의 前 접수분은 이 회차의 결과가 아니다 — 지난 회차 결과다."""
-    meeting = date.today() - timedelta(days=5)
+    meeting = today_kst() - timedelta(days=5)
     filing, warn, _ = _run(_notice(meeting), [_PAST_RESULT])
     assert filing is None
     assert "이후" in (warn or "")
@@ -53,7 +54,7 @@ def test_earlier_filing_is_not_this_round_result() -> None:
 
 def test_filing_right_after_meeting_is_accepted() -> None:
     """회의 당일·직후 접수분은 그 회차의 결과다."""
-    meeting = date.today() - timedelta(days=5)
+    meeting = today_kst() - timedelta(days=5)
     same_day = meeting.strftime("%Y%m%d")
     filing, warn, _ = _run(_notice(meeting), [
         _PAST_RESULT,
@@ -66,7 +67,7 @@ def test_filing_right_after_meeting_is_accepted() -> None:
 
 def test_far_later_filing_is_rejected() -> None:
     """창을 벗어난 뒤늦은 접수는 다음 회차의 것일 수 있다 — 붙이지 않는다."""
-    meeting = date.today() - timedelta(days=200)
+    meeting = today_kst() - timedelta(days=200)
     late = (meeting + timedelta(days=sm._RESULT_WINDOW_DAYS + 5)).strftime("%Y%m%d")
     filing, warn, _ = _run(_notice(meeting), [
         {"rcept_no": "2026" + "1" * 10, "rcept_dt": late, "report_nm": "정기주주총회결과"},

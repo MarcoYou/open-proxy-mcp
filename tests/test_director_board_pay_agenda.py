@@ -9,6 +9,7 @@ network 0콜. list.json / document 경계만 가짜 client로 대체하고(회�
 shareholder_meeting의 후보 선택 코드는 실제 경로를 탄다. 회의 종류 분류·안건 파싱은 문서별로 고정.
 """
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import sys
@@ -23,7 +24,7 @@ from open_proxy_mcp.services import shareholder_meeting as sm
 from open_proxy_mcp.services.company import CompanyResolution
 from open_proxy_mcp.services.contracts import AnalysisStatus
 
-TODAY = date.today()
+TODAY = today_kst()
 CORP_CODE = "00102858"
 
 # 임시주총(최신, 회의 예정) 가 정기주총(3월, 이미 개최) 뒤에 온다 — 고려아연 260904 모양.

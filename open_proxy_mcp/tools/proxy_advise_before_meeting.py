@@ -13,7 +13,7 @@ _INDEPENDENCE_LABELS = {
     "independent": "독립적 (세부 항목 모두 충족)",
     "weak_concerns": "약한 우려 (세부 항목 1개 위반)",
     "concerns": "우려 (세부 항목 다수 위반)",
-    "long_tenure_concerns": "장기연임 우려 (5년 룰 위반)",
+    "long_tenure_concerns": "장기연임 우려 (5년+ 소프트 경보 — 성문 규정 위반 아님, 6년 초과는 결격 가능)",
     "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     # 「회사와의 관계」와 다른 축이다 — 제안한 쪽 사람인가. 부적격이라 말하지 않고 표면화한다.
     # 「제안 측」은 한 덩어리가 아니다 — 제안한 주주에 **고용된 사람**과 그 주주가
@@ -69,7 +69,7 @@ _AUDIT_RISK_TYPE_KO = {
 
 _FIVE_YEAR_LABELS = {
     "first_term_or_short": "첫 임기 또는 단기 (5년 룰 통과)",
-    "long_tenure_concerns": "장기연임 (5년+, 독립성 훼손)",
+    "long_tenure_concerns": "장기연임 (5년+ 소프트 경보)",
     "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     "no_data": "데이터 부족",
     "-": "-",
@@ -255,6 +255,7 @@ _FACT_VALUE: dict[str, str] = {
     "small_or_flat": "소폭 또는 동결", "large_increase": "큰 폭 인상",
     "very_large_increase": "매우 큰 폭 인상",
     "low_confidence": "신뢰도 낮음", "low_fallback_to_raw": "원문으로 대체",
+    "name_match_failed_see_raw": "후보 이름 매칭 실패 — 아래 원문 발췌 참조",
     # 이사 후보 상태
     "renewed": "재선임", "independent": "독립적", "clean": "결격사유 없음",
     "unknown_no_field": "결격 기재 없음(칸 없음)",
@@ -403,8 +404,43 @@ def _fin_basis_line(fin: dict) -> str:
     return " · ".join(parts)
 
 
+_VIEWER = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo="
+
+
+def _render_meeting_absent(payload: dict[str, Any]) -> str:
+    """요청한 종류의 소집공고가 없을 때 — 회차 프레임을 그리지 않고 없음과 손잡이만 준다."""
+    data = payload.get("data", {})
+    ma = data.get("meeting_absent") or {}
+    mt = data.get("selected_meeting_type")
+    mt_ko = {"annual": "정기", "extraordinary": "임시"}.get(mt, mt or "")
+    other = ma.get("other_type_latest") or {}
+    other_ko = {"annual": "정기", "extraordinary": "임시"}.get(other.get("meeting_type"), "")
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 의결권 행사 메모 (사전)", ""]
+    lines.append(f"- 회차: 요청하신 **{mt_ko}주총** 소집공고가 없습니다 — 탐색 창 "
+                 f"{ma.get('window_start')} ~ {ma.get('window_end')}.")
+    lines.append(f"- 확인 방법: {ma.get('method')}")
+    found = ma.get("found_notices") or []
+    if found:
+        lines.append("- 같은 창에서 찾은 소집공고 (종류는 원문 머리에서 확인하십시오):")
+        for n in found:
+            lines.append(f"  - {n.get('rcept_dt')} {n.get('report_name')} — "
+                         f"[{n.get('rcept_no')}]({_VIEWER}{n.get('rcept_no')})")
+    else:
+        lines.append("- 같은 창에서 찾은 소집공고: 없음")
+    if other:
+        lines.append(f"- 참고: 최신 {other_ko}주총 소집공고는 {other.get('notice_date')} 공시"
+                     f"(회의일 {other.get('meeting_date') or '미확인'}) — 그 회차를 보려면 "
+                     f"meeting_type=\"{other.get('meeting_type')}\" 로 부르십시오.")
+    for note in ma.get("notes") or []:
+        lines.append(f"- ⚠ {note}")
+    lines.append("- 다음 경로: 특정 연도 회차는 year=YYYY, 종류를 가리지 않으려면 meeting_type=\"auto\".")
+    return "\n".join(lines)
+
+
 def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
+    if data.get("meeting_absent"):
+        return _render_meeting_absent(payload)
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 의결권 행사 메모 (사전)"]
     lines.append("")
     if data.get("scope_all_warning"):
@@ -540,6 +576,9 @@ def _render(payload: dict[str, Any]) -> str:
         # 안건별 결정 근거 detail (facts + risk + policy citation + 근거 공고)
         lines.append("### 안건별 결정 근거 (사실 + 위험 + 정책 + 출처)")
         lines.append("")
+        # 같은 정책 인용 전문이 자식 안건마다 반복돼 45안건 응답이 도구 상한을 넘겼다(260904 고려아연).
+        # 처음 나온 안건에만 전문을 싣고, 다시 나오면 절 이름과 그 안건 번호만 적는다.
+        _seen_citations: dict[str, int] = {}
         for i, ag in enumerate(decisions, 1):
             title = (ag.get("agenda_title") or "")[:80]
             facts = ag.get("facts") or {}
@@ -583,22 +622,39 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append("- 위험 신호: 확인된 항목 없음"
                              if ag.get("decision") in ("FOR", "AGAINST")
                              else "- 위험 신호: 이 경로에서는 위험 신호를 판정하지 않았습니다")
-            lines.append(f"- 정책 인용: {citation}")
+            if citation in _seen_citations:
+                _head = citation.split(" — ", 1)[0].split(" ▸ ", 1)[0]
+                lines.append(f"- 정책 인용: {_head} — {_seen_citations[citation]}번 안건과 같은 인용")
+            else:
+                _seen_citations[citation] = i
+                lines.append(f"- 정책 인용: {citation}")
             lines.append(f"- 적용 정책: {policy_basis}")
             if rcept_no:
                 viewer = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
                 lines.append(f"- 근거 공고: [주주총회소집공고 {rcept_no}]({viewer})")
             # 내부 코드번호는 비노출 (payload source_section.section_code로만 — 운영자용)
             src = ag.get("source_section")
+            _uncertain = bool(ag.get("source_section_uncertain"))
             if src and src.get("section_title"):
-                lines.append(
-                    f"- 근거 위치: 소집공고 **§{src['section_title']}**"
-                    f" — 뷰어 좌측 목차에서 해당 절을 열면 이 안건의 원문"
-                )
+                if _uncertain:
+                    # 지우지 않고 묻는다 — 이 절이 이 안건 것인지는 읽는 쪽이 원문으로 판단한다.
+                    _no = ag.get("agenda_id") or ""
+                    lines.append(
+                        f"- 근거 위치(불확실): 소집공고 **§{src['section_title']}** — 표준 서식 신고 유형과 "
+                        f"제목 분류가 어긋나 이 절이 이 안건의 원문이 아닐 수 있습니다. 아래 발췌(자식 안건이면 "
+                        f"부모 안건의 발췌)가 이 안건{f'({_no})' if _no else ''}의 내용이 맞으면 근거로 쓰고, "
+                        f"아니면 근거 공고 전문에서 「제N호 의안」 표지를 찾아 그 절을 쓰십시오."
+                    )
+                else:
+                    lines.append(
+                        f"- 근거 위치: 소집공고 **§{src['section_title']}**"
+                        f" — 뷰어 좌측 목차에서 해당 절을 열면 이 안건의 원문"
+                    )
             if ag.get("classification_note"):
                 lines.append(f"- 분류 검증: {ag['classification_note']}")
             if ag.get("source_excerpt"):
-                lines.append("- 해당 절 원문 발췌 (LLM 직접 검토):")
+                lines.append("- 해당 절 원문 발췌 — **이 안건의 것인지 먼저 확인하십시오** (맞으면 근거로 씀):"
+                             if _uncertain else "- 해당 절 원문 발췌 (LLM 직접 검토):")
                 lines.append("")
                 lines.append(ag["source_excerpt"])
                 lines.append("")

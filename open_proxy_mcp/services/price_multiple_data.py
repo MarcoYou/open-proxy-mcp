@@ -10,6 +10,7 @@
 **없는 지표를 있는 것처럼 안내**하고 있었다(금융사 경고가 대표적).
 """
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import os
@@ -47,7 +48,7 @@ def _div(a, b):
 def _price_dates() -> list[str]:
     """최근 12일 중 주말 제외 후보일 — KRX가 빈값 줄 토·일 콜 낭비 제거(API QA)."""
     from datetime import date, timedelta
-    today = date.today()
+    today = today_kst()
     out = []
     for i in range(12):
         d = today - timedelta(days=i)
@@ -169,7 +170,7 @@ async def _ensure_krx_fresh() -> str | None:
     """하루 1회(프로세스): 최신 거래일 스냅샷으로 krx_weekly 갱신(같은 ISO주 수렴). 반환 = 서빙할 price_dd.
     매일 갱신(전날 종가까지 표시)하되 주중 일별은 덮여 사라지고 주 마지막 거래일만 영구 보존."""
     from datetime import date
-    today = date.today().strftime("%Y%m%d")
+    today = today_kst().strftime("%Y%m%d")
     if _KRX_STATE.get("day") == today and _KRX_STATE.get("latest_dd"):
         return _KRX_STATE["latest_dd"] or None
     db_latest = await asyncio.to_thread(_krx_db_latest_dd)
@@ -516,7 +517,7 @@ def _latest_annual_fy() -> int:
     ⚠ dart_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 이 FY로 덮어쓰는 **가변열**이라,
     그 값을 담을 fin[] 키는 반드시 이 헬퍼로 파생해야 함(하드코딩 금지 — FY 넘어가면 조용히 오라벨)."""
     from datetime import date
-    t = date.today()
+    t = today_kst()
     return t.year - 1 if t.month >= 4 else t.year - 2
 
 
