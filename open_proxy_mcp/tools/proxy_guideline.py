@@ -7,7 +7,7 @@
 
 무엇에 쓰나:
   `proxy_advise_before_meeting` 의 판정 사유에 「OPM Guideline §2.4 이사 선임 — against
-  ①「사외이사 5년 룰」… ▸ 엔진: …」 같은 인용이 붙는다. §2.4 가 이 문서의 절 번호이고
+  ①「사외이사 장기연임 5년+」… ▸ 엔진: …」 같은 인용이 붙는다. §2.4 가 이 문서의 절 번호이고
   ①이 그 절 against 목록의 항목 번호다 — `section="2.4"` 로 열면 그 항목이 그 자리에 있다
   (tests/test_policy_citations_match_document.py 가 라벨↔문서를 자동 대조한다).
   「왜 이 안건이 찬성이냐」에 답할 때 이 문서를 읽고 인용하면 된다.

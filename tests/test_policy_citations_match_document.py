@@ -141,7 +141,7 @@ def test_rendered_label_carries_section_items_and_engine_verdict():
     """독자가 라벨만 보고 절 → 항목 → 엔진 판정을 이을 수 있어야 한다."""
     s = _policy_citation("director_election")
     assert s.startswith("OPM Guideline §2.4 이사 선임 — ")
-    assert "against ①「사외이사 5년 룰」" in s
+    assert "against ①「사외이사 장기연임 5년+」" in s
     assert "④「이사회 출석률 75% 미만」는 엔진 미반영" in s
     assert "▸ 엔진:" in s
     assert "§0-A" in s                       # 정책↔엔진 간극의 공식 지도를 가리킨다
@@ -168,10 +168,10 @@ def test_labels_carry_no_engine_identifiers():
 
 
 def test_alignment_table_lists_attendance_tenure_and_overboarding(doc):
-    """§0-A 정합표에 출석률·5년 룰·겸직 행이 있다 (260903) — 엔진이 안 쓰는 정책 항목을 표가 숨기지 않는다."""
+    """§0-A 정합표에 출석률·장기연임·겸직 행이 있다 (260903) — 엔진이 안 쓰는 정책 항목을 표가 숨기지 않는다."""
     text = _GUIDELINE.read_text(encoding="utf-8")
     start = text.index("## 0-A.")
     end = text.index("## 0.", start)
     table = text[start:end]
-    for needle in ("출석률", "5년 룰", "겸임"):
+    for needle in ("출석률", "장기연임", "겸임"):
         assert needle in table, f"§0-A 정합표에 「{needle}」 행이 없다"

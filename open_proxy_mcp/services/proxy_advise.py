@@ -2487,7 +2487,7 @@ _POLICY_CITATIONS: dict[str, dict[str, Any]] = {
     },
     "director_election": {
         "section": "2.4", "title": "이사 선임",
-        "items": [("against", 1, "사외이사 5년 룰"), ("against", 2, "6년 초과 재직"),
+        "items": [("against", 1, "사외이사 장기연임 5년+"), ("against", 2, "6년 초과 재직"),
                   ("against", 3, "과도 겸임")],
         "unused": [("against", 4, "이사회 출석률 75% 미만")],
         "engine": "법정 결격 → 반대(§7 2단계) · ①② 장기연임 → 검토(5년 소프트 경보 / 6년 초과는 상법 시행령 "
@@ -2497,7 +2497,7 @@ _POLICY_CITATIONS: dict[str, dict[str, Any]] = {
     "audit_committee_election": {
         "section": "2.5", "title": "감사위원·감사 선임",
         "items": [("against", 4, "5년 내 임직원/특수관계인")],
-        "also": [("2.4", "against", 1, "사외이사 5년 룰"), ("2.4", "against", 2, "6년 초과 재직")],
+        "also": [("2.4", "against", 1, "사외이사 장기연임 5년+"), ("2.4", "against", 2, "6년 초과 재직")],
         "engine": "법정 결격 → 반대 · 최대주주·회사 관계(독립성 우려) → 검토 · 장기연임(5년 소프트 / 6년 초과 "
                   "§34⑤) → 검토 · 감사위원은 사외이사와 같은 문턱에 독립성 가중",
     },
@@ -2596,7 +2596,7 @@ def _circled(no: int) -> str:
 def _render_policy_citation(spec: dict[str, Any]) -> str:
     """인용 표 한 항목 → 산출물의 「정책 인용」 한 줄.
 
-    모양: `OPM Guideline §2.4 이사 선임 — against ①「사외이사 5년 룰」·② … ▸ 엔진: …`
+    모양: `OPM Guideline §2.4 이사 선임 — against ①「사외이사 장기연임 5년+」·② … ▸ 엔진: …`
     절이 없으면 `OPM Guideline 해당 절 없음(감사 보수) ▸ 엔진: …` — 없는 절을 지어내지 않는다.
     """
     sec = spec.get("section")
