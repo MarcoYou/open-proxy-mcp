@@ -13,7 +13,7 @@ _INDEPENDENCE_LABELS = {
     "independent": "독립적 (세부 항목 모두 충족)",
     "weak_concerns": "약한 우려 (세부 항목 1개 위반)",
     "concerns": "우려 (세부 항목 다수 위반)",
-    "long_tenure_concerns": "장기연임 우려 (5년 룰 위반)",
+    "long_tenure_concerns": "장기연임 우려 (5년+ 소프트 경보 — 성문 규정 위반 아님, 6년 초과는 결격 가능)",
     "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     # 「회사와의 관계」와 다른 축이다 — 제안한 쪽 사람인가. 부적격이라 말하지 않고 표면화한다.
     # 「제안 측」은 한 덩어리가 아니다 — 제안한 주주에 **고용된 사람**과 그 주주가
@@ -69,7 +69,7 @@ _AUDIT_RISK_TYPE_KO = {
 
 _FIVE_YEAR_LABELS = {
     "first_term_or_short": "첫 임기 또는 단기 (5년 룰 통과)",
-    "long_tenure_concerns": "장기연임 (5년+, 독립성 훼손)",
+    "long_tenure_concerns": "장기연임 (5년+ 소프트 경보)",
     "potential_long_tenure": "장기연임 가능성 (임기 확인 필요)",
     "no_data": "데이터 부족",
     "-": "-",
@@ -255,6 +255,7 @@ _FACT_VALUE: dict[str, str] = {
     "small_or_flat": "소폭 또는 동결", "large_increase": "큰 폭 인상",
     "very_large_increase": "매우 큰 폭 인상",
     "low_confidence": "신뢰도 낮음", "low_fallback_to_raw": "원문으로 대체",
+    "name_match_failed_see_raw": "후보 이름 매칭 실패 — 아래 원문 발췌 참조",
     # 이사 후보 상태
     "renewed": "재선임", "independent": "독립적", "clean": "결격사유 없음",
     "unknown_no_field": "결격 기재 없음(칸 없음)",
@@ -540,6 +541,9 @@ def _render(payload: dict[str, Any]) -> str:
         # 안건별 결정 근거 detail (facts + risk + policy citation + 근거 공고)
         lines.append("### 안건별 결정 근거 (사실 + 위험 + 정책 + 출처)")
         lines.append("")
+        # 같은 정책 인용 전문이 자식 안건마다 반복돼 45안건 응답이 도구 상한을 넘겼다(260904 고려아연).
+        # 처음 나온 안건에만 전문을 싣고, 다시 나오면 절 이름과 그 안건 번호만 적는다.
+        _seen_citations: dict[str, int] = {}
         for i, ag in enumerate(decisions, 1):
             title = (ag.get("agenda_title") or "")[:80]
             facts = ag.get("facts") or {}
@@ -583,7 +587,12 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append("- 위험 신호: 확인된 항목 없음"
                              if ag.get("decision") in ("FOR", "AGAINST")
                              else "- 위험 신호: 이 경로에서는 위험 신호를 판정하지 않았습니다")
-            lines.append(f"- 정책 인용: {citation}")
+            if citation in _seen_citations:
+                _head = citation.split(" — ", 1)[0].split(" ▸ ", 1)[0]
+                lines.append(f"- 정책 인용: {_head} — {_seen_citations[citation]}번 안건과 같은 인용")
+            else:
+                _seen_citations[citation] = i
+                lines.append(f"- 정책 인용: {citation}")
             lines.append(f"- 적용 정책: {policy_basis}")
             if rcept_no:
                 viewer = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"

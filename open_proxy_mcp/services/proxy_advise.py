@@ -104,6 +104,9 @@ _CATEGORY_KO = {
     "director_compensation": "이사 보수한도", "audit_compensation": "감사 보수한도",
     "capital_reduction": "자본 감소", "stock_option_grant": "주식매수선택권 부여",
     "stock_split": "주식분할(액면분할)",
+    # 260904 실측(솔루엠): 분류 검증 문구에 'cash_dividend' 가 그대로 찍혔다 — 사전에 없던 다섯 키.
+    "cash_dividend": "현금배당", "treasury_share": "자기주식", "shareholder_proposal": "주주제안",
+    "merger_or_restructuring": "합병·분할·영업양수도", "retirement_pay": "퇴직금 규정",
     "other": "기타",
 }
 
@@ -1286,6 +1289,12 @@ def _apply_relation_links(agenda_decisions: list[dict[str, Any]]) -> list[str]:
     return notes
 
 
+def _disq_phrase(disq: str) -> str:
+    """결격 요약 → 사유 문구. 서식에 결격·체납 칸이 없으면 「없다」가 아니라 「기재 없음」이다 —
+    후보 표는 그렇게 적으면서 사유는 「모두 해당 없음」이라 하던 자기모순(260904 솔루엠 실측)."""
+    return "결격 기재 없음(서식에 결격·체납 칸 없음)" if disq == "unknown_no_field" else "결격사유 없음"
+
+
 def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, str]:
     """이사/감사위원 선임 안건 → (decision, reason).
 
@@ -1360,10 +1369,10 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
         # 최대주주 관계 약한 신호(iter18/27 calibration: 단독은 약신호) — 결정은 FOR 유지하되
         # reason을 정직화("모두 clean" 거짓 금지, 260710 한화오션 발행회사 관계 사고).
         if indep == "weak_concerns":
-            return "FOR", f"{_role} 결격 없음 — 단 최대주주 관계 약한 신호 있음(발행회사/계열 관계 표기), 원문 확인 권고"
+            return "FOR", f"{_role} {_disq_phrase(disq)} — 단 최대주주 관계 약한 신호 있음(발행회사/계열 관계 표기), 원문 확인 권고"
         if is_audit or eval_match.get("_audit_force_strict"):
-            return "FOR", f"감사 독립성·결격사유 모두 해당 없음 ({role_type})"
-        return "FOR", f"사외이사 독립성·결격사유 모두 해당 없음 ({role_type})"
+            return "FOR", f"감사 독립성 우려 없음 · {_disq_phrase(disq)} ({role_type})"
+        return "FOR", f"사외이사 독립성 우려 없음 · {_disq_phrase(disq)} ({role_type})"
     # 사내이사: 결격사유 외에 재직 중 회사 운영 성과 평가 (status quo 편향 mitigation, ralph 260505)
     perf = (eval_match.get("performance") or {}).get("classification")
     if perf == "bad":
@@ -1371,9 +1380,9 @@ def _decide_director_election(eval_match: dict[str, Any] | None) -> tuple[str, s
     if perf == "weak":
         return "REVIEW", f"사내이사 재직 중 성과 부진 — 사용자 검토 필요"
     if perf in ("moderate", "good"):
-        return "FOR", f"사내이사 결격 없음 + 재직 성과 {_PERF_KO.get(perf, perf)} ({role_type})"
+        return "FOR", f"사내이사 {_disq_phrase(disq)} + 재직 성과 {_PERF_KO.get(perf, perf)} ({role_type})"
     # performance 미평가 (신임 사내이사 — appointment_type=new) → 기존 logic
-    return "FOR", f"사내이사 결격사유 없음 ({role_type}) — 신임 또는 평가 미실시"
+    return "FOR", f"사내이사 {_disq_phrase(disq)} ({role_type}) — 신임 또는 평가 미실시"
 
 
 def _fm_yoy_pct(fm_payload: dict[str, Any] | None) -> float | None:
@@ -3172,13 +3181,27 @@ def _extract_risks(
     if category in ("director_election", "audit_committee_election") and eval_match:
         disq = (eval_match.get("disqualification") or {}).get("summary")
         indep = (eval_match.get("independence") or {}).get("summary")
-        ah = (eval_match.get("faithfulness") or {}).get("audit_history_check", {}).get("summary")
+        _faith = eval_match.get("faithfulness") or {}
+        ah = (_faith.get("audit_history_check") or {}).get("summary")
+        _co = _faith.get("concurrent_outside_directors") or {}
+        # 독립성은 사외이사·감사(위원)에 적용하는 잣대다 — 사내·기타비상무이사에는 사실 칸에
+        # 「독립성 평가 비대상」이라 적으면서 위험 신호에 「독립성 우려」를 달던 자기모순
+        # (260904 가비아 안상희 실측). 판정 함수와 같은 역할 판별을 쓴다.
+        _rt = eval_match.get("role_type") or ""
+        _indep_applies = (is_outside_role(_rt) or "감사" in _rt
+                          or bool(eval_match.get("_audit_force_strict")))
         if disq == "red_flag":
             risks.append("결격사유")
-        if indep == "concerns":
+        if _indep_applies and indep == "concerns":
             risks.append("독립성 우려 (최대주주 관계 / 회사 거래 / 이전 회사 직원)")
-        elif indep == "long_tenure_concerns":
+        elif _indep_applies and indep == "long_tenure_concerns":
             risks.append("장기연임 (5년+ 소프트 경보 / 6년+ 상법 시행령 §34조5항7호 결격 가능)")
+        # 겸직은 사실 칸에 「겸직 우려」로 적히면서 위험 신호는 「확인된 항목 없음」이었다
+        # (260904 고려아연 이형규 실측). 판정을 바꾸지 않고 신호만 같은 자리에 둔다.
+        if _indep_applies and _co.get("summary") in ("concerns_concurrent", "strong_concerns_concurrent"):
+            _n = _co.get("total")
+            risks.append(f"겸직 우려 (타사 사외이사 {_n}곳)" if isinstance(_n, int)
+                         else "겸직 우려 (타사 사외이사 겸직)")
         if ah == "red_flag":
             risks.append("이사 회계 위험 이력 발견 (원문 메모 검토)")
 
@@ -3299,7 +3322,7 @@ def _decide_dividend(agenda_title: str, fm_payload: dict[str, Any] | None, compa
     procedural_kws = ("분기", "기준일", "중간배당", "동등배당", "배당정책", "배당절차", "절차",
                       "자본준비금", "이익잉여금 전입", "이익잉여금전입")
     if any(kw in agenda_title for kw in procedural_kws):
-        return "FOR", "배당 절차·회계 안건 — 재무와 무관(원칙적 찬성)"
+        return "FOR", "배당 절차·회계 안건 — 절차 자체는 원칙적 찬성"
     if ni is not None and ni < 0:
         # **당기 순손익은 배당 재원이 아니다.** 상법 제462조제1항의 배당가능이익은 순자산에서
         # 자본금·준비금·미실현이익을 뺀 값이고, 산정 기준은 **별도(개별) 재무제표**다. 누적
