@@ -1,6 +1,7 @@
 """ownership_structure facade 서비스."""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from datetime import date
@@ -999,11 +1000,11 @@ async def build_ownership_structure_payload(
     selected = resolution.selected
     as_of = parse_date_param(as_of_date)
     as_of_year = (as_of.year - 1) if as_of else None
-    bsns_year = str(year or as_of_year or (date.today().year - 1))
+    bsns_year = str(year or as_of_year or (today_kst().year - 1))
     window_start, window_end, window_warnings = resolve_date_window(
         start_date=start_date,
         end_date=end_date,
-        default_end=as_of or date.today(),
+        default_end=as_of or today_kst(),
         lookback_months=12,
     )
     warnings: list[str] = list(window_warnings)

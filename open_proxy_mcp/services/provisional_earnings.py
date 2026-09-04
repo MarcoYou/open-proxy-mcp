@@ -9,6 +9,7 @@ DART 정기보고서(확정치, financial_metrics)보다 **먼저** 나오는 �
 Layer: data tool (파싱, 판단 X). screener가 detail_kind="earnings"로 재사용.
 """
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import re
 import asyncio
@@ -327,8 +328,8 @@ async def build_provisional_earnings_payload(
                             warnings=["회사 식별 실패"]).to_dict()
     corp = res.selected
     client = get_dart_client()
-    bgn_de = start_date or (date.today() - timedelta(days=months * 31)).strftime("%Y%m%d")
-    end_de = end_date or date.today().strftime("%Y%m%d")
+    bgn_de = start_date or (today_kst() - timedelta(days=months * 31)).strftime("%Y%m%d")
+    end_de = end_date or today_kst().strftime("%Y%m%d")
     try:
         rept = await _find_latest_provisional(client, corp["corp_code"], bgn_de, end_de)
     except DartClientError as e:

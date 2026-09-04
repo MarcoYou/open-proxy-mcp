@@ -1,6 +1,7 @@
 """dividend facade 서비스."""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import calendar
@@ -840,11 +841,11 @@ async def build_dividend_payload(
     elif explicit_end:
         target_year = explicit_end.year
     else:
-        target_year = date.today().year - 1
+        target_year = today_kst().year - 1
     # 결산배당 결정 공시는 보통 fiscal year 종료 후 다음 해 1-3월에 공시됨.
     # window_end를 다음 해 6월까지 확장해 최신 결산 결정 빠짐 방지 (정기주총 시점까지 커버).
     from datetime import date as _date_cls, timedelta as _td
-    today = _date_cls.today()
+    today = today_kst()
     candidate_end = _date_cls(target_year + 1, 6, 30)
     default_end = candidate_end if candidate_end <= today else today
     window_start, window_end, window_warnings = resolve_date_window(
@@ -1010,7 +1011,7 @@ async def build_dividend_payload(
     # 예전엔 그 해가 화면에서 통째로 빠져 직전 연도 배당이 최신인 것처럼 읽혔다
     # (포시에스: 회사 공시는 「FY2025 결산 배당 아직 없음」인데 도구는 FY2025 지급 완료로 표시).
     undecided_fiscal_years: list[dict[str, Any]] = []
-    latest_completed_fy = _latest_completed_fiscal_year(date.today(), fiscal_end_month)
+    latest_completed_fy = _latest_completed_fiscal_year(today_kst(), fiscal_end_month)
     newest_reported_fy = max(annual_summaries) if annual_summaries else target_year
     if latest_completed_fy is not None:
         decided_fys = {_bucket_fiscal_year(d) for d in details_all}
@@ -1088,7 +1089,7 @@ async def build_dividend_payload(
                             # 전혀 없다는 것은 결산 현금배당을 하지 않기로 확정한 것으로 본다
                             # (예: FY2025 배당재원을 전액 자사주 소각으로 전환한 메리츠금융지주 →
                             # 종전엔 '미확정'으로 고착됐음). 익년 5월말 이후를 경과 기준으로(버퍼).
-                            agm_passed = date.today() > date(target_year + 1, 5, 31)
+                            agm_passed = today_kst() > date(target_year + 1, 5, 31)
                             if agm_passed:
                                 row["pattern"] = "무배당 (확정 · 결산 현금배당 없음)"
                                 warnings.append(

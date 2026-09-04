@@ -31,6 +31,7 @@ scope:
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import logging
@@ -1177,7 +1178,7 @@ async def build_director_board_payload(
     if not year:
         # 최근 확정 사업연도(사업보고서는 익년 3월 제출 → 보수적으로 전년)
         from datetime import date
-        year = date.today().year - 1
+        year = today_kst().year - 1
 
     timings["resolve"] = round((time.perf_counter() - t_start) * 1000, 1)
 

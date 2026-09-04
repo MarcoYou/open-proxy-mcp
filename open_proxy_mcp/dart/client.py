@@ -11,6 +11,7 @@
   - 배치 작업 시 CLAUDE.md의 "OpenDART API 한도" 절 반드시 참조.
 """
 
+from open_proxy_mcp.clock import today_kst
 import os
 import gzip
 import io
@@ -593,6 +594,8 @@ def _env_mb(name: str, default_mb: int) -> int:
         return default_mb * 1024 * 1024
 
 
+#: 오늘을 포함하는 list.json 조회 결과의 수명 — 이 안에서만 「방금 뜬 공시」가 안 보인다.
+_SEARCH_CACHE_LIVE_TTL_SEC = 120
 _DOC_CACHE_TTL_SEC = 24 * 60 * 60   # 24h — rcept_no 는 immutable 이지만 영구 점유는 막는다.
 
 # 프로세스 전역 — DartClient 인스턴스마다 캐시를 들면 안 된다.
@@ -1062,10 +1065,14 @@ class DartClient:
         # 함께 기다린다. 서비스별 asyncio.gather가 겹치는 경로에서 중복 다운로드를
         # 막는 per-client single-flight 등록부다.
         self._doc_inflight: dict[str, asyncio.Task] = {}
-        # Search result caching (세션 기반, TTL 없음)
+        # Search result caching (세션 기반)
         # 실측 평균 9.8KB · 최대 16.2KB(page_count=100) → 50건이면 ~0.5MB. 문서 캐시의
         # 1/500 수준이라 개수 상한으로 충분하다(260804 OOM 조사에서 확인, 변경 불필요).
-        self._search_cache: dict[str, dict] = {}
+        # 값은 (결과, 만료시각|None). 260904: 종전엔 TTL 이 없어서 **종료일이 오늘 이후인 구간**
+        # (회차 탐색은 오늘+90일까지 본다)이 프로세스가 사는 동안 첫 조회 결과로 굳었다 —
+        # 그 뒤에 접수된 공시는 다음 날(키의 end_de 가 바뀔 때)까지 보이지 않았다. 「방금 뜬
+        # 공시를 사용자가 말해 줘야 안다」의 원인. 오늘을 포함하는 구간만 짧게 산다.
+        self._search_cache: dict[str, tuple[dict, float | None]] = {}
         self._MAX_SEARCH_CACHE = 50
         # 과거 연도 배당(alotMatter) — 전역 바이트 예산 LRU (모듈 상단 _DIVIDEND_CACHE 참조)
         self._dividend_cache = _DIVIDEND_CACHE
@@ -1525,7 +1532,7 @@ class DartClient:
         corp_code 로 이으면 된다. 여기 또 담으면 월 1회 갱신인 이쪽이 더 낡아, 같은 사실이
         두 곳에서 어긋난다(260823~24 에 반복해서 본 형태).
         """
-        today = date.today()
+        today = today_kst()
         filers: dict[str, str] = {}
         cur = today - timedelta(days=_FILERS_LOOKBACK_DAYS)
         while cur < today:
@@ -1687,8 +1694,12 @@ class DartClient:
         _cacheable = bool(corp_code) and not corp_name and not corp_cls and page_no == 1 and page_count == 100
         if _cacheable:
             _cache_key = f"{corp_code}|{bgn_de}|{end_de}|{pblntf_ty}|{pblntf_detail_ty}|{last_reprt_at}"
-            if _cache_key in self._search_cache:
-                return self._search_cache[_cache_key]
+            _hit = self._search_cache.get(_cache_key)
+            if _hit is not None:
+                _val, _exp = _hit
+                if _exp is None or time.time() < _exp:
+                    return _val
+                self._search_cache.pop(_cache_key, None)
 
         params = {
             "bgn_de": bgn_de,
@@ -1714,7 +1725,10 @@ class DartClient:
         if _cacheable:
             if len(self._search_cache) >= self._MAX_SEARCH_CACHE:
                 self._search_cache.pop(next(iter(self._search_cache)))
-            self._search_cache[_cache_key] = result
+            # 종료일이 오늘(KST) 이후면 그 구간엔 아직 접수될 공시가 남아 있다 — 짧게만 산다.
+            _live = end_de >= today_kst().strftime("%Y%m%d")
+            self._search_cache[_cache_key] = (
+                result, (time.time() + _SEARCH_CACHE_LIVE_TTL_SEC) if _live else None)
 
         return result
 
@@ -2360,7 +2374,7 @@ class DartClient:
         # 연도면 상한이 150MB 대다(260804 OOM 조사). 바이트 예산 LRU + TTL 로 문서 캐시와
         # 같은 규율을 적용한다. evict 돼도 다음 조회 때 alotMatter 1콜이면 복구된다.
         from datetime import date as _date
-        cacheable = reprt_code == "11011" and bsns_year.isdigit() and int(bsns_year) <= _date.today().year - 2
+        cacheable = reprt_code == "11011" and bsns_year.isdigit() and int(bsns_year) <= today_kst().year - 2
         cache_key = f"{corp_code}|{bsns_year}|{reprt_code}"
         if cacheable:
             cached = self._dividend_cache.get(cache_key)

@@ -404,8 +404,43 @@ def _fin_basis_line(fin: dict) -> str:
     return " · ".join(parts)
 
 
+_VIEWER = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo="
+
+
+def _render_meeting_absent(payload: dict[str, Any]) -> str:
+    """요청한 종류의 소집공고가 없을 때 — 회차 프레임을 그리지 않고 없음과 손잡이만 준다."""
+    data = payload.get("data", {})
+    ma = data.get("meeting_absent") or {}
+    mt = data.get("selected_meeting_type")
+    mt_ko = {"annual": "정기", "extraordinary": "임시"}.get(mt, mt or "")
+    other = ma.get("other_type_latest") or {}
+    other_ko = {"annual": "정기", "extraordinary": "임시"}.get(other.get("meeting_type"), "")
+    lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 의결권 행사 메모 (사전)", ""]
+    lines.append(f"- 회차: 요청하신 **{mt_ko}주총** 소집공고가 없습니다 — 탐색 창 "
+                 f"{ma.get('window_start')} ~ {ma.get('window_end')}.")
+    lines.append(f"- 확인 방법: {ma.get('method')}")
+    found = ma.get("found_notices") or []
+    if found:
+        lines.append("- 같은 창에서 찾은 소집공고 (종류는 원문 머리에서 확인하십시오):")
+        for n in found:
+            lines.append(f"  - {n.get('rcept_dt')} {n.get('report_name')} — "
+                         f"[{n.get('rcept_no')}]({_VIEWER}{n.get('rcept_no')})")
+    else:
+        lines.append("- 같은 창에서 찾은 소집공고: 없음")
+    if other:
+        lines.append(f"- 참고: 최신 {other_ko}주총 소집공고는 {other.get('notice_date')} 공시"
+                     f"(회의일 {other.get('meeting_date') or '미확인'}) — 그 회차를 보려면 "
+                     f"meeting_type=\"{other.get('meeting_type')}\" 로 부르십시오.")
+    for note in ma.get("notes") or []:
+        lines.append(f"- ⚠ {note}")
+    lines.append("- 다음 경로: 특정 연도 회차는 year=YYYY, 종류를 가리지 않으려면 meeting_type=\"auto\".")
+    return "\n".join(lines)
+
+
 def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
+    if data.get("meeting_absent"):
+        return _render_meeting_absent(payload)
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 의결권 행사 메모 (사전)"]
     lines.append("")
     if data.get("scope_all_warning"):
@@ -599,15 +634,27 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"- 근거 공고: [주주총회소집공고 {rcept_no}]({viewer})")
             # 내부 코드번호는 비노출 (payload source_section.section_code로만 — 운영자용)
             src = ag.get("source_section")
+            _uncertain = bool(ag.get("source_section_uncertain"))
             if src and src.get("section_title"):
-                lines.append(
-                    f"- 근거 위치: 소집공고 **§{src['section_title']}**"
-                    f" — 뷰어 좌측 목차에서 해당 절을 열면 이 안건의 원문"
-                )
+                if _uncertain:
+                    # 지우지 않고 묻는다 — 이 절이 이 안건 것인지는 읽는 쪽이 원문으로 판단한다.
+                    _no = ag.get("agenda_id") or ""
+                    lines.append(
+                        f"- 근거 위치(불확실): 소집공고 **§{src['section_title']}** — 표준 서식 신고 유형과 "
+                        f"제목 분류가 어긋나 이 절이 이 안건의 원문이 아닐 수 있습니다. 아래 발췌(자식 안건이면 "
+                        f"부모 안건의 발췌)가 이 안건{f'({_no})' if _no else ''}의 내용이 맞으면 근거로 쓰고, "
+                        f"아니면 근거 공고 전문에서 「제N호 의안」 표지를 찾아 그 절을 쓰십시오."
+                    )
+                else:
+                    lines.append(
+                        f"- 근거 위치: 소집공고 **§{src['section_title']}**"
+                        f" — 뷰어 좌측 목차에서 해당 절을 열면 이 안건의 원문"
+                    )
             if ag.get("classification_note"):
                 lines.append(f"- 분류 검증: {ag['classification_note']}")
             if ag.get("source_excerpt"):
-                lines.append("- 해당 절 원문 발췌 (LLM 직접 검토):")
+                lines.append("- 해당 절 원문 발췌 — **이 안건의 것인지 먼저 확인하십시오** (맞으면 근거로 씀):"
+                             if _uncertain else "- 해당 절 원문 발췌 (LLM 직접 검토):")
                 lines.append("")
                 lines.append(ag["source_excerpt"])
                 lines.append("")

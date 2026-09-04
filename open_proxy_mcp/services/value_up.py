@@ -1,6 +1,7 @@
 """value_up facade 서비스."""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from datetime import date
@@ -607,9 +608,9 @@ async def build_value_up_payload(
             _mark(stage, started_at)
 
     selected = resolution.selected
-    target_year = year or date.today().year
+    target_year = year or today_kst().year
     explicit_window = bool(start_date or end_date)
-    default_end = date(target_year, 12, 31) if year else date.today()
+    default_end = date(target_year, 12, 31) if year else today_kst()
     window_start, window_end, window_warnings = resolve_date_window(
         start_date=start_date,
         end_date=end_date,

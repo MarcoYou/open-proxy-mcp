@@ -51,7 +51,7 @@ proxy_advise_before_meeting(
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 — 최신 소집공고(12개월 lookback) 기준 회차. 공고 미발견 시 전년 fallback + warning. 응답 `year_resolution`에 선택 근거, 종료된 회차면 `meeting_closed_hint` 동봉 |
-| meeting_type | str | no | "auto" / "annual" / "extraordinary" | "auto" |
+| meeting_type | str | no | "auto" / "annual" / "extraordinary". 종류를 지정했는데 그 종류의 소집공고가 탐색 창(과거 12개월~앞으로 90일)에 없으면 회차를 만들지 않고 `no_filing` 으로 「없음 + 같은 창의 소집공고 목록 + 다른 종류의 최신 회차」만 돌려준다 | "auto" |
 | vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
@@ -642,6 +642,14 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 변경 이력
 
+- 2026-09-04 (2차): 라이브 관찰 결함 「소」 3건 — ① **근거 위치 불확실 표기**: 「분류 검증 불일치·미등록」이 뜬 루트 안건과
+  그 자식의 근거 위치·발췌를 지우지 않고 「이 절이 이 안건 원문이 아닐 수 있다 — 발췌가 이 안건 내용이면 근거로 쓰고,
+  아니면 전문에서 제N호 표지를 찾으라」로 독자에게 묻는다(솔루엠 한 칸 밀림 실측). ② **임시/정기 명시 호출에 그 종류의
+  소집공고가 없으면** 「달력 전년 · 안건 0건」 프레임 대신 `no_filing` 응답 — 탐색 창(24개월+90일)에서 제목이 소집공고인
+  공시 목록(원문 미열람, 종류는 독자가 확인)과 다른 종류의 최신 회차를 손잡이로 준다. ③ **정원 상한 검출을 문장 단위로**
+  — 「N인 이하」가 놓인 문장이 이사 정원을 말할 때만(위원회 구성 문장 제외, 솔루엠 제29조2 오탐). 함께: 「방금 뜬 공시를
+  못 본다」의 원인 둘 — `list.json` 검색 캐시에 TTL 이 없어 오늘+90일 구간 결과가 프로세스 수명 동안 굳던 것(오늘을
+  포함하는 구간은 120초만 캐시) · 서버(UTC)의 `date.today()` 가 KST 자정~09시에 어제를 주던 것(패키지 전체 `today_kst`).
 - 2026-09-04: 라이브 6회(가비아·솔루엠·고려아연 정기/임시) 관찰 결함 중 한 줄짜리 7건 수정 — ① 분류 검증 문구에
   영문 카테고리(`cash_dividend`) 유출: 한글 사전에 배당·자사주·주주제안·구조개편·퇴직금 키 추가 ② 파싱 품질 값
   영문 유출 ③ 후보 표 「5년 룰 위반」 → 「5년+ 소프트 경보」(260710 법률 정정 정합) ④ 절차 배당 사유 「재무와 무관」

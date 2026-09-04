@@ -5,6 +5,7 @@
 meeting window 필터에서 탈락해 작년 회차를 '최신'으로 오선택하던 결함.
 """
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from datetime import date, timedelta
@@ -33,7 +34,7 @@ def _patch_window(monkeypatch, notices_by_label: dict, captured: dict | None = N
 
 def test_future_meeting_included_pre_meeting(monkeypatch):
     # 소집공고 발행됨 + 회의일 미래(+20일): 반드시 이 회차가 선택되고 phase=pre_meeting
-    today = date.today()
+    today = today_kst()
     fut = today + timedelta(days=20)
     past = today - timedelta(days=340)
     notices = {"정기": [
@@ -63,7 +64,7 @@ def test_year_boundary_december_notice_january_meeting(monkeypatch):
 
 
 def test_meeting_date_parse_failure_falls_back_to_disclosure_year(monkeypatch):
-    today = date.today()
+    today = today_kst()
     notices = {"정기": [_notice("4" * 14, today.strftime("%Y%m%d"), "")]}  # datetime 파싱 불가
     _patch_window(monkeypatch, notices)
     out = asyncio.run(sm.resolve_latest_meeting_year("00000000"))
@@ -79,7 +80,7 @@ def test_no_notices_returns_none(monkeypatch):
 
 
 def test_auto_picks_latest_disclosure_across_types(monkeypatch):
-    today = date.today()
+    today = today_kst()
     ann = _notice("5" * 14, (today - timedelta(days=120)).strftime("%Y%m%d"),
                   (today - timedelta(days=95)).strftime("%Y년 %m월 %d일"))
     ext = _notice("6" * 14, (today - timedelta(days=10)).strftime("%Y%m%d"),

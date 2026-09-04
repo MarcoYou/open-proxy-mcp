@@ -1,6 +1,7 @@
 """shareholder_meeting facade 서비스."""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from contextlib import contextmanager
@@ -1273,7 +1274,7 @@ async def _find_meeting_result_filing(
     #    참석률 73.1%는 3월 정기주총 결과였다. 주총 «전» 판단에 사후 정보가 새는 자리다).
     #    ① 회의일이 아직 안 왔으면 결과는 없다. ② 있어도 **회의일 당일 이후** 접수분만 본다.
     if meeting_date:
-        if meeting_date > date.today():
+        if meeting_date > today_kst():
             return None, "회의일이 아직 오지 않아 결과공시는 존재할 수 없다.", notices
         after = []
         for it in result_items:
@@ -1335,7 +1336,7 @@ def _meeting_phase(
     result_reference: dict[str, Any] | None,
 ) -> tuple[str, str]:
     meeting_date = _parse_notice_meeting_date(meeting_info.get("datetime", ""))
-    today = date.today()
+    today = today_kst()
 
     if result_filing:
         if result_reference and result_reference.get("dart_fetchable"):
@@ -1401,7 +1402,7 @@ def _round_year(target_year: int | None, meeting_date: date | None, notice_rcept
     # 회의일을 못 읽은 경우 — 공고 접수연도가 오늘보다 회의에 가깝다(공고는 회의 前 몇 주).
     if len(notice_rcept_no) >= 4 and notice_rcept_no[:4].isdigit():
         return int(notice_rcept_no[:4])
-    return date.today().year
+    return today_kst().year
 
 
 def _selection_window(
@@ -1415,7 +1416,7 @@ def _selection_window(
         return resolve_date_window(
             start_date=start_date,
             end_date=end_date,
-            default_end=date.today(),
+            default_end=today_kst(),
             lookback_months=lookback_months,
         )
     if target_year:
@@ -1431,7 +1432,7 @@ def _selection_window(
     start, end, warnings = resolve_date_window(
         start_date="",
         end_date="",
-        default_end=date.today(),
+        default_end=today_kst(),
         lookback_months=lookback_months,
     )
     return start, end + timedelta(days=_NOTICE_LEAD_BUFFER_DAYS), warnings
@@ -1541,7 +1542,7 @@ async def resolve_latest_meeting_year(
     """
     if meeting_type not in _ALLOWED_MEETING_TYPES:
         return None
-    today = date.today()
+    today = today_kst()
     # `year` 를 주면 그 해의 회차를 집는다. 260828: 이 인자가 없어서, 사용자가 연도를 직접
     # 지정하면 **회의일을 아예 모르는 채로** 분석이 진행됐다. 회의일을 모르면 「그 시점에 볼 수
     # 있던 공시」의 경계도 그을 수 없다 — proxy_advise 의 as_of 기본값이 여기서 나온다.
@@ -1665,7 +1666,7 @@ async def _select_notice_candidate(
             _build_candidate(
                 # window_end 는 이제 미래(오늘+90일)라 연말엔 .year 가 **다음 해**다.
                 # 회의일을 못 읽었을 때의 결과검색 연도로 그걸 쓰면 엉뚱한 해를 뒤진다.
-                corp_code, meeting_type, target_year or date.today().year, notice,
+                corp_code, meeting_type, target_year or today_kst().year, notice,
                 fetch_result_filing=fetch_result,
             )
             for meeting_type, notice in latest_by_type
@@ -1718,7 +1719,7 @@ async def _select_notice_candidate(
     fetch_result = scope in {"results", "full"}
     stage_started_at = time.perf_counter()
     selected = await _build_candidate(
-        corp_code, requested_meeting_type, target_year or date.today().year, latest_notice,
+        corp_code, requested_meeting_type, target_year or today_kst().year, latest_notice,
         fetch_result_filing=fetch_result,
     )
     _mark_timing(timings_ms, "select_notice_candidate.build_candidate", stage_started_at)
@@ -2125,7 +2126,7 @@ async def build_shareholder_meeting_payload(
                 "requested_meeting_type": meeting_type,
                 "scope": scope,
                 # 소집공고를 못 찾은 갈래라 회차가 없다 — 구간 끝(미래)이 아니라 오늘 기준.
-                "year": target_year or date.today().year,
+                "year": target_year or today_kst().year,
                 "fiscal_month": fiscal_month,
                 "requested_window": {
                     "start_date": requested_window_start.isoformat(),
@@ -2147,7 +2148,7 @@ async def build_shareholder_meeting_payload(
     result_status = selected_candidate["result_status"]
     result_reference = selected_candidate["result_reference"]
     result_filing_warning = selected_candidate["result_filing_warning"]
-    coverage_anchor_end = requested_window_end if (start_date or end_date or not target_year) else (selected_meeting_date or date.today())
+    coverage_anchor_end = requested_window_end if (start_date or end_date or not target_year) else (selected_meeting_date or today_kst())
     coverage_anchor_start = requested_window_start if (start_date or end_date or not target_year) else (coverage_anchor_end - timedelta(days=365))
     coverage_12m = None
     if include_coverage and selected.get("corp_code"):

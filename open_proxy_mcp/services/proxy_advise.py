@@ -20,6 +20,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import json
@@ -771,7 +772,7 @@ def _law_layer(
         risk_factors는 별도 처리 (정관 안건 X, ownership 신호)
     """
     if today_iso is None:
-        today_iso = date.today().isoformat()
+        today_iso = today_kst().isoformat()
 
     rules = _load_law_layer_rules()
     if not rules:
@@ -1231,6 +1232,25 @@ def _enforce_seat_budget(agenda_decisions: list[dict[str, Any]],
             r.setdefault("risk_factors", []).append("표결 구조 미확정 (좌석 수 초과)")
         notes.append(note)
     return notes
+
+
+def _mark_uncertain_evidence(agenda_decisions: list[dict[str, Any]],
+                             title_to_parent: dict[str, str]) -> set[str]:
+    """「분류 검증 불일치·미등록」이 뜬 루트 안건과 그 자식의 근거 위치에 불확실 표시.
+
+    지우지 않는다 — 렌더러가 「이 발췌가 이 안건 것인지 확인하고 맞으면 쓰라」고 묻는다.
+    승격 메모(「분류 근거: …」)는 코드와 제목이 일치한 경우라 불확실이 아니다.
+    """
+    roots = {
+        (row.get("agenda_title") or "")
+        for row in agenda_decisions
+        if (row.get("classification_note") or "") and "분류 근거" not in (row.get("classification_note") or "")
+    }
+    for row in agenda_decisions:
+        t = row.get("agenda_title") or ""
+        if row.get("source_section") and (t in roots or (title_to_parent.get(t) or "") in roots):
+            row["source_section_uncertain"] = True
+    return roots
 
 
 def _apply_relation_links(agenda_decisions: list[dict[str, Any]]) -> list[str]:
@@ -2297,6 +2317,31 @@ def _parse_share_count(raw: str) -> int | None:
     return _korean_number(token)
 
 
+#: 조문을 문장으로 가른다 — 「…한다.」 경계, 줄바꿈, 항 번호(①·1)·(1)).
+#: 항 번호는 「1) 」·「(1) 」처럼 **앞이 비고 뒤에 공백**이 있을 때만 — 「삼(3)인 이상」의 괄호 숫자에서
+#: 끊으면 「(11)인 이하로 두고」가 「이사」 없는 조각이 돼 카카오 케이스를 놓친다.
+_CLAUSE_SENTENCE_SPLIT = re.compile(
+    r"(?<=다\.)|\n|(?=[①②③④⑤⑥⑦⑧⑨⑩⑪⑫])|(?=(?<![\w가-힣(])\d+\)\s)|(?=(?<![\w가-힣])\(\d+\)\s)")
+_COMMITTEE_WORDS = ("위원회", "위원으로", "위원은", "위원의", "위원을")
+
+
+def _director_caps(text: str) -> list[int]:
+    """「N인 이하/이내」 중 **이사 정원** 문장의 것만.
+
+    260904 실측 솔루엠 제29조2 ③ 「제2항 각 호의 위원회는 3인 이상 4인 이하의 독립이사로 구성한다」
+    가 「이사 정원 상한 신설 (4인)」로 잡혀 형제 안건 4건이 검토로 격하됐다 — 위원회 구성 인원이지
+    이사회 정원이 아니다. 조문 전체가 아니라 **그 숫자가 놓인 문장**이 이사 정원을 말하는지 본다.
+    """
+    caps: list[int] = []
+    for sent in _CLAUSE_SENTENCE_SPLIT.split(text or ""):
+        if not sent or "이사" not in sent:
+            continue
+        if any(w in sent for w in _COMMITTEE_WORDS):
+            continue
+        caps.extend(int(m) for m in _DIRECTOR_CAP.findall(sent))
+    return caps
+
+
 def _articles_body_risks(amendment: dict[str, Any] | None) -> list[str]:
     """정관 **조문 본문**에서 위험 신호를 읽는다.
 
@@ -2315,8 +2360,8 @@ def _articles_body_risks(amendment: dict[str, Any] | None) -> list[str]:
     risks: list[str] = []
 
     # 이사 정원 — 상한이 낮아졌거나, 없던 상한이 새로 생겼거나.
-    caps_before = [int(m) for m in _DIRECTOR_CAP.findall(before)]
-    caps_after = [int(m) for m in _DIRECTOR_CAP.findall(after)]
+    caps_before = _director_caps(before)
+    caps_after = _director_caps(after)
     if "이사" in before or "이사" in after:
         if caps_before and caps_after and max(caps_after) < max(caps_before):
             risks.append(f"이사 정원 상한 축소 ({max(caps_before)}인 → {max(caps_after)}인)")
@@ -3379,6 +3424,57 @@ _EVIDENCE_MAX_CHARS = 30000
 _SEGMENT_CONTEXT_MAX_CHARS = 30000  # proxy_advise 응답이 이미 대형 — business_details(6만)보다 낮게 cap
 
 
+async def _meeting_absent_report(corp_code: str, meeting_type: str) -> dict[str, Any]:
+    """요청한 종류의 소집공고가 탐색 창에 없을 때, 「없다」를 뒷받침하는 재료.
+
+    없음을 확정하는 로직은 ① 주주총회소집공고(E006) + 제목 「소집」 → 없으면 전체 유형 폴백
+    ② 상위 후보 원문의 머리에서 (정기|임시) 를 읽어 종류 일치 — 둘 다 shareholder_meeting 에 있다.
+    머리에서 종류를 못 읽은 공고는 조용히 탈락하므로, 여기서는 **원문을 읽지 않고** 같은 창(24개월)
+    에서 제목이 소집공고인 것을 전부 나열한다 — 읽는 쪽이 종류를 직접 확인할 수 있게.
+    """
+    from open_proxy_mcp.services.filing_search import search_filings_by_report_name
+    from open_proxy_mcp.services.shareholder_meeting import (
+        _NOTICE_LEAD_BUFFER_DAYS, resolve_latest_meeting_year,
+    )
+    today = today_kst()
+    start = today - timedelta(days=24 * 31)
+    end = today + timedelta(days=_NOTICE_LEAD_BUFFER_DAYS)
+    out: dict[str, Any] = {
+        "window_start": start.isoformat(), "window_end": end.isoformat(),
+        "method": ("주주총회소집공고 유형(E006)에서 제목에 「소집」이 든 공시를 찾고, 없으면 전체 유형에서 "
+                   "다시 찾은 뒤, 상위 공고 원문 머리의 (정기|임시) 표기로 종류를 맞춘다. 원문 머리에 "
+                   "종류가 없는 공고는 종류 미확인으로 남는다"),
+        "found_notices": [], "other_type_latest": None, "notes": [],
+    }
+    try:
+        filings, _notes, error = await search_filings_by_report_name(
+            corp_code=corp_code, bgn_de=start.strftime("%Y%m%d"), end_de=end.strftime("%Y%m%d"),
+            pblntf_tys="", pblntf_detail_ty="E006", keywords=("소집",), last_reprt_at="Y")
+        if error and error != "013":
+            out["notes"].append(f"소집공고 목록 조회 오류 {error}")
+        filings = sorted(filings or [], key=lambda r: (r.get("rcept_dt", ""), r.get("rcept_no", "")), reverse=True)
+        out["found_notices"] = [
+            {"rcept_no": f.get("rcept_no", ""), "report_name": (f.get("report_nm") or "").strip(),
+             "rcept_dt": f.get("rcept_dt", "")}
+            for f in filings[:10]
+        ]
+    except Exception as exc:  # noqa: BLE001 — 없음의 근거를 못 모았다는 사실을 남긴다
+        out["notes"].append(f"소집공고 목록 조회 실패({type(exc).__name__})")
+    other = "extraordinary" if meeting_type == "annual" else "annual"
+    try:
+        latest = await resolve_latest_meeting_year(corp_code, meeting_type=other)
+        if latest:
+            _md = latest.get("meeting_date")
+            out["other_type_latest"] = {
+                "meeting_type": other, "notice_date": latest.get("notice_date"),
+                "meeting_date": _md.isoformat() if _md else None,
+                "notice_rcept_no": latest.get("notice_rcept_no"),
+            }
+    except Exception as exc:  # noqa: BLE001
+        out["notes"].append(f"다른 종류 회차 조회 실패({type(exc).__name__})")
+    return out
+
+
 async def build_proxy_advise_payload(
     company_query: str,
     **kwargs: Any,
@@ -3538,7 +3634,7 @@ async def _build_proxy_advise_payload(
                 "meeting_phase": pre_resolved.get("meeting_phase"),
             }
         elif resolve_error:
-            target_year = date.today().year - 1
+            target_year = today_kst().year - 1
             year_resolution = {
                 "mode": "resolve_error",
                 "basis": (
@@ -3547,7 +3643,35 @@ async def _build_proxy_advise_payload(
                 ),
             }
         else:
-            target_year = date.today().year - 1
+            # 260904: 종전엔 여기서 「달력 전년 임시주총 · 안건 0건」 프레임을 만들고 전년도 정기
+            # 소집공고를 후보 출처로, 2년 전 재무를 기준으로 실었다(가비아·솔루엠 실측). 종류를
+            # 지정한 호출에서 그 종류의 공고가 없으면 **없다고 말하고** 같은 창에서 본 소집공고
+            # 목록을 손잡이로 준다 — 어느 회차를 대신 분석할지는 읽는 쪽이 정한다.
+            if meeting_type in ("annual", "extraordinary"):
+                _absent_started = time.perf_counter()
+                absent = await _meeting_absent_report(selected["corp_code"], meeting_type)
+                _mark("meeting_absent_report", _absent_started)
+                timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+                _mt_ko = _MEETING_TYPE_KO.get(meeting_type, meeting_type)
+                return ToolEnvelope(
+                    tool="proxy_advise_before_meeting",
+                    status=AnalysisStatus.NO_FILING,
+                    subject=selected.get("corp_name") or company_query,
+                    warnings=[f"{_mt_ko}주총 소집공고 없음 — 탐색 창 {absent['window_start']} ~ {absent['window_end']}"],
+                    data={
+                        "query": company_query,
+                        "canonical_name": selected.get("corp_name"),
+                        "corp_code": selected.get("corp_code"),
+                        "selected_meeting_type": meeting_type,
+                        "meeting_absent": absent,
+                        "agenda_decisions": [],
+                        "agenda_count": 0,
+                        "candidates_count": 0,
+                        "usage": build_usage(client.api_call_snapshot() - calls_start),
+                        "timings_ms": timings_ms,
+                    },
+                ).to_dict()
+            target_year = today_kst().year - 1
             year_resolution = {
                 "mode": "fallback_prev_year",
                 "basis": (
@@ -3566,7 +3690,7 @@ async def _build_proxy_advise_payload(
     # 기준일 이후 접수분은 `DartClient.search_filings`(모든 list.json 조회의 유일한 통로)에서
     # 잘린다. 그 결과 「전년도 기업지배구조보고서를 쓰는」 것이 정상 동작이다 — 최신본은 그
     # 주총 시점에 존재하지 않았다.
-    _today = date.today()
+    _today = today_kst()
     _meeting_date_pre = (pre_resolved or {}).get("meeting_date")
     _as_of_arg = (as_of or "").strip()
     if len(_as_of_arg) == 8 and _as_of_arg.isdigit():
@@ -4348,7 +4472,7 @@ async def _build_proxy_advise_payload(
     # 소집공고 주총일 미파싱 시 today로 폴백(기존 동작 보존). applies_after의 layer 의미(A1=공포일 조기
     # 보상 / A2=시행일)는 그대로 두고 비교 대상만 today→주총일로 바꾼다.
     from open_proxy_mcp.services.shareholder_meeting import _parse_notice_meeting_date
-    _today_iso = date.today().isoformat()
+    _today_iso = today_kst().isoformat()
     _meeting_dt_text = notice_dict.get("datetime") if isinstance(notice_dict, dict) else None
     _meeting_date = _parse_notice_meeting_date(_meeting_dt_text or "")
     law_gate_iso = _meeting_date.isoformat() if _meeting_date else _today_iso
@@ -5161,6 +5285,11 @@ async def _build_proxy_advise_payload(
     # 1.9. **좌석 예산 하드 블록** — 개별 판정이 다 끝난 뒤 결과를 한 번 더 본다.
     # 앞의 분류·판정이 못 잡은 경우까지 **산출물에서** 막는 안전망이다(정확도를 올리는 일과,
     # 틀렸을 때 표가 안 나가게 하는 일은 다르다). 상세는 `_enforce_seat_budget` 주석.
+    # 근거 위치(source_section)는 서식 절과 안건을 순서로 묶은 것이라, 「분류 검증 불일치」가 뜬 루트
+    # 안건의 절은 그 안건의 원문이 아닐 수 있다(260904 솔루엠: 2번 자본준비금 아래 제3호 정관 원문,
+    # 3번 정관 아래 제4호 이사 선임 원문 … 한 칸씩 밀림). 자식은 부모 절을 물려받으므로 함께 표시한다.
+    # 지우지 않는다 — 읽는 쪽이 「이 발췌가 이 안건 것인가」를 판단하도록 불확실 표시를 붙인다.
+    _mark_uncertain_evidence(agenda_decisions, title_to_parent)
     relation_notes = _apply_relation_links(agenda_decisions)
     # 🔴 관계를 못 잡았을 때 조용히 넘어가지 않는다. 주주제안 선임 안건이 올라와 있다는 것은
     #   표 대결일 확률이 높은데 링크가 하나도 안 붙었다면, 그건 「관계가 없다」가 아니라

@@ -12,6 +12,7 @@
       금융업(KSIC 64/65/66)은 포트폴리오가 본업이라 summary에서 '금융 리그' 라벨.
 """
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 
@@ -295,7 +296,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         return {"tool": "asset_holdings", "status": "no_filing", "subject": name,
                 "warnings": ["정기(사업)보고서 없음"]}
     rept = cands[0]
-    year = (_YEAR.search(rept.get("report_nm") or "") or [None, str(datetime.date.today().year - 1)])[1]
+    year = (_YEAR.search(rept.get("report_nm") or "") or [None, str(datetime.today_kst().year - 1)])[1]
 
     data: dict[str, Any] = {"company": name, "ticker": isu, "report_nm": rept.get("report_nm"),
                             "year": year, "scope": scope}
@@ -344,7 +345,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         stripped = _basis.stripped
         doc_text = sec.get("full_text", "") or sec.get("note_html", "") or ""
         mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
-                                         datetime.date.today().strftime("%Y%m%d"))
+                                         datetime.today_kst().strftime("%Y%m%d"))
         data["listed_stakes"] = mark
         pledged = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
         contingent = _basis.annotate(_av.extract_contingent("", stripped=stripped))

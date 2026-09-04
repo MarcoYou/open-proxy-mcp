@@ -1,6 +1,7 @@
 """Fast, indexed company-name resolution for Korean listed companies."""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from dataclasses import dataclass
@@ -193,7 +194,7 @@ def _database_market_context() -> MarketContext | None:
         # A partial snapshot must never be treated as the complete active universe.
         fresh = False
         try:
-            fresh = date.today() - datetime.strptime(as_of_date, "%Y%m%d").date() <= timedelta(days=14)
+            fresh = today_kst() - datetime.strptime(as_of_date, "%Y%m%d").date() <= timedelta(days=14)
         except ValueError:
             pass
         complete = market_counts.get("KOSPI", 0) >= 700 and market_counts.get("KOSDAQ", 0) >= 1_200

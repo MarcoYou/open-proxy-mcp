@@ -7,6 +7,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import re
@@ -430,7 +431,7 @@ async def _fetch_latest_reports(
 ) -> tuple[list[dict[str, Any]], list[str], int]:
     """최근 N년 기업지배구조보고서 리스트."""
     client = get_dart_client()
-    today = date.today()
+    today = today_kst()
     start = date(today.year - years, 1, 1)
     calls_before = client.api_call_snapshot()
     items, notices, error = await search_filings_by_report_name(

@@ -1,6 +1,7 @@
 """company facade 서비스."""
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from dataclasses import dataclass
@@ -218,7 +219,7 @@ async def _safe_recent_filings(
     begin_date, finish_date, window_warnings = resolve_date_window(
         start_date=start_date,
         end_date=end_date,
-        default_end=date.today(),
+        default_end=today_kst(),
         lookback_days=_RECENT_LOOKBACK_DAYS,
     )
     try:

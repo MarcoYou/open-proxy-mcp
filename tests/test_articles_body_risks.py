@@ -68,6 +68,15 @@ def test_the_clause_body_gives_up_what_the_title_hid(
             "제25조(이사의 인원수) 대표이사 사장 1인과 9인 이내의 이사를 두며, 독립이사를 과반수로 한다.",
         ),
         ("정원 확대는 제한이 아니다", "이사는 3인 이상 7인 이내로 한다.", "이사는 3인 이상 11인 이내로 한다."),
+        (
+            "솔루엠 제29조2 — 위원회 구성 인원(3~4인)이지 이사회 정원이 아니다 (260904 실측 오탐)",
+            "제29조의 2 (이사회내 위원회) 1) 이사회는 이사회의 결의로 이사회 내에 다음 각호의 위원회를 둘 수 있다. "
+            "2) 각 위원회의 구성, 권한, 운영 등에 관한 세부사항은 이사회의 결의로 정한다.",
+            "제29조2 (이사회내 위원회) 1) 이사회는 이사회의 결의로 이사회내 에 다음 각호의 위원회를 둘 수 있다. "
+            "2) 당 회사는 이사회 내에 다음 각호의 위원회를 둔다. 1. 독립이사 후보추천위원회 2. 평가보상위원회 "
+            "3) 각 위원회의 구성, 권한, 운영 등에 관한 세부사항은 이사회의 결의로 정한다. "
+            "단, 제2항 각 호의 위원회는 3인 이상 4인 이하의 독립이사로 구성한다.",
+        ),
     ],
 )
 def test_ordinary_amendments_are_not_flagged(label: str, before: str, after: str) -> None:
@@ -94,3 +103,11 @@ def test_the_reason_says_only_what_it_actually_checked() -> None:
 def test_no_amendment_attached_is_not_a_clean_bill() -> None:
     assert _articles_body_risks(None) == []
     assert _articles_body_risks({"before": "", "after": ""}) == []
+
+
+def test_board_cap_sentence_still_counts_when_a_committee_sentence_sits_beside_it() -> None:
+    """위원회 문장을 빼는 것이 이사 정원 문장까지 빼는 것이 되면 안 된다."""
+    before = "제22조 (이사와 감사의 원수) 1) 당 회사의 이사는 7인 이내로 한다."
+    after = ("제22조 (이사와 감사의 원수) 1) 당 회사의 이사는 5인 이내로 한다. "
+             "2) 이사회 내 위원회는 3인 이상 4인 이하의 독립이사로 구성한다.")
+    assert "이사 정원 상한 축소 (7인 → 5인)" in _articles_body_risks(_am(before, after))

@@ -13,6 +13,7 @@ Phase 2: 충실성 — `evaluate_faithfulness` (과거 회사 × 재직 기간 �
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import re
@@ -2039,7 +2040,7 @@ async def build_director_evaluation_payload(
         ).to_dict()
 
     selected = resolution.selected
-    target_year = year or (date.today().year if date.today().month <= 5 else date.today().year)
+    target_year = year or (today_kst().year if today_kst().month <= 5 else today_kst().year)
 
     appointments, rcept_no, meta = await fetch_appointments(
         selected["corp_code"], target_year, meeting_type

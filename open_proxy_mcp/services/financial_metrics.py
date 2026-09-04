@@ -10,6 +10,7 @@ Phase 1: 6 scope (summary / yearly / quarterly / yoy / qoq / audit_opinion).
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import os
@@ -2114,7 +2115,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
 def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
                       fiscal_month: int | None, as_of: date | None = None) -> dict[str, Any]:
     """대상 FY의 분기 공시 상태를 데이터 누락과 미제출로 구분한다."""
-    as_of = as_of or date.today()
+    as_of = as_of or today_kst()
     present = {r.get("fiscal_quarter") for r in rows if r.get("fiscal_year") == fiscal_year}
     result: dict[str, Any] = {"fiscal_year": fiscal_year, "missing": []}
     if not fiscal_month:
@@ -2266,7 +2267,7 @@ async def build_financial_metrics_payload(
         target_year = year
     elif scope in ("quarterly", "qoq"):
         from datetime import date as _date
-        target_year = _date.today().year
+        target_year = today_kst().year
     else:
         target_year = _default_recent_year()
 
@@ -2550,7 +2551,7 @@ def _default_recent_year() -> int:
     오늘이 4월 이후면 전년도 사업보고서 가용, 그 전이면 전전년.
     """
     from datetime import date
-    today = date.today()
+    today = today_kst()
     if today.month >= 4:
         return today.year - 1
     return today.year - 2

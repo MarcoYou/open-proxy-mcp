@@ -16,6 +16,7 @@
 """
 
 from __future__ import annotations
+from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import re
@@ -1427,7 +1428,7 @@ async def build_treasury_share_payload(
         ).to_dict()
 
     selected = resolution.selected
-    default_end = date(year, 12, 31) if year else date.today()
+    default_end = date(year, 12, 31) if year else today_kst()
     window_start, window_end, window_warnings = resolve_date_window(
         start_date=start_date,
         end_date=end_date,
