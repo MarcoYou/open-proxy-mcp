@@ -22,24 +22,18 @@ OpenProxy는 주주총회 의결권 분석에서 시작했습니다. 재무제�
 
 ## 주요 기능
 
-각 기능을 클릭하면 상세 설명 페이지로 이동합니다.
+**공시를 읽고, 숫자를 연결하고, 판단 근거까지 남깁니다.**
 
-- **[주총 분석과 의결권 행사 권고](docs/features/proxy-voting.md)**: 정기·임시주총 안건별 근거·정책 인용과 FOR/AGAINST/REVIEW 권고를 제시하고, 표결 없음(NO_VOTE)과 자료 부족(NO_DATA)을 구분합니다.
-- **[재무지표](docs/features/financials.md)**: 수익성·안정성·현금흐름 + 듀퐁 분해·감사의견 추이. 분기는 누적(YTD)·당기(3개월) 두 기준으로 QoQ·YoY 제공.
-- **[밸류에이션](docs/features/price_multiple_data.md)**: PER·PBR·배당수익률(기업 심층) + 시장·산업·종목 히스토리. 시장·산업 표에는 **시총가중 배당수익률**이 확정·선행 두 벌로 실리고, 분모를 `all`(무배당 포함)·`payers`(배당주만) 두 벌로 함께 냅니다 — 코스닥은 두 값이 두 배 차이라 하나만 보면 오독합니다. `scope="explain"`으로 계산 과정·출처까지 답합니다. (runtime: `price_multiple_data`)
-- **[컨센서스 포워드 추정치](wiki/tools/forward_estimates_data.md)**: 내년·내후년 예상 매출·영업이익·EPS와 **포워드 PER·PBR·PSR** + 대조용 최근 실적 2개년. 애널리스트 추정 스냅샷(`fwd`) 기반으로 DART 공시가 아니며, 커버리지는 713/2,764종목입니다. 배수는 **추정 FY·최신 확정 FY 행에만** 두고 나머지는 비웁니다 — 오늘 주가를 과거 실적으로 나눈 숫자는 배수가 아니기 때문입니다. (runtime: `forward_estimates_data`)
-- **[자산주 스크리닝](docs/features/asset-holdings.md)**: 보유 자산(현금성·투자부동산·지분증권)을 티어로 나누고 상장 보유지분은 시가로 마킹 — 시총 대비 잉여자산·지분NAV 배수로 "숨은 자산"을 찾습니다.
-- **[사업의 내용](docs/features/business-details.md)**: 사업부문별 매출·이익, 생산설비·가동률, 연구개발, 수주잔고, 주요 고객, **원재료·투입원가와 제품·서비스 가격 추이** — "II. 사업의 내용"을 통째로 읽어줍니다.
-- **[잠정실적 속보](docs/features/provisional-earnings.md)**: 분기 영업(잠정)실적 공시를 표·증감률로 정리합니다.
-- **[주주환원](docs/features/shareholder-return.md)**: 배당·자사주 소각 사이클·밸류업 계획 — 약속과 실제 집행을 비교합니다.
-- **[지분·지배구조 맵](docs/features/ownership.md)**: 최대주주·특수관계인·5% 대량보유·자사주로 소유 구조를 그립니다.
-- **[주총 안건 구조화](docs/features/meeting-agenda.md)**: 소집공고 안건·후보·보수한도·정관변경과 주총 후 의결 결과·찬반율.
-- **[경영권 분쟁 시그널](docs/features/control-contest.md)**: 위임장·공개매수·소송·5% 경영참여 신호를 모아 정황을 나열합니다 (자동 판정 X).
-- **[기업 리스크 이벤트](docs/features/risk-events.md)**: 중대재해·횡령배임·생산중단 추적. 회사 미지정 시 시장 전체 스캔.
-- **[금융사 유동성·자산건전성](wiki/tools/financial_notes.md)**: 은행·증권·보험의 재무제표 주석에서 사용제한 예치금·담보제공자산(→unencumbered cash)과 투자자산 유형별 구성(→헤어컷)을 원형 그대로 추출 — 연결/별도·시점·단위·뺄 계정을 판정해 함께 냅니다.
-- **[전체시장 공시 디제스트](wiki/tools/screener.md)**: 수주·자사주·배당·증자·주총·5%지분·잠정실적 공시를 한 번에 훑어 카드형으로 요약 — 매일 아침 공시 알람 루틴 ([레시피](docs/routines/screener-morning-digest.md)).
+| 분석 영역 | 핵심 질문 | OpenProxy가 제공하는 답 |
+|---|---|---|
+| 🗳️ [주총·의결권](docs/features/proxy-voting.md) | 이 안건에 어떻게 투표할까? | **FOR / AGAINST / REVIEW** 권고와 공시·정책·법령 근거. NO_VOTE와 NO_DATA도 구분 |
+| 📊 [재무·실적](docs/features/financials.md) | 실적은 어떻게 변했나? | 확정·[잠정](docs/features/provisional-earnings.md)·컨센서스 비교, 수익성·현금흐름·듀퐁 분석 |
+| 💹 [가치평가·추정치](docs/features/price_multiple_data.md) | 현재 가격에 무엇이 반영됐나? | 과거·선행 PER/PBR/PSR, 배당수익률, [내년·내후년 추정치](wiki/tools/forward_estimates_data.md) |
+| 🏭 [사업·보유자산](docs/features/business-details.md) | 무엇으로 벌고 무엇을 보유하나? | 사업부문·가동률·원가·수주잔고와 [잉여자산·보유지분 NAV](docs/features/asset-holdings.md) |
+| 🧭 [지분·주주환원](docs/features/ownership.md) | 누가 지배하고 자본은 어디로 가나? | 소유구조, 배당·자사주 소각, [밸류업 약속과 실제 집행](docs/features/shareholder-return.md) |
+| 🔔 [시장·리스크](wiki/tools/screener.md) | 오늘 무엇이 달라졌나? | 시장 공시 디제스트, [경영권 분쟁](docs/features/control-contest.md)·거래·희석·[리스크 이벤트](docs/features/risk-events.md) 추적 |
 
-그 외 출처 추적, 기업지배구조보고서, 희석 이벤트(증자/CB), 구조개편(합병/분할), 지분 인수·매각, 거래·규모 시계열, 정관↔법령 양방향 조회, 의결권 정책 원문 조회 등 **총 31개 tool**을 제공합니다.
+이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 31개 도구**가 뒷받침합니다. 전체 목록은 [Tool 구조](#tool-구조-31개)에서 확인할 수 있습니다.
 
 ---
 
