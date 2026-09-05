@@ -104,8 +104,8 @@ def main() -> int:
         if missing:
             problems.append(f"{path.name}에 tool 링크 없음: " + ", ".join(missing))
         count_patterns = (
-            r"Tool 구조 \((\d+)개\)", r"Tool Structure \((\d+) tools\)",
-            r"총 (\d+)개 tool", r"(\d+) tools in total",
+            r"(?:Tool|도구) 구조 \((\d+)개\)", r"Tool Structure \((\d+) tools\)",
+            r"총 (\d+)개 (?:tool|도구)", r"(\d+) tools in total",
         )
         claims = {int(m.group(1)) for rx in count_patterns if (m := re.search(rx, text))}
         if claims != {len(runtime_tools)}:
