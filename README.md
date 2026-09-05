@@ -10,12 +10,15 @@
 
 ## Why OpenProxy?
 
-**주총 안건에 제대로 투표하려면, 그 회사의 모든 것을 알아야 합니다.**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-particle-flow-dark-ko-20260905.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-particle-flow-light-ko-20260905.png">
+  <img alt="공시 데이터가 AI 재무분석과 의결권 판단으로 구조화되는 과정" src="screenshot/opm-readme-particle-flow-light-ko-20260905.png">
+</picture>
 
-OpenProxy는 주주총회 의결권 분석을 위해 태어났습니다. 그런데 안건 하나를 판단하려면 재무제표, 지분 구조, 배당 이력, 이사회, 법령까지 전부 필요했습니다. 그걸 다 만들다 보니 — **DART 공시분석 범용 엔진**이 됐습니다. 재무 분석부터 의결권 판단까지, AI에게 물어보면 공시 근거와 함께 답합니다.
+**안건은 한 줄이지만, 판단에는 회사 전체가 필요합니다.**
 
-[![공시 데이터가 AI 재무분석과 의결권 판단으로 구조화되는 과정](screenshot/opm-readme-particle-flow-dark-ko-20260905.png)](screenshot/opm-readme-particle-flow-dark-ko-20260905.png)
-*흩어진 공시 원문을 재무 분석과 정책·법령 근거가 붙은 의결권 권고로 구조화합니다.*
+OpenProxy는 주주총회 의결권 분석에서 시작했습니다. 재무제표, 지분 구조, 배당 이력, 이사회와 관련 법령을 함께 읽기 위해 만든 기능은 DART 공시 전반을 분석하는 범용 엔진으로 확장됐습니다. 재무 분석부터 의결권 권고까지, AI가 판단과 원문 근거를 함께 제시합니다.
 
 ## 주요 기능
 

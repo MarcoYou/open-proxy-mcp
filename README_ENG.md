@@ -10,12 +10,15 @@
 
 ## Why OpenProxy?
 
-**To vote properly on an AGM agenda, you need to know everything about the company.**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-particle-flow-dark-en-20260906.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-particle-flow-light-en-20260906.png">
+  <img alt="Filings converging into AI financial analysis and voting recommendations" src="screenshot/opm-readme-particle-flow-light-en-20260906.png">
+</picture>
 
-OpenProxy was born for Annual General Meeting (AGM) analysis and proxy voting recommendations. But judging a single agenda item turned out to require everything — financial statements, ownership structure, dividend history, the board, even the law. So we built it all, and it became a **general-purpose engine for Korean regulatory (DART) filings**. From financial analysis to voting recommendations, ask an AI for answers backed by the underlying filings.
+**An agenda item may fit on one line. A sound decision requires the full picture.**
 
-[![Filings converging into AI financial analysis and voting recommendations](screenshot/opm-readme-particle-flow-dark-en-20260906.png)](screenshot/opm-readme-particle-flow-dark-en-20260906.png)
-*Scattered filings become financial analysis and voting recommendations with traceable policy and legal grounds.*
+OpenProxy began with AGM and proxy voting analysis. The capabilities needed to read financial statements, ownership structures, dividend history, boards, and relevant laws together grew into a general-purpose engine for DART filings. From financial analysis to voting recommendations, AI presents each conclusion with the underlying source evidence.
 
 ## Main Features
 
