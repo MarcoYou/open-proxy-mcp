@@ -10,11 +10,7 @@
 
 ## Why OpenProxy?
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-particle-flow-dark-en-20260906.png">
-  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-particle-flow-light-en-20260906.png">
-  <img alt="Filings converging into AI financial analysis and voting recommendations" src="screenshot/opm-readme-particle-flow-light-en-20260906.png">
-</picture>
+[![Filings converging into AI financial analysis and voting recommendations](screenshot/opm-readme-particle-flow-light-en-20260906.png)](screenshot/opm-readme-particle-flow-light-en-20260906.png)
 
 **An agenda item may fit on one line. A sound decision requires the full picture.**
 
