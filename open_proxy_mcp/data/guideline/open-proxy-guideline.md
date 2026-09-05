@@ -2,7 +2,7 @@
 type: decision
 title: Open Proxy Guideline v1.2 — OPM 자체 의결권 행사 정책
 generated: 2026-04-28
-updated: 2026-04-29
+updated: 2026-09-05
 version: v1.2
 related: [voting-policy-consensus-matrix, decision-matrix-design, opm-guideline-debate-transcript, 2026 신법]
 ---
@@ -36,7 +36,7 @@ trigger가 아니므로 REVIEW"). 이 표가 그 간극의 공식 지도다. 이
 | 현금배당 §2.2 | 과소·과다 모두 경계 | REVIEW: 자본잠식·적자 배당·배당성향>200% / FOR: 흑자+양호·리츠 |
 | 정관변경 §2.3 | 주주권 후퇴 against | **AGAINST**: 법령 layer A2 강행규정 직접 hit / REVIEW: 집중투표 배제·초다수결·정원 축소·수권 증가 / FOR: 소수주주 보호 명문화·오기 정정 |
 | 이사 선임 §2.4 | 결격·독립성·성과 심사 | **AGAINST**: 법정 결격(미성년 포함)·묶음 안건 내 결격 / REVIEW: 사외이사 장기연임·독립성 우려·사내이사 재직성과 저조(2x3 매트릭스) / FOR: clean |
-| 감사위원·감사 §2.5 | 독립성 엄격 | **AGAINST**: 감사/audit 5년 장기연임(독립성 훼손) / 그 외 이사 선임과 동일 게이트 |
+| 감사위원·감사 §2.5 | 독립성 엄격 | **REVIEW**: 5년 이상 장기연임은 소프트 조기경보이며 자동 반대 사유가 아님 / 법정 결격 확인 시 AGAINST, 그 외 이사 선임과 동일 게이트 |
 | 이사 보수 §2.6 | 성과 미연계·과다 against 지향 | **전부 REVIEW** (자본잠식+인상·소진율 대비 인상·50%+ 대폭 인상 등 — 법정 금지 아님) — 판단 재료: 한도·소진율·인상률·순익 yoy 번들 |
 | 자기주식 §2.7 | 소각 for / 처분 경계 | FOR: 소각(주주환원) / REVIEW: 처분(우호지분 형성 가능성) — 자동 AGAINST 없음 |
 | 합병/MoM §2.8·3.2 | MoM 미적용 자기거래 against 지향 | **엔진 자동판정 미구현** — proxy_advise 대상 밖(합병 안건은 REVIEW 낙하), corporate_restructuring이 사실 제공 |

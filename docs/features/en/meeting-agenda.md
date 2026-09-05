@@ -5,9 +5,9 @@
 ## What it answers
 
 - **Before (notice)**: the agenda list (director/auditor election, articles amendment, pay ceilings, financial-statement approval), candidate bios, pay-ceiling changes, and before/after articles text.
-- **After (results)**: pass/fail and for/against ratios per item.
+- **After (results)**: the disclosed outcome per item. Approval and opposition rates are provided only where numerical voting data can be extracted. Summary-only filings may give an outcome without percentages; missing rates are not zero. Approval rates based on issued shares and on shares voted have different denominators.
 - Notice (pre) and results (post) come in different filing formats and use different data behind the scenes — just ask in plain language ("show the agenda" / "meeting results").
-- Source: DART AGM-notice and meeting-result filings. Detail → [notice](../../../wiki/tools/shareholder_meeting_notice.md) · [results](../../../wiki/tools/shareholder_meeting_results.md).
+- Coverage includes annual and extraordinary meetings. Result bodies are read through the DART API first, with KIND as a fallback. Unavailable results may be reported as pending or missing; this does not mean an item failed. Source: meeting notices and result filings. Detail → [notice](../../../wiki/tools/shareholder_meeting_notice.md) · [results](../../../wiki/tools/shareholder_meeting_results.md).
 
 ## Ask it like this
 

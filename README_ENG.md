@@ -12,7 +12,7 @@
 
 **To vote properly on an AGM agenda, you need to know everything about the company.**
 
-OpenProxy was born for AGM proxy-voting analysis. But judging a single agenda item turned out to require everything — financial statements, ownership structure, dividend history, the board, even the law. So we built it all, and it became a **general-purpose engine for Korean regulatory (DART) filings**. From financial analysis to voting recommendations, ask an AI and get answers in seconds, backed by the underlying filings.
+OpenProxy was born for Annual General Meeting (AGM) analysis and proxy voting recommendations. But judging a single agenda item turned out to require everything — financial statements, ownership structure, dividend history, the board, even the law. So we built it all, and it became a **general-purpose engine for Korean regulatory (DART) filings**. From financial analysis to voting recommendations, ask an AI for answers backed by the underlying filings.
 
 ![Financial & cash-flow analysis example](screenshot/opx-cashflow.png)
 *Financial analysis grounded in filings (annual & audit reports) — an example conversation with OpenProxy connected*
@@ -26,7 +26,7 @@ OpenProxy was born for AGM proxy-voting analysis. But judging a single agenda it
 
 Click any feature for a detailed page.
 
-- **[AGM proxy voting](docs/features/en/proxy-voting.md)** — structures AGM notice agenda items and returns per-item FOR / AGAINST / REVIEW recommendations with rationale.
+- **[AGM analysis and proxy voting recommendations](docs/features/en/proxy-voting.md)** — reviews annual and extraordinary meeting agendas with evidence, policy citations, and FOR / AGAINST / REVIEW recommendations; distinguishes NO_VOTE (not subject to voting) and NO_DATA (insufficient information).
 - **[Financial metrics](docs/features/en/financials.md)** — profitability, stability, cash flow + DuPont breakdown and audit-opinion trend. Quarterly on two bases (YTD / 3-month) with QoQ·YoY.
 - **[Valuation](docs/features/en/price_multiple_data.md)** — PER · PBR · dividend yield (firm deep-dive) plus market/sector/ticker history. Market and sector tables carry a **cap-weighted dividend yield** in confirmed and forward flavors, each with two denominators, `all` (non-payers included) and `payers` (dividend payers only) — on KOSDAQ the two differ by 2x, so reading one alone misleads. `scope="explain"` shows how each number was derived. (runtime: `price_multiple_data`)
 - **[Consensus forward estimates](wiki/tools/forward_estimates_data.md)** — next- and following-year revenue / operating profit / EPS plus **forward PER · PBR · PSR**, with two years of reported actuals for contrast. Built on an analyst-estimate snapshot (`fwd`), not DART filings; coverage is 713 of 2,764 tickers. Multiples are attached **only to estimate FYs and the latest confirmed FY** — today's price divided by a past year's earnings is not a multiple. (runtime: `forward_estimates_data`)
@@ -81,7 +81,9 @@ Once connected, just ask in natural language. You don't need to know tool names.
 **AGM agenda review**
 1. `Show me LG Chem's 2026 AGM agenda`
 2. `Advise FOR/AGAINST/REVIEW for each item`
-3. `Explain the rationale behind any REVIEW items`
+3. `Explain any REVIEW items, and distinguish NO_VOTE from NO_DATA`
+
+For an EGM: `Review the upcoming extraordinary general meeting, including competing nominees and cumulative-voting constraints.`
 
 **Shareholder-return check**
 1. `Show me KT&G's corporate value-up plan`
@@ -114,7 +116,11 @@ Categories match the "what do you want to know → which tool" table in the [wik
 
 ### Voting policy
 
+**Policy opposition does not always mean an automatic AGAINST recommendation.** The engine leaves judgment-dependent concerns as REVIEW; board attendance is not currently a decision trigger. Ask for the cited policy section with `proxy_guideline`, or section `0-A` for the policy-to-engine mapping. [How to interpret recommendations, meeting selection, and information cutoffs](docs/features/en/proxy-voting.md). The default report and detailed policy references are in Korean; ask your AI to explain them in English while preserving the evidence and statuses.
+
 `proxy_advise_before_meeting` uses OPM's own **Open Proxy Guideline** as its default policy. Its criteria: minority-shareholder protection, governance transparency, long-term value, traceability. An anonymized institutional-policy corpus is used only as internal cross-reference — no institution names are ever exposed. Every response includes a `data.usage` block (DART & tool call counts; DART limit 1,000/min — hard-capped at 910).
+
+**Check the financial basis** — distinguish confirmed figures for the year being approved, provisional figures in the meeting notice, and prior confirmed figures. Provisional figures do not replace every metric: check the reported year, source, and provisional labels. A provisional capital-impairment assessment does not replace a regulatory determination requiring audited financial statements. See the [feature guide](docs/features/en/proxy-voting.md) for information cutoffs and later filings.
 
 ---
 
@@ -123,7 +129,7 @@ Categories match the "what do you want to know → which tool" table in the [wik
 | Source | Use | Notes |
 |------|------|------|
 | [DART OpenAPI](https://opendart.fss.or.kr/) | Filing metadata + financial endpoints + dividends/treasury/ownership | **Required** — free API key. 1,000/min hard rule (cap 910) |
-| DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | rate-limited (2–5s) |
+| DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | rate-limited (random 1–2s between requests) |
 | [KRX KIND](https://kind.krx.co.kr/) | Exchange-filing cross-checks | auxiliary source |
 | Anonymized institutional policy corpus | Voting-judgment cross-reference | internal static data, no names exposed |
 

@@ -8,7 +8,7 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 보수한도, 정관변경, 집중투표, 시점-제약, 연결-별도, 주총-결의]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 # proxy_advise_before_meeting
@@ -55,7 +55,7 @@ proxy_advise_before_meeting(
 | vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
-| as_of | str | no | `YYYYMMDD`. 판단이 서는 시점 — 이 날 이후 접수된 공시는 읽지 않는다(look-ahead 차단). 미지정 시 회의일이 과거면 회의일 전일, 미래면 오늘 | "" |
+| as_of | str | no | `YYYYMMDD`. 판단이 서는 시점 — 이 날 이후 접수된 공시는 읽지 않는다(look-ahead 차단). 미지정 시 회의일이 오늘 또는 과거면 회의일 전일, 미래면 한국시간 오늘. 회의일 미확인 시 오늘 + 사후 자료 혼입 가능 경고 | "" |
 | include_after_meeting | bool | no | True 면 기준일 이후 자료까지 읽고 해당 공시에 ⚠ 표시. 해당 회차 의결 결과는 그래도 쓰지 않는다 | False |
 | evidence_chars | int | no | 근거 원문 발췌 길이. 잘리면 응답에 전체 길이와 재호출 경로 안내 | 4000 |
 | format | str | no | "md" / "json" | "md" |
@@ -641,6 +641,8 @@ OPM 자체 함수들 + vote_style 정책 wire:
 - 1일 매수/매도 한도 (분석 가치 낮음)
 
 ## 변경 이력
+
+- 2026-09-05: 한·영 사용자 안내에 5개 판정·회차·정보 기준일·근거 불확실성을 반영. 정책 §0-A 감사위원 5년 장기연임 행의 자동 AGAINST 설명을 REVIEW로 정정.
 
 - 2026-09-04 (2차): 라이브 관찰 결함 「소」 3건 — ① **근거 위치 불확실 표기**: 「분류 검증 불일치·미등록」이 뜬 루트 안건과
   그 자식의 근거 위치·발췌를 지우지 않고 「이 절이 이 안건 원문이 아닐 수 있다 — 발췌가 이 안건 내용이면 근거로 쓰고,

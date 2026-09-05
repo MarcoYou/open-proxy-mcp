@@ -2,6 +2,23 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-05
+
+### AGM analysis and proxy voting guidance aligned with the implementation
+
+- Korean and English READMEs and feature pages now distinguish FOR, AGAINST, REVIEW, NO_VOTE, and NO_DATA, and explain annual/extraordinary meeting selection, information cutoffs, and uncertain evidence locations. REVIEW is not an instruction to abstain; missing data never means automatic approval.
+- Explained the difference between policy criteria and engine triggers, including the unimplemented attendance trigger. Corrected the five-year audit-committee tenure row in policy §0-A from automatic AGAINST to REVIEW. No decision logic changed.
+- Aligned meeting-result documentation with DART API first, KIND fallback, and `table`/`summary` output. Summary results may have no voting percentages; missing values are not zero.
+
+## beta — 2026-09-04
+
+### Policy citations, election structure, and evidence guidance for meeting recommendations
+
+- Aligned policy citations with actual document sections and items, with document-comparison tests. Citations distinguish policy criteria from their implementation in the engine.
+- Passed parent-agenda seat counts and cumulative-voting information to candidate items, and reconciled a FOR parent with children that are all non-FOR. Unified independent/outside-director role interpretation while preserving the filing's original wording.
+- Preserved excerpts while flagging uncertain evidence matches. Explicit annual/extraordinary requests without a matching notice return `no_filing` with available notice references. Board-seat cap detection is limited to the relevant sentence.
+- Refined recommendation/candidate wording and reduced repeated policy quotations. Standardized dates on Korean time and limited the cache for filing searches covering today to 120 seconds.
+
 ## beta — 2026-09-03
 
 ### `dividend_history_data`+`dividend_screener` merged into `dividend_data` (32→31)
