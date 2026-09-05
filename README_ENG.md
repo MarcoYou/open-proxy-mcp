@@ -107,9 +107,10 @@ Categories match the "what do you want to know → which tool" table in the [wik
 | Source | Use | Notes |
 |------|------|------|
 | [DART OpenAPI](https://opendart.fss.or.kr/) | Filing metadata + financial endpoints + dividends/treasury/ownership | **Required** — free API key. 1,000/min hard rule (cap 910) |
-| DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | rate-limited (random 1–2s between requests) |
-| [KRX KIND](https://kind.krx.co.kr/) | Exchange-filing cross-checks | auxiliary source |
-| Anonymized institutional policy corpus | Voting-judgment cross-reference | internal static data, no names exposed |
+| DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | Rate-limited with a random 1–2-second delay |
+| [KRX KIND](https://kind.krx.co.kr/) | Exchange-filing cross-checks | Auxiliary source |
+| Korean statutes based on the [Korean Law Information Center](https://www.law.go.kr/) | Statutory basis for articles amendments and voting analysis | Synced weekly from [legalize-kr](https://github.com/legalize-kr/legalize-kr) |
+| Anonymized institutional policy corpus | Voting-judgment cross-reference | Internal static data, no names exposed |
 
 ---
 

@@ -106,9 +106,10 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 | 소스 | 용도 | 비고 |
 |------|------|------|
-| [DART OpenAPI](https://opendart.fss.or.kr/) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 910) |
-| DART 웹 (`dart.fss.or.kr`) | 공시 본문 파싱 (소집공고·주요사항보고서 등) | rate-limited (요청 간 1–2초 랜덤) |
+| [DART OpenAPI](https://opendart.fss.or.kr/) | 정기·주요 공시 메타 + 재무 API + 배당·자사주·지분 등 정형 데이터 | **필수** — 무료 API 키. 분당 최대 1,000회, 서버 안전 제한 910회 |
+| DART 웹 (`dart.fss.or.kr`) | 공시 본문 파싱 (소집공고·주요사항보고서 등) | 요청 간 1–2초 무작위 대기 |
 | [KRX KIND](https://kind.krx.co.kr/) | 거래소 공시 보조 확인 | 보조 소스 |
+| [국가법령정보센터](https://www.law.go.kr/) 기반 법령 원문 | 정관 변경·의결권 판단의 법령 근거 조회 | [legalize-kr](https://github.com/legalize-kr/legalize-kr)에서 주간 동기화 |
 | 익명화된 기관 의결권 정책 자료 | 의결권 판단 교차 검토 | 내부 정적 자료, 기관명 비공개 |
 
 ---
