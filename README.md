@@ -26,7 +26,7 @@ OpenProxy는 주주총회 의결권 분석에서 시작했습니다. 재무제�
 
 | 분석 영역 | 핵심 질문 | OpenProxy가 제공하는 답 |
 |---|---|---|
-| 🗳️ [주총·의결권](docs/features/proxy-voting.md) | 이 안건에 어떻게 투표할까? | **FOR / AGAINST / REVIEW** 권고와 공시·정책·법령 근거. NO_VOTE와 NO_DATA도 구분 |
+| 🗳️ [주총·의결권](docs/features/proxy-voting.md) | 이 안건에 어떻게 투표할까? | **찬성·반대·검토 필요** 의견과 공시·정책·법령 근거. 표결 대상이 아닌 안건과 자료가 부족한 안건도 구분 |
 | 📊 [재무·실적](docs/features/financials.md) | 실적은 어떻게 변했나? | 확정·[잠정](docs/features/provisional-earnings.md)·컨센서스 비교, 수익성·현금흐름·듀퐁 분석 |
 | 💹 [가치평가·추정치](docs/features/price_multiple_data.md) | 현재 가격에 무엇이 반영됐나? | 과거·선행 PER/PBR/PSR, 배당수익률, [내년·내후년 추정치](wiki/tools/forward_estimates_data.md) |
 | 🏭 [사업·보유자산](docs/features/business-details.md) | 무엇으로 벌고 무엇을 보유하나? | 사업부문·가동률·원가·수주잔고와 [잉여자산·보유지분 NAV](docs/features/asset-holdings.md) |
@@ -72,8 +72,8 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 **주총 안건 검토**
 1. `LG화학 2026년 정기 주주총회 안건 알려줘`
-2. `각 안건별로 찬성/반대/검토 필요 의견을 조언해줘`
-3. `검토 필요 사유와 표결 없음(NO_VOTE)·자료 부족(NO_DATA)을 구분해 설명해줘`
+2. `각 안건별로 찬성·반대·검토 필요 의견을 조언해줘`
+3. `검토 필요 사유를 설명하고, 표결 대상이 아닌 안건과 자료가 부족한 안건을 구분해줘`
 
 임시주총은 `다가오는 임시주총의 경합 후보와 집중투표 제약까지 검토해줘`처럼 요청할 수 있습니다.
 
@@ -108,9 +108,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ### 의결권 정책
 
-**정책의 반대 기준이 곧 엔진의 자동 반대 조건은 아닙니다.** 추가 판단이 필요한 우려는 REVIEW로 두며, 출석률은 현재 판정 트리거에 미반영입니다. `proxy_guideline`으로 인용된 절을, `0-A`로 정책과 엔진의 대응표를 확인하세요. [판정·회차·정보 기준일 읽는 법](docs/features/proxy-voting.md).
+**정책의 반대 기준이 곧 엔진의 자동 반대 조건은 아닙니다.** 추가 판단이 필요한 우려는 `검토 필요(REVIEW)`로 두며, 출석률은 현재 판정 조건에 반영하지 않습니다. `proxy_guideline`에서 인용된 절을, `0-A`에서 정책과 엔진의 대응표를 확인하세요. [판정·회차·정보 기준일 읽는 법](docs/features/proxy-voting.md).
 
-`proxy_advise_before_meeting`은 OPM 자체 **Open Proxy Guideline**을 기본 정책으로 사용합니다. 판단 기준은 소수주주 보호, 거버넌스 투명성, 장기 가치, 추적 가능성입니다. 익명화된 기관 정책 corpus는 내부 cross-reference로만 쓰며 기관 실명을 노출하지 않습니다. 모든 응답에는 `data.usage`(DART·tool 호출 수)가 포함됩니다 (DART 분당 1,000 한도 — cap 910 hard guard).
+`proxy_advise_before_meeting`은 OPM 자체 **Open Proxy Guideline**을 기본 정책으로 사용합니다. 판단 기준은 소수주주 보호, 거버넌스 투명성, 장기 가치, 추적 가능성입니다. 익명화된 기관 의결권 정책 모음은 교차 검토에만 사용하며 기관명은 공개하지 않습니다. 모든 응답에는 DART와 도구 호출 수를 담은 `data.usage`가 포함됩니다(DART 분당 1,000회 한도, 서버 안전 제한 910회).
 
 **재무 기준 확인** — 승인 대상 연도의 확정치와 소집공고 잠정치, 직전 확정치를 구분해 읽습니다. 잠정치가 모든 지표를 대체하는 것은 아니므로 응답의 연도·출처·잠정 여부를 확인하세요. 잠정치에 따른 자본잠식 평가는 감사 후 재무제표를 요구하는 규정 판정을 대신하지 않습니다. 정보 기준일과 사후 자료 포함 여부는 [기능 안내](docs/features/proxy-voting.md)를 따릅니다.
 
@@ -123,7 +123,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | [DART OpenAPI](https://opendart.fss.or.kr/) | 정기·주요 공시 메타 + 재무 endpoint + 배당/자사주/지분 등 정형 데이터 | **필수** — 무료 API 키. 분당 1,000회 hard rule (cap 910) |
 | DART 웹 (`dart.fss.or.kr`) | 공시 본문 파싱 (소집공고·주요사항보고서 등) | rate-limited (요청 간 1–2초 랜덤) |
 | [KRX KIND](https://kind.krx.co.kr/) | 거래소 공시 보조 확인 | 보조 소스 |
-| 익명화 기관 정책 corpus | 의결권 판단 cross-reference | 내부 정적 데이터, 실명 비노출 |
+| 익명화된 기관 의결권 정책 자료 | 의결권 판단 교차 검토 | 내부 정적 자료, 기관명 비공개 |
 
 ---
 
