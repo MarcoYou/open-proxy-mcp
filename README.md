@@ -10,7 +10,11 @@
 
 ## Why OpenProxy?
 
-[![공시 데이터가 AI 재무분석과 의결권 판단으로 구조화되는 과정](screenshot/opm-readme-particle-flow-light-ko-20260905.png)](screenshot/opm-readme-particle-flow-light-ko-20260905.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-particle-flow-dark-ko-20260905.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-particle-flow-light-ko-20260905.png">
+  <img alt="공시 데이터가 AI 재무분석과 의결권 판단으로 구조화되는 과정" src="screenshot/opm-readme-particle-flow-light-ko-20260905.png">
+</picture>
 
 **안건은 한 줄이지만, 판단에는 회사 전체가 필요합니다.**
 
