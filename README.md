@@ -3,7 +3,7 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#tool-구조-31개)
+[![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#도구-구조-31개)
 [![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English README](README_ENG.md)
@@ -33,7 +33,7 @@ OpenProxy는 주주총회 의결권 분석에서 시작했습니다. 재무제�
 | 🧭 [지분·주주환원](docs/features/ownership.md) | 누가 지배하고 자본은 어디로 가나? | 소유구조, 배당·자사주 소각, [밸류업 약속과 실제 집행](docs/features/shareholder-return.md) |
 | 🔔 [시장·리스크](wiki/tools/screener.md) | 오늘 무엇이 달라졌나? | 시장 공시 디제스트, [경영권 분쟁](docs/features/control-contest.md)·거래·희석·[리스크 이벤트](docs/features/risk-events.md) 추적 |
 
-이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 31개 도구**가 뒷받침합니다. 전체 목록은 [Tool 구조](#tool-구조-31개)에서 확인할 수 있습니다.
+이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 31개 도구**가 뒷받침합니다. 전체 목록은 [도구 구조](#도구-구조-31개)에서 확인할 수 있습니다.
 
 ---
 
@@ -68,7 +68,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ### 사용 예시
 
-연결이 끝났다면 자연어로 이어서 질문하면 됩니다. tool 이름을 알 필요는 없습니다.
+연결이 끝났다면 자연어로 이어서 질문하면 됩니다. 도구 이름을 알 필요는 없습니다.
 
 **주총 안건 검토**
 1. `LG화학 2026년 정기 주주총회 안건 알려줘`
@@ -90,7 +90,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ---
 
-## Tool 구조 (31개)
+## 도구 구조 (31개)
 
 분류는 [wiki/tools 카탈로그](wiki/tools/README.md)의 「무엇을 알고 싶을 때 무엇을 쓰나」 표와 같다 — 그 표가 정본이다.
 

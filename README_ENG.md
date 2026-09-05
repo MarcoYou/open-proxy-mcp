@@ -27,13 +27,13 @@ OpenProxy began with AGM and proxy voting analysis. The capabilities needed to r
 | Analysis | The question | What OpenProxy delivers |
 |---|---|---|
 | 🗳️ [AGM & proxy voting](docs/features/en/proxy-voting.md) | How should I vote on this item? | **FOR / AGAINST / REVIEW** with filing evidence, policy citations, and statute links; NO_VOTE and NO_DATA remain distinct |
-| 📊 [Financials & earnings](docs/features/en/financials.md) | Where did performance change? | Confirmed, [provisional](docs/features/en/provisional-earnings.md), and consensus comparisons with profitability, cash-flow, and DuPont analysis |
+| 📊 [Financials & earnings](docs/features/en/financials.md) | Where did performance change? | Confirmed, [provisional](docs/features/en/provisional-earnings.md), and consensus comparisons with profitability, cash flow, and DuPont analysis |
 | 💹 [Valuation & estimates](docs/features/en/price_multiple_data.md) | What is priced in? | Historical and forward PER/PBR/PSR, dividend yield, and [estimates for the next two years](wiki/tools/forward_estimates_data.md) |
 | 🏭 [Business & assets](docs/features/en/business-details.md) | How does it make money, and what does it own? | Segments, utilization, input costs, backlog, [surplus assets, and stake NAV](docs/features/en/asset-holdings.md) |
-| 🧭 [Ownership & returns](docs/features/en/ownership.md) | Who controls it, and where does capital go? | Ownership map, dividends, buyback cancellations, and [value-up promises versus delivery](docs/features/en/shareholder-return.md) |
+| 🧭 [Ownership & returns](docs/features/en/ownership.md) | Who controls it, and where does capital go? | Ownership map, dividends, buybacks and cancellations, and [value-up plans versus actual execution](docs/features/en/shareholder-return.md) |
 | 🔔 [Market & risk](wiki/tools/screener.md) | What changed today? | Market disclosure digest plus [control contests](docs/features/en/control-contest.md), deals, dilution, and [risk events](docs/features/en/risk-events.md) |
 
-These six workflows are backed by **31 tools**, including source tracing and bidirectional articles↔statute lookup. See the complete [Tool Structure](#tool-structure-31-tools).
+These six workflows are backed by **31 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-31-tools).
 
 ---
 
@@ -86,7 +86,7 @@ For an EGM: `Review the upcoming extraordinary general meeting, including compet
 1. `Which listed companies filed serious-accident or embezzlement disclosures in the last month?`
 2. `Show Hanwha Aerospace's serious-accident history in detail, including casualties`
 
-More examples (director pay, control contests, financials, valuation) → the "사용법" (usage) section of each tool page in the **[wiki/tools catalog](wiki/tools/README.md)**
+More examples (director pay, control contests, financials, valuation) → the usage section of each tool page in the **[wiki/tools catalog](wiki/tools/README.md)**
 
 ---
 
