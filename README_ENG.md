@@ -96,7 +96,7 @@ Categories match the "what do you want to know → which tool" table in the [wik
 
 **Policy opposition does not always mean an automatic AGAINST recommendation.** The engine leaves judgment-dependent concerns as REVIEW; board attendance is not currently a decision trigger. Ask for the cited policy section with `proxy_guideline`, or section `0-A` for the policy-to-engine mapping. [How to interpret recommendations, meeting selection, and information cutoffs](docs/features/en/proxy-voting.md). The default report and detailed policy references are in Korean; ask your AI to explain them in English while preserving the evidence and statuses.
 
-`proxy_advise_before_meeting` uses OPM's own **Open Proxy Guideline** as its default policy. Its criteria: minority-shareholder protection, governance transparency, long-term value, traceability. An anonymized institutional-policy corpus is used only as internal cross-reference — no institution names are ever exposed. Every response includes a `data.usage` block (DART & tool call counts; DART limit 1,000/min — hard-capped at 910).
+`proxy_advise_before_meeting` uses OPM's own **Open Proxy Guideline** as its default policy. Its criteria: minority-shareholder protection, governance transparency, long-term value, traceability. Voting records disclosed through KRX by major asset managers and voting records published by Korea's National Pension Service are used for cross-checking. Every response includes a `data.usage` block (DART & tool call counts; DART limit 1,000/min — hard-capped at 910).
 
 **Check the financial basis** — distinguish confirmed figures for the year being approved, provisional figures in the meeting notice, and prior confirmed figures. Provisional figures do not replace every metric: check the reported year, source, and provisional labels. A provisional capital-impairment assessment does not replace a regulatory determination requiring audited financial statements. See the [feature guide](docs/features/en/proxy-voting.md) for information cutoffs and later filings.
 
@@ -110,7 +110,7 @@ Categories match the "what do you want to know → which tool" table in the [wik
 | DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | Rate-limited with a random 1–2-second delay |
 | [KRX KIND](https://kind.krx.co.kr/) | Exchange-filing cross-checks | Auxiliary source |
 | Korean statutes based on the [Korean Law Information Center](https://www.law.go.kr/) | Statutory basis for articles amendments and voting analysis | Synced weekly from [legalize-kr](https://github.com/legalize-kr/legalize-kr) |
-| Anonymized institutional policy corpus | Voting-judgment cross-reference | Internal static data, no names exposed |
+| Voting records disclosed through KRX by major asset managers and published by Korea's National Pension Service | Voting-judgment cross-reference | Public records collected and structured in advance |
 
 ---
 

@@ -96,7 +96,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 **정책의 반대 기준이 곧 엔진의 자동 반대 조건은 아닙니다.** 추가 판단이 필요한 우려는 `검토 필요(REVIEW)`로 두며, 출석률은 현재 판정 조건에 반영하지 않습니다. `proxy_guideline`에서 인용된 절을, `0-A`에서 정책과 엔진의 대응표를 확인하세요. [판정·회차·정보 기준일 읽는 법](docs/features/proxy-voting.md).
 
-`proxy_advise_before_meeting`은 OPM 자체 **Open Proxy Guideline**을 기본 정책으로 사용합니다. 판단 기준은 소수주주 보호, 거버넌스 투명성, 장기 가치, 추적 가능성입니다. 익명화된 기관 의결권 정책 모음은 교차 검토에만 사용하며 기관명은 공개하지 않습니다. 모든 응답에는 DART와 도구 호출 수를 담은 `data.usage`가 포함됩니다(DART 분당 1,000회 한도, 서버 안전 제한 910회).
+`proxy_advise_before_meeting`은 OPM 자체 **Open Proxy Guideline**을 기본 정책으로 사용합니다. 판단 기준은 소수주주 보호, 거버넌스 투명성, 장기 가치, 추적 가능성입니다. 주요 자산운용사의 거래소 공시 의결권 행사 내역과 국민연금의 공개 행사 내역을 교차 검토에 활용합니다. 모든 응답에는 DART와 도구 호출 수를 담은 `data.usage`가 포함됩니다(DART 분당 1,000회 한도, 서버 안전 제한 910회).
 
 **재무 기준 확인** — 승인 대상 연도의 확정치와 소집공고 잠정치, 직전 확정치를 구분해 읽습니다. 잠정치가 모든 지표를 대체하는 것은 아니므로 응답의 연도·출처·잠정 여부를 확인하세요. 잠정치에 따른 자본잠식 평가는 감사 후 재무제표를 요구하는 규정 판정을 대신하지 않습니다. 정보 기준일과 사후 자료 포함 여부는 [기능 안내](docs/features/proxy-voting.md)를 따릅니다.
 
@@ -110,7 +110,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | DART 웹 (`dart.fss.or.kr`) | 공시 본문 파싱 (소집공고·주요사항보고서 등) | 요청 간 1–2초 무작위 대기 |
 | [KRX KIND](https://kind.krx.co.kr/) | 거래소 공시 보조 확인 | 보조 소스 |
 | [국가법령정보센터](https://www.law.go.kr/) 기반 법령 원문 | 정관 변경·의결권 판단의 법령 근거 조회 | [legalize-kr](https://github.com/legalize-kr/legalize-kr)에서 주간 동기화 |
-| 익명화된 기관 의결권 정책 자료 | 의결권 판단 교차 검토 | 내부 정적 자료, 기관명 비공개 |
+| 주요 자산운용사의 거래소 공시 의결권 행사 내역과 국민연금 공개 행사 내역 | 의결권 판단 교차 검토 | 사전 수집·구조화한 공개 자료 |
 
 ---
 
