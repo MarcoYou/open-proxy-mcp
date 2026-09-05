@@ -113,6 +113,9 @@ screenshot/*
 !screenshot/open-proxy-mcp output kor.png
 !screenshot/opx-cashflow.png
 !screenshot/opx-agm.png
+!screenshot/opm-readme-particle-flow-light-ko-20260905.png
+!screenshot/opm-readme-particle-flow-dark-ko-20260905.png
+!screenshot/opm-readme-particle-flow-dark-en-20260906.png
 scripts/*census*.py
 scripts/*census*.js
 scripts/*diagnos*.py
