@@ -8,6 +8,8 @@
 
 [Korean README](README.md)
 
+[Quick Start](#quick-start) · [Main Features](#main-features) · [Tool Structure](#tool-structure-31-tools) · [Data Sources](#data-sources)
+
 ## Why OpenProxy?
 
 <picture>
@@ -19,6 +21,43 @@
 **An agenda item may fit on one line. A sound decision requires the full picture.**
 
 OpenProxy began with AGM and proxy voting analysis. The capabilities needed to read financial statements, ownership structures, dividend history, boards, and relevant laws together grew into a general-purpose engine for DART filings. From financial analysis to voting recommendations, AI presents each conclusion with the underlying source evidence.
+
+## Quick Start
+
+**Connect with one DART API key. Nothing to install.**
+
+### 1. Get a free API key
+
+DART is South Korea's corporate disclosure system. Sign up at [DART OpenAPI](https://opendart.fss.or.kr/) and request a free authentication key.
+
+### 2. Connect your AI service
+
+Enter this URL as the server address when adding a connector or app:
+
+```
+https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
+```
+
+> Enter this URL only in the connector settings. OpenProxy does not retain the raw key and redacts it from logs.
+
+| Service | Setup path | Availability |
+|---|---|---|
+| [**Claude**](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) | `Customize → Connectors → + → Add custom connector` | Free (one connector), Pro, Max; admin setup for Team/Enterprise |
+| [**ChatGPT**](https://developers.openai.com/api/docs/guides/developer-mode) | `Settings → Security and login → Developer mode`, then `Plugins → +` | Plus, Pro, Business, Enterprise, Education on web |
+| [**Perplexity**](https://www.perplexity.ai/help-center/en/articles/13915507-adding-custom-remote-connectors.html) | `Account settings → Connectors → + Custom connector → Remote` | Pro, Max, Enterprise |
+
+Name it `open-proxy-mcp` and select it in a new chat. Availability may vary with workspace settings.
+
+### 3. Send your first request
+
+Start with `Show Samsung Electronics' company information and three recent filings.` If the company and filings appear, the connection works. Continue in natural language; you do not need to know the tool names.
+
+- `Review LG Chem's next AGM agenda and give an evidence-backed voting view on each item.`
+- `Compare Samsung Electronics' last three years of results with the next two years of consensus estimates.`
+
+Find more prompts on each page in the [tool catalog](wiki/tools/README.md).
+
+---
 
 ## Main Features
 
@@ -34,59 +73,6 @@ OpenProxy began with AGM and proxy voting analysis. The capabilities needed to r
 | 🔔 [Market & risk](wiki/tools/screener.md) | What changed today? | Market disclosure digest plus [control contests](docs/features/en/control-contest.md), deals, dilution, and [risk events](docs/features/en/risk-events.md) |
 
 These six workflows are backed by **31 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-31-tools).
-
----
-
-## Quick Start
-
-OpenProxy MCP is a **remote server you connect** to AI services like Claude, ChatGPT, or Perplexity. No installation needed.
-
-### Step 1: Get a DART API key (required, free)
-
-OPM combines three sources — DART filing text, exchange filing text, and the OpenDART API. Your own key is needed for the OpenDART API calls.
-Go to [DART OpenAPI](https://opendart.fss.or.kr/) → sign up → request an authentication key (issued immediately).
-
-### Step 2: Connect to your AI service
-
-Register the URL below in your AI service's connector (app) settings.
-
-```
-https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
-```
-
-> **API key caution**: the URL contains your personal API key. Don't paste it into a normal chat — only into the server-URL field of the connector settings.
-
-The procedure is the same everywhere — **add a connector named `open-proxy-mcp` with the URL above → open a new chat and confirm the connector is selected via the `+` button**:
-
-| Service | Menu path | Notes |
-|---|---|---|
-| **Claude** | Settings → Connectors → Custom → Add connector | Paid plan required. Afterwards set tool permission to **Always allow** |
-| **ChatGPT** | Settings → Apps → enable `Developer mode` in advanced settings → Create app | New chat `+` → More to select |
-| **Perplexity** | Settings → Connectors → Add custom connector | — |
-
-> **Note**: connector menus may be unavailable depending on plan/account. The first call may time out while the server spins up — retry shortly. If new features don't appear, remove and re-add the connector.
-
-### Usage examples
-
-Once connected, just ask in natural language. You don't need to know tool names.
-
-**AGM agenda review**
-1. `Show me LG Chem's 2026 AGM agenda`
-2. `Advise FOR/AGAINST/REVIEW for each item`
-3. `Explain any REVIEW items, and distinguish NO_VOTE from NO_DATA`
-
-For an EGM: `Review the upcoming extraordinary general meeting, including competing nominees and cumulative-voting constraints.`
-
-**Shareholder-return check**
-1. `Show me KT&G's corporate value-up plan`
-2. `Show dividends and buybacks for the last 3 years`
-3. `Is the actual return consistent with the plan?`
-
-**Risk monitoring**
-1. `Which listed companies filed serious-accident or embezzlement disclosures in the last month?`
-2. `Show Hanwha Aerospace's serious-accident history in detail, including casualties`
-
-More examples (director pay, control contests, financials, valuation) → the usage section of each tool page in the **[wiki/tools catalog](wiki/tools/README.md)**
 
 ---
 

@@ -8,6 +8,8 @@
 
 [English README](README_ENG.md)
 
+[빠른 시작](#빠른-시작) · [주요 기능](#주요-기능) · [도구 구조](#도구-구조-31개) · [데이터 출처](#데이터-소스)
+
 ## Why OpenProxy?
 
 <picture>
@@ -19,6 +21,43 @@
 **안건은 한 줄이지만, 판단에는 회사 전체가 필요합니다.**
 
 OpenProxy는 주주총회 의결권 분석에서 시작했습니다. 재무제표, 지분 구조, 배당 이력, 이사회와 관련 법령을 함께 읽기 위해 만든 기능은 DART 공시 전반을 분석하는 범용 엔진으로 확장됐습니다. 재무 분석부터 의결권 권고까지, AI가 판단과 원문 근거를 함께 제시합니다.
+
+## 빠른 시작
+
+**설치 없이 DART API 키 하나로 연결합니다.**
+
+### 1. 무료 API 키 받기
+
+DART는 한국 기업의 전자공시 시스템입니다. [DART OpenAPI](https://opendart.fss.or.kr/)에서 회원가입 후 무료 인증키를 신청합니다.
+
+### 2. AI 서비스에 연결하기
+
+커넥터 또는 앱 추가 화면의 서버 주소에 아래 URL을 입력합니다.
+
+```
+https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
+```
+
+> 서버 주소는 커넥터 설정에만 입력하세요. OpenProxy는 키 원문을 저장하지 않으며 로그에서도 가립니다.
+
+| 서비스 | 연결 경로 | 이용 범위 |
+|---|---|---|
+| [**Claude**](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) | `Customize → Connectors → + → Add custom connector` | Free(1개)·Pro·Max. Team/Enterprise는 관리자 추가 |
+| [**ChatGPT**](https://developers.openai.com/api/docs/guides/developer-mode) | `Settings → Security and login → Developer mode`, 이후 `Plugins → +` | 웹 Plus·Pro·Business·Enterprise·Education |
+| [**Perplexity**](https://www.perplexity.ai/help-center/en/articles/13915507-adding-custom-remote-connectors.html) | `Account settings → Connectors → + Custom connector → Remote` | Pro·Max·Enterprise |
+
+이름은 `open-proxy-mcp`로 지정하고 새 채팅에서 선택합니다. 메뉴 제공 범위는 계정 설정에 따라 달라질 수 있습니다.
+
+### 3. 첫 질문 보내기
+
+먼저 `삼성전자 회사 정보와 최근 공시 3건을 보여줘`라고 물어보세요. 회사와 공시 목록이 나오면 연결된 것입니다. 도구 이름을 알 필요 없이 이어서 질문할 수 있습니다.
+
+- `LG화학의 다음 정기 주주총회 안건과 안건별 의결권 의견을 근거와 함께 알려줘`
+- `삼성전자 최근 3년 실적과 향후 2개년 컨센서스를 비교해줘`
+
+더 많은 질문 예시는 [도구 카탈로그](wiki/tools/README.md)의 각 도구 페이지에서 확인할 수 있습니다.
+
+---
 
 ## 주요 기능
 
@@ -34,59 +73,6 @@ OpenProxy는 주주총회 의결권 분석에서 시작했습니다. 재무제�
 | 🔔 [시장·리스크](wiki/tools/screener.md) | 오늘 무엇이 달라졌나? | 시장 공시 디제스트, [경영권 분쟁](docs/features/control-contest.md)·거래·희석·[리스크 이벤트](docs/features/risk-events.md) 추적 |
 
 이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 31개 도구**가 뒷받침합니다. 전체 목록은 [도구 구조](#도구-구조-31개)에서 확인할 수 있습니다.
-
----
-
-## 빠른 시작
-
-OpenProxy MCP는 Claude, ChatGPT, Perplexity 같은 AI 서비스에 **연결해서 쓰는 도구**입니다. 설치는 필요 없습니다.
-
-### 1단계: DART API 키 발급 (필수·무료)
-
-OPM은 DART·거래소 공시 원문과 OpenDART API, 3개 소스를 함께 씁니다. 이 중 OpenDART API 호출에 본인의 키가 필요합니다.
-[DART OpenAPI](https://opendart.fss.or.kr/) 접속 → 회원가입 → 인증키 신청 (바로 발급됩니다).
-
-### 2단계: AI 서비스에 연결
-
-사용하는 AI 서비스의 커넥터(앱) 추가 화면에 아래 주소를 등록합니다.
-
-```
-https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
-```
-
-> **API 키 주의**: 위 주소에는 본인의 API 키가 들어갑니다. 일반 채팅창에 붙여넣지 말고, 커넥터 설정의 서버 주소 입력칸에만 넣으세요.
-
-공통 절차는 같습니다 — **커넥터 추가 메뉴에서 이름 `open-proxy-mcp` + 위 URL 입력 → 새 채팅에서 `+` 버튼으로 커넥터 선택 확인**:
-
-| 서비스 | 메뉴 경로 | 비고 |
-|---|---|---|
-| **Claude** | 설정 → 커넥터 → 맞춤 설정 → 커넥터 추가 | 유료 플랜 필요. 추가 후 `도구 권한`을 **항상 허용**으로 |
-| **ChatGPT** | 설정 → 앱 → 고급설정에서 `개발자 모드` ON → 앱 만들기 | 새 채팅 `+` → 더보기에서 선택 |
-| **Perplexity** | 설정 → 커넥터 → 사용자 지정 커넥터 추가 | — |
-
-> **참고**: 요금제·계정 설정에 따라 커넥터 메뉴가 없을 수 있습니다. 처음엔 서버 기동에 시간이 걸려 타임아웃이 날 수 있으니 잠시 후 재시도하세요. 새 기능이 안 보이면 커넥터를 삭제 후 재연결하면 빨리 반영됩니다.
-
-### 사용 예시
-
-연결이 끝났다면 자연어로 이어서 질문하면 됩니다. 도구 이름을 알 필요는 없습니다.
-
-**주총 안건 검토**
-1. `LG화학 2026년 정기 주주총회 안건 알려줘`
-2. `각 안건별로 찬성·반대·검토 필요 의견을 조언해줘`
-3. `검토 필요 사유를 설명하고, 표결 대상이 아닌 안건과 자료가 부족한 안건을 구분해줘`
-
-임시주총은 `다가오는 임시주총의 경합 후보와 집중투표 제약까지 검토해줘`처럼 요청할 수 있습니다.
-
-**주주환원 점검**
-1. `KT&G 기업가치제고계획 알려줘`
-2. `지난 3년 배당·자사주 취득 이력도 같이 보여줘`
-3. `계획과 실제 주주환원이 일관적인지 정리해줘`
-
-**리스크 모니터링**
-1. `최근 한 달 사이에 중대재해나 횡령 공시 낸 상장사 알려줘`
-2. `한화에어로스페이스 중대재해 이력을 사상자까지 자세히 보여줘`
-
-더 많은 예시(이사 보수·경영권 분쟁·재무·밸류 등 도구별 질문) → **[wiki/tools 카탈로그](wiki/tools/README.md)** 의 각 도구 페이지 「사용법」 절
 
 ---
 
