@@ -233,7 +233,6 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
             "n_marked": len(marked), "n_unresolved": unresolved}
 
 
-import datetime  # noqa: E402
 
 from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
 from open_proxy_mcp.services import business_details as _bd  # noqa: E402
@@ -296,7 +295,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         return {"tool": "asset_holdings", "status": "no_filing", "subject": name,
                 "warnings": ["정기(사업)보고서 없음"]}
     rept = cands[0]
-    year = (_YEAR.search(rept.get("report_nm") or "") or [None, str(datetime.today_kst().year - 1)])[1]
+    year = (_YEAR.search(rept.get("report_nm") or "") or [None, str(today_kst().year - 1)])[1]
 
     data: dict[str, Any] = {"company": name, "ticker": isu, "report_nm": rept.get("report_nm"),
                             "year": year, "scope": scope}
@@ -345,7 +344,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         stripped = _basis.stripped
         doc_text = sec.get("full_text", "") or sec.get("note_html", "") or ""
         mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
-                                         datetime.today_kst().strftime("%Y%m%d"))
+                                         today_kst().strftime("%Y%m%d"))
         data["listed_stakes"] = mark
         pledged = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
         contingent = _basis.annotate(_av.extract_contingent("", stripped=stripped))
