@@ -8,7 +8,7 @@ related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [연결-별도, 단위-표기-규약, 시점-제약]
 related_decisions: [ksic-sector-mapping]
 created: 2026-07-19
-updated: 2026-09-04
+updated: 2026-09-06
 ---
 
 ## 한 줄
@@ -65,6 +65,16 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 - 잠정치(감사 전) — 확정과 다를 수 있음. 확정 재무비율은 [[financial_metrics]].
 - 비재무형(자동차 판매대수 등)은 headline 없음(table_markdown만).
 - colspan 확장으로 헤더 셀이 중복 표기(가독성 경미, 수치 왜곡 없음).
+
+## 변경 이력
+- 2026-09-06: **[기재정정] 표 변형 서식** — 구분 열 없이 라벨과 기간이 한 칸에 오는 「- 매출액(당해실적)」·
+  「매출액(당기실적)」, 셀이 「당해실적: 478,413 전기대비증감율(%): …」 한 줄 요약인 꼴. 캐시 157건 실측에서
+  정정 4건이 전부 headline 이 비어 `non_financial` 로 나갔다 → `_label_key`(기간 꼬리 분리, 누계 행 제외)
+  + `_num_after`(요약 셀에서 당해실적 값)로 3건 복구(1건은 한 칸에 지표 전부가 뭉쳐 표로만 제공). 비정정 155건
+  headline 동일(DART 0 회귀 `tests/test_provisional_correction_variants.py`). 매출 라벨은 `_METRICS` 정확 일치 뒤
+  공용 어휘([[financial_metrics]] 와 같은 `services/revenue_account.match_revenue_label` — 수익(매출액)·매출·
+  보험수익·순영업수익·공사수익)로 한 번 더 본다. 캐시 157건·KOSPI500 census 282건에선 표준 라벨(매출액·영업수익)
+  뿐이라 어휘로 늘어난 건 0 — 서식이 문제였지 업종 어휘가 문제가 아니었다.
 
 ## 관련
 - [[financial_metrics]] (확정 재무 — 잠정과 대비)

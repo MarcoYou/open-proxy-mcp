@@ -22,6 +22,7 @@ from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
 from open_proxy_mcp.services.segment_candidates import _table_to_grid
 from open_proxy_mcp.services.fiscal_period import period_metadata
+from open_proxy_mcp.services.revenue_account import match_revenue_label
 
 # 기존 내부 테스트·호출부 호환 alias
 _period_metadata = period_metadata
@@ -40,6 +41,32 @@ _METRICS = {
     "지배기업소유주지분에귀속되는순이익": "net_income_controlling",
 }
 _PROV_PAT = re.compile(r"영업\s*\(?잠정\)?\s*실적|영업잠정실적")
+
+#: 라벨 뒤에 붙는 기간 꼬리 — [기재정정] 표는 구분 열이 없어 「- 매출액(당해실적)」·「매출액(당기실적)」처럼
+#: 라벨과 기간이 한 칸에 온다(260906 캐시 실측 157건 중 정정 4건이 전부 이 꼴이라 headline 이 비었다).
+_PERIOD_TAG = re.compile(r"\((당해|당기|누계)실적\)$")
+
+
+def _label_key(cell: str | None) -> tuple[str | None, str | None]:
+    """표 첫 열 라벨 → (표준 키, 기간 꼬리). 공백·항목 대시를 떼고 `_METRICS` 정확 일치, 매출만은
+    공용 어휘(`revenue_account.match_revenue_label`: 수익(매출액)·매출·보험수익·순영업수익…)로 한 번 더 본다.
+    """
+    label = re.sub(r"^[-\s·ㆍ]+", "", re.sub(r"\s+", "", cell or ""))
+    tag = None
+    m = _PERIOD_TAG.search(label)
+    if m:
+        tag = m.group(1) + "실적"
+        label = label[: m.start()]
+    key = _METRICS.get(label)
+    if key is None and match_revenue_label(label):
+        key = "revenue"
+    return key, tag
+
+
+def _num_after(cell: str, marker: str) -> float | None:
+    """「당해실적: 473,133 전기대비증감율(%): 5.0 …」 같은 한 칸 요약에서 marker 바로 뒤 숫자."""
+    m = re.search(re.escape(marker) + r"\s*[:：]?\s*(-?[\d,]+(?:\.\d+)?)", cell or "")
+    return _num(m.group(1)) if m else None
 
 
 def _is_structure_change_report(report_nm: str) -> bool:
@@ -111,9 +138,11 @@ def _headline_from_grid(grid: list[list[str]], factor: float) -> dict[str, Any]:
     for row in grid:
         if len(row) <= value_col or len(row) < 2:
             continue
-        key0 = (row[0] or "").replace(" ", "")
-        if key0 in _METRICS and row[1].strip() == "당해실적":
-            k = _METRICS[key0]
+        k, tag = _label_key(row[0])
+        if k is None or tag == "누계실적":
+            continue
+        # 표준 서식은 구분 열(row[1])이 「당해실적」, 정정·변형 서식은 라벨 꼬리 「(당해실적)」·「(당기실적)」.
+        if row[1].strip() == "당해실적" or tag in ("당해실적", "당기실적"):
             val = _num(row[value_col])
             yoy = _num(row[yoy_col]) if len(row) > yoy_col else None   # 음수·'-'(적자전환) 모두 정확 처리
             head[k] = {"value_krw": (val * factor) if val is not None else None, "yoy_pct": yoy}
@@ -129,14 +158,16 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
         return {}
     head: dict[str, Any] = {}
     for row in _table_to_grid(table):
-        labels = [(i, re.sub(r"^[-\s]+", "", re.sub(r"\s+", "", c or "")))
-                  for i, c in enumerate(row)]
-        hit = next(((i, _METRICS[label]) for i, label in labels if label in _METRICS), None)
+        hit = next(((i, k, tag) for i, (k, tag) in ((i, _label_key(c)) for i, c in enumerate(row)) if k), None)
         if not hit:
             continue
-        idx, key = hit
+        idx, key, tag = hit
+        if tag == "누계실적" or key in head:   # 당해 행이 먼저 온다 — 누계로 덮지 않는다
+            continue
         tail = row[idx + 1:]
-        numeric = [n for n in (_num(c) for c in tail) if n is not None]
+        # 셀이 「당해실적: 473,133 전기대비증감율(%): …」 한 줄 요약이면 당해실적 값만 뽑는다.
+        numeric = [n for n in ((_num_after(c, "당해실적") if "당해실적" in (c or "") else _num(c)) for c in tail)
+                   if n is not None]
         if not numeric:
             continue
         # 정정전·정정후 순서가 표준이며, 비표준 표도 마지막 숫자를 정정후로 본다.
@@ -172,7 +203,7 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
                 "headline": correction_headline,
                 "table_markdown": "\n\n".join(p for p in (_clean_render(t) for t in tables) if p)[:6000] or None}
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
-                      and ("매출액" in t.get_text() or "영업수익" in t.get_text())), None)
+                      and any(k in t.get_text() for k in ("매출액", "영업수익", "수익(매출액)", "보험수익", "순영업수익", "공사수익"))), None)
     headline = _headline_from_grid(_table_to_grid(fin_table), factor) if fin_table is not None else {}
     kind = "financial" if headline else "non_financial"
 
@@ -242,9 +273,7 @@ def _parse_structure_change(html: str) -> dict[str, Any]:
         if section_cols is not None:
             cols = section_cols
             continue
-        labels = [(i, re.sub(r"^[-\s]+", "", re.sub(r"\s+", "", c or "")))
-                  for i, c in enumerate(row)]
-        hit = next(((i, _METRICS[label]) for i, label in labels if label in _METRICS), None)
+        hit = next(((i, k) for i, (k, _tag) in ((i, _label_key(c)) for i, c in enumerate(row)) if k), None)
         if not hit:
             continue
         idx, key = hit

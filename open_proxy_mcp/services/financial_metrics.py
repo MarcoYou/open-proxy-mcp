@@ -23,6 +23,7 @@ from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
+from open_proxy_mcp.services.revenue_account import pick_revenue_row
 from open_proxy_mcp.services.fiscal_period import (
     fiscal_period_label,
     fiscal_quarter_from_end,
@@ -73,7 +74,10 @@ _BS_ACCOUNT_PATTERNS = {
 }
 
 _IS_ACCOUNT_PATTERNS = {
-    "revenue": ("매출액", "수익(매출액)", "영업수익"),
+    # revenue 는 여기서 매칭하지 않는다 — 회사·업종마다 top line 이름이 달라(영업수익·보험수익·
+    # 수익(매출액)…) `revenue_account.pick_revenue_row` 가 account_id 우선 + KSIC 순서로 고른다.
+    # 키만 남겨 결과 dict 모양을 유지한다.
+    "revenue": (),
     "operating_profit": ("영업이익", "영업이익(손실)"),
     "income_before_tax": ("법인세차감전 순이익", "법인세비용차감전순이익", "법인세차감전순이익"),
     "net_income": ("당기순이익(손실)", "당기순이익", "분기순이익", "반기순이익"),
@@ -124,7 +128,6 @@ _INTEREST_PAID_EXACT = {
 # fnlttSinglAcntAll IS/CIS 추가 항목.
 _IS_DETAIL_PATTERNS = {
     "gross_profit": ("매출총이익", "매출총이익(손실)"),
-    "operating_revenue": ("매출액", "수익(매출액)", "영업수익"),
     "cogs": ("매출원가",),
     # "금융비용" fallback 금지 — 환손실·평가손 포함 총액이 잡혀 이자보상배율 왜곡
     # (SK하이닉스 실측: 금융비용 12.5조 vs 실제 이자지급 0.94조 → 3.77배 vs ~50배).
@@ -333,15 +336,19 @@ def _build_account_map(
     is_patterns: dict[str, tuple[str, ...]] = _IS_ACCOUNT_PATTERNS,
     period: str = "thstrm",
     cumulative_is: bool = False,
-) -> dict[str, int | None]:
+    induty_code: str | None = None,
+) -> dict[str, Any]:
     """fnlttSinglAcnt rows → 표준 키 매핑 dict (BS + IS).
 
     같은 키에 여러 행이 매칭되면 첫 매칭만 사용 (DART 응답 순서 = 사업보고서 순서).
     cumulative_is=True: IS는 누적(thstrm_add 우선)으로, BS는 잔액(thstrm)으로 — 분기/반기
     보고서에서 손익을 '당기 3개월'이 아닌 '누적'으로 읽기 위함. BS는 잔액이라 기간 무관.
+    revenue 만은 첫 매칭이 아니라 `pick_revenue_row`(account_id 우선 + KSIC 순서)로 고르고,
+    무엇을 골랐는지 `revenue_account_nm`·`revenue_account_id`·`revenue_standard` 에 남긴다.
     """
-    out: dict[str, int | None] = {k: None for k in {**bs_patterns, **is_patterns}}
+    out: dict[str, Any] = {k: None for k in {**bs_patterns, **is_patterns}}
     capital_parts: list[int] = []
+    _apply_revenue_pick(out, rows, induty_code, period=period, cumulative_is=cumulative_is)
     for row in rows:
         sj_div = _strip(row.get("sj_div"))
         account_nm = _strip(row.get("account_nm"))
@@ -357,6 +364,8 @@ def _build_account_map(
                     break
         elif sj_div == "IS":
             for key, patterns in is_patterns.items():
+                if key == "revenue":
+                    continue  # 위에서 pick_revenue_row 로 결정
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = _extract_cumulative_is(row) if cumulative_is else _extract_period_amount(row, period)
                     break
@@ -365,6 +374,30 @@ def _build_account_map(
     if out.get("capital_stock") is None and capital_parts:
         out["capital_stock"] = sum(capital_parts)
     return out
+
+
+def _apply_revenue_pick(
+    out: dict[str, Any],
+    rows: list[dict[str, Any]],
+    induty_code: str | None,
+    *,
+    period: str,
+    cumulative_is: bool,
+) -> None:
+    """매출 행을 고르고 out 에 값 + 출처를 적는다. 못 고르면 revenue=None 그대로(0 으로 안 채움)."""
+    out.setdefault("revenue", None)
+    out["revenue_account_nm"] = None
+    out["revenue_account_id"] = None
+    out["revenue_standard"] = None
+    out["revenue_basis"] = None
+    pick = pick_revenue_row(rows, induty_code)
+    if pick is None:
+        return
+    out["revenue_basis"] = pick.basis
+    out["revenue"] = _extract_cumulative_is(pick.row) if cumulative_is else _extract_period_amount(pick.row, period)
+    out["revenue_account_nm"] = pick.account_nm
+    out["revenue_account_id"] = pick.account_id
+    out["revenue_standard"] = pick.standard
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -620,19 +653,23 @@ def _build_account_map_all(
     rows: list[dict[str, Any]],
     period: str = "thstrm",
     cumulative_is: bool = False,
-) -> dict[str, int | None]:
+    induty_code: str | None = None,
+) -> dict[str, Any]:
     """fnlttSinglAcntAll rows → 표준 키 매핑 (CF + IS detail + BS detail).
 
     sj_div: BS / IS / CIS / CF / SCE.
     cumulative_is=True: IS/CIS 손익(cogs·gross_profit 등)을 누적으로 읽는다. BS(잔액)·CF
     (thstrm이 이미 누적)는 그대로 thstrm. 분기/반기 손익을 누적 기준으로 맞추기 위함.
+    revenue 는 `pick_revenue_row` — 주요계정(fnlttSinglAcnt)에 매출 행이 없는 회사(영업수익·
+    보험수익·이자수익 top line)의 폴백 소스가 이 맵이다.
     """
-    out: dict[str, int | None] = {}
+    out: dict[str, Any] = {}
     out.update({k: None for k in _BS_ACCOUNT_PATTERNS})
     out.update({k: None for k in _IS_ACCOUNT_PATTERNS})
     out.update({k: None for k in _IS_DETAIL_PATTERNS})
     out.update({k: None for k in _CF_ACCOUNT_PATTERNS})
     capital_parts: list[int] = []
+    _apply_revenue_pick(out, rows, induty_code, period=period, cumulative_is=cumulative_is)
 
     for row in rows:
         sj_div = _strip(row.get("sj_div"))
@@ -697,6 +734,8 @@ def _build_account_map_all(
                     out["_diluted_eps_cont"] = is_amount
                 continue
             for key, patterns in _IS_ACCOUNT_PATTERNS.items():
+                if key == "revenue":
+                    continue  # pick_revenue_row 로 결정
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = is_amount
                     break
@@ -825,7 +864,17 @@ def _compute_metrics(
     detail_prev = detail_prev or {}
     indx_map = indx_map or {}
 
-    revenue = bs_is.get("revenue")
+    # 매출: 주요계정(fnlttSinglAcnt)에 있으면 그것, 없으면 전체 재무제표(fnlttSinglAcntAll)에서
+    # 고른 행. 리파인·티움바이오(영업수익)·보험(보험수익)·은행(이자수익)은 주요계정에 매출 행이
+    # 없어 여기서만 잡힌다. 어느 계정을 썼는지 같이 내보낸다 — 「보험수익 기준」 영업이익률을
+    # 제조업 마진처럼 읽으면 안 되니까.
+    revenue_src = bs_is if bs_is.get("revenue") is not None else (detail if detail.get("revenue") is not None else None)
+    revenue = revenue_src.get("revenue") if revenue_src else None
+    revenue_account_nm = revenue_src.get("revenue_account_nm") if revenue_src else None
+    revenue_account_id = revenue_src.get("revenue_account_id") if revenue_src else None
+    revenue_standard = revenue_src.get("revenue_standard") if revenue_src else None
+    revenue_basis = revenue_src.get("revenue_basis") if revenue_src else None
+    revenue_source = None if revenue_src is None else ("fnlttSinglAcnt" if revenue_src is bs_is else "fnlttSinglAcntAll")
     operating_profit = bs_is.get("operating_profit")
     net_income = bs_is.get("net_income")
     total_assets = bs_is.get("total_assets")
@@ -921,6 +970,8 @@ def _compute_metrics(
 
     # ── prev year (yoy 계산용) — 260505 ralph precision iter 2 ──
     prev_revenue = (bs_is_prev or {}).get("revenue") if bs_is_prev else None
+    if prev_revenue is None and detail_prev:
+        prev_revenue = detail_prev.get("revenue")  # 당기와 같은 폴백 — 전년비가 한쪽만 비지 않게
     prev_operating_profit = (bs_is_prev or {}).get("operating_profit") if bs_is_prev else None
     prev_net_income_total = (bs_is_prev or {}).get("net_income") if bs_is_prev else None
     prev_controlling_ni = (detail_prev or {}).get("controlling_interest_income") if detail_prev else None
@@ -1135,6 +1186,12 @@ def _compute_metrics(
     return {
         # ── 수익성 ──
         "revenue_krw": revenue,
+        # 매출을 어느 계정에서 읽었나 — 「매출액」이 아니면(영업수익·보험수익·이자수익) standard=False.
+        "revenue_account_nm": revenue_account_nm,
+        "revenue_account_id": revenue_account_id,
+        "revenue_standard": revenue_standard,
+        "revenue_basis": revenue_basis,  # 사람용 기준명(매출액/영업수익/보험수익/이자수익…) — 원문명은 revenue_account_nm
+        "revenue_source": revenue_source,  # fnlttSinglAcnt(주요계정) / fnlttSinglAcntAll(전체 재무제표)
         "gross_profit_krw": gross_profit,
         "operating_profit_krw": operating_profit,
         "operating_margin_pct": operating_margin_pct,
@@ -1638,13 +1695,16 @@ async def _fetch_year_metrics(
     # used_rc 전파 — 당기가 분기/반기 fallback이면 CF·상세(acnt_all)와 전기 비교도
     # 같은 reprt_code로 맞춘다. 기존엔 acnt_all이 11011 고정이라 fallback 연도에서
     # 사업보고서 미공시 → CFO/CapEx/FCF 전체 결측 (SK하이닉스 2026 실측).
+    # 전체 재무제표는 **실제 기준(actual_fs)** 으로 부른다. 주요계정(fnlttSinglAcnt)은 CFS 가 없으면
+    # OFS 행을 알아서 돌려주지만 fnlttSinglAcntAll 은 요청 fs_div 그대로라, 연결 미작성 회사에
+    # CFS 로 부르면 013(없음) — CF·매출 폴백·세부 IS 가 통째로 비었다(리파인 2022~2025 실측, 260906).
     if include_prev:
         tasks.append(_safe_fetch_acnt(corp_code, year - 1, used_rc, fs_div))
         task_keys.append("prev_acnt")
-    tasks.append(_safe_fetch_acnt_all(corp_code, year, used_rc, fs_div))
+    tasks.append(_safe_fetch_acnt_all(corp_code, year, used_rc, actual_fs))
     task_keys.append("curr_acnt_all")
     if include_prev:
-        tasks.append(_safe_fetch_acnt_all(corp_code, year - 1, used_rc, fs_div))
+        tasks.append(_safe_fetch_acnt_all(corp_code, year - 1, used_rc, actual_fs))
         task_keys.append("prev_acnt_all")
 
     parallel_results = await asyncio.gather(*tasks, return_exceptions=False)
@@ -1665,10 +1725,10 @@ async def _fetch_year_metrics(
     # ── PRIMARY = 누적(period-to-date) basis ──
     # 분기/반기 보고서면 손익을 누적(thstrm_add)으로 읽어 CF(누적)와 기간을 맞춘다.
     # 사업보고서·1분기는 누적=당기라 동일. BS(잔액)는 기간 무관.
-    bs_is = _build_account_map(rows_curr, cumulative_is=True) if rows_curr else {}
-    bs_is_prev = _build_account_map(rows_prev, cumulative_is=True) if rows_prev else None
-    detail = _build_account_map_all(rows_detail, cumulative_is=True) if rows_detail else None
-    detail_prev = _build_account_map_all(rows_detail_prev, cumulative_is=True) if rows_detail_prev else None
+    bs_is = _build_account_map(rows_curr, cumulative_is=True, induty_code=induty_code) if rows_curr else {}
+    bs_is_prev = _build_account_map(rows_prev, cumulative_is=True, induty_code=induty_code) if rows_prev else None
+    detail = _build_account_map_all(rows_detail, cumulative_is=True, induty_code=induty_code) if rows_detail else None
+    detail_prev = _build_account_map_all(rows_detail_prev, cumulative_is=True, induty_code=induty_code) if rows_detail_prev else None
 
     if not bs_is:
         return {}, warnings + [f"{year}년 BS/IS 핵심 데이터 파싱 실패"], 0
@@ -1679,8 +1739,14 @@ async def _fetch_year_metrics(
     ttm_revenue = ttm_cogs = None
     if used_rc != _REPRT_BUSINESS:
         fy_rows_all, _fy_err = await _safe_fetch_acnt_all(corp_code, year - 1, _REPRT_BUSINESS, actual_fs)
-        fy_map = _build_account_map_all(fy_rows_all) if fy_rows_all else {}
-        ytd_rev_c, ytd_rev_p = (bs_is or {}).get("revenue"), (bs_is_prev or {}).get("revenue")
+        fy_map = _build_account_map_all(fy_rows_all, induty_code=induty_code) if fy_rows_all else {}
+        # 당기 YTD 매출도 폴백(전체 재무제표)을 거친 값으로 — 주요계정에 매출 행이 없는 회사는 bs_is 가 None.
+        ytd_rev_c = (bs_is or {}).get("revenue")
+        if ytd_rev_c is None and detail:
+            ytd_rev_c = detail.get("revenue")
+        ytd_rev_p = (bs_is_prev or {}).get("revenue")
+        if ytd_rev_p is None and detail_prev:
+            ytd_rev_p = detail_prev.get("revenue")
         if None not in (fy_map.get("revenue"), ytd_rev_c, ytd_rev_p):
             ttm_revenue = fy_map["revenue"] + ytd_rev_c - ytd_rev_p
         ytd_cogs_c, ytd_cogs_p = (detail or {}).get("cogs"), (detail_prev or {}).get("cogs")
@@ -1702,6 +1768,16 @@ async def _fetch_year_metrics(
         induty_code=induty_code,
     )
     metrics["year"] = year
+    # 매출을 표준 「매출액」이 아닌 계정에서 읽었으면 그 사실을 사람용 경고로도 남긴다.
+    if metrics.get("revenue_krw") is not None and metrics.get("revenue_standard") is False:
+        warnings.append(
+            f"{year}년 매출 = {metrics.get('revenue_basis')} 기준(원문 계정 「{metrics.get('revenue_account_nm')}」, "
+            f"업종 특성상 매출액 계정 없음) — 영업이익률·회전일수를 제조업 매출 기준과 같이 읽지 말 것."
+        )
+    elif metrics.get("revenue_source") == "fnlttSinglAcntAll":
+        warnings.append(
+            f"{year}년 매출은 주요계정에 없어 전체 재무제표 「{metrics.get('revenue_account_nm')}」 행에서 읽음."
+        )
     period_end = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "").replace(".", "-")
                        for r in rows_curr if r.get("thstrm_dt") or r.get("stlm_dt")), None)
     metrics["period_end"] = period_end
@@ -1739,10 +1815,10 @@ async def _fetch_year_metrics(
         prior_rc = {"11012": "11013", "11014": "11012"}[used_rc]
         prior_detail_rows, prior_err = await _safe_fetch_acnt_all(corp_code, year, prior_rc, actual_fs)
         if prior_detail_rows:
-            bs_is_std = _build_account_map(rows_curr)  # thstrm: IS=당기 3개월, BS=잔액
-            bs_is_prev_std = _build_account_map(rows_prev) if rows_prev else None
-            detail_std = _build_account_map_all(rows_detail) if rows_detail else None
-            prior_detail = _build_account_map_all(prior_detail_rows)
+            bs_is_std = _build_account_map(rows_curr, induty_code=induty_code)  # thstrm: IS=당기 3개월, BS=잔액
+            bs_is_prev_std = _build_account_map(rows_prev, induty_code=induty_code) if rows_prev else None
+            detail_std = _build_account_map_all(rows_detail, induty_code=induty_code) if rows_detail else None
+            prior_detail = _build_account_map_all(prior_detail_rows, induty_code=induty_code)
             if detail_std:
                 # CF는 누적이므로 당기 = 당기누적 − 직전누적 (cfo/capex/이자지급 등 전 CF 키)
                 for k in _CF_ACCOUNT_PATTERNS:
@@ -1911,7 +1987,8 @@ def _pp_diff(curr: float | None, prev: float | None) -> float | None:
 
 
 async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
-                           num_quarters: int = 12, fiscal_month: int | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+                           num_quarters: int = 12, fiscal_month: int | None = None,
+                           induty_code: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
 
     DART 필드 실측 (SK하이닉스 2025, 2026-06-12):
@@ -1942,6 +2019,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     cum9_by_year: dict[int, dict[str, int | None]] = {}  # Q3 보고서의 9개월 누적 (Q4 차분용)
     q_standalone_by_year: dict[int, dict[str, dict[str, int | None]]] = {}
     fs_seen: set[str] = set()  # 실제 사용된 fs_div 추적 (CFS/OFS 폴백·혼재 감지)
+    meta: list[tuple[int, str, int, int, str]] = []  # out 과 같은 순서: (bsns_year, reprt_code, fiscal_quarter, fiscal_year, actual_fs)
     for (year, rc, label), (rows, err) in zip(keys, results):
         if err == "no_filing":
             continue
@@ -1953,7 +2031,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         actual = _actual_fs_div(rows)
         if actual:
             fs_seen.add(actual)
-        bs_is = _build_account_map(rows)
+        bs_is = _build_account_map(rows, induty_code=induty_code)
         if not bs_is:
             continue
         period_end_raw = next((str(r.get("thstrm_dt") or r.get("stlm_dt") or "")
@@ -1967,7 +2045,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             warnings.append(f"{year}-{label}: period_end 없음 — 요청연도 기준으로 임시 분류")
         fiscal_label = f"Q{fiscal_quarter}"
         if fiscal_quarter == 3:
-            cum9_by_year[fiscal_year] = _build_account_map(rows, period="thstrm_add")
+            cum9_by_year[fiscal_year] = _build_account_map(rows, period="thstrm_add", induty_code=induty_code)
         if fiscal_quarter != 4:
             q_standalone_by_year.setdefault(fiscal_year, {})[fiscal_label] = bs_is
         out.append({
@@ -1980,12 +2058,49 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "period_end": period_end,
             "reprt_code": rc,
             "revenue_krw": bs_is.get("revenue"),
+            "revenue_account_nm": bs_is.get("revenue_account_nm"),
+            "revenue_standard": bs_is.get("revenue_standard"),
+            "revenue_basis": bs_is.get("revenue_basis"),
             "operating_profit_krw": bs_is.get("operating_profit"),
             "net_income_krw": bs_is.get("net_income"),
             "total_assets_krw": bs_is.get("total_assets"),
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
         })
+        meta.append((year, rc, fiscal_quarter, fiscal_year, actual or fs_div))
+
+    # ── 매출 lazy 폴백: 주요계정에 매출 행이 없는 분기만 전체 재무제표를 한 번 더 부른다 ──
+    # 리파인·티움바이오 「영업수익」, 보험 「보험수익」, 은행 「이자수익」 — 연간(yearly)과 같은 규칙.
+    # 호출 수는 매출이 빈 분기 수만큼(최대 12). 매출이 있는 회사는 0.
+    # Q4 = 연간 − 9개월 누적 차분이라 둘을 **같은 소스**(전체 재무제표)에서 읽어야 gap 이 안 생긴다 —
+    # Q3 의 누적(thstrm_add)도 여기서 같이 채운다. 분기보고서의 thstrm=당기 3개월·thstrm_add=누적은
+    # fnlttSinglAcntAll 도 동일(리파인 2025 1Q·반기·3Q 실측, 260906).
+    missing = [(i, *m) for i, m in enumerate(meta) if out[i]["revenue_krw"] is None]
+    if missing:
+        fills = await asyncio.gather(*[_safe_fetch_acnt_all(corp_code, y, rc, actual)
+                                       for (_i, y, rc, _fq, _fy, actual) in missing])
+        filled_labels: set[str] = set()
+        for (i, y, rc, fq, fy, actual), (rows_all, err_all) in zip(missing, fills):
+            if err_all and err_all != "no_filing":
+                warnings.append(err_all)
+            if not rows_all:
+                continue
+            m = _build_account_map_all(rows_all, induty_code=induty_code)  # thstrm: 분기=당기 3개월, 연간=12개월
+            if m.get("revenue") is None:
+                continue
+            out[i]["revenue_krw"] = m["revenue"]
+            out[i]["revenue_account_nm"] = m.get("revenue_account_nm")
+            out[i]["revenue_standard"] = m.get("revenue_standard")
+            out[i]["revenue_basis"] = m.get("revenue_basis")
+            filled_labels.add(m.get("revenue_account_nm") or "")
+            if fq == 3:
+                cum9_by_year.setdefault(fy, {})["revenue"] = _build_account_map_all(
+                    rows_all, period="thstrm_add", induty_code=induty_code).get("revenue")
+            if fq != 4:
+                q_standalone_by_year.setdefault(fy, {}).setdefault(f"Q{fq}", {})["revenue"] = m["revenue"]
+        if filled_labels:
+            labels = "」·「".join(sorted(l for l in filled_labels if l))
+            warnings.append(f"매출은 주요계정에 없어 전체 재무제표 「{labels}」 행에서 읽음 ({len(missing)}개 분기 추가 조회).")
 
     # 요청한 fiscal year 밖의 자료는 최신 12행을 채우기 위해 수집했더라도 버린다.
     # 기존에는 3·6월 결산사의 다음 FY-Q1이 out[-12:]에 섞일 수 있었다.
@@ -2254,9 +2369,12 @@ async def build_financial_metrics_payload(
         fiscal_month = int(fiscal_month_raw)
     except (TypeError, ValueError):
         fiscal_month = None
-    # 금융사 판별 2차 신호(KSIC 업종) — mkt_fundamentals에서 DART 콜 없이 조회. 수신 없어(예수부채 無)
-    # BS신호가 놓치는 카드·캐피탈·VC(삼성카드·미래에셋벤처투자 등) 보완. DB 미설정/미수록이면 None(무해).
-    induty_code = await asyncio.to_thread(_lookup_induty_code, corp_code, selected.get("stock_code", ""))
+    # KSIC 업종 — ① 매출 계정 선택 순서(보험=보험수익, 은행=영업수익→이자수익…) ② 금융사 판별 2차 신호
+    # (수신 없어 예수부채 無인 카드·캐피탈·VC 보완). 방금 부른 company.json 에 `induty_code` 가 이미
+    # 있으니 그것부터(DART 콜 0 추가) — 없을 때만 mkt_fundamentals(Postgres) 조회. 둘 다 없으면 None(무해).
+    induty_code = str(company_info.get("induty_code") or "").strip() or None
+    if induty_code is None:
+        induty_code = await asyncio.to_thread(_lookup_induty_code, corp_code, selected.get("stock_code", ""))
     # REIT는 순이익 기준 배당성향이 무의미(배당가능이익 분배) → 이름 기반 판정해 성향 억제 + 안내.
     is_reit = _is_reit(selected.get("corp_name", ""))
     # 분기 인지형 디폴트: quarterly/qoq는 이미 제출된 최신 분기(예: 당해 1분기는 5월 공시)를
@@ -2344,7 +2462,8 @@ async def build_financial_metrics_payload(
             ))
 
     elif scope == "quarterly":
-        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month)
+        rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month,
+                                          induty_code=induty_code)
         warnings.extend(ws)
         data["quarterly"] = rows
         data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month)
@@ -2409,7 +2528,7 @@ async def build_financial_metrics_payload(
 
     elif scope == "qoq":
         rows, ws = await _build_quarterly(corp_code, target_year, fs_div, num_quarters=4,
-                                           fiscal_month=fiscal_month)
+                                           fiscal_month=fiscal_month, induty_code=induty_code)
         warnings.extend(ws)
         # 직전 분기 vs 당기 비교
         if len(rows) >= 2:

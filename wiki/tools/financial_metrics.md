@@ -9,7 +9,7 @@ related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석,
 related_decisions: [open-proxy-guideline]
 
 created: 2026-05-01
-updated: 2026-09-04
+updated: 2026-09-06
 ---
 
 # financial_metrics
@@ -91,6 +91,8 @@ scope:
   "consolidated": true,
   "summary": {
     "revenue_krw": 300870903000000,
+    "revenue_account_nm": "수익(매출액)", "revenue_account_id": "ifrs-full_Revenue",
+    "revenue_standard": true, "revenue_basis": "매출액", "revenue_source": "fnlttSinglAcnt",
     "operating_profit_krw": 32725961000000,
     "operating_margin_pct": 10.88,
     "net_income_krw": 50048199000000,
@@ -135,6 +137,19 @@ scope:
 ```
 
 핵심 필드:
+- **매출 계정 선택** (`services/revenue_account.py`, 260906): 「매출액」이라는 계정명을 안 쓰는 회사가 많다 —
+  정보서비스·바이오는 「영업수익」, 보험은 「보험수익」(1117호)·「보험영업수익」(1104호), 건설은 「수익(매출액)」·
+  「공사수익」, 은행·금융지주는 매출 행이 없고 「이자수익」뿐. 주요계정(`fnlttSinglAcnt`) 템플릿에는 그 회사가
+  「매출액」을 안 쓰면 **행이 아예 없고**(리파인 2024: IS 가 영업이익부터), 전체 재무제표(`fnlttSinglAcntAll`)엔
+  있지만 `account_id` 가 `-표준계정코드 미사용-` 이다. 그래서 ① `ifrs-full_Revenue` 정확매칭 → ② 없으면 계정명
+  **접두** 매칭(배제: 매출원가·매출총이익/손실·매출채권·기타영업수익·출재보험서비스수익…) → ③ 순서는 KSIC 로
+  (65 보험: 보험수익 코드 → 영업수익 / 64·66 금융: 영업수익 → 순영업수익 → 이자수익 / 41·42 건설: 매출액 →
+  공사·분양수익 / 그 외: 매출액 → 영업수익 — **이자수익·보험수익으로 안 내려간다**). 주요계정에 없으면 전체
+  재무제표(이미 호출 중, DART 콜 0 추가)에서 고른다. 결과에 `revenue_account_nm`·`revenue_account_id`·
+  `revenue_standard`(매출액과 같은 뜻으로 읽어도 되나 — 보험수익·이자수익이면 false)·`revenue_basis`(사람용
+  기준명: 매출액/영업수익/보험수익/이자수익… — 삼성생명은 IFRS17 보험수익 행을 「일반보험서비스수익」이라 적으므로
+  원문명 대신 이걸로 표기)·`revenue_source` 를 같이 내고, standard 가 아니면 warning + render 라벨 「매출액(이자수익 기준)」. KSIC 는 `company.json` 의 `induty_code`
+  (이미 호출) → 없으면 Postgres `dart_fundamentals` 순. 실측 fixture 회귀: `tests/test_revenue_account_pick.py`.
 - **단위 처리**: 모든 금액 raw KRW int (`_krw` suffix), %는 float (`_pct` 11.5 = 11.5%), 비율은 decimal (`_ratio` 0.85). render에서만 조/억 변환.
 - **연결 default**: 한국 표준 = 연결 지배주주 귀속. `consolidated=False` 옵션으로 별도 가능.
 - **분모 0/음수 graceful**: 적자 회사 ROE/배당성향 → None + warning. 분모 음수일 때 산출 안 함.
@@ -165,7 +180,7 @@ scope:
   - `fnlttSinglIndx` (주요 재무지표) — DART 산출 ROE/부채비율/EPS 등. idx_cl_code 4 그룹 (수익성/안정성/성장성/활동성) × 4 호출.
   - `fnlttSinglAcntAll` (전체 재무제표) — 213 행 (BS/IS/CIS/CF/SCE). CapEx, 감가상각비, 이자비용, 매출채권/재고/매입채무 추출.
   - `accnutAdtorNmNdAdtOpinion` (회계감사인+의견) — 6 행 (3년 × CFS+OFS). 감사인 / 적정의견 / 강조사항 / 핵심감사사항(KAM) / rcept_no.
-- 외부 호출: scope별 최대 12회 (일반 7회). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회.
+- 외부 호출: scope별 최대 12회 (일반 7회). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회 + 매출이 빈 분기 수(최대 12 — 주요계정에 매출 행이 없는 회사만, 260906 lazy 폴백).
 
 ## Flow
 
@@ -198,7 +213,7 @@ sequenceDiagram
     T-->>U: ToolEnvelope (data + alerts + audit + evidence)
 ```
 
-호출 횟수: scope별 최대 12회 (일반 7회). quarterly scope는 ~24회로 가장 많음. audit_opinion만은 1회.
+호출 횟수: scope별 최대 12회 (일반 7회). quarterly scope는 ~24회(+ 매출 빈 분기 수, 최대 12)로 가장 많음. audit_opinion만은 1회.
 
 ## 파싱 전략
 - **account_nm 매칭**: 표준 키워드 패턴 9 BS + 5 IS + 13 detail (CF/Detail). 공백 무관 + 부분 일치.
@@ -297,6 +312,11 @@ sequenceDiagram
 자본금이 종류주별로만 적힌 표는 합산한다(부모 행이 있으면 그것 — 다 더하면 2배가 된다).
 
 ## 변경 이력
+- 2026-09-06: 매출 계정 선택을 `revenue_account.pick_revenue_row` 로 이관 — account_id(`ifrs-full_Revenue`) 우선 +
+  계정명 접두 매칭 + KSIC 업종 우선순위. 주요계정에 매출 행이 없으면 전체 재무제표에서 폴백(리파인·티움바이오
+  영업수익, 보험 보험수익, 은행 이자수익 — 종전 None). `revenue_account_nm`·`revenue_account_id`·`revenue_standard`·
+  `revenue_source` 필드 신설, 비표준 기준이면 warning. 죽은 키 `operating_revenue` 제거. KSIC 는 company.json
+  `induty_code` 를 먼저 쓴다(Postgres 는 폴백).
 - 2026-08-08: 자본잠식 계산식 단일화(`compute_capital_impairment`) + 차감 산출(`derived`) 신설 +
   비지배지분 추출 + 계정 충돌 배제 (위 절).
 - 2026-08-06: 감사 서사·표본 규모·발견 경위를 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
