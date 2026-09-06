@@ -1183,7 +1183,22 @@ class DartClient:
             status_m = re.search(r'<status>(\d+)</status>', content.decode('utf-8', errors='replace'))
             msg_m = re.search(r'<message>(.+?)</message>', content.decode('utf-8', errors='replace'))
             if status_m:
-                raise DartClientError(status_m.group(1), msg_m.group(1) if msg_m else "알 수 없는 에러")
+                status = status_m.group(1)
+                # 260906: 한도 초과(020 분당 · 021 일일)는 **키의 사정**이지 문서의 사정이 아니다 —
+                #   JSON 경로(`_request`)처럼 보조 키로 한 번 더 간다. 그날 .env 에 보조 키 4개가
+                #   놀고 있는데 document.xml 만 020 으로 그냥 죽었다. 사용자 키 하나뿐이면
+                #   `_rotate_key` 가 False 라 그대로 올린다(남의 키로 안 넘어간다).
+                if status in ("020", "021") and self._rotate_key():
+                    params["crtfc_key"] = self.api_key
+                    response = await self._http.get(url, params=params, timeout=timeout)
+                    response.raise_for_status()
+                    content = response.content
+                    if content[:2] == b'PK':
+                        return content
+                    status_m = re.search(r'<status>(\d+)</status>', content.decode('utf-8', errors='replace'))
+                    msg_m = re.search(r'<message>(.+?)</message>', content.decode('utf-8', errors='replace'))
+                    status = status_m.group(1) if status_m else status
+                raise DartClientError(status, msg_m.group(1) if msg_m else "알 수 없는 에러")
 
         # ZIP도 XML도 아닌 비정상 응답 → 보조 키로 재시도
         if self._rotate_key():

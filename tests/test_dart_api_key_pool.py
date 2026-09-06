@@ -89,3 +89,42 @@ def test_no_key_anywhere_is_a_clear_error(monkeypatch):
         monkeypatch.delenv(f"OPENDART_API_KEY_{i}", raising=False)
     with pytest.raises(ValueError, match="OPENDART_API_KEY"):
         DartClient()
+
+
+def test_binary_path_rotates_to_a_spare_key_on_quota_error(monkeypatch):
+    """document.xml(바이너리) 경로도 020/021 이면 보조 키로 한 번 더 간다 (260906).
+
+    그날 .env 에 보조 키 4개가 있었는데 JSON 경로만 순회하고 바이너리 경로는 020 으로 바로
+    죽었다. 첫 키가 020 을 주고 보조 키가 ZIP 을 주면 ZIP 이 돌아와야 한다.
+    """
+    import asyncio
+    from open_proxy_mcp.dart import client as dart_client
+
+    monkeypatch.setenv("OPENDART_API_KEY", OUR_KEY)
+    monkeypatch.setenv("OPENDART_API_KEY_2", SPARE_1)
+    for i in (3, 4, 5, 6):
+        monkeypatch.delenv(f"OPENDART_API_KEY_{i}", raising=False)
+    c = dart_client.DartClient()
+
+    seen = []
+
+    class _Resp:
+        def __init__(self, content):
+            self.content = content
+        def raise_for_status(self):
+            pass
+
+    class _Http:
+        async def get(self, url, params=None, timeout=None):
+            seen.append(params["crtfc_key"])
+            if params["crtfc_key"] == OUR_KEY:
+                return _Resp(b"<?xml version='1.0'?><result><status>020</status><message>limit</message></result>")
+            return _Resp(b"PK\x03\x04zip-bytes")
+
+    c._http = _Http()
+    async def _no_throttle():
+        return None
+    c._throttle_api = _no_throttle
+    out = asyncio.run(c._request_binary("document.xml", {"rcept_no": "20260310002820"}))
+    assert out.startswith(b"PK")
+    assert seen == [OUR_KEY, SPARE_1]
