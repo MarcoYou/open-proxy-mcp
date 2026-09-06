@@ -25,5 +25,17 @@ updated: 2026-09-06
   `asset_holdings`(`extraction_failed`·`cross_reference`·발췌 있는 부재) · `shareholder_meeting_notice`(약한 파싱 경고).
 - 테스트 `tests/test_extension_hooks.py` — 확장 없음·가짜 확장·깨진 확장 세 갈래.
 
+## 배포
+Dockerfile 의 빌드 시크릿 `opm_ext_spec` 에 설치 스펙(pip 가 받는 문자열)이 있으면 `/app/.venv` 에 설치하고,
+없으면 건너뛴다. 무엇을 설치하는지는 시크릿에만 있다 — 공개 레포에는 「슬롯이 있다」는 사실만.
+```bash
+SPEC="$(cat ~/.opm/ext_spec)"
+fly deploy --build-secret opm_ext_spec="$SPEC" --build-arg OPM_EXT_REV="$(printf %s "$SPEC" | shasum -a 256 | cut -c1-16)"
+```
+`OPM_EXT_REV` 는 스펙의 해시다(비밀 아님). BuildKit 은 시크릿 내용을 캐시 키에 안 넣어서, 이게 없으면 시크릿 없이
+빌드한 층이 재사용돼 확장이 조용히 빠진다(260906 원격 빌드 실측). 설치 층 끝에서 entry point 가 실제로 있는지 assert 한다.
+slim 이미지엔 git 이 없어 git+https 스펙이면 같은 층에서 git 을 깔고 지운다. 런타임에 토큰은 남지 않는다.
+클론한 사람은 시크릿 없이 빌드해 확장 없는 서버를 얻는다 — 빌드는 그대로 된다.
+
 ## 관련
 [[mcp-endpoints]] · [[financial_notes]] · [[asset_holdings]] · [[business_details]] · [[shareholder_meeting_notice]]

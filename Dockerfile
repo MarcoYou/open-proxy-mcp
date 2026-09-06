@@ -21,7 +21,23 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /usr/local/bin/uv
 # --locked: lock 과 pyproject 가 어긋나면 **빌드를 실패시킨다**(조용히 다른 버전 설치 금지)
 # --no-dev: 테스트 의존성 제외 · --no-editable: 소스 링크 대신 실제 설치
 RUN uv sync --locked --no-dev --no-editable && uv cache clean
-
+# 선택 확장 (260906) — 빌드 시크릿 `opm_ext_spec` 에 설치 스펙(pip 가 받는 문자열)이 있으면 설치하고,
+# 없으면 건너뛴다. 레포를 클론한 사람은 시크릿이 없으니 훅이 빈 서버를 그대로 빌드한다.
+# 🔴 BuildKit 은 시크릿 내용을 캐시 키에 넣지 않는다 — 시크릿 없이 빌드한 층이 그대로 재사용돼
+#   확장이 **조용히 빠진다**(260906 원격 빌드 실측: 시크릿을 줘도 `#14 CACHED`). 그래서 스펙의 해시를
+#   build-arg 로 함께 준다. 해시는 비밀이 아니고, 값이 바뀌면 이 층부터 다시 돈다.
+#   fly deploy --build-secret opm_ext_spec="$SPEC" --build-arg OPM_EXT_REV="$(printf %s "$SPEC" | shasum -a 256 | cut -c1-16)"
+# slim 이미지엔 git 이 없다 — git+https 스펙이면 같은 층 안에서 잠깐 깔고 지운다(이미지 크기 유지).
+# 런타임 환경에는 토큰이 남지 않는다(빌드 시크릿은 이 RUN 안에서만 마운트).
+ARG OPM_EXT_REV=none
+RUN --mount=type=secret,id=opm_ext_spec \
+    echo "opm_ext_rev=${OPM_EXT_REV}" && \
+    if [ -s /run/secrets/opm_ext_spec ]; then \
+        apt-get update -qq && apt-get install -y -qq --no-install-recommends git >/dev/null \
+        && uv pip install --python /app/.venv/bin/python --no-cache "$(cat /run/secrets/opm_ext_spec)" \
+        && apt-get purge -y -qq git >/dev/null && apt-get autoremove -y -qq >/dev/null && rm -rf /var/lib/apt/lists/* \
+        && /app/.venv/bin/python -c "from importlib.metadata import entry_points as e; n=[x.name for x in e(group='open_proxy_mcp.extensions')]; assert n, 'extension installed but no entry point'; print('extensions:', n)"; \
+    fi
 RUN useradd -r -s /bin/false appuser
 USER appuser
 
