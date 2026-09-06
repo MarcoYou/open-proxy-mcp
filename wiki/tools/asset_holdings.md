@@ -8,7 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-09-04
+updated: 2026-09-06
 ---
 
 # asset_holdings
@@ -45,6 +45,7 @@ updated: 2026-09-04
   미실현 +6,916억) · `asset_holdings("천일고속", scope="detail")` → 소규모기업(OFS) 원문 명세.
 
 ## 출력 (ToolEnvelope.data)
+- `rcept_no`: 읽은 보고서 접수번호(260906 추가). `detail` 의 부재 갈래(`extraction_failed`·`cross_reference`·발췌 있는 부재)에는 확장 훅([[extension-hooks]])이 있으면 원문 위치 한 줄이 붙는다.
 - `assets`: BS 계정을 목적·환금성 티어로 묶은 표(현금성·환금투자FVPL·장기투자증권·FVOCI·지분법·투자부동산
   ·유형자산·매각예정·기타비유동금융·**결합출자(종속+관계/공동, 미분리)**). `subs`(순수 종속기업, 별도FS
   전용)는 제외 — 본업 지배지분이라 NAV 대상 아님.

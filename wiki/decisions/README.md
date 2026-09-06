@@ -16,6 +16,7 @@ updated: 2026-09-04
 | [[ksic-sector-mapping]] | OPM 자체 업종 분류 — KSIC 중분류 기본 + 6예외 소분류 (실측 분포 근거) |
 | [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
 | [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
+| [[extension-hooks]] | 확장 훅 — 설치된 확장 패키지의 `register(mcp)`·`hint()` 를 부른다. 공개 레포엔 훅만 |
 | [[data-collection]] · [[multi-upstream-pattern]] | 데이터 수집·병렬 패턴 (PDF/OCR 폴백은 open-proxy-ai 영역 — OPM 은 [[XML-vs-PDF]]) |
 | [[mcp-endpoints]] · [[environment-secrets]] | 인프라·구조 (코드 구조는 `docs/ARCHITECTURE.md`) |
 
