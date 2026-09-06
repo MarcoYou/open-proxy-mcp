@@ -18,6 +18,9 @@
 세션이 뭐가 진짜 남았는지 헷갈리게 만드는 원인).
 
 ## 색인
+- [[260906_filing-section-resources]] — 공시 원문 절 단위 리소스(`toc`·`section`) 설계·실측 핸드오프.
+  리모트 실험(원문 리소스 15% 절단·직원현황 미도달)과 메모리 점검은 끝, **뷰어 실측은 로컬에서**
+  `scripts/probe_viewer_sections.py` 로. 코드 미변경.
 - [[260807_proxy-advise-persona-validation]] — proxy_advise 3자 페르소나 검증. 결함 4가족 확인,
   **코드 미수정**. 수정 착수는 사용자 지시 대기.
 
