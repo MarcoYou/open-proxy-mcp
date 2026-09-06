@@ -34,6 +34,7 @@ from open_proxy_mcp.services.dividend_parser import (
     parse_dividend_items,
     safe_float,
     safe_int,
+    split_by_share_class,
 )
 
 _SUPPORTED_SCOPES = {
@@ -212,14 +213,12 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
     out: dict[int, dict[str, Any]] = {}
     for col, offset in columns.items():
         fy = base_year + offset
-        cash_dps = 0
-        cash_dps_pref = 0
         payout: float | None = None
-        yld: float | None = None
-        yld_pref: float | None = None
         total_amount = 0
         net_income = 0
         col_has_face_value = False  # 액면가 = 그 해 회사 존재(보고서 범위 내) 신호
+        dps_rows: list[tuple] = []
+        yield_rows: list[tuple] = []
         for item in items:
             cat = item.get("category", "")
             sknd = item.get("stock_type", "")
@@ -227,13 +226,7 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
             if "주당액면가액" in cat and safe_int(val_raw) > 0:
                 col_has_face_value = True
             if "주당 현금배당금" in cat:
-                v = safe_int(val_raw)
-                if "우선주" in sknd:
-                    cash_dps_pref = v
-                elif "보통주" in sknd or v > 0:
-                    # stock_type="-" 빈 행("-"→0)이 보통주 실제값을 덮어쓰지 않도록
-                    # 보통주 명시이거나 값이 있을 때만 반영.
-                    cash_dps = v
+                dps_rows.append((sknd, safe_int(val_raw)))
             elif "현금배당금총액" in cat:
                 total_amount = safe_int(val_raw)
             elif "현금배당성향" in cat:
@@ -241,14 +234,15 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
                 if v > 0 and (payout is None or "연결" in cat):
                     payout = v
             elif "현금배당수익률" in cat:
-                v = safe_float(val_raw)
-                if v > 0:
-                    if "우선주" in sknd:
-                        yld_pref = v
-                    else:
-                        yld = v
+                yield_rows.append((sknd, safe_float(val_raw)))
             elif "연결" in cat and "당기순이익" in cat:
                 net_income = safe_int(val_raw)
+        # 주당값은 기말 요약과 **같은 규칙**(`split_by_share_class`)으로 종류를 가른다 —
+        #   「우선주」 글자 없는 종류주식(1종 종류주식·종류주 …)이 보통주를 덮지 않게.
+        #   빈 행(`-`→0)은 버킷을 덮지 않는다.
+        _c, _o, pref_label = split_by_share_class(dps_rows)
+        cash_dps, cash_dps_pref = _c or 0, _o or 0
+        yld, yld_pref, _ = split_by_share_class(yield_rows)
         # 컬럼 전체가 비어 있으면(보고서 범위 밖/회사 미존재) 스킵 → fallback 위임.
         # 회사가 존재했는데(액면가/순이익 있음) 배당만 0이면 = 무배당이므로 0-summary로
         # 유지한다 — pending_annual 제거 후 history 윈도우에서 무배당 연도가 빠지지 않게.
@@ -262,6 +256,7 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
             **fiscal,
             "cash_dps": cash_dps,
             "cash_dps_preferred": cash_dps_pref,
+            "cash_dps_preferred_label": pref_label,
             "stock_dps": 0,
             "special_dps": 0,
             "total_dps": cash_dps,

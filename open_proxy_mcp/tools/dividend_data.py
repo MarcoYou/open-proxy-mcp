@@ -117,7 +117,7 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
     pay_rows = pay.get("rows") or []
     if pay_rows:
         L += ["", "### 결정공시 — 몇 번 배당했나 (이사회 결의 기준)", "",
-              "| 사업연도 | 횟수 | 배당구분(원문) | DPS 합 | 총액 합 | 특별배당(힌트) | 이상 |",
+              "| 사업연도 | 횟수 | 배당구분(원문) | DPS 합(보통주) | 총액 합(전 종류) | 특별배당(힌트) | 이상 |",
               "|---|---|---|---|---|---|---|"]
         complete = set(pay.get("complete_years") or [])
         for r in pay_rows:

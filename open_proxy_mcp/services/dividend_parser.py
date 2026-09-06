@@ -199,12 +199,66 @@ def parse_dividend_items(data: dict) -> list[dict]:
     return results
 
 
+def share_class(stock_type) -> str:
+    """alotMatter `stock_knd` 표기 → `common` / `preferred` / `class` / `unspecified`.
+
+    🔴 「우선주」 글자가 없는 종류주식 표기가 실재한다 — 코스피 사업보고서 원장 실측(260906):
+    「종류주식」107행·「종류주」73행·「기타주식」24행·「의결권 없는 주식」20행·「1종 종류주식」6행·
+    「전환주」5행. 옛 규칙은 「우선주 아니면, 값이 있으면 보통주」라 그 행이 보통주 DPS 를
+    **덮어썼다** — 한국금융지주 FY2024 보통 3,980 이 1종 종류주식 4,042 로, 두산 2,000 이
+    종류주식 2,050 으로 나갔다(현재가 기준 배당수익률·`price_multiple_data` 배당수익률·history
+    까지 같이 틀렸다). 보통주는 「보통」이 적힌 행이거나, 종류 칸을 비운(`-`) 회사의 그 행이다.
+    """
+    s = re.sub(r"\s+", "", str(stock_type or ""))
+    if not s or s in {"-", "－", "해당없음", "미구분"}:
+        return "unspecified"
+    if "우선" in s:
+        return "preferred"
+    if "보통" in s or "보동" in s or "의결권있는" in s:
+        return "common"
+    return "class"
+
+
+def split_by_share_class(rows: list[tuple]) -> tuple:
+    """`[(stock_knd 표기, 값)]` → `(보통주 값, 그 밖 종류 값, 그 밖 종류 라벨)`. 없으면 None.
+
+    · 「보통」 표기 행이 있으면 그것이 보통주. 없으면 종류 칸을 비운(`-`) 행. 그것도 없고
+      종류 표기 행뿐이면(「우량주」처럼 표기만 다른 단일 종류) 그 행이 보통주다.
+    · 우선주·종류주식 행은 「그 밖」 버킷 — 여러 줄이면 마지막 줄이 남는다(종전과 같다).
+      라벨은 원문 표기 그대로(`우선주` / `1종 종류주식` …) — 렌더가 「우선주」로 뭉뚱그리지 않게.
+    · 0·빈 값은 버킷을 덮지 않는다 — 서식이 줄 수를 맞추려 남긴 빈 줄이다.
+    사업보고서 기말 요약(`build_dividend_summary`)과 다년 컬럼 history(`dividend._annual_summary`)가
+    **같은 규칙**을 쓴다 — 갈라 두면 요약과 추이가 서로 다른 보통주 값을 낸다.
+    """
+    common = other = None
+    labels: list[str] = []
+    saw_common = False
+    positive = [(t, v) for t, v in rows if v is not None and v > 0]
+    for stock_type, value in positive:
+        cls = share_class(stock_type)
+        if cls == "common":
+            common, saw_common = value, True
+        elif cls == "unspecified":
+            if not saw_common:
+                common = value
+        else:
+            other = value
+            label = str(stock_type or "").strip()
+            if label and label not in labels:
+                labels.append(label)
+    if common is None and other is not None and all(share_class(t) == "class" for t, _ in positive):
+        common, other, labels = other, None, []
+    return common, other, "·".join(labels)
+
+
 def build_dividend_summary(items: list[dict], report_label: str) -> dict:
     """Build a normalized annual summary from alotMatter rows."""
-    cash_dps = cash_dps_preferred = stock_dps = special_dps = total_amount = 0
-    payout_ratio = dividend_yield = preferred_yield = None
+    stock_dps = special_dps = total_amount = 0
+    payout_ratio = None
     net_income = 0
     settlement_date = ""
+    dps_rows: list[tuple] = []
+    yield_rows: list[tuple] = []
     for item in items:
         category = item.get("category", "")
         current = item.get("current", "")
@@ -214,10 +268,8 @@ def build_dividend_summary(items: list[dict], report_label: str) -> dict:
             value = safe_int(current)
             if item.get("is_special"):
                 special_dps += value
-            elif "우선주" in stock_type:
-                cash_dps_preferred = value
-            elif "보통주" in stock_type or value > 0:
-                cash_dps = value
+            else:
+                dps_rows.append((stock_type, value))
         if "주당 주식배당" in category:
             stock_dps = safe_int(current)
         if "현금배당금총액" in category:
@@ -227,14 +279,13 @@ def build_dividend_summary(items: list[dict], report_label: str) -> dict:
             if value > 0:
                 payout_ratio = value
         if "현금배당수익률" in category:
-            value = safe_float(current)
-            if value > 0:
-                if "우선주" in stock_type:
-                    preferred_yield = value
-                else:
-                    dividend_yield = value
+            yield_rows.append((stock_type, safe_float(current)))
         if "연결" in category and "당기순이익" in category:
             net_income = safe_int(current)
+    # 주당값은 종류별로 가른다 — 「우선주」 글자 없는 종류주식이 보통주를 덮지 않게(share_class 참조).
+    _c, _o, preferred_label = split_by_share_class(dps_rows)
+    cash_dps, cash_dps_preferred = _c or 0, _o or 0
+    dividend_yield, preferred_yield, _ = split_by_share_class(yield_rows)
 
     par_current = par_previous = 0
     for item in items:
@@ -247,6 +298,7 @@ def build_dividend_summary(items: list[dict], report_label: str) -> dict:
         "stlm_dt": settlement_date,
         "cash_dps": cash_dps,
         "cash_dps_preferred": cash_dps_preferred,
+        "cash_dps_preferred_label": preferred_label,   # 원문 표기(우선주·1종 종류주식 …) — 렌더 라벨
         "stock_dps": stock_dps,
         "special_dps": special_dps,
         "total_dps": cash_dps + special_dps,

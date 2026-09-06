@@ -151,14 +151,20 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         _meta = _fiscal_meta_line(summary, data)
         if _meta:
             lines.append(_meta)
+        # 주당값은 종류별로, 총액·배당성향은 회사 전체(전 종류 합·연결) — 기준을 라벨에 적는다.
+        #   그 밖 종류의 라벨은 원문 표기(우선주·1종 종류주식 …)를 그대로 쓴다.
+        _pref_label = summary.get("cash_dps_preferred_label") or "우선주"
         lines.append(f"- 연간 DPS(보통주): {summary.get('cash_dps', 0):,}원")
         if summary.get("cash_dps_preferred"):
-            lines.append(f"- 연간 DPS(우선주): {summary.get('cash_dps_preferred', 0):,}원")
-        lines.append(f"- 배당총액: {_won(summary.get('total_amount_mil', 0) * 1_000_000)}")
+            lines.append(f"- 연간 DPS({_pref_label}): {summary.get('cash_dps_preferred', 0):,}원")
+        lines.append(f"- 배당총액: {_won(summary.get('total_amount_mil', 0) * 1_000_000)} _(전 종류 합산 신고총액)_")
         if summary.get("payout_ratio_dart") is not None:
-            lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}% _(공시 원문 `(연결)현금배당성향`. 연결 기준이며 우리가 계산한 값이 아니다)_")
+            lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}% _(공시 원문 `(연결)현금배당성향`. 연결·전 종류 합산 기준이며 우리가 계산한 값이 아니다)_")
         if summary.get("yield_dart") is not None:
-            lines.append(f"- 시가배당률: {summary.get('yield_dart')}% (결의 당시 공시값)")
+            _y = f"- 시가배당률(보통주): {summary.get('yield_dart')}%"
+            if summary.get("yield_preferred_dart") is not None:
+                _y += f" · ({_pref_label}) {summary.get('yield_preferred_dart')}%"
+            lines.append(_y + " (결의 당시 공시값)")
         if summary.get("yield_current_pct") is not None:
             lines.append(
                 f"- 현재가 기준 배당수익률: {summary.get('yield_current_pct')}% "
@@ -215,10 +221,10 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         _span_col = bool(_em) and _em != 12
         if _span_col:
             lines.extend(["", "## 최근 연도 추이", f"_{_em}월 결산 · {data.get('fiscal_year_basis', '')}_",
-                          "| FY | 결산기간 | 연간 DPS | 공시 수 | 배당성향 | 수익률 | 패턴 |",
+                          "| FY | 결산기간 | 연간 DPS(보통주) | 공시 수 | 배당성향 | 수익률(보통주) | 패턴 |",
                           "|----|----------|----------|--------|----------|--------|------|"])
         else:
-            lines.extend(["", "## 최근 연도 추이", "| 연도 | 연간 DPS | 공시 수 | 배당성향 | 수익률 | 패턴 |", "|------|----------|--------|----------|--------|------|"])
+            lines.extend(["", "## 최근 연도 추이", "| 연도 | 연간 DPS(보통주) | 공시 수 | 배당성향 | 수익률(보통주) | 패턴 |", "|------|----------|--------|----------|--------|------|"])
         for item in data.get("history", []):
             payout = f"{item['payout_ratio']}%" if item.get("payout_ratio") is not None else "-"
             yld = f"{item['yield_pct']}%" if item.get("yield_pct") is not None else "-"

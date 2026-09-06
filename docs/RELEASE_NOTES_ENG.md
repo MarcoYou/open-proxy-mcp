@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-06
 
+### `dividend_disclosure` — class shares no longer overwrite the common-share DPS
+
+In the annual-report dividend table, class-share rows whose label lacks the word "preferred" (e.g. 종류주식, 1종 종류주식, 전환주 — 235 rows in the KOSPI ledger) were read as common shares, so a later row overwrote the common DPS. Korea Investment Holdings FY2024 showed 4,042 KRW (class 1 shares) instead of the common 3,980 KRW, Doosan showed 2,050 instead of 2,000, and the current-price yield, the yearly history, and `price_multiple_data`'s dividend yield used the same wrong value. Share-class classification is now a single rule shared by the year-end summary and the multi-year history, non-common DPS is labelled with the filing's own wording, and the render states that total dividends and payout ratio are company-wide (all classes, consolidated).
+
 ### Expanded one-page company prompt
 
 `company_snapshot` now covers business structure, sector-specific sources, three-year financial and dividend queries, annual consensus availability, and recent filings with targeted follow-ups. Its table combines up to three actual years (A) and two available estimate years (E), leaving missing forecast fields unfilled. It distinguishes accounting bases, estimate snapshot dates, and price dates. Clients with visualization support are asked for revenue bars and an operating-profit line, distinguishing actuals from estimates. Input remains a single company name or ticker.
