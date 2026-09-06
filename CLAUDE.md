@@ -51,7 +51,7 @@ wiki/                  # 공개 지식 — 주제당 문서 하나, 최신판만
 12. **DB 스키마·값 변경**은 백업 확인 → 배포 → 양쪽 세기(새 값 N건 / 옛 값 0건).
 13. **메모리 변경은 사용자 승인 필수.** 메모리는 「일하는 방식」만 — 지식·일화는 storage `wiki-private/anecdotes/`.
 14. **이 레포는 PUBLIC.** private 자산(usage·anecdotes·Supabase 스키마·비공개 기능)은 open-proxy-storage·opm-ext 에. 공개 레포엔 확장 훅만.
-15. **회귀 캐시는 DART 응답 경계에서만.** `get_document_cached` 결과를 입력으로 쓴다. 중간 함수 결과 금지.
+15. **회귀 캐시는 DART 응답 경계에서만.** `get_document_cached` 결과를 입력으로 쓴다. 중간 함수 결과 금지 — 함수가 아니라 입력이 기준.
 
 ## Workflow
 
