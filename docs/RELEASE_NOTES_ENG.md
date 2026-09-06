@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-06
 
+### document.xml requests now rotate to a spare key on quota errors
+
+When a filing-text (document.xml) request hits a DART quota error (020 or 021), it retries once with a spare key, as JSON requests already did. Previously only JSON requests rotated and the text request simply failed. Requests made with a single user key still never switch to another key.
+
 ### `dividend_disclosure` — class shares no longer overwrite the common-share DPS
 
 In the annual-report dividend table, class-share rows whose label lacks the word "preferred" (e.g. 종류주식, 1종 종류주식, 전환주 — 235 rows in the KOSPI ledger) were read as common shares, so a later row overwrote the common DPS. Korea Investment Holdings FY2024 showed 4,042 KRW (class 1 shares) instead of the common 3,980 KRW, Doosan showed 2,050 instead of 2,000, and the current-price yield, the yearly history, and `price_multiple_data`'s dividend yield used the same wrong value. Share-class classification is now a single rule shared by the year-end summary and the multi-year history, non-common DPS is labelled with the filing's own wording, and the render states that total dividends and payout ratio are company-wide (all classes, consolidated).
