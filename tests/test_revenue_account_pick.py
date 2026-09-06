@@ -1,4 +1,4 @@
-"""매출(top line) 계정 선택 회귀 — DART 응답 경계 fixture (CLAUDE.md 규칙 16).
+"""매출(top line) 계정 선택 회귀 — DART 응답 경계 fixture (CLAUDE.md 규칙 15).
 
 fixture 는 2026-09-06 에 받은 DART OpenAPI 응답 행 그대로다(fnlttSinglAcnt / fnlttSinglAcntAll,
 사업보고서 11011, 2024 사업연도). 전체재무제표는 이 회귀에 필요한 BS·IS·CIS 행만 남겼다.

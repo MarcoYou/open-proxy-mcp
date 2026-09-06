@@ -36,36 +36,35 @@ wiki/                  # 도메인 지식 (wiki/wiki_schema.md 가 계약서)
 
 ## Rules
 
-1. **DART API 910/min hard cap.** 초과 시 키가 2~3시간 차단. 키별 인스턴스가 각자 스로틀 — 프로세스 2개면 합산 1,820. batch 최대 30사 + sleep.
+1. **DART API 키당 910/min.** 초과 시 그 키가 2~3시간 차단. batch 최대 30사 + sleep.
 2. **document.xml 우선.** PDF/OCR 없음(open-proxy-ai 이관). viewer HTML fallback은 service가 명시적으로 둔 것만.
 3. **API 키 비노출.** URL·query·예외·로그·fixture에 전체는 물론 prefix도 남기지 않는다.
 4. **raw/ 절대 수정 금지.** 외부 원본 무결성 보존.
 5. **이름 기반 접근.** SQL INSERT는 컬럼명 명시. 튜플 위치 언패킹·암묵적 정렬 대신 dict/key=.
 6. **공유 파생지표 재사용.** 시총·주식수 등은 검증된 service 재사용. tool별 독자 재계산 금지.
-7. **웹 스크래핑 0.4~1초 랜덤 + 분당 40건/프로세스.** DART 웹·KIND 는 프로세스 시계 하나(키 무관). 배치·병렬 금지. 차단 신호(`/health` `web_block`)가 잡히면 1~2초로 되돌린다.
+7. **웹 스크래핑은 프로세스 시계 하나.** 0.4~1초 랜덤 + 분당 40건. 차단은 IP 기준이라 그 머신의 전원이 막힌다(`/health` `web_block`).
 8. **공시 검색은 pblntf_ty 필터 먼저.** 전체 순회 금지. corp_code 없는 시장검색 3개월 한도.
 9. **rcept_no.** 00=소집공고(DART 정기), 80=주총결과(거래소 수시).
-10. **사용자 조회 결과 저장 안 함.** corp-code/document cache, 시장 snapshot, usage telemetry는 예외.
+10. **사용자 조회 결과 저장 안 함.** 캐시·시장 snapshot·usage telemetry 만 예외.
 11. **파이프라인 전체 재실행 금지.** 누락분만 처리.
-12. **DB 스키마 변경 전** 백업 파일을 열어보고 배포를 먼저 한다.
-13. **컬럼·값 치환 후** 양쪽으로 센다 (새 값 N건 / 옛 값 0건 확인).
-14. **메모리 변경은 사용자 승인 필수.** 추가·수정·삭제 전에 보여주고 허락받는다.
-15. **이 레포는 PUBLIC.** private 자산(usage·lessons·Supabase 스키마)은 open-proxy-storage에.
-16. **회귀 캐시는 DART 응답 경계에서만.** `get_document_cached` 결과를 입력으로 쓴다. 중간 함수 결과 금지 — 함수가 아니라 입력이 기준.
+12. **DB 스키마·값 변경**은 백업 확인 → 배포 → 양쪽 세기(새 값 N건 / 옛 값 0건).
+13. **메모리 변경은 사용자 승인 필수.** 메모리는 「일하는 방식」만 — 지식·일화는 storage `wiki-private/anecdotes/`.
+14. **이 레포는 PUBLIC.** private 자산(usage·anecdotes·Supabase 스키마·비공개 기능)은 open-proxy-storage·opm-ext 에. 공개 레포엔 확장 훅만.
+15. **회귀 캐시는 DART 응답 경계에서만.** `get_document_cached` 결과를 입력으로 쓴다.
 
 ## Workflow
 
-- **검증은 MCP 호출 → 직접 import는 테스트·디버깅만.** tool wrapper·렌더러·인자 기본값·직렬화를 건너뛰는 경로는 사용자가 보는 것과 다른 것을 본다.
-- **정확성 > 속도.** 가설 → 엣지케이스 상상 → 표본 테스트 → 통계 검증 → 실행. 확인 전에 서사를 만들지 않는다.
-- **작업이 아니라 목표를 본다.** 시킨 일만 수행하지 말고 목표·원칙·전체 프로젝트 연관성을 함께 고려.
+- **검증은 MCP 호출.** 직접 import 는 테스트·디버깅만 — wrapper·렌더러를 건너뛰면 사용자가 보는 것과 다르다.
+- **정확성 > 속도.** 가설 → 표본 → 통계 검증 → 실행. 확인 전에 서사를 만들지 않는다.
+- **작업이 아니라 목표를 본다.**
 - **wiki-first.** 도메인 지식은 `wiki/` 참조. `wiki/wiki_schema.md` → `wiki/wiki_index.md` → 필요한 페이지만.
 - **무엇을 바꾸면 어디를 고치나** (tool 추가·필드·파라미터·사실·페이지 이동별 고칠 파일 + 돌릴 검사) → `wiki/wiki_schema.md` 「문서 운영 규칙」 표.
-- **streamable-http만.** stdio·SSE 없음. 로컬 검증은 pilot, 배포 후 확인은 live.
-- **커밋/푸시/배포는 사용자 명시 요청 시만.**
+- **streamable-http만.** 로컬 검증은 pilot, 배포 후 확인은 live. 배포는 main 푸시(CI)로만 — 수동 fly deploy 는 CI 와 겹치면 실패.
+- **커밋/푸시는 사용자 명시 요청 시만.**
 
 ## Out of Scope
 
 - `wiki/raw/` 수정
 - PDF 다운로드·OCR (open-proxy-ai 영역)
 - 사용자 데이터 저장
-- 작업용 일회성 스크립트를 지시 변경 없이 재사용
+- 일회성 스크립트의 재사용
