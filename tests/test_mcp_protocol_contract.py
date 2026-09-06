@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 
 import pytest
 from starlette.testclient import TestClient
@@ -93,6 +94,46 @@ def test_prompts_list_over_the_wire(client):
     assert r.status_code == 200, r.text[:120]
     names = {p["name"] for p in r.json()["result"]["prompts"]}
     assert "company_snapshot" in names, names
+
+
+def test_company_snapshot_prompt_references_available_tools(client):
+    """회사 하나로 열리는 양식이 개명·제거된 도구를 호출하도록 안내하지 않는다."""
+    prompts = _post(client, {"jsonrpc": "2.0", "id": 8, "method": "prompts/list",
+                             "params": {}}).json()["result"]["prompts"]
+    prompt = next(p for p in prompts if p["name"] == "company_snapshot")
+    assert {a["name"] for a in prompt["arguments"] if a.get("required")} == {"company"}
+
+    r = _post(client, {"jsonrpc": "2.0", "id": 9, "method": "prompts/get",
+                       "params": {"name": "company_snapshot", "arguments": {"company": "삼성전자"}}})
+    assert r.status_code == 200, r.text[:120]
+    messages = r.json()["result"]["messages"]
+    text = "\n".join(m["content"]["text"] for m in messages)
+    assert "삼성전자" in text
+    references = set(re.findall(r"`([a-z][a-z0-9_]*)`", text))
+    tools = _post(client, {"jsonrpc": "2.0", "id": 10, "method": "tools/list",
+                           "params": {}}).json()["result"]["tools"]
+    assert references and references <= {t["name"] for t in tools}
+
+
+def test_tools_guide_resource_over_the_wire(client):
+    """기능 안내가 발견·열람되고, 서빙 중인 도구를 빠짐없이 한 번씩 소개한다."""
+    def rpc(method, params):
+        r = _post(client, {"jsonrpc": "2.0", "id": 7, "method": method, "params": params})
+        assert r.status_code == 200, r.text[:120]
+        return r.json()["result"]
+
+    resources = rpc("resources/list", {})["resources"]
+    guide = next(r for r in resources if r["name"] == "tools_guide")
+    assert guide["uri"] == "opm://tools_guide"
+    assert guide["mimeType"] == "text/markdown"
+    contents = rpc("resources/read", {"uri": guide["uri"]})["contents"]
+    text = contents[0]["text"]
+    names = [line.removeprefix("## ") for line in text.splitlines() if line.startswith("## ")]
+    tools = rpc("tools/list", {})["tools"]
+    assert len(names) == len(set(names)) == len(tools)
+    assert set(names) == {t["name"] for t in tools}
+    assert names[0] == "company"
+    assert "설명이 등록되지 않았습니다" not in text
 
 
 # ── 키 게이트 ────────────────────────────────────────────────────────────────

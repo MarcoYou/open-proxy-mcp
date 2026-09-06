@@ -1,4 +1,4 @@
-"""[실험] MCP resource — 공시 원문을 주소로 노출한다.
+"""MCP resources — 기능 안내, 공시 원문, 의결권 정책을 주소로 제공한다.
 
 왜 필요한가 (260813 실측):
   소집공고 안건 파싱이 0건이면 `raw_text_fallback`(proxy_advise.py `_build_proxy_advise_payload`)이 **안 붙는다**
@@ -28,6 +28,37 @@ def _clean(text: str) -> str:
 
 
 def register_all_resources(mcp: MCPServer) -> None:
+    @mcp.resource(
+        "opm://tools_guide",
+        name="tools_guide",
+        title="OpenProxy 기능 안내",
+        description=(
+            "OpenProxy에서 어떤 기능을 쓸 수 있는지 안내한다. "
+            "현재 제공하는 도구 전체와 각 도구가 답하는 내용을 확인할 때 읽는다."
+        ),
+        mime_type="text/markdown",
+        annotations=Annotations(audience=["user", "assistant"], priority=0.6),
+    )
+    async def tools_guide() -> str:
+        # 도구 이름·설명·개수는 등록된 목록에서 읽는다. 별도 안내문에 복사하면
+        # 개명·추가 때 뒤처진다. 여러 줄에 걸친 첫 문단도 끝까지 보존한다.
+        tools = sorted(await mcp.list_tools(), key=lambda t: (t.name != "company", t.name))
+        lines = [
+            "# OpenProxy 기능 안내",
+            "",
+            "회사명이나 종목코드와 함께 궁금한 내용을 자연어로 물어보세요. "
+            "도구 이름을 외울 필요는 없습니다.",
+            "",
+            f"현재 제공하는 도구는 {len(tools)}개입니다. "
+            "아래 안내는 이 서버에 등록된 도구 설명에서 가져옵니다.",
+        ]
+        for tool in tools:
+            description = (tool.description or "설명이 등록되지 않았습니다.").strip()
+            summary = re.split(r"\n\s*\n|\n\s*(?:when|rule|ref):", description, maxsplit=1)[0]
+            summary = re.sub(r"^desc:\s*", "", summary)
+            lines.extend(["", f"## {tool.name}", "", " ".join(summary.split())])
+        return "\n".join(lines)
+
     @mcp.resource(
         "opm://filing/{rcept_no}",
         name="DART 공시 원문",

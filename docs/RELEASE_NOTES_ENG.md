@@ -2,6 +2,16 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-06
+
+### Expanded one-page company prompt
+
+`company_snapshot` now covers business structure, sector-specific sources, three-year financial and dividend queries, annual consensus availability, and recent filings with targeted follow-ups. Its table combines up to three actual years (A) and two available estimate years (E), leaving missing forecast fields unfilled. It distinguishes accounting bases, estimate snapshot dates, and price dates. Clients with visualization support are asked for revenue bars and an operating-profit line, distinguishing actuals from estimates. Input remains a single company name or ticker.
+
+### `tools_guide` capability resource
+
+Read `opm://tools_guide` for the currently available tools and their descriptions. Names, count, and introductions come from the runtime registry, with no DART calls. Available in clients that support MCP resources.
+
 ## beta — 2026-09-05
 
 ### AGM analysis and proxy voting guidance aligned with the implementation
@@ -160,7 +170,6 @@ Tables for `scope="market"` and `scope="sector"` (`scheme="wics_sector"`) now ca
 **[Unverified]** Confirmed FY2025 DPS is incomplete — 608 issuers (114 KOSPI, 494 KOSDAQ) are still blank, leaving 8.9% of KOSPI and 21.7% of KOSDAQ market cap unconfirmed. The `all` figure is suppressed by that much and will refresh when the annual load runs again after the March annual-report deadline.
 
 Verified: MCP calls for `scope=market`, `scope=sector(wics_sector)`, and `scope=sector(ksic)` as a regression check; all 1,406 tests pass.
-
 
 ### New tool `forward_estimates_data` — consensus forward estimates
 
