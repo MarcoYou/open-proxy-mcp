@@ -178,3 +178,6 @@ scratchpad_*.json
 .agents/
 .codex/
 .gjc/
+
+# Firecrawl CLI local cache
+.firecrawl/
