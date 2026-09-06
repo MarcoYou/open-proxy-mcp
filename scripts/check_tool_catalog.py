@@ -71,7 +71,15 @@ def _description_problems(tools, runtime_tools: set[str]) -> list[str]:
 
 
 def main() -> int:
-    tools = asyncio.run(build_mcp().list_tools())
+    app = build_mcp()
+    tools = asyncio.run(app.list_tools())
+    # 260907: 확장 패키지(entry point `open_proxy_mcp.extensions`)가 더한 tool 은 이 레포의 카탈로그 밖이다 —
+    #   등록 함수의 모듈이 `open_proxy_mcp` 로 시작하지 않으면 뺀다. 확장이 설치된 로컬에서도 검사가 같게 돈다.
+    def _ours(name: str) -> bool:
+        t = app._tool_manager.get_tool(name)
+        mod = getattr(getattr(t, "fn", None), "__module__", "") or ""
+        return mod.startswith("open_proxy_mcp")
+    tools = [t for t in tools if _ours(t.name)]
     runtime_tools = {tool.name for tool in tools}
     documented_tools = {
         path.stem
