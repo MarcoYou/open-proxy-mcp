@@ -108,10 +108,10 @@ def test_firm_render_still_says_absent_when_the_query_succeeded_with_nothing():
     assert "원장이 이 구간에 없다" in md and "읽지 못했다" not in md
 
 
-# ── dividend_disclosure 결정공시 합산 경로의 자(尺) ────────────────────────
+# ── dividend_disclosure 결정공시 합산 경로의 기준 ──────────────────────────
 def test_decisions_summary_cash_dps_already_contains_the_special_portion():
     """결정공시의 「1주당 배당금」은 정기·특별분이 합산된 한 숫자다 — `total_dps = cash_dps`,
-    `special_dps` 는 그중 특별분(정보용). 원장 경로(`cash + special`)와 자가 다르다는 것을
+    `special_dps` 는 그중 특별분(정보용). 원장 경로(`cash + special`)와 기준이 다르다는 것을
     주석뿐 아니라 코드로 잠근다(삼성전자 FY2020: 1,932 중 1,578)."""
     from open_proxy_mcp.services.dividend import _decisions_summary_for_year
     s = _decisions_summary_for_year([{

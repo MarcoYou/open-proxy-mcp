@@ -56,7 +56,7 @@ def _dy(row: dict[str, Any]) -> str:
 
 
 def _render_div_note(d: dict[str, Any]) -> list[str]:
-    """배당수익률의 자(尺) — 기준일·모집단. 260831. 없으면 아무것도 안 쓴다."""
+    """배당수익률의 기준 — 기준일·모집단. 260831. 없으면 아무것도 안 쓴다."""
     r, m = d.get("div_yield_ruler"), d.get("div_yield_method")
     if not (r or m):
         return []
