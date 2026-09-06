@@ -19,6 +19,8 @@ import re
 from mcp.server.mcpserver import MCPServer
 from mcp.types import Annotations
 
+from open_proxy_mcp.services.filing_sections import toc_uri
+
 #: 응답 상한. 소집공고는 최대 7MB 라 통째로 주면 컨텍스트가 터진다.
 _MAX_CHARS = 120_000
 
@@ -82,13 +84,73 @@ def register_all_resources(mcp: MCPServer) -> None:
             return "잘못된 접수번호입니다 — 14자리 숫자여야 합니다."
         from open_proxy_mcp.dart.client import get_dart_client
 
+        # 260906: 사업보고서는 82만~165만 자라 이 상한(12만)에서 III 장(재무)이 잘린다. 뒤쪽 장이
+        #   필요하면 목차에서 절을 골라 읽는 길을 머리에 적는다 — 그 길은 자르지 않는다.
+        head = (f"[목차] {toc_uri(rcept_no)} — 이 전문은 {_MAX_CHARS:,}자에서 잘린다. "
+                f"특정 장·절(직원 현황·계열회사·우발부채·주석 항목 등)은 목차에서 절 번호를 골라 "
+                f"opm://filing/{rcept_no}/section/{{no}} 로 읽는 편이 빠르고 끝까지 닿는다.\n\n")
         doc = await get_dart_client().get_document_cached(rcept_no)
         text = _clean(doc.get("text") or "")
         if not text:
-            return f"[{rcept_no}] 원문 텍스트를 가져오지 못했습니다."
+            return head + f"[{rcept_no}] 원문 텍스트를 가져오지 못했습니다."
         if len(text) > _MAX_CHARS:
-            return text[:_MAX_CHARS] + f"\n\n…(이후 {len(text) - _MAX_CHARS:,}자 생략)"
-        return text
+            return head + text[:_MAX_CHARS] + f"\n\n…(이후 {len(text) - _MAX_CHARS:,}자 생략 — 절 단위는 {toc_uri(rcept_no)})"
+        return head + text
+
+    @mcp.resource(
+        "opm://filing/{rcept_no}/toc",
+        name="DART 공시 목차",
+        description=(
+            "접수번호(rcept_no, 14자리)로 공시의 목차(장·절·항)를 읽는다. 각 절에 읽기 주소 "
+            "opm://filing/{rcept_no}/section/{no} 가 붙는다. 전문이 잘려서 뒤쪽 장이 필요하거나, "
+            "특정 절(직원 현황·계열회사·우발부채·재무제표 주석 항목 등)만 필요할 때 먼저 읽는다."
+        ),
+        mime_type="text/markdown",
+        annotations=Annotations(audience=["user", "assistant"], priority=0.8),
+    )
+    async def filing_toc(rcept_no: str) -> str:
+        if not re.fullmatch(r"\d{14}", rcept_no or ""):
+            return "잘못된 접수번호입니다 — 14자리 숫자여야 합니다."
+        from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+        from open_proxy_mcp.services.filing_sections import get_toc, render_toc
+
+        try:
+            toc = await get_toc(get_dart_client(), rcept_no)
+        except DartClientError as exc:
+            return f"[{rcept_no}] 목차를 가져오지 못했습니다 — {exc}. 전문은 opm://filing/{rcept_no} 에서."
+        return render_toc(rcept_no, toc)
+
+    @mcp.resource(
+        "opm://filing/{rcept_no}/section/{no}{?start}",
+        name="DART 공시 절",
+        description=(
+            "공시의 절 하나를 읽는다 — 정제 텍스트와 마크다운 표(단위·기준일·각주 포함). "
+            "no 는 opm://filing/{rcept_no}/toc 의 절 번호. 상위 항목 번호면 하위 절 목록을 준다. "
+            "절당 40,000자 상한이며 넘치면 응답 끝의 ?start= 주소로 이어 읽는다."
+        ),
+        mime_type="text/markdown",
+        annotations=Annotations(audience=["user", "assistant"], priority=0.8),
+    )
+    async def filing_section(rcept_no: str, no: str, start: str = "") -> str:
+        if not re.fullmatch(r"\d{14}", rcept_no or ""):
+            return "잘못된 접수번호입니다 — 14자리 숫자여야 합니다."
+        if not re.fullmatch(r"\d{1,4}", no or ""):
+            return f"절 번호는 목차 {toc_uri(rcept_no)} 의 숫자 번호여야 합니다."
+        from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+        from open_proxy_mcp.services.filing_sections import get_section, render_section
+
+        try:
+            offset = int(start) if str(start).strip() else 0
+        except ValueError:
+            offset = 0
+        try:
+            sec = await get_section(get_dart_client(), rcept_no, no)
+        except DartClientError as exc:
+            return f"[{rcept_no}] 절 {no} 을 가져오지 못했습니다 — {exc}. 목차 {toc_uri(rcept_no)} 에서 다른 절을 고르거나 잠시 뒤 다시 읽으세요."
+        except Exception as exc:  # noqa: BLE001 — 전송 오류(재시도 후)·파싱 오류: 어디로 갈지 알려 준다
+            return (f"[{rcept_no}] 절 {no} 본문을 받지 못했습니다 ({type(exc).__name__}). "
+                    f"잠시 뒤 다시 읽거나 목차 {toc_uri(rcept_no)} 에서 이웃 절을 고르세요.")
+        return render_section(rcept_no, sec, offset)
 
     #: 의결권 판단 기준 문서. **판정 사유에 「OPM Guideline §2.4 이사 선임 — against ①…」로
     #: 인용되는 그 문서다.**

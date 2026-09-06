@@ -37,7 +37,7 @@ related: [260429_0059_decision_voting-policy-consensus-matrix, 상법-2025-2026-
 |---|---|
 | 사람 | `open_proxy_mcp/data/guideline/open-proxy-guideline.md` 를 직접 연다 |
 | AI·사용자 (MCP) | `proxy_guideline` tool. `section="2.4"` 처럼 **판정의 「정책 인용」이 가리키는 절 번호**로, 또는 `section="재무제표"` 로 안건 유형별 절만 |
-| MCP resource | `opm://guideline` — **Claude.ai 커넥터는 resource 를 모델에게 노출하지 않는다**(260813 실측). 다른 클라이언트용 |
+| MCP resource | `opm://guideline` — URI 를 알면 Claude.ai 커넥터에서도 직접 읽힌다(260906 재실측, 260813 「노출 안 됨」 기록을 정정). 단 `resources/list` 는 접속 시점 스냅샷이라 목록에는 안 보일 수 있다 |
 
 ## 인용 라벨 ↔ 원문 ↔ 엔진 (260903)
 

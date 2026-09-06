@@ -4,6 +4,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-06
 
+### Section-level filing resources `filing/{rcept_no}/toc` and `/section/{no}`
+
+The full-text resource `opm://filing/{rcept_no}` is capped at 120,000 characters, so annual reports (0.8–1.65 million characters) were cut off inside chapter III (financials), and questions without a dedicated parser — headcount, affiliates, contingent liabilities, sanctions, individual notes — could not be reached. `opm://filing/{rcept_no}/toc` now returns the DART viewer table of contents (chapter › section › item, 95–172 entries per report) with a read address per entry, and `opm://filing/{rcept_no}/section/{no}` returns one section as cleaned text plus Markdown tables (units, as-of dates and footnotes preserved). A parent entry returns the list of its child sections instead of a body; a section longer than 40,000 characters continues through the `?start=` address given at the end of the response. The full-text resource now opens with the toc address.
+
+The design was fixed by measuring 11 annual reports (manufacturing, mid cap, insurance, bank holding, securities, construction, biotech, retail, REIT, small-cap KOSDAQ, utility): peak memory per section request under 9 MB, text-only cache (0.2–3.3 MB per report), about 1.5 s per section round trip, one retry on transport errors. Viewer requests keep the existing shared web-request clock and share the document concurrency gate. Writing these addresses into tool output is the next step.
+
 ### `dividend_disclosure` — class shares no longer overwrite the common-share DPS
 
 In the annual-report dividend table, class-share rows whose label lacks the word "preferred" (e.g. 종류주식, 1종 종류주식, 전환주 — 235 rows in the KOSPI ledger) were read as common shares, so a later row overwrote the common DPS. Korea Investment Holdings FY2024 showed 4,042 KRW (class 1 shares) instead of the common 3,980 KRW, Doosan showed 2,050 instead of 2,000, and the current-price yield, the yearly history, and `price_multiple_data`'s dividend yield used the same wrong value. Share-class classification is now a single rule shared by the year-end summary and the multi-year history, non-common DPS is labelled with the filing's own wording, and the render states that total dividends and payout ratio are company-wide (all classes, consolidated).
@@ -132,7 +138,7 @@ The arithmetic closes like this: 25 tools as of 07-22 (`screener` included) plus
 
 - Reads the **full text behind the citation** that `proxy_advise_before_meeting` attaches to each verdict ("OPM Guideline §Financial statements — ..."). Before this there was no way to see what stood behind that one line. Company- and DART-independent, **zero API calls.**
 - Leave `section` empty for the table of contents plus full text; pass a word to get only sections whose title contains it (`재무제표`, `이사선임`, `정관`, `0-A`). An unknown section returns the list of available ones. Capped at 120,000 characters.
-- The same document is also exposed as the `opm://guideline` resource, but a 260813 test confirmed that **the Claude.ai connector does not surface resources to the model**, so it is a tool as well.
+- The same document is also exposed as the `opm://guideline` resource. A 260813 test suggested the Claude.ai connector did not surface resources to the model; a 260906 re-test showed that **a resource can be read directly when its URI is known** (only the `resources/list` listing is a connect-time snapshot, so new resources do not appear in it). It therefore stays available as both a tool and a resource.
 - **The policy and the engine differ on purpose** — §0-A is the map of that gap. Even where the policy declares `against`, the engine returns REVIEW unless a hard trigger fires.
 
 ### New tool `trading_data` — price, market cap, share count, quotes (wiki created 08-24)

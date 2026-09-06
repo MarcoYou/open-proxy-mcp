@@ -57,7 +57,7 @@ Start with `Show Samsung Electronics' company information and three recent filin
 
 Find more prompts on each page in the [tool catalog](wiki/tools/README.md).
 
-In clients that support MCP resources, open `tools_guide` (`opm://tools_guide`) to see the available tools and their descriptions. The guide is generated from the server's registered tools.
+In clients that support MCP resources, open `tools_guide` (`opm://tools_guide`) to see the available tools and their descriptions. The guide is generated from the server's registered tools. Filing text can be read section by section: pick a section number from `opm://filing/{rcept_no}/toc` and read `opm://filing/{rcept_no}/section/{no}` (one section, tables included).
 
 In clients that support MCP prompts, select `company_snapshot` (one-page company overview) and enter a company name or ticker. It guides the assistant through business structure, three years of actual results, up to two available annual consensus estimates, valuation, ownership, dividends, recent filings, and follow-up questions. The table distinguishes actuals (A) from estimates (E); clients with visualization support are also asked to show revenue bars and an operating-profit line.
 
