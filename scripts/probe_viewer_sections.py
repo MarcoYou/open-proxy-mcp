@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DART 뷰어 목차·절 실측 — `opm://filing/{rcept_no}/toc`·`/section/{no}` 리소스 설계용 (260906).
+"""DART 뷰어 목차·절 실측 — 절 단위 읽기(`filing_section` 확장) 경로의 비용 계측용 (260906).
 
 무엇을 재나
   · 목차: main.do 한 번으로 절이 몇 개 나오나, 그 HTML 이 몇 바이트인가.
@@ -10,11 +10,11 @@
 어떻게 쓰나 — 로컬 터미널에서(원격 샌드박스는 dart.fss.or.kr 이 막혀 있다). `.env` 의 OPENDART_API_KEY 가
 있어야 한다(클라이언트 생성자 요구. 뷰어 호출 자체는 키를 쓰지 않는다)
   uv run python scripts/probe_viewer_sections.py 20260310002820                # 표본 절만 (직원·주석·사업의 내용)
-  uv run python scripts/probe_viewer_sections.py 20260310002820 --all          # 전 절 (절 수 × 1~2초)
+  uv run python scripts/probe_viewer_sections.py 20260310002820 --all          # 전 절 (절 수 × 0.4~1초)
   uv run python scripts/probe_viewer_sections.py 20260310002820 20250814002379 --all --json out.json
 
-CLAUDE.md 규칙 7(웹 스크래핑 1~2초 랜덤·배치 금지)을 지킨다 — 절을 **순서대로 하나씩**, 클라이언트의
-`_throttle_web` 을 그대로 탄다. 일회성 계측이며 서빙 경로에 쓰지 않는다.
+CLAUDE.md 규칙 7(웹 스크래핑은 프로세스 시계 하나 — 0.4~1초 랜덤·분당 40건)을 지킨다 — 절을 **순서대로
+하나씩**, 클라이언트의 `_throttle_web` 을 그대로 탄다. 일회성 계측이며 서빙 경로에 쓰지 않는다.
 """
 from __future__ import annotations
 
