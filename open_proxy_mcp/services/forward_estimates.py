@@ -8,7 +8,7 @@
       호출해 조인해야 한다. 반면 원천/파생은 **신뢰 등급·갱신 주기·틀렸을 때의 책임**이 다르다.
       (판정 260830 `verdict.md` 1장)
 
-★ 자(尺)를 두 겹으로 붙인다 — 봉투(`ruler`)에 한 번, 줄(`row.basis`)마다 또.
+★ 숫자의 기준을 두 겹으로 붙인다 — 봉투(`ruler`)에 한 번, 줄(`row.basis`)마다 또.
   `as_of` 는 2026-08-30 인데 주가는 **8/28 종가**다(주말). `price_dd` 를 안 실으면 읽는 AI 가
   「8월 30일 기준 PER」이라고 말한다. 그래서 `price_dd` 는 어떤 bundle 에서도 빠지지 않는다.
 """
@@ -428,10 +428,10 @@ def _apply_multiples(rows: list[dict[str, Any]], mktcap: float | None,
             r["per_basis"] = _PER_DEF + at
             r["per_why"] = None
         elif vendor_per:
-            # 지배순이익이 없어 하우스 정의를 못 쓴다 → 벤더식을 쓰되 **자를 바꿔 적는다.**
+            # 지배순이익이 없어 하우스 정의를 못 쓴다 → 벤더식을 쓰되 **기준이 바뀐 것을 적는다.**
             r["per"] = round(vendor_per, 2)
             r["per_basis"] = (_PER_DEF_FALLBACK + at
-                              + " (지배순이익 결측 폴백 — 위 행들과 자가 다르다)")
+                              + " (지배순이익 결측 폴백 — 위 행들과 기준이 다르다)")
             r["per_why"] = None
         else:
             r["per"] = None

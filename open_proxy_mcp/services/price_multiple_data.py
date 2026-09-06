@@ -288,7 +288,7 @@ async def _div_yield_map(scheme: str) -> tuple[dict, dict, dict]:
     """(확정, 선행, 자) — 키는 (market, bucket). 실패해도 None 이 아니라 빈 dict 를 낸다.
 
     🔴 배당수익률이 없다고 PER·PBR 표까지 죽이지 않는다(fail-open). 표가 통째로 사라지는
-       것보다 한 칸이 비는 편이 낫다 — 대신 자(尺)에 「배당수익률 조회 실패」를 남긴다.
+       것보다 한 칸이 비는 편이 낫다 — 대신 기준 줄에 「배당수익률 조회 실패」를 남긴다.
     """
     ruler: dict[str, Any] = {}
     act: dict[tuple, dict] = {}

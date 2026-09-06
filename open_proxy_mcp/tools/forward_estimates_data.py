@@ -54,7 +54,7 @@ def _render(p: dict[str, Any]) -> str:
          f"_스냅샷 {r.get('as_of')} · **주가 {r.get('price_dd')} 종가 {_num(r.get('price_krw'), '원', '{:,.0f}')}** "
          f"· 보통주 시총 {_won(r.get('mktcap_krw'))} · {d.get('sector') or '-'}_",
          "",
-         "### 자(尺) — 이 표의 모든 숫자에 붙는 기준",
+         "### 이 표의 숫자를 읽는 기준",
          f"- **단위**: {r.get('unit')}",
          f"- **PER**: {r.get('per_def')}",
          f"- **PBR**: {r.get('pbr_def')} · **PSR**: {r.get('psr_def')}",
@@ -150,7 +150,7 @@ def register_tools(mcp):
                                      format: str = "md") -> str:
         """desc: 컨센서스 **포워드 추정치**(내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률) + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`) 기반 — DART 공시가 아니다.
         when: "삼성전자 내년 예상 PER"·"2027년 컨센서스 영업이익"·"내년 실적 전망"·"포워드 밸류에이션"·"추정 EPS 성장률"·**"컨센서스 상향/하향됐나"·"한 달 전보다 추정치가 올랐나"(bundle=revision)**. 확정 실적 기반 현재 배수는 `price_multiple_data`(scope=firm), 재무 원본은 `financial_metrics`, 배당 상세는 `dividend_disclosure`.
-        rule: **자(尺)를 두 겹으로 싣는다** — 봉투 `ruler`(as_of·**price_dd**·단위·PER 정의·배수 범위)에 한 번, 행마다 또(`period`·`row_kind`·`basis`). 🔴 `as_of` 와 `price_dd` 는 다르다(주말·휴일) — 배수는 **price_dd 종가** 기준이므로 "as_of 기준 PER"이라고 쓰면 틀린다. 행은 실적/추정이 아니라 **`reported`(벤더 원천, 틀리면 벤더 책임) / `derived`(우리 계산, 검산 대상)** 로 가른다 — 성장률이 실적/추정 경계를 넘나들기 때문. **PER=보통주 시총÷지배주주순이익**으로 `price_multiple_data` 와 정의를 맞췄다(벤더 원본은 주가÷EPS인데 그 식은 260823 에 하우스에서 버렸다 — 액면분할 때 옛 주식수 EPS 와 새 주가가 섞인다). 10% 이상 갈리면 경고로 밝힌다. **배수는 추정 FY·최신 확정 FY 행에만** 둔다(오늘 주가÷과거 실적은 배수가 아니다). **금액은 전부 원(KRW) 정수** — 억원 안 쓴다. 빈칸은 채우지 않고 뺀다(0 아님·자료 없음). bundle=core(기본, 좁게) / growth(성장률·전기값·PEG) / quality(수익성·재무비율) / keys(내부키·회계연도) / **revision(4주·12주 전 대비 추정 변화율 + FY 영업이익 상향/하향 개수 — "컨센서스가 오르고 있나"·"최근 리비전 방향"은 이것)** / all — 기본이 정답이 아니라 크기 때문에 자른 것이니 필요하면 넓혀 부를 것. revision 출처는 `fwd_hist`(주 1회 토요일 스냅샷, 13주 롤링, 260904 신설) — 기준일은 목표일 이전 가장 가까운 스냅샷이고 이력이 짧으면 partial 로 밝힌다. period_type=FY(기본)/Q/all · actual_years=대조용 실적 행 수(기본 2 — 직전 확정 실적 2개년. 추세를 보려면 넓혀 부를 것).
+        rule: **숫자의 기준을 두 겹으로 싣는다** — 봉투 `ruler`(as_of·**price_dd**·단위·PER 정의·배수 범위)에 한 번, 행마다 또(`period`·`row_kind`·`basis`). 🔴 `as_of` 와 `price_dd` 는 다르다(주말·휴일) — 배수는 **price_dd 종가** 기준이므로 "as_of 기준 PER"이라고 쓰면 틀린다. 행은 실적/추정이 아니라 **`reported`(벤더 원천, 틀리면 벤더 책임) / `derived`(우리 계산, 검산 대상)** 로 가른다 — 성장률이 실적/추정 경계를 넘나들기 때문. **PER=보통주 시총÷지배주주순이익**으로 `price_multiple_data` 와 정의를 맞췄다(벤더 원본은 주가÷EPS인데 그 식은 260823 에 하우스에서 버렸다 — 액면분할 때 옛 주식수 EPS 와 새 주가가 섞인다). 10% 이상 갈리면 경고로 밝힌다. **배수는 추정 FY·최신 확정 FY 행에만** 둔다(오늘 주가÷과거 실적은 배수가 아니다). **금액은 전부 원(KRW) 정수** — 억원 안 쓴다. 빈칸은 채우지 않고 뺀다(0 아님·자료 없음). bundle=core(기본, 좁게) / growth(성장률·전기값·PEG) / quality(수익성·재무비율) / keys(내부키·회계연도) / **revision(4주·12주 전 대비 추정 변화율 + FY 영업이익 상향/하향 개수 — "컨센서스가 오르고 있나"·"최근 리비전 방향"은 이것)** / all — 기본이 정답이 아니라 크기 때문에 자른 것이니 필요하면 넓혀 부를 것. revision 출처는 `fwd_hist`(주 1회 토요일 스냅샷, 13주 롤링, 260904 신설) — 기준일은 목표일 이전 가장 가까운 스냅샷이고 이력이 짧으면 partial 로 밝힌다. period_type=FY(기본)/Q/all · actual_years=대조용 실적 행 수(기본 2 — 직전 확정 실적 2개년. 추세를 보려면 넓혀 부를 것).
         status: ok / **no_estimates**(그 종목은 애널리스트 미커버 — 전체 2,764종목 중 추정 보유 713종목뿐, 74%가 여기 해당. 자료 없음이지 오류 아님) / not_found(그런 종목 없음·오탈자·비상장) / unlisted / ambiguous(동명 후보표) / **db_error**(DB 장애 — 자료 없음과 다르다, 재시도) / invalid. 🔴 셋을 뭉뚱그리지 말 것: no_estimates는 다른 도구로, not_found는 이름 재확인, db_error는 재시도.
 
         ref: price_multiple_data, financial_metrics, dividend_disclosure, company
