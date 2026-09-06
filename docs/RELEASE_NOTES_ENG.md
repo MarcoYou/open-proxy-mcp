@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-06
 
+### Extension hooks
+
+If an extension package is installed, the server calls its registration function, and tools append a one-line "source location" from the extension where parsing is weak or a value was not found. Without an extension, behaviour is unchanged. `financial_notes` JSON gains a `sections` list of the sections read; `asset_holdings` gains `rcept_no`.
+
 ### document.xml requests now rotate to a spare key on quota errors
 
 When a filing-text (document.xml) request hits a DART quota error (020 or 021), it retries once with a spare key, as JSON requests already did. Previously only JSON requests rotated and the text request simply failed. Requests made with a single user key still never switch to another key.

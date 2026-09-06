@@ -144,15 +144,30 @@ def _md_table(rows: list[list[str]]) -> list[str]:
 
 def _render(payload: dict) -> str:
     """표를 **그대로** 마크다운으로. 합치거나 나누지 않는다."""
+    from open_proxy_mcp.extensions import origin_hint
+
+    rno = payload["report"]["rcept_no"]
     L = [f"# {payload['company']} 재무제표 주석",
          "",
-         f"- 보고서: {payload['report']['report_nm']} (`{payload['report']['rcept_no']}`)",
-         f"- 조회 필드: {', '.join(payload['fields'])}",
-         ""]
+         f"- 보고서: {payload['report']['report_nm']} (`{rno}`)",
+         f"- 조회 필드: {', '.join(payload['fields'])}"]
+    read = [s_ for s_ in (payload.get("sections") or []) if s_.get("no")]
+    if read:
+        # 어느 절을 읽었는지 적는다. 확장이 있으면 절 주소가, 없으면 제목만 붙는다 (260906)
+        parts = []
+        for s_ in read[:6]:
+            h = origin_hint(rno, s_["title"], s_["no"])
+            parts.append(h if h else f"「{s_['title']}」")
+        L.append("- 읽은 절: " + " · ".join(parts))
+    L.append("")
     for field, res in payload["notes"].items():
         L.append(f"## {field}")
         if res["status"] != svc.OK:
-            L += ["", f"> {res['status']} — {res.get('note','')}", ""]
+            L += ["", f"> {res['status']} — {res.get('note','')}"]
+            _oh = origin_hint(rno, field)
+            if _oh:
+                L.append(f"> {_oh}")
+            L.append("")
             continue
         if res.get("note"):
             L += ["", f"> {res['note']}", ""]
@@ -437,11 +452,13 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "
         return None
 
     regions: list[tuple[str | None, str]] = []
+    read_sections: list[dict] = []          # 어느 절을 읽었나 — 응답에 절 주소로 적는다 (260906)
     for basis, node in picked:
         try:
             regions.append((basis, await client._fetch_viewer_section_html(node)))
         except Exception:
             continue
+        read_sections.append({"basis": basis, "no": node.get("tocNo") or "", "title": (node.get("text") or "").strip()})
     if not regions:
         return None
 
@@ -450,7 +467,7 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "
     #    viewer 는 호출마다 간격을 두므로 한 콜이 그대로 시간이다.
     sheets: dict[str | None, dict | None] = {}
     if "사용제한" not in want:
-        return regions, sheets
+        return regions, sheets, read_sections
     for b, node in svc.pick_chapter_nodes(nodes, ("연결재무제표", "재무제표")):
         if b in sheets or (keep is not None and b not in keep):
             continue
@@ -458,7 +475,7 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "
             sheets[b] = svc.balance_sheet_from(await client._fetch_viewer_section_html(node))
         except Exception:
             sheets[b] = None
-    return regions, sheets
+    return regions, sheets, read_sections
 
 
 #: `year` 를 줬을 때 어떤 보고서를 찾을지. DART 표준 reprt_code —
@@ -556,7 +573,7 @@ def register_tools(mcp):
                 report = r_
                 break
         if node_hit:
-            regions, sheets = node_hit
+            regions, sheets, read_sections = node_hit
             notes = svc.extract_regions(regions, want, sheets)
             payload = {
                 "company": name, "corp_code": corp_code,
@@ -564,7 +581,7 @@ def register_tools(mcp):
                            "rcept_no": report["rcept_no"], "rcept_dt": report.get("rcept_dt")},
                 "fields": want, "notes": notes,
                 "doc_chars": sum(len(h) for _, h in regions),
-                "fetch": "nodes", "basis": basis,
+                "fetch": "nodes", "basis": basis, "sections": read_sections,
             }
             if format == "json":
                 env = ToolEnvelope(tool="financial_notes", status="OK", subject=name, data=payload)

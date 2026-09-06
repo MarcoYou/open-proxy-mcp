@@ -20,6 +20,7 @@ import sys
 import json
 import time
 import asyncio
+import contextlib
 import collections
 import logging
 import sqlite3
@@ -3043,17 +3044,13 @@ class DartClient:
             if task.done() and self._doc_inflight.get(cache_key) is task:
                 self._doc_inflight.pop(cache_key, None)
 
-    async def _fetch_and_cache_document(self, rcept_no: str, cache_key: str) -> dict:
-        """문서 1건을 받아 메모리·디스크 캐시에 저장하는 single-flight 본체.
+    @contextlib.asynccontextmanager
+    async def doc_gate_slot(self):
+        """문서 수신·파싱 자리 하나 — **내 키 문 먼저, 그다음 전체 문**. 나갈 때 역순으로 놓는다.
 
-        🔴 **여기서만 문을 좁힌다** (260901). 캐시 적중은 이 함수에 오지 않으므로
-        빠른 답이 느린 답 뒤에 서지 않는다 — 좁히는 것은 「새로 받아 파싱하는 길」뿐이다.
-
-        왜 — 문서 한 건 처리에 RSS 가 **+123MB** 튄다(13MB 사업보고서 실측). 동시 3~5건이면
-        370~600MB 가 한꺼번에 잡히고, 여기에 상시 점유가 얹혀 1,024MB 를 넘는다.
-        260901 실측: 08:30 두 머신 동시 OOM · 15:57 또 한 번. 그때 동시 건수가 3~5 였다.
-        2 로 두는 이유는 **계산이 어차피 직렬**이기 때문이다(단일 이벤트루프) — 3으로 늘려
-        얻는 것은 내려받기 겹침(0.4초)뿐인데 비용은 +123MB 다. 남는 장사가 아니다.
+        `_fetch_and_cache_document`(document.xml) 와 확장 패키지의 뷰어 절 읽기가
+        같은 문을 쓴다 — 메모리 피크는 경로가 아니라 **프로세스**에서 겹치므로 문은 하나여야 한다(260901).
+        붐비면 `DartClientError("busy")` — 무한정 세워 두지 않는다.
         """
         # 문은 둘이다 — **내 것 먼저, 그다음 전체**. (260901)
         #   순서가 중요하다: 전체 문을 먼저 잡으면 한 사용자가 자기 차례를 기다리는 동안
@@ -3085,23 +3082,40 @@ class DartClient:
                 "1분쯤 뒤에 다시 시도하시면 대개 바로 처리됩니다. "
                 "요청이 잘못된 것은 아니니 그대로 다시 물어보셔도 괜찮아요.") from None
         try:
-            doc = await self.get_document(rcept_no)
-            self._doc_cache.put(cache_key, doc)
-            self._save_to_disk(rcept_no, doc)
-            # 이미지 기반 공고 감지
-            images = doc.get("images", [])
-            notice_images = [img for img in images if any(
-                kw in img for kw in ["소집", "통지", "주총", "공고"]
-            )]
-            if notice_images:
-                logger.warning(
-                    f"[IMAGE_NOTICE] 소집공고 본문이 이미지에 포함된 것으로 추정: "
-                    f"{rcept_no} | images={notice_images}"
-                )
-            return doc
+            yield
         finally:
             sem.release()
             own.release()
+
+    async def _fetch_and_cache_document(self, rcept_no: str, cache_key: str) -> dict:
+        """문서 1건을 받아 메모리·디스크 캐시에 저장하는 single-flight 본체.
+
+        🔴 **여기서만 문을 좁힌다** (260901). 캐시 적중은 이 함수에 오지 않으므로
+        빠른 답이 느린 답 뒤에 서지 않는다 — 좁히는 것은 「새로 받아 파싱하는 길」뿐이다.
+
+        왜 — 문서 한 건 처리에 RSS 가 **+123MB** 튄다(13MB 사업보고서 실측). 동시 3~5건이면
+        370~600MB 가 한꺼번에 잡히고, 여기에 상시 점유가 얹혀 1,024MB 를 넘는다.
+        260901 실측: 08:30 두 머신 동시 OOM · 15:57 또 한 번. 그때 동시 건수가 3~5 였다.
+        2 로 두는 이유는 **계산이 어차피 직렬**이기 때문이다(단일 이벤트루프) — 3으로 늘려
+        얻는 것은 내려받기 겹침(0.4초)뿐인데 비용은 +123MB 다. 남는 장사가 아니다.
+        """
+        try:
+            async with self.doc_gate_slot():
+                doc = await self.get_document(rcept_no)
+                self._doc_cache.put(cache_key, doc)
+                self._save_to_disk(rcept_no, doc)
+                # 이미지 기반 공고 감지
+                images = doc.get("images", [])
+                notice_images = [img for img in images if any(
+                    kw in img for kw in ["소집", "통지", "주총", "공고"]
+                )]
+                if notice_images:
+                    logger.warning(
+                        f"[IMAGE_NOTICE] 소집공고 본문이 이미지에 포함된 것으로 추정: "
+                        f"{rcept_no} | images={notice_images}"
+                    )
+                return doc
+        finally:
             # 예외가 난 task도 다음 호출이 재시도할 수 있게 한다. 대기 중인 호출은
             # 같은 예외를 받고, 등록부는 owner/대기자 중 마지막 호출이 정리한다.
             if self._doc_inflight.get(cache_key) is asyncio.current_task():

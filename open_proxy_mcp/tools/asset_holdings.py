@@ -112,6 +112,15 @@ def _render(p: dict) -> str:
                          f"{fd.get('absence_note') or fd.get('na_reason', '')}")
                 if fd.get("absence_excerpt"):
                     L.append(f"_원문 위치: …{fd['absence_excerpt']}…_")
+                # 「찾지 못함」·「다른 절을 가리킴」, 또는 발췌를 주며 「인용 위치를 확인하라」는 경우 —
+                # 읽는 쪽이 원문으로 가야 하는 갈래에만 절 주소를 붙인다. 원문이 「해당 없음」이라
+                # 밝힌 것(발췌 없음)에는 안 붙인다 — 주소를 주면 없는 것을 찾으러 간다.
+                if d.get("rcept_no") and (fd.get("absence_kind") in ("extraction_failed", "cross_reference")
+                                          or fd.get("absence_excerpt")):
+                    from open_proxy_mcp.extensions import origin_hint
+                    _oh = origin_hint(d["rcept_no"], title)
+                    if _oh:
+                        L.append(f"_{_oh}_")
 
     if p.get("warnings"):
         L.append("\n⚠ " + " · ".join(p["warnings"]))

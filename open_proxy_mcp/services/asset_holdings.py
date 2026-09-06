@@ -298,7 +298,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
     year = (_YEAR.search(rept.get("report_nm") or "") or [None, str(today_kst().year - 1)])[1]
 
     data: dict[str, Any] = {"company": name, "ticker": isu, "report_nm": rept.get("report_nm"),
-                            "year": year, "scope": scope}
+                            "rcept_no": rept.get("rcept_no"), "year": year, "scope": scope}
 
     async def _fin_acnt(fs):
         try:
