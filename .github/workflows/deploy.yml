@@ -57,10 +57,21 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      # 선택 확장 (260907): repo secret OPM_EXT_SPEC 이 있으면 Dockerfile 의 빌드 시크릿으로 넘긴다.
+      #   없으면 종전과 같이 확장 없는 이미지. OPM_EXT_REV 는 스펙의 해시 — BuildKit 이 시크릿 내용을
+      #   캐시 키에 안 넣어서 이게 없으면 확장이 조용히 빠진다(wiki decisions/extension-hooks).
+      #   🔴 이 단계가 없으면 main 에 푸시할 때마다 확장 없는 이미지가 live 를 덮는다(260907 실측).
       - name: Deploy
-        run: flyctl deploy --remote-only
+        run: |
+          if [ -n "$OPM_EXT_SPEC" ]; then
+            REV="$(printf %s "$OPM_EXT_SPEC" | sha256sum | cut -c1-16)"
+            flyctl deploy --remote-only --build-secret opm_ext_spec="$OPM_EXT_SPEC" --build-arg OPM_EXT_REV="$REV"
+          else
+            flyctl deploy --remote-only
+          fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          OPM_EXT_SPEC: ${{ secrets.OPM_EXT_SPEC }}
 
       # 배포 성공 != 서비스 정상. 260729 사고에서 flyctl 은 성공을 냈지만 앱은 죽어 있었다.
       # 실제로 엔드포인트가 200 을 내는지 확인하고, 아니면 이 job 을 실패시킨다.
