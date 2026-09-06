@@ -8,7 +8,7 @@ related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: []
 related_decisions: [260717_1220_decision_business-content-tool-roadmap, XML-vs-PDF, ksic-sector-mapping]
 created: 2026-07-18
-updated: 2026-09-04
+updated: 2026-09-06
 ---
 
 # business_details
@@ -300,6 +300,7 @@ find_segment_candidates   6.5초      build_region_index       6.4초 (건당 2�
 코드에 「줄였다」는 주석만 남는다.</sub>
 
 ## 변경 이력
+- 2026-09-06: 응답 머리와 「저신뢰 보조 문맥: 찾지 못함」에 **원문 절 주소**(`opm://filing/{rcept_no}/toc` → `/section/{no}`)를 적는다 — 표가 약하면 AI 가 그 절을 직접 읽는다(`opm://filing` 절 리소스, 뷰어 추가 호출 0).
 - 2026-08-06: 발견 경위·census 서술을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-08-03: `absence_kind` 4갈래 신설 · `basis`(연결/별도)를 XBRL 컨텍스트로 판별.
 - 2026-08-02: `revenue_breakdown` 을 매출 4축(`by_segment`/`by_product`/`by_region`/`by_trade`)

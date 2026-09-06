@@ -20,7 +20,7 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 | **decisions/** | 27 + README | 설계·정책·판단·시점 작업 |
 | **guide/** · **handoff/** | 3 + 2 | 사람용 안내(README·아키텍처·용어 첫걸음) · 세션 간 미해결 항목 (보조) |
 
-총 161 markdown (git-tracked, raw·corpus 제외).
+총 162 markdown (git-tracked, raw·corpus 제외).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 

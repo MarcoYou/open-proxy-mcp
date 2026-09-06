@@ -295,8 +295,10 @@ def _render(p: dict) -> str:
     L = []
     rep = d.get("report", {})
     _form = d.get("form_type", "")
+    from open_proxy_mcp.services.filing_sections import origin_hint
     L.append(f"## {subj} — 사업부문 상세  ({rep.get('report_nm','')}"
              + (f", {_FORM_KO[_form]}" if _form in _FORM_KO else "") + ")")
+    L.append(f"_{origin_hint(rep.get('rcept_no',''))} — 표가 약하거나 「확인하지 못함」이면 그 절을 직접 읽는다_")
 
     _seg_head = _seg_lines(d.get("segments"), "###") if d.get("segments") else []
     L.extend(_seg_head)
@@ -380,6 +382,7 @@ def _render(p: dict) -> str:
             L.append("\n" + candidate.get("markdown", ""))
         elif candidate.get("status") == "NOT_FOUND":
             L.append(f"\n**저신뢰 보조 문맥**: 찾지 못함 — {candidate.get('warning','')}")
+            L.append(f"_{origin_hint(rep.get('rcept_no',''), candidate.get('anchor') or None)}_")
 
     tm = d.get("timings_ms", {})
     if tm:

@@ -182,7 +182,7 @@ CLAUDE.md 규칙 2(document.xml 우선·뷰어는 service 명시분만)·7(스�
    - 창은 줄 끝에서 자른다(상한의 90~100% 구간) — 표 행이 반 토막 나지 않게.
    - 알려진 한계: rowspan 이 있는 다단 머리 표는 머리 행이 여러 줄로 펼쳐진다(`_table_to_markdown` 재사용, colspan 만 처리). 원문은 보존되므로 읽는 쪽이 판단한다.
    - **본문 출처 결정(260906): 뷰어(A).** document.xml 을 `<TITLE>` 순서로 자르는 B 도 되고(4건 순서 일치, 표본 18절 숫자 24,750/24,754 공통, 표·행 수 동일) 절당 0초지만, XML 이 23~27M 자라 로드 시 RSS 가 금융사 +200MB — 1GB VM 에서 둘 겹치면 260901 OOM 모양이라 보류. 실측·판단은 storage `wiki-private/lessons/filing-section-source-choice-260906.md`.
-3. ⬜ `business_details`·`financial_notes`·`shareholder_meeting_notice`·`asset_holdings` 의 약한 파싱 경고에 절 URI 줄 추가.
+3. ✅ 도구 → 절 주소: `filing_sections.origin_hint()` 한 함수로 `business_details`(머리·저신뢰 NOT_FOUND) · `financial_notes`(읽은 절 주소 + 실패 필드 목차) · `asset_holdings`(extraction_failed·cross_reference) · `shareholder_meeting_notice`(약한 파싱 경고). 뷰어 추가 호출 0. `tests/test_tool_output_section_hints.py` 5건.
 4. ⬜ CLAUDE.md 규칙 2(뷰어는 service 명시분만)·7(병렬 표현) 문구 — 사용자가 직접 정한다. 다 풀리면 이 문서는 삭제하고 durable 한 부분은 `decisions/` 로 옮긴다(handoff README 생명주기).
 
 ## 관련

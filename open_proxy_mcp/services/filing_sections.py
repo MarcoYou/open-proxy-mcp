@@ -45,6 +45,21 @@ def section_uri(rcept_no: str, no: str, start: int | None = None) -> str:
     return f"{base}?start={start}" if start else base
 
 
+def origin_hint(rcept_no: str, title: str | None = None, no: str | None = None) -> str:
+    """도구 결과가 **원문 절 주소를 글자로** 적는 한 줄. 파싱이 약하거나 「찾지 못함」일 때 붙인다.
+
+    260906 실측: Claude.ai 커넥터는 resource 목록은 못 보지만 **URI 를 알면 읽는다.** 그래서 도구가
+    주소를 적어 줘야 AI 가 목차를 거치지 않고 절로 간다. 절 번호(`no`)를 알면 절 주소를, 모르면
+    목차 주소 + 찾을 제목을 준다. 주소를 만들려고 뷰어를 새로 부르지는 않는다(웹 0회).
+    """
+    if not rcept_no:
+        return ""
+    if no:
+        return f"원문 절: {section_uri(rcept_no, no)}" + (f" 「{title}」" if title else "")
+    where = f" — 목차에서 「{title}」 절을 골라" if title else " — 목차에서 절을 골라"
+    return f"원문 절 단위: {toc_uri(rcept_no)}{where} {section_uri(rcept_no, '{no}')} 로 읽는다"
+
+
 def _toc_key(rcept_no: str) -> str:
     return f"toc:{rcept_no}"
 

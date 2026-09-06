@@ -8,7 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-09-04
+updated: 2026-09-06
 ---
 
 # asset_holdings
@@ -125,6 +125,7 @@ updated: 2026-09-04
   자산 성격 서사(재테크형/부동산 자산주형/지주사 할인형/우호지분형) 근거)
 
 ## 변경 이력
+- 2026-09-06: `detail` 에서 `absence_kind` 가 `extraction_failed`·`cross_reference` 이면 **원문 절 주소**(`opm://filing/{rcept_no}/toc`)를 붙인다. 응답 `rcept_no` 추가. 「해당 없음」(원문이 밝힌 부재)에는 안 붙인다.
 - 2026-08-06: 파싱 기법 상세·census·검증 프로토콜을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-07-21: **시총은 [[price_multiple_data]]의 `_market_for`(KRX 캐시, 상장주식수 기준)를 재사용**한다 —
   자체계산(DART 유통주식수 × 종가)은 같은 회사에 다른 시총을 내고 DART 콜만 는다(계산 지표 단일 소스

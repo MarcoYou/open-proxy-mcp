@@ -7,7 +7,7 @@ data_source: [DART get_document(III.재무에 관한 사항 — 연결/별도 �
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [연결-별도, 단위-표기-규약]
 created: 2026-08-23
-updated: 2026-09-04
+updated: 2026-09-06
 ---
 
 # financial_notes
@@ -116,3 +116,7 @@ DART 문서에는 목차 좌표가 태그로 박혀 있다(`<TITLE AASSOCNOTE="D
 ## 측정
 census 21사 41건(은행 12·증권 14·보험 15). 지표는 **「축이 유형별로 판정된 비율」**이다 —
 「제목 대조 성공률」로 재면 표지어를 늘릴 때 올라가면서 품질이 나빠지는 일이 생긴다.
+
+## 변경 이력
+
+- 2026-09-06: 응답 머리에 **읽은 절 주소**(`- 읽은 절: 「11. 사용제한 예금 (연결)」 opm://filing/{rcept_no}/section/33`)를, 못 찾은 필드에는 목차 주소를 적는다. JSON `sections`(basis·no·title) 추가.

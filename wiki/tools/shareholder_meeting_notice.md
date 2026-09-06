@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
-updated: 2026-09-04
+updated: 2026-09-06
 description: 주주총회 소집공고 (사전) — DART API/XML 기반
 related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_structure, proxy_contest, evidence]
 ---
@@ -189,6 +189,7 @@ sequenceDiagram
 
 ## 변경 이력
 
+- 2026-09-06: 「API/XML 파싱이 약해 … fallback」 경고에 **원문 주소**(`opm://filing/{rcept_no}` · 절 단위 `/toc`)를 함께 적는다.
 - 2026-09-04: **직위 어휘 통일** — `role_class`/`is_outside_role` 한 벌(파서)로 「독립이사」=「사외이사」.
   `declared_role`·`roleType` 은 원문 표기 보존. `board_summary` 를 후보 직위 기준·사람 수로 교정
   (「사외이사 후보: 0명」 오류 — 고려아연 2026-09 임시주총). `roleTypeConflict` 는 범주 비교 +

@@ -1169,7 +1169,9 @@ async def _load_notice_bundle_with_fallback(
     if scope in {"board", "compensation", "aoi_change", "full", "advise"}:
         section_keywords.extend(["목적사항별 기재사항", "주주총회 목적사항별 기재사항"])
 
-    warnings.append(f"API/XML 파싱이 약해 DART viewer HTML 수집 fallback을 시도했다. ({', '.join(reasons)})")
+    from open_proxy_mcp.services.filing_sections import toc_uri
+    warnings.append(f"API/XML 파싱이 약해 DART viewer HTML 수집 fallback을 시도했다. ({', '.join(reasons)}) "
+                    f"원문: opm://filing/{rcept_no} · 절 단위: {toc_uri(rcept_no)}")
     try:
         viewer_doc = await client.get_viewer_document(rcept_no, section_keywords=section_keywords)
     except Exception as exc:
