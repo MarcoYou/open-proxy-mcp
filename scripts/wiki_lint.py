@@ -159,7 +159,7 @@ def layer_of(rel: str) -> str:
         return "main_branch"
     if cat == "decisions":
         return "main_branch"
-    if cat == "lessons":
+    if cat == "anecdotes":
         return "branch"
     if cat == "ralph":
         return "branch"
@@ -175,7 +175,7 @@ DOWNWARD_ONLY = {
 
 # 양방향 강제 라인
 BIDIRECTIONAL_PAIRS = [
-    ("decisions/", "lessons/"),
+    ("decisions/", "anecdotes/"),
     ("decisions/", "ralph/"),
 ]
 
@@ -365,7 +365,7 @@ def check_path_links(pages) -> list[str]:
 #: 면제했는데, 그 면제 뒤에서 죽은 링크 93건(`[[DART-OpenAPI]]` 36 · `[[KRX-KIND]]` 13 · 삭제된
 #: `cross-domain-체이닝` 10 …)이 lint 녹색으로 통과했다 — 독자는 404 를 만나는데 CI 는 조용했다.
 #: 앞으로 쓸 자리는 링크가 아니라 글로 적는다.
-#: 링크 대상으로 유효한 문서: lint 페이지(rules·tools·decisions·guide·handoff) + `raw/` 원본 + 실제 있는 레포 파일 경로.
+#: 링크 대상으로 유효한 문서: lint 페이지(rules·tools·decisions·guide) + `raw/` 원본 + 실제 있는 레포 파일 경로.
 #: private 참조 키(`related_lessons`·`related_audits`)는 형제 디렉터리 `../open-proxy-storage/wiki-private/`
 #: 가 있을 때만 그 폴더에 대조하고, 없으면(CI) 건너뛴다 — public 에 없는 문서를 public 에서 요구할 수 없다.
 FRONTMATTER_REF_KEYS = ("related", "related_disclosures", "related_concepts", "related_decisions",

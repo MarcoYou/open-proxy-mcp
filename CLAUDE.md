@@ -31,7 +31,8 @@ open_proxy_mcp/
   dart/client.py       # DART API + KIND + throttle + cache
   data/                # asset_managers/ (정책·매트릭스) · ksic/ (산업분류)
 scripts/               # wiki lint · 카탈로그 검사 · 법령 검증 · 시장 배치(cron) · 검증 하네스
-wiki/                  # 도메인 지식 (wiki/wiki_schema.md 가 계약서)
+wiki/                  # 공개 지식 — 주제당 문서 하나, 최신판만 (wiki_schema.md 가 계약서)
+  anecdotes/ archive/  # storage 심링크(gitignore) — 시계열 일화·회고·핸드오프 / 옛 판·풀린 핸드오프
 ```
 
 ## Rules
@@ -50,14 +51,14 @@ wiki/                  # 도메인 지식 (wiki/wiki_schema.md 가 계약서)
 12. **DB 스키마·값 변경**은 백업 확인 → 배포 → 양쪽 세기(새 값 N건 / 옛 값 0건).
 13. **메모리 변경은 사용자 승인 필수.** 메모리는 「일하는 방식」만 — 지식·일화는 storage `wiki-private/anecdotes/`.
 14. **이 레포는 PUBLIC.** private 자산(usage·anecdotes·Supabase 스키마·비공개 기능)은 open-proxy-storage·opm-ext 에. 공개 레포엔 확장 훅만.
-15. **회귀 캐시는 DART 응답 경계에서만.** `get_document_cached` 결과를 입력으로 쓴다.
+15. **회귀 캐시는 DART 응답 경계에서만.** `get_document_cached` 결과를 입력으로 쓴다. 중간 함수 결과 금지.
 
 ## Workflow
 
 - **검증은 MCP 호출.** 직접 import 는 테스트·디버깅만 — wrapper·렌더러를 건너뛰면 사용자가 보는 것과 다르다.
 - **정확성 > 속도.** 가설 → 표본 → 통계 검증 → 실행. 확인 전에 서사를 만들지 않는다.
 - **작업이 아니라 목표를 본다.**
-- **wiki-first.** 도메인 지식은 `wiki/` 참조. `wiki/wiki_schema.md` → `wiki/wiki_index.md` → 필요한 페이지만.
+- **wiki-first.** `wiki/wiki_schema.md` → `wiki/wiki_index.md` → 필요한 페이지만. 왜·언제의 이야기는 `wiki/anecdotes/`(시계열), 옛 판은 `wiki/archive/`.
 - **무엇을 바꾸면 어디를 고치나** (tool 추가·필드·파라미터·사실·페이지 이동별 고칠 파일 + 돌릴 검사) → `wiki/wiki_schema.md` 「문서 운영 규칙」 표.
 - **streamable-http만.** 로컬 검증은 pilot, 배포 후 확인은 live. 배포는 main 푸시(CI)로만 — 수동 fly deploy 는 CI 와 겹치면 실패.
 - **커밋/푸시는 사용자 명시 요청 시만.**

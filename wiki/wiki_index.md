@@ -18,9 +18,10 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 | **rules/** | 90 + README 4 | 한국 자본시장 사실 |
 | **tools/** | 31 + README | MCP tool 카탈로그 |
 | **decisions/** | 27 + README | 설계·정책·판단·시점 작업 |
-| **guide/** · **handoff/** | 3 + 2 | 사람용 안내(README·아키텍처·용어 첫걸음) · 세션 간 미해결 항목 (보조) |
+| **guide/** | 3 | 사람용 안내(README·아키텍처·용어 첫걸음) (보조) |
+| **anecdotes/** · **archive/** | 비추적 | storage 심링크 — 시계열 일화 · 옛 판 아카이브 (public 에 없음) |
 
-총 162 markdown (git-tracked, raw·corpus 제외).
+총 160 markdown (git-tracked, raw·corpus 제외).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 
@@ -65,4 +66,4 @@ corpus/: 10법 원문 — 상법·자본시장법·공정거래법·외부감사
 - 작업 로그(구 `log.md`, 2026-04-05~08-25)는 storage `wiki-private/archive/opm-wiki-log.md` 로 이관(260902). 변경 이력은 `docs/RELEASE_NOTES.md` 와 각 tool 페이지 변경 이력을 본다.
 - [[wiki_schema]] — wiki 구조·명명·link 정책
 - `guide/` — [[guide/README]] · [[guide/architecture]] · [[guide/용어-첫걸음]]
-- `handoff/` — [[handoff/README]]
+- `anecdotes/` · `archive/` — open-proxy-storage `wiki-private/` 심링크. 핸드오프는 anecdotes 에 시계열로, 풀리면 archive 로(260907, 구 `handoff/`·`_local/` 은 `archive/opm-handoff`·`opm-local`)

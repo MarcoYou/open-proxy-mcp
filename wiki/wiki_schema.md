@@ -12,9 +12,10 @@ OPM 도메인 지식 위키. LLM이 유지하고 사용자는 소싱·질문에 
 | `tools/` | MCP tool 카탈로그 | 코드 변경 시 함께 |
 | `decisions/` | 설계·정책·판단 + 시점 작업 | 결정 시 추가 |
 | `guide/` (보조) | 사람용 개요·발표 자료 — 지식의 정본이 아니라 안내 | 구조가 바뀔 때 |
-| `handoff/` (보조) | 세션 간 미해결 항목. **다 풀리면 삭제** (규칙은 `handoff/README`) | 세션 종료 시 |
+| `anecdotes/` (심링크·비추적) | 시계열 — 일화·회고·핸드오프·메모리와 CLAUDE.md 에서 덜어낸 부연. storage `wiki-private/anecdotes/` | 세션마다 추가 |
+| `archive/` (심링크·비추적) | 옛 판·풀린 핸드오프·시점 분석. storage `wiki-private/archive/` | 대체될 때 이동 |
 
-작업 로그·회고·과정 서사는 wiki 에 두지 않는다 (storage — 아래 "wiki vs storage").
+**주제당 문서 하나, 최신판만.** 추적되는 wiki 는 시계열이 아니다 — 새 판을 쓰면 옛 판은 `archive/` 로 옮기고 링크를 새 판으로 돌린다. 시계열로 남길 것(일화·핸드오프·회고)은 `anecdotes/` 에만 쓴다. 둘 다 심링크라 public 레포에는 올라가지 않는다(260907).
 
 ## Link 방향
 

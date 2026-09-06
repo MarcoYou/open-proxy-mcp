@@ -138,8 +138,9 @@ docs/율촌_*
 # 사용자 집계 로컬 DB (usage_tracker.py — 해시만 저장, 로컬 전용·커밋 금지)
 data/usage/
 
-# 로컬 전용 wiki (PUBLIC 리포에 공개하지 않을 운영 문서 — 커밋 금지)
-wiki/_local/
+# private 심링크 (→ open-proxy-storage/wiki-private) — 시계열 일화·아카이브는 PUBLIC 에 안 올린다 (260907)
+wiki/anecdotes
+wiki/archive
 
 # OPM usage/트랙션 스킬 — 개인정보(LinkedIn)+실측 메트릭 포함, private 레포(open-proxy-storage)가 원본.
 # private-포인팅 심링크는 커밋 금지(로컬 전용). public 실체 스킬(opm-tool-validation)만 추적.
