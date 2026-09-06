@@ -89,6 +89,30 @@ async def _gather(fn, n):
     await asyncio.gather(*[fn() for _ in range(n)])
 
 
+@pytest.mark.parametrize("conc", [2, 4])
+def test_web_throttle_is_shared_across_clients_of_different_keys(fast_web, conc, monkeypatch):
+    """★ 260906: 시계는 **프로세스에 하나**다. 클라이언트(=API 키)가 달라도 같은 간격을 지킨다.
+    종전엔 인스턴스마다 시계가 있어 키 10개면 IP 로 초당 5~10건이 나갔다 — 차단은 IP 기준이다."""
+    import open_proxy_mcp.dart.client as C
+    clients = [C.DartClient(api_keys=[f"key-{i}"]) for i in range(conc)]
+    C._web_clock.last = 0.0
+    fired: list[float] = []
+
+    async def one(cl):
+        await cl._throttle_scrape("t")
+        fired.append(time.monotonic())
+
+    async def run():
+        await asyncio.gather(*[one(cl) for cl in clients])
+
+    asyncio.run(run())
+    fired.sort()
+    gaps = [fired[i] - fired[i - 1] for i in range(1, len(fired))]
+    lo = fast_web[0]
+    bad = [round(g, 4) for g in gaps if g < lo * 0.9]
+    assert not bad, f"키가 다른 클라이언트끼리 시계를 안 나눴다 — 간격 위반 {bad}"
+
+
 def test_web_throttle_has_a_lock():
     """락을 지우면 위 테스트가 통과할 수도 있다(스케줄링 운). 존재 자체를 잠근다."""
     cl = _client()
@@ -266,3 +290,52 @@ def test_cached_scan_hands_out_a_copy():
         assert len(b) == 1, "캐시가 오염됐다"
 
     asyncio.run(_go())
+
+
+def test_block_signal_switches_to_the_safe_interval_and_shows_in_health(monkeypatch):
+    """★ 260906: 간격을 0~1초로 내리면서 붙인 안전장치. 403·429·차단 페이지가 잡히면
+    `_WEB_BACKOFF_SEC` 동안 안전 간격(1~2초)으로 되돌리고, /health 의 web_block 에 보인다."""
+    import open_proxy_mcp.dart.client as C
+
+    class _Resp:
+        def __init__(self, status, text=""):
+            self.status_code, self.text = status, text
+
+    monkeypatch.setitem(C._web_block, "count", 0)
+    monkeypatch.setitem(C._web_block, "last_at", None)
+    assert C._web_interval_now() == C._WEB_INTERVAL_RANGE
+    assert C._WEB_INTERVAL_RANGE[0] >= 0.0 and C._WEB_INTERVAL_RANGE[1] <= C._WEB_INTERVAL_RANGE_SAFE[0]
+
+    C._check_web_response(_Resp(200, "<html>정상 본문 " + "x" * 5000), "viewer_section")
+    assert C._web_block["count"] == 0                      # 긴 정상 본문은 차단이 아니다
+    C._check_web_response(_Resp(429), "viewer_section")
+    assert C._web_block["count"] == 1
+    assert C._web_interval_now() == C._WEB_INTERVAL_RANGE_SAFE
+    st = C.web_block_stats()
+    assert st["backing_off"] is True and st["last_where"] == "viewer_section" and st["last_status"] == 429
+    C._check_web_response(_Resp(200, "<html>비정상적인 접근입니다</html>"), "viewer_main")
+    assert C._web_block["count"] == 2                      # 짧은 차단 페이지도 센다
+
+    monkeypatch.setitem(C._web_block, "last_at", time.time() - C._WEB_BACKOFF_SEC - 1)
+    assert C._web_interval_now() == C._WEB_INTERVAL_RANGE  # 시간이 지나면 원래 간격으로
+
+
+def test_web_per_minute_cap_holds_the_burst_until_the_window_slides(fast_web, monkeypatch):
+    """★ 260906: 간격만으로는 지속 볼륨을 못 막는다(절 100개 연속 읽기). 프로세스당 롤링 창 상한.
+    창을 0.4초로 줄여 재현: 상한 3 이면 4번째 요청은 첫 요청이 창 밖으로 나갈 때까지 기다린다."""
+    import open_proxy_mcp.dart.client as C
+    monkeypatch.setattr(C, "_WEB_PER_MINUTE", 3)
+    monkeypatch.setattr(C, "_WEB_WINDOW_SEC", 0.4)
+    C._web_clock.stamps.clear(); C._web_clock.last = 0.0
+    cl = _client()
+    fired: list[float] = []
+
+    async def run():
+        for _ in range(4):
+            await cl._throttle_scrape("t")
+            fired.append(time.monotonic())
+
+    asyncio.run(run())
+    assert fired[3] - fired[0] >= 0.4 * 0.9, "4번째 요청이 창이 밀리기 전에 나갔다 — 분당 상한이 안 걸린다"
+    st = C.web_block_stats()
+    assert st["per_minute"] == 3 and st["in_window"] <= 3

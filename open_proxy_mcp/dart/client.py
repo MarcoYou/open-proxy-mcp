@@ -332,14 +332,95 @@ _MIN_INTERVAL_API = 0.066
 #:
 #: 랜덤인 이유: 고정 간격은 요청이 정확히 규칙적으로 나가 기계 티가 그대로 난다. 지터는
 #: 예의 스크래핑의 표준 관행이다.
-#: 하한 1.0초는 **새로 만든 값이 아니라** KIND 가 이미 쓰던 하한이다(사고 없이 운영 중).
-#: 이 구간(0.5→0.67 req/s)은 차단 판정이 갈리는 자리가 아니다 — 차단은 지속 볼륨·병렬·
-#: 정체불명 UA 같은 **패턴**이 좌우한다. 그래서 여기 붙은 규칙은 숫자가 아니라 이 셋이다:
-#:   ① 하한 1.0초 아래로 내리지 않는다  ② 시계는 계속 공유한다(총 요청률을 묶는다)
-#:   ③ 배치·병렬 금지
-#: 공표된 한도가 없으므로 이 값들은 「측정된 안전선」이 아니라 「예의」다. 폴백 빈도가
-#: 급증하면 다시 본다 — 그때 볼 계기가 `fetch_viewer`/`fetch_kind`/`web_wait_ms` 다.
-_WEB_INTERVAL_RANGE = (1.0, 2.0)
+#: 260906 사용자 결정: **0.4~1초**(평균 0.7초) + **분당 상한 40건/프로세스**. 종전 1~2초는 KIND 가 쓰던 하한을 그대로
+#: 가져온 「예의」였고 측정된 안전선이 아니었다. 같은 날 확인: 시계가 키별 인스턴스에 있어
+#: 실제로는 N 명이면 N 배로 나가고 있었는데 차단은 없었다(다만 뷰어 경로가 폴백에만 쓰여
+#: 동시성이 낮았을 가능성이 크다 — 「빨라도 됐다」의 증거는 아니다). 그래서 간격을 내리는
+#: 대신 시계를 프로세스 하나로 묶고(`_WebClock`), 차단 감지(`web_block_stats`)를 붙였다.
+#: 차단은 총량보다 지속 볼륨·병렬·정체불명 UA 같은 **패턴**이 좌우한다. 규칙은 이 셋이다:
+#:   ① 시계는 프로세스에 하나(키가 몇 개든 합산이 이 간격)  ② 배치·병렬 금지 — 하한 0.4초는
+#:      「0초 간격 두 건 = 서버가 보기엔 병렬」을 막는 최소값이고, 분당 상한은 간격만으로 못 막는
+#:      지속 볼륨(절 100개 연속 읽기 같은)을 막는다  ③ 차단 신호(403·429·차단 페이지)가 잡히면
+#:      `_WEB_BACKOFF_SEC` 동안 안전 간격 (1.0, 2.0) 으로 되돌린다
+#: 다시 볼 계기: `web_block_stats()`·`fetch_viewer`/`fetch_kind`/`web_wait_ms`.
+_WEB_INTERVAL_RANGE = (0.4, 1.0)
+_WEB_INTERVAL_RANGE_SAFE = (1.0, 2.0)   # 차단이 잡혔을 때 되돌릴 값 (규칙 ③)
+_WEB_PER_MINUTE = int(os.environ.get("OPM_WEB_PER_MINUTE", "40"))       # 프로세스당 롤링 창 상한
+_WEB_WINDOW_SEC = float(os.environ.get("OPM_WEB_WINDOW_SEC", "60"))     # 창 길이(테스트에서 줄인다)
+
+
+#: 웹 차단 신호 장부 — `/health` 의 `web_block` 로 나간다. 종전엔 차단이 조용히 실패해
+#: 사용자 불평이 첫 신호였다(260906). 403·429 와 「차단 페이지」(HTML 인데 본문이 아닌 것)를 센다.
+_web_block: dict = {"count": 0, "last_status": None, "last_at": None, "last_where": None}
+_WEB_BACKOFF_SEC = float(os.environ.get("OPM_WEB_BACKOFF_SEC", "600"))   # 차단 신호 뒤 안전 간격 유지 시간
+
+
+def _web_interval_now() -> tuple[float, float]:
+    """지금 쓸 간격. 차단 신호가 최근 `_WEB_BACKOFF_SEC` 안에 있었으면 안전 간격(규칙 ③ 자동화)."""
+    last = _web_block["last_at"]
+    if last is not None and time.time() - last < _WEB_BACKOFF_SEC:
+        return _WEB_INTERVAL_RANGE_SAFE
+    return _WEB_INTERVAL_RANGE
+_BLOCK_PAGE_MARKERS = ("접근이 제한", "비정상적인 접근", "Access Denied", "차단", "captcha")
+
+
+def _note_web_block(status: int | None, where: str) -> None:
+    _web_block["count"] += 1
+    _web_block["last_status"] = status
+    _web_block["last_at"] = time.time()
+    _web_block["last_where"] = where
+    logger.warning(f"[WEB_BLOCK] {where} status={status} count={_web_block['count']}")
+
+
+def _check_web_response(response, where: str) -> None:
+    """웹 응답이 차단 신호인지 본다. 403·429 는 상태로, 차단 페이지는 짧은 HTML 의 표지 문구로.
+    예외는 그대로 올린다(호출자가 종전처럼 처리) — 여기서는 **세기만** 한다."""
+    st = getattr(response, "status_code", None)
+    if st in (403, 429):
+        _note_web_block(st, where)
+        return
+    text = getattr(response, "text", "") or ""
+    if st == 200 and len(text) < 4000 and any(m in text for m in _BLOCK_PAGE_MARKERS):
+        _note_web_block(st, where)
+
+
+def web_block_stats() -> dict:
+    """/health 가 본다 — 차단 신호가 몇 번, 마지막이 언제·어디서."""
+    _web_clock.purge(time.monotonic())
+    return dict(_web_block, interval=_web_interval_now(), backing_off=_web_interval_now() is _WEB_INTERVAL_RANGE_SAFE,
+                per_minute=_WEB_PER_MINUTE, in_window=len(_web_clock.stamps))
+
+
+class _WebClock:
+    """웹 긁기 시계 — **프로세스에 하나.**
+
+    260906 실측: 종전엔 `_last_web_request` 가 인스턴스 속성이었고 인스턴스는 **API 키별** 싱글턴이라,
+    시계가 키 수만큼 있었다. 사용자 10명이 동시에 뷰어를 긁으면 1~2초 간격이 10개 겹쳐 IP 로는
+    초당 5~10건이 나간다. 웹 차단은 IP 기준이라 「키마다 시계」는 예의가 아니다. 위 주석 ②
+    「시계는 계속 공유한다」가 뜻한 것은 이것이다 — 이제 코드가 그 말대로다.
+
+    락은 만든 루프에 묶이므로 루프가 바뀌면 다시 잡는다(`_loop_locks` 와 같은 이유).
+    """
+
+    def __init__(self):
+        self.last = 0.0
+        self.stamps: collections.deque[float] = collections.deque()   # 롤링 창(분당 상한용)
+        self._lock: asyncio.Lock | None = None
+        self._loop = None
+
+    def purge(self, now: float) -> None:
+        while self.stamps and now - self.stamps[0] > _WEB_WINDOW_SEC:
+            self.stamps.popleft()
+
+    def lock(self) -> asyncio.Lock:
+        loop = asyncio.get_running_loop()
+        if self._loop is not loop or self._lock is None:
+            self._lock = asyncio.Lock()
+            self._loop = loop
+        return self._lock
+
+
+_web_clock = _WebClock()
 # DART OpenAPI 분당 한도 1000회 — 초과 시 **그 키**가 막힌다(실측 2~3시간).
 # 실제 cap을 910으로 둠 (9% buffer, batch 동시 호출 race도 cover).
 _API_RATE_LIMIT_PER_MINUTE = 910
@@ -1044,7 +1125,7 @@ class DartClient:
         self.api_key = self._api_keys[0]
         # Rate limiting — 마지막 요청 시각 추적
         self._last_api_request = 0.0
-        self._last_web_request = 0.0
+        # `_last_web_request` 는 프로퍼티 — 프로세스 시계(`_web_clock`)를 가리킨다. 아래 property 참조.
         # Rolling window rate limiter (분당 한도 강제) — DART 1000/min 정책 hard guard
         self._api_call_timestamps: collections.deque[float] = collections.deque()
         # ★ 락은 **만든 이벤트루프에 묶인다.** 이 클라이언트는 키별 모듈 싱글턴이라
@@ -1052,7 +1133,7 @@ class DartClient:
         #   깨진다. 그래서 생성자에서 만들지 않고 **쓰는 루프에서** 잡는다
         #   (`_corp_code_lock` 이 이미 같은 이유로 lazy 다).
         self._api_rate_lock: asyncio.Lock | None = None
-        self._web_rate_lock: asyncio.Lock | None = None
+        # 웹 락은 프로세스 시계 것을 쓴다 — `_loop_locks` 참조.
         self._lock_loop = None
         # Document caching (메모리 + 디스크)
         # 메모리 캐시는 **프로세스 전역**이다(모듈 상단 _DOC_CACHE 주석 참조 — 인스턴스 소유면
@@ -1836,9 +1917,17 @@ class DartClient:
         loop = asyncio.get_running_loop()
         if self._lock_loop is not loop or self._api_rate_lock is None:
             self._api_rate_lock = asyncio.Lock()
-            self._web_rate_lock = asyncio.Lock()
             self._lock_loop = loop
-        return self._api_rate_lock, self._web_rate_lock
+        # 웹 락은 **프로세스 시계**의 것 — API 는 키마다 한도라 인스턴스 락, 웹은 IP 한도라 프로세스 락.
+        return self._api_rate_lock, _web_clock.lock()
+
+    @property
+    def _last_web_request(self) -> float:
+        return _web_clock.last
+
+    @_last_web_request.setter
+    def _last_web_request(self, value: float) -> None:
+        _web_clock.last = value
 
     async def _throttle_api(self):
         """API 요청 분당 한도 hard guard (rolling window 60s).
@@ -1894,14 +1983,27 @@ class DartClient:
         #   보고 같은 만큼 자다가 동시에 깨어난다 — 그게 260824 에 잡힌 레이스다.
         _, web_lock = self._loop_locks()
         async with web_lock:
-            wait = random.uniform(*_WEB_INTERVAL_RANGE)
+            # ① 분당 상한 — 창이 가득이면 가장 오래된 것이 빠질 때까지 잔다 (`_throttle_api` 와 같은 구조)
+            now = time.monotonic()
+            _web_clock.purge(now)
+            if len(_web_clock.stamps) >= _WEB_PER_MINUTE:
+                wait_win = _WEB_WINDOW_SEC - (now - _web_clock.stamps[0]) + 0.05
+                if wait_win > 0:
+                    logger.warning(f"[웹 스크래핑] 분당 상한 {_WEB_PER_MINUTE} 도달 — {wait_win:.1f}초 대기 ({counter})")
+                    await asyncio.sleep(wait_win)
+                    _note_web_wait(wait_win)
+                    _web_clock.purge(time.monotonic())
+            # ② 최소 간격(지터)
+            wait = random.uniform(*_web_interval_now())
             elapsed = time.monotonic() - self._last_web_request
             if elapsed < wait:
                 sleep_for = wait - elapsed
                 logger.debug(f"[웹 스크래핑] {sleep_for:.1f}초 대기 ({counter})")
                 await asyncio.sleep(sleep_for)
                 _note_web_wait(sleep_for)
-            self._last_web_request = time.monotonic()
+            now = time.monotonic()
+            self._last_web_request = now
+            _web_clock.stamps.append(now)
 
     async def _throttle_web(self):
         """DART 웹 원문 viewer 용 — 간격은 `_throttle_scrape` 가 하나로 관리한다."""
@@ -1923,6 +2025,7 @@ class DartClient:
                 "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
             },
         )
+        _check_web_response(response, "viewer_main")
         response.raise_for_status()
         return response.text
 
@@ -1963,6 +2066,7 @@ class DartClient:
                 "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
             },
         )
+        _check_web_response(response, "viewer_section")
         response.raise_for_status()
         return response.text
 
