@@ -242,14 +242,17 @@ def test_web_and_kind_share_one_rule_and_one_clock(monkeypatch):
     `_last_web_request` 라는 **같은 시계**를 쓰고 있었다. 두 정책이 아니라 한 흐름의
     간격만 호출 경로에 따라 달랐던 것이라 하나로 합쳤다.
 
-    지켜야 할 셋(숫자가 아니라 이쪽이 규칙이다) — 하한 1.0초 · 시계 공유 · 배치/병렬 금지.
+    지켜야 할 셋(숫자가 아니라 이쪽이 규칙이다) — 시계 공유 · 배치/병렬 금지 · 차단 신호면 안전 간격.
+    260906: 사용자 결정으로 평상 간격을 0~1초로 내렸다. 대신 안전 간격(1~2초)을 따로 두고
+    차단 신호(403·429·차단 페이지)가 잡히면 그리로 되돌린다 — 하한 1.0초 규칙은 안전 간격이 지킨다.
     """
     import open_proxy_mcp.dart.client as C
     from open_proxy_mcp.dart.client import DartClient
 
     lo, hi = C._WEB_INTERVAL_RANGE
-    assert lo >= 1.0, f"하한이 1.0초 아래로 내려갔다: {lo}"
-    assert lo < hi, "고정값이면 요청 간격이 정확히 규칙적이라 기계 티가 난다 — 지터를 둔다"
+    safe_lo, safe_hi = C._WEB_INTERVAL_RANGE_SAFE
+    assert 0.0 <= lo < hi <= safe_lo, f"평상 간격 {C._WEB_INTERVAL_RANGE} 은 안전 간격 {C._WEB_INTERVAL_RANGE_SAFE} 아래에 있어야 한다"
+    assert safe_lo >= 1.0 and safe_lo < safe_hi, "안전 간격의 하한은 1.0초(차단 뒤엔 종전 예의로 돌아간다)"
     assert not hasattr(C, "_MIN_INTERVAL_WEB"), "옛 고정 상수가 남아 규칙이 둘로 보인다"
 
     monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)

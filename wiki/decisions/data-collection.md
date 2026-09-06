@@ -122,7 +122,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 - 호출 위치: `DartClient.get_viewer_document(rcept_no, section_keywords=...)`
 - 동작: main.do HTML에서 `treeData.push(node1)` 블록 정규식 추출 → 섹션별 `report/viewer.do` 호출 → HTML 결합
 - 사용 시점: `document.xml`이 빈 본문/구조 깨졌을 때 fallback
-- Rate limit: `_throttle_web()` → `_throttle_scrape()` (1~2초 랜덤, KIND 와 시계 공유)
+- Rate limit: `_throttle_web()` → `_throttle_scrape()` (0.4~1초 랜덤 + 분당 40건, KIND 와 프로세스 시계 하나 공유)
 - 캐시: `_DOC_CACHE` 를 `viewer:` 네임스페이스로 공유 (rcept_no + keywords 키) — doc 과 하나의 바이트 예산
 
 ## 1.5 DS001~DS005 그룹 endpoint
@@ -235,7 +235,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 - 호출 위치: `_fetch_dcm_no()`, `_fetch_viewer_main_html()`
 - 정규식: `\['dcmNo'\]\s*=\s*"(\d+)"` (makeToc JS에서 추출)
 - User-Agent: `OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)`
-- Rate limit: 1~2초 랜덤 (`_throttle_scrape` `_WEB_INTERVAL_RANGE`)
+- Rate limit: 0.4~1초 랜덤 + 프로세스당 분당 40건 (`_throttle_scrape` `_WEB_INTERVAL_RANGE`·`_WEB_PER_MINUTE`, 260906 1~2초에서 하향 · 차단 감지·백오프 `web_block_stats`)
 
 ## 2.2 report/viewer.do — 섹션 HTML
 
@@ -612,7 +612,7 @@ OPM 운영(2026-07-12~ XML 단독):
 | Source | 최소 간격 | 한도 | 처리 |
 |---|---|---|---|
 | DART OpenAPI | 0.1초 (`_MIN_INTERVAL_API`) | 1,000/min, 20,000/day | 키 회전 |
-| DART 웹·KIND | 1~2초 랜덤 (`_WEB_INTERVAL_RANGE`, 시계 공유) | 비공식 (IP 차단 위험) | User-Agent 명시 |
+| DART 웹·KIND | 0.4~1초 랜덤 + 분당 40건 (`_WEB_INTERVAL_RANGE`·`_WEB_PER_MINUTE`, 프로세스 시계 하나) | 비공식 (IP 차단 위험) | User-Agent 명시 |
 | KIND | 1~3초 random (`_throttle_kind`) | 비공식 | 봇 감지 회피 |
 | Naver 뉴스 API | 0.1초 (공유) | 25,000/day, 분당 100 | 키 환경변수 |
 | Naver Finance | 2.0초 (asyncio.sleep) | 비공식 | UA 위장 (Mozilla/5.0) |
