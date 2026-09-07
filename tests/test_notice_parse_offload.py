@@ -57,3 +57,33 @@ def test_bundle_reuses_meeting_info_parsed_during_candidate_selection(monkeypatc
     assert calls == ["info"]                       # 번들이 다시 파싱하지 않았다
     sm._parse_notice_bundle("t", _HTML, rcept_no="2", scope="agenda")
     assert calls == ["info", "info"]               # 모르는 공고는 파싱한다
+
+
+_DOC = ("<html><body><title>표지</title><p>표지</p>"
+        "<title>주주총회 소집공고</title><table><tr><td>1. 일시</td><td>2026년 3월 20일 오전 9시</td></tr></table>"
+        "<title>I. 사외이사 등의 활동내역</title><p>" + "x" * 5000 + "</p></body></html>")
+
+
+def test_notice_section_slice_keeps_only_the_notice_block():
+    sl = sm._notice_section_slice(_DOC)
+    assert "주주총회 소집공고" in sl and "일시" in sl and "사외이사" not in sl and "표지</p>" not in sl
+    assert len(sl) < len(_DOC) // 2
+
+
+def test_notice_section_slice_falls_back_to_first_title_block_then_to_empty():
+    no_hint = "<html><body><title>주주총회 소집공고</title><p>본문</p><title>다음</title></body></html>"
+    assert "본문" in sm._notice_section_slice(no_hint)
+    assert sm._notice_section_slice("<html><body><p>제목 태그 없음</p></body></html>") == ""
+    assert sm._notice_section_slice("") == ""
+
+
+def test_candidate_classification_parses_the_slice_not_the_whole_document(monkeypatch):
+    seen = {}
+
+    def fake(text, html=None):
+        seen["html_len"] = len(html or ""); return {"meeting_type": "정기", "datetime": "2026년 3월 20일"}
+
+    monkeypatch.setattr(sm, "parse_meeting_info_xml", fake)
+    sm._INFO_CTX.set({})
+    asyncio.run(sm._notice_info_with_fallback("1", "t", _DOC))
+    assert 0 < seen["html_len"] < len(_DOC) // 2

@@ -4,9 +4,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-07
 
+### Candidate meeting notices: parse only the notice section
+
+To tell annual from extraordinary meetings, each candidate notice used to be parsed as a whole tree. The notice section is now sliced out as a string and only that slice is parsed. Across 143 cached notices every extracted field was identical and total time fell from 11.2 s to 0.3 s. Board profiles for companies with several candidate notices (KEPCO) gain the most.
+
 ### Faster `director_board` and `shareholder_meeting_notice`: notice parsing off the event loop
 
-The board profile for SK drops from 7.8 s to about 3 s, and the 4–6 s window in which the server could not answer other requests or health checks is now under 0.4 s. The cost was the synchronous parse of a 22 MB meeting notice fetched for the pay-limit agenda. Parsing now runs in a worker thread, tables the requested scope does not use are skipped, and meeting info parsed while classifying candidate notices is reused. Output is unchanged.
+The board profile for SK drops from 7.8 s to about 3 s, and the 4–6 s window in which the server could not answer other requests or health checks is now under 0.4 s. The cost was the synchronous parse of a 3 to 5 MB meeting notice fetched for the pay-limit agenda. Parsing now runs in a worker thread, tables the requested scope does not use are skipped, and meeting info parsed while classifying candidate notices is reused. Output is unchanged.
 
 ### Operations: per-call timing log and stack dump
 
