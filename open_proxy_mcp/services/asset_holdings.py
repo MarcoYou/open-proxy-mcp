@@ -272,8 +272,52 @@ async def _market_cap(stock_code: str):
     return mk["common_mktcap"], {"shares": mk.get("list_shrs"), "close": mk["price"], "date": mk.get("date")}
 
 
+#: report 인자 → (최신 후보 period 라벨, 사업연도 지정 시 reprt_code 순서). filing_section(opm-ext)과 같은 어휘.
+_REPORT_KIND = {
+    "annual": ("annual", ["11011"]), "half": ("half", ["11012"]),
+    "quarter": ("quarter", ["11014", "11013"]), "q1": ("quarter", ["11013"]), "q3": ("quarter", ["11014"]),
+    "latest": ("latest", ["11011", "11012", "11014", "11013"]),
+}
+_CODE_BY_NAME = (("사업보고서", "11011"), ("반기보고서", "11012"), ("분기보고서", None))
+
+
+def _reprt_code_of(rept: dict, fallback: str = "11011") -> str:
+    """보고서 이름 → DART reprt_code. 분기보고서는 기수 라벨 월로 1분기(11013)/3분기(11014)를 가른다
+    (12월 결산 기준 — 결산월이 다르면 호출 쪽이 빈 결과에서 다른 코드로 한 번 더 간다)."""
+    nm = rept.get("report_nm") or ""
+    for token, code in _CODE_BY_NAME:
+        if token in nm:
+            if code:
+                return code
+            m = re.search(r"\((\d{4})\.(\d{2})\)", nm)
+            month = int(m.group(2)) if m else 3
+            return "11013" if month <= 6 else "11014"
+    return fallback
+
+
+async def _pick_periodic_report(client, corp_code: str, report: str = "annual", year: int = 0) -> tuple[dict | None, str, str]:
+    """(보고서, reprt_code, 오류메시지). 260907: 종전엔 사업보고서 첫 후보 고정이라 「2024년 말 자산」「반기 기준
+    담보」를 못 잡았고 `[첨부정정]`(첨부만 고친 것, 본문 없음)을 집을 수 있었다. filing_section 과 같은 규칙으로 맞춘다."""
+    kind = _REPORT_KIND.get((report or "annual").strip().lower())
+    if kind is None:
+        return None, "", f"report 는 annual·half·quarter·q1·q3·latest 중 하나 (받은 값: {report})"
+    period, codes = kind
+    if year:
+        reps = []
+        for code in codes:
+            reps += await _bd._find_report_for_bsns_year(client, corp_code, str(year), code)
+        reps.sort(key=lambda r: r.get("rcept_dt", ""), reverse=True)
+    else:
+        reps = await _bd._find_report_candidates(client, corp_code, period)
+    reps = [r for r in reps if "첨부정정" not in (r.get("report_nm") or "")]
+    if not reps:
+        return None, "", f"{year or '최신'} {report} 정기보고서 없음"
+    rept = reps[0]
+    return rept, _reprt_code_of(rept, codes[0]), ""
+
+
 async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary",
-                                       format: str = "md") -> dict[str, Any]:
+                                       format: str = "md", report: str = "annual", year: int = 0) -> dict[str, Any]:
     client = get_dart_client()
     q = (company or "").strip()
     if not q:
@@ -290,19 +334,25 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
     name = corp.get("corp_name") or company
     warnings: list[str] = []
 
-    cands = await _bd._find_report_candidates(client, cc, "annual")
-    if not cands:
-        return {"tool": "asset_holdings", "status": "no_filing", "subject": name,
-                "warnings": ["정기(사업)보고서 없음"]}
-    rept = cands[0]
+    rept, reprt_code, err = await _pick_periodic_report(client, cc, report, int(year or 0))
+    if rept is None:
+        return {"tool": "asset_holdings", "status": "no_filing" if "없음" in err else "invalid", "subject": name,
+                "warnings": [err]}
     year = (_YEAR.search(rept.get("report_nm") or "") or [None, str(today_kst().year - 1)])[1]
+    if reprt_code != "11011":
+        warnings.append(f"{rept.get('report_nm', '').strip()} 기준 — 분기·반기보고서는 사업보고서보다 주석 항목이 얇아 "
+                        "토지 공정가치·담보·우발 명세가 없을 수 있다.")
 
     data: dict[str, Any] = {"company": name, "ticker": isu, "report_nm": rept.get("report_nm"),
-                            "rcept_no": rept.get("rcept_no"), "year": year, "scope": scope}
+                            "rcept_no": rept.get("rcept_no"), "year": year, "reprt_code": reprt_code, "scope": scope}
 
     async def _fin_acnt(fs):
         try:
-            return await client.get_fnltt_singl_acnt_all(cc, year, "11011", fs)
+            out = await client.get_fnltt_singl_acnt_all(cc, year, reprt_code, fs)
+            if not (out or {}).get("list") and reprt_code in ("11013", "11014"):
+                # 결산월이 12월이 아니면 분기 코드가 반대일 수 있다 — 한 번 바꿔 본다
+                out = await client.get_fnltt_singl_acnt_all(cc, year, "11013" if reprt_code == "11014" else "11014", fs)
+            return out
         except DartClientError:
             return {}
 
@@ -335,7 +385,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         if is_reit:
             warnings.append("REIT 추정(사명 기준) — 투자부동산이 본업이라 잉여자산에서 제외")
         try:
-            otr = await client.get_other_corp_investment(cc, year, "11011")
+            otr = await client.get_other_corp_investment(cc, year, reprt_code)
         except DartClientError:
             otr = {}
         sec = await _safe_getdoc(client, rept["rcept_no"])

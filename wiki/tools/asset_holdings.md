@@ -8,7 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-09-06
+updated: 2026-09-07
 ---
 
 # asset_holdings
@@ -43,6 +43,15 @@ updated: 2026-09-06
   summary에서 haircut 플래그가 뜨거나 숫자 원문을 직접 확인하고 싶을 때.
 - 예: `asset_holdings("영풍")` → 지주사 숨은 지분가치(코리아써키트 장부 820억→시가 7,736억,
   미실현 +6,916억) · `asset_holdings("천일고속", scope="detail")` → 소규모기업(OFS) 원문 명세.
+
+### 시점 인자 (260907)
+| 인자 | 값 | 뜻 |
+|---|---|---|
+| `report` | `annual`(기본) · `half` · `quarter` · `q1` · `q3` · `latest` | 어느 정기보고서 기준인지. 재무제표 API 의 `reprt_code`(11011/11012/11013/11014)도 이에 맞춰 부른다 |
+| `year` | 사업연도(예 2024) | 그 해 보고서(전년 비교). 없으면 최신 |
+
+기본은 사업보고서 — 분기·반기는 주석 항목이 얇아 `detail` 의 토지 공정가치·담보·우발 명세가 없을 수 있고, 그때 응답에 경고가 붙는다.
+`[첨부정정]` 은 첨부만 고친 공시라 건너뛴다. 예: 「2024년 말 자산」 → `year=2024` · 「상반기 기준」 → `report="half"`.
 
 ## 출력 (ToolEnvelope.data)
 - `rcept_no`: 읽은 보고서 접수번호(260906 추가). `detail` 의 부재 갈래(`extraction_failed`·`cross_reference`·발췌 있는 부재)에는 확장 훅([[extension-hooks]])이 있으면 원문 위치 한 줄이 붙는다.
