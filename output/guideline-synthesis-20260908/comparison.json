@@ -1,0 +1,238 @@
+{
+  "status": "design_review_not_model_benchmark",
+  "as_of": "2026-09-08",
+  "source_manifest": "input-manifest.json",
+  "astra_evidence": {
+    "file": "../guideline-redesign-20260907/policy.json",
+    "sections": [
+      "/principles",
+      "/evaluation_contract",
+      "/llm_contract",
+      "/review_authority",
+      "/category_support",
+      "/migration"
+    ]
+  },
+  "fable_json_file": "02-opm-guideline-v2.json",
+  "differences": [
+    {
+      "id": "C01",
+      "topic": "규칙의 정당성",
+      "astra": "법령·기관 정책·OPM 제안을 구분하고 기관 비교를 참고 정보로 둔다.",
+      "fable": "법령·7/8 이상 합의는 확정, 그 아래는 신호로 계층화한다.",
+      "proposal": "기관 합의는 비교 근거로 채택. OPM 규칙의 권위·효력은 별도로 승인한다.",
+      "why": "다수 기관이 쓴다는 사실만으로 OPM의 목표에 맞는 기준이 되지는 않는다. 합의에는 임계값·분모·기간·예외까지 같은지 확인이 필요하다. OPM 단독 규칙 DC-03도 L2에 있어 계층의 의미가 겹친다.",
+      "fable_refs": [
+        "/meta/constitution",
+        "/layers",
+        "/rules/45"
+      ],
+      "priority": "foundation"
+    },
+    {
+      "id": "C02",
+      "topic": "찬반과 처리 상태",
+      "astra": "권고·검토 상태·법률 상태를 분리한다.",
+      "fable": "FOR/AGAINST/ABSTAIN/REVIEW/REVIEW_DATA_GAP/NO_VOTE/ALLOCATE가 하나의 결정 목록에 있다.",
+      "proposal": "Astra의 분리를 확대해 의결권 자격·투표 방식·행동 계획까지 별도 출력한다.",
+      "why": "자료 부족은 기권이라는 의결권 행사와 다르다. 미보유 사용자에게도 분석은 제공할 수 있다. 집중투표 배분은 찬반 값이 아니다.",
+      "fable_refs": [
+        "/decisions",
+        "/combinator",
+        "/profile/never_auto"
+      ],
+      "priority": "foundation"
+    },
+    {
+      "id": "C03",
+      "topic": "자동화의 의미",
+      "astra": "검증된 사실과 승인된 평가만 판단에 사용한다. 자동화 운영 설계는 얕다.",
+      "fable": "auto에서 L3 검토 1건을 passive=FOR, active=AGAINST로 해소한다.",
+      "proposal": "자동화는 조회 예산·검토 위임·전달 경로만 조절한다. 판단 변화는 버전이 남는 정책 변경으로만 허용한다.",
+      "why": "같은 정책·같은 승인 근거라면 manual/assisted/auto 결과가 같아야 한다. 자동화로 새 근거가 확보되면 근거 차분 때문에 판단이 바뀔 수 있다.",
+      "fable_refs": [
+        "/profile/auto_resolution",
+        "/profile/stance_presets"
+      ],
+      "priority": "foundation"
+    },
+    {
+      "id": "C04",
+      "topic": "사용자 조절 손잡이",
+      "astra": "임계값이 JSON에 있지만 허용 범위·변경 권한·프로필 합성이 부족하다.",
+      "fable": "stance·autonomy·policy_pack·ask_on 분리와 오버라이드 차분이 구체적이다.",
+      "proposal": "프로필 개념은 채택. 규칙 승격이나 일괄 배율 대신 이름·단위·경계 연산자·범위가 있는 파라미터와 명시적 규칙 추가를 쓴다.",
+      "why": "Fable의 ±25% 문구와 DC-03 active 배율 0.6(50→30, −40%)이 충돌한다. L2 불변 문구와 L2인 DC-03 조절도 충돌한다. 이것은 원문 내부 검증 결과다.",
+      "fable_refs": [
+        "/profile/knobs/stance",
+        "/profile/stance_presets/active/scale/DC-03",
+        "/rules/45"
+      ],
+      "priority": "blocking"
+    },
+    {
+      "id": "C05",
+      "topic": "정보 부족의 책임",
+      "astra": "unknown·not_applicable·근거 충돌을 나누고 조회 실패를 반대 사유로 만들지 않는다.",
+      "fable": "결측 원인 6종과 조회처가 구체적이지만 auto는 company_nondisclosure를 반대로 바꾼다.",
+      "proposal": "원인 분류 채택. 회사의 공시 미이행은 별도 규칙으로 입증한다.",
+      "why": "찾지 못했다는 결과만으로 위반을 확정하지 않는다. 공시 의무·대상 자료·기한·조회 범위의 완전성·예외·중요성을 확인해야 한다. EX-02의 짧은 재직/작은 분모는 실제 값이 있는 상황이므로 source_unavailable로 바꾸지 않는다.",
+      "fable_refs": [
+        "/gap_cause",
+        "/profile/auto_resolution",
+        "/exceptions/1"
+      ],
+      "priority": "blocking"
+    },
+    {
+      "id": "C06",
+      "topic": "판정 순서와 예외",
+      "astra": "모든 적용 규칙을 평가하고 확인된 반대와 미해결 사유를 함께 보존한다. 같은 규칙의 예외가 미확인이면 그 규칙은 확정하지 않는다.",
+      "fable": "L2 평가 전 gap_check가 REVIEW_DATA_GAP을 내며 마지막 never_auto가 판정을 다시 바꿀 수 있다.",
+      "proposal": "Astra의 결합 규칙을 유지하고 Fable의 후속 행동 조건을 별도 라우터로 옮긴다.",
+      "why": "한 규칙의 결측이 다른 규칙의 확인된 반대를 지워서는 안 된다. 예외 적용과 사람에게 넘기는 일은 서로 다르다.",
+      "fable_refs": [
+        "/combinator/order",
+        "/combinator/rules"
+      ],
+      "priority": "foundation"
+    },
+    {
+      "id": "C07",
+      "topic": "LLM의 역할과 재량",
+      "astra": "fact와 reviewer_assessment를 구분하지만 평가 항목이 거친 불리언이고 사람 승인 의존이 크다.",
+      "fable": "T1~T6의 입력·출력·인용·rubric을 구체화했다. 출력에 결정 필드는 없다.",
+      "proposal": "6개 과업 분할을 채택하고 추출·연결·평가를 나눈다. 평가 과업은 정책이 위임한 범위와 rubric 버전을 기록한다.",
+      "why": "중요성·가치 훼손·보수 적정성은 결정 필드를 없애도 실질적 판단이다. 원문 인용, 반대 근거, 대안 해석, 검토자/검증된 자동 평가자의 수용 기록이 필요하다.",
+      "fable_refs": [
+        "/llm_tasks"
+      ],
+      "priority": "foundation"
+    },
+    {
+      "id": "C08",
+      "topic": "시간·산업·후보자 문맥",
+      "astra": "비율 적용 가능성, 관측 시점, 재무제표 범위와 근거 상태를 강조한다.",
+      "fable": "금융업 예외·재직기간 하한·정정공고·전기 데이터 시점을 적극 다룬다.",
+      "proposal": "각 지표에 entity/role/period/scope/observed_at/available_at를 필수화하고 적용 조건을 규칙 본문보다 먼저 평가한다.",
+      "why": "하한만 있어도 임계값 초과를 입증할 수 있다. 반대로 하한이 낮다고 임계값 미만은 아니다. Fable의 출석은 직전 사업연도, NPS 비교는 직전 임기이므로 같은 75라도 같은 정책이 아니다.",
+      "fable_refs": [
+        "/indicators",
+        "/rules/22",
+        "/rules/25"
+      ],
+      "priority": "blocking"
+    },
+    {
+      "id": "C09",
+      "topic": "기계 계약의 완결성",
+      "astra": "엄격한 AST·JSON Schema·합성 예제가 있으나 전체 런타임 및 모든 의미 검증은 구현하지 않았다.",
+      "fable": "풍부한 JSON이지만 condition·inherit·날짜·일부 test와 출력 형식이 자연어로 남아 있다.",
+      "proposal": "작성용 정책 → 타입/단위/참조/충돌 검증 → 상속이 풀린 불변 실행 정책의 컴파일 단계를 둔다.",
+      "why": "JSON이라는 형식만으로 실행 가능한 것은 아니다. XC-02의 value=\"agenda.topic\"는 사실 참조인지 문자열인지 계약이 없다. 상속은 test만 복사하지 말고 예외·적용범위·출처를 포함해 명시적으로 합성한다.",
+      "fable_refs": [
+        "/combinator/inherit_semantics",
+        "/rules/81",
+        "/rules/31"
+      ],
+      "priority": "blocking"
+    },
+    {
+      "id": "C10",
+      "topic": "법령과 정책 연결",
+      "astra": "법률 확인과 권고를 분리하고 미검증 법령 조건은 실행을 막는다. 법률 전체를 검증한 안은 아니다.",
+      "fable": "법령 L1이 직접 AGAINST/FOR_BASIS를 만들며 시행 시점도 일부 인라인 표기한다.",
+      "proposal": "법률 팩은 적용 여부·요건 충족 여부를 출력하고, 그것을 어떤 권고로 연결할지는 정책 규칙이 결정한다.",
+      "why": "Fable EX-06은 자본금이라고 설명하면서 asset_total 지표를 비교한다. DE-03b는 “2곳 초과” 출처 설명과 >=2가 불일치한다. 해당 조건과 신법 경과규정은 법률 검토 전 실행 보류한다. 여기서는 법률 해석을 확정하지 않는다.",
+      "fable_refs": [
+        "/exceptions/5",
+        "/rules/24",
+        "/rules/31",
+        "/rules/41"
+      ],
+      "priority": "blocking"
+    },
+    {
+      "id": "C11",
+      "topic": "주총 실무와 책임 이력",
+      "astra": "안건별 근거·규칙 적용이 중심이고 보유·경합·집중투표·이행 이력은 부족하다.",
+      "fable": "HX·VP·CT·XC로 재상정·미이행·정족수·3% 제한·보유·경합·집중투표를 다룬다.",
+      "proposal": "Fable의 범위를 채택하되 규범 평가와 회사 단위 시나리오·투표 행동 계획을 별도 모듈로 둔다.",
+      "why": "우리의 반대 권고는 실제 부결을 뜻하지 않는다. 다른 주주의 투표·출석·후보 대체 가능성은 가정과 범위로 표시한다. 불리한 전략 결과가 규범 평가의 근거를 삭제해서도 안 된다.",
+      "fable_refs": [
+        "/combinator/rules",
+        "/rules/74",
+        "/rules/75",
+        "/rules/76",
+        "/rules/79"
+      ],
+      "priority": "design"
+    },
+    {
+      "id": "C12",
+      "topic": "대량 처리와 저장",
+      "astra": "OPM은 원문+힌트를 제공하고 사용자 결과를 기본 저장하지 않는다는 경계를 지킨다. 대량 운영 설계는 제한적이다.",
+      "fable": "세션 200건 예산·반대율 분포 circuit breaker·같은 문서 hash 재사용을 제안한다.",
+      "proposal": "공개 근거의 회사·문서 단위 재사용, 과업별 예산, 변경 영향 그래프를 채택한다. 보유·위임·참여 이력은 고객 측에 둔다.",
+      "why": "같은 문서라도 후보·기간·rubric·모델·지식 시점이 다르면 같은 과업이 아니다. 5.8~27.5% 반대율을 정상 범위로 강제하면 표본/정책 차이를 오류로 오인한다. 분포 이탈은 조사 신호로만 쓴다.",
+      "fable_refs": [
+        "/profile/guardrails",
+        "/profile/knobs/auto_budget",
+        "/llm_tasks"
+      ],
+      "priority": "design"
+    },
+    {
+      "id": "C13",
+      "topic": "자동 갱신",
+      "astra": "정책 버전과 독립 평가를 제시했지만 변경 감지·영향 분석·승인·복구 흐름이 부족하다.",
+      "fable": "마감 전 정정공고·감사보고서 접수 시 재실행과 변경 알림을 제안한다.",
+      "proposal": "자료 갱신과 정책 갱신을 서로 다른 파이프라인으로 만든다. 의미 변경은 후보 버전·재검증·정해진 승인 후 활성화한다.",
+      "why": "새 공시로 현재 분석을 갱신하는 일과 법령/기관 정책 개정을 OPM 규칙에 채택하는 일은 다르다. 과거 as_of 결과는 고정하고 새 버전을 병렬로 남긴다.",
+      "fable_refs": [
+        "/profile/guardrails/rerun_window",
+        "/provenance_record"
+      ],
+      "priority": "foundation"
+    },
+    {
+      "id": "C14",
+      "topic": "검증과 성능 주장",
+      "astra": "25개 합성 사례와 산술 검사는 계약 검증이며 실제 의결권 품질의 증거로 보지 않는다.",
+      "fable": "실제 회사 4개 seed case와 독립 리뷰 부록을 두었지만 golden set은 미실행이다.",
+      "proposal": "합성 경계 검사와 독립 자료·판정자 기반 품질 검증을 분리한다. 제공된 리뷰는 설계 비판 자료로 채택한다.",
+      "why": "둘의 규칙 수나 자체 테스트 점수로 모델 우열을 정하지 않는다. 리뷰 부록 작성자의 독립성·전문가 자격을 여기서 별도 확인한 것은 아니다.",
+      "fable_refs": [
+        "/golden_set",
+        "/meta/reference_policies/independent_review"
+      ],
+      "priority": "evidence"
+    },
+    {
+      "id": "C15",
+      "topic": "연결할 데이터의 실재성",
+      "astra": "45개 지표에 근거와 수집 계획을 명시하지만 운영 커버리지 실측은 없다.",
+      "fable": "103개 지표로 확장했다. 일부는 미구현 표시가 있고 일부는 도구 이름만으로 공급 가능하게 적었다.",
+      "proposal": "지표마다 existing_verified / extraction_needed / derived_needs_validation / external_private / unavailable로 공급 상태를 별도 등록한다.",
+      "why": "도구가 존재하는 것과 해당 분모·기간·대상에 맞는 값이 있는 것은 다르다. 배당가능이익·배당 재투자 TSR·안건별 반대율은 각각 실제 MCP 출력 계약과 표본을 확인한 뒤 연결한다.",
+      "fable_refs": [
+        "/indicators"
+      ],
+      "priority": "blocking"
+    },
+    {
+      "id": "C16",
+      "topic": "비교 대상의 범위",
+      "astra": "34개 규칙·45개 지표를 포함한 문서/스키마 패키지를 별도 브랜치에 커밋했다. 운영 엔진은 바꾸지 않았다.",
+      "fable": "리뷰 팩 JSON은 71개 비-default 규칙+12개 default=83개, 지표 103개. 브랜치 변경은 기존 엔진 한계 문서 14줄이다.",
+      "proposal": "브랜치·리뷰 팩·실행 결과를 별개 증거로 기록한다. 두 원안은 보존하고 이 문서는 통합 제안으로 관리한다.",
+      "why": "v1.3이라는 부록 파일명과 내부 v1.2 표기도 불일치한다. Fable의 KB금융 재현 기록은 작성자 보고이며 이번에 MCP로 재현한 실측이 아니다.",
+      "fable_refs": [
+        "02-opm-guideline-v2.json",
+        "03-appendix-current-v1.3-policy.md",
+        "wiki/tools/proxy_advise_before_meeting.md@dada392"
+      ],
+      "priority": "evidence"
+    }
+  ]
+}

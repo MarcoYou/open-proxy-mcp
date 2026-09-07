@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OPM minimal demonstration policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "status",
+    "authority",
+    "parameters",
+    "metrics",
+    "rules",
+    "positive_gate",
+    "aggregation",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "opm-demo-policy/1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "status": {
+      "const": "synthetic_demonstrator"
+    },
+    "authority": {
+      "const": "opm_proposal"
+    },
+    "parameters": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "const": "number"
+          },
+          "unit": {
+            "const": "percent"
+          },
+          "default": {
+            "type": "number"
+          },
+          "minimum": {
+            "type": "number"
+          },
+          "maximum": {
+            "type": "number"
+          },
+          "owner": {
+            "const": "opm"
+          },
+          "editable": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "unit",
+          "default",
+          "minimum",
+          "maximum",
+          "owner",
+          "editable",
+          "note"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "number",
+              "boolean"
+            ]
+          },
+          "unit": {
+            "enum": [
+              "percent",
+              "boolean"
+            ]
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "period": {
+            "enum": [
+              "prior_term",
+              "meeting"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "fact",
+              "derived_fact",
+              "assessment"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "unit",
+          "period",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "applies_when": {
+            "$ref": "#/$defs/expr"
+          },
+          "test": {
+            "$ref": "#/$defs/expr"
+          },
+          "exception": {
+            "$ref": "#/$defs/expr"
+          },
+          "effect": {
+            "const": "oppose"
+          }
+        },
+        "required": [
+          "id",
+          "applies_when",
+          "test",
+          "exception",
+          "effect"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "positive_gate": {
+      "$ref": "#/$defs/expr"
+    },
+    "aggregation": {
+      "const": "preserve_confirmed_opposition_then_require_complete_support"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "$defs": {
+    "operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "metric"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "parameter": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "parameter"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "literal": {
+              "type": [
+                "boolean",
+                "number"
+              ]
+            }
+          },
+          "required": [
+            "literal"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "expr": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "const": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "const"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "enum": [
+                "eq",
+                "lt"
+              ]
+            },
+            "left": {
+              "$ref": "#/$defs/operand"
+            },
+            "right": {
+              "$ref": "#/$defs/operand"
+            }
+          },
+          "required": [
+            "op",
+            "left",
+            "right"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

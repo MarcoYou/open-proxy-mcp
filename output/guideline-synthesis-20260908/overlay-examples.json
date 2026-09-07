@@ -1,0 +1,16 @@
+[
+  {
+    "id": "opm-demo-default",
+    "changes": []
+  },
+  {
+    "id": "client-demo-stricter-attendance",
+    "changes": [
+      {
+        "parameter": "attendance_min_pct",
+        "value": 80,
+        "reason": "합성 예시: 직전 임기 출석 기준을 80%로 선택"
+      }
+    ]
+  }
+]
