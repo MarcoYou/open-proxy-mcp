@@ -52,12 +52,10 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 点击聊天输入框中的 `+`，然后选择 `Connectors → Add from open-proxy-mcp`。
 
-<p align="center">
-  <img src="screenshot/claude-resource-picker-en-20260907.png" alt="在 Claude 英文界面中打开 OpenProxy 提示词与资源" width="900">
-</p>
+[查看 Claude 英文界面中的菜单位置](screenshot/claude-resource-picker-en-20260907.png)
 
-- `회사 한 장 요약`（公司概览）— 根据公司名称或股票代码启动分析流程的 MCP prompt
-- `OpenProxy 기능 안내`（功能指南）— 列出当前已注册工具与功能的 `tools_guide` resource
+- `Company Snapshot`（公司概览）— 根据公司名称或股票代码启动分析流程的 MCP prompt
+- `OpenProxy Feature Guide`（功能指南）— 列出当前已注册工具与功能的 `tools_guide` resource
 - `Open Proxy Guideline` — 代理投票分析使用的政策原文
 
 ### 3. 发送第一个问题
@@ -69,7 +67,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 更多示例问题请参阅[工具目录](wiki/tools/README.md)中的各个工具页面。
 
-`OpenProxy 기능 안내` 会根据服务器注册的工具自动生成。`회사 한 장 요약` 会引导 AI 汇总业务结构、三年实际业绩、最多两年的年度一致预期、估值、股权、分红、近期披露以及后续应核实的问题。表格会区分实际值（A）与预期值（E）；支持可视化的客户端还会生成营收柱状图和营业利润折线图。
+`OpenProxy Feature Guide` 会根据服务器注册的工具自动生成。`Company Snapshot` 会引导 AI 汇总业务结构、三年实际业绩、最多两年的年度一致预期、估值、股权、分红、近期披露以及后续应核实的问题。表格会区分实际值（A）与预期值（E）；支持可视化的客户端还会生成营收柱状图和营业利润折线图。
 
 ---
 

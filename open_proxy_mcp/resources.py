@@ -31,7 +31,7 @@ def register_all_resources(mcp: MCPServer) -> None:
     @mcp.resource(
         "opm://tools_guide",
         name="tools_guide",
-        title="OpenProxy 기능 안내",
+        title="OpenProxy Feature Guide",
         description=(
             "OpenProxy에서 어떤 기능을 쓸 수 있는지 안내한다. "
             "현재 제공하는 도구 전체와 각 도구가 답하는 내용을 확인할 때 읽는다."
@@ -44,7 +44,7 @@ def register_all_resources(mcp: MCPServer) -> None:
         # 개명·추가 때 뒤처진다. 여러 줄에 걸친 첫 문단도 끝까지 보존한다.
         tools = sorted(await mcp.list_tools(), key=lambda t: (t.name != "company", t.name))
         lines = [
-            "# OpenProxy 기능 안내",
+            "# OpenProxy Feature Guide",
             "",
             "회사명이나 종목코드와 함께 궁금한 내용을 자연어로 물어보세요. "
             "도구 이름을 외울 필요는 없습니다.",

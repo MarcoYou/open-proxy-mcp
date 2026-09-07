@@ -52,12 +52,10 @@ Name it `open-proxy-mcp` and select it in a new chat. Availability may vary with
 
 Select `+` in the chat input, then choose `Connectors → Add from open-proxy-mcp`.
 
-<p align="center">
-  <img src="screenshot/claude-resource-picker-en-20260907.png" alt="Opening OpenProxy prompts and resources from Claude's English interface" width="900">
-</p>
+[View the menu in Claude's English interface](screenshot/claude-resource-picker-en-20260907.png)
 
-- `회사 한 장 요약` (Company overview) — an MCP prompt that starts an analysis from a company name or ticker
-- `OpenProxy 기능 안내` (Feature Guide) — the `tools_guide` resource listing the currently registered tools and capabilities
+- `Company Snapshot` — an MCP prompt that starts an analysis from a company name or ticker
+- `OpenProxy Feature Guide` — the `tools_guide` resource listing the currently registered tools and capabilities
 - `Open Proxy Guideline` — the source policy used for proxy-voting analysis
 
 ### 3. Send your first request
@@ -69,7 +67,7 @@ Start with `Show Samsung Electronics' company information and three recent filin
 
 Find more prompts on each page in the [tool catalog](wiki/tools/README.md).
 
-`OpenProxy 기능 안내` is generated from the server's registered tools. `회사 한 장 요약` guides the assistant through business structure, three years of actual results, up to two available annual consensus estimates, valuation, ownership, dividends, recent filings, and follow-up questions. The table distinguishes actuals (A) from estimates (E); clients with visualization support are also asked to show revenue bars and an operating-profit line.
+`OpenProxy Feature Guide` is generated from the server's registered tools. `Company Snapshot` guides the assistant through business structure, three years of actual results, up to two available annual consensus estimates, valuation, ownership, dividends, recent filings, and follow-up questions. The table distinguishes actuals (A) from estimates (E); clients with visualization support are also asked to show revenue bars and an operating-profit line.
 
 ---
 

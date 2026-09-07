@@ -101,6 +101,7 @@ def test_company_snapshot_prompt_references_available_tools(client):
     prompts = _post(client, {"jsonrpc": "2.0", "id": 8, "method": "prompts/list",
                              "params": {}}).json()["result"]["prompts"]
     prompt = next(p for p in prompts if p["name"] == "company_snapshot")
+    assert prompt["title"] == "Company Snapshot"
     assert {a["name"] for a in prompt["arguments"] if a.get("required")} == {"company"}
 
     r = _post(client, {"jsonrpc": "2.0", "id": 9, "method": "prompts/get",
@@ -125,6 +126,7 @@ def test_tools_guide_resource_over_the_wire(client):
     resources = rpc("resources/list", {})["resources"]
     guide = next(r for r in resources if r["name"] == "tools_guide")
     assert guide["uri"] == "opm://tools_guide"
+    assert guide["title"] == "OpenProxy Feature Guide"
     assert guide["mimeType"] == "text/markdown"
     contents = rpc("resources/read", {"uri": guide["uri"]})["contents"]
     text = contents[0]["text"]

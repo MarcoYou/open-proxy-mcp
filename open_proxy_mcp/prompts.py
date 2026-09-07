@@ -18,7 +18,7 @@ def register_all_prompts(mcp) -> None:
 
     @mcp.prompt(
         name="company_snapshot",
-        title="회사 한 장 요약",
+        title="Company Snapshot",
         description="사업 구조·3년 실적·제공되는 연간 예상치·밸류에이션·지분·배당과 최근 공시를 한 장으로 정리합니다. "
                     "업종에 맞는 자료를 고르고, 눈에 띄는 변화와 더 확인할 질문을 짚습니다.",
     )

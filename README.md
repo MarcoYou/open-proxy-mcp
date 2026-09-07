@@ -52,12 +52,10 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 채팅 입력창의 `+`를 누르고 `커넥터 → open-proxy-mcp에서 추가`를 선택합니다.
 
-<p align="center">
-  <img src="screenshot/claude-resource-picker-ko-20260907.png" alt="Claude 한국어 화면에서 OpenProxy 프롬프트와 리소스를 불러오는 메뉴" width="900">
-</p>
+[Claude 한국어 화면에서 메뉴 위치 보기](screenshot/claude-resource-picker-ko-20260907.png)
 
-- `회사 한 장 요약` — 회사명이나 종목코드로 분석 흐름을 시작하는 MCP 프롬프트
-- `OpenProxy 기능 안내` — 현재 등록된 도구와 기능을 보여주는 `tools_guide` 리소스
+- `Company Snapshot` — 회사명이나 종목코드로 분석 흐름을 시작하는 MCP 프롬프트
+- `OpenProxy Feature Guide` — 현재 등록된 도구와 기능을 보여주는 `tools_guide` 리소스
 - `Open Proxy Guideline` — 의결권 판단 정책 원문 리소스
 
 ### 3. 첫 질문 보내기
@@ -69,7 +67,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 더 많은 질문 예시는 [도구 카탈로그](wiki/tools/README.md)의 각 도구 페이지에서 확인할 수 있습니다.
 
-`OpenProxy 기능 안내`는 서버에 등록된 도구 목록에서 자동으로 구성됩니다. `회사 한 장 요약`은 사업 구조·3년 확정 실적·제공되는 연간 예상치 최대 2년·가격·지분·배당·최근 공시를 연결하고, 더 확인할 질문까지 정리하도록 안내합니다. 표에서 확정(A)과 예상(E)을 구분하며, 시각화가 가능한 클라이언트에는 매출 막대·영업이익 선 차트를 요청합니다.
+`OpenProxy Feature Guide`는 서버에 등록된 도구 목록에서 자동으로 구성됩니다. `Company Snapshot`은 사업 구조·3년 확정 실적·제공되는 연간 예상치 최대 2년·가격·지분·배당·최근 공시를 연결하고, 더 확인할 질문까지 정리하도록 안내합니다. 표에서 확정(A)과 예상(E)을 구분하며, 시각화가 가능한 클라이언트에는 매출 막대·영업이익 선 차트를 요청합니다.
 
 ---
 
