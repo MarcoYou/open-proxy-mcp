@@ -6,7 +6,7 @@
 [![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#tool-structure-31-tools)
 [![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
-[Korean README](README.md)
+[한국어](README.md) · [简体中文](README_ZH.md)
 
 [Quick Start](#quick-start) · [Main Features](#main-features) · [Tool Structure](#tool-structure-31-tools) · [Data Sources](#data-sources)
 
@@ -28,7 +28,7 @@ OpenProxy began with AGM and proxy voting analysis. The capabilities needed to r
 
 ### 1. Get a free API key
 
-DART is South Korea's corporate disclosure system. Sign up at [DART OpenAPI](https://opendart.fss.or.kr/) and request a free authentication key.
+DART is South Korea's corporate disclosure system. Sign up at the [English OpenDART portal](https://engopendart.fss.or.kr/) and request a free authentication key.
 
 ### 2. Connect your AI service
 
@@ -110,7 +110,7 @@ Categories match the "what do you want to know → which tool" table in the [wik
 
 | Source | Use | Notes |
 |------|------|------|
-| [DART OpenAPI](https://opendart.fss.or.kr/) | Filing metadata + financial endpoints + dividends/treasury/ownership | **Required** — free API key. 1,000/min hard rule (cap 910) |
+| [English OpenDART](https://engopendart.fss.or.kr/) | Filing metadata + financial endpoints + dividends/treasury/ownership | **Required** — free API key. 1,000/min hard rule (cap 910) |
 | DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | Rate-limited with a random 1–2-second delay |
 | [KRX KIND](https://kind.krx.co.kr/) | Exchange-filing cross-checks | Auxiliary source |
 | Korean statutes based on the [Korean Law Information Center](https://www.law.go.kr/) | Statutory basis for articles amendments and voting analysis | Synced weekly from [legalize-kr](https://github.com/legalize-kr/legalize-kr) |

@@ -6,7 +6,7 @@
 [![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#도구-구조-31개)
 [![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES.md)
 
-[English README](README_ENG.md)
+[English](README_ENG.md) · [简体中文](README_ZH.md)
 
 [빠른 시작](#빠른-시작) · [주요 기능](#주요-기능) · [도구 구조](#도구-구조-31개) · [데이터 출처](#데이터-소스)
 
