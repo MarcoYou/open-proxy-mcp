@@ -5,6 +5,7 @@ from open_proxy_mcp.clock import today_kst
 
 import asyncio
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta
 import re
 import time
@@ -58,29 +59,37 @@ _SUMMARY_MEETING_INFO_KEYS = {
 }
 
 
-class _RequestLocalSoupFactory:
-    """One-request soup cache keyed by rcept_no + raw HTML."""
+#: 지금 요청의 (soup 캐시, rcept_no). 종전엔 파서 모듈의 `BeautifulSoup` 을 요청마다 갈아 끼웠는데(모듈 전역),
+#: 파싱을 스레드로 내리면 다른 요청과 겹쳐 남의 캐시에 쓰게 된다. ContextVar 는 `asyncio.to_thread` 가 컨텍스트를
+#: 복사해 들고 가므로 스레드 안에서도 자기 요청 것만 본다(260907).
+_SOUP_CTX: ContextVar[tuple[dict[tuple[str, str, Any], Any], str] | None] = ContextVar("opm_notice_soup", default=None)
+#: 요청 안에서 rcept_no → 소집공고 meeting_info(API 원문 기준). 후보 분류(`_resolve_batch`)가 파싱한 것을 번들이
+#: 다시 파싱하지 않게 한다 — 22MB 공고면 한 번에 1초(260907). 요청(task) 시작에서 빈 dict 로 다시 잡는다.
+_INFO_CTX: ContextVar[dict[str, dict[str, Any]] | None] = ContextVar("opm_notice_info", default=None)
 
-    def __init__(
-        self,
-        original: Any,
-        cache: dict[tuple[str, str, Any], Any],
-        rcept_no: str,
-    ) -> None:
+
+class _ContextSoupFactory:
+    """One-request soup cache keyed by rcept_no + raw HTML — 컨텍스트에 캐시가 없으면 그냥 원본."""
+
+    def __init__(self, original: Any) -> None:
         self.original = original
-        self.cache = cache
-        self.rcept_no = rcept_no
 
     def __call__(self, markup: Any = "", features: Any = None, *args: Any, **kwargs: Any) -> Any:
-        if not isinstance(markup, str):
+        ctx = _SOUP_CTX.get()
+        if ctx is None or not isinstance(markup, str):
             return self.original(markup, features, *args, **kwargs)
-        key = (self.rcept_no, markup, features)
-        cached = self.cache.get(key)
+        cache, rcept_no = ctx
+        key = (rcept_no, markup, features)
+        cached = cache.get(key)
         if cached is not None:
             return cached
         soup = self.original(markup, features, *args, **kwargs)
-        self.cache[key] = soup
+        cache[key] = soup
         return soup
+
+
+if not isinstance(notice_parser_mod.BeautifulSoup, _ContextSoupFactory):   # import 시 한 번만 감싼다
+    notice_parser_mod.BeautifulSoup = _ContextSoupFactory(notice_parser_mod.BeautifulSoup)
 
 
 @contextmanager
@@ -91,13 +100,11 @@ def _cached_notice_parser_soup(
     if soup_cache is None:
         yield
         return
-
-    original = notice_parser_mod.BeautifulSoup
-    notice_parser_mod.BeautifulSoup = _RequestLocalSoupFactory(original, soup_cache, rcept_no)
+    token = _SOUP_CTX.set((soup_cache, rcept_no))
     try:
         yield
     finally:
-        notice_parser_mod.BeautifulSoup = original
+        _SOUP_CTX.reset(token)
 
 
 _AGENDA_PROCEDURAL_PATTERNS = (
@@ -1087,18 +1094,33 @@ def _parse_notice_meeting_date(datetime_text: str) -> date | None:
         return None
 
 
+_BOARD_SCOPES = {"board", "full", "advise"}
+_COMPENSATION_SCOPES = {"compensation", "full", "advise"}
+
+
 def _parse_notice_bundle(
     text: str,
     html: str,
     *,
     rcept_no: str,
     soup_cache: dict[tuple[str, str, Any], Any] | None = None,
+    scope: str | None = None,
+    meeting_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """소집공고 한 건을 한 번에 파싱. **동기·CPU 작업**(22MB 공고면 4초) — 호출측은 `asyncio.to_thread` 로 내린다.
+
+    scope 를 주면 그 scope 가 쓰지 않는 표(임원 선임·보수한도)는 파싱하지 않는다 — `_needs_notice_viewer_fallback`
+    와 `include_*` 게이트가 같은 집합을 보므로 결과가 달라지지 않는다(260907 director_board 프로파일: SK 소집공고에서
+    personnel 0.8초·compensation 0.5초). scope=None 이면 종전처럼 전부.
+    """
+    want_board = scope is None or scope in _BOARD_SCOPES
+    want_comp = scope is None or scope in _COMPENSATION_SCOPES
     with _cached_notice_parser_soup(soup_cache, rcept_no):
-        meeting_info = parse_meeting_info_xml(text, html=html)
+        if meeting_info is None:
+            meeting_info = parse_meeting_info_xml(text, html=html)
         agenda = parse_agenda_xml(text, html=html)
-        board = parse_personnel_xml(html) if html else {"appointments": [], "summary": {}}
-        compensation = parse_compensation_xml(html) if html else {"items": [], "summary": {}}
+        board = parse_personnel_xml(html) if (html and want_board) else {"appointments": [], "summary": {}}
+        compensation = parse_compensation_xml(html) if (html and want_comp) else {"items": [], "summary": {}}
     return {
         "text": text,
         "html": html,
@@ -1152,11 +1174,16 @@ async def _load_notice_bundle_with_fallback(
 ) -> tuple[dict[str, Any], list[str], str]:
     client = get_dart_client()
     doc = await client.get_document_cached(rcept_no)
-    parsed = _parse_notice_bundle(
+    # 260907: 22MB 공고 파싱 4초가 이벤트 루프를 통째로 잡아 /health(15초 timeout)까지 굶겼다 — 워커 스레드로.
+    known_info = (_INFO_CTX.get() or {}).get(rcept_no)   # 후보 분류가 같은 API 원문을 이미 파싱했으면 재사용
+    parsed = await asyncio.to_thread(
+        _parse_notice_bundle,
         doc.get("text", ""),
         doc.get("html", ""),
         rcept_no=rcept_no,
         soup_cache=soup_cache,
+        scope=scope,
+        meeting_info=known_info,
     )
     reasons = _needs_notice_viewer_fallback(parsed, scope=scope)
     warnings: list[str] = []
@@ -1179,11 +1206,13 @@ async def _load_notice_bundle_with_fallback(
         warnings.append(f"DART viewer HTML 수집 fallback도 실패했다: {exc}")
         return parsed, warnings, source_used
 
-    viewer_parsed = _parse_notice_bundle(
+    viewer_parsed = await asyncio.to_thread(
+        _parse_notice_bundle,
         viewer_doc.get("text", ""),
         viewer_doc.get("html", ""),
         rcept_no=rcept_no,
         soup_cache=soup_cache,
+        scope=scope,
     )
     improved = False
 
@@ -1227,7 +1256,10 @@ async def _notice_info_with_fallback(
     text: str,
     html: str,
 ) -> tuple[dict[str, Any], str]:
-    meeting_info = parse_meeting_info_xml(text, html=html)
+    meeting_info = await asyncio.to_thread(parse_meeting_info_xml, text, html=html)   # 1초짜리 동기 파싱 — 루프 밖으로
+    memo = _INFO_CTX.get()
+    if memo is not None:
+        memo[rcept_no] = meeting_info
     if meeting_info.get("meeting_type") and meeting_info.get("datetime"):
         return meeting_info, "dart_xml"
 
@@ -1240,7 +1272,7 @@ async def _notice_info_with_fallback(
     except Exception:
         return meeting_info, "dart_xml"
 
-    viewer_info = parse_meeting_info_xml(viewer_doc.get("text", ""), html=viewer_doc.get("html", ""))
+    viewer_info = await asyncio.to_thread(parse_meeting_info_xml, viewer_doc.get("text", ""), html=viewer_doc.get("html", ""))
     if viewer_info.get("meeting_type") or viewer_info.get("datetime"):
         return viewer_info, "dart_html"
     return meeting_info, "dart_xml"
@@ -1887,6 +1919,7 @@ async def load_shareholder_meeting_agenda_titles(
         return []
 
     soup_cache: dict[tuple[str, str, Any], Any] = {}
+    _INFO_CTX.set({})
     selected_candidate, _alternatives, _basis, _candidate_error, _candidate_notices = await _select_notice_candidate(
         selected["corp_code"],
         year,
@@ -1983,6 +2016,7 @@ async def build_shareholder_meeting_payload(
 
     target_year = year
     soup_cache: dict[tuple[str, str, Any], Any] = {}
+    _INFO_CTX.set({})
     requested_window_start, requested_window_end, window_warnings = _selection_window(
         target_year,
         start_date=start_date,
