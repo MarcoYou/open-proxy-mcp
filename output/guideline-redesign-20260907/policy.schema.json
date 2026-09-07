@@ -1,0 +1,579 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OPM guideline redesign draft policy",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_version",
+    "policy_id",
+    "policy_version",
+    "language",
+    "prepared_at",
+    "runtime_enabled",
+    "effective_from",
+    "status",
+    "repository_head",
+    "scope",
+    "principles",
+    "source_registry",
+    "categories",
+    "metrics",
+    "rules",
+    "evaluation_contract",
+    "llm_contract",
+    "metric_supplements",
+    "institution_profiles",
+    "migration",
+    "local_input_hashes",
+    "category_support",
+    "review_authority",
+    "assessment_example"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "policy_id": {
+      "type": "string"
+    },
+    "policy_version": {
+      "type": "string"
+    },
+    "language": {
+      "type": "string"
+    },
+    "prepared_at": {
+      "type": "string"
+    },
+    "runtime_enabled": {
+      "const": false
+    },
+    "effective_from": {
+      "type": "null"
+    },
+    "status": {
+      "type": "string"
+    },
+    "repository_head": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "object"
+    },
+    "principles": {
+      "type": "array"
+    },
+    "source_registry": {
+      "type": "array"
+    },
+    "categories": {
+      "type": "object"
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "definition": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "availability": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "missing_policy": {
+            "type": "string"
+          },
+          "value_type": {
+            "enum": [
+              "number",
+              "integer",
+              "boolean",
+              "string"
+            ]
+          },
+          "source_tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowed_values": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "unit",
+          "definition",
+          "period",
+          "availability",
+          "method",
+          "missing_policy",
+          "value_type",
+          "source_tools"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z][0-9]{2}$"
+          },
+          "category": {
+            "enum": [
+              "cross_cutting",
+              "financial_statements",
+              "cash_dividend",
+              "articles_amendment",
+              "director_election",
+              "audit_committee_election",
+              "director_compensation",
+              "audit_compensation",
+              "retirement_pay",
+              "stock_option_grant",
+              "treasury_share",
+              "merger",
+              "spin_off",
+              "capital_increase_decrease",
+              "cb_bw",
+              "shareholder_proposal"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "normative_origin": {
+            "const": "opm_proposal"
+          },
+          "status": {
+            "const": "draft"
+          },
+          "policy_intent": {
+            "type": "string"
+          },
+          "evaluation_mode": {
+            "enum": [
+              "hybrid",
+              "deterministic"
+            ]
+          },
+          "required_metrics": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "law.compliance",
+                "financial.audit_opinion",
+                "financial.capital_impaired",
+                "financial.approval_ready",
+                "dividend.payout_pct",
+                "dividend.funding_gap",
+                "dividend.underpayment_harm",
+                "dividend.policy_consistent",
+                "articles.rights_reduction",
+                "articles.justification_accepted",
+                "articles.rights_improvement",
+                "director.attendance_pct",
+                "director.attendance_complete",
+                "director.attendance_exception",
+                "director.role",
+                "director.related_employment_within_5y",
+                "director.total_outside_boards",
+                "director.accountable_harm",
+                "director.fitness_accepted",
+                "audit.independence_compromised",
+                "audit.non_audit_fee_ratio",
+                "pay.limit_increase_pct",
+                "pay.prior_utilization_pct",
+                "pay.performance_misaligned",
+                "pay.justification_accepted",
+                "audit.pay_impairs_function",
+                "retirement.excess_benefit",
+                "option.repricing_harm",
+                "treasury.action",
+                "treasury.cancellation_terms_accepted",
+                "treasury.unfair_disposal",
+                "deal.related_party",
+                "deal.minority_safeguards",
+                "deal.fair_value_accepted",
+                "spin.subsidiary_listing",
+                "capital.dilution_pct",
+                "capital.unfair_allocation",
+                "capital.proportionate_fair",
+                "convertible.transfer_harm",
+                "proposal.long_term_value",
+                "proposal.material_harm",
+                "director.is_reelection",
+                "director.independence_required",
+                "dividend.payout_comparable",
+                "audit.has_relevant_service_5y"
+              ]
+            }
+          },
+          "applies_when": {
+            "$ref": "#/$defs/expression"
+          },
+          "when": {
+            "$ref": "#/$defs/expression"
+          },
+          "exception": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/expression"
+              }
+            ]
+          },
+          "effect": {
+            "type": "object",
+            "required": [
+              "recommended_vote",
+              "requires_review",
+              "reason_code"
+            ],
+            "properties": {
+              "recommended_vote": {
+                "enum": [
+                  "FOR",
+                  "AGAINST",
+                  "ABSTAIN",
+                  "NO_RECOMMENDATION"
+                ]
+              },
+              "requires_review": {
+                "type": "boolean"
+              },
+              "reason_code": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "on_missing": {
+            "const": "incomplete"
+          },
+          "on_exception": {
+            "const": "review_without_automatic_reversal"
+          },
+          "source_refs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "enum": [
+                "NPS26",
+                "SAM25",
+                "MIR26",
+                "KIM",
+                "FSC-SPLIT",
+                "FSC-ESG",
+                "OPM-DOC",
+                "OPM-ENGINE",
+                "OPM-LAW",
+                "OPM-POLICIES"
+              ]
+            }
+          },
+          "review_questions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "category",
+          "title",
+          "normative_origin",
+          "status",
+          "policy_intent",
+          "evaluation_mode",
+          "required_metrics",
+          "applies_when",
+          "when",
+          "exception",
+          "effect",
+          "on_missing",
+          "on_exception",
+          "source_refs",
+          "review_questions"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "evaluation_contract": {
+      "type": "object"
+    },
+    "llm_contract": {
+      "type": "object"
+    },
+    "metric_supplements": {
+      "type": "array"
+    },
+    "institution_profiles": {
+      "type": "array"
+    },
+    "migration": {
+      "type": "object"
+    },
+    "local_input_hashes": {
+      "type": "object"
+    },
+    "category_support": {
+      "type": "object"
+    },
+    "review_authority": {
+      "type": "array"
+    },
+    "assessment_example": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "expression": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "value"
+          ],
+          "properties": {
+            "op": {
+              "const": "const"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "args"
+          ],
+          "properties": {
+            "op": {
+              "enum": [
+                "all",
+                "any"
+              ]
+            },
+            "args": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/expression"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "args"
+          ],
+          "properties": {
+            "op": {
+              "const": "not"
+            },
+            "args": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "$ref": "#/$defs/expression"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "metric",
+            "value"
+          ],
+          "properties": {
+            "op": {
+              "enum": [
+                "eq",
+                "lt",
+                "lte",
+                "gt",
+                "gte"
+              ]
+            },
+            "metric": {
+              "enum": [
+                "law.compliance",
+                "financial.audit_opinion",
+                "financial.capital_impaired",
+                "financial.approval_ready",
+                "dividend.payout_pct",
+                "dividend.funding_gap",
+                "dividend.underpayment_harm",
+                "dividend.policy_consistent",
+                "articles.rights_reduction",
+                "articles.justification_accepted",
+                "articles.rights_improvement",
+                "director.attendance_pct",
+                "director.attendance_complete",
+                "director.attendance_exception",
+                "director.role",
+                "director.related_employment_within_5y",
+                "director.total_outside_boards",
+                "director.accountable_harm",
+                "director.fitness_accepted",
+                "audit.independence_compromised",
+                "audit.non_audit_fee_ratio",
+                "pay.limit_increase_pct",
+                "pay.prior_utilization_pct",
+                "pay.performance_misaligned",
+                "pay.justification_accepted",
+                "audit.pay_impairs_function",
+                "retirement.excess_benefit",
+                "option.repricing_harm",
+                "treasury.action",
+                "treasury.cancellation_terms_accepted",
+                "treasury.unfair_disposal",
+                "deal.related_party",
+                "deal.minority_safeguards",
+                "deal.fair_value_accepted",
+                "spin.subsidiary_listing",
+                "capital.dilution_pct",
+                "capital.unfair_allocation",
+                "capital.proportionate_fair",
+                "convertible.transfer_harm",
+                "proposal.long_term_value",
+                "proposal.material_harm",
+                "director.is_reelection",
+                "director.independence_required",
+                "dividend.payout_comparable",
+                "audit.has_relevant_service_5y"
+              ]
+            },
+            "value": {
+              "type": [
+                "number",
+                "string",
+                "boolean"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "op",
+            "metric",
+            "value"
+          ],
+          "properties": {
+            "op": {
+              "const": "in"
+            },
+            "metric": {
+              "enum": [
+                "law.compliance",
+                "financial.audit_opinion",
+                "financial.capital_impaired",
+                "financial.approval_ready",
+                "dividend.payout_pct",
+                "dividend.funding_gap",
+                "dividend.underpayment_harm",
+                "dividend.policy_consistent",
+                "articles.rights_reduction",
+                "articles.justification_accepted",
+                "articles.rights_improvement",
+                "director.attendance_pct",
+                "director.attendance_complete",
+                "director.attendance_exception",
+                "director.role",
+                "director.related_employment_within_5y",
+                "director.total_outside_boards",
+                "director.accountable_harm",
+                "director.fitness_accepted",
+                "audit.independence_compromised",
+                "audit.non_audit_fee_ratio",
+                "pay.limit_increase_pct",
+                "pay.prior_utilization_pct",
+                "pay.performance_misaligned",
+                "pay.justification_accepted",
+                "audit.pay_impairs_function",
+                "retirement.excess_benefit",
+                "option.repricing_harm",
+                "treasury.action",
+                "treasury.cancellation_terms_accepted",
+                "treasury.unfair_disposal",
+                "deal.related_party",
+                "deal.minority_safeguards",
+                "deal.fair_value_accepted",
+                "spin.subsidiary_listing",
+                "capital.dilution_pct",
+                "capital.unfair_allocation",
+                "capital.proportionate_fair",
+                "convertible.transfer_harm",
+                "proposal.long_term_value",
+                "proposal.material_harm",
+                "director.is_reelection",
+                "director.independence_required",
+                "dividend.payout_comparable",
+                "audit.has_relevant_service_5y"
+              ]
+            },
+            "value": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": [
+                  "number",
+                  "string",
+                  "boolean"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
