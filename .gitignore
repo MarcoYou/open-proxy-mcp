@@ -117,6 +117,8 @@ screenshot/*
 !screenshot/opm-readme-particle-flow-dark-ko-20260905.png
 !screenshot/opm-readme-particle-flow-light-en-20260906.png
 !screenshot/opm-readme-particle-flow-dark-en-20260906.png
+!screenshot/claude-resource-picker-ko-20260907.png
+!screenshot/claude-resource-picker-en-20260907.png
 scripts/*census*.py
 scripts/*census*.js
 scripts/*diagnos*.py

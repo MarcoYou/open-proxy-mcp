@@ -48,6 +48,18 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 将连接器命名为 `open-proxy-mcp`，并在新对话中选择它。具体可用范围可能因账户或工作区设置而异。
 
+#### 在 Claude 中打开提示词与资源
+
+点击聊天输入框中的 `+`，然后选择 `Connectors → Add from open-proxy-mcp`。
+
+<p align="center">
+  <img src="screenshot/claude-resource-picker-en-20260907.png" alt="在 Claude 英文界面中打开 OpenProxy 提示词与资源" width="900">
+</p>
+
+- `회사 한 장 요약`（公司概览）— 根据公司名称或股票代码启动分析流程的 MCP prompt
+- `OpenProxy 기능 안내`（功能指南）— 列出当前已注册工具与功能的 `tools_guide` resource
+- `Open Proxy Guideline` — 代理投票分析使用的政策原文
+
 ### 3. 发送第一个问题
 
 可以先问：`Show Samsung Electronics' company information and three recent filings.` 如果返回公司信息和披露列表，说明连接成功。之后可以继续使用自然语言提问，无需记住工具名称。
@@ -57,9 +69,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 更多示例问题请参阅[工具目录](wiki/tools/README.md)中的各个工具页面。
 
-在 Claude 中，依次选择 `+ → 连接器 → 从 open-proxy-mcp 添加 → OpenProxy 기능 안내`，即可将 `tools_guide`（`opm://tools_guide`）附加到当前对话。`Open Proxy Guideline` 也可以从同一菜单附加。功能指南会根据服务器注册的工具自动生成；需要使用时，由用户将相应资源附加到对话。
-
-在支持 MCP prompts 的客户端中，可以选择 `company_snapshot`（公司单页概览）并输入公司名称或股票代码。在 Claude 的同一菜单中，它显示为 `회사 한 장 요약`。它会引导 AI 汇总业务结构、三年实际业绩、最多两年的年度一致预期、估值、股权、分红、近期披露以及后续应核实的问题。表格会区分实际值（A）与预期值（E）；支持可视化的客户端还会生成营收柱状图和营业利润折线图。
+`OpenProxy 기능 안내` 会根据服务器注册的工具自动生成。`회사 한 장 요약` 会引导 AI 汇总业务结构、三年实际业绩、最多两年的年度一致预期、估值、股权、分红、近期披露以及后续应核实的问题。表格会区分实际值（A）与预期值（E）；支持可视化的客户端还会生成营收柱状图和营业利润折线图。
 
 ---
 
