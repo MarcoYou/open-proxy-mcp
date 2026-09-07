@@ -48,14 +48,27 @@ def test_parse_i001_structure_change_table():
 
 
 def test_period_metadata_handles_march_year_end_quarter():
+    # 260907: 결산월은 회사 정보로 준다. 3월 결산이라고 알려 주면 2025.04~06 은 2026 사업연도 1분기.
+    got = _period_metadata({"start": "2025-04-01", "end": "2025-06-30"}, fiscal_end_month=3)
+    assert (got["fiscal_year"], got["fiscal_year_end_month"], got["fiscal_quarter"], got["period_kind"]) == (2026, 3, 1, "quarter")
+    assert got["fiscal_year_end_month_source"] == "company" and got["comparison_basis"] == "전년동기 대비" and got["cumulative"] is False
+    # 결산월을 모르면 시작월에서 추정하지 않는다 — 12월 결산 기본값으로 2025 사업연도 2분기, 출처 default
     got = _period_metadata({"start": "2025-04-01", "end": "2025-06-30"})
-    assert got == {
-        "fiscal_year": 2026,
-        "fiscal_year_end_month": 3,
-        "period_kind": "quarter",
-        "fiscal_quarter": 1,
-        "comparison_basis": "전년동기 대비",
-    }
+    assert (got["fiscal_year"], got["fiscal_year_end_month"], got["fiscal_quarter"], got["fiscal_year_end_month_source"]) == (2025, 12, 2, "default")
+
+
+def test_period_metadata_quarters_follow_the_period_end_not_the_start():
+    """삼성전자 2025.07~09 실적이 「2026 사업연도 1분기 · 6월 결산」으로 나가던 결함(260907)."""
+    got = _period_metadata({"start": "2025-07-01", "end": "2025-09-30"}, fiscal_end_month=12)
+    assert (got["fiscal_year"], got["fiscal_quarter"]) == (2025, 3)
+    got = _period_metadata({"start": "2026-04-01", "end": "2026-06-30"}, fiscal_end_month=12)
+    assert (got["fiscal_year"], got["fiscal_quarter"]) == (2026, 2)
+    half = _period_metadata({"start": "2025-01-01", "end": "2025-06-30"}, fiscal_end_month=12)   # 반기 누적
+    assert (half["fiscal_quarter"], half["cumulative"], half["period_kind"]) == (2, True, "quarter")
+    month = _period_metadata({"start": "2026-04-01", "end": "2026-04-30"}, fiscal_end_month=12)  # 현대차 월별 판매실적
+    assert (month["period_kind"], month["period_month"], month["fiscal_quarter"], month["comparison_basis"]) == ("month", 4, 2, "전년동월 대비")
+    annual = _period_metadata({"start": "2025-07-01", "end": "2026-06-30"})                    # 연간은 끝 달이 결산월
+    assert (annual["fiscal_year"], annual["fiscal_year_end_month"], annual["fiscal_year_end_month_source"], annual["period_kind"]) == (2026, 6, "period", "annual")
 
 
 def test_period_metadata_handles_december_year_end_quarter():
@@ -143,3 +156,34 @@ def test_blank_ratio_cell_is_not_backfilled():
     op = parse_provisional_earnings(html, "매출액또는손익구조30%(대규모법인은15%)이상변동")["headline"]["operating_profit"]
     assert op["yoy_pct"] is None
     assert op["yoy_basis"] is None
+
+
+def test_period_from_quarter_text_when_filing_has_no_date_range():
+    """2025.07 삼성전자·LG전자 잠정실적엔 실적기간 표기가 없고 「2025년 2분기」 문구만 있다(260907)."""
+    from open_proxy_mcp.services.fiscal_period import period_from_quarter_text
+    got = period_from_quarter_text("3. 정정사유 2025년 2분기 연결재무제표 기준 영업(잠정)실적")
+    assert got == {"start": "2025-04-01", "end": "2025-06-30", "source": "quarter_text"}
+    assert period_from_quarter_text("행사명 2025년 반기 실적설명회")["start"] == "2025-01-01"
+    assert period_from_quarter_text("행사명 2025년 반기 실적설명회")["end"] == "2025-06-30"
+    # 3월 결산이면 2025 사업연도 1분기는 2024-04~06
+    assert period_from_quarter_text("2025년 1분기 실적", fiscal_end_month=3) == {"start": "2024-04-01", "end": "2024-06-30", "source": "quarter_text"}
+    assert period_from_quarter_text("정보제공 2025년 7월 31일") is None
+    md = _period_metadata(got, fiscal_end_month=12)
+    assert (md["fiscal_year"], md["fiscal_quarter"], md["period_kind"]) == (2025, 2, "quarter")
+
+
+def test_candidates_dedupe_and_push_attachment_only_corrections_last():
+    import asyncio
+    from open_proxy_mcp.services.provisional_earnings import _find_provisional_candidates
+
+    class _C:
+        async def search_filings(self, **kw):
+            return {"list": [
+                {"rcept_no": "3", "rcept_dt": "20250725", "report_nm": "[첨부정정]연결재무제표기준영업(잠정)실적(공정공시)"},
+                {"rcept_no": "2", "rcept_dt": "20250725", "report_nm": "[기재정정]연결재무제표기준영업(잠정)실적(공정공시)"},
+                {"rcept_no": "1", "rcept_dt": "20250707", "report_nm": "연결재무제표기준영업(잠정)실적(공정공시)"},
+            ]}
+
+    got = asyncio.run(_find_provisional_candidates(_C(), "00000000", "20250701", "20250815"))
+    assert [x["rcept_no"] for x in got] == ["2", "1", "3"]
+

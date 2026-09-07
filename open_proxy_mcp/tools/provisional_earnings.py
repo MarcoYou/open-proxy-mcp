@@ -43,14 +43,20 @@ def _render(p: dict) -> str:
     if d.get("fiscal_year"):
         if d.get("period_kind") == "annual":
             label = f"{d['fiscal_year']} 사업연도 {label}"
+        elif d.get("period_kind") == "month" and d.get("period_month"):
+            label = f"{d['fiscal_year']}년 {d['period_month']}월(월간) {label}"
         elif d.get("fiscal_quarter"):
-            label = f"{d['fiscal_year']} 사업연도 {d['fiscal_quarter']}분기 {label}"
+            q = f"{d['fiscal_quarter']}분기" + (" 누적" if d.get("cumulative") else "")
+            label = f"{d['fiscal_year']} 사업연도 {q} {label}"
     L = [f"## {subj} — {label}  ({rep.get('report_nm','')}, 공시 {rep.get('rcept_dt','')})"]
     basis = "연결" if d.get("consolidated") else "별도/개별"
     period_note = ""
     if d.get("fiscal_year_end_month"):
-        period_note = f" · {d['fiscal_year_end_month']}월 결산"
-    L.append(f"_{basis} · 실적기간 {per.get('start','?')}~{per.get('end','?')}{period_note} · 단위원문 {d.get('unit_raw','')}_")
+        src = "회사 등록" if d.get("fiscal_year_end_month_source") == "company" else "기본값·회사 정보 없음"
+        period_note = f" · {d['fiscal_year_end_month']}월 결산({src})"
+    # 공시일과 실적기간은 다른 정보다 — 둘을 한 줄에 나란히 적는다(260907)
+    per_src = "(원문의 분기 표기에서 계산)" if per.get("source") == "quarter_text" else ""
+    L.append(f"_{basis} · 공시일 {rep.get('rcept_dt','?')} · 실적기간 {per.get('start','?')}~{per.get('end','?')}{per_src}{period_note} · 단위원문 {d.get('unit_raw','')}_")
 
     # headline(best-effort): 재무형이면 매출·영업익·순익 당기+기간에 맞는 비교율
     head = d.get("headline") or {}

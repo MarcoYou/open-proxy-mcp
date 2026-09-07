@@ -45,8 +45,15 @@ def fiscal_quarter_from_end(period_end: str | None, fiscal_end_month: int | None
     return (offset_months // 3) + 1
 
 
-def period_metadata(period: dict[str, str] | None, *, annual: bool = False) -> dict[str, Any]:
-    """실적기간을 사업연도·분기·비교 기준으로 정규화한다."""
+def period_metadata(period: dict[str, str] | None, *, annual: bool = False,
+                    fiscal_end_month: int | None = None) -> dict[str, Any]:
+    """실적기간을 사업연도·분기·비교 기준으로 정규화한다.
+
+    260907 정정: 종전엔 결산월을 **실적기간 시작월에서 추정**했다(`start.month - 1`). 그러면 모든 분기가 그 사업연도의
+    1분기가 된다 — 삼성전자 2025.07~09 실적이 「2026 사업연도 1분기 · 6월 결산」으로 나갔다. 결산월은 회사 정보(DART
+    `acc_mt`)에서 받고, 모르면 12월(상장사 대다수)로 두며, 추정하지 않는다. 사업연도는 프로젝트 관례대로 **끝나는 해**
+    (`fiscal_year_from_end`), 분기는 **종료월** 기준(`fiscal_quarter_from_end`). 100일을 넘는 기간은 누적(반기·3분기 누적).
+    """
     if not period:
         return {}
     try:
@@ -54,17 +61,24 @@ def period_metadata(period: dict[str, str] | None, *, annual: bool = False) -> d
         end = date.fromisoformat(period["end"])
     except (KeyError, TypeError, ValueError):
         return {}
-    fiscal_end_month = end.month if annual else (12 if start.month == 1 else start.month - 1)
     duration_days = (end - start).days + 1
-    kind = "annual" if annual or duration_days >= 300 else "quarter"
-    offset = (start.month - fiscal_end_month - 1) % 12
-    fiscal_year = end.year if annual or end.month <= fiscal_end_month else end.year + 1
+    # 45일 이하면 월간(현대차 월별 판매실적처럼 한 달짜리 공시) — 분기 라벨을 붙이면 4월 실적이 「2분기」로 읽힌다(260907)
+    kind = "annual" if annual or duration_days >= 300 else ("month" if duration_days <= 45 else "quarter")
+    if fiscal_end_month and 1 <= fiscal_end_month <= 12:
+        fem, src = fiscal_end_month, "company"
+    elif kind == "annual":
+        fem, src = end.month, "period"        # 연간 기간의 끝 달은 곧 결산월 — 이건 추정이 아니라 정의다
+    else:
+        fem, src = 12, "default"              # 분기 기간에서는 결산월을 알 수 없다 — 추정하지 않는다
     return {
-        "fiscal_year": fiscal_year,
-        "fiscal_year_end_month": fiscal_end_month,
+        "fiscal_year": fiscal_year_from_end(end.isoformat(), fem),
+        "fiscal_year_end_month": fem,
+        "fiscal_year_end_month_source": src,
         "period_kind": kind,
-        "fiscal_quarter": (offset // 3) + 1 if kind == "quarter" else None,
-        "comparison_basis": "직전사업연도 대비" if kind == "annual" else "전년동기 대비",
+        "fiscal_quarter": fiscal_quarter_from_end(end.isoformat(), fem) if kind in ("quarter", "month") else None,
+        "period_month": end.month if kind == "month" else None,
+        "cumulative": kind == "quarter" and duration_days > 100,
+        "comparison_basis": {"annual": "직전사업연도 대비", "month": "전년동월 대비"}.get(kind, "전년동기 대비"),
     }
 
 
@@ -103,3 +117,46 @@ def fiscal_period_label(fiscal_year: int | None, fiscal_end_month: int | None) -
     if fiscal_end_month == 12:
         return f"{start}~{end}"
     return f"{start}~{end} · {fiscal_end_month}월 결산"
+
+
+_QUARTER_TEXT = re.compile(r"(20\d{2})\s*년\s*(?:제?\s*)?(?:(1|2|3|4)\s*분기|(상반기|반기|하반기|1분기 누적|3분기 누적))")
+
+
+def period_from_quarter_text(text: str, fiscal_end_month: int | None = None) -> dict[str, str] | None:
+    """「2025년 2분기」·「2025년 반기」 같은 문구에서 실적기간을 만든다 — 원문에 날짜 범위가 없는 잠정실적(260907).
+
+    2025.07 삼성전자·LG전자 공시는 실적기간 표기가 없고 정정사유·행사명에 「2025년 2분기」만 있다. 결산월(기본 12월)로
+    그 사업연도의 12개월을 잡고(`fiscal_year_span`) 분기 순번대로 3개월을 자른다. 반기·상반기는 1~2분기 누적,
+    하반기는 3~4분기. 문구가 없거나 결산월을 모르는 채 사업연도 해석이 갈리는 자리면 None — 추정하지 않는다.
+    """
+    if not text:
+        return None
+    m = _QUARTER_TEXT.search(text)
+    if not m:
+        return None
+    fy = int(m.group(1))
+    fem = fiscal_end_month if fiscal_end_month and 1 <= fiscal_end_month <= 12 else 12
+    span = fiscal_year_span(fy, fem)
+    if not span:
+        return None
+    fy_start = date.fromisoformat(span[0])
+    word = m.group(3)
+    if m.group(2):
+        q_from = q_to = int(m.group(2))
+    elif word in ("상반기", "반기"):
+        q_from, q_to = 1, 2
+    elif word == "하반기":
+        q_from, q_to = 3, 4
+    elif word == "1분기 누적":
+        q_from, q_to = 1, 1
+    else:  # 3분기 누적
+        q_from, q_to = 1, 3
+
+    def _add_months(d: date, n: int) -> date:
+        y, mo = divmod(d.month - 1 + n, 12)
+        return date(d.year + y, mo + 1, 1)
+
+    start = _add_months(fy_start, 3 * (q_from - 1))
+    end = _add_months(fy_start, 3 * q_to) - timedelta(days=1)
+    return {"start": start.isoformat(), "end": end.isoformat(), "source": "quarter_text"}
+
