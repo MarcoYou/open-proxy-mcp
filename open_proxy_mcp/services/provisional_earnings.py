@@ -21,7 +21,7 @@ from bs4 import BeautifulSoup
 from open_proxy_mcp.services.company import resolve_company_query
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
 from open_proxy_mcp.services.segment_candidates import _table_to_grid
-from open_proxy_mcp.services.fiscal_period import period_metadata
+from open_proxy_mcp.services.fiscal_period import period_from_quarter_text, period_metadata
 from open_proxy_mcp.services.revenue_account import match_revenue_label
 
 # 기존 내부 테스트·호출부 호환 alias
@@ -176,11 +176,11 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
     return head
 
 
-def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
+def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int | None = None) -> dict[str, Any]:
     """영업(잠정)실적 원문 → markdown-primary. table_markdown(항상, colspan확장) + headline(best-effort).
     재무형=매출/영업익 표, 비재무형(자동차 판매대수 등)=도메인 표. 둘 다 table_markdown이 통째로 담음."""
     if _is_structure_change_report(report_nm):
-        return _parse_structure_change(html)
+        return _parse_structure_change(html, fiscal_end_month=fiscal_end_month)
 
     soup = BeautifulSoup(html, "lxml")
     text = soup.get_text(" ", strip=True)
@@ -193,13 +193,14 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
         period = {"start": pm.group(1), "end": pm.group(2)}
     else:
         ym = re.search(r"(\d{4})[.-](\d{2})\s*~\s*(\d{4})[.-](\d{2})", text)
-        period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"} if ym else None
+        period = ({"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"} if ym
+                  else period_from_quarter_text(text, fiscal_end_month))   # 날짜 범위가 없으면 「2025년 2분기」 문구에서(260907)
 
     tables = soup.find_all("table")
     correction_headline = _correction_headline(soup, factor) if "정정" in (report_nm or "") else {}
     if correction_headline:
         return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
-                **_period_metadata(period), "kind": "financial", "correction": True,
+                **_period_metadata(period, fiscal_end_month=fiscal_end_month), "kind": "financial", "correction": True,
                 "headline": correction_headline,
                 "table_markdown": "\n\n".join(p for p in (_clean_render(t) for t in tables) if p)[:6000] or None}
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
@@ -217,7 +218,7 @@ def parse_provisional_earnings(html: str, report_nm: str) -> dict[str, Any]:
         table_markdown = "\n\n".join(p for p in parts if p)
     table_markdown = (table_markdown or "")[:6000] or None
     return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
-            **period_metadata(period), "kind": kind, "headline": headline,
+            **period_metadata(period, fiscal_end_month=fiscal_end_month), "kind": kind, "headline": headline,
             "table_markdown": table_markdown}
 
 
@@ -243,7 +244,7 @@ def _struct_column_map(row: list[str]) -> dict[str, int] | None:
     return roles if "value" in roles else None
 
 
-def _parse_structure_change(html: str) -> dict[str, Any]:
+def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> dict[str, Any]:
     """I001 「매출액 또는 손익구조 30% 이상 변경」 표를 같은 headline 계약으로 변환."""
     soup = BeautifulSoup(html, "lxml")
     text = soup.get_text(" ", strip=True)
@@ -317,13 +318,18 @@ def _parse_structure_change(html: str) -> dict[str, Any]:
 
     table_markdown = _clean_render(table)[:6000] if table is not None else None
     return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
-            **period_metadata(period, annual=True),
+            **period_metadata(period, annual=True, fiscal_end_month=fiscal_end_month),
             "kind": "financial", "provisional_type": "fiscal_year_change",
             "headline": headline, "table_markdown": table_markdown}
 
 
-async def _find_latest_provisional(client, corp_code: str, bgn_de: str, end_de: str) -> dict | None:
-    """I002와 I001 실적공시를 함께 검색하되 제목으로 엄격히 필터링."""
+def _is_attachment_only_correction(report_nm: str) -> bool:
+    """`[첨부정정]` 은 첨부파일만 바꾼 공시라 본문 document.xml 이 없다(DART 014) — 본문은 원래 공시에 있다(260907)."""
+    return "[첨부정정]" in (report_nm or "")
+
+
+async def _find_provisional_candidates(client, corp_code: str, bgn_de: str, end_de: str) -> list[dict]:
+    """창 안의 실적공시를 최신순으로 — `[첨부정정]` 은 뒤로 보낸다(본문이 없어 읽을 수 없으므로 마지막 수단)."""
     results = await asyncio.gather(
         client.search_filings(bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
                               pblntf_ty="I", pblntf_detail_ty="I002", page_count=40),
@@ -336,10 +342,17 @@ async def _find_latest_provisional(client, corp_code: str, bgn_de: str, end_de: 
             nm = item.get("report_nm", "")
             if _PROV_PAT.search(nm) or _is_structure_change_report(nm):
                 cands.append(item)
-    if not cands:
-        return None
+    seen: set[str] = set()
+    cands = [x for x in cands if not (x.get("rcept_no") in seen or seen.add(x.get("rcept_no")))]   # I001·I002 검색이 같은 건을 겹쳐 준다
     cands.sort(key=lambda x: x.get("rcept_dt", ""), reverse=True)
-    return cands[0]
+    cands.sort(key=lambda x: _is_attachment_only_correction(x.get("report_nm", "")))   # 안정 정렬 — 최신순 유지한 채 첨부정정만 뒤로
+    return cands
+
+
+async def _find_latest_provisional(client, corp_code: str, bgn_de: str, end_de: str) -> dict | None:
+    """I002와 I001 실적공시를 함께 검색하되 제목으로 엄격히 필터링. 첨부정정보다 본문 있는 공시를 먼저."""
+    cands = await _find_provisional_candidates(client, corp_code, bgn_de, end_de)
+    return cands[0] if cands else None
 
 
 async def build_provisional_earnings_payload(
@@ -360,27 +373,48 @@ async def build_provisional_earnings_payload(
     bgn_de = start_date or (today_kst() - timedelta(days=months * 31)).strftime("%Y%m%d")
     end_de = end_date or today_kst().strftime("%Y%m%d")
     try:
-        rept = await _find_latest_provisional(client, corp["corp_code"], bgn_de, end_de)
+        cands = await _find_provisional_candidates(client, corp["corp_code"], bgn_de, end_de)
     except DartClientError as e:
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.ERROR,
                             subject=corp.get("corp_name", ""),
                             warnings=[f"공시 검색 실패(DART {getattr(e, 'status', '?')})"]).to_dict()
+    rept = cands[0] if cands else None
     if not rept:
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.NO_FILING,
                             subject=corp.get("corp_name", ""),
                             warnings=[(f"{bgn_de}~{end_de} 창에 영업(잠정)실적 공시 없음" if (start_date or end_date)
                                        else f"최근 {months}개월 영업(잠정)실적 공시 없음") + " — 창을 넓히거나(months·start_date) financial_metrics 확정치로"]).to_dict()
     url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rept['rcept_no']}"
+    extra_warnings: list[str] = []
     try:
-        doc = await client.get_document_cached(rept["rcept_no"])
+        doc = None
+        for i, cand in enumerate(cands):
+            try:
+                doc = await client.get_document_cached(cand["rcept_no"])
+            except DartClientError as e:
+                if str(getattr(e, "status", "")) != "014" or i == len(cands) - 1:
+                    raise
+                # 본문 없는 공시(첨부정정 등) — 다음 후보로 넘어가되 사용자에게 무엇을 건너뛰었는지 말한다
+                extra_warnings.append(f"{cand.get('rcept_dt','')} 「{(cand.get('report_nm') or '').strip()}」 은 본문이 없어 건너뜀")
+                continue
+            rept = cand
+            url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rept['rcept_no']}"
+            break
         html = doc.get("html", "") if isinstance(doc, dict) else ""
-        parsed = parse_provisional_earnings(html, rept.get("report_nm", ""))
+        fem = None
+        try:
+            ci = await client.get_company_info(corp["corp_code"])
+            fem = int(str(ci.get("acc_mt") or "").strip() or 0) or None
+        except Exception:  # noqa: BLE001 — 회사 정보가 안 오면 12월 기본값(라벨에 출처를 적는다)
+            fem = None
+        parsed = parse_provisional_earnings(html, rept.get("report_nm", ""), fiscal_end_month=fem)
     except Exception as e:
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.ERROR,
                             subject=corp.get("corp_name", ""),
                             data={"report": {"rcept_no": rept["rcept_no"], "url": url}},
-                            warnings=[f"원문 파싱 실패: {type(e).__name__}"]).to_dict()
-    warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)"]
+                            warnings=[f"원문 파싱 실패: {type(e).__name__}"
+                                      + (f"(DART {getattr(e, 'status', '')})" if isinstance(e, DartClientError) else "")]).to_dict()
+    warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)", *extra_warnings]
     if parsed.get("kind") == "non_financial":
         warnings.append("표준 재무표(매출/영업이익) 미기재 — 도메인 실적표(지역별매출·판매대수·수주·판매량 등)로 공시, table_markdown 참조")
     data = {
