@@ -87,3 +87,25 @@ def test_candidate_classification_parses_the_slice_not_the_whole_document(monkey
     sm._INFO_CTX.set({})
     asyncio.run(sm._notice_info_with_fallback("1", "t", _DOC))
     assert 0 < seen["html_len"] < len(_DOC) // 2
+
+
+def test_correction_summary_is_only_parsed_for_correction_notices(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sm, "parse_corrections_xml", lambda html: calls.append(1) or {"is_correction": True, "items": []})
+    monkeypatch.setattr(sm, "parse_meeting_info_xml", lambda text, html=None: {"meeting_type": "정기", "is_correction": text.startswith("정정신고")})
+    monkeypatch.setattr(sm, "parse_agenda_xml", lambda text, html=None: [])
+    sm._parse_notice_bundle("소집공고 본문", _HTML, rcept_no="1", scope="agenda")
+    assert calls == []
+    out = sm._parse_notice_bundle("정정신고 (보고) 본문", _HTML, rcept_no="2", scope="agenda")
+    assert calls == [1] and out["correction"]["is_correction"] is True
+
+
+def test_agenda_details_are_parsed_once_per_request_and_copies_are_independent(monkeypatch):
+    calls = []
+    monkeypatch.setattr(parser_mod, "_parse_agenda_details_xml_impl", lambda html: calls.append(1) or [{"number": "제1호", "sections": []}])
+    with sm._cached_notice_parser_soup({}, "1"):
+        a = parser_mod.parse_agenda_details_xml(_HTML); b = parser_mod.parse_agenda_details_xml(_HTML)
+        a[0]["number"] = "바꿈"
+    assert calls == [1] and b[0]["number"] == "제1호"
+    parser_mod.parse_agenda_details_xml(_HTML)             # 컨텍스트 밖 — 메모 없음
+    assert calls == [1, 1]

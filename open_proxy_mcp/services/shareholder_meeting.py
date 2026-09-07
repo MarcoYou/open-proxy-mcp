@@ -101,9 +101,11 @@ def _cached_notice_parser_soup(
         yield
         return
     token = _SOUP_CTX.set((soup_cache, rcept_no))
+    details_token = notice_parser_mod._DETAILS_MEMO.set(({}, rcept_no))
     try:
         yield
     finally:
+        notice_parser_mod._DETAILS_MEMO.reset(details_token)
         _SOUP_CTX.reset(token)
 
 
@@ -1129,7 +1131,9 @@ def _parse_notice_bundle(
         "agenda_valid": validate_agenda_result(agenda),
         "board": board,
         "compensation": compensation,
-        "correction": _correction_summary(html) if html else None,
+        # 정정공고일 때만 정정 요약을 읽는다 — 머리 500자의 「정정신고」 판정과 정정 파서의 유무가 캐시 158건에서
+        # 전부 일치했다(260907). 비정정 공고에서 5.4MB 트리를 한 번 더 만들던 1.4초가 사라진다.
+        "correction": _correction_summary(html) if (html and meeting_info.get("is_correction")) else None,
     }
 
 
