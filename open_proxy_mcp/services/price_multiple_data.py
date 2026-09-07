@@ -339,8 +339,18 @@ def _attach_div(row: dict, key: tuple, act: dict, fwd: dict) -> None:
         row["fwd_div_n_dps"] = f.get("n_dps")
 
 
-async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
-    """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신 + 주간 히스토리(opm_val_market)."""
+def _norm_as_of(as_of) -> str | None:
+    """YYYYMMDD 또는 YYYY-MM-DD → YYYYMMDD. 빈 값은 None. 형식이 틀리면 ValueError."""
+    v = (as_of or "").strip().replace("-", "")
+    if not v:
+        return None
+    if not (len(v) == 8 and v.isdigit()):
+        raise ValueError(f"as_of 는 YYYYMMDD 또는 YYYY-MM-DD 여야 합니다 (받은 값: {as_of})")
+    return v
+
+
+async def build_market_val_payload(format: str = "md", as_of: str | None = None) -> dict[str, Any]:
+    """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신(또는 as_of 이하 최근 스냅샷) + 주간 히스토리(opm_val_market)."""
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref, ni_fy0 "
         "FROM opm_val_market WHERE sector='_ALL' AND scheme='market' ORDER BY snap_dd DESC, market")
@@ -356,14 +366,22 @@ async def build_market_val_payload(format: str = "md") -> dict[str, Any]:
              "cap_krw": r[6], "ni_ttm_krw": r[7], "eq_krw": r[8],
              "cap_pref_krw": r[9] if len(r) > 9 else None,
              "ni_fy0_krw": r[10] if len(r) > 10 else None} for r in rows]
-    latest_dd = hist[0]["snap_dd"]
+    if as_of:
+        # 260907: 과거 시점 — as_of 이하 가장 최근 주간 스냅샷. 히스토리는 그대로 다 준다.
+        past = [h for h in hist if h["snap_dd"] <= as_of]
+        if not past:
+            return {"tool": "price_multiple_data", "status": "no_data", "subject": "시장 밸류에이션",
+                    "warnings": [f"기준일 {as_of} 이하 스냅샷 없음 — 가장 이른 스냅샷은 {hist[-1]['snap_dd']}."]}
+        latest_dd = past[0]["snap_dd"]
+    else:
+        latest_dd = hist[0]["snap_dd"]
     latest = [h for h in hist if h["snap_dd"] == latest_dd]
     # 260831: 배당수익률 두 벌을 같은 표에 얹는다. 키는 (market, 'ALL').
     div_act, div_fwd, div_ruler = await _div_yield_map("market")
     for h in latest:
         _attach_div(h, (h["market"], "ALL"), div_act, div_fwd)
     return {"tool": "price_multiple_data", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
-            "data": {"scope": "market", "as_of": latest_dd,
+            "data": {"scope": "market", "as_of": latest_dd, "as_of_requested": as_of,
                      "latest": latest,
                      "history": hist,
                      "div_yield_ruler": div_ruler or None,
@@ -389,25 +407,28 @@ _SECTOR_SCHEMES = {
 
 
 async def build_sector_val_payload(company: str = "", format: str = "md",
-                                   scheme: str = "wics_industry") -> dict[str, Any]:
+                                   scheme: str = "wics_industry", as_of: str | None = None) -> dict[str, Any]:
     """산업별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(opm_val_market).
     company 지정 시 그 기업의 섹터를 함께 표시. scheme 으로 분류 축 선택."""
     scheme = (scheme or "wics_industry").strip().lower()
     if scheme not in _SECTOR_SCHEMES:
         return {"tool": "price_multiple_data", "status": "invalid", "subject": "산업별 밸류에이션",
                 "warnings": [f"scheme '{scheme}' 없음 — {' / '.join(_SECTOR_SCHEMES)} 중 선택."]}
+    # 260907: as_of 가 있으면 그 이하 가장 최근 스냅샷 (과거 시점 비교)
+    sub = "SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL' AND scheme=%s" + (" AND snap_dd <= %s" if as_of else "")
+    params: tuple = (scheme, scheme, as_of) if as_of else (scheme, scheme)
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0, "
         "ni_fy0, ni_ttm FROM opm_val_market "
         "WHERE sector != '_ALL' AND scheme=%s "
-        "AND snap_dd=(SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL' AND scheme=%s) "
-        "ORDER BY market, cap DESC", (scheme, scheme))
+        f"AND snap_dd=({sub}) "
+        "ORDER BY market, cap DESC", params)
     if rows is None:
         return {"tool": "price_multiple_data", "status": "db_error", "subject": "산업별 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": "산업별 밸류에이션",
-                "warnings": ["opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
+                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else "opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
     as_of = rows[0][0]
     sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
                 "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
@@ -695,6 +716,28 @@ def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
         prev_q = pt.get("pit_q")
         out.append(pt)
     return out
+
+
+async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
+    """종목의 **과거 시점** 배수 — firm_history 의 전 구간 주간 곡선(krx_weekly 2015~ × DART 재무 PIT)에서 as_of 이하
+    가장 최근 점 하나. `opm_val_firm` 은 최근 10주만 있어 과거로 못 간다(260907 실측: 20260703~20260904).
+    scope=firm 의 실시간 계산(DART×krx)은 과거로 못 가므로 곡선으로 답한다."""
+    hist = await build_firm_history_payload(company, format="json")
+    if hist.get("status") != "ok":
+        return hist
+    d = hist["data"]
+    pts = [p for p in (d.get("series") or []) if str(p.get("asof", "")) <= as_of]
+    if not pts:
+        first = (d.get("series") or [{}])[0].get("asof")
+        return {"tool": "price_multiple_data", "status": "no_data", "subject": hist.get("subject", company),
+                "warnings": [f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {first}. 기준일을 비우면 현재 값."]}
+    p = pts[-1]
+    return {"tool": "price_multiple_data", "status": "ok", "subject": hist.get("subject", company),
+            "data": {"scope": "firm_at", "ticker": d.get("ticker"), "as_of_requested": as_of, "as_of": p["asof"],
+                     "market": d.get("market"), "sector": d.get("sector") or d.get("induty"),
+                     "pit_fy": p.get("pit_fy"), "pit_q": p.get("pit_q"), "cap_krw": p.get("cap_krw"),
+                     "per_fy0": p.get("per_fy0"), "per_ttm": p.get("per_ttm"), "pbr_fy0": p.get("pbr"), "pbr_mrq": p.get("pbr_mrq")},
+            "warnings": [f"주간 스냅샷(주 마지막 거래일 {p['asof']}) · 재무는 그 시점까지 공시된 값(FY0={p.get('pit_fy')}, 분기={p.get('pit_q')}) · 배당수익률은 과거 시점 미제공."]}
 
 
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
