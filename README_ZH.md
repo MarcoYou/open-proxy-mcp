@@ -57,9 +57,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 更多示例问题请参阅[工具目录](wiki/tools/README.md)中的各个工具页面。
 
-在支持 MCP resources 的客户端中，可以选择打开 `tools_guide`（`opm://tools_guide`），查看当前提供的工具及其说明。该指南会根据服务器注册的工具自动生成。部分聊天连接器不会在界面中显示 MCP resources；如果无法使用，请像上文一样直接用自然语言提问，或参阅[工具目录](wiki/tools/README.md)。
+在 Claude 中，依次选择 `+ → 连接器 → 从 open-proxy-mcp 添加 → OpenProxy 기능 안내`，即可将 `tools_guide`（`opm://tools_guide`）附加到当前对话。`Open Proxy Guideline` 也可以从同一菜单附加。功能指南会根据服务器注册的工具自动生成；需要使用时，由用户将相应资源附加到对话。
 
-在支持 MCP prompts 的客户端中，可以选择 `company_snapshot`（公司单页概览）并输入公司名称或股票代码。它会引导 AI 汇总业务结构、三年实际业绩、最多两年的年度一致预期、估值、股权、分红、近期披露以及后续应核实的问题。表格会区分实际值（A）与预期值（E）；支持可视化的客户端还会生成营收柱状图和营业利润折线图。
+在支持 MCP prompts 的客户端中，可以选择 `company_snapshot`（公司单页概览）并输入公司名称或股票代码。在 Claude 的同一菜单中，它显示为 `회사 한 장 요약`。它会引导 AI 汇总业务结构、三年实际业绩、最多两年的年度一致预期、估值、股权、分红、近期披露以及后续应核实的问题。表格会区分实际值（A）与预期值（E）；支持可视化的客户端还会生成营收柱状图和营业利润折线图。
 
 ---
 
