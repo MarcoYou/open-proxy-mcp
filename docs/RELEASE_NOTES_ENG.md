@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-07
 
+### No more literal "None" in `director_board` and `business_details`
+
+Empty notes rendered as `> None` and `[roster] None`, and the business-details footer leaked an internal diagnostic (`주석fetch=None`). Notes are now omitted when absent, and the roster cross-check warning, whose body was lost to a key typo, is back.
+
 ### `provisional_earnings` labels: fiscal year, quarter and year-end month fixed
 
 The year-end month used to be inferred from the period's start month, so every quarter came out as "Q1" (Samsung's 2025 Q3 read as "FY2026 Q1, June year-end"). The tool now uses the company's registered year-end month from DART and labels its source (company / default). The filing date and the results period are shown side by side on the second line, one-month periods read as "April 2026 (monthly)", and filings without an explicit date range derive the period from phrases such as "2025년 2분기". When the newest filing in the window is an attachment-only correction with no body, the tool falls back to the filing that has one.

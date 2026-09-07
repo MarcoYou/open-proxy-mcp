@@ -1391,7 +1391,7 @@ def _collect_data_quality_flags(data: dict[str, Any]) -> list[dict[str, Any]]:
         official = cc.get("official_outside_director_appointed") or 0
         if abs(ours - official) >= 3:
             flags.append({"scope": "roster", "kind": "crosscheck_mismatch", "severity": "warn",
-                          "상세": f"이름기반 사외이사 신규선임 비교({ours})와 DART 공식 집계({official})가 "
+                          "detail": f"이름기반 사외이사 신규선임 비교({ours})와 DART 공식 집계({official})가 "
                                     f"{abs(ours - official)} 차이 — 재선임/정의차 가능하나 임원현황 비교 신뢰도 낮음(공식값 우선)."})
 
     att = data.get("attendance") or {}

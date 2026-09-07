@@ -150,7 +150,7 @@ def _render(payload: dict[str, Any]) -> str:
                 )
             lines.append("")
             cc = roster.get("diff_cross_check")
-            if cc:
+            if cc and cc.get("note"):
                 lines.append(f"> {cc.get('note')}")
                 lines.append("")
 
@@ -175,8 +175,9 @@ def _render(payload: dict[str, Any]) -> str:
                     for p in with_breakdown:
                         lines.append(f"- **{p.get('name')}**: {p['breakdown_note']}")
                     lines.append("")
-        lines.append(f"> {indiv.get('note')}")
-        lines.append("")
+        if indiv.get("note"):
+            lines.append(f"> {indiv.get('note')}")
+            lines.append("")
 
     unreg = d.get("unregistered")
     if unreg:
@@ -239,8 +240,9 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append("> ⚠️ 부문 상세행과 '(합계)' 행이 함께 있는 회사는 급여가 상세행에 없어")
                 lines.append("> 합계행에만 실제 총액이 옴 — **합계행 외 다른 행과 합산 금지**(더블카운트).")
             lines.append("")
-        lines.append(f"> {gap.get('note')}")
-        lines.append("")
+        if gap.get("note"):
+            lines.append(f"> {gap.get('note')}")
+            lines.append("")
 
     agenda = d.get("pay_agenda")
     if agenda:
@@ -250,7 +252,8 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"- 근거 공고: 정기주총 소집공고 rcept {agenda.get('notice_rcept_no')}"
                          + (f" (회의일 {agenda.get('meeting_date')})" if agenda.get("meeting_date") else ""))
         if not agenda.get("proposed_limit_krw"):
-            lines.append(f"- {agenda.get('note')}")
+            if agenda.get("note"):
+                lines.append(f"- {agenda.get('note')}")
             if agenda.get("fallback_limit_recent_krw"):
                 chg = agenda.get("fallback_limit_change_pct")
                 lines.append(
@@ -266,8 +269,9 @@ def _render(payload: dict[str, Any]) -> str:
                          + (f" → **작년 소진율 {agenda.get('prior_utilization_pct')}%**" if agenda.get("prior_utilization_pct") is not None else ""))
             if agenda.get("signal"):
                 lines.append(f"- 🔎 {agenda.get('signal')}")
-        lines.append(f"> {agenda.get('note', '')}")
-        lines.append("")
+        if agenda.get("note"):
+            lines.append(f"> {agenda.get('note')}")
+            lines.append("")
 
     att = d.get("attendance")
     if att:
@@ -287,9 +291,10 @@ def _render(payload: dict[str, Any]) -> str:
             if low:
                 names = ", ".join(f"{d.get('name')}({d.get('attendance_pct')}%)" for d in low)
                 lines.append(f"- ⚠️ 출석률 저조: {names}")
-            lines.append(f"> {att.get('note', '')}")
+            if att.get("note"):
+                lines.append(f"> {att.get('note')}")
         else:
-            lines.append(f"- ⏳ {att.get('note')}")
+            lines.append(f"- ⏳ {att.get('note') or '출석률 원문을 아직 읽지 못함'}")
         lines.append("")
 
     pc = d.get("pay_criteria")
@@ -351,16 +356,18 @@ def _render(payload: dict[str, Any]) -> str:
                 for u in (arec.get("api_unmatched") or []):
                     lines.append(f"  - ❗ API 5억+ 공개자 **{u.get('name')}**({_won(u.get('api_total_krw'))})가 파서 개인목록에 없음 — 이름 병합/누락 의심")
                 lines.append("")
-            lines.append(f"> {pc.get('note', '')}")
-            lines.append(f"> {pc.get('unit_note', '')}")
+            for k in ("note", "unit_note"):
+                if pc.get(k):
+                    lines.append(f"> {pc.get(k)}")
         else:
-            lines.append(f"- ⏳ {pc.get('note')}")
+            lines.append(f"- ⏳ {pc.get('note') or '원문을 아직 읽지 못함'}")
         lines.append("")
 
     assess = d.get("assessment")
     if assess:
         lines.append("## 종합 신호")
-        lines.append(f"- 최근 소진율: {assess.get('latest_utilization_pct')}%")
+        _u = assess.get("latest_utilization_pct")
+        lines.append(f"- 최근 소진율: {f'{_u}%' if _u is not None else 'N/M(한도·실지급 중 하나 없음)'}")
         lines.append(f"- 등기이사 인당보수: {_won(assess.get('latest_per_capita_krw'))}")
         pcc = assess.get("per_capita_change_yoy")
         if pcc:
@@ -368,7 +375,8 @@ def _render(payload: dict[str, Any]) -> str:
         deps = assess.get("departures_detected") or []
         if deps:
             lines.append(f"- 감지된 이탈: {', '.join(c.get('name') for c in deps)}")
-        lines.append(f"> {assess.get('note', '')}")
+        if assess.get("note"):
+            lines.append(f"> {assess.get('note')}")
         lines.append("")
 
     # 데이터 품질 참고 — 파싱 신뢰도에 영향을 주는 신호를 종류별로 투명하게(120사 census 설계).
@@ -382,7 +390,7 @@ def _render(payload: dict[str, Any]) -> str:
             mark = "⚠️" if f.get("severity") == "warn" else "ℹ️"
             yr = f" {f['year']}" if f.get("year") else ""
             subj = f" {f['subject']}" if f.get("subject") else ""
-            lines.append(f"- {mark} [{f.get('scope')}{yr}]{subj} {f.get('detail')}")
+            lines.append(f"- {mark} [{f.get('scope')}{yr}]{subj} {f.get('detail') or f.get('kind') or ''}".rstrip())
             # 원문 폴백으로 해소된 각주 본문(정형 API가 못 주던 내용을 사업보고서 원문에서 복구).
             if f.get("resolved_text"):
                 lines.append(f"  - ↳ **원문 각주**: {f['resolved_text']}")

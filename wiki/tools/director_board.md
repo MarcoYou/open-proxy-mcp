@@ -416,6 +416,7 @@ sequenceDiagram
 | `hmvAuditIndvdlBySttus` (재사용) | pay_criteria 하이브리드 교차검증(파서 Σ vs API 공식총액) |
 
 ## 변경 이력
+- 2026-09-07: 비고가 없는 자리에 「> None」·「[roster] None」이 나가던 렌더 결함 — 비고 없으면 인용줄 생략, roster 교차검증 플래그의 키 오타(「상세」→detail) 수정. `tests/test_render_none_warts.py`.
 - 2026-09-04: `pay_agenda` 회차 선택을 최근 공고(auto) → **최근 정기주총 소집공고**(annual, E006, 13개월)로.
   임시주총만 있으면 `no_annual_notice` + warnings. 근거 공고 rcept·회의일 노출.
 - 2026-08-06: 검증 census·발견 경위 서술을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
