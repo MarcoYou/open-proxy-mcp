@@ -268,7 +268,7 @@ PER · PBR · 배당수익률. RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT 시계�
 | 데이터 | 출처 | 갱신 |
 |---|---|---|
 | 재무(순이익·자본·주식수·배당) | DART OpenAPI (전자공시 원문) | firm=실시간 / 스냅샷 원천=분기 배치 |
-| 주가·시총 | KRX 정보데이터시스템 → Supabase krx_weekly | 매일 수집(전일 종가), 주 마지막 거래일 보존 |
+| 주가·시총 | KRX 정보데이터시스템 → 주간 시세 저장분 | 매일 수집(전일 종가), 주 마지막 거래일 보존 |
 | 환율 | 한국은행 ECOS 매매기준율(공식) | 회계기말 고정값 캐시 |
 | 주간 스냅샷(시장·섹터·종목 히스토리) | 위 조합 재계산 | 매일 배치(주간 수렴) |
 
@@ -282,7 +282,7 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     fx, cur = i.get("fx_rate_to_krw"), i.get("functional_currency", "KRW")
     L = [f"# {p['subject']} 수치 근거 (계산 과정)", "",
          f"## 인풋과 출처",
-         f"- 주가: **{price:,}원** ({pdate} 종가 — KRX 일별시세, Supabase krx_weekly 서빙)",
+         f"- 주가: **{price:,}원** ({pdate} 종가 — KRX 일별시세, 주간 저장분 서빙)",
          f"- 지배순이익 FY0: {i['net_income_fy0_krw']:,}원 / TTM: "
          f"{i['net_income_ttm_krw']:,}원 (DART 재무제표 원문, 지배주주 귀속 계정)"
          if i.get("net_income_fy0_krw") is not None and i.get("net_income_ttm_krw") is not None else

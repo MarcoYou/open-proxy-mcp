@@ -17,6 +17,8 @@ _STATUS_TITLE = {
 }
 
 
+_PERIOD_KO = {"FY": "연간", "Q": "분기", "all": "연간+분기"}
+
 def _won(v: Any) -> str:
     """원 단위 정수를 사람이 읽는 자로. **자를 문구에 붙여** 숫자만 떼어가지 못하게 한다."""
     if v is None:
@@ -63,7 +65,7 @@ def _render(p: dict[str, Any]) -> str:
          f"- **빈칸**: {r.get('null_policy')}",
          f"- **출처**: {r.get('source')}",
          f"- 추정 행 {cov.get('estimate_rows')}개 / 스냅샷 전체 {cov.get('total_rows')}행 "
-         f"· bundle={'+'.join(d.get('bundle') or [])} · period_type={d.get('period_type')}"]
+         f"· 묶음 {'+'.join(d.get('bundle') or [])} · 기간 {_PERIOD_KO.get(d.get('period_type'), d.get('period_type'))}"]
 
     rows = d.get("rows") or []
     if rows:

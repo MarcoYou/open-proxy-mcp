@@ -1,11 +1,14 @@
 """OpenProxy MCP 서버 — MCPServer 진입점"""
 
 import argparse
+import faulthandler
 import hmac
 import logging
 import os
 import re
+import signal
 import sys
+import time
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.capture import CaptureMiddleware
@@ -57,12 +60,40 @@ def _opm_version() -> str:
         return ""
 
 
+#: 이 시간을 넘는 tool 호출은 WARNING 으로 남긴다. fly 헬스체크 timeout 이 15초라, 동기 파싱이 이벤트 루프를
+#: 이만큼 붙잡으면 그 머신이 critical 로 보인다(260907 hang — 무엇이 돌았는지 볼 기록이 없어 원인을 못 잡았다).
+_SLOW_TOOL_SEC = float(os.environ.get("OPM_SLOW_TOOL_SEC", "10"))
+_tool_log = logging.getLogger("opm.tool")
+
+
+class TimedMCPServer(MCPServer):
+    """tool 호출마다 벽시계·CPU 시간을 로그에 남기는 MCPServer.
+
+    SDK 의 lowlevel 핸들러가 `self.call_tool` 을 호출 시점에 찾으므로 서브클래스로 덮으면 모든 tool 이 거친다.
+    인자 값은 남기지 않는다(회사명 등 사용자 조회 내용 — 규칙 10) — 인자 **이름**만 남긴다. CPU 시간은
+    프로세스 전체(`time.process_time`)라 동시 호출이 겹치면 과대평가되지만, 「벽시계 ≈ CPU」면 루프가 동기
+    작업에 묶였다는 뜻이고 「벽시계 ≫ CPU」면 I/O 대기라는 것은 그대로 읽을 수 있다.
+    """
+
+    async def call_tool(self, name, arguments, context=None):
+        t0, c0 = time.perf_counter(), time.process_time()
+        try:
+            return await super().call_tool(name, arguments, context)
+        finally:
+            wall, cpu = time.perf_counter() - t0, time.process_time() - c0
+            keys = ",".join(sorted((arguments or {}).keys()))
+            if wall >= _SLOW_TOOL_SEC:
+                _tool_log.warning("slow tool=%s wall=%.1fs cpu=%.1fs args=[%s]", name, wall, cpu, keys)
+            else:
+                _tool_log.info("tool=%s wall=%.2fs cpu=%.2fs args=[%s]", name, wall, cpu, keys)
+
+
 def build_mcp() -> MCPServer:
     """Build the single supported MCP tool surface."""
     # 이 이름이 클라이언트 커넥터 목록에 뜨고, MCP 양식(prompt)의 슬래시 명령
     # `/mcp__<서버이름>__<양식이름>` 가운데 자리에도 들어간다 — 짧을수록 부르기 쉽다.
     # fly 앱 이름(=URL `open-proxy-mcp.fly.dev`)과 레포명은 그대로 둔다.
-    mcp = MCPServer(
+    mcp = TimedMCPServer(
         "openproxy",
         # 2.0 은 SDK 버전을 자동으로 안 채운다(기본값 ""). 빈 값보다는 **OPM 자신의 버전**이
         # 유용하다 — 클라이언트가 「어느 OPM 이 답했나」를 알 수 있다. 종전 1.x 는 여기에
@@ -700,6 +731,20 @@ def build_app(server=None):
     return app
 
 
+def _install_tool_log() -> None:
+    """`opm.tool` 로거를 INFO 로 stderr 에 — 루트 로거는 WARNING 이라 호출시간 INFO 줄이 그냥 버려진다.
+
+    fly 는 stderr 를 그대로 로그로 모으니 별도 설정이 없다. uvicorn 이 자기 로거만 만지므로 여기 붙인 핸들러는
+    살아남는다(전파는 끊어 두 번 찍히지 않게). OPM_TOOL_LOG=0 이면 느린 호출(WARNING)만 남긴다.
+    """
+    h = logging.StreamHandler(sys.stderr)
+    h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s", "%H:%M:%S"))
+    _tool_log.handlers.clear()
+    _tool_log.addHandler(h)
+    _tool_log.propagate = False
+    _tool_log.setLevel(logging.INFO if os.environ.get("OPM_TOOL_LOG", "1") != "0" else logging.WARNING)
+
+
 def main():
     parser = argparse.ArgumentParser()
     # 전송 방식은 하나뿐이다. 종전에는 stdio·sse 도 받았고 **기본값이 stdio** 였다 —
@@ -720,6 +765,13 @@ def main():
     import uvicorn
     app = build_app(server)              # 서빙 결정은 전부 build_app 안에 있다
     install_api_key_redaction()
+    # 260907 hang: 프로세스가 CPU 를 붙들고 헬스에 답을 못 했는데 무엇이 돌고 있는지 볼 수단이 없었다.
+    # `fly ssh console -C "kill -USR1 <pid>"` 로 모든 스레드의 파이썬 스택을 stderr(=fly logs)에 덤프한다.
+    # enable() 은 segfault·치명 시그널에도 스택을 남긴다. 둘 다 평시 비용은 0.
+    faulthandler.enable()
+    if hasattr(signal, "SIGUSR1"):
+        faulthandler.register(signal.SIGUSR1, all_threads=True, chain=False)
+    _install_tool_log()
     uvicorn.run(app, host=bind_host(), port=bind_port())
 
 

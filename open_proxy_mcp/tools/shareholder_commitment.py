@@ -86,7 +86,7 @@ def _render(payload: dict[str, Any]) -> str:
                 f"{f'{yld_ye}%' if yld_ye is not None else 'N/M'} | {h.get('pattern', '-')} |"
             )
         lines.append("")
-        lines.append("> 배당수익률(연말종가)은 krx_weekly 연말 종가로 직접 계산(DART 결의시점 시가배당률에")
+        lines.append("> 배당수익률(연말종가)은 KRX 연말 종가로 직접 계산(DART 결의시점 시가배당률에")
         lines.append("> 결측 있는 옛 연도 보완용, 260707 추가) — 두 값은 기준일이 달라 다를 수 있음.")
         lines.append("")
 

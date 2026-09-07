@@ -189,6 +189,12 @@ FLY=~/.fly/bin/flyctl
 - curl 예시·로그·fixture에 URL을 그대로 붙여넣지 않는다. 키는 `.env`에서 읽고 **출력하지 않는다**
   (전체뿐 아니라 prefix도). 상세: [[environment-secrets]].
 
+## 운영 진단 — 느린 호출·hang (260907)
+
+- **호출시간 로그**: 모든 tool 호출이 `opm.tool` 로거에 `tool=… wall=… cpu=… args=[인자이름]` 한 줄을 남긴다(값은 남기지 않는다 — 규칙 10). `OPM_SLOW_TOOL_SEC`(기본 10초)를 넘으면 WARNING `slow tool=…`. 벽시계≈CPU 면 동기 파싱이 이벤트 루프를 잡은 것, 벽시계≫CPU 면 I/O 대기. `OPM_TOOL_LOG=0` 이면 느린 호출만 남긴다.
+- **스택 덤프**: `faulthandler` 가 SIGUSR1 에 등록돼 있다. 머신이 CPU 를 붙들고 `/health` 에 답을 못 하면 `fly ssh console -a open-proxy-mcp --machine <id> -C "kill -USR1 1"` 이 아니라 **파이썬 pid** 에 보낸다(`/proc` 에서 `open_proxy_mcp.server` 를 찾는다; 컨테이너 CMD 는 python 직접 실행이라 보통 pid 는 작다). 모든 스레드의 스택이 stderr(=`fly logs`)에 찍히고 프로세스는 계속 돈다. 로컬 pilot 은 `uv run` 이 부모라 **python 자식 pid** 에 보내야 한다 — 부모에 보내면 죽는다.
+- **왜**: 260907 머신 하나가 R 상태·load 1.0 으로 5분 넘게 헬스에 답을 못 했는데(메모리 여유), 로그는 최근 100줄만 남고 스택을 볼 수단이 없어 원인을 못 잡았다. 200케이스 재현에서도 재발하지 않았다. 이 둘은 다음 번을 진단 가능하게 만드는 최소 장치다. 헬스체크 timeout 은 15초라 그 이상 루프를 잡는 호출은 그 머신을 critical 로 만든다.
+
 ## 관련
 
 - [[environment-secrets]] — 어떤 키가 왜 필요한가 · 로컬 `.env` + fly secrets

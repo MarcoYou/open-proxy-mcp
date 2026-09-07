@@ -74,7 +74,7 @@ def _err(subject: str, status: str, *warns: str) -> dict[str, Any]:
 # 그 안내가 **거짓**이다 — 재시도해도 영원히 안 된다(260828 U 실사용 지적 A-1). 여기서 갈라
 # 낸다: 미설정이면 그렇게 말하고, 줄 수 있는 최신 1시점은 KRX 라이브로 준다.
 _DB_UNSET_WARN = ("이 서버에는 스냅샷 DB(`DATABASE_URL`)가 연결돼 있지 않습니다 — **재시도해도 "
-                  "되지 않습니다.** 저장 시계열(krx_weekly · krx_cap_agg)을 쓰는 조회는 이 서버에서 "
+                  "되지 않습니다.** 저장 시계열(주간 시세·시총 집계)을 쓰는 조회는 이 서버에서 "
                   "제공되지 않습니다.")
 _LIVE_ONLY_WARN = ("⚠ **KRX 라이브 · 시계열 아님** — 스냅샷 DB 가 없어 최신 1시점만 KRX 에서 직접 "
                    "받아온 값입니다. 과거 추이·기간 비교는 이 서버에서 할 수 없습니다.")
@@ -155,7 +155,7 @@ async def build_firm_series_payload(company: str, format: str = "md",
         return await _firm_live_fallback(name, ticker)
     if not rows:
         return _err(corp.get("corp_name", company), "no_data",
-                    f"krx_weekly 에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).")
+                    f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).")
 
     freq = (freq or _FREQ_DEFAULT["firm"]).strip().lower()
     full = [{"asof": r[0], "close_krw": r[2], "mktcap_krw": r[3], "list_shrs": r[4]} for r in rows]
@@ -169,13 +169,13 @@ async def build_firm_series_payload(company: str, format: str = "md",
                   "AND adj_factor <> 1 ORDER BY event_dd",
         (ticker, first["asof"], latest["asof"])) or []
 
-    warns = [f"**수정주가 아님** — `close_krw` 는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
+    warns = [f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
              f"연속이지만 주가는 끊깁니다."]
     if ev:
         warns.append(f"⚠ 구간 내 기준가 조정 {len(ev)}회 "
                      f"({', '.join(f'{d}(×{c:g})' for d, c in ev[:5])}"
                      f"{' …' if len(ev) > 5 else ''}) — 가격 시계열이 그 지점에서 불연속입니다. "
-                     f"연속 비교가 필요하면 `mktcap_krw` 를 쓰세요(조정 불변).")
+                     f"연속 비교가 필요하면 시가총액을 쓰세요(조정 불변).")
     return {"tool": TOOL, "status": "ok",
             "subject": f"{corp.get('corp_name', company)}({ticker})",
             "data": {"scope": "firm", "ticker": ticker, "market": rows[-1][1],
@@ -184,7 +184,7 @@ async def build_firm_series_payload(company: str, format: str = "md",
                      "latest": latest, "series": series,
                      "price_adjusted": False,
                      "adj_events": [{"event_dd": d, "adj_factor": float(c)} for d, c in ev],
-                     "method": "KRX 정보데이터시스템 → krx_weekly(주 마지막 거래일 보존, 매일 갱신). "
+                     "method": "KRX 정보데이터시스템 → 주간 시세 저장분(주 마지막 거래일 보존, 매일 갱신). "
                                "mktcap=상장주식수×종가(우선주는 별도 종목). "
                                "OHLC·거래량·거래대금은 저장하지 않습니다 — `scope=quote` 참조."},
             "warnings": warns}

@@ -312,6 +312,7 @@ sequenceDiagram
 자본금이 종류주별로만 적힌 표는 합산한다(부모 행이 있으면 그것 — 다 더하면 2배가 된다).
 
 ## 변경 이력
+- 2026-09-07: 희석 EPS 가 없을 때 「-원」으로 나가던 것 → 「미공시」(live smoke 에코프로비엠·현대건설).
 - 2026-09-06: 매출 계정 선택을 `revenue_account.pick_revenue_row` 로 이관 — account_id(`ifrs-full_Revenue`) 우선 +
   계정명 접두 매칭 + KSIC 업종 우선순위. 주요계정에 매출 행이 없으면 전체 재무제표에서 폴백(리파인·티움바이오
   영업수익, 보험 보험수익, 은행 이자수익 — 종전 None). `revenue_account_nm`·`revenue_account_id`·`revenue_standard`·
