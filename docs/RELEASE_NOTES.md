@@ -4,6 +4,14 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ## beta — 2026-09-07
 
+### 운영 진단 — 호출시간 로그와 스택 덤프
+
+tool 호출마다 벽시계·CPU 시간이 로그에 남고(인자 값은 남기지 않음), 10초를 넘으면 경고로 표시됩니다. 프로세스가 응답을 멈추면 SIGUSR1 로 전 스레드의 파이썬 스택을 로그에 덤프할 수 있습니다. 어느 요청이 이벤트 루프를 붙잡았는지 볼 수 없어 원인을 못 잡은 사고(2026-09-07)에 대한 최소 장치입니다.
+
+### 출력 정리 — 저장소 이름·코드가 사용자 문장에 나가던 곳
+
+`trading_data`·`shareholder_commitment`·`price_multiple_data` 의 테이블·컬럼 이름(`krx_weekly`·`close_krw`·`mktcap_krw`), `forward_estimates_data` 의 「bundle=core · period_type=FY」, `company` 최근 공시 표의 분류 코드(`ownership_block`)를 우리말로 바꿨습니다. `financial_metrics` 의 희석 EPS 는 없을 때 「-원」 대신 「미공시」, `proxy_contest` 는 직위에 줄바꿈이 있어도 표 행이 깨지지 않습니다.
+
 ### `director_board`·`business_details` 출력의 「None」 제거
 
 비고가 없는 자리에 `> None`·`[roster] None` 이, 사업부문 상세 꼬리줄에 내부 진단값 `주석fetch=None` 이 찍히던 것을 정리했습니다. 비고가 없으면 줄을 내지 않고, 임원현황 교차검증 경고는 키 오타로 본문이 빠져 있던 것을 복구했습니다.

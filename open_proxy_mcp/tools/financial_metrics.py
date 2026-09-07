@@ -8,6 +8,12 @@ from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 
 
+def _eps(v) -> str:
+    """주당 값 — 없으면 「-원」이 아니라 「미공시」(260907 live smoke: 에코프로비엠·현대건설 희석 EPS)."""
+    n = _num(v)
+    return f"{n}원" if n != "-" else "미공시"
+
+
 def _num(v) -> str:
     """천단위 구분 — 문서 내 다른 숫자와 표기를 맞춘다(EPS 만 15410 으로 나오던 것)."""
     try:
@@ -215,7 +221,7 @@ def _render_summary(data: dict[str, Any]) -> list[str]:
         lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}  /  EBITDA: {_format_krw_human(s.get('ebitda_krw'))}  ({_pct(s.get('ebitda_margin_pct'))})")
     else:
         lines.append(f"- 영업이익률: {_pct(s.get('operating_margin_pct'))}")
-    lines.append(f"- 당기순이익(지배): {_format_krw_human(s.get('net_income_krw'))}  /  EPS: {_num(s.get('eps_krw'))}원  /  희석 EPS: {_num(s.get('diluted_eps_krw'))}원")
+    lines.append(f"- 당기순이익(지배): {_format_krw_human(s.get('net_income_krw'))}  /  EPS: {_eps(s.get('eps_krw'))}  /  희석 EPS: {_eps(s.get('diluted_eps_krw'))}")
     lines.append(f"- ROE: {_pct(s.get('roe_pct'))}  /  ROA: {_pct(s.get('roa_pct'))}  /  ROIC: {_pct(s.get('roic_pct'))}")
     lines.append("")
     lines.append("## 듀퐁 3단 분해 (ROE)")

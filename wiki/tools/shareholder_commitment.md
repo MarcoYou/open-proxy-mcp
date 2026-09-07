@@ -152,6 +152,10 @@ CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
 - overall의 배당·소각 기간 불일치(스냅샷 vs 누적) — 다년 정밀 합산은 TODO.
 - 다중기업 배치·포트폴리오 스캔 미지원(단일기업 조회만).
 
+## 변경 이력
+
+- 2026-09-07: 배당수익률 주석의 테이블 이름 `krx_weekly` → 「KRX 연말 종가」.
+
 ## 관련
 - [[proxy_advise_before_meeting]] — 유일한 다른 Action Tool, 주총 1회성 판단 vs 이 tool의 연중 추적
 - [[value_up]] / [[corp_gov_report]] / [[dividend_disclosure]] / [[treasury_share]] — upstream 재사용 tool 4종

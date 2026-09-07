@@ -126,7 +126,7 @@ def _render_insiders(data: dict, scope: str) -> list[str]:
         "|--------|------|----------|------|------|-------------------|-----------|--------|-----------|---------|",
     ])
     for r in shown:
-        pos = r.get("position") or "-"
+        pos = " ".join(str(r.get("position") or "-").split())   # 원문 직위에 줄바꿈이 있으면 표 행이 깨진다(한국전력 260907)
         reg = r.get("registered_executive")
         if reg:
             pos = f"{pos} ({reg})" if r.get("position") else reg

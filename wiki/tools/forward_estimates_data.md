@@ -110,6 +110,10 @@ DB 물리 칸이 아직 `_eok` 면 도구가 ×1e8 해서 원으로 통일한다
 ## DART 콜
 **0콜.** Supabase 조회만 한다(회사 식별은 공용 리졸버 캐시 경로).
 
+## 변경 이력
+
+- 2026-09-07: 커버리지 줄의 엔진 용어 「bundle=core · period_type=FY」 → 「묶음 core · 기간 연간」.
+
 ## 관련
 - [[price_multiple_data]] — 확정 실적 기반 현재 배수(정의 동일)
 - [[financial_metrics]] — DART 재무 원본

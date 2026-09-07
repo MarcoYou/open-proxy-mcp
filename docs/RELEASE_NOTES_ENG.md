@@ -4,6 +4,14 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-07
 
+### Operations: per-call timing log and stack dump
+
+Every tool call now logs wall and CPU time (argument names only, never values), with a warning above 10 seconds. If the process stops answering, SIGUSR1 dumps every thread's Python stack to the log. This is the minimum needed after an incident (2026-09-07) where a machine stalled and nothing showed which request was holding the event loop.
+
+### Output cleanup: storage names and codes in user-facing text
+
+Table and column names (`krx_weekly`, `close_krw`, `mktcap_krw`) in `trading_data`, `shareholder_commitment` and `price_multiple_data`, the "bundle=core · period_type=FY" line in `forward_estimates_data`, and the filing-type code (`ownership_block`) in `company` are now plain Korean. `financial_metrics` says "undisclosed" instead of "-원" for a missing diluted EPS, and `proxy_contest` no longer breaks a table row when a position title contains a line break.
+
 ### No more literal "None" in `director_board` and `business_details`
 
 Empty notes rendered as `> None` and `[roster] None`, and the business-details footer leaked an internal diagnostic (`주석fetch=None`). Notes are now omitted when absent, and the roster cross-check warning, whose body was lost to a key typo, is back.

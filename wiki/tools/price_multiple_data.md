@@ -268,6 +268,7 @@ sequenceDiagram
 
 ## 변경 이력
 
+- 2026-09-07: 출처 표·인풋 줄의 「Supabase krx_weekly」 → 「주간 시세 저장분」.
 - 2026-09-07: `as_of` — firm(firm_history 주간 곡선에서 점 선택 · `opm_val_firm` 은 최근 10주만 있어 안 씀)·market·sector 의 과거 시점. 응답 `as_of_requested`.
 - 2026-08-06: 수정 경위 서술을 현재형 설계 근거로 정리(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-07-14: FY 라벨 하드코딩 제거(`_latest_annual_fy()` 파생).

@@ -177,6 +177,7 @@ sequenceDiagram
 - retail_activism 플랫폼 추가 시 화이트리스트 갱신 필요 (TODO).
 
 ## 변경 이력
+- 2026-09-07: 내부자 표의 직위 셀에 원문 줄바꿈이 있으면 행이 깨지던 것(한국전력 「안전&영업배전\n부사장」) → 공백으로 접는다.
 - 2026-04-18: proxy_contest tool 검증 + release_v2 conditional (vote_math 별도 검증 필요)
 - 2026-04-19: 3개 기업 (고려아연 / 한진칼 / 삼성전자) summary 통과
 - 2026-04-29: 200기업 audit 92.9% exact, 4x 속도 향상

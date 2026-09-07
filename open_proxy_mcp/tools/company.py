@@ -163,12 +163,27 @@ def _render_exact(payload: dict[str, Any]) -> str:
     ])
     for item in filings:
         lines.append(
-            f"| {item.get('disclosure_date', '')} | {item.get('filing_type', '')} | "
+            f"| {item.get('disclosure_date', '')} | {_filing_type_label(item.get('filing_type', ''), english)} | "
             f"{item.get('report_name', '')} | {item.get('filer_name', '')} | `{item.get('rcept_no', '')}` |"
         )
     if not filings:
         lines.append("| - | - | No recent filings | - | - |" if english else "| - | - | 최근 공시 없음 | - | - |")
     return "\n".join(lines)
+
+
+_FILING_TYPE_KO = {
+    "shareholder_meeting_notice": "주총 소집공고", "shareholder_meeting_result": "주총 결과",
+    "dividend_decision": "배당 결정", "value_up": "기업가치 제고계획", "proxy_solicitation": "위임장 권유",
+    "tender_offer": "공개매수", "ownership_block": "대량보유 보고", "litigation": "소송·가처분",
+    "exchange_disclosure": "거래소 수시공시",
+}
+
+
+def _filing_type_label(kind: str, english: bool) -> str:
+    """서비스의 분류 코드(`ownership_block` 등)를 사람 말로 — 코드가 표에 그대로 나가던 것(260907 live smoke)."""
+    if english or not kind:
+        return kind or ""
+    return _FILING_TYPE_KO.get(kind, kind.replace("_", " "))
 
 
 def register_tools(mcp):
