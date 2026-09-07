@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#도구-구조-31개)
-[![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES.md)
+[![Release](https://img.shields.io/badge/release-v2.5.2-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English](README_ENG.md) · [简体中文](README_ZH.md)
 
@@ -57,7 +57,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 더 많은 질문 예시는 [도구 카탈로그](wiki/tools/README.md)의 각 도구 페이지에서 확인할 수 있습니다.
 
-MCP 리소스를 지원하는 클라이언트에서는 `tools_guide`(`opm://tools_guide`)를 열어 현재 제공하는 도구와 기능 설명을 볼 수 있습니다. 안내는 서버에 등록된 도구 목록에서 자동으로 구성됩니다.
+MCP 리소스를 지원하는 클라이언트에서는 선택적으로 `tools_guide`(`opm://tools_guide`)를 열어 현재 제공하는 도구와 기능 설명을 볼 수 있습니다. 안내는 서버에 등록된 도구 목록에서 자동으로 구성됩니다. 일부 채팅 커넥터는 MCP 리소스를 화면에 노출하지 않으므로, 보이지 않는 경우에는 위처럼 자연어로 질문하거나 [도구 카탈로그](wiki/tools/README.md)를 이용하세요.
 
 MCP 프롬프트를 지원하는 클라이언트에서는 `company_snapshot`(회사 한 장 요약)에 회사명이나 종목코드를 입력하세요. 사업 구조·3년 확정 실적·제공되는 연간 예상치 최대 2년·가격·지분·배당·최근 공시를 연결하고, 더 확인할 질문까지 정리하도록 안내합니다. 표에서 확정(A)과 예상(E)을 구분하며, 시각화가 가능한 클라이언트에는 매출 막대·영업이익 선 차트를 요청합니다.
 

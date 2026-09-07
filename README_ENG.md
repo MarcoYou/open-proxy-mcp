@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#tool-structure-31-tools)
-[![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.5.2-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
@@ -57,7 +57,7 @@ Start with `Show Samsung Electronics' company information and three recent filin
 
 Find more prompts on each page in the [tool catalog](wiki/tools/README.md).
 
-In clients that support MCP resources, open `tools_guide` (`opm://tools_guide`) to see the available tools and their descriptions. The guide is generated from the server's registered tools.
+In clients that support MCP resources, you can optionally open `tools_guide` (`opm://tools_guide`) to see the available tools and their descriptions. The guide is generated from the server's registered tools. Some chat connectors do not expose MCP resources in their interface; if it is unavailable, ask in natural language as above or use the [tool catalog](wiki/tools/README.md).
 
 In clients that support MCP prompts, select `company_snapshot` (one-page company overview) and enter a company name or ticker. It guides the assistant through business structure, three years of actual results, up to two available annual consensus estimates, valuation, ownership, dividends, recent filings, and follow-up questions. The table distinguishes actuals (A) from estimates (E); clients with visualization support are also asked to show revenue bars and an operating-profit line.
 

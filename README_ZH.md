@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#工具结构31-项工具)
-[![Release](https://img.shields.io/badge/release-v2.5-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.5.2-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 
 [한국어](README.md) · [English](README_ENG.md)
 
@@ -57,7 +57,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 更多示例问题请参阅[工具目录](wiki/tools/README.md)中的各个工具页面。
 
-在支持 MCP resources 的客户端中，可以打开 `tools_guide`（`opm://tools_guide`）查看当前提供的工具及其说明。该指南会根据服务器注册的工具自动生成。
+在支持 MCP resources 的客户端中，可以选择打开 `tools_guide`（`opm://tools_guide`），查看当前提供的工具及其说明。该指南会根据服务器注册的工具自动生成。部分聊天连接器不会在界面中显示 MCP resources；如果无法使用，请像上文一样直接用自然语言提问，或参阅[工具目录](wiki/tools/README.md)。
 
 在支持 MCP prompts 的客户端中，可以选择 `company_snapshot`（公司单页概览）并输入公司名称或股票代码。它会引导 AI 汇总业务结构、三年实际业绩、最多两年的年度一致预期、估值、股权、分红、近期披露以及后续应核实的问题。表格会区分实际值（A）与预期值（E）；支持可视化的客户端还会生成营收柱状图和营业利润折线图。
 
