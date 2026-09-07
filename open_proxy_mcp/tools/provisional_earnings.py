@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import re
+
 from open_proxy_mcp.services.provisional_earnings import build_provisional_earnings_payload
 from open_proxy_mcp.services.contracts import as_pretty_json
 
@@ -83,13 +85,18 @@ def _render(p: dict) -> str:
 def register_tools(mcp):
 
     @mcp.tool()
-    async def provisional_earnings(company: str, format: str = "md") -> str:
+    async def provisional_earnings(company: str, format: str = "md", months: int = 6, start_date: str = "", end_date: str = "") -> str:
         """desc: DART 영업(잠정)실적(공정공시 I002)과 결산 잠정치(I001)에서 **잠정 매출·영업이익·순이익**과 회계연도 기준 비교율을 추출. 정기보고서 확정치보다 **먼저 나오는 가장 빠른 실적 신호**.
         when: 최신 분기 실적을 정기보고서(financial_metrics 확정치) 나오기 전에 볼 때. **잠정치**(감사 전)라 확정과 다를 수 있음 — 확정 재무비율은 `financial_metrics`.
         rule: 재무형(매출·영업이익 표)은 구조화 반환. 자동차 판매대수 등 **비재무형**은 raw 마크다운(kind=non_financial). 연결/별도 basis·실적기간·단위 명시. 값은 원문 그대로(원 단위 정규화), 잠정치.
+        window: 기본 최근 `months`=6개월 안의 **가장 최근** 잠정실적 1건. 과거 분기를 보려면 `start_date`·`end_date`(YYYYMMDD)로 공시일 창을 좁힌다 — 예 2025년 3분기 잠정실적은 `start_date="20251001", end_date="20251115"`. 창 안에 여러 건이면 최신 1건.
         ref: financial_metrics, screener, price_multiple_data
         """
-        payload = await build_provisional_earnings_payload(company)
+        for nm, v in (("start_date", start_date), ("end_date", end_date)):
+            if v and not re.fullmatch(r"\d{8}", v):
+                return f"{nm} 는 YYYYMMDD 8자리여야 합니다 (받은 값: {v})"
+        payload = await build_provisional_earnings_payload(company, months=max(1, int(months or 6)),
+                                                           start_date=start_date or None, end_date=end_date or None)
         if format == "json":
             return as_pretty_json(payload)
         return _render(payload)
