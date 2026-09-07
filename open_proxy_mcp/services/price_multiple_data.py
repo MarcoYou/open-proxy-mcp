@@ -371,7 +371,7 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
         past = [h for h in hist if h["snap_dd"] <= as_of]
         if not past:
             return {"tool": "price_multiple_data", "status": "no_data", "subject": "시장 밸류에이션",
-                    "warnings": [f"as_of {as_of} 이하 스냅샷 없음 — 가장 이른 스냅샷은 {hist[-1]['snap_dd']}."]}
+                    "warnings": [f"기준일 {as_of} 이하 스냅샷 없음 — 가장 이른 스냅샷은 {hist[-1]['snap_dd']}."]}
         latest_dd = past[0]["snap_dd"]
     else:
         latest_dd = hist[0]["snap_dd"]
@@ -428,7 +428,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": "산업별 밸류에이션",
-                "warnings": [f"as_of {as_of} 이하 산업별 스냅샷 없음." if as_of else "opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
+                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else "opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
     as_of = rows[0][0]
     sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
                 "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
@@ -730,7 +730,7 @@ async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
     if not pts:
         first = (d.get("series") or [{}])[0].get("asof")
         return {"tool": "price_multiple_data", "status": "no_data", "subject": hist.get("subject", company),
-                "warnings": [f"as_of {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {first}. 현재 값은 scope=firm."]}
+                "warnings": [f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {first}. 기준일을 비우면 현재 값."]}
     p = pts[-1]
     return {"tool": "price_multiple_data", "status": "ok", "subject": hist.get("subject", company),
             "data": {"scope": "firm_at", "ticker": d.get("ticker"), "as_of_requested": as_of, "as_of": p["asof"],

@@ -40,7 +40,7 @@ def test_sector_sql_bounds_the_snapshot_when_as_of_given(monkeypatch):
     monkeypatch.setattr(S, "_pg_rows", fake_rows)
     p = asyncio.run(S.build_sector_val_payload(scheme="ksic", as_of="20251231"))
     assert "snap_dd <= %s" in seen["sql"] and seen["params"] == ("ksic", "ksic", "20251231")
-    assert p["status"] == "no_data" and "as_of 20251231" in p["warnings"][0]
+    assert p["status"] == "no_data" and "기준일 20251231" in p["warnings"][0]
     asyncio.run(S.build_sector_val_payload(scheme="ksic"))
     assert "snap_dd <= %s" not in seen["sql"] and seen["params"] == ("ksic", "ksic")
 
