@@ -2,6 +2,12 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## beta — 2026-09-07
+
+### `price_multiple_data` 에 `as_of`
+
+「작년 말 PER」처럼 과거 시점을 물을 수 있습니다. `scope=firm` 은 주간 스냅샷에서 기준일 이하 가장 최근 값(PER·PBR·시총, 배당수익률 제외), `market`·`sector` 는 기준일 이하 스냅샷으로 표를 그립니다. 비우면 종전과 같이 최신입니다.
+
 ## beta — 2026-09-06
 
 ### 확장 훅

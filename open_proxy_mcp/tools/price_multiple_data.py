@@ -10,7 +10,9 @@ from open_proxy_mcp.services.price_multiple_data import (
     build_valuation_payload,
     build_market_val_payload,
     build_sector_val_payload,
+    build_firm_at_payload,
     build_firm_history_payload,
+    _norm_as_of,
 )
 from open_proxy_mcp.market_codes import to_label as mkt_label
 
@@ -175,6 +177,19 @@ def _render_sector(p: dict[str, Any]) -> str:
     for w in p.get("warnings", []):
         lines.append(f"> {w}")
     return "\n".join(lines)
+
+
+def _render_firm_at(p: dict[str, Any]) -> str:
+    d = p["data"]
+    def f(v): return "-" if v is None else f"{v:.2f}"
+    cap = d.get("cap_krw"); cap_s = f"{cap/1e12:,.1f}조" if cap and cap >= 1e12 else (f"{cap/1e8:,.0f}억" if cap else "-")
+    L = [f"# {p['subject']} — {d['as_of'][:4]}-{d['as_of'][4:6]}-{d['as_of'][6:]} 기준 밸류에이션 (주간 스냅샷)", "",
+         f"- 요청 기준일 {d['as_of_requested']} → 스냅샷 {d['as_of']} · {d.get('market','')} · 섹터 {d.get('sector','') or '-'}", "",
+         "| 지표 | 값 |", "|---|---|", f"| 시총(보통주) | {cap_s} |", f"| PER (FY0) | {f(d.get('per_fy0'))} |", f"| PER (TTM) | {f(d.get('per_ttm'))} |",
+         f"| PBR (FY0) | {f(d.get('pbr_fy0'))} |", f"| PBR (MRQ) | {f(d.get('pbr_mrq'))} |"]
+    for w in p.get("warnings") or []:
+        L.append(f"\n> {w}")
+    return "\n".join(L)
 
 
 def _render_firm_history(p: dict[str, Any]) -> str:
@@ -342,15 +357,20 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def price_multiple_data(company: str = "", scope: str = "firm", format: str = "md",
-                        scheme: str = "wics_industry") -> str:
+                        scheme: str = "wics_industry", as_of: str = "") -> str:
         """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
         when: "PER/PBR 얼마"·"싼가 비싼가"(scope=firm) / "코스피·코스닥 전체 밸류"(market) / "업종별 PER·PBR"·"섹터 대비 어디"(sector, company 지정 시 소속 섹터 비교) / "밸류 추이"(firm_history) / **"이 수치 근거·계산 과정이 뭐야?"(explain — company 지정 시 실제 값 대입 계산, 미지정 시 방법론·기준·출처 전문)**. 재무 펀더멘탈 자체는 financial_metrics, 배당 상세는 dividend_disclosure.
         rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(opm_val_market·opm_val_market·opm_val_firm, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct). **scope=market 과 scope=sector(scheme=wics_sector) 에는 시총가중 배당수익률이 함께 실린다**(260831) — 확정=div_yield_hist(사업연도 12월결산 확정 DPS, 연 1회) · 선행=fwd_agg(애널리스트 추정 DPS). PER·PBR 과 **출처 표도 기준일도 모집단도 다르다.** 분모 두 벌(all=무배당 포함 시장 관행값 / payers=배당주만)을 나란히 내는데, 코스닥은 두 값이 두 배 차이라 반드시 같이 읽어야 한다 — 눌림의 절반은 배당력이 아니라 배당하는 회사가 적다는 구성 차이다. PER 과 달리 적자여도 배당이 있으면 값이 난다. scheme=ksic·wics_industry 에는 안 붙는다(집계 버킷이 WICS 대분류다).
+        as_of: YYYYMMDD(또는 YYYY-MM-DD) 과거 시점. firm → 그 시점 이하 가장 최근 **주간 스냅샷**(opm_val_firm)의 PER·PBR·시총(배당수익률 없음) / market·sector → 그 시점 이하 스냅샷. 「작년 말 PER」「2024년 12월 코스피 PBR」. 비우면 최신.
         status: ok / invalid / not_found(우선주는 보통주 코드로) / unlisted / no_financials / no_data(배치 미실행).
        
         ref: financial_metrics, dividend_disclosure, corp_gov_report, evidence
         """
         sc = (scope or "firm").strip().lower()
+        try:
+            asof = _norm_as_of(as_of)
+        except ValueError as exc:
+            return str(exc)
         if sc in ("explain", "method", "basis"):  # 수치 근거 — 계산 과정·기준·출처 (유저 "근거가 뭐야?")
             if not (company or "").strip():
                 return _METHODOLOGY  # 방법론 전문 — API 0콜
@@ -361,11 +381,13 @@ def register_tools(mcp):
                 return _render_status(payload)
             return _render_explain_firm(payload)
         if sc == "market":
-            payload = await build_market_val_payload(format=format)
+            payload = await build_market_val_payload(format=format, as_of=asof)
         elif sc == "sector":
-            payload = await build_sector_val_payload(company, format=format, scheme=scheme)
+            payload = await build_sector_val_payload(company, format=format, scheme=scheme, as_of=asof)
         elif sc in ("firm_history", "history"):
             payload = await build_firm_history_payload(company, format=format)
+        elif sc == "firm" and asof:
+            payload = await build_firm_at_payload(company, asof)
         elif sc == "firm":
             payload = await build_valuation_payload(company, format=format)
         else:  # 오타("markets" 등)를 조용히 firm으로 보내면 의도 밖 DART 콜 — 명시 거절(QA)
@@ -376,6 +398,8 @@ def register_tools(mcp):
         if payload.get("status") != "ok":
             return _render_status(payload)
         scope_out = payload.get("data", {}).get("scope")
+        if scope_out == "firm_at":
+            return _render_firm_at(payload)
         if scope_out == "market":
             return _render_market(payload)
         if scope_out == "sector":

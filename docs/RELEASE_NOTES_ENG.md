@@ -2,6 +2,12 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-07
+
+### `as_of` for `price_multiple_data`
+
+Past-dated questions such as "PER at last year-end" are now answerable. `scope=firm` reads the latest weekly snapshot at or before the date (PER, PBR, market cap; no dividend yield), while `market` and `sector` draw their tables from the snapshot at or before the date. Empty means latest, as before.
+
 ## beta — 2026-09-06
 
 ### Extension hooks

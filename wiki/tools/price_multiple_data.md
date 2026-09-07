@@ -8,7 +8,7 @@ data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결�
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-07-05
-updated: 2026-09-04
+updated: 2026-09-07
 ---
 
 # price_multiple_data
@@ -39,6 +39,11 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 - "반도체 업종 밸류" → sector: KSIC 섹터별 PER/PBR 표
 - "두산밥캣 섹터 평균 대비 싸? 비싸?" → sector + company: 기업 vs 소속 섹터 비교 + 섹터 시계열
 - "배당수익률 얼마?" → firm: 현재가 기준(시장·섹터 집계 배당수익률은 market/sector)
+
+### 과거 시점 `as_of` (260907)
+`as_of="20251231"`(또는 `2025-12-31`). `scope=firm` 이면 실시간 계산 대신 `firm_history` 의 **전 구간 주간 곡선**(krx_weekly 2015~ × DART 재무 PIT)에서
+기준일 이하 가장 최근 점의 PER(FY0·TTM)·PBR(FY0·MRQ)·시총을 준다 — 배당수익률은 과거 시점 미제공. `market`·`sector` 는
+기준일 이하 스냅샷으로 표를 그린다. 형제 도구 `trading_data` 의 `as_of` 와 같은 뜻. 비우면 종전과 같이 최신.
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
@@ -262,6 +267,8 @@ sequenceDiagram
   한국은행 ECOS를 야후 폴백 대신 정본 유지 · 우선주 총시총 합산.
 
 ## 변경 이력
+
+- 2026-09-07: `as_of` — firm(firm_history 주간 곡선에서 점 선택 · `opm_val_firm` 은 최근 10주만 있어 안 씀)·market·sector 의 과거 시점. 응답 `as_of_requested`.
 - 2026-08-06: 수정 경위 서술을 현재형 설계 근거로 정리(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-07-14: FY 라벨 하드코딩 제거(`_latest_annual_fy()` 파생).
 - 2026-07-09: 주간 cron 이 sector 행의 per_fy0/pbr_fy0·ni_ttm·eq 도 채우도록.
