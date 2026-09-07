@@ -390,7 +390,7 @@ def _render(p: dict) -> str:
 
     tm = d.get("timings_ms", {})
     if tm:
-        L.append(f"\n_조회 {tm.get('total','?')}ms · 주석fetch={d.get('note_fetched')}_")
+        L.append(f"\n_조회 {tm.get('total','?')}ms_")   # 내부 진단값(주석 fetch 여부)은 사용자 출력에 내지 않는다(260907)
     if p.get("warnings"):
         # 여기 담기는 것은 대개 실패가 아니라 처리 메모다(어느 문서를 썼나 · 정형 대신 원문을 냈나).
         # 경고 표지를 달면 읽는 사람이 뭘 잘못한 것처럼 느낀다.

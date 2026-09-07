@@ -300,6 +300,7 @@ find_segment_candidates   6.5초      build_region_index       6.4초 (건당 2�
 코드에 「줄였다」는 주석만 남는다.</sub>
 
 ## 변경 이력
+- 2026-09-07: 꼬리줄의 내부 진단값 「주석fetch=None」 제거 — 조회 시간만 남긴다.
 - 2026-08-06: 발견 경위·census 서술을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-08-03: `absence_kind` 4갈래 신설 · `basis`(연결/별도)를 XBRL 컨텍스트로 판별.
 - 2026-08-02: `revenue_breakdown` 을 매출 4축(`by_segment`/`by_product`/`by_region`/`by_trade`)
