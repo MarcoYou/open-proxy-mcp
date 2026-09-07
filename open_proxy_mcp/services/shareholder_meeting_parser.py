@@ -16,7 +16,9 @@
 안건 상세는 'III > 2. 목적사항별 기재사항'에서 BeautifulSoup으로 파싱.
 """
 
+import copy
 import re
+from contextvars import ContextVar
 import logging
 from typing import Optional
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
@@ -1616,7 +1618,25 @@ SUBSECTION_RE = re.compile(
 )
 
 
+#: 요청 안에서 (rcept_no, html 해시) → 안건 상세. personnel·compensation·aoi·retirement 파서가 같은 공고의
+#: 「목적사항별 기재사항」 절을 각자 다시 트리로 만들던 것(5.4MB 공고에서 1초씩 2~4번, 260907). str 해시는 파이썬이
+#: 한 번 계산하면 붙들어 두므로 키 비용은 0. shareholder_meeting 의 요청 컨텍스트가 켜고 끈다 — 밖에선 메모 없음.
+_DETAILS_MEMO: ContextVar[tuple[dict[tuple[str, int], list[dict]], str] | None] = ContextVar("opm_agenda_details", default=None)
+
+
 def parse_agenda_details_xml(html: str) -> list[dict]:
+    """`_parse_agenda_details_xml_impl` 의 요청 단위 메모 — 호출측이 결과를 고쳐도 남에게 새지 않게 깊은 복사를 준다."""
+    ctx = _DETAILS_MEMO.get()
+    if ctx is None or not isinstance(html, str):
+        return _parse_agenda_details_xml_impl(html)
+    memo, rcept_no = ctx
+    key = (rcept_no, hash(html))
+    if key not in memo:
+        memo[key] = _parse_agenda_details_xml_impl(html)
+    return copy.deepcopy(memo[key])
+
+
+def _parse_agenda_details_xml_impl(html: str) -> list[dict]:
     """HTML에서 '목적사항별 기재사항' 섹션의 안건별 상세를 파싱
 
     DART 문서 XML 구조:

@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-07
 
+### Meeting-notice bundle: correction summary only for corrections, agenda details parsed once
+
+The bundle no longer builds a second document tree looking for a correction summary in non-correction notices, and the agenda-details section that the personnel, compensation and AoI parsers each re-parsed is now parsed once per request. The board profile for KEPCO drops from 3.4 s to 1.9 s locally, and full meeting-notice queries speed up as well. Output is unchanged (verified on 16 companies for summary and 8 for full scope).
+
 ### Candidate meeting notices: parse only the notice section
 
 To tell annual from extraordinary meetings, each candidate notice used to be parsed as a whole tree. The notice section is now sliced out as a string and only that slice is parsed. Across 143 cached notices every extracted field was identical and total time fell from 11.2 s to 0.3 s. Board profiles for companies with several candidate notices (KEPCO) gain the most.
