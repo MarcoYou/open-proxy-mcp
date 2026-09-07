@@ -2,6 +2,12 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## beta — 2026-09-07
+
+### `provisional_earnings` 에 `months`·`start_date`·`end_date`
+
+최근 6개월의 최신 1건만 보던 것을, 개월 수나 공시일 창(YYYYMMDD)으로 과거 분기의 잠정실적을 집을 수 있게 했습니다. 서비스에는 있던 인자를 도구에 노출했습니다.
+
 ## beta — 2026-09-06
 
 ### 확장 훅

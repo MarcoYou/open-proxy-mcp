@@ -368,7 +368,8 @@ async def build_provisional_earnings_payload(
     if not rept:
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.NO_FILING,
                             subject=corp.get("corp_name", ""),
-                            warnings=[f"최근 {months}개월 영업(잠정)실적 공시 없음"]).to_dict()
+                            warnings=[(f"{bgn_de}~{end_de} 창에 영업(잠정)실적 공시 없음" if (start_date or end_date)
+                                       else f"최근 {months}개월 영업(잠정)실적 공시 없음") + " — 창을 넓히거나(months·start_date) financial_metrics 확정치로"]).to_dict()
     url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rept['rcept_no']}"
     try:
         doc = await client.get_document_cached(rept["rcept_no"])

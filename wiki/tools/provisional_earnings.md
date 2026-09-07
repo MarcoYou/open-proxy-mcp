@@ -8,7 +8,7 @@ related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [연결-별도, 단위-표기-규약, 시점-제약]
 related_decisions: [ksic-sector-mapping]
 created: 2026-07-19
-updated: 2026-09-06
+updated: 2026-09-07
 ---
 
 ## 한 줄
@@ -31,6 +31,14 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 ## 사용법
 - `provisional_earnings(company, format="md")` — 최신 영업잠정실적(최근 6개월 내).
 - 예: `provisional_earnings("삼성전자")` · `provisional_earnings("현대자동차")`.
+
+### 시점 인자 (260907)
+| 인자 | 기본 | 뜻 |
+|---|---|---|
+| `months` | 6 | 최근 N개월 안의 가장 최근 잠정실적 1건 |
+| `start_date`·`end_date` | — | 공시일 창(YYYYMMDD). 과거 분기를 집을 때 — 2025년 3분기 잠정실적은 `start_date="20251001", end_date="20251115"` |
+
+서비스(`build_provisional_earnings_payload`)엔 원래 있던 인자를 도구에 노출한 것. 창 안에 없으면 경고가 창 범위를 말한다.
 
 ## 왜 필요한가 (financial_metrics와 차이)
 - **잠정 ≠ 확정**: financial_metrics는 정기보고서 확정치(fnlttSinglAcnt, 감사 후). 잠정실적은 **자가 공시**(감사 전, 분기말 ~7일 뒤). 확정치와 다를 수 있음.
@@ -67,6 +75,8 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 - colspan 확장으로 헤더 셀이 중복 표기(가독성 경미, 수치 왜곡 없음).
 
 ## 변경 이력
+
+- 2026-09-07: `months`·`start_date`·`end_date` 를 도구 인자로 노출(서비스엔 있었음). 「없음」 경고가 실제 창을 말한다.
 - 2026-09-06: **[기재정정] 표 변형 서식** — 구분 열 없이 라벨과 기간이 한 칸에 오는 「- 매출액(당해실적)」·
   「매출액(당기실적)」, 셀이 「당해실적: 478,413 전기대비증감율(%): …」 한 줄 요약인 꼴. 캐시 157건 실측에서
   정정 4건이 전부 headline 이 비어 `non_financial` 로 나갔다 → `_label_key`(기간 꼬리 분리, 누계 행 제외)
