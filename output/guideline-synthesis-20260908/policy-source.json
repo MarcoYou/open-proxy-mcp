@@ -1,0 +1,120 @@
+{
+  "schema_version": "opm-demo-policy/1",
+  "id": "opm-attendance-demonstrator",
+  "version": "0.1.0-draft",
+  "status": "synthetic_demonstrator",
+  "authority": "opm_proposal",
+  "parameters": {
+    "attendance_min_pct": {
+      "type": "number",
+      "unit": "percent",
+      "default": 75,
+      "minimum": 50,
+      "maximum": 100,
+      "owner": "opm",
+      "editable": true,
+      "note": "데모용 편집 범위. 기관 공식 기준 또는 운영 승인 범위가 아님"
+    }
+  },
+  "metrics": {
+    "attendance_pct": {
+      "type": "number",
+      "unit": "percent",
+      "min": 0,
+      "max": 100,
+      "period": "prior_term",
+      "kind": "derived_fact"
+    },
+    "is_reelection": {
+      "type": "boolean",
+      "unit": "boolean",
+      "period": "meeting",
+      "kind": "fact"
+    },
+    "attendance_exception_accepted": {
+      "type": "boolean",
+      "unit": "boolean",
+      "period": "prior_term",
+      "kind": "assessment"
+    },
+    "independence_concern_accepted": {
+      "type": "boolean",
+      "unit": "boolean",
+      "period": "meeting",
+      "kind": "assessment"
+    },
+    "coverage_complete": {
+      "type": "boolean",
+      "unit": "boolean",
+      "period": "meeting",
+      "kind": "assessment"
+    }
+  },
+  "rules": [
+    {
+      "id": "DEMO-ATT",
+      "applies_when": {
+        "op": "eq",
+        "left": {
+          "metric": "is_reelection"
+        },
+        "right": {
+          "literal": true
+        }
+      },
+      "test": {
+        "op": "lt",
+        "left": {
+          "metric": "attendance_pct"
+        },
+        "right": {
+          "parameter": "attendance_min_pct"
+        }
+      },
+      "exception": {
+        "op": "eq",
+        "left": {
+          "metric": "attendance_exception_accepted"
+        },
+        "right": {
+          "literal": true
+        }
+      },
+      "effect": "oppose"
+    },
+    {
+      "id": "DEMO-IND",
+      "applies_when": {
+        "const": true
+      },
+      "test": {
+        "op": "eq",
+        "left": {
+          "metric": "independence_concern_accepted"
+        },
+        "right": {
+          "literal": true
+        }
+      },
+      "exception": {
+        "const": false
+      },
+      "effect": "oppose"
+    }
+  ],
+  "positive_gate": {
+    "op": "eq",
+    "left": {
+      "metric": "coverage_complete"
+    },
+    "right": {
+      "literal": true
+    }
+  },
+  "aggregation": "preserve_confirmed_opposition_then_require_complete_support",
+  "limitations": [
+    "최소 계약 예시이며 실제 회사·법령·기관 정책을 재현하지 않는다.",
+    "근거 수용은 합성 입력으로 가정한다. 인용 대조·법률 적용·LLM 호출·실제 투표는 구현하지 않는다.",
+    "attendance와 independence 외 범위의 coverage_complete는 검증기의 합성 출력이다. 실제 제품에서 사용자/LLM이 임의로 true로 선언할 수 없다."
+  ]
+}

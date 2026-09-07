@@ -1,0 +1,1409 @@
+{
+  "status": "synthetic_contract_examples_not_quality_benchmark",
+  "examples": [
+    {
+      "name": "78% / OPM demo 75%: support with complete synthetic coverage",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "FOR",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "clear"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "READY_FOR_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "78% / client demo 80%: opposition",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "client-demo-stricter-attendance",
+      "output": {
+        "assessment": {
+          "vote": "AGAINST",
+          "basis": [
+            "DEMO-ATT"
+          ],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "oppose"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "READY_FOR_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "client-demo-stricter-attendance"
+      }
+    },
+    {
+      "name": "75% equality does not trigger less-than rule",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 75,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "FOR",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "clear"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "READY_FOR_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "74.99% triggers opposition",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 74.99,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "AGAINST",
+          "basis": [
+            "DEMO-ATT"
+          ],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "oppose"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "READY_FOR_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "unknown attendance cannot become support",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "unknown",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "unknown exception blocks this opposing rule",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 60,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "unknown",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "accepted exception clears this opposing rule",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 60,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "FOR",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "exception_accepted"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "READY_FOR_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "separate confirmed opposition survives unknown attendance",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "unknown",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "AGAINST",
+          "basis": [
+            "DEMO-IND"
+          ],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "oppose"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "coverage false cannot create support",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "positive_coverage_gate"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "clear"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "new appointment makes prior-term attendance inapplicable",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "is_reelection": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "FOR",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "not_applicable"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [],
+        "workflow": {
+          "status": "READY_FOR_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "reject incompatible fact: future",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-09"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [
+          "attendance_pct"
+        ],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "reject incompatible fact: entity",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "OTHER",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [
+          "attendance_pct"
+        ],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "reject incompatible fact: period",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_fiscal_year",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [
+          "attendance_pct"
+        ],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "reject incompatible fact: type",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": "78",
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [
+          "attendance_pct"
+        ],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "reject incompatible fact: acceptance",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": false,
+            "evidence_ref": "synthetic-fixture:attendance_pct",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [
+          "attendance_pct"
+        ],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    },
+    {
+      "name": "reject incompatible fact: citation",
+      "input": {
+        "entity_id": "SYNTHETIC-CANDIDATE-001",
+        "as_of": "2026-09-08",
+        "facts": {
+          "attendance_pct": {
+            "status": "known",
+            "value": 78,
+            "accepted": true,
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "is_reelection": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:is_reelection",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "attendance_exception_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:attendance_exception_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "prior_term",
+            "available_at": "2026-09-01"
+          },
+          "independence_concern_accepted": {
+            "status": "known",
+            "value": false,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:independence_concern_accepted",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          },
+          "coverage_complete": {
+            "status": "known",
+            "value": true,
+            "accepted": true,
+            "evidence_ref": "synthetic-fixture:coverage_complete",
+            "entity_id": "SYNTHETIC-CANDIDATE-001",
+            "period": "meeting",
+            "available_at": "2026-09-01"
+          }
+        }
+      },
+      "profile_id": "opm-demo-default",
+      "output": {
+        "assessment": {
+          "vote": "NO_RECOMMENDATION",
+          "basis": [],
+          "scope": "synthetic demonstration only"
+        },
+        "unresolved": [
+          "DEMO-ATT"
+        ],
+        "rule_results": [
+          {
+            "rule_id": "DEMO-ATT",
+            "status": "unresolved"
+          },
+          {
+            "rule_id": "DEMO-IND",
+            "status": "clear"
+          }
+        ],
+        "rejected_facts": [
+          "attendance_pct"
+        ],
+        "workflow": {
+          "status": "NEEDS_REVIEW",
+          "autonomy": "assisted"
+        },
+        "eligibility": "NOT_ASSESSED",
+        "ballot": {
+          "kind": "SIMPLE_VOTE_DEMO"
+        },
+        "action_plan": {
+          "submission": "NOT_IMPLEMENTED"
+        },
+        "profile_id": "opm-demo-default"
+      }
+    }
+  ]
+}

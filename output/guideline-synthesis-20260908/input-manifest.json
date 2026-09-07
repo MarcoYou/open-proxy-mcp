@@ -1,0 +1,32 @@
+{
+  "as_of": "2026-09-08",
+  "astra_commit": "912189272319c69ec12a69af1511721083d37b96",
+  "fable_commit": "dada39255902bbc76135b9fecb37534e31160c11",
+  "inputs": [
+    {
+      "id": "FABLE-1",
+      "file": "00-README.md",
+      "sha256": "759d6f0d2a34707a9ebaaa1072ecbf42600d88e8c6fbc8cb8ce8b5eda9ff1d09"
+    },
+    {
+      "id": "FABLE-2",
+      "file": "01-guideline-v2-design.html",
+      "sha256": "a18188d458e897f549e0e3288559d3b1525a487ac1bb45bb0f9735003e6f025d"
+    },
+    {
+      "id": "FABLE-3",
+      "file": "02-opm-guideline-v2.json",
+      "sha256": "e732f7ca1f438fa22dba0c0d9e7924b8ddfad1d2ab0f75cf86b28e265e8f1bda"
+    },
+    {
+      "id": "FABLE-4",
+      "file": "03-appendix-current-v1.3-policy.md",
+      "sha256": "fa385cf646e6236192aa675fd1db2ac3c6a8f7c01b45a0708ba77fd3d250d36f"
+    },
+    {
+      "id": "FABLE-5",
+      "file": "04-appendix-review-260908.md",
+      "sha256": "3ebb553bcbd49715209d5819e643a225cd0deea7a6d142fe69a912e20cf59a8b"
+    }
+  ]
+}
