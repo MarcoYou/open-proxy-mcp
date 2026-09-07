@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## beta — 2026-09-07
 
+### Faster `director_board` and `shareholder_meeting_notice`: notice parsing off the event loop
+
+The board profile for SK drops from 7.8 s to about 3 s, and the 4–6 s window in which the server could not answer other requests or health checks is now under 0.4 s. The cost was the synchronous parse of a 22 MB meeting notice fetched for the pay-limit agenda. Parsing now runs in a worker thread, tables the requested scope does not use are skipped, and meeting info parsed while classifying candidate notices is reused. Output is unchanged.
+
 ### Operations: per-call timing log and stack dump
 
 Every tool call now logs wall and CPU time (argument names only, never values), with a warning above 10 seconds. If the process stops answering, SIGUSR1 dumps every thread's Python stack to the log. This is the minimum needed after an incident (2026-09-07) where a machine stalled and nothing showed which request was holding the event loop.
