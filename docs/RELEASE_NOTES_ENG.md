@@ -8,6 +8,14 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 Past-dated questions such as "PER at last year-end" are now answerable. `scope=firm` reads the latest weekly snapshot at or before the date (PER, PBR, market cap; no dividend yield), while `market` and `sector` draw their tables from the snapshot at or before the date. Empty means latest, as before.
 
+### `months`, `start_date`, `end_date` for `provisional_earnings`
+
+Instead of only the latest filing within six months, a month count or a filing-date window (YYYYMMDD) now selects a past quarter's provisional results. The parameters existed in the service and are now exposed on the tool.
+
+### `report` and `year` for `asset_holdings`
+
+Previously fixed to the latest annual report. `report` (annual, half, quarter, q1, q3, latest) and `year` (fiscal year) now select half-year, quarterly, or past-year holdings; attachment-only corrections (`[첨부정정]`) are skipped. Quarterly and half-year reports carry thinner notes, so the response warns that detail schedules may be absent.
+
 ## beta — 2026-09-06
 
 ### Extension hooks

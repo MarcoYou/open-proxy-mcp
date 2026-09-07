@@ -8,6 +8,14 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 「작년 말 PER」처럼 과거 시점을 물을 수 있습니다. `scope=firm` 은 주간 스냅샷에서 기준일 이하 가장 최근 값(PER·PBR·시총, 배당수익률 제외), `market`·`sector` 는 기준일 이하 스냅샷으로 표를 그립니다. 비우면 종전과 같이 최신입니다.
 
+### `provisional_earnings` 에 `months`·`start_date`·`end_date`
+
+최근 6개월의 최신 1건만 보던 것을, 개월 수나 공시일 창(YYYYMMDD)으로 과거 분기의 잠정실적을 집을 수 있게 했습니다. 서비스에는 있던 인자를 도구에 노출했습니다.
+
+### `asset_holdings` 에 `report`·`year`
+
+종전에는 최신 사업보고서 하나로 고정이었습니다. 이제 `report`(annual·half·quarter·q1·q3·latest)와 `year`(사업연도)로 반기·분기·과거 기수 기준의 보유 자산을 볼 수 있고, 첨부만 고친 `[첨부정정]` 공시는 건너뜁니다. 분기·반기는 주석 항목이 얇아 명세가 없을 수 있다는 경고가 붙습니다.
+
 ## beta — 2026-09-06
 
 ### 확장 훅
