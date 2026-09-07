@@ -416,7 +416,7 @@ sequenceDiagram
 | `hmvAuditIndvdlBySttus` (재사용) | pay_criteria 하이브리드 교차검증(파서 Σ vs API 공식총액) |
 
 ## 변경 이력
-- 2026-09-07: **속도 — SK 7.8초 → 2.7~3.8초, 이벤트 루프 최대 멈춤 4~6초 → 0.4초.** 프로파일 결과 시간의 70%가 `pay_agenda` 가 부르는 소집공고 파싱(22MB, bs4)이었고 전부 동기라 루프를 잡았다. 파싱을 워커 스레드로(`asyncio.to_thread`), scope 가 안 쓰는 임원 표는 건너뛰고, 후보 분류 때 파싱한 meeting_info 를 번들이 재사용. `tests/test_notice_parse_offload.py`.
+- 2026-09-07: **속도 — SK 7.8초 → 2.7~3.8초, 이벤트 루프 최대 멈춤 4~6초 → 0.4초.** 프로파일 결과 시간의 70%가 `pay_agenda` 가 부르는 소집공고 파싱(2.9~5.4MB, bs4)이었고 전부 동기라 루프를 잡았다. 파싱을 워커 스레드로(`asyncio.to_thread`), scope 가 안 쓰는 임원 표는 건너뛰고, 후보 분류 때 파싱한 meeting_info 를 번들이 재사용. `tests/test_notice_parse_offload.py`.
 - 2026-09-07: 비고가 없는 자리에 「> None」·「[roster] None」이 나가던 렌더 결함 — 비고 없으면 인용줄 생략, roster 교차검증 플래그의 키 오타(「상세」→detail) 수정. `tests/test_render_none_warts.py`.
 - 2026-09-04: `pay_agenda` 회차 선택을 최근 공고(auto) → **최근 정기주총 소집공고**(annual, E006, 13개월)로.
   임시주총만 있으면 `no_annual_notice` + warnings. 근거 공고 rcept·회의일 노출.

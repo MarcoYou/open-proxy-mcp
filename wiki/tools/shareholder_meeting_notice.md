@@ -189,7 +189,8 @@ sequenceDiagram
 
 ## 변경 이력
 
-- 2026-09-07: 소집공고 번들 파싱(`_parse_notice_bundle`)과 후보 분류의 meeting_info 파싱을 워커 스레드로 — 22MB 공고 4초가 이벤트 루프(헬스체크·다른 요청)를 굶기던 것. scope 가 안 쓰는 임원(board)·보수(compensation) 표는 파싱 생략(게이트 집합이 같아 결과 동일). 요청 단위 soup 캐시는 모듈 전역 몽키패치에서 ContextVar 로 — 스레드에서도 자기 요청 캐시만 본다. 후보 분류가 파싱한 meeting_info 는 `_INFO_CTX` 로 번들에 재사용.
+- 2026-09-07 (2차): 후보 분류의 회의 유형·일시 파싱은 문서 전체가 아니라 「주주총회 소집공고」 절 조각만 soup 으로(`_notice_section_slice`). 캐시 143건 전 필드 동일, 143건 처리 11.2초→0.3초. 제목 태그가 없으면 전체 문서로 폴백. main 과 branch 를 나란히 띄워 16사(금융지주·플랫폼·바이오·코스닥·제련·중공업·엔터·지주·증권·식품·게임·건설상사) × 2툴 payload 32건 동일. 캐시 전수 대조는 `tests/test_notice_section_slice_cache_parity.py`(캐시 없으면 skip).
+- 2026-09-07: 소집공고 번들 파싱(`_parse_notice_bundle`)과 후보 분류의 meeting_info 파싱을 워커 스레드로 — 5MB 공고 수 초가 이벤트 루프(헬스체크·다른 요청)를 굶기던 것. scope 가 안 쓰는 임원(board)·보수(compensation) 표는 파싱 생략(게이트 집합이 같아 결과 동일). 요청 단위 soup 캐시는 모듈 전역 몽키패치에서 ContextVar 로 — 스레드에서도 자기 요청 캐시만 본다. 후보 분류가 파싱한 meeting_info 는 `_INFO_CTX` 로 번들에 재사용.
 - 2026-09-04: **직위 어휘 통일** — `role_class`/`is_outside_role` 한 벌(파서)로 「독립이사」=「사외이사」.
   `declared_role`·`roleType` 은 원문 표기 보존. `board_summary` 를 후보 직위 기준·사람 수로 교정
   (「사외이사 후보: 0명」 오류 — 고려아연 2026-09 임시주총). `roleTypeConflict` 는 범주 비교 +

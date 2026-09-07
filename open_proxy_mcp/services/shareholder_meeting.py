@@ -64,7 +64,7 @@ _SUMMARY_MEETING_INFO_KEYS = {
 #: 복사해 들고 가므로 스레드 안에서도 자기 요청 것만 본다(260907).
 _SOUP_CTX: ContextVar[tuple[dict[tuple[str, str, Any], Any], str] | None] = ContextVar("opm_notice_soup", default=None)
 #: 요청 안에서 rcept_no → 소집공고 meeting_info(API 원문 기준). 후보 분류(`_resolve_batch`)가 파싱한 것을 번들이
-#: 다시 파싱하지 않게 한다 — 22MB 공고면 한 번에 1초(260907). 요청(task) 시작에서 빈 dict 로 다시 잡는다.
+#: 다시 파싱하지 않게 한다 — 5MB 공고면 한 번에 1초(260907). 요청(task) 시작에서 빈 dict 로 다시 잡는다.
 _INFO_CTX: ContextVar[dict[str, dict[str, Any]] | None] = ContextVar("opm_notice_info", default=None)
 
 
@@ -1107,7 +1107,7 @@ def _parse_notice_bundle(
     scope: str | None = None,
     meeting_info: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """소집공고 한 건을 한 번에 파싱. **동기·CPU 작업**(22MB 공고면 4초) — 호출측은 `asyncio.to_thread` 로 내린다.
+    """소집공고 한 건을 한 번에 파싱. **동기·CPU 작업**(5MB 공고면 1~4초) — 호출측은 `asyncio.to_thread` 로 내린다.
 
     scope 를 주면 그 scope 가 쓰지 않는 표(임원 선임·보수한도)는 파싱하지 않는다 — `_needs_notice_viewer_fallback`
     와 `include_*` 게이트가 같은 집합을 보므로 결과가 달라지지 않는다(260907 director_board 프로파일: SK 소집공고에서
@@ -1174,7 +1174,7 @@ async def _load_notice_bundle_with_fallback(
 ) -> tuple[dict[str, Any], list[str], str]:
     client = get_dart_client()
     doc = await client.get_document_cached(rcept_no)
-    # 260907: 22MB 공고 파싱 4초가 이벤트 루프를 통째로 잡아 /health(15초 timeout)까지 굶겼다 — 워커 스레드로.
+    # 260907: 소집공고(2.9~5.4MB) 파싱 수 초가 이벤트 루프를 통째로 잡아 /health(15초 timeout)까지 굶겼다 — 워커 스레드로.
     known_info = (_INFO_CTX.get() or {}).get(rcept_no)   # 후보 분류가 같은 API 원문을 이미 파싱했으면 재사용
     parsed = await asyncio.to_thread(
         _parse_notice_bundle,
@@ -1251,12 +1251,41 @@ async def _load_notice_bundle_with_fallback(
     return parsed, warnings, source_used
 
 
+_TITLE_TAG_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
+_NOTICE_BODY_HINT_RE = re.compile(r"일\s*시|장\s*소|회의\s*(?:의?\s*)?목적\s*사항|부의\s*(?:안건|사항)")
+
+
+def _notice_section_slice(html: str) -> str:
+    """소집공고 원문에서 「주주총회 소집공고」 절만 문자열로 잘라낸다 — soup 은 이 조각에만 만든다.
+
+    후보 분류가 필요한 건 회의 유형·일시뿐인데 종전엔 문서 전체(2.9~5.4MB)를 트리로 만들어 `<title>` 을 찾았다
+    (문서당 1초, live 3초 × 후보 3~5건). DART 원문의 `<title>` 은 순서대로 놓이므로 정규식으로 위치만 잡아
+    다음 제목 직전까지 자르면 수십~수백 KB 다. 조각에 일시·장소·목적사항 문구가 있는 것을 고르고, 없으면 첫
+    소집공고 제목 블록. 캐시 소집공고 143건에서 `parse_meeting_info_xml` 결과 **전 필드** 가 전체 파싱과
+    같았다(260907). 제목 태그가 없는 서식이면 "" — 호출측이 전체 문서로 폴백한다.
+    """
+    if not html:
+        return ""
+    titles = list(_TITLE_TAG_RE.finditer(html))
+    first = ""
+    for i, m in enumerate(titles):
+        title = re.sub(r"<[^>]+>", "", m.group(1))
+        if "주주총회" in title and "소집" in title and "공고" in title:
+            end = titles[i + 1].start() if i + 1 < len(titles) else len(html)
+            chunk = html[m.start():end]
+            if _NOTICE_BODY_HINT_RE.search(chunk):
+                return f"<html><body>{chunk}</body></html>"
+            first = first or chunk
+    return f"<html><body>{first}</body></html>" if first else ""
+
+
 async def _notice_info_with_fallback(
     rcept_no: str,
     text: str,
     html: str,
 ) -> tuple[dict[str, Any], str]:
-    meeting_info = await asyncio.to_thread(parse_meeting_info_xml, text, html=html)   # 1초짜리 동기 파싱 — 루프 밖으로
+    sliced = _notice_section_slice(html)
+    meeting_info = await asyncio.to_thread(parse_meeting_info_xml, text, html=sliced or html)   # 동기 파싱 — 루프 밖으로
     memo = _INFO_CTX.get()
     if memo is not None:
         memo[rcept_no] = meeting_info
