@@ -19,18 +19,27 @@ def _item(rcept_no: str, name: str, corp: str = "00126380", *, correction: bool 
             "corp_cls": "Y", "flr_nm": name, "rcept_dt": dt}
 
 
+class _FakeClient:
+    """DART 클라이언트를 세우지 않는다 — CI 에는 키가 없고, 이 테스트는 네트워크 0 이다."""
+
+    def api_call_snapshot(self):
+        return 0
+
+
 def _run(items: list[dict]):
     async def _fake_scan(client, code, bgn, end, mx):
         return S._scan_result(items if code == "I001" else [], len(items), 1, 1)
 
-    orig = S._scan_code
+    orig_scan, orig_client, orig_cap = S._scan_code, S.get_dart_client, S._krx_mktcap_map
     S._scan_code = _fake_scan
+    S.get_dart_client = lambda: _FakeClient()
+    S._krx_mktcap_map = lambda codes, dd: {}
     try:
         return asyncio.run(S.build_screener_payload(
             types="order", period="custom", custom_start="20260818",
             custom_end="20260820", universe="all", details=False))
     finally:
-        S._scan_code = orig
+        S._scan_code, S.get_dart_client, S._krx_mktcap_map = orig_scan, orig_client, orig_cap
 
 
 def test_three_separate_contracts_stay_three_cards():
