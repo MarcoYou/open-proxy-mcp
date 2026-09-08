@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
+from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 
@@ -370,7 +371,6 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             warnings.append("재무제표 계정 조회 불가(소규모기업 요약생략·미제출 등) — `scope=\"detail\"`로 주석 확인")
         tiers, _ = _bs_tiers(fin.get("list") or [])
         data["fs_div"] = fs_div
-        data["assets"] = {_TIER_LABEL[k]: v for k, v in tiers.items() if v and k != "subs"}
         data["_tiers"] = tiers
         try:
             ci = await client.get_company_info(cc)
@@ -403,6 +403,34 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         data["market_cap_krw"] = mcap
         data["market_cap_meta"] = mcap_meta
         t = data["_tiers"]
+        # ── 통화 정규화 ──
+        # BS 계정은 기능통화로 신고된다(두산밥캣=USD). 시총(mcap)은 KRX 라 항상 KRW 이므로,
+        # 환산하지 않으면 **분자 USD ÷ 분모 KRW** 가 되어 배수가 환율 배수만큼 축소된다
+        # (실측: 잉여자산/시총 0.00배 — 실제 ~0.35배. 「잉여자산이 없는 회사」로 읽힌다).
+        stmt_cur = statement_currency(fin.get("list") or [])
+        data["functional_currency"] = stmt_cur
+        fx = 1.0
+        if stmt_cur != "KRW":
+            # 기준일은 재무상태표 결산일 — f"{year}1231" 로 두면 당해 반기보고서에서 미래 날짜라
+            # 환율 조회가 늘 실패하고, 비12월 결산사는 아예 다른 날의 환율을 쓴다.
+            _bs_dt = next((str(r.get("thstrm_dt") or "") for r in (fin.get("list") or [])
+                           if r.get("thstrm_dt")), "")
+            _digits = "".join(ch for ch in _bs_dt if ch.isdigit())[:8]
+            fx = await fx_to_krw(stmt_cur, _digits or f"{year}1231") or 0.0
+            if not fx:
+                fx = 1.0
+                data["fx_rate_to_krw"] = None
+                warnings.append(f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 자산 금액은 "
+                                f"{stmt_cur} 단위 그대로다. **KRW 시총과 나란히 두지 말 것**(배수 미제공).")
+            else:
+                t = {k: round(v * fx) for k, v in t.items()}
+                data["_tiers"] = t
+                data["fx_rate_to_krw"] = round(fx, 2)
+                warnings.append(f"기능통화 {stmt_cur} — BS 자산을 {year} 기말환율 {fx:,.1f}원/{stmt_cur} 로 "
+                                f"KRW 환산해 시총과 통화를 맞췄다.")
+        # 세부 계정 표는 **환산 뒤** 티어로 만든다. 환산 전에 만들면 같은 응답 안에서
+        # 목적별 버킷(KRW)과 세부 계정(원행 통화)이 환율배만큼 어긋난다.
+        data["assets"] = {_TIER_LABEL[k]: v for k, v in t.items() if v and k != "subs"}
         bucket_totals: dict[str, int] = {}
         for k, v in t.items():
             b = _BUCKET.get(k)
@@ -427,13 +455,24 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         mixed_krw = t.get("mixed", 0)
         if is_fin:
             warnings.append("금융업 — 트레이딩·FVOCI 자산이 본업이라 surplus/지분NAV 배수는 미제공(자산표만 참고)")
+        # 지분 NAV 는 BS(기능통화 환산분)와 타법인출자현황(otrCprInvstmntSttus — 통화 미선언)
+        # 장부가가 섞인다. 기능통화가 KRW 가 아니면 두 출처의 통화를 확증할 수 없으므로
+        # 배수를 내지 않는다 — 조용히 섞은 값을 내느니 「기준을 확증 못 했다」를 말한다.
+        # 환산이 성립해야 배수를 낸다. 실패 경로(환율 조회 불가)에서는 티어가 원행 통화 그대로라
+        # KRW 시총으로 나누면 고치려던 그 오류가 그대로 남는다 — 그래서 배수 전체를 내지 않는다.
+        _cov_ok = (stmt_cur == "KRW") or bool(data.get("fx_rate_to_krw"))
+        # 지분 NAV 는 여기에 더해 타법인출자현황(otrCprInvstmntSttus — 통화 미선언) 장부가가 섞인다.
+        _equity_cov_ok = _cov_ok and (stmt_cur == "KRW")
+        if _cov_ok and not _equity_cov_ok:
+            warnings.append("지분 NAV 배수 미제공 — 타법인출자현황 장부가의 통화 선언이 없어 "
+                            f"환산분(BS·{stmt_cur}→KRW)과 같은 기준임을 확증할 수 없다. 자산 절대액만 참고.")
         data["nav"] = {
             "surplus_krw": surplus, "equity_nav_krw": assoc_nav,
             "listed_unrealized_gap_krw": mark["unrealized_gap_krw"],
-            "surplus_cov": (surplus / mcap) if (mcap and not is_fin) else None,
-            "equity_nav_cov": (assoc_nav / mcap) if (mcap and not is_fin) else None,
+            "surplus_cov": (surplus / mcap) if (mcap and not is_fin and _cov_ok) else None,
+            "equity_nav_cov": (assoc_nav / mcap) if (mcap and not is_fin and _equity_cov_ok) else None,
             "mixed_combined_krw": mixed_krw,
-            "mixed_combined_cov": (mixed_krw / mcap) if mcap and mixed_krw else None,
+            "mixed_combined_cov": (mixed_krw / mcap) if (mcap and mixed_krw and _cov_ok) else None,
             "haircut_flags": [k for k, v in data["haircuts"].items() if v == "MARKDOWN"],
         }
         if mixed_krw:

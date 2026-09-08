@@ -2,6 +2,28 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-08
+
+### Companies whose functional currency is not the won — dollar figures no longer labelled in won
+
+For companies like Doosan Bobcat that report in USD, the filings carry dollar amounts. Financial metrics and
+asset holdings were passing those straight into won-labelled fields, so revenue read as 6.27 billion won when
+the real figure is about 9.2 trillion — roughly 1,400x too small. Asset holdings were worse: dollar book values
+were divided by a won market cap, so surplus-asset coverage came out at 0.00x instead of 0.346x, reversing the
+conclusion into "this company has no surplus assets".
+
+Amounts are now converted to won at the fiscal year-end rate, and the response carries the basis alongside the
+values (`functional_currency`, `fx_rate_to_krw`, `fx_basis`). If the rate cannot be fetched, values are left
+untouched and the response says they are not in won rather than quietly pretending otherwise. Quarterly trends
+use a single rate across all twelve quarters, because per-quarter rates would corrupt the Q4 differencing.
+Won-reporting companies are byte-identical (verified across 4 companies x 3 tools).
+
+### Financial statement accounts, exactly as filed
+
+`scope="accounts"` returns every account line in filing order instead of the 35 the summary keeps
+(52 rows for Samsung Electronics' balance sheet). Narrow it with `sj_div=["BS","IS"]`. This answers what the
+summary could not: what sits inside current assets, and whether a company files "revenue" or "operating revenue".
+
 ## beta — 2026-09-07
 
 ### Meeting-notice bundle: correction summary only for corrections, agenda details parsed once

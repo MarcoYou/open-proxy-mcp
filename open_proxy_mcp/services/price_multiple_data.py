@@ -1078,8 +1078,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         return round(x * ecos_fx_rate) if x is not None else None
 
     if ecos_fx_rate != 1.0:
-        revenue_fy = _fx(revenue_fy)
-        eps_fy = None  # fm의 eps_krw는 실제 USD/주 → 폐기, 아래서 공시 EPS×환율로 대체
+        # revenue_fy 는 financial_metrics 요약에서 온다 — 그쪽이 이미 KRW 로 환산해 내보내므로
+        # 여기서 다시 곱하면 환율이 두 번 곱해진다(두산밥캣 실측 8.87조 → 12,728조, ≈1,435²).
+        # 아래 _fx() 는 이 함수가 **원행에서 직접 뽑은** 값(ni_*·eq_*·assets_fy…)에만 쓴다.
+        eps_fy = None  # fm의 eps_krw 도 KRW 환산본 → 폐기, 아래서 공시 EPS×환율로 통일 조립
 
     # ── 공시 EPS 조립 (260705, [[per-pbr-data-points]] 전수조사 귀결) ──
     # 가중평균주식수는 어느 endpoint에도 없음 → 주식수를 직접 만들지 않고 공시 EPS끼리 조립:
