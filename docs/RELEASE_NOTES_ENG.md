@@ -2,6 +2,30 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-09
+
+### Several filings from the same company no longer collapse into one card
+
+The disclosure screener groups filings of the same company and type. But the grouping key had no way
+to tell one event from another — supply contracts only distinguish "signed" from "terminated" — so
+three separate contracts filed by one company in a month became a single card. The amounts and links
+were all correct, so nothing on screen revealed the error: "one contract this month" was really three.
+
+Now only a **correction** supersedes an original. When several originals exist, there is no way to
+know which one a correction amends, so nothing is merged and the candidates are listed instead — if
+we don't know, we don't delete. Measured: supply contracts went from 186 to 225 over a month, capital
+increases from 176 to 216. The daily morning digest is unchanged.
+
+### The response now tells you what it could not see
+
+Over busy periods a scan hits its page limit and sees only part of the window. Previously the only
+signal was a six-word footer, which told you neither how much was cut nor what was missing.
+
+The response now carries, per disclosure type, how many pages of how many were read and the filing-date
+range actually received. A type whose scan failed is reported as failed rather than as "nothing found" —
+an empty result must not read as success. It also says that splitting the period into two calls will
+cover more.
+
 ## beta — 2026-09-08
 
 ### Companies whose functional currency is not the won — dollar figures no longer labelled in won
