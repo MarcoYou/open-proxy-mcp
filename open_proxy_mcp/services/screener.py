@@ -39,7 +39,11 @@ _KST = timezone(timedelta(hours=9))
 _MARKET_SCAN_MAX_DAYS = 92
 
 # scan 상한
-_SCAN_MAX_PAGES = 20        # 코드당 최대 페이지(전체시장 폭주 방지)
+# 코드당 최대 페이지(전체시장 폭주 방지). 같은 list.json 전체시장 스캔인 risk_events 는 200 이라
+# 두 서비스의 예산이 어긋나 있다 — 다만 여기서 200 으로 맞추면 코드 5개 × 200 = 1,000 콜이라
+# 한 요청이 분당 910 캡을 통째로 밀어버린다. 그래서 값을 옮기기 전에 `scan_page_truncated`
+# 계기로 **절단이 실제로 얼마나 발생하는지 먼저 잰다**(260909).
+_SCAN_MAX_PAGES = 20
 _PAGE_COUNT = 100
 
 # ── 260824: 호출측 sleep 을 걷어내고 **클라이언트 스로틀에 맡긴다** ──────────────
@@ -511,6 +515,8 @@ def resolve_period(period: str, *, cursor: str = "",
     # 3개월 하드캡
     if (end - bgn).days > _MARKET_SCAN_MAX_DAYS:
         bgn = end - timedelta(days=_MARKET_SCAN_MAX_DAYS)
+        # 절단은 에러가 아니라 **대체**다 — 세지 않으면 얼마나 자주 발생하는지 영영 모른다.
+        note_degradation("period_clamped")
         notices.append(f"시장스캔은 3개월(≤{_MARKET_SCAN_MAX_DAYS}일)까지만 — 시작일을 {_yyyymmdd(bgn)}로 절단했다.")
     if bgn > end:
         bgn = end
@@ -719,49 +725,75 @@ async def resolve_universe(universe: str) -> UniverseFilter:
 # ══════════════════════════════════════════════════════════════════════
 
 async def _scan_code(client, detail_ty: str, bgn_de: str, end_de: str,
-                     max_pages: int) -> tuple[list[dict], int, bool, str | None]:
+                     max_pages: int) -> dict:
     """캐시 앞단 — 실제 수집은 `_scan_code_uncached`. 키는 **공시유형 × 기간 × 페이지상한**뿐이라
     누가 물었는지가 안 들어간다(시장 데이터)."""
+    # `_SCAN_CACHE` 는 프로세스 메모리(LruByteCache)라 배포하면 함께 사라진다 — 포맷 세대
+    # 접두는 막을 대상이 없어서 두지 않는다.
     key = f"{detail_ty}|{bgn_de}|{end_de}|{max_pages}"
     hit = _SCAN_CACHE.get(key)
     if hit is not None:
-        items, total, trunc = hit
         # 리스트를 그대로 내주면 호출측이 고칠 때 캐시가 함께 바뀐다 — 얕은 복사로 끊는다.
-        return list(items), total, trunc, None
-    items, total, trunc, err = await _scan_code_uncached(
-        client, detail_ty, bgn_de, end_de, max_pages)
-    if err is None:
+        return {**hit, "items": list(hit["items"])}
+    res = await _scan_code_uncached(client, detail_ty, bgn_de, end_de, max_pages)
+    if res["error"] is None:
         # ★ **복사해서 담는다.** 같은 리스트를 담고 그대로 돌려주면, 호출측이 그 리스트를
         #   고치는 순간 캐시가 함께 바뀐다(미스 경로에서 실제로 그랬다). 적중 경로만
         #   복사하면 첫 호출자가 캐시를 오염시킨다 — 넣는 쪽에서 끊는 게 맞다.
-        _SCAN_CACHE.put(key, (list(items), total, trunc), ttl_sec=_scan_ttl(end_de))
-    return items, total, trunc, err
+        _SCAN_CACHE.put(key, {**res, "items": list(res["items"])}, ttl_sec=_scan_ttl(end_de))
+    return res
+
+
+def _scan_result(items: list[dict], total: int, total_pages: int, fetched_pages: int,
+                 error: str | None = None) -> dict:
+    """스캔 한 코드의 결과 + **어디까지 봤는지**. 에러도 이 dict 안에 넣는다.
+
+    에러를 밖으로 따로 빼면(2튜플) 완전성 판정이 그것을 못 보고 「빈 결과 = 완전」이 된다 —
+    실제로 그랬다: 전송오류로 통째로 죽은 코드가 `complete: true` 로 나갔다. 모수를 정직하게
+    적으려고 만든 필드가 실패할 때만 거짓말을 하면 읽는 쪽은 경고를 무시하고 이 표를 믿는다.
+
+    `fetched_pages` 는 **던진 수가 아니라 실제로 받은 수**다. 3페이지가 죽고 4페이지가 살아오면
+    4/4 를 주장하면서 가운데 구멍을 덮게 된다.
+
+    `seen_from`/`seen_to` 는 **실제로 받은 행의 접수일 범위**다 — DART 기본 정렬을 가정하지 않고
+    본 것만 적는다(정렬은 문서화된 계약이 아니라, 이 레포의 다른 스캐너도 그것에 기대지 않는다).
+    """
+    dts = sorted(str(it["rcept_dt"]) for it in items if it.get("rcept_dt"))
+    return {"items": items, "total": total, "total_pages": total_pages,
+            "fetched_pages": fetched_pages,
+            "truncated": total_pages > fetched_pages,
+            "error": error,
+            # 완전 = 상한에 안 걸렸고 **에러도 없었다**. 둘 중 하나라도 있으면 이 코드의 모수는 불완전하다.
+            "complete": error is None and total_pages <= fetched_pages,
+            "seen_from": dts[0] if dts else None,
+            "seen_to": dts[-1] if dts else None,
+            "missing_pages": [], "received_pages": fetched_pages}
 
 
 async def _scan_code_uncached(client, detail_ty: str, bgn_de: str, end_de: str,
-                              max_pages: int) -> tuple[list[dict], int, bool, str | None]:
-    """한 detail 코드의 전체시장 필러를 페이지네이션(순차 + sleep). ReadError/차단코드 즉시 중단."""
+                              max_pages: int) -> dict:
+    """한 detail 코드의 전체시장 필러를 페이지네이션. ReadError/차단코드 즉시 중단."""
     items: list[dict] = []
     try:
         first = await client.search_filings(
             bgn_de=bgn_de, end_de=end_de, pblntf_detail_ty=detail_ty,
             page_no=1, page_count=_PAGE_COUNT)
     except DartClientError as exc:
-        if exc.status == "013":  # 해당 없음 = 정상 no-data
-            return [], 0, False, None
-        return [], 0, False, exc.status
+        if exc.status == "013":
+            # 「해당 없음」은 진짜 무자료다 — 에러가 아니라 완전한 0건이다(complete: true 가 옳다).
+            return _scan_result([], 0, 0, 0)
+        return _scan_result([], 0, 0, 0, error=exc.status)
     except Exception as exc:      # noqa: BLE001
         # ★ 전송 오류는 `DartClientError` 로 안 온다 — `_request` 가 원래 예외(httpx)를
         #   그대로 올린다(260824 실측: DNS 실패 시 httpx.ConnectError). 종전 `except
         #   DartClientError` 만으로는 못 잡아 스캔 전체가 죽었다.
-        return [], 0, False, f"transport:{type(exc).__name__}"
+        return _scan_result([], 0, 0, 0, error=f"transport:{type(exc).__name__}")
     total = int(first.get("total_count", 0) or 0)
     items.extend(first.get("list", []))
     total_pages = max(1, math.ceil(total / _PAGE_COUNT)) if total else 1
     fetch_pages = min(total_pages, max_pages)
-    truncated = total_pages > max_pages
     if fetch_pages < 2:
-        return items, total, truncated, None
+        return _scan_result(items, total, total_pages, fetch_pages)
 
     # 2페이지부터는 서로 독립이다 — 1페이지가 총량을 알려주므로 나머지는 한꺼번에 던진다.
     #   속도는 `_throttle_api`(910/분 롤링윈도우 + 락)가 잡는다. 여기서 또 재우면 두 곳이
@@ -775,7 +807,8 @@ async def _scan_code_uncached(client, detail_ty: str, bgn_de: str, end_de: str,
                                    return_exceptions=True)
     # ★ 순서를 복원한다. gather 는 입력 순서로 돌려주지만 예외가 섞이므로 페이지 번호를
     #   함께 들고 다니며 정렬한다 — 공시 목록의 순서가 뒤집히면 dedup(정정=최신본)이 흔들린다.
-    pages, err = [], None
+    ok_pages: dict[int, dict] = {}
+    err = None
     for r in results:
         if isinstance(r, DartClientError):
             err = err or r.status          # 첫 오류를 보고 (부분 결과는 살린다)
@@ -783,10 +816,27 @@ async def _scan_code_uncached(client, detail_ty: str, bgn_de: str, end_de: str,
         if isinstance(r, BaseException):
             err = err or f"transport:{type(r).__name__}"
             continue
-        pages.append(r)
-    for _p, page in sorted(pages, key=lambda t: t[0]):
+        p_no, page = r
+        ok_pages[p_no] = page
+    # 받은 페이지는 **전부 싣는다**(원문을 버리지 않는다). 다만 완전성은 「연속으로 받은 데까지」로
+    #   센다 — 3페이지가 죽고 4페이지가 살아왔다고 4/4 를 주장하면 가운데 구멍을 덮은 채
+    #   「여기까지는 온전하다」고 말하게 된다. 데이터는 남기고 모수만 정직하게 적는 게 맞다.
+    missing: list[int] = []
+    contiguous = 1                          # 1페이지는 위에서 이미 받았다
+    still_contiguous = True
+    for p_no in range(2, fetch_pages + 1):
+        page = ok_pages.get(p_no)
+        if page is None:
+            missing.append(p_no)
+            still_contiguous = False
+            continue
         items.extend(page.get("list", []))
-    return items, total, truncated, err
+        if still_contiguous:
+            contiguous += 1
+    res = _scan_result(items, total, total_pages, contiguous, error=err)
+    res["missing_pages"] = missing          # 구멍을 숨기지 않는다
+    res["received_pages"] = 1 + len(ok_pages)
+    return res
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1123,13 +1173,17 @@ async def _build_screener_payload_impl(
 
     # ── scan: 선택 유형이 쓰는 detail 코드 합집합만 스캔 ───────────────
     scan_codes = sorted({_BY_CODE[c]["scan_code"] for c in sel_types})
-    # 스캔 폭 = 기간에 비례하되 코드당 상한
-    max_pages = _SCAN_MAX_PAGES if period_days <= 30 else _SCAN_MAX_PAGES
+    # 종전엔 `_SCAN_MAX_PAGES if period_days <= 30 else _SCAN_MAX_PAGES` — 양쪽 분기가
+    # 문자열까지 같은 죽은 조건문이라 「기간에 비례」가 문장으로만 있었다. 조건문은 지웠고,
+    # **상한을 올리는 것은 이 커밋에서 하지 않는다** — `scan_page_truncated` 계기를 이제 막
+    # 심었으므로 발생률을 먼저 재고 나서 올린다(같은 커밋에서 올리면 dedup 효과와 교락된다).
+    max_pages = _SCAN_MAX_PAGES
     scan_status = "ok"
     scan_error: str | None = None
     raw_items: list[dict] = []
     scanned = 0
     truncated_scan = False
+    coverage: list[dict] = []   # 코드별 「어디까지 봤나」 — 절단은 값이 아니라 모수를 바꾼다
     # 코드 5개는 서로 독립이라 순차로 돌 이유가 없었다. 총 콜 수는 그대로고
     #   속도만 `_throttle_api` 가 잡는다(910/분). 결과는 코드 순서로 복원한다.
     _scan_sem = asyncio.Semaphore(_SCAN_CONCURRENCY)
@@ -1145,19 +1199,32 @@ async def _build_screener_payload_impl(
     _ok: list[tuple] = []
     for code, r in zip(scan_codes, _scanned_raw):
         if isinstance(r, BaseException):
-            _ok.append((code, ([], 0, False, f"transport:{type(r).__name__}")))
+            _ok.append((code, _scan_result([], 0, 0, 0, error=f"transport:{type(r).__name__}")))
         else:
             _ok.append(r)
-    for code, (items, total, trunc, err) in sorted(_ok, key=lambda t: t[0]):
-        raw_items.extend(items)
-        scanned += total
-        truncated_scan = truncated_scan or trunc
+    for code, res in sorted(_ok, key=lambda t: t[0]):
+        err = res["error"]
+        raw_items.extend(res["items"])
+        scanned += res["total"]
+        truncated_scan = truncated_scan or res["truncated"]
+        coverage.append({"code": code, "total": res["total"],
+                         "total_pages": res["total_pages"], "fetched_pages": res["fetched_pages"],
+                         "received_pages": res["received_pages"],
+                         "missing_pages": res["missing_pages"],
+                         "seen_from": res["seen_from"], "seen_to": res["seen_to"],
+                         "complete": res["complete"], "error": err})
         if err:
             # 병렬이라 「즉시 중단」은 못 한다(이미 다 던졌다). 대신 **전부 보고**한다 —
             #   종전 `break` 는 뒤 코드를 아예 안 돌아 어디까지 봤는지 알 수 없었다.
             scan_status = "partial"
             scan_error = err
             warnings.append(f"{code} 스캔 일부 실패(DART {err}) — 그 코드의 부분 결과만 반영.")
+    if truncated_scan:
+        # 절단은 에러가 아니라 **대체**다 — 세지 않으면 발생률을 영영 모르고, 상한을 얼마로
+        # 올릴지 정할 근거도 없다.
+        note_degradation("scan_page_truncated")
+    # 사람이 읽는 절단 문장은 렌더러 한 곳에서만 만든다(`coverage` 를 읽어서). 여기서도 조립하면
+    # 같은 사실이 한 화면에 두 번 찍힌다.
 
     # ── 분류 + universe 필터 + dedup ───────────────────────────────────
     allowed_selset = set(sel_types)
@@ -1190,14 +1257,45 @@ async def _build_screener_payload_impl(
             "_detail_kind": tdef.get("detail_kind"),
         })
 
-    # dedup: 같은 dedup_key는 최신 rcept_no만(원본↔정정 수렴). 정정본이 원본을 supersede.
-    by_key: dict[str, dict] = {}
+    # dedup: **정정본만** 원본을 대체한다.
+    #
+    # 종전엔 같은 `corp_code:type_code:subtype` 이면 무조건 최신 1건으로 접었는데, subtype 이
+    # 사건 식별자가 아니다 — 공급계약 matcher 는 「체결」·「해지」 둘뿐이라 한 회사가 한 달에 낸
+    # 계약 3건이 전부 같은 키로 수렴해 카드 1장이 됐다. 값이 아니라 **건수**가 틀리는데
+    # 원문 링크를 눌러도 그 1건은 맞으니 오류가 드러나지 않는다.
+    #
+    # 원본↔정정 수렴은 원래 의도이므로 유지하되, 대체하는 쪽이 정정본일 때만 접는다.
+    # list.json 은 정정본이 **어느 접수번호를 고쳤는지** 알려주지 않는다(필드 자체가 없다).
+    # 그래서 원본이 창 안에 하나뿐일 때만 접는다. 둘 이상이면 어느 것의 정정인지 모르므로
+    # 접지 않고 후보를 실어 남긴다 — 「모르면 지우지 않는다」. 종전 판은 무조건 **가장 최근**
+    # 원본을 덮어, 정정이 옛 건의 정정일 때 그 사이의 최신 계약이 통째로 사라졌다.
+    slots: dict[str, list[int]] = {}   # dedup_key → kept 안의 후보 위치들
+    kept: list[dict] = []
+    seen_rcept: set[str] = set()
+    superseded = 0
     for row in sorted(classified, key=lambda r: r["rcept_no"]):
-        prev = by_key.get(row["dedup_key"])
-        if prev is not None:
-            row["supersedes_rcept_no"] = prev["rcept_no"]
-        by_key[row["dedup_key"]] = row
-    hits = list(by_key.values())
+        rn = row["rcept_no"]
+        if rn in seen_rcept:
+            # 같은 공시가 두 번 들어오는 경우(페이지 경계·코드 중복 스캔). 종전 dict dedup 이
+            # 부수적으로 막아 주던 것이라, 키를 완화하면서 이 그물이 사라졌었다.
+            continue
+        seen_rcept.add(rn)
+        k = row["dedup_key"]
+        cand = slots.setdefault(k, [])
+        if row["is_correction"] and len(cand) == 1:
+            at = cand[0]
+            row["supersedes_rcept_no"] = kept[at]["rcept_no"]
+            kept[at] = row        # 자리 유지 — 정정은 새 사건이 아니라 같은 사건의 최신판
+            superseded += 1
+        else:
+            if row["is_correction"] and len(cand) > 1:
+                # 후보가 여럿 — 접지 않고 무엇과 짝일 수 있는지를 함께 준다.
+                row["ambiguous_correction"] = True
+                row["correction_candidates"] = [kept[i]["rcept_no"] for i in cand]
+            cand.append(len(kept))
+            kept.append(row)
+    hits = kept
+    deduped_away = superseded
     hits.sort(key=lambda r: r["rcept_no"], reverse=True)  # 최신순
 
     # ── 시총 배치 부착(krx_weekly, DART 0콜) ───────────────────────────
@@ -1291,6 +1389,7 @@ async def _build_screener_payload_impl(
         "universe": {"label": uni.label, "resolved": uni.resolved,
                      "size": (len(uni.allowed) if uni.allowed is not None else None),
                      "notice": uni.notice},
+        "coverage": coverage,
         "types": {"selected": sel_types, "scan_codes": scan_codes,
                   "details": details_effective, "details_preview": details_preview},
         "counts": {"scanned": scanned, "classified": len(classified),
@@ -1298,6 +1397,7 @@ async def _build_screener_payload_impl(
                    #   둘을 한 칸에 담으면 표시 한도를 매칭 수로 읽는다(U7 실측).
                    "matched": total_hits, "hits": total_hits, "returned": len(returned),
                    "truncated_scan": truncated_scan,
+                   "deduped_away": deduped_away,
                    "truncated_details": truncated_details,
                    "truncated_paging": truncated_paging},
         "paging": {"offset": offset, "page_size": max_hits,

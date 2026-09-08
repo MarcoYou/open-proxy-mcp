@@ -234,9 +234,26 @@ def _render_digest(payload: dict[str, Any]) -> str:
     if counts.get("truncated_details"):
         foot.append("details 캡 초과분 존재")
     if counts.get("truncated_scan"):
+        # 「상한 도달」 여섯 글자로는 **무엇이 빠졌는지**를 알 수 없다 — 어느 코드가 몇 페이지 중
+        # 몇을 봤고 어느 날짜부터 안 보이는지까지 적는다(json 에만 있으면 사람은 못 본다).
         foot.append("스캔 페이지 상한 도달")
+    if counts.get("deduped_away"):
+        foot.append(f"정정본이 원본을 대체한 건 {counts['deduped_away']}건")
     if foot:
         lines.append("> " + " · ".join(foot))
+    _cut = [c for c in (p.get("coverage") or []) if not c.get("complete")]
+    if _cut:
+        lines.append("")
+        lines.append("### 이 응답이 못 본 것")
+        for c in _cut:
+            _why = (f"DART 오류 {c['error']}" if c.get("error")
+                    else f"페이지 상한 {c['fetched_pages']}/{c['total_pages']}")
+            _saw = (f"본 접수일 {c['seen_from']}~{c['seen_to']}"
+                    if c.get("seen_from") else "받은 행 없음")
+            _hole = f" · 빠진 페이지 {c['missing_pages']}" if c.get("missing_pages") else ""
+            lines.append(f"- `{c['code']}` — {_why} · {_saw}{_hole}")
+        lines.append("- 기간을 나눠 두 번 부르면 그만큼 더 본다. "
+                     "위 접수일 범위는 **실제로 받은 행**의 범위이지 창 전체가 아니다.")
     if p.get("warnings"):
         lines.append("")
         lines.append("### 유의")

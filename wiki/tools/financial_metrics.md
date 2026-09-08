@@ -2,14 +2,14 @@
 type: tool
 title: financial_metrics
 domain: data
-scope: [summary, yearly, quarterly, yoy, qoq, audit_opinion]
-data_source: [DART OpenAPI fnlttSinglAcnt (BS+IS 핵심 30행), fnlttSinglIndx (DART 산출 ROE/부채비율 보조), fnlttSinglAcntAll (CF + 세부 IS/BS 213행), accnutAdtorNmNdAdtOpinion (감사인+의견+KAM 3년 추이)]
+scope: [summary, yearly, quarterly, yoy, qoq, audit_opinion, accounts]
+data_source: [DART OpenAPI fnlttSinglAcnt (BS+IS 핵심 30행), fnlttSinglIndx (DART 산출 ROE/부채비율 보조), fnlttSinglAcntAll (CF + 세부 IS/BS 213행 · accounts scope 원행), accnutAdtorNmNdAdtOpinion (감사인+의견+KAM 3년 추이), ECOS/야후 환율 (기능통화 비KRW 회사만)]
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석, ROE, ROA, ROIC, FCF, NWC, 이자보상배율, 순현금, 연결-별도, 단위-표기-규약, 시점-제약]
 related_decisions: [open-proxy-guideline]
 
 created: 2026-05-01
-updated: 2026-09-06
+updated: 2026-09-08
 ---
 
 # financial_metrics
@@ -67,10 +67,11 @@ financial_metrics(
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 6종 (아래 참조) | "summary" |
+| scope | str | no | 7종 (아래 참조) | "summary" |
 | year | int | no | 사업연도, 0이면 최신 완료 사업연도 | 0 |
 | years | int | no | yearly/audit_opinion 누적 연수 | 3 |
 | consolidated | bool | no | True=CFS(연결, 한국 표준), False=OFS(별도) | True |
+| sj_div | list[str] | no | `accounts` 전용 — 재무제표 종류 필터(`BS`·`IS`·`CIS`·`CF`·`SCE`). 미지정이면 전부 | - |
 | format | str | no | "md" / "json" | "md" |
 
 scope:
@@ -80,6 +81,7 @@ scope:
 - `yoy`: 전년 대비 + 22개 alerts + 감사의견 cross-check
 - `qoq`: 전분기 대비 (operating_loss_quarter / revenue_decline_qoq alerts)
 - `audit_opinion`: 감사의견 3년 추이 (적정/한정/부적정/감사인 변경 추적)
+- `accounts`: 전체 재무제표 **계정 원행 그대로**(`fnlttSinglAcntAll`). 요약이 버리는 수백 행을 공시 순서(`ord`)로 낸다. 파생값 없음 — 계정 해석은 읽는 쪽이 한다. `sj_div=["BS"]` 로 좁힌다. 삼성전자 BS 실측 52행·DART 2콜·27KB.
 
 ## 출력 schema (data dict)
 ```json
@@ -180,7 +182,7 @@ scope:
   - `fnlttSinglIndx` (주요 재무지표) — DART 산출 ROE/부채비율/EPS 등. idx_cl_code 4 그룹 (수익성/안정성/성장성/활동성) × 4 호출.
   - `fnlttSinglAcntAll` (전체 재무제표) — 213 행 (BS/IS/CIS/CF/SCE). CapEx, 감가상각비, 이자비용, 매출채권/재고/매입채무 추출.
   - `accnutAdtorNmNdAdtOpinion` (회계감사인+의견) — 6 행 (3년 × CFS+OFS). 감사인 / 적정의견 / 강조사항 / 핵심감사사항(KAM) / rcept_no.
-- 외부 호출: scope별 최대 12회 (일반 7회). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회 + 매출이 빈 분기 수(최대 12 — 주요계정에 매출 행이 없는 회사만, 260906 lazy 폴백).
+- 외부 호출: scope별 최대 12회 (일반 7회). `accounts` 는 2회(요약 8회보다 싸다 — 요약에 얹어 공짜로 나오는 게 아니라 자기 호출을 한다). 기능통화가 비KRW 인 회사는 환율 1회가 더 붙는다(ECOS→야후, 확정일은 영구캐시). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회 + 매출이 빈 분기 수(최대 12 — 주요계정에 매출 행이 없는 회사만, 260906 lazy 폴백).
 
 ## Flow
 
@@ -311,7 +313,27 @@ sequenceDiagram
 이유는 DART 가 표준 순서로 주고 첫 매칭이 이기기 때문이라, 순서에 기대지 않도록 명시한다.
 자본금이 종류주별로만 적힌 표는 합산한다(부모 행이 있으면 그것 — 다 더하면 2배가 된다).
 
+## 기능통화 (비KRW 회사)
+
+기능통화가 KRW 가 아닌 회사(두산밥캣=USD 등)는 DART 원행이 그 통화로 온다. 이 tool 은 금액을
+**회계기말 환율로 KRW 환산**해서 내보내고 기준을 값 옆에 붙인다 — `functional_currency`(예 `USD`),
+`fx_rate_to_krw`, `fx_basis`. 환산했으면 warning 으로도 알린다.
+
+- 전기(`prev_*`)도 **당기와 같은 환율**을 쓴다. 서로 다른 환율을 쓰면 `*_yoy_pct` 에 환율 변동이
+  섞여 「기능통화 기준 성장률」이 아니게 된다. 그래서 yoy 는 환율이 빠진 성장률이고 그 사실이 `fx_basis` 에 적힌다.
+- `quarterly`·`qoq` 는 12분기에 **단일 환율**을 쓴다 — 분기마다 다른 환율이면 Q4 차분(연간 − 3분기 누적)이
+  서로 다른 환율의 값을 빼게 되어 Q4 가 오염된다.
+- **환율 조회에 실패하면 값을 건드리지 않고** `fx_rate_to_krw: null` + 「원화가 아니다」 경고를 낸다.
+  조용히 원화 라벨을 남기지 않는다.
+- `accounts` 는 **환산하지 않는다** — 원행 그대로가 목적이라 통화만 표기한다.
+- 하류 소비자 주의: `price_multiple_data` 는 이 tool 의 `revenue_krw` 를 **이미 KRW 로** 받는다.
+  거기서 다시 환산하면 환율이 두 번 곱해진다(260908 실측 8.87조 → 12,728조).
+
 ## 변경 이력
+- 2026-09-08: **기능통화 KRW 환산**(`functional_currency`·`fx_rate_to_krw`·`fx_basis` 신설). 종전엔 USD 원행을
+  `*_krw` 라벨로 그대로 내보내 두산밥캣 매출이 62.7억(실제 9.2조)으로 약 1,400배 틀렸다. `summary`·`yearly`·
+  `yoy`·`quarterly`·`qoq` 전 경로 적용, 환산 실패 시 값 보존 + 경고. 같은 커밋에서 `price_multiple_data` 의
+  이중환산 제거. **`accounts` scope 신설**(계정 원행 + `sj_div` 필터). 회귀 `tests/test_functional_currency.py`.
 - 2026-09-07: 희석 EPS 가 없을 때 「-원」으로 나가던 것 → 「미공시」(live smoke 에코프로비엠·현대건설).
 - 2026-09-06: 매출 계정 선택을 `revenue_account.pick_revenue_row` 로 이관 — account_id(`ifrs-full_Revenue`) 우선 +
   계정명 접두 매칭 + KSIC 업종 우선순위. 주요계정에 매출 행이 없으면 전체 재무제표에서 폴백(리파인·티움바이오

@@ -501,12 +501,48 @@ def _render_audit(data: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _render_accounts(data: dict[str, Any]) -> list[str]:
+    """계정 원행 표 — 원문 순서(`ord`) 그대로, 파생값 없이."""
+    acc = data.get("accounts") or {}
+    rows = acc.get("rows") or []
+    if not rows:
+        return ["_계정 원행을 받지 못했습니다._"]
+    cur = acc.get("currency") or "KRW"
+    unit = "원" if cur == "KRW" else cur
+    lines = [f"## 계정 원행 — {acc.get('row_count')}행 (단위: {unit}, 원문 그대로)", ""]
+    _SJ_KO = {"BS": "재무상태표", "IS": "손익계산서", "CIS": "포괄손익계산서",
+              "CF": "현금흐름표", "SCE": "자본변동표"}
+    by_sj: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_sj.setdefault((r.get("sj_div") or "").upper(), []).append(r)
+    for sj in acc.get("sj_div_present") or sorted(by_sj):
+        group = by_sj.get(sj) or []
+        if not group:
+            continue
+        lines.append(f"### {_SJ_KO.get(sj, sj)} ({sj}) — {len(group)}행")
+        lines.append("| 과목 | 당기 | 누적 | 전기 |")
+        lines.append("|------|-----:|-----:|-----:|")
+        for r in group:
+            nm = r.get("account_nm") or "-"
+            # account_detail 은 SCE 처럼 「과목×변동원인」 매트릭스에서 열을 가르는 축이라 버리면 행이 뒤섞인다.
+            detail = r.get("account_detail")
+            if detail and detail not in ("-", ""):
+                nm = f"{nm} · {detail}"
+            lines.append(f"| {nm} | {r.get('thstrm_amount') or '-'} "
+                         f"| {r.get('thstrm_add_amount') or '-'} | {r.get('frmtrm_amount') or '-'} |")
+        lines.append("")
+    lines.append("> 파서가 만든 값이 아니라 DART `fnlttSinglAcntAll` 원행이다 — 계정 해석은 읽는 쪽에서 한다.")
+    lines.append("> 「당기」와 「누적」은 분기·반기에서 다르다(연간은 누적 열이 비어 있다).")
+    return lines
+
+
 def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {}) or {}
     scope = data.get("scope", "summary")
     _SCOPE_KO = {
         "summary": "요약", "yearly": "연간 추이", "quarterly": "분기 추이",
         "yoy": "전년 대비", "qoq": "전분기 대비", "audit_opinion": "감사의견", "detail": "상세",
+        "accounts": "계정 원행",
     }
     lines = [f"# {data.get('canonical_name', payload.get('subject', ''))} 재무지표 — {_SCOPE_KO.get(scope, scope)}"]
     lines.append("")
@@ -547,6 +583,8 @@ def _render(payload: dict[str, Any]) -> str:
         lines.extend(_render_qoq(data))
     elif scope == "audit_opinion":
         lines.extend(_render_audit(data))
+    elif scope == "accounts":
+        lines.extend(_render_accounts(data))
 
     refs = payload.get("evidence_refs", []) or []
     if refs:
@@ -567,13 +605,14 @@ def register_tools(mcp):
         year: int = 0,
         years: int = 3,
         consolidated: bool = True,
+        sj_div: list[str] | None = None,
         format: str = "md",
     ) -> str:
         """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk. 한국 표준(연결, 지배주주 귀속). 듀퐁·FCF·NWC·accruals_gap·감사의견 자동 산출.
         when: 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율 alert / 사외이사 후보 재직 시점 회계 사건 cross-check.
-        rule: source = fnlttSinglAcnt(BS+IS 30행, 요청 fs_div로 행 필터) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 raw KRW int(_krw), %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful. 매출은 account_id(ifrs-full_Revenue) 우선, 없으면 KSIC 업종 순서로 계정명(영업수익·보험수익·이자수익…)에서 고르고 `revenue_account_nm`·`revenue_standard`로 어느 계정인지 명시 — 보험수익·이자수익 기준이면 영업이익률을 제조업 마진처럼 읽지 말 것. 분기 합≠연간이면 기중 분할·재작성 warning 자동 부착. 이자보상배율 분모 = IS 이자비용, 없으면 CF '이자의 지급' (금융비용 총액 사용 안 함). EBITDA는 CF에서 D&A가 추출된 회사만 산출 (조정 합계 공시 회사는 None). 사업연도 라벨에는 그 연도가 덮는 12개월과 결산월을 붙인다(6월 결산 오독 방지). 근거 정기보고서가 정정본이면 정정일과 함께 명시. accruals_gap은 비율(`_pct`)과 금액차(`accruals_gap_krw`)를 같이 내고, 영업이익이 적자·초박막이면 `accruals_gap_reliability`로 비율 왜곡을 표시(alert도 `accruals_red` 대신 `accruals_ratio_unreliable`).
+        rule: source = fnlttSinglAcnt(BS+IS 30행, 요청 fs_div로 행 필터) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 int(_krw) — 기능통화가 비KRW 인 회사는 회계기말 환율로 KRW 환산하고 `functional_currency`·`fx_rate_to_krw`·`fx_basis` 를 함께 낸다(환율 실패 시 값 보존 + 「원화 아님」 경고). `accounts` 는 환산하지 않고 원행 통화 그대로, %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful. 매출은 account_id(ifrs-full_Revenue) 우선, 없으면 KSIC 업종 순서로 계정명(영업수익·보험수익·이자수익…)에서 고르고 `revenue_account_nm`·`revenue_standard`로 어느 계정인지 명시 — 보험수익·이자수익 기준이면 영업이익률을 제조업 마진처럼 읽지 말 것. 분기 합≠연간이면 기중 분할·재작성 warning 자동 부착. 이자보상배율 분모 = IS 이자비용, 없으면 CF '이자의 지급' (금융비용 총액 사용 안 함). EBITDA는 CF에서 D&A가 추출된 회사만 산출 (조정 합계 공시 회사는 None). 사업연도 라벨에는 그 연도가 덮는 12개월과 결산월을 붙인다(6월 결산 오독 방지). 근거 정기보고서가 정정본이면 정정일과 함께 명시. accruals_gap은 비율(`_pct`)과 금액차(`accruals_gap_krw`)를 같이 내고, 영업이익이 적자·초박막이면 `accruals_gap_reliability`로 비율 왜곡을 표시(alert도 `accruals_red` 대신 `accruals_ratio_unreliable`).
         period: DART 기간 의미가 항목별로 다름 — 손익 thstrm=당기3개월/누적은 thstrm_add, 현금흐름=누적, 재무상태=잔액. summary가 분기보고서면 ① 손익은 누적(YTD) 기준 primary + 당기 분기(standalone)를 `standalone`에 별도 동봉(반기/3분기), ② 회전일수(DSO/DIO/CCC)는 TTM(최근 4분기) 분모로 산출(단일분기 연환산 왜곡 제거), ③ ROE/ROA/자산회전율은 연환산 안 함(분기값). 기준은 항상 `period_basis`/`turnover_basis`/`basis_note`로 명시. year 미지정 시 quarterly·qoq는 당해 연도(최신 분기 포함), summary·yearly·yoy는 직전 사업연도.
-        scope: `summary` 핵심 지표 1년(분기보고서면 누적+standalone) / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY(마진은 %p) 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음) / `yoy` 전년+alert / `qoq` 전분기 (standalone 기준) / `audit_opinion` 3년 추이
+        scope: `summary` 핵심 지표 1년(분기보고서면 누적+standalone) / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY(마진은 %p) 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음) / `yoy` 전년+alert / `qoq` 전분기 (standalone 기준) / `audit_opinion` 3년 추이 / `accounts` 전체 재무제표 계정 **원행 그대로**(수백 행, `sj_div=["BS","IS"]` 로 좁힌다 — 요약이 버리는 계정을 공시 순서대로. 파생값 없음. DART 2콜로 요약 8콜보다 싸다)
         ref: dividend_disclosure, corp_gov_report, shareholder_meeting_notice, evidence
         """
         payload = await build_financial_metrics_payload(
@@ -582,6 +621,7 @@ def register_tools(mcp):
             year=year or None,
             years=years,
             consolidated=consolidated,
+            sj_div=sj_div,
         )
         if format == "json":
             return as_pretty_json(payload)

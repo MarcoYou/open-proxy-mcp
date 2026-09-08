@@ -8,7 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-09-07
+updated: 2026-09-08
 ---
 
 # asset_holdings
@@ -134,7 +134,25 @@ updated: 2026-09-07
 - [[260721_1500_decision_asset-holdings-purpose-buckets]] (자산 목적버킷 6분류 — 회계사 검토·확정,
   자산 성격 서사(재테크형/부동산 자산주형/지주사 할인형/우호지분형) 근거)
 
+## 기능통화 (비KRW 회사)
+
+배수의 분모인 시총은 KRX 라 **항상 KRW** 다. 그런데 자산 티어는 BS 계정이라 기능통화로 신고된다
+(두산밥캣=USD). 환산하지 않으면 **분자 USD ÷ 분모 KRW** 가 되어 배수가 환율배만큼 축소된다 —
+260908 실측에서 잉여자산/시총이 **0.00배**로 나왔다(실제 0.346배). 값이 틀린 게 아니라
+「잉여자산이 없는 회사」로 **지표의 뜻이 뒤집히는** 자리다.
+
+- BS 자산 티어를 **재무상태표 결산일 환율**로 KRW 환산하고 `functional_currency`·`fx_rate_to_krw` 를 낸다.
+- 목적별 버킷 표와 세부 계정 표는 **같은 환산본**으로 만든다. 한쪽만 환산하면 한 응답 안에서
+  두 표가 환율배만큼 어긋난다.
+- **환율 조회에 실패하면 배수를 아예 내지 않는다**(`surplus_cov`·`equity_nav_cov`·`mixed_combined_cov` 전부 null).
+  미환산 자산을 KRW 시총으로 나누는 것이 원래 결함이라, 실패 시 조용히 그 상태로 돌아가지 않게 막았다.
+- `equity_nav_cov` 는 기능통화가 KRW 일 때만 낸다 — 지분 NAV 에는 타법인출자현황
+  (`otrCprInvstmntSttus`, 통화 미선언) 장부가가 섞여 BS 환산분과 같은 기준임을 확증할 수 없다.
+
 ## 변경 이력
+- 2026-09-08: **기능통화 환산**(`functional_currency`·`fx_rate_to_krw` 신설). 종전엔 USD 장부가를
+  KRW 시총으로 나눠 배수가 약 1,400배 축소됐다(두산밥캣 잉여자산배수 0.00 → 0.346). 세부 계정 표를
+  환산 뒤 티어로 생성하도록 순서 교정, 환율 실패 시 배수 전면 억제, `equity_nav_cov` 는 KRW 한정.
 - 2026-08-06: 파싱 기법 상세·census·검증 프로토콜을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-07-21: **시총은 [[price_multiple_data]]의 `_market_for`(KRX 캐시, 상장주식수 기준)를 재사용**한다 —
   자체계산(DART 유통주식수 × 종가)은 같은 회사에 다른 시총을 내고 DART 콜만 는다(계산 지표 단일 소스
