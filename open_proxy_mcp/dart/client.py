@@ -20,6 +20,8 @@ import sys
 import json
 import time
 import asyncio
+import datetime as _dt
+from itertools import islice as _islice
 import contextlib
 import collections
 import logging
@@ -488,6 +490,55 @@ class DartClientError(Exception):
 
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
+
+#: 원장(corpCode·정기보고서 명부) **관측용 메타**. 값이 아니라 「언제 것이고 얼마나 무거운가」만.
+#:
+#: 왜 `_CACHE_REGISTRY` 에 안 넣나 — 거기는 `LruByteCache` 전용이고 이 둘은 평범한 list/frozenset 이다.
+#: 그리고 `/health` 는 자주 불리는데 118,583사 dict 를 매번 재귀로 재면 **관측이 그 자체로 비용**이 된다
+#: (`_cache_entry_bytes` 는 항목마다 getsizeof 를 돈다). 그래서 **적재 시점에 한 번, 표본으로** 잰다.
+_registry_meta: dict[str, dict] = {}
+
+
+def _note_registry(name: str, items, *, source: str) -> None:
+    """원장 적재를 기록한다 — 개수·기준일·대략 바이트·적재 시각.
+
+    바이트는 **표본 추정**이다. 전수 계산은 118k 항목을 재귀로 도는 일이라 적재 경로를 몇 초
+    늘린다(그 경로는 이미 6~15초짜리 콜드스타트다). 여기서 필요한 건 정확한 값이 아니라
+    「이게 66MB 급 상주 소비자다」를 잊지 않는 것이다 — 260804 OOM 이 안 보이던 캐시에서 났다.
+    """
+    try:
+        n = len(items)
+        # ★ `list(items)[:500]` 로 자르면 **전체 사본이 먼저 생긴다** — 명부는 frozenset 118k 라
+        #   관측하려다 그 순간 메모리를 두 배로 쓴다. islice 는 앞 500개만 꺼낸다.
+        sample = list(_islice(items, 500)) if n else []
+        avg = (sum(_cache_entry_bytes(x) for x in sample) / len(sample)) if sample else 0
+        as_of = ""
+        if sample and isinstance(sample[0], dict):
+            # 기준일은 전수를 봐야 최댓값이 나온다. 문자열 비교라 118k 도 수 ms 다(실측 7ms).
+            as_of = max((str(x.get("modify_date") or "") for x in items), default="")
+        _registry_meta[name] = {
+            "entries": n,
+            "bytes_est": int(avg * n),
+            "as_of": as_of or None,
+            "loaded_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+            "source": source,
+        }
+    except Exception as exc:   # noqa: BLE001 — 관측이 서빙을 깨면 안 된다
+        logger.debug("registry meta 기록 실패 (%s): %s", name, exc)
+
+
+def registry_stats() -> dict:
+    """`/health` 노출용. 나이(시간)는 볼 때 계산한다 — 저장해 두면 그 값이 낡는다."""
+    out: dict[str, dict] = {}
+    now = _dt.datetime.now(_dt.timezone.utc)
+    for name, m in _registry_meta.items():
+        age = None
+        try:
+            age = round((now - _dt.datetime.fromisoformat(m["loaded_at"])).total_seconds() / 3600, 1)
+        except Exception:  # noqa: BLE001
+            pass
+        out[name] = {**m, "age_hours": age}
+    return out
 _corp_code_lock: asyncio.Lock | None = None  # lazy init (asyncio loop 필요)
 
 
@@ -1477,6 +1528,7 @@ class DartClient:
             if corps:
                 logger.info(f"corp_codes loaded from sqlite master ({len(corps)} corps, fresh ≤7d)")
                 _corp_code_cache = corps
+                _note_registry("corp_master", corps, source="sqlite")
                 return corps
 
             # Layer 3: DART download (3회 retry)
@@ -1499,6 +1551,7 @@ class DartClient:
                         })
                     _validate_corp_master(corps)
                     _corp_code_cache = corps
+                    _note_registry("corp_master", corps, source="download")
                     # sqlite save (실패해도 memory cache로 계속)
                     self._master_db_save(corps)
                     return corps
@@ -1520,6 +1573,7 @@ class DartClient:
             if fallback_corps:
                 logger.warning("corpCode 영문명 갱신 실패 — 기존 한글 master로 fail-open")
                 _corp_code_cache = fallback_corps
+                _note_registry("corp_master", fallback_corps, source="stale_sqlite")
                 return fallback_corps
             raise DartClientError("CORPCODE_DOWNLOAD_FAILED", f"corpCode.xml 3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}")
 
@@ -1595,6 +1649,7 @@ class DartClient:
             if cached is not None:
                 logger.info(f"periodic_filers loaded from sqlite ({len(cached)} corps)")
                 _periodic_filers_cache = cached
+                _note_registry("periodic_filers", cached, source="sqlite")
                 return cached
             # 260823: sqlite 도 비었으면 **패키지 동봉본**을 쓴다. 배포 직후엔 볼륨에
             #   명부가 없어 여기로 온다 — 동봉본이 없으면 그동안 비상장 금융사가 안 열리고
@@ -1604,6 +1659,7 @@ class DartClient:
             if bundled is not None:
                 logger.info(f"periodic_filers loaded from bundle ({len(bundled)} corps)")
                 _periodic_filers_cache = bundled
+                _note_registry("periodic_filers", bundled, source="bundled")
                 # 동봉본은 최대 한 달 낡을 수 있다 — 뒤에서 최신본을 만들어 덮는다.
                 self._start_filers_build()
                 return bundled
@@ -1637,6 +1693,7 @@ class DartClient:
             return
         self._filers_db_save(filers)
         _periodic_filers_cache = frozenset(filers)
+        _note_registry("periodic_filers", filers, source="download")
         logger.info(f"periodic_filers 백그라운드 수집 완료 ({len(filers)} corps)")
 
     async def _fetch_periodic_filers(self) -> dict[str, str]:
