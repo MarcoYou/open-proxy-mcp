@@ -469,8 +469,26 @@ def _render(payload: dict[str, Any]) -> str:
             f"v{guideline.get('version')} · {guideline.get('mode')} · "
             f"규칙 평가 안건 {guideline.get('evaluated_agendas', 0)}건 · "
             f"미확인 규칙 {guideline.get('unresolved_rules', 0)}건 · "
-            "기존 OPM 엔진 판정 유지"
+            + ("LLM 평가 · 사람 미검토 · 후보 범위만 적용" if guideline.get("mode") == "pilot"
+               else "기존 OPM 엔진 판정 유지")
         )
+        if guideline.get("mode") == "pilot":
+            lines.append(f"- 평가 범위: {guideline.get('assessment_scope')}")
+            unmatched = (guideline.get("assessment_submissions") or {}).get("unmatched_task_ids") or []
+            if unmatched:
+                lines.append(f"- 현재 평가 대상·원문과 맞지 않아 사용하지 않은 평가: {len(unmatched)}건. 새 평가 항목으로 다시 평가하세요.")
+        collected = guideline.get("evidence_collection") or {}
+        filing = collected.get("filing") or {}
+        if collected.get("document_read"):
+            lines.append(
+                f"- 출석 근거: [{filing.get('report_nm') or '사업보고서'}]"
+                f"({collected.get('source_url')}) · 공시 구간별 출석 값 "
+                f"{len(collected.get('observations') or [])}개 확보 · 직전 임기 전체 확인은 별도 검토"
+            )
+        if collected.get("reason"):
+            lines.append(f"- 출석 자료 확인 상태: {collected['reason']}")
+        if collected.get("next_action"):
+            lines.append(f"- 다음 확인: {collected['next_action']}")
 
     # ── 기준 시점 — 이 메모가 「그때 볼 수 있던 것」만 봤다는 사실을 머리에서 밝힌다 ──
     ao = data.get("as_of") or {}
@@ -649,8 +667,36 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(
                     f"- v2 정책 추적: {state} · 긍정 게이트 {gate}"
                     + (f" · 미확인 입력 {missing}" if missing else "")
-                    + " · shadow 결과로 기존 판정을 덮어쓰지 않음"
+                    + (" · LLM 평가 · 사람 미검토" if trace.get("mode") == "pilot"
+                       else " · shadow 결과로 기존 판정을 덮어쓰지 않음")
                 )
+                llm = trace.get("llm_assessment") or {}
+                if llm:
+                    lines.append("- 판단 범위: 검토한 공개자료 한정. 미공개 관계가 없다는 보증이 아닙니다.")
+                    lines.append(f"- 평가 수용: {llm.get('status')} · 인용 연결 검증, 의미 정확성은 사람 미검토")
+                    if trace.get("decision_effect") == "protected_baseline":
+                        lines.append("- 기존 법령·안건 관계·반대 제약을 보존하여 최종 권고에 반영했습니다.")
+                    if trace.get("post_constraint_adjusted"):
+                        lines.append("- 후보 평가 뒤 안건 관계·좌석 제약으로 최종 권고가 조정되었습니다.")
+                    assessment = llm.get("assessment") or {}
+                    for key, label in (("appointment", "선임구분"), ("independence", "독립성")):
+                        item = assessment.get(key) or {}
+                        if item:
+                            lines.append(f"- {label} LLM 평가: {item.get('value')} · {item.get('rationale')}")
+                            for issue in item.get("unresolved") or []:
+                                lines.append(f"  - 미확인: {issue}")
+                            for gap in item.get("information_gaps") or []:
+                                lines.append(f"  - 판단 제외 · 추가 확인: {gap['question']} ({gap['availability']})")
+                                lines.append(f"    - 확인 범위(LLM 신고): {'; '.join(gap['search_scope'])}")
+                            for ref in (item.get("evidence_refs") or []) + (item.get("counterevidence") or []):
+                                sources = (trace.get("assessment_task") or {}).get("sources") or []
+                                url = next((s["source_url"] for s in sources if s["source_id"] == ref["source_id"]), "")
+                                lines.append(f"  - [인용·반증 원문]({url}): {ref['quote']}")
+                evidence_status = trace.get("evidence_status") or {}
+                for metric in ("attendance_pct", "independence_concern_accepted"):
+                    reason = (evidence_status.get(metric) or {}).get("reason")
+                    if reason:
+                        lines.append(f"  - {reason}")
             if rcept_no:
                 viewer = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
                 lines.append(f"- 근거 공고: [주주총회소집공고 {rcept_no}]({viewer})")
@@ -1161,12 +1207,18 @@ def register_tools(mcp):
         include_after_meeting: bool = False,
         evidence_chars: int = 4000,
         format: str = "md",
+        guideline_mode: str = "shadow",
+        guideline_assessments: list[dict[str, Any]] | None = None,
+        guideline_evidence_sources: list[dict[str, Any]] | None = None,
     ) -> str:
         """desc: 주총 **소집 전** 안건별 의결권 권고. 1회 호출로: 안건별 FOR/AGAINST/REVIEW/NO_DATA + facts + risk_factors + policy_citation + 근거 공고 + 후보 평가 + 재무/거버넌스 summary.
         ⛔ CRITICAL: 응답의 decision 컬럼은 한국 상법 강행규정 (A1/A2 tag 🛡️) + 운용사 정책 (vote_style) + Open Proxy Guideline 통합 결과. 사용자에게 **그대로** 제시 — 안건명 키워드(배제·제한·축소·강화)만 보고 자체 판단으로 변경 금지. 자주 misread: '집중투표 배제 조항 삭제' = FOR(의무화 정합), '의결권 제한 강화' = FOR(합산 3% 룰).
         when: 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고. 사후 결과는 `shareholder_meeting_results`.
         rule: 운용사 의결권 행사 보고서 스타일. hard-fail(형사 처벌/사적 관계/동명이인) 자동 검증 가능 항목만 표기. soft-fail(후보 약력/정관 본문) raw 노출 — LLM 판단.
-        vote_style: `open_proxy` (default — OPM 자체 가이드라인) 또는 `opm_guideline_v2` (pilot shadow — 기계 정책 추적만 추가하고 기존 판정을 덮어쓰지 않음). 그 밖의 옵션은 internal cross-reference용
+        vote_style: `open_proxy` (default — OPM 자체 가이드라인) 또는 `opm_guideline_v2` (기본 shadow; 명시적 guideline_mode=pilot에서 LLM 평가 수용). 그 밖의 옵션은 internal cross-reference용
+        guideline_mode: shadow(기본, 기존 권고 유지) / pilot(v2 후보 권고 실제 적용). pilot은 사외·독립이사 후보의 선임구분·독립성만 평가하고 LLM 평가 · 사람 미검토 표시. 첫 호출의 assessment_task를 읽고 같은 조건으로 두 번째 호출에 평가를 제출한다. 강행규정·안건 관계·기존 반대·좌석 제약은 보존한다.
+        guideline_assessments: pilot에서만 쓰는 평가 목록. 첫 응답 assessment_task.required_output 스키마를 따른다. task_id·evaluator·appointment·independence, 각 판단에 value·rationale·evidence_refs·counterevidence·unresolved 필요. 기준일·정책·원문이 달라지면 다시 평가. 서버는 인용 일치만 검사하며 의미 정확성·사람 검토를 인증하지 않는다. 자동 LLM 호출이나 평가 저장 없음.
+        guideline_evidence_sources: pilot 추가 공개 원천 최대 5개. {type:dart,rcept_no:접수번호} 또는 {type:kind,url:고정 KIND external HTML 주소}. DART XML 또는 거래소 공시 HTML을 읽어 후보 이름 주변을 평가 패킷에 포함한다. 기준일 이후 공시는 제외. 미조회·형식 미지원은 미공개로 처리하지 않는다. 첫 호출과 평가 제출 호출에 같은 목록 사용.
         check_audit_history: True 시 후보 과거 회사 × 회계 risk overlap cross-check (+30s)
         meeting_type: `auto`(default — 정기/임시 중 지금 표를 던져야 하는 회차) / `annual` 정기만 / `extraordinary` 임시만. 임시주총을 보려고 따로 지정할 필요 없다.
         year: 미지정(0) 시 회의일이 과거 12개월~앞으로 90일 안인 회차를 자동 선택 — **아직 열리지 않은 예정 주총도 포함**되므로 다가오는 임시주총을 보려고 year를 따로 넣을 필요는 없다. 응답의 회차 선택 근거·정기/임시로 어느 회차인지 확인. 특정 과거 연도 분석에만 year 명시.
@@ -1187,6 +1239,9 @@ def register_tools(mcp):
             as_of=as_of,
             include_after_meeting=include_after_meeting,
             evidence_chars=evidence_chars,
+            guideline_mode=guideline_mode,
+            guideline_assessments=guideline_assessments,
+            guideline_evidence_sources=guideline_evidence_sources,
         )
         if format == "json":
             return as_pretty_json(payload)

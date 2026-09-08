@@ -35,6 +35,12 @@ def clear_guideline_policy_cache() -> None:
     _POLICY_CACHE = None
 
 
+def load_pilot_guideline_policy() -> dict[str, Any]:
+    """Load the unreviewed LLM pilot separately from the synthetic shadow policy."""
+    path = files("open_proxy_mcp.data.guideline") / "opm-guideline-v2-pilot.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _value(expr: Any, metrics: dict[str, Any], parameters: dict[str, Any]) -> Any:
     if not isinstance(expr, dict):
         return _UNKNOWN
@@ -132,7 +138,12 @@ def evaluate_guideline_policy(
         ))
         if applies is False:
             state = "not_triggered"
-        elif applies is None or test is None or exception is None:
+        elif applies is None:
+            state = "unresolved"
+        elif test is False:
+            # An exception is irrelevant when the opposition trigger is false.
+            state = "not_triggered"
+        elif test is None or exception is None:
             state = "unresolved"
         elif test and not exception:
             state = "fired"
@@ -142,7 +153,7 @@ def evaluate_guideline_policy(
         else:
             state = "not_triggered"
         result = {"rule_id": rule.get("id"), "state": state, "effect": rule.get("effect")}
-        if missing:
+        if missing and state == "unresolved":
             result["missing"] = missing
         rules.append(result)
         if state == "unresolved":

@@ -8,7 +8,7 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 보수한도, 정관변경, 집중투표, 시점-제약, 연결-별도, 주총-결의]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-09-08
+updated: 2026-09-09
 ---
 
 # proxy_advise_before_meeting
@@ -40,12 +40,72 @@ proxy_advise_before_meeting(
 )
 ```
 
-기계 정책 계약을 pilot에서 확인하려면 `vote_style="opm_guideline_v2"`를 지정한다. 이
-프로필은 `open_proxy_mcp/data/guideline/opm-guideline-v2.json`을 읽어 출석·독립성 규칙의
-적용 가능성, 미확인 근거, 예외, 긍정 게이트를 `guideline_application`과 안건별
-`guideline_trace`로 기록한다. 현재는 `mode="shadow"`, `decision_effect="none"`이며 기존
-OPM 결정 엔진이 권고를 만든다. 정책·법률 검토와 독립 평가가 끝나기 전에는 v2 trace가
-FOR/AGAINST를 덮어쓰지 않는다.
+`vote_style="opm_guideline_v2"`는 기본 `guideline_mode="shadow"`에서
+`opm-guideline-v2.json`(0.1.0)의 규칙 추적만 반환하며 기존 권고를 유지한다.
+명시적 `guideline_mode="pilot"`는 별도 `opm-guideline-v2-pilot.json`(0.3.0-pilot)을 사용해
+사외·독립이사 후보의 선임구분·독립성에 대한 호출 LLM 평가를 실제 권고에 반영한다.
+출석은 기존 직전 임기 의미를 유지하되 확정 입력 경로는 아직 없다.
+
+```python
+# 1. 실제 원문과 평가 계약 받기
+proxy_advise_before_meeting(company="KT&G", year=2026, meeting_type="annual",
+    as_of="20260325", vote_style="opm_guideline_v2", guideline_mode="pilot", format="json")
+# 2. 호출 LLM이 assessment_task.sources와 rubric을 읽고 평가한다.
+# 3. 같은 인자로 재호출하며 guideline_assessments=[평가 JSON, ...] 제출.
+# 각 평가 JSON은 assessment_task.required_output의 JSON Schema를 따른다.
+```
+
+재현 호출은 `as_of`를 고정한다. 이번 고려아연 표본은 `company="고려아연"`, `year=2026`,
+`meeting_type="extraordinary"`, `as_of="20260908"`이며 추가 공시는 아래 KIND 소집결의와
+`https://kind.krx.co.kr/external/2025/05/15/002168/20250515005076/11013.htm`을 사용했다.
+자정이나 공시 정정으로 입력이 바뀌면 이전 task_id를 재사용하지 않고 새 과업을 읽어 평가한다.
+
+서버가 별도 LLM을 자동 호출하지 않는다. 첫 호출은 평가 대기, 두 번째 호출은 제출된
+평가를 수용하여 규칙을 실행한다. 평가에는 task_id, evaluator(자기신고 식별자), appointment,
+independence가 필요하며 각 판단은 value, rationale, evidence_refs, counterevidence,
+unresolved를 포함한다. 인용은 source_id와 quote로 제공한다. 선임구분 값은 new/renewed/unknown,
+독립성 값은 concern/no_public_concern/unknown이며 no_concern은 이전 계약 호환값이다. required_output이 타입·길이·허용 키의 정본이다.
+
+대상 회사·후보·역할·안건·기준일·정책·원문을 task_id로 묶는다. 재호출에서 패킷을 재생성해
+대조하고 인용이 해당 원문 발췌에 있는지 검사한다. 중복 task_id·잘못된 스키마는 요청 오류,
+일치하지 않는 task_id는 미사용 목록, 인용 실패는 rejected로 표시한다. **인용 연결 검증은
+의미 정확성·근거 완전성·평가자 신원을 인증하지 않는다.** 모든 수용 평가는
+accepted_unreviewed / human_reviewed=false / 「LLM 평가 · 사람 미검토」이다.
+사람 검토를 입력으로 위조하는 필드는 허용하지 않는다.
+
+공개자료에서 구체적 우려를 발견하지 못한 `no_public_concern`은 관계 부재의 증명이 아니다.
+미공개 고용·자문·보수 세부는 `independence.information_gaps`에 질문·검색범위를 남기고
+`follow_up_only`로 제외할 수 있다. availability는 `not_found_in_reviewed_public_sources` 또는
+`explicitly_nonpublic`만 허용한다. 검색범위는 LLM 자기신고이며 서버가 검색 완료를 인증하지 않는다.
+발견된 위험 신호·충돌·조회 실패·출석 및 후보 동일성은 이 예외로 제외할 수 없다.
+Markdown에는 「판단 제외 · 추가 확인」으로 표시한다.
+
+확정 독립성 우려는 AGAINST, 출석 규칙이 비대상인 신임 후보의 독립성 평가와 필수 근거가
+완료되어야 FOR, 나머지는 REVIEW다. 신임 여부도 LLM이 원문으로 확인해야 하며 기존 엔진의
+경력상 회사명 부재 추정을 그대로 수용하지 않는다. 회사 자기진술·주주추천만으로 독립성의
+유무를 확정하지 않는다. 기존 강행규정·표결없음·안건 관계·반대와 후단 좌석 제약을 보존한다. 기존 REVIEW도 부분 평가의 FOR로 해제하지 않는다.
+다른 종류의 안건은 기존 엔진이 판단한다. 따라서 전체 주총의 v2 완전평가가 아니다.
+
+v2는 기준일 이전 최신 사업보고서 원문 1건을 읽고 evidence_collection에 출석 관측·원문을 제공한다.
+evidence_status는 원천 미확보, 조회 실패, 형식 미지원, 기간 미확정, 평가 대기·수용을 구별한다.
+연간·구간별 출석률을 임기 전체 값으로 전환하지 않는다. 원문 발췌는 partial 여부를 표시하며,
+후보별 공고 발췌에는 이웃 후보가 포함될 수 있어 귀속 검토가 필요하다.
+필요한 부분이 없으면 해당 소집공고 원문을 추가 조회한다. 추가 원문 조회는 v2 선택 시 최대
+1건(기존 캐시 재사용), 두 번째 호출도 같은 공개자료 캐시를 사용하며 평가·결과를 저장하지 않는다.
+pilot에서는 include_after_meeting=True를 허용하지 않는다.
+
+`guideline_evidence_sources`로 공고 밖 공개 공시 최대 5건을 추가할 수 있다. DART는
+`{"type":"dart","rcept_no":"20260301000001"}`, KIND는
+`{"type":"kind","url":"https://kind.krx.co.kr/external/2026/07/21/000927/20260706001079/91471.htm"}`
+형식이다. 위 DART 번호는 형식 예시다. KIND는 고정 external HTML 경로만 허용하며
+임의 웹 주소·리다이렉트·PDF는 허용하지 않는다. KIND 접수 식별자는 DART 접수번호와 다르다.
+KIND 공개시점은 고정 경로의 날짜로 판정한다. 후보 이름 주변 발췌·전체 문서 hash를 패킷에
+추가하고, 수집 상태는 `guideline_application.supplemental_collection`에 반환한다.
+기준일 이후 자료는 읽지 않는다. 첫 호출과 제출 호출의 목록이 같아야 하며 자료나 정책이 바뀌면
+새 task_id로 재평가한다. 기존 사업보고서 1건 외에 입력당 원문 최대 5건 추가 조회(회사 단위),
+DART 공개 캐시와 KIND 공용 웹 속도 제한을 사용한다. KIND는 두 번째 호출에도 다시 읽는다.
+추가 공시 수집 명세는 supplemental_collection이 정본이며 기존 disclosures_read 집계와 구분한다.
+공정위 의결서·기업집단 API는 원천 조사 단계로, 이 인자나 자동 평가에 아직 연결하지 않았다.
 
 자연어 예시:
 - "KT&G 이번 주총 안건별로 찬성/반대 어떻게 봐야 해?" → 기본 호출(회차 자동 선택, 안건별 decision + facts + policy_citation)
@@ -59,7 +119,10 @@ FOR/AGAINST를 덮어쓰지 않는다.
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 — 최신 소집공고(12개월 lookback) 기준 회차. 공고 미발견 시 전년 fallback + warning. 응답 `year_resolution`에 선택 근거, 종료된 회차면 `meeting_closed_hint` 동봉 |
 | meeting_type | str | no | "auto" / "annual" / "extraordinary". 종류를 지정했는데 그 종류의 소집공고가 탐색 창(과거 12개월~앞으로 90일)에 없으면 회차를 만들지 않고 `no_filing` 으로 「없음 + 같은 창의 소집공고 목록 + 다른 종류의 최신 회차」만 돌려준다 | "auto" |
-| vote_style | str | no | `open_proxy` (default). `opm_guideline_v2`는 pilot shadow 정책 추적용이며 기존 판정을 덮어쓰지 않는다. 그 밖의 내부 policy variant는 cross-reference용 비공개 surface | "open_proxy" |
+| vote_style | str | no | `open_proxy` (default). `opm_guideline_v2`는 기본 shadow, 명시적 pilot에서는 LLM 평가를 후보 권고에 적용한다. 그 밖의 내부 policy variant는 cross-reference용 비공개 surface | "open_proxy" |
+| guideline_mode | str | no | shadow / pilot. pilot은 opm_guideline_v2 및 include_after_meeting=False 필요 | "shadow" |
+| guideline_assessments | list[dict] | no | pilot에서 assessment_task.required_output에 맞춘 평가 목록, 최대 50건. 중복·스키마 오류는 거절 | None |
+| guideline_evidence_sources | list[dict] | no | pilot의 추가 DART/KIND 공개 공시 최대 5건. 양쪽 호출에서 같은 목록 사용 | None |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
 | as_of | str | no | `YYYYMMDD`. 판단이 서는 시점 — 이 날 이후 접수된 공시는 읽지 않는다(look-ahead 차단). 미지정 시 회의일이 오늘 또는 과거면 회의일 전일, 미래면 한국시간 오늘. 회의일 미확인 시 오늘 + 사후 자료 혼입 가능 경고 | "" |
@@ -79,8 +142,13 @@ FOR/AGAINST를 덮어쓰지 않는다.
 | `risk_factors` | 위험 신호 list ("완전 자본잠식", "장기연임", "이사 회계 risk 이력" 등) |
 | `policy_citation` | OPM Guideline 근거 — **문서의 절 번호·항목 번호**를 가리킨다 (「OPM Guideline §2.4 이사 선임 — against ①「사외이사 장기연임 5년+」… ▸ 엔진: …」). `proxy_guideline(section="2.4")` 로 그 항목을 연다. 정책에 있지만 엔진이 안 쓰는 항목은 「…는 엔진 미반영」으로 라벨 안에서 밝힌다. 문서↔라벨은 `tests/test_policy_citations_match_document.py` 가 자동 대조 (260903) |
 | `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
-| `guideline_application` | v2 pilot 선택 시 정책 ID·버전·shadow 여부·결정 권한·안건별 규칙 trace. 미확인 입력은 `unresolved`로 보존하며 자동 반대나 찬성으로 바꾸지 않는다 |
+| `guideline_application` | v2 선택 시 정책·버전·모드·판단 범위·사람 미검토 표시·평가 제출/미사용 현황·원문 수집·규칙 trace |
 | `agenda_decisions[].guideline_trace` | 해당 안건에서 v2 규칙이 `not_applicable`·`not_triggered`·`fired`·`excepted`·`unresolved` 중 어디에 해당하는지와 필요한 metric 목록 |
+| `guideline_trace.assessment_task` | 대상·기준일·정책 hash·원문 발췌·rubric·required_output(JSON Schema)·task_id. 호출 LLM의 평가 입력 |
+| `guideline_trace.llm_assessment` | pending / rejected / accepted_unreviewed, 인용 연결 검증 범위, 평가·근거·반증·미확인 사항, human_reviewed=false |
+| `guideline_trace.information_gaps` / `information_basis` | 판단에서 제외한 미공개 관계 확인 과제와 reviewed_public_sources_only 범위 |
+| `guideline_trace.pilot_recommendation` | 후보 범위의 v2 권고. baseline_decision과 비교 가능하며 final_decision은 후단 제약까지 반영 |
+| `guideline_trace.decision_effect` | none / pilot_applied / protected_baseline. post_constraint_adjusted로 후단 조정 여부를 표시 |
 | `evidence_rcept_no` | 근거 공고 (DART viewer link) |
 | `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect. 소집공고 경력 텍스트만으로는 재선임을 신임으로 오분류하므로 **roster(임원현황 `exctvSttus`) 힌트**로 교정한다 — `source="roster_prior"`면 정형 재직 확인으로 승격. **힌트 정체성**: 승격만(downgrade X)·roster 부재는 소집공고 결과 유지(override 금지)·미등기는 제외 |
 | `candidate_review_profile` | 후보 선임 안건용 evidence bundle. 결격사유, 독립성 세부 사유, 겸직 구간, 연임/재직 시작, 추천사유/직무계획 raw, 사내이사 성과 요약을 묶어 노출 |
@@ -663,7 +731,17 @@ OPM 자체 함수들 + vote_style 정책 wire:
 5. 사외이사 독립성 검사는 최대주주 관계·3년 거래·2년 임직원 이력까지만 본다. 후보 **소속기관**과 회사의 거래·협약 관계(한국ESG기준원이
    반대 사유로 쓴 것)는 정책 범위 밖이고 DART 정형 데이터로도 안 잡힌다 — 「미확인」으로 표시하는 규칙이 없어 「우려 없음」으로 나간다.
 
+## 외부 호출
+
+회사 단위 기존 upstream 조회에 v2 사업보고서 원문 최대 1건이 추가된다.
+pilot 추가 원천 입력은 DART XML 또는 KIND HTML 최대 5건이며 시장 전체 순회는 하지 않는다.
+DART는 공개자료 캐시를 재사용하고 KIND는 공용 웹 속도 제한을 따른다.
+공정위·기업집단 API 자동 호출은 현재 없다. LLM 평가 제출 자체는 서버의 외부 모델 호출을 발생시키지 않는다.
+
 ## 변경 이력
+
+- 2026-09-08: 명시적 v2 pilot의 두 단계 LLM 평가 수용·실제 후보 권고·사람 미검토 표시 추가.
+  추가 DART/KIND 공시, 공개자료 한정 판단과 미공개 관계 후속 확인 계약을 추가했다.
 
 - 2026-09-05: 한·영 사용자 안내에 5개 판정·회차·정보 기준일·근거 불확실성을 반영. 정책 §0-A 감사위원 5년 장기연임 행의 자동 AGAINST 설명을 REVIEW로 정정.
 
