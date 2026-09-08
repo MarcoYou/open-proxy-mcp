@@ -65,3 +65,22 @@ def test_a_page_hole_is_spelled_out():
 def test_superseded_count_is_visible():
     out = _render_digest(_payload([_complete()], deduped_away=324))
     assert "324" in out
+
+
+def test_zero_matches_still_reports_a_truncated_scan():
+    """스캔이 잘려서 0건인데 「새 공시 없음 (조회는 정상)」만 보이면 가장 나쁜 침묵이다."""
+    p = _payload([
+        {"code": "I001", "total": 8800, "total_pages": 88, "fetched_pages": 1,
+         "received_pages": 1, "missing_pages": [], "seen_from": "20260901",
+         "seen_to": "20260909", "complete": False, "error": None}], matched=0, returned=0)
+    p["no_new"] = True
+    out = _render_digest(p)
+    assert "이 응답이 못 본 것" in out and "1/88" in out
+    assert "(조회는 정상)" not in out, "잘렸는데 정상이라고 말하면 안 된다"
+
+
+def test_zero_matches_with_a_clean_scan_says_so():
+    p = _payload([_complete()], matched=0, returned=0)
+    p["no_new"] = True
+    out = _render_digest(p)
+    assert "(조회는 정상)" in out and "이 응답이 못 본 것" not in out

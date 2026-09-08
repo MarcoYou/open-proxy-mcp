@@ -336,6 +336,19 @@ def _render_yearly(data: dict[str, Any]) -> list[str]:
             f"{_format_krw_human(r.get('cfo_krw'))} | "
             f"{_format_krw_human(r.get('fcf_krw'))} |"
         )
+    # 비KRW 회사의 다년 표는 **행마다 그 해 기말환율**로 환산된다(closing-rate — 각 행은 그 해의
+    # 원화 가치로 옳다). 그런데 옆의 전년비는 환산 전 값으로 계산돼 환율이 빠진 성장률이다.
+    # 두 열의 기준이 다른데 표만 보면 알 수 없으므로 명시한다.
+    _fc = next((r.get("functional_currency") for r in rows
+                if r.get("functional_currency") and r["functional_currency"] != "KRW"), None)
+    if _fc:
+        _rates = " · ".join(f"{r.get('year')}={r.get('fx_rate_to_krw')}" for r in rows
+                            if r.get("fx_rate_to_krw"))
+        lines.append("")
+        lines.append(f"> **기능통화 {_fc}** — 금액은 **행마다 그 해 기말환율**로 원화 환산했다"
+                     + (f"({_rates})" if _rates else "") + ". 따라서 금액 추이에는 환율 변동이 섞여 있다. "
+                     f"반면 **전년비 열은 환산 전 {_fc} 기준**이라 환율이 빠진 성장률이다 — 두 열의 기준이 다르다.")
+
     nonstd = sorted({r.get("revenue_basis") or r.get("revenue_account_nm") for r in rows
                      if r.get("revenue_krw") is not None and r.get("revenue_standard") is False
                      and (r.get("revenue_basis") or r.get("revenue_account_nm"))})
@@ -516,7 +529,9 @@ def _render_accounts(data: dict[str, Any]) -> list[str]:
     rows = acc.get("rows") or []
     if not rows:
         return ["_계정 원행을 받지 못했습니다._"]
-    cur = acc.get("currency") or "KRW"
+    # 서비스가 담는 키는 `functional_currency` 다(`currency` 로 읽으면 비KRW 회사에서
+    # 100% 「단위: 원」 오라벨 — 원행을 그대로 준다는 이 scope 의 취지를 정면으로 깬다).
+    cur = acc.get("functional_currency") or "KRW"
     unit = "원" if cur == "KRW" else cur
     lines = [f"## 계정 원행 — {acc.get('row_count')}행 (단위: {unit}, 원문 그대로)", ""]
     _SJ_KO = {"BS": "재무상태표", "IS": "손익계산서", "CIS": "포괄손익계산서",

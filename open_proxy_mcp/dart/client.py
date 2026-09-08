@@ -2799,6 +2799,7 @@ class DartClient:
         resp1 = await self._http.get(url1, params={
             "method": "search", "acptno": acptno,
         }, timeout=30, headers=headers)
+        _check_web_response(resp1, "kind_doc_1")
         resp1.raise_for_status()
 
         # <select id="mainDoc"> 안의 <option value="docNo|Y">
@@ -2812,6 +2813,7 @@ class DartClient:
         resp2 = await self._http.get(url1, params={
             "method": "searchContents", "docNo": doc_no,
         }, timeout=30, headers=headers)
+        _check_web_response(resp2, "kind_doc_2")
         resp2.raise_for_status()
 
         # setPath('목차URL', '본문URL') — 두 번째 인자가 본문 (목차가 빈 문자열일 수 있음)
@@ -2824,6 +2826,7 @@ class DartClient:
         await self._throttle_kind()
         body_url = f"{kind_base}{body_path}" if body_path.startswith("/") else body_path
         resp3 = await self._http.get(body_url, timeout=30, headers=headers)
+        _check_web_response(resp3, "kind_doc_3")
         resp3.raise_for_status()
 
         logger.info(f"[KIND] 본문 다운로드 완료: {len(resp3.text):,} chars (acptno={acptno})")
@@ -2920,6 +2923,9 @@ class DartClient:
             timeout=30,
             headers=headers,
         )
+        # KIND 도 차단 장부에 넣는다 — 시계(_throttle_kind)는 이미 공유하는데 감지만 빠져 있어서,
+        # KIND 가 403/429 를 내면 `/health` 의 web_block 이 0 을 유지했다(운영자가 못 본다).
+        _check_web_response(response, "kind_search")
         response.raise_for_status()
 
         return self._parse_kind_disclosure_rows(response.text)

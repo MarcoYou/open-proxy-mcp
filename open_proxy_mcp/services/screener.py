@@ -263,7 +263,10 @@ _SUGGESTED_TOOL = {
     "order": "order_contracts", "treasury": "treasury_share",
     "dividend": "dividend_disclosure",
     "dilutive": "dilutive_issuance", "agm_notice": "shareholder_meeting_notice",
-    "ownership5": "ownership_structure", "insider10": "ownership_structure",
+    "ownership5": "ownership_structure",
+    # insider10 = 임원·주요주주 소유상황(D002/elestock). ownership_structure 는 5% 대량보유
+    # (majorstock)만 보므로 그리로 보내면 「임원 매매 없음」이라는 false negative 로 끝난다.
+    "insider10": "proxy_contest",
     "earnings": "provisional_earnings", "agm_result": "shareholder_meeting_results",
     "restructuring": "corporate_restructuring", "stake_deal": "corporate_deals",
     "control_change": "ownership_structure", "litigation": "risk_events",

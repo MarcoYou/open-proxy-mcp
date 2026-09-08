@@ -404,6 +404,13 @@ async def build_quote_payload(company: str, format: str = "md",
     else:
         row = await _krx_quote_row(dd, ticker)
     if not row:
+        # KONEX(corp_cls="N")는 **구조적 미수록**이다 — 시세 소스가 KOSPI·KOSDAQ 두 endpoint 뿐이라
+        # 애초에 들어올 수 없다. 그걸 「휴장일·거래정지」로 말하면 분석가가 시장 상태 문제로 오독한다
+        # (거래정지 신호로 읽으면 사실과 반대의 리스크 판단을 한다).
+        if (corp.get("corp_cls") or "").upper() == "N":
+            return _err(corp.get("corp_name", company), "unsupported_market",
+                        f"{ticker} 는 KONEX 종목입니다 — 이 도구의 시세 소스는 KOSPI·KOSDAQ 두 곳뿐이라 "
+                        f"코넥스는 **수록 대상이 아닙니다**(휴장·거래정지와 무관). 공시 기반 도구는 그대로 씁니다.")
         return _err(corp.get("corp_name", company), "no_data",
                     f"{dd} 에 {ticker} 시세가 없습니다 — 휴장일·상장 전·거래정지 또는 KRX 키 미설정.")
 

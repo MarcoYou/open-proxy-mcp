@@ -21,7 +21,8 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
-from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
+from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
+from open_proxy_mcp.services.scale_guard import check_balance_identity
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.revenue_account import pick_revenue_row
@@ -1496,8 +1497,11 @@ async def _build_accounts(
         for rc in ("11014", "11012", "11013"):
             rows, err = await _safe_fetch_acnt_all(corp_code, year, rc, fs_div)
             if rows:
-                used_rc, _ = rc, warnings.append(
-                    f"{year}년 사업보고서 미공시 — reprt_code={rc}(분기/반기)로 대체.")
+                used_rc = rc
+                # 요약 경로(_fetch_year_metrics)는 이걸 세는데 여기만 안 셌다 — 「에러가 아니라
+                # 대체로 나타나는 고장」은 세지 않으면 발생률을 영영 모른다.
+                note_degradation("report_substituted")
+                warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={rc}(분기/반기)로 대체.")
                 break
     if not rows:
         return {}, [err if err and err != "no_filing" else f"{year}년 재무제표 계정 미공시"]
@@ -1582,7 +1586,10 @@ async def _normalize_currency(
 
     _scale(metrics)
     metrics["fx_rate_to_krw"] = round(rate, 2)
-    metrics["fx_basis"] = f"{fx_date} 기말환율 · 당기·전기 동일환율 적용(yoy 는 {cur} 기준 성장률)"
+    metrics["fx_basis"] = (
+        f"{fx_date} 기말환율 — 이 행의 금액(전기 포함)은 전부 이 환율. "
+        f"다년 표에서는 **행마다 그 해 기말환율**이라 금액 추이에 환율 변동이 섞이고, "
+        f"`*_yoy_pct` 는 환산 전 {cur} 기준이라 환율이 빠진 성장률이다 — 두 열의 기준이 다르다.")
     return [f"기능통화 {cur} — 금액을 {fx_date} 기말환율 {rate:,.1f}원/{cur} 로 KRW 환산했다. "
             f"순이익은 원칙상 평균환율이라 수% 오차가 있고, 전기도 같은 환율을 써서 "
             f"yoy 는 환율 변동이 빠진 {cur} 기준 성장률이다."]
@@ -2051,6 +2058,19 @@ async def _fetch_year_metrics(
         )
     if metrics.get("standalone"):
         metrics["standalone"]["basis_note"] = f"손익=당기 분기(3개월, standalone), 회전일수={_tb} 기준."
+
+    # 자산 = 부채 + 자본 검산. 다른 단건 tool(price_multiple_data·financial_notes)은 이미 하는데
+    # 이 tool 만 세 값을 손에 쥐고도 안 했다 — 새 정책이 아니라 **정합화**다.
+    # 값은 고치지 않는다(DART 원문이 그렇다는 사실 자체가 신호다) — 경고만 붙인다.
+    # 선행 조건: 세 값이 같은 기준(actual_fs)에서 왔을 때만 본다. 폴백으로 기준이 섞이면 위양성.
+    _bal = check_balance_identity(metrics.get("total_assets_krw"),
+                                  metrics.get("total_liabilities_krw"),
+                                  metrics.get("total_equity_krw"))
+    if _bal.get("triggered"):
+        metrics["balance_identity_diff_pct"] = round(_bal["diff_pct"], 4)
+        warnings.append(
+            f"{year}년 자산총계 ≠ 부채총계 + 자본총계 (차이 {_bal['diff_pct']:.2f}%) — "
+            f"공시 원문이 그렇다. 값은 그대로 두었으니 인용 전 원문을 확인할 것.")
 
     # 통화 정규화는 **모든 금액 주입이 끝난 뒤** 마지막에 한 번 — 중간에 두면 그 뒤에 붙는
     # standalone·배당 금액이 조용히 환산에서 빠진다(그게 원래 결함의 모양이었다).
