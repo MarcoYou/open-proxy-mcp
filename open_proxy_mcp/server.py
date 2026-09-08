@@ -134,7 +134,8 @@ def build_mcp() -> MCPServer:
     async def _health(_request):
         from starlette.responses import JSONResponse
         from open_proxy_mcp.dart.client import (cache_stats, client_registry_stats,
-                                        doc_gate_stats, inflight_now, web_block_stats)
+                                        doc_gate_stats, inflight_now, registry_stats,
+                                        web_block_stats)
         from open_proxy_mcp.db import pool_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
@@ -155,6 +156,11 @@ def build_mcp() -> MCPServer:
             "tools": len(await mcp.list_tools()),
             "data": _data,
             "cache": cache_stats(),
+            # 원장(회사 목록·정기보고서 명부) — 「언제 것이고 얼마나 무거운가」.
+            # 메모리 층에는 만료가 없어서 fly 의 suspend/재개로 프로세스가 오래 살면 그만큼
+            # 묵는다(sqlite TTL 7일은 메모리가 비었을 때만 걸린다). 신규 상장사를 「없다」고
+            # 답하는 조용한 실패라, 먼저 **얼마나 묵는지 보이게** 한다.
+            "registry": registry_stats(),
             # 풀이 실제로 서고 있나 · 대기가 쌓이나. 「빠르게 하려고 둔 것」이 조용히
             #   fail-open 으로 꺼져 있으면 숫자로만은 알 수 없어서 함께 낸다.
             "pg_pool": pool_stats(),
