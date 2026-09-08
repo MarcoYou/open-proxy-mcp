@@ -15,7 +15,7 @@
 """
 
 from __future__ import annotations
-from open_proxy_mcp.dart.client import LruByteCache, _env_mb, note_degradation
+from open_proxy_mcp.dart.client import LruByteCache, _env_mb, list_pages_per_code, note_degradation
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
@@ -39,11 +39,10 @@ _KST = timezone(timedelta(hours=9))
 _MARKET_SCAN_MAX_DAYS = 92
 
 # scan 상한
-# 코드당 최대 페이지(전체시장 폭주 방지). 같은 list.json 전체시장 스캔인 risk_events 는 200 이라
-# 두 서비스의 예산이 어긋나 있다 — 다만 여기서 200 으로 맞추면 코드 5개 × 200 = 1,000 콜이라
-# 한 요청이 분당 910 캡을 통째로 밀어버린다. 그래서 값을 옮기기 전에 `scan_page_truncated`
-# 계기로 **절단이 실제로 얼마나 발생하는지 먼저 잰다**(260909).
-_SCAN_MAX_PAGES = 20
+# 코드당 최대 페이지. 값은 client 의 요청당 예산(`LIST_PAGE_BUDGET_PER_REQUEST`)을 스캔 코드
+# 수로 나눈 몫이다 — 같은 list.json 을 쓰는 risk_events 와 예산이 10배 어긋나 있던 것(20 vs 200)을
+# 한 곳에서 유도하게 바꿨다(260909). 코드가 늘어도 한 요청의 총 콜은 그대로다.
+# 실제 절단 발생률은 `scan_page_truncated` 계기로 재고 있고, 예산 자체를 올릴지는 그 수치로 정한다.
 _PAGE_COUNT = 100
 
 # ── 260824: 호출측 sleep 을 걷어내고 **클라이언트 스로틀에 맡긴다** ──────────────
@@ -1176,11 +1175,8 @@ async def _build_screener_payload_impl(
 
     # ── scan: 선택 유형이 쓰는 detail 코드 합집합만 스캔 ───────────────
     scan_codes = sorted({_BY_CODE[c]["scan_code"] for c in sel_types})
-    # 종전엔 `_SCAN_MAX_PAGES if period_days <= 30 else _SCAN_MAX_PAGES` — 양쪽 분기가
-    # 문자열까지 같은 죽은 조건문이라 「기간에 비례」가 문장으로만 있었다. 조건문은 지웠고,
-    # **상한을 올리는 것은 이 커밋에서 하지 않는다** — `scan_page_truncated` 계기를 이제 막
-    # 심었으므로 발생률을 먼저 재고 나서 올린다(같은 커밋에서 올리면 dedup 효과와 교락된다).
-    max_pages = _SCAN_MAX_PAGES
+    # 코드 하나가 쓸 페이지 = 요청당 예산 ÷ 코드 수. 코드가 늘어도 한 요청의 총 콜은 그대로다.
+    max_pages = list_pages_per_code(len(scan_codes))
     scan_status = "ok"
     scan_error: str | None = None
     raw_items: list[dict] = []

@@ -84,3 +84,4 @@ def test_zero_matches_with_a_clean_scan_says_so():
     p["no_new"] = True
     out = _render_digest(p)
     assert "(조회는 정상)" in out and "이 응답이 못 본 것" not in out
+
