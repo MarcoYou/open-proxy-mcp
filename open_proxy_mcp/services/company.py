@@ -265,8 +265,13 @@ def _resolution_reasons(
 ) -> dict[str, str]:
     ko_universe = "활성 상장사" if active_registry_used else "종목코드 보유 법인"
     en_universe = "active listed companies" if active_registry_used else "companies with a ticker"
-    ko_rank = "시가총액" if ranking_signal == "market_cap" else "로컬 인기도 prior"
-    en_rank = "market capitalization" if ranking_signal == "market_cap" else "the local popularity prior"
+    _KO_RANK = {"market_cap": "시가총액", "local_popularity_prior": "로컬 인기도 prior",
+                "registry_recency": "등록 최신순(시총 자료 없음)"}
+    _EN_RANK = {"market_cap": "market capitalization",
+                "local_popularity_prior": "the local popularity prior",
+                "registry_recency": "registry recency (no market-cap data)"}
+    ko_rank = _KO_RANK.get(ranking_signal, _KO_RANK["registry_recency"])
+    en_rank = _EN_RANK.get(ranking_signal, _EN_RANK["registry_recency"])
     return {
         "ko": {
             "token": f"입력 토큰을 모두 포함하는 {ko_universe} 후보 중 {ko_rank} 우선",
@@ -295,7 +300,8 @@ def _resolution_payload(
     reason_i18n = _resolution_reasons(
         kind,
         bool(meta.get("active_registry_used")),
-        str(meta.get("ranking_signal") or "local_popularity_prior"),
+        # 메타가 비었으면 **없는 근거를 주장하지 않는다** — 원장 최신순이 사실이다.
+        str(meta.get("ranking_signal") or "registry_recency"),
     )
     reason = reason_i18n["en" if english else "ko"]
     return {

@@ -26,7 +26,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
-from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.dart.client import DartClientError, get_dart_client, list_pages_per_code
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.contracts import (
@@ -149,7 +149,9 @@ _DETAIL_GUIDE.update(EXTRA_DETAIL_GUIDE)
 
 _MARKET_SCAN_DEFAULT_DAYS = 30
 _MARKET_SCAN_MAX_DAYS = 90
-_MARKET_SCAN_PAGE_CAP = 200
+# 페이지 상한은 client 의 요청당 예산(`LIST_PAGE_BUDGET_PER_REQUEST`)을 채널 수로 나눈 몫이다 —
+# 같은 list.json 을 쓰는 screener 와 예산이 10배 어긋나 있었다(20 vs 200). 여기서 상수를 따로
+# 들지 않는다.
 
 
 def _classify(report_nm: str) -> tuple[str, str]:
@@ -511,10 +513,14 @@ async def _build_market_scan_payload(
     api_calls = 0
     keywords = _category_filter_keywords(category)
 
-    async def _sweep(detail_ty: str) -> tuple[list[dict[str, Any]], int]:
+    def _page_cap(fanout: int) -> int:
+        """채널이 늘어도 한 요청의 총 페이지 콜은 그대로 — 예산을 채널 수로 나눈다."""
+        return list_pages_per_code(fanout)
+
+    async def _sweep(detail_ty: str, page_cap: int) -> tuple[list[dict[str, Any]], int]:
         first = await client.search_filings(bgn_de=bgn_de, end_de=end_de, pblntf_detail_ty=detail_ty, page_no=1)
         calls = 1
-        total_page = min(int(first.get("total_page") or 1), _MARKET_SCAN_PAGE_CAP)
+        total_page = min(int(first.get("total_page") or 1), page_cap)
         pages = [first]
         if total_page > 1:
             rest = await asyncio.gather(*[
@@ -537,7 +543,7 @@ async def _build_market_scan_payload(
         # 🔴 **I003 이 2026-08-27 에 추가됐다** — 매매거래정지·관리종목·상장적격성·
         # 정리매매·개선기간이 전부 그쪽에 있어 그전까지 한 건도 못 읽었다.
         channels = _channels_for(category)
-        swept = await asyncio.gather(*[_sweep(ch) for ch in channels])
+        swept = await asyncio.gather(*[_sweep(ch, _page_cap(len(channels))) for ch in channels])
         raw_items: list[dict[str, Any]] = []
         for got, calls in swept:
             api_calls += calls

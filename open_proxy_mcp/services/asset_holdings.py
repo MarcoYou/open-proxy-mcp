@@ -13,7 +13,7 @@
 """
 from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
-from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
+from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 
@@ -238,7 +238,7 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
 from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
 from open_proxy_mcp.services import business_details as _bd  # noqa: E402
 from open_proxy_mcp.services import price_multiple_data as _val  # noqa: E402
-from open_proxy_mcp.services.company import resolve_company_query  # noqa: E402
+from open_proxy_mcp.services.company import _safe_company_info, resolve_company_query  # noqa: E402
 
 _YEAR = re.compile(r"\((\d{4})\.\d{2}\)")
 _FIN_SEC = ("64", "65", "66")
@@ -411,12 +411,12 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         data["functional_currency"] = stmt_cur
         fx = 1.0
         if stmt_cur != "KRW":
-            # 기준일은 재무상태표 결산일 — f"{year}1231" 로 두면 당해 반기보고서에서 미래 날짜라
-            # 환율 조회가 늘 실패하고, 비12월 결산사는 아예 다른 날의 환율을 쓴다.
-            _bs_dt = next((str(r.get("thstrm_dt") or "") for r in (fin.get("list") or [])
-                           if r.get("thstrm_dt")), "")
-            _digits = "".join(ch for ch in _bs_dt if ch.isdigit())[:8]
-            fx = await fx_to_krw(stmt_cur, _digits or f"{year}1231") or 0.0
+            # 기준일은 그 회계연도의 기말일이다. 종전엔 `fnlttSinglAcntAll` 행의 `thstrm_dt` 를
+            # 캤는데 **그 응답에 없는 필드**라(행 키 17개에 부재) 늘 12월 말로 폴백했다 —
+            # 비12월 결산사(3·6월)는 그동안 다른 날의 환율을 썼다는 뜻이다.
+            _info, _ = await _safe_company_info(cc)   # (dict, err) — 실패해도 {} 라 12월로 폴백
+            _acc_mt = (_info or {}).get("acc_mt")
+            fx = await fx_to_krw(stmt_cur, fiscal_year_end_date(int(year), _acc_mt)) or 0.0
             if not fx:
                 fx = 1.0
                 data["fx_rate_to_krw"] = None
@@ -426,8 +426,10 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
                 t = {k: round(v * fx) for k, v in t.items()}
                 data["_tiers"] = t
                 data["fx_rate_to_krw"] = round(fx, 2)
-                warnings.append(f"기능통화 {stmt_cur} — BS 자산을 {year} 기말환율 {fx:,.1f}원/{stmt_cur} 로 "
-                                f"KRW 환산해 시총과 통화를 맞췄다.")
+                warnings.append(
+                    f"기능통화 {stmt_cur} — BS 자산을 "
+                    f"{fiscal_year_end_date(int(year), _acc_mt)} 기말환율 {fx:,.1f}원/{stmt_cur} 로 "
+                    f"KRW 환산해 시총과 통화를 맞췄다.")
         # 세부 계정 표는 **환산 뒤** 티어로 만든다. 환산 전에 만들면 같은 응답 안에서
         # 목적별 버킷(KRW)과 세부 계정(원행 통화)이 환율배만큼 어긋난다.
         data["assets"] = {_TIER_LABEL[k]: v for k, v in t.items() if v and k != "subs"}

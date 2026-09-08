@@ -8,7 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-09-08
+updated: 2026-09-09
 ---
 
 # asset_holdings
@@ -150,6 +150,9 @@ updated: 2026-09-08
   (`otrCprInvstmntSttus`, 통화 미선언) 장부가가 섞여 BS 환산분과 같은 기준임을 확증할 수 없다.
 
 ## 변경 이력
+- 2026-09-09: 환율 기준일을 실제로 산출한다 — 종전엔 `fnlttSinglAcntAll` 행의 `thstrm_dt` 를 캤는데
+  **그 응답에 없는 필드**라(행 키 17개에 부재) 늘 12월 말로 폴백했다. 이제 회사 정보의 결산월로
+  `fx.fiscal_year_end_date()` 를 쓴다(비12월 결산사 3·6월이 그동안 다른 날의 환율을 썼다).
 - 2026-09-08: **기능통화 환산**(`functional_currency`·`fx_rate_to_krw` 신설). 종전엔 USD 장부가를
   KRW 시총으로 나눠 배수가 약 1,400배 축소됐다(두산밥캣 잉여자산배수 0.00 → 0.346). 세부 계정 표를
   환산 뒤 티어로 생성하도록 순서 교정, 환율 실패 시 배수 전면 억제, `equity_nav_cov` 는 KRW 한정.

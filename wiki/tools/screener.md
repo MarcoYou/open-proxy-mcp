@@ -169,7 +169,7 @@ sequenceDiagram
 ## 기술 상세
 
 - 서비스: `open_proxy_mcp/services/screener.py` (로직 SSOT) · tool: `open_proxy_mcp/tools/screener.py` (디제스트 렌더)
-- 스캔: `client.search_filings`(corp_code 無 전체시장 필러, 100/page) + 코드당 20페이지 상한 (같은 전체시장 스캔인 `risk_events` 는 200 — 예산이 갈려 있다. 코드 5개 × 200 = 1,000 콜이라 분당 910 캡을 한 요청이 밀어버려서, 옮기기 전에 `scan_page_truncated` 계기로 절단 발생률을 먼저 잰다). **코드 5개와 페이지 2..N 을 병렬로 던진다**(260824) — 순서는 페이지 번호로 복원한다(공시 순서가 뒤집히면 dedup=정정 최신본만 이 흔들린다).
+- 스캔: `client.search_filings`(corp_code 無 전체시장 필러, 100/page). 코드당 페이지 상한은 `client.list_pages_per_code(코드 수)` — **요청당 예산 300페이지를 코드 수로 나눈 몫**이다. 같은 list.json 을 쓰는 `risk_events` 도 같은 예산에서 유도한다(종전 20 vs 200 으로 10배 어긋나 있었다). 코드가 늘어도 한 요청의 총 콜은 그대로. 예산 자체를 올릴지는 `scan_page_truncated` 계기의 발생률로 정한다. **코드 5개와 페이지 2..N 을 병렬로 던진다**(260824) — 순서는 페이지 번호로 복원한다(공시 순서가 뒤집히면 dedup=정정 최신본만 이 흔들린다).
 - 레이트리밋 가드: **호출측 sleep 없음**(260824 제거) — 속도는 클라이언트 스로틀 한 곳에서 잡는다
   ([[data-collection]] 「호출측이 아니라 스로틀에서」). 여기서는 **양만 제한**한다:
   코드당 20페이지 · details 동시성 6 · **run당 300콜 러닝카운터**(per-type 캡 우선, 초과 시 truncated).

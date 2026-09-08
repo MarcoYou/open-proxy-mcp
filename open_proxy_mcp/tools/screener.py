@@ -140,6 +140,29 @@ def _detail_line(card: dict) -> str | None:
     return None
 
 
+def _coverage_block(p: dict[str, Any]) -> list[str]:
+    """「이 응답이 못 본 것」 — 불완전한 스캔 코드를 사람이 읽는 문장으로.
+
+    한 곳에서만 만든다(service 와 renderer 가 각자 조립하면 한 화면에 두 번 찍힌다).
+    그리고 **매칭 0건일 때도** 나와야 한다 — 스캔이 잘려서 0건인데 「새 공시 없음」만 보이면
+    그게 가장 나쁜 침묵이다.
+    """
+    cut = [c for c in (p.get("coverage") or []) if not c.get("complete")]
+    if not cut:
+        return []
+    out = ["", "### 이 응답이 못 본 것"]
+    for c in cut:
+        why = (f"DART 오류 {c['error']}" if c.get("error")
+               else f"페이지 상한 {c['fetched_pages']}/{c['total_pages']}")
+        saw = (f"본 접수일 {c['seen_from']}~{c['seen_to']}"
+               if c.get("seen_from") else "받은 행 없음")
+        hole = f" · 빠진 페이지 {c['missing_pages']}" if c.get("missing_pages") else ""
+        out.append(f"- `{c['code']}` — {why} · {saw}{hole}")
+    out.append("- 기간을 나눠 두 번 부르면 그만큼 더 본다. "
+               "위 접수일 범위는 **실제로 받은 행**의 범위이지 창 전체가 아니다.")
+    return out
+
+
 def _render_digest(payload: dict[str, Any]) -> str:
     p = payload
     period = p.get("period", {})
@@ -168,7 +191,10 @@ def _render_digest(payload: dict[str, Any]) -> str:
         return "\n".join(lines)
 
     if p.get("no_new"):
-        lines.append("> ✨ **새 공시 없음** — 지정 기간·유형·유니버스에서 신규 공시가 없다. (조회는 정상)")
+        _cut = [c for c in (p.get("coverage") or []) if not c.get("complete")]
+        lines.append("> ✨ **새 공시 없음** — 지정 기간·유형·유니버스에서 신규 공시가 없다."
+                     + (" (조회는 정상)" if not _cut else " **다만 스캔이 온전하지 않았다 — 아래 참조.**"))
+        lines += _coverage_block(p)
         if p.get("warnings"):
             lines.append("")
             lines += [f"- {w}" for w in p["warnings"]]
@@ -241,19 +267,7 @@ def _render_digest(payload: dict[str, Any]) -> str:
         foot.append(f"정정본이 원본을 대체한 건 {counts['deduped_away']}건")
     if foot:
         lines.append("> " + " · ".join(foot))
-    _cut = [c for c in (p.get("coverage") or []) if not c.get("complete")]
-    if _cut:
-        lines.append("")
-        lines.append("### 이 응답이 못 본 것")
-        for c in _cut:
-            _why = (f"DART 오류 {c['error']}" if c.get("error")
-                    else f"페이지 상한 {c['fetched_pages']}/{c['total_pages']}")
-            _saw = (f"본 접수일 {c['seen_from']}~{c['seen_to']}"
-                    if c.get("seen_from") else "받은 행 없음")
-            _hole = f" · 빠진 페이지 {c['missing_pages']}" if c.get("missing_pages") else ""
-            lines.append(f"- `{c['code']}` — {_why} · {_saw}{_hole}")
-        lines.append("- 기간을 나눠 두 번 부르면 그만큼 더 본다. "
-                     "위 접수일 범위는 **실제로 받은 행**의 범위이지 창 전체가 아니다.")
+    lines += _coverage_block(p)
     if p.get("warnings"):
         lines.append("")
         lines.append("### 유의")

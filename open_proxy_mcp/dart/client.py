@@ -326,6 +326,21 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 # API 최소 간격: 순간 burst를 시간축에 펴는 평활화용(분당 window cap과 별개).
 # 0.066초 = 분당 상한 910 = _API_RATE_LIMIT_PER_MINUTE와 정합 → 단일 흐름이 window cap에
 # 도달 가능하면서 초당 ~15로 burst 평활. (이전 0.1초는 분당 600 상한이라 window cap을
+
+#: **한 요청이 `list.json` 페이지에 쓸 수 있는 총 콜.** 세 서비스가 각자 상한을 추측하던 것을
+#: 한 곳으로 모은다(종전: screener 20 / risk_events 200 — 같은 endpoint 인데 10배 차이).
+#: 근거는 위 분당 한도 하나뿐이다 — 한 요청이 키 창의 1/3 을 넘게 잡으면 같은 머신의 아침
+#: 디제스트·배치가 굶는다. 팬아웃(코드 수)으로 나눠 쓰므로 코드가 늘어도 총량은 그대로다.
+LIST_PAGE_BUDGET_PER_REQUEST = 300
+_LIST_PAGE_MIN_SHARE = 5          # 팬아웃이 커도 코드 하나가 0 페이지가 되지는 않게
+
+
+def list_pages_per_code(fanout: int) -> int:
+    """팬아웃 코드 하나가 쓸 수 있는 페이지 수. 상한을 코드 수로 나눈다."""
+    if fanout <= 0:
+        return LIST_PAGE_BUDGET_PER_REQUEST
+    return max(_LIST_PAGE_MIN_SHARE, LIST_PAGE_BUDGET_PER_REQUEST // fanout)
+
 # 무력화 = 과보수. race는 _api_rate_lock이 직렬화로 보장하므로 간격과 무관.)
 _MIN_INTERVAL_API = 0.066
 #: 웹 스크래핑(DART 웹 원문 viewer · KIND) 요청 간격 — **한 규칙, 한 시계**(260810 통일).
@@ -2799,6 +2814,7 @@ class DartClient:
         resp1 = await self._http.get(url1, params={
             "method": "search", "acptno": acptno,
         }, timeout=30, headers=headers)
+        _check_web_response(resp1, "kind_doc_1")
         resp1.raise_for_status()
 
         # <select id="mainDoc"> 안의 <option value="docNo|Y">
@@ -2812,6 +2828,7 @@ class DartClient:
         resp2 = await self._http.get(url1, params={
             "method": "searchContents", "docNo": doc_no,
         }, timeout=30, headers=headers)
+        _check_web_response(resp2, "kind_doc_2")
         resp2.raise_for_status()
 
         # setPath('목차URL', '본문URL') — 두 번째 인자가 본문 (목차가 빈 문자열일 수 있음)
@@ -2824,6 +2841,7 @@ class DartClient:
         await self._throttle_kind()
         body_url = f"{kind_base}{body_path}" if body_path.startswith("/") else body_path
         resp3 = await self._http.get(body_url, timeout=30, headers=headers)
+        _check_web_response(resp3, "kind_doc_3")
         resp3.raise_for_status()
 
         logger.info(f"[KIND] 본문 다운로드 완료: {len(resp3.text):,} chars (acptno={acptno})")
@@ -2920,6 +2938,9 @@ class DartClient:
             timeout=30,
             headers=headers,
         )
+        # KIND 도 차단 장부에 넣는다 — 시계(_throttle_kind)는 이미 공유하는데 감지만 빠져 있어서,
+        # KIND 가 403/429 를 내면 `/health` 의 web_block 이 0 을 유지했다(운영자가 못 본다).
+        _check_web_response(response, "kind_search")
         response.raise_for_status()
 
         return self._parse_kind_disclosure_rows(response.text)

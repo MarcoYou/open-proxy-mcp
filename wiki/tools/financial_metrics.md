@@ -9,7 +9,7 @@ related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석,
 related_decisions: [open-proxy-guideline]
 
 created: 2026-05-01
-updated: 2026-09-08
+updated: 2026-09-09
 ---
 
 # financial_metrics
@@ -332,6 +332,12 @@ sequenceDiagram
   거기서 다시 환산하면 환율이 두 번 곱해진다(260908 실측 8.87조 → 12,728조).
 
 ## 변경 이력
+- 2026-09-09 (2): 다년 표의 **통화 기준을 명시**한다 — 비KRW 회사는 행마다 그 해 기말환율로 환산되고
+  (closing-rate, 각 행은 그 해 원화 가치로 옳다) 전년비 열은 환산 전 기능통화 기준이라 **두 열의
+  기준이 다르다**. 종전 `fx_basis` 는 「당기·전기 동일환율」이라고만 적어 그 사실을 덮었다.
+  자산=부채+자본 검산 추가(다른 단건 tool 은 이미 하던 것 — 값은 고치지 않고 경고만).
+  `accounts` 렌더가 `currency` 키를 읽어 비KRW 에서 100% 「단위: 원」 오라벨이던 것 수정
+  (서비스가 담는 키는 `functional_currency`). `accounts` 폴백에 `report_substituted` 계기 추가.
 - 2026-09-09: `yearly` 인접 연도 중복 조회 제거(`_FetchMemo` — 진행 중 Task 공유, years=10 기준 47→29콜)
   · `years` 상한 10 + 초과 시 고지(캐시 적중에도 붙는다) · 표 제목의 「(3년)」 하드코딩을 실제 연도 범위로
   (years=10 인데 「3년」이라 적히던 것) · 서버가 이미 계산해 두고 안 그리던 전년비 3열 추가.

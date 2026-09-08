@@ -367,7 +367,13 @@ class CompanyResolver:
             "market_cap_won": cap or None,
             "market_data_as_of": self.market.as_of_date or None,
             "market_data_source": self.market.source,
-            "ranking_signal": "market_cap" if self.market.as_of_date else "local_popularity_prior",
+            # 근거는 **실제로 쓴 것**만 말한다. 시총 자료가 통째로 없으면(참조 파일 부재·DB 타임아웃)
+            # 정렬은 사실상 원장 최신순인데, 종전엔 그 경우에도 「로컬 인기도 prior」라고 적어
+            # 같은 응답의 `market_data_source: "none"` 과 모순됐다.
+            "ranking_signal": (
+                "market_cap" if self.market.as_of_date
+                else ("local_popularity_prior" if self.market.market_caps else "registry_recency")
+            ),
             "active_registry_used": self.market.active_tickers is not None,
             "dominant": False,
             "strong_disambiguated": False,
