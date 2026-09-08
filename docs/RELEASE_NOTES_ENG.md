@@ -2,6 +2,31 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-09 (2)
+
+### Values no longer go missing from shareholder-meeting notice tables
+
+Filing tables mark cells with two different tags, and only one was being read. The result was not a
+broken-looking table but an intact-looking one with values quietly removed — a row reading
+"fiscal year · through", with the date in the middle gone.
+
+Measured against the local document cache: 64.5% of notice tables were losing columns, and 40.6% of
+all cells were dropped. Both tags are now read.
+
+### Multi-year financial queries no longer fetch the same data twice
+
+Building a yearly trend fetched "this year + last year" for each year, so adjacent years overlapped
+and the same data was retrieved twice. It is now fetched once — for a 10-year Samsung Electronics
+query, 47 calls dropped to 29 (−38%), with every figure unchanged.
+
+A cap of 10 years was also added; longer requests are trimmed and the response says so.
+
+### The yearly table states its real period and shows year-on-year change
+
+A 10-year query used to be titled "Annual trend (3 years)"; it now reads the actual span
+("2016–2025, 10 years"). Year-on-year change for revenue, operating profit and net income — already
+computed on the server but never rendered — is now in the table, so you no longer recompute it by hand.
+
 ## beta — 2026-09-09
 
 ### Several filings from the same company no longer collapse into one card

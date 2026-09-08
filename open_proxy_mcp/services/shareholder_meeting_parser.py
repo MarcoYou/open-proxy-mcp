@@ -1824,6 +1824,13 @@ def _parse_library_block(lib) -> list[dict]:
     return agendas
 
 
+#: DART `document.xml` 의 셀 태그는 `<TE>`(본문)·`<TU>`(단위)로도 온다 — HTML 의 td/th 만 찾으면
+#: 그 표는 **데이터 행이 통째로 빈 채** 나간다. 실측(260909, 로컬 문서 캐시 2,445건):
+#: 표를 가진 문서의 60.0%, **주총 소집공고는 90.1%** 가 TE/TU 를 쓴다.
+#: 같은 규칙이 segment_grid·business_details·segment_candidates·executive_pay 에 이미 있다.
+_CELL_TAGS = ["td", "th", "te", "tu"]
+
+
 def _table_to_markdown(table_el) -> str:
     """<table> 요소를 마크다운 테이블로 변환
 
@@ -1836,7 +1843,7 @@ def _table_to_markdown(table_el) -> str:
     # 행/열 데이터 추출
     table_data = []
     for row in rows:
-        cells = row.find_all(['td', 'th'])
+        cells = row.find_all(_CELL_TAGS)
         row_data = []
         for cell in cells:
             text = cell.get_text().strip()

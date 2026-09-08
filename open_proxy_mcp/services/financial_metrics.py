@@ -68,6 +68,9 @@ _ACCOUNT_ROW_FIELDS = (
 
 _REPRT_BUSINESS = "11011"  # 사업보고서 (연간)
 
+#: `years` 상한 — 연도당 최대 4콜이라 상한이 없으면 한 요청이 분당 910 캡을 민다.
+_MAX_YEARS = 10
+
 
 # DART 사업보고서 fnlttSinglAcnt 표준 account_nm 매칭 키워드.
 # fnlttSinglAcntAll에는 더 세분화된 account_nm이 들어 있어 별도 패턴.
@@ -1752,10 +1755,66 @@ async def _accrual_payout_pct(corp_code: str, year: int, *, is_reit: bool = Fals
 
 # ── scope dispatchers ──
 
+class _FetchMemo:
+    """한 요청 안에서 같은 (연도·보고서·기준) 조회를 한 번만 한다.
+
+    다년 조회는 연도마다 「당기 + 전기」를 부르므로 인접 연도가 겹친다 — `years=10` 이면
+    40 콜 중 18 콜(45%)이 같은 조회다. DART 는 분당 910 을 넘으면 **그 키가 2~3시간 막히므로**
+    헛콜은 그 자체로 가용성 문제다.
+
+    결과 캐시만으로는 부족하다 — `_build_yearly` 가 연도들을 `gather` 로 **동시에** 던지므로
+    둘 다 캐시 미스로 출발한다. 그래서 결과가 아니라 **진행 중인 Task** 를 공유한다.
+    반환 리스트는 얕은 복사로 끊는다(같은 리스트를 여러 호출자가 들고 고치면 서로를 오염시킨다 —
+    이 레포는 screener 스캔 캐시에서 이미 그 사고를 겪었다).
+    """
+
+    def __init__(self) -> None:
+        self._inflight: dict[tuple, Any] = {}
+
+    def _share(self, key: tuple, factory):
+        task = self._inflight.get(key)
+        if task is None:
+            task = asyncio.ensure_future(factory())
+            self._inflight[key] = task
+        return task
+
+    async def acnt(self, corp_code: str, year: int, rc: str, fs_div: str):
+        rows, err = await self._share(
+            ("acnt", corp_code, year, rc, fs_div),
+            lambda: _safe_fetch_acnt(corp_code, year, rc, fs_div))
+        return list(rows), err
+
+    async def acnt_all(self, corp_code: str, year: int, rc: str, fs_div: str):
+        rows, err = await self._share(
+            ("all", corp_code, year, rc, fs_div),
+            lambda: _safe_fetch_acnt_all(corp_code, year, rc, fs_div))
+        return list(rows), err
+
+
+class _NoMemo:
+    """단건 조회 경로 — 공유할 상대가 없으므로 그대로 부른다(분기 하나로 통일하려고 둔 얇은 껍데기)."""
+
+    @staticmethod
+    async def acnt(corp_code: str, year: int, rc: str, fs_div: str):
+        return await _safe_fetch_acnt(corp_code, year, rc, fs_div)
+
+    @staticmethod
+    async def acnt_all(corp_code: str, year: int, rc: str, fs_div: str):
+        return await _safe_fetch_acnt_all(corp_code, year, rc, fs_div)
+
+
+_NO_MEMO = _NoMemo()
+
+
+def _fetch(memo: "_FetchMemo | None"):
+    return memo or _NO_MEMO
+
+
 async def _fetch_acnt_with_fallback(
     corp_code: str,
     year: int,
     fs_div: str,
+    memo: "_FetchMemo | None" = None,
 ) -> tuple[list[dict[str, Any]], str, str | None]:
     """사업보고서(11011) → 3분기(11014) → 반기(11012) → 1분기(11013) 순서로 fallback.
 
@@ -1766,7 +1825,7 @@ async def _fetch_acnt_with_fallback(
     fallback_order = ("11011", "11014", "11012", "11013")
     last_err = None
     for rc in fallback_order:
-        rows, err = await _safe_fetch_acnt(corp_code, year, rc, fs_div)
+        rows, err = await _fetch(memo).acnt(corp_code, year, rc, fs_div)
         if rows:
             return rows, rc, None
         if err == "no_filing":
@@ -1786,8 +1845,11 @@ async def _fetch_year_metrics(
     allow_quarterly_fallback: bool = True,
     induty_code: str | None = None,
     is_reit: bool = False,
+    memo: "_FetchMemo | None" = None,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
+
+    `memo` 를 주면 같은 요청 안의 다른 연도와 조회를 공유한다(다년 조회의 인접 연도 중복 제거).
 
     Phase 1 v2 최적화 (iteration 11):
     - fnlttSinglIndx 호출 제거 (DART 산출 지표는 자체 계산값 우선이라 사실상 미사용).
@@ -1800,14 +1862,14 @@ async def _fetch_year_metrics(
     warnings: list[str] = []
     # 1단계: 당기 fnlttSinglAcnt — fallback 발생 가능성 있어 sequential 유지.
     if allow_quarterly_fallback:
-        rows_curr, used_rc, fb_err = await _fetch_acnt_with_fallback(corp_code, year, fs_div)
+        rows_curr, used_rc, fb_err = await _fetch_acnt_with_fallback(corp_code, year, fs_div, memo=memo)
         if not rows_curr:
             return {}, [fb_err or f"{year}년 데이터 미공시"], 0
         if used_rc != _REPRT_BUSINESS:
             note_degradation("report_substituted")
             warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={used_rc}로 대체 (반기/분기)")
     else:
-        rows_curr, err_curr = await _safe_fetch_acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
+        rows_curr, err_curr = await _fetch(memo).acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
         if err_curr == "no_filing":
             return {}, [f"{year}년 사업보고서 미공시 (fnlttSinglAcnt no_filing)"], 0
         if err_curr:
@@ -1830,12 +1892,12 @@ async def _fetch_year_metrics(
     # OFS 행을 알아서 돌려주지만 fnlttSinglAcntAll 은 요청 fs_div 그대로라, 연결 미작성 회사에
     # CFS 로 부르면 013(없음) — CF·매출 폴백·세부 IS 가 통째로 비었다(리파인 2022~2025 실측, 260906).
     if include_prev:
-        tasks.append(_safe_fetch_acnt(corp_code, year - 1, used_rc, fs_div))
+        tasks.append(_fetch(memo).acnt(corp_code, year - 1, used_rc, fs_div))
         task_keys.append("prev_acnt")
-    tasks.append(_safe_fetch_acnt_all(corp_code, year, used_rc, actual_fs))
+    tasks.append(_fetch(memo).acnt_all(corp_code, year, used_rc, actual_fs))
     task_keys.append("curr_acnt_all")
     if include_prev:
-        tasks.append(_safe_fetch_acnt_all(corp_code, year - 1, used_rc, actual_fs))
+        tasks.append(_fetch(memo).acnt_all(corp_code, year - 1, used_rc, actual_fs))
         task_keys.append("prev_acnt_all")
 
     parallel_results = await asyncio.gather(*tasks, return_exceptions=False)
@@ -2093,7 +2155,10 @@ async def _build_audit_opinion_data(
 
 async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, induty_code: str | None = None, is_reit: bool = False) -> tuple[list[dict[str, Any]], list[str]]:
     year_list = list(range(end_year - years + 1, end_year + 1))
-    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit) for y in year_list]
+    # 연도마다 「당기+전기」를 부르므로 인접 연도가 겹친다 — memo 하나를 나눠 주면 그 겹침이 사라진다.
+    memo = _FetchMemo()
+    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code,
+                                 is_reit=is_reit, memo=memo) for y in year_list]
     results = await asyncio.gather(*tasks)
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -2472,6 +2537,26 @@ async def build_financial_metrics_payload(
     def _mark(stage: str, started_at: float) -> None:
         timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
 
+    # `years` 에 상한이 없으면 한 요청이 분당 910 캡을 통째로 밀 수 있다(연도당 최대 4콜).
+    # memo 로 인접 연도 중복은 사라졌지만 상한 자체는 여전히 필요하다.
+    _years_req = years
+    years = max(1, min(int(years or 3), _MAX_YEARS))
+
+    def _note_clamp(payload: dict[str, Any]) -> dict[str, Any]:
+        """`years` 를 줄였다는 사실을 반환 직전에 붙인다.
+
+        캐시 키는 **클램프된** years 라 years=30 과 10 이 같은 항목을 맞는다(그게 옳다 — 같은
+        요청이다). 다만 30 을 물은 사람은 캐시 적중일 때도 잘렸다는 걸 들어야 하므로, 캐시에
+        넣는 payload 가 아니라 **내보내는 사본**에만 붙인다.
+        """
+        if not (_years_req and int(_years_req) > years):
+            return payload
+        out = dict(payload)
+        out["warnings"] = list(out.get("warnings") or []) + [
+            f"years={_years_req} 요청을 상한 {years}년으로 줄였다 — 연도당 DART 호출이 붙어 "
+            f"한 요청이 분당 한도를 밀지 않게 한다. 더 긴 추이는 기간을 나눠 부른다."]
+        return out
+
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
 
@@ -2479,7 +2564,7 @@ async def build_financial_metrics_payload(
     cache_key = (company_query, scope, year, years, consolidated)
     cached = _fm_cache_get(cache_key)
     if cached is not None:
-        return cached
+        return _note_clamp(cached)
 
     fs_div = "CFS" if consolidated else "OFS"
     client = get_dart_client()
@@ -2802,8 +2887,8 @@ async def build_financial_metrics_payload(
         evidence_refs=evidence_refs,
         next_actions=_next_actions(scope, data),
     ).to_dict()
-    _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache
-    return payload
+    _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache (클램프 고지는 캐시에 넣지 않는다)
+    return _note_clamp(payload)
 
 
 def _detect_qoq_alerts(curr: dict[str, Any], prev: dict[str, Any]) -> list[str]:

@@ -311,16 +311,25 @@ def _render_yearly(data: dict[str, Any]) -> list[str]:
     rows = data.get("yearly", []) or []
     if not rows:
         return ["## 연간 추이", "_데이터 없음_"]
-    lines = ["## 연간 추이 (3년)"]
+    # 제목의 연수는 **실제 행 수**에서 온다. 종전엔 "3년" 이 박혀 있어 years=10 결과를
+    # 인용하면 기간을 잘못 적었다.
+    _ys = [r.get("year") for r in rows if r.get("year") is not None]
+    _span = f"{min(_ys)}~{max(_ys)}, {len(rows)}년" if _ys else f"{len(rows)}년"
+    lines = [f"## 연간 추이 ({_span})"]
     lines.append("")
-    lines.append("| 연도 | 매출 | 영업이익 | 순이익 | OPM | ROE | 부채비율 | CFO | FCF |")
-    lines.append("|------|------|----------|--------|-----|-----|----------|-----|-----|")
+    # 전년비는 서버가 이미 계산해 payload 에 싣는다(`*_yoy_pct`) — 여기서 안 그리면
+    # 읽는 쪽이 절대값을 보고 손으로 다시 나눈다.
+    lines.append("| 연도 | 매출 | 전년비 | 영업이익 | 전년비 | 순이익 | 전년비 | OPM | ROE | 부채비율 | CFO | FCF |")
+    lines.append("|------|------|-------:|----------|-------:|--------|-------:|-----|-----|----------|-----|-----|")
     for r in rows:
         lines.append(
             f"| {r.get('year')} | "
             f"{_format_krw_human(r.get('revenue_krw'))} | "
+            f"{_chg(r.get('revenue_yoy_pct'))} | "
             f"{_format_krw_human(r.get('operating_profit_krw'))} | "
+            f"{_chg(r.get('operating_profit_yoy_pct'))} | "
             f"{_format_krw_human(r.get('net_income_krw'))} | "
+            f"{_chg(r.get('net_income_yoy_pct'))} | "
             f"{_pct(r.get('operating_margin_pct'))} | "
             f"{_pct(r.get('roe_pct'))} | "
             f"{_pct(r.get('debt_ratio_pct'))} | "

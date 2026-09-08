@@ -69,7 +69,7 @@ financial_metrics(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | scope | str | no | 7종 (아래 참조) | "summary" |
 | year | int | no | 사업연도, 0이면 최신 완료 사업연도 | 0 |
-| years | int | no | yearly/audit_opinion 누적 연수 | 3 |
+| years | int | no | yearly/audit_opinion 누적 연수 (**상한 10** — 초과 요청은 줄이고 그 사실을 warning 으로 알린다) | 3 |
 | consolidated | bool | no | True=CFS(연결, 한국 표준), False=OFS(별도) | True |
 | sj_div | list[str] | no | `accounts` 전용 — 재무제표 종류 필터(`BS`·`IS`·`CIS`·`CF`·`SCE`). 미지정이면 전부 | - |
 | format | str | no | "md" / "json" | "md" |
@@ -182,7 +182,9 @@ scope:
   - `fnlttSinglIndx` (주요 재무지표) — DART 산출 ROE/부채비율/EPS 등. idx_cl_code 4 그룹 (수익성/안정성/성장성/활동성) × 4 호출.
   - `fnlttSinglAcntAll` (전체 재무제표) — 213 행 (BS/IS/CIS/CF/SCE). CapEx, 감가상각비, 이자비용, 매출채권/재고/매입채무 추출.
   - `accnutAdtorNmNdAdtOpinion` (회계감사인+의견) — 6 행 (3년 × CFS+OFS). 감사인 / 적정의견 / 강조사항 / 핵심감사사항(KAM) / rcept_no.
-- 외부 호출: scope별 최대 12회 (일반 7회). `accounts` 는 2회(요약 8회보다 싸다 — 요약에 얹어 공짜로 나오는 게 아니라 자기 호출을 한다). 기능통화가 비KRW 인 회사는 환율 1회가 더 붙는다(ECOS→야후, 확정일은 영구캐시). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회 + 매출이 빈 분기 수(최대 12 — 주요계정에 매출 행이 없는 회사만, 260906 lazy 폴백).
+- 외부 호출: scope별 최대 12회 (일반 7회). **`yearly` 는 요청 안에서 인접 연도 조회를 공유한다**
+  — 연도마다 「당기+전기」를 부르므로 겹치는데, 그 겹침을 `_FetchMemo` 가 없앤다(실측 삼성전자
+  years=3 16→13 · 5 24→16 · 10 **47→29콜, -38%**). 값은 한 자리도 바뀌지 않는다(3사 5년 전 지표 대조). `accounts` 는 2회(요약 8회보다 싸다 — 요약에 얹어 공짜로 나오는 게 아니라 자기 호출을 한다). 기능통화가 비KRW 인 회사는 환율 1회가 더 붙는다(ECOS→야후, 확정일은 영구캐시). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회 + 매출이 빈 분기 수(최대 12 — 주요계정에 매출 행이 없는 회사만, 260906 lazy 폴백).
 
 ## Flow
 
@@ -330,6 +332,9 @@ sequenceDiagram
   거기서 다시 환산하면 환율이 두 번 곱해진다(260908 실측 8.87조 → 12,728조).
 
 ## 변경 이력
+- 2026-09-09: `yearly` 인접 연도 중복 조회 제거(`_FetchMemo` — 진행 중 Task 공유, years=10 기준 47→29콜)
+  · `years` 상한 10 + 초과 시 고지(캐시 적중에도 붙는다) · 표 제목의 「(3년)」 하드코딩을 실제 연도 범위로
+  (years=10 인데 「3년」이라 적히던 것) · 서버가 이미 계산해 두고 안 그리던 전년비 3열 추가.
 - 2026-09-08: **기능통화 KRW 환산**(`functional_currency`·`fx_rate_to_krw`·`fx_basis` 신설). 종전엔 USD 원행을
   `*_krw` 라벨로 그대로 내보내 두산밥캣 매출이 62.7억(실제 9.2조)으로 약 1,400배 틀렸다. `summary`·`yearly`·
   `yoy`·`quarterly`·`qoq` 전 경로 적용, 환산 실패 시 값 보존 + 경고. 같은 커밋에서 `price_multiple_data` 의
