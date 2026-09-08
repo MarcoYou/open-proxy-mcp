@@ -1,0 +1,949 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPM guideline v2 · 명세, 설계, 판정 로직</title><style>
+:root{--ink:#1c302b;--muted:#597168;--paper:#faf9f4;--line:#dce4dc;--green:#14684e}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:30px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;line-height:1.85;font-size:16px}.layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1500px;margin:auto}aside{height:100vh;position:sticky;top:0;padding:35px 24px;overflow:auto;border-right:1px solid var(--line)}.brand{font-weight:800;font-size:24px;letter-spacing:-1px}.edition{color:var(--muted);font-size:12px;margin:5px 0 25px}nav a{display:block;color:var(--muted);font-size:13px;text-decoration:none;padding:7px 0;line-height:1.5}nav a:hover{color:var(--green)}main{padding:65px 65px 100px;min-width:0}header{margin-bottom:55px;border-bottom:2px solid var(--ink);padding-bottom:35px}.eyebrow{font-size:12px;letter-spacing:2px;color:var(--green);font-weight:750}h1{font-size:45px;line-height:1.22;letter-spacing:-2px;margin:22px 0}header p{max-width:720px;color:var(--muted)}.tags{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}.tags span{border:1px solid #bcd3c5;border-radius:4px;padding:4px 10px;font-size:12px}.actions{display:flex;flex-wrap:wrap;gap:10px}.actions a,.actions button{border:1px solid var(--line);background:white;color:var(--green);padding:7px 13px;border-radius:5px;text-decoration:none;font:inherit;font-size:13px;cursor:pointer}h2{font-size:29px;letter-spacing:-1px;margin:64px 0 20px;padding-top:20px;border-top:1px solid var(--line);line-height:1.4}h3{font-size:20px;margin:35px 0 15px}p{margin:15px 0}a{color:var(--green);text-underline-offset:3px}strong{font-weight:750}ul,ol{padding-left:24px}li{margin:8px 0}code{font-family:"SFMono-Regular",Consolas,monospace;font-size:.85em;background:#edf1eb;border-radius:3px;padding:2px 5px;overflow-wrap:anywhere}pre{background:#eaf0e9;border:1px solid var(--line);padding:22px;border-radius:10px;overflow:auto;line-height:1.7}pre code{background:none;padding:0;font-size:13px}.table-scroll{overflow:auto;border:1px solid var(--line);border-radius:9px;margin:24px 0;background:#fff}table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.7}th{text-align:left;background:#eaf0e9;font-weight:750;white-space:normal}th,td{padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top;min-width:140px}tr:last-child td{border:0}td:first-child{font-weight:600;min-width:165px}figure{margin:25px 0}.diagram{overflow:auto}.diagram svg{width:100%;min-width:680px;display:block}.diagram figcaption{font-size:12px;color:var(--muted);margin-top:8px}blockquote{border-left:3px solid var(--green);padding-left:20px;margin-left:0;color:var(--muted)}footer{font-size:12px;color:var(--muted);margin-top:65px;border-top:1px solid var(--line);padding-top:20px;overflow-wrap:anywhere}.skip{position:absolute;left:-9999px}.skip:focus{left:15px;top:15px;background:white;padding:10px;z-index:9}@media(max-width:1100px){main{padding:45px 30px}.layout{grid-template-columns:210px minmax(0,1fr)}aside{padding:25px 18px}}@media(max-width:760px){.layout{display:block}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 24px}nav{display:flex;gap:12px;overflow:auto;white-space:nowrap}nav a{flex:none}.edition{margin:0 0 8px}main{padding:32px 22px}h1{font-size:34px}h2{font-size:25px}table{font-size:13px}.brand{font-size:19px}}@media print{body{background:white;font-size:10pt}.layout{display:block}aside,.actions,.skip{display:none}main{padding:0}header{margin-bottom:20px;padding-bottom:15px}h1{font-size:30pt}h2{font-size:19pt;margin-top:28px;break-after:avoid}h3{break-after:avoid}pre{white-space:pre-wrap}table{font-size:8pt}.table-scroll{overflow:visible}th,td{min-width:0!important;padding:7px;overflow-wrap:anywhere}tr{break-inside:avoid}.diagram svg{min-width:0}figure{break-inside:avoid}a{color:inherit}@page{size:A4;margin:16mm}}
+</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · 2026.09.09</div><nav aria-label="문서 목차"><a href="#section-1">결정 범위</a><a href="#section-2">현재 구현 범위와 다음 결정</a><a href="#section-5">최종 설계</a><a href="#section-9">실행 명세</a><a href="#section-13">판정 로직</a><a href="#section-18">확장 아키텍처와 운영 계약</a><a href="#section-23">파일럿 결과</a><a href="#section-32">해석과 승격 조건</a><a href="#section-33">관련 파일</a></nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · DESIGN SPECIFICATION</div><h1>근거에서 판단까지.<br>Guideline v2 명세와 설계</h1><p>무엇을 읽고, 어떤 평가를 수용하며, 어떻게 권고를 만드는가.<br>기사 사용 원칙과 공시·기관 원천, 실제 판정 로직과 확장 설계를 한 문서로 정리했습니다.</p><div class="tags"><span>정책 0.4.0-pilot</span><span>현재 구현 / 목표 설계 구분</span><span>LLM 평가 · 사람 미검토</span></div><div class="actions"><button onclick="window.print()">인쇄 / PDF로 저장</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력 스키마</a><a href="../../wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md">문서 원본</a></div></header><article><h2 id="section-1">결정 범위</h2>
+<p>Astra 설계의 근거·판정 계약과 Fable 리뷰의 운영 범위를 합친 설계안을 최종 후보로 기록한다.
+전체 비교·HTML·JSON·플로우차트는 <code>output/guideline-synthesis-20260908/</code>에 보관한다.
+이 문서는 그 설계를 OPM 런타임에 연결한 최소 파일럿과 실제 호출 결과를 함께 기록한다.</p>
+<p>v2는 아직 공식 의결권 정책이 아니다. <code>vote_style="opm_guideline_v2"</code>의 기본 shadow는
+기존 권고를 유지한다. 명시적 <code>guideline_mode="pilot"</code>에서는 호출 LLM 평가를 받아
+후보 범위의 실제 <code>decision</code>에 반영한다. 모든 수용 평가는 「LLM 평가 · 사람 미검토」로 표시한다.
+서버 내 별도 LLM 자동 호출은 없다. 호출 AI가 원문 평가 후 같은 MCP에 평가를 제출하는 두 단계다.</p>
+<h2 id="section-2">현재 구현 범위와 다음 결정</h2>
+<p>통합 설계 → 실제 공시 수집 → LLM 평가 수용 → 후보 범위의 실제 권고 적용까지 구현했다.
+v2가 기준일 이전 최신 사업보고서와 선택된 소집공고를 읽고, 기간별 출석 관측과 평가 과업을 반환한다.
+공고 밖 DART/KIND 공시를 지정하여 후보 원문 패킷에 넣는 경로까지 구현했다. 출석 분모·기간의 확정 입력, 공정위·기업집단 자료의 런타임 연결, 독립 정확성 평가, 운영 배포는 남아 있다.</p>
+<h3 id="section-3">이어서 실행할 순서</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>단계</th>
+<th>현재 상태</th>
+<th>완료 기준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>공개 공시 → LLM 평가 → 실제 후보 권고</td>
+<td>로컬 파일럿 검증 완료</td>
+<td>현재 9건 수용, 인용·버전·위조 입력 거절 및 기본 shadow 보존 확인</td>
+</tr>
+<tr>
+<td>출석 평가 완성</td>
+<td>기간 제안 및 원문 관측까지</td>
+<td>기간 정책 확정 후 재직·직무정지 구간과 회의별 분모/분자를 검증하고 입력 계약 연결</td>
+</tr>
+<tr>
+<td>관계·제재 원천 확대</td>
+<td>KIND 연결, 공정위 API 조회 가능성 확인</td>
+<td>공정위 원문과 기업집단 식별·공개 시점을 연결하고 법인 사건의 개인 귀속을 별도 평가</td>
+</tr>
+<tr>
+<td>판단 정확성 평가</td>
+<td>미완료</td>
+<td>독립 검토 근거로 찬성·반대·보류·예외 사례를 비교하고 오류 유형별 통과 기준 충족</td>
+</tr>
+<tr>
+<td>정책 운영 및 배포</td>
+<td>미완료</td>
+<td>고객 설정·정책 변경 승인·되돌리기 절차 검증 후 main CI로 배포하고 live MCP 확인</td>
+</tr>
+</tbody>
+</table></div>
+<p>이번 브랜치 푸시는 작업 보관이며 운영 배포가 아니다. 기존 HTML은 통합 설계 설명이고,
+현재 런타임 범위·제약·실측 결과의 정본은 이 문서와 도구 문서다.</p>
+<p>실제 MCP 조회로 확인한 출석 파싱 수정은 다음과 같다.</p>
+<ul>
+<li>KT&amp;G 2025년 사업보고서 <code>20260318001422</code>: 기존에 놓친 <code>성명(100%)</code> 형식을 읽어
+8명·2개 기간의 15개 관측값을 반환한다. 이번 주총 신임 후보의 과거 임기 출석률로 전용하지 않는다.</li>
+<li>고려아연 2025년 정정 사업보고서 <code>20260813001726</code>: 기존 출석 요약에 섞인
+내부거래위원회 수치를 이사회 출석률에서 제외했다. 이사회 표는 회차별 형식이므로
+<code>format_unsupported</code>와 원문·다음 확인 경로를 반환한다. 원문에 자료가 없다는 뜻이 아니다.</li>
+<li><code>proxy_advise_before_meeting</code>의 JSON/Markdown 모두 출석 근거 조회 결과와 후보별 평가 대기를 표시한다.
+수집된 연간·구간별 값을 직전 임기 전체 값으로 자동 수용하지 않는다.</li>
+</ul>
+<p>사용자는 정성 평가를 LLM에 위임하되 사람 미검토를 표시하도록 승인했다.
+출석기간은 아래 제안으로 기록하며 실행 정책의 prior_term 의미는 아직 바꾸지 않는다.</p>
+<h3 id="section-4">출석기간 제안 (미활성)</h3>
+<p>기본 기간은 <strong>직전 완료 사업연도</strong>, 임기 전체 기록은 반복 저출석을 살피는 보조 근거로 권한다.
+최근의 책임 수행을 같은 시간 단위로 비교하고, 중도선임·직무정지로 인한 분모 왜곡을 줄이기 위해서다.</p>
+<ul>
+<li>분자: 해당 사업연도 중 재직하며 직무 수행 대상이었던 이사회 회의의 실제 참석 횟수.</li>
+<li>분모: 같은 구간의 참석 대상 이사회 회의 수. 안건 수·위원회 회의 수를 섞지 않는다.</li>
+<li>중도선임·사임·법원 직무정지 등 제외 구간은 날짜와 원문 근거를 기록한다. 단순 불참 소명과 법적 직무 제외는 별도다.</li>
+<li>여러 공시 구간은 참석 횟수/대상 회의 수를 합산한다. 퍼센트 단순 평균은 금지한다.</li>
+<li>짧은 재직·적은 회의 수는 별도 표시한다. 최소 표본 문턱은 아직 정하지 않았으며 자동 반대 근거로 삼지 않는다.</li>
+<li>사임 후 다시 후보가 된 사람도 평가연도의 실제 재직 이력을 지우지 않는다. 최초 신임·연속 재선임·사임 후 재선임을 구분할 추가 계약이 필요하다.</li>
+<li>의결 기준일 전에 공개되지 않은 사업연도 자료는 unknown으로 남긴다. 전년 수치를 최신 연도라고 이름 바꾸지 않는다.</li>
+</ul>
+<p>이형규 후보는 2025년 직무정지뿐 아니라 2026년 5월 29일 사임이 이번 소집공고
+<code>20260811000705</code>에 기재돼 있다. 사업보고서의 과거 재직 상태만으로 현재 연임을 확정하지 않는다.</p>
+<h2 id="section-5">최종 설계</h2>
+<h3 id="section-6">다섯 축을 분리한다</h3>
+<p>한 규칙에 출처, 효과, 근거 상태, 위임 수준, 운영 상태를 섞지 않는다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>축</th>
+<th>기록할 값</th>
+<th>적용 원칙</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>origin</td>
+<td>법령, 기관 정책, OPM 정책, 고객 정책</td>
+<td>출처를 보존하고 기관 정책을 OPM 정책으로 이름 바꾸지 않음</td>
+</tr>
+<tr>
+<td>effect</td>
+<td><code>oppose</code>, <code>support_basis</code>, <code>require_review</code>, <code>inform</code></td>
+<td>신호와 확정 권고를 구분</td>
+</tr>
+<tr>
+<td>evidence</td>
+<td><code>fact</code>, <code>derived_fact</code>, <code>assessment</code> + known/unknown/conflicting</td>
+<td>결측을 <code>false</code>·0으로 치환하지 않음</td>
+</tr>
+<tr>
+<td>delegation</td>
+<td>사람 또는 승인된 평가자</td>
+<td>모델 confidence를 승인 근거로 사용하지 않음</td>
+</tr>
+<tr>
+<td>operations</td>
+<td>검토 상태, 의결권 자격, 제출 권한, 실행 이력</td>
+<td>분석 결과와 실제 투표 실행을 분리</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-7">정책은 작성본에서 실행본으로 컴파일한다</h3>
+<p>아래는 목표 설계다. 현재 파일럿은 고정 JSON 정책과 평가 계약을 연결한 단계이며,
+범용 컴파일러·고객 overlay·자동 변경 감지·정책 활성화 승인 흐름은 아직 구현하지 않았다.</p>
+<p>PolicySource에 규칙·예외·지표·단위·분모·기간·적용일·권한·오버레이를 기록하고,
+컴파일 단계에서 타입·참조·상속 순환·충돌을 검사한다. ResolvedPolicy에는 상속이 풀린 값,
+변경 이유, 원문과 정책 hash, 컴파일러·스키마 버전을 고정한다. HTML은 JSON에서 생성한다.</p>
+<p>기본 shadow 파일은
+<a href="../../open_proxy_mcp/data/guideline/opm-guideline-v2.json"><code>opm-guideline-v2.json</code></a>,
+실제 LLM 파일럿은 별도
+<a href="../../open_proxy_mcp/data/guideline/opm-guideline-v2-pilot.json"><code>opm-guideline-v2-pilot.json</code></a>이다.
+현재
+출석률·재선임·예외 수용·독립성 평가 수용·긍정 커버리지 게이트를 최소 계약으로 둔다.
+출석률 기본 문턱은 75%이고 작성본의 허용 범위는 50~100%다. 현재 MCP에는 문턱을
+바꾸는 고객 overlay 입력이 없으며 실제 출석 확정 입력도 없다. 기관 공식 기준이 아니다.</p>
+<h3 id="section-8">LLM의 역할과 출력</h3>
+<p>LLM은 원문에서 안건·후보·관계·조문·소명·반증의 후보를 만들고, 인용 위치·주체·기간·단위
+검증을 거쳐 평가로 수용한다. 현재 자동 검증은 대상·시점·정책 hash와 원문 인용 연결까지다.
+의미 정확성·주체 귀속·평가자 신원·근거 완전성을 자동 인증하지 않는다.
+정성 평가는 사용자가 위임한 LLM 파일럿이며 사람 검토 여부는 항상 false다.
+정책 엔진은 작은 결정적 표현식만 평가하고 다음 상태를 보존한다.</p>
+<ul>
+<li>정책 전체를 평가해 <code>not_applicable</code>, <code>not_triggered</code>, <code>fired</code>, <code>excepted</code>, <code>unresolved</code>를 기록한다.</li>
+<li>확정된 반대 근거와 검토 필요 상태를 동시에 보존한다.</li>
+<li>필수 근거가 비어 있으면 긍정 게이트를 통과시키지 않는다.</li>
+<li>shadow는 기존 권고를 유지한다. pilot은 사외·독립이사 후보에 대해 실제 권고를 만든다.</li>
+<li>법령·표결없음·조건부/경합·기존 반대와 후단 부모/자식·좌석 제약은 보존한다. 기존 REVIEW도 부분 범위의 FOR로 해제하지 않는다.</li>
+<li>평가 과업에는 기존 점수·권고를 넣지 않는다. 평가는 정책 rubric과 실제 공시 발췌를 읽어 작성한다.</li>
+<li>task_id는 회사·후보·생년월일·역할·안건·기준일·정책·원문을 묶는다. 동일 요청에서만 평가를 사용하며 서버에 저장하지 않는다.</li>
+</ul>
+<p>응답에는 전체 <code>guideline_application</code>과 안건별 <code>guideline_trace</code>를 넣어 어떤 규칙이 평가됐고
+무엇이 부족한지 재현할 수 있게 한다. 정책 갱신은 변경 감지와 영향 범위 계산을 자동화하되,
+의미가 바뀌는 버전의 활성화는 정책·법률 책임자 승인을 거친다.</p>
+<h2 id="section-9">실행 명세</h2>
+<p>이 절은 0.4.0-pilot 코드의 현재 계약이다. 기사·사건의 정형 필드와 자동 갱신은 뒤의 확장 설계다.</p>
+<h3 id="section-10">요청과 응답</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>항목</th>
+<th>현재 명세</th>
+<th>실패·제약</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>회차 식별</td>
+<td>company + year + meeting_type + as_of</td>
+<td>재현 시 네 값을 고정. 회차 자동 선택만으로 과거 시점을 보장하지 않음</td>
+</tr>
+<tr>
+<td>실행 선택</td>
+<td>vote_style=opm_guideline_v2, guideline_mode=pilot</td>
+<td>기본 shadow는 기존 권고를 유지. pilot은 include_after_meeting=False만 허용</td>
+</tr>
+<tr>
+<td>추가 공개 공시</td>
+<td>guideline_evidence_sources, 최대 5건</td>
+<td>DART 접수번호 또는 고정 KIND HTML 주소만. 임의 기사·API URL은 현재 입력 불가</td>
+</tr>
+<tr>
+<td>1차 응답</td>
+<td>후보·안건별 assessment_task</td>
+<td>원문 발췌, 정책 rubric, task_id, required_output(JSON Schema) 제공</td>
+</tr>
+<tr>
+<td>2차 요청</td>
+<td>같은 조건 + guideline_assessments, 최대 50건</td>
+<td>첫 과업의 정확한 task_id 사용. 이전 과업 자동 변환 없음</td>
+</tr>
+<tr>
+<td>2차 응답</td>
+<td>llm_assessment + metrics + rule_results + pilot_recommendation + final_decision</td>
+<td>수용과 정확성은 별개. 모든 LLM 평가에 human_reviewed=false</td>
+</tr>
+<tr>
+<td>보관</td>
+<td>평가와 결과는 해당 요청에서만 사용</td>
+<td>사용자 조회 결과 저장 없음. 공개 원천 캐시와 고객의 별도 기록 정책은 구별</td>
+</tr>
+</tbody>
+</table></div>
+<p>전체 도구 인자의 정본은 <a href="../../wiki/tools/proxy_advise_before_meeting.md">proxy_advise_before_meeting</a>이다. 인증정보는 호출 환경에서 처리하며
+문서·평가 JSON·출처 URL·오류 메시지에 넣지 않는다.</p>
+<pre><code class="language-json">{
+  "company": "KT&amp;G",
+  "year": 2026,
+  "meeting_type": "annual",
+  "as_of": "20260325",
+  "vote_style": "opm_guideline_v2",
+  "guideline_mode": "pilot",
+  "include_after_meeting": false,
+  "format": "json"
+}
+</code></pre>
+<p>이 예시는 과업을 받는 첫 요청이다. 후보 판단을 사전 입력한 예시가 아니다.
+평가 제출 시 첫 응답의 required_output에 맞는 객체를 guideline_assessments에 추가한다.</p>
+<h3 id="section-11">평가 데이터 계약</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>객체·필드</th>
+<th>타입·허용값</th>
+<th>의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_id</td>
+<td>문자열</td>
+<td>회사·후보·생년월일·역할·안건·시점·정책·패킷 내용에 연결된 SHA-256 식별자</td>
+</tr>
+<tr>
+<td>evaluator</td>
+<td>문자열</td>
+<td>호출 LLM의 자기신고 식별자. 신원 인증이나 사람 승인 아님</td>
+</tr>
+<tr>
+<td>appointment.value</td>
+<td>new / renewed / unknown</td>
+<td>해당 회사·해당 역할의 선임 구분</td>
+</tr>
+<tr>
+<td>independence.value</td>
+<td>concern / no_public_concern / unknown</td>
+<td>구체적 우려 / 검토한 공개자료에서 우려 미확인 / 판단 미확정. no_concern은 이전 계약 호환값</td>
+</tr>
+<tr>
+<td>각 판단의 rationale</td>
+<td>문자열</td>
+<td>사실·해석·규칙 적용 이유를 설명</td>
+</tr>
+<tr>
+<td>evidence_refs / counterevidence</td>
+<td>각각 최대 12개 인용</td>
+<td>찬성 근거와 반증에 같은 인용 검증 적용</td>
+</tr>
+<tr>
+<td>인용 source_id / quote</td>
+<td>현재 패킷의 출처 ID / 12~3,000자 문자열</td>
+<td>공백 정규화 후 하나의 원문 발췌 안에 존재해야 함</td>
+</tr>
+<tr>
+<td>unresolved</td>
+<td>최대 12개 문자열</td>
+<td>unknown이면 최소 한 개의 미확인 사유 필요</td>
+</tr>
+<tr>
+<td>independence.information_gaps</td>
+<td>최대 12개 객체, 기본 빈 목록</td>
+<td>공개 검토 후 미확보된 고용·자문·보수 세부의 후속 확인 과제</td>
+</tr>
+</tbody>
+</table></div>
+<p>일반 문자열은 1~6,000자이며 공백만인 평가자·사유·미확인 사유는 거절한다.
+스키마에 없는 키를 허용하지 않는다. 확정 값은 원문 인용이 필수다.
+코드에서 생성한 JSON Schema가 필드·길이·허용값의 정본이며 이 표는 읽기 위한 설명이다.</p>
+<p>information_gaps의 kind는 private_employment_advisory_compensation, disposition은
+follow_up_only로 고정한다. availability는 not_found_in_reviewed_public_sources 또는
+explicitly_nonpublic이며 question과 search_scope를 남긴다. search_scope는 LLM 자기신고다.
+조회 실패·동일성 충돌·출석 분모 공백은 이 객체로 옮겨 필수 검토를 해제할 수 없다.</p>
+<h3 id="section-12">세 종류의 상태를 섞지 않는다</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>단계</th>
+<th>상태 예</th>
+<th>후속 행동</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>원천 수집</td>
+<td>read / parsed / after_as_of / fetch_failed / format_unsupported / source_unresolved</td>
+<td>해당 원천의 실제 상태를 보존. 원문 부재와 미해독을 구별</td>
+</tr>
+<tr>
+<td>평가 수용</td>
+<td>pending / rejected / accepted_unreviewed</td>
+<td>미제출은 대기, 인용 불일치는 거절, 수용은 사람 미검토</td>
+</tr>
+<tr>
+<td>규칙·권고</td>
+<td>not_triggered / fired / excepted / unresolved → FOR / AGAINST / REVIEW</td>
+<td>규칙별 상태를 집계한 뒤 기존 표결 제약 반영</td>
+</tr>
+</tbody>
+</table></div>
+<p>수집 상태 이름은 원천별로 다르며 범용 통합 enum이 아니다. 대상이 아닌 안건은 상위 trace에
+not_applicable로 표시한다. 적용 조건이 false인 개별 규칙은 현재 not_triggered다.
+스키마 오류·중복 task_id는 요청 오류, 다른 과업 ID는 unmatched_task_ids로 미사용 처리한다.</p>
+<h2 id="section-13">판정 로직</h2><figure class="diagram"><svg aria-labelledby="runtime-title" role="img" viewbox="0 0 1100 610" xmlns="http://www.w3.org/2000/svg"><title id="runtime-title">현재 MCP의 원문·평가·판정 흐름</title><defs><marker id="arr-runtime" markerheight="10" markerwidth="10" orient="auto" refx="8" refy="5"><path d="M0 1L8 5L0 9" fill="none" stroke="#53756c" stroke-width="1.5"></path></marker></defs><rect fill="#f0f4ef" height="610" rx="20" width="1100"></rect><style>text{font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;fill:#17372e}.t{font-size:21px;font-weight:700}.s{font-size:16px}.n{font-size:13px;fill:#557b6e}</style><text class="t" x="35" y="40">현재 MCP의 원문·평가·판정 흐름</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="35" y="65"></rect><text class="n" x="53" y="90">01 · REQUEST</text><text class="t" x="53" y="120">회차·기준일 고정</text><text class="s" x="53" y="149">회사 · 회의 · 후보 범위</text><text class="s" x="53" y="171">사후 자료와 대상 회차 결과 제외</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="405" y="65"></rect><text class="n" x="423" y="90">02 · EVIDENCE</text><text class="t" x="423" y="120">공개 원문 수집</text><text class="s" x="423" y="149">공고 · 사업보고서 이사회 절</text><text class="s" x="423" y="171">지정 DART/KIND 공시 최대 5건</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="775" y="65"></rect><text class="n" x="793" y="90">03 · TASK</text><text class="t" x="793" y="120">평가 과업 반환</text><text class="s" x="793" y="149">원문 발췌 · 정책 · 출력 스키마</text><text class="s" x="793" y="171">대상과 내용에 연결된 task_id</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="775" y="240"></rect><text class="n" x="793" y="265">04 · CALLER LLM</text><text class="t" x="793" y="295">원문 읽기·평가 제출</text><text class="s" x="793" y="324">선임구분 · 독립성 · 반증</text><text class="s" x="793" y="346">기사 논조 제외 / 사람 미검토</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="405" y="240"></rect><text class="n" x="423" y="265">05 · VALIDATE</text><text class="t" x="423" y="295">과업·인용 연결 검사</text><text class="s" x="423" y="324">타입 · 현재 과업 · 원문 인용</text><text class="s" x="423" y="346">의미 정확성 인증과는 별개</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="35" y="240"></rect><text class="n" x="53" y="265">06 · METRICS</text><text class="t" x="53" y="295">수용 평가를 지표로</text><text class="s" x="53" y="324">미수용은 unknown</text><text class="s" x="53" y="346">미공개 관계 세부는 후속 확인</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="35" y="415"></rect><text class="n" x="53" y="440">07 · RULES</text><text class="t" x="53" y="470">규칙별 상태와 권고</text><text class="s" x="53" y="499">반대 신호 보존 · 긍정 게이트</text><text class="s" x="53" y="521">출석 확정 입력은 아직 미구현</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="405" y="415"></rect><text class="n" x="423" y="440">08 · CONSTRAINTS</text><text class="t" x="423" y="470">기존 제약 적용</text><text class="s" x="423" y="499">법령 · 기존 판정 · 표결 관계</text><text class="s" x="423" y="521">부모/자식 안건 · 좌석 제한</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" width="290" x="775" y="415"></rect><text class="n" x="793" y="440">09 · RESULT</text><text class="t" x="793" y="470">최종 권고와 근거</text><text class="s" x="793" y="499">FOR / AGAINST / REVIEW 등</text><text class="s" x="793" y="521">별도 후보 권고·미확인·검토 표시</text><path d="M325 124H405" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><path d="M695 124H775" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><path d="M920 183V240" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><path d="M775 299H695" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><path d="M405 299H325" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><path d="M180 358V415" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><path d="M325 474H405" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><path d="M695 474H775" fill="none" marker-end="url(#arr-runtime)" stroke="#53756c" stroke-width="2"></path><text class="s" x="35" y="579">연결 검사 실패 → 평가 거절·미사용. 추가 자료나 정책이 바뀌면 새 과업으로 재평가.</text></svg><figcaption>현재 구현 흐름 · <a href="runtime-flow.svg">도식 파일 열기</a></figcaption></figure>
+<h3 id="section-14">현재의 처리 순서</h3>
+<ol>
+<li><strong>회차와 기준일을 정한다.</strong> 해당 평가 회차의 사후 결과를 입력에서 제외한다.</li>
+<li><strong>원문을 모은다.</strong> 소집공고, 기준일 이전 사업보고서 이사회 절, 지정한 추가 DART/KIND 공시를 읽는다.</li>
+<li><strong>과업을 만든다.</strong> 후보 주변 원문·주의사항·정책·출력 스키마를 묶는다. 기존 후보 점수·찬반을 평가 과업에 복사하지 않는다.</li>
+<li><strong>호출 LLM이 읽는다.</strong> 후보 귀속·경력·관계·반증을 검토하고 근거 인용과 미확인 사유를 제출한다.</li>
+<li><strong>기계가 연결을 검증한다.</strong> 현재 과업인지, 인용이 존재하는지, 타입·개수·허용 키가 맞는지 확인한다.</li>
+<li><strong>수용된 평가를 지표로 바꾼다.</strong> 미수용값은 unknown. 출석 관측값을 확정 임기 출석률로 자동 승격하지 않는다.</li>
+<li><strong>규칙을 집계한다.</strong> 확정 반대 신호를 먼저 보존하고, 찬성에는 필수 평가 완료를 요구한다.</li>
+<li><strong>기존 제약을 적용한다.</strong> 법령·표결 관계·기존 반대/검토·좌석 제약을 거친 final_decision을 출력한다.</li>
+</ol>
+<h3 id="section-15">평가 → 지표 → 권고</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>입력 평가</th>
+<th>지표 변환</th>
+<th>현재 결과의 의미</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>appointment=new, unresolved 없음</td>
+<td>is_reelection=false</td>
+<td>출석 반대 규칙 비대상</td>
+</tr>
+<tr>
+<td>appointment=renewed, unresolved 없음</td>
+<td>is_reelection=true</td>
+<td>출석 근거 확정 필요</td>
+</tr>
+<tr>
+<td>appointment=unknown 또는 미해결 조건 있음</td>
+<td>is_reelection=null</td>
+<td>선임구분 검토 필요</td>
+</tr>
+<tr>
+<td>independence=concern</td>
+<td>independence_concern_accepted=true</td>
+<td>독립성 반대 규칙 발동. 찬성 게이트와 별개</td>
+</tr>
+<tr>
+<td>independence=no_public_concern</td>
+<td>independence_concern_accepted=false</td>
+<td>공개자료 범위의 평가이며 관계 부재를 보증하지 않음</td>
+</tr>
+<tr>
+<td>independence=unknown 또는 평가 미수용</td>
+<td>independence_concern_accepted=null</td>
+<td>우려의 유무 미확정</td>
+</tr>
+<tr>
+<td>신임 확정 + no_public_concern + 독립성 unresolved 없음</td>
+<td>coverage_complete=true</td>
+<td>현재 제한된 후보 평가 범위의 긍정 게이트 통과</td>
+</tr>
+</tbody>
+</table></div>
+<p>현재 assessment_metrics는 attendance_pct와 attendance_exception_accepted를 항상 null로 둔다.
+따라서 <strong>재선임의 출석 규칙을 완성해 FOR를 내는 입력 경로는 아직 없다.</strong> coverage_complete도
+전체 의결권 정책의 완전성을 뜻하지 않으며 현재 신임·독립성 범위만 가리킨다.</p>
+<pre><code class="language-text">평가가 수용되지 않음 → 확정 지표 없음 → 후보 권고 REVIEW
+반대 규칙 중 하나라도 fired → 후보 권고 AGAINST
+그 외에 긍정 게이트 pass AND 미확인 규칙 없음 → 후보 권고 FOR
+그 외 → 후보 권고 REVIEW
+</code></pre>
+<p>PILOT-ATT는 재선임 여부가 true이고 출석률이 75% 미만이며 예외가 수용되지 않았을 때
+반대하는 규칙이다. 75%는 현재 OPM 파일럿 설정이며 기관 공식 기준이 아니다.
+규칙 자체는 존재하지만 현재 출석 확정 입력이 없으므로 실제 발동 검증 완료로 표현하지 않는다.
+PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
+<h3 id="section-16">후보 권고와 최종 권고의 차이</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>기존 상태 또는 표결 조건</th>
+<th>현재 구현 동작</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>강행규정 표식 또는 기존 AGAINST / NO_VOTE</td>
+<td>기존 판정 보존, 후보 권고는 trace에 별도 표시</td>
+</tr>
+<tr>
+<td>기존 REVIEW + 새 후보 권고 FOR</td>
+<td>부분 평가의 찬성으로 기존 검토 해제 금지</td>
+</tr>
+<tr>
+<td>procedural / alternative / conditional / withdrawn</td>
+<td>기존 판정 보존</td>
+</tr>
+<tr>
+<td>위 조건에 해당하지 않음</td>
+<td>후보 권고를 실제 decision에 반영</td>
+</tr>
+<tr>
+<td>후단 부모/자식 관계·좌석 제한</td>
+<td>다시 조정하고 final_decision 및 post_constraint_adjusted로 표시</td>
+</tr>
+</tbody>
+</table></div>
+<p>이는 현재 코드의 보존 규칙이다. 보호된 기존 판정에서는 후보의 반대 신호도 최종 판정을
+직접 덮어쓰지 않을 수 있다. 반대 근거를 숨기지 않고 trace에 보존하며, 운영 승격 전에는
+법적 적격성·안건 제약·투자자 판단 신호의 우선순위를 독립 사례로 더 검증해야 한다.</p>
+<h3 id="section-17">경계 사례 (설명용, 실제 회사 재평가 결과 아님)</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>사례</th>
+<th>기대하는 처리</th>
+<th>현재 지원 수준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>신임 확인, 공개자료에서 우려 미확인, 미공개 보수 세부만 남음</td>
+<td>후속 확인을 표시하며 후보 FOR 가능</td>
+<td>구현</td>
+</tr>
+<tr>
+<td>재선임 확인, 위원회 출석률만 있고 이사회 분모 미확정</td>
+<td>수치를 전용하지 않고 REVIEW</td>
+<td>구현</td>
+</tr>
+<tr>
+<td>기사에서 후보 부적격이라는 의견만 제시</td>
+<td>사실 탐색 단서로 남기고 의견을 판단 지표에서 제외</td>
+<td>LLM rubric, 의미 검증기 미구현</td>
+</tr>
+<tr>
+<td>기소 사실은 확인됐지만 확정판결 여부 미상</td>
+<td>기소 단계만 기록. 유죄로 바꾸지 않음</td>
+<td>LLM rubric, 사건 계약 미구현</td>
+</tr>
+<tr>
+<td>원문 인용이 없거나 다른 후보 과업에 제출</td>
+<td>수용 거절 또는 미사용</td>
+<td>구현</td>
+</tr>
+<tr>
+<td>원문이 정정돼 과업 내용이 달라짐</td>
+<td>이전 평가 미사용, 새 과업으로 재평가</td>
+<td>다음 요청의 대조 구현, 자동 감시 미구현</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="section-18">확장 아키텍처와 운영 계약</h2><figure class="diagram"><svg aria-labelledby="updates-title" role="img" viewbox="0 0 1100 410" xmlns="http://www.w3.org/2000/svg"><title id="updates-title">자료와 정책의 갱신 경로 — 목표 설계</title><defs><marker id="arr-updates" markerheight="10" markerwidth="10" orient="auto" refx="8" refy="5"><path d="M0 1L8 5L0 9" fill="none" stroke="#53756c" stroke-width="1.5"></path></marker></defs><rect fill="#f0f4ef" height="410" rx="20" width="1100"></rect><style>text{font-family:Arial,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;fill:#17372e}.t{font-size:21px;font-weight:700}.s{font-size:16px}.n{font-size:13px;fill:#557b6e}</style><text class="t" x="35" y="40">자료와 정책의 갱신 경로 — 목표 설계</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" stroke-dasharray="6 4" width="290" x="35" y="75"></rect><text class="n" x="53" y="100">DATA CHANGE</text><text class="t" x="53" y="130">공시·원문 변경</text><text class="s" x="53" y="159">신규 · 정정 · 철회</text><text class="s" x="53" y="181">시점과 원문 계보 확인</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" stroke-dasharray="6 4" width="290" x="405" y="75"></rect><text class="n" x="423" y="100">IMPACT</text><text class="t" x="423" y="130">영향받는 과업 선택</text><text class="s" x="423" y="159">원천 → 사실 → 규칙 연결</text><text class="s" x="423" y="181">같은 정책으로 필요한 부분 재평가</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" stroke-dasharray="6 4" width="290" x="775" y="75"></rect><text class="n" x="793" y="100">NEW RUN</text><text class="t" x="793" y="130">새 분석 결과</text><text class="s" x="793" y="159">근거·정책 버전 명시</text><text class="s" x="793" y="181">과거 기준일에 미래 자료 혼입 금지</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" stroke-dasharray="6 4" width="290" x="35" y="240"></rect><text class="n" x="53" y="265">POLICY CHANGE</text><text class="t" x="53" y="295">정책 의미 변경</text><text class="s" x="53" y="324">기관 정책 · 법령 · 고객 설정</text><text class="s" x="53" y="346">변경 후보 작성</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" stroke-dasharray="6 4" width="290" x="405" y="240"></rect><text class="n" x="423" y="265">REVIEW</text><text class="t" x="423" y="295">컴파일·영향 평가·승인</text><text class="s" x="423" y="324">타입 · 단위 · 권한 · 충돌</text><text class="s" x="423" y="346">승인된 범위만 활성화</text><rect fill="white" height="118" rx="12" stroke="#acc5b9" stroke-dasharray="6 4" width="290" x="775" y="240"></rect><text class="n" x="793" y="265">ACTIVATE / RESTORE</text><text class="t" x="793" y="295">새 버전 활성화·복구</text><text class="s" x="793" y="324">불변 버전과 활성 버전 분리</text><text class="s" x="793" y="346">오류 시 검증된 이전 버전 사용</text><path d="M325 134H405" fill="none" marker-end="url(#arr-updates)" stroke="#53756c" stroke-width="2"></path><path d="M695 134H775" fill="none" marker-end="url(#arr-updates)" stroke="#53756c" stroke-width="2"></path><path d="M325 299H405" fill="none" marker-end="url(#arr-updates)" stroke="#53756c" stroke-width="2"></path><path d="M695 299H775" fill="none" marker-end="url(#arr-updates)" stroke="#53756c" stroke-width="2"></path><text class="s" x="35" y="390">점선은 미구현 목표 설계. 현재는 재호출 시 과업의 변경 여부를 대조한다.</text></svg><figcaption>미구현 목표 설계 · <a href="updates-flow.svg">도식 파일 열기</a></figcaption></figure>
+<p>이 절 전체는 목표 설계다. 현재 MCP 인자에 아래 객체를 그대로 제출할 수 있다는 뜻이 아니다.</p>
+<h3 id="section-19">모듈 책임과 경계</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>모듈</th>
+<th>입력 → 출력</th>
+<th>책임</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정책 해석기</td>
+<td>정책 원천·고객 설정 → 고정 실행 정책</td>
+<td>타입·기간·단위·상속·권한·충돌 검사. 코드 실행 가능한 임의 표현식 금지</td>
+</tr>
+<tr>
+<td>근거 계획기</td>
+<td>대상·정책의 필요 지표 → 조회 계획</td>
+<td>공시 원천을 우선하고 필요한 기간·회사·절만 요청</td>
+</tr>
+<tr>
+<td>원천 연결기</td>
+<td>조회 계획 → 원문·식별자·시점·수집 상태</td>
+<td>DART/KIND·공정위·기업집단·기관 원문 등 원천별 책임 분리</td>
+</tr>
+<tr>
+<td>사건·관계 연결기</td>
+<td>원문 → 사실 후보·관계·사건</td>
+<td>동명이인, 법인/개인, 보고기간과 유효기간, 주장과 공식 판단 구별</td>
+</tr>
+<tr>
+<td>LLM 평가기</td>
+<td>근거·rubric → 판단 후보·반증·미확인</td>
+<td>기사 논조 제외, 적용할 규칙과 해석 이유 명시</td>
+</tr>
+<tr>
+<td>수용 검증기</td>
+<td>판단 후보 → 수용된 지표 또는 보류</td>
+<td>인용 일치 외에 주체·시점·단위·상충 자료 검증을 확장</td>
+</tr>
+<tr>
+<td>결정 엔진</td>
+<td>고정 정책·수용 지표 → 규칙 trace·권고</td>
+<td>unknown을 보존하는 결정적 집계 및 표결 제약</td>
+</tr>
+<tr>
+<td>갱신 조정기</td>
+<td>변경 이벤트 → 영향받는 과업 목록</td>
+<td>변경된 원천·정책이 영향을 주는 범위만 재실행</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-20">확장할 공통 데이터 객체</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>객체</th>
+<th>핵심 필드</th>
+<th>불변 조건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EvidenceDocument</td>
+<td>source_id, source_type, source_url, published_at, retrieved_at, period, document_hash, supersedes, collection_status</td>
+<td>최신 조회시각을 공개일로 대체하지 않음. 원문과 정정 계보 보존</td>
+</tr>
+<tr>
+<td>FactClaim</td>
+<td>subject_ids, predicate, value, valid_from/to, evidence_refs, claim_status</td>
+<td>회사 사실을 후보 개인에게 이전하지 않음. missing은 false 아님</td>
+</tr>
+<tr>
+<td>EventRecord</td>
+<td>subject_identity, event_type, claimant, procedural_stage, authority, case_number, disposition, finality, counterevidence</td>
+<td>논란·수사·기소·유죄·확정·행정처분의 상태를 분리</td>
+</tr>
+<tr>
+<td>Relationship</td>
+<td>from_id, to_id, relation_type, role, period, amount/unit, evidence_refs</td>
+<td>계열·고용·자문·지분·추천을 서로 다른 관계로 기록</td>
+</tr>
+<tr>
+<td>ResolvedPolicy</td>
+<td>source_versions, rule_ids, effective_at, overlay, compiler_version, policy_hash</td>
+<td>같은 hash는 같은 의미·규칙·설정. 법령 제약은 고객 변경으로 완화하지 않음</td>
+</tr>
+<tr>
+<td>EvaluationRun</td>
+<td>meeting_id, candidate_id, as_of, policy_hash, evidence_hashes, assessor, review_state, decisions</td>
+<td>사람 검토 상태를 모델 자기신고로 승격하지 않음. 사용자 결과 보관은 별도 허용된 경계에서만</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="section-21">설정·확장·갱신의 작동 방식</h3>
+<ul>
+<li><strong>조정 가능성:</strong> 출석 문턱·평가기간·근거 충족 요건은 이름과 타입이 있는 설정으로 둔다.
+문턱·기간의 고객 수정 허용 범위를 따로 정하고, 변경 전후 영향을 검증한 버전만 활성화한다.</li>
+<li><strong>고객별 정책:</strong> 기본 OPM 정책 위에 고객 설정을 적용하되 원출처·수정자·변경 이유를 보존한다.
+개인 보유·위임 데이터나 고객 비공개 정책을 공개 원천 캐시에 넣지 않는다.</li>
+<li><strong>규모 확장:</strong> 회사·공시 단위 공개 원문을 재사용하고 후보별 과업은 필요한 발췌만 만든다.
+회사별 전체 파이프라인 반복 대신 source → fact → rule의 영향 범위를 재계산한다.</li>
+<li><strong>자료 갱신:</strong> 정정·신규 공시를 발견하면 대상 과업을 무효화하고 같은 정책으로 재평가한다.
+기준일 이후 자료는 과거 평가 입력에 섞지 않고 새로운 기준일의 별도 분석에서 사용한다.</li>
+<li><strong>정책 갱신:</strong> 표현 변경과 의미 변경을 구분한다. 의미 변경은 초안 → 영향 평가 → 승인 →
+새 버전 활성화 순서로 진행한다. 과거 결과를 새 정책으로 조용히 덮어쓰지 않는다.</li>
+<li><strong>복구:</strong> 오류가 나면 검증된 이전 정책 버전으로 되돌리되 정책과 근거 버전의 조합을 명시한다.
+현재 구현은 요청 시 과업 대조만 지원하며 자동 감시·승인·되돌리기 제품 흐름은 아직 없다.</li>
+</ul>
+<h3 id="section-22">원천 연결 우선순위와 수용 기준</h3>
+<p>첫 확장은 회의별 출석 분모와 당해연도 임원 변동, 감사·비감사용역 원문 연결이다.
+다음은 공정위 사건과 기업집단 관계이며, 사건별 공식 판단·후속 변경 조회를 함께 설계한다.
+기사 자동 수집은 사건 사실·주장·의견을 분리해 기록하는 계약이 준비된 뒤 붙인다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>검증 축</th>
+<th>배포 전 확인할 조건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>시점</td>
+<td>기준일 이후 원문, 주총 결과, 최신 정정본 혼입을 차단하는 사례 통과</td>
+</tr>
+<tr>
+<td>주체</td>
+<td>동명이인·법인 사건의 개인 전용·이웃 후보 표 귀속 오류를 별도 평가</td>
+</tr>
+<tr>
+<td>논조</td>
+<td>동일 사건의 우호/비우호 기사로 평가가 바뀌지 않는 사례 평가</td>
+</tr>
+<tr>
+<td>법적 상태</td>
+<td>기소/유죄/확정, 행정처분/취소·불복을 혼동하지 않는 사례 평가</td>
+</tr>
+<tr>
+<td>결측</td>
+<td>미공개 관계 세부와 필수 데이터 미확정을 구별</td>
+</tr>
+<tr>
+<td>권고</td>
+<td>확정 반대·찬성·보류·예외·표결 제약이 포함된 외부 검토 사례 통과</td>
+</tr>
+<tr>
+<td>운영</td>
+<td>모드 선택, 정책 활성화·복구, 사람 미검토 표시, 요청 내 정보 경계 검증</td>
+</tr>
+</tbody>
+</table></div>
+<p>위 표는 검증 계획이다. 아직 통과하지 않은 의미 정확성 검사를 완료됐다고 표시하지 않는다.
+주총 가결·부결이나 다른 자문사의 찬반 자체를 독립 정답으로 삼지 않는다.</p>
+<h2 id="section-23">파일럿 결과</h2>
+<h3 id="section-24">실제 MCP 호출: 0.3.0 공개자료 한정 LLM 파일럿</h3>
+<p>로컬 Streamable HTTP MCP의 실제 도구로 과업을 받고, <strong>이 작업의 호출 LLM이 원문을
+읽어 작성한 평가</strong>를 같은 도구에 제출했다. 평가와 결과는 요청·메모리 안에서 처리했으며
+조회 결과 파일은 저장하지 않았다. 아래는 0.3.0-pilot의 제품 동작 검증 집계다. 0.4.0의 기사 평가 원칙으로 재판정한 결과는 아니다. 회사별 예상 찬반을
+테스트 코드에 넣어 맞추지 않았고, 외부 검토자의 정답 대조도 아직 하지 않았다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>회사·회차</th>
+<th style="text-align:right">전체 안건</th>
+<th style="text-align:right">수용된 후보 평가</th>
+<th>기존 권고 → 0.3.0 파일럿 권고</th>
+<th style="text-align:right">직접 변화</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KT&amp;G 2026 정기, 기준일 2026-03-25</td>
+<td style="text-align:right">15</td>
+<td style="text-align:right">3건 / 2명</td>
+<td>FOR 10·REVIEW 5 → FOR 10·REVIEW 5</td>
+<td style="text-align:right">최종 판정 동일</td>
+</tr>
+<tr>
+<td>고려아연 2026 임시, 기준일 2026-09-08</td>
+<td style="text-align:right">9</td>
+<td style="text-align:right">6건 / 6명</td>
+<td>FOR 5·REVIEW 4 → FOR 4·REVIEW 5</td>
+<td style="text-align:right">이형규 FOR→REVIEW</td>
+</tr>
+</tbody>
+</table></div>
+<p>9건 모두 <code>accepted_unreviewed</code>이고 JSON·Markdown의 사람 미검토 표시를 확인했다.</p>
+<ul>
+<li>KT&amp;G 노환용 이사·감사위원: 현직·경력·공시된 관계를 읽고 <code>no_public_concern</code>으로 평가해 FOR.
+한승수도 겸직을 포함해 평가했지만 조건부 안건 제약으로 최종 REVIEW를 유지했다.</li>
+<li>고려아연 이형규: 거래소 소집결의의 <strong>재선임</strong> 표기로 분류 근거를 보강했다. 사임 후 재선임이며
+직무정지·실제 재직구간·참석 대상 회의 분모가 미확정이므로 출석 규칙은 미완료, 최종 REVIEW다.</li>
+<li>서은숙·이준봉·심혜섭: 거래소의 신규선임 표기를 확인했다. 검토한 공개자료에서 구체적 독립성
+우려를 확인하지 못한 것으로 LLM 평가했으며, 미공개 고용·자문·보수 세부는 후속 확인으로 남겨 FOR다.</li>
+<li>백인규·박유경: 공개 보도에서 제기된 업무·거래 또는 표결 관련 문제의 원문·주체·기간·중요성은
+아직 확인하지 못했다. <code>unknown</code>을 유지하며, 대안형 안건 자체의 REVIEW 제약도 유지한다.
+보도는 추가 확인 단서이며 확정 반대 근거 또는 MCP 인용 검증을 거친 원문으로 취급하지 않았다.</li>
+</ul>
+<p>기존 엔진과 같은 최종 판정도 원문·정책·평가·인용 연결을 거쳐 나온다. diff 수는 품질 점수가 아니다.
+이 파일럿은 <strong>공개자료 범위 내 찬성, 근거 미완료에 따른 검토, 기존 표결 제약 보존</strong>이 실제 응답에서
+구분되어 작동함을 확인했다. 실제 회사에서 확정 독립성 우려를 받아 AGAINST까지 가는 사례와
+판단의 정확성 검증은 아직 남았다.</p>
+<h3 id="section-25">공개되지 않은 관계 정보 처리</h3>
+<p>사용자는 공개 공시·기관 원문을 먼저 찾고, 공개되지 않은 고용·자문·보수 세부는 추가 확인으로
+남기되 그 정보 부재 자체를 필수 판독 기준에서 제외하도록 승인했다. 정책 0.3.0-pilot과
+평가 계약 <code>opm-llm-assessment/2</code>에 반영했다.</p>
+<ul>
+<li><code>no_public_concern</code>: 검토한 공개자료에서 구체적 우려를 확인하지 못했다는 범위 한정 평가.
+관계가 실제로 없다는 사실 또는 독립성 보증으로 이름 바꾸지 않는다.</li>
+<li><code>information_gaps</code>: 질문, 정보 부재 상태, LLM이 신고한 검색범위, <code>follow_up_only</code>를 남긴다.
+Markdown은 「판단 제외 · 추가 확인」으로 표시한다. 서버가 검색의 완전성까지 인증하지 않는다.</li>
+<li>실제 발견된 위험 정황, 후보 동일성·선임구분·출석 분모의 공백, 조회 실패는 이 예외로 제외하지 않는다.
+따라서 알려진 반대 정황을 찾지 못한 계약서로 둔갑시켜 찬성을 만드는 규칙이 아니다.</li>
+</ul>
+<p>흐름은 앞의 「판정 로직」 도식과 함께 읽는다.</p>
+<h3 id="section-26">기사 사용 원칙: 사실·절차와 평가 분리 (0.4.0)</h3>
+<p>사용자 지시에 따라 기사 긍부정 논조·평판 평가·찬반 권고를 판단 입력에서 제외한다.
+실행 정책 JSON의 <code>assessment_rubric.news_evidence</code>에 반영했으며 기사 자체를 자동 수집하거나
+사건 상태 필드를 강제로 검증하는 모듈을 추가한 것은 아니다. 현재 LLM이 읽는 기준이다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>확인 대상</th>
+<th>기록 방법</th>
+<th>금지할 도약</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>의혹·논란·문제 제기</td>
+<td>주장자·대상·주장 내용·공개일과 출처</td>
+<td>문제 제기가 있었다 → 위법·부적격 확정</td>
+</tr>
+<tr>
+<td>수사·기소</td>
+<td>기관·사건·혐의·절차 단계의 확인된 범위</td>
+<td>기소 → 유죄 또는 처벌 확정</td>
+</tr>
+<tr>
+<td>공식 판단</td>
+<td>법원/처분기관·사건번호·판단일·주문·심급·확정/불복 상태</td>
+<td>행정처분 → 형사 유죄, 1심 → 확정판결</td>
+</tr>
+<tr>
+<td>반론·후속 변경</td>
+<td>기준일 이전 정정·불기소·무죄·취소·상급심 변경 함께 확인</td>
+<td>불리한 첫 보도만 유지</td>
+</tr>
+<tr>
+<td>매체의 해석·찬반 평가</td>
+<td>판단용 사건 사실에서 제외</td>
+<td>부정적 기사 수·논조를 독립성 지표로 사용</td>
+</tr>
+</tbody>
+</table></div>
+<p>공시·법원·수사기관·규제기관 원문을 우선한다. 보도는 취재·정정 책임이 있는 주요 일간지·경제지·
+종합지·방송사·통신사·외신을 우선하며, 매체 규모를 자동 진실 인증으로 쓰지 않는다.
+원문 미확보는 판결 부재와 다르고, 주요 매체가 인용한 당사자 주장도 독립 검증 사실과 다르다.
+같은 보도자료·통신기사를 전재한 여러 기사는 독립 확인 여러 건으로 세지 않는다.</p>
+<p>이 원칙으로 이전 백인규·박유경 평가도 다시 읽어야 한다. <strong>기사에 독립성 논란이 있다는 것만으로
+필수 REVIEW를 만들면 안 된다.</strong> 문제 제기는 출처를 찾을 단서로 남기고, 확인된 행위·거래·역할과
+그 중요성이 실제 OPM 규칙에 해당하는지를 평가한다. 기존 대안형 안건의 REVIEW 제약은 별개다.
+기사의 법적 해석이나 다른 자문사의 반대 결론은 OPM 결론으로 복사하지 않는다.
+반대로 독립성은 법률 위반과 다른 판단이므로 확인된 경제적 의존 관계의 평가에 반드시 형사 유죄
+확정판결이 있어야 하는 것은 아니다. 법적 책임과 감독상 이해상충을 별도 축으로 둔다.</p>
+<p>기록할 근거 항목은 주체 동일성, 사건 유형, 보도된 주장과 주장자, 사건일·공개일, 매체·원문 링크,
+공식 원문 확보 상태, 기관·사건번호·판단일·절차·주문·확정/불복 상태, 반증, 적용할 OPM 규칙이다.
+이는 구조화 확장의 설계이며 현재 JSON Schema의 강제 입력 필드는 아니다.</p>
+<h3 id="section-27">공시 활용 공백 점검: 전체 부재와 v2 연결 부족 구별</h3>
+<p>2026-09-09 코드와 공식 API 명세를 점검했다. 회사 전체 표본 검증이나 새 원천의 자동 수집 완료를
+뜻하지 않는다. 다음 작업은 새로운 파서보다 <strong>이미 제공하는 원문·정형 데이터를 시점과 후보에 연결</strong>하는 것이다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>우선순위·원천</th>
+<th>현재 OPM 활용</th>
+<th>v2에 보강할 근거 및 시점 주의</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 · 소집결의·소집공고·정정·위임장 권유</td>
+<td>안건·후보·관계 파싱 및 별도 위임장 도구 존재. 추가 KIND는 수동 지정 가능</td>
+<td>안건/후보 철회·수정과 신구조문, 양측 주장의 원출처. 같은 회차 정정 계보와 공개시각을 묶고 주장은 사실과 분리</td>
+</tr>
+<tr>
+<td>1 · 과거 정기/임시 주총결과·임원변경 공시</td>
+<td>결과 수집과 직전 정기주총 맥락 존재</td>
+<td>선임·임기 시작·안건 변경의 확정 근거. 직전 연도 정기 회차만이 아니라 기준일 이전 중간 임시 회차도 연결. 해당 평가 회차의 사후 결과는 판단 및 정답에 미사용</td>
+</tr>
+<tr>
+<td>1 · 분기·반기보고서 임원현황</td>
+<td>director_board/director_evaluation/ownership_structure에 대체 조회 경로 존재</td>
+<td>연중 임시주총에 최신 당해연도 재직 변동 연결. director_evaluation의 경로는 전년도 사업/3분기/반기 중심이므로 당해연도 신규 자료 선택 보강. 부분 명단·생략을 퇴임으로 추정하지 않음</td>
+</tr>
+<tr>
+<td>1 · 감사·비감사용역 계약</td>
+<td>정책에는 언급되나 해당 정형 API의 서비스 연결은 발견하지 못함</td>
+<td>계약 내용·보수·수행기간·상대 법인, 후보의 당시 역할을 결합. 회사의 회계감사인 대상 공시이므로 다른 자문사의 모든 계약을 포괄하지 않음</td>
+</tr>
+<tr>
+<td>2 · 사업/반기/분기 원문의 주요주주 거래·특수관계자 주석·제재·소송·우발사항</td>
+<td>재무·지분·리스크 도구가 일부 수집. 후보별 v2 과업은 공고와 이사회 절 중심</td>
+<td>계약 상대방·규모·기간·보증·소송 진행 및 제재기관 원문 경로. 대상 회사뿐 아니라 후보 소속회사에서 상대 회사를 역조회. 법인 관계를 개인 책임으로 전용하지 않음</td>
+</tr>
+<tr>
+<td>2 · 지배구조보고서 본문·표·설명</td>
+<td>15개 핵심지표 외 세부원칙·서식 표·세부 항목 수집도 존재</td>
+<td>독립성 판단 근거, 이해상충 통제, 위원회 활동을 후보 원문 패킷에 연결. 같은 연도라도 주총 후 공개본은 소급 금지. 금융회사 첨부형은 문서 미제출로 취급하지 않음</td>
+</tr>
+<tr>
+<td>2 · 별도 감사보고서·감사보고서 제출·정정</td>
+<td>감사의견 경로 존재하나 사업보고서 의존과 한계가 문서화됨</td>
+<td>주총 전 별도 감사보고서의 의견·내부통제 및 관련 주석 확인. 사업보고서가 아직 없다는 이유로 감사의견도 없다고 추정하지 않음</td>
+</tr>
+<tr>
+<td>2 · 5% 대량보유·최대주주 변경·주식보유 변동</td>
+<td>ownership_structure에 조회·변동 처리 존재</td>
+<td>실제 지분 연결·공동보유 약정·주주제안 주체 파악. 기업집단 연간 자료를 최신 공시로 보완하며 보유 관계가 곧 의결권 공동행사를 뜻하지는 않음</td>
+</tr>
+<tr>
+<td>2 · 소송·횡령배임 등 수시공시와 기관 후속 원문</td>
+<td>risk_events는 혐의발생/진행/처벌 등 제목 단계와 원문 제공</td>
+<td>후보 동일성과 사건·절차·확정 여부를 원문으로 대조. 제목 단계만으로 판결/확정 상태를 결정하지 않음</td>
+</tr>
+</tbody>
+</table></div>
+<p>OpenDART <a href="https://opendart.fss.or.kr/guide/main.do?apiGrpCd=DS002">정기보고서 주요정보</a>는
+<a href="https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS002&amp;apiId=2019010">임원현황</a>,
+<a href="https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS002&amp;apiId=2020010">감사용역</a>,
+<a href="https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS002&amp;apiId=2020011">회계감사인과의 비감사용역</a>
+API를 제공한다. 비감사용역은 내용·계약일·수행기간·보수를 얻을 수 있어 우선 연결 가치가 높다.
+단위·당기/전기·개별 계약과 합계, 상대 회계법인 및 후보 개인 귀속은 원문 대조가 필요하다.</p>
+<h3 id="section-28">시의성·정확성의 공통 기준</h3>
+<ul>
+<li><strong>사건/관계의 유효 시점, 보고서 대상기간, 공개 시점, 조회 시점</strong>을 따로 남긴다.
+최신 제출 문서가 더 최신 사실을 담는다고 단정하지 않는다. 오래된 사업보고서의 정정일은 최신 재직일이 아니다.</li>
+<li>기준일 이전 공개본 중 필요한 항목을 가장 잘 뒷받침하는 원문을 고르고 정정·철회·후속 결정 계보를 확인한다.
+같은 날 자료는 공개시각과 의결 마감시각까지 필요하다. 현재 as_of는 일 단위이므로 당일 순서를 보장하지 못한다.</li>
+<li>공고 밖 추가 원문이 후보 이름 주변만 잘리면 회계법인명만 나오는 계약을 놓칠 수 있다.
+다음 확장은 후보명 외 소속 법인 식별자·회사명과 해당 절 단위 조회이며 원문 전체를 버리지 않는다.</li>
+<li>기존 DART 공통 필터는 rcept_dt가 없는 응답을 그대로 두는 경로가 있다.
+접수번호·실제 접수일을 결합하지 않고 정형 API의 최신 행을 과거 평가의 확정값으로 수용하지 않는다.</li>
+<li>분야별 완전성을 검사한다. 분기표 생략·익명화·이미지 표·조회 실패·검색 0건을 사실 부재로 변환하지 않는다.</li>
+<li>출처가 달라도 동일 보도/공시의 복제본이면 증거 한 묶음이다. 공식 공시의 회사 자기진술도 기관 판단과 구별한다.</li>
+</ul>
+<h3 id="section-29">공개 원천과 추가 연결 계획</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>원천</th>
+<th>확보 가능한 정보</th>
+<th>현재 상태 및 사용 경계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://kind.krx.co.kr/external/2026/07/21/000927/20260706001079/91471.htm">KIND 고려아연 소집결의</a></td>
+<td>후보 성명·생년월·신규/재선임·경력</td>
+<td>실제 MCP 원문 패킷에 연결. KIND 식별자를 DART 접수번호로 변환하지 않음</td>
+</tr>
+<tr>
+<td><a href="https://kind.krx.co.kr/external/2025/05/15/002168/20250515005076/11013.htm">KIND 남양유업 임원현황</a></td>
+<td>심혜섭의 상근감사 역할과 당시 재직 시작일</td>
+<td>실제 MCP에 연결. 과거 회사 역할을 제안주주 고용 관계로 추정하지 않음</td>
+</tr>
+<tr>
+<td><a href="https://www.data.go.kr/data/15103246/openapi.do">공정위 결정문 목록</a>·<a href="https://www.data.go.kr/data/15103247/openapi.do">본문</a></td>
+<td>사건 식별자·피심인·주문·이유·결정일</td>
+<td>국가법령정보 API 실제 목록·본문 조회 성공. 자동 평가에는 아직 미연결</td>
+</tr>
+<tr>
+<td><a href="https://www.data.go.kr/data/15091891/openapi.do">기업집단 소속회사</a>·<a href="https://www.data.go.kr/data/15091898/openapi.do">임원현황</a>·<a href="https://www.data.go.kr/data/15091900/openapi.do">주주현황</a></td>
+<td>기업집단·법인 식별, 임원 및 동일인 관계, 주주 연결</td>
+<td>문서 확인. 별도 공공데이터 API 이용승인·키로 실제 응답 확인 필요</td>
+</tr>
+<tr>
+<td><a href="https://www.data.go.kr/data/15091910/openapi.do">공개년월 목록</a></td>
+<td>사용할 수 있는 기업집단 자료 시점</td>
+<td>연도만 맞춰 최신 자료를 과거 주총에 소급하지 않기 위한 선행 조회</td>
+</tr>
+<tr>
+<td><a href="https://case.ftc.go.kr/ocp/co/ltfr.do?reprsntVioltTy=02%2A">공정위 공개 사건</a></td>
+<td>공개 사건·결정문·첨부 원문</td>
+<td>API 누락 및 변경 여부를 대조할 보완 경로</td>
+</tr>
+</tbody>
+</table></div>
+<p>공정위 데이터는 공공데이터포털의 LINK 서비스이며 실제 호출 계약은 국가법령정보
+<a href="https://open.law.go.kr/LSO/openApi/guideResult.do?htmlName=ftcListGuide">목록 API</a>와
+<a href="https://open.law.go.kr/LSO/openApi/guideResult.do?htmlName=ftcInfoGuide">본문 API</a>를 따른다.
+목록의 <code>target=ftc</code>, 사건명/본문 검색, 페이지·총건수를 확인한 뒤 반환 식별자로 본문을 읽는다.
+기존 법령 API 자격으로 실제 조회가 가능했으며 키를 새로 받지 않아도 이 경로는 개발 가능하다.</p>
+<p>표본에서 법인 사건 본문 조회가 가능했지만 후보 개인명 검색 0건을 무제재로 해석할 수 없었다.
+일부 결정일은 <code>2013.0.0</code>처럼 불완전했고 본문 안에 이미지 표가 있었다. 날짜를 임의 보정하거나
+XML 응답이라는 이유로 표까지 완전히 읽었다고 취급하면 안 된다. API 연결 시 다음을 남긴다.</p>
+<ol>
+<li>검색어·검색범위·페이지/총건수·조회시각·실패 상태 및 원문 ID.</li>
+<li>법인 피심인과 개인 책임의 구분, 행위 기간과 후보 재직·담당 업무의 겹침.</li>
+<li>결정일과 공개일의 구분, 후속 변경·불복의 확인 상태. 시점 확인이 안 된 자료는 과거 판단에 미사용.</li>
+<li>원문·문서 해시·누락된 표/첨부 표시. 검색 0건을 관계 없음이나 무제재 metric으로 입력하지 않음.</li>
+</ol>
+<p>백인규의 딜로이트 업무 관련 <a href="https://news.skyedaily.com/news/news_view.html?ID=310688">보도 단서</a>와
+박유경의 APG 관련 <a href="https://www.etoday.co.kr/news/view/2619066">보도 단서</a>는 보고서 원문 및
+후보 관여 사실을 더 확인할 항목이다. 공시의 경력은 확인했지만 외부 보도의 법적 해석·찬반 결론을
+OPM의 사실이나 정답으로 복사하지 않는다. 관련 보고서·계약 원문이 공개되지 않으면 확인 과제로 유지한다.</p>
+<h3 id="section-30">공정위 API를 호출할 때</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>API</th>
+<th>호출 계기</th>
+<th>얻은 자료를 사용할 곳</th>
+<th>사용하지 않을 결론</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>결정문 목록 → 본문</td>
+<td>공시·기사에 특정 공정거래 사건이 등장하거나 해당 정책의 과거 제재 검토 필요</td>
+<td>회사·행위·처분·기간·후속결정을 확인한 사건 근거. 후보 재직/담당업무 연결 후 책임·감독 평가</td>
+<td>사건 제목만 보고 반대, 회사 제재를 후보 개인의 범죄로 표시, 검색 0건을 무제재로 표시</td>
+</tr>
+<tr>
+<td>소속회사</td>
+<td>후보 소속법인·거래 상대방이 지배주주/제안주주와 같은 집단인지 확인 필요</td>
+<td>기업집단 코드·법인등록번호·계열편입일을 이용한 법인 관계 연결</td>
+<td>계열 소속만으로 후보 개인의 독립성 결격 확정</td>
+</tr>
+<tr>
+<td>임원현황</td>
+<td>후보 또는 관계자가 어느 계열사 임원이고 동일인과 어떤 관계인지 확인 필요</td>
+<td>임원명·직위·동일인 관계를 DART 생년월·재직기간과 대조</td>
+<td>동명이인 연결, 모든 직원·자문계약까지 조회했다고 주장</td>
+</tr>
+<tr>
+<td>주주현황</td>
+<td>소속회사·제안주주·거래 상대방의 지분 연결을 확인할 필요</td>
+<td>주주구분·명칭·보통/우선주 수와 비율을 최신 지분공시와 함께 확인</td>
+<td>지분만으로 실질 공동행사·숨은 계약·지배력 확정</td>
+</tr>
+</tbody>
+</table></div>
+<p>기업집단 API는 지정 대규모기업집단 범위이며 전체 한국 회사/모든 임직원 데이터베이스가 아니다.
+공개년월과 법인 식별자를 먼저 확인하고 최신 임원/지분 변동은 DART/KIND로 보완한다.
+예를 들어 후보가 A법인 임원인 경우 A법인의 집단 소속 → 임원 신원·직위 → 회사/제안주주 지분
+연결 → 실제 거래·고용 기간 순으로 검토한다. 조회 결과 자체가 자동 반대 규칙은 아니다.
+공정위 결정문은 경쟁법 사건의 기관 판단 근거이고 일반 형사 전과 조회 API가 아니다.</p>
+<h3 id="section-31">계약·회귀 검증</h3>
+<p>합성 사례는 실제 회사의 정답과 분리해 타입, 인용 실패, 미래 공고, 다른 후보·정책·기준일,
+중복 task_id, 사람 검토 표시 위조, unknown 처리, 반대 우선 집계만 검증한다.
+기존 설계의 합성 JS 16개 사례도 운영 정책의 정답 집합으로 사용하지 않는다.
+0.3.0 구현의 전체 회귀 1,710개 통과(기존 XML/HTML 경고 1건). 위키·문서 계약·도구 카탈로그 검사 통과.
+출력 어휘 점검은 종료코드 0이며 저장소 전체 36건의 용어 사용을 보고했다. 경고 0건이라고 표현하지 않는다.
+실제 MCP에도 없는 인용을 제출해 rejected, 이전 정책의 task_id를 제출해 미사용,
+사람 검토 표시 위조 필드를 제출해 요청 오류를 확인했다. 기본 shadow와 기존 엔진의 KT&amp;G 15개 최종 판정이 같다는 것도 실제 MCP로 대조했다. 이 음성 검증은 인용·계약 검사이며 판단 정확도 실험이 아니다.</p>
+<p>0.4.0은 기사 사용 rubric 및 문서 변경이다. 관련 계약 테스트 30개 통과.
+실제 MCP에서 KT&amp;G 후보 과업 3건에 새 policy_version·news_evidence 기준과 사람 미검토 표시가
+전달됨을 확인했다. 후보 재평가·정확성 검증은 수행하지 않았으며 0.3.0 결과를 새 기준의 결과로 표시하지 않는다.</p>
+<h2 id="section-32">해석과 승격 조건</h2>
+<p>현재 파일럿이 확인한 것은 근거 전달, 호출 LLM 평가 수용, unknown 보존, 실제 후보 권고 반영과 사람 미검토 표시다. 실제 공시 추출 정확도나 전문가의
+의결권 판단과의 일치율을 입증한 것은 아니다. 합성 16개 사례의 기대값도 독립된 정답 집합이
+아니므로 모델 품질 점수로 사용하지 않는다.</p>
+<p>production effect를 켜기 전 다음 조건을 충족한다.</p>
+<ol>
+<li>출석률·독립성·정관 조문에 대해 기준일과 인용 위치가 있는 독립 gold set을 만든다.</li>
+<li>확인·미확인·충돌·예외·경계값을 분리한 회사/연도 holdout으로 규칙 적용 정확도와 결측률을 측정한다.</li>
+<li>두 명 이상의 독립 검토자와 불일치 심의를 거쳐 정성 평가의 수용 rubric과 위임 범위를 승인한다.</li>
+<li>임의 3회 실행 횟수 대신, 확정 찬성·반대·미확인·예외·정정공시가 포함된 사전 정의 통과 기준으로 배포 여부를 결정한다. 현재 effect는 명시적 로컬 pilot에만 적용된다.</li>
+</ol>
+<h2 id="section-33">관련 파일</h2>
+<p>이 Markdown이 정본이며 <a href="../../output/guideline-specification-20260909/index.html">HTML 읽기용 문서</a>는
+정본·현재 정책 JSON·실제 평가 입력 스키마에서 생성한다. 같은 폴더에 정책 JSON, 평가 스키마,
+현재 실행 및 목표 갱신 흐름 SVG, 원본 해시를 기록한 manifest가 있다.
+정본이나 계약을 바꾸면 <code>uv run --with markdown-it-py python scripts/render_guideline_spec.py</code>로
+함께 갱신한다. 생성 파일은 문서 배포물이며 후보 조회 결과나 평가 제출 내역을 저장하지 않는다.</p>
+<ul>
+<li><code>open_proxy_mcp/data/guideline/opm-guideline-v2.json</code>: 기계 정책 source</li>
+<li><code>open_proxy_mcp/services/guideline_policy.py</code>: unknown 보존 결정적 evaluator</li>
+<li><code>open_proxy_mcp/services/guideline_assessment.py</code>: 요청 내 LLM 평가 계약·원문 연결 검증·집계</li>
+<li><code>open_proxy_mcp/services/guideline_evidence.py</code>: 기준일 이전 DART/KIND 공개 원문 수집</li>
+<li><code>open_proxy_mcp/services/board_attendance.py</code>: 이사회 절·기간·위원회 경계를 보존하는 출석 관측</li>
+<li><code>open_proxy_mcp/data/guideline/opm-guideline-v2-pilot.json</code>: 사람 미검토 pilot 정책과 정성 rubric</li>
+<li><code>open_proxy_mcp/services/proxy_advise.py</code>: shadow와 실제 pilot 연결</li>
+<li><code>open_proxy_mcp/tools/proxy_advise_before_meeting.py</code>: JSON/Markdown 공개 계약</li>
+<li><code>tests/test_guideline_policy.py</code>: 정책·경계·예외 계약 테스트</li>
+<li><code>tests/test_guideline_assessment.py</code>: 평가 계약·인용·정책 변경·정보 공백 처리 테스트</li>
+<li><code>tests/test_board_attendance_evidence.py</code>: 출석 원문·기간·추가 공시·날짜·조회 실패 테스트</li>
+<li><code>wiki/tools/proxy_advise_before_meeting.md</code>: 호출·출력 문서</li>
+<li><code>output/guideline-synthesis-20260908/</code>: Astra·Fable 비교, 최종 설계, HTML·JSON·플로우차트</li>
+</ul>
+</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: c32c39286fd0fa614662d64c84bb958edb2236cce3b0911dad5568a94ad92b39<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div></body></html>

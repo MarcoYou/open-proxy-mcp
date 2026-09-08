@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "AppointmentAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "value": {
+          "enum": [
+            "new",
+            "renewed",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value"
+      ],
+      "title": "AppointmentAssessment",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 3000,
+          "minLength": 12,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "IndependenceAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "value": {
+          "enum": [
+            "concern",
+            "no_concern",
+            "no_public_concern",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        },
+        "information_gaps": {
+          "items": {
+            "$ref": "#/$defs/PublicInformationGap"
+          },
+          "maxItems": 12,
+          "title": "Information Gaps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value"
+      ],
+      "title": "IndependenceAssessment",
+      "type": "object"
+    },
+    "PublicInformationGap": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "kind": {
+          "const": "private_employment_advisory_compensation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "availability": {
+          "enum": [
+            "not_found_in_reviewed_public_sources",
+            "explicitly_nonpublic"
+          ],
+          "title": "Availability",
+          "type": "string"
+        },
+        "search_scope": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Search Scope",
+          "type": "array"
+        },
+        "disposition": {
+          "const": "follow_up_only",
+          "title": "Disposition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "kind",
+        "availability",
+        "search_scope",
+        "disposition"
+      ],
+      "title": "PublicInformationGap",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "maxLength": 6000,
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    },
+    "evaluator": {
+      "maxLength": 6000,
+      "minLength": 1,
+      "title": "Evaluator",
+      "type": "string"
+    },
+    "appointment": {
+      "$ref": "#/$defs/AppointmentAssessment"
+    },
+    "independence": {
+      "$ref": "#/$defs/IndependenceAssessment"
+    }
+  },
+  "required": [
+    "task_id",
+    "evaluator",
+    "appointment",
+    "independence"
+  ],
+  "title": "GuidelineAssessment",
+  "type": "object"
+}

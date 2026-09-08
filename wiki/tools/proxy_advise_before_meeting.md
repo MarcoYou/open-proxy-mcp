@@ -42,7 +42,7 @@ proxy_advise_before_meeting(
 
 `vote_style="opm_guideline_v2"`는 기본 `guideline_mode="shadow"`에서
 `opm-guideline-v2.json`(0.1.0)의 규칙 추적만 반환하며 기존 권고를 유지한다.
-명시적 `guideline_mode="pilot"`는 별도 `opm-guideline-v2-pilot.json`(0.3.0-pilot)을 사용해
+명시적 `guideline_mode="pilot"`는 별도 `opm-guideline-v2-pilot.json`(0.4.0-pilot)을 사용해
 사외·독립이사 후보의 선임구분·독립성에 대한 호출 LLM 평가를 실제 권고에 반영한다.
 출석은 기존 직전 임기 의미를 유지하되 확정 입력 경로는 아직 없다.
 
@@ -79,6 +79,12 @@ accepted_unreviewed / human_reviewed=false / 「LLM 평가 · 사람 미검토�
 `explicitly_nonpublic`만 허용한다. 검색범위는 LLM 자기신고이며 서버가 검색 완료를 인증하지 않는다.
 발견된 위험 신호·충돌·조회 실패·출석 및 후보 동일성은 이 예외로 제외할 수 없다.
 Markdown에는 「판단 제외 · 추가 확인」으로 표시한다.
+
+0.4.0의 `assessment_task.rubric.news_evidence`는 기사 논조·찬반 권고를 배제하고
+보도된 주장·사건·절차와 공식 판단·확정 여부를 구분하도록 한다. 주요 매체를 우선하되
+당사자 발표·재전재·반론·후속 정정을 구별한다. 논란 존재만으로 필수 REVIEW를 만들지 않는다.
+현재는 호출 LLM의 평가 지침이며 기사 자동 수집이나 사건 상태의 기계 검증은 아니다.
+상세 원천 활용 기준은 [[260908_1200_decision_guideline-v2-final-redesign-pilot]] 참조.
 
 확정 독립성 우려는 AGAINST, 출석 규칙이 비대상인 신임 후보의 독립성 평가와 필수 근거가
 완료되어야 FOR, 나머지는 REVIEW다. 신임 여부도 LLM이 원문으로 확인해야 하며 기존 엔진의
@@ -739,6 +745,8 @@ DART는 공개자료 캐시를 재사용하고 KIND는 공용 웹 속도 제한�
 공정위·기업집단 API 자동 호출은 현재 없다. LLM 평가 제출 자체는 서버의 외부 모델 호출을 발생시키지 않는다.
 
 ## 변경 이력
+
+- 2026-09-09: pilot 정책 0.4.0에 기사 논조 배제·사건/절차/공식 판단 구분 rubric 추가. 공시 원천별 활용 공백과 시점 검증 계획 문서화.
 
 - 2026-09-08: 명시적 v2 pilot의 두 단계 LLM 평가 수용·실제 후보 권고·사람 미검토 표시 추가.
   추가 DART/KIND 공시, 공개자료 한정 판단과 미공개 관계 후속 확인 계약을 추가했다.
