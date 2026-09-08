@@ -275,6 +275,8 @@ DEGRADATION_KINDS = frozenset({
     "statement_basis",     # 연결(CFS)이 없어 별도(OFS)로 답했다 — 기준이 섞인다
     "year_substituted",    # 요청·추정한 연도를 못 찾아 다른 연도로 답했다
     "parse_timeout",       # 파싱이 시간을 넘겨 더 거친 경로로 답했다
+    "period_clamped",      # 요청한 기간이 상한을 넘어 **잘라서** 답했다(시장스캔 3개월 하드캡)
+    "scan_page_truncated", # 스캔 페이지 상한에 걸려 **창의 일부만** 보고 답했다
 })
 
 #: 한 요청이 같은 종류를 여러 번 밟아도 한 번만 센다(상한도 겸한다).

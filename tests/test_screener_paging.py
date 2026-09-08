@@ -41,7 +41,8 @@ def stubbed(monkeypatch):
     opened: list[str] = []
 
     async def _scan(client, code, bgn, end, pages):
-        return (_filings(25) if code == "B001" else []), 25, False, None
+        _it = _filings(25) if code == "B001" else []
+        return S._scan_result(_it, 25, 1, 1)
 
     async def _detail(h, running):
         opened.append(h["rcept_no"])

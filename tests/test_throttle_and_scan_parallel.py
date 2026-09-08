@@ -168,7 +168,9 @@ def test_scan_pages_are_fetched_in_parallel_but_ordered():
             return {"total_count": 500,
                     "list": [{"rcept_no": f"p{page_no}-{i}"} for i in range(2)]}
 
-    items, total, trunc, err = asyncio.run(_scan_code(_C(), "B001", "20260101", "20260131", 5))
+    _res = asyncio.run(_scan_code(_C(), "B001", "20260101", "20260131", 5))
+
+    items, total, trunc, err = _res["items"], _res["total"], _res["truncated"], _res["error"]
     got = [it["rcept_no"] for it in items]
     assert got == [f"p{p}-{i}" for p in range(1, 6) for i in range(2)], f"순서가 깨졌다: {got}"
     assert total == 500 and err is None
@@ -187,7 +189,9 @@ def test_scan_partial_failure_keeps_other_pages():
                 raise DartClientError("020", "스캔 실패")
             return {"total_count": 400, "list": [{"rcept_no": f"p{page_no}"}]}
 
-    items, total, trunc, err = asyncio.run(_scan_code(_C(), "B001", "20260101", "20260131", 4))
+    _res = asyncio.run(_scan_code(_C(), "B001", "20260101", "20260131", 4))
+
+    items, total, trunc, err = _res["items"], _res["total"], _res["truncated"], _res["error"]
     assert err == "020"
     assert [it["rcept_no"] for it in items] == ["p1", "p2", "p4"], "성공한 페이지는 남아야 한다"
 
@@ -202,7 +206,9 @@ def test_scan_survives_transport_error_on_first_page():
         async def search_filings(self, **kw):
             raise ConnectionError("DNS 실패")
 
-    items, total, trunc, err = asyncio.run(_scan_code(_C(), "B001", "20260101", "20260131", 5))
+    _res = asyncio.run(_scan_code(_C(), "B001", "20260101", "20260131", 5))
+
+    items, total, trunc, err = _res["items"], _res["total"], _res["truncated"], _res["error"]
     assert items == [] and total == 0
     assert err and err.startswith("transport:"), f"전송오류를 분류해야 한다: {err}"
 
@@ -215,9 +221,9 @@ def test_one_dead_scan_code_does_not_kill_the_others():
     async def _fake(client, code, bgn, end, mx):
         if code == "D001":
             raise ConnectionError("죽음")
-        return [{"rcept_no": f"{code}-1", "report_nm": "단일판매ㆍ공급계약 체결",
+        return S._scan_result([{"rcept_no": f"{code}-1", "report_nm": "단일판매ㆍ공급계약 체결",
                  "corp_code": "x", "corp_name": "테스트", "stock_code": "005930",
-                 "corp_cls": "Y", "flr_nm": "테스트", "rcept_dt": "20260820"}], 1, False, None
+                 "corp_cls": "Y", "flr_nm": "테스트", "rcept_dt": "20260820"}], 1, 1, 1)
 
     orig = S._scan_code
     S._scan_code = _fake
@@ -265,11 +271,11 @@ def test_failed_scan_is_not_cached():
             return {"total_count": 1, "list": [{"rcept_no": "a"}]}
 
     async def _go():
-        _, _, _, err = await S._scan_code(_C(), "D001", "20260801", "20260807", 5)
-        assert err and err.startswith("transport:")
+        _r0 = await S._scan_code(_C(), "D001", "20260801", "20260807", 5)
+        assert _r0["error"] and _r0["error"].startswith("transport:")
         state["fail"] = False
-        items, _, _, err2 = await S._scan_code(_C(), "D001", "20260801", "20260807", 5)
-        assert err2 is None and items, "장애가 캐시돼 복구 후에도 빈 결과를 준다"
+        _r1 = await S._scan_code(_C(), "D001", "20260801", "20260807", 5)
+        assert _r1["error"] is None and _r1["items"], "장애가 캐시돼 복구 후에도 빈 결과를 준다"
 
     asyncio.run(_go())
     assert state["n"] == 2
@@ -284,10 +290,10 @@ def test_cached_scan_hands_out_a_copy():
             return {"total_count": 1, "list": [{"rcept_no": "a"}]}
 
     async def _go():
-        a, *_ = await S._scan_code(_C(), "I001", "20260801", "20260807", 5)
-        a.append({"rcept_no": "오염"})
-        b, *_ = await S._scan_code(_C(), "I001", "20260801", "20260807", 5)
-        assert len(b) == 1, "캐시가 오염됐다"
+        _ra = await S._scan_code(_C(), "I001", "20260801", "20260807", 5)
+        _ra["items"].append({"rcept_no": "오염"})
+        _rb = await S._scan_code(_C(), "I001", "20260801", "20260807", 5)
+        assert len(_rb["items"]) == 1, "캐시가 오염됐다"
 
     asyncio.run(_go())
 
