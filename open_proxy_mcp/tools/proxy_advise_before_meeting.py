@@ -348,8 +348,8 @@ def _won(v) -> str:
 
 
 def _public_vote_style_label(label: str | None) -> str:
-    if label == "open_proxy":
-        return "open_proxy"
+    if label in ("open_proxy", "opm_guideline_v2"):
+        return label
     return "internal_policy_variant"
 
 
@@ -461,6 +461,16 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append(f"> {data['meeting_closed_hint']}")
         lines.append("")
     lines.append(f"- 안건 {data.get('agenda_count')}건 · 이사 후보 {data.get('candidates_count')}명")
+
+    guideline = data.get("guideline_application") or {}
+    if guideline:
+        lines.append(
+            f"- 기계 가이드라인: `{guideline.get('policy_id')}` "
+            f"v{guideline.get('version')} · {guideline.get('mode')} · "
+            f"규칙 평가 안건 {guideline.get('evaluated_agendas', 0)}건 · "
+            f"미확인 규칙 {guideline.get('unresolved_rules', 0)}건 · "
+            "기존 OPM 엔진 판정 유지"
+        )
 
     # ── 기준 시점 — 이 메모가 「그때 볼 수 있던 것」만 봤다는 사실을 머리에서 밝힌다 ──
     ao = data.get("as_of") or {}
@@ -629,6 +639,18 @@ def _render(payload: dict[str, Any]) -> str:
                 _seen_citations[citation] = i
                 lines.append(f"- 정책 인용: {citation}")
             lines.append(f"- 적용 정책: {policy_basis}")
+            trace = ag.get("guideline_trace") or {}
+            if trace:
+                state = trace.get("status") or "-"
+                gate = trace.get("gate") or "-"
+                missing = ", ".join(
+                    (trace.get("metrics_missing") or [])[:5]
+                )
+                lines.append(
+                    f"- v2 정책 추적: {state} · 긍정 게이트 {gate}"
+                    + (f" · 미확인 입력 {missing}" if missing else "")
+                    + " · shadow 결과로 기존 판정을 덮어쓰지 않음"
+                )
             if rcept_no:
                 viewer = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}"
                 lines.append(f"- 근거 공고: [주주총회소집공고 {rcept_no}]({viewer})")
@@ -1144,7 +1166,7 @@ def register_tools(mcp):
         ⛔ CRITICAL: 응답의 decision 컬럼은 한국 상법 강행규정 (A1/A2 tag 🛡️) + 운용사 정책 (vote_style) + Open Proxy Guideline 통합 결과. 사용자에게 **그대로** 제시 — 안건명 키워드(배제·제한·축소·강화)만 보고 자체 판단으로 변경 금지. 자주 misread: '집중투표 배제 조항 삭제' = FOR(의무화 정합), '의결권 제한 강화' = FOR(합산 3% 룰).
         when: 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고. 사후 결과는 `shareholder_meeting_results`.
         rule: 운용사 의결권 행사 보고서 스타일. hard-fail(형사 처벌/사적 관계/동명이인) 자동 검증 가능 항목만 표기. soft-fail(후보 약력/정관 본문) raw 노출 — LLM 판단.
-        vote_style: `open_proxy` (default — OPM 자체 가이드라인). 다른 옵션은 internal cross-reference용
+        vote_style: `open_proxy` (default — OPM 자체 가이드라인) 또는 `opm_guideline_v2` (pilot shadow — 기계 정책 추적만 추가하고 기존 판정을 덮어쓰지 않음). 그 밖의 옵션은 internal cross-reference용
         check_audit_history: True 시 후보 과거 회사 × 회계 risk overlap cross-check (+30s)
         meeting_type: `auto`(default — 정기/임시 중 지금 표를 던져야 하는 회차) / `annual` 정기만 / `extraordinary` 임시만. 임시주총을 보려고 따로 지정할 필요 없다.
         year: 미지정(0) 시 회의일이 과거 12개월~앞으로 90일 안인 회차를 자동 선택 — **아직 열리지 않은 예정 주총도 포함**되므로 다가오는 임시주총을 보려고 year를 따로 넣을 필요는 없다. 응답의 회차 선택 근거·정기/임시로 어느 회차인지 확인. 특정 과거 연도 분석에만 year 명시.

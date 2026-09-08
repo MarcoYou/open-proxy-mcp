@@ -8,7 +8,7 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 보수한도, 정관변경, 집중투표, 시점-제약, 연결-별도, 주총-결의]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-09-05
+updated: 2026-09-08
 ---
 
 # proxy_advise_before_meeting
@@ -40,6 +40,13 @@ proxy_advise_before_meeting(
 )
 ```
 
+기계 정책 계약을 pilot에서 확인하려면 `vote_style="opm_guideline_v2"`를 지정한다. 이
+프로필은 `open_proxy_mcp/data/guideline/opm-guideline-v2.json`을 읽어 출석·독립성 규칙의
+적용 가능성, 미확인 근거, 예외, 긍정 게이트를 `guideline_application`과 안건별
+`guideline_trace`로 기록한다. 현재는 `mode="shadow"`, `decision_effect="none"`이며 기존
+OPM 결정 엔진이 권고를 만든다. 정책·법률 검토와 독립 평가가 끝나기 전에는 v2 trace가
+FOR/AGAINST를 덮어쓰지 않는다.
+
 자연어 예시:
 - "KT&G 이번 주총 안건별로 찬성/반대 어떻게 봐야 해?" → 기본 호출(회차 자동 선택, 안건별 decision + facts + policy_citation)
 - "이 이사 재선임 반대할 근거 있어?" → 후보 평가(roster 교차검증·경력·risk_factors) + 정책 근거
@@ -52,7 +59,7 @@ proxy_advise_before_meeting(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | year | int | no | 주총 연도 (사업연도 X) | 자동 — 최신 소집공고(12개월 lookback) 기준 회차. 공고 미발견 시 전년 fallback + warning. 응답 `year_resolution`에 선택 근거, 종료된 회차면 `meeting_closed_hint` 동봉 |
 | meeting_type | str | no | "auto" / "annual" / "extraordinary". 종류를 지정했는데 그 종류의 소집공고가 탐색 창(과거 12개월~앞으로 90일)에 없으면 회차를 만들지 않고 `no_filing` 으로 「없음 + 같은 창의 소집공고 목록 + 다른 종류의 최신 회차」만 돌려준다 | "auto" |
-| vote_style | str | no | `open_proxy` (default). 다른 내부 policy variant는 cross-reference용 비공개 surface이며 사용자 출력에는 실명/식별자 노출 안 함 | "open_proxy" |
+| vote_style | str | no | `open_proxy` (default). `opm_guideline_v2`는 pilot shadow 정책 추적용이며 기존 판정을 덮어쓰지 않는다. 그 밖의 내부 policy variant는 cross-reference용 비공개 surface | "open_proxy" |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
 | as_of | str | no | `YYYYMMDD`. 판단이 서는 시점 — 이 날 이후 접수된 공시는 읽지 않는다(look-ahead 차단). 미지정 시 회의일이 오늘 또는 과거면 회의일 전일, 미래면 한국시간 오늘. 회의일 미확인 시 오늘 + 사후 자료 혼입 가능 경고 | "" |
@@ -72,6 +79,8 @@ proxy_advise_before_meeting(
 | `risk_factors` | 위험 신호 list ("완전 자본잠식", "장기연임", "이사 회계 risk 이력" 등) |
 | `policy_citation` | OPM Guideline 근거 — **문서의 절 번호·항목 번호**를 가리킨다 (「OPM Guideline §2.4 이사 선임 — against ①「사외이사 장기연임 5년+」… ▸ 엔진: …」). `proxy_guideline(section="2.4")` 로 그 항목을 연다. 정책에 있지만 엔진이 안 쓰는 항목은 「…는 엔진 미반영」으로 라벨 안에서 밝힌다. 문서↔라벨은 `tests/test_policy_citations_match_document.py` 가 자동 대조 (260903) |
 | `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
+| `guideline_application` | v2 pilot 선택 시 정책 ID·버전·shadow 여부·결정 권한·안건별 규칙 trace. 미확인 입력은 `unresolved`로 보존하며 자동 반대나 찬성으로 바꾸지 않는다 |
+| `agenda_decisions[].guideline_trace` | 해당 안건에서 v2 규칙이 `not_applicable`·`not_triggered`·`fired`·`excepted`·`unresolved` 중 어디에 해당하는지와 필요한 metric 목록 |
 | `evidence_rcept_no` | 근거 공고 (DART viewer link) |
 | `agenda_action` / `appointment_type` | 신임 (`new`) / 연임 (`renewed`) auto detect. 소집공고 경력 텍스트만으로는 재선임을 신임으로 오분류하므로 **roster(임원현황 `exctvSttus`) 힌트**로 교정한다 — `source="roster_prior"`면 정형 재직 확인으로 승격. **힌트 정체성**: 승격만(downgrade X)·roster 부재는 소집공고 결과 유지(override 금지)·미등기는 제외 |
 | `candidate_review_profile` | 후보 선임 안건용 evidence bundle. 결격사유, 독립성 세부 사유, 겸직 구간, 연임/재직 시작, 추천사유/직무계획 raw, 사내이사 성과 요약을 묶어 노출 |

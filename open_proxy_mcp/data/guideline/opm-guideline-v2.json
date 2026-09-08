@@ -1,0 +1,49 @@
+{
+  "schema_version": "opm-demo-policy/1",
+  "id": "opm-guideline-v2",
+  "version": "0.1.0-pilot",
+  "status": "synthetic_demonstrator",
+  "authority": "opm_proposal",
+  "parameters": {
+    "attendance_min_pct": {
+      "type": "number",
+      "unit": "percent",
+      "default": 75,
+      "minimum": 50,
+      "maximum": 100,
+      "owner": "opm",
+      "editable": true,
+      "note": "pilot 검증용. 기관 공식 기준 또는 운영 승인 범위가 아님"
+    }
+  },
+  "metrics": {
+    "attendance_pct": {"type": "number", "unit": "percent", "period": "prior_term", "kind": "derived_fact"},
+    "is_reelection": {"type": "boolean", "unit": "boolean", "period": "meeting", "kind": "fact"},
+    "attendance_exception_accepted": {"type": "boolean", "unit": "boolean", "period": "prior_term", "kind": "assessment"},
+    "independence_concern_accepted": {"type": "boolean", "unit": "boolean", "period": "meeting", "kind": "assessment"},
+    "coverage_complete": {"type": "boolean", "unit": "boolean", "period": "meeting", "kind": "assessment"}
+  },
+  "rules": [
+    {
+      "id": "DEMO-ATT",
+      "applies_when": {"op": "eq", "left": {"metric": "is_reelection"}, "right": {"literal": true}},
+      "test": {"op": "lt", "left": {"metric": "attendance_pct"}, "right": {"parameter": "attendance_min_pct"}},
+      "exception": {"op": "eq", "left": {"metric": "attendance_exception_accepted"}, "right": {"literal": true}},
+      "effect": "oppose"
+    },
+    {
+      "id": "DEMO-IND",
+      "applies_when": {"const": true},
+      "test": {"op": "eq", "left": {"metric": "independence_concern_accepted"}, "right": {"literal": true}},
+      "exception": {"const": false},
+      "effect": "oppose"
+    }
+  ],
+  "positive_gate": {"op": "eq", "left": {"metric": "coverage_complete"}, "right": {"literal": true}},
+  "aggregation": "preserve_confirmed_opposition_then_require_complete_support",
+  "limitations": [
+    "pilot shadow용 최소 계약이며 실제 회사·법령·기관 정책을 재현하지 않는다.",
+    "현재 proxy_advise 출력만으로 출석률과 평가 승인자를 확정하지 않는다.",
+    "fired_effects는 추적 정보이고 기존 의결 판단을 덮어쓰지 않는다."
+  ]
+}

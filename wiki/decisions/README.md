@@ -1,7 +1,7 @@
 ---
 type: readme
 title: wiki/decisions/ — OPM 정책 + 결정 + 토론
-updated: 2026-09-04
+updated: 2026-09-08
 ---
 
 # wiki/decisions/ — OPM 정책 + 결정 + 토론
@@ -54,6 +54,7 @@ updated: 2026-09-04
 | **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 스코프·계약(IN/OUT 폼·필드, strict/candidate 문맥 계약)** |
 | **[[260823_1720_decision_financial-notes-tool]]** | **financial_notes tool — 금융사 주석 표 원형 추출 스코프·계약(TE/TD 런타임 판별·앵커·기준일 부착. census 41건)** |
 | [[260721_1500_decision_asset-holdings-purpose-buckets]] | asset_holdings 보유자산 목적버킷 6분류(회계사 검토) — 재테크형/부동산 자산주형/지주사 할인형/우호지분형 서사 근거 |
+| **[[260908_1200_decision_guideline-v2-final-redesign-pilot]]** | **OPM guideline v2 최종 개편안·기계 정책 shadow 연결·고려아연/KT&G 파일럿 검증** |
 
 ## 시점 수정 (yymmdd_hhmm_fix_)
 

@@ -64,6 +64,10 @@ from open_proxy_mcp.services.director_performance import _PERF_KO, compute_perfo
 from open_proxy_mcp.services.dividend import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload
+from open_proxy_mcp.services.guideline_policy import (
+    evaluate_guideline_policy,
+    load_guideline_policy,
+)
 # Removed dead imports (archived at wiki/archive/services/):
 #   (구 백엔드 3종 — private archive)
 
@@ -168,6 +172,10 @@ def clear_proxy_advise_cache() -> None:
 # 익명 코드만 accept (운용사/연기금 실명 alias는 보안상 제거 — 2026-05-09)
 _VOTE_STYLE_POLICY_FILE = {
     "open_proxy": "open_proxy_v1",
+    # v2 is a versioned, machine-readable pilot policy.  It is evaluated in
+    # shadow mode below; the existing decision engine remains authoritative
+    # until an approved production adapter exists.
+    "opm_guideline_v2": "opm_guideline_v2",
     "m_legacy": "m_legacy_2026-04",  # 최신 2026 정책 우선
     "s_legacy": "s_legacy_2025-04",
     "sa_legacy": "sa_legacy_2025-04",
@@ -185,6 +193,8 @@ def _load_vote_style_policy(vote_style: str) -> dict[str, Any] | None:
 
     매핑: success (file 존재) / soft-fail (file 없음 — None 반환, OPM default fallback).
     """
+    if vote_style == "opm_guideline_v2":
+        return load_guideline_policy()
     file_id = _VOTE_STYLE_POLICY_FILE.get(vote_style)
     if not file_id:
         return None
@@ -248,8 +258,8 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
 
 
 def _public_vote_style_label(vote_style: str | None) -> str:
-    if vote_style == "open_proxy":
-        return "open_proxy"
+    if vote_style in ("open_proxy", "opm_guideline_v2"):
+        return vote_style
     return "internal_policy_variant"
 
 
@@ -262,7 +272,12 @@ def _public_policy_basis(
     if law_layer_hit is not None:
         return f"법령 판단 (1·2·3차 상법 개정) — {law_layer_hit[2]}"
 
-    base = "Open Proxy guideline" if vote_style == "open_proxy" else "Internal policy variant"
+    if vote_style == "open_proxy":
+        base = "Open Proxy guideline"
+    elif vote_style == "opm_guideline_v2":
+        base = "Open Proxy guideline v2 (pilot shadow)"
+    else:
+        base = "Internal policy variant"
     if policy_default and policy_default != "case_by_case":
         # 260813: `운용사 정책 기본값: against` 처럼 영문 enum 이 그대로 화면에 나갔다.
         _KO = {"for": "찬성", "against": "반대", "review": "사안별 검토"}
@@ -3778,6 +3793,9 @@ async def _build_proxy_advise_payload(
     policy = _load_vote_style_policy(vote_style)
     policy_id = (policy or {}).get("policy_id") or vote_style
     policy_meta = (policy or {}).get("policy_meta") or {}
+    # v2 정책은 현재 pilot shadow로만 평가한다. 기존 엔진 판정과 분리해
+    # 어떤 규칙이 실제 입력에서 평가 가능한지 응답에 남긴다.
+    guideline_shadow_traces: list[dict[str, Any]] = []
 
     # ── F6 (Phase 4) corpCode pre-warm: gather 전에 보장 ──
     # 6 worker가 동시에 _load_corp_codes 호출 시 race 위험 (F7 lock으로도 처리되지만
@@ -5248,6 +5266,39 @@ async def _build_proxy_advise_payload(
             reason = (f"{reason} / 상법 §449조의2 요건(외부감사인 적정의견·감사 전원 동의) 충족 시 "
                       "이사회 승인으로 갈음돼 보고사항으로 바뀔 수 있음 — 총회 직전 정정공고 확인 필요")
 
+        # 기계 정책 v2의 현재 pilot 적용. 출석률·평가 승인자처럼 아직 이
+        # 도구의 확정 입력이 아닌 값은 unknown으로 남기고, 이 trace는 기존
+        # 의결 판단을 덮어쓰지 않는다.
+        guideline_trace: dict[str, Any] | None = None
+        if vote_style == "opm_guideline_v2" and policy:
+            _v2_applicable = (
+                category in ("director_election", "audit_committee_election")
+                and matched_eval is not None
+            )
+            _apt = (matched_eval or {}).get("appointment_type") or {}
+            _v2_metrics = {
+                "attendance_pct": facts.get("attendance_pct"),
+                "is_reelection": (
+                    _apt.get("type") == "renewed" if isinstance(_apt, dict) else None
+                ),
+                # 정성 판단은 사람/승인된 평가자가 수용하기 전에는 결론으로
+                # 만들지 않는다. independence summary만으로 True를 선언하지 않음.
+                "attendance_exception_accepted": None,
+                "independence_concern_accepted": None,
+                "coverage_complete": False,
+            }
+            guideline_trace = evaluate_guideline_policy(
+                policy, _v2_metrics, applicable=_v2_applicable,
+            )
+            guideline_trace["mode"] = "shadow"
+            guideline_trace["decision_effect"] = "none"
+            guideline_trace["metrics"] = _v2_metrics
+            guideline_shadow_traces.append({
+                "agenda_title": title,
+                "agenda_category": category,
+                **guideline_trace,
+            })
+
         agenda_decisions.append({
             "agenda_title": title,
             "agenda_category": category,
@@ -5266,6 +5317,7 @@ async def _build_proxy_advise_payload(
             "policy_basis": policy_basis,
             "policy_default": policy_default,
             "opm_fallback_decision": original_decision if (policy_default and policy_default != "case_by_case") else None,
+            "guideline_trace": guideline_trace,
             # **이 안건을 실제로 읽은 공고**를 가리켜야 한다. 예전에는 `data.rcept_no` 를 찾았는데
             # 접수번호는 `data.notice.rcept_no` 에 있어 항상 None 이었고, 그래서 **다른 도구(후보
             # 평가)가 고른 공고로 폴백**했다. 주총이 잦은 회사(리츠 등)는 그게 아예 다른 회차다 —
@@ -5477,6 +5529,26 @@ async def _build_proxy_advise_payload(
         "vote_style": _public_vote_style_label(vote_style),
         "vote_style_policy_id": _public_vote_style_label(vote_style),
         "vote_style_resolved": bool(policy),
+        "guideline_application": (
+            {
+                "policy_id": policy_id,
+                "version": policy.get("version"),
+                "status": "pilot_shadow",
+                "mode": "shadow",
+                "decision_effect": "none",
+                "decision_authority": "existing_opm_engine",
+                "agenda_traces": guideline_shadow_traces,
+                "evaluated_agendas": sum(
+                    1 for t in guideline_shadow_traces if t.get("status") == "evaluated"
+                ),
+                "unresolved_rules": sum(len(t.get("unresolved") or []) for t in guideline_shadow_traces),
+                "fired_effects": [
+                    e for t in guideline_shadow_traces for e in (t.get("fired_effects") or [])
+                ],
+            }
+            if vote_style == "opm_guideline_v2" and policy
+            else None
+        ),
         "audit_history_enabled": check_audit_history,
         "scope": scope,
         "agenda_count": len(agenda_rows),
