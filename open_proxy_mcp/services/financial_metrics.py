@@ -2523,8 +2523,14 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
 # 같은 (company, scope, year, consolidated) 조합 재호출 시 동일 결과 보장.
 # advise_vote의 3 run 호출 시 모든 run에서 동일 fm_payload 반환 → cash_dividend 결정 결정성.
 import time as _time_mod
+from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 _FM_CACHE: dict[tuple, tuple[float, dict[str, Any]]] = {}
 _FM_CACHE_TTL = 300.0  # 5분
+
+# TTL 은 **읽을 때만** 걸린다(아래 `_fm_cache_get`) — 쓰고 다시 안 읽히는 키는 안 지워진다.
+# 값이 통짜 페이로드라 그 잔여가 얼마인지 밖에서 보이는 편이 낫다. 지금은 재는 중이고,
+# 자라는 게 확인되면 상한이나 sweep 을 단다(재기 전에 고르지 않는다).
+_register_unbudgeted_cache("financial_metrics", lambda: _FM_CACHE)
 
 
 def _fm_cache_get(key: tuple) -> dict[str, Any] | None:

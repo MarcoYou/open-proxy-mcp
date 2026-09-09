@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: MCP 엔드포인트 — live-opm / pilot-opm 두 개, 목적이 다르고 따로 관리한다
-updated: 2026-08-02
+updated: 2026-09-09
 ---
 
 # MCP 엔드포인트 — live-opm / pilot-opm
@@ -194,6 +194,33 @@ FLY=~/.fly/bin/flyctl
 - **호출시간 로그**: 모든 tool 호출이 `opm.tool` 로거에 `tool=… wall=… cpu=… args=[인자이름]` 한 줄을 남긴다(값은 남기지 않는다 — 규칙 10). `OPM_SLOW_TOOL_SEC`(기본 10초)를 넘으면 WARNING `slow tool=…`. 벽시계≈CPU 면 동기 파싱이 이벤트 루프를 잡은 것, 벽시계≫CPU 면 I/O 대기. `OPM_TOOL_LOG=0` 이면 느린 호출만 남긴다.
 - **스택 덤프**: `faulthandler` 가 SIGUSR1 에 등록돼 있다. 머신이 CPU 를 붙들고 `/health` 에 답을 못 하면 `fly ssh console -a open-proxy-mcp --machine <id> -C "kill -USR1 1"` 이 아니라 **파이썬 pid** 에 보낸다(`/proc` 에서 `open_proxy_mcp.server` 를 찾는다; 컨테이너 CMD 는 python 직접 실행이라 보통 pid 는 작다). 모든 스레드의 스택이 stderr(=`fly logs`)에 찍히고 프로세스는 계속 돈다. 로컬 pilot 은 `uv run` 이 부모라 **python 자식 pid** 에 보내야 한다 — 부모에 보내면 죽는다.
 - **왜**: 260907 머신 하나가 R 상태·load 1.0 으로 5분 넘게 헬스에 답을 못 했는데(메모리 여유), 로그는 최근 100줄만 남고 스택을 볼 수단이 없어 원인을 못 잡았다. 200케이스 재현에서도 재발하지 않았다. 이 둘은 다음 번을 진단 가능하게 만드는 최소 장치다. 헬스체크 timeout 은 15초라 그 이상 루프를 잡는 호출은 그 머신을 critical 로 만든다.
+
+## 운영 진단 — 메모리 (260909)
+
+`/health` 의 `cache` 는 **예산이 있는 캐시**(`LruByteCache`)만 센다. 예산 없는 모듈 전역 dict
+캐시는 거기 안 잡히고, 260901·260909 OOM 이 둘 다 그 사각에서 났다 — 260909 실측으로
+부팅 직후 **242MB** 인 프로세스가 30분 만에 **708MB** 가 되고 2~3시간마다 exit 137 로 죽는
+동안, `cache._used_mb` 는 내내 **0.0** 이었다.
+
+그래서 세 자를 함께 본다:
+
+| 절 | 무엇을 답하나 |
+|---|---|
+| `cache` | 예산 있는 캐시가 예산 대비 얼마나 찼나 |
+| `unbudgeted_cache` | 예산 **없는** 전역 dict 가 얼마나 자랐나 (`_total_mb`) |
+| `runtime` | 캐시가 아닌 증가 — 태스크·스레드 누수, 회수 못 한 순환(`gc_garbage`) |
+
+- 등록은 **캐시를 정의한 자리**에서 한다(`register_unbudgeted_cache(name, getter)`).
+  나열식으로 모으면 캐시를 더할 때 한쪽만 고쳐진다 — 260824 에 실제로 184MB 가 관측 밖에 있었다.
+- `getter` 는 dict 가 아니라 **호출 가능한 것**을 받는다. `_X_CACHE = None` 으로 시작해 나중에
+  재바인딩되는 캐시(`law_index` 가 그렇다)를 직접 참조로 잡으면 영영 0 을 보고한다.
+- 바이트는 표본 추정 + 60초 memo 다. 전수 재귀는 헬스체크를 수백 ms 로 만들고, **재는 행위가
+  재려는 대상을 흔든다.** 개수가 바뀌면 memo 를 무시하고 다시 잰다 — 그러지 않으면 계기가
+  자라는 것을 가린다.
+- 상한 있는 `trading_quote` 를 **대조군**으로 같이 싣는다. 하나만 보면 「자라는 게 상한 없는
+  것들」이라는 판정을 못 한다.
+- `mem` 의 `cg_*`(cgroup)는 커널이 한도와 견주는 자인데 **fly 컨테이너에서 안 읽힌다**(260909 확인).
+  지금 OOM 을 예측할 수 있는 건 `rss_mb` 뿐이다.
 
 ## 관련
 

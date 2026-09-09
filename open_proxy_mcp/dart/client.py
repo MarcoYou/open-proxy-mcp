@@ -917,6 +917,66 @@ def cache_stats() -> dict:
     return out
 
 
+#: **예산 없는 전역 캐시 장부.** `_CACHE_REGISTRY` 는 `LruByteCache` 전용이라, 서비스가 모듈
+#: 전역에 둔 평범한 dict 캐시는 거기 안 들어간다 — 그리고 그런 캐시는 상한도 evict 도 없다.
+#:
+#: 왜 필요한가(260901·260909). 260901 에 두 머신이 동시에 OOM(exit 137) 했을 때 캐시 점유는
+#: 예산 296MB 의 33% 였고 실사용은 950MB 였다. 260909 에도 같은 모양이 났다 — 부팅 직후
+#: 242MB 인 프로세스가 30분 만에 708MB 가 되고 2~3시간마다 죽는데, `cache_stats()` 는
+#: 내내 `_used_mb: 0.0` 을 보고했다. **자라는 것이 우리가 보는 자리 밖에 있다.**
+#:
+#: 260824 교훈을 그대로 가져온다 — 나열하지 말고 장부로 돌린다. 등록하면 자동으로 보인다.
+_UNBUDGETED_CACHES: "list[tuple[str, Any]]" = []
+
+#: 바이트는 **표본 추정**이다(`_note_registry` 와 같은 이유). 값이 통짜 페이로드일 수 있어
+#: 전수 재귀는 헬스체크 한 번을 수백 ms 로 만든다. 그리고 그 계산 자체가 메모리를 흔든다 —
+#: 재는 행위가 재려는 대상을 바꾸면 안 된다.
+_UNBUDGETED_SAMPLE = 20
+_UNBUDGETED_TTL_SEC = 60.0
+_unbudgeted_memo: "dict[str, tuple[float, int, int]]" = {}
+
+
+def register_unbudgeted_cache(name: str, getter) -> None:
+    """예산 없는 모듈 전역 캐시를 관측 장부에 올린다.
+
+    `getter` 는 **호출 가능한 것**을 받는다 — dict 를 직접 받으면 `_X_CACHE = None` 으로
+    시작해 나중에 재바인딩되는 캐시에서 옛 객체를 붙들게 된다(그러면 영영 0 을 보고한다).
+    """
+    if not any(n == name for n, _ in _UNBUDGETED_CACHES):
+        _UNBUDGETED_CACHES.append((name, getter))
+
+
+def unbudgeted_cache_stats() -> dict:
+    """예산 없는 캐시들의 개수·대략 바이트. `/health` 가 노출한다.
+
+    항목 수는 매번 세고(싸다), 바이트는 60초에 한 번만 다시 잰다.
+    """
+    out: dict = {}
+    total = 0
+    now = time.time()
+    for name, getter in _UNBUDGETED_CACHES:
+        try:
+            obj = getter()
+        except Exception:                      # 관측이 서빙을 깨면 안 된다
+            continue
+        n = len(obj) if obj is not None else 0
+        memo = _unbudgeted_memo.get(name)
+        if memo and now - memo[0] < _UNBUDGETED_TTL_SEC and memo[1] == n:
+            est = memo[2]
+        else:
+            try:
+                vals = list(_islice(obj.values(), _UNBUDGETED_SAMPLE)) if isinstance(obj, dict) else []
+                avg = (sum(_cache_entry_bytes(v) for v in vals) / len(vals)) if vals else 0
+                est = int(avg * n)
+            except Exception:
+                est = 0
+            _unbudgeted_memo[name] = (now, n, est)
+        total += est
+        out[name] = {"entries": n, "bytes_est": est}
+    out["_total_mb"] = round(total / 1024 / 1024, 1)
+    return out
+
+
 def cache_clear(disk: bool = False) -> dict:
     """메모리 캐시를 **전부** 비운다. 반환 = 비우기 전후 대조.
 
