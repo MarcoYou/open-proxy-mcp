@@ -26,7 +26,9 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
-from open_proxy_mcp.dart.client import DartClientError, get_dart_client, list_pages_per_code
+from open_proxy_mcp.dart.client import (MARKET_WINDOW_MAX_MONTHS, DartClientError,
+                                        get_dart_client, list_pages_per_code,
+                                        market_window_start)
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.contracts import (
@@ -148,7 +150,8 @@ _DETAIL_GUIDE.update(EXTRA_DETAIL_GUIDE)
 
 
 _MARKET_SCAN_DEFAULT_DAYS = 30
-_MARKET_SCAN_MAX_DAYS = 90
+# 기간 상한은 client 의 SSOT(`market_window_start`) 를 쓴다. 종전 90 은 일수 추측이라
+# 3역월이 89일인 구간(2월 시작 등)에서 조용히 거부당했다.
 # 페이지 상한은 client 의 요청당 예산(`LIST_PAGE_BUDGET_PER_REQUEST`)을 채널 수로 나눈 몫이다 —
 # 같은 list.json 을 쓰는 screener 와 예산이 10배 어긋나 있었다(20 vs 200). 여기서 상수를 따로
 # 들지 않는다.
@@ -487,7 +490,10 @@ async def _build_market_scan_payload(
     details_limit: int = 5,
     source_chars: int = _SOURCE_CHARS_DEFAULT,
 ) -> dict[str, Any]:
-    """회사 미지정 — 시장 전체 최근 리스크 공시 스캔 (기본 30일, 최대 90일)."""
+    """회사 미지정 — 시장 전체 최근 리스크 공시 스캔.
+
+    기간은 기본 30일, 상한은 3역월(`market_window_start` — 시작일에 따라 89~92일).
+    """
     warnings: list[str] = []
     if category in _MUTED_CATEGORIES:
         warnings.append(f"`{category}`는 mute 상태 카테고리 — 기본 스캔에선 제외되며 명시 요청으로만 조회된다.")
@@ -503,9 +509,10 @@ async def _build_market_scan_payload(
             start = date(int(start_date[:4]), int(start_date[4:6]), int(start_date[6:8]))
         except ValueError:
             warnings.append(f"start_date '{start_date}' 형식 오류 — 기본 {_MARKET_SCAN_DEFAULT_DAYS}일로 대체.")
-    if (end - start).days > _MARKET_SCAN_MAX_DAYS:
-        start = end - timedelta(days=_MARKET_SCAN_MAX_DAYS)
-        warnings.append(f"시장 전체 스캔은 최대 {_MARKET_SCAN_MAX_DAYS}일 — 구간을 {start:%Y%m%d}~ 로 줄였다. 특정 회사의 긴 이력은 company 지정.")
+    _earliest = market_window_start(end)
+    if start < _earliest:
+        start = _earliest
+        warnings.append(f"시장 전체 스캔은 최대 {MARKET_WINDOW_MAX_MONTHS}개월 — 구간을 {start:%Y%m%d}~ 로 줄였다. 특정 회사의 긴 이력은 company 지정.")
     bgn_de, end_de = f"{start:%Y%m%d}", f"{end:%Y%m%d}"
 
     client = get_dart_client()

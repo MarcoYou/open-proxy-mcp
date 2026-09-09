@@ -8,7 +8,7 @@ related_disclosures: [공시유형코드체계]
 related_concepts: []
 related_decisions: [pblntf-ty-필터링]
 created: 2026-06-11
-updated: 2026-09-02
+updated: 2026-09-09
 ---
 
 # risk_events
@@ -18,7 +18,7 @@ updated: 2026-09-02
 > 6카테고리 통합 tool로 재구성. 의존 사용자 없는 출시 직후가 통합 적기였음.
 
 ## 한 줄 요약
-기업 리스크 이벤트 공시 통합. **활성 3종 — 중대재해 / 횡령·배임 / 생산중단·영업정지** (본사·종속/자회사 변형 포함). 파생손실·회생부도·해산 3종은 **mute** — 파서·검증 보존, 기본 조회 제외, 명시 category 요청 시에만 동작. **company 미지정 시 시장 전체 최근 30일(최대 90일) 스캔**. `include_details=True`면 카테고리별 원문 파싱 + 중대재해 사상자 집계.
+기업 리스크 이벤트 공시 통합. **활성 3종 — 중대재해 / 횡령·배임 / 생산중단·영업정지** (본사·종속/자회사 변형 포함). 파생손실·회생부도·해산 3종은 **mute** — 파서·검증 보존, 기본 조회 제외, 명시 category 요청 시에만 동작. **company 미지정 시 시장 전체 최근 30일(최대 3개월) 스캔**. `include_details=True`면 카테고리별 원문 파싱 + 중대재해 사상자 집계.
 
 ## 사용법
 ```
@@ -38,7 +38,7 @@ risk_events()                                                # 시장 전체 최
 |---|---|---|---|---|
 | company | str | no | 회사명 / ticker / corp_code. **공백이면 시장 전체 스캔** | "" |
 | category | str | no | `serious_accident` / `embezzlement` / `derivative_loss` / `rehabilitation` / `production_halt` / `dissolution` | "" (전체) |
-| start_date / end_date | str | no | YYYYMMDD | "" (company 지정 24개월 / 미지정 30일·최대 90일) |
+| start_date / end_date | str | no | YYYYMMDD | "" (company 지정 24개월 / 미지정 30일·최대 3개월) |
 | include_details | bool | no | True면 원문 파싱 + 사상자 집계 (DART 호출 N회 추가) | False |
 | details_limit | int | no | 원문 파싱 대상 건수 (1-10) | 5 |
 | format | str | no | "md" / "json" | "md" |
@@ -57,7 +57,7 @@ sequenceDiagram
         T->>R: 회사 식별 → corp_code
         T->>L: 24개월 리스크 공시 검색 (활성 3종)
     else company 공백 (market scan)
-        T->>L: 시장 전체 30일(최대 90일) 스캔
+        T->>L: 시장 전체 30일(최대 3개월) 스캔
     end
     L-->>T: 이벤트 공시 list (본사 + 종속/자회사)
     opt include_details=True
@@ -155,6 +155,12 @@ details 카테고리별 필드:
 - 풍문·조회공시/불성실공시법인(I003)은 성격이 "시장 레이더"라 본 tool 범위 밖 — 수요 확인 시 별도 tool 검토.
 
 ## 변경 이력
+- 2026-09-09: 시장 스캔 상한을 **일수(90)에서 3역월로** 바꿨다. 상한은 원래 일수가 아니었다 —
+  DART 거부 문구부터 "검색기간은 3개월"이고, 허용 폭은 시작일에 따라 **89~92일로 달라진다**
+  (`2026-02-06~05-06` 89일 통과 · **90일부터 거부**, `2026-06-09~09-09` 92일 통과).
+  방향도 전진이다(`bgn + 3역월 >= end`) — `02-28~05-31`(92일)은 거부된다.
+  종전 90 은 3역월이 89일인 구간에서 조용히 거부당하고 있었다. 이제
+  `dart/client.py::market_window_start` 하나가 쥔다(screener·정기보고서 명부와 공유).
 - 2026-08-06: 파싱 기법 상세·census·검증 프로토콜을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-06-11: `serious_accident`(중대재해 단독) 신설 → **risk_events 6카테고리로 흡수 확장**
   (B001 채널 추가 — 회생신청·부도·영업정지·해산, `category` 인자, 카테고리별 파서, 시장 스캔 모드,

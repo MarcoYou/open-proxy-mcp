@@ -23,6 +23,7 @@ import asyncio
 import datetime as _dt
 from itertools import islice as _islice
 import contextlib
+import calendar
 import collections
 import logging
 import sqlite3
@@ -279,6 +280,7 @@ DEGRADATION_KINDS = frozenset({
     "parse_timeout",       # 파싱이 시간을 넘겨 더 거친 경로로 답했다
     "period_clamped",      # 요청한 기간이 상한을 넘어 **잘라서** 답했다(시장스캔 3개월 하드캡)
     "scan_page_truncated", # 스캔 페이지 상한에 걸려 **창의 일부만** 보고 답했다
+    "pay_absent_with_limit",  # 보수 한도는 읽혔는데 지급액만 비었다 — 서식 전환 의심 신호
 })
 
 #: 한 요청이 같은 종류를 여러 번 밟아도 한 번만 센다(상한도 겸한다).
@@ -961,7 +963,49 @@ _MASTER_DB_TTL_HOURS = 168   # 7d (corpCode 변경 빈도 낮음, 24h이었지�
 #    이름 규칙(「제○차」·「유동화전문」)을 손으로 관리할 필요가 없다.
 _FILERS_TTL_HOURS = 168      # 7d — 정기보고서는 분기마다 몰려 나오므로 주 1회면 충분
 _FILERS_LOOKBACK_DAYS = 400  # 사업보고서 1주기(1년) + 여유
-_FILERS_WINDOW_DAYS = 85     # corp_code 없는 조회는 **3개월까지만** 허용된다(DART status 100)
+#: **corp_code 없는 조회의 기간 상한.** 세 곳이 각자 다른 일수로 추측하던 것(client 85 ·
+#: risk_events 90 · screener 92)을 여기 하나로 모은다.
+#:
+#: 상한은 **일수가 아니라 3역월(calendar month)** 이다 — DART 가 그렇게 말하고(status 100:
+#: "corp_code가 없는 경우 검색기간은 3개월만 가능합니다"), 260909 실측이 그걸 확인했다.
+#: 그래서 허용 일수는 시작일에 따라 **89~92일로 달라진다**:
+#:
+#:   2026-02-06 ~ 05-06 (89일, =3역월) → 000  ·  ~05-07 (90일) → **100 거부**
+#:   2026-06-09 ~ 09-09 (92일, =3역월) → 000  ·  ~09-10 (93일) → **100 거부**
+#:
+#: ★ 고정 일수를 쓰면 안 된다. 92 로 두면 2월 시작 구간이 통째로 막히고(전체 시작일의 약
+#:   42%), 90 으로 둬도 3역월이 89일인 구간에서 조용히 거부당한다. 그 거부는
+#:   `_build_filers` 의 `except Exception` 에 삼켜져 **명부가 영영 안 만들어지는** 모양으로
+#:   나타난다 — 에러가 아니라 침묵이라 더 나쁘다.
+#:
+#: 방향도 **전진**이다(`bgn + 3역월 >= end`, `end − 3역월` 이 아니라). 월말에서 둘이 갈리고,
+#: 실측은 전진 쪽이었다: `02-28 ~ 05-31`(92일) 거부 · `01-29 ~ 04-30`(91일) 거부.
+MARKET_WINDOW_MAX_MONTHS = 3
+
+
+def _shift_months(d: "_dt.date", months: int) -> "_dt.date":
+    """역월 단위 이동. 말일은 짧은 달의 말일로 눌린다(1/31 +1월 = 2/28)."""
+    m = d.month - 1 + months
+    y, m = d.year + m // 12, m % 12 + 1
+    return d.replace(year=y, month=m, day=min(d.day, calendar.monthrange(y, m)[1]))
+
+
+def market_window_end(bgn: "_dt.date", *, months: int = MARKET_WINDOW_MAX_MONTHS) -> "_dt.date":
+    """`bgn` 과 함께 쓸 수 있는 **가장 늦은 종료일**. 앞으로 훑어 나갈 때 쓴다."""
+    return _shift_months(bgn, months)
+
+
+def market_window_start(end: "_dt.date", *, months: int = MARKET_WINDOW_MAX_MONTHS) -> "_dt.date":
+    """`end` 와 함께 쓸 수 있는 **가장 이른 시작일**. 사용자 구간을 뒤로 자를 때 쓴다.
+
+    `end − 3역월` 을 그대로 쓰면 안 된다 — 규칙이 전진이라 말일에서 어긋난다.
+    (end=5/31 이면 `end − 3역월` = 2/28 인데, 2/28 +3역월 = 5/28 < 5/31 이라 거부된다.)
+    그래서 뒤로 민 뒤 조건을 만족할 때까지 하루씩 당긴다 — 최대 세 걸음이다.
+    """
+    b = _shift_months(end, -months)
+    while market_window_end(b, months=months) < end:
+        b += _dt.timedelta(days=1)
+    return b
 _FILERS_MIN_EXPECTED = 2_000
 
 
@@ -1707,7 +1751,7 @@ class DartClient:
         filers: dict[str, str] = {}
         cur = today - timedelta(days=_FILERS_LOOKBACK_DAYS)
         while cur < today:
-            end = min(cur + timedelta(days=_FILERS_WINDOW_DAYS), today)
+            end = min(market_window_end(cur), today)
             page = 1
             while True:
                 res = await self.search_filings(

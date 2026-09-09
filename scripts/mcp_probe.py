@@ -107,7 +107,15 @@ class MCP:
 
 
 def _coerce(v: str):
-    """`k=v` 의 v 를 JSON 으로 읽어 보고, 아니면 문자열. `scope=summary` 와 `years=10` 을 함께 받으려고."""
+    """`k=v` 의 v 를 JSON 으로 읽어 보고, 아니면 문자열. `scope=summary` 와 `years=10` 을 함께 받으려고.
+
+    다만 **8자리 이상 숫자만인 값은 문자열로 둔다** — 이 레포에서 그 모양은 날짜(YYYYMMDD)·
+    접수번호(rcept_no)·corp_code 이고 tool 은 전부 `str` 로 받는다. int 로 넘기면 호출이
+    pydantic 검증에서 죽는데, 에러가 「타입」 이야기라 인자를 잘못 쓴 줄 알고 헤매게 된다.
+    (굳이 수로 넘기려면 따옴표 없이 못 하니 `--json` 처럼 코드를 고치는 쪽이 맞다.)
+    """
+    if v.isdigit() and len(v) >= 8:
+        return v
     try:
         return json.loads(v)
     except Exception:

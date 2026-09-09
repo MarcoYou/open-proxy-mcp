@@ -7,7 +7,7 @@ data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(
 related_disclosures: [사업보고서, 기업지배구조보고서, 임원보수-API스펙]
 related_concepts: [보수한도]
 created: 2026-07-08
-updated: 2026-09-04
+updated: 2026-09-09
 ---
 
 # director_board — 이사회/개별 이사 프로필
@@ -178,6 +178,11 @@ pay_agenda 단독 scope는 compensation 표를 안 받으므로 폴백 없음).
 표 구조**를 안건 파서가 표준 소집공고 형식으로 인식하지 못하는 경우다(정정신고 파싱 TODO).
 
 ## 알려진 issue + TODO
+- **보수 API 는 V1 서식만 부른다.** DART 가 Ver2.0 으로 넘기면 V1 응답은 에러가 아니라
+  **빈 채로** 와서 보수 축이 조용히 사라진다(「에러가 아니라 대체」). 그래서 지급액이 전부
+  비었을 때 **한도는 읽혔는지**를 보고, 반쪽만 읽혔으면 서식 의심 + `filing_section` 경로를
+  warnings 에 적는다. V2 폴백은 서식이 실제로 나온 뒤에 붙인다 — 응답을 못 본 채로 매핑을
+  추측하면 틀린 값을 자신 있게 내보내게 된다.
 - **attendance 부분성**: 회사가 개별 출석률을 '(출석률:%)' 인라인으로 요약하는 범위가 제각각 —
   **일부(주로 사외이사)만** 그 형식으로 쓰고 나머지는 회차별 출석표에만 있는 회사가 많다(기아 4/9명).
   parsed 인원<이사회 인원이면 `attendance_partial` flag. 전체 이사회 출석을 다 잡으려면 회차별
@@ -416,6 +421,8 @@ sequenceDiagram
 | `hmvAuditIndvdlBySttus` (재사용) | pay_criteria 하이브리드 교차검증(파서 Σ vs API 공식총액) |
 
 ## 변경 이력
+- 2026-09-09: 보수 지급액이 전부 비었을 때 **한도가 읽혔는지**로 갈라, 반쪽만 읽혔으면
+  서식 의심 + 원문 경로(`filing_section`)를 warnings 에 적는다(V1/V2 서식 전환 대비).
 - 2026-09-07: **속도 — SK 7.8초 → 2.7~3.8초, 이벤트 루프 최대 멈춤 4~6초 → 0.4초.** 프로파일 결과 시간의 70%가 `pay_agenda` 가 부르는 소집공고 파싱(2.9~5.4MB, bs4)이었고 전부 동기라 루프를 잡았다. 파싱을 워커 스레드로(`asyncio.to_thread`), scope 가 안 쓰는 임원 표는 건너뛰고, 후보 분류 때 파싱한 meeting_info 를 번들이 재사용. `tests/test_notice_parse_offload.py`.
 - 2026-09-07: 비고가 없는 자리에 「> None」·「[roster] None」이 나가던 렌더 결함 — 비고 없으면 인용줄 생략, roster 교차검증 플래그의 키 오타(「상세」→detail) 수정. `tests/test_render_none_warts.py`.
 - 2026-09-04: `pay_agenda` 회차 선택을 최근 공고(auto) → **최근 정기주총 소집공고**(annual, E006, 13개월)로.

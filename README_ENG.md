@@ -133,6 +133,12 @@ Version history → **[docs/RELEASE_NOTES_ENG.md](docs/RELEASE_NOTES_ENG.md)**
 
 ---
 
+## Security
+
+Report vulnerabilities through [SECURITY.md](SECURITY.md), **not a public issue** — especially anything that leaks an API key.
+
+---
+
 ## Disclaimer
 
 OpenProxy is a tool that structures DART filing data for AI consumption. AI can hallucinate and may produce inaccurate analysis. Opinions presented by the AI are not those of the developer or any affiliated organization. Use the output for reference only — final investment or voting decisions must go through the original filings and expert review.
