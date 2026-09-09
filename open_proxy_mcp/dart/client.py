@@ -2279,6 +2279,48 @@ class DartClient:
             "reprt_code": reprt_code,
         })
 
+    async def get_share_change_status(self, corp_code: str, bsns_year: str,
+                                      reprt_code: str = "11011") -> dict:
+        """증자(감자) 현황 (irdsSttus) — 주식수가 **왜** 변했는지.
+
+        `stockTotqySttus`(총수 스냅샷)는 「얼마인가」만 답한다. 이쪽은 유상·무상·주식배당·전환
+        같은 **변동 사유**를 시계열로 준다 — 그리고 `dilutive_issuance` 의 24개월 창 **밖 과거**까지
+        덮는다(정기보고서 한 표라 1콜).
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("irdsSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_capital_use_public(self, corp_code: str, bsns_year: str,
+                                     reprt_code: str = "11011") -> dict:
+        """공모자금의 사용내역 (pssrpCptalUseDtls).
+
+        조달 **계획**은 `piicDecsn` 의 `fdpp_*` 로 이미 본다. 이쪽은 그 계획 대비 **실제 사용**이다.
+        둘을 자동으로 대조하지 않는다 — 항목명이 자유서술이라 결정론적 매칭은 오답을 만든다.
+        두 표를 나란히 주고 판단은 읽는 쪽이 한다.
+        """
+        return await self._request("pssrpCptalUseDtls.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_capital_use_private(self, corp_code: str, bsns_year: str,
+                                      reprt_code: str = "11011") -> dict:
+        """사모자금의 사용내역 (prvsrpCptalUseDtls). 공모와 같은 계약."""
+        return await self._request("prvsrpCptalUseDtls.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
     async def get_treasury_stock(self, corp_code: str, bsns_year: str, reprt_code: str = "11011") -> dict:
         """자기주식 취득 및 처분 현황 (tesstkAcqsDspsSttus) — 기초/취득/처분/소각/기말
 
