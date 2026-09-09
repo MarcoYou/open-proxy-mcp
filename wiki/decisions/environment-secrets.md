@@ -33,7 +33,7 @@ fly.toml `[env]`에는 경로 같은 **비밀 아닌 설정**만 둔다. API 키
 | `OPM_CAPTURE_DIR` | 요청·응답 전문 캡처(로컬 시험용, 배포 금지) | 로컬 | — |
 | `OPM_DOC_CACHE_MB`·`OPM_DIVIDEND_CACHE_MB`·`OPM_DOC_DISK_CACHE_MB`·`OPM_DOC_DISK_SWEEP_MB`·`OPM_CACHE_HIGH_RATIO`·`OPM_CACHE_LOW_RATIO`·`OPM_DOC_CONCURRENCY`·`OPM_DOC_GATE_WAIT_SEC`·`OPM_DOC_CONCURRENCY_PER_KEY`·`OPM_CLIENT_MAX`·`OPM_CLIENT_IDLE_SEC`·`OPM_PG_POOL_MAX/MIN/TIMEOUT/RETRY_SEC`·`OPM_SCAN_CACHE_TTL_SEC`·`OPM_SCAN_CACHE_CLOSED_SEC` | 캐시·동시성·풀 튜닝 노브. 기본값은 코드(`dart/client.py`·`db.py`·`services/screener.py`) | 선택 | — |
 | `NAVER_SEARCH_API_CLIENT_ID` / `..._SECRET` | 네이버 검색(뉴스 체크) | 선택 | developers.naver.com |
-| `DATABASE_URL` | Supabase Postgres — 사용통계·KRX데이터·FX캐시·밸류에이션·컨센서스·스크리너 | 배치·통계·DB 기반 scope 필수 | Supabase 콘솔 |
+| `DATABASE_URL` | 내부 데이터 저장소(Postgres) — 사전 수집·집계본 서빙 | 배치·통계·DB 기반 scope 필수 | (자체 구성) |
 | `KRX_API_KEY` | KRX_OPEN_API_KEY 와 같은 키의 별칭 (`services/price_multiple_data.py`·`trading.py` 가 둘 다 본다) | — | — |
 
 - **필수** = 이게 없으면 핵심 tool이 동작 안 함. **선택** = 해당 기능만 비활성(앱은 기동).
