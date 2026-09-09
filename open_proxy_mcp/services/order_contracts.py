@@ -22,7 +22,10 @@ import re
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             resolve_company_query)
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -400,11 +403,21 @@ async def build_order_contracts_payload(
     client = get_dart_client()
     calls_start = client.api_call_snapshot()
     resolution = await resolve_company_query(company_query)
+    _cands = [_c for _c in (resolution.candidates or [])][:10]
+    # 후보가 여럿인 것(AMBIGUOUS)과 아예 없는 것(ERROR)은 다른 사건이다 — 종전엔 한 문장으로 뭉쳤다.
+    if resolution.status == AnalysisStatus.AMBIGUOUS:
+        return ToolEnvelope(
+            tool="order_contracts", status=AnalysisStatus.AMBIGUOUS, subject=company_query,
+            warnings=[company_ambiguous_warning(company_query, resolution.candidates)],
+            data={"query": company_query, "candidates": _cands},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
+        ).to_dict()
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(
             tool="order_contracts", status=resolution.status,
-            subject=company_query, warnings=["회사를 특정하지 못했다."],
-            data={"query": company_query, "candidates": [_c for _c in (resolution.candidates or [])][:10]},
+            subject=company_query, warnings=[company_not_found_warning(company_query)],
+            data={"query": company_query, "candidates": _cands},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
         ).to_dict()
 
     selected = resolution.selected

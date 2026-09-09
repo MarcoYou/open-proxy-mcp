@@ -528,6 +528,8 @@ async def build_forward_estimates_payload(
 ) -> dict[str, Any]:
     """`fwd` 스냅샷 한 종목. status: ok / no_estimates / not_found / unlisted /
     ambiguous / db_error / invalid — **「없음」을 뭉뚱그리지 않는다.**"""
+    from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_not_found_warning)
     from open_proxy_mcp.services.price_multiple_data import _resolve_listed
 
     query = (company or "").strip()
@@ -545,11 +547,15 @@ async def build_forward_estimates_payload(
     if early:
         early["tool"] = TOOL
         return early
-    if not corp or not corp.get("stock_code"):
-        return {"tool": TOOL, "status": "not_found" if not corp else "unlisted",
-                "subject": query,
-                "warnings": [f"'{query}' 상장 종목을 찾지 못함 — 회사명 오탈자이거나 비상장. "
-                             "우선주는 보통주 코드로 조회하세요. 회사 식별은 `company` 도구."]}
+    # 회사 자체가 없는 것과, 회사는 있는데 비상장인 것은 다른 사건이다.
+    if not corp:
+        return {"tool": TOOL, "status": "not_found", "subject": query,
+                "next_actions": [COMPANY_LOOKUP_NEXT_ACTION],
+                "warnings": [company_not_found_warning(query, listed_only=True),
+                             "우선주는 보통주 종목코드로 조회한다."]}
+    if not corp.get("stock_code"):
+        return {"tool": TOOL, "status": "unlisted", "subject": query,
+                "warnings": [f"'{query}' 는 찾았으나 상장 종목이 아니다 — 컨센서스는 상장사만 있다."]}
     isu = corp["stock_code"]
     subject = corp.get("corp_name", query)
 

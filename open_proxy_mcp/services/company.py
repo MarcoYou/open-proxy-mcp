@@ -547,6 +547,31 @@ def company_not_found_warning(query: str, *, listed_only: bool = False) -> str:
     )
 
 
+#: 회사 미해결 안내의 **다음 경로**. 문구를 tool 마다 지어내지 않게 상수로 둔다.
+COMPANY_LOOKUP_NEXT_ACTION = "company tool 로 회사 식별 확인"
+
+
+def company_ambiguous_warning(query: str, candidates: list | None = None, *, limit: int = 5) -> str:
+    """후보가 여럿이라 **고르지 않았을 때**의 안내 — 「못 찾았다」와 다른 사건이다.
+
+    못 찾은 것(ERROR)에 사명 변경 안내를 주는 것과 달리, 여기서는 회사가 **있고 여럿**이다.
+    그래서 필요한 것은 탈출구가 아니라 **후보 목록**인데, 종전엔 이 분기가 대부분 죽어 있어
+    (가드가 `ERROR or not selected` 인데 AMBIGUOUS 는 항상 selected 가 None 이라 앞에서 잡힌다)
+    후보를 손에 쥐고도 버리고 「찾지 못했다」로 답했다.
+    """
+    named = []
+    for c in (candidates or [])[:limit]:
+        if not isinstance(c, dict):
+            continue
+        nm = c.get("corp_name") or c.get("name") or ""
+        code = c.get("stock_code") or c.get("corp_code") or ""
+        named.append(f"{nm}({code})" if code else nm)
+    rest = max(0, len(candidates or []) - limit)
+    head = (f"'{query}'는 후보가 여럿이라 자동 선택하지 않았다"
+            + (f" — {' · '.join(named)}" + (f" 외 {rest}건" if rest else "") if named else ""))
+    return head + ". 종목코드 6자리나 corp_code 로 다시 조회한다."
+
+
 async def resolve_company_query(query: str) -> CompanyResolution:
     """회사 입력을 exact/ambiguous/error 상태로 정규화.
 

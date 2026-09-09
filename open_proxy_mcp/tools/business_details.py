@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 
+from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.business_details import build_business_details_payload
 from open_proxy_mcp.services.contracts import as_pretty_json
 
@@ -289,7 +290,10 @@ def _render(p: dict) -> str:
     d = p.get("data", {}) or {}
     subj = p.get("subject", "")
     if status in ("error", "ambiguous"):
-        return f"**{subj}** — {'; '.join(p.get('warnings') or ['회사 식별 실패'])}"
+        # 서비스가 항상 안내를 싣는다(company_not_found_warning / company_ambiguous_warning).
+        # 그래도 비면 **정본을 다시 만든다** — 여기서 문구를 지어내면 그게 또 사본이 된다.
+        _ws = p.get("warnings") or [company_not_found_warning(str(subj))]
+        return f"**{subj}** — {'; '.join(_ws)}"
     if status == "no_filing":
         return f"**{subj}** — {'; '.join(p.get('warnings') or ['정기보고서 없음'])}"
     L = []

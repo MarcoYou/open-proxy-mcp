@@ -19,7 +19,7 @@ from open_proxy_mcp.dart.client import LruByteCache, _env_mb, list_pages_per_cod
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
-from open_proxy_mcp.services.contracts import declare_weak_resolution
+from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
 
 import asyncio
 import math
@@ -30,7 +30,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Iterable
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning
 
 # ── KST(공시 기준 시간대) ──────────────────────────────────────────────
 _KST = timezone(timedelta(hours=9))
@@ -609,21 +609,29 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
         else:
             name_tokens.append(tok)
 
-    async def _resolve_one(tok: str) -> tuple[str, str | None]:
-        # 이름/티커 → 회사 식별(기존 엔진 재사용, 이름당 DART 0콜=캐시)
+    async def _resolve_one(tok: str) -> tuple[str, str | None, str]:
+        """(토큰, 종목코드, 안내) — 못 찾은 이유를 **토큰마다** 말한다.
+
+        종전엔 「'X' 미식별(모호/없음)」 한 문장이라, 사명이 바뀐 회사인지 후보가 여럿인지
+        구분할 수 없었다. 다른 tool 은 정본 안내를 주는데 여기만 안 줬다.
+        """
         try:
             res = await resolve_company_query(tok)
         except Exception:
-            return tok, None
+            return tok, None, f"'{tok}' 조회 중 오류 — 종목코드 6자리로 다시 준다."
         sel = getattr(res, "selected", None)
-        return tok, ((sel or {}).get("stock_code") if sel else None)
+        if sel:
+            return tok, (sel or {}).get("stock_code"), ""
+        if getattr(res, "status", None) == AnalysisStatus.AMBIGUOUS:
+            return tok, None, company_ambiguous_warning(tok, getattr(res, "candidates", None))
+        return tok, None, company_not_found_warning(tok)
 
     if name_tokens:
-        for tok, sc in await asyncio.gather(*[_resolve_one(t) for t in name_tokens]):
+        for tok, sc, hint in await asyncio.gather(*[_resolve_one(t) for t in name_tokens]):
             if sc:
                 codes.add(sc.strip())
             else:
-                notes.append(f"'{tok}' 미식별(모호/없음)")
+                notes.append(hint or f"'{tok}' 미식별(모호/없음)")
     if not codes:
         notice = ("일부 종목 미해결: " + " · ".join(notes)) if notes else ""
         return UniverseFilter(label="지정종목", resolved=False,

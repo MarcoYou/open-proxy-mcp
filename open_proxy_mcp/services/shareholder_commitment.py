@@ -33,7 +33,10 @@ import asyncio
 from typing import Any
 
 from open_proxy_mcp.dart.client import get_dart_client
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             resolve_company_query)
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     ToolEnvelope,
@@ -198,20 +201,23 @@ async def build_shareholder_commitment_payload(
 ) -> dict[str, Any]:
     calls_start = get_dart_client().api_call_snapshot()
     resolution = await resolve_company_query(company_query)
-    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
-        return ToolEnvelope(
-            tool="shareholder_commitment",
-            status=resolution.status,
-            subject=company_query,
-            warnings=[f"'{company_query}' 상장사를 찾지 못함"],
-            data={"query": company_query, "candidates": resolution.candidates},
-        ).to_dict()
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
             tool="shareholder_commitment",
             status=AnalysisStatus.AMBIGUOUS,
             subject=company_query,
+            warnings=[company_ambiguous_warning(company_query, resolution.candidates)],
             data={"query": company_query, "candidates": resolution.candidates},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
+        ).to_dict()
+    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        return ToolEnvelope(
+            tool="shareholder_commitment",
+            status=resolution.status,
+            subject=company_query,
+            warnings=[company_not_found_warning(company_query, listed_only=True)],
+            data={"query": company_query, "candidates": resolution.candidates},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
         ).to_dict()
 
     selected = resolution.selected
