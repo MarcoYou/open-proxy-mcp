@@ -12,7 +12,7 @@ from open_proxy_mcp.services import financial_notes as svc
 from open_proxy_mcp.services.business_details import (
     _find_report_candidates, _find_report_for_bsns_year, _report_period_tag,
 )
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning, COMPANY_LOOKUP_NEXT_ACTION
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import ToolEnvelope
 
@@ -549,9 +549,13 @@ def register_tools(mcp):
 
         resolution = await resolve_company_query(company)
         if resolution.status != AnalysisStatus.EXACT or not resolution.selected:
-            env = ToolEnvelope(tool="financial_notes", status=resolution.status,
-                               subject=company, warnings=["회사를 하나로 식별하지 못했습니다"],
-                               data={"candidates": resolution.candidates})
+            _amb = resolution.status == AnalysisStatus.AMBIGUOUS
+            env = ToolEnvelope(
+                tool="financial_notes", status=resolution.status, subject=company,
+                warnings=[company_ambiguous_warning(company, resolution.candidates) if _amb
+                          else company_not_found_warning(company)],
+                data={"query": company, "candidates": resolution.candidates},
+                next_actions=[COMPANY_LOOKUP_NEXT_ACTION])
             return json.dumps(env.to_dict(), ensure_ascii=False)
         corp = resolution.selected
         corp_code = corp["corp_code"]

@@ -15,7 +15,7 @@ from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
 
-from open_proxy_mcp.services.contracts import declare_weak_resolution
+from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
 
 import re
 import sqlite3
@@ -238,7 +238,11 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
 from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
 from open_proxy_mcp.services import business_details as _bd  # noqa: E402
 from open_proxy_mcp.services import price_multiple_data as _val  # noqa: E402
-from open_proxy_mcp.services.company import _safe_company_info, resolve_company_query  # noqa: E402
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,  # noqa: E402
+                                             _safe_company_info,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             resolve_company_query)
 
 _YEAR = re.compile(r"\((\d{4})\.\d{2}\)")
 _FIN_SEC = ("64", "65", "66")
@@ -328,8 +332,16 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         scope = "summary"
     res = await resolve_company_query(q)
     if not res.selected:
-        return {"tool": "asset_holdings", "status": "not_found", "subject": company,
-                "warnings": [f"'{company}' 식별 실패 — 종목코드나 정확한 회사명으로 재시도."]}
+        # 이 파일의 반환 계약은 ToolEnvelope 가 아니라 생 dict 다(status 도 문자열) — 그대로 두고
+        # **문구만** 정본으로 바꾼다. 후보가 여럿이면 그 후보를 버리지 않고 싣는다.
+        _amb = res.status == AnalysisStatus.AMBIGUOUS
+        return {"tool": "asset_holdings", "status": "ambiguous" if _amb else "not_found",
+                "subject": company,
+                "data": {"query": company,
+                         "candidates": [c for c in (res.candidates or [])][:10]},
+                "next_actions": [COMPANY_LOOKUP_NEXT_ACTION],
+                "warnings": [company_ambiguous_warning(company, res.candidates) if _amb
+                             else company_not_found_warning(company)]}
     corp = res.selected
     cc, isu = corp["corp_code"], corp.get("stock_code") or corp.get("ticker")
     name = corp.get("corp_name") or company

@@ -43,7 +43,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             resolve_company_query)
 from open_proxy_mcp.services.executive_pay import parse_executive_pay, reconcile_with_api
 from open_proxy_mcp.services.shareholder_meeting_parser import is_outside_role
 from open_proxy_mcp.services.contracts import (
@@ -1160,16 +1163,20 @@ async def build_director_board_payload(
         ).to_dict()
 
     resolution = await resolve_company_query(company_query)
-    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
-        return ToolEnvelope(
-            tool="director_board", status=resolution.status, subject=company_query,
-            warnings=[f"'{company_query}' 상장사를 찾지 못함"],
-            data={"query": company_query, "candidates": resolution.candidates},
-        ).to_dict()
+    # AMBIGUOUS 가 먼저다 — 아래 가드의 `not selected` 가 그것까지 삼켜 이 분기가 죽어 있었다.
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
             tool="director_board", status=AnalysisStatus.AMBIGUOUS, subject=company_query,
+            warnings=[company_ambiguous_warning(company_query, resolution.candidates)],
             data={"query": company_query, "candidates": resolution.candidates},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
+        ).to_dict()
+    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        return ToolEnvelope(
+            tool="director_board", status=resolution.status, subject=company_query,
+            warnings=[company_not_found_warning(company_query, listed_only=True)],
+            data={"query": company_query, "candidates": resolution.candidates},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
         ).to_dict()
 
     selected = resolution.selected
