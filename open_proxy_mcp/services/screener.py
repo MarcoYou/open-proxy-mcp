@@ -15,7 +15,9 @@
 """
 
 from __future__ import annotations
-from open_proxy_mcp.dart.client import LruByteCache, _env_mb, list_pages_per_code, note_degradation
+from open_proxy_mcp.dart.client import (MARKET_WINDOW_MAX_MONTHS, LruByteCache, _env_mb,
+                                        list_pages_per_code, market_window_start,
+                                        note_degradation)
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
@@ -35,8 +37,7 @@ from open_proxy_mcp.services.company import resolve_company_query, company_ambig
 # ── KST(공시 기준 시간대) ──────────────────────────────────────────────
 _KST = timezone(timedelta(hours=9))
 
-# 시장스캔 하드캡: corp_code 없는 전체시장 검색은 3개월(92일)까지만.
-_MARKET_SCAN_MAX_DAYS = 92
+# 시장스캔 하드캡은 client 의 SSOT(`market_window_start`) 가 쥔다 — 일수가 아니라 3역월이다.
 
 # scan 상한
 # 코드당 최대 페이지. 값은 client 의 요청당 예산(`LIST_PAGE_BUDGET_PER_REQUEST`)을 스캔 코드
@@ -514,12 +515,13 @@ def resolve_period(period: str, *, cursor: str = "",
         if cbgn <= end:
             bgn = cbgn
 
-    # 3개월 하드캡
-    if (end - bgn).days > _MARKET_SCAN_MAX_DAYS:
-        bgn = end - timedelta(days=_MARKET_SCAN_MAX_DAYS)
+    # 3역월 하드캡
+    _earliest = market_window_start(end)
+    if bgn < _earliest:
+        bgn = _earliest
         # 절단은 에러가 아니라 **대체**다 — 세지 않으면 얼마나 자주 발생하는지 영영 모른다.
         note_degradation("period_clamped")
-        notices.append(f"시장스캔은 3개월(≤{_MARKET_SCAN_MAX_DAYS}일)까지만 — 시작일을 {_yyyymmdd(bgn)}로 절단했다.")
+        notices.append(f"시장스캔은 {MARKET_WINDOW_MAX_MONTHS}개월까지만 — 시작일을 {_yyyymmdd(bgn)}로 절단했다.")
     if bgn > end:
         bgn = end
     return _yyyymmdd(bgn), _yyyymmdd(end), notices
