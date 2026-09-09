@@ -477,13 +477,16 @@ def _render(payload: dict[str, Any]) -> str:
             unmatched = (guideline.get("assessment_submissions") or {}).get("unmatched_task_ids") or []
             if unmatched:
                 lines.append(f"- 현재 평가 대상·원문과 맞지 않아 사용하지 않은 평가: {len(unmatched)}건. 새 평가 항목으로 다시 평가하세요.")
+        discovery = guideline.get("officer_discovery") or {}
+        if discovery:
+            lines.append(f"- 임원 변동 공시 자동 탐색: {discovery.get('status')} · 원문 {discovery.get('selected_count', 0)}건. 전체 재직 이력의 완전성을 보증하지 않습니다.")
         collected = guideline.get("evidence_collection") or {}
         filing = collected.get("filing") or {}
         if collected.get("document_read"):
             lines.append(
                 f"- 출석 근거: [{filing.get('report_nm') or '사업보고서'}]"
                 f"({collected.get('source_url')}) · 공시 구간별 출석 값 "
-                f"{len(collected.get('observations') or [])}개 확보 · 직전 임기 전체 확인은 별도 검토"
+                f"{len(collected.get('observations') or [])}개 확보 · 직전 완료 사업연도 분모·재직 확인은 별도 검토"
             )
         if collected.get("reason"):
             lines.append(f"- 출석 자료 확인 상태: {collected['reason']}")
@@ -678,8 +681,11 @@ def _render(payload: dict[str, Any]) -> str:
                         lines.append("- 기존 법령·안건 관계·반대 제약을 보존하여 최종 권고에 반영했습니다.")
                     if trace.get("post_constraint_adjusted"):
                         lines.append("- 후보 평가 뒤 안건 관계·좌석 제약으로 최종 권고가 조정되었습니다.")
+                    calc = llm.get("attendance_calculation") or {}
+                    if calc:
+                        lines.append(f"- 출석 계산: {calc.get('status')} · {calc.get('period_start', '?')} ~ {calc.get('period_end', '?')} · 참석 {calc.get('attended_meetings', '?')} / 대상 {calc.get('eligible_meetings', '?')}회 · 비율 {calc.get('attendance_pct')}% · 제외 {calc.get('excluded_meetings', '?')}회")
                     assessment = llm.get("assessment") or {}
-                    for key, label in (("appointment", "선임구분"), ("independence", "독립성")):
+                    for key, label in (("appointment", "선임구분"), ("independence", "독립성"), ("attendance", "출석")):
                         item = assessment.get(key) or {}
                         if item:
                             lines.append(f"- {label} LLM 평가: {item.get('value')} · {item.get('rationale')}")
@@ -733,6 +739,9 @@ def _render(payload: dict[str, Any]) -> str:
     if cands:
         lines.append("## 이사/감사 후보 평가")
         lines.append("")
+        if guideline.get("mode") == "pilot":
+            lines.append("> 아래는 공시 기반 기초평가입니다. v2의 수용된 LLM 평가와 다를 수 있으며, 최종 권고·미확인 사유는 위 안건별 v2 평가를 확인하세요.")
+            lines.append("")
         lines.append("> **판단 framework** — 신임: ① 과거 다른 회사에서의 행적 ② 결격사유 ③ 전문성 ④ 독립성·충실성. 연임: ① 재직 기간 ② 재직 중 회사 운영 성과 (이 회사 데이터 활용).")
         lines.append("")
         lines.append("| 후보 | 직책 | 선임유형 | 임기 | 독립성 | 결격사유 | 이사 회계 위험 이력 | 비고 |")
@@ -1216,8 +1225,8 @@ def register_tools(mcp):
         when: 소집공고 후 ~ 주총 직전. 의결권 행사 결정 + 내부 보고. 사후 결과는 `shareholder_meeting_results`.
         rule: 운용사 의결권 행사 보고서 스타일. hard-fail(형사 처벌/사적 관계/동명이인) 자동 검증 가능 항목만 표기. soft-fail(후보 약력/정관 본문) raw 노출 — LLM 판단.
         vote_style: `open_proxy` (default — OPM 자체 가이드라인) 또는 `opm_guideline_v2` (기본 shadow; 명시적 guideline_mode=pilot에서 LLM 평가 수용). 그 밖의 옵션은 internal cross-reference용
-        guideline_mode: shadow(기본, 기존 권고 유지) / pilot(v2 후보 권고 실제 적용). pilot은 사외·독립이사 후보의 선임구분·독립성만 평가하고 LLM 평가 · 사람 미검토 표시. 첫 호출의 assessment_task를 읽고 같은 조건으로 두 번째 호출에 평가를 제출한다. 강행규정·안건 관계·기존 반대·좌석 제약은 보존한다.
-        guideline_assessments: pilot에서만 쓰는 평가 목록. 첫 응답 assessment_task.required_output 스키마를 따른다. task_id·evaluator·appointment·independence, 각 판단에 value·rationale·evidence_refs·counterevidence·unresolved 필요. 기준일·정책·원문이 달라지면 다시 평가. 서버는 인용 일치만 검사하며 의미 정확성·사람 검토를 인증하지 않는다. 자동 LLM 호출이나 평가 저장 없음.
+        guideline_mode: shadow(기본, 기존 권고 유지) / pilot(v2 후보 권고 실제 적용). pilot은 사외·독립이사 후보의 선임구분·독립성·직전 완료 사업연도 출석을 평가하고 LLM 평가 · 사람 미검토 표시. 첫 호출의 assessment_task를 읽고 같은 조건으로 두 번째 호출에 평가를 제출한다. 강행규정·안건 관계·기존 반대·좌석 제약은 보존한다.
+        guideline_assessments: pilot에서만 쓰는 평가 목록. 첫 응답 assessment_task.required_output 스키마를 따른다. task_id·evaluator·appointment·independence 및 선택 attendance(재직·직무정지 구간, 회의별 출석), 각 판단에 value·rationale·evidence_refs·counterevidence·unresolved 필요. 기준일·정책·원문이 달라지면 다시 평가. 서버는 인용 일치만 검사하며 의미 정확성·사람 검토를 인증하지 않는다. 자동 LLM 호출이나 평가 저장 없음.
         guideline_evidence_sources: pilot 추가 공개 원천 최대 5개. {type:dart,rcept_no:접수번호} 또는 {type:kind,url:고정 KIND external HTML 주소}. DART XML 또는 거래소 공시 HTML을 읽어 후보 이름 주변을 평가 패킷에 포함한다. 기준일 이후 공시는 제외. 미조회·형식 미지원은 미공개로 처리하지 않는다. 첫 호출과 평가 제출 호출에 같은 목록 사용.
         check_audit_history: True 시 후보 과거 회사 × 회계 risk overlap cross-check (+30s)
         meeting_type: `auto`(default — 정기/임시 중 지금 표를 던져야 하는 회차) / `annual` 정기만 / `extraordinary` 임시만. 임시주총을 보려고 따로 지정할 필요 없다.

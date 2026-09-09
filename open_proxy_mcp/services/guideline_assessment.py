@@ -8,9 +8,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from datetime import date
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictBool
 
 Text = Annotated[StrictStr, Field(min_length=1, max_length=6000)]
 
@@ -50,11 +51,97 @@ class IndependenceAssessment(_Judgment):
     information_gaps: Annotated[list[PublicInformationGap], Field(max_length=12)] = Field(default_factory=list)
 
 
+ISODate = Annotated[StrictStr, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+
+
+class DutyInterval(_Strict):
+    start: ISODate
+    end: ISODate
+    rationale: Text
+    evidence_refs: Annotated[list[Citation], Field(min_length=1, max_length=12)]
+
+
+class BoardMeetingAttendance(_Strict):
+    meeting_id: Text
+    date: ISODate
+    attendance: Literal["present", "absent", "unknown"]
+    evidence_refs: Annotated[list[Citation], Field(min_length=1, max_length=12)]
+
+
+class AttendanceException(_Judgment):
+    value: Literal["accepted", "rejected", "unknown"]
+
+
+class AttendanceAssessment(_Judgment):
+    value: Literal["known", "unknown"]
+    period_start: ISODate
+    period_end: ISODate
+    # An explicit completeness assessment, not an inference from row count.
+    all_board_meetings_covered: StrictBool
+    service_intervals: Annotated[list[DutyInterval], Field(max_length=20)]
+    legal_suspension_intervals: Annotated[list[DutyInterval], Field(max_length=20)]
+    meetings: Annotated[list[BoardMeetingAttendance], Field(max_length=200)]
+    exception: AttendanceException
+
+
 class GuidelineAssessment(_Strict):
     task_id: Text
     evaluator: Text
     appointment: AppointmentAssessment
     independence: IndependenceAssessment
+    attendance: AttendanceAssessment | None = None
+
+
+def derive_attendance(task: dict, assessment: AttendanceAssessment | None) -> dict:
+    """Validate interval/count arithmetic; attribution remains an unreviewed LLM judgment."""
+    pending = {"status": "unresolved", "attendance_pct": None,
+               "exception_accepted": None, "basis": "last_completed_fiscal_year"}
+    if assessment is None:
+        return {**pending, "reason": "사업연도·재직기간·회의별 출석 평가가 미제출입니다."}
+    target = task.get("attendance_period") or {}
+    if target.get("status") != "resolved":
+        return {**pending, "reason": "직전 완료 사업연도의 원문 기간이 미확정입니다."}
+    if [assessment.period_start, assessment.period_end] != [target["start"], target["end"]]:
+        raise ValueError("평가 출석기간이 현재 과업의 직전 완료 사업연도와 다릅니다.")
+    period_start, period_end = date.fromisoformat(target["start"]), date.fromisoformat(target["end"])
+    def intervals(rows):
+        result = []
+        for row in rows:
+            start, end = date.fromisoformat(row.start), date.fromisoformat(row.end)
+            if not period_start <= start <= end <= period_end or not normalize(row.rationale):
+                raise ValueError("재직·직무정지 구간의 날짜 또는 사유가 유효하지 않습니다.")
+            if any(start <= b and a <= end for a, b in result):
+                raise ValueError("재직·직무정지 구간이 서로 겹칩니다.")
+            result.append((start, end))
+        return result
+    service, suspended = intervals(assessment.service_intervals), intervals(assessment.legal_suspension_intervals)
+    if any(not any(a <= x <= y <= b for a, b in service) for x, y in suspended):
+        raise ValueError("직무정지 구간이 재직 구간 밖에 있습니다.")
+    seen, eligible, attended, unknown, excluded = set(), 0, 0, 0, 0
+    for row in assessment.meetings:
+        day = date.fromisoformat(row.date)
+        identity = normalize(row.meeting_id)
+        if not identity or identity in seen or not period_start <= day <= period_end:
+            raise ValueError("회의 식별자가 중복·공백이거나 회의일이 평가기간 밖입니다.")
+        seen.add(identity)
+        if not any(a <= day <= b for a, b in service) or any(a <= day <= b for a, b in suspended):
+            excluded += 1
+            continue
+        eligible += 1
+        attended += row.attendance == "present"
+        unknown += row.attendance == "unknown"
+    counts = {"eligible_meetings": eligible, "attended_meetings": attended,
+              "excluded_meetings": excluded, "unknown_meetings": unknown,
+              "period_start": target["start"], "period_end": target["end"]}
+    if (assessment.value != "known" or assessment.unresolved or not service
+        or not assessment.all_board_meetings_covered or unknown or not eligible):
+        return {**pending, **counts, "reason": "대상 회의·재직기간·출석의 완전성이 미확정입니다."}
+    exception = assessment.exception
+    return {**pending, **counts, "status": "accepted_unreviewed",
+            "attendance_pct": attended * 100 / eligible,
+            "exception_accepted": ({"accepted": True, "rejected": False}.get(exception.value)
+                                   if not exception.unresolved else None),
+            "reason": "LLM이 인용한 회의·재직·직무정지 평가를 기초로 서버가 분모·분자를 계산. 사람 미검토."}
 
 
 def normalize(text: str) -> str:
@@ -124,6 +211,8 @@ def build_assessment_task(*, candidate: dict, corp_code: str, agenda_title: str,
                         "publisher_type": "company_disclosure", "excerpts": [normalize(annual)],
                         "partial": attendance.get("raw_text_truncated", True),
                         "hint": "이사회·위원회 구분, 재직·직무정지·사임 시점을 확인. 임기 출석률로 자동 수용하지 않음."})
+        if attendance.get("fiscal_period_quote"):
+            sources[-1]["excerpts"].insert(0, normalize(attendance["fiscal_period_quote"]))
     for item in supplemental or []:
         if item.get("status") != "read":
             continue
@@ -133,17 +222,24 @@ def build_assessment_task(*, candidate: dict, corp_code: str, agenda_title: str,
         excerpts = [content[max(0, m.start()-300):m.end()+1500]
                     for m in list(re.finditer(re.escape(name), content))[:8]] if name else []
         if excerpts:
+            # Short event disclosures contain the resignation reason above the
+            # name table. Keep that context; do not drop it at a name window.
+            if len(content) <= 12000:
+                excerpts = [content]
+            else:
+                excerpts.insert(0, content[:1500])
             sources.append({"source_id": item.get("source_id") or f"filing:{item['rcept_no']}",
                             "source_url": item["source_url"], "publisher_type": "company_disclosure",
                             "excerpts": excerpts, "partial": True, "document_sha256": _digest(content),
                             "hint": "추가 공시의 후보 이름 주변 원문. 동명이인·과거 시점·정정 여부는 별도 검토."})
-    task = {"contract_version": "opm-llm-assessment/2", "corp_code": corp_code,
+    task = {"contract_version": "opm-llm-assessment/3", "corp_code": corp_code,
             "candidate_name": name, "birth_date": candidate.get("birth_date"),
             "role_type": candidate.get("role_type"), "agenda_title": agenda_title,
             "as_of": as_of, "notice_rcept_no": notice_rcept,
             "policy_id": policy.get("id"), "policy_version": policy.get("version"),
             "policy_sha256": _digest(policy), "rubric": policy.get("assessment_rubric"),
             "sources": sources,
+            "attendance_period": attendance.get("attendance_period", {"status": "unresolved"}),
             "supplemental_collection": [{k: v for k, v in item.items() if k != "text"}
                                         for item in supplemental or []],
             "required_output": GuidelineAssessment.model_json_schema(),
@@ -164,7 +260,10 @@ def accept_assessment(task: dict, assessment: GuidelineAssessment | None) -> dic
     if not normalize(assessment.evaluator):
         return {**base, "status": "rejected", "reason": "평가자 표시가 비어 있습니다."}
     sources = {s["source_id"]: s["excerpts"] for s in task["sources"]}
-    for judgment in (assessment.appointment, assessment.independence):
+    judgments = [assessment.appointment, assessment.independence]
+    if assessment.attendance:
+        judgments += [assessment.attendance, assessment.attendance.exception]
+    for judgment in judgments:
         if not normalize(judgment.rationale) or any(not normalize(i) for i in judgment.unresolved):
             return {**base, "status": "rejected", "reason": "평가 사유 또는 미확인 사항이 비어 있습니다."}
         if judgment.value != "unknown" and not judgment.evidence_refs:
@@ -175,7 +274,19 @@ def accept_assessment(task: dict, assessment: GuidelineAssessment | None) -> dic
             quote = normalize(ref.quote)
             if len(quote) < 12 or not any(quote in text for text in sources.get(ref.source_id, [])):
                 return {**base, "status": "rejected", "reason": "인용을 현재 패킷의 원문에서 확인하지 못했습니다."}
-    return {**base, "status": "accepted_unreviewed", "assessment": assessment.model_dump()}
+    if assessment.attendance:
+        for item in [*assessment.attendance.service_intervals,
+                     *assessment.attendance.legal_suspension_intervals, *assessment.attendance.meetings]:
+            for ref in item.evidence_refs:
+                quote = normalize(ref.quote)
+                if len(quote) < 12 or not any(quote in text for text in sources.get(ref.source_id, [])):
+                    return {**base, "status": "rejected", "reason": "출석·재직 평가의 인용을 현재 원문에서 확인하지 못했습니다."}
+    try:
+        attendance = derive_attendance(task, assessment.attendance)
+    except ValueError:
+        return {**base, "status": "rejected", "reason": "출석 평가의 기간·구간·회의 식별 계약이 유효하지 않습니다."}
+    return {**base, "status": "accepted_unreviewed", "assessment": assessment.model_dump(),
+            "attendance_calculation": attendance}
 
 
 def assessment_metrics(result: dict) -> dict:
@@ -196,6 +307,13 @@ def assessment_metrics(result: dict) -> dict:
     metrics["coverage_complete"] = (metrics["is_reelection"] is False
                                      and independence["value"] in {"no_concern", "no_public_concern"}
                                      and not independence["unresolved"])
+    attendance = result.get("attendance_calculation") or {}
+    if attendance.get("status") == "accepted_unreviewed":
+        metrics["attendance_pct"] = attendance["attendance_pct"]
+        metrics["attendance_exception_accepted"] = attendance["exception_accepted"]
+        if metrics["is_reelection"] is True:
+            metrics["coverage_complete"] = (independence["value"] in {"no_concern", "no_public_concern"}
+                                             and not independence["unresolved"])
     return metrics
 
 

@@ -1,10 +1,10 @@
 {
   "generated_from": "wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md",
-  "source_sha256": "c32c39286fd0fa614662d64c84bb958edb2236cce3b0911dad5568a94ad92b39",
-  "policy_version": "0.4.0-pilot",
-  "policy_file_sha256": "433c830be9b37a9c6f46c74dd7f8e64b517173cf021c55102de7f3fc00f27980",
-  "assessment_contract": "opm-llm-assessment/2",
+  "source_sha256": "93ee6fdb805e5db5c83fa1431889e8f6632de7f842cddaef0588cfea34128ded",
+  "policy_version": "0.5.0-pilot",
+  "policy_file_sha256": "e89a9fedf89baf522cd05bee7444e3247a6038c1237d6d997d7b8c05b3b91358",
+  "assessment_contract": "opm-llm-assessment/3",
   "document_date": "2026-09-09",
   "status": "local_document_export",
-  "verification_note": "0.3.0 real pilot results; 0.4.0 rubric delivery verified, no candidate re-evaluation"
+  "verification_note": "0.5.0: Hanwha attendance 12/12 accepted unreviewed via MCP; final REVIEW for unresolved independence; duplicate rejected. Historical results labeled separately."
 }

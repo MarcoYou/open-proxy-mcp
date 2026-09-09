@@ -55,6 +55,205 @@
       "title": "AppointmentAssessment",
       "type": "object"
     },
+    "AttendanceAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "value": {
+          "enum": [
+            "known",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        },
+        "period_start": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Period Start",
+          "type": "string"
+        },
+        "period_end": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Period End",
+          "type": "string"
+        },
+        "all_board_meetings_covered": {
+          "title": "All Board Meetings Covered",
+          "type": "boolean"
+        },
+        "service_intervals": {
+          "items": {
+            "$ref": "#/$defs/DutyInterval"
+          },
+          "maxItems": 20,
+          "title": "Service Intervals",
+          "type": "array"
+        },
+        "legal_suspension_intervals": {
+          "items": {
+            "$ref": "#/$defs/DutyInterval"
+          },
+          "maxItems": 20,
+          "title": "Legal Suspension Intervals",
+          "type": "array"
+        },
+        "meetings": {
+          "items": {
+            "$ref": "#/$defs/BoardMeetingAttendance"
+          },
+          "maxItems": 200,
+          "title": "Meetings",
+          "type": "array"
+        },
+        "exception": {
+          "$ref": "#/$defs/AttendanceException"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value",
+        "period_start",
+        "period_end",
+        "all_board_meetings_covered",
+        "service_intervals",
+        "legal_suspension_intervals",
+        "meetings",
+        "exception"
+      ],
+      "title": "AttendanceAssessment",
+      "type": "object"
+    },
+    "AttendanceException": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "value": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value"
+      ],
+      "title": "AttendanceException",
+      "type": "object"
+    },
+    "BoardMeetingAttendance": {
+      "additionalProperties": false,
+      "properties": {
+        "meeting_id": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Meeting Id",
+          "type": "string"
+        },
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Date",
+          "type": "string"
+        },
+        "attendance": {
+          "enum": [
+            "present",
+            "absent",
+            "unknown"
+          ],
+          "title": "Attendance",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "meeting_id",
+        "date",
+        "attendance",
+        "evidence_refs"
+      ],
+      "title": "BoardMeetingAttendance",
+      "type": "object"
+    },
     "Citation": {
       "additionalProperties": false,
       "properties": {
@@ -76,6 +275,44 @@
         "quote"
       ],
       "title": "Citation",
+      "type": "object"
+    },
+    "DutyInterval": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "End",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "rationale",
+        "evidence_refs"
+      ],
+      "title": "DutyInterval",
       "type": "object"
     },
     "IndependenceAssessment": {
@@ -211,6 +448,17 @@
     },
     "independence": {
       "$ref": "#/$defs/IndependenceAssessment"
+    },
+    "attendance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AttendanceAssessment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

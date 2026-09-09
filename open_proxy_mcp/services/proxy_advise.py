@@ -73,6 +73,7 @@ from open_proxy_mcp.services.guideline_evidence import (
     collect_guideline_evidence,
     candidate_guideline_inputs,
     collect_supplemental_sources,
+    discover_officer_filings,
 )
 from open_proxy_mcp.services.guideline_assessment import (
     prepare_assessments, build_assessment_task, accept_assessment,
@@ -3828,6 +3829,12 @@ async def _build_proxy_advise_payload(
     guideline_supplemental = await collect_supplemental_sources(
         client, guideline_evidence_sources or [], as_of_ymd,
     ) if guideline_mode == "pilot" else []
+    guideline_officer_discovery = None
+    if guideline_mode == "pilot":
+        guideline_officer_discovery = await discover_officer_filings(
+            client, selected["corp_code"], as_of_ymd,
+            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")])
+        guideline_supplemental.extend(guideline_officer_discovery["filings"])
 
     # ── F6 (Phase 4) corpCode pre-warm: gather 전에 보장 ──
     # 6 worker가 동시에 _load_corp_codes 호출 시 race 위험 (F7 lock으로도 처리되지만
@@ -3986,9 +3993,17 @@ async def _build_proxy_advise_payload(
                 **guideline_evidence["filing"],
                 "evidence_id": "guideline_v2_attendance",
                 "section": "이사회에 관한 사항",
-                "note": "v2 출석 근거 조회; 임기 전체·예외는 별도 검토",
+                "note": "v2 출석 근거 조회; 적용기간·재직·예외는 후보별 평가 참조",
             }],
         }, "v2 출석 근거"))
+    for source in guideline_supplemental:
+        if source.get("status") == "read" and source.get("rcept_no"):
+            read_payloads.append(({"evidence_refs": [{
+                "rcept_no": source["rcept_no"],
+                "rcept_dt": source.get("published") or source["rcept_no"][:8],
+                "report_nm": source.get("report_nm") or "추가 공개 공시",
+                "note": "후보 동일성·재직·역할은 원문 평가 필요",
+            }]}, "v2 추가 원문"))
 
     # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
     # 260505 ralph 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
@@ -5334,12 +5349,17 @@ async def _build_proxy_advise_payload(
                     matched_assessment_ids.add(_task["task_id"])
                     _assessment = accept_assessment(_task, submitted_assessments.get(_task["task_id"]))
                     _v2_metrics = assessment_metrics(_assessment)
-                    for _metric in ("is_reelection", "independence_concern_accepted", "coverage_complete"):
+                    for _metric in ("is_reelection", "independence_concern_accepted", "coverage_complete",
+                                    "attendance_pct", "attendance_exception_accepted"):
                         _v2_inputs["evidence_status"][_metric] = {
                             "status": _assessment["status"], "human_reviewed": False,
                             "reason": "LLM 평가 · 사람 미검토. 원문 인용 연결만 검증. 미확인 사항은 평가 본문 참조."
                             if _assessment["status"] == "accepted_unreviewed" else _assessment.get("reason"),
                         }
+                    _calc = _assessment.get("attendance_calculation") or {}
+                    if _calc:
+                        _v2_inputs["evidence_status"]["attendance_pct"].update(
+                            status=_calc["status"], reason=_calc.get("reason"), calculation=_calc)
             guideline_trace = evaluate_guideline_policy(
                 policy, _v2_metrics, applicable=_v2_applicable,
             )
@@ -5638,13 +5658,15 @@ async def _build_proxy_advise_payload(
                 "decision_authority": "llm_pilot_and_existing_constraints" if guideline_mode == "pilot" else "existing_opm_engine",
                 "human_reviewed": False,
                 "review_label": "LLM 평가 · 사람 미검토" if guideline_mode == "pilot" else "shadow · 평가 미적용",
-                "assessment_scope": "사외·독립이사 후보의 선임구분·독립성. 출석 확정 입력 미구현. 다른 안건은 기존 엔진.",
+                "assessment_scope": "사외·독립이사 후보의 선임구분·독립성·직전 완료 사업연도 출석. 원문 기반 LLM 평가·사람 미검토. 다른 안건은 기존 엔진.",
                 "assessment_submissions": {
                     "submitted": len(submitted_assessments),
                     "unmatched_task_ids": sorted(set(submitted_assessments) - matched_assessment_ids),
                     "unmatched_action": "현재 대상·시점·정책·원문과 맞지 않는 평가는 사용하지 않음",
                 },
                 "evidence_collection": guideline_evidence,
+                "officer_discovery": {k: v for k, v in (guideline_officer_discovery or {}).items()
+                                      if k != "filings"},
                 "supplemental_collection": [{k: v for k, v in item.items() if k != "text"}
                                             for item in guideline_supplemental],
                 "agenda_traces": guideline_shadow_traces,

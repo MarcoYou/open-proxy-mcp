@@ -13,6 +13,97 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 from open_proxy_mcp.services.board_attendance import parse_board_attendance_observations
+from open_proxy_mcp.dart.client import DartClientError
+
+
+def fiscal_attendance_period(text: str, as_of: str) -> dict:
+    """Read the annual cover period, never silently label an older year latest."""
+    date_pattern = r"(\d{4})\s*[년.-]\s*(\d{1,2})\s*[월.-]\s*(\d{1,2})\s*[일.]?"
+    match = re.search(r"사업연도\s*" + date_pattern + r"\s*부터\s*" + date_pattern + r"\s*까지", text[:5000])
+    if not match:
+        return {"status": "unresolved", "reason": "사업보고서 표지의 사업연도 기간 확인 필요"}
+    try:
+        start, end = date(*map(int, match.group(1, 2, 3))), date(*map(int, match.group(4, 5, 6)))
+        cutoff = date.fromisoformat(f"{as_of[:4]}-{as_of[4:6]}-{as_of[6:]}")
+        next_end = end.replace(year=end.year+1, day=28 if end.month == 2 and end.day == 29 else end.day)
+        if not start <= end < cutoff or next_end < cutoff or not 300 <= (end-start).days <= 370:
+            return {"status": "unresolved", "reason": "오래되거나 비정형인 사업연도. 최신 완료 기간 별도 확인 필요",
+                    "disclosed_start": start.isoformat(), "disclosed_end": end.isoformat()}
+        return {"status": "resolved", "start": start.isoformat(), "end": end.isoformat(),
+                "basis": "annual_cover_standard_fiscal_year", "quote": match.group(0)}
+    except ValueError:
+        return {"status": "unresolved", "reason": "사업연도 날짜가 유효하지 않음"}
+
+
+def officer_filing_kind(title: str) -> str | None:
+    """Discovery aliases only: preserve the original title and role in evidence."""
+    title = re.sub(r"[\sㆍ·.,()\[\]〈〉]", "", title)
+    if "대표이사변경" in title:
+        return "representative_change"
+    if any(role in title for role in ("독립이사", "사외이사", "감사위원", "감사")) and (
+        any(event in title for event in ("중도퇴임", "해임")) or
+        ("선임" in title and ("신고" in title or "변경" in title))
+    ):
+        return "officer_change"
+    return None
+
+
+async def discover_officer_filings(client, corp_code: str, as_of: str,
+                                   exclude: list[str] | None = None) -> dict:
+    """Bounded, explicitly incomplete index of pre-cutoff officer events.
+
+    E (other) and I (exchange) are searched before title filtering. No event is
+    itself an accepted tenure fact. Same-day filings need intraday verification.
+    """
+    start = f"{int(as_of[:4])-2}0101"
+    scans, matches = [], {}
+    excluded = set(exclude or [])
+    for category in ("E", "I"):
+        scan = {"pblntf_ty": category, "start": start, "end": as_of,
+                "pages_read": 0, "status": "read", "truncated": False}
+        try:
+            for page in range(1, 3):
+                payload = await asyncio.wait_for(client.search_filings(
+                    bgn_de=start, end_de=as_of, corp_code=corp_code,
+                    pblntf_ty=category, page_no=page, page_count=100,
+                    last_reprt_at="N"), timeout=15)
+                status = payload.get("status", "000")
+                if status == "013":
+                    break
+                if status != "000":
+                    raise ValueError("index unavailable")
+                scan["pages_read"] = page
+                scan["total_count"] = payload.get("total_count")
+                total_pages = int(payload.get("total_page") or 1)
+                scan["truncated"] = total_pages > page
+                for row in payload.get("list", []):
+                    rc = row.get("rcept_no", "")
+                    published = row.get("rcept_dt", "")
+                    kind = officer_filing_kind(row.get("report_nm", ""))
+                    if (not kind or not re.fullmatch(r"\d{14}", rc)
+                        or not re.fullmatch(r"\d{8}", published)
+                        or published > as_of or rc[:8] > as_of or rc in excluded):
+                        continue
+                    matches[rc] = {"rcept_no": rc, "report_nm": row.get("report_nm"),
+                                   "published": published, "filing_kind": kind,
+                                   "same_day_unverified": published == as_of or rc[:8] == as_of}
+                if page >= total_pages:
+                    break
+        except DartClientError as exc:
+            scan["status"] = "no_rows" if exc.status == "013" else "fetch_failed"
+        except Exception:
+            scan["status"] = "fetch_failed"
+        scans.append(scan)
+    ordered = sorted(matches.values(), key=lambda x: (
+        x["filing_kind"] != "officer_change", -int(x["rcept_no"])))
+    eligible = [r for r in ordered if not r["same_day_unverified"]]
+    selected = eligible[:5]
+    filings = await collect_supplemental_filings(client, [r["rcept_no"] for r in selected], as_of)
+    filings = [{**row, **item, "discovery": "officer_events"} for row, item in zip(selected, filings)]
+    return {"status": "partial" if any(s["status"] == "fetch_failed" or s["truncated"] for s in scans)
+            or len(eligible) > 5 else "searched", "scans": scans, "matches": ordered,
+            "selected_count": len(selected), "filings": filings, "complete_history": False,
+            "hint": "최근 2년 시작일부터 종류별 최대 2쪽·원문 5건. 검색 0건은 재직/관계 없음이 아님. 같은 날 공시는 선후관계 확인 전 자동 입력에서 제외."}
 
 
 async def collect_supplemental_filings(client, rcepts: list[str], as_of: str) -> list[dict]:
@@ -30,7 +121,8 @@ async def collect_supplemental_filings(client, rcepts: list[str], as_of: str) ->
         try:
             doc = await asyncio.wait_for(client.get_document_cached(rc), timeout=20)
             text = (doc or {}).get("text") or ""
-            results.append({**item, "status": "read" if text else "format_unsupported", "text": text})
+            results.append({**item, "status": "read" if text else "format_unsupported", "text": text,
+                            "acquisition": (doc or {}).get("source", "document_xml")})
         except Exception:
             results.append({**item, "status": "fetch_failed"})
     return results
@@ -114,8 +206,11 @@ async def collect_guideline_evidence(client, annual_ref: dict | None, as_of: str
     if not (doc or {}).get("html"):
         return {**base, "status": "format_unsupported", "reason": "절 경계를 확인할 원문 XML을 확보하지 못했습니다."}
     parsed = parse_board_attendance_observations(doc["html"])
+    period = fiscal_attendance_period(doc.get("text") or "", as_of)
     text = parsed.pop("section_text", "")
     return {**base, **parsed, "document_read": True,
+            "attendance_period": {k: v for k, v in period.items() if k != "quote"},
+            "fiscal_period_quote": period.get("quote"),
             "source_url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}",
             "raw_text": text[:20000], "raw_text_total_chars": len(text),
             "raw_text_truncated": len(text) > 20000,
