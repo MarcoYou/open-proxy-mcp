@@ -21,6 +21,8 @@ import asyncio
 import os
 from typing import Any
 
+from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
+
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.price_multiple_data import (
     _DB_ERROR_PAYLOAD_WARN,
@@ -44,6 +46,10 @@ _SCHEMES = {
 #: 남의 캐시를 오염시키지 않으려고 작은 장부를 따로 둔다(행 하나 ≈ 400B, 512행 ≈ 200KB).
 _QUOTE_CACHE: dict[tuple[str, str], dict] = {}
 _QUOTE_CACHE_MAX = 512
+
+# 상한이 있는 쪽도 올린다 — **대조군**이다. 예산 없는 캐시가 자랄 때 이쪽이 평평하면
+# 「자라는 건 상한 없는 것들」이 눈으로 갈린다. 하나만 보면 그 판정을 못 한다.
+_register_unbudgeted_cache("trading_quote", lambda: _QUOTE_CACHE)
 
 
 #: 시계열 해상도. 저장분은 **주간**이라 `weekly` 가 원본이고 `monthly` 는 월말 다운샘플이다.
