@@ -135,6 +135,12 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 ---
 
+## 安全
+
+漏洞请按 [SECURITY.md](SECURITY.md) 的流程私下报告，**不要开公开 issue** —— 尤其是任何会泄露 API 密钥的路径。
+
+---
+
 ## 免责声明
 
 OpenProxy 是一项将 DART 公司披露数据结构化并提供给 AI 使用的工具。AI 可能产生幻觉或给出不准确的分析。AI 提供的意见不代表开发者或其所属机构的意见。所有输出仅供参考；最终的投资或投票决定必须核对原始披露，并经过专业人员审查。
