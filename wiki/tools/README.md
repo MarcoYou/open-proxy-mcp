@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — 도구 카탈로그
-updated: 2026-09-04
+updated: 2026-09-09
 ---
 
 # 도구(Tool) 카탈로그
@@ -23,10 +23,11 @@ updated: 2026-09-04
 |---|---|
 | [company](company.md) | 회사 식별 + 최근 공시 목록 — **모든 분석의 출발점** |
 
-### 🔔 전체시장 스캔 · 디제스트
+### 🔔 공시 스캔 · 검토
 | 도구 | 무엇을 답하나 |
 |---|---|
 | [screener](screener.md) | 전체시장 공시 스크리너 / **아침 공시 디제스트** — 직전 실행 이후 뜬 주요 공시를 카드형(시총·유형·단계·정정·분모%·링크)으로. scan(싸게)+details(필요 건만 숫자) |
+| [governance_screen](governance_screen.md) | **지정 기업 거버넌스 검토 파일럿** — 최대 30개사 공시 원문을 호출 LLM이 판독하고 근거·중요도별 검토 순서 반환. 사람 미검토·부분 근거 표시. 누락 항목은 건너뛰고 계속. `since`·`known_receipts` 증분 조회는 호출자가 실행하며 예약 작업·실제 투표 없음 |
 
 ### 🗳️ 주주총회 · 의결권
 | 도구 | 무엇을 답하나 |
@@ -117,14 +118,14 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 
 ## 카테고리별 통계
 
-각 tool 페이지의 `domain:` 프론트매터가 근거다(합 31 = 런타임 tool 수, 260903
-`dividend_history_data`+`dividend_screener` → `dividend_data` 통합으로 32→31). **표를 손으로
+각 tool 페이지의 `domain:` 프론트매터가 근거다(합 32 = 이 브랜치의 런타임 tool 수, 260909
+`governance_screen` 파일럿 추가). **표를 손으로
 세지 말 것** — `scripts/check_tool_catalog.py` 가 이 합과 런타임을 대조한다.
 
 | 도메인 | tool 수 | 무엇이 다른가 |
 |--------|---------|---------|
 | data | 25 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
-| action | 3 | **upstream data tool 을 불러 판단·요약**한다. `proxy_advise_before_meeting`(안건별 찬반) · `shareholder_commitment`(약속↔이행 대조, 신규 계산 1개 추가) · `screener`(전체시장 market-scan + hit 별 파서 디스패치) |
+| action | 4 | **공시 수집·판독을 연결해 판단·요약**한다. `proxy_advise_before_meeting`(안건별 찬반) · `shareholder_commitment`(약속↔이행 대조) · `screener`(전체시장 조회 + 유형별 상세) · `governance_screen`(지정 기업 공시 원문 + 호출 LLM 평가 + 검토 순서) |
 | reference | 3 | **회사·DART 무관 · API 0회.** `evidence`(접수번호→뷰어 URL) · `law_lookup`(법령 원문) · `proxy_guideline`(OPM 의결권 정책 원문) |
 
 > 260817 정리: 이 표가 합 21 로 굳어 런타임 26 과 5 만큼 어긋나 있었다. 분류명(Company/Meeting/
@@ -148,6 +149,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 |------|----------|------|-------|----------|
 | company | ✅ corpCode/company/list | - | 🔧 보강 | - |
 | screener | ✅ list.json 전체시장 필러(corp_code 無) + details=유형별 파서 재사용 | - | 🔧 카드 링크 | ✅ krx_weekly 시총(DART 0콜) |
+| governance_screen | ✅ 회사별 유형 필터 list + 선택·지정 원문 document, 원문 창 확장 재사용 | 원문 수집의 허용된 fallback만 | - | - |
 | shareholder_meeting_notice | ✅ list/document | - | - | - |
 | shareholder_meeting_results | ✅ list/document | 🔧 fallback | - | - |
 | ownership_structure | ✅ 사업보고서/majorstock | ✅ changes scope | - | - |
@@ -191,6 +193,8 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 - `release_v2-action-tool-검증-초안` → `proxy_advise_before_meeting` / `KIND-주총결과` → `results` fallback 이력
 
 ## 변경 이력
+
+- 2026-09-09: `governance_screen` 파일럿 추가(32개 도구, action 4개). 지정 기업 최대 30개사의 원문에 연결된 LLM 판독과 검토 순서, 누락 항목·부분 근거·사람 미검토 표시. 공개매수·행동주의·소송의 존재만으로 부정 판단하지 않으며 증분 조회와 예약 실행을 구분한다.
 - 2026-09-04: **도구 목록 정본을 이 표 하나로** — `wiki_index.md` Tools 절·`guide/architecture.md` 도구표는 링크로 대체, 루트 README 표는 이 표의 분류를 따른다. 상단(사람용)/하단(개발자용) 경계에 「여기서 멈춰도 됩니다」 구분선.
 - 2026-05-01: 초기 tool 페이지 일괄 작성 + financial_metrics 신규
 - 2026-05-18: 현재 16 public tool 체계로 정리(구 tool 명칭 제거)

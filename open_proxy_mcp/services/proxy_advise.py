@@ -79,6 +79,10 @@ from open_proxy_mcp.services.guideline_assessment import (
     prepare_assessments, build_assessment_task, accept_assessment,
     assessment_metrics, pilot_recommendation,
 )
+from open_proxy_mcp.services.guideline_assessment import prepare_assessment_batch, apply_missing_information_policy
+from open_proxy_mcp.services.guideline_workflow import resolve_workflow_settings, apply_workflow_policy, route_workflow
+from open_proxy_mcp.services.guideline_correction import candidate_correction_eligibility
+from open_proxy_mcp.services.guideline_research import discover_guideline_context, build_guideline_research_plan
 # Removed dead imports (archived at wiki/archive/services/):
 #   (구 백엔드 3종 — private archive)
 
@@ -3539,6 +3543,7 @@ async def _build_proxy_advise_payload(
     guideline_mode: str = "shadow",
     guideline_assessments: list[dict[str, Any]] | None = None,
     guideline_evidence_sources: list[dict[str, Any]] | None = None,
+    guideline_workflow: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """proxy_advise_before_meeting payload.
 
@@ -3570,7 +3575,10 @@ async def _build_proxy_advise_payload(
         raise ValueError("guideline_assessments requires guideline_mode=pilot")
     if guideline_evidence_sources and guideline_mode != "pilot":
         raise ValueError("guideline_evidence_sources requires guideline_mode=pilot")
-    submitted_assessments = prepare_assessments(guideline_assessments)
+    if guideline_workflow is not None and guideline_mode != "pilot":
+        raise ValueError("guideline_workflow requires guideline_mode=pilot")
+    workflow_settings = resolve_workflow_settings(guideline_workflow)
+    submitted_assessments, assessment_errors = prepare_assessment_batch(guideline_assessments)
     matched_assessment_ids: set[str] = set()
     timings_ms: dict[str, int] = {}
     _gate_holder = {} if _gate_holder is None else _gate_holder
@@ -3816,7 +3824,7 @@ async def _build_proxy_advise_payload(
     # vote_style 정책 로딩 (success / soft-fail)
     policy = _load_vote_style_policy(vote_style)
     if guideline_mode == "pilot":
-        policy = load_pilot_guideline_policy()
+        policy = apply_workflow_policy(load_pilot_guideline_policy(), workflow_settings)
     policy_id = (policy or {}).get("policy_id") or (policy or {}).get("id") or vote_style
     policy_meta = (policy or {}).get("policy_meta") or {}
     # Keep baseline and v2 traces separate. Only the explicit pilot applies
@@ -3830,11 +3838,16 @@ async def _build_proxy_advise_payload(
         client, guideline_evidence_sources or [], as_of_ymd,
     ) if guideline_mode == "pilot" else []
     guideline_officer_discovery = None
+    guideline_context_discovery = None
     if guideline_mode == "pilot":
         guideline_officer_discovery = await discover_officer_filings(
             client, selected["corp_code"], as_of_ymd,
             exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")])
         guideline_supplemental.extend(guideline_officer_discovery["filings"])
+        guideline_context_discovery = await discover_guideline_context(
+            client, selected["corp_code"], as_of_ymd,
+            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")])
+        guideline_supplemental.extend(guideline_context_discovery["filings"])
 
     # ── F6 (Phase 4) corpCode pre-warm: gather 전에 보장 ──
     # 6 worker가 동시에 _load_corp_codes 호출 시 race 위험 (F7 lock으로도 처리되지만
@@ -4635,6 +4648,7 @@ async def _build_proxy_advise_payload(
         decision = "NO_DATA"
         reason = "category 미분류 — 본문 검토 필요"
         matched_eval: dict[str, Any] | None = None
+        candidate_baseline: tuple[str, str] | None = None
         # 묶음 안건에서 **이 안건에 속한** 후보만 담는다(없으면 None). 사유·근거가 같은
         # 모집단을 말하게 하려고 루프 머리에서 초기화한다 — 이전 안건 값이 새면 안 된다.
         bundle_evals: list[dict[str, Any]] | None = None
@@ -4846,6 +4860,7 @@ async def _build_proxy_advise_payload(
                             # 강제 outside 처리 — _decide_director_election 안에 분기
                             matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
+                    candidate_baseline = (decision, reason)
                 # 공고는 사외이사라고 밝혔는데 사외이사 경로를 타지 않은 경우 — 독립성 검증이
                 # 통째로 건너뛰어진 채 조용히 FOR 가 나간다(실측 667건 중 20건, 3.0%).
                 # 후보자 표에 「직위」 칸이 없으면 roleType 이 구간 전체 제목에서 추정되는데,
@@ -5370,6 +5385,7 @@ async def _build_proxy_advise_payload(
                 guideline_trace["evidence_status"] = _v2_inputs["evidence_status"]
                 guideline_trace["assessment_task"] = _v2_inputs["assessment_task"]
             if _assessment is not None:
+                guideline_trace = apply_missing_information_policy(guideline_trace, _assessment, policy=policy)
                 guideline_trace["llm_assessment"] = _assessment
                 _independence = (_assessment.get("assessment") or {}).get("independence") or {}
                 guideline_trace["information_gaps"] = _independence.get("information_gaps") or []
@@ -5381,17 +5397,25 @@ async def _build_proxy_advise_payload(
                 guideline_trace["baseline_policy_citation"] = policy_citation
                 guideline_trace["human_reviewed"] = False
                 guideline_trace["assessment_scope"] = "outside_candidate_attendance_independence_only"
+                _correction = candidate_correction_eligibility(
+                    _task, _assessment, baseline_decision=decision, proposed_decision=_proposed,
+                    baseline_is_candidate_only=candidate_baseline == (decision, reason),
+                    law_layer_id=law_layer_id, agenda_relation_type=agenda_relation_type)
+                guideline_trace["baseline_correction"] = _correction
                 # Never relax law, ballot relations, existing opposition or
                 # later parent/child and seat-budget constraints.
                 _protected = (law_layer_id is not None or decision in {"AGAINST", "NO_VOTE"}
-                              or (decision == "REVIEW" and _proposed == "FOR")
+                              or (decision == "REVIEW" and _proposed == "FOR" and not _correction["eligible"])
                               or agenda_relation_type in {"procedural", "alternative", "conditional", "withdrawn"})
-                guideline_trace["decision_effect"] = "protected_baseline" if _protected else "pilot_applied"
+                guideline_trace["decision_effect"] = ("protected_baseline" if _protected else
+                    "source_correction_applied" if _correction["eligible"] else "pilot_applied")
                 if not _protected:
                     decision = _proposed
                     _a = (_assessment.get("assessment") or {})
                     _reason = (_a.get("independence") or {}).get("rationale") or _assessment.get("reason") or "근거 평가 미완료"
                     reason = f"LLM 평가 · 사람 미검토: {_reason} / 출석·독립성 범위의 v2 파일럿 권고"
+                    if _correction["eligible"]:
+                        reason += " / 원문으로 기존 추출 경보를 교정한 결과"
                     if _independence.get("information_gaps"):
                         reason += " / 공개되지 않은 관계 세부는 판단에서 제외하고 추가 확인으로 남김"
                     if _proposed == "REVIEW":
@@ -5489,6 +5513,7 @@ async def _build_proxy_advise_payload(
                 and _trace.get("pilot_recommendation") != _row["decision"]
             )
     if guideline_mode == "pilot":
+        voting_workflow = route_workflow(agenda_decisions, workflow_settings)
         guideline_shadow_traces = [
             {"agenda_title": row["agenda_title"], "agenda_category": row["agenda_category"],
              **row["guideline_trace"]}
@@ -5661,12 +5686,19 @@ async def _build_proxy_advise_payload(
                 "assessment_scope": "사외·독립이사 후보의 선임구분·독립성·직전 완료 사업연도 출석. 원문 기반 LLM 평가·사람 미검토. 다른 안건은 기존 엔진.",
                 "assessment_submissions": {
                     "submitted": len(submitted_assessments),
+                    "rejected_items": assessment_errors,
                     "unmatched_task_ids": sorted(set(submitted_assessments) - matched_assessment_ids),
                     "unmatched_action": "현재 대상·시점·정책·원문과 맞지 않는 평가는 사용하지 않음",
                 },
+                "voting_workflow": voting_workflow if guideline_mode == "pilot" else None,
                 "evidence_collection": guideline_evidence,
                 "officer_discovery": {k: v for k, v in (guideline_officer_discovery or {}).items()
                                       if k != "filings"},
+                "context_discovery": {k: v for k, v in (guideline_context_discovery or {}).items()
+                                      if k != "filings"},
+                "research_plan": build_guideline_research_plan(
+                    selected.get("corp_name") or company_query, as_of_ymd,
+                    guideline_context_discovery) if guideline_mode == "pilot" else None,
                 "supplemental_collection": [{k: v for k, v in item.items() if k != "text"}
                                             for item in guideline_supplemental],
                 "agenda_traces": guideline_shadow_traces,

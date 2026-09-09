@@ -12,6 +12,8 @@ from datetime import date
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, StrictBool
+from open_proxy_mcp.services.guideline_evidence import build_source_packet
+from open_proxy_mcp.services.guideline_correction import build_candidate_findings
 
 Text = Annotated[StrictStr, Field(min_length=1, max_length=6000)]
 
@@ -30,6 +32,8 @@ class _Judgment(_Strict):
     evidence_refs: Annotated[list[Citation], Field(max_length=12)]
     counterevidence: Annotated[list[Citation], Field(max_length=12)]
     unresolved: Annotated[list[Text], Field(max_length=12)]
+    # The caller must distinguish absence from a discovered contradiction.
+    unresolved_kind: Literal["missing_information", "conflicting_evidence", "identity_uncertain", "not_assessed"] | None = None
 
 
 class AppointmentAssessment(_Judgment):
@@ -76,6 +80,8 @@ class AttendanceAssessment(_Judgment):
     value: Literal["known", "unknown"]
     period_start: ISODate
     period_end: ISODate
+    period_basis: Literal["task", "llm_reading"] = "task"
+    period_evidence_refs: Annotated[list[Citation], Field(max_length=12)] = Field(default_factory=list)
     # An explicit completeness assessment, not an inference from row count.
     all_board_meetings_covered: StrictBool
     service_intervals: Annotated[list[DutyInterval], Field(max_length=20)]
@@ -84,12 +90,22 @@ class AttendanceAssessment(_Judgment):
     exception: AttendanceException
 
 
+class FindingReview(_Strict):
+    finding_id: Text
+    disposition: Literal["confirmed", "incorrect_extraction", "unresolved"]
+    rationale: Text
+    evidence_refs: Annotated[list[Citation], Field(max_length=12)]
+    counterevidence: Annotated[list[Citation], Field(max_length=12)]
+    unresolved: Annotated[list[Text], Field(max_length=12)]
+
+
 class GuidelineAssessment(_Strict):
     task_id: Text
     evaluator: Text
     appointment: AppointmentAssessment
     independence: IndependenceAssessment
     attendance: AttendanceAssessment | None = None
+    finding_reviews: Annotated[list[FindingReview], Field(max_length=30)] = Field(default_factory=list)
 
 
 def derive_attendance(task: dict, assessment: AttendanceAssessment | None) -> dict:
@@ -99,6 +115,15 @@ def derive_attendance(task: dict, assessment: AttendanceAssessment | None) -> di
     if assessment is None:
         return {**pending, "reason": "사업연도·재직기간·회의별 출석 평가가 미제출입니다."}
     target = task.get("attendance_period") or {}
+    if assessment.period_basis == "llm_reading":
+        # A failed extraction is not a veto over cited direct reading.
+        if not assessment.period_evidence_refs:
+            raise ValueError("직접 판독한 사업연도에 원문 인용이 없습니다.")
+        start, end = date.fromisoformat(assessment.period_start), date.fromisoformat(assessment.period_end)
+        cutoff = date.fromisoformat(task["as_of"])
+        if not start <= end < cutoff:
+            raise ValueError("직접 판독한 사업연도 날짜가 기준일과 맞지 않습니다.")
+        target = {"status": "resolved", "start": assessment.period_start, "end": assessment.period_end}
     if target.get("status") != "resolved":
         return {**pending, "reason": "직전 완료 사업연도의 원문 기간이 미확정입니다."}
     if [assessment.period_start, assessment.period_end] != [target["start"], target["end"]]:
@@ -132,7 +157,8 @@ def derive_attendance(task: dict, assessment: AttendanceAssessment | None) -> di
         unknown += row.attendance == "unknown"
     counts = {"eligible_meetings": eligible, "attended_meetings": attended,
               "excluded_meetings": excluded, "unknown_meetings": unknown,
-              "period_start": target["start"], "period_end": target["end"]}
+              "period_start": target["start"], "period_end": target["end"],
+              "period_basis": assessment.period_basis}
     if (assessment.value != "known" or assessment.unresolved or not service
         or not assessment.all_board_meetings_covered or unknown or not eligible):
         return {**pending, **counts, "reason": "대상 회의·재직기간·출석의 완전성이 미확정입니다."}
@@ -169,6 +195,27 @@ def prepare_assessments(items: list[dict] | None) -> dict[str, GuidelineAssessme
             raise ValueError("guideline_assessments: duplicate task_id")
         out[assessment.task_id] = assessment
     return out
+
+
+def prepare_assessment_batch(items: list[dict] | None) -> tuple[dict, list[dict]]:
+    """Reject one invalid submission without stopping unrelated candidates."""
+    if items and len(items) > 50:
+        raise ValueError("guideline_assessments: maximum 50 assessments")
+    valid, errors, duplicate = {}, [], set()
+    for index, item in enumerate(items or []):
+        try:
+            assessment = GuidelineAssessment.model_validate(item)
+        except Exception:
+            errors.append({"index": index, "reason": "invalid_assessment_schema"})
+            continue
+        key = assessment.task_id
+        if key in valid or key in duplicate:
+            valid.pop(key, None)
+            duplicate.add(key)
+            errors.append({"index": index, "reason": "duplicate_task_id"})
+        else:
+            valid[key] = assessment
+    return valid, errors
 
 
 def build_assessment_task(*, candidate: dict, corp_code: str, agenda_title: str,
@@ -214,30 +261,20 @@ def build_assessment_task(*, candidate: dict, corp_code: str, agenda_title: str,
         if attendance.get("fiscal_period_quote"):
             sources[-1]["excerpts"].insert(0, normalize(attendance["fiscal_period_quote"]))
     for item in supplemental or []:
-        if item.get("status") != "read":
-            continue
-        content = normalize(item.get("text") or "")
-        # Include identity-adjacent context while preserving the whole document
-        # hash; no old grades or inferred corporate affiliation are copied in.
-        excerpts = [content[max(0, m.start()-300):m.end()+1500]
-                    for m in list(re.finditer(re.escape(name), content))[:8]] if name else []
-        if excerpts:
-            # Short event disclosures contain the resignation reason above the
-            # name table. Keep that context; do not drop it at a name window.
-            if len(content) <= 12000:
-                excerpts = [content]
-            else:
-                excerpts.insert(0, content[:1500])
-            sources.append({"source_id": item.get("source_id") or f"filing:{item['rcept_no']}",
-                            "source_url": item["source_url"], "publisher_type": "company_disclosure",
-                            "excerpts": excerpts, "partial": True, "document_sha256": _digest(content),
-                            "hint": "추가 공시의 후보 이름 주변 원문. 동명이인·과거 시점·정정 여부는 별도 검토."})
-    task = {"contract_version": "opm-llm-assessment/3", "corp_code": corp_code,
+        packet = build_source_packet(item, candidate_name=name)
+        if packet:
+            # Explicit and automatically discovered copies of one receipt have
+            # one identity; explicit source requests are collected first.
+            if not any(source["source_id"] == packet["source_id"] for source in sources):
+                sources.append(packet)
+    task = {"contract_version": "opm-llm-assessment/5", "corp_code": corp_code,
             "candidate_name": name, "birth_date": candidate.get("birth_date"),
             "role_type": candidate.get("role_type"), "agenda_title": agenda_title,
             "as_of": as_of, "notice_rcept_no": notice_rcept,
             "policy_id": policy.get("id"), "policy_version": policy.get("version"),
             "policy_sha256": _digest(policy), "rubric": policy.get("assessment_rubric"),
+            "workflow_settings": policy.get("workflow_settings", {}),
+            "baseline_findings": build_candidate_findings(candidate),
             "sources": sources,
             "attendance_period": attendance.get("attendance_period", {"status": "unresolved"}),
             "supplemental_collection": [{k: v for k, v in item.items() if k != "text"}
@@ -270,11 +307,26 @@ def accept_assessment(task: dict, assessment: GuidelineAssessment | None) -> dic
             return {**base, "status": "rejected", "reason": "확정 평가에 원문 인용이 없습니다."}
         if judgment.value == "unknown" and not judgment.unresolved:
             return {**base, "status": "rejected", "reason": "unknown 평가에 미확인 사항이 없습니다."}
+        if judgment.unresolved_kind == "missing_information" and (judgment.value != "unknown" or judgment.counterevidence):
+            return {**base, "status": "rejected", "reason": "확정 평가 또는 반증이 있는 항목을 단순 누락으로 제외할 수 없습니다."}
         for ref in [*judgment.evidence_refs, *judgment.counterevidence]:
             quote = normalize(ref.quote)
             if len(quote) < 12 or not any(quote in text for text in sources.get(ref.source_id, [])):
                 return {**base, "status": "rejected", "reason": "인용을 현재 패킷의 원문에서 확인하지 못했습니다."}
+    from open_proxy_mcp.services.guideline_correction import validate_finding_reviews
+    correction_error = validate_finding_reviews(task, [item.model_dump() for item in assessment.finding_reviews])
+    if correction_error:
+        return {**base, "status": "rejected", "reason": correction_error}
+    for review in assessment.finding_reviews:
+        for ref in [*review.evidence_refs, *review.counterevidence]:
+            quote = normalize(ref.quote)
+            if len(quote) < 12 or not any(quote in text for text in sources.get(ref.source_id, [])):
+                return {**base, "status": "rejected", "reason": "기존 경보 판독의 인용을 현재 원문에서 확인하지 못했습니다."}
     if assessment.attendance:
+        for ref in assessment.attendance.period_evidence_refs:
+            quote = normalize(ref.quote)
+            if not ref.source_id.startswith("annual:") or len(quote) < 12 or not any(quote in text for text in sources.get(ref.source_id, [])):
+                return {**base, "status": "rejected", "reason": "직접 판독한 사업연도의 인용을 사업보고서 원문에서 확인하지 못했습니다."}
         for item in [*assessment.attendance.service_intervals,
                      *assessment.attendance.legal_suspension_intervals, *assessment.attendance.meetings]:
             for ref in item.evidence_refs:
@@ -315,6 +367,70 @@ def assessment_metrics(result: dict) -> dict:
             metrics["coverage_complete"] = (independence["value"] in {"no_concern", "no_public_concern"}
                                              and not independence["unresolved"])
     return metrics
+
+
+def apply_missing_information_policy(trace: dict, result: dict, *, policy: dict | None = None) -> dict:
+    """Skip explicitly assessed absence, retaining known risks and conflicts.
+
+    This changes applicability, never fills unknown metrics with invented values.
+    It runs only for the new pilot; the legacy shadow evaluator is unchanged.
+    """
+    if result.get("status") != "accepted_unreviewed":
+        return trace
+    a = result["assessment"]
+    judgments = {k: a.get(k) or {} for k in ("appointment", "independence", "attendance")}
+    judgments["attendance_exception"] = judgments["attendance"].get("exception") or {}
+    skipped = {key: j for key, j in judgments.items()
+               if j.get("value") == "unknown" and j.get("unresolved_kind") == "missing_information"}
+    trace["skipped_checks"] = [{"check": key, "reason": j["unresolved"],
+                                "rationale": j["rationale"], "disposition": "skipped"}
+                               for key, j in skipped.items()]
+    dependencies = {"metric:is_reelection": "appointment", "metric:attendance_pct": "attendance",
+                    "metric:attendance_exception_accepted": "attendance_exception",
+                    "metric:independence_concern_accepted": "independence"}
+    # Missing appointment classification does not erase an observed attendance
+    # trigger. Reuse the effective policy threshold, without inferring renewal.
+    from open_proxy_mcp.services.guideline_policy import _compare, load_pilot_guideline_policy
+    effective_policy = policy if policy is not None else load_pilot_guideline_policy()
+    attendance_rule = next((r for r in effective_policy.get("rules", [])
+                            if r.get("id") == "PILOT-ATT"), {})
+    metrics = assessment_metrics(result)
+    parameters = effective_policy.get("parameters") or {}
+    attendance_applicability_unresolved = (
+        "appointment" in skipped
+        and _compare(attendance_rule.get("test"), metrics, parameters) is True
+        and _compare(attendance_rule.get("exception"), metrics, parameters) is not True
+    )
+    # A known low attendance rate is not excused by an undisclosed explanation.
+    for row in trace.get("rule_results", []):
+        missing = row.get("missing") or []
+        if row["state"] != "unresolved" or not missing:
+            continue
+        if row["rule_id"] == "PILOT-ATT" and attendance_applicability_unresolved:
+            row["note"] = "확인된 출석률이 적용 문턱 미만이나 선임구분이 미확정이므로 이 기준의 적용 여부를 검토함. 재선임 또는 반대를 추정하지 않음"
+            continue
+        if row["rule_id"] == "PILOT-ATT" and ("appointment" in skipped or "attendance" in skipped):
+            row["state"] = "skipped_missing_information"
+        elif row["rule_id"] == "PILOT-ATT" and missing == ["metric:attendance_exception_accepted"] and "attendance_exception" in skipped:
+            row["state"] = "fired"
+            row["note"] = "확인된 저출석에 대해 공개되지 않은 예외 사유를 수용한 것으로 추정하지 않음"
+            trace["fired_effects"].append({"rule_id": row["rule_id"], "effect": row["effect"]})
+        elif all(dependencies.get(key) in skipped for key in missing):
+            row["state"] = "skipped_missing_information"
+    trace["unresolved"] = [{"rule_id": r["rule_id"], "missing": r.get("missing", [])}
+                           for r in trace.get("rule_results", []) if r["state"] == "unresolved"]
+    # Unqualified support is never inferred from all checks being absent.
+    substantive = [k for k, j in judgments.items() if j.get("unresolved") and k not in skipped
+                   and k != "attendance_exception"]
+    trace["material_conflicts"] = substantive
+    evaluated = any(r["state"] in {"not_triggered", "excepted", "fired"}
+                    for r in trace.get("rule_results", []))
+    if skipped and not substantive and not trace["unresolved"] and evaluated:
+        trace["gate"] = "pass"
+        trace["support_basis"] = "available_evidence_with_explicit_skips"
+    else:
+        trace["support_basis"] = "assessed_scope" if trace.get("gate") == "pass" else "insufficient_or_conflicting_basis"
+    return trace
 
 
 def pilot_recommendation(trace: dict) -> str:

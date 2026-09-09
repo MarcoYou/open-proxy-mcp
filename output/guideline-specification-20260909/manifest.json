@@ -1,10 +1,11 @@
 {
   "generated_from": "wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md",
-  "source_sha256": "93ee6fdb805e5db5c83fa1431889e8f6632de7f842cddaef0588cfea34128ded",
-  "policy_version": "0.5.0-pilot",
-  "policy_file_sha256": "e89a9fedf89baf522cd05bee7444e3247a6038c1237d6d997d7b8c05b3b91358",
-  "assessment_contract": "opm-llm-assessment/3",
+  "source_sha256": "8903d23035f14b904983b81901c715cfeecc2fe5b413ae43b873d0792a1b994a",
+  "policy_version": "0.7.0-pilot",
+  "policy_file_sha256": "46420f05f8becf635985bae548b0d3ab7415917d6522fffeb9550540eabe7d69",
+  "assessment_contract": "opm-llm-assessment/5",
+  "governance_contract": "1",
   "document_date": "2026-09-09",
   "status": "local_document_export",
-  "verification_note": "0.5.0: Hanwha attendance 12/12 accepted unreviewed via MCP; final REVIEW for unresolved independence; duplicate rejected. Historical results labeled separately."
+  "verification_note": "Version-separated live MCP pilot evidence is maintained in the canonical verification section. Source-bound acceptance and routing are not an independent accuracy benchmark. All assessments remain human unreviewed; no ballots or scheduled runs."
 }

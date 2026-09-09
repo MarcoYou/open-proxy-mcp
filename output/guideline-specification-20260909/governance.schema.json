@@ -1,0 +1,342 @@
+{
+  "$defs": {
+    "GovernanceCitation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 3000,
+          "minLength": 12,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "GovernanceCitation",
+      "type": "object"
+    },
+    "GovernanceFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "minority_shareholder_treatment",
+            "related_party_conflict",
+            "board_accountability",
+            "disclosure_reliability",
+            "control_process",
+            "other"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "supported_risk",
+            "no_adverse_signal",
+            "unresolved"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "materiality": {
+          "enum": [
+            "high",
+            "moderate",
+            "low"
+          ],
+          "title": "Materiality",
+          "type": "string"
+        },
+        "actor": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Actor",
+          "type": "string"
+        },
+        "event": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Event",
+          "type": "string"
+        },
+        "observation": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Observation",
+          "type": "string"
+        },
+        "fact_status": {
+          "enum": [
+            "disclosed_fact",
+            "party_claim",
+            "court_ruling",
+            "conditional_plan",
+            "unknown"
+          ],
+          "title": "Fact Status",
+          "type": "string"
+        },
+        "procedural_state": {
+          "enum": [
+            "not_applicable",
+            "alleged",
+            "filed",
+            "pending",
+            "interim_order",
+            "final_ruling",
+            "appealed",
+            "settled",
+            "withdrawn",
+            "unknown"
+          ],
+          "title": "Procedural State",
+          "type": "string"
+        },
+        "impact_state": {
+          "enum": [
+            "observed",
+            "prospective",
+            "unknown"
+          ],
+          "title": "Impact State",
+          "type": "string"
+        },
+        "event_date": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Date"
+        },
+        "case_or_round": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Case Or Round"
+        },
+        "ownership_basis": {
+          "default": "not_applicable",
+          "enum": [
+            "not_applicable",
+            "contractual",
+            "settled",
+            "unknown"
+          ],
+          "title": "Ownership Basis",
+          "type": "string"
+        },
+        "voting_rights": {
+          "default": "not_applicable",
+          "enum": [
+            "not_applicable",
+            "confirmed",
+            "unresolved"
+          ],
+          "title": "Voting Rights",
+          "type": "string"
+        },
+        "relevance": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Relevance",
+          "type": "string"
+        },
+        "candidate_name": {
+          "anyOf": [
+            {
+              "maxLength": 5000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Name"
+        },
+        "risk_basis": {
+          "enum": [
+            "substantive_conduct",
+            "event_presence_only",
+            "not_applicable",
+            "unknown"
+          ],
+          "title": "Risk Basis",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/GovernanceCitation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/GovernanceCitation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "$ref": "#/$defs/GovernanceGap"
+          },
+          "maxItems": 12,
+          "title": "Gaps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "category",
+        "disposition",
+        "materiality",
+        "actor",
+        "event",
+        "observation",
+        "fact_status",
+        "procedural_state",
+        "impact_state",
+        "relevance",
+        "risk_basis",
+        "rationale",
+        "evidence_refs"
+      ],
+      "title": "GovernanceFinding",
+      "type": "object"
+    },
+    "GovernanceGap": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "enum": [
+            "minority_shareholder_treatment",
+            "related_party_conflict",
+            "board_accountability",
+            "disclosure_reliability",
+            "control_process",
+            "other"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "missing_information",
+            "truncated_context",
+            "fetch_failed",
+            "conflicting_evidence",
+            "identity_uncertain",
+            "not_assessed"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "next_action": {
+          "maxLength": 5000,
+          "minLength": 1,
+          "title": "Next Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category",
+        "question",
+        "kind",
+        "next_action"
+      ],
+      "title": "GovernanceGap",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "maxLength": 5000,
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    },
+    "evaluator": {
+      "maxLength": 5000,
+      "minLength": 1,
+      "title": "Evaluator",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/GovernanceFinding"
+      },
+      "maxItems": 30,
+      "title": "Findings",
+      "type": "array"
+    },
+    "skipped_checks": {
+      "items": {
+        "$ref": "#/$defs/GovernanceGap"
+      },
+      "maxItems": 30,
+      "title": "Skipped Checks",
+      "type": "array"
+    },
+    "summary": {
+      "maxLength": 5000,
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "evaluator",
+    "findings",
+    "summary"
+  ],
+  "title": "GovernanceAssessment",
+  "type": "object"
+}

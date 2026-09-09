@@ -7,6 +7,8 @@ into an accepted independence assessment.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import re
 from datetime import date
 from typing import Any
@@ -14,6 +16,87 @@ from bs4 import BeautifulSoup
 
 from open_proxy_mcp.services.board_attendance import parse_board_attendance_observations
 from open_proxy_mcp.dart.client import DartClientError
+
+
+def _source_read_options(src: dict) -> dict:
+    """Bounded navigation requests; these select text, never assert facts."""
+    scope = src.get("source_scope", "company_context")
+    terms = src.get("focus_terms", [])
+    offset, chars = src.get("text_offset", 0), src.get("text_chars", 12000)
+    if (not isinstance(scope, str) or scope not in {"candidate", "company_context", "agenda_context"}
+        or not isinstance(terms, list) or len(terms) > 6
+        or any(not isinstance(term, str) or not term.strip() or len(term) > 120 for term in terms)
+        or type(offset) is not int or not 0 <= offset <= 2_000_000
+        or type(chars) is not int or not 1000 <= chars <= 30000):
+        raise ValueError("guideline_evidence_sources: invalid source reading options")
+    return {"source_scope": scope, "focus_terms": list(dict.fromkeys(terms)),
+            "text_offset": offset, "text_chars": chars}
+
+
+def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
+    """Keep company context even when a candidate name is absent.
+
+    Offsets refer to whitespace-normalized document text. Disjoint excerpts stay
+    separate so a citation cannot bridge an omitted passage. A next request can
+    widen/reposition the same original document without a new fact parser.
+    """
+    if item.get("status") != "read":
+        return None
+    text = re.sub(r"\s+", " ", item.get("text") or "").strip()
+    if not text:
+        return None
+    options = _source_read_options(item.get("read_options") or {
+        "source_scope": item.get("purpose", "company_context")})
+    offset, budget = options["text_offset"], options["text_chars"]
+    terms = options["focus_terms"]
+    if not terms and candidate_name and offset == 0:
+        terms = [candidate_name]
+    matches = []
+    if terms and options["source_scope"] != "candidate" and not options["focus_terms"]:
+        # Preserve a company overview as well as identity-adjacent context.
+        matches.append((0, min(len(text), budget // 3)))
+    found = []
+    for term in terms:
+        hits = list(re.finditer(re.escape(term), text))
+        if hits:
+            found.append(term)
+        for match in hits[:6]:
+            matches.append((max(0, match.start() - 500), min(len(text), match.end() + 3500)))
+    if not found:
+        matches = [(min(offset, len(text)), min(len(text), offset + budget))]
+    spans = []
+    for start, end in sorted(matches):
+        if spans and start <= spans[-1][1]:
+            spans[-1][1] = max(end, spans[-1][1])
+        else:
+            spans.append([start, end])
+    selected = []
+    for start, end in spans:
+        end = min(end, start + budget)
+        if end > start:
+            selected.append([start, end])
+            budget -= end - start
+        if budget <= 0:
+            break
+    source_id = item.get("source_id") or f"filing:{item['rcept_no']}"
+    next_offset = max((end for _, end in selected), default=min(offset, len(text)))
+    base_request = ({"type": "dart", "rcept_no": item["rcept_no"]} if item.get("rcept_no")
+                    else {"type": "kind", "url": item["source_url"]})
+    return {"source_id": source_id, "source_url": item["source_url"],
+            "publisher_type": "company_disclosure", "source_scope": options["source_scope"],
+            "published": item.get("published") or (item.get("rcept_no") or "")[:8],
+            "excerpts": [text[start:end] for start, end in selected],
+            "excerpt_offsets": [{"start": start, "end": end} for start, end in selected],
+            "offset_basis": "whitespace_normalized_document_text", "total_chars": len(text),
+            "document_sha256": hashlib.sha256(json.dumps(text, ensure_ascii=False).encode()).hexdigest(),
+            "partial": selected != [[0, len(text)]],
+            "candidate_name_present": bool(candidate_name and candidate_name in text),
+            "focus_terms_found": found, "focus_terms_not_found": [t for t in terms if t not in found],
+            "read_next": {"source_request": {**base_request, "source_scope": options["source_scope"],
+                                              "text_offset": next_offset, "text_chars": options["text_chars"]},
+                          "has_more_after_window": next_offset < len(text),
+                          "can_refocus": True},
+            "hint": "회사·안건 맥락 원문. 후보명 부재는 무관함의 증거가 아니다. 당사자·사건·공개일·효력일·조건부 계획·정정/후속 공시를 대조하고 후보 책임은 별도 근거로 연결. 잘린 문맥은 focus_terms 또는 text_offset으로 다시 읽는다."}
 
 
 def fiscal_attendance_period(text: str, as_of: str) -> dict:
@@ -140,12 +223,14 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
     for src in sources:
         if not isinstance(src, dict):
             raise ValueError("guideline_evidence_sources: object required")
-        if src.get("type") == "dart" and set(src) == {"type", "rcept_no"}:
+        options = _source_read_options(src)
+        read_keys = {"source_scope", "focus_terms", "text_offset", "text_chars"}
+        if src.get("type") == "dart" and set(src) - read_keys == {"type", "rcept_no"}:
             rc = src["rcept_no"]
             if not isinstance(rc, str) or not re.fullmatch(r"\d{14}", rc):
                 raise ValueError("guideline_evidence_sources: invalid DART receipt")
-            validated.append(src)
-        elif src.get("type") == "kind" and set(src) == {"type", "url"}:
+            validated.append({**src, "read_options": options})
+        elif src.get("type") == "kind" and set(src) - read_keys == {"type", "url"}:
             url = src["url"]
             match = re.fullmatch(r"https://kind\.krx\.co\.kr/external/(\d{4})/(\d{2})/(\d{2})/\d{6}/(\d{14})/(\d+)\.htm", url) if isinstance(url, str) else None
             if not match:
@@ -154,7 +239,7 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
                 published = date(*map(int, match.group(1, 2, 3))).strftime("%Y%m%d")
             except ValueError:
                 raise ValueError("guideline_evidence_sources: invalid KIND publication date") from None
-            validated.append({**src, "published": published, "source_id": f"kind:{match[4]}:{match[5]}"})
+            validated.append({**src, "read_options": options, "published": published, "source_id": f"kind:{match[4]}:{match[5]}"})
         else:
             raise ValueError("guideline_evidence_sources: unsupported source schema")
     identities = [s.get("source_id") or s.get("rcept_no") for s in validated]
@@ -164,9 +249,9 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
     for src in validated:
         if src["type"] == "dart":
             result = (await collect_supplemental_filings(client, [src["rcept_no"]], as_of))[0]
-            results.append({**result, "source_id": f"filing:{src['rcept_no']}"})
+            results.append({**result, "source_id": f"filing:{src['rcept_no']}", "read_options": src["read_options"]})
             continue
-        item = {"source_id": src["source_id"], "source_url": src["url"],
+        item = {"source_id": src["source_id"], "source_url": src["url"], "read_options": src["read_options"],
                 "published": src["published"], "date_basis": "KIND fixed external publication path"}
         if src["published"] > as_of:
             results.append({**item, "status": "after_as_of"})
@@ -203,14 +288,21 @@ async def collect_guideline_evidence(client, annual_ref: dict | None, as_of: str
         doc = await asyncio.wait_for(client.get_document_cached(rc), timeout=30)
     except Exception:
         return {**base, "status": "fetch_failed", "reason": "공시 원문 조회 실패. 미공시로 처리하지 않습니다."}
-    if not (doc or {}).get("html"):
-        return {**base, "status": "format_unsupported", "reason": "절 경계를 확인할 원문 XML을 확보하지 못했습니다."}
-    parsed = parse_board_attendance_observations(doc["html"])
+    doc = doc or {}
+    try:
+        parsed = parse_board_attendance_observations(doc["html"]) if doc.get("html") else {"status": "format_unsupported"}
+    except Exception:
+        parsed = {"status": "extraction_failed", "reason": "자동 추출 실패. 원문 직접 판독 가능."}
     period = fiscal_attendance_period(doc.get("text") or "", as_of)
     text = parsed.pop("section_text", "")
-    return {**base, **parsed, "document_read": True,
+    raw = doc.get("text") or ""
+    if not text:
+        # Navigation aid, not another fact parser: give the LLM a readable window.
+        match = re.search(r"이사회.{0,10}관한 사항", raw)
+        text = raw[max(0, match.start()-300):] if match else raw
+    return {**base, **parsed, "document_read": bool(text),
             "attendance_period": {k: v for k, v in period.items() if k != "quote"},
-            "fiscal_period_quote": period.get("quote"),
+            "fiscal_period_quote": period.get("quote") or raw[:5000],
             "source_url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}",
             "raw_text": text[:20000], "raw_text_total_chars": len(text),
             "raw_text_truncated": len(text) > 20000,

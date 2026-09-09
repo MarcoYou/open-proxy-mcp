@@ -2,6 +2,16 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## pilot — 2026-09-09 (unreleased)
+
+### `governance_screen` — source-bound governance review across selected companies
+
+The tool gathers filing excerpts for up to 30 explicitly selected companies and gives the calling LLM reading tasks. A second call with `governance_assessments` for those tasks returns a review order based on evidence and materiality. The server does not invoke a separate LLM. Review categories cover minority-shareholder treatment, conflicts of interest, board accountability, disclosure reliability and control procedures. Tender offers, activism and litigation are not adverse findings by themselves. Party claims remain distinct from court rulings, and contractual holdings from settlement and exercisable voting rights.
+
+Use `evidence_sources` to select up to five filings and source windows per company. Extend missing context with `text_offset`, `text_chars` and `focus_terms`; changed evidence, cutoff dates or settings require assessment of the new task. Missing checks are reported individually while other checks and companies continue. Citation matching does not verify the semantic accuracy of an assessment or completeness of filing coverage. Results are labelled **LLM assessment · human unreviewed · partial evidence**.
+
+`since` and `known_receipts` narrow the list of new receipt candidates. They do not replace the evidence scope; the caller retains the returned checkpoint for a later request. The tool creates neither scheduled jobs nor actual votes. This branch's tool catalog grows from 31 to 32; the entry does not signify production deployment. See the [tool specification](../wiki/tools/governance_screen.md) for inputs, outputs and external-call bounds.
+
 ## beta — 2026-09-07
 
 ### Meeting-notice bundle: correction summary only for corrections, agenda details parsed once

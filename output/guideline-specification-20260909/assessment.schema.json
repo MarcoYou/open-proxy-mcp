@@ -35,6 +35,24 @@
           "title": "Unresolved",
           "type": "array"
         },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
+        },
         "value": {
           "enum": [
             "new",
@@ -90,6 +108,24 @@
           "title": "Unresolved",
           "type": "array"
         },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
+        },
         "value": {
           "enum": [
             "known",
@@ -107,6 +143,23 @@
           "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
           "title": "Period End",
           "type": "string"
+        },
+        "period_basis": {
+          "default": "task",
+          "enum": [
+            "task",
+            "llm_reading"
+          ],
+          "title": "Period Basis",
+          "type": "string"
+        },
+        "period_evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Period Evidence Refs",
+          "type": "array"
         },
         "all_board_meetings_covered": {
           "title": "All Board Meetings Covered",
@@ -191,6 +244,24 @@
           "maxItems": 12,
           "title": "Unresolved",
           "type": "array"
+        },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
         },
         "value": {
           "enum": [
@@ -315,6 +386,68 @@
       "title": "DutyInterval",
       "type": "object"
     },
+    "FindingReview": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "confirmed",
+            "incorrect_extraction",
+            "unresolved"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "disposition",
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved"
+      ],
+      "title": "FindingReview",
+      "type": "object"
+    },
     "IndependenceAssessment": {
       "additionalProperties": false,
       "properties": {
@@ -349,6 +482,24 @@
           "maxItems": 12,
           "title": "Unresolved",
           "type": "array"
+        },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
         },
         "value": {
           "enum": [
@@ -459,6 +610,14 @@
         }
       ],
       "default": null
+    },
+    "finding_reviews": {
+      "items": {
+        "$ref": "#/$defs/FindingReview"
+      },
+      "maxItems": 30,
+      "title": "Finding Reviews",
+      "type": "array"
     }
   },
   "required": [

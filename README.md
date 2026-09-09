@@ -3,12 +3,12 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#도구-구조-31개)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#도구-구조-32개)
 [![Release](https://img.shields.io/badge/release-v2.5.2-blue.svg)](docs/RELEASE_NOTES.md)
 
 [English](README_ENG.md) · [简体中文](README_ZH.md)
 
-[빠른 시작](#빠른-시작) · [주요 기능](#주요-기능) · [도구 구조](#도구-구조-31개) · [데이터 출처](#데이터-소스)
+[빠른 시작](#빠른-시작) · [주요 기능](#주요-기능) · [도구 구조](#도구-구조-32개) · [데이터 출처](#데이터-소스)
 
 ## Why OpenProxy?
 
@@ -84,18 +84,20 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | 🧭 [지분·주주환원](docs/features/ownership.md) | 누가 지배하고 자본은 어디로 가나? | 소유구조, 배당·자사주 소각, [밸류업 약속과 실제 집행](docs/features/shareholder-return.md) |
 | 🔔 [시장·리스크](wiki/tools/screener.md) | 오늘 무엇이 달라졌나? | 시장 공시 디제스트, [경영권 분쟁](docs/features/control-contest.md)·거래·희석·[리스크 이벤트](docs/features/risk-events.md) 추적 |
 
-이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 31개 도구**가 뒷받침합니다. 전체 목록은 [도구 구조](#도구-구조-31개)에서 확인할 수 있습니다.
+이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 32개 도구**가 뒷받침합니다. 전체 목록은 [도구 구조](#도구-구조-32개)에서 확인할 수 있습니다.
+
+**거버넌스 검토 파일럿** — `governance_screen`은 지정한 최대 30개사의 공시 원문을 모아 연결된 AI가 소수주주 대우·이해상충·이사회 책임 등을 판독하고, 근거와 중요도에 따라 검토 순서를 정리합니다. 공개매수·행동주의·소송이 있다는 사실만으로 부정 평가하지 않습니다. 결과는 **부분 근거에 대한 LLM 평가 · 사람 미검토**로 표시하며, 누락은 해당 항목만 알리고 다른 검토를 계속합니다. `since`·`known_receipts`로 새 공시 목록을 좁혀 다시 호출할 수 있습니다. 예약 실행이나 실제 투표는 만들지 않습니다. 이 브랜치의 파일럿 기능이며 운영 배포 여부는 별도로 확인해야 합니다.
 
 ---
 
-## 도구 구조 (31개)
+## 도구 구조 (32개)
 
 분류는 [wiki/tools 카탈로그](wiki/tools/README.md)의 「무엇을 알고 싶을 때 무엇을 쓰나」 표와 같다 — 그 표가 정본이다.
 
 | 분류 | Tools | 역할 |
 |---|---|---|
 | 🏢 기본 — 회사 찾기 | [`company`](wiki/tools/company.md) | 회사 식별 + 최근 공시 목록 — 모든 분석의 출발점 |
-| 🔔 전체시장 스캔·디제스트 | [`screener`](wiki/tools/screener.md) | 전체시장 공시 스크리너 / 아침 공시 디제스트 |
+| 🔔 공시 스캔·검토 | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | 전체시장 공시 디제스트 · 지정 기업 공시 원문과 LLM 거버넌스 검토 순서(파일럿) |
 | 🗳️ 주주총회·의결권 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 소집공고(전)·결과(후) · 안건별 찬성/반대/검토 보조 · 판단 기준 문서 원문 |
 | 💰 지분·재무·지배구조 | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | 지분 구조 · 확정/잠정 실적 · 사업의 내용 · 자산주 · PER/PBR · 컨센서스 · 시세·시총 · 지배구조보고서 · 이사회 |
 | 🎁 주주환원·자본 | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | 배당 공시·시계열 · 자기주식 · 밸류업 · 약속 vs 이행 · 합병/분할 · 증자/CB/BW/감자 |
@@ -106,7 +108,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ### 의결권 정책
 
-**정책의 반대 기준이 곧 엔진의 자동 반대 조건은 아닙니다.** 추가 판단이 필요한 우려는 `검토 필요(REVIEW)`로 두며, 출석률은 현재 판정 조건에 반영하지 않습니다. `proxy_guideline`에서 인용된 절을, `0-A`에서 정책과 엔진의 대응표를 확인하세요. [판정·회차·정보 기준일 읽는 법](docs/features/proxy-voting.md).
+**정책의 반대 기준이 곧 엔진의 자동 반대 조건은 아닙니다.** 기본 엔진은 추가 판단이 필요한 우려를 `검토 필요(REVIEW)`로 두며 출석률을 판정 조건에 반영하지 않습니다. 별도로 선택하는 v2 파일럿은 원문에 연결된 LLM 평가로 직전 완료 사업연도 출석·독립성을 후보 권고에 적용합니다. [파일럿 입력·적용 범위](wiki/tools/proxy_advise_before_meeting.md)를 확인하세요. `proxy_guideline`에서 인용된 절을, `0-A`에서 기본 정책과 엔진의 대응표를 확인할 수 있습니다. [판정·회차·정보 기준일 읽는 법](docs/features/proxy-voting.md).
 
 `proxy_advise_before_meeting`은 OPM 자체 **Open Proxy Guideline**을 기본 정책으로 사용합니다. 판단 기준은 소수주주 보호, 거버넌스 투명성, 장기 가치, 추적 가능성입니다. 주요 자산운용사의 거래소 공시 의결권 행사 내역과 국민연금의 공개 행사 내역을 교차 검토에 활용합니다. 모든 응답에는 DART와 도구 호출 수를 담은 `data.usage`가 포함됩니다(DART 분당 1,000회 한도, 서버 안전 제한 910회).
 

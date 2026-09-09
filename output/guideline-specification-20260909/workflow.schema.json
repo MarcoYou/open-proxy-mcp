@@ -1,0 +1,57 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "stance": {
+      "default": "standard",
+      "enum": [
+        "standard",
+        "conservative"
+      ],
+      "title": "Stance",
+      "type": "string"
+    },
+    "automation": {
+      "default": "selective",
+      "enum": [
+        "automatic",
+        "selective",
+        "manual"
+      ],
+      "title": "Automation",
+      "type": "string"
+    },
+    "manual_agenda_titles": {
+      "items": {
+        "maxLength": 6000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Manual Agenda Titles",
+      "type": "array"
+    },
+    "attendance_min_pct": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "ge": 50,
+          "le": 100
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attendance Min Pct"
+    }
+  },
+  "title": "WorkflowSettings",
+  "type": "object"
+}
