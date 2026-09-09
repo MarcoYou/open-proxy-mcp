@@ -69,7 +69,7 @@ updated: 2026-09-09
 - `is_financial`(KSIC 64/65/66 게이트) · `is_reit`(사명 "리츠"/"REIT" 휴리스틱) — 둘 다 투자부동산이
   본업이라 잉여자산에서 제외하고 라벨링.
 - `market_cap_krw`: **[[price_multiple_data]] `_market_for` 의 `common_mktcap` 재사용** = KRX 상장주식수(`list_shrs`) ×
-  최신 주간 종가(`krx_weekly`, Supabase 캐시, DART 0콜). 유통주식수(자기주식 제외)가 아니다 — 260721 변경이력 참조.
+  최신 주간 종가(주간 시세 저장분, DART 0콜). 유통주식수(자기주식 제외)가 아니다 — 260721 변경이력 참조.
   `market_cap_meta`: `{shares, close, date}` 기준 명시. 시세 실패 시 `None` + `{reason}`.
 - `asset_buckets`: 목적버킷 6분류([[260721_1500_decision_asset-holdings-purpose-buckets]]) — `{라벨: {krw, desc}}`,
   값 있는 버킷만 순서대로. 현금성/환금성증권/우호제휴지분/지배관계사지분/투자용부동산/본업자산.
