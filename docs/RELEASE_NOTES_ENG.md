@@ -2,6 +2,29 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## v2.6.0 · beta — 2026-09-09 (4)
+
+Bumped from 2.5.2 (08-05). A month of changes had shipped while the version stayed put, so the
+README badge alone made the project look stalled since August. A check now fails if the badge and
+`pyproject.toml` disagree (`check_tool_catalog.py`).
+
+### Market-wide searches now use the real three-month limit
+
+Searches that name no company are capped by DART at three months. That cap was approximated in
+days (90 and others), but the allowance runs 89–92 days depending on the start date — so some
+ranges were being refused silently. It is now computed in calendar months, returning exactly as
+much as the limit allows.
+
+### When director pay is missing, we say where to look
+
+If no pay figures appear in the requested range but the approved pay ceiling did read, only half
+the report came through. In that case the response flags a possible form change and names the
+section to check in the original filing.
+
+### A channel for reporting vulnerabilities
+
+Root [`SECURITY.md`](../SECURITY.md) sets out the private reporting path and its scope.
+
 ## beta — 2026-09-09 (3)
 
 ### See whether raised funds were used as planned

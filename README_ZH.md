@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#工具结构31-项工具)
-[![Release](https://img.shields.io/badge/release-v2.5.2-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.6.0-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [English](README_ENG.md)
@@ -21,7 +21,7 @@
 
 **一项议案也许只有一行，但可靠的判断需要完整的信息。**
 
-OpenProxy 最初用于股东大会和代理投票分析。为了综合阅读财务报表、股权结构、分红记录、董事会信息和相关法律而开发的功能，逐步扩展为面向 DART 公司披露的通用分析引擎。从财务分析到投票建议，AI 会同时给出结论及其原始依据。
+OpenProxy 分析**韩国上市公司**的监管披露 —— 即企业向韩国电子披露系统 DART 提交的公告。它最初用于股东大会和代理投票分析；为了综合阅读财务报表、股权结构、分红记录、董事会信息和韩国相关法律而开发的功能，逐步扩展为面向这些披露的通用分析引擎。从财务分析到投票建议，AI 会同时给出结论及其原始依据。
 
 ## 快速开始
 

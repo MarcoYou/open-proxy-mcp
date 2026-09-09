@@ -119,6 +119,24 @@ def main() -> int:
         if claims != {len(runtime_tools)}:
             problems.append(f"{path.name} tool 수 주장 불일치: {sorted(claims) or '없음'} vs {len(runtime_tools)}")
 
+    # 릴리즈 배지는 손으로 유지되는 수라 조용히 낡는다 — 260909 점검에서 배지가 `v2.5.2`
+    # (2026-08-05)인 채로 한 달치 릴리즈가 나가 있었다. 방문자에겐 「멈춘 프로젝트」로 읽힌다.
+    # tool 개수에 쓰는 규율을 그대로 적용한다: 사람이 적은 수는 기계가 대조한다.
+    pyproj = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'^version = "([^"]+)"', pyproj, re.M)
+    if not m:
+        problems.append("pyproject.toml 에서 version 을 못 읽었다")
+    else:
+        want = m.group(1)
+        for path in (ROOT / "README.md", ROOT / "README_ENG.md", ROOT / "README_ZH.md"):
+            text = path.read_text(encoding="utf-8")
+            got = re.search(r"release-v([0-9][^-\s)]*)-", text)
+            if not got:
+                problems.append(f"{path.name} 에 release 배지가 없다")
+            elif got.group(1) != want:
+                problems.append(
+                    f"{path.name} release 배지 {got.group(1)} ≠ pyproject {want}")
+
     # 구 tool 페이지 링크는 basename resolver가 살려주지 않는 일반 Markdown 링크다.
     stale_links: set[str] = set()
     for path in _repo_markdown():
