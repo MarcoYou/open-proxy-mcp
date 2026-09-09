@@ -16,12 +16,29 @@ KRW 주가/시총 ÷ USD 자본으로 배수를 계산하면 환율(≈1,440)배
 from __future__ import annotations
 
 import asyncio
+import calendar
+import logging
+import time
 import os
 from datetime import datetime, timedelta
 
 import httpx
 
-_MEM: dict[tuple[str, str], float | None] = {}
+_log = logging.getLogger(__name__)
+
+_MEM: dict[tuple[str, str], float] = {}
+
+#: 실패한 조회는 **짧게만** 기억한다(값=만료 시각). 영구 기억하면 프로세스 수명 내내 고착되고,
+#: 아예 안 하면 ECOS 장애 때 요청마다 두 소스 타임아웃(각 15초)을 다시 문다.
+_MEM_NEG: dict[tuple[str, str], float] = {}
+_NEG_TTL_SEC = 600.0
+
+#: 환율 상식 범위 — 야후 폴백이 이상값을 주면 영구 캐시에 굳는다.
+_FX_MIN, _FX_MAX = 1e-4, 1e5
+
+
+def _plausible(rate: float) -> bool:
+    return _FX_MIN < rate < _FX_MAX
 # 통화 → (ECOS 731Y001 item 코드, per-단위 divisor). 엔·동 등은 100단위로 고시되므로 divisor로
 # 1단위 환산(예 JPY 927원/100엔 → 9.27원/엔). 매핑에 없는 통화만 야후 폴백. (실측 전수검증 260704:
 # 국내상장 외국사 = USD/CNY/JPY. 야후는 CNY 과거범위 조회가 빈값·값도 부정확 → ECOS 정본 우선.)
@@ -68,11 +85,15 @@ def _db_put(ccy: str, date: str, rate: float) -> None:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
             c.execute(_FX_DDL)
+            # ON CONFLICT 대상은 PK(_FX_DDL)와 같아야 한다. 727ba1bd 의 dt→fx_dd 개명이 이 절만
+            # 놓쳐서 psycopg 가 UndefinedColumn 을 던졌고, 아래 except 가 삼켜 **한 행도 안 쌓였다**
+            # — 표는 늘 비어 있고 프로세스가 뜰 때마다 ECOS 를 다시 물었다(로그에도 흔적이 없었다).
             c.execute("INSERT INTO ecos_fx_rate(base_ccy, fx_dd, rate) VALUES(%s,%s,%s) "
-                      "ON CONFLICT (base_ccy, dt) DO NOTHING", (ccy, date, rate))
+                      "ON CONFLICT (base_ccy, fx_dd) DO NOTHING", (ccy, date, rate))
             c.commit()
-    except Exception:
-        pass
+    except Exception as exc:   # noqa: BLE001
+        # 삼키되 흔적은 남긴다 — 조용한 실패라서 위 버그가 오래 살아남았다.
+        _log.debug("fx cache put failed (%s %s): %s", ccy, date, exc)
 
 
 async def _ecos(ccy: str, date: str) -> float | None:
@@ -136,16 +157,50 @@ async def fx_to_krw(currency: str | None, date: str | None = None) -> float | No
     memkey = (cur, q_date)
     if memkey in _MEM:
         return _MEM[memkey]
+    _neg = _MEM_NEG.get(memkey)
+    if _neg is not None:
+        if time.monotonic() < _neg:
+            return None                # 최근에 실패했다 — 아직 재시도할 때가 아니다
+        del _MEM_NEG[memkey]           # 만료 → 아래에서 다시 시도
 
     rate: float | None = None
     if _settled(q_date):               # 과거 확정일 → 영구캐시 조회
         rate = await asyncio.to_thread(_db_get, cur, q_date)
     if rate is None:                   # 캐시 미스 → ECOS 1차, 야후 폴백
         rate = await _ecos(cur, q_date) or await _yahoo(cur, q_date)
+        if rate is not None and not _plausible(rate):
+            # 야후는 무검증 외부 소스다. 영구 캐시가 살아난 뒤로는 이상값이 **굳으므로**
+            # 저장 전에 한 번 거른다.
+            _log.warning("fx %s %s = %r — 상식 범위 밖이라 버린다", cur, q_date, rate)
+            rate = None
         if rate is not None and _settled(q_date):
             await asyncio.to_thread(_db_put, cur, q_date, rate)
+    if rate is None:
+        # ★ 실패를 영구 기억하면 그 프로세스는 그 통화·그 날짜를 **영영** 못 가져온다
+        #   (fly 는 장수 프로세스라 ECOS 가 한 번 흔들리면 그 뒤 전부 미환산이 된다).
+        #   그렇다고 아예 안 담으면 분기 12개를 도는 경로가 매번 두 소스 타임아웃을 다시 먹는다.
+        #   → 짧게만 기억한다.
+        _MEM_NEG[memkey] = time.monotonic() + _NEG_TTL_SEC
+        _MEM.pop(memkey, None)
+        return None
     _MEM[memkey] = rate
+    _MEM_NEG.pop(memkey, None)
     return rate
+
+
+def fiscal_year_end_date(fiscal_year: int, acc_mt: str | int | None = None) -> str:
+    """환율 기준일 = 그 회계연도의 **기말일**(YYYYMMDD).
+
+    셋이 각자 만들던 규칙을 한 곳으로 모은다 — 종전엔 `{fy}{acc_mt}{last_day}`(price_multiple_data),
+    `period_end[:8]`(financial_metrics), 그리고 `fnlttSinglAcntAll` 행의 `thstrm_dt`(asset_holdings)
+    였는데 **마지막 것은 그 응답에 없는 필드라 항상 12월 말로 폴백했다**(실측: 행 키 17개에 부재).
+
+    결산월을 안 주면 12월로 본다. 비12월 결산사(3·6월)는 그 달의 말일이 회계기말이다.
+    """
+    m = int(str(acc_mt or "12").zfill(2)[:2] or 12)
+    if not 1 <= m <= 12:
+        m = 12
+    return f"{fiscal_year}{m:02d}{calendar.monthrange(fiscal_year, m)[1]:02d}"
 
 
 def statement_currency(rows: list) -> str:

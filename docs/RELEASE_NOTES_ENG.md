@@ -4,6 +4,8 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## pilot — 2026-09-09 (unreleased)
 
+2026-09-10 integration: incorporated production-main improvements to filing coverage, correction handling, and company resolution into the v2 pilot. `governance_screen` now carries the shared candidate, renamed-company, and retry guidance in JSON and Markdown. Criterion-level missing-data skips and competing-filer separation remain intact. The [specification](../wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md) defines the execution profile and next quality-validation procedure. This does not deploy v2 to production.
+
 ### `governance_screen` — source-bound governance review across selected companies
 
 The tool gathers filing excerpts for up to 30 explicitly selected companies and gives the calling LLM reading tasks. A second call with `governance_assessments` for those tasks returns a review order based on evidence and materiality. The server does not invoke a separate LLM. Review categories cover minority-shareholder treatment, conflicts of interest, board accountability, disclosure reliability and control procedures. Tender offers, activism and litigation are not adverse findings by themselves. Party claims remain distinct from court rulings, and contractual holdings from settlement and exercisable voting rights.
@@ -11,6 +13,124 @@ The tool gathers filing excerpts for up to 30 explicitly selected companies and 
 Use `evidence_sources` to select up to five filings and source windows per company. Extend missing context with `text_offset`, `text_chars` and `focus_terms`; changed evidence, cutoff dates or settings require assessment of the new task. Missing checks are reported individually while other checks and companies continue. Citation matching does not verify the semantic accuracy of an assessment or completeness of filing coverage. Results are labelled **LLM assessment · human unreviewed · partial evidence**.
 
 `since` and `known_receipts` narrow the list of new receipt candidates. They do not replace the evidence scope; the caller retains the returned checkpoint for a later request. The tool creates neither scheduled jobs nor actual votes. This branch's tool catalog grows from 31 to 32; the entry does not signify production deployment. See the [tool specification](../wiki/tools/governance_screen.md) for inputs, outputs and external-call bounds.
+
+## v2.6.0 · beta — 2026-09-09 (4)
+
+Bumped from 2.5.2 (08-05). A month of changes had shipped while the version stayed put, so the
+README badge alone made the project look stalled since August. A check now fails if the badge and
+`pyproject.toml` disagree (`check_tool_catalog.py`).
+
+### Market-wide searches now use the real three-month limit
+
+Searches that name no company are capped by DART at three months. That cap was approximated in
+days (90 and others), but the allowance runs 89–92 days depending on the start date — so some
+ranges were being refused silently. It is now computed in calendar months, returning exactly as
+much as the limit allows.
+
+### When director pay is missing, we say where to look
+
+If no pay figures appear in the requested range but the approved pay ceiling did read, only half
+the report came through. In that case the response flags a possible form change and names the
+section to check in the original filing.
+
+### A channel for reporting vulnerabilities
+
+Root [`SECURITY.md`](../SECURITY.md) sets out the private reporting path and its scope.
+
+## beta — 2026-09-09 (3)
+
+### See whether raised funds were used as planned
+
+When a company raises money through a rights issue or a bond, the filing states what it intends to
+spend it on. What was missing was the other half: what actually happened. `scope="fund_use"` now
+returns the capital-use table from the annual report — stated purpose and amount alongside actual
+use and amount, plus the stated reason where the two differ.
+
+**We do not reconcile plan against actual for you.** Item names are free text and vary by company,
+so machine matching produces wrong pairings. The two columns sit side by side; the judgement is yours.
+
+### See why the share count changed
+
+Previously only "how many shares" could be answered. `scope="share_changes"` shows the reasons —
+rights issues, bonus issues, stock dividends, conversions — dated. Because it comes from the annual
+report, it reaches further back than the 24-month window used for issuance decisions.
+
+### Tables no longer break on filing text
+
+Filings genuinely contain `|` characters and line breaks (statement-of-equity item names, bond
+tranche names). Passed straight into a table, one row split across several cells or two lines and
+the whole table went out of alignment.
+
+## beta — 2026-09-09 (2)
+
+### Values no longer go missing from shareholder-meeting notice tables
+
+Filing tables mark cells with two different tags, and only one was being read. The result was not a
+broken-looking table but an intact-looking one with values quietly removed — a row reading
+"fiscal year · through", with the date in the middle gone.
+
+Measured against the local document cache: 64.5% of notice tables were losing columns, and 40.6% of
+all cells were dropped. Both tags are now read.
+
+### Multi-year financial queries no longer fetch the same data twice
+
+Building a yearly trend fetched "this year + last year" for each year, so adjacent years overlapped
+and the same data was retrieved twice. It is now fetched once — for a 10-year Samsung Electronics
+query, 47 calls dropped to 29 (−38%), with every figure unchanged.
+
+A cap of 10 years was also added; longer requests are trimmed and the response says so.
+
+### The yearly table states its real period and shows year-on-year change
+
+A 10-year query used to be titled "Annual trend (3 years)"; it now reads the actual span
+("2016–2025, 10 years"). Year-on-year change for revenue, operating profit and net income — already
+computed on the server but never rendered — is now in the table, so you no longer recompute it by hand.
+
+## beta — 2026-09-09
+
+### Several filings from the same company no longer collapse into one card
+
+The disclosure screener groups filings of the same company and type. But the grouping key had no way
+to tell one event from another — supply contracts only distinguish "signed" from "terminated" — so
+three separate contracts filed by one company in a month became a single card. The amounts and links
+were all correct, so nothing on screen revealed the error: "one contract this month" was really three.
+
+Now only a **correction** supersedes an original. When several originals exist, there is no way to
+know which one a correction amends, so nothing is merged and the candidates are listed instead — if
+we don't know, we don't delete. Measured: supply contracts went from 186 to 225 over a month, capital
+increases from 176 to 216. The daily morning digest is unchanged.
+
+### The response now tells you what it could not see
+
+Over busy periods a scan hits its page limit and sees only part of the window. Previously the only
+signal was a six-word footer, which told you neither how much was cut nor what was missing.
+
+The response now carries, per disclosure type, how many pages of how many were read and the filing-date
+range actually received. A type whose scan failed is reported as failed rather than as "nothing found" —
+an empty result must not read as success. It also says that splitting the period into two calls will
+cover more.
+
+## beta — 2026-09-08
+
+### Companies whose functional currency is not the won — dollar figures no longer labelled in won
+
+For companies like Doosan Bobcat that report in USD, the filings carry dollar amounts. Financial metrics and
+asset holdings were passing those straight into won-labelled fields, so revenue read as 6.27 billion won when
+the real figure is about 9.2 trillion — roughly 1,400x too small. Asset holdings were worse: dollar book values
+were divided by a won market cap, so surplus-asset coverage came out at 0.00x instead of 0.346x, reversing the
+conclusion into "this company has no surplus assets".
+
+Amounts are now converted to won at the fiscal year-end rate, and the response carries the basis alongside the
+values (`functional_currency`, `fx_rate_to_krw`, `fx_basis`). If the rate cannot be fetched, values are left
+untouched and the response says they are not in won rather than quietly pretending otherwise. Quarterly trends
+use a single rate across all twelve quarters, because per-quarter rates would corrupt the Q4 differencing.
+Won-reporting companies are byte-identical (verified across 4 companies x 3 tools).
+
+### Financial statement accounts, exactly as filed
+
+`scope="accounts"` returns every account line in filing order instead of the 35 the summary keeps
+(52 rows for Samsung Electronics' balance sheet). Narrow it with `sj_div=["BS","IS"]`. This answers what the
+summary could not: what sits inside current assets, and whether a company files "revenue" or "operating revenue".
 
 ## beta — 2026-09-07
 

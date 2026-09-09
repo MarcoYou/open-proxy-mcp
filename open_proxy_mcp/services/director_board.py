@@ -42,8 +42,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-from open_proxy_mcp.dart.client import DartClientError, get_dart_client
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.dart.client import (DartClientError, get_dart_client,
+                                        note_degradation)
+from open_proxy_mcp.extensions import origin_hint
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             resolve_company_query)
 from open_proxy_mcp.services.executive_pay import parse_executive_pay, reconcile_with_api
 from open_proxy_mcp.services.board_attendance import (
     parse_board_attendance_observations,
@@ -428,7 +433,25 @@ async def _compensation_scope(
         per_year.append(comp)
 
     if not any(y.get("director_paid_total_krw") for y in per_year):
-        warnings.append("이사 보수 정형 데이터가 조회 구간에 없음(사업보고서 미제출/비대상 가능).")
+        # 이 tool 이 부르는 보수 API 는 **V1 서식 4종**이다(`V2`/`Ver2` 문자열이 레포에 0건).
+        # DART 가 Ver2.0 으로 넘기면 V1 응답이 **에러가 아니라 빈 채로** 오고, 그러면 보수 축이
+        # 조용히 무표시가 된다 — 이 레포가 가장 싫어하는 실패 모양(「에러가 아니라 대체」)이다.
+        # 그래서 「없다」로 끝내지 않고 **의심할 자리**를 함께 말한다. V2 폴백은 서식이 실제로
+        # 나온 뒤에 붙인다(지금 만들면 응답을 못 본 채로 매핑을 추측하게 된다).
+        # 갈림길은 **한도는 읽혔는가**다. 둘 다 없으면 그냥 미제출·비대상이지만, 한도만
+        # 읽혔다면 같은 보고서를 반쪽만 읽은 것이라 서식을 의심할 자리가 있다.
+        msg = "이사 보수 정형 데이터가 조회 구간에 없음(사업보고서 미제출·비대상 가능)."
+        if any(y.get("director_pay_limit_krw") for y in per_year):
+            # 원문 위치는 **확장 훅으로만** 적는다 — 공개 레포에 없는 tool 이름을 출력에 박으면
+            # 자체 호스팅한 사람에게는 죽은 경로가 된다(`extensions.py` 의 계약).
+            # 훅이 없으면 절 이름만 남는다: 어디를 볼지는 여전히 말해 준다.
+            _rno = next((y["rcept_no"] for y in per_year
+                         if y.get("director_pay_limit_krw") and y.get("rcept_no")), "")
+            _where = origin_hint(_rno, "이사·감사의 보수") or "사업보고서 「이사·감사의 보수」 절"
+            msg += (" 보수한도는 읽혔는데 지급액만 비었다 — 서식이 바뀌었을 수 있으니 "
+                    f"{_where} 원문을 한 번 본다.")
+            note_degradation("pay_absent_with_limit")
+        warnings.append(msg)
 
     return {"per_year": per_year}
 
@@ -1136,16 +1159,20 @@ async def build_director_board_payload(
         ).to_dict()
 
     resolution = await resolve_company_query(company_query)
-    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
-        return ToolEnvelope(
-            tool="director_board", status=resolution.status, subject=company_query,
-            warnings=[f"'{company_query}' 상장사를 찾지 못함"],
-            data={"query": company_query, "candidates": resolution.candidates},
-        ).to_dict()
+    # AMBIGUOUS 가 먼저다 — 아래 가드의 `not selected` 가 그것까지 삼켜 이 분기가 죽어 있었다.
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         return ToolEnvelope(
             tool="director_board", status=AnalysisStatus.AMBIGUOUS, subject=company_query,
+            warnings=[company_ambiguous_warning(company_query, resolution.candidates)],
             data={"query": company_query, "candidates": resolution.candidates},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
+        ).to_dict()
+    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        return ToolEnvelope(
+            tool="director_board", status=resolution.status, subject=company_query,
+            warnings=[company_not_found_warning(company_query, listed_only=True)],
+            data={"query": company_query, "candidates": resolution.candidates},
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
         ).to_dict()
 
     selected = resolution.selected

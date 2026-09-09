@@ -4,7 +4,7 @@ title: trading_data
 domain: data
 status: 등록 완료 (260824 — tools/trading.py)
 scope: [firm, quote, market, sector]
-data_source: [KRX stk/ksq_bydd_trd(일별매매정보), Supabase krx_weekly(주간 시세), Supabase krx_cap_agg(시장·섹터 시총 집계), Supabase krx_adj_events(기준가 조정), Supabase wise_sector(WICS 업종분류)]
+data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 주간 시세 저장분, 시장·섹터 시총 집계 저장분, 기준가 조정 저장분, WICS 업종분류 저장분]
 related_disclosures: []
 related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24

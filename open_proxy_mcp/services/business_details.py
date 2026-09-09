@@ -1703,7 +1703,10 @@ async def build_business_details_payload(company_query: str, period: str = "late
     period 기본="latest"(사업·반기·분기 중 최신=최신 데이터). "annual"/"quarterly"로 명시 override.
     bsns_year+reprt_code 둘 다 지정 시 특정 과거 시점(시계열 추이용)을 조회 — period보다 우선."""
     from open_proxy_mcp.services.contracts import ToolEnvelope, AnalysisStatus
-    from open_proxy_mcp.services.company import resolve_company_query
+    from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                                 company_ambiguous_warning,
+                                                 company_not_found_warning,
+                                                 resolve_company_query)
     from open_proxy_mcp.dart.client import get_dart_client
     from open_proxy_mcp.services.segment_candidates import find_segment_candidates
 
@@ -1741,10 +1744,19 @@ async def build_business_details_payload(company_query: str, period: str = "late
 
     resolution = await resolve_company_query(company_query)
     _lap("resolve")
+    # AMBIGUOUS 를 **먼저** 잡는다 — 그건 selected 가 항상 None 이라 아래 가드에 먼저 걸려
+    # 후보를 손에 쥐고도 「찾지 못했다」로 답해 왔다.
+    if resolution.status == AnalysisStatus.AMBIGUOUS:
+        return ToolEnvelope(
+            tool="business_details", status=AnalysisStatus.AMBIGUOUS, subject=company_query,
+            data={"query": company_query, "candidates": resolution.candidates, "timings_ms": T},
+            warnings=[company_ambiguous_warning(company_query, resolution.candidates)],
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION]).to_dict()
     if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
         return ToolEnvelope(tool="business_details", status=resolution.status,
                             subject=company_query, data={"timings_ms": T},
-                            warnings=["회사 식별 실패"]).to_dict()
+                            warnings=[company_not_found_warning(company_query)],
+                            next_actions=[COMPANY_LOOKUP_NEXT_ACTION]).to_dict()
     corp = resolution.selected
     client = get_dart_client()
 

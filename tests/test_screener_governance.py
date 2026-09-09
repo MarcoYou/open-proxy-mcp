@@ -62,7 +62,8 @@ def filing(receipt, title, filer):
 def run_stubbed(monkeypatch, rows):
     async def scan(client, code, bgn, end, pages):
         assert code in {"D003", "D004", "B001", "I001", "D001"}
-        return rows.get(code, []), len(rows.get(code, [])), False, None
+        items = rows.get(code, [])
+        return S._scan_result(items, len(items), 1, 1)
 
     async def universe(value):
         return S.UniverseFilter(label="전체시장", resolved=True)
@@ -91,6 +92,9 @@ def test_competing_filers_remain_distinct_and_carry_a_neutral_workflow_handoff(m
         assert "decision" not in hit and "risk_score" not in hit
     assert result["types"]["interpretation"] == "discovery_only"
     assert "최대 30개씩" in result["types"]["next_step"]
+    assert result["counts"]["deduped_away"] == 1
+    assert {entry["code"] for entry in result["coverage"]} == {"D003", "D004", "B001", "I001", "D001"}
+    assert all(entry["complete"] for entry in result["coverage"])
 
 
 def test_unknown_filers_do_not_establish_supersession(monkeypatch):
@@ -100,3 +104,18 @@ def test_unknown_filers_do_not_establish_supersession(monkeypatch):
     ]})
     assert len(result["hits"]) == 2
     assert all("supersedes_rcept_no" not in hit for hit in result["hits"])
+
+
+def test_ambiguous_correction_keeps_separate_offers_and_excludes_other_filers(monkeypatch):
+    result = run_stubbed(monkeypatch, {"D004": [
+        filing("20260909000001", "공개매수신고서", "매수자A"),
+        filing("20260909000002", "공개매수신고서", "매수자B"),
+        filing("20260909000003", "공개매수신고서", "매수자A"),
+        filing("20260909000004", "[기재정정]공개매수신고서", "매수자A"),
+    ]})
+    assert result["counts"]["matched"] == 4
+    assert result["counts"]["deduped_away"] == 0
+    correction = next(hit for hit in result["hits"] if hit["is_correction"])
+    assert correction["ambiguous_correction"] is True
+    assert set(correction["correction_candidates"]) == {"20260909000001", "20260909000003"}
+    assert "supersedes_rcept_no" not in correction

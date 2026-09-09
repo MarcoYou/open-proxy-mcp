@@ -2,7 +2,7 @@
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
 domain: action
-updated: 2026-08-25
+updated: 2026-09-09
 scope: [core preset, all, 유형 CSV]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + krx_weekly (시총, DART 0콜) + 유형별 파서 재사용(details)]
 related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
@@ -72,11 +72,36 @@ Tier1 여섯은 details(파서 디스패치) 지원, Tier2/3은 scan-only(같은
 
 ## dedup + 단계 (핵심 로직)
 
-- **정정 = 최신본만.** `dedup_key = corp_code:type:subtype` 그룹에서 최신 rcept_no만 남기고, 정정본이
-  원본을 supersede(`supersedes_rcept_no`). 같은 날 원본+정정이 함께 떠도 하나로 수렴.
+- **정정만 원본을 대체한다 — 별개 사건은 접지 않는다.** `dedup_key = corp_code:type:subtype` 은
+  **사건 식별자가 아니다**(공급계약 matcher 의 subtype 은 「체결」·「해지」 둘뿐). 그래서 이 키로
+  최신 1건만 남기면 한 회사가 낸 계약 여러 건이 카드 1장으로 접힌다 — 값이 아니라 **건수**가
+  틀리는데 카드의 원문 링크는 맞으니 드러나지 않는다(260909 실측: 수주 3개월에서 사건이 지워졌다).
+  따라서 접는 조건은 셋이다: ① 뒤에 온 행이 **정정본**이고 ② 그 키의 원본 후보가 **정확히 1건**이며
+  ③ 같은 접수번호가 아니다. 접히면 `supersedes_rcept_no`, `counts.deduped_away` 로 센다.
+- **원본이 둘 이상이면 접지 않는다.** list.json 에는 정정본이 **어느 접수번호를 고쳤는지**가 없다.
+  추정으로 최신 원본을 덮으면 정정이 옛 건의 정정일 때 그 사이의 최신 계약이 사라진다. 그래서
+  `ambiguous_correction: true` + `correction_candidates: [rcept_no…]` 를 달아 그대로 남긴다 —
+  모르면 지우지 않고 후보를 준다.
+- **같은 접수번호는 언제나 한 장.** 페이지 경계·코드 중복으로 같은 공시가 두 번 들어와도 한 번만 싣는다.
 - **단계 태깅** — report_nm 키워드로 결정/결과/공고/신고서/소각/철회/해지 구분. 예정치(결정)와
   실행치(결과·소각)를 카드에 명시해 섞이지 않게 한다.
 - **정정·해지·철회·소각 = details 강제**(`_force_detail`) — 판단이 갈리는 단계는 우선 문서를 연다.
+
+## coverage (모수 정직성)
+
+`coverage` 는 스캔 코드마다 **어디까지 봤는지**를 적는다 — `total`·`total_pages`·`fetched_pages`
+(연속으로 받은 페이지)·`received_pages`·`missing_pages`·`seen_from`/`seen_to`(실제로 받은 행의
+접수일 범위)·`complete`·`error`.
+
+- `complete` 는 「상한에 안 걸렸고 **에러도 없었다**」다. 전송오류로 통째로 죽은 코드가
+  빈 결과를 이유로 `complete: true` 가 되면, 읽는 쪽은 경고 대신 이 표를 믿는다.
+  단 DART `013`(해당 없음)은 진짜 무자료라 `complete: true` 가 옳다.
+- `fetched_pages` 는 **연속으로 받은 수**다. 3페이지가 죽고 4페이지가 살아와도 4/4 를 주장하지
+  않는다. 받은 행은 버리지 않고 싣되 구멍은 `missing_pages` 로 밝힌다.
+- `seen_from`/`seen_to` 는 **본 것만** 적는다. DART 기본 정렬이 접수일 내림차순이라는 것은
+  문서화된 계약이 아니라, 「빠진 쪽은 창의 과거」라고 단정하지 않는다.
+- 불완전한 코드는 디제스트의 「이 응답이 못 본 것」 절에 사람이 읽는 문장으로 나간다
+  (json 에만 있으면 사용자는 못 본다).
 
 ## degrade (조작값 금지)
 
@@ -144,7 +169,7 @@ sequenceDiagram
 ## 기술 상세
 
 - 서비스: `open_proxy_mcp/services/screener.py` (로직 SSOT) · tool: `open_proxy_mcp/tools/screener.py` (디제스트 렌더)
-- 스캔: `client.search_filings`(corp_code 無 전체시장 필러, 100/page) + 코드당 20페이지 상한. **코드 5개와 페이지 2..N 을 병렬로 던진다**(260824) — 순서는 페이지 번호로 복원한다(공시 순서가 뒤집히면 dedup=정정 최신본만 이 흔들린다).
+- 스캔: `client.search_filings`(corp_code 無 전체시장 필러, 100/page). 코드당 페이지 상한은 `client.list_pages_per_code(코드 수)` — **요청당 예산 300페이지를 코드 수로 나눈 몫**이다. 같은 list.json 을 쓰는 `risk_events` 도 같은 예산에서 유도한다(종전 20 vs 200 으로 10배 어긋나 있었다). 코드가 늘어도 한 요청의 총 콜은 그대로. 예산 자체를 올릴지는 `scan_page_truncated` 계기의 발생률로 정한다. **코드 5개와 페이지 2..N 을 병렬로 던진다**(260824) — 순서는 페이지 번호로 복원한다(공시 순서가 뒤집히면 dedup=정정 최신본만 이 흔들린다).
 - 레이트리밋 가드: **호출측 sleep 없음**(260824 제거) — 속도는 클라이언트 스로틀 한 곳에서 잡는다
   ([[data-collection]] 「호출측이 아니라 스로틀에서」). 여기서는 **양만 제한**한다:
   코드당 20페이지 · details 동시성 6 · **run당 300콜 러닝카운터**(per-type 캡 우선, 초과 시 truncated).
@@ -272,6 +297,11 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
 - `dedup_key`에 대상일 미포함 — 같은 회사가 같은 유형을 다른 날 또 내면 run 간 알림 dedup은 커서로 관리.
 
 ## 변경 이력
+- 2026-09-09: **dedup 과잉 접힘 수정** — 정정본이고 원본 후보가 1건일 때만 접는다(별개 사건 보존,
+  후보 여럿이면 `ambiguous_correction`). 같은 접수번호 그물 복원. **`coverage` 신설** —
+  코드별 완전성·구멍·본 접수일 범위를 payload 와 디제스트에 노출(종전 신호는 「상한 도달」 6글자뿐).
+  `period_clamped`·`scan_page_truncated` 를 열화 장부에 등록. 페이지 상한은 **올리지 않았다** —
+  계기를 먼저 심고 발생률을 재고 나서 올린다.
 
 - 2026-07-15: 신규(22번째 tool). 전체시장 공시 스크리너 / 아침 디제스트. scan(4콜)+details(파서 재사용).
 - 2026-07-15: `domain: action` 부여 — upstream 파서 오케스트레이션 + 디제스트/루틴 구동(액션 산출물)로 재분류. 루틴 레시피 [docs/routines](../../docs/routines/screener-morning-digest.md) 연동.

@@ -32,6 +32,15 @@ def test_the_listed_only_wording_stays_available() -> None:
     assert "회사를 찾지 못했다" in company_not_found_warning("없는회사")
 
 
+#: 손으로 지어 쓰던 미해결 문구들. 260909 에 열 개 파일에서 걷어냈다 — 다시 들어오면 여기서 걸린다.
+#: (커버리지는 `test_not_found_hint_coverage.py` 가 따로 본다 — 이 목록은 **문구 복제**만 막는다.)
+_BANNED = (
+    "해당하는 회사를 찾지 못했다", "해당하는 상장사를 찾지 못했다",
+    "회사 식별 실패", "회사를 특정하지 못했다", "상장사를 찾지 못함",
+    "상장 종목을 찾지 못함", "회사를 하나로 식별하지 못",
+)
+
+
 def test_nobody_hardcodes_the_message_anymore() -> None:
     """같은 문구가 14곳에 흩어져 있었다 — 다음에 또 14곳을 고치는 일이 없도록 고정한다."""
     offenders = []
@@ -40,6 +49,6 @@ def test_nobody_hardcodes_the_message_anymore() -> None:
             continue
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                if "해당하는 회사를 찾지 못했다" in node.value or "해당하는 상장사를 찾지 못했다" in node.value:
-                    offenders.append(f"{path.name}:{node.lineno}")
-    assert not offenders, f"company_not_found_warning() 을 쓸 것: {offenders}"
+                if any(bad in node.value for bad in _BANNED):
+                    offenders.append(f"{path.name}:{node.lineno} — {node.value[:40]}")
+    assert not offenders, f"company_not_found_warning()/company_ambiguous_warning() 을 쓸 것: {offenders}"

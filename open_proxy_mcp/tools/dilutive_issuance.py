@@ -359,9 +359,88 @@ def _render_followup_card(row: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _fmt(v: Any) -> str:
+    """표 칸 — `|` 이스케이프 + 줄바꿈 접기.
+
+    DART 원행에는 줄바꿈이 실제로 들어 있다(`'㈜LG에너지솔루션\n 제2-1회 무보증사채'`).
+    그대로 두면 마크다운 표의 한 행이 두 줄로 쪼개져 표가 통째로 어긋난다.
+    """
+    if v in (None, "", "-"):
+        return "-"
+    return " ".join(str(v).split()).replace("|", "\\|")
+
+
+def _render_fund_use(data: dict[str, Any], subject: str) -> str:
+    """조달금을 **실제로 어떻게 썼나**. 계획과 자동 대조하지 않는다 — 두 표를 나란히 준다."""
+    d = data.get("fund_use") or {}
+    lines = [f"# {subject} 자금 사용내역 ({d.get('year')} 정기보고서)", ""]
+    any_row = False
+    for key, label in (("public", "공모자금"), ("private", "사모자금")):
+        rows = d.get(key) or []
+        if not rows:
+            why = (d.get("absence") or {}).get(key)
+            lines.append(f"## {label} — {'해당 없음(그 해 조달이 없거나 보고 대상 아님)' if why else '표 없음'}")
+            lines.append("")
+            continue
+        any_row = True
+        lines.append(f"## {label} — {len(rows)}건")
+        lines.append("| 구분 · 회차 | 납입일 | 신고서상 사용목적 | 조달금액 "
+                     "| 실제 사용내역 | 사용금액 | 차이 사유 |")
+        lines.append("|---|---|---|---:|---|---:|---|")
+        for r in rows:
+            # 공모/사모가 같은 뜻을 다른 필드명으로 준다 — 공모는 `rs_*`, 사모는 `mtrpt_*`.
+            _plan = r.get("rs_cptal_use_plan_useprps") or r.get("mtrpt_cptal_use_plan_useprps") \
+                or r.get("cptal_use_plan")
+            _amt = r.get("rs_cptal_use_plan_prcure_amount") \
+                or r.get("mtrpt_cptal_use_plan_prcure_amount") or r.get("pay_amount")
+            _se = " · ".join(x for x in (_fmt(r.get("se_nm")), _fmt(r.get("tm"))) if x != "-") or "-"
+            lines.append(
+                f"| {_se} | {_fmt(r.get('pay_de'))} | {_fmt(_plan)} | {_fmt(_amt)} "
+                f"| {_fmt(r.get('real_cptal_use_dtls_cn'))} "
+                f"| {_fmt(r.get('real_cptal_use_dtls_amount'))} "
+                f"| {_fmt(r.get('dffrnc_occrrnc_resn'))} |")
+        lines.append("")
+    if any_row:
+        lines.append("> **계획과 실제를 우리가 대조하지 않았다** — 항목명이 자유서술이라 기계 매칭은 "
+                     "오답을 만든다. 두 열을 나란히 두었으니 읽는 쪽이 판단한다.")
+        lines.append("> 조달 **계획**(목적별 금액)은 같은 도구의 발행 결정 쪽에 있다.")
+    for w in (data.get("_warnings") or []):
+        lines.append(f"- {w}")
+    return "\n".join(lines)
+
+
+def _render_share_changes(data: dict[str, Any], subject: str) -> str:
+    """주식수가 **왜** 변했나 — 총수 스냅샷은 「얼마인가」만 답한다."""
+    d = data.get("share_changes") or {}
+    rows = d.get("rows") or []
+    lines = [f"# {subject} 증자·감자 현황 ({d.get('year')} 정기보고서)", ""]
+    if not rows:
+        lines.append("해당 사업연도에 보고된 증자·감자 내역이 없다"
+                     + (" (미공시)." if d.get("absence") else "."))
+        return "\n".join(lines)
+    lines.append(f"- {len(rows)}건 · 발행형태는 **공시 원문 그대로**(우리가 유형으로 접지 않는다)")
+    lines.append("")
+    lines.append("| 발행·감소일 | 주식 종류 | 수량 | 발행형태 | 주당 액면가 | 주당 발행가 |")
+    lines.append("|---|---|---:|---|---:|---:|")
+    for r in rows:
+        lines.append(
+            f"| {_fmt(r.get('isu_dcrs_de'))} | {_fmt(r.get('isu_dcrs_stock_knd'))} "
+            f"| {_fmt(r.get('isu_dcrs_qy'))} | {_fmt(r.get('isu_dcrs_stle'))} "
+            f"| {_fmt(r.get('isu_dcrs_mstvdv_fval_amount'))} "
+            f"| {_fmt(r.get('isu_dcrs_mstvdv_amount'))} |")
+    lines.append("")
+    lines.append("> 이 표는 정기보고서 기준이라 발행 결정 창(24개월) **밖의 과거**도 덮는다.")
+    return "\n".join(lines)
+
+
 def _render(payload: dict[str, Any]) -> str:
     """단일 통합 render — timeline + 4 type detail card 모두 노출."""
     data = payload.get("data", {})
+    _scope = data.get("scope")
+    if _scope in ("fund_use", "share_changes"):
+        data = {**data, "_warnings": payload.get("warnings") or []}
+        subject = payload.get("subject", "")
+        return (_render_fund_use if _scope == "fund_use" else _render_share_changes)(data, subject)
     window = data.get("window", {})
     counts = data.get("event_count", {})
     usage = data.get("usage", {})
@@ -451,6 +530,7 @@ def register_tools(mcp):
     @mcp.tool()
     async def dilutive_issuance(
         company: str,
+        scope: str = "summary",
         start_date: str = "",
         end_date: str = "",
         section_chars: int = SECTION_CHARS_DEFAULT,
@@ -458,7 +538,8 @@ def register_tools(mcp):
     ) -> str:
         """desc: 희석성 증권 5종(유상증자/CB/EB/BW/감자) 결정 통합. 발행조건·잠재 희석률·**제3자배정 대상자 원문**·풋옵션·refixing + timeline + 발행공시(증권신고서·증권발행실적보고서) 목록.
         when: 행동주의 대응 자금조달, 경영권 방어 우호지분 형성, CB·BW 잠재 희석 평가, EB(자기주식 교환사채) 의결권 희석, **3자배정 대상자가 누구인지**. ownership_structure 교차 권장.
-        rule: DART DS005 5 API 병렬 — piicDecsn/cvbdIsDecsn/exbdIsDecsn/bdwtIsDecsn/crDecsn. 기본 lookback 24개월.
+        scope: `summary`(기본) 발행 **결정** 5종 통합 / `fund_use` 공모·사모 자금의 **사용내역**(정기보고서 pssrpCptalUseDtls·prvsrpCptalUseDtls — 「계획대로 썼나」의 사후 절반. 계획과 자동 대조하지 않고 두 표를 나란히 준다) / `share_changes` 증자·감자 현황(irdsSttus — 주식수가 **왜** 변했나. 총수 스냅샷은 「얼마인가」만 답한다. 정기보고서 기준이라 24개월 창 **밖 과거**도 덮는다) / 그 밖 `followup`·`rights_offering`·`convertible_bond`·`warrant_bond`·`exchangeable_bond`·`capital_reduction`
+        rule: DART DS005 5 API 병렬 — piicDecsn/cvbdIsDecsn/exbdIsDecsn/bdwtIsDecsn/crDecsn. 기본 lookback 24개월. `fund_use`·`share_changes` 는 창이 아니라 **사업연도** 단위(정기보고서 표)다.
           🔴 **배정 대상자 명단은 정형 API 에 없다** — 원문에만 있다. 제3자배정 유상증자 행에는 `third_party_allotment` 로 주요사항보고서 원문 대목(대상자별 선정경위·배정내역 / 대상자가 법인이면 그 최대출자자 / 제3자배정 근거·목적 / 조달자금 사용목적 / 기타 투자판단 참고사항)을 **그대로** 싣는다. `allottees` 6열 표는 **더한 것**이고 원문이 근거다 — 표가 비어 있어도 「대상자 미상」이 아니라 원문(`sections`)을 읽으라는 뜻이다. 최근 3건까지 싣고, 더 있으면 warnings 에 몇 건을 건너뛰었는지 적는다.
           `equity_offering_channel` 은 발행공시 C001(증권신고 — 지분증권) 목록이다. **인수인·자금의 사용목적·실제 배정 결과**는 주요사항보고서가 아니라 여기 있다. 목록은 전건, 본문은 건당 1.5만~2.6만자라 담지 않고 **가장 최근 증권발행실적보고서의 「유상증자 전후 주요주주 지분변동」 절만** 원문으로 싣는다. 나머지는 `viewer_url`·`evidence` tool 로.
           정정·철회로 구조화 응답이 비면 원본 공시 문서 파싱으로 교환가액·교환대상, 유상증자 원안(신주수·발행가·조달금액)을 복원 — 복원값은 original_plan 에만 들어가고 발행 물량 자리는 미확인으로 남는다(0으로 찍지 않는다). timeline 에는 자기사채 만기전취득·발행가액확정·청약결과가 direction 과 함께 선다.
@@ -468,7 +549,8 @@ def register_tools(mcp):
         """
         payload = await build_dilutive_issuance_payload(
             company,
-            scope="summary",  # service에서 항상 5종 모두 fetch
+            scope=scope,   # 종전엔 "summary" 하드코딩 — service 가 5종을 항상 fetch 했다.
+                           # fund_use·share_changes 는 정기보고서 경로라 그 앞에서 갈린다.
             start_date=start_date,
             end_date=end_date,
             section_chars=section_chars,

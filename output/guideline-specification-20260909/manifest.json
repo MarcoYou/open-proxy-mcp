@@ -1,11 +1,11 @@
 {
   "generated_from": "wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md",
-  "source_sha256": "8903d23035f14b904983b81901c715cfeecc2fe5b413ae43b873d0792a1b994a",
+  "source_sha256": "5323eb7057cf28e4a1cfd836899c4a0d66146241dbd377582b775335b90b23da",
   "policy_version": "0.7.0-pilot",
   "policy_file_sha256": "46420f05f8becf635985bae548b0d3ab7415917d6522fffeb9550540eabe7d69",
   "assessment_contract": "opm-llm-assessment/5",
   "governance_contract": "1",
-  "document_date": "2026-09-09",
+  "document_date": "2026-09-10",
   "status": "local_document_export",
   "verification_note": "Version-separated live MCP pilot evidence is maintained in the canonical verification section. Source-bound acceptance and routing are not an independent accuracy benchmark. All assessments remain human unreviewed; no ballots or scheduled runs."
 }

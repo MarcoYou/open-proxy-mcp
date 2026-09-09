@@ -21,6 +21,8 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
+from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
+from open_proxy_mcp.services.scale_guard import check_balance_identity
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.revenue_account import pick_revenue_row
@@ -48,9 +50,27 @@ _SUPPORTED_SCOPES = {
     "yoy",
     "qoq",
     "audit_opinion",
+    "accounts",
 }
 
+#: 금액인데 `_krw` 접미어가 없는 필드 — 키가 canonical id 라 이름 규칙이 안 통하는 자리.
+#: 이름 기반 환산의 예외는 여기 한 곳뿐이고, 늘어나면 반드시 이 집합에 등록한다.
+_AMOUNT_MAP_FIELDS = {"by_canonical_id"}
+
+#: 재무제표 공시 순서 — 알파벳순으로 뒤섞지 않는다.
+_SJ_ORDER = {"BS": 0, "IS": 1, "CIS": 2, "CF": 3, "SCE": 4}
+
+#: accounts scope 가 원행에서 남기는 필드. 파생값을 만들지 않는다 — 계정 원문·기준만 그대로.
+_ACCOUNT_ROW_FIELDS = (
+    "sj_div", "sj_nm", "account_id", "account_nm", "account_detail",
+    "thstrm_amount", "thstrm_add_amount", "frmtrm_amount", "bfefrmtrm_amount",
+    "ord", "currency", "fs_div",
+)
+
 _REPRT_BUSINESS = "11011"  # 사업보고서 (연간)
+
+#: `years` 상한 — 연도당 최대 4콜이라 상한이 없으면 한 요청이 분당 910 캡을 민다.
+_MAX_YEARS = 10
 
 
 # DART 사업보고서 fnlttSinglAcnt 표준 account_nm 매칭 키워드.
@@ -1454,6 +1474,127 @@ async def _safe_fetch_acnt_all(corp_code: str, year: int, reprt_code: str, fs_di
         return [], f"fnlttSinglAcntAll({reprt_code}, {fs_div}) 실패: {exc.status} {exc}"
 
 
+async def _build_accounts(
+    corp_code: str, year: int, fs_div: str, sj_div: list[str] | None,
+) -> tuple[dict[str, Any], list[str]]:
+    """계정 원행 그대로 — 요약 스칼라가 버리는 수백 행을 원문 순서(`ord`)로 돌려준다.
+
+    요약과 **같은 endpoint**(`fnlttSinglAcntAll`)를 보되 이 경로는 자기 호출을 따로 한다.
+    실측 콜 수는 요약 8 대 이 경로 2 — 계정만 필요하면 이쪽이 싸다(요약에 얹어 공짜로 나오는 게 아니다).
+    파생지표는 만들지 않는다 — 「표를 더하되 원문을 대체하지 않는다」이고 계정 해석은 읽는 쪽이 한다.
+    """
+    warnings: list[str] = []
+    rows, err = await _safe_fetch_acnt_all(corp_code, year, _REPRT_BUSINESS, fs_div)
+    used_rc = _REPRT_BUSINESS
+    if not rows and fs_div == "CFS":
+        # fnlttSinglAcntAll 은 요청 fs_div 를 그대로 쓴다 — 연결 미작성 회사에 CFS 로 부르면
+        # 013(없음)이 되어 계정이 통째로 빈다(요약 경로가 actual_fs 로 부르는 이유와 같다).
+        rows, err = await _safe_fetch_acnt_all(corp_code, year, _REPRT_BUSINESS, "OFS")
+        if rows:
+            warnings.append(f"{year}년 연결(CFS) 미작성 — 별도(OFS) 기준 계정이다.")
+    if not rows:
+        # 사업보고서 미공시 연도 — 요약 경로와 같은 폴백 사슬을 탄다.
+        for rc in ("11014", "11012", "11013"):
+            rows, err = await _safe_fetch_acnt_all(corp_code, year, rc, fs_div)
+            if rows:
+                used_rc = rc
+                # 요약 경로(_fetch_year_metrics)는 이걸 세는데 여기만 안 셌다 — 「에러가 아니라
+                # 대체로 나타나는 고장」은 세지 않으면 발생률을 영영 모른다.
+                note_degradation("report_substituted")
+                warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={rc}(분기/반기)로 대체.")
+                break
+    if not rows:
+        return {}, [err if err and err != "no_filing" else f"{year}년 재무제표 계정 미공시"]
+
+    actual_fs = _actual_fs_div(rows) or fs_div
+    if fs_div == "CFS" and actual_fs == "OFS":
+        warnings.append(f"{year}년 연결(CFS) 미작성 — 별도(OFS) 기준 계정이다.")
+
+    want = {s.upper() for s in (sj_div or [])} or None
+    kept = [{k: r.get(k) for k in _ACCOUNT_ROW_FIELDS}
+            for r in rows if not want or (r.get("sj_div") or "").upper() in want]
+    # 재무제표 순서는 알파벳순이 아니라 공시 순서(BS→IS→CIS→CF→SCE)다. `ord` 는 문자열이고
+    # 드물게 비숫자가 와서, 정렬 하나로 tool 호출 전체가 죽지 않도록 안전 파싱한다.
+    def _ord(r: dict[str, Any]) -> tuple[int, int]:
+        raw = str(r.get("ord") or "").strip()
+        return (_SJ_ORDER.get((r.get("sj_div") or "").upper(), 99),
+                int(raw) if raw.lstrip("-").isdigit() else 10**6)
+
+    kept.sort(key=_ord)
+
+    cur = statement_currency(rows)
+    if cur != "KRW":
+        warnings.append(f"기능통화 {cur} — 아래 금액은 **{cur} 원문 그대로이고 환산하지 않았다**. "
+                        f"원화로 환산된 요약 지표는 같은 도구의 요약에서 기말환율로 제공한다.")
+    if used_rc != _REPRT_BUSINESS:
+        warnings.append("분기/반기 보고서의 손익 계정은 누적(YTD)이다 — `thstrm_add_amount` 가 있으면 그 쪽이 누적, "
+                        "`thstrm_amount` 는 당기 3개월일 수 있다. 두 열을 함께 읽을 것.")
+    return {
+        "rows": kept,
+        "row_count": len(kept),
+        "functional_currency": cur,
+        "fs_div": actual_fs,
+        "reprt_code": used_rc,
+        "sj_div_present": sorted({(r.get("sj_div") or "").upper() for r in kept if r.get("sj_div")},
+                                 key=lambda x: _SJ_ORDER.get(x, 99)),
+    }, warnings
+
+
+async def _normalize_currency(
+    metrics: dict[str, Any],
+    rows: list[dict[str, Any]],
+    period_end: str | None,
+    year: int,
+) -> list[str]:
+    """기능통화가 KRW 가 아니면 금액 필드를 KRW 로 환산하고 기준을 값 옆에 붙인다.
+
+    왜 이름 기반인가 — 이 dict 의 금액 필드는 예외 없이 `_krw` 로 끝나고 비율·배수·건수는 아니다.
+    그래서 「_krw 로 끝나는 수치만 환산」이 곧 「금액만 환산」이고, 지표가 늘어도 규칙이 따라온다
+    (개별 필드를 나열하면 다음에 추가되는 지표가 조용히 환산에서 빠진다).
+
+    전기(prev_*)도 **같은 환율**로 환산한다. 서로 다른 환율을 쓰면 yoy 에 환율 변동이 섞여
+    「기능통화 기준 성장률」이 아니게 된다 — 이미 계산된 `*_yoy_pct` 와도 어긋난다.
+    그 대신 그 사실을 basis 로 명시한다.
+
+    환산 실패(환율 조회 불가)면 값을 건드리지 않고 **경고만** 남긴다 — 조용히 틀린 라벨을
+    남기느니 「환산 못 했다」를 말한다.
+    """
+    cur = statement_currency(rows)
+    metrics["functional_currency"] = cur
+    if cur == "KRW":
+        return []
+
+    # 환율 기준일 = 회계기말. period_end('2024-12-31')가 있으면 그날, 없으면 연말 근사.
+    fx_date = (period_end or f"{year}-12-31").replace("-", "")[:8] or f"{year}1231"
+    rate = await fx_to_krw(cur, fx_date)
+    if not rate or rate == 1.0:
+        metrics["fx_rate_to_krw"] = None
+        return [f"⚠️ 기능통화 {cur} 인데 환율 조회 실패 — 아래 `*_krw` 금액은 **{cur} 단위 그대로**이고 "
+                f"원화가 아니다. 원화 기준 비교·시총 대비 계산에 그대로 쓰지 말 것."]
+
+    def _scale(d: dict[str, Any]) -> None:
+        for k, v in list(d.items()):
+            if k in _AMOUNT_MAP_FIELDS and isinstance(v, dict):
+                # 접미어 규칙의 유일한 예외 — 키가 canonical id(OPM_ST 등)라 `_krw` 가 안 붙는데
+                # 값은 금액이다. 여기를 빼면 sum(by_canonical_id) 과 total_debt_krw 가 환율배 어긋난다.
+                d[k] = {ck: (round(cv * rate) if isinstance(cv, (int, float))
+                             and not isinstance(cv, bool) else cv) for ck, cv in v.items()}
+            elif isinstance(v, dict):        # standalone 등 중첩 dict 도 같은 규칙으로
+                _scale(v)
+            elif k.endswith("_krw") and isinstance(v, (int, float)) and not isinstance(v, bool):
+                d[k] = round(v * rate)
+
+    _scale(metrics)
+    metrics["fx_rate_to_krw"] = round(rate, 2)
+    metrics["fx_basis"] = (
+        f"{fx_date} 기말환율 — 이 행의 금액(전기 포함)은 전부 이 환율. "
+        f"다년 표에서는 **행마다 그 해 기말환율**이라 금액 추이에 환율 변동이 섞이고, "
+        f"`*_yoy_pct` 는 환산 전 {cur} 기준이라 환율이 빠진 성장률이다 — 두 열의 기준이 다르다.")
+    return [f"기능통화 {cur} — 금액을 {fx_date} 기말환율 {rate:,.1f}원/{cur} 로 KRW 환산했다. "
+            f"순이익은 원칙상 평균환율이라 수% 오차가 있고, 전기도 같은 환율을 써서 "
+            f"yoy 는 환율 변동이 빠진 {cur} 기준 성장률이다."]
+
+
 def _actual_fs_div(rows: list[dict[str, Any]]) -> str | None:
     """rows에서 실제 사용된 fs_div(다수결). CFS 요청인데 OFS가 오면 연결 미작성 폴백 감지용.
 
@@ -1621,10 +1762,66 @@ async def _accrual_payout_pct(corp_code: str, year: int, *, is_reit: bool = Fals
 
 # ── scope dispatchers ──
 
+class _FetchMemo:
+    """한 요청 안에서 같은 (연도·보고서·기준) 조회를 한 번만 한다.
+
+    다년 조회는 연도마다 「당기 + 전기」를 부르므로 인접 연도가 겹친다 — `years=10` 이면
+    40 콜 중 18 콜(45%)이 같은 조회다. DART 는 분당 910 을 넘으면 **그 키가 2~3시간 막히므로**
+    헛콜은 그 자체로 가용성 문제다.
+
+    결과 캐시만으로는 부족하다 — `_build_yearly` 가 연도들을 `gather` 로 **동시에** 던지므로
+    둘 다 캐시 미스로 출발한다. 그래서 결과가 아니라 **진행 중인 Task** 를 공유한다.
+    반환 리스트는 얕은 복사로 끊는다(같은 리스트를 여러 호출자가 들고 고치면 서로를 오염시킨다 —
+    이 레포는 screener 스캔 캐시에서 이미 그 사고를 겪었다).
+    """
+
+    def __init__(self) -> None:
+        self._inflight: dict[tuple, Any] = {}
+
+    def _share(self, key: tuple, factory):
+        task = self._inflight.get(key)
+        if task is None:
+            task = asyncio.ensure_future(factory())
+            self._inflight[key] = task
+        return task
+
+    async def acnt(self, corp_code: str, year: int, rc: str, fs_div: str):
+        rows, err = await self._share(
+            ("acnt", corp_code, year, rc, fs_div),
+            lambda: _safe_fetch_acnt(corp_code, year, rc, fs_div))
+        return list(rows), err
+
+    async def acnt_all(self, corp_code: str, year: int, rc: str, fs_div: str):
+        rows, err = await self._share(
+            ("all", corp_code, year, rc, fs_div),
+            lambda: _safe_fetch_acnt_all(corp_code, year, rc, fs_div))
+        return list(rows), err
+
+
+class _NoMemo:
+    """단건 조회 경로 — 공유할 상대가 없으므로 그대로 부른다(분기 하나로 통일하려고 둔 얇은 껍데기)."""
+
+    @staticmethod
+    async def acnt(corp_code: str, year: int, rc: str, fs_div: str):
+        return await _safe_fetch_acnt(corp_code, year, rc, fs_div)
+
+    @staticmethod
+    async def acnt_all(corp_code: str, year: int, rc: str, fs_div: str):
+        return await _safe_fetch_acnt_all(corp_code, year, rc, fs_div)
+
+
+_NO_MEMO = _NoMemo()
+
+
+def _fetch(memo: "_FetchMemo | None"):
+    return memo or _NO_MEMO
+
+
 async def _fetch_acnt_with_fallback(
     corp_code: str,
     year: int,
     fs_div: str,
+    memo: "_FetchMemo | None" = None,
 ) -> tuple[list[dict[str, Any]], str, str | None]:
     """사업보고서(11011) → 3분기(11014) → 반기(11012) → 1분기(11013) 순서로 fallback.
 
@@ -1635,7 +1832,7 @@ async def _fetch_acnt_with_fallback(
     fallback_order = ("11011", "11014", "11012", "11013")
     last_err = None
     for rc in fallback_order:
-        rows, err = await _safe_fetch_acnt(corp_code, year, rc, fs_div)
+        rows, err = await _fetch(memo).acnt(corp_code, year, rc, fs_div)
         if rows:
             return rows, rc, None
         if err == "no_filing":
@@ -1655,8 +1852,11 @@ async def _fetch_year_metrics(
     allow_quarterly_fallback: bool = True,
     induty_code: str | None = None,
     is_reit: bool = False,
+    memo: "_FetchMemo | None" = None,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
+
+    `memo` 를 주면 같은 요청 안의 다른 연도와 조회를 공유한다(다년 조회의 인접 연도 중복 제거).
 
     Phase 1 v2 최적화 (iteration 11):
     - fnlttSinglIndx 호출 제거 (DART 산출 지표는 자체 계산값 우선이라 사실상 미사용).
@@ -1669,14 +1869,14 @@ async def _fetch_year_metrics(
     warnings: list[str] = []
     # 1단계: 당기 fnlttSinglAcnt — fallback 발생 가능성 있어 sequential 유지.
     if allow_quarterly_fallback:
-        rows_curr, used_rc, fb_err = await _fetch_acnt_with_fallback(corp_code, year, fs_div)
+        rows_curr, used_rc, fb_err = await _fetch_acnt_with_fallback(corp_code, year, fs_div, memo=memo)
         if not rows_curr:
             return {}, [fb_err or f"{year}년 데이터 미공시"], 0
         if used_rc != _REPRT_BUSINESS:
             note_degradation("report_substituted")
             warnings.append(f"{year}년 사업보고서 미공시 — reprt_code={used_rc}로 대체 (반기/분기)")
     else:
-        rows_curr, err_curr = await _safe_fetch_acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
+        rows_curr, err_curr = await _fetch(memo).acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
         if err_curr == "no_filing":
             return {}, [f"{year}년 사업보고서 미공시 (fnlttSinglAcnt no_filing)"], 0
         if err_curr:
@@ -1699,12 +1899,12 @@ async def _fetch_year_metrics(
     # OFS 행을 알아서 돌려주지만 fnlttSinglAcntAll 은 요청 fs_div 그대로라, 연결 미작성 회사에
     # CFS 로 부르면 013(없음) — CF·매출 폴백·세부 IS 가 통째로 비었다(리파인 2022~2025 실측, 260906).
     if include_prev:
-        tasks.append(_safe_fetch_acnt(corp_code, year - 1, used_rc, fs_div))
+        tasks.append(_fetch(memo).acnt(corp_code, year - 1, used_rc, fs_div))
         task_keys.append("prev_acnt")
-    tasks.append(_safe_fetch_acnt_all(corp_code, year, used_rc, actual_fs))
+    tasks.append(_fetch(memo).acnt_all(corp_code, year, used_rc, actual_fs))
     task_keys.append("curr_acnt_all")
     if include_prev:
-        tasks.append(_safe_fetch_acnt_all(corp_code, year - 1, used_rc, actual_fs))
+        tasks.append(_fetch(memo).acnt_all(corp_code, year - 1, used_rc, actual_fs))
         task_keys.append("prev_acnt_all")
 
     parallel_results = await asyncio.gather(*tasks, return_exceptions=False)
@@ -1859,6 +2059,23 @@ async def _fetch_year_metrics(
     if metrics.get("standalone"):
         metrics["standalone"]["basis_note"] = f"손익=당기 분기(3개월, standalone), 회전일수={_tb} 기준."
 
+    # 자산 = 부채 + 자본 검산. 다른 단건 tool(price_multiple_data·financial_notes)은 이미 하는데
+    # 이 tool 만 세 값을 손에 쥐고도 안 했다 — 새 정책이 아니라 **정합화**다.
+    # 값은 고치지 않는다(DART 원문이 그렇다는 사실 자체가 신호다) — 경고만 붙인다.
+    # 선행 조건: 세 값이 같은 기준(actual_fs)에서 왔을 때만 본다. 폴백으로 기준이 섞이면 위양성.
+    _bal = check_balance_identity(metrics.get("total_assets_krw"),
+                                  metrics.get("total_liabilities_krw"),
+                                  metrics.get("total_equity_krw"))
+    if _bal.get("triggered"):
+        metrics["balance_identity_diff_pct"] = round(_bal["diff_pct"], 4)
+        warnings.append(
+            f"{year}년 자산총계 ≠ 부채총계 + 자본총계 (차이 {_bal['diff_pct']:.2f}%) — "
+            f"공시 원문이 그렇다. 값은 그대로 두었으니 인용 전 원문을 확인할 것.")
+
+    # 통화 정규화는 **모든 금액 주입이 끝난 뒤** 마지막에 한 번 — 중간에 두면 그 뒤에 붙는
+    # standalone·배당 금액이 조용히 환산에서 빠진다(그게 원래 결함의 모양이었다).
+    warnings.extend(await _normalize_currency(metrics, rows_detail or rows_curr, period_end, year))
+
     return metrics, warnings, 1
 
 
@@ -1958,7 +2175,10 @@ async def _build_audit_opinion_data(
 
 async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, induty_code: str | None = None, is_reit: bool = False) -> tuple[list[dict[str, Any]], list[str]]:
     year_list = list(range(end_year - years + 1, end_year + 1))
-    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit) for y in year_list]
+    # 연도마다 「당기+전기」를 부르므로 인접 연도가 겹친다 — memo 하나를 나눠 주면 그 겹침이 사라진다.
+    memo = _FetchMemo()
+    tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code,
+                                 is_reit=is_reit, memo=memo) for y in year_list]
     results = await asyncio.gather(*tasks)
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -2019,6 +2239,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     cum9_by_year: dict[int, dict[str, int | None]] = {}  # Q3 보고서의 9개월 누적 (Q4 차분용)
     q_standalone_by_year: dict[int, dict[str, dict[str, int | None]]] = {}
     fs_seen: set[str] = set()  # 실제 사용된 fs_div 추적 (CFS/OFS 폴백·혼재 감지)
+    stmt_cur = "KRW"           # 기능통화 — rows 는 루프 안에서만 살아 있어 여기서 잡아 둔다
+    last_period_end = ""
     meta: list[tuple[int, str, int, int, str]] = []  # out 과 같은 순서: (bsns_year, reprt_code, fiscal_quarter, fiscal_year, actual_fs)
     for (year, rc, label), (rows, err) in zip(keys, results):
         if err == "no_filing":
@@ -2028,6 +2250,12 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             continue
         if not rows:
             continue
+        if stmt_cur == "KRW":
+            stmt_cur = statement_currency(rows)
+        _pe = next((str(r.get("thstrm_dt") or "") for r in rows if r.get("thstrm_dt")), "")
+        _pe = "".join(ch for ch in _pe if ch.isdigit())[:8]
+        if _pe > last_period_end:
+            last_period_end = _pe
         actual = _actual_fs_div(rows)
         if actual:
             fs_seen.add(actual)
@@ -2224,6 +2452,27 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "operating_margin_pp": _pp_diff(row.get("operating_margin_pct"), prev_y.get("operating_margin_pct") if prev_y else None),
             "net_profit_margin_pp": _pp_diff(row.get("net_profit_margin_pct"), prev_y.get("net_profit_margin_pct") if prev_y else None),
         }
+    # 통화 정규화 — 12분기 **전체에 단일 환율**을 쓴다. 분기마다 다른 환율을 쓰면
+    # Q4 차분(연간 − 3분기 누적)이 서로 다른 환율의 값을 빼게 되어 Q4 가 오염된다.
+    if stmt_cur != "KRW":
+        rate = await fx_to_krw(stmt_cur, last_period_end or f"{end_year}1231")
+        if rate and rate != 1.0:
+            for row in out:
+                for k, v in list(row.items()):
+                    if k.endswith("_krw") and isinstance(v, (int, float)) and not isinstance(v, bool):
+                        row[k] = round(v * rate)
+                row["functional_currency"] = stmt_cur
+                row["fx_rate_to_krw"] = round(rate, 2)
+            warnings.append(
+                f"기능통화 {stmt_cur} — 분기 금액을 {last_period_end} 환율 {rate:,.1f}원/{stmt_cur} 로 "
+                f"KRW 환산했다(12분기 단일환율 — 분기마다 다른 환율을 쓰면 Q4 차분이 오염된다).")
+        else:
+            for row in out:
+                row["functional_currency"] = stmt_cur
+                row["fx_rate_to_krw"] = None
+            warnings.append(
+                f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 분기 금액은 **{stmt_cur} 단위 그대로**이고 "
+                f"원화가 아니다. 원화 기준 비교에 그대로 쓰지 말 것.")
     return out[-num_quarters:], warnings
 
 
@@ -2274,8 +2523,14 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
 # 같은 (company, scope, year, consolidated) 조합 재호출 시 동일 결과 보장.
 # advise_vote의 3 run 호출 시 모든 run에서 동일 fm_payload 반환 → cash_dividend 결정 결정성.
 import time as _time_mod
+from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 _FM_CACHE: dict[tuple, tuple[float, dict[str, Any]]] = {}
 _FM_CACHE_TTL = 300.0  # 5분
+
+# TTL 은 **읽을 때만** 걸린다(아래 `_fm_cache_get`) — 쓰고 다시 안 읽히는 키는 안 지워진다.
+# 값이 통짜 페이로드라 그 잔여가 얼마인지 밖에서 보이는 편이 낫다. 지금은 재는 중이고,
+# 자라는 게 확인되면 상한이나 sweep 을 단다(재기 전에 고르지 않는다).
+_register_unbudgeted_cache("financial_metrics", lambda: _FM_CACHE)
 
 
 def _fm_cache_get(key: tuple) -> dict[str, Any] | None:
@@ -2300,12 +2555,33 @@ async def build_financial_metrics_payload(
     year: int | None = None,
     years: int = 3,
     consolidated: bool = True,
+    sj_div: list[str] | None = None,
 ) -> dict[str, Any]:
     total_started_at = time.perf_counter()
     timings_ms: dict[str, int] = {}
 
     def _mark(stage: str, started_at: float) -> None:
         timings_ms[stage] = int((time.perf_counter() - started_at) * 1000)
+
+    # `years` 에 상한이 없으면 한 요청이 분당 910 캡을 통째로 밀 수 있다(연도당 최대 4콜).
+    # memo 로 인접 연도 중복은 사라졌지만 상한 자체는 여전히 필요하다.
+    _years_req = years
+    years = max(1, min(int(years or 3), _MAX_YEARS))
+
+    def _note_clamp(payload: dict[str, Any]) -> dict[str, Any]:
+        """`years` 를 줄였다는 사실을 반환 직전에 붙인다.
+
+        캐시 키는 **클램프된** years 라 years=30 과 10 이 같은 항목을 맞는다(그게 옳다 — 같은
+        요청이다). 다만 30 을 물은 사람은 캐시 적중일 때도 잘렸다는 걸 들어야 하므로, 캐시에
+        넣는 payload 가 아니라 **내보내는 사본**에만 붙인다.
+        """
+        if not (_years_req and int(_years_req) > years):
+            return payload
+        out = dict(payload)
+        out["warnings"] = list(out.get("warnings") or []) + [
+            f"years={_years_req} 요청을 상한 {years}년으로 줄였다 — 연도당 DART 호출이 붙어 "
+            f"한 요청이 분당 한도를 밀지 않게 한다. 더 긴 추이는 기간을 나눠 부른다."]
+        return out
 
     if scope not in _SUPPORTED_SCOPES:
         return _unsupported_scope_payload(company_query, scope)
@@ -2314,7 +2590,7 @@ async def build_financial_metrics_payload(
     cache_key = (company_query, scope, year, years, consolidated)
     cached = _fm_cache_get(cache_key)
     if cached is not None:
-        return cached
+        return _note_clamp(cached)
 
     fs_div = "CFS" if consolidated else "OFS"
     client = get_dart_client()
@@ -2555,6 +2831,26 @@ async def build_financial_metrics_payload(
                 note=f"{selected.get('corp_name', '')} 전분기 비교",
             ))
 
+    elif scope == "accounts":
+        acc_data, acc_ws = await _build_accounts(corp_code, target_year, fs_div, sj_div)
+        warnings.extend(acc_ws)
+        data["accounts"] = acc_data
+        if acc_data:
+            filing_count = 1
+            ref = await _periodic_filing_ref(corp_code, target_year, acc_data.get("reprt_code"))
+            data["source_report"] = ref or {}
+            evidence_refs.append(EvidenceRef(
+                evidence_id=f"ev_fm_accounts_{corp_code}_{target_year}",
+                source_type=SourceType.DART_API,
+                rcept_no=(ref or {}).get("rcept_no", ""),
+                rcept_dt=(ref or {}).get("rcept_dt", ""),
+                report_nm=(ref or {}).get("report_nm", ""),
+                section=f"전체 재무제표 계정 원행 ({target_year}) fnlttSinglAcntAll",
+                note=f"{selected.get('corp_name', '')} {target_year}년 {acc_data.get('fs_div', fs_div)} {acc_data.get('row_count')}행",
+            ))
+        else:
+            parsing_failures = 1
+
     elif scope == "audit_opinion":
         audit_data, audit_ws, audit_ev = await _build_audit_opinion_data(corp_code, target_year, years_back=years)
         warnings.extend(audit_ws)
@@ -2617,8 +2913,8 @@ async def build_financial_metrics_payload(
         evidence_refs=evidence_refs,
         next_actions=_next_actions(scope, data),
     ).to_dict()
-    _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache
-    return payload
+    _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache (클램프 고지는 캐시에 넣지 않는다)
+    return _note_clamp(payload)
 
 
 def _detect_qoq_alerts(curr: dict[str, Any], prev: dict[str, Any]) -> list[str]:

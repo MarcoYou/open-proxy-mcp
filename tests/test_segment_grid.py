@@ -532,3 +532,26 @@ def test_prefilter_is_a_necessary_condition_not_a_replacement():
     html = f"<table><tr><td>{long_cell}</td></tr></table>"
     assert _prefilter_passes(html), "프리필터는 통과시켜야 한다(느슨한 쪽)"
     assert not _cell_matches(html), "최종 판정은 길이로 떨군다"
+
+
+def test_meeting_notice_tables_keep_te_tu_cells():
+    """소집공고 표 파서도 DART 셀 태그 `<TE>`/`<TU>` 를 읽는다 — 네트워크 0.
+
+    `<TE>` 는 `<TD>` 와 **같은 행에 섞여** 온다. 그래서 증상은 「행이 빈다」가 아니라
+    **열이 잘린다**이고, 표는 그럴듯한 모양을 유지한 채 뜻만 달라진다.
+    실측(260909, 로컬 문서 캐시): 소집공고 표의 64.5% 에서 열이 잘렸고 전체 셀의 40.6% 가
+    사라지고 있었다 — 예: ['사업연도','부터'] ← '2026년 01월 01일' 이 빠진 행.
+    """
+    from bs4 import BeautifulSoup
+
+    from open_proxy_mcp.services.shareholder_meeting_parser import _table_to_markdown
+
+    html = (
+        "<TABLE><TR><TH>구분</TH><TH>시작</TH><TH>끝</TH></TR>"
+        "<TR><TD>사업연도</TD>"
+        "<TE ACODE='FY_ST'>2026년 01월 01일</TE>"
+        "<TU>부터</TU></TR></TABLE>"
+    )
+    md = _table_to_markdown(BeautifulSoup(html, "lxml").find("table"))
+    assert "2026년 01월 01일" in md, "TE 셀이 빠지면 날짜가 통째로 사라진다"
+    assert "부터" in md and "사업연도" in md

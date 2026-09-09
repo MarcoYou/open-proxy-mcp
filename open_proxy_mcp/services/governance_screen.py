@@ -16,7 +16,10 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr, model_validator
 
 from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.dart.client import get_dart_client
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.company import (
+    COMPANY_LOOKUP_NEXT_ACTION, company_ambiguous_warning,
+    company_not_found_warning, resolve_company_query,
+)
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.guideline_evidence import collect_supplemental_sources
 from open_proxy_mcp.services.guideline_research import discover_guideline_context
@@ -323,10 +326,13 @@ async def _build_governance_screen_payload_impl(
         row = {"query": query, "human_reviewed": False, "scope_complete": False}
         try:
             resolution = await resolve_company_query(query)
-            if resolution.status == "ambiguous" or not resolution.selected:
+            if resolution.status in {"ambiguous", "error"} or not resolution.selected:
+                warning = (company_ambiguous_warning(query, resolution.candidates)
+                           if resolution.status == "ambiguous" else company_not_found_warning(query))
                 row.update(status="company_unresolved", candidates=[{
                     key: candidate.get(key, "") for key in ("corp_name", "corp_code", "stock_code")
-                } for candidate in resolution.candidates[:10]])
+                } for candidate in resolution.candidates[:10]],
+                           warnings=[warning], next_action=COMPANY_LOOKUP_NEXT_ACTION)
                 rows.append(row)
                 continue
             company = resolution.selected

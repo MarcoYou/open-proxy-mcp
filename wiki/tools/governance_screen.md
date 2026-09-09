@@ -8,7 +8,7 @@ related_disclosures: [공시유형코드체계]
 related_concepts: []
 related_decisions: []
 created: 2026-09-09
-updated: 2026-09-09
+updated: 2026-09-10
 ---
 
 # governance_screen
@@ -57,6 +57,8 @@ flowchart LR
 
 `companies[]`는 회사 식별·원천 조회 상태, `assessment_task`, 수용된 `assessment`, `triage`, `delta`를 각각 제공한다. 최상위 `submission_errors`는 잘못된 개별 입력, `unmatched_task_ids`는 현재 과업과 연결되지 않은 평가다. 같은 task_id의 중복 제출은 해당 task만 무효화한다. 추정에 의한 회사명 매칭은 최상위 `warnings`와 Markdown 상단에 표시한다.
 
+회사를 확정하지 못한 행은 공통 회사 식별 규약의 `warnings`·`next_action`을 반환한다. 후보가 여러 개인 경우 `candidates`와 재조회 안내를, 찾지 못한 경우 사명 변경·종목코드 재조회 안내를 JSON과 Markdown에 함께 표시한다. 다른 회사의 과업 생성은 계속한다.
+
 과업은 회사 식별, 기준일, 중요도 설정, 탐색 범위·성공 여부, 모든 선택 원문의 전체 문서 해시와 읽기 창을 묶어 식별한다. 일부 인용만 같아도 원문이나 과업이 바뀌면 예전 평가는 수용하지 않는다. 원문별 ID·URL·공개일·본문 해시·읽은 구간·부분 읽기 여부·다음 읽기 요청을 제공한다. 문맥 창 사이에서 생략한 내용을 넘어 인용을 합칠 수 없다.
 
 평가는 `task_id`, `evaluator`, `summary`, `findings`, `skipped_checks`를 가진다. `findings` 항목은 다음을 구분한다.
@@ -104,5 +106,7 @@ checkpoint는 최신 10,000개 번호를 보존하고 초과분은 `older_receip
 - 모든 회사의 지배구조 위험을 완전 탐지하거나 기관투자자의 실제 보팅 정확도를 검증한 도구가 아니다. 여러 공시의 조건·회차·관계·후속 사건을 연결해 읽는 호출 LLM 과업과 수용 계약이다.
 
 ## 변경 이력
+
+- 2026-09-10: 운영 main의 공통 회사 식별 안내를 연결. 모호한 후보·변경 사명·다음 조회 경로를 두 출력 형식에 보존하며 배치 내 다른 회사는 계속 처리한다.
 
 - 2026-09-09: Astra가 출처에 연결된 2단계 LLM 검토, 기업별 실패 격리, 중요도 경로, 증분 조회와 문맥 확장을 파일럿으로 구현했다.

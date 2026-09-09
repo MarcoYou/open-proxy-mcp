@@ -140,6 +140,29 @@ def _detail_line(card: dict) -> str | None:
     return None
 
 
+def _coverage_block(p: dict[str, Any]) -> list[str]:
+    """「이 응답이 못 본 것」 — 불완전한 스캔 코드를 사람이 읽는 문장으로.
+
+    한 곳에서만 만든다(service 와 renderer 가 각자 조립하면 한 화면에 두 번 찍힌다).
+    그리고 **매칭 0건일 때도** 나와야 한다 — 스캔이 잘려서 0건인데 「새 공시 없음」만 보이면
+    그게 가장 나쁜 침묵이다.
+    """
+    cut = [c for c in (p.get("coverage") or []) if not c.get("complete")]
+    if not cut:
+        return []
+    out = ["", "### 이 응답이 못 본 것"]
+    for c in cut:
+        why = (f"DART 오류 {c['error']}" if c.get("error")
+               else f"페이지 상한 {c['fetched_pages']}/{c['total_pages']}")
+        saw = (f"본 접수일 {c['seen_from']}~{c['seen_to']}"
+               if c.get("seen_from") else "받은 행 없음")
+        hole = f" · 빠진 페이지 {c['missing_pages']}" if c.get("missing_pages") else ""
+        out.append(f"- `{c['code']}` — {why} · {saw}{hole}")
+    out.append("- 기간을 나눠 두 번 부르면 그만큼 더 본다. "
+               "위 접수일 범위는 **실제로 받은 행**의 범위이지 창 전체가 아니다.")
+    return out
+
+
 def _render_digest(payload: dict[str, Any]) -> str:
     p = payload
     period = p.get("period", {})
@@ -168,7 +191,10 @@ def _render_digest(payload: dict[str, Any]) -> str:
         return "\n".join(lines)
 
     if p.get("no_new"):
-        lines.append("> ✨ **새 공시 없음** — 지정 기간·유형·유니버스에서 신규 공시가 없다. (조회는 정상)")
+        _cut = [c for c in (p.get("coverage") or []) if not c.get("complete")]
+        lines.append("> ✨ **새 공시 없음** — 지정 기간·유형·유니버스에서 신규 공시가 없다."
+                     + (" (조회는 정상)" if not _cut else " **다만 스캔이 온전하지 않았다 — 아래 참조.**"))
+        lines += _coverage_block(p)
         if p.get("warnings"):
             lines.append("")
             lines += [f"- {w}" for w in p["warnings"]]
@@ -234,9 +260,14 @@ def _render_digest(payload: dict[str, Any]) -> str:
     if counts.get("truncated_details"):
         foot.append("details 캡 초과분 존재")
     if counts.get("truncated_scan"):
+        # 「상한 도달」 여섯 글자로는 **무엇이 빠졌는지**를 알 수 없다 — 어느 코드가 몇 페이지 중
+        # 몇을 봤고 어느 날짜부터 안 보이는지까지 적는다(json 에만 있으면 사람은 못 본다).
         foot.append("스캔 페이지 상한 도달")
+    if counts.get("deduped_away"):
+        foot.append(f"정정본이 원본을 대체한 건 {counts['deduped_away']}건")
     if foot:
         lines.append("> " + " · ".join(foot))
+    lines += _coverage_block(p)
     if p.get("warnings"):
         lines.append("")
         lines.append("### 유의")

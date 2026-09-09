@@ -22,7 +22,10 @@ import calendar
 
 from open_proxy_mcp.dart.client import get_dart_client, DartClientError, LruByteCache, _env_mb
 from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
-from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             _company_id, resolve_company_query)
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
@@ -464,7 +467,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
         isu = (corp or {}).get("stock_code")
         if not isu:  # 회사 미해결/비상장 — 전체 표 덤프 대신 짧은 에러(실사용 QA P1: 1,600토큰 낭비 방지)
             return {"tool": "price_multiple_data", "status": "not_found", "subject": company,
-                    "warnings": [f"'{company}' 상장사를 찾지 못함 — 정확한 회사명/종목코드로 재시도. "
+                    "next_actions": [COMPANY_LOOKUP_NEXT_ACTION],
+                    "warnings": [company_not_found_warning(company, listed_only=True),
                                  "전체 섹터 표는 company 없이 scope='sector'."]}
         else:
             fr = await asyncio.to_thread(_pg_rows,
@@ -752,8 +756,14 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     if not corp:
         corp = await get_dart_client().lookup_corp_code(query)
     if not corp or not corp.get("stock_code"):
-        return {"tool": "price_multiple_data", "status": "not_found" if not corp else "unlisted",
-                "subject": query, "warnings": [f"'{company}' 상장 종목을 찾지 못함."]}
+        # 회사 자체가 없는 것과, 회사는 있는데 비상장인 것은 다른 사건이다 —
+        # 후자에 사명 변경 안내를 주면 사용자를 엉뚱한 쪽으로 끌고 간다.
+        if not corp:
+            return {"tool": "price_multiple_data", "status": "not_found", "subject": query,
+                    "next_actions": [COMPANY_LOOKUP_NEXT_ACTION],
+                    "warnings": [company_not_found_warning(company, listed_only=True)]}
+        return {"tool": "price_multiple_data", "status": "unlisted", "subject": query,
+                "warnings": [f"'{company}' 는 찾았으나 상장 종목이 아니다 — 배수는 주가가 있어야 낸다."]}
     isu = corp["stock_code"]
     cur_row = await asyncio.to_thread(_pg_rows,
         "SELECT market, induty, currency FROM dart_fundamentals WHERE ticker=%s", (isu,))
@@ -988,8 +998,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         corp = await client.lookup_corp_code(query)
     if not corp:
         return {"tool": "price_multiple_data", "status": "not_found", "subject": company,
-                "warnings": [f"'{company}' 조회 결과 없음 — 종목코드(6자리)나 정확한 회사명으로 재시도. "
-                             "(우선주는 보통주 종목코드로 조회)"]}
+                "next_actions": [COMPANY_LOOKUP_NEXT_ACTION],
+                "warnings": [company_not_found_warning(company, listed_only=True),
+                             "우선주는 보통주 종목코드로 조회한다."]}
     cc, stock_code = corp["corp_code"], corp.get("stock_code")
     name = corp.get("corp_name", company)
     # 비상장 = 주가 없음 → 시장배수(PER·PBR) 정의 불가. DART 마스터엔 비상장 법인(삼성·쿠팡 등)도
@@ -1078,8 +1089,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         return round(x * ecos_fx_rate) if x is not None else None
 
     if ecos_fx_rate != 1.0:
-        revenue_fy = _fx(revenue_fy)
-        eps_fy = None  # fm의 eps_krw는 실제 USD/주 → 폐기, 아래서 공시 EPS×환율로 대체
+        # revenue_fy 는 financial_metrics 요약에서 온다 — 그쪽이 이미 KRW 로 환산해 내보내므로
+        # 여기서 다시 곱하면 환율이 두 번 곱해진다(두산밥캣 실측 8.87조 → 12,728조, ≈1,435²).
+        # 아래 _fx() 는 이 함수가 **원행에서 직접 뽑은** 값(ni_*·eq_*·assets_fy…)에만 쓴다.
+        eps_fy = None  # fm의 eps_krw 도 KRW 환산본 → 폐기, 아래서 공시 EPS×환율로 통일 조립
 
     # ── 공시 EPS 조립 (260705, [[per-pbr-data-points]] 전수조사 귀결) ──
     # 가중평균주식수는 어느 endpoint에도 없음 → 주식수를 직접 만들지 않고 공시 EPS끼리 조립:

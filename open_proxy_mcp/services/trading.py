@@ -21,6 +21,8 @@ import asyncio
 import os
 from typing import Any
 
+from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
+
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.price_multiple_data import (
     _DB_ERROR_PAYLOAD_WARN,
@@ -44,6 +46,10 @@ _SCHEMES = {
 #: 남의 캐시를 오염시키지 않으려고 작은 장부를 따로 둔다(행 하나 ≈ 400B, 512행 ≈ 200KB).
 _QUOTE_CACHE: dict[tuple[str, str], dict] = {}
 _QUOTE_CACHE_MAX = 512
+
+# 상한이 있는 쪽도 올린다 — **대조군**이다. 예산 없는 캐시가 자랄 때 이쪽이 평평하면
+# 「자라는 건 상한 없는 것들」이 눈으로 갈린다. 하나만 보면 그 판정을 못 한다.
+_register_unbudgeted_cache("trading_quote", lambda: _QUOTE_CACHE)
 
 
 #: 시계열 해상도. 저장분은 **주간**이라 `weekly` 가 원본이고 `monthly` 는 월말 다운샘플이다.
@@ -404,6 +410,13 @@ async def build_quote_payload(company: str, format: str = "md",
     else:
         row = await _krx_quote_row(dd, ticker)
     if not row:
+        # KONEX(corp_cls="N")는 **구조적 미수록**이다 — 시세 소스가 KOSPI·KOSDAQ 두 endpoint 뿐이라
+        # 애초에 들어올 수 없다. 그걸 「휴장일·거래정지」로 말하면 분석가가 시장 상태 문제로 오독한다
+        # (거래정지 신호로 읽으면 사실과 반대의 리스크 판단을 한다).
+        if (corp.get("corp_cls") or "").upper() == "N":
+            return _err(corp.get("corp_name", company), "unsupported_market",
+                        f"{ticker} 는 KONEX 종목입니다 — 이 도구의 시세 소스는 KOSPI·KOSDAQ 두 곳뿐이라 "
+                        f"코넥스는 **수록 대상이 아닙니다**(휴장·거래정지와 무관). 공시 기반 도구는 그대로 씁니다.")
         return _err(corp.get("corp_name", company), "no_data",
                     f"{dd} 에 {ticker} 시세가 없습니다 — 휴장일·상장 전·거래정지 또는 KRX 키 미설정.")
 

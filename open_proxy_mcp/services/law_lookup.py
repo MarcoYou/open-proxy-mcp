@@ -34,6 +34,8 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any, Iterable
 
+from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
+
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -257,6 +259,12 @@ def expand_query_tokens(tokens: set[str], as_of_iso: str) -> set[str]:
 # ── corpus 인덱스 로더 (캐시) ───────────────────────────────────────────
 _INDEX_CACHE: dict[str, Any] | None = None
 _FULLTEXT_CACHE: dict[str, str] = {}
+
+# 둘 다 상한도 evict 도 없다. 인덱스는 한 번 읽고 마니 상수지만, 전문(全文)은 조회한 법령
+# 파일이 계속 쌓인다 — 코퍼스가 유한해서 언젠가 멈추긴 하지만 그 천장이 얼마인지 아무도
+# 모른다. 관측 장부에 올려 둔다(정의한 자리에서 등록해야 캐시를 더할 때 안 빠뜨린다).
+_register_unbudgeted_cache("law_fulltext", lambda: _FULLTEXT_CACHE)
+_register_unbudgeted_cache("law_index", lambda: _INDEX_CACHE)
 
 
 def load_index() -> dict[str, Any]:

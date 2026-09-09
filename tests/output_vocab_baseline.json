@@ -10,7 +10,7 @@
   "services/dividend_data.py": 3,
   "services/financial_metrics.py": 2,
   "services/ownership_structure.py": 1,
-  "services/price_multiple_data.py": 4,
+  "services/price_multiple_data.py": 3,
   "services/proxy_contest.py": 1,
   "services/risk_events.py": 1,
   "services/screener.py": 2,

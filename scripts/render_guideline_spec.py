@@ -163,6 +163,7 @@ def render_roadmap(soup):
 
 
 raw = SOURCE.read_text()
+document_date = re.search(r'^updated: (\d{4}-\d{2}-\d{2})$', raw, re.M).group(1)
 body = re.sub(r'^---\n.*?\n---\n', '', raw, count=1, flags=re.S)
 body = re.sub(r'^\s*# .+\n', '', body, count=1)
 # The authored Mermaid is represented by the offline runtime SVG, no CDN needed.
@@ -201,7 +202,7 @@ policy=json.loads(POLICY.read_text())
 (OUT/'governance.schema.json').write_text(json.dumps(GovernanceAssessment.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
 manifest={'generated_from':str(SOURCE.relative_to(ROOT)),'source_sha256':hashlib.sha256(raw.encode()).hexdigest(),
           'policy_version':policy['version'],'policy_file_sha256':hashlib.sha256(POLICY.read_bytes()).hexdigest(),
-          'assessment_contract':'opm-llm-assessment/5','governance_contract':'1','document_date':'2026-09-09','status':'local_document_export',
+          'assessment_contract':'opm-llm-assessment/5','governance_contract':'1','document_date':document_date,'status':'local_document_export',
           'verification_note':'Version-separated live MCP pilot evidence is maintained in the canonical verification section. Source-bound acceptance and routing are not an independent accuracy benchmark. All assessments remain human unreviewed; no ballots or scheduled runs.'}
 (OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
 css='''
@@ -221,6 +222,6 @@ main{padding:36px 48px 100px}header{margin-bottom:26px;padding-bottom:24px}h1{fo
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{main{padding:0}h1{font-size:25pt}.roadmap-chart{grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;break-inside:avoid}.roadmap-chart a,.roadmap-chart .phase-current a{display:flex;min-height:110px;padding:10px 7px}.roadmap-chart strong{font-size:9pt}.phase-number{font-size:17pt}.phase-status{font-size:8pt;margin:5px 0}.roadmap-chart li:not(:last-child)::after{content:'→';top:45px;bottom:auto;left:auto;right:-8px;font-size:10px}.roadmap-panels{grid-template-columns:1fr 1fr;gap:12px}.roadmap-panel{padding:12px}.roadmap-panel li,.next-action,.current-position{break-inside:avoid}.roadmap-panel p,.next-action p{font-size:9pt}.roadmap-panel h4{font-size:10pt}.chart-caption{display:none}}
 '''
-page=f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPM guideline v2 · 로드맵, 명세, 설계</title><style>{css}</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · 2026.09.09</div><nav aria-label="문서 목차">{''.join(nav)}</nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · {h(policy['version'])} · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>완료한 일, 현재 위치, 배포까지 남은 일부터 봅니다.<br>아래에 근거·정책·판정 로직과 실제 파일럿 결과가 이어집니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="../../wiki/decisions/{SOURCE.name}">문서 원본</a></div></header><article>{soup}</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: {manifest['source_sha256']}<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div></body></html>'''
+page=f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPM guideline v2 · 로드맵, 명세, 설계</title><style>{css}</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · {h(document_date.replace('-', '.'))}</div><nav aria-label="문서 목차">{''.join(nav)}</nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · {h(policy['version'])} · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>완료한 일, 현재 위치, 배포까지 남은 일부터 봅니다.<br>아래에 근거·정책·판정 로직과 실제 파일럿 결과가 이어집니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="../../wiki/decisions/{SOURCE.name}">문서 원본</a></div></header><article>{soup}</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: {manifest['source_sha256']}<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div></body></html>'''
 (OUT/'index.html').write_text(page)
 print(json.dumps({'output':str(OUT/'index.html'),'sections':len(nav),'policy':policy['version']},ensure_ascii=False))

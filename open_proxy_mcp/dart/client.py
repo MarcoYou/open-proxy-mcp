@@ -20,7 +20,10 @@ import sys
 import json
 import time
 import asyncio
+import datetime as _dt
+from itertools import islice as _islice
 import contextlib
+import calendar
 import collections
 import logging
 import sqlite3
@@ -275,6 +278,9 @@ DEGRADATION_KINDS = frozenset({
     "statement_basis",     # 연결(CFS)이 없어 별도(OFS)로 답했다 — 기준이 섞인다
     "year_substituted",    # 요청·추정한 연도를 못 찾아 다른 연도로 답했다
     "parse_timeout",       # 파싱이 시간을 넘겨 더 거친 경로로 답했다
+    "period_clamped",      # 요청한 기간이 상한을 넘어 **잘라서** 답했다(시장스캔 3개월 하드캡)
+    "scan_page_truncated", # 스캔 페이지 상한에 걸려 **창의 일부만** 보고 답했다
+    "pay_absent_with_limit",  # 보수 한도는 읽혔는데 지급액만 비었다 — 서식 전환 의심 신호
 })
 
 #: 한 요청이 같은 종류를 여러 번 밟아도 한 번만 센다(상한도 겸한다).
@@ -324,6 +330,21 @@ DART_WEB_BASE_URL = "https://dart.fss.or.kr"
 # API 최소 간격: 순간 burst를 시간축에 펴는 평활화용(분당 window cap과 별개).
 # 0.066초 = 분당 상한 910 = _API_RATE_LIMIT_PER_MINUTE와 정합 → 단일 흐름이 window cap에
 # 도달 가능하면서 초당 ~15로 burst 평활. (이전 0.1초는 분당 600 상한이라 window cap을
+
+#: **한 요청이 `list.json` 페이지에 쓸 수 있는 총 콜.** 세 서비스가 각자 상한을 추측하던 것을
+#: 한 곳으로 모은다(종전: screener 20 / risk_events 200 — 같은 endpoint 인데 10배 차이).
+#: 근거는 위 분당 한도 하나뿐이다 — 한 요청이 키 창의 1/3 을 넘게 잡으면 같은 머신의 아침
+#: 디제스트·배치가 굶는다. 팬아웃(코드 수)으로 나눠 쓰므로 코드가 늘어도 총량은 그대로다.
+LIST_PAGE_BUDGET_PER_REQUEST = 300
+_LIST_PAGE_MIN_SHARE = 5          # 팬아웃이 커도 코드 하나가 0 페이지가 되지는 않게
+
+
+def list_pages_per_code(fanout: int) -> int:
+    """팬아웃 코드 하나가 쓸 수 있는 페이지 수. 상한을 코드 수로 나눈다."""
+    if fanout <= 0:
+        return LIST_PAGE_BUDGET_PER_REQUEST
+    return max(_LIST_PAGE_MIN_SHARE, LIST_PAGE_BUDGET_PER_REQUEST // fanout)
+
 # 무력화 = 과보수. race는 _api_rate_lock이 직렬화로 보장하므로 간격과 무관.)
 _MIN_INTERVAL_API = 0.066
 #: 웹 스크래핑(DART 웹 원문 viewer · KIND) 요청 간격 — **한 규칙, 한 시계**(260810 통일).
@@ -471,6 +492,55 @@ class DartClientError(Exception):
 
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
+
+#: 원장(corpCode·정기보고서 명부) **관측용 메타**. 값이 아니라 「언제 것이고 얼마나 무거운가」만.
+#:
+#: 왜 `_CACHE_REGISTRY` 에 안 넣나 — 거기는 `LruByteCache` 전용이고 이 둘은 평범한 list/frozenset 이다.
+#: 그리고 `/health` 는 자주 불리는데 118,583사 dict 를 매번 재귀로 재면 **관측이 그 자체로 비용**이 된다
+#: (`_cache_entry_bytes` 는 항목마다 getsizeof 를 돈다). 그래서 **적재 시점에 한 번, 표본으로** 잰다.
+_registry_meta: dict[str, dict] = {}
+
+
+def _note_registry(name: str, items, *, source: str) -> None:
+    """원장 적재를 기록한다 — 개수·기준일·대략 바이트·적재 시각.
+
+    바이트는 **표본 추정**이다. 전수 계산은 118k 항목을 재귀로 도는 일이라 적재 경로를 몇 초
+    늘린다(그 경로는 이미 6~15초짜리 콜드스타트다). 여기서 필요한 건 정확한 값이 아니라
+    「이게 66MB 급 상주 소비자다」를 잊지 않는 것이다 — 260804 OOM 이 안 보이던 캐시에서 났다.
+    """
+    try:
+        n = len(items)
+        # ★ `list(items)[:500]` 로 자르면 **전체 사본이 먼저 생긴다** — 명부는 frozenset 118k 라
+        #   관측하려다 그 순간 메모리를 두 배로 쓴다. islice 는 앞 500개만 꺼낸다.
+        sample = list(_islice(items, 500)) if n else []
+        avg = (sum(_cache_entry_bytes(x) for x in sample) / len(sample)) if sample else 0
+        as_of = ""
+        if sample and isinstance(sample[0], dict):
+            # 기준일은 전수를 봐야 최댓값이 나온다. 문자열 비교라 118k 도 수 ms 다(실측 7ms).
+            as_of = max((str(x.get("modify_date") or "") for x in items), default="")
+        _registry_meta[name] = {
+            "entries": n,
+            "bytes_est": int(avg * n),
+            "as_of": as_of or None,
+            "loaded_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+            "source": source,
+        }
+    except Exception as exc:   # noqa: BLE001 — 관측이 서빙을 깨면 안 된다
+        logger.debug("registry meta 기록 실패 (%s): %s", name, exc)
+
+
+def registry_stats() -> dict:
+    """`/health` 노출용. 나이(시간)는 볼 때 계산한다 — 저장해 두면 그 값이 낡는다."""
+    out: dict[str, dict] = {}
+    now = _dt.datetime.now(_dt.timezone.utc)
+    for name, m in _registry_meta.items():
+        age = None
+        try:
+            age = round((now - _dt.datetime.fromisoformat(m["loaded_at"])).total_seconds() / 3600, 1)
+        except Exception:  # noqa: BLE001
+            pass
+        out[name] = {**m, "age_hours": age}
+    return out
 _corp_code_lock: asyncio.Lock | None = None  # lazy init (asyncio loop 필요)
 
 
@@ -613,7 +683,7 @@ class LruByteCache:
             # ★ 이게 **evict 총량을 줄이지는 않는다.** 워킹셋이 예산보다 크면 들어온
             #   바이트만큼 나가야 하는 산수라 어떤 정책도 그걸 못 바꾼다. 수위가 주는 것은
             #   **여유 공간**이다 — 종전엔 항상 (상한−항목크기)~상한 사이에 붙어 있었고
-            #   (실측 90~100%), 이제 저수위~고수위 사이에 산다(75~95%). 1GB 머신에서
+            #   (실측 90~100%), 이제 저수위~고수위 사이에 산다(75~95%). 당시 1GB 머신에서
             #   그 10MB 가 260804 OOM 여유다. 부수적으로 스윕 **횟수**가 줄어 디스크 쪽
             #   (스윕마다 디렉터리 전체 stat)에서는 일 자체도 준다.
             #
@@ -841,9 +911,70 @@ def cache_stats() -> dict:
     """
     out = {c._name: c.stats() for c in _CACHE_REGISTRY}
     out["document_disk"] = _disk_cache_stats()
-    # 선언된 메모리 예산 총합 — 1GB 머신에서 이 합이 어디까지 갔는지가 OOM 의 선행 지표다.
+    # 선언된 메모리 예산 총합. **다만 이 합만 봐서는 OOM 을 못 본다** — 260901·260909 둘 다
+    # 이 값이 낮은 채로 죽었다(각각 33%·0%). 예산 밖은 `unbudgeted_cache` 가 본다.
     out["_budget_mb"] = round(sum(c._max_bytes for c in _CACHE_REGISTRY) / 1024 / 1024)
     out["_used_mb"] = round(sum(c._total_bytes for c in _CACHE_REGISTRY) / 1024 / 1024, 1)
+    return out
+
+
+#: **예산 없는 전역 캐시 장부.** `_CACHE_REGISTRY` 는 `LruByteCache` 전용이라, 서비스가 모듈
+#: 전역에 둔 평범한 dict 캐시는 거기 안 들어간다 — 그리고 그런 캐시는 상한도 evict 도 없다.
+#:
+#: 왜 필요한가(260901·260909). 260901 에 두 머신이 동시에 OOM(exit 137) 했을 때 캐시 점유는
+#: 예산 296MB 의 33% 였고 실사용은 950MB 였다. 260909 에도 같은 모양이 났다 — 부팅 직후
+#: 242MB 인 프로세스가 30분 만에 708MB 가 되고 2~3시간마다 죽는데, `cache_stats()` 는
+#: 내내 `_used_mb: 0.0` 을 보고했다. **자라는 것이 우리가 보는 자리 밖에 있다.**
+#:
+#: 260824 교훈을 그대로 가져온다 — 나열하지 말고 장부로 돌린다. 등록하면 자동으로 보인다.
+_UNBUDGETED_CACHES: "list[tuple[str, Any]]" = []
+
+#: 바이트는 **표본 추정**이다(`_note_registry` 와 같은 이유). 값이 통짜 페이로드일 수 있어
+#: 전수 재귀는 헬스체크 한 번을 수백 ms 로 만든다. 그리고 그 계산 자체가 메모리를 흔든다 —
+#: 재는 행위가 재려는 대상을 바꾸면 안 된다.
+_UNBUDGETED_SAMPLE = 20
+_UNBUDGETED_TTL_SEC = 60.0
+_unbudgeted_memo: "dict[str, tuple[float, int, int]]" = {}
+
+
+def register_unbudgeted_cache(name: str, getter) -> None:
+    """예산 없는 모듈 전역 캐시를 관측 장부에 올린다.
+
+    `getter` 는 **호출 가능한 것**을 받는다 — dict 를 직접 받으면 `_X_CACHE = None` 으로
+    시작해 나중에 재바인딩되는 캐시에서 옛 객체를 붙들게 된다(그러면 영영 0 을 보고한다).
+    """
+    if not any(n == name for n, _ in _UNBUDGETED_CACHES):
+        _UNBUDGETED_CACHES.append((name, getter))
+
+
+def unbudgeted_cache_stats() -> dict:
+    """예산 없는 캐시들의 개수·대략 바이트. `/health` 가 노출한다.
+
+    항목 수는 매번 세고(싸다), 바이트는 60초에 한 번만 다시 잰다.
+    """
+    out: dict = {}
+    total = 0
+    now = time.time()
+    for name, getter in _UNBUDGETED_CACHES:
+        try:
+            obj = getter()
+        except Exception:                      # 관측이 서빙을 깨면 안 된다
+            continue
+        n = len(obj) if obj is not None else 0
+        memo = _unbudgeted_memo.get(name)
+        if memo and now - memo[0] < _UNBUDGETED_TTL_SEC and memo[1] == n:
+            est = memo[2]
+        else:
+            try:
+                vals = list(_islice(obj.values(), _UNBUDGETED_SAMPLE)) if isinstance(obj, dict) else []
+                avg = (sum(_cache_entry_bytes(v) for v in vals) / len(vals)) if vals else 0
+                est = int(avg * n)
+            except Exception:
+                est = 0
+            _unbudgeted_memo[name] = (now, n, est)
+        total += est
+        out[name] = {"entries": n, "bytes_est": est}
+    out["_total_mb"] = round(total / 1024 / 1024, 1)
     return out
 
 
@@ -893,7 +1024,49 @@ _MASTER_DB_TTL_HOURS = 168   # 7d (corpCode 변경 빈도 낮음, 24h이었지�
 #    이름 규칙(「제○차」·「유동화전문」)을 손으로 관리할 필요가 없다.
 _FILERS_TTL_HOURS = 168      # 7d — 정기보고서는 분기마다 몰려 나오므로 주 1회면 충분
 _FILERS_LOOKBACK_DAYS = 400  # 사업보고서 1주기(1년) + 여유
-_FILERS_WINDOW_DAYS = 85     # corp_code 없는 조회는 **3개월까지만** 허용된다(DART status 100)
+#: **corp_code 없는 조회의 기간 상한.** 세 곳이 각자 다른 일수로 추측하던 것(client 85 ·
+#: risk_events 90 · screener 92)을 여기 하나로 모은다.
+#:
+#: 상한은 **일수가 아니라 3역월(calendar month)** 이다 — DART 가 그렇게 말하고(status 100:
+#: "corp_code가 없는 경우 검색기간은 3개월만 가능합니다"), 260909 실측이 그걸 확인했다.
+#: 그래서 허용 일수는 시작일에 따라 **89~92일로 달라진다**:
+#:
+#:   2026-02-06 ~ 05-06 (89일, =3역월) → 000  ·  ~05-07 (90일) → **100 거부**
+#:   2026-06-09 ~ 09-09 (92일, =3역월) → 000  ·  ~09-10 (93일) → **100 거부**
+#:
+#: ★ 고정 일수를 쓰면 안 된다. 92 로 두면 2월 시작 구간이 통째로 막히고(전체 시작일의 약
+#:   42%), 90 으로 둬도 3역월이 89일인 구간에서 조용히 거부당한다. 그 거부는
+#:   `_build_filers` 의 `except Exception` 에 삼켜져 **명부가 영영 안 만들어지는** 모양으로
+#:   나타난다 — 에러가 아니라 침묵이라 더 나쁘다.
+#:
+#: 방향도 **전진**이다(`bgn + 3역월 >= end`, `end − 3역월` 이 아니라). 월말에서 둘이 갈리고,
+#: 실측은 전진 쪽이었다: `02-28 ~ 05-31`(92일) 거부 · `01-29 ~ 04-30`(91일) 거부.
+MARKET_WINDOW_MAX_MONTHS = 3
+
+
+def _shift_months(d: "_dt.date", months: int) -> "_dt.date":
+    """역월 단위 이동. 말일은 짧은 달의 말일로 눌린다(1/31 +1월 = 2/28)."""
+    m = d.month - 1 + months
+    y, m = d.year + m // 12, m % 12 + 1
+    return d.replace(year=y, month=m, day=min(d.day, calendar.monthrange(y, m)[1]))
+
+
+def market_window_end(bgn: "_dt.date", *, months: int = MARKET_WINDOW_MAX_MONTHS) -> "_dt.date":
+    """`bgn` 과 함께 쓸 수 있는 **가장 늦은 종료일**. 앞으로 훑어 나갈 때 쓴다."""
+    return _shift_months(bgn, months)
+
+
+def market_window_start(end: "_dt.date", *, months: int = MARKET_WINDOW_MAX_MONTHS) -> "_dt.date":
+    """`end` 와 함께 쓸 수 있는 **가장 이른 시작일**. 사용자 구간을 뒤로 자를 때 쓴다.
+
+    `end − 3역월` 을 그대로 쓰면 안 된다 — 규칙이 전진이라 말일에서 어긋난다.
+    (end=5/31 이면 `end − 3역월` = 2/28 인데, 2/28 +3역월 = 5/28 < 5/31 이라 거부된다.)
+    그래서 뒤로 민 뒤 조건을 만족할 때까지 하루씩 당긴다 — 최대 세 걸음이다.
+    """
+    b = _shift_months(end, -months)
+    while market_window_end(b, months=months) < end:
+        b += _dt.timedelta(days=1)
+    return b
 _FILERS_MIN_EXPECTED = 2_000
 
 
@@ -1460,6 +1633,7 @@ class DartClient:
             if corps:
                 logger.info(f"corp_codes loaded from sqlite master ({len(corps)} corps, fresh ≤7d)")
                 _corp_code_cache = corps
+                _note_registry("corp_master", corps, source="sqlite")
                 return corps
 
             # Layer 3: DART download (3회 retry)
@@ -1482,6 +1656,7 @@ class DartClient:
                         })
                     _validate_corp_master(corps)
                     _corp_code_cache = corps
+                    _note_registry("corp_master", corps, source="download")
                     # sqlite save (실패해도 memory cache로 계속)
                     self._master_db_save(corps)
                     return corps
@@ -1503,6 +1678,7 @@ class DartClient:
             if fallback_corps:
                 logger.warning("corpCode 영문명 갱신 실패 — 기존 한글 master로 fail-open")
                 _corp_code_cache = fallback_corps
+                _note_registry("corp_master", fallback_corps, source="stale_sqlite")
                 return fallback_corps
             raise DartClientError("CORPCODE_DOWNLOAD_FAILED", f"corpCode.xml 3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}")
 
@@ -1578,6 +1754,7 @@ class DartClient:
             if cached is not None:
                 logger.info(f"periodic_filers loaded from sqlite ({len(cached)} corps)")
                 _periodic_filers_cache = cached
+                _note_registry("periodic_filers", cached, source="sqlite")
                 return cached
             # 260823: sqlite 도 비었으면 **패키지 동봉본**을 쓴다. 배포 직후엔 볼륨에
             #   명부가 없어 여기로 온다 — 동봉본이 없으면 그동안 비상장 금융사가 안 열리고
@@ -1587,6 +1764,7 @@ class DartClient:
             if bundled is not None:
                 logger.info(f"periodic_filers loaded from bundle ({len(bundled)} corps)")
                 _periodic_filers_cache = bundled
+                _note_registry("periodic_filers", bundled, source="bundled")
                 # 동봉본은 최대 한 달 낡을 수 있다 — 뒤에서 최신본을 만들어 덮는다.
                 self._start_filers_build()
                 return bundled
@@ -1620,6 +1798,7 @@ class DartClient:
             return
         self._filers_db_save(filers)
         _periodic_filers_cache = frozenset(filers)
+        _note_registry("periodic_filers", filers, source="download")
         logger.info(f"periodic_filers 백그라운드 수집 완료 ({len(filers)} corps)")
 
     async def _fetch_periodic_filers(self) -> dict[str, str]:
@@ -1633,7 +1812,7 @@ class DartClient:
         filers: dict[str, str] = {}
         cur = today - timedelta(days=_FILERS_LOOKBACK_DAYS)
         while cur < today:
-            end = min(cur + timedelta(days=_FILERS_WINDOW_DAYS), today)
+            end = min(market_window_end(cur), today)
             page = 1
             while True:
                 res = await self.search_filings(
@@ -2200,6 +2379,48 @@ class DartClient:
             reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
         """
         return await self._request("stockTotqySttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_share_change_status(self, corp_code: str, bsns_year: str,
+                                      reprt_code: str = "11011") -> dict:
+        """증자(감자) 현황 (irdsSttus) — 주식수가 **왜** 변했는지.
+
+        `stockTotqySttus`(총수 스냅샷)는 「얼마인가」만 답한다. 이쪽은 유상·무상·주식배당·전환
+        같은 **변동 사유**를 시계열로 준다 — 그리고 `dilutive_issuance` 의 24개월 창 **밖 과거**까지
+        덮는다(정기보고서 한 표라 1콜).
+
+        Args:
+            corp_code: DART 기업코드 (8자리)
+            bsns_year: 사업연도 (예: "2024")
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request("irdsSttus.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_capital_use_public(self, corp_code: str, bsns_year: str,
+                                     reprt_code: str = "11011") -> dict:
+        """공모자금의 사용내역 (pssrpCptalUseDtls).
+
+        조달 **계획**은 `piicDecsn` 의 `fdpp_*` 로 이미 본다. 이쪽은 그 계획 대비 **실제 사용**이다.
+        둘을 자동으로 대조하지 않는다 — 항목명이 자유서술이라 결정론적 매칭은 오답을 만든다.
+        두 표를 나란히 주고 판단은 읽는 쪽이 한다.
+        """
+        return await self._request("pssrpCptalUseDtls.json", {
+            "corp_code": corp_code,
+            "bsns_year": bsns_year,
+            "reprt_code": reprt_code,
+        })
+
+    async def get_capital_use_private(self, corp_code: str, bsns_year: str,
+                                      reprt_code: str = "11011") -> dict:
+        """사모자금의 사용내역 (prvsrpCptalUseDtls). 공모와 같은 계약."""
+        return await self._request("prvsrpCptalUseDtls.json", {
             "corp_code": corp_code,
             "bsns_year": bsns_year,
             "reprt_code": reprt_code,
@@ -2797,6 +3018,7 @@ class DartClient:
         resp1 = await self._http.get(url1, params={
             "method": "search", "acptno": acptno,
         }, timeout=30, headers=headers)
+        _check_web_response(resp1, "kind_doc_1")
         resp1.raise_for_status()
 
         # <select id="mainDoc"> 안의 <option value="docNo|Y">
@@ -2810,6 +3032,7 @@ class DartClient:
         resp2 = await self._http.get(url1, params={
             "method": "searchContents", "docNo": doc_no,
         }, timeout=30, headers=headers)
+        _check_web_response(resp2, "kind_doc_2")
         resp2.raise_for_status()
 
         # setPath('목차URL', '본문URL') — 두 번째 인자가 본문 (목차가 빈 문자열일 수 있음)
@@ -2822,6 +3045,7 @@ class DartClient:
         await self._throttle_kind()
         body_url = f"{kind_base}{body_path}" if body_path.startswith("/") else body_path
         resp3 = await self._http.get(body_url, timeout=30, headers=headers)
+        _check_web_response(resp3, "kind_doc_3")
         resp3.raise_for_status()
 
         logger.info(f"[KIND] 본문 다운로드 완료: {len(resp3.text):,} chars (acptno={acptno})")
@@ -2918,6 +3142,9 @@ class DartClient:
             timeout=30,
             headers=headers,
         )
+        # KIND 도 차단 장부에 넣는다 — 시계(_throttle_kind)는 이미 공유하는데 감지만 빠져 있어서,
+        # KIND 가 403/429 를 내면 `/health` 의 web_block 이 0 을 유지했다(운영자가 못 본다).
+        _check_web_response(response, "kind_search")
         response.raise_for_status()
 
         return self._parse_kind_disclosure_rows(response.text)
@@ -3094,7 +3321,8 @@ class DartClient:
         빠른 답이 느린 답 뒤에 서지 않는다 — 좁히는 것은 「새로 받아 파싱하는 길」뿐이다.
 
         왜 — 문서 한 건 처리에 RSS 가 **+123MB** 튄다(13MB 사업보고서 실측). 동시 3~5건이면
-        370~600MB 가 한꺼번에 잡히고, 여기에 상시 점유가 얹혀 1,024MB 를 넘는다.
+        370~600MB 가 한꺼번에 잡히고, 여기에 상시 점유가 얹혀 당시 한도 1,024MB 를 넘었다.
+        (260909 에 2,048MB 로 올렸다 — 그래도 이 문이 없으면 같은 산수가 성립한다.)
         260901 실측: 08:30 두 머신 동시 OOM · 15:57 또 한 번. 그때 동시 건수가 3~5 였다.
         2 로 두는 이유는 **계산이 어차피 직렬**이기 때문이다(단일 이벤트루프) — 3으로 늘려
         얻는 것은 내려받기 겹침(0.4초)뿐인데 비용은 +123MB 다. 남는 장사가 아니다.

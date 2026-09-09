@@ -134,7 +134,8 @@ def build_mcp() -> MCPServer:
     async def _health(_request):
         from starlette.responses import JSONResponse
         from open_proxy_mcp.dart.client import (cache_stats, client_registry_stats,
-                                        doc_gate_stats, inflight_now, web_block_stats)
+                                        doc_gate_stats, inflight_now, registry_stats,
+                                        unbudgeted_cache_stats, web_block_stats)
         from open_proxy_mcp.db import pool_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
@@ -155,6 +156,17 @@ def build_mcp() -> MCPServer:
             "tools": len(await mcp.list_tools()),
             "data": _data,
             "cache": cache_stats(),
+            # 260909: 예산 **없는** 전역 dict 캐시들. `cache` 가 0.0MB 를 보고하는 동안
+            #   프로세스는 30분에 466MB 가 늘었다 — 자라는 것이 관측 밖에 있다는 뜻이다.
+            #   상한 있는 `trading_quote` 를 대조군으로 같이 싣는다(그게 평평하면 판정이 선다).
+            "unbudgeted_cache": unbudgeted_cache_stats(),
+            # 260909: 캐시가 아닌 증가(태스크·스레드 누수, 회수 못 한 순환)를 가르는 자.
+            "runtime": _runtime_stats(),
+            # 원장(회사 목록·정기보고서 명부) — 「언제 것이고 얼마나 무거운가」.
+            # 메모리 층에는 만료가 없어서 fly 의 suspend/재개로 프로세스가 오래 살면 그만큼
+            # 묵는다(sqlite TTL 7일은 메모리가 비었을 때만 걸린다). 신규 상장사를 「없다」고
+            # 답하는 조용한 실패라, 먼저 **얼마나 묵는지 보이게** 한다.
+            "registry": registry_stats(),
             # 풀이 실제로 서고 있나 · 대기가 쌓이나. 「빠르게 하려고 둔 것」이 조용히
             #   fail-open 으로 꺼져 있으면 숫자로만은 알 수 없어서 함께 낸다.
             "pg_pool": pool_stats(),
@@ -168,7 +180,8 @@ def build_mcp() -> MCPServer:
             # 260901: **캐시 예산과 VM 한도는 다른 자다.** 08:30 두 머신이 동시에
             #   exit_code=137·oom_killed 로 죽었는데, 그 직후 /health 의 캐시 점유는
             #   296MB 중 33% 였다 — 「멀쩡하다」로 읽힌다. OOM 은 캐시가 아니라
-            #   **프로세스 전체 RSS** 가 VM 한도(1,024MB)에 닿아 난다. 그 값을 여기 싣는다.
+            #   **프로세스 전체 RSS** 가 VM 한도에 닿아 난다(260909 부터 2,048MB — 그전엔
+            #   1,024MB 였고 260901·260909 에 거기서 죽었다). 그 값을 여기 싣는다.
             #   fly Prometheus 로도 볼 수 있지만 조직 토큰이 필요해 앱 범위 토큰으로는 401 이다.
             "mem": _mem_stats(),
             # 260901: 키별 DartClient 등록부. **여기가 유일하게 단조증가하던 자리**였다
@@ -452,6 +465,42 @@ def _mem_stats() -> dict:
             pass
     if out.get("cg_used_mb") and out.get("cg_limit_mb"):
         out["cg_pct"] = round(out["cg_used_mb"] / out["cg_limit_mb"] * 100, 1)
+    return out
+
+
+def _runtime_stats() -> dict:
+    """살아 있는 태스크·스레드·GC 세대 수. **캐시가 아닌 증가**를 가르려고 둔다.
+
+    260909: 부팅 직후 242MB 인 프로세스가 30분 만에 708MB 가 되는데 캐시 점유는 내내
+    0.0MB 였다. 자라는 게 캐시가 아니면 남는 후보는 (a) 예산 없는 전역 dict,
+    (b) 회수 안 되는 태스크·스레드, (c) 순환 참조로 GC 에 걸린 객체 셋이다.
+    (a) 는 `unbudgeted_cache`, (b)(c) 는 여기서 본다 — 셋을 같이 봐야 어느 쪽인지 갈린다.
+
+    `gc.get_objects()` 는 전수 순회라 안 쓴다(헬스체크가 그만큼 멈춘다).
+    `get_count()` 는 세대별 카운터라 공짜다.
+    """
+    out: dict = {}
+    try:
+        import asyncio
+        try:
+            out["tasks"] = len(asyncio.all_tasks())
+        except RuntimeError:          # 루프 밖에서 불렸다
+            pass
+    except Exception:
+        pass
+    try:
+        import threading
+        out["threads"] = threading.active_count()
+    except Exception:
+        pass
+    try:
+        import gc
+        out["gc_count"] = list(gc.get_count())
+        out["gc_collected"] = sum(st.get("collected", 0) for st in gc.get_stats())
+        out["gc_uncollectable"] = sum(st.get("uncollectable", 0) for st in gc.get_stats())
+        out["gc_garbage"] = len(gc.garbage)     # 0 이 아니면 회수 못 한 순환이 쌓인다
+    except Exception:
+        pass
     return out
 
 

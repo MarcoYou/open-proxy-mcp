@@ -43,6 +43,7 @@ def render_governance_screen(payload: dict[str, Any]) -> str:
     for row in payload["companies"]:
         name = (row.get("company") or {}).get("corp_name") or row["query"]
         lines += ["", f"## {name}", ""]
+        lines += row.get("warnings") or []
         if not row.get("assessment_task"):
             lines += ["이 회사의 식별 또는 원천 조회를 완료하지 못했습니다. 다른 회사 결과는 계속 사용할 수 있습니다."]
             continue

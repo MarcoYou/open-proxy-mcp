@@ -48,7 +48,7 @@ async def main() -> int:
     from open_proxy_mcp.dart.client import _FILERS_MIN_EXPECTED, get_dart_client
 
     client = get_dart_client()
-    print("DART 정기보고서 명부 수집 — 400일치, 85일 창 (약 183콜)", flush=True)
+    print("DART 정기보고서 명부 수집 — 400일치, 3역월 창 (약 183콜)", flush=True)
     filers = await client._fetch_periodic_filers()
 
     # 무결성: 덜 모인 것을 쓰면 **명부에 없는 회사가 조용히 닫힌다.**

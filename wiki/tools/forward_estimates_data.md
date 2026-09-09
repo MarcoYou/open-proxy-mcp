@@ -4,7 +4,7 @@ title: forward_estimates_data
 domain: data
 status: 등록 완료 (260830 — tools/forward_estimates_data.py, 브랜치 beta)
 scope: [firm]
-data_source: [Supabase `fwd` 컨센서스 추정치 스냅샷 (외부 벤더 원천 + 파생 계산)]
+data_source: [컨센서스 추정치 스냅샷 저장분 (외부 벤더 원천 + 파생 계산)]
 related_disclosures: []
 related_concepts: [당기순이익, ROE, 배당수익률, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-08-30
@@ -16,7 +16,7 @@ updated: 2026-09-04
 컨센서스 **포워드 추정치**(내년·내후년 예상 실적과 배수)를 낸다. 대조용으로 최근 실적 행을
 같이 싣는다 — 「2026E EPS 48,139」는 「2025A 6,564」 옆에 있어야 뜻이 생긴다.
 
-**DART 공시가 아니다.** 애널리스트 컨센서스 스냅샷(`fwd`, Supabase)을 읽는다.
+**DART 공시가 아니다.** 사전 수집한 애널리스트 컨센서스 스냅샷을 읽는다.
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
@@ -108,7 +108,7 @@ DB 물리 칸이 아직 `_eok` 면 도구가 ×1e8 해서 원으로 통일한다
 매핑 표는 `services/forward_estimates.py` 의 `_FIELDS` **한 곳**에만 있다. 개명 전후 양쪽에서 돈다.
 
 ## DART 콜
-**0콜.** Supabase 조회만 한다(회사 식별은 공용 리졸버 캐시 경로).
+**0콜.** 저장분 조회만 한다(회사 식별은 공용 리졸버 캐시 경로).
 
 ## 변경 이력
 

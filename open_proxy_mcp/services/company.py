@@ -265,8 +265,13 @@ def _resolution_reasons(
 ) -> dict[str, str]:
     ko_universe = "활성 상장사" if active_registry_used else "종목코드 보유 법인"
     en_universe = "active listed companies" if active_registry_used else "companies with a ticker"
-    ko_rank = "시가총액" if ranking_signal == "market_cap" else "로컬 인기도 prior"
-    en_rank = "market capitalization" if ranking_signal == "market_cap" else "the local popularity prior"
+    _KO_RANK = {"market_cap": "시가총액", "local_popularity_prior": "로컬 인기도 prior",
+                "registry_recency": "등록 최신순(시총 자료 없음)"}
+    _EN_RANK = {"market_cap": "market capitalization",
+                "local_popularity_prior": "the local popularity prior",
+                "registry_recency": "registry recency (no market-cap data)"}
+    ko_rank = _KO_RANK.get(ranking_signal, _KO_RANK["registry_recency"])
+    en_rank = _EN_RANK.get(ranking_signal, _EN_RANK["registry_recency"])
     return {
         "ko": {
             "token": f"입력 토큰을 모두 포함하는 {ko_universe} 후보 중 {ko_rank} 우선",
@@ -295,7 +300,8 @@ def _resolution_payload(
     reason_i18n = _resolution_reasons(
         kind,
         bool(meta.get("active_registry_used")),
-        str(meta.get("ranking_signal") or "local_popularity_prior"),
+        # 메타가 비었으면 **없는 근거를 주장하지 않는다** — 원장 최신순이 사실이다.
+        str(meta.get("ranking_signal") or "registry_recency"),
     )
     reason = reason_i18n["en" if english else "ko"]
     return {
@@ -539,6 +545,31 @@ def company_not_found_warning(query: str, *, listed_only: bool = False) -> str:
         "사명이 바뀐 회사는 옛 이름으로 조회되지 않는다(회사 목록에 현재 사명만 있다) — "
         "종목코드 6자리로 다시 조회하면 사명이 바뀌어도 찾을 수 있다."
     )
+
+
+#: 회사 미해결 안내의 **다음 경로**. 문구를 tool 마다 지어내지 않게 상수로 둔다.
+COMPANY_LOOKUP_NEXT_ACTION = "company tool 로 회사 식별 확인"
+
+
+def company_ambiguous_warning(query: str, candidates: list | None = None, *, limit: int = 5) -> str:
+    """후보가 여럿이라 **고르지 않았을 때**의 안내 — 「못 찾았다」와 다른 사건이다.
+
+    못 찾은 것(ERROR)에 사명 변경 안내를 주는 것과 달리, 여기서는 회사가 **있고 여럿**이다.
+    그래서 필요한 것은 탈출구가 아니라 **후보 목록**인데, 종전엔 이 분기가 대부분 죽어 있어
+    (가드가 `ERROR or not selected` 인데 AMBIGUOUS 는 항상 selected 가 None 이라 앞에서 잡힌다)
+    후보를 손에 쥐고도 버리고 「찾지 못했다」로 답했다.
+    """
+    named = []
+    for c in (candidates or [])[:limit]:
+        if not isinstance(c, dict):
+            continue
+        nm = c.get("corp_name") or c.get("name") or ""
+        code = c.get("stock_code") or c.get("corp_code") or ""
+        named.append(f"{nm}({code})" if code else nm)
+    rest = max(0, len(candidates or []) - limit)
+    head = (f"'{query}'는 후보가 여럿이라 자동 선택하지 않았다"
+            + (f" — {' · '.join(named)}" + (f" 외 {rest}건" if rest else "") if named else ""))
+    return head + ". 종목코드 6자리나 corp_code 로 다시 조회한다."
 
 
 async def resolve_company_query(query: str) -> CompanyResolution:

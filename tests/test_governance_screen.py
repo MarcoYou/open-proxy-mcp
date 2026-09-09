@@ -210,6 +210,8 @@ def install_client(monkeypatch):
             raise RuntimeError("private upstream token must not appear")
         if query == "모호":
             return CompanyResolution(AnalysisStatus.AMBIGUOUS, query, None, [{"corp_name": "후보"}])
+        if query == "이전사명":
+            return CompanyResolution(AnalysisStatus.ERROR, query, None, [])
         return CompanyResolution(AnalysisStatus.EXACT, query,
                                  {"corp_code": "00000001", "corp_name": query, "stock_code": "000001"}, [])
     monkeypatch.setattr(screen, "resolve_company_query", resolve)
@@ -224,6 +226,23 @@ def test_actual_discovery_pipeline_and_batch_peer_failure_isolation(monkeypatch)
     assert len(client.calls) == 8
     assert all(c["corp_code"] == "00000001" and c["end_de"] == "20260909" for c in client.calls)
     assert "private upstream" not in str(payload)
+
+
+def test_unresolved_company_hints_preserve_candidates_and_renames_in_both_formats(monkeypatch):
+    from open_proxy_mcp.dart.client import DartClient
+    install_client(monkeypatch)
+    monkeypatch.setattr(DartClient, "lookup_former_name", lambda query: {
+        "current_name": "변경된사명", "stock_code": "000002"} if query == "이전사명" else None)
+    payload = asyncio.run(screen.build_governance_screen_payload(
+        ["합성회사", "모호", "이전사명"], as_of="20260909"))
+    normal, ambiguous, renamed = payload["companies"]
+    assert normal["status"] == "assessment_pending"
+    assert ambiguous["candidates"] == [{"corp_name": "후보", "corp_code": "", "stock_code": ""}]
+    assert "후보" in ambiguous["warnings"][0] and "자동 선택하지 않았다" in ambiguous["warnings"][0]
+    assert "변경된사명" in renamed["warnings"][0] and "000002" in renamed["warnings"][0]
+    assert ambiguous["next_action"] and renamed["next_action"]
+    rendered = render_governance_screen(payload)
+    assert ambiguous["warnings"][0] in rendered and renamed["warnings"][0] in rendered
 
 
 def test_service_two_stages_bind_sources_but_delta_does_not_change_task(monkeypatch):

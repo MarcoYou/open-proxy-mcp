@@ -38,7 +38,10 @@ from open_proxy_mcp.services.provisional_financial_statement import (
     parse_provisional_financial_statement,
     extract_metrics as _extract_provisional_fs_metrics,
 )
-from open_proxy_mcp.services.company import _company_id, resolve_company_query
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             _company_id, resolve_company_query)
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -3593,35 +3596,39 @@ async def _build_proxy_advise_payload(
     stage_started_at = time.perf_counter()
     resolution = await resolve_company_query(company_query)
     _mark("resolve_company", stage_started_at)
-    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
-        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
-        return ToolEnvelope(
-            tool="proxy_advise_before_meeting",
-            status=AnalysisStatus.ERROR,
-            subject=company_query,
-            warnings=[f"'{company_query}' 회사 식별 실패"],
-            data={
-                "query": company_query,
-                "usage": build_usage(client.api_call_snapshot() - calls_start),
-                "timings_ms": timings_ms,
-            },
-        ).to_dict()
+    # AMBIGUOUS 를 먼저 — 아래 가드의 `not selected` 가 그것까지 삼켜 이 분기가 죽어 있었다.
     if resolution.status == AnalysisStatus.AMBIGUOUS:
         timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         return ToolEnvelope(
             tool="proxy_advise_before_meeting",
             status=AnalysisStatus.AMBIGUOUS,
             subject=company_query,
-            warnings=["회사 식별 모호"],
+            warnings=[company_ambiguous_warning(company_query, resolution.candidates)],
             data={
                 "query": company_query,
                 "candidates": [
-                    {"corp_name": c.get("corp_name"), "corp_code": c.get("corp_code")}
+                    {"corp_name": c.get("corp_name"), "corp_code": c.get("corp_code"),
+                     "stock_code": c.get("stock_code")}
                     for c in resolution.candidates[:10]
                 ],
                 "usage": build_usage(client.api_call_snapshot() - calls_start),
                 "timings_ms": timings_ms,
             },
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
+        ).to_dict()
+    if resolution.status == AnalysisStatus.ERROR or not resolution.selected:
+        timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
+        return ToolEnvelope(
+            tool="proxy_advise_before_meeting",
+            status=AnalysisStatus.ERROR,
+            subject=company_query,
+            warnings=[company_not_found_warning(company_query)],
+            data={
+                "query": company_query,
+                "usage": build_usage(client.api_call_snapshot() - calls_start),
+                "timings_ms": timings_ms,
+            },
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION],
         ).to_dict()
 
     selected = resolution.selected

@@ -18,7 +18,10 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
-from open_proxy_mcp.services.company import resolve_company_query
+from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
+                                             company_ambiguous_warning,
+                                             company_not_found_warning,
+                                             resolve_company_query)
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
 from open_proxy_mcp.services.segment_candidates import _table_to_grid
 from open_proxy_mcp.services.fiscal_period import period_from_quarter_text, period_metadata
@@ -363,11 +366,18 @@ async def build_provisional_earnings_payload(
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     res = await resolve_company_query(company_query)
     if not res.selected:
-        return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.AMBIGUOUS
-                            if res.candidates else AnalysisStatus.ERROR,
-                            subject=company_query,
-                            data={"candidates": [c.get("corp_name") for c in (res.candidates or [])][:8]},
-                            warnings=["회사 식별 실패"]).to_dict()
+        # 판별자는 candidates 유무가 아니라 **status** 다 — ERROR 도 근접 후보를 실어 오므로
+        # candidates 로 가르면 「못 찾음」이 「모호」로 오분류된다.
+        _amb = res.status == AnalysisStatus.AMBIGUOUS
+        return ToolEnvelope(
+            tool="provisional_earnings",
+            status=AnalysisStatus.AMBIGUOUS if _amb else AnalysisStatus.ERROR,
+            subject=company_query,
+            data={"query": company_query,
+                  "candidates": [c.get("corp_name") for c in (res.candidates or [])][:8]},
+            warnings=[company_ambiguous_warning(company_query, res.candidates) if _amb
+                      else company_not_found_warning(company_query)],
+            next_actions=[COMPANY_LOOKUP_NEXT_ACTION]).to_dict()
     corp = res.selected
     client = get_dart_client()
     bgn_de = start_date or (today_kst() - timedelta(days=months * 31)).strftime("%Y%m%d")
