@@ -4,7 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#tool-structure-31-tools)
-[![Release](https://img.shields.io/badge/release-v2.5.2-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.6.0-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [简体中文](README_ZH.md)
@@ -21,7 +21,7 @@
 
 **An agenda item may fit on one line. A sound decision requires the full picture.**
 
-OpenProxy began with AGM and proxy voting analysis. The capabilities needed to read financial statements, ownership structures, dividend history, boards, and relevant laws together grew into a general-purpose engine for DART filings. From financial analysis to voting recommendations, AI presents each conclusion with the underlying source evidence.
+OpenProxy reads the regulatory filings of **Korean listed companies** — the disclosures companies file with DART, Korea's electronic disclosure system. It began with AGM and proxy voting analysis; the capabilities needed to read financial statements, ownership structures, dividend history, boards, and relevant Korean law together grew into a general-purpose engine for those filings. From financial analysis to voting recommendations, AI presents each conclusion with the underlying source evidence.
 
 ## Quick Start
 
