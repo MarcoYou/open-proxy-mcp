@@ -2,6 +2,30 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## beta — 2026-09-09 (3)
+
+### See whether raised funds were used as planned
+
+When a company raises money through a rights issue or a bond, the filing states what it intends to
+spend it on. What was missing was the other half: what actually happened. `scope="fund_use"` now
+returns the capital-use table from the annual report — stated purpose and amount alongside actual
+use and amount, plus the stated reason where the two differ.
+
+**We do not reconcile plan against actual for you.** Item names are free text and vary by company,
+so machine matching produces wrong pairings. The two columns sit side by side; the judgement is yours.
+
+### See why the share count changed
+
+Previously only "how many shares" could be answered. `scope="share_changes"` shows the reasons —
+rights issues, bonus issues, stock dividends, conversions — dated. Because it comes from the annual
+report, it reaches further back than the 24-month window used for issuance decisions.
+
+### Tables no longer break on filing text
+
+Filings genuinely contain `|` characters and line breaks (statement-of-equity item names, bond
+tranche names). Passed straight into a table, one row split across several cells or two lines and
+the whole table went out of alignment.
+
 ## beta — 2026-09-09 (2)
 
 ### Values no longer go missing from shareholder-meeting notice tables

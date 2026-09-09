@@ -22,6 +22,7 @@ from open_proxy_mcp.services.contracts import (
     SourceType,
     ToolEnvelope,
     build_filing_meta,
+    build_usage,
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
@@ -37,6 +38,10 @@ _SUPPORTED_SCOPES = {
     "warrant_bond",
     "exchangeable_bond",
     "capital_reduction",
+    # 「약속 ↔ 이행」의 나머지 절반. 발행 **결정**(fdpp_* 계획)은 위 scope 들이 보고,
+    # 아래 둘은 정기보고서가 주는 **사후 사실**이다 — 실제로 어떻게 썼나, 주식수가 왜 변했나.
+    "fund_use",
+    "share_changes",
 }
 
 # 교환사채(EB) 원본 문서 검색 키워드 (주요사항보고서 B / 상세 B001)
@@ -1000,6 +1005,57 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
     ).to_dict()
 
 
+async def _build_fund_use(corp_code: str, year: int) -> tuple[dict[str, Any], list[str], int]:
+    """공모·사모 자금의 **사용내역**. 계획(`fdpp_*`)과 자동 대조하지 않는다.
+
+    항목명이 자유서술이라 결정론적 매칭은 오답을 만든다 — 두 표를 나란히 주고 판단은 읽는 쪽이 한다.
+    """
+    client = get_dart_client()
+    warnings: list[str] = []
+    out: dict[str, Any] = {"year": year}
+    calls = 0
+    for key, fn, label in (("public", client.get_capital_use_public, "공모"),
+                           ("private", client.get_capital_use_private, "사모")):
+        try:
+            data = await fn(corp_code, str(year))
+            calls += 1
+            out[key] = data.get("list") or []
+        except DartClientError as exc:
+            calls += 1
+            out[key] = []
+            if exc.status == "013":
+                # 「없음」과 「못 읽음」을 가른다 — 조달을 안 한 회사는 정상적으로 013 이다.
+                out.setdefault("absence", {})[key] = "not_disclosed"
+            else:
+                warnings.append(f"{label}자금 사용내역 조회 실패(DART {exc.status})")
+    if not out.get("public") and not out.get("private"):
+        warnings.append(
+            f"{year}년 정기보고서에 자금사용내역 표가 없다 — 그 해 공모·사모 조달이 없었거나 "
+            f"보고 대상이 아니다(조달 계획은 이 tool 의 발행 결정 쪽에서 본다).")
+    return out, warnings, calls
+
+
+def _recent_business_year() -> int:
+    """가장 최근 **완료된** 사업연도. 사업보고서는 결산일 90일 이내(3월말) 제출 의무라,
+    4월 전에는 전전년이 마지막으로 확정된 해다."""
+    t = today_kst()
+    return t.year - 1 if t.month >= 4 else t.year - 2
+
+
+async def _build_share_changes(corp_code: str, year: int) -> tuple[dict[str, Any], list[str], int]:
+    """증자(감자) 현황 — 주식수가 **왜** 변했나. 총수 스냅샷은 「얼마인가」만 답한다."""
+    client = get_dart_client()
+    try:
+        data = await client.get_share_change_status(corp_code, str(year))
+    except DartClientError as exc:
+        if exc.status == "013":
+            return {"year": year, "rows": [], "absence": "not_disclosed"}, [], 1
+        return {"year": year, "rows": []}, [f"증자(감자) 현황 조회 실패(DART {exc.status})"], 1
+    rows = data.get("list") or []
+    # 원행 그대로. 발행형태(isu_dcrs_stle)가 자유서술이라 우리가 유형으로 접지 않는다.
+    return {"year": year, "rows": rows, "row_count": len(rows)}, [], 1
+
+
 async def build_dilutive_issuance_payload(
     company_query: str,
     *,
@@ -1053,6 +1109,24 @@ async def build_dilutive_issuance_payload(
     )
     bgn_de = format_yyyymmdd(window_start)
     end_de = format_yyyymmdd(window_end)
+
+    # 정기보고서 기반 두 scope 는 창(window)이 아니라 **사업연도** 단위다 — 위 창 계산과 무관하다.
+    if scope in ("fund_use", "share_changes"):
+        # 정기보고서는 결산 뒤에 나온다 — 오늘 연도로 물으면 그 해 사업보고서가 아직 없다.
+        # 사용자가 연도를 명시하면 그대로, 아니면 **직전 완료 사업연도**부터 본다.
+        _year = int(end_date[:4]) if end_date else _recent_business_year()
+        if scope == "fund_use":
+            _data, _ws, _calls = await _build_fund_use(selected["corp_code"], _year)
+        else:
+            _data, _ws, _calls = await _build_share_changes(selected["corp_code"], _year)
+        return ToolEnvelope(
+            tool="dilutive_issuance", status=AnalysisStatus.EXACT,
+            subject=selected.get("corp_name", company_query),
+            warnings=list(window_warnings) + _ws,
+            data={"scope": scope, "query": company_query,
+                  scope: _data,
+                  "usage": build_usage(_calls)},
+        ).to_dict()
 
     rows, fetch_warnings, api_calls = await _fetch_scope(
         scope, selected["corp_code"], bgn_de, end_de,

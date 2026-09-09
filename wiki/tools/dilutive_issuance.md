@@ -2,13 +2,13 @@
 type: tool
 title: dilutive_issuance
 domain: data
-scope: [summary]
+scope: [summary, fund_use, share_changes]
 data_source: [DART OpenAPI 주요사항보고서 DS005 5종 — piicDecsn + cvbdIsDecsn + exbdIsDecsn + bdwtIsDecsn + crDecsn]
 related_disclosures: [유상증자결정, 전환사채발행결정, 교환사채권발행결정, 신주인수권부사채발행결정, 감자결정]
 related_concepts: [지분구조, 프록시-파이트]
 related_decisions: [pblntf-ty-필터링]
 created: 2026-05-01
-updated: 2026-09-04
+updated: 2026-09-09
 ---
 
 # dilutive_issuance
@@ -185,6 +185,18 @@ sequenceDiagram
 - 감자 + 유상증자 세트 패턴 자동 감지 (TODO, EDGC 패턴 = 자본잠식 해소 → 3자배정 → 최대주주 변경).
 
 ## 변경 이력
+- 2026-09-09: **scope 2종 신설** — 「약속 ↔ 이행」의 사후 절반.
+  · `fund_use` 공모·사모 자금의 **사용내역**(`pssrpCptalUseDtls`·`prvsrpCptalUseDtls`, 2콜).
+    조달 **계획**(`fdpp_*`)과 **자동 대조하지 않는다** — 항목명이 자유서술이라 기계 매칭은 오답을
+    만든다. 두 표를 나란히 주고 판단은 읽는 쪽이 한다. 공모는 `rs_*`, 사모는 `mtrpt_*` 로
+    같은 뜻을 다른 필드명으로 준다.
+  · `share_changes` 증자·감자 현황(`irdsSttus`, 1콜) — 주식수가 **왜** 변했나.
+    `stockTotqySttus`(총수 스냅샷)는 「얼마인가」만 답한다. 정기보고서 기준이라 발행 결정 창
+    (24개월) **밖의 과거**도 덮는다. 발행형태는 자유서술이라 우리가 유형으로 접지 않는다.
+  · 둘 다 창이 아니라 **사업연도** 단위이고, 연도를 안 주면 직전 완료 사업연도를 본다
+    (오늘 연도로 물으면 그 해 사업보고서가 아직 없다).
+  · 원행에 `|` 와 줄바꿈이 실제로 들어 있어(`'㈜LG에너지솔루션\n 제2-1회 …'`) 표 칸에서
+    이스케이프·접기를 한다 — 안 하면 한 행이 여러 칸/여러 줄로 갈라진다.
 - 2026-04-21: dilutive_issuance tool 신설 (13 → 14번째 tool, Data 9개째)
 - 2026-04-21: 5/5 전수조사 통과
 - 2026-04-29: 200기업 audit 26.5% exact (no_filing 72.4% 정상)

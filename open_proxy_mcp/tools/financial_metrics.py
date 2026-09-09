@@ -523,6 +523,16 @@ def _render_audit(data: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _md_cell(v: Any) -> str:
+    """마크다운 표 칸 — `|` 를 이스케이프하고 줄바꿈을 접는다.
+
+    DART 원행에는 `|` 가 실제로 들어 있다(SCE 의 `account_detail` 은 축을 그것으로 잇는다).
+    이스케이프하지 않으면 한 행이 여러 칸으로 갈라져 표가 통째로 어긋난다.
+    """
+    t = str(v if v not in (None, "") else "-")
+    return t.replace("|", "\\|").replace("\n", " ")
+
+
 def _render_accounts(data: dict[str, Any]) -> list[str]:
     """계정 원행 표 — 원문 순서(`ord`) 그대로, 파생값 없이."""
     acc = data.get("accounts") or {}
@@ -552,8 +562,10 @@ def _render_accounts(data: dict[str, Any]) -> list[str]:
             detail = r.get("account_detail")
             if detail and detail not in ("-", ""):
                 nm = f"{nm} · {detail}"
-            lines.append(f"| {nm} | {r.get('thstrm_amount') or '-'} "
-                         f"| {r.get('thstrm_add_amount') or '-'} | {r.get('frmtrm_amount') or '-'} |")
+            # SCE 의 account_detail 은 축을 `|` 로 잇는다(「자본 [구성요소]|…|자본금 [구성요소]」).
+            # 그대로 두면 마크다운 표의 칸 구분자와 충돌해 **한 행이 여러 칸으로 갈라진다**.
+            lines.append(f"| {_md_cell(nm)} | {_md_cell(r.get('thstrm_amount'))} "
+                         f"| {_md_cell(r.get('thstrm_add_amount'))} | {_md_cell(r.get('frmtrm_amount'))} |")
         lines.append("")
     lines.append("> 파서가 만든 값이 아니라 DART `fnlttSinglAcntAll` 원행이다 — 계정 해석은 읽는 쪽에서 한다.")
     lines.append("> 「당기」와 「누적」은 분기·반기에서 다르다(연간은 누적 열이 비어 있다).")
