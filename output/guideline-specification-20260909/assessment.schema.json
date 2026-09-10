@@ -267,7 +267,8 @@
           "enum": [
             "accepted",
             "rejected",
-            "unknown"
+            "unknown",
+            "not_applicable"
           ],
           "title": "Value",
           "type": "string"
@@ -314,6 +315,17 @@
           "minItems": 1,
           "title": "Evidence Refs",
           "type": "array"
+        },
+        "duty_eligibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeetingDutyEligibility"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -528,6 +540,51 @@
         "value"
       ],
       "title": "IndependenceAssessment",
+      "type": "object"
+    },
+    "MeetingDutyEligibility": {
+      "additionalProperties": false,
+      "description": "Cited role timing on an actual service start/end date only.\n\nnot_on_duty means before appointment or after departure at THIS meeting,\nnot absence, recusal, a voting-right exclusion, or an attendance exception.\nunknown leaves the denominator unresolved. Semantic attribution remains a\nhuman-unreviewed LLM judgment; the server checks dates, citations and counts.",
+      "properties": {
+        "value": {
+          "enum": [
+            "not_on_duty",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        },
+        "boundary": {
+          "enum": [
+            "service_start",
+            "service_end"
+          ],
+          "title": "Boundary",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value",
+        "boundary",
+        "rationale",
+        "evidence_refs"
+      ],
+      "title": "MeetingDutyEligibility",
       "type": "object"
     },
     "PublicInformationGap": {

@@ -32,6 +32,7 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.shareholder_meeting_parser import is_outside_role, parse_personnel_xml
 from open_proxy_mcp.services.company import company_not_found_warning
+from open_proxy_mcp.services.meeting_pin import get_matching_pin
 
 
 # ── 후보 데이터 fetch (success/soft-fail 분류) ──
@@ -58,6 +59,7 @@ async def fetch_appointments(
     from open_proxy_mcp.services.shareholder_meeting_parser import detect_meeting_type
 
     client = get_dart_client()
+    pin = get_matching_pin(corp_code, year, meeting_type)
     # 검색 범위: auto 또는 extraordinary는 연중, annual은 1-5월
     # (본문 detect가 최종 판단이므로 search 범위는 넉넉히)
     if meeting_type == "annual":
@@ -76,7 +78,11 @@ async def fetch_appointments(
     max_pages = 2
     notices: list = []
     accumulated: list = []  # 모든 페이지 누적 (가장 최신부터)
-    for pg in range(1, max_pages + 1):
+    # An explicit verified round never falls through to another notice, even
+    # when its candidate table is absent or cannot be parsed.
+    if pin is not None:
+        accumulated.append(pin.filing_row())
+    for pg in ([] if pin is not None else range(1, max_pages + 1)):
         try:
             data = await client.search_filings(
                 corp_code=corp_code, bgn_de=bgn_de, end_de=end_de,
@@ -117,6 +123,8 @@ async def fetch_appointments(
         candidate_rcept = candidate_notice.get("rcept_no")
         try:
             doc = await client.get_document_cached(candidate_rcept)
+            if pin is not None:
+                pin.verify_document(doc)
         except Exception as exc:
             if idx == 0:
                 return [], candidate_rcept, [{"error": f"get_document 실패: {exc}"}]
@@ -127,7 +135,7 @@ async def fetch_appointments(
             continue
 
         # detect meeting_type from body
-        candidate_detected = detect_meeting_type(text)
+        candidate_detected = pin.meeting_type if pin is not None else detect_meeting_type(text)
 
         # meeting_type 매칭 — auto면 모두 통과, 명시면 일치 필요
         type_ok = (meeting_type == "auto") or (candidate_detected == meeting_type)
@@ -180,6 +188,7 @@ async def fetch_appointments(
         "requested_meeting_type": meeting_type,
         "fallback_attempts": min(len(notices), 5),
         "skipped_for_type_count": len(skipped_for_type),
+        **({"selection_basis": "verified_pinned_notice"} if pin is not None else {}),
     }]
 
 

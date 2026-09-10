@@ -11,9 +11,16 @@ import re
 from urllib.parse import unquote, urlsplit
 from bs4 import BeautifulSoup
 from markdown_it import MarkdownIt
+from pydantic import TypeAdapter
 from open_proxy_mcp.services.guideline_assessment import GuidelineAssessment
 from open_proxy_mcp.services.guideline_workflow import WorkflowSettings
 from open_proxy_mcp.services.governance_screen import GovernanceAssessment
+from open_proxy_mcp.services.guideline_harness import HarnessRequest, CONTRACT as HARNESS_CONTRACT
+from open_proxy_mcp.services.guideline_research import ResearchQuery
+from open_proxy_mcp.harness.runner import ModelAction
+from open_proxy_mcp.services.election_structure import (
+    StructureRequest, StructureAssessment, StructureFact, StructureGap,
+    StructureFinding, StructureJudgment, DATA_TYPES, CONTRACT as STRUCTURE_CONTRACT)
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md'
@@ -21,6 +28,132 @@ OUT = ROOT / 'output/guideline-specification-20260909'
 POLICY = ROOT / 'open_proxy_mcp/data/guideline/opm-guideline-v2-pilot.json'
 OUT.mkdir(parents=True, exist_ok=True)
 h = html.escape
+
+# Keep the five body entry points stable; the appendix explains harness controls.
+SECTIONS = {
+    '현황·로드맵': ('roadmap', '완료한 일과 다음 단계'),
+    '가이드라인·판단 원칙': ('principles', '시점·근거·사용자 설정'),
+    '모델 교체·실행 흐름': ('workflow', '공통 과업과 모델의 역할'),
+    '검증 계획·결과': ('validation', '10개사 회차별 품질과 후속 과제'),
+    '배포·운영': ('release', '출시 조건과 남은 기능'),
+    'Appendix': ('appendix', 'A 실행 통제 · B 오류 교정 · C 검증'),
+}
+FOLDED_HEADINGS = {
+    '판단 기준과 적용 범위', '정책 설계 상세', '정보·기사 사용 기준',
+    '출처와 시점 관리', '실행 명세', '판정 로직', '역할과 대조 순서',
+    '파일럿 결과', '통합 준비 검증', '출시 조건과 미구현 범위',
+    '확장 아키텍처와 운영 계약', '관련 파일', '비교 브랜치 정리 (2026-09-09)',
+    '시점 고정 실행 하네스',
+}
+# These were exported as section-2 ... section-58 before the five-section layout.
+# Retain them independently of the next generation's document order.
+LEGACY_HEADINGS = '''바로 다음 작업
+완료·현재 구현
+배포까지 남음
+배포 범위와 확장 작업
+실행 프레임워크 및 검증 프로필
+실행 기준과 기본 설정
+역할과 대조 순서
+종료 조건과 이번 준비의 범위
+작업 기여
+비교 브랜치 정리 (2026-09-09)
+결정 범위
+현재 구현 범위와 다음 결정
+사용자 원칙과 구현 경계
+출석기간 정책 (0.5.0부터 적용, 0.6.0 직접 판독 보강)
+최종 설계
+다섯 축을 분리한다
+정책은 작성본에서 실행본으로 컴파일한다
+LLM의 역할과 출력
+실행 명세
+공시 원문을 읽는 실행 경로 (0.7.0)
+기업 발견·분쟁 추적·대량 검토 (0.7.0)
+참고 서비스에서 채택한 점
+요청과 응답
+요청별 보팅 성향과 처리 설정
+평가 데이터 계약
+수집·평가·권고·처리 상태를 섞지 않는다
+판정 로직
+현재의 처리 순서
+평가 → 지표 → 권고
+누락·충돌·평가 미실행의 적용 계약 (0.6.0)
+출석 입력과 원천 탐색의 실행 계약 (0.6.0)
+후보 권고와 최종 권고의 차이
+실무 관점을 적용한 설계 선택
+경계 사례 (설명용, 실제 회사 재평가 결과 아님)
+확장 아키텍처와 운영 계약
+모듈 책임과 경계
+확장할 공통 데이터 객체
+임원 변동 공시를 재직 이력으로 연결하는 계약
+설정·확장·갱신의 작동 방식
+원천 연결 우선순위와 수용 기준
+파일럿 결과
+실제 MCP 호출: 0.7.0 대량 파일럿
+실제 MCP 호출: 0.7.0 추출 교정
+실제 MCP 호출: 0.7.0 분쟁 추적의 경계 검증
+실제 MCP 호출: 0.6.0 워크플로 검증
+실제 MCP 호출: 0.5.0 출석·재직 연결
+실제 MCP 호출: 0.3.0 공개자료 한정 LLM 파일럿
+공개되지 않은 관계 정보 처리: 0.3.0 도입과 현재 확장
+기사 사용 원칙: 사실·절차와 평가 분리 (0.4.0)
+공시 활용 공백 점검: 전체 부재와 v2 연결 부족 구별
+시의성·정확성의 공통 기준
+공개 원천과 추가 연결 계획
+임원 변동 공시 표본에서 확인한 연결 조건
+공정위 API를 호출할 때
+계약·회귀 검증
+해석과 승격 조건
+관련 파일'''.splitlines()
+LEGACY_IDS = {title: f'section-{i}' for i, title in enumerate(LEGACY_HEADINGS, 2)}
+RENAMED_HEADINGS = {
+    '실행 프레임워크 및 검증 프로필': '모델 교체·실행 흐름',
+    '종료 조건과 이번 준비의 범위': '통합 준비 검증',
+    '결정 범위': '판단 기준과 적용 범위',
+    '현재 구현 범위와 다음 결정': '판단 기준과 적용 범위',
+    '최종 설계': '정책 설계 상세',
+    '해석과 승격 조건': '출시 조건과 미구현 범위',
+}
+
+
+def fold_document_details(soup):
+    """Fold complete authored subsections without dropping text or lower headings."""
+    for heading in list(soup.find_all('h3')):
+        if heading.get_text(' ', strip=True) not in FOLDED_HEADINGS:
+            continue
+        detail = soup.new_tag('details', attrs={'class': 'document-detail'})
+        summary = soup.new_tag('summary')
+        content = soup.new_tag('div', attrs={'class': 'detail-body'})
+        heading.insert_before(detail)
+        node = heading.next_sibling
+        summary.append(heading.extract())
+        detail.append(summary)
+        while node is not None:
+            following = node.next_sibling
+            if node.name in {'h1', 'h2', 'h3'}:
+                break
+            content.append(node.extract())
+            node = following
+        detail.append(content)
+
+
+def preserve_legacy_fragments(soup, headings_by_title):
+    """Old deep links resolve to the retained heading or its new owning section."""
+    for title, legacy_id in LEGACY_IDS.items():
+        if soup.find(id=legacy_id):
+            continue
+        target = headings_by_title.get(RENAMED_HEADINGS.get(title, title))
+        if target is None:
+            number = int(legacy_id.split('-')[1])
+            fallback = ('roadmap' if number <= 5 or number in {10, 13} else
+                        'workflow' if 6 <= number <= 9 or 20 <= number <= 41 else
+                        'validation' if 42 <= number <= 48 or number == 56 else
+                        'release' if number in {11, 57, 58} else 'principles')
+            target = soup.find(id=fallback)
+        if target is not None:
+            alias = soup.new_tag('span', attrs={
+                'id': legacy_id, 'class': 'fragment-alias', 'aria-hidden': 'true',
+            })
+            target.insert(0, alias)
 
 
 def diagram(kind):
@@ -39,18 +172,18 @@ def diagram(kind):
     def line(d):parts.append(f'<path d="{d}" fill="none" stroke="#53756c" stroke-width="2" marker-end="url(#arr-{kind})"/>')
     parts.append(f'<text x="35" y="40" class="t">{title}</text>')
     if kind=='runtime':
-        boxes=[(35,65,'01 · REQUEST','회차·기준일 고정',['회사 · 회의 · 후보 · 보팅 설정','성향과 자동/수동 처리를 분리']),
-               (405,65,'02 · EVIDENCE','공개 원문 수집',['공고 · 연차 · 임원 변동 공시','회사 맥락 4건 · 추가 5건']),
-               (775,65,'03 · TASK','평가 과업 반환',['원문 발췌 · 정책 · 출력 스키마','대상과 내용에 연결된 task_id']),
-               (775,240,'04 · CALLER LLM','원문 읽기·평가 제출',['선임구분 · 독립성 · 반증','필요한 문맥만 이어 읽기']),
-               (405,240,'05 · VALIDATE','과업·인용 연결 검사',['타입 · 현재 과업 · 원문 인용','의미 정확성 인증과는 별개']),
+        boxes=[(35,65,'01 · REQUEST','회사·정확한 공고 고정',['cutoff_at · 소집공고 접수번호','정기/임시 · 보팅 설정 확인']),
+               (405,65,'02 · EVIDENCE','공개시점 검사·수집',['마감일 전일까지 · 최신 캐시 제외','누락·시점 불명은 알리고 진행']),
+               (775,65,'03 · TASK','실행·정책·원문 연결',['엔진 · 정책 · 원문 해시','task_id · continuation 반환']),
+               (775,240,'04 · CALLER LLM','교체 가능한 모델 실행',['목록 탐색 / 원문 읽기·교체','평가 제출 / 종료 · 후보별 예산']),
+               (405,240,'05 · VALIDATE','동일 실행·인용 검사',['시각 · 정책 · 원문 · 과업 대조','바뀐 후보 과업만 다시 평가']),
                (35,240,'06 · METRICS','수용 평가를 지표로',['원문 판독 · 기간·출석 계산','누락 기준 제외 · 나머지 진행']),
                (35,415,'07 · RULES','규칙별 상태와 권고',['반대 신호 보존 · 긍정 게이트','재직·정지 구간과 회의 수 계산']),
-               (405,415,'08 · CONSTRAINTS','교정과 보호 범위',['추출 오류 REVIEW만 근거별 교정','법령 · 표결 관계 · 다른 우려 보존']),
+               (405,415,'08 · CONSTRAINTS','교정과 보호 범위',['추출 오류 REVIEW만 근거별 교정','당시 공개 법령 · 표결 제약 적용']),
                (775,415,'09 · RESULT','권고와 처리 경로',['자동 준비 / 일부·전체 수동','사람 미검토 · 실제 투표 전송 없음'])]
         for args in boxes:box(*args)
         for d in ['M325 124H405','M695 124H775','M920 183V240','M775 299H695','M405 299H325','M180 358V415','M325 474H405','M695 474H775']:line(d)
-        parts.append('<text x="35" y="579" class="s">연결 검사 실패 → 평가 거절·미사용. 추가 자료나 정책이 바뀌면 새 과업으로 재평가.</text>')
+        parts.append('<text x="35" y="579" class="s">시점 고정 하네스 선택 시의 흐름. 현재 정책의 과거 적용 실험이며 의미 정확성과 모델 기억 제거는 인증하지 않음.</text>')
     elif kind == 'governance':
         boxes=[(35,65,'01 · DISCOVER','읽을 회사 발견',['screener · governance 유형','회사 중복 제거 · 최대 30개']),
                (405,65,'02 · SOURCE','회사별 원문 과업',['공개매수 · 지분 · 소송 · 재편','날짜 · 해시 · 문맥 · 실패 보존']),
@@ -80,7 +213,9 @@ def diagram(kind):
 
 def render_roadmap(soup):
     """Turn the canonical status table into a chart and done/remaining panels."""
-    heading = soup.find('h2', string='배포 로드맵')
+    heading = soup.find('h2', string='현황·로드맵')
+    if heading is None:
+        raise ValueError('The canonical document needs a 현황·로드맵 section.')
     section = soup.new_tag('section', attrs={'class': 'roadmap-overview', 'aria-label': '배포 로드맵'})
     heading.insert_before(section)
     node = heading
@@ -136,7 +271,7 @@ def render_roadmap(soup):
     section.select_one('.roadmap-panels').insert_before(action)
     section.find('blockquote')['class'] = 'current-position'
     for paragraph in section.find_all('p'):
-        if paragraph.get_text().startswith('저장·배포 상태'):
+        if paragraph.get_text().startswith(('저장·배포 상태', '동기화 기준')):
             paragraph['class'] = 'release-status'
 
     # Export the same stages, without a second hand-maintained roadmap.
@@ -184,15 +319,34 @@ for a in soup.find_all('a',href=True):
         resolved=(SOURCE.parent/unquote(href.split('#')[0])).resolve()
         if resolved.is_relative_to(ROOT):a['href']='../../'+resolved.relative_to(ROOT).as_posix()
 render_roadmap(soup)
+for quote in soup.find_all('blockquote'):
+    label = quote.find('strong')
+    if label and label.get_text(strip=True) in {'결론 요약', '설계 결론 요약'}:
+        classes = quote.get('class', [])
+        if isinstance(classes, str):
+            classes = classes.split()
+        quote['class'] = [*classes, 'conclusion-summary']
 nav=[]
-for i,heading in enumerate(soup.find_all(['h2','h3']),1):
-    heading['id']='roadmap' if heading.get_text()=='배포 로드맵' else f'section-{i}'
-    if heading.name=='h2':nav.append(f'<a href="#{heading["id"]}">{h(heading.get_text())}</a>')
-    if heading.get_text() in ['판정 로직','확장 아키텍처와 운영 계약','기업 발견·분쟁 추적·대량 검토 (0.7.0)']:
-        kind={'판정 로직':'runtime','확장 아키텍처와 운영 계약':'updates','기업 발견·분쟁 추적·대량 검토 (0.7.0)':'governance'}[heading.get_text()]
+headings_by_title = {}
+top_titles = [heading.get_text(' ', strip=True) for heading in soup.find_all('h2')]
+if top_titles != list(SECTIONS):
+    raise ValueError(f'The reading edition requires these sections in order: {list(SECTIONS)}')
+for heading in soup.find_all(['h2', 'h3', 'h4', 'h5', 'h6']):
+    title = heading.get_text(' ', strip=True)
+    headings_by_title.setdefault(title, heading)
+    if heading.name == 'h2':
+        heading['id'], description = SECTIONS[title]
+        nav.append(f'<a href="#{heading["id"]}"><span class="nav-number">{len(nav)+1:02}</span>'
+                   f'<span><strong>{h(title)}</strong><small>{h(description)}</small></span></a>')
+    else:
+        heading['id'] = LEGACY_IDS.get(title, 'detail-' + hashlib.sha256(title.encode()).hexdigest()[:12])
+    if title in ['판정 로직','확장 아키텍처와 운영 계약','기업 발견·분쟁 추적·대량 검토 (0.7.0)']:
+        kind={'판정 로직':'runtime','확장 아키텍처와 운영 계약':'updates','기업 발견·분쟁 추적·대량 검토 (0.7.0)':'governance'}[title]
         svg=diagram(kind);(OUT/f'{kind}-flow.svg').write_text(svg)
         figure=BeautifulSoup(f'<figure class="diagram">{svg}<figcaption>{"미구현 목표 설계" if kind=="updates" else "현재 구현 흐름"} · <a href="{kind}-flow.svg">도식 파일 열기</a></figcaption></figure>','html.parser')
         heading.insert_after(figure)
+preserve_legacy_fragments(soup, headings_by_title)
+fold_document_details(soup)
 for table in soup.find_all('table'):
     wrapper=soup.new_tag('div',attrs={'class':'table-scroll'});table.wrap(wrapper)
 policy=json.loads(POLICY.read_text())
@@ -200,9 +354,22 @@ policy=json.loads(POLICY.read_text())
 (OUT/'assessment.schema.json').write_text(json.dumps(GuidelineAssessment.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
 (OUT/'workflow.schema.json').write_text(json.dumps(WorkflowSettings.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
 (OUT/'governance.schema.json').write_text(json.dumps(GovernanceAssessment.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'harness.schema.json').write_text(json.dumps(HarnessRequest.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'research.schema.json').write_text(json.dumps(ResearchQuery.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'model-actions.schema.json').write_text(json.dumps(TypeAdapter(ModelAction).json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'structure-contract.json').write_text(json.dumps({
+    'contract': STRUCTURE_CONTRACT, 'artifact_kind': 'runtime_schema_bundle',
+    'request': StructureRequest.model_json_schema(), 'assessment': StructureAssessment.model_json_schema(),
+    'item_schemas': {k: v.model_json_schema() for k, v in {
+        'facts': StructureFact, 'gaps': StructureGap, 'findings': StructureFinding, 'judgments': StructureJudgment}.items()},
+    'fact_data_schemas': {k: v.model_json_schema() for k, v in DATA_TYPES.items()},
+    'human_reviewed': False}, ensure_ascii=False, indent=2)+'\n')
 manifest={'generated_from':str(SOURCE.relative_to(ROOT)),'source_sha256':hashlib.sha256(raw.encode()).hexdigest(),
           'policy_version':policy['version'],'policy_file_sha256':hashlib.sha256(POLICY.read_bytes()).hexdigest(),
-          'assessment_contract':'opm-llm-assessment/5','governance_contract':'1','document_date':document_date,'status':'local_document_export',
+          'assessment_contract':'opm-llm-assessment/6','harness_contract':HARNESS_CONTRACT,
+          'research_schema':'research.schema.json','model_actions_schema':'model-actions.schema.json',
+          'structure_runtime_contract':'structure-contract.json',
+          'governance_contract':'1','document_date':document_date,'status':'local_document_export',
           'verification_note':'Version-separated live MCP pilot evidence is maintained in the canonical verification section. Source-bound acceptance and routing are not an independent accuracy benchmark. All assessments remain human unreviewed; no ballots or scheduled runs.'}
 (OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
 css='''
@@ -215,6 +382,7 @@ main{padding:36px 48px 100px}header{margin-bottom:26px;padding-bottom:24px}h1{fo
 .roadmap-chart{list-style:none;padding:0;margin:24px 0 8px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}.roadmap-chart li{position:relative;margin:0;min-width:0}.roadmap-chart li:not(:last-child)::after{content:'→';position:absolute;right:-13px;top:62px;color:var(--muted);font-size:16px;z-index:1}
 .roadmap-chart a{height:100%;min-height:162px;display:flex;flex-direction:column;align-items:flex-start;padding:13px 12px 17px;border:1px solid #cad3cc;border-radius:9px;background:#fff;text-decoration:none;color:var(--ink);line-height:1.55}.roadmap-chart a:hover,.roadmap-chart a:focus-visible{outline:2px solid var(--green);outline-offset:3px}.roadmap-chart .phase-done a{background:#edf5ed;border-color:#aec9b8}.roadmap-chart .phase-current a{background:#e9f1fd;border:2px solid #3b69a6;padding:12px 11px 16px;color:#244a7d}.roadmap-chart .phase-next a{background:#fff4df;border-color:#c89643}.roadmap-chart .phase-pending a{border-style:dashed}.phase-number{font-size:26px;font-weight:800;line-height:1.2}.phase-status{font-size:11px;font-weight:700;margin:9px 0 13px;white-space:nowrap}.roadmap-chart strong{font-size:15px;word-break:keep-all;overflow-wrap:anywhere}.chart-caption{font-size:12px!important;margin:10px 0 20px!important}
 .next-action{padding:18px 22px;border-radius:9px;background:#fff4df;border:1px solid #e4c997;margin:24px 0}.next-action h3{font-size:17px;margin:0 0 6px;color:#825b1f}.next-action p{font-size:14px;line-height:1.75;margin:0}
+.conclusion-summary{border:1px solid #b8cbbf;border-left:4px solid var(--green);background:#edf5ed;border-radius:9px;padding:18px 22px;margin:18px 0 24px;color:var(--ink);font-size:14px;line-height:1.75}.conclusion-summary p{margin:10px 0}.conclusion-summary>p:first-child{margin-top:0;color:var(--green);font-size:17px}.conclusion-summary>p:last-child{margin-bottom:0}.conclusion-summary ul{margin:12px 0;padding-left:20px}.conclusion-summary li{margin:9px 0}
 .roadmap-panels{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:24px 0 30px}.roadmap-panel{border:1px solid var(--line);border-radius:10px;background:white;padding:22px}.roadmap-panel>h3{font-size:21px;margin:0 0 16px}.completed>h3{color:var(--green)}.remaining>h3{color:#825b1f}.roadmap-panel ol{list-style:none;padding:0;margin:0}.roadmap-panel li{margin:0;padding:18px 0;border-top:1px solid var(--line);scroll-margin-top:24px}.roadmap-panel li:first-child{border-top:0;padding-top:0}.roadmap-panel li:last-child{padding-bottom:0}.roadmap-panel h4{font-size:16px;margin:0 0 7px;line-height:1.5}.roadmap-panel h4 span{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;margin-right:5px}.roadmap-panel p{font-size:14px;line-height:1.75;margin:6px 0}.roadmap-panel .phase-limit{font-size:12px;color:var(--muted)}.roadmap-panel details{font-size:12px;color:var(--muted);margin-top:8px}.roadmap-panel summary{cursor:pointer}.roadmap-panel details p{font-size:12px}.release-status{padding:16px 18px;background:#edf1eb;border:1px solid var(--line);border-radius:8px;font-size:13px!important}.roadmap-overview>ul{font-size:14px}
 @media(max-width:1100px){main{padding:30px}.roadmap-chart{gap:10px}.roadmap-chart li:not(:last-child)::after{right:-10px;font-size:13px}.roadmap-chart a{padding:12px 8px}.roadmap-chart .phase-current a{padding:11px 7px}.roadmap-chart strong{font-size:14px}.roadmap-panel{padding:18px}}
 @media(max-width:950px) and (min-width:761px){.layout{grid-template-columns:185px minmax(0,1fr)}}
@@ -222,6 +390,58 @@ main{padding:36px 48px 100px}header{margin-bottom:26px;padding-bottom:24px}h1{fo
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 @media print{main{padding:0}h1{font-size:25pt}.roadmap-chart{grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;break-inside:avoid}.roadmap-chart a,.roadmap-chart .phase-current a{display:flex;min-height:110px;padding:10px 7px}.roadmap-chart strong{font-size:9pt}.phase-number{font-size:17pt}.phase-status{font-size:8pt;margin:5px 0}.roadmap-chart li:not(:last-child)::after{content:'→';top:45px;bottom:auto;left:auto;right:-8px;font-size:10px}.roadmap-panels{grid-template-columns:1fr 1fr;gap:12px}.roadmap-panel{padding:12px}.roadmap-panel li,.next-action,.current-position{break-inside:avoid}.roadmap-panel p,.next-action p{font-size:9pt}.roadmap-panel h4{font-size:10pt}.chart-caption{display:none}}
 '''
-page=f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPM guideline v2 · 로드맵, 명세, 설계</title><style>{css}</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · {h(document_date.replace('-', '.'))}</div><nav aria-label="문서 목차">{''.join(nav)}</nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · {h(policy['version'])} · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>완료한 일, 현재 위치, 배포까지 남은 일부터 봅니다.<br>아래에 근거·정책·판정 로직과 실제 파일럿 결과가 이어집니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="../../wiki/decisions/{SOURCE.name}">문서 원본</a></div></header><article>{soup}</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: {manifest['source_sha256']}<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div></body></html>'''
+css += '''
+[hidden]{display:none!important}article,aside,nav,.document-detail,.detail-body{min-width:0}article{overflow-wrap:anywhere}nav a{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;padding:13px 0;border-bottom:1px solid var(--line);white-space:normal}nav a strong{display:block;font-size:13px;font-weight:700;color:var(--ink)}nav a small{display:block;font-size:11px;margin-top:5px;font-weight:400;color:var(--muted)}.nav-number{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--green);padding-top:2px}a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--green);outline-offset:4px}h4,h5,h6{line-height:1.55;margin:26px 0 12px}h4{font-size:17px}h5,h6{font-size:15px}.document-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 24px}.document-controls button{border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--green);padding:7px 11px;font:inherit;font-size:12px;cursor:pointer}.controls-status{font-size:12px;color:var(--muted)}.document-detail{margin:22px 0;border:1px solid var(--line);border-radius:9px;background:#fff}.document-detail>summary{padding:17px 20px;cursor:pointer;line-height:1.55;color:var(--green);overflow-wrap:anywhere}.document-detail>summary h3{display:inline;margin:0;font-size:18px;letter-spacing:-.3px;color:var(--ink)}.document-detail>summary::marker{font-size:14px;color:var(--green)}.document-detail[open]>summary{border-bottom:1px solid var(--line)}.detail-body{padding:6px 22px 20px}.detail-body> :first-child{margin-top:15px}.detail-body> :last-child{margin-bottom:0}.fragment-alias{display:inline-block;width:0;height:0;overflow:hidden;vertical-align:top}.table-scroll,.diagram,pre{max-width:100%}.document-detail .diagram svg{min-width:680px}
+@media(max-width:760px){nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;overflow:visible;white-space:normal}nav a{padding:9px 0;grid-template-columns:20px minmax(0,1fr);gap:5px}nav a strong{font-size:12px}nav a small{font-size:10px;margin-top:3px}.document-detail>summary{padding:15px}.document-detail>summary h3{font-size:17px}.detail-body{padding:3px 15px 17px}.document-controls{gap:7px}.controls-status{flex-basis:100%}.detail-body th,.detail-body td{padding:12px}.actions a,.actions button{overflow-wrap:anywhere;max-width:100%}}
+@media print{.document-controls{display:none}.document-detail{border:0;border-radius:0;margin:20px 0;background:transparent}.document-detail>summary,.document-detail[open]>summary{padding:0;border:0;list-style:none;break-after:avoid}.document-detail>summary::-webkit-details-marker{display:none}.document-detail>summary h3{font-size:13pt}.detail-body{padding:0}.document-detail .diagram svg{min-width:0}.document-detail>summary::marker{content:''}}
+'''
+reader_script = '''
+(() => {
+  const article = document.getElementById('document-body');
+  const controls = document.querySelector('.document-controls');
+  const allDetails = () => Array.from(article.querySelectorAll('details'));
+  controls.hidden = false;
+  for (const button of controls.querySelectorAll('button[data-expand]')) {
+    button.addEventListener('click', () => {
+      const expand = button.dataset.expand === 'true';
+      const details = allDetails();
+      details.forEach(detail => { detail.open = expand; });
+      document.getElementById('detail-status').textContent =
+        `상세 ${details.length}개를 모두 ${expand ? '펼쳤습니다' : '접었습니다'}.`;
+    });
+  }
+  function revealFragment(fragment, scroll = true) {
+    let id;
+    try { id = decodeURIComponent(fragment.replace(/^#/, '')); }
+    catch { return; }
+    const target = id && document.getElementById(id);
+    if (!target) return;
+    for (let ancestor = target; ancestor; ancestor = ancestor.parentElement) {
+      if (ancestor.tagName === 'DETAILS') ancestor.open = true;
+    }
+    if (scroll) requestAnimationFrame(() => {
+      (target.closest('h2,h3,h4,h5,h6') || target).scrollIntoView({block: 'start'});
+    });
+  }
+  window.addEventListener('hashchange', () => revealFragment(location.hash));
+  document.addEventListener('click', event => {
+    const anchor = event.target.closest('a[href^="#"]');
+    if (anchor) revealFragment(anchor.getAttribute('href'));
+  });
+  revealFragment(location.hash);
+  let printStates = null;
+  window.addEventListener('beforeprint', () => {
+    if (printStates) return;
+    printStates = allDetails().map(detail => [detail, detail.open]);
+    printStates.forEach(([detail]) => { detail.open = true; });
+  });
+  window.addEventListener('afterprint', () => {
+    if (!printStates) return;
+    printStates.forEach(([detail, wasOpen]) => { detail.open = wasOpen; });
+    printStates = null;
+  });
+})();
+'''
+page=f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPM guideline v2 · 로드맵, 명세, 설계</title><style>{css}</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · {h(document_date.replace('-', '.'))}</div><nav aria-label="문서 목차">{''.join(nav)}</nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · {h(policy['version'])} · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>판단 원칙부터 검증과 배포까지 다섯 본문으로 보고, Appendix에서 하네싱의 동작과 이유를 확인합니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="harness.schema.json">시점 고정 실행</a><a href="../../wiki/decisions/{SOURCE.name}">문서 원본</a></div></header><div class="document-controls" hidden><button type="button" data-expand="true" aria-controls="document-body">상세 모두 펼치기</button><button type="button" data-expand="false" aria-controls="document-body">상세 모두 접기</button><span id="detail-status" class="controls-status" aria-live="polite">세부 명세와 과거 기록은 필요한 항목만 펼쳐 볼 수 있습니다.</span></div><article id="document-body">{soup}</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: {manifest['source_sha256']}<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div><script>{reader_script}</script></body></html>'''
 (OUT/'index.html').write_text(page)
 print(json.dumps({'output':str(OUT/'index.html'),'sections':len(nav),'policy':policy['version']},ensure_ascii=False))

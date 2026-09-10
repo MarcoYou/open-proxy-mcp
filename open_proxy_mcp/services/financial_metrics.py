@@ -21,6 +21,7 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
+from open_proxy_mcp.dart.as_of import get_strict_as_of
 from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
 from open_proxy_mcp.services.scale_guard import check_balance_identity
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
@@ -1540,6 +1541,24 @@ async def _build_accounts(
     }, warnings
 
 
+def _exclude_unconverted_amounts(metrics: dict[str, Any]) -> None:
+    """Do not let unconverted foreign amounts masquerade as KRW thresholds."""
+    for key, value in list(metrics.items()):
+        if key in _AMOUNT_MAP_FIELDS and isinstance(value, dict):
+            metrics[key] = {
+                name: None if isinstance(amount, (int, float)) and not isinstance(amount, bool) else amount
+                for name, amount in value.items()
+            }
+        elif isinstance(value, dict):
+            _exclude_unconverted_amounts(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _exclude_unconverted_amounts(item)
+        elif key.endswith("_krw") and isinstance(value, (int, float)) and not isinstance(value, bool):
+            metrics[key] = None
+
+
 async def _normalize_currency(
     metrics: dict[str, Any],
     rows: list[dict[str, Any]],
@@ -1569,6 +1588,10 @@ async def _normalize_currency(
     rate = await fx_to_krw(cur, fx_date)
     if not rate or rate == 1.0:
         metrics["fx_rate_to_krw"] = None
+        if get_strict_as_of():
+            _exclude_unconverted_amounts(metrics)
+            return [f"기능통화 {cur} — 기준시점의 환율 공개 여부를 확인할 수 없어 원화 금액을 제외했습니다. "
+                    "공시 원문과 통화에 영향받지 않는 비율은 유지하며 원화 임계치 평가는 건너뜁니다."]
         return [f"⚠️ 기능통화 {cur} 인데 환율 조회 실패 — 아래 `*_krw` 금액은 **{cur} 단위 그대로**이고 "
                 f"원화가 아니다. 원화 기준 비교·시총 대비 계산에 그대로 쓰지 말 것."]
 
@@ -2470,9 +2493,16 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             for row in out:
                 row["functional_currency"] = stmt_cur
                 row["fx_rate_to_krw"] = None
-            warnings.append(
-                f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 분기 금액은 **{stmt_cur} 단위 그대로**이고 "
-                f"원화가 아니다. 원화 기준 비교에 그대로 쓰지 말 것.")
+                if get_strict_as_of():
+                    _exclude_unconverted_amounts(row)
+            if get_strict_as_of():
+                warnings.append(
+                    f"기능통화 {stmt_cur} — 기준시점의 환율 공개 여부를 확인할 수 없어 분기 원화 금액을 제외했습니다. "
+                    "통화에 영향받지 않는 비율은 유지하며 원화 임계치 평가는 건너뜁니다.")
+            else:
+                warnings.append(
+                    f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 분기 금액은 **{stmt_cur} 단위 그대로**이고 "
+                    f"원화가 아니다. 원화 기준 비교에 그대로 쓰지 말 것.")
     return out[-num_quarters:], warnings
 
 
@@ -2534,6 +2564,9 @@ _register_unbudgeted_cache("financial_metrics", lambda: _FM_CACHE)
 
 
 def _fm_cache_get(key: tuple) -> dict[str, Any] | None:
+    from open_proxy_mcp.dart.as_of import get_strict_as_of
+    if get_strict_as_of() is not None:
+        return None
     entry = _FM_CACHE.get(key)
     if not entry:
         return None
@@ -2545,6 +2578,9 @@ def _fm_cache_get(key: tuple) -> dict[str, Any] | None:
 
 
 def _fm_cache_set(key: tuple, payload: dict[str, Any]) -> None:
+    from open_proxy_mcp.dart.as_of import get_strict_as_of
+    if get_strict_as_of() is not None:
+        return
     _FM_CACHE[key] = (_time_mod.time(), payload)
 
 

@@ -24,6 +24,8 @@ from datetime import datetime, timedelta
 
 import httpx
 
+from open_proxy_mcp.dart.as_of import get_strict_as_of, note_strict_exclusion
+
 _log = logging.getLogger(__name__)
 
 _MEM: dict[tuple[str, str], float] = {}
@@ -153,6 +155,13 @@ async def fx_to_krw(currency: str | None, date: str | None = None) -> float | No
     cur = (currency or "KRW").upper()
     if cur in ("KRW", ""):
         return 1.0
+    if get_strict_as_of():
+        # The observation date does not prove when a rate became available.
+        # Existing memory/DB entries also lack publication/vintage metadata.
+        # Keep this before every cache read so a live request cannot seed a
+        # value that a later historical run treats as contemporaneous evidence.
+        note_strict_exclusion("fx_to_krw", reason="unversioned_source")
+        return None
     q_date = date or _today()          # 조회 기준일 — None이면 오늘(변동값)
     memkey = (cur, q_date)
     if memkey in _MEM:

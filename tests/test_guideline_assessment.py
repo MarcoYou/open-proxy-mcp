@@ -140,3 +140,12 @@ def test_supplemental_source_is_bound_to_task_and_quote_validation():
     data["appointment"]["evidence_refs"] = [{"source_id": "filing:20260202000001",
                                             "quote": "홍길동은 해당 회사에 이번에 신규로 선임되는 후보이다."}]
     assert recommendation(task, data)[0]["status"] == "accepted_unreviewed"
+
+
+def test_candidate_citations_obey_visual_uncertainty_too():
+    task = packet(); data = submission(task)
+    source=task['sources'][0]
+    text=source['excerpts'][0]
+    source['visual_reading']={'readings':[{'page':1,'text':text,'uncertainties':['unclear'],
+        'uncertain_spans':[{'start':0,'end':len(text),'reason':'unclear'}]}]}
+    assert recommendation(task,data)[0]['status']=='rejected'

@@ -8,13 +8,13 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 보수한도, 정관변경, 집중투표, 시점-제약, 연결-별도, 주총-결의]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-09-09
+updated: 2026-09-10
 ---
 
 # proxy_advise_before_meeting
 
 ## 한 줄 요약
-주총 **사전** 안건별 의결권 권고 + 명확한 결정 근거 한 번에. 1회 호출로 결정 + facts + risk + 정책 근거 + 후보 raw 모두.
+주총 **사전** 안건별 의결권 권고와 근거를 제공한다. 기본 호출은 기존 엔진의 권고를 반환하며 v2 pilot은 원문 과업 수신 → 호출 LLM 평가 제출의 두 단계다. `guideline_harness`를 추가하면 소집공고·정보 마감시각을 고정해 이어서 실행한다.
 
 전제 개념: [[시점-제약]](`as_of`·기준연도 3단·감사의견 접수일) · [[연결-별도]](자본잠식 판정 = 지배주주 귀속) · [[주총-결의]](보통/특별결의 요건).
 
@@ -42,7 +42,7 @@ proxy_advise_before_meeting(
 
 `vote_style="opm_guideline_v2"`는 기본 `guideline_mode="shadow"`에서
 `opm-guideline-v2.json`(0.1.0)의 규칙 추적만 반환하며 기존 권고를 유지한다.
-명시적 `guideline_mode="pilot"`는 별도 `opm-guideline-v2-pilot.json`(0.7.0-pilot)을 사용해
+명시적 `guideline_mode="pilot"`는 별도 `opm-guideline-v2-pilot.json`(0.7.2-pilot)을 사용해
 사외·독립이사 후보의 선임구분·독립성에 대한 호출 LLM 평가를 실제 권고에 반영한다.
 출석은 0.5.0부터 사용자 승인한 직전 완료 사업연도 기준이다. 재직·직무정지 구간과 회의별 참석을 LLM이 인용하여 제출하면 서버가 분모·분자를 계산한다. 수용 결과는 사람 미검토다.
 
@@ -107,16 +107,64 @@ pilot에서는 include_after_meeting=True를 허용하지 않는다.
 임의 웹 주소·리다이렉트·PDF는 허용하지 않는다. KIND 접수 식별자는 DART 접수번호와 다르다.
 KIND 공개시점은 고정 경로의 날짜로 판정한다. 후보 이름 주변 발췌·전체 문서 hash를 패킷에
 추가하고, 수집 상태는 `guideline_application.supplemental_collection`에 반환한다.
-기준일 이후 자료는 읽지 않는다. 첫 호출과 제출 호출의 목록이 같아야 하며 자료나 정책이 바뀌면
-새 task_id로 재평가한다. 기존 사업보고서 1건 외에 입력당 원문 최대 5건 추가 조회(회사 단위),
+기준일 이후 자료는 읽지 않는다. 제출 대상 후보의 근거·설정에 묶인 현재 task_id를 사용한다.
+그 후보의 근거나 정책이 바뀌면 새 과업으로 재평가하며 영향 없는 후보의 유효한 평가는 보존한다.
+기존 사업보고서 1건 외에 입력당 원문 최대 5건 추가 조회(회사 단위),
 DART 공개 캐시와 KIND 공용 웹 속도 제한을 사용한다. KIND는 두 번째 호출에도 다시 읽는다.
 추가 공시 수집 명세는 supplemental_collection이 정본이며 기존 disclosures_read 집계와 구분한다.
 공정위 의결서·기업집단 API는 원천 조사 단계로, 이 인자나 자동 평가에 아직 연결하지 않았다.
+
+### 시점·회차 고정 실행
+
+`guideline_harness`는 v2 pilot의 선택 계약 `opm-voting-harness/2`이다. 아래는 요청 형식 예시이며 새 하네스의 실제 후보 재평가 결과가 아니다.
+
+```python
+proxy_advise_before_meeting(
+    company="삼성전자", year=2025, meeting_type="annual",
+    vote_style="opm_guideline_v2", guideline_mode="pilot",
+    include_after_meeting=False, format="json",
+    guideline_harness={
+        "cutoff_at": "2025-03-19T09:00:00+09:00",
+        "notice_rcept_no": "20250218001524",
+    },
+)
+```
+
+회사 공시 목록과 해당 원문에서 회의일·종류·연도를 확인한 뒤, 안건과 후보를 같은 접수번호로 읽는다. 소집공고나 회차를 확인하지 못하면 다른 회차를 대신 분석하지 않는다. `cutoff_at`은 시간대가 있는 ISO8601이며 미래 시각은 허용하지 않는다. 날짜만 확인된 자료의 허용일 `effective_as_of`는 **마감시각의 한국 날짜 전일**이다. 위 예시는 2025-03-18까지 허용하고 당일 공시는 제외한다. `as_of`는 생략하거나 반환될 effective_as_of와 같게 지정한다. 당일 자료의 공개시각을 개별 확인해 수용하는 기능은 아직 없다.
+
+후속 요청은 응답의 `data.guideline_harness.continuation`을 다음 `guideline_harness`로 그대로 전달한다. 여기에 실행 ID·정책 해시·후보 과업 원문과 고정공고 해시를 담은 `expected_run_id`, `expected_policy_sha256`, `expected_sources`가 포함된다. 공개 엔진 묶음 지문(`engine_bundle_sha256`)도 실행 ID에 포함한다. 설정·정책·코드·같은 기존 원문 내용이 바뀌면 새 실행·재평가를 요구한다. 이전 원문을 이번에 확보하지 못한 경우는 `unavailable_previous_sources`로 알리고 다른 근거는 계속 처리한다. 추가 읽기는 `guideline_evidence_sources`로 요청하며 자료나 원문 창이 바뀌면 새 task_id를 읽어 평가한다.
+
+하네스에서는 공개일 불명·날짜 충돌·허용일 이후 자료를 제외하고 `excluded_information`에 경로·접수번호·사유·건수를 남긴다. 상위 자문·재무의 파생 결과 캐시는 우회하고 허용된 접수번호의 원문 캐시는 재사용한다. 현재 회사 정보는 식별에만 사용하며, 버전을 확인하지 못하는 최신 viewer·뉴스·프로필 경로는 제외한다. 이 통제는 모든 원천의 역사적 내용 보존이나 의미 정확성을 인증하지 않는다. 법령 규칙은 조항 대장의 공포일을 확인한다. 공개시점 미상의 외화환율과 미환산 원화 금액은 제외한다. 기존 `as_of`만 지정한 호출과도 구분한다.
+
+호출 애플리케이션은 `open_proxy_mcp.harness`의 `VotingHarness`·`CallbackModelAdapter`·`StreamableHTTPTransport`를 사용할 수 있다. MCP SDK로 실제 HTTP 서버에 연결하고 모델 콜백에는 후보 과업을 전달한다. 모델의 행동은 추가 공시 탐색·원문 읽기 및 교체·평가 제출·해당 과업 종료로 제한하며, 오류 후보는 분리해 다른 후보를 계속 처리한다. 모델 이름·버전은 호출자 자기신고이고 제공사 호출은 콜백의 책임이다. **서버가 LLM을 실행하거나 `governance_screen`을 자동 호출하지 않는다.**
+
+정책 0.7.2를 고정한 실제 HTTP MCP에서 2026년 10개사 정기 10회·임시 1회의 지원 후보 39과업 전부를 처리하고 최종 JSON·Markdown을 확인했다. 회사별 권고·자동/수동 집계, 반려 후 교정과 원문 갱신 후 재평가는 설계 문서에서 버전별로 구분한다. 기존 안건의 구조·설명 오류 교정과 새 표본·다른 실제 모델 계열·보수적 성향 비교는 남아 있다. 현재 OPM 정책을 당시 허용 근거에 적용하는 개발 표본 회귀이며, 당시 기관 정책 재현·사전학습 지식 제거·전체 안건 정확도 인증이 아니다. 모든 평가는 사람 미검토이고 실제 투표를 전송하지 않는다. 상세 구조와 검증 결과는 [[260908_1200_decision_guideline-v2-final-redesign-pilot]]을 따른다.
 
 자연어 예시:
 - "KT&G 이번 주총 안건별로 찬성/반대 어떻게 봐야 해?" → 기본 호출(회차 자동 선택, 안건별 decision + facts + policy_citation)
 - "이 이사 재선임 반대할 근거 있어?" → 후보 평가(roster 교차검증·경력·risk_factors) + 정책 근거
 - "이 보수한도 인상 안건 어떻게 판단해?" → 보수 안건 facts + 판정 근거 (소진율·인상 이력 detail은 [[director_board]] `pay_agenda`)
+
+### 회차별 조사와 추가 공시 탐색
+
+`guideline_harness`를 사용하는 응답의 `research_plan`은 정기·임시, 실제 회차·마감시점에 맞춘 조사 질문과 `discover_sources` 행동을 제공한다. 출석의 직전 완료 사업연도와 현재 겸직·분쟁의 자료 상한을 분리한다. 필수 문서 목록이나 검색 0건을 전체 판단의 중단 조건으로 삼지 않는다.
+
+`guideline_research={"kind":"meeting_resolution"}`은 동일한 회사·회차·마감시점에서 소집결의 목록을 찾는다. `periodic_reports`는 사업·반기·분기를, `officer_changes`는 임원변동을, `ownership_disputes`는 지분·분쟁 문서를 찾는다. 원본·정정을 함께 반환하며 최종 대체 범위는 LLM이 원문에서 판독한다. 검색은 `last_reprt_at=N`, 요청 페이지와 유형별 범위를 표시한다. 현재 조회 회사가 다르거나 공개일·접수일이 충돌하는 행, 미래 자료, 주총 결과는 검색 후보에서 제외한다.
+
+반환 위치는 `data.guideline_application.research_discovery`다. `candidates[]`의 `status=unread`와 `read_source`는 **아직 읽지 않은 문서의 위치**다. 목록·제목은 평가 인용 원문에 들어가지 않는다. 호출 LLM이 선택한 자료를 `guideline_evidence_sources`로 추가 독해한 뒤 현재 과업에 포함된 인용을 제출한다. `scans`, `next_queries`, `page_limit_reached`로 탐색 범위를 확인하며 실패·미탐색·미독해를 미공개로 바꾸지 않는다.
+
+호출자 `VotingHarness`는 다음 행동을 지원한다.
+
+- `discover_sources`: query를 현재 MCP 호출에만 전달하고 검색 결과를 다음 모델 문맥에 보존한다.
+- `read_sources`: 기본 `mode=merge`로 읽기 창을 추가하고, `mode=replace`로 명시적으로 추가한 활성 자료 묶음을 교체한다. 한 행동에는 최대 5개 읽기 요청을 낸다. 명시 추가 묶음은 고유 문서 5개·읽기 요청 20개·문서당 6창으로 제한한다. 자동 수집은 별도이며, 같은 문서라도 후보·구간이 다르면 독립 발췌를 보존한다.
+- `submit`: 현재 후보 과업의 평가 한 건을 제출한다. 원문이나 과업이 바뀐 후보만 재평가하며 같은 과업의 유효한 제출은 보존한다.
+- `finish`: 해당 과업의 미평가 사유를 남기고 다른 후보를 계속 처리한다.
+
+`candidate_names`는 LLM이 선택한 전체 후보 이름 목록이며 내용상 관련성의 인증이 아니다. 빈 목록은 공통 연결이다. 일치하는 지원 후보가 없으면 `unused_candidate_scopes`와 호출자 `source_target_not_matched` 피드백으로 알리고 임의 후보에게 배정하지 않는다. 공통 사실을 특정 후보에게만 제한해야 하는지에 대한 의미 판단은 LLM의 책임이다.
+
+읽기 이력·옵션·원문 해시는 호출 중 메모리에 남아 교체한 문서를 다시 읽을 수 있다. 제거한 발췌를 현재 과업에서 인용하거나 과거 평가를 그대로 재사용할 수는 없다. 이전 원문 해시는 continuation에 보존해 재조회 시 원문 변경을 검사한다. `source_history`의 `active`는 현재 요청 포함 여부이며 문서의 정상 취득·판독 완료 인증은 아니다. 같은 문서의 분리된 발췌를 이어 붙여 가짜 연속 인용을 만들지 않는다.
+
+기본 예산은 모델 30회·MCP 30회·연구 행동 30회·후보 평가 시도 3회다. 정상 검색·독해는 평가 오류의 재시도 횟수를 소비하지 않는다. 호출자 결과는 `events`에서 과업 변경, 이전/새 수용의 근거 ID·권고·처리 변화를 구분한다. 모든 조회·평가는 메모리에서 처리하며 자동 스케줄이나 실제 투표를 만들지 않는다.
 
 ## 입력 인자
 
@@ -128,14 +176,29 @@ DART 공개 캐시와 KIND 공용 웹 속도 제한을 사용한다. KIND는 두
 | vote_style | str | no | `open_proxy` (default). `opm_guideline_v2`는 기본 shadow, 명시적 pilot에서는 LLM 평가를 후보 권고에 적용한다. 그 밖의 내부 policy variant는 cross-reference용 비공개 surface | "open_proxy" |
 | guideline_mode | str | no | shadow / pilot. pilot은 opm_guideline_v2 및 include_after_meeting=False 필요 | "shadow" |
 | guideline_assessments | list[dict] | no | pilot에서 assessment_task.required_output에 맞춘 평가 목록, 최대 50건. 중복·스키마 오류 항목을 제외하고 다른 후보는 계속 처리 | None |
-| guideline_evidence_sources | list[dict] | no | pilot 추가 DART/KIND 공시 최대 5건. source_scope·focus_terms·text_offset·text_chars로 문맥 지정. 양쪽 호출에서 같은 목록 사용 | None |
-| guideline_workflow | dict | no | pilot 보팅 성향 standard/conservative, 자동화 automatic/selective/manual, manual_agenda_titles, 선택 attendance_min_pct(50~100). 실제 투표 제출 없음 | None |
+| guideline_evidence_sources | list[dict] | no | 명시 추가 고유 DART/KIND 본문 및 정관 첨부 최대 5개·읽기 요청 최대 20개·문서당 최대 6창. source_scope·focus_terms·text_offset·text_chars 및 candidate_names(빈 목록은 공통)로 문맥·후보 범위 지정. 제출 후보의 현재 근거·설정에 연결된 과업 ID를 사용하고 영향 없는 평가 보존 | None |
+| guideline_workflow | dict | no | pilot 보팅 성향 standard/conservative, 자동화 automatic/selective/manual, manual_agenda_titles·manual_agenda_ids, 선택 attendance_min_pct(50~100). 실제 투표 제출 없음 | None |
+| guideline_harness | dict | no | pilot 시점·회차 고정. cutoff_at(시간대 있는 ISO8601), notice_rcept_no 필수. 후속 요청에는 응답 continuation의 expected_run_id·expected_policy_sha256·expected_sources 포함. 날짜만 확인된 자료는 마감일 전일까지 사용 | None |
+| guideline_structure | dict | no | 같은 하네스에서 `{}`로 구조 과업 요청, `{assessments:[평가]}`로 별도 제출. 현재 과업의 item_schemas·fact_data_schemas를 사용 | None |
+| guideline_research | dict | no | 하네스 내 공시 목록 탐색. kind=meeting_resolution/periodic_reports/officer_changes/ownership_disputes, 선택 start_date/end_date, page(1~20), page_count(1~100). 같은 회사·마감시점의 미독해 후보와 다음 검색을 반환 | None |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
-| as_of | str | no | `YYYYMMDD`. 판단이 서는 시점 — 이 날 이후 접수된 공시는 읽지 않는다(look-ahead 차단). 미지정 시 회의일이 오늘 또는 과거면 회의일 전일, 미래면 한국시간 오늘. 회의일 미확인 시 오늘 + 사후 자료 혼입 가능 경고 | "" |
+| as_of | str | no | `YYYYMMDD` 공시 조회 기준일. 미지정 시 회의일이 오늘 또는 과거면 회의일 전일, 미래면 한국시간 오늘. 회의일 미확인 시 오늘 + 사후 자료 혼입 가능 경고. 일중 순서·시점 불명 원천까지 보장하는 값은 아니며 하네스 사용 시 effective_as_of와 일치해야 함 | "" |
 | include_after_meeting | bool | no | True 면 기준일 이후 자료까지 읽고 해당 공시에 ⚠ 표시. 해당 회차 의결 결과는 그래도 쓰지 않는다 | False |
 | evidence_chars | int | no | 근거 원문 발췌 길이. 잘리면 응답에 전체 길이와 재호출 경로 안내 | 4000 |
 | format | str | no | "md" / "json" | "md" |
+
+## 정관·이미지와 선출 구조 평가
+
+`guideline_structure={}`를 회차 고정 요청에 추가하면 `data.guideline_application.structure_tasks`에 회차별 구조 과업이 생성된다. 해당 과업의 `required_output`, `item_schemas`, `fact_data_schemas`를 따라 판독·효과·판단을 제출한다. `guideline_structure={"assessments":[assessment]}`로 같은 continuation과 함께 보낸다. 후보 평가 입력은 그대로 유지한다. 호출자 실행기는 `HarnessRequest(..., structure=True)`를 사용한다.
+
+첨부 목록은 `guideline_evidence_sources=[{"type":"dart_attachments","rcept_no":"<공시 접수번호>"}]`, 읽기는 목록의 ID를 사용한 `{"type":"dart_attachment","rcept_no":"<공시 접수번호>","dcm_no":"<첨부 ID>"}`다. 공개시점·첨부 소속을 검사하고 XML 우선, 첨부 viewer를 대체 경로로 쓴다. 목록은 다음 읽기 손잡이이며 목록 0건이 미공개를 입증하지 않는다.
+
+이미지/PDF는 서버의 선택적 `register_visual_reader` 어댑터로 전달한다. 특정 SDK는 내장하지 않으며 미등록 시 `needs_visual_reading`과 원본 페이지를 반환한다. 문서/페이지 원본 해시, 판독기, 판독 텍스트 해시, 쪽별 불확실성 및 `uncertain_spans`(쪽 텍스트의 문자 시작/끝)가 보존된다. 불확실한 인용은 후보·구조 평가 모두에서 수용하지 않는다. 시점 이후 자료, 원본 변경, 판독문 변경은 기존 과업 재사용을 허용하지 않는다.
+
+외부 호출 추가량은 회사당 요청한 첨부별로 목록 1회 + XML 1회, XML에서 확인하지 못하면 선택 첨부 페이지 1회와 viewer 최대 12회다. 등록된 시각 판독기는 이미지 최대 24쪽을 읽는다. 문서 16MiB, 이미지 5MiB/쪽, 전체 이미지 24MiB 상한과 프로세스 공통 웹 속도 제한을 적용한다. 사용자 평가 결과를 파일에 저장하지 않는다.
+
+구조 응답은 `accepted_facts`, `accepted_gaps`, `accepted_findings`, `judgments`, `rejected_items`, `completion_status`, `out_of_scope_agenda_ids`로 수용·미완료를 구별한다. 안건에는 `structure_trace`와 최종 `decision`, `voting_workflow`를 반영한다. 부분 수용은 같은 예산 안에서 보완하고 다른 후보는 계속 처리한다. 구조 찬성만으로 후보 미평가를 찬성으로 바꾸지 않는다. 기존 법률·경합·좌석 제약을 보존하며 실제 투표를 전송하지 않는다. `data.guideline_harness.capabilities`는 지원 과업·출처와 미지원 범위 등록·법률 전용 평가를 명시한다.
 
 ## 출력 schema (decisions)
 
@@ -150,6 +213,10 @@ DART 공개 캐시와 KIND 공용 웹 속도 제한을 사용한다. KIND는 두
 | `policy_citation` | OPM Guideline 근거 — **문서의 절 번호·항목 번호**를 가리킨다 (「OPM Guideline §2.4 이사 선임 — against ①「사외이사 장기연임 5년+」… ▸ 엔진: …」). `proxy_guideline(section="2.4")` 로 그 항목을 연다. 정책에 있지만 엔진이 안 쓰는 항목은 「…는 엔진 미반영」으로 라벨 안에서 밝힌다. 문서↔라벨은 `tests/test_policy_citations_match_document.py` 가 자동 대조 (260903) |
 | `policy_basis` | 공개 정책 basis (`Open Proxy guideline` 또는 `Internal policy variant`) |
 | `guideline_application` | v2 선택 시 정책·버전·모드·판단 범위·사람 미검토 표시·평가 제출/미사용 현황·원문 수집·규칙 trace |
+| `data.guideline_application.research_plan` | 회차·시점에 맞는 조사 질문, 추가 공시 검색 제안, 미기재·미독해·의미 미확정·충돌의 구분. 필수 문서 체크리스트가 아님 |
+| `data.guideline_application.research_discovery` | `guideline_research` 요청 시 해당 페이지의 미독해 후보 공시·조회 범위·실패·정정 단서·다음 검색. 공시 제목은 평가 근거가 아님 |
+| `data.guideline_application.unused_candidate_scopes` | 요청한 후보 전체 이름이 지원 과업과 일치하지 않은 원천·읽기 옵션·이름. 임의 후보에 배정하지 않음 |
+| `data.guideline_harness` | 하네스 선택 시 계약 버전·마감시각·effective_as_of·고정공고·실행/정책 해시·source_manifest·continuation·제외 원천·이전 원문 미확보 목록. 안건별 수용이 1건 이상이면 evaluated, 없으면 awaiting_model이며 전체 평가 완료·정확도 인증이 아님 |
 | `agenda_decisions[].guideline_trace` | 해당 안건에서 v2 규칙이 `not_applicable`·`not_triggered`·`fired`·`excepted`·`unresolved`·`skipped_missing_information` 중 어디에 해당하는지와 필요한 metric 목록 |
 | `guideline_trace.assessment_task` | 대상·기준일·정책 hash·원문 발췌·rubric·required_output(JSON Schema)·task_id. 호출 LLM의 평가 입력 |
 | `guideline_trace.llm_assessment` | pending / rejected / accepted_unreviewed, 인용 연결 검증 범위, 평가·근거·반증·미확인 사항, human_reviewed=false |
@@ -740,14 +807,22 @@ OPM 자체 함수들 + vote_style 정책 wire:
 
 ## 외부 호출
 
-회사 단위 기존 upstream 조회에 v2 사업보고서 원문 최대 1건이 추가된다.
-pilot 추가 원천 입력은 DART XML 또는 KIND HTML 최대 5건이며 시장 전체 순회는 하지 않는다.
+회사 단위 기존 자문 조회에 v2 사업보고서 원문 최대 1건이 추가된다. 명시 추가 원천은 DART XML 또는 KIND HTML 고유 문서 최대 5건이다. 같은 문서의 읽기 창은 요청당 20개·문서당 6개까지이며 해당 호출에서 문서는 한 번 취득한다. 임원 변동 자동 탐색의 목록 최대 4회·원문 5건, 회사 맥락 자동 탐색의 목록 최대 16회·원문 4건은 별도다. 시장 전체 순회는 하지 않는다.
+
+하네스의 `guideline_research`는 지정한 페이지를 유형별로 조회한다. `meeting_resolution`은 I001 1회, `periodic_reports`는 A001·A002·A003 3회, `officer_changes`는 E005·I001 2회, `ownership_disputes`는 B001·D·I 3회다. 기본 검색 창은 마감 이전 730일이며 정정 전 문서를 숨기지 않도록 `last_reprt_at=N`을 쓴다. 이 탐색 단계는 원문을 읽지 않는다. **동일 MCP 요청은 기존 자문·자동 수집도 수행하므로 이 1~3회가 전체 요청 비용은 아니다.** 검색·평가 호출에서 발생하는 상위 조회와 공개자료 캐시 재사용을 구분해야 한다.
+
 DART는 공개자료 캐시를 재사용하고 KIND는 공용 웹 속도 제한을 따른다.
 공정위·기업집단 API 자동 호출은 현재 없다. LLM 평가 제출 자체는 서버의 외부 모델 호출을 발생시키지 않는다.
 
-### 출석 및 임원 공시 연결 (현재 0.7.0)
+### 출석 및 임원 공시 연결 (현재 0.7.2)
 
-평가 계약은 `opm-llm-assessment/5`이다. 선택 `attendance`의 회의별 참석·재직·법적 직무정지·전체 목록 완전성·불참 예외를 검토한다. 숫자 출석률 자체는 제출하지 않는다. 유효 날짜·구간·회의 중복·현재 과업 인용을 검사하고, 분모를 확정할 수 없으면 숫자를 만들지 않는다. 원문 검토 후 정보 누락으로 명시하면 출석 기준만 제외하고 다른 기준으로 판단한다. `attendance_calculation`과 Markdown에 참석/대상/제외 회의 수를 표시한다. 의미 귀속과 목록 완전성은 LLM 판단이며 사람 미검토다.
+평가 계약은 `opm-llm-assessment/6`이다. 선택 `attendance`의 회의별 참석·재직·법적 직무정지·전체 목록 완전성·불참 예외를 검토한다. 숫자 출석률 자체는 제출하지 않는다. 유효 날짜·구간·회의 중복·현재 과업 인용을 검사하고, 분모를 확정할 수 없으면 숫자를 만들지 않는다. 원문 검토 후 정보 누락으로 명시하면 출석 기준만 제외하고 다른 기준으로 판단한다. `attendance_calculation`과 Markdown에 참석/대상/제외 회의 수를 표시한다. 의미 귀속과 목록 완전성은 LLM 판단이며 사람 미검토다.
+
+같은 날 취임 전·후 회의는 선택 `attendance.meetings[].duty_eligibility`로 구별한다. 값은 `not_on_duty` 또는 `unknown`, 경계는 `service_start` 또는 `service_end`이며 사유·원문 인용이 필요하다. 제출한 재직 시작·종료일과 일치해야 하고 명시된 불참을 제외 사유로 바꿀 수 없다. 비대상 회의도 목록에 보존하며 `excluded_boundary_meetings`·`unknown_duty_meetings`에 집계한다. 원문상 선후관계의 의미는 사람 미검토 LLM 판독이다. 확정된 신규선임에서 `attendance=null`이면 `attendance_calculation.status=not_applicable`로 반환하고 Markdown에 적용 대상 아님을 표시한다.
+
+0.7.1은 후보 이름의 한글 자간을 보존하고 완전한 이름을 우선 대조한다. 여러 후보가 일치하면 첫 후보를 임의 선택하지 않는다. 소집결의 신규선임·과거 복귀·평가연도 재직을 구분하며, 공개된 관계의 중요성 판단 미완료를 `missing_information`으로 스킵하지 않도록 평가 지침을 명확히 했다. 호출자 하네스는 같은 과업의 고정 검증 오류 사유만 제한된 길이로 모델 피드백에 전달한다.
+
+0.7.2는 `attendance.exception.value=not_applicable`을 하위호환으로 추가한다. 전체 목록·직무 대상·개별 참석이 확정되고 참석 대상 회의가 1회 이상이며 모두 참석했을 때만 허용한다. 미확인·반증을 함께 제출하거나 불참·불완전 목록·미확정 직무기간이 있으면 거절한다. 출석 원문 인용과 산술 검사는 유지한다. 이 값은 예외 승인(`exception_accepted=true`)이나 누락 스킵이 아니며, Markdown에 「불참 예외: 적용 대상 아님」으로 표시한다. 평가 계약은 `/6`을 유지하고 정책·엔진 해시가 바뀌므로 기존 실행과 구분한다.
 
 pilot에서 E/I 공시를 종류별 최대 2페이지, 기준연도 2년 전 1월 1일부터 탐색하고 임원 변동 원문 최대 5건을 자동 연결한다. 명시적 추가 원천 최대 5건과 별도다. 자동 탐색은 같은 날 공시를 제외하고 검색 한계·실패를 `officer_discovery`에 표시한다. 기존 XML 원문 경로를 재사용한다. 추가 비용 상한은 목록 4회·원문 5건이다.
 
@@ -755,9 +830,9 @@ pilot에서 E/I 공시를 종류별 최대 2페이지, 기준연도 2년 전 1�
 
 ### 회사 맥락과 근거별 교정 (0.7.0)
 
-최근 365일 D004·D003·D001·I001·B001·E006·E001·E002를 유형당 최대 2페이지 탐색하고 회사 맥락 원문 최대 4건을 추가한다. 후보 이름이 없는 문서도 보존한다. 사전 자문이므로 당일 공시·주총결과는 평가 근거로 사용하지 않으며, 탐색 범위·실패·미선택 원문은 `context_discovery`, 추가 읽기 순서는 `research_plan`으로 반환한다. 임원 변동 탐색·명시 원천 요청과 별도 예산이며 기존 원문과 중복을 피한다.
+최근 365일 D004·D003·D001·I001·B001·E006·E001·E002를 유형당 최대 2페이지 탐색하고 회사 맥락 원문 최대 4건을 추가한다. 후보 이름이 없는 문서도 보존한다. 사전 자문이므로 당일 공시·주총결과는 평가 근거로 사용하지 않는다. 탐색 범위·실패는 `context_discovery`, 미선택 원문과 후속 읽기 단서는 `context_discovery.next_reads`로 반환한다. 하네스의 `research_plan`은 별도의 회차별 질문·실행 행동이다. 임원 변동 탐색·명시 원천 요청과 별도 예산이며 공통 원문 중복을 피하되 특정 후보에게 제한한 발췌가 다른 후보의 자동 원문을 제거하지 않게 한다.
 
-명시 원천은 `source_scope`(candidate/company_context/agenda_context), `focus_terms`(최대 6개), `text_offset`(0–2,000,000), `text_chars`(1,000–30,000·기본 12,000)를 선택할 수 있다. 정규화한 원문 기준으로 발췌 구간·전체 해시·읽지 않은 문맥·`read_next.source_request`를 제공한다. 원문이나 읽기 창을 변경하면 새 task_id로 재평가한다.
+명시 원천은 `source_scope`(candidate/company_context/agenda_context), `candidate_names`, `focus_terms`(최대 6개), `text_offset`(0–2,000,000), `text_chars`(1,000–30,000·기본 12,000)를 선택할 수 있다. 정규화한 원문 기준으로 발췌 구간·전체 해시·읽지 않은 문맥·`read_next.source_request`를 제공한다. 해당 후보의 원문이나 읽기 창을 변경하면 새 task_id로 재평가한다.
 
 `baseline_findings`는 임기·겸직·관계 등 기존 판단의 활성 근거와 보호 근거를 식별한다. 선택 `finding_reviews`의 각 항목은 `finding_id`, `disposition`(confirmed/incorrect_extraction/unresolved), `rationale`, `evidence_refs`, `counterevidence`, `unresolved`를 받는다. 후보 평가에서만 비롯된 기존 REVIEW의 모든 교정 가능 근거가 원문으로 반박되고 다른 활성 우려·반증·미해결이 없을 때만 REVIEW→FOR를 허용한다. 정책에 대한 이견이나 누락 사실만으로 경보를 해제할 수 없다. AGAINST·법령·표결 관계·감사 이력 등의 보호는 유지한다. `baseline_correction`과 `decision_effect=source_correction_applied`로 설명하며 후단 표결 제약은 다시 적용한다.
 
@@ -775,6 +850,8 @@ pilot에서 E/I 공시를 종류별 최대 2페이지, 기준연도 2년 전 1�
 
 ## 변경 이력
 
+- 2026-09-10: Astra가 0.7.2에서 대상 회의 모두 참석한 경우의 불참 예외 비적용 입력·검사·표시를 추가했다. 불참·목록 미확정·직무 미확정에는 사용할 수 없다.
+- 2026-09-10: Astra가 하네스 /2에 회차별 조사 가이드·시점 제한 공시 목록 탐색·후보별 복수 발췌·활성 자료 교체·변경 과업만 재평가하는 경로를 추가했다. 평가 계약 /6·pilot 정책 0.7.1.
 - 2026-09-09: Astra가 0.7.0 회사 맥락 탐색·이어 읽기·근거별 REVIEW 추출 오류 교정을 연결했다. 평가 계약 /5.
 
 - 2026-09-09: 0.6.0에서 원문 직접 판독 기간·누락 스킵·후보별 오류 격리·사용자 보팅 설정과 자동/수동 분기 연결.

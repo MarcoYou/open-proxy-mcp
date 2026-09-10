@@ -21,6 +21,7 @@ class WorkflowSettings(BaseModel):
         Field(max_length=100),
     ] = Field(default_factory=list)
     attendance_min_pct: Annotated[StrictInt | StrictFloat, Field(ge=50, le=100)] | None = None
+    manual_agenda_ids: Annotated[list[Annotated[StrictStr, Field(min_length=1, max_length=200)]], Field(max_length=100)] = Field(default_factory=list)
 
 
 def resolve_workflow_settings(value: dict | None = None) -> dict:
@@ -30,6 +31,8 @@ def resolve_workflow_settings(value: dict | None = None) -> dict:
         titles = settings.manual_agenda_titles
         if any(not title.strip() for title in titles) or len(set(titles)) != len(titles):
             raise ValueError("invalid manual agenda selection")
+        if any(not value.strip() for value in settings.manual_agenda_ids) or len(set(settings.manual_agenda_ids)) != len(settings.manual_agenda_ids):
+            raise ValueError('invalid manual agenda selection')
     except Exception:
         raise ValueError("guideline_workflow: invalid settings") from None
     return settings.model_dump()

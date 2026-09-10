@@ -27,6 +27,7 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
+from open_proxy_mcp.services.meeting_pin import get_matching_pin, get_meeting_pin
 from open_proxy_mcp.services.agm_result_parser import parse_agm_result_summary, parse_agm_result_table
 from open_proxy_mcp.services.shareholder_meeting_parser import (
     agenda_detail_sections,
@@ -1178,6 +1179,9 @@ async def _load_notice_bundle_with_fallback(
 ) -> tuple[dict[str, Any], list[str], str]:
     client = get_dart_client()
     doc = await client.get_document_cached(rcept_no)
+    pin = get_meeting_pin()
+    if pin is not None and pin.notice_rcept_no == rcept_no:
+        pin.verify_document(doc)
     # 260907: 소집공고(2.9~5.4MB) 파싱 수 초가 이벤트 루프를 통째로 잡아 /health(15초 timeout)까지 굶겼다 — 워커 스레드로.
     known_info = (_INFO_CTX.get() or {}).get(rcept_no)   # 후보 분류가 같은 API 원문을 이미 파싱했으면 재사용
     parsed = await asyncio.to_thread(
@@ -1194,6 +1198,9 @@ async def _load_notice_bundle_with_fallback(
     source_used = "dart_xml"
 
     if not reasons:
+        return parsed, warnings, source_used
+    if pin is not None and pin.notice_rcept_no == rcept_no:
+        warnings.append("고정한 원문에서 일부 구조를 추출하지 못했습니다. 같은 원문을 직접 검토하며 다른 원천으로 바꾸지 않습니다.")
         return parsed, warnings, source_used
 
     section_keywords = ["주주총회 소집공고", "주주총회소집공고"]
@@ -1405,6 +1412,11 @@ def _meeting_phase(
 ) -> tuple[str, str]:
     meeting_date = _parse_notice_meeting_date(meeting_info.get("datetime", ""))
     today = today_kst()
+    from open_proxy_mcp.dart.as_of import get_strict_as_of
+    strict = get_strict_as_of()
+    if strict:
+        # Historical runs describe the meeting at the admitted information date.
+        today = datetime.strptime(strict["effective_as_of"], "%Y%m%d").date()
 
     if result_filing:
         if result_reference and result_reference.get("dart_fetchable"):
@@ -1610,6 +1622,13 @@ async def resolve_latest_meeting_year(
     """
     if meeting_type not in _ALLOWED_MEETING_TYPES:
         return None
+    pin = get_matching_pin(corp_code, year, meeting_type)
+    if pin is not None:
+        phase, _ = _meeting_phase(pin.notice_row(), None, None)
+        return {"year": pin.year, "meeting_type": pin.meeting_type,
+                "meeting_date": pin.meeting_date, "notice_rcept_no": pin.notice_rcept_no,
+                "notice_date": pin.published, "meeting_phase": phase,
+                "selection_basis": "verified_pinned_notice"}
     today = today_kst()
     # `year` 를 주면 그 해의 회차를 집는다. 260828: 이 인자가 없어서, 사용자가 연도를 직접
     # 지정하면 **회의일을 아예 모르는 채로** 분석이 진행됐다. 회의일을 모르면 「그 시점에 볼 수
@@ -1686,6 +1705,12 @@ async def _select_notice_candidate(
     timings_ms: dict[str, int] | None = None,
     fiscal_month: str = "",
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]], str | None, str | None, list[str]]:
+    pin = get_matching_pin(corp_code, target_year, requested_meeting_type, scope=scope)
+    if pin is not None:
+        candidate = await _build_candidate(
+            corp_code, pin.meeting_type, pin.year, pin.notice_row(), fetch_result_filing=False,
+        )
+        return candidate, [], "검증한 소집공고 접수번호로 회차를 고정했습니다.", None, []
     search_notices: list[str] = []
     window_start, window_end, _ = _selection_window(
         target_year,

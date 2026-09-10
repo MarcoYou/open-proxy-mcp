@@ -539,6 +539,15 @@ def _agenda_pattern_match(title: str, parent: str, pattern: dict[str, Any]) -> b
 def _applies_to_match(rule: dict[str, Any], corp_total_asset_won: int | None,
                       today_iso: str) -> bool:
     """applies_to 조건 (자산 + 시행일) 매치."""
+    from open_proxy_mcp.dart.as_of import get_strict_as_of, note_strict_exclusion, publication_day
+    strict = get_strict_as_of()
+    if strict:
+        provision = _load_law_provisions().get(rule.get("provision"), {})
+        published = publication_day(provision.get("promulgation_date"))
+        if not published or published > strict["effective_as_of"]:
+            note_strict_exclusion("law_layer", reason=(
+                "publication_unverified" if not published else "after_cutoff"))
+            return False
     applies = rule.get("applies_to") or {}
 
     # 자산 조건
@@ -986,7 +995,7 @@ def _core_person_name(name: str | None) -> str:
     """후보 이름에서 안건 제목 매칭용 핵심 이름 추출.
 
     '도진명 (Jim Myong Doh)' → '도진명' (영문 병기·괄호 제거).
-    영문 전용 이름('Benjamin Tan')은 그대로. 한글 이름 뒤 공백+영문도 앞 토큰만.
+    영문 전용 이름('Benjamin Tan')은 그대로. 한글 자간은 합치고 영문 병기는 분리한다.
     260710 현대차 도진명 매칭 실패 사고: eval name에 영문이 병기돼 `nm in title`이
     False → 개별 후보 평가가 통째로 우회되던 버그.
     """
@@ -994,12 +1003,35 @@ def _core_person_name(name: str | None) -> str:
         return ""
     # 괄호(반각/전각) 앞부분만
     core = re.split(r"[(（]", name, maxsplit=1)[0].strip()
-    # 한글 이름 뒤 공백+영문("홍길동 James") → 한글 토큰만 (앞 토큰이 한글이면)
-    if " " in core:
-        head = core.split()[0]
-        if re.search(r"[가-힣]", head):
-            core = head
+    # 한글 자간은 이름의 일부다. "이 영 렬"을 성 "이"로 줄이면
+    # 모든 "사외이사" 제목이 그 후보와 일치한다. 영문 병기만 분리한다.
+    korean = re.fullmatch(r"([가-힣]+(?:\s+[가-힣]+)*)(?:\s+[A-Za-z].*)?", core)
+    if korean:
+        core = re.sub(r"\s+", "", korean.group(1))
     return core or name.strip()
+
+
+def _match_candidate_for_agenda(
+    title: str, candidates: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Prefer a unique complete name; aliases never outrank another full name.
+
+    Candidate order and inferred candidate agenda titles are not identity proof.
+    A one-character name/alias or multiple matching identities stays unmatched.
+    """
+    title_compact = re.sub(r"\s+", "", title or "")
+    for use_core in (False, True):
+        matches = []
+        for candidate in candidates:
+            name = candidate.get("name") or ""
+            if use_core:
+                name = _core_person_name(name)
+            compact = re.sub(r"\s+", "", name)
+            if len(compact) >= 2 and compact in title_compact:
+                matches.append(candidate)
+        if matches:
+            return matches[0] if len(matches) == 1 else None
+    return None
 
 
 #: 매칭 실패 안건에 붙이는 원문 창. **틀린 지점을 기준으로 앞뒤 비대칭**이다 —
@@ -3520,6 +3552,18 @@ async def build_proxy_advise_payload(
     """
     gate_holder: dict[str, Any] = {}
     try:
+        harness = kwargs.pop("guideline_harness", None)
+        if harness is not None:
+            from open_proxy_mcp.services.guideline_harness import run_harness
+            return await run_harness(company_query, harness,
+                                     {**kwargs, "_gate_holder": gate_holder},
+                                     _build_proxy_advise_payload)
+        if kwargs.pop("guideline_research", None) is not None:
+            from open_proxy_mcp.services.guideline_harness import _error
+            return _error("research_requires_harness")
+        if kwargs.pop('guideline_structure', None) is not None:
+            from open_proxy_mcp.services.guideline_harness import _error
+            return _error('research_requires_harness')
         return await _build_proxy_advise_payload(company_query, _gate_holder=gate_holder, **kwargs)
     finally:
         tokens = gate_holder.get("tokens")
@@ -3832,6 +3876,8 @@ async def _build_proxy_advise_payload(
     policy = _load_vote_style_policy(vote_style)
     if guideline_mode == "pilot":
         policy = apply_workflow_policy(load_pilot_guideline_policy(), workflow_settings)
+        from open_proxy_mcp.services.guideline_harness import bind_harness_policy
+        policy = bind_harness_policy(policy)
     policy_id = (policy or {}).get("policy_id") or (policy or {}).get("id") or vote_style
     policy_meta = (policy or {}).get("policy_meta") or {}
     # Keep baseline and v2 traces separate. Only the explicit pilot applies
@@ -3849,11 +3895,13 @@ async def _build_proxy_advise_payload(
     if guideline_mode == "pilot":
         guideline_officer_discovery = await discover_officer_filings(
             client, selected["corp_code"], as_of_ymd,
-            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")])
+            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")
+                     and not (s.get("read_options") or {}).get("candidate_names")])
         guideline_supplemental.extend(guideline_officer_discovery["filings"])
         guideline_context_discovery = await discover_guideline_context(
             client, selected["corp_code"], as_of_ymd,
-            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")])
+            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")
+                     and not (s.get("read_options") or {}).get("candidate_names")])
         guideline_supplemental.extend(guideline_context_discovery["filings"])
 
     # ── F6 (Phase 4) corpCode pre-warm: gather 전에 보장 ──
@@ -3881,7 +3929,10 @@ async def _build_proxy_advise_payload(
         # 260828: as_of 를 넣지 않으면 **기준일이 다른 두 호출이 같은 답을 받는다** —
         #   검사한 적 없는 시점의 결과가 검사한 것처럼 나가는 형태다(check_audit_history 와 같은 사고).
         cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"), kw.get("check_audit_history"), as_of_ymd, include_after_meeting)
-        cached = _PROXY_ADVISE_CACHE.get(str(cache_key))
+        from open_proxy_mcp.dart.as_of import get_strict_as_of
+        # Only immutable raw-document caches are reused in a pinned run.
+        strict = get_strict_as_of() is not None
+        cached = None if strict else _PROXY_ADVISE_CACHE.get(str(cache_key))
         if cached is not None:
             if timing_label:
                 _mark(f"upstream.{timing_label}", upstream_started_at)
@@ -3892,7 +3943,8 @@ async def _build_proxy_advise_payload(
             try:
                 # F8: 단일 upstream 60s cap (전체 wait_for 120s 안에서 6 worker 각자 60s)
                 result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
-                _PROXY_ADVISE_CACHE.put(str(cache_key), result)
+                if not strict:
+                    _PROXY_ADVISE_CACHE.put(str(cache_key), result)
                 if timing_label:
                     _mark(f"upstream.{timing_label}", upstream_started_at)
                 return result
@@ -3909,7 +3961,7 @@ async def _build_proxy_advise_payload(
             "tool": fn.__name__,
             "status": "error",
             "data": {},
-            "warnings": [f"3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}"],
+            "warnings": [f"3회 retry 모두 실패: {type(last_exc).__name__}"],
             "evidence_refs": [],
         }
         # error는 cache에 저장 X (다음 호출 시 재시도 기회)
@@ -3980,6 +4032,16 @@ async def _build_proxy_advise_payload(
     )
     # full payload가 summary/agenda/compensation/aoi_change 데이터를 모두 포함 — 다운스트림 4개 참조에 동일 객체 할당
     meeting_summary = meeting_agenda = meeting_comp = meeting_aoi = meeting_full
+    from open_proxy_mcp.services.meeting_pin import get_meeting_pin
+    _pin = get_meeting_pin()
+    if _pin:
+        _actual_notice = (((meeting_full or {}).get("data") or {}).get("notice") or {}).get("rcept_no")
+        _candidate_notice = ((director_eval or {}).get("data") or {}).get("rcept_no")
+        if (_actual_notice != _pin.notice_rcept_no or
+                (_candidate_notice and _candidate_notice != _pin.notice_rcept_no)):
+            from open_proxy_mcp.services.guideline_harness import _error
+            from open_proxy_mcp.dart.as_of import strict_exclusions
+            return _error("meeting_mismatch", strict_exclusions())
 
     # **회사의 현재 상태를 말하는 것은 전부 이 하나를 본다.** 자본잠식·적자·배당재원은 「승인
     # 대상 연도」의 사실이지 2년 전 사실이 아니다. 판정·위험신호·배당판단이 서로 다른 해를 보면
@@ -4716,22 +4778,7 @@ async def _build_proxy_advise_payload(
 
         # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":
-            for nm, ev in name_to_eval.items():
-                if not nm:
-                    continue
-                # nm in title (기존) + core-name(영문병기 제거) 매칭 (260710 도진명 사고)
-                # 260814: **제목 쪽 자간 벌림**이 남아 있었다 — 「사외이사 김 도 형 선임의 건」.
-                #   한글 이름은 자간을 벌려도 같은 이름인데 `"김도형" in "김 도 형"` 이 False 라
-                #   개별 평가가 통째로 우회되고 묶음 경로로 떨어졌다. 묶음 경로는 사외이사
-                #   **독립성 검증을 건너뛰므로**, 파싱 실패가 보수적이 아니라 관대한 판정으로
-                #   번역된다. 캐시 583건 실측: 인사 잎 916개 중 이 형태 2건.
-                #   공백만 지우고 비교한다 — 이름 자체를 바꾸지 않으므로 오탐이 늘지 않는다.
-                _t_ns = title.replace(" ", "")
-                if (nm in title or _core_person_name(nm) in title
-                        or nm.replace(" ", "") in _t_ns
-                        or _core_person_name(nm).replace(" ", "") in _t_ns):
-                    matched_eval = ev
-                    break
+            matched_eval = _match_candidate_for_agenda(title, list(name_to_eval.values()))
             statutory_auditor_agenda = (
                 category == "audit_committee_election"
                 and _is_statutory_auditor_agenda(title)
@@ -5521,6 +5568,8 @@ async def _build_proxy_advise_payload(
             )
     if guideline_mode == "pilot":
         voting_workflow = route_workflow(agenda_decisions, workflow_settings)
+        from .election_structure import capture_structure_sources
+        capture_structure_sources(agm_rcept or '', notice_full_text, guideline_supplemental)
         guideline_shadow_traces = [
             {"agenda_title": row["agenda_title"], "agenda_category": row["agenda_category"],
              **row["guideline_trace"]}

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1040" role="img" aria-labelledby="election-design-title election-design-desc">
+<title id="election-design-title">선출 구조 평가 설계: 원문 판독부터 권고 반환까지</title>
+<desc id="election-design-desc">시점과 회차 고정, LLM 구조 판독, 효과와 정책 평가, 서버 검증, 기존 후보 평가와 합성, 권고 반환 순서. 검증 오류는 해당 항목만 다시 읽고, 자료 누락은 해당 기준만 제외한다. 전체 목표 설계이며 구현 범위는 아래 런타임 표에 구분한다.</desc>
+<defs><marker id="es-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10" fill="#597168"/></marker></defs>
+<style>text{font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;fill:#1c302b}.es-head{font-size:26px;font-weight:700}.es-title{font-size:21px;font-weight:700}.es-body{font-size:17px}.es-note{font-size:15px;fill:#597168}.es-box{stroke:#adc3b8;stroke-width:1.5;fill:#edf5ef}.es-llm{fill:#edf2fc;stroke:#98b2d4}.es-side{fill:#fff4df;stroke:#d2b16c}.es-line{fill:none;stroke:#597168;stroke-width:2;marker-end:url(#es-arrow)}</style>
+<rect width="960" height="1040" rx="18" fill="#faf9f4"/>
+<text x="40" y="45" class="es-head">선출 구조 평가 · 상세 흐름</text><text x="40" y="73" class="es-note">Astra 설계안 · 현재 MCP에 아직 구현되지 않은 확장</text>
+<rect x="40" y="100" width="540" height="100" rx="12" class="es-box"/>
+<text x="62" y="130" class="es-title">01 서버 · 회차와 판단 기준 고정</text>
+<text x="62" y="157" class="es-body">회사 · 정기/임시 · 마감 · 정책 · 허용 원문</text><text x="62" y="182" class="es-body">안건·인물 ID와 구조 평가 과업 제공</text>
+<path d="M310 200V245" class="es-line"/>
+<rect x="40" y="245" width="540" height="100" rx="12" class="es-box es-llm"/>
+<text x="62" y="275" class="es-title">02 원문·OCR → LLM 구조 판독</text>
+<text x="62" y="302" class="es-body">첨부·이미지 판독 · 신구조문 · 임기</text><text x="62" y="327" class="es-body">자리·조건 · 원본 해시·쪽·불확실 구간</text>
+<rect x="640" y="125" width="270" height="95" rx="12" class="es-box es-side"/>
+<text x="660" y="155" class="es-title">허용되지 않은 자료</text><text x="660" y="183" class="es-body">사후 자료·현재 회차 결과 제외</text><text x="660" y="206" class="es-note">남은 자료로 계속 진행</text>
+<path d="M580 150H640" class="es-line"/>
+<path d="M310 345V390" class="es-line"/>
+<rect x="40" y="390" width="540" height="100" rx="12" class="es-box es-llm"/>
+<text x="62" y="420" class="es-title">03 LLM · 효과와 정책 판단</text>
+<text x="62" y="447" class="es-body">교체 기회 · 독립성 · 연속성 · 반증</text><text x="62" y="472" class="es-body">확인된 사실과 예외를 선택한 정책에 적용</text>
+<path d="M310 490V535" class="es-line"/>
+<rect x="40" y="535" width="540" height="100" rx="12" class="es-box"/>
+<text x="62" y="565" class="es-title">04 서버 · 제출 계약 검증</text>
+<text x="62" y="592" class="es-body">시점 · 인용 · ID · 중복 자리 · 수치 · 조건 연결</text><text x="62" y="617" class="es-body">항목별 수용/거절 · 의미 정확성은 별도 검증</text>
+<rect x="640" y="535" width="270" height="100" rx="12" class="es-box es-side"/>
+<text x="660" y="565" class="es-title">오류 항목만 보완</text><text x="660" y="592" class="es-body">추가 탐색 · 원문 확대 · 수정</text><text x="660" y="617" class="es-note">예산 내 재시도 · 다른 안건 계속</text>
+<path d="M580 585H640" class="es-line"/><path d="M910 585H935V295H580" class="es-line"/>
+<text x="646" y="279" class="es-note">해당 근거를 다시 읽는 경로</text>
+<path d="M310 635V730" class="es-line"/><text x="330" y="685" class="es-note">수용된 항목과 명시된 한계</text>
+<rect x="640" y="675" width="270" height="100" rx="12" class="es-box es-side"/>
+<text x="660" y="705" class="es-title">미공개 ≠ 충돌 ≠ 미독해</text><text x="660" y="732" class="es-body">미공개는 해당 기준만 제외</text><text x="660" y="757" class="es-note">충돌·예산 종료는 실제 상태 유지</text>
+<rect x="40" y="730" width="540" height="100" rx="12" class="es-box"/>
+<text x="62" y="760" class="es-title">05 서버 · 후보 평가와 권고 합성</text>
+<text x="62" y="787" class="es-body">영향받는 안건만 연결 · 가결/부결별 계획 유지</text><text x="62" y="812" class="es-body">자동 · 일부 수동 · 수동 설정으로 처리 경로 결정</text>
+<path d="M310 830V875" class="es-line"/>
+<rect x="40" y="875" width="540" height="100" rx="12" class="es-box"/>
+<text x="62" y="905" class="es-title">06 사용자 · 안건별 결과</text>
+<text x="62" y="932" class="es-body">권고 · 근거 · 제외 기준 · 조건 · 다음 처리</text><text x="62" y="957" class="es-body">LLM 평가 · 사람 미검토 · 실제 투표 전송 없음</text>
+<text x="40" y="1012" class="es-note">모델은 호출자가 교체한다. 원문과 정책을 고정해 모델별 판단 차이를 비교한다.</text>
+</svg>

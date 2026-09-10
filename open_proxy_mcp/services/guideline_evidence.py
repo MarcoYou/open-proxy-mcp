@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 import re
+import unicodedata
 from datetime import date
 from typing import Any
 from bs4 import BeautifulSoup
@@ -17,20 +18,60 @@ from bs4 import BeautifulSoup
 from open_proxy_mcp.services.board_attendance import parse_board_attendance_observations
 from open_proxy_mcp.dart.client import DartClientError
 
+MAX_EVIDENCE_DOCUMENTS = 5
+MAX_EVIDENCE_REQUESTS = 20
+MAX_WINDOWS_PER_DOCUMENT = 6
+
 
 def _source_read_options(src: dict) -> dict:
     """Bounded navigation requests; these select text, never assert facts."""
     scope = src.get("source_scope", "company_context")
     terms = src.get("focus_terms", [])
+    candidate_names = src.get("candidate_names", [])
     offset, chars = src.get("text_offset", 0), src.get("text_chars", 12000)
     if (not isinstance(scope, str) or scope not in {"candidate", "company_context", "agenda_context"}
         or not isinstance(terms, list) or len(terms) > 6
         or any(not isinstance(term, str) or not term.strip() or len(term) > 120 for term in terms)
+        or not isinstance(candidate_names, list) or len(candidate_names) > 10
+        or any(not isinstance(name, str) or not name.strip() or len(name) > 120
+               for name in candidate_names)
         or type(offset) is not int or not 0 <= offset <= 2_000_000
         or type(chars) is not int or not 1000 <= chars <= 30000):
         raise ValueError("guideline_evidence_sources: invalid source reading options")
     return {"source_scope": scope, "focus_terms": list(dict.fromkeys(terms)),
+            "candidate_names": list(dict.fromkeys(re.sub(r"\s+", " ", name).strip()
+                                                 for name in candidate_names)),
             "text_offset": offset, "text_chars": chars}
+
+
+def normalize_candidate_selection_name(name: str) -> str:
+    """Compare complete names only; neither aliases nor substrings are inferred."""
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", name)).casefold()
+
+
+def source_read_window_key(src: dict) -> tuple:
+    """Canonical window identity; source validation remains the caller's job."""
+    options = _source_read_options(src)
+    return (src.get("type"), src.get("rcept_no") or src.get("url"),
+            src.get("dcm_no"),
+            options["source_scope"],
+            tuple(sorted({normalize_candidate_selection_name(name)
+                          for name in options["candidate_names"]})),
+            tuple(sorted(set(options["focus_terms"]))),
+            options["text_offset"], options["text_chars"])
+
+
+def source_applies_to_candidate(item: dict, candidate_name: str) -> bool:
+    """An explicit relevance choice, never a finding about the source content.
+
+    Unmatched explicit names do not fall back to all candidates. Source scope
+    and focus terms are navigation hints and never infer candidate targeting.
+    """
+    options = _source_read_options(item.get("read_options") or {
+        "source_scope": item.get("purpose", "company_context")})
+    names = options["candidate_names"]
+    return not names or normalize_candidate_selection_name(candidate_name) in {
+        normalize_candidate_selection_name(name) for name in names}
 
 
 def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
@@ -40,7 +81,7 @@ def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
     separate so a citation cannot bridge an omitted passage. A next request can
     widen/reposition the same original document without a new fact parser.
     """
-    if item.get("status") != "read":
+    if item.get("status") != "read" and not (item.get('needs_visual_reading') and item.get('native_text')):
         return None
     text = re.sub(r"\s+", " ", item.get("text") or "").strip()
     if not text:
@@ -82,8 +123,11 @@ def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
     next_offset = max((end for _, end in selected), default=min(offset, len(text)))
     base_request = ({"type": "dart", "rcept_no": item["rcept_no"]} if item.get("rcept_no")
                     else {"type": "kind", "url": item["source_url"]})
-    return {"source_id": source_id, "source_url": item["source_url"],
+    if item.get('dcm_no'):
+        base_request = {'type': 'dart_attachment', 'rcept_no': item['rcept_no'], 'dcm_no': item['dcm_no']}
+    packet = {"source_id": source_id, "source_url": item["source_url"],
             "publisher_type": "company_disclosure", "source_scope": options["source_scope"],
+            "candidate_names": options["candidate_names"],
             "published": item.get("published") or (item.get("rcept_no") or "")[:8],
             "excerpts": [text[start:end] for start, end in selected],
             "excerpt_offsets": [{"start": start, "end": end} for start, end in selected],
@@ -93,10 +137,62 @@ def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
             "candidate_name_present": bool(candidate_name and candidate_name in text),
             "focus_terms_found": found, "focus_terms_not_found": [t for t in terms if t not in found],
             "read_next": {"source_request": {**base_request, "source_scope": options["source_scope"],
+                                              "candidate_names": options["candidate_names"],
                                               "text_offset": next_offset, "text_chars": options["text_chars"]},
                           "has_more_after_window": next_offset < len(text),
                           "can_refocus": True},
-            "hint": "회사·안건 맥락 원문. 후보명 부재는 무관함의 증거가 아니다. 당사자·사건·공개일·효력일·조건부 계획·정정/후속 공시를 대조하고 후보 책임은 별도 근거로 연결. 잘린 문맥은 focus_terms 또는 text_offset으로 다시 읽는다."}
+            "hint": "회사·안건 맥락 원문. candidate_names는 모델이 선택한 관련성 범위이며 내용의 사실 판정이 아니다. 빈 목록은 공통 연결이고 명시한 전체 이름과 일치하지 않으면 어느 후보에게도 자동 배정하지 않는다. source_scope만으로 후보를 제한하지 않는다. 후보명 부재는 무관함의 증거가 아니다. 당사자·사건·공개일·효력일·조건부 계획·정정/후속 공시를 대조하고 후보 책임은 별도 근거로 연결. 잘린 문맥은 focus_terms 또는 text_offset으로 다시 읽는다."}
+    if item.get('document_hash_basis') == 'original_source_bytes':
+        packet['original_document_sha256'] = item['document_sha256']
+        packet['visual_reading'] = item.get('visual_reading')
+        packet['native_text_excerpts'] = [item.get('native_text', '')]
+        # Bind both source bytes and the unreviewed transcription in continuations.
+        packet['document_sha256'] = hashlib.sha256(json.dumps({
+            'original': item['document_sha256'], 'text': packet['document_sha256'],
+            'visual': item.get('visual_reading')}, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        packet['document_hash_basis'] = 'original_and_reading_provenance'
+    packet["read_windows"] = [{"read_options": options,
+                               "excerpt_offsets": packet["excerpt_offsets"],
+                               "read_next": packet["read_next"],
+                               "focus_terms_found": found,
+                               "focus_terms_not_found": packet["focus_terms_not_found"],
+                               "partial": packet["partial"]}]
+    return packet
+
+
+def merge_source_packets(existing: dict, incoming: dict) -> dict:
+    """Preserve independently citable windows of one unchanged document.
+
+    Never concatenate excerpt text, including overlapping windows. A quote
+    must remain present in at least one actually returned window. The legacy
+    read_next points to the first window; read_windows retains every handle.
+    """
+    if (existing["source_id"] != incoming["source_id"]
+        or existing.get("document_sha256") != incoming.get("document_sha256")):
+        raise ValueError("guideline_evidence_sources: inconsistent source content")
+    excerpts, offsets, seen = [], [], set()
+    for packet in (existing, incoming):
+        for excerpt, span in zip(packet["excerpts"], packet["excerpt_offsets"]):
+            key = (span["start"], span["end"], excerpt)
+            if key not in seen:
+                excerpts.append(excerpt)
+                offsets.append(dict(span))
+                seen.add(key)
+    windows = list(existing["read_windows"])
+    windows.extend(window for window in incoming["read_windows"] if window not in windows)
+    covered = 0
+    for span in sorted(offsets, key=lambda row: (row["start"], row["end"])):
+        if span["start"] > covered:
+            break
+        covered = max(covered, span["end"])
+    names = ([] if not existing["candidate_names"] or not incoming["candidate_names"]
+             else list(dict.fromkeys([*existing["candidate_names"], *incoming["candidate_names"]])))
+    return {**existing, "excerpts": excerpts, "excerpt_offsets": offsets,
+            "read_windows": windows, "candidate_names": names,
+            "source_scopes": list(dict.fromkeys(window["read_options"]["source_scope"] for window in windows)),
+            "partial": covered < existing["total_chars"],
+            "focus_terms_found": list(dict.fromkeys([*existing["focus_terms_found"], *incoming["focus_terms_found"]])),
+            "focus_terms_not_found": list(dict.fromkeys([*existing["focus_terms_not_found"], *incoming["focus_terms_not_found"]]))}
 
 
 def fiscal_attendance_period(text: str, as_of: str) -> dict:
@@ -217,19 +313,28 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
     KIND is for identified exchange-source documents, not an arbitrary web
     fetcher. DART and KIND receipt identifiers are not interchangeable.
     """
-    if len(sources) > 5:
-        raise ValueError("guideline_evidence_sources: maximum five sources")
+    if len(sources) > MAX_EVIDENCE_REQUESTS:
+        raise ValueError("guideline_evidence_sources: maximum twenty reading requests")
     validated = []
     for src in sources:
         if not isinstance(src, dict):
             raise ValueError("guideline_evidence_sources: object required")
         options = _source_read_options(src)
-        read_keys = {"source_scope", "focus_terms", "text_offset", "text_chars"}
+        read_keys = {"source_scope", "focus_terms", "candidate_names", "text_offset", "text_chars"}
         if src.get("type") == "dart" and set(src) - read_keys == {"type", "rcept_no"}:
             rc = src["rcept_no"]
             if not isinstance(rc, str) or not re.fullmatch(r"\d{14}", rc):
                 raise ValueError("guideline_evidence_sources: invalid DART receipt")
             validated.append({**src, "read_options": options})
+        elif src.get('type') in {'dart_attachments', 'dart_attachment'}:
+            expected = {'type', 'rcept_no'} | ({'dcm_no'} if src['type'] == 'dart_attachment' else set())
+            if (set(src) - read_keys != expected or not isinstance(src.get('rcept_no'), str)
+                or not re.fullmatch(r'\d{14}', src['rcept_no'])
+                or (src['type'] == 'dart_attachment' and (not isinstance(src.get('dcm_no'), str)
+                    or not re.fullmatch(r'\d{1,20}', src['dcm_no'])))):
+                raise ValueError('guideline_evidence_sources: invalid attachment request')
+            identity = f"filing:{src['rcept_no']}:attachment:{src.get('dcm_no', 'index')}"
+            validated.append({**src, 'read_options': options, 'source_id': identity})
         elif src.get("type") == "kind" and set(src) - read_keys == {"type", "url"}:
             url = src["url"]
             match = re.fullmatch(r"https://kind\.krx\.co\.kr/external/(\d{4})/(\d{2})/(\d{2})/\d{6}/(\d{14})/(\d+)\.htm", url) if isinstance(url, str) else None
@@ -243,18 +348,46 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
         else:
             raise ValueError("guideline_evidence_sources: unsupported source schema")
     identities = [s.get("source_id") or s.get("rcept_no") for s in validated]
-    if len(set(identities)) != len(identities):
-        raise ValueError("guideline_evidence_sources: duplicate source")
+    if len(set(identities)) > MAX_EVIDENCE_DOCUMENTS:
+        raise ValueError("guideline_evidence_sources: maximum five documents")
+    if any(identities.count(identity) > MAX_WINDOWS_PER_DOCUMENT for identity in set(identities)):
+        raise ValueError("guideline_evidence_sources: maximum six windows per document")
+    window_keys = [source_read_window_key(src) for src in sources]
+    if len(set(window_keys)) != len(window_keys):
+        raise ValueError("guideline_evidence_sources: duplicate source reading window")
     results = []
+    document_results = {}
     for src in validated:
+        identity = src.get("source_id") or src.get("rcept_no")
+        if identity in document_results:
+            results.append({**document_results[identity], "read_options": src["read_options"]})
+            continue
+
+        def record(result: dict) -> None:
+            document_results[identity] = {k: v for k, v in result.items() if k != "read_options"}
+            results.append({**result, "read_options": src["read_options"]})
+
         if src["type"] == "dart":
             result = (await collect_supplemental_filings(client, [src["rcept_no"]], as_of))[0]
-            results.append({**result, "source_id": f"filing:{src['rcept_no']}", "read_options": src["read_options"]})
+            record({**result, "source_id": f"filing:{src['rcept_no']}"})
+            continue
+        if src['type'] in {'dart_attachment', 'dart_attachments'}:
+            from .charter_documents import discover_charter_attachments, read_charter_document
+            result = (await discover_charter_attachments(client, src['rcept_no'], as_of)
+                      if src['type'] == 'dart_attachments'
+                      else await read_charter_document(client, {k: src[k] for k in ('type', 'rcept_no', 'dcm_no')}, as_of))
+            record({**result, 'type': src['type'], 'source_id': src['source_id']})
             continue
         item = {"source_id": src["source_id"], "source_url": src["url"], "read_options": src["read_options"],
                 "published": src["published"], "date_basis": "KIND fixed external publication path"}
+        from open_proxy_mcp.dart.as_of import get_strict_as_of, note_strict_exclusion
+        strict = get_strict_as_of()
+        if strict and src["published"] > strict["effective_as_of"]:
+            note_strict_exclusion("kind_fixed_document", receipt=src["source_id"], reason="not_available_at_cutoff")
+            record({**item, "status": "after_as_of"})
+            continue
         if src["published"] > as_of:
-            results.append({**item, "status": "after_as_of"})
+            record({**item, "status": "after_as_of"})
             continue
         try:
             # Same process web clock as DART/KIND; no redirects to other hosts.
@@ -268,9 +401,9 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
             for tag in soup(["script", "style"]):
                 tag.decompose()
             content = soup.get_text(" ", strip=True)
-            results.append({**item, "status": "read" if content else "format_unsupported", "text": content})
+            record({**item, "status": "read" if content else "format_unsupported", "text": content})
         except Exception:
-            results.append({**item, "status": "fetch_failed"})
+            record({**item, "status": "fetch_failed"})
     return results
 
 
@@ -301,6 +434,7 @@ async def collect_guideline_evidence(client, annual_ref: dict | None, as_of: str
         match = re.search(r"이사회.{0,10}관한 사항", raw)
         text = raw[max(0, match.start()-300):] if match else raw
     return {**base, **parsed, "document_read": bool(text),
+            "document_sha256": hashlib.sha256(json.dumps(re.sub(r"\s+", " ", raw).strip(), ensure_ascii=False).encode()).hexdigest(),
             "attendance_period": {k: v for k, v in period.items() if k != "quote"},
             "fiscal_period_quote": period.get("quote") or raw[:5000],
             "source_url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}",
@@ -355,3 +489,34 @@ def candidate_guideline_inputs(candidate: dict[str, Any], attendance: dict,
             "status": "awaiting_review", "accepted_by": None,
         },
     }
+
+
+def _clear_visual_quote(page: dict, quote: str) -> bool:
+    from .guideline_assessment import normalize
+    if not page.get('uncertainties'):
+        return quote in normalize(page['text'])
+    spans = page.get('uncertain_spans') or []
+    if set(page['uncertainties']) - {s['reason'] for s in spans}:
+        return False
+    cursor = 0
+    for span in sorted(spans, key=lambda s: s['start']):
+        if quote in normalize(page['text'][cursor:span['start']]):
+            return True
+        cursor = max(cursor, span['end'])
+    return quote in normalize(page['text'][cursor:])
+
+
+def citations_match_readable_sources(refs: list[dict], sources: dict) -> bool:
+    from .guideline_assessment import normalize
+    for ref in refs:
+        source = sources.get(ref['source_id'])
+        quote = normalize(ref['quote'])
+        if not source or not any(quote in normalize(e) for e in source.get('excerpts', [])):
+            return False
+        # Uncertainty is page-local; another legible page or source can support it.
+        pages = (source.get('visual_reading') or {}).get('readings', [])
+        matches = [p for p in pages if quote in normalize(p.get('text', ''))]
+        native = source.get('native_text_excerpts') or []
+        if pages and not any(quote in normalize(e) for e in native) and not any(_clear_visual_quote(p, quote) for p in matches):
+            return False
+    return True

@@ -50,6 +50,16 @@
       ],
       "default": null,
       "title": "Attendance Min Pct"
+    },
+    "manual_agenda_ids": {
+      "items": {
+        "maxLength": 200,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Manual Agenda Ids",
+      "type": "array"
     }
   },
   "title": "WorkflowSettings",
