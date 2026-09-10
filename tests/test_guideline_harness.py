@@ -18,6 +18,10 @@ ARGS = {"vote_style": "opm_guideline_v2", "guideline_mode": "pilot", "year": 202
 
 def setup_boundary(monkeypatch):
     from open_proxy_mcp.services import company, meeting_pin
+    from open_proxy_mcp.dart import client
+    # This unit boundary never reads DART; do not depend on local credentials.
+    dart_client = object()
+    monkeypatch.setattr(client, "get_dart_client", lambda: dart_client)
     pin = MeetingPin(corp_code="00126380", notice_rcept_no=REQUEST["notice_rcept_no"],
                      year=2025, meeting_type="annual", meeting_date=date(2025, 3, 19),
                      published="20250218", report_name="주주총회소집공고", filer_name="fixture",
@@ -26,6 +30,7 @@ def setup_boundary(monkeypatch):
         assert get_strict_as_of()["effective_as_of"] == "20250318"
         return SimpleNamespace(selected={"corp_code": pin.corp_code}, status="ok")
     async def prepare(*args, **kwargs):
+        assert args[0] is dart_client
         assert kwargs["as_of"] == "20250318"
         return pin
     monkeypatch.setattr(company, "resolve_company_query", resolve)
@@ -84,10 +89,8 @@ def test_scopes_are_restored_after_unexpected_failure(monkeypatch):
     async def invoke(*args, **kwargs):
         raise RuntimeError("fixture failure")
     async def exercise():
-        try:
+        with pytest.raises(RuntimeError, match="fixture failure"):
             await run_harness("fixture", REQUEST, ARGS, invoke)
-        except RuntimeError:
-            pass
         assert get_meeting_pin() is get_strict_as_of() is get_harness_context() is None
     asyncio.run(exercise())
 
