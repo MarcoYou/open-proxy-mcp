@@ -52,7 +52,9 @@ def normalize_candidate_selection_name(name: str) -> str:
 def source_read_window_key(src: dict) -> tuple:
     """Canonical window identity; source validation remains the caller's job."""
     options = _source_read_options(src)
-    return (src.get("type"), src.get("rcept_no") or src.get("url"),
+    identity = (f"{src.get('board')}:{src.get('seqnum')}" if src.get('type') == 'court_precedent'
+                else src.get('rcept_no') or src.get('url'))
+    return (src.get("type"), identity,
             src.get("dcm_no"),
             options["source_scope"],
             tuple(sorted({normalize_candidate_selection_name(name)
@@ -123,6 +125,8 @@ def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
     next_offset = max((end for _, end in selected), default=min(offset, len(text)))
     base_request = ({"type": "dart", "rcept_no": item["rcept_no"]} if item.get("rcept_no")
                     else {"type": "kind", "url": item["source_url"]})
+    if item.get('type') == 'court_precedent':
+        base_request = {key: item[key] for key in ('type', 'board', 'seqnum')}
     if item.get('dcm_no'):
         base_request = {'type': 'dart_attachment', 'rcept_no': item['rcept_no'], 'dcm_no': item['dcm_no']}
     packet = {"source_id": source_id, "source_url": item["source_url"],
@@ -142,6 +146,19 @@ def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
                           "has_more_after_window": next_offset < len(text),
                           "can_refocus": True},
             "hint": "회사·안건 맥락 원문. candidate_names는 모델이 선택한 관련성 범위이며 내용의 사실 판정이 아니다. 빈 목록은 공통 연결이고 명시한 전체 이름과 일치하지 않으면 어느 후보에게도 자동 배정하지 않는다. source_scope만으로 후보를 제한하지 않는다. 후보명 부재는 무관함의 증거가 아니다. 당사자·사건·공개일·효력일·조건부 계획·정정/후속 공시를 대조하고 후보 책임은 별도 근거로 연결. 잘린 문맥은 focus_terms 또는 text_offset으로 다시 읽는다."}
+    if item.get('type') == 'court_precedent':
+        packet.update(publisher_type='court', source_kind=item.get('source_kind'),
+                      attachments=item.get('attachments', []),
+                      publication_basis=item.get('publication_basis') or item.get('date_basis'),
+                      legal_reading_limits=item.get('limitations', []))
+        packet['document_sha256'] = hashlib.sha256(json.dumps({
+            'text': packet['document_sha256'], 'published': packet['published'],
+            'source_kind': packet['source_kind'], 'attachments': packet['attachments'],
+            'publication_basis': packet['publication_basis'], 'source_document_sha256': item.get('document_sha256'),
+        }, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+        packet['hint'] = ('법원의 공식 게시물 요약이며 첨부 판결문 전문을 읽었다는 뜻이 아니다. '
+                          '법인 유형·법령 시점·사실관계·심급·확정 상태와 현재 안건의 차이를 원문으로 확인한다. '
+                          '판례의 관련성과 위법 여부 및 의결권 정책 판단은 구분한다. 사람 미검토 LLM 평가.')
     if item.get('document_hash_basis') == 'original_source_bytes':
         packet['original_document_sha256'] = item['document_sha256']
         packet['visual_reading'] = item.get('visual_reading')
@@ -335,6 +352,11 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
                 raise ValueError('guideline_evidence_sources: invalid attachment request')
             identity = f"filing:{src['rcept_no']}:attachment:{src.get('dcm_no', 'index')}"
             validated.append({**src, 'read_options': options, 'source_id': identity})
+        elif src.get('type') == 'court_precedent':
+            from .precedent_documents import validate_request
+            validate_request({k: v for k, v in src.items() if k not in read_keys})
+            validated.append({**src, 'read_options': options,
+                              'source_id': f"court:{src['board']}:{src['seqnum']}"})
         elif src.get("type") == "kind" and set(src) - read_keys == {"type", "url"}:
             url = src["url"]
             match = re.fullmatch(r"https://kind\.krx\.co\.kr/external/(\d{4})/(\d{2})/(\d{2})/\d{6}/(\d{14})/(\d+)\.htm", url) if isinstance(url, str) else None
@@ -367,6 +389,11 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
             document_results[identity] = {k: v for k, v in result.items() if k != "read_options"}
             results.append({**result, "read_options": src["read_options"]})
 
+        if src['type'] == 'court_precedent':
+            from .precedent_documents import read_precedent_document
+            result = await read_precedent_document(client, {k: src[k] for k in ('type', 'board', 'seqnum')}, as_of)
+            record({**result, **{k: src[k] for k in ('type', 'board', 'seqnum')}})
+            continue
         if src["type"] == "dart":
             result = (await collect_supplemental_filings(client, [src["rcept_no"]], as_of))[0]
             record({**result, "source_id": f"filing:{src['rcept_no']}"})

@@ -87,10 +87,26 @@
             "meeting_resolution",
             "periodic_reports",
             "officer_changes",
-            "ownership_disputes"
+            "ownership_disputes",
+            "charter_history",
+            "legal_precedents"
           ],
           "title": "Kind",
           "type": "string"
+        },
+        "search_text": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Search Text"
         },
         "start_date": {
           "anyOf": [
@@ -145,7 +161,8 @@
             "dart",
             "kind",
             "dart_attachments",
-            "dart_attachment"
+            "dart_attachment",
+            "court_precedent"
           ],
           "title": "Type",
           "type": "string"
@@ -173,6 +190,30 @@
           ],
           "default": null,
           "title": "Dcm No"
+        },
+        "board": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Board"
+        },
+        "seqnum": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seqnum"
         },
         "url": {
           "anyOf": [

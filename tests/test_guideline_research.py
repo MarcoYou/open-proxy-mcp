@@ -475,3 +475,37 @@ def test_meeting_plan_suggests_valid_runner_discovery_actions():
         assert _ACTIONS.validate_python(action).action == "discover_sources"
     not_disclosed = plan["information_states"][0]
     assert "미탐색·접근실패·미독해" in not_disclosed["action"]
+
+
+def test_charter_history_reads_prior_meeting_results_and_periodic_checkpoints_only_before_cutoff():
+    client = MeetingIndexClient({
+        ('A', 'A001'): page_payload([index_filing('20260318000001', '사업보고서 (2025.12)')]),
+        ('A', 'A002'): page_payload([index_filing('20260814000001', '반기보고서 (2026.06)')]),
+        ('E', 'E006'): page_payload([index_filing('20260610000001', '주주총회소집공고')]),
+        ('I', 'I001'): page_payload([
+            index_filing('20260630000001', '임시주주총회결과'),
+            index_filing('20260702000001', '[기재정정]임시주주총회결과'),
+            index_filing('20260909000001', 'FUTURE 임시주주총회결과')]),
+    })
+    result = discover_page(client, {'kind': 'charter_history'})
+    assert len(client.calls) == 5
+    from open_proxy_mcp.harness.runner import SourceRead
+    for row in result['candidates']:
+        SourceRead.model_validate(row['read_source']).request()
+        if row.get('attachment_request'):
+            SourceRead.model_validate(row['attachment_request']).request()
+    assert len(result['candidates']) == 5
+    assert 'FUTURE' not in json.dumps(result)
+    assert result['complete_history'] is False and result['no_contents_read'] is True
+    rows = {r['rcept_no']: r for r in result['candidates']}
+    assert rows['20260318000001']['charter_role_hint'] == 'periodic_checkpoint'
+    assert rows['20260318000001']['attachment_request']['type'] == 'dart_attachments'
+    assert rows['20260630000001']['charter_role_hint'] == 'resolution_candidate'
+    assert rows['20260702000001']['is_correction'] is True
+    assert result['charter_workflow']['missing_document_blocks_flow'] is False
+    assert result['charter_workflow']['current_charter_verified'] is False
+
+
+def test_charter_research_plan_is_available_without_mandatory_documents():
+    plan = build_meeting_research_plan('fixture', '20260908', 'extraordinary', '20260909', '20260811000705')
+    assert any(q['kind'] == 'charter_history' for q in plan['questions'])

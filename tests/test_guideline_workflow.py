@@ -109,3 +109,20 @@ def test_explicit_threshold_updates_compiled_value_as_well_as_default():
     policy = {"parameters": {"attendance_min_pct": {"default": 75, "value": 80}}}
     assert apply_workflow_policy(policy, {"attendance_min_pct": 90})["parameters"][
         "attendance_min_pct"] == {"default": 90, "value": 90}
+
+@pytest.mark.parametrize('value', [-0.1, 1.1, True, '0.5', float('nan'), float('inf'), None])
+def test_posture_rejects_invalid_values(value):
+    with pytest.raises(ValueError):
+        resolve_workflow_settings({'decision_posture': value})
+
+
+def test_posture_is_numeric_preference_bound_to_policy_not_automation():
+    assert resolve_workflow_settings()['decision_posture'] == 0.75
+    for value in [0, 0.25, 0.5, 1]:
+        p = apply_workflow_policy({}, {'decision_posture': value, 'automation': 'manual'})
+        assert p['workflow_settings']['decision_posture'] == value
+        assert p['decision_guidance']['value'] == value
+        rows = [row()]
+        route_workflow(rows, p['workflow_settings'])
+        assert rows[0]['decision'] == 'FOR'
+        assert rows[0]['voting_workflow']['status'] == 'manual_review'

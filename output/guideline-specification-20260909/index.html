@@ -19,10 +19,12 @@ main{padding:36px 48px 100px}header{margin-bottom:26px;padding-bottom:24px}h1{fo
 @media(max-width:760px){nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;overflow:visible;white-space:normal}nav a{padding:9px 0;grid-template-columns:20px minmax(0,1fr);gap:5px}nav a strong{font-size:12px}nav a small{font-size:10px;margin-top:3px}.document-detail>summary{padding:15px}.document-detail>summary h3{font-size:17px}.detail-body{padding:3px 15px 17px}.document-controls{gap:7px}.controls-status{flex-basis:100%}.detail-body th,.detail-body td{padding:12px}.actions a,.actions button{overflow-wrap:anywhere;max-width:100%}}
 @media print{.document-controls{display:none}.document-detail{border:0;border-radius:0;margin:20px 0;background:transparent}.document-detail>summary,.document-detail[open]>summary{padding:0;border:0;list-style:none;break-after:avoid}.document-detail>summary::-webkit-details-marker{display:none}.document-detail>summary h3{font-size:13pt}.detail-body{padding:0}.document-detail .diagram svg{min-width:0}.document-detail>summary::marker{content:''}}
 </style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · 2026.09.10</div><nav aria-label="문서 목차"><a href="#roadmap"><span class="nav-number">01</span><span><strong>현황·로드맵</strong><small>완료한 일과 다음 단계</small></span></a><a href="#principles"><span class="nav-number">02</span><span><strong>가이드라인·판단 원칙</strong><small>시점·근거·사용자 설정</small></span></a><a href="#workflow"><span class="nav-number">03</span><span><strong>모델 교체·실행 흐름</strong><small>공통 과업과 모델의 역할</small></span></a><a href="#validation"><span class="nav-number">04</span><span><strong>검증 계획·결과</strong><small>10개사 회차별 품질과 후속 과제</small></span></a><a href="#release"><span class="nav-number">05</span><span><strong>배포·운영</strong><small>출시 조건과 남은 기능</small></span></a><a href="#appendix"><span class="nav-number">06</span><span><strong>Appendix</strong><small>A 실행 통제 · B 오류 교정 · C 검증</small></span></a></nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · 0.7.2-pilot · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>판단 원칙부터 검증과 배포까지 다섯 본문으로 보고, Appendix에서 하네싱의 동작과 이유를 확인합니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="harness.schema.json">시점 고정 실행</a><a href="../../wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md">문서 원본</a></div></header><div class="document-controls" hidden><button type="button" data-expand="true" aria-controls="document-body">상세 모두 펼치기</button><button type="button" data-expand="false" aria-controls="document-body">상세 모두 접기</button><span id="detail-status" class="controls-status" aria-live="polite">세부 명세와 과거 기록은 필요한 항목만 펼쳐 볼 수 있습니다.</span></div><article id="document-body"><section aria-label="배포 로드맵" class="roadmap-overview"><h2 id="roadmap">현황·로드맵</h2>
+<p><strong>이번 확장 · 정관 이력과 판례 근거:</strong> <code>charter_history</code>로 정기보고서와 사이의 정기/임시주총 변경 제안·결과·정정을 찾고, <code>charter_event</code>로 조항별 사건·시행 상태를 연결한다. <code>legal_precedents</code>/<code>court_precedent</code>는 공식 법원 판례속보의 검색·게시일 확인·요약 읽기를 지원한다. 연결 검사에 이어 <strong>5개사·6회차에서 원문 추가 전후의 실제 LLM 구조 판단 45개를 최종 수용</strong>했다. 카카오의 감사위원 제도 안건은 검토→찬성, 영풍 임기 안건은 원문 충돌로 찬성→검토로 바뀌었다. 영원무역은 계속 재직자와 계획 총원 연결에 새 공백을 발견했다. <strong>전체 안건 평가·독립 정확성 검증·완전한 유효 정관 및 판결문 전문 확인은 남아 있다.</strong> Appendix B의 「정관 이력 보강 전후 실제 평가」에서 결과와 범위를 구분한다.</p>
+<p><strong>판단 기조 설정 추가:</strong> <code>guideline_workflow.decision_posture</code>는 0~1, 기본 0.75다. 높을수록 근거 있는 찬반 판단을 선호하며 누락의 결론 영향을 설명한다. 자동화·찬반 성향·사후 정보 금지와 독립이다. 제3절 「요청별 보팅 성향과 처리 설정」에서 계약과 실제 MCP 검증 범위를 설명한다.</p>
 <p><strong>진행 브랜치: <code>combined_guideline_v1</code>.</strong> 2026-09-10 사용자 요청으로 초기 Astra 설계, Astra–Fable 통합 설계와 이후 구현·파일럿 이력을 하나로 통합했다. 기존 커밋과 부모 관계를 보존하며, 아래 과거 브랜치명은 이력 설명이다.</p>
 <blockquote class="current-position conclusion-summary">
 <p><strong>결론 요약</strong></p>
-<p><strong>최신 0.7.2로 10개사·정기 10회·임시 1회, 지원 대상 39과업을 전부 실행했다.</strong></p>
+<p><strong>후보 평가 검증: 0.7.2로 10개사·정기 10회·임시 1회, 지원 대상 39과업을 전부 실행했다. 위의 정관·선출 구조 45개 판단과 범위가 다르며 합산하지 않는다.</strong></p>
 <ul>
 <li><strong>실제 결과:</strong> 39과업이 최종 수용됐고 미평가는 0이다. 조건부 중복을 포함한 42개 적용행은 찬성 21·반대 1·검토 20, 자동 준비 18·수동 24다. 각 회차의 실제 HTTP MCP와 최종 JSON·Markdown 응답까지 확인했다.</li>
 <li><strong>판단에 반영한 것:</strong> 신규·재선임, 출석 대상 구간, 제안주주 현직·계열회사 겸직, 현직/전직 공시 충돌과 표결 조건. 미공개 관계 세부만 후속 확인으로 남겼고 공개된 우려를 지우지 않았다.</li>
@@ -707,6 +709,10 @@ governance_screen(companies=["대상 회사"], as_of="다음_기준일",
 <p>이 예시는 과업을 받는 첫 요청이다. 후보 판단을 사전 입력한 예시가 아니다.
 평가 제출 시 첫 응답의 required_output에 맞는 객체를 guideline_assessments에 추가한다.</p>
 <h4 id="section-25">요청별 보팅 성향과 처리 설정</h4>
+<p><strong>구현된 판단 기조 · Astra:</strong> <code>guideline_workflow.decision_posture</code>는 0~1의 유한 숫자이며 기본값은 0.75다. 0은 애매한 결론을 검토로 넘기고, 1은 확인된 근거로 찬성·반대 권고를 최대한 낸다. 중간값은 LLM이 연속적인 선호로 해석하며 확률·정확도·temperature 또는 찬성 성향을 뜻하지 않는다. 자동화와 정책 성향은 독립이다. 설정은 정책과 과업 지문에 들어가므로 값을 바꾸면 새 과업으로 재평가한다.</p>
+<p>구현·검증 순서는 ① 숫자 범위·형식과 과업 변경 검사 ② 후보·구조 과업에 판단 지침 전달 ③ 구조 공백의 결론 영향과 원문 사실 연결을 검증 ④ 실제 HTTP MCP·JSON·Markdown 확인이다. 구조 공백은 <code>decision_impact=none|limited|material|unknown</code>, <code>impact_rationale</code>, <code>impact_fact_ids</code>로 영향 판단을 남긴다. 기본은 unknown으로 기존 입력의 엄격한 처리를 유지한다. 영향 없음은 모든 기조에서, 제한적 영향은 0보다 큰 기조에서 설명·수용 사실을 갖춘 경우 판단을 진행할 수 있다. 0.5와 1의 차이는 LLM이 불확실성을 다루는 선호이며 별도 확률 임계값을 만들지 않는다. material/unknown 공백과 근거 없는 판단은 1에서도 자동 통과하지 않는다. 설정만 바꿔 기존 검토를 찬성으로 치환하지 않는다.</p>
+<p>혼합 효과도 <code>materiality=limited</code>이고 기조가 0보다 크며 <code>uncertainty_rationale</code>로 근거와 영향을 설명한 경우에만 찬성 판단을 수용할 수 있다. 효과 unknown이나 중대한 혼합 효과는 기조로 해소하지 않는다.</p>
+<p>상한은 충원 목표가 아니다. 정원 8명 이하에 최종 7명이면 그 숫자만으로 보류하지 않는다. 기존/계속 재직자·신규/재선임·퇴임자를 구별하고, 명단 누락이 실제 정원·분리선출 판단을 바꿀 때에만 해당 기준에 영향을 준다. 영향 평가는 사람 미검토 LLM 판단이며 시스템이 의미 정확성을 인증하지 않는다. 사후 정보 금지, 인용 검증, 확정된 수치 기준, 개인 평가 미제출 및 실제 투표 미전송은 기조와 무관하게 유지한다.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -746,6 +752,7 @@ automatic은 수용된 찬성·반대를 준비 상태로 보낼 수 있지만 �
 수용 거절은 그 안건의 재평가 대상으로 남긴다. 범위 밖 안건은 not_applicable로 표시한다.
 집중투표·경합·선행 또는 조건부 연결이 있으면 후보 찬성과 실제 표 배분을 분리해 수동 검토로 보낸다.
 <code>ready_for_auto</code>는 권고 준비 상태다. <code>ballot_submission_supported=false</code>, <code>ballots_submitted=0</code>이며 실제 의결권 행사를 완료했다는 뜻이 아니다.</p>
+<p><strong>실제 연결 검증:</strong> 고려아연 2026-03-24 정기주총의 독립이사 구성요건 안건에서 3월 24일 00:00 KST 마감을 고정했다. Astra가 이미 읽은 소집공고의 상한 19인 유지·독립이사 과반수 조문을 사용하고, 위원회별 업무량 추가 미독의 영향을 limited로 설명한 통제 비교를 수행했다. 0은 검토, 0.5·1은 찬성으로 각각 새 과업에 제출했고 실제 HTTP MCP에서 모두 판단 1건 수용·거절 0건이었다. 별도 지정한 manual은 모두 유지됐고 미확인 범위가 사유에 남았다. Markdown에서도 판단 기조 1·미확인 범위·수용 판단·수동 검토를 확인했다. 자동 찬반 치환이나 다중 모델의 독립적인 성향 보정 실험은 아니다. 후보 과업은 기조 지침과 새 과업 검사를 연결했고, 실제 여러 후보·모델의 기조별 반복 비교는 남아 있다. 전체 회귀 2,360개 통과(기존 XML 경고 3건), 위키·카탈로그·문서 계약 검사를 통과했다. 이번 변경은 로컬 파일럿이며 커밋·운영 배포와 구분한다.</p>
 <h4 id="section-26">평가 데이터 계약</h4>
 <div class="table-scroll"><table>
 <thead>
@@ -2740,7 +2747,7 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </tr>
 <tr>
 <td>회사별 정관 전문·과거 버전</td>
-<td>사업보고서의 정관 첨부가 중요한 공개 원천. 이를 시점별 전문·부칙·개정 이력으로 연결하는 전용 경로는 미구현</td>
+<td>사업보고서의 정관 첨부가 중요한 공개 원천. 이를 찾는 charter_history 탐색과 LLM 사건 연결을 지원. 시점별 정관 전문 자동 재구성은 미지원</td>
 <td>DART 첨부 목록을 먼저 확인하고 당시 유효본의 전문/발췌/제안 상태 표시</td>
 </tr>
 <tr>
@@ -2755,12 +2762,12 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </tr>
 <tr>
 <td>법원 판례 원문</td>
-<td>규칙의 일부 판례 언급과 조사 문서 링크는 있으나 전용 검색·원문 공급·시점 검증 경로 없음</td>
-<td>공식 원문을 찾아 필요한 판시사항만 근거로 연결하는 읽기 경로</td>
+<td>공식 법원 판례속보 검색·게시일 검증·요약 읽기 지원. 판결문 첨부 전문·국가법령정보센터 API는 미연결</td>
+<td>공식 요약과 판결문 전문을 구분하고 전문의 공개·버전 증거를 확보하는 경로</td>
 </tr>
 </tbody>
 </table></div>
-<p>추가 원문 읽기는 DART/KIND 본문에 더해 명시적 DART 정관 첨부 목록·문서 읽기를 지원한다. 접수번호와 첨부 문서 ID의 소속·공개시점을 확인한 뒤 XML을 우선 읽고, 필요하면 검증된 첨부 viewer를 읽는다. 이미지/PDF는 등록된 문서 판독 어댑터로 연결하며, 공급자가 없으면 원본 페이지와 미독 상태를 전달한다. 회사 IR 정관과 공식 판례의 별도 출처 어댑터는 아직 목표 설계다. 임의 웹 URL이나 모델의 출처 주장을 현재 근거 배열에 직접 넣어 확정 사실로 수용하지 않는다.</p>
+<p>추가 원문 읽기는 DART/KIND 본문에 더해 명시적 DART 정관 첨부 목록·문서 읽기를 지원한다. 접수번호와 첨부 문서 ID의 소속·공개시점을 확인한 뒤 XML을 우선 읽고, 필요하면 검증된 첨부 viewer를 읽는다. 이미지/PDF는 등록된 문서 판독 어댑터로 연결하며, 공급자가 없으면 원본 페이지와 미독 상태를 전달한다. 회사 IR 정관과 판결문 첨부 전문 어댑터는 목표 설계다. 공식 법원 판례속보의 검색·게시일 검증·요약 읽기는 아래 정관 이력 확장에서 지원한다. 임의 웹 URL이나 모델의 출처 주장을 현재 근거 배열에 직접 넣어 확정 사실로 수용하지 않는다.</p>
 <p><strong>사업보고서 첨부를 정관 확보의 우선 경로로 삼는다.</strong> 금융감독원은 사업보고서 필수 첨부서류에 정관을 안내하지만 분·반기보고서의 첨부 안내는 별도로 두므로 모든 정기보고서마다 정관 전문이 들어 있다고 가정하지 않는다. 본문의 ‘정관에 관한 사항’도 전문 첨부와 다르다. <a href="https://dart.fss.or.kr/info/main.do?menu=210">금융감독원 정기공시 안내</a></p>
 <p>공개 원천의 구체적인 반례로 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423">카카오 2026-03-18 사업보고서</a>의 DART 첨부 목록에는 정관(document ID 11142680)이 있었다. 같은 접수번호의 document.xml ZIP에서는 본문·감사보고서·연결감사보고서 XML 세 개를 확인했으나 별도 정관 XML은 확인하지 못했다. 이는 <strong>ZIP에서 찾지 못한 것과 DART에 없는 것이 다름</strong>을 보여준다. 이번 확인은 목록·ZIP 구성을 대조한 것이며 해당 정관 전문의 판독 완료를 뜻하지 않는다. 기존 <code>get_document</code>의 본문 하나 선택 동작은 유지하고 별도 첨부 읽기를 추가해야 한다.</p>
 <p>제안 경로는 <strong>마감 전 사업보고서 선택 → ZIP 구성과 DART 첨부 목록 대조 → 정관 첨부 식별 → 지원 형식 원문 읽기 → 부칙·효력·이후 변경 연결</strong>이다. 첨부 접수번호·문서 ID·공개 날짜·정정 상태를 개별 관리하고 본문의 제출일을 첨부의 확인되지 않은 공개 시점에 대입하지 않는다. 지원하지 않는 첨부 형식과 실제 첨부 부재는 다른 상태로 반환한다.</p>
@@ -2888,6 +2895,79 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </tbody>
 </table></div>
 <p>서버는 요청 내 메모리에서 작업하며 사용자 결과를 파일·DB에 저장하지 않는다. 계속 실행 정보는 호출자가 보유한다. 이 설계는 정기 실행 스케줄을 생성하지 않는다.</p>
+<h5 id="detail-45a22d7aa233">정관 유효본·주총 변경 이력과 판례 연결</h5>
+<p><strong>승인된 확장 설계 · Astra:</strong> 정기보고서 첨부 정관은 버전의 기준점 후보다. 그 사이 정기·임시주총의 소집공고·정관 신구조문·결과·정정과 부칙을 연결해 판단 마감 당시의 조항을 확인한다. 보고서 작성 기준일, 첨부 공개일, 주총일, 개정일, 시행일은 별도다. 반기·분기마다 정관이 있다고 가정하지 않으며, 첨부가 없으면 기존 전문과 이후 변경 근거를 이어 읽는다. 마지막 보고서만 사용하면 중간 개정을 놓치고, 전수 정관 DB를 먼저 만들면 실행이 지연되므로 <strong>요청별 기준점+변경 사건 탐색</strong>을 선택한다.</p>
+<p>흐름: <strong>회차·마감 고정 → 정기보고서·첨부 후보 → 사이의 정기/임시 소집공고·결과·정정 → LLM의 조항별 변경·효력 판독 → 원문 인용·날짜·의존 관계 검증 → 사용자 정책에 따른 권고.</strong> 예를 들어 3월 정관, 7월 임시주총 개정, 9월 판단이면 7월 개정의 가결과 부칙을 확인한다. 8월 반기보고서의 첨부 부재는 3월 정관이 그대로 유효하다는 증거가 아니다. 9월 판단 뒤 공개된 정정으로 9월 당시의 근거를 보완하지 않는다.</p>
+<p><strong>판독 계약:</strong> <code>snapshot</code>(정관 전문/발췌 기준점), <code>proposal</code>(변경안), <code>resolution</code>(결의), <code>correction</code>(정정)을 별도 사건으로 낸다. 각 사건에는 근거 인용, 대상 조항, 사건일·시행일, 대상 사건 ID, 가결/부결/철회/불명, 판독 범위를 붙인다. 결의의 가결과 시행일 확인 없이 제안을 현행 조항으로 승격하지 않는다. 가결됐어도 시행일이 미래이면 예정 상태로 남긴다. 모델은 법적 효력에 대한 의미를 판단하고 서버는 출처 연결과 시간·의존 관계를 검증한다. 전체 정관의 완전성을 서버가 인증하지 않는다.</p>
+<p><strong>판례 계약:</strong> 공식 원문의 사건번호·법원·선고일·심급·확정 확인 상태·공개 증거·적용 조문과 현재 사안의 공통점/차이를 연결한다. 법률상 효력 판단과 의결권 정책상의 불이익 판단을 분리한다. 선고일은 원문 공개일의 대체값이 아니다. 공개시점을 입증하지 못한 원문은 역사적 판단의 근거에 넣지 않고 미확인 범위를 알린다. 회사 공시에 인용된 판결은 그 공시에서 확인되는 내용만 근거로 사용하며 판결문 전문으로 표시하지 않는다.</p>
+<p><strong>구현·검증 순서 (현재 작업):</strong></p>
+<ul>
+<li>[x] <code>guideline_research.py</code>에 <code>charter_history</code> 탐색 추가: A001/A002/A003·E006·I001 한 페이지씩, 제목은 탐색 단서, 미래/다른 회사 제외, 정정 보존, 첨부 읽기와 후속 원문 요청 반환. <code>tests/test_charter_history.py</code>에서 중간 임시주총·미래 결과·첨부 부재·부분 검색을 검증한다.</li>
+<li>[x] <code>charter_history.py</code>의 사건 데이터 계약과 출처 기반 이력 검증을 <code>election_structure.py</code>에 연결: 제안 자동 승격 방지, 미래 시행, 부결, 관계 누락·역전·순환을 항목별 처리한다. 사용자 보팅 설정과 다른 안건 판단을 유지한다.</li>
+<li>[x] 공식 판례의 실제 접근 방식·공개일 입증 가능성을 확인하고 지원 가능한 범위의 읽기 경로와 미지원 상태를 구분한다. 인증이 필요한 API는 임의 계정으로 호출하지 않는다.</li>
+<li>[x] 생성 HTML·JSON·도구 설명을 동기화하고, 단위/회귀 검사와 실제 HTTP MCP에서 탐색→원문 읽기→구조 과업의 연결을 검증한다. 회사별 판단 정확성 완료와 연결 검증을 구분한다.</li>
+</ul>
+<p><strong>현재 구현과 지원 범위:</strong> 정관은 <code>charter_history</code> 탐색과 <code>charter_event</code> 사건 제출·연결 검증을 지원한다. 정관 전문을 자동으로 합성하거나 완전한 현재 효력을 인증하지 않는다. 사건은 원문에 근거한 사람 미검토 LLM 해석이다. 추가 읽기 예산이 끝나거나 자료가 없으면 확인 범위·미독해·불명확한 조항을 남기고 다른 판단을 계속한다.</p>
+<p>판례는 <strong>공식 법원 판례속보 목록 → 게시물 요약</strong>을 연결했다. <code>legal_precedents</code> 검색과 <code>court_precedent</code> 읽기는 인증 없이 공식 사이트만 사용하며, 임의 URL이나 모델이 주장한 공개일을 받지 않는다. 법원 게시일로 판독 범위를 제한하고 본문·시점·출처 유형을 실행 근거 해시에 묶는다. 조회수·주변 최신 뉴스는 근거에서 제외한다. 첨부는 미독·당시 버전 미확인으로 반환한다. 법원의 현재 게시물에서 미표시 사후 변경까지 탐지했다고 주장하지 않는다.</p>
+<p>공식 원천 대조에서 <a href="https://sc.scourt.go.kr/portal/news/NewsViewAction.work?gubun=4&amp;seqnum=11003">법원 판례속보 2025마6793</a>은 결정일 2026-04-02와 게시일 2026-04-09가 달랐다. 이 게시물은 4월 8일 마감에는 본문을 제외하고 4월 10일 마감에는 공식 요약을 읽도록 검증한다. <a href="https://open.law.go.kr/LSO/openApi/guideResult.do?htmlName=precInfoGuide">국가법령정보센터 판례 API 계약</a>은 인증이 필요하고 선고일이 원문 공개일을 대체하지 않으므로 자동 소급 근거로 사용하지 않는다. 한국어 법원 검색은 EUC-KR 인코딩과 40바이트 검색 한도를 적용한다.</p>
+<p><strong>최초 연결 확인:</strong> 카카오 2026-03-26 정기주총, 마감 2026-03-26 00:00 KST, 정보 허용일 2026-03-25로 고정한 실제 로컬 HTTP MCP의 <code>charter_history</code>에서 후보 14건을 반환했다. 정기보고서·2025년 주총 결과·소집공고/결의 및 정정을 함께 찾았고 구조 과업 하나를 반환했다. 이는 목록과 과업 연결의 검증이며 14건의 정관 전문·법적 효력 또는 권고 정확성 검증 완료가 아니다. 같은 회차의 HTTP MCP <code>legal_precedents</code> 검색은 마감 전 후보 4건·사후 제외 6건을 반환했다. 후속 읽기에서 2025년 주총 결과(20250326801158, 과업 원문 2,941자)와 2026-02-03 법원 게시물(10892, 공식 요약 1,984자)은 구조 과업에 포함됐고, 2026-04-09 게시물(11003)은 <code>after_as_of</code>로 본문·첨부 없이 제외됐다. 사업보고서 정관 첨부 후보 1건의 읽기 손잡이도 반환했다. 별도 자동 수집 원문 1건의 조회 실패가 있어도 나머지 과업 반환은 계속됐다. 이 단계의 사건 제출은 합성 입력 검사였으며, 실제 회사 원문에 대한 후속 제출 범위는 아래와 같다.</p>
+<p><strong>검증:</strong> 회귀 2,334개 통과, 기존 XML 파서 경고 3건. 위키·도구 카탈로그·문서 계약 검사 통과. 키와 개별 조회 결과 파일은 추가하지 않았으며 운영 반영 여부는 배포 검증과 별도로 구분한다.</p>
+<h5 id="detail-4985b3d46f12">정관 이력 보강 전후 실제 평가</h5>
+<p><strong>현재 검증 범위 · 2026-09-10 · Astra:</strong> 5개사·정기 5회·임시 1회에서 같은 정책 <code>0.7.2-pilot</code>, 구조 정책 <code>0.1.0</code>, <code>standard/selective</code>로 기본 원문 평가→정관 이력 탐색·추가 독해→새 과업에 재평가→최종 JSON·Markdown을 실제 로컬 HTTP MCP로 실행했다. 평가 도중 제품 코드와 정책은 바꾸지 않았다. 고려아연 두 회차는 각각 3월 24일·9월 9일, 나머지는 아래 주총일의 00:00 KST를 마감으로 고정했다. 날짜만 있는 자료는 전일까지 허용했다.</p>
+<p><strong>최종 사실 81개·구조 판단 45개 수용, 남은 입력 거절 0개.</strong> 부모·조건부 안건을 포함한 처리 행 수이며 독립 안건 45개라는 뜻은 아니다. 수용 구조 판단은 찬성 19·검토 26, 기존 후보 평가·제약과 합성한 해당 행의 최종 권고는 찬성 18·검토 27이다. 영원무역 이영렬은 구조 찬성이어도 후보 개인 평가 미제출로 최종 검토를 유지한다. 이번에는 개인 적격·출석 전체를 재평가하지 않았다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>회사·회차</th>
+<th style="text-align:right">구조 판단 수</th>
+<th>원문 보강으로 확인한 차이</th>
+<th>판단에 반영된 결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>고려아연 정기 2026-03-24</td>
+<td style="text-align:right">6</td>
+<td>2025년 정원 상한 승인과 2026년 첨부의 19인 상한·이사 2년 조항을 연결. 집행임원 1년 이상 제안과 구분</td>
+<td>구조·최종 모두 찬성 3·검토 3 유지. 5명/6명 대안은 미독에서 대표성·업무 효과 미해결로 근거 구체화</td>
+</tr>
+<tr>
+<td>고려아연 임시 2026-09-09</td>
+<td style="text-align:right">3</td>
+<td>3월 분리선출 확대안 부결·연동 선임안 폐기, 5월 4명 사임, 9월 재상정을 연결</td>
+<td>찬성 1·검토 2 유지. 부결안을 현행 정관으로 승격하거나 폐기된 후보를 당선자로 가산하지 않음</td>
+</tr>
+<tr>
+<td>카카오 정기 2026-03-26</td>
+<td style="text-align:right">10</td>
+<td>계속 분리선출자 1명+이번 후보 1명, 인원 확대와 의결권 제한의 서로 다른 시행시점 확인</td>
+<td>감사위원 제도 안건 검토→찬성. 구조·최종 찬성 2·검토 8. 상한 11→7의 업무량·대표성 효과는 검토</td>
+</tr>
+<tr>
+<td>영원무역 정기 2026-03-27</td>
+<td style="text-align:right">11</td>
+<td>상한 12→8, 기존 7명 모두 2027/28년 만료, 신규 2명인데 계획 총원 8명</td>
+<td>왕상한 선임의 구조 판단 찬성→검토. 개인 평가는 별개여서 최종 권고는 이미 검토. 구조 찬성 9·검토 2, 최종 찬성 8·검토 3</td>
+</tr>
+<tr>
+<td>영풍 정기 2026-03-25</td>
+<td style="text-align:right">6</td>
+<td>소집공고의 3년 상한과 사업보고서 예정 변경 요약의 2년 상한 충돌</td>
+<td>임기 변경 찬성→검토. 구조·최종 찬성 2·검토 4. 선임 당시 주총 결정권과 실제 후보별 1년/2년 임기는 별도 기록</td>
+</tr>
+<tr>
+<td>태광산업 정기 2026-03-31</td>
+<td style="text-align:right">9</td>
+<td>최소 3명만 있던 조항에 상한 7명 신설. 연말 7명→보고서 제출일 6명→3월 25일 4명 구분</td>
+<td>찬성 2·검토 7 유지. 정원 효과, 즉시/경과규정 대안, 4후보/2자리의 선택은 별도 검토</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>사실 대조에 쓰인 원문:</strong> 고려아연 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260316000929&amp;dcmNo=11126324">정기주총 이전 정관 첨부</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250328803711">2025년 정기주총 결과</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260325800010">2026년 정기주총 결과</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260601001623">중간 사임 공시</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705">임시주총 소집공고</a>를 연결했다. <strong>2026년 정기주총 결과와 이후 사임은 9월 평가에만 사용했고 3월 평가에는 넣지 않았다.</strong> 사건 연결은 실제 응답에서 <code>proposed → not_adopted</code>와 새 <code>proposed</code>로 반환됐다. 정기보고서 표의 미래 주총일 행도 개정 완료로 읽지 않았다.</p>
+<p>카카오 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423&amp;dcmNo=11142680">정관 첨부</a>의 임기는 이미 3년 이내·주총 결정 방식이다. 이번에 고정 3년을 재량으로 바꿨다고 보지 않는다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250326801158">2025년 결과</a>의 김선욱 2년 분리선출과 이번 제안을 구별했다. 영원무역 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260319001279">사업보고서</a>·<a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001098">소집공고</a>의 명단 차이는 사임을 추정해 메우지 않았다. 영풍 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310003081">소집공고</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260317000753">사업보고서</a>의 임기 충돌은 후자가 늦다는 이유로 앞 조문을 폐기하지 않았다. 태광산업 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001279">소집공고</a>·<a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260323001584">사업보고서</a>·<a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260325000961">3월 25일 변동 공시</a>는 각 기준일의 인원을 유지했다.</p>
+<p><strong>입력 수용과 품질의 구별:</strong> 카카오의 보강 중 참조 범위·미해결 범위 관련 12개 항목, 영원무역의 기준/보강 중 연결 오류 8개 항목이 거절됐다가 보완됐다. 영원무역의 원문 6개 요청 1회도 한도 초과로 거절돼 5개로 줄였다. 거절 보정 때문에 달라진 표시를 추가 자료의 효과로 계산하지 않는다. 특히 최초 부분수용 평가를 기준으로 고정하면 영원무역 임기가 검토→찬성으로 보이지만, 보정 완료한 자료보강 전 구조 판단은 이미 찬성이다. 원문 추가에 따른 구조 판단 변화는 카카오·영풍·영원무역 각 1건이며, 최종 권고의 변화는 카카오·영풍 2건이다.</p>
+<p><strong>아직 미완료:</strong> 모든 회차가 사람 미검토이며 <code>current_charter_verified=false</code>다. 영풍·태광은 구조 과업도 <code>partial</code>이고 나머지의 <code>complete</code>는 선언한 평가 범위의 처리 상태다. 전체 주총·정관 전문·독립 정확성을 인증하지 않는다. 카카오·태광 이미지 첨부는 Apple Vision 전사를 사용했고 이번 비교에서 원본 이미지의 독립 시각 검증을 수행하지 않았다. Google OCR은 테스트하지 않았다. 판례속보 연결 검사와 별개로, 이번 회사 평가에서 판결문 전문을 새로 읽거나 법률 적용 정확성을 검증하지 않았다. 고려아연의 회사 공시상 검사인 선임·가처분 기각은 해당 절차의 사실만 읽고 후보 무혐의·전체 정관 적법성으로 확대하지 않았다.</p>
+<p><strong>다음 보강 순서:</strong> ① 영풍의 두 임기 문구가 충돌하는 범위와 제안 정정 확인 → ② 영원무역의 주총 전 최종 재직자·퇴임 공시 연결 → ③ 상한 조정 전후 위원회 업무 배분·주주 대표성 근거 평가 → ④ 남은 안건·다른 모델·미사용 회차 검증. 구현 설계에는 기준점별 명단 차이, 제안/부결/시행 구별, 정정 대상 범위, 읽기 실패와 미공개 구별, 깨끗이 수용된 기준 평가의 고정을 품질 조건으로 남긴다. 숫자 파서를 늘리는 대신 LLM이 원문과 반증을 함께 읽도록 과업을 구성한다. 개별 조회·평가 결과 파일은 저장하지 않고 이 문서에는 검증 범위와 설계 결론만 기록한다.</p>
 <h5 id="detail-38c13422cfe7">정관·OCR 런타임 연결</h5>
 <p><strong>이번 변경의 결론:</strong> 정관 첨부를 발견하고 원문을 읽어 모델에 넘긴 다음, 모델이 제출한 구조 판단을 실제 권고에 합성하는 경로가 생겼다. OCR은 읽기 도구이고 판단은 호출 LLM이 수행한다. 텍스트가 이미 있으면 원문 창을 사용하며, 이미지 문서는 별도 판독 공급자를 연결한다. 원본 보존·시점 고정·기준별 제외 원칙은 같다.</p>
 <div class="table-scroll"><table>
@@ -3112,7 +3192,7 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 <p>현재 후보 하네스는 독립·사외이사와 관련 감사위원 선임의 v2 평가 경로를 감싼다. 다른 안건은 기존 엔진을 따르고, 회사 차원의 <code>governance_screen</code> 호출·분쟁 추적은 별도 워크플로다. 이 Appendix는 그 도구까지 동일한 시점 하네스로 자동 연결했다고 주장하지 않는다.</p>
 <p>11회차 대조에서 실제 오류와 놓친 자료를 찾았고, 추가 공시 탐색·원문 교체·영향받은 과업 재평가를 일반 실행 경로에 넣었다. 현재 확인한 안건 구조·설명 오류와 공개 관계 해석의 미확정을 먼저 대조·교정하고, <strong>새 표본·다른 실제 모델·보수적 설정에서도 필요한 자료를 찾아 읽고 사실 귀속과 스킵 분류를 일관되게 적용하는지</strong> 확인한다. 코드 검사와 평가 수용률을 판단 정확도 대신 쓰지 않는다. 당시 기관 정책 재현, 모든 원천의 시점·내용 완전성, 자동 의미 검증, 운영 배포 역시 별도로 확인해야 한다.</p>
 <p>실행 결과는 호출자에게 반환한다. 서버가 평가 원문을 저장하거나 공개 저장소에 사용자 조회·평가 내용을 남기지 않는다. 공개 문서에는 허용된 공개 근거·집계·오류 유형을 정리하며, 정성 평가는 계속 <strong>LLM 평가 · 사람 미검토</strong>로 표시한다.</p>
-</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: 670ba2c7bd88d150270e004c8d22c28188f79bc1dfa51430a3f8d1df5d619d99<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div><script>
+</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: c848e47de1ff06bbd4e4237ee502e0bc9d23374129c79af46aa8363fade8614d<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div><script>
 (() => {
   const article = document.getElementById('document-body');
   const controls = document.querySelector('.document-controls');

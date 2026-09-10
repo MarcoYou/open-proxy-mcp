@@ -34,9 +34,11 @@ class _Strict(BaseModel):
 
 
 class SourceRead(_Strict):
-    type: Literal["dart", "kind", "dart_attachments", "dart_attachment"]
+    type: Literal["dart", "kind", "dart_attachments", "dart_attachment", "court_precedent"]
     rcept_no: StrictStr | None = None
     dcm_no: StrictStr | None = None
+    board: StrictStr | None = None
+    seqnum: StrictStr | None = None
     url: StrictStr | None = None
     source_scope: Literal["candidate", "company_context", "agenda_context"] = "company_context"
     candidate_names: Annotated[list[Annotated[StrictStr, Field(min_length=1, max_length=120)]], Field(max_length=10)] = Field(default_factory=list)
@@ -45,6 +47,13 @@ class SourceRead(_Strict):
     text_chars: Annotated[StrictInt, Field(ge=1000, le=30000)] = 12000
 
     def request(self) -> dict:
+        if self.type == 'court_precedent':
+            from open_proxy_mcp.services.precedent_documents import validate_request
+            if any(v is not None for v in (self.rcept_no, self.dcm_no, self.url)):
+                raise ValueError('invalid_source_read')
+            validate_request({'type': self.type, 'board': self.board, 'seqnum': self.seqnum})
+        elif self.board is not None or self.seqnum is not None:
+            raise ValueError('invalid_source_read')
         if self.type in {"dart", "dart_attachments", "dart_attachment"}:
             if self.url is not None or not self.rcept_no or not re.fullmatch(r"\d{14}", self.rcept_no):
                 raise ValueError("invalid_source_read")
@@ -53,7 +62,7 @@ class SourceRead(_Strict):
                     raise ValueError('invalid_source_read')
             elif self.dcm_no is not None:
                 raise ValueError('invalid_source_read')
-        elif (self.rcept_no is not None or self.dcm_no is not None or not self.url or not re.fullmatch(
+        elif self.type != 'court_precedent' and (self.rcept_no is not None or self.dcm_no is not None or not self.url or not re.fullmatch(
             r"https://kind\.krx\.co\.kr/external/\d{4}/\d{2}/\d{2}/\d{6}/\d{14}/\d+\.htm", self.url
         )):
             raise ValueError("invalid_source_read")
@@ -296,6 +305,8 @@ def _source_key(source: dict) -> tuple:
 
 
 def _source_id(source: dict) -> str:
+    if source['type'] == 'court_precedent':
+        return f"court:{source['board']}:{source['seqnum']}"
     if source["type"] == "dart":
         return "filing:" + source["rcept_no"]
     if source['type'] in {'dart_attachment', 'dart_attachments'}:

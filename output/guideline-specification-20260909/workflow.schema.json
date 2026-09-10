@@ -20,6 +20,20 @@
       "title": "Automation",
       "type": "string"
     },
+    "decision_posture": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "default": 0.75,
+      "ge": 0,
+      "le": 1,
+      "title": "Decision Posture"
+    },
     "manual_agenda_titles": {
       "items": {
         "maxLength": 6000,

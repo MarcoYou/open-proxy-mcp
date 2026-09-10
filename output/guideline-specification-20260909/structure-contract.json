@@ -132,7 +132,8 @@
             "election_pool",
             "term",
             "condition",
-            "context"
+            "context",
+            "charter_event"
           ],
           "title": "Kind",
           "type": "string"
@@ -244,6 +245,41 @@
           },
           "maxItems": 100,
           "title": "Reviewed Source Ids",
+          "type": "array"
+        },
+        "decision_impact": {
+          "default": "unknown",
+          "enum": [
+            "none",
+            "limited",
+            "material",
+            "unknown"
+          ],
+          "title": "Decision Impact",
+          "type": "string"
+        },
+        "impact_rationale": {
+          "anyOf": [
+            {
+              "maxLength": 6000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Impact Rationale"
+        },
+        "impact_fact_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Impact Fact Ids",
           "type": "array"
         }
       },
@@ -469,6 +505,20 @@
           "maxItems": 12,
           "title": "Exception Evidence Refs",
           "type": "array"
+        },
+        "uncertainty_rationale": {
+          "anyOf": [
+            {
+              "maxLength": 6000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Rationale"
         }
       },
       "required": [
@@ -928,6 +978,115 @@
         "status"
       ],
       "title": "ContextData",
+      "type": "object"
+    },
+    "charter_event": {
+      "additionalProperties": false,
+      "properties": {
+        "event_kind": {
+          "enum": [
+            "snapshot",
+            "proposal",
+            "resolution",
+            "correction"
+          ],
+          "title": "Event Kind",
+          "type": "string"
+        },
+        "clause_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Clause Ids",
+          "type": "array"
+        },
+        "event_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Date"
+        },
+        "effective_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Date"
+        },
+        "target_event_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Event Id"
+        },
+        "outcome": {
+          "default": "unknown",
+          "enum": [
+            "passed",
+            "rejected",
+            "withdrawn",
+            "unknown"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "text_scope": {
+          "enum": [
+            "full_text",
+            "excerpt",
+            "amendment_only",
+            "unknown"
+          ],
+          "title": "Text Scope",
+          "type": "string"
+        },
+        "meaning": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Meaning",
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Conditions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "event_kind",
+        "clause_ids",
+        "text_scope",
+        "meaning"
+      ],
+      "title": "CharterEventData",
       "type": "object"
     }
   },

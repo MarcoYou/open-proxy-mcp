@@ -271,7 +271,8 @@ async def run_harness(company: str, request: dict, arguments: dict,
             'structure_assessment_counts': structure_counts,
             'capabilities': {'task_kinds': ['candidate', 'election_structure'],
                 'structure_contract': 'opm-election-structure/1',
-                'source_types': ['dart', 'kind', 'dart_attachments', 'dart_attachment'],
+                'source_types': ['dart', 'kind', 'dart_attachments', 'dart_attachment', 'court_precedent'],
+                'charter_history_supported': True, 'legal_reading_supported': True,
                 'scope_patch_supported': False, 'legal_assessment_supported': False,
                 'visual_reader': 'optional_registered_adapter', 'ballot_submission': False},
             "run_id": run_id, "policy_sha256": policy_hash, "policy_version": policy["version"],
@@ -306,7 +307,9 @@ async def run_harness(company: str, request: dict, arguments: dict,
             {"source_id": item.get("source_id") or f"filing:{item.get('rcept_no', '')}",
              "candidate_names": selected_names,
              "source_request": {
-                 **({"type": "dart", "rcept_no": item["rcept_no"]} if item.get("rcept_no") else
+                 **({k: item[k] for k in ('type', 'board', 'seqnum')} if item.get('type') == 'court_precedent' else
+                    {k: item[k] for k in ('type', 'rcept_no', 'dcm_no')} if item.get('type') == 'dart_attachment' else
+                    {"type": "dart", "rcept_no": item["rcept_no"]} if item.get("rcept_no") else
                     {"type": "kind", "url": item.get("source_url")}),
                  **item["read_options"],
              },

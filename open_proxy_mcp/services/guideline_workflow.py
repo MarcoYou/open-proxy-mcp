@@ -16,6 +16,7 @@ class WorkflowSettings(BaseModel):
 
     stance: Literal["standard", "conservative"] = "standard"
     automation: Literal["automatic", "selective", "manual"] = "selective"
+    decision_posture: Annotated[StrictInt | StrictFloat, Field(ge=0, le=1, allow_inf_nan=False)] = 0.75
     manual_agenda_titles: Annotated[
         list[Annotated[StrictStr, Field(min_length=1, max_length=6000)]],
         Field(max_length=100),
@@ -38,6 +39,21 @@ def resolve_workflow_settings(value: dict | None = None) -> dict:
     return settings.model_dump()
 
 
+def decision_guidance(settings: dict | None = None) -> dict:
+    """Continuous caller-LLM preference, never a probability or vote rewrite."""
+    value = resolve_workflow_settings(settings)['decision_posture']
+    return {'value': value, 'default': 0.75, 'executor': 'caller_llm',
+            'anchors': {'0': '결론에 영향을 주는 애매함은 해당 안건 검토.',
+                        '0.5': '불확실성이 권고를 뒤집는지 평가하고 영향이 작으면 판단.',
+                        '1': '확인한 근거로 찬성·반대를 최대한 판단하고 누락·가정·영향을 공개.'},
+            'instructions': ('값이 클수록 근거 있는 권고를 내리는 방향으로 판단한다. 중간값은 연속적인 선호이며 '
+                '확률·temperature·찬성 성향이 아니다. 자료 누락 자체를 불이익이나 전체 중단으로 만들지 않는다. '
+                '정원 상한은 충원 목표가 아니다. 상한 이내라는 이유만으로 미달·위반을 추정하지 않는다. '
+                '누락의 결정 영향을 사실에 연결해 설명하며 핵심 충돌·근거 전무는 1에서도 검토한다. '
+                '미독·충돌을 미공개로 바꾸거나 사실을 가정으로 채우지 않는다. 사후 정보 금지·인용·'
+                '고정 수치 기준·선행 조건·개인 평가·자동화 설정을 우회하지 않는다.')}
+
+
 def apply_workflow_policy(policy: dict, settings: dict | None = None) -> dict:
     """Bind the effective request preferences into the policy/task digest.
 
@@ -47,6 +63,7 @@ def apply_workflow_policy(policy: dict, settings: dict | None = None) -> dict:
     effective = resolve_workflow_settings(settings)
     result = deepcopy(policy)
     result["workflow_settings"] = effective
+    result["decision_guidance"] = decision_guidance(effective)
     if effective["attendance_min_pct"] is not None:
         parameter = result.get("parameters", {}).get("attendance_min_pct")
         if not isinstance(parameter, dict):

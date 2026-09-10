@@ -277,14 +277,16 @@ def build_guideline_research_plan(company: str, as_of: str, discovery: dict | No
 # The interactive meeting loop searches one requested page per channel. It does
 # not inherit the automatic context collector's finite document pool or read any
 # returned document. The caller decides which original is relevant next.
-ResearchKind = Literal["meeting_resolution", "periodic_reports", "officer_changes", "ownership_disputes"]
+ResearchKind = Literal["meeting_resolution", "periodic_reports", "officer_changes", "ownership_disputes", "charter_history", "legal_precedents"]
 _RESEARCH_CHANNELS = {
+    "charter_history": (("A", "A001"), ("A", "A002"), ("A", "A003"), ("E", "E006"), ("I", "I001")),
     "meeting_resolution": (("I", "I001"),),
     "periodic_reports": (("A", "A001"), ("A", "A002"), ("A", "A003")),
     "officer_changes": (("E", "E005"), ("I", "I001")),
     "ownership_disputes": (("B", "B001"), ("D", ""), ("I", "")),
 }
 _FOCUS_TERMS = {
+    "charter_history": ["정관", "가결", "부칙", "시행", "임기", "정원"],
     "meeting_resolution": ["주주총회", "이사선임", "감사위원", "신규선임", "재선임", "겸직"],
     "periodic_reports": ["이사회", "임원", "감사", "소송", "제재", "최대주주"],
     "officer_changes": ["선임", "해임", "퇴임", "변경", "임기", "사유"],
@@ -297,6 +299,7 @@ class ResearchQuery(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     kind: ResearchKind
+    search_text: Annotated[StrictStr, Field(min_length=1, max_length=100)] | None = None
     start_date: StrictStr | None = None
     end_date: StrictStr | None = None
     page: Annotated[StrictInt, Field(ge=1, le=20)] = 1
@@ -311,6 +314,16 @@ class ResearchQuery(BaseModel):
 
     @model_validator(mode="after")
     def ordered_dates(self) -> ResearchQuery:
+        if self.kind == 'legal_precedents':
+            if not self.search_text or not self.search_text.strip() or self.start_date or self.page_count != 100:
+                raise ValueError('legal discovery requires search_text and fixed portal pagination')
+            try:
+                if len(self.search_text.encode('euc-kr')) > 40 or any(ord(c) < 32 for c in self.search_text):
+                    raise ValueError
+            except (UnicodeEncodeError, ValueError):
+                raise ValueError('legal search_text must fit EUC-KR 40 bytes') from None
+        elif self.search_text is not None:
+            raise ValueError('search_text is only supported for legal_precedents')
         if self.start_date and self.end_date and self.start_date > self.end_date:
             raise ValueError("research start_date must not follow end_date")
         return self
@@ -337,7 +350,10 @@ def _research_boundary(as_of: str, meeting_type: str, meeting_date: str) -> tupl
 
 def _research_title_matches(kind: str, title: str) -> bool:
     compact = re.sub(r"[\sㆍ·.,()\[\]〈〉]", "", title)
-    # Meeting outcomes are never suggested as pre-meeting evidence. Older
+    if kind == "charter_history":
+        return any(word in compact for word in ("사업보고서", "반기보고서", "분기보고서", "정관")) or (
+            "주주총회" in compact and any(word in compact for word in ("소집공고", "소집결의", "결과", "결의내용")))
+    # Other research modes do not suggest meeting outcomes as pre-meeting evidence. Older
     # outcomes could be useful in another workflow, but are deliberately not
     # classified here without knowing which meeting their contents describe.
     if "주주총회" in compact and any(word in compact for word in ("결과", "결의내용")):
@@ -399,6 +415,8 @@ def build_meeting_research_plan(company: str, as_of: str, meeting_type: str,
             ),
         },
         "questions": [
+            {"kind": "charter_history", "question": "정관 기준점과 그 이후 정기·임시주총의 변경 제안·결과·정정·부칙을 마감일까지 연결했는가?",
+             "suggested_action": {"action": "discover_sources", "query": {"kind": "charter_history"}}},
             {"kind": "meeting_resolution", "question": "소집결의·정정에 후보 신원, 신규·재선임, 겸직, 사임 예정 또는 조건이 더 있는가?",
              "suggested_action": {"action": "discover_sources", "query": {"kind": "meeting_resolution"}}},
             {"kind": "periodic_reports", "question": "마감 전에 공개된 정기보고서에서 출석의 대상 기간과 현재 관계·사건을 각각 확인했는가?",
@@ -420,6 +438,13 @@ def build_meeting_research_plan(company: str, as_of: str, meeting_type: str,
             {"state": "conflicting_sources", "meaning": "원문 사이에 신원·직위·일자·범위가 충돌함",
              "action": "정정 범위와 원문을 대조하고 미해소 충돌만 사용자 정책에 따라 표시한다."},
         ],
+        "legal_research": {
+            'action_template': {'action': 'discover_sources', 'query': {'kind': 'legal_precedents', 'search_text': '<쟁점 또는 사건번호>'}},
+            'instruction': '정관·선출 쟁점에 필요할 때만 공식 판례속보를 검색한다. 공식 요약과 판결문 전문을 구분하고 공개일을 확인한다. '
+                           '선고일·심급·확정 상태를 추정하지 않는다. 사건의 법인 유형·법령 시점·사실 차이와 관련성을 설명한다. '
+                           '기사 감정과 모델 기억은 근거가 아니며 법률적 해석과 의결권 정책 판단은 분리한다.',
+            'missing_document_blocks_flow': False,
+        },
         "critical_fact_checks": [
             "권고를 좌우하는 사실의 후보 신원·생년월일·역할을 대조한다.",
             "현재와 과거 직위 및 실제 직무 대상 회의를 구분한다.",
@@ -452,6 +477,17 @@ async def discover_research_sources(client, corp_code: str, as_of: str,
     query = query if isinstance(query, ResearchQuery) else ResearchQuery.model_validate(query)
     boundary, meeting = _research_boundary(as_of, meeting_type, meeting_date)
     end = min(boundary, _cutoff(query.end_date)) if query.end_date else boundary
+    if query.kind == 'legal_precedents':
+        from .precedent_documents import discover_precedents
+        found = await discover_precedents(client, query.search_text, end.strftime('%Y%m%d'), query.page)
+        next_page = found.get('next_page')
+        next_queries = [{**query.model_dump(exclude_none=True), 'page': next_page}] if next_page and next_page <= 20 else []
+        return {**found, 'next_page': next_page if next_queries else None, 'next_queries': next_queries,
+                'page_limit_reached': bool(next_page and next_page > 20),
+                'corp_code': corp_code, 'meeting_type': meeting_type,
+                'meeting_date': meeting.isoformat(), 'effective_end_date': end.strftime('%Y%m%d'),
+                'complete_history': False, 'no_contents_read': True,
+                'query': query.model_dump(exclude_none=True)}
     # Look back far enough to find a prior completed annual report plus current
     # interim reports. Callers can narrow or extend explicitly; this is not an
     # assertion that two years contain all relevant corporate history.
@@ -534,6 +570,14 @@ async def discover_research_sources(client, corp_code: str, as_of: str,
                                     "source_scope": "company_context", "focus_terms": _FOCUS_TERMS[query.kind].copy()},
                     "discovered_in": [{"pblntf_ty": major, "pblntf_detail_ty": detail, "page": query.page}],
                 })
+                if query.kind == 'charter_history':
+                    periodic = any(word in title for word in ('사업보고서', '반기보고서', '분기보고서'))
+                    role = ('periodic_checkpoint' if periodic else 'resolution_candidate'
+                            if any(word in title for word in ('결과', '결의내용')) else 'proposal_candidate')
+                    found[-1]['charter_role_hint'] = role
+                    if periodic:
+                        found[-1]['attachment_request'] = {'type': 'dart_attachments', 'rcept_no': receipt,
+                            'source_scope': 'company_context'}
         except DartClientError as exc:
             if exc.status == "013":
                 scan.update(status="no_rows", pages_read=[query.page], total_count=0,
@@ -559,7 +603,9 @@ async def discover_research_sources(client, corp_code: str, as_of: str,
     if query.page < 20 and any(scan["has_more"] is True for scan in scans):
         next_queries.append({**query.model_dump(exclude_none=True), "start_date": start_text,
                              "end_date": end_text, "page": query.page + 1})
+    from .charter_history import workflow as charter_workflow
     return {
+        **({'charter_workflow': charter_workflow()} if query.kind == 'charter_history' else {}),
         "contract_version": "opm-meeting-research/1",
         "status": "partial" if any(scan["status"] == "fetch_failed" or scan["has_more"] is not False
                                     for scan in scans) else "searched_page",

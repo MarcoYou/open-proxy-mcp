@@ -301,3 +301,69 @@ def test_manual_id_selection_applies_even_without_structure_submission():
     module().apply_structure_results(payload,task,result,{'automation':'automatic','manual_agenda_ids':[row['agenda_id']]})
     assert row['voting_workflow']['status']=='manual_review'
     assert row['decision']=='AGAINST'
+
+@pytest.mark.parametrize('posture,impact,allowed', [(0,'limited',False),(.5,'limited',True),(1,'limited',True),
+    (0,'none',True),(1,'material',False),(1,'unknown',False)])
+def test_posture_requires_source_bound_gap_impact(posture, impact, allowed):
+    payload, old = setup_task()
+    task = module().build_structure_task(payload, sources=old['sources'], binding=old['execution_context'],
+        policy={**old['policy'], 'workflow_settings': {'decision_posture': posture}})
+    item = submission(task)
+    item['gaps'] = [{'gap_id':'g','agenda_ids':[task['agendas'][0]['agenda_id']], 'criterion_id':'ES-03',
+        'kind':'not_read','disposition':'unassessed_scope','question':'추가 과거 임기 명단 미독',
+        'reviewed_source_ids':[task['sources'][0]['source_id']], 'decision_impact':impact,
+        'impact_rationale':'확인된 주총 결정권으로 평가하며 과거 명단을 임의 완성하지 않는다.', 'impact_fact_ids':['term']}]
+    item['judgments'][0]['uncertainty_rationale']='이번 조문 평가에는 충분한 근거가 있고 과거 명단은 별도 미독으로 표시한다.'
+    result = module().accept_structure_assessment(task, item)
+    assert bool(result['judgments']) is allowed
+    if allowed:
+        module().apply_structure_results(payload,task,result,{'decision_posture':posture,'automation':'manual'})
+        assert payload['data']['agenda_decisions'][0]['structure_trace']['gaps'][0]['decision_impact'] == impact
+        assert '미확인' in payload['data']['agenda_decisions'][0]['reason']
+
+
+def test_posture_changes_task_and_keeps_absence_of_basis_blocked():
+    p,t=setup_task()
+    low=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':0}})
+    high=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':1}})
+    assert low['task_id'] != high['task_id']
+    assert high['decision_guidance']['value'] == 1
+    item=submission(high);item['judgments'][0]['finding_ids']=[]
+    assert not module().accept_structure_assessment(high,item)['judgments']
+
+@pytest.mark.parametrize('mutation', ['no_explanation','no_facts','wrong_scope','material_conflict'])
+def test_high_posture_cannot_bypass_impact_validation(mutation):
+    p,t=setup_task()
+    task=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':1}})
+    item=submission(task); aid=task['agendas'][0]['agenda_id']
+    gap={'gap_id':'g','agenda_ids':[aid],'criterion_id':'ES-03','kind':'conflicting_evidence',
+         'disposition':'unassessed_scope','question':'자료 상충','reviewed_source_ids':[task['sources'][0]['source_id']],
+         'decision_impact':'limited','impact_rationale':'영향을 원문에 연결','impact_fact_ids':['term']}
+    if mutation=='no_explanation':gap['impact_rationale']=' '
+    if mutation=='no_facts':gap['impact_fact_ids']=[]
+    if mutation=='wrong_scope':gap['agenda_ids'].append(task['agendas'][1]['agenda_id'])
+    if mutation=='material_conflict':gap['decision_impact']='material'
+    item['gaps']=[gap];item['judgments'][0].update(gap_ids=['g'],uncertainty_rationale='제한된 근거로 판단')
+    assert not module().accept_structure_assessment(task,item)['judgments']
+
+
+def test_charter_maximum_is_not_a_required_total():
+    p,t=setup_task()
+    source={**t['sources'][0], 'excerpts':['이사는 8명 이하로 한다. 현재 이사는 7명이며 이번 선임 후에도 7명이다.']}
+    t=module().build_structure_task(p,sources=[source],binding=t['execution_context'],policy=t['policy'])
+    item=submission(t)
+    item['facts'][0].update(kind='board_counts',description='상한8명에 현재·선임후7명',data={'charter_max':8,'actual_total':7,'proposed_total':7})
+    item['findings'][0].update(criterion_id='ES-01',rationale='정원8명은 충원 목표가 아닌 상한이다.')
+    result=module().accept_structure_assessment(t,item)
+    assert result['accepted_facts'][0]['data']['proposed_total']==7
+    assert result['judgments'][0]['recommendation']=='FOR'
+
+@pytest.mark.parametrize('posture,materiality,explanation,allowed', [
+    (0,'limited','영향은 제한적',False), (.5,'limited','영향은 제한적',True),
+    (1,'limited',None,False),(1,'material','상충 미해소',False),(1,'unknown','효과 미확정',False)])
+def test_posture_only_tolerates_explained_limited_mixed_effect(posture,materiality,explanation,allowed):
+    p,t=setup_task()
+    t=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':posture}})
+    item=submission(t);item['findings'][0].update(effect='mixed',materiality=materiality)
+    item['judgments'][0]['uncertainty_rationale']=explanation
+    assert bool(module().accept_structure_assessment(t,item)['judgments']) is allowed

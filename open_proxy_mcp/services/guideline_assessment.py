@@ -5,6 +5,8 @@ not verify the reasoning or certify the caller's claimed model identity.
 """
 from __future__ import annotations
 
+from .guideline_workflow import decision_guidance
+
 import hashlib
 import json
 import re
@@ -321,6 +323,7 @@ def build_assessment_task(*, candidate: dict, corp_code: str, agenda_title: str,
             "policy_id": policy.get("id"), "policy_version": policy.get("version"),
             "policy_sha256": _digest(policy), "rubric": policy.get("assessment_rubric"),
             "workflow_settings": policy.get("workflow_settings", {}),
+            "decision_guidance": decision_guidance(policy.get("workflow_settings")),
             "baseline_findings": build_candidate_findings(candidate),
             "sources": sources,
             "attendance_period": attendance.get("attendance_period", {"status": "unresolved"}),
