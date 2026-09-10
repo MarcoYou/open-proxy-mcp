@@ -285,7 +285,14 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append("|---|---|")
             for dd in att.get("directors", []):
                 mark = " ⚠️저조" if dd.get("low") else ""
-                lines.append(f"| {dd.get('name')} | {dd.get('attendance_pct')}%{mark} |")
+                periods = dd.get("period_observations") or []
+                if periods:
+                    for row in periods:
+                        period = row.get("period_raw") or "기간 확인 필요"
+                        lines.append(f"| {dd.get('name')} ({period}) | {row['attendance_pct']:g}% |")
+                else:
+                    value = dd.get('attendance_pct')
+                    lines.append(f"| {dd.get('name')} | {str(value) + '%' if value is not None else '기간별 분모 확인 필요'}{mark} |")
             lines.append("")
             low = att.get("low_attendance") or []
             if low:
@@ -295,6 +302,14 @@ def _render(payload: dict[str, Any]) -> str:
                 lines.append(f"> {att.get('note')}")
         else:
             lines.append(f"- ⏳ {att.get('note') or '출석률 원문을 아직 읽지 못함'}")
+        if att.get("source_url"):
+            lines.append(f"- [원문: {att.get('section_title')}]({att['source_url']})")
+        if att.get("next_action"):
+            lines.append(f"- {att['next_action']}")
+        if att.get("status") != "parsed" and att.get("raw_text"):
+            lines.append(att["raw_text"])
+            if att.get("raw_text_truncated"):
+                lines.append(f"원문 전체 {att['raw_text_total_chars']:,}자 중 20,000자 표시. 나머지는 위 공시 원문에서 확인하세요.")
         lines.append("")
 
     pc = d.get("pay_criteria")

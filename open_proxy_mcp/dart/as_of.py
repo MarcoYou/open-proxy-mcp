@@ -21,6 +21,11 @@
 from __future__ import annotations
 
 from contextvars import ContextVar, Token
+from datetime import date, datetime, timedelta, timezone
+import hashlib
+import re
+
+from open_proxy_mcp.clock import KST
 
 #: YYYYMMDD. "" 이면 게이트 없음(종전 동작).
 _AS_OF: ContextVar[str] = ContextVar("dart_as_of", default="")
@@ -28,6 +33,109 @@ _AS_OF: ContextVar[str] = ContextVar("dart_as_of", default="")
 #: 이 게이트가 실제로 잘라낸 조회 기록 — 「무엇을 안 봤나」를 산출물에 밝히기 위한 것.
 #: 값은 (원래 end_de, 잘린 end_de) 튜플의 리스트. None 이면 수집하지 않는다.
 _CLAMPS: ContextVar[list[tuple[str, str]] | None] = ContextVar("dart_as_of_clamps", default=None)
+
+# Opt-in historical evidence boundary. This is independent of the legacy date
+# gate so a nested set_as_of("") cannot turn a strict request into a live request.
+_STRICT_AS_OF: ContextVar[dict | None] = ContextVar("dart_strict_as_of", default=None)
+_STRICT_EXCLUSIONS: ContextVar[list[dict] | None] = ContextVar("dart_strict_exclusions", default=None)
+
+
+def set_strict_as_of(cutoff_iso: str) -> tuple[Token, Token]:
+    """Set a timezone-aware, non-future cutoff; date-only sources stop one day earlier.
+
+    This verifies availability dates, not the semantic fidelity of an API's
+    historical document version. Children inherit the context and share only
+    its request-local exclusion ledger. Reset in the caller's finally block.
+    """
+    try:
+        if not isinstance(cutoff_iso, str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})",
+            cutoff_iso,
+        ):
+            raise ValueError
+        if not cutoff_iso.endswith("Z") and (int(cutoff_iso[-5:-3]) > 23 or int(cutoff_iso[-2:]) > 59):
+            raise ValueError
+        cutoff = datetime.fromisoformat(cutoff_iso.replace("Z", "+00:00"))
+        if cutoff.tzinfo is None or cutoff.utcoffset() is None or cutoff > datetime.now(timezone.utc):
+            raise ValueError
+        cutoff = cutoff.astimezone(KST)
+        effective = (cutoff.date() - timedelta(days=1)).isoformat().replace("-", "")
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError("strict_as_of requires a valid timezone-aware ISO 8601 cutoff that is not in the future") from None
+    contract = {
+        "cutoff_at": cutoff.isoformat(), "effective_as_of": effective,
+        "timezone": "Asia/Seoul", "date_only_policy": "exclude_cutoff_day",
+        "contract_version": "opm-strict-pit/1",
+    }
+    return _STRICT_AS_OF.set(contract), _STRICT_EXCLUSIONS.set([])
+
+
+def reset_strict_as_of(tokens: tuple[Token, Token]) -> None:
+    strict_token, exclusions_token = tokens
+    _STRICT_AS_OF.reset(strict_token)
+    _STRICT_EXCLUSIONS.reset(exclusions_token)
+
+
+def get_strict_as_of() -> dict | None:
+    value = _STRICT_AS_OF.get()
+    return dict(value) if value is not None else None
+
+
+def strict_cache_key() -> str:
+    value = _STRICT_AS_OF.get()
+    if value is None:
+        return ""
+    digest = hashlib.sha256(f"{value['contract_version']}|{value['cutoff_at']}|{get_as_of()}".encode()).hexdigest()
+    return f"strict-pit:{digest}"
+
+
+def strict_exclusions() -> list[dict]:
+    return [dict(item) for item in (_STRICT_EXCLUSIONS.get() or [])]
+
+
+def note_strict_exclusion(endpoint: str, *, receipt: str = "", reason: str, count: int = 1) -> None:
+    """Only safe endpoint/receipt/reason/count metadata enters the request ledger."""
+    ledger = _STRICT_EXCLUSIONS.get()
+    if ledger is None or not _STRICT_AS_OF.get():
+        return
+    # Do not retain arbitrary URLs, query strings, submitted content or API keys.
+    safe_endpoint = endpoint if isinstance(endpoint, str) and re.fullmatch(r"[A-Za-z0-9_.:/-]{1,100}", endpoint) else "source"
+    safe_receipt = receipt if isinstance(receipt, str) and re.fullmatch(r"\d{14}", receipt) else ""
+    safe_reason = reason if isinstance(reason, str) and re.fullmatch(r"[a-z_]{1,80}", reason) else "publication_unknown"
+    amount = count if isinstance(count, int) and not isinstance(count, bool) and count > 0 else 1
+    for item in ledger:
+        if (item["endpoint"], item["receipt"], item["reason"]) == (safe_endpoint, safe_receipt, safe_reason):
+            item["count"] += amount
+            return
+    ledger.append({"endpoint": safe_endpoint, "receipt": safe_receipt, "reason": safe_reason, "count": amount})
+
+
+def publication_day(value: object) -> str | None:
+    """Parse an explicit calendar date, never a fiscal year or a permissive prefix."""
+    if not isinstance(value, str):
+        return None
+    if re.fullmatch(r"\d{8}", value):
+        value = f"{value[:4]}-{value[4:6]}-{value[6:]}"
+    elif not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return None
+    try:
+        return date.fromisoformat(value).isoformat().replace("-", "")
+    except ValueError:
+        return None
+
+
+def strict_receipt_allowed(receipt: str, endpoint: str = "document") -> bool:
+    """Date-gate a fixed DART receipt before any cache access or fetch."""
+    if not _STRICT_AS_OF.get():
+        return True
+    day = publication_day(receipt[:8]) if isinstance(receipt, str) and re.fullmatch(r"\d{14}", receipt) else None
+    if day is None:
+        note_strict_exclusion(endpoint, receipt=receipt, reason="publication_invalid" if receipt else "publication_unknown")
+        return False
+    if day > get_as_of():
+        note_strict_exclusion(endpoint, receipt=receipt, reason="after_cutoff")
+        return False
+    return True
 
 
 def set_as_of(as_of: str, *, collect: bool = True) -> tuple[Token, Token]:
@@ -47,7 +155,12 @@ def reset_as_of(tokens: tuple[Token, Token]) -> None:
 
 
 def get_as_of() -> str:
-    return _AS_OF.get()
+    legacy = _AS_OF.get()
+    strict = _STRICT_AS_OF.get()
+    if strict is None:
+        return legacy
+    limit = strict["effective_as_of"]
+    return min(legacy, limit) if legacy else limit
 
 
 def clamps() -> list[tuple[str, str]]:
@@ -58,14 +171,16 @@ def note_row_drop(endpoint: str, dropped: int) -> None:
     """날짜 인자가 없는 API 에서 기준일 이후 행을 걷어냈다는 기록."""
     log = _CLAMPS.get()
     if log is not None and dropped > 0:
-        log.append((f"{endpoint}:{dropped}rows", _AS_OF.get()))
+        log.append((f"{endpoint}:{dropped}rows", get_as_of()))
 
 
 def clamp_end_de(end_de: str) -> str:
     """검색 종료일을 기준일까지 당긴다. 게이트가 꺼져 있으면 원값 그대로."""
-    as_of = _AS_OF.get()
-    if not as_of or not end_de:
+    as_of = get_as_of()
+    if not as_of:
         return end_de
+    if not end_de:
+        return as_of if _STRICT_AS_OF.get() else end_de
     if end_de <= as_of:
         return end_de
     log = _CLAMPS.get()

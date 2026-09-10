@@ -1,0 +1,125 @@
+{
+  "status": "passed",
+  "scope": "limited demonstration semantic contract",
+  "checks": [
+    {
+      "name": "78% / OPM demo 75%: support with complete synthetic coverage",
+      "passed": true
+    },
+    {
+      "name": "78% / client demo 80%: opposition",
+      "passed": true
+    },
+    {
+      "name": "75% equality does not trigger less-than rule",
+      "passed": true
+    },
+    {
+      "name": "74.99% triggers opposition",
+      "passed": true
+    },
+    {
+      "name": "unknown attendance cannot become support",
+      "passed": true
+    },
+    {
+      "name": "unknown exception blocks this opposing rule",
+      "passed": true
+    },
+    {
+      "name": "accepted exception clears this opposing rule",
+      "passed": true
+    },
+    {
+      "name": "separate confirmed opposition survives unknown attendance",
+      "passed": true
+    },
+    {
+      "name": "coverage false cannot create support",
+      "passed": true
+    },
+    {
+      "name": "new appointment makes prior-term attendance inapplicable",
+      "passed": true
+    },
+    {
+      "name": "reject incompatible fact: future",
+      "passed": true
+    },
+    {
+      "name": "reject incompatible fact: entity",
+      "passed": true
+    },
+    {
+      "name": "reject incompatible fact: period",
+      "passed": true
+    },
+    {
+      "name": "reject incompatible fact: type",
+      "passed": true
+    },
+    {
+      "name": "reject incompatible fact: acceptance",
+      "passed": true
+    },
+    {
+      "name": "reject incompatible fact: citation",
+      "passed": true
+    },
+    {
+      "name": "autonomy cannot change assessment for every fixture",
+      "passed": true
+    },
+    {
+      "name": "reject overlay out_of_bounds",
+      "passed": true
+    },
+    {
+      "name": "reject overlay string_value",
+      "passed": true
+    },
+    {
+      "name": "reject overlay unknown_parameter",
+      "passed": true
+    },
+    {
+      "name": "reject overlay no_reason",
+      "passed": true
+    },
+    {
+      "name": "reject overlay conflict",
+      "passed": true
+    },
+    {
+      "name": "reject overlay hidden_authority",
+      "passed": true
+    },
+    {
+      "name": "reject unknown operator",
+      "passed": true
+    },
+    {
+      "name": "reject unknown metric",
+      "passed": true
+    },
+    {
+      "name": "reject duplicate rule",
+      "passed": true
+    },
+    {
+      "name": "reject locked parameter override",
+      "passed": true
+    },
+    {
+      "name": "reject mixed types",
+      "passed": true
+    }
+  ],
+  "check_count": 28,
+  "scenario_count": 16,
+  "policy_source_sha256": "06a893e357c1907b99edca25111add7e39284ae509217e921e6ca5654559f1a1",
+  "limitations": [
+    "Same author supplied expected results; this establishes contract conformance only.",
+    "No real MCP calls, independent truth labels, legal evaluation, source retrieval or LLM performance measurement."
+  ]
+}

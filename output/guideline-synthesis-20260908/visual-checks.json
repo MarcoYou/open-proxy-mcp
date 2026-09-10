@@ -1,0 +1,53 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "width": 1440,
+      "overflow": false,
+      "brokenHashes": [],
+      "links": [
+        "flowchart.svg",
+        "report.md",
+        "comparison.json",
+        "proposal.json",
+        "policy-source.json",
+        "policy.schema.json",
+        "overlay-examples.json",
+        "resolved-policies.json",
+        "decision-examples.json",
+        "validation.json",
+        "input-manifest.json",
+        "source-audit.json",
+        "flowchart.svg",
+        "flowchart.mmd"
+      ],
+      "cards": 16,
+      "errors": [],
+      "interaction_checks": "filter, boundary, autonomy invariance, unknown exception, independent opposition, invalid override passed"
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "brokenHashes": [],
+      "links": [
+        "flowchart.svg",
+        "report.md",
+        "comparison.json",
+        "proposal.json",
+        "policy-source.json",
+        "policy.schema.json",
+        "overlay-examples.json",
+        "resolved-policies.json",
+        "decision-examples.json",
+        "validation.json",
+        "input-manifest.json",
+        "source-audit.json",
+        "flowchart.svg",
+        "flowchart.mmd"
+      ],
+      "cards": 16,
+      "errors": [],
+      "interaction_checks": "filter, boundary, autonomy invariance, unknown exception, independent opposition, invalid override passed"
+    }
+  ]
+}

@@ -3,13 +3,13 @@
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-31-orange.svg)](#tool-structure-31-tools)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-32-tools)
 [![Release](https://img.shields.io/badge/release-v2.6.0-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
-[Quick Start](#quick-start) · [Main Features](#main-features) · [Tool Structure](#tool-structure-31-tools) · [Data Sources](#data-sources)
+[Quick Start](#quick-start) · [Main Features](#main-features) · [Tool Structure](#tool-structure-32-tools) · [Data Sources](#data-sources)
 
 ## Why OpenProxy?
 
@@ -85,18 +85,20 @@ Find more prompts on each page in the [tool catalog](wiki/tools/README.md).
 | 🧭 [Ownership & returns](docs/features/en/ownership.md) | Who controls it, and where does capital go? | Ownership map, dividends, buybacks and cancellations, and [value-up plans versus actual execution](docs/features/en/shareholder-return.md) |
 | 🔔 [Market & risk](wiki/tools/screener.md) | What changed today? | Market disclosure digest plus [control contests](docs/features/en/control-contest.md), deals, dilution, and [risk events](docs/features/en/risk-events.md) |
 
-These six workflows are backed by **31 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-31-tools).
+These six workflows are backed by **32 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-32-tools).
+
+**Governance review pilot** — `governance_screen` gathers filing excerpts for up to 30 explicitly selected companies. Your connected AI reads them for minority-shareholder treatment, conflicts of interest and board accountability, then returns a review order based on evidence and materiality. Tender offers, activism and litigation are not adverse findings by themselves. Results are labelled **LLM assessment · human unreviewed · partial evidence**; missing checks are reported individually while other work continues. Call again with `since` and `known_receipts` to narrow the list of new filings. This creates neither scheduled runs nor actual votes. This branch contains the pilot implementation; production availability must be checked separately.
 
 ---
 
-## Tool Structure (31 tools)
+## Tool Structure (32 tools)
 
 Categories match the "what do you want to know → which tool" table in the [wiki/tools catalog](wiki/tools/README.md) — that table is the source of truth.
 
 | Category | Tools | Role |
 |---|---|---|
 | 🏢 Start — find the company | [`company`](wiki/tools/company.md) | Company identification + recent filings — every analysis starts here |
-| 🔔 Market-wide scan · digest | [`screener`](wiki/tools/screener.md) | Market-wide disclosure screener / morning digest |
+| 🔔 Disclosure scan · review | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | Market-wide disclosure digest · source-based LLM governance review for selected companies (pilot) |
 | 🗳️ Shareholder meetings · voting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Notice (pre) · results (post) · per-agenda FOR/AGAINST/REVIEW support · the voting-policy document itself |
 | 💰 Ownership · financials · governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership map · confirmed/provisional earnings · business description · asset plays · PER/PBR · consensus · price/market cap · governance report · board |
 | 🎁 Shareholder returns · capital | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | Dividend filings/time series · treasury shares · value-up · promise vs delivery · mergers/splits · rights/CB/BW/reductions |
@@ -107,7 +109,7 @@ Categories match the "what do you want to know → which tool" table in the [wik
 
 ### Voting policy
 
-**Policy opposition does not always mean an automatic AGAINST recommendation.** The engine leaves judgment-dependent concerns as REVIEW; board attendance is not currently a decision trigger. Ask for the cited policy section with `proxy_guideline`, or section `0-A` for the policy-to-engine mapping. [How to interpret recommendations, meeting selection, and information cutoffs](docs/features/en/proxy-voting.md). The default report and detailed policy references are in Korean; ask your AI to explain them in English while preserving the evidence and statuses.
+**Policy opposition does not always mean an automatic AGAINST recommendation.** The default engine leaves judgment-dependent concerns as REVIEW and does not use board attendance as a decision trigger. The separately selected v2 pilot applies source-bound LLM assessments of independence and attendance in the last completed fiscal year to candidate recommendations; see its [inputs and scope](wiki/tools/proxy_advise_before_meeting.md). Ask for the cited policy section with `proxy_guideline`, or section `0-A` for the default policy-to-engine mapping. [How to interpret recommendations, meeting selection, and information cutoffs](docs/features/en/proxy-voting.md). The default report and detailed policy references are in Korean; ask your AI to explain them in English while preserving the evidence and statuses.
 
 `proxy_advise_before_meeting` uses OPM's own **Open Proxy Guideline** as its default policy. Its criteria: minority-shareholder protection, governance transparency, long-term value, traceability. Voting records disclosed through KRX by major asset managers and voting records published by Korea's National Pension Service are used for cross-checking. Every response includes a `data.usage` block (DART & tool call counts; DART limit 1,000/min — hard-capped at 910).
 

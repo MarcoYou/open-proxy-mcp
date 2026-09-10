@@ -67,6 +67,25 @@ from open_proxy_mcp.services.director_performance import _PERF_KO, compute_perfo
 from open_proxy_mcp.services.dividend import build_dividend_payload
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload
+from open_proxy_mcp.services.guideline_policy import (
+    evaluate_guideline_policy,
+    load_guideline_policy,
+    load_pilot_guideline_policy,
+)
+from open_proxy_mcp.services.guideline_evidence import (
+    collect_guideline_evidence,
+    candidate_guideline_inputs,
+    collect_supplemental_sources,
+    discover_officer_filings,
+)
+from open_proxy_mcp.services.guideline_assessment import (
+    prepare_assessments, build_assessment_task, accept_assessment,
+    assessment_metrics, pilot_recommendation,
+)
+from open_proxy_mcp.services.guideline_assessment import prepare_assessment_batch, apply_missing_information_policy
+from open_proxy_mcp.services.guideline_workflow import resolve_workflow_settings, apply_workflow_policy, route_workflow
+from open_proxy_mcp.services.guideline_correction import candidate_correction_eligibility
+from open_proxy_mcp.services.guideline_research import discover_guideline_context, build_guideline_research_plan
 # Removed dead imports (archived at wiki/archive/services/):
 #   (구 백엔드 3종 — private archive)
 
@@ -171,6 +190,10 @@ def clear_proxy_advise_cache() -> None:
 # 익명 코드만 accept (운용사/연기금 실명 alias는 보안상 제거 — 2026-05-09)
 _VOTE_STYLE_POLICY_FILE = {
     "open_proxy": "open_proxy_v1",
+    # v2 is a versioned, machine-readable pilot policy.  It is evaluated in
+    # shadow mode below; the existing decision engine remains authoritative
+    # until an approved production adapter exists.
+    "opm_guideline_v2": "opm_guideline_v2",
     "m_legacy": "m_legacy_2026-04",  # 최신 2026 정책 우선
     "s_legacy": "s_legacy_2025-04",
     "sa_legacy": "sa_legacy_2025-04",
@@ -188,6 +211,8 @@ def _load_vote_style_policy(vote_style: str) -> dict[str, Any] | None:
 
     매핑: success (file 존재) / soft-fail (file 없음 — None 반환, OPM default fallback).
     """
+    if vote_style == "opm_guideline_v2":
+        return load_guideline_policy()
     file_id = _VOTE_STYLE_POLICY_FILE.get(vote_style)
     if not file_id:
         return None
@@ -251,8 +276,8 @@ def _apply_policy_default(default_str: str | None, fallback_decision: str, fallb
 
 
 def _public_vote_style_label(vote_style: str | None) -> str:
-    if vote_style == "open_proxy":
-        return "open_proxy"
+    if vote_style in ("open_proxy", "opm_guideline_v2"):
+        return vote_style
     return "internal_policy_variant"
 
 
@@ -265,7 +290,12 @@ def _public_policy_basis(
     if law_layer_hit is not None:
         return f"법령 판단 (1·2·3차 상법 개정) — {law_layer_hit[2]}"
 
-    base = "Open Proxy guideline" if vote_style == "open_proxy" else "Internal policy variant"
+    if vote_style == "open_proxy":
+        base = "Open Proxy guideline"
+    elif vote_style == "opm_guideline_v2":
+        base = "Open Proxy guideline v2 (pilot shadow)"
+    else:
+        base = "Internal policy variant"
     if policy_default and policy_default != "case_by_case":
         # 260813: `운용사 정책 기본값: against` 처럼 영문 enum 이 그대로 화면에 나갔다.
         _KO = {"for": "찬성", "against": "반대", "review": "사안별 검토"}
@@ -509,6 +539,15 @@ def _agenda_pattern_match(title: str, parent: str, pattern: dict[str, Any]) -> b
 def _applies_to_match(rule: dict[str, Any], corp_total_asset_won: int | None,
                       today_iso: str) -> bool:
     """applies_to 조건 (자산 + 시행일) 매치."""
+    from open_proxy_mcp.dart.as_of import get_strict_as_of, note_strict_exclusion, publication_day
+    strict = get_strict_as_of()
+    if strict:
+        provision = _load_law_provisions().get(rule.get("provision"), {})
+        published = publication_day(provision.get("promulgation_date"))
+        if not published or published > strict["effective_as_of"]:
+            note_strict_exclusion("law_layer", reason=(
+                "publication_unverified" if not published else "after_cutoff"))
+            return False
     applies = rule.get("applies_to") or {}
 
     # 자산 조건
@@ -956,7 +995,7 @@ def _core_person_name(name: str | None) -> str:
     """후보 이름에서 안건 제목 매칭용 핵심 이름 추출.
 
     '도진명 (Jim Myong Doh)' → '도진명' (영문 병기·괄호 제거).
-    영문 전용 이름('Benjamin Tan')은 그대로. 한글 이름 뒤 공백+영문도 앞 토큰만.
+    영문 전용 이름('Benjamin Tan')은 그대로. 한글 자간은 합치고 영문 병기는 분리한다.
     260710 현대차 도진명 매칭 실패 사고: eval name에 영문이 병기돼 `nm in title`이
     False → 개별 후보 평가가 통째로 우회되던 버그.
     """
@@ -964,12 +1003,35 @@ def _core_person_name(name: str | None) -> str:
         return ""
     # 괄호(반각/전각) 앞부분만
     core = re.split(r"[(（]", name, maxsplit=1)[0].strip()
-    # 한글 이름 뒤 공백+영문("홍길동 James") → 한글 토큰만 (앞 토큰이 한글이면)
-    if " " in core:
-        head = core.split()[0]
-        if re.search(r"[가-힣]", head):
-            core = head
+    # 한글 자간은 이름의 일부다. "이 영 렬"을 성 "이"로 줄이면
+    # 모든 "사외이사" 제목이 그 후보와 일치한다. 영문 병기만 분리한다.
+    korean = re.fullmatch(r"([가-힣]+(?:\s+[가-힣]+)*)(?:\s+[A-Za-z].*)?", core)
+    if korean:
+        core = re.sub(r"\s+", "", korean.group(1))
     return core or name.strip()
+
+
+def _match_candidate_for_agenda(
+    title: str, candidates: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """Prefer a unique complete name; aliases never outrank another full name.
+
+    Candidate order and inferred candidate agenda titles are not identity proof.
+    A one-character name/alias or multiple matching identities stays unmatched.
+    """
+    title_compact = re.sub(r"\s+", "", title or "")
+    for use_core in (False, True):
+        matches = []
+        for candidate in candidates:
+            name = candidate.get("name") or ""
+            if use_core:
+                name = _core_person_name(name)
+            compact = re.sub(r"\s+", "", name)
+            if len(compact) >= 2 and compact in title_compact:
+                matches.append(candidate)
+        if matches:
+            return matches[0] if len(matches) == 1 else None
+    return None
 
 
 #: 매칭 실패 안건에 붙이는 원문 창. **틀린 지점을 기준으로 앞뒤 비대칭**이다 —
@@ -3490,6 +3552,18 @@ async def build_proxy_advise_payload(
     """
     gate_holder: dict[str, Any] = {}
     try:
+        harness = kwargs.pop("guideline_harness", None)
+        if harness is not None:
+            from open_proxy_mcp.services.guideline_harness import run_harness
+            return await run_harness(company_query, harness,
+                                     {**kwargs, "_gate_holder": gate_holder},
+                                     _build_proxy_advise_payload)
+        if kwargs.pop("guideline_research", None) is not None:
+            from open_proxy_mcp.services.guideline_harness import _error
+            return _error("research_requires_harness")
+        if kwargs.pop('guideline_structure', None) is not None:
+            from open_proxy_mcp.services.guideline_harness import _error
+            return _error('research_requires_harness')
         return await _build_proxy_advise_payload(company_query, _gate_holder=gate_holder, **kwargs)
     finally:
         tokens = gate_holder.get("tokens")
@@ -3513,6 +3587,10 @@ async def _build_proxy_advise_payload(
     as_of: str | None = None,
     include_after_meeting: bool = False,
     evidence_chars: int = _EVIDENCE_DEFAULT_CHARS,
+    guideline_mode: str = "shadow",
+    guideline_assessments: list[dict[str, Any]] | None = None,
+    guideline_evidence_sources: list[dict[str, Any]] | None = None,
+    guideline_workflow: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """proxy_advise_before_meeting payload.
 
@@ -3536,6 +3614,19 @@ async def _build_proxy_advise_payload(
     scope param에 따라 data dict의 raw 노출 여부만 분기. logic 변경 X (regression 0).
     """
     total_started_at = time.perf_counter()
+    if guideline_mode not in {"shadow", "pilot"}:
+        raise ValueError("guideline_mode must be shadow or pilot")
+    if guideline_mode == "pilot" and (vote_style != "opm_guideline_v2" or include_after_meeting):
+        raise ValueError("pilot requires opm_guideline_v2 and include_after_meeting=False")
+    if guideline_assessments and guideline_mode != "pilot":
+        raise ValueError("guideline_assessments requires guideline_mode=pilot")
+    if guideline_evidence_sources and guideline_mode != "pilot":
+        raise ValueError("guideline_evidence_sources requires guideline_mode=pilot")
+    if guideline_workflow is not None and guideline_mode != "pilot":
+        raise ValueError("guideline_workflow requires guideline_mode=pilot")
+    workflow_settings = resolve_workflow_settings(guideline_workflow)
+    submitted_assessments, assessment_errors = prepare_assessment_batch(guideline_assessments)
+    matched_assessment_ids: set[str] = set()
     timings_ms: dict[str, int] = {}
     _gate_holder = {} if _gate_holder is None else _gate_holder
     evidence_chars = max(500, min(int(evidence_chars or _EVIDENCE_DEFAULT_CHARS), _EVIDENCE_MAX_CHARS))
@@ -3783,8 +3874,35 @@ async def _build_proxy_advise_payload(
 
     # vote_style 정책 로딩 (success / soft-fail)
     policy = _load_vote_style_policy(vote_style)
-    policy_id = (policy or {}).get("policy_id") or vote_style
+    if guideline_mode == "pilot":
+        policy = apply_workflow_policy(load_pilot_guideline_policy(), workflow_settings)
+        from open_proxy_mcp.services.guideline_harness import bind_harness_policy
+        policy = bind_harness_policy(policy)
+    policy_id = (policy or {}).get("policy_id") or (policy or {}).get("id") or vote_style
     policy_meta = (policy or {}).get("policy_meta") or {}
+    # Keep baseline and v2 traces separate. Only the explicit pilot applies
+    # accepted caller assessments to candidate recommendations below.
+    guideline_shadow_traces: list[dict[str, Any]] = []
+    guideline_evidence = (
+        await collect_guideline_evidence(client, _annual_ref, as_of_ymd)
+        if vote_style == "opm_guideline_v2" and policy else None
+    )
+    guideline_supplemental = await collect_supplemental_sources(
+        client, guideline_evidence_sources or [], as_of_ymd,
+    ) if guideline_mode == "pilot" else []
+    guideline_officer_discovery = None
+    guideline_context_discovery = None
+    if guideline_mode == "pilot":
+        guideline_officer_discovery = await discover_officer_filings(
+            client, selected["corp_code"], as_of_ymd,
+            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")
+                     and not (s.get("read_options") or {}).get("candidate_names")])
+        guideline_supplemental.extend(guideline_officer_discovery["filings"])
+        guideline_context_discovery = await discover_guideline_context(
+            client, selected["corp_code"], as_of_ymd,
+            exclude=[s["rcept_no"] for s in guideline_supplemental if s.get("rcept_no")
+                     and not (s.get("read_options") or {}).get("candidate_names")])
+        guideline_supplemental.extend(guideline_context_discovery["filings"])
 
     # ── F6 (Phase 4) corpCode pre-warm: gather 전에 보장 ──
     # 6 worker가 동시에 _load_corp_codes 호출 시 race 위험 (F7 lock으로도 처리되지만
@@ -3811,7 +3929,10 @@ async def _build_proxy_advise_payload(
         # 260828: as_of 를 넣지 않으면 **기준일이 다른 두 호출이 같은 답을 받는다** —
         #   검사한 적 없는 시점의 결과가 검사한 것처럼 나가는 형태다(check_audit_history 와 같은 사고).
         cache_key = (selected.get("corp_code") or company_query, fn.__name__, kw.get("scope"), kw.get("year"), kw.get("meeting_type"), kw.get("bsns_year"), kw.get("check_audit_history"), as_of_ymd, include_after_meeting)
-        cached = _PROXY_ADVISE_CACHE.get(str(cache_key))
+        from open_proxy_mcp.dart.as_of import get_strict_as_of
+        # Only immutable raw-document caches are reused in a pinned run.
+        strict = get_strict_as_of() is not None
+        cached = None if strict else _PROXY_ADVISE_CACHE.get(str(cache_key))
         if cached is not None:
             if timing_label:
                 _mark(f"upstream.{timing_label}", upstream_started_at)
@@ -3822,7 +3943,8 @@ async def _build_proxy_advise_payload(
             try:
                 # F8: 단일 upstream 60s cap (전체 wait_for 120s 안에서 6 worker 각자 60s)
                 result = await asyncio.wait_for(fn(*args, **kw), timeout=60.0)
-                _PROXY_ADVISE_CACHE.put(str(cache_key), result)
+                if not strict:
+                    _PROXY_ADVISE_CACHE.put(str(cache_key), result)
                 if timing_label:
                     _mark(f"upstream.{timing_label}", upstream_started_at)
                 return result
@@ -3839,7 +3961,7 @@ async def _build_proxy_advise_payload(
             "tool": fn.__name__,
             "status": "error",
             "data": {},
-            "warnings": [f"3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}"],
+            "warnings": [f"3회 retry 모두 실패: {type(last_exc).__name__}"],
             "evidence_refs": [],
         }
         # error는 cache에 저장 X (다음 호출 시 재시도 기회)
@@ -3910,6 +4032,16 @@ async def _build_proxy_advise_payload(
     )
     # full payload가 summary/agenda/compensation/aoi_change 데이터를 모두 포함 — 다운스트림 4개 참조에 동일 객체 할당
     meeting_summary = meeting_agenda = meeting_comp = meeting_aoi = meeting_full
+    from open_proxy_mcp.services.meeting_pin import get_meeting_pin
+    _pin = get_meeting_pin()
+    if _pin:
+        _actual_notice = (((meeting_full or {}).get("data") or {}).get("notice") or {}).get("rcept_no")
+        _candidate_notice = ((director_eval or {}).get("data") or {}).get("rcept_no")
+        if (_actual_notice != _pin.notice_rcept_no or
+                (_candidate_notice and _candidate_notice != _pin.notice_rcept_no)):
+            from open_proxy_mcp.services.guideline_harness import _error
+            from open_proxy_mcp.dart.as_of import strict_exclusions
+            return _error("meeting_mismatch", strict_exclusions())
 
     # **회사의 현재 상태를 말하는 것은 전부 이 하나를 본다.** 자본잠식·적자·배당재원은 「승인
     # 대상 연도」의 사실이지 2년 전 사실이 아니다. 판정·위험신호·배당판단이 서로 다른 해를 보면
@@ -3937,6 +4069,23 @@ async def _build_proxy_advise_payload(
     ]
     if ((prior_results or {}).get("data") or {}).get("results"):
         read_payloads.append((prior_results, f"직전({target_year - 1}년) 정기주총 결과"))
+    if guideline_evidence and guideline_evidence.get("document_read"):
+        read_payloads.append(({
+            "evidence_refs": [{
+                **guideline_evidence["filing"],
+                "evidence_id": "guideline_v2_attendance",
+                "section": "이사회에 관한 사항",
+                "note": "v2 출석 근거 조회; 적용기간·재직·예외는 후보별 평가 참조",
+            }],
+        }, "v2 출석 근거"))
+    for source in guideline_supplemental:
+        if source.get("status") == "read" and source.get("rcept_no"):
+            read_payloads.append(({"evidence_refs": [{
+                "rcept_no": source["rcept_no"],
+                "rcept_dt": source.get("published") or source["rcept_no"][:8],
+                "report_nm": source.get("report_nm") or "추가 공개 공시",
+                "note": "후보 동일성·재직·역할은 원문 평가 필요",
+            }]}, "v2 추가 원문"))
 
     # 1번 안건 (재무제표 승인) 잠정 FS 본문 raw — meeting_summary notice.rcept_no로 doc 가져와 파싱
     # 260505 ralph 17:50: 같은 doc에서 퇴직금 amendments도 파싱 (extra DART 호출 없이)
@@ -4568,6 +4717,7 @@ async def _build_proxy_advise_payload(
         decision = "NO_DATA"
         reason = "category 미분류 — 본문 검토 필요"
         matched_eval: dict[str, Any] | None = None
+        candidate_baseline: tuple[str, str] | None = None
         # 묶음 안건에서 **이 안건에 속한** 후보만 담는다(없으면 None). 사유·근거가 같은
         # 모집단을 말하게 하려고 루프 머리에서 초기화한다 — 이전 안건 값이 새면 안 된다.
         bundle_evals: list[dict[str, Any]] | None = None
@@ -4628,22 +4778,7 @@ async def _build_proxy_advise_payload(
 
         # 1. OPM 기본 logic으로 fallback decision 산출
         if category == "director_election" or category == "audit_committee_election":
-            for nm, ev in name_to_eval.items():
-                if not nm:
-                    continue
-                # nm in title (기존) + core-name(영문병기 제거) 매칭 (260710 도진명 사고)
-                # 260814: **제목 쪽 자간 벌림**이 남아 있었다 — 「사외이사 김 도 형 선임의 건」.
-                #   한글 이름은 자간을 벌려도 같은 이름인데 `"김도형" in "김 도 형"` 이 False 라
-                #   개별 평가가 통째로 우회되고 묶음 경로로 떨어졌다. 묶음 경로는 사외이사
-                #   **독립성 검증을 건너뛰므로**, 파싱 실패가 보수적이 아니라 관대한 판정으로
-                #   번역된다. 캐시 583건 실측: 인사 잎 916개 중 이 형태 2건.
-                #   공백만 지우고 비교한다 — 이름 자체를 바꾸지 않으므로 오탐이 늘지 않는다.
-                _t_ns = title.replace(" ", "")
-                if (nm in title or _core_person_name(nm) in title
-                        or nm.replace(" ", "") in _t_ns
-                        or _core_person_name(nm).replace(" ", "") in _t_ns):
-                    matched_eval = ev
-                    break
+            matched_eval = _match_candidate_for_agenda(title, list(name_to_eval.values()))
             statutory_auditor_agenda = (
                 category == "audit_committee_election"
                 and _is_statutory_auditor_agenda(title)
@@ -4779,6 +4914,7 @@ async def _build_proxy_advise_payload(
                             # 강제 outside 처리 — _decide_director_election 안에 분기
                             matched_eval["_audit_force_strict"] = True
                     decision, reason = _decide_director_election(matched_eval)
+                    candidate_baseline = (decision, reason)
                 # 공고는 사외이사라고 밝혔는데 사외이사 경로를 타지 않은 경우 — 독립성 검증이
                 # 통째로 건너뛰어진 채 조용히 FOR 가 나간다(실측 667건 중 20건, 3.0%).
                 # 후보자 표에 「직위」 칸이 없으면 roleType 이 구간 전체 제목에서 추정되는데,
@@ -5255,6 +5391,97 @@ async def _build_proxy_advise_payload(
             reason = (f"{reason} / 상법 §449조의2 요건(외부감사인 적정의견·감사 전원 동의) 충족 시 "
                       "이사회 승인으로 갈음돼 보고사항으로 바뀔 수 있음 — 총회 직전 정정공고 확인 필요")
 
+        # Default shadow remains compatible. The explicit pilot consumes only
+        # request-scoped caller assessments bound to this source packet.
+        guideline_trace: dict[str, Any] | None = None
+        if vote_style == "opm_guideline_v2" and policy:
+            _v2_applicable = (
+                category in ("director_election", "audit_committee_election")
+                and matched_eval is not None
+            )
+            _v2_inputs = candidate_guideline_inputs(
+                matched_eval or {}, guideline_evidence or {}, agm_rcept, as_of_ymd,
+            )
+            _v2_metrics = _v2_inputs["metrics"]
+            _assessment = None
+            if guideline_mode == "pilot":
+                _v2_applicable = _v2_applicable and is_outside_role((matched_eval or {}).get("role_type"))
+                if _v2_applicable:
+                    _task = build_assessment_task(
+                        candidate=matched_eval, corp_code=selected["corp_code"],
+                        agenda_title=title, notice_rcept=agm_rcept or "",
+                        notice_text=notice_full_text, as_of=as_of_ymd,
+                        policy=policy, attendance=guideline_evidence or {},
+                        supplemental=guideline_supplemental,
+                    )
+                    _v2_inputs["assessment_task"] = _task
+                    matched_assessment_ids.add(_task["task_id"])
+                    _assessment = accept_assessment(_task, submitted_assessments.get(_task["task_id"]))
+                    _v2_metrics = assessment_metrics(_assessment)
+                    for _metric in ("is_reelection", "independence_concern_accepted", "coverage_complete",
+                                    "attendance_pct", "attendance_exception_accepted"):
+                        _v2_inputs["evidence_status"][_metric] = {
+                            "status": _assessment["status"], "human_reviewed": False,
+                            "reason": "LLM 평가 · 사람 미검토. 원문 인용 연결만 검증. 미확인 사항은 평가 본문 참조."
+                            if _assessment["status"] == "accepted_unreviewed" else _assessment.get("reason"),
+                        }
+                    _calc = _assessment.get("attendance_calculation") or {}
+                    if _calc:
+                        _v2_inputs["evidence_status"]["attendance_pct"].update(
+                            status=_calc["status"], reason=_calc.get("reason"), calculation=_calc)
+            guideline_trace = evaluate_guideline_policy(
+                policy, _v2_metrics, applicable=_v2_applicable,
+            )
+            guideline_trace["mode"] = guideline_mode
+            guideline_trace["decision_effect"] = "none"
+            guideline_trace["metrics"] = _v2_metrics
+            if _v2_applicable:
+                guideline_trace["evidence_status"] = _v2_inputs["evidence_status"]
+                guideline_trace["assessment_task"] = _v2_inputs["assessment_task"]
+            if _assessment is not None:
+                guideline_trace = apply_missing_information_policy(guideline_trace, _assessment, policy=policy)
+                guideline_trace["llm_assessment"] = _assessment
+                _independence = (_assessment.get("assessment") or {}).get("independence") or {}
+                guideline_trace["information_gaps"] = _independence.get("information_gaps") or []
+                guideline_trace["information_basis"] = "reviewed_public_sources_only"
+                _proposed = pilot_recommendation(guideline_trace)
+                guideline_trace["pilot_recommendation"] = _proposed
+                guideline_trace["baseline_decision"] = decision
+                guideline_trace["baseline_reason"] = reason
+                guideline_trace["baseline_policy_citation"] = policy_citation
+                guideline_trace["human_reviewed"] = False
+                guideline_trace["assessment_scope"] = "outside_candidate_attendance_independence_only"
+                _correction = candidate_correction_eligibility(
+                    _task, _assessment, baseline_decision=decision, proposed_decision=_proposed,
+                    baseline_is_candidate_only=candidate_baseline == (decision, reason),
+                    law_layer_id=law_layer_id, agenda_relation_type=agenda_relation_type)
+                guideline_trace["baseline_correction"] = _correction
+                # Never relax law, ballot relations, existing opposition or
+                # later parent/child and seat-budget constraints.
+                _protected = (law_layer_id is not None or decision in {"AGAINST", "NO_VOTE"}
+                              or (decision == "REVIEW" and _proposed == "FOR" and not _correction["eligible"])
+                              or agenda_relation_type in {"procedural", "alternative", "conditional", "withdrawn"})
+                guideline_trace["decision_effect"] = ("protected_baseline" if _protected else
+                    "source_correction_applied" if _correction["eligible"] else "pilot_applied")
+                if not _protected:
+                    decision = _proposed
+                    _a = (_assessment.get("assessment") or {})
+                    _reason = (_a.get("independence") or {}).get("rationale") or _assessment.get("reason") or "근거 평가 미완료"
+                    reason = f"LLM 평가 · 사람 미검토: {_reason} / 출석·독립성 범위의 v2 파일럿 권고"
+                    if _correction["eligible"]:
+                        reason += " / 원문으로 기존 추출 경보를 교정한 결과"
+                    if _independence.get("information_gaps"):
+                        reason += " / 공개되지 않은 관계 세부는 판단에서 제외하고 추가 확인으로 남김"
+                    if _proposed == "REVIEW":
+                        reason += " / 긍정 판단에 필요한 평가 또는 근거가 미확정"
+                    policy_basis = "OPM guideline v2 LLM pilot · 사람 미검토"
+                    policy_citation = f"{policy['id']} v{policy['version']} · PILOT-ATT/PILOT-IND · 긍정 게이트"
+            guideline_shadow_traces.append({
+                "agenda_title": title,
+                "agenda_category": category,
+                **guideline_trace,
+            })
+
         agenda_decisions.append({
             "agenda_title": title,
             "agenda_category": category,
@@ -5273,6 +5500,7 @@ async def _build_proxy_advise_payload(
             "policy_basis": policy_basis,
             "policy_default": policy_default,
             "opm_fallback_decision": original_decision if (policy_default and policy_default != "case_by_case") else None,
+            "guideline_trace": guideline_trace,
             # **이 안건을 실제로 읽은 공고**를 가리켜야 한다. 예전에는 `data.rcept_no` 를 찾았는데
             # 접수번호는 `data.notice.rcept_no` 에 있어 항상 None 이었고, 그래서 **다른 도구(후보
             # 평가)가 고른 공고로 폴백**했다. 주총이 잦은 회사(리츠 등)는 그게 아예 다른 회차다 —
@@ -5330,6 +5558,23 @@ async def _build_proxy_advise_payload(
     parent_child_notes = _reconcile_parent_child_decisions(agenda_decisions, title_to_parent)
     _candidate_proposer_mix(agenda_decisions, title_to_parent)
     seat_budget_notes = _enforce_seat_budget(agenda_decisions, title_to_parent)
+    for _row in agenda_decisions:
+        _trace = _row.get("guideline_trace") or {}
+        if _trace.get("llm_assessment"):
+            _trace["final_decision"] = _row["decision"]
+            _trace["post_constraint_adjusted"] = (
+                _trace.get("decision_effect") == "pilot_applied"
+                and _trace.get("pilot_recommendation") != _row["decision"]
+            )
+    if guideline_mode == "pilot":
+        voting_workflow = route_workflow(agenda_decisions, workflow_settings)
+        from .election_structure import capture_structure_sources
+        capture_structure_sources(agm_rcept or '', notice_full_text, guideline_supplemental)
+        guideline_shadow_traces = [
+            {"agenda_title": row["agenda_title"], "agenda_category": row["agenda_category"],
+             **row["guideline_trace"]}
+            for row in agenda_decisions if row.get("guideline_trace")
+        ]
 
     # 통합 evidence_refs + 읽은 공시 목록
     evidence: list[EvidenceRef] = []
@@ -5484,6 +5729,46 @@ async def _build_proxy_advise_payload(
         "vote_style": _public_vote_style_label(vote_style),
         "vote_style_policy_id": _public_vote_style_label(vote_style),
         "vote_style_resolved": bool(policy),
+        "guideline_application": (
+            {
+                "policy_id": policy_id,
+                "version": policy.get("version"),
+                "status": "pilot_human_unreviewed" if guideline_mode == "pilot" else "pilot_shadow",
+                "mode": guideline_mode,
+                "decision_effect": "candidate_pilot_with_existing_constraints" if guideline_mode == "pilot" else "none",
+                "decision_authority": "llm_pilot_and_existing_constraints" if guideline_mode == "pilot" else "existing_opm_engine",
+                "human_reviewed": False,
+                "review_label": "LLM 평가 · 사람 미검토" if guideline_mode == "pilot" else "shadow · 평가 미적용",
+                "assessment_scope": "사외·독립이사 후보의 선임구분·독립성·직전 완료 사업연도 출석. 원문 기반 LLM 평가·사람 미검토. 다른 안건은 기존 엔진.",
+                "assessment_submissions": {
+                    "submitted": len(submitted_assessments),
+                    "rejected_items": assessment_errors,
+                    "unmatched_task_ids": sorted(set(submitted_assessments) - matched_assessment_ids),
+                    "unmatched_action": "현재 대상·시점·정책·원문과 맞지 않는 평가는 사용하지 않음",
+                },
+                "voting_workflow": voting_workflow if guideline_mode == "pilot" else None,
+                "evidence_collection": guideline_evidence,
+                "officer_discovery": {k: v for k, v in (guideline_officer_discovery or {}).items()
+                                      if k != "filings"},
+                "context_discovery": {k: v for k, v in (guideline_context_discovery or {}).items()
+                                      if k != "filings"},
+                "research_plan": build_guideline_research_plan(
+                    selected.get("corp_name") or company_query, as_of_ymd,
+                    guideline_context_discovery) if guideline_mode == "pilot" else None,
+                "supplemental_collection": [{k: v for k, v in item.items() if k != "text"}
+                                            for item in guideline_supplemental],
+                "agenda_traces": guideline_shadow_traces,
+                "evaluated_agendas": sum(
+                    1 for t in guideline_shadow_traces if t.get("status") == "evaluated"
+                ),
+                "unresolved_rules": sum(len(t.get("unresolved") or []) for t in guideline_shadow_traces),
+                "fired_effects": [
+                    e for t in guideline_shadow_traces for e in (t.get("fired_effects") or [])
+                ],
+            }
+            if vote_style == "opm_guideline_v2" and policy
+            else None
+        ),
         "audit_history_enabled": check_audit_history,
         "scope": scope,
         "agenda_count": len(agenda_rows),

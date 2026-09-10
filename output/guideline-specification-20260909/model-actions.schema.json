@@ -1,0 +1,290 @@
+{
+  "$defs": {
+    "DiscoverSourcesAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "discover_sources",
+          "default": "discover_sources",
+          "title": "Action",
+          "type": "string"
+        },
+        "query": {
+          "$ref": "#/$defs/ResearchQuery"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "DiscoverSourcesAction",
+      "type": "object"
+    },
+    "FinishAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "finish",
+          "default": "finish",
+          "title": "Action",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "sufficient_evidence",
+            "no_supported_assessment",
+            "information_unavailable"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "FinishAction",
+      "type": "object"
+    },
+    "ReadSourcesAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "read_sources",
+          "default": "read_sources",
+          "title": "Action",
+          "type": "string"
+        },
+        "mode": {
+          "default": "merge",
+          "enum": [
+            "merge",
+            "replace"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/SourceRead"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "ReadSourcesAction",
+      "type": "object"
+    },
+    "ResearchQuery": {
+      "additionalProperties": false,
+      "description": "One bounded list.json page per relevant disclosure channel.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "meeting_resolution",
+            "periodic_reports",
+            "officer_changes",
+            "ownership_disputes"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "start_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Date"
+        },
+        "end_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Date"
+        },
+        "page": {
+          "default": 1,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "page_count": {
+          "default": 100,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Page Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "ResearchQuery",
+      "type": "object"
+    },
+    "SourceRead": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "dart",
+            "kind",
+            "dart_attachments",
+            "dart_attachment"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "rcept_no": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rcept No"
+        },
+        "dcm_no": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dcm No"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "source_scope": {
+          "default": "company_context",
+          "enum": [
+            "candidate",
+            "company_context",
+            "agenda_context"
+          ],
+          "title": "Source Scope",
+          "type": "string"
+        },
+        "candidate_names": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Candidate Names",
+          "type": "array"
+        },
+        "focus_terms": {
+          "items": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 6,
+          "title": "Focus Terms",
+          "type": "array"
+        },
+        "text_offset": {
+          "default": 0,
+          "maximum": 2000000,
+          "minimum": 0,
+          "title": "Text Offset",
+          "type": "integer"
+        },
+        "text_chars": {
+          "default": 12000,
+          "maximum": 30000,
+          "minimum": 1000,
+          "title": "Text Chars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "SourceRead",
+      "type": "object"
+    },
+    "SubmitAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "const": "submit",
+          "default": "submit",
+          "title": "Action",
+          "type": "string"
+        },
+        "assessments": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Assessments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "assessments"
+      ],
+      "title": "SubmitAction",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "discover_sources": "#/$defs/DiscoverSourcesAction",
+      "finish": "#/$defs/FinishAction",
+      "read_sources": "#/$defs/ReadSourcesAction",
+      "submit": "#/$defs/SubmitAction"
+    },
+    "propertyName": "action"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SubmitAction"
+    },
+    {
+      "$ref": "#/$defs/ReadSourcesAction"
+    },
+    {
+      "$ref": "#/$defs/DiscoverSourcesAction"
+    },
+    {
+      "$ref": "#/$defs/FinishAction"
+    }
+  ]
+}

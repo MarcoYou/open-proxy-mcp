@@ -134,6 +134,8 @@ def _normalize_report_nm(report_nm: str) -> str:
 # ══════════════════════════════════════════════════════════════════════
 
 CORE_PRESET = ["order", "treasury", "dividend", "dilutive", "agm_notice", "ownership5", "earnings"]
+GOVERNANCE_PRESET = ["tender_offer", "proxy_solicitation", "control_change", "litigation",
+                     "treasury", "ownership5", "restructuring", "stake_deal"]
 
 # details 대상 Tier1 여섯 + scan-only Tier2/3. scan_codes 합집합이 실제 스캔 코드가 된다.
 TYPE_REGISTRY: list[dict[str, Any]] = [
@@ -251,6 +253,24 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "max_items": 40, "detail_kind": None, "force_keywords": ["정정"],
         "opt_in": True,  # 임원 소유상황은 매우 노이즈 → 디제스트 디폴트 제외
     },
+    {
+        "code": "tender_offer", "label": "공개매수", "tier": 3,
+        "scan_code": "D004",
+        "matchers": [("의견표명", ["공개매수에관한의견표명"]),
+                     ("결과", ["공개매수결과"]), ("철회", ["공개매수철회"]),
+                     ("설명서", ["공개매수설명서"]), ("신고서", ["공개매수신고서"]),
+                     ("공개매수", ["공개매수"])],
+        "max_items": 20, "detail_kind": None, "force_keywords": ["정정"],
+        "opt_in": True, "interpretation": "discovery_only", "dedup_by_filer": True,
+    },
+    {
+        "code": "proxy_solicitation", "label": "의결권대리행사 권유", "tier": 3,
+        "scan_code": "D003",
+        "matchers": [("의견표명", ["의결권대리행사권유에관한의견표명"]),
+                     ("권유서류", ["의결권대리행사권유", "의결권대리행사참고서류", "위임장권유참고서류"])],
+        "max_items": 20, "detail_kind": None, "force_keywords": ["정정"],
+        "opt_in": True, "interpretation": "discovery_only", "dedup_by_filer": True,
+    },
 ]
 
 _BY_CODE = {t["code"]: t for t in TYPE_REGISTRY}
@@ -270,6 +290,7 @@ _SUGGESTED_TOOL = {
     "earnings": "provisional_earnings", "agm_result": "shareholder_meeting_results",
     "restructuring": "corporate_restructuring", "stake_deal": "corporate_deals",
     "control_change": "ownership_structure", "litigation": "risk_events",
+    "tender_offer": "governance_screen", "proxy_solicitation": "governance_screen",
 }
 
 
@@ -354,6 +375,11 @@ _NL_PERIOD = [
 
 #: 유형 — 말 → 코드. TYPE_REGISTRY 의 label 도 자동으로 받는다(아래에서 합친다).
 _NL_TYPES = {
+    "거버넌스": "governance", "지배구조": "governance",
+    "공개매수": "tender_offer", "공개매수신고서": "tender_offer", "tender": "tender_offer",
+    "위임장": "proxy_solicitation", "위임장권유": "proxy_solicitation", "proxy": "proxy_solicitation",
+    "의결권대리행사": "proxy_solicitation", "의결권권유": "proxy_solicitation",
+    "의결권대리행사권유": "proxy_solicitation",
     "자사주": "treasury", "자기주식": "treasury", "자사주매입": "treasury", "소각": "treasury",
     "배당": "dividend", "현금배당": "dividend",
     "수주": "order", "공급계약": "order", "계약": "order", "단일판매": "order",
@@ -422,7 +448,7 @@ def _nl_period(period: str, start_date: str, end_date: str,
 def _nl_types(types: str) -> str:
     """말 → 코드 목록. 못 알아들은 조각은 그대로 넘겨 원래 검증이 걸러낸다."""
     raw = (types or "").strip()
-    if not raw or raw.lower() in ("core", "all"):
+    if not raw or raw.lower() in ("core", "all", "governance"):
         return raw or "core"
     out, unknown = [], []
     for tok in re.split(r"[,\s·/]+", raw):
@@ -1106,6 +1132,8 @@ def _resolve_types(types: str) -> tuple[list[str], list[str]]:
         return list(CORE_PRESET), notices
     if spec == "all":
         return [t["code"] for t in TYPE_REGISTRY], notices
+    if spec == "governance":
+        return list(GOVERNANCE_PRESET), notices
     codes = [c.strip() for c in re.split(r"[,\s]+", spec) if c.strip()]
     valid = [c for c in codes if c in _BY_CODE]
     unknown = [c for c in codes if c not in _BY_CODE]
@@ -1265,6 +1293,11 @@ async def _build_screener_payload_impl(
             "_force_detail": _force_details(tdef, it.get("report_nm", ""), is_corr),
             "_detail_kind": tdef.get("detail_kind"),
         })
+        if tdef.get("dedup_by_filer"):
+            # Opposing offerors/solicitors must remain separate discovery paths.
+            # An absent filer cannot establish that two reports supersede each other.
+            filer = (it.get("flr_nm") or "").strip() or it.get("rcept_no", "")
+            classified[-1]["dedup_key"] += f":{filer}"
 
     # dedup: **정정본만** 원본을 대체한다.
     #
@@ -1400,7 +1433,10 @@ async def _build_screener_payload_impl(
                      "notice": uni.notice},
         "coverage": coverage,
         "types": {"selected": sel_types, "scan_codes": scan_codes,
-                  "details": details_effective, "details_preview": details_preview},
+                  "details": details_effective, "details_preview": details_preview,
+                  **({"interpretation": "discovery_only", "suggested_tool": "governance_screen",
+                      "next_step": "발견된 공시의 회사를 중복 제거해 최대 30개씩 governance_screen으로 원문을 읽고 평가한다. 제목은 부정 신호 판정이 아니다."}
+                     if types == "governance" else {})},
         "counts": {"scanned": scanned, "classified": len(classified),
                    # `matched` = 조건에 걸린 전체. `returned` = 이번 응답에 실은 수.
                    #   둘을 한 칸에 담으면 표시 한도를 매칭 수로 읽는다(U7 실측).
@@ -1428,6 +1464,9 @@ def _finalize_card(h: dict) -> dict:
     sc = h.get("stock_code")
     card["naver_url"] = _NAVER.format(c=sc) if sc else ""
     card["suggested_tool"] = _SUGGESTED_TOOL.get(h["type"]["code"], "")
+    if _BY_CODE[h["type"]["code"]].get("interpretation") == "discovery_only":
+        card["interpretation"] = "discovery_only"
+        card["signal_basis"] = "filing_title"
     return card
 
 

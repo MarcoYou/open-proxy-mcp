@@ -1,0 +1,638 @@
+{
+  "artifact_kind": "design_contract",
+  "contract": "opm-election-structure-design/1",
+  "status": "partially_implemented",
+  "author": "Astra",
+  "designed_at": "2026-09-10",
+  "scope": "Pre-meeting board election structure advice; no ballot transmission or result persistence",
+  "integration": {
+    "public_tool": "proxy_advise_before_meeting",
+    "opt_in_proposal": "guideline_task_kinds includes election_structure",
+    "request_proposal": "guideline_structure_assessments",
+    "response_proposal": "data.guideline_application.structure_tasks",
+    "candidate_contract": "opm-llm-assessment/6 retained",
+    "candidate_input": "guideline_assessments retained",
+    "model_executor": "caller-owned ModelAdapter",
+    "capability_negotiation": "Client checks supported task kinds and contract versions before submitting; unsupported is explicit",
+    "task_granularity": "One election_structure task per pinned meeting; agenda/criterion-level findings and acceptance",
+    "registry_authority": "Server supplies agenda/person/source IDs; model-local IDs may describe structures but cannot create voting agendas",
+    "scope_recovery": {
+      "proposed_model_action": "propose_scope_patch",
+      "input": "Cited missing/misassigned agenda or person with source window and proposed relationships",
+      "server_handling": "Validate allowed source and local refs; mint server IDs for source-anchored proposals as accepted_unreviewed, issue revised task packet, then reassess affected items",
+      "boundary": "No dependence on parser success; no invented agenda without source; citation acceptance is not proof of semantic attribution",
+      "capability": "Negotiated extension; old candidate adapter need not support it"
+    }
+  },
+  "binding": {
+    "server_owned": [
+      "company_id",
+      "meeting_pin",
+      "cutoff_at",
+      "effective_as_of",
+      "policy_application",
+      "policy_sha256",
+      "engine_bundle_sha256",
+      "task_id",
+      "task_packet_sha256",
+      "source_manifest"
+    ],
+    "policy_application": [
+      "retrospective_current_policy",
+      "historical_policy_replay"
+    ],
+    "historical_policy_replay_requirement": "Publication/availability and effective interval verified; unsupported evidence returns unsupported replay, never silently substitutes current policy",
+    "task_hash_inputs": [
+      "run_binding",
+      "task_kind",
+      "contract_version",
+      "permitted_sources_and_windows",
+      "agenda_registry",
+      "task_instructions"
+    ],
+    "submission_hash_not_input_to_task_id": true,
+    "source_manifest_fields": [
+      "source_id",
+      "document_sha256",
+      "public_available_at",
+      "date_precision",
+      "version_available_at",
+      "window_id",
+      "start_offset",
+      "end_offset"
+    ],
+    "date_only_rule": "Only documents dated before cutoff's Korean calendar date; same-day date-only sources excluded",
+    "freshness": "Known-by cutoff and applicable-to target period are separate requirements",
+    "prior_results": "Only prior meeting results with verified earlier meeting identity; current meeting outcomes forbidden",
+    "retrospective_label": "A current-policy research replay is not an independent historical holdout"
+  },
+  "notation": {
+    "optional_values": "unknown uses null with a gap reference; absence is never zero or false",
+    "record_fields": "Field lists below are semantic design requirements, not JSON Schema",
+    "local_references": "Local IDs resolve only inside the accepted submission and its permitted agenda/person registry"
+  },
+  "records": {
+    "citation": {
+      "required": [
+        "source_id",
+        "document_sha256",
+        "window_id",
+        "quote",
+        "claim_ref"
+      ],
+      "optional": [
+        "location_hint"
+      ]
+    },
+    "board_snapshot": {
+      "required": [
+        "snapshot_id",
+        "effective_condition",
+        "roster_complete",
+        "charter_min",
+        "charter_max",
+        "actual_total",
+        "members",
+        "evidence_refs",
+        "gap_refs"
+      ],
+      "member_fields": [
+        "person_ref",
+        "role",
+        "appointment_event_ref",
+        "term_start",
+        "term_end",
+        "term_end_event",
+        "separately_elected_audit_member",
+        "evidence_refs",
+        "gap_refs"
+      ]
+    },
+    "clause_change": {
+      "required": [
+        "change_id",
+        "agenda_ref",
+        "clause_ref",
+        "role_scope",
+        "before",
+        "after",
+        "effective_condition",
+        "current_incumbent_effect",
+        "rationale",
+        "evidence_refs",
+        "gap_refs"
+      ],
+      "clause_semantics": [
+        "fixed",
+        "minimum",
+        "maximum",
+        "range",
+        "decision_delegation",
+        "not_found_in_reviewed_source"
+      ],
+      "clause_fields": [
+        "text",
+        "semantic_type",
+        "numeric_value",
+        "unit",
+        "decision_authority"
+      ],
+      "effect_status": [
+        "documented",
+        "conditional",
+        "unknown"
+      ]
+    },
+    "condition": {
+      "required": [
+        "condition_id",
+        "all_of"
+      ],
+      "predicate_fields": [
+        "agenda_ref",
+        "outcome"
+      ],
+      "outcomes": [
+        "passed",
+        "failed",
+        "not_tabled"
+      ],
+      "semantics": "Conjunction; alternative branches use separate conditions; at cutoff these are scenarios, not outcomes"
+    },
+    "election_pool": {
+      "required": [
+        "pool_id",
+        "agenda_refs",
+        "condition_ref",
+        "candidate_person_refs",
+        "seat_count",
+        "method",
+        "vote_cap_basis_refs",
+        "evidence_refs",
+        "gap_refs"
+      ],
+      "methods": [
+        "ordinary",
+        "cumulative",
+        "separate_audit_ordinary",
+        "separate_audit_cumulative",
+        "unknown"
+      ],
+      "count_rule": "Candidate count, total board size and elected seats are different; an auditor role is not a second board seat"
+    },
+    "term_projection": {
+      "required": [
+        "projection_id",
+        "snapshot_ref",
+        "condition_ref",
+        "person_ref",
+        "term_end",
+        "term_end_event",
+        "election_pool_ref",
+        "evidence_refs",
+        "gap_refs"
+      ],
+      "semantics": "Projection stays conditional; no conventional AGM date or three-year term imputation"
+    },
+    "effect_finding": {
+      "required": [
+        "finding_id",
+        "criterion_id",
+        "agenda_refs",
+        "fact_refs",
+        "condition_ref",
+        "effect",
+        "materiality",
+        "rationale",
+        "counterevidence_refs",
+        "gap_refs"
+      ],
+      "effect": [
+        "adverse",
+        "beneficial",
+        "neutral",
+        "mixed",
+        "unknown"
+      ],
+      "materiality": [
+        "material",
+        "limited",
+        "unknown"
+      ],
+      "separate_from": [
+        "company_stated_purpose",
+        "legal_applicability",
+        "intent_or_illegality_claim"
+      ]
+    },
+    "legal_assessment": {
+      "required": [
+        "assessment_id",
+        "agenda_refs",
+        "provision_refs",
+        "company_scope",
+        "event_trigger",
+        "applicability",
+        "compliance",
+        "rationale",
+        "evidence_refs",
+        "gap_refs"
+      ],
+      "applicability": [
+        "applies",
+        "not_applicable",
+        "unresolved"
+      ],
+      "compliance": [
+        "compliant",
+        "noncompliant",
+        "unresolved",
+        "not_applicable"
+      ],
+      "boundary": "Semantic law interpretation is LLM human-unreviewed; keyword hit is only a research hint"
+    },
+    "information_gap": {
+      "required": [
+        "gap_id",
+        "affected_refs",
+        "kind",
+        "reviewed_source_refs",
+        "question",
+        "disposition"
+      ],
+      "kinds": [
+        "not_disclosed_in_reviewed_sources",
+        "explicitly_nonpublic",
+        "not_read",
+        "fetch_failed",
+        "conflicting_evidence",
+        "identity_uncertain",
+        "meaning_unresolved",
+        "budget_exhausted"
+      ],
+      "dispositions": [
+        "skip_criterion",
+        "retry_read",
+        "conditional_analysis",
+        "unassessed_scope"
+      ],
+      "skip_rule": "Only the first two availability kinds permit skip_criterion; other gaps must keep their true status"
+    },
+    "policy_judgment": {
+      "required": [
+        "judgment_id",
+        "agenda_ref",
+        "condition_ref",
+        "rule_ids",
+        "finding_refs",
+        "exception_evidence_refs",
+        "recommendation",
+        "rationale",
+        "skipped_criterion_ids",
+        "unresolved_refs"
+      ],
+      "recommendations": [
+        "FOR",
+        "AGAINST",
+        "REVIEW",
+        "NO_VOTE"
+      ],
+      "scope": "A structure concern cannot automatically mark every candidate unfit"
+    }
+  },
+  "policy_design": {
+    "policy_profile": {
+      "id": "opm-election-structure-balanced-draft",
+      "status": "proposed",
+      "institution_consensus": false
+    },
+    "criteria": [
+      {
+        "id": "ES-01",
+        "topic": "board_capacity_and_workload"
+      },
+      {
+        "id": "ES-02",
+        "topic": "term_authority_and_accountability"
+      },
+      {
+        "id": "ES-03",
+        "topic": "staggering_and_replacement_opportunity"
+      },
+      {
+        "id": "ES-04",
+        "topic": "audit_separate_election_and_independence"
+      },
+      {
+        "id": "ES-05",
+        "topic": "cumulative_pool_access"
+      },
+      {
+        "id": "ES-06",
+        "topic": "resignation_reappointment_and_service_continuity"
+      },
+      {
+        "id": "ES-07",
+        "topic": "conditional_agendas_and_shareholder_access"
+      }
+    ],
+    "profile_fields": [
+      "profile_id",
+      "version",
+      "published_at",
+      "effective_from",
+      "criterion_id",
+      "default_position",
+      "adverse_effect_test",
+      "exception_test",
+      "rationale"
+    ],
+    "staggered_default": "case_by_case; institution preset can prefer or oppose introduction with explicit exceptions",
+    "composition_order": [
+      "Resolve scope and law applicability before invoking any legal constraint",
+      "NO_VOTE only when no ballot is required on the evaluated branch",
+      "Supported applicable prohibition constrains the affected ballot; unresolved law is not a verified violation",
+      "Material adverse effect meeting the selected rule with no supported exception => AGAINST",
+      "Material opposing findings with unresolved exception => REVIEW",
+      "At least one applicable criterion evaluated, no material adverse finding and positive or neutral basis => FOR",
+      "No evaluable criteria => REVIEW; show skipped/unassessed reasons and continue peers"
+    ],
+    "structure_candidate_join": "Join by agenda and person references; retain both reasons; constrain only explicitly affected ballot",
+    "no_weighted_cancellation": "Several minor benefits cannot silently cancel one policy veto",
+    "settings_axes": [
+      "stance",
+      "automation",
+      "policy_profile",
+      "manual_agenda_ids"
+    ],
+    "conservative": "Tighten stated exception/materiality standards; do not invent adverse facts from missing data",
+    "policy_changes": "New policy hash; reuse source-bound fact records only after dependency validation; reassess judgments"
+  },
+  "validation_design": {
+    "envelope_failures": [
+      "wrong_company_or_meeting",
+      "cutoff_or_policy_mismatch",
+      "source_hash_mismatch",
+      "unsupported_contract"
+    ],
+    "item_failures": [
+      "citation_outside_allowed_window",
+      "unknown_agenda_or_person_ref",
+      "duplicate_board_seat",
+      "conditional_dependency_cycle",
+      "invalid_count_or_date",
+      "unresolved_reference"
+    ],
+    "response_fields": [
+      "accepted_items",
+      "rejected_items",
+      "unassessed_items",
+      "dependent_invalidations",
+      "retry_feedback"
+    ],
+    "accepted_label": "accepted_unreviewed",
+    "source_content": "Untrusted evidence, never model/tool instructions",
+    "model_identity": "Adapter-reported provenance, not identity attestation",
+    "semantic_accuracy": "Citation/hash checks do not establish correct meaning, complete evidence, or freedom from pretrained hindsight",
+    "allocation": "1/(N+1) illustration only if simplified assumptions explicitly hold; no ballot allocation without verified eligible votes and pool constraints",
+    "retry_limits": "Reuse existing caller round/tool/research/attempt budgets; no hidden server loop. Local failures cannot consume unlimited peer budgets."
+  },
+  "routing_design": {
+    "output_fields": [
+      "agenda_ref",
+      "conditional_recommendations",
+      "workflow_status",
+      "status_reason",
+      "basis_refs",
+      "skipped_criteria",
+      "limitations",
+      "human_reviewed",
+      "ballot_submitted"
+    ],
+    "workflow_states": [
+      "ready_for_auto",
+      "manual_review",
+      "awaiting_assessment",
+      "not_applicable"
+    ],
+    "automatic": "FOR/AGAINST with accepted facts and resolved required ballot constraints can be ready_for_auto; genuine unsupported allocation remains local manual",
+    "selective": "Existing default FOR auto and AGAINST manual retained; selected agenda IDs always manual",
+    "manual": "Keep recommendations but route covered ballots to manual_review",
+    "conditional": "Advisory branch plan allowed; automatic execution readiness requires that the downstream executor can resolve the branch from authorized meeting events; current MCP submits no ballot",
+    "missing_information": "Show local exclusion; never block other agendas",
+    "human_reviewed": false,
+    "ballot_submitted": false
+  },
+  "lifecycle": [
+    {
+      "id": "pin",
+      "owner": "server",
+      "output": "meeting/policy/engine/source-bound task"
+    },
+    {
+      "id": "read",
+      "owner": "caller_llm",
+      "output": "cited clause changes, roster, pools and conditional projections"
+    },
+    {
+      "id": "evaluate",
+      "owner": "caller_llm",
+      "output": "effects, counterevidence, gaps, policy judgments"
+    },
+    {
+      "id": "validate",
+      "owner": "server",
+      "output": "accepted/rejected items and dependency-local feedback"
+    },
+    {
+      "id": "repair",
+      "owner": "caller_llm",
+      "output": "targeted reads or corrected items within shared budgets"
+    },
+    {
+      "id": "compose",
+      "owner": "server",
+      "output": "candidate/structure join and settings-based routing"
+    },
+    {
+      "id": "return",
+      "owner": "server",
+      "output": "JSON and Markdown with the same decisions and limitations"
+    }
+  ],
+  "update_design": {
+    "persistence": "Request-local/server-stateless; caller may retain continuation; no user-result files or scheduled jobs",
+    "model_change": "Fresh evaluator assessment identity, same packet/policy for controlled comparison; avoid prior answers in independent evaluation",
+    "source_added": "Only after an allowed read; discovery titles are not evidence",
+    "source_replaced": "Invalidate dependent facts and judgments, retain unrelated tasks after fingerprint checks",
+    "source_correction_after_cutoff": "Exclude from same historical run; a later cutoff requires a new run",
+    "shared_dependency_changed": "Invalidate every dependent task; locality does not permit reuse of stale dependencies",
+    "progress": "Pending/rejected structure items do not prevent returning completed candidate/other-agenda advice"
+  },
+  "rollout": [
+    {
+      "step": "E1",
+      "deliverable": "Capability negotiation, sibling task/source registry and source adapters for official case law and company charter text",
+      "gate": "Old candidate-only clients retain their contract; unsupported sources/contracts explicit; publication/version and text provenance checked before citation"
+    },
+    {
+      "step": "E2",
+      "deliverable": "Cited structure submission and local validation",
+      "gate": "Wrong company/date/hash rejected; missing criterion and malformed peer item do not halt unrelated advice"
+    },
+    {
+      "step": "E3",
+      "deliverable": "Policy composition, branching and final rendering",
+      "gate": "Same accepted facts across settings; no global keyword override; JSON/Markdown parity"
+    },
+    {
+      "step": "E4",
+      "deliverable": "Targeted actual HTTP MCP validation",
+      "gate": "Each selected annual/extraordinary meeting separate; read, submit, repair and final output exercised with caller LLM"
+    },
+    {
+      "step": "E5",
+      "deliverable": "Independent held-out comparison and scoped release readiness",
+      "gate": "Separate known research cases from unseen cases; compare model families and policy settings; deployment reported only after live checks"
+    }
+  ],
+  "acceptance_cases": [
+    "fixed_three_years_to_max_three_years_is_not_maximum_extension",
+    "cap_reduced_but_actual_board_expands",
+    "staggered_abolition_is_not_introduction",
+    "audit_five_unchanged_is_not_three_to_five",
+    "one_new_separate_auditor_plus_one_continuing_is_not_total_one",
+    "separate_audit_cumulative_not_categorically_excluded",
+    "executive_officer_term_not_director_term",
+    "resignation_reappointment_does_not_erase_service",
+    "unknown_term_skips_schedule_not_other_criteria",
+    "budget_exhaustion_is_not_nonpublic",
+    "past_verified_meeting_result_allowed_current_result_excluded",
+    "conditional_same_person_not_double_counted",
+    "positive_counterevidence_must_be_addressed",
+    "source_refresh_invalidates_only_verified_dependencies",
+    "bad_structure_item_does_not_stop_good_candidate",
+    "model_adapter_change_preserves_input_packet",
+    "conservative_and_automation_do_not_change_fact_values"
+  ],
+  "submission_envelope": {
+    "server_bound": [
+      "task_id",
+      "task_packet_sha256",
+      "run_id",
+      "contract_version"
+    ],
+    "caller_submitted_collections": [
+      "board_snapshots",
+      "clause_changes",
+      "conditions",
+      "election_pools",
+      "term_projections",
+      "effect_findings",
+      "legal_assessments",
+      "information_gaps",
+      "policy_judgments"
+    ],
+    "collection_types": "Each collection uses the correspondingly named records entry; every member has its local ID and dependency references",
+    "evaluator_provenance": "Runner records adapter name/version and prompt fingerprint; model cannot assert human review",
+    "empty_collections": "Allowed with explicit scope finding and source coverage; empty is never proof of no adverse facts",
+    "dependency_validation": "Every finding/judgment references accepted facts or identified unresolved gaps; rejected facts invalidate dependent judgments"
+  },
+  "value_types": {
+    "identifiers": "Nonempty strings, server scope for agenda/person/source and submission scope for local records",
+    "counts": "Nonnegative integers or null with a gap; charter bounds and occupied/elected seats are different units",
+    "terms": "Explicit numeric quantity plus unit (years/months/days) or source-defined end event; no numeric coercion from unknown",
+    "dates": "ISO 8601 calendar dates; exact instants require timezone and availability evidence",
+    "completeness": "Explicit boolean or unknown with a gap; row count does not prove complete roster",
+    "conditions": "condition_ref=null means unconditional within pinned scope; other refs resolve to all_of predicates; alternative branches remain separate",
+    "citations": "Quote must occur in the allowed immutable source window under documented normalization; document hash alone does not authorize unseen text"
+  },
+  "source_readiness": {
+    "audit_basis": "Read-only repository paths, not a new live end-to-end run",
+    "available_paths": [
+      "DART notice charter amendment excerpts",
+      "law_lookup statute/decree corpus",
+      "proxy_contest company-disclosed litigation rulings"
+    ],
+    "missing_integrated_paths": [
+      "DART charter attachment body selection and company charter historical version resolution",
+      "official case-law search/read and temporal evidence binding"
+    ],
+    "current_read_action_types": [
+      "dart",
+      "kind"
+    ],
+    "proposed_adapter_types": [
+      "dart_attachment",
+      "official_case_law",
+      "company_charter_text"
+    ],
+    "official_case_fields": [
+      "case_number",
+      "court",
+      "decided_at",
+      "public_availability_evidence",
+      "instance",
+      "appeal_or_finality_status",
+      "holding",
+      "relevant_provisions",
+      "factual_distinctions"
+    ],
+    "charter_fields": [
+      "company_id",
+      "version_id",
+      "amended_at",
+      "effective_from",
+      "public_availability_evidence",
+      "full_or_excerpt",
+      "proposal_or_effective",
+      "transitional_clauses"
+    ],
+    "gate": "Server verifies allowed source, immutable text hash, availability/version evidence and read window before source manifest inclusion",
+    "pdf_boundary": "No PDF/OCR ingestion in this repository; unsupported format or independently supplied source-traceable text through a separate documented adapter",
+    "no_peeking": "Decision/date metadata alone does not prove public text availability; future AGM results cannot establish pre-meeting charter state",
+    "acquisition_strategy": "On-demand relevant clauses/cases; no full corpus completion prerequisite",
+    "charter_priority": [
+      "pre_cutoff_business_report_attachment",
+      "other_verified_pre_cutoff_disclosure_attachment",
+      "official_company_IR_historical_text"
+    ],
+    "dart_attachment_contract": {
+      "identity": [
+        "rcept_no",
+        "dcm_no_or_verified_zip_member",
+        "attachment_title",
+        "parent_receipt_ref",
+        "attachment_public_availability",
+        "correction_status",
+        "document_sha256"
+      ],
+      "discovery": "Compare document.xml member inventory and DART attachment index; missing XML member is not proof of absent attachment",
+      "reading": "Dedicated supported-format service; retain existing main-document reader behavior",
+      "formats": "XML/HTML/text allowed; PDF-only explicitly unsupported in this repository",
+      "readiness": "Discovery metadata is not readable evidence until body obtained and verified"
+    },
+    "report_attachment_rule": "Do not assume all annual/half-yearly/quarterly reports have identical charter attachment requirements; annual-report charter attachments are the first lookup path."
+  },
+  "runtime_increment": {
+    "contract": "opm-election-structure/1",
+    "request": "guideline_structure",
+    "runtime_schema_bundle": "structure-contract.json",
+    "completed": [
+      "dated_dart_charter_attachments",
+      "optional_visual_reader",
+      "page_and_span_provenance",
+      "cited_structure_assessment",
+      "candidate_composition",
+      "partial_retry"
+    ],
+    "pending": [
+      "official_court_source_adapter",
+      "legal_assessment",
+      "scope_patch",
+      "role_aware_cross_pool_seat_reconciliation",
+      "independent_multimodel_quality",
+      "production_visual_provider"
+    ]
+  }
+}

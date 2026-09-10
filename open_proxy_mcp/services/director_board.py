@@ -50,6 +50,10 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
                                              company_not_found_warning,
                                              resolve_company_query)
 from open_proxy_mcp.services.executive_pay import parse_executive_pay, reconcile_with_api
+from open_proxy_mcp.services.board_attendance import (
+    parse_board_attendance_observations,
+    summarize_attendance_observations,
+)
 from open_proxy_mcp.services.shareholder_meeting_parser import is_outside_role
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -1016,34 +1020,6 @@ async def _pay_agenda_scope(
 
 # ── attendance: 개별 이사 이사회 출석률(사업보고서 원문 파서) ────────────────────
 
-# 사업보고서 '이사회 활동내역'의 개별 이사 출석률: '한애라 (출석률 :100%)'·'박성하(출석률:50%)' 형태.
-# 소수점 허용 — (\d+)만 잡으면 '서창석 (출석률 : 87.5%)'에서 "87" 뒤 '%'가 '.'과 안 맞아 매치 실패 →
-# 해당 이사 통째 누락(260713 KT 서창석 실측). 값은 float로 파싱(int('87.5') 크래시 방지).
-_ATTEND_RE = re.compile(r"([가-힣]{2,5})\s*\(\s*출석률\s*[:：]\s*(\d+(?:\.\d+)?)\s*%\s*\)")
-
-
-def _parse_board_attendance(text: str) -> dict[str, int | float]:
-    """사업보고서 원문에서 '이사회' 개별 출석률 파싱. 출석률 표가 여러 개(이사회·감사위·보상위 등)라
-    같은 이름이 body마다 다른 값으로 나오므로, **첫 클러스터(=이사회 본 표 헤더행)만** 잡는다
-    (섹션-local, 260709 실측: SK하이닉스 안현이 이사회 91% vs 위원회 100%로 달라 마지막값 잡으면 오류).
-    헤더행은 이름들이 연속(간격<400자) → 큰 간격 나오면 다음 위원회 표로 보고 끊는다."""
-    ms = list(_ATTEND_RE.finditer(text))
-    if not ms:
-        return {}
-    cluster = [ms[0]]
-    for m in ms[1:]:
-        if m.start() - cluster[-1].end() < 400:
-            cluster.append(m)
-        else:
-            break
-    board: dict[str, float] = {}
-    for m in cluster:
-        if m.group(1) not in board:      # 첫 표(이사회)의 첫 값 우선
-            val = float(m.group(2))      # 87.5 등 소수점 — int()는 크래시
-            board[m.group(1)] = int(val) if val.is_integer() else val
-    return board
-
-
 async def _attendance_scope(client, corp_code: str, year: int, *, warnings: list[str]) -> dict[str, Any]:
     """개별 이사 이사회 출석률 — 사업보고서 원문 파서(v2, 260709 신규). exctvSttus의 rcept_no로 그
     사업보고서 원문(document.xml, 각주 해소와 캐시 공유)을 받아 '이사회 활동내역'의 출석률 표를 파싱.
@@ -1065,30 +1041,30 @@ async def _attendance_scope(client, corp_code: str, year: int, *, warnings: list
         warnings.append(f"[attendance] 원문 조회 실패: {e}")
         return {"status": "fetch_failed", "rcept_no": rcept_no, "note": "사업보고서 원문 조회 실패."}
     text = (doc or {}).get("text") or ""
-    board = _parse_board_attendance(text)
-    if not board:
-        return {"status": "not_found", "rcept_no": rcept_no,
-                "note": "사업보고서에서 이사회 개별 출석률 표 미발견 — 금융지주 등 지배구조보고서 "
-                        "별도양식이거나 소규모사 미기재."}
-    directors = sorted(
-        [{"name": n, "attendance_pct": p, "low": p < _ATTENDANCE_LOW} for n, p in board.items()],
-        key=lambda d: d["attendance_pct"])
-    # 이사회 개최 횟수(best-effort) — 출석률 클러스터 근처의 'N회 개최'/'총 N회'
-    first = _ATTEND_RE.search(text)
-    near = text[max(0, first.start() - 1500): first.start()] if first else ""
-    mm = re.search(r"(\d+)\s*회\s*개최|총\s*(\d+)\s*회", near)
-    count = next((int(g) for g in (mm.groups() if mm else []) if g), None)
-    return {
-        "status": "parsed",
-        "source": "사업보고서 이사회 활동내역 원문",
+    extracted = parse_board_attendance_observations((doc or {}).get("html") or "")
+    observations = extracted.get("observations") or []
+    source_text = extracted.get("section_text") or text
+    provenance = {
         "rcept_no": rcept_no,
-        "board_meeting_count": count,
-        "board_headcount": board_headcount,   # 등기 이사회 인원(완전성 교차검증용)
-        "directors": directors,
-        "low_attendance": [d for d in directors if d["low"]],
-        "note": f"이사회 출석률 <{_ATTENDANCE_LOW:.0f}%는 저조(low) 표시. 위원회(감사위 등) 출석률은 "
-                "이사회 본 표만 파싱해 제외. 개별 성명은 사업보고서 원문 표 기준.",
+        "source_url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rcept_no}",
+        "section_title": extracted.get("section_title") or "이사회에 관한 사항",
+        "raw_text": source_text[:20000],
+        "raw_text_total_chars": len(source_text),
+        "raw_text_truncated": len(source_text) > 20000,
+        "next_action": "공시 원문의 '이사회에 관한 사항 → 주요 의결사항'에서 기간별 출석 표와 불참 사유를 확인하세요.",
     }
+    if observations:
+        directors = summarize_attendance_observations(observations)
+        return {
+            "status": "parsed", "source": "사업보고서 이사회 활동내역 원문",
+            **provenance, "board_meeting_count": None,
+            "board_headcount": board_headcount, "directors": directors,
+            "low_attendance": [d for d in directors if d["low"] is True],
+            "note": "출석률은 공시된 기간별 값입니다. 서로 다른 기간의 비율을 평균내지 않으며 직전 임기 전체를 확인한 값이 아닙니다. 같은 성명도 후보 동일성 확인이 별도로 필요합니다.",
+        }
+    return {"status": extracted["status"], **provenance,
+            "board_headcount": board_headcount, "directors": [], "low_attendance": [],
+            "note": extracted.get("reason") or "원문 추출 범위를 확인해야 합니다."}
 
 
 # ── pay_criteria: 보수 산정기준 (사업보고서 VIII-2 원문 파서) ─────────────────

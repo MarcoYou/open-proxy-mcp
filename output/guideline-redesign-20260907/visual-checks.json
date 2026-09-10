@@ -1,0 +1,42 @@
+[
+  {
+    "file": "guideline.html",
+    "width": 1440,
+    "overflow": false,
+    "brokenHash": [],
+    "errors": [],
+    "missing": [],
+    "policyHashMatch": true
+  },
+  {
+    "interactions": "search/category/75 percent boundary/accepted exception/unknown exception",
+    "passed": true
+  },
+  {
+    "file": "architecture.html",
+    "width": 1440,
+    "overflow": false,
+    "brokenHash": [],
+    "errors": [],
+    "missing": [],
+    "policyHashMatch": true
+  },
+  {
+    "file": "guideline.html",
+    "width": 390,
+    "overflow": false,
+    "brokenHash": [],
+    "errors": [],
+    "missing": [],
+    "policyHashMatch": true
+  },
+  {
+    "file": "architecture.html",
+    "width": 390,
+    "overflow": false,
+    "brokenHash": [],
+    "errors": [],
+    "missing": [],
+    "policyHashMatch": true
+  }
+]

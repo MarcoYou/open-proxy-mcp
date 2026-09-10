@@ -1,0 +1,1656 @@
+{
+  "note": "가상 사례; selected rules only, no live or institutional vote prediction",
+  "cases": [
+    {
+      "id": "EX01",
+      "title": "출석 6/8 = 75% 경계",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_exception": {
+          "metric_id": "director.attendance_exception",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": 75,
+          "status": "verified",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX02",
+      "title": "출석 5/8 = 62.5%, 예외 없음",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_exception": {
+          "metric_id": "director.attendance_exception",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": 62.5,
+          "status": "verified",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "AGAINST",
+        "workflow_status": "ready_for_review"
+      }
+    },
+    {
+      "id": "EX03",
+      "title": "62.5%지만 소명 수용",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_exception": {
+          "metric_id": "director.attendance_exception",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": 62.5,
+          "status": "verified",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX04",
+      "title": "62.5%, 소명 존재 여부 미확인",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": 62.5,
+          "status": "verified",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX05",
+      "title": "기준일 후 공개된 출석률 제외",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_exception": {
+          "metric_id": "director.attendance_exception",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": 62.5,
+          "status": "verified",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-20T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX06",
+      "title": "신임 후보에는 임기 출석률 규칙 비적용",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX07",
+      "title": "감사의견 부적정: OPM 초안 반대",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "F01"
+      ],
+      "facts": {
+        "financial.audit_opinion": {
+          "metric_id": "financial.audit_opinion",
+          "value": "adverse",
+          "status": "verified",
+          "unit": "enum",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "AGAINST",
+        "workflow_status": "ready_for_review"
+      }
+    },
+    {
+      "id": "EX08",
+      "title": "감사의견 미확인: 의견거절로 추정 금지",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "F01"
+      ],
+      "facts": {},
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX09",
+      "title": "철회 안건은 정책 기본값보다 우선",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "withdrawn",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "F01"
+      ],
+      "facts": {
+        "financial.audit_opinion": {
+          "metric_id": "financial.audit_opinion",
+          "value": "adverse",
+          "status": "verified",
+          "unit": "enum",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "not_votable"
+      }
+    },
+    {
+      "id": "EX10",
+      "title": "기관 정책팩 부재: OPM으로 대체 금지",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": false,
+      "category_ready": true,
+      "rule_ids": [
+        "F01"
+      ],
+      "facts": {
+        "financial.audit_opinion": {
+          "metric_id": "financial.audit_opinion",
+          "value": "adverse",
+          "status": "verified",
+          "unit": "enum",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "policy_unavailable"
+      }
+    },
+    {
+      "id": "EX11",
+      "title": "반대와 찬성의 충돌은 반대 근거 보존",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B04",
+        "B05"
+      ],
+      "facts": {
+        "director.accountable_harm": {
+          "metric_id": "director.accountable_harm",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.fitness_accepted": {
+          "metric_id": "director.fitness_accepted",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "AGAINST",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX12",
+      "title": "법 위반이라고 쓴 LLM 초안은 미확인",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "G01"
+      ],
+      "facts": {
+        "law.compliance": {
+          "metric_id": "law.compliance",
+          "value": "violation",
+          "status": "verified",
+          "unit": "enum",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": null,
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX13",
+      "title": "확인된 적법성만으로 찬성 생성 금지",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "G01"
+      ],
+      "facts": {
+        "law.compliance": {
+          "metric_id": "law.compliance",
+          "value": "compliant",
+          "status": "verified",
+          "unit": "enum",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX14",
+      "title": "미확인 기준이 남은 찬성 차단",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B04",
+        "B05"
+      ],
+      "facts": {
+        "director.fitness_accepted": {
+          "metric_id": "director.fitness_accepted",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX15",
+      "title": "숫자 대신 true가 들어오면 비교 금지",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_exception": {
+          "metric_id": "director.attendance_exception",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": true,
+          "status": "verified",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX16",
+      "title": "단위 혼용 차단",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_exception": {
+          "metric_id": "director.attendance_exception",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": 0.625,
+          "status": "verified",
+          "unit": "ratio",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX17",
+      "title": "회사·후보가 다른 근거 차단",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B04"
+      ],
+      "facts": {
+        "director.accountable_harm": {
+          "metric_id": "director.accountable_harm",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "OTHER_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX18",
+      "title": "단순 소각에는 처분 불공정 자료 미요구",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "T02"
+      ],
+      "facts": {
+        "treasury.action": {
+          "metric_id": "treasury.action",
+          "value": "cancel",
+          "status": "verified",
+          "unit": "enum",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX19",
+      "title": "자료가 정상이어도 카테고리 미지원이면 찬성 불가",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": false,
+      "rule_ids": [
+        "B05"
+      ],
+      "facts": {
+        "director.fitness_accepted": {
+          "metric_id": "director.fitness_accepted",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX20",
+      "title": "음수 순익의 배당성향은 0으로 대체하지 않음",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "D01"
+      ],
+      "facts": {
+        "dividend.funding_gap": {
+          "metric_id": "dividend.funding_gap",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.payout_pct": {
+          "metric_id": "dividend.payout_pct",
+          "value": null,
+          "status": "not_applicable",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX21",
+      "title": "적자라도 비율 비적용 근거·재원·정책 확인 시 배당 찬성 경로",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "D01",
+        "D02",
+        "D03"
+      ],
+      "facts": {
+        "dividend.payout_comparable": {
+          "metric_id": "dividend.payout_comparable",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.funding_gap": {
+          "metric_id": "dividend.funding_gap",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.underpayment_harm": {
+          "metric_id": "dividend.underpayment_harm",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.policy_consistent": {
+          "metric_id": "dividend.policy_consistent",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.payout_pct": {
+          "metric_id": "dividend.payout_pct",
+          "value": null,
+          "status": "not_applicable",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "FOR",
+        "workflow_status": "ready_for_review"
+      }
+    },
+    {
+      "id": "EX22",
+      "title": "적자여도 재원 부족 신호는 유지",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "D01",
+        "D02",
+        "D03"
+      ],
+      "facts": {
+        "dividend.payout_comparable": {
+          "metric_id": "dividend.payout_comparable",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.funding_gap": {
+          "metric_id": "dividend.funding_gap",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.underpayment_harm": {
+          "metric_id": "dividend.underpayment_harm",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.policy_consistent": {
+          "metric_id": "dividend.policy_consistent",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "dividend.payout_pct": {
+          "metric_id": "dividend.payout_pct",
+          "value": null,
+          "status": "not_applicable",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX23",
+      "title": "감사 직무 이력 부재가 확인된 신임: 용역비율 비적용",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "U02"
+      ],
+      "facts": {
+        "audit.has_relevant_service_5y": {
+          "metric_id": "audit.has_relevant_service_5y",
+          "value": false,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "needs_review"
+      }
+    },
+    {
+      "id": "EX24",
+      "title": "감사 경력 자체가 미확인이면 비적용 처리 금지",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "U02"
+      ],
+      "facts": {},
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "NO_RECOMMENDATION",
+        "workflow_status": "insufficient_evidence"
+      }
+    },
+    {
+      "id": "EX25",
+      "title": "출석률 예외 미확정이어도 다른 규칙의 확정 반대 보존",
+      "synthetic": true,
+      "scope": "isolated_rule_conformance",
+      "entity_id": "SYNTHETIC_CO",
+      "agenda_id": "SYNTHETIC_AGENDA",
+      "as_of": "2026-03-10T23:59:59+09:00",
+      "agenda_state": "votable",
+      "profile_available": true,
+      "category_ready": true,
+      "rule_ids": [
+        "B01",
+        "B04"
+      ],
+      "facts": {
+        "director.is_reelection": {
+          "metric_id": "director.is_reelection",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_complete": {
+          "metric_id": "director.attendance_complete",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.attendance_pct": {
+          "metric_id": "director.attendance_pct",
+          "value": 62.5,
+          "status": "verified",
+          "unit": "percent",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        },
+        "director.accountable_harm": {
+          "metric_id": "director.accountable_harm",
+          "value": true,
+          "status": "verified",
+          "unit": "boolean",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "period_start": "2023-03-01",
+          "period_end": "2026-02-28",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "evidence_refs": [
+            "SYNTHETIC_E1"
+          ],
+          "accepted_by": "synthetic-reviewer",
+          "derivation": null
+        }
+      },
+      "evidence_registry": {
+        "SYNTHETIC_E1": {
+          "document_type": "synthetic_fixture",
+          "entity_id": "SYNTHETIC_CO",
+          "agenda_id": "SYNTHETIC_AGENDA",
+          "public_at": "2026-03-01T10:00:00+09:00",
+          "locator": "명시적으로 만든 가상 사례; 실제 공시나 기관 행사 결과 아님"
+        }
+      },
+      "expected": {
+        "recommended_vote": "AGAINST",
+        "workflow_status": "needs_review"
+      }
+    }
+  ]
+}

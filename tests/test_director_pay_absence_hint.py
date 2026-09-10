@@ -12,9 +12,18 @@
 """
 import asyncio
 
+import pytest
+
+from open_proxy_mcp import extensions
 from open_proxy_mcp.services.director_board import _compensation_scope
 
 _HINT = "서식이 바뀌었을 수 있으니"
+
+
+@pytest.fixture(autouse=True)
+def isolated_hint_providers(monkeypatch):
+    """설치된 로컬 확장이나 앞선 테스트의 provider 캐시에 의존하지 않는다."""
+    monkeypatch.setattr(extensions, "_hint_providers", [])
 
 
 class _FakeClient:
@@ -62,6 +71,21 @@ def test_the_hint_names_no_tool_that_the_public_repo_lacks():
     ws = _run(_LIMIT, [])
     assert "filing_section" not in ws[0]
     assert "사업보고서 「이사·감사의 보수」 절" in ws[0]
+
+
+def test_an_installed_hint_provider_supplies_the_source_location(monkeypatch):
+    calls = []
+    location = "확장 제공 원문 위치: 이사·감사의 보수"
+
+    def provider(rcept_no, title, no):
+        calls.append((rcept_no, title, no))
+        return location
+
+    monkeypatch.setattr(extensions, "_hint_providers", [provider])
+    ws = _run(_LIMIT, [])
+    assert calls == [("20260311000123", "이사·감사의 보수", None)]
+    assert len(ws) == 1 and _HINT in ws[0] and location in ws[0]
+    assert "사업보고서 「이사·감사의 보수」 절" not in ws[0]
 
 
 def test_neither_read_stays_plain():

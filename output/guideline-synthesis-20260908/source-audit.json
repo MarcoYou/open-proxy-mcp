@@ -1,0 +1,46 @@
+{
+  "scope": "supplied_artifacts_static_only",
+  "fable": {
+    "rules_total": 83,
+    "default_rules": 12,
+    "indicators": 103
+  },
+  "astra": {
+    "rules": 34,
+    "metrics": 45
+  },
+  "observations": [
+    {
+      "id": "S01",
+      "evidence": "/rules/45",
+      "base": 50,
+      "active_scale": 0.6,
+      "resolved": 30,
+      "relative_change_pct": -40,
+      "issue": "±25% explanatory bound conflicts with active scale; L2 immutability also conflicts"
+    },
+    {
+      "id": "S02",
+      "evidence": "/exceptions/5",
+      "test_metric": "co.asset_total_won",
+      "why": "자본금 10억 미만 소규모회사 §363③ 단축",
+      "issue": "asset metric vs capital description"
+    },
+    {
+      "id": "S03",
+      "evidence": "/rules/24",
+      "issue": "source text 2곳 초과 versus >=2; source verification needed"
+    },
+    {
+      "id": "S04",
+      "evidence": "/rules/81",
+      "issue": "value references agenda.topic in prose convention; no typed fact_ref contract"
+    },
+    {
+      "id": "S05",
+      "evidence": "03-appendix-current-v1.3-policy.md",
+      "internal_version": "v1.2",
+      "issue": "filename/internal version mismatch"
+    }
+  ]
+}

@@ -1,0 +1,688 @@
+{
+  "$defs": {
+    "AppointmentAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
+        },
+        "value": {
+          "enum": [
+            "new",
+            "renewed",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value"
+      ],
+      "title": "AppointmentAssessment",
+      "type": "object"
+    },
+    "AttendanceAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
+        },
+        "value": {
+          "enum": [
+            "known",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        },
+        "period_start": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Period Start",
+          "type": "string"
+        },
+        "period_end": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Period End",
+          "type": "string"
+        },
+        "period_basis": {
+          "default": "task",
+          "enum": [
+            "task",
+            "llm_reading"
+          ],
+          "title": "Period Basis",
+          "type": "string"
+        },
+        "period_evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Period Evidence Refs",
+          "type": "array"
+        },
+        "all_board_meetings_covered": {
+          "title": "All Board Meetings Covered",
+          "type": "boolean"
+        },
+        "service_intervals": {
+          "items": {
+            "$ref": "#/$defs/DutyInterval"
+          },
+          "maxItems": 20,
+          "title": "Service Intervals",
+          "type": "array"
+        },
+        "legal_suspension_intervals": {
+          "items": {
+            "$ref": "#/$defs/DutyInterval"
+          },
+          "maxItems": 20,
+          "title": "Legal Suspension Intervals",
+          "type": "array"
+        },
+        "meetings": {
+          "items": {
+            "$ref": "#/$defs/BoardMeetingAttendance"
+          },
+          "maxItems": 200,
+          "title": "Meetings",
+          "type": "array"
+        },
+        "exception": {
+          "$ref": "#/$defs/AttendanceException"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value",
+        "period_start",
+        "period_end",
+        "all_board_meetings_covered",
+        "service_intervals",
+        "legal_suspension_intervals",
+        "meetings",
+        "exception"
+      ],
+      "title": "AttendanceAssessment",
+      "type": "object"
+    },
+    "AttendanceException": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
+        },
+        "value": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "unknown",
+            "not_applicable"
+          ],
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value"
+      ],
+      "title": "AttendanceException",
+      "type": "object"
+    },
+    "BoardMeetingAttendance": {
+      "additionalProperties": false,
+      "properties": {
+        "meeting_id": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Meeting Id",
+          "type": "string"
+        },
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Date",
+          "type": "string"
+        },
+        "attendance": {
+          "enum": [
+            "present",
+            "absent",
+            "unknown"
+          ],
+          "title": "Attendance",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "duty_eligibility": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeetingDutyEligibility"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "meeting_id",
+        "date",
+        "attendance",
+        "evidence_refs"
+      ],
+      "title": "BoardMeetingAttendance",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 3000,
+          "minLength": 12,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "DutyInterval": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "End",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "rationale",
+        "evidence_refs"
+      ],
+      "title": "DutyInterval",
+      "type": "object"
+    },
+    "FindingReview": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "confirmed",
+            "incorrect_extraction",
+            "unresolved"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "disposition",
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved"
+      ],
+      "title": "FindingReview",
+      "type": "object"
+    },
+    "IndependenceAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "counterevidence": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence",
+          "type": "array"
+        },
+        "unresolved": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Unresolved",
+          "type": "array"
+        },
+        "unresolved_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "missing_information",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "not_assessed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unresolved Kind"
+        },
+        "value": {
+          "enum": [
+            "concern",
+            "no_concern",
+            "no_public_concern",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        },
+        "information_gaps": {
+          "items": {
+            "$ref": "#/$defs/PublicInformationGap"
+          },
+          "maxItems": 12,
+          "title": "Information Gaps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rationale",
+        "evidence_refs",
+        "counterevidence",
+        "unresolved",
+        "value"
+      ],
+      "title": "IndependenceAssessment",
+      "type": "object"
+    },
+    "MeetingDutyEligibility": {
+      "additionalProperties": false,
+      "description": "Cited role timing on an actual service start/end date only.\n\nnot_on_duty means before appointment or after departure at THIS meeting,\nnot absence, recusal, a voting-right exclusion, or an attendance exception.\nunknown leaves the denominator unresolved. Semantic attribution remains a\nhuman-unreviewed LLM judgment; the server checks dates, citations and counts.",
+      "properties": {
+        "value": {
+          "enum": [
+            "not_on_duty",
+            "unknown"
+          ],
+          "title": "Value",
+          "type": "string"
+        },
+        "boundary": {
+          "enum": [
+            "service_start",
+            "service_end"
+          ],
+          "title": "Boundary",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "value",
+        "boundary",
+        "rationale",
+        "evidence_refs"
+      ],
+      "title": "MeetingDutyEligibility",
+      "type": "object"
+    },
+    "PublicInformationGap": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "kind": {
+          "const": "private_employment_advisory_compensation",
+          "title": "Kind",
+          "type": "string"
+        },
+        "availability": {
+          "enum": [
+            "not_found_in_reviewed_public_sources",
+            "explicitly_nonpublic"
+          ],
+          "title": "Availability",
+          "type": "string"
+        },
+        "search_scope": {
+          "items": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Search Scope",
+          "type": "array"
+        },
+        "disposition": {
+          "const": "follow_up_only",
+          "title": "Disposition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "kind",
+        "availability",
+        "search_scope",
+        "disposition"
+      ],
+      "title": "PublicInformationGap",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "task_id": {
+      "maxLength": 6000,
+      "minLength": 1,
+      "title": "Task Id",
+      "type": "string"
+    },
+    "evaluator": {
+      "maxLength": 6000,
+      "minLength": 1,
+      "title": "Evaluator",
+      "type": "string"
+    },
+    "appointment": {
+      "$ref": "#/$defs/AppointmentAssessment"
+    },
+    "independence": {
+      "$ref": "#/$defs/IndependenceAssessment"
+    },
+    "attendance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AttendanceAssessment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "finding_reviews": {
+      "items": {
+        "$ref": "#/$defs/FindingReview"
+      },
+      "maxItems": 30,
+      "title": "Finding Reviews",
+      "type": "array"
+    }
+  },
+  "required": [
+    "task_id",
+    "evaluator",
+    "appointment",
+    "independence"
+  ],
+  "title": "GuidelineAssessment",
+  "type": "object"
+}

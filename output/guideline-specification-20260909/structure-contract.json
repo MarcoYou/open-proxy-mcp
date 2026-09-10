@@ -1,0 +1,935 @@
+{
+  "contract": "opm-election-structure/1",
+  "artifact_kind": "runtime_schema_bundle",
+  "request": {
+    "additionalProperties": false,
+    "properties": {
+      "assessments": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "maxItems": 1,
+        "title": "Assessments",
+        "type": "array"
+      }
+    },
+    "title": "StructureRequest",
+    "type": "object"
+  },
+  "assessment": {
+    "additionalProperties": false,
+    "properties": {
+      "task_id": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Task Id",
+        "type": "string"
+      },
+      "evaluator": {
+        "maxLength": 6000,
+        "minLength": 1,
+        "title": "Evaluator",
+        "type": "string"
+      },
+      "facts": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "maxItems": 200,
+        "title": "Facts",
+        "type": "array"
+      },
+      "gaps": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "maxItems": 100,
+        "title": "Gaps",
+        "type": "array"
+      },
+      "findings": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "maxItems": 200,
+        "title": "Findings",
+        "type": "array"
+      },
+      "judgments": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "maxItems": 200,
+        "title": "Judgments",
+        "type": "array"
+      },
+      "out_of_scope_agenda_ids": {
+        "items": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "maxItems": 200,
+        "title": "Out Of Scope Agenda Ids",
+        "type": "array"
+      }
+    },
+    "required": [
+      "task_id",
+      "evaluator",
+      "facts",
+      "gaps",
+      "findings",
+      "judgments"
+    ],
+    "title": "StructureAssessment",
+    "type": "object"
+  },
+  "item_schemas": {
+    "facts": {
+      "$defs": {
+        "Citation": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "quote": {
+              "maxLength": 3000,
+              "minLength": 12,
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "quote"
+          ],
+          "title": "Citation",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "fact_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "clause_change",
+            "board_counts",
+            "election_pool",
+            "term",
+            "condition",
+            "context"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "agenda_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Agenda Ids",
+          "type": "array"
+        },
+        "description": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        }
+      },
+      "required": [
+        "fact_id",
+        "kind",
+        "agenda_ids",
+        "description",
+        "evidence_refs",
+        "data"
+      ],
+      "title": "StructureFact",
+      "type": "object"
+    },
+    "gaps": {
+      "additionalProperties": false,
+      "properties": {
+        "gap_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Gap Id",
+          "type": "string"
+        },
+        "agenda_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Agenda Ids",
+          "type": "array"
+        },
+        "criterion_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Criterion Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "not_disclosed_in_reviewed_sources",
+            "explicitly_nonpublic",
+            "not_read",
+            "fetch_failed",
+            "conflicting_evidence",
+            "identity_uncertain",
+            "meaning_unresolved",
+            "budget_exhausted"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "skip_criterion",
+            "retry_read",
+            "conditional_analysis",
+            "unassessed_scope"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "reviewed_source_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Reviewed Source Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "gap_id",
+        "agenda_ids",
+        "criterion_id",
+        "kind",
+        "disposition",
+        "question",
+        "reviewed_source_ids"
+      ],
+      "title": "StructureGap",
+      "type": "object"
+    },
+    "findings": {
+      "$defs": {
+        "Citation": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "quote": {
+              "maxLength": 3000,
+              "minLength": 12,
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "quote"
+          ],
+          "title": "Citation",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "criterion_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Criterion Id",
+          "type": "string"
+        },
+        "agenda_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Agenda Ids",
+          "type": "array"
+        },
+        "fact_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "effect": {
+          "enum": [
+            "adverse",
+            "beneficial",
+            "neutral",
+            "mixed",
+            "unknown"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "materiality": {
+          "enum": [
+            "material",
+            "limited",
+            "unknown"
+          ],
+          "title": "Materiality",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "counterevidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Counterevidence Refs",
+          "type": "array"
+        },
+        "gap_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Gap Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "criterion_id",
+        "agenda_ids",
+        "fact_ids",
+        "effect",
+        "materiality",
+        "rationale"
+      ],
+      "title": "StructureFinding",
+      "type": "object"
+    },
+    "judgments": {
+      "$defs": {
+        "Citation": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "quote": {
+              "maxLength": 3000,
+              "minLength": 12,
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "quote"
+          ],
+          "title": "Citation",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "agenda_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Agenda Id",
+          "type": "string"
+        },
+        "finding_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Finding Ids",
+          "type": "array"
+        },
+        "gap_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Gap Ids",
+          "type": "array"
+        },
+        "recommendation": {
+          "enum": [
+            "FOR",
+            "AGAINST",
+            "REVIEW",
+            "NO_VOTE"
+          ],
+          "title": "Recommendation",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "condition_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition Id"
+        },
+        "exception_evidence_refs": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 12,
+          "title": "Exception Evidence Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "agenda_id",
+        "finding_ids",
+        "gap_ids",
+        "recommendation",
+        "rationale"
+      ],
+      "title": "StructureJudgment",
+      "type": "object"
+    }
+  },
+  "fact_data_schemas": {
+    "clause_change": {
+      "additionalProperties": false,
+      "properties": {
+        "before_type": {
+          "enum": [
+            "fixed",
+            "minimum",
+            "maximum",
+            "range",
+            "delegated",
+            "other",
+            "unknown"
+          ],
+          "title": "Before Type",
+          "type": "string"
+        },
+        "after_type": {
+          "enum": [
+            "fixed",
+            "minimum",
+            "maximum",
+            "range",
+            "delegated",
+            "other",
+            "unknown"
+          ],
+          "title": "After Type",
+          "type": "string"
+        },
+        "before_value": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before Value"
+        },
+        "after_value": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After Value"
+        },
+        "unit": {
+          "enum": [
+            "years",
+            "months",
+            "days",
+            "persons",
+            "percent",
+            "text"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "director",
+            "audit_committee",
+            "auditor",
+            "executive_officer",
+            "other"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "authority": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Authority",
+          "type": "string"
+        },
+        "incumbent_effect": {
+          "default": "unknown",
+          "enum": [
+            "applies",
+            "does_not_apply",
+            "unknown"
+          ],
+          "title": "Incumbent Effect",
+          "type": "string"
+        }
+      },
+      "required": [
+        "before_type",
+        "after_type",
+        "unit",
+        "role",
+        "authority"
+      ],
+      "title": "ClauseData",
+      "type": "object"
+    },
+    "board_counts": {
+      "additionalProperties": false,
+      "properties": {
+        "charter_min": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Charter Min"
+        },
+        "charter_max": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Charter Max"
+        },
+        "actual_total": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Total"
+        },
+        "proposed_total": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proposed Total"
+        },
+        "separate_continuing": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Separate Continuing"
+        },
+        "separate_new": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Separate New"
+        },
+        "separate_total": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Separate Total"
+        }
+      },
+      "title": "BoardData",
+      "type": "object"
+    },
+    "election_pool": {
+      "additionalProperties": false,
+      "properties": {
+        "seats": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Seats"
+        },
+        "candidate_ids": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "method": {
+          "enum": [
+            "ordinary",
+            "cumulative",
+            "separate_audit_ordinary",
+            "separate_audit_cumulative",
+            "unknown"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "condition_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition Id"
+        },
+        "roster_complete": {
+          "default": true,
+          "title": "Roster Complete",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seats",
+        "candidate_ids",
+        "method"
+      ],
+      "title": "PoolData",
+      "type": "object"
+    },
+    "term": {
+      "additionalProperties": false,
+      "properties": {
+        "person_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Person Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "director",
+            "audit_committee",
+            "auditor",
+            "executive_officer"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "term_years": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Term Years"
+        },
+        "start_date": {
+          "anyOf": [
+            {
+              "maxLength": 6000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Date"
+        },
+        "end_date": {
+          "anyOf": [
+            {
+              "maxLength": 6000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Date"
+        },
+        "end_event": {
+          "anyOf": [
+            {
+              "maxLength": 6000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End Event"
+        },
+        "condition_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition Id"
+        },
+        "continuous_service_reset": {
+          "const": false,
+          "default": false,
+          "title": "Continuous Service Reset",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "person_id",
+        "role"
+      ],
+      "title": "TermData",
+      "type": "object"
+    },
+    "condition": {
+      "additionalProperties": false,
+      "properties": {
+        "agenda_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Agenda Id",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "passed",
+            "failed",
+            "not_tabled"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "depends_on_condition": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Depends On Condition"
+        }
+      },
+      "required": [
+        "agenda_id",
+        "outcome"
+      ],
+      "title": "ConditionData",
+      "type": "object"
+    },
+    "context": {
+      "additionalProperties": false,
+      "properties": {
+        "statement": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "proposed",
+            "conditional",
+            "unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "statement",
+        "status"
+      ],
+      "title": "ContextData",
+      "type": "object"
+    }
+  },
+  "human_reviewed": false
+}

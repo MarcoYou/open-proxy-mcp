@@ -38,7 +38,10 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-from open_proxy_mcp.dart.as_of import clamp_end_de, get_as_of, note_row_drop, window_is_empty
+from open_proxy_mcp.dart.as_of import (
+    clamp_end_de, get_as_of, get_strict_as_of, note_row_drop,
+    note_strict_exclusion, publication_day, strict_receipt_allowed, window_is_empty,
+)
 
 load_dotenv()
 
@@ -56,6 +59,46 @@ def _as_of_filter_rows(endpoint: str, data: dict) -> dict:
     as_of = get_as_of()
     if not as_of:
         return data
+    if get_strict_as_of():
+        # Identity lookup is permitted only for resolving a company. Current
+        # CEO/fiscal month/industry/address values are not historical evidence.
+        if endpoint == "company.json":
+            allowed = {"status", "message", "corp_name", "corp_code", "stock_code"}
+            removed = len(set(data) - allowed)
+            if removed:
+                note_strict_exclusion(endpoint, reason="identity_metadata_only", count=removed)
+            return {key: value for key, value in data.items() if key in allowed}
+        protocol = {key: value for key, value in data.items()
+                    if key in {"status", "message", "page_no", "page_count", "total_count", "total_page"}}
+        rows = data.get("list")
+        if not isinstance(rows, list):
+            note_strict_exclusion(endpoint, reason="publication_unknown")
+            return {**protocol, "list": []}
+        kept = []
+        for row in rows:
+            if not isinstance(row, dict):
+                note_strict_exclusion(endpoint, reason="publication_unknown")
+                continue
+            receipt = row.get("rcept_no") or ""
+            raw_day = row.get("rcept_dt")
+            dated = publication_day(raw_day)
+            receipt_day = (publication_day(receipt[:8])
+                           if isinstance(receipt, str) and re.fullmatch(r"\d{14}", receipt) else None)
+            reason = None
+            if (raw_day not in (None, "") and dated is None) or (receipt and receipt_day is None):
+                reason = "publication_invalid"
+            elif dated is not None and receipt_day is not None and dated != receipt_day:
+                reason = "publication_date_conflict"
+            elif dated is None and receipt_day is None:
+                reason = "publication_unknown"
+            elif (dated or receipt_day) > as_of:
+                reason = "after_cutoff"
+            if reason:
+                note_strict_exclusion(endpoint, receipt=receipt, reason=reason)
+            else:
+                kept.append(row)
+        note_row_drop(endpoint, len(rows) - len(kept))
+        return {**protocol, "list": kept}
     rows = data.get("list")
     if not isinstance(rows, list) or not rows:
         return data
@@ -74,6 +117,18 @@ def _as_of_filter_rows(endpoint: str, data: dict) -> dict:
         data = dict(data)
         data["list"] = kept
     return data
+
+
+def _require_strict_receipt(receipt: str, endpoint: str) -> None:
+    if not strict_receipt_allowed(receipt, endpoint):
+        raise DartClientError("STRICT_PIT_UNAVAILABLE", "판단 기준시점 이전 공개를 확인하지 못한 원문은 사용하지 않습니다.")
+
+
+def _require_strict_versioned_source(endpoint: str) -> None:
+    """Unversioned live endpoints have no historical-content guarantee."""
+    if get_strict_as_of():
+        note_strict_exclusion(endpoint, reason="unversioned_source")
+        raise DartClientError("STRICT_PIT_UNAVAILABLE", "이 경로는 당시 공개된 원문 버전을 확인할 수 없어 제외합니다.")
 
 
 # ── 요청별 API 키 (URL 쿼리 파라미터 → contextvar) ──
@@ -1372,6 +1427,17 @@ class DartClient:
         Returns:
             API 응답 JSON (dict)
         """
+        if get_strict_as_of():
+            params = dict(params)
+            if endpoint == "list.json":
+                params["last_reprt_at"] = "N"
+            if "end_de" in params:
+                params["end_de"] = clamp_end_de(params["end_de"])
+                if window_is_empty(params.get("bgn_de", ""), params["end_de"]):
+                    note_strict_exclusion(endpoint, reason="after_cutoff_window")
+                    raise DartClientError("013", "조회 구간이 판단 기준시점 이후여서 제외했습니다.")
+            if "rcept_no" in params:
+                _require_strict_receipt(params["rcept_no"], endpoint)
         self._request_counter += 1
         await self._throttle_api()
         params["crtfc_key"] = self.api_key
@@ -1417,6 +1483,11 @@ class DartClient:
         1. XML 에러면 DartClientError 발생 (접수번호 오류 등)
         2. ZIP도 XML도 아니면 보조 키로 전환 후 재시도
         """
+        if get_strict_as_of():
+            if endpoint == "document.xml":
+                _require_strict_receipt(params.get("rcept_no", ""), endpoint)
+            elif endpoint != "corpCode.xml":
+                _require_strict_versioned_source(endpoint)
         await self._throttle_api()
         params["crtfc_key"] = self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
@@ -1884,6 +1955,9 @@ class DartClient:
         Returns:
             {"sector_name": "반도체와반도체장비", "sector_code": "278"} 또는 {}
         """
+        if get_strict_as_of():
+            note_strict_exclusion("naver_corp_profile", reason="unversioned_source")
+            return {}
         try:
             await asyncio.sleep(2.0)  # 웹 스크래핑 최소 간격
             r = await self._http.get(
@@ -1960,6 +2034,10 @@ class DartClient:
         # 애초에 손에 들어오지 않게 한다. 서비스마다 인자를 심으면 한 곳만 빠뜨려도 구멍이 나고
         # 그 구멍은 조용하다. 게이트가 꺼져 있으면(기본값) 아무 일도 하지 않는다.
         end_de = clamp_end_de(end_de)
+        if get_strict_as_of():
+            # The API's current final filing may supersede a pre-cutoff original.
+            # Keep the chain and let bounded, date-filtered source selection choose.
+            last_reprt_at = "N"
         if window_is_empty(bgn_de, end_de):
             # 조회 구간 전체가 기준일 이후 — 그 시점엔 볼 것이 없었다는 뜻이다.
             # DART 가 빈 구간에 주는 것과 같은 「데이터 없음」으로 돌려준다(전 호출부가 처리 중).
@@ -1974,7 +2052,7 @@ class DartClient:
             if _hit is not None:
                 _val, _exp = _hit
                 if _exp is None or time.time() < _exp:
-                    return _val
+                    return _as_of_filter_rows("list.json", _val) if get_strict_as_of() else _val
                 self._search_cache.pop(_cache_key, None)
 
         params = {
@@ -1998,7 +2076,7 @@ class DartClient:
 
         result = await self._request("list.json", params)
 
-        if _cacheable:
+        if _cacheable and not get_strict_as_of():
             if len(self._search_cache) >= self._MAX_SEARCH_CACHE:
                 self._search_cache.pop(next(iter(self._search_cache)))
             # 종료일이 오늘(KST) 이후면 그 구간엔 아직 접수될 공시가 남아 있다 — 짧게만 산다.
@@ -2006,7 +2084,7 @@ class DartClient:
             self._search_cache[_cache_key] = (
                 result, (time.time() + _SEARCH_CACHE_LIVE_TTL_SEC) if _live else None)
 
-        return result
+        return _as_of_filter_rows("list.json", result) if get_strict_as_of() else result
 
     async def search_filings_by_ticker(
         self,
@@ -2057,6 +2135,7 @@ class DartClient:
         Returns:
             {"text": 본문 텍스트, "images": [이미지 파일명 목록]}
         """
+        _require_strict_receipt(rcept_no, "document.xml")
         import re
 
         data = await self._request_binary("document.xml", {"rcept_no": rcept_no})
@@ -2210,6 +2289,8 @@ class DartClient:
 
     async def _fetch_viewer_main_html(self, rcept_no: str) -> str:
         """DART 메인 viewer 페이지 HTML을 가져온다."""
+        _require_strict_receipt(rcept_no, "viewer_main")
+        _require_strict_versioned_source("viewer_main")
         await self._throttle_web()
         url = f"{DART_WEB_BASE_URL}/dsaf001/main.do?rcpNo={rcept_no}"
 
@@ -2244,6 +2325,8 @@ class DartClient:
 
     async def _fetch_viewer_section_html(self, node: dict[str, str]) -> str:
         """report/viewer.do로 개별 section HTML을 가져온다."""
+        _require_strict_receipt(node.get("rcpNo", ""), "viewer_section")
+        _require_strict_versioned_source("viewer_section")
         await self._throttle_web()
         params = {
             "rcpNo": node["rcpNo"],
@@ -2274,6 +2357,10 @@ class DartClient:
 
         API/XML 구조가 깨졌을 때만 2차 경로로 사용한다.
         """
+        _require_strict_receipt(rcept_no, "viewer_document")
+        # The existing aggregate cache omits each node's receipt/version. It
+        # cannot establish that an old main page contains only old sections.
+        _require_strict_versioned_source("viewer_document")
         keywords = tuple(section_keywords or [])
         cache_key = _viewer_key(rcept_no, keywords)
         cached = self._doc_cache.get(cache_key)
@@ -2720,15 +2807,15 @@ class DartClient:
         if cacheable:
             cached = self._dividend_cache.get(cache_key)
             if cached is not None:
-                return cached
+                return _as_of_filter_rows("alotMatter.json", cached) if get_strict_as_of() else cached
         result = await self._request("alotMatter.json", {
             "corp_code": corp_code,
             "bsns_year": bsns_year,
             "reprt_code": reprt_code,
         })
-        if cacheable:
+        if cacheable and not get_strict_as_of():
             self._dividend_cache.put(cache_key, result)
-        return result
+        return _as_of_filter_rows("alotMatter.json", result) if get_strict_as_of() else result
 
     # ── 재무제표 / 주요지표 / 감사의견 (DS003) ──
 
@@ -2852,6 +2939,12 @@ class DartClient:
             {"closing_price": int, "base_date": str, "source": str}
             또는 None (데이터 없음)
         """
+        if get_strict_as_of():
+            normalized_day = publication_day(base_date)
+            if normalized_day is None or normalized_day > get_as_of():
+                note_strict_exclusion("stock_price", reason="publication_invalid" if normalized_day is None else "after_cutoff")
+                return None
+            base_date = normalized_day
         # 1차: KRX Open API (공식)
         result = await self._krx_stock_price(stock_code, base_date)
         if result:
@@ -2866,6 +2959,10 @@ class DartClient:
 
     async def _naver_stock_price(self, stock_code: str, base_date: str) -> dict | None:
         """네이버 금융 시세 API — 일별 종가"""
+        if get_strict_as_of():
+            # This adapter does not establish an as-published adjustment vintage.
+            note_strict_exclusion("naver_stock_price", reason="unversioned_source")
+            return None
         try:
             await self._throttle_api()
             url = "https://api.finance.naver.com/siseJson.naver"
@@ -2913,6 +3010,12 @@ class DartClient:
 
     async def _krx_stock_price(self, stock_code: str, base_date: str) -> dict | None:
         """KRX Open API — 일별 시세 (서비스 승인 필요)"""
+        if get_strict_as_of():
+            normalized_day = publication_day(base_date)
+            if normalized_day is None or normalized_day > get_as_of():
+                note_strict_exclusion("krx_stock_price", reason="publication_invalid" if normalized_day is None else "after_cutoff")
+                return None
+            base_date = normalized_day
         import os
         api_key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
         if not api_key:
@@ -2934,6 +3037,11 @@ class DartClient:
             for item in data.get("OutBlock_1", []):
                 ticker = item.get("ISU_CD", "")
                 if ticker == stock_code or stock_code in ticker:
+                    if get_strict_as_of():
+                        reported_day = publication_day(item.get("BAS_DD"))
+                        if reported_day is None or reported_day > get_as_of() or reported_day != base_date:
+                            note_strict_exclusion("krx_stock_price", reason="publication_unknown" if reported_day is None else "publication_date_conflict")
+                            continue
                     return {
                         "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
                         "base_date": item.get("BAS_DD", base_date),
@@ -2957,6 +3065,10 @@ class DartClient:
         Returns:
             [{"title", "link", "originallink", "description", "pubDate"}, ...]
         """
+        if get_strict_as_of():
+            # Current snippets are not immutable historical article versions.
+            note_strict_exclusion("naver_news_search", reason="unversioned_source")
+            return []
         client_id = os.getenv("NAVER_SEARCH_API_CLIENT_ID")
         client_secret = os.getenv("NAVER_SEARCH_API_CLIENT_SECRET")
         if not client_id or not client_secret:
@@ -3007,6 +3119,9 @@ class DartClient:
         Returns:
             본문 HTML 텍스트
         """
+        # The dynamic viewer picks a current default docNo. Strict callers use
+        # the separately date-gated fixed external HTML source adapter instead.
+        _require_strict_versioned_source("kind_document")
         kind_base = "https://kind.krx.co.kr"
         headers = {
             "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
@@ -3115,6 +3230,16 @@ class DartClient:
             to_date: YYYY-MM-DD
             disclosure_type_code: KIND 공시세부코드 (예: 0184=기업가치 제고 계획)
         """
+        if get_strict_as_of():
+            start, end = publication_day(from_date), publication_day(to_date)
+            if start is None or end is None:
+                note_strict_exclusion("kind_search", reason="publication_invalid")
+                return []
+            end = min(end, get_as_of())
+            if start > end:
+                note_strict_exclusion("kind_search", reason="after_cutoff_window")
+                return []
+            to_date = f"{end[:4]}-{end[4:6]}-{end[6:]}"
         kind_base = "https://kind.krx.co.kr"
         headers = {
             "User-Agent": "OpenProxyMCP/1.0 (research; +https://github.com/MarcoYou/open-proxy-mcp)",
@@ -3147,7 +3272,18 @@ class DartClient:
         _check_web_response(response, "kind_search")
         response.raise_for_status()
 
-        return self._parse_kind_disclosure_rows(response.text)
+        rows = self._parse_kind_disclosure_rows(response.text)
+        if not get_strict_as_of():
+            return rows
+        accepted = []
+        for row in rows:
+            day = publication_day(row.get("disclosure_date"))
+            if day is None or day > get_as_of():
+                note_strict_exclusion("kind_search", receipt=row.get("acptno", ""),
+                                      reason="publication_unknown" if day is None else "after_cutoff")
+            else:
+                accepted.append(row)
+        return accepted
 
     async def kind_search_value_up(
         self,
@@ -3249,6 +3385,7 @@ class DartClient:
         """get_document 결과를 캐싱 (메모리 바이트예산 LRU + TTL 24h, 디스크는 보조).
         중복 API 호출 방지. 메모리에서 evict 돼도 디스크가 받아주므로 **DART 왕복은 안 는다**
         — 예산을 보수적으로 잡아도 되는 이유다."""
+        _require_strict_receipt(rcept_no, "document_cache")
         cache_key = _doc_key(rcept_no)
         cached = self._doc_cache.get(cache_key)
         if cached is not None:

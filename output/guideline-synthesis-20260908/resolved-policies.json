@@ -1,0 +1,225 @@
+[
+  {
+    "schema_version": "opm-demo-resolved/1",
+    "source_id": "opm-attendance-demonstrator",
+    "source_version": "0.1.0-draft",
+    "profile_id": "opm-demo-default",
+    "authority": "opm_proposal",
+    "parameters": {
+      "attendance_min_pct": 75
+    },
+    "metrics": {
+      "attendance_pct": {
+        "type": "number",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "period": "prior_term",
+        "kind": "derived_fact"
+      },
+      "is_reelection": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "meeting",
+        "kind": "fact"
+      },
+      "attendance_exception_accepted": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "prior_term",
+        "kind": "assessment"
+      },
+      "independence_concern_accepted": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "meeting",
+        "kind": "assessment"
+      },
+      "coverage_complete": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "meeting",
+        "kind": "assessment"
+      }
+    },
+    "rules": [
+      {
+        "id": "DEMO-ATT",
+        "applies_when": {
+          "op": "eq",
+          "left": {
+            "metric": "is_reelection"
+          },
+          "right": {
+            "literal": true
+          }
+        },
+        "test": {
+          "op": "lt",
+          "left": {
+            "metric": "attendance_pct"
+          },
+          "right": {
+            "parameter": "attendance_min_pct"
+          }
+        },
+        "exception": {
+          "op": "eq",
+          "left": {
+            "metric": "attendance_exception_accepted"
+          },
+          "right": {
+            "literal": true
+          }
+        },
+        "effect": "oppose"
+      },
+      {
+        "id": "DEMO-IND",
+        "applies_when": {
+          "const": true
+        },
+        "test": {
+          "op": "eq",
+          "left": {
+            "metric": "independence_concern_accepted"
+          },
+          "right": {
+            "literal": true
+          }
+        },
+        "exception": {
+          "const": false
+        },
+        "effect": "oppose"
+      }
+    ],
+    "positive_gate": {
+      "op": "eq",
+      "left": {
+        "metric": "coverage_complete"
+      },
+      "right": {
+        "literal": true
+      }
+    },
+    "aggregation": "preserve_confirmed_opposition_then_require_complete_support",
+    "diff": [],
+    "artifact_sha256": "38f1071dd69433750319b3f6a34f635bdc364e76285ff9004ef1b39c1f032499"
+  },
+  {
+    "schema_version": "opm-demo-resolved/1",
+    "source_id": "opm-attendance-demonstrator",
+    "source_version": "0.1.0-draft",
+    "profile_id": "client-demo-stricter-attendance",
+    "authority": "opm_proposal",
+    "parameters": {
+      "attendance_min_pct": 80
+    },
+    "metrics": {
+      "attendance_pct": {
+        "type": "number",
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "period": "prior_term",
+        "kind": "derived_fact"
+      },
+      "is_reelection": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "meeting",
+        "kind": "fact"
+      },
+      "attendance_exception_accepted": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "prior_term",
+        "kind": "assessment"
+      },
+      "independence_concern_accepted": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "meeting",
+        "kind": "assessment"
+      },
+      "coverage_complete": {
+        "type": "boolean",
+        "unit": "boolean",
+        "period": "meeting",
+        "kind": "assessment"
+      }
+    },
+    "rules": [
+      {
+        "id": "DEMO-ATT",
+        "applies_when": {
+          "op": "eq",
+          "left": {
+            "metric": "is_reelection"
+          },
+          "right": {
+            "literal": true
+          }
+        },
+        "test": {
+          "op": "lt",
+          "left": {
+            "metric": "attendance_pct"
+          },
+          "right": {
+            "parameter": "attendance_min_pct"
+          }
+        },
+        "exception": {
+          "op": "eq",
+          "left": {
+            "metric": "attendance_exception_accepted"
+          },
+          "right": {
+            "literal": true
+          }
+        },
+        "effect": "oppose"
+      },
+      {
+        "id": "DEMO-IND",
+        "applies_when": {
+          "const": true
+        },
+        "test": {
+          "op": "eq",
+          "left": {
+            "metric": "independence_concern_accepted"
+          },
+          "right": {
+            "literal": true
+          }
+        },
+        "exception": {
+          "const": false
+        },
+        "effect": "oppose"
+      }
+    ],
+    "positive_gate": {
+      "op": "eq",
+      "left": {
+        "metric": "coverage_complete"
+      },
+      "right": {
+        "literal": true
+      }
+    },
+    "aggregation": "preserve_confirmed_opposition_then_require_complete_support",
+    "diff": [
+      {
+        "parameter": "attendance_min_pct",
+        "from": 75,
+        "to": 80,
+        "reason": "합성 예시: 직전 임기 출석 기준을 80%로 선택"
+      }
+    ],
+    "artifact_sha256": "9dae943e7632ecc7e3cb84978beb4ab2c9d3483ae5e08f4ea7e6aa8473b9fa09"
+  }
+]

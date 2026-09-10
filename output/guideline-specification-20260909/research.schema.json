@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "description": "One bounded list.json page per relevant disclosure channel.",
+  "properties": {
+    "kind": {
+      "enum": [
+        "meeting_resolution",
+        "periodic_reports",
+        "officer_changes",
+        "ownership_disputes"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "start_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start Date"
+    },
+    "end_date": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "End Date"
+    },
+    "page": {
+      "default": 1,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Page",
+      "type": "integer"
+    },
+    "page_count": {
+      "default": 100,
+      "maximum": 100,
+      "minimum": 1,
+      "title": "Page Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "title": "ResearchQuery",
+  "type": "object"
+}

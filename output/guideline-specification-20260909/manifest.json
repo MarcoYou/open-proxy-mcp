@@ -1,0 +1,15 @@
+{
+  "generated_from": "wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md",
+  "source_sha256": "670ba2c7bd88d150270e004c8d22c28188f79bc1dfa51430a3f8d1df5d619d99",
+  "policy_version": "0.7.2-pilot",
+  "policy_file_sha256": "9ecc82bc45f76506b02ab7e8ef9dd3478c03da7c65b11d58011e55a59dca9f7c",
+  "assessment_contract": "opm-llm-assessment/6",
+  "harness_contract": "opm-voting-harness/2",
+  "research_schema": "research.schema.json",
+  "model_actions_schema": "model-actions.schema.json",
+  "structure_runtime_contract": "structure-contract.json",
+  "governance_contract": "1",
+  "document_date": "2026-09-10",
+  "status": "local_document_export",
+  "verification_note": "Version-separated live MCP pilot evidence is maintained in the canonical verification section. Source-bound acceptance and routing are not an independent accuracy benchmark. All assessments remain human unreviewed; no ballots or scheduled runs."
+}

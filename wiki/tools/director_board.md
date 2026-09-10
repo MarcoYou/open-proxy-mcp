@@ -293,10 +293,17 @@ DART 공시뷰어 URL의 `rcpNo`(=접수번호)로 `document.xml`(공시서류�
 `한애라 (출석률 :100%)`·`박성하(출석률:50%)` 형식으로 있다(OCR 불필요 — 텍스트 파싱으로 된다).
 exctvSttus의 rcept_no로 사업보고서 원문(각주 해소와 캐시 공유)을 받아 파싱한다.
 
-- **section-local**: 출석률 표가 여러 개(이사회·감사위·보상위)라 같은 이름이 body마다 값이 다르다
-  (SK하이닉스 안현 이사회 91% vs 위원회 100%). **첫 클러스터(이사회 본 표)만** 잡는다.
+- **section-local**: XML의 「이사회에 관한 사항」 절에서 「이사회 내 위원회」 앞까지만 읽는다.
+  문서 첫 출석률 클러스터가 이사회라는 가정은 폐기했다. 위원회 출석률은 이사회 출석률로 쓰지 않는다.
+  `성명(100%)` 형식도 출석률 머리말이 확인된 경우 읽으며, 기간별 표를 모두 보존한다.
 - **부분성 정직 처리(핵심)**: parsed<이사회 인원이면 `attendance_partial` flag(같은 exctvSttus 행에서
-  이사회 인원 직접 카운트 → roster 의존 없음). 표 없으면 `not_found`.
+  이사회 인원 직접 카운트 → roster 의존 없음). 절 경계 미확인은 `section_not_located`,
+  절은 있지만 요약 형식을 못 읽으면 `format_unsupported`다. 이를 자료 미공시로 단정하지 않는다.
+- `directors[].period_observations`에 공시 기간·값·인용·절 텍스트 내 위치를 보존한다.
+  다른 기간의 비율은 분모 없이 평균내지 않으며, `prior_term_complete=false`로 임기 전체와 구별한다.
+  기간별 비율이 다르면 단일 `attendance_pct`는 null이다.
+- `raw_text`(최대 20,000자), 전체 길이·잘림 여부·공시 URL·다음 확인 경로를 함께 제공한다.
+  출석률 표가 없어도 회차별 표와 주석을 원문에서 확인할 수 있다.
 - **summary 제외·on-demand**: 원문 fetch(8MB, 금융지주 최대 10초)라 흔한 summary를 느리게 한다 →
   `scope="attendance"`로만 조회.
 - 출석률 <75%는 `low_attendance` warn flag.
@@ -423,6 +430,8 @@ sequenceDiagram
 ## 변경 이력
 - 2026-09-09: 보수 지급액이 전부 비었을 때 **한도가 읽혔는지**로 갈라, 반쪽만 읽혔으면
   서식 의심 + 원문 경로(`filing_section`)를 warnings 에 적는다(V1/V2 서식 전환 대비).
+
+- 2026-09-08: 이사회 절·위원회 경계를 확인한 기간별 출석 근거 추출. 요약 형식 미지원과 자료 부재를 구별하고 원문·조회 경로 제공.
 - 2026-09-07: **속도 — SK 7.8초 → 2.7~3.8초, 이벤트 루프 최대 멈춤 4~6초 → 0.4초.** 프로파일 결과 시간의 70%가 `pay_agenda` 가 부르는 소집공고 파싱(2.9~5.4MB, bs4)이었고 전부 동기라 루프를 잡았다. 파싱을 워커 스레드로(`asyncio.to_thread`), scope 가 안 쓰는 임원 표는 건너뛰고, 후보 분류 때 파싱한 meeting_info 를 번들이 재사용. `tests/test_notice_parse_offload.py`.
 - 2026-09-07: 비고가 없는 자리에 「> None」·「[roster] None」이 나가던 렌더 결함 — 비고 없으면 인용줄 생략, roster 교차검증 플래그의 키 오타(「상세」→detail) 수정. `tests/test_render_none_warts.py`.
 - 2026-09-04: `pay_agenda` 회차 선택을 최근 공고(auto) → **최근 정기주총 소집공고**(annual, E006, 13개월)로.

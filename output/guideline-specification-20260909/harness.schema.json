@@ -1,0 +1,56 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cutoff_at": {
+      "maxLength": 40,
+      "minLength": 20,
+      "title": "Cutoff At",
+      "type": "string"
+    },
+    "notice_rcept_no": {
+      "pattern": "^\\d{14}$",
+      "title": "Notice Rcept No",
+      "type": "string"
+    },
+    "expected_run_id": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Run Id"
+    },
+    "expected_policy_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Policy Sha256"
+    },
+    "expected_sources": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 200,
+      "title": "Expected Sources",
+      "type": "object"
+    }
+  },
+  "required": [
+    "cutoff_at",
+    "notice_rcept_no"
+  ],
+  "title": "HarnessRequest",
+  "type": "object"
+}

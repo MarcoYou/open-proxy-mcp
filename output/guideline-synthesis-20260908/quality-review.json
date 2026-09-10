@@ -1,0 +1,56 @@
+{
+  "status": "completed_with_production_work_explicitly_deferred",
+  "scope": "comparison documents and synthetic demonstration",
+  "checks": {
+    "shower": {
+      "scope": "full README contents only; no surrounding context",
+      "reviewer": "one fresh agent",
+      "verdict": "no clear contradiction; handoff gaps",
+      "applied": [
+        "approval roles",
+        "confirmed opposition plus unresolved routing",
+        "positive coverage definition",
+        "autonomy and newly accepted evidence distinction",
+        "source version reproducibility",
+        "canonical document responsibilities"
+      ]
+    },
+    "factchk": {
+      "verified": "supplied JSON pointers, counts, source-internal contradictions, fixed Git changes, original input SHA256; NPS attendance period from previously retrieved primary text",
+      "flagged": "legal rule correctness and transitions remain unverified; Fable company reproductions and reviewer identity are supplied reports, not independently replicated"
+    },
+    "mandela": {
+      "patterns": [
+        "verifier_is_designer",
+        "synthetic_expected_values_are_author_supplied"
+      ],
+      "conclusion": "28 checks establish limited contract conformance only; no benchmark or policy-quality inference",
+      "independent_validation": "proposed, not executed"
+    },
+    "ssotize": {
+      "mode": "read_only_audit",
+      "map": {
+        "comparison.json": "canonical comparison",
+        "proposal.json": "canonical proposed architecture",
+        "policy-source.json": "canonical limited demonstration",
+        "index.html/report.md": "rendered explanations",
+        "resolved-policies.json/decision-examples.json": "generated execution artifacts"
+      },
+      "originals": "both prior designs retained as historical inputs, no canonical policy replacement",
+      "publication": "existing site not modified"
+    },
+    "re0": {
+      "applied": "removed initial understood-as scaffold; integrated ownership/reproducibility into permanent sections"
+    },
+    "detool": {
+      "skipped": "OPM-specific design and provenance, no tool-neutral portability claim"
+    }
+  },
+  "remaining": [
+    "production schema/compiler and metrics integrations",
+    "independent legal and policy review",
+    "actual MCP evidence coverage sampling",
+    "independent LLM/rubric evaluation",
+    "source and policy update infrastructure"
+  ]
+}

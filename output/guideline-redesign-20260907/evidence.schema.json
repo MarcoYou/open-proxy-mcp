@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Normalized fact with auditable provenance",
+  "type": "object",
+  "required": [
+    "metric_id",
+    "value",
+    "status",
+    "unit",
+    "entity_id",
+    "agenda_id",
+    "period_start",
+    "period_end",
+    "public_at",
+    "evidence_refs",
+    "accepted_by"
+  ],
+  "properties": {
+    "metric_id": {
+      "enum": [
+        "law.compliance",
+        "financial.audit_opinion",
+        "financial.capital_impaired",
+        "financial.approval_ready",
+        "dividend.payout_pct",
+        "dividend.funding_gap",
+        "dividend.underpayment_harm",
+        "dividend.policy_consistent",
+        "articles.rights_reduction",
+        "articles.justification_accepted",
+        "articles.rights_improvement",
+        "director.attendance_pct",
+        "director.attendance_complete",
+        "director.attendance_exception",
+        "director.role",
+        "director.related_employment_within_5y",
+        "director.total_outside_boards",
+        "director.accountable_harm",
+        "director.fitness_accepted",
+        "audit.independence_compromised",
+        "audit.non_audit_fee_ratio",
+        "pay.limit_increase_pct",
+        "pay.prior_utilization_pct",
+        "pay.performance_misaligned",
+        "pay.justification_accepted",
+        "audit.pay_impairs_function",
+        "retirement.excess_benefit",
+        "option.repricing_harm",
+        "treasury.action",
+        "treasury.cancellation_terms_accepted",
+        "treasury.unfair_disposal",
+        "deal.related_party",
+        "deal.minority_safeguards",
+        "deal.fair_value_accepted",
+        "spin.subsidiary_listing",
+        "capital.dilution_pct",
+        "capital.unfair_allocation",
+        "capital.proportionate_fair",
+        "convertible.transfer_harm",
+        "proposal.long_term_value",
+        "proposal.material_harm",
+        "director.is_reelection",
+        "director.independence_required",
+        "dividend.payout_comparable",
+        "audit.has_relevant_service_5y"
+      ]
+    },
+    "value": {
+      "type": [
+        "number",
+        "string",
+        "boolean",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "verified",
+        "unknown",
+        "conflicting",
+        "stale",
+        "invalid",
+        "not_applicable"
+      ]
+    },
+    "unit": {
+      "type": "string"
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "agenda_id": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "period_end": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
+    "public_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "accepted_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "derivation": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "verified"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value": {
+            "not": {
+              "type": "null"
+            }
+          },
+          "public_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evidence_refs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "unknown",
+              "conflicting",
+              "stale",
+              "invalid",
+              "not_applicable"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "value": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}
