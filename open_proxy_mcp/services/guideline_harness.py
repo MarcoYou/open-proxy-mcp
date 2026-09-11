@@ -154,7 +154,7 @@ async def run_harness(company: str, request: dict, arguments: dict,
     from open_proxy_mcp.services.guideline_evidence import normalize_candidate_selection_name
 
     try:
-        from .election_structure import StructureRequest
+        from .election_structure import CONTRACT as STRUCTURE_CONTRACT, StructureRequest
         settings = HarnessRequest.model_validate(request)
         arguments = dict(arguments)
         structure_input = arguments.pop('guideline_structure', None)
@@ -201,7 +201,8 @@ async def run_harness(company: str, request: dict, arguments: dict,
                    "engine_bundle_sha256": engine_bundle_sha256(),
                    "policy_application": "retrospective_current_policy"}
         if structure_request is not None:
-            binding['structure_contract'] = 'opm-election-structure/1'
+            binding['structure_contract'] = STRUCTURE_CONTRACT
+            binding['structure_protocol'] = structure_request.protocol
         context_token = _CONTEXT.set({"binding": binding, "pin": pin, 'structure_enabled': structure_request is not None})
         policy = bind_harness_policy(apply_workflow_policy(
             load_pilot_guideline_policy(), arguments.get("guideline_workflow")))
@@ -225,7 +226,7 @@ async def run_harness(company: str, request: dict, arguments: dict,
         if references - {pin.notice_rcept_no} or (data.get("year_resolution") or {}).get("notice_mismatch"):
             return _error("meeting_mismatch", strict_exclusions())
         application = data.setdefault('guideline_application', {})
-        structure_counts = {'accepted_unreviewed': 0, 'pending': 0, 'rejected': 0}
+        structure_counts = {'accepted_unreviewed': 0, 'pending': 0, 'rejected': 0, 'scope_complete': 0}
         if structure_request is not None:
             from .election_structure import build_structure_task, accept_structure_assessment, apply_structure_results
             context = get_harness_context()
@@ -233,6 +234,7 @@ async def run_harness(company: str, request: dict, arguments: dict,
             for row in data.get('agenda_decisions', []):
                 source_packets.extend(((row.get('guideline_trace') or {}).get('assessment_task') or {}).get('sources', []))
             task = build_structure_task(payload, sources=source_packets, binding=binding,
+                protocol=structure_request.protocol,
                 policy={'id': policy.get('id'), 'version': policy['version'],
                         'workflow_settings': policy['workflow_settings'],
                         'structure_policy': policy.get('election_structure', {})})
@@ -265,12 +267,16 @@ async def run_harness(company: str, request: dict, arguments: dict,
             status = ((row.get("guideline_trace") or {}).get("llm_assessment") or {}).get("status")
             if status in counts:
                 counts[status] += 1
+        harness_status = ('evaluated' if counts['accepted_unreviewed'] or structure_counts['accepted_unreviewed']
+                          else 'scope_complete' if structure_counts['scope_complete'] and not any(counts.values())
+                          else 'awaiting_model')
         data["guideline_harness"] = {
-            **binding, "status": "evaluated" if counts["accepted_unreviewed"] or structure_counts['accepted_unreviewed'] else "awaiting_model",
+            **binding, "status": harness_status,
             "assessment_counts": counts,
             'structure_assessment_counts': structure_counts,
             'capabilities': {'task_kinds': ['candidate', 'election_structure'],
-                'structure_contract': 'opm-election-structure/1',
+                'structure_contract': STRUCTURE_CONTRACT,
+                'structure_protocols': ['direct', 'staged'],
                 'source_types': ['dart', 'kind', 'dart_attachments', 'dart_attachment', 'court_precedent'],
                 'charter_history_supported': True, 'legal_reading_supported': True,
                 'scope_patch_supported': False, 'legal_assessment_supported': False,

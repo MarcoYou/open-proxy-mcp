@@ -17,11 +17,11 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 | **raw/** | ~39 files | 외부 원본 (수정 금지) |
 | **rules/** | 90 + README 4 | 한국 자본시장 사실 |
 | **tools/** | 32 + README | MCP tool 카탈로그 |
-| **decisions/** | 29 + README | 설계·정책·판단·시점 작업 |
+| **decisions/** | 30 + README | 설계·정책·판단·시점 작업 |
 | **guide/** | 3 | 사람용 안내(README·아키텍처·용어 첫걸음) (보조) |
 | **anecdotes/** · **archive/** | 비추적 | storage 심링크 — 시계열 일화 · 옛 판 아카이브 (public 에 없음) |
 
-총 162 markdown (git-tracked, raw·corpus 제외).
+총 164 markdown (git-tracked, raw·corpus 제외).
 
 > 규칙(명명·link·수정정책)은 [[wiki_schema]] 단일 출처. 이 파일은 인벤토리·라우팅만.
 
@@ -47,10 +47,12 @@ wiki 구조·명명·link 정책 → **[[wiki_schema]]**
 [[상법-2025-2026-종합]]
 corpus/: 10법 원문 — 상법·자본시장법·공정거래법·외부감사법 + 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법 (legalize-kr 자동 복사)
 
-## Decisions (29) - `decisions/`
+## Decisions (31) - `decisions/`
 
 ### 설계·아키텍처
 [[open-proxy-guideline]] · [[data-collection]] · [[multi-upstream-pattern]] · [[mcp-endpoints]] · [[environment-secrets]]
+
+가이드라인 v2: [[260908_1200_decision_guideline-v2-final-redesign-pilot]] · 진행 상태: [[opm-guideline-roadmap]]
 
 ### 정책·판단
 [[BeautifulSoup-파서-선택]] · [[XML-vs-PDF]] · [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] · [[ksic-sector-mapping]] · [[후보반환-설계]]

@@ -1,0 +1,43 @@
+{
+  "arguments": {
+    "company": "00258801",
+    "meeting_type": "extraordinary",
+    "scope": "summary",
+    "year": 2026,
+    "start_date": "20260101",
+    "end_date": "20260909",
+    "include_coverage": true,
+    "format": "json"
+  },
+  "response": {
+    "tool": "shareholder_meeting",
+    "status": "no_filing",
+    "subject": "카카오",
+    "generated_at": "2026-09-10T23:58:15+00:00",
+    "warnings": [
+      "2026-01-01~2026-09-09 구간에 임시 주주총회 소집공고를 찾지 못했다."
+    ],
+    "data": {
+      "query": "00258801",
+      "company_id": "cmp_035720",
+      "requested_meeting_type": "extraordinary",
+      "scope": "summary",
+      "year": 2026,
+      "fiscal_month": "",
+      "requested_window": {
+        "start_date": "2026-01-01",
+        "end_date": "2026-09-09",
+        "lookback_months": 12
+      },
+      "no_filing": true,
+      "filing_count": 0,
+      "parsed_count": 0,
+      "parsing_failures": 0,
+      "filing_status": "no_filing"
+    },
+    "evidence_refs": [],
+    "next_actions": [
+      "meeting_type 또는 year를 바꿔 재조회"
+    ]
+  }
+}

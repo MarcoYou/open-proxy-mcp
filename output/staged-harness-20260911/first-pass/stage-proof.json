@@ -1,0 +1,67 @@
+{
+  "execution": "desktop_Astra_authored_workbench_steps",
+  "independent_reviewer": false,
+  "paid_model_api_calls": 0,
+  "luna_model_calls": 0,
+  "evidence_id": "01d29e793c0b79a17b443909631c96640324e1e76fa4e7fa3d8803a04ca6d297",
+  "steps": [
+    {
+      "stage": "evidence",
+      "source_view": [
+        "all_distinct_admitted_excerpts"
+      ],
+      "input_characters": 142821,
+      "result": {
+        "accepted": true,
+        "stage": "evidence",
+        "next_stage": "findings",
+        "partial": false,
+        "codes": []
+      }
+    },
+    {
+      "stage": "findings",
+      "source_view": [
+        "frozen_fact_quotes_only"
+      ],
+      "input_characters": 41621,
+      "result": {
+        "accepted": true,
+        "stage": "findings",
+        "next_stage": "judgments",
+        "partial": false,
+        "codes": []
+      }
+    },
+    {
+      "stage": "judgments",
+      "source_view": [
+        "frozen_fact_quotes_only"
+      ],
+      "input_characters": 42575,
+      "result": {
+        "accepted": true,
+        "stage": "judgments",
+        "next_stage": "review",
+        "partial": false,
+        "codes": []
+      }
+    },
+    {
+      "stage": "review",
+      "input_characters": 145750,
+      "result": {
+        "accepted": true,
+        "stage": "review",
+        "next_stage": "complete",
+        "partial": false,
+        "codes": []
+      }
+    }
+  ],
+  "supported_agenda_ids": [
+    "agenda:45d646003736a33e890f",
+    "agenda:c84e18e62e266baeb999"
+  ],
+  "other_agendas": "left_pending_not_falsely_out_of_scope"
+}

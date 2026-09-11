@@ -66,3 +66,29 @@ def test_correction_preserves_predecessor_and_never_silently_replaces_entire_sna
     r=evaluate(lambda t:[event(t,'s','snapshot'),event(t,'c','correction',target='s')])
     assert len(r['charter_history']['events'])==2
     assert r['charter_history']['events'][-1]['state']=='correction_requires_reconciliation'
+
+
+@pytest.mark.parametrize('kind', ['snapshot', 'proposal'])
+def test_charter_role_constraint_is_visible_in_json_schema_and_returns_actionable_code(kind):
+    import jsonschema
+    _, t = setup_task()
+    fact = event(t, 's', kind, target='baseline')
+    schema = t['fact_data_schemas']['charter_event']
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(fact['data'], schema)
+    item = submission(t); item['facts'].append(fact)
+    result = module().accept_structure_assessment(t, item)
+    assert {'item_id': 's', 'code': 'invalid_charter_event_role'} in result['rejected_items']
+    fact['data']['target_event_id'] = None
+    jsonschema.validate(fact['data'], schema)
+    assert result['judgments']  # The unrelated valid judgment survives.
+
+
+def test_malformed_charter_role_does_not_crash_other_items():
+    _, t = setup_task(); item = submission(t)
+    bad = event(t, 'malformed-role', 'proposal')
+    bad['data']['event_kind'] = ['proposal']
+    item['facts'].append(bad)
+    result = module().accept_structure_assessment(t, item)
+    assert result['judgments'][0]['recommendation'] == 'FOR'
+    assert result['rejected_items'] == [{'item_id': 'malformed-role', 'code': 'invalid_fact_data_or_citation'}]

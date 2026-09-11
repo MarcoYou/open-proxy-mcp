@@ -1,0 +1,482 @@
+{
+  "packet_id": "f32898fbe85ac7eec859d01ebc67cab1da7eca2dcae42ea8bf110b3f1b57a5c7",
+  "evaluator": "Astra / isolated Codex caller",
+  "judgments": [
+    {
+      "agenda_id": "agenda:05e46f339c90f58809e9",
+      "decision": "REVIEW",
+      "reason": "감사 전 재무제표에 대한 승인안이며 제공된 사업보고서 발췌에는 최종 감사의견이 없다. 현금·주식배당과 주식분할을 함께 고려하되 감사 결과가 확인될 때까지 판단을 유보한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "아래의 재무제표는 감사전 연결ㆍ별도 재무제표입니다."
+        },
+        {
+          "source_id": "filing:20251016000194",
+          "quote": "2025년 4월 16일 주식분할에 따라"
+        }
+      ],
+      "skipped_checks": [
+        "최종 외부감사보고서 전문은 패킷에 없어 감사의견 확인 제외",
+        "동종업계 배당 비교자료 없음"
+      ],
+      "unknowns": [
+        "최종 감사의견과 감사 후 재무제표 변경 여부"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:69d15aea90cfbb44dda5",
+      "decision": "NO_VOTE",
+      "reason": "정관 변경의 상위 묶음이며 원문은 제2-1호부터 제2-7호까지 구분한다. 각 하위안을 개별 판단하고 이 행에는 중복 표결하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제2호 의안 : 정관 일부 변경의 건 ○ 제2-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:4614424fcc60660fa2be",
+      "decision": "FOR",
+      "reason": "사외이사를 독립이사로 바꾸는 명칭 정비이며 2026년 7월 23일 시행한다. 임기와 선출방식의 별도 변경안은 해당 하위안에서 평가한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "상법 개정에 따른 독립이사 명칭 변경"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "개정규정은 2026년 7월 23일부터 시행한다."
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:ccf14472baf60a396f11",
+      "decision": "REVIEW",
+      "reason": "사내 2년·사외 1년의 고정 임기를 최대 3년의 주총 결정 방식으로 바꾸고 보선자의 잔여임기 조항도 삭제한다. 이번 후보는 2년·1년으로 명시되어 있으나 향후 임기 배치와 교체 기회에 미치는 영향은 불명확하다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "이사의 임기는 3년 내로 하되, 주주총회결의로 이사 선임시 정한다."
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "보결로 인하여 선임된 이사의 임기는 전임 임원의 잔임기간으로 한다."
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제30조(임원의 보선) (삭 제)"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "향후 임기 선택 기준 및 실제 임기 분산 효과"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:9f0f12f8b19ca3b7ebf6",
+      "decision": "FOR",
+      "reason": "분리선출 감사위원을 2명으로 늘려 독립적인 선출 기회를 확대한다. 가결 시 전영준·허성관의 분리선출 경로가 적용되며 허성관의 일반 이사·감사위원 경로와 중복 계산하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "감사 위원회 위원 중 2명은 주주총회 결의로 다른 이사들과 분리하여 감사위원회 위원이 되는 이사로 선임하여야 한다."
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제3-4호 의안은 제2-3호 의안이 가결되는 경우 자동 폐기"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:a5c53be858860f835be8",
+      "decision": "FOR",
+      "reason": "대리인을 법정대리인 또는 회사 주주로 한정하는 조항을 삭제하여 주주의 대리인 선택권을 넓힌다. 서면 제출 문구도 함께 삭제되므로 실제 대리권 확인 절차는 별도 운영사항으로 남는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "대리인은 법정대리인 또는 본 회사 주주에 한하며"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제25조(의결권의 대리행사) ① (좌 동) ② (삭 제)"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "삭제 후 대리권 확인 실무"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:4652b3418d3b92c74edf",
+      "decision": "FOR",
+      "reason": "ESG위원회를 이사회 내 위원회로 두어 환경·사회 문제에 대한 이사회의 감독 책임을 명확히 한다. 개별 이사의 위법 책임까지 이 조항이나 조업정지 보고만으로 인정하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "4. ESG위원회"
+        },
+        {
+          "source_id": "annual:20260317000753",
+          "quote": "석포제련소 조업정지 처분 및 이행 보고"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "위원회 구성·구체적 권한 및 운영규정"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:5d08251f9c561b6ede3a",
+      "decision": "REVIEW",
+      "reason": "현물배당을 허용하지만 배당 재산의 평가와 주주별 동등 대우, 현금 선택권을 확인할 수 없다. 회사 측의 특정 주주 목적 주장은 입증된 사실로 채택하지 않고 배당 실행 시의 보호장치가 불명확한 점을 유보 사유로 삼는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "금전과 주식 및 기타의 재산 으로 할 수 있다."
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "현물 평가·배분 기준 및 현금 대체 선택권"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:378a19d65413feeacd17",
+      "decision": "FOR",
+      "reason": "연 1회 중간배당을 분기배당으로 확대하여 주주환원 시점을 다양화한다. 배당가능이익 제한을 유지하는 수권 조항이며 구체적인 배당금 지급이나 투자계획 축소를 승인하는 안건으로 보지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "사업연도 개시일부터 3월, 6월 및 9월 말일"
+        }
+      ],
+      "skipped_checks": [
+        "향후 실제 분기배당 금액·재원은 본 안건에서 정하지 않음"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:5ded978dda5409308d0c",
+      "decision": "NO_VOTE",
+      "reason": "이사 선임의 상위 제목 아래 후보별 하위안이 열거되어 있다. 후보별 자격과 조건을 별도로 판단한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제3호 의안 : 이사 선임의 건 ○ 제3-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:1588993511e6cde21644",
+      "decision": "AGAINST",
+      "reason": "계열회사 임원인 사내이사 후보로, 재무 경력과 주주환원 기여 설명만으로 외부 후보 대비 우월성이 입증되지는 않는다. 제공된 OPM의 특수관계인 사내이사 기준을 적용하며 출석 부진이나 개인 위법행위를 반대 근거로 삼지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "권홍운 1968.11.25 사내이사 해당사항 없음 계열회사 임원 이사회"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "배당, 자기주식 소각 이행 등 주주환원 개선에 기여"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "외부 후보와의 역량 비교 및 계열회사 겸직 조정"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:e97273ed517e981cd33b",
+      "decision": "FOR",
+      "reason": "문화예술·사회공헌 전문성을 제공하며 2025년 출석률은 100%이다. 현재 재직 약 4년과 이번 1년 임기 후의 약 5년을 구분하여 현재 5년 이상 장기연임으로 단정하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "박정옥(임기 1년)"
+        },
+        {
+          "source_id": "annual:20260317000753",
+          "quote": "박정옥(출석률:100%)"
+        },
+        {
+          "source_id": "filing:20250328001754",
+          "quote": "박정옥 1958년 07월 여 재선임 2025년 03월 27일 1년 4년"
+        }
+      ],
+      "skipped_checks": [
+        "공개 발췌 외 독립성 및 거래 이력의 포괄 확인 제외"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:6b409eebdae6977cb4ba",
+      "decision": "REVIEW",
+      "reason": "행정 전문성과 100% 출석은 긍정적이나 계열회사 사외이사 겸직에 따른 독립성 판단이 남는다. 취업승인은 2024년 정정공시로 완료되었으므로 미승인을 유보 사유로 삼지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "최창원(임기 1년)"
+        },
+        {
+          "source_id": "filing:20250328001754",
+          "quote": "2024~현재 (주)코리아써키트 사외이사"
+        },
+        {
+          "source_id": "filing:20240401004433",
+          "quote": "2024년 03월 29일 정부공직자윤리위원회취업승인 완료"
+        },
+        {
+          "source_id": "annual:20260317000753",
+          "quote": "최창원(출석률:100%)"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "계열회사 겸직에 따른 독립성 및 이해상충 관리"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:d4cbe89337f30a5de172",
+      "decision": "FOR",
+      "reason": "허성관은 경영학 교수와 연구기관 경력으로 재무·회계 역량을 보완하며 공시상 결격사유가 없다. 분리선출 확대안이 부결될 때만 일반 사외이사로 선임하는 대안 경로다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "허성관(임기 1년) (제3-4호 의안은 제2-3호 의안이 가결되는 경우 자동 폐기)"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "재무, 회계지식과 경험을 바탕으로 회사의 회계/재무 리스크를 검증"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보의 당사 과거 출석률은 적용하지 않음"
+      ],
+      "unknowns": [],
+      "conditional_on": "제2-3호 부결 시에만 존속",
+      "row_kind": "conditional"
+    },
+    {
+      "agenda_id": "agenda:d344c78093e78dca5275",
+      "decision": "NO_VOTE",
+      "reason": "감사위원이 되는 사외이사 선임의 상위 항목이다. 전영준과 조건부 허성관의 개별 선출안을 별도로 판단한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제4호 의안 : 감사위원회 위원이 되는 사외이사 선임의 건 ○ 제4-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:fb4b53273675b3a1bbbf",
+      "decision": "FOR",
+      "reason": "전영준의 지배구조 법률 전문성과 재임 중 출석은 감사기능을 뒷받침하고 분리선출 방식도 긍정적이다. 다른 회사 사외이사 경력을 당사 재직기간으로 합산하거나 준법위원 직책을 이사 겸직으로 계산하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "전영준(임기 1년)"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "법률 및 기업 거버넌스 전반에 대한 폭 넓은 경험과 전문성"
+        },
+        {
+          "source_id": "annual:20260317000753",
+          "quote": "전영준(출석률:100%)"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "발췌 외 법률자문 거래 및 독립성 추가 확인"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:0d2d204bcad274e80731",
+      "decision": "FOR",
+      "reason": "허성관의 재무·회계 전문성과 감사위원 분리선출 방식은 감사기능 강화에 부합한다. 제2-3호가 가결될 때만 성립하며 일반 이사·감사위원 안과 동시에 선출되는 구조가 아니다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제4-2호 의안은 제2-3호 의안이 부결되는 경우 자동 폐기"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "재무/회계 분야의 전문가로서 독립적이고, 투명한 의사결정"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보의 당사 출석률 확인은 비적용"
+      ],
+      "unknowns": [],
+      "conditional_on": "제2-3호 가결 시에만 존속",
+      "row_kind": "conditional"
+    },
+    {
+      "agenda_id": "agenda:72b3465efe3dd2a1e7c8",
+      "decision": "NO_VOTE",
+      "reason": "감사위원 선임의 상위 제목으로 후보별 의안이 별도로 제시된다. 하위안에서 이사 선임 조건과 감사 적합성을 평가한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제5호 의안 : 감사위원회 위원 선임의 건 ○ 제5-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:837acaccf86b68981013",
+      "decision": "REVIEW",
+      "reason": "박정옥의 다양성 기여와 출석은 확인되지만 제공된 문화예술 경력만으로 감사위원의 재무·회계 역량을 판단하기 어렵다. 위원회 전체의 전문인력 배치와 후보의 실제 감사 수행 역량을 확인할 필요가 있으며 법정 결격으로 단정하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제5-1호 의안 : 감사위원회 위원 박정옥(임기 1년)"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "KBS 방송연출가재단법인 KBS교향악단 사장사회복지법인 설원복지재단 이사"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "감사위원회 내 재무·회계 전문성 배치와 후보의 감사 역량"
+      ],
+      "conditional_on": "박정옥의 제3-2호 이사 선임이 전제",
+      "row_kind": "conditional"
+    },
+    {
+      "agenda_id": "agenda:60e87cb3ea37bb9a87ee",
+      "decision": "FOR",
+      "reason": "허성관의 재무·회계 전문성은 감사위원 선임을 뒷받침한다. 분리선출 확대안이 부결되어 일반 이사로 선임되는 경우에만 적용되는 후속 안건이다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "제5-2호 의안은 제2-3호 의안이 가결되는 경우 자동 폐기"
+        },
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "재무/회계 분야의 전문가로서 독립적이고, 투명한 의사결정"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보의 과거 당사 출석률 비적용"
+      ],
+      "unknowns": [],
+      "conditional_on": "제2-3호 부결 및 제3-4호 허성관 이사 선임 가결이 전제",
+      "row_kind": "conditional"
+    },
+    {
+      "agenda_id": "agenda:cca82c047e550f50c68a",
+      "decision": "REVIEW",
+      "reason": "15억원 한도는 전기와 같고 실제 지급액은 약 6.22억원으로 한도 증액에 해당하지 않는다. 성과 연계와 환수·이연 조건은 발췌에 없어 보상 설계가 적정한지 유보하며 미공개를 성과 미연계 사실로 단정하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "실제 지급된 보수총액 622,227,388원 최고한도액 1,500,000,000원"
+        }
+      ],
+      "skipped_checks": [
+        "성과지표·환수·이연 설계 및 동종업계 비교자료 없음"
+      ],
+      "unknowns": [
+        "성과와 보수의 연계 및 한도 여유분 사용계획"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    }
+  ],
+  "discovered_missing_agendas": [
+    {
+      "title": "감사보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "보고사항 : 감사보고, 영업보고, 내부회계관리제도 운영실태보고, 외부감사인 선임 보고"
+        }
+      ]
+    },
+    {
+      "title": "영업보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "보고사항 : 감사보고, 영업보고, 내부회계관리제도 운영실태보고, 외부감사인 선임 보고"
+        }
+      ]
+    },
+    {
+      "title": "내부회계관리제도 운영실태보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "보고사항 : 감사보고, 영업보고, 내부회계관리제도 운영실태보고, 외부감사인 선임 보고"
+        }
+      ]
+    },
+    {
+      "title": "외부감사인 선임 보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260310003081",
+          "quote": "보고사항 : 감사보고, 영업보고, 내부회계관리제도 운영실태보고, 외부감사인 선임 보고"
+        }
+      ]
+    }
+  ],
+  "issues": [
+    "2026-03-25 기준시점의 제공 발췌만 사용한 OPM 현행정책 소급 실험이며 당시 법 시행 사실의 증명이 아니다.",
+    "입력 21개 행 전수 포함. 추가 발견 4개는 보고사항이며 별도 누락 표결은 발견하지 못했다.",
+    "최종 감사보고서 원문은 미제공이며 대량보유 및 권유문서 전체를 통독한 것으로 주장하지 않는다. 관련 원문과 안건 조항을 중심으로 열람했다.",
+    "2026-03-20 박병욱 사임을 반영하여 연말 구성표를 현원으로 오인하지 않았다. 2025-12-08 합병 계획은 후속 사업보고서의 12월18일 해제 결의와 구분했다.",
+    "조건부 허성관 안건 세 개는 동일인 대안 경로다. 후보별 명시 임기와 정관의 최대 임기를 구분했다.",
+    "모든 판단은 인간 미검토. automation 0.5에서 FOR만 자동처리 준비 가능하며 이 보고서는 의결권을 전송하지 않는다."
+  ]
+}

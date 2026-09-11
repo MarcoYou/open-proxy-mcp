@@ -1,0 +1,44 @@
+{
+  "findings": [
+    {
+      "finding_id": "size-effect",
+      "criterion_id": "ES-01",
+      "agenda_ids": [
+        "agenda:45d646003736a33e890f"
+      ],
+      "fact_ids": [
+        "cap",
+        "size-policy",
+        "size-timing"
+      ],
+      "effect": "mixed",
+      "materiality": "unknown",
+      "rationale": "상한 축소만으로 위반을 뜻하지 않고 독립이사 비중 확대 계획도 있다. 그러나 별도 시행시점의 실제 구성과 업무량을 아직 대조하지 못해 ES-01 중대한 불리함 여부는 미결이다.",
+      "counterevidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "이와 병행하여 사외이사 수를 기존 4명에서 5명으로 확대하여 사외이사의 비중을 높임으로써, 이사회의 독립성과 감시 기능을 더욱 강화하고자 합니다."
+        }
+      ],
+      "gap_ids": [
+        "size-composition"
+      ]
+    },
+    {
+      "finding_id": "cv-effect",
+      "criterion_id": "ES-05",
+      "agenda_ids": [
+        "agenda:c84e18e62e266baeb999"
+      ],
+      "fact_ids": [
+        "cv-change",
+        "cv-timing"
+      ],
+      "effect": "beneficial",
+      "materiality": "limited",
+      "rationale": "배제 문구 삭제는 장래 집중투표 접근을 여는 방향이다. ES-05의 중대한 접근 제한 근거는 이 조문에서 확인하지 못했다. 이번 주총에서 이미 행사 가능하다는 뜻은 아니다.",
+      "counterevidence_refs": [],
+      "gap_ids": []
+    }
+  ]
+}

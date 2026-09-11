@@ -1,0 +1,32 @@
+{
+  "contract": "opm-structure-ontology/1",
+  "scope": "election_structure",
+  "criteria": {
+    "ES-01": {"label": "정원·업무량", "fact_kinds": ["board_counts", "clause_change", "election_pool"], "sources": ["meeting_notice", "annual_report", "charter_attachment"]},
+    "ES-02": {"label": "임기 결정·책임성", "fact_kinds": ["clause_change", "term", "charter_event"], "sources": ["meeting_notice", "charter_attachment"]},
+    "ES-03": {"label": "시차·교체 기회", "fact_kinds": ["term", "clause_change"], "sources": ["annual_report", "meeting_notice"]},
+    "ES-04": {"label": "분리선출·감사 독립성", "fact_kinds": ["board_counts", "election_pool", "term"], "sources": ["annual_report", "meeting_notice", "officer_change"]},
+    "ES-05": {"label": "집중투표 접근", "fact_kinds": ["election_pool", "condition", "clause_change"], "sources": ["meeting_notice", "proxy_solicitation", "charter_attachment"]},
+    "ES-06": {"label": "사임·재선임 연속성", "fact_kinds": ["term", "context"], "sources": ["officer_change", "annual_report", "related_company_officer_change"]},
+    "ES-07": {"label": "조건·주주 접근", "fact_kinds": ["condition", "election_pool", "ballot_scope"], "sources": ["meeting_notice", "proxy_solicitation", "correction"]}
+  },
+  "source_routes": {
+    "meeting_notice": "Pinned notice, full relevant before/after and applicability clauses. Use read_next for truncated passages.",
+    "annual_report": "Latest time-admitted report for the relevant completed fiscal year. Publication year is not measurement year.",
+    "charter_attachment": "Discover attachment index; distinguish proposed/effective text. Route image-only pages to an external visual reader.",
+    "proxy_solicitation": "Time-admitted solicitation originals. Separate each proponent's claim from established facts.",
+    "officer_change": "Appointment, dismissal, resignation disclosures and historical naming variants. Match role and person beyond name.",
+    "related_company_officer_change": "Resolve the related issuer from cited employment/office facts and inspect time-admitted officer changes there. Navigation requirement, not a claim this route is automatically collected.",
+    "correction": "Follow time-admitted corrections and withdrawals. Preserve target and effective date; never read later voting outcomes."
+  },
+  "qa_checks": {
+    "subject_and_period": "Same person, company, role and observation period? Name alone and publication year are insufficient.",
+    "source_entailment": "Does the cited passage support the exact claim including before/after, negation and qualifiers?",
+    "counterevidence_and_gaps": "Have contrary sources and unread/failed/conflicting vs undisclosed information been distinguished?",
+    "policy_application": "Do the relevant policy rule, materiality and exception support the recommendation?",
+    "numbers_and_scope": "Are bounds, actual/proposed counts, continuing members, units and applicability kept distinct?",
+    "ballot_and_conditions": "Does the fixed row kind, conditional branch and competing choice constraint match this recommendation?"
+  },
+  "relations": ["source supports fact", "fact scoped_to agenda", "finding applies criterion", "finding depends_on fact", "judgment depends_on finding", "review binds_to judgment_digest"],
+  "boundary": "Schemas and arithmetic are executable; source meaning and materiality remain unreviewed LLM judgments. Source routes are reading guidance, not evidence of retrieval completeness."
+}

@@ -1,0 +1,456 @@
+{
+  "packet_id": "61572336068b3dd3395c9757155461ca0025dde065a5d8a9475bc4551686dabb",
+  "evaluator": "Astra / isolated Codex caller",
+  "judgments": [
+    {
+      "agenda_id": "agenda:4dd4e8e028c90d742699",
+      "decision": "REVIEW",
+      "reason": "감사 전 재무제표이며 최종 감사보고서를 참조하도록 되어 있으나 해당 의견은 패킷에 없다. 배당 증가와 대규모 투자·출자 계획을 확인했지만 적정의견 확인 전 승인은 유보한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "아래의 재무제표는 감사전 연결ㆍ별도 재무제표입니다."
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "보통주 : 당기 1,875원(38%) 전기 1,304원(26%)"
+        }
+      ],
+      "skipped_checks": [
+        "최종 감사의견 및 상세 주석 전체 검증은 제공 범위 밖",
+        "다년 업계 비교를 통한 주주환원 적정성 평가 제외"
+      ],
+      "unknowns": [
+        "최종 감사의견과 감사 후 수치 변경"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:a7a261f850734751bb29",
+      "decision": "NO_VOTE",
+      "reason": "정관 변경의 상위 항목이고 두 하위안이 구분되어 있다. 각 조항의 실제 내용은 하위안에서 판단한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제2호 의안: 정관 변경의 건 ·제2-1호: 집중투표제 배제 조항 삭제 ·제2-2호: 그 외 개정 상법 반영"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:462c1801905bdcfb0dc7",
+      "decision": "FOR",
+      "reason": "집중투표 배제 조항을 삭제하여 소수주주의 선출 접근성을 개선한다. 적용은 2026년 9월 10일 이후 최초 소집부터이므로 이번 주총에 집중투표가 실시된다고 가정하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "집중투표제 배제 관련 조항 삭제"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "2026년 9월 10일 이후로 최초로 이사의 선임을 위한 주주총회 소집이 있는 경우부터 적용한다"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:daa9facdaf57b36faa99",
+      "decision": "REVIEW",
+      "reason": "전자주총·충실의무 확대·분리선출 2명은 긍정적이고 기존 양동훈과 신규 고승범을 합산해 선출구조를 확인했다. 다만 경영상 목적의 자사주 보유·처분을 폭넓게 허용하는 조항까지 묶여 있어 구체적 제한과 별도 승인 관계를 확인할 필요가 있다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "회사의 경영상 목적을 달성하기 위하여 필요한 경우 또는 관련 법령에 따라 허용되는 경우 자기주식을 보유 또는 처분할 수 있다."
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "감사위원회 위원 중 2명은 주주총회 결의로 다른 이사들과 분리하여"
+        },
+        {
+          "source_id": "filing:20240322000646",
+          "quote": "양동훈 사외이사 후보자를 분리 선출할 예정임"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "포괄적 자사주 보유·처분 수권과 주총 승인·소각 원칙의 관계"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:6d943a9386dbbd41ed7a",
+      "decision": "FOR",
+      "reason": "차선용의 반도체 연구개발과 기술전략 경력은 사내이사 역할에 부합하며 최대주주와의 관계나 결격사항은 없다고 기재되어 있다. 신규 이사에게 과거 당사 이사회 출석률을 요구하거나 회사 전체 사안을 개인 책임으로 돌리지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "차선용 1967.08.04 - - 없음 이사회"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "차선용 SK하이닉스 미래기술연구원원장/사장"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보의 당사 이사회 출석률 비적용",
+        "발췌 외 포괄적 제재 및 겸직 조회 제외"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:1803ce49d77b7ad237c5",
+      "decision": "NO_VOTE",
+      "reason": "사외이사 선임의 상위 제목 아래 세 후보가 개별 안건으로 제시된다. 동일 풀의 경쟁을 임의로 가정하지 않고 후보별 판단을 유지한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제4호 의안: 사외이사 선임의 건 ·제4-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:bd6f24b13b940ad03f8a",
+      "decision": "FOR",
+      "reason": "정덕균의 반도체 설계 전문성과 2025년 100% 출석은 이사회 기여를 뒷받침한다. 최초 선임은 2023년으로 현재 약 3년이며 향후 임기 종료 시 재직기간을 현재의 5년 조기경보와 혼동하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "정덕균(재선임) 서울대 전기정보공학부 명예교수"
+        },
+        {
+          "source_id": "annual:20260317000635",
+          "quote": "정덕균 (출석률 :100%)"
+        },
+        {
+          "source_id": "annual:20260317000635",
+          "quote": "정덕균 사외이사후보추천위원회 2023.03.29 (신임)"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "이번 후보의 명시적 임기 및 발췌 외 겸직 확인"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:c99fbb9f4be0d49c9dcb",
+      "decision": "FOR",
+      "reason": "김정원의 금융기관 CFO 경험과 2025년 100% 출석은 재무 감독과 전문성 다양성에 기여한다. 2023년 최초 선임이므로 현재 장기연임 기준에 해당한다고 볼 근거는 없다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "2010~2018 韓 Citi은행 재무기획그룹 부행장 (CFO)"
+        },
+        {
+          "source_id": "annual:20260317000635",
+          "quote": "김정원 (출석률 :100%)"
+        },
+        {
+          "source_id": "annual:20260317000635",
+          "quote": "김정원 사외이사후보추천위원회 2023.03.29 (신임)"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "이번 후보의 명시적 임기 및 법률사무소 관련 거래의 추가 확인"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:2af65744adcbb9cb9e94",
+      "decision": "FOR",
+      "reason": "최강국의 국제 세무·M&A 및 회계법인 경력은 이사회와 감사기능에 필요한 전문성을 제공한다. 거래·결격사항이 없다는 공시를 바탕으로 찬성하되 신규 후보의 당사 출석은 평가하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "최강국 법무법인 가온 고문"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "2020~2025 EY Managing Director 2013~2019 PwC Partner / Principal"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보의 과거 당사 출석률 비적용",
+        "발췌 밖 자문 거래·제재 이력 확인 제외"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:8224ced379ebb81ee61e",
+      "decision": "REVIEW",
+      "reason": "김정규는 투자·사업개발 경력을 보유하지만 SK스퀘어 임원으로 최대주주와의 이해관계가 명확하다. 기타비상무이사를 사외이사나 특수관계인 사내이사로 바꾸어 분류하지 않으며 전체 주주 이익과 계열사 이해의 충돌 관리가 남는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "김정규 1976.09.12 - - 계열회사 임원(SK스퀘어) 이사회"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "해외 투자와 사업개발 분야의 전문 역량"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보 당사 출석률 비적용"
+      ],
+      "unknowns": [
+        "계열회사 거래·투자에서 이해상충 회피 및 전체 주주 대표성"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:6caeb8a3dc0c0b6c28b5",
+      "decision": "FOR",
+      "reason": "고승범의 금융·경제 정책 경력과 분리선출 방식은 재무 위험 감독을 강화할 수 있다. 계속 재직하는 양동훈의 분리선출 지위와 합쳐 두 명이므로 이번 분리선출이 한 명이라는 이유로 미달로 판단하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "고승범 1962.11.09 사외이사 분리선출 없음"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "2021~2022 금융위원회 위원장 2016~2021 한국은행 금융통화위원회 위원"
+        },
+        {
+          "source_id": "filing:20240327000718",
+          "quote": "하기 선임된 사외이사의 임기 만료일은 2027년 정기주주총회일 임"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보의 당사 출석률 비적용",
+        "자문사 거래·공직 퇴임 후 제한의 개별 법률 검증은 발췌 밖"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:6ff223581c976646e0bd",
+      "decision": "NO_VOTE",
+      "reason": "감사위원 선임의 상위 제목이며 김정원·최강국별 표결안이 제시된다. 이 행은 하위안의 판단을 중복 집계하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제7호 의안: 감사위원회 위원 선임의 건 ·제7-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:d3c351564a0478c95179",
+      "decision": "FOR",
+      "reason": "김정원의 CFO·자금관리 경험과 재임 중 출석은 감사위원 역할에 적합하다. 이사 선임을 전제로 하며 비감사 보수비율은 수치가 없어 해당 점검만 제외한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제7-1호 의안: 감사위원회 위원 선임의 건 (후보: 김정원)"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "2010~2018 韓 Citi은행 재무기획그룹 부행장 (CFO)"
+        },
+        {
+          "source_id": "annual:20260317000635",
+          "quote": "김정원(출석률:100%)"
+        }
+      ],
+      "skipped_checks": [
+        "비감사용역 보수와 감사보수 비교자료 없음"
+      ],
+      "unknowns": [],
+      "conditional_on": "제4-2호 김정원 사외이사 선임 가결 전제",
+      "row_kind": "conditional"
+    },
+    {
+      "agenda_id": "agenda:951351272a2e2964507c",
+      "decision": "FOR",
+      "reason": "최강국의 회계법인·세무·M&A 경력은 감사 전문성을 뒷받침한다. 이사 선임을 전제로 하며 제공 경력만으로 개인의 감사 실패나 자문 이해상충을 추정하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제7-2호 의안: 감사위원회 위원 선임의 건 (후보: 최강국)"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "2020~2025 EY Managing Director 2013~2019 PwC Partner / Principal"
+        }
+      ],
+      "skipped_checks": [
+        "당사 과거 출석률 비적용",
+        "비감사 보수비율과 발췌 외 제재 이력 확인 제외"
+      ],
+      "unknowns": [],
+      "conditional_on": "제4-3호 최강국 사외이사 선임 가결 전제",
+      "row_kind": "conditional"
+    },
+    {
+      "agenda_id": "agenda:82a3bed8b27da3597355",
+      "decision": "AGAINST",
+      "reason": "현금 150억원에 주식 3만 주를 별도로 추가하며, 공시된 2월 5일 가격 842,000원으로 단순 환산하면 주식분만 약 252.6억원으로 기존 한도 대비 증가가 50%를 크게 넘는다. 이는 확정 지급가치가 아닌 비교 예시지만 장기성과급이라는 설명만으로 큰 한도 확대의 예외가 입증되지 않아 OPM 증액 기준으로 반대한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "15,000백만원+30,000주(주1)"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "현금과 별개로 장기성과급의 주식 보상으로 자사주를 지급하고자 함"
+        },
+        {
+          "source_id": "filing:20260206001987",
+          "quote": "2026년 02월 05일 보통주식 410,807 410,807 842,000"
+        }
+      ],
+      "skipped_checks": [
+        "현재 시가를 조회하지 않음",
+        "장기성과급 세부 KPI·환수·이연 조건 미제공"
+      ],
+      "unknowns": [
+        "최종 지급가치와 3만 주의 성과 달성 조건"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:b861d0dde4f80b40dd2f",
+      "decision": "FOR",
+      "reason": "자본준비금 일부를 이익잉여금으로 전입하여 주주환원 재원을 확보하는 조치이며 감자나 즉시 현금유출로 볼 수 없다. 제시된 4조 836억원 전입을 지지하되 실제 배당 규모와 시점은 별도 결정사항으로 남는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "자본준비금 87,172억원 중 40,836억원을 감액하여 이익잉여금으로 전입"
+        }
+      ],
+      "skipped_checks": [
+        "준비금 감액의 법률 요건 독립 검증 제외"
+      ],
+      "unknowns": [
+        "실제 환원 시기·금액"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:59105389cb8cd1ab503b",
+      "decision": "REVIEW",
+      "reason": "미등기임원 등급과 DC 퇴직연금 근거를 추가하고 연구위원·자체임원의 지급률을 각각 2.0·1.0으로 정한다. 기존 사장 이상 4.0을 새 인상으로 보지는 않지만 산식과 기준보수, 연금 부담의 상세가 부족해 경제적 효과를 유보한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "경영성과금 DC(확정기여형 퇴직연금) 제도 도입"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "사장 이상 4.0 부사장 3.0 부사장(연구위원) 2.0 부사장(자체임원) 1.0"
+        }
+      ],
+      "skipped_checks": [
+        "전체 퇴직금 규정과 연금 규약 원문 미제공"
+      ],
+      "unknowns": [
+        "기준보수·근속 산식과 연금 부담 변화"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:67cbaad9329d7ee349a9",
+      "decision": "AGAINST",
+      "reason": "임직원 보상 목적과 연간 보고는 제시되지만 잔여 자사주를 지급시점까지 보유하여 1년 내 소각 약속이 없고 예상 30만 주도 주가에 따라 바뀐다. OPM의 소각 없는 처분 기준에 반대하며 법 개정 시행 조건이 충족되지 않으면 원문에 따라 안건 자체가 폐기된다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "'27년 정기주주총회 이후의 임직원 보상 제도 운영에 따른 지급 시점까지 보유하고 활용할 계획입니다."
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "실제 처분 규모는 이사회를 통해 결정할 예정임"
+        },
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "주주총회일(2026년 3월 25일) 전 시행되지 않는 경우, 본 안건은 자동 폐기됩니다."
+        }
+      ],
+      "skipped_checks": [
+        "해당 법 개정의 실제 시행 여부는 패킷 내 독립 원문 없어 확정하지 않음"
+      ],
+      "unknowns": [
+        "보유 종료일·최종 처분량·성과 및 환수 조건"
+      ],
+      "conditional_on": "주총 전 해당 상법 개정 시행 시에만 표결 존속; 미시행 시 자동 폐기",
+      "row_kind": "conditional"
+    }
+  ],
+  "discovered_missing_agendas": [
+    {
+      "title": "제78기 영업보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제78기 영업보고 - 감사위원회의 감사 보고 - 내부회계관리제도 운영실태 보고 - 최대주주등과의 거래내역 보고"
+        }
+      ]
+    },
+    {
+      "title": "감사위원회 감사 보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제78기 영업보고 - 감사위원회의 감사 보고 - 내부회계관리제도 운영실태 보고 - 최대주주등과의 거래내역 보고"
+        }
+      ]
+    },
+    {
+      "title": "내부회계관리제도 운영실태 보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제78기 영업보고 - 감사위원회의 감사 보고 - 내부회계관리제도 운영실태 보고 - 최대주주등과의 거래내역 보고"
+        }
+      ]
+    },
+    {
+      "title": "최대주주등과의 거래내역 보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260305001231",
+          "quote": "제78기 영업보고 - 감사위원회의 감사 보고 - 내부회계관리제도 운영실태 보고 - 최대주주등과의 거래내역 보고"
+        }
+      ]
+    }
+  ],
+  "issues": [
+    "2026-03-25 기준 제공 발췌만 사용한 현행 OPM 정책 소급 평가이며 법 시행의 증거가 아니다.",
+    "18개 입력 행 전수 평가. 추가 발견한 4개는 보고사항이며 별도 누락 표결은 발견하지 못했다.",
+    "전체 소집공고가 제공되었지만 관련 안건 조항·후보·재무자료 중심으로 읽었다. 상세 회계정책 전체와 사업보고서 전체를 검증했다고 주장하지 않는다. 대량보유보고서는 일부만 제공·열람되었다.",
+    "정관상 6~10인 정원은 그대로이며 보수안의 예정 10인·사외 6인을 충원 의무로 오인하지 않았다. 집중투표와 전자주총·독립이사 명칭의 서로 다른 시행일을 구분했다.",
+    "소집공고의 2026년 예상 자사주 잔량을 2월6일 실제 보유량과 같은 시점의 확정 수치로 취급하지 않았다.",
+    "모든 판단은 인간 미검토이고 FOR만 자동처리 준비 대상이며 실제 표결 전송은 없다."
+  ]
+}

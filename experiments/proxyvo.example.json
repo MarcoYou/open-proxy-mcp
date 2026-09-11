@@ -1,0 +1,31 @@
+{
+  "name": "youngone-structure-comparison",
+  "models": [
+    {"id": "gpt-5.6-luna", "effort": "xhigh", "output_mode": "json_schema"},
+    {"id": "gpt-5.6-terra", "effort": "xhigh", "output_mode": "json_schema"},
+    {"id": "gpt-5.6-sol", "effort": "xhigh", "output_mode": "json_schema"},
+    {"id": "gpt-6-astra", "effort": "xhigh", "output_mode": "json_schema"}
+  ],
+  "judges": [],
+  "methods": ["direct", "staged", "direct_with_review"],
+  "prompts": [
+    {"id": "brief", "question": "공통 OPM 정책과 허용된 원문을 사용하여 지정 안건의 의결권을 자문하라. 사실·근거·미확인·권고를 제출 계약에 맞춰 JSON으로 반환하라."}
+  ],
+  "repetitions": 1,
+  "workflow": {"stance": 0.5, "firmness": 0.75, "automation": 0.5},
+  "cases": [
+    {
+      "id": "youngone-agm-20260327",
+      "company": "영원무역",
+      "year": 2026,
+      "meeting_type": "annual",
+      "cutoff_at": "2026-03-27T00:00:00+09:00",
+      "notice_rcept_no": "20260312001098",
+      "agenda_ids": ["agenda:45d646003736a33e890f", "agenda:c84e18e62e266baeb999"],
+      "evidence_sources": [
+        {"type": "dart", "rcept_no": "20260312001098", "source_scope": "agenda_context", "text_offset": 0, "text_chars": 30000},
+        {"type": "dart", "rcept_no": "20260312001098", "source_scope": "agenda_context", "text_offset": 30000, "text_chars": 30000}
+      ]
+    }
+  ]
+}

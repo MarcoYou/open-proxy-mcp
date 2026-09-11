@@ -1,0 +1,405 @@
+{
+  "cases": {
+    "gabia": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "e03527927bb867bacec90750367f9308f1afad468ea4b6d80dff34571bb773cc",
+        "0.9": "9739c8d0ee5a154849de2c0dfc361328e4479fab4753efac8ddac3f38d7704f7"
+      },
+      "source_hashes": {
+        "0.1": "efb21df9e278528fd0685ad3ee12f90d0ab70d7bc2e9a6a2b7c60aeadfc227fd",
+        "0.9": "efb21df9e278528fd0685ad3ee12f90d0ab70d7bc2e9a6a2b7c60aeadfc227fd"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": [
+        "gabia-0.1",
+        "gabia-0.9"
+      ]
+    },
+    "golfzon": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "ec6202fb9a58149feb28f181b8b538616d5ab82faf0488461258e5f09062770d",
+        "0.9": "bcef68c456516facaa4e79b41fedc1367e38f37800bbc63dc49d8190063d296f"
+      },
+      "source_hashes": {
+        "0.1": "75aa7934f7cd664c63c901a7e5363ce97b7e8d998bb1c0427568cd792c9d07c4",
+        "0.9": "75aa7934f7cd664c63c901a7e5363ce97b7e8d998bb1c0427568cd792c9d07c4"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "taekwang": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "c0ba039a30bec0b51cbf50934cf04943ea333752f3ed6a79276963f5a592b8e8",
+        "0.9": "a4f4c43668f7c16b8a75fed80a78c77d3b473d852fb7de01e728bdb8eb804f95"
+      },
+      "source_hashes": {
+        "0.1": "16a8decb1a7397e8b28a19a700208c10578f3083db4a937f27e68b40755e5254",
+        "0.9": "16a8decb1a7397e8b28a19a700208c10578f3083db4a937f27e68b40755e5254"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "youngpoong": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "f32898fbe85ac7eec859d01ebc67cab1da7eca2dcae42ea8bf110b3f1b57a5c7",
+        "0.9": "7847f3d979e1907383940801b57e47a6c2f79051775465c623a1809af35820f3"
+      },
+      "source_hashes": {
+        "0.1": "cc97eda1c8e841f0f2c16ff90077a531f510315b2c77fd184f88199ee08d6d2a",
+        "0.9": "cc97eda1c8e841f0f2c16ff90077a531f510315b2c77fd184f88199ee08d6d2a"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "kz_agm": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "7f7630684565cf0a0581155e8c8b41c6a5002034e3c51dac84a4aa553bb621a0",
+        "0.9": "cbc98b8c7f8c208d5391d7800bfe7684f6bf11b567ebae70cc4b253e63b00bd2"
+      },
+      "source_hashes": {
+        "0.1": "014ad6ae50985873002eba933d4aa97a25ef51df8eb81a9e3a7c6207522b30f8",
+        "0.9": "014ad6ae50985873002eba933d4aa97a25ef51df8eb81a9e3a7c6207522b30f8"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "kz_egm": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "c808c6a0c8e4c87b117230620d51dc5b0ce27714cb923c8d4cd40f77630a704f",
+        "0.9": "3d55b0f17bf46a36ea179c8a0c68fdbb776dbda976887cd222461b0379ffe174"
+      },
+      "source_hashes": {
+        "0.1": "ce674e9f2f7925e0d19bfa690db59d242b3d7941c41d3be8cad3cdfc3b8bc54e",
+        "0.9": "ce674e9f2f7925e0d19bfa690db59d242b3d7941c41d3be8cad3cdfc3b8bc54e"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "youngone": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "3e279409be20a1571fee311be789640f2a2a08681a77ce47c9f3f3939f4a5824",
+        "0.9": "56796ba8830908ed5ae0695c300b35bfefe7e28c588379594027440b19fff261"
+      },
+      "source_hashes": {
+        "0.1": "7749d2d645c34cc21351c5e47c16558095bbecc1b3a8a1d4cb08dbd5cc1fcd7b",
+        "0.9": "7749d2d645c34cc21351c5e47c16558095bbecc1b3a8a1d4cb08dbd5cc1fcd7b"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "lgchem": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "d59f72c1001a2392c4c52f11a06ae5d28f7f56b0397dc7ada20a1b601b1443da",
+        "0.9": "f74efeef9237fbf4137137f044095ac8941f7b46538a953f9a53e2140f6b2bea"
+      },
+      "source_hashes": {
+        "0.1": "b01db595c4d2ec2d89c81bead7ce5b6c7b610aba4cea138b5cd9925922c38dd7",
+        "0.9": "b01db595c4d2ec2d89c81bead7ce5b6c7b610aba4cea138b5cd9925922c38dd7"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "samsung": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "2942c269ffe510316fc83182045b0c8510459691147294926a8177abc1a2475b",
+        "0.9": "d833008e8d3c94b4745bc1e8d9cf8165111e4731c4a8dba0bad8d0249100a6a6"
+      },
+      "source_hashes": {
+        "0.1": "66878f0809c093e849fe7449cdb17aad9ed47e76cda765d64930591a3062ee9a",
+        "0.9": "66878f0809c093e849fe7449cdb17aad9ed47e76cda765d64930591a3062ee9a"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "ktg": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "af58d507635f7a9c27d5ca7dd7d55fc32bf66fcb2ab2262407b20f773ee963a9",
+        "0.9": "cee41c9356469e79d8682a9c33967b6e5fa265e0491971c5b7dca3f97b2abeaa"
+      },
+      "source_hashes": {
+        "0.1": "a5d53876ee77931a9cc34d8a11eba5d5fa5db9b560d7cd6ff2747ef056b80083",
+        "0.9": "a5d53876ee77931a9cc34d8a11eba5d5fa5db9b560d7cd6ff2747ef056b80083"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "skhynix": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "61572336068b3dd3395c9757155461ca0025dde065a5d8a9475bc4551686dabb",
+        "0.9": "d249adfa1c1354514175561019b7f7ccd4dfb12516f7cbcb511296338533f35a"
+      },
+      "source_hashes": {
+        "0.1": "1c6dd3d7f2bd6f59301c2136d0bc25195cdf380998372e4d71c3e84d81a03041",
+        "0.9": "1c6dd3d7f2bd6f59301c2136d0bc25195cdf380998372e4d71c3e84d81a03041"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    },
+    "kakao": {
+      "status": "matched",
+      "release_ready": true,
+      "checks": {
+        "packet_ids_valid": true,
+        "source_hashes_valid": true,
+        "source_hash_equal": true,
+        "agendas_equal": true,
+        "execution_context_equal": true,
+        "meeting_equal": true,
+        "settings_except_firmness_equal": true,
+        "firmness_values_correct": true,
+        "policy_except_firmness_equal": true,
+        "general_policy_equal": true,
+        "instructions_equal": true,
+        "reading_limits_equal": true
+      },
+      "packet_ids": {
+        "0.1": "d939960857668517ede5f14625bfc264a848ac58b7ee577d9770653361739ea2",
+        "0.9": "22410b5fd866aa3bb4c1385438778cf85fc43035d96df587cc3f0a0c80806867"
+      },
+      "source_hashes": {
+        "0.1": "33eecabaf7c7708f53e47b0cb06469f691bdffc3c1d1749d1278cc035583e713",
+        "0.9": "33eecabaf7c7708f53e47b0cb06469f691bdffc3c1d1749d1278cc035583e713"
+      },
+      "excluded_execution_fields": [
+        "expected_policy_sha256",
+        "expected_run_id",
+        "policy_sha256",
+        "run_id"
+      ],
+      "preserved_packets": []
+    }
+  },
+  "contract": "opm-firmness-pair-controls/1",
+  "release_rule": "Use only release_ready pairs whose packet_ids still match these controls."
+}

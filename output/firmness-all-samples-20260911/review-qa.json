@@ -1,0 +1,2192 @@
+{
+  "schema_version": "1.0",
+  "scope": {
+    "companies": [
+      "가비아",
+      "삼성전자",
+      "고려아연",
+      "영풍",
+      "SK하이닉스",
+      "KT&G",
+      "카카오",
+      "골프존홀딩스",
+      "영원무역",
+      "LG화학",
+      "태광산업"
+    ],
+    "cases": [
+      "gabia",
+      "samsung",
+      "kz_agm",
+      "youngpoong",
+      "skhynix",
+      "ktg",
+      "kakao",
+      "golfzon",
+      "youngone",
+      "lgchem",
+      "taekwang"
+    ],
+    "firmness": [
+      "0.1",
+      "0.9"
+    ],
+    "artifact_role": "secondary_source_semantics_QA",
+    "is_independent_human_or_different_model_accuracy_benchmark": false,
+    "human_correctness_claimed": false,
+    "network_or_runtime_calls": false,
+    "judgments_changed": false,
+    "scope_limit": "저장된 11개 March 회의의 22개 보고서용 검토문과 원문 패킷을 단계별 요청 범위에서 대조했다. 태광산업은 네 지정 쟁점만 의미 QA했다. native 제출·수락, 독립 정답 또는 실제 투표 검증이 아니며 이후 EGM 자료는 읽지 않았다.",
+    "kz_egm_read": false,
+    "decision_layer": "report_side_caller_reviews",
+    "native_submission_or_acceptance_asserted": false
+  },
+  "method": {
+    "quote_check": "공백을 정규화한 인용문이 지정된 source_id의 개별 제공 excerpt 안에 포함되는지 검사. 부분일치 통과는 의미상 타당성이나 결론의 정확성을 보증하지 않음.",
+    "semantic_check": [
+      "미제공·미확인과 회사 미공개·부정 사실의 구별",
+      "인용 범위와 판단 근거의 일치",
+      "고정 임기와 최대 임기",
+      "분리선출 이사와 계속 재직기간",
+      "정관 부칙의 적용일과 정책·법률 주장 구분",
+      "경합 대안 및 선행 안건 조건과 실행 가능한 선택의 구분"
+    ],
+    "severity_definition": {
+      "medium": "판단 근거 문구가 제공 출처보다 넓어 원 검토자의 출처 범위 정정이 필요한 항목",
+      "low": "사실 오류 판단 없이 보고서 표현·집계에서 보존해야 할 한계",
+      "high": "결과에 영향을 줄 수 있는 인물·역할 관련 입력 누락 또는 동일인 연결을 제공 증거보다 확정적으로 표현한 경우. 실제 오인 여부·리뷰어 오독·입력 누락을 별도로 분류한다."
+    }
+  },
+  "cases": [
+    {
+      "case_id": "gabia",
+      "company": "가비아",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/gabia-0.1.json",
+          "review_sha256": "1e03a0ccb762e455b187fa9b90c79a28fef014b025207875d7de49a5920a91d5",
+          "packet_path": "output/firmness-all-samples-20260911/packets/gabia-0.1.json",
+          "packet_sha256": "73708c8e3e96f203676987431a5c72e11babd9f9bbe85958e56c0a5f435a4e93",
+          "packet_id_matches": true,
+          "rows": 17,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 7,
+            "NO_VOTE": 5,
+            "FOR": 3,
+            "AGAINST": 2
+          },
+          "row_kind_counts": {
+            "ballot": 11,
+            "parent": 5,
+            "conditional": 1
+          },
+          "nonparent_rows": 12,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 41,
+              "matched": 41,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          }
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/gabia-0.9.json",
+          "review_sha256": "4a0bd99c96766eaae33cf4c204e5f43629277379619ba3275b1722bb3f065d06",
+          "packet_path": "output/firmness-all-samples-20260911/packets/gabia-0.9.json",
+          "packet_sha256": "e7a540c65407693d4076b81c240b735ab261a4974ed8a74c657cc884923fbc6a",
+          "packet_id_matches": true,
+          "rows": 17,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 2,
+            "NO_VOTE": 5,
+            "FOR": 7,
+            "AGAINST": 3
+          },
+          "row_kind_counts": {
+            "ballot": 11,
+            "parent": 5,
+            "conditional": 1
+          },
+          "nonparent_rows": 12,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 47,
+              "matched": 47,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          }
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:05749a66e2d161c65c41",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:55ffd7565ce0d504c79b",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:dedc1d73c3abb0b282f3",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:97656148d2aa019ea234",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:c80697ade761abd58c3e",
+          "from": "REVIEW",
+          "to": "FOR"
+        }
+      ],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "missing_vs_unread",
+          "agenda_ids": [
+            "agenda:33a1bbdbb1b623de1b1e"
+          ],
+          "finding": "최종 감사의견이 제공 패킷에 없다는 이유를 회사 미공개나 부적정 의견으로 바꾸지 않았다. 주요 소집공고는 full로 제공되었으나 사업보고서 이사회 부분 및 주주 자료 일부는 발췌 자료다."
+        },
+        {
+          "topic": "alternatives",
+          "agenda_ids": [
+            "agenda:05749a66e2d161c65c41",
+            "agenda:55ffd7565ce0d504c79b"
+          ],
+          "finding": "0.9 양안 FOR는 두 배당금 합산 승인이나 최종 투표 선택이 아니라 개별 수용 가능성으로 명시되었다. 원문상 두 대안 동시 표결 후 다득표안 한 건 채택이라는 조건을 보존했다."
+        },
+        {
+          "topic": "charter_scope_and_dates",
+          "agenda_ids": [
+            "agenda:dedc1d73c3abb0b282f3"
+          ],
+          "finding": "3~5인 정원 유지, 직접 출석 총회 제한과 전자투표의 구별, 2027년 개최방식 및 독립이사 수 적용시점을 보존했다. 당시 법률 위반을 단정하지 않았다."
+        },
+        {
+          "topic": "candidate_sources",
+          "agenda_ids": [
+            "agenda:bf814d989effa80d40bb",
+            "agenda:97656148d2aa019ea234",
+            "agenda:051fcc56ad656e49d717"
+          ],
+          "finding": "기타비상무이사에게 사외이사 법정결격을 기계적으로 적용하지 않았고, 후보가 아닌 현직 사외이사의 출석률을 후보 성과로 옮기지 않았다. 계열·지지 주주 관계만으로 부정행위를 확정하지 않았다."
+        },
+        {
+          "topic": "compensation_controls",
+          "agenda_ids": [
+            "agenda:89f69c0f9b9c1f88b6b8",
+            "agenda:e11171953ad8b878d823",
+            "agenda:c80697ade761abd58c3e"
+          ],
+          "finding": "20억원 총한도와 실제 지급액을 구별하고, 대표이사 각 기본 3억원·총 10억원의 개인 한도를 기존 총한도에 추가되는 예산으로 합산하지 않았다. 0.9 개인 한도 찬성도 성과지표·회수장치가 완성되었다는 주장은 아니다."
+        },
+        {
+          "topic": "litigation_and_advisory",
+          "agenda_ids": [
+            "agenda:5f82623236ca5500d88e"
+          ],
+          "finding": "검사인 선임 사건을 주주제안 의안상정 가처분 결과로 취급하지 않고, 철회·상정 여부를 조건으로 남겼다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:05749a66e2d161c65c41",
+            "agenda:55ffd7565ce0d504c79b"
+          ],
+          "quote": "양안 FOR는 각 안의 수용 가능성 판단이며 합산 배당 권고가 아니다.",
+          "reason": "decision 열만 보고 양안의 실행을 권고한 것처럼 요약하지 말 것. conditional_on과 경합 관계를 함께 표시할 것."
+        },
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:c80697ade761abd58c3e"
+          ],
+          "quote": "전체 이사 보수한도 내 적용이며 제6호 가결을 가정하지 않는다.",
+          "reason": "전체 한도 반대와 개인 한도 찬성을 단순 실행안으로 합치지 말 것. 선행 안건 의존성을 보존할 것."
+        },
+        {
+          "severity": "low",
+          "agenda_ids": [],
+          "quote": "17 native rows / 5 parent rows / 12 nonparent rows",
+          "reason": "17행을 17개 독립 표결로 표기하지 말 것. 누락 발견된 3개 보고사항은 투표 안건에 더하지 말 것. 12개도 경합 대안과 조건부 안건을 포함한다."
+        }
+      ]
+    },
+    {
+      "case_id": "samsung",
+      "company": "삼성전자",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/samsung-0.1.json",
+          "review_sha256": "895d22e77b842ac6f40b6dcbeed00226f97154f9f444b8d5c53bc36a7ed72ae4",
+          "packet_path": "output/firmness-all-samples-20260911/packets/samsung-0.1.json",
+          "packet_sha256": "9c20d50cfec1e11428130020bef7385e9391fa504561b4404c3780df042cf718",
+          "packet_id_matches": true,
+          "rows": 10,
+          "decision_counts_all_native_rows": {
+            "NO_VOTE": 1,
+            "FOR": 3,
+            "REVIEW": 5,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "parent": 1,
+            "ballot": 9
+          },
+          "nonparent_rows": 9,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 25,
+              "matched": 25,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          }
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/samsung-0.9.json",
+          "review_sha256": "789c09344ac77d545418e904b0cab05dc805e2ea3195555b9f52132959015014",
+          "packet_path": "output/firmness-all-samples-20260911/packets/samsung-0.9.json",
+          "packet_sha256": "f5eb04311079745a9a16c0e35f5ac966402422da60c0e7541f92137bb0abab97",
+          "packet_id_matches": true,
+          "rows": 10,
+          "decision_counts_all_native_rows": {
+            "NO_VOTE": 1,
+            "FOR": 6,
+            "REVIEW": 2,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "parent": 1,
+            "ballot": 8,
+            "conditional": 1
+          },
+          "nonparent_rows": 9,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 26,
+              "matched": 26,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          }
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:4a85d098e28eca43997e",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:47d0fd79aecbb843f5a1",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:c6dbd757d67d07458a9f",
+          "from": "REVIEW",
+          "to": "FOR"
+        }
+      ],
+      "issues": [
+        {
+          "issue_id": "samsung-0.9-compensation-review-scope",
+          "severity": "medium",
+          "firmness": "0.9",
+          "agenda_id": "agenda:c6dbd757d67d07458a9f",
+          "quote": "사외이사로 구성된 보상위원회 심의가 확인된다.",
+          "reason": "현 안건은 2026년 450억원 한도이나, 함께 인용한 사업보고서 자료는 2025-12-31 위원회 구성표다. 소집공고 활동표에서 확인되는 심의는 2025년 보수체계·이사보수한도 및 성과연동형 주식 약정이다. 2026년 한도 자체를 심의했다는 문장으로 읽으면 제공 출처보다 넓다. 2026년 심의를 하지 않았다는 뜻은 아니며 FOR 자체가 틀렸다고 판정하지 않는다.",
+          "supporting_source_evidence": [
+            {
+              "source_id": "annual:20260310002820",
+              "quote": "(기준일 : 2025년 12월 31일 )"
+            },
+            {
+              "source_id": "annual:20260310002820",
+              "quote": "보상위원회 사외이사 3명 신제윤, 김준성, 허은녕"
+            },
+            {
+              "source_id": "filing:20260312000987",
+              "quote": "'25.02.14 1. 보상위원회 위원장 선임의 건 2. 2025년 사내이사 보수체계 및 개별 고정연봉 심의의 건 3. 2025년 이사보수한도 심의의 건"
+            }
+          ],
+          "requested_action": "원 동일 arm 검토자에게 위 출처 범위만 전달하여 문구를 재확인하도록 할 것. 이 QA는 판단을 수정하지 않았다.",
+          "status": "resolved_original_same_arm_reviewer_narrowed_claim",
+          "resolution": {
+            "checked_at_utc": "2026-09-11T00:55:22.061226+00:00",
+            "review_sha256": "789c09344ac77d545418e904b0cab05dc805e2ea3195555b9f52132959015014",
+            "corrected_quote": "전체 한도는 360억원에서 450억원으로 25% 증가하나 일반보수는 260억원으로 동결하고 증가액은 장기성과보수에 배정하며 공시 연결순이익도 증가해 찬성한다. 2025년말 보상위원회의 사외이사 구성과 2025년 한도 심의 운영은 확인되지만 이번 2026년 450억원안 자체의 심의 및 성과지표·이연·회수조건까지 확인한 것은 아니다.",
+            "finding": "2025년말 위원회 구성 및 2025년 심의 운영만 확인되며 2026년 450억원안 자체의 심의는 미확인이라는 범위로 정정되었다. 해당 문구만 재확인했으며 FOR 판단을 변경하거나 정확하다고 인증하지 않았다."
+          }
+        }
+      ],
+      "validated_limits": [
+        {
+          "topic": "missing_vs_unread",
+          "agenda_ids": [
+            "agenda:3ebe94b656a65a1367e1"
+          ],
+          "finding": "감사보고서가 이미 공시되었다는 안내와 패킷에 최종 감사의견이 없는 상태를 구별한다. 감사위원회 승인 대상 비감사용역 부재를 모든 비감사용역 부재로 넓히지 않았다."
+        },
+        {
+          "topic": "fixed_vs_maximum_term",
+          "agenda_ids": [
+            "agenda:4a85d098e28eca43997e"
+          ],
+          "finding": "고정 3년에서 최대 3년으로 변경됨을 실질 재량 확대라고 명시한다. 허은녕 새 2년안과 2025년 3년 재선임 모두 2028년 종료라는 개별 비교를 하되 미래 전체 이사회의 임기 배분은 확인된 것으로 취급하지 않는다."
+        },
+        {
+          "topic": "separate_election_and_continued_tenure",
+          "agenda_ids": [
+            "agenda:5d1dca8fad53ffaf4faf",
+            "agenda:47d0fd79aecbb843f5a1"
+          ],
+          "finding": "계속 재직하는 조혜경의 기존 분리선출과 이번 허은녕 분리선출을 다른 인물로 구별한다. 허은녕은 2022-11-03부터 계속 재직하며 2025년 사임·재선임으로 기간을 초기화하지 않는다. 현재 약 3년 4개월과 제안 임기 종료 시 약 5년 4개월을 구별하고 5년 정책 조기경보를 법정 결격과 동일시하지 않는다."
+        },
+        {
+          "topic": "dates_and_law",
+          "agenda_ids": [
+            "agenda:a6c6cbd5ce21f83b1d88",
+            "agenda:5d1dca8fad53ffaf4faf"
+          ],
+          "finding": "집중투표 조문 시행일 2026-09-10을 3월 회의에 소급 적용하지 않는다. 독립이사 명칭 2026-07-23 및 전자총회 2027-01-01은 정관 부칙의 진술로 취급한다. 이 QA도 관련 법령 시행일을 독립 확인한 것은 아니다."
+        },
+        {
+          "topic": "compensation_facts",
+          "agenda_ids": [
+            "agenda:c6dbd757d67d07458a9f"
+          ],
+          "finding": "한도 360→450억원은 25% 증가, 일반보수 260억원 동결, 장기성과보수 100→190억원이라는 수치 구분은 원문과 일치한다. 성과지표·이연·환수조건과 동종업계 수준은 미검증 한계로 보존되어 있다. 보상위원회 당해 심의 주장은 별도 issue 참조."
+        },
+        {
+          "topic": "corrected_treasury_plan",
+          "agenda_ids": [
+            "agenda:b594f862dc5f6ba01cf7"
+          ],
+          "finding": "정정 후 보상목적 보통주 47,454,455주를 사용하며 이전 39,157,818주를 최신 수치로 쓰지 않았다. 미지급 잔여분의 2027년 주총 이후 보유와 소각정책의 차이를 선택 정책에 따른 반대로 설명하고 위법으로 단정하지 않는다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:47d0fd79aecbb843f5a1"
+          ],
+          "quote": "제1-3호 가결로 2년 임기 적용이 가능하면 FOR. 부결 시 2년 임기와 기존 조항의 충돌을 해소하는 절차·수정안 확인 전 REVIEW",
+          "reason": "0.9 FOR는 무조건 찬성이 아니다. 0.1에서는 row_kind=ballot, 0.9에서는 conditional이므로 row_kind만으로 동일 안건을 별도 분모로 분리하지 말고 conditional_on을 함께 표시할 것."
+        },
+        {
+          "severity": "low",
+          "agenda_ids": [],
+          "quote": "10 native rows / 1 parent row / 9 nonparent rows",
+          "reason": "정관 변경 parent를 독립 표결로 세지 말 것. 발견된 3개 보고사항은 표결 분모에 더하지 말 것."
+        }
+      ]
+    },
+    {
+      "case_id": "kz_agm",
+      "company": "고려아연",
+      "qa_scope": "반대 근거·역할/인물·임기/법적결격 구분·시점/조건/집중투표·row_kind의 제한된 의미 검토. 전 문서의 전면 재평가가 아님.",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/kz_agm-0.1.json",
+          "review_sha256": "9159146a9fe22b908207a9ace0ddc4cde1caba87ffaa7b6c3532f247828c8bc0",
+          "packet_path": "output/firmness-all-samples-20260911/packets/kz_agm-0.1.json",
+          "packet_sha256": "3cffa9ba75c18d8ec444dc75f21f18872d91db15c8024756d4c28275dd9551a1",
+          "packet_id_matches": true,
+          "rows": 45,
+          "decision_counts_all_native_rows": {
+            "NO_VOTE": 8,
+            "REVIEW": 22,
+            "FOR": 12,
+            "AGAINST": 3
+          },
+          "row_kind_counts": {
+            "parent": 6,
+            "ballot": 21,
+            "unclear": 1,
+            "conditional": 17
+          },
+          "nonparent_rows": 39,
+          "report_items_discovered": 5,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 78,
+              "matched": 78,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 5,
+              "matched": 5,
+              "failures": []
+            }
+          }
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/kz_agm-0.9.json",
+          "review_sha256": "0403533d944e6d12bf537a830aef4561f2ca5a5aa422cf89ee11b06c98e4762d",
+          "packet_path": "output/firmness-all-samples-20260911/packets/kz_agm-0.9.json",
+          "packet_sha256": "9b0c9309fd2e85ee220f9f55cd9b5441ccca19378b73f4282af5e57216a1181c",
+          "packet_id_matches": true,
+          "rows": 45,
+          "decision_counts_all_native_rows": {
+            "NO_VOTE": 9,
+            "REVIEW": 7,
+            "AGAINST": 5,
+            "FOR": 24
+          },
+          "row_kind_counts": {
+            "parent": 7,
+            "ballot": 21,
+            "conditional": 17
+          },
+          "nonparent_rows": 38,
+          "report_items_discovered": 5,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 89,
+              "matched": 89,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 5,
+              "matched": 5,
+              "failures": []
+            }
+          }
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:31d4e487c1c44ddbefc1",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:4164154571b8085b61b3",
+          "from": "REVIEW",
+          "to": "NO_VOTE"
+        },
+        {
+          "agenda_id": "agenda:82ac548db39a471ab2b4",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:83b4dafe1f1f8487a855",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:956cbdecffc3a92f2c73",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:433881a5492b87ffd718",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:ecbaf6d25ae542bae9b3",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:aedccb6132fe733a83cb",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:d4762e4227fc61ba1aa1",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:c35a37a6604d1794c569",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:9b422218e153812bc804",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:7f2dba28f0692f444786",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:5c5f9b68c5b26b6569c6",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:1e4efa8c907054097857",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:5e1b795c2122eb920037",
+          "from": "REVIEW",
+          "to": "FOR"
+        }
+      ],
+      "row_kind_changes": [
+        {
+          "agenda_id": "agenda:4164154571b8085b61b3",
+          "from": "unclear",
+          "to": "parent",
+          "from_decision": "REVIEW",
+          "to_decision": "NO_VOTE"
+        }
+      ],
+      "issues": [
+        {
+          "issue_id": "kz-agm-park-byeongwook-affiliate-role-asof-gap",
+          "severity": "high",
+          "firmness": [
+            "0.1",
+            "0.9"
+          ],
+          "agenda_id": "agenda:aedccb6132fe733a83cb",
+          "related_agenda_ids": [
+            "agenda:7f2dba28f0692f444786"
+          ],
+          "quote": "영풍 사외이사이면서 해당 주주가 추천한 기타비상무이사",
+          "reason": "KZ 패킷의 3/5 공고는 박병욱을 영풍 사외이사로 기재한다. 그러나 허용된 Youngpoong March 패킷의 3/20 인사공시는 동일 박병욱(1947년 10월)의 자진사임을 기재하며 KZ 3/24 cutoff 이전이다. 이 최신 관계회사 자료는 KZ 패킷에 없어 KZ 검토자의 자기 패킷 오독으로 판정할 수 없다. 3/24 현재 재직이라는 의미로 쓰면 시점이 낡은 주장이다. 사임으로 모든 제안자 관계·이해상충이 해소된다고도 단정할 수 없다.",
+          "supporting_source_evidence": [
+            {
+              "packet_case": "kz_agm",
+              "source_id": "filing:20260305001616",
+              "quote": "박병욱 회계법인 청 회계사㈜영풍 사외이사"
+            },
+            {
+              "packet_case": "youngpoong",
+              "source_id": "filing:20260320001239",
+              "quote": "박병욱 1947년 10월 남 2020년 03월 20일 1년 2026년 03월 20일 자진사임 일신상의 사유"
+            }
+          ],
+          "input_control_limit": "교차 패킷 발견은 QA 출처 완전성 점검이다. KZ 판단의 증거를 소급 변경하지 않았고 이후 EGM 자료는 읽거나 사용하지 않았다.",
+          "requested_action": "Root가 3/20 사임 source를 실제 MCP로 양 arm에 동일 추가하고 영향받은 두 행만 원 검토자에게 후속 확인하도록 승인했다. 최초 원시 결과는 동결 보존한다. 이 QA는 패킷·판단을 수정하지 않았고 새 EGM 자료도 쓰지 않았다.",
+          "status": "source_omission_root_authorized_balanced_packet_followup_pending",
+          "classification": "input_omission_and_stale_asof_claim_not_reviewer_misreading"
+        },
+        {
+          "issue_id": "kz-agm-appropriation-row-scope-uncertain",
+          "severity": "low",
+          "firmness": [
+            "0.1",
+            "0.9"
+          ],
+          "agenda_id": "agenda:4164154571b8085b61b3",
+          "quote": "제1-3호 의안: 제52기 이익잉여금처분계산서 승인의 건 - 제1-3-1호 의안: 임의적립금 917,695,440,000원의 미처분이익잉여금 전환의 건",
+          "reason": "같은 source에서 0.1은 REVIEW/unclear, 0.9는 NO_VOTE/parent로 분류했다. 계층 표기만으로 제1-3호 승인의 독립 표결 여부가 확정되었다고 할 수 없으며 하위 적립금 전환은 계산서 전체 승인과 의미가 같다거나 다르다고 이 QA가 확정하지 않는다. 이 차이는 찬반 성향 변화와 별개인 안건 범위 해석 차이다.",
+          "requested_action": "행을 지우지 말고 범위 불확실성으로 함께 표시. 동일한 실제 표결 분모 또는 firmness 변화에 섞어 집계하지 말 것.",
+          "status": "unresolved_scope_limit"
+        }
+      ],
+      "validated_limits": [
+        {
+          "topic": "material_against_and_policy",
+          "agenda_ids": [
+            "agenda:d4ae8c196eb3e6db5ed7",
+            "agenda:77d756798ea3b31ece40",
+            "agenda:b3c92a9bef0ff1d3f41e"
+          ],
+          "finding": "최윤범의 사내이사·계열회사 임원 공시와 김보영의 2021-03-24 최초 선임은 제공 원문에 있다. 김보영의 2026-03-24 현재 5년을 미래 임기 포함 6년과 구별하고, OPM 5년 조기경보를 법정 6년 초과 결격이라고 쓰지 않는다."
+        },
+        {
+          "topic": "cumulative_voting_pool",
+          "agenda_ids": [
+            "agenda:956cbdecffc3a92f2c73",
+            "agenda:433881a5492b87ffd718"
+          ],
+          "finding": "정정 후 오영 사퇴로 유효 후보 7명이며 같은 풀에서 5명 또는 6명을 선임하는 분기다. 두 오영 행은 NO_VOTE로 남고 후보별 FOR는 표 배분량·당선 결과가 아니다. 19인 정원은 의무 충원 목표나 모든 이사의 실제 업무 수행을 뜻하지 않는다."
+        },
+        {
+          "topic": "individual_attribution",
+          "agenda_ids": [
+            "agenda:ecbaf6d25ae542bae9b3",
+            "agenda:9b422218e153812bc804"
+          ],
+          "finding": "정보제공 거부 의결에 황덕남이 관여했다는 0.1 문장은 원문 주석의 황덕남 등 8인 이름과 반대 사유로 연결된다. 위법 확정이나 다른 이사 단독 행위를 후보 책임으로 옮긴 사례로 보지 않았다."
+        },
+        {
+          "topic": "debt_dependency_inference",
+          "agenda_ids": [
+            "agenda:31d4e487c1c44ddbefc1"
+          ],
+          "finding": "음의 별도 영업현금흐름, 1.6조원 사채 발행, 2.83조원 유상증자, 약 3.02조원 현금 및 예정 미국 투자가 source에 있다. 배당이 차입에 의존한다는 0.9 적용은 이 수치를 조합한 자금부담 추론이지 배당금의 차입재원 귀속을 독립 입증한 사실은 아니다. 유상증자는 차입이 아니며, 검토문도 자금계획 미확인을 남겼다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [],
+          "quote": "45 native rows; 0.1 parent 6 / 0.9 parent 7; withdrawn candidate rows 2",
+          "reason": "비상위행은 각각 39/38개, 이 중 폐기 후보 2행 포함. 유효 후보 7명의 5인·6인 분기 중복 7개를 단순 합산하지 말 것. 이사·감사위원 역할 및 선행조건도 있어 이를 독립 실행 가능한 투표 수로 부르지 말 것."
+        }
+      ]
+    },
+    {
+      "case_id": "youngpoong",
+      "company": "영풍",
+      "qa_scope": "반대 근거·역할/인물·임기/법적결격 구분·시점/조건/집중투표·row_kind의 제한된 의미 검토. 전 문서의 전면 재평가가 아님.",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/youngpoong-0.1.json",
+          "review_sha256": "70e55b840c9e2fa9f0056c176007d01e5c3fd4275efc14bc347f7548454cfd36",
+          "packet_path": "output/firmness-all-samples-20260911/packets/youngpoong-0.1.json",
+          "packet_sha256": "20e41e1b4652994ed8cfb0ed2261b813b0aff61b7b5fc06c121b1c8180ca239c",
+          "packet_id_matches": true,
+          "rows": 21,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 6,
+            "NO_VOTE": 4,
+            "FOR": 10,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "ballot": 13,
+            "parent": 4,
+            "conditional": 4
+          },
+          "nonparent_rows": 17,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 40,
+              "matched": 40,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          }
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/youngpoong-0.9.json",
+          "review_sha256": "f243b44bc9b1022afb51be6fa38700b05a668115588c4d4c9d22635a0600fb52",
+          "packet_path": "output/firmness-all-samples-20260911/packets/youngpoong-0.9.json",
+          "packet_sha256": "804a9bb76e23022274a0c55765fa07af4d141c2fa2d3d02a71cc77467263e83f",
+          "packet_id_matches": true,
+          "rows": 21,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 2,
+            "NO_VOTE": 4,
+            "FOR": 13,
+            "AGAINST": 2
+          },
+          "row_kind_counts": {
+            "ballot": 13,
+            "parent": 4,
+            "conditional": 4
+          },
+          "nonparent_rows": 17,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 46,
+              "matched": 46,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          }
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:ccf14472baf60a396f11",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:5d08251f9c561b6ede3a",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:837acaccf86b68981013",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:cca82c047e550f50c68a",
+          "from": "REVIEW",
+          "to": "FOR"
+        }
+      ],
+      "row_kind_changes": [],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "fixed_vs_maximum_term",
+          "agenda_ids": [
+            "agenda:ccf14472baf60a396f11"
+          ],
+          "finding": "기존 2년 이내 결산기에 관한 정기총회까지의 이사 임기, 사외이사 1년 구조에서 주총이 3년 내 선택하는 방식으로 바뀌며 보선 잔임기간 조항이 삭제된다. 이번 후보의 실제 2년·1년은 유지된다. 0.9 반대는 미래 재심사 간격 확대 가능성에 대한 정책 판단이며 이번 임기가 모두 3년으로 늘었다는 주장이 아니다."
+        },
+        {
+          "topic": "role_and_disqualification",
+          "agenda_ids": [
+            "agenda:1588993511e6cde21644",
+            "agenda:6b409eebdae6977cb4ba"
+          ],
+          "finding": "권홍운의 사내이사·계열회사 임원 분류와 최창원의 계열회사 사외이사 겸직은 원문에 있다. 권홍운 반대는 OPM 강화 기준, 최창원 REVIEW는 독립성 우려로 한정되며 법정 결격 확정과 섞지 않는다. 2024년 취업승인 완료 정정도 반영했다."
+        },
+        {
+          "topic": "person_and_branch_identity",
+          "agenda_ids": [
+            "agenda:e97273ed517e981cd33b",
+            "agenda:d4cbe89337f30a5de172",
+            "agenda:0d2d204bcad274e80731",
+            "agenda:60e87cb3ea37bb9a87ee"
+          ],
+          "finding": "3/20 사임한 박병욱과 후보 박정옥은 다른 사람이다. 박정옥 현재 약 4년과 이번 1년 임기 이후 약 5년을 구별했다. 허성관의 일반이사·분리선출·감사위원 세 행은 동일인 대체/후속 경로다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:d4cbe89337f30a5de172",
+            "agenda:0d2d204bcad274e80731",
+            "agenda:60e87cb3ea37bb9a87ee"
+          ],
+          "quote": "2-3안 가결/부결에 따른 허성관 세 행",
+          "reason": "21행 중 parent 4행을 제외한 17행도 서로 배타적인 경로 및 같은 사람의 이사·감사위원 표결을 포함한다. 독립 인원 또는 동시에 실행할 17개 선택으로 요약하지 말 것."
+        }
+      ]
+    },
+    {
+      "case_id": "skhynix",
+      "company": "SK하이닉스",
+      "qa_scope": "반대 근거·역할/인물·임기/법적결격 구분·시점/조건/집중투표·row_kind의 제한된 의미 검토. 전 문서의 전면 재평가가 아님.",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/skhynix-0.1.json",
+          "review_sha256": "a8e5fa7038ef50ce1d086ec7872e2af20828f59f9755d3b2978a8abed3ab2005",
+          "packet_path": "output/firmness-all-samples-20260911/packets/skhynix-0.1.json",
+          "packet_sha256": "f92721cfc1f373b9bde0c34aca9c7392df60cb694de38b19c395cbb575748aae",
+          "packet_id_matches": true,
+          "rows": 18,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 4,
+            "NO_VOTE": 3,
+            "FOR": 9,
+            "AGAINST": 2
+          },
+          "row_kind_counts": {
+            "ballot": 12,
+            "parent": 3,
+            "conditional": 3
+          },
+          "nonparent_rows": 15,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 39,
+              "matched": 39,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          }
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/skhynix-0.9.json",
+          "review_sha256": "72e5e3b6ed226002220ea69a1d4bb1eca88ab0bc39303f8067715cd7cfce66a7",
+          "packet_path": "output/firmness-all-samples-20260911/packets/skhynix-0.9.json",
+          "packet_sha256": "eb30c79002d7e137ba73e5921fc39682cebeb28b59c276eded377564cd32ceb4",
+          "packet_id_matches": true,
+          "rows": 18,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 1,
+            "NO_VOTE": 3,
+            "FOR": 11,
+            "AGAINST": 3
+          },
+          "row_kind_counts": {
+            "ballot": 12,
+            "parent": 3,
+            "conditional": 3
+          },
+          "nonparent_rows": 15,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 43,
+              "matched": 43,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          }
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:daa9facdaf57b36faa99",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:8224ced379ebb81ee61e",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:59105389cb8cd1ab503b",
+          "from": "REVIEW",
+          "to": "FOR"
+        }
+      ],
+      "row_kind_changes": [],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "material_compensation_against",
+          "agenda_ids": [
+            "agenda:82a3bed8b27da3597355"
+          ],
+          "finding": "현금 15,000백만원과 주식 30,000주가 별도인 점 및 전기 한도 15,000백만원은 공고 본문에 있다. filing:20260206001987은 842,000원을 2026-02-05 처분가격으로 기재하고 처분일 종가라고 명시한다. 3만주 예시 가치 252.6억원 계산은 맞으며 현재 가격·미래 확정 지급액 검증은 아니다."
+        },
+        {
+          "topic": "charter_vs_annual_plan",
+          "agenda_ids": [
+            "agenda:daa9facdaf57b36faa99",
+            "agenda:67cbaad9329d7ee349a9"
+          ],
+          "finding": "제2-2호에는 전략적 제휴·합병 등 경영상 목적의 광범위한 보유·처분 조항이 다른 변경과 묶여 있다. 제11호 연간 보상용 계획은 별도 안건이다. 0.9는 조문 자체에 기간·수량이 없다는 정책 우려를 제시하나 실제 법률 통제 전체가 없다고 독립 확인한 것은 아니다. 제11호의 총회 전 법 시행 조건 및 미시행 시 자동 폐기는 보존된다."
+        },
+        {
+          "topic": "continuing_separate_election_and_roles",
+          "agenda_ids": [
+            "agenda:6caeb8a3dc0c0b6c28b5",
+            "agenda:8224ced379ebb81ee61e",
+            "agenda:d3c351564a0478c95179",
+            "agenda:951351272a2e2964507c"
+          ],
+          "finding": "양동훈의 2024년 분리선출 예정·실제 선임·2027년 만료 및 계속 재직과 새 고승범 후보를 구별했다. 김정규 기타비상무이사를 사외이사 또는 특수관계 사내이사로 바꾸지 않고, 김정원·최강국의 이사 및 감사위원 역할도 중복 인원으로 세지 않는다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:67cbaad9329d7ee349a9"
+          ],
+          "quote": "상법 개정안이 주주총회일(2026년 3월 25일) 전 시행되지 않는 경우, 본 안건은 자동 폐기됩니다.",
+          "reason": "18행 중 parent3 제외15행도 조건부 안건을 포함한다. 법령 실제 시행 여부를 확인하지 않은 QA이므로 제11호를 확정 존속한 실제 표결로 취급하지 말 것."
+        }
+      ]
+    },
+    {
+      "case_id": "ktg",
+      "company": "KT&G",
+      "qa_scope": "결과를 바꿀 만한 금액·임기·결격·법적 판단·시점 오류의 제한된 원문 대조. 전체 판단의 정답 여부나 투자·법률 적정성을 인증하지 않음.",
+      "checked_at_utc": "2026-09-11T01:07:30.924201+00:00",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/ktg-0.1.json",
+          "review_sha256": "3e9a504cb1f30bb3a3df409aee74eb8851d2ac23a73ee0ae95be9299575626fa",
+          "packet_path": "output/firmness-all-samples-20260911/packets/ktg-0.1.json",
+          "packet_sha256": "c3fd1f91b318808454bfaf1161ab99aefbf0bbea5f8958ce26e639adcf56a132",
+          "packet_id_matches": true,
+          "rows": 15,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 5,
+            "NO_VOTE": 1,
+            "FOR": 8,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "ballot": 9,
+            "parent": 1,
+            "conditional": 5
+          },
+          "nonparent_rows": 14,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 36,
+              "matched": 36,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/ktg-0.9.json",
+          "review_sha256": "9572526e6f4161352a6c14e4596c0be0f2fa7f64270bed4faa6543ed35b12979",
+          "packet_path": "output/firmness-all-samples-20260911/packets/ktg-0.9.json",
+          "packet_sha256": "7523559ca898fa30bc41c7f1646115a1819d505ee22b10b46ba31604525531ad",
+          "packet_id_matches": true,
+          "rows": 15,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 2,
+            "NO_VOTE": 1,
+            "FOR": 9,
+            "AGAINST": 3
+          },
+          "row_kind_counts": {
+            "ballot": 9,
+            "parent": 1,
+            "conditional": 5
+          },
+          "nonparent_rows": 14,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 36,
+              "matched": 36,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "native_agenda_order_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:2e98e66b0f38b88f37ac",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:76a72ce55f2c3065d554",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:c573471d937efbefc5ab",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        }
+      ],
+      "row_kind_changes": [],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "compensation_amounts_and_income",
+          "agenda_ids": [
+            "agenda:2c2b33718d5c33197138"
+          ],
+          "finding": "전기 5,000백만원→당기 6,000백만원은 50→60억원, 20% 증액이다. 연결 당기순이익 1,164,999→1,102,316백만원 및 별도 1,003,165→919,823백만원은 모두 감소하므로 두 arm 반대의 수치 전제는 원문과 일치한다. 성과·위원회 설명의 정책상 충분성은 이 QA가 정답 판정하지 않는다."
+        },
+        {
+          "topic": "new_compensation_stock_vs_existing_cancellation",
+          "agenda_ids": [
+            "agenda:c573471d937efbefc5ab"
+          ],
+          "finding": "기존 10,866,189주 전량 소각 후 보상 필요 수량만 신규 취득·처분한다는 구조와 최대 30,000주 수치는 원문에 있다. 0.9는 기존 소각 약속을 숨기지 않고 신규 처분분의 소각조건에 대한 OPM 정책 판단으로 반대한다. 이 판단을 소각 약속 없음 또는 법률 위반이라는 회사 사실로 옮겨서는 안 된다."
+        },
+        {
+          "topic": "term_role_and_legislative_condition",
+          "agenda_ids": [
+            "agenda:d62d6bada075d85df4d0",
+            "agenda:5867cc00768bb8f531da",
+            "agenda:2e98e66b0f38b88f37ac",
+            "agenda:c573471d937efbefc5ab"
+          ],
+          "finding": "명칭 변경을 기존 최대 3년 임기의 연장으로 해석하지 않고, 한승수의 타회사 임기를 KT&G 재직으로 합산하지 않았다. 자사주 조문·계획의 의안번호16966 사전 시행 조건을 원문대로 유지했다. 법 시행의 독립 확인은 없다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:2e98e66b0f38b88f37ac",
+            "agenda:c573471d937efbefc5ab"
+          ],
+          "quote": "주주총회 개최일 전에 시행되지 않는 경우 자동 폐기",
+          "reason": "법 시행 조건을 제거해 실제 존속한 표결이라고 확정하지 말 것. 신규 주식보상의 정책 예외 부재는 자료의 사실 오류와 구분할 것."
+        }
+      ]
+    },
+    {
+      "case_id": "kakao",
+      "company": "카카오",
+      "qa_scope": "결과를 바꿀 만한 금액·임기·결격·법적 판단·시점 오류의 제한된 원문 대조. 전체 판단의 정답 여부나 투자·법률 적정성을 인증하지 않음.",
+      "checked_at_utc": "2026-09-11T01:07:30.924201+00:00",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/kakao-0.1.json",
+          "review_sha256": "eff514d25ae689bee2bdf0a9833d7e49b18cffe8ff77c96d7d40c51b1a2c725d",
+          "packet_path": "output/firmness-all-samples-20260911/packets/kakao-0.1.json",
+          "packet_sha256": "4f0a4adac9770c421b5cf1dc2b2b3ad7edf986c430430b29ddf65bb7995b1786",
+          "packet_id_matches": true,
+          "rows": 20,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 3,
+            "NO_VOTE": 2,
+            "FOR": 14,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "ballot": 16,
+            "parent": 2,
+            "conditional": 2
+          },
+          "nonparent_rows": 18,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 45,
+              "matched": 45,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/kakao-0.9.json",
+          "review_sha256": "eb2e2efc75ac5c147e70ae77f6455dacd1d64c7fa649497be93770382383c955",
+          "packet_path": "output/firmness-all-samples-20260911/packets/kakao-0.9.json",
+          "packet_sha256": "d7c757b0bceea68b6484e374f93fd5a405f04e437a4874c06be3ba9cd615e541",
+          "packet_id_matches": true,
+          "rows": 20,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 2,
+            "NO_VOTE": 2,
+            "FOR": 15,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "ballot": 16,
+            "parent": 2,
+            "conditional": 2
+          },
+          "nonparent_rows": 18,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 51,
+              "matched": 51,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "native_agenda_order_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:a1c5c7675271522722f7",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:d90f3992a1f8369be6a9",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:ff9f17db520c8224e059",
+          "from": "FOR",
+          "to": "REVIEW"
+        }
+      ],
+      "row_kind_changes": [],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "capital_reduction_and_disposal_quantities",
+          "agenda_ids": [
+            "agenda:43849009fd691118b5c0",
+            "agenda:8a19ca6ccd63eebc261e",
+            "agenda:e85499cb38a99138b6c9"
+          ],
+          "finding": "합병 취득 자기주식 1,420,723주 소각과 보상용 최대 1,006,741주 처분을 구분하고, 계획 잔량표가 앞 소각안 가결을 전제로 함을 보존했다. 처분 후 자기주식 0을 확정 소각 약속으로 읽지 않는다. 주식발행초과금 1,000억원 전입도 실제 배당·모든 주주의 비과세로 단정하지 않는다."
+        },
+        {
+          "topic": "tenure_and_outside_roles",
+          "agenda_ids": [
+            "agenda:ff9f17db520c8224e059",
+            "agenda:6d1f40c050f50879d39a"
+          ],
+          "finding": "함춘승의 현재 약 2년과 3년 재선임 이후 약 5년을 구별하고 차경진의 2024년 최초 선임 및 이번 감사위원 제외를 반영했다. 함춘승 사장·CRO 현직과 회사 내부 겸직 제한에 대한 0.9 REVIEW는 법정 집행임원·결격 확정으로 확대되지 않았다."
+        },
+        {
+          "topic": "board_configuration_and_effective_dates",
+          "agenda_ids": [
+            "agenda:d90f3992a1f8369be6a9",
+            "agenda:239fb592aa92159d5561",
+            "agenda:0906d1e81d0e544482dc"
+          ],
+          "finding": "정관 상한 11→7, 실제 계획 8→6, 사외이사 4/6을 구분한다. 미충원을 법 위반으로 만들거나 9월 집중투표 시행을 3월 선임에 소급하지 않는다. 계속 재임자의 분리선출 이력과 후속 ESG·보상 업무 배분은 미확인 상태로 보존했다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:ff9f17db520c8224e059"
+          ],
+          "quote": "FOR → REVIEW",
+          "reason": "0.9에서 검토로 이동한 것은 겸직 적용 불확실성에 대한 판단 차이다. 반대 증가만을 firmness 효과로 정의하거나 이 변화를 법정 결격 확인이라고 쓰지 말 것."
+        }
+      ]
+    },
+    {
+      "case_id": "golfzon",
+      "company": "골프존홀딩스",
+      "qa_scope": "결과를 바꿀 만한 금액·임기·결격·법적 판단·시점 오류의 제한된 원문 대조. 전체 판단의 정답 여부나 투자·법률 적정성을 인증하지 않음.",
+      "checked_at_utc": "2026-09-11T01:07:30.924201+00:00",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/golfzon-0.1.json",
+          "review_sha256": "7665c6a0f628abe84c9154470ac777b0cce9953ae0a35ae6b8a090278787c8c6",
+          "packet_path": "output/firmness-all-samples-20260911/packets/golfzon-0.1.json",
+          "packet_sha256": "da73a726e1ac510bb75b3bc6c09147ab71fe3ea37f8fb82ce1baab6fa640f1da",
+          "packet_id_matches": true,
+          "rows": 24,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 6,
+            "NO_VOTE": 2,
+            "FOR": 16
+          },
+          "row_kind_counts": {
+            "ballot": 19,
+            "parent": 2,
+            "conditional": 3
+          },
+          "nonparent_rows": 22,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 47,
+              "matched": 47,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/golfzon-0.9.json",
+          "review_sha256": "bd5b2085dde5306a054cadc78664d0a95c98b2b5f8224be9eb556b13e8615b1a",
+          "packet_path": "output/firmness-all-samples-20260911/packets/golfzon-0.9.json",
+          "packet_sha256": "c5379eadd7e56b35f710511a0eb2c6e6aba46bd4b652be934a56dd286ed6a937",
+          "packet_id_matches": true,
+          "rows": 24,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 2,
+            "NO_VOTE": 2,
+            "FOR": 19,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "ballot": 19,
+            "parent": 2,
+            "conditional": 3
+          },
+          "nonparent_rows": 22,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 42,
+              "matched": 42,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "native_agenda_order_identical_between_arms": false,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:449979b845c5334074f4",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:36277689ce0d9e6b660f",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:90945cbb72d8aa6f079f",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:f3eff2e3158a39777a7d",
+          "from": "REVIEW",
+          "to": "FOR"
+        }
+      ],
+      "row_kind_changes": [],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "dividend_arithmetic_and_cash_flow_classification",
+          "agenda_ids": [
+            "agenda:430129b0b999d333f186",
+            "agenda:449979b845c5334074f4"
+          ],
+          "finding": "250원 총 9,656,185,500원, 1,500원 총 57,937,113,000원은 약 96.6·579.4억원이다. 별도 영업현금흐름 7,004,816,457원과 관계기업 배당수취 5,526,004,000원은 각각 영업·투자활동에 있어 합계 약 125.3억원은 중복계산이 아니다. 현금 18,856,748,403원+단기금융자산 49,984,598,679원−고액 배당은 약 109.0억원이며 단기차입 18,028,560,000원보다 작다. 단기금융자산 사용제약·상환일정은 미확인이라 이 수치만으로 지급불능을 확정하지 않는다."
+        },
+        {
+          "topic": "readability_gap_and_audit",
+          "agenda_ids": [
+            "agenda:e0c56c941c0d809bbe99",
+            "agenda:b89cd463495986e95f17"
+          ],
+          "finding": "재무제표가 감사 결과 반영본이라는 설명과 감사의견 원문 미제공을 구분했다. 제8호 계획의 이미지 표식만 제공된 상태를 미공개 또는 소각 없는 처분으로 바꾸지 않고 REVIEW로 남겼다."
+        },
+        {
+          "topic": "candidate_and_subsidiary_attribution",
+          "agenda_ids": [
+            "agenda:90945cbb72d8aa6f079f",
+            "agenda:0060dd63b253f5f84934"
+          ],
+          "finding": "장성원의 현재 골프존커머스 대표 역할을 회사 전체 사건·개인 위법 또는 사외이사 장기연임으로 바꾸지 않았다. 김명진의 회계법인 직책만으로 당사 감사 관여를 추정하지 않으며, 자회사 항소각하도 후보 개인 유죄로 옮기지 않았다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [],
+          "quote": "같은 24개 agenda_id, 서로 다른 배열 순서",
+          "reason": "양 arm은 동일 agenda_id 집합과 row_kind를 갖지만 상위행·배당행 배열 순서가 다르다. 인덱스로 대응시키면 다른 안건을 비교하므로 반드시 agenda_id로 연결할 것."
+        },
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:430129b0b999d333f186",
+            "agenda:449979b845c5334074f4"
+          ],
+          "quote": "2-1·2-2 일괄표결 후 복수 보통결의 충족 시 다득표안 가결",
+          "reason": "배당 두 안은 대안이며 금액을 합산하지 말 것. 0.9 고액안 반대는 유동성 부담의 정책 판단이고 영업현금흐름 음수 또는 지급불능이라는 사실 확인이 아니다."
+        }
+      ]
+    },
+    {
+      "case_id": "youngone",
+      "company": "영원무역",
+      "qa_scope": "결과를 바꿀 만한 금액·임기·결격·법적 판단·시점 오류의 제한된 원문 대조. 전체 판단의 정답 여부나 투자·법률 적정성을 인증하지 않음.",
+      "checked_at_utc": "2026-09-11T01:07:30.924201+00:00",
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/youngone-0.1.json",
+          "review_sha256": "91f09c9c5384080dad6e0731de0db141294a4016cf07cfcf0e17e5f000ab217c",
+          "packet_path": "output/firmness-all-samples-20260911/packets/youngone-0.1.json",
+          "packet_sha256": "d6b68c31785f283cc4bb4f5955821a1bddb3965b263d0341a4358ab8dfb4fa51",
+          "packet_id_matches": true,
+          "rows": 15,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 5,
+            "NO_VOTE": 1,
+            "FOR": 8,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "conditional": 1,
+            "parent": 1,
+            "ballot": 13
+          },
+          "nonparent_rows": 14,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 21,
+              "matched": 21,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/youngone-0.9.json",
+          "review_sha256": "431f411294dadbba85e3500085737177f6252c356a0028344097855845edf567",
+          "packet_path": "output/firmness-all-samples-20260911/packets/youngone-0.9.json",
+          "packet_sha256": "9fe9337673834fa3b966ed4935f081714e66e7b4fed16179c0a8f044025de9ea",
+          "packet_id_matches": true,
+          "rows": 15,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 5,
+            "NO_VOTE": 1,
+            "FOR": 8,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "conditional": 1,
+            "parent": 1,
+            "ballot": 13
+          },
+          "nonparent_rows": 14,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 34,
+              "matched": 34,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "date_check_limit": "제공 source_id의 공시일자 대조이며 외부 공개시점·원문 진위·전체 사후정보 사용을 독립 검증한 것은 아니다."
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "native_agenda_order_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:b944ff6e0eb39185ec9e",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:45d646003736a33e890f",
+          "from": "FOR",
+          "to": "REVIEW"
+        }
+      ],
+      "row_kind_changes": [],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "exact_threshold_and_counterevidence",
+          "agenda_ids": [
+            "agenda:51887cf99aea5d16c888"
+          ],
+          "finding": "100→150억원은 정확히 50% 증가하며 전기 실제 지급 99.8억원과 한도를 구별했다. 매출·영업이익·순이익 성장 및 중재 해결, 외부 컨설팅·보수위원회 설명은 원문에 있고 검토문도 반증으로 기록했다. 이 반증을 정책 예외로 받아들이지 않은 것은 사실 오독과 구별한다."
+        },
+        {
+          "topic": "fixed_term_and_actual_board",
+          "agenda_ids": [
+            "agenda:e302043d6644a2215312",
+            "agenda:45d646003736a33e890f"
+          ],
+          "finding": "3년 고정 임기에서 3년 내 주총 결정으로 바뀌는 실질 차이를 보존했다. 상한 12→8과 현재 7명·신규 2명·계획 8명 간 차이를 특정 기존 이사의 퇴임을 추정해 해소하지 않는다. 0.9가 남긴 구성 불확실성은 정관상 미달이나 위법 확정이 아니다."
+        },
+        {
+          "topic": "outside_roles_and_vote_to_report_condition",
+          "agenda_ids": [
+            "agenda:11968cc7d155370b7ec8",
+            "agenda:b0b66063c294d5afea8e"
+          ],
+          "finding": "오케이저축은행 직책 종료가 2026년 3월로만 제시되어 정확한 종료일과 동시 재직 수를 확인하지 않았다. 법무법인 대표를 자동으로 상장사 이사에 더하지 않는다. 재무제표는 적정의견·감사위원 전원 동의·이사회 승인 시 보고 전환이라는 조건으로 보존하고 2025년 확정 승인을 2026년 사실로 쓰지 않았다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:b0b66063c294d5afea8e"
+          ],
+          "quote": "적정의견·감사위원 전원 동의·이사회 승인 시 보고사항 전환",
+          "reason": "현재 REVIEW를 확정 표결 또는 확정 비표결 보고로 집계하지 말 것. 원문에 조건은 있지만 이번 조건 충족 증거는 제공되지 않았다."
+        }
+      ]
+    },
+    {
+      "case_id": "lgchem",
+      "company": "LG화학",
+      "qa_scope": "실제 금액·LG에너지솔루션 70% 보유지분 문장·위원회 구성·조건부 안건·주주제안 귀속의 제한된 원문 의미 QA. 이후 회차 자료는 사용하지 않음.",
+      "checked_at_utc": "2026-09-11T01:11:27.063027+00:00",
+      "decision_layer": "report_side_reviews_before_native_submission",
+      "native_submission_or_acceptance_verified": false,
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/lgchem-0.1.json",
+          "review_sha256": "0c47926ca1ac43caf99d10c4c2ac36a252248cb53cad6c72c1d9a8413388778e",
+          "packet_path": "output/firmness-all-samples-20260911/packets/lgchem-0.1.json",
+          "packet_sha256": "4e71abca83ccabc55da16b9dbb0d31bdfb1d0c88b04497d040e6b73212b68ec4",
+          "packet_id_matches": true,
+          "rows": 17,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 3,
+            "NO_VOTE": 2,
+            "FOR": 12
+          },
+          "row_kind_counts": {
+            "ballot": 11,
+            "parent": 2,
+            "conditional": 4
+          },
+          "nonparent_rows": 15,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 23,
+              "matched": 23,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "decision_layer": "report-side review, not yet submitted as native assessments at this QA"
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/lgchem-0.9.json",
+          "review_sha256": "945435a4ded20c92908a07154042cd590cbdec04e4bf9664ed8435d490721fd6",
+          "packet_path": "output/firmness-all-samples-20260911/packets/lgchem-0.9.json",
+          "packet_sha256": "938f19ad86a121a79f22bcea88adb3ff33a76765d1e3234c05610b2e18a6d90f",
+          "packet_id_matches": true,
+          "rows": 17,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 1,
+            "NO_VOTE": 2,
+            "FOR": 13,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "ballot": 11,
+            "parent": 2,
+            "conditional": 4
+          },
+          "nonparent_rows": 15,
+          "report_items_discovered": 4,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 30,
+              "matched": 30,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 4,
+              "matched": 4,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "decision_layer": "report-side review, not yet submitted as native assessments at this QA"
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "native_agenda_order_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:a926e20d61b6a7c36511",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:b35aaa2dcfa5caae1337",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        }
+      ],
+      "row_kind_changes": [],
+      "issues": [],
+      "validated_limits": [
+        {
+          "topic": "LGES_70_percent_and_proposer",
+          "agenda_ids": [
+            "agenda:a926e20d61b6a7c36511"
+          ],
+          "finding": "70%는 현재 실제 보유율이나 매각 물량의 비율로 확인된 숫자가 아니다. 팰리서캐피털마스터펀드리미티드 외 1인의 권고안이 기존 발표 수준보다 더 낮은 70% 미만의 보유 지분을 요구하는 문장이다. 검토문은 실제 매각 완료·거래가격·구체 실행 승인으로 확정하지 않는다. 원문은 보유지분 축소와 추가 자금의 매입·소각이라는 정책 방향까지 제안하므로 이를 단순 정보공개만의 안건으로 축약해서도 안 된다.",
+          "evidence": [
+            {
+              "source_id": "filing:20260224004273",
+              "quote": "이사회가 LG에너지솔루션 보유 지분을 기존 발표 수준인 70%의 미만으로 낮추고 추가로 확보한 자금으로 자기주식 매입 및 소각을 진행하여"
+            },
+            {
+              "source_id": "filing:20260224004273",
+              "quote": "주주제안자는 팰리서캐피털마스터펀드리미티드 외 1인임."
+            }
+          ]
+        },
+        {
+          "topic": "dividend_and_compensation_amounts",
+          "agenda_ids": [
+            "agenda:7c14ec7d4aa333552169",
+            "agenda:cdb778cfd9a789dfac19"
+          ],
+          "finding": "보통주 2,000원 배당의 재원은 회사 설명상 LG에너지솔루션 지분 매각 세후 현금유입액의 10%이며 보유지분 10% 매각을 뜻하지 않는다. 이사 보수한도는 전기와 동일한 70억원이고 실제 집행 32.1억원은 별도다. 2024년 실제 3,688백만원에서 2025년 3,211백만원으로 감소했다는 구분도 맞다."
+        },
+        {
+          "topic": "compensation_committee_and_current_review",
+          "agenda_ids": [
+            "agenda:cdb778cfd9a789dfac19"
+          ],
+          "finding": "보상위원회는 조화순·천경훈 사외이사 2명과 권봉석 기타비상무이사 1명이다. 0.9는 이 구성을 명시하고 0.1도 전원 사외이사라고 주장하지 않는다. 회사는 현 70억원 한도 산정에 신설 보상위원회 심의를 사용했다고 소집공고에 직접 설명하므로, 단순 2025년 구성표만으로 당해 심의를 추정한 사례와 구별된다.",
+          "evidence": [
+            {
+              "source_id": "annual:20260313001195",
+              "quote": "보상위원회 사외이사 2명기타비상무이사 1명"
+            },
+            {
+              "source_id": "filing:20260224004273",
+              "quote": "평가·보상 제도 기준, 과거 집행실적, 해당 연도의 기대성과 및 경영환경 등을 종합적으로 심의하여 이사 보수한도를 책정하였습니다."
+            }
+          ]
+        },
+        {
+          "topic": "conditional_agendas_and_litigation",
+          "agenda_ids": [
+            "agenda:d2f57b9e365b29b7e337",
+            "agenda:48a53f9efd58fb891db1",
+            "agenda:a926e20d61b6a7c36511",
+            "agenda:341ee08948c0295e8887"
+          ],
+          "finding": "제3호의 세 권고안은 제2-7호 가결 시에만 상정되며 천경훈 제5호는 제2-4호 부결 시 폐기된다. 가처분 신청 취하는 원문상 법원 신청 취하이며 제안 자체 철회나 내용의 옳고 그름에 대한 판결이 아니다.",
+          "evidence": [
+            {
+              "source_id": "filing:20260224004273",
+              "quote": "제 3호 의안은 제2-7호 의안이 가결될 경우에만 상정되고, 그 외의 경우에는 자동 폐기됨."
+            },
+            {
+              "source_id": "filing:20260224004273",
+              "quote": "제 5호 의안은 제2-4호 의안 부결 시 자동 폐기됨"
+            },
+            {
+              "source_id": "filing:20260225801485",
+              "quote": "의안상정 가처분 신청 취하"
+            }
+          ]
+        },
+        {
+          "topic": "candidate_role_and_tenure",
+          "agenda_ids": [
+            "agenda:b35aaa2dcfa5caae1337",
+            "agenda:341ee08948c0295e8887"
+          ],
+          "finding": "김동춘은 계열회사 임원 관계의 사내이사 후보로 공시된다. 0.9의 반대는 OPM 강화 기준 적용이며 총수 일가 또는 법적 결격을 새로 확인한 것이 아니다. 천경훈의 2023년 3월 최초 선임과 2025년 100% 출석, 계속 재임 이영한의 회계·세무 교수 경력은 제공 원문으로 연결되지만 기존 분리선출자의 신원은 별도 미확인으로 남는다."
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:a926e20d61b6a7c36511"
+          ],
+          "quote": "보유 지분을 기존 발표 수준인 70%의 미만으로 낮추고",
+          "reason": "보고서에서는 “매각 후 보유 지분을 70% 미만으로 낮추자는 주주제안”으로 대상·귀속을 명확히 표시할 것. 현재 지분율 70%, 70% 지분 매각, 이미 완료된 거래, 회사가 확약한 계획으로 쓰지 말 것."
+        },
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:563d7859147bbc9008ec",
+            "agenda:be42ae58639bb6da7afc"
+          ],
+          "quote": "0.1은 후속 안건과의 관계를 conditional_on에 표시하고 0.9는 후속 조건부 행에 보존",
+          "reason": "row_kind는 같지만 상위 제도 도입안의 conditional_on 표현 위치가 다르다. 이를 안건 자체의 상정조건 차이 또는 실제 수락 상태 차이로 해석하지 말 것."
+        },
+        {
+          "severity": "low",
+          "agenda_ids": [],
+          "quote": "17 native input rows / 2 parent rows / 15 nonparent rows",
+          "reason": "이는 native 입력 ID에 대응한 보고서용 검토 결과이다. native 제출·수락 완료로 표시하지 말 것. 15개 비상위행에도 4개 조건부 행이 있으며 보고사항 4건은 표결 분모에 추가하지 않는다."
+        }
+      ]
+    },
+    {
+      "case_id": "taekwang",
+      "company": "태광산업",
+      "qa_scope": "28행 재판정 없이 ①4인 후보/2인 선출·3/25 사임 ②김대근 과거 동명 이력의 동일인 연결 ③3% 제한·시행일 대안 ④1975년 시행월·제18조의2 중복만 의미 대조. 다른 회차·EGM 자료는 읽지 않았다.",
+      "checked_at_utc": "2026-09-11T01:21:14.960583+00:00",
+      "decision_layer": "report_side_reviews_before_native_submission",
+      "native_submission_or_acceptance_verified": false,
+      "arms": [
+        {
+          "firmness": "0.1",
+          "review_path": "output/firmness-all-samples-20260911/reviews/taekwang-0.1.json",
+          "review_sha256": "5bb265c86552b9e86444e8d47e3086117ce514270c7af1e767357d650ae0e2b1",
+          "packet_path": "output/firmness-all-samples-20260911/packets/taekwang-0.1.json",
+          "packet_sha256": "6edcff7c57021abad527afce314dd2ebb10f138092a8e78ef60dfd35b648e866",
+          "packet_id_matches": true,
+          "rows": 28,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 13,
+            "NO_VOTE": 4,
+            "FOR": 10,
+            "AGAINST": 1
+          },
+          "row_kind_counts": {
+            "conditional": 9,
+            "parent": 4,
+            "ballot": 15
+          },
+          "nonparent_rows": 24,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 41,
+              "matched": 41,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "quote_check_scope": "전행 인용 포함 검사는 기계적 문자열 대조이며 의미 QA는 아래 네 쟁점에만 한정했다.",
+          "decision_layer": "report_side_review_not_native_acceptance"
+        },
+        {
+          "firmness": "0.9",
+          "review_path": "output/firmness-all-samples-20260911/reviews/taekwang-0.9.json",
+          "review_sha256": "1aa332451d03ab46422a63a9e700190f399cf19f0b861c67e86fd4aebec3aa33",
+          "packet_path": "output/firmness-all-samples-20260911/packets/taekwang-0.9.json",
+          "packet_sha256": "46ac7c6724938a3212f4a7c71af7911f498d0db6ac5db3da0f61dacb4efdd4a8",
+          "packet_id_matches": true,
+          "rows": 28,
+          "decision_counts_all_native_rows": {
+            "REVIEW": 1,
+            "NO_VOTE": 4,
+            "FOR": 21,
+            "AGAINST": 2
+          },
+          "row_kind_counts": {
+            "conditional": 9,
+            "parent": 4,
+            "ballot": 15
+          },
+          "nonparent_rows": 24,
+          "report_items_discovered": 3,
+          "quote_checks": {
+            "judgments": {
+              "quotes": 44,
+              "matched": 44,
+              "failures": []
+            },
+            "discovered_missing_agendas": {
+              "quotes": 3,
+              "matched": 3,
+              "failures": []
+            }
+          },
+          "source_identifiers_dated_after_meeting_cutoff": [],
+          "quote_check_scope": "전행 인용 포함 검사는 기계적 문자열 대조이며 의미 QA는 아래 네 쟁점에만 한정했다.",
+          "decision_layer": "report_side_review_not_native_acceptance",
+          "initial_review_sha256": "ba711b97865e58656f023416a610905e4853416362ed1991daabaa32ba88015d",
+          "initial_review_archive": "output/firmness-all-samples-20260911/reviews/history/taekwang-0.9-initial.json",
+          "latest_recheck_scope": "agenda:dfe9f66b6e86db22e96c 표현 범위만"
+        }
+      ],
+      "source_arrays_identical_between_arms": true,
+      "native_agenda_ids_identical_between_arms": true,
+      "native_agenda_order_identical_between_arms": true,
+      "decision_changes": [
+        {
+          "agenda_id": "agenda:9703749334766263bc57",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:aded6b4974fc596af7f2",
+          "from": "REVIEW",
+          "to": "AGAINST"
+        },
+        {
+          "agenda_id": "agenda:bdf377e6060897063e58",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:ac69b69a964c3d1d8875",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:ff63d3ef305227ea3a3e",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:24e34d9398eb5f46b63c",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:dfe9f66b6e86db22e96c",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:0e9284c71d420459b721",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:c2c3e8eef21546cb8fdf",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:3dc5b8cf6a27c1686a9c",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:17886bc9591383b454ca",
+          "from": "REVIEW",
+          "to": "FOR"
+        },
+        {
+          "agenda_id": "agenda:efeedc33efa0b510c522",
+          "from": "REVIEW",
+          "to": "FOR"
+        }
+      ],
+      "row_kind_changes": [
+        {
+          "agenda_id": "agenda:ff63d3ef305227ea3a3e",
+          "from": "ballot",
+          "to": "conditional"
+        },
+        {
+          "agenda_id": "agenda:d7c20895cef761105915",
+          "from": "conditional",
+          "to": "ballot"
+        }
+      ],
+      "issues": [
+        {
+          "issue_id": "taekwang-0.9-kim-daekeun-identity-linkage",
+          "severity": "high",
+          "severity_assigned_by": "root",
+          "classification": "unsupported_identity_certainty_not_confirmed_person_mismatch",
+          "firmness": "0.9",
+          "agenda_id": "agenda:dfe9f66b6e86db22e96c",
+          "related_agenda_ids": [
+            "agenda:efeedc33efa0b510c522"
+          ],
+          "quote": "공시상 태광산업에서 2021~2023년 재직 후 공백이 있으므로 이를 현재 계속 5년 재직으로 보지 않고 과거 경력으로 남긴다.",
+          "audited_initial_review_sha256": "ba711b97865e58656f023416a610905e4853416362ed1991daabaa32ba88015d",
+          "reason": "사업보고서 회사 연혁의 과거 선임·임기만료 표에는 이름 김대근만 제시되고 생년·경력이 없다. 현 후보 공고에는 1970.11.18 생년, 단국대 기계공학 교수·져스텍 사외이사 경력은 있으나 2021~2023년 태광산업 재직을 직접 연결하는 문장이 없다. 같은 회사의 동명 이사이므로 동일인 추론은 가능하지만 이를 확정된 공시 사실로 표현한 범위는 제공 근거보다 넓다. 다른 사람이라고 밝혀졌다는 뜻도, FOR가 틀렸다는 뜻도 아니다.",
+          "supporting_source_evidence": [
+            {
+              "source_id": "annual:20260323001584",
+              "quote": "2021년 03월 26일 정기주총 대표이사 정찬식사외이사 김대근"
+            },
+            {
+              "source_id": "annual:20260323001584",
+              "quote": "2023년 03월 31일 정기주총 사외이사 최영진사외이사 남유선 - 사외이사 김대근사외이사 나정인"
+            },
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "김대근 1970.11.18 사외이사 - 없음 사외이사후보추천위원회"
+            }
+          ],
+          "requested_action": "Root가 원 동일 arm 검토자에게 동일인 연결이 추론인지 확정인지 문구 범위만 재확인하도록 요청했다. 다른 arm 결과는 전달하지 않았고 판단 변경 요구가 아니다. 초기 history 보존 후 수정 문구가 도착하면 해당 문구만 재확인할 것.",
+          "status": "resolved_wording_identity_still_unverified",
+          "clarification_checked": true,
+          "resolution": {
+            "checked_at_utc": "2026-09-11T01:22:23.032938+00:00",
+            "scope": "수정된 agenda:dfe9f66b6e86db22e96c 한 행 표현만 재확인",
+            "review_sha256": "1aa332451d03ab46422a63a9e700190f399cf19f0b861c67e86fd4aebec3aa33",
+            "initial_review_archive": "output/firmness-all-samples-20260911/reviews/history/taekwang-0.9-initial.json",
+            "initial_review_sha256": "ba711b97865e58656f023416a610905e4853416362ed1991daabaa32ba88015d",
+            "decision_unchanged": "FOR",
+            "corrected_quote": "공학·기술사업화 전문성과 져스텍 사외이사·감사 경험을 갖춘 김대근의 3년 선임에 찬성한다. 사업보고서에는 동명이인의 가능성을 배제할 식별정보 없이 김대근의 2021년 선임·2023년 종료가 기재되어 있어 현재 후보와 동일인이라는 연결은 가능한 추론이며 확정된 경력이 아니다. 제공 자료에서 현재 후보의 계속 5년 재직은 확인되지 않으며, 과거 재직 합산은 동일인 여부 확인 후 판단해야 한다.",
+            "finding": "이름만으로 같은 사람을 확정하지 않고 가능한 추론 및 동일인 확인 후 재직 합산으로 범위를 정정했다. 표현 범위 issue는 해소됐으나 실제 동일인 여부는 여전히 미확인이다. 투표 정확성은 검증하지 않았다."
+          }
+        }
+      ],
+      "validated_limits": [
+        {
+          "topic": "four_candidates_two_seats",
+          "agenda_ids": [
+            "agenda:d019d4e8f48757a61b39",
+            "agenda:0e9284c71d420459b721",
+            "agenda:c2c3e8eef21546cb8fdf",
+            "agenda:3dc5b8cf6a27c1686a9c",
+            "agenda:17886bc9591383b454ca"
+          ],
+          "finding": "제4호는 네 후보 중 보통결의 요건 충족안이 셋 이상이면 다득표 두 안만 가결한다는 원문 구조다. 이를 이번 집중투표로 읽거나 네 후보 FOR를 네 자리 선출로 합산하지 않았다. 분리선임 확대안 부결 시 제4호 인원 처리의 직접 연결은 원문에서 확인하지 못했다는 한계를 보존한다.",
+          "evidence": [
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "보통결의 요건 충족 의안이 3개 이상일 경우 다득표 의안 2개 안건이 가결된 것으로 합니다."
+            }
+          ]
+        },
+        {
+          "topic": "March25_resignations_and_board_count",
+          "agenda_ids": [
+            "agenda:bdf377e6060897063e58"
+          ],
+          "finding": "3/25 공시는 최영진·김우진 두 명의 자진사임과 이사 6명/사외4명→4명/사외2명을 명시한다. 회사 제시 예정 7명/사외4명은 실제 선출 결과와 구별해야 하며 현재4명에 모든 후보를 단순 더하지 않았다. 표의 3/25는 사임서 제출일이라고도 설명되어 있어 법률상 효력시각을 별도로 인증하지 않는다.",
+          "evidence": [
+            {
+              "source_id": "filing:20260325000961",
+              "quote": "최영진 1961년 11월 남 2025년 03월 28일 2년 2026년 03월 25일 자진사임"
+            },
+            {
+              "source_id": "filing:20260325000961",
+              "quote": "김우진 1970년 05월 남 2024년 03월 29일 2년 2026년 03월 25일 자진사임"
+            },
+            {
+              "source_id": "filing:20260325000961",
+              "quote": "등기이사총수(명) 4 사외이사총수(명) 2"
+            }
+          ]
+        },
+        {
+          "topic": "three_percent_alternative_effective_dates",
+          "agenda_ids": [
+            "agenda:9c62247a27f7201bdb2d",
+            "agenda:9703749334766263bc57"
+          ],
+          "finding": "동일한 합산 3% 제한을 제2-2-1호는 3/31 결의 시 즉시, 제2-2-2호는 7/23 시행으로 제시한다. 두 안이 특별결의 요건을 모두 충족하면 다득표안 한 건만 채택한다는 조건을 보존한다. 양안 FOR는 수용 가능성으로 설명되어 서로 다른 시행일 동시 적용 주장은 아니다. 실제 주주명부 합산·당일 의결권 처리 또는 법령 효력을 독립 검증하지 않았다.",
+          "evidence": [
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "상법 시행일인 2026.7.23일이전 제65기 정기주주총회(2026.03.31) 결의 시 즉시 시행"
+            },
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "제30조의8 제6항 개정규정은 2026년 7월 23일부터 시행한다."
+            }
+          ]
+        },
+        {
+          "topic": "1975_months_and_duplicated_article_numbers",
+          "agenda_ids": [
+            "agenda:ff63d3ef305227ea3a3e",
+            "agenda:53df89dffaa2ca478381",
+            "agenda:450db2f89fcce9070583"
+          ],
+          "finding": "제공 정관 전후표에는 실제로 1975년 11·12월과 1·2월 차이가 있다. 또한 제18조의2가 권고적 주주제안과 소집지·개최방식에 각각 사용된다. 차이를 지적한 것은 원문과 일치하지만 어느 역사적 시행월이 옳은지, 회사 원본의 오기인지 추출 오류인지 또는 법적 효력이 달라지는지를 이 QA가 확정하지 않는다. 제22-4는 지연안 채택 시 유지·즉시안 채택 시 폐지라는 조건도 원문에 있다.",
+          "evidence": [
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "1975년 11월 일현재 1975년 12월 일현재"
+            },
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "3. 이 정관은 1975년 1월부터 시행한다. 4. 이 정관은 1975년 2월부터 시행한다."
+            },
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "제18조의2(권고적 주주제안)"
+            },
+            {
+              "source_id": "filing:20260313001279",
+              "quote": "제18조의2 (소집지와 개최방식)"
+            }
+          ]
+        }
+      ],
+      "reporting_requirements": [
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:d019d4e8f48757a61b39"
+          ],
+          "quote": "네 후보 중 보통결의 충족 셋 이상이면 다득표 둘",
+          "reason": "후보별 권고와 실제 선택·득표 배분을 분리할 것. 28행 중 parent4 제외24행도 경합 대안 및 같은 인물의 이사·감사위원 역할을 포함한다."
+        },
+        {
+          "severity": "low",
+          "agenda_ids": [
+            "agenda:ff63d3ef305227ea3a3e"
+          ],
+          "quote": "0.1 ballot / 0.9 conditional",
+          "reason": "두 arm 모두 제22-4 조건을 서술하지만 row_kind가 다르다. 부칙 자체의 존속 여부와 특정 하위 경과조치의 채택 조건을 혼동하지 말 것."
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "reviews": 22,
+    "native_judgment_occurrences": 460,
+    "native_rows_per_arm": {
+      "0.1": 230,
+      "0.9": 230
+    },
+    "parent_rows_per_arm": {
+      "0.1": 31,
+      "0.9": 32
+    },
+    "nonparent_rows_per_arm": {
+      "0.1": 199,
+      "0.9": 198
+    },
+    "judgment_evidence_quotes_checked": 924,
+    "report_item_evidence_quotes_checked": 78,
+    "matched_evidence_quotes": 1002,
+    "unmatched_evidence_quotes": 0,
+    "medium_issues_identified_cumulative": 1,
+    "medium_issues_resolved": 1,
+    "active_source_packet_gaps": 1,
+    "active_row_scope_limits": 1,
+    "high_semantic_issues_identified": 2,
+    "accuracy_rate": null,
+    "accuracy_rate_reason": "인용 존재 및 제한된 원문 의미 QA이며 사람·다른 모델의 독립 정확도 평가가 아니다.",
+    "denominator_limit": "nonparent행에도 폐기 후보, 서로 배타적인 집중투표 분기 및 같은 인물의 다른 역할을 포함한다. 실제 독립 표결 수가 아니다.",
+    "native_judgment_occurrences_field_note": "이전 schema 필드명 유지. native 수락 판단 수가 아니라 native 입력 행에 대응한 report-side 검토 수다.",
+    "report_review_judgment_occurrences": 460,
+    "active_identity_clarifications_pending": 0,
+    "high_wording_issues_resolved": 1
+  },
+  "validated_limits_global": [
+    "두 arm은 동일 원문 자료를 제공받았으며 차이는 firmness 설정과 독립 작성된 판단이다.",
+    "FOR/AGAINST는 선택 OPM 정책 적용 결과이며 법적 유효성·실제 표결·실행 지시의 확인이 아니다.",
+    "부분 발췌된 사업보고서나 주주·후보 자료 바깥은 확인하지 않았다. 미제공과 미공개를 동일시하지 않는다.",
+    "원문 내 상충 수치·이사회 구성·추천자 주장 등 보존된 불확실성은 이 QA가 해소한 것으로 쓰지 않는다.",
+    "이 보고서에 기록된 검토 파일 SHA-256은 읽은 시점을 나타낸다. 원 검토자가 이후 문구를 수정하면 해당 issue는 재확인해야 한다."
+  ],
+  "history": [
+    {
+      "event": "preserved_initial_QA_snapshot_before_March_extension",
+      "prior_file_sha256": "ebf45c8b7d055b7e0e9285644150ef3a0385bb91c4028010969757d5cce4d6f7",
+      "prior_totals": {
+        "reviews": 4,
+        "native_judgment_occurrences": 54,
+        "unique_native_rows_per_arm": 27,
+        "parent_rows_per_arm": 6,
+        "nonparent_rows_per_arm": 21,
+        "judgment_evidence_quotes_checked": 139,
+        "report_item_evidence_quotes_checked": 12,
+        "matched_evidence_quotes": 151,
+        "unmatched_evidence_quotes": 0,
+        "medium_semantic_issues": 1,
+        "high_semantic_issues_identified": 0,
+        "accuracy_rate": null,
+        "accuracy_rate_reason": "출처 대조는 인용 존재 확인 및 제한된 의미 검토이며 독립 정답·사람 평가가 아니다."
+      },
+      "prior_case_input_hashes": [
+        {
+          "case_id": "gabia",
+          "arms": [
+            {
+              "firmness": "0.1",
+              "review_sha256": "1e03a0ccb762e455b187fa9b90c79a28fef014b025207875d7de49a5920a91d5",
+              "packet_sha256": "73708c8e3e96f203676987431a5c72e11babd9f9bbe85958e56c0a5f435a4e93"
+            },
+            {
+              "firmness": "0.9",
+              "review_sha256": "4a0bd99c96766eaae33cf4c204e5f43629277379619ba3275b1722bb3f065d06",
+              "packet_sha256": "e7a540c65407693d4076b81c240b735ab261a4974ed8a74c657cc884923fbc6a"
+            }
+          ]
+        },
+        {
+          "case_id": "samsung",
+          "arms": [
+            {
+              "firmness": "0.1",
+              "review_sha256": "895d22e77b842ac6f40b6dcbeed00226f97154f9f444b8d5c53bc36a7ed72ae4",
+              "packet_sha256": "9c20d50cfec1e11428130020bef7385e9391fa504561b4404c3780df042cf718"
+            },
+            {
+              "firmness": "0.9",
+              "review_sha256": "789c09344ac77d545418e904b0cab05dc805e2ea3195555b9f52132959015014",
+              "packet_sha256": "f5eb04311079745a9a16c0e35f5ac966402422da60c0e7541f92137bb0abab97"
+            }
+          ]
+        }
+      ],
+      "note": "기존 case 결과와 issue 본문을 보존하고 Samsung 보상위원회 문구의 후속 수정만 재확인한다."
+    },
+    {
+      "event": "march_extension_and_samsung_phrase_recheck",
+      "checked_at_utc": "2026-09-11T00:55:22.061226+00:00",
+      "added_cases": [
+        "kz_agm",
+        "youngpoong",
+        "skhynix"
+      ],
+      "recheck_agenda_id": "agenda:c6dbd757d67d07458a9f",
+      "changes_to_votes_or_packets": false,
+      "network_or_external_model_calls": false,
+      "later_kz_egm_sources_used": false
+    },
+    {
+      "event": "root_classified_park_source_omission_as_high_and_authorized_balanced_followup",
+      "recorded_at_utc": "2026-09-11T00:55:42.294440+00:00",
+      "issue_id": "kz-agm-park-byeongwook-affiliate-role-asof-gap",
+      "old_severity": "medium",
+      "new_severity": "high",
+      "original_results_frozen": true,
+      "followup_performed_by_this_QA": false
+    },
+    {
+      "event": "additional_four_March_cases_material_fact_QA",
+      "checked_at_utc": "2026-09-11T01:07:30.924201+00:00",
+      "previous_qa_file_sha256": "d65006ab046585530e69cf980e8b690dc807c6758a2164fdbe214d7aa8dd6ecc",
+      "added_cases": [
+        "ktg",
+        "kakao",
+        "golfzon",
+        "youngone"
+      ],
+      "new_material_source_defects_identified": 0,
+      "new_reviewing_model_or_API_calls": false,
+      "votes_or_packets_changed": false,
+      "later_EGM_sources_used": false,
+      "limit": "동일 모델의 사후 원문 대조이며 독립 정답 평가가 아니다."
+    },
+    {
+      "event": "lgchem_material_semantic_QA",
+      "checked_at_utc": "2026-09-11T01:11:27.063027+00:00",
+      "previous_qa_file_sha256": "783315e5b633d8f8eca80d11aa46a81d2cf99ea505f7d4ce4ef225997ab0edd7",
+      "added_cases": [
+        "lgchem"
+      ],
+      "new_material_source_defects_identified": 0,
+      "decision_layer": "report_side_reviews_before_native_submission",
+      "native_submitted_by_QA": false,
+      "new_reviewing_model_or_API_calls": false,
+      "votes_or_packets_changed": false,
+      "later_EGM_sources_used": false
+    },
+    {
+      "event": "taekwang_four_issue_semantic_QA",
+      "checked_at_utc": "2026-09-11T01:21:14.960583+00:00",
+      "previous_qa_file_sha256": "89713153525213f81bd21cabbd7916aca819ab6cb4b5d45f4e7d8809a4738d10",
+      "added_cases": [
+        "taekwang"
+      ],
+      "pending_clarification_issue_id": "taekwang-0.9-kim-daekeun-identity-linkage",
+      "severity_assigned_by": "root",
+      "no_vote_change_requested": true,
+      "original_reviewer_history_preserved_by_root": true,
+      "new_reviewing_model_or_API_calls": false,
+      "votes_or_packets_changed_by_QA": false,
+      "later_EGM_sources_used": false
+    },
+    {
+      "event": "taekwang_identity_wording_clarification_verified",
+      "checked_at_utc": "2026-09-11T01:22:23.032938+00:00",
+      "issue_id": "taekwang-0.9-kim-daekeun-identity-linkage",
+      "current_review_sha256": "1aa332451d03ab46422a63a9e700190f399cf19f0b861c67e86fd4aebec3aa33",
+      "initial_review_sha256": "ba711b97865e58656f023416a610905e4853416362ed1991daabaa32ba88015d",
+      "initial_review_archive": "output/firmness-all-samples-20260911/reviews/history/taekwang-0.9-initial.json",
+      "decision_changed": false,
+      "evidence_changed": false,
+      "same_person_independently_verified": false,
+      "votes_or_packets_changed_by_QA": false,
+      "later_EGM_sources_used": false
+    }
+  ]
+}

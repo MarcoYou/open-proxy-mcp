@@ -1,0 +1,17 @@
+{
+  "artifact_kind": "research_backed_experiment_design",
+  "status": "runner_implemented_comparison_not_executed",
+  "source": "wiki/decisions/opm-model-evaluation-protocol.md",
+  "source_sha256": "f3c64cfe4b3e689909b4af342581885413225fdb12a0325866b3e6366f912f26",
+  "html_sha256": "d87489dfd8db35cb5ccb65b7e587213cb1dfe4d75785e9885da199073ab08c70",
+  "human_reviewed": false,
+  "paid_model_api_authorized": true,
+  "comparison_runs_in_this_design": 0,
+  "pending": [
+    "model_access_snapshot_and_effective_settings",
+    "case_inventory_and_unseen_split",
+    "grader_rubric_and_identity",
+    "resource_and_retry_limits",
+    "noninferiority_margin_and_release_threshold"
+  ]
+}

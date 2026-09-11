@@ -1,0 +1,2881 @@
+{
+  "schema": "opm-native-firmness-audit/1",
+  "evidence_mode": "Read-only audit of saved actual MCP responses; no runtime/model calls and no submitted LLM assessments. Source packet inclusion is not proof of substantive LLM reading.",
+  "decision_normalization": {
+    "labels": {
+      "FOR": "찬성",
+      "AGAINST": "반대",
+      "REVIEW": "검토",
+      "NO_VOTE": "표결 제외",
+      "NO_DATA": "자료 없음",
+      "ABSTAIN": "기권"
+    },
+    "mapping": {
+      "FOR": "FOR",
+      "AGAINST": "AGAINST",
+      "REVIEW": "REVIEW",
+      "NO_VOTE": "NO_VOTE",
+      "NO_DATA": "NO_DATA",
+      "ABSTAIN": "ABSTAIN",
+      "찬성": "FOR",
+      "반대": "AGAINST",
+      "검토": "REVIEW",
+      "표결 제외": "NO_VOTE",
+      "자료 없음": "NO_DATA",
+      "기권": "ABSTAIN",
+      "보류": "REVIEW",
+      "표결대상아님": "NO_VOTE",
+      "표결 대상 아님": "NO_VOTE"
+    },
+    "observed_unknowns": []
+  },
+  "denominator_definition": "A paired native agenda row is one agenda_id within one meeting, counted once across firmness. Both response sets together are double that count. This is not an independent ballot denominator.",
+  "kakao_egm_discovery": {
+    "record": "records/kakao-egm-discovery.json",
+    "arguments": {
+      "company": "00258801",
+      "meeting_type": "extraordinary",
+      "scope": "summary",
+      "year": 2026,
+      "start_date": "20260101",
+      "end_date": "20260909",
+      "include_coverage": true,
+      "format": "json"
+    },
+    "status": "no_filing",
+    "no_filing": true,
+    "requested_window": {
+      "start_date": "2026-01-01",
+      "end_date": "2026-09-09",
+      "lookback_months": 12
+    },
+    "warnings": [
+      "2026-01-01~2026-09-09 구간에 임시 주주총회 소집공고를 찾지 못했다."
+    ],
+    "interpretation": "No notice found in the actual requested 2026-01-01–2026-09-09 meeting window; not proof of no future or lifetime extraordinary meetings."
+  },
+  "generated_at": "2026-09-11T00:09:22.951232+00:00",
+  "independent_ballot_denominator": null,
+  "denominator_limits": "Flat response rows include parent/bundle rows, conditional alternatives and withdrawn rows. No complete native parent-child hierarchy is included; explicit bundle count is a lower bound. Do not remove identical titles automatically: KZ alternatives are distinct rows.",
+  "cases": [
+    {
+      "case_id": "gabia",
+      "case": {
+        "id": "gabia",
+        "company": "가비아",
+        "corp_code": "00506294",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-26",
+        "notice_rcept_no": "20260311004404",
+        "cutoff_at": "2026-03-26T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/gabia-0.1.json",
+          "sha256": "5ba2ca5cf320e591742dbb08e6fc8199b408c5198832b445898ae4f81fc5e903",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 17,
+          "agenda_count_field": 17,
+          "unique_ids": 17,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 9,
+            "REVIEW": 8
+          },
+          "raw_decision_counts": {
+            "FOR": 9,
+            "REVIEW": 8
+          },
+          "category_counts": {
+            "articles_amendment": 2,
+            "audit_compensation": 1,
+            "cash_dividend": 3,
+            "director_compensation": 4,
+            "director_election": 5,
+            "financial_statements": 1,
+            "shareholder_proposal": 1
+          },
+          "relation_type_counts": {
+            "normal": 17
+          },
+          "rows_with_relation_links": 2,
+          "normal_type_with_relation_link_ids": [
+            "agenda:bf814d989effa80d40bb",
+            "agenda:97656148d2aa019ea234"
+          ],
+          "workflow_counts": {
+            "awaiting_assessment": 17
+          },
+          "candidate": {
+            "row_applications": 1,
+            "unique_tasks": 1,
+            "unique_people": 1,
+            "names": [
+              "최세영"
+            ],
+            "status_counts": {
+              "pending": 1
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [
+              {
+                "index": 7,
+                "agenda_id": "agenda:f4a809f5df566cd1337f",
+                "title": "기타비상무이사 선임의 건"
+              },
+              {
+                "index": 10,
+                "agenda_id": "agenda:12777f5386d559b699da",
+                "title": "사외이사 선임의 건"
+              }
+            ],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 31625,
+            "covered_chars": 31625,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                31625
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "7c49256224d6af388dc6877d3859efebb2dbe23026401c4611e90b8ba69139cc",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 9,
+            "partial_source_ids": [
+              "filing:20260213002767",
+              "notice:20260311004404"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 8
+            },
+            "evidence_collection": {
+              "status": "parsed",
+              "document_read": true,
+              "reason": null
+            },
+            "evidence_collection_receipt": "20260318001522",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 3,
+              "identity_metadata_only": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260720000321",
+                "20260724000275",
+                "20260813000433"
+              ],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 17,
+            "parsed_count": 17,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "08b8889d5170e05a93172d0f12671b129979498567ffbcea8e2b55bed80aa1b8",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/gabia-0.9.json",
+          "sha256": "41c39e33aa26d3e659a4ec6b67e924d21aae7b138aa0199b3ba2a869be184f2c",
+          "policy_sha256": "121a65fa8a2aef8c77a7b180f021f78c54d64b064eefaf8bfa1fd82e8f3ffb1f",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 17,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "golfzon",
+      "case": {
+        "id": "golfzon",
+        "company": "골프존홀딩스",
+        "corp_code": "00674498",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-27",
+        "notice_rcept_no": "20260312001403",
+        "cutoff_at": "2026-03-27T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/golfzon-0.1.json",
+          "sha256": "98fc7f1183571b6483958bae5c743f221bb4e26f9fd136e182cb2e213acf0eb4",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 24,
+          "agenda_count_field": 24,
+          "unique_ids": 24,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 15,
+            "REVIEW": 9
+          },
+          "raw_decision_counts": {
+            "FOR": 15,
+            "REVIEW": 9
+          },
+          "category_counts": {
+            "articles_amendment": 15,
+            "cash_dividend": 3,
+            "director_compensation": 1,
+            "director_election": 2,
+            "financial_statements": 1,
+            "treasury_share": 2
+          },
+          "relation_type_counts": {
+            "alternative": 2,
+            "conditional": 1,
+            "cumulative_related": 1,
+            "normal": 20
+          },
+          "rows_with_relation_links": 0,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 24
+          },
+          "candidate": {
+            "row_applications": 1,
+            "unique_tasks": 1,
+            "unique_people": 1,
+            "names": [
+              "김명진"
+            ],
+            "status_counts": {
+              "pending": 1
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 34355,
+            "covered_chars": 34355,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                34355
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "0eb4ca092715117f466911564b712ca6827db288eb53f2876bf09f6725b6c1bd",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 8,
+            "partial_source_ids": [
+              "filing:20260313000940",
+              "notice:20260312001403"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 7
+            },
+            "evidence_collection": {
+              "status": "parsed",
+              "document_read": true,
+              "reason": null
+            },
+            "evidence_collection_receipt": "20260319001316",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 2,
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260702000580",
+                "20260812000882"
+              ],
+              "publication_date_conflict": [
+                "20260312001428"
+              ],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 24,
+            "parsed_count": 24,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "3fe185d742fb47176058b177be413b423574dafa7776a1b2d0e9ea1d075b2cf1",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/golfzon-0.9.json",
+          "sha256": "26d3da1db1a902aef6512fad016f85c53d8449aa114fcc9ab4d239a3e70ac932",
+          "policy_sha256": "e781bca0dfdd98851437ab4a2ba56027762c3637eb82adc22d43b15127c9cbc0",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 24,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "kakao",
+      "case": {
+        "id": "kakao",
+        "company": "카카오",
+        "corp_code": "00258801",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-26",
+        "notice_rcept_no": "20260311004482",
+        "cutoff_at": "2026-03-26T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/kakao-0.1.json",
+          "sha256": "7085a618d69fcc5edfbb729bf49865f72433c4c0beb4520ea99e7667a4ec6746",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 20,
+          "agenda_count_field": 20,
+          "unique_ids": 20,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 7,
+            "REVIEW": 13
+          },
+          "raw_decision_counts": {
+            "FOR": 7,
+            "REVIEW": 13
+          },
+          "category_counts": {
+            "articles_amendment": 9,
+            "audit_committee_election": 1,
+            "director_compensation": 1,
+            "director_election": 5,
+            "financial_statements": 1,
+            "other": 1,
+            "treasury_share": 2
+          },
+          "relation_type_counts": {
+            "cumulative_related": 1,
+            "normal": 19
+          },
+          "rows_with_relation_links": 0,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 20
+          },
+          "candidate": {
+            "row_applications": 4,
+            "unique_tasks": 4,
+            "unique_people": 3,
+            "names": [
+              "김영준",
+              "차경진",
+              "함춘승"
+            ],
+            "status_counts": {
+              "pending": 4
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 4,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [
+              {
+                "index": 11,
+                "agenda_id": "agenda:2cd6370cec23ed2fff06",
+                "title": "이사 선임의 건 (사내이사 1인, 사외이사 2인)"
+              }
+            ],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 143492,
+            "covered_chars": 143492,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                143492
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "2d0445ed14d5cc27a0e2a486c5329fbf25ee70638ebbe94497d8be10c85b09d1",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 8,
+            "partial_source_ids": [
+              "filing:20260224004397",
+              "notice:20260311004482"
+            ],
+            "nonread_supplemental_events": [
+              {
+                "rcept_no": "20260312000279",
+                "status": "fetch_failed",
+                "discovery": "company_context",
+                "report_nm": "[첨부정정]의결권대리행사권유참고서류",
+                "published": "20260312"
+              }
+            ],
+            "supplemental_status_counts": {
+              "fetch_failed": 1,
+              "read": 10
+            },
+            "evidence_collection": {
+              "status": "parsed",
+              "document_read": true,
+              "reason": null
+            },
+            "evidence_collection_receipt": "20260318001423",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 4,
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260401003804",
+                "20260512000304",
+                "20260701000328",
+                "20260803000476"
+              ],
+              "publication_date_conflict": [
+                "20220224004544"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 20,
+            "parsed_count": 20,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "f374304fd742eadc6331b4787d0232d377ea60e24eb620411e1a619ec9cb7c47",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/kakao-0.9.json",
+          "sha256": "9c740c2b782b8018ff299c456d2ba0c343aab8a34fa4132cae212734fb972f08",
+          "policy_sha256": "d4f7dd8bb37937c88d38de5fac88bf64c4031f51c433449153490e1a071c92e2",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 20,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "ktg",
+      "case": {
+        "id": "ktg",
+        "company": "KT&G",
+        "corp_code": "00244455",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-26",
+        "notice_rcept_no": "20260225005779",
+        "cutoff_at": "2026-03-26T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/ktg-0.1.json",
+          "sha256": "5287054d22678f2000e0e6d415b0ccb1638be1361cd96c45cf95fcdd5b137976",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 15,
+          "agenda_count_field": 15,
+          "unique_ids": 15,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 8,
+            "REVIEW": 7
+          },
+          "raw_decision_counts": {
+            "FOR": 8,
+            "REVIEW": 7
+          },
+          "category_counts": {
+            "articles_amendment": 8,
+            "audit_committee_election": 1,
+            "director_compensation": 1,
+            "director_election": 2,
+            "financial_statements": 1,
+            "retirement_pay": 1,
+            "treasury_share": 1
+          },
+          "relation_type_counts": {
+            "conditional": 4,
+            "cumulative_related": 1,
+            "normal": 10
+          },
+          "rows_with_relation_links": 2,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 15
+          },
+          "candidate": {
+            "row_applications": 3,
+            "unique_tasks": 3,
+            "unique_people": 2,
+            "names": [
+              "노환용",
+              "한승수"
+            ],
+            "status_counts": {
+              "pending": 3
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 3,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 49428,
+            "covered_chars": 49428,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                49428
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "1125b2dea79565a634f35f199ea288f8bf96d02bbef7a0cedc7ca10758f0e74c",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 9,
+            "partial_source_ids": [
+              "filing:20260130000329",
+              "filing:20260225005854",
+              "notice:20260225005779"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 8
+            },
+            "evidence_collection": {
+              "status": "parsed",
+              "document_read": true,
+              "reason": null
+            },
+            "evidence_collection_receipt": "20260318001422",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 8,
+              "identity_metadata_only": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260508000295",
+                "20260527000073",
+                "20260604000207",
+                "20260609000066",
+                "20260610000680",
+                "20260703000113",
+                "20260805000499",
+                "20260907000176"
+              ],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 15,
+            "parsed_count": 15,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "edc467a45f670aca5b8d2a364a49d9aefb1d296c2fbda2350c54facbb632b5ca",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/ktg-0.9.json",
+          "sha256": "411384b5c49f8e059a0eeb702ad5c517bb388430d066759a91ff6ab14c142df6",
+          "policy_sha256": "439785583f2fd156144071931a6c593591395c378cb19e8ef7618128768d330e",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 15,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "kz_agm",
+      "case": {
+        "id": "kz_agm",
+        "company": "고려아연",
+        "corp_code": "00102858",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-24",
+        "notice_rcept_no": "20260305001616",
+        "cutoff_at": "2026-03-24T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/kz_agm-0.1.json",
+          "sha256": "45b8842c9162a0c06990c6c11da3bd746fd91ec815c1818e299025b3d2eb5c6c",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 45,
+          "agenda_count_field": 45,
+          "unique_ids": 45,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 5,
+            "NO_VOTE": 2,
+            "REVIEW": 38
+          },
+          "raw_decision_counts": {
+            "FOR": 5,
+            "NO_VOTE": 2,
+            "REVIEW": 38
+          },
+          "category_counts": {
+            "articles_amendment": 14,
+            "audit_committee_election": 1,
+            "cash_dividend": 3,
+            "director_compensation": 1,
+            "director_election": 23,
+            "financial_statements": 2,
+            "retirement_pay": 1
+          },
+          "relation_type_counts": {
+            "alternative": 2,
+            "conditional": 17,
+            "normal": 22,
+            "procedural": 2,
+            "withdrawn": 2
+          },
+          "rows_with_relation_links": 22,
+          "normal_type_with_relation_link_ids": [
+            "agenda:644c3ccdd8b4454b3d6f"
+          ],
+          "workflow_counts": {
+            "awaiting_assessment": 43,
+            "not_applicable": 2
+          },
+          "candidate": {
+            "row_applications": 8,
+            "unique_tasks": 5,
+            "unique_people": 5,
+            "names": [
+              "김보영",
+              "이민호",
+              "이선숙",
+              "최병일",
+              "황덕남"
+            ],
+            "status_counts": {
+              "pending": 8
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 8,
+              "rejected": 0
+            },
+            "shared_tasks": [
+              {
+                "task_id": "f2e0c5db05409ea28225a0d60b08fc0f9916e801ef4d30db612e0566cca0ab25",
+                "rows": [
+                  {
+                    "index": 26,
+                    "agenda_id": "agenda:ecbaf6d25ae542bae9b3"
+                  },
+                  {
+                    "index": 35,
+                    "agenda_id": "agenda:9b422218e153812bc804"
+                  }
+                ]
+              },
+              {
+                "task_id": "a08dc2ba8d12d945697a0c2ca9dbb011008c316ab3d78c92d95f0641d32a1862",
+                "rows": [
+                  {
+                    "index": 31,
+                    "agenda_id": "agenda:d4762e4227fc61ba1aa1"
+                  },
+                  {
+                    "index": 40,
+                    "agenda_id": "agenda:5c5f9b68c5b26b6569c6"
+                  }
+                ]
+              },
+              {
+                "task_id": "e7bc8958cd4abca36895b4ca04067f79807f23b3579a01630b458a544d80141f",
+                "rows": [
+                  {
+                    "index": 32,
+                    "agenda_id": "agenda:c35a37a6604d1794c569"
+                  },
+                  {
+                    "index": 41,
+                    "agenda_id": "agenda:1e4efa8c907054097857"
+                  }
+                ]
+              }
+            ]
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [],
+            "same_title_groups": [
+              {
+                "title": "사내이사 최윤범 선임의 건",
+                "rows": [
+                  {
+                    "index": 25,
+                    "agenda_id": "agenda:d4ae8c196eb3e6db5ed7"
+                  },
+                  {
+                    "index": 34,
+                    "agenda_id": "agenda:77d756798ea3b31ece40"
+                  }
+                ]
+              },
+              {
+                "title": "사외이사 황덕남 선임의 건",
+                "rows": [
+                  {
+                    "index": 26,
+                    "agenda_id": "agenda:ecbaf6d25ae542bae9b3"
+                  },
+                  {
+                    "index": 35,
+                    "agenda_id": "agenda:9b422218e153812bc804"
+                  }
+                ]
+              },
+              {
+                "title": "기타비상무이사 Walter Field McLallen 선임의 건",
+                "rows": [
+                  {
+                    "index": 27,
+                    "agenda_id": "agenda:2e53dce3238169e0913a"
+                  },
+                  {
+                    "index": 36,
+                    "agenda_id": "agenda:272972507480881d2652"
+                  }
+                ]
+              },
+              {
+                "title": "기타비상무이사 박병욱 선임의 건",
+                "rows": [
+                  {
+                    "index": 28,
+                    "agenda_id": "agenda:aedccb6132fe733a83cb"
+                  },
+                  {
+                    "index": 37,
+                    "agenda_id": "agenda:7f2dba28f0692f444786"
+                  }
+                ]
+              },
+              {
+                "title": "기타비상무이사 최연석 선임의 건",
+                "rows": [
+                  {
+                    "index": 29,
+                    "agenda_id": "agenda:03ef04241689146e6039"
+                  },
+                  {
+                    "index": 38,
+                    "agenda_id": "agenda:6dc6b742ccfabb13fd6c"
+                  }
+                ]
+              },
+              {
+                "title": "사외이사 오영 선임의 건→ 오영 후보자 일신상의 사유로 자진 사퇴함에 따라 안건 폐기",
+                "rows": [
+                  {
+                    "index": 30,
+                    "agenda_id": "agenda:177eb7f3bfe19749e7ad"
+                  },
+                  {
+                    "index": 39,
+                    "agenda_id": "agenda:eab28ea86eb12acd478a"
+                  }
+                ]
+              },
+              {
+                "title": "사외이사 최병일 선임의 건",
+                "rows": [
+                  {
+                    "index": 31,
+                    "agenda_id": "agenda:d4762e4227fc61ba1aa1"
+                  },
+                  {
+                    "index": 40,
+                    "agenda_id": "agenda:5c5f9b68c5b26b6569c6"
+                  }
+                ]
+              },
+              {
+                "title": "사외이사 이선숙 선임의 건",
+                "rows": [
+                  {
+                    "index": 32,
+                    "agenda_id": "agenda:c35a37a6604d1794c569"
+                  },
+                  {
+                    "index": 41,
+                    "agenda_id": "agenda:1e4efa8c907054097857"
+                  }
+                ]
+              }
+            ]
+          },
+          "notice_coverage": {
+            "total_chars": 66441,
+            "covered_chars": 66441,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                66441
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "992810ddd1a2b36b045552aec602249d1a04c181342505eb5cdcda4a66085ef0",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 12,
+            "partial_source_ids": [
+              "filing:20260309001602",
+              "filing:20260309001811",
+              "notice:20260305001616"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 12
+            },
+            "evidence_collection": {
+              "status": "format_unsupported",
+              "document_read": true,
+              "reason": "이사회 원문은 확보했으나 출석률 요약 형식을 읽지 못했습니다."
+            },
+            "evidence_collection_receipt": "20260316000929",
+            "officer_discovery_status": "partial",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 35,
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 1,
+              "publication_unverified": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260421000493",
+                "20260512000560",
+                "20260520000110",
+                "20260520000264",
+                "20260731000377",
+                "20260806000442",
+                "20260813001663",
+                "20260813001669",
+                "20260813001675",
+                "20260813001682",
+                "20260813001690",
+                "20260813001696",
+                "20260813001701",
+                "20260813001704",
+                "20260813001711",
+                "20260813001715",
+                "20260813001718",
+                "20260813001721",
+                "20260813001726"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": [],
+              "publication_date_conflict": [
+                "20260105000450"
+              ],
+              "publication_unverified": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 45,
+            "parsed_count": 45,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "86e0042718b3a32605370b801d7c94b4ad002a5b25fd2a8875cd2fa7fd57271a",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/kz_agm-0.9.json",
+          "sha256": "9af01524492ab76cd70c027a1623ff84576aceaa2a3332eb73e5ebcc43589943",
+          "candidate": {
+            "row_applications": 8,
+            "unique_tasks": 5,
+            "unique_people": 5,
+            "names": [
+              "김보영",
+              "이민호",
+              "이선숙",
+              "최병일",
+              "황덕남"
+            ],
+            "status_counts": {
+              "pending": 8
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 8,
+              "rejected": 0
+            },
+            "shared_tasks": [
+              {
+                "task_id": "45bcd81a46f00a3ad7518f82d46c8eccc03b051edd2bc8e3e0fbf6f71d899c52",
+                "rows": [
+                  {
+                    "index": 26,
+                    "agenda_id": "agenda:ecbaf6d25ae542bae9b3"
+                  },
+                  {
+                    "index": 35,
+                    "agenda_id": "agenda:9b422218e153812bc804"
+                  }
+                ]
+              },
+              {
+                "task_id": "f69f1ed0633bd43e3212aa4617e4220f72d3bc178035f5238a701ca6c714e945",
+                "rows": [
+                  {
+                    "index": 31,
+                    "agenda_id": "agenda:d4762e4227fc61ba1aa1"
+                  },
+                  {
+                    "index": 40,
+                    "agenda_id": "agenda:5c5f9b68c5b26b6569c6"
+                  }
+                ]
+              },
+              {
+                "task_id": "714c2f2c65414d3309955afafb0472f5295970c009792f1a5b5ba10fd303f905",
+                "rows": [
+                  {
+                    "index": 32,
+                    "agenda_id": "agenda:c35a37a6604d1794c569"
+                  },
+                  {
+                    "index": 41,
+                    "agenda_id": "agenda:1e4efa8c907054097857"
+                  }
+                ]
+              }
+            ]
+          },
+          "policy_sha256": "587bd75893becf0f2ccf8215e726b645567ed498a80ec708430844b0435d3fc1",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 45,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "kz_egm",
+      "case": {
+        "id": "kz_egm",
+        "company": "고려아연",
+        "corp_code": "00102858",
+        "meeting_type": "extraordinary",
+        "meeting_date": "2026-09-09",
+        "notice_rcept_no": "20260811000705",
+        "cutoff_at": "2026-09-09T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/kz_egm-0.1.json",
+          "sha256": "6a26feb45e8013a7e7c4d56c60f70e7e23d30a0fe0c5c229521f4e2bec492353",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 9,
+          "agenda_count_field": 9,
+          "unique_ids": 9,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 1,
+            "REVIEW": 8
+          },
+          "raw_decision_counts": {
+            "FOR": 1,
+            "REVIEW": 8
+          },
+          "category_counts": {
+            "articles_amendment": 1,
+            "audit_committee_election": 2,
+            "director_election": 6
+          },
+          "relation_type_counts": {
+            "alternative": 2,
+            "cumulative_related": 1,
+            "normal": 6
+          },
+          "rows_with_relation_links": 8,
+          "normal_type_with_relation_link_ids": [
+            "agenda:db628cbb619f7c016aff",
+            "agenda:e4090294d2cfc446cc73",
+            "agenda:5fc8be913e778d753c9c",
+            "agenda:2ec0d550227b8ce06a08",
+            "agenda:4c1cf61fdbf469f3aa0d"
+          ],
+          "workflow_counts": {
+            "awaiting_assessment": 9
+          },
+          "candidate": {
+            "row_applications": 6,
+            "unique_tasks": 6,
+            "unique_people": 6,
+            "names": [
+              "박유경",
+              "백인규",
+              "서은숙",
+              "심혜섭",
+              "이준봉",
+              "이형규"
+            ],
+            "status_counts": {
+              "pending": 6
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 6,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 30652,
+            "covered_chars": 30652,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                30652
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "790f97efcef2d4c30700e6d8b1acc57ebf9f21c0a6921a984f9597828b566710",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 12,
+            "partial_source_ids": [
+              "filing:20260806000442",
+              "notice:20260811000705"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 11
+            },
+            "evidence_collection": {
+              "status": "format_unsupported",
+              "document_read": true,
+              "reason": "이사회 원문은 확보했으나 출석률 요약 형식을 읽지 못했습니다."
+            },
+            "evidence_collection_receipt": "20260813001726",
+            "officer_discovery_status": "partial",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "publication_date_conflict": [
+                "20260105000450"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 9,
+            "parsed_count": 9,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "d6bac116e70c7581ad42b7fb2c3d9d733042fd3b58849fe1057cebb2fede40d5",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/kz_egm-0.9.json",
+          "sha256": "8fc430136dd20b5d968784ccd04f9c498d9d09e54c083ca274e814cf73724660",
+          "policy_sha256": "45ac42ae4ea3180e69e0cc7c3d8871951aac5c9e16b06ee80d2dbe847897b8bc",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 9,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "lgchem",
+      "case": {
+        "id": "lgchem",
+        "company": "LG화학",
+        "corp_code": "00356361",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-31",
+        "notice_rcept_no": "20260224004273",
+        "cutoff_at": "2026-03-31T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/lgchem-0.1.json",
+          "sha256": "9bde6401605f41006ba76ef6b58739e7ce853f517501e1072722e3b2d55bb82d",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 17,
+          "agenda_count_field": 17,
+          "unique_ids": 17,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 12,
+            "REVIEW": 5
+          },
+          "raw_decision_counts": {
+            "FOR": 12,
+            "REVIEW": 5
+          },
+          "category_counts": {
+            "articles_amendment": 9,
+            "director_compensation": 1,
+            "director_election": 2,
+            "financial_statements": 1,
+            "shareholder_proposal": 3,
+            "treasury_share": 1
+          },
+          "relation_type_counts": {
+            "conditional": 5,
+            "cumulative_related": 1,
+            "normal": 11
+          },
+          "rows_with_relation_links": 1,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 17
+          },
+          "candidate": {
+            "row_applications": 1,
+            "unique_tasks": 1,
+            "unique_people": 1,
+            "names": [
+              "천경훈"
+            ],
+            "status_counts": {
+              "pending": 1
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 46095,
+            "covered_chars": 46095,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                46095
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "76c46f89570dc5b357b838883a1a6a9481f6ef0f57cff4467dddb3d28c94a624",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 9,
+            "partial_source_ids": [
+              "filing:20260305001433",
+              "notice:20260224004273",
+              "annual:20260313001195"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 8
+            },
+            "evidence_collection": {
+              "status": "section_not_located",
+              "document_read": true,
+              "reason": "이사회 절 경계를 확인하지 못했습니다. 원문에 자료가 없다는 뜻은 아닙니다."
+            },
+            "evidence_collection_receipt": "20260313001195",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 2,
+              "identity_metadata_only": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260803000431",
+                "20260807000440"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 17,
+            "parsed_count": 17,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "d64e670855e807cf6beb4d0c7a29187d3f62b871a237df7b07eb0c596e5e8317",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/lgchem-0.9.json",
+          "sha256": "ac39d2f93eee39a6322bfc80709fbeef3395c50f1a7249b25cee2b76cea06d67",
+          "policy_sha256": "7925f00d635f7a2fcf06205446418085a11769dcd75b2e22acc29f7ae38dba4c",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 17,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "samsung",
+      "case": {
+        "id": "samsung",
+        "company": "삼성전자",
+        "corp_code": "00126380",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-18",
+        "notice_rcept_no": "20260312000987",
+        "cutoff_at": "2026-03-18T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/samsung-0.1.json",
+          "sha256": "7caffbee3089479010ff334d0e05398bd8e8962978867fb209dafc8a41631ec1",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 10,
+          "agenda_count_field": 10,
+          "unique_ids": 10,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 8,
+            "REVIEW": 2
+          },
+          "raw_decision_counts": {
+            "FOR": 8,
+            "REVIEW": 2
+          },
+          "category_counts": {
+            "articles_amendment": 5,
+            "director_compensation": 1,
+            "director_election": 2,
+            "financial_statements": 1,
+            "treasury_share": 1
+          },
+          "relation_type_counts": {
+            "cumulative_related": 1,
+            "normal": 9
+          },
+          "rows_with_relation_links": 0,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 10
+          },
+          "candidate": {
+            "row_applications": 1,
+            "unique_tasks": 1,
+            "unique_people": 1,
+            "names": [
+              "허은녕"
+            ],
+            "status_counts": {
+              "pending": 1
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 93563,
+            "covered_chars": 93563,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                93563
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "97e386f3bdb6cf27e9d5d842da39d15bc53bf85a51319f4e542c9f4df5440aa7",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 9,
+            "partial_source_ids": [
+              "filing:20260130000730",
+              "filing:20260225001623",
+              "notice:20260312000987",
+              "annual:20260310002820"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 10
+            },
+            "evidence_collection": {
+              "status": "section_not_located",
+              "document_read": true,
+              "reason": "이사회 절 경계를 확인하지 못했습니다. 원문에 자료가 없다는 뜻은 아닙니다."
+            },
+            "evidence_collection_receipt": "20260310002820",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 9,
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260413002934",
+                "20260417000682",
+                "20260424000758",
+                "20260504000421",
+                "20260522000589",
+                "20260710000678",
+                "20260724000625",
+                "20260731000779",
+                "20260828001916"
+              ],
+              "publication_date_conflict": [
+                "20241115000375"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 10,
+            "parsed_count": 10,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "65c4f375d17568729df6ad936ef97c9f7a3ccb837d3c295aac19a53afa54854f",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/samsung-0.9.json",
+          "sha256": "fb3175f615ede448db781a3164bb71df535d4f992eca419289a803b3cc3e02f7",
+          "policy_sha256": "b34b9501dfb8932ac72cc1471117664c3d8e60fe55b535035e545e7cdfb92dad",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 10,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "skhynix",
+      "case": {
+        "id": "skhynix",
+        "company": "SK하이닉스",
+        "corp_code": "00164779",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-25",
+        "notice_rcept_no": "20260305001231",
+        "cutoff_at": "2026-03-25T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/skhynix-0.1.json",
+          "sha256": "34780d4537ec11ec81e66da0d07e55c2e471e3665f28b3cb70944190cd39265f",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 18,
+          "agenda_count_field": 18,
+          "unique_ids": 18,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 7,
+            "REVIEW": 11
+          },
+          "raw_decision_counts": {
+            "FOR": 7,
+            "REVIEW": 11
+          },
+          "category_counts": {
+            "articles_amendment": 3,
+            "audit_committee_election": 3,
+            "director_compensation": 1,
+            "director_election": 7,
+            "financial_statements": 1,
+            "other": 1,
+            "retirement_pay": 1,
+            "treasury_share": 1
+          },
+          "relation_type_counts": {
+            "cumulative_related": 1,
+            "normal": 17
+          },
+          "rows_with_relation_links": 0,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 18
+          },
+          "candidate": {
+            "row_applications": 6,
+            "unique_tasks": 6,
+            "unique_people": 4,
+            "names": [
+              "고승범",
+              "김정원",
+              "정덕균",
+              "최강국"
+            ],
+            "status_counts": {
+              "pending": 6
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 6,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [
+              {
+                "index": 6,
+                "agenda_id": "agenda:1803ce49d77b7ad237c5",
+                "title": "사외이사 선임의 건"
+              },
+              {
+                "index": 12,
+                "agenda_id": "agenda:6ff223581c976646e0bd",
+                "title": "감사위원회 위원 선임의 건"
+              }
+            ],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 93895,
+            "covered_chars": 93895,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                93895
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "8ec348f0c5cd1def03415038ccdad7bf07183f704ba4eb68c1a43e746a28e4b8",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 9,
+            "partial_source_ids": [
+              "filing:20260220000091",
+              "notice:20260305001231",
+              "annual:20260317000635"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 10
+            },
+            "evidence_collection": {
+              "status": "parsed",
+              "document_read": true,
+              "reason": null
+            },
+            "evidence_collection_receipt": "20260317000635",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 2,
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260609000049",
+                "20260805000440"
+              ],
+              "publication_date_conflict": [
+                "20230419000565"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 18,
+            "parsed_count": 18,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "b1895664bf652064f0d387ac2f86e79ac2347a6339941f1c1f52be949783951a",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/skhynix-0.9.json",
+          "sha256": "6089bb5314f1d4b310b763530512b56a6f403c201f3a9049981377384245891c",
+          "policy_sha256": "63cb7257807efa2d57f788d99d94fa7178131b974f6d8f1bf5ee370edf06f62b",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 18,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "taekwang",
+      "case": {
+        "id": "taekwang",
+        "company": "태광산업",
+        "corp_code": "00153393",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-31",
+        "notice_rcept_no": "20260313001279",
+        "cutoff_at": "2026-03-31T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/taekwang-0.1.json",
+          "sha256": "d2a5268c020de1ec070ca814ff68d3be946e850c704ef405dc5c18acc43189b8",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 28,
+          "agenda_count_field": 28,
+          "unique_ids": 28,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 10,
+            "REVIEW": 18
+          },
+          "raw_decision_counts": {
+            "FOR": 10,
+            "REVIEW": 18
+          },
+          "category_counts": {
+            "articles_amendment": 13,
+            "audit_committee_election": 6,
+            "director_compensation": 1,
+            "director_election": 4,
+            "financial_statements": 1,
+            "other": 2,
+            "treasury_share": 1
+          },
+          "relation_type_counts": {
+            "alternative": 6,
+            "cumulative_related": 1,
+            "normal": 21
+          },
+          "rows_with_relation_links": 6,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 28
+          },
+          "candidate": {
+            "row_applications": 6,
+            "unique_tasks": 6,
+            "unique_people": 5,
+            "names": [
+              "김대근",
+              "서병선",
+              "안효성",
+              "윤상녕",
+              "채이배"
+            ],
+            "status_counts": {
+              "pending": 6
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 6,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [
+              {
+                "index": 17,
+                "agenda_id": "agenda:42b8a1e5952b98c93e1f",
+                "title": "이사 선임의 건"
+              },
+              {
+                "index": 21,
+                "agenda_id": "agenda:d019d4e8f48757a61b39",
+                "title": "감사위원회 위원이 되는 이사 선임의 건"
+              }
+            ],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 220524,
+            "covered_chars": 180000,
+            "complete_offsets": false,
+            "merged_intervals": [
+              [
+                0,
+                30000
+              ],
+              [
+                70524,
+                220524
+              ]
+            ],
+            "partial_flag": true,
+            "document_sha256": "171156d03567fd75648da7c0f986a1234db5846932e6fbdf61b267ffea5cabbb",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 12,
+            "partial_source_ids": [
+              "filing:20260313001279",
+              "filing:20260312000717",
+              "filing:20260313001295",
+              "notice:20260313001279",
+              "annual:20260323001584"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 15
+            },
+            "evidence_collection": {
+              "status": "section_not_located",
+              "document_read": true,
+              "reason": "이사회 절 경계를 확인하지 못했습니다. 원문에 자료가 없다는 뜻은 아닙니다."
+            },
+            "evidence_collection_receipt": "20260323001584",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 4,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "publication_date_conflict": [
+                "20250701000447",
+                "20250701000449",
+                "20260312001423",
+                "20260312001431"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 28,
+            "parsed_count": 28,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "a9d2a1a4ee80c8621cc094832f867b6f70d6336f150adb2db17997bbee4af586",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/taekwang-0.9.json",
+          "sha256": "6cf10540b3a67413ff7e593db9d9b052e26f38b276d82949ad84e2f7425ecced",
+          "policy_sha256": "d11a118173a518a7117dad0f23238392f9aa582ce2fad3dd3f29a84047a880ba",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 28,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "youngone",
+      "case": {
+        "id": "youngone",
+        "company": "영원무역",
+        "corp_code": "00776820",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-27",
+        "notice_rcept_no": "20260312001098",
+        "cutoff_at": "2026-03-27T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/youngone-0.1.json",
+          "sha256": "b4ded6c5daf3815827224e5dce101debf2b2fb293f5d4ef546656f2c3a2c4080",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 15,
+          "agenda_count_field": 15,
+          "unique_ids": 15,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 6,
+            "REVIEW": 9
+          },
+          "raw_decision_counts": {
+            "FOR": 6,
+            "REVIEW": 9
+          },
+          "category_counts": {
+            "articles_amendment": 11,
+            "director_compensation": 1,
+            "director_election": 2,
+            "financial_statements": 1
+          },
+          "relation_type_counts": {
+            "cumulative_related": 1,
+            "normal": 14
+          },
+          "rows_with_relation_links": 0,
+          "normal_type_with_relation_link_ids": [],
+          "workflow_counts": {
+            "awaiting_assessment": 15
+          },
+          "candidate": {
+            "row_applications": 2,
+            "unique_tasks": 2,
+            "unique_people": 2,
+            "names": [
+              "왕 상 한",
+              "이 영 렬"
+            ],
+            "status_counts": {
+              "pending": 2
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 2,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 40072,
+            "covered_chars": 40072,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                40072
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "b0c066251743c3757199cbbee51e098f39d1230e4b614395716f47e85eaf4279",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 11,
+            "partial_source_ids": [
+              "filing:20260305001039",
+              "filing:20260312001181",
+              "filing:20250916000045",
+              "notice:20260312001098"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 10
+            },
+            "evidence_collection": {
+              "status": "parsed",
+              "document_read": true,
+              "reason": null
+            },
+            "evidence_collection_receipt": "20260319001279",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "identity_metadata_only": 1,
+              "publication_unverified": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "publication_unverified": [],
+              "unversioned_source": [],
+              "identity_metadata_only": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 15,
+            "parsed_count": 15,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "82d27b8d6169b9d9148f008a684bd831a566aff09ab98fa623dfcd8872ac3ae2",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/youngone-0.9.json",
+          "sha256": "b18f33ce2a4772d9562d7bdbe3f02e3c24b77fa2a86a3dd51b4d7c20bbb9a097",
+          "policy_sha256": "0858d79da616cf366a060e7dd65a5c229484615fb54b5af8ce647faea3f92172",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 15,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    },
+    {
+      "case_id": "youngpoong",
+      "case": {
+        "id": "youngpoong",
+        "company": "영풍",
+        "corp_code": "00141307",
+        "meeting_type": "annual",
+        "meeting_date": "2026-03-25",
+        "notice_rcept_no": "20260310003081",
+        "cutoff_at": "2026-03-25T00:00:00+09:00"
+      },
+      "settings": {
+        "0.1": {
+          "record": "records/youngpoong-0.1.json",
+          "sha256": "361fc8b7b4636e44b3338bb44ce90756b18e691c38ca20fa5127f4fd3d39f929",
+          "response_status": "exact",
+          "harness_status": "awaiting_model",
+          "harness_error_code": null,
+          "native_rows": 21,
+          "agenda_count_field": 21,
+          "unique_ids": 21,
+          "duplicate_ids": {},
+          "decision_counts": {
+            "FOR": 8,
+            "REVIEW": 13
+          },
+          "raw_decision_counts": {
+            "FOR": 8,
+            "REVIEW": 13
+          },
+          "category_counts": {
+            "articles_amendment": 8,
+            "audit_committee_election": 5,
+            "director_compensation": 1,
+            "director_election": 6,
+            "financial_statements": 1
+          },
+          "relation_type_counts": {
+            "normal": 21
+          },
+          "rows_with_relation_links": 3,
+          "normal_type_with_relation_link_ids": [
+            "agenda:d4cbe89337f30a5de172",
+            "agenda:0d2d204bcad274e80731",
+            "agenda:60e87cb3ea37bb9a87ee"
+          ],
+          "workflow_counts": {
+            "awaiting_assessment": 21
+          },
+          "candidate": {
+            "row_applications": 7,
+            "unique_tasks": 7,
+            "unique_people": 4,
+            "names": [
+              "박정옥",
+              "전영준",
+              "최창원",
+              "허성관"
+            ],
+            "status_counts": {
+              "pending": 7
+            },
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 7,
+              "rejected": 0
+            },
+            "shared_tasks": []
+          },
+          "structure": {
+            "task_count": 1,
+            "status_counts": {
+              "pending": 1
+            },
+            "judgments_submitted": 0,
+            "harness_counts": {
+              "accepted_unreviewed": 0,
+              "pending": 1,
+              "rejected": 0,
+              "scope_complete": 0
+            }
+          },
+          "denominator_flags": {
+            "explicit_candidate_bundles": [
+              {
+                "index": 10,
+                "agenda_id": "agenda:5ded978dda5409308d0c",
+                "title": "이사 선임의 건"
+              },
+              {
+                "index": 15,
+                "agenda_id": "agenda:d344c78093e78dca5275",
+                "title": "감사위원회 위원이 되는 사외이사 선임의 건"
+              },
+              {
+                "index": 18,
+                "agenda_id": "agenda:72b3465efe3dd2a1e7c8",
+                "title": "감사위원회 위원 선임의 건"
+              }
+            ],
+            "same_title_groups": []
+          },
+          "notice_coverage": {
+            "total_chars": 33704,
+            "covered_chars": 33704,
+            "complete_offsets": true,
+            "merged_intervals": [
+              [
+                0,
+                33704
+              ]
+            ],
+            "partial_flag": false,
+            "document_sha256": "746d08db5bfa9ca14f9bd0dbc2171646793dae5d39502f73b5169a9ef7dbf001",
+            "basis": "Union of admitted whitespace_normalized_document_text excerpt_offsets. Coverage is text availability, not substantive LLM reading."
+          },
+          "source_limits": {
+            "structure_source_count": 11,
+            "partial_source_ids": [
+              "filing:20260312001045",
+              "notice:20260310003081"
+            ],
+            "nonread_supplemental_events": [],
+            "supplemental_status_counts": {
+              "read": 10
+            },
+            "evidence_collection": {
+              "status": "parsed",
+              "document_read": true,
+              "reason": null
+            },
+            "evidence_collection_receipt": "20260317000753",
+            "officer_discovery_status": "searched",
+            "context_discovery_status": "partial",
+            "unavailable_previous_sources": [],
+            "excluded_reason_counts": {
+              "after_cutoff": 4,
+              "identity_metadata_only": 1,
+              "publication_date_conflict": 1,
+              "publication_unverified": 1,
+              "unversioned_source": 1
+            },
+            "excluded_receipts_by_reason": {
+              "after_cutoff": [
+                "20260327001096",
+                "20260401002250",
+                "20260527000474",
+                "20260703000536"
+              ],
+              "unversioned_source": [],
+              "identity_metadata_only": [],
+              "publication_date_conflict": [
+                "20250307001171"
+              ],
+              "publication_unverified": []
+            }
+          },
+          "filing_status": {
+            "no_filing": false,
+            "filing_count": 21,
+            "parsed_count": 21,
+            "parsing_failures": 0,
+            "filing_status": "all_parsed"
+          },
+          "policy_version": "0.7.2-pilot",
+          "policy_sha256": "01411a922a6dc559066f4de27aaf31533a9a3ee519ba7390f3d38e2ab049b529",
+          "engine_sha256": "caa98eccf78e14aac853a4cc16e701f57fb1062755aa0ac69128e8d0d6856d2f",
+          "human_reviewed": false,
+          "ballots_submitted": 0
+        },
+        "0.9": {
+          "record": "records/youngpoong-0.9.json",
+          "sha256": "8761fbefbe770b6f406b43b31ef75bf99e1841c98305ad03e3c7ada243e14ad9",
+          "policy_sha256": "832cad7923486f14c46d7ad782ae2941c6491a51d09da7840ca16ffa159a9115",
+          "same_as_0.1_fields": [
+            "response_status",
+            "harness_status",
+            "harness_error_code",
+            "native_rows",
+            "agenda_count_field",
+            "unique_ids",
+            "duplicate_ids",
+            "decision_counts",
+            "raw_decision_counts",
+            "category_counts",
+            "relation_type_counts",
+            "rows_with_relation_links",
+            "normal_type_with_relation_link_ids",
+            "workflow_counts",
+            "candidate",
+            "structure",
+            "denominator_flags",
+            "notice_coverage",
+            "source_limits",
+            "filing_status",
+            "policy_version",
+            "engine_sha256",
+            "human_reviewed",
+            "ballots_submitted"
+          ]
+        }
+      },
+      "paired_success": true,
+      "comparison": {
+        "paired_rows": 21,
+        "same_id_order": true,
+        "only_0.1": [],
+        "only_0.9": [],
+        "changed_rows": [],
+        "changed_field_counts": {
+          "agenda_title": 0,
+          "agenda_category": 0,
+          "decision": 0,
+          "reason": 0,
+          "agenda_relation_type": 0,
+          "agenda_relation_reasons": 0,
+          "agenda_relation_links": 0,
+          "proposer_type": 0,
+          "voting_workflow": 0
+        },
+        "same_source_manifest": true,
+        "same_engine": true,
+        "same_policy": false
+      }
+    }
+  ],
+  "summary": {
+    "expected_meetings": 12,
+    "successful_pairs": 12,
+    "unpaired_or_failed": [],
+    "paired_native_row_denominator": 239,
+    "row_occurrences_both_settings": 478,
+    "changed_rows": 0,
+    "all_source_manifests_equal": true,
+    "all_engines_equal": true,
+    "per_setting": {
+      "0.1": {
+        "decision_counts": {
+          "FOR": 96,
+          "AGAINST": 0,
+          "REVIEW": 141,
+          "NO_VOTE": 2,
+          "NO_DATA": 0,
+          "ABSTAIN": 0
+        },
+        "workflow_counts": {
+          "awaiting_assessment": 237,
+          "not_applicable": 2
+        },
+        "candidate_row_applications": 46,
+        "unique_candidate_tasks": 43,
+        "structure_tasks": 12,
+        "submitted_structure_judgments": 0
+      },
+      "0.9": {
+        "decision_counts": {
+          "FOR": 96,
+          "AGAINST": 0,
+          "REVIEW": 141,
+          "NO_VOTE": 2,
+          "NO_DATA": 0,
+          "ABSTAIN": 0
+        },
+        "workflow_counts": {
+          "awaiting_assessment": 237,
+          "not_applicable": 2
+        },
+        "candidate_row_applications": 46,
+        "unique_candidate_tasks": 43,
+        "structure_tasks": 12,
+        "submitted_structure_judgments": 0
+      }
+    },
+    "explicit_candidate_bundle_lower_bound": 10,
+    "same_title_groups": 8,
+    "complete_notice_offset_pairs": 11
+  },
+  "actionable_observations": [
+    {
+      "kind": "unassessed_baseline",
+      "text": "No submitted candidate/structure LLM judgment is present. Zero native 0.1/0.9 difference cannot establish no firmness effect; final-comparison conclusions require completed evaluations."
+    },
+    {
+      "kind": "row_denominator",
+      "text": "Counts cover native rows, including parent/bundle rows, 5/6-seat conditional alternatives and two withdrawn Oyoung rows. They are not counts of independent proposals, candidates or ballots."
+    },
+    {
+      "kind": "native_relation_ambiguity",
+      "text": "Some rows have agenda_relation_type=normal while agenda_relation_links imposes conditions or competing alternatives. Read links and execution constraints; normal alone does not imply independent voting."
+    },
+    {
+      "kind": "source_limits",
+      "text": "All context discovery statuses are partial. Full notice text availability does not establish complete investigation or complete current charter/annual report reading. Source failures and parser limitations remain separately listed."
+    },
+    {
+      "kind": "native_reason_inconsistency",
+      "case_id": "kz_agm",
+      "agenda_id": "agenda:177eb7f3bfe19749e7ad",
+      "text": "The withdrawn Oyoung row in the five-seat branch says six seats in one clause and five seats in another. Parent reference is the five-person cumulative-voting agenda; native explanation should not be presented as verified.",
+      "evidence": [
+        "이 선거(부모 안건 기준): 집중투표 6석",
+        "이 선거는 **집중투표 5석**",
+        "근거: 부모 안건 「집중투표에 의한 이사 5인 선임의 건」"
+      ]
+    }
+  ]
+}

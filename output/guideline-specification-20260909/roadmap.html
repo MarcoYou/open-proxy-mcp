@@ -1,0 +1,385 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>로드맵 · 이행현황</title><style>
+:root{--ink:#1c302b;--muted:#597168;--paper:#faf9f4;--line:#dce4dc;--green:#14684e}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:30px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;line-height:1.85;font-size:16px}.layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1500px;margin:auto}aside{height:100vh;position:sticky;top:0;padding:35px 24px;overflow:auto;border-right:1px solid var(--line)}.brand{font-weight:800;font-size:24px;letter-spacing:-1px}.edition{color:var(--muted);font-size:12px;margin:5px 0 25px}nav a{display:block;color:var(--muted);font-size:13px;text-decoration:none;padding:7px 0;line-height:1.5}nav a:hover{color:var(--green)}main{padding:65px 65px 100px;min-width:0}header{margin-bottom:55px;border-bottom:2px solid var(--ink);padding-bottom:35px}.eyebrow{font-size:12px;letter-spacing:2px;color:var(--green);font-weight:750}h1{font-size:45px;line-height:1.22;letter-spacing:-2px;margin:22px 0}header p{max-width:720px;color:var(--muted)}.tags{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}.tags span{border:1px solid #bcd3c5;border-radius:4px;padding:4px 10px;font-size:12px}.actions{display:flex;flex-wrap:wrap;gap:10px}.actions a,.actions button{border:1px solid var(--line);background:white;color:var(--green);padding:7px 13px;border-radius:5px;text-decoration:none;font:inherit;font-size:13px;cursor:pointer}h2{font-size:29px;letter-spacing:-1px;margin:64px 0 20px;padding-top:20px;border-top:1px solid var(--line);line-height:1.4}h3{font-size:20px;margin:35px 0 15px}p{margin:15px 0}a{color:var(--green);text-underline-offset:3px}strong{font-weight:750}ul,ol{padding-left:24px}li{margin:8px 0}code{font-family:"SFMono-Regular",Consolas,monospace;font-size:.85em;background:#edf1eb;border-radius:3px;padding:2px 5px;overflow-wrap:anywhere}pre{background:#eaf0e9;border:1px solid var(--line);padding:22px;border-radius:10px;overflow:auto;line-height:1.7}pre code{background:none;padding:0;font-size:13px}.table-scroll{overflow:auto;border:1px solid var(--line);border-radius:9px;margin:24px 0;background:#fff}table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.7}th{text-align:left;background:#eaf0e9;font-weight:750;white-space:normal}th,td{padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top;min-width:140px}tr:last-child td{border:0}td:first-child{font-weight:600;min-width:165px}figure{margin:25px 0}.diagram{overflow:auto}.diagram svg{width:100%;min-width:680px;display:block}.diagram figcaption{font-size:12px;color:var(--muted);margin-top:8px}blockquote{border-left:3px solid var(--green);padding-left:20px;margin-left:0;color:var(--muted)}footer{font-size:12px;color:var(--muted);margin-top:65px;border-top:1px solid var(--line);padding-top:20px;overflow-wrap:anywhere}.skip{position:absolute;left:-9999px}.skip:focus{left:15px;top:15px;background:white;padding:10px;z-index:9}@media(max-width:1100px){main{padding:45px 30px}.layout{grid-template-columns:210px minmax(0,1fr)}aside{padding:25px 18px}}@media(max-width:760px){.layout{display:block}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 24px}nav{display:flex;gap:12px;overflow:auto;white-space:nowrap}nav a{flex:none}.edition{margin:0 0 8px}main{padding:32px 22px}h1{font-size:34px}h2{font-size:25px}table{font-size:13px}.brand{font-size:19px}}@media print{body{background:white;font-size:10pt}.layout{display:block}aside,.actions,.skip{display:none}main{padding:0}header{margin-bottom:20px;padding-bottom:15px}h1{font-size:30pt}h2{font-size:19pt;margin-top:28px;break-after:avoid}h3{break-after:avoid}pre{white-space:pre-wrap}table{font-size:8pt}.table-scroll{overflow:visible}th,td{min-width:0!important;padding:7px;overflow-wrap:anywhere}tr{break-inside:avoid}.diagram svg{min-width:0}figure{break-inside:avoid}a{color:inherit}@page{size:A4;margin:16mm}}
+
+main{padding:36px 48px 100px}header{margin-bottom:26px;padding-bottom:24px}h1{font-size:35px;margin:12px 0;letter-spacing:-1.3px}header p{margin:10px 0 18px}.eyebrow{letter-spacing:1px}nav a:first-child{font-weight:800;color:var(--green)}
+.roadmap-overview>h2{border:0;padding:0;margin:0 0 16px;font-size:28px}.roadmap-overview>p{font-size:14px;color:var(--muted)}
+.current-position{border:1px solid #b8cce9;border-left:4px solid #3b69a6;background:#eef4fd;border-radius:8px;padding:15px 18px;margin:0 0 16px;color:#244a7d;font-size:14px;line-height:1.7}.current-position p{margin:0}.current-position strong:first-child{font-size:16px}
+.roadmap-chart{list-style:none;padding:0;margin:24px 0 8px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}.roadmap-chart li{position:relative;margin:0;min-width:0}.roadmap-chart li:not(:last-child)::after{content:'→';position:absolute;right:-13px;top:62px;color:var(--muted);font-size:16px;z-index:1}
+.roadmap-chart a{height:100%;min-height:162px;display:flex;flex-direction:column;align-items:flex-start;padding:13px 12px 17px;border:1px solid #cad3cc;border-radius:9px;background:#fff;text-decoration:none;color:var(--ink);line-height:1.55}.roadmap-chart a:hover,.roadmap-chart a:focus-visible{outline:2px solid var(--green);outline-offset:3px}.roadmap-chart .phase-done a{background:#edf5ed;border-color:#aec9b8}.roadmap-chart .phase-current a{background:#e9f1fd;border:2px solid #3b69a6;padding:12px 11px 16px;color:#244a7d}.roadmap-chart .phase-next a{background:#fff4df;border-color:#c89643}.roadmap-chart .phase-pending a{border-style:dashed}.phase-number{font-size:26px;font-weight:800;line-height:1.2}.phase-status{font-size:11px;font-weight:700;margin:9px 0 13px;white-space:nowrap}.roadmap-chart strong{font-size:15px;word-break:keep-all;overflow-wrap:anywhere}.chart-caption{font-size:12px!important;margin:10px 0 20px!important}
+.next-action{padding:18px 22px;border-radius:9px;background:#fff4df;border:1px solid #e4c997;margin:24px 0}.next-action h3{font-size:17px;margin:0 0 6px;color:#825b1f}.next-action p{font-size:14px;line-height:1.75;margin:0}
+.conclusion-summary{border:1px solid #b8cbbf;border-left:4px solid var(--green);background:#edf5ed;border-radius:9px;padding:18px 22px;margin:18px 0 24px;color:var(--ink);font-size:14px;line-height:1.75}.conclusion-summary p{margin:10px 0}.conclusion-summary>p:first-child{margin-top:0;color:var(--green);font-size:17px}.conclusion-summary>p:last-child{margin-bottom:0}.conclusion-summary ul{margin:12px 0;padding-left:20px}.conclusion-summary li{margin:9px 0}
+.roadmap-panels{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:24px 0 30px}.roadmap-panel{border:1px solid var(--line);border-radius:10px;background:white;padding:22px}.roadmap-panel>h3{font-size:21px;margin:0 0 16px}.completed>h3{color:var(--green)}.remaining>h3{color:#825b1f}.roadmap-panel ol{list-style:none;padding:0;margin:0}.roadmap-panel li{margin:0;padding:18px 0;border-top:1px solid var(--line);scroll-margin-top:24px}.roadmap-panel li:first-child{border-top:0;padding-top:0}.roadmap-panel li:last-child{padding-bottom:0}.roadmap-panel h4{font-size:16px;margin:0 0 7px;line-height:1.5}.roadmap-panel h4 span{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;margin-right:5px}.roadmap-panel p{font-size:14px;line-height:1.75;margin:6px 0}.roadmap-panel .phase-limit{font-size:12px;color:var(--muted)}.roadmap-panel details{font-size:12px;color:var(--muted);margin-top:8px}.roadmap-panel summary{cursor:pointer}.roadmap-panel details p{font-size:12px}.release-status{padding:16px 18px;background:#edf1eb;border:1px solid var(--line);border-radius:8px;font-size:13px!important}.roadmap-overview>ul{font-size:14px}
+@media(max-width:1100px){main{padding:30px}.roadmap-chart{gap:10px}.roadmap-chart li:not(:last-child)::after{right:-10px;font-size:13px}.roadmap-chart a{padding:12px 8px}.roadmap-chart .phase-current a{padding:11px 7px}.roadmap-chart strong{font-size:14px}.roadmap-panel{padding:18px}}
+@media(max-width:950px) and (min-width:761px){.layout{grid-template-columns:185px minmax(0,1fr)}}
+@media(max-width:950px){main{padding:26px 20px}header{margin-bottom:22px}h1{font-size:29px}.eyebrow{font-size:10px}.roadmap-chart{grid-template-columns:1fr;gap:12px;margin-top:18px}.roadmap-chart a,.roadmap-chart .phase-current a{min-height:70px;padding:13px 16px;display:grid;grid-template-columns:36px 78px minmax(0,1fr);align-items:center;gap:12px}.roadmap-chart .phase-current a{padding:12px 15px}.phase-number{font-size:23px}.phase-status{margin:0;font-size:11px}.roadmap-chart strong{font-size:15px}.roadmap-chart li:not(:last-child)::after{content:'↓';top:auto;bottom:-13px;left:28px;right:auto;line-height:13px}.roadmap-panels{grid-template-columns:1fr;gap:16px}.next-action{padding:16px}.current-position{padding:13px 14px}.roadmap-overview>h2{font-size:25px}.actions{gap:7px}.actions a,.actions button{font-size:12px;padding:6px 9px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{main{padding:0}h1{font-size:25pt}.roadmap-chart{grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;break-inside:avoid}.roadmap-chart a,.roadmap-chart .phase-current a{display:flex;min-height:110px;padding:10px 7px}.roadmap-chart strong{font-size:9pt}.phase-number{font-size:17pt}.phase-status{font-size:8pt;margin:5px 0}.roadmap-chart li:not(:last-child)::after{content:'→';top:45px;bottom:auto;left:auto;right:-8px;font-size:10px}.roadmap-panels{grid-template-columns:1fr 1fr;gap:12px}.roadmap-panel{padding:12px}.roadmap-panel li,.next-action,.current-position{break-inside:avoid}.roadmap-panel p,.next-action p{font-size:9pt}.roadmap-panel h4{font-size:10pt}.chart-caption{display:none}}
+
+[hidden]{display:none!important}article,aside,nav,.document-detail,.detail-body{min-width:0}article{overflow-wrap:anywhere}nav a{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;padding:13px 0;border-bottom:1px solid var(--line);white-space:normal}nav a strong{display:block;font-size:13px;font-weight:700;color:var(--ink)}nav a small{display:block;font-size:11px;margin-top:5px;font-weight:400;color:var(--muted)}.nav-number{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--green);padding-top:2px}a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--green);outline-offset:4px}h4,h5,h6{line-height:1.55;margin:26px 0 12px}h4{font-size:17px}h5,h6{font-size:15px}.document-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 24px}.document-controls button{border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--green);padding:7px 11px;font:inherit;font-size:12px;cursor:pointer}.controls-status{font-size:12px;color:var(--muted)}.document-detail{margin:22px 0;border:1px solid var(--line);border-radius:9px;background:#fff}.document-detail>summary{padding:17px 20px;cursor:pointer;line-height:1.55;color:var(--green);overflow-wrap:anywhere}.document-detail>summary h3{display:inline;margin:0;font-size:18px;letter-spacing:-.3px;color:var(--ink)}.document-detail>summary::marker{font-size:14px;color:var(--green)}.document-detail[open]>summary{border-bottom:1px solid var(--line)}.detail-body{padding:6px 22px 20px}.detail-body> :first-child{margin-top:15px}.detail-body> :last-child{margin-bottom:0}.fragment-alias{display:inline-block;width:0;height:0;overflow:hidden;vertical-align:top}.table-scroll,.diagram,pre{max-width:100%}.document-detail .diagram svg{min-width:680px}
+@media(max-width:760px){nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;overflow:visible;white-space:normal}nav a{padding:9px 0;grid-template-columns:20px minmax(0,1fr);gap:5px}nav a strong{font-size:12px}nav a small{font-size:10px;margin-top:3px}.document-detail>summary{padding:15px}.document-detail>summary h3{font-size:17px}.detail-body{padding:3px 15px 17px}.document-controls{gap:7px}.controls-status{flex-basis:100%}.detail-body th,.detail-body td{padding:12px}.actions a,.actions button{overflow-wrap:anywhere;max-width:100%}}
+@media print{.document-controls{display:none}.document-detail{border:0;border-radius:0;margin:20px 0;background:transparent}.document-detail>summary,.document-detail[open]>summary{padding:0;border:0;list-style:none;break-after:avoid}.document-detail>summary::-webkit-details-marker{display:none}.document-detail>summary h3{font-size:13pt}.detail-body{padding:0}.document-detail .diagram svg{min-width:0}.document-detail>summary::marker{content:''}}
+
+.document-switch{display:flex;gap:8px;margin:16px 0 24px;flex-wrap:wrap}.document-switch a{padding:8px 12px;border:1px solid var(--line);border-radius:6px;text-decoration:none;font-size:13px;background:white}.document-switch a[aria-current=page]{background:var(--green);color:white;border-color:var(--green)}
+.summary-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}.summary-metrics div{padding:18px;background:#fff;border:1px solid var(--line);border-radius:9px}.summary-metrics strong{display:block;font-size:28px;color:var(--green)}.summary-metrics span{font-size:12px;color:var(--muted)}.archive-banner{border-left:4px solid #b38339;padding:14px 18px;background:#fff4df}.edition-status{font-size:13px;color:var(--muted)}
+@media(max-width:760px){.summary-metrics{grid-template-columns:repeat(2,1fr)}.document-switch{margin:10px 0}nav{white-space:normal}nav a{max-width:170px}}
+</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">2026-09-11 · 0.7.2-pilot</div><div class="document-switch" aria-label="문서 선택"><a href="index.html">가이드라인</a><a href="roadmap.html" aria-current="page">로드맵·이행현황</a></div><nav aria-label="문서 목차"><a href="#roadmap"><span class="nav-number">01</span><span><strong>현황·로드맵</strong><small>01~06 단계와 현재 위치</small></span></a><a href="#remaining"><span class="nav-number">02</span><span><strong>남은 작업과 완료 기준</strong><small>다음 작업과 구체적 과제</small></span></a><a href="#validation"><span class="nav-number">03</span><span><strong>검증 결과와 읽는 법</strong><small>실제 결과와 확인 범위</small></span></a><a href="#release"><span class="nav-number">04</span><span><strong>배포 조건과 문서 관리</strong><small>출시 조건과 문서 역할</small></span></a></nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · ASTRA</div><h1>로드맵 · 이행현황</h1><p>완료한 범위, 현재 위치, 배포까지 남은 작업과 검증 결과를 확인합니다.</p><p class="edition-status">0.7.2-pilot · 파일럿 · LLM 평가 · 사람 미검토</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="../../wiki/decisions/opm-guideline-roadmap.md">Markdown 원본</a><a href="policy.json">현재 정책 JSON</a></div></header><div class="document-controls" hidden><button type="button" data-expand="true" aria-controls="document-body">상세 펼치기</button><button type="button" data-expand="false" aria-controls="document-body">상세 접기</button><span id="detail-status" class="controls-status" aria-live="polite"></span></div><article id="document-body"><p>이 문서는 <strong>어디까지 완료했고 무엇을 해야 배포할 수 있는지</strong> 보여준다. 판단 원칙·설정·출처 기준은 <a href="index.html">가이드라인</a>에 둔다. 수치는 2026-09-11까지 확인한 실행 기록 기준이다.</p>
+<section aria-label="배포 로드맵" class="roadmap-overview"><h2 id="roadmap">현황·로드맵</h2>
+<blockquote class="current-position">
+<p><strong>현재 04 · 판정 교정과 품질 검증 단계다.</strong> 전량 보고서 평가는 완료했지만 전 안건의 평가를 MCP 제품 권고에 적용하는 공통 연결은 남아 있다. 후보·선출 구조에 이미 있는 제출 경로와 구분한다. 운영 배포 완료 상태가 아니다.</p>
+</blockquote>
+<p>기존 01~06 단계 번호를 유지한다. 완료는 그 단계의 명시된 범위가 끝났다는 뜻이며, 전체 제품의 완성도 퍼센트가 아니다.</p>
+<ol aria-label="설계부터 운영 배포까지 6단계" class="roadmap-chart"><li class="phase-done"><a href="#phase-01"><span class="phase-number">01</span><span class="phase-status">완료</span><strong>설계·정책 계약</strong></a></li><li class="phase-done"><a href="#phase-02"><span class="phase-number">02</span><span class="phase-status">완료</span><strong>실제 MCP 연결</strong></a></li><li class="phase-done"><a href="#phase-03"><span class="phase-number">03</span><span class="phase-status">완료</span><strong>유연한 LLM 흐름</strong></a></li><li class="phase-current"><a aria-current="step" href="#phase-04"><span class="phase-number">04</span><span class="phase-status">현재 도달</span><strong>제품 연결·품질 검증</strong></a></li><li class="phase-next"><a href="#phase-05"><span class="phase-number">05</span><span class="phase-status">다음 착수</span><strong>출시 운영 준비</strong></a></li><li class="phase-pending"><a href="#phase-06"><span class="phase-number">06</span><span class="phase-status">남음</span><strong>범위 한정 배포</strong></a></li></ol><p class="chart-caption">각 단계를 누르면 완료 내용과 남은 일을 볼 수 있습니다. <a href="roadmap.svg">로드맵 그림 열기</a></p><section aria-label="바로 다음 작업" class="next-action"><h3 id="detail-1c7a689cfd49">바로 다음 작업</h3><p><strong>단계별 구조 경로를 Luna로 실제 실행하고, 원문 대조로 품질을 확인한 뒤 전 안건으로 넓힌다.</strong> 구조 영역의 사실·표결 종류 고정과 QA 제출은 연결했다. 일반 배당·보수·재무·재편 안건의 공통 제출과 경합 선택 해결은 남아 있다. 모델끼리의 결론 일치율만으로 다음 단계에 진입하지 않는다.</p></section><div class="roadmap-panels"><section class="roadmap-panel completed"><h3 id="detail-19a7d702686f">완료·현재 구현</h3><ol><li id="phase-01"><h4 id="detail-81d2397d622f"><span>01</span> 설계·정책 계약</h4><p>Astra·Fable 관점 통합, 정책 JSON, 후보·구조 평가 계약과 사용자 설정 정의</p><p class="phase-limit">범위: 사외·독립이사와 선출 구조의 최소 계약 범위. 범용 고객 정책 운영은 추가 범위다.</p></li><li id="phase-02"><h4 id="detail-9a40c2e678ca"><span>02</span> 실제 MCP 연결</h4><p>공개 원문 → 호출 LLM → 제출 검증 → 후보·구조 권고 연결을 실제 MCP에서 확인</p><p class="phase-limit">범위: 모든 안건의 공통 LLM 제출 계약이 완료된 것은 아니다.</p></li><li id="phase-03"><h4 id="detail-4dbba678725a"><span>03</span> 유연한 LLM 흐름</h4><p>원문 직접 판독·추가 독해, 누락 기준 제외, 과업별 오류 격리, 숫자 설정과 자동·수동 분기</p><p class="phase-limit">범위: 원천 탐색은 제한된 범위이며 모든 필요한 자료를 찾는다는 보장은 없다.</p></li><li id="phase-04"><h4 id="detail-08045e91c81b"><span>04</span> 제품 연결·품질 검증</h4><p>전량 비교 12회차·239행 완료. 구조 온톨로지·4단계 판독/해석/권고/QA와 영원무역 2안건 실제 MCP 적용·오류 격리 확인</p><p class="phase-limit">남은 확인: Luna 실제 비교, 독립 의미 검증, 전 안건 제출 연결, 경합 선택 처리</p></li></ol></section><section class="roadmap-panel remaining"><h3 id="detail-9434d034258c">배포까지 남음</h3><ol><li id="phase-05"><h4 id="detail-aeb1a28c5f9a"><span>05</span> 출시 운영 준비</h4><p>출시 범위와 기본값, 정책 활성화·복구, 수동 인계·오류 대응을 검증</p><details><summary>이미 확보한 기반</summary><p>실행·정책·설정 연결, 사람 미검토 표시와 수동 지정·증분 조회의 기반 확보</p></details></li><li id="phase-06"><h4 id="detail-ee4bf5a3c4e5"><span>06</span> 범위 한정 배포</h4><p>사용자 요청으로 커밋·푸시 및 main CI 배포 후 live MCP의 과업·제출·최종 권고·분기를 확인</p><details><summary>이미 확보한 기반</summary><p>로컬 파일럿과 문서·보고서까지 확인</p></details></li></ol></section></div>
+
+
+<p>실측 전 <a href="../../wiki/decisions/opm-model-evaluation-protocol.md">모델 비교·바이어스 검증 설계</a>를 고정한다. 사람 미검토와 유료 API 사용은 허용된 상태다. Luna·Terra·Sol·Astra의 공통 설정, 새 문맥, 원문 시점, 직접/단계별/연산 대조군과 채점자 검증을 분리한다. 현재는 설계 단계이며 이 조건의 모델 비교 결과는 아직 없다. <a href="../model-evaluation-design-20260911/index.html">읽기용 실험 설계서</a></p>
+</section><h2 id="remaining">남은 작업과 완료 기준</h2>
+<p>아래 순서로 진행한다. 새 파서를 늘리는 것을 완료 조건으로 삼지 않는다. 원문을 직접 읽어 해결할 수 있는지 먼저 보고, 자료가 없으면 해당 기준만 제외해 다른 안건은 계속 처리한다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>순서</th>
+<th>할 일</th>
+<th>완료로 인정할 증거</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>공통 사실·표결 목록 확정</td>
+<td>같은 원문에서 상위/개별 안건, 후보·좌석 수, 가결·부결 조건을 먼저 공유. 동명 후보와 계속 재직자를 구분</td>
+</tr>
+<tr>
+<td>2</td>
+<td>전 안건 평가 제출 연결</td>
+<td>보고서에만 있던 판단을 실제 MCP에 제출하고, 수용·거절 이유와 최종 권고를 JSON·Markdown에서 확인</td>
+</tr>
+<tr>
+<td>3</td>
+<td>경합·조건·선택 처리</td>
+<td>대안별 수용 가능성과 실제 선택 우선순위를 분리. 최대 선택 수·집중투표 배분·철회·조건을 위반하지 않음</td>
+</tr>
+<tr>
+<td>4</td>
+<td>남은 원문·설명 공백 보강</td>
+<td>관계 회사의 인사 공시, 이미지 본문, 후보 수·자리 수 설명을 추가로 읽고 영향받은 행만 갱신</td>
+</tr>
+<tr>
+<td>5</td>
+<td>의미 품질 검증</td>
+<td>같은 설정 반복, 다른 모델·새 표본, 독립 실무 검토에서 사실 귀속·시점·스킵·정책 해석 오류를 별도로 측정</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="detail-1a809dfdd4d4">모델 의존도를 낮추는 경로의 이행현황</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>장치</th>
+<th>현재 도달점</th>
+<th>남은 검증</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4단계 작업 계약</td>
+<td>정관·선출 구조에서 사실 → 해석 → 권고 → QA를 별도 입력·스키마로 실행</td>
+<td>Luna의 최초 원문 판독부터 반복 실행</td>
+</tr>
+<tr>
+<td>사실·표결 범위 고정</td>
+<td>투표 성향과 분리한 판독, 명시적 사실 묶음 재사용, 원문 변경 시 무효화</td>
+<td>관계·기간·시행 조건의 의미를 잘못 읽는 비율</td>
+</tr>
+<tr>
+<td>온톨로지</td>
+<td>기준·사실 타입·원천 안내·QA 질문의 연결을 코드와 공유</td>
+<td>안내한 모든 원천의 자동 탐색이나 수집 완료를 뜻하지 않음</td>
+</tr>
+<tr>
+<td>검증·격리</td>
+<td>바뀐 판단에 옛 QA 사용 금지, 오류 항목 기록, 독립 안건 유지</td>
+<td>단계별 의미 오류의 자동 수정 전략과 실무 검토</td>
+</tr>
+<tr>
+<td>모델·비용 분리</td>
+<td>앱 callback 교체, 단계별 예산, 강한 모델 자동 전환 없음</td>
+<td>Luna 성능·시간·총 호출량 측정. 비용 절감은 미확인</td>
+</tr>
+</tbody>
+</table></div>
+<p>이 경로는 <code>protocol=staged</code>로 선택한다. 기존 direct 구조 제출과 후보 경로의 동작을 유지한다. 출처 묶음에는 아직 긴 문맥이 들어올 수 있으므로 단계를 나눴다는 사실만으로 작은 모델의 품질을 보장하지 않는다.</p>
+<p>완료한 전량 비교에서 나온 구체적 과제와 수정 상태는 아래 목록에 표시한다. 이 목록은 <a href="../firmness-all-samples-20260911/index.html#issues">실제 비교 보고서</a>의 과제 기록을 사용한다.</p>
+<div class="table-scroll"><table><thead><tr><th>항목</th><th>이행 상태</th><th>구체적 과제</th></tr></thead><tbody><tr><td>ALL-01</td><td>남음</td><td>전 안건 LLM 판단을 제품 권고에 연결</td></tr><tr><td>ALL-02</td><td>남음</td><td>경합안의 수용 판단과 실제 선택을 분리</td></tr><tr><td>ALL-03</td><td>남음</td><td>판단 차이와 정확성을 다른 지표로 보고</td></tr><tr><td>ALL-04</td><td>남음</td><td>미독·추출 실패·미공개를 구분</td></tr><tr><td>ALL-05</td><td>남음</td><td>조건 분기별 이사 선출 자리 수를 일관되게 설명</td></tr><tr><td>ALL-06</td><td>수정·확인 완료</td><td>구조 평가 대상이 없는 응답의 재시도 종료</td></tr><tr><td>ALL-07</td><td>수정·확인 완료</td><td>존재하지 않는 후보 평가를 내부이사에 요구하지 않기</td></tr><tr><td>ALL-08</td><td>수정·확인 완료</td><td>동일 입력을 확인한 뒤 두 설정 비교</td></tr><tr><td>ALL-09</td><td>수정·확인 완료</td><td>긴 공고의 빠진 구간만 이어 읽기</td></tr><tr><td>ALL-10</td><td>남음</td><td>표결 범위의 판독을 firmness 판단 전에 고정</td></tr><tr><td>ALL-11</td><td>수정·확인 완료</td><td>과거 운영 사실을 현재 안건의 심의로 확대하지 않기</td></tr><tr><td>ALL-12</td><td>남음</td><td>후보가 관계한 다른 회사의 인사 공시로 현재성을 확인</td></tr><tr><td>ALL-13</td><td>수정·확인 완료</td><td>동명 인물의 과거 재직을 확정된 경력으로 연결하지 않기</td></tr></tbody></table></div>
+<h3 id="detail-294c204d00b2">추가 데이터·기능의 연결 상태</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>영역</th>
+<th>현재 상태</th>
+<th>남은 확인</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정관 이력</td>
+<td>정기보고서와 중간 주총의 제안·결과·정정 탐색, 조항 사건·효력 연결 지원</td>
+<td>완전한 유효 정관·부분 개정 범위·후속 변경 누락 여부</td>
+</tr>
+<tr>
+<td>판례</td>
+<td>공식 판례속보 검색·게시일 확인·요약 독해 지원</td>
+<td>판결문 전문·후속심·구체적 사실관계 적용</td>
+</tr>
+<tr>
+<td>이미지·OCR</td>
+<td>외부 시각 독해 어댑터 연결과 표본 검증. 로컬 Apple Vision 유지</td>
+<td>모든 공시 이미지의 자동 탐색·독해 완료를 뜻하지 않음. 골프존 보유·처분 계획 이미지 미독 등 영향 범위 보강</td>
+</tr>
+<tr>
+<td>OCR 후보</td>
+<td>CLOVA 연결·비교 기록 있음. Google은 후보로만 둠</td>
+<td>새로운 OCR 실험은 현재 우선 작업이 아님</td>
+</tr>
+<tr>
+<td>관계 회사 인사 공시</td>
+<td>박병욱 사례에서 개별 보강 완료</td>
+<td>후보와 관계한 회사의 인사 공시를 일반 실행 경로에서 탐색·갱신</td>
+</tr>
+<tr>
+<td>공정위 결정문·관계 API</td>
+<td>사용 목적·귀속·시점 기준 설계</td>
+<td>일반 자동 수집·사건 상태·회사/개인 귀속 검증 연결</td>
+</tr>
+<tr>
+<td>분쟁·거버넌스 추적</td>
+<td>회사별 과업, 추가 독해, checkpoint 기반 증분 조회 지원</td>
+<td>완전한 사건 그래프·전 안건 권고 연결. 예약 실행을 만들어 해결하는 작업이 아님</td>
+</tr>
+<tr>
+<td>고객 맞춤 정책</td>
+<td>요청별 stance·firmness·automation·출석 문턱·수동 지정 지원</td>
+<td>범용 정책 작성·승인·버전 활성화·되돌리기 제품 흐름</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="validation">검증 결과와 읽는 법</h2>
+<h3 id="detail-092148f00371">단계별 하네스의 실제 MCP 결과</h3>
+<p>영원무역 정기주총의 <strong>정관 안건 두 개만</strong> 단계별로 작성해 실제 로컬 HTTP MCP에 제출했다. 나머지 13행은 미평가로 유지했다. 전체 회차 완료가 아니다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>안건</th>
+<th>수용된 판단·MCP 최종 권고</th>
+<th>처리와 이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>이사의 수</td>
+<td>REVIEW</td>
+<td>상한 8명 자체를 위반으로 판단하지 않음. 시행 시점의 구성·업무량 대조가 남아 사람 검토</td>
+</tr>
+<tr>
+<td>집중투표 배제 금지</td>
+<td>FOR</td>
+<td>배제 문구 삭제 제안에 찬성. 장래 적용례 보존. 기존 법률 제약이 있어 처리 단계는 사람 검토</td>
+</tr>
+</tbody>
+</table></div>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>실제 MCP 오류 주입</th>
+<th style="text-align:right">수용된 판단 수</th>
+<th>확인한 결과</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정상 제출</td>
+<td style="text-align:right">2</td>
+<td>두 권고와 QA 연결</td>
+</tr>
+<tr>
+<td>QA 뒤 한 안건 판단 수정</td>
+<td style="text-align:right">1</td>
+<td>수정된 안건만 제외, 다른 안건 찬성 유지</td>
+</tr>
+<tr>
+<td>한 안건 QA에 미해결 문제 표시</td>
+<td style="text-align:right">1</td>
+<td>해당 안건만 제외, 다른 안건 찬성 유지</td>
+</tr>
+<tr>
+<td>QA 전체 누락</td>
+<td style="text-align:right">0</td>
+<td>두 평가 모두 수용하지 않음</td>
+</tr>
+</tbody>
+</table></div>
+<p>판독과 QA는 <strong>같은 데스크탑 Astra 문맥</strong>에서 수행했다. 직접 유료 모델 API와 Luna 호출은 0건이다. 이 표는 제품 연결·고정 조건 검증이며 독립 의미 정확성 검증이 아니다. 오류 주입 건수를 실제 사실 오류 발견 건수로 세지 않는다.</p>
+<p>전체 회귀 2,457개 통과 후, 잘못된 사실 항목의 격리를 보강한 관련 회귀 176개도 통과했다. Wiki·도구 카탈로그·문서 계약 검사도 통과했다. 용어 점검에는 기존 다른 서비스의 35건이 남아 있으며 이번 변경 파일의 신규 지적은 없다.</p>
+<p><a href="../staged-harness-20260911/index.html">실제 결과 보고서</a> · <a href="../staged-harness-20260911/report.json">MCP 결과·원문 연결·검사 JSON</a></p>
+<h3 id="detail-dab47f6074f9">이전 전량 비교와의 구분</h3>
+<p><strong>전량 보고서 평가 완료와 제품 적용 완료를 구분한다.</strong> 다음 실행들은 대상과 제출 방식이 달라 서로 합산하지 않는다.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>확인한 실행</th>
+<th>대상</th>
+<th>도달점</th>
+<th>이 결과로 주장하지 않는 것</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>이전 후보 파일럿</td>
+<td>10개사·11회차, 지원 후보 39과업</td>
+<td>실제 MCP에서 최종 수용. 조건부 중복 포함 42개 적용행</td>
+<td>전 안건·독립 의미 정확성·운영 배포 완료</td>
+</tr>
+<tr>
+<td>이전 정관 보강 실험</td>
+<td>5개사·6회차, 구조 판단 45개</td>
+<td>원문 추가 후 실제 구조 판단 수용</td>
+<td>완전한 정관·판결문 전문 확보</td>
+</tr>
+<tr>
+<td>최신 firmness 비교</td>
+<td>기존 10개사＋카카오, 정기 11회·고려아연 임시 1회</td>
+<td>239행을 .1/.9 각각 평가. 보고서 판단 478개 완료</td>
+<td>새 전량 평가를 native MCP에 제출·적용했다는 뜻</td>
+</tr>
+<tr>
+<td>박병욱 원문 보강</td>
+<td>조건부 2행 × 두 설정</td>
+<td>사임 공시 추가 후 4개 평가 완료. 결론 유지·현재 겸직 설명 수정</td>
+<td>찬반 변화가 있어야만 품질이 개선된다는 해석</td>
+</tr>
+</tbody>
+</table></div>
+<p>최신 비교는 stance=0.5·automation=0.5를 고정하고 firmness만 0.1/0.9로 달리했다. 각 주총일 00:00 KST를 마감으로 삼고 날짜만 있는 공시는 전일까지 허용했다. 모델 평가는 데스크탑 Astra 세션에서 수행했다. 정성 결과는 모두 사람 미검토다.</p>
+<div class="summary-metrics"><div><strong>12</strong><span>실행 회차</span></div><div><strong>239</strong><span>두 설정 모두 평가한 안건 행</span></div><div><strong>58</strong><span>판단이 달랐던 행</span></div><div><strong>82 → 28</strong><span>검토 행 · 0.1 → 0.9</span></div></div><div class="table-scroll"><table><thead><tr><th>보고서 판단</th><th>firmness 0.1</th><th>firmness 0.9</th></tr></thead><tbody><tr><th>찬성</th><td>109</td><td>152</td></tr><tr><th>반대</th><td>13</td><td>23</td></tr><tr><th>검토</th><td>82</td><td>28</td></tr><tr><th>표결 없음·제외</th><td>35</td><td>36</td></tr></tbody></table></div><p><strong>평가 제출 전 MCP 출력은 239행 중 0행의 차이였습니다.</strong> 새 보고서 판단을 제품에 재제출한 결과가 아닙니다. <a href="../firmness-all-samples-20260911/index.html">전체 비교표와 원문 근거</a></p>
+<p>안건 행에는 상위 제목·조건별 대안·철회가 포함되므로 고유 투표 수가 아니다. 같은 설정을 반복하거나 다른 모델과 비교한 정확성 실험도 아니다. 변화 수·수용률·주총 가결 결과를 정답으로 쓰지 않는다.</p>
+<h3 id="detail-7608c1c9af8e">확인한 개선과 남은 한계</h3>
+<ul>
+<li>구조 평가 대상이 없는 과업은 완료 상태로 종료하며 수용한 판단 수에는 포함하지 않는다.</li>
+<li>실제 후보 과업이 없는 내부이사·묶음 행에 존재하지 않는 선행 평가를 요구하지 않도록 고쳤다.</li>
+<li>태광산업의 긴 공고에서 빠진 텍스트 구간을 추가했다. 텍스트 전체 확보와 이미지 독해는 별도다.</li>
+<li>박병욱의 사임, 삼성전자 심의 연도, 김대근 동일인 추론을 보강·교정하고 초기 기록을 보존했다.</li>
+</ul>
+<p>관련 전체 회귀 검사는 2,437개 통과했다. 전량 보고서의 ID·인용 문자열·자료 공개일·양쪽 입력 연결 검사도 통과했다. 이 검사는 자료의 완전성이나 의미 정확성 인증을 대신하지 않는다.</p>
+<p><a href="../firmness-all-samples-20260911/index.html">회사별·전 안건 비교 보고서</a> · <a href="../firmness-all-samples-20260911/report.json">구조화 결과</a> · <a href="../firmness-all-samples-20260911/validation.json">검증 상세</a></p>
+<h2 id="release">배포 조건과 문서 관리</h2>
+<h3 id="detail-6bd0725cfeae">배포 전에 확인할 것</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>조건</th>
+<th>통과 기준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>제품 적용</td>
+<td>출시 대상 안건의 실제 MCP 과업 수신·평가 제출·최종 권고까지 연결</td>
+</tr>
+<tr>
+<td>시점·주체·원문</td>
+<td>사후정보·동명이인·이웃 후보·법인/개인 귀속 오류를 검증 사례로 확인</td>
+</tr>
+<tr>
+<td>설정·제약</td>
+<td>세 숫자와 수동 지정, 조건·경합·철회·좌석 제약, 기본 정책 적용 표시 확인</td>
+</tr>
+<tr>
+<td>의미 품질</td>
+<td>독립 검토에서 발견한 중요 오류를 수정하고 같은 오류의 재발 여부 확인</td>
+</tr>
+<tr>
+<td>운영</td>
+<td>정책 버전 활성화·복구, 수동 인계·실패 대응, 사람 미검토 표시 확인</td>
+</tr>
+<tr>
+<td>배포 후</td>
+<td>main CI 성공뿐 아니라 live MCP의 실제 호출·제출·출력을 확인</td>
+</tr>
+</tbody>
+</table></div>
+<p>현재 보고서·코드 검사 통과만으로 위 조건 전부를 통과했다고 표시하지 않는다. 출시 대상 범위부터 명시하고 그 범위에 한해 배포한다.</p>
+<h3 id="detail-c3f7ee844454">세 문서의 역할</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>문서</th>
+<th>독자와 내용</th>
+<th>갱신 시점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="index.html">가이드라인</a></td>
+<td>사용자·에이전트. 판단 원칙·설정·근거·하네스 계약. 하단 구버전 첨부</td>
+<td>정책 의미·지원 범위·계약 변경</td>
+</tr>
+<tr>
+<td>이 로드맵·이행현황</td>
+<td>사용자·에이전트. 완료 범위·남은 작업·검증 결과·배포 조건</td>
+<td>구현·검증·배포 상태 변경</td>
+</tr>
+<tr>
+<td>에이전트 일지</td>
+<td>비공개 anecdote Markdown. 실행 과정·시행착오·브랜치 이력·인수인계</td>
+<td>작업 단위 종료·전환</td>
+</tr>
+</tbody>
+</table></div>
+<p>HTML은 두 Markdown 정본과 현재 정책·스키마, 비교 보고서에서 생성한다. 갱신 명령은 scripts/render_guideline_spec.py다. 구버전 첨부는 참고용으로 보존하며 새 렌더링이 당시 정책 스냅샷을 덮어쓰지 않는다. 이 문서에는 일지의 상세 과정을 다시 붙이지 않는다.</p>
+</article><footer>정본 Markdown에서 생성한 읽기용 문서 · SHA-256 69c62a9514386d6d3296cea1e04668681ebdbeb6f2ac8ac3234c29c8d3da3037<br>생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div><script>(() => {const routes={}; function route(){let key;try{key=decodeURIComponent(location.hash.slice(1))}catch{return}if(!key||document.getElementById(key)||!routes[key])return;const target=routes[key];if(target.startsWith("#")){location.hash=target}else{location.replace(target)}}window.addEventListener("hashchange",route);route()})();
+
+(() => {
+  const article = document.getElementById('document-body');
+  const controls = document.querySelector('.document-controls');
+  const allDetails = () => Array.from(article.querySelectorAll('details'));
+  controls.hidden = false;
+  for (const button of controls.querySelectorAll('button[data-expand]')) {
+    button.addEventListener('click', () => {
+      const expand = button.dataset.expand === 'true';
+      const details = allDetails();
+      details.forEach(detail => { detail.open = expand; });
+      document.getElementById('detail-status').textContent =
+        `상세 ${details.length}개를 모두 ${expand ? '펼쳤습니다' : '접었습니다'}.`;
+    });
+  }
+  function revealFragment(fragment, scroll = true) {
+    let id;
+    try { id = decodeURIComponent(fragment.replace(/^#/, '')); }
+    catch { return; }
+    const target = id && document.getElementById(id);
+    if (!target) return;
+    for (let ancestor = target; ancestor; ancestor = ancestor.parentElement) {
+      if (ancestor.tagName === 'DETAILS') ancestor.open = true;
+    }
+    if (scroll) requestAnimationFrame(() => {
+      (target.closest('h2,h3,h4,h5,h6') || target).scrollIntoView({block: 'start'});
+    });
+  }
+  window.addEventListener('hashchange', () => revealFragment(location.hash));
+  document.addEventListener('click', event => {
+    const anchor = event.target.closest('a[href^="#"]');
+    if (anchor) revealFragment(anchor.getAttribute('href'));
+  });
+  revealFragment(location.hash);
+  let printStates = null;
+  window.addEventListener('beforeprint', () => {
+    if (printStates) return;
+    printStates = allDetails().map(detail => [detail, detail.open]);
+    printStates.forEach(([detail]) => { detail.open = true; });
+  });
+  window.addEventListener('afterprint', () => {
+    if (!printStates) return;
+    printStates.forEach(([detail, wasOpen]) => { detail.open = wasOpen; });
+    printStates = null;
+  });
+})();
+</script></body></html>

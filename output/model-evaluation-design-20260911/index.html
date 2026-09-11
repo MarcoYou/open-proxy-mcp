@@ -1,0 +1,320 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPM 모델 비교와 바이어스 검증 설계</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f6f7f3;color:#1a302b;font:17px/1.8 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif}main{max-width:1120px;margin:auto;padding:48px 30px 90px}h1{font-size:36px;line-height:1.35;margin:25px 0}h2{font-size:25px;margin-top:60px;border-top:2px solid #c8d5ca;padding-top:25px}h3{font-size:20px}p{max-width:980px}a{color:#14654a;text-underline-offset:4px}.badge{background:#e7eddf;padding:10px 16px;display:inline-block;border-radius:6px;font-weight:700}nav{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}nav a{padding:6px 12px;border:1px solid #c8d5ca;border-radius:7px;background:white;text-decoration:none;font-size:14px}.table-scroll{overflow-x:auto;background:white;border:1px solid #d7e1d8;border-radius:10px;margin:22px 0}table{border-collapse:collapse;width:100%;min-width:700px;font-size:15px}th,td{text-align:left;vertical-align:top;padding:13px 16px;border-bottom:1px solid #e3e9e3}th{background:#e8efe6}code{background:#e5ece3;border-radius:3px;padding:2px 4px;font-size:14px}footer{border-top:1px solid #c8d5ca;margin-top:60px;padding-top:20px;font-size:13px;color:#496254;overflow-wrap:anywhere}@media(max-width:650px){main{padding:24px 18px}h1{font-size:29px}h2{font-size:23px}body{font-size:16px}}@media print{body{background:white}main{padding:0;max-width:none}nav{display:none}table{min-width:0;font-size:11px}.table-scroll{overflow:visible}h2{break-after:avoid}tr{break-inside:avoid}a{color:inherit}}</style></head><body><main><div class="badge">실험 설계 · 모델 비교 미실행 · 사람 미검토 파일럿</div><p><a href="../guideline-specification-20260909/roadmap.html">로드맵·이행현황</a> · <a href="../../wiki/decisions/opm-model-evaluation-protocol.md">Markdown 정본</a></p><nav aria-label="실험 설계 목차"><a href="#section-1">1. 실험에서 구분할 세 질문</a><a href="#section-2">2. 공통 환경과 초기 문맥</a><a href="#section-3">3. 프롬프트·업무 단위·대조군</a><a href="#section-4">4. 추가할 바이어스 검사</a><a href="#section-5">5. 채점자도 검사한다</a><a href="#section-6">6. 실행 순서와 결과표</a><a href="#section-7">7. 저장·재실행 계약과 남은 결정</a></nav><h1>OPM 모델 비교와 바이어스 검증 설계</h1>
+<p><strong>목표는 Luna를 포함한 모델들이 OPM 정책과 원문에 근거해 얼마나 정확하고 일관되게 판단하는지, 그리고 하네스가 그 품질에 무엇을 더하는지 측정하는 것이다.</strong> Astra와의 일치율은 정답률이 아니다. 정관·선출 구조에서 시작해 정기·임시주총 전체 업무로 확대한다.</p>
+<p>현재 상태는 <strong>실험 설계와 실행기 구현</strong>이다. 이 설계의 모델 비교는 아직 실행하지 않았다. 사용자는 사람 미검토 파일럿과 유료 API 사용을 허용했으며, 현재는 스크립트 작성까지만 요청했다. 비용 절감은 이번 실험의 우선 목표가 아니다. 기존 영원무역 2안건 MCP 연결 검증과 전량 보고서 비교는 개발 자료이며 새 실험 결과로 합산하지 않는다.</p>
+<p><code>proxyvo_tester.py</code>는 운영용과 같은 단계 실행기를 사용하고, 완료 호출 재생에 의한 중단 복구와 모델별 Structured Outputs 설정을 지원한다. 재개는 같은 시도이며 새 반복 표본으로 세지 않는다. 형식 수용과 의미 정확성은 구분한다. 구현 범위·설정·사용법의 정본은 <a href="../../experiments/README.md">실험 실행기 안내</a>다.</p>
+<h2 id="section-1">1. 실험에서 구분할 세 질문</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>질문</th>
+<th>동일하게 유지하는 것</th>
+<th>달리하는 것</th>
+<th>읽는 법</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>모델을 바꿔도 품질이 유지되는가</td>
+<td>정책·프롬프트·자료·도구·실행 방식</td>
+<td>Luna / Terra / Sol / Astra</td>
+<td>모델 교체 효과. Astra를 정답으로 두지 않음</td>
+</tr>
+<tr>
+<td>하네스가 품질을 높이는가</td>
+<td>모델·정책·공통 입력·도구·채점</td>
+<td>직접 판단 / 단계별 판단</td>
+<td>전체 제품 방식의 차이. 추가 연산 효과가 포함될 수 있음</td>
+</tr>
+<tr>
+<td>같은 자원 정책에서도 향상되는가</td>
+<td>위 조건과 사전 배정한 예산 구간·재검토 일정</td>
+<td>직접 판단+재검토 / 단계별 판단</td>
+<td>공통 자원 정책 아래 처리 방식의 효과. 연산량과 완전히 독립된 구조 효과라고 주장하지 않음</td>
+</tr>
+</tbody>
+</table></div>
+<p>첫 비교는 각 모델 <code>xhigh</code>로 한다. 이는 <strong>같은 설정 이름에서의 품질 비교</strong>이며 동일 연산량·동일 비용 실험이 아니다. 실제 reasoning 사용량·완료 상태·시간을 기록한다. 지원 설정은 모델별로 다를 수 있으므로 요청한 값과 실제 사용된 값을 구분한다. 근거: <a href="https://developers.openai.com/api/docs/guides/reasoning">OpenAI Docs: reasoning</a>.</p>
+<p>공통 조건과 여러 품질 축을 함께 보고하는 접근은 <a href="https://arxiv.org/abs/2211.09110">HELM</a>을 참고했다. 이하 표본 수와 통제 방식은 OPM에 맞춘 설계 제안이며 논문의 검증 결과를 OPM 성능으로 옮겨 쓰지 않는다.</p>
+<h2 id="section-2">2. 공통 환경과 초기 문맥</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>통제 항목</th>
+<th>OPM 적용</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>모델 식별</td>
+<td><code>gpt-5.6-luna</code>, <code>gpt-5.6-terra</code>, <code>gpt-5.6-sol</code>, <code>gpt-6-astra</code>를 요청 대상으로 기록. API 접근·지원 설정·고정 snapshot 여부는 실행 전 확인. 불가하면 unavailable로 기록하고 다른 모델로 몰래 대체하지 않음</td>
+</tr>
+<tr>
+<td>모델 설정</td>
+<td>xhigh, 실행 모드, sampling 설정, 출력·reasoning 한도, 도구 호출 한도, timeout, retry를 명시. temperature·seed 등 미지원 값은 임의 전송하지 않음</td>
+</tr>
+<tr>
+<td>호출 표면</td>
+<td>통제 실험은 직접 API를 우선 검토. 데스크탑 실험은 별도 실험군. 서로 다른 앱·숨은 지시·도구 환경의 결과를 순수 모델 차이로 합치지 않음</td>
+</tr>
+<tr>
+<td>새 시작</td>
+<td>매 독립 반복마다 새 요청·새 작업 상태. 기존 대화, 사용자 메모리, 프로젝트 지침 자동 주입, 과거 평가·정답·보고서 파일 접근 제외</td>
+</tr>
+<tr>
+<td>제공할 공통 문맥</td>
+<td>실험용 system/developer/user 메시지, 공개 OPM 정책, 수치 설정, 해당 회사·회차·cutoff와 허용 원문·도구는 모두 동일하게 제공. ‘새 시작’은 업무에 필요한 자료를 안 준다는 뜻이 아님</td>
+</tr>
+<tr>
+<td>상태 연결</td>
+<td>반복 간 conversation/previous response/reasoning state 공유 금지. 한 회차 내부의 도구 호출 이력은 필요에 따라 보존. 단계 간에는 계약에 정한 사실·해석·권고만 전달하며 전달된 입력을 기록</td>
+</tr>
+<tr>
+<td>파일 접근</td>
+<td>회사 원문 저장소와 실행 산출물 저장소 분리. 평가 모델은 다른 모델 결과·개선 메모·채점 기준의 비공개 정답에 접근하지 못함</td>
+</tr>
+<tr>
+<td>입력 동일성</td>
+<td>정책, 메시지, 도구 schema, 공통 원문 manifest의 해시 기록. agent가 스스로 읽은 추가 자료와 이후 메시지는 달라질 수 있으며 그 차이를 trace에 기록</td>
+</tr>
+<tr>
+<td>코드 식별</td>
+<td>git commit 외에 미커밋 변경을 포함한 실행 bundle 해시·의존성·MCP 계약 버전 기록. commit만 같아도 실행 코드가 같다는 보장은 없음</td>
+</tr>
+<tr>
+<td>자료와 검색</td>
+<td>주 실험은 cutoff를 통과한 원문 snapshot과 동일한 검색·독해 도구 사용. 캐시는 원천 응답 경계에서 공유하며 이전 모델의 판단은 캐시하지 않음</td>
+</tr>
+<tr>
+<td>충분한 자원</td>
+<td>비용 대신 품질을 우선하며 정상 실행이 자주 잘리지 않을 예산을 사전 보정. 잘림·timeout·429를 의미 오류와 분리해 보고. 설정 변경 시 영향받는 모든 비교군을 새 실험 버전으로 실행</td>
+</tr>
+<tr>
+<td>실행 순서</td>
+<td>모델별로 몰아서 실행하지 않고 사례·모델 순서를 사전 무작위화해 시간대·서버 상태 차이를 완화. 모델 배포 버전이 바뀌면 별도 block</td>
+</tr>
+</tbody>
+</table></div>
+<p>API 문서는 대화 상태를 명시적으로 이어 붙이는 경로를 설명한다. 이 실험은 <strong>반복 간 그 경로를 사용하지 않는 방식</strong>으로 격리한다. <code>store=false</code> 하나가 문맥 초기화를 보장하는 것으로 취급하지 않는다. 제공자가 가진 기본 지시나 학습 지식까지 제거할 수 있다는 주장도 하지 않는다. <a href="https://developers.openai.com/api/docs/guides/conversation-state">OpenAI Docs: conversation state</a>, <a href="https://developers.openai.com/api/docs/guides/reasoning">reasoning state</a>.</p>
+<h3>시점 제한: 새 대화여도 학습 지식은 남는다</h3>
+<p><strong>사실 근거가 되는 원문·법령·시장 공개 자료의 이용 가능 시점은 평가 cutoff를 넘을 수 없다.</strong> 사후 정정·주총 결과·이후 판결·실제 수익률을 답의 근거로 사용할 수 없다. 미래 공개 원문은 모델에 보내기 전에 도구에서 제외하고, 실제 노출이 발생하면 해당 실험 결과를 시간 누출로 표시한다. 사건 발생일과 공개일은 별개다. 시험 대상으로 제공하는 OPM 판단 정책의 버전은 별도로 명시한다.</p>
+<p>과거 사건을 아는 모델의 내부 지식을 완전히 제거하는 방법은 없다. 허용 원문에 없는 사실 사용을 검사하고, 관계·숫자·시행 조건을 보존한 가명 진단 사례와 아직 개발에 쓰지 않은 사례를 추가한다. 가명화도 누출 제거의 증명은 아니다. 과거 실험에 제공한 정책을 쓰는 경우 <strong>그 정책으로 하는 소급 평가</strong>라고 표시하며, 당시 실제 운영 정책을 재현했다고 주장하지 않는다. 공개 benchmark 암기와 외부 일반화가 분리될 수 있다는 점은 <a href="https://arxiv.org/abs/2507.00460">Pitfalls of Evaluating Language Models with Open Benchmarks</a>을 참고했다.</p>
+<p>회사 이름을 지워도 숫자·사건 조합으로 기억을 불러올 수 있다. 따라서 원본과 구분한 <strong>합성 쌍 사례</strong>도 둔다. 예를 들어 공개일만 cutoff 전/후로 바꾸면 자료 허용 여부가 바뀌어야 하고, 상한 8명 아래 실제 인원 7/9로 바꾸면 산술 초과 표시가 바뀌어야 한다. 사전에 코드로 확인 가능한 기대 차이를 고정하며 이것만으로 찬반·법 위반을 확정하지 않는다. 개발 미사용 표본도 모델 학습 미사용 표본이라는 뜻은 아니다.</p>
+<h2 id="section-3">3. 프롬프트·업무 단위·대조군</h2>
+<p><strong>동일한 실험 조건 안에서는 모든 모델에 같은 메시지를 보낸다.</strong> 그 위에 아래 변수를 별도 축으로 둔다.</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>축</th>
+<th>조건</th>
+<th>목적</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>질문 상세도</td>
+<td>간단한 업무 요청 / 상세한 점검 요청</td>
+<td>사용자가 얼마나 설명해야 품질이 나오는지</td>
+</tr>
+<tr>
+<td>동의어·형식</td>
+<td>의미와 요구를 보존한 3가지 표현</td>
+<td>우연히 특정 모델에 유리한 문구인지. 기본 비교와 분리</td>
+</tr>
+<tr>
+<td>판단 단위</td>
+<td>연결 관계를 포함한 개별 안건 / 같은 주총 전체</td>
+<td>후보·정관·선출 조건을 함께 볼 때 누락이나 모순이 생기는지</td>
+</tr>
+<tr>
+<td>정보 제공</td>
+<td>고정 사실 묶음 / 허용 원문부터 읽기</td>
+<td>정책 적용 오류와 판독·탐색 오류를 구분</td>
+</tr>
+<tr>
+<td>처리 방식</td>
+<td>direct / staged / direct+review</td>
+<td>모델 교체·하네스·추가 연산의 효과 분리</td>
+</tr>
+<tr>
+<td>자료 탐색</td>
+<td>고정 원문 내 탐색 / cutoff 제한 원천 탐색</td>
+<td>검색 성능과 판독·판단 성능을 구분</td>
+</tr>
+</tbody>
+</table></div>
+<p>간단한 요청 예: “제공된 회사·주총·판단시점을 기준으로 OPM 정책에 따라 지정 범위의 의결권을 자문하라. 근거와 미확인을 표시하라.” 상세한 요청은 같은 목표에 주체·기간·시행 조건·반증·관련 안건 점검을 명시한다. 정책·cutoff·출력 계약은 두 조건 모두 동일하게 준다. 상세 버전의 추가 안내 효과를 단순한 ‘말투 차이’로 해석하지 않는다.</p>
+<p>프롬프트 형식의 영향은 <a href="https://arxiv.org/abs/2310.11324">Sclar et al., ICLR 2024</a>이 보고했다. 과거 모델·과제의 관찰이므로 Luna 등의 같은 크기 성능 저하를 예측하는 근거로 쓰지 않는다. 공통 기본 프롬프트와 의미 보존 변형 모두를 공개하고, 결과를 보고 유리한 표현 하나만 선택하지 않는다.</p>
+<p>개별 안건 실험도 관련 정관·좌석 수·경합 후보·조건부 결의 자료를 함께 볼 수 있어야 한다. 업무 단위 효과만 볼 때는 개별/전체에 접근 가능한 원문 집합을 동일하게 유지한다. 필요한 자료만 좁혀 주는 제품 최적화 실험은 별도 표로 낸다. 긴 문맥에서 자료 위치를 바꾸는 검사는 <a href="https://arxiv.org/abs/2307.03172">Lost in the Middle</a>을 참고한다.</p>
+<p><strong>direct+review</strong>는 staged와 같은 총 호출·토큰·시간 상한 및 재검토 기회를 주되 사실→해석→권고 계약으로 강제 분리하지 않는 대조군이다. 환경 보정 뒤 두 예산 구간과 호출 일정을 사전 배정한다. 예를 들어 direct+review의 최초 작성 1회+재검토 3회와 staged의 4단계를 같은 배정 구간에서 비교한다. 같은 상한이 실제 사용량까지 같게 하지는 않으므로 실제 소비량도 나란히 표시한다. 이는 공통 자원 정책에서의 전략 비교이며, 결과를 본 뒤 실제 토큰량이 비슷한 실행만 골라 ‘동일 연산’ 실험으로 만들지 않는다. staged와 direct의 차이에는 프롬프트·문맥 분리·검증의 효과가 묶여 있다. QA나 온톨로지 하나의 기여를 주장하려면 그 요소만 제거하는 추가 비교가 필요하다.</p>
+<p>고정 사실 실험에서 기존 Astra 작성 사실 묶음을 쓸 수는 있지만 <strong>제공된 사실에 대한 조건부 판단 실험</strong>으로만 본다. 사실 묶음 자체가 옳다는 증거로 세지 않는다. 운영 중 staged 내부 QA는 실행 모델이 수행하고, 실험 점수용 외부 QA와 분리한다.</p>
+<h2 id="section-4">4. 추가할 바이어스 검사</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>검사</th>
+<th>바꾸는 것</th>
+<th>유지돼야 할 것·해석</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>회사·인물 선입견</td>
+<td>동등한 진단 사례의 고유명사만 가명화</td>
+<td>관계·경력·사건 상태·경제조건이 같으면 사실과 정책 적용이 유지돼야 함. 신원을 통한 추가 검증이 필요한 실제 업무와 분리</td>
+</tr>
+<tr>
+<td>경영진·행동주의·기관 권위</td>
+<td>증거 가치와 법적 역할을 보존하는 범위에서 비본질적 권위 표현 제거</td>
+<td>제안자의 이름만으로 신뢰·찬반이 바뀌는지. 제안자 자격 등 실질 사실을 바꾼 것을 바이어스로 오판하지 않음</td>
+</tr>
+<tr>
+<td>사용자 동조</td>
+<td>“찬성이 맞는 듯” / “반대가 맞는 듯”이라는 근거 없는 암시</td>
+<td>명시한 정책은 고정. 새 사실 없이 사실 판단이 바뀌는지. 실제 stance 변경은 정상적인 고객 정책 변경으로 구분</td>
+</tr>
+<tr>
+<td>자료·안건 순서</td>
+<td>독립 문서 순서와 핵심 근거의 앞·중간·뒤 위치</td>
+<td>인용 위치가 달라도 동일 사실을 반영하는지. 본문 문장 순서와 법적 조건은 훼손하지 않음</td>
+</tr>
+<tr>
+<td>표현의 감정성</td>
+<td>뉴스·제안서의 긍부정 수식어 제거</td>
+<td>사건 보도 여부와 공식 판단 상태를 분리하고, 기자·이해관계자의 감정을 사실로 채택하지 않는지</td>
+</tr>
+<tr>
+<td>판단 적극성</td>
+<td>stance·firmness·automation을 사전 지정 값으로 변경</td>
+<td>사실은 불변. 판단·처리의 허용된 차이와 사용자 정책 기본값 적용을 분리해 기록</td>
+</tr>
+<tr>
+<td>누락과 장애</td>
+<td>무관 자료 제외 / 해당 조항 자료 부족 / 읽기 실패</td>
+<td>없는 사실을 만들지 않고 영향받는 기준만 스킵. 어려운 안건 전체를 제외해 성적을 높이지 않는지</td>
+</tr>
+<tr>
+<td>자료 속 명령</td>
+<td>진단용 원문에 평가자에게 향하는 지시 삽입</td>
+<td>공시를 자료로만 다루고, 정책·cutoff·출력 계약을 바꾸는 지시로 실행하지 않는지</td>
+</tr>
+</tbody>
+</table></div>
+<p>사용자 믿음에 동조하는 현상은 <a href="https://arxiv.org/abs/2310.13548">Towards Understanding Sycophancy in Language Models</a>에서 연구됐다. 위 OPM용 변형은 그 현상을 검출하기 위한 설계이며 실제 회사의 공시를 몰래 수정하는 작업이 아니다. 원본은 보존하고 진단 변형·생성 규칙을 별도 표시한다.</p>
+<h2 id="section-5">5. 채점자도 검사한다</h2>
+<p><strong>Astra의 답, 모델 다수결, 실제 주총 가결·부결 어느 것도 단독 정답으로 쓰지 않는다.</strong> 의결권 정책에는 합리적인 재량이 있고, 주총 결과는 그 정책의 타당성을 판정해 주지 않는다.</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>평가 층</th>
+<th>평가 방식</th>
+<th>한계</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>객관 계약</td>
+<td>날짜, 원문 해시·인용 위치, 수치·단위, 제출 수용, 조건·표결 종류 검사</td>
+<td>통과해도 문맥의 의미가 옳다는 증명은 아님</td>
+</tr>
+<tr>
+<td>원문 의미</td>
+<td>결과 작성과 별도 문맥의 채점자가 주체·기간·효력·주장/판결 상태를 원문 대조</td>
+<td>사람 미검토. 같은 모델 계열 간 공유 오류 가능</td>
+</tr>
+<tr>
+<td>정책 적용</td>
+<td>사실과 OPM 정책을 대조해 위반·허용 재량·근거 부족을 구분</td>
+<td>찬반 하나를 억지 정답으로 고정하지 않음</td>
+</tr>
+<tr>
+<td>처리 결과</td>
+<td>실제 MCP 최종 권고, manual/auto 상태, unresolved·unsupported·미제출 확인</td>
+<td>JSON 수용과 권고 정확성을 별도 집계</td>
+</tr>
+<tr>
+<td>반복 안정성</td>
+<td>같은 조건에서 사실·정책 이유·찬반·스킵의 변화</td>
+<td>반복해서 틀리는 경우도 있으므로 정확성과 별도 지표</td>
+</tr>
+</tbody>
+</table></div>
+<p>사전에 모델 이름·방법 이름을 가린 고정 rubric으로 평가한다. 두 외부 채점자를 모든 실험군에 동일하게 적용하며, 가능하면 다른 제공자/계열을 포함한다. 동일 계열만 가능하면 그 제한을 표시한다. 채점자 간 다수결을 정답으로 승격하지 않고, 판정 불일치와 원문상 확인 불가를 남긴다. 채점자 선정·설정은 결과를 보기 전에 고정한다.</p>
+<p>의미 채점자에게 전달할 입력도 고정한다. 최종 사실·인용·정책 이유·권고·스킵을 <strong>같은 schema에서 코드로 표시</strong>하고 단계 이름·작성 모델·중간 평가 점수는 제외한다. 의미를 바꾸는 LLM 재요약은 사용하지 않는다. 모든 실질 근거와 반증은 보존한다. 도구 trace와 절차 준수 평가는 별도이고, 표현만 바꾼 동일 내용에서도 채점이 유지되는지 확인한다. 문체로 작성자를 짐작할 가능성은 남는다.</p>
+<p>채점자 보정에는 원문 위치와 코드로 대조 가능한 소규모 기준 묶음을 먼저 고정한다. 날짜·숫자 오류가 있는 예와 오류가 없는 예를 함께 넣어 탐지율과 오탐을 구분한다. 주체·조건 해석처럼 여전히 LLM 판독에 의존하는 항목은 객관 정답으로 격상하지 않는다. 이 객관 검사 점수와 각 채점자의 의미 점수를 분리해 공개한다.</p>
+<p>쌍대 비교는 답 순서를 AB/BA 모두 제시하고 위치에 따라 판정이 바뀌면 기록한다. 사실·정책 품질을 먼저 같은 필드로 평가하고, 문장 유창함·보고서 가독성은 따로 채점한다. 답을 짧게 잘라 근거를 없애지 않는다. 알려진 숫자·시점 오류를 주입한 진단 사례로 채점자가 그 오류를 잡는지도 확인하되, 이것을 실제 안건 의미 정확성으로 합산하지 않는다. <a href="https://arxiv.org/abs/2306.05685">MT-Bench</a>, <a href="https://arxiv.org/abs/2404.13076">LLM Evaluators Recognize and Favor Their Own Generations</a>.</p>
+<p>최근 도구 평가 감사 연구도 호출·과제 완료·결과 검증을 분해할 필요를 제시한다. 이 설계에서는 정해진 호출 순서와 똑같지 않다는 이유만으로 실패 처리하지 않는다. 안전하고 근거 있는 대체 경로도 허용한다. <a href="https://arxiv.org/abs/2607.02577">Benchmarking the Benchmarks, 2026 preprint</a>. 사람 검토가 없는 이번 결과는 자동·LLM QA 지표이며 독립 실무 정확성 인증이 아니다.</p>
+<h2 id="section-6">6. 실행 순서와 결과표</h2>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>단계</th>
+<th>대상과 실행</th>
+<th>완료 기준</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>환경 보정</td>
+<td>영원무역 기존 2안건으로 모델별 API·schema·도구·MCP 제출 확인</td>
+<td>실행 연결·지원 설정 확인. 이 결과로 순위를 내지 않음</td>
+</tr>
+<tr>
+<td>구조 영역 비교</td>
+<td>8개 안건 묶음을 목표로 원문과 목록 확정. 명확한 조항, 조건부·시행일, 정보 부족, 경합/연계, 정기/임시 포함</td>
+<td>4모델 × 간단/상세 × direct/staged × 5회 독립 반복. 8묶음 확보 시 640회이며 개별 API 호출 수와 다름</td>
+</tr>
+<tr>
+<td>연산 대조·편향 검사</td>
+<td>같은 8묶음에 direct+review 대조군과 위 변형 검사</td>
+<td>조건별·반복별 차이를 보고. 비용보다 혼입 변수 분리 우선</td>
+</tr>
+<tr>
+<td>회차 전체</td>
+<td>기존 10개사와 추가 카카오의 확인된 모든 정기·임시 회차</td>
+<td>전 안건 coverage와 안건 간 모순 검증. 아직 없는 공통 제출 경로를 완료한 뒤 실시</td>
+</tr>
+<tr>
+<td>새 표본 확인</td>
+<td>기존 보고서·개선에 쓰지 않은 새 회사 또는 회차를 회사/사건 단위로 분리</td>
+<td>개발에 쓰지 않은 표본에서 재현. 이미 검토한 239행은 미사용 검증 자료로 부르지 않음</td>
+</tr>
+</tbody>
+</table></div>
+<p>5회는 초기 반복 안정성을 보는 <strong>설계 제안</strong>이며 통계적으로 충분하다는 기준이 아니다. 작은 표본에서 나온 순위로 일반적 동등성을 주장하지 않는다. 반복 신뢰성을 별도로 측정하는 접근은 <a href="https://arxiv.org/abs/2406.12045">τ-bench</a>을 참고했다. 한 번이라도 성공한 비율보다 반복해서 정상 수행하는 비율과 실패 유형을 보여준다.</p>
+<p>모든 지정 안건이 분모다. 부정확·미완료·거절·미지원·자료 미확인·무표결을 나눠 집계한다. 정당한 스킵을 사실 오류로 세지 않되, 스킵으로 권고·coverage가 줄어든 점도 숨기지 않는다. automation=1의 정책 기본값은 실제 근거로 결정한 찬반과 별도 집계한다.</p>
+<p>첫 제출과 수정 후 최종 결과를 모두 보관한다. 의미 오류 수정과 통신 장애 재시도를 구분하고 횟수를 미리 정한다. 좋은 결과만 골라 재실행하거나 실패를 삭제하지 않는다. 전체 재실행 대신 누락·실패분과 변경 영향 범위를 처리하되, 버전이 다른 결과를 한 실험으로 섞지 않는다.</p>
+<div class="table-scroll" tabindex="0"><table>
+<thead>
+<tr>
+<th>모델·설정</th>
+<th>사실 오류·미확인</th>
+<th>시점 위반</th>
+<th>정책 위반·재량</th>
+<th>FOR/AGAINST/REVIEW/NO_VOTE</th>
+<th>MCP 미완료·거절</th>
+<th>반복 변화</th>
+<th>시간·사용량</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>각 모델 xhigh</td>
+<td>실측 전</td>
+<td>실측 전</td>
+<td>실측 전</td>
+<td>실측 전</td>
+<td>실측 전</td>
+<td>실측 전</td>
+<td>실측 전</td>
+</tr>
+</tbody>
+</table></div>
+<p>안건별 표와 회사·회차별 표를 함께 낸다. 많은 안건을 가진 회사가 평균을 지배하지 않도록 회사·회차 평균도 별도 보고하고, 같은 회사·사건의 안건과 반복을 독립 표본 수로 부풀리지 않는다. 주된 비교·채점·반복 수를 먼저 고정하고 신뢰구간·표본 수·미확인을 함께 표시한다. 개발 결과를 보고 개선한 뒤에는 새 버전과 미사용 표본으로 확인한다.</p>
+<h2 id="section-7">7. 저장·재실행 계약과 남은 결정</h2>
+<p>실험 manifest에는 요청/반환 모델, snapshot 확인 수준, reasoning·sampling·예산, 전체 메시지와 schema 해시, 코드 bundle·정책·온톨로지 버전, 회사·회차·cutoff, 원문 해시, 실험군·표현·순서·반복 식별자, 채점 규칙·채점자 버전을 둔다. 현재 설계는 목록·한도·채점자가 미확정이므로 아직 사전 등록을 완료한 실험이 아니다.</p>
+<p>각 실행은 입력, 단계별 산출물, 도구 입출력, 최초/최종 제출, 실제 MCP 응답, 오류·재시도, 사용량·시간을 보관한다. API가 노출하지 않는 내부 사고과정을 저장했다고 주장하지 않는다. 원본 결과는 덮어쓰지 않고 개선 제안은 별도 파일에 근거 실행 ID와 함께 쓴다. 승인된 공개 공시 실험 산출물만 기록하며 키·인증 URL·개인정보·비공개 telemetry는 공개 repo에 넣지 않는다.</p>
+<p>가이드라인은 투자 판단 원칙, 로드맵은 이행 상태, 이 문서는 실험 조건의 정본이다. 실험별 관찰과 개선 과정은 private anecdote, 사용자 보고서는 결과 HTML로 분리한다. 평가를 task-specific으로 만들고 초기부터 기록·반복하는 운영 원칙은 <a href="https://developers.openai.com/api/docs/guides/evaluation-best-practices">OpenAI Docs: evaluation best practices</a>을 참고한다. 특정 평가 SaaS에 종속하지 않고 보통의 모델 호출과 파일 기반 기록으로 재현할 수 있게 한다.</p>
+<p><strong>확정된 사용자 조건:</strong> 사람 미검토, 유료 API 허용, 비용보다 실험 품질 우선, 새 문맥, 공통 프롬프트, 결과 저장과 개선·재반복. 실행 대상 모델·xhigh는 제시된 4종을 기본 비교안으로 삼는다.</p>
+<p><strong>실행 준비에서 채울 값:</strong> 모델/API 접근과 실제 snapshot, 사례 목록·미사용 표본 분리, 채점자와 rubric, 잘리지 않는 예산과 재시도 수. <strong>최종 의사결정이 필요한 값:</strong> ‘큰 성능 저하 없음’의 허용 차이와 출시 기준. 허용 차이를 정하지 않은 채 이번 비교를 통계적 동등성/비열등성 인증으로 발표하지 않는다.</p>
+<p>즉시 다음 작업은 모델별 접근·설정과 실험 격리를 확인하고 위 manifest를 채우는 것이다. 이번 문헌 조사에서 새 모델 평가·투표 전송·배포는 실행하지 않았다.</p>
+<footer>정리: Astra · 2026-09-11 · 정본 SHA-256 642713839b167c71766cfe596d62a76694b325741c92dbeba38e38e42837a6a5<br>문헌의 관찰과 OPM 설계 제안을 구분한다. 모델 API 접근·표본·채점자·예산 확정 후 실측한다.</footer></main></body></html>

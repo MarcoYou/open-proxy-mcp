@@ -2,25 +2,34 @@
   "additionalProperties": false,
   "properties": {
     "stance": {
-      "default": "standard",
-      "enum": [
-        "standard",
-        "conservative"
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
       ],
-      "title": "Stance",
-      "type": "string"
+      "default": 0.5,
+      "ge": 0,
+      "le": 1,
+      "title": "Stance"
     },
     "automation": {
-      "default": "selective",
-      "enum": [
-        "automatic",
-        "selective",
-        "manual"
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        }
       ],
-      "title": "Automation",
-      "type": "string"
+      "default": 0.5,
+      "ge": 0,
+      "le": 1,
+      "title": "Automation"
     },
-    "decision_posture": {
+    "firmness": {
       "anyOf": [
         {
           "type": "integer"
@@ -32,7 +41,7 @@
       "default": 0.75,
       "ge": 0,
       "le": 1,
-      "title": "Decision Posture"
+      "title": "Firmness"
     },
     "manual_agenda_titles": {
       "items": {

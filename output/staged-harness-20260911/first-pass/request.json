@@ -1,0 +1,38 @@
+{
+  "company": "00776820",
+  "year": 2026,
+  "meeting_type": "annual",
+  "vote_style": "opm_guideline_v2",
+  "guideline_mode": "pilot",
+  "format": "json",
+  "include_after_meeting": false,
+  "guideline_harness": {
+    "cutoff_at": "2026-03-27T00:00:00+09:00",
+    "notice_rcept_no": "20260312001098"
+  },
+  "guideline_structure": {
+    "protocol": "staged",
+    "assessments": []
+  },
+  "guideline_workflow": {
+    "stance": 0.5,
+    "automation": 0.5,
+    "firmness": 0.75
+  },
+  "guideline_evidence_sources": [
+    {
+      "type": "dart",
+      "rcept_no": "20260312001098",
+      "source_scope": "agenda_context",
+      "text_offset": 0,
+      "text_chars": 30000
+    },
+    {
+      "type": "dart",
+      "rcept_no": "20260312001098",
+      "source_scope": "agenda_context",
+      "text_offset": 30000,
+      "text_chars": 30000
+    }
+  ]
+}

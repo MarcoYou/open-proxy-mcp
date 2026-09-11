@@ -8,7 +8,7 @@ related_disclosures: [주주총회소집공고, 사업보고서, 기업지배구
 related_concepts: [의결권, 보수한도, 정관변경, 집중투표, 시점-제약, 연결-별도, 주총-결의]
 related_decisions: [open-proxy-guideline]
 created: 2026-05-04
-updated: 2026-09-10
+updated: 2026-09-11
 ---
 
 # proxy_advise_before_meeting
@@ -138,7 +138,7 @@ proxy_advise_before_meeting(
 
 호출 애플리케이션은 `open_proxy_mcp.harness`의 `VotingHarness`·`CallbackModelAdapter`·`StreamableHTTPTransport`를 사용할 수 있다. MCP SDK로 실제 HTTP 서버에 연결하고 모델 콜백에는 후보 과업을 전달한다. 모델의 행동은 추가 공시 탐색·원문 읽기 및 교체·평가 제출·해당 과업 종료로 제한하며, 오류 후보는 분리해 다른 후보를 계속 처리한다. 모델 이름·버전은 호출자 자기신고이고 제공사 호출은 콜백의 책임이다. **서버가 LLM을 실행하거나 `governance_screen`을 자동 호출하지 않는다.**
 
-정책 0.7.2를 고정한 실제 HTTP MCP에서 2026년 10개사 정기 10회·임시 1회의 지원 후보 39과업 전부를 처리하고 최종 JSON·Markdown을 확인했다. 회사별 권고·자동/수동 집계, 반려 후 교정과 원문 갱신 후 재평가는 설계 문서에서 버전별로 구분한다. 기존 안건의 구조·설명 오류 교정과 새 표본·다른 실제 모델 계열·보수적 성향 비교는 남아 있다. 현재 OPM 정책을 당시 허용 근거에 적용하는 개발 표본 회귀이며, 당시 기관 정책 재현·사전학습 지식 제거·전체 안건 정확도 인증이 아니다. 모든 평가는 사람 미검토이고 실제 투표를 전송하지 않는다. 상세 구조와 검증 결과는 [[260908_1200_decision_guideline-v2-final-redesign-pilot]]을 따른다.
+정책 0.7.2를 고정한 실제 HTTP MCP에서 2026년 10개사 정기 10회·임시 1회의 지원 후보 39과업 전부를 처리하고 최종 JSON·Markdown을 확인했다. 회사별 권고·자동/수동 집계와 실측 범위는 로드맵·이행현황에서 구분한다. 상세 실행 과정은 에이전트 일지로 분리했다. 기존 안건의 구조·설명 오류 교정과 새 표본·다른 실제 모델 계열·보수적 성향 비교는 남아 있다. 현재 OPM 정책을 당시 허용 근거에 적용하는 개발 표본 회귀이며, 당시 기관 정책 재현·사전학습 지식 제거·전체 안건 정확도 인증이 아니다. 모든 평가는 사람 미검토이고 실제 투표를 전송하지 않는다. 판단 원칙·하네스 계약은 [[260908_1200_decision_guideline-v2-final-redesign-pilot]], 검증 결과·남은 작업은 [[opm-guideline-roadmap]]을 따른다.
 
 자연어 예시:
 - "KT&G 이번 주총 안건별로 찬성/반대 어떻게 봐야 해?" → 기본 호출(회차 자동 선택, 안건별 decision + facts + policy_citation)
@@ -177,9 +177,9 @@ proxy_advise_before_meeting(
 | guideline_mode | str | no | shadow / pilot. pilot은 opm_guideline_v2 및 include_after_meeting=False 필요 | "shadow" |
 | guideline_assessments | list[dict] | no | pilot에서 assessment_task.required_output에 맞춘 평가 목록, 최대 50건. 중복·스키마 오류 항목을 제외하고 다른 후보는 계속 처리 | None |
 | guideline_evidence_sources | list[dict] | no | 명시 추가 고유 DART/KIND 본문 및 정관 첨부 최대 5개·읽기 요청 최대 20개·문서당 최대 6창. source_scope·focus_terms·text_offset·text_chars 및 candidate_names(빈 목록은 공통)로 문맥·후보 범위 지정. 제출 후보의 현재 근거·설정에 연결된 과업 ID를 사용하고 영향 없는 평가 보존 | None |
-| guideline_workflow | dict | no | pilot decision_posture 0~1(기본 0.75, 클수록 근거 있는 판단 선호), 보팅 성향 standard/conservative, 자동화 automatic/selective/manual, manual_agenda_titles·manual_agenda_ids, 선택 attendance_min_pct(50~100). 실제 투표 제출 없음 | None |
+| guideline_workflow | dict | no | pilot stance·firmness·automation 숫자 0~1(기본 0.5·0.75·0.5), manual_agenda_titles·manual_agenda_ids, 선택 attendance_min_pct(50~100). 자동화 상세 규칙은 아래 「숫자 보팅 설정」 참조. 실제 투표 제출 없음 | None |
 | guideline_harness | dict | no | pilot 시점·회차 고정. cutoff_at(시간대 있는 ISO8601), notice_rcept_no 필수. 후속 요청에는 응답 continuation의 expected_run_id·expected_policy_sha256·expected_sources 포함. 날짜만 확인된 자료는 마감일 전일까지 사용 | None |
-| guideline_structure | dict | no | 같은 하네스에서 `{}`로 구조 과업 요청, `{assessments:[평가]}`로 별도 제출. 현재 과업의 item_schemas·fact_data_schemas를 사용 | None |
+| guideline_structure | dict | no | 같은 하네스에서 `{}`로 구조 과업 요청. `protocol="staged"`는 사실·표결 범위 고정과 QA를 추가 요구. 같은 protocol과 `{assessments:[평가]}`로 제출 | None |
 | guideline_research | dict | no | 하네스 내 공시 목록 탐색. kind=meeting_resolution/periodic_reports/officer_changes/ownership_disputes/charter_history/legal_precedents, 선택 start_date/end_date, page(1~20), page_count(1~100). 같은 회사·마감시점의 미독해 후보와 다음 검색을 반환 | None |
 | check_audit_history | bool | no | 후보 과거 회사 회계 risk overlap cross-check (+30s) | False |
 | segment_context_chars | int | no | 부문 매핑 실패·정형 저신뢰 시 첨부되는 부문표 원문 발췌 길이 (clamp 1000~30000). 잘리면 응답에 전체 길이 + 재조회 경로(business_details 직접 조회 권장 / 파라미터 증액 재호출) 안내 — 호출 AI 자가조정용 | 8000 |
@@ -191,6 +191,24 @@ proxy_advise_before_meeting(
 ## 정관·이미지와 선출 구조 평가
 
 `guideline_structure={}`를 회차 고정 요청에 추가하면 `data.guideline_application.structure_tasks`에 회차별 구조 과업이 생성된다. 해당 과업의 `required_output`, `item_schemas`, `fact_data_schemas`를 따라 판독·효과·판단을 제출한다. `guideline_structure={"assessments":[assessment]}`로 같은 continuation과 함께 보낸다. 후보 평가 입력은 그대로 유지한다. 호출자 실행기는 `HarnessRequest(..., structure=True)`를 사용한다.
+
+구조 계약은 `opm-election-structure/3`다. `facts.agenda_ids`에는 관련 안건을 여러 개 넣을 수 있지만 `gaps.agenda_ids`와 `findings.agenda_ids`는 정확히 하나다. 공통 사실을 여러 안건에서 참조하되 판단·결론 영향은 안건별로 나눈다. A 안건만의 사실·누락·반대 효과를 B 안건에 섞지 않는다. 이전 과업에 대한 제출은 새 task_id에서 재사용할 수 없다.
+
+`protocol="staged"`는 `task.work_contract`의 4단계 작업 계약과 온톨로지를 노출한다. 호출자 실행기는 `HarnessRequest(..., structure=True, structure_protocol="staged")`와 `StagedStructureAdapter`를 사용할 수 있다. 모델은 앱이 제공한 callback에서 실행하며 서버는 모델 API를 호출하지 않는다. 기존 direct 경로는 reviews를 요구하지 않는 호환 경로다.
+
+운영용·실험용 어댑터는 같은 `StageExecutor`를 사용한다. 호출자 쪽 `VotingHarness(..., checkpoint=FileCheckpoint(...))`를 명시하면 완료한 호출 영수증을 재생하여 중단한 실행을 복구한다. 복구 전 실제 MCP의 원문·정책·작업 묶음을 다시 확인하며, 미완료 모델 호출은 자동 반복하지 않는다. 저장은 private 경로에서만 수행하고 기본값은 저장하지 않는다. MCP 서버의 입력·저장 계약은 바뀌지 않는다. API 실험 어댑터는 명시적인 `output_mode=json_schema` 또는 `json_object`를 사용하며, 형식 제약 이후에도 기존 원문·의미·정책 검증을 적용한다. 호출자 설정과 복구 절차는 [실험 실행기 사용법](../../experiments/README.md)을 따른다.
+
+단계별 제출에는 평가한 안건마다 인용된 `ballot_scope` 사실과 `reviews` 하나가 필요하다. review는 `agenda_id`, 현재 사실·해석·권고의 `basis_sha256`, reviewer, 여섯 가지 checks를 포함한다. `task.work_contract.review_schema`를 따른다. `StructureWorkbench`가 현재 review_targets와 digest를 제공하며 모델에게 해시 계산을 시키지 않는다. QA는 원문의 의미 검증 완료 인증이 아니며 사람 미검토다.
+
+`assessment.staged_review`는 수용 검토와 실패 안건·문제 제기 검토를 구분한다. `numeric_observations`는 선언한 인원과 상한의 비교만 계산한다. 독립 안건의 정상 판단은 유지하며 실패한 안건을 자동화 기본 정책으로 덮지 않는다. `ballot_scope.choice_group`은 실행 제약으로 연결하며 실제 경합 선택·집중투표 배분의 해결을 뜻하지 않는다.
+
+미공개 세부 질문만 제외하려면 `gaps.disposition=skip_check`와 `check_id`를 쓴다. 읽은 출처, 영향 사실, 영향 설명을 요구하며 `decision_impact`는 none/limited여야 한다. 같은 기준의 확인된 사실을 계속 판단하는 finding은 다른 `check_id`, 제외 질문과의 독립성을 설명하는 `scope_rationale`, 해당 gap을 포함한 `gap_ids`를 낸다. `skip_criterion`은 기준 전체 제외이므로 같은 기준의 finding을 허용하지 않는다. `structure_trace.skipped_checks`와 최종 사유는 무엇을 제외했는지 반환한다. 재명명만으로 사실 독립성을 검증한 것은 아니며 의미 판단은 사람 미검토다.
+
+정관 사건 중 snapshot/proposal은 `target_event_id=null`, `outcome=unknown`이다. 기준점 비교는 별도 context 사실로 표현한다. target_event_id는 resolution/correction의 사건 연결에만 쓰고 correction은 대상을 반드시 지정한다. 이 조건을 JSON Schema와 과업 지침 모두에 노출한다. 잘린 신구조문·부칙은 `read_next.source_request` 또는 새 focus_terms/text_offset으로 추가 판독한다. 미독해를 미공개로 바꾸지 않는다.
+
+호출자 실행기는 같은 과업의 `previous_submission`과 고정된 검증 오류별 수정 지침을 모델에 돌려준다. 부분 수용이면 독립된 수용 항목을 보존하면서 잘못된 항목과 그 의존 관계만 보완한다. 원문·과업 해시가 바뀌면 이전 제출을 복구 입력으로 재사용하지 않는다. 재시도·독해 예산은 기존 RunBudget 안에서 제한되며, 서버가 결론이나 인용을 대신 고쳐 통과시키지 않는다.
+
+모델 어댑터가 크레딧 부족·인증 불가·모델 미지원처럼 반복으로 해결되지 않는 오류를 확인하면 `ModelUnavailableError`를 올린다. 실행기는 `model_budget_unavailable`·`model_auth_unavailable`·`model_not_available` 중 해당 사유로 모델 재시도를 멈추며 기존 수용 결과와 미평가 상태를 보존한다. 공급자의 오류 본문이나 인증 정보를 피드백에 넣지 않는다. 이 사유를 반대·찬성 판단으로 대체하지 않는다.
 
 `guideline_research={"kind":"charter_history"}`는 정기보고서·정관 변경 제안·과거 정기/임시주총 결과·정정을 마감까지 탐색한다. 보고서 후보의 `attachment_request`를 실행해 실제 정관 첨부를 확인한다. 각 보고서에 첨부가 있다고 가정하지 않는다. 구조 과업은 `charter_event`로 snapshot/proposal/resolution/correction, 조항·사건일·시행일·대상 사건을 제출받고 인용·시간·관계 검증 결과를 `assessment.charter_history`에 반환한다. 가결 여부와 효력은 분리하며 당시 유효한 정관 전문의 완전성을 자동 인증하지 않는다.
 
@@ -220,7 +238,7 @@ proxy_advise_before_meeting(
 | `data.guideline_application.research_plan` | 회차·시점에 맞는 조사 질문, 추가 공시 검색 제안, 미기재·미독해·의미 미확정·충돌의 구분. 필수 문서 체크리스트가 아님 |
 | `data.guideline_application.research_discovery` | `guideline_research` 요청 시 해당 페이지의 미독해 후보 공시·조회 범위·실패·정정 단서·다음 검색. 공시 제목은 평가 근거가 아님 |
 | `data.guideline_application.unused_candidate_scopes` | 요청한 후보 전체 이름이 지원 과업과 일치하지 않은 원천·읽기 옵션·이름. 임의 후보에 배정하지 않음 |
-| `data.guideline_harness` | 하네스 선택 시 계약 버전·마감시각·effective_as_of·고정공고·실행/정책 해시·source_manifest·continuation·제외 원천·이전 원문 미확보 목록. 안건별 수용이 1건 이상이면 evaluated, 없으면 awaiting_model이며 전체 평가 완료·정확도 인증이 아님 |
+| `data.guideline_harness` | 하네스 선택 시 계약 버전·마감시각·effective_as_of·고정공고·실행/정책 해시·source_manifest·continuation·제외 원천·이전 원문 미확보 목록. 수용한 판단이 있으면 evaluated, 판단은 없지만 구조 과업의 전 안건이 범위 밖으로 설명되고 후보 평가도 없으면 scope_complete, 후보 평가 등이 남으면 awaiting_model. 전체 평가 완료·정확도 인증이 아님 |
 | `agenda_decisions[].guideline_trace` | 해당 안건에서 v2 규칙이 `not_applicable`·`not_triggered`·`fired`·`excepted`·`unresolved`·`skipped_missing_information` 중 어디에 해당하는지와 필요한 metric 목록 |
 | `guideline_trace.assessment_task` | 대상·기준일·정책 hash·원문 발췌·rubric·required_output(JSON Schema)·task_id. 호출 LLM의 평가 입력 |
 | `guideline_trace.llm_assessment` | pending / rejected / accepted_unreviewed, 인용 연결 검증 범위, 평가·근거·반증·미확인 사항, human_reviewed=false |
@@ -842,17 +860,36 @@ pilot에서 E/I 공시를 종류별 최대 2페이지, 기준연도 2년 전 1�
 
 회사별 분쟁·거버넌스 배치 판독과 새 접수번호 조회는 별도 [[governance_screen]] 도구를 사용한다. 공식 공고에서 놓친 후보를 새로 만드는 범용 과업 생성은 아직 없다.
 
-### 보팅 설정과 누락 처리 (0.6.0)
+### 숫자 보팅 설정과 누락 처리
 
-`guideline_workflow={"decision_posture":0.75,"stance":"conservative","automation":"selective","manual_agenda_titles":["검토할 정확한 후보 안건명"],"attendance_min_pct":80}`처럼 지정한다. 80은 사용법 예시이며 보수 성향의 자동 기본값이 아니다. `decision_posture`는 유한 숫자만 허용하며 0은 애매하면 검토, 1은 확인된 근거로 찬반을 최대한 판단하는 호출 LLM 선호다. 확률·temperature·찬성 성향·자동화가 아니며 사후정보·핵심 충돌·고정 수치 기준은 우회하지 않는다. 구조 gap의 `decision_impact`, `impact_rationale`, `impact_fact_ids`와 판단의 `uncertainty_rationale`로 결론 영향이 없거나 제한적인 미확인 범위를 설명할 수 있다. none은 모든 기조에서, limited는 0보다 큰 기조에서 원문 사실 연결과 설명을 갖추면 판단 진행이 가능하다. 혼합 효과도 limited·기조>0·uncertainty_rationale을 모두 갖춘 때만 찬성 수용이 가능하다. material/unknown은 기존 검토 경계를 유지하며 미독은 미공개로 바꾸지 않는다. gap과 판단 기조는 최종 trace에, 미확인 범위와 설명은 JSON/Markdown 사유에 남긴다. 후보 과업도 같은 기조 지침을 받지만 정량 기준·개인 평가 미제출 제약은 유지한다. 설정은 정책·과업 hash에 포함하므로 첫 호출과 제출 호출에 같아야 한다. `conservative`는 확인된 위험·예외 근거를 엄격히 검토하라는 LLM 지침이며 수치나 권고를 서버가 임의 변경하지 않는다.
+```json
+{"guideline_workflow":{"stance":0.5,"firmness":0.75,"automation":0.5}}
+```
 
-`automatic`은 현재 범위의 수용된 찬반 권고를 자동 처리 준비로, `selective`는 반대 권고를 수동 검토로, `manual`은 모든 해당 후보를 수동 검토로 분기한다. 정확한 안건명으로 일부를 수동 지정할 수도 있다. 집중투표 배분·경합·표결 제약은 후보 찬반과 별도로 검토한다. 현재 범위 밖 안건은 `not_applicable`, 미제출 후보는 `awaiting_assessment`로 남으며 서로 흐름을 막지 않는다. 실제 투표 전송·인간 승인·평가 저장 기능은 없다.
+세 값 모두 유한 숫자 0~1이다. stance는 주주 개입 성향, firmness는 불확실성 속 판단 기조, automation은 최종 처리 규칙이다. stance=0은 입증된 임박한 금전 손실이 없으면 찬성 선호, 1은 모호한 조항·재무 여력 대비 환원·경영진 성과를 적극 검토하고 확인된 중대한 위반·결격·장기 성과 부진과 책임에 반대한다. 고정 출석 기준과 확인된 결격은 성향으로 바꾸지 않는다. `attendance_min_pct`를 명시한 경우에만 기존 출석 문턱을 바꾼다.
 
-출력 `agenda_decisions[].voting_workflow`는 상태·사유·권고·`human_reviewed=false`·`ballot_submitted=false`를 담는다. 전체 건수와 설정, 일치하지 않은 수동 안건명은 `guideline_application.voting_workflow`에 표시한다.
+후보·구조 과업의 `stance_guidance`·`decision_guidance`·`automation_guidance`가 모델별 공통 지침이다. 설정과 지침은 정책·과업 hash에 포함된다. 주주환원 적정성·경영진 장기 성과는 현재 조사 질문이며 전용 v2 평가 계약은 아직 없다. 기존 엔진 결과와 구분한다. firmness 관련 구조 gap의 `decision_impact`, `impact_rationale`, `impact_fact_ids`, 판단의 `uncertainty_rationale`는 계속 사용한다. none은 모든 기조에서, limited는 firmness>0에서 원문 사실 연결과 설명을 갖춰 판단할 수 있다. 혼합 효과도 limited·firmness>0·설명을 요구한다. material/unknown·인용 오류는 사실 판단으로 자동 수용하지 않는다.
+
+| automation | 최종 처리 |
+|---|---|
+| 0 | 모든 표결 안건을 사람이 검토 |
+| 0 초과~0.5 | 찬성 자동 처리 준비, 반대·미결은 사람 검토 |
+| 0.5 초과~1 미만 | 찬반 자동 처리 준비, 미결은 사람 검토 |
+| 1 | 찬반으로 종료. 모든 평가를 합친 후에도 미결이면 stance < 0.5는 찬성, stance ≥ 0.5는 반대 |
+
+완전 자동의 기본 방향은 사용자 정책이다. `agenda_decisions[].automation_trace`에 `assessment_recommendation`, `assessment_reason`, `final_recommendation`, `fallback_applied`, `basis`(assessment/user_policy_fallback), `assessment_scope`(caller_llm/baseline_engine), 설정·실행 제약을 남긴다. JSON/Markdown의 reason에도 기본 정책임을 표시한다. 원래 사실·미확인·찬반 근거를 변경하지 않는다. 기존 엔진만 처리한 안건에 적용한 기본 방향을 LLM 평가라고 표시하지 않는다.
+
+미제출은 `awaiting_assessment`, 완전 자동의 입력 거절은 `assessment_error`로 재평가한다. 아직 최종 권고가 아니다. 완료된 완전 자동 권고는 찬반이며, 집중투표·조건·법률 등 기존 실행 제약은 `execution_pending`과 `execution_constraints`로 별도 표시한다. 나머지 자동화 구간에서는 이런 제약을 사람 검토로 보낸다. NO_VOTE는 유지한다.
+
+`manual_agenda_titles`·`manual_agenda_ids`로 특정 안건을 수동 지정할 수 있다. automation=1과 함께 지정하면 상충하는 설정으로 거절한다. 종전 문자열 모드는 폐기했다. 값을 바꾸면 새 과업으로 재평가하며, 잘못된 값이나 과거 평가를 자동 변환하지 않는다.
+
+출력 `voting_workflow`는 상태·사유·최종 권고·실행 제약·`human_reviewed=false`·`ballot_submitted=false`를 담는다. 전체 건수·설정·`fallback_count`·불일치 수동 지정은 `guideline_application.voting_workflow`에 표시한다. 실제 투표 전송·인간 승인·평가 저장 기능은 없다. 상세 정책 근거는 [[260908_1200_decision_guideline-v2-final-redesign-pilot]]의 「세 가지 사용자 설정」을 따른다.
 
 누락은 `unknown` 및 `unresolved_kind="missing_information"`에 무엇을 읽었고 무엇이 없었는지 설명한다. 서버는 `skipped_checks`와 `skipped_missing_information` 규칙 상태로 제외 범위를 표시한다. 알려진 저출석에서 불참 예외 정보만 누락이면 예외가 인정된 것으로 추정하지 않는다. 모든 기준이 미평가·부재라면 근거 있는 찬성으로 꾸미지 않는다. 파싱 실패는 먼저 직접 원문을 읽어 해결하며 `attendance.period_basis="llm_reading"`과 사업보고서 `period_evidence_refs`로 기간을 입력할 수 있다. 서버는 날짜·인용·산술을 확인하지만 직전 사업연도·후보 귀속의 의미 정확성을 인증하지 않는다.
 
 ## 변경 이력
+
+- 2026-09-11 (Astra): stance·automation을 0~1 숫자로 전환. 완전 자동의 stance별 기본 방향을 후보·구조 결합 후 적용하고 원래 평가·실행 제약을 보존. JSON/Markdown에서 사용자 기본 정책과 사실 판단을 구분.
 
 - 2026-09-10: Astra가 0.7.2에서 대상 회의 모두 참석한 경우의 불참 예외 비적용 입력·검사·표시를 추가했다. 불참·목록 미확정·직무 미확정에는 사용할 수 없다.
 - 2026-09-10: Astra가 하네스 /2에 회차별 조사 가이드·시점 제한 공시 목록 탐색·후보별 복수 발췌·활성 자료 교체·변경 과업만 재평가하는 경로를 추가했다. 평가 계약 /6·pilot 정책 0.7.1.

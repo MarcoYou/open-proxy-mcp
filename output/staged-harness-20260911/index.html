@@ -1,0 +1,107 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>단계별 하네스 · MCP 검증</title><style>body{max-width:1050px;margin:40px auto;padding:0 22px;color:#19382d;background:#faf9f5;font-family:system-ui;line-height:1.75}h1{font-size:32px}h2{margin-top:38px}table{border-collapse:collapse;width:100%;background:white;display:block;overflow:auto}td,th{text-align:left;border:1px solid #c8d4cb;padding:10px 14px}th{background:#e8f1e9}a{color:#24674f}p{max-width:930px}</style><main><h1>단계별 하네스 · 실제 MCP 확인</h1>
+<p><strong>정관·선출 구조의 단계별 실행과 오류 격리를 확인했다. Luna의 성능 검증은 아직 하지 않았다.</strong></p>
+<p>영원무역 2026년 3월 27일 정기주총의 정관 안건 두 개를 부분 검증했다. 마감은 주총일 00:00 KST, 날짜만 있는 공시는 전일까지 사용했다. 나머지 안건을 검증 완료나 무관으로 처리하지 않았다.</p>
+<h2>실제 적용 결과</h2>
+<table>
+<thead>
+<tr>
+<th>안건</th>
+<th>수용된 LLM 권고</th>
+<th>최종 MCP 권고</th>
+<th>처리</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>이사의 수</td>
+<td>검토</td>
+<td>검토</td>
+<td>사람 검토</td>
+</tr>
+<tr>
+<td>집중투표 배제 금지</td>
+<td>찬성</td>
+<td>찬성</td>
+<td>사람 검토</td>
+</tr>
+</tbody>
+</table>
+<p>이사의 수는 상한 8명 자체를 위반으로 판단하지 않았다. 시행시점의 실제 구성·업무량 대조가 남아 검토로 두었다. 집중투표 배제 금지는 삭제 제안에 찬성하되, 장래 적용례를 보존했다. 이 행은 기존 법률 제약이 남아 자동 실행 준비로 바뀌지 않았다.</p>
+<p>원문은 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001098">소집공고</a>다. 제29조의 별도 시행일과 집중투표의 장래 최초 소집 조건을 제안 이력으로 기록했다. 유효 정관 전문이나 법률 적합성 인증은 아니다.</p>
+<h2>오류를 넣었을 때</h2>
+<table>
+<thead>
+<tr>
+<th>입력</th>
+<th style="text-align:right">수용한 판단</th>
+<th>거절 이유</th>
+<th>독립 안건</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>정상 제출</td>
+<td style="text-align:right">2</td>
+<td>없음</td>
+<td>대상 범위대로 처리</td>
+</tr>
+<tr>
+<td>QA 후 판단 변경 주입</td>
+<td style="text-align:right">1</td>
+<td>stale_review_basis</td>
+<td>찬성 유지</td>
+</tr>
+<tr>
+<td>한 안건의 QA 문제 주입</td>
+<td style="text-align:right">1</td>
+<td>unresolved_semantic_challenge</td>
+<td>찬성 유지</td>
+</tr>
+<tr>
+<td>QA 누락 주입</td>
+<td style="text-align:right">0</td>
+<td>missing_or_duplicate_review</td>
+<td>대상 범위대로 처리</td>
+</tr>
+</tbody>
+</table>
+<p>오류 행은 추가 판단으로 수용되지 않는다. 해당 행에 남아 있는 기존 엔진 권고는 새 LLM 판단의 수용 결과가 아니며, 처리 상태와 함께 읽어야 한다. 문제 주입은 오류 탐지 실험으로 실제 공시에서 잘못된 사실을 발견한 횟수가 아니다.</p>
+<h2>무엇이 구현됐고 무엇이 남았나</h2>
+<table>
+<thead>
+<tr>
+<th>항목</th>
+<th>상태</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>사실 → 해석 → 권고 → QA → MCP 응답</td>
+<td>부분 안건 실제 실행 확인</td>
+</tr>
+<tr>
+<td>설정과 분리된 사실·표결 범위, 재사용 지문</td>
+<td>구현·회귀 확인</td>
+</tr>
+<tr>
+<td>온톨로지의 기준·사실 종류·원천·QA 연결</td>
+<td>구현·스키마 연결 검사</td>
+</tr>
+<tr>
+<td>모델 교체 callback과 단계별 예산·오류 격리</td>
+<td>구현·대역 callback 검사</td>
+</tr>
+<tr>
+<td>Luna 실제 판단·반복·독립 실무 검토</td>
+<td>미실행</td>
+</tr>
+<tr>
+<td>전 안건 공통 제출·경합 선택 해결·관계 회사 자동 탐색</td>
+<td>남음</td>
+</tr>
+</tbody>
+</table>
+<p>이번 판독과 QA는 같은 데스크탑 Astra 문맥에서 작성했다. 독립 리뷰나 Luna 실행으로 포장하지 않는다. 직접 유료 모델 API 호출과 실제 투표 전송은 0건이다. 로컬 HTTP에서 실제 도구·수집·제출·렌더링을 사용했으며, 로컬 인증 브리지는 운영 인증 검증 범위에 포함하지 않는다.</p>
+<p>해석·권고 단계는 고정된 사실의 인용문을 받아 입력을 줄인다. 판독·QA는 확보한 원문 발췌를 다시 읽으므로 총 호출 비용이나 정확도가 좋아졌다는 결론은 아직 낼 수 없다.</p>
+<p><a href="../guideline-specification-20260909/roadmap.html">로드맵·이행현황</a> · <a href="../guideline-specification-20260909/index.html#appendix">가이드라인 Appendix</a> · <a href="report.json">구조화 보고서</a></p>
+</main></html>

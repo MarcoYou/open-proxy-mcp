@@ -139,6 +139,116 @@ def test_server_rejection_is_retried_without_dropping_accepted_peer():
     assert [a["task_id"] for a in peer.calls[-1]["guideline_assessments"]] == ["b", "a"]
 
 
+def test_repair_receives_own_submission_only_for_the_same_task():
+    peer = FakeMCP(reject={'a'}); seen = []
+    async def callback(context):
+        key = context.tasks[0]['task_id']
+        if key == 'b' or key not in seen:
+            assert context.previous_submission is None
+        else:
+            assert context.previous_submission['task_id'] == key
+            context.previous_submission['evaluator'] = 'local-mutation'
+        seen.append(key)
+        return await always_submit(context)
+    execute(peer, callback, RunBudget(max_attempts_per_task=2))
+    assert seen == ['a', 'b', 'a']
+    assert all(a['evaluator'] != 'local-mutation' for call in peer.calls for a in call.get('guideline_assessments', []))
+
+
+def test_structure_feedback_uses_only_known_local_codes():
+    from open_proxy_mcp.harness.runner import _assessment_rejection_feedback
+    p = {'data': {'guideline_application': {'structure_tasks': [{
+        'task': {'task_id': 's'}, 'assessment': {'task_id': 's', 'rejected_items': [
+            {'code': 'invalid_charter_event_role', 'item_id': 'private-value'},
+            {'code': 'arbitrary-remote-message'}, {'code': ['malformed']}]}}]}}}
+    feedback = _assessment_rejection_feedback(p, 's')
+    assert 'target_event_id=null' in str(feedback)
+    assert 'private-value' not in str(feedback) and 'arbitrary-remote' not in str(feedback)
+    assert _assessment_rejection_feedback(p, 'another-task') == ('server_rejected_assessment',)
+
+
+@pytest.mark.parametrize('code', ['model_budget_unavailable', 'model_auth_unavailable', 'model_not_available'])
+def test_permanent_provider_failure_stops_retries_without_inventing_a_vote(code):
+    from open_proxy_mcp.harness import ModelUnavailableError
+    async def unavailable(context):
+        if context.tasks[0]['task_id'] == 'a':
+            return await always_submit(context)
+        raise ModelUnavailableError(code)
+    result = execute(callback=unavailable)
+    assert result.status == 'partial' and result.stop_reason == code
+    assert result.counts['model_calls'] == 2 and result.counts['accepted'] == 1
+    assert result.counts['submitted'] == 1 and result.counts['model_errors'] == 1
+    assert result.task_states['a'] == 'accepted_unreviewed'
+    assert result.task_states['b'] == 'unassessed'
+    assert result.payload is not None and result.ballots_submitted == 0
+
+
+def test_structure_partial_result_is_repaired_using_own_submission_and_specific_feedback():
+    from test_election_structure import setup_task, submission
+    from test_charter_history import event
+    from open_proxy_mcp.services.election_structure import accept_structure_assessment
+    p, task = setup_task()
+    class StructurePeer(FakeMCP):
+        async def call_tool(self, name, arguments):
+            result = await super().call_tool(name, arguments)
+            submitted = (arguments.get('guideline_structure') or {}).get('assessments', [])
+            result['data']['agenda_decisions'] = deepcopy(p['data']['agenda_decisions'])
+            result['data']['guideline_application']['structure_tasks'] = [{
+                'task': deepcopy(task),
+                'assessment': accept_structure_assessment(task, submitted[0] if submitted else None)}]
+            return result
+    contexts = []
+    async def callback(context):
+        contexts.append(context)
+        if not context.previous_submission:
+            item = submission(task)
+            item['out_of_scope_agenda_ids'] = [task['agendas'][1]['agenda_id']]
+            item['facts'].append(event(task, 'bad-link', 'snapshot', target='comparison'))
+        else:
+            assert context.tasks[0]['previous_assessment']['judgments'][0]['recommendation'] == 'FOR'
+            assert any('invalid_charter_event_role' in f for f in context.feedback)
+            item = deepcopy(context.previous_submission)
+            item['facts'][-1]['data']['target_event_id'] = None
+        return SubmitAction(assessments=[item])
+    peer = StructurePeer(candidates=())
+    result = asyncio.run(VotingHarness(peer, CallbackModelAdapter('test', 'v1', callback)).run(request(structure=True)))
+    assert result.status == 'complete' and len(contexts) == 2 and result.counts['submitted'] == 2
+    assert peer.calls[1]['guideline_structure']['assessments'][0]['judgments'] == peer.calls[2]['guideline_structure']['assessments'][0]['judgments']
+
+
+def test_scope_only_structure_completion_does_not_retry_or_count_as_an_accepted_judgment():
+    from test_election_structure import setup_task
+    from open_proxy_mcp.services.election_structure import accept_structure_assessment
+    payload, task = setup_task()
+
+    class StructurePeer(FakeMCP):
+        async def call_tool(self, name, arguments):
+            result = await super().call_tool(name, arguments)
+            submitted = (arguments.get('guideline_structure') or {}).get('assessments', [])
+            result['data']['agenda_decisions'] = deepcopy(payload['data']['agenda_decisions'])
+            result['data']['guideline_application']['structure_tasks'] = [{
+                'task': deepcopy(task),
+                'assessment': accept_structure_assessment(task, submitted[0] if submitted else None)}]
+            return result
+
+    async def scope_only(context):
+        current = context.tasks[0]
+        return SubmitAction(assessments=[{
+            'task_id': current['task_id'], 'evaluator': 'test-model',
+            'facts': [], 'gaps': [], 'findings': [], 'judgments': [],
+            'out_of_scope_agenda_ids': [a['agenda_id'] for a in current['agendas']]}])
+
+    peer = StructurePeer(candidates=())
+    result = asyncio.run(VotingHarness(peer, CallbackModelAdapter('test', 'v1', scope_only)).run(request(structure=True)))
+    assert result.status == 'complete' and result.stop_reason == 'all_supported_tasks_processed'
+    assert result.task_states == {task['task_id']: 'scope_complete'}
+    assert result.counts['model_calls'] == result.counts['submitted'] == 1
+    assert result.counts['scope_complete'] == 1 and result.counts['accepted'] == result.counts['unassessed'] == 0
+    assert result.counts['rejected'] == 0 and len(peer.calls) == 2
+    assert not any(event['code'] == 'assessment_accepted' for event in result.events)
+    assert result.payload['data']['agenda_decisions'] == payload['data']['agenda_decisions']
+
+
 def test_extra_source_invalidates_old_assessments_and_reassesses_all_new_tasks():
     peer = FakeMCP()
     seen = []

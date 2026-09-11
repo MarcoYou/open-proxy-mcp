@@ -1,5 +1,5 @@
 {
-  "contract": "opm-election-structure/1",
+  "contract": "opm-election-structure/3",
   "artifact_kind": "runtime_schema_bundle",
   "request": {
     "additionalProperties": false,
@@ -12,6 +12,15 @@
         "maxItems": 1,
         "title": "Assessments",
         "type": "array"
+      },
+      "protocol": {
+        "default": "direct",
+        "enum": [
+          "direct",
+          "staged"
+        ],
+        "title": "Protocol",
+        "type": "string"
       }
     },
     "title": "StructureRequest",
@@ -77,6 +86,15 @@
         "maxItems": 200,
         "title": "Out Of Scope Agenda Ids",
         "type": "array"
+      },
+      "reviews": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "maxItems": 200,
+        "title": "Reviews",
+        "type": "array"
       }
     },
     "required": [
@@ -133,7 +151,8 @@
             "term",
             "condition",
             "context",
-            "charter_event"
+            "charter_event",
+            "ballot_scope"
           ],
           "title": "Kind",
           "type": "string"
@@ -191,12 +210,13 @@
           "type": "string"
         },
         "agenda_ids": {
+          "description": "One agenda per gap. Split common questions per agenda; share impact facts where relevant.",
           "items": {
             "maxLength": 200,
             "minLength": 1,
             "type": "string"
           },
-          "maxItems": 100,
+          "maxItems": 1,
           "minItems": 1,
           "title": "Agenda Ids",
           "type": "array"
@@ -206,6 +226,21 @@
           "minLength": 1,
           "title": "Criterion Id",
           "type": "string"
+        },
+        "check_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Local subquestion ID within this agenda and criterion. Required for skip_check. Use the same ID for the same question in gaps and findings.",
+          "title": "Check Id"
         },
         "kind": {
           "enum": [
@@ -224,6 +259,7 @@
         "disposition": {
           "enum": [
             "skip_criterion",
+            "skip_check",
             "retry_read",
             "conditional_analysis",
             "unassessed_scope"
@@ -336,15 +372,45 @@
           "type": "string"
         },
         "agenda_ids": {
+          "description": "One agenda per finding. Facts may be shared, but effects are judged separately for each agenda.",
           "items": {
             "maxLength": 200,
             "minLength": 1,
             "type": "string"
           },
-          "maxItems": 100,
+          "maxItems": 1,
           "minItems": 1,
           "title": "Agenda Ids",
           "type": "array"
+        },
+        "check_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Check Id"
+        },
+        "scope_rationale": {
+          "anyOf": [
+            {
+              "maxLength": 6000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the same criterion has skip_check gaps, explain why this assessed question is independent of every skipped question; reference those gaps in gap_ids. Do not declare omitted facts satisfied.",
+          "title": "Scope Rationale"
         },
         "fact_ids": {
           "items": {
@@ -980,8 +1046,143 @@
       "title": "ContextData",
       "type": "object"
     },
+    "ballot_scope": {
+      "additionalProperties": false,
+      "properties": {
+        "row_kind": {
+          "enum": [
+            "ballot",
+            "parent",
+            "report",
+            "withdrawn",
+            "conditional",
+            "unclear"
+          ],
+          "title": "Row Kind",
+          "type": "string"
+        },
+        "parent_agenda_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Agenda Id"
+        },
+        "condition_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Condition Id"
+        },
+        "choice_group": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Choice Group"
+        },
+        "max_selections": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Selections"
+        },
+        "scope_rationale": {
+          "maxLength": 6000,
+          "minLength": 1,
+          "title": "Scope Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "row_kind",
+        "scope_rationale"
+      ],
+      "title": "BallotData",
+      "type": "object"
+    },
     "charter_event": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "enum": [
+                  "snapshot",
+                  "proposal"
+                ]
+              }
+            },
+            "required": [
+              "event_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target_event_id": {
+                "type": "null"
+              },
+              "outcome": {
+                "const": "unknown"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "event_kind": {
+                "const": "correction"
+              }
+            },
+            "required": [
+              "event_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "target_event_id": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "target_event_id"
+            ]
+          }
+        }
+      ],
       "properties": {
         "event_kind": {
           "enum": [
@@ -1040,6 +1241,7 @@
             }
           ],
           "default": null,
+          "description": "Only resolution/correction links. snapshot and proposal MUST use null with outcome unknown. This is not a baseline/comparison link. Describe a baseline comparison in a separate context fact.",
           "title": "Target Event Id"
         },
         "outcome": {

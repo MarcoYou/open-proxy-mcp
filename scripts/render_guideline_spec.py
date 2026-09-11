@@ -1,13 +1,15 @@
-"""Build the offline reading edition from the canonical guideline decision page.
+"""Build separate guideline and roadmap reading editions, plus frozen references.
 
-Run: uv run --with markdown-it-py python scripts/render_guideline_spec.py
-Only documentation exports are written; no user queries or assessments are saved.
+Run: uv run python scripts/render_guideline_spec.py
+This offline export makes no model, MCP, or external network calls.
 """
 from pathlib import Path
 import hashlib
 import html
 import json
 import re
+import os
+import textwrap
 from urllib.parse import unquote, urlsplit
 from bs4 import BeautifulSoup
 from markdown_it import MarkdownIt
@@ -18,147 +20,56 @@ from open_proxy_mcp.services.governance_screen import GovernanceAssessment
 from open_proxy_mcp.services.guideline_harness import HarnessRequest, CONTRACT as HARNESS_CONTRACT
 from open_proxy_mcp.services.guideline_research import ResearchQuery
 from open_proxy_mcp.harness.runner import ModelAction
+from open_proxy_mcp.harness.structure_stages import STAGES
+from open_proxy_mcp.services.structure_protocol import work_contract
 from open_proxy_mcp.services.election_structure import (
     StructureRequest, StructureAssessment, StructureFact, StructureGap,
     StructureFinding, StructureJudgment, DATA_TYPES, CONTRACT as STRUCTURE_CONTRACT)
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md'
+ROADMAP = ROOT / 'wiki/decisions/opm-guideline-roadmap.md'
 OUT = ROOT / 'output/guideline-specification-20260909'
 POLICY = ROOT / 'open_proxy_mcp/data/guideline/opm-guideline-v2-pilot.json'
+REPORT_DIR = ROOT / 'output/firmness-all-samples-20260911'
 OUT.mkdir(parents=True, exist_ok=True)
 h = html.escape
 
-# Keep the five body entry points stable; the appendix explains harness controls.
-SECTIONS = {
-    '현황·로드맵': ('roadmap', '완료한 일과 다음 단계'),
-    '가이드라인·판단 원칙': ('principles', '시점·근거·사용자 설정'),
-    '모델 교체·실행 흐름': ('workflow', '공통 과업과 모델의 역할'),
-    '검증 계획·결과': ('validation', '10개사 회차별 품질과 후속 과제'),
-    '배포·운영': ('release', '출시 조건과 남은 기능'),
-    'Appendix': ('appendix', 'A 실행 통제 · B 오류 교정 · C 검증'),
+GUIDELINE_SECTIONS = {
+    '적용 범위와 원칙': ('principles', '지원 범위와 고정 원칙'),
+    '세 가지 사용자 설정': ('settings', 'stance · firmness · automation'),
+    '안건별 판단 기준': ('criteria', '후보·정관·환원·구조변경'),
+    '근거와 시점 관리': ('evidence', '공시·기사·정관·판례'),
+    '실행 흐름과 결과 읽기': ('workflow', '평가·권고·처리의 구분'),
+    'Appendix': ('appendix', 'A 하네스 · B 계약 · C 구버전'),
 }
-FOLDED_HEADINGS = {
-    '판단 기준과 적용 범위', '정책 설계 상세', '정보·기사 사용 기준',
-    '출처와 시점 관리', '실행 명세', '판정 로직', '역할과 대조 순서',
-    '파일럿 결과', '통합 준비 검증', '출시 조건과 미구현 범위',
-    '확장 아키텍처와 운영 계약', '관련 파일', '비교 브랜치 정리 (2026-09-09)',
-    '시점 고정 실행 하네스',
+ROADMAP_SECTIONS = {
+    '현황·로드맵': ('roadmap', '01~06 단계와 현재 위치'),
+    '남은 작업과 완료 기준': ('remaining', '다음 작업과 구체적 과제'),
+    '검증 결과와 읽는 법': ('validation', '실제 결과와 확인 범위'),
+    '배포 조건과 문서 관리': ('release', '출시 조건과 문서 역할'),
 }
-# These were exported as section-2 ... section-58 before the five-section layout.
-# Retain them independently of the next generation's document order.
-LEGACY_HEADINGS = '''바로 다음 작업
-완료·현재 구현
-배포까지 남음
-배포 범위와 확장 작업
-실행 프레임워크 및 검증 프로필
-실행 기준과 기본 설정
-역할과 대조 순서
-종료 조건과 이번 준비의 범위
-작업 기여
-비교 브랜치 정리 (2026-09-09)
-결정 범위
-현재 구현 범위와 다음 결정
-사용자 원칙과 구현 경계
-출석기간 정책 (0.5.0부터 적용, 0.6.0 직접 판독 보강)
-최종 설계
-다섯 축을 분리한다
-정책은 작성본에서 실행본으로 컴파일한다
-LLM의 역할과 출력
-실행 명세
-공시 원문을 읽는 실행 경로 (0.7.0)
-기업 발견·분쟁 추적·대량 검토 (0.7.0)
-참고 서비스에서 채택한 점
-요청과 응답
-요청별 보팅 성향과 처리 설정
-평가 데이터 계약
-수집·평가·권고·처리 상태를 섞지 않는다
-판정 로직
-현재의 처리 순서
-평가 → 지표 → 권고
-누락·충돌·평가 미실행의 적용 계약 (0.6.0)
-출석 입력과 원천 탐색의 실행 계약 (0.6.0)
-후보 권고와 최종 권고의 차이
-실무 관점을 적용한 설계 선택
-경계 사례 (설명용, 실제 회사 재평가 결과 아님)
-확장 아키텍처와 운영 계약
-모듈 책임과 경계
-확장할 공통 데이터 객체
-임원 변동 공시를 재직 이력으로 연결하는 계약
-설정·확장·갱신의 작동 방식
-원천 연결 우선순위와 수용 기준
-파일럿 결과
-실제 MCP 호출: 0.7.0 대량 파일럿
-실제 MCP 호출: 0.7.0 추출 교정
-실제 MCP 호출: 0.7.0 분쟁 추적의 경계 검증
-실제 MCP 호출: 0.6.0 워크플로 검증
-실제 MCP 호출: 0.5.0 출석·재직 연결
-실제 MCP 호출: 0.3.0 공개자료 한정 LLM 파일럿
-공개되지 않은 관계 정보 처리: 0.3.0 도입과 현재 확장
-기사 사용 원칙: 사실·절차와 평가 분리 (0.4.0)
-공시 활용 공백 점검: 전체 부재와 v2 연결 부족 구별
-시의성·정확성의 공통 기준
-공개 원천과 추가 연결 계획
-임원 변동 공시 표본에서 확인한 연결 조건
-공정위 API를 호출할 때
-계약·회귀 검증
-해석과 승격 조건
-관련 파일'''.splitlines()
-LEGACY_IDS = {title: f'section-{i}' for i, title in enumerate(LEGACY_HEADINGS, 2)}
-RENAMED_HEADINGS = {
-    '실행 프레임워크 및 검증 프로필': '모델 교체·실행 흐름',
-    '종료 조건과 이번 준비의 범위': '통합 준비 검증',
-    '결정 범위': '판단 기준과 적용 범위',
-    '현재 구현 범위와 다음 결정': '판단 기준과 적용 범위',
-    '최종 설계': '정책 설계 상세',
-    '해석과 승격 조건': '출시 조건과 미구현 범위',
-}
-
-
-def fold_document_details(soup):
-    """Fold complete authored subsections without dropping text or lower headings."""
-    for heading in list(soup.find_all('h3')):
-        if heading.get_text(' ', strip=True) not in FOLDED_HEADINGS:
-            continue
-        detail = soup.new_tag('details', attrs={'class': 'document-detail'})
-        summary = soup.new_tag('summary')
-        content = soup.new_tag('div', attrs={'class': 'detail-body'})
-        heading.insert_before(detail)
-        node = heading.next_sibling
-        summary.append(heading.extract())
-        detail.append(summary)
-        while node is not None:
-            following = node.next_sibling
-            if node.name in {'h1', 'h2', 'h3'}:
-                break
-            content.append(node.extract())
-            node = following
-        detail.append(content)
-
-
-def preserve_legacy_fragments(soup, headings_by_title):
-    """Old deep links resolve to the retained heading or its new owning section."""
-    for title, legacy_id in LEGACY_IDS.items():
-        if soup.find(id=legacy_id):
-            continue
-        target = headings_by_title.get(RENAMED_HEADINGS.get(title, title))
-        if target is None:
-            number = int(legacy_id.split('-')[1])
-            fallback = ('roadmap' if number <= 5 or number in {10, 13} else
-                        'workflow' if 6 <= number <= 9 or 20 <= number <= 41 else
-                        'validation' if 42 <= number <= 48 or number == 56 else
-                        'release' if number in {11, 57, 58} else 'principles')
-            target = soup.find(id=fallback)
-        if target is not None:
-            alias = soup.new_tag('span', attrs={
-                'id': legacy_id, 'class': 'fragment-alias', 'aria-hidden': 'true',
-            })
-            target.insert(0, alias)
-
 
 def diagram(kind):
+    if kind == 'staged':
+        steps = [
+            ('01 · 사실 판독', '설정과 분리한 원문 판독 · 표결 종류 고정'),
+            ('02 · 기준별 해석', '고정된 사실 + 현재 정책 · 중요성·반증'),
+            ('03 · 권고', 'stance·firmness 적용 · 조건·미확인 보존'),
+            ('04 · 원문 QA', '주체·기간·인용·정책·숫자·표결 대조'),
+            ('05 · 실제 MCP 제출', '지문·인용·의존 관계 검사 · 오류 안건 격리'),
+            ('06 · 최종 응답', '찬반·검토 + 처리 상태 · 사람 미검토'),
+        ]
+        svg = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 760" role="img" aria-labelledby="staged-title"><title id="staged-title">단계별 구조 판단과 QA</title><defs><marker id="staged-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 1L8 5L0 9" fill="none" stroke="#53756c" stroke-width="1.5"/></marker></defs><rect width="720" height="760" rx="18" fill="#f0f4ef"/>']
+        for i, (title, sub) in enumerate(steps):
+            y = 22 + i * 114
+            svg.append(f'<g data-stage="{i+1}"><rect x="24" y="{y}" width="672" height="88" rx="12" fill="white" stroke="#acc5b9"/><text x="45" y="{y+34}" font-family="sans-serif" font-size="25" fill="#17372e" font-weight="700">{h(title)}</text><text x="45" y="{y+64}" font-family="sans-serif" font-size="20" fill="#365c50">{h(sub)}</text></g>')
+            if i < len(steps)-1:
+                svg.append(f'<path d="M360 {y+88}V{y+109}" stroke="#53756c" fill="none" marker-end="url(#staged-arrow)"/>')
+        svg.append('<text x="24" y="724" font-family="sans-serif" font-size="17" fill="#365c50">문제가 있는 단계와 그 뒤만 다시 검토 · 실제 투표 전송 없음</text></svg>')
+        return ''.join(svg)
     height = 610 if kind in {'runtime', 'governance'} else 410
-    title = {'runtime': '현재 MCP의 원문·평가·판정 흐름',
+    title = {'runtime': '후보·선출 구조의 MCP 평가 흐름',
              'governance': '공시 발견 → LLM 거버넌스 검토 → 호출자 증분 조회',
              'updates': '자료와 정책의 갱신 경로 — 목표 설계'}[kind]
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 {height}" role="img" aria-labelledby="{kind}-title"><title id="{kind}-title">{title}</title>',
@@ -290,88 +201,13 @@ def render_roadmap(soup):
         svg.append(f'<rect x="{x}" y="68" width="174" height="154" rx="10" fill="{fill}" stroke="{stroke}"{dash}/>'
                    f'<text x="{x+15}" y="102" class="number">{stage["number"]}</text>'
                    f'<text x="{x+15}" y="134" class="status">{h(stage["status"])}</text>'
-                   f'<text x="{x+15}" y="184" class="label">{h(stage["title"])}</text>')
+                   f'<text x="{x+15}" y="174" class="label">' + ''.join(f'<tspan x="{x+15}" dy="{0 if j == 0 else 23}">{h(line)}</tspan>' for j, line in enumerate(textwrap.wrap(stage['title'], width=8, break_long_words=False))) + '</text>')
         if index < len(stages) - 1:
             svg.append(f'<path d="M{x+179} 144h10m-4-4 4 4-4 4" stroke="#597168" fill="none"/>')
     svg.append(f'<text x="28" y="255" class="caption">현재: {h(current["title"])} · 다음: {h(next_stage["title"])} · 상세 상태와 적용 범위는 정본 문서 참조</text></svg>')
     (OUT/'roadmap.svg').write_text(''.join(svg))
 
 
-raw = SOURCE.read_text()
-document_date = re.search(r'^updated: (\d{4}-\d{2}-\d{2})$', raw, re.M).group(1)
-body = re.sub(r'^---\n.*?\n---\n', '', raw, count=1, flags=re.S)
-body = re.sub(r'^\s*# .+\n', '', body, count=1)
-# The authored Mermaid is represented by the offline runtime SVG, no CDN needed.
-body = re.sub(r'```mermaid\n.*?```', '흐름은 앞의 「판정 로직」 도식과 함께 읽는다.', body, flags=re.S)
-# Resolve wiki references against actual repository pages.
-by_stem = {p.stem:p for p in (ROOT/'wiki').rglob('*.md') if p.is_file()}
-def wikilink(m):
-    key=m[1];target=by_stem.get(key.split('/')[-1]);label=key.split('/')[-1]
-    return f'[{label}](../../{target.relative_to(ROOT).as_posix()})' if target else label
-body=re.sub(r'\[\[([^\]]+)\]\]',wikilink,body)
-soup=BeautifulSoup(MarkdownIt('commonmark', {'html':True}).enable('table').render(body),'html.parser')
-# Relative markdown links are based on the canonical page, except resolved wiki links.
-for a in soup.find_all('a',href=True):
-    href=a['href']
-    if href.startswith('../../wiki/'):
-        continue
-    if not urlsplit(href).scheme and not href.startswith('#'):
-        resolved=(SOURCE.parent/unquote(href.split('#')[0])).resolve()
-        if resolved.is_relative_to(ROOT):a['href']='../../'+resolved.relative_to(ROOT).as_posix()
-render_roadmap(soup)
-for quote in soup.find_all('blockquote'):
-    label = quote.find('strong')
-    if label and label.get_text(strip=True) in {'결론 요약', '설계 결론 요약'}:
-        classes = quote.get('class', [])
-        if isinstance(classes, str):
-            classes = classes.split()
-        quote['class'] = [*classes, 'conclusion-summary']
-nav=[]
-headings_by_title = {}
-top_titles = [heading.get_text(' ', strip=True) for heading in soup.find_all('h2')]
-if top_titles != list(SECTIONS):
-    raise ValueError(f'The reading edition requires these sections in order: {list(SECTIONS)}')
-for heading in soup.find_all(['h2', 'h3', 'h4', 'h5', 'h6']):
-    title = heading.get_text(' ', strip=True)
-    headings_by_title.setdefault(title, heading)
-    if heading.name == 'h2':
-        heading['id'], description = SECTIONS[title]
-        nav.append(f'<a href="#{heading["id"]}"><span class="nav-number">{len(nav)+1:02}</span>'
-                   f'<span><strong>{h(title)}</strong><small>{h(description)}</small></span></a>')
-    else:
-        heading['id'] = LEGACY_IDS.get(title, 'detail-' + hashlib.sha256(title.encode()).hexdigest()[:12])
-    if title in ['판정 로직','확장 아키텍처와 운영 계약','기업 발견·분쟁 추적·대량 검토 (0.7.0)']:
-        kind={'판정 로직':'runtime','확장 아키텍처와 운영 계약':'updates','기업 발견·분쟁 추적·대량 검토 (0.7.0)':'governance'}[title]
-        svg=diagram(kind);(OUT/f'{kind}-flow.svg').write_text(svg)
-        figure=BeautifulSoup(f'<figure class="diagram">{svg}<figcaption>{"미구현 목표 설계" if kind=="updates" else "현재 구현 흐름"} · <a href="{kind}-flow.svg">도식 파일 열기</a></figcaption></figure>','html.parser')
-        heading.insert_after(figure)
-preserve_legacy_fragments(soup, headings_by_title)
-fold_document_details(soup)
-for table in soup.find_all('table'):
-    wrapper=soup.new_tag('div',attrs={'class':'table-scroll'});table.wrap(wrapper)
-policy=json.loads(POLICY.read_text())
-(OUT/'policy.json').write_text(json.dumps(policy,ensure_ascii=False,indent=2)+'\n')
-(OUT/'assessment.schema.json').write_text(json.dumps(GuidelineAssessment.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
-(OUT/'workflow.schema.json').write_text(json.dumps(WorkflowSettings.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
-(OUT/'governance.schema.json').write_text(json.dumps(GovernanceAssessment.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
-(OUT/'harness.schema.json').write_text(json.dumps(HarnessRequest.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
-(OUT/'research.schema.json').write_text(json.dumps(ResearchQuery.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
-(OUT/'model-actions.schema.json').write_text(json.dumps(TypeAdapter(ModelAction).json_schema(),ensure_ascii=False,indent=2)+'\n')
-(OUT/'structure-contract.json').write_text(json.dumps({
-    'contract': STRUCTURE_CONTRACT, 'artifact_kind': 'runtime_schema_bundle',
-    'request': StructureRequest.model_json_schema(), 'assessment': StructureAssessment.model_json_schema(),
-    'item_schemas': {k: v.model_json_schema() for k, v in {
-        'facts': StructureFact, 'gaps': StructureGap, 'findings': StructureFinding, 'judgments': StructureJudgment}.items()},
-    'fact_data_schemas': {k: v.model_json_schema() for k, v in DATA_TYPES.items()},
-    'human_reviewed': False}, ensure_ascii=False, indent=2)+'\n')
-manifest={'generated_from':str(SOURCE.relative_to(ROOT)),'source_sha256':hashlib.sha256(raw.encode()).hexdigest(),
-          'policy_version':policy['version'],'policy_file_sha256':hashlib.sha256(POLICY.read_bytes()).hexdigest(),
-          'assessment_contract':'opm-llm-assessment/6','harness_contract':HARNESS_CONTRACT,
-          'research_schema':'research.schema.json','model_actions_schema':'model-actions.schema.json',
-          'structure_runtime_contract':'structure-contract.json',
-          'governance_contract':'1','document_date':document_date,'status':'local_document_export',
-          'verification_note':'Version-separated live MCP pilot evidence is maintained in the canonical verification section. Source-bound acceptance and routing are not an independent accuracy benchmark. All assessments remain human unreviewed; no ballots or scheduled runs.'}
-(OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
 css='''
 :root{--ink:#1c302b;--muted:#597168;--paper:#faf9f4;--line:#dce4dc;--green:#14684e}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:30px}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;line-height:1.85;font-size:16px}.layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1500px;margin:auto}aside{height:100vh;position:sticky;top:0;padding:35px 24px;overflow:auto;border-right:1px solid var(--line)}.brand{font-weight:800;font-size:24px;letter-spacing:-1px}.edition{color:var(--muted);font-size:12px;margin:5px 0 25px}nav a{display:block;color:var(--muted);font-size:13px;text-decoration:none;padding:7px 0;line-height:1.5}nav a:hover{color:var(--green)}main{padding:65px 65px 100px;min-width:0}header{margin-bottom:55px;border-bottom:2px solid var(--ink);padding-bottom:35px}.eyebrow{font-size:12px;letter-spacing:2px;color:var(--green);font-weight:750}h1{font-size:45px;line-height:1.22;letter-spacing:-2px;margin:22px 0}header p{max-width:720px;color:var(--muted)}.tags{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0}.tags span{border:1px solid #bcd3c5;border-radius:4px;padding:4px 10px;font-size:12px}.actions{display:flex;flex-wrap:wrap;gap:10px}.actions a,.actions button{border:1px solid var(--line);background:white;color:var(--green);padding:7px 13px;border-radius:5px;text-decoration:none;font:inherit;font-size:13px;cursor:pointer}h2{font-size:29px;letter-spacing:-1px;margin:64px 0 20px;padding-top:20px;border-top:1px solid var(--line);line-height:1.4}h3{font-size:20px;margin:35px 0 15px}p{margin:15px 0}a{color:var(--green);text-underline-offset:3px}strong{font-weight:750}ul,ol{padding-left:24px}li{margin:8px 0}code{font-family:"SFMono-Regular",Consolas,monospace;font-size:.85em;background:#edf1eb;border-radius:3px;padding:2px 5px;overflow-wrap:anywhere}pre{background:#eaf0e9;border:1px solid var(--line);padding:22px;border-radius:10px;overflow:auto;line-height:1.7}pre code{background:none;padding:0;font-size:13px}.table-scroll{overflow:auto;border:1px solid var(--line);border-radius:9px;margin:24px 0;background:#fff}table{width:100%;border-collapse:collapse;font-size:14px;line-height:1.7}th{text-align:left;background:#eaf0e9;font-weight:750;white-space:normal}th,td{padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top;min-width:140px}tr:last-child td{border:0}td:first-child{font-weight:600;min-width:165px}figure{margin:25px 0}.diagram{overflow:auto}.diagram svg{width:100%;min-width:680px;display:block}.diagram figcaption{font-size:12px;color:var(--muted);margin-top:8px}blockquote{border-left:3px solid var(--green);padding-left:20px;margin-left:0;color:var(--muted)}footer{font-size:12px;color:var(--muted);margin-top:65px;border-top:1px solid var(--line);padding-top:20px;overflow-wrap:anywhere}.skip{position:absolute;left:-9999px}.skip:focus{left:15px;top:15px;background:white;padding:10px;z-index:9}@media(max-width:1100px){main{padding:45px 30px}.layout{grid-template-columns:210px minmax(0,1fr)}aside{padding:25px 18px}}@media(max-width:760px){.layout{display:block}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 24px}nav{display:flex;gap:12px;overflow:auto;white-space:nowrap}nav a{flex:none}.edition{margin:0 0 8px}main{padding:32px 22px}h1{font-size:34px}h2{font-size:25px}table{font-size:13px}.brand{font-size:19px}}@media print{body{background:white;font-size:10pt}.layout{display:block}aside,.actions,.skip{display:none}main{padding:0}header{margin-bottom:20px;padding-bottom:15px}h1{font-size:30pt}h2{font-size:19pt;margin-top:28px;break-after:avoid}h3{break-after:avoid}pre{white-space:pre-wrap}table{font-size:8pt}.table-scroll{overflow:visible}th,td{min-width:0!important;padding:7px;overflow-wrap:anywhere}tr{break-inside:avoid}.diagram svg{min-width:0}figure{break-inside:avoid}a{color:inherit}@page{size:A4;margin:16mm}}
 '''
@@ -442,6 +278,185 @@ reader_script = '''
   });
 })();
 '''
-page=f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OPM guideline v2 · 로드맵, 명세, 설계</title><style>{css}</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · {h(document_date.replace('-', '.'))}</div><nav aria-label="문서 목차">{''.join(nav)}</nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · {h(policy['version'])} · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>판단 원칙부터 검증과 배포까지 다섯 본문으로 보고, Appendix에서 하네싱의 동작과 이유를 확인합니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="harness.schema.json">시점 고정 실행</a><a href="../../wiki/decisions/{SOURCE.name}">문서 원본</a></div></header><div class="document-controls" hidden><button type="button" data-expand="true" aria-controls="document-body">상세 모두 펼치기</button><button type="button" data-expand="false" aria-controls="document-body">상세 모두 접기</button><span id="detail-status" class="controls-status" aria-live="polite">세부 명세와 과거 기록은 필요한 항목만 펼쳐 볼 수 있습니다.</span></div><article id="document-body">{soup}</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: {manifest['source_sha256']}<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div><script>{reader_script}</script></body></html>'''
-(OUT/'index.html').write_text(page)
-print(json.dumps({'output':str(OUT/'index.html'),'sections':len(nav),'policy':policy['version']},ensure_ascii=False))
+
+policy=json.loads(POLICY.read_text())
+(OUT/'policy.json').write_text(json.dumps(policy,ensure_ascii=False,indent=2)+'\n')
+(OUT/'assessment.schema.json').write_text(json.dumps(GuidelineAssessment.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'workflow.schema.json').write_text(json.dumps(WorkflowSettings.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'governance.schema.json').write_text(json.dumps(GovernanceAssessment.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'harness.schema.json').write_text(json.dumps(HarnessRequest.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'research.schema.json').write_text(json.dumps(ResearchQuery.model_json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'model-actions.schema.json').write_text(json.dumps(TypeAdapter(ModelAction).json_schema(),ensure_ascii=False,indent=2)+'\n')
+(OUT/'staged-structure-contract.json').write_text(json.dumps({**work_contract(),
+    'stage_output_schemas': {key: model.model_json_schema() for key, model in STAGES.items()},
+    'semantic_accuracy_certified': False}, ensure_ascii=False, indent=2)+'\n')
+(OUT/'structure-contract.json').write_text(json.dumps({
+    'contract': STRUCTURE_CONTRACT, 'artifact_kind': 'runtime_schema_bundle',
+    'request': StructureRequest.model_json_schema(), 'assessment': StructureAssessment.model_json_schema(),
+    'item_schemas': {k: v.model_json_schema() for k, v in {
+        'facts': StructureFact, 'gaps': StructureGap, 'findings': StructureFinding, 'judgments': StructureJudgment}.items()},
+    'fact_data_schemas': {k: v.model_json_schema() for k, v in DATA_TYPES.items()},
+    'human_reviewed': False}, ensure_ascii=False, indent=2)+'\n')
+
+css += '''
+.document-switch{display:flex;gap:8px;margin:16px 0 24px;flex-wrap:wrap}.document-switch a{padding:8px 12px;border:1px solid var(--line);border-radius:6px;text-decoration:none;font-size:13px;background:white}.document-switch a[aria-current=page]{background:var(--green);color:white;border-color:var(--green)}
+.summary-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}.summary-metrics div{padding:18px;background:#fff;border:1px solid var(--line);border-radius:9px}.summary-metrics strong{display:block;font-size:28px;color:var(--green)}.summary-metrics span{font-size:12px;color:var(--muted)}.archive-banner{border-left:4px solid #b38339;padding:14px 18px;background:#fff4df}.edition-status{font-size:13px;color:var(--muted)}
+@media(max-width:760px){.summary-metrics{grid-template-columns:repeat(2,1fr)}.document-switch{margin:10px 0}nav{white-space:normal}nav a{max-width:170px}}
+'''
+
+
+def relative(path, output):
+    return Path(os.path.relpath(path, output.parent)).as_posix()
+
+
+def report_summary(output):
+    """Use the completed comparison artifact, not another handwritten count table."""
+    report = json.loads((REPORT_DIR / 'report.json').read_text())
+    validation = json.loads((REPORT_DIR / 'validation.json').read_text())
+    if not validation.get('valid'):
+        raise ValueError('The roadmap comparison source must pass its own validation')
+    summary = report['comparison_summary']
+    counts = {'low': {}, 'high': {}}
+    for meeting in report['meetings']:
+        for agenda in meeting['agendas']:
+            for arm in counts:
+                value = agenda.get(arm, {}).get('decision')
+                if value:
+                    counts[arm][value] = counts[arm].get(value, 0) + 1
+    if any(sum(values.values()) != summary['fresh_pairs'] for values in counts.values()):
+        raise ValueError('Roadmap review counts do not match the validated comparison')
+    tiles = [
+        (str(len(report['meetings'])), '실행 회차'),
+        (str(summary['fresh_pairs']), '두 설정 모두 평가한 안건 행'),
+        (str(summary['changed_rows']), '판단이 달랐던 행'),
+        (str(counts['low'].get('REVIEW', 0)) + ' → ' + str(counts['high'].get('REVIEW', 0)), '검토 행 · 0.1 → 0.9'),
+    ]
+    cards = '<div class="summary-metrics">' + ''.join('<div><strong>' + h(value) + '</strong><span>' + h(label) + '</span></div>' for value, label in tiles) + '</div>'
+    labels = [('FOR', '찬성'), ('AGAINST', '반대'), ('REVIEW', '검토'), ('NO_VOTE', '표결 없음·제외')]
+    rows = ''.join(f'<tr><th>{label}</th><td>{counts["low"].get(key, 0)}</td><td>{counts["high"].get(key, 0)}</td></tr>' for key, label in labels)
+    return cards + '<table><thead><tr><th>보고서 판단</th><th>firmness 0.1</th><th>firmness 0.9</th></tr></thead><tbody>' + rows + '</tbody></table>' + '<p><strong>평가 제출 전 MCP 출력은 ' + str(summary['native_compared_rows']) + '행 중 ' + str(summary['native_changed_rows']) + '행의 차이였습니다.</strong> 새 보고서 판단을 제품에 재제출한 결과가 아닙니다. <a href="' + h(relative(REPORT_DIR / 'index.html', output)) + '">전체 비교표와 원문 근거</a></p>'
+
+
+def issue_summary(output):
+    issues = json.loads((REPORT_DIR / 'issues.json').read_text())
+    states = {'fixed': '수정·확인 완료', 'open': '남음'}
+    rows = ''.join('<tr><td>' + h(item['id']) + '</td><td>' + h(states[item['status']]) + '</td><td>' + h(item['title']) + '</td></tr>' for item in issues)
+    return '<table><thead><tr><th>항목</th><th>이행 상태</th><th>구체적 과제</th></tr></thead><tbody>' + rows + '</tbody></table>'
+
+
+def markdown_soup(source, output, *, archive=False):
+    raw = source.read_text()
+    body = re.sub(r'^---\n.*?\n---\n', '', raw, count=1, flags=re.S)
+    body = re.sub(r'^\s*# .+\n', '', body, count=1)
+    for kind in ('runtime', 'governance', 'updates', 'staged'):
+        marker = '<!-- diagram:' + kind + ' -->'
+        if marker in body:
+            svg = diagram(kind)
+            (OUT / (kind + '-flow.svg')).write_text(svg)
+            caption = '현재 후보·선출 구조의 지원 범위. 모든 안건의 공통 제출 경로는 로드맵의 남은 작업이다.' if kind == 'runtime' else '흐름도'
+            body = body.replace(marker, '<figure class="diagram">' + svg + '<figcaption>' + caption + '</figcaption></figure>')
+    body = body.replace('<!-- report:firmness -->', report_summary(output) if '<!-- report:firmness -->' in body else '')
+    body = body.replace('<!-- issues:firmness -->', issue_summary(output) if '<!-- issues:firmness -->' in body else '')
+    # Do not traverse private anecdote/archive symlinks when resolving public wiki pages.
+    public_pages = {p.stem: p for folder in ('decisions', 'tools', 'rules', 'guide') for p in (ROOT / 'wiki' / folder).rglob('*.md')}
+    def wiki(match):
+        key = match[1].split('/')[-1]
+        target = public_pages.get(key)
+        if not target:
+            raise ValueError('Unknown public wiki link: ' + key)
+        return '<a data-resolved="true" href="' + h(relative(target, output)) + '">' + h(key) + '</a>'
+    body = re.sub(r'\[\[([^\]]+)\]\]', wiki, body)
+    soup = BeautifulSoup(MarkdownIt('commonmark', {'html': True}).enable('table').render(body), 'html.parser')
+    origin = SOURCE.parent if archive else source.parent
+    for link in soup.find_all('a', href=True):
+        href = link['href']
+        if link.has_attr('data-resolved'):
+            del link['data-resolved']
+            continue
+        parsed = urlsplit(href)
+        if parsed.scheme or not parsed.path:
+            continue
+        # Injected report blocks are already relative to their exported document.
+        if href == relative(REPORT_DIR / 'index.html', output):
+            continue
+        resolved = (origin / unquote(parsed.path)).resolve()
+        if not resolved.is_relative_to(ROOT):
+            raise ValueError('Public document link leaves repository: ' + href)
+        mapped = {SOURCE: OUT / 'index.html', ROADMAP: OUT / 'roadmap.html', POLICY: OUT / 'policy.json'}.get(resolved, resolved)
+        link['href'] = relative(mapped, output) + ('#' + parsed.fragment if parsed.fragment else '')
+    return soup, raw
+
+
+def render_document(source, output, *, kind):
+    archive = kind == 'archive'
+    soup, raw = markdown_soup(source, output, archive=archive)
+    date_match = re.search(r'^(?:updated|date): (\d{4}-\d{2}-\d{2})$', raw, re.M)
+    date = re.search(r'^updated: (\d{4}-\d{2}-\d{2})$', raw, re.M)
+    date = (date or date_match).group(1)
+    if kind == 'roadmap':
+        render_roadmap(soup)
+    sections = ROADMAP_SECTIONS if kind == 'roadmap' else GUIDELINE_SECTIONS
+    top = [node.get_text(' ', strip=True) for node in soup.find_all('h2')]
+    if not archive and top != list(sections):
+        raise ValueError('Unexpected document sections: ' + str(top))
+    nav = []
+    for index, node in enumerate(soup.find_all(['h2', 'h3', 'h4', 'h5', 'h6'])):
+        title = node.get_text(' ', strip=True)
+        if node.name == 'h2' and title in sections and not archive:
+            node['id'], subtitle = sections[title]
+            nav.append(f'<a href="#{node["id"]}"><span class="nav-number">{len(nav)+1:02}</span><span><strong>{h(title)}</strong><small>{h(subtitle)}</small></span></a>')
+        else:
+            node['id'] = 'detail-' + hashlib.sha256(title.encode()).hexdigest()[:12]
+    # Keep the version attachment visible at the bottom; only technical appendix details fold.
+    if kind == 'guideline':
+        for heading in list(soup.find_all('h3')):
+            title = heading.get_text(' ', strip=True)
+            if not title.startswith(('A. ', 'B. ')):
+                continue
+            detail = soup.new_tag('details', attrs={'class': 'document-detail'})
+            summary = soup.new_tag('summary'); inner = soup.new_tag('div', attrs={'class': 'detail-body'})
+            heading.insert_before(detail); node = heading.next_sibling
+            summary.append(heading.extract()); detail.append(summary)
+            while node is not None:
+                following = node.next_sibling
+                if node.name in ('h2', 'h3'):
+                    break
+                inner.append(node.extract()); node = following
+            detail.append(inner)
+    for table in soup.find_all('table'):
+        table.wrap(soup.new_tag('div', attrs={'class': 'table-scroll'}))
+    titles = {'guideline': ('OPM Guideline v2', '판단 원칙·사용자 설정·근거와 하네스 계약을 읽습니다. 진행 현황과 실행 일지는 분리했습니다.'),
+              'roadmap': ('로드맵 · 이행현황', '완료한 범위, 현재 위치, 배포까지 남은 작업과 검증 결과를 확인합니다.'),
+              'archive': ('문서 분리 직전의 판단 원칙', '2026-09-11 보관본 · 비교·참고용. 현재 가이드라인으로 자동 적용되지 않습니다.')}
+    title, description = titles[kind]
+    switch = '<div class="document-switch" aria-label="문서 선택">' + ''.join('<a href="' + h(relative(OUT / filename, output)) + '"' + (' aria-current="page"' if key == kind else '') + '>' + label + '</a>' for key, filename, label in [('guideline', 'index.html', '가이드라인'), ('roadmap', 'roadmap.html', '로드맵·이행현황')]) + '</div>'
+    banner = '<p class="archive-banner">구버전 참고 문서입니다. <a href="' + h(relative(OUT / 'index.html', output)) + '">현재 가이드라인으로 돌아가기</a></p>' if archive else ''
+    source_hash = hashlib.sha256(raw.encode()).hexdigest()
+    version = json.loads((OUT / 'versions/policy-20260911.json').read_text())['version'] if archive else policy['version']
+    redirects = {}
+    if kind == 'guideline':
+        redirects = json.loads((OUT / 'legacy-fragments.json').read_text())
+    route_script = '(() => {const routes=' + json.dumps(redirects, ensure_ascii=False).replace('<', '\\u003c') + '; function route(){let key;try{key=decodeURIComponent(location.hash.slice(1))}catch{return}if(!key||document.getElementById(key)||!routes[key])return;const target=routes[key];if(target.startsWith("#")){location.hash=target}else{location.replace(target)}}window.addEventListener("hashchange",route);route()})();'
+    output.write_text(f'''<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{h(title)}</title><style>{css}</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">{h(date)} · {h(version)}</div>{switch}<nav aria-label="문서 목차">{''.join(nav)}</nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · ASTRA</div><h1>{h(title)}</h1><p>{h(description)}</p>{banner}<p class="edition-status">{h(version)} · 파일럿 · LLM 평가 · 사람 미검토</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="{h(relative(source, output))}">Markdown 원본</a>{'' if archive else '<a href="policy.json">현재 정책 JSON</a>'}</div></header><div class="document-controls" hidden><button type="button" data-expand="true" aria-controls="document-body">상세 펼치기</button><button type="button" data-expand="false" aria-controls="document-body">상세 접기</button><span id="detail-status" class="controls-status" aria-live="polite"></span></div><article id="document-body">{soup}</article><footer>정본 Markdown에서 생성한 읽기용 문서 · SHA-256 {source_hash}<br>생성: scripts/render_guideline_spec.py · <a href="{h(relative(OUT / 'manifest.json', output))}">생성 명세</a></footer></main></div><script>{route_script}\n{reader_script}</script></body></html>''')
+    return {'source': source.relative_to(ROOT).as_posix(), 'output': output.relative_to(ROOT).as_posix(), 'source_sha256': source_hash, 'sections': len(nav), 'document_date': date}
+
+
+if __name__ == '__main__':
+    documents = [render_document(SOURCE, OUT / 'index.html', kind='guideline'),
+                 render_document(ROADMAP, OUT / 'roadmap.html', kind='roadmap'),
+                 render_document(OUT / 'versions/20260911-principles.md', OUT / 'versions/20260911-principles.html', kind='archive')]
+    manifest = {'generated_from': str(SOURCE.relative_to(ROOT)), 'source_sha256': documents[0]['source_sha256'],
+        'documents': documents, 'policy_version': policy['version'], 'policy_file_sha256': hashlib.sha256(POLICY.read_bytes()).hexdigest(),
+        'assessment_contract': 'opm-llm-assessment/6', 'harness_contract': HARNESS_CONTRACT,
+        'research_schema': 'research.schema.json', 'model_actions_schema': 'model-actions.schema.json',
+        'structure_runtime_contract': 'structure-contract.json', 'governance_contract': '1',
+        'staged_structure_contract': 'staged-structure-contract.json',
+        'structure_ontology_sha256': hashlib.sha256((ROOT / 'open_proxy_mcp/data/guideline/structure-ontology.json').read_bytes()).hexdigest(),
+        'document_date': documents[0]['document_date'], 'status': 'local_document_export',
+        'comparison_source': 'output/firmness-all-samples-20260911/report.json',
+        'comparison_sha256': hashlib.sha256((REPORT_DIR / 'report.json').read_bytes()).hexdigest(),
+        'issues_sha256': hashlib.sha256((REPORT_DIR / 'issues.json').read_bytes()).hexdigest(),
+        'frozen_policy_sha256': hashlib.sha256((OUT / 'versions/policy-20260911.json').read_bytes()).hexdigest(),
+        'verification_note': 'Roadmap records implementation and validation scope. Guideline records current rules. Work logs are not exported. Report-side judgments remain distinct from native MCP application.'}
+    (OUT / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    print(json.dumps({'documents': documents, 'policy_version': policy['version']}, ensure_ascii=False))

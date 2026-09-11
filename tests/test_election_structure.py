@@ -90,15 +90,15 @@ def test_missing_term_skips_schedule_and_retains_other_reasoning():
                      'reviewed_source_ids': [task['sources'][0]['source_id']]}]
     item['judgments'][0]['gap_ids'] = ['g']
     result = module().accept_structure_assessment(task, item)
-    module().apply_structure_results(payload, task, result, {'automation': 'automatic'})
+    module().apply_structure_results(payload, task, result, {'automation': 1})
     first, second = payload['data']['agenda_decisions']
     assert first['decision'] == 'FOR'
     assert first['structure_trace']['skipped_criteria'] == ['ES-03']
     assert second['decision'] == 'AGAINST'
 
 
-@pytest.mark.parametrize('mode,decision,expected', [('automatic','AGAINST','ready_for_auto'),
-    ('selective','AGAINST','manual_review'),('manual','FOR','manual_review')])
+@pytest.mark.parametrize('mode,decision,expected', [(1,'AGAINST','ready_for_auto'),
+    (0.5,'AGAINST','manual_review'),(0,'FOR','manual_review')])
 def test_policy_decision_and_automation_are_independent(mode, decision, expected):
     payload, task = setup_task()
     item = submission(task)
@@ -154,9 +154,48 @@ def test_structure_approval_cannot_certify_an_unassessed_candidate():
     row.update(agenda_category='director_election', decision='REVIEW',
                guideline_trace={'llm_assessment': {'status': 'pending'}})
     result = module().accept_structure_assessment(task, submission(task))
-    module().apply_structure_results(payload, task, result, {'automation': 'automatic'})
+    module().apply_structure_results(payload, task, result, {'automation': 1})
     assert row['decision'] == 'REVIEW'
     assert row['voting_workflow']['status'] != 'ready_for_auto'
+
+
+@pytest.mark.parametrize('category,title', [
+    ('director_election', '사내이사 선임'),
+    ('director_election', '이사 3인 선임'),
+    ('audit_committee_election', '감사위원 선임'),
+])
+def test_structure_approval_preserves_engine_support_when_no_candidate_task_exists(category, title):
+    from open_proxy_mcp.services.guideline_workflow import finalize_workflow
+    payload, task = setup_task()
+    row = payload['data']['agenda_decisions'][0]
+    row.update(agenda_category=category, agenda_title=title, decision='FOR',
+               guideline_trace={'mode': 'pilot', 'status': 'not_applicable'})
+    result = module().accept_structure_assessment(task, submission(task))
+    settings = {'automation': 1, 'stance': .5}
+    module().apply_structure_results(payload, task, result, settings)
+    payload['data']['guideline_application'] = {'mode': 'pilot'}
+    finalize_workflow(payload, settings)
+    assert row['decision'] == 'FOR'
+    assert row['automation_trace']['assessment_recommendation'] == 'FOR'
+    assert row['automation_trace']['fallback_applied'] is False
+
+
+@pytest.mark.parametrize('state', ['pending', 'rejected'])
+def test_structure_approval_does_not_replace_an_existing_unaccepted_candidate_task(state):
+    from open_proxy_mcp.services.guideline_workflow import finalize_workflow
+    payload, task = setup_task()
+    row = payload['data']['agenda_decisions'][0]
+    row.update(agenda_category='director_election', decision='FOR', guideline_trace={
+        'assessment_task': {'task_id': 'outside-candidate'},
+        'llm_assessment': {'status': state}})
+    result = module().accept_structure_assessment(task, submission(task))
+    settings = {'automation': 1, 'stance': .5}
+    module().apply_structure_results(payload, task, result, settings)
+    payload['data']['guideline_application'] = {'mode': 'pilot'}
+    finalize_workflow(payload, settings)
+    assert row['decision'] == 'REVIEW'
+    assert row['voting_workflow']['status'] == ('awaiting_assessment' if state == 'pending' else 'assessment_error')
+    assert 'automation_trace' not in row
 
 
 def test_ocr_uncertain_page_cannot_supply_a_concrete_fact():
@@ -219,7 +258,7 @@ def test_accepted_structure_preserves_existing_contested_routing():
     row.update(agenda_category='director_election', decision='FOR',
         guideline_trace={'llm_assessment': {'status': 'accepted_unreviewed'}},
         agenda_relation_links=[{'type': 'contested'}])
-    module().apply_structure_results(payload, task, module().accept_structure_assessment(task, submission(task)), {'automation': 'automatic'})
+    module().apply_structure_results(payload, task, module().accept_structure_assessment(task, submission(task)), {'automation': 1})
     assert row['voting_workflow']['status'] == 'manual_review'
 
 
@@ -257,6 +296,20 @@ def test_partial_structure_is_returned_to_runner_for_local_repair():
     item=submission(task)
     item['out_of_scope_agenda_ids']=[task['agendas'][1]['agenda_id']]
     assert module().accept_structure_assessment(task,item)['completion_status'] == 'complete'
+
+
+@pytest.mark.parametrize('all_out_of_scope', [True, False])
+def test_scope_only_submission_completes_only_when_every_agenda_is_accounted_for(all_out_of_scope):
+    _, task = setup_task()
+    item = {'task_id': task['task_id'], 'evaluator': 'test-model',
+            'facts': [], 'gaps': [], 'findings': [], 'judgments': [],
+            'out_of_scope_agenda_ids': [a['agenda_id'] for a in task['agendas']]}
+    if not all_out_of_scope:
+        item['out_of_scope_agenda_ids'].pop()
+    result = module().accept_structure_assessment(task, item)
+    assert result['status'] == ('scope_complete' if all_out_of_scope else 'pending')
+    assert result['completion_status'] == ('complete' if all_out_of_scope else 'partial')
+    assert result['judgments'] == [] and result['human_reviewed'] is False
 
 
 def test_native_html_can_be_cited_when_another_image_page_is_uncertain():
@@ -298,7 +351,7 @@ def test_manual_id_selection_applies_even_without_structure_submission():
     row = payload['data']['agenda_decisions'][1]
     row['voting_workflow'] = {'status':'ready_for_auto','recommendation':'AGAINST'}
     result = module().accept_structure_assessment(task,None)
-    module().apply_structure_results(payload,task,result,{'automation':'automatic','manual_agenda_ids':[row['agenda_id']]})
+    module().apply_structure_results(payload,task,result,{'automation':0.75,'manual_agenda_ids':[row['agenda_id']]})
     assert row['voting_workflow']['status']=='manual_review'
     assert row['decision']=='AGAINST'
 
@@ -307,7 +360,7 @@ def test_manual_id_selection_applies_even_without_structure_submission():
 def test_posture_requires_source_bound_gap_impact(posture, impact, allowed):
     payload, old = setup_task()
     task = module().build_structure_task(payload, sources=old['sources'], binding=old['execution_context'],
-        policy={**old['policy'], 'workflow_settings': {'decision_posture': posture}})
+        policy={**old['policy'], 'workflow_settings': {'firmness': posture}})
     item = submission(task)
     item['gaps'] = [{'gap_id':'g','agenda_ids':[task['agendas'][0]['agenda_id']], 'criterion_id':'ES-03',
         'kind':'not_read','disposition':'unassessed_scope','question':'추가 과거 임기 명단 미독',
@@ -317,15 +370,15 @@ def test_posture_requires_source_bound_gap_impact(posture, impact, allowed):
     result = module().accept_structure_assessment(task, item)
     assert bool(result['judgments']) is allowed
     if allowed:
-        module().apply_structure_results(payload,task,result,{'decision_posture':posture,'automation':'manual'})
+        module().apply_structure_results(payload,task,result,{'firmness':posture,'automation':0})
         assert payload['data']['agenda_decisions'][0]['structure_trace']['gaps'][0]['decision_impact'] == impact
         assert '미확인' in payload['data']['agenda_decisions'][0]['reason']
 
 
 def test_posture_changes_task_and_keeps_absence_of_basis_blocked():
     p,t=setup_task()
-    low=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':0}})
-    high=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':1}})
+    low=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'firmness':0}})
+    high=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'firmness':1}})
     assert low['task_id'] != high['task_id']
     assert high['decision_guidance']['value'] == 1
     item=submission(high);item['judgments'][0]['finding_ids']=[]
@@ -334,7 +387,7 @@ def test_posture_changes_task_and_keeps_absence_of_basis_blocked():
 @pytest.mark.parametrize('mutation', ['no_explanation','no_facts','wrong_scope','material_conflict'])
 def test_high_posture_cannot_bypass_impact_validation(mutation):
     p,t=setup_task()
-    task=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':1}})
+    task=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'firmness':1}})
     item=submission(task); aid=task['agendas'][0]['agenda_id']
     gap={'gap_id':'g','agenda_ids':[aid],'criterion_id':'ES-03','kind':'conflicting_evidence',
          'disposition':'unassessed_scope','question':'자료 상충','reviewed_source_ids':[task['sources'][0]['source_id']],
@@ -363,7 +416,74 @@ def test_charter_maximum_is_not_a_required_total():
     (1,'limited',None,False),(1,'material','상충 미해소',False),(1,'unknown','효과 미확정',False)])
 def test_posture_only_tolerates_explained_limited_mixed_effect(posture,materiality,explanation,allowed):
     p,t=setup_task()
-    t=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'decision_posture':posture}})
+    t=module().build_structure_task(p,sources=t['sources'],binding=t['execution_context'],policy={'workflow_settings':{'firmness':posture}})
     item=submission(t);item['findings'][0].update(effect='mixed',materiality=materiality)
     item['judgments'][0]['uncertainty_rationale']=explanation
     assert bool(module().accept_structure_assessment(t,item)['judgments']) is allowed
+
+
+def test_common_facts_support_separate_agenda_effects_without_spreading_adversity():
+    _, t = setup_task(); item = submission(t)
+    a, b = [r['agenda_id'] for r in t['agendas']]
+    item['facts'][0]['agenda_ids'] = [a, b]
+    item['facts'].append({**deepcopy(item['facts'][0]), 'fact_id': 'only-a', 'agenda_ids': [a]})
+    item['findings'][0].update(fact_ids=['term', 'only-a'], effect='adverse', materiality='material')
+    item['findings'].append({**deepcopy(item['findings'][0]), 'finding_id': 'b-effect', 'agenda_ids': [b],
+                             'fact_ids': ['term'], 'effect': 'neutral', 'materiality': 'limited'})
+    item['judgments'][0]['recommendation'] = 'AGAINST'
+    item['judgments'].append({**deepcopy(item['judgments'][0]), 'agenda_id': b,
+                              'finding_ids': ['b-effect'], 'recommendation': 'FOR'})
+    result = module().accept_structure_assessment(t, item)
+    assert [j['recommendation'] for j in result['judgments']] == ['AGAINST', 'FOR']
+    # A-only facts cannot become the basis of B, even in a shared finding.
+    item['findings'][1]['fact_ids'].append('only-a')
+    result = module().accept_structure_assessment(t, item)
+    assert [j['agenda_id'] for j in result['judgments']] == [a]
+
+
+def partial_check(t):
+    item = submission(t)
+    item['gaps'] = [{'gap_id': 'future', 'agenda_ids': [t['agendas'][0]['agenda_id']],
+        'criterion_id': 'ES-02', 'check_id': 'individual_terms',
+        'kind': 'not_disclosed_in_reviewed_sources', 'disposition': 'skip_check',
+        'question': '미래 후보별 임기가 미기재', 'reviewed_source_ids': [t['sources'][0]['source_id']],
+        'decision_impact': 'limited', 'impact_rationale': '조항의 상한과 결정권자는 원문으로 확인된다.',
+        'impact_fact_ids': ['term']}]
+    item['findings'][0].update(check_id='term_cap', scope_rationale='상한과 결정권자는 미래의 실제 임기와 별개로 평가한다.', gap_ids=['future'])
+    item['judgments'][0].update(gap_ids=['future'], uncertainty_rationale='실제 임기는 판단에서 제외하고 확인된 조항만 평가한다.')
+    return item
+
+
+def test_undisclosed_subquestion_does_not_discard_known_clause_or_imply_it_was_assessed():
+    p, t = setup_task(); item = partial_check(t)
+    result = module().accept_structure_assessment(t, item)
+    assert result['judgments'][0]['recommendation'] == 'FOR'
+    module().apply_structure_results(p, t, result, {'automation': .5})
+    trace = p['data']['agenda_decisions'][0]['structure_trace']
+    assert trace['skipped_criteria'] == []
+    assert trace['skipped_checks'][0]['check_id'] == 'individual_terms'
+    assert trace['human_reviewed'] is False
+
+
+@pytest.mark.parametrize('mutation', ['same_check', 'no_scope', 'no_gap_link', 'unread', 'material',
+                                      'unknown', 'no_check', 'skip_all', 'cross_agenda_gap'])
+def test_partial_omission_cannot_launder_an_unassessed_or_unrelated_claim(mutation):
+    _, t = setup_task(); item = partial_check(t)
+    f, g = item['findings'][0], item['gaps'][0]
+    if mutation == 'same_check': f['check_id'] = g['check_id']
+    if mutation == 'no_scope': f['scope_rationale'] = ' '
+    if mutation == 'no_gap_link': f['gap_ids'] = []
+    if mutation == 'unread': g['kind'] = 'not_read'
+    if mutation in {'material', 'unknown'}: g['decision_impact'] = mutation
+    if mutation == 'no_check': g.pop('check_id')
+    if mutation == 'skip_all': g['disposition'] = 'skip_criterion'
+    if mutation == 'cross_agenda_gap': g['agenda_ids'] = [t['agendas'][1]['agenda_id']]
+    assert not module().accept_structure_assessment(t, item)['judgments']
+
+
+def test_structure_contract_exposes_single_agenda_and_partial_check_requirements():
+    _, t = setup_task()
+    assert t['contract_version'] == 'opm-election-structure/3'
+    for kind in ('gaps', 'findings'):
+        assert t['item_schemas'][kind]['properties']['agenda_ids']['maxItems'] == 1
+    assert 'skip_check' in t['validation_guidance']['partial_information']

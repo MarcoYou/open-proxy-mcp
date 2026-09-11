@@ -151,10 +151,11 @@ def test_candidate_citations_obey_visual_uncertainty_too():
     assert recommendation(task,data)[0]['status']=='rejected'
 
 
-def test_candidate_posture_changes_guidance_and_invalidates_prior_assessment():
+@pytest.mark.parametrize('setting,guidance', [('firmness','decision_guidance'), ('stance','stance_guidance'), ('automation','automation_guidance')])
+def test_candidate_preferences_change_guidance_and_invalidate_prior_assessment(setting, guidance):
     from open_proxy_mcp.services.guideline_workflow import apply_workflow_policy
-    low=packet(policy=apply_workflow_policy(load_pilot_guideline_policy(), {'decision_posture':0}))
-    high=packet(policy=apply_workflow_policy(load_pilot_guideline_policy(), {'decision_posture':1}))
-    assert high['decision_guidance']['value']==1
+    low=packet(policy=apply_workflow_policy(load_pilot_guideline_policy(), {setting:0}))
+    high=packet(policy=apply_workflow_policy(load_pilot_guideline_policy(), {setting:1}))
+    assert high[guidance]['value']==1
     assert low['task_id']!=high['task_id']
     assert accept_assessment(high,GuidelineAssessment.model_validate(submission(low)))['status']=='rejected'

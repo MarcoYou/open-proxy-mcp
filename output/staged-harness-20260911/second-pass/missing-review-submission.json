@@ -1,0 +1,272 @@
+{
+  "task_id": "2c740ef7b2877ba3c798e01404069c678a83828080753bed43551ee332431218",
+  "evaluator": "Astra/Codex-desktop",
+  "facts": [
+    {
+      "fact_id": "cap",
+      "kind": "clause_change",
+      "agenda_ids": [
+        "agenda:45d646003736a33e890f"
+      ],
+      "description": "정관상 상한을 12명에서 8명으로 변경하는 제안이며 실제 선출 인원과 구분한다.",
+      "evidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "이 회사의 이사는 3인 이상 12인 이내로 하고 사외이사는 이사총수의 4분의 1 이상으로 한다."
+        },
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다."
+        }
+      ],
+      "data": {
+        "before_type": "maximum",
+        "after_type": "maximum",
+        "before_value": 12,
+        "after_value": 8,
+        "unit": "persons",
+        "role": "director",
+        "authority": "주주총회",
+        "incumbent_effect": "unknown"
+      }
+    },
+    {
+      "fact_id": "size-policy",
+      "kind": "context",
+      "agenda_ids": [
+        "agenda:45d646003736a33e890f"
+      ],
+      "description": "독립이사 과반수 및 사외이사 4명에서 5명 확대는 회사의 계획이며 달성 사실을 뜻하지 않는다.",
+      "evidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다."
+        },
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "이와 병행하여 사외이사 수를 기존 4명에서 5명으로 확대하여 사외이사의 비중을 높임으로써, 이사회의 독립성과 감시 기능을 더욱 강화하고자 합니다."
+        }
+      ],
+      "data": {
+        "statement": "과반수 독립이사 및 사외이사 확대 제안",
+        "status": "proposed"
+      }
+    },
+    {
+      "fact_id": "size-timing",
+      "kind": "charter_event",
+      "agenda_ids": [
+        "agenda:45d646003736a33e890f"
+      ],
+      "description": "제29조 개정의 별도 시행시점을 부칙과 연결한 제안 이력이다.",
+      "evidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "제9-2조(독립이사에 관한 경과조치) 제29조, 제30조의2, 제34조의3, 제39조의2, 제41의2 (제4항, 제5항, 제9항 제외) 개정규정은 2026년 7월 23일부터 시행한다."
+        }
+      ],
+      "data": {
+        "event_kind": "proposal",
+        "clause_ids": [
+          "제29조"
+        ],
+        "event_date": null,
+        "effective_date": "2026-07-23",
+        "target_event_id": null,
+        "outcome": "unknown",
+        "text_scope": "amendment_only",
+        "meaning": "해당 부칙 문언에 따른 장래 시행 제안. 현재 유효 정관 인증은 아니다.",
+        "conditions": [
+          "정관 개정안 의결 전 제안 상태"
+        ]
+      }
+    },
+    {
+      "fact_id": "cv-change",
+      "kind": "clause_change",
+      "agenda_ids": [
+        "agenda:c84e18e62e266baeb999"
+      ],
+      "description": "집중투표로 선임하지 않는다는 배제 문구의 삭제 제안이다.",
+      "evidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "제30조 (이사의 선임) ① ② (생 략) ③ 이 회사는 집중투표의 방법으로 이사를 선임하지 아니한다 . 제30조 (이사의 선임) ① ② (현행과 같음)③ 삭제"
+        }
+      ],
+      "data": {
+        "before_type": "other",
+        "after_type": "other",
+        "before_value": null,
+        "after_value": null,
+        "unit": "text",
+        "role": "director",
+        "authority": "주주총회",
+        "incumbent_effect": "does_not_apply"
+      }
+    },
+    {
+      "fact_id": "cv-timing",
+      "kind": "charter_event",
+      "agenda_ids": [
+        "agenda:c84e18e62e266baeb999"
+      ],
+      "description": "집중투표 개정은 장래 최초 소집부터 적용한다는 제안이다. 이번 주총 결과나 현재 행사 가능성을 단정하지 않는다.",
+      "evidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "제9-3조(집중투표에 관한 적용례) 제30조 개정규정은 2026년 9월 10일 이후 최초로 이사의 선임을 위한 주주총회 소집이 있는 경우부터 적용한다."
+        }
+      ],
+      "data": {
+        "event_kind": "proposal",
+        "clause_ids": [
+          "제30조"
+        ],
+        "event_date": null,
+        "effective_date": "2026-09-10",
+        "target_event_id": null,
+        "outcome": "unknown",
+        "text_scope": "amendment_only",
+        "meaning": "9월 10일 이후 최초의 이사 선임 주총 소집부터 적용하는 제안",
+        "conditions": [
+          "정관 개정안 가결을 가정한 장래 규정",
+          "2026-09-10 이후 최초 이사 선임 주총 소집"
+        ]
+      }
+    },
+    {
+      "fact_id": "scope-size",
+      "kind": "ballot_scope",
+      "agenda_ids": [
+        "agenda:45d646003736a33e890f"
+      ],
+      "description": "별도로 구분 상정한 개별 정관 변경 표결이다.",
+      "evidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "제2-4호 의안: 이사의 수- 제2-5호 의안: 집중투표 배제 금지"
+        }
+      ],
+      "data": {
+        "row_kind": "ballot",
+        "scope_rationale": "소집공고의 제2-4호/제2-5호 개별 구분 상정",
+        "parent_agenda_id": "agenda:cd38011338bb79ecd007"
+      }
+    },
+    {
+      "fact_id": "scope-cv",
+      "kind": "ballot_scope",
+      "agenda_ids": [
+        "agenda:c84e18e62e266baeb999"
+      ],
+      "description": "별도로 구분 상정한 개별 정관 변경 표결이다.",
+      "evidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "제2-4호 의안: 이사의 수- 제2-5호 의안: 집중투표 배제 금지"
+        }
+      ],
+      "data": {
+        "row_kind": "ballot",
+        "scope_rationale": "소집공고의 제2-4호/제2-5호 개별 구분 상정",
+        "parent_agenda_id": "agenda:cd38011338bb79ecd007"
+      }
+    }
+  ],
+  "gaps": [
+    {
+      "gap_id": "size-composition",
+      "agenda_ids": [
+        "agenda:45d646003736a33e890f"
+      ],
+      "criterion_id": "ES-01",
+      "check_id": null,
+      "kind": "not_read",
+      "disposition": "unassessed_scope",
+      "question": "시행 시점의 계속 재직자·퇴임자·신규 선임과 위원회 업무 배분을 이 부분 검증에서 끝까지 대조하지 않았다. 미공개로 단정하지 않는다.",
+      "reviewed_source_ids": [
+        "filing:20260312001098"
+      ],
+      "decision_impact": "unknown",
+      "impact_rationale": null,
+      "impact_fact_ids": []
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "size-effect",
+      "criterion_id": "ES-01",
+      "agenda_ids": [
+        "agenda:45d646003736a33e890f"
+      ],
+      "check_id": null,
+      "scope_rationale": null,
+      "fact_ids": [
+        "cap",
+        "size-policy",
+        "size-timing"
+      ],
+      "effect": "mixed",
+      "materiality": "unknown",
+      "rationale": "상한 축소만으로 위반을 뜻하지 않고 독립이사 비중 확대 계획도 있다. 그러나 별도 시행시점의 실제 구성과 업무량을 아직 대조하지 못해 ES-01 중대한 불리함 여부는 미결이다.",
+      "counterevidence_refs": [
+        {
+          "source_id": "filing:20260312001098",
+          "quote": "이와 병행하여 사외이사 수를 기존 4명에서 5명으로 확대하여 사외이사의 비중을 높임으로써, 이사회의 독립성과 감시 기능을 더욱 강화하고자 합니다."
+        }
+      ],
+      "gap_ids": [
+        "size-composition"
+      ]
+    },
+    {
+      "finding_id": "cv-effect",
+      "criterion_id": "ES-05",
+      "agenda_ids": [
+        "agenda:c84e18e62e266baeb999"
+      ],
+      "check_id": null,
+      "scope_rationale": null,
+      "fact_ids": [
+        "cv-change",
+        "cv-timing"
+      ],
+      "effect": "beneficial",
+      "materiality": "limited",
+      "rationale": "배제 문구 삭제는 장래 집중투표 접근을 여는 방향이다. ES-05의 중대한 접근 제한 근거는 이 조문에서 확인하지 못했다. 이번 주총에서 이미 행사 가능하다는 뜻은 아니다.",
+      "counterevidence_refs": [],
+      "gap_ids": []
+    }
+  ],
+  "judgments": [
+    {
+      "agenda_id": "agenda:45d646003736a33e890f",
+      "finding_ids": [
+        "size-effect"
+      ],
+      "gap_ids": [
+        "size-composition"
+      ],
+      "recommendation": "REVIEW",
+      "rationale": "상한 8명 자체를 위반으로 보지 않는다. 별도 시행시점의 실제 구성·위원회 업무 영향 대조가 남아 이 범위는 검토한다.",
+      "condition_id": null,
+      "exception_evidence_refs": [],
+      "uncertainty_rationale": null
+    },
+    {
+      "agenda_id": "agenda:c84e18e62e266baeb999",
+      "finding_ids": [
+        "cv-effect"
+      ],
+      "gap_ids": [],
+      "recommendation": "FOR",
+      "rationale": "집중투표 배제 문구를 삭제하는 제안에 찬성한다. 2026년 9월 10일 이후 최초 소집부터 적용한다는 조건을 보존하며 이번 회차의 행사 가능성을 확정하지 않는다.",
+      "condition_id": null,
+      "exception_evidence_refs": [],
+      "uncertainty_rationale": null
+    }
+  ],
+  "reviews": [],
+  "out_of_scope_agenda_ids": []
+}

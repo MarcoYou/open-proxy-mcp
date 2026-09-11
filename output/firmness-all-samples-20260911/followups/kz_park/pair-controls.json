@@ -1,0 +1,40 @@
+{
+  "status": "matched",
+  "release_ready": true,
+  "checks": {
+    "packet_ids_valid": true,
+    "source_hashes_valid": true,
+    "source_hash_equal": true,
+    "agendas_equal": true,
+    "execution_context_equal": true,
+    "meeting_equal": true,
+    "settings_except_firmness_equal": true,
+    "firmness_values_correct": true,
+    "policy_except_firmness_equal": true,
+    "general_policy_equal": true,
+    "instructions_equal": true,
+    "reading_limits_equal": true
+  },
+  "packet_ids": {
+    "0.1": "67246a4edbc4eaa285a547ec08bcebd8ea5cb4ace6f83cb4cece6179748eb1f0",
+    "0.9": "372f915601e9b647d0404c2130c94c3d12904ef47a44011f6b83a3d6bf52dea9"
+  },
+  "source_hashes": {
+    "0.1": "7f0344454edf7804eb9e095fea4a681440c14025b33fd936440d21395148af66",
+    "0.9": "7f0344454edf7804eb9e095fea4a681440c14025b33fd936440d21395148af66"
+  },
+  "excluded_execution_fields": [
+    "expected_policy_sha256",
+    "expected_run_id",
+    "policy_sha256",
+    "run_id"
+  ],
+  "identical_except_firmness_and_packet_bindings": true,
+  "actual_mcp_calls": 2,
+  "original_files_sha256": {
+    "packets/kz_agm-0.1.json": "3cffa9ba75c18d8ec444dc75f21f18872d91db15c8024756d4c28275dd9551a1",
+    "records/kz_agm-0.1.json": "45b8842c9162a0c06990c6c11da3bd746fd91ec815c1818e299025b3d2eb5c6c",
+    "packets/kz_agm-0.9.json": "9b0c9309fd2e85ee220f9f55cd9b5441ccca19378b73f4282af5e57216a1181c",
+    "records/kz_agm-0.9.json": "9af01524492ab76cd70c027a1623ff84576aceaa2a3332eb73e5ebcc43589943"
+  }
+}

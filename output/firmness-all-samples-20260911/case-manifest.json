@@ -1,0 +1,110 @@
+[
+  {
+    "id": "gabia",
+    "company": "가비아",
+    "corp_code": "00506294",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-26",
+    "notice_rcept_no": "20260311004404",
+    "cutoff_at": "2026-03-26T00:00:00+09:00"
+  },
+  {
+    "id": "golfzon",
+    "company": "골프존홀딩스",
+    "corp_code": "00674498",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-27",
+    "notice_rcept_no": "20260312001403",
+    "cutoff_at": "2026-03-27T00:00:00+09:00"
+  },
+  {
+    "id": "taekwang",
+    "company": "태광산업",
+    "corp_code": "00153393",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-31",
+    "notice_rcept_no": "20260313001279",
+    "cutoff_at": "2026-03-31T00:00:00+09:00"
+  },
+  {
+    "id": "youngpoong",
+    "company": "영풍",
+    "corp_code": "00141307",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-25",
+    "notice_rcept_no": "20260310003081",
+    "cutoff_at": "2026-03-25T00:00:00+09:00"
+  },
+  {
+    "id": "kz_agm",
+    "company": "고려아연",
+    "corp_code": "00102858",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-24",
+    "notice_rcept_no": "20260305001616",
+    "cutoff_at": "2026-03-24T00:00:00+09:00"
+  },
+  {
+    "id": "kz_egm",
+    "company": "고려아연",
+    "corp_code": "00102858",
+    "meeting_type": "extraordinary",
+    "meeting_date": "2026-09-09",
+    "notice_rcept_no": "20260811000705",
+    "cutoff_at": "2026-09-09T00:00:00+09:00"
+  },
+  {
+    "id": "youngone",
+    "company": "영원무역",
+    "corp_code": "00776820",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-27",
+    "notice_rcept_no": "20260312001098",
+    "cutoff_at": "2026-03-27T00:00:00+09:00"
+  },
+  {
+    "id": "lgchem",
+    "company": "LG화학",
+    "corp_code": "00356361",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-31",
+    "notice_rcept_no": "20260224004273",
+    "cutoff_at": "2026-03-31T00:00:00+09:00"
+  },
+  {
+    "id": "samsung",
+    "company": "삼성전자",
+    "corp_code": "00126380",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-18",
+    "notice_rcept_no": "20260312000987",
+    "cutoff_at": "2026-03-18T00:00:00+09:00"
+  },
+  {
+    "id": "ktg",
+    "company": "KT&G",
+    "corp_code": "00244455",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-26",
+    "notice_rcept_no": "20260225005779",
+    "cutoff_at": "2026-03-26T00:00:00+09:00"
+  },
+  {
+    "id": "skhynix",
+    "company": "SK하이닉스",
+    "corp_code": "00164779",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-25",
+    "notice_rcept_no": "20260305001231",
+    "cutoff_at": "2026-03-25T00:00:00+09:00"
+  },
+  {
+    "id": "kakao",
+    "company": "카카오",
+    "corp_code": "00258801",
+    "meeting_type": "annual",
+    "meeting_date": "2026-03-26",
+    "notice_rcept_no": "20260311004482",
+    "cutoff_at": "2026-03-26T00:00:00+09:00"
+  }
+]

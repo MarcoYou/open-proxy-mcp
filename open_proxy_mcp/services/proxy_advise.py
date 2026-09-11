@@ -3555,16 +3555,20 @@ async def build_proxy_advise_payload(
         harness = kwargs.pop("guideline_harness", None)
         if harness is not None:
             from open_proxy_mcp.services.guideline_harness import run_harness
-            return await run_harness(company_query, harness,
-                                     {**kwargs, "_gate_holder": gate_holder},
-                                     _build_proxy_advise_payload)
+            from open_proxy_mcp.services.guideline_workflow import finalize_workflow
+            payload = await run_harness(company_query, harness,
+                                       {**kwargs, "_gate_holder": gate_holder},
+                                       _build_proxy_advise_payload)
+            return finalize_workflow(payload, kwargs.get('guideline_workflow'))
         if kwargs.pop("guideline_research", None) is not None:
             from open_proxy_mcp.services.guideline_harness import _error
             return _error("research_requires_harness")
         if kwargs.pop('guideline_structure', None) is not None:
             from open_proxy_mcp.services.guideline_harness import _error
             return _error('research_requires_harness')
-        return await _build_proxy_advise_payload(company_query, _gate_holder=gate_holder, **kwargs)
+        from open_proxy_mcp.services.guideline_workflow import finalize_workflow
+        payload = await _build_proxy_advise_payload(company_query, _gate_holder=gate_holder, **kwargs)
+        return finalize_workflow(payload, kwargs.get('guideline_workflow'))
     finally:
         tokens = gate_holder.get("tokens")
         if tokens is not None:

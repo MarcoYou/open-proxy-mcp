@@ -1,0 +1,314 @@
+{
+  "scope": "two_structure_agendas_only",
+  "run_id": "6b53e517e7677b74246b5bd34d7fd9ca9cd6ef74b145e94d022bb32f94d4b1a9",
+  "engine_bundle_sha256": "a603c57b846a8d49bdba33db2bf95a7973da0b380fac4d94c26e0870e2113cb3",
+  "policy_sha256": "90838f13fe223f937bebb800017156f9305c4225b6c594d38489b09e5ccfd51e",
+  "cutoff_at": "2026-03-27T00:00:00+09:00",
+  "runs": [
+    {
+      "mode": "valid",
+      "label": "정상 제출",
+      "accepted_judgments": 2,
+      "rejected": [],
+      "completion_status": "partial",
+      "rows": [
+        {
+          "agenda_id": "agenda:45d646003736a33e890f",
+          "agenda_title": "이사의 수",
+          "decision": "REVIEW",
+          "reason": "상한 8명 자체를 위반으로 보지 않는다. 별도 시행시점의 실제 구성·위원회 업무 영향 대조가 남아 이 범위는 검토한다. / 미확인 범위: 시행 시점의 계속 재직자·퇴임자·신규 선임과 위원회 업무 배분을 이 부분 검증에서 끝까지 대조하지 않았다. 미공개로 단정하지 않는다.",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "선택한 자동화 수준에 따라 미결·반대 또는 실행 제약을 사람이 검토합니다.",
+            "recommendation": "REVIEW",
+            "execution_constraints": [],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": "REVIEW"
+        },
+        {
+          "agenda_id": "agenda:c84e18e62e266baeb999",
+          "agenda_title": "집중투표 배제 금지",
+          "decision": "FOR",
+          "reason": "집중투표 배제 문구를 삭제하는 제안에 찬성한다. 2026년 9월 10일 이후 최초 소집부터 적용한다는 조건을 보존하며 이번 회차의 행사 가능성을 확정하지 않는다.",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "선택한 자동화 수준에 따라 미결·반대 또는 실행 제약을 사람이 검토합니다.",
+            "recommendation": "FOR",
+            "execution_constraints": [
+              "law_layer"
+            ],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": "FOR"
+        }
+      ],
+      "human_reviewed": false,
+      "ballots_submitted": 0
+    },
+    {
+      "mode": "stale",
+      "label": "QA 후 판단 변경 주입",
+      "accepted_judgments": 1,
+      "rejected": [
+        {
+          "item_id": "agenda:45d646003736a33e890f",
+          "code": "stale_review_basis"
+        }
+      ],
+      "completion_status": "partial",
+      "rows": [
+        {
+          "agenda_id": "agenda:45d646003736a33e890f",
+          "agenda_title": "이사의 수",
+          "decision": "REVIEW",
+          "reason": "정관변경 — 조문 본문 위험 신호: 이사 정원 상한 축소 (12인 → 8인) (원문 확인 권장)\n\n📄 해당 정관 조문 원문:\n[의안 (이사의 수)]\n  변경 전: 제29조 (이사의 수) ① 이 회사의 이사는 3인 이상 12인 이내로 하고 사외이사는 이사총수의 4분의 1 이상으로 한다. ② (생 략) ③ (생 략)\n  변경 후: 제29조 (이사의 수) ① 이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다. ② (현행과 같음) ③ (제2-2호 구분 상정)\n  사유: 이사회 구성 변경",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "평가 입력 오류를 수정해 재제출해야 합니다. 기본 정책으로 평가 오류를 숨기지 않습니다.",
+            "recommendation": "REVIEW",
+            "execution_constraints": [],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": null
+        },
+        {
+          "agenda_id": "agenda:c84e18e62e266baeb999",
+          "agenda_title": "집중투표 배제 금지",
+          "decision": "FOR",
+          "reason": "집중투표 배제 문구를 삭제하는 제안에 찬성한다. 2026년 9월 10일 이후 최초 소집부터 적용한다는 조건을 보존하며 이번 회차의 행사 가능성을 확정하지 않는다.",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "선택한 자동화 수준에 따라 미결·반대 또는 실행 제약을 사람이 검토합니다.",
+            "recommendation": "FOR",
+            "execution_constraints": [
+              "law_layer"
+            ],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": "FOR"
+        }
+      ],
+      "human_reviewed": false,
+      "ballots_submitted": 0
+    },
+    {
+      "mode": "challenge",
+      "label": "한 안건의 QA 문제 주입",
+      "accepted_judgments": 1,
+      "rejected": [
+        {
+          "item_id": "agenda:45d646003736a33e890f",
+          "code": "unresolved_semantic_challenge"
+        }
+      ],
+      "completion_status": "partial",
+      "rows": [
+        {
+          "agenda_id": "agenda:45d646003736a33e890f",
+          "agenda_title": "이사의 수",
+          "decision": "REVIEW",
+          "reason": "정관변경 — 조문 본문 위험 신호: 이사 정원 상한 축소 (12인 → 8인) (원문 확인 권장)\n\n📄 해당 정관 조문 원문:\n[의안 (이사의 수)]\n  변경 전: 제29조 (이사의 수) ① 이 회사의 이사는 3인 이상 12인 이내로 하고 사외이사는 이사총수의 4분의 1 이상으로 한다. ② (생 략) ③ (생 략)\n  변경 후: 제29조 (이사의 수) ① 이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다. ② (현행과 같음) ③ (제2-2호 구분 상정)\n  사유: 이사회 구성 변경",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "평가 입력 오류를 수정해 재제출해야 합니다. 기본 정책으로 평가 오류를 숨기지 않습니다.",
+            "recommendation": "REVIEW",
+            "execution_constraints": [],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": null
+        },
+        {
+          "agenda_id": "agenda:c84e18e62e266baeb999",
+          "agenda_title": "집중투표 배제 금지",
+          "decision": "FOR",
+          "reason": "집중투표 배제 문구를 삭제하는 제안에 찬성한다. 2026년 9월 10일 이후 최초 소집부터 적용한다는 조건을 보존하며 이번 회차의 행사 가능성을 확정하지 않는다.",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "선택한 자동화 수준에 따라 미결·반대 또는 실행 제약을 사람이 검토합니다.",
+            "recommendation": "FOR",
+            "execution_constraints": [
+              "law_layer"
+            ],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": "FOR"
+        }
+      ],
+      "human_reviewed": false,
+      "ballots_submitted": 0
+    },
+    {
+      "mode": "missing-review",
+      "label": "QA 누락 주입",
+      "accepted_judgments": 0,
+      "rejected": [
+        {
+          "item_id": "agenda:45d646003736a33e890f",
+          "code": "missing_or_duplicate_review"
+        },
+        {
+          "item_id": "agenda:c84e18e62e266baeb999",
+          "code": "missing_or_duplicate_review"
+        }
+      ],
+      "completion_status": "partial",
+      "rows": [
+        {
+          "agenda_id": "agenda:45d646003736a33e890f",
+          "agenda_title": "이사의 수",
+          "decision": "REVIEW",
+          "reason": "정관변경 — 조문 본문 위험 신호: 이사 정원 상한 축소 (12인 → 8인) (원문 확인 권장)\n\n📄 해당 정관 조문 원문:\n[의안 (이사의 수)]\n  변경 전: 제29조 (이사의 수) ① 이 회사의 이사는 3인 이상 12인 이내로 하고 사외이사는 이사총수의 4분의 1 이상으로 한다. ② (생 략) ③ (생 략)\n  변경 후: 제29조 (이사의 수) ① 이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다. ② (현행과 같음) ③ (제2-2호 구분 상정)\n  사유: 이사회 구성 변경",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "평가 입력 오류를 수정해 재제출해야 합니다. 기본 정책으로 평가 오류를 숨기지 않습니다.",
+            "recommendation": "REVIEW",
+            "execution_constraints": [],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": null
+        },
+        {
+          "agenda_id": "agenda:c84e18e62e266baeb999",
+          "agenda_title": "집중투표 배제 금지",
+          "decision": "FOR",
+          "reason": "집중투표 배제 조항 삭제 — 2026 상법 2차 개정 (자산 2조+ 집중투표 의무화, 정관 배제 불가) 정합 (근거: 상법 제542조의7제3항 + 시행령 §33(자산 2조+) — 2차 개정 (2025-09-09 공포·2026-09-10 시행): 집중투표 의무화)\n📋 조항 상세: 제542조의7제3항 (2차, 시행 2026-09-10) · 임계 상법 시행령 §33(집중투표 특례 대상 — 자산 2조+) · 시행 후 최초 이사선임 주총부터 적용(엔진은 주총일 기준 근사) · 적용 자산 2조+",
+          "voting_workflow": {
+            "status": "manual_review",
+            "reason": "평가 입력 오류를 수정해 재제출해야 합니다. 기본 정책으로 평가 오류를 숨기지 않습니다.",
+            "recommendation": "FOR",
+            "execution_constraints": [
+              "law_layer"
+            ],
+            "human_reviewed": false,
+            "ballot_submitted": false
+          },
+          "accepted_llm_recommendation": null
+        }
+      ],
+      "human_reviewed": false,
+      "ballots_submitted": 0
+    }
+  ],
+  "http_checks": [
+    {
+      "gate": "normal_submission_applied",
+      "passed": true
+    },
+    {
+      "gate": "stale_review_rejected_only_affected_agenda",
+      "passed": true
+    },
+    {
+      "gate": "challenge_isolated",
+      "passed": true
+    },
+    {
+      "gate": "missing_qa_never_accepted",
+      "passed": true
+    },
+    {
+      "gate": "no_ballots_sent",
+      "passed": true
+    }
+  ],
+  "stage_proof": {
+    "execution": "desktop_Astra_authored_workbench_steps",
+    "independent_reviewer": false,
+    "paid_model_api_calls": 0,
+    "luna_model_calls": 0,
+    "evidence_id": "817d8a19391d4bcd53f25a5fe89e4ac7ae613e72d469bcdbf0728dbf7feb7b6c",
+    "steps": [
+      {
+        "stage": "evidence",
+        "source_view": [
+          "all_distinct_admitted_excerpts"
+        ],
+        "input_characters": 142821,
+        "result": {
+          "accepted": true,
+          "stage": "evidence",
+          "next_stage": "findings",
+          "partial": false,
+          "codes": []
+        }
+      },
+      {
+        "stage": "findings",
+        "source_view": [
+          "frozen_fact_quotes_only"
+        ],
+        "input_characters": 41621,
+        "result": {
+          "accepted": true,
+          "stage": "findings",
+          "next_stage": "judgments",
+          "partial": false,
+          "codes": []
+        }
+      },
+      {
+        "stage": "judgments",
+        "source_view": [
+          "frozen_fact_quotes_only"
+        ],
+        "input_characters": 42575,
+        "result": {
+          "accepted": true,
+          "stage": "judgments",
+          "next_stage": "review",
+          "partial": false,
+          "codes": []
+        }
+      },
+      {
+        "stage": "review",
+        "input_characters": 145750,
+        "result": {
+          "accepted": true,
+          "stage": "review",
+          "next_stage": "complete",
+          "partial": false,
+          "codes": []
+        }
+      }
+    ],
+    "supported_agenda_ids": [
+      "agenda:45d646003736a33e890f",
+      "agenda:c84e18e62e266baeb999"
+    ],
+    "other_agendas": "left_pending_not_falsely_out_of_scope"
+  },
+  "model_quality": {
+    "luna_executed": false,
+    "noninferiority_established": false,
+    "independent_reviewer": false,
+    "human_reviewed": false
+  },
+  "auth_scope": "loopback_header_bridge_to_existing_middleware; production_auth_not_evaluated",
+  "input_manifest": {
+    "challenge-submission.json": "8190b2438742f8d72be8dd346249c3a809344292df4e771fe6a1a82779e6ae5d",
+    "request.json": "a3a8ebb686ac540f4df5334bf034507181435d9279defbbd791a0105e330a806",
+    "evidence-stage.json": "591e67bd7ccdf47ebd987366ff18b73c3a5ad4a75410489b91476ca1ef5f2e61",
+    "stale-response.json": "cf111da4be5fce9988690dbd6174783f93fbc6d6503506d1f8b0e2af7024f05e",
+    "valid-response.json": "ef5ce4aa8c39a586c2864d264961f2d3257de8aff0c688e40a56e87a5b59e7d1",
+    "stage-proof.json": "ec85141da86659295b9d5324170f61753b9dc096cc19b70c4a7777025652f478",
+    "missing-review-submission.json": "3f94f2fda1bdd05fd183ae5fab59324d98c0e3b4b0f75dd201bf2858c44a8941",
+    "findings-stage.json": "174f23fc3b6472a8434c4562feac01ed389bf22a8041c8b1f5bf0c3f8898d98a",
+    "task.json": "d44ab2ec7a88372846c576fdab5c25846c191b6ca43ada533d9aac540734c35d",
+    "missing-review-response.json": "0bf9eb46e5839e566862b3c5cad1e85d2b111d4ef616e944aebe3364898f05fa",
+    "valid-submission.json": "3daa956738a7265d44802aae703e94cefa4e79f5afd9d25ed1a00205efa0e4c1",
+    "stale-submission.json": "28cc5434e125fddee2c36a99a198cd89ef23d1bef80b279497b9160123f7a55e",
+    "challenge-response.json": "c54744871b331352ae4ac6f9591213f54b494bc536572753d54cb8d9bc9d7be4",
+    "judgments-stage.json": "cf77935024ea05926a3eea7dbffcc417b3f1b0a3743328463be7d4ffece7c413",
+    "initial.json": "506b3fbdfb062d28ff6f11ae4adb3159279fedb2aca46400b597cef4df93b731",
+    "review-stage.json": "dd6e5555972c4fc9303b40a9d950d813a8e5467570357f7599183b52a97854a8"
+  }
+}

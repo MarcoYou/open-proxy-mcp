@@ -1,4 +1,4 @@
-"""Real Streamable HTTP transport; no vendor LLM SDK or local result files."""
+"""Streamable HTTP로 실제 MCP 서버에 자문 요청을 전달한다."""
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
@@ -11,7 +11,8 @@ class MCPTransport(Protocol):
 
 
 class TransportError(RuntimeError):
-    """Never includes remote exception text, URLs, or submitted values."""
+    """원격 응답 원문을 노출하지 않는 MCP 통신 오류를 나타낸다."""
+    # 오류에 URL·제출값·원격 예외 문구를 넣으면 인증 정보가 노출될 수 있다.
 
 
 def _payload(result: Any) -> dict:
@@ -21,7 +22,7 @@ def _payload(result: Any) -> dict:
         raise TransportError("mcp_tool_error")
     structured = getattr(result, "structured_content", getattr(result, "structuredContent", None))
     if isinstance(structured, dict):
-        # Some MCP versions wrap scalar tool outputs in a `result` field.
+        # 일부 MCP 버전은 도구 반환값을 result 필드로 한 번 더 감싼다.
         if isinstance(structured.get("result"), str):
             try:
                 parsed = json.loads(structured["result"])
@@ -43,16 +44,12 @@ def _payload(result: Any) -> dict:
 
 
 class StreamableHTTPTransport:
-    """Use ``async with`` to initialize/close the MCP SDK 2 session.
-
-    The optional HTTP client is supplied by the caller (for example for auth).
-    The harness never logs the endpoint, headers, arguments, or error text.
-    Only the read-only proxy advice tool is callable through this transport.
-    """
+    """async with 구문으로 MCP 연결을 열고 닫는 자문용 통신 어댑터다."""
 
     def __init__(self, endpoint: str, *, http_client: Any = None,
                  read_timeout_seconds: float = 180):
         self._endpoint = endpoint
+        # 인증 등이 필요하면 호출 앱에서 구성한 HTTP 클라이언트를 전달한다.
         self._http_client = http_client
         self._timeout = read_timeout_seconds
         self._stack: AsyncExitStack | None = None
@@ -90,6 +87,7 @@ class StreamableHTTPTransport:
             self._stack = None
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> dict:
+        # 읽기 전용 자문 도구로 한정하고 URL·헤더·인자·오류 원문을 로그에 남기지 않는다.
         if name != "proxy_advise_before_meeting":
             raise TransportError("tool_not_allowed")
         if self._session is None:

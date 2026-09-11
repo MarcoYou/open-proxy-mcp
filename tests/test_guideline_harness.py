@@ -59,7 +59,7 @@ def test_continuation_freezes_settings_and_suppresses_changed_source(monkeypatch
     first = asyncio.run(run_harness("fixture", REQUEST, ARGS, invoke))
     continuation = first["data"]["guideline_harness"]["continuation"]
     changed = asyncio.run(run_harness("fixture", continuation,
-        {**ARGS, "guideline_workflow": {"stance": "conservative"}}, invoke))
+        {**ARGS, "guideline_workflow": {"stance": 1}}, invoke))
     assert changed["data"]["guideline_harness"]["error_code"] == "policy_changed"
     assert len(calls) == 1  # Reject configuration drift before reading / evaluating.
     source_hash = "c" * 64
@@ -307,9 +307,47 @@ def test_structure_is_opt_in_bound_and_returned_without_blocking_candidates(monk
         return payload
     first = asyncio.run(run_harness('fixture', REQUEST, {**ARGS, 'guideline_structure': {}}, invoke))
     entry = first['data']['guideline_application']['structure_tasks'][0]
+    from open_proxy_mcp.services.election_structure import CONTRACT
+    assert entry['task']['contract_version'] == CONTRACT
+    assert entry['task']['execution_context']['structure_contract'] == CONTRACT
+    assert first['data']['guideline_harness']['capabilities']['structure_contract'] == CONTRACT
     assert entry['task']['sources'][0]['excerpts']
     assert entry['assessment']['status'] == 'pending'
     assert first['data']['agenda_decisions'][0]['decision'] == 'REVIEW'
     continuation = first['data']['guideline_harness']['continuation']
     changed = asyncio.run(run_harness('fixture', continuation, ARGS, invoke))
     assert changed['status'] == 'error'
+
+
+@pytest.mark.parametrize('candidate_state,expected_status', [
+    (None, 'scope_complete'), ('pending', 'awaiting_model'),
+    ('rejected', 'awaiting_model'), ('accepted_unreviewed', 'evaluated'),
+])
+def test_scope_complete_structure_does_not_claim_candidate_completion(monkeypatch, candidate_state, expected_status):
+    setup_boundary(monkeypatch)
+
+    async def invoke(*args, **kwargs):
+        row = {'evidence_rcept_no': REQUEST['notice_rcept_no'], 'decision': 'REVIEW',
+               'agenda_title': '배당 승인', 'agenda_category': 'cash_dividend'}
+        if candidate_state is not None:
+            row.update(agenda_title='사외이사 선임', agenda_category='director_election',
+                       guideline_trace={'llm_assessment': {'status': candidate_state}})
+        return {'status': 'ok', 'data': {'agenda_decisions': [row]}}
+
+    first = asyncio.run(run_harness('fixture', REQUEST, {**ARGS, 'guideline_structure': {}}, invoke))
+    task = first['data']['guideline_application']['structure_tasks'][0]['task']
+    item = {'task_id': task['task_id'], 'evaluator': 'test-model',
+            'facts': [], 'gaps': [], 'findings': [], 'judgments': [],
+            'out_of_scope_agenda_ids': [a['agenda_id'] for a in task['agendas']]}
+    second = asyncio.run(run_harness('fixture', first['data']['guideline_harness']['continuation'],
+        {**ARGS, 'guideline_structure': {'assessments': [item]}}, invoke))
+    harness = second['data']['guideline_harness']
+    structure = second['data']['guideline_application']['structure_tasks'][0]['assessment']
+    assert harness['status'] == expected_status
+    assert harness['structure_assessment_counts'] == {
+        'accepted_unreviewed': 0, 'pending': 0, 'rejected': 0, 'scope_complete': 1}
+    assert structure['status'] == 'scope_complete' and structure['judgments'] == []
+    assert sum(harness['assessment_counts'].values()) == (0 if candidate_state is None else 1)
+    if candidate_state is not None:
+        assert harness['assessment_counts'][candidate_state] == 1
+    assert second['data']['agenda_decisions'][0]['decision'] == 'REVIEW'

@@ -1,0 +1,59 @@
+{
+  "contract": "opm-principal-native-source-coverage/1",
+  "cases": {
+    "taekwang": {
+      "0.1": {
+        "record_file": "records/taekwang-0.1.json",
+        "response_sha256": "334d8697659c8332e43477c688a70f7122a6d6133ade159e6e2371a575c16238",
+        "source_id": "filing:20260313001279",
+        "document_sha256": "171156d03567fd75648da7c0f986a1234db5846932e6fbdf61b267ffea5cabbb",
+        "reading_limits": {
+          "notice_total_chars": 220524,
+          "requested_notice_chars": 180000,
+          "notice_full_requested": false,
+          "notice_requested_skipped_intervals": [
+            {
+              "start": 30000,
+              "end": 70524
+            }
+          ],
+          "notice_full_available": false,
+          "notice_skipped_intervals": [
+            {
+              "start": 30000,
+              "end": 70524
+            }
+          ],
+          "offset_basis": "whitespace_normalized_document_text",
+          "other_sources": "Only admitted excerpts; not complete annual-report or litigation research."
+        }
+      },
+      "0.9": {
+        "record_file": "records/taekwang-0.9.json",
+        "response_sha256": "a205ee42e80825cae71f3f7994140df4f7420e6653814460aa809abb983be109",
+        "source_id": "filing:20260313001279",
+        "document_sha256": "171156d03567fd75648da7c0f986a1234db5846932e6fbdf61b267ffea5cabbb",
+        "reading_limits": {
+          "notice_total_chars": 220524,
+          "requested_notice_chars": 180000,
+          "notice_full_requested": false,
+          "notice_requested_skipped_intervals": [
+            {
+              "start": 30000,
+              "end": 70524
+            }
+          ],
+          "notice_full_available": false,
+          "notice_skipped_intervals": [
+            {
+              "start": 30000,
+              "end": 70524
+            }
+          ],
+          "offset_basis": "whitespace_normalized_document_text",
+          "other_sources": "Only admitted excerpts; not complete annual-report or litigation research."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,918 @@
+{
+  "protocol": "opm-staged-structure/1",
+  "ontology": {
+    "contract": "opm-structure-ontology/1",
+    "scope": "election_structure",
+    "criteria": {
+      "ES-01": {
+        "label": "정원·업무량",
+        "fact_kinds": [
+          "board_counts",
+          "clause_change",
+          "election_pool"
+        ],
+        "sources": [
+          "meeting_notice",
+          "annual_report",
+          "charter_attachment"
+        ]
+      },
+      "ES-02": {
+        "label": "임기 결정·책임성",
+        "fact_kinds": [
+          "clause_change",
+          "term",
+          "charter_event"
+        ],
+        "sources": [
+          "meeting_notice",
+          "charter_attachment"
+        ]
+      },
+      "ES-03": {
+        "label": "시차·교체 기회",
+        "fact_kinds": [
+          "term",
+          "clause_change"
+        ],
+        "sources": [
+          "annual_report",
+          "meeting_notice"
+        ]
+      },
+      "ES-04": {
+        "label": "분리선출·감사 독립성",
+        "fact_kinds": [
+          "board_counts",
+          "election_pool",
+          "term"
+        ],
+        "sources": [
+          "annual_report",
+          "meeting_notice",
+          "officer_change"
+        ]
+      },
+      "ES-05": {
+        "label": "집중투표 접근",
+        "fact_kinds": [
+          "election_pool",
+          "condition",
+          "clause_change"
+        ],
+        "sources": [
+          "meeting_notice",
+          "proxy_solicitation",
+          "charter_attachment"
+        ]
+      },
+      "ES-06": {
+        "label": "사임·재선임 연속성",
+        "fact_kinds": [
+          "term",
+          "context"
+        ],
+        "sources": [
+          "officer_change",
+          "annual_report",
+          "related_company_officer_change"
+        ]
+      },
+      "ES-07": {
+        "label": "조건·주주 접근",
+        "fact_kinds": [
+          "condition",
+          "election_pool",
+          "ballot_scope"
+        ],
+        "sources": [
+          "meeting_notice",
+          "proxy_solicitation",
+          "correction"
+        ]
+      }
+    },
+    "source_routes": {
+      "meeting_notice": "Pinned notice, full relevant before/after and applicability clauses. Use read_next for truncated passages.",
+      "annual_report": "Latest time-admitted report for the relevant completed fiscal year. Publication year is not measurement year.",
+      "charter_attachment": "Discover attachment index; distinguish proposed/effective text. Route image-only pages to an external visual reader.",
+      "proxy_solicitation": "Time-admitted solicitation originals. Separate each proponent's claim from established facts.",
+      "officer_change": "Appointment, dismissal, resignation disclosures and historical naming variants. Match role and person beyond name.",
+      "related_company_officer_change": "Resolve the related issuer from cited employment/office facts and inspect time-admitted officer changes there. Navigation requirement, not a claim this route is automatically collected.",
+      "correction": "Follow time-admitted corrections and withdrawals. Preserve target and effective date; never read later voting outcomes."
+    },
+    "qa_checks": {
+      "subject_and_period": "Same person, company, role and observation period? Name alone and publication year are insufficient.",
+      "source_entailment": "Does the cited passage support the exact claim including before/after, negation and qualifiers?",
+      "counterevidence_and_gaps": "Have contrary sources and unread/failed/conflicting vs undisclosed information been distinguished?",
+      "policy_application": "Do the relevant policy rule, materiality and exception support the recommendation?",
+      "numbers_and_scope": "Are bounds, actual/proposed counts, continuing members, units and applicability kept distinct?",
+      "ballot_and_conditions": "Does the fixed row kind, conditional branch and competing choice constraint match this recommendation?"
+    },
+    "relations": [
+      "source supports fact",
+      "fact scoped_to agenda",
+      "finding applies criterion",
+      "finding depends_on fact",
+      "judgment depends_on finding",
+      "review binds_to judgment_digest"
+    ],
+    "boundary": "Schemas and arithmetic are executable; source meaning and materiality remain unreviewed LLM judgments. Source routes are reading guidance, not evidence of retrieval completeness."
+  },
+  "stages": [
+    "evidence",
+    "findings",
+    "judgments",
+    "review"
+  ],
+  "review_schema": {
+    "$defs": {
+      "Citation": {
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          },
+          "quote": {
+            "maxLength": 3000,
+            "minLength": 12,
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "quote"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "QAItem": {
+        "additionalProperties": false,
+        "properties": {
+          "check_id": {
+            "title": "Check Id",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "supported",
+              "issue",
+              "not_applicable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "evidence_refs": {
+            "items": {
+              "$ref": "#/$defs/Citation"
+            },
+            "maxItems": 12,
+            "title": "Evidence Refs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "check_id",
+          "outcome",
+          "rationale"
+        ],
+        "title": "QAItem",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "agenda_id": {
+        "title": "Agenda Id",
+        "type": "string"
+      },
+      "basis_sha256": {
+        "pattern": "^[0-9a-f]{64}$",
+        "title": "Basis Sha256",
+        "type": "string"
+      },
+      "reviewer": {
+        "maxLength": 160,
+        "minLength": 1,
+        "title": "Reviewer",
+        "type": "string"
+      },
+      "checks": {
+        "items": {
+          "$ref": "#/$defs/QAItem"
+        },
+        "maxItems": 12,
+        "minItems": 1,
+        "title": "Checks",
+        "type": "array"
+      }
+    },
+    "required": [
+      "agenda_id",
+      "basis_sha256",
+      "reviewer",
+      "checks"
+    ],
+    "title": "AgendaReview",
+    "type": "object"
+  },
+  "fact_identity_excludes": [
+    "stance",
+    "firmness",
+    "automation"
+  ],
+  "repair": "Revise the rejected stage and its dependents. Never erase contrary evidence to obtain acceptance.",
+  "model_execution": "caller_callback",
+  "automatic_model_escalation": false,
+  "stage_output_schemas": {
+    "evidence": {
+      "$defs": {
+        "Citation": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "quote": {
+              "maxLength": 3000,
+              "minLength": 12,
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "quote"
+          ],
+          "title": "Citation",
+          "type": "object"
+        },
+        "StructureFact": {
+          "additionalProperties": false,
+          "properties": {
+            "fact_id": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Fact Id",
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "clause_change",
+                "board_counts",
+                "election_pool",
+                "term",
+                "condition",
+                "context",
+                "charter_event",
+                "ballot_scope"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "agenda_ids": {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "title": "Agenda Ids",
+              "type": "array"
+            },
+            "description": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Description",
+              "type": "string"
+            },
+            "evidence_refs": {
+              "items": {
+                "$ref": "#/$defs/Citation"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "title": "Evidence Refs",
+              "type": "array"
+            },
+            "data": {
+              "additionalProperties": true,
+              "title": "Data",
+              "type": "object"
+            }
+          },
+          "required": [
+            "fact_id",
+            "kind",
+            "agenda_ids",
+            "description",
+            "evidence_refs",
+            "data"
+          ],
+          "title": "StructureFact",
+          "type": "object"
+        },
+        "StructureGap": {
+          "additionalProperties": false,
+          "properties": {
+            "gap_id": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Gap Id",
+              "type": "string"
+            },
+            "agenda_ids": {
+              "description": "One agenda per gap. Split common questions per agenda; share impact facts where relevant.",
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "title": "Agenda Ids",
+              "type": "array"
+            },
+            "criterion_id": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Criterion Id",
+              "type": "string"
+            },
+            "check_id": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Local subquestion ID within this agenda and criterion. Required for skip_check. Use the same ID for the same question in gaps and findings.",
+              "title": "Check Id"
+            },
+            "kind": {
+              "enum": [
+                "not_disclosed_in_reviewed_sources",
+                "explicitly_nonpublic",
+                "not_read",
+                "fetch_failed",
+                "conflicting_evidence",
+                "identity_uncertain",
+                "meaning_unresolved",
+                "budget_exhausted"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "disposition": {
+              "enum": [
+                "skip_criterion",
+                "skip_check",
+                "retry_read",
+                "conditional_analysis",
+                "unassessed_scope"
+              ],
+              "title": "Disposition",
+              "type": "string"
+            },
+            "question": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Question",
+              "type": "string"
+            },
+            "reviewed_source_ids": {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "title": "Reviewed Source Ids",
+              "type": "array"
+            },
+            "decision_impact": {
+              "default": "unknown",
+              "enum": [
+                "none",
+                "limited",
+                "material",
+                "unknown"
+              ],
+              "title": "Decision Impact",
+              "type": "string"
+            },
+            "impact_rationale": {
+              "anyOf": [
+                {
+                  "maxLength": 6000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Impact Rationale"
+            },
+            "impact_fact_ids": {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "title": "Impact Fact Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "gap_id",
+            "agenda_ids",
+            "criterion_id",
+            "kind",
+            "disposition",
+            "question",
+            "reviewed_source_ids"
+          ],
+          "title": "StructureGap",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/StructureFact"
+          },
+          "maxItems": 200,
+          "title": "Facts",
+          "type": "array"
+        },
+        "gaps": {
+          "items": {
+            "$ref": "#/$defs/StructureGap"
+          },
+          "maxItems": 100,
+          "title": "Gaps",
+          "type": "array"
+        },
+        "out_of_scope_agenda_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Out Of Scope Agenda Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "facts",
+        "gaps"
+      ],
+      "title": "EvidenceStage",
+      "type": "object"
+    },
+    "findings": {
+      "$defs": {
+        "Citation": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "quote": {
+              "maxLength": 3000,
+              "minLength": 12,
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "quote"
+          ],
+          "title": "Citation",
+          "type": "object"
+        },
+        "StructureFinding": {
+          "additionalProperties": false,
+          "properties": {
+            "finding_id": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Finding Id",
+              "type": "string"
+            },
+            "criterion_id": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Criterion Id",
+              "type": "string"
+            },
+            "agenda_ids": {
+              "description": "One agenda per finding. Facts may be shared, but effects are judged separately for each agenda.",
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 1,
+              "minItems": 1,
+              "title": "Agenda Ids",
+              "type": "array"
+            },
+            "check_id": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Check Id"
+            },
+            "scope_rationale": {
+              "anyOf": [
+                {
+                  "maxLength": 6000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "When the same criterion has skip_check gaps, explain why this assessed question is independent of every skipped question; reference those gaps in gap_ids. Do not declare omitted facts satisfied.",
+              "title": "Scope Rationale"
+            },
+            "fact_ids": {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "minItems": 1,
+              "title": "Fact Ids",
+              "type": "array"
+            },
+            "effect": {
+              "enum": [
+                "adverse",
+                "beneficial",
+                "neutral",
+                "mixed",
+                "unknown"
+              ],
+              "title": "Effect",
+              "type": "string"
+            },
+            "materiality": {
+              "enum": [
+                "material",
+                "limited",
+                "unknown"
+              ],
+              "title": "Materiality",
+              "type": "string"
+            },
+            "rationale": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Rationale",
+              "type": "string"
+            },
+            "counterevidence_refs": {
+              "items": {
+                "$ref": "#/$defs/Citation"
+              },
+              "maxItems": 12,
+              "title": "Counterevidence Refs",
+              "type": "array"
+            },
+            "gap_ids": {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "title": "Gap Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "finding_id",
+            "criterion_id",
+            "agenda_ids",
+            "fact_ids",
+            "effect",
+            "materiality",
+            "rationale"
+          ],
+          "title": "StructureFinding",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/StructureFinding"
+          },
+          "maxItems": 200,
+          "title": "Findings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "findings"
+      ],
+      "title": "FindingsStage",
+      "type": "object"
+    },
+    "judgments": {
+      "$defs": {
+        "Citation": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "quote": {
+              "maxLength": 3000,
+              "minLength": 12,
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "quote"
+          ],
+          "title": "Citation",
+          "type": "object"
+        },
+        "StructureJudgment": {
+          "additionalProperties": false,
+          "properties": {
+            "agenda_id": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Agenda Id",
+              "type": "string"
+            },
+            "finding_ids": {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "title": "Finding Ids",
+              "type": "array"
+            },
+            "gap_ids": {
+              "items": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 100,
+              "title": "Gap Ids",
+              "type": "array"
+            },
+            "recommendation": {
+              "enum": [
+                "FOR",
+                "AGAINST",
+                "REVIEW",
+                "NO_VOTE"
+              ],
+              "title": "Recommendation",
+              "type": "string"
+            },
+            "rationale": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Rationale",
+              "type": "string"
+            },
+            "condition_id": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Condition Id"
+            },
+            "exception_evidence_refs": {
+              "items": {
+                "$ref": "#/$defs/Citation"
+              },
+              "maxItems": 12,
+              "title": "Exception Evidence Refs",
+              "type": "array"
+            },
+            "uncertainty_rationale": {
+              "anyOf": [
+                {
+                  "maxLength": 6000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Uncertainty Rationale"
+            }
+          },
+          "required": [
+            "agenda_id",
+            "finding_ids",
+            "gap_ids",
+            "recommendation",
+            "rationale"
+          ],
+          "title": "StructureJudgment",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "judgments": {
+          "items": {
+            "$ref": "#/$defs/StructureJudgment"
+          },
+          "maxItems": 200,
+          "title": "Judgments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "judgments"
+      ],
+      "title": "JudgmentsStage",
+      "type": "object"
+    },
+    "review": {
+      "$defs": {
+        "AgendaReview": {
+          "additionalProperties": false,
+          "properties": {
+            "agenda_id": {
+              "title": "Agenda Id",
+              "type": "string"
+            },
+            "basis_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Basis Sha256",
+              "type": "string"
+            },
+            "reviewer": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Reviewer",
+              "type": "string"
+            },
+            "checks": {
+              "items": {
+                "$ref": "#/$defs/QAItem"
+              },
+              "maxItems": 12,
+              "minItems": 1,
+              "title": "Checks",
+              "type": "array"
+            }
+          },
+          "required": [
+            "agenda_id",
+            "basis_sha256",
+            "reviewer",
+            "checks"
+          ],
+          "title": "AgendaReview",
+          "type": "object"
+        },
+        "Citation": {
+          "additionalProperties": false,
+          "properties": {
+            "source_id": {
+              "maxLength": 6000,
+              "minLength": 1,
+              "title": "Source Id",
+              "type": "string"
+            },
+            "quote": {
+              "maxLength": 3000,
+              "minLength": 12,
+              "title": "Quote",
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "quote"
+          ],
+          "title": "Citation",
+          "type": "object"
+        },
+        "QAItem": {
+          "additionalProperties": false,
+          "properties": {
+            "check_id": {
+              "title": "Check Id",
+              "type": "string"
+            },
+            "outcome": {
+              "enum": [
+                "supported",
+                "issue",
+                "not_applicable"
+              ],
+              "title": "Outcome",
+              "type": "string"
+            },
+            "rationale": {
+              "maxLength": 3000,
+              "minLength": 1,
+              "title": "Rationale",
+              "type": "string"
+            },
+            "evidence_refs": {
+              "items": {
+                "$ref": "#/$defs/Citation"
+              },
+              "maxItems": 12,
+              "title": "Evidence Refs",
+              "type": "array"
+            }
+          },
+          "required": [
+            "check_id",
+            "outcome",
+            "rationale"
+          ],
+          "title": "QAItem",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "reviews": {
+          "items": {
+            "$ref": "#/$defs/AgendaReview"
+          },
+          "maxItems": 200,
+          "title": "Reviews",
+          "type": "array"
+        }
+      },
+      "required": [
+        "reviews"
+      ],
+      "title": "ReviewStage",
+      "type": "object"
+    }
+  },
+  "semantic_accuracy_certified": false
+}

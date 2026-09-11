@@ -1,0 +1,170 @@
+{
+  "reviews": [
+    {
+      "agenda_id": "agenda:45d646003736a33e890f",
+      "basis_sha256": "b9410e41de1a4ece08872d6440f79e0b11b8bd12590b152e7b4b34cf3121ff9c",
+      "reviewer": "Astra/Codex-desktop-same-context",
+      "checks": [
+        {
+          "check_id": "subject_and_period",
+          "outcome": "supported",
+          "rationale": "판독 대상은 영원무역의 별도 정관 조문이다. 제안과 장래 적용일을 현재 시행 사실로 바꾸지 않았다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제9-2조(독립이사에 관한 경과조치) 제29조, 제30조의2, 제34조의3, 제39조의2, 제41의2 (제4항, 제5항, 제9항 제외) 개정규정은 2026년 7월 23일부터 시행한다."
+            }
+          ]
+        },
+        {
+          "check_id": "source_entailment",
+          "outcome": "supported",
+          "rationale": "변경 전후 조문과 변경 목적을 분리해서 읽었다. 원문에 있는 삭제/상한 문구가 사실 설명을 지지한다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "이 회사의 이사는 3인 이상 12인 이내로 하고 사외이사는 이사총수의 4분의 1 이상으로 한다."
+            },
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다."
+            }
+          ]
+        },
+        {
+          "check_id": "counterevidence_and_gaps",
+          "outcome": "supported",
+          "rationale": "독립이사 확대 계획을 함께 보존했고 구성 대조의 미독을 미공개로 바꾸지 않았다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "이와 병행하여 사외이사 수를 기존 4명에서 5명으로 확대하여 사외이사의 비중을 높임으로써, 이사회의 독립성과 감시 기능을 더욱 강화하고자 합니다."
+            }
+          ]
+        },
+        {
+          "check_id": "policy_application",
+          "outcome": "supported",
+          "rationale": "ES-01 실제 구성·업무량 영향 미결을 REVIEW로 남겼다. 상한 축소 자체가 반대 사유는 아니다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다."
+            }
+          ]
+        },
+        {
+          "check_id": "numbers_and_scope",
+          "outcome": "supported",
+          "rationale": "12→8은 정관 상한 변화이다. 실제 인원·시행 시점의 인원수로 등치하지 않았다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "이 회사의 이사는 3인 이상 12인 이내로 하고 사외이사는 이사총수의 4분의 1 이상으로 한다."
+            },
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "이 회사의 이사는 3인 이상 8인 이내로 하고, 이사총수의 과반수를 독립이사로 선임하여야 한다."
+            },
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제9-2조(독립이사에 관한 경과조치) 제29조, 제30조의2, 제34조의3, 제39조의2, 제41의2 (제4항, 제5항, 제9항 제외) 개정규정은 2026년 7월 23일부터 시행한다."
+            }
+          ]
+        },
+        {
+          "check_id": "ballot_and_conditions",
+          "outcome": "supported",
+          "rationale": "공고에서 개별 구분 상정된 표결이다. 장래 적용 조건을 승인 여부와 구분하고 실제 투표는 전송하지 않는다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제2-4호 의안: 이사의 수- 제2-5호 의안: 집중투표 배제 금지"
+            },
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제9-2조(독립이사에 관한 경과조치) 제29조, 제30조의2, 제34조의3, 제39조의2, 제41의2 (제4항, 제5항, 제9항 제외) 개정규정은 2026년 7월 23일부터 시행한다."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "agenda_id": "agenda:c84e18e62e266baeb999",
+      "basis_sha256": "e72b5bf2c5fcddea760beb8fb8086141ef092f848c7a21fa7c24530f8439c174",
+      "reviewer": "Astra/Codex-desktop-same-context",
+      "checks": [
+        {
+          "check_id": "subject_and_period",
+          "outcome": "supported",
+          "rationale": "판독 대상은 영원무역의 별도 정관 조문이다. 제안과 장래 적용일을 현재 시행 사실로 바꾸지 않았다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제9-3조(집중투표에 관한 적용례) 제30조 개정규정은 2026년 9월 10일 이후 최초로 이사의 선임을 위한 주주총회 소집이 있는 경우부터 적용한다."
+            }
+          ]
+        },
+        {
+          "check_id": "source_entailment",
+          "outcome": "supported",
+          "rationale": "변경 전후 조문과 변경 목적을 분리해서 읽었다. 원문에 있는 삭제/상한 문구가 사실 설명을 지지한다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제30조 (이사의 선임) ① ② (생 략) ③ 이 회사는 집중투표의 방법으로 이사를 선임하지 아니한다 . 제30조 (이사의 선임) ① ② (현행과 같음)③ 삭제"
+            }
+          ]
+        },
+        {
+          "check_id": "counterevidence_and_gaps",
+          "outcome": "supported",
+          "rationale": "배제 조항의 삭제와 적용례를 함께 읽었다. 이번 회차에 이미 시행한다는 해석을 배제했다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제9-3조(집중투표에 관한 적용례) 제30조 개정규정은 2026년 9월 10일 이후 최초로 이사의 선임을 위한 주주총회 소집이 있는 경우부터 적용한다."
+            }
+          ]
+        },
+        {
+          "check_id": "policy_application",
+          "outcome": "supported",
+          "rationale": "ES-05 접근 제한 여부를 삭제 문구에 연결했다. 제안의 방향에 대한 찬성이고 법률 적합성 인증은 아니다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제30조 (이사의 선임) ① ② (생 략) ③ 이 회사는 집중투표의 방법으로 이사를 선임하지 아니한다 . 제30조 (이사의 선임) ① ② (현행과 같음)③ 삭제"
+            }
+          ]
+        },
+        {
+          "check_id": "numbers_and_scope",
+          "outcome": "supported",
+          "rationale": "집중투표 적용례의 9월 10일과 최초 소집 조건을 그대로 보존했다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제9-3조(집중투표에 관한 적용례) 제30조 개정규정은 2026년 9월 10일 이후 최초로 이사의 선임을 위한 주주총회 소집이 있는 경우부터 적용한다."
+            }
+          ]
+        },
+        {
+          "check_id": "ballot_and_conditions",
+          "outcome": "supported",
+          "rationale": "공고에서 개별 구분 상정된 표결이다. 장래 적용 조건을 승인 여부와 구분하고 실제 투표는 전송하지 않는다.",
+          "evidence_refs": [
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제2-4호 의안: 이사의 수- 제2-5호 의안: 집중투표 배제 금지"
+            },
+            {
+              "source_id": "filing:20260312001098",
+              "quote": "제9-3조(집중투표에 관한 적용례) 제30조 개정규정은 2026년 9월 10일 이후 최초로 이사의 선임을 위한 주주총회 소집이 있는 경우부터 적용한다."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

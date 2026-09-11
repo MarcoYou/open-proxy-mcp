@@ -1,0 +1,489 @@
+{
+  "packet_id": "d939960857668517ede5f14625bfc264a848ac58b7ee577d9770653361739ea2",
+  "evaluator": "Astra / isolated Codex caller",
+  "judgments": [
+    {
+      "agenda_id": "agenda:e5a78317bddbb025a5ac",
+      "decision": "REVIEW",
+      "reason": "주당 75원 배당과 환원정책은 제시되어 있으나 공고 수치는 감사 전이고 최종 감사의견은 패킷에 없다. 배당률 하나로 과소환원을 단정하지 않고 감사 완료 수치 확인까지 유보한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "당기 연결ㆍ별도재무제표는 감사 전 연결ㆍ별도재무제표로"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "주당 75원(배당총액 약 330억원)"
+        }
+      ],
+      "skipped_checks": [
+        "최종 감사보고서와 조정 잉여현금흐름 산정 상세 미제공",
+        "업계 환원 비교 및 상세 회계주석 전체 검증 제외"
+      ],
+      "unknowns": [
+        "최종 감사의견·감사 후 재무제표 변경"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:e64c0b5e51e39e8e0d51",
+      "decision": "NO_VOTE",
+      "reason": "정관 변경의 상위 묶음이며 여덟 하위안이 나열된다. 변경 조항과 효력일별 판단은 각 하위안에 부여한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제2호 의안: 정관 일부 변경의 건제2-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:5daa7bd563d549f3930f",
+      "decision": "FOR",
+      "reason": "AI·정보서비스·응용소프트웨어를 목적사업에 명시하여 제시된 기술사업 추진과 일치시킨다. 특정 투자금이나 거래 상대방을 승인하는 조항은 아니므로 사업목적 추가에 찬성한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "37. 인공지능 개발 및 이용업"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "38. 기타 정보서비스업"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "39. 응용소프트웨어 개발 및 공급업"
+        }
+      ],
+      "skipped_checks": [
+        "신규 사업의 상세 수익성·투자 규모 평가 제외"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:a1c5c7675271522722f7",
+      "decision": "REVIEW",
+      "reason": "12월 31일 외 기준일을 이사회가 정하도록 하면서 2주 전 공고를 유지한다. 분산 개최의 편익은 설명되지만 기준일 선택 재량이 의결권자의 예측 가능성에 미치는 영향을 제한하는 기준은 없어 유보한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "이사회의 결의로 그 결산기에 관한 정기주주총회에서 권리를 행사할 주주를 정하기 위한 기준일을 달리 정할 수 있으며"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "이사회의 결의로 정한 날의 2주간전에 이를 공고하여야 한다."
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "기준일 선택 기준 및 변경 사유의 추가 공개"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:0906d1e81d0e544482dc",
+      "decision": "FOR",
+      "reason": "집중투표 배제 규정을 삭제하여 소수주주의 선출 접근성을 넓힌다. 2026년 9월 10일 이후 최초 소집부터 적용되므로 이번 후보 선출에 이미 적용된다고 보지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제 24조 (이사의 선임) 이사는 제 19조에 의거 주주총회에서 선임한다. 2. (삭제)"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "2026년 9월 10일 이후 최초로 이사의 선임을 위한 주주총회 소집이 있는 경우부터 적용한다."
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:930d5d9ffcf8b2920bec",
+      "decision": "FOR",
+      "reason": "대리권 증명에 전자문서를 추가하여 주주 편의를 높이고 매 주총 제출 요건은 유지한다. 2027년 1월 1일부터 시행되는 규정이며 온라인 중계의 실시간 표결 허용으로 해석하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "대리권을 증명하는 서면 또는 전자문서를"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제 20조 개정규정은 2027년 1월 1일부터 시행한다."
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:592c2785df36f363751f",
+      "decision": "FOR",
+      "reason": "독립이사 명칭으로 정비하면서 과반수와 감사위원 전원 독립이사 요건을 유지한다. 7월 22일까지 종전 사외이사로 보는 경과규정이 있고 정원 축소는 별도 제2-7호에서 판단한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "전체이사의 과반수를 독립이사 로 선임한다."
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "독립이사는 2026년 7월 22일까지 종전의 사외이사로 본다."
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:239fb592aa92159d5561",
+      "decision": "FOR",
+      "reason": "분리선출을 1명에서 2명으로 확대하고 최대주주 특수관계인 합산 제한을 강화하여 감사 독립성을 높인다. 함춘승의 이번 분리선출과 김선욱의 계속 재직을 구분했으나 김선욱의 최초 분리선출 여부는 발췌만으로 확정하지 못했다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "감사위원회 위원 중 2명 은 주주총회 결의로 다른 이사들과 분리하여"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제27조 제10항 개정규정은 2026년 7월 23일부터 시행한다."
+        }
+      ],
+      "skipped_checks": [
+        "계속 재직자의 최초 분리선출 원문 미제공으로 ES-04 확인 일부 제한"
+      ],
+      "unknowns": [
+        "계속 재직 감사위원의 원래 선출방식"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:d90f3992a1f8369be6a9",
+      "decision": "REVIEW",
+      "reason": "상한 11명→7명과 실제 8명→6명을 구별했으며 사외이사 4명·67% 및 의장 분리는 긍정적이다. 그러나 감사·보상·ESG 등 네 위원회의 업무를 4명의 사외이사에게 재배분하는 계획이 충분히 구체적이지 않아 효율성과 감독 역량의 균형을 유보한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "당 회사의 이사는 삼(3)인 이상 칠인(7)인 이하로 두고"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "사외이사(독립이사)의 비중은 67%까지 확대"
+        },
+        {
+          "source_id": "annual:20260318001423",
+          "quote": "감사위원회, 보상위원회, 이사후보추천위원회, ESG위원회 총 4개의 소위원회"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "퇴임 ESG·보상위원의 후속 업무 배분과 소수주주 대표성 영향"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:c2d309bb62bae81f2428",
+      "decision": "FOR",
+      "reason": "공통 시행일을 2026년 3월 26일로 명시하고 조항별 경과규정을 함께 적용한다. 다른 하위안의 실질 내용을 일괄 찬성하는 행으로 해석하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제 1조(시행일) 이 정관은 2026년 3월 26일부터 시행한다."
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "단, 세부 조항별 경과 규정을 통해 법령과 정관 간의 적용 시점을 일치시키고자 합니다."
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:2cd6370cec23ed2fff06",
+      "decision": "NO_VOTE",
+      "reason": "사내 1명·사외 2명 선임의 상위 제목이고 후보별 하위안이 제시된다. 별도 분리선출 함춘승 안을 중복 집계하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제3호 의안: 이사 선임의 건(사내이사 1인, 사외이사 2인) 제3-1호 의안"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "parent"
+    },
+    {
+      "agenda_id": "agenda:28bec2ebe46c05f392d7",
+      "decision": "FOR",
+      "reason": "정신아의 사업·투자전략 경력과 2025년 100% 출석, 연결 순이익 개선은 2년 재선임을 뒷받침한다. 단년 개선을 장기 성과 검증 완료로 확대하거나 다른 인물의 사건을 후보에게 전가하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "정신아 사내이사 선임의 건(2년)"
+        },
+        {
+          "source_id": "annual:20260318001423",
+          "quote": "정신아 (출석률: 100%)"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "당기순이익 525,715,381,907 (161,870,567,171)"
+        }
+      ],
+      "skipped_checks": [
+        "패킷 외 다년 동종업계 성과·개인 책임 연구 제외"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:cc8a0368ebf47624ba8e",
+      "decision": "FOR",
+      "reason": "김영준의 기술경영·경제·재무 학력과 연구경험은 신규 사외이사의 전문성을 보완한다. 3년 임기가 공개되어 있으며 기존 후보와의 2년·3년 차이가 개인의 결격이나 집중투표 회피라고 볼 근거는 없다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "김영준 사외이사 선임의 건(3년)"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "조지워싱턴대학교 경제학 박사, 하버드대학교 재무 석사"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보 당사 이사회 출석률 비적용",
+        "발췌 외 전체 겸직·제재 검증 제외"
+      ],
+      "unknowns": [],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:6d1f40c050f50879d39a",
+      "decision": "FOR",
+      "reason": "차경진의 데이터·AI 전문성과 2025년 100% 출석은 2년 재선임을 뒷받침한다. 2024년 최초 선임으로 현재 약 2년이며 감사위원직은 이번 구성안에서 종료되는 점을 구분한다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "차경진 사외이사 선임의 건(2년)"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "차경진(출석률: 100%)"
+        },
+        {
+          "source_id": "filing:20240328000528",
+          "quote": "차경진 1983년 09월 여 신규 2024년 03월 28일 2년 2년"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "타사 사외이사 겸직의 시간 배분 추가 확인"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:ff9f17db520c8224e059",
+      "decision": "FOR",
+      "reason": "함춘승의 금융·리스크관리 경험과 100% 출석, 분리선출 방식은 감사기능에 부합한다. 현재 약 2년과 이번 3년 임기 후 약 5년을 구별하며 회사의 겸직 이해관계 설명을 외부 확인 완료로 확대하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "함춘승 1964.01.16 사외이사 분리선출"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "함춘승(출석률: 100 %)"
+        },
+        {
+          "source_id": "filing:20240328000528",
+          "quote": "함춘승 1964년 01월 남 신규 2024년 03월 28일 2년 2년"
+        }
+      ],
+      "skipped_checks": [
+        "감사·비감사 보수비율 및 외부 회사 직무의 법적 겸직 검증 제외"
+      ],
+      "unknowns": [
+        "CRO·회사 사장 직책의 실제 이사 겸임 여부"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:4e1a1a0c6122473d4236",
+      "decision": "FOR",
+      "reason": "김영준의 경제·재무 전공과 기술경영회계 역량은 감사위원 역할을 뒷받침한다. 제3-2호 이사 선임이 전제이고 후보가 신규인 점을 고려하여 과거 당사 출석률은 적용하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제5호 의안: 감사위원회 위원 선임의 건 (김영준, 3년)"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "기술경영회계 및 금융시장과 재무 분야에 대한 고도의 전문 식견"
+        }
+      ],
+      "skipped_checks": [
+        "신규 후보 당사 출석률 비적용",
+        "감사·비감사 보수비율 자료 없음"
+      ],
+      "unknowns": [],
+      "conditional_on": "제3-2호 김영준 사외이사 선임 가결 전제",
+      "row_kind": "conditional"
+    },
+    {
+      "agenda_id": "agenda:8abb05a4e96898147cca",
+      "decision": "FOR",
+      "reason": "보수한도 60억원을 유지하고 재무·사업지표 및 주주수익률을 반영하는 상여와 전원 사외이사 보상위원회를 명시한다. 이사 수 감소에 따른 개인별 지급 증가 여부와 환수 조건은 남지만 제공 근거상 성과 미연계나 한도 증액으로 볼 수 없다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "2026년도에도 전년도와 동일한 60억 원 수준을 유지할 예정"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "주요 재무지표, 사업지표 및 주주수익률을 반영하여 산정되는 장/단기 상여"
+        },
+        {
+          "source_id": "annual:20260318001423",
+          "quote": "보상위원회 사외이사 3명"
+        }
+      ],
+      "skipped_checks": [
+        "세부 KPI·환수·이연 조건을 담은 반기보고서 원문 미제공"
+      ],
+      "unknowns": [
+        "6명 체제에서 개인별 지급 계획 및 환수 조건"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:43849009fd691118b5c0",
+      "decision": "FOR",
+      "reason": "합병 과정에서 취득한 자기주식 1,420,723주를 소각하여 주주가치를 높이는 조치다. 일반 주주의 보유주식에는 변동이 없으므로 부당한 일반주주 무상감자로 취급하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "보통주 1,420,723 주 0.32% 2026년 4월 30일"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "일반 주주의 소유주식에는 변동이 없으므로"
+        }
+      ],
+      "skipped_checks": [],
+      "unknowns": [
+        "주총 승인 및 후속 절차의 실제 이행"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:e85499cb38a99138b6c9",
+      "decision": "FOR",
+      "reason": "주식발행초과금 1,000억원을 이익잉여금으로 전입하여 배당 재원을 확충하는 안건이다. 실제 지급과 개인별 세금 효과는 별도 요건에 따르므로 비과세 효과를 모든 주주에게 확정적으로 보장하지 않는다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "규모 : 1,000억원"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "자본준비금(주식발행초과금)을 이익잉여금으로 전입하는 건"
+        }
+      ],
+      "skipped_checks": [
+        "감액 가능 한도 및 주주별 세법 효과의 독립 검증 제외"
+      ],
+      "unknowns": [
+        "실제 배당 시기와 금액"
+      ],
+      "conditional_on": null,
+      "row_kind": "ballot"
+    },
+    {
+      "agenda_id": "agenda:8a19ca6ccd63eebc261e",
+      "decision": "AGAINST",
+      "reason": "잔여 1,006,741주를 보상에 사용하고 미처분 주식은 소각을 검토하거나 다음 주총에서 계속 보유 승인을 받도록 하여 확정 소각 약속이 없다. 일부 소각 및 주총 재승인이라는 보호장치는 있으나 OPM의 소각 없는 처분 기준을 충족시키는 구체적 예외로 충분하지 않다.",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "처분대상 보통주 최대 1,006,741주 임직원 보상 목적"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "소각을 검토할 예정입니다. 다만, 해당 주식의 계속 보유 또는 처분이 필요하다고 판단되는 경우에는"
+        },
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "제32기 정기주주총회에서 '자기주식 보유ㆍ처분 계획'을 부의하여 승인받을 예정"
+        }
+      ],
+      "skipped_checks": [
+        "개별 보상 계약·성과·환수 조건 전부 미제공"
+      ],
+      "unknowns": [
+        "제7호 부결 시 수량표 수정과 미처분분의 최종 처리"
+      ],
+      "conditional_on": "계획의 예정 잔량은 제7호 1,420,723주 소각 승인을 전제로 산정; 부결 시 재계산 필요",
+      "row_kind": "conditional"
+    }
+  ],
+  "discovered_missing_agendas": [
+    {
+      "title": "감사보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "보고사항: 감사보고, 영업보고, 내부회계관리제도 운영실태보고"
+        }
+      ]
+    },
+    {
+      "title": "영업보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "보고사항: 감사보고, 영업보고, 내부회계관리제도 운영실태보고"
+        }
+      ]
+    },
+    {
+      "title": "내부회계관리제도 운영실태보고",
+      "row_kind": "report",
+      "evidence": [
+        {
+          "source_id": "filing:20260311004482",
+          "quote": "보고사항: 감사보고, 영업보고, 내부회계관리제도 운영실태보고"
+        }
+      ]
+    }
+  ],
+  "issues": [
+    "2026-03-26 기준 제공 증거만 사용한 현행 OPM 소급 평가이며 당시 법 적용에 관한 독립 검증이 아니다.",
+    "입력20행 전수 평가. 추가 발견 3개는 보고사항이며 별도 누락 표결은 발견하지 못했다.",
+    "전체 소집공고 중 변경 전후·후보·구성·주요 재무정보와 후속 자사주 정정을 읽었다. 상세 회계정책·사업보고서·권유문서 전체를 통독했다고 주장하지 않는다.",
+    "정원7명은 상한이며 6명 예정구성이 상한 미달이나 법정 위반이라는 추론을 하지 않았다. 퇴임자와 계속 재직자, 이번 후보의 다른 임기를 구분했다.",
+    "2월11일 RSU 처분은 13,259주의 개별 결정이고 3월11일 추가된 전체 보상용 계획과 규모·시점을 혼동하지 않았다. 단순투자 지분 공시는 표결 입장의 증거가 아니다.",
+    "모든 판단은 인간 미검토. automation0.5에서 FOR만 자동처리 준비 대상이며 실제 투표 전송은 없다."
+  ]
+}

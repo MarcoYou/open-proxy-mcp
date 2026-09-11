@@ -1,0 +1,44 @@
+{
+  "documents": [
+    {
+      "file": "output/guideline-specification-20260909/index.html",
+      "sha256": "1cc9502d55920819d698a7d5334a8514b6d135df64bfcd38a8ba5350d03d954b",
+      "local_links_checked": 29,
+      "unique_ids": 25,
+      "javascript_syntax": "passed"
+    },
+    {
+      "file": "output/guideline-specification-20260909/roadmap.html",
+      "sha256": "ba2cbcc9f27d67216fafe50a1e8e26c3e2bc952d979f8f76cfc19375776f09d5",
+      "local_links_checked": 28,
+      "unique_ids": 29,
+      "javascript_syntax": "passed"
+    },
+    {
+      "file": "output/staged-harness-20260911/index.html",
+      "sha256": "b767311810907ebf086ec7e1a4af9c7cedfee418371f00be487050f9d0b66a4b",
+      "local_links_checked": 3,
+      "unique_ids": 0,
+      "javascript_syntax": "no_scripts"
+    },
+    {
+      "file": "output/model-evaluation-design-20260911/index.html",
+      "sha256": "c6da604110bc3a0dfb914dc10fc5d484082fe2b8f0e62d744008dd136a97910c",
+      "local_links_checked": 9,
+      "unique_ids": 7,
+      "javascript_syntax": "no_scripts"
+    }
+  ],
+  "guideline_sections": 6,
+  "roadmap_sections": 4,
+  "staged_diagram_order": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "visual_check": "not_performed_browser_local_file_url_policy_blocked",
+  "semantic_accuracy_certified": false
+}

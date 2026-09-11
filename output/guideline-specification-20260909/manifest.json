@@ -1,15 +1,44 @@
 {
   "generated_from": "wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md",
-  "source_sha256": "c848e47de1ff06bbd4e4237ee502e0bc9d23374129c79af46aa8363fade8614d",
+  "source_sha256": "d3ce1f38c1759ae6de301552bf9c110ac5e928c21839c7d0af18411577755158",
+  "documents": [
+    {
+      "source": "wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md",
+      "output": "output/guideline-specification-20260909/index.html",
+      "source_sha256": "d3ce1f38c1759ae6de301552bf9c110ac5e928c21839c7d0af18411577755158",
+      "sections": 6,
+      "document_date": "2026-09-11"
+    },
+    {
+      "source": "wiki/decisions/opm-guideline-roadmap.md",
+      "output": "output/guideline-specification-20260909/roadmap.html",
+      "source_sha256": "69c62a9514386d6d3296cea1e04668681ebdbeb6f2ac8ac3234c29c8d3da3037",
+      "sections": 4,
+      "document_date": "2026-09-11"
+    },
+    {
+      "source": "output/guideline-specification-20260909/versions/20260911-principles.md",
+      "output": "output/guideline-specification-20260909/versions/20260911-principles.html",
+      "source_sha256": "e0a268c494bfcbb706e88782148c751e5635fbe52f85f83cb8bae43c40b73c1d",
+      "sections": 0,
+      "document_date": "2026-09-11"
+    }
+  ],
   "policy_version": "0.7.2-pilot",
-  "policy_file_sha256": "9ecc82bc45f76506b02ab7e8ef9dd3478c03da7c65b11d58011e55a59dca9f7c",
+  "policy_file_sha256": "3afb35f889b8849f2aabcfb650528328a0bc64c975ea171324d1c5adc24b2213",
   "assessment_contract": "opm-llm-assessment/6",
   "harness_contract": "opm-voting-harness/2",
   "research_schema": "research.schema.json",
   "model_actions_schema": "model-actions.schema.json",
   "structure_runtime_contract": "structure-contract.json",
   "governance_contract": "1",
-  "document_date": "2026-09-10",
+  "staged_structure_contract": "staged-structure-contract.json",
+  "structure_ontology_sha256": "5d639e945e6f8c56a9927b213551e7b52537a79b3e2b0156195485c0e7f76e86",
+  "document_date": "2026-09-11",
   "status": "local_document_export",
-  "verification_note": "Version-separated live MCP pilot evidence is maintained in the canonical verification section. Source-bound acceptance and routing are not an independent accuracy benchmark. All assessments remain human unreviewed; no ballots or scheduled runs."
+  "comparison_source": "output/firmness-all-samples-20260911/report.json",
+  "comparison_sha256": "59086363323499efcddf11175d98e2134831a7f1eb7e0683725fb05af7bc4e53",
+  "issues_sha256": "3551950acdd1fcde291dedb1fdfcb16a3eb1c731779c55a2acd05ce6afd24034",
+  "frozen_policy_sha256": "3afb35f889b8849f2aabcfb650528328a0bc64c975ea171324d1c5adc24b2213",
+  "verification_note": "Roadmap records implementation and validation scope. Guideline records current rules. Work logs are not exported. Report-side judgments remain distinct from native MCP application."
 }

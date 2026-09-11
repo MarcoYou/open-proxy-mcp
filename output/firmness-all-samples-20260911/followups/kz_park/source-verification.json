@@ -1,0 +1,37 @@
+{
+  "contract": "opm-source-update-evidence-verification/1",
+  "actual_mcp_calls": 2,
+  "scope_agenda_ids": [
+    "agenda:7f2dba28f0692f444786",
+    "agenda:aedccb6132fe733a83cb"
+  ],
+  "evidence": [
+    {
+      "firmness": 0.1,
+      "actual_response_file": "followups/kz_park/records/kz_park-0.1.json",
+      "actual_response_sha256": "5a91772cbb6658ae9ac2603a4e550cd7a3e14fa78f6d9e2f3416c751b9b9b904",
+      "original_packet_id": "7f7630684565cf0a0581155e8c8b41c6a5002034e3c51dac84a4aa553bb621a0",
+      "followup_packet_id": "67246a4edbc4eaa285a547ec08bcebd8ea5cb4ace6f83cb4cece6179748eb1f0",
+      "source_id": "filing:20260320001239",
+      "document_sha256": "e01d3eed4b53b90b7f96dabcb1fc432eb71c13cf20c3ca890d5cd6da56b26034",
+      "published": "20260320",
+      "effective_as_of": "20260323",
+      "new_source_quote": "박병욱 1947년 10월 남 2020년 03월 20일 1년 2026년 03월 20일 자진사임 일신상의 사유",
+      "original_notice_identity_quote": "박병욱 1947.10.11 기타비상무이사"
+    },
+    {
+      "firmness": 0.9,
+      "actual_response_file": "followups/kz_park/records/kz_park-0.9.json",
+      "actual_response_sha256": "bce9c31fdff2bd4b287efeb4b06eb613c6bcd30236bb68f0dcaa2e476de7f112",
+      "original_packet_id": "cbc98b8c7f8c208d5391d7800bfe7684f6bf11b567ebae70cc4b253e63b00bd2",
+      "followup_packet_id": "372f915601e9b647d0404c2130c94c3d12904ef47a44011f6b83a3d6bf52dea9",
+      "source_id": "filing:20260320001239",
+      "document_sha256": "e01d3eed4b53b90b7f96dabcb1fc432eb71c13cf20c3ca890d5cd6da56b26034",
+      "published": "20260320",
+      "effective_as_of": "20260323",
+      "new_source_quote": "박병욱 1947년 10월 남 2020년 03월 20일 1년 2026년 03월 20일 자진사임 일신상의 사유",
+      "original_notice_identity_quote": "박병욱 1947.10.11 기타비상무이사"
+    }
+  ],
+  "meaning_verification": "Direct original quotations only; no new voting recommendation or broader relationship inference."
+}

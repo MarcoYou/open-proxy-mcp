@@ -10,12 +10,23 @@ Identifier = Annotated[StrictStr, Field(min_length=1, max_length=200)]
 
 
 class CharterEventData(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid', json_schema_extra={'allOf': [{
+        'if': {'properties': {'event_kind': {'enum': ['snapshot', 'proposal']}},
+               'required': ['event_kind']},
+        'then': {'properties': {'target_event_id': {'type': 'null'},
+                                'outcome': {'const': 'unknown'}}},
+    }, {
+        'if': {'properties': {'event_kind': {'const': 'correction'}}, 'required': ['event_kind']},
+        'then': {'required': ['target_event_id'],
+                 'properties': {'target_event_id': {'type': 'string', 'minLength': 1}}},
+    }]})
     event_kind: Literal['snapshot', 'proposal', 'resolution', 'correction']
     clause_ids: Annotated[list[Identifier], Field(min_length=1, max_length=100)]
     event_date: StrictStr | None = None
     effective_date: StrictStr | None = None
-    target_event_id: Identifier | None = None
+    target_event_id: Identifier | None = Field(default=None, description=(
+        'Only resolution/correction links. snapshot and proposal MUST use null with outcome unknown. '
+        'This is not a baseline/comparison link. Describe a baseline comparison in a separate context fact.'))
     outcome: Literal['passed', 'rejected', 'withdrawn', 'unknown'] = 'unknown'
     text_scope: Literal['full_text', 'excerpt', 'amendment_only', 'unknown']
     meaning: Text
@@ -34,6 +45,8 @@ class CharterEventData(BaseModel):
             raise ValueError('duplicate clauses')
         if self.event_kind in {'snapshot', 'proposal'} and (self.target_event_id or self.outcome != 'unknown'):
             raise ValueError('snapshot or proposal cannot declare a resolution')
+        if self.event_kind == 'correction' and not self.target_event_id:
+            raise ValueError('correction requires target')
         return self
 
 
@@ -48,6 +61,8 @@ def workflow() -> dict:
             '시행일·조건·현재 정관의 완전성이 불명확하면 해당 범위만 알리고 다른 판단을 계속한다.',
         ],
         'rules': [
+            '기준점·제안 사건에는 대상 연결을 넣지 않고 결의 결과는 미확인으로 둔다. 기준점 비교는 별도 맥락 사실로 설명한다.',
+            'target_event_id는 결의·정정의 대상 사건 연결이다. 결의는 proposal/correction을, 정정은 정정 대상 사건을 연결한다.',
             '공시 제목은 원문 탐색 힌트이며 정관 변경이나 가결의 증거가 아니다.',
             '보고서 기준일·공개일·결의일·개정일·시행일은 서로 대체하지 않는다.',
             '이번 주총의 사후 결과·사후 정정으로 마감 당시 정관을 재구성하지 않는다.',

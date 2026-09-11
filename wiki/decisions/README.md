@@ -1,7 +1,7 @@
 ---
 type: readme
 title: wiki/decisions/ — OPM 정책 + 결정 + 토론
-updated: 2026-09-09
+updated: 2026-09-11
 ---
 
 # wiki/decisions/ — OPM 정책 + 결정 + 토론
@@ -13,6 +13,8 @@ updated: 2026-09-09
 | 파일 | 용도 |
 |---|---|
 | **[[open-proxy-guideline]]** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + N연기금 통합). **유일 master** — 보조 매트릭스는 [[260429_0059_decision_voting-policy-consensus-matrix]](8 운용사 79 토픽, 매트릭스 형태 보존) |
+| **[[opm-guideline-roadmap]]** | **guideline v2 로드맵·이행현황 — 완료 범위, 남은 작업, 검증 결과, 배포 조건** |
+| [[opm-model-evaluation-protocol]] | 모델 비교·바이어스 검증 실험 설계 — 문맥 격리, 대조군, 시점, 채점·반복·저장 조건 |
 | [[ksic-sector-mapping]] | OPM 자체 업종 분류 — KSIC 중분류 기본 + 6예외 소분류 (실측 분포 근거) |
 | [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
 | [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
@@ -54,7 +56,7 @@ updated: 2026-09-09
 | **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 스코프·계약(IN/OUT 폼·필드, strict/candidate 문맥 계약)** |
 | **[[260823_1720_decision_financial-notes-tool]]** | **financial_notes tool — 금융사 주석 표 원형 추출 스코프·계약(TE/TD 런타임 판별·앵커·기준일 부착. census 41건)** |
 | [[260721_1500_decision_asset-holdings-purpose-buckets]] | asset_holdings 보유자산 목적버킷 6분류(회계사 검토) — 재테크형/부동산 자산주형/지주사 할인형/우호지분형 서사 근거 |
-| **[[260908_1200_decision_guideline-v2-final-redesign-pilot]]** | **OPM guideline v2 명세·설계·판정 로직·원천 활용 기준·고려아연/KT&G 파일럿 검증** |
+| **[[260908_1200_decision_guideline-v2-final-redesign-pilot]]** | **OPM guideline v2 판단 원칙·사용자 설정·근거·하네스 계약·구버전 첨부** |
 
 ## 시점 수정 (yymmdd_hhmm_fix_)
 

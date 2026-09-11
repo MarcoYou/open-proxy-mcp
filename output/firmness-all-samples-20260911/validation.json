@@ -1,0 +1,2363 @@
+{
+  "contract": "opm-firmness-report-validation/1",
+  "generated_at": "2026-09-11T10:45:05+09:00",
+  "valid": true,
+  "failure_count": 0,
+  "failures": [],
+  "pairs": [
+    {
+      "case_id": "gabia",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 17,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 17,
+        "0.9": 17
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "내부회계관리제도 운영실태보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "golfzon",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 24,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 24,
+        "0.9": 24
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "내부회계관리제도 운영실태 보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "taekwang",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 28,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 28,
+        "0.9": 28
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "내부회계관리제도 별도 및 연결 운영실태보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "youngpoong",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 21,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 21,
+        "0.9": 21
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "내부회계관리제도 운영실태보고",
+        "외부감사인 선임 보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "kz_agm",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 45,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 45,
+        "0.9": 45
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "외부감사인 선임보고",
+        "내부회계관리제도 운영실태 보고",
+        "최대주주등과의 거래내역 보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "kz_egm",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 9,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 9,
+        "0.9": 9
+      },
+      "informational_report_titles": [
+        "감사보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "youngone",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 15,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 15,
+        "0.9": 15
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "최대주주 등과의 거래내역 보고",
+        "내부회계관리제도 운영실태 보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "lgchem",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 17,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 17,
+        "0.9": 17
+      },
+      "informational_report_titles": [
+        "(2025.1.1 ~ 2025.12.31) 감사보고",
+        "(2025.1.1 ~ 2025.12.31) 영업보고",
+        "주요주주 등 이해관계자와의 거래 보고",
+        "내부회계관리제도 운영실태보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "samsung",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 10,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 10,
+        "0.9": 10
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "내부회계관리제도 운영실태 보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "ktg",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 15,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 15,
+        "0.9": 15
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "내부회계관리제도 운영실태 보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "skhynix",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 18,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 18,
+        "0.9": 18
+      },
+      "informational_report_titles": [
+        "영업보고",
+        "감사위원회 감사 보고",
+        "내부회계관리제도 운영실태 보고",
+        "최대주주등과의 거래내역 보고",
+        "감사위원회의 감사 보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    },
+    {
+      "case_id": "kakao",
+      "packet_controls_match": true,
+      "native_controls_match": true,
+      "expected_agenda_rows": 20,
+      "reviews_complete": true,
+      "review_valid_rows": {
+        "0.1": 20,
+        "0.9": 20
+      },
+      "informational_report_titles": [
+        "감사보고",
+        "영업보고",
+        "내부회계관리제도 운영실태보고"
+      ],
+      "uncertain_missing_agenda_titles": [],
+      "failure_count": 0
+    }
+  ],
+  "source_dates": [
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "filing:20260311004404",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "filing:20240328000770",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "filing:20241002900237",
+      "published_date": "2024-10-02",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "filing:20251216000026",
+      "published_date": "2025-12-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "filing:20260324901697",
+      "published_date": "2026-03-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "filing:20260213002767",
+      "published_date": "2026-02-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "filing:20260311004510",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "notice:20260311004404",
+      "published_date": "2026-03-11",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.1",
+      "source_id": "annual:20260318001522",
+      "published_date": "2026-03-18",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "filing:20260311004404",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "filing:20240328000770",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "filing:20241002900237",
+      "published_date": "2024-10-02",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "filing:20251216000026",
+      "published_date": "2025-12-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "filing:20260324901697",
+      "published_date": "2026-03-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "filing:20260213002767",
+      "published_date": "2026-02-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "filing:20260311004510",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "notice:20260311004404",
+      "published_date": "2026-03-11",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "gabia",
+      "arm": "0.9",
+      "source_id": "annual:20260318001522",
+      "published_date": "2026-03-18",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "filing:20260312001403",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "filing:20240329002881",
+      "published_date": "2024-03-29",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "filing:20260311902477",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "filing:20260313000940",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "filing:20251112900864",
+      "published_date": "2025-11-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "filing:20250916000176",
+      "published_date": "2025-09-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "notice:20260312001403",
+      "published_date": "2026-03-12",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.1",
+      "source_id": "annual:20260319001316",
+      "published_date": "2026-03-19",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "filing:20260312001403",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "filing:20240329002881",
+      "published_date": "2024-03-29",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "filing:20260311902477",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "filing:20260313000940",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "filing:20251112900864",
+      "published_date": "2025-11-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "filing:20250916000176",
+      "published_date": "2025-09-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "notice:20260312001403",
+      "published_date": "2026-03-12",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "golfzon",
+      "arm": "0.9",
+      "source_id": "annual:20260319001316",
+      "published_date": "2026-03-19",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20260313001279",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20260325000961",
+      "published_date": "2026-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20250402003552",
+      "published_date": "2025-04-02",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20250328002287",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20240329002664",
+      "published_date": "2024-03-29",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20240325000853",
+      "published_date": "2024-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20251126800066",
+      "published_date": "2025-11-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20260312000717",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20260313001295",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "filing:20260325801379",
+      "published_date": "2026-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "notice:20260313001279",
+      "published_date": "2026-03-13",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.1",
+      "source_id": "annual:20260323001584",
+      "published_date": "2026-03-23",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20260313001279",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20260325000961",
+      "published_date": "2026-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20250402003552",
+      "published_date": "2025-04-02",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20250328002287",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20240329002664",
+      "published_date": "2024-03-29",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20240325000853",
+      "published_date": "2024-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20251126800066",
+      "published_date": "2025-11-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20260312000717",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20260313001295",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "filing:20260325801379",
+      "published_date": "2026-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "notice:20260313001279",
+      "published_date": "2026-03-13",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "taekwang",
+      "arm": "0.9",
+      "source_id": "annual:20260323001584",
+      "published_date": "2026-03-23",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20260310003081",
+      "published_date": "2026-03-10",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20260320001239",
+      "published_date": "2026-03-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20250328001754",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20240401004433",
+      "published_date": "2024-04-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20240320000504",
+      "published_date": "2024-03-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20250902800376",
+      "published_date": "2025-09-02",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20251016000194",
+      "published_date": "2025-10-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20260312001045",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "filing:20251208800614",
+      "published_date": "2025-12-08",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "notice:20260310003081",
+      "published_date": "2026-03-10",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.1",
+      "source_id": "annual:20260317000753",
+      "published_date": "2026-03-17",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20260310003081",
+      "published_date": "2026-03-10",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20260320001239",
+      "published_date": "2026-03-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20250328001754",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20240401004433",
+      "published_date": "2024-04-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20240320000504",
+      "published_date": "2024-03-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20250902800376",
+      "published_date": "2025-09-02",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20251016000194",
+      "published_date": "2025-10-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20260312001045",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "filing:20251208800614",
+      "published_date": "2025-12-08",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "notice:20260310003081",
+      "published_date": "2026-03-10",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "youngpoong",
+      "arm": "0.9",
+      "source_id": "annual:20260317000753",
+      "published_date": "2026-03-17",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20260305001616",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20250328002345",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20250313000293",
+      "published_date": "2025-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20250124000866",
+      "published_date": "2025-01-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20250124000113",
+      "published_date": "2025-01-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20240319000552",
+      "published_date": "2024-03-19",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20260313801840",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20260309001602",
+      "published_date": "2026-03-09",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20260309001811",
+      "published_date": "2026-03-09",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "filing:20251215801653",
+      "published_date": "2025-12-15",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "notice:20260305001616",
+      "published_date": "2026-03-05",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.1",
+      "source_id": "annual:20260316000929",
+      "published_date": "2026-03-16",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20260305001616",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20250328002345",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20250313000293",
+      "published_date": "2025-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20250124000866",
+      "published_date": "2025-01-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20250124000113",
+      "published_date": "2025-01-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20240319000552",
+      "published_date": "2024-03-19",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20260313801840",
+      "published_date": "2026-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20260309001602",
+      "published_date": "2026-03-09",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20260309001811",
+      "published_date": "2026-03-09",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "filing:20251215801653",
+      "published_date": "2025-12-15",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "notice:20260305001616",
+      "published_date": "2026-03-05",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_agm",
+      "arm": "0.9",
+      "source_id": "annual:20260316000929",
+      "published_date": "2026-03-16",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-23"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20260811000705",
+      "published_date": "2026-08-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20260601001623",
+      "published_date": "2026-06-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20260325000009",
+      "published_date": "2026-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20250328002345",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20250313000293",
+      "published_date": "2025-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20250124000866",
+      "published_date": "2025-01-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20260907800121",
+      "published_date": "2026-09-07",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20260806000442",
+      "published_date": "2026-08-06",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20260812000867",
+      "published_date": "2026-08-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "filing:20251215801653",
+      "published_date": "2025-12-15",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "notice:20260811000705",
+      "published_date": "2026-08-11",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.1",
+      "source_id": "annual:20260813001726",
+      "published_date": "2026-08-13",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20260811000705",
+      "published_date": "2026-08-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20260601001623",
+      "published_date": "2026-06-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20260325000009",
+      "published_date": "2026-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20250328002345",
+      "published_date": "2025-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20250313000293",
+      "published_date": "2025-03-13",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20250124000866",
+      "published_date": "2025-01-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20260907800121",
+      "published_date": "2026-09-07",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20260806000442",
+      "published_date": "2026-08-06",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20260812000867",
+      "published_date": "2026-08-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "filing:20251215801653",
+      "published_date": "2025-12-15",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "notice:20260811000705",
+      "published_date": "2026-08-11",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "kz_egm",
+      "arm": "0.9",
+      "source_id": "annual:20260813001726",
+      "published_date": "2026-08-13",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-09-08"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20260312001098",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20250331003230",
+      "published_date": "2025-03-31",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20240401004194",
+      "published_date": "2024-04-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20240329003227",
+      "published_date": "2024-03-29",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20240328001791",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20260305001039",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20260312001181",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20250610000221",
+      "published_date": "2025-06-10",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "filing:20250916000045",
+      "published_date": "2025-09-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "notice:20260312001098",
+      "published_date": "2026-03-12",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.1",
+      "source_id": "annual:20260319001279",
+      "published_date": "2026-03-19",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20260312001098",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20250331003230",
+      "published_date": "2025-03-31",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20240401004194",
+      "published_date": "2024-04-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20240329003227",
+      "published_date": "2024-03-29",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20240328001791",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20260305001039",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20260312001181",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20250610000221",
+      "published_date": "2025-06-10",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "filing:20250916000045",
+      "published_date": "2025-09-16",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "notice:20260312001098",
+      "published_date": "2026-03-12",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "youngone",
+      "arm": "0.9",
+      "source_id": "annual:20260319001279",
+      "published_date": "2026-03-19",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-26"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "filing:20260224004273",
+      "published_date": "2026-02-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "filing:20250324000723",
+      "published_date": "2025-03-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "filing:20240325000489",
+      "published_date": "2024-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "filing:20260225801485",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "filing:20260305001433",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "filing:20260226007029",
+      "published_date": "2026-02-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "filing:20260225801796",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "notice:20260224004273",
+      "published_date": "2026-02-24",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.1",
+      "source_id": "annual:20260313001195",
+      "published_date": "2026-03-13",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "filing:20260224004273",
+      "published_date": "2026-02-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "filing:20250324000723",
+      "published_date": "2025-03-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "filing:20240325000489",
+      "published_date": "2024-03-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "filing:20260225801485",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "filing:20260305001433",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "filing:20260226007029",
+      "published_date": "2026-02-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "filing:20260225801796",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "notice:20260224004273",
+      "published_date": "2026-02-24",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "lgchem",
+      "arm": "0.9",
+      "source_id": "annual:20260313001195",
+      "published_date": "2026-03-13",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-30"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "filing:20260312000987",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "filing:20250319000858",
+      "published_date": "2025-03-19",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "filing:20240320001235",
+      "published_date": "2024-03-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "filing:20260130000730",
+      "published_date": "2026-01-30",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "filing:20260312001411",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "filing:20260312000961",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "filing:20260225001623",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "notice:20260312000987",
+      "published_date": "2026-03-12",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.1",
+      "source_id": "annual:20260310002820",
+      "published_date": "2026-03-10",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "filing:20260312000987",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "filing:20250319000858",
+      "published_date": "2025-03-19",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "filing:20240320001235",
+      "published_date": "2024-03-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "filing:20260130000730",
+      "published_date": "2026-01-30",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "filing:20260312001411",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "filing:20260312000961",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "filing:20260225001623",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "notice:20260312000987",
+      "published_date": "2026-03-12",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "samsung",
+      "arm": "0.9",
+      "source_id": "annual:20260310002820",
+      "published_date": "2026-03-10",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-17"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "filing:20260225005779",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "filing:20250326000883",
+      "published_date": "2025-03-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "filing:20240328000971",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "filing:20260130000329",
+      "published_date": "2026-01-30",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "filing:20260225005854",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "filing:20251124800626",
+      "published_date": "2025-11-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "filing:20260226001891",
+      "published_date": "2026-02-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "notice:20260225005779",
+      "published_date": "2026-02-25",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.1",
+      "source_id": "annual:20260318001422",
+      "published_date": "2026-03-18",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "filing:20260225005779",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "filing:20250326000883",
+      "published_date": "2025-03-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "filing:20240328000971",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "filing:20260130000329",
+      "published_date": "2026-01-30",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "filing:20260225005854",
+      "published_date": "2026-02-25",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "filing:20251124800626",
+      "published_date": "2025-11-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "filing:20260226001891",
+      "published_date": "2026-02-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "notice:20260225005779",
+      "published_date": "2026-02-25",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "ktg",
+      "arm": "0.9",
+      "source_id": "annual:20260318001422",
+      "published_date": "2026-03-18",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "filing:20260305001231",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "filing:20240327000718",
+      "published_date": "2024-03-27",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "filing:20240322000646",
+      "published_date": "2024-03-22",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "filing:20260220000091",
+      "published_date": "2026-02-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "filing:20260312001157",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "filing:20260303801364",
+      "published_date": "2026-03-03",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "filing:20260206001987",
+      "published_date": "2026-02-06",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "notice:20260305001231",
+      "published_date": "2026-03-05",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.1",
+      "source_id": "annual:20260317000635",
+      "published_date": "2026-03-17",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "filing:20260305001231",
+      "published_date": "2026-03-05",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "filing:20240327000718",
+      "published_date": "2024-03-27",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "filing:20240322000646",
+      "published_date": "2024-03-22",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "filing:20260220000091",
+      "published_date": "2026-02-20",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "filing:20260312001157",
+      "published_date": "2026-03-12",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "filing:20260303801364",
+      "published_date": "2026-03-03",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "filing:20260206001987",
+      "published_date": "2026-02-06",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "notice:20260305001231",
+      "published_date": "2026-03-05",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "skhynix",
+      "arm": "0.9",
+      "source_id": "annual:20260317000635",
+      "published_date": "2026-03-17",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-24"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "filing:20260311004482",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "filing:20250326000731",
+      "published_date": "2025-03-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "filing:20240328000528",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "filing:20251001000439",
+      "published_date": "2025-10-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "filing:20260211001133",
+      "published_date": "2026-02-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "filing:20260224004397",
+      "published_date": "2026-02-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "notice:20260311004482",
+      "published_date": "2026-03-11",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.1",
+      "source_id": "annual:20260318001423",
+      "published_date": "2026-03-18",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "filing:20260311004482",
+      "published_date": "2026-03-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "filing:20250326000731",
+      "published_date": "2025-03-26",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "filing:20240328000528",
+      "published_date": "2024-03-28",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "filing:20251001000439",
+      "published_date": "2025-10-01",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "filing:20260211001133",
+      "published_date": "2026-02-11",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "filing:20260224004397",
+      "published_date": "2026-02-24",
+      "date_basis": "published",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "notice:20260311004482",
+      "published_date": "2026-03-11",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    },
+    {
+      "case_id": "kakao",
+      "arm": "0.9",
+      "source_id": "annual:20260318001423",
+      "published_date": "2026-03-18",
+      "date_basis": "receipt_date",
+      "latest_allowed_date": "2026-03-25"
+    }
+  ],
+  "reviewer_model": "gpt-6-astra",
+  "human_reviewed": false,
+  "scope": "구조·문자열·시점·통제 검사. 의미 정확성·평가자 신원·완전 독립은 검증하지 않음.",
+  "source_updates": [
+    {
+      "id": "kz_park",
+      "status": "complete",
+      "valid": true,
+      "primary_counts_unchanged": true,
+      "failure_count": 0,
+      "failures": [],
+      "source_dates": [
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20260305001616",
+          "published_date": "2026-03-05",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20250328002345",
+          "published_date": "2025-03-28",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20250313000293",
+          "published_date": "2025-03-13",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20250124000866",
+          "published_date": "2025-01-24",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20250124000113",
+          "published_date": "2025-01-24",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20240319000552",
+          "published_date": "2024-03-19",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20260313801840",
+          "published_date": "2026-03-13",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20260309001602",
+          "published_date": "2026-03-09",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20260309001811",
+          "published_date": "2026-03-09",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20251215801653",
+          "published_date": "2025-12-15",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "notice:20260305001616",
+          "published_date": "2026-03-05",
+          "date_basis": "receipt_date",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "annual:20260316000929",
+          "published_date": "2026-03-16",
+          "date_basis": "receipt_date",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.1",
+          "source_id": "filing:20260320001239",
+          "published_date": "2026-03-20",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20260305001616",
+          "published_date": "2026-03-05",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20250328002345",
+          "published_date": "2025-03-28",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20250313000293",
+          "published_date": "2025-03-13",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20250124000866",
+          "published_date": "2025-01-24",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20250124000113",
+          "published_date": "2025-01-24",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20240319000552",
+          "published_date": "2024-03-19",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20260313801840",
+          "published_date": "2026-03-13",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20260309001602",
+          "published_date": "2026-03-09",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20260309001811",
+          "published_date": "2026-03-09",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20251215801653",
+          "published_date": "2025-12-15",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "notice:20260305001616",
+          "published_date": "2026-03-05",
+          "date_basis": "receipt_date",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "annual:20260316000929",
+          "published_date": "2026-03-16",
+          "date_basis": "receipt_date",
+          "latest_allowed_date": "2026-03-23"
+        },
+        {
+          "case_id": "kz_park",
+          "arm": "0.9",
+          "source_id": "filing:20260320001239",
+          "published_date": "2026-03-20",
+          "date_basis": "published",
+          "latest_allowed_date": "2026-03-23"
+        }
+      ],
+      "actual_source_calls": 2,
+      "completed_judgments": 4,
+      "expected_judgments": 4
+    }
+  ],
+  "all_requested_work_complete": true
+}

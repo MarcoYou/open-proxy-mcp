@@ -1,0 +1,28 @@
+{
+  "judgments": [
+    {
+      "agenda_id": "agenda:45d646003736a33e890f",
+      "finding_ids": [
+        "size-effect"
+      ],
+      "gap_ids": [
+        "size-composition"
+      ],
+      "recommendation": "REVIEW",
+      "rationale": "상한 8명 자체를 위반으로 보지 않는다. 별도 시행시점의 실제 구성·위원회 업무 영향 대조가 남아 이 범위는 검토한다.",
+      "condition_id": null,
+      "exception_evidence_refs": []
+    },
+    {
+      "agenda_id": "agenda:c84e18e62e266baeb999",
+      "finding_ids": [
+        "cv-effect"
+      ],
+      "gap_ids": [],
+      "recommendation": "FOR",
+      "rationale": "집중투표 배제 문구를 삭제하는 제안에 찬성한다. 2026년 9월 10일 이후 최초 소집부터 적용한다는 조건을 보존하며 이번 회차의 행사 가능성을 확정하지 않는다.",
+      "condition_id": null,
+      "exception_evidence_refs": []
+    }
+  ]
+}
