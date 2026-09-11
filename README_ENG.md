@@ -9,7 +9,7 @@
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
-[Quick Start](#quick-start) · [Main Features](#main-features) · [Tool Structure](#tool-structure-32-tools) · [Data Sources](#data-sources)
+[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [Main Features](#main-features) · [Tool Structure](#tool-structure-32-tools) · [How to Read](#how-to-read-the-output) · [Data Sources](#data-sources)
 
 ## Why OpenProxy?
 
@@ -63,12 +63,115 @@ Select `+` in the chat input, then choose `Connectors → Add from open-proxy-mc
 
 Start with `Show Samsung Electronics' company information and three recent filings.` If the company and filings appear, the connection works. Continue in natural language; you do not need to know the tool names.
 
-- `Review LG Chem's next AGM agenda and give an evidence-backed voting view on each item.`
-- `Compare Samsung Electronics' last three years of results with the next two years of consensus estimates.`
-
-Find more prompts on each page in the [tool catalog](wiki/tools/README.md).
+Prompts grouped by topic are collected in [What to Ask](#what-to-ask) below. Per-tool schemas live in the [tool catalog](wiki/tools/README.md).
 
 `OpenProxy Feature Guide` is generated from the server's registered tools. `Company Snapshot` guides the assistant through business structure, three years of actual results, up to two available annual consensus estimates, valuation, ownership, dividends, recent filings, and follow-up questions. The table distinguishes actuals (A) from estimates (E); clients with visualization support are also asked to show revenue bars and an operating-profit line.
+
+---
+
+## What to Ask
+
+You never need a tool name. Say what you want and the assistant picks the tools.
+These are prompts that actually work.
+
+<details open>
+<summary><b>🗳️ AGM and proxy voting</b></summary>
+
+> - Review LG Chem's next AGM agenda and give an evidence-backed voting view on each item.
+> - Kakao's director election this year — what should I look at for each nominee?
+> - How did Samsung Electronics' agenda items actually get voted last year?
+> - Find the charter article and the Commercial Act provision that govern this item.
+
+Every item comes back as **FOR / AGAINST / REVIEW** with filing evidence, policy citations, and
+statute links. Items that are not put to a vote and items with insufficient evidence stay separate.
+A company with zero AGAINST items is normal — [here is why](#how-to-read-the-output)
+
+</details>
+
+<details open>
+<summary><b>📊 Earnings</b></summary>
+
+> - Compare Samsung Electronics' last three years of results with the next two years of consensus.
+> - Show SK Hynix's quarterly trend including operating cash flow.
+> - Has Hyundai Motor filed provisional results? How do they differ from the confirmed figures?
+> - Break down LG Chem's profitability with a DuPont decomposition.
+
+Confirmed results come from the DART financial API, provisional figures from provisional-earnings
+filings, and estimates from analyst consensus. **The three carry different bases and are never put
+on one line** — tables mark actuals (A) and estimates (E) separately.
+
+</details>
+
+<details>
+<summary><b>💹 What the price reflects</b></summary>
+
+> - Where does Naver's PER and PBR sit against its own history?
+> - Compute Posco Holdings' forward PER from next year's and the following year's estimates.
+> - What did Samsung Electronics' valuation look like as of end-2024?
+
+Market cap, PER, PBR, PSR and dividend yield come with their historical range. **The earnings
+as-of date and the price date are shown separately** — they are not the same day.
+
+</details>
+
+<details>
+<summary><b>🏭 How the company earns</b></summary>
+
+> - How does Hanwha Solutions make money? Break it down by segment.
+> - Show Korea Zinc's utilization rate and input-cost trend.
+> - Value Taekwang Industrial's affiliate stakes and surplus assets.
+> - How much order backlog is left at this company?
+
+Segment, product and regional revenue are **different axes cutting the same revenue, so they are
+never summed.** Stakes are counted with listed holdings at market value and unlisted ones at book.
+
+</details>
+
+<details>
+<summary><b>🧭 Ownership and shareholder returns</b></summary>
+
+> - Who are Samsung C&T's largest shareholder and related parties?
+> - Show KB Financial's dividend trend and payout ratio over three years.
+> - Among companies that announced buybacks, which actually cancelled the shares?
+> - How closely does the value-up filing match what was actually executed?
+
+Dividends carry **two different bases.** Dividend per share and dividend yield are per share **of
+each share class**, while total dividends and the payout ratio are **company-wide** (all classes
+combined, consolidated) — [detail](#how-to-read-the-output)
+
+</details>
+
+<details>
+<summary><b>⚔️ What changed</b></summary>
+
+> - Summarize the filings that matter from this morning.
+> - Any company showing control-contest signals recently?
+> - Show Doosan Robotics' rights offerings and convertible bond issuance history.
+> - Does this company have litigation or sanctions on record?
+
+Market-wide scans reach back **three months at most.** Beyond that window the answer never claims
+that nothing happened.
+
+</details>
+
+<details>
+<summary><b>🔗 Checking the evidence</b></summary>
+
+> - Which filing and which item number does that figure come from?
+> - Where can I read the original document for this receipt number?
+> - Which Commercial Act article does this charter clause fall under? Is it mandatory?
+
+Every figure carries its receipt number, and receipt numbers resolve to DART viewer URLs. Charter
+clauses and statutes are looked up in both directions, and that lookup spends no DART API calls.
+
+</details>
+
+### Worth knowing
+
+- **Resolve the company once** — the name, ticker and corp code from the first lookup carry through the rest of the conversation.
+- **Ambiguous names are confirmed first** — when several companies match, no follow-up lookup runs until one is chosen.
+- **Read `status` and `warnings` first** — they carry what was missing and which basis was substituted.
+- **A value that was not found reads as "not found in the filings read"** — neither zero nor "there is none".
 
 ---
 
@@ -117,12 +220,60 @@ Categories match the "what do you want to know → which tool" table in the [wik
 
 ---
 
+## How to Read the Output
+
+Filings carry a different basis for almost every item. Miss these eleven and you will misread
+figures that are perfectly correct.
+
+| What | Why |
+|---|---|
+| **"No data" is not "there is none"** | It means the value was not found in the filings that were read. `status` and `warnings` say what was missing and what was substituted |
+| **Zero AGAINST items is normal** | A policy's grounds for opposition are not the engine's automatic AGAINST conditions. Concerns that need further judgement stay **REVIEW** |
+| **Dividends carry two different bases** | Dividend per share and dividend yield are **per share of each class**; total dividends and the payout ratio are **company-wide** (all classes combined, consolidated). Dividing one by the other is wrong |
+| **Never put confirmed, provisional and estimated on one line** | They come from the DART financial API, provisional-earnings filings and analyst consensus respectively. Tables mark actuals A and estimates E. Provisional figures also do not replace every metric |
+| **Check consolidation and attribution** | When net income attribution (controlling interest versus total) or consolidation basis differs, growth is not computed — only the difference is stated |
+| **Fiscal years follow the closing month** | Non-December filers diverge from the calendar year. Shinyoung Securities (001720) reports `2025-06-30` as FY2026-Q1 |
+| **Financial companies lack some metrics** | Revenue and general-industry ratios are **not provided**, not zero. Read operating profit, net income and that sector's soundness data instead |
+| **The earnings date and the price date differ** | Forward multiples carry the estimate as-of date and the price date separately. A past figure is never presented as today's |
+| **The first two digits of a receipt number name the source** | `00` is a DART periodic filing (AGM notice); `80` is an exchange ad-hoc filing (AGM results) |
+| **Market-wide scans reach back three months** | Beyond that window the answer never claims that nothing happened. Naming a company widens the range |
+| **Governance review is not human-reviewed** | `governance_screen` labels its output **LLM assessment · human unreviewed · partial evidence**. Tender offers, activism and litigation are not adverse findings by themselves |
+
+<details>
+<summary><b>Detail — the numbers behind these</b></summary>
+
+<br>
+
+- **Class shares used to overwrite common-share dividends** (fixed 2026-09-06). Class-share labels
+  without the word "preferred" (종류주식 · 1종 종류주식 · 전환주 and others, 235 rows in the KOSPI
+  ledger) were read as common shares by the old rule. Korea Investment Holdings' FY2024 common-share
+  DPS of 3,980 went out as the class-share 4,042; Doosan's 2,000 went out as 2,050, and the
+  current-price yield was wrong with them. One classifier now serves both the year-end summary and
+  the multi-year history → [`dividend_disclosure`](wiki/tools/dividend_disclosure.md)
+- **DART allows 1,000 calls per minute per API key**, and exceeding it blocks that key for two to
+  three hours. The server stops itself at 910. Every response carries the DART call count it spent
+  in `data.usage`.
+- **Web parsing runs on a single process-wide clock** — 0.4 to 1 second of random spacing, 40
+  requests per minute, widening to 1–2 seconds after a block signal. Blocks are applied by IP, so
+  the whole machine is affected.
+- **Two classification systems are in play** — industry codes (KSIC) and DART filing types
+  (`pblntf_ty`). Filing search filters by type first, and market-wide search without a specific
+  company looks back three months.
+- **Charter and statute lookups spend no DART API calls.** Statute text is synchronized weekly from
+  a source built on the Korean national law database → [`law_lookup`](wiki/tools/law_lookup.md)
+- **User query results are never stored.** Only caches, market snapshots and call-volume telemetry
+  persist.
+
+</details>
+
+---
+
 ## Data Sources
 
 | Source | Use | Notes |
 |------|------|------|
 | [English OpenDART](https://engopendart.fss.or.kr/) | Filing metadata + financial endpoints + dividends/treasury/ownership | **Required** — free API key. 1,000/min hard rule (cap 910) |
-| DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | Rate-limited with a random 1–2-second delay |
+| DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | Random 0.4–1s spacing, 40 requests/min; widened to 1–2s after a block signal |
 | [KRX KIND](https://kind.krx.co.kr/) | Exchange-filing cross-checks | Auxiliary source |
 | Korean statutes based on the [Korean Law Information Center](https://www.law.go.kr/) | Statutory basis for articles amendments and voting analysis | Synced weekly from [legalize-kr](https://github.com/legalize-kr/legalize-kr) |
 | Voting records disclosed through KRX by major asset managers and published by Korea's National Pension Service | Voting-judgment cross-reference | Public records collected and structured in advance |
