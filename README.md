@@ -1,5 +1,8 @@
+<div align="center">
+
 # OpenProxy MCP
 
+[![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
@@ -10,6 +13,8 @@
 [English](README_ENG.md) · [简体中文](README_ZH.md)
 
 [빠른 시작](#빠른-시작) · [이렇게 물어보세요](#이렇게-물어보세요) · [주요 기능](#주요-기능) · [도구 구조](#도구-구조-32개) · [읽을 때 주의](#읽을-때-주의) · [데이터 출처](#데이터-소스)
+
+</div>
 
 ## Why OpenProxy?
 
