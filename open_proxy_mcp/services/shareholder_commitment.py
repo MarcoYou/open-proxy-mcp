@@ -232,6 +232,49 @@ def _overall_shareholder_return(
     }
 
 
+_DECISION_EVENT_LABELS = {
+    "acquisition_decision": "자사주 취득결정",
+    "disposal_decision": "자사주 처분결정",
+    "cancelation_decision": "자사주 소각결정",
+    "trust_contract": "자사주 신탁계약체결",
+    "trust_termination": "자사주 신탁해지",
+}
+
+
+def _latest_events_beyond_period(
+    treasury_data: dict[str, Any], fiscal_period: dict[str, str] | None
+) -> list[dict[str, Any]]:
+    """CSR이 커버하는 회계연도(fiscal_period) **이후**에 새로 나온 자사주 결정 공시를 크기 무관하게
+    전부 모은다 (260914 재변경, 마르코와 대화에서 확정).
+
+    배경: CSR을 배당과 회계연도로 정합시켰더니, 그 연도가 끝난 뒤 나온 대형 공시(예: SK하이닉스
+    2026-08-19 취득결정 40.00조원, 소각목적)가 FY2025 CSR엔 (정확히) 안 잡혀서 "최신 데이터를
+    놓쳤다"는 오해를 샀다. 실제론 안 놓쳤음(24개월 요약·value_up 교차참조엔 있었음) — 다만 CSR
+    본문 어디에도 눈에 띄게 안 보여서 실질적으로 놓친 것과 같았다. 그래서 CSR 비율 자체(분모=
+    확정 순이익과 짝지어야 하는 값)는 안 건드리고, **회계연도 밖 최신 이벤트를 결과 최상단에
+    무조건 노출**하는 별도 섹션을 추가한다 — 크기와 무관하게 전부, 최신순."""
+    if not fiscal_period:
+        return []
+    cutoff = fiscal_period["end"].replace("-", "")  # "YYYY-MM-DD" -> "YYYYMMDD" (rcept_dt와 동일 형식)
+    events = treasury_data.get("events") or []
+    later = [
+        e for e in events
+        if e.get("event") in _DECISION_EVENT_LABELS and (e.get("rcept_dt") or "") > cutoff
+    ]
+    later.sort(key=lambda e: e.get("rcept_dt", ""), reverse=True)
+    return [
+        {
+            "event": e.get("event"),
+            "event_label": _DECISION_EVENT_LABELS.get(e.get("event"), e.get("event")),
+            "rcept_dt": e.get("rcept_dt"),
+            "rcept_no": e.get("rcept_no"),
+            "amount_krw": e.get("amount_krw"),
+            "for_cancelation": e.get("for_cancelation"),
+        }
+        for e in later
+    ]
+
+
 async def _fill_yearend_yield(ticker: str, div_history: list[dict[str, Any]]) -> None:
     """DART 자체 배당수익률(yield_dart, dividend.history의 yield_pct)은 결의 시점 시가 기준이라
     옛 연도일수록 결측이 많다(실측 확인 260707: 미래에셋증권·현대차·SKC 전부 2021·2022년 None,
@@ -363,6 +406,11 @@ async def build_shareholder_commitment_payload(
         div_summary_data.get("summary") or {}, treasury_data.get("summary") or {},
         csr_treasury_summary=csr_treasury_summary, fiscal_period=fiscal_period,
     )
+
+    # CSR 회계연도 밖 최신 이벤트 — treasury_task의 lookback_years 범위 안에서 fiscal_period 이후로
+    # 새로 나온 공시는 크기 무관 전부 노출(260914 재변경). lookback_years가 짧으면(예: 1년) 이
+    # fiscal_period 자체가 lookback 범위 밖일 수 있어 그런 경우 빈 리스트가 정상.
+    latest_events_beyond_csr_period = _latest_events_beyond_period(treasury_data, fiscal_period)
     overall["total_book_value_gain_loss_krw"] = sum(
         c.get("book_value_gain_loss_krw", 0) for c in capital_return_cycles if c.get("book_value_gain_loss_krw")
     )
@@ -385,6 +433,7 @@ async def build_shareholder_commitment_payload(
             "transitions": gov_data.get("transitions"),
         },
         "overall": overall,
+        "latest_events_beyond_csr_period": latest_events_beyond_csr_period,
         "data_quality_flags": quality_flags,
         "usage": build_usage(get_dart_client().api_call_snapshot() - calls_start),
     }

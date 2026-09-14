@@ -29,6 +29,26 @@ def _render(payload: dict[str, Any]) -> str:
     d = payload["data"]
     lines = [f"# {d['canonical_name']} 주주환원 약속 이행 점검 (최근 {d['lookback_years']}년)", ""]
 
+    latest_events = d.get("latest_events_beyond_csr_period") or []
+    if latest_events:
+        lines.append("## 🔴 최신 공시 — 아래 CSR(환원율)엔 아직 안 잡힘")
+        lines.append("")
+        lines.append(
+            "> CSR은 배당이 확정된 회계연도와 기간을 맞춰서 계산한다(정확성 목적). 그 연도가 끝난 "
+            "뒤 새로 나온 공시는 이 섹션에 크기·최신순으로 전부 낸다 — 놓치지 않기 위함."
+        )
+        lines.append("")
+        lines.append("| 공시일 | 유형 | 금액 | 공시번호 |")
+        lines.append("|---|---|---|---|")
+        for e in latest_events:
+            amt = e.get("amount_krw")
+            amt_str = f"{amt:,}원" if amt else "-"
+            label = e.get("event_label", "")
+            if e.get("for_cancelation"):
+                label += "(소각목적)"
+            lines.append(f"| {e.get('rcept_dt', '-')} | {label} | {amt_str} | `{e.get('rcept_no', '-')}` |")
+        lines.append("")
+
     commitments = d.get("commitments") or {}
     tcr = commitments.get("treasury_cross_ref")
     if commitments.get("latest_plan"):
@@ -116,6 +136,8 @@ def _render(payload: dict[str, Any]) -> str:
     if total_gain:
         lines.append(f"- 자사주소각 장부가 손익 합계: {_f(total_gain)}원")
     lines.append(f"> {overall.get('period_note', '')}")
+    if latest_events:
+        lines.append(f"> ⚠ 이 CSR 이후 새 공시 {len(latest_events)}건 있음 — 맨 위 '최신 공시' 섹션 참고.")
     lines.append("")
 
     flags = d.get("data_quality_flags") or []
@@ -145,7 +167,8 @@ def register_tools(mcp):
         260707 원문단위버그 수정 완료)를 조합. 결정↔실행 매칭 오탐 의심 사이클은 sanity 필터로
         제외하고 data_quality_flags에 남김(알려진 treasury_share `_link_cycles` 별개 이슈 대응).
         CSR(환원율)의 자사주매입액은 배당과 동일 회계연도로 기간을 정합한 값(260914) — 결산월을
-        못 구하면 lookback_years 누적으로 폴백하고 경고를 남김.
+        못 구하면 lookback_years 누적으로 폴백하고 경고를 남김. 그 회계연도 이후 새로 나온 자사주
+        공시(크기 무관)는 CSR에 안 섞고 결과 최상단 "최신 공시" 섹션에 전부 노출(260914 재변경).
         lookback_years: 조회 기간(년), 기본 3
         ref: value_up, corp_gov_report, dividend_disclosure, treasury_share
         """
