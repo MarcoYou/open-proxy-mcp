@@ -26,5 +26,10 @@
         ]
       }
     ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(uv run python scripts/events_drain.py*)"
+    ]
   }
 }
