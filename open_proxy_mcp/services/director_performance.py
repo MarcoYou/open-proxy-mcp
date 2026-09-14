@@ -8,7 +8,7 @@ User 비판 (코붕이, 2026-05-05 고려아연 케이스): proxy_advise가 회�
 매트릭스:
 - ROE × (avg, trend)
 - 부채비율 × (avg, trend)
-- CSR × (avg, trend) — 배당+소각 / 누적 지배주주순이익
+- CSR × (avg, trend) — 배당+자사주매입 / 누적 지배주주순이익
 
 점수: good +2 / moderate +1 / weak 0 / bad -1
 종합 (총점 -6 ~ +12):
@@ -17,8 +17,14 @@ User 비판 (코붕이, 2026-05-05 고려아연 케이스): proxy_advise가 회�
 
 Special rules:
 - 자본잠식 (full): ROE/leverage avg 자동 bad
-- 적자 + 환원 활동 (배당+소각 > 0): CSR 일괄 weak (자본 잠식 가속)
+- 적자 + 환원 활동 (배당+매입 > 0): CSR 일괄 weak (자본 잠식 가속)
 - 적자 + 환원 자제: CSR moderate (보수성)
+
+260914: CSR 분자를 소각(cancelation) 기준에서 매입(acquisition_decision+trust_contract)
+기준으로 정정 — wiki/rules/concepts/주주환원.md에 2026-04-29자로 이미 문서화된 결정과
+일치시킴(이 파일은 2026-05-05에 작성되면서 그 결정을 반영하지 못한 채 소각 기준으로
+구현돼 있었다). 31개사 표본 영향 스캔(마르코와 대화, 260914): 삼성화재·삼성물산 2곳
+classification이 우수→양호로 하락, 나머지는 CSR 수치는 바뀌어도 등급 버킷은 유지.
 
 ralph: wiki/ralph/260505_1611_ralph_inside-director-performance-matrix.md
 """
@@ -135,17 +141,21 @@ def _score_csr(
     trend_pp_per_year: float | None,
     avg_net_income: int | None,
     total_dividend: int,
-    total_cancelation: int,
+    total_acquisition: int,
 ) -> tuple[int, int]:
     """CSR (avg, trend) 점수 tuple.
 
+    260914: 분자는 자사주 매입(acquisition_decision+trust_contract) 기준. 소각(cancelation)은
+    회계 정리 단계일 뿐이고 현금은 매입 시점에 이미 지출됐으므로 분자에 넣지 않는다
+    (wiki/rules/concepts/주주환원.md 캐논 정의, 2026-04-29 결정).
+
     Special rules:
-    - 적자 (avg net_income < 0) + 환원 활동 (배당+소각 > 0): 둘 다 weak (자본 잠식 가속)
-    - 적자 + 환원 자제 (배당+소각 == 0): 둘 다 moderate (보수성)
+    - 적자 (avg net_income < 0) + 환원 활동 (배당+매입 > 0): 둘 다 weak (자본 잠식 가속)
+    - 적자 + 환원 자제 (배당+매입 == 0): 둘 다 moderate (보수성)
 
     일반:
     avg:
-      bad: 0% (배당+소각 모두 0)
+      bad: 0% (배당+매입 모두 0)
       weak: 0-10%
       moderate: 10-30%
       good: ≥30%
@@ -155,7 +165,7 @@ def _score_csr(
       moderate: 안정 (≈0)
       good: ≥+5%p/년 증가
     """
-    has_return = (total_dividend or 0) > 0 or (total_cancelation or 0) > 0
+    has_return = (total_dividend or 0) > 0 or (total_acquisition or 0) > 0
 
     # Special: 적자 case
     if avg_net_income is not None and avg_net_income < 0:
@@ -217,7 +227,7 @@ def compute_performance(
     leverage_yearly: dict[int, float | None],
     net_income_yearly: dict[int, int | None],
     dividend_yearly: dict[int, int],
-    cancelation_yearly: dict[int, int],
+    acquisition_yearly: dict[int, int],
     capital_impairment_status: str | None = None,
     operating_margin_yearly: dict[int, float | None] | None = None,
 ) -> dict[str, Any]:
@@ -229,7 +239,9 @@ def compute_performance(
         leverage_yearly: 연도 → 부채비율 %
         net_income_yearly: 연도 → 지배주주 당기순이익 (원)
         dividend_yearly: 연도 → 배당 총액 (원)
-        cancelation_yearly: 연도 → 자사주 소각 총액 (원)
+        acquisition_yearly: 연도 → 자사주 매입 총액(취득결정+신탁체결, 원). 260914 이전에는
+            소각(cancelation) 총액을 받았으나, 소각은 회계 정리 단계일 뿐이고 현금은 매입
+            시점에 이미 지출됐으므로 매입 기준으로 정정(wiki/rules/concepts/주주환원.md).
         capital_impairment_status: financial_metrics summary의 capital_impairment_status
         operating_margin_yearly: 연도 → 영업이익률 % (본업 수익성 fact — 점수 미반영).
             ROE(순이익/자기자본)의 레버리지·일회성 왜곡을 보완. 적자기업의 '영업흑자+순손실'
@@ -247,7 +259,7 @@ def compute_performance(
     leverage_series = [leverage_yearly.get(y) for y in tenure_years_sorted]
     net_income_series = [net_income_yearly.get(y) for y in tenure_years_sorted]
     dividend_series = [dividend_yearly.get(y, 0) for y in tenure_years_sorted]
-    cancelation_series = [cancelation_yearly.get(y, 0) for y in tenure_years_sorted]
+    acquisition_series = [acquisition_yearly.get(y, 0) for y in tenure_years_sorted]
 
     # ROE
     roe_avg = _avg([v for v in roe_series if v is not None])
@@ -264,8 +276,8 @@ def compute_performance(
 
     # CSR
     total_dividend = sum(dividend_series)
-    total_cancelation = sum(cancelation_series)
-    total_return = total_dividend + total_cancelation
+    total_acquisition = sum(acquisition_series)
+    total_return = total_dividend + total_acquisition
     total_net_income = sum(v for v in net_income_series if v is not None and v > 0)
     avg_net_income = _avg([v for v in net_income_series if v is not None])
 
@@ -276,7 +288,7 @@ def compute_performance(
     for y in tenure_years_sorted:
         ni = net_income_yearly.get(y)
         if ni and ni > 0:
-            ret = dividend_yearly.get(y, 0) + cancelation_yearly.get(y, 0)
+            ret = dividend_yearly.get(y, 0) + acquisition_yearly.get(y, 0)
             csr_yearly.append(ret / ni * 100)
     csr_trend = _slope(csr_yearly) if len(csr_yearly) >= 2 else None
 
@@ -285,7 +297,7 @@ def compute_performance(
         trend_pp_per_year=csr_trend,
         avg_net_income=int(avg_net_income) if avg_net_income is not None else None,
         total_dividend=total_dividend,
-        total_cancelation=total_cancelation,
+        total_acquisition=total_acquisition,
     )
 
     # 종합
@@ -361,7 +373,7 @@ def compute_performance(
                 "avg_pct": csr_avg,
                 "trend_pp_per_year": csr_trend,
                 "total_dividend_krw": total_dividend,
-                "total_cancelation_krw": total_cancelation,
+                "total_acquisition_krw": total_acquisition,
                 "avg_score": csr_avg_score,
                 "avg_label": _label(csr_avg_score),
                 "trend_score": csr_trend_score,

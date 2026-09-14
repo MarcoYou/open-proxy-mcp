@@ -534,7 +534,7 @@ sequenceDiagram
         T->>DE: 후보 평가
     end
     opt 사내이사 연임 detect
-        T->>T: +dividend/treasury/order_contracts chain (CSR·소각)
+        T->>T: +dividend/treasury/order_contracts chain (CSR·매입)
     end
     loop 각 안건
         T->>LAW: 강행규정/위험규칙 우선 판단
@@ -561,9 +561,10 @@ sequenceDiagram
 **+ 사내이사 연임 후보 detect 시 추가 chain (회사 단위 1회)**:
 
 7. dividend_disclosure (history, 10년) — CSR avg/trend 계산
-8. treasury_share (summary, **동적 lookback** 36~120개월) — 소각 events. 가장 오래 재직한
-   사내이사 기준 `(target-min(earliest_start)+2)*12`로 좁힘(상한 120, detect fail시 120).
-   소각은 재직기간만 CSR에 쓰여 정확도 보존
+8. treasury_share (summary, **동적 lookback** 36~120개월) — 매입 events(취득결정+신탁체결,
+   260914부터 소각 대신 매입 기준). 가장 오래 재직한 사내이사 기준
+   `(target-min(earliest_start)+2)*12`로 좁힘(상한 120, detect fail시 120).
+   매입은 재직기간만 CSR에 쓰여 정확도 보존
 9. financial_metrics (yearly) — ROE/부채비율 시계열 + **영업이익률**(점수 미반영 fact)
 10. order_contracts (max_documents=10 경량화) — 수주·해지 signal_summary fact (점수 미반영)
 

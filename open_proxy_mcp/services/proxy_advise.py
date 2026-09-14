@@ -4339,15 +4339,18 @@ async def _build_proxy_advise_payload(
             if y and amt:
                 dividend_yearly[y] = dividend_yearly.get(y, 0) + amt
 
-        # 소각 yearly (treasury_share events에서 cancelation_decision 합산)
-        cancelation_yearly: dict[int, int] = {}
+        # 매입 yearly (treasury_share events에서 acquisition_decision+trust_contract 합산)
+        # 260914: 소각(cancelation_decision) 기준에서 정정 — 소각은 회계 정리 단계일 뿐이고
+        # 현금은 매입 시점에 이미 지출됨(wiki/rules/concepts/주주환원.md 2026-04-29 결정,
+        # 이 블록은 2026-05-05 작성 당시 그 결정을 반영하지 못했었다).
+        acquisition_yearly: dict[int, int] = {}
         for e in ((perf_treas.get("data") or {}).get("events") or []):
-            if e.get("event") != "cancelation_decision":
+            if e.get("event") not in ("acquisition_decision", "trust_contract"):
                 continue
             y = e.get("rcept_dt", "")[:4]
             if y and y.isdigit():
                 yi = int(y)
-                cancelation_yearly[yi] = cancelation_yearly.get(yi, 0) + (e.get("amount_krw") or 0)
+                acquisition_yearly[yi] = acquisition_yearly.get(yi, 0) + (e.get("amount_krw") or 0)
 
         # 각 사내이사 renewed 후보별 performance compute
         # earliest_start None (career detect fail) 시 default 5년 fallback (낮은 정확도)
@@ -4410,7 +4413,7 @@ async def _build_proxy_advise_payload(
                 leverage_yearly=leverage_yearly,
                 net_income_yearly=net_income_yearly,
                 dividend_yearly=dividend_yearly,
-                cancelation_yearly=cancelation_yearly,
+                acquisition_yearly=acquisition_yearly,
                 capital_impairment_status=capital_impairment_status,
                 operating_margin_yearly=op_margin_yearly,
             )
