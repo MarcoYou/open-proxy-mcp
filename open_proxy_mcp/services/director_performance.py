@@ -311,7 +311,7 @@ def compute_performance(
     if lev_delta_total is not None:
         rationale_parts.append(f"부채비율 누적변화 {lev_delta_total:+.0f}%p ({_label(lev_trend_score)})")
     if csr_avg is not None:
-        rationale_parts.append(f"CSR 평균 {csr_avg:.1f}% ({_label(csr_avg_score)})")
+        rationale_parts.append(f"CSR(현금성주주환원율) 평균 {csr_avg:.1f}% ({_label(csr_avg_score)})")
     if csr_trend is not None:
         rationale_parts.append(f"CSR 추세 {csr_trend:+.1f}%p/년 ({_label(csr_trend_score)})")
     if capital_impairment_status == "full":
