@@ -102,9 +102,14 @@ def _render(payload: dict[str, Any]) -> str:
     overall = d.get("overall") or {}
     lines.append("## 주주환원 종합")
     lines.append(f"- 배당 총액: {_f(overall.get('dividend_krw'))}원 (최근 확정 사업연도)")
-    lines.append(f"- 자사주 소각금액: {_f(overall.get('buyback_cancelation_krw'))}원 (최근 {d['lookback_years']}년 누적)")
+    lines.append(f"- 자사주 매입액(취득결정+신탁체결, CSR 산정 기준): {_f(overall.get('buyback_acquisition_krw'))}원 (최근 {d['lookback_years']}년 누적)")
+    lines.append(f"- 자사주 소각금액(참고용, CSR 미반영 — 과거 보유분 처리 포함 가능): {_f(overall.get('buyback_cancelation_krw'))}원 (최근 {d['lookback_years']}년 누적)")
     csr = overall.get("cash_shareholder_return_pct")
-    lines.append(f"- 환원율(CSR, 배당+소각÷순이익): {csr}%" if csr is not None else "- 환원율(CSR): 산출 불가(순이익 데이터 부족)")
+    lines.append(
+        f"- 환원율(CSR = 현금성주주환원율/주주환원율, 배당+자사주매입÷순이익): {csr}%"
+        if csr is not None else
+        "- 환원율(CSR = 현금성주주환원율/주주환원율): 산출 불가(순이익 데이터 부족)"
+    )
     total_gain = overall.get("total_book_value_gain_loss_krw")
     if total_gain:
         lines.append(f"- 자사주소각 장부가 손익 합계: {_f(total_gain)}원")

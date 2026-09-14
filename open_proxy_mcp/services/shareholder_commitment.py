@@ -18,8 +18,15 @@
     매입시점 BPS    = controlling_equity(financial_metrics) ÷ shares_total(DART stockTotqySttus,
                       valuation.py의 _shares_outstanding 그대로 재사용)
 배당은 이 BPS 계산에서 제외한다(배당은 자본만 줄고 주식수는 그대로라 BPS가 오히려 내려가는 반대
-방향 효과 — 대화에서 확정, 섞으면 부정확). 대신 "주주환원 종합"에는 배당을 포함한다 — CSR 공식은
-새로 안 만들고 `director_performance.py`의 기존 공식(총배당+총소각금액 ÷ 총순이익)을 그대로 재사용.
+방향 효과 — 대화에서 확정, 섞으면 부정확). 대신 "주주환원 종합"에는 배당을 포함한다.
+
+**CSR 분자 = 배당 + 자사주 "매입"(취득결정+신탁체결), "소각"이 아니다** (260914 변경, 마르코와
+대화에서 확정). 소각금액은 몇 년 전에 사둔 재고 주식을 지금 없애는 것까지 섞여서 "지금 이
+회사가 주주환원에 새 자금을 투입하고 있는가"를 왜곡한다(실측: 삼성화재·SK텔레콤은 소각결정은
+있었지만 최근 24개월 신규 취득은 0건 — 전부 과거 보유분 처리였다). 매입(취득결정
+acquisition_amount_total_krw + 신탁체결 trust_contract_amount_total_krw)은 그 기간에 실제로
+지출된 현금 기준이라 왜곡이 없다. `director_performance.py`/`proxy_advise_before_meeting.py`의
+CSR(의결권 추천에 쓰임)은 별개 계산식이고 이번 변경 대상이 아니다 — 이 tool 한정.
 
 **sanity 필터**: treasury_share의 결정↔실행 사이클 매칭(`_link_cycles`)에 260707 세션에서 발견한
 별개 오탐 버그가 남아있다(POSCO홀딩스·카카오·엘앤에프·포스코퓨처엠 확인 — 알려진 별개 이슈). 이 tool은
@@ -159,16 +166,26 @@ async def _capital_return_impact(
 def _overall_shareholder_return(
     dividend_summary: dict[str, Any], treasury_summary: dict[str, Any]
 ) -> dict[str, Any]:
-    """CSR = (배당총액 + 소각금액) / 순이익 * 100 — director_performance.py의 기존 공식 그대로 재사용
-    (새 산식 발명 안 함). 최근 확정 사업연도(dividend.summary) 스냅샷 기준 — 다년 합산이 아님을 명시."""
+    """CSR(현금성주주환원율/주주환원율) = (배당총액 + 자사주 매입액) / 순이익 * 100.
+
+    260914부터 분자를 소각금액(cancelation_amount_total_krw)에서 매입액(취득결정+신탁체결)으로
+    변경 — 소각은 과거 보유분 처리까지 섞여 "이번 기간 실제 신규 지출"을 왜곡하기 때문(실측:
+    삼성화재·SK텔레콤은 소각결정은 있었지만 최근 24개월 신규 취득 0건). 최근 확정 사업연도
+    (dividend.summary) 스냅샷 기준 — 다년 합산이 아님을 명시. director_performance.py/
+    proxy_advise_before_meeting.py의 CSR은 별개 계산식(소각 기준 유지) — 이 tool 한정 변경."""
     dividend_krw = (dividend_summary.get("total_amount_mil") or 0) * 1_000_000
     net_income_krw = (dividend_summary.get("net_income_consolidated_mil") or 0) * 1_000_000
-    cancelation_krw = treasury_summary.get("cancelation_amount_total_krw") or 0
-    total_return = dividend_krw + cancelation_krw
+    acquisition_krw = (
+        (treasury_summary.get("acquisition_amount_total_krw") or 0)
+        + (treasury_summary.get("trust_contract_amount_total_krw") or 0)
+    )
+    cancelation_krw = treasury_summary.get("cancelation_amount_total_krw") or 0  # 참고용, CSR 분자 아님
+    total_return = dividend_krw + acquisition_krw
     csr_pct = round(total_return / net_income_krw * 100, 1) if net_income_krw > 0 else None
     return {
-        "period_note": "배당=최근 확정 사업연도 스냅샷, 자사주소각=조회 lookback 기간 누적 — 서로 다른 기간 기준이라 단순 참고용 합산",
+        "period_note": "배당=최근 확정 사업연도 스냅샷, 자사주매입·소각=조회 lookback 기간 누적 — 서로 다른 기간 기준이라 단순 참고용 합산",
         "dividend_krw": dividend_krw,
+        "buyback_acquisition_krw": acquisition_krw,
         "buyback_cancelation_krw": cancelation_krw,
         "total_shareholder_return_krw": total_return,
         "net_income_krw": net_income_krw,
