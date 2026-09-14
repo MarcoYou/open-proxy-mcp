@@ -100,9 +100,11 @@ def _render(payload: dict[str, Any]) -> str:
         lines.append("")
 
     overall = d.get("overall") or {}
+    period_matched = overall.get("csr_period_matched")
+    buyback_period_label = "배당과 동일 회계연도" if period_matched else f"최근 {d['lookback_years']}년 누적(배당과 기간 불일치, 아래 참고)"
     lines.append("## 주주환원 종합")
     lines.append(f"- 배당 총액: {_f(overall.get('dividend_krw'))}원 (최근 확정 사업연도)")
-    lines.append(f"- 자사주 매입액(취득결정+신탁체결, CSR 산정 기준): {_f(overall.get('buyback_acquisition_krw'))}원 (최근 {d['lookback_years']}년 누적)")
+    lines.append(f"- 자사주 매입액(취득결정+신탁체결, CSR 산정 기준): {_f(overall.get('buyback_acquisition_krw'))}원 ({buyback_period_label})")
     lines.append(f"- 자사주 소각금액(참고용, CSR 미반영 — 과거 보유분 처리 포함 가능): {_f(overall.get('buyback_cancelation_krw'))}원 (최근 {d['lookback_years']}년 누적)")
     csr = overall.get("cash_shareholder_return_pct")
     lines.append(
@@ -142,6 +144,8 @@ def register_tools(mcp):
         rule: value_up(계획)+corp_gov_report(준수변화)+dividend_disclosure(실제배당)+treasury_share(실제소각,
         260707 원문단위버그 수정 완료)를 조합. 결정↔실행 매칭 오탐 의심 사이클은 sanity 필터로
         제외하고 data_quality_flags에 남김(알려진 treasury_share `_link_cycles` 별개 이슈 대응).
+        CSR(환원율)의 자사주매입액은 배당과 동일 회계연도로 기간을 정합한 값(260914) — 결산월을
+        못 구하면 lookback_years 누적으로 폴백하고 경고를 남김.
         lookback_years: 조회 기간(년), 기본 3
         ref: value_up, corp_gov_report, dividend_disclosure, treasury_share
         """

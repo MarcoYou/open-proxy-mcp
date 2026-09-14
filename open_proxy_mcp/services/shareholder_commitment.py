@@ -28,6 +28,17 @@ acquisition_amount_total_krw + 신탁체결 trust_contract_amount_total_krw)은 
 지출된 현금 기준이라 왜곡이 없다. `director_performance.py`/`proxy_advise_before_meeting.py`의
 CSR(의결권 추천에 쓰임)은 별개 계산식이고 이번 변경 대상이 아니다 — 이 tool 한정.
 
+**CSR 분모·분자 기간을 배당과 동일 회계연도로 정합** (260914 후속 변경, 마르코와 대화에서 확정).
+기존엔 배당(dividend.summary, 최근 확정 사업연도 1개년 스냅샷)과 매입(treasury_share,
+lookback_years 기본 3년 누적)의 기간이 서로 달라 CSR이 최대 2배 가까이 부풀려졌다(실측: 신한지주
+— 3년 매입 기준 94.5% vs 회사 자체 공시 "주주환원율 50.2%"; 1년으로 정합 후 49.2%로 거의 일치).
+그래서 dividend.summary의 `stlm_dt`(결산기준일)로 배당이 커버하는 정확한 회계연도 구간을 구하고,
+`treasury_share`를 그 구간(`start_date`~`end_date`)으로 **별도 재호출**해서 CSR 전용 매입액을 만든다.
+BPS 손익 사이클 표(`capital_return_execution.buyback_cycles`)는 여전히 `lookback_years` 전체를 쓴다
+(더 긴 역사가 유용하고, 그 표는 애초에 기간이 섞여도 왜곡되지 않는 개별 사이클 나열이라 문제 없음).
+회계연도를 못 구하면(결산월 미상) 기존 lookback_years 매입액으로 폴백하고 `data_quality_flags`에
+남긴다 — 조용히 안 맞는 숫자를 내지 않는다.
+
 **sanity 필터**: treasury_share의 결정↔실행 사이클 매칭(`_link_cycles`)에 260707 세션에서 발견한
 별개 오탐 버그가 남아있다(POSCO홀딩스·카카오·엘앤에프·포스코퓨처엠 확인 — 알려진 별개 이슈). 이 tool은
 그 매칭을 무조건 신뢰하지 않고, `actual_amount_krw / decision.amount_krw` 비율이 0.3~3.0 밖이면 그
@@ -51,7 +62,7 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.value_up import build_value_up_payload
 from open_proxy_mcp.services.corp_gov_report import build_corp_gov_report_payload
-from open_proxy_mcp.services.dividend import build_dividend_payload
+from open_proxy_mcp.services.dividend import build_dividend_payload, _fiscal_period
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.price_multiple_data import _shares_outstanding, _pg_rows
 from open_proxy_mcp.services.date_utils import resolve_date_window, format_yyyymmdd
@@ -164,26 +175,54 @@ async def _capital_return_impact(
 
 
 def _overall_shareholder_return(
-    dividend_summary: dict[str, Any], treasury_summary: dict[str, Any]
+    dividend_summary: dict[str, Any],
+    treasury_summary: dict[str, Any],
+    *,
+    csr_treasury_summary: dict[str, Any] | None,
+    fiscal_period: dict[str, str] | None,
 ) -> dict[str, Any]:
     """CSR(현금성주주환원율/주주환원율) = (배당총액 + 자사주 매입액) / 순이익 * 100.
 
     260914부터 분자를 소각금액(cancelation_amount_total_krw)에서 매입액(취득결정+신탁체결)으로
     변경 — 소각은 과거 보유분 처리까지 섞여 "이번 기간 실제 신규 지출"을 왜곡하기 때문(실측:
-    삼성화재·SK텔레콤은 소각결정은 있었지만 최근 24개월 신규 취득 0건). 최근 확정 사업연도
-    (dividend.summary) 스냅샷 기준 — 다년 합산이 아님을 명시. director_performance.py/
-    proxy_advise_before_meeting.py의 CSR은 별개 계산식(소각 기준 유지) — 이 tool 한정 변경."""
+    삼성화재·SK텔레콤은 소각결정은 있었지만 최근 24개월 신규 취득 0건).
+
+    260914 후속: 매입액은 `csr_treasury_summary`(배당과 동일 회계연도로 별도 조회한 treasury_share
+    summary)에서 가져온다 — `treasury_summary`(lookback_years 누적, BPS 사이클 표용)를 그대로 쓰면
+    배당(1개년)과 기간이 안 맞아 CSR이 최대 2배 가까이 부풀려진다(실측: 신한지주 3년 매입 기준
+    94.5% vs 회사 자체 "주주환원율 50.2%" — 1년 정합 후 49.2%로 근접). `fiscal_period`를 못 구해
+    `csr_treasury_summary`가 None이면 `treasury_summary`로 폴백하고 그 사실을 `period_note`에 남긴다
+    (조용히 안 맞는 숫자를 내지 않기 위함 — 호출부에서 이 경우 data_quality_flags에도 남긴다).
+
+    director_performance.py/proxy_advise_before_meeting.py의 CSR은 별개 계산식(소각 기준 유지) —
+    이 tool 한정 변경."""
     dividend_krw = (dividend_summary.get("total_amount_mil") or 0) * 1_000_000
     net_income_krw = (dividend_summary.get("net_income_consolidated_mil") or 0) * 1_000_000
+
+    if csr_treasury_summary is not None:
+        acquisition_source = csr_treasury_summary
+        period_note = (
+            f"배당·자사주매입 모두 동일 회계연도({fiscal_period['start']}~{fiscal_period['end']}) 기준 — 정합됨."
+            if fiscal_period else
+            "배당·자사주매입 모두 동일 회계연도 기준 — 정합됨."
+        )
+    else:
+        acquisition_source = treasury_summary
+        period_note = (
+            f"⚠ 회계연도를 못 구해 배당=최근 확정 사업연도 스냅샷(1개년), 자사주매입·소각=조회 "
+            "lookback 기간 누적(여러 해)을 그대로 합산 — 기간 불일치로 CSR이 부풀려질 수 있음."
+        )
     acquisition_krw = (
-        (treasury_summary.get("acquisition_amount_total_krw") or 0)
-        + (treasury_summary.get("trust_contract_amount_total_krw") or 0)
+        (acquisition_source.get("acquisition_amount_total_krw") or 0)
+        + (acquisition_source.get("trust_contract_amount_total_krw") or 0)
     )
-    cancelation_krw = treasury_summary.get("cancelation_amount_total_krw") or 0  # 참고용, CSR 분자 아님
+    cancelation_krw = treasury_summary.get("cancelation_amount_total_krw") or 0  # 참고용, CSR 분자 아님(lookback_years 기준 그대로)
     total_return = dividend_krw + acquisition_krw
     csr_pct = round(total_return / net_income_krw * 100, 1) if net_income_krw > 0 else None
     return {
-        "period_note": "배당=최근 확정 사업연도 스냅샷, 자사주매입·소각=조회 lookback 기간 누적 — 서로 다른 기간 기준이라 단순 참고용 합산",
+        "period_note": period_note,
+        "csr_fiscal_period": fiscal_period,
+        "csr_period_matched": csr_treasury_summary is not None,
         "dividend_krw": dividend_krw,
         "buyback_acquisition_krw": acquisition_krw,
         "buyback_cancelation_krw": cancelation_krw,
@@ -297,8 +336,32 @@ async def build_shareholder_commitment_payload(
         await _fill_yearend_yield(ticker, div_history_list)
 
     capital_return_cycles, quality_flags = await _capital_return_impact(canonical_name, corp_code, treasury_data)
+
+    # CSR 분모·분자 기간 정합: 배당(div_summary_data)이 커버하는 정확한 회계연도를 stlm_dt 기반
+    # fiscal_year/fiscal_year_end_month(둘 다 dividend.py가 이미 계산해 top-level에 둔 값, 재사용—
+    # 이 tool에서 새로 추론하지 않음)로 구하고, 그 구간으로 treasury_share를 별도 재조회한다.
+    fiscal_year = div_summary_data.get("year")
+    fiscal_end_month = div_summary_data.get("fiscal_year_end_month")
+    fiscal_period = _fiscal_period(fiscal_year, fiscal_end_month) if fiscal_year and fiscal_end_month else None
+
+    csr_treasury_summary: dict[str, Any] | None = None
+    if fiscal_period:
+        csr_start = fiscal_period["start"].replace("-", "")
+        csr_end = fiscal_period["end"].replace("-", "")
+        treasury_csr_result = await build_treasury_share_payload(
+            company_query, scope="summary", start_date=csr_start, end_date=csr_end,
+        )
+        treasury_csr_data = _data(treasury_csr_result, "treasury_share(CSR 회계연도 정합)")
+        csr_treasury_summary = treasury_csr_data.get("summary") or {}
+    else:
+        quality_flags.append(
+            "CSR 기간 정합 실패: 결산월(stlm_dt)을 못 구해 배당(1개년)·자사주매입(lookback_years 누적) "
+            "기간이 안 맞는 채로 합산했다 — CSR이 부풀려질 수 있음."
+        )
+
     overall = _overall_shareholder_return(
-        div_summary_data.get("summary") or {}, treasury_data.get("summary") or {}
+        div_summary_data.get("summary") or {}, treasury_data.get("summary") or {},
+        csr_treasury_summary=csr_treasury_summary, fiscal_period=fiscal_period,
     )
     overall["total_book_value_gain_loss_krw"] = sum(
         c.get("book_value_gain_loss_krw", 0) for c in capital_return_cycles if c.get("book_value_gain_loss_krw")
