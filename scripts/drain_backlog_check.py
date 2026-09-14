@@ -11,8 +11,15 @@
   · `--apply` 는 되돌릴 수 없는 삭제다. 백업 커밋이 **사람 손으로** 확인된 뒤에 도는 게 맞다.
 감시는 **읽기만** 한다(SELECT + 용량 조회). 지우지도, 쓰지도 않는다.
 
+260914 확장: 용량 % 하나로는 부족했다. events 를 다 비워도 `fwd`(서빙용 스냅샷, 벌당 ≈29MB)와
+`fwd_hist`(리비전 이력)가 DB 의 대부분이라, 보존 정책(fwd 4주 · fwd_hist 13주)이 지켜지는지를
+**불변식**으로 같이 본다. 경고선은 그 정책의 정상 상태(≈88~91%)보다 위인 95% 가 기본이다 —
+정상 운영이 매주 빨간불이면 경보는 없는 것과 같다. fwd 정리는 private forward-collector 의
+`prune_fwd.py --keep-weeks 4`(토요일 체인) 가, fwd_hist 는 `push_fwd_hist.py` 의 롤링이 맡는다.
+
 실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P] [--tables]
-종료코드: 0 정상 · 1 조치 필요(밀린 주 초과 또는 용량 경고)
+                                              [--fwd-max-weeks N] [--hist-max-weeks N]
+종료코드: 0 정상 · 1 조치 필요(밀린 주 초과 · fwd/fwd_hist 보존 주 초과 · 용량 경고)
 --tables: 테이블별 용량·행수 상위 12개를 덧붙인다(옛 DB 용량 리포트 스크립트 흡수, 260902). 없으면 출력 동일.
 """
 from __future__ import annotations
@@ -40,7 +47,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-weeks", type=int, default=1,
                     help="이만큼 넘게 밀리면 실패 처리 (기본 1 — 한 주만 밀려도 바로 알린다)")
-    ap.add_argument("--warn-pct", type=int, default=70, help="무료티어 경고선 %%")
+    ap.add_argument("--warn-pct", type=int, default=95,
+                    help="무료티어 경고선 %% (기본 95 — fwd 4주 보존의 정상 상태 88~91%% 위)")
+    ap.add_argument("--fwd-max-weeks", type=int, default=5,
+                    help="fwd 스냅샷이 이 ISO 주 수를 넘으면 실패 (보존 4주 + 정리 전 1주 허용)")
+    ap.add_argument("--hist-max-weeks", type=int, default=13,
+                    help="fwd_hist 의 as_of 가 이 ISO 주 수를 넘으면 실패 (13주 롤링)")
     ap.add_argument("--tables", action="store_true",
                     help="테이블별 용량 breakdown(100KB 초과 상위 12개)도 출력 — 읽기만 한다")
     a = ap.parse_args()
@@ -77,6 +89,14 @@ def main() -> int:
         cur_week = con.execute(
             "SELECT count(*) FROM ops_tool_calls WHERE ts_ns >= %s", (_to_ns(now_week),)
         ).fetchone()[0]
+        # fwd·fwd_hist 는 as_of(date) 벌 단위다. 같은 주 재송출은 한 주로 센다 — prune_fwd 와 같은 단위.
+        def _weeks(table: str) -> tuple[list, int]:
+            if not con.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{table}",)).fetchone()[0]:
+                return [], 0
+            days = [r[0] for r in con.execute(f"SELECT DISTINCT as_of FROM {table} ORDER BY 1").fetchall()]
+            return days, len({d.isocalendar()[:2] for d in days})
+        fwd_days, fwd_weeks = _weeks("fwd")
+        hist_days, hist_weeks = _weeks("fwd_hist")
         # --tables 일 때만 한 번 더 읽는다(옛 DB 용량 리포트와 같은 SQL). 기본 경로는 그대로.
         tables = con.execute("""
           SELECT relname, pg_total_relation_size(relid) b, n_live_tup
@@ -94,6 +114,10 @@ def main() -> int:
         for name, b, live in tables:
             print(f"  {name:<24} {b/1024/1024:>7.1f} MB  ({b / total_b * 100:>4.1f}%)  {live:>10,}행")
     print(f"진행 중인 주({now_week.date()}~) {cur_week:,}행 — 드레인 대상 아님")
+    if fwd_days:
+        print(f"fwd {len(fwd_days)}벌 · {fwd_weeks}주 ({fwd_days[0]} ~ {fwd_days[-1]}) — 보존 정책 4주, 허용 {a.fwd_max_weeks}주")
+    if hist_days:
+        print(f"fwd_hist {len(hist_days)}벌 · {hist_weeks}주 ({hist_days[0]} ~ {hist_days[-1]}) — 롤링 {a.hist_max_weeks}주")
 
     if weeks:
         print(f"\n밀린 완결 주 {len(weeks)}개 · {sum(c for *_, c in weeks):,}건")
@@ -105,13 +129,23 @@ def main() -> int:
     bad = []
     if len(weeks) > a.max_weeks:
         bad.append(f"완결 주 {len(weeks)}개가 밀렸다(허용 {a.max_weeks})")
+    if fwd_weeks > a.fwd_max_weeks:
+        bad.append(f"fwd 스냅샷 {fwd_weeks}주가 쌓였다(허용 {a.fwd_max_weeks}) — 토요일 체인의 prune_fwd.py 가 안 돌았다")
+    if hist_weeks > a.hist_max_weeks:
+        bad.append(f"fwd_hist {hist_weeks}주 (롤링 {a.hist_max_weeks}) — push_fwd_hist.py 의 정리가 안 돌았다")
     if pct >= a.warn_pct:
         bad.append(f"무료티어 {pct:.0f}% (경고선 {a.warn_pct}%)")
     if not bad:
         return 0
 
     print("\n⚠️  " + " · ".join(bad))
-    print("""
+    if fwd_weeks > a.fwd_max_weeks or hist_weeks > a.hist_max_weeks:
+        print("""
+조치 (fwd·fwd_hist — private open-proxy-storage/forward-collector, 원본은 그 머신의 DuckDB·jsonl 이라 내보내기 불필요):
+  python3 prune_fwd.py --keep-weeks 4 --dry-run   # 지울 날짜 확인 → 빼고 다시 실행 (VACUUM 포함)
+  python3 push_fwd_hist.py --keep-weeks 13        # 이력 롤링""")
+    if len(weeks) > a.max_weeks or pct >= a.warn_pct:
+        print("""
 조치 (private 레포 백업이 먼저다 — 지우는 쪽만 영속이고 남기는 쪽이 휘발이면 백업이 아니다):
   1) python3 scripts/events_drain.py                 # dry-run: parquet 만 쓴다(usage/events/)
   2) open-proxy-storage 에서 usage/*.csv 커밋·푸시

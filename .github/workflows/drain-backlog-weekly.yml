@@ -40,4 +40,6 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         # 한 주만 밀려도 알린다. 「두 주쯤은 괜찮다」로 두면 그 관용이 7주가 됐다.
-        run: uv run python scripts/drain_backlog_check.py --max-weeks 1 --warn-pct 70
+        # 경고선 95% (260914): fwd 4주 보존의 정상 상태가 88~91% 라 70% 는 매주 울리는 경보였다.
+        # 대신 보존 불변식(fwd ≤5주 · fwd_hist ≤13주)을 같이 본다.
+        run: uv run python scripts/drain_backlog_check.py --max-weeks 1 --warn-pct 95 --fwd-max-weeks 5 --hist-max-weeks 13
