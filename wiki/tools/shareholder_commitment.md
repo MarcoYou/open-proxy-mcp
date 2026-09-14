@@ -85,13 +85,23 @@ sequenceDiagram
   아니다.
 
 ## 주주환원 종합(overall) — 배당 포함
-CSR(현금환원율) 공식은 새로 만들지 않고 `director_performance.py`의 기존 공식을 그대로 재사용:
+CSR(현금성주주환원율/주주환원율) 공식은 [[주주환원]] 캐논 정의를 따른다 — 분자는 **자사주 매입**
+(acquire), 소각(retire) 아님:
 ```
-CSR% = (배당총액 + 자사주소각금액) ÷ 순이익 × 100
+CSR% = (배당총액 + 자사주매입액[취득결정+신탁체결]) ÷ 순이익 × 100
 ```
-단 배당은 **최근 확정 사업연도 스냅샷**(dividend.summary), 소각금액은 **조회 lookback 기간 누적**
-(treasury_share.summary)이라 서로 다른 기간 기준 — `overall.period_note`에 명시. 엄밀한 다년 합산이
-아닌 참고용 종합.
+260914 변경: 이전엔 `cancelation_amount_total_krw`(소각금액)를 분자로 썼으나, 이는 과거 보유분
+처리까지 섞여 "이번 기간 실제 신규 지출"을 왜곡한다(실측: 삼성화재·SK텔레콤은 소각결정은 있었지만
+최근 24개월 신규 취득 0건). 소각금액은 여전히 출력에 참고용으로 남기되(`buyback_cancelation_krw`)
+CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이기 때문.
+
+단 배당은 **최근 확정 사업연도 스냅샷**(dividend.summary), 매입·소각 금액은 **조회 lookback 기간
+누적**(treasury_share.summary)이라 서로 다른 기간 기준 — `overall.period_note`에 명시. 엄밀한
+다년 합산이 아닌 참고용 종합.
+
+> `director_performance.py`/`proxy_advise_before_meeting.py`의 CSR(의결권 추천용)은 여전히
+> 소각(`cancelation_decision`) 기준 별개 계산식이다 — 이 tool의 260914 변경 대상이 아니었다.
+> 두 곳의 공식이 지금 서로 다르다는 점에 주의(추후 통일 여부는 별도 결정 사안).
 
 ## 배당수익률 — 연말종가 기준 보완
 `dividend.history`의 `yield_pct`(DART 자체 결의시점 시가배당률)는 **옛 연도일수록 결측이 많음**을
