@@ -439,3 +439,40 @@ async def build_quote_payload(company: str, format: str = "md",
                                "그 날짜 실제 체결가 — 수정주가가 아닙니다. "
                                "시가(TDD_OPNPRC)는 첫 체결가라 기준가와 다릅니다."},
             "warnings": warns}
+
+
+# ── universe: 종목 순위표 (260916) ────────────────────────────────────────────
+# 「코스피 시총 상위 100 이 뭐야」에 답하는 유일한 일괄 목록. `screener` 의 유니버스 해석기를
+# 그대로 쓰고(공시 필터가 아니라 목록으로), 주간 시세 저장분 1콜 + 회사 원장(캐시)로 이름을 붙인다.
+# 종목마다 `scope=firm` 을 100번 부르던 루틴(260914 실측)이 이 한 번으로 끝난다.
+async def build_universe_payload(universe: str, format: str = "md") -> dict[str, Any]:
+    from open_proxy_mcp.services.universe import list_universe
+
+    raw = (universe or "").strip()
+    if not raw:
+        return _err("유니버스", "invalid",
+                    "universe 를 지정하세요 — 예: \"코스피 시총 상위 100\" · \"코스닥 상위 50\" · "
+                    "\"코스피200\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열).")
+    ul = await list_universe(raw)
+    subject = ul.label or raw
+    if not ul.db_ok:
+        return _db_missing_payload(
+            subject, "종목 순위표는 주간 시세 저장분에서만 만들 수 있어 KRX 라이브로 대체하지 않습니다.")
+    if not ul.resolved:
+        return _err(subject, "no_data", ul.notice or "유니버스를 해석하지 못했습니다 — 표현을 바꿔 다시 부르세요.")
+    if not ul.rows:
+        return _err(subject, "no_data", f"{ul.as_of} 기준 저장분에 해당 종목이 없습니다.")
+    warnings = [f"주간 스냅샷 기준(최신 {ul.as_of}) — 주 마지막 거래일 시총이지 오늘 시총이 아닙니다."]
+    if ul.excluded_pref:
+        warnings.append(f"우선주 {ul.excluded_pref}종목은 순위에서 뺐습니다 — 같은 회사의 보통주가 순위에 있고 "
+                        "회사 원장에는 보통주 코드만 있습니다. 우선주 시세는 그 종목코드로 종목 시계열을 따로 부르세요.")
+    if ul.notice:
+        warnings.append(ul.notice)
+    return {"tool": TOOL, "status": "ok", "subject": subject,
+            "data": {"scope": "universe", "universe": raw, "spec": ul.spec, "label": ul.label,
+                     "as_of": ul.as_of, "n": len(ul.rows), "rows": ul.rows,
+                     "method": "시총 = 그 날 상장주식수 × 종가(우선주는 별도 종목). 순위는 요청한 시장 "
+                               "안에서 시총 내림차순. 이름은 DART 회사 원장에서 붙였고 없으면 「-」. "
+                               "이 목록을 `forward_estimates_data(universe=…)`·`screener(universe=…)` "
+                               "에 그대로 넘길 수 있습니다."},
+            "warnings": warnings}

@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
-from open_proxy_mcp.services.forward_estimates import build_forward_estimates_payload
+from open_proxy_mcp.services.forward_estimates import (build_forward_estimates_payload,
+                                                      build_revision_screen_payload)
 
 _STATUS_TITLE = {
     "not_found": "종목을 찾지 못함",
@@ -13,8 +14,12 @@ _STATUS_TITLE = {
     "ambiguous": "동명 후보 여러 건",
     "no_estimates": "컨센서스 추정치 없음",
     "db_error": "추정치 DB 장애",
+    "db_unconfigured": "저장분 DB 미연결 — 이 서버에서는 제공되지 않음",
+    "no_data": "해당 없음",
     "invalid": "입력 오류",
 }
+
+_SCREEN_MD_MAX = 300   # 유니버스 리비전 표 상한 — 그 이상은 json 의 data.rows
 
 
 _PERIOD_KO = {"FY": "연간", "Q": "분기", "all": "연간+분기"}
@@ -144,19 +149,63 @@ def _render(p: dict[str, Any]) -> str:
     return "\n".join(L)
 
 
+def _render_revision_screen(p: dict[str, Any]) -> str:
+    d = p["data"]
+    win = d["window"]
+    cov = d["coverage"]; dr = d["direction"]
+    L = [f"## {p.get('subject')} — 영업이익 추정 {win} 변화 (최신 스냅샷 {d.get('as_of_latest') or '-'})",
+         "",
+         f"_유니버스 {cov['universe']}종목 · 추정 보유 {cov['with_estimates']} · 비교 가능 {cov['comparable']} "
+         f"· 이력 짧음 {cov['history_short']} · 초점: {d['focus']}_",
+         "",
+         f"방향(영업이익 {win}): 상향 {dr['up']} / 하향 {dr['down']} / 유지 {dr['flat']} / 비교 불가 {dr['not_comparable']}"]
+    rows = d.get("rows") or []
+    shown = rows[:_SCREEN_MD_MAX]
+    if shown:
+        L += ["", f"| 순위 | 종목 | 코드 | 시장 | 기간 | 지금 영업이익 | 영업이익 {win} | 매출 {win} "
+                  f"| 지배순이익 {win} | EPS {win} | 기준일 |",
+              "|---|---|---|---|---|---|---|---|---|---|---|"]
+        for r in shown:
+            def pct(m):
+                if r.get("absent_at_baseline"):
+                    return "없었음"
+                return _num(r.get(f"{m}_{win}_pct"), "%", "{:+.1f}")
+            base = r.get("baseline_as_of") or "비교 불가"
+            if r.get("history_short"):
+                base += " (이력 짧음)"
+            L.append(f"| {r['rank']} | {r['name']} | `{r['ticker']}` | {r.get('market') or '-'} | {r['period']} | "
+                     f"{_won(r.get('op_krw'))} | {pct('op_krw')} | {pct('rev_krw')} | {pct('ni_ctrl_krw')} | "
+                     f"{pct('eps_krw')} | {base} |")
+        if len(rows) > len(shown):
+            L += ["", f"> 표는 {len(shown)}종목까지. 전체 {len(rows)}종목은 format=\"json\" 의 data.rows."]
+    L += ["", f"_{d.get('note')}_"]
+    for w in p.get("warnings") or []:
+        L += ["", f"> {w}"]
+    return "\n".join(L)
+
+
 def register_tools(mcp):
 
     @mcp.tool()
     async def forward_estimates_data(company: str = "", bundle: str = "core",
                                      period_type: str = "FY", actual_years: int = 2,
-                                     format: str = "md") -> str:
+                                     format: str = "md", universe: str = "",
+                                     window: str = "4w") -> str:
         """desc: 컨센서스 **포워드 추정치**(내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률) + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`) 기반 — DART 공시가 아니다.
-        when: "삼성전자 내년 예상 PER"·"2027년 컨센서스 영업이익"·"내년 실적 전망"·"포워드 밸류에이션"·"추정 EPS 성장률"·**"컨센서스 상향/하향됐나"·"한 달 전보다 추정치가 올랐나"(bundle=revision)**. 확정 실적 기반 현재 배수는 `price_multiple_data`(scope=firm), 재무 원본은 `financial_metrics`, 배당 상세는 `dividend_disclosure`.
-        rule: **숫자의 기준을 두 겹으로 싣는다** — 봉투 `ruler`(as_of·**price_dd**·단위·PER 정의·배수 범위)에 한 번, 행마다 또(`period`·`row_kind`·`basis`). 🔴 `as_of` 와 `price_dd` 는 다르다(주말·휴일) — 배수는 **price_dd 종가** 기준이므로 "as_of 기준 PER"이라고 쓰면 틀린다. 행은 실적/추정이 아니라 **`reported`(벤더 원천, 틀리면 벤더 책임) / `derived`(우리 계산, 검산 대상)** 로 가른다 — 성장률이 실적/추정 경계를 넘나들기 때문. **PER=보통주 시총÷지배주주순이익**으로 `price_multiple_data` 와 정의를 맞췄다(벤더 원본은 주가÷EPS인데 그 식은 260823 에 하우스에서 버렸다 — 액면분할 때 옛 주식수 EPS 와 새 주가가 섞인다). 10% 이상 갈리면 경고로 밝힌다. **배수는 추정 FY·최신 확정 FY 행에만** 둔다(오늘 주가÷과거 실적은 배수가 아니다). **금액은 전부 원(KRW) 정수** — 억원 안 쓴다. 빈칸은 채우지 않고 뺀다(0 아님·자료 없음). bundle=core(기본, 좁게) / growth(성장률·전기값·PEG) / quality(수익성·재무비율) / keys(내부키·회계연도) / **revision(4주·12주 전 대비 추정 변화율 + FY 영업이익 상향/하향 개수 — "컨센서스가 오르고 있나"·"최근 리비전 방향"은 이것)** / all — 기본이 정답이 아니라 크기 때문에 자른 것이니 필요하면 넓혀 부를 것. revision 출처는 `fwd_hist`(주 1회 토요일 스냅샷, 13주 롤링, 260904 신설) — 기준일은 목표일 이전 가장 가까운 스냅샷이고 이력이 짧으면 partial 로 밝힌다. period_type=FY(기본)/Q/all · actual_years=대조용 실적 행 수(기본 2 — 직전 확정 실적 2개년. 추세를 보려면 넓혀 부를 것).
+        when: "삼성전자 내년 예상 PER"·"2027년 컨센서스 영업이익"·"내년 실적 전망"·"포워드 밸류에이션"·"추정 EPS 성장률"·**"컨센서스 상향/하향됐나"·"한 달 전보다 추정치가 올랐나"(bundle=revision)** / **"코스피 상위 100 중 영업이익 컨센서스가 가장 많이 오른 종목"·"유니버스 전체 리비전 순위"·"이익 모멘텀 스크린"(universe="코스피 시총 상위 100" — 종목마다 부르지 말 것, 한 번에 표로 준다)**. 확정 실적 기반 현재 배수는 `price_multiple_data`(scope=firm), 재무 원본은 `financial_metrics`, 배당 상세는 `dividend_disclosure`.
+        rule: **숫자의 기준을 두 겹으로 싣는다** — 봉투 `ruler`(as_of·**price_dd**·단위·PER 정의·배수 범위)에 한 번, 행마다 또(`period`·`row_kind`·`basis`). 🔴 `as_of` 와 `price_dd` 는 다르다(주말·휴일) — 배수는 **price_dd 종가** 기준이므로 "as_of 기준 PER"이라고 쓰면 틀린다. 행은 실적/추정이 아니라 **`reported`(벤더 원천, 틀리면 벤더 책임) / `derived`(우리 계산, 검산 대상)** 로 가른다 — 성장률이 실적/추정 경계를 넘나들기 때문. **PER=보통주 시총÷지배주주순이익**으로 `price_multiple_data` 와 정의를 맞췄다(벤더 원본은 주가÷EPS인데 그 식은 260823 에 하우스에서 버렸다 — 액면분할 때 옛 주식수 EPS 와 새 주가가 섞인다). 10% 이상 갈리면 경고로 밝힌다. **배수는 추정 FY·최신 확정 FY 행에만** 둔다(오늘 주가÷과거 실적은 배수가 아니다). **금액은 전부 원(KRW) 정수** — 억원 안 쓴다. 빈칸은 채우지 않고 뺀다(0 아님·자료 없음). bundle=core(기본, 좁게) / growth(성장률·전기값·PEG) / quality(수익성·재무비율) / keys(내부키·회계연도) / **revision(4주·12주 전 대비 추정 변화율 + FY 영업이익 상향/하향 개수 — "컨센서스가 오르고 있나"·"최근 리비전 방향"은 이것)** / all — 기본이 정답이 아니라 크기 때문에 자른 것이니 필요하면 넓혀 부를 것. revision 출처는 `fwd_hist`(주 1회 토요일 스냅샷, 13주 롤링, 260904 신설) — 기준일은 목표일 이전 가장 가까운 스냅샷이고 이력이 짧으면 partial 로 밝힌다. period_type=FY(기본)/Q/all · actual_years=대조용 실적 행 수(기본 2 — 직전 확정 실적 2개년. 추세를 보려면 넓혀 부를 것). **universe 를 주면 유니버스 리비전 스크린**: `screener`·`trading_data(scope=universe)` 와 같은 유니버스 문법(「코스피 시총 상위 N」·「코스닥 상위 N」·「코스피200」·「전체」·이름/코드 나열)으로 종목 집합을 만들고 `fwd_hist` 를 한 질의로 읽어 종목별 영업이익·매출·지배순이익·EPS 의 window(4w 기본 / 12w) 변화율을 영업이익 변화율 내림차순으로 준다(DB 2콜, DART 0콜). 초점은 종목마다 가장 가까운 연간 추정 기간 한 행. 추정 없는 종목은 표에서 빠지고 개수로만 남는다. md 표는 300종목까지.
         status: ok / **no_estimates**(그 종목은 애널리스트 미커버 — 전체 2,764종목 중 추정 보유 713종목뿐, 74%가 여기 해당. 자료 없음이지 오류 아님) / not_found(그런 종목 없음·오탈자·비상장) / unlisted / ambiguous(동명 후보표) / **db_error**(DB 장애 — 자료 없음과 다르다, 재시도) / invalid. 🔴 셋을 뭉뚱그리지 말 것: no_estimates는 다른 도구로, not_found는 이름 재확인, db_error는 재시도.
 
         ref: price_multiple_data, financial_metrics, dividend_disclosure, company
         """
+        if (universe or "").strip():
+            payload = await build_revision_screen_payload(
+                universe=universe, window=window, period_type=period_type, format=format)
+            if format == "json":
+                return as_pretty_json(payload)
+            if payload.get("status") not in ("ok", "no_estimates") or not (payload.get("data") or {}).get("rows"):
+                return _render_status(payload)
+            return _render_revision_screen(payload)
         payload = await build_forward_estimates_payload(
             company=company, bundle=bundle, period_type=period_type,
             actual_years=actual_years, format=format)

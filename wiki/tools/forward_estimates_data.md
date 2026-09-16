@@ -3,12 +3,12 @@ type: tool
 title: forward_estimates_data
 domain: data
 status: 등록 완료 (260830 — tools/forward_estimates_data.py, 브랜치 beta)
-scope: [firm]
+scope: [firm, universe]
 data_source: [컨센서스 추정치 스냅샷 저장분 (외부 벤더 원천 + 파생 계산)]
 related_disclosures: []
 related_concepts: [당기순이익, ROE, 배당수익률, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-08-30
-updated: 2026-09-04
+updated: 2026-09-16
 ---
 
 # forward_estimates_data
@@ -26,6 +26,8 @@ updated: 2026-09-04
 | period_type | str | no | `FY`(연간) / `Q`(분기) / `all` | "FY" |
 | actual_years | int | no | 대조용으로 실을 **실적** 행 수 | 2 |
 | format | str | no | "md" / "json" | "md" |
+| universe | str | no | 주면 **유니버스 리비전 스크린**으로 동작(`company`·`bundle`·`actual_years` 무시). `trading_data(scope=universe)`·`screener` 와 같은 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「코스피200」·「전체」·이름/코드 나열 | "" |
+| window | str | no | universe 전용. 비교 창 `4w` / `12w` | "4w" |
 
 전제 개념: [[PER-PBR]](포워드 배수도 시총 기반) · [[시가총액]] · [[연결-별도]](벤더 기준은 줄마다 `basis`) · [[단위-표기-규약]].
 
@@ -61,6 +63,27 @@ updated: 2026-09-04
 
 `fiscal_year`·`fy_end`·`fy_major` 는 30,609행 중 각각 191·218·307행이 서로 다르다. 이름 셋 다
 그럴듯해서 그냥 내보내면 읽는 AI 가 아무거나 고른다 — 그래서 `keys` 로 숨긴다.
+
+## 유니버스 리비전 스크린 (`universe=…`, 260916)
+
+```
+forward_estimates_data(universe="코스피 시총 상위 100")                 # 영업이익 4w 변화율 내림차순
+forward_estimates_data(universe="코스닥 상위 100", window="12w")
+forward_estimates_data(universe="삼성전자, SK하이닉스, 알테오젠")
+```
+
+주간 루틴이 200종목 리비전을 종목마다 `bundle=revision` 으로 200번 불렀다(260914, 서브에이전트
+10여 개·수 분). `fwd_hist` 는 전체 9만 행에 (종목, 기간, 기간유형, as_of) 색인이 있어 유니버스의
+코드를 한 질의로 읽고 종목별 리비전을 메모리에서 계산하면 된다 — **DB 2콜(유니버스 1 + 이력 1)·DART 0콜.**
+
+- **행**: 종목마다 **가장 가까운 연간 추정 기간**(예: 2026.12E) 한 행. 기간별 전체는 종목 단위 `bundle=revision`.
+- **칸**: `op_krw_<window>_pct`·`rev_krw_…`·`ni_ctrl_krw_…`·`eps_krw_…`·`dps_krw_…`, 지금 영업이익, 기준일과 일수, `history_short`(이력이 창에 못 미쳐 가장 오래된 스냅샷과 비교), `absent_at_baseline`(그때 그 기간 추정이 없었음), 시총 순위 `rank_mktcap`.
+- **정렬**: 영업이익 변화율 내림차순, 비교 불가(기준일 없음)는 맨 뒤. `data.direction` 에 상향/하향/유지/비교 불가 개수(±0.5% 안은 유지).
+- **커버리지**: `data.coverage` — 유니버스 종목 수, 추정 보유, 비교 가능, 이력 짧음. 추정 없는 종목은 표에서 빠지고 개수와 경고로만 남는다(미커버지 장애가 아니다).
+- **기준일 둘**: 유니버스(시총 순위)는 주간 시세 저장분 `universe_as_of`, 리비전은 `fwd_hist` 최신 스냅샷 `as_of_latest`. 종목별 최신 스냅샷이 다르면 경고한다.
+- md 표는 300종목까지, 전체는 json 의 `data.rows`.
+
+status: `ok` / `no_estimates`(유니버스에 추정 보유 종목이 없음) / `no_data`(유니버스 해석 실패 — 경고에 이유) / `db_error` / `db_unconfigured` / `invalid`(window·period_type).
 
 ## 배수 정의 — `price_multiple_data` 와 맞췄다
 **PER = 보통주 시총 ÷ 지배주주순이익.** `fwd` 원본(`fwd_per`)은 주가÷EPS 인데 그 식은 260823 에
@@ -112,6 +135,7 @@ DB 물리 칸이 아직 `_eok` 면 도구가 ×1e8 해서 원으로 통일한다
 
 ## 변경 이력
 
+- 2026-09-16: `universe`·`window` 인자 신설 — 유니버스 리비전 스크린(fwd_hist 한 질의). 종목마다 revision 을 부르던 루틴의 대체.
 - 2026-09-07: 커버리지 줄의 엔진 용어 「bundle=core · period_type=FY」 → 「묶음 core · 기간 연간」.
 
 ## 관련
