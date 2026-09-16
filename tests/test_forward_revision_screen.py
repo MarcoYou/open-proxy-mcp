@@ -163,3 +163,13 @@ def test_plain_company_name_is_not_a_phrase():
     assert universe_phrase("코스닥 상위 100") == ("코스닥 시총 상위 100", None)
     assert universe_phrase("시총 상위 50 종목 4주 전 대비") == ("시총 상위 50", "4w")
     assert universe_phrase("한 달 전 대비 코스닥 상위 20") == ("코스닥 시총 상위 20", "4w")
+
+
+def test_tool_renders_screen_payload_from_company_phrase(monkeypatch):
+    """도구 렌더러까지 통과해야 한다 — 서비스만 찍은 테스트가 live 의 `ruler` KeyError 를 놓쳤다."""
+    _stub(monkeypatch)
+    p = asyncio.run(fe.build_forward_estimates_payload(company="코스피 시총 상위 4 종목 1주 전 대비", bundle="revision"))
+    md = tool.render_payload(p, "md")
+    assert md.startswith("## KOSPI 시총상위 4 — 컨센서스 리비전")
+    assert "| 1 | 삼성전자 |" in md
+    assert tool.render_payload(p, "json").startswith("{")
