@@ -27,7 +27,7 @@ updated: 2026-09-16
 | actual_years | int | no | 대조용으로 실을 **실적** 행 수 | 2 |
 | format | str | no | "md" / "json" | "md" |
 | universe | str | no | 주면 **유니버스 리비전 스크린**으로 동작(`company`·`bundle`·`actual_years` 무시). `trading_data(scope=universe)`·`screener` 와 같은 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「코스피200」·「전체」·이름/코드 나열. 「코스닥 100」처럼 순위 단어 없이 숫자만 있으면 추측하지 않고 되묻는다(`invalid`) | "" |
-| window | str | no | universe 전용. 비교 창 `4w` / `12w` | "4w" |
+| window | str | no | universe 전용. 비교 창 `1w` / `4w` / `12w` | "4w" |
 
 전제 개념: [[PER-PBR]](포워드 배수도 시총 기반) · [[시가총액]] · [[연결-별도]](벤더 기준은 줄마다 `basis`) · [[단위-표기-규약]].
 
@@ -135,6 +135,7 @@ DB 물리 칸이 아직 `_eok` 면 도구가 ×1e8 해서 원으로 통일한다
 
 ## 변경 이력
 
+- 2026-09-16: 리비전 창에 `1w`(7일) 추가 — 종목 단위 `bundle=revision` 과 유니버스 스크린 `window="1w"` 모두. 주간 루틴이 직전 주 대비를 원했다.
 - 2026-09-16: `universe`·`window` 인자 신설 — 유니버스 리비전 스크린(fwd_hist 한 질의). 종목마다 revision 을 부르던 루틴의 대체.
 - 2026-09-07: 커버리지 줄의 엔진 용어 「bundle=core · period_type=FY」 → 「묶음 core · 기간 연간」.
 

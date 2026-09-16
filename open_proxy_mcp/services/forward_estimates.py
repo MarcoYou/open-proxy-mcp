@@ -162,13 +162,13 @@ _BUNDLES = ("core", "growth", "quality", "keys", "revision")
 # revision — 컨센서스가 **어디서 왔나** (260904 신설)
 #
 # `fwd` 는 「지금 얼마」만 답한다. 추정치의 방향 전환은 주가보다 먼저 움직이는 신호라
-# 「4주·12주 전 대비 얼마나 올랐/내렸나」를 `fwd_hist`(슬림 18칸 · 추정 보유 종목 · 주 1회 토 ·
+# 「1주·4주·12주 전 대비 얼마나 올랐/내렸나」를 `fwd_hist`(슬림 18칸 · 추정 보유 종목 · 주 1회 토 ·
 # 13주 롤링, 260904 신설)에서 읽는다. 기준일은 **목표일 이전의 가장 가까운 스냅샷**이다 —
 # 주 1회라 정확히 28일 전은 없다. 이력이 목표일까지 안 닿으면 가장 오래된 스냅샷을 쓰고
 # `partial=true` 로 밝힌다(「없음」과 「짧음」을 구별한다). 분모는 |기준값| — 적자에서 흑자로
 # 돌아선 것도 방향은 「상향」이다.
 # ─────────────────────────────────────────────────────────────────────────────
-_REV_WINDOWS: tuple[tuple[str, int], ...] = (("4w", 28), ("12w", 91))
+_REV_WINDOWS: tuple[tuple[str, int], ...] = (("1w", 7), ("4w", 28), ("12w", 91))   # 1w 는 260916 추가 — 주간 루틴이 직전 주 대비를 원했다
 _REV_METRICS: tuple[str, ...] = ("rev_krw", "op_krw", "ni_ctrl_krw", "eps_krw", "dps_krw")
 _REV_MIN_GAP_DAYS = 6  # 이보다 가까운 스냅샷은 「전」이 아니다
 
@@ -622,7 +622,7 @@ async def build_forward_estimates_payload(
     absent = {k: v for k, v in _ABSENT_ON_ESTIMATE.items()
               if _spec(k)[2] in bundles} if est_rows else {}
 
-    # ── revision: 4주·12주 전 대비 (fwd_hist) ──────────────────────────────────
+    # ── revision: 1주·4주·12주 전 대비 (fwd_hist) ──────────────────────────────────
     revision: dict[str, Any] | None = None
     if "revision" in bundles and est_rows:
         hist = await asyncio.to_thread(_fetch_hist, isu)
@@ -678,14 +678,14 @@ async def build_forward_estimates_payload(
                                       "추정 행에 아예 채우지 않는 종류라서 비어 있다. "
                                       "회사 특성으로 읽지 말 것.")
     if revision is not None:
-        revision["note"] = ("기준일은 목표일(4w=28일·12w=91일) **이전의 가장 가까운 주간 스냅샷**. "
+        revision["note"] = ("기준일은 목표일(1w=7일·4w=28일·12w=91일) **이전의 가장 가까운 주간 스냅샷**. "
                             "%는 (지금−기준)/|기준|. 방향 집계는 FY 추정 행의 영업이익 기준 상향/하향 개수"
                             "(±0.5% 안은 flat). 출처 `fwd_hist`(주 1회 토, 13주 롤링) — 그 너머는 없다.")
         data["revision"] = revision
     if len(bundles) < len(_BUNDLES):
         data["more"] = ("더 필요하면 bundle 을 넓히세요 — "
                         "growth(성장률·전기값·PEG) · quality(수익성·재무비율) · "
-                        "keys(내부키·회계연도 칸) · revision(4주·12주 전 대비 추정 변화) · all(전부). "
+                        "keys(내부키·회계연도 칸) · revision(1주·4주·12주 전 대비 추정 변화) · all(전부). "
                         "기본 core 는 크기를 줄이려고 자른 것이지 그것이 정답이라서가 아니다.")
     return {"tool": TOOL, "status": "ok" if est_rows else "no_estimates",
             "subject": subject, "data": data, "warnings": warnings}
