@@ -78,6 +78,15 @@ def test_one_query_ranked_by_op_revision(monkeypatch):
     assert any("이력 짧음" in w for w in p["warnings"])
 
 
+def test_1w_window(monkeypatch):
+    _stub(monkeypatch)
+    p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4", window="1w"))
+    assert p["status"] == "ok" and p["data"]["window"] == "1w" and p["data"]["window_days"] == 7
+    top = p["data"]["rows"][0]
+    assert top["ticker"] == "005930" and top["baseline_days"] == 7 and top["history_short"] is False
+    assert top["op_krw_1w_pct"] > 0
+
+
 def test_12w_window_and_period_type_all(monkeypatch):
     calls = _stub(monkeypatch)
     p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4", window="12w", period_type="all"))

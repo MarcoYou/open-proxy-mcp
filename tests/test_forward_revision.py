@@ -94,3 +94,15 @@ def test_revision_is_a_known_bundle_and_in_all():
     want, bad = fe.parse_bundles("revision")
     assert want == {"revision", "core"} and bad == []   # revision 은 core 를 끌고 온다
     assert "revision" in fe.parse_bundles("all")[0]
+
+
+def test_one_week_window_uses_previous_saturday():
+    """1w(260916 추가): 목표일 7일 전 이전의 가장 가까운 스냅샷 = 직전 토요일. 6일 안쪽은 「전」이 아니다."""
+    days = _weekly(4)
+    hist = [_row(d, "2026.12E", op_krw=100 + 10 * i) for i, d in enumerate(days)]
+    r = fe.compute_revision(hist)
+    b1 = dt.date.fromisoformat(r["baselines"]["1w"]["as_of"])
+    assert (days[-1] - b1).days == 7 and r["baselines"]["1w"]["partial"] is False
+    assert r["rows"][0]["vs"]["1w"]["op_krw_pct"] == 8.33          # (130-120)/120
+    assert list(r["baselines"]) == ["1w", "4w", "12w"]
+    assert r["baselines"]["4w"]["partial"] and r["baselines"]["12w"]["partial"]   # 이력 3주 → 둘 다 가장 오래된 것과 비교
