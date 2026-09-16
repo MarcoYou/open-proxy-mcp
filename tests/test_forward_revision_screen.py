@@ -20,6 +20,9 @@ _UNI = [
 ]
 
 
+_real_list_universe = uni.list_universe
+
+
 def _weeks(n, start=dt.date(2026, 6, 6)):
     return [start + dt.timedelta(weeks=i) for i in range(n)]
 
@@ -96,6 +99,10 @@ def test_no_baseline_goes_last_and_is_counted(monkeypatch):
 
 
 def test_invalid_window_and_period(monkeypatch):
+    _stub(monkeypatch)
+    monkeypatch.setattr(uni, "list_universe", _real_list_universe)
+    p = asyncio.run(fe.build_revision_screen_payload("코스닥 100"))
+    assert p["status"] == "invalid" and "추측하지 않았습니다" in p["warnings"][0]
     _stub(monkeypatch)
     assert asyncio.run(fe.build_revision_screen_payload("코스피 상위 4", window="1y"))["status"] == "invalid"
     assert asyncio.run(fe.build_revision_screen_payload("코스피 상위 4", period_type="H"))["status"] == "invalid"

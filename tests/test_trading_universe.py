@@ -120,6 +120,18 @@ def test_md_render_ranks_and_truncates(monkeypatch):
     assert len(p["data"]["rows"]) == 330                                # json 에는 전량
 
 
+@pytest.mark.parametrize("phrase,guess", [("코스피 120", "코스피 시총 상위 120"), ("코스닥 50개", "코스닥 시총 상위 50"),
+                                          ("120", "시총 상위 120")])
+def test_market_plus_number_asks_instead_of_guessing(monkeypatch, phrase, guess):
+    """「상위」가 없으면 종목 수인지 이름인지 모른다 — 추측하지 않고 되묻는다."""
+    _stub(monkeypatch)
+    p = asyncio.run(build_universe_payload(phrase))
+    assert p["status"] == "invalid"
+    assert "추측하지 않았습니다" in p["warnings"][0] and f'universe="{guess}"' in p["warnings"][0]
+    assert uni.clarification("코스피 시총 상위 120") is None and uni.clarification("삼성전자, 120") is None
+    assert uni.clarification("코스피200") is None and uni.clarification("코스피 200") is None
+
+
 def test_is_preferred_rule():
     names = {"005930": "삼성전자", "006800": "미래에셋증권", "196170": "알테오젠"}
     assert uni.is_preferred("005935", names) and uni.is_preferred("00680K", names)

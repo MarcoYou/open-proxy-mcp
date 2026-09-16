@@ -51,7 +51,7 @@ trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380") 
 | since | str | no | firm·market·sector 시계열 시작일 YYYYMMDD | "" |
 | scheme | str | no | sector 전용. `wics_industry`(28) / `wics_sector`(10) | "wics_industry" |
 | bucket | str | no | sector 전용. 섹터명·코드 지정 시 그 섹터의 전 구간 시계열 | "" |
-| universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」(KOSPI 시총상위 200 대체)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다 | "" |
+| universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」(KOSPI 시총상위 200 대체)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다. 「코스피 120」처럼 숫자만 있고 「상위·시총」이 없으면 **추측하지 않고 되묻는다**(`invalid` + 제안 문구) | "" |
 
 ## 데이터 출처와 콜 비용
 | scope | 출처 | DART | KRX |

@@ -455,6 +455,8 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
                     "\"코스피200\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열).")
     ul = await list_universe(raw)
     subject = ul.label or raw
+    if ul.question:
+        return _err(subject, "invalid", ul.question)
     if not ul.db_ok:
         return _db_missing_payload(
             subject, "종목 순위표는 주간 시세 저장분에서만 만들 수 있어 KRX 라이브로 대체하지 않습니다.")

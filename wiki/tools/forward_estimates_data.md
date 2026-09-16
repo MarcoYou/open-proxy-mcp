@@ -26,7 +26,7 @@ updated: 2026-09-16
 | period_type | str | no | `FY`(연간) / `Q`(분기) / `all` | "FY" |
 | actual_years | int | no | 대조용으로 실을 **실적** 행 수 | 2 |
 | format | str | no | "md" / "json" | "md" |
-| universe | str | no | 주면 **유니버스 리비전 스크린**으로 동작(`company`·`bundle`·`actual_years` 무시). `trading_data(scope=universe)`·`screener` 와 같은 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「코스피200」·「전체」·이름/코드 나열 | "" |
+| universe | str | no | 주면 **유니버스 리비전 스크린**으로 동작(`company`·`bundle`·`actual_years` 무시). `trading_data(scope=universe)`·`screener` 와 같은 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「코스피200」·「전체」·이름/코드 나열. 「코스닥 100」처럼 순위 단어 없이 숫자만 있으면 추측하지 않고 되묻는다(`invalid`) | "" |
 | window | str | no | universe 전용. 비교 창 `4w` / `12w` | "4w" |
 
 전제 개념: [[PER-PBR]](포워드 배수도 시총 기반) · [[시가총액]] · [[연결-별도]](벤더 기준은 줄마다 `basis`) · [[단위-표기-규약]].

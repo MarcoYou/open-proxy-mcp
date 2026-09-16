@@ -25,6 +25,25 @@ from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import to_label
 
 _RANK_SPEC = re.compile(r"^(kospi|kosdaq|top_mktcap):(\d+)$")
+#: 「코스피 120」「코스닥 50개」 — 시장 이름 뒤에 숫자만 있고 「상위·시총·top」이 없다. 종목 수인지
+#: 이름인지 알 수 없다. 추측하지 않고 되묻는다(해석기는 이걸 회사명 나열로 읽어 해석 실패로 떨어뜨린다).
+_MARKET_NUMBER = re.compile(r"^(코스피|코스닥|kospi|kosdaq|유가증권|전체|전체시장)?\s*(\d{1,4})\s*(개|종목)?$", re.I)
+
+
+def clarification(universe: str) -> str | None:
+    """되물을 문장. 숫자만 있고 순위 단어가 없는 표현에만 — 그 외는 None."""
+    from open_proxy_mcp.services.screener import _UNIVERSE_ALIASES
+    raw = (universe or "").strip()
+    if raw.lower() in _UNIVERSE_ALIASES:          # 「코스피200」「코스피 200」은 정해진 별칭이다
+        return None
+    m = _MARKET_NUMBER.match(raw)
+    if not m or any(w in raw.lower() for w in ("상위", "시총", "top")):
+        return None
+    market = (m.group(1) or "").strip()
+    n = m.group(2)
+    guess = f"{market + ' ' if market else ''}시총 상위 {n}"
+    return (f"「{raw}」은 종목 수인지 이름인지 알 수 없어 추측하지 않았습니다. 시총 상위 {n}종목을 뜻하면 "
+            f"universe=\"{guess.strip()}\" 로, 종목 이름이면 그대로 쉼표로 나열해 주세요.")
 
 
 @dataclass(slots=True)
@@ -37,6 +56,7 @@ class UniverseList:
     rows: list[dict[str, Any]] = field(default_factory=list)
     db_ok: bool = True             # False = 저장분 조회 자체가 안 됨(미설정/장애)
     excluded_pref: int = 0         # 순위에서 뺀 우선주 수
+    question: str = ""             # 비어 있지 않으면 해석하지 않고 되물은 것
 
 
 def _krx_rows(price_dd: str, codes: list[str] | None) -> list[tuple] | None:
@@ -95,6 +115,9 @@ async def list_universe(universe: str) -> UniverseList:
     from open_proxy_mcp.services.screener import _nl_universe, resolve_universe
 
     raw = (universe or "").strip()
+    ask = clarification(raw)
+    if ask:
+        return UniverseList(spec="", label=raw, resolved=False, question=ask)
     spec = _nl_universe(raw)
     query_spec, n, _prefix = _padded(spec)
     uf = await resolve_universe(query_spec)

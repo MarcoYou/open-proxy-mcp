@@ -769,6 +769,8 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
 
     ul = await list_universe(raw)
     subject = f"{ul.label or raw} — 컨센서스 리비전"
+    if ul.question:
+        return {"tool": TOOL, "status": "invalid", "subject": subject, "warnings": [ul.question]}
     if not ul.db_ok:
         st = "db_error" if os.getenv("DATABASE_URL") else "db_unconfigured"
         return {"tool": TOOL, "status": st, "subject": subject,
