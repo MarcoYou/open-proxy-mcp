@@ -184,6 +184,19 @@ def _render_revision_screen(p: dict[str, Any]) -> str:
     return "\n".join(L)
 
 
+def render_payload(payload: dict[str, Any], format: str = "md") -> str:
+    """응답 모양에 맞는 렌더러로. company 자리에 유니버스 문장이 와서 스크린 응답이 돌아오는 경우
+    (260916 live 실측: 종목 렌더러로 보내 `ruler` 없음으로 죽었다)도 여기서 갈린다."""
+    if format == "json":
+        return as_pretty_json(payload)
+    data = payload.get("data") or {}
+    if payload.get("status") not in ("ok", "no_estimates") or not data.get("rows"):
+        return _render_status(payload)
+    if data.get("scope") == "revision_screen":
+        return _render_revision_screen(payload)
+    return _render(payload)
+
+
 def register_tools(mcp):
 
     @mcp.tool()
@@ -209,10 +222,4 @@ def register_tools(mcp):
         payload = await build_forward_estimates_payload(
             company=company, bundle=bundle, period_type=period_type,
             actual_years=actual_years, format=format)
-        if format == "json":
-            return as_pretty_json(payload)
-        if payload.get("status") not in ("ok", "no_estimates"):
-            return _render_status(payload)
-        if not (payload.get("data") or {}).get("rows"):
-            return _render_status(payload)
-        return _render(payload)
+        return render_payload(payload, format)
