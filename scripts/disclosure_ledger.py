@@ -117,13 +117,21 @@ ON CONFLICT (rcept_no) DO UPDATE SET
   sector_dd = COALESCE(EXCLUDED.sector_dd, dart_events.sector_dd),
   mktcap_won = COALESCE(EXCLUDED.mktcap_won, dart_events.mktcap_won),
   mktcap_dd = COALESCE(EXCLUDED.mktcap_dd, dart_events.mktcap_dd),
-  -- 상세는 **좋아질 때만** 덮는다. 파싱된 것을 scan_only 나 실패로 되돌리지 않는다.
+  -- 상세는 **이미 파싱된 것을 실패로 되돌리지 않는다** — 그뿐이다. 260917 버그: 예전 SQL 은
+  -- 「새 값이 parsed/partial 이 아니면 옛 값을 유지」였는데, 첫 시도에서 옛 값이 기본치
+  -- scan_only(아직 안 본 상태)일 때도 이 규칙이 걸려 실제 결과(no_data 등)가 영영 안 남고
+  -- scan_only 로 굳었다 — 해지 단계 공시 85건이 이렇게 「안 본 것」으로 잘못 보였다(실측).
+  -- 옳은 규칙: 기존이 parsed/partial(진짜 결과)일 때만 지키고, 그 외(scan_only·이전 실패)는
+  -- 새 결과로 갱신한다 — scan_only 는 결과가 아니라 「아직」이라는 뜻이라 지킬 값이 아니다.
   detail_status = CASE WHEN EXCLUDED.detail_status IN ('parsed','partial') THEN EXCLUDED.detail_status
-                       ELSE COALESCE(dart_events.detail_status, EXCLUDED.detail_status) END,
+                       WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail_status
+                       ELSE EXCLUDED.detail_status END,
   detail = CASE WHEN EXCLUDED.detail_status IN ('parsed','partial') THEN EXCLUDED.detail
-                ELSE dart_events.detail END,
+                WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail
+                ELSE EXCLUDED.detail END,
   detail_note = CASE WHEN EXCLUDED.detail_status IN ('parsed','partial') THEN EXCLUDED.detail_note
-                     ELSE COALESCE(dart_events.detail_note, EXCLUDED.detail_note) END,
+                     WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail_note
+                     ELSE EXCLUDED.detail_note END,
   updated_at = now();
 """
 

@@ -75,8 +75,19 @@ def test_upsert_sql_only_overwrites_detail_when_parsed():
     sql = led.UPSERT_EVENT
     assert "ON CONFLICT (rcept_no) DO UPDATE" in sql
     assert "WHEN EXCLUDED.detail_status IN ('parsed','partial') THEN EXCLUDED.detail" in sql
-    assert "ELSE dart_events.detail END" in sql
     assert "CREATE TABLE IF NOT EXISTS dart_events_scan" in led.DDL
+
+
+def test_upsert_sql_records_a_real_first_result_over_the_scan_only_placeholder():
+    """260917 버그 회귀 방지. 옛 SQL은 `COALESCE(dart_events.detail_status, EXCLUDED.…)` 라
+    새 값이 parsed/partial 이 아니면 **옛 값이 있으면 무조건 옛 값**을 썼다 — 첫 시도라 옛 값이
+    기본치 scan_only(「아직 안 봄」)뿐이어도 그걸 지켜, 실제 결과(no_data 등)가 영영 안 남았다
+    (해지 단계 공시 85건 실측). 옳은 규칙은 「기존이 진짜 결과(parsed/partial)일 때만 지킨다」다."""
+    sql = led.UPSERT_EVENT
+    assert "COALESCE(dart_events.detail_status, EXCLUDED.detail_status)" not in sql   # 그 버그 패턴
+    assert "WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail_status" in sql
+    assert "ELSE EXCLUDED.detail_status END" in sql   # scan_only·이전 실패는 새 결과로 갱신
+    assert "WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail_note" in sql
 
 
 def test_scan_day_dedups_rcept_and_records_coverage(monkeypatch):
