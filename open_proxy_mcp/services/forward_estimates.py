@@ -543,6 +543,18 @@ async def build_forward_estimates_payload(
         return {"tool": TOOL, "status": "invalid", "subject": query,
                 "warnings": [f"period_type '{period_type}' 없음 — FY / Q / all 중 선택."]}
 
+    # 회사명 자리에 「코스피 시총 상위 100개 … 1주 전 대비」 같은 문장이 오면 종목이 아니라 유니버스다.
+    # 옛 도구 정의를 가진 호출자는 universe 인자를 모른다 — 문장을 읽어 스크린으로 보낸다(260916).
+    from open_proxy_mcp.services.universe import universe_phrase
+    phrase = universe_phrase(query)
+    if phrase:
+        uni, win = phrase
+        payload = await build_revision_screen_payload(universe=uni, window=win or "4w",
+                                                      period_type=pt, format=format)
+        payload.setdefault("warnings", []).insert(
+            0, f"회사명 자리의 문장을 유니버스 「{uni}」" + (f"·비교 창 {win}" if win else "")
+               + " 으로 읽어 유니버스 리비전 스크린으로 답했다. 다음부터는 universe 인자로 주면 된다.")
+        return payload
     corp, early = await _resolve_listed(query)   # 공용 리졸버 — company 툴과 동일 진입
     if early:
         early["tool"] = TOOL
