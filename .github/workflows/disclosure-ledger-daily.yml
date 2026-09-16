@@ -1,0 +1,80 @@
+# 공시 이벤트 원장 일간 배치 — scripts/disclosure_ledger.py (cron)
+#
+# 260916 신설. `screener` 는 매번 DART 를 실시간 스캔하고 남기지 않아 「평소보다 많이 떴나」의
+# 기준선이 없었다. 이 배치가 전체시장 주요 공시(수주·자사주·배당·증자·잠정실적·5%보유·주총·
+# 합병·소송 등)를 접수번호 1행으로 `dart_events` 에 쌓고, 날짜×코드별 커버리지를
+# `dart_events_scan` 에 남긴다. 업종(wise_sector)·시총(krx_weekly) 은 DB 조인, 상세 숫자는
+# 기존 파서. 사용자 질의는 저장하지 않는다(시장 데이터 스냅샷 — 규칙 10 예외).
+#
+# 시각: 평일 21:40 KST(12:40 UTC). DART 접수 마감(18:00 KST) 뒤라 그날치를 한 번에 본다.
+# 최근 3일을 매번 다시 보므로(idempotent upsert) 정정·지연 접수도 다음 날 따라잡는다.
+# 토요일 새벽(금요일 접수분 늦은 정정) 1회 더. 일요일은 접수가 없다.
+#
+# 비용: 스캔 5코드 × 3일 ≈ 15~40콜 · 상세 ≈ 200~400콜(상한 600). DART 키당 910/분 안쪽.
+# 필요 secrets: DATABASE_URL · OPENDART_API_KEY (market-val-weekly · finstat-quarterly 와 같은 것)
+
+name: disclosure-ledger-daily
+
+on:
+  schedule:
+    - cron: "40 12 * * 1-5"   # 평일 21:40 KST
+    - cron: "10 22 * * 5"     # 토 07:10 KST — 금요일 늦은 정정 재스캔
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "시작일 YYYYMMDD (비우면 최근 3일)"
+        required: false
+        default: ""
+      until:
+        description: "종료일 YYYYMMDD (비우면 오늘)"
+        required: false
+        default: ""
+      details:
+        description: "상세 파서 실행(yes/no) — 백필은 no 로 스캔만"
+        required: false
+        default: "yes"
+
+permissions:
+  contents: read
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.13"
+      - name: Sync deps
+        run: uv sync
+
+      - name: 공시 이벤트 원장 갱신
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.since }}" ]; then ARGS="$ARGS --since ${{ inputs.since }}"; fi
+          if [ -n "${{ inputs.until }}" ]; then ARGS="$ARGS --until ${{ inputs.until }}"; fi
+          if [ "${{ inputs.details }}" = "no" ]; then ARGS="$ARGS --no-details"; fi
+          uv run python scripts/disclosure_ledger.py $ARGS
+
+      - name: 확인 — 오늘 커버리지가 들어왔고 불완전 코드가 없나
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python - <<'PY'
+          import os, psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+              last = c.execute("SELECT max(scan_dd) FROM dart_events_scan").fetchone()[0]
+              rows = c.execute("SELECT code, total, fetched_pages, complete, error FROM dart_events_scan WHERE scan_dd=%s ORDER BY code", (last,)).fetchall()
+              n = c.execute("SELECT count(*) FROM dart_events WHERE rcept_dt=%s", (last,)).fetchone()[0]
+              print(f"최신 스캔일 {last} · 원장 {n}행")
+              bad = [r for r in rows if not r[3]]
+              for r in rows:
+                  print("  ", r)
+              if bad:
+                  raise SystemExit(f"::error::불완전 코드 {[r[0] for r in bad]} — 페이지 상한 또는 DART 오류. 재실행하면 채워진다")
+          PY

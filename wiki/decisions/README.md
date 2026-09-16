@@ -1,7 +1,7 @@
 ---
 type: readme
 title: wiki/decisions/ — OPM 정책 + 결정 + 토론
-updated: 2026-09-09
+updated: 2026-09-16
 ---
 
 # wiki/decisions/ — OPM 정책 + 결정 + 토론
@@ -14,6 +14,7 @@ updated: 2026-09-09
 |---|---|
 | **[[open-proxy-guideline]]** | OPM 자체 의결권 정책 v1.2 (12 카테고리 + OPM 5 기준 + 8 운용사 + N연기금 통합). **유일 master** — 보조 매트릭스는 [[260429_0059_decision_voting-policy-consensus-matrix]](8 운용사 79 토픽, 매트릭스 형태 보존) |
 | [[ksic-sector-mapping]] | OPM 자체 업종 분류 — KSIC 중분류 기본 + 6예외 소분류 (실측 분포 근거) |
+| [[disclosure-event-ledger]] | 공시 이벤트 원장 — 전체시장 주요 공시를 접수번호 1행으로 날짜별 저장(`dart_events`), 업종·시총·상세 숫자 부착. 업종별 흐름·기준선 조회의 저장분 (260916) |
 | [[XML-vs-PDF]] · [[BeautifulSoup-파서-선택]] · [[후보반환-설계]] | 파서/데이터 소스 결정 |
 | [[pblntf-ty-필터링]] · [[DART-KIND-매핑-화이트리스트-2026-04]] | DART/KIND 검색 정책 |
 | [[extension-hooks]] | 확장 훅 — 설치된 확장 패키지의 `register(mcp)`·`hint()` 를 부른다. 공개 레포엔 훅만 |
