@@ -145,3 +145,14 @@ def test_natural_language_specs(monkeypatch, phrase, spec):
     _stub(monkeypatch)
     p = asyncio.run(build_universe_payload(phrase))
     assert p["data"]["spec"] == spec
+
+
+def test_universe_phrase_in_company_slot_routes_to_ranking(monkeypatch):
+    """scope=firm 에 「코스피 시총 상위 2」 같은 문장이 오면 순위표로 답한다 (260916)."""
+    import asyncio as _a
+    from open_proxy_mcp.services.trading import build_firm_series_payload
+    _stub(monkeypatch)
+    p = _a.run(build_firm_series_payload("코스피 시총 상위 2 종목 순위표를 달라"))
+    assert p["status"] == "ok" and p["data"]["scope"] == "universe"
+    assert [r["ticker"] for r in p["data"]["rows"]] == ["005930", "000660"]
+    assert "universe 인자" in p["warnings"][0]

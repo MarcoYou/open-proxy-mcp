@@ -28,6 +28,11 @@ _RANK_SPEC = re.compile(r"^(kospi|kosdaq|top_mktcap):(\d+)$")
 #: 「코스피 120」「코스닥 50개」 — 시장 이름 뒤에 숫자만 있고 「상위·시총·top」이 없다. 종목 수인지
 #: 이름인지 알 수 없다. 추측하지 않고 되묻는다(해석기는 이걸 회사명 나열로 읽어 해석 실패로 떨어뜨린다).
 _MARKET_NUMBER = re.compile(r"^(코스피|코스닥|kospi|kosdaq|유가증권|전체|전체시장)?\s*(\d{1,4})\s*(개|종목)?$", re.I)
+#: 회사명 자리에 문장이 들어온 경우 — 「코스피 시총 상위 100개 종목의 영업이익 컨센서스가 1주 전 대비 …」.
+#: 260916 실측: 옛 도구 정의를 가진 세션이 universe 인자를 몰라 문장을 company 에 넣었고 not_found 로 끝났다.
+#: 문장 안의 「(시장) (시총) 상위 N」 과 「N주 전」 을 읽어 유니버스 스크린으로 보낸다. 회사 이름은 이 꼴이 아니다.
+_PHRASE_RANK = re.compile(r"(코스피|코스닥|kospi|kosdaq)?\s*(?:시총|시가총액)?\s*(?:상위|top)\s*(\d{1,4})", re.I)
+_PHRASE_WINDOW = re.compile(r"(\d{1,2})\s*(?:주|w)\b|(\d{1,2})\s*주\s*전|한\s*달|(?:3|삼)\s*개월|분기", re.I)
 
 
 def clarification(universe: str) -> str | None:
@@ -44,6 +49,34 @@ def clarification(universe: str) -> str | None:
     guess = f"{market + ' ' if market else ''}시총 상위 {n}"
     return (f"「{raw}」은 종목 수인지 이름인지 알 수 없어 추측하지 않았습니다. 시총 상위 {n}종목을 뜻하면 "
             f"universe=\"{guess.strip()}\" 로, 종목 이름이면 그대로 쉼표로 나열해 주세요.")
+
+
+def universe_phrase(text: str) -> tuple[str, str | None] | None:
+    """회사명 자리에 들어온 문장에서 (유니버스 문구, 비교 창)을 뽑는다. 아니면 None.
+
+    「코스피 시총 상위 100개 종목의 … 1주 전 대비 …」 → ("코스피 시총 상위 100", "1w").
+    창은 문장에 있을 때만 준다(없으면 None → 호출부 기본값). 회사 이름 하나(「삼성전자」)나
+    종목코드는 이 꼴이 아니라 None 이다. 스크리너 문법 그대로(kospi:100)도 받는다."""
+    raw = (text or "").strip()
+    if not raw or len(raw) > 300:
+        return None
+    m = _PHRASE_RANK.search(raw)
+    if not m:
+        return None
+    market = (m.group(1) or "").strip()
+    n = m.group(2)
+    universe = f"{market + ' ' if market else ''}시총 상위 {n}".strip()
+    window: str | None = None
+    w = _PHRASE_WINDOW.search(raw)
+    if w:
+        num = w.group(1) or w.group(2)
+        if num:
+            window = {"1": "1w", "4": "4w", "12": "12w"}.get(num)
+        elif "달" in w.group(0):
+            window = "4w"
+        else:
+            window = "12w"
+    return universe, window
 
 
 @dataclass(slots=True)

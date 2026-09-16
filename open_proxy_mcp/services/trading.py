@@ -140,6 +140,15 @@ async def build_firm_series_payload(company: str, format: str = "md",
     """한 종목의 종가·시총·상장주식수 시계열 (krx_weekly). DB 1콜."""
     if not (company or "").strip():
         return _err(company, "invalid", "company 가 필요합니다 — 종목명 또는 6자리 코드.")
+    # 「코스피 시총 상위 100」 같은 문장은 종목이 아니라 유니버스다 — 순위표로 답한다(260916).
+    from open_proxy_mcp.services.universe import universe_phrase
+    phrase = universe_phrase(company)
+    if phrase:
+        payload = await build_universe_payload(phrase[0], format=format)
+        payload.setdefault("warnings", []).insert(
+            0, f"회사명 자리의 문장을 유니버스 「{phrase[0]}」 으로 읽어 시총 순위표로 답했다. "
+               "다음부터는 유니버스 조회(universe 인자)로 주면 된다.")
+        return payload
     corp, early = await _resolve_listed(company)
     if early:
         early["tool"] = TOOL

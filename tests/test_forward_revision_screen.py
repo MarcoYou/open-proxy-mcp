@@ -145,3 +145,21 @@ def test_md_render(monkeypatch):
     assert "| 1 | 삼성전자 | `005930` | KOSPI | 2026.12E |" in md
     assert "(이력 짧음)" in md and "상향 1 / 하향 1" in md
     assert "영업이익 4w | 매출 4w | 지배순이익 4w | EPS 4w" in md
+
+
+def test_universe_phrase_in_company_slot_routes_to_screen(monkeypatch):
+    """옛 도구 정의를 가진 호출자가 문장을 company 에 넣어도 스크린으로 답한다 (260916 실측)."""
+    _stub(monkeypatch)
+    p = asyncio.run(fe.build_forward_estimates_payload(
+        company="코스피 시총 상위 100개 종목의 영업이익 컨센서스가 1주 전 대비 얼마나 바뀌었는지 전체를 표로 달라",
+        bundle="revision"))
+    assert p["status"] == "ok" and p["data"]["scope"] == "revision_screen" and p["data"]["window"] == "1w"
+    assert "유니버스 「코스피 시총 상위 100」" in p["warnings"][0] and "universe 인자" in p["warnings"][0]
+
+
+def test_plain_company_name_is_not_a_phrase():
+    from open_proxy_mcp.services.universe import universe_phrase
+    assert universe_phrase("삼성전자") is None and universe_phrase("005930") is None
+    assert universe_phrase("코스닥 상위 100") == ("코스닥 시총 상위 100", None)
+    assert universe_phrase("시총 상위 50 종목 4주 전 대비") == ("시총 상위 50", "4w")
+    assert universe_phrase("한 달 전 대비 코스닥 상위 20") == ("코스닥 시총 상위 20", "4w")
