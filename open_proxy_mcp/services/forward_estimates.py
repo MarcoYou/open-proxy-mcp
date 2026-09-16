@@ -689,3 +689,158 @@ async def build_forward_estimates_payload(
                         "기본 core 는 크기를 줄이려고 자른 것이지 그것이 정답이라서가 아니다.")
     return {"tool": TOOL, "status": "ok" if est_rows else "no_estimates",
             "subject": subject, "data": data, "warnings": warnings}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# revision screen — 유니버스 전체의 리비전을 **한 질의**로 (260916)
+#
+# 계기: 주간 루틴이 200종목 리비전을 종목마다 `bundle=revision` 으로 200번 불렀다(서브에이전트
+# 10여 개, 수 분). `fwd_hist` 는 전체 9만 행에 (stock_code, period, period_type, as_of) 색인이
+# 있어 코드 200개를 `= ANY` 로 한 번에 읽고 `compute_revision` 을 메모리에서 돌리면 끝난다.
+# 종목당 1콜은 설계가 아니라 미구현이었다.
+# ─────────────────────────────────────────────────────────────────────────────
+_REV_SCREEN_COLS: tuple[str, ...] = ("stock_code", "as_of", "period", "period_type") + _REV_METRICS
+_REV_SCREEN_MD_MAX = 300
+
+
+def _fetch_hist_many(codes: list[str] | None, period_type: str) -> list[tuple] | None:
+    """유니버스의 `fwd_hist` 추정 행을 한 질의로. codes=None 이면 커버리지 전 종목.
+    None = DB 장애 · [] = 표 없음/이력 없음."""
+    avail = _hist_available()
+    if avail is None:
+        return None
+    if not avail:
+        return []
+    sql = f"SELECT {', '.join(_REV_SCREEN_COLS)} FROM fwd_hist WHERE is_estimate"
+    params: list[Any] = []
+    if period_type in ("FY", "Q"):
+        sql += " AND period_type=%s"
+        params.append(period_type)
+    if codes is not None:
+        sql += " AND stock_code = ANY(%s)"
+        params.append(codes)
+    sql += " ORDER BY stock_code, as_of"
+    return pg_rows(sql, tuple(params))
+
+
+def _screen_row(code: str, hist: list[dict[str, Any]], win: str,
+                meta: dict[str, Any]) -> dict[str, Any] | None:
+    """종목 하나의 이력 → 스크린 한 행. 초점은 **가장 가까운 연간 추정 기간**(FY 가 없으면 첫 행)."""
+    rev = compute_revision(hist)
+    if not rev["rows"]:
+        return None
+    fy = [x for x in rev["rows"] if x["period_type"] == "FY"] or rev["rows"]
+    focus = fy[0]
+    base = rev["baselines"].get(win)
+    cell = (focus["vs"].get(win) or {}) if base else {}
+    row: dict[str, Any] = {
+        "ticker": code, "name": meta.get("name") or "-", "market": meta.get("market"),
+        "mktcap_krw": meta.get("mktcap_krw"), "rank_mktcap": meta.get("rank"),
+        "period": focus["period"], "period_type": focus["period_type"],
+        "as_of_latest": rev["as_of_latest"], "snapshots": rev["snapshots"],
+        "op_krw": (focus.get("now") or {}).get("op_krw"),
+        "baseline_as_of": base["as_of"] if base else None,
+        "baseline_days": base["days"] if base else None,
+        "history_short": bool(base and base.get("partial")),
+        "absent_at_baseline": bool(cell.get("absent")),
+    }
+    for m in _REV_METRICS:
+        row[f"{m}_{win}_pct"] = cell.get(f"{m}_pct")
+    return row
+
+
+async def build_revision_screen_payload(universe: str, window: str = "4w",
+                                        period_type: str = "FY", format: str = "md") -> dict[str, Any]:
+    """유니버스(「코스피 시총 상위 100」·이름 나열·「전체」) 전 종목의 컨센서스 리비전 표.
+    DB 2콜(유니버스 1 + 이력 1) · DART 0콜."""
+    import os
+    from open_proxy_mcp.services.universe import list_universe
+
+    raw = (universe or "").strip()
+    win = (window or "4w").strip().lower()
+    windows = dict(_REV_WINDOWS)
+    if win not in windows:
+        return {"tool": TOOL, "status": "invalid", "subject": raw,
+                "warnings": [f"window '{window}' 없음 — {' / '.join(windows)} 중 선택."]}
+    pt = (period_type or "FY").strip().upper()
+    if pt not in ("FY", "Q", "ALL"):
+        return {"tool": TOOL, "status": "invalid", "subject": raw,
+                "warnings": [f"period_type '{period_type}' 없음 — FY / Q / all 중 선택."]}
+
+    ul = await list_universe(raw)
+    subject = f"{ul.label or raw} — 컨센서스 리비전"
+    if ul.question:
+        return {"tool": TOOL, "status": "invalid", "subject": subject, "warnings": [ul.question]}
+    if not ul.db_ok:
+        st = "db_error" if os.getenv("DATABASE_URL") else "db_unconfigured"
+        return {"tool": TOOL, "status": st, "subject": subject,
+                "warnings": ["유니버스를 만들 주간 시세 저장분을 읽지 못했다 — "
+                             + ("일시 장애일 수 있다, 재시도할 것." if st == "db_error"
+                                else "이 서버에는 저장분 DB 가 연결돼 있지 않다. 재시도해도 되지 않는다.")]}
+    if not ul.resolved:
+        return {"tool": TOOL, "status": "no_data", "subject": subject,
+                "warnings": [ul.notice or "유니버스를 해석하지 못했다 — 표현을 바꿔 다시 부를 것."]}
+    codes = [r["ticker"] for r in ul.rows]
+    rows = await asyncio.to_thread(_fetch_hist_many, codes if codes else None, pt)
+    if rows is None:
+        return {"tool": TOOL, "status": "db_error", "subject": subject,
+                "warnings": ["리비전 이력(`fwd_hist`) 조회 실패 — **장애**다, 자료 없음이 아니다. 재시도할 것."]}
+
+    by_code: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        by_code.setdefault(r[0], []).append(dict(zip(_REV_SCREEN_COLS[1:], r[1:])))
+    meta = {r["ticker"]: r for r in ul.rows}
+    out: list[dict[str, Any]] = []
+    for code, hist in by_code.items():
+        row = _screen_row(code, hist, win, meta.get(code, {}))
+        if row is not None:
+            out.append(row)
+    key = f"op_krw_{win}_pct"
+    out.sort(key=lambda r: (r[key] is None, -(r[key] or 0.0), r.get("rank_mktcap") or 10**9))
+    for i, r in enumerate(out, 1):
+        r["rank"] = i
+
+    n_short = sum(1 for r in out if r["history_short"])
+    n_nobase = sum(1 for r in out if r["baseline_as_of"] is None)
+    vals = [r[key] for r in out if r[key] is not None]
+    direction = {"up": sum(1 for v in vals if v > 0.5), "down": sum(1 for v in vals if v < -0.5),
+                 "flat": sum(1 for v in vals if -0.5 <= v <= 0.5), "not_comparable": len(out) - len(vals)}
+    latest_dates = sorted({r["as_of_latest"] for r in out})
+    # 「비교 가능」= 영업이익 변화율이 실제로 나온 행. 기준일은 있어도 그때 그 기간 추정이 없었으면
+    # (absent) 비교가 아니다 — direction.not_comparable 과 같은 정의여야 두 숫자가 어긋나지 않는다.
+    coverage = {"universe": len(ul.rows), "with_estimates": len(out),
+                "no_estimates": len(ul.rows) - len(out),
+                "comparable": len(vals), "history_short": n_short}
+
+    warnings: list[str] = []
+    if ul.notice:
+        warnings.append(ul.notice)
+    if ul.excluded_pref:
+        warnings.append(f"우선주 {ul.excluded_pref}종목은 유니버스에서 뺐다 — 같은 회사의 보통주가 순위에 있다.")
+    if len(ul.rows) - len(out):
+        warnings.append(f"유니버스 {len(ul.rows)}종목 중 {len(ul.rows) - len(out)}종목은 컨센서스 추정이 없어 "
+                        "표에서 뺐다(애널리스트 미커버 — 자료 없음이지 장애가 아니다).")
+    if n_nobase:
+        warnings.append(f"{n_nobase}종목은 이력이 {_REV_MIN_GAP_DAYS}일 이상 떨어진 기준일이 없어 비교 불가 — 표 맨 뒤.")
+    if n_short:
+        warnings.append(f"{n_short}종목은 이력이 {win} 에 못 미쳐 가장 오래된 스냅샷과 비교했다 — "
+                        "「이력 짧음」 표시. 그 값은 정확한 " + win + " 변화가 아니다.")
+    if len(latest_dates) > 1:
+        warnings.append("종목별 최신 스냅샷 날짜가 다르다: " + " · ".join(latest_dates)
+                        + " — 같은 날 기준이 아니니 순위를 정밀 비교로 읽지 말 것.")
+    if ul.as_of:
+        warnings.append(f"유니버스(시총 순위)는 주간 시세 저장분 {ul.as_of} 기준.")
+
+    data: dict[str, Any] = {
+        "scope": "revision_screen", "universe": raw, "label": ul.label,
+        "window": win, "window_days": windows[win], "period_type": pt,
+        "as_of_latest": latest_dates[-1] if latest_dates else None, "universe_as_of": ul.as_of,
+        "focus": "종목마다 가장 가까운 연간 추정 기간(예: 2026.12E) 한 행. 기간별 전체는 종목 단위 "
+                 "`forward_estimates_data(company=…, bundle=\"revision\")`.",
+        "coverage": coverage, "direction": direction, "rows": out,
+        "note": ("%는 (지금−기준)/|기준|. 기준일은 목표일 이전 가장 가까운 주간 스냅샷. ±0.5% 안은 유지. "
+                 "정렬은 영업이익 " + win + " 변화율 내림차순, 비교 불가는 맨 뒤. "
+                 "출처 `fwd_hist`(주 1회 토, 13주 롤링) — 그 너머는 없다. 컨센서스 스냅샷이지 DART 공시가 아니다."),
+    }
+    return {"tool": TOOL, "status": "ok" if out else "no_estimates", "subject": subject,
+            "data": data, "warnings": warnings}

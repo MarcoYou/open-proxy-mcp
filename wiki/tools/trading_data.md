@@ -3,12 +3,12 @@ type: tool
 title: trading_data
 domain: data
 status: 등록 완료 (260824 — tools/trading.py)
-scope: [firm, quote, market, sector]
+scope: [firm, quote, market, sector, universe]
 data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 주간 시세 저장분, 시장·섹터 시총 집계 저장분, 기준가 조정 저장분, WICS 업종분류 저장분]
 related_disclosures: []
 related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24
-updated: 2026-09-04
+updated: 2026-09-16
 ---
 
 # trading_data
@@ -36,18 +36,22 @@ trading_data(scope="market")                                 # KOSPI·KOSDAQ 시
 trading_data(scope="sector")                                 # WICS 하위업종 28 시총·비중
 trading_data(scope="sector", scheme="wics_sector")           # WICS 대분류 10
 trading_data(scope="sector", bucket="반도체와반도체장비")     # 그 섹터의 전 구간 시계열
+trading_data(scope="universe", universe="코스피 시총 상위 100")  # 종목 순위표 — 순위·코드·이름·시장·시총·종가
+trading_data(scope="universe", universe="코스닥 상위 50")
+trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380")  # 이름·코드 나열도 시총순으로
 ```
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | firm·quote 필수 | 회사명 / ticker(6자리) / corp_code | "" |
-| scope | str | no | `firm`(종목 시계열) / `quote`(단일 거래일 전체 시세) / `market` / `sector` | "firm" |
+| scope | str | no | `firm`(종목 시계열) / `quote`(단일 거래일 전체 시세) / `market` / `sector` / `universe`(종목 순위표) | "firm" |
 | format | str | no | "md" / "json" — 전 구간 시계열은 json 의 `data.series` | "md" |
 | as_of | str | no | quote 전용. YYYYMMDD. 비우면 최근 거래일 | "" |
 | since | str | no | firm·market·sector 시계열 시작일 YYYYMMDD | "" |
 | scheme | str | no | sector 전용. `wics_industry`(28) / `wics_sector`(10) | "wics_industry" |
 | bucket | str | no | sector 전용. 섹터명·코드 지정 시 그 섹터의 전 구간 시계열 | "" |
+| universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」(KOSPI 시총상위 200 대체)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다. 「코스피 120」처럼 숫자만 있고 「상위·시총」이 없으면 **추측하지 않고 되묻는다**(`invalid` + 제안 문구) | "" |
 
 ## 데이터 출처와 콜 비용
 | scope | 출처 | DART | KRX |
@@ -55,6 +59,17 @@ trading_data(scope="sector", bucket="반도체와반도체장비")     # 그 섹
 | firm | `krx_weekly` (+ `krx_adj_events`) | 0 | 0 |
 | market · sector | `krx_cap_agg` 사전계산 | 0 | 0 |
 | quote | KRX 일별매매정보 라이브 | 0 | 0~2 (오늘분은 캐시 적중 시 0) |
+| universe | `krx_weekly` 최신 완결 주 1콜 + DART 회사 원장(캐시)으로 이름 | 0 | 0 |
+
+### universe — 시총 순위 목록은 여기가 유일한 일괄 조회다 (260916)
+
+「코스피·코스닥 시총 상위 100」을 만들려던 주간 루틴이 `scope=firm` 을 종목마다 150번 부르고도
+후보를 기억에서 짜서 코스닥 70~100위가 빠졌을 수 있다고 자백했다(260914). 그런데 `screener` 의
+유니버스 해석기는 이미 그 집합을 한 질의로 만들고 있었고, 공시 필터로만 쓰여 **목록을 돌려주는
+도구가 없었을 뿐**이다. `scope=universe` 는 그 해석기를 그대로 써서 순위·코드·이름·시장·시총·종가를
+낸다. 순위는 **요청한 시장 안에서** 시총 내림차순이고, 기준일은 최신 완결 주의 마지막 거래일이지
+오늘이 아니다(`data.as_of`). md 표는 300종목까지, 전체는 json 의 `data.rows`. 이 목록은
+`forward_estimates_data(universe=…)`·`screener(universe=…)` 에 같은 문장으로 넘길 수 있다.
 
 ## 반드시 알아야 할 것 셋
 
@@ -100,6 +115,7 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 
 ## 변경 이력
 
+- 2026-09-16: `scope=universe` 신설 — 유니버스 문법으로 종목 시총 순위표(DB 1콜·DART 0콜). 종목마다 firm 을 부르던 루틴의 대체.
 - 2026-09-07: 경고·출처 문장에서 저장소 이름(`krx_weekly`·`close_krw`·`mktcap_krw`)을 빼고 종가·시가총액·주간 시세 저장분으로 적는다.
 
 ## 관련
