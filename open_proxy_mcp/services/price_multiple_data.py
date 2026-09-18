@@ -8,6 +8,8 @@
 산출 범위는 이 셋뿐이다 — 260823 에 RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT 시계열의
 「v1.1 예정」 표기를 걷어냈다. 한 번도 만들지 않은 로드맵이 코드·설명·경고에 남아
 **없는 지표를 있는 것처럼 안내**하고 있었다(금융사 경고가 대표적).
+260918: 시장·산업 표에 **선행(애널리스트 추정) PER·PBR** 을 얹는다(PSR 은 JSON 만). 우리가 재무로
+계산하는 지표가 아니라 추정치 집계라 위 「셋」과 별개다 — 기업 단위 선행은 `forward_estimates_data`.
 """
 from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
@@ -31,7 +33,7 @@ from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
-from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_label as mkt_label
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
 
 _KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
 _KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
@@ -268,7 +270,7 @@ _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, �
 # 배당수익률 — 두 벌(확정 · 선행). 260831 신설.
 #
 # 🔴 **PER·PBR 과 출처 표가 다르다.** PER·PBR 은 `opm_val_market`(주간 스냅샷),
-#    배당수익률은 `div_yield_hist`(사업연도 확정, 연 1회 갱신)와 `fwd_agg`(추정 스냅샷)다.
+#    배당수익률은 `div_yield_hist`(사업연도 확정, 연 1회 갱신)와 `opm_val_fwd`(추정 스냅샷, 260918~)다.
 #    그래서 기준일이 셋 다 다르다 — 한 표에 놓을 때 각각의 자를 같이 실어야 한다.
 # 🔴 **분모를 한 벌만 내면 코스닥이 왜곡된다.** `all`(무배당 포함)만 내면 코스닥은
 #    절반으로 눌린다 — 눌림의 정체는 배당력이 아니라 「배당하는 회사가 적다」는 구성 차이다
@@ -279,7 +281,7 @@ _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, �
 _DIV_METHOD = (
     "배당수익률(%) = Σ(주당배당금 × 주식수) ÷ Σ보통주 시총 × 100 — 시총가중. **배(倍)가 아니라 %다.** "
     "확정=`div_yield_hist`(사업연도 12월결산 확정 DPS, 시총은 그 해 12월 마지막 주. 연 1회 갱신) · "
-    "선행=`fwd_agg`(애널리스트 추정 DPS, 분모는 추정이 있는 종목의 시총 `covered`). "
+    "선행=애널리스트 추정 DPS(선행 PER·PBR 과 같은 표 `opm_val_fwd`, 분모는 추정이 있는 종목의 시총 `covered`). "
     "**둘은 기준일도 모집단도 다르다 — 나란히 놓되 차이를 배당의 증감으로 읽지 말 것.** "
     "분모 두 벌: `all`=무배당·DPS미확정까지 다 센 시장 관행값(본값) / `payers`=배당하는 회사만. "
     "코스닥은 둘을 반드시 같이 본다 — `all` 만 보면 배당력이 아니라 배당하는 회사 수가 적은 것을 본다. "
@@ -287,15 +289,128 @@ _DIV_METHOD = (
 )
 
 
-async def _div_yield_map(scheme: str) -> tuple[dict, dict, dict]:
-    """(확정, 선행, 자) — 키는 (market, bucket). 실패해도 None 이 아니라 빈 dict 를 낸다.
+# ══════════════════════════════════════════════════════════════════════════
+# 선행 배수 — 애널리스트 추정 기반 PER·PBR·PSR·배당수익률. 260918 신설.
+#
+# 표는 `opm_val_fwd`(scripts/fwd_val_weekly.py, market-val-weekly 가 매일 새 날짜만 계산).
+# 🔴 **트레일링과 같은 방식으로 낸다.** 트레일링 PER 은 적자 회사까지 더한 합이다. 흑자 추정만 더한
+#    벤더식(`fwd_per_pos`)을 옆에 놓으면 방식 차이가 기대이익 차이로 읽힌다(260913 실측:
+#    코스피 전자와 전기제품 선행 PER 88.9 적자 포함 vs 24.9 흑자만). 벤더식은 JSON 에만 싣는다.
+# 🔴 **모집단이 다르다.** 트레일링은 상장 보통주 전부, 선행은 추정이 있는 종목만(시장 약 650사).
+#    그래서 행마다 추정 종목 수를 같이 싣는다.
+# 🔴 기준일이 다르다 — 추정 스냅샷(주 1회 토요일)과 주간 시세 스냅샷을 각각 적는다.
+# ══════════════════════════════════════════════════════════════════════════
+_FWD_SCHEMES = ("market", "wics_sector", "wics_industry")
+_FWD_COLS = ("as_of", "market", "bucket", "label", "n_total", "cap_krw", "n_per", "ni_krw", "fwd_per",
+             "n_per_pos", "fwd_per_pos", "n_pbr", "eq_krw", "fwd_pbr", "n_psr", "fwd_psr",
+             "n_dps", "fwd_div_yield_pct", "fy_main", "fy_min", "fy_max", "class_dd")
+
+
+def _fwd_method(fy: int | None) -> str:
+    yr = f"대부분 {fy}년" if fy else "가장 가까운 추정 연도"
+    return ("선행 = 애널리스트 추정(종목마다 가장 가까운 추정 사업연도 — " + yr + "). "
+            "PER=Σ시총÷Σ추정 지배순이익 · PBR=Σ시총÷Σ추정 자기자본(시총×BPS÷주가) — "
+            "**트레일링과 같은 방식(적자 추정도 더한다)**. 합이 0 이하면 「적자」로 적는다. "
+            "**추정이 있는 보통주만 더한다** — 트레일링(상장 보통주 전부)과 모집단이 달라 "
+            "추정 종목 수를 같이 적는다. 흑자 추정만 더한 벤더식은 `fwd_per_pos`, 선행 PSR 은 `fwd_psr`(JSON). "
+            "업종은 추정 날짜 이하 가장 최근 WICS 분류(`class_dd`).")
+
+
+def _as_date(dd: str | None) -> str | None:
+    """YYYYMMDD → YYYY-MM-DD. 달력에 없는 날짜면 ValueError — DB 에 넘기기 전에 여기서 막는다
+    (DB 가 날짜 변환에 실패하면 커넥션 풀이 장애로 보고 60초간 꺼진다, 260918 QA)."""
+    if not dd:
+        return None
+    import datetime as _dt
+    return _dt.datetime.strptime(dd, "%Y%m%d").date().isoformat()
+
+
+async def _fwd_val_map(scheme: str, as_of: str | None = None,
+                       history: bool = False) -> tuple[dict, dict, list[dict]]:
+    """(선행 {(market, bucket): 행}, 자, 이력). as_of(YYYYMMDD) 가 있으면 그 이하 가장 최근 스냅샷.
+
+    fail-open — 조회가 실패해도 트레일링 표는 그대로 낸다. 자에 이유를 남긴다.
+    history=True 면 같은 분류의 전 스냅샷을 최신순으로 함께 준다(시장 표의 추이용).
+    """
+    ruler: dict[str, Any] = {}
+    if scheme not in _FWD_SCHEMES:
+        return {}, ruler, []
+    try:
+        day = _as_date(as_of)
+    except ValueError:
+        ruler["error"] = f"기준일 {as_of} 은 달력에 없는 날짜라 선행 조회를 하지 않았다."
+        return {}, ruler, []
+    cond = " AND as_of <= %s" if day else ""
+    cols = ", ".join(_FWD_COLS)
+    if history:
+        sql = f"SELECT {cols} FROM opm_val_fwd WHERE scheme=%s{cond} ORDER BY as_of DESC, market"
+        params: tuple = (scheme, day) if day else (scheme,)
+    else:
+        sql = (f"SELECT {cols} FROM opm_val_fwd WHERE scheme=%s "
+               f"AND as_of=(SELECT MAX(as_of) FROM opm_val_fwd WHERE scheme=%s{cond})")
+        params = (scheme, scheme, day) if day else (scheme, scheme)
+    rows = await asyncio.to_thread(_pg_rows, sql, params)
+    if rows is None:
+        ruler["error"] = "선행 배수 조회 실패 — 일시 장애 가능, 트레일링 값은 그대로다."
+        return {}, ruler, []
+    recs = [dict(zip(_FWD_COLS, r)) for r in rows]
+    if not recs:
+        if day:
+            first = await asyncio.to_thread(_pg_rows, "SELECT MIN(as_of) FROM opm_val_fwd WHERE scheme=%s",
+                                            (scheme,))
+            since = first[0][0] if first and first[0][0] else None
+            ruler["note_empty"] = (f"기준일 {as_of} 이하 선행 집계 없음" +
+                                   (f" — 선행 집계는 {since} 부터 쌓였다." if since else "."))
+        return {}, ruler, []
+    latest = max(r["as_of"] for r in recs)
+    cur = {(r["market"], r["bucket"]): r for r in recs if r["as_of"] == latest}
+    fys = [r["fy_main"] for r in cur.values() if r.get("fy_main")]
+    ruler.update(as_of=str(latest), class_dd=next(iter(cur.values()))["class_dd"],
+                 fy_main=max(set(fys), key=fys.count) if fys else None)
+    hist = [{"as_of": str(r["as_of"]), "market": r["market"], "fwd_per": _r2(r["fwd_per"]),
+             "fwd_pbr": _r2(r["fwd_pbr"]), "fwd_psr": _r2(r["fwd_psr"]), "fwd_per_pos": _r2(r["fwd_per_pos"]),
+             "n_total": r["n_total"], "ni_krw": r["ni_krw"]} for r in recs] if history else []
+    return cur, ruler, hist
+
+
+def _r2(v):
+    return None if v is None else round(v, 2)
+
+
+def _attach_fwd(row: dict, f: dict | None) -> None:
+    """행 하나에 선행 칸을 붙인다. 없으면 붙이지 않는다(빈 칸을 0 으로 메우지 않는다)."""
+    if not f:
+        return
+    row.update(fwd_per=_r2(f["fwd_per"]), fwd_pbr=_r2(f["fwd_pbr"]), fwd_psr=_r2(f["fwd_psr"]),
+               fwd_per_pos=_r2(f["fwd_per_pos"]),
+               fwd_n_total=f["n_total"], fwd_n_per=f["n_per"], fwd_n_per_pos=f["n_per_pos"],
+               fwd_ni_krw=f["ni_krw"], fwd_eq_krw=f["eq_krw"], fwd_cap_krw=f["cap_krw"],
+               fwd_fy=f["fy_main"])
+    if f.get("fwd_div_yield_pct") is not None:
+        row["fwd_div_yield_pct"] = round(f["fwd_div_yield_pct"], 4)
+        row["fwd_div_n_dps"] = f["n_dps"]
+
+
+def _merge_fwd_ruler(div_ruler: dict, fwd_ruler: dict) -> dict:
+    """배당 자에 선행 기준일을 얹는다 — 선행 배당수익률이 선행 배수와 같은 표에서 온다.
+
+    조회 실패는 여기 옮기지 않는다 — 선행 각주(`fwd_ruler.error`)가 이미 한 번 적는다.
+    """
+    out = dict(div_ruler)
+    if fwd_ruler.get("as_of"):
+        out["forward_as_of"] = fwd_ruler["as_of"]
+    return out
+
+
+async def _div_yield_map(scheme: str) -> tuple[dict, dict]:
+    """(확정, 자) — 키는 (market, bucket). 실패해도 None 이 아니라 빈 dict 를 낸다.
 
     🔴 배당수익률이 없다고 PER·PBR 표까지 죽이지 않는다(fail-open). 표가 통째로 사라지는
        것보다 한 칸이 비는 편이 낫다 — 대신 기준 줄에 「배당수익률 조회 실패」를 남긴다.
+    260918: 선행 배당수익률은 선행 배수와 같은 표(`opm_val_fwd`)로 옮겼다 — `_fwd_val_map`.
     """
     ruler: dict[str, Any] = {}
     act: dict[tuple, dict] = {}
-    fwd: dict[tuple, dict] = {}
 
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT market, bucket, denom_basis, div_yield_pct, fiscal_year, price_dd, "
@@ -313,23 +428,12 @@ async def _div_yield_map(scheme: str) -> tuple[dict, dict, dict]:
             ruler.setdefault("actual_price_dd", price_dd)
     elif rows is None:
         ruler["actual_error"] = "확정 배당수익률 조회 실패 — div_yield_hist"
-
-    frows = await asyncio.to_thread(_pg_rows,
-        "SELECT market, bucket, fwd_div_yield_pct, n_dps, n_total, as_of, div_denom_basis "
-        "FROM fwd_agg WHERE scheme=%s AND as_of=(SELECT MAX(as_of) FROM fwd_agg)", (scheme,))
-    if frows:
-        for mkt, bucket, pct, n_dps, n_total, as_of, basis in frows:
-            fwd[(mkt, bucket)] = {"pct": pct and round(pct, 4), "n_dps": n_dps,
-                                  "n_total": n_total, "denom_basis": basis}
-            ruler.setdefault("forward_as_of", str(as_of))
-    elif frows is None:
-        ruler["forward_error"] = "선행 배당수익률 조회 실패 — fwd_agg"
-    return act, fwd, ruler
+    return act, ruler
 
 
-def _attach_div(row: dict, key: tuple, act: dict, fwd: dict) -> None:
-    """행 하나에 배당수익률 칸을 붙인다. 없으면 붙이지 않는다(빈 칸을 0 으로 메우지 않는다)."""
-    a, f = act.get(key), fwd.get(key)
+def _attach_div(row: dict, key: tuple, act: dict) -> None:
+    """행 하나에 확정 배당수익률 칸을 붙인다. 없으면 붙이지 않는다(빈 칸을 0 으로 메우지 않는다)."""
+    a = act.get(key)
     if a:
         row["div_yield_pct_all"] = a.get("all")
         row["div_yield_pct_payers"] = a.get("payers")
@@ -337,9 +441,6 @@ def _attach_div(row: dict, key: tuple, act: dict, fwd: dict) -> None:
         row["div_price_dd"] = a.get("price_dd")
         row["div_n_payers"] = a.get("n_div")
         row["div_cov_cap_pct"] = a.get("cov_cap_pct")
-    if f:
-        row["fwd_div_yield_pct"] = f.get("pct")
-        row["fwd_div_n_dps"] = f.get("n_dps")
 
 
 def _norm_as_of(as_of) -> str | None:
@@ -349,6 +450,13 @@ def _norm_as_of(as_of) -> str | None:
         return None
     if not (len(v) == 8 and v.isdigit()):
         raise ValueError(f"as_of 는 YYYYMMDD 또는 YYYY-MM-DD 여야 합니다 (받은 값: {as_of})")
+    # 260918: 자릿수만 보면 20260231 이 통과한다 — 트레일링은 문자열 비교라 조용히 넘어가지만
+    #   선행 조회는 DB 날짜 변환에서 죽는다. 달력에 있는 날짜인지 여기서 본다.
+    import datetime as _dt
+    try:
+        _dt.datetime.strptime(v, "%Y%m%d")
+    except ValueError:
+        raise ValueError(f"as_of {as_of} 은 달력에 없는 날짜입니다 — YYYYMMDD 로 실제 날짜를 주세요.") from None
     return v
 
 
@@ -380,15 +488,22 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
         latest_dd = hist[0]["snap_dd"]
     latest = [h for h in hist if h["snap_dd"] == latest_dd]
     # 260831: 배당수익률 두 벌을 같은 표에 얹는다. 키는 (market, 'ALL').
-    div_act, div_fwd, div_ruler = await _div_yield_map("market")
+    # 260918: 선행 PER·PBR 도 얹는다. 선행 키는 (market, '_ALL') — 트레일링 표와 같은 센티넬.
+    (div_act, div_ruler), (fwd, fwd_ruler, fwd_hist) = await asyncio.gather(
+        _div_yield_map("market"), _fwd_val_map("market", as_of, history=True))
     for h in latest:
-        _attach_div(h, (h["market"], "ALL"), div_act, div_fwd)
+        _attach_div(h, (mkt_to_db(h["market"]), "ALL"), div_act)
+        _attach_fwd(h, fwd.get((mkt_to_db(h["market"]), "_ALL")))
+    has_fwd_div = any(h.get("fwd_div_yield_pct") is not None for h in latest)
     return {"tool": "price_multiple_data", "status": "ok", "subject": "시장 밸류에이션(KOSPI·KOSDAQ)",
             "data": {"scope": "market", "as_of": latest_dd, "as_of_requested": as_of,
                      "latest": latest,
                      "history": hist,
-                     "div_yield_ruler": div_ruler or None,
-                     "div_yield_method": _DIV_METHOD if (div_act or div_fwd) else None,
+                     "fwd_ruler": fwd_ruler or None,
+                     "fwd_method": _fwd_method(fwd_ruler.get("fy_main")) if fwd else None,
+                     "fwd_history": fwd_hist,
+                     "div_yield_ruler": _merge_fwd_ruler(div_ruler, fwd_ruler) or None,
+                     "div_yield_method": _DIV_METHOD if (div_act or has_fwd_div) else None,
                      "method": "**보통주 기준**(260705 확정): PER=Σ보통주 시총÷Σ지배순이익 · PBR=Σ보통주 "
                                "시총÷Σ지배자본(MRQ) — KRX 지수 PER 관행. 우선주 시총은 배수 제외, cap_pref_krw로 "
                                "별도 노출(분모 이익·자본엔 우선주 몫 포함 → 소폭 하향 편향, 클래스 분리는 공시 부재로 불가) · "
@@ -417,6 +532,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
     if scheme not in _SECTOR_SCHEMES:
         return {"tool": "price_multiple_data", "status": "invalid", "subject": "산업별 밸류에이션",
                 "warnings": [f"scheme '{scheme}' 없음 — {' / '.join(_SECTOR_SCHEMES)} 중 선택."]}
+    as_of_req = as_of  # 아래에서 as_of 가 실제 스냅샷 날짜로 바뀐다 — 선행 조회는 요청값 기준
     # 260907: as_of 가 있으면 그 이하 가장 최근 스냅샷 (과거 시점 비교)
     sub = "SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL' AND scheme=%s" + (" AND snap_dd <= %s" if as_of else "")
     params: tuple = (scheme, scheme, as_of) if as_of else (scheme, scheme)
@@ -439,14 +555,22 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 # 260829: 배수가 비었을 때 「적자」와 「자료없음」을 가르는 분모. None = 더한 회사 없음.
                 "ni_fy0_krw": r[10], "ni_ttm_krw": r[11]}
                for r in rows]
-    # 260831: 배당수익률은 WICS 대분류로만 집계돼 있다(`wics_sector`). 다른 축에서는 안 붙인다 —
+    # 260831: 확정 배당수익률은 WICS 대분류로만 집계돼 있다(`div_yield_hist`). 다른 축에서는 안 붙인다 —
     #   KSIC·WICS 하위업종에 억지로 맞추면 버킷이 어긋난 값이 붙는다.
-    #   키를 코드가 아니라 **label** 로 맞춘다(우리 표의 bucket 이 섹터 이름이다).
-    div_act, div_fwd, div_ruler = ({}, {}, {})
+    #   키를 코드가 아니라 **label** 로 맞춘다(그 표의 bucket 이 섹터 이름이다).
+    # 260918: 선행(PER·PBR·PSR·배당)은 WICS 두 층 다 있다(`opm_val_fwd`). 키는 WICS **코드** —
+    #   이 표의 `sector` 칸과 같은 값이다. KSIC 선행 집계는 없다(안 붙인다).
+    div_act, div_ruler = ({}, {})
+    fwd, fwd_ruler = ({}, {})
     if scheme == "wics_sector":
-        div_act, div_fwd, div_ruler = await _div_yield_map("wics_sector")
-        for srow in sectors:
-            _attach_div(srow, (srow["market"], srow["label"]), div_act, div_fwd)
+        (div_act, div_ruler), (fwd, fwd_ruler, _) = await asyncio.gather(
+            _div_yield_map("wics_sector"), _fwd_val_map("wics_sector", as_of_req))
+    elif scheme == "wics_industry":
+        fwd, fwd_ruler, _ = await _fwd_val_map("wics_industry", as_of_req)
+    for srow in sectors:
+        _attach_div(srow, (mkt_to_db(srow["market"]), srow["label"]), div_act)
+        _attach_fwd(srow, fwd.get((mkt_to_db(srow["market"]), srow["sector"])))
+    has_fwd_div = any(s.get("fwd_div_yield_pct") is not None for s in sectors)
     company_ctx = None
     # 260823: scheme 을 열었는데 각주가 「KSIC 하이브리드」로 굳어 있었다 — WICS 로 조회해도
     #   KSIC 라고 말한다. 사용자가 다른 축을 봤다고 믿게 되는 자리다.
@@ -528,10 +652,12 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
             else:
                 warnings.append(f"'{company}' 종목 스냅샷 없음(비상장·미수집).")
     return {"tool": "price_multiple_data", "status": "ok", "subject": "산업별 밸류에이션",
-            "data": {"scope": "sector", "as_of": as_of, "scheme": scheme,
+            "data": {"scope": "sector", "as_of": as_of, "as_of_requested": as_of_req, "scheme": scheme,
                      "scheme_desc": _SECTOR_SCHEMES[scheme], "sectors": sectors,
-                     "div_yield_ruler": div_ruler or None,
-                     "div_yield_method": _DIV_METHOD if (div_act or div_fwd) else None,
+                     "fwd_ruler": fwd_ruler or None,
+                     "fwd_method": _fwd_method(fwd_ruler.get("fy_main")) if fwd else None,
+                     "div_yield_ruler": _merge_fwd_ruler(div_ruler, fwd_ruler) or None,
+                     "div_yield_method": _DIV_METHOD if (div_act or has_fwd_div) else None,
                      "company": company_ctx},
             "warnings": warnings}
 

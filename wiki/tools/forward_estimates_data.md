@@ -8,7 +8,7 @@ data_source: [컨센서스 추정치 스냅샷 저장분 (외부 벤더 원천 +
 related_disclosures: []
 related_concepts: [당기순이익, ROE, 배당수익률, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-08-30
-updated: 2026-09-16
+updated: 2026-09-18
 ---
 
 # forward_estimates_data
@@ -135,13 +135,14 @@ DB 물리 칸이 아직 `_eok` 면 도구가 ×1e8 해서 원으로 통일한다
 
 ## 변경 이력
 
+- 2026-09-18: 관련 링크 — 시장·업종 선행 배수 집계는 `price_multiple_data` 가 서빙한다(이 도구는 종목 단위).
 - 2026-09-16: `company` 자리에 「코스피 시총 상위 100개 종목의 … 1주 전 대비 …」 같은 문장이 오면 유니버스와 창(1주/4주/12주·한 달·분기)을 읽어 유니버스 리비전 스크린으로 답한다(경고 한 줄 붙여). universe 인자를 모르는 옛 도구 정의의 호출자를 위한 것.
 - 2026-09-16: 리비전 창에 `1w`(7일) 추가 — 종목 단위 `bundle=revision` 과 유니버스 스크린 `window="1w"` 모두. 주간 루틴이 직전 주 대비를 원했다.
 - 2026-09-16: `universe`·`window` 인자 신설 — 유니버스 리비전 스크린(fwd_hist 한 질의). 종목마다 revision 을 부르던 루틴의 대체.
 - 2026-09-07: 커버리지 줄의 엔진 용어 「bundle=core · period_type=FY」 → 「묶음 core · 기간 연간」.
 
 ## 관련
-- [[price_multiple_data]] — 확정 실적 기반 현재 배수(정의 동일)
+- [[price_multiple_data]] — 확정 실적 기반 현재 배수(정의 동일). 시장·WICS 업종 단위 **선행 PER·PBR 집계**도 거기서 트레일링 옆에 나온다(`scope="market"`·`scope="sector"`, 260918)
 - [[financial_metrics]] — DART 재무 원본
 - [[dividend_disclosure]] — 배당 상세
 - [[company]] — 회사 식별

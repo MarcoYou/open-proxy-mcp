@@ -3,7 +3,7 @@
 # 설계(260705): 매일 수집(전일 종가) → 같은 ISO주 슬롯에 수렴 → 주 마지막 거래일만 영구 보존.
 # 배치가 멱등·수렴형이라 매일 돌려도 주당 1스냅샷(무료티어 보호). KRX 4콜/일 (일 10,000 한도 대비 무해).
 # 갱신 대상: krx_weekly(시세) · firm_valuation_snapshot(종목별 PER/PBR) · mkt_val_history(시장·섹터,
-#   260706 병합으로 섹터도 이 테이블 sector 컬럼에 수렴).
+#   260706 병합으로 섹터도 이 테이블 sector 컬럼에 수렴) · opm_val_fwd(선행 배수, 260918).
 # 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY (ECOS_API_KEY 불필요 — fx_rate는 DB 캐시 히트)
 #
 # 선행 step(260705): mkt_fundamentals 재무 4열을 SSOT(mkt_finstat_q 분기재무)에서 파생 — **DART 0콜**.
@@ -143,6 +143,16 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/krx_cap_agg.py
 
+      # 260918 신설 — `price_multiple_data` 의 선행 PER·PBR(시장·WICS 대분류·하위업종)이 읽는 표 `opm_val_fwd`.
+      #   원천은 수집 머신이 토요일 저녁에 올리는 추정치 이력(`fwd_hist`) + WICS 분류 + 주간 시세의 시장 구분.
+      #   새 날짜와 가장 최근 날짜만 계산해 평일엔 몇 초짜리 재계산 하나다(토요일 수집분은 일요일 아침 반영).
+      #   수집 머신의 `fwd_agg` 에 넣지 않는 이유: 그쪽 송출이 날짜별로 행을 통째로 지우고 다시 넣는다.
+      #   `krx_weekly` 를 쓰므로 위 시세 스냅샷 **뒤**에 온다.
+      - name: 선행 배수 집계 — 시장·WICS 업종 (DART·KRX 0콜)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/fwd_val_weekly.py
+
       - name: 집계 확인 — 최신 시점이 들어왔나
         # 「성공」이 아니라 **산출물 변화**로 확인한다(법령 배치 교훈: 상류가 죽어도 초록불).
         #   스크립트 자체가 「섹터 합 == 시장 합」 항등을 전 시점에서 검사하고 어긋나면 실패한다.
@@ -159,4 +169,10 @@ jobs:
                   raise SystemExit(f"::error::집계가 시세보다 낡음 ({agg} < {wk}) — 재적재 실패")
               n = c.execute("SELECT count(*) FROM krx_cap_agg WHERE price_dd=%s", (agg,)).fetchone()[0]
               print(f"최신 시점 {n}행 (시장 2 + WICS 대분류·하위업종 × 2시장)")
+              # 260918: 선행 배수가 추정치 이력의 최신 날짜를 따라왔나
+              fh = c.execute("SELECT max(as_of) FROM fwd_hist").fetchone()[0]
+              fv = c.execute("SELECT max(as_of) FROM opm_val_fwd").fetchone()[0]
+              print(f"opm_val_fwd 최신 {fv} / fwd_hist 최신 {fh}")
+              if fh and fv != fh:
+                  raise SystemExit(f"::error::선행 배수가 추정치 이력보다 낡음 ({fv} < {fh}) — 집계 실패")
           PY
