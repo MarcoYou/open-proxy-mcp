@@ -2,13 +2,13 @@
 type: tool
 title: price_multiple_data
 domain: data
-status: 등록 완료 (260705 — tools/price_multiple_data.py) · 260824 `valuation` 에서 개명 · 260831 시장·산업 배당수익률 추가
+status: 등록 완료 (260705 — tools/price_multiple_data.py) · 260824 `valuation` 에서 개명 · 260831 시장·산업 배당수익률 추가 · 260918 시장·WICS 업종 선행 PER·PBR 추가
 scope: [firm, market, sector, firm_history, explain]
 data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결산월), DART fnlttSinglAcntAll(재무원장·통화), DART stockTotqySttus(유통주식수), DART alotMatter(배당), KRX stk/ksq_bydd_trd(시세·시총), ECOS 731Y001(환율)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-07-05
-updated: 2026-09-07
+updated: 2026-09-18
 ---
 
 # price_multiple_data
@@ -31,6 +31,7 @@ price_multiple_data(company="두산밥캣")                    # firm: 기업 �
 price_multiple_data(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
 price_multiple_data(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교 + 소속 섹터 시계열(연말 요약+전체 월별)
 price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
+price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(중분류 28) — 트레일링 옆에 선행 PER·PBR
 ```
 자연어 예시:
 - "삼성전자 밸류에이션" → firm: PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%
@@ -39,6 +40,7 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 - "반도체 업종 밸류" → sector: KSIC 섹터별 PER/PBR 표
 - "두산밥캣 섹터 평균 대비 싸? 비싸?" → sector + company: 기업 vs 소속 섹터 비교 + 섹터 시계열
 - "배당수익률 얼마?" → firm: 현재가 기준(시장·섹터 집계 배당수익률은 market/sector)
+- "업종별 선행 PER" → sector(`wics_sector`·`wics_industry`): 선행 PER·PBR 칸 + 종목수 옆 괄호(추정 종목 수)
 
 ### 과거 시점 `as_of` (260907)
 `as_of="20251231"`(또는 `2025-12-31`). `scope=firm` 이면 실시간 계산 대신 `firm_history` 의 **전 구간 주간 곡선**(krx_weekly 2015~ × DART 재무 PIT)에서
@@ -50,7 +52,7 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 |---|---|---|---|---|
 | company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
 | scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 곡선 + 월말 요약, DB 계산) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
-| scheme | str | no | sector 집계 축 — `wics_industry` / `wics_sector` / `ksic`. 배당수익률은 `wics_sector` 에만 붙는다 | "wics_industry" |
+| scheme | str | no | sector 집계 축 — `wics_industry` / `wics_sector` / `ksic`. 확정 배당수익률은 `wics_sector` 에만, 선행 PER·PBR·배당수익률은 `wics_sector`·`wics_industry` 에 붙는다(KSIC 없음) | "wics_industry" |
 | format | str | no | "md" / "json" | "md" |
 
 ## scope 라우팅 — 기능 → 데이터 소스 (DB-first)
@@ -58,8 +60,8 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 | scope | 소스 | 갱신 | 내용 |
 |---|---|---|---|
 | `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
-| `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `fwd_agg`(선행 배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 평일 | KOSPI·KOSDAQ 시총가중 PER/PBR + **배당수익률(확정·선행 × all·payers)** + 히스토리 |
-| `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) · `scheme='wics_sector'` 일 때만 **배당 두 표 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 배당수익률은 **WICS 대분류에만** — 집계 버킷이 그 축이라 ksic·wics_industry 에는 안 붙인다 |
+| `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
+| `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
 | `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
 
@@ -71,11 +73,11 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 
 | | 확정 | 선행 |
 |---|---|---|
-| 표 | `div_yield_hist` | `fwd_agg` |
+| 표 | `div_yield_hist` | `opm_val_fwd`(260918~, 선행 배수와 같은 표 · 종전 `fwd_agg`) |
 | DPS | 12월결산 확정 | 애널리스트 추정 |
 | 분모 시총 | 그 사업연도 **12월 마지막 주** | 추정 스냅샷의 `price_dd` |
 | 모집단 | 그 시점 상장 보통주 전체 | 추정이 있는 종목만(`covered`) |
-| 갱신 | 연 1회 (`run_div_hist_annual.sh`, 4월) | 평일 (`collect_y_run.sh`) |
+| 갱신 | 연 1회 (`run_div_hist_annual.sh`, 4월) | 추정 주 1회(토) → 다음 날 아침 집계(`fwd_val_weekly.py`) |
 
 - **분모를 두 벌 낸다** — `all`(무배당·DPS미확정 포함, 본값) · `payers`(배당주만). 표기는 `1.60 (1.89)`.
   🔴 **코스닥을 `all` 한 값으로만 내면 왜곡이다.** `all`→`payers` 에서 값이 두 배가 된다(FY2023 −59.7%,
@@ -83,6 +85,42 @@ price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/
 - **PER 과 게이팅이 다르다** — 적자면 PER 은 안 나오지만 배당수익률은 배당이 있으면 값이 난다.
 - **fail-open** — 배당 조회가 실패해도 PER·PBR 표는 그대로 낸다. 칸만 비고 각주에 이유를 남긴다.
 - 소규모 섹터를 합치지 않는다. `n_total` 을 남겨 읽는 쪽이 판단한다.
+
+### 선행 PER·PBR (260918 추가)
+
+시장·산업 표에 **애널리스트 추정 기반 선행 PER·PBR** 을 트레일링 옆에 싣는다. 산업은 `wics_sector`(대분류)와
+`wics_industry`(하위업종 = WICS 중분류 28) 둘 다. KSIC 에는 선행 집계가 없어 안 붙인다.
+
+| | 트레일링 | 선행 |
+|---|---|---|
+| 표 | `opm_val_market` | `opm_val_fwd` |
+| 분모 | 확정 지배순이익·지배자본(FY0·TTM·MRQ) | 추정 지배순이익·자기자본 — 종목마다 가장 가까운 추정 사업연도(지금은 거의 전부 2026년) |
+| 합산 | Σ시총 ÷ Σ분모, **적자 포함** | 같다(적자 추정 포함) |
+| 모집단 | 상장 보통주 전부 | **추정이 있는 보통주만**(시장 약 650사) — 산업 표는 종목수 옆 괄호 |
+| 기준일 | 주간 시세 스냅샷 | 주 1회 추정 스냅샷(토요일 수집분) |
+
+- **합산 방식을 트레일링에 맞춘다.** 수집 배치의 `fwd_agg` 는 흑자 추정만 더한다(벤더 관행). 그 값을 트레일링 옆에
+  두면 방식 차이가 기대이익 차이로 읽힌다 — 260913 코스피 전자와 전기제품 선행 PER 이 적자 포함 88.9, 흑자만 24.9 였다.
+  흑자만 더한 값은 JSON `fwd_per_pos`, 선행 PSR 은 `fwd_psr` 에 둔다. 합이 0 이하면 트레일링처럼 「적자 −N조」.
+- **보통주는 종목코드 끝자리로 가른다.** `fwd_agg` 는 「숫자 6자리 + 끝자리 0」만 보통주로 쳐서 영문이 섞인 새 코드
+  (0126Z0 삼성에피스홀딩스 등, 260913 에 9종목)를 뺀다. 여기서는 넣는다.
+- **업종은 집계 시점의 최신 WICS 분류**(`class_dd`). 과거 날짜 백필도 그 분류를 썼다 — 이번 백필(2026-08-28~09-13)은
+  분류 스냅샷 0828 이 모든 추정 날짜와 같거나 앞서 소급이 없다. 한 번 쓴 날짜는 다시 계산하지 않는다(가장 최근 날짜만 예외 —
+  수집 배치가 같은 날짜를 다시 올릴 수 있다).
+- **선행 배당수익률도 이 표에서 온다** — 선행 배수와 모집단·기준일을 맞췄다. 하위업종 표에는 선행 배당만 있다
+  (확정 배당은 시장·대분류 집계뿐).
+- `as_of` 를 주면 그 이하 가장 최근 추정 스냅샷을 쓴다. 선행 집계가 시작된 2026-08-28 이전이면 선행 칸 없이 그 사실을 적는다.
+- 시장 표 아래에 **선행 배수 추이**(ISO 주마다 마지막 스냅샷, 최근 8주)를 붙인다. 전 스냅샷은 JSON `fwd_history`.
+- fail-open — 선행 조회가 실패해도 트레일링 표는 그대로 내고 각주에 이유를 남긴다.
+
+**집계 배치**: `scripts/fwd_val_weekly.py` — `market-val-weekly` 워크플로 안에서 매일(DART·KRX 0콜, 수 초). 원천은 수집 배치가
+올리는 추정치 이력 `fwd_hist`(13주 롤링) + `wise_sector` + `krx_weekly`(시장 구분). 새 날짜와 가장 최근 날짜만 계산하고,
+마지막 확인 단계가 「선행 최신 날짜 == 추정치 이력 최신 날짜」를 검사한다. `fwd_agg` 에 넣지 않는 이유는 그쪽 송출이
+날짜별로 행을 분류 구분 없이 통째로 지우고 다시 넣기 때문이다. `fwd_hist` 가 13주만 남겨도 이 표는 지우지 않는다.
+
+**검증(260918)**: 같은 배치를 수집 배치 방식(숫자 코드만·흑자만)으로 돌려 `fwd_agg` 와 대조했다. 대분류가 있는 4개 날짜는
+32칸, 나머지 5개 날짜는 시장 3칸씩 — 회사 수·PER·PSR·배당수익률이 **완전 일치**, PBR 은 최대 0.11% 차이(수집 배치는
+반올림된 종목 PBR 로 자본을 되돌린다). 재현: `python3 scripts/fwd_val_weekly.py --dry --check`.
 
 - **FY 라벨은 하드코딩하지 않는다**: `mkt_fundamentals.ni_fy/eq_fy`는 `derive_fundamentals`가
   `_latest_annual_fy()`로 덮어쓰는 **가변열**이다. 이 값을 담는 `fin[]` 키를 연도 리터럴로 박으면
@@ -268,6 +306,9 @@ sequenceDiagram
 
 ## 변경 이력
 
+- 2026-09-18: 시장·WICS 대분류·하위업종 표에 **선행 PER·PBR**(JSON 에 선행 PSR·흑자만 PER) — `opm_val_fwd`(`scripts/fwd_val_weekly.py`,
+  market-val-weekly 안에서 매일). 트레일링과 같은 합산 방식(적자 추정 포함)·추정 종목 수 병기·선행 추이. 선행 배당수익률 출처를
+  `fwd_agg` → `opm_val_fwd` 로 옮겨 하위업종 표에도 붙는다. 2026-08-28~09-13 9개 날짜 백필.
 - 2026-09-07: 출처 표·인풋 줄의 「Supabase krx_weekly」 → 「주간 시세 저장분」.
 - 2026-09-07: `as_of` — firm(firm_history 주간 곡선에서 점 선택 · `opm_val_firm` 은 최근 10주만 있어 안 씀)·market·sector 의 과거 시점. 응답 `as_of_requested`.
 - 2026-08-06: 수정 경위 서술을 현재형 설계 근거로 정리(경계 규칙 [[wiki_schema]] 0.0).

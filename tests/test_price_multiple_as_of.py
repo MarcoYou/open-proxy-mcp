@@ -22,8 +22,10 @@ def test_norm_as_of_accepts_both_forms_and_rejects_garbage():
 
 def test_market_as_of_picks_the_latest_snapshot_at_or_before(monkeypatch):
     monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): ROWS)
-    async def no_div(scheme): return {}, {}, {}
+    async def no_div(scheme): return {}, {}
     monkeypatch.setattr(S, "_div_yield_map", no_div)
+    async def no_fwd(scheme, as_of=None, history=False): return {}, {}, []
+    monkeypatch.setattr(S, "_fwd_val_map", no_fwd)
     p = asyncio.run(S.build_market_val_payload(as_of="20251231"))
     assert p["status"] == "ok" and p["data"]["as_of"] == "20251226" and p["data"]["as_of_requested"] == "20251231"
     assert {h["market"] for h in p["data"]["latest"]} == {"KOSPI", "KOSDAQ"} and len(p["data"]["history"]) == 5
