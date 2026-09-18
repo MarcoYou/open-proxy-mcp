@@ -8,7 +8,7 @@ data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 주간 시세 저장분,
 related_disclosures: []
 related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24
-updated: 2026-09-16
+updated: 2026-09-18
 ---
 
 # trading_data
@@ -51,7 +51,7 @@ trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380") 
 | since | str | no | firm·market·sector 시계열 시작일 YYYYMMDD | "" |
 | scheme | str | no | sector 전용. `wics_industry`(28) / `wics_sector`(10) | "wics_industry" |
 | bucket | str | no | sector 전용. 섹터명·코드 지정 시 그 섹터의 전 구간 시계열 | "" |
-| universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」(KOSPI 시총상위 200 대체)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다. 「코스피 120」처럼 숫자만 있고 「상위·시총」이 없으면 **추측하지 않고 되묻는다**(`invalid` + 제안 문구) | "" |
+| universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」(KOSPI 시총상위 200 대체)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다. 「코스피 120」처럼 숫자만 있고 「상위·시총」이 없으면 **추측하지 않고 되묻는다**(`invalid` + 제안 문구). 숫자 뒤 개·종목·기업·회사·개사·곳은 무관(「코스피 시가총액 상위 200개 기업」). 이름 나열에서 회사를 하나도 못 찾아도 되묻는다(260918) | "" |
 
 ## 데이터 출처와 콜 비용
 | scope | 출처 | DART | KRX |
@@ -115,6 +115,7 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 
 ## 변경 이력
 
+- 2026-09-18: universe 말 — 숫자 뒤 「개 기업·개 종목·개사·곳」을 순위로 읽고, 이름 나열에서 회사를 하나도 못 찾으면 되묻는다(`invalid` + 질문). `screener` 와 같은 해석기.
 - 2026-09-16: `company` 자리에 「코스피 시총 상위 100」 같은 문장이 오면 종목이 아니라 유니버스로 읽어 순위표로 답한다(경고 한 줄 붙여). universe 인자를 모르는 옛 도구 정의의 호출자를 위한 것.
 - 2026-09-16: `scope=universe` 신설 — 유니버스 문법으로 종목 시총 순위표(DB 1콜·DART 0콜). 종목마다 firm 을 부르던 루틴의 대체.
 - 2026-09-07: 경고·출처 문장에서 저장소 이름(`krx_weekly`·`close_krw`·`mktcap_krw`)을 빼고 종가·시가총액·주간 시세 저장분으로 적는다.

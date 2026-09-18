@@ -166,6 +166,10 @@ def _coverage_block(p: dict[str, Any]) -> list[str]:
 
 def _render_digest(payload: dict[str, Any]) -> str:
     p = payload
+    if p.get("status") == "needs_input":
+        # 260918: 유니버스를 못 읽으면 조회하지 않고 되묻는다 — 시장 전체 결과를 대신 내지 않는다.
+        L = ["# 📬 공시 디제스트 — 조회하지 않음", "", f"> ❓ {p.get('question', '')}", ""]
+        return "\n".join(L + [f"- {w}" for w in p.get("warnings", [])])
     period = p.get("period", {})
     uni = p.get("universe", {})
     counts = p.get("counts", {})
@@ -333,7 +337,8 @@ def _flow_table(lv: dict[str, Any], kind: str, max_rows: int | None) -> list[str
 def _render_flow(p: dict[str, Any]) -> str:
     d = p.get("data") or {}
     if p.get("status") not in ("ok", "no_data") or not d.get("flows"):
-        L = [f"# {p.get('subject') or '공시 흐름'} — 볼 수 없음", ""]
+        tail = "조회하지 않음, 되물음" if p.get("status") == "needs_input" else "볼 수 없음"
+        L = [f"# {p.get('subject') or '공시 흐름'} — {tail}", ""]
         L += [f"- {w}" for w in p.get("warnings", [])]
         return "\n".join(L)
     per, base, led, uni = d["period"], d["baseline"], d["ledger"], d["universe"]
@@ -409,7 +414,7 @@ def register_tools(mcp):
         types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `governance`(공개매수·위임장권유·최대주주변경·소송·자사주·5%보유·재편·주식양수도) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "공개매수", "위임장", "거버넌스", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(잠정실적: 회계연도·기간·매출·영업익),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10,tender_offer,proxy_solicitation.
         governance: 제목에서 발견한 공시는 조사 대상이며 부정 신호 판정이 아니다. hits의 corp_code/stock_code를 회사별 중복 제거해 최대 30개씩 governance_screen(companies=[...])으로 전달하고 원문을 읽어 평가한다. 공시 수와 회사 수를 구별하고 paging.has_more면 다음 페이지도 확인. 공개매수·위임장권유는 scan-only이며 서로 다른 제출자를 합치지 않는다. 이 호출은 예약 작업을 만들지 않는다.
         period: **사람 말로 받는다**(카드 보기·흐름 보기 같은 뜻, 오늘 기준) — 날: "오늘"/"어제"/"어제부터"/"그저께" · 달력: "이번 주"(월~오늘)/"지난주"(지난주 월~일)/"이번 달"/"지난달"(1일~말일)/"이번 분기"/"지난 분기"/"올해"/"작년" · 굴러가는 창: "최근 7일"(오늘 포함 7일)/"최근 2주"/"지난 한 달"/"최근 3개월"/"3일 전부터" · 절대: "8월"/"2026년 8월"/"3분기"/"2026년 2분기"/"상반기"/"2025년"/"2026-09-01"/"9월 1일"/"9/1" · 범위: "8월 1일부터 8월 20일까지"/"20260801~20260820"/"4월부터 8월 10일 사이" · 시작만: "9월 1일부터"(~오늘). 연도 없는 월·분기는 오늘 이전의 가장 최근 것. 시작 없는 "~까지"는 추측하지 않고 되묻는 안내를 단다. 또는 `start_date`/`end_date`(레포 공통 인자, YYYYMMDD — 2026.09.01 꼴도 받음). 옛 코드(today/yesterday/since_yesterday/last_7d/last_30d/custom+custom_start·custom_end)와 this_week·last_week·this_month·last_month·ytd 같은 코드도 받는다. 디폴트 since_yesterday. 카드 보기는 시장스캔 3개월 하드캡(넘으면 잘라서 밝히고 흐름 보기를 안내).
-        universe: **사람 말로 받는다** — "전체"(디폴트) / "코스피"·"코스닥"(시장 전체) / "코스피200" / "코스피 시총 상위 30"·"코스닥 상위 50"·"시총 상위 100" / "삼성전자, SK하이닉스"(이름 나열, 자동 코드화). 옛 문법(all·kospi200·kospi:N·kosdaq:N·top_mktcap:N·market:kospi|kosdaq·custom:…)도 그대로 동작. 각 카드에 시총 병기.
+        universe: **사람 말로 받는다** — "전체"(디폴트) / "코스피"·"코스닥"(시장 전체) / "코스피200" / "코스피 시총 상위 30"·"코스닥 상위 50"·"시총 상위 100"·"코스피 시가총액 상위 200개 기업"(숫자 뒤 개·종목·기업·회사·개사·곳 무관) / "삼성전자, SK하이닉스"(이름 나열, 자동 코드화). 나열에서 회사를 하나도 못 찾거나 「코스피 120」처럼 수인지 이름인지 모를 때는 **조회하지 않고 되묻는다**(status=needs_input — 시장 전체로 바꿔 보이지 않는다). 옛 문법(all·kospi200·kospi:N·kosdaq:N·top_mktcap:N·market:kospi|kosdaq·custom:…)도 그대로 동작. 각 카드에 시총 병기.
         details: false(디폴트, scan만) / true(문서 열어 숫자 — **이번 페이지 건만** 연다. 기간>30일이면 자동 off, 기간>7일이면 preview. 유니버스 크기로는 더 이상 막지 않는다).
         offset: 이어받기 위치(디폴트 0). 응답의 `paging.next_offset` 을 그대로 넣으면 다음 묶음이 온다. **매칭 수(`paging.matched`)와 이번에 실은 수(`paging.returned`)는 다른 값이다** — 표시된 건수를 전체로 읽지 말 것.
         rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(krx_weekly) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.
