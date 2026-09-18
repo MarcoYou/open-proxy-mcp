@@ -1,15 +1,19 @@
+<div align="center">
+
 # OpenProxy MCP
 
-[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#工具结构32-项工具)
-[![Release](https://img.shields.io/badge/release-v2.6.0-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.7.0-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [English](README_ENG.md)
 
 [快速开始](#快速开始) · [可以这样提问](#可以这样提问) · [主要功能](#主要功能) · [工具结构](#工具结构32-项工具) · [阅读注意](#阅读结果时的注意事项) · [数据来源](#数据来源)
+
+</div>
 
 ## 为什么选择 OpenProxy？
 
@@ -106,8 +110,11 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 > - Naver 的 PER 与 PBR 相对自身历史处于什么水平？
 > - 用未来两年的预期值计算 POSCO 控股的前瞻 PER。
 > - 三星电子在 2024 年末时点的估值如何？
+> - 按行业展示 KOSPI 的前瞻 PER 与 PBR，并与滚动数值并列。
+> - KOSPI 市值前 50 家公司中，哪些公司的营业利润预期在一周内上调？
 
 市值、PER、PBR、PSR 与股息率都会附上历史区间。**业绩基准日与股价基准日分别标示** — 二者并非同一天。
+市场与行业平均为成分公司合计计算的倍数；前瞻倍数只汇总有预期值的公司，并标示公司数量。
 
 </details>
 
@@ -141,11 +148,14 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 <summary><b>⚔️ 想了解发生了什么变化</b></summary>
 
 > - 整理今天早上值得关注的披露。
+> - 只看 KOSPI 市值前 200 家公司今天的订单公告。
+> - 上周各行业的订单公告是否比平时多？
 > - 最近有哪些公司出现了控制权争夺信号？
 > - 展示斗山机器人的增资与可转债发行记录。
 > - 这家公司是否有诉讼或处罚记录？
 
-全市场扫描**最多回溯三个月。** 超出该范围时不会声称“没有发生过”。
+即时扫描 DART 的披露摘要**最多回溯三个月**，超出该范围时不会声称“没有发生过”。行业披露动向读取每晚累积的
+披露记录，可覆盖**约一年**，并与前 13 周的平常水平比较。由于记录在夜间累积，当天的披露请看披露摘要。
 
 </details>
 
@@ -165,6 +175,8 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 - **公司只需确认一次** — 首次查询得到的名称、股票代码与公司编号会沿用到后续提问。
 - **名称重复时会先确认** — 存在多个候选时，在确定之前不会进行后续查询。
+- **期间与对象直接用自然语言表达即可** — “本周”“上个月”“第三季度”“8 月 1 日至 8 月 20 日”，“KOSPI 市值前 200 家公司”“三星电子、SK 海力士”。“上周”“上个月”按日历的周与月计算；“最近 7 天”“最近 30 天”按包含今天在内的天数计算。
+- **无法识别对象时会在查询前先询问** — 列出的公司一个也找不到，或像“KOSPI 120”这样无法判断是数量还是名称时，不会擅自改为全市场。
 - **请先阅读响应中的 `status` 与 `warnings`** — 其中写明了缺失的内容以及替代所用的口径。
 - **未取得的值表示“在所读披露中未找到”** — 既不是 0，也不是“不存在”。
 
@@ -178,14 +190,14 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 |---|---|---|
 | 🗳️ [股东大会与代理投票](docs/features/en/proxy-voting.md) | 这项议案应该如何投票？ | 基于披露、投票政策和法律条文给出 **赞成 / 反对 / 需要审查**；明确区分无需投票和数据不足的情况 |
 | 📊 [财务与业绩](docs/features/en/financials.md) | 经营表现发生了什么变化？ | 比较已确认、[初步](docs/features/en/provisional-earnings.md)和一致预期数据，并分析盈利能力、现金流和杜邦指标 |
-| 💹 [估值与预期](docs/features/en/price_multiple_data.md) | 当前价格反映了什么？ | 历史及远期 PER/PBR/PSR、股息率，以及[未来两年的预期](wiki/tools/forward_estimates_data.md) |
+| 💹 [估值与预期](docs/features/en/price_multiple_data.md) | 当前价格反映了什么？ | 历史及远期 PER/PBR/PSR、股息率、市场与行业平均远期 PER/PBR，以及[未来两年的预期](wiki/tools/forward_estimates_data.md)与预期变化 |
 | 🏭 [业务与资产](docs/features/en/business-details.md) | 公司如何赚钱，又持有哪些资产？ | 业务分部、产能利用率、投入成本、订单储备、[富余资产与持股 NAV](docs/features/en/asset-holdings.md) |
 | 🧭 [股权与股东回报](docs/features/en/ownership.md) | 谁控制公司，资本流向哪里？ | 股权结构、分红、股份回购与注销，以及[价值提升计划与实际执行情况](docs/features/en/shareholder-return.md) |
-| 🔔 [市场与风险](wiki/tools/screener.md) | 今天发生了什么变化？ | 市场披露摘要，以及[控制权争夺](docs/features/en/control-contest.md)、交易、股权稀释和[风险事件](docs/features/en/risk-events.md)跟踪 |
+| 🔔 [市场与风险](wiki/tools/screener.md) | 今天发生了什么变化？ | 市场披露摘要、各行业披露动向（与平常比较），以及[控制权争夺](docs/features/en/control-contest.md)、交易、股权稀释和[风险事件](docs/features/en/risk-events.md)跟踪 |
 
 这六类分析流程由 **32 项工具**支持，其中包括来源追踪，以及公司章程与法律条文之间的双向查询。完整列表见[工具结构](#工具结构32-项工具)。
 
-**治理审查试点** — `governance_screen` 会汇总最多 30 家指定公司的披露原文，由所连接的 AI 判读小股东待遇、利益冲突与董事会问责等方面，并依据依据强度与重要性整理审查顺序。要约收购、股东行动主义与诉讼本身不构成负面评价。结果标示为**基于部分依据的 LLM 评估 · 未经人工复核**；出现缺失时只就该项告知，其余审查继续进行。可通过 `since` 与 `known_receipts` 缩小新披露范围后再次调用。不会创建定时执行或实际投票。该功能为本分支的试点实现，是否已部署到生产环境需另行确认。
+**治理审查试点** — `governance_screen` 会汇总最多 30 家指定公司的披露原文，由所连接的 AI 判读小股东待遇、利益冲突与董事会问责等方面，并依据依据强度与重要性整理审查顺序。要约收购、股东行动主义与诉讼本身不构成负面评价。结果标示为**基于部分依据的 LLM 评估 · 未经人工复核**；出现缺失时只就该项告知，其余审查继续进行。可通过 `since` 与 `known_receipts` 缩小新披露范围后再次调用。不会创建定时执行或实际投票。该功能已在生产服务器上以试点形式提供。
 
 ---
 
@@ -196,9 +208,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 | 分类 | 工具 | 作用 |
 |---|---|---|
 | 🏢 起点：查找公司 | [`company`](wiki/tools/company.md) | 识别公司并列出近期披露，是所有分析的起点 |
-| 🔔 披露扫描与审查 | [`screener`](wiki/tools/screener.md)、[`governance_screen`](wiki/tools/governance_screen.md) | 全市场披露摘要 · 指定公司的披露原文与 LLM 治理审查顺序（试点） |
+| 🔔 披露扫描与审查 | [`screener`](wiki/tools/screener.md)、[`governance_screen`](wiki/tools/governance_screen.md) | 全市场披露摘要与行业动向 · 指定公司的披露原文与 LLM 治理审查顺序（试点） |
 | 🗳️ 股东大会与投票 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md)、[`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md)、[`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md)、[`proxy_guideline`](wiki/tools/proxy_guideline.md) | 会前通知、会后结果、逐项赞成/反对/审查建议以及投票政策原文 |
-| 💰 股权、财务与治理 | [`ownership_structure`](wiki/tools/ownership_structure.md)、[`financial_metrics`](wiki/tools/financial_metrics.md)、[`provisional_earnings`](wiki/tools/provisional_earnings.md)、[`business_details`](wiki/tools/business_details.md)、[`asset_holdings`](wiki/tools/asset_holdings.md)、[`price_multiple_data`](wiki/tools/price_multiple_data.md)、[`forward_estimates_data`](wiki/tools/forward_estimates_data.md)、[`trading_data`](wiki/tools/trading_data.md)、[`corp_gov_report`](wiki/tools/corp_gov_report.md)、[`director_board`](wiki/tools/director_board.md) | 股权结构、已确认/初步业绩、业务说明、资产价值、PER/PBR、一致预期、价格/市值、治理报告和董事会 |
+| 💰 股权、财务与治理 | [`ownership_structure`](wiki/tools/ownership_structure.md)、[`financial_metrics`](wiki/tools/financial_metrics.md)、[`provisional_earnings`](wiki/tools/provisional_earnings.md)、[`business_details`](wiki/tools/business_details.md)、[`asset_holdings`](wiki/tools/asset_holdings.md)、[`price_multiple_data`](wiki/tools/price_multiple_data.md)、[`forward_estimates_data`](wiki/tools/forward_estimates_data.md)、[`trading_data`](wiki/tools/trading_data.md)、[`corp_gov_report`](wiki/tools/corp_gov_report.md)、[`director_board`](wiki/tools/director_board.md) | 股权结构、已确认/初步业绩、业务说明、资产价值、PER/PBR（个股、市场、行业）、一致预期与预期变化、价格/市值排名、治理报告和董事会 |
 | 🎁 股东回报与资本 | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md)、[`dividend_data`](wiki/tools/dividend_data.md)、[`treasury_share`](wiki/tools/treasury_share.md)、[`value_up`](wiki/tools/value_up.md)、[`shareholder_commitment`](wiki/tools/shareholder_commitment.md)、[`corporate_restructuring`](wiki/tools/corporate_restructuring.md)、[`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | 分红披露与历史、自有股份、价值提升、承诺与执行、合并/分拆、增发/可转债/认股权证/减资 |
 | ⚔️ 争夺、交易与风险 | [`proxy_contest`](wiki/tools/proxy_contest.md)、[`corporate_deals`](wiki/tools/corporate_deals.md)、[`order_contracts`](wiki/tools/order_contracts.md)、[`risk_events`](wiki/tools/risk_events.md)、[`financial_notes`](wiki/tools/financial_notes.md)、[`director_news`](wiki/tools/director_news.md) | 控制权争夺信号、股权交易、订单/供应合同、风险事件、金融机构附注和董事候选人新闻 |
 | 🔗 证据与参考 | [`evidence`](wiki/tools/evidence.md)、[`law_lookup`](wiki/tools/law_lookup.md) | 披露受理编号到原文查看链接，以及公司章程与法律条文的双向查询（不消耗 API 调用） |
@@ -217,7 +229,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 ## 阅读结果时的注意事项
 
-披露几乎每一项都有各自的口径。不了解以下十一点，就会把正确的数字读错。
+披露几乎每一项都有各自的口径。不了解以下十二点，就会把正确的数字读错。
 
 | 内容 | 原因 |
 |---|---|
@@ -229,8 +241,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 | **会计年度以结算月为准** | 非 12 月结算的公司与日历年度错开。信永证券（001720）的 `2025-06-30` 属于 FY2026-Q1 |
 | **金融公司缺少部分指标** | 营业收入与一般企业适用的比率属于**未提供**，而非 0。应改用营业利润、净利润与该行业的稳健性资料 |
 | **业绩基准日与股价基准日不同** | 前瞻倍数会分别标注预期基准日与股价基准日。不会把过去的数字当作今天的值 |
+| **市场与行业的前瞻倍数只汇总有预期值的公司** | 没有预期值的公司不计入，因此与滚动倍数的样本不同。会同时标示有预期值的公司数量 |
 | **受理编号前两位标明来源** | 以 `00` 开头为 DART 定期披露（股东大会通知），`80` 为交易所临时披露（股东大会结果） |
-| **全市场扫描最多回溯三个月** | 超出该范围不会声称“没有发生过”。指定公司后可查看更长区间 |
+| **全市场扫描最多回溯三个月** | 这是即时扫描 DART 的披露摘要的上限。超出该范围不会声称“没有发生过”。指定公司后可查看更长区间；行业披露动向读取累积的披露记录，可覆盖约一年 |
 | **治理审查未经人工复核** | `governance_screen` 的结果标示为**基于部分依据的 LLM 评估 · 未经人工复核**。要约收购、股东行动主义与诉讼本身不构成负面评价 |
 
 <details>

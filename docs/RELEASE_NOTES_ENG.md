@@ -2,9 +2,64 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
-## pilot — 2026-09-09 (unreleased)
+## v2.7.0 · beta — 2026-09-18
 
-2026-09-10 integration: incorporated production-main improvements to filing coverage, correction handling, and company resolution into the v2 pilot. `governance_screen` now carries the shared candidate, renamed-company, and retry guidance in JSON and Markdown. Criterion-level missing-data skips and competing-filer separation remain intact. The [specification](../wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md) defines the execution profile and next quality-validation procedure. This does not deploy v2 to production.
+Bumped from 2.6.0 (09-09). This release gathers the governance review pilot merged on 09-10
+(below) and the week of changes that followed. The tool count stays at 32.
+
+### See by sector whether filings run above the usual level
+
+The disclosure digest scans DART live and lists what was filed, one line per filing. Nothing was
+kept, so it could not tell whether filings were running above the usual level. Major market-wide
+filings are now recorded every night, and `screener(view="flow")` reads only that record (no DART
+calls): new filing counts and amounts by broad and detailed sector, compared with the usual level
+of the previous 13 weeks scaled to the same number of days. Large orders relative to revenue and
+each company's cumulative orders for the year come with it.
+
+- Corrections and terminations are counted separately, never as new filings.
+- The record starts on 2025-09-16 — about a year — so the three-month limit does not apply. It is built overnight, so today's filings are in the digest.
+
+### Market and sector averages gain forward PER and PBR
+
+The market and sector tables of `price_multiple_data` (broad and detailed sectors) now show
+forward PER and PBR next to the trailing figures. Only companies with analyst estimates are summed
+(total market cap ÷ total estimated earnings, loss-making estimates included), so the population
+differs from the trailing figures; the number of companies with estimates is shown alongside. An
+eight-week trend and as-of queries are available. The record starts with the 2026-08-28 estimates.
+
+### Give the period in words — this week, last month, Q3
+
+The disclosure digest and the sector flow now read periods the same way. The same words used to
+mean different things: "last month" was the last 30 days in the digest and was not understood by
+the flow view, and "the last 7 days" covered eight days in the digest.
+
+- "Last week" and "last month" are the calendar week (Monday–Sunday) and month; "this week" and "this month" start on their first day. All are anchored to today.
+- "The last 7 days" and "the past month" count days back from today, inclusive.
+- Months, quarters and ranges work too: August, Q3, the first half, from September 1, August 1 to August 20.
+- A period beyond the digest's three-month limit is cut, the cut is stated, and the flow view is suggested.
+
+### Ask by market-cap rank in one call
+
+- `trading_data(scope="universe")` returns a ranking such as the KOSPI top 100 by market cap (rank, code, market, market cap, close) in one call. Preferred shares are left out of the ranking.
+- `forward_estimates_data(universe=…, window=…)` returns estimate revisions for those companies in one table, over 1, 4 or 12 weeks. A weekly check that called each company separately now takes two calls.
+- A counter word after the number — 「상위 200개 기업」, the top 200 companies — no longer stops the phrase from reading as a ranking.
+- When none of the listed companies can be found, or a phrase like "KOSPI 120" could be a count or a name, the tool asks before any lookup. The digest used to switch to the whole market and label it as the selected companies.
+
+### The cash shareholder-return ratio counts buybacks, not cancellations
+
+In `shareholder_commitment`, the numerator of the cash shareholder-return ratio now uses
+treasury-share **purchases** (acquisition decisions and trust contracts) instead of
+**cancellations**. Cancellations also cover shares bought in earlier years, so they did not match
+the period's actual spending. Purchases are aligned to the dividend's fiscal year — previously
+three years of purchases were added to one year of dividends, inflating the ratio (Shinhan
+Financial Group 94.5% → 49.2%, against the 50.2% the company disclosed). Treasury-share decisions
+filed after that fiscal year appear separately at the top of the result. The return ratio in the
+inside-director performance assessment used for voting recommendations is corrected to the same
+basis.
+
+## pilot — 2026-09-09 (merged 2026-09-10 · included in v2.7.0)
+
+2026-09-10 integration: incorporated production-main improvements to filing coverage, correction handling, and company resolution into the v2 pilot. `governance_screen` now carries the shared candidate, renamed-company, and retry guidance in JSON and Markdown. Criterion-level missing-data skips and competing-filer separation remain intact. The [specification](../wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md) defines the execution profile and next quality-validation procedure. The v2 recommendations apply only when selected; the default recommendations are unchanged.
 
 ### `governance_screen` — source-bound governance review across selected companies
 
@@ -12,7 +67,7 @@ The tool gathers filing excerpts for up to 30 explicitly selected companies and 
 
 Use `evidence_sources` to select up to five filings and source windows per company. Extend missing context with `text_offset`, `text_chars` and `focus_terms`; changed evidence, cutoff dates or settings require assessment of the new task. Missing checks are reported individually while other checks and companies continue. Citation matching does not verify the semantic accuracy of an assessment or completeness of filing coverage. Results are labelled **LLM assessment · human unreviewed · partial evidence**.
 
-`since` and `known_receipts` narrow the list of new receipt candidates. They do not replace the evidence scope; the caller retains the returned checkpoint for a later request. The tool creates neither scheduled jobs nor actual votes. This branch's tool catalog grows from 31 to 32; the entry does not signify production deployment. See the [tool specification](../wiki/tools/governance_screen.md) for inputs, outputs and external-call bounds.
+`since` and `known_receipts` narrow the list of new receipt candidates. They do not replace the evidence scope; the caller retains the returned checkpoint for a later request. The tool creates neither scheduled jobs nor actual votes. The tool catalog grows from 31 to 32, and the 2026-09-10 merge to main put the tool on the production server. See the [tool specification](../wiki/tools/governance_screen.md) for inputs, outputs and external-call bounds.
 
 ## v2.6.0 · beta — 2026-09-09 (4)
 

@@ -1,15 +1,19 @@
+<div align="center">
+
 # OpenProxy MCP
 
-[![License: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-lightgrey.svg)](https://polyformproject.org/licenses/noncommercial/1.0.0/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-32-tools)
-[![Release](https://img.shields.io/badge/release-v2.6.0-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.7.0-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
 [Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [Main Features](#main-features) · [Tool Structure](#tool-structure-32-tools) · [How to Read](#how-to-read-the-output) · [Data Sources](#data-sources)
+
+</div>
 
 ## Why OpenProxy?
 
@@ -108,9 +112,13 @@ on one line** — tables mark actuals (A) and estimates (E) separately.
 > - Where does Naver's PER and PBR sit against its own history?
 > - Compute Posco Holdings' forward PER from next year's and the following year's estimates.
 > - What did Samsung Electronics' valuation look like as of end-2024?
+> - Show KOSPI forward PER and PBR by sector next to the trailing figures.
+> - Among the KOSPI top 50 by market cap, whose operating-profit estimates rose over the past week?
 
 Market cap, PER, PBR, PSR and dividend yield come with their historical range. **The earnings
-as-of date and the price date are shown separately** — they are not the same day.
+as-of date and the price date are shown separately** — they are not the same day. Market and
+sector averages are aggregate multiples across their companies; forward multiples cover only
+companies with estimates and state how many there are.
 
 </details>
 
@@ -145,12 +153,16 @@ combined, consolidated) — [detail](#how-to-read-the-output)
 <summary><b>⚔️ What changed</b></summary>
 
 > - Summarize the filings that matter from this morning.
+> - Show only today's order filings from the KOSPI top 200 by market cap.
+> - Were there more order filings than usual last week, by sector?
 > - Any company showing control-contest signals recently?
 > - Show Doosan Robotics' rights offerings and convertible bond issuance history.
 > - Does this company have litigation or sanctions on record?
 
-Market-wide scans reach back **three months at most.** Beyond that window the answer never claims
-that nothing happened.
+The disclosure digest scans DART live and reaches back **three months at most**; beyond that
+window the answer never claims that nothing happened. The sector filing flow reads a filing record
+built every night, covering **about a year** and comparing against the usual level of the previous
+13 weeks. Because the record is built overnight, today's filings are in the digest.
 
 </details>
 
@@ -170,6 +182,8 @@ clauses and statutes are looked up in both directions, and that lookup spends no
 
 - **Resolve the company once** — the name, ticker and corp code from the first lookup carry through the rest of the conversation.
 - **Ambiguous names are confirmed first** — when several companies match, no follow-up lookup runs until one is chosen.
+- **Give the period and the target in words** — "this week", "last month", "Q3", "August 1 to August 20"; "KOSPI top 200 by market cap", "Samsung Electronics, SK Hynix". "Last week" and "last month" are the calendar week and month; "the last 7 days" and "the last 30 days" count back from today, inclusive.
+- **An unrecognized target is asked about before any lookup** — if none of the listed companies can be found, or a phrase like "KOSPI 120" could be a count or a name, the answer never silently switches to the whole market.
 - **Read `status` and `warnings` first** — they carry what was missing and which basis was substituted.
 - **A value that was not found reads as "not found in the filings read"** — neither zero nor "there is none".
 
@@ -183,14 +197,14 @@ clauses and statutes are looked up in both directions, and that lookup spends no
 |---|---|---|
 | 🗳️ [AGM & proxy voting](docs/features/en/proxy-voting.md) | How should I vote on this item? | **FOR / AGAINST / REVIEW** with filing evidence, policy citations, and statute links; NO_VOTE and NO_DATA remain distinct |
 | 📊 [Financials & earnings](docs/features/en/financials.md) | Where did performance change? | Confirmed, [provisional](docs/features/en/provisional-earnings.md), and consensus comparisons with profitability, cash flow, and DuPont analysis |
-| 💹 [Valuation & estimates](docs/features/en/price_multiple_data.md) | What is priced in? | Historical and forward PER/PBR/PSR, dividend yield, and [estimates for the next two years](wiki/tools/forward_estimates_data.md) |
+| 💹 [Valuation & estimates](docs/features/en/price_multiple_data.md) | What is priced in? | Historical and forward PER/PBR/PSR, dividend yield, market and sector forward PER/PBR, and [estimates for the next two years](wiki/tools/forward_estimates_data.md) with their revisions |
 | 🏭 [Business & assets](docs/features/en/business-details.md) | How does it make money, and what does it own? | Segments, utilization, input costs, backlog, [surplus assets, and stake NAV](docs/features/en/asset-holdings.md) |
 | 🧭 [Ownership & returns](docs/features/en/ownership.md) | Who controls it, and where does capital go? | Ownership map, dividends, buybacks and cancellations, and [value-up plans versus actual execution](docs/features/en/shareholder-return.md) |
-| 🔔 [Market & risk](wiki/tools/screener.md) | What changed today? | Market disclosure digest plus [control contests](docs/features/en/control-contest.md), deals, dilution, and [risk events](docs/features/en/risk-events.md) |
+| 🔔 [Market & risk](wiki/tools/screener.md) | What changed today? | Market disclosure digest and sector filing flow against the usual level, plus [control contests](docs/features/en/control-contest.md), deals, dilution, and [risk events](docs/features/en/risk-events.md) |
 
 These six workflows are backed by **32 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-32-tools).
 
-**Governance review pilot** — `governance_screen` gathers filing excerpts for up to 30 explicitly selected companies. Your connected AI reads them for minority-shareholder treatment, conflicts of interest and board accountability, then returns a review order based on evidence and materiality. Tender offers, activism and litigation are not adverse findings by themselves. Results are labelled **LLM assessment · human unreviewed · partial evidence**; missing checks are reported individually while other work continues. Call again with `since` and `known_receipts` to narrow the list of new filings. This creates neither scheduled runs nor actual votes. This branch contains the pilot implementation; production availability must be checked separately.
+**Governance review pilot** — `governance_screen` gathers filing excerpts for up to 30 explicitly selected companies. Your connected AI reads them for minority-shareholder treatment, conflicts of interest and board accountability, then returns a review order based on evidence and materiality. Tender offers, activism and litigation are not adverse findings by themselves. Results are labelled **LLM assessment · human unreviewed · partial evidence**; missing checks are reported individually while other work continues. Call again with `since` and `known_receipts` to narrow the list of new filings. This creates neither scheduled runs nor actual votes. It is available on the production server as a pilot.
 
 ---
 
@@ -201,9 +215,9 @@ Categories match the "what do you want to know → which tool" table in the [wik
 | Category | Tools | Role |
 |---|---|---|
 | 🏢 Start — find the company | [`company`](wiki/tools/company.md) | Company identification + recent filings — every analysis starts here |
-| 🔔 Disclosure scan · review | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | Market-wide disclosure digest · source-based LLM governance review for selected companies (pilot) |
+| 🔔 Disclosure scan · review | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | Market-wide disclosure digest and sector flow · source-based LLM governance review for selected companies (pilot) |
 | 🗳️ Shareholder meetings · voting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Notice (pre) · results (post) · per-agenda FOR/AGAINST/REVIEW support · the voting-policy document itself |
-| 💰 Ownership · financials · governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership map · confirmed/provisional earnings · business description · asset plays · PER/PBR · consensus · price/market cap · governance report · board |
+| 💰 Ownership · financials · governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership map · confirmed/provisional earnings · business description · asset plays · PER/PBR (company, market, sector) · consensus and revisions · price/market-cap ranking · governance report · board |
 | 🎁 Shareholder returns · capital | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | Dividend filings/time series · treasury shares · value-up · promise vs delivery · mergers/splits · rights/CB/BW/reductions |
 | ⚔️ Contests · deals · risk | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Control-contest signals · stake deals · orders/supply contracts · risk events · financial-firm notes · director-candidate news |
 | 🔗 Evidence · reference | [`evidence`](wiki/tools/evidence.md), [`law_lookup`](wiki/tools/law_lookup.md) | Filing number → viewer URL · bidirectional articles↔statute lookup (zero API calls) |
@@ -222,7 +236,7 @@ Categories match the "what do you want to know → which tool" table in the [wik
 
 ## How to Read the Output
 
-Filings carry a different basis for almost every item. Miss these eleven and you will misread
+Filings carry a different basis for almost every item. Miss these twelve and you will misread
 figures that are perfectly correct.
 
 | What | Why |
@@ -235,8 +249,9 @@ figures that are perfectly correct.
 | **Fiscal years follow the closing month** | Non-December filers diverge from the calendar year. Shinyoung Securities (001720) reports `2025-06-30` as FY2026-Q1 |
 | **Financial companies lack some metrics** | Revenue and general-industry ratios are **not provided**, not zero. Read operating profit, net income and that sector's soundness data instead |
 | **The earnings date and the price date differ** | Forward multiples carry the estimate as-of date and the price date separately. A past figure is never presented as today's |
+| **Market and sector forward multiples sum only companies with estimates** | Companies without estimates drop out, so the population differs from the trailing multiples. The number of companies with estimates is shown alongside |
 | **The first two digits of a receipt number name the source** | `00` is a DART periodic filing (AGM notice); `80` is an exchange ad-hoc filing (AGM results) |
-| **Market-wide scans reach back three months** | Beyond that window the answer never claims that nothing happened. Naming a company widens the range |
+| **Market-wide scans reach back three months** | That is the limit of the live DART scan behind the disclosure digest. Beyond that window the answer never claims that nothing happened. Naming a company widens the range, and the sector filing flow reads the stored filing record, covering about a year |
 | **Governance review is not human-reviewed** | `governance_screen` labels its output **LLM assessment · human unreviewed · partial evidence**. Tender offers, activism and litigation are not adverse findings by themselves |
 
 <details>
