@@ -96,6 +96,7 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
     """
     from open_proxy_mcp.services.period_words import (LABEL, THIS_CODES, calendar_window, explain_unknown,
                                                       rolling_window, this_start)
+    from open_proxy_mcp.dart.client import note_degradation
     from open_proxy_mcp.services.screener import _nl_period
 
     notices: list[str] = []
@@ -110,6 +111,7 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
             try:
                 start, end = _dd(cs), _dd(ce or cs)
             except (TypeError, ValueError):
+                note_degradation("period_fallback")
                 notices.append(f"날짜를 읽지 못해({cs!r}~{ce!r}) 원장 최신일까지 최근 7일로 보였다.")
                 start, end = anchor - timedelta(days=6), anchor
         elif code in THIS_CODES:
@@ -128,6 +130,8 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
         elif calendar_window(code, today) or rolling_window(code, today):
             start, end = calendar_window(code, today) or rolling_window(code, today)
         else:
+            # 카드 보기와 같은 표지 — 못 읽은 말이 얼마나 오는지 사용 기록으로 센다(말 자체는 남기지 않는다)
+            note_degradation("period_fallback")
             notices.append(explain_unknown(raw) + " 원장 최신일까지 최근 7일로 보였다.")
             start, end = anchor - timedelta(days=6), anchor
     req = (start, end)
