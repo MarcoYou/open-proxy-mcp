@@ -50,6 +50,33 @@ def test_period_default_ytd_week_dates_and_clipping():
     assert any("시작날짜를 그날로 당겼다" in n for n in notes)
 
 
+def test_period_this_and_last_calendar_month():
+    """260918: 「이번 달」「지난달」은 달력의 달. 공용 해석기는 「지난달」을 최근 30일로 읽는다 — 흐름 보기는 아니다."""
+    today, first, last = D(2026, 9, 18), D(2025, 9, 16), D(2026, 9, 17)
+    for w in ("이번 달", "이번달", "금월", "this month"):
+        s, e, notes = df.resolve_flow_period(w, "", "", today, first, last)
+        assert (s, e) == (D(2026, 9, 1), D(2026, 9, 17)) and not notes, w
+    for w in ("지난달", "지난 달", "전월", "last month"):
+        s, e, notes = df.resolve_flow_period(w, "", "", today, first, last)
+        assert (s, e) == (D(2026, 8, 1), D(2026, 8, 31)) and not notes, w
+    # 「지난 한 달」「최근 30일」은 여전히 굴러가는 30일
+    assert df.resolve_flow_period("최근 30일", "", "", today, first, last)[:2] == (D(2026, 8, 20), D(2026, 9, 17))
+    # 월초 밤 배치 전 — 원장이 9/30 까지: 지난달은 9월(8월이 아니다), 이번 달은 가장 최근 달로 밝히고 보인다
+    today, last = D(2026, 10, 1), D(2026, 9, 30)
+    assert df.resolve_flow_period("지난달", "", "", today, first, last)[:2] == (D(2026, 9, 1), D(2026, 9, 30))
+    s, e, notes = df.resolve_flow_period("이번 달", "", "", today, first, last)
+    assert (s, e) == (D(2026, 9, 1), D(2026, 9, 30)) and "아직 이번 달(10월)에 들어오지 않아" in notes[0]
+    # 해 넘김
+    assert df.resolve_flow_period("지난달", "", "", D(2026, 1, 15), first, D(2026, 1, 14))[:2] == \
+        (D(2025, 12, 1), D(2025, 12, 31))
+    # 원장이 밀렸으면 끝을 당기고 밝힌다
+    s, e, notes = df.resolve_flow_period("지난달", "", "", D(2026, 9, 18), first, D(2026, 8, 20))
+    assert (s, e) == (D(2026, 8, 1), D(2026, 8, 20)) and any("끝날짜를 그날로 당겼다" in n for n in notes)
+    # 날짜를 직접 주면 날짜가 이긴다
+    assert df.resolve_flow_period("지난달", "20260907", "20260913", D(2026, 9, 18), first, last)[:2] == \
+        (D(2026, 9, 7), D(2026, 9, 13))
+
+
 def test_subsidiary_refiling_duplicate_and_unique():
     rows = [_r("1", D(2026, 1, 16), "넥스텍", amount=100.0, ratio=89.8),
             _r("2", D(2026, 1, 16), "테크", amount=100.0, ratio=89.8,
@@ -172,6 +199,28 @@ def test_status_split_and_coverage_warning(monkeypatch):
     _stub(monkeypatch, scan_ok=False)
     p = asyncio.run(df.build_flow_payload(period="20260907~20260913"))
     assert any("원장이 본 날은 0일" in w for w in p["warnings"])
+
+
+def test_last_month_through_the_tool(monkeypatch):
+    """도구 호출 경로로 — 「지난달」이 흐름 보기의 달력 한 달 창으로 렌더까지 간다(260918)."""
+    import datetime as _dt
+    from open_proxy_mcp.server import mcp
+
+    class _Fixed(_dt.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return _dt.datetime(2026, 9, 18, 9, 0, tzinfo=tz)
+
+    _stub(monkeypatch)
+    monkeypatch.setattr(df, "datetime", _Fixed)
+
+    async def go(args):
+        r = await mcp.call_tool("screener", args)
+        return "".join(getattr(c, "text", "") for c in (r if isinstance(r, list) else r.content))
+    out = asyncio.run(go({"view": "흐름", "period": "지난달"}))
+    assert out.startswith("# 공시 흐름 — 수주 (2026-08-01 ~ 2026-08-31)")
+    out = asyncio.run(go({"view": "흐름", "period": "이번 달"}))
+    assert out.startswith("# 공시 흐름 — 수주 (2026-09-01 ~ 2026-09-13)")   # 원장 최신일(스텁 9/13)까지
 
 
 def test_view_words():

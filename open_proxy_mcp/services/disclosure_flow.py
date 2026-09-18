@@ -43,6 +43,10 @@ COVERAGE_MAX_ROWS = 50   # json 크기 — 200 이면 109KB 였다(260918 실측
 
 _YTD_WORDS = ("올해", "금년", "연초", "ytd", "year to date", "이번 해", "올 해")
 _THIS_WEEK_WORDS = ("이번주", "이번 주", "금주", "this week")
+# 260918: 달력의 달. 공용 기간 해석기(카드 보기)는 「지난달」을 **최근 30일**로 읽는다 — 흐름 보기에서는
+#   달력의 지난달 한 달 전체다. 그래서 공용 해석기보다 먼저 가른다. 「지난 한 달」「최근 30일」은 그대로 30일.
+_THIS_MONTH_WORDS = ("이번달", "이번 달", "금월", "당월", "this month", "month to date", "mtd")
+_LAST_MONTH_WORDS = ("지난달", "지난 달", "저번달", "저번 달", "전월", "last month", "previous month")
 
 
 # ── 인자 해석 ──────────────────────────────────────────────────────────
@@ -89,6 +93,7 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
 
     기본(말이 없거나 카드 보기 기본값 「어제부터」)은 **원장 최신일까지 최근 7일**이다 — 오늘치는 밤 배치가
     돌아야 들어오므로 오늘을 끝으로 잡으면 마지막 날이 늘 비어 있다.
+    「올해」「이번 주」는 원장 최신일 기준, 「이번 달」「지난달」은 **오늘 기준 달력의 달**이다(260918).
     """
     from open_proxy_mcp.services.screener import _nl_period
 
@@ -103,6 +108,20 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
         start, end = date(anchor.year, 1, 1), anchor
     elif not has_dates and any(w in low for w in _THIS_WEEK_WORDS):
         start, end = anchor - timedelta(days=anchor.isoweekday() - 1), anchor
+    elif not has_dates and any(w in low for w in _LAST_MONTH_WORDS):
+        # 오늘 기준 지난 달력 한 달 전체. 원장 최신일 기준으로 잡으면 월초(밤 배치 전)에 두 달 전이 된다.
+        end = today.replace(day=1) - timedelta(days=1)
+        start = end.replace(day=1)
+    elif not has_dates and any(w in low for w in _THIS_MONTH_WORDS):
+        # 오늘이 속한 달의 1일부터 원장 최신일까지. 월초 밤 배치 전이라 원장이 아직 이번 달에 없으면
+        # 가장 최근 달을 보이고 밝힌다 — 하루짜리 창으로 조용히 줄이지 않는다.
+        first_of_month = today.replace(day=1)
+        if anchor >= first_of_month:
+            start, end = first_of_month, anchor
+        else:
+            start, end = anchor.replace(day=1), anchor
+            notices.append(f"원장이 아직 이번 달({today.month}월)에 들어오지 않아 가장 최근 달 "
+                           f"{start.isoformat()} ~ {end.isoformat()} 을 보였다 — 이번 달 공시는 밤 배치 뒤에 들어온다.")
     else:
         code, cs, ce = _nl_period(raw, start_date, end_date, "", "")
         if code == "custom":
