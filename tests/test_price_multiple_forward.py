@@ -150,3 +150,13 @@ def test_forward_failure_keeps_the_trailing_table(monkeypatch):
     out = call({"scope": "market"})
     assert "| KOSPI | 12.00 | 11.00 | 1.30 | 1.20 |" in out and "PER(선행)" not in out
     assert out.count("선행 배수 조회 실패") == 1                    # 선행 각주 한 번만 — 배당 각주가 되풀이하지 않는다
+
+
+def test_impossible_date_is_refused_before_any_query(monkeypatch):
+    """20260231 — 자릿수만 보면 통과해 선행 조회가 DB 날짜 변환에서 죽고 커넥션 풀이 60초 꺼졌다(260918 QA)."""
+    seen: list[str] = []
+    monkeypatch.setattr(S, "_pg_rows", fake_db(seen=seen))
+    out = call({"scope": "market", "as_of": "20260231"})
+    assert "달력에 없는 날짜" in out and not seen
+    fwd, ruler, hist = asyncio.run(S._fwd_val_map("market", "20260231", history=True))
+    assert fwd == {} and hist == [] and "달력에 없는 날짜" in ruler["error"] and not seen

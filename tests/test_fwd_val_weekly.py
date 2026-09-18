@@ -1,8 +1,9 @@
 """fwd_val_weekly — 선행 배수 집계 배치 (DB·네트워크 0콜).
 
-지키는 것: ① 새 날짜 + 가장 최근 날짜만 다시 계산(과거 행을 새 분류로 흔들지 않는다) ② 시장 구분은
-스냅샷 날짜 이하 가장 최근 주간 시세 ③ 배당 분모 표기는 수집 머신과 같다 ④ 보통주는 끝자리로 가른다
-(영문 섞인 새 종목코드도 들어온다) — 수집 머신 흉내(숫자 코드만)는 검증 모드에서만 ⑤ 쓰기는 칸 이름으로.
+지키는 것: ① 새 날짜 + 가장 최근 날짜만 다시 계산 ② 업종 분류·시장 구분은 추정 날짜 이하 가장 최근
+스냅샷 — 더 새 스냅샷이 있어도 끌어오지 않는다(없을 때만 가장 이른 것) ③ 그 주 뒤 상장 종목의 시장은
+가장 최근이 아니라 그 뒤 첫 시세 ④ 배당 분모 표기는 수집 머신과 같다 ⑤ 보통주는 끝자리로 가른다
+(영문 섞인 새 종목코드도 들어온다) — 수집 머신 흉내(숫자 코드만)는 검증 모드에서만 ⑥ 쓰기는 칸 이름으로.
 """
 import datetime as dt
 import importlib.util
@@ -28,12 +29,14 @@ def test_pick_days_new_dates_plus_the_latest_only():
     assert fv.pick_days([], set(), recompute=False) == []
 
 
-def test_market_snapshot_is_at_or_before_the_estimate_date():
-    dds = ["20260904", "20260828", "20260911"]
-    assert fv.market_snapshot_for("20260830", dds) == "20260828"
-    assert fv.market_snapshot_for("20260911", dds) == "20260911"
-    assert fv.market_snapshot_for("20260801", dds) == "20260828"      # 더 이른 시세가 없으면 가장 이른 것
-    assert fv.market_snapshot_for("20260830", []) is None
+def test_snapshot_is_at_or_before_the_estimate_date():
+    dds = ["20260904", "20260828", "20260911", "20260828"]
+    assert fv.snapshot_at_or_before("20260830", dds) == "20260828"
+    assert fv.snapshot_at_or_before("20260911", dds) == "20260911"
+    assert fv.snapshot_at_or_before("20260801", dds) == "20260828"    # 더 이른 것이 없으면 가장 이른 것(소급)
+    assert fv.snapshot_at_or_before("20260830", []) is None
+    # 송출이 늦어 월초 WICS 갱신(0925) 뒤에 계산돼도 추정 날짜(0919) 뒤의 분류를 쓰지 않는다
+    assert fv.snapshot_at_or_before("20260919", ["20260828", "20260925"]) == "20260828"
 
 
 def test_finish_rows_marks_dividend_denominator_like_the_collector():
@@ -72,11 +75,13 @@ class _Con:
 
 def test_common_stock_rule_is_the_last_character_and_collector_mimic_only_in_check():
     con = _Con()
-    fv.compute(con, D[-1], "20260828", "20260911", "20260917")
+    fv.compute(con, D[-1], "20260828", "20260911")
     sql, params = con.seen[-1]
     assert "right(h.stock_code, 1) = '0'" in sql and "^[0-9]{6}$" not in sql
-    assert params == {"as_of": D[-1], "class_dd": "20260828", "mk_dd": "20260911", "mk_latest": "20260917"}
-    fv.compute(con, D[-1], "20260828", "20260911", "20260917", collector_like=True)
+    assert params == {"as_of": D[-1], "class_dd": "20260828", "mk_dd": "20260911"}
+    # 시장 구분: mk_dd 부터 **가장 이른** 시세 — 그 주에 있으면 그 값, 뒤에 상장했으면 첫 관측(최신이 아니라)
+    assert "WHERE price_dd >= %(mk_dd)s" in sql and "ORDER BY ticker, price_dd\n" in sql
+    fv.compute(con, D[-1], "20260828", "20260911", collector_like=True)
     assert "h.stock_code ~ '^[0-9]{6}$'" in con.seen[-1][0]
 
 

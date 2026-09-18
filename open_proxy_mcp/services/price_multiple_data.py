@@ -313,11 +313,16 @@ def _fwd_method(fy: int | None) -> str:
             "**트레일링과 같은 방식(적자 추정도 더한다)**. 합이 0 이하면 「적자」로 적는다. "
             "**추정이 있는 보통주만 더한다** — 트레일링(상장 보통주 전부)과 모집단이 달라 "
             "추정 종목 수를 같이 적는다. 흑자 추정만 더한 벤더식은 `fwd_per_pos`, 선행 PSR 은 `fwd_psr`(JSON). "
-            "업종은 집계 시점의 WICS 분류(`class_dd`).")
+            "업종은 추정 날짜 이하 가장 최근 WICS 분류(`class_dd`).")
 
 
 def _as_date(dd: str | None) -> str | None:
-    return f"{dd[:4]}-{dd[4:6]}-{dd[6:]}" if dd else None
+    """YYYYMMDD → YYYY-MM-DD. 달력에 없는 날짜면 ValueError — DB 에 넘기기 전에 여기서 막는다
+    (DB 가 날짜 변환에 실패하면 커넥션 풀이 장애로 보고 60초간 꺼진다, 260918 QA)."""
+    if not dd:
+        return None
+    import datetime as _dt
+    return _dt.datetime.strptime(dd, "%Y%m%d").date().isoformat()
 
 
 async def _fwd_val_map(scheme: str, as_of: str | None = None,
@@ -330,7 +335,11 @@ async def _fwd_val_map(scheme: str, as_of: str | None = None,
     ruler: dict[str, Any] = {}
     if scheme not in _FWD_SCHEMES:
         return {}, ruler, []
-    day = _as_date(as_of)
+    try:
+        day = _as_date(as_of)
+    except ValueError:
+        ruler["error"] = f"기준일 {as_of} 은 달력에 없는 날짜라 선행 조회를 하지 않았다."
+        return {}, ruler, []
     cond = " AND as_of <= %s" if day else ""
     cols = ", ".join(_FWD_COLS)
     if history:
@@ -441,6 +450,13 @@ def _norm_as_of(as_of) -> str | None:
         return None
     if not (len(v) == 8 and v.isdigit()):
         raise ValueError(f"as_of 는 YYYYMMDD 또는 YYYY-MM-DD 여야 합니다 (받은 값: {as_of})")
+    # 260918: 자릿수만 보면 20260231 이 통과한다 — 트레일링은 문자열 비교라 조용히 넘어가지만
+    #   선행 조회는 DB 날짜 변환에서 죽는다. 달력에 있는 날짜인지 여기서 본다.
+    import datetime as _dt
+    try:
+        _dt.datetime.strptime(v, "%Y%m%d")
+    except ValueError:
+        raise ValueError(f"as_of {as_of} 은 달력에 없는 날짜입니다 — YYYYMMDD 로 실제 날짜를 주세요.") from None
     return v
 
 

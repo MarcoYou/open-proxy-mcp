@@ -26,14 +26,20 @@
 모집단: 시장 행 = 추정이 있는 보통주 전부. 대분류·하위업종 행 = 그중 WICS 분류가 있는 종목
 (분류 없는 종목은 시장 행에만 든다 — 260913 에 1종목).
 
-분류 기준: **계산하는 시점의 최신 WICS 스냅샷**(`class_dd` 로 남긴다). 백필도 현재 분류를 쓴다(260918 결정 —
-이번 백필은 분류 스냅샷 0828 이 모든 추정 날짜보다 앞서서 소급이 없다). 한 번 쓴 날짜는 다시 계산하지 않는다
-— 분류가 바뀌어도 과거 행이 흔들리지 않게. 예외는 **가장 최근 날짜**: 체인이 같은 날짜를 다시 올릴 수 있어 매번
-다시 계산한다. 전부 다시 쓰려면 `--recompute`.
+시점 규칙(판단 시점 이후 정보를 쓰지 않는다):
+- 업종 = 추정 날짜 **이하 가장 최근 WICS 스냅샷**(`class_dd`). 그보다 이른 스냅샷이 없으면 가장 이른 것(소급 —
+  WICS 관측 시작 전 날짜만. 260918 결정 「과거 집계가 없으면 지금 분류로 백필」의 적용 범위). 260918 백필 9개 날짜는
+  전부 0828 스냅샷 — 모든 추정 날짜와 같거나 앞서 소급이 없다.
+  (처음엔 「계산 시점의 최신 스냅샷」이었다. 토요일 송출이 늦어 월초 WICS 갱신 뒤에 계산되면 추정 날짜보다 뒤의
+  분류가 붙는다 — 독립 QA 가 짚었다, 260918.)
+- 시장 구분 = 추정 날짜 이하 가장 최근 주간 시세(`mk_dd`)의 KS/KQ. 거기 없는 종목(그 주 뒤 상장)만 **그 뒤 첫 시세**
+  — 가장 최근 시세가 아니라 가장 가까운 관측을 쓴다(이전상장으로 시장이 바뀐 뒤 값을 끌어오지 않게).
+- 같은 날짜는 다시 계산해도 같은 값이 나온다. 그래서 이미 쓴 과거 날짜는 건너뛰고, **가장 최근 날짜**만 매번 다시
+  계산한다(체인이 같은 날짜를 다시 올릴 수 있다). 전부 다시 쓰려면 `--recompute`.
 
 실행 (DART·KRX 0콜, 수 초):
   python3 scripts/fwd_val_weekly.py                  # 새 날짜 + 가장 최근 날짜 (cron — market-val-weekly)
-  python3 scripts/fwd_val_weekly.py --recompute      # fwd_hist 의 모든 날짜를 현재 분류로 다시
+  python3 scripts/fwd_val_weekly.py --recompute      # fwd_hist 의 모든 날짜를 다시(날짜마다 그 시점 분류)
   python3 scripts/fwd_val_weekly.py --dry            # 계산만, 쓰지 않음 (모든 날짜)
   python3 scripts/fwd_val_weekly.py --dry --check    # 수집 머신 방식으로 다시 내서 fwd_agg 와 대조(검증)
 """
@@ -101,10 +107,10 @@ WITH cls AS (
   SELECT ticker, sector_code, sector, industry_code, industry
   FROM wise_sector WHERE snap_dd = %(class_dd)s
 ), mk AS (
-  -- 스냅샷 날짜 이하 가장 최근 주간 시세의 시장 구분. 그 주 뒤에 상장한 종목만 최신 시세로 채운다.
+  -- 추정 날짜 이하 가장 최근 주간 시세(mk_dd)의 시장 구분. 거기 없는 종목(그 주 뒤 상장)만 그 뒤 첫 시세.
   SELECT DISTINCT ON (ticker) ticker, market FROM krx_weekly
-  WHERE price_dd IN (%(mk_dd)s, %(mk_latest)s)
-  ORDER BY ticker, (price_dd = %(mk_dd)s) DESC
+  WHERE price_dd >= %(mk_dd)s
+  ORDER BY ticker, price_dd
 ), e AS (
   SELECT h.stock_code, h.fiscal_year, h.mktcap_krw, h.ni_ctrl_krw, h.rev_krw, h.bps_krw, h.price_krw, h.dps_krw,
          row_number() OVER (PARTITION BY h.stock_code
@@ -188,11 +194,15 @@ def pick_days(hist_days: list, done_days: set, recompute: bool) -> list:
     return [d for d in days if d not in done_days or d == days[-1]]
 
 
-def market_snapshot_for(as_of_dd: str, price_dds: list[str]) -> str | None:
-    """스냅샷 날짜 이하의 가장 최근 주간 시세 날짜. 그보다 이른 시세가 없으면 가장 이른 것."""
-    if not price_dds:
+def snapshot_at_or_before(as_of_dd: str, dds: list[str]) -> str | None:
+    """추정 날짜 이하 가장 최근 스냅샷(YYYYMMDD). 그보다 이른 것이 없으면 가장 이른 것(소급).
+
+    WICS 분류(`wise_sector.snap_dd`)와 주간 시세(`krx_weekly.price_dd`) 둘 다 이 규칙으로 고른다 —
+    도구의 산업 표가 기업의 WICS 소속을 고를 때와 같은 폴백이다.
+    """
+    if not dds:
         return None
-    ordered = sorted(price_dds)
+    ordered = sorted(set(dds))
     before = [d for d in ordered if d <= as_of_dd]
     return before[-1] if before else ordered[0]
 
@@ -210,13 +220,12 @@ def finish_rows(as_of, class_dd: str, mk_dd: str, rows: list[dict]) -> list[dict
 
 # ── 실행 ───────────────────────────────────────────────────────────────
 
-def compute(con, as_of, class_dd: str, mk_dd: str, mk_latest: str, collector_like: bool = False) -> list[dict]:
+def compute(con, as_of, class_dd: str, mk_dd: str, collector_like: bool = False) -> list[dict]:
     from psycopg.rows import dict_row
 
     extra = "AND h.stock_code ~ '^[0-9]{6}$'" if collector_like else ""
     with con.cursor(row_factory=dict_row) as cur:
-        cur.execute(AGG_SQL.format(extra=extra),
-                    {"as_of": as_of, "class_dd": class_dd, "mk_dd": mk_dd, "mk_latest": mk_latest})
+        cur.execute(AGG_SQL.format(extra=extra), {"as_of": as_of, "class_dd": class_dd, "mk_dd": mk_dd})
         return cur.fetchall()
 
 
@@ -225,7 +234,7 @@ def compute(con, as_of, class_dd: str, mk_dd: str, mk_latest: str, collector_lik
 _TOL = {"fwd_per": 1e-6, "fwd_pbr": 5e-3, "fwd_psr": 1e-6, "fwd_div_yield_pct": 1e-6}
 
 
-def check_against_collector(con, as_of, class_dd: str, mk_dd: str, mk_latest: str) -> int:
+def check_against_collector(con, as_of, class_dd: str, mk_dd: str) -> int:
     """수집 머신 방식(숫자 코드만·분모>0만)으로 다시 내서 `fwd_agg` 와 대조한다. 어긋난 칸 수를 돌려준다.
 
     WICS 분류가 없는 종목은 `fwd_agg` 에서 「미분류」 칸으로, 여기서는 어느 칸에도 안 들어간다 — 대조에서 뺀다.
@@ -233,7 +242,7 @@ def check_against_collector(con, as_of, class_dd: str, mk_dd: str, mk_latest: st
     from psycopg.rows import dict_row
 
     mine = {}
-    for r in compute(con, as_of, class_dd, mk_dd, mk_latest, collector_like=True):
+    for r in compute(con, as_of, class_dd, mk_dd, collector_like=True):
         if r["scheme"] == "wics_industry":
             continue
         key = (r["market"], r["scheme"], "ALL" if r["scheme"] == "market" else r["label"])
@@ -268,7 +277,7 @@ def check_against_collector(con, as_of, class_dd: str, mk_dd: str, mk_latest: st
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--recompute", action="store_true", help="fwd_hist 의 모든 날짜를 현재 분류로 다시 계산")
+    ap.add_argument("--recompute", action="store_true", help="fwd_hist 의 모든 날짜를 다시 계산(날짜마다 그 시점 분류)")
     ap.add_argument("--dry", action="store_true", help="계산만 하고 쓰지 않는다 (표도 안 만든다)")
     ap.add_argument("--check", action="store_true", help="수집 머신 방식으로 다시 내서 fwd_agg 와 대조")
     a = ap.parse_args(argv)
@@ -283,8 +292,8 @@ def main(argv: list[str] | None = None) -> int:
     if not a.dry:
         con.execute(DDL)
         con.execute(f"GRANT SELECT ON {TABLE} TO opm_ro")
-    class_dd = con.execute("SELECT max(snap_dd) FROM wise_sector").fetchone()[0]
-    if not class_dd:
+    class_dds = [r[0] for r in con.execute("SELECT DISTINCT snap_dd FROM wise_sector").fetchall()]
+    if not class_dds:
         print("wise_sector 가 비었다 — WICS 분류 배치(wics-monthly)가 먼저 돌아야 한다.", file=sys.stderr)
         return 1
     hist_days = [r[0] for r in con.execute("SELECT DISTINCT as_of FROM fwd_hist ORDER BY 1").fetchall()]
@@ -295,15 +304,16 @@ def main(argv: list[str] | None = None) -> int:
     if not price_dds:
         print("krx_weekly 가 비었다 — 시장 구분을 붙일 수 없다.", file=sys.stderr)
         return 1
-    mk_latest = max(price_dds)
     done = set() if a.dry else {r[0] for r in con.execute(f"SELECT DISTINCT as_of FROM {TABLE}").fetchall()}
     days = pick_days(hist_days, done, a.recompute or a.dry)
-    print(f"선행 배수 집계 · 분류 스냅샷 {class_dd} · 추정치 이력 {len(hist_days)}일"
+    print(f"선행 배수 집계 · WICS 스냅샷 {len(class_dds)}개(최신 {max(class_dds)}) · 추정치 이력 {len(hist_days)}일"
           f" ({hist_days[0]} ~ {hist_days[-1]}) · 이번에 {len(days)}일" + (" · 쓰지 않음(--dry)" if a.dry else ""))
     total, bad = 0, 0
     for as_of in days:
-        mk_dd = market_snapshot_for(as_of.strftime("%Y%m%d"), price_dds)
-        rows = finish_rows(as_of, class_dd, mk_dd, compute(con, as_of, class_dd, mk_dd, mk_latest))
+        dd = as_of.strftime("%Y%m%d")
+        class_dd = snapshot_at_or_before(dd, class_dds)
+        mk_dd = snapshot_at_or_before(dd, price_dds)
+        rows = finish_rows(as_of, class_dd, mk_dd, compute(con, as_of, class_dd, mk_dd))
         if not a.dry:
             with con.cursor() as cur:
                 cur.executemany(UPSERT, rows)
@@ -314,10 +324,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {as_of}: {len(rows)}행 · 대분류 {by['wics_sector']}칸 · 하위업종 {by['wics_industry']}칸"
               f" · 종목 코스피 {ks.get('n_total')} / 코스닥 {kq.get('n_total')}"
               f" · 선행 PER 코스피 {ks.get('fwd_per') or 0:.2f} / 코스닥 {kq.get('fwd_per') or 0:.2f}"
-              f" · 시장 구분 {mk_dd}")
+              f" · 분류 {class_dd}{'(소급)' if class_dd > dd else ''} · 시장 구분 {mk_dd}")
         total += len(rows)
         if a.check:
-            bad += check_against_collector(con, as_of, class_dd, mk_dd, mk_latest)
+            bad += check_against_collector(con, as_of, class_dd, mk_dd)
     if not a.dry:
         n, d0, d1 = con.execute(f"SELECT count(*), min(as_of), max(as_of) FROM {TABLE}").fetchone()
         print(f"합계 {total}행 반영 · {TABLE} 현황 {n}행 · {d0} ~ {d1}")

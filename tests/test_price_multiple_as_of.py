@@ -18,6 +18,8 @@ def test_norm_as_of_accepts_both_forms_and_rejects_garbage():
     assert S._norm_as_of("2025-12-31") == "20251231" and S._norm_as_of("20251231") == "20251231" and S._norm_as_of("") is None
     with pytest.raises(ValueError):
         S._norm_as_of("2025/12/31")
+    with pytest.raises(ValueError, match="달력에 없는 날짜"):                 # 자릿수는 맞지만 없는 날(260918 QA)
+        S._norm_as_of("20260231")
 
 
 def test_market_as_of_picks_the_latest_snapshot_at_or_before(monkeypatch):
