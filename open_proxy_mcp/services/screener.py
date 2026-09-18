@@ -465,8 +465,10 @@ def _nl_universe(universe: str) -> str:
                 low):
         return raw
     # "코스피 시총 상위 30" · "코스닥 상위 50" · "시총 상위 100"
-    m = re.search(r"(\d{1,4})\s*(?:개|종목)?\s*$", low)
-    if m and any(w in low for w in ("상위", "top", "시총")):
+    # 260918: 숫자 뒤 「개 기업」「개 종목」「개 회사」「개사」「곳」도 받는다 — 종전엔 「200개 기업」이 회사 이름
+    #   나열로 읽혀 해석에 실패했고, 카드 보기는 시장 전체로 바꿔 보였다(루틴 프롬프트가 이 꼴이다).
+    m = re.search(r"(\d{1,4})\s*(?:개\s*)?(?:종목|기업|회사|사|곳|업체|상장사)?\s*(?:전체|들)?\s*$", low)
+    if m and any(w in low for w in ("상위", "top", "시총", "시가총액")):
         n = m.group(1)
         if "코스피" in low or "kospi" in low:
             return f"kospi:{n}"
@@ -591,6 +593,9 @@ class UniverseFilter:
     allowed: set[str] | None = None   # None = 전체시장(필터 없음)
     price_dd: str | None = None
     corp_cls: str | None = None       # krx_weekly 장애 시 DART 시장코드 fallback
+    #: 비어 있지 않으면 **조회하지 않고 되묻는다**. 회사 목록에서 하나도 못 찾았을 때 시장 전체로 바꿔
+    #: 보이지 않는다(260918 — 「코스피 시가총액 상위 200개 기업」이 시장 전체 75건으로 나갔다).
+    question: str = ""
 
     def contains(self, stock_code: str, corp_cls: str = "") -> bool:
         if self.allowed is None:
@@ -607,8 +612,9 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
     """custom:… 토큰을 코드/이름 혼용으로 해석. 코드는 그대로, 이름은 resolve_company_query로 코드화."""
     tokens = [t.strip() for t in re.split(r"[,，]+", raw) if t.strip()]
     if not tokens:
-        return UniverseFilter(label="custom", resolved=False,
-                              notice="custom:[…] 종목 파싱 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
+        return UniverseFilter(label="지정종목", resolved=False, allowed=None, price_dd=price_dd,
+                              question="종목 목록이 비어 있어 조회하지 않았다 — 종목 이름·코드를 쉼표로 나열하거나 "
+                                       "「코스피 시총 상위 50」처럼 순위로 주세요.")
     codes: set[str] = set()
     notes: list[str] = []
     name_tokens: list[str] = []
@@ -642,9 +648,13 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
             else:
                 notes.append(hint or f"'{tok}' 미식별(모호/없음)")
     if not codes:
-        notice = ("일부 종목 미해결: " + " · ".join(notes)) if notes else ""
-        return UniverseFilter(label="지정종목", resolved=False,
-                              notice=(notice + " → 전체시장으로 대체.").strip(), allowed=None, price_dd=price_dd)
+        # 260918: 시장 전체로 바꾸지 않는다 — 되묻는다. 「코스피 120」처럼 수인지 이름인지 모를 꼴은 전용 질문으로.
+        from open_proxy_mcp.services.universe import clarification
+        ask = clarification(raw) or (
+            f"「{raw}」에서 회사를 하나도 찾지 못해 조회하지 않았다(시장 전체로 바꿔 보이지 않는다). "
+            "종목 이름·코드를 쉼표로 나열하거나, 순위라면 「코스피 시총 상위 50」처럼 주세요."
+            + ((" 찾지 못한 이유: " + " · ".join(notes)) if notes else ""))
+        return UniverseFilter(label="지정종목", resolved=False, allowed=None, price_dd=price_dd, question=ask)
     # 부분 해결 시: 해결분으로 진행함을 명시(전체 degrade로 오해 방지)
     notice = (f"해결된 {len(codes)}종목으로 진행 — 미해결: " + " · ".join(notes)) if notes else ""
     return UniverseFilter(label=f"지정 {len(codes)}종목", resolved=True,
@@ -1176,6 +1186,13 @@ async def _build_screener_payload_impl(
     uni = await resolve_universe(universe)
     if uni.notice:
         warnings.append(uni.notice)
+    if uni.question:
+        # 260918: 되물어야 하면 DART 를 부르지 않는다 — 시장 전체 결과를 「지정종목」 이름으로 내보내지 않는다.
+        return {"tool": "screener", "status": "needs_input", "question": uni.question,
+                "as_of": datetime.now(_KST).isoformat(timespec="seconds"),
+                "period": {"label": period, "bgn_de": bgn_de, "end_de": end_de},
+                "universe": {"label": uni.label, "resolved": False},
+                "counts": {"scanned": 0, "hits": 0, "returned": 0}, "hits": [], "warnings": warnings}
 
     # ── 가드: all × details, 기간 폭 × details ─────────────────────────
     period_days = (datetime.strptime(end_de, "%Y%m%d") - datetime.strptime(bgn_de, "%Y%m%d")).days

@@ -164,8 +164,9 @@ async def list_universe(universe: str) -> UniverseList:
         # 최신 날짜조차 못 읽었다 — 저장분이 없거나 DB 가 죽었다. 종목 집합 문제가 아니다.
         return UniverseList(spec=spec, label=label, resolved=False, notice=notice, db_ok=False)
     if not uf.resolved:
+        # 260918: 회사 목록을 하나도 못 찾았으면 되물음을 그대로 올린다 — 부르는 도구가 「invalid + 질문」으로 답한다.
         return UniverseList(spec=spec, label=label, resolved=False, notice=notice,
-                            as_of=uf.price_dd)
+                            as_of=uf.price_dd, question=uf.question)
     codes = None if uf.allowed is None else sorted(uf.allowed)
     rows = await asyncio.to_thread(_krx_rows, uf.price_dd, codes)
     if rows is None:

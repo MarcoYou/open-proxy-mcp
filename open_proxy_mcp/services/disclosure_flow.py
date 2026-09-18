@@ -453,6 +453,9 @@ async def build_flow_payload(types: str = "", period: str = "", universe: str = 
     ytd = (date(end.year, 1, 1), end)
 
     uf = await resolve_universe(_nl_universe(universe))
+    if uf.question:
+        # 260918: 회사 목록을 하나도 못 찾으면 시장 전체로 바꾸지 않고 되묻는다(카드 보기와 같다).
+        return _err("needs_input", subject, uf.question, *warnings)
     if uf.notice:
         warnings.append(uf.notice)
     tickers = sorted(uf.allowed) if uf.allowed is not None else None
