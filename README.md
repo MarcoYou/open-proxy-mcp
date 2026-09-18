@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#도구-구조-32개)
-[![Release](https://img.shields.io/badge/release-v2.6.0-blue.svg)](docs/RELEASE_NOTES.md)
+[![Release](https://img.shields.io/badge/release-v2.7.0-blue.svg)](docs/RELEASE_NOTES.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
@@ -110,9 +110,12 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 > - 네이버 PER·PBR 이 과거 대비 어느 수준이야?
 > - 포스코홀딩스 내년·내후년 추정치로 포워드 PER 을 계산해줘
 > - 삼성전자 2024년 말 시점의 밸류에이션은 어땠어?
+> - 코스피 업종별 선행 PER·PBR 을 트레일링과 나란히 보여줘
+> - 코스피 시가총액 상위 50개 기업 중 일주일 새 영업이익 추정치가 오른 곳은?
 
 시총·PER·PBR·PSR·배당수익률을 과거 구간과 함께 봅니다. **실적 기준일과 주가 기준일은 따로
-표시됩니다** — 같은 날이 아닙니다.
+표시됩니다** — 같은 날이 아닙니다. 시장·업종 평균은 종목을 합산한 배수이고, 선행 배수는 추정치가
+있는 종목만 모아 그 종목 수를 함께 적습니다.
 
 </details>
 
@@ -146,11 +149,15 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 <summary><b>⚔️ 무엇이 달라졌는지 궁금할 때</b></summary>
 
 > - 오늘 아침 공시 중에 중요한 것만 정리해줘
+> - 코스피 시가총액 상위 200개 기업의 오늘 수주 공시만 보여줘
+> - 지난주 업종별 수주 공시가 평소보다 많이 떴어?
 > - 최근에 경영권 분쟁 신호가 잡힌 회사가 있어?
 > - 두산로보틱스 유상증자·전환사채 발행 이력을 보여줘
 > - 이 회사에 소송이나 제재 이력이 있어?
 
-전체시장 스캔은 **최근 3개월이 한도**입니다. 그 밖의 기간까지 「사건이 없었다」고 말하지 않습니다.
+그때그때 DART 를 훑는 공시 디제스트는 **최근 3개월이 한도**이고, 그 밖의 기간까지 「사건이 없었다」고
+말하지 않습니다. 업종별 공시 흐름은 매일 밤 쌓아 두는 공시 기록을 읽어 **약 1년**을 보고, 직전 13주의
+평소와 견줍니다. 밤에 쌓으므로 오늘 뜬 공시는 디제스트로 봅니다.
 
 </details>
 
@@ -170,6 +177,8 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 - **회사는 한 번만 확정하면 됩니다** — 처음 조회에서 잡힌 이름·종목코드·고유번호를 이어지는 질문이 그대로 씁니다.
 - **후보가 여럿이면 되묻습니다** — 「한국철강」처럼 겹치는 이름은 고르기 전까지 다음 조회로 넘어가지 않습니다.
+- **기간과 대상은 말로 주면 됩니다** — 「이번 주」「지난달」「3분기」「8월 1일부터 8월 20일까지」, 「코스피 시가총액 상위 200개 기업」「삼성전자, SK하이닉스」. 「지난주」「지난달」은 달력의 주·달이고, 「최근 7일」「최근 30일」은 오늘을 포함한 날수입니다.
+- **대상을 못 알아들으면 조회 전에 되묻습니다** — 나열한 회사를 하나도 찾지 못하거나 「코스피 120」처럼 수인지 이름인지 모를 때, 시장 전체로 바꿔 보이지 않습니다.
 - **응답의 `status` 와 `warnings` 를 먼저 읽습니다** — 무엇을 못 찾았고 어떤 기준으로 대체했는지가 거기 적힙니다.
 - **못 찾은 값은 「읽은 공시에서 찾지 못했다」입니다** — 0 도 아니고 「없다」도 아닙니다.
 
@@ -183,14 +192,14 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 |---|---|---|
 | 🗳️ [주총·의결권](docs/features/proxy-voting.md) | 이 안건에 어떻게 투표할까? | **찬성·반대·검토 필요** 의견과 공시·정책·법령 근거. 표결 대상이 아닌 안건과 자료가 부족한 안건도 구분 |
 | 📊 [재무·실적](docs/features/financials.md) | 실적은 어떻게 변했나? | 확정·[잠정](docs/features/provisional-earnings.md)·컨센서스 비교, 수익성·현금흐름·듀퐁 분석 |
-| 💹 [가치평가·추정치](docs/features/price_multiple_data.md) | 현재 가격에 무엇이 반영됐나? | 과거·선행 PER/PBR/PSR, 배당수익률, [내년·내후년 추정치](wiki/tools/forward_estimates_data.md) |
+| 💹 [가치평가·추정치](docs/features/price_multiple_data.md) | 현재 가격에 무엇이 반영됐나? | 과거·선행 PER/PBR/PSR, 배당수익률, 시장·업종 평균 선행 PER/PBR, [내년·내후년 추정치](wiki/tools/forward_estimates_data.md)와 추정치 변화 |
 | 🏭 [사업·보유자산](docs/features/business-details.md) | 무엇으로 벌고 무엇을 보유하나? | 사업부문·가동률·원가·수주잔고와 [잉여자산·보유지분 NAV](docs/features/asset-holdings.md) |
 | 🧭 [지분·주주환원](docs/features/ownership.md) | 누가 지배하고 자본은 어디로 가나? | 소유구조, 배당·자사주 소각, [밸류업 약속과 실제 집행](docs/features/shareholder-return.md) |
-| 🔔 [시장·리스크](wiki/tools/screener.md) | 오늘 무엇이 달라졌나? | 시장 공시 디제스트, [경영권 분쟁](docs/features/control-contest.md)·거래·희석·[리스크 이벤트](docs/features/risk-events.md) 추적 |
+| 🔔 [시장·리스크](wiki/tools/screener.md) | 오늘 무엇이 달라졌나? | 시장 공시 디제스트, 업종별 공시 흐름(평소 대비), [경영권 분쟁](docs/features/control-contest.md)·거래·희석·[리스크 이벤트](docs/features/risk-events.md) 추적 |
 
 이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 32개 도구**가 뒷받침합니다. 전체 목록은 [도구 구조](#도구-구조-32개)에서 확인할 수 있습니다.
 
-**거버넌스 검토 파일럿** — `governance_screen`은 지정한 최대 30개사의 공시 원문을 모아 연결된 AI가 소수주주 대우·이해상충·이사회 책임 등을 판독하고, 근거와 중요도에 따라 검토 순서를 정리합니다. 공개매수·행동주의·소송이 있다는 사실만으로 부정 평가하지 않습니다. 결과는 **부분 근거에 대한 LLM 평가 · 사람 미검토**로 표시하며, 누락은 해당 항목만 알리고 다른 검토를 계속합니다. `since`·`known_receipts`로 새 공시 목록을 좁혀 다시 호출할 수 있습니다. 예약 실행이나 실제 투표는 만들지 않습니다. 이 브랜치의 파일럿 기능이며 운영 배포 여부는 별도로 확인해야 합니다.
+**거버넌스 검토 파일럿** — `governance_screen`은 지정한 최대 30개사의 공시 원문을 모아 연결된 AI가 소수주주 대우·이해상충·이사회 책임 등을 판독하고, 근거와 중요도에 따라 검토 순서를 정리합니다. 공개매수·행동주의·소송이 있다는 사실만으로 부정 평가하지 않습니다. 결과는 **부분 근거에 대한 LLM 평가 · 사람 미검토**로 표시하며, 누락은 해당 항목만 알리고 다른 검토를 계속합니다. `since`·`known_receipts`로 새 공시 목록을 좁혀 다시 호출할 수 있습니다. 예약 실행이나 실제 투표는 만들지 않습니다. 운영 서버에서 쓸 수 있는 파일럿 기능입니다.
 
 ---
 
@@ -201,9 +210,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | 분류 | Tools | 역할 |
 |---|---|---|
 | 🏢 기본 — 회사 찾기 | [`company`](wiki/tools/company.md) | 회사 식별 + 최근 공시 목록 — 모든 분석의 출발점 |
-| 🔔 공시 스캔·검토 | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | 전체시장 공시 디제스트 · 지정 기업 공시 원문과 LLM 거버넌스 검토 순서(파일럿) |
+| 🔔 공시 스캔·검토 | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | 전체시장 공시 디제스트·업종별 흐름 · 지정 기업 공시 원문과 LLM 거버넌스 검토 순서(파일럿) |
 | 🗳️ 주주총회·의결권 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 소집공고(전)·결과(후) · 안건별 찬성/반대/검토 보조 · 판단 기준 문서 원문 |
-| 💰 지분·재무·지배구조 | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | 지분 구조 · 확정/잠정 실적 · 사업의 내용 · 자산주 · PER/PBR · 컨센서스 · 시세·시총 · 지배구조보고서 · 이사회 |
+| 💰 지분·재무·지배구조 | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | 지분 구조 · 확정/잠정 실적 · 사업의 내용 · 자산주 · PER/PBR(종목·시장·업종) · 컨센서스·추정치 변화 · 시세·시총 순위 · 지배구조보고서 · 이사회 |
 | 🎁 주주환원·자본 | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | 배당 공시·시계열 · 자기주식 · 밸류업 · 약속 vs 이행 · 합병/분할 · 증자/CB/BW/감자 |
 | ⚔️ 분쟁·거래·리스크 | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | 경영권 분쟁 신호 · 지분 인수/매각 · 수주·공급계약 · 리스크 사건 · 금융사 주석 · 이사 후보 뉴스 |
 | 🔗 근거·참조 | [`evidence`](wiki/tools/evidence.md), [`law_lookup`](wiki/tools/law_lookup.md) | 접수번호 → 원문 열람 URL · 정관↔법령 양방향 조회 (API 0콜) |
@@ -222,7 +231,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ## 읽을 때 주의
 
-공시는 항목마다 기준이 다릅니다. 아래 열한 가지를 모르면 맞는 값을 틀리게 읽습니다.
+공시는 항목마다 기준이 다릅니다. 아래 열두 가지를 모르면 맞는 값을 틀리게 읽습니다.
 
 | 무엇 | 왜 |
 |---|---|
@@ -234,8 +243,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | **사업연도는 결산월을 따릅니다** | 12월 결산이 아닌 회사는 달력 연도와 어긋납니다. 신영증권(001720)의 `2025-06-30` 은 FY2026-Q1 입니다 |
 | **금융사에는 없는 지표가 있습니다** | 매출이나 일반기업용 비율은 **미제공**이지 0 이 아닙니다. 영업이익·순이익과 그 업종의 건전성 자료로 읽습니다 |
 | **실적 기준일과 주가 기준일은 다릅니다** | 포워드 배수는 추정치 기준일과 주가 기준일을 따로 답니다. 과거 수치를 오늘의 값으로 말하지 않습니다 |
+| **시장·업종 선행 배수는 추정치가 있는 종목만의 합입니다** | 추정치가 없는 종목이 빠지므로 트레일링 배수와 모집단이 다릅니다. 추정 종목 수를 함께 적습니다 |
 | **접수번호 앞 두 자리가 출처를 가릅니다** | `00` 으로 시작하면 DART 정기공시(소집공고), `80` 이면 거래소 수시공시(주총결과)입니다 |
-| **전체시장 스캔은 3개월이 한도입니다** | 그 밖의 기간까지 「사건이 없었다」고 주장하지 않습니다. 회사를 특정하면 더 넓게 봅니다 |
+| **전체시장 스캔은 3개월이 한도입니다** | 그때그때 DART 를 훑는 공시 디제스트의 한도입니다. 그 밖의 기간까지 「사건이 없었다」고 주장하지 않습니다. 회사를 특정하면 더 넓게 보고, 업종별 공시 흐름은 쌓아 둔 공시 기록으로 약 1년을 봅니다 |
 | **거버넌스 검토는 사람이 보지 않은 결과입니다** | `governance_screen` 은 **부분 근거에 대한 LLM 평가 · 사람 미검토**로 표시합니다. 공개매수·행동주의·소송이 있다는 사실만으로 부정 평가하지 않습니다 |
 
 <details>
