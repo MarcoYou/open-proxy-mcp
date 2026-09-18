@@ -276,7 +276,6 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
 _BY_CODE = {t["code"]: t for t in TYPE_REGISTRY}
 #: 원장 라벨도 그대로 받는다 — 표에 보이는 이름을 사용자가 되돌려 주는 일이 흔하다.
 _LABEL_TO_CODE = {t["label"].strip().lower(): t["code"] for t in TYPE_REGISTRY if t.get("label")}
-_KNOWN_PERIOD_CODES = {"today", "yesterday", "since_yesterday", "last_7d", "last_30d", "30d", "custom"}
 
 # 유형 → 상세페이지로 이어질 OPM tool 힌트(카드의 suggested_tool)
 _SUGGESTED_TOOL = {
@@ -360,18 +359,11 @@ def _yyyymmdd(d: date) -> str:
 #    리졸버를 다시 쓰면 지금 도는 것들이 함께 흔들린다. 옛 코드도 그대로 받는다(하위호환).
 # ══════════════════════════════════════════════════════════════════════
 
-#: 기간 — 말 → 기존 코드. 긴 표현이 먼저 걸려야 하므로 순서를 지킨다
-#: ("지난 한 달" 이 "한 달" 보다 앞).
-_NL_PERIOD = [
-    (("오늘", "금일", "today"), "today"),
-    (("어제부터", "어제 이후", "전일부터", "since yesterday"), "since_yesterday"),
-    (("어제", "전일", "yesterday"), "yesterday"),
-    (("지난 3개월", "최근 3개월", "3개월", "분기", "last 3 months", "last_90d"), "custom:90"),
-    (("지난 한 달", "최근 한 달", "지난달", "최근 30일", "한 달", "한달", "last month", "30일"), "last_30d"),
-    (("지난 2주", "최근 2주", "2주", "보름", "14일"), "custom:14"),
-    (("지난 일주일", "최근 일주일", "지난주", "최근 7일", "일주일", "1주일", "한 주",
-      "last week", "7일"), "last_7d"),
-]
+#: 기간 — 260918 전면 점검으로 `services/period_words.py` 로 옮겼다. 카드 보기와 흐름 보기가 **같은 말 목록**을
+#: 쓴다(종전엔 「지난달」이 보기마다 달랐다). 여기 남은 이름은 그 모듈을 가리킨다.
+from open_proxy_mcp.services.period_words import (  # noqa: E402
+    calendar_window, explain_unknown as _explain_period, parse as _parse_period, point as _period_point,
+    rolling_window)
 
 #: 유형 — 말 → 코드. TYPE_REGISTRY 의 label 도 자동으로 받는다(아래에서 합친다).
 _NL_TYPES = {
@@ -406,43 +398,34 @@ _UNIVERSE_ALIASES = {
 
 
 def _nl_period(period: str, start_date: str, end_date: str,
-               custom_start: str, custom_end: str) -> tuple[str, str, str]:
-    """(period, custom_start, custom_end) 로 정규화.
+               custom_start: str, custom_end: str, today: date | None = None) -> tuple[str, str, str]:
+    """(period, custom_start, custom_end) 로 정규화. 말 해석은 `period_words.parse` 하나가 한다.
 
     `start_date`/`end_date` 는 **레포의 다른 tool 과 같은 이름**이다 — screener 만
     `custom_start`/`custom_end` 를 쓰고 있었다. 둘 다 받고 새 이름을 우선한다.
+    날짜 인자는 YYYYMMDD 가 정본이지만 2026.09.01·2026/9/1 같은 꼴도 받는다(260918).
+    `today` 는 연도 없는 말(「8월」「3분기」)의 연도를 정할 때 쓴다 — 흐름 보기가 자기 기준일을 넘긴다.
     """
-    cs = (start_date or custom_start or "").strip().replace("-", "")
-    ce = (end_date or custom_end or "").strip().replace("-", "")
-    raw = (period or "").strip()
-    low = raw.lower()
+    today = today or _today_kst()
+
+    def _d(v: str) -> str:
+        v = (v or "").strip()
+        if re.fullmatch(r"\d{4}-?\d{2}-?\d{2}", v):
+            return v.replace("-", "")
+        span = _period_point(v, today) if v else None
+        return span[0].strftime("%Y%m%d") if span and span[0] == span[1] else v.replace("-", "")
+
+    cs = _d(start_date or custom_start or "")
+    ce = _d(end_date or custom_end or "")
 
     # 날짜가 직접 왔으면 그게 이긴다 — 말보다 구체적이다
     if re.fullmatch(r"\d{8}", cs):
         return "custom", cs, (ce if re.fullmatch(r"\d{8}", ce) else cs)
 
-    # "20260801~20260820" · "2026-08-01 ~ 2026-08-20" 을 period 안에 넣는 경우
-    m = re.fullmatch(r"\s*(\d{4}-?\d{2}-?\d{2})\s*[~\-–]\s*(\d{4}-?\d{2}-?\d{2})\s*", raw)
-    if m:
-        return "custom", m.group(1).replace("-", ""), m.group(2).replace("-", "")
-    if re.fullmatch(r"\d{4}-?\d{2}-?\d{2}", raw):
-        d = raw.replace("-", "")
-        return "custom", d, d
-
-    if not raw:
-        return "since_yesterday", cs, ce
-    if low in _KNOWN_PERIOD_CODES:
-        return low, cs, ce
-
-    # "최근 N일" · "N일" — 숫자를 직접 준 경우
-    m = re.search(r"(?:최근\s*)?(\d{1,3})\s*일", raw)
-    if m:
-        return f"custom:{int(m.group(1))}", cs, ce
-
-    for words, code in _NL_PERIOD:
-        if any(w in low for w in words):
-            return code, cs, ce
-    return low, cs, ce      # 못 알아들으면 원래 리졸버가 notice 를 단다
+    code, pcs, pce = _parse_period(period, today)
+    if code == "custom" and pcs:
+        return code, pcs, pce
+    return code, cs, ce     # 못 알아들으면 원문 그대로 — 원래 리졸버가 notice 를 단다
 
 
 def _nl_types(types: str) -> str:
@@ -508,19 +491,12 @@ def resolve_period(period: str, *, cursor: str = "",
     today = _today_kst()
     period = (period or "since_yesterday").strip().lower()
 
-    if period == "today":
-        bgn = end = today
-    elif period == "yesterday":
-        bgn = end = today - timedelta(days=1)
-    elif period == "since_yesterday":
-        bgn, end = today - timedelta(days=1), today
-    elif period == "last_7d":
-        bgn, end = today - timedelta(days=7), today
-    elif period in ("last_30d", "30d"):
-        bgn, end = today - timedelta(days=30), today
-    elif period.startswith("custom:") and period[7:].isdigit():
-        # 자연어 앞단이 만든 「최근 N일」 — 코드 어휘를 늘리지 않고 여기서만 푼다
-        bgn, end = today - timedelta(days=int(period[7:])), today
+    # 260918: 창 계산은 `period_words` 하나가 한다(흐름 보기와 같은 뜻).
+    #   「최근 N일」은 오늘 포함 N일 — 종전 카드 보기는 N+1일(최근 7일 = 8일)이었다.
+    #   달력 코드: 이번 주·지난주·이번 달·지난달·이번 분기·지난 분기·올해·작년.
+    win = rolling_window(period, today) or calendar_window(period, today)
+    if win:
+        bgn, end = win
     elif period == "custom":
         try:
             bgn = datetime.strptime(custom_start, "%Y%m%d").date()
@@ -531,8 +507,12 @@ def resolve_period(period: str, *, cursor: str = "",
             bgn, end = today - timedelta(days=1), today
     else:
         note_degradation("period_fallback")
-        notices.append(f"알 수 없는 period={period!r} → since_yesterday로 대체.")
+        notices.append(_explain_period(period) + " 어제부터로 보였다.")
         bgn, end = today - timedelta(days=1), today
+
+    # 오늘 뒤는 아직 없다 — 「9월」「하반기」처럼 이번 칸 전체를 말해도 오늘까지만 본다
+    if end > today:
+        end = today
 
     # 커서(반개구간 시작) 오버라이드
     cur = (cursor or "").strip()
@@ -547,7 +527,8 @@ def resolve_period(period: str, *, cursor: str = "",
         bgn = _earliest
         # 절단은 에러가 아니라 **대체**다 — 세지 않으면 얼마나 자주 발생하는지 영영 모른다.
         note_degradation("period_clamped")
-        notices.append(f"시장스캔은 {MARKET_WINDOW_MAX_MONTHS}개월까지만 — 시작일을 {_yyyymmdd(bgn)}로 절단했다.")
+        notices.append(f"시장스캔은 {MARKET_WINDOW_MAX_MONTHS}개월까지만 — 시작일을 {_yyyymmdd(bgn)}로 절단했다. "
+                       "더 긴 기간의 업종별 건수·금액은 흐름 보기(`view=\"흐름\"`, 공시 원장 약 1년치)로 본다.")
     if bgn > end:
         bgn = end
     return _yyyymmdd(bgn), _yyyymmdd(end), notices

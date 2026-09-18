@@ -41,8 +41,9 @@ MAX_KINDS = 6
 LARGE_MAX_ROWS = 50
 COVERAGE_MAX_ROWS = 50   # json 크기 — 200 이면 109KB 였다(260918 실측)
 
-_YTD_WORDS = ("올해", "금년", "연초", "ytd", "year to date", "이번 해", "올 해")
-_THIS_WEEK_WORDS = ("이번주", "이번 주", "금주", "this week")
+# 기간 말은 카드 보기와 같은 해석기(`services/period_words.py`)가 읽는다 — 260918 전면 점검.
+#   「올해」「이번 주」「이번 달」「이번 분기」는 오늘 기준 칸의 첫날부터 원장 최신일까지이고, 원장이 아직 그 칸에
+#   못 들어왔으면(월초·주초 밤 배치 전) 가장 최근 칸을 보이고 밝힌다.
 
 
 # ── 인자 해석 ──────────────────────────────────────────────────────────
@@ -89,41 +90,51 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
 
     기본(말이 없거나 카드 보기 기본값 「어제부터」)은 **원장 최신일까지 최근 7일**이다 — 오늘치는 밤 배치가
     돌아야 들어오므로 오늘을 끝으로 잡으면 마지막 날이 늘 비어 있다.
+    말은 카드 보기와 같은 해석기가 읽는다(`period_words`, 260918). 「이번 ~」은 오늘이 속한 칸의 첫날부터
+    원장 최신일까지, 원장이 아직 그 칸에 없으면 가장 최근 칸을 보이고 밝힌다. 나머지는 해석한 창을 원장 범위로
+    자른다 — 자르면 그 사실을 적는다.
     """
+    from open_proxy_mcp.services.period_words import (LABEL, THIS_CODES, calendar_window, explain_unknown,
+                                                      rolling_window, this_start)
+    from open_proxy_mcp.dart.client import note_degradation
     from open_proxy_mcp.services.screener import _nl_period
 
     notices: list[str] = []
     anchor = min(today, last_day) if last_day else today
     raw = (period or "").strip()
-    low = raw.lower()
     has_dates = bool((start_date or end_date or "").strip())
-    if not has_dates and (not raw or low == "since_yesterday"):
+    if not has_dates and (not raw or raw.lower() == "since_yesterday"):
         start, end = anchor - timedelta(days=6), anchor
-    elif not has_dates and any(w in low for w in _YTD_WORDS):
-        start, end = date(anchor.year, 1, 1), anchor
-    elif not has_dates and any(w in low for w in _THIS_WEEK_WORDS):
-        start, end = anchor - timedelta(days=anchor.isoweekday() - 1), anchor
     else:
-        code, cs, ce = _nl_period(raw, start_date, end_date, "", "")
+        code, cs, ce = _nl_period(raw, start_date, end_date, "", "", today=today)
         if code == "custom":
             try:
                 start, end = _dd(cs), _dd(ce or cs)
             except (TypeError, ValueError):
+                note_degradation("period_fallback")
                 notices.append(f"날짜를 읽지 못해({cs!r}~{ce!r}) 원장 최신일까지 최근 7일로 보였다.")
                 start, end = anchor - timedelta(days=6), anchor
-        elif code == "today":
-            start = end = today
-        elif code == "yesterday":
-            start = end = today - timedelta(days=1)
-        elif code == "last_7d":
-            start, end = today - timedelta(days=6), today
-        elif code in ("last_30d", "30d"):
-            start, end = today - timedelta(days=29), today
-        elif code.startswith("custom:") and code[7:].isdigit():
-            start, end = today - timedelta(days=int(code[7:]) - 1), today
+        elif code in THIS_CODES:
+            start = this_start(code, today)
+            if anchor >= start:
+                end = anchor
+            else:
+                start, end = this_start(code, anchor), anchor
+                unit = {"this_week": "주", "this_month": "달", "this_quarter": "분기", "ytd": "해"}[code]
+                which = {"this_week": f"{this_start(code, today).isoformat()} 시작",
+                         "this_month": f"{today.month}월", "this_quarter": f"{(today.month - 1) // 3 + 1}분기",
+                         "ytd": f"{today.year}년"}[code]
+                notices.append(f"원장이 아직 {LABEL[code]}({which})에 들어오지 않아 가장 최근 {unit} "
+                               f"{start.isoformat()} ~ {end.isoformat()} 을 보였다 — {LABEL[code]} 공시는 밤 배치 뒤에 "
+                               "들어온다.")
+        elif calendar_window(code, today) or rolling_window(code, today):
+            start, end = calendar_window(code, today) or rolling_window(code, today)
         else:
-            notices.append(f"기간 「{raw}」을 알아듣지 못해 원장 최신일까지 최근 7일로 보였다.")
+            # 카드 보기와 같은 표지 — 못 읽은 말이 얼마나 오는지 사용 기록으로 센다(말 자체는 남기지 않는다)
+            note_degradation("period_fallback")
+            notices.append(explain_unknown(raw) + " 원장 최신일까지 최근 7일로 보였다.")
             start, end = anchor - timedelta(days=6), anchor
+    req = (start, end)
     if last_day and end > last_day:
         notices.append(f"원장은 {last_day.isoformat()} 까지 쌓여 있어 끝날짜를 그날로 당겼다 "
                        "(오늘치는 밤 배치 뒤에 들어온다 — 오늘 뜬 공시는 카드 보기로 본다).")
@@ -132,7 +143,11 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
         notices.append(f"원장은 {first_day.isoformat()} 부터라 시작날짜를 그날로 당겼다.")
         start = first_day
     if start > end:
-        start = end
+        # 요청한 창 전체가 원장 밖이다 — 가장 가까운 하루를 보이고 그렇게 적는다(조용히 하루로 줄이지 않는다)
+        near = end if req[0] > end else start
+        notices.append(f"요청한 기간 {req[0].isoformat()} ~ {req[1].isoformat()} 이 원장 범위 밖이라 "
+                       f"가장 가까운 {near.isoformat()} 하루를 보였다.")
+        start = end = near
     return start, end, notices
 
 
