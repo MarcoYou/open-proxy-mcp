@@ -48,7 +48,7 @@ def test_last_week_and_last_month_are_calendar_windows(monkeypatch):
     monkeypatch.setattr(S, "_today_kst", lambda: D(2026, 9, 18))
     assert S.resolve_period("prev_week")[:2] == ("20260907", "20260913")
     assert S.resolve_period("prev_month")[:2] == ("20260801", "20260831")
-    assert S.resolve_period("last_30d")[:2] == ("20260819", "20260918")    # 굴러가는 창은 그대로
+    assert S.resolve_period("last_30d")[:2] == ("20260820", "20260918")    # 오늘 포함 30일(종전 31일)
     assert S.resolve_period(_nl_period("지난달", "", "", "", "")[0])[:2] == ("20260801", "20260831")
 
 
