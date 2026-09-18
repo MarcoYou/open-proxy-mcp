@@ -43,10 +43,9 @@ COVERAGE_MAX_ROWS = 50   # json 크기 — 200 이면 109KB 였다(260918 실측
 
 _YTD_WORDS = ("올해", "금년", "연초", "ytd", "year to date", "이번 해", "올 해")
 _THIS_WEEK_WORDS = ("이번주", "이번 주", "금주", "this week")
-# 260918: 달력의 달. 공용 기간 해석기(카드 보기)는 「지난달」을 **최근 30일**로 읽는다 — 흐름 보기에서는
-#   달력의 지난달 한 달 전체다. 그래서 공용 해석기보다 먼저 가른다. 「지난 한 달」「최근 30일」은 그대로 30일.
+# 260918: 이번 달 = 1일~원장 최신일. 「지난달」「지난주」(달력의 한 달·한 주)는 카드 보기와 같은 공용 해석기가
+#   가른다(`screener._NL_PERIOD` → `calendar_window`) — 말 목록을 두 벌 두지 않는다.
 _THIS_MONTH_WORDS = ("이번달", "이번 달", "금월", "당월", "this month", "month to date", "mtd")
-_LAST_MONTH_WORDS = ("지난달", "지난 달", "저번달", "저번 달", "전월", "last month", "previous month")
 
 
 # ── 인자 해석 ──────────────────────────────────────────────────────────
@@ -93,9 +92,9 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
 
     기본(말이 없거나 카드 보기 기본값 「어제부터」)은 **원장 최신일까지 최근 7일**이다 — 오늘치는 밤 배치가
     돌아야 들어오므로 오늘을 끝으로 잡으면 마지막 날이 늘 비어 있다.
-    「올해」「이번 주」는 원장 최신일 기준, 「이번 달」「지난달」은 **오늘 기준 달력의 달**이다(260918).
+    「올해」「이번 주」는 원장 최신일 기준, 「이번 달」「지난달」「지난주」는 **오늘 기준 달력**이다(260918).
     """
-    from open_proxy_mcp.services.screener import _nl_period
+    from open_proxy_mcp.services.screener import _nl_period, calendar_window
 
     notices: list[str] = []
     anchor = min(today, last_day) if last_day else today
@@ -108,10 +107,6 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
         start, end = date(anchor.year, 1, 1), anchor
     elif not has_dates and any(w in low for w in _THIS_WEEK_WORDS):
         start, end = anchor - timedelta(days=anchor.isoweekday() - 1), anchor
-    elif not has_dates and any(w in low for w in _LAST_MONTH_WORDS):
-        # 오늘 기준 지난 달력 한 달 전체. 원장 최신일 기준으로 잡으면 월초(밤 배치 전)에 두 달 전이 된다.
-        end = today.replace(day=1) - timedelta(days=1)
-        start = end.replace(day=1)
     elif not has_dates and any(w in low for w in _THIS_MONTH_WORDS):
         # 오늘이 속한 달의 1일부터 원장 최신일까지. 월초 밤 배치 전이라 원장이 아직 이번 달에 없으면
         # 가장 최근 달을 보이고 밝힌다 — 하루짜리 창으로 조용히 줄이지 않는다.
@@ -140,6 +135,10 @@ def resolve_flow_period(period: str, start_date: str, end_date: str, today: date
             start, end = today - timedelta(days=29), today
         elif code.startswith("custom:") and code[7:].isdigit():
             start, end = today - timedelta(days=int(code[7:]) - 1), today
+        elif calendar_window(code, today):
+            # 달력의 지난주(월~일)·지난달(1일~말일), 오늘 기준. 원장 최신일 기준이면 월초·주초 밤 배치 전에
+            # 한 칸 더 앞이 된다.
+            start, end = calendar_window(code, today)
         else:
             notices.append(f"기간 「{raw}」을 알아듣지 못해 원장 최신일까지 최근 7일로 보였다.")
             start, end = anchor - timedelta(days=6), anchor

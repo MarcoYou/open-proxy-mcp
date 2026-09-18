@@ -276,7 +276,8 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
 _BY_CODE = {t["code"]: t for t in TYPE_REGISTRY}
 #: 원장 라벨도 그대로 받는다 — 표에 보이는 이름을 사용자가 되돌려 주는 일이 흔하다.
 _LABEL_TO_CODE = {t["label"].strip().lower(): t["code"] for t in TYPE_REGISTRY if t.get("label")}
-_KNOWN_PERIOD_CODES = {"today", "yesterday", "since_yesterday", "last_7d", "last_30d", "30d", "custom"}
+_KNOWN_PERIOD_CODES = {"today", "yesterday", "since_yesterday", "last_7d", "last_30d", "30d", "custom",
+                       "prev_week", "prev_month"}
 
 # 유형 → 상세페이지로 이어질 OPM tool 힌트(카드의 suggested_tool)
 _SUGGESTED_TOOL = {
@@ -367,11 +368,29 @@ _NL_PERIOD = [
     (("어제부터", "어제 이후", "전일부터", "since yesterday"), "since_yesterday"),
     (("어제", "전일", "yesterday"), "yesterday"),
     (("지난 3개월", "최근 3개월", "3개월", "분기", "last 3 months", "last_90d"), "custom:90"),
-    (("지난 한 달", "최근 한 달", "지난달", "최근 30일", "한 달", "한달", "last month", "30일"), "last_30d"),
+    # 260918: 「지난달」「지난주」는 **달력**의 지난달(1일~말일)·지난주(월~일)다. 종전엔 최근 30일·7일로 읽었다 —
+    #   우리말의 지난달과 다르다. 굴러가는 창은 「지난 한 달」「최근 30일」「지난 일주일」「최근 7일」로 남긴다.
+    (("지난달", "지난 달", "저번달", "저번 달", "전월", "last month", "previous month"), "prev_month"),
+    (("지난주", "지난 주", "저번주", "저번 주", "last week", "previous week"), "prev_week"),
+    (("지난 한 달", "최근 한 달", "최근 30일", "한 달", "한달", "30일"), "last_30d"),
     (("지난 2주", "최근 2주", "2주", "보름", "14일"), "custom:14"),
-    (("지난 일주일", "최근 일주일", "지난주", "최근 7일", "일주일", "1주일", "한 주",
-      "last week", "7일"), "last_7d"),
+    (("지난 일주일", "최근 일주일", "최근 7일", "일주일", "1주일", "한 주", "7일"), "last_7d"),
 ]
+
+
+def calendar_window(code: str, today: date) -> tuple[date, date] | None:
+    """달력의 지난주(월~일)·지난달(1일~말일). 카드 보기와 흐름 보기가 같이 쓴다(260918).
+
+    **오늘 기준**이다 — 흐름 보기가 원장 최신일 기준으로 잡으면 월초·주초 밤 배치 전에 한 칸 더 앞이 된다.
+    해당 코드가 아니면 None.
+    """
+    if code == "prev_week":
+        monday = today - timedelta(days=today.isoweekday() - 1)
+        return monday - timedelta(days=7), monday - timedelta(days=1)
+    if code == "prev_month":
+        end = today.replace(day=1) - timedelta(days=1)
+        return end.replace(day=1), end
+    return None
 
 #: 유형 — 말 → 코드. TYPE_REGISTRY 의 label 도 자동으로 받는다(아래에서 합친다).
 _NL_TYPES = {
@@ -521,6 +540,8 @@ def resolve_period(period: str, *, cursor: str = "",
     elif period.startswith("custom:") and period[7:].isdigit():
         # 자연어 앞단이 만든 「최근 N일」 — 코드 어휘를 늘리지 않고 여기서만 푼다
         bgn, end = today - timedelta(days=int(period[7:])), today
+    elif calendar_window(period, today):
+        bgn, end = calendar_window(period, today)   # 달력의 지난주·지난달(260918)
     elif period == "custom":
         try:
             bgn = datetime.strptime(custom_start, "%Y%m%d").date()

@@ -77,6 +77,22 @@ def test_period_this_and_last_calendar_month():
         (D(2026, 9, 7), D(2026, 9, 13))
 
 
+def test_period_last_calendar_week():
+    """260918: 「지난주」 = 오늘 기준 달력의 지난주 월~일(종전엔 최근 7일). 카드 보기와 같은 공용 해석기."""
+    first = D(2025, 9, 16)
+    for w in ("지난주", "지난 주", "last week"):
+        s, e, notes = df.resolve_flow_period(w, "", "", D(2026, 9, 18), first, D(2026, 9, 17))
+        assert (s, e) == (D(2026, 9, 7), D(2026, 9, 13)) and not notes, w
+    # 월요일 아침 밤 배치 전 — 원장이 토요일까지: 지난주는 9/14~9/20, 끝은 원장 최신일로 당기고 밝힌다
+    s, e, notes = df.resolve_flow_period("지난주", "", "", D(2026, 9, 21), first, D(2026, 9, 19))
+    assert (s, e) == (D(2026, 9, 14), D(2026, 9, 19)) and any("끝날짜를 그날로 당겼다" in n for n in notes)
+    # 해 넘김, 굴러가는 창은 그대로
+    assert df.resolve_flow_period("지난주", "", "", D(2026, 1, 2), first, D(2026, 1, 1))[:2] == \
+        (D(2025, 12, 22), D(2025, 12, 28))
+    assert df.resolve_flow_period("지난 일주일", "", "", D(2026, 9, 18), first, D(2026, 9, 17))[:2] == \
+        (D(2026, 9, 12), D(2026, 9, 17))
+
+
 def test_subsidiary_refiling_duplicate_and_unique():
     rows = [_r("1", D(2026, 1, 16), "넥스텍", amount=100.0, ratio=89.8),
             _r("2", D(2026, 1, 16), "테크", amount=100.0, ratio=89.8,

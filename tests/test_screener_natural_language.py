@@ -12,6 +12,9 @@ from __future__ import annotations
 
 import pytest
 
+import datetime as dt
+
+from open_proxy_mcp.services import screener as S
 from open_proxy_mcp.services.screener import _nl_period, _nl_types, _nl_universe
 
 
@@ -20,13 +23,33 @@ from open_proxy_mcp.services.screener import _nl_period, _nl_types, _nl_universe
     ("", "since_yesterday"), ("오늘", "today"), ("금일", "today"),
     ("어제", "yesterday"), ("전일", "yesterday"),
     ("어제부터", "since_yesterday"),
-    ("지난주", "last_7d"), ("일주일", "last_7d"), ("최근 7일", "custom:7"),
-    ("지난 한 달", "last_30d"), ("한달", "last_30d"),
+    ("지난주", "prev_week"), ("지난 주", "prev_week"), ("last week", "prev_week"),
+    ("지난달", "prev_month"), ("지난 달", "prev_month"), ("전월", "prev_month"), ("last month", "prev_month"),
+    ("지난 일주일", "last_7d"), ("일주일", "last_7d"), ("최근 7일", "custom:7"),
+    ("지난 한 달", "last_30d"), ("한달", "last_30d"), ("최근 30일", "custom:30"),
     ("최근 3개월", "custom:90"), ("최근 45일", "custom:45"),
     ("last_7d", "last_7d"), ("since_yesterday", "since_yesterday"),
 ])
 def test_period_words_map_to_codes(raw, code):
     assert _nl_period(raw, "", "", "", "")[0] == code
+
+
+def test_last_week_and_last_month_are_calendar_windows(monkeypatch):
+    """260918: 「지난주」 = 달력의 지난주 월~일, 「지난달」 = 지난달 1일~말일(오늘 기준). 종전엔 최근 7일·30일.
+    굴러가는 창은 「지난 일주일」「최근 7일」「지난 한 달」「최근 30일」로 남는다. 카드 보기 리졸버로 확인한다."""
+    D = dt.date
+    assert S.calendar_window("prev_week", D(2026, 9, 18)) == (D(2026, 9, 7), D(2026, 9, 13))     # 금요일
+    assert S.calendar_window("prev_week", D(2026, 9, 14)) == (D(2026, 9, 7), D(2026, 9, 13))     # 월요일
+    assert S.calendar_window("prev_week", D(2026, 1, 2)) == (D(2025, 12, 22), D(2025, 12, 28))   # 해 넘김
+    assert S.calendar_window("prev_month", D(2026, 9, 18)) == (D(2026, 8, 1), D(2026, 8, 31))
+    assert S.calendar_window("prev_month", D(2026, 3, 1)) == (D(2026, 2, 1), D(2026, 2, 28))
+    assert S.calendar_window("prev_month", D(2026, 1, 15)) == (D(2025, 12, 1), D(2025, 12, 31))
+    assert S.calendar_window("last_7d", D(2026, 9, 18)) is None
+    monkeypatch.setattr(S, "_today_kst", lambda: D(2026, 9, 18))
+    assert S.resolve_period("prev_week")[:2] == ("20260907", "20260913")
+    assert S.resolve_period("prev_month")[:2] == ("20260801", "20260831")
+    assert S.resolve_period("last_30d")[:2] == ("20260819", "20260918")    # 굴러가는 창은 그대로
+    assert S.resolve_period(_nl_period("지난달", "", "", "", "")[0])[:2] == ("20260801", "20260831")
 
 
 def test_longer_phrase_wins_over_shorter():
