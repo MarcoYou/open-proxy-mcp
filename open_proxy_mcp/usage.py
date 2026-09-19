@@ -43,6 +43,14 @@ SELF_HASHES = {
     "fa30e25e593c8d4676cf7e548c1911c7ef44f14c8b7aebad47cfe05eecd61421",
 }
 
+#: **프로토콜(핸드셰이크) 요청인가** — MCP 클라이언트가 *사람이 시키지 않아도* 보내는 것.
+#: `initialize`·`ping`·`tools/list`·`notifications/*` 등. tool 이 None 인 것(본문 파싱 실패:
+#: 배치 요청·GET/DELETE)도 도구 호출이 아니므로 여기 넣는다.
+#: **이 함수가 정의의 SSOT** — `scripts/usage_tracker.py` 가 이걸 import 한다(정의가 둘이면 갈라진다).
+def is_protocol(tool) -> bool:
+    return (not tool) or ("/" in tool) or tool in {"initialize", "ping"}
+
+
 #: **기록은 fly 머신에서만 한다.** dart/client.py 가 import 시 `load_dotenv()` 를 돌려
 #: 로컬에서도 DATABASE_URL 이 채워지므로, 막지 않으면 **로컬 pytest·pilot·스크립트가
 #: 운영 Postgres 에 그대로 쓴다**(260810 실측: 게이트 전용 이름 `no_such_tool_xyz` 20건과
@@ -330,6 +338,11 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     260810 에 그 연결을 끊었다가 260817 에 되돌렸다(모듈 상단 주석에 조건 셋)."""
     if not _RECORDING:
         return  # 로컬(pytest·pilot·스크립트)은 운영 통계를 오염시키지 않는다
+    # 핸드셰이크는 **쓰지 않는다**(260918). 읽는 쪽(`usage_tracker.is_protocol`)이 이미 전부
+    # 버리고 있었는데 쓰는 쪽은 그대로여서, 5일간 57,092행 중 83.6% 가 적히자마자 버려졌다.
+    # 계측할 것도 없다 — 이 경로는 status·latency 만 채우고 나머지 15개 컬럼이 NULL 이다.
+    if is_protocol(tool):
+        return
     try:
         khash = hashlib.sha256(opendart_key.lower().encode()).hexdigest()
         if khash in SELF_HASHES:

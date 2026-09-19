@@ -376,3 +376,52 @@ def test_dead_column_doc_cache_hit_stays_dead():
     # 세 대체 지표는 살아 있어야 한다 — 이걸 안 보면 「지웠더니 아무것도 안 남았다」가 된다.
     for alive in ("doc_mem_hits", "doc_disk_hits", "doc_misses"):
         assert alive in code, f"대체 지표가 없다: {alive}"
+
+
+# ── 핸드셰이크는 쓰지 않는다 (260918) ──────────────────────────────────────
+def test_record_drops_protocol_handshakes(tmp_path, monkeypatch):
+    """**적히자마자 버려지는 행을 애초에 안 쓴다.**
+
+    260918 실측: `ops_tool_calls` 5일치 57,092행 중 83.6%(47,713행)가 핸드셰이크였다.
+    읽는 쪽(`usage_tracker`)은 `is_protocol` 로 이미 전부 버리고 있었는데 쓰는 쪽에는
+    같은 판단이 없어서, 아무도 안 보는 행이 하루 11,000건씩 쌓였다. Supabase Free 는
+    500MB 에서 읽기전용이 된다 — 이건 용량이 아니라 **정지 시점**의 문제다.
+
+    큐를 직접 본다. 워커를 재우면(`_ensure_worker` 무력화) 비동기 기다림 없이
+    「넣었나 안 넣었나」만 남는다 — 안 적힌 이유가 「필터」인지 「워커가 늦음」인지
+    헷갈릴 여지를 없앤다."""
+    import importlib
+
+    monkeypatch.setenv("OPM_USAGE_DB_PATH", str(tmp_path / "usage3.db"))
+    monkeypatch.setenv("OPM_USAGE_LOCAL", "1")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    usage = importlib.reload(importlib.import_module("open_proxy_mcp.usage"))
+    assert usage._RECORDING, "기록 게이트가 닫힌 채면 아래 단언이 전부 공짜로 통과한다"
+    monkeypatch.setattr(usage, "_ensure_worker", lambda: None)   # 큐를 아무도 안 비운다
+
+    # tool=None 은 본문 파싱 실패(배치 요청·GET/DELETE) — 도구 호출이 아니므로 같이 버린다.
+    for tool in ("initialize", "ping", "tools/list", "notifications/initialized",
+                 "resources/list", "prompts/list", "server/discover",
+                 "subscriptions/listen", None):
+        usage.record("some-other-users-key", 200, tool, 3)
+    assert usage._q.qsize() == 0, "핸드셰이크가 큐에 들어갔다"
+
+    # 대조군이 없으면 「record 가 통째로 죽은 것」과 구분이 안 된다.
+    usage.record("some-other-users-key", 200, "company", 1234)
+    assert usage._q.qsize() == 1, "진짜 도구 호출까지 막혔다"
+
+
+def test_writer_and_reader_share_one_is_protocol():
+    """정의가 둘이면 갈라진다 — 갈라지는 순간 한쪽은 쓰고 한쪽은 버린다(그게 260918 사고).
+    읽는 쪽은 `open_proxy_mcp.usage` 에서 import 해 쓴다. 여기서 **같은 객체**임을 못박는다."""
+    import importlib.util
+    from pathlib import Path
+
+    from open_proxy_mcp.usage import is_protocol
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / "usage_tracker.py"
+    spec = importlib.util.spec_from_file_location("usage_tracker_ssot", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.is_protocol is is_protocol, \
+        "usage_tracker 가 자기만의 is_protocol 을 다시 정의했다"

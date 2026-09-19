@@ -37,6 +37,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from open_proxy_mcp.usage import is_protocol  # noqa: E402  (SSOT — 쓰는 쪽과 같은 정의를 쓴다)
+
 APP = "open-proxy-mcp"
 API = f"https://api.fly.io/api/v1/apps/{APP}/logs"
 RETENTION_MARGIN_NS = 6 * 24 * 3600 * 10**9   # 첫 실행/오래 비웠을 때 시작점(6일 전 — 7일 보존 안쪽)
@@ -266,14 +269,11 @@ def fetch_rows():
     return rows
 
 
-#: **프로토콜(핸드셰이크) 요청인가** — MCP 클라이언트가 *사람이 시키지 않아도* 보내는 것.
-#: `initialize`·`ping`·`tools/list`·`notifications/*` 가 전체의 81.8% 이고, `ping` 27,609건은
-#: **키 2개**에서 나온다(260810 실측). 이걸 실제 도구 호출과 한 표에 세우면 지표가 통째로
-#: 오염된다 — 「평균 응답 1,522ms」는 near-0 인 핸드셰이크가 눌러 놓은 값이었다.
-#: tool 이 None 인 것(본문 파싱 실패: 배치 요청·GET/DELETE)도 도구 호출이 아니므로 여기 넣는다.
-#: **이 함수가 정의의 SSOT** — `startup_metrics.is_sub` 가 이걸 재사용한다(정의가 둘이면 갈라진다).
-def is_protocol(tool) -> bool:
-    return (not tool) or ("/" in tool) or tool in {"initialize", "ping"}
+#: `is_protocol` 은 `open_proxy_mcp.usage` 에서 온다(위 import). 260918 부터 **쓰는 쪽도**
+#: 같은 함수로 핸드셰이크를 거르므로, 그 이후 행에는 프로토콜 요청이 아예 없다.
+#: 그 이전 행에는 남아 있어 여기 필터는 계속 필요하다 — `ping` 27,609건이 **키 2개**에서
+#: 나왔고(260810 실측), 이걸 도구 호출과 한 표에 세우면 지표가 통째로 오염된다.
+#: 「평균 응답 1,522ms」는 near-0 인 핸드셰이크가 눌러 놓은 값이었다.
 
 
 def fetch_tool_latency():
