@@ -1,6 +1,16 @@
 # Release Notes
 
+> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../wiki/wiki_schema.md)
+
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
+
+## v2.7.1 · beta — 2026-09-20
+
+- Masked company/brand analysis examples in public documentation and clarified tool calling and expansion paths. Connection service names, raw sources, and regression inputs are preserved.
+- Split validation into collection safety, parsing, MCP responses, output, and validator audits. Unsupported PASS claims and missing required stages block promotion.
+- Deployment now requires wiki index/link, documentation contract, and output vocabulary checks in addition to tests.
+- Personnel parsing and its feedback/archive workflow remain on `codex/parser-feedback-loop`. Features lacking real positive term labels are not included in this production release.
+- Git retains previous code versions; raw inputs, labels, experimental evidence, and previous documentation copies stay in private storage.
 
 ## v2.7.0 · beta — 2026-09-18
 
@@ -51,7 +61,7 @@ In `shareholder_commitment`, the numerator of the cash shareholder-return ratio 
 treasury-share **purchases** (acquisition decisions and trust contracts) instead of
 **cancellations**. Cancellations also cover shares bought in earlier years, so they did not match
 the period's actual spending. Purchases are aligned to the dividend's fiscal year — previously
-three years of purchases were added to one year of dividends, inflating the ratio (Shinhan
+three years of purchases were added to one year of dividends, inflating the ratio (Example Company DQ
 Financial Group 94.5% → 49.2%, against the 50.2% the company disclosed). Treasury-share decisions
 filed after that fiscal year appear separately at the top of the result. The return ratio in the
 inside-director performance assessment used for voting recommendations is corrected to the same
@@ -130,7 +140,7 @@ all cells were dropped. Both tags are now read.
 ### Multi-year financial queries no longer fetch the same data twice
 
 Building a yearly trend fetched "this year + last year" for each year, so adjacent years overlapped
-and the same data was retrieved twice. It is now fetched once — for a 10-year Samsung Electronics
+and the same data was retrieved twice. It is now fetched once — for a 10-year Example Company CW
 query, 47 calls dropped to 29 (−38%), with every figure unchanged.
 
 A cap of 10 years was also added; longer requests are trimmed and the response says so.
@@ -169,7 +179,7 @@ cover more.
 
 ### Companies whose functional currency is not the won — dollar figures no longer labelled in won
 
-For companies like Doosan Bobcat that report in USD, the filings carry dollar amounts. Financial metrics and
+For companies like Example Company BP that report in USD, the filings carry dollar amounts. Financial metrics and
 asset holdings were passing those straight into won-labelled fields, so revenue read as 6.27 billion won when
 the real figure is about 9.2 trillion — roughly 1,400x too small. Asset holdings were worse: dollar book values
 were divided by a won market cap, so surplus-asset coverage came out at 0.00x instead of 0.346x, reversing the
@@ -184,7 +194,7 @@ Won-reporting companies are byte-identical (verified across 4 companies x 3 tool
 ### Financial statement accounts, exactly as filed
 
 `scope="accounts"` returns every account line in filing order instead of the 35 the summary keeps
-(52 rows for Samsung Electronics' balance sheet). Narrow it with `sj_div=["BS","IS"]`. This answers what the
+(52 rows for Example Company CW' balance sheet). Narrow it with `sj_div=["BS","IS"]`. This answers what the
 summary could not: what sits inside current assets, and whether a company files "revenue" or "operating revenue".
 
 ## beta — 2026-09-07
@@ -199,7 +209,7 @@ To tell annual from extraordinary meetings, each candidate notice used to be par
 
 ### Faster `director_board` and `shareholder_meeting_notice`: notice parsing off the event loop
 
-The board profile for SK drops from 7.8 s to about 3 s, and the 4–6 s window in which the server could not answer other requests or health checks is now under 0.4 s. The cost was the synchronous parse of a 3 to 5 MB meeting notice fetched for the pay-limit agenda. Parsing now runs in a worker thread, tables the requested scope does not use are skipped, and meeting info parsed while classifying candidate notices is reused. Output is unchanged.
+The board profile for Example Holding Company A drops from 7.8 s to about 3 s, and the 4–6 s window in which the server could not answer other requests or health checks is now under 0.4 s. The cost was the synchronous parse of a 3 to 5 MB meeting notice fetched for the pay-limit agenda. Parsing now runs in a worker thread, tables the requested scope does not use are skipped, and meeting info parsed while classifying candidate notices is reused. Output is unchanged.
 
 ### Operations: per-call timing log and stack dump
 
@@ -215,7 +225,7 @@ Empty notes rendered as `> None` and `[roster] None`, and the business-details f
 
 ### `provisional_earnings` labels: fiscal year, quarter and year-end month fixed
 
-The year-end month used to be inferred from the period's start month, so every quarter came out as "Q1" (Samsung's 2025 Q3 read as "FY2026 Q1, June year-end"). The tool now uses the company's registered year-end month from DART and labels its source (company / default). The filing date and the results period are shown side by side on the second line, one-month periods read as "April 2026 (monthly)", and filings without an explicit date range derive the period from phrases such as "2025년 2분기". When the newest filing in the window is an attachment-only correction with no body, the tool falls back to the filing that has one.
+The year-end month used to be inferred from the period's start month, so every quarter came out as "Q1" (Example Company CO's 2025 Q3 read as "FY2026 Q1, June year-end"). The tool now uses the company's registered year-end month from DART and labels its source (company / default). The filing date and the results period are shown side by side on the second line, one-month periods read as "April 2026 (monthly)", and filings without an explicit date range derive the period from phrases such as "2025년 2분기". When the newest filing in the window is an attachment-only correction with no body, the tool falls back to the filing that has one.
 
 ### `as_of` for `price_multiple_data`
 
@@ -241,7 +251,7 @@ When a filing-text (document.xml) request hits a DART quota error (020 or 021), 
 
 ### `dividend_disclosure` — class shares no longer overwrite the common-share DPS
 
-In the annual-report dividend table, class-share rows whose label lacks the word "preferred" (e.g. 종류주식, 1종 종류주식, 전환주 — 235 rows in the KOSPI ledger) were read as common shares, so a later row overwrote the common DPS. Korea Investment Holdings FY2024 showed 4,042 KRW (class 1 shares) instead of the common 3,980 KRW, Doosan showed 2,050 instead of 2,000, and the current-price yield, the yearly history, and `price_multiple_data`'s dividend yield used the same wrong value. Share-class classification is now a single rule shared by the year-end summary and the multi-year history, non-common DPS is labelled with the filing's own wording, and the render states that total dividends and payout ratio are company-wide (all classes, consolidated).
+In the annual-report dividend table, class-share rows whose label lacks the word "preferred" (e.g. 종류주식, 1종 종류주식, 전환주 — 235 rows in the KOSPI ledger) were read as common shares, so a later row overwrote the common DPS. Example Company GS FY2024 showed 4,042 KRW (class 1 shares) instead of the common 3,980 KRW, Example Company BN showed 2,050 instead of 2,000, and the current-price yield, the yearly history, and `price_multiple_data`'s dividend yield used the same wrong value. Share-class classification is now a single rule shared by the year-end summary and the multi-year history, non-common DPS is labelled with the filing's own wording, and the render states that total dividends and payout ratio are company-wide (all classes, consolidated).
 
 ### Expanded one-page company prompt
 
@@ -322,7 +332,7 @@ purchases" all matched.
 - A sentence saying the payout is **funded by another company's** special dividend no
   longer counts as this company's special dividend.
 - **Extracts the per-share special amount.** The old rule only looked for 조원 (trillion
-  KRW), so it extracted nothing from Samsung Electronics' FY2020 "adding **1,578 KRW** in
+  KRW), so it extracted nothing from Example Company CW' FY2020 "adding **1,578 KRW** in
   the nature of a special dividend." Its absence also meant `special_dps` carried the
   **entire** per-share dividend (1,932) instead of just the special portion — now aligned
   with the ledger path's meaning (`total_dps = regular + special`).
@@ -355,7 +365,7 @@ The arithmetic closes like this: 25 tools as of 07-22 (`screener` included) plus
 - Extracts **financial-statement note tables from banks, brokers and insurers verbatim, without reshaping**: (1) restricted deposits and pledged assets (→ unencumbered cash), (2) investment assets by category — FVPL, FVOCI, amortised cost (→ per-category haircuts). Built at the request of credit and bond analysts: `financial_metrics` is a company-level aggregate with no note-level breakdown, and `business_details` covers "II. Business", a different chapter.
 - `fields` (comma-separated; empty means all — the document is downloaded once per company, so one call is cheaper) · `period` (`latest` / `annual` / `half` / `quarter` / `quarterly`) · `basis` (consolidated / separate) · `year` (fiscal year; added after a 260824 tester report — there was no way to ask for the past before).
 - Source: DART `document.xml`, notes under "III. Financial matters". **Tables are never merged or split** — that companies lay them out differently is itself information.
-- Two cautions are written into the docstring. **Always separate current-period-end from prior-period-end** (KB Insurance restricted deposits: prior year-end 391,082 → current half-year-end 26,356, a 15-fold drop) · **units differ by company and, within one company, by report** (Hyundai Marine: quarterly in `won`, half-year in `thousand won`, annual in `won` — chaining them as-is is off by 1,000x). "Restricted" and "pledged" are separated by `kind` and never added together. Computing unencumbered cash and applying haircuts is outside this tool.
+- Two cautions are written into the docstring. **Always separate current-period-end from prior-period-end** (Example Company T restricted deposits: prior year-end 391,082 → current half-year-end 26,356, a 15-fold drop) · **units differ by company and, within one company, by report** (Example Company HP: quarterly in `won`, half-year in `thousand won`, annual in `won` — chaining them as-is is off by 1,000x). "Restricted" and "pledged" are separated by `kind` and never added together. Computing unencumbered cash and applying haircuts is outside this tool.
 
 ### New tool `director_news` — negative-news check on director candidates (wiki created 08-20)
 
@@ -417,9 +427,9 @@ A new tool that answers next- and following-year expected results and forward mu
 - **The ruler is carried twice** — once in the envelope `ruler` (as_of, `price_dd`, units, PER definition, multiple scope) and again on every row (`period`, `row_kind`, `basis`). `as_of` and `price_dd` diverge on weekends and holidays, so "PER as of `as_of`" is wrong.
 - **Rows split by `reported` (vendor source) vs `derived` (our computation), not by actual vs estimate.** Growth rates cross the actual/estimate boundary — 2,180 estimate rows have an actual row as their prior period.
 - **Multiples exist only on estimate FYs and the latest confirmed FY.** The previous data held 8,386 rows of "today's price ÷ an EPS from years ago" under the name PER, 80.5% of them past FYs. Those are no longer produced; `per_why` records why a cell is empty (loss-making, not the latest confirmed FY, and so on).
-- **The PER definition now matches `price_multiple_data`** — common-share market cap ÷ net income attributable to controlling interests. The vendor formula (price ÷ EPS) was dropped house-wide on 2026-08-23 because stock splits mix an old share count's EPS with a new price. Periods diverging by more than 10% are flagged in the response (Samsung Electronics FY2025: 33.95 vs 39.15).
+- **The PER definition now matches `price_multiple_data`** — common-share market cap ÷ net income attributable to controlling interests. The vendor formula (price ÷ EPS) was dropped house-wide on 2026-08-23 because stock splits mix an old share count's EPS with a new price. Periods diverging by more than 10% are flagged in the response (Example Company CW FY2025: 33.95 vs 39.15).
 - **All monetary values are integer KRW.** The `_eok` (100-million-won) notation is gone — placed beside a won-denominated field in one answer it produces a 100-million-fold error.
-- **Widen with `bundle`** — `core` by default, plus `growth`, `quality`, `keys`, `all`. A full-column response for a single ticker (Samsung Electronics) is 31 KB (~8k tokens), so the default is narrow for size, not because it is the right answer.
+- **Widen with `bundle`** — `core` by default, plus `growth`, `quality`, `keys`, `all`. A full-column response for a single ticker (Example Company CW) is 31 KB (~8k tokens), so the default is narrow for size, not because it is the right answer.
 - **"Nothing found" splits three ways** — `no_estimates` (no analyst coverage; only 713 of 2,764 tickers have estimates), `not_found` (no such ticker), `db_error` (database failure). Collapsing them removes the distinction that decides what the caller should do next.
 - The number of contrast rows of reported actuals is set by `actual_years`, default 2.
 
@@ -449,9 +459,9 @@ Verified with beta commit `0879021`, the concurrent-request single-flight regres
 
 Fixes a case where a mistyped or colloquial company name **silently returned a different company's answer**. It affects all 25 tools.
 
-- **"지에스" was resolving to "지에스이"** — a partial name collision matched first and stopped the search, so the transliteration path that reaches "GS" was never taken ("에스케이" → 에스케이바이오팜 was the same fault). An exact name now wins. Compared before and after across 3,967 listed-company names: **only the five items below changed; everything else stayed the same.**
-- **Three names it could not recognise** — `에쓰오일` / `에스오일` (registered as `S-Oil`) and `기아자동차` (the pre-2021 name). All three previously ended in "company not found".
-- **When the name is not an exact match, the answer now says so** — an inferred pick is declared at the top of the response: "resolved 지에스 to 지에스이 — ask again with the ticker or the registered name". Reading a different company's answer as the right one is worse than getting nothing. Exact input (삼성전자, 005930) stays silent.
+- **"Example Transliterated Name A" was resolving to "Example Company FK"** — a partial name collision matched first and stopped the search, so the transliteration path that reaches "Example Holding Company H" was never taken ("Example Transliterated Name B" → Example Company EC was the same fault). An exact name now wins. Compared before and after across 3,967 listed-company names: **only the five items below changed; everything else stayed the same.**
+- **Three names it could not recognise** — `Example Transliterated Name I` / `Example Transliterated Name J` (registered as `Example Company AD`) and `Example Company AV자동차` (the pre-2021 name). All three previously ended in "company not found".
+- **When the name is not an exact match, the answer now says so** — an inferred pick is declared at the top of the response: "resolved Example Transliterated Name A to Example Company FK — ask again with the ticker or the registered name". Reading a different company's answer as the right one is worse than getting nothing. Exact input (Example Company CW, 005930) stays silent.
 - **`corp_gov_report` — meeting-table columns went unnamed for newly listed companies** — when a company writes "미개최(전기)" because no meeting was held in the prior year, that column was emitted without its name.
 
 ## v2.5.1 (2026-08-05)
@@ -468,9 +478,9 @@ Fixes a case where a mistyped or colloquial company name **silently returned a d
 Still 25 tools. This one is about `corp_gov_report`. The corporate governance report previously yielded only a compliance rate and O/X flags; now its **source tables come out as tables**, and a defect that made financial companies point at a years-old filing is fixed.
 
 - **`corp_gov_report` — director attendance, outside-director concurrent posts, candidate notice periods, and per-agenda vote counts (`scope=tables`)** — the governance report carries tables that bear directly on voting decisions, and none of them were reachable. Four are now open. **Table 7-2-1** each director's attendance and approval rates over three years (current, prior, and the year before, kept separate) · **Table 5-2-1** outside directors' concurrent positions (institution, role, start month, listed status) · **Table 4-3-1** how many days before the meeting candidate information was provided · **Table 1-2-2** shares for and against each agenda item. Column names are **taken verbatim from the filing form** — renaming them would break the link back to the source. They are read from a document already fetched, so **no additional DART calls**.
-  - **Table 1-2-2 shows the 3% rule as a number** — only the audit-committee-member election has a smaller "shares entitled to vote" figure (HD Hyundai Heavy Industries: 30.19M vs 104.86M on other items), because the largest shareholder's voting rights are capped under Commercial Act §542-12(2).
+  - **Table 1-2-2 shows the 3% rule as a number** — only the audit-committee-member election has a smaller "shares entitled to vote" figure (Example Company K: 30.19M vs 104.86M on other items), because the largest shareholder's voting rights are capped under Commercial Act §542-12(2).
   - **Columns whose meaning cannot be verified are left unnamed** — the form supplies no header for the first two columns of tables 1-2-2 and 4-3-1, so companies fill them differently. Most use "meeting + candidate", but some put the candidate's name first; when the shape disagrees the columns come back as `키1`/`키2` with a warning.
-- **`corp_gov_report` — financial companies no longer point at a two-year-old filing** — filings whose name contained "annual report" were being filtered out, but for financial companies that is the **only** governance filing of the year. The current year vanished and an older report was served as the latest (KB Financial 2024-02-29 → **2026-03-05**; same for Shinhan, Samsung Life, Mirae Asset Securities). The name filter is gone; an annual report is deprioritised only when an exchange-form filing exists in the same year.
+- **`corp_gov_report` — financial companies no longer point at a two-year-old filing** — filings whose name contained "annual report" were being filtered out, but for financial companies that is the **only** governance filing of the year. The current year vanished and an older report was served as the latest (Example Company S 2024-02-29 → **2026-03-05**; same for Example Company DQ, Example Company CS, Example Company CH). The name filter is gone; an annual report is deprioritised only when an exchange-form filing exists in the same year.
 - **`corp_gov_report` — the financial-company notice now says "different form", not "not filed"** — the old wording used an internal term ("cannot parse the 15-metric table") and never said why. It now explains: a financial company that discloses its governance and remuneration annual report by the 31 May deadline is **exempt from filing the exchange-form report**, so the key indicators, sub-principles and form tables are simply not in the document. The notice points to the attached PDF that does hold the content. The rendered output no longer falls through to "could not read the key indicators", which read like a parsing failure.
 - **`filings_count` renamed to `filings_found` (JSON field change)** — it differed from the shared `filing_count` by one letter but meant something else. `filings_found` is the **number of filings the search returned**; `filing_count` is the **number accepted as parseable** (used to derive status). They only look identical on the happy path — deleting either one makes financial companies report "0 filings on record". Callers reading this field via `format="json"` need to update the name.
 
@@ -484,13 +494,13 @@ Still 25 tools. This one is about `corp_gov_report`. The corporate governance re
 - **Both tools — tables we used to miss** — several format variations are now handled: raw-material and product-price tables whose heading is embedded in a sentence rather than a title, facilities disclosed as book values instead of locations (city-gas supply pipelines and the like), collateral schedules titled differently ("details of insurance pledged as collateral"), and equity-holding schedules filtered out because of an adjacent note. **No previously returned value changed** (verified against the full corpus).
 
 - **`business_details` — four revenue axes in one place (2026-08-02)** — revenue breakdowns used to live in three separate places: `revenue_breakdown` (segment/product), `geo_revenue` (a standalone field), and export/domestic nested inside it. All four slice the same revenue differently, so they now sit together under `revenue_breakdown`: `by_segment` (the **only axis carrying operating profit**) · `by_product` · `by_region` · `by_trade`. The old names `geo_revenue`, `segments`, `revenue_mix_form` still work as aliases — **existing calls are unaffected**.
-  - **Do not add the axes together.** `by_region` is consolidated, `by_trade` is separate-entity, so one can be larger or smaller than the other (Hyundai Motor 1.4x, Daehan Flour 0.5x). Each axis carries its own source and audit-scope label.
+  - **Do not add the axes together.** `by_region` is consolidated, `by_trade` is separate-entity, so one can be larger or smaller than the other (Example Company HM 1.4x, Example Company BH 0.5x). Each axis carries its own source and audit-scope label.
 - **`business_details` — readable units, per-company provenance** — figures used to print in the source table's raw unit (`3,147,338` in millions) with the unit relegated to a footnote. The unit now sits in the column header and figures scale to the company's size. Each axis also states **which note section of that company's filing** it came from — section numbers differ per company, so "Note III" alone was not enough to locate the original.
 - **`business_details` — regional revenue now states its basis** — (1) whether the table came from consolidated or separate-entity notes, and a notice when separate was used although consolidated data exists; (2) large regional tables carrying an elimination row are no longer missed; (3) the hardcoded "customer location" label is gone — the tool now reports the **attribution basis the company actually disclosed**. Only 5% disclose one, and some use "place of business" rather than customer location, so when absent it says so. This basis determines what the overseas-revenue share actually means.
 - **`proxy_advise_before_meeting` / `director_board` — director nomination rationales were being mixed up** — where one block holds the rationale for every candidate, the first candidate's text was attached to all of them. The tool now splits by the section markers the filing itself declares, keeps the previous behaviour when it cannot split (flagged as shared text), and **never attaches another candidate's rationale** to someone the filing did not name.
 - **Internal codes removed from responses** — identifiers such as `map_not_loaded` and form codes like `dual` / `standard7` no longer leak into user-facing sentences.
 
-- **`business_details` — added raw-material and product-pricing fields** — `raw_materials` separately captures material composition/purchases and input-price trends, so an omission in one segment cannot hide a valid table in another. `product_pricing` returns product/service prices, ASP, and price-change rationale as its own section. Verified with LG Chem raw-material and Samsung Electronics product-pricing production MCP smoke tests plus a local 300-company sample.
+- **`business_details` — added raw-material and product-pricing fields** — `raw_materials` separately captures material composition/purchases and input-price trends, so an omission in one segment cannot hide a valid table in another. `product_pricing` returns product/service prices, ASP, and price-change rationale as its own section. Verified with Example Company Y raw-material and Example Company CW product-pricing production MCP smoke tests plus a local 300-company sample.
 - **Removed `getting_started` (26→25 tools, Discovery category retired)** — reversed one day after
   launch. Broad capability questions ("what can this do?") are adequately handled by the FastMCP
   `instructions` orientation plus the client model reading tool descriptions directly; a dedicated
@@ -516,7 +526,7 @@ for point-in-time lookups.
 - **`business_details` — point-in-time lookups via bsns_year+reprt_code** — the existing `period`
   parameter (latest/annual/quarterly) always returned only the most recent filing, so there was no
   way to answer segment-revenue-trend questions (discovered in a live session where an AI couldn't
-  answer a question about Samsung Electronics' segment revenue trend over the past year). Added
+  answer a question about Example Company CW' segment revenue trend over the past year). Added
   DART's standard parameters (same convention already used by `get_major_shareholders` etc.) to
   query one specific past quarter/half/annual filing. Matches precisely on the report-title's fiscal
   label so it stays safe for companies whose fiscal year-end isn't December. Verified against 8 edge
@@ -573,11 +583,11 @@ screening) plus director/shareholder-return/treasury precision work.
   scale (e.g. "in millions of won") had their ACODE-tagged amounts misread as raw won, understating
   values by up to 1,000,000x. Found via a KOSPI200-wide sweep (7 companies, 26 rows affected), fixed,
   and re-verified at 0 remaining.
-- **financial_metrics period handling** — DART reports carry different period semantics per item (income statement `thstrm` = current 3 months, cumulative is `thstrm_add`; cash flow = cumulative; balance sheet = point-in-time). For interim reports the tool now ① computes P&L on two bases — cumulative (YTD) plus current-quarter standalone (half/Q3 derived by differencing the prior report), ② computes turnover days (DSO/DIO/CCC) on a TTM (trailing-12-month) denominator to remove single-quarter annualization distortion (SK Hynix 26Q1 DIO 511→133 days; DSO false 38.6→61.4), ③ leaves ROE/ROA un-annualized (period value), and ④ always states the basis via `period_basis`/`turnover_basis`/`basis_note`. Also: evidence now carries the source report rcept/viewer URL, a warning when consolidated (CFS) is unavailable and standalone (OFS) is used, a quarter-aware default year for quarterly/qoq, and operating-margin QoQ/YoY in %p.
+- **financial_metrics period handling** — DART reports carry different period semantics per item (income statement `thstrm` = current 3 months, cumulative is `thstrm_add`; cash flow = cumulative; balance sheet = point-in-time). For interim reports the tool now ① computes P&L on two bases — cumulative (YTD) plus current-quarter standalone (half/Q3 derived by differencing the prior report), ② computes turnover days (DSO/DIO/CCC) on a TTM (trailing-12-month) denominator to remove single-quarter annualization distortion (Example Company AL 26Q1 DIO 511→133 days; DSO false 38.6→61.4), ③ leaves ROE/ROA un-annualized (period value), and ④ always states the basis via `period_basis`/`turnover_basis`/`basis_note`. Also: evidence now carries the source report rcept/viewer URL, a warning when consolidated (CFS) is unavailable and standalone (OFS) is used, a quarter-aware default year for quarterly/qoq, and operating-margin QoQ/YoY in %p.
 - **ownership_structure co-holder breakdown productized** — a 5% block's headline stake is filer + related parties combined; now split into `reporter_self_pct` + `co_holders`[{name, ownership_pct, is_registry_holder}] + `co_holders_verified` (sum≈headline invariant), with a rendered breakdown table (answers "who holds how much of OO's N%"). When related parties include the registry's largest shareholder, reclassified as `coheld_with_registry` (prevents proxy_contest mislabeling an ally as external). Parser hardening: self-name pollution, ㈜ symbol, fund-name digits (제N호), long English names, foreign IDs (LEI / foreign reg number) — 332-company census incl. proxy-contest edges, invariant 92.7→95.3%, unverified flagged via verified=False.
 - **shareholder_meeting proposer_type unified** — shareholder-proposal agendas now use the canonical `shareholder_proposal` value (previously `shareholder`, mismatching consumers that missed proposals). Validated via a KOSDAQ shareholder-proposal census (raw-HTML cross-check).
-- **treasury_share share-class split (common / other) + multi-class undercount fix** — acquisition/disposal results now split into common vs other-class (preferred / 기타주식 / RCPS unified). Fixed an ACODE undercount where the result report has separate common/preferred tables but ACODE captured only common (Mirae Asset 600→1,000억 = 600 common + 400 other), via per-day total summation. Census across KOSPI 200 + KOSDAQ 200 (172 preferred-active): only Mirae Asset affected (disposal/cancellation fine); fractional-share noise excluded by a 100M-KRW floor.
-- **compensation single-library fallback** — for filings that cram all agendas into one `<library>` (IBK, Korea Investment Holdings), the director/auditor pay-limit current/prior tables don't attach, yielding `amount_unparsed`; a raw-text fallback fires only when structured parse fails (untouched for normal filers = regression-safe). Confirmed scoped to those two via a 35-financial census.
+- **treasury_share share-class split (common / other) + multi-class undercount fix** — acquisition/disposal results now split into common vs other-class (preferred / 기타주식 / RCPS unified). Fixed an ACODE undercount where the result report has separate common/preferred tables but ACODE captured only common (Example Company CD 600→1,000억 = 600 common + 400 other), via per-day total summation. Census across KOSPI 200 + KOSDAQ 200 (172 preferred-active): only Example Company CD affected (disposal/cancellation fine); fractional-share noise excluded by a 100M-KRW floor.
+- **compensation single-library fallback** — for filings that cram all agendas into one `<library>` (Example Bank A, Example Company GS), the director/auditor pay-limit current/prior tables don't attach, yielding `amount_unparsed`; a raw-text fallback fires only when structured parse fails (untouched for normal filers = regression-safe). Confirmed scoped to those two via a 35-financial census.
 - **Removed `proxy_result_after_meeting`** (offset by the new order_contracts tool — 17 tools total) — the core (per-agenda pass/fail and vote rates) is served by `shareholder_meeting_results` with far fewer calls. Follow-up filings, contest, and governance context chain through direct tool calls.
 - **Full tool-by-tool audit completed** — beyond parse success rates: value accuracy, units, composite seams, render layer, and production. Ownership across 450 companies (self-correcting DART source unit contamination), value accuracy across 286, corp_gov reference match across 30, 31 render cases, production MCP smoke.
 - **Fixed a silent proxy_result regression** — agenda results were always empty due to an unsynced upstream key rename (verified fixed before removal).

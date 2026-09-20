@@ -9,6 +9,8 @@ related:
 
 # 보수한도 / 퇴직금 안건 분리
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 ## 배경
 
 보수한도와 퇴직금을 한 함수(`_decide_compensation`)로 처리하면 두 가지 갭이 생긴다.
@@ -136,11 +138,11 @@ Layer 2: 결정 코드 (_decide_*) — 자동 trigger wire + 정성은 facts raw
 | retirement_pay | 14 | FOR 4 / REVIEW 6 / **AGAINST 4** | **100%** ✓ | majority 0 |
 
 **AGAINST 5건 모두 정확 분기**:
-- 피에스케이 / 피에스케이홀딩스 / GST 퇴직금 → 지급률 2배수+ (s_legacy strict 패턴)
-- 카카오페이 퇴직금 → 사외이사 퇴직금 신설 (OPM #6)
-- 퓨쳐메디신 보수한도 → 자본잠식 + 인상 (OPM Guideline)
+- 예시기업 GM / 예시기업 GN / 예시기업 F 퇴직금 → 지급률 2배수+ (s_legacy strict 패턴)
+- 예시기업 FS 퇴직금 → 사외이사 퇴직금 신설 (OPM #6)
+- 예시기업 GL 보수한도 → 자본잠식 + 인상 (OPM Guideline)
 
-**REVIEW 6건** — SK바이오팜/LIG넥스원/에코프로비엠 등 raw 검토가 필요한 case. "퇴직연금 제도 도입"처럼
+**REVIEW 6건** — 예시지주 A바이오팜/LIG넥스원/예시기업 EG 등 raw 검토가 필요한 case. "퇴직연금 제도 도입"처럼
 형식적 변경은 분기 9a로 FOR.
 
 **정밀화 (현행 동작)**:

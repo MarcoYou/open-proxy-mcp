@@ -9,6 +9,8 @@ related:
 
 # shareholder_meeting_notice scope 정리 + provisional_financial_statement
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 ## 배경
 
 > 원칙(feedback_data_action_tool_layers): data tool = parsing+computation, action tool = + decision evidence.
@@ -77,7 +79,7 @@ layer 원칙:
 | `tools_v2/shareholder_meeting_notice.py` | _NOTICE_SCOPES 5개 + _DEPRECATED_SCOPES + render dispatch |
 | `tools_v2/_shareholder_meeting_render.py` | render_summary 강화 + render_aoi 통합 + render_provisional_financials 신규 + render_full_notice/render_agenda 삭제 |
 
-## 검증 (삼성전자 2026 AGM)
+## 검증 (예시기업 CW 2026 AGM)
 
 ### prov_financials scope
 - consolidated income 18 rows / balance 52 rows / separate income 13 / balance 41 rows

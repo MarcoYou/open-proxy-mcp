@@ -1,5 +1,7 @@
 # Shareholder Return
 
+> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
+
 **Places the "promise (policy)" next to the "actual execution (fact)" to see whether shareholder return was delivered.** Bundles dividends, treasury shares, and value-up (corporate-value-improvement) plans.
 
 ## What it answers
@@ -12,7 +14,7 @@
 
 ## Ask it like this
 
-> "Show KT&G's dividend and treasury-cancellation history"
+> "Show Example Company FW's dividend and treasury-cancellation history"
 >
 > "Did this company actually keep its value-up plan?"
 

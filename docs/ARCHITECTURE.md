@@ -69,11 +69,17 @@ KIND fallback only when the higher-priority source cannot answer the request.
 ## Operational Boundaries
 
 - DART OpenAPI rolling cap: 910 calls per minute, below the external 1,000-call limit.
-- DART and KIND web access: a random 1–2 second gap between requests; no batch scraping.
+- DART and KIND web access: one shared process clock, a random 0.4–1 second gap and
+  a rolling cap of 40 requests per minute. After a blocking signal the gap increases
+  to 1–2 seconds. Multiple workers must not be used to bypass this protection.
 - User query results are not persisted. Corp-code/document caches, market snapshots, and usage
   telemetry are explicit infrastructure exceptions.
 - API keys and key-bearing URLs must never appear in output, logs, exceptions, or fixtures.
 - Tests default to `tests/` through `pyproject.toml`; unit and regression tests make no live calls.
+
+For company resolution, partial responses, bounded retries and source-preserving integration,
+see [the tool-calling guide](TOOL_CALLING.md). Transport success alone does not establish that
+a tool returned usable data.
 
 ## Deployment
 

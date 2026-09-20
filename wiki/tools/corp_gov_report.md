@@ -13,6 +13,8 @@ updated: 2026-09-02
 
 # corp_gov_report
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 ## 한 줄 요약
 기업지배구조보고서(거버넌스 종합 평가) data tool. 15개 핵심지표 준수 여부(O/X) + 세부원칙 28개 응답 +
 **서식 표 원본 11종**(이사회 구성·출석률·겸직·변동사유·안건별 찬반 등) + 제출 이력 + 연도별 추이.
@@ -21,17 +23,17 @@ updated: 2026-09-02
 ## 사용법
 ```
 corp_gov_report(
-    company="KT&G",
+    company="예시기업 FW",
     scope="summary",
 )
 ```
 
 자연어 예시:
-- "KT&G 거버넌스 준수율" → `scope="summary"` (KT&G 100%, POSCO홀딩스 100%)
-- "삼성전자 15지표 상세 + 비고" → `scope="metrics"` (86.7% 준수)
+- "예시기업 FW 거버넌스 준수율" → `scope="summary"` (예시기업 FW 100%, 예시기업 AB 100%)
+- "예시기업 CW 15지표 상세 + 비고" → `scope="metrics"` (86.7% 준수)
 - "집중투표제·전자투표 도입했어?" → `scope="metrics"` (15지표 중 「집중투표제 채택」·「전자투표 실시」 O/X)
-- "현대차 연도별 준수율 추이" → `scope="timeline"` (improved/regressed/changed 감지)
-- "삼성전자 이사들 이사회 출석률" · "이 회사 안건별 찬반 주식수" → `scope="tables"`
+- "예시기업 HM 연도별 준수율 추이" → `scope="timeline"` (improved/regressed/changed 감지)
+- "예시기업 CW 이사들 이사회 출석률" · "이 회사 안건별 찬반 주식수" → `scope="tables"`
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
@@ -68,7 +70,7 @@ scope:
 > **`filings_found` ≠ `filing_count`** — 세는 대상이 다르다.
 > `filings_found` 는 검색으로 찾은 보고서 건수, `filing_count`(공용 `build_filing_meta`)는
 > status 를 매기려고 「파싱 대상으로 인정한 사건 수」다. 금융회사 연차보고서 서식이거나 대상
-> 연도 건이 없으면 후자만 0 이 된다(KB금융 summary: `filings_found` 1 / `filing_count` 0).
+> 연도 건이 없으면 후자만 0 이 된다(예시기업 S summary: `filings_found` 1 / `filing_count` 0).
 > 이력 건수를 읽을 때는 `filings_found` 를 쓴다.
 
 > **주주 4필드 파싱**: `company_overview`의 `max_shareholder/pct/minority`는 표 1-0-0을 **td 단위
@@ -142,7 +144,7 @@ sequenceDiagram
     participant DL as DART list.json (I)
     participant DI as DART company.json
     participant DX as DART document.xml
-    U->>T: company="KT&G", scope="summary", year=0
+    U->>T: company="예시기업 FW", scope="summary", year=0
     T->>R: company_query → corp_code
     par filings + 회사정보 병렬 (asyncio.gather)
         T->>DL: _fetch_latest_reports (4년 lookback, "기업지배구조보고서공시" keyword)
@@ -175,7 +177,7 @@ sequenceDiagram
   그해 공시가 통째로 사라져 몇 해 전 보고서를 최신인 양 가리키게 된다. 같은 해에 거래소 서식이
   함께 있을 때만 뒤로 미룬다(`_pick_filing`).
 - 15개 표준 지표 라벨 prefix(25자) 매칭 → 블록별 O/X 2개(당기·직전) + 비고 텍스트 동적 수집
-- 비고 0개~다수 모두 대응 (삼성: 비고 없음 / SK하이닉스: 일부 비고 / 현대차: 매건 비고)
+- 비고 0개~다수 모두 대응 (예시기업 CO: 비고 없음 / 예시기업 AL: 일부 비고 / 예시기업 HM: 매건 비고)
 - 금융회사 별도 형식 분리 (`_FINANCIAL_FORM_MARKERS`):
   - "금융회사 지배구조 연차보고서" / "지배구조 및 보수체계 연차보고서" 감지 시 → NO_FILING + `report_format = "financial_holding_annual"` 메타
   - PDF 첨부 직접 확인 안내 (next_actions)

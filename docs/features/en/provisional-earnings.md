@@ -1,5 +1,7 @@
 # Provisional Earnings
 
+> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
+
 **Tabulates the "provisional earnings" disclosures companies file before quarterly results are finalized.** Revenue, operating profit, net income, and YoY changes — straight from the filing's own table. Use it for earnings-season quick checks.
 
 ## What it answers
@@ -13,11 +15,11 @@
 
 ## Ask like this
 
-> "Did Samsung Electronics release provisional earnings this quarter?"
+> "Did Example Company CW release provisional earnings this quarter?"
 >
 > "Show companies that filed provisional earnings in the last week"
 >
-> "Summarize LG Energy Solution's provisional results vs. the same quarter last year"
+> "Summarize this company's provisional results vs. the same quarter last year"
 
 ## Related features
 

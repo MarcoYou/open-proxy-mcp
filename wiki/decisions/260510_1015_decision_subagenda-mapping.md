@@ -1,13 +1,15 @@
 ---
 type: decision
-title: 카카오게임즈 패턴 — sub→amendment strict 매핑 fallback
+title: 예시기업 FQ 패턴 — sub→amendment strict 매핑 fallback
 date: 2026-05-10 10:15
 status: active
 related_lessons: [subagenda-mapping-260510, agenda-hierarchy-260510, 260510_daily-summary]
 
 ---
 
-# Decision — 카카오게임즈 패턴 sub→amendment 매핑 fallback
+# Decision — 예시기업 FQ 패턴 sub→amendment 매핑 fallback
+
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
 
 ## 결정
 
@@ -24,10 +26,10 @@ parent에 "정관" + "변경"/"개정"
 
 ## 매핑 cascade
 
-1. amendment label == sub title (또는 substring) — 강원랜드 "관계 법령 ..." 동일 string
-2. amendment label/before/after에서 조항 추출 → sub clauses 매칭 — 한미사이언스 "제22조"
+1. amendment label == sub title (또는 substring) — 예시기업 AP "관계 법령 ..." 동일 string
+2. amendment label/before/after에서 조항 추출 → sub clauses 매칭 — 예시기업 HA "제22조"
 
-keyword 매칭은 의도적 제외 — semantic mismatch false positive 회피 (LG화학 "선임독립이사 선임" → "독립이사 명칭 변경" 매핑 사례).
+keyword 매칭은 의도적 제외 — semantic mismatch false positive 회피 (예시기업 Y "선임독립이사 선임" → "독립이사 명칭 변경" 매핑 사례).
 
 ## generic title 정책
 
@@ -39,9 +41,9 @@ generic sub (도메인 키워드 없음 — "그 외 변경" / "기타 정비")�
 
 ## 검증
 
-- LG화학 regression 0 (sub_hits 0)
-- 한미사이언스 3 / 차바이오텍 2 / 유한양행 1 catch
-- 카카오게임즈 미catch (sub keyword 매칭 의도적 제외)
+- 예시기업 Y regression 0 (sub_hits 0)
+- 예시기업 HA 3 / 예시기업 FN 2 / 예시기업 EV 1 catch
+- 예시기업 FQ 미catch (sub keyword 매칭 의도적 제외)
 
 ## 비목표
 
