@@ -7,7 +7,7 @@ data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(
 related_disclosures: [사업보고서, 기업지배구조보고서, 임원보수-API스펙]
 related_concepts: [보수한도]
 created: 2026-07-08
-updated: 2026-09-09
+updated: 2026-09-20
 ---
 
 # director_board — 이사회/개별 이사 프로필
@@ -121,6 +121,26 @@ updated: 2026-09-09
 ### 재직/사퇴 감지
 `exctvSttus` 연도간 diff. 동일인 판정은 **2-pass 매칭**이다 — Pass1 이름 정확 일치로 잔류 확정 →
 Pass2 나머지만 `birth_ym` 매칭(그 값이 남은 후보군에서 유일할 때만 인정).
+
+- `roster.comparison_status`는 아래와 같이 비교 요청 여부와 자료 부재를 구분한다.
+  비교를 수행하지 않은 경우 이탈을 만들지 않고 `diff_cross_check=null`을 반환한다.
+
+  | 조건 | `comparison_status` | 최상위 `status` | 설명 |
+  |---|---|---|---|
+  | 현재 명단 유효, `lookback_years=1` | `not_requested` | `exact` | 전년 조회·비교 미산출 경고 없음. 분기 대체 출처 경고는 유지 |
+  | 현재·전년 명단 유효, 비교 요청 | `compared` | `exact` | 실제 변동을 비교 |
+  | 현재 명단 유효, 비교 요청했으나 전년 자료 부재 | `no_prior` | `requires_review` | 현재 명단은 유효하고 요청한 비교만 미산출임을 경고로 명시 |
+  | 최신 사업·분기·반기 명단 모두 확인 불가 | `unknown` | `requires_review` | 비교 요청 여부와 무관. `roster_as_of=null`과 원문 확인 경로를 담은 경고 반환 |
+
+  인원 필드는 조회된 행의 집계이므로, 자료 부재의 빈 목록을 실제 이사회 인원이 없다는
+  뜻으로 읽으면 안 된다. `no_prior`는 현재 명단의 파싱 오류나 변동 없음 판정을 뜻하지 않는다.
+  자료 부재 사유는 `roster.comparison_note`와 최상위 `warnings`에 동일하게 담고,
+  `data_quality_flags`의 `roster_comparison_unavailable` 경고로 화면용 응답까지 전달한다.
+  비교 미요청·비교 완료에는 이 경고가 없으며 `comparison_note=null`이다.
+- 「독립이사」를 등기 명단·연간/기중 변동·출석 대조 인원에 포함하며 원문 직위 표기는 보존한다.
+  후보 평가의 임원현황 선택과 재직기간 대조에서도 같은 표기를 등기 이사로 인정한다.
+- 후보 평가에서 등기 구분이 빈칸이거나 미등기 행과 빈칸이 섞이면 미등기로 확정하지 않는다.
+  기존 경력 추정값과 근거 행을 보존하고 등기 여부를 확정하지 못했다는 사유를 반환한다.
 
 - 단순 OR 매칭이면 이탈자와 **이름이 전혀 다른 잔류자**의 `birth_ym`이 우연히 같을 때(둘 다
   "1959년 06월") 이탈이 통째로 누락된다. `birth_ym`은 연·월만 있어 정밀도가 낮다.
@@ -428,6 +448,10 @@ sequenceDiagram
 | `hmvAuditIndvdlBySttus` (재사용) | pay_criteria 하이브리드 교차검증(파서 Σ vs API 공식총액) |
 
 ## 변경 이력
+- 2026-09-20: 빈 등기 구분의 미등기 오확정과 최신 명단 부재의 전원 이탈 오판을 방지.
+  비교 미요청·전년 자료 부재·현재 자료 부재를 구분하고 독립이사를 명단·임기 판정에 포함. 합성 DART 경계 회귀는
+  `tests/test_personnel_feedback_regressions.py`. 실제 앱의 streamable-http 호출에서 JSON 상태와
+  화면용 경고·명단까지 검증한다. 실공시 캐시 정확도 검증을 대신하지 않는다.
 - 2026-09-09: 보수 지급액이 전부 비었을 때 **한도가 읽혔는지**로 갈라, 반쪽만 읽혔으면
   서식 의심 + 원문 경로(`filing_section`)를 warnings 에 적는다(V1/V2 서식 전환 대비).
 
@@ -446,6 +470,7 @@ sequenceDiagram
   한도 행 합산 · rm 비고 원문 노출.
 
 ## 관련
+- [파싱 개선·고정 원문 회귀 평가](../../docs/PARSER_FEEDBACK.md) — 독립 정답, 실패 재현, 수정 전후 비교와 승격 조건.
 - [[corp_gov_report]] — 회사 지배구조 15지표 준수(정성). 이 tool은 개별 이사 정량.
 - `services/director_evaluation.py`(내부 서비스 — tool 아님) — 이사 후보 독립성·결격(주총 안건). 이 tool은 재직 중 보수·재직변동.
 - [[shareholder_meeting_notice]] — 보수한도 '안건'. 이 tool은 실제 지급·소진율.

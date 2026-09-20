@@ -25,11 +25,17 @@ from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 import warnings
 
 from open_proxy_mcp.services.career_normalize import build_careers
+from open_proxy_mcp.services.personnel_term import parse_appointment_term
 from open_proxy_mcp.dart.client import html_to_text
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 logger = logging.getLogger(__name__)
+
+_TERM_HEADER_RE = re.compile(
+    r"(?:선임)?임기(?:기간)?(?:\((?P<unit>년|개월)\))?"
+    r"(?P<note>(?:\([^)]*\)|\[[^\]]*\]|주[0-9]+\)|[※*①-⑳])*)"
+)
 
 
 # ── 임시/정기 주총 detect (300자 본문 keyword) ──
@@ -708,16 +714,28 @@ def declared_role_for_candidate(
     if not t or not _ELECTION_AGENDA.search(t):
         return None, ""
     # 직위 키워드 등장 위치 → 구간. 긴 키워드(기타비상무이사)가 짧은 것에 먹히지 않게 정렬한다.
+    # 감사도 구간을 끊어야 앞선 이사 직위가 뒤 감사 후보에게 넘어가지 않는다.
+    # 안건 전체의 declared_role 어휘와는 분리한다(감사위원이 되는 독립이사 등 복합 선거).
+    candidate_roles = _DECLARED_ROLE + (
+        ("감사위원회위원", "감사위원회 위원"), ("감사위원", "감사위원"),
+        ("비상근감사", "비상근감사"), ("상근감사", "상근감사"), ("감사", "감사"),
+    )
     marks: list[tuple[int, str]] = []
-    for kw, canon in sorted(_DECLARED_ROLE, key=lambda x: -len(x[0])):
+    for kw, canon in sorted(candidate_roles, key=lambda x: -len(x[0])):
         for m in re.finditer(re.escape(kw), t):
+            if kw == "감사" and re.match(r"위원|보고|결과|의견|원|실|본부|팀|인", t[m.end():]):
+                continue  # 감사보고·감사 조직은 후보의 직위가 아니다.
+            if kw.startswith("감사위원") and re.match(
+                r"감사위원(?:회위원)?(?:이되는|인)(?:사외|독립)이사", t[m.start():]
+            ):
+                continue  # 분리선출 문구는 뒤의 사외/독립이사와 같은 자리다.
             if not any(p <= m.start() < p + len(k) for p, k in
                        [(pp, kk) for pp, kk in marks]):
                 marks.append((m.start(), kw))
     if not marks:
         return None, ""
     marks.sort()
-    _canon = dict(_DECLARED_ROLE)
+    _canon = dict(candidate_roles)
     segs = [(_canon[kw], t[pos:(marks[i + 1][0] if i + 1 < len(marks) else len(t))])
             for i, (pos, kw) in enumerate(marks)]
     if nm:
@@ -2782,9 +2800,9 @@ def parse_personnel_xml(html: str) -> dict:
             _c["declaredRole"] = _role
             _c["declaredRoleBasis"] = _basis
             _rt, _rb = (_c.get("roleType") or "").strip(), _c.get("roleTypeBasis")
-            # 비교는 **범주**로 한다 — 「독립이사」(표)와 「사외이사」(제목)는 같은 자리다.
-            # 문자열로 비교하면 명칭 변경(§542의8) 전후 표기가 섞인 공고마다 거짓 충돌이 난다.
-            if _basis == "named" and _rb in (None, "title") and not same_role_class(_rt, _role):
+            # 구간 제목 추정은 같은 범주라도 후보를 지목한 원문 표기로 정밀화한다
+            # (예: 감사 → 비상근감사). 표 컬럼은 보존하고 충돌만 범주로 비교한다.
+            if _basis == "named" and _rb in (None, "title") and _rt != _role:
                 _c["roleTypeBefore"] = _rt or None
                 _c["roleType"] = _role
                 _c["roleTypeBasis"] = "title_named"
@@ -3407,6 +3425,19 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                                       '해당', '부', '무', '여', '유', 'X', 'x', 'N', 'O', 'Y'):
                             return None
                         # "사내이사 후보자(재선임)" / "사외이사후보자" → 표준 role
+                        # 감사 직위는 앞의 명시값과 괄호 설명을 구별한다.
+                        # '비상근감사(감사위원 아님)'의 뒤 낱말을 직위로 확정하지 않는다.
+                        audit_parts = re.split(r'[\(\[（]', v_norm, maxsplit=1)
+                        audit_head = re.sub(r'(?:후보자?|신규선임|재선임|중임|연임)$', '', audit_parts[0])
+                        audit_roles = {
+                            '비상근감사': '비상근감사', '상근감사': '상근감사', '감사': '감사',
+                            '감사위원': '감사위원', '감사위원회위원': '감사위원',
+                            '비상근감사위원': '감사위원', '상근감사위원': '감사위원',
+                        }
+                        if audit_head in audit_roles:
+                            if len(audit_parts) > 1 and re.match(r'(?:아님|아니|해당없음)', audit_parts[1]):
+                                return v  # 앞의 직위 자체를 부정한 셀은 원문을 보존한다.
+                            return audit_roles[audit_head]
                         # 상법 1차 개정(§542의8, 2026-07-23 시행)으로 사외이사 → 독립이사.
                         # 시행 전후 공고가 섞이므로 둘 다 받는다. 표기는 원문대로 보존한다 —
                         # 독립성 검증 경로는 '사외'와 '독립'을 모두 사외로 취급한다.
@@ -3414,10 +3445,6 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         if '사외이사' in v: return '사외이사'
                         if '사내이사' in v: return '사내이사'
                         if '비상무이사' in v or ('비상무' in v and '이사' in v): return '기타비상무이사'
-                        if '상근감사' in v: return '상근감사'
-                        if '비상근감사' in v: return '비상근감사'
-                        if '감사위원' in v: return '감사위원'
-                        if v == '감사': return '감사'
                         # "예/Y/O" 같이 사외이사 여부 binary값일 때는 cat fallback (None 반환 → category 사용)
                         if v_norm in ('예', 'YES', 'TRUE'):
                             return None  # 실제 role은 안건 category에서
@@ -3430,6 +3457,21 @@ def _extract_candidates(agenda_detail: dict, html: str = "") -> list[dict]:
                         val = row[ci].strip()
                         if '생년월일' in h:
                             candidate["birthDate"] = val
+                        elif (term_header := _TERM_HEADER_RE.fullmatch(h)):
+                            # 같은 후보표 행에서만 붙인다. 이름으로 다른 공시·경력을 섞지 않는다.
+                            unit = term_header['unit']
+                            candidate["termRaw"] = val
+                            candidate["termDetails"] = {
+                                **parse_appointment_term(val, unit=unit),
+                                "source": "candidate_table", "source_header": header,
+                                "source_unit": unit, "header_note": term_header['note'] or None,
+                            }
+                            if term_header['note']:
+                                term_details = candidate["termDetails"]
+                                if term_details["parse_status"] == "parsed":
+                                    term_details["parse_status"] = "partial"
+                                term_details["requires_review"] = True
+                                term_details["warnings"].append("임기 열 제목에 주석이 있습니다. 원문 각주를 확인하세요.")
                         elif (('사외이사' in h or '독립이사' in h) and '후보' in h
                               and '여부' in h):
                             # 「사외이사후보자여부 : 여」는 노이즈가 아니라 '이 후보는 사외이사'라는

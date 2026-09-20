@@ -1550,7 +1550,7 @@ def apply_roster_prior(ev: dict[str, Any], candidate: dict[str, Any], roster_ind
 #
 # ⚠️ hffc_pd(재직기간)는 **등기 구분과 함께** 써야 한다. 미등기 행에도 연수가 찍히고(실측 640건,
 #    삼성중공업 미등기 부사장 6년) 그것만 빼 쓰면 비등기 시절이 그대로 딸려 온다.
-_ROSTER_BOARD_TYPES = ("사내이사", "사외이사", "기타비상무이사", "감사")
+_ROSTER_BOARD_TYPES = ("사내이사", "사외이사", "독립이사", "기타비상무이사", "감사")
 
 # roster 를 어느 보고서에서 가져오나 — (몇 해 전, reprt_code, 이름, 기준일 월).
 # 신선한 순서로 시도하고 없으면 다음으로 내려간다.
@@ -1695,8 +1695,8 @@ def apply_roster_board_tenure(
         if not same_person:
             return  # 동명이인만 있었다 = 이 사람 정보가 아니다 → 덮지 않는다
         types = [(m.get("director_type") or "").strip() for m in same_person]
-        if not all("미등기" in t for t in types if t):
-            # 「등기」·「집행임원」처럼 우리가 모르는 표기 → 모른다고 말한다(미등기라 단정 금지)
+        if not all(t and "미등기" in t for t in types):
+            # 빈칸도 미확정이다. 걸러 버리면 all(empty)가 미등기 확정으로 바뀐다.
             prov["director_type"] = next((t for t in types if t), None)
             prov["note"] = "임원현황의 등기 구분 표기를 해석하지 못해 등기 여부를 확정하지 못했습니다"
             prov["roster_row"] = _roster_row_raw(same_person[0])
@@ -2003,6 +2003,9 @@ async def evaluate_candidate_async(
         "name": candidate.get("name"),
         "birth_date": candidate.get("birthDate"),
         "role_type": candidate.get("roleType"),
+        # 소집공고 후보표의 선임 예정 임기. 기존 재직기간·확정 만료일과는 별개다.
+        "term": candidate.get("termRaw"),
+        "term_details": candidate.get("termDetails"),
         # 후보자 표와 안건 제목이 직위를 다르게 밝힌 경우 — 어느 쪽도 덮지 않고 사실만 전달한다
         "role_type_conflict": candidate.get("roleTypeConflict"),
         "separate_election": candidate.get("separateElection"),

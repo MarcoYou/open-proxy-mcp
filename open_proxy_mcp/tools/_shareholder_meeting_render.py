@@ -293,6 +293,10 @@ def render_board(payload: dict[str, Any]) -> str:
     lines.append(f"- 주총 종류: {_MEETING_TYPE_KO.get(_mt2, _mt2)}")
     lines.append(f"- 진행 단계: {phase_label(data.get('meeting_phase', ''))}")
     lines.append(f"- 결과 공시: {result_status_label(data.get('result_status', ''))}")
+    receipt = (data.get("notice") or {}).get("rcept_no")
+    if isinstance(receipt, str) and re.fullmatch(r"[0-9]{14}", receipt):
+        lines.append(f"- 원문: [주주총회 소집공고](https://dart.fss.or.kr/dsaf001/main.do?rcpNo={receipt})")
+        lines.append("- 확인 위치: 주주총회 목적사항별 기재사항의 이사·감사 선임 후보자 표와 관련 각주")
     lines.append("")
     lines.extend(warning_block(payload))
 
@@ -324,6 +328,16 @@ def render_board(payload: dict[str, Any]) -> str:
             lines.append(f"- 후보자: **{candidate.get('name', '-') }**")
             if candidate.get("roleType"):
                 lines.append(f"  - 직위: {candidate.get('roleType')}")
+            if candidate.get("termRaw"):
+                raw_term = " ".join(candidate["termRaw"].split())
+                term_details = candidate.get("termDetails") or {}
+                if raw_term.isascii() and raw_term.isdigit() and term_details.get("source_unit") in ("년", "개월"):
+                    raw_term += term_details["source_unit"]
+                lines.append(f"  - 공시상 임기(선임 예정): {raw_term}")
+                if term_details.get("requires_review"):
+                    lines.append("  - 임기 확인: 조건·각주 또는 미확정 표현이 있어 원문 확인 필요")
+            elif item.get("action") in ("선임", "재선임", "중임", "연임"):
+                lines.append("  - 공시상 임기(선임 예정): 임기 정보 미확인 — 후보표 원문 확인 필요")
             if candidate.get("mainJob"):
                 lines.append(f"  - 주요경력: {candidate.get('mainJob')}")
             if candidate.get("recommender"):

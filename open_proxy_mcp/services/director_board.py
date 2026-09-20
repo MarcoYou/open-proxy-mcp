@@ -477,7 +477,7 @@ def _roster_key(row: dict[str, Any]) -> str:
 
 
 # 등기 이사회 멤버 구분값(rgist_exctv_at은 '등기여부'가 아니라 이사 '구분'을 담음 — QA 260708)
-_BOARD_TYPES = {"사내이사", "사외이사", "기타비상무이사", "감사"}
+_BOARD_TYPES = {"사내이사", "사외이사", "독립이사", "기타비상무이사", "감사"}
 
 
 
@@ -597,7 +597,19 @@ async def _roster_scope(
     # José: Jose Munoz↔호세무뇨스)은 여전히 Pass 2로 잡힘 — 남은 후보가 1쌍뿐이면 유일하니까.
     changes: list[dict[str, Any]] = []
     prev_year = latest - 1
-    if prev_year in snapshots and snapshots[prev_year]:
+    comparison_available = bool(current and snapshots.get(prev_year))
+    comparison_note = None
+    if not current:
+        comparison_status = "unknown"
+        roster_as_of = None
+        comparison_note = (
+            f"{latest}년 임원현황을 확인하지 못해 재직/사퇴 비교 미산출. "
+            "조회된 인원이 없다는 뜻이며 전원 이탈을 뜻하지 않습니다. "
+            "정기보고서 원문 「임원 및 직원 등에 관한 사항 → 임원 현황」을 확인하세요.")
+    elif lookback_years < 2:
+        comparison_status = "not_requested"
+    elif comparison_available:
+        comparison_status = "compared"
         changes = _diff_roster_rows(
             list(snapshots[prev_year].values()), list(current.values()),
             joined_label="신규선임/등재", left_label="이탈(사퇴·임기만료·해임 중 하나)")
@@ -605,7 +617,13 @@ async def _roster_scope(
             c["since_year" if "이탈" not in c["change"] else "until_year"] = (
                 latest if "이탈" not in c["change"] else prev_year)
     else:
-        warnings.append(f"{prev_year}년 임원현황이 없어 재직/사퇴 비교 미산출.")
+        comparison_status = "no_prior"
+        comparison_note = (
+            f"현재 명단은 확인했으나 {prev_year}년 임원현황이 없어 요청한 재직/사퇴 비교 미산출. "
+            "현재 명단의 오류나 변동 없음 판정은 아닙니다. "
+            "전년 사업보고서 원문 「임원 및 직원 등에 관한 사항 → 임원 현황」을 확인하세요.")
+    if comparison_note:
+        warnings.append(comparison_note)
 
     # 직전 사업보고서 이후의 **기중 변동**(260730 사용자 지적).
     # 사업보고서끼리 비교하면 6월에 사임한 이사가 안 보인다 — 다음 사업보고서가 나와야 드러난다.
@@ -643,7 +661,7 @@ async def _roster_scope(
     our_outside_new = sum(1 for c in changes if "이탈" not in c["change"] and is_outside_role(c.get("director_type")))
     official_latest = next((o for o in official_changes if o["year"] == latest), None)
     diff_cross_check = None
-    if official_latest is not None:
+    if official_latest is not None and comparison_available:
         official_appointed = official_latest.get("appointed") or 0
         diff_cross_check = {
             "our_outside_director_new_appointments": our_outside_new,
@@ -664,6 +682,8 @@ async def _roster_scope(
     return {
         "roster": roster,
         "roster_as_of": roster_as_of,   # 현재 명단이 어느 보고서 기준인지 — 기준일이 다르면 해석이 달라진다
+        "comparison_status": comparison_status,
+        "comparison_note": comparison_note,
         # 직전 사업보고서 이후 기중 변동 — 연간 diff 가 놓치는 것.
         # 연간 diff 와 같은 기준으로 **이사회(등기)만** 싣는다 — 상무 인사이동을 이사회 변동으로
         # 오독하던 문제(QA 260709)를 여기서 되풀이하지 않는다. 집행임원은 건수만 요약한다.
@@ -1318,8 +1338,11 @@ async def build_director_board_payload(
     except Exception:  # noqa: BLE001 — 관측 로그가 tool 동작을 절대 깨지 않게
         pass
 
+    status = (AnalysisStatus.REQUIRES_REVIEW
+              if (data.get("roster") or {}).get("comparison_status") in {"unknown", "no_prior"}
+              else AnalysisStatus.EXACT)
     return ToolEnvelope(
-        tool="director_board", status=AnalysisStatus.EXACT, subject=canonical_name,
+        tool="director_board", status=status, subject=canonical_name,
         warnings=warnings, data=data,
     ).to_dict()
 
@@ -1388,6 +1411,9 @@ def _collect_data_quality_flags(data: dict[str, Any]) -> list[dict[str, Any]]:
                                  else " 폴백도 불가(compensation 연도별 한도 부족).")})
 
     roster = data.get("roster") or {}
+    if roster.get("comparison_note"):
+        flags.append({"scope": "roster", "kind": "roster_comparison_unavailable", "severity": "warn",
+                      "detail": roster["comparison_note"]})
     cc = roster.get("diff_cross_check") or {}
     if cc:
         ours = cc.get("our_outside_director_new_appointments") or 0

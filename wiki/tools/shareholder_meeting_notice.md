@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
-updated: 2026-09-04
+updated: 2026-09-20
 description: 주주총회 소집공고 (사전) — DART API/XML 기반
 related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_structure, proxy_contest, evidence]
 ---
@@ -75,6 +75,42 @@ sequenceDiagram
 | `data.timings_ms` | `resolve_company`, `fiscal_month_lookup`, `select_notice_candidate`, `select_notice_candidate.search_filings`, `select_notice_candidate.fetch_top_documents`, `select_notice_candidate.parse_top_documents`, `select_notice_candidate.filter_meeting_window`, `select_notice_candidate.build_candidate`, `select_notice_candidate.full_year_fallback`, `coverage_search`, `load_notice_bundle`, `total` 등 stage별 소요 시간(ms). 병목 원인 확인용. |
 
 ## 파싱 정확도 / relation metadata
+
+- **후보표의 임기:** 같은 행의 임기 열이 있을 때만 `termRaw`와 `termDetails`를 붙인다.
+  다른 공시·정관 일반 규정·경력 기간에서 이름만 대조해 임기를 보충하지 않는다.
+  내부 후보 평가에도 각각 `term`, `term_details`로 전달하며 선임 결과·기존 재직기간과 구별한다.
+- **후보 응답의 원문 확인:** `board` 읽기용 응답에도 선택된 공시의 원문 링크와 후보표 확인 위치를 제공한다.
+  선임 후보의 임기 필드가 없으면 「임기 정보 미확인」으로 표시한다. 실제 임기가 없다는 판정이나
+  다른 공시의 기간을 보충한 값이 아니며, 접수번호가 없거나 형식이 틀리면 링크를 만들지 않는다.
+- **감사 구분:** 후보표의 `비상근감사`를 부분문자열 `상근감사`로 줄이지 않는다.
+  `감사위원`도 감사 단독과 구분한다. 제목에서 추정한 역할과 표의 역할은 기존 출처 구분을 유지한다.
+- **혼합 선임 제목의 감사 역할:** 후보별 제목 구간을 감사·상근감사·비상근감사·감사위원에서도
+  나눈다. 앞선 이사의 직위를 뒤 감사 후보에게 넘기지 않으며, `declaredRole`은 제목의 표기를
+  유지한다. 후보표의 직위와 다르면 표를 덮지 않고 `roleTypeConflict`로 원문 검토를 요청한다.
+  감사위원회 위원이 되는 사외·독립이사 문구는 기존 복합 선거 해석을 유지한다.
+- **미해결:** 자문 경로의 후보 이름 부분문자열 매칭과 이름만으로 중복을 제거하는 기존 경로는
+  이번 임기 수정 범위가 아니다. 합성 경계 회귀는 외부 호출 없이 재현하며, 실공시 캐시 부재나
+  임기 없는 표본의 통과를 실제 임기 정확도 검증 성공으로 간주하지 않는다.
+
+### 임기 출력 계약
+
+`termRaw`는 후보표 셀에서 읽은 원문이다. `termDetails.raw`에도 보존하며, 읽기용 응답에는
+「공시상 임기(선임 예정)」로 표시한다. **기간을 읽었다고 실제 선임·재직·정확한 만료일이 확인된 것은 아니다.**
+
+| 필드 | 의미 |
+|---|---|
+| `duration_months` | 단위를 명시한 기간의 개월 수. 예: `1년 6개월` → `18`. 숫자만 있고 헤더에도 단위가 없으면 `null` |
+| `start`, `end` | 셀에 직접 적힌 시작·종료. 기간에서 계산하지 않는다. `YYYY`, `YYYY-MM`, `YYYY-MM-DD` 중 원문의 정밀도를 유지 |
+| `start_precision`, `end_precision` | `year`, `month`, `day` 또는 `null`. 월·연 단위를 임의의 일자로 채워 만료일 순위에 넣지 않는다 |
+| `end_condition` | 정기주총 종결·전임자 잔여 임기 등 미해결 조건 원문. 해당 사건의 날짜를 추정하지 않는다 |
+| `parse_status` | `parsed`(지원하는 기간·날짜 표현), `partial`(조건·각주 잔존), `missing`, `unparsed`, `invalid` |
+| `requires_review`, `warnings` | 조건·각주·미확정·잘못된 날짜를 원문 확인 대상으로 알림. `parsed`도 법적 유효성·실제 선임의 인증이 아님 |
+| `source`, `source_header` | `candidate_table`과 원래 임기 열 제목. 접수번호·안건번호는 바깥 응답과 함께 보존 |
+| `source_unit`, `header_note` | 열 제목에 명시된 `년`·`개월`과 주석 표지. 숫자만 있는 셀은 읽기용 응답에 명시 단위를 함께 표시. 헤더에 각주가 있으면 검토 대상으로 유지 |
+
+임기 열 자체가 없으면 두 후보 필드도 없다. 빈 임기 셀이 있으면 원문과 `missing`을 남긴다.
+헤더·셀의 각주 표지는 남기되 각주 본문의 해석은 하지 않는다. 이름 칸이나 안건 제목 속 임기,
+소집결의·결과 공시와의 인물 연결도 아직 자동 처리하지 않는다.
 
 - agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 포함한다.
 - `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`, **`withdrawn`**.
@@ -188,6 +224,16 @@ sequenceDiagram
   못 보던 상태였다.
 
 ## 변경 이력
+- 2026-09-20: 실제 보관 공시의 MCP 응답 재검증에서 확인한 `board` 원문 링크 누락 수정.
+  선임 후보의 임기 정보 미확인 표시와 원문 후보표 확인 위치를 추가. 구조화 파싱값은 변경하지 않음.
+- 2026-09-20: 후보표 비상근감사 오분류 수정. 후보 행의 명시 임기를 원문·기간·날짜 정밀도·조건으로
+  분리하고 내부 평가·읽기용 응답에 전달한다. 날짜 추산·다른 공시 이름 연결은 하지 않는다.
+  임기 정규화 경계 검사와 실제 MCP JSON·Markdown 회귀를 추가했다.
+- 2026-09-20: 혼합 선임 제목에서 감사 후보가 앞선 이사 역할을 상속하던 오류 수정.
+  구간 제목에서 추정한 직위는 같은 범주여도 후보를 지목한 정확한 표기로 정밀화한다
+  (예: 감사 → 비상근감사). 이전 값은 `roleTypeBefore`, 근거는 `roleTypeBasis=title_named`로
+  남긴다. 표 컬럼 값·표와 제목의 충돌·감사위원 분리선출 해석은 보존한다.
+  합성 문서 경계 회귀와 실제 앱의 streamable-http 호출에서 후보별 직위 렌더 검증 추가.
 - 2026-09-09: 표 파서가 DART 셀 태그 `<TE>`/`<TU>` 를 못 읽어 **열이 잘리던** 것 수정
   (`_CELL_TAGS`). `<TE>` 는 `<TD>` 와 같은 행에 섞여 오므로 증상은 「행이 빈다」가 아니라
   「표가 그럴듯한 모양으로 뜻만 달라진다」였다 — 예: `['사업연도','부터']`(날짜 누락).
@@ -209,6 +255,7 @@ sequenceDiagram
 
 ## ref
 
+- [파싱 개선·고정 원문 회귀 평가](../../docs/PARSER_FEEDBACK.md) — 후보 이름·생년월일·역할과 출현 횟수의 검증 범위.
 - 주총 결과 의결: [[shareholder_meeting_results]]
 - 종합 분석 (안건별 FOR/AGAINST): [[proxy_advise_before_meeting]]
 - 후보 평가 (사용자 노출 X — proxy_advise chain): director_evaluation (services internal)
