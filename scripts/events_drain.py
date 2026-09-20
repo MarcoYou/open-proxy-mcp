@@ -142,11 +142,10 @@ def main(apply: bool) -> None:
     print(f"events 범위: {_kst(mn)} ~ {_kst(mx)} · mode={'APPLY' if apply else 'DRY-RUN'}")
     print(f"백업 컬럼 {len(cols)}개(스키마 파생): {', '.join(n for n, _t in cols)}")
     if apply:
-        # 지운 행은 CSV 에만 남는다. 지금 통계·덱은 **DB 만** 읽으므로, 드레인한 구간의
-        # first_seen·코호트는 그 시점부터 보이지 않는다(장기 사용자가 「신규」로 재라벨된다).
-        # 이건 컬럼 손실과 달리 복구는 되지만, 모르고 돌리면 지표가 조용히 틀어진다.
-        print("⚠️  드레인한 주는 DB 에서 사라진다 — usage_tracker·트랙션덱은 DB 만 읽으므로\n"
-              "    그 구간의 first_seen·코호트가 안 보이게 된다(parquet 로는 남는다).")
+        # usage_tracker·트랙션덱은 DB와 private parquet을 event_id로 합쳐 읽는다. 저장소를
+        # 옮길 때 OPM_STORAGE_REPO가 끊기면 과거 first_seen·코호트가 빠지므로 경로는 알린다.
+        print("ℹ️  드레인한 주는 DB에서 빠지고 private parquet에서 계속 읽는다.\n"
+              "    저장소를 옮기면 OPM_STORAGE_REPO 경로도 함께 맞출 것.")
     print()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
