@@ -11,11 +11,11 @@
   · `--apply` 는 되돌릴 수 없는 삭제다. 백업 커밋이 **사람 손으로** 확인된 뒤에 도는 게 맞다.
 감시는 **읽기만** 한다(SELECT + 용량 조회). 지우지도, 쓰지도 않는다.
 
-260914 확장: 용량 % 하나로는 부족했다. events 를 다 비워도 `fwd`(서빙용 스냅샷, 벌당 ≈37MB)와
-`fwd_hist`(리비전 이력)가 DB 의 대부분이라, 보존 정책(fwd 최신 2주+pin · fwd_hist 13주)이
+260914 확장: 용량 % 하나로는 부족했다. events 를 다 비워도 `fwd`(서빙용 스냅샷, 벌당 ≈31MB)와
+`fwd_hist`(리비전 이력)가 DB 의 대부분이라, 보존 정책(fwd 최신 4주 · fwd_hist 13주)이
 지켜지는지를 **불변식**으로 같이 본다. 새 fwd 한 벌을 먼저 올린 뒤 정리하므로 500MB 직전에서
 알리면 늦다. 경고선은 90%다. fwd 정리는 private forward-collector 의
-`prune_fwd.py --keep-weeks 2 --pin 2026-08-31`가, fwd_hist 는 `push_fwd_hist.py`의 롤링이 맡는다.
+`prune_fwd.py --keep-weeks 4`가, fwd_hist 는 `push_fwd_hist.py`의 롤링이 맡는다.
 
 실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P] [--tables]
                                               [--fwd-max-weeks N] [--hist-max-weeks N]
@@ -55,8 +55,8 @@ def main() -> int:
                     help="허용할 밀린 완결 주 수 (기본 0 — 한 주만 밀려도 바로 알린다)")
     ap.add_argument("--warn-pct", type=int, default=90,
                     help="무료티어 경고선 %% (기본 90 — 새 fwd 한 벌의 일시 공간까지 남긴다)")
-    ap.add_argument("--fwd-max-weeks", type=int, default=3,
-                    help="fwd 최대 ISO 주 수 (최신 2주 + 별도 pin 1주)")
+    ap.add_argument("--fwd-max-weeks", type=int, default=4,
+                    help="fwd 최대 ISO 주 수 (최신 4주)")
     ap.add_argument("--hist-max-weeks", type=int, default=13,
                     help="fwd_hist 의 as_of 가 이 ISO 주 수를 넘으면 실패 (13주 롤링)")
     ap.add_argument("--tables", action="store_true",
@@ -154,7 +154,7 @@ def main() -> int:
             or fwd_duplicate_days or hist_duplicate_days):
         print("""
 조치 (fwd·fwd_hist — private open-proxy-storage/forward-collector, 원본은 그 머신의 DuckDB·jsonl 이라 내보내기 불필요):
-  python3 prune_fwd.py --keep-weeks 2 --pin 2026-08-31 --dry-run  # 지울 날짜 확인 → 빼고 다시 실행
+  python3 prune_fwd.py --keep-weeks 4 --dry-run     # 지울 날짜 확인 → 빼고 다시 실행
   python3 push_fwd_hist.py --keep-weeks 13        # 이력 롤링""")
     if len(weeks) > a.max_weeks or pct >= a.warn_pct:
         print("""
