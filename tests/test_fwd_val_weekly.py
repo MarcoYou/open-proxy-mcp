@@ -48,6 +48,25 @@ def test_finish_rows_marks_dividend_denominator_like_the_collector():
     assert "as_of" not in src[0]                                        # 입력을 건드리지 않는다
 
 
+def test_prune_stale_days_uses_the_source_days_as_allowlist():
+    class Result:
+        rowcount = 12
+
+    class Con:
+        def __init__(self):
+            self.seen = None
+
+        def execute(self, sql, params):
+            self.seen = (sql, params)
+            return Result()
+
+    con = Con()
+    assert fv.prune_stale_days(con, D) == 12
+    sql, params = con.seen
+    assert "DELETE FROM opm_val_fwd" in sql and "as_of = ANY" in sql
+    assert params == (D,)
+
+
 class _Cur:
     def __init__(self, seen):
         self.seen = seen

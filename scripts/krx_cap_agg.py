@@ -21,21 +21,22 @@
   남긴다. 분류가 없는 종목(우선주·신규상장 등)은 버리지 않고 `_UNCLASSIFIED` 버킷에 남긴다 —
   조용히 빠지면 섹터 합이 시장 합보다 작은 이유를 아무도 모른다.
 
-★ 왜 증분이 아니라 전량 재적재인가. ① 외부 API 0콜이고 11.5초다 — 「전체 재실행 금지」는
-  DART 를 다시 때리는 파이프라인을 겨눈 규칙이고 여기엔 걸 것이 없다. ② WICS 관측이 하나
-  늘면 **과거 전 구간의 소급 분류가 바뀐다.** 증분으로 최근만 고치면 과거가 옛 분류로 남아
-  같은 표 안에 두 기준이 섞인다.
+★ 평소에는 최신 주만 다시 적재한다. 외부 API 호출은 없어도 전 구간 DELETE·INSERT가 매주
+  큰 WAL과 통계 누적을 만들기 때문이다. 새 WICS 관측이 들어오면 그 관측일부터만 다시 계산한다.
+  과거 날짜에는 날짜 이하 최신 스냅샷을 쓰므로 새 관측 이전 구간은 바뀌지 않는다. 원천 정정처럼
+  전 구간을 다시 만들 필요가 있을 때만 `--full`을 쓴다.
 
 ★ UPSERT 만으로는 부족하다 — 어떤 버킷이 비면(그 날 그 업종 종목이 0) 새로 넣을 행이 없어
   **옛 행이 그대로 남는다.** 그러면 섹터 합이 시장 합보다 커진다. 그래서 한 트랜잭션 안에서
   대상 구간을 지우고 다시 넣는다. 파생 100%(krx_weekly × wise_sector)라 되살릴 원천이 항상
   있고, 같은 실행에서 만든 값으로 채우므로 260705 의 DELETE 사고와 형태가 다르다.
 
-실행: python3 scripts/krx_cap_agg.py [--since 20151230]
+실행: python3 scripts/krx_cap_agg.py [--since 20151230 | --full]
 """
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import os
 import sys
 from pathlib import Path
@@ -100,9 +101,29 @@ def _eras(snaps: list[str], since: str) -> list[tuple[str, str, str]]:
     return out
 
 
+def _week_start(dd: str) -> str:
+    """YYYYMMDD가 속한 ISO 주의 월요일."""
+    day = dt.datetime.strptime(dd, "%Y%m%d").date()
+    return (day - dt.timedelta(days=day.weekday())).strftime("%Y%m%d")
+
+
+def _choose_since(*, requested: str | None, full: bool, source_min: str,
+                  source_max: str, latest_snap: str, latest_sector_asof: str | None) -> tuple[str, str]:
+    """재계산 시작일과 이유. 새 분류는 그 날짜 이후에만 영향을 준다."""
+    if requested:
+        return requested, "지정 구간"
+    if full or latest_sector_asof is None:
+        return source_min, "전 구간" if full else "최초 적재"
+    if latest_snap > latest_sector_asof:
+        return latest_snap, "새 WICS 관측 반영"
+    return _week_start(source_max), "최신 주 갱신"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--since", default="20151230", help="이 날짜부터 집계 (기본 = krx_weekly 전 구간)")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--since", help="이 날짜부터 집계 (YYYYMMDD)")
+    mode.add_argument("--full", action="store_true", help="krx_weekly 전 구간을 다시 집계")
     a = ap.parse_args()
 
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30)
@@ -116,12 +137,29 @@ def main() -> int:
         print("wise_sector 비어 있음 — refresh_wics.py 를 먼저 돌린다")
         return 1
 
+    source_min, source_max = con.execute("SELECT min(price_dd), max(price_dd) FROM krx_weekly").fetchone()
+    if not source_min:
+        print("krx_weekly 비어 있음 — 먼저 시세를 적재한다")
+        return 1
+    latest_sector_asof = con.execute(
+        "SELECT max(sector_asof) FROM krx_cap_agg WHERE scheme <> 'market'"
+    ).fetchone()[0]
+    since, reason = _choose_since(
+        requested=a.since,
+        full=a.full,
+        source_min=source_min,
+        source_max=source_max,
+        latest_snap=snaps[-1],
+        latest_sector_asof=latest_sector_asof,
+    )
+    print(f"재계산 시작 {since} · {reason}", flush=True)
+
     rows: list[tuple] = []
-    for dd, mkt, n, cap in con.execute(Q_MARKET, (a.since,)):
+    for dd, mkt, n, cap in con.execute(Q_MARKET, (since,)):
         rows.append((dd, mkt, "market", "_ALL", "전체", n, cap, None))
     print(f"시장 집계 {len(rows):,}행", flush=True)
 
-    eras = _eras(snaps, a.since)
+    eras = _eras(snaps, since)
     for scheme, code, name in (("wics_sector", "sector_code", "sector"),
                                ("wics_industry", "industry_code", "industry")):
         before = len(rows)
@@ -133,7 +171,7 @@ def main() -> int:
 
     # 지우고-넣기를 한 트랜잭션으로. 중간에 죽어도 옛 표가 그대로 남는다(빈 표가 되지 않는다).
     with con.cursor() as cur:
-        cur.execute("DELETE FROM krx_cap_agg WHERE price_dd >= %s", (a.since,))
+        cur.execute("DELETE FROM krx_cap_agg WHERE price_dd >= %s", (since,))
         deleted = cur.rowcount
         for i in range(0, len(rows), 5000):
             cur.executemany(UPSERT, rows[i:i + 5000])

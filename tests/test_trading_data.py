@@ -52,6 +52,22 @@ def test_eras_split_at_each_snapshot():
         assert len(hits) == 1, f"{probe} 가 {len(hits)}개 시대에 속함"
 
 
+def test_cap_agg_rebuild_scope_is_incremental_by_default():
+    """평소엔 최신 주만, 새 WICS 관측은 그 관측일부터, 명시는 그대로 적용한다."""
+    m = _load_script("krx_cap_agg")
+    common = dict(source_min="20151230", source_max="20260918", latest_snap="20260828")
+    assert m._choose_since(requested=None, full=False, latest_sector_asof="20260828", **common) == (
+        "20260914", "최신 주 갱신")
+    assert m._choose_since(requested=None, full=False, latest_sector_asof="20260731", **common) == (
+        "20260828", "새 WICS 관측 반영")
+    assert m._choose_since(requested="20260101", full=False, latest_sector_asof="20260828", **common) == (
+        "20260101", "지정 구간")
+    assert m._choose_since(requested=None, full=True, latest_sector_asof="20260828", **common) == (
+        "20151230", "전 구간")
+    assert m._choose_since(requested=None, full=False, latest_sector_asof=None, **common) == (
+        "20151230", "최초 적재")
+
+
 # ── 2. tool 개명 접기 — 통계가 두 계열로 갈라지지 않는다 ──
 def test_tool_alias_folds_old_name():
     u = _load_script("usage_tracker")

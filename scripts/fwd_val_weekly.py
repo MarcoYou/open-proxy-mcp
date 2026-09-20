@@ -36,6 +36,7 @@
   — 가장 최근 시세가 아니라 가장 가까운 관측을 쓴다(이전상장으로 시장이 바뀐 뒤 값을 끌어오지 않게).
 - 같은 날짜는 다시 계산해도 같은 값이 나온다. 그래서 이미 쓴 과거 날짜는 건너뛰고, **가장 최근 날짜**만 매번 다시
   계산한다(체인이 같은 날짜를 다시 올릴 수 있다). 전부 다시 쓰려면 `--recompute`.
+- `fwd_hist` 롤링에서 빠진 날짜의 파생 행은 실행할 때 같이 지운다. 원본보다 오래 남은 파생값은 조회되면 안 된다.
 
 실행 (DART·KRX 0콜, 수 초):
   python3 scripts/fwd_val_weekly.py                  # 새 날짜 + 가장 최근 날짜 (cron — market-val-weekly)
@@ -218,6 +219,15 @@ def finish_rows(as_of, class_dd: str, mk_dd: str, rows: list[dict]) -> list[dict
     return out
 
 
+def prune_stale_days(con, hist_days: list) -> int:
+    """원본 `fwd_hist`에서 빠진 날짜의 파생 행을 지운다. 원본이 비었을 때는 호출하지 않는다."""
+    cur = con.execute(
+        f"DELETE FROM {TABLE} WHERE NOT (as_of = ANY(%s))",
+        (hist_days,),
+    )
+    return cur.rowcount
+
+
 # ── 실행 ───────────────────────────────────────────────────────────────
 
 def compute(con, as_of, class_dd: str, mk_dd: str, collector_like: bool = False) -> list[dict]:
@@ -304,6 +314,10 @@ def main(argv: list[str] | None = None) -> int:
     if not price_dds:
         print("krx_weekly 가 비었다 — 시장 구분을 붙일 수 없다.", file=sys.stderr)
         return 1
+    if not a.dry:
+        pruned = prune_stale_days(con, hist_days)
+        if pruned:
+            print(f"원본 이력에서 빠진 파생 행 {pruned}개 삭제")
     done = set() if a.dry else {r[0] for r in con.execute(f"SELECT DISTINCT as_of FROM {TABLE}").fetchall()}
     days = pick_days(hist_days, done, a.recompute or a.dry)
     print(f"선행 배수 집계 · WICS 스냅샷 {len(class_dds)}개(최신 {max(class_dds)}) · 추정치 이력 {len(hist_days)}일"
