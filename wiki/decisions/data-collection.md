@@ -8,6 +8,8 @@ related: [DART-OpenAPI, KRX-KIND, 네이버-금융, 공시유형코드체계, pb
 
 # OPM 데이터 수집 Architecture
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 ## 개요
 
 OPM(open-proxy-mcp)이 사용하는 모든 데이터 source의 entry point, endpoint URL, 파싱 방법, rate limit, fallback chain을 단일 문서로 정리한다.
@@ -100,10 +102,10 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 ### Alias 매핑
 
 `_CORP_ALIASES` (client.py)에 슬랭/영문/사명변경 등 30+ alias 등록.
-- 영문: `kt&g` → 케이티앤지, `ls electric` → 엘에스일렉트릭
-- 슬랭: `삼전` → 삼성전자, `현차` → 현대자동차, `카뱅` → 카카오뱅크
-- 사명 변경: `dgb금융지주` → iM금융지주, `대구은행` → 아이엠뱅크
-- 영문 약칭: `kb` → KB금융, `bnk` → BNK금융지주, `jb` → JB금융지주
+- 영문: `kt&g` → 예시기업 FW, `ls electric` → 예시기업 EI
+- 슬랭: `삼전` → 예시기업 CW, `현차` → 예시기업 HM, `카뱅` → 예시기업 FR
+- 사명 변경: `dgb금융지주` → 예시기업 AM, `대구은행` → 예시기업 DW
+- 영문 약칭: `kb` → 예시기업 S, `bnk` → 예시기업 A, `jb` → 예시기업 R
 
 ## 1.3 document.xml — 원문 본문 ZIP
 
@@ -300,7 +302,7 @@ viewer/KIND 요청이 전부 그 함수를 지나기 때문이다 — 호출측�
 조용히 누락된다.
 
 폴백이 도는 조건 자체가 드물다: `_fetch_viewer_sec` 주석대로 **`document.xml` 이 아예 없는
-회사**(KB금융·삼성화재류)에서만 돈다.
+회사**(예시기업 S·예시기업 DA류)에서만 돈다.
 
 ---
 

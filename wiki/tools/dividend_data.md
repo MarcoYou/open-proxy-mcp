@@ -13,6 +13,8 @@ updated: 2026-09-04
 
 # dividend_data
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 ## 이름 (260903 통합)
 `dividend_history_data` + `dividend_screener` → **`dividend_data`**. 둘이 표를 나눠 갖고
 있던 게 아니라, **스크리너 쪽이 틀린 답을 내고 있었다.** 분기배당 판정이 원장
@@ -37,7 +39,7 @@ DART 정기보고서 `alotMatter` **전수 수집본**(코스피 828사 × FY202
 
 ## 사용법
 ```
-dividend_data(scope="firm", company="현대차", year_from=2020, year_to=2025)
+dividend_data(scope="firm", company="예시기업 HM", year_from=2020, year_to=2025)
 dividend_data(scope="screen", bsns_year=2024, min_payments=2)
 dividend_data(scope="market", year_from=2020, year_to=2025)
 dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
@@ -93,7 +95,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
   실제 결산월이다(코스피 배당사 632/639 가 12월).
 - **배당성향의 분모**: 공시 원문 `(연결)현금배당성향(%)` 을 그대로 싣는다 — **연결 기준이며
   우리가 계산한 값이 아니다.** 같은 회사에서 해마다 크게 튀면 대개 **분모(연결 지배순이익)가 움직인 것**이다 —
-  삼성전자 FY2022 17.9% ↔ FY2023 67.8% 는 배당총액이 9.81조로 같은데 지배순이익이 54.7조 → 14.5조로
+  예시기업 CW FY2022 17.9% ↔ FY2023 67.8% 는 배당총액이 9.81조로 같은데 지배순이익이 54.7조 → 14.5조로
   급감한 결과다(9,809,438 ÷ 14,473,401 백만원 = 67.8%). 종전 서술 「회사가 신고한 분모 기준이 바뀐 것」은
   큰 수치를 검증 없이 서사로 덮은 오판이었다(작업 원칙 2 위반, 260904 정정) — 튀는 값은 원문
   [[evidence]] 와 순이익 추이로 먼저 확인한다.

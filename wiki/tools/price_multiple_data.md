@@ -13,6 +13,8 @@ updated: 2026-09-18
 
 # price_multiple_data
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 ## 이름 (260824 개명)
 `valuation` → **`price_multiple_data`**. 「밸류에이션」이 배수(PER·PBR)와 규모(주가·시총)를 한 이름
 아래 묶고 있었는데, 실제로는 서로 다른 질문이고 파라미터가 서로 다투었다. 규모·거래 쪽은
@@ -27,18 +29,18 @@ DART(공시) + KRX(공식시세) 기반 **상대가치 배수** — PER(FY0·TTM
 
 ## 사용법
 ```
-price_multiple_data(company="두산밥캣")                    # firm: 기업 심층 (실시간)
+price_multiple_data(company="예시기업 BP")                    # firm: 기업 심층 (실시간)
 price_multiple_data(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
-price_multiple_data(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교 + 소속 섹터 시계열(연말 요약+전체 월별)
-price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
+price_multiple_data(scope="sector", company="예시기업 BP")    # 산업별 표 + 기업 vs 소속 섹터 비교 + 소속 섹터 시계열(연말 요약+전체 월별)
+price_multiple_data(scope="firm_history", company="예시기업 CW")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
 price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(중분류 28) — 트레일링 옆에 선행 PER·PBR
 ```
 자연어 예시:
-- "삼성전자 밸류에이션" → firm: PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%
-- "두산밥캣 PBR" → USD 재무 자동 KRW 환산(ECOS 1,434.9) → PBR 0.86
+- "예시기업 CW 밸류에이션" → firm: PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%
+- "예시기업 BP PBR" → USD 재무 자동 KRW 환산(ECOS 1,434.9) → PBR 0.86
 - "코스피 지금 싸?" → market: KOSPI PER 20.4(TTM)·PBR 2.23 + 주간 추이
 - "반도체 업종 밸류" → sector: KSIC 섹터별 PER/PBR 표
-- "두산밥캣 섹터 평균 대비 싸? 비싸?" → sector + company: 기업 vs 소속 섹터 비교 + 섹터 시계열
+- "예시기업 BP 섹터 평균 대비 싸? 비싸?" → sector + company: 기업 vs 소속 섹터 비교 + 섹터 시계열
 - "배당수익률 얼마?" → firm: 현재가 기준(시장·섹터 집계 배당수익률은 market/sector)
 - "업종별 선행 PER" → sector(`wics_sector`·`wics_industry`): 선행 PER·PBR 칸 + 종목수 옆 괄호(추정 종목 수)
 
@@ -104,7 +106,7 @@ price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(
   두면 방식 차이가 기대이익 차이로 읽힌다 — 260913 코스피 전자와 전기제품 선행 PER 이 적자 포함 88.9, 흑자만 24.9 였다.
   흑자만 더한 값은 JSON `fwd_per_pos`, 선행 PSR 은 `fwd_psr` 에 둔다. 합이 0 이하면 트레일링처럼 「적자 −N조」.
 - **보통주는 종목코드 끝자리로 가른다.** `fwd_agg` 는 「숫자 6자리 + 끝자리 0」만 보통주로 쳐서 영문이 섞인 새 코드
-  (0126Z0 삼성에피스홀딩스 등, 260913 에 9종목)를 뺀다. 여기서는 넣는다.
+  (0126Z0 예시기업 CU 등, 260913 에 9종목)를 뺀다. 여기서는 넣는다.
 - **업종·시장 구분은 추정 날짜 시점으로.** 업종 = 추정 날짜 이하 가장 최근 WICS 스냅샷(`class_dd`), 그보다 이른 것이
   없을 때만 가장 이른 것(소급 — 산업 표가 기업의 WICS 소속을 고르는 규칙과 같다). 시장 구분 = 추정 날짜 이하 가장 최근
   주간 시세(`mk_dd`), 그 주 뒤 상장 종목만 그 뒤 첫 시세. 이번 백필(2026-08-28~09-13)은 9개 날짜 모두 분류 0828 을 써
@@ -148,7 +150,7 @@ price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(
 - **섹터 소속 시계열**(sector scope + company 지정 시): `company_ctx.sector_history` —
   그 기업 소속 섹터의 78개월 전체 시계열(per_fy0·per_ttm·pbr_fy0·pbr_mrq·cap). md 렌더는 연말만
   발췌 표시, 전체는 json의 `data.company.sector_history`. 소규모(`_fold`) 섹터는 fold 버킷 시계열로 폴백.
-- **방법론 통일(260823)**: firm 도 스냅샷과 같이 **보통주 시총÷지배순이익**. 종전엔 firm=주가÷EPS 라 삼성 PER(TTM)
+- **방법론 통일(260823)**: firm 도 스냅샷과 같이 **보통주 시총÷지배순이익**. 종전엔 firm=주가÷EPS 라 예시기업 CO PER(TTM)
   20.0(firm) vs 21.9(스냅샷)처럼 같은 이름으로 다른 정의가 나갔다. 남는 차이는 스냅샷 `cap_pref`(우선주 시총) 합산 여부.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
   조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수.
@@ -159,7 +161,7 @@ price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(
     상장주식수 배율 r ≈ 1** 이 성립한다. 벗어나면 공시 EPS 조각이 옛 분모와 새 분모로 섞였다는
     뜻이라 **PER 을 N/M 으로 무효화**하고 이유를 경고에 적는다(EPS 값은 인풋으로 남겨 진단 가능).
     밴드는 ±50% — 유상증자·감자는 계수 대상이 아니라 r 만 움직이므로 통과시키고 액면분할·병합만
-    잡는다. 실측 계기: 메이슨캐피탈(021880) 10:1 병합에 계수가 없어 TTM 지배순이익 **-70억**인데
+    잡는다. 실측 계기: 예시기업 CA(021880) 10:1 병합에 계수가 없어 TTM 지배순이익 **-70억**인데
     EPS(TTM) **+39원**, **PER 32.31** 이 live 로 나갔다(부호까지 뒤집힘).
   - **갱신**: `market-val-weekly` 가 매일 `krx_base_resets.py --update` → `adj_factor_v3.py` 를
     돌린다(260823 신설, KRX ~4콜/일). 종전엔 cron 이 없어 수동이었다.
@@ -167,7 +169,7 @@ price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(
   `market_fund_quarterly.py` 가 fetch 시점에 그 해/분기 응답에서 `statement_currency()` 로 통화를
   감지해 KRW 로 환산한 뒤 저장한다 — **DB 의 ni/eq 는 항상 KRW**. 라벨도 `currency='KRW'` +
   `orig_currency=원통화` 로 남겨 하위 read-time FX 가 no-op 이 된다. 원통화로 저장하고 조회 시점에
-  최신 통화 라벨 하나를 전 연도에 곱하면, **연도별로 기능통화가 바뀌는 회사**(두산밥캣)의 옛 연도가
+  최신 통화 라벨 하나를 전 연도에 곱하면, **연도별로 기능통화가 바뀌는 회사**(예시기업 BP)의 옛 연도가
   자릿수째 부풀어 오른다. 상세: private wiki.
 
 ## 데이터 계보 (소스 → 아이템 → 연산) — 핵심
@@ -196,7 +198,7 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
 배당수익률    = FY0 DPS(alotMatter 보통주 현금배당) ÷ 현재가 × 100
 ```
 - **배수는 시총 기반**(`multiples_basis: common_mktcap_over_controlling_income`, 260823 전환). 종전 「주가÷EPS·
-  주가÷BPS」는 분모에 주식수가 들어가 액면분할·병합 때 옛 주식수 EPS 와 새 주가가 섞였다(메이슨캐피탈 적자인데
+  주가÷BPS」는 분모에 주식수가 들어가 액면분할·병합 때 옛 주식수 EPS 와 새 주가가 섞였다(예시기업 CA 적자인데
   PER 32.31). 시총÷이익은 주식수가 상쇄돼 조정성 이벤트에 불변이고, market/sector/firm_history 스냅샷과 정의가 같다.
   대가 ①시총은 오늘 주식수만 봐 가중평균이 아니다(연중 증자 회사는 공시 EPS 기반과 벌어짐) ②분자는 보통주
   시총인데 분모 지배순이익·지배자본에는 우선주 몫이 포함돼 배수가 소폭 낮다. EPS·BPS 는 인풋(`inputs`)으로 계속
@@ -283,7 +285,7 @@ sequenceDiagram
     participant FX as fx_to_krw(ECOS/캐시)
     participant SH as stockTotqySttus
     participant KX as KRX bydd_trd
-    U->>V: company="두산밥캣"
+    U->>V: company="예시기업 BP"
     V->>R: 식별 → corp_code·stock_code (비상장/우선주 게이트)
     V->>FM: 요약(eps·roe·revenue·cap_status·fy)
     V->>V: get_company_info (induty·acc_mt) → 금융판별
@@ -297,15 +299,15 @@ sequenceDiagram
 
 ## 검증
 7-에이전트 다각 검증(대형제조·금융·통화환산·지주NCI·부실스케일·엣지식별·독립산식감사) + 웹검증.
-**견고성 blocker 0** — 18개 배수 독립 재계산 전부 일치, 두 자본 구분 SK(NCI 71%) 정확, 통화 ECOS
-정합, 완전자본잠식(이오플로우) N/M 정확, 크래시·오매핑 0. 상세 = private wiki §"등록 전
+**견고성 blocker 0** — 18개 배수 독립 재계산 전부 일치, 두 자본 구분 예시지주 A(NCI 71%) 정확, 통화 ECOS
+정합, 완전자본잠식(예시기업 FA) N/M 정확, 크래시·오매핑 0. 상세 = private wiki §"등록 전
 7-에이전트 검증".
 
 ## 알려진 issue + v1.1
 - **EPS FY0/TTM 방법론 비대칭**(문서화 완료, 통일은 v1.1).
 - **shares_bad**(유통주식수 파싱오류) 시 PBR·EPS_ttm은 무효화되나 eps_fy0(공시값)는 유지 — 흑자
   종목이면 EPS 과소·PER 과대 누수 가능(v1.1: eps_fy0도 차단).
-- **unlisted 상장후보 안내**가 리졸버 exact-match 단락으로 비는 경우(예 "삼성") — 부분매치 별도조회(v1.1).
+- **unlisted 상장후보 안내**가 리졸버 exact-match 단락으로 비는 경우(예 "예시기업 CO") — 부분매치 별도조회(v1.1).
 - 리츠 전용 섹터 처리 없음 / 데이터부재(상폐) 종목이 금융으로 오분류(경미).
 - v1.1 백로그: RIM·EV/EBITDA·PSR·FCF·peer 랭킹·자기 5년 밴드·PIT 시계열 · FX 평균환율(flow) ·
   한국은행 ECOS를 야후 폴백 대신 정본 유지 · 우선주 총시총 합산.

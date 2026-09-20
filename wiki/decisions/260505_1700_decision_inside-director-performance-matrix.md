@@ -12,12 +12,14 @@ related_lessons:
 
 # 사내이사 재직 중 성과 매트릭스 (2x3) 도입
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 > **260914 정정 addendum**: 아래 CSR 공식(배당+소각/순이익)은 이 결정 당시(2026-05-05) 구현
 > 그대로다. 그런데 `wiki/rules/concepts/주주환원.md`에는 이보다 앞선 2026-04-29에 이미 "CSR
 > 분자는 매입, 소각 아님"이 결정돼 있었다 — 이 매트릭스는 그 결정을 반영하지 못한 채 소각
 > 기준으로 구현됐다. 마르코와 대화에서 발견·정정(260914): `director_performance.py`/
 > `proxy_advise.py`의 CSR 분자를 자사주 매입(acquisition_decision+trust_contract) 기준으로
-> 바꿨다. 31개사 표본 영향 스캔 결과 2곳(삼성화재·삼성물산) classification이 우수→양호로
+> 바꿨다. 31개사 표본 영향 스캔 결과 2곳(예시기업 DA·예시기업 CQ) classification이 우수→양호로
 > 하락, 나머지는 등급 버킷 유지. 아래 원문은 당시 결정 기록으로 그대로 둔다 — 현재 공식은
 > `director_performance.py` 코드와 `wiki/rules/concepts/주주환원.md`가 기준.
 

@@ -1,5 +1,7 @@
 # Financial Metrics
 
+> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
+
 **Pulls the financial statements and auto-computes dozens of key metrics like ROE.** Rather than echoing DART numbers, it turns them into ratios for profitability, stability, and cash flow at a glance.
 
 ## What it answers
@@ -12,7 +14,7 @@
 
 ## Ask it like this
 
-> "How did POSCO Holdings' ROE and debt ratio change over the last 3 years?"
+> "How did Example Company AB' ROE and debt ratio change over the last 3 years?"
 >
 > "Has this company's audit opinion stayed unqualified?"
 

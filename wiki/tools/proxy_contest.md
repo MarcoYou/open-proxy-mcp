@@ -13,22 +13,24 @@ updated: 2026-09-04
 
 # proxy_contest
 
+> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
+
 ## 한 줄 요약
 위임장·공개매수·소송·5% 경영참여 시그널을 모아 분쟁/액티비즘 탭을 구성. 자동 분류는 하지 않고 힌트만 제공 (애널리스트가 종합 판단).
 
 ## 사용법
 ```
 proxy_contest(
-    company="고려아연",
+    company="예시기업 AQ",
     scope="summary",
     lookback_months=12,
 )
 ```
 
 자연어 예시:
-- "고려아연 분쟁 신호 종합" → `scope="summary"`
-- "삼성전자 vote_math (표 구조)" → `scope="vote_math"` (주총 결과 있을 때)
-- "LG화학 위임장 fight" → `scope="fight"` (회사측 vs 주주측 vs retail_activism 분리)
+- "예시기업 AQ 분쟁 신호 종합" → `scope="summary"`
+- "예시기업 CW vote_math (표 구조)" → `scope="vote_math"` (주총 결과 있을 때)
+- "예시기업 Y 위임장 fight" → `scope="fight"` (회사측 vs 주주측 vs retail_activism 분리)
 - "행동주의 펀드가 5% 경영참여 신고했어?" → `scope="signals"` (5% 대량보유 능동 블록 + 임원·주요주주 소유상황)
 
 ## 입력 인자
@@ -103,7 +105,7 @@ sequenceDiagram
     participant DM as DART majorstock (5%)
     participant DH as DART hyslrSttus (정기 대주주)
     participant K as KIND HTML (vote_math)
-    U->>T: company="고려아연", scope="summary", lookback_months=12
+    U->>T: company="예시기업 AQ", scope="summary", lookback_months=12
     T->>R: company_query → corp_code
     par 4-way 병렬 (asyncio.gather)
         T->>DL: list.json (위임장권유 D, _proxy_items)
@@ -136,9 +138,9 @@ sequenceDiagram
 - DART D/B/I 공시만 사용 (KIND false match 위험).
 - 위임장 filer 3-way 분류 (회사측 / 주주측 / retail_activism).
 - 교차 힌트 (자동 분류 X):
-  - 5%경영참여 ✓ + 소송 ✓ → proxy_fight (예: 고려아연 영풍)
-  - 5%경영참여 - + 소송 - → proxy_campaign (예: LG화학 Palliser Capital)
-  - retail_activism side → 소액주주 집단 위임 (예: 삼성전자 컨두잇/ACT)
+  - 5%경영참여 ✓ + 소송 ✓ → proxy_fight (예: 예시기업 AQ 예시기업 EL)
+  - 5%경영참여 - + 소송 - → proxy_campaign (예: 예시기업 Y Palliser Capital)
+  - retail_activism side → 소액주주 집단 위임 (예: 예시기업 CW 컨두잇/ACT)
 - vote_math는 주총 결과 있을 때만, 보수적 (승패 예측 X).
 - **260714 has_contest_signal 소송 과계상 교정**: 분쟁 신호용 소송을 `dispute_kind != commercial`로 세어 **미상(unspecified — 문서까지 열어봐도 경영권 키워드 없는 일반 소송)까지 포함** → 일상 손배 소송 하나로 분쟁 신호가 켜지는 과탐. `management`(직접) 또는 ruling의 inferred=management만 인정하도록 좁힘. 36사 재계산 boolean flip 0(무회귀). ※ 같은 판독의 '위임장 side 이름기반 오분류'는 36사 표본 과탐 0건(shareholder 분류가 전부 실제 반대측)이라 미수정 — 기본값 보수화하면 진짜 분쟁을 놓쳐 회귀.
 - 알려진 한계:
@@ -179,6 +181,6 @@ sequenceDiagram
 ## 변경 이력
 - 2026-09-07: 내부자 표의 직위 셀에 원문 줄바꿈이 있으면 행이 깨지던 것(한국전력 「안전&영업배전\n부사장」) → 공백으로 접는다.
 - 2026-04-18: proxy_contest tool 검증 + release_v2 conditional (vote_math 별도 검증 필요)
-- 2026-04-19: 3개 기업 (고려아연 / 한진칼 / 삼성전자) summary 통과
+- 2026-04-19: 3개 기업 (예시기업 AQ / 예시기업 HC / 예시기업 CW) summary 통과
 - 2026-04-29: 200기업 audit 92.9% exact, 4x 속도 향상
 - 2026-05-01: tool wiki 페이지 작성
