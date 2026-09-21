@@ -13,23 +13,21 @@ updated: 2026-09-02
 
 # treasury_share
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 한 줄 요약
 자기주식 이벤트 전용 tool. 취득·처분·소각·신탁 결정 공시를 한 탭에서 집계. value_up(정책)·ownership_structure(잔고)와 함께 주주환원 분석의 사실 축.
 
 ## 사용법
 ```
 treasury_share(
-    company="예시기업 CW",
+    company="삼성전자",
     scope="annual",
     year=2024,
 )
 ```
 
 자연어 예시:
-- "예시기업 CW 2024 자사주 매입·소각 이력" → `scope="summary"` (결정 5종 + 결과보고서 4종, 사이클 매칭)
-- "예시기업 FW 소각한 자사주 있어?" → `scope="summary"` 의 소각결정·소각목적 취득 breakdown
+- "삼성전자 2024 자사주 매입·소각 이력" → `scope="summary"` (결정 5종 + 결과보고서 4종, 사이클 매칭)
+- "KT&G 소각한 자사주 있어?" → `scope="summary"` 의 소각결정·소각목적 취득 breakdown
 - "신탁으로 산 거야 직접 산 거야?" → `scope="summary"` (직접 취득결정 vs 신탁계약 체결·해지 구분)
 - "현재 자사주 잔고" → `scope="annual"` (사업보고서 기준 발행/자기/유통)
 
@@ -107,7 +105,7 @@ sequenceDiagram
     participant TT as DART tsstkAqTrctrCcDecsn (신탁해지)
     participant L as DART list.json (소각 keyword)
     participant DX as DART document.xml (소각 본문)
-    U->>T: company="예시기업 CW", scope="annual", year=2024
+    U->>T: company="삼성전자", scope="annual", year=2024
     T->>R: company_query → corp_code
     T->>T: window 결정 (lookback 24개월)
     par 5-way 병렬 (asyncio.gather)

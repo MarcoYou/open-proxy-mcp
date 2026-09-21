@@ -9,8 +9,6 @@ related_lessons: [director-faithfulness-260510, career-parser-concat-260510, 260
 
 # Decision — 사외이사 충실성 강화
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 결정
 
 1. `evaluate_faithfulness` / `evaluate_faithfulness_basic`에 사외이사 겸직 카운트 추가
@@ -38,7 +36,7 @@ related_lessons: [director-faithfulness-260510, career-parser-concat-260510, 260
 
 ## false positive 회피
 
-본 회사명이 careerDetails에 표기되어 있으면 (예시기업 GO/예시기업 ES 등) 그 entry는 본 회사로 인식 → 후보 본인 +1 안 함. 본 회사 1개만 사외이사 = 정상.
+본 회사명이 careerDetails에 표기되어 있으면 (하나금융지주/우리금융지주 등) 그 entry는 본 회사로 인식 → 후보 본인 +1 안 함. 본 회사 1개만 사외이사 = 정상.
 
 회사명 정규화: 공백/괄호/㈜/주식회사 제거 후 substring 매칭.
 

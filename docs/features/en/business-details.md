@@ -1,7 +1,5 @@
 # Business Details
 
-> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
-
 <!-- documentation-contract: business_details fields=revenue_breakdown,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,financial_ops,financial_soundness,investment_property,key_contracts -->
 
 **Reads the "Business Overview" section of periodic reports for you.** From segment revenue and profit to production facilities, utilization, R&D, order backlog, key customers, input costs, and product pricing trends — it pulls exactly the subsections you need, verbatim, out of a report section that runs dozens of pages.
@@ -32,11 +30,11 @@ Every field follows the same response contract: structured numbers only when cer
 >
 > "How big is HD KSOE's order backlog?"
 >
-> "Break down Example Company CW' revenue and operating profit by segment"
+> "Break down Samsung Electronics' revenue and operating profit by segment"
 >
-> "Show Example Company Y's raw-material price and input-cost trends"
+> "Show LG Chem's raw-material price and input-cost trends"
 >
-> "Show Example Company CW' product-price trends and the reasons for changes"
+> "Show Samsung Electronics' product-price trends and the reasons for changes"
 
 ## Related features
 

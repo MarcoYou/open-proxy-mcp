@@ -2,12 +2,10 @@
 
 # OpenProxy MCP
 
-> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](wiki/wiki_schema.md)
-
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-32-tools)
-[![Release](https://img.shields.io/badge/release-v2.7.1-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.7.2-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
@@ -67,7 +65,7 @@ Select `+` in the chat input, then choose `Connectors → Add from open-proxy-mc
 
 ### 3. Send your first request
 
-Start with `Show Example Company CW' company information and three recent filings.` If the company and filings appear, the connection works. Continue in natural language; you do not need to know the tool names.
+Start with `Show Samsung Electronics' company information and three recent filings.` If the company and filings appear, the connection works. Continue in natural language; you do not need to know the tool names.
 
 Prompts grouped by topic are collected in [What to Ask](#what-to-ask) below. Per-tool schemas live in the [tool catalog](wiki/tools/README.md).
 
@@ -78,14 +76,14 @@ Prompts grouped by topic are collected in [What to Ask](#what-to-ask) below. Per
 ## What to Ask
 
 You never need a tool name. Say what you want and the assistant picks the tools.
-Company names below are masked examples. Replace them with the company name or ticker you want to analyze.
+These are prompts that actually work.
 
 <details open>
 <summary><b>🗳️ AGM and proxy voting</b></summary>
 
-> - Review Example Company Y's next AGM agenda and give an evidence-backed voting view on each item.
-> - Example Company FP's director election this year — what should I look at for each nominee?
-> - How did Example Company CW' agenda items actually get voted last year?
+> - Review LG Chem's next AGM agenda and give an evidence-backed voting view on each item.
+> - Kakao's director election this year — what should I look at for each nominee?
+> - How did Samsung Electronics' agenda items actually get voted last year?
 > - Find the charter article and the Commercial Act provision that govern this item.
 
 Every item comes back as **FOR / AGAINST / REVIEW** with filing evidence, policy citations, and
@@ -97,10 +95,10 @@ A company with zero AGAINST items is normal — [here is why](#how-to-read-the-o
 <details open>
 <summary><b>📊 Earnings</b></summary>
 
-> - Compare Example Company CW' last three years of results with the next two years of consensus.
-> - Show Example Company AL's quarterly trend including operating cash flow.
-> - Has Example Company HM filed provisional results? How do they differ from the confirmed figures?
-> - Break down Example Company Y's profitability with a DuPont decomposition.
+> - Compare Samsung Electronics' last three years of results with the next two years of consensus.
+> - Show SK Hynix's quarterly trend including operating cash flow.
+> - Has Hyundai Motor filed provisional results? How do they differ from the confirmed figures?
+> - Break down LG Chem's profitability with a DuPont decomposition.
 
 Confirmed results come from the DART financial API, provisional figures from provisional-earnings
 filings, and estimates from analyst consensus. **The three carry different bases and are never put
@@ -111,9 +109,9 @@ on one line** — tables mark actuals (A) and estimates (E) separately.
 <details>
 <summary><b>💹 What the price reflects</b></summary>
 
-> - Where do this company's PER and PBR sit against its own history?
+> - Where does Naver's PER and PBR sit against its own history?
 > - Compute Posco Holdings' forward PER from next year's and the following year's estimates.
-> - What did Example Company CW' valuation look like as of end-2024?
+> - What did Samsung Electronics' valuation look like as of end-2024?
 > - Show KOSPI forward PER and PBR by sector next to the trailing figures.
 > - Among the KOSPI top 50 by market cap, whose operating-profit estimates rose over the past week?
 
@@ -127,9 +125,9 @@ companies with estimates and state how many there are.
 <details>
 <summary><b>🏭 How the company earns</b></summary>
 
-> - How does Example Company HF make money? Break it down by segment.
-> - Show Example Company AQ's utilization rate and input-cost trend.
-> - Value Example Company GE's affiliate stakes and surplus assets.
+> - How does Hanwha Solutions make money? Break it down by segment.
+> - Show Korea Zinc's utilization rate and input-cost trend.
+> - Value Taekwang Industrial's affiliate stakes and surplus assets.
 > - How much order backlog is left at this company?
 
 Segment, product and regional revenue are **different axes cutting the same revenue, so they are
@@ -140,8 +138,8 @@ never summed.** Stakes are counted with listed holdings at market value and unli
 <details>
 <summary><b>🧭 Ownership and shareholder returns</b></summary>
 
-> - Who are Example Company CQ's largest shareholder and related parties?
-> - Show Example Company S's dividend trend and payout ratio over three years.
+> - Who are Samsung C&T's largest shareholder and related parties?
+> - Show KB Financial's dividend trend and payout ratio over three years.
 > - Among companies that announced buybacks, which actually cancelled the shares?
 > - How closely does the value-up filing match what was actually executed?
 
@@ -158,7 +156,7 @@ combined, consolidated) — [detail](#how-to-read-the-output)
 > - Show only today's order filings from the KOSPI top 200 by market cap.
 > - Were there more order filings than usual last week, by sector?
 > - Any company showing control-contest signals recently?
-> - Show Example Company BO' rights offerings and convertible bond issuance history.
+> - Show Doosan Robotics' rights offerings and convertible bond issuance history.
 > - Does this company have litigation or sanctions on record?
 
 The disclosure digest scans DART live and reaches back **three months at most**; beyond that
@@ -184,7 +182,7 @@ clauses and statutes are looked up in both directions, and that lookup spends no
 
 - **Resolve the company once** — the name, ticker and corp code from the first lookup carry through the rest of the conversation.
 - **Ambiguous names are confirmed first** — when several companies match, no follow-up lookup runs until one is chosen.
-- **Give the period and the target in words** — "this week", "last month", "Q3", "August 1 to August 20"; "KOSPI top 200 by market cap", "Example Company CW, Example Company AL". "Last week" and "last month" are the calendar week and month; "the last 7 days" and "the last 30 days" count back from today, inclusive.
+- **Give the period and the target in words** — "this week", "last month", "Q3", "August 1 to August 20"; "KOSPI top 200 by market cap", "Samsung Electronics, SK Hynix". "Last week" and "last month" are the calendar week and month; "the last 7 days" and "the last 30 days" count back from today, inclusive.
 - **An unrecognized target is asked about before any lookup** — if none of the listed companies can be found, or a phrase like "KOSPI 120" could be a count or a name, the answer never silently switches to the whole market.
 - **Read `status` and `warnings` first** — they carry what was missing and which basis was substituted.
 - **A value that was not found reads as "not found in the filings read"** — neither zero nor "there is none".
@@ -263,8 +261,8 @@ figures that are perfectly correct.
 
 - **Class shares used to overwrite common-share dividends** (fixed 2026-09-06). Class-share labels
   without the word "preferred" (종류주식 · 1종 종류주식 · 전환주 and others, 235 rows in the KOSPI
-  ledger) were read as common shares by the old rule. Example Company GS' FY2024 common-share
-  DPS of 3,980 went out as the class-share 4,042; Example Company BN's 2,000 went out as 2,050, and the
+  ledger) were read as common shares by the old rule. Korea Investment Holdings' FY2024 common-share
+  DPS of 3,980 went out as the class-share 4,042; Doosan's 2,000 went out as 2,050, and the
   current-price yield was wrong with them. One classifier now serves both the year-end summary and
   the multi-year history → [`dividend_disclosure`](wiki/tools/dividend_disclosure.md)
 - **DART allows 1,000 calls per minute per API key**, and exceeding it blocks that key for two to

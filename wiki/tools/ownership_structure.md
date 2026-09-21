@@ -13,23 +13,21 @@ updated: 2026-09-02
 
 # ownership_structure
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 한 줄 요약
 최대주주·특수관계인·5% 대량보유·자사주를 한 탭에서 보는 지분 구조 tool. 판의 구조(who holds what)를 그린다.
 
 ## 사용법
 ```
 ownership_structure(
-    company="예시기업 AQ",
+    company="고려아연",
     scope="control_map",
     year=2025,
 )
 ```
 
 자연어 예시:
-- "예시기업 AQ control map" → `scope="control_map"` (3대 카테고리: 명부 등재 / 외부 능동 / 수동)
-- "예시기업 CW 5% 대량보유 타임라인" → `scope="blocks"` (최신 + 이력; 구 `timeline` scope 통합)
+- "고려아연 control map" → `scope="control_map"` (3대 카테고리: 명부 등재 / 외부 능동 / 수동)
+- "삼성전자 5% 대량보유 타임라인" → `scope="blocks"` (최신 + 이력; 구 `timeline` scope 통합)
 - "최대주주등소유주식변동신고서 (개인별 변동)" → `scope="changes"`
 - "최대주주 누구고 특수관계인 합쳐서 몇 %야?" → `scope="summary"` (특관 개별 내역은 `major_holders`)
 - "국민연금이 5% 넘게 들고 있어?" → `scope="blocks"` (5% 대량보유 보고자·보유목적)
@@ -101,7 +99,7 @@ sequenceDiagram
     participant DT as DART tesstkAcqsDspsSttus (자사주)
     participant DM as DART majorstock (5%)
     participant DD as DART document.xml (5% 보유목적)
-    U->>T: company="예시기업 AQ", scope="control_map", year=2025
+    U->>T: company="고려아연", scope="control_map", year=2025
     T->>R: company_query → corp_code
     par 정기보고서 3개 API 병렬 (asyncio.gather, return_exceptions=True)
         T->>DH: hyslrSttus(corp_code, bsns_year, 11011)
@@ -141,7 +139,7 @@ sequenceDiagram
     **빈 값은 보통주로 간주**(빈 값으로 보고하는 회사가 있다). 표기가 「보통주」·「보통주식」·
     「의결권 있는 주식」·「의결권\n있는 주식」처럼 갈려 문자열 하나로는 거를 수 없다.
     우선주를 빼는 negative matching 은 변형을 놓친다.
-- **260714 현재 지분 스냅샷 창 교정**: `latest_blocks`(보고자별 최신 1건 = 현재 지분)에 `timeline`과 동일한 360일 기간창을 씌워, 지분 변동이 없어 최근 공시가 없는 **안정적 지배주주가 조용히 누락**됐다(실측 16사 중 6사: 예시지주 A·예시기업 HM 국민연금 7~8%, 예시지주 C 국민연금 13%로 블록 통째 빔, 예시포털 A B외국계 6% 등 ≥5% 7건). → `latest_blocks`는 하한(360일) 제거 + 상한(end)만 유지(as-of look-ahead 방지) + **현재보유 ≥5% 필터**로 5% 이탈/청산 보고만 제외. 이탈 '이벤트'는 `timeline`에 유지. 검증: ≥5% 복구 7·이탈 정상제거 유지·과대제거 0(무회귀).
+- **260714 현재 지분 스냅샷 창 교정**: `latest_blocks`(보고자별 최신 1건 = 현재 지분)에 `timeline`과 동일한 360일 기간창을 씌워, 지분 변동이 없어 최근 공시가 없는 **안정적 지배주주가 조용히 누락**됐다(실측 16사 중 6사: SK·현대차 국민연금 7~8%, CJ 국민연금 13%로 블록 통째 빔, 네이버 BlackRock 6% 등 ≥5% 7건). → `latest_blocks`는 하한(360일) 제거 + 상한(end)만 유지(as-of look-ahead 방지) + **현재보유 ≥5% 필터**로 5% 이탈/청산 보고만 제외. 이탈 '이벤트'는 `timeline`에 유지. 검증: ≥5% 복구 7·이탈 정상제거 유지·과대제거 0(무회귀).
 - 알려진 한계:
   - 대주주명 정규화 불완전 시 control_map이 찢어질 수 있음 (관찰 포인트로 표시).
   - 사업보고서 미제출(KOSDAQ 자율공시 일부) 시 `no_filing`.
@@ -178,7 +176,7 @@ sequenceDiagram
 
 ## 변경 이력
 - 2026-04-18: ownership_structure tool 검증 + release_v2 go
-- 2026-04-19: 3개 기업 (예시기업 CW / 예시기업 AQ / 예시기업 FW) summary 통과
+- 2026-04-19: 3개 기업 (삼성전자 / 고려아연 / KT&G) summary 통과
 - 2026-04-27: stockknd fix (17건 partial → 0)
 - 2026-04-29: speed optimization 3x (asyncio.gather), 200기업 audit 90.8% exact
 - 2026-05-01: tool wiki 페이지 작성

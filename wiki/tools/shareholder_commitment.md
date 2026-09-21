@@ -12,8 +12,6 @@ updated: 2026-08-25
 
 # shareholder_commitment
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 한 줄 요약
 밸류업 계획·배당·자사주 소각의 **약속 vs 실제 이행**을 연중 추적하는 Action Tool. `proxy_advise_before_meeting`이
 주총이라는 1회성 이벤트의 판단이라면, 이 tool은 주총과 무관하게 스튜어드십/기관투자자 관여(engagement)
@@ -22,7 +20,7 @@ updated: 2026-08-25
 
 ## 사용법
 ```
-shareholder_commitment(company="예시기업 CH", lookback_years=3)
+shareholder_commitment(company="미래에셋증권", lookback_years=3)
 ```
 자연어 예시:
 - "이 회사 작년에 공표한 밸류업 계획 실제로 지켰나?"
@@ -93,7 +91,7 @@ CSR(현금성주주환원율/주주환원율) 공식은 [[주주환원]] 캐논 
 CSR% = (배당총액 + 자사주매입액[취득결정+신탁체결]) ÷ 순이익 × 100
 ```
 260914 변경: 이전엔 `cancelation_amount_total_krw`(소각금액)를 분자로 썼으나, 이는 과거 보유분
-처리까지 섞여 "이번 기간 실제 신규 지출"을 왜곡한다(실측: 예시기업 DA·예시기업 AK은 소각결정은 있었지만
+처리까지 섞여 "이번 기간 실제 신규 지출"을 왜곡한다(실측: 삼성화재·SK텔레콤은 소각결정은 있었지만
 최근 24개월 신규 취득 0건). 소각금액은 여전히 출력에 참고용으로 남기되(`buyback_cancelation_krw`)
 CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이기 때문.
 
@@ -107,7 +105,7 @@ CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이
 
 ## 배당수익률 — 연말종가 기준 보완
 `dividend.history`의 `yield_pct`(DART 자체 결의시점 시가배당률)는 **옛 연도일수록 결측이 많음**을
-실측 확인(예시기업 CH·예시기업 HM·예시기업 AE 전부 2021·2022년 None, 2023년부터만 값 있음 — DART alotMatter의
+실측 확인(미래에셋증권·현대차·SKC 전부 2021·2022년 None, 2023년부터만 값 있음 — DART alotMatter의
 과거 공시 특성). `krx_weekly`(연말종가, `valuation.py`의 `_annual_pit_band`와 동일 쿼리 패턴)로
 `DPS ÷ 연말종가`를 직접 계산해 `yield_pct_yearend` 필드로 별도 노출 — 원본 `yield_pct`는 그대로
 두고 공백만 메운다. 두 값은 **기준일이 다르므로**(결의시점 시가 vs 연말종가) 값이 다를 수 있음을

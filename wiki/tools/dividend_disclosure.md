@@ -13,8 +13,6 @@ updated: 2026-09-03
 
 # dividend_disclosure
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 이름 (260902 개명)
 `dividend` → **`dividend_disclosure`**. 같은 날 DB 기반 [[dividend_data]](구
 `dividend_history_data`·`dividend_screener`, 260903 통합)가 생기면서 「dividend」라는
@@ -34,18 +32,18 @@ updated: 2026-09-03
 ## 사용법
 ```
 dividend(
-    company="예시기업 FW",
+    company="KT&G",
     scope="summary",
     year=2024,
 )
 ```
 
 자연어 예시:
-- "예시기업 FW 2024 배당" → `scope="summary"` (DPS·배당성향·시가배당률 + 선배당-후결의·감액배당 신호)
+- "KT&G 2024 배당" → `scope="summary"` (DPS·배당성향·시가배당률 + 선배당-후결의·감액배당 신호)
 - "작년 주당배당금·배당 총액 얼마였어?" → `scope="summary"` + `year` 지정
 - "배당성향 추이 어때?" → `scope="history"` (N년 추이 + 분기 breakdown + policy_signals)
-- "예시기업 CW 최근 배당 결정들" → `scope="detail"`
-- "예시기업 BY 최근 3년 배당 추이" → `scope="history"`
+- "삼성전자 최근 배당 결정들" → `scope="detail"`
+- "메리츠금융지주 최근 3년 배당 추이" → `scope="history"`
 
 meta_signals 읽는 법:
 - `pre_dividend_post_resolution`: 같은 I001 검색에서 걸러낸 주주명부폐쇄(기준일)결정 notice가 1건 이상이면
@@ -101,7 +99,7 @@ scope:
 > - **분기별 누적차분** (`quarterly_full`, 최신연도): 분기/반기/사업보고서 누적값을 차분(Q2=반기-Q1…)해
 >   보통+우선 DPS·배당총액 산출. 결정공시 버킷팅(경계 오귀속·예비결산 중복)보다 정확, 무배당 분기 0·특별배당 포착. [[배당공시유형]] §7.
 > - **최신연도 4분류**: 중간배당 확정 / 확정 전(D 명부폐쇄 기준일 매칭) / 미공시(payer인데 결산 미확정) / 무배당(직전도 배당 없음). target연도 매칭으로 단정.
-> - **미확정 시간판정**: "미공시(결산 배당 미확정)"은 해당 사업연도 정기주총 경과(today > 익년 5/31) 시 **"무배당(확정·결산 현금배당 없음)"**으로 정정 — 주총이 끝났는데 결정공시·기준일이 없으면 배당을 안 하기로 확정한 것(메리츠·예시기업 AJ=배당→자사주 소각 전환). 배당기준일 설정된 "확정 전"은 실제 배당신호라 유지. 근거: dividend-payout-classification-260717.
+> - **미확정 시간판정**: "미공시(결산 배당 미확정)"은 해당 사업연도 정기주총 경과(today > 익년 5/31) 시 **"무배당(확정·결산 현금배당 없음)"**으로 정정 — 주총이 끝났는데 결정공시·기준일이 없으면 배당을 안 하기로 확정한 것(메리츠·SK증권=배당→자사주 소각 전환). 배당기준일 설정된 "확정 전"은 실제 배당신호라 유지. 근거: dividend-payout-classification-260717.
 > - 권위 = 사업보고서 alotMatter **다년컬럼**(개별연도 호출 제거). per-decision 시가배당률은 0 억제(연간값 권위).
 > - 상세 교훈은 private storage 에 있다(공개 wiki 에 없음).
 
@@ -119,7 +117,7 @@ sequenceDiagram
     participant R as resolve_company_query
     participant DA as DART alotMatter (사업보고서)
     participant DD as DART 배당결정 list
-    U->>T: company="예시기업 FW", scope="summary", year=2024
+    U->>T: company="KT&G", scope="summary", year=2024
     T->>R: company_query → corp_code
     par 1단계 병렬
         T->>DA: alotMatter(target_year)
@@ -179,13 +177,13 @@ sequenceDiagram
 1. **사업보고서 alotMatter `주당 현금배당금(원) · 보통주`** — 최우선, 연간 DPS·배당성향·시가배당률의 source of truth.
    - **최신 보고서 1회 응답의 당기/전기/전전기 컬럼**으로 최근 3개 사업연도를 한 번에 확보 (`_alot_multiyear_summaries`). 분기+결산이 이미 연간으로 합산돼 있고, 단일 출처·동일 기준이라 연도 간 일관. 자회사·정정 오염 없음. **문서 파싱 0회.**
    - 배당성향은 `(연결)현금배당성향(%)`, 시가배당률은 `현금배당수익률(%) 보통주` 컬럼 사용.
-   - ⚠️ `주당 현금배당금` 행이 보통주 뒤에 **빈 행(stock_type="-")**으로 한 번 더 오면, 빈 값("-"→0)이 실제값을 덮어쓴다 → "보통주 명시 or 값>0"일 때만 반영 (예시기업 BY·예시기업 DH·예시기업 EE 케이스).
+   - ⚠️ `주당 현금배당금` 행이 보통주 뒤에 **빈 행(stock_type="-")**으로 한 번 더 오면, 빈 값("-"→0)이 실제값을 덮어쓴다 → "보통주 명시 or 값>0"일 때만 반영 (메리츠금융지주·셀트리온·에이피알 케이스).
    - ⚠️ 최신 사업연도는 보고서 확정 전까지 컬럼이 "-"일 수 있음(선배당-후결의·미확정) → 그 해만 결정공시 fallback.
 2. **현금ㆍ현물배당결정 거래소공시 (XML 본문 파싱)** — 보조.
    - 용도: (a) **분기별 breakdown** (alotMatter엔 분기 분해 없음), (b) alotMatter 빈 신규/최신연도 **fallback**, (c) 분기/연간 **패턴 판정**.
    - 합산 시 필수: **자회사(`자회사의 주요경영사항`) 제외** (지주사 DPS 과대계상 주원인) + **정정/재공시 dedup** (`_effective_decisions`, `(사업연도,분기,기준일)` 최신 1건).
    - ⚠️ 연간 **합산** 신뢰도 낮음: 결산배당이 기지급 분기를 차감한 "잔액"으로 적히는 등 단순 합이 실제 연간과 다름 → 연간 수치는 항상 alotMatter(1) 우선.
-3. **연도별 alotMatter 개별 호출** — **지양**. 특정 연도 단독 호출은 배당성향/수익률만 있고 DPS=0을 반환하는 경우가 있음(예시기업 S 2023 단독 호출). (1)의 다년 컬럼으로 대체.
+3. **연도별 alotMatter 개별 호출** — **지양**. 특정 연도 단독 호출은 배당성향/수익률만 있고 DPS=0을 반환하는 경우가 있음(KB금융 2023 단독 호출). (1)의 다년 컬럼으로 대체.
 
 ### 타겟팅 (cap 방식 아님)
 - 검색: 기간(`bgn_de`/`end_de`) + 공시유형 `I001` (서버) → 제목 `"배당결정"` 포함 + `"자회사"` 제외 (클라이언트, DART가 제목 서버검색 미지원).
@@ -230,7 +228,7 @@ sequenceDiagram
 - 특별배당 비정형 금액 구조 → `requires_review`.
 - 시가배당률 비고 + 가격 fallback 실패 시 `requires_review`.
 - 이항(우선주) 배당은 `cash_dps_preferred`로 별도 노출.
-- **선배당-후결의(2024 신법) 회사**(예: 예시기업 BY): 금액이 든 `현금ㆍ현물배당결정` 거래소공시 없이 `주주명부폐쇄 기준일설정`만 하고 주총/사업보고서로 확정하는 케이스가 있다. 최신 사업연도가 결정공시·alotMatter 모두 비면 → (2026-06-08 개선) `pre_dividend_post_resolution` 신호가 True 일 때 history 패턴을 `무배당` 대신 **`확정 전 (배당기준일 설정·금액 미정)`** 으로 표기하고 `pending_confirmation:true` + warning 부착. 추세(policy_signals)는 확정 연도만으로 계산해 미확정 연도의 DPS=0 이 −100% 로 왜곡하는 것 방지. 진짜 무배당(신규상장 등 기준일 공시 자체가 없음)은 신호 False 라 그대로 `무배당`(예시기업 EE 검증).
+- **선배당-후결의(2024 신법) 회사**(예: 메리츠금융지주): 금액이 든 `현금ㆍ현물배당결정` 거래소공시 없이 `주주명부폐쇄 기준일설정`만 하고 주총/사업보고서로 확정하는 케이스가 있다. 최신 사업연도가 결정공시·alotMatter 모두 비면 → (2026-06-08 개선) `pre_dividend_post_resolution` 신호가 True 일 때 history 패턴을 `무배당` 대신 **`확정 전 (배당기준일 설정·금액 미정)`** 으로 표기하고 `pending_confirmation:true` + warning 부착. 추세(policy_signals)는 확정 연도만으로 계산해 미확정 연도의 DPS=0 이 −100% 로 왜곡하는 것 방지. 진짜 무배당(신규상장 등 기준일 공시 자체가 없음)은 신호 False 라 그대로 `무배당`(에이피알 검증).
 
 ## 주당값과 총액의 기준 — 종류별 / 회사 전체
 | 값 | 기준 | 어디서 |
@@ -241,7 +239,7 @@ sequenceDiagram
 
 🔴 260906 정정 — 「우선주」 글자가 없는 종류주식 표기(「종류주식」·「종류주」·「1종 종류주식」·
 「전환주」·「기타주식」, 코스피 원장 235행)를 옛 규칙이 보통주로 읽어 **뒷줄이 보통주 DPS 를
-덮어썼다.** 예시기업 GS FY2024 보통 3,980 → 「1종 종류주식」 4,042, 예시기업 BN 2,000 → 2,050 으로
+덮어썼다.** 한국금융지주 FY2024 보통 3,980 → 「1종 종류주식」 4,042, 두산 2,000 → 2,050 으로
 나갔고 현재가 기준 수익률·history·`price_multiple_data` 배당수익률까지 같이 틀렸다.
 분류는 `dividend_parser.share_class`/`split_by_share_class` 하나로 모았고 기말 요약과 다년 history 가
 같은 규칙을 쓴다(`tests/test_dividend_share_class.py`).

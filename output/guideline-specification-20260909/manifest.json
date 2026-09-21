@@ -1,6 +1,6 @@
 {
   "generated_from": "wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md",
-  "source_sha256": "238c02c48f4b839e04a7b4caffcc36fd4f522802b071910562dc24e21afc4dfc",
+  "source_sha256": "79c86394f84d5a9dcb2a2a650353ab9064c36dd48f9e8603326af597b8a66352",
   "policy_version": "0.7.2-pilot",
   "policy_file_sha256": "9ecc82bc45f76506b02ab7e8ef9dd3478c03da7c65b11d58011e55a59dca9f7c",
   "assessment_contract": "opm-llm-assessment/6",

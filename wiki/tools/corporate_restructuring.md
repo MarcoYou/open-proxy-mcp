@@ -14,23 +14,21 @@ updated: 2026-09-02
 
 # corporate_restructuring
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 한 줄 요약
 지배구조 재편 4종(회사합병/분할/분할합병/주식교환·이전) 결정 공시 통합. 합병비율, 상대방, 신주발행, 외부평가, 주식매수청구권 등 핵심 수치 정형화.
 
 ## 사용법
 ```
 corporate_restructuring(
-    company="예시기업 EY",
+    company="이마트",
     scope="share_exchange",
 )
 ```
 
 자연어 예시:
-- "예시기업 EY share exchange 결정 (예시기업 DM/푸드 100% 자회사)" → `scope="share_exchange"`
-- "예시기업 AO 분할" → `scope="split"` (단순물적분할)
-- "예시기업 FD 합병" → `scope="merger"`
+- "이마트 share exchange 결정 (신세계건설/푸드 100% 자회사)" → `scope="share_exchange"`
+- "감성코퍼레이션 분할" → `scope="split"` (단순물적분할)
+- "일동제약 합병" → `scope="merger"`
 - "합병·분할 공시 있어?" → 기본 호출(24개월 lookback, 4종 통합 timeline)
 - "분할하면 존속·신설 어떻게 나뉘어?" → 분할 카드(분할형태·분할비율·이전 사업부문·신설회사 재상장 여부)
 
@@ -95,7 +93,7 @@ sequenceDiagram
     participant D as DART cmpDvDecsn (분할)
     participant DM as DART cmpDvmgDecsn (분할합병)
     participant SE as DART stkExtrDecsn (주식교환·이전)
-    U->>T: company="예시기업 EY", scope="share_exchange"
+    U->>T: company="이마트", scope="share_exchange"
     T->>R: company_query → corp_code
     T->>T: window 결정 (lookback 24개월)
     par scope별 4-way 병렬 (asyncio.gather)
@@ -124,8 +122,8 @@ sequenceDiagram
 - evidence_refs 최대 5건.
 - 알려진 한계:
   - PDF/원문 파싱 미수행 (정형 API 응답만 정규화).
-  - 단일 회사가 같은 scope에서 여러 사건 가능 (예시기업 EY share_exchange = 2건).
-- regression 0 검증: 5/5 통과 (예시기업 EQ/예시기업 FD/예시기업 AO/예시기업 EY/예시기업 DN). 200기업 audit `corporate_restructuring.summary` 14.8% exact, no_filing 84.2% (M&A 빈도 낮음, 정상).
+  - 단일 회사가 같은 scope에서 여러 사건 가능 (이마트 share_exchange = 2건).
+- regression 0 검증: 5/5 통과 (온코크로스/일동제약/감성코퍼레이션/이마트/신세계푸드). 200기업 audit `corporate_restructuring.summary` 14.8% exact, no_filing 84.2% (M&A 빈도 낮음, 정상).
 
 ## 관련 공시 (rules/disclosures/)
 - [[회사합병결정]] — DS005, `cmpMgDecsn`, 합병비율·상대방·매수청구권
@@ -145,7 +143,7 @@ sequenceDiagram
 - 260429_0912_audit_parsing-200기업-v2-no_filing — corporate_restructuring 14.8% exact (no_filing 84.2% 정상)
 
 ## 알려진 issue + TODO
-- 물적분할 후 재상장 패턴(`dvfcmp_rlst_atn=예`) 자동 경보 추가 검토 (예시기업 Y → 예시기업 W 사례).
+- 물적분할 후 재상장 패턴(`dvfcmp_rlst_atn=예`) 자동 경보 추가 검토 (LG화학 → LG에너지솔루션 사례).
 - 외부평가 기관 신뢰도 매트릭스 (TODO).
 
 ## 변경 이력

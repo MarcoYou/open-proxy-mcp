@@ -14,8 +14,6 @@ updated: 2026-09-09
 
 # financial_metrics
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 한 줄 요약
 DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/운전자본 회전일수/회계 risk 지표. 한국 표준(연결, 지배주주 귀속). 듀퐁 3단 분해, FCF, NWC, CCC, accruals_gap, 감사의견 추이 자동 산출.
 
@@ -26,7 +24,7 @@ DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/운전자본 
 `quarterly`는 DART `bsns_year`를 사업연도로 그대로 사용하지 않는다.
 
 - 대상 FY 주변의 DART 보고서를 넓게 수집한 뒤 `period_end`와 회사 결산월(`acc_mt`)로 `fiscal_year`·`fiscal_quarter`를 다시 계산한다.
-- 결과에는 각 분기별 `period_end`와 `fiscal_year_end_month`를 함께 싣는다. 예: 예시기업 DO(001720)은 `2025-06-30 / 결산월 3월`을 `FY2026-Q1`로 표시한다.
+- 결과에는 각 분기별 `period_end`와 `fiscal_year_end_month`를 함께 싣는다. 예: 신영증권(001720)은 `2025-06-30 / 결산월 3월`을 `FY2026-Q1`로 표시한다.
 - 반환 범위는 요청 FY와 직전 2개 FY로 제한한다. 수집 과정에서 다음 FY 자료가 들어와도 결과에 섞지 않는다.
 - QoQ는 같은 FY의 바로 앞 분기가 실제로 존재할 때만 계산한다. 분기가 건너뛰면 `-`다.
 - 결산일이 지난 대상 분기가 공시 목록에 없으면 행을 조용히 생략하지 않고 `quarterly_status.missing`과 markdown의 `미제출` 상태로 표시한다. 아직 기간 종료일이 오지 않은 미래 분기는 표시하지 않는다.
@@ -50,17 +48,17 @@ JSON 핵심 필드:
 ## 사용법
 ```
 financial_metrics(
-    company="예시기업 CW",
+    company="삼성전자",
     scope="yoy",
     year=2024,
 )
 ```
 
 자연어 예시:
-- "예시기업 BT 2024 yoy 분석" → `scope="yoy"` → operating_loss + interest_coverage_low + negative_fcf alerts
-- "예시기업 AL turnaround 검증" → `scope="yoy"` → turnaround alert
-- "예시기업 CW 듀퐁 분해 + ROE 구성" → `scope="summary"` → ROE 13.07% = 16.63% × 0.62 × 1.27
-- "예시기업 EP 5년 감사의견" → `scope="audit_opinion"`
+- "롯데케미칼 2024 yoy 분석" → `scope="yoy"` → operating_loss + interest_coverage_low + negative_fcf alerts
+- "SK하이닉스 turnaround 검증" → `scope="yoy"` → turnaround alert
+- "삼성전자 듀퐁 분해 + ROE 구성" → `scope="summary"` → ROE 13.07% = 16.63% × 0.62 × 1.27
+- "오스템임플란트 5년 감사의견" → `scope="audit_opinion"`
 - "영업이익률이랑 ROE 얼마야?" → `scope="summary"` (수익성 핵심 지표 1년)
 - "차입금 의존도 높아? 총차입금 얼마?" → `scope="summary"` (`total_debt`·`debt_dependency_pct`; 금융업은 n/a)
 - "회계상 리스크 신호 있어?" → `scope="yoy"` (accruals_gap·debt_surge 등 alerts)
@@ -83,7 +81,7 @@ scope:
 - `yoy`: 전년 대비 + 22개 alerts + 감사의견 cross-check
 - `qoq`: 전분기 대비 (operating_loss_quarter / revenue_decline_qoq alerts)
 - `audit_opinion`: 감사의견 3년 추이 (적정/한정/부적정/감사인 변경 추적)
-- `accounts`: 전체 재무제표 **계정 원행 그대로**(`fnlttSinglAcntAll`). 요약이 버리는 수백 행을 공시 순서(`ord`)로 낸다. 파생값 없음 — 계정 해석은 읽는 쪽이 한다. `sj_div=["BS"]` 로 좁힌다. 예시기업 CW BS 실측 52행·DART 2콜·27KB.
+- `accounts`: 전체 재무제표 **계정 원행 그대로**(`fnlttSinglAcntAll`). 요약이 버리는 수백 행을 공시 순서(`ord`)로 낸다. 파생값 없음 — 계정 해석은 읽는 쪽이 한다. `sj_div=["BS"]` 로 좁힌다. 삼성전자 BS 실측 52행·DART 2콜·27KB.
 
 ## 출력 schema (data dict)
 ```json
@@ -144,14 +142,14 @@ scope:
 - **매출 계정 선택** (`services/revenue_account.py`, 260906): 「매출액」이라는 계정명을 안 쓰는 회사가 많다 —
   정보서비스·바이오는 「영업수익」, 보험은 「보험수익」(1117호)·「보험영업수익」(1104호), 건설은 「수익(매출액)」·
   「공사수익」, 은행·금융지주는 매출 행이 없고 「이자수익」뿐. 주요계정(`fnlttSinglAcnt`) 템플릿에는 그 회사가
-  「매출액」을 안 쓰면 **행이 아예 없고**(예시기업 BV 2024: IS 가 영업이익부터), 전체 재무제표(`fnlttSinglAcntAll`)엔
+  「매출액」을 안 쓰면 **행이 아예 없고**(리파인 2024: IS 가 영업이익부터), 전체 재무제표(`fnlttSinglAcntAll`)엔
   있지만 `account_id` 가 `-표준계정코드 미사용-` 이다. 그래서 ① `ifrs-full_Revenue` 정확매칭 → ② 없으면 계정명
   **접두** 매칭(배제: 매출원가·매출총이익/손실·매출채권·기타영업수익·출재보험서비스수익…) → ③ 순서는 KSIC 로
   (65 보험: 보험수익 코드 → 영업수익 / 64·66 금융: 영업수익 → 순영업수익 → 이자수익 / 41·42 건설: 매출액 →
   공사·분양수익 / 그 외: 매출액 → 영업수익 — **이자수익·보험수익으로 안 내려간다**). 주요계정에 없으면 전체
   재무제표(이미 호출 중, DART 콜 0 추가)에서 고른다. 결과에 `revenue_account_nm`·`revenue_account_id`·
   `revenue_standard`(매출액과 같은 뜻으로 읽어도 되나 — 보험수익·이자수익이면 false)·`revenue_basis`(사람용
-  기준명: 매출액/영업수익/보험수익/이자수익… — 예시기업 CS은 IFRS17 보험수익 행을 「일반보험서비스수익」이라 적으므로
+  기준명: 매출액/영업수익/보험수익/이자수익… — 삼성생명은 IFRS17 보험수익 행을 「일반보험서비스수익」이라 적으므로
   원문명 대신 이걸로 표기)·`revenue_source` 를 같이 내고, standard 가 아니면 warning + render 라벨 「매출액(이자수익 기준)」. KSIC 는 `company.json` 의 `induty_code`
   (이미 호출) → 없으면 Postgres `dart_fundamentals` 순. 실측 fixture 회귀: `tests/test_revenue_account_pick.py`.
 - **단위 처리**: 모든 금액 raw KRW int (`_krw` suffix), %는 float (`_pct` 11.5 = 11.5%), 비율은 decimal (`_ratio` 0.85). render에서만 조/억 변환.
@@ -185,7 +183,7 @@ scope:
   - `fnlttSinglAcntAll` (전체 재무제표) — 213 행 (BS/IS/CIS/CF/SCE). CapEx, 감가상각비, 이자비용, 매출채권/재고/매입채무 추출.
   - `accnutAdtorNmNdAdtOpinion` (회계감사인+의견) — 6 행 (3년 × CFS+OFS). 감사인 / 적정의견 / 강조사항 / 핵심감사사항(KAM) / rcept_no.
 - 외부 호출: scope별 최대 12회 (일반 7회). **`yearly` 는 요청 안에서 인접 연도 조회를 공유한다**
-  — 연도마다 「당기+전기」를 부르므로 겹치는데, 그 겹침을 `_FetchMemo` 가 없앤다(실측 예시기업 CW
+  — 연도마다 「당기+전기」를 부르므로 겹치는데, 그 겹침을 `_FetchMemo` 가 없앤다(실측 삼성전자
   years=3 16→13 · 5 24→16 · 10 **47→29콜, -38%**). 값은 한 자리도 바뀌지 않는다(3사 5년 전 지표 대조). `accounts` 는 2회(요약 8회보다 싸다 — 요약에 얹어 공짜로 나오는 게 아니라 자기 호출을 한다). 기능통화가 비KRW 인 회사는 환율 1회가 더 붙는다(ECOS→야후, 확정일은 영구캐시). reprt 폴백 + TTM + 당기분해 포함. quarterly scope는 ~24회 + 매출이 빈 분기 수(최대 12 — 주요계정에 매출 행이 없는 회사만, 260906 lazy 폴백).
 
 ## Flow
@@ -199,7 +197,7 @@ sequenceDiagram
     participant D2 as fnlttSinglAcntAll (CF+detail)
     participant D3 as fnlttSinglIndx (DART 지표)
     participant D4 as accnutAdtorNmNdAdtOpinion
-    U->>T: company="예시기업 CW", scope="yoy", year=2024
+    U->>T: company="삼성전자", scope="yoy", year=2024
     T->>R: company_query → corp_code
     par 당기/전기 4 endpoint 병렬
         T->>D1: fnlttSinglAcnt(2024, CFS) + (2023)
@@ -231,7 +229,7 @@ sequenceDiagram
   OPM_BORROW(일반)·OPM_COMBINED. Loans*Net·LoansAtAmortisedCost(대출채권 **자산**)·매입채무는 명시배제,
   id↔nm 모순=CONFLICT·미등록=REVIEW로 표면화(합산 제외). 리스부채(IFRS16)·신종자본증권(자본)은 별도
   필드. 금융사(연결 BS 예수부채·보험계약부채·고객예탁금 정확매칭 — 예수금 제외)는 debt_dependency=None
-  (`status="n/a_financial"`); 일반지주(예시지주 A·예시지주 B 등, 예수부채 없음)는 정상 산출. KOSDAQ 소형주 '채무'·'유동화'
+  (`status="n/a_financial"`); 일반지주(SK·LG 등, 예수부채 없음)는 정상 산출. KOSDAQ 소형주 '채무'·'유동화'
   표기변형(유동성장기차입채무·유동화채무)은 nm 정확매칭+토큰 안전망으로 흡수(298사 2룹 검증). 근거:
   financial-metrics-borrowings-260713.
 - **금액 정규화** (`normalize_amount`):
@@ -252,8 +250,8 @@ sequenceDiagram
   지표 전용. 근거: financial-metrics-payout-260716.
 - **REIT 배당성향 억제**(`_is_reit`+`_accrual_payout_pct(is_reit=)`, 260717): 이름에 '리츠' 있으면
   `payout_ratio_pct=None` + `payout_ratio_note`("DPS·시가배당률 참고"). REIT는 배당가능이익≥90% 분배라
-  순이익 대비 성향이 100~2000%·음수로 무의미(404사 스캔: 예시기업 CE 421%·예시기업 FB밸류 −415%).
-  KSIC(68)는 부동산 개발사(예시기업 AF·예시기업 FF 정상 성향)까지 잡아 과억제하므로 **이름 판정**. 근거:
+  순이익 대비 성향이 100~2000%·음수로 무의미(404사 스캔: 미래에셋글로벌리츠 421%·이지스밸류 −415%).
+  KSIC(68)는 부동산 개발사(SK디앤디·자이에스앤디 정상 성향)까지 잡아 과억제하므로 **이름 판정**. 근거:
   dividend-payout-classification-260717.
 
 ## 관련 공시 (rules/disclosures/)
@@ -300,10 +298,10 @@ sequenceDiagram
 | `derived` | **자본총계 − 비지배지분** | 「…(자본총계에서 비지배지분을 빼 산출)」 |
 | `total` | 둘 다 없음 — 별도재무제표이거나 연결인데 구분 표시가 없음 | 별도/미확인을 갈라 씀 |
 
-`derived` 가 없으면 지배지분 소계를 안 적는 회사(실측 예시기업 AQ·예시기업 CJ·예시기업 CH)에서 자본총계로
+`derived` 가 없으면 지배지분 소계를 안 적는 회사(실측 고려아연·비덴트·미래에셋증권)에서 자본총계로
 물러나 **비지배 몫만큼 자기자본이 부풀고, 규정이 금지한 바로 그 과소 산정**이 된다. 그러려면
 비지배지분이 필요해 `ifrs-full_NoncontrollingInterests` **정확 매칭**으로 뽑는다(접두로 보면 다른
-개념에 올라탄다 — 260704 `ifrs-full_Liabilities` 사고). 한글 폴백에는 예시기업 FW 형 부채행 차단을 함께
+개념에 올라탄다 — 260704 `ifrs-full_Liabilities` 사고). 한글 폴백에는 KT&G 형 부채행 차단을 함께
 둔다 — 연결 BS 는 부채 섹션의 「비지배지분부채」가 자본 섹션의 「비지배지분」보다 **앞**이라 막지
 않으면 8.7배 틀린 값을 집는다.
 
@@ -319,7 +317,7 @@ sequenceDiagram
 
 ## 기능통화 (비KRW 회사)
 
-기능통화가 KRW 가 아닌 회사(예시기업 BP=USD 등)는 DART 원행이 그 통화로 온다. 이 tool 은 금액을
+기능통화가 KRW 가 아닌 회사(두산밥캣=USD 등)는 DART 원행이 그 통화로 온다. 이 tool 은 금액을
 **회계기말 환율로 KRW 환산**해서 내보내고 기준을 값 옆에 붙인다 — `functional_currency`(예 `USD`),
 `fx_rate_to_krw`, `fx_basis`. 환산했으면 warning 으로도 알린다.
 
@@ -347,12 +345,12 @@ sequenceDiagram
   · `years` 상한 10 + 초과 시 고지(캐시 적중에도 붙는다) · 표 제목의 「(3년)」 하드코딩을 실제 연도 범위로
   (years=10 인데 「3년」이라 적히던 것) · 서버가 이미 계산해 두고 안 그리던 전년비 3열 추가.
 - 2026-09-08: **기능통화 KRW 환산**(`functional_currency`·`fx_rate_to_krw`·`fx_basis` 신설). 종전엔 USD 원행을
-  `*_krw` 라벨로 그대로 내보내 예시기업 BP 매출이 62.7억(실제 9.2조)으로 약 1,400배 틀렸다. `summary`·`yearly`·
+  `*_krw` 라벨로 그대로 내보내 두산밥캣 매출이 62.7억(실제 9.2조)으로 약 1,400배 틀렸다. `summary`·`yearly`·
   `yoy`·`quarterly`·`qoq` 전 경로 적용, 환산 실패 시 값 보존 + 경고. 같은 커밋에서 `price_multiple_data` 의
   이중환산 제거. **`accounts` scope 신설**(계정 원행 + `sj_div` 필터). 회귀 `tests/test_functional_currency.py`.
-- 2026-09-07: 희석 EPS 가 없을 때 「-원」으로 나가던 것 → 「미공시」(live smoke 예시기업 EG·예시기업 HJ).
+- 2026-09-07: 희석 EPS 가 없을 때 「-원」으로 나가던 것 → 「미공시」(live smoke 에코프로비엠·현대건설).
 - 2026-09-06: 매출 계정 선택을 `revenue_account.pick_revenue_row` 로 이관 — account_id(`ifrs-full_Revenue`) 우선 +
-  계정명 접두 매칭 + KSIC 업종 우선순위. 주요계정에 매출 행이 없으면 전체 재무제표에서 폴백(예시기업 BV·예시기업 GH
+  계정명 접두 매칭 + KSIC 업종 우선순위. 주요계정에 매출 행이 없으면 전체 재무제표에서 폴백(리파인·티움바이오
   영업수익, 보험 보험수익, 은행 이자수익 — 종전 None). `revenue_account_nm`·`revenue_account_id`·`revenue_standard`·
   `revenue_source` 필드 신설, 비표준 기준이면 warning. 죽은 키 `operating_revenue` 제거. KSIC 는 company.json
   `induty_code` 를 먼저 쓴다(Postgres 는 폴백).

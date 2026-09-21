@@ -1,7 +1,5 @@
 # AGM Analysis and Proxy Voting Recommendations
 
-> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
-
 **Review the agenda and supporting evidence before an Annual General Meeting (AGM) or an Extraordinary General Meeting (EGM).** OPM structures the notice, evaluates individual agenda items and candidates, and returns voting recommendations with reasons, policy citations, and filing excerpts.
 
 ## Read the result
@@ -35,7 +33,7 @@ By default, `meeting_type="auto"` selects an annual or extraordinary meeting. Us
 
 ## Ask it like this
 
-> "Review Example Company Y's 2026 AGM agenda in English. Keep each decision status and show its rationale, policy section, and filing evidence."
+> "Review LG Chem's 2026 AGM agenda in English. Keep each decision status and show its rationale, policy section, and filing evidence."
 >
 > "Review the upcoming extraordinary general meeting. Identify the selected meeting, competing nominees, available seats, and any cumulative-voting constraints."
 >

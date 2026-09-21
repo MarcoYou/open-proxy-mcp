@@ -1,7 +1,5 @@
 # OPM 가이드라인: Astra–Fable 비교와 통합 설계
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../../wiki/wiki_schema.md)
-
 2026-09-08 · 설계 제안 · 운영 엔진 미적용
 
 Fable의 운영 범위와 Astra의 근거·판정 계약을 결합하되, OPM의 정책 선택은 독립적으로 정의한다.
@@ -168,7 +166,7 @@ Fable EX-06은 자본금이라고 설명하면서 asset_total 지표를 비교�
 - Fable: 리뷰 팩 JSON은 71개 비-default 규칙+12개 default=83개, 지표 103개. 브랜치 변경은 기존 엔진 한계 문서 14줄이다.
 - 채택 방향: 브랜치·리뷰 팩·실행 결과를 별개 증거로 기록한다. 두 원안은 보존하고 이 문서는 통합 제안으로 관리한다.
 
-v1.3이라는 부록 파일명과 내부 v1.2 표기도 불일치한다. Fable의 예시기업 S 재현 기록은 작성자 보고이며 이번에 MCP로 재현한 실측이 아니다.
+v1.3이라는 부록 파일명과 내부 v1.2 표기도 불일치한다. Fable의 KB금융 재현 기록은 작성자 보고이며 이번에 MCP로 재현한 실측이 아니다.
 
 근거: `02-opm-guideline-v2.json`의 `02-opm-guideline-v2.json`, `03-appendix-current-v1.3-policy.md`, `wiki/tools/proxy_advise_before_meeting.md@dada392`
 

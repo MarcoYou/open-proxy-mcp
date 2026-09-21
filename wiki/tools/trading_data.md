@@ -13,8 +13,6 @@ updated: 2026-09-18
 
 # trading_data
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 한 줄 요약
 가격과 **규모** 그 자체 — 종목의 주가·시가총액·상장주식수 시계열(주간, 2015-12~), 시장·섹터
 시총 집계 시계열, 특정 거래일의 전체 시세(OHLC·거래량·거래대금·등락률). 배수(PER·PBR)는
@@ -30,17 +28,17 @@ updated: 2026-09-18
 
 ## 사용법
 ```
-trading_data(company="예시기업 CW")                             # firm: 주가·시총·주식수 주간 시계열
-trading_data(company="예시기업 CW", since="20240101")           # 구간 지정
-trading_data(company="예시기업 CW", scope="quote")              # 최근 거래일 전체 시세
-trading_data(company="예시기업 CW", scope="quote", as_of="20260820")  # 그 날 OHLC·거래량·거래대금
+trading_data(company="삼성전자")                             # firm: 주가·시총·주식수 주간 시계열
+trading_data(company="삼성전자", since="20240101")           # 구간 지정
+trading_data(company="삼성전자", scope="quote")              # 최근 거래일 전체 시세
+trading_data(company="삼성전자", scope="quote", as_of="20260820")  # 그 날 OHLC·거래량·거래대금
 trading_data(scope="market")                                 # KOSPI·KOSDAQ 시총 시계열
 trading_data(scope="sector")                                 # WICS 하위업종 28 시총·비중
 trading_data(scope="sector", scheme="wics_sector")           # WICS 대분류 10
 trading_data(scope="sector", bucket="반도체와반도체장비")     # 그 섹터의 전 구간 시계열
 trading_data(scope="universe", universe="코스피 시총 상위 100")  # 종목 순위표 — 순위·코드·이름·시장·시총·종가
 trading_data(scope="universe", universe="코스닥 상위 50")
-trading_data(scope="universe", universe="예시기업 CW, 예시기업 AL, 005380")  # 이름·코드 나열도 시총순으로
+trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380")  # 이름·코드 나열도 시총순으로
 ```
 
 ## 입력 인자

@@ -2,12 +2,10 @@
 
 # OpenProxy MCP
 
-> 公司案例已匿名化；调用工具时请替换为实际公司名或标识符。[命名规则](wiki/wiki_schema.md)
-
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
 [![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#工具结构32-项工具)
-[![Release](https://img.shields.io/badge/release-v2.7.1-blue.svg)](docs/RELEASE_NOTES_ENG.md)
+[![Release](https://img.shields.io/badge/release-v2.7.2-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
@@ -67,7 +65,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 ### 3. 发送第一个问题
 
-可以先问：`Show 示例公司 CW' company information and three recent filings.` 如果返回公司信息和披露列表，说明连接成功。之后可以继续使用自然语言提问，无需记住工具名称。
+可以先问：`Show Samsung Electronics' company information and three recent filings.` 如果返回公司信息和披露列表，说明连接成功。之后可以继续使用自然语言提问，无需记住工具名称。
 
 按主题分类的示例问题汇总在下方的[可以这样提问](#可以这样提问)。各工具的详细参数见[工具目录](wiki/tools/README.md)。
 
@@ -78,14 +76,14 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 ## 可以这样提问
 
 不需要记住工具名称。把想问的话直接说出来，AI 会自行选择工具。
-以下公司名为匿名示例；请替换为要分析的实际公司名或股票代码。
+以下都是实际可用的问题。
 
 <details open>
 <summary><b>🗳️ 想了解股东大会与投票</b></summary>
 
-> - 请审阅 示例公司 Y下次股东大会的议案，并逐项给出有依据的投票意见。
-> - 示例公司 FP 本次董事选举，每位候选人需要关注什么？
-> - 示例公司 CW去年的议案实际表决结果如何？
+> - 请审阅 LG 化学下次股东大会的议案，并逐项给出有依据的投票意见。
+> - Kakao 本次董事选举，每位候选人需要关注什么？
+> - 三星电子去年的议案实际表决结果如何？
 > - 找出判断该议案所依据的章程条款与商法条文。
 
 每个议案都会返回**赞成／反对／需要审查**的意见，并附披露、政策与法律依据。不属于表决范围的议案
@@ -96,10 +94,10 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 <details open>
 <summary><b>📊 想了解业绩</b></summary>
 
-> - 对比示例公司 CW最近三年的业绩与未来两年的一致预期。
-> - 展示 示例公司 AL的季度业绩趋势，并包含经营现金流。
-> - 示例公司 HM是否已发布暂定业绩？与确定值有何差异？
-> - 用杜邦分析拆解 示例公司 Y的盈利能力。
+> - 对比三星电子最近三年的业绩与未来两年的一致预期。
+> - 展示 SK 海力士的季度业绩趋势，并包含经营现金流。
+> - 现代汽车是否已发布暂定业绩？与确定值有何差异？
+> - 用杜邦分析拆解 LG 化学的盈利能力。
 
 确定业绩来自 DART 财务 API，暂定值来自暂定业绩披露，预期值来自分析师一致预期。
 **三者口径不同，不会并列在同一行** — 表格中以确定（A）与预期（E）分别标示。
@@ -109,9 +107,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 <details>
 <summary><b>💹 想了解当前价格</b></summary>
 
-> - 这家公司的 PER 与 PBR 相对自身历史处于什么水平？
-> - 用未来两年的预期值计算 示例公司 AB的前瞻 PER。
-> - 示例公司 CW在 2024 年末时点的估值如何？
+> - Naver 的 PER 与 PBR 相对自身历史处于什么水平？
+> - 用未来两年的预期值计算 POSCO 控股的前瞻 PER。
+> - 三星电子在 2024 年末时点的估值如何？
 > - 按行业展示 KOSPI 的前瞻 PER 与 PBR，并与滚动数值并列。
 > - KOSPI 市值前 50 家公司中，哪些公司的营业利润预期在一周内上调？
 
@@ -123,8 +121,8 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 <details>
 <summary><b>🏭 想了解靠什么赚钱</b></summary>
 
-> - 示例公司 HF靠什么赚钱？请按业务板块拆分。
-> - 展示示例公司 AQ的开工率与原材料价格走势。
+> - 韩华思路信靠什么赚钱？请按业务板块拆分。
+> - 展示高丽亚铅的开工率与原材料价格走势。
 > - 计算泰光实业持有的关联公司股权与闲置资产价值。
 > - 这家公司还有多少在手订单？
 
@@ -137,7 +135,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 <summary><b>🧭 想了解股权与股东回报</b></summary>
 
 > - 三星物产的最大股东与关联方持股情况如何？
-> - 展示 示例公司 S最近三年的分红走势与分红率。
+> - 展示 KB 金融最近三年的分红走势与分红率。
 > - 宣布回购的公司里，哪些真正完成了注销？
 > - 企业价值提升计划的披露内容与实际执行相差多少？
 
@@ -153,7 +151,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 > - 只看 KOSPI 市值前 200 家公司今天的订单公告。
 > - 上周各行业的订单公告是否比平时多？
 > - 最近有哪些公司出现了控制权争夺信号？
-> - 展示示例公司 BO的增资与可转债发行记录。
+> - 展示斗山机器人的增资与可转债发行记录。
 > - 这家公司是否有诉讼或处罚记录？
 
 即时扫描 DART 的披露摘要**最多回溯三个月**，超出该范围时不会声称“没有发生过”。行业披露动向读取每晚累积的
@@ -177,7 +175,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 - **公司只需确认一次** — 首次查询得到的名称、股票代码与公司编号会沿用到后续提问。
 - **名称重复时会先确认** — 存在多个候选时，在确定之前不会进行后续查询。
-- **期间与对象直接用自然语言表达即可** — “本周”“上个月”“第三季度”“8 月 1 日至 8 月 20 日”，“KOSPI 市值前 200 家公司”“示例公司 CW、示例公司 AL”。“上周”“上个月”按日历的周与月计算；“最近 7 天”“最近 30 天”按包含今天在内的天数计算。
+- **期间与对象直接用自然语言表达即可** — “本周”“上个月”“第三季度”“8 月 1 日至 8 月 20 日”，“KOSPI 市值前 200 家公司”“三星电子、SK 海力士”。“上周”“上个月”按日历的周与月计算；“最近 7 天”“最近 30 天”按包含今天在内的天数计算。
 - **无法识别对象时会在查询前先询问** — 列出的公司一个也找不到，或像“KOSPI 120”这样无法判断是数量还是名称时，不会擅自改为全市场。
 - **请先阅读响应中的 `status` 与 `warnings`** — 其中写明了缺失的内容以及替代所用的口径。
 - **未取得的值表示“在所读披露中未找到”** — 既不是 0，也不是“不存在”。

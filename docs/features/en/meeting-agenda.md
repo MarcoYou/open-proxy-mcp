@@ -1,7 +1,5 @@
 # Meeting Agenda
 
-> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
-
 **Organizes the AGM notice (before) and the voting results (after), item by item.** Before the meeting: what will be voted on; after: how it was decided — both are covered.
 
 ## What it answers
@@ -13,9 +11,9 @@
 
 ## Ask it like this
 
-> "Show Example Company Y's 2026 AGM agenda"
+> "Show LG Chem's 2026 AGM agenda"
 >
-> "Example Company HM's last AGM results and approval rates"
+> "Hyundai Motor's last AGM results and approval rates"
 
 ## See also
 
