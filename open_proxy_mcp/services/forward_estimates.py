@@ -172,6 +172,50 @@ _REV_WINDOWS: tuple[tuple[str, int], ...] = (("1w", 7), ("4w", 28), ("12w", 91))
 _REV_METRICS: tuple[str, ...] = ("rev_krw", "op_krw", "ni_ctrl_krw", "eps_krw", "dps_krw")
 _REV_MIN_GAP_DAYS = 6  # 이보다 가까운 스냅샷은 「전」이 아니다
 
+# ─── 분모 가드 (260921) ───────────────────────────────────────────────────────
+# `_pct` 의 분모는 |기준값| 이라 **기준 영업이익이 0 에 가까우면 %가 폭주한다.** 적자가 깊어진
+# 것도, 적자가 얕아진 것도 백·천 %가 되어 순위 양 끝을 덮는다. 260921 실측(전체 유니버스 ·
+# 1w · 비교 가능 666행):
+#
+#   코윈테크  기준 −5억 → −58억   −1,050%   (이동 −52억)
+#   아이씨티케이 기준 −20억 → −73억   −265%   (이동 −53억)
+#   한화       기준 7.42조 → 6.10조   −17.8%  (이동 −1.32조)
+#
+# 이동 절대액이 **250배** 차이인데 순위는 거꾸로다. 「가장 크게 하향된 종목」을 물은 사람이
+# 받는 답이 이것이면 도구가 거짓말을 한 것이다.
+#
+# 그래서 **순위만** 가른다 — 행을 지우지 않는다(원문을 지우지 않는다).
+#   · 기준 영업이익 ≤ 0  → `base_loss`.  적자를 분모로 한 %는 「몇 % 좋아졌다」는 뜻이 아니다.
+#                          이건 임의값이 아니라 **정의** 문제다.
+#   · 0 < 기준 < 하한     → `base_small`. 이쪽은 **임의 임계값이다.** 자연스러운 경계가 없다.
+#
+# 하한을 100억으로 둔 근거(임의라는 점은 그대로다):
+#   · 666행 중 538행(80.8%)이 통과 — 순위의 5분의 4가 남는다. 300억이면 430행(64.6%)까지 줄고
+#     LG디스플레이(−7.6%, −708억) 같은 진짜 대형 하향이 Top5 에 들어오지만, 그만큼 중소형의
+#     진성 하향도 함께 잘린다. 50억은 아모센스(기준 50억, 이동 −20억)를 못 걸러 효과가 없었다.
+#   · |기준| 분위수는 p10 65억 · p25 201억 — 100억은 대략 하위 15% 언저리를 자른다.
+#   · 하한을 바꿔도 코드 한 줄이다. 유니버스별 분위수(예: 하위 10%)로 두는 안은 버렸다 —
+#     같은 종목이 「코스피200 에선 순위 안, 전체에선 순위 밖」이 되어 두 호출을 못 겹쳐 읽는다.
+_REV_RANK_MIN_OP = 100 * 10**8   # 100억원. **임의값** — 위 주석의 실측이 근거지 이론값이 아니다.
+_REV_TIER = {"ranked": 0, "base_loss": 1, "base_small": 1, "not_comparable": 2}
+
+# ─── 단발 갱신 표시 (260921) ──────────────────────────────────────────────────
+# 값이 몇 주 내내 같다가 한 스냅샷에서만 움직인 종목. 260921 실측으로 전체 685종목 중
+# 51종목이 이 모양이고(상향 21 · 하향 30), 그중 이번 창 안에서 움직인 건 18종목이다
+# (같은 창에서 움직인 종목은 93개이므로 아무 행에나 붙는 꼬리표는 아니다).
+#
+# 🔴 **이것은 분할·연결범위 변경 탐지기가 아니다.** 매출·지배순이익 동반 이동과 「연간은
+# 움직였는데 분기는 그대로」까지 얹어 51 → 7종목으로 좁힌 뒤 `corporate_restructuring` 으로
+# 교차검증했더니, 24개월 내 재편 공시가 있는 건 한화 한 곳뿐이었다(쎄트렉아이·LX홀딩스·
+# 코윈테크·트리니티항공·넥스트바이오메디컬·사피엔반도체 모두 0건). 정밀도 1/7 이라 원인을
+# 이름 붙일 수 없어 **좁히는 조건을 전부 버리고** 관측된 사실만 남겼다.
+#
+# 남긴 사실: 「이 %는 누적된 추세가 아니라 벤더의 단발 갱신이다.」 그 이상은 말하지 않는다.
+# 원인(재편·커버리지 축소·담당 애널리스트 교체…)은 읽는 쪽이 공시로 확인할 몫이다.
+_SOLE_UPDATE_MIN_PCT = 5.0    # 이보다 작은 움직임은 보합과 구별할 실익이 없다
+_SOLE_UPDATE_FLAT_PCT = 0.5   # 하우스 보합 밴드 — direction 의 ±0.5% 와 같은 값
+_SOLE_UPDATE_MIN_SNAPS = 3    # 「내내 같았다」고 말하려면 최소 이만큼은 봐야 한다
+
 
 def _pct(now: Any, base: Any) -> float | None:
     if now is None or base is None:
@@ -735,6 +779,60 @@ def _fetch_hist_many(codes: list[str] | None, period_type: str) -> list[tuple] |
     return pg_rows(sql, tuple(params))
 
 
+def _as_num(v: Any) -> float | None:
+    """DB 가 돌려준 Decimal·str 을 셈할 수 있는 수로. 못 고치면 None — 0 으로 메우지 않는다."""
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _series(hist: list[dict[str, Any]], period: str, period_type: str,
+            metric: str) -> list[tuple[str, Any]]:
+    """한 기간·한 지표의 (스냅샷일, 값) 시계열. 같은 날 중복은 뒤엣것이 이긴다."""
+    d = {str(r["as_of"])[:10]: r.get(metric) for r in hist
+         if r.get("period") == period and r.get("period_type") == period_type
+         and r.get(metric) is not None}
+    return sorted(d.items())
+
+
+def _sole_update(hist: list[dict[str, Any]], period: str, period_type: str,
+                 metric: str = "op_krw") -> dict[str, Any] | None:
+    """관측 구간 내내 보합이다가 **한 스냅샷에서만** 움직였으면 그 갱신을, 아니면 None.
+
+    돌려주는 건 관측된 사실뿐이다 — 「이 창의 %는 누적된 추세가 아니라 단발 갱신이다」.
+    **원인은 말하지 않는다.** 재편·연결범위 변경으로 좁히려던 시도와 그 실패는 파일 윗부분
+    `_SOLE_UPDATE_*` 주석에 남겼다(정밀도 1/7).
+
+    창(1w·4w·12w) 변화율로는 이걸 못 본다 — 스냅샷이 적으면 4w·12w 가 같은 기준일로 접혀
+    세 창이 같은 값이 되기 때문에, 원계열을 직접 훑는다."""
+    ser = _series(hist, period, period_type, metric)
+    if len(ser) < _SOLE_UPDATE_MIN_SNAPS:
+        return None
+    steps = [(ser[i][0], _pct(ser[i][1], ser[i - 1][1])) for i in range(1, len(ser))]
+    if any(p is None for _, p in steps):
+        return None
+    big = [(d, p) for d, p in steps if abs(p) >= _SOLE_UPDATE_MIN_PCT]
+    if len(big) != 1:
+        return None
+    if any(abs(p) > _SOLE_UPDATE_FLAT_PCT for d, p in steps if (d, p) != big[0]):
+        return None
+    return {"as_of": big[0][0], f"{metric}_pct": big[0][1], "snapshots": len(ser)}
+
+
+def _rank_basis(pct: float | None, base_op: float | None) -> str:
+    """이 행을 순위에 올려도 되나 — 올릴 수 없으면 **왜 못 올리는지**를 돌려준다."""
+    if pct is None:
+        return "not_comparable"
+    if base_op is None or base_op <= 0:
+        return "base_loss"          # 적자를 분모로 한 %는 「몇 % 좋아졌다」가 아니다 (정의 문제)
+    if base_op < _REV_RANK_MIN_OP:
+        return "base_small"         # 분모가 작아 %가 폭주한다 (임의 임계값)
+    return "ranked"
+
+
 def _screen_row(code: str, hist: list[dict[str, Any]], win: str,
                 meta: dict[str, Any]) -> dict[str, Any] | None:
     """종목 하나의 이력 → 스크린 한 행. 초점은 **가장 가까운 연간 추정 기간**(FY 가 없으면 첫 행)."""
@@ -758,6 +856,24 @@ def _screen_row(code: str, hist: list[dict[str, Any]], win: str,
     }
     for m in _REV_METRICS:
         row[f"{m}_{win}_pct"] = cell.get(f"{m}_pct")
+
+    # 분모와 **이동 절대액**을 같이 싣는다 — %만 있으면 한화의 1.32조원 이동이 비나텍의
+    # 15억원 이동 아래로 간다. 기준값은 원계열에서 다시 집는다(`compute_revision` 은 %만 준다).
+    op_now = _as_num(row["op_krw"])
+    base_op = None
+    if base:
+        for d, v in _series(hist, focus["period"], focus["period_type"], "op_krw"):
+            if d == base["as_of"]:
+                base_op = _as_num(v)
+                break
+    row["op_krw_base"] = base_op
+    row[f"op_krw_{win}_delta"] = (op_now - base_op) if (op_now is not None and base_op is not None) else None
+    row["rank_basis"] = _rank_basis(row.get(f"op_krw_{win}_pct"), base_op)
+
+    # 갱신이 창 **안**에서 일어났을 때만 싣는다 — 기준일보다 앞선 갱신은 지금 보이는 %를
+    # 만든 것이 아니라서, 그걸로 표시를 달면 엉뚱한 행을 의심하게 된다.
+    upd = _sole_update(hist, focus["period"], focus["period_type"])
+    row["sole_update"] = upd if (upd and base and upd["as_of"] > base["as_of"]) else None
     return row
 
 
@@ -808,10 +924,19 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
         if row is not None:
             out.append(row)
     key = f"op_krw_{win}_pct"
-    out.sort(key=lambda r: (r[key] is None, -(r[key] or 0.0), r.get("rank_mktcap") or 10**9))
-    for i, r in enumerate(out, 1):
-        r["rank"] = i
+    # 순위 → 분모 가드에 걸린 행 → 비교 불가, 각 묶음 안에서는 영업이익 변화율 내림차순.
+    # `rank` 는 **순위 묶음에만** 매긴다 — 못 믿을 %에 등수를 달면 가드를 둔 뜻이 없다.
+    out.sort(key=lambda r: (_REV_TIER[r["rank_basis"]], -(r[key] or 0.0), r.get("rank_mktcap") or 10**9))
+    n_ranked = 0
+    for r in out:
+        if r["rank_basis"] == "ranked":
+            n_ranked += 1
+            r["rank"] = n_ranked
+        else:
+            r["rank"] = None
 
+    guarded = [r for r in out if r["rank_basis"] in ("base_loss", "base_small")]
+    sole = [r for r in out if r["sole_update"]]
     n_short = sum(1 for r in out if r["history_short"])
     n_nobase = sum(1 for r in out if r["baseline_as_of"] is None)
     vals = [r[key] for r in out if r[key] is not None]
@@ -822,7 +947,8 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
     # (absent) 비교가 아니다 — direction.not_comparable 과 같은 정의여야 두 숫자가 어긋나지 않는다.
     coverage = {"universe": len(ul.rows), "with_estimates": len(out),
                 "no_estimates": len(ul.rows) - len(out),
-                "comparable": len(vals), "history_short": n_short}
+                "comparable": len(vals), "ranked": n_ranked,
+                "rank_guarded": len(guarded), "history_short": n_short}
 
     warnings: list[str] = []
     if ul.notice:
@@ -832,8 +958,43 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
     if len(ul.rows) - len(out):
         warnings.append(f"유니버스 {len(ul.rows)}종목 중 {len(ul.rows) - len(out)}종목은 컨센서스 추정이 없어 "
                         "표에서 뺐다(애널리스트 미커버 — 자료 없음이지 장애가 아니다).")
-    if n_nobase:
-        warnings.append(f"{n_nobase}종목은 이력이 {_REV_MIN_GAP_DAYS}일 이상 떨어진 기준일이 없어 비교 불가 — 표 맨 뒤.")
+    if guarded:
+        n_loss = sum(1 for r in guarded if r["rank_basis"] == "base_loss")
+        n_small = len(guarded) - n_loss
+        bits = []
+        if n_loss:
+            bits.append(f"기준 영업이익이 적자·0 인 {n_loss}종목")
+        if n_small:
+            bits.append(f"기준 영업이익이 {_REV_RANK_MIN_OP // 10**8}억원 미만인 {n_small}종목")
+        warnings.append(
+            " / ".join(bits) + "은 **순위에서 뺐다**(등수를 비우고 표 뒤에 따로 묶었다 — "
+            "행마다 `rank_basis` 에 뺀 이유). "
+            "%의 분모가 |기준값| 이라 기준이 0 에 가까우면 몇 억원 움직임도 수백 %가 되어 "
+            "순위 양 끝을 덮는다. 지운 게 아니라 등수만 안 매긴 것이고, **적자 축소가 「상향」으로 "
+            "나오는 것도 그래서다.** 크기는 변화율 말고 "
+            f"이동 절대액(`op_krw_{win}_delta`)으로 볼 것. "
+            f"{_REV_RANK_MIN_OP // 10**8}억원은 **임의 기준**이다 — 자연스러운 경계가 아니라 "
+            "「이 아래에서 %가 폭주하더라」는 관측으로 고른 값이다.")
+    if sole:
+        warnings.append(
+            f"{len(sole)}종목은 관측 구간 내내 값이 같다가 **이번 한 번만** 움직였다 — 이 창의 %는 "
+            "주마다 쌓인 추세가 아니라 **벤더의 단발 갱신**이다. 상향·하향 양쪽에 다 있다. "
+            "왜 한 번에 움직였는지는 이 도구가 알지 못한다(재편·커버리지 변화·단순 갱신 주기 — "
+            "확인하려면 공시를 볼 것): "
+            + " · ".join(f"{r['name']}({r['ticker']}) {r['sole_update']['as_of']} "
+                         f"{r['sole_update']['op_krw_pct']:+.1f}%" for r in sole[:10])
+            + (f" 외 {len(sole) - 10}종목" if len(sole) > 10 else ""))
+    # 비교 불가는 이유가 둘이다 — 「기준일이 없다」와 「기준일엔 있었는데 그 기간 추정이 없었다」.
+    # 뭉뚱그리면 합이 direction 의 비교 불가와 어긋나 보인다(260921: 19 = 17 + 2).
+    n_nocomp = sum(1 for r in out if r["rank_basis"] == "not_comparable")
+    if n_nocomp:
+        why = []
+        if n_nobase:
+            why.append(f"{n_nobase}종목은 이력에 {_REV_MIN_GAP_DAYS}일 이상 떨어진 기준일이 없고")
+        if n_nocomp - n_nobase:
+            why.append(f"{n_nocomp - n_nobase}종목은 기준일에 그 기간 추정이 아직 없었다")
+        warnings.append(f"비교 불가 {n_nocomp}종목 — " + " / ".join(why)
+                        + ". 순위 밖이라 md 표에서 빼고 개수로만 남겼다(전체는 json `data.rows`).")
     if n_short:
         warnings.append(f"{n_short}종목은 이력이 {win} 에 못 미쳐 가장 오래된 스냅샷과 비교했다 — "
                         "「이력 짧음」 표시. 그 값은 정확한 " + win + " 변화가 아니다.")
@@ -850,8 +1011,17 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
         "focus": "종목마다 가장 가까운 연간 추정 기간(예: 2026.12E) 한 행. 기간별 전체는 종목 단위 "
                  "`forward_estimates_data(company=…, bundle=\"revision\")`.",
         "coverage": coverage, "direction": direction, "rows": out,
+        "rank_guarded": [r["ticker"] for r in guarded],
+        "sole_update": [r["ticker"] for r in sole],
         "note": ("%는 (지금−기준)/|기준|. 기준일은 목표일 이전 가장 가까운 주간 스냅샷. ±0.5% 안은 유지. "
-                 "정렬은 영업이익 " + win + " 변화율 내림차순, 비교 불가는 맨 뒤. "
+                 "정렬은 영업이익 " + win + " 변화율 내림차순. "
+                 "🔴 **등수(`rank`)는 `rank_basis` 가 \"ranked\" 인 행에만 매긴다** — 기준 영업이익이 적자·0 이거나 "
+                 f"{_REV_RANK_MIN_OP // 10**8}억원 미만이면(`base_loss` · `base_small`) 분모가 작아 %가 폭주하므로 "
+                 "순위에서 빼고 뒤에 따로 묶는다(지우지는 않는다). 크기는 `op_krw_" + win + "_delta`(이동 "
+                 "절대액, 원)로 볼 것. `op_krw_base` 가 그 분모다. "
+                 "`sole_update` 는 관측 구간 내내 같다가 이번 한 번만 움직인 행 — 누적 추세가 아니라 단발 "
+                 "갱신이라는 **사실만** 말한다. 원인(재편·커버리지·갱신 주기)은 판정하지 않는다. "
+                 "비교 불가(변화율 없음)는 순위 밖. "
                  "출처 `fwd_hist`(주 1회 토, 13주 롤링) — 그 너머는 없다. 컨센서스 스냅샷이지 DART 공시가 아니다."),
     }
     return {"tool": TOOL, "status": "ok" if out else "no_estimates", "subject": subject,
