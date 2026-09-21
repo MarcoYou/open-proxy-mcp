@@ -1,11 +1,11 @@
 """director_news public tool — 이사·감사 후보 부정 뉴스 검색.
 
 **우리 키로 부른다.** 사용자는 키를 넣지 않고, 키는 서버 환경변수에만 있다
-(`NAVER_SEARCH_API_CLIENT_ID`/`_SECRET`, NAVER API HUB 발급). 응답에 키를 싣지 않는다.
+(`NAVER_SEARCH_API_CLIENT_ID`/`_SECRET` 환경변수). 응답에 키를 싣지 않는다.
 그래서 한도(일 25,000 · 월 775,000)는 전 사용자가 나눠 쓴다 — 호출당 1회로 묶고
 `limit` 상한을 둔 이유다.
 
-네이버 검색 API 자체에는 **언론사 선택 옵션이 없다.** `originallink` 도메인으로
+검색 API 자체에는 **언론사 선택 옵션이 없다.** `originallink` 도메인으로
 우리가 갈라낸다(`press` 인자).
 """
 
@@ -70,7 +70,7 @@ async def build_payload(name: str, company: str = "", press: str = "all",
 
     query = f'"{name}"' + (f' "{company.strip()}"' if company.strip() else "")
     client = DartClient()
-    items = await client.naver_news_search(query, display=100, sort="date")
+    items = await client.news_search(query, display=100, sort="date")
 
     cats = tuple(c.strip() for c in categories.split(",") if c.strip())
     extra = tuple(w.strip() for w in extra_keywords.split(",") if w.strip())
@@ -111,7 +111,7 @@ async def build_payload(name: str, company: str = "", press: str = "all",
 
     warnings = []
     if not items:
-        warnings.append("네이버 검색 API가 결과를 주지 않았다 — 키 미설정 또는 호출 실패.")
+        warnings.append("뉴스 검색 API가 결과를 주지 않았다 — 키 미설정 또는 호출 실패.")
     return {
         "status": "ok", "subject": f"director_news: {name}",
         "warnings": warnings,
@@ -173,9 +173,9 @@ def register_tools(mcp):
         exclude_keywords: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 이사·감사·감사위원 **후보자 부정 뉴스 점검**. 후보 이름(+회사명)으로 네이버 뉴스를 훑어 횡령·배임·수사·제재·해임 등 48개 부정 키워드가 걸린 기사만 남긴다. 언론사 묶음을 골라 거를 수 있다.
+        """desc: 이사·감사·감사위원 **후보자 부정 뉴스 점검**. 후보 이름(+회사명)으로 뉴스를 검색해 횡령·배임·수사·제재·해임 등 48개 부정 키워드가 걸린 기사만 남긴다. 언론사 묶음을 골라 거를 수 있다.
         when: 주총 안건 검토, 이사·감사위원 선임 찬반 판단, 후보자 적격성·평판 확인, 주주제안 후보 검증.
-        rule: NAVER API HUB 뉴스 검색 1회 호출(최대 100건) 후 로컬 필터. 검색 API에는 언론사 옵션이 없어 원문 링크 도메인으로 판별한다. **키워드가 걸렸다 ≠ 사실 확인** — 원문을 열어 확인해야 한다. 결과 0건은 「무혐의」가 아니라 「이 조건에서 안 걸림」이다.
+        rule: 뉴스 검색 API 1회 호출(최대 100건) 후 로컬 필터. 검색 API에는 언론사 옵션이 없어 원문 링크 도메인으로 판별한다. **키워드가 걸렸다 ≠ 사실 확인** — 원문을 열어 확인해야 한다. 결과 0건은 「무혐의」가 아니라 「이 조건에서 안 걸림」이다.
         press: `all` 전체 / `major` 주요 일간지 11곳 / `econ` 경제·증권지 12곳.
         categories: 볼 분류를 쉼표로 — `criminal` 형사·수사 / `economic` 경제범죄 / `accounting` 회계·공시 / `regulatory` 규제·제재 / `governance` 지배구조·직무 / `labor_safety` 노동·안전 / `ethics` 윤리·평판. 비우면 전체.
         min_severity: `low`(기본) / `mid` / `high` — 낮은 심각도를 잘라낸다.

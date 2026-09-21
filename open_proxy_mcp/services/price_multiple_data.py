@@ -24,6 +24,7 @@ import calendar
 
 from open_proxy_mcp.dart.client import get_dart_client, DartClientError, LruByteCache, _env_mb
 from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
+from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
                                              company_ambiguous_warning,
                                              company_not_found_warning,
@@ -300,7 +301,7 @@ _DIV_METHOD = (
 #    그래서 행마다 추정 종목 수를 같이 싣는다.
 # 🔴 기준일이 다르다 — 추정 스냅샷(주 1회 토요일)과 주간 시세 스냅샷을 각각 적는다.
 # ══════════════════════════════════════════════════════════════════════════
-_FWD_SCHEMES = ("market", "wics_sector", "wics_industry")
+_FWD_SCHEMES = ("market", _db_scheme(MAJOR), _db_scheme(MID))
 _FWD_COLS = ("as_of", "market", "bucket", "label", "n_total", "cap_krw", "n_per", "ni_krw", "fwd_per",
              "n_per_pos", "fwd_per_pos", "n_pbr", "eq_krw", "fwd_pbr", "n_psr", "fwd_psr",
              "n_dps", "fwd_div_yield_pct", "fy_main", "fy_min", "fy_max", "class_dd")
@@ -313,7 +314,7 @@ def _fwd_method(fy: int | None) -> str:
             "**트레일링과 같은 방식(적자 추정도 더한다)**. 합이 0 이하면 「적자」로 적는다. "
             "**추정이 있는 보통주만 더한다** — 트레일링(상장 보통주 전부)과 모집단이 달라 "
             "추정 종목 수를 같이 적는다. 흑자 추정만 더한 벤더식은 `fwd_per_pos`, 선행 PSR 은 `fwd_psr`(JSON). "
-            "업종은 추정 날짜 이하 가장 최근 WICS 분류(`class_dd`).")
+            "업종은 추정 날짜 이하 가장 최근 업종분류(`class_dd`).")
 
 
 def _as_date(dd: str | None) -> str | None:
@@ -515,27 +516,28 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
             "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — market_val_weekly가 갱신."]}
 
 
-# 260823: 분류 축이 둘이 됐다. `sector != '_ALL'` 만으로 거르면 KSIC 와 WICS 가 **섞여**
+# 260823: 분류 축이 둘이 됐다. `sector != '_ALL'` 만으로 거르면 KSIC 와 업종분류가 **섞여**
 #   같은 종목이 두 버킷에 잡힌다(섹터 표가 중복된다). 반드시 scheme 을 함께 건다.
 _SECTOR_SCHEMES = {
     "ksic": "KSIC 하이브리드(자체 매핑) — 62버킷",
-    "wics_sector": "WICS 대분류 10 (WiseIndex)",
-    "wics_industry": "WICS 하위업종 28 (WiseIndex) — KSIC 세분과 비교 가능한 층",
+    MAJOR: "업종 대분류 10",
+    MID: "업종 중분류 28 — KSIC 세분과 비교 가능한 층",
 }
 
 
 async def build_sector_val_payload(company: str = "", format: str = "md",
-                                   scheme: str = "wics_industry", as_of: str | None = None) -> dict[str, Any]:
+                                   scheme: str = MID, as_of: str | None = None) -> dict[str, Any]:
     """산업별 시총가중 밸류에이션 — 최신 스냅샷 + 섹터 히스토리(opm_val_market).
     company 지정 시 그 기업의 섹터를 함께 표시. scheme 으로 분류 축 선택."""
-    scheme = (scheme or "wics_industry").strip().lower()
+    scheme = _class_canon(scheme, MID)
     if scheme not in _SECTOR_SCHEMES:
         return {"tool": "price_multiple_data", "status": "invalid", "subject": "산업별 밸류에이션",
                 "warnings": [f"scheme '{scheme}' 없음 — {' / '.join(_SECTOR_SCHEMES)} 중 선택."]}
     as_of_req = as_of  # 아래에서 as_of 가 실제 스냅샷 날짜로 바뀐다 — 선행 조회는 요청값 기준
     # 260907: as_of 가 있으면 그 이하 가장 최근 스냅샷 (과거 시점 비교)
     sub = "SELECT MAX(snap_dd) FROM opm_val_market WHERE sector != '_ALL' AND scheme=%s" + (" AND snap_dd <= %s" if as_of else "")
-    params: tuple = (scheme, scheme, as_of) if as_of else (scheme, scheme)
+    dbs = _db_scheme(scheme)
+    params: tuple = (dbs, dbs, as_of) if as_of else (dbs, dbs)
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0, "
         "ni_fy0, ni_ttm FROM opm_val_market "
@@ -555,32 +557,32 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 # 260829: 배수가 비었을 때 「적자」와 「자료없음」을 가르는 분모. None = 더한 회사 없음.
                 "ni_fy0_krw": r[10], "ni_ttm_krw": r[11]}
                for r in rows]
-    # 260831: 확정 배당수익률은 WICS 대분류로만 집계돼 있다(`div_yield_hist`). 다른 축에서는 안 붙인다 —
-    #   KSIC·WICS 하위업종에 억지로 맞추면 버킷이 어긋난 값이 붙는다.
+    # 260831: 확정 배당수익률은 업종 대분류로만 집계돼 있다(`div_yield_hist`). 다른 축에서는 안 붙인다 —
+    #   KSIC·업종 중분류에 억지로 맞추면 버킷이 어긋난 값이 붙는다.
     #   키를 코드가 아니라 **label** 로 맞춘다(그 표의 bucket 이 섹터 이름이다).
-    # 260918: 선행(PER·PBR·PSR·배당)은 WICS 두 층 다 있다(`opm_val_fwd`). 키는 WICS **코드** —
+    # 260918: 선행(PER·PBR·PSR·배당)은 업종분류 두 층 다 있다(`opm_val_fwd`). 키는 업종 **코드** —
     #   이 표의 `sector` 칸과 같은 값이다. KSIC 선행 집계는 없다(안 붙인다).
     div_act, div_ruler = ({}, {})
     fwd, fwd_ruler = ({}, {})
-    if scheme == "wics_sector":
+    if scheme == MAJOR:
         (div_act, div_ruler), (fwd, fwd_ruler, _) = await asyncio.gather(
-            _div_yield_map("wics_sector"), _fwd_val_map("wics_sector", as_of_req))
-    elif scheme == "wics_industry":
-        fwd, fwd_ruler, _ = await _fwd_val_map("wics_industry", as_of_req)
+            _div_yield_map(_db_scheme(MAJOR)), _fwd_val_map(_db_scheme(MAJOR), as_of_req))
+    elif scheme == MID:
+        fwd, fwd_ruler, _ = await _fwd_val_map(_db_scheme(MID), as_of_req)
     for srow in sectors:
         _attach_div(srow, (mkt_to_db(srow["market"]), srow["label"]), div_act)
         _attach_fwd(srow, fwd.get((mkt_to_db(srow["market"]), srow["sector"])))
     has_fwd_div = any(s.get("fwd_div_yield_pct") is not None for s in sectors)
     company_ctx = None
-    # 260823: scheme 을 열었는데 각주가 「KSIC 하이브리드」로 굳어 있었다 — WICS 로 조회해도
+    # 260823: scheme 을 열었는데 각주가 「KSIC 하이브리드」로 굳어 있었다 — 업종분류로 조회해도
     #   KSIC 라고 말한다. 사용자가 다른 축을 봤다고 믿게 되는 자리다.
     _SRC = {"ksic": "KSIC 하이브리드(opm_sector_map)",
-            "wics_sector": "WICS 대분류(WiseIndex)",
-            "wics_industry": "WICS 하위업종(WiseIndex)"}
+            MAJOR: "업종 대분류",
+            MID: "업종 중분류"}
     warnings = [f"주간 스냅샷 기준(최신 {as_of}) · 분류={_SRC[scheme]}."]
     if scheme != "ksic":
         warnings.append(
-            "WICS 는 2026-08 부터 관측을 쌓는다 — 그 이전 시점의 분류는 **현재 분류를 소급 적용**한 "
+            "업종분류는 2026-08 부터 관측을 쌓는다 — 그 이전 시점의 분류는 **현재 분류를 소급 적용**한 "
             "것이라 당시 실제 소속과 다를 수 있다(관측이 쌓이면 소급 구간이 뒤로 밀린다).")
     if company.strip():
         corp, early = await _resolve_listed(company.strip())  # 공용 리졸버 — ambiguous 후보표
@@ -597,17 +599,17 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
         else:
             fr = await asyncio.to_thread(_pg_rows,
                 # 260823: 기업의 섹터 코드가 scheme 마다 다른 원천에서 온다 —
-                #   ksic 은 opm_val_firm.sector, wics 는 wise_sector(가장 가까운 스냅샷).
+                #   ksic 은 opm_val_firm.sector, 업종분류는 분류 스냅샷 표(가장 가까운 스냅샷).
                 "SELECT v.sector, v.market, v.per_ttm, v.pbr_mrq, s.label, s.per_ttm, s.pbr_mrq "
                 "FROM opm_val_firm v LEFT JOIN opm_val_market s "
                 "ON s.snap_dd=v.snap_dd AND s.market=v.market AND s.sector=v.sector AND s.scheme='ksic' "
                 "WHERE v.ticker=%s AND v.snap_dd=%s", (isu, as_of)) or []
             if fr and scheme != "ksic":
-                # WICS 는 종목의 섹터 코드가 wise_sector 에 있다. 스냅샷은 as_of 이하의
+                # 업종분류는 종목의 섹터 코드가 분류 스냅샷 표에 있다. 스냅샷은 as_of 이하의
                 # 가장 최근 것, 없으면 가장 이른 것(=소급) — 폴백 규칙은 집계 백필과 동일.
                 _, market, pt, pb, *_ = fr[0]
-                col = "sector_code" if scheme == "wics_sector" else "industry_code"
-                nmc = "sector" if scheme == "wics_sector" else "industry"
+                col = "sector_code" if scheme == MAJOR else "industry_code"
+                nmc = "sector" if scheme == MAJOR else "industry"
                 wr = await asyncio.to_thread(_pg_rows,
                     f"SELECT {col}, {nmc}, snap_dd FROM wise_sector WHERE ticker=%s "
                     "ORDER BY (snap_dd <= %s) DESC, ABS(snap_dd::bigint - %s::bigint) LIMIT 1",
@@ -618,7 +620,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                     spt = sr[0]["per_ttm"] if sr else None
                     spb = sr[0]["pbr_mrq"] if sr else None
                     fr = [(sec, market, pt, pb, lbl, spt, spb)]
-                    _wics_asof = sector_asof
+                    _class_asof = sector_asof
                 else:
                     fr = []
             if fr:
@@ -632,7 +634,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                         lbl = f"KSIC {sec} (섹터 집계 없음)"
                 company_ctx = {"name": corp.get("corp_name"), "ticker": isu, "market": market,
                                "sector": sec, "sector_label": lbl,
-                               "sector_asof": locals().get("_wics_asof"),  # WICS 소급 여부 표시
+                               "sector_asof": locals().get("_class_asof"),  # 업종분류 소급 여부 표시
                                "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
                                "sector_per_ttm": spt and round(spt, 2), "sector_pbr_mrq": spb and round(spb, 2)}
                 # 소속 섹터의 과거 시계열(2020-01~, market_val_history_backfill.py가 채움) — 0콜, 이미 DB에 있음.
@@ -1456,7 +1458,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             },
             "note": "EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준(TTM=공시 EPS 조립: FY0+분기누적−전년동기누적 "
                     "— 가중평균 주식수·우선주 배분 반영, 두 PER 직접비교 가능. 클래스별 EPS 미공시사(삼성전자 등)는 "
-                    "보·우 합산 가중평균 = 네이버금융·FnGuide 관행과 동일). 공시 EPS 결측 시에만 "
+                    "보·우 합산 가중평균 = 국내 포털·데이터 공급처 관행과 동일). 공시 EPS 결측 시에만 "
                     "지배순이익÷보통주 폴백(경고 부착). "
                     "PER·PBR=보통주 시총(KRX 상장주식수×종가)÷지배순이익·지배자본(MRQ 우선) — 주식수 상쇄로 분할·병합에 불변, 분모에 우선주 몫이 포함돼 소폭 낮을 수 있음. BPS 분모=합계 유통주식수(보통+우선, 자기주식 제외). "
                     "배수는 trailing(과거 실적) 기준 — 컨센서스 선행(fwd) PER와 상이.",

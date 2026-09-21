@@ -30,7 +30,7 @@ def _load_script(name: str):
 
 # ── 1. 스냅샷 시대 분할 — 소급 구간이 비면 과거 전체가 섹터 없이 남는다 ──
 def test_eras_cover_history_before_first_snapshot():
-    """WICS 첫 관측(2026-08)보다 이른 구간도 **덮여야** 한다.
+    """업종분류 첫 관측(2026-08)보다 이른 구간도 **덮여야** 한다.
 
     시대를 `snap_dd` 부터 시작하게 짜면 2015~2026 이 통째로 빠지고, 섹터 합이 시장 합보다
     한참 작아진다. 그때 에러는 안 난다 — 그냥 숫자가 작아질 뿐이다.
@@ -53,13 +53,13 @@ def test_eras_split_at_each_snapshot():
 
 
 def test_cap_agg_rebuild_scope_is_incremental_by_default():
-    """평소엔 최신 주만, 새 WICS 관측은 그 관측일부터, 명시는 그대로 적용한다."""
+    """평소엔 최신 주만, 새 업종분류 관측은 그 관측일부터, 명시는 그대로 적용한다."""
     m = _load_script("krx_cap_agg")
     common = dict(source_min="20151230", source_max="20260918", latest_snap="20260828")
     assert m._choose_since(requested=None, full=False, latest_sector_asof="20260828", **common) == (
         "20260914", "최신 주 갱신")
     assert m._choose_since(requested=None, full=False, latest_sector_asof="20260731", **common) == (
-        "20260828", "새 WICS 관측 반영")
+        "20260828", "새 업종분류 관측 반영")
     assert m._choose_since(requested="20260101", full=False, latest_sector_asof="20260828", **common) == (
         "20260101", "지정 구간")
     assert m._choose_since(requested=None, full=True, latest_sector_asof="20260828", **common) == (
@@ -126,7 +126,7 @@ def test_sector_render_trims_when_bucket_requested():
     buckets = [{"market": "KS", "bucket": f"B{i}", "label": f"섹터{i}",
                 "cap_krw": (60 - i) * 10**12, "n": i + 1} for i in range(30)]
     p = {"status": "ok", "subject": "s", "data": {
-        "scope": "sector", "scheme": "wics_industry", "scheme_desc": "d",
+        "scope": "sector", "scheme": "중분류", "scheme_desc": "d",
         "as_of": "20260821", "sector_asof": "20260821", "buckets": buckets,
         "bucket": "섹터20", "series": [], "method": "M"}, "warnings": []}
     md = _render_sector(p)

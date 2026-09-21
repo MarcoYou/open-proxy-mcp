@@ -1949,14 +1949,14 @@ class DartClient:
                                               await self.periodic_filers())
         return resolver.suggest(query, limit)
 
-    async def get_naver_corp_profile(self, stock_code: str) -> dict:
-        """NAVER 금융에서 업종명 조회 (웹 스크래핑)
+    async def get_portal_corp_profile(self, stock_code: str) -> dict:
+        """포털 금융 페이지에서 업종명 조회 (웹 스크래핑)
 
         Returns:
             {"sector_name": "반도체와반도체장비", "sector_code": "278"} 또는 {}
         """
         if get_strict_as_of():
-            note_strict_exclusion("naver_corp_profile", reason="unversioned_source")
+            note_strict_exclusion("portal_corp_profile", reason="unversioned_source")
             return {}
         try:
             await asyncio.sleep(2.0)  # 웹 스크래핑 최소 간격
@@ -2926,10 +2926,10 @@ class DartClient:
             "reprt_code": reprt_code,
         })
 
-    # ── 주가 시세 조회 (네이버 금융 → KRX fallback) ──
+    # ── 주가 시세 조회 (포털 시세 → KRX fallback) ──
 
     async def get_stock_price(self, stock_code: str, base_date: str) -> dict | None:
-        """특정 종목의 일별 시세 (종가). 네이버 금융 우선, KRX Open API fallback.
+        """특정 종목의 일별 시세 (종가). 포털 시세 우선, KRX Open API fallback.
 
         Args:
             stock_code: 종목코드 6자리 (예: "005930")
@@ -2950,18 +2950,18 @@ class DartClient:
         if result:
             return result
 
-        # 2차: 네이버 금융 (fallback)
-        result = await self._naver_stock_price(stock_code, base_date)
+        # 2차: 포털 시세 (fallback)
+        result = await self._portal_stock_price(stock_code, base_date)
         if result:
             return result
 
         return None
 
-    async def _naver_stock_price(self, stock_code: str, base_date: str) -> dict | None:
-        """네이버 금융 시세 API — 일별 종가"""
+    async def _portal_stock_price(self, stock_code: str, base_date: str) -> dict | None:
+        """포털 시세 API — 일별 종가"""
         if get_strict_as_of():
             # This adapter does not establish an as-published adjustment vintage.
-            note_strict_exclusion("naver_stock_price", reason="unversioned_source")
+            note_strict_exclusion("portal_stock_price", reason="unversioned_source")
             return None
         try:
             await self._throttle_api()
@@ -2986,7 +2986,7 @@ class DartClient:
                 return {
                     "closing_price": int(close),
                     "base_date": date_str,
-                    "source": "naver",
+                    "source": "portal",
                 }
 
             # 해당 날짜 데이터 없으면 (비거래일) — 범위 넓혀서 직전 거래일
@@ -3001,11 +3001,11 @@ class DartClient:
                 return {
                     "closing_price": int(close),
                     "base_date": date_str,
-                    "source": "naver",
+                    "source": "portal",
                 }
             return None
         except Exception as e:
-            logger.warning(f"[네이버] 시세 조회 실패: {e}")
+            logger.warning(f"[포털 시세] 조회 실패: {e}")
             return None
 
     async def _krx_stock_price(self, stock_code: str, base_date: str) -> dict | None:
@@ -3052,10 +3052,10 @@ class DartClient:
             logger.warning(f"[KRX] 시세 조회 실패: {e}")
             return None
 
-    # ── 네이버 뉴스 검색 API ──
+    # ── 뉴스 검색 API ──
 
-    async def naver_news_search(self, query: str, display: int = 100, sort: str = "date") -> list[dict]:
-        """네이버 뉴스 검색 API
+    async def news_search(self, query: str, display: int = 100, sort: str = "date") -> list[dict]:
+        """뉴스 검색 API
 
         Args:
             query: 검색어 (예: '"김용관" "삼성전자"')
@@ -3067,18 +3067,16 @@ class DartClient:
         """
         if get_strict_as_of():
             # Current snippets are not immutable historical article versions.
-            note_strict_exclusion("naver_news_search", reason="unversioned_source")
+            note_strict_exclusion("news_search", reason="unversioned_source")
             return []
         client_id = os.getenv("NAVER_SEARCH_API_CLIENT_ID")
         client_secret = os.getenv("NAVER_SEARCH_API_CLIENT_SECRET")
         if not client_id or not client_secret:
-            logger.warning("[네이버] 검색 API 키가 설정되지 않았습니다")
+            logger.warning("[뉴스 검색] API 키가 설정되지 않았습니다")
             return []
 
         await self._throttle_api()
-        # 260820: 개발자센터 → NAVER API HUB 이관. 도메인·경로·헤더가 **셋 다** 바뀐다.
-        #   openapi.naver.com/v1/search/news.json  →  naverapihub.apigw.ntruss.com/search/v1/news
-        #   X-Naver-Client-Id / -Secret            →  X-NCP-APIGW-API-KEY-ID / -KEY
+        # 260820: 검색 API 제공처가 도메인·경로·헤더를 **셋 다** 바꿨다(옛 주소·헤더는 새 키로 401).
         # 구 방식은 2027-06-30 까지만 지원되고, HUB 키로는 구 방식이 아예 401 이다(실측).
         # 응답 items 필드(title·originallink·link·description·pubDate)는 그대로라 파서는 유지.
         url = "https://naverapihub.apigw.ntruss.com/search/v1/news"
@@ -3091,12 +3089,12 @@ class DartClient:
         try:
             resp = await self._http.get(url, params=params, headers=headers, timeout=15)
             if resp.status_code != 200:
-                logger.warning(f"[네이버] HTTP {resp.status_code}: {resp.text[:200]}")
+                logger.warning(f"[뉴스 검색] HTTP {resp.status_code}: {resp.text[:200]}")
                 return []
             data = resp.json()
             return data.get("items", [])
         except Exception as e:
-            logger.warning(f"[네이버] 뉴스 검색 실패: {e}")
+            logger.warning(f"[뉴스 검색] 실패: {e}")
             return []
 
     # ── KRX KIND 크롤링 ──

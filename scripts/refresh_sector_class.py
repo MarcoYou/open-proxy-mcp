@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""WiseIndex WICS 업종분류 수집 — 정적 맵(JSON) + Postgres 스냅샷 적재.
+"""업종분류 수집 — 정적 맵(JSON) + Postgres 스냅샷 적재.
 
-한국 종목의 업종분류(대분류 10 / 하위업종 28)를 WiseIndex 공개 엔드포인트에서 수집한다.
+한국 종목의 업종분류(대분류 10 / 하위업종 28)를 분류 공급처의 공개 엔드포인트에서 수집한다.
 분류만 담당하며 가격·시가총액은 수집하지 않는다(원시세 재배포 방지).
 
-Mirae_Asset_Securities의 `src/lib/data/kr-wics-live.ts` + `scripts/refresh-kr-wics-map.mjs`
+대시보드 프로젝트(Mirae_Asset_Securities)의 업종분류 수집 코드를
 포팅. 완전성 검사·중복분류 거부·asOf 산출 규칙을 원본과 동일하게 유지한다.
 
-엔드포인트 (wiseindex.com):
-  - WICS 트리      GET /API/Tree/Get?id=4
+엔드포인트 (분류 공급처 공개 API — 주소는 BASE_URL):
+  - 분류 트리      GET /API/Tree/Get?id=4
   - 업종 구성종목  GET /Index/GetIndexComponets?ceil_yn=0&dt=YYYYMMDD&sec_cd=G4530
   `Componets` 철자는 사이트 원본 그대로다(오타 아님).
 
@@ -24,11 +24,11 @@ DB: WICS_DATABASE_URL > DATABASE_URL 순으로 DSN을 찾는다.
     WICS_DATABASE_URL을 따로 설정할 것. 둘 다 없으면 DB 단계를 건너뛴다(파일만 생성).
 
 실행:
-  python scripts/refresh_wics.py                      # 직전 금요일, 파일 + DB
-  python scripts/refresh_wics.py --date 20260814      # 기준일 지정
-  python scripts/refresh_wics.py --no-db              # 파일만
-  python scripts/refresh_wics.py --no-file            # DB만
-  python scripts/refresh_wics.py --dry-run            # 수집·검증만, 쓰기 없음
+  python scripts/refresh_sector_class.py                      # 직전 금요일, 파일 + DB
+  python scripts/refresh_sector_class.py --date 20260814      # 기준일 지정
+  python scripts/refresh_sector_class.py --no-db              # 파일만
+  python scripts/refresh_sector_class.py --no-file            # DB만
+  python scripts/refresh_sector_class.py --dry-run            # 수집·검증만, 쓰기 없음
 """
 from __future__ import annotations
 
@@ -55,10 +55,10 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
 BASE_URL = "https://www.wiseindex.com"
-OUT_PATH = ROOT / "open_proxy_mcp" / "data" / "wics" / "wics_map.json"
+OUT_PATH = ROOT / "open_proxy_mcp" / "data" / "sector_class" / "class_map.json"
 KST = timezone(timedelta(hours=9))
 
-#: 불완전 응답 판정 임계값 — 원본(kr-wics-live.ts)과 동일.
+#: 불완전 응답 판정 임계값 — 포팅 원본과 동일.
 MIN_SECTORS, MIN_INDUSTRIES, MIN_TICKERS = 10, 20, 1_000
 
 TICKER_RE = re.compile(r"^[0-9A-Z]{6}$")
@@ -79,7 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_kr_wics_snapshots_refreshed
 
 -- 260823(OPM): 위 blob 은 대시보드 모양이다. OPM 은 krx_weekly 와 **조인**해 섹터 시총을
 --   집계하므로 종목당 한 행이 필요하다. jsonb 를 매 질의마다 펴는 건 비싸다.
---   이름은 OPM 규약대로 출처 접두사 — WiseIndex 가 원천이라 wise_.
+--   표 이름은 OPM 규약의 출처 접두사를 따른다(DB 이름 변경은 보류).
 CREATE TABLE IF NOT EXISTS wise_sector (
     snap_dd       text NOT NULL,      -- YYYYMMDD (asOf 를 _dd 규약으로)
     ticker        text NOT NULL,
@@ -114,8 +114,8 @@ def previous_friday_kst(now: datetime | None = None) -> str:
     return (today - timedelta(days=delta)).strftime("%Y%m%d")
 
 
-def parse_wise_date(value: str) -> str:
-    """WiseIndex TRD_DT → 서울 기준 YYYY-MM-DD. .NET `/Date(ms)/`와 ISO 문자열 모두 처리."""
+def parse_trade_date(value: str) -> str:
+    """공급처 TRD_DT → 서울 기준 YYYY-MM-DD. .NET `/Date(ms)/`와 ISO 문자열 모두 처리."""
     dotnet = DOTNET_DATE_RE.match(str(value))
     if dotnet:
         parsed = datetime.fromtimestamp(int(dotnet.group(1)) / 1000, tz=timezone.utc)
@@ -123,7 +123,7 @@ def parse_wise_date(value: str) -> str:
         try:
             parsed = datetime.fromisoformat(str(value))
         except ValueError as exc:
-            raise ValueError(f"invalid WICS TRD_DT: {value}") from exc
+            raise ValueError(f"invalid TRD_DT: {value}") from exc
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=KST)
     return parsed.astimezone(KST).strftime("%Y-%m-%d")
@@ -148,7 +148,7 @@ async def _get_json(client: httpx.AsyncClient, path: str):
 
 
 async def fetch_snapshot(requested_date: str) -> dict:
-    """WICS 트리 → 하위업종별 구성종목 수집. 무결성 위반 시 예외를 던진다."""
+    """분류 트리 → 하위업종별 구성종목 수집. 무결성 위반 시 예외를 던진다."""
     if not re.fullmatch(r"\d{8}", requested_date):
         raise ValueError("--date 는 YYYYMMDD 형식이어야 한다")
 
@@ -159,11 +159,11 @@ async def fetch_snapshot(requested_date: str) -> dict:
     }
     async with httpx.AsyncClient(timeout=30, headers=headers, follow_redirects=True) as client:
         tree = await _get_json(client, "/API/Tree/Get?id=4")
-        wics = find_node(tree, "WICS")
-        if not wics or not wics.get("children"):
-            raise RuntimeError("WICS 트리를 찾지 못했다 — 사이트 응답 구조 변경 가능성")
+        root = find_node(tree, "WICS")  # 응답 트리의 최상위 노드 이름(공급처 규격)
+        if not root or not root.get("children"):
+            raise RuntimeError("분류 트리 최상위 노드를 찾지 못했다 — 사이트 응답 구조 변경 가능성")
 
-        sectors = wics["children"]
+        sectors = root["children"]
         industries = [
             {
                 "sectorCode": sector["key"],
@@ -182,7 +182,7 @@ async def fetch_snapshot(requested_date: str) -> dict:
             payload = await _get_json(client, f"/Index/GetIndexComponets?{params}")
             trd_dt = (payload.get("info") or {}).get("TRD_DT")
             if trd_dt:
-                actual_dates.add(parse_wise_date(trd_dt))
+                actual_dates.add(parse_trade_date(trd_dt))
             for row in payload.get("list") or []:
                 code = str(row.get("CMP_CD") or "").strip()
                 if not TICKER_RE.match(code):
@@ -224,7 +224,7 @@ def write_file(snapshot: dict, out_path: Path) -> None:
             "industryCount": snapshot["industryCount"],
             "tickerCount": snapshot["tickerCount"],
             "refreshedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "source": "wiseindex",
+            "source": "external",
         },
         "data": snapshot["data"],
     }
@@ -306,7 +306,7 @@ async def main(args: argparse.Namespace) -> int:
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="WiseIndex WICS 업종분류 수집")
+    ap = argparse.ArgumentParser(description="업종분류 수집")
     ap.add_argument("--date", help="기준일 YYYYMMDD (기본: 서울 기준 직전 금요일)")
     ap.add_argument("--out", help=f"정적 맵 출력 경로 (기본: {OUT_PATH.relative_to(ROOT)})")
     ap.add_argument("--no-file", action="store_true", help="정적 맵 파일을 쓰지 않는다")

@@ -24,6 +24,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 
 from open_proxy_mcp.market_codes import to_label as mkt_label
+from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.price_multiple_data import (
     _DB_ERROR_PAYLOAD_WARN,
     _KRX_CACHE,
@@ -37,8 +38,8 @@ TOOL = "trading_data"
 
 _SCHEMES = {
     "market": "시장 전체 (KOSPI·KOSDAQ)",
-    "wics_sector": "WICS 대분류 10 (WiseIndex)",
-    "wics_industry": "WICS 하위업종 28 (WiseIndex)",
+    MAJOR: "업종 대분류 10",
+    MID: "업종 중분류 28",
 }
 
 #: 단일시점 시세 캐시 — **종목 한 줄만** 담는다. 전종목 스냅샷을 `_KRX_CACHE`(32MB)에 넣으면
@@ -242,7 +243,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     로 나눈다. 「어디가 큰가」와 「이 섹터가 어떻게 변했나」는 다른 질문이고, 둘을 한 번에
     다 부으면 읽는 쪽이 토큰만 태운다.
     """
-    scheme = (scheme or "market").strip().lower()
+    scheme = _class_canon(scheme, "market")
     if scheme not in _SCHEMES:
         return _err(scheme, "invalid", f"scheme '{scheme}' 없음 — {' / '.join(_SCHEMES)} 중 선택.")
 
@@ -278,11 +279,11 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     snap = await asyncio.to_thread(
         _pg_rows, "SELECT market, bucket, label, cap, n, sector_asof, price_dd FROM krx_cap_agg "
                   "WHERE scheme=%s AND price_dd=(SELECT max(price_dd) FROM krx_cap_agg WHERE scheme=%s) "
-                  "ORDER BY market, cap DESC", (scheme, scheme))
+                  "ORDER BY market, cap DESC", (_db_scheme(scheme), _db_scheme(scheme)))
     if snap is None:
         return _db_missing_payload(
             "섹터 시총",
-            "섹터 집계는 KRX 라이브로 대체할 수 없습니다 — WICS 업종분류 매핑이 DB 에만 있습니다. "
+            "섹터 집계는 KRX 라이브로 대체할 수 없습니다 — 업종분류 매핑이 DB 에만 있습니다. "
             "시장 전체 시총(`scope=\"market\"`)과 종목 최신 시총(`scope=\"firm\"`)은 KRX 라이브로 "
             "받을 수 있습니다.")
     if not snap:
@@ -305,7 +306,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
         code = match["bucket"]
         sql = ("SELECT price_dd, market, cap, n FROM krx_cap_agg WHERE scheme=%s AND bucket=%s"
                + (" AND price_dd>=%s" if since else "") + " ORDER BY price_dd, market")
-        args = (scheme, code, since) if since else (scheme, code)
+        args = (_db_scheme(scheme), code, since) if since else (_db_scheme(scheme), code)
         series = _downsample([{"asof": r[0], "market": r[1], "cap_krw": r[2], "n": r[3]}
                               for r in (await asyncio.to_thread(_pg_rows, sql, args) or [])],
                              (freq or _FREQ_DEFAULT["sector"]).strip().lower())
@@ -319,7 +320,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     if unc:
         tot = sum(b["cap_krw"] for b in buckets) or 1
         warns.append(f"미분류 {sum(b['n'] for b in unc)}종목 · 시총 "
-                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 우선주·신규상장 등 WICS 구성종목에 "
+                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 우선주·신규상장 등 업종분류 구성종목에 "
                      "없는 것. 버리지 않고 `_UNCLASSIFIED` 로 남겨 섹터 합 = 시장 합을 유지합니다.")
     return {"tool": TOOL, "status": "ok", "subject": f"섹터 시가총액 ({_SCHEMES[scheme]})",
             "data": {"scope": "sector", "scheme": scheme, "scheme_desc": _SCHEMES[scheme],

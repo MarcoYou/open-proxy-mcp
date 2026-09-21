@@ -11,7 +11,7 @@ _SOURCE_LABELS = {
     "dart_html": "DART 전자공시 (HTML 뷰어)",
     "dart_api": "DART OpenAPI",
     "kind_html": "KIND 거래소공시",
-    "naver": "Naver",
+    "portal": "포털 시세",
     "internal": "내부 파생",
 }
 

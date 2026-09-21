@@ -153,7 +153,7 @@ async def main() -> None:
                 round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
                 ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
         for (market, s_), (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n, n_nif, n_nit) in sec.items():
-            # 이 섹터 버킷은 KSIC 하이브리드(bucket())다 — WICS 는 wics_val_backfill.py 소관.
+            # 이 섹터 버킷은 KSIC 하이브리드(bucket())다 — 업종분류는 sector_val_backfill.py 소관.
             sec_rows.append((
                 d, market, s_, label(s_), n, round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
                 (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,

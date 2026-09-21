@@ -1,9 +1,9 @@
-"""선행(애널리스트 추정) 배수 — 시장·WICS 대분류·WICS 하위업종(중분류) 집계 `opm_val_fwd` (260918 신설).
+"""선행(애널리스트 추정) 배수 — 시장·업종 대분류·중분류 집계 `opm_val_fwd` (260918 신설).
 
-왜: 선행 PER·PBR 은 수집 머신의 토요일 체인이 만드는 `fwd_agg` 에 시장·WICS 대분류까지만 있었고,
+왜: 선행 PER·PBR 은 수집 머신의 토요일 체인이 만드는 `fwd_agg` 에 시장·업종 대분류까지만 있었고,
 도구는 그중 선행 배당수익률만 서빙했다. 하위업종(28)은 집계 자체가 없었다. 수집 머신의 로컬 원본을
 건드리지 않고 **운영 DB 에 이미 있는 것만으로** 만든다 —
-추정치 이력 `fwd_hist`(주 1회, 13주 롤링) + WICS 분류 `wise_sector`(월 1회) + 시장 구분 `krx_weekly`.
+추정치 이력 `fwd_hist`(주 1회, 13주 롤링) + 업종분류 스냅샷(월 1회) + 시장 구분 `krx_weekly`.
 
 왜 `fwd_agg` 에 넣지 않나:
 - 토요일 체인의 `push_fwd_agg.py` 는 올릴 때 **그 날짜의 `fwd_agg` 행을 분류 구분 없이 전부 지우고** 다시 넣는다.
@@ -23,14 +23,14 @@
 - `fwd_per_pos`·`fwd_pbr_pos` — 분모가 0 초과인 종목만(`fwd_agg` 방식, 벤더 관행). `--check` 가 이것으로 대조한다.
 - `fwd_psr` 는 매출 > 0 종목만(한 벌). 선행 배당수익률은 `fwd_agg` 와 같다(분모 = 추정 DPS 가 있는 종목 시총).
 
-모집단: 시장 행 = 추정이 있는 보통주 전부. 대분류·하위업종 행 = 그중 WICS 분류가 있는 종목
+모집단: 시장 행 = 추정이 있는 보통주 전부. 대분류·하위업종 행 = 그중 업종분류가 있는 종목
 (분류 없는 종목은 시장 행에만 든다 — 260913 에 1종목).
 
 시점 규칙(판단 시점 이후 정보를 쓰지 않는다):
-- 업종 = 추정 날짜 **이하 가장 최근 WICS 스냅샷**(`class_dd`). 그보다 이른 스냅샷이 없으면 가장 이른 것(소급 —
-  WICS 관측 시작 전 날짜만. 260918 결정 「과거 집계가 없으면 지금 분류로 백필」의 적용 범위). 260918 백필 9개 날짜는
+- 업종 = 추정 날짜 **이하 가장 최근 업종분류 스냅샷**(`class_dd`). 그보다 이른 스냅샷이 없으면 가장 이른 것(소급 —
+  업종분류 관측 시작 전 날짜만. 260918 결정 「과거 집계가 없으면 지금 분류로 백필」의 적용 범위). 260918 백필 9개 날짜는
   전부 0828 스냅샷 — 모든 추정 날짜와 같거나 앞서 소급이 없다.
-  (처음엔 「계산 시점의 최신 스냅샷」이었다. 토요일 송출이 늦어 월초 WICS 갱신 뒤에 계산되면 추정 날짜보다 뒤의
+  (처음엔 「계산 시점의 최신 스냅샷」이었다. 토요일 송출이 늦어 월초 업종분류 갱신 뒤에 계산되면 추정 날짜보다 뒤의
   분류가 붙는다 — 독립 QA 가 짚었다, 260918.)
 - 시장 구분 = 추정 날짜 이하 가장 최근 주간 시세(`mk_dd`)의 KS/KQ. 거기 없는 종목(그 주 뒤 상장)만 **그 뒤 첫 시세**
   — 가장 최근 시세가 아니라 가장 가까운 관측을 쓴다(이전상장으로 시장이 바뀐 뒤 값을 끌어오지 않게).
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS {TABLE} (
   PRIMARY KEY (as_of, market, scheme, bucket)
 );
 COMMENT ON TABLE {TABLE} IS
-  '선행(애널리스트 추정) PER·PBR·PSR·배당수익률 — scheme market(bucket _ALL)·wics_sector·wics_industry(bucket=WICS 코드). '
+  '선행(애널리스트 추정) PER·PBR·PSR·배당수익률 — scheme market(bucket _ALL)·wics_sector·wics_industry(bucket=업종 코드). '
   'scripts/fwd_val_weekly.py 가 fwd_hist + wise_sector(class_dd) + krx_weekly(mk_dd)로 만든다. '
   'fwd_per·fwd_pbr=적자 포함 합(트레일링과 같은 방식), *_pos=분모>0 종목만(fwd_agg 방식).';
 """
@@ -198,8 +198,8 @@ def pick_days(hist_days: list, done_days: set, recompute: bool) -> list:
 def snapshot_at_or_before(as_of_dd: str, dds: list[str]) -> str | None:
     """추정 날짜 이하 가장 최근 스냅샷(YYYYMMDD). 그보다 이른 것이 없으면 가장 이른 것(소급).
 
-    WICS 분류(`wise_sector.snap_dd`)와 주간 시세(`krx_weekly.price_dd`) 둘 다 이 규칙으로 고른다 —
-    도구의 산업 표가 기업의 WICS 소속을 고를 때와 같은 폴백이다.
+    업종분류 스냅샷(`snap_dd`)과 주간 시세(`krx_weekly.price_dd`) 둘 다 이 규칙으로 고른다 —
+    도구의 산업 표가 기업의 업종 소속을 고를 때와 같은 폴백이다.
     """
     if not dds:
         return None
@@ -247,7 +247,7 @@ _TOL = {"fwd_per": 1e-6, "fwd_pbr": 5e-3, "fwd_psr": 1e-6, "fwd_div_yield_pct": 
 def check_against_collector(con, as_of, class_dd: str, mk_dd: str) -> int:
     """수집 머신 방식(숫자 코드만·분모>0만)으로 다시 내서 `fwd_agg` 와 대조한다. 어긋난 칸 수를 돌려준다.
 
-    WICS 분류가 없는 종목은 `fwd_agg` 에서 「미분류」 칸으로, 여기서는 어느 칸에도 안 들어간다 — 대조에서 뺀다.
+    업종분류가 없는 종목은 `fwd_agg` 에서 「미분류」 칸으로, 여기서는 어느 칸에도 안 들어간다 — 대조에서 뺀다.
     """
     from psycopg.rows import dict_row
 
@@ -304,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
         con.execute(f"GRANT SELECT ON {TABLE} TO opm_ro")
     class_dds = [r[0] for r in con.execute("SELECT DISTINCT snap_dd FROM wise_sector").fetchall()]
     if not class_dds:
-        print("wise_sector 가 비었다 — WICS 분류 배치(wics-monthly)가 먼저 돌아야 한다.", file=sys.stderr)
+        print("분류 스냅샷 표가 비었다 — 업종분류 배치(sector-class-monthly)가 먼저 돌아야 한다.", file=sys.stderr)
         return 1
     hist_days = [r[0] for r in con.execute("SELECT DISTINCT as_of FROM fwd_hist ORDER BY 1").fetchall()]
     if not hist_days:
@@ -320,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"원본 이력에서 빠진 파생 행 {pruned}개 삭제")
     done = set() if a.dry else {r[0] for r in con.execute(f"SELECT DISTINCT as_of FROM {TABLE}").fetchall()}
     days = pick_days(hist_days, done, a.recompute or a.dry)
-    print(f"선행 배수 집계 · WICS 스냅샷 {len(class_dds)}개(최신 {max(class_dds)}) · 추정치 이력 {len(hist_days)}일"
+    print(f"선행 배수 집계 · 업종분류 스냅샷 {len(class_dds)}개(최신 {max(class_dds)}) · 추정치 이력 {len(hist_days)}일"
           f" ({hist_days[0]} ~ {hist_days[-1]}) · 이번에 {len(days)}일" + (" · 쓰지 않음(--dry)" if a.dry else ""))
     total, bad = 0, 0
     for as_of in days:

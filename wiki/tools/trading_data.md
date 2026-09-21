@@ -8,7 +8,7 @@ data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 주간 시세 저장분,
 related_disclosures: []
 related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24
-updated: 2026-09-18
+updated: 2026-09-21
 ---
 
 # trading_data
@@ -34,7 +34,7 @@ trading_data(company="삼성전자", scope="quote")              # 최근 거래
 trading_data(company="삼성전자", scope="quote", as_of="20260820")  # 그 날 OHLC·거래량·거래대금
 trading_data(scope="market")                                 # KOSPI·KOSDAQ 시총 시계열
 trading_data(scope="sector")                                 # WICS 하위업종 28 시총·비중
-trading_data(scope="sector", scheme="wics_sector")           # WICS 대분류 10
+trading_data(scope="sector", scheme="대분류")                # 업종 대분류 10
 trading_data(scope="sector", bucket="반도체와반도체장비")     # 그 섹터의 전 구간 시계열
 trading_data(scope="universe", universe="코스피 시총 상위 100")  # 종목 순위표 — 순위·코드·이름·시장·시총·종가
 trading_data(scope="universe", universe="코스닥 상위 50")
@@ -49,7 +49,7 @@ trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380") 
 | format | str | no | "md" / "json" — 전 구간 시계열은 json 의 `data.series` | "md" |
 | as_of | str | no | quote 전용. YYYYMMDD. 비우면 최근 거래일 | "" |
 | since | str | no | firm·market·sector 시계열 시작일 YYYYMMDD | "" |
-| scheme | str | no | sector 전용. `wics_industry`(28) / `wics_sector`(10) | "wics_industry" |
+| scheme | str | no | sector 전용. `중분류`(28) / `대분류`(10). 옛 값(`wics_industry`·`wics_sector`)도 받는다 | "중분류" |
 | bucket | str | no | sector 전용. 섹터명·코드 지정 시 그 섹터의 전 구간 시계열 | "" |
 | universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」(KOSPI 시총상위 200 대체)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다. 「코스피 120」처럼 숫자만 있고 「상위·시총」이 없으면 **추측하지 않고 되묻는다**(`invalid` + 제안 문구). 숫자 뒤 개·종목·기업·회사·개사·곳은 무관(「코스피 시가총액 상위 200개 기업」). 이름 나열에서 회사를 하나도 못 찾아도 되묻는다(260918) | "" |
 
@@ -102,7 +102,7 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 | 스크립트 | 무엇을 | 언제 |
 |---|---|---|
 | `scripts/krx_cap_agg.py` | `krx_cap_agg` 재적재 (44,636행 · 8MB) | 일간 (krx_weekly 갱신 후) |
-| `scripts/refresh_wics.py` | `wise_sector` 업종분류 관측 | 월 1회 (`.github/workflows/wics-monthly.yml` cron) |
+| `scripts/refresh_sector_class.py` | 업종분류 관측(`wise_sector`) | 월 1회 (`.github/workflows/sector-class-monthly.yml` cron) |
 
 ## 성능 (실측 260824)
 | 질의 | 사전계산 전 | 후 |
@@ -115,6 +115,7 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 
 ## 변경 이력
 
+- 2026-09-21: `scheme` 값을 「대분류」·「중분류」로(기본 「중분류」, 옛 값도 받는다). 업종분류 수집 스크립트·워크플로 이름 변경(`refresh_sector_class.py`·`sector-class-monthly`).
 - 2026-09-18: universe 말 — 숫자 뒤 「개 기업·개 종목·개사·곳」을 순위로 읽고, 이름 나열에서 회사를 하나도 못 찾으면 되묻는다(`invalid` + 질문). `screener` 와 같은 해석기.
 - 2026-09-16: `company` 자리에 「코스피 시총 상위 100」 같은 문장이 오면 종목이 아니라 유니버스로 읽어 순위표로 답한다(경고 한 줄 붙여). universe 인자를 모르는 옛 도구 정의의 호출자를 위한 것.
 - 2026-09-16: `scope=universe` 신설 — 유니버스 문법으로 종목 시총 순위표(DB 1콜·DART 0콜). 종목마다 firm 을 부르던 루틴의 대체.

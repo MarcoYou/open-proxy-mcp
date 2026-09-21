@@ -16,19 +16,19 @@
   질의라 cold 가 현실값이고, 요청 경로에서 3초는 260823 의 502(느린 한 경로가 워커를 소진)와
   같은 형태다. 결과는 하루 한 번만 바뀌는 4만여 행이라 미리 두는 게 맞다.
 
-★ 섹터는 소급이다. WICS 는 조회 시점 구성종목만 주고 우리는 2026-08 부터 모았다. 날짜마다
+★ 섹터는 소급이다. 분류 공급처는 조회 시점 구성종목만 주고 우리는 2026-08 부터 모았다. 날짜마다
   「그 날짜 이하 최신 스냅샷, 없으면 가장 이른 것」을 쓰고 `sector_asof` 로 어느 관측을 적용했는지
   남긴다. 분류가 없는 종목(우선주·신규상장 등)은 버리지 않고 `_UNCLASSIFIED` 버킷에 남긴다 —
   조용히 빠지면 섹터 합이 시장 합보다 작은 이유를 아무도 모른다.
 
 ★ 평소에는 최신 주만 다시 적재한다. 외부 API 호출은 없어도 전 구간 DELETE·INSERT가 매주
-  큰 WAL과 통계 누적을 만들기 때문이다. 새 WICS 관측이 들어오면 그 관측일부터만 다시 계산한다.
+  큰 WAL과 통계 누적을 만들기 때문이다. 새 업종분류 관측이 들어오면 그 관측일부터만 다시 계산한다.
   과거 날짜에는 날짜 이하 최신 스냅샷을 쓰므로 새 관측 이전 구간은 바뀌지 않는다. 원천 정정처럼
   전 구간을 다시 만들 필요가 있을 때만 `--full`을 쓴다.
 
 ★ UPSERT 만으로는 부족하다 — 어떤 버킷이 비면(그 날 그 업종 종목이 0) 새로 넣을 행이 없어
   **옛 행이 그대로 남는다.** 그러면 섹터 합이 시장 합보다 커진다. 그래서 한 트랜잭션 안에서
-  대상 구간을 지우고 다시 넣는다. 파생 100%(krx_weekly × wise_sector)라 되살릴 원천이 항상
+  대상 구간을 지우고 다시 넣는다. 파생 100%(krx_weekly × 분류 스냅샷)라 되살릴 원천이 항상
   있고, 같은 실행에서 만든 값으로 채우므로 260705 의 DELETE 사고와 형태가 다르다.
 
 실행: python3 scripts/krx_cap_agg.py [--since 20151230 | --full]
@@ -115,7 +115,7 @@ def _choose_since(*, requested: str | None, full: bool, source_min: str,
     if full or latest_sector_asof is None:
         return source_min, "전 구간" if full else "최초 적재"
     if latest_snap > latest_sector_asof:
-        return latest_snap, "새 WICS 관측 반영"
+        return latest_snap, "새 업종분류 관측 반영"
     return _week_start(source_max), "최신 주 갱신"
 
 
@@ -134,7 +134,7 @@ def main() -> int:
 
     snaps = [r[0] for r in con.execute("SELECT DISTINCT snap_dd FROM wise_sector ORDER BY snap_dd")]
     if not snaps:
-        print("wise_sector 비어 있음 — refresh_wics.py 를 먼저 돌린다")
+        print("분류 스냅샷 표가 비어 있음 — refresh_sector_class.py 를 먼저 돌린다")
         return 1
 
     source_min, source_max = con.execute("SELECT min(price_dd), max(price_dd) FROM krx_weekly").fetchone()

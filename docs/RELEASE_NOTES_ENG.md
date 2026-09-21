@@ -2,6 +2,12 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## v2.7.3 · beta — 2026-09-21
+
+- The industry-classification argument takes neutral names: `scheme` in `price_multiple_data` and `trading_data` accepts 「대분류」 (10, broad) and 「중분류」 (28, detailed, default), and the previous values still work. Table headers and footnotes name the levels 업종 대분류·중분류.
+- Disclosure cards no longer carry a portal link; they keep the DART link only, and the JSON portal-link field is gone.
+- Data-source names are removed from code and messages. The classification refresh script and its monthly job are renamed (`refresh_sector_class.py`, `sector-class-monthly`). Database table names and external lookup addresses will be handled in a later step.
+
 ## v2.7.2 · beta — 2026-09-21
 
 - Restored the real names of analyzed companies in public documentation that v2.7.1 had replaced with placeholder codes ("예시기업 CW", "Example Company CW" and similar): the READMEs in all three languages, feature guides, tool and disclosure-rule wiki pages, decision records and the voting guideline. The per-file masking notice is gone.

@@ -190,7 +190,7 @@ def test_build_payload_ok_and_render(monkeypatch):
     assert p["data"]["baseline"]["weeks"] == 13 and "large_orders" in p["data"] and "order_coverage" in p["data"]
     md = tool._render_flow(p)
     assert md.startswith("# 공시 흐름 — 수주 (2026-09-07 ~ 2026-09-13)")
-    assert "— WICS 대분류" in md and "— WICS 중분류" in md
+    assert "— 업종 대분류" in md and "— 업종 중분류" in md
     assert "## 큰 수주 — 매출 대비 10% 이상" in md and "(자회사 계약)" in md
     assert "## 올해 누적 수주" in md and "| **합계** |" in md
 
@@ -201,7 +201,7 @@ def test_build_payload_only_one_level_and_other_kind(monkeypatch):
     p = asyncio.run(df.build_flow_payload(types="자사주", period="20260907~20260913", level="대분류"))
     assert p["data"]["levels"] == ["sector"] and "large_orders" not in p["data"]
     md = tool._render_flow(p)
-    assert "WICS 중분류" not in md and "| 세부 |" in md and "취득 1" in md
+    assert "업종 중분류" not in md and "| 세부 |" in md and "취득 1" in md
 
 
 def test_status_split_and_coverage_warning(monkeypatch):
