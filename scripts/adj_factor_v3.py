@@ -4,7 +4,7 @@
 갱신이 2단계라 뒤쪽이 깨져도 앞쪽만 돌면 멀쩡해 보였고, 실제로 260705 v2 드랍 때부터
 실행 불가였는데 cron 이 없어 아무도 몰랐다. 이제 한 표의 UPDATE 라 그 상태가 불가능하다.
 
-원칙 (wiki/architecture/adjusted-price-timeseries.md §2.1, FnGuide 회신 260703):
+원칙 (wiki/architecture/adjusted-price-timeseries.md §2.1, 데이터 공급처 회신 260703):
 - 계수 = 거래소 기준가 리셋 실측 그대로. 라벨은 event_type + evidence(rcept_no)만 부여.
 - 라벨 미확인 → confidence='unlabeled' (계수는 유효 — 거래소 실측).
 - 시장이전(KOSPI↔KOSDAQ): 벤더 미적용 → confidence='excluded_market_transfer'로 보존(소비 시 제외).

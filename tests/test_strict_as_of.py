@@ -299,12 +299,12 @@ def test_unversioned_viewer_caches_and_private_entrypoints_are_excluded():
     assert client._doc_cache.reads == []
 
 
-def test_unversioned_naver_and_dynamic_kind_do_not_fetch():
+def test_unversioned_portal_and_dynamic_kind_do_not_fetch():
     client = bare_client()  # no HTTP transport exists; a fetch would fail the test
     with strict():
-        assert asyncio.run(client.get_naver_corp_profile("100000")) == {}
-        assert asyncio.run(client.naver_news_search("Example")) == []
-        assert asyncio.run(client._naver_stock_price("100000", "20250325")) is None
+        assert asyncio.run(client.get_portal_corp_profile("100000")) == {}
+        assert asyncio.run(client.news_search("Example")) == []
+        assert asyncio.run(client._portal_stock_price("100000", "20250325")) is None
         assert asyncio.run(client.get_stock_price("100000", "20250326")) is None
         assert asyncio.run(client.get_stock_price("100000", "2025-03-26")) is None
         with pytest.raises(DartClientError):

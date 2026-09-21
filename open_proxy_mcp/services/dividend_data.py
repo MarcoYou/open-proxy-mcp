@@ -278,13 +278,13 @@ def payment_history(pairs: list[tuple[str, str | None]], year_from: int, year_to
 
 # ───────────────────────────────────────────────────────── 시장·섹터 시계열 ──
 def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dict[str, Any]:
-    """시장(KOSPI) 또는 WICS 섹터의 사업연도별 배당 집계.
+    """시장(KOSPI) 또는 업종 대분류의 사업연도별 배당 집계.
 
     🔴 **분모를 두 벌 낸다** — `n_universe`(그 해 표에 있는 회사 전부)와 `n_payers`(실제 배당).
     한 벌만 내면 「배당이 줄었다」와 「배당하는 회사가 줄었다」가 구별되지 않는다.
     🔴 빈 버킷을 0 으로 메우지 않는다 — 「배당 0」과 「잴 회사가 없다」는 다르다.
     """
-    # 섹터는 `wise_sector` 최신 스냅샷으로 붙인다. 종목 하나가 여러 티커(우선주)를 갖는
+    # 섹터는 업종분류 최신 스냅샷으로 붙인다. 종목 하나가 여러 티커(우선주)를 갖는
     # 경우가 있어 `div_declared.tickers` 로 조인하되 corp_code 로 중복을 없앤다.
     if scope == "sector":
         sql = """

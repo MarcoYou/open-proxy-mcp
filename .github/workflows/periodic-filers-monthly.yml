@@ -16,7 +16,7 @@ name: periodic-filers-monthly
 
 on:
   schedule:
-    # 매월 2일 03:20 UTC = KST 12:20. 1일은 wics-monthly 가 쓰므로 겹치지 않게 둔다.
+    # 매월 2일 03:20 UTC = KST 12:20. 1일은 sector-class-monthly 가 쓰므로 겹치지 않게 둔다.
     - cron: "20 3 2 * *"
   workflow_dispatch: {}
 

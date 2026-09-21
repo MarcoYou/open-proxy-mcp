@@ -248,8 +248,8 @@ def _render_sector(p: dict[str, Any]) -> str:
                  "(옆의 금액이 그 합) — 그 경우 PBR로 비교. **「자료없음」** 은 순이익을 채운 회사가 "
                  "하나도 없다는 뜻으로, 둘은 다른 상태다.")
     lines += _render_fwd_note(d, sector=True)
-    if d.get("scheme") == "wics_industry" and any(s.get("fwd_div_yield_pct") is not None for s in d["sectors"]):
-        lines.append("> 확정 배당수익률은 시장 표와 WICS 대분류(`scheme=\"wics_sector\"`)에만 있다 — "
+    if d.get("scheme") == "중분류" and any(s.get("fwd_div_yield_pct") is not None for s in d["sectors"]):
+        lines.append("> 확정 배당수익률은 시장 표와 업종 대분류(`scheme=\"대분류\"`)에만 있다 — "
                      "하위업종 표는 선행만 채워진다.")
     lines += _render_div_note(d)
     for w in p.get("warnings", []):
@@ -325,16 +325,16 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
   다른 지표가 나갔다. 이제 개별종목과 시장·섹터를 직접 비교해도 된다(집계는 시총가중 조화평균이라
   개별 배수의 단순평균과는 여전히 다르다 — 큰 종목이 더 무겁다)
 - 섹터 분류 = KSIC 하이브리드(자체 매핑) · 소규모(5사 미만) 섹터는 '기타(소규모)'로 합산
-- **선행 PER·PBR**(260918, 시장·WICS 업종 표) = Σ시총 ÷ Σ추정 지배순이익 · Σ시총 ÷ Σ추정 자기자본
+- **선행 PER·PBR**(260918, 시장·업종 표) = Σ시총 ÷ Σ추정 지배순이익 · Σ시총 ÷ Σ추정 자기자본
   (시총×BPS÷주가) — 트레일링과 같은 합산 방식(적자 추정도 더한다). 종목마다 가장 가까운 추정 사업연도.
-  **추정이 있는 보통주만**(시장 약 650사) 더해 종목수 옆 괄호로 적는다. 업종은 추정 날짜 이하 가장 최근 WICS 분류.
+  **추정이 있는 보통주만**(시장 약 650사) 더해 종목수 옆 괄호로 적는다. 업종은 추정 날짜 이하 가장 최근 업종분류.
   흑자 추정만 더한 벤더식은 JSON `fwd_per_pos`
 
 ## 산출 범위
 재무로 직접 계산하는 것은 PER · PBR · 배당수익률 셋입니다. RIM·EV/EBITDA·PSR·FCF·5년밴드·PIT 시계열·
 주당 수정주가 시계열은 **만들지 않습니다**(260823, 종전의 「v1.1 예정」 표기를 걷어냄). 현금흐름·FCF·듀퐁은
 `financial_metrics`, 배당 상세는 `dividend_disclosure` 를 쓰세요.
-**선행(애널리스트 추정) 배수는 별개입니다**(260918) — 시장·산업(WICS 대분류·하위업종) 표에 선행 PER·PBR 을
+**선행(애널리스트 추정) 배수는 별개입니다**(260918) — 시장·산업(업종 대분류·중분류) 표에 선행 PER·PBR 을
 트레일링 옆에 싣고, 선행 PSR 은 JSON 에만 둡니다. 기업 단위 선행 추정은 `forward_estimates_data`.
 
 ## 판단 기준 (게이팅)
@@ -355,7 +355,7 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 | 주가·시총 | KRX 정보데이터시스템 → 주간 시세 저장분 | 매일 수집(전일 종가), 주 마지막 거래일 보존 |
 | 환율 | 한국은행 ECOS 매매기준율(공식) | 회계기말 고정값 캐시 |
 | 주간 스냅샷(시장·섹터·종목 히스토리) | 위 조합 재계산 | 매일 배치(주간 수렴) |
-| 선행 배수(시장·WICS 업종) | 애널리스트 추정 이력 × WICS 분류 × 주간 시세의 시장 구분 | 추정은 주 1회(토) 수집 → 다음 날 아침 집계 |
+| 선행 배수(시장·업종) | 애널리스트 추정 이력 × 업종분류 × 주간 시세의 시장 구분 | 추정은 주 1회(토) 수집 → 다음 날 아침 집계 |
 
 특정 종목의 실제 대입 계산은 `price_multiple_data(company="종목", scope="explain")`."""
 
@@ -442,11 +442,12 @@ def register_tools(mcp):
 
     @mcp.tool()
     async def price_multiple_data(company: str = "", scope: str = "firm", format: str = "md",
-                        scheme: str = "wics_industry", as_of: str = "") -> str:
+                        scheme: str = "중분류", as_of: str = "") -> str:
         """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
         when: "PER/PBR 얼마"·"싼가 비싼가"(scope=firm) / "코스피·코스닥 전체 밸류"(market) / "업종별 PER·PBR"·"섹터 대비 어디"(sector, company 지정 시 소속 섹터 비교) / "업종별 선행 PER"·"코스닥 선행 PBR"(market·sector — 트레일링 옆 선행 칸) / "밸류 추이"(firm_history) / **"이 수치 근거·계산 과정이 뭐야?"(explain — company 지정 시 실제 값 대입 계산, 미지정 시 방법론·기준·출처 전문)**. 재무 펀더멘탈 자체는 financial_metrics, 배당 상세는 dividend_disclosure.
-        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(opm_val_market·opm_val_market·opm_val_firm, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct). **scope=market 과 scope=sector(scheme=wics_sector) 에는 시총가중 배당수익률이 함께 실린다**(260831) — 확정=div_yield_hist(사업연도 12월결산 확정 DPS, 연 1회) · 선행=opm_val_fwd(애널리스트 추정 DPS). PER·PBR 과 **출처 표도 기준일도 모집단도 다르다.** 분모 두 벌(all=무배당 포함 시장 관행값 / payers=배당주만)을 나란히 내는데, 코스닥은 두 값이 두 배 차이라 반드시 같이 읽어야 한다 — 눌림의 절반은 배당력이 아니라 배당하는 회사가 적다는 구성 차이다. PER 과 달리 적자여도 배당이 있으면 값이 난다. 확정은 scheme=ksic·wics_industry 에 안 붙고(집계 버킷이 WICS 대분류다) wics_industry 에는 선행만 붙는다. **선행 PER·PBR(260918)**: scope=market 과 scope=sector(scheme=wics_sector·wics_industry) 표에 애널리스트 추정 기반 선행 PER·PBR 이 트레일링 옆에 실린다 — 트레일링과 같은 합산 방식(Σ시총÷Σ추정 지배순이익, 적자 추정 포함), 추정이 있는 보통주만(종목수 옆 괄호), 기준일은 주 1회 추정 스냅샷(opm_val_fwd). 흑자 추정만 더한 벤더식(fwd_per_pos)·선행 PSR(fwd_psr)은 JSON. KSIC 에는 선행이 없다. 종목 단위 선행은 forward_estimates_data.
+        rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × krx_weekly 시세 — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(opm_val_market·opm_val_market·opm_val_firm, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct). **scope=market 과 scope=sector(scheme=대분류) 에는 시총가중 배당수익률이 함께 실린다**(260831) — 확정=div_yield_hist(사업연도 12월결산 확정 DPS, 연 1회) · 선행=opm_val_fwd(애널리스트 추정 DPS). PER·PBR 과 **출처 표도 기준일도 모집단도 다르다.** 분모 두 벌(all=무배당 포함 시장 관행값 / payers=배당주만)을 나란히 내는데, 코스닥은 두 값이 두 배 차이라 반드시 같이 읽어야 한다 — 눌림의 절반은 배당력이 아니라 배당하는 회사가 적다는 구성 차이다. PER 과 달리 적자여도 배당이 있으면 값이 난다. 확정은 scheme=ksic·중분류 에 안 붙고(집계 버킷이 업종 대분류다) 중분류 에는 선행만 붙는다. **선행 PER·PBR(260918)**: scope=market 과 scope=sector(scheme=대분류·중분류) 표에 애널리스트 추정 기반 선행 PER·PBR 이 트레일링 옆에 실린다 — 트레일링과 같은 합산 방식(Σ시총÷Σ추정 지배순이익, 적자 추정 포함), 추정이 있는 보통주만(종목수 옆 괄호), 기준일은 주 1회 추정 스냅샷(opm_val_fwd). 흑자 추정만 더한 벤더식(fwd_per_pos)·선행 PSR(fwd_psr)은 JSON. KSIC 에는 선행이 없다. 종목 단위 선행은 forward_estimates_data.
         as_of: YYYYMMDD(또는 YYYY-MM-DD) 과거 시점. firm → 그 시점 이하 가장 최근 **주간 스냅샷**(opm_val_firm)의 PER·PBR·시총(배당수익률 없음) / market·sector → 그 시점 이하 스냅샷. 「작년 말 PER」「2024년 12월 코스피 PBR」. 비우면 최신.
+        scheme: scope=sector 의 분류 축 — "중분류"(기본, 업종 중분류 28) / "대분류"(업종 대분류 10) / "ksic"(KSIC 하이브리드 62버킷).
         status: ok / invalid / not_found(우선주는 보통주 코드로) / unlisted / no_financials / no_data(배치 미실행).
        
         ref: financial_metrics, dividend_disclosure, forward_estimates_data, corp_gov_report, evidence

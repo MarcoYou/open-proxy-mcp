@@ -381,7 +381,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 ## 4.1 Naver 뉴스 검색 OpenAPI
 
 - Endpoint: `https://openapi.naver.com/v1/search/news.json`
-- 호출 위치: `DartClient.naver_news_search(query, display=100, sort)`
+- 호출 위치: `DartClient.news_search(query, display=100, sort)`
 - 헤더: `X-Naver-Client-Id`, `X-Naver-Client-Secret`
 - 환경변수: `NAVER_SEARCH_API_CLIENT_ID`, `NAVER_SEARCH_API_CLIENT_SECRET`
 - 파라미터: `query`(필수), `display`(최대 100), `sort`(date/sim)
@@ -399,7 +399,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 ## 4.3 Naver Finance — 종가 (siseJson)
 
 - Endpoint: `https://api.finance.naver.com/siseJson.naver`
-- 호출 위치: `DartClient._naver_stock_price(stock_code, base_date)`
+- 호출 위치: `DartClient._portal_stock_price(stock_code, base_date)`
 - 파라미터: `symbol`, `requestType=1`, `startTime`, `endTime`, `timeframe=day`
 - 응답 파싱: 정규식 `\["(\d{8})",(\d+),(\d+),(\d+),(\d+)` → 종가 추출
 - 비거래일 fallback: 7일 전부터 재조회 → 마지막 행 사용
@@ -408,7 +408,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 ## 4.4 Naver Finance — 업종 (coinfo + sise_group)
 
 - Endpoint: `https://finance.naver.com/item/coinfo.naver?code={stock_code}` → `sise_group_detail.naver?type=upjong&no={sector_code}`
-- 호출 위치: `DartClient.get_naver_corp_profile(stock_code)`
+- 호출 위치: `DartClient.get_portal_corp_profile(stock_code)`
 - 응답 파싱: 페이지 1에서 `sise_group_detail.naver?type=upjong&no=(\d+)` 정규식 → sector_code, 페이지 2에서 `<title>` 태그로 sector_name
 - Rate limit: 각 단계 사이 `asyncio.sleep(2.0)`
 - 사용: company / value_up 업종 메타
@@ -861,7 +861,7 @@ DB 쪽 필터만 걸어서 `str(None)`="None" 이 65,500건짜리 가짜 범주�
 | corp_gov_report | list.json (I, "기업지배구조보고서공시") + document.xml | viewer.do HTML | OCR (v1) |
 | (참고) news_check (v1) | Naver 뉴스 OpenAPI | — | — |
 | (참고) get_stock_price | KRX `stk_bydd_trd` | Naver Finance siseJson | — |
-| (참고) get_naver_corp_profile | Naver coinfo + sise_group_detail | — | — |
+| (참고) get_portal_corp_profile | Naver coinfo + sise_group_detail | — | — |
 | (참고) proxy_guideline | data/asset_managers/ JSON (정적) | — | — |
 
 ---

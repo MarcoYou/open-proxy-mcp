@@ -935,7 +935,7 @@ def _compute_metrics(
     # 평균값 (BS 전기 데이터 있으면)
     avg_assets = _avg(total_assets, (bs_is_prev or {}).get("total_assets")) if bs_is_prev else total_assets
 
-    # ROE 분모 = 평균 '지배주주 귀속 자본' (FnGuide/한국 표준). 주요계정엔 지배자본이 없어
+    # ROE 분모 = 평균 '지배주주 귀속 자본' (국내 표준). 주요계정엔 지배자본이 없어
     # fnlttSinglAcntAll(detail)에서 가져온다. 지배자본 없으면(별도재무·결손) 자본총계로 fallback.
     controlling_equity = detail.get("controlling_equity")
     if controlling_equity is None:
@@ -1033,7 +1033,7 @@ def _compute_metrics(
 
     # ROE / ROA — 평균자산/평균자본 (전기 없으면 기말 단독). 분모 음수(채무초과) 시 None.
     # ROE = 지배순이익 / 평균 지배자본 (주주 귀속 기준). ROA = 전체순이익 / 평균자산
-    # (총자산은 전체 자본·부채로 조달 → 분자도 전체 순이익이 정합적. FnGuide 동일 규약).
+    # (총자산은 전체 자본·부채로 조달 → 분자도 전체 순이익이 정합적. 국내 데이터 공급처와 같은 규약).
     net_income_total_for_roa = net_income if net_income is not None else net_income_controlling
     roe_pct = _safe_pct(net_income_controlling, avg_equity, positive_denom_only=True)
     roa_pct = _safe_pct(net_income_total_for_roa, avg_assets, positive_denom_only=True)

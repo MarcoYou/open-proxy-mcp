@@ -3,7 +3,7 @@
 카드 보기(`screener` 기본)는 DART 를 그때그때 스캔해 「무엇이 떴나」를 한 줄씩 준다. 저장이 없어
 「평소보다 많이 떴나」는 답할 수 없었다. 흐름 보기는 매일 밤 쌓이는 원장만 읽어(DART 0콜) 세 가지를 준다.
 
-1. **업종별 흐름** — WICS 대분류·중분류별 새 공시 건수·금액을 직전 N주(기본 13주)의 같은 일수 환산값과 비교.
+1. **업종별 흐름** — 업종 대분류·중분류별 새 공시 건수·금액을 직전 N주(기본 13주)의 같은 일수 환산값과 비교.
 2. **큰 수주** — 매출 대비 비율이 기준(기본 10%) 이상인 새 계약 목록.
 3. **올해 누적 수주** — 회사별로 올해 새 계약의 「매출 대비 %」를 더한 값. 공시에 회사가 직접 적은 값이라
    재무표와 조인하지 않는다.
@@ -33,7 +33,7 @@ from typing import Any
 from open_proxy_mcp.db import pg_rows
 
 TOOL = "screener"
-LEVEL_LABEL = {"sector": "WICS 대분류", "industry": "WICS 중분류"}
+LEVEL_LABEL = {"sector": "업종 대분류", "industry": "업종 중분류"}
 NO_BUCKET = "(업종 미상)"
 DEFAULT_BASELINE_WEEKS = 13
 DEFAULT_LARGE_MIN_PCT = 10.0
@@ -53,9 +53,9 @@ def resolve_levels(level: str) -> tuple[list[str], list[str]]:
     raw = (level or "").strip().lower().replace(" ", "")
     if raw in ("", "both", "all", "둘다", "모두", "전체", "대분류,중분류", "대분류중분류", "대·중분류", "대중분류"):
         return ["sector", "industry"], []
-    if raw in ("sector", "대분류", "wics대분류", "섹터", "대"):
+    if raw in ("sector", "대분류", "섹터", "대"):
         return ["sector"], []
-    if raw in ("industry", "중분류", "wics중분류", "업종", "산업", "중"):
+    if raw in ("industry", "중분류", "업종", "산업", "중"):
         return ["industry"], []
     return ["sector", "industry"], [f"분류 단계 「{level}」를 알아듣지 못해 대분류·중분류를 모두 보였다."]
 
@@ -495,7 +495,7 @@ async def build_flow_payload(types: str = "", period: str = "", universe: str = 
         "method": ("새 공시 = 정정 아님(수주는 해지도 아님). 평소 = 직전 비교 기준 기간의 새 공시를 원장이 본 날 수로 나눠 "
                    "이번 기간의 본 날 수만큼 환산. 평소 대비 = 새 공시 ÷ 평소. 평소가 1건 미만이면 배수가 튀어 순위 뒤로. "
                    "금액·매출 대비 비율은 상세를 읽은 공시만 더했다(확인 건수를 함께 보인다). 업종은 공시일 이전 최신 "
-                   "WICS 스냅샷. 원장은 밤 배치로 쌓이므로 오늘 뜬 공시는 카드 보기로 본다."),
+                   "업종분류 스냅샷. 원장은 밤 배치로 쌓이므로 오늘 뜬 공시는 카드 보기로 본다."),
     }
     if "order" in kinds:
         data["large_orders"] = large_orders(rows, (start, end), min_pct)

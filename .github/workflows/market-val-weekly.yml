@@ -20,10 +20,10 @@ on:
     - cron: "17 1 * * *"
   workflow_dispatch:     # 수동 실행
     inputs:
-      wics_since:
+      class_since:
         # 260829: 평소엔 올해분만 다시 쌓으면 된다(멱등·수렴). 컬럼을 새로 붙인 날처럼
         #   과거 행까지 채워야 할 때만 20200101 을 넣어 전 구간을 한 번 다시 돌린다.
-        description: "WICS 집계 재적재 시작월(기본 20260101 · 전 구간은 20200101)"
+        description: "업종분류 집계 재적재 시작월(기본 20260101 · 전 구간은 20200101)"
         required: false
         default: "20260101"
       scale_sweep:
@@ -102,14 +102,14 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/krx_stock_flags.py
 
-      - name: WICS 기준 시장·섹터 집계 (DART·KRX 0콜)
-        # 260823: **분류는 월 1회여도 집계는 매일이어야 한다.** WICS 업종분류는 느린 데이터라
-        #   wics-monthly 가 월 1회 갱신하지만, 시총·재무는 매일 바뀐다. 집계를 월 1회 배치에만
-        #   두면 사용자가 보는 섹터 배수가 최대 한 달 낡는다(실측: KSIC 8/21 vs WICS 7/31).
+      - name: 업종분류 기준 시장·섹터 집계 (DART·KRX 0콜)
+        # 260823: **분류는 월 1회여도 집계는 매일이어야 한다.** 업종분류는 느린 데이터라
+        #   sector-class-monthly 가 월 1회 갱신하지만, 시총·재무는 매일 바뀐다. 집계를 월 1회 배치에만
+        #   두면 사용자가 보는 섹터 배수가 최대 한 달 낡는다(실측: KSIC 8/21 vs 업종분류 7/31).
         #   스크립트가 현재월을 건너뛰므로 여기선 --since 로 최근만 훑어 비용을 줄인다.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: uv run python scripts/wics_val_backfill.py --since ${{ inputs.wics_since || '20260101' }} --include-current
+        run: uv run python scripts/sector_val_backfill.py --since ${{ inputs.class_since || '20260101' }} --include-current
 
       - name: 과거 시장·섹터 밴드 재적재 (수동 요청 시만 · DART·KRX 0콜)
         if: ${{ inputs.market_history == 'yes' }}
@@ -143,12 +143,12 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/krx_cap_agg.py
 
-      # 260918 신설 — `price_multiple_data` 의 선행 PER·PBR(시장·WICS 대분류·하위업종)이 읽는 표 `opm_val_fwd`.
-      #   원천은 수집 머신이 토요일 저녁에 올리는 추정치 이력(`fwd_hist`) + WICS 분류 + 주간 시세의 시장 구분.
+      # 260918 신설 — `price_multiple_data` 의 선행 PER·PBR(시장·업종 대분류·중분류)이 읽는 표 `opm_val_fwd`.
+      #   원천은 수집 머신이 토요일 저녁에 올리는 추정치 이력(`fwd_hist`) + 업종분류 + 주간 시세의 시장 구분.
       #   새 날짜와 가장 최근 날짜만 계산해 평일엔 몇 초짜리 재계산 하나다(토요일 수집분은 일요일 아침 반영).
       #   수집 머신의 `fwd_agg` 에 넣지 않는 이유: 그쪽 송출이 날짜별로 행을 통째로 지우고 다시 넣는다.
       #   `krx_weekly` 를 쓰므로 위 시세 스냅샷 **뒤**에 온다.
-      - name: 선행 배수 집계 — 시장·WICS 업종 (DART·KRX 0콜)
+      - name: 선행 배수 집계 — 시장·업종 (DART·KRX 0콜)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/fwd_val_weekly.py
@@ -168,7 +168,7 @@ jobs:
               if agg != wk:
                   raise SystemExit(f"::error::집계가 시세보다 낡음 ({agg} < {wk}) — 재적재 실패")
               n = c.execute("SELECT count(*) FROM krx_cap_agg WHERE price_dd=%s", (agg,)).fetchone()[0]
-              print(f"최신 시점 {n}행 (시장 2 + WICS 대분류·하위업종 × 2시장)")
+              print(f"최신 시점 {n}행 (시장 2 + 업종 대분류·중분류 × 2시장)")
               # 260918: 선행 배수가 추정치 이력의 최신 날짜를 따라왔나
               fh = c.execute("SELECT max(as_of) FROM fwd_hist").fetchone()[0]
               fv = c.execute("SELECT max(as_of) FROM opm_val_fwd").fetchone()[0]

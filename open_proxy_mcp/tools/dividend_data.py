@@ -257,7 +257,7 @@ def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
 
 # ─────────────────────────────────────────────────────────────── market/sector ──
 def _render_agg(scope: str, key: str, d: dict[str, Any]) -> str:
-    L = [f"## {key} — 확정 배당 집계 ({'WICS 섹터' if scope == 'sector' else '시장'})", ""]
+    L = [f"## {key} — 확정 배당 집계 ({'업종 대분류' if scope == 'sector' else '시장'})", ""]
     L += _RULER
     L += ["", "| 사업연도 | 모집단 | 배당한 회사 | 배당총액 합 | 배당성향 평균 |",
           "|---|---|---|---|---|"]
@@ -291,7 +291,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 828사 × 2020~2025)과 결정공시 집계(FY2020~2024)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
         when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend_disclosure`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
-        scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` WICS 섹터(sector 필요)
+        scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` 업종 대분류(sector 필요)
         rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 FY2020~2024 만 온전(그 밖은 `scope_incomplete`). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**
         min_payments: screen 전용. **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사(결정공시 기준 — 원장 분기 빈칸 추정이 아니다). `quarterly_only=True` 는 `min_payments=2` 의 별칭(하위호환).
         ref: dividend_disclosure, price_multiple_data, forward_estimates_data, screener, evidence

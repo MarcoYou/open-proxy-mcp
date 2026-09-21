@@ -8,7 +8,7 @@ data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결�
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-07-05
-updated: 2026-09-18
+updated: 2026-09-21
 ---
 
 # price_multiple_data
@@ -31,7 +31,7 @@ price_multiple_data(company="두산밥캣")                    # firm: 기업 �
 price_multiple_data(scope="market")                        # 시장 전체(KOSPI·KOSDAQ) + 주간 히스토리
 price_multiple_data(scope="sector", company="두산밥캣")    # 산업별 표 + 기업 vs 소속 섹터 비교 + 소속 섹터 시계열(연말 요약+전체 월별)
 price_multiple_data(scope="firm_history", company="삼성전자")  # 종목 PER/PBR 시계열 — FY0·TTM·MRQ (주간 곡선 + 월말 요약)
-price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(중분류 28) — 트레일링 옆에 선행 PER·PBR
+price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 — 트레일링 옆에 선행 PER·PBR
 ```
 자연어 예시:
 - "삼성전자 밸류에이션" → firm: PER 46.9(FY0)/21.6(TTM) · PBR 4.33 · 배당수익률 0.54%
@@ -40,7 +40,7 @@ price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(
 - "반도체 업종 밸류" → sector: KSIC 섹터별 PER/PBR 표
 - "두산밥캣 섹터 평균 대비 싸? 비싸?" → sector + company: 기업 vs 소속 섹터 비교 + 섹터 시계열
 - "배당수익률 얼마?" → firm: 현재가 기준(시장·섹터 집계 배당수익률은 market/sector)
-- "업종별 선행 PER" → sector(`wics_sector`·`wics_industry`): 선행 PER·PBR 칸 + 종목수 옆 괄호(추정 종목 수)
+- "업종별 선행 PER" → sector(`대분류`·`중분류`): 선행 PER·PBR 칸 + 종목수 옆 괄호(추정 종목 수)
 
 ### 과거 시점 `as_of` (260907)
 `as_of="20251231"`(또는 `2025-12-31`). `scope=firm` 이면 실시간 계산 대신 `firm_history` 의 **전 구간 주간 곡선**(krx_weekly 2015~ × DART 재무 PIT)에서
@@ -53,7 +53,7 @@ price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(
 |---|---|---|---|---|
 | company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
 | scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 곡선 + 월말 요약, DB 계산) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
-| scheme | str | no | sector 집계 축 — `wics_industry` / `wics_sector` / `ksic`. 확정 배당수익률은 `wics_sector` 에만, 선행 PER·PBR·배당수익률은 `wics_sector`·`wics_industry` 에 붙는다(KSIC 없음) | "wics_industry" |
+| scheme | str | no | sector 집계 축 — `중분류`(업종 중분류 28) / `대분류`(업종 대분류 10) / `ksic`. 확정 배당수익률은 `대분류` 에만, 선행 PER·PBR·배당수익률은 `대분류`·`중분류` 에 붙는다(KSIC 없음). 옛 값(`wics_industry`·`wics_sector`)도 받는다 | "중분류" |
 | format | str | no | "md" / "json" | "md" |
 
 ## scope 라우팅 — 기능 → 데이터 소스 (DB-first)
@@ -89,8 +89,8 @@ price_multiple_data(scope="sector", scheme="wics_industry") # WICS 하위업종(
 
 ### 선행 PER·PBR (260918 추가)
 
-시장·산업 표에 **애널리스트 추정 기반 선행 PER·PBR** 을 트레일링 옆에 싣는다. 산업은 `wics_sector`(대분류)와
-`wics_industry`(하위업종 = WICS 중분류 28) 둘 다. KSIC 에는 선행 집계가 없어 안 붙인다.
+시장·산업 표에 **애널리스트 추정 기반 선행 PER·PBR** 을 트레일링 옆에 싣는다. 산업은 `대분류`(10)와
+`중분류`(28) 둘 다. KSIC 에는 선행 집계가 없어 안 붙인다.
 
 | | 트레일링 | 선행 |
 |---|---|---|
@@ -312,6 +312,7 @@ sequenceDiagram
 
 ## 변경 이력
 
+- 2026-09-21: `scheme` 값을 중립 이름 「대분류」·「중분류」로(기본 「중분류」, 옛 값도 받는다). 출력의 분류 이름표도 「업종 대분류·중분류」.
 - 2026-09-18: 시장·WICS 대분류·하위업종 표에 **선행 PER·PBR**(JSON 에 선행 PSR·흑자만 PER) — `opm_val_fwd`(`scripts/fwd_val_weekly.py`,
   market-val-weekly 안에서 매일). 트레일링과 같은 합산 방식(적자 추정 포함)·추정 종목 수 병기·선행 추이. 선행 배당수익률 출처를
   `fwd_agg` → `opm_val_fwd` 로 옮겨 하위업종 표에도 붙는다. 2026-08-28~09-13 9개 날짜 백필.

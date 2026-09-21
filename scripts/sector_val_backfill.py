@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""WICS 기준 시장·섹터 밸류에이션 집계 — `opm_val_market(scheme='wics_*')`. DART·KRX 0콜.
+"""업종분류 기준 시장·섹터 밸류에이션 집계 — `opm_val_market`(업종분류 scheme). DART·KRX 0콜.
 
-260823 신설. 종전 집계는 KSIC 하이브리드 하나뿐이었다. WICS(WiseIndex)는 벤더·리서치가 쓰는
+260823 신설. 종전 집계는 KSIC 하이브리드 하나뿐이었다. 업종분류는 벤더·리서치가 쓰는
 다른 축이라 나란히 놓을 값이 있다 — 실측으로 그림이 실제로 다르다:
 
   KSIC 반도체·반도체장비(261+29271)   12사 2,937조   ← 세분 62버킷
-  WICS 반도체와반도체장비             14사 3,093조   ← 하위업종 28
-  WICS IT(대분류)                   69사 3,436조   ← 대분류 10
+  중분류 반도체와반도체장비             14사 3,093조   ← 하위업종 28
+  대분류 IT                           69사 3,436조   ← 대분류 10
 
 계산은 `market_val_history_backfill.py` 와 **완전히 같다**(로직 이중구현 방지 — `_pit_fy`·
 `_pit_quarter`·`_ttm_ni`·`_mrq_eq` 를 valuation.py 에서 그대로 import). 갈아끼우는 것은
@@ -16,7 +16,7 @@
   시총이 per_fy0 분자에 섞이면 분자만 커지고 분모는 안 커져 PER 이 왜곡된다
   (260706 실측: KOSPI 2020-12 FY0 PER 32.7 → 42.8 오염). 원본과 같은 방식을 유지한다.
 
-★ 과거 구간은 **소급**이다. WICS 는 조회 시점 구성종목만 주고 우리는 2026-08 부터 모았다.
+★ 과거 구간은 **소급**이다. 분류 공급처는 조회 시점 구성종목만 주고 우리는 2026-08 부터 모았다.
   그래서 과거 월말에는 「그 날짜 이하의 가장 최근 스냅샷, 없으면 가장 이른 스냅샷」을 쓴다.
   = 지금 분류를 과거에 적용하는 것이고, 산출물에 `sector_asof` 로 그 사실을 남긴다.
   앞으로 월 1회 실측이 쌓이면 그 구간부터는 진짜 시점 분류가 된다.
@@ -25,7 +25,7 @@ scheme:
   wics_sector    대분류 10 (IT·산업재·금융 …)
   wics_industry  하위업종 28 (반도체와반도체장비·자본재 …) — KSIC 세분과 비교 가능한 층
 
-실행: python3 scripts/wics_val_backfill.py [--since 20200101]
+실행: python3 scripts/sector_val_backfill.py [--since 20200101]
 """
 from __future__ import annotations
 
@@ -81,14 +81,14 @@ def main() -> int:
     snaps = [r[0] for r in con.execute(
         "SELECT DISTINCT snap_dd FROM wise_sector ORDER BY snap_dd")]
     if not snaps:
-        print("wise_sector 비어 있음 — refresh_wics.py 를 먼저 돌린다")
+        print("분류 스냅샷 표가 비어 있음 — refresh_sector_class.py 를 먼저 돌린다")
         return 1
 
     # 종목 → {snap_dd: (대분류, 대분류명, 하위업종, 하위업종명)}
-    wics: dict[str, dict[str, tuple]] = defaultdict(dict)
+    classes: dict[str, dict[str, tuple]] = defaultdict(dict)
     for t, sd, sc, s, ic, i in con.execute(
             "SELECT ticker, snap_dd, sector_code, sector, industry_code, industry FROM wise_sector"):
-        wics[t][sd] = (sc, s, ic, i)
+        classes[t][sd] = (sc, s, ic, i)
 
     fin_all: dict[str, dict] = {}
     for isu, fy, ni, eq, nir, eqr in con.execute(
@@ -107,13 +107,13 @@ def main() -> int:
     cur_ym = f"{today.year}{today.month:02d}"
     # 260823: 종전엔 현재월을 무조건 제외했다(월말 확정본만). 그런데 일간 배치가 이 스크립트를
     #   부르게 되면서, 제외하면 **사용자가 보는 섹터 배수가 최대 한 달 낡는다**
-    #   (실측: KSIC 8/21 vs WICS 7/31). 일간 배치는 --include-current 로 최신 주까지 채운다.
+    #   (실측: KSIC 8/21 vs 업종분류 7/31). 일간 배치는 --include-current 로 최신 주까지 채운다.
     if not a.include_current:
         months = sorted(d for d in months if d[:6] < cur_ym)
     else:
         # 현재월은 「그 달의 최신 거래주」 — krx_weekly 최신 포인트를 쓴다
         months = sorted(months)
-    print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · WICS 스냅샷 {snaps}", flush=True)
+    print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · 업종분류 스냅샷 {snaps}", flush=True)
 
     n_rows = n_backfilled = 0
     for d in months:
@@ -134,7 +134,7 @@ def main() -> int:
         mkts = {r[0]: r[1] for r in con.execute(
             "SELECT ticker, market FROM krx_weekly WHERE price_dd=%s", (d,))}
 
-        for isu, per_snap in wics.items():
+        for isu, per_snap in classes.items():
             cls = per_snap.get(use)
             cap = caps.get(isu)
             market = mkts.get(isu)
@@ -176,7 +176,7 @@ def main() -> int:
         if len(months) > 12 and months.index(d) % 20 == 0:
             print(f"  {d} … {n_rows:,}행", flush=True)
 
-    print(f"\nWICS 집계 {n_rows:,}행 · 월말 {len(months)}개 (그중 소급 {n_backfilled}개)")
+    print(f"\n업종분류 집계 {n_rows:,}행 · 월말 {len(months)}개 (그중 소급 {n_backfilled}개)")
     for r in con.execute("SELECT scheme, count(*) FROM opm_val_market GROUP BY 1 ORDER BY 1"):
         print(f"  {r[0]:16s} {r[1]:,}행")
     con.close()

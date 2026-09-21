@@ -6,7 +6,7 @@
 업종별 흐름·수주 강도·리비전 대조 같은 조회 도구는 전부 이 표 위에 얹는다.
 
 무엇을 쌓나: `dart_events` — 접수번호 1행. 분류(유형·세부·단계·정정 여부)는 screener 의
-분류기를 **그대로** 쓴다(사본을 두면 두 곳이 갈린다). 업종은 `wise_sector`(월 1회 스냅샷,
+분류기를 **그대로** 쓴다(사본을 두면 두 곳이 갈린다). 업종은 업종분류(월 1회 스냅샷,
 접수일 이전 최신), 시총은 `krx_weekly`(주간, 접수일 이전 최신)를 붙인다. 수주·자사주·배당·
 증자·잠정실적은 기존 상세 파서로 금액·매출비율 등 핵심 숫자를 `detail`(jsonb)에 담는다.
 `dart_events_scan` — 날짜×코드별로 DART 가 몇 건이라 했고 몇 페이지를 실제로 받았는지.
@@ -226,7 +226,7 @@ def db_row(row: dict) -> dict:
 # ── DB 보강 ────────────────────────────────────────────────────────────
 
 def enrich(con, rows: list[dict]) -> None:
-    """업종(wise_sector)·시총(krx_weekly)을 접수일 이전 최신 스냅샷에서 붙인다. DB 만, DART 0콜."""
+    """업종(업종분류 스냅샷)·시총(krx_weekly)을 접수일 이전 최신 스냅샷에서 붙인다. DB 만, DART 0콜."""
     tickers = sorted({r["stock_code"] for r in rows if r.get("stock_code")})
     if not tickers:
         return

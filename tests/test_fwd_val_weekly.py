@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+from open_proxy_mcp.services.sector_class import DB_SCHEME, MAJOR
+
 pytest.importorskip("psycopg")
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -35,13 +37,13 @@ def test_snapshot_is_at_or_before_the_estimate_date():
     assert fv.snapshot_at_or_before("20260911", dds) == "20260911"
     assert fv.snapshot_at_or_before("20260801", dds) == "20260828"    # 더 이른 것이 없으면 가장 이른 것(소급)
     assert fv.snapshot_at_or_before("20260830", []) is None
-    # 송출이 늦어 월초 WICS 갱신(0925) 뒤에 계산돼도 추정 날짜(0919) 뒤의 분류를 쓰지 않는다
+    # 송출이 늦어 월초 업종분류 갱신(0925) 뒤에 계산돼도 추정 날짜(0919) 뒤의 분류를 쓰지 않는다
     assert fv.snapshot_at_or_before("20260919", ["20260828", "20260925"]) == "20260828"
 
 
 def test_finish_rows_marks_dividend_denominator_like_the_collector():
     src = [{"scheme": "market", "market": "KS", "bucket": "_ALL", "n_dps": 3},
-           {"scheme": "wics_sector", "market": "KQ", "bucket": "G10", "n_dps": 0}]
+           {"scheme": DB_SCHEME[MAJOR], "market": "KQ", "bucket": "G10", "n_dps": 0}]
     out = fv.finish_rows(D[-1], "20260828", "20260911", src)
     assert [r["div_denom_basis"] for r in out] == ["covered", None]
     assert all(r["as_of"] == D[-1] and r["class_dd"] == "20260828" and r["mk_dd"] == "20260911" for r in out)

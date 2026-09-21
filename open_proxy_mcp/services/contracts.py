@@ -81,7 +81,7 @@ class SourceType(str, Enum):
     DART_XML = "dart_xml"
     DART_HTML = "dart_html"
     KIND_HTML = "kind_html"
-    NAVER = "naver"
+    PORTAL = "portal"
     INTERNAL = "internal"
 
 

@@ -96,11 +96,11 @@ def test_market_falls_back_to_krx_live_sum(no_db, monkeypatch):
 
 
 def test_sector_says_it_cannot_fall_back(no_db, monkeypatch):
-    """섹터는 WICS 매핑이 DB 에만 있다 — 폴백이 없다는 것을 **그 이유와 함께** 말한다."""
-    p = asyncio.run(svc.build_cap_agg_payload("wics_industry"))
+    """섹터는 업종분류 매핑이 DB 에만 있다 — 폴백이 없다는 것을 **그 이유와 함께** 말한다."""
+    p = asyncio.run(svc.build_cap_agg_payload("중분류"))
     assert p["status"] == "db_unconfigured"
     joined = " ".join(p["warnings"])
-    assert "WICS" in joined, "왜 못 주는지가 없으면 사용자는 계속 다시 부른다"
+    assert "업종분류" in joined, "왜 못 주는지가 없으면 사용자는 계속 다시 부른다"
     assert "market" in joined and "firm" in joined, "대신 되는 것을 알려줘야 한다"
 
 

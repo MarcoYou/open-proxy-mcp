@@ -1112,7 +1112,6 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════════
 
 _DART_VIEWER = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo={r}"
-_NAVER = "https://finance.naver.com/item/main.naver?code={c}"
 
 
 def _resolve_types(types: str) -> tuple[list[str], list[str]]:
@@ -1460,7 +1459,6 @@ def _finalize_card(h: dict) -> dict:
     card = {k: v for k, v in h.items() if not k.startswith("_")}
     card["dart_url"] = _DART_VIEWER.format(r=h.get("rcept_no", "")) if h.get("rcept_no") else ""
     sc = h.get("stock_code")
-    card["naver_url"] = _NAVER.format(c=sc) if sc else ""
     card["suggested_tool"] = _SUGGESTED_TOOL.get(h["type"]["code"], "")
     if _BY_CODE[h["type"]["code"]].get("interpretation") == "discovery_only":
         card["interpretation"] = "discovery_only"

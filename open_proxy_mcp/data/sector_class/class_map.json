@@ -6,7 +6,7 @@
     "industryCount": 28,
     "tickerCount": 2477,
     "refreshedAt": "2026-09-01T07:55:45+00:00",
-    "source": "wiseindex"
+    "source": "external"
   },
   "data": {
     "000020": {

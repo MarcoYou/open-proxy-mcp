@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""price_multiple_data 의 선행(애널리스트 추정) PER·PBR — 시장·WICS 업종 표 (260918). network·DB 0.
+"""price_multiple_data 의 선행(애널리스트 추정) PER·PBR — 시장·업종 표 (260918). network·DB 0.
 
 지키는 것: ① 선행 칸은 트레일링 옆에, 추정 종목 수는 종목수 옆 괄호로 ② 합이 0 이하면 트레일링처럼
 「적자 −N조」 ③ 추정 행이 없는 업종은 `-` 와 (0) — 0 으로 메우지 않는다 ④ KSIC 에는 선행을 안 붙이고
@@ -15,6 +15,7 @@ import json
 
 from open_proxy_mcp.server import mcp
 from open_proxy_mcp.services import price_multiple_data as S
+from open_proxy_mcp.services.sector_class import DB_SCHEME, MID
 
 MARKET_ROWS = [  # snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref, ni_fy0
     ("20260916", "KS", 12.0, 11.0, 1.3, 1.2, 3.0e15, 2.7e14, 2.5e15, 5e13, 2.5e14),
@@ -51,7 +52,7 @@ FWD = {
         F("2026-09-05", "KS", "_ALL", n=322, per=6.44, pbr=1.15),
         F("2026-09-05", "KQ", "_ALL", n=335, per=22.8, pbr=2.5),
     ],
-    "wics_industry": [
+    DB_SCHEME[MID]: [
         F("2026-09-13", "KS", "G4530", "반도체와반도체장비", n=11, per=4.87, pbr=2.76, dy=1.72, n_dps=10),
         F("2026-09-13", "KS", "G2010", "자본재", n=70, per=16.65, pbr=1.98, dy=1.56, n_dps=60),
         F("2026-09-13", "KS", "G4535", "전자와 전기제품", n=6, per=None, ni=-2e11, pbr=2.36, per_pos=24.88),
@@ -125,16 +126,24 @@ def test_market_before_forward_history_says_since_when_instead_of_blank(monkeypa
 
 def test_industry_table_counts_estimates_and_keeps_missing_rows_blank(monkeypatch):
     monkeypatch.setattr(S, "_pg_rows", fake_db())
-    out = call({"scope": "sector", "scheme": "wics_industry"})
+    out = call({"scope": "sector", "scheme": "중분류"})
     assert "| 섹터 | 종목수(추정) | PER(TTM) | PER(선행) | PBR(MRQ) | PBR(선행) | 배당수익률% 확정(배당주)/선행 | Σ시총 |" in out
     assert "| 자본재 | 138 (70) | 20.00 | 16.65 | 1.90 | 1.98 | - / 1.56 |" in out
     assert "| 전자와 전기제품 | 40 (6) | 적자 -0.50조 | 적자 -0.20조 | 2.30 | 2.36 |" in out
     assert "| 교육서비스 | 3 (0) | 15.00 | - | 1.00 | - | - / - |" in out
     assert "업종 분류 20260828" in out and "하위업종 표는 선행만 채워진다" in out
     # 과거 기준일이면 그 이하 추정 스냅샷을 쓴다
-    j = json.loads(call({"scope": "sector", "scheme": "wics_industry", "as_of": "20260910", "format": "json"}))
+    j = json.loads(call({"scope": "sector", "scheme": "중분류", "as_of": "20260910", "format": "json"}))
     cap = next(s for s in j["data"]["sectors"] if s["sector"] == "G2010")
     assert cap["fwd_per"] == 15.9 and j["data"]["fwd_ruler"]["as_of"] == "2026-09-05"
+
+
+def test_old_scheme_value_still_answers_the_same_table(monkeypatch):
+    """옛 인자 값(DB 값과 같다)도 같은 축으로 받는다 — 인자를 중립 이름으로 바꾼 뒤의 호환(260921)."""
+    monkeypatch.setattr(S, "_pg_rows", fake_db())
+    assert call({"scope": "sector", "scheme": DB_SCHEME[MID]}) == call({"scope": "sector", "scheme": "중분류"})
+    j = json.loads(call({"scope": "sector", "scheme": DB_SCHEME[MID], "format": "json"}))
+    assert j["data"]["scheme"] == "중분류"
 
 
 def test_ksic_gets_no_forward_and_does_not_even_ask(monkeypatch):

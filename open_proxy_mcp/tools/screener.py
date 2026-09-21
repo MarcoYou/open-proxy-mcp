@@ -247,10 +247,7 @@ def _render_digest(payload: dict[str, Any]) -> str:
                 lines.append(f"    - _{title}_{badge}")
             # 링크
             dart = h.get("dart_url", "")
-            naver = h.get("naver_url", "")
             link = f"    - [DART]({dart})" if dart else ""
-            if naver:
-                link += f" · [naver]({naver})"
             if h.get("suggested_tool"):
                 link += f" · `{h['suggested_tool']}`"
             if link.strip():
@@ -409,7 +406,7 @@ def register_tools(mcp):
         baseline_weeks: int = 13,
         large_min_pct: float = 10.0,
     ) -> str:
-        """desc: **전체시장 공시 스크리너 / 아침 공시 디제스트.** 직전 실행 이후~오늘 전종목에 뜬 주요 공시를 카드형으로 요약(기업명+시총+유형+단계+정정+DART/naver 링크). 무인자 호출=오늘 아침 디제스트. scan(무엇이 떴나, 싸게)=디폴트, details=true면 필요 건만 문서 열어 유형별 핵심숫자(금액·분모%·DPS·안건·지분%).
+        """desc: **전체시장 공시 스크리너 / 아침 공시 디제스트.** 직전 실행 이후~오늘 전종목에 뜬 주요 공시를 카드형으로 요약(기업명+시총+유형+단계+정정+DART 링크). 무인자 호출=오늘 아침 디제스트. scan(무엇이 떴나, 싸게)=디폴트, details=true면 필요 건만 문서 열어 유형별 핵심숫자(금액·분모%·DPS·안건·지분%).
         when: "오늘/어제 무슨 공시 떴어", "최근 며칠/일주일 잠정실적 발표", 매일 아침 공시 브리핑, 전체시장 **영업(잠정)실적**·수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. 특정 회사 1곳 심층은 개별 tool(provisional_earnings·order_contracts·dividend_disclosure 등).
         types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `governance`(공개매수·위임장권유·최대주주변경·소송·자사주·5%보유·재편·주식양수도) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "공개매수", "위임장", "거버넌스", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(잠정실적: 회계연도·기간·매출·영업익),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10,tender_offer,proxy_solicitation.
         governance: 제목에서 발견한 공시는 조사 대상이며 부정 신호 판정이 아니다. hits의 corp_code/stock_code를 회사별 중복 제거해 최대 30개씩 governance_screen(companies=[...])으로 전달하고 원문을 읽어 평가한다. 공시 수와 회사 수를 구별하고 paging.has_more면 다음 페이지도 확인. 공개매수·위임장권유는 scan-only이며 서로 다른 제출자를 합치지 않는다. 이 호출은 예약 작업을 만들지 않는다.
@@ -418,8 +415,8 @@ def register_tools(mcp):
         details: false(디폴트, scan만) / true(문서 열어 숫자 — **이번 페이지 건만** 연다. 기간>30일이면 자동 off, 기간>7일이면 preview. 유니버스 크기로는 더 이상 막지 않는다).
         offset: 이어받기 위치(디폴트 0). 응답의 `paging.next_offset` 을 그대로 넣으면 다음 묶음이 온다. **매칭 수(`paging.matched`)와 이번에 실은 수(`paging.returned`)는 다른 값이다** — 표시된 건수를 전체로 읽지 말 것.
         rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(krx_weekly) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.
-        view: 비우면 카드 보기(위 설명 전부). **"흐름"이면 흐름 보기** — 매일 밤 쌓이는 공시 원장만 읽어(DART 0콜) ① WICS 대분류·중분류별 새 공시 건수·금액을 직전 N주 같은 일수 환산 평소와 비교(「평소 대비 몇 배」) ② 매출 대비 비율이 기준 이상인 큰 수주 목록 ③ 올해 회사별 누적 수주(공시에 적힌 매출 대비 %의 합)를 준다. "지난주 업종별 수주 평소보다 많이 떴나"·"올해 수주가 매출 대비 가장 많이 쌓인 회사"·"업종별 자사주·증자 흐름"은 이것. 흐름 보기의 types 기본은 수주, period 기본은 원장 최신일까지 최근 7일(나머지 말은 카드 보기와 같은 뜻, 3개월 한도 없음 — 「이번 주·달·분기·올해」는 원장 최신일까지, 원장이 아직 그 칸에 없으면 가장 최근 칸을 보이고 밝힌다), universe 는 카드 보기와 같은 문법. 정정·해지는 새 공시로 세지 않고 따로 센다. 원장은 밤 배치라 오늘 뜬 공시는 카드 보기로.
-        level: 흐름 보기의 업종 분류 단계 — "둘 다"(기본) / "대분류"(WICS 10) / "중분류"(WICS 28).
+        view: 비우면 카드 보기(위 설명 전부). **"흐름"이면 흐름 보기** — 매일 밤 쌓이는 공시 원장만 읽어(DART 0콜) ① 업종 대분류·중분류별 새 공시 건수·금액을 직전 N주 같은 일수 환산 평소와 비교(「평소 대비 몇 배」) ② 매출 대비 비율이 기준 이상인 큰 수주 목록 ③ 올해 회사별 누적 수주(공시에 적힌 매출 대비 %의 합)를 준다. "지난주 업종별 수주 평소보다 많이 떴나"·"올해 수주가 매출 대비 가장 많이 쌓인 회사"·"업종별 자사주·증자 흐름"은 이것. 흐름 보기의 types 기본은 수주, period 기본은 원장 최신일까지 최근 7일(나머지 말은 카드 보기와 같은 뜻, 3개월 한도 없음 — 「이번 주·달·분기·올해」는 원장 최신일까지, 원장이 아직 그 칸에 없으면 가장 최근 칸을 보이고 밝힌다), universe 는 카드 보기와 같은 문법. 정정·해지는 새 공시로 세지 않고 따로 센다. 원장은 밤 배치라 오늘 뜬 공시는 카드 보기로.
+        level: 흐름 보기의 업종 분류 단계 — "둘 다"(기본) / "대분류"(10) / "중분류"(28).
         baseline_weeks: 흐름 보기의 비교 기준 주 수(기본 13, 1~52).
         large_min_pct: 흐름 보기 큰 수주의 매출 대비 기준 %(기본 10).
         ref: order_contracts·treasury_share·dividend_disclosure·dilutive_issuance·shareholder_meeting_notice·ownership_structure (유형별 심층), governance_screen (최대 30개사 원문 기반 거버넌스 검토)
