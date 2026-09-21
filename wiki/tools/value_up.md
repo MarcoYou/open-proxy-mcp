@@ -14,25 +14,23 @@ updated: 2026-09-02
 
 # value_up
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 한 줄 요약
 기업가치제고계획(밸류업) 공시 + 핵심 commitment 문장. 주주환원 정책·미래 약속 탭. 자사주 소각 이행 교차참조 포함.
 
 ## 사용법
 ```
 value_up(
-    company="예시기업 S",
+    company="KB금융",
     scope="commitments",
 )
 ```
 
 자연어 예시:
-- "예시기업 S 밸류업 commitment + 자사주 이행" → `scope="commitments"`
+- "KB금융 밸류업 commitment + 자사주 이행" → `scope="commitments"`
 - "목표 ROE·배당성향 제시했어?" → `scope="commitments"` (`numeric_targets` 목표↔실적 대조표)
 - "자사주 소각 계획 있어?" → `scope="commitments"` (`highlights` 비수치 약속 + `treasury_cross_ref` 이행)
-- "예시기업 GO 밸류업 본문 발췌" → `scope="plan"`
-- "예시기업 BY 밸류업 공시 timeline" → `scope="timeline"`
+- "하나금융지주 밸류업 본문 발췌" → `scope="plan"`
+- "메리츠금융지주 밸류업 공시 timeline" → `scope="timeline"`
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
@@ -127,7 +125,7 @@ sequenceDiagram
     participant DX as DART document.xml
     participant K as KIND 0184 (밸류업 카테고리)
     participant TS as treasury_share API
-    U->>T: company="예시기업 S", scope="commitments"
+    U->>T: company="KB금융", scope="commitments"
     T->>R: company_query → corp_code
     T->>DL: list.json (pblntf_ty=I, "기업가치 제고" keyword, requested window)
     DL-->>T: items (밸류업 공시 후보)
@@ -166,7 +164,7 @@ KIND fallback +1, 진단검색 +2, role backfill +1, treasury cross-ref +1.
   - `progress`: report_name 또는 본문 `계획서 명칭`에 실제 관측된 progress 표현 포함
     (`이행현황`, `이행 현황`, `이행결과`, `진행 현황`)
   - `plan`: 그 외
-- `계획서 명칭` 우선 단서: 예시기업 FW처럼 report_name은 일반 `기업가치제고계획(자율공시)`이나 본문 명칭이 `2025년 예시기업 FW 기업가치 제고계획 이행현황`인 경우 `progress`로 본다.
+- `계획서 명칭` 우선 단서: KT&G처럼 report_name은 일반 `기업가치제고계획(자율공시)`이나 본문 명칭이 `2025년 KT&G 기업가치 제고계획 이행현황`인 경우 `progress`로 본다.
 - **`pre_announcement` 은 `plan_title` 이 비는 게 정상이다** — 예고공시는 「계획을 언제 내겠다」는 안내라
   계획 본문이 없다. 빈 `plan_title` 을 누락으로 세면 안 된다.
 - `주요 내용` 태깅:
@@ -208,13 +206,13 @@ KIND fallback +1, 진단검색 +2, role backfill +1, treasury cross-ref +1.
 - 계획서 명칭·주요 내용 이행 태그 전수 검증(KOSPI500 + KOSDAQ150) 기록: private storage
 
 ## 알려진 issue + TODO
-- `_COMMITMENT_KEYWORDS` 튜닝 (예시기업 W 등 매칭 0건 케이스).
+- `_COMMITMENT_KEYWORDS` 튜닝 (LG에너지솔루션 등 매칭 0건 케이스).
 - 재공시/기재정정 timeline 연결 케이스 → `requires_review`.
 - KIND 제목 검증 실패 시 `requires_review`.
 - ROE/PBR/배당성향 목표 자동 추출 (TODO, 현재는 highlights 문장만).
 
 ## 변경 이력
 - 2026-04-18: value_up tool 검증 + release_v2 go
-- 2026-04-19: 4개 기업 (예시기업 S / 예시기업 GO / 예시기업 W / 예시기업 BY) summary 통과
+- 2026-04-19: 4개 기업 (KB금융 / 하나금융지주 / LG에너지솔루션 / 메리츠금융지주) summary 통과
 - 2026-04-29: 200기업 audit 50.5% exact (no_filing 48% 분리)
 - 2026-05-01: tool wiki 페이지 작성

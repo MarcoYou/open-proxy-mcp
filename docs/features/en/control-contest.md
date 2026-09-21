@@ -1,7 +1,5 @@
 # Control-Contest Signals
 
-> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
-
 **Gathers signals of control contests and shareholder activism from filings, in chronological order.** OPM **does not declare "contest or not" — it only lays out the signals; the final call is the analyst's.**
 
 ## What it answers
@@ -15,7 +13,7 @@
 
 ## Ask it like this
 
-> "Summarize control-contest signals for Example Company AQ"
+> "Summarize control-contest signals for Korea Zinc"
 >
 > "Any external party that bought over 5% of this company?"
 

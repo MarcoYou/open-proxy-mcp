@@ -8,8 +8,6 @@ related:
 
 # _classify_agenda parent shortcircuit 결정
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 배경
 
 정관변경 sub-안건은 제목만으로는 카테고리를 특정할 수 없다. "사외이사 선임" 같은 표현이 정관 조문
@@ -39,7 +37,7 @@ caller (`proxy_advise._run`)에서 agenda tree → title:parent map 추출 + 전
 ## Trade-off
 
 - (+) 분류 정확도 19.3% mismatch → 0% (300 회사 verified)
-- (+) NO_DATA 잘못 발생 제거 (예시기업 BT case 회귀 검증 — 2건 → 0건)
+- (+) NO_DATA 잘못 발생 제거 (롯데케미칼 case 회귀 검증 — 2건 → 0건)
 - (+) 단일 fix로 9+ 카테고리 패턴 모두 해결
 - (-) 시그니처 변경 — 모든 caller가 parent 전달해야 효과 있음 (default ""로 fallback 가능)
 
@@ -56,7 +54,7 @@ caller (`proxy_advise._run`)에서 agenda tree → title:parent map 추출 + 전
 |---|---|---|
 | 전체 mismatch | 19.30% (607/3145) | **0.00%** |
 | 정관 sub 정확도 | 0.00% | **100.00%** (607/607) |
-| 예시기업 BT NO_DATA | 2건 | **0건** |
+| 롯데케미칼 NO_DATA | 2건 | **0건** |
 | 회귀 (다른 분류 유지) | - | 100% (변화 없음) |
 
 ## 비목표

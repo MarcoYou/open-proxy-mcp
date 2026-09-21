@@ -14,8 +14,6 @@ updated: 2026-09-02
 
 # corporate_deals
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 > 구 명칭 `related_party_transaction` (2026-06-10 rename). 기능 변화 없음 — "인수/매각" 류 자연어 질의가 tool 라우팅에 실패해 이름·desc를 포괄형으로 교정.
 
 ## 한 줄 요약
@@ -26,18 +24,18 @@ updated: 2026-09-02
 ## 사용법
 ```
 corporate_deals(
-    company="예시기업 AB",
+    company="POSCO홀딩스",
     scope="summary",
     include_details=True,
 )
 ```
 
 자연어 예시:
-- "예시기업 AB 자회사 거래 패턴" → `scope="summary"` (지주회사 구조 신호)
-- "예시기업 DF 타법인주식 양수" → `scope="equity_deal"` (M&A 활발)
+- "POSCO홀딩스 자회사 거래 패턴" → `scope="summary"` (지주회사 구조 신호)
+- "성호전자 타법인주식 양수" → `scope="equity_deal"` (M&A 활발)
 - "계열사 출자·회수 내역 뭐야?" → `scope="summary"` + `include_details=True` (상대방·관계·금액·자산대비비율)
 - "타법인 주식 매각 공시 있어?" → `scope="equity_deal"` (취득/처분 양방향)
-- "예시기업 HJ 단일공급계약" → [[order_contracts]] (공급계약은 일원화로 이전)
+- "현대건설 단일공급계약" → [[order_contracts]] (공급계약은 일원화로 이전)
 
 ## 입력 인자
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
@@ -118,7 +116,7 @@ sequenceDiagram
     participant R as resolve_company_query
     participant DL as DART list.json (B/I)
     participant DX as DART document.xml (본문)
-    U->>T: company="예시기업 AB", scope="summary", include_details=True
+    U->>T: company="POSCO홀딩스", scope="summary", include_details=True
     T->>R: company_query → corp_code
     T->>T: window 결정 (lookback 24개월)
     par scope별 2-way 병렬 (asyncio.gather)
@@ -160,7 +158,7 @@ sequenceDiagram
 - 알려진 한계:
   - 특수관계 자동 판별 없음 (계열사 matrix가 OPM에 미저장).
   - 매출 의존도 계산은 재무 데이터 결합 필요 (TODO).
-- regression 0 검증: 5/5 통과 (예시기업 AB/예시기업 CW/예시기업 AL/예시기업 HJ/예시기업 FE/예시기업 DF). 200기업 audit `related_party_transaction.summary` 67.3% exact, no_filing 31.6% (정상).
+- regression 0 검증: 5/5 통과 (POSCO홀딩스/삼성전자/SK하이닉스/현대건설/일진홀딩스/성호전자). 200기업 audit `related_party_transaction.summary` 67.3% exact, no_filing 31.6% (정상).
 
 ## 관련 공시 (rules/disclosures/)
 - [[타법인주식및출자증권거래]] — DART, 의무, 양수·양도·취득·처분 4형태

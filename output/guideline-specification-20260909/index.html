@@ -18,10 +18,7 @@ main{padding:36px 48px 100px}header{margin-bottom:26px;padding-bottom:24px}h1{fo
 [hidden]{display:none!important}article,aside,nav,.document-detail,.detail-body{min-width:0}article{overflow-wrap:anywhere}nav a{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;padding:13px 0;border-bottom:1px solid var(--line);white-space:normal}nav a strong{display:block;font-size:13px;font-weight:700;color:var(--ink)}nav a small{display:block;font-size:11px;margin-top:5px;font-weight:400;color:var(--muted)}.nav-number{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--green);padding-top:2px}a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--green);outline-offset:4px}h4,h5,h6{line-height:1.55;margin:26px 0 12px}h4{font-size:17px}h5,h6{font-size:15px}.document-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 24px}.document-controls button{border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--green);padding:7px 11px;font:inherit;font-size:12px;cursor:pointer}.controls-status{font-size:12px;color:var(--muted)}.document-detail{margin:22px 0;border:1px solid var(--line);border-radius:9px;background:#fff}.document-detail>summary{padding:17px 20px;cursor:pointer;line-height:1.55;color:var(--green);overflow-wrap:anywhere}.document-detail>summary h3{display:inline;margin:0;font-size:18px;letter-spacing:-.3px;color:var(--ink)}.document-detail>summary::marker{font-size:14px;color:var(--green)}.document-detail[open]>summary{border-bottom:1px solid var(--line)}.detail-body{padding:6px 22px 20px}.detail-body> :first-child{margin-top:15px}.detail-body> :last-child{margin-bottom:0}.fragment-alias{display:inline-block;width:0;height:0;overflow:hidden;vertical-align:top}.table-scroll,.diagram,pre{max-width:100%}.document-detail .diagram svg{min-width:680px}
 @media(max-width:760px){nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;overflow:visible;white-space:normal}nav a{padding:9px 0;grid-template-columns:20px minmax(0,1fr);gap:5px}nav a strong{font-size:12px}nav a small{font-size:10px;margin-top:3px}.document-detail>summary{padding:15px}.document-detail>summary h3{font-size:17px}.detail-body{padding:3px 15px 17px}.document-controls{gap:7px}.controls-status{flex-basis:100%}.detail-body th,.detail-body td{padding:12px}.actions a,.actions button{overflow-wrap:anywhere;max-width:100%}}
 @media print{.document-controls{display:none}.document-detail{border:0;border-radius:0;margin:20px 0;background:transparent}.document-detail>summary,.document-detail[open]>summary{padding:0;border:0;list-style:none;break-after:avoid}.document-detail>summary::-webkit-details-marker{display:none}.document-detail>summary h3{font-size:13pt}.detail-body{padding:0}.document-detail .diagram svg{min-width:0}.document-detail>summary::marker{content:''}}
-</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · 2026.09.10</div><nav aria-label="문서 목차"><a href="#roadmap"><span class="nav-number">01</span><span><strong>현황·로드맵</strong><small>완료한 일과 다음 단계</small></span></a><a href="#principles"><span class="nav-number">02</span><span><strong>가이드라인·판단 원칙</strong><small>시점·근거·사용자 설정</small></span></a><a href="#workflow"><span class="nav-number">03</span><span><strong>모델 교체·실행 흐름</strong><small>공통 과업과 모델의 역할</small></span></a><a href="#validation"><span class="nav-number">04</span><span><strong>검증 계획·결과</strong><small>10개사 회차별 품질과 후속 과제</small></span></a><a href="#release"><span class="nav-number">05</span><span><strong>배포·운영</strong><small>출시 조건과 남은 기능</small></span></a><a href="#appendix"><span class="nav-number">06</span><span><strong>Appendix</strong><small>A 실행 통제 · B 오류 교정 · C 검증</small></span></a></nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · 0.7.2-pilot · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>판단 원칙부터 검증과 배포까지 다섯 본문으로 보고, Appendix에서 하네싱의 동작과 이유를 확인합니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="harness.schema.json">시점 고정 실행</a><a href="../../wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md">문서 원본</a></div></header><div class="document-controls" hidden><button type="button" data-expand="true" aria-controls="document-body">상세 모두 펼치기</button><button type="button" data-expand="false" aria-controls="document-body">상세 모두 접기</button><span id="detail-status" class="controls-status" aria-live="polite">세부 명세와 과거 기록은 필요한 항목만 펼쳐 볼 수 있습니다.</span></div><article id="document-body"><blockquote>
-<p>예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. <a href="../../wiki/wiki_schema.md">표기 기준</a></p>
-</blockquote>
-<section aria-label="배포 로드맵" class="roadmap-overview"><h2 id="roadmap">현황·로드맵</h2>
+</style></head><body><a class="skip" href="#document">본문 바로가기</a><div class="layout"><aside><div class="brand">OPM / Guidelines</div><div class="edition">명세·설계 문서 · 2026.09.10</div><nav aria-label="문서 목차"><a href="#roadmap"><span class="nav-number">01</span><span><strong>현황·로드맵</strong><small>완료한 일과 다음 단계</small></span></a><a href="#principles"><span class="nav-number">02</span><span><strong>가이드라인·판단 원칙</strong><small>시점·근거·사용자 설정</small></span></a><a href="#workflow"><span class="nav-number">03</span><span><strong>모델 교체·실행 흐름</strong><small>공통 과업과 모델의 역할</small></span></a><a href="#validation"><span class="nav-number">04</span><span><strong>검증 계획·결과</strong><small>10개사 회차별 품질과 후속 과제</small></span></a><a href="#release"><span class="nav-number">05</span><span><strong>배포·운영</strong><small>출시 조건과 남은 기능</small></span></a><a href="#appendix"><span class="nav-number">06</span><span><strong>Appendix</strong><small>A 실행 통제 · B 오류 교정 · C 검증</small></span></a></nav></aside><main id="document"><header><div class="eyebrow">OPEN PROXY MCP · 0.7.2-pilot · ASTRA</div><h1>Guideline v2 · 진행 현황과 설계</h1><p>판단 원칙부터 검증과 배포까지 다섯 본문으로 보고, Appendix에서 하네싱의 동작과 이유를 확인합니다.</p><div class="actions"><button onclick="window.print()">인쇄 / PDF</button><a href="policy.json">현재 정책 JSON</a><a href="assessment.schema.json">평가 입력</a><a href="workflow.schema.json">보팅 설정</a><a href="governance.schema.json">거버넌스 평가</a><a href="harness.schema.json">시점 고정 실행</a><a href="../../wiki/decisions/260908_1200_decision_guideline-v2-final-redesign-pilot.md">문서 원본</a></div></header><div class="document-controls" hidden><button type="button" data-expand="true" aria-controls="document-body">상세 모두 펼치기</button><button type="button" data-expand="false" aria-controls="document-body">상세 모두 접기</button><span id="detail-status" class="controls-status" aria-live="polite">세부 명세와 과거 기록은 필요한 항목만 펼쳐 볼 수 있습니다.</span></div><article id="document-body"><section aria-label="배포 로드맵" class="roadmap-overview"><h2 id="roadmap">현황·로드맵</h2>
 <p><strong>진행 브랜치: <code>combined_guideline_v1</code>.</strong> 2026-09-10 사용자 요청으로 초기 Astra 설계, Astra–Fable 통합 설계와 이후 구현·파일럿 이력을 하나로 통합했다. 기존 커밋과 부모 관계를 보존하며, 아래 과거 브랜치명은 이력 설명이다.</p>
 <blockquote class="current-position conclusion-summary">
 <p><strong>결론 요약</strong></p>
@@ -29,12 +26,12 @@ main{padding:36px 48px 100px}header{margin-bottom:26px;padding-bottom:24px}h1{fo
 <ul>
 <li><strong>실제 결과:</strong> 39과업이 최종 수용됐고 미평가는 0이다. 조건부 중복을 포함한 42개 적용행은 찬성 21·반대 1·검토 20, 자동 준비 18·수동 24다. 각 회차의 실제 HTTP MCP와 최종 JSON·Markdown 응답까지 확인했다.</li>
 <li><strong>판단에 반영한 것:</strong> 신규·재선임, 출석 대상 구간, 제안주주 현직·계열회사 겸직, 현직/전직 공시 충돌과 표결 조건. 미공개 관계 세부만 후속 확인으로 남겼고 공개된 우려를 지우지 않았다.</li>
-<li><strong>남은 문제:</strong> 예시기업 AQ의 안건 구조·조건 설명과 예시기업 AS 정관 설명 일부를 교정·재확인해야 한다. 이후 새 표본·다른 모델·보수적 성향을 비교한다. 지원 과업 처리 완료는 전체 안건 정확성·조사 완료·운영 배포를 뜻하지 않는다.</li>
+<li><strong>남은 문제:</strong> 고려아연의 안건 구조·조건 설명과 골프존홀딩스 정관 설명 일부를 교정·재확인해야 한다. 이후 새 표본·다른 모델·보수적 성향을 비교한다. 지원 과업 처리 완료는 전체 안건 정확성·조사 완료·운영 배포를 뜻하지 않는다.</li>
 </ul>
 <p><strong>현재 단계는 04다.</strong> 다른 모델 계열·새 표본 비교, 운영 준비와 배포는 남아 있다. 모든 정성 평가는 <strong>LLM 평가 · 사람 미검토</strong>다.</p>
 </blockquote>
 <p>아래는 <strong>현재 사외·독립이사 후보 자문 범위를 운영 MCP에 배포하는 순서</strong>다. 단계는 일정이나 완성도 퍼센트가 아니라 확인한 도달점을 나타낸다.</p>
-<ol aria-label="설계부터 운영 배포까지 6단계" class="roadmap-chart"><li class="phase-done"><a href="#phase-01"><span class="phase-number">01</span><span class="phase-status">완료</span><strong>설계·정책 계약</strong></a></li><li class="phase-done"><a href="#phase-02"><span class="phase-number">02</span><span class="phase-status">완료</span><strong>실제 MCP 연결</strong></a></li><li class="phase-done"><a href="#phase-03"><span class="phase-number">03</span><span class="phase-status">완료</span><strong>유연한 LLM 흐름</strong></a></li><li class="phase-current"><a aria-current="step" href="#phase-04"><span class="phase-number">04</span><span class="phase-status">현재 도달</span><strong>판정 교정·품질 검증</strong></a></li><li class="phase-next"><a href="#phase-05"><span class="phase-number">05</span><span class="phase-status">다음 착수</span><strong>출시 운영 준비</strong></a></li><li class="phase-pending"><a href="#phase-06"><span class="phase-number">06</span><span class="phase-status">남음</span><strong>범위 한정 배포</strong></a></li></ol><p class="chart-caption">각 단계를 누르면 완료 내용과 남은 일을 볼 수 있습니다. <a href="roadmap.svg">로드맵 그림 열기</a></p><section aria-label="바로 다음 작업" class="next-action"><h3 id="section-2">바로 다음 작업</h3><p><strong>다음은 실제 실행에서 드러난 안건 구조·설명 오류를 먼저 좁혀 고치는 일이다.</strong> 예시기업 AQ의 후보 수·좌석 수·선행 조건과 예시기업 AS 정관 변경의 설명을 원문에 대조한다. 후보 평가가 수용됐다는 사실로 기존 엔진의 보호 사유까지 맞았다고 보지 않는다. 해당 경로를 교정·재확인한 뒤 새 표본·다른 모델·보수적 성향을 한 번에 하나씩 바꿔 조사 충분성·사실 귀속·스킵·권고 차이를 대조한다. 이후 05의 정책 활성화·복구·수동 인계를 검증한다. 같은 회사의 정기·임시도 별도 마감과 자료 묶음으로 유지한다.</p></section><div class="roadmap-panels"><section class="roadmap-panel completed"><h3 id="section-3">완료·현재 구현</h3><ol><li id="phase-01"><h4 id="detail-81d2397d622f"><span>01</span> 설계·정책 계약</h4><p>Astra·Fable 관점 통합, 정책 JSON, 평가 입력 계약, 명세와 실행 도식 작성</p><p class="phase-limit">범위: 이 단계의 최소 계약 완료. 범용 고객 정책은 확장 트랙에서 다룬다.</p></li><li id="phase-02"><h4 id="detail-9a40c2e678ca"><span>02</span> 실제 MCP 연결</h4><p>공개 원문 → 호출 LLM 평가 → 인용·과업 검사 → 실제 후보 권고 연결. 0.3·0.5에서 실제 MCP 동작 확인</p><p class="phase-limit">범위: 연결 완료. 새 계약의 실측은 03에서 별도 확인했다.</p></li><li id="phase-03"><h4 id="detail-4dbba678725a"><span>03</span> 유연한 LLM 흐름</h4><p>0.6 실제 MCP에서 원문 직접 판독, 누락 기준 제외, 설정별 자동·수동 분기, 오류 후보 격리 확인. 0.7은 후보 이름 없는 회사 공시와 문맥 이어 읽기를 추가</p><p class="phase-limit">범위: 이 단계의 실행 계약 확보. 보수적 성향의 일관성과 범용 후보 생성은 추가 검증·확장 대상이다.</p></li><li id="phase-04"><h4 id="detail-73d7bdd281c6"><span>04</span> 판정 교정·품질 검증</h4><p>최신 0.7.2 동결 엔진으로 10개사·11회차·39과업 전부 실행, 최종 미평가 0. 원문 추가·자료 교체 후 변경 후보 재평가와 최종 JSON·Markdown 확인</p><p class="phase-limit">남은 확인: 발견한 안건 구조·설명 오류 교정·재확인. 다른 실제 모델 계열·보수적 성향·새 표본에서 조사 충분성과 사실 귀속 검증</p></li></ol></section><section class="roadmap-panel remaining"><h3 id="section-4">배포까지 남음</h3><ol><li id="phase-05"><h4 id="detail-aeb1a28c5f9a"><span>05</span> 출시 운영 준비</h4><p>출시 범위·기본 모드·품질 통과 기준을 명시하고 정책 버전 활성화·복구, 수동 처리 인계와 오류 대응을 검증한다.</p><details><summary>이미 확보한 기반</summary><p>요청별 정책·설정과 과업을 묶는 계약, 사람 미검토 표시, 수동 지정 분기, 호출자가 보존하는 공시 checkpoint 구현</p></details></li><li id="phase-06"><h4 id="detail-ee4bf5a3c4e5"><span>06</span> 범위 한정 배포</h4><p>변경을 커밋·푸시하고 main CI로 배포한 뒤 live MCP에서 과업 수신·평가 제출·최종 권고·설정별 분기를 확인한다.</p><details><summary>이미 확보한 기반</summary><p>로컬 파일럿까지만 확인했다. v2를 운영에 배포하지 않았다.</p></details></li></ol></section></div>
+<ol aria-label="설계부터 운영 배포까지 6단계" class="roadmap-chart"><li class="phase-done"><a href="#phase-01"><span class="phase-number">01</span><span class="phase-status">완료</span><strong>설계·정책 계약</strong></a></li><li class="phase-done"><a href="#phase-02"><span class="phase-number">02</span><span class="phase-status">완료</span><strong>실제 MCP 연결</strong></a></li><li class="phase-done"><a href="#phase-03"><span class="phase-number">03</span><span class="phase-status">완료</span><strong>유연한 LLM 흐름</strong></a></li><li class="phase-current"><a aria-current="step" href="#phase-04"><span class="phase-number">04</span><span class="phase-status">현재 도달</span><strong>판정 교정·품질 검증</strong></a></li><li class="phase-next"><a href="#phase-05"><span class="phase-number">05</span><span class="phase-status">다음 착수</span><strong>출시 운영 준비</strong></a></li><li class="phase-pending"><a href="#phase-06"><span class="phase-number">06</span><span class="phase-status">남음</span><strong>범위 한정 배포</strong></a></li></ol><p class="chart-caption">각 단계를 누르면 완료 내용과 남은 일을 볼 수 있습니다. <a href="roadmap.svg">로드맵 그림 열기</a></p><section aria-label="바로 다음 작업" class="next-action"><h3 id="section-2">바로 다음 작업</h3><p><strong>다음은 실제 실행에서 드러난 안건 구조·설명 오류를 먼저 좁혀 고치는 일이다.</strong> 고려아연의 후보 수·좌석 수·선행 조건과 골프존홀딩스 정관 변경의 설명을 원문에 대조한다. 후보 평가가 수용됐다는 사실로 기존 엔진의 보호 사유까지 맞았다고 보지 않는다. 해당 경로를 교정·재확인한 뒤 새 표본·다른 모델·보수적 성향을 한 번에 하나씩 바꿔 조사 충분성·사실 귀속·스킵·권고 차이를 대조한다. 이후 05의 정책 활성화·복구·수동 인계를 검증한다. 같은 회사의 정기·임시도 별도 마감과 자료 묶음으로 유지한다.</p></section><div class="roadmap-panels"><section class="roadmap-panel completed"><h3 id="section-3">완료·현재 구현</h3><ol><li id="phase-01"><h4 id="detail-81d2397d622f"><span>01</span> 설계·정책 계약</h4><p>Astra·Fable 관점 통합, 정책 JSON, 평가 입력 계약, 명세와 실행 도식 작성</p><p class="phase-limit">범위: 이 단계의 최소 계약 완료. 범용 고객 정책은 확장 트랙에서 다룬다.</p></li><li id="phase-02"><h4 id="detail-9a40c2e678ca"><span>02</span> 실제 MCP 연결</h4><p>공개 원문 → 호출 LLM 평가 → 인용·과업 검사 → 실제 후보 권고 연결. 0.3·0.5에서 실제 MCP 동작 확인</p><p class="phase-limit">범위: 연결 완료. 새 계약의 실측은 03에서 별도 확인했다.</p></li><li id="phase-03"><h4 id="detail-4dbba678725a"><span>03</span> 유연한 LLM 흐름</h4><p>0.6 실제 MCP에서 원문 직접 판독, 누락 기준 제외, 설정별 자동·수동 분기, 오류 후보 격리 확인. 0.7은 후보 이름 없는 회사 공시와 문맥 이어 읽기를 추가</p><p class="phase-limit">범위: 이 단계의 실행 계약 확보. 보수적 성향의 일관성과 범용 후보 생성은 추가 검증·확장 대상이다.</p></li><li id="phase-04"><h4 id="detail-73d7bdd281c6"><span>04</span> 판정 교정·품질 검증</h4><p>최신 0.7.2 동결 엔진으로 10개사·11회차·39과업 전부 실행, 최종 미평가 0. 원문 추가·자료 교체 후 변경 후보 재평가와 최종 JSON·Markdown 확인</p><p class="phase-limit">남은 확인: 발견한 안건 구조·설명 오류 교정·재확인. 다른 실제 모델 계열·보수적 성향·새 표본에서 조사 충분성과 사실 귀속 검증</p></li></ol></section><section class="roadmap-panel remaining"><h3 id="section-4">배포까지 남음</h3><ol><li id="phase-05"><h4 id="detail-aeb1a28c5f9a"><span>05</span> 출시 운영 준비</h4><p>출시 범위·기본 모드·품질 통과 기준을 명시하고 정책 버전 활성화·복구, 수동 처리 인계와 오류 대응을 검증한다.</p><details><summary>이미 확보한 기반</summary><p>요청별 정책·설정과 과업을 묶는 계약, 사람 미검토 표시, 수동 지정 분기, 호출자가 보존하는 공시 checkpoint 구현</p></details></li><li id="phase-06"><h4 id="detail-ee4bf5a3c4e5"><span>06</span> 범위 한정 배포</h4><p>변경을 커밋·푸시하고 main CI로 배포한 뒤 live MCP에서 과업 수신·평가 제출·최종 권고·설정별 분기를 확인한다.</p><details><summary>이미 확보한 기반</summary><p>로컬 파일럿까지만 확인했다. v2를 운영에 배포하지 않았다.</p></details></li></ol></section></div>
 
 
 <p class="release-status"><strong>동기화 기준 (2026-09-10):</strong> 현재 진행 브랜치는 <code>combined_guideline_v1</code>이다. 아래 운영 동기화는 통합 전 <code>claude-fable-5.1-opm-guideline-v2</code>에서 수행했다. v2 구현 기준 <code>4bd3674e</code>에 운영·원격 main 기준 <code>d1f83d10beb36c8760473588df9284db7f3f1502</code>의 변경 16개를 통합했다. 이 SHA는 GitHub production 성공 배포 기록과 일치하며 운영 <code>/health</code>도 정상 응답했다. v2가 운영에 배포됐다는 뜻은 아니다. 10개사 회차별 검증의 실행 결과는 아래에 반영했다. 실제 다른 모델 계열 비교는 남아 있다.</p>
@@ -74,9 +71,9 @@ LLM 지침이며 모든 누락을 반대 또는 수동 검토로 바꾸는 설�
 어떤 안건부터 자동 처리 준비 또는 수동 검토로 보낼지 정한다. 현재 MCP는 실제 투표를 전송하지 않는다.</p>
 <p>이전 단계의 실제 MCP 조회로 확인한 추출 보조 개선은 다음과 같다. 추출 결과는 LLM 판단의 정답이 아니다.</p>
 <ul>
-<li>예시기업 FW 2025년 사업보고서 <code>20260318001422</code>: 기존에 놓친 <code>성명(100%)</code> 형식을 읽어
+<li>KT&amp;G 2025년 사업보고서 <code>20260318001422</code>: 기존에 놓친 <code>성명(100%)</code> 형식을 읽어
 8명·2개 기간의 15개 관측값을 반환한다. 이번 주총 신임 후보의 과거 임기 출석률로 전용하지 않는다.</li>
-<li>예시기업 AQ 2025년 정정 사업보고서 <code>20260813001726</code>: 기존 출석 요약에 섞인
+<li>고려아연 2025년 정정 사업보고서 <code>20260813001726</code>: 기존 출석 요약에 섞인
 내부거래위원회 수치를 이사회 출석률에서 제외했다. 이사회 표는 회차별 형식이므로
 <code>format_unsupported</code>와 원문·다음 확인 경로를 반환한다. 원문에 자료가 없다는 뜻이 아니다.</li>
 <li><code>proxy_advise_before_meeting</code>의 JSON/Markdown 모두 출석 근거 조회 결과와 후보별 평가 대기를 표시한다.
@@ -329,12 +326,12 @@ API를 제공한다. 비감사용역은 내용·계약일·수행기간·보수�
 </thead>
 <tbody>
 <tr>
-<td><a href="https://kind.krx.co.kr/external/2026/07/21/000927/20260706001079/91471.htm">KIND 예시기업 AQ 소집결의</a></td>
+<td><a href="https://kind.krx.co.kr/external/2026/07/21/000927/20260706001079/91471.htm">KIND 고려아연 소집결의</a></td>
 <td>후보 성명·생년월·신규/재선임·경력</td>
 <td>실제 MCP 원문 패킷에 연결. KIND 식별자를 DART 접수번호로 변환하지 않음</td>
 </tr>
 <tr>
-<td><a href="https://kind.krx.co.kr/external/2025/05/15/002168/20250515005076/11013.htm">KIND 예시기업 BA 임원현황</a></td>
+<td><a href="https://kind.krx.co.kr/external/2025/05/15/002168/20250515005076/11013.htm">KIND 남양유업 임원현황</a></td>
 <td>심혜섭의 상근감사 역할과 당시 재직 시작일</td>
 <td>실제 MCP에 연결. 과거 회사 역할을 제안주주 고용 관계로 추정하지 않음</td>
 </tr>
@@ -390,12 +387,12 @@ OPM의 사실이나 정답으로 복사하지 않는다. 관련 보고서·계�
 </thead>
 <tbody>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260908000407">예시기업 HH 독립이사 선임·해임·중도퇴임 신고</a></td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260908000407">한화투자증권 독립이사 선임·해임·중도퇴임 신고</a></td>
 <td>강성윤(1959.06)이 2026-09-08 자진사임 및 재선임 양쪽 표에 등장. 회사는 감사위원 분리선출을 위한 절차라고 설명. 변경 전후 독립이사 수는 동일</td>
 <td>사임·재선임을 연결하되 원문 사건을 보존. 선임 인원과 퇴임 인원만으로 다른 두 사람의 교체라고 추정하지 않음. 공시 사유는 회사 설명이며 법령 적용의 독립 검증과 구분</td>
 </tr>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260908900560">예시기업 CN 대표이사 변경</a></td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260908900560">사토시홀딩스 대표이사 변경</a></td>
 <td>2026-09-08 임시주총의 사내이사 선임과 이사회의 대표이사 선임을 설명하고 관련 공시를 연결. 해당 결의의 사외이사 참석 1명·불참 0명 기재</td>
 <td>이사 자격과 대표권 사건을 분리. 출석은 회의 집계로 유지. 변경 전 대표이사의 이사직 종료는 별도 확인</td>
 </tr>
@@ -695,7 +692,7 @@ governance_screen(companies=["대상 회사"], as_of="다음_기준일",
 <p>전체 도구 인자의 정본은 <a href="../../wiki/tools/proxy_advise_before_meeting.md">proxy_advise_before_meeting</a>이다. 인증정보는 호출 환경에서 처리하며
 문서·평가 JSON·출처 URL·오류 메시지에 넣지 않는다.</p>
 <pre><code class="language-json">{
-  "company": "예시기업 FW",
+  "company": "KT&amp;G",
   "year": 2026,
   "meeting_type": "annual",
   "as_of": "20260325",
@@ -1119,10 +1116,10 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </div></details><h2 id="validation">검증 계획·결과</h2>
 <p><strong>최신 결론: 0.7.2 동결 엔진에서 10개사·11회차·39과업을 전부 처리했다.</strong> 최종 수용 39·미평가 0이며 조건부 중복을 포함한 42개 적용행의 권고는 찬성 21·반대 1·검토 20이다. 자동 준비 18·수동 24로, 찬성과 자동 처리는 같지 않다. 새 공시 탐색·출석 검산·공개 관계 및 충돌 판단을 실제 MCP에 제출하고 11회차 모두 최종 JSON·Markdown을 확인했다. 남은 안건 구조·설명 오류도 아래에 공개한다. 과거 0.7.0 첫 대조와 0.7.1의 3회차·15과업 검증은 뒤에서 별도로 구분한다. 평가 수용률은 정확도 점수가 아니다.</p>
 <h3 id="detail-44ce7197a8b1">10개사 회차별 품질 검증</h3>
-<p><strong>범위는 2026-01-01~2026-09-09에 개최된 것으로 공고에서 확인한 회차다.</strong> 연초 회차를 놓치지 않도록 공식 E006 목록은 2025-12-01부터 검색했다. 소집공고 17건에서 정정본을 같은 회차로 묶어 <strong>정기 10회·예시기업 AQ 임시 1회</strong>를 선정했다. 나머지 9개사는 이 검색 범위에서 임시 공고를 찾지 못했다. 존재하지 않는 회차를 만들어 20회로 맞추거나, 과거 모든 연도에 임시주총이 없었다고 해석하지 않는다. 판단 마감은 각 주총일 00:00 한국시간이며 실제 허용일은 전일이다. 기관별 실제 전자투표 마감시각을 재현한 실험은 아니다.</p>
+<p><strong>범위는 2026-01-01~2026-09-09에 개최된 것으로 공고에서 확인한 회차다.</strong> 연초 회차를 놓치지 않도록 공식 E006 목록은 2025-12-01부터 검색했다. 소집공고 17건에서 정정본을 같은 회차로 묶어 <strong>정기 10회·고려아연 임시 1회</strong>를 선정했다. 나머지 9개사는 이 검색 범위에서 임시 공고를 찾지 못했다. 존재하지 않는 회차를 만들어 20회로 맞추거나, 과거 모든 연도에 임시주총이 없었다고 해석하지 않는다. 판단 마감은 각 주총일 00:00 한국시간이며 실제 허용일은 전일이다. 기관별 실제 전자투표 마감시각을 재현한 실험은 아니다.</p>
 <h4 id="detail-adaa17561fbf">0.7.2 전체 회차 실행</h4>
 <p><strong>동일 정책·엔진을 고정해 기존 10개사 표본을 다시 실행했다.</strong> 정책 <code>0.7.2-pilot</code>, 평가 계약 <code>/6</code>, 하네스 <code>/2</code>, 설정 <code>standard / selective</code>다. 엔진은 <code>ce37b41137a96ddf4fd7df08570f593e361e85139c3fb159353d8e768e1aec85</code>이며 실행 도중 제품 코드·정책·서버를 바꾸지 않았다. Astra가 호출 LLM으로 원문을 읽고 실제 <code>VotingHarness → HTTP MCP → 평가 제출 → 최종 JSON·Markdown</code> 경로를 실행했다. 평가 답을 미리 넣은 스크립트 검사는 아니다.</p>
-<p>여섯 병렬 평가 문맥에는 과거 후보 판정·결과표를 주지 않았고 예시기업 AQ 정기·임시는 별도로 맡겼다. 전체 기록을 아는 주 실행자는 예시기업 Y·예시기업 CW를 담당했다. 따라서 <strong>기존 개발 표본의 회귀 실행이며 전체가 눈가림된 독립 정확도 평가가 아니다.</strong> 아래는 후보 평가의 수용과 실제 권고·처리 경로를 구별한 집계다. 후보 단독 의견이 찬성이어도 선행 조건·경합·기존 검토 사유가 있으면 최종 검토 또는 수동 처리가 남는다.</p>
+<p>여섯 병렬 평가 문맥에는 과거 후보 판정·결과표를 주지 않았고 고려아연 정기·임시는 별도로 맡겼다. 전체 기록을 아는 주 실행자는 LG화학·삼성전자를 담당했다. 따라서 <strong>기존 개발 표본의 회귀 실행이며 전체가 눈가림된 독립 정확도 평가가 아니다.</strong> 아래는 후보 평가의 수용과 실제 권고·처리 경로를 구별한 집계다. 후보 단독 의견이 찬성이어도 선행 조건·경합·기존 검토 사유가 있으면 최종 검토 또는 수동 처리가 남는다.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -1135,77 +1132,77 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </thead>
 <tbody>
 <tr>
-<td>예시기업 AN 정기</td>
+<td>가비아 정기</td>
 <td style="text-align:right">1 / 1</td>
 <td>찬성 1</td>
 <td style="text-align:right">1 / 0</td>
 <td>최세영 신규. 공개매수 실제 결제·주주 간 의결권 약정·검사인 결정과 후보 개인 관계를 구별</td>
 </tr>
 <tr>
-<td>예시기업 AS 정기</td>
+<td>골프존홀딩스 정기</td>
 <td style="text-align:right">1 / 1</td>
 <td>찬성 1</td>
 <td style="text-align:right">1 / 0</td>
 <td>김명진 신규. 현 이촌과 실제 감사인 안진을 구별하고 자회사 항소각하를 후보 개인에게 귀속하지 않음</td>
 </tr>
 <tr>
-<td>예시기업 GE 정기</td>
+<td>태광산업 정기</td>
 <td style="text-align:right">6 / 6</td>
 <td>찬성 2 · 검토 4</td>
 <td style="text-align:right">2 / 4</td>
 <td>김대근 이사·감사 찬성. 윤상녕의 현 제안주주 고용관계는 후보 단독 반대 의견이나 4명 중 2명 선출 조건으로 실제 검토. 안효성 20/20</td>
 </tr>
 <tr>
-<td>예시기업 EL 정기</td>
+<td>영풍 정기</td>
 <td style="text-align:right">7 / 7</td>
 <td>찬성 3 · 반대 1 · 검토 3</td>
 <td style="text-align:right">3 / 4</td>
 <td>박정옥 이사·감사 및 전영준 찬성. 최창원 현 종속회사 감독직 중첩에 반대. 허성관 3개 역할 안건은 조건부 검토. 전영준 5/5·선임 전 10회 제외</td>
 </tr>
 <tr>
-<td>예시기업 AQ 정기</td>
+<td>고려아연 정기</td>
 <td style="text-align:right">5 / 8</td>
 <td>검토 8</td>
 <td style="text-align:right">0 / 8</td>
-<td>황덕남·김보영·이민호 9/9. 이민호 환경부 경력 오귀속 교정. 최병일의 현 자문사·예시기업 EL 수임인 연결 의미 미확정. 조건·좌석 제약 보존</td>
+<td>황덕남·김보영·이민호 9/9. 이민호 환경부 경력 오귀속 교정. 최병일의 현 자문사·영풍 수임인 연결 의미 미확정. 조건·좌석 제약 보존</td>
 </tr>
 <tr>
-<td>예시기업 AQ 임시</td>
+<td>고려아연 임시</td>
 <td style="text-align:right">6 / 6</td>
 <td>찬성 3 · 검토 3</td>
 <td style="text-align:right">0 / 6</td>
 <td>이형규 1/1, 법적 직무정지 8회 제외. 이준봉 현직/전직 표기 충돌. 백인규·박유경은 후보 단독 찬성이나 같은 감사위원 자리의 대안 표결로 검토</td>
 </tr>
 <tr>
-<td>예시기업 EK 정기</td>
+<td>영원무역 정기</td>
 <td style="text-align:right">2 / 2</td>
 <td>찬성 2</td>
 <td style="text-align:right">2 / 0</td>
 <td>이영렬·왕상한 신규, 왕상환→왕상한 정정 확인. 이영렬의 타사 사임예정을 완료로 바꾸지 않음</td>
 </tr>
 <tr>
-<td>예시기업 Y 정기</td>
+<td>LG화학 정기</td>
 <td style="text-align:right">1 / 1</td>
 <td>검토 1</td>
 <td style="text-align:right">0 / 1</td>
 <td>천경훈 재선임·10/10, 후보 단독 찬성. 제2-4호 부결 시 폐기 조건 때문에 최종 검토</td>
 </tr>
 <tr>
-<td>예시기업 CW 정기</td>
+<td>삼성전자 정기</td>
 <td style="text-align:right">1 / 1</td>
 <td>찬성 1</td>
 <td style="text-align:right">1 / 0</td>
 <td>허은녕 이사 재선임·감사위원 신규를 구별, 10/10. 2025년 임기조정 사임·당일 재선임의 연속 재직 확인</td>
 </tr>
 <tr>
-<td>예시기업 FW 정기</td>
+<td>KT&amp;G 정기</td>
 <td style="text-align:right">3 / 3</td>
 <td>찬성 2 · 검토 1</td>
 <td style="text-align:right">2 / 1</td>
 <td>노환용 이사·감사 찬성. 한승수는 후보 단독 찬성이나 제2-5호 조건으로 검토. 예정된 타사 임기만료·사임을 완료로 간주하지 않음</td>
 </tr>
 <tr>
-<td>예시기업 AL 정기</td>
+<td>SK하이닉스 정기</td>
 <td style="text-align:right">6 / 6</td>
 <td>찬성 6</td>
 <td style="text-align:right">6 / 0</td>
@@ -1220,22 +1217,22 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </tr>
 </tbody>
 </table></div>
-<p>고유 과업은 후보·역할·안건별로 센다. 예시기업 AQ 정기의 세 후보가 5인/6인 선출 대안 양쪽에 나타나 5과업이 8행에 적용된다. 이번 범위의 NO_VOTE는 0이며, 같은 응답의 범위 밖 행과 합치지 않았다.</p>
-<p>실제 제출은 <strong>42회</strong>, 최종 유효 수용은 <strong>39과업</strong>이다. 안효성·정덕균의 사업연도 밖 재직구간 입력 반려 2회는 실제 취임 근거를 유지하면서 구간만 수정해 재수용했다. 예시기업 AQ 임시는 이미 수용된 이형규 평가가 반기 원문 추가로 무효화된 뒤 새 과업으로 다시 수용된 1회가 포함된다. 예시기업 Y의 행동 입력 형식 오류 1회도 수정했다. 최초 예시기업 AN 호출의 전송 실패 1회는 평가·제출 없이 끝났으며 재시도 성공과 별도로 센다. 실패를 지워 첫 시도 전부 성공으로 표시하지 않는다.</p>
+<p>고유 과업은 후보·역할·안건별로 센다. 고려아연 정기의 세 후보가 5인/6인 선출 대안 양쪽에 나타나 5과업이 8행에 적용된다. 이번 범위의 NO_VOTE는 0이며, 같은 응답의 범위 밖 행과 합치지 않았다.</p>
+<p>실제 제출은 <strong>42회</strong>, 최종 유효 수용은 <strong>39과업</strong>이다. 안효성·정덕균의 사업연도 밖 재직구간 입력 반려 2회는 실제 취임 근거를 유지하면서 구간만 수정해 재수용했다. 고려아연 임시는 이미 수용된 이형규 평가가 반기 원문 추가로 무효화된 뒤 새 과업으로 다시 수용된 1회가 포함된다. LG화학의 행동 입력 형식 오류 1회도 수정했다. 최초 가비아 호출의 전송 실패 1회는 평가·제출 없이 끝났으며 재시도 성공과 별도로 센다. 실패를 지워 첫 시도 전부 성공으로 표시하지 않는다.</p>
 <p>성공한 11회차의 하네스 호출은 <strong>모델 74회·도구 84회</strong>, 여기에 최종 Markdown 호출 <strong>11회</strong>가 있다. 추가 공시 발견 <strong>15회</strong>, 원문 추가·확장·교체 행동 <strong>16회</strong> 중 교체 <strong>1회</strong>다. 터미널의 원문 창 열람은 검색어 불일치 6회를 제외한 <strong>229회</strong>, 회차 안에서 접수번호를 중복 제거한 공시 수의 합은 <strong>110개</strong>다. 같은 공시를 서로 다른 회차에서 읽으면 다시 세며, 재독·부분 발췌도 포함하므로 110개 문서 전수 독해나 충분한 조사량의 증명은 아니다. 자동 수집 자료 수와 실제 열람 수 역시 다르다.</p>
 <p>기본 예산의 품질을 측정한 실행은 아니다. 이번 호출자는 읽기 시간을 확보하려고 모델·도구 각각 120회, 연구 행동 80회, 모델 제한시간 600초, 과업 평가 시도 3회로 설정했다. 11회차의 최종 응답은 모두 사람 미검토·마감 표시를 유지했다. 전부 참석한 재선임 사례는 불참 예외 비적용을, 확인된 신규 사례는 출석 자체의 비적용을 표시했으며 이를 정보 부족이나 예외 승인으로 바꾸지 않았다.</p>
-<p><strong>새로 드러난 판단과 남은 문제를 함께 기록한다.</strong> 예시기업 GE 윤상녕의 제안주주 현직과 예시기업 AQ 최병일의 공개 관계는 단순 추천 사실과 구별했다. 예시기업 AQ 임시 이준봉의 현직/전직 충돌은 독립성 훼손 확정이 아니라 공개 정보의 충돌이다. 미공개 고용·자문·보수 세부는 <code>information_gaps / follow_up_only</code>로 알리며, 알려진 관계나 충돌을 이 항목으로 지우지 않는다.</p>
+<p><strong>새로 드러난 판단과 남은 문제를 함께 기록한다.</strong> 태광산업 윤상녕의 제안주주 현직과 고려아연 최병일의 공개 관계는 단순 추천 사실과 구별했다. 고려아연 임시 이준봉의 현직/전직 충돌은 독립성 훼손 확정이 아니라 공개 정보의 충돌이다. 미공개 고용·자문·보수 세부는 <code>information_gaps / follow_up_only</code>로 알리며, 알려진 관계나 충돌을 이 항목으로 지우지 않는다.</p>
 <ul>
-<li><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001295">예시기업 GE 권유서류</a>는 윤상녕의 예시기업 GF 현직을 명시한다. 전체 주주를 대변하겠다는 후보 진술도 반증으로 읽었다.</li>
-<li>예시기업 EL 최창원의 현 예시기업 FY 사외이사직과 종속회사 감독 구조는 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310003081">소집공고</a>·<a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260317000753">사업보고서</a>·<a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251208800614">종속회사 합병결정</a>을 연결해 평가했다. 비상근 감독직·직접거래 없음이라는 반증도 보존했다. 반대는 현재 정책에 따른 LLM 판단이며 불법 겸직·개인 유죄·보수 의존의 확정 사실이 아니다.</li>
-<li>예시기업 AQ 정기의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260309001811">예시기업 EL 권유서류</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305001616">소집공고</a>는 현 태평양 관계를 연결할 근거지만, 그 경제적·직무상 중요성을 해소한 것은 아니다.</li>
-<li>예시기업 AQ 임시의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260721800927">7/21 결의</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705">8/11 공고</a>는 이준봉의 조세심판원 비상임심판관 경력을 각각 전직·현직으로 표시한다. 사임·재위촉·정정 범위 추가 확인이 남는다.</li>
-<li><strong>기존 엔진의 설명 오류가 남아 있다.</strong> 예시기업 AQ 정기는 철회 후보를 포함한 후보 수, 5석/6석 설명, 이선숙 조건 인용이 일부 맞지 않고 임시는 제2·제3호 묶음 설명이 별도 안건 구조와 어긋난다. 예시기업 AS는 집중투표 배제 규정의 삭제와 보수 분리·공개 조문을 잘못 설명하는 행이 있다. 이 행들을 최신 LLM 판단 검증 완료로 표시하지 않는다.</li>
+<li><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001295">태광산업 권유서류</a>는 윤상녕의 트러스톤 현직을 명시한다. 전체 주주를 대변하겠다는 후보 진술도 반증으로 읽었다.</li>
+<li>영풍 최창원의 현 코리아써키트 사외이사직과 종속회사 감독 구조는 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310003081">소집공고</a>·<a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260317000753">사업보고서</a>·<a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251208800614">종속회사 합병결정</a>을 연결해 평가했다. 비상근 감독직·직접거래 없음이라는 반증도 보존했다. 반대는 현재 정책에 따른 LLM 판단이며 불법 겸직·개인 유죄·보수 의존의 확정 사실이 아니다.</li>
+<li>고려아연 정기의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260309001811">영풍 권유서류</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305001616">소집공고</a>는 현 태평양 관계를 연결할 근거지만, 그 경제적·직무상 중요성을 해소한 것은 아니다.</li>
+<li>고려아연 임시의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260721800927">7/21 결의</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705">8/11 공고</a>는 이준봉의 조세심판원 비상임심판관 경력을 각각 전직·현직으로 표시한다. 사임·재위촉·정정 범위 추가 확인이 남는다.</li>
+<li><strong>기존 엔진의 설명 오류가 남아 있다.</strong> 고려아연 정기는 철회 후보를 포함한 후보 수, 5석/6석 설명, 이선숙 조건 인용이 일부 맞지 않고 임시는 제2·제3호 묶음 설명이 별도 안건 구조와 어긋난다. 골프존홀딩스는 집중투표 배제 규정의 삭제와 보수 분리·공개 조문을 잘못 설명하는 행이 있다. 이 행들을 최신 LLM 판단 검증 완료로 표시하지 않는다.</li>
 </ul>
 <p>후보 출석·독립성 외 정관·보수·자사주·사내이사 등의 기존 엔진 출력은 별도다. 같은 응답에 함께 반환됐다는 사실로 새 LLM이 모든 안건을 평가했다고 보지 않는다. 이 실행은 실제 투표를 보내지 않았으며, 정성 평가는 모두 <strong>LLM 평가 · 사람 미검토</strong>다.</p>
 <h4 id="detail-a78e2f1de5c7">이전 첫 대조와 교정의 기준</h4>
 <p><strong>이전 첫 대조에서는 실행과 원문 판독을 분리했다. 실행 담당은 Astra다.</strong> 제품 평가자는 실제 <code>VotingHarness</code>와 인증된 HTTP MCP로 읽기·평가 제출·최종 권고를 실행했다. 별도 판독자는 기존 권고·관측 경보·제품 평가를 보지 않고 당시 소집공고·사업보고서·소집결의·변동 공시를 읽었다. 정기와 임시도 별도 평가 문맥에서 실행해 임시의 후속 사건이 정기 평가에 들어가지 않게 했다. 원문에 명시된 신원·직위·기간·행과 열·조건을 대조 기준으로 삼았고, 두 LLM의 동의나 주총 가부결은 정답으로 사용하지 않았다. 같은 모델 계열의 판독이며 인간 전문가 검증은 아니다.</p>
-<p>아래는 <strong>교정 전 첫 완료 실행</strong>의 범위다. 기준 설정은 <code>standard / selective</code>, 정책 <code>0.7.0-pilot</code>이다. 과업 39건이 수용됐지만 후보 귀속 충돌이나 판단 미확정도 포함한다. 같은 후보의 이사·감사 선임은 별도 과업이며, 예시기업 AQ 정기의 조건부 두 경로는 5과업이 8개 안건 행에 적용된다. 전체 <strong>후보 32명·39과업·42개 적용 안건 행</strong>, 미평가 과업 0건이다. 후보 외 안건은 이번 판단 품질의 검증 범위 밖이다.</p>
+<p>아래는 <strong>교정 전 첫 완료 실행</strong>의 범위다. 기준 설정은 <code>standard / selective</code>, 정책 <code>0.7.0-pilot</code>이다. 과업 39건이 수용됐지만 후보 귀속 충돌이나 판단 미확정도 포함한다. 같은 후보의 이사·감사 선임은 별도 과업이며, 고려아연 정기의 조건부 두 경로는 5과업이 8개 안건 행에 적용된다. 전체 <strong>후보 32명·39과업·42개 적용 안건 행</strong>, 미평가 과업 0건이다. 후보 외 안건은 이번 판단 품질의 검증 범위 밖이다.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -1249,7 +1246,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </thead>
 <tbody>
 <tr>
-<td>예시기업 AN 정기</td>
+<td>가비아 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004404">3/11 정정</a></td>
 <td>03-26</td>
 <td style="text-align:right">1 / 1</td>
@@ -1257,7 +1254,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>최세영 신임, 기존 이사의 FY2025 출석 전용 없음. 후보 평가 후 자동 준비</td>
 </tr>
 <tr>
-<td>예시기업 AS 정기</td>
+<td>골프존홀딩스 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001403">3/12 공고</a></td>
 <td>03-27</td>
 <td style="text-align:right">1 / 1</td>
@@ -1265,7 +1262,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>김명진과 옆 후보의 경력 구별. 이촌 경력과 실제 감사인 안진 구별</td>
 </tr>
 <tr>
-<td>예시기업 GE 정기</td>
+<td>태광산업 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001279">3/13 정정</a></td>
 <td>03-31</td>
 <td style="text-align:right">5 / 6</td>
@@ -1273,7 +1270,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>안효성 20/20. 4후보·2자리 제약 보존. 김대근 과거 복귀를 renewed로 처리한 구분 문제</td>
 </tr>
 <tr>
-<td>예시기업 EL 정기</td>
+<td>영풍 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310003081">3/10 공고</a></td>
 <td>03-25</td>
 <td style="text-align:right">4 / 7</td>
@@ -1281,7 +1278,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>박정옥·최창원 15/15. 전영준의 같은 날 선임 전 회의가 분모에 포함. 공개 관계의 중요성 미확정을 누락으로 스킵한 사례</td>
 </tr>
 <tr>
-<td>예시기업 AQ 정기</td>
+<td>고려아연 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305001616">3/5 정정</a></td>
 <td>03-24</td>
 <td style="text-align:right">5 / 5</td>
@@ -1289,7 +1286,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>기존 후보 3명 9/9, 오영 철회, 조건부·집중투표 수동 처리. 이민호의 환경부 경력을 회사 10년 재직으로 추출한 경보 교정</td>
 </tr>
 <tr>
-<td>예시기업 AQ 임시</td>
+<td>고려아연 임시</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705">8/11 공고</a></td>
 <td>09-09</td>
 <td style="text-align:right">6 / 6</td>
@@ -1297,7 +1294,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>이형규 9회 중 직무정지 8회 제외, 1/1. 신규 5명 FY2025 출석 비대상. 집중투표·경합 수동 처리</td>
 </tr>
 <tr>
-<td>예시기업 EK 정기</td>
+<td>영원무역 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001098">3/12 공고</a></td>
 <td>03-27</td>
 <td style="text-align:right">2 / 2</td>
@@ -1305,7 +1302,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>왕상한 안건에 이영렬 신원이 붙어 해당 평가를 신원충돌로 유지</td>
 </tr>
 <tr>
-<td>예시기업 Y 정기</td>
+<td>LG화학 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260224004273">2/24 공고</a></td>
 <td>03-31</td>
 <td style="text-align:right">1 / 1</td>
@@ -1313,7 +1310,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>천경훈 10/10. 선행 정관안 부결 시 폐기 조건 때문에 수동 유지</td>
 </tr>
 <tr>
-<td>예시기업 CW 정기</td>
+<td>삼성전자 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312000987">3/12 정정</a></td>
 <td>03-18</td>
 <td style="text-align:right">1 / 1</td>
@@ -1321,7 +1318,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>허은녕 이사 재선임·감사위원 신규 구별, 10/10</td>
 </tr>
 <tr>
-<td>예시기업 FW 정기</td>
+<td>KT&amp;G 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260225005779">2/25 공고</a></td>
 <td>03-26</td>
 <td style="text-align:right">2 / 3</td>
@@ -1329,7 +1326,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>신임 2명, 노환용 이사·감사 별도 처리. 한승수 선행 정관안 조건 보존</td>
 </tr>
 <tr>
-<td>예시기업 AL 정기</td>
+<td>SK하이닉스 정기</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305001231">3/5 정정</a></td>
 <td>03-25</td>
 <td style="text-align:right">4 / 6</td>
@@ -1338,14 +1335,14 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </tr>
 </tbody>
 </table></div>
-<p>공시 수는 <strong>해당 회차 안에서 접수번호 중복을 제거</strong>한 독해 범위다. 문서 전부를 읽었다는 뜻이 아니며 회사·회차 사이의 같은 공시는 다시 셀 수 있다. 창은 하네스에서 실제 읽은 발췌 횟수다. 별도 원문 대조자의 독해와 과업 밖 원문 재확인 창은 이 수치에 더하지 않았다. 첫 완료 실행은 제출 52건·수용 39건·반려 13건이며 반려 후 현재 과업의 인용·출석예외 설명을 보완했다. 예시기업 AQ 임시의 앞선 자료 재구성 시도는 제출 0·미평가 6으로 종료했으므로 이 완료 집계와 구분한다.</p>
+<p>공시 수는 <strong>해당 회차 안에서 접수번호 중복을 제거</strong>한 독해 범위다. 문서 전부를 읽었다는 뜻이 아니며 회사·회차 사이의 같은 공시는 다시 셀 수 있다. 창은 하네스에서 실제 읽은 발췌 횟수다. 별도 원문 대조자의 독해와 과업 밖 원문 재확인 창은 이 수치에 더하지 않았다. 첫 완료 실행은 제출 52건·수용 39건·반려 13건이며 반려 후 현재 과업의 인용·출석예외 설명을 보완했다. 고려아연 임시의 앞선 자료 재구성 시도는 제출 0·미평가 6으로 종료했으므로 이 완료 집계와 구분한다.</p>
 <h4 id="detail-0c5afc6c514d">같은 회사라도 정기와 임시의 근거는 다르다</h4>
 <div class="table-scroll"><table>
 <thead>
 <tr>
 <th>구분</th>
-<th>예시기업 AQ 3월 정기</th>
-<th>예시기업 AQ 9월 임시</th>
+<th>고려아연 3월 정기</th>
+<th>고려아연 9월 임시</th>
 </tr>
 </thead>
 <tbody>
@@ -1391,36 +1388,36 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </thead>
 <tbody>
 <tr>
-<td>예시기업 EK 정기</td>
+<td>영원무역 정기</td>
 <td style="text-align:right">2 / 2 / 0 / 0</td>
 <td>이영렬·왕상한 이름과 생년월일이 각자의 안건에 연결됨. 왕상한의 신원충돌 REVIEW를 해소하고 두 후보 신규 출석을 비적용으로 표시</td>
 <td>2과업 FOR·자동 준비</td>
 </tr>
 <tr>
-<td>예시기업 GE 정기</td>
+<td>태광산업 정기</td>
 <td style="text-align:right">8 / 6 / 0 / 0</td>
 <td>김대근의 이번 신규선임과 FY2025 비재직, 과거 계열사 역할의 2019년 종료를 원문으로 확인. 해당 2과업 REVIEW→FOR. 안효성 20/20과 나머지 후보의 표결 제약 보존</td>
 <td>자동 준비 2·수동 4</td>
 </tr>
 <tr>
-<td>예시기업 EL 정기</td>
+<td>영풍 정기</td>
 <td style="text-align:right">7 / 7 / 0 / 0</td>
 <td>전영준의 전체 15회·선임일을 보존하고 선임 전 같은 날 회의 1회를 근거로 제외해 5/5, REVIEW→FOR. 최창원은 공개 관계의 의미 미확정을 누락 스킵하지 않아 FOR→REVIEW</td>
 <td>자동 준비 3·수동 4</td>
 </tr>
 </tbody>
 </table></div>
-<p>태광 제출 8건 중 2건은 추가 원문으로 과업이 갱신되어 다시 제출했다. 김대근은 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313802000">정정 소집결의</a>의 이번 신규선임과 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20230323001281">과거 사업보고서</a>의 예가람저축은행 직위 종료를 함께 읽었다. 미공개 정보를 스킵해 찬성으로 바꾼 것이 아니다. 예시기업 EL은 <strong>자동·수동 총수는 같지만 자동 대상이 최창원에서 전영준으로 바뀌었다.</strong> 권고 총수의 diff가 0이어도 누구의 어떤 사실과 처리 경로가 달라졌는지를 봐야 한다. 세 회차 모두 실제 Markdown 응답의 마감시각·사람 미검토 표시를 확인했다.</p>
-<p><strong>거절 피드백의 실제 오류 주입 검사:</strong> 새 엔진의 예시기업 CW 동일 회차에 원문에 없는 인용을 의도적으로 제출했다. 실제 HTTP MCP가 반려하고 현재 과업의 정확한 인용 검증 사유를 모델에 돌려줬다. 이미 읽은 원문의 유효한 인용으로 고쳐 제출 2·반려 1·수용 1·미평가 0으로 완료했고 FOR·10/10은 유지됐다. 이는 오류 회복 경로 확인이며 39과업의 첫 실행 집계나 새 판단 정확도 표본에 더하지 않는다.</p>
+<p>태광 제출 8건 중 2건은 추가 원문으로 과업이 갱신되어 다시 제출했다. 김대근은 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313802000">정정 소집결의</a>의 이번 신규선임과 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20230323001281">과거 사업보고서</a>의 예가람저축은행 직위 종료를 함께 읽었다. 미공개 정보를 스킵해 찬성으로 바꾼 것이 아니다. 영풍은 <strong>자동·수동 총수는 같지만 자동 대상이 최창원에서 전영준으로 바뀌었다.</strong> 권고 총수의 diff가 0이어도 누구의 어떤 사실과 처리 경로가 달라졌는지를 봐야 한다. 세 회차 모두 실제 Markdown 응답의 마감시각·사람 미검토 표시를 확인했다.</p>
+<p><strong>거절 피드백의 실제 오류 주입 검사:</strong> 새 엔진의 삼성전자 동일 회차에 원문에 없는 인용을 의도적으로 제출했다. 실제 HTTP MCP가 반려하고 현재 과업의 정확한 인용 검증 사유를 모델에 돌려줬다. 이미 읽은 원문의 유효한 인용으로 고쳐 제출 2·반려 1·수용 1·미평가 0으로 완료했고 FOR·10/10은 유지됐다. 이는 오류 회복 경로 확인이며 39과업의 첫 실행 집계나 새 판단 정확도 표본에 더하지 않는다.</p>
 <p>첫 실행에서 드러난 추가 공백과 현재 대응은 다음과 같다.</p>
 <ul>
-<li><strong>소집결의 탐색:</strong> <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313802000">태광 정정 소집결의</a>는 김대근 신규선임과 정인철·안효성 구분 정정을 담고 있다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260226800114">예시기업 FW 정정</a>의 노환용 예시기업 C·한승수 넵튠 겸직 및 종료 예정, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305801429">예시기업 AL 정정</a>의 김정원 루닛·고승범 에쓰오일 겸직은 초기 패킷에 없어서 첫 평가 사유에 포함하지 못했다. 이는 미공개 계약 세부와 별개의 <strong>공개 원천 탐색 공백</strong>이다. 예정 사임은 완료로 바꾸지 않는다.</li>
-<li><strong>발췌와 자료 교체:</strong> 태광 사업보고서는 목차 근처만 자동 발췌돼 실제 이사회 구간을 다시 읽었다. 예시기업 AQ 임시의 첫 시도는 추가 공시 5개를 먼저 소진해 반기를 포함한 새 구성으로 재시작했다. 현재는 일반 실행 경로에 추가 공시 탐색·자료 교체·같은 문서의 후보별 복수 발췌를 구현했다. 새 경로의 실측은 아래에 구분한다.</li>
+<li><strong>소집결의 탐색:</strong> <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313802000">태광 정정 소집결의</a>는 김대근 신규선임과 정인철·안효성 구분 정정을 담고 있다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260226800114">KT&amp;G 정정</a>의 노환용 DL이앤씨·한승수 넵튠 겸직 및 종료 예정, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305801429">SK하이닉스 정정</a>의 김정원 루닛·고승범 에쓰오일 겸직은 초기 패킷에 없어서 첫 평가 사유에 포함하지 못했다. 이는 미공개 계약 세부와 별개의 <strong>공개 원천 탐색 공백</strong>이다. 예정 사임은 완료로 바꾸지 않는다.</li>
+<li><strong>발췌와 자료 교체:</strong> 태광 사업보고서는 목차 근처만 자동 발췌돼 실제 이사회 구간을 다시 읽었다. 고려아연 임시의 첫 시도는 추가 공시 5개를 먼저 소진해 반기를 포함한 새 구성으로 재시작했다. 현재는 일반 실행 경로에 추가 공시 탐색·자료 교체·같은 문서의 후보별 복수 발췌를 구현했다. 새 경로의 실측은 아래에 구분한다.</li>
 <li><strong>계약 피드백:</strong> 같은 공시·같은 해시여도 현재 후보의 발췌에 없는 인용은 거절된다. 출석기간의 직접 판독은 <code>annual:</code> 원문 인용을 요구한다. 첫 패스의 불투명한 거절 코드에 대응해, 현재 하네스는 같은 과업의 정해진 검증 사유만 모델에 전달한다. 이 개선은 반려를 스스로 교정하기 쉽게 하며 인용의 의미 정확성을 인증하지 않는다.</li>
 <li><strong>판단 미확정과 누락:</strong> 공개된 관계를 읽었지만 감독상 영향을 판단하지 못했다면 해당 의미 판단이 남은 것이다. 관계 자체가 미공개인 경우처럼 스킵해서는 안 된다. 루브릭을 명확히 했지만 LLM이 감춘 반증·잘못 붙인 누락 표식을 자동으로 전부 찾아내는 검증기는 아직 없다.</li>
 </ul>
-<p><strong>설정 비교:</strong> 예시기업 CW 동일 회차·동일 원문 해시·같은 사실 평가에서 <code>selective</code>와 <code>manual</code>을 새 실행으로 비교했다. 권고 FOR·출석 10/10은 같고 처리만 자동 준비→사용자 지정 수동 검토로 바뀌었다. 이미 읽은 근거를 재사용한 처리 분기 확인이며 새 독립 판독으로 세지 않는다. 11회차 전체의 보수적 성향·자동 모드 비교 및 서로 다른 실제 모델 계열 비교는 남아 있다.</p>
-<p><strong>검증된 오류 교정:</strong> 원본 DART 캐시에서 예시기업 EK 후보 귀속과 예시기업 EL 15회 이사회 경계를 재현해 수정 후 산술·귀속을 확인했다. <strong>현재 전체 회귀는 2,215개 통과</strong>다. 새 공시 검색의 회사·시점·페이지 경계, 자료 교체, 같은 문서의 복수 발췌, 후보 범위와 유효 평가 보존, 불참 예외 비적용의 24개 신규 경계 검사도 포함한다. 기존 XML/HTML 경고는 3개 테스트에 남아 있다. 도구 카탈로그·위키·문서 계약 검사 통과, 출력 용어 점검은 기존 35건을 보고했다. 코드 검사와 원문 사실·정성 판단 검증은 별도다.</p>
+<p><strong>설정 비교:</strong> 삼성전자 동일 회차·동일 원문 해시·같은 사실 평가에서 <code>selective</code>와 <code>manual</code>을 새 실행으로 비교했다. 권고 FOR·출석 10/10은 같고 처리만 자동 준비→사용자 지정 수동 검토로 바뀌었다. 이미 읽은 근거를 재사용한 처리 분기 확인이며 새 독립 판독으로 세지 않는다. 11회차 전체의 보수적 성향·자동 모드 비교 및 서로 다른 실제 모델 계열 비교는 남아 있다.</p>
+<p><strong>검증된 오류 교정:</strong> 원본 DART 캐시에서 영원무역 후보 귀속과 영풍 15회 이사회 경계를 재현해 수정 후 산술·귀속을 확인했다. <strong>현재 전체 회귀는 2,215개 통과</strong>다. 새 공시 검색의 회사·시점·페이지 경계, 자료 교체, 같은 문서의 복수 발췌, 후보 범위와 유효 평가 보존, 불참 예외 비적용의 24개 신규 경계 검사도 포함한다. 기존 XML/HTML 경고는 3개 테스트에 남아 있다. 도구 카탈로그·위키·문서 계약 검사 통과, 출력 용어 점검은 기존 35건을 보고했다. 코드 검사와 원문 사실·정성 판단 검증은 별도다.</p>
 <p><strong>출시 판단:</strong> 이 11회차는 사용자가 고른 개발 검증 표본이다. 후보 외 안건의 전면 평가, 일반 시장 정확도, 실제 저출석·유효한 불참 소명의 품질, 미공개 관계의 부존재, 사람 전문가 판단, 실제 다른 모델 비교, 운영 배포가 완료됐다는 주장은 하지 않는다. 첫 패스에 있던 오류를 숨기거나 수용 39/39를 정확도 100%로 표시하지 않는다.</p>
 <h4 id="detail-f9b3a53e340d">추가 공시 탐색·교체의 실제 검증</h4>
 <p><strong>하네스 <code>/2</code>·정책 <code>0.7.1-pilot</code>으로 3회차·15과업을 실제 HTTP MCP에서 완료했다.</strong> 이번 공시 접수번호를 검색 행동에 미리 주입하지 않고, 같은 회사·마감의 공식 목록에서 LLM이 선택한 뒤 원문을 읽었다. 엔진은 <code>0e855ba38d8dff17553546ca5b0890ede1caec0852bf12b8b8b7d20d867c2ef2</code>다. 기존 표본의 공백을 해소하는 회귀 확인이며 새 독립 표본은 아니다.</p>
@@ -1435,34 +1432,34 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </thead>
 <tbody>
 <tr>
-<td>예시기업 FW 정기 · 3/26 마감</td>
+<td>KT&amp;G 정기 · 3/26 마감</td>
 <td style="text-align:right">3 / 3 / 0 / 0</td>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260226800114">정정 소집결의</a>: 노환용 생년 정정·예시기업 C 임기만료 예정, 한승수 예시기업 W·넵튠 겸직과 넵튠 사임 예정</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260226800114">정정 소집결의</a>: 노환용 생년 정정·DL이앤씨 임기만료 예정, 한승수 LG에너지솔루션·넵튠 겸직과 넵튠 사임 예정</td>
 <td>목록 11건에서 관련 원본·정정 2건을 발견해 정정 원문 판독. 예정 종료를 완료로 추정하지 않음. 최종 2 FOR·1 조건부 REVIEW, 자동 준비 2·수동 1</td>
 </tr>
 <tr>
-<td>예시기업 AL 정기 · 3/25 마감</td>
+<td>SK하이닉스 정기 · 3/25 마감</td>
 <td style="text-align:right">10 / 6 / 3 / 0</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305801429">정정 소집결의</a>: 김정원 루닛·고승범 에쓰오일 사외이사 및 감사위원 겸직. 외부감사 원문으로 회사 감사인과 후보 과거 회계법인 경력을 구별</td>
 <td>목록 30건에서 관련 2건 발견. 같은 문서의 후보별 창 보존. 고승범 추가 독해 때 이미 수용된 정덕균·김정원 등 다른 과업 유지. 고승범의 구 과업 수용 1건은 무효화 후 재평가. 최종 6 FOR·자동 준비</td>
 </tr>
 <tr>
-<td>예시기업 AQ 임시 · 9/9 마감</td>
+<td>고려아연 임시 · 9/9 마감</td>
 <td style="text-align:right">6 / 6 / 0 / 0</td>
 <td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003958">2026년 반기보고서</a>: 현재 이사회·사임·감사인 변경과 회사 제재</td>
 <td>정기보고서 목록 15건에서 반기를 발견. 명시 추가 자료 5개를 채운 같은 실행에서 회사 권유서 읽기 요청을 반기로 교체하고 6과업 완료. 최종 4 FOR·2 REVIEW, 집중투표·경합으로 수동 6</td>
 </tr>
 </tbody>
 </table></div>
-<p><strong>무엇이 개선됐나:</strong> 권고 총수를 바꾸려고 한 검증이 아니다. 예시기업 FW는 이전과 같은 권고에 실제로 빠졌던 겸직·종료 예정의 근거와 인용이 추가됐다. 예시기업 AL는 문서 하나를 다른 후보에게 확장해도 앞선 창이 덮이지 않았고, 현재 근거가 바뀐 고승범의 평가만 다시 받았다. 예시기업 AQ은 하네스 실행을 재시작하지 않고 필요한 반기를 교체해 끝냈다. 교체 전 기존 5개 자료는 모두 읽었으며, 중간 서버 <code>run_id</code> 값을 각각 비교한 검증으로 주장하지 않는다. 제출 전 교체였으므로 예시기업 AQ의 기존 수용 평가 무효화는 0건이다.</p>
-<p>예시기업 AQ 이형규의 출석은 <strong>FY2025 총 9회 중 법적 직무정지 이후 8회 제외, 대상 1회·참석 1회</strong>다. 다른 신규 5명은 출석 비적용이다. 반기의 현재 상태로 FY2025 출석을 덮어쓰지 않았고 회사·대표이사·담당임원 제재를 후보 개인 책임으로 전가하지 않았다. 알려진 겸직과 공개 사건은 정보 누락으로 스킵하지 않고 평가했으며 미공개 고용·자문·보수 세부는 후속 확인으로 남겼다.</p>
-<p>실제 원문 독해 범위는 회차 내 고유 공시 기준 예시기업 FW 4개·5창, 예시기업 AL 4개·13창, 예시기업 AQ 13개·본문 반환 16창이다. 예시기업 AQ의 별도 검색어 불일치 1회는 판독 창에 더하지 않는다. 모든 문서를 전체 판독했다는 뜻은 아니다. 세 회차 모두 마지막 실제 호출 인자 그대로 Markdown을 다시 받아 마감시각·사람 미검토 표시를 확인했다. 실제 투표는 전송하지 않았다.</p>
-<p>제출 합계 <strong>19건·최종 유효 수용 15건·반려 3건·추가 독해 후 구 수용 무효화 1건</strong>이다. 예시기업 AL 반려 3건은 전 회의 참석을 판독했으나 불참 예외를 unknown으로 쓰고 설명을 비운 입력에서 발생했다. 원문 사실을 바꾸지 않고 설명을 보완해 수용했다. 예시기업 FW의 긴 터미널 입력 전달 오류 1회는 서버 평가 반려와 별도로 기록하며 같은 실행에서 복구했다. 0.7.2는 모든 대상 회의 참석이 확인된 경우의 예외 비적용을 계약에 명시해 이 불필요한 수정을 줄인다.</p>
+<p><strong>무엇이 개선됐나:</strong> 권고 총수를 바꾸려고 한 검증이 아니다. KT&amp;G는 이전과 같은 권고에 실제로 빠졌던 겸직·종료 예정의 근거와 인용이 추가됐다. SK하이닉스는 문서 하나를 다른 후보에게 확장해도 앞선 창이 덮이지 않았고, 현재 근거가 바뀐 고승범의 평가만 다시 받았다. 고려아연은 하네스 실행을 재시작하지 않고 필요한 반기를 교체해 끝냈다. 교체 전 기존 5개 자료는 모두 읽었으며, 중간 서버 <code>run_id</code> 값을 각각 비교한 검증으로 주장하지 않는다. 제출 전 교체였으므로 고려아연의 기존 수용 평가 무효화는 0건이다.</p>
+<p>고려아연 이형규의 출석은 <strong>FY2025 총 9회 중 법적 직무정지 이후 8회 제외, 대상 1회·참석 1회</strong>다. 다른 신규 5명은 출석 비적용이다. 반기의 현재 상태로 FY2025 출석을 덮어쓰지 않았고 회사·대표이사·담당임원 제재를 후보 개인 책임으로 전가하지 않았다. 알려진 겸직과 공개 사건은 정보 누락으로 스킵하지 않고 평가했으며 미공개 고용·자문·보수 세부는 후속 확인으로 남겼다.</p>
+<p>실제 원문 독해 범위는 회차 내 고유 공시 기준 KT&amp;G 4개·5창, SK하이닉스 4개·13창, 고려아연 13개·본문 반환 16창이다. 고려아연의 별도 검색어 불일치 1회는 판독 창에 더하지 않는다. 모든 문서를 전체 판독했다는 뜻은 아니다. 세 회차 모두 마지막 실제 호출 인자 그대로 Markdown을 다시 받아 마감시각·사람 미검토 표시를 확인했다. 실제 투표는 전송하지 않았다.</p>
+<p>제출 합계 <strong>19건·최종 유효 수용 15건·반려 3건·추가 독해 후 구 수용 무효화 1건</strong>이다. SK하이닉스 반려 3건은 전 회의 참석을 판독했으나 불참 예외를 unknown으로 쓰고 설명을 비운 입력에서 발생했다. 원문 사실을 바꾸지 않고 설명을 보완해 수용했다. KT&amp;G의 긴 터미널 입력 전달 오류 1회는 서버 평가 반려와 별도로 기록하며 같은 실행에서 복구했다. 0.7.2는 모든 대상 회의 참석이 확인된 경우의 예외 비적용을 계약에 명시해 이 불필요한 수정을 줄인다.</p>
 <h4 id="detail-9ca434ee056d">불참 예외 비적용의 실제 검증 · 0.7.2</h4>
-<p><strong>예시기업 AL 정덕균 1과업을 새 서버에서 다시 받아 실제 HTTP MCP로 확인했다.</strong> 소집공고·FY2025 사업보고서의 11개 회의·권유서 원문을 읽고, <code>attendance.exception.value=not_applicable</code>과 빈 미확인 목록으로 제출했다. <strong>제출 1·수용 1·반려 0</strong>, 출석 <strong>11/11</strong>, 권고 <strong>FOR</strong>, <code>exception_accepted=null</code>, <code>skipped_checks=[]</code>를 반환했다. 마지막 실제 Markdown에서도 마감시각·사람 미검토와 「불참 예외: 적용 대상 아님」 표시를 확인했다.</p>
+<p><strong>SK하이닉스 정덕균 1과업을 새 서버에서 다시 받아 실제 HTTP MCP로 확인했다.</strong> 소집공고·FY2025 사업보고서의 11개 회의·권유서 원문을 읽고, <code>attendance.exception.value=not_applicable</code>과 빈 미확인 목록으로 제출했다. <strong>제출 1·수용 1·반려 0</strong>, 출석 <strong>11/11</strong>, 권고 <strong>FOR</strong>, <code>exception_accepted=null</code>, <code>skipped_checks=[]</code>를 반환했다. 마지막 실제 Markdown에서도 마감시각·사람 미검토와 「불참 예외: 적용 대상 아님」 표시를 확인했다.</p>
 <p>정책은 <code>0.7.2-pilot</code>, 평가 계약 <code>/6</code>, 하네스 <code>/2</code>이며 엔진은 <code>ce37b41137a96ddf4fd7df08570f593e361e85139c3fb159353d8e768e1aec85</code>다. 불참이 없다는 사실을 예외 승인이나 정보 누락으로 바꾸지 않고 표현하는 보완이다. 나머지 5과업은 이 최소표본 검사에서 의도적으로 제외해 전체 실행 상태는 <code>partial</code>이다. 앞 절의 3회차·15과업 전체 실행과 이 1과업 보완 검사를 구분한다.</p>
 <h4 id="detail-8ce22f3b51b3">후속 검증 순서</h4>
-<p><strong>대상은 10개사, 정기·임시주총 모두다.</strong> 예시기업 AN·예시기업 AS·예시기업 GE·예시기업 EL·예시기업 AQ·예시기업 EK·예시기업 Y·예시기업 CW·예시기업 FW·예시기업 AL. 조회 기간과 실제 회차 목록을 먼저 정하며, 임시주총이 없거나 발견되지 않은 회사를 임의로 20회차에 맞추지 않는다.</p>
+<p><strong>대상은 10개사, 정기·임시주총 모두다.</strong> 가비아·골프존홀딩스·태광산업·영풍·고려아연·영원무역·LG화학·삼성전자·KT&amp;G·SK하이닉스. 조회 기간과 실제 회차 목록을 먼저 정하며, 임시주총이 없거나 발견되지 않은 회사를 임의로 20회차에 맞추지 않는다.</p>
 <ol>
 <li><strong>회차와 시간 고정:</strong> 실제 공고에서 정기/임시·안건·판단 마감시점을 정한다. 원문별 공개·유효 시점과 정정 계보를 확인해 허용 근거를 고정한다. 자료 시점을 모르면 제외하고 계속한다.</li>
 <li><strong>차단 검증:</strong> 마감 이후 공시·사후 결과·같은 날 시각 불명 자료·최신 정형 API/캐시를 넣어도 과거 판단에 사용되지 않는지 확인한다. 과거 30개사 결과를 이 검사 통과로 소급하지 않는다.</li>
@@ -1470,7 +1467,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <li><strong>모델·설정 대조:</strong> 같은 근거와 과업에서 모델을 교체한다. 성향과 자동/수동 설정은 한 번에 하나씩 바꾸며 권고 차이와 처리 경로 차이를 구분한다.</li>
 <li><strong>오류 수정:</strong> 기존 MCP 판단을 보지 않은 별도 원문 대조와 비교한다. 사실·시점·당사자 오류, 놓친 신호, 정책 해석 차이를 분리하고 확인된 오류를 실제 MCP로 재검증한다. 별도 LLM의 동의나 주총 가부결을 정답으로 삼지 않는다.</li>
 </ol>
-<p>예시기업 AN·예시기업 AS는 공개매수의 조건과 실제 이행·지분 분모, 예시기업 GE은 소송·철회·정정의 순서, 예시기업 EL·예시기업 AQ은 사건 당사자·의결권·법원 결정의 시점을 우선 대조한다. 나머지 회사도 해당 회차의 실제 안건과 당시 자료에서 질문을 정하며, 분쟁이나 결격이 있을 것이라고 가정하지 않는다. 예시기업 Y의 사내이사 사례는 현재 후보 자문 범위 밖임을 유지한다.</p>
+<p>가비아·골프존홀딩스는 공개매수의 조건과 실제 이행·지분 분모, 태광산업은 소송·철회·정정의 순서, 영풍·고려아연은 사건 당사자·의결권·법원 결정의 시점을 우선 대조한다. 나머지 회사도 해당 회차의 실제 안건과 당시 자료에서 질문을 정하며, 분쟁이나 결격이 있을 것이라고 가정하지 않는다. LG화학의 사내이사 사례는 현재 후보 자문 범위 밖임을 유지한다.</p>
 <p>완료 기준은 허용 근거만으로 전체 실행 경로를 확인하고, 발견한 중대한 오류를 고쳐 재확인하며, 미평가·스킵·남은 불확실성을 설명하는 것이다. 특정 자료나 사람 검토자가 없다는 이유로 전부 중단하지 않는다. 배포에 영향을 주는 오류가 남으면 해당 기능만 출시 범위에서 제외한다. 10개사의 결과를 전체 시장 정확도로 일반화하지 않는다.</p>
 <details class="document-detail"><summary><h3 id="section-8">역할과 대조 순서</h3></summary><div class="detail-body">
 <div class="table-scroll"><table>
@@ -1522,7 +1519,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </thead>
 <tbody>
 <tr>
-<td>예시기업 CW 2025 정기주총</td>
+<td>삼성전자 2025 정기주총</td>
 <td>소집공고 <code>20250218001524</code>, 마감시각 <code>2025-03-19T00:00:00+09:00</code>, 실제 자료 상한 3월 18일로 고정.</td>
 </tr>
 <tr>
@@ -1538,7 +1535,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <td>공개 원문에서 확인하지 못한 고문 업무·보수 세부사항은 후속 확인으로 남겼다. 이를 관계 없음으로 바꾸지 않았으며 다른 평가를 계속했다.</td>
 </tr>
 <tr>
-<td>예시기업 AQ 2026 임시주총</td>
+<td>고려아연 2026 임시주총</td>
 <td>소집공고 <code>20260811000705</code>의 9월 9일 회의를 고정해 9월 8일까지의 원문으로 후보 과업 6건을 수신했다. 이 실행에서 6건의 판단 정확성을 검증한 것은 아니다.</td>
 </tr>
 <tr>
@@ -1547,7 +1544,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </tr>
 <tr>
 <td>미래 원문 추가</td>
-<td>2025년 예시기업 CW 실행에 2026년 접수번호 <code>20260908000407</code>을 명시 추가했다. <code>after_as_of</code>로 표시하고 후보 근거 해시에 포함하지 않았으며 나머지 과업은 계속 반환했다.</td>
+<td>2025년 삼성전자 실행에 2026년 접수번호 <code>20260908000407</code>을 명시 추가했다. <code>after_as_of</code>로 표시하고 후보 근거 해시에 포함하지 않았으며 나머지 과업은 계속 반환했다.</td>
 </tr>
 <tr>
 <td>사용자 표시</td>
@@ -1558,7 +1555,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <p>이전 연결 검증 코드의 회귀·계약 검사 <strong>2,037개 통과</strong>(기존 XML/HTML 파서 경고 1건). 위키 162페이지·런타임 도구 32개 카탈로그·문서 계약 검사도 통과했다. 당시 HTML은 390/850/1440px, 목차 5개·상세 접기 14개·옛 링크 57개·로드맵 6단계·인쇄를 확인했다. 코드 계약 검사는 실제 판단 정확도와 별도로 집계한다. 시점 불명·미래 행과 원문, 캐시 재사용, 같은 해 복수 임시주총, 정책·원문 변경, 후보 오류 격리, 외화환산 누락, 법령 공개일을 검증한다. 이는 이번 회차별 품질 검사 이전의 연결·계약 확인 기록이다. 현재 결과는 앞의 「10개사 회차별 품질 검증」에서 구분한다.</p>
 <h4 id="section-43">실제 MCP 호출: 0.7.0 대량 파일럿</h4>
 <p>2026-09-09의 로컬 Streamable HTTP MCP에서 <code>screener(types="governance", period="최근 14일", details=False)</code>를 실행했다. 목록 2,327건을 읽어 지정 유형과 필터에 맞는 공시 740건을 발견했고 첫 페이지 200건을 반환했다. 페이지에는 뒤이어 읽을 자료가 남아 있다. 이것은 위험 기업 수가 아니다.</p>
-<p>사용자 지정 5개사(예시기업 AS·예시기업 AN·예시기업 GE·예시기업 EL·예시기업 AQ)에, 반환 페이지에서 유형을 순환하며 회사 중복을 제거한 25개사를 더했다. 유형 순서는 소송·경영권 변경·재편·주식 양수도·자사주·대량보유·공개매수·위임장이며 각 유형에서 아직 선택하지 않은 회사를 차례로 골랐다. 첫 페이지의 시가총액 편향과 특정 공시군 선택 편향이 있으므로 시장 대표 표본이나 무작위 표본으로 보지 않는다.</p>
+<p>사용자 지정 5개사(골프존홀딩스·가비아·태광산업·영풍·고려아연)에, 반환 페이지에서 유형을 순환하며 회사 중복을 제거한 25개사를 더했다. 유형 순서는 소송·경영권 변경·재편·주식 양수도·자사주·대량보유·공개매수·위임장이며 각 유형에서 아직 선택하지 않은 회사를 차례로 골랐다. 첫 페이지의 시가총액 편향과 특정 공시군 선택 편향이 있으므로 시장 대표 표본이나 무작위 표본으로 보지 않는다.</p>
 <p>5개 묶음(2·3·8·8·9사)으로 실제 과업을 받아 필요한 본문을 읽고 평가를 다시 제출했다. 서버가 제공한 원문 수와 LLM이 실제 판단에 사용한 문서 수는 다르다. 모든 패킷·모든 규칙을 완독했다는 주장이 아니다. 조회·평가 JSON 파일은 저장하지 않았다.</p>
 <div class="table-scroll"><table>
 <thead>
@@ -1586,7 +1583,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </tr>
 <tr>
 <td>원문 확장</td>
-<td>예시기업 AN의 누락 거래 본문, 예시기업 BM의 정관 삭제와 자회사 소멸 합병, 위임장·5% 보고 각주를 추가 판독</td>
+<td>가비아의 누락 거래 본문, 동아쏘시오홀딩스의 정관 삭제와 자회사 소멸 합병, 위임장·5% 보고 각주를 추가 판독</td>
 <td>초기 자동 4건만으로 충분하지 않았으며 이어 읽기 경로가 실제로 필요했음</td>
 </tr>
 <tr>
@@ -1599,7 +1596,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <p>근거 있는 검토 신호는 조건부 재투자·직위 유지 구조, 담보 실행 시 구체적인 지배지분 노출, 사망사고와 작업중지의 감독 과제, 합병 희석·주주 선택권 조건 등에서 나왔다. 조건·반대 근거·실제 발생과 장래 영향을 함께 보존했으며 공시의 존재나 회사·주주의 긍부정 주장을 위험으로 복사하지 않았다. 낮은 중요도의 신호도 삭제하지 않고 관찰 경로로 반환했다. 반대로 회사 형태, 계열 거래, 동일 사건의 모자회사 관계, 평가한 항목의 차이는 회사 간 단순 순위 비교를 어렵게 한다.</p>
 <p>이 실측은 <strong>새 MCP를 실제 실행해 LLM 평가와 분기를 연결했는지</strong>를 검증한다. 거버넌스 악화 기업 전수 탐지, 놓친 악재의 비율, 기관 보팅 판단과의 일치율은 아직 측정하지 않았다. 회사명·사건을 가린 독립 기준 평가와 발견·판독·판단 단계별 오류를 나눠 측정하는 작업이 04의 남은 품질 과제다.</p>
 <h4 id="section-44">실제 MCP 호출: 0.7.0 추출 교정</h4>
-<p>예시기업 CW 2025년 정기주총의 신제윤 감사위원 후보를 정보 기준일 <code>20250318</code>로 조회했다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250218001524">소집공고</a>의 종료된 예시기업 G·예시기업 BS 사외이사 경력이 현재 겸직으로 합쳐져 기존 엔진에 겸직 3곳 경보가 생겼다. Astra가 기간과 경력을 직접 대응해 <code>finding_reviews</code>로 이 추출 오류를 반박했다. 원문에 있는 태평양 고문 역할은 없애지 않았고, 공개되지 않은 자문·보수 세부는 추가 확인으로 남겼다.</p>
+<p>삼성전자 2025년 정기주총의 신제윤 감사위원 후보를 정보 기준일 <code>20250318</code>로 조회했다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250218001524">소집공고</a>의 종료된 HDC·롯데손해보험 사외이사 경력이 현재 겸직으로 합쳐져 기존 엔진에 겸직 3곳 경보가 생겼다. Astra가 기간과 경력을 직접 대응해 <code>finding_reviews</code>로 이 추출 오류를 반박했다. 원문에 있는 태평양 고문 역할은 없애지 않았고, 공개되지 않은 자문·보수 세부는 추가 확인으로 남겼다.</p>
 <div class="table-scroll"><table>
 <thead>
 <tr>
@@ -1624,15 +1621,15 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <p>두 실제 Streamable HTTP MCP 호출 모두 제출 1건·거절 0건·과업 불일치 0건이다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20250311001085">사업보고서</a>의 2024-03-29 선임·제4차부터 의결 참여라는 각주를 읽어 직전 완료 사업연도 11회 중 선임 전 3회를 제외하고 8/8 출석 계산도 수용했다. 회사 자기진술과 LLM 의미 해석은 사람 미검토다. 다른 후보 5개 과업은 평가하지 않았으며 반복 대조 호출을 새 표본으로 세지 않는다. 실제 투표 전송은 없다.</p>
 <h4 id="section-45">실제 MCP 호출: 0.7.0 분쟁 추적의 경계 검증</h4>
 <ul>
-<li>예시기업 AN 기본 과업에서는 최신 공개매수 첨부 수집 실패로 핵심 거래 본문이 빠졌다. 호출 LLM이 실패와 미선택 공시를 확인하고 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260902000313">기재정정 본문</a>, SPA, 소집결의 등을 추가해 읽었다. 재투자·임원직 유지·이사 지명 약정은 조건부 이해상충 구조로, 동일 가격·별도 우선권 부재는 보완 근거로 평가했다. 거래가 완료됐거나 위법하다고 판단한 것은 아니다.</li>
-<li>예시기업 AS는 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000445">1차 결과</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260904000074">2차 결과</a>를 분리했다. 1차 매수·결제와 2차 응모·매수 0주를 구분하고, 계열 매수자·자기주식 포함 여부에 따른 지분 분모를 보존했다. 회사의 가격 적정성 의견을 OPM 결론으로 복사하지 않았다.</li>
-<li>예시기업 AQ은 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800500">조건부 화해권고</a> 뒤의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819800401">이의</a>를 함께 읽었다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260909800563">9/9 주총결과</a>의 집중투표 비고는 사후 회사 검토에서만 사용하고 9/8 사전 권고에 소급하지 않았다.</li>
-<li>예시기업 EL의 역할은 예시기업 EL 명의 공시만 찾지 않고 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260907800121">예시기업 AQ 가처분 결정</a>의 신청인과 연결했다. 공시 발행회사와 사건 당사자를 분리한 명시 원천 연결이며 자동 전시장 관계 그래프는 아니다.</li>
-<li>예시기업 GE의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251126800066">정정 공시</a>는 제목이 소송 제기·신청이지만 본문은 가처분 취하와 EB·자기주식 처분 철회다. 새 파서 없이 원문을 읽어 절차 상태를 판단했다. 두 인수설 해명은 서로 다른 사건으로 남겼다.</li>
+<li>가비아 기본 과업에서는 최신 공개매수 첨부 수집 실패로 핵심 거래 본문이 빠졌다. 호출 LLM이 실패와 미선택 공시를 확인하고 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260902000313">기재정정 본문</a>, SPA, 소집결의 등을 추가해 읽었다. 재투자·임원직 유지·이사 지명 약정은 조건부 이해상충 구조로, 동일 가격·별도 우선권 부재는 보완 근거로 평가했다. 거래가 완료됐거나 위법하다고 판단한 것은 아니다.</li>
+<li>골프존홀딩스는 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807000445">1차 결과</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260904000074">2차 결과</a>를 분리했다. 1차 매수·결제와 2차 응모·매수 0주를 구분하고, 계열 매수자·자기주식 포함 여부에 따른 지분 분모를 보존했다. 회사의 가격 적정성 의견을 OPM 결론으로 복사하지 않았다.</li>
+<li>고려아연은 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260807800500">조건부 화해권고</a> 뒤의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260819800401">이의</a>를 함께 읽었다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260909800563">9/9 주총결과</a>의 집중투표 비고는 사후 회사 검토에서만 사용하고 9/8 사전 권고에 소급하지 않았다.</li>
+<li>영풍의 역할은 영풍 명의 공시만 찾지 않고 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260907800121">고려아연 가처분 결정</a>의 신청인과 연결했다. 공시 발행회사와 사건 당사자를 분리한 명시 원천 연결이며 자동 전시장 관계 그래프는 아니다.</li>
+<li>태광산업의 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20251126800066">정정 공시</a>는 제목이 소송 제기·신청이지만 본문은 가처분 취하와 EB·자기주식 처분 철회다. 새 파서 없이 원문을 읽어 절차 상태를 판단했다. 두 인수설 해명은 서로 다른 사건으로 남겼다.</li>
 </ul>
-<p>별도 반복 조회에서 예시기업 AN의 <code>since=20260901</code> 신규 접수번호 4건을 반환한 뒤 해당 checkpoint를 넘기자 신규 목록은 0건이 됐고 평가 task_id와 원문은 유지됐다. 같은 배치의 존재하지 않는 회사는 식별 실패로 분리되어 정상 회사의 과업 생성을 막지 않았다. 9사 평가의 인용 하나만 원문에 없는 문장으로 바꾸는 음성검증에서는 해당 회사만 거절하고 나머지 8개 평가·분류를 유지했다. 이는 계약의 실패 격리 검증이며 회사 판단 표본으로 추가하지 않는다.</p>
-<p>최종 교차 점검에서 두 경계를 보강했다. 중요한 사실 충돌은 LLM이 일부 판단에 <code>no_adverse_signal</code>을 잘못 붙여도 가려지지 않는다. 최종 서버에서 예시기업 CR의 실제 선임구분 충돌 인용·중요도를 유지하고 라벨만 오입력한 추가 호출은 <code>needs_evidence</code>를 유지했다. 선임구분 누락 때문에 이미 계산된 저출석 신호가 없어지는 경계도 수정했다. 선택 문턱 미만 출석과 미인정 예외가 확인됐으나 재선임 여부만 빠졌다면 그 기준은 검토를 유지하고, 재선임이나 반대를 임의로 추정하지 않는다. 문턱 50·75·100% 경계는 합성 계약 검사이며 실제 저출석 후보 실측과 구별한다.</p>
-<p>보강 후 최종 서버에서 신제윤 원평가를 다시 제출해 동일 과업·정책, 8/8 출석, REVIEW→FOR 교정을 재확인했다. 추정 회사명 「예시기업 HI」도 실제 MCP JSON·Markdown에 예시기업 HM를 선택한 사실과 다른 후보가 있다는 경고를 표시했다. 이런 회귀·오입력 호출은 30개사 본문 평가 표본에 더하지 않는다.</p>
+<p>별도 반복 조회에서 가비아의 <code>since=20260901</code> 신규 접수번호 4건을 반환한 뒤 해당 checkpoint를 넘기자 신규 목록은 0건이 됐고 평가 task_id와 원문은 유지됐다. 같은 배치의 존재하지 않는 회사는 식별 실패로 분리되어 정상 회사의 과업 생성을 막지 않았다. 9사 평가의 인용 하나만 원문에 없는 문장으로 바꾸는 음성검증에서는 해당 회사만 거절하고 나머지 8개 평가·분류를 유지했다. 이는 계약의 실패 격리 검증이며 회사 판단 표본으로 추가하지 않는다.</p>
+<p>최종 교차 점검에서 두 경계를 보강했다. 중요한 사실 충돌은 LLM이 일부 판단에 <code>no_adverse_signal</code>을 잘못 붙여도 가려지지 않는다. 최종 서버에서 삼성바이오로직스의 실제 선임구분 충돌 인용·중요도를 유지하고 라벨만 오입력한 추가 호출은 <code>needs_evidence</code>를 유지했다. 선임구분 누락 때문에 이미 계산된 저출석 신호가 없어지는 경계도 수정했다. 선택 문턱 미만 출석과 미인정 예외가 확인됐으나 재선임 여부만 빠졌다면 그 기준은 검토를 유지하고, 재선임이나 반대를 임의로 추정하지 않는다. 문턱 50·75·100% 경계는 합성 계약 검사이며 실제 저출석 후보 실측과 구별한다.</p>
+<p>보강 후 최종 서버에서 신제윤 원평가를 다시 제출해 동일 과업·정책, 8/8 출석, REVIEW→FOR 교정을 재확인했다. 추정 회사명 「현대」도 실제 MCP JSON·Markdown에 현대자동차를 선택한 사실과 다른 후보가 있다는 경고를 표시했다. 이런 회귀·오입력 호출은 30개사 본문 평가 표본에 더하지 않는다.</p>
 <h4 id="section-46">실제 MCP 호출: 0.6.0 워크플로 검증</h4>
 <p>로컬 Streamable HTTP MCP에 첫 호출로 과업을 받고, Astra가 전달된 원문을 읽어 평가를 작성한 뒤 같은 도구에 제출했다. 평가·조회 결과 파일은 저장하지 않았으며 아래는 제품 검증 집계다. 사람 미검토 LLM 평가 4명·5개 후보 안건을 다뤘다. 반복 설정 호출을 새 독립 표본으로 세지 않는다.</p>
 <div class="table-scroll"><table>
@@ -1645,41 +1642,41 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </thead>
 <tbody>
 <tr>
-<td>예시기업 AQ 이형규, 기준일 2026-09-08</td>
+<td>고려아연 이형규, 기준일 2026-09-08</td>
 <td>자동 출석기간 추출은 unresolved. 직접 원문 판독 기간을 수용해 2025년 대상 1회·참석 1회·직무정지 중 제외 8회, 100%, 후보 FOR</td>
 <td>파싱 실패가 원문 판단을 막지 않음. 1회 표본 한계 표시. 집중투표 배분은 별도 수동 검토</td>
 </tr>
 <tr>
-<td>예시기업 AQ 심혜섭, 같은 기준일</td>
-<td>예시기업 BA 감사직 종료 원문을 읽어 현재 겸직으로 오인하지 않음. 명시 선임구분은 unknown·skipped, 나머지 평가로 후보 FOR</td>
+<td>고려아연 심혜섭, 같은 기준일</td>
+<td>남양유업 감사직 종료 원문을 읽어 현재 겸직으로 오인하지 않음. 명시 선임구분은 unknown·skipped, 나머지 평가로 후보 FOR</td>
 <td>경력표 추출값을 정답으로 삼지 않음. 이번 계약은 겸임 결격 전체 평가가 아니며 기존 파서의 겸임 지표를 수정한 것은 아님</td>
 </tr>
 <tr>
-<td>예시기업 AQ 입력 오류 격리</td>
+<td>고려아연 입력 오류 격리</td>
 <td>정상 2건 수용 + 잘못된 스키마 입력 1건 제외. 2건 수동 배분 검토·4건 평가 대기·3건 범위 밖</td>
-<td>다른 후보의 미제출·오류가 완료된 후보 권고를 막지 않음. 예시기업 AQ 후보 전원을 재평가한 결과는 아님</td>
+<td>다른 후보의 미제출·오류가 완료된 후보 권고를 막지 않음. 고려아연 후보 전원을 재평가한 결과는 아님</td>
 </tr>
 <tr>
-<td>예시기업 FW, 기준일 2026-03-25, standard·automatic</td>
+<td>KT&amp;G, 기준일 2026-03-25, standard·automatic</td>
 <td>노환용 이사/감사위원 평가와 한승수 평가 3건 수용. 최종 2 FOR·1 REVIEW, 자동 준비 2·수동 1</td>
-<td>한승수의 예시기업 W 현직을 추천 문단에서 읽음. 추천자의 긍정 논조는 판단에 사용하지 않음. 선행 안건 조건은 유지</td>
+<td>한승수의 LG에너지솔루션 현직을 추천 문단에서 읽음. 추천자의 긍정 논조는 판단에 사용하지 않음. 선행 안건 조건은 유지</td>
 </tr>
 <tr>
-<td>예시기업 FW 설정 변경</td>
+<td>KT&amp;G 설정 변경</td>
 <td>conservative·selective, 노환용 이사 안건 수동 지정, 출석 문턱 80. 기존 과업 평가 3건 미사용, 새 과업에 재평가 제출 후 자동 준비 1·수동 2</td>
 <td>설정과 과업의 연결 및 안건별 분기 검증. 후보 권고는 동일. 80% 출석 기준의 실제 발동이나 보수 성향의 정확성 우위를 검증한 것은 아님</td>
 </tr>
 </tbody>
 </table></div>
-<p>직접 읽은 주요 원천은 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705">예시기업 AQ 소집공고</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001726">정정 사업보고서</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260601001623">2026년 사임 신고</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003731">예시기업 BA 반기보고서</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260225005779">예시기업 FW 소집공고</a>다. 남양 반기보고서는 심혜섭의 2026-03-27 임기만료 퇴임을 직접 명시한다. 예시기업 AQ 사임은 2026-05-29이며 FY2025 분모 제외 사유와 혼동하지 않는다.</p>
-<p>예시기업 Y 김동춘의 미등기 임원 재직과 이사 선임 구분도 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001195">사업보고서</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260224004273">소집공고</a>에서 원천 사실을 확인했다. 사내이사는 현재 v2 파일럿 범위 밖이므로 새 계약의 실제 권고 검증 수에 포함하지 않는다.</p>
+<p>직접 읽은 주요 원천은 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260811000705">고려아연 소집공고</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260813001726">정정 사업보고서</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260601001623">2026년 사임 신고</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260814003731">남양유업 반기보고서</a>, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260225005779">KT&amp;G 소집공고</a>다. 남양 반기보고서는 심혜섭의 2026-03-27 임기만료 퇴임을 직접 명시한다. 고려아연 사임은 2026-05-29이며 FY2025 분모 제외 사유와 혼동하지 않는다.</p>
+<p>LG화학 김동춘의 미등기 임원 재직과 이사 선임 구분도 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001195">사업보고서</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260224004273">소집공고</a>에서 원천 사실을 확인했다. 사내이사는 현재 v2 파일럿 범위 밖이므로 새 계약의 실제 권고 검증 수에 포함하지 않는다.</p>
 <p>최종 코드 전체 회귀 1,756개 통과. 실제 MCP Markdown에서도 보팅 설정·수동 지정·스킵 항목·제한된 권고 범위 표시를 확인했다. 기존 XML/HTML 경고 1건은 남아 있다. 위키·도구 카탈로그·문서 계약 검사 통과, 출력 용어 검사는 기존 36건을 보고한다. 계약·산술 검사가 의미 정확성의 독립 정답을 제공하지는 않는다. 실제 저출석·정당한 불참 소명·전부 누락·비정형 사업연도 및 모델별 판단 편차의 추가 실제 검증은 남아 있다.</p>
 <p>아래 0.5.0·0.3.0 실측은 해당 버전의 결과이며 0.6.0 결과와 구분한다.</p>
 <h4 id="section-47">실제 MCP 호출: 0.5.0 출석·재직 연결</h4>
 <ul>
-<li>예시기업 FW 2026 정기주총의 실제 과업에서 임원 변동 신고 2건을 자동 탐색·수집하고
+<li>KT&amp;G 2026 정기주총의 실제 과업에서 임원 변동 신고 2건을 자동 탐색·수집하고
 표지의 2025-01-01~2025-12-31을 출석 평가기간으로 반환했다. 후보 재평가는 하지 않았다.</li>
-<li>예시기업 HH 2026-09-08 임시주총은 기준일 2026-09-07로 과업을 받았다.
+<li>한화투자증권 2026-09-08 임시주총은 기준일 2026-09-07로 과업을 받았다.
 과거 임원 변동 신고 3건이 자동 수집됐고, 강성윤의 2025년 선임 신고가 후보 원문에 연결됐다.
 사용자가 준 2026-09-08 두 문서는 명시적으로 요청해도 <code>after_as_of</code>로 제외됐다.</li>
 <li>호출 LLM이 소집공고·2025년 사업보고서·2025년 선임 신고를 읽고 평가를 제출했다.
@@ -1691,7 +1688,7 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 출석 근거 완료와 독립성 미완료를 분리한 제품 동작 검증이며 전문가 정확성 인증이 아니다.</li>
 <li>같은 평가에 중복 회의를 추가해 실제 MCP에 제출하면 rejected이고 출석률은 null이 된다.</li>
 <li>별도의 기준일 2026-09-09 원천 연결 점검에서는 사용자가 준 두 원문 모두 XML로 수집됐다.
-이는 주총 사전 판단 결과가 아니다. 예시기업 CN 대표이사 변경은 강성윤 후보에 연결할 정보가
+이는 주총 사전 판단 결과가 아니다. 사토시홀딩스 대표이사 변경은 강성윤 후보에 연결할 정보가
 아니므로 이 후보 평가에 인용하지 않는다. 새 파서를 추가할 근거로 삼지 않았다.</li>
 <li>최종 코드의 전체 회귀 1,720개 통과(기존 XML/HTML 경고 1건). 위키·문서 계약·도구
 카탈로그 검사 통과. 출력 어휘 점검은 기존 36건을 보고했다. 출석·구간·중복·기간·탐색
@@ -1717,14 +1714,14 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </thead>
 <tbody>
 <tr>
-<td>예시기업 FW 2026 정기, 기준일 2026-03-25</td>
+<td>KT&amp;G 2026 정기, 기준일 2026-03-25</td>
 <td style="text-align:right">15</td>
 <td style="text-align:right">3건 / 2명</td>
 <td>FOR 10·REVIEW 5 → FOR 10·REVIEW 5</td>
 <td style="text-align:right">최종 판정 동일</td>
 </tr>
 <tr>
-<td>예시기업 AQ 2026 임시, 기준일 2026-09-08</td>
+<td>고려아연 2026 임시, 기준일 2026-09-08</td>
 <td style="text-align:right">9</td>
 <td style="text-align:right">6건 / 6명</td>
 <td>FOR 5·REVIEW 4 → FOR 4·REVIEW 5</td>
@@ -1734,9 +1731,9 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 </table></div>
 <p>9건 모두 <code>accepted_unreviewed</code>이고 JSON·Markdown의 사람 미검토 표시를 확인했다.</p>
 <ul>
-<li>예시기업 FW 노환용 이사·감사위원: 현직·경력·공시된 관계를 읽고 <code>no_public_concern</code>으로 평가해 FOR.
+<li>KT&amp;G 노환용 이사·감사위원: 현직·경력·공시된 관계를 읽고 <code>no_public_concern</code>으로 평가해 FOR.
 한승수도 겸직을 포함해 평가했지만 조건부 안건 제약으로 최종 REVIEW를 유지했다.</li>
-<li>예시기업 AQ 이형규: 거래소 소집결의의 <strong>재선임</strong> 표기로 분류 근거를 보강했다. 사임 후 재선임이며
+<li>고려아연 이형규: 거래소 소집결의의 <strong>재선임</strong> 표기로 분류 근거를 보강했다. 사임 후 재선임이며
 직무정지·실제 재직구간·참석 대상 회의 분모가 미확정이므로 출석 규칙은 미완료, 최종 REVIEW다.</li>
 <li>서은숙·이준봉·심혜섭: 거래소의 신규선임 표기를 확인했다. 검토한 공개자료에서 구체적 독립성
 우려를 확인하지 못한 것으로 LLM 평가했으며, 미공개 고용·자문·보수 세부는 후속 확인으로 남겨 FOR다.</li>
@@ -1755,9 +1752,9 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 0.3.0 구현의 전체 회귀 1,710개 통과(기존 XML/HTML 경고 1건). 위키·문서 계약·도구 카탈로그 검사 통과.
 출력 어휘 점검은 종료코드 0이며 저장소 전체 36건의 용어 사용을 보고했다. 경고 0건이라고 표현하지 않는다.
 실제 MCP에도 없는 인용을 제출해 rejected, 이전 정책의 task_id를 제출해 미사용,
-사람 검토 표시 위조 필드를 제출해 요청 오류를 확인했다. 기본 shadow와 기존 엔진의 예시기업 FW 15개 최종 판정이 같다는 것도 실제 MCP로 대조했다. 이 음성 검증은 인용·계약 검사이며 판단 정확도 실험이 아니다.</p>
+사람 검토 표시 위조 필드를 제출해 요청 오류를 확인했다. 기본 shadow와 기존 엔진의 KT&amp;G 15개 최종 판정이 같다는 것도 실제 MCP로 대조했다. 이 음성 검증은 인용·계약 검사이며 판단 정확도 실험이 아니다.</p>
 <p>0.4.0은 기사 사용 rubric 및 문서 변경이다. 관련 계약 테스트 30개 통과.
-실제 MCP에서 예시기업 FW 후보 과업 3건에 새 policy_version·news_evidence 기준과 사람 미검토 표시가
+실제 MCP에서 KT&amp;G 후보 과업 3건에 새 policy_version·news_evidence 기준과 사람 미검토 표시가
 전달됨을 확인했다. 후보 재평가·정확성 검증은 수행하지 않았으며 0.3.0 결과를 새 기준의 결과로 표시하지 않는다.</p>
 <p>0.6.0의 계약 검증에는 누락 항목 제외, 누락과 반증의 충돌, 저출석에서 소명 미기재,
 직접 판독 기간의 인용·유효 날짜·미래 경계, 오류 후보 격리, 설정별 분기와 집중투표 배분 분리를 포함한다.
@@ -1768,8 +1765,8 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <p>다시 시작한 <code>http://127.0.0.1:8000/mcp</code>에서 다음 계약을 실제 호출로 확인했다. 설치 확장을 포함한 파일럿 도구 목록은 33개이며 공개 카탈로그 수와 구분한다.</p>
 <ul>
 <li><code>screener(types="governance")</code>: 2026-09-09 하루 창, 공시 189건 탐색·98건 조건 매칭·20건 반환. 5개 공시 코드의 조회 범위와 추가 페이지, <code>governance_screen</code> 연결 안내를 확인했다. 이 수는 부정적 기업이나 평가 수가 아니다.</li>
-<li><code>governance_screen</code>: 예시기업 AN 과업에 원문 3건을 전달하고, 같은 배치의 존재하지 않는 회사는 공통 재조회 안내로 분리했다. JSON·Markdown 모두 안내와 사람 미검토 표시를 확인했다. 평가 제출은 하지 않았다.</li>
-<li><code>proxy_advise_before_meeting</code>: 예시기업 CW 2025년 정기주총·기준일 2025-03-18·standard/selective 프로필에서 안건 15개, LLM 평가 대기 6개·범위 밖 9개를 반환했다. JSON 설정·과업과 Markdown 표시를 확인했으며 평가 제출은 0건이다. 이번 호출은 기존 신제윤 교정 사례의 재판정이나 새 독립 품질 검증으로 세지 않는다.</li>
+<li><code>governance_screen</code>: 가비아 과업에 원문 3건을 전달하고, 같은 배치의 존재하지 않는 회사는 공통 재조회 안내로 분리했다. JSON·Markdown 모두 안내와 사람 미검토 표시를 확인했다. 평가 제출은 하지 않았다.</li>
+<li><code>proxy_advise_before_meeting</code>: 삼성전자 2025년 정기주총·기준일 2025-03-18·standard/selective 프로필에서 안건 15개, LLM 평가 대기 6개·범위 밖 9개를 반환했다. JSON 설정·과업과 Markdown 표시를 확인했으며 평가 제출은 0건이다. 이번 호출은 기존 신제윤 교정 사례의 재판정이나 새 독립 품질 검증으로 세지 않는다.</li>
 </ul>
 </div></details><h2 id="release">배포·운영</h2>
 <p>v2는 로컬 파일럿이며 운영에 배포하지 않았다. 첫 출시는 사외·독립이사 자문 범위로 한정한다. 품질 검증 후 정책 버전 활성화·복구, 사용자 지정 수동 인계를 확인하고 <strong>main CI 배포 → live MCP 확인</strong> 순서로 진행한다.</p>
@@ -1786,10 +1783,10 @@ PILOT-IND는 independence_concern_accepted=true일 때 반대한다.</p>
 <p>현재 남은 실행 한계는 다음과 같다.</p>
 <ul>
 <li>후보 과업 생성은 기존 후보 매칭과 사외 역할 식별을 거친다. 아예 추출하지 못한 후보에게
-LLM 과업을 새로 만드는 범용 계약은 없다. 0.7은 회사 맥락과 이어 읽기를 제공하지만 예시기업 AN처럼 공식 소집공고 전의 소집결의·위임장 자료만으로 새 표결 과업을 만드는 경로는 남아 있다. 회사 거버넌스 검토는 별도 도구로 계속할 수 있다.</li>
+LLM 과업을 새로 만드는 범용 계약은 없다. 0.7은 회사 맥락과 이어 읽기를 제공하지만 가비아처럼 공식 소집공고 전의 소집결의·위임장 자료만으로 새 표결 과업을 만드는 경로는 남아 있다. 회사 거버넌스 검토는 별도 도구로 계속할 수 있다.</li>
 <li>같은 후보 평가의 한 항목이 잘못되면 해당 후보 평가 전체를 거절한다. 항목별 오류 수리와 재수용은 다음 확장이다.</li>
 <li>기존 AGAINST의 추출 오류 교정은 미구현이다. REVIEW도 범위가 식별된 임기·겸직·관계 오류만 교정하며, 법령·표결 제약·다른 미해결 우려는 보존한다.</li>
-<li>기존 제약을 보존하는 것만으로 제약 설명의 정확성까지 확보되지는 않는다. 실제 실행에서 예시기업 AQ의 철회 후보 잔존·좌석 수·조건 인용·안건 묶음 설명과 예시기업 AS 정관 변경 설명의 오류를 확인했다. 관련 조건의 귀속과 문구를 교정하고 영향을 받는 행을 다시 확인해야 한다.</li>
+<li>기존 제약을 보존하는 것만으로 제약 설명의 정확성까지 확보되지는 않는다. 실제 실행에서 고려아연의 철회 후보 잔존·좌석 수·조건 인용·안건 묶음 설명과 골프존홀딩스 정관 변경 설명의 오류를 확인했다. 관련 조건의 귀속과 문구를 교정하고 영향을 받는 행을 다시 확인해야 한다.</li>
 <li>직접 판독한 사업연도의 최신성·후보 귀속·회의 목록 완전성은 사람 미검토 LLM 판단이다.</li>
 <li>자동화는 현재 후보 권고 준비에 한정된다. 집중투표·경합의 표 배분, 실제 계좌·의결권 자격·전송·승인 기록은 연결하지 않았다.</li>
 <li>요청별 설정은 구현했지만 지속적인 고객 정책 상속·활성화·복구와 변경 감지 후 재평가 운영은 남았다.</li>
@@ -2053,7 +2050,7 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 <tr>
 <td><code>0ba36c45</code> 미등기 임원에서 이사로 선임되는 사례</td>
 <td>범위 확장 검증 항목으로 보존</td>
-<td>예시기업 Y 김동춘 사례는 회사 재직기간과 이사회 재직기간을 혼동하지 않는 검증에 가치가 있다. 현재 사내이사는 v2 파일럿 범위 밖이므로 기능을 이번에 넓히지 않는다. 최초 선임·사임 후 재선임·계속 재선임을 구분하는 근거가 필요하다.</td>
+<td>LG화학 김동춘 사례는 회사 재직기간과 이사회 재직기간을 혼동하지 않는 검증에 가치가 있다. 현재 사내이사는 v2 파일럿 범위 밖이므로 기능을 이번에 넓히지 않는다. 최초 선임·사임 후 재선임·계속 재선임을 구분하는 근거가 필요하다.</td>
 </tr>
 <tr>
 <td><code>44ed2923</code> 별도 이사·감사위원 규칙엔진과 활동내역 파서</td>
@@ -2501,31 +2498,31 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </thead>
 <tbody>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004482">예시기업 FP 2026 정기</a>: 정원 상한 11→7명, 실제 예정 인원 8→6명, 이번 후보별 2년·3년 임기와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423">기존 재직자 만료 일정</a>의 결합</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004482">카카오 2026 정기</a>: 정원 상한 11→7명, 실제 예정 인원 8→6명, 이번 후보별 2년·3년 임기와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423">기존 재직자 만료 일정</a>의 결합</td>
 <td>승인 시 만료 일정이 분산될 수 있다는 관찰과 ‘이번에 정관을 3년→3년 이하로 바꿨다’는 주장은 다르다. 주총 전 기존 정관의 정확한 임기 조문은 확보하지 못했다.</td>
 </tr>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312000987">예시기업 CW 2026 정기</a>: 3년 고정에서 3년 상한으로 변경 제안</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312000987">삼성전자 2026 정기</a>: 3년 고정에서 3년 상한으로 변경 제안</td>
 <td>‘조문 정비’라는 제목만으로 주주권 영향 없음으로 분류하지 않는다. 문구 변경과 실제 시차 배정은 별개다.</td>
 </tr>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001098">예시기업 EK 2026 정기</a>: 임기 결정 유연화·정원 상한 12→8명, 실제 예정 인원 7→8명</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260312001098">영원무역 2026 정기</a>: 임기 결정 유연화·정원 상한 12→8명, 실제 예정 인원 7→8명</td>
 <td>정관 상한 축소를 실제 이사회 축소로 바꾸지 않는다. 독립이사 비중 강화도 반대 방향의 근거로 읽는다.</td>
 </tr>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310003081">예시기업 EL 2026 정기</a>: 임기 유연화, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310801901">소집결의</a>의 이번 사외이사 4명은 모두 1년</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310003081">영풍 2026 정기</a>: 임기 유연화, <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310801901">소집결의</a>의 이번 사외이사 4명은 모두 1년</td>
 <td>유연화 가능성만으로 이번에 사외이사 임기를 분산했다고 단정하지 않는다.</td>
 </tr>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001279">예시기업 GE 2026 정기</a>: 이사 3인 이상에서 3~7인으로 상한 신설</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260313001279">태광산업 2026 정기</a>: 이사 3인 이상에서 3~7인으로 상한 신설</td>
 <td>실제 인원이 줄지 않아도 향후 추가 좌석의 여지가 달라질 수 있다. 상한 도입과 임기 분산을 구별한다.</td>
 </tr>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305001616">예시기업 AQ 2026 정기</a>: 집행임원 임기 조항과 5인/6인 조건부 집중투표</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260305001616">고려아연 2026 정기</a>: 집행임원 임기 조항과 5인/6인 조건부 집중투표</td>
 <td>집행임원을 이사로 읽거나 두 조건의 후보·좌석을 합산하지 않는다.</td>
 </tr>
 <tr>
-<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260225005779">예시기업 FW 2026 정기</a>: 기존부터 3년 이내 주총 결정, 집중투표의 대표이사 별도 조 구분 삭제</td>
+<td><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260225005779">KT&amp;G 2026 정기</a>: 기존부터 3년 이내 주총 결정, 집중투표의 대표이사 별도 조 구분 삭제</td>
 <td>기존 문구를 신규 완화로 세지 않고, 선거 분리 장치의 삭제를 분리 신설로 읽지 않는다.</td>
 </tr>
 </tbody>
@@ -2768,7 +2765,7 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </table></div>
 <p>추가 원문 읽기는 DART/KIND 본문에 더해 명시적 DART 정관 첨부 목록·문서 읽기를 지원한다. 접수번호와 첨부 문서 ID의 소속·공개시점을 확인한 뒤 XML을 우선 읽고, 필요하면 검증된 첨부 viewer를 읽는다. 이미지/PDF는 등록된 문서 판독 어댑터로 연결하며, 공급자가 없으면 원본 페이지와 미독 상태를 전달한다. 회사 IR 정관과 공식 판례의 별도 출처 어댑터는 아직 목표 설계다. 임의 웹 URL이나 모델의 출처 주장을 현재 근거 배열에 직접 넣어 확정 사실로 수용하지 않는다.</p>
 <p><strong>사업보고서 첨부를 정관 확보의 우선 경로로 삼는다.</strong> 금융감독원은 사업보고서 필수 첨부서류에 정관을 안내하지만 분·반기보고서의 첨부 안내는 별도로 두므로 모든 정기보고서마다 정관 전문이 들어 있다고 가정하지 않는다. 본문의 ‘정관에 관한 사항’도 전문 첨부와 다르다. <a href="https://dart.fss.or.kr/info/main.do?menu=210">금융감독원 정기공시 안내</a></p>
-<p>공개 원천의 구체적인 반례로 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423">예시기업 FP 2026-03-18 사업보고서</a>의 DART 첨부 목록에는 정관(document ID 11142680)이 있었다. 같은 접수번호의 document.xml ZIP에서는 본문·감사보고서·연결감사보고서 XML 세 개를 확인했으나 별도 정관 XML은 확인하지 못했다. 이는 <strong>ZIP에서 찾지 못한 것과 DART에 없는 것이 다름</strong>을 보여준다. 이번 확인은 목록·ZIP 구성을 대조한 것이며 해당 정관 전문의 판독 완료를 뜻하지 않는다. 기존 <code>get_document</code>의 본문 하나 선택 동작은 유지하고 별도 첨부 읽기를 추가해야 한다.</p>
+<p>공개 원천의 구체적인 반례로 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423">카카오 2026-03-18 사업보고서</a>의 DART 첨부 목록에는 정관(document ID 11142680)이 있었다. 같은 접수번호의 document.xml ZIP에서는 본문·감사보고서·연결감사보고서 XML 세 개를 확인했으나 별도 정관 XML은 확인하지 못했다. 이는 <strong>ZIP에서 찾지 못한 것과 DART에 없는 것이 다름</strong>을 보여준다. 이번 확인은 목록·ZIP 구성을 대조한 것이며 해당 정관 전문의 판독 완료를 뜻하지 않는다. 기존 <code>get_document</code>의 본문 하나 선택 동작은 유지하고 별도 첨부 읽기를 추가해야 한다.</p>
 <p>제안 경로는 <strong>마감 전 사업보고서 선택 → ZIP 구성과 DART 첨부 목록 대조 → 정관 첨부 식별 → 지원 형식 원문 읽기 → 부칙·효력·이후 변경 연결</strong>이다. 첨부 접수번호·문서 ID·공개 날짜·정정 상태를 개별 관리하고 본문의 제출일을 첨부의 확인되지 않은 공개 시점에 대입하지 않는다. 지원하지 않는 첨부 형식과 실제 첨부 부재는 다른 상태로 반환한다.</p>
 <p>정관에는 회사·버전·개정일·시행일·공개 증거·전문/발췌 여부·부칙을 붙인다. 개정안은 가결·시행 증거 없이 현행본으로 승격하지 않는다. 이번 회차의 결과로 사전 현행본을 재구성하지 않는다. 판례에는 사건번호·법원·선고일·공개 증거·심급·불복/확정 확인 상태·관련 조문·판시사항·현재 사안과 다른 사실을 붙인다. 선고일이나 파일 작성일만으로 그 시점에 원문이 공개됐다고 단정하지 않는다. <strong>조사 문서 링크가 있다는 사실은 하네스의 인용 가능한 원문 확보와 다르다.</strong></p>
 <p>전수 정관·판례 DB 구축을 시작 조건으로 삼지 않는다. 실제 판단에 필요한 조항·판례를 요청별로 찾고, 관련 원문이 없으면 그 법 해석·정관 범위에 의존하는 판단만 미확인으로 둔다. 공개 원본 캐시 외에 사용자별 평가 결과를 저장하지 않는 원칙은 유지한다.</p>
@@ -2951,9 +2948,9 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 <p>OCR 원문에는 접근 가능한 공시 공개일을 적용한다. 지금 OCR로 읽었다는 사실은 당시 자료가 알려져 있었다는 증거를 대신하지 않는다. 마감 이후 정정은 같은 과업에 섞지 않으며, 원본이나 판독문·불확실성·공급자 정보가 바뀌면 근거 지문과 과업도 바뀐다. 부분 HTML이 읽히고 일부 이미지만 미독인 문서는 읽힌 구간을 보존한다. 후보 평가와 구조 평가는 같은 인용·불확실성 검사를 사용한다.</p>
 <p><strong>품질 기준:</strong> 일반 문자 인식률보다 판정에 영향을 주는 숫자·부정어·비교 표현·행과 열 귀속을 우선 검증한다. <code>3년</code>/<code>3년 이내</code>, <code>11</code>/<code>7</code>, <code>1명</code>/<code>2명</code>, <code>적용</code>/<code>적용하지 아니한다</code>, <code>변경 전</code>/<code>변경 후</code>를 별도 표본으로 삼는다. 낮은 신뢰도 표시는 재독 단서이고, 높은 신뢰도나 두 모델의 일치가 사실 확인을 대신하지 않는다. 핵심 원문 인용을 유지한 뒤 그 의미를 LLM이 평가한다.</p>
 <p>사용자가 제시한 <a href="https://www.lido.app/kr/mooryo-ocr">Lido 한국어 OCR 비교 글</a>은 공급자 후보 탐색 자료로 참고한다. 글의 업체별 정확도·무료 한도 숫자를 OPM의 실측치로 채택하지 않는다. <a href="https://help.lido.app/en/article/lido-api-quickstart-and-authentication-1py23rs/">Lido 공식 API 안내</a>는 문서 제출 후 작업 결과를 받는 구조화 추출 API와 인증을 설명한다. 어댑터 후보로 연결 가능하지만 페이지별 원문·불확실성 정보를 우리 계약에 맞춰 돌려줄 수 있는지 먼저 확인해야 한다. Lido에 대한 정관 표본 비교나 실제 API 연동은 아직 수행하지 않았다.</p>
-<p><strong>아직 남은 전체 설계:</strong> 공식 판례·법령 원천 수용과 별도 적용 판정, 누락 안건/인물의 출처 기반 등록, 역할을 구별한 여러 선출 풀의 좌석 대조, 미사용 정기/임시 표본과 다른 판단 LLM의 독립 품질 비교, 운영용 문서 판독기 연결과 배포. OCR 공급자 교체는 아래 예시기업 FP 동일 표본에서 추가 확인했으며, 독립 홀드아웃 검증과 분리한다.</p>
+<p><strong>아직 남은 전체 설계:</strong> 공식 판례·법령 원천 수용과 별도 적용 판정, 누락 안건/인물의 출처 기반 등록, 역할을 구별한 여러 선출 풀의 좌석 대조, 미사용 정기/임시 표본과 다른 판단 LLM의 독립 품질 비교, 운영용 문서 판독기 연결과 배포. OCR 공급자 교체는 아래 카카오 동일 표본에서 추가 확인했으며, 독립 홀드아웃 검증과 분리한다.</p>
 <h5 id="detail-5c7056a5e251">이미지 정관의 실제 MCP 연결 검증</h5>
-<p>2026-09-10 로컬 Streamable HTTP의 <code>proxy_advise_before_meeting</code>에서 예시기업 FP 2026-03-26 정기주총을 대상으로 새 경로를 검증했다. 정보 마감은 <code>2026-03-26T00:00:00+09:00</code>, 날짜만 확인된 자료의 허용일은 2026-03-25다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004482">소집공고</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423&amp;dcmNo=11142680">사업보고서의 정관 첨부</a>를 읽었다. 전체 이전 파일럿 재실행이 아니라 이미지 정관·정원·임기 연결 6개 안건의 표적 검증이다.</p>
+<p>2026-09-10 로컬 Streamable HTTP의 <code>proxy_advise_before_meeting</code>에서 카카오 2026-03-26 정기주총을 대상으로 새 경로를 검증했다. 정보 마감은 <code>2026-03-26T00:00:00+09:00</code>, 날짜만 확인된 자료의 허용일은 2026-03-25다. <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260311004482">소집공고</a>와 <a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260318001423&amp;dcmNo=11142680">사업보고서의 정관 첨부</a>를 읽었다. 전체 이전 파일럿 재실행이 아니라 이미지 정관·정원·임기 연결 6개 안건의 표적 검증이다.</p>
 <ul>
 <li>정관은 <strong>이미지 12쪽</strong>이었다. 로컬 Apple Vision 판독기를 선택적 어댑터로 연결해 읽고, 원본 페이지 해시와 판독문·불확실 구간을 별도로 반환했다. 이 공급자는 로컬 검증 구성이고 운영 서버에 설치·배포한 것이 아니다.</li>
 <li>정관 7쪽 제23조는 기존 최대 정원이 11인임을, 8쪽 제25조는 이미 임기를 <strong>주주총회가 정하는 3년 이내</strong>로 두고 있음을 보여준다. 2026년에 고정 3년을 새로 상한 3년으로 바꿨다는 주장을 하지 않는다. 8쪽의 흐릿한 조항 번호는 불확실 구간으로 남기고 명확한 임기 문장과 구별했다.</li>
@@ -2982,7 +2979,7 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </tr>
 <tr>
 <td>LLM 판단</td>
-<td>예시기업 FP 6개 안건에서 구조 과업 제출→검증→기존 후보 권고와 합성</td>
+<td>카카오 6개 안건에서 구조 과업 제출→검증→기존 후보 권고와 합성</td>
 <td>다른 회사·회차의 판단 품질, 후보 미평가 항목 보완</td>
 </tr>
 <tr>
@@ -2998,7 +2995,7 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </tbody>
 </table></div>
 <p><strong>2026-09-10 · Astra. 결론:</strong> 한국어 General OCR과 API Gateway를 연결하고, 실제 로컬 HTTP MCP의 정관 읽기 경로에서 <strong>12쪽 모두 판독</strong>했다. 기존 Apple Vision 결과와 <strong>12개 원본 이미지 해시가 모두 동일</strong>했다. 정원·임기 핵심 문장은 유지됐고, 조항 번호·문장 순서에서는 개선을 확인했다. CLOVA에도 별도 오독이 있어 공급자 하나를 정답으로 고정하지 않는다.</p>
-<p>검증 원천·회차·마감은 위 예시기업 FP 정기주총 표본과 같다. <code>register_visual_reader</code>에 로컬 CLOVA 연결기를 등록하고 <code>V2</code>, 한국어, 글자 추출만 요청했다. 이 표본의 API 요청은 12회로 제한했고 자동 재시도는 사용하지 않았다. 응답 확인을 위한 후속 MCP 호출은 동일 이미지 해시에 연결된 메모리 내 판독문을 재사용했다. 최종 MCP 응답은 <code>model_read_unreviewed</code>, 공급자 식별자, 쪽별 출처·원본 해시·불확실 구간을 포함했다. <a href="https://api.ncloud-docs.com/docs/ai-application-service-ocr-ocr">General OCR 공식 요청·응답 계약</a>을 사용했으며 운영 서버에는 배포하지 않았다.</p>
+<p>검증 원천·회차·마감은 위 카카오 정기주총 표본과 같다. <code>register_visual_reader</code>에 로컬 CLOVA 연결기를 등록하고 <code>V2</code>, 한국어, 글자 추출만 요청했다. 이 표본의 API 요청은 12회로 제한했고 자동 재시도는 사용하지 않았다. 응답 확인을 위한 후속 MCP 호출은 동일 이미지 해시에 연결된 메모리 내 판독문을 재사용했다. 최종 MCP 응답은 <code>model_read_unreviewed</code>, 공급자 식별자, 쪽별 출처·원본 해시·불확실 구간을 포함했다. <a href="https://api.ncloud-docs.com/docs/ai-application-service-ocr-ocr">General OCR 공식 요청·응답 계약</a>을 사용했으며 운영 서버에는 배포하지 않았다.</p>
 <p>12쪽 전체의 공백을 제외한 판독문 차이를 확인하고, 아래 의미상 중요한 사례는 <strong>5·7·8·10쪽 원본 이미지에 대해 Astra가 직접 대조</strong>했다. 사람 검토나 전 문자 정답 전사를 수행한 것은 아니다.</p>
 <div class="table-scroll"><table>
 <thead>
@@ -3056,14 +3053,14 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 </table></div>
 <p><strong>하네스에 반영할 운영 기준:</strong> OCR은 근거를 읽는 교체 가능한 도구다. 숫자·상한 표현·부정어·항 번호·문장 순서가 판단을 좌우하면 그 구간을 원본 이미지와 함께 LLM에 제공한다. 다른 판독과의 불일치, 끊긴 문장, 누락된 번호는 재독 단서로 삼고 두 결과를 단순 다수결로 합치지 않는다. 완전히 누락된 글자는 신뢰도 점수 자체가 없을 수 있으므로 낮은 점수 검사만으로 누락을 검출했다고 말하지 않는다. 재독해도 불명확하면 영향을 받는 기준만 제외하고 사유를 알린 뒤 다른 기준의 판단은 계속한다.</p>
 <p>이번 연결기는 파일럿 임계값 <code>inferConfidence &lt; 0.95</code>를 246개 토큰 구간에 표시했다. <strong>246은 오독 수가 아니며 0.95는 검증된 정확도 기준이 아니다.</strong> 핵심 정원·임기 문장에는 해당 표시가 없었고, 같은 쪽의 다른 저신뢰 토큰이 그 문장까지 무효화하지 않도록 구간을 보존했다. 누락 탐지와 선택적 재독을 자동 계획하는 별도 조정기는 이번 파일럿에서 구현한 것으로 간주하지 않는다.</p>
-<p>완료 범위는 <strong>서비스 설정 → 실제 OCR 호출 → 기존 MCP 근거 계약 수용 → 동일 표본 비교</strong>다. 이번에는 새로운 구조 판단을 제출하지 않았으므로 권고 변화율·안건 정확도·회차 전체 완료로 계산하지 않는다. 기존 예시기업 FP 6개 구조 판단의 결과와도 별도로 기록한다. 미사용 회사/문서, 이미지 PDF 전체, 표의 행·열 구조, 다중 공급자 자동 재독, 운영 배포는 남아 있다. API 키와 개별 결과 파일은 저장소·생성 HTML에 포함하지 않는다.</p>
+<p>완료 범위는 <strong>서비스 설정 → 실제 OCR 호출 → 기존 MCP 근거 계약 수용 → 동일 표본 비교</strong>다. 이번에는 새로운 구조 판단을 제출하지 않았으므로 권고 변화율·안건 정확도·회차 전체 완료로 계산하지 않는다. 기존 카카오 6개 구조 판단의 결과와도 별도로 기록한다. 미사용 회사/문서, 이미지 PDF 전체, 표의 행·열 구조, 다중 공급자 자동 재독, 운영 배포는 남아 있다. API 키와 개별 결과 파일은 저장소·생성 HTML에 포함하지 않는다.</p>
 <h5 id="detail-cc15e39004af">구현 순서와 통과 기준</h5>
 <p><strong>실행 계획 · 2026-09-10 · Astra.</strong> 사용자가 상세 설계에 따른 구현과 이미지 정관의 OCR 가능성을 반영하도록 요청했다. 기존 XML 우선 원칙을 유지하면서 이미지 판독은 원본과 분리된 모델/문서 읽기 어댑터로 연결한다. 기존 문서의 ‘PDF/OCR 미지원’ 문구는 이전 상태를 설명하며 이번 확장에서 아래 범위로 보완한다. 평가를 실제 투표로 전송하거나 실행 결과를 저장하지 않는다.</p>
 <ul>
 <li>[x] <strong>E1 정관 원문·이미지 읽기:</strong> <code>services/charter_documents.py</code>에 첨부 목록과 명시적 문서 읽기를 추가한다. 입력은 접수번호·첨부 문서 ID·마감이며 출력은 원문/이미지 위치·해시·공개시점·읽기 상태다. <code>tests/test_charter_documents.py</code>에서 다른 접수번호, 마감 뒤 첨부, XML ZIP 누락과 첨부 부재의 구별, 이미지 전용 문서, OCR 판독의 출처·불확실성 연결을 먼저 실패시킨 뒤 구현한다. OCR 공급자가 없으면 <code>needs_visual_reading</code>으로 반환하고 다른 판단은 계속한다.</li>
 <li>[x] <strong>E2 구조 평가 계약:</strong> <code>services/election_structure.py</code>와 전용 회귀 검증에서 출처가 있는 조문·선거·임기·효과·누락·정책 판단을 수용한다. 반대 방향 조문, 계속 재직 감사위원, 동일 선출 풀 내부 후보 중복·불가능한 자리 수, 미확인 임기와 명시적 충돌을 각각 검증한다. 모델의 문구 해석을 문자열 재파서로 대체하지 않는다.</li>
 <li>[x] <strong>E3 실제 워크플로우 연결:</strong> <code>guideline_harness.py</code>, <code>harness/runner.py</code>, <code>guideline_workflow.py</code>, MCP facade에서 구조 과업과 제출·원문 읽기를 후보 계약 옆에 연결한다. <code>test_guideline_harness.py</code>와 <code>test_voting_harness_runner.py</code>에서 모델 교체·변경 근거 무효화·오류 격리·자동/일부 수동/수동을 확인한다. 새 계약 미지원은 명시하고 기존 후보 입력을 깨지 않는다.</li>
-<li>[x] <strong>E4 실제 원문·HTTP 검증:</strong> 예시기업 FP 정관 첨부를 우선 읽어 원문과 이미지 여부를 확인하고, 선출 구조 과업 수신→LLM 판독 제출→최종 JSON/Markdown 권고를 실제 로컬 MCP로 확인한다. 추가 회차는 서로 다른 구조 반례만 선택한다. 전체 기존 파이프라인을 재실행하지 않는다.</li>
+<li>[x] <strong>E4 실제 원문·HTTP 검증:</strong> 카카오 정관 첨부를 우선 읽어 원문과 이미지 여부를 확인하고, 선출 구조 과업 수신→LLM 판독 제출→최종 JSON/Markdown 권고를 실제 로컬 MCP로 확인한다. 추가 회차는 서로 다른 구조 반례만 선택한다. 전체 기존 파이프라인을 재실행하지 않는다.</li>
 <li>[x] <strong>문서·출시 경계:</strong> 생성되는 스키마·MCP 입력 설명·지원 상태를 구현 결과와 맞춘다. 회귀 검사와 위키·카탈로그 검사를 통과시킨 뒤 확인된 범위와 남은 독립 품질 검증을 기록한다. 이번 요청에는 커밋·푸시·운영 배포가 포함되지 않는다.</li>
 </ul>
 <p>OCR/시각 판독 제출은 원문 문서 해시·페이지 또는 이미지 해시·영역·추출 텍스트·공급자·불확실한 구간을 가진다. 기계적으로 수용한 OCR 텍스트는 사람 확인 원문으로 승격하지 않는다. ‘3년/3년 이하’, 부정어, 의결권 비율 등 핵심 구간이 불명확하면 그 구간의 숫자·효과를 확정하지 않고 재판독 또는 해당 기준의 미확인으로 처리한다. 모델이 원본 이미지를 직접 읽는 경로도 같은 계약을 따른다.</p>
@@ -3118,7 +3115,7 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 <p>현재 후보 하네스는 독립·사외이사와 관련 감사위원 선임의 v2 평가 경로를 감싼다. 다른 안건은 기존 엔진을 따르고, 회사 차원의 <code>governance_screen</code> 호출·분쟁 추적은 별도 워크플로다. 이 Appendix는 그 도구까지 동일한 시점 하네스로 자동 연결했다고 주장하지 않는다.</p>
 <p>11회차 대조에서 실제 오류와 놓친 자료를 찾았고, 추가 공시 탐색·원문 교체·영향받은 과업 재평가를 일반 실행 경로에 넣었다. 현재 확인한 안건 구조·설명 오류와 공개 관계 해석의 미확정을 먼저 대조·교정하고, <strong>새 표본·다른 실제 모델·보수적 설정에서도 필요한 자료를 찾아 읽고 사실 귀속과 스킵 분류를 일관되게 적용하는지</strong> 확인한다. 코드 검사와 평가 수용률을 판단 정확도 대신 쓰지 않는다. 당시 기관 정책 재현, 모든 원천의 시점·내용 완전성, 자동 의미 검증, 운영 배포 역시 별도로 확인해야 한다.</p>
 <p>실행 결과는 호출자에게 반환한다. 서버가 평가 원문을 저장하거나 공개 저장소에 사용자 조회·평가 내용을 남기지 않는다. 공개 문서에는 허용된 공개 근거·집계·오류 유형을 정리하며, 정성 평가는 계속 <strong>LLM 평가 · 사람 미검토</strong>로 표시한다.</p>
-</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: 238c02c48f4b839e04a7b4caffcc36fd4f522802b071910562dc24e21afc4dfc<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div><script>
+</article><footer>이 HTML은 정본 Markdown과 현재 정책·평가 스키마에서 생성한 읽기용 문서입니다. 운영 배포나 후보 재평가를 뜻하지 않습니다.<br>정본 SHA-256: 79c86394f84d5a9dcb2a2a650353ab9064c36dd48f9e8603326af597b8a66352<br>재생성: scripts/render_guideline_spec.py · <a href="manifest.json">생성 명세</a></footer></main></div><script>
 (() => {
   const article = document.getElementById('document-body');
   const controls = document.querySelector('.document-controls');

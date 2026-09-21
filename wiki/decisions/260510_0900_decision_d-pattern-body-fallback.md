@@ -9,8 +9,6 @@ related_lessons: [agenda-hierarchy-260510, law-layer-body-260510, subagenda-mapp
 
 # Decision — D 패턴 amendments body fallback
 
-> 예시기업 표기는 익명 사례입니다. 호출 예시에서는 실제 회사명·식별자로 바꾸세요. [표기 기준](../wiki_schema.md)
-
 ## 결정
 
 `_law_layer` title 매칭 fallback으로 amendments raw body 매칭을 추가한다. 단 D 패턴 (정관변경 top + children 0 + amendments 있음) 한정.
@@ -26,7 +24,7 @@ DART 정기주총 소집공고 안건 표기 패턴:
 | C | "4호 집중투표 배제 조항 제거" | _law_layer (title) |
 | **D** | "2호 정관 일부 변경의 건" + sub 0 | **_law_layer_body (amendments)** |
 
-D 패턴 회사 (예시기업 EG / 예시기업 EB / 예시기업 BY 등)는 변경 내용이 amendments[].label/clause/before/after에만 존재 — title 매칭 catch 불가.
+D 패턴 회사 (에코프로비엠 / 에스엠 / 메리츠금융지주 등)는 변경 내용이 amendments[].label/clause/before/after에만 존재 — title 매칭 catch 불가.
 
 ## 안전장치
 
@@ -42,7 +40,7 @@ A1-1 + A1-7에 body_pattern 추가 — raw 본문이 법령 정합 표현 (적�
 
 ## 비목표 (제외)
 
-- 예시기업 FQ 같은 sub-agenda 있고 sub title 일반 표현 회사 — D 패턴 X, 별도 architect 필요
+- 카카오게임즈 같은 sub-agenda 있고 sub title 일반 표현 회사 — D 패턴 X, 별도 architect 필요
 - 모든 회사 amendments 통합 매칭 — sub-agenda 가 명확한 회사에서 false positive 가 난다
 - title 매칭 패턴 보강 (회귀 위험)
 
@@ -53,10 +51,10 @@ A1-1 + A1-7에 body_pattern 추가 — raw 본문이 법령 정합 표현 (적�
 
 ## 검증
 
-- 4 미매치 회사 중 D 패턴 3개 catch (예시기업 EG A1-1 / 예시기업 EB A1-5 / 메리츠 A1-7)
-- 예시기업 Y regression 0 (children > 0이라 D 진입 X)
+- 4 미매치 회사 중 D 패턴 3개 catch (에코프로비엠 A1-1 / 에스엠 A1-5 / 메리츠 A1-7)
+- LG화학 regression 0 (children > 0이라 D 진입 X)
 
 ## 후속
 
-- 예시기업 FQ 같은 sub-agenda 일반 표현 회사 처리 — 별도 ralph
+- 카카오게임즈 같은 sub-agenda 일반 표현 회사 처리 — 별도 ralph
 - 다른 룰 (A1-2 / A1-8 / B1-x) body_pattern 추가

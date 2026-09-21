@@ -1,7 +1,5 @@
 # Ownership Map
 
-> Company examples are masked. Replace example names with actual company names or identifiers when calling tools. [Naming policy](../../../wiki/wiki_schema.md)
-
 **Who holds how much of the company** — largest shareholder and related parties, 5%+ bulk holders, and treasury shares, on one page. The point is the **real size of control**: whether the largest shareholder controls comfortably, or the vote is tight against an external force.
 
 ## What it answers
@@ -15,9 +13,9 @@
 
 ## Ask it like this
 
-> "Show me Example Company AL's ownership structure and largest shareholder"
+> "Show me SK Hynix's ownership structure and largest shareholder"
 >
-> "Any recent ownership changes at Example Company AQ?"
+> "Any recent ownership changes at Korea Zinc?"
 
 ## See also
 
