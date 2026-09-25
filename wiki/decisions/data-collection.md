@@ -26,7 +26,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 
 1. DART OpenAPI — `https://opendart.fss.or.kr/api/...`
 2. KRX Open API — `https://data-dbg.krx.co.kr/svc/apis/...` (주가 fallback)
-3. Naver 검색 OpenAPI — `https://openapi.naver.com/v1/search/...`
+3. Naver 검색 API — `https://naverapihub.apigw.ntruss.com/search/v1/...`(HUB, 우선) · `https://openapi.naver.com/v1/search/...`(개발자센터, 2027-06-30 까지)
 4. Naver Finance JSON — `https://api.finance.naver.com/...`
 
 ### B. HTML 크롤링 (반정형)
@@ -380,10 +380,16 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 
 ## 4.1 Naver 뉴스 검색 OpenAPI
 
-- Endpoint: `https://openapi.naver.com/v1/search/news.json`
 - 호출 위치: `DartClient.news_search(query, display=100, sort)`
-- 헤더: `X-Naver-Client-Id`, `X-Naver-Client-Secret`
-- 환경변수: `NAVER_SEARCH_API_CLIENT_ID`, `NAVER_SEARCH_API_CLIENT_SECRET`
+- 키 짝마다 주소·헤더가 묶여 있다. 두 키는 서로의 방식에서 401 이라 바꿔 끼울 수 없다(260820 실측).
+
+| 우선 | 환경변수 | Endpoint | 헤더 |
+|---|---|---|---|
+| 1 | `NAVER_API_HUB_CLIENT_ID`, `NAVER_API_HUB_CLIENT_SECRET` | `https://naverapihub.apigw.ntruss.com/search/v1/news` | `X-NCP-APIGW-API-KEY-ID`, `X-NCP-APIGW-API-KEY` |
+| 2 | `NAVER_SEARCH_API_CLIENT_ID`, `NAVER_SEARCH_API_CLIENT_SECRET` | `https://openapi.naver.com/v1/search/news.json` (2027-06-30 까지) | `X-Naver-Client-Id`, `X-Naver-Client-Secret` |
+
+- 두 짝 모두 없으면(한쪽 반만 있어도) 호출하지 않고 `[]`. 응답 items 필드는 둘이 같다.
+- 260926: 종전 코드는 2번 키 이름을 읽어 1번 주소로 보내 **늘 401 → 조용히 `[]`** 였다.
 - 파라미터: `query`(필수), `display`(최대 100), `sort`(date/sim)
 - 사용 tool: `news_check`(v1) — 이사·감사 후보자 부정 뉴스 (33 키워드 필터, 11개 일간지 우선)
 - v2 통합 상태: 미통합. value_brief / vote_brief 매트릭스의 `adverse_news` dim은 manual
@@ -873,8 +879,8 @@ DB 쪽 필터만 걸어서 `str(None)`="None" 이 65,500건짜리 가짜 범주�
 | `OPENDART_API_KEY` | DART OpenAPI 1차 키 | 필수 (또는 ?opendart=...) |
 | `OPENDART_API_KEY_2` | DART API 보조 키 (자동 회전) | 권장 |
 | `KRX_API_KEY` 또는 `KRX_OPEN_API_KEY` | KRX Open API 종가 | 선택 (미설정 시 Naver fallback) |
-| `NAVER_SEARCH_API_CLIENT_ID` | Naver 뉴스 API client id | 선택 (news_check 사용 시) |
-| `NAVER_SEARCH_API_CLIENT_SECRET` | Naver 뉴스 API client secret | 선택 |
+| `NAVER_API_HUB_CLIENT_ID` / `NAVER_API_HUB_CLIENT_SECRET` | Naver 뉴스 검색 HUB 키 (우선) | 선택 (director_news 사용 시) |
+| `NAVER_SEARCH_API_CLIENT_ID` / `NAVER_SEARCH_API_CLIENT_SECRET` | Naver 개발자센터 키 — HUB 키가 없을 때만, 2027-06-30 까지 | 선택 |
 | `FASTMCP_HOST`, `FASTMCP_PORT` | streamable-http 호스트/포트 | 선택 |
 | `FASTMCP_ALLOWED_HOSTS` | DNS rebinding 허용 호스트 | 선택 |
 

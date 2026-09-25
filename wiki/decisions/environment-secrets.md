@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: 환경변수·시크릿 — 필요한 키 목록 + 설정 위치
-updated: 2026-07-04
+updated: 2026-09-26
 ---
 
 # 환경변수·시크릿
@@ -32,7 +32,8 @@ fly.toml `[env]`에는 경로 같은 **비밀 아닌 설정**만 둔다. API 키
 | `FASTMCP_HOST` / `FASTMCP_PORT` / `FASTMCP_ALLOWED_HOSTS` | 바인드 주소·포트·허용 호스트 (`run_beta.sh`) | 로컬 | — |
 | `OPM_CAPTURE_DIR` | 요청·응답 전문 캡처(로컬 시험용, 배포 금지) | 로컬 | — |
 | `OPM_DOC_CACHE_MB`·`OPM_DIVIDEND_CACHE_MB`·`OPM_DOC_DISK_CACHE_MB`·`OPM_DOC_DISK_SWEEP_MB`·`OPM_CACHE_HIGH_RATIO`·`OPM_CACHE_LOW_RATIO`·`OPM_DOC_CONCURRENCY`·`OPM_DOC_GATE_WAIT_SEC`·`OPM_DOC_CONCURRENCY_PER_KEY`·`OPM_CLIENT_MAX`·`OPM_CLIENT_IDLE_SEC`·`OPM_PG_POOL_MAX/MIN/TIMEOUT/RETRY_SEC`·`OPM_SCAN_CACHE_TTL_SEC`·`OPM_SCAN_CACHE_CLOSED_SEC` | 캐시·동시성·풀 튜닝 노브. 기본값은 코드(`dart/client.py`·`db.py`·`services/screener.py`) | 선택 | — |
-| `NAVER_SEARCH_API_CLIENT_ID` / `..._SECRET` | 네이버 검색(뉴스 체크) | 선택 | developers.naver.com |
+| `NAVER_API_HUB_CLIENT_ID` / `..._SECRET` | 네이버 뉴스 검색(`director_news`) — HUB 키, 우선 | 선택 | NAVER API HUB |
+| `NAVER_SEARCH_API_CLIENT_ID` / `..._SECRET` | 같은 검색의 개발자센터 키. HUB 키가 없을 때만 쓰며 2027-06-30 까지. 두 키는 서로 바꿔 끼울 수 없다 | 선택 | developers.naver.com |
 | `DATABASE_URL` | 내부 데이터 저장소(Postgres) — 사전 수집·집계본 서빙 | 배치·통계·DB 기반 scope 필수 | (자체 구성) |
 | `KRX_API_KEY` | KRX_OPEN_API_KEY 와 같은 키의 별칭 (`services/price_multiple_data.py`·`trading.py` 가 둘 다 본다) | — | — |
 
