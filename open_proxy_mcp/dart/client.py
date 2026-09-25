@@ -3069,22 +3069,27 @@ class DartClient:
             # Current snippets are not immutable historical article versions.
             note_strict_exclusion("news_search", reason="unversioned_source")
             return []
-        client_id = os.getenv("NAVER_SEARCH_API_CLIENT_ID")
-        client_secret = os.getenv("NAVER_SEARCH_API_CLIENT_SECRET")
-        if not client_id or not client_secret:
+        # 260820: 검색 API 제공처가 도메인·경로·헤더를 **셋 다** 바꿨다. 키도 두 종류라 서로
+        # 바꿔 끼울 수 없다 — HUB 키는 구 방식에서, 개발자센터 키는 HUB 에서 401 이다(실측).
+        # 260926: 종전엔 개발자센터 키 이름을 읽어 HUB 로 보내서 **늘 401 → 조용히 []** 였다.
+        # 그래서 키 짝마다 주소·헤더를 묶어 둔다. HUB 우선, 개발자센터는 2027-06-30 까지만.
+        # 응답 items 필드(title·originallink·link·description·pubDate)는 둘이 같아 파서는 유지.
+        hub_id = os.getenv("NAVER_API_HUB_CLIENT_ID")
+        hub_secret = os.getenv("NAVER_API_HUB_CLIENT_SECRET")
+        dev_id = os.getenv("NAVER_SEARCH_API_CLIENT_ID")
+        dev_secret = os.getenv("NAVER_SEARCH_API_CLIENT_SECRET")
+        if hub_id and hub_secret:
+            url = "https://naverapihub.apigw.ntruss.com/search/v1/news"
+            headers = {"X-NCP-APIGW-API-KEY-ID": hub_id, "X-NCP-APIGW-API-KEY": hub_secret}
+        elif dev_id and dev_secret:
+            url = "https://openapi.naver.com/v1/search/news.json"
+            headers = {"X-Naver-Client-Id": dev_id, "X-Naver-Client-Secret": dev_secret}
+        else:
             logger.warning("[뉴스 검색] API 키가 설정되지 않았습니다")
             return []
 
         await self._throttle_api()
-        # 260820: 검색 API 제공처가 도메인·경로·헤더를 **셋 다** 바꿨다(옛 주소·헤더는 새 키로 401).
-        # 구 방식은 2027-06-30 까지만 지원되고, HUB 키로는 구 방식이 아예 401 이다(실측).
-        # 응답 items 필드(title·originallink·link·description·pubDate)는 그대로라 파서는 유지.
-        url = "https://naverapihub.apigw.ntruss.com/search/v1/news"
         params = {"query": query, "display": display, "sort": sort}
-        headers = {
-            "X-NCP-APIGW-API-KEY-ID": client_id,
-            "X-NCP-APIGW-API-KEY": client_secret,
-        }
 
         try:
             resp = await self._http.get(url, params=params, headers=headers, timeout=15)

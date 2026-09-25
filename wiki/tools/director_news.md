@@ -7,7 +7,7 @@ data_source: [네이버 뉴스 검색 API]
 related_disclosures: [주주총회소집공고]
 related_concepts: []
 created: 2026-08-20
-updated: 2026-08-25
+updated: 2026-09-26
 ---
 
 # director_news
@@ -23,6 +23,7 @@ updated: 2026-08-25
 ## 사용법
 - `director_news(name, ...)` — 후보 이름으로 검색하고 부정 키워드에 걸린 기사를 추린다.
 - 키워드 목록은 `open_proxy_mcp/data/news/director_news_keywords.json` 에 있다.
+- 서버 키로 부른다 — 네이버 HUB 키 우선, 없으면 개발자센터 키(환경변수는 [[environment-secrets]]). 둘 다 없거나 호출이 실패하면 받은 기사 0건과 함께 경고(「키 미설정 또는 호출 실패」)가 붙는다 — 「부정 뉴스 없음」으로 읽지 않는다.
 
 ## 하지 않는 것
 찬반을 정하지 않는다. **기사를 추려 주는 데까지가 계약이다** — 동명이인 여부와 사실 확인은

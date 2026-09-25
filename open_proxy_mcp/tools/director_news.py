@@ -1,7 +1,8 @@
 """director_news public tool — 이사·감사 후보 부정 뉴스 검색.
 
 **우리 키로 부른다.** 사용자는 키를 넣지 않고, 키는 서버 환경변수에만 있다
-(`NAVER_SEARCH_API_CLIENT_ID`/`_SECRET` 환경변수). 응답에 키를 싣지 않는다.
+(`NAVER_API_HUB_CLIENT_ID`/`_SECRET` 우선, 없으면 개발자센터 키
+`NAVER_SEARCH_API_CLIENT_ID`/`_SECRET` — 2027-06-30 까지). 응답에 키를 싣지 않는다.
 그래서 한도(일 25,000 · 월 775,000)는 전 사용자가 나눠 쓴다 — 호출당 1회로 묶고
 `limit` 상한을 둔 이유다.
 
