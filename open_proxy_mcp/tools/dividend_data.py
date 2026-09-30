@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import krw_short as _won_short
 from open_proxy_mcp.services import dividend_data as dd
 from open_proxy_mcp.tools._shared import raw_cell
 
@@ -39,17 +40,6 @@ def _won(v: Any) -> str:
         return f"{n / 1e12:,.2f}조원 ({n:,.0f}원)"
     if abs(n) >= 1e8:
         return f"{n / 1e8:,.0f}억원 ({n:,.0f}원)"
-    return f"{n:,.0f}원"
-
-
-def _won_short(v: Any) -> str:
-    if v is None:
-        return "-"
-    n = float(v)
-    if abs(n) >= 1e12:
-        return f"{n / 1e12:,.2f}조원"
-    if abs(n) >= 1e8:
-        return f"{n / 1e8:,.0f}억원"
     return f"{n:,.0f}원"
 
 

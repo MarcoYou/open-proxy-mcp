@@ -21,6 +21,7 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/test.yml'
+      - '.github/actions/python-checks/**'
   pull_request:
     paths:
       - 'open_proxy_mcp/**'
@@ -40,18 +41,11 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       - '.github/workflows/test.yml'
+      - '.github/actions/python-checks/**'
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
-        with:
-          version: "0.12.13"  # 260909 CI 실패 방지 — 정확한 버전은 버전 목록 조회를 건너뛴다. 올릴 때 9개 워크플로 함께
-      - name: Install dependencies
-        run: uv sync --dev
-      - name: Check tool catalog
-        run: uv run python scripts/check_tool_catalog.py
-      - name: Run unit and regression tests
-        run: uv run pytest -q
+      - uses: ./.github/actions/python-checks

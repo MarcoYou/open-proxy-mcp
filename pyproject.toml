@@ -37,3 +37,8 @@ testpaths = ["tests"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# Historical voting records remain in source control for offline research.
+# Runtime policies/matrices and all other package data are still bundled.
+[tool.hatch.build.targets.wheel]
+exclude = ["open_proxy_mcp/data/asset_managers/records/**"]

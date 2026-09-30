@@ -1,0 +1,29 @@
+name: Python checks
+description: Shared dependency install, catalog, and regression checks
+inputs:
+  documentation:
+    description: Run the full documentation release gate before tests
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v7
+      with:
+        version: "0.12.13"
+    - name: Install dependencies
+      shell: bash
+      run: uv sync --dev
+    - name: Check tool catalog
+      shell: bash
+      run: uv run python scripts/check_tool_catalog.py
+    - name: Documentation release gate
+      if: inputs.documentation == 'true'
+      shell: bash
+      run: |
+        uv run python scripts/gen_index.py --check
+        uv run python scripts/wiki_lint.py --strict
+        uv run python scripts/check_documentation_contract.py
+        uv run python scripts/output_vocab_lint.py
+    - name: Run unit and regression tests
+      shell: bash
+      run: uv run pytest -q
