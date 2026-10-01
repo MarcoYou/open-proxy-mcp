@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import krw_with_raw as _won
 from open_proxy_mcp.services.order_contracts import build_order_contracts_payload
 
 
@@ -28,18 +29,6 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
     for item in data.get("candidates", []):
         lines.append(f"| {item.get('corp_name', '')} | `{item.get('ticker', '')}` | `{item.get('corp_code', '')}` |")
     return "\n".join(lines)
-
-
-def _won(n: int | None) -> str:
-    """금액 → '환산 (raw원)' 병기. 환산 절삭 보완 위해 정밀 raw 괄호 노출. 1억 미만은 raw만."""
-    if not n:
-        return "-"
-    raw = f"{n:,}원"
-    if n >= 1_0000_0000_0000:  # 1조
-        return f"{n/1_0000_0000_0000:.2f}조원 ({raw})"
-    if n >= 1_0000_0000:  # 1억
-        return f"{n/1_0000_0000:,.0f}억원 ({raw})"
-    return raw
 
 
 def _pct(v) -> str:

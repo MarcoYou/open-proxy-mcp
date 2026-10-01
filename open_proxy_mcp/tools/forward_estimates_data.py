@@ -6,6 +6,7 @@ from typing import Any
 
 from open_proxy_mcp.services import forward_estimates as _fe
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import krw_short as _won
 from open_proxy_mcp.services.forward_estimates import (build_forward_estimates_payload,
                                                       build_revision_screen_payload)
 
@@ -26,18 +27,6 @@ _RANK_MIN_OP_EOK = _fe._REV_RANK_MIN_OP // 10**8   # 억원 단위 — 문구가
 
 
 _PERIOD_KO = {"FY": "연간", "Q": "분기", "all": "연간+분기"}
-
-def _won(v: Any) -> str:
-    """원 단위 정수를 사람이 읽는 자로. **자를 문구에 붙여** 숫자만 떼어가지 못하게 한다."""
-    if v is None:
-        return "-"
-    n = float(v)
-    if abs(n) >= 1e12:
-        return f"{n / 1e12:,.2f}조원"
-    if abs(n) >= 1e8:
-        return f"{n / 1e8:,.0f}억원"
-    return f"{n:,.0f}원"
-
 
 def _num(v: Any, suffix: str = "", fmt: str = "{:,.2f}") -> str:
     return fmt.format(v) + suffix if v is not None else "-"

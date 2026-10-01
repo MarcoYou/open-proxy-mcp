@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.tools._shared import krw_with_raw as _won
 from open_proxy_mcp.tools._shared import company_id_line, raw_cell
 from open_proxy_mcp.services.dividend import build_dividend_payload
 
@@ -41,19 +42,6 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
     for item in data.get("candidates", []):
         lines.append(f"| {item['corp_name']} | `{item['ticker']}` | `{item['corp_code']}` | `{item['company_id']}` |")
     return "\n".join(lines)
-
-
-def _won(n) -> str:
-    """금액 → '환산 (raw원)' 병기. 환산은 절삭이 있어 정밀 raw를 괄호로 같이 노출.
-    1억 미만은 절삭이 없어 raw만. treasury·dividend·order_contracts·proxy_advise 공통 정책."""
-    if not n:
-        return "-"
-    raw = f"{n:,}원"
-    if n >= 1_0000_0000_0000:  # 1조
-        return f"{n/1_0000_0000_0000:.2f}조원 ({raw})"
-    if n >= 1_0000_0000:  # 1억
-        return f"{n/1_0000_0000:,.0f}억원 ({raw})"
-    return raw
 
 
 def _fiscal_meta_line(summary: dict[str, Any], data: dict[str, Any]) -> str:

@@ -22,3 +22,6 @@ open-proxy-mcp/raw/references/*.pdf
 dist/
 build/
 DEVLOG.md
+
+# Historical research records are not read by the runtime. Keep repository originals.
+open_proxy_mcp/data/asset_managers/records/

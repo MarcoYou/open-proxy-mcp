@@ -55,7 +55,7 @@ def register_all_prompts(mcp) -> None:
             "\n"
             "필요한 경우만 보충:\n"
             "- 사업자료의 보고기간이나 최근 공시에서 연간 표보다 새 실적이 보이면 "
-            "`financial_metrics` scope=quarterly 또는 `provisional_earnings` 로 확인한다. "
+            "`financial_metrics` `scope=quarterly` 또는 `provisional_earnings` 로 확인한다. "
             "같은 기간·회계 기준의 확정치가 있으면 이를 우선하고, 잠정은 표시한다.\n"
             "- 사업 변화 설명에 필요하면 `business_details` 의 제품가격·가동률·수주·고객 등 "
             "관련 필드만 모아 보충한다. 이미 받은 자료는 재사용하고, 원문이 잘렸으면 "

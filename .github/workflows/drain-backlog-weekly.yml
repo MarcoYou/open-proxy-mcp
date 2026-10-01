@@ -36,10 +36,12 @@ jobs:
       - name: Sync deps
         run: uv sync
 
-      - name: 밀린 완결 주 · 용량 확인
+      - name: 밀린 완결 주 · 용량 확인 (운영 경고도 실패로 알림)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         # 한 주만 밀려도 알린다. 「두 주쯤은 괜찮다」로 두면 그 관용이 7주가 됐다.
         # 경고선 90%: 새 fwd 한 벌을 올린 뒤 정리하므로 500MB 직전에서 알리면 늦다.
         # 보존 불변식(fwd ≤4주 · fwd_hist ≤13주)과 같은 주 중복도 같이 본다.
+        # 작업 요약에서 운영 조치 필요(ATTENTION_NEEDED)와 검사 미완료(CHECK_ERROR)를 구분한다.
+        # 둘 다 기존처럼 종료코드 1을 유지하며, 임계값을 완화하거나 삭제를 자동 실행하지 않는다.
         run: uv run python scripts/drain_backlog_check.py --max-weeks 0 --warn-pct 90 --fwd-max-weeks 4 --hist-max-weeks 13

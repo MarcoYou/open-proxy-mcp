@@ -498,6 +498,38 @@ class _WebClock:
 
 
 _web_clock = _WebClock()
+
+
+async def throttle_web_request(counter: str) -> None:
+    """인증키 없는 수집기도 기존 프로세스 웹 시계·분당 상한을 그대로 공유한다."""
+    import random
+    _note_doc(counter)
+    # 락 안에서 재고-자고-찍는다. 락 밖에서 자면 두 코루틴이 같은 `_last_web_request` 를
+    #   보고 같은 만큼 자다가 동시에 깨어난다 — 그게 260824 에 잡힌 레이스다.
+    async with _web_clock.lock():
+        # ① 분당 상한 — 창이 가득이면 가장 오래된 것이 빠질 때까지 잔다 (`_throttle_api` 와 같은 구조)
+        now = time.monotonic()
+        _web_clock.purge(now)
+        if len(_web_clock.stamps) >= _WEB_PER_MINUTE:
+            wait_win = _WEB_WINDOW_SEC - (now - _web_clock.stamps[0]) + 0.05
+            if wait_win > 0:
+                logger.warning(f"[웹 스크래핑] 분당 상한 {_WEB_PER_MINUTE} 도달 — {wait_win:.1f}초 대기 ({counter})")
+                await asyncio.sleep(wait_win)
+                _note_web_wait(wait_win)
+                _web_clock.purge(time.monotonic())
+        # ② 최소 간격(지터)
+        wait = random.uniform(*_web_interval_now())
+        elapsed = time.monotonic() - _web_clock.last
+        if elapsed < wait:
+            sleep_for = wait - elapsed
+            logger.debug(f"[웹 스크래핑] {sleep_for:.1f}초 대기 ({counter})")
+            await asyncio.sleep(sleep_for)
+            _note_web_wait(sleep_for)
+        now = time.monotonic()
+        _web_clock.last = now
+        _web_clock.stamps.append(now)
+
+
 # DART OpenAPI 분당 한도 1000회 — 초과 시 **그 키**가 막힌다(실측 2~3시간).
 # 실제 cap을 910으로 둠 (9% buffer, batch 동시 호출 race도 cover).
 _API_RATE_LIMIT_PER_MINUTE = 910
@@ -2240,44 +2272,8 @@ class DartClient:
             self._last_api_request = now
 
     async def _throttle_scrape(self, counter: str):
-        """웹 스크래핑 공통 간격 — DART 웹과 KIND 가 **한 규칙, 한 시계**를 쓴다.
-
-        ⚠️ 둘 다 공식 API가 아니다. 과도한 요청은 IP 차단이나 법적 문제로 이어질 수 있다.
-
-        **API 한도와 격리 수준이 다르다** — API 는 키마다라 한 사용자가 넘겨도 그 사람만
-        막히지만, 웹 차단은 IP 기준이라 **우리 서버 하나가 막히면 전원이 막힌다.**
-        그래서 수치가 아니라 예의로 다룬다(공표된 한도가 없다 = 한도를 모른다).
-        간격의 근거와 지켜야 할 셋은 `_WEB_INTERVAL_RANGE` 주석 참조.
-
-        계기는 여기 둔다 — 웹 요청은 **전부** 이 함수를 지나므로 호출측이 빠뜨릴 수 없다.
-        """
-        import random
-        _note_doc(counter)
-        # 락 안에서 재고-자고-찍는다. 락 밖에서 자면 두 코루틴이 같은 `_last_web_request` 를
-        #   보고 같은 만큼 자다가 동시에 깨어난다 — 그게 260824 에 잡힌 레이스다.
-        _, web_lock = self._loop_locks()
-        async with web_lock:
-            # ① 분당 상한 — 창이 가득이면 가장 오래된 것이 빠질 때까지 잔다 (`_throttle_api` 와 같은 구조)
-            now = time.monotonic()
-            _web_clock.purge(now)
-            if len(_web_clock.stamps) >= _WEB_PER_MINUTE:
-                wait_win = _WEB_WINDOW_SEC - (now - _web_clock.stamps[0]) + 0.05
-                if wait_win > 0:
-                    logger.warning(f"[웹 스크래핑] 분당 상한 {_WEB_PER_MINUTE} 도달 — {wait_win:.1f}초 대기 ({counter})")
-                    await asyncio.sleep(wait_win)
-                    _note_web_wait(wait_win)
-                    _web_clock.purge(time.monotonic())
-            # ② 최소 간격(지터)
-            wait = random.uniform(*_web_interval_now())
-            elapsed = time.monotonic() - self._last_web_request
-            if elapsed < wait:
-                sleep_for = wait - elapsed
-                logger.debug(f"[웹 스크래핑] {sleep_for:.1f}초 대기 ({counter})")
-                await asyncio.sleep(sleep_for)
-                _note_web_wait(sleep_for)
-            now = time.monotonic()
-            self._last_web_request = now
-            _web_clock.stamps.append(now)
+        """DART 웹·KIND·독립 수집기가 같은 프로세스 제한기를 공유한다."""
+        await throttle_web_request(counter)
 
     async def _throttle_web(self):
         """DART 웹 원문 viewer 용 — 간격은 `_throttle_scrape` 가 하나로 관리한다."""

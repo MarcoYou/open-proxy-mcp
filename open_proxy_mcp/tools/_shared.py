@@ -71,6 +71,30 @@ def krw_scaled(v: Any) -> str:
     return f"{v:,.0f}원"
 
 
+def krw_with_raw(n: int | None) -> str:
+    """금액 환산과 정확한 원 금액을 함께 표시한다. 0은 미표시, 음수는 원 단위 유지."""
+    if not n:
+        return "-"
+    raw = f"{n:,}원"
+    if n >= 1_0000_0000_0000:  # 1조
+        return f"{n/1_0000_0000_0000:.2f}조원 ({raw})"
+    if n >= 1_0000_0000:  # 1억
+        return f"{n/1_0000_0000:,.0f}억원 ({raw})"
+    return raw
+
+
+def krw_short(v: Any) -> str:
+    """원 금액을 조/억/원으로 표시한다. 0과 음수도 표시하고 조 단위는 소수 둘째 자리."""
+    if v is None:
+        return "-"
+    n = float(v)
+    if abs(n) >= 1e12:
+        return f"{n / 1e12:,.2f}조원"
+    if abs(n) >= 1e8:
+        return f"{n / 1e8:,.0f}억원"
+    return f"{n:,.0f}원"
+
+
 def raw_cell(text: Any, inline: bool = False) -> str:
     """공시 서식의 **자유서술 칸을 통째로** md 에 싣는다. 🔴 자르지 않는다.
 

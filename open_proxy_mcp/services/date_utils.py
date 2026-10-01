@@ -10,6 +10,29 @@ from datetime import date, timedelta
 import re
 
 
+_DATE_KEY_RE = re.compile(r"_date$")
+_KO_DATE_RE = re.compile(r"^(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})\s*일?$")
+
+
+def normalize_row_dates(row: dict) -> None:
+    """*_date 필드를 제자리에서 ISO로 바꾸고, 모르는 형식은 원문 그대로 둔다.
+
+    중첩 dict만 순회한다. 날짜 유효성 검증이나 list 순회는 하지 않는다.
+    """
+    for k, v in row.items():
+        if isinstance(v, dict):
+            normalize_row_dates(v)
+            continue
+        if not isinstance(v, str) or not v or not _DATE_KEY_RE.search(k):
+            continue
+        s = v.strip()
+        m = _KO_DATE_RE.match(s)
+        if m:
+            row[k] = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        elif re.fullmatch(r"\d{8}", s):
+            row[k] = f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+
+
 def parse_date_param(value: str) -> date | None:
     raw = (value or "").strip()
     if not raw:

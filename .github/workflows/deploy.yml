@@ -28,21 +28,9 @@ jobs:
     timeout-minutes: 15   # 스위트는 10초대 — 멈추면 배포를 6시간(기본값) 붙들지 않게
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: ./.github/actions/python-checks
         with:
-          version: "0.12.13"  # 260909 CI 실패 방지 — 정확한 버전은 버전 목록 조회를 건너뛴다. 올릴 때 9개 워크플로 함께
-      - name: Install dependencies
-        run: uv sync --dev
-      - name: Check tool catalog
-        run: uv run python scripts/check_tool_catalog.py
-      - name: Documentation release gate
-        run: |
-          uv run python scripts/gen_index.py --check
-          uv run python scripts/wiki_lint.py --strict
-          uv run python scripts/check_documentation_contract.py
-          uv run python scripts/output_vocab_lint.py
-      - name: Run unit and regression tests
-        run: uv run pytest -q
+          documentation: 'true'
 
   deploy:
     needs: test
