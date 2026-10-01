@@ -2,6 +2,12 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Unreleased — 2026-10-01
+
+### Company Snapshot — quick company overview
+
+The prompt presents company identity, business, financial results, valuation, and ownership through short descriptions and compact tables. Each section uses one or two sentences, with material recent changes and evidence gaps added when relevant. It has no fixed character count, page size, or mandatory question list. A small financial chart is requested only when useful and supported by the client. Units, numeric alignment, actual/estimate legends, and numbered citations use a consistent format. Annual consensus, newer quarterly or provisional results, and differing accounting bases remain distinct. Input remains a company name or ticker.
+
 ## v2.7.3 · beta — 2026-09-21
 
 - The industry-classification argument takes neutral names: `scheme` in `price_multiple_data` and `trading_data` accepts 「대분류」 (10, broad) and 「중분류」 (28, detailed, default), and the previous values still work. Table headers and footnotes name the levels 업종 대분류·중분류.

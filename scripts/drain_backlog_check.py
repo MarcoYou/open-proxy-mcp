@@ -19,7 +19,9 @@
 
 실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P] [--tables]
                                               [--fwd-max-weeks N] [--hist-max-weeks N]
-종료코드: 0 정상 · 1 조치 필요(밀린 주 초과 · fwd/fwd_hist 보존 주 초과 · 용량 경고)
+종료코드: 0 정상 · 1 조치 필요 또는 검사 오류(기존 실패 알림 유지)
+상태: OK / ATTENTION_NEEDED(운영 조치 필요) / CHECK_ERROR(검사 미완료).
+GitHub Actions에서는 작업 요약에도 상태를 남긴다. 원문 예외에는 접속 정보가 섞일 수 있어 출력하지 않는다.
 --tables: 테이블별 용량·행수 상위 12개를 덧붙인다(옛 DB 용량 리포트 스크립트 흡수, 260902). 없으면 출력 동일.
 """
 from __future__ import annotations
@@ -49,6 +51,25 @@ def _snapshot_week_stats(days) -> tuple[int, int]:
     return len(weeks), len(days) - len(weeks)
 
 
+def _report_status(status: str, detail: str, findings: list[str] | None = None) -> None:
+    """검사 결과와 검사 실패를 구분한다. detail 에 원문 예외·접속 정보는 넣지 않는다."""
+    line = f"상태: {status} — {detail}"
+    print(line)
+    if os.getenv("GITHUB_ACTIONS") == "true" and status != "OK":
+        level = "warning" if status == "ATTENTION_NEEDED" else "error"
+        print(f"::{level} title=drain-backlog {status}::{detail}")
+    summary = os.getenv("GITHUB_STEP_SUMMARY")
+    if summary:
+        try:
+            with open(summary, "a", encoding="utf-8") as out:
+                out.write(f"## 드레인 감시 결과\n\n{line}\n\n")
+                if findings:
+                    out.write("".join(f"- {finding}\n" for finding in findings) + "\n")
+        except OSError:
+            # 요약 파일 문제로 본래 검사 결과를 바꾸거나 경로·접속 정보를 출력하지 않는다.
+            print("작업 요약 기록 실패 — 위의 검사 결과를 확인할 것.", file=sys.stderr)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-weeks", type=int, default=0,
@@ -65,22 +86,32 @@ def main() -> int:
 
     url = os.getenv("DATABASE_URL")
     if not url:
-        print("DATABASE_URL 이 없다 — 감시할 대상이 없다.", file=sys.stderr)
+        _report_status("CHECK_ERROR", "DATABASE_URL 이 없다 — 감시를 실행하지 못했다.")
         return 1
 
+    try:
+        return _check(a, url)
+    except Exception as exc:
+        # psycopg 예외에는 URL·사용자명·호스트 등 접속 정보가 들어갈 수 있다.
+        # 오류 종류만 남기고 traceback/원문은 로그와 작업 요약 모두에서 생략한다.
+        _report_status(
+            "CHECK_ERROR",
+            f"감시를 완료하지 못했다 ({type(exc).__name__}). DB 연결 설정·접근·조회 권한을 확인할 것.",
+        )
+        return 1
+
+
+def _check(a: argparse.Namespace, url: str) -> int:
     import psycopg
 
     con = psycopg.connect(url, connect_timeout=15)
-    con.autocommit = True
     try:
+        con.autocommit = True
         row = con.execute("SELECT min(ts_ns), max(ts_ns), count(*) FROM ops_tool_calls").fetchone()
         mn, mx, n = row
-        if not n:
-            print("events 가 비어 있다 — 밀린 것 없음.")
-            return 0
-
         now_week = _week_start(datetime.now(tz=KST))
-        w, weeks = _week_start(_kst(mn)), []
+        # events 가 없어도 DB 용량·스냅샷 보존 검사는 빠뜨리지 않는다.
+        w, weeks = _week_start(_kst(mn)) if n else now_week, []
         while w < now_week:
             end = w + timedelta(days=7)
             c = con.execute(
@@ -114,7 +145,10 @@ def main() -> int:
         con.close()
 
     pct = 100 * size_mb / 500        # Supabase 무료티어 500MB
-    print(f"events {n:,}행 · {_kst(mn).date()} ~ {_kst(mx).date()}")
+    if n:
+        print(f"events {n:,}행 · {_kst(mn).date()} ~ {_kst(mx).date()}")
+    else:
+        print("events 가 비어 있다 — 밀린 것 없음. 용량·스냅샷 보존 검사는 계속한다.")
     print(f"DB {size_mb:.0f}MB / 500MB ({pct:.0f}%)")
     if tables is not None:
         total_b = float(size_mb) * 1024 * 1024
@@ -147,8 +181,10 @@ def main() -> int:
     if pct >= a.warn_pct:
         bad.append(f"무료티어 {pct:.0f}% (경고선 {a.warn_pct}%)")
     if not bad:
+        _report_status("OK", "검사를 완료했고 운영 경고선 이내다.")
         return 0
 
+    _report_status("ATTENTION_NEEDED", "검사는 완료됐으나 운영 조치가 필요하다. 경고 항목을 확인할 것.", bad)
     print("\n⚠️  " + " · ".join(bad))
     if (fwd_weeks > a.fwd_max_weeks or hist_weeks > a.hist_max_weeks
             or fwd_duplicate_days or hist_duplicate_days):
@@ -156,7 +192,9 @@ def main() -> int:
 조치 (fwd·fwd_hist — private open-proxy-storage/forward-collector, 원본은 그 머신의 DuckDB·jsonl 이라 내보내기 불필요):
   python3 prune_fwd.py --keep-weeks 4 --dry-run     # 지울 날짜 확인 → 빼고 다시 실행
   python3 push_fwd_hist.py --keep-weeks 13        # 이력 롤링""")
-    if len(weeks) > a.max_weeks or pct >= a.warn_pct:
+    if pct >= a.warn_pct and not n:
+        print("\nevents 가 비어 있어 드레인으로 회수할 공간이 없다. --tables 로 테이블별 용량과 보존 정책을 확인할 것.")
+    if len(weeks) > a.max_weeks or (pct >= a.warn_pct and n):
         print("""
 조치 (private 레포 백업이 먼저다 — 지우는 쪽만 영속이고 남기는 쪽이 휘발이면 백업이 아니다):
   1) python3 scripts/events_drain.py                 # dry-run: parquet 만 쓴다(usage/events/)

@@ -6,6 +6,8 @@ import re
 import sys
 from pathlib import Path
 
+from markdown_it import MarkdownIt
+
 ROOT = Path(__file__).resolve().parents[1]
 
 #: 스캔에서 뺄 폴더. **레포의 문서가 아닌 것**은 읽지 않는다.
@@ -68,6 +70,34 @@ def _description_problems(tools, runtime_tools: set[str]) -> list[str]:
             for tok in sorted(tokens & retired):
                 problems.append(f"{tool.name} {s[:4]} 줄에 은퇴한 도구명 {tok} (→ {TOOL_ALIASES[tok]})")
     return problems
+
+
+def _release_heading_problems(ko_release: str, en_release: str) -> list[str]:
+    """최신 H2끼리 대조한다. 알려진 미배포 번역만 통일하고 날짜·버전은 보존한다."""
+    headings = []
+    problems = []
+    markdown = MarkdownIt("commonmark")
+    for filename, content in (("RELEASE_NOTES.md", ko_release),
+                              ("RELEASE_NOTES_ENG.md", en_release)):
+        # 코드 블록·HTML 주석·인용문 속 가짜 제목이나 과거 본문의 일치로 통과하지 않는다.
+        tokens = markdown.parse(content)
+        heading = next((tokens[i + 1].content.strip() for i, token in enumerate(tokens)
+                        if token.type == "heading_open" and token.tag == "h2" and token.level == 0), None)
+        if not heading:
+            problems.append(f"{filename}에 최신 섹션 없음")
+            headings.append("")
+        else:
+            headings.append(heading)
+    if problems:
+        return problems
+
+    def key(heading: str) -> str:
+        # 제목 전체나 날짜를 느슨하게 비교하지 않는다. 상태 이름의 알려진 번역만 동치다.
+        return re.sub(r"^(?:미배포|Unreleased)(?=\s+—\s+)", "Unreleased", heading)
+
+    if key(headings[0]) != key(headings[1]):
+        return [f"한/영 릴리즈노트 최신 제목 불일치: {headings[0]} / {headings[1]}"]
+    return []
 
 
 def main() -> int:
@@ -150,9 +180,7 @@ def main() -> int:
     # 영문 릴리즈노트와 기능 문서는 한국어 정본과 짝을 이뤄야 한다.
     ko_release = (ROOT / "docs/RELEASE_NOTES.md").read_text(encoding="utf-8")
     en_release = (ROOT / "docs/RELEASE_NOTES_ENG.md").read_text(encoding="utf-8")
-    ko_head = re.search(r"^## (.+)$", ko_release, re.MULTILINE)
-    if ko_head and ko_head.group(1) not in en_release:
-        problems.append("RELEASE_NOTES_ENG.md에 최신 섹션 없음: " + ko_head.group(1))
+    problems += _release_heading_problems(ko_release, en_release)
     ko_features = {p.stem for p in (ROOT / "docs/features").glob("*.md")}
     en_features = {p.stem for p in (ROOT / "docs/features/en").glob("*.md")}
     if ko_features != en_features:
