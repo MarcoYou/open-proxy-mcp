@@ -69,7 +69,7 @@ Start with `Show Samsung Electronics' company information and three recent filin
 
 Prompts grouped by topic are collected in [What to Ask](#what-to-ask) below. Per-tool schemas live in the [tool catalog](wiki/tools/README.md).
 
-`OpenProxy Feature Guide` is generated from the server's registered tools. `Company Snapshot` guides the assistant through business structure, three years of actual results, up to two available annual consensus estimates, valuation, ownership, dividends, recent filings, and follow-up questions. The table distinguishes actuals (A) from estimates (E); clients with visualization support are also asked to show revenue bars and an operating-profit line.
+`OpenProxy Feature Guide` is generated from the server's registered tools. `Company Snapshot` provides a quick overview of the company, its business, financial results, valuation, and ownership. Its financial table combines up to three actual years (A) and two available estimate years (E), with newer quarterly or provisional results noted separately. Units, alignment, and numbered citations use a consistent format. A small financial chart is added only when useful and supported by the client. Material recent changes and evidence gaps are noted when relevant.
 
 ---
 
