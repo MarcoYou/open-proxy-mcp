@@ -19,6 +19,21 @@ The financial results cache defaults to 16 MiB and 300 seconds, configurable wit
 `OPM_FINANCIAL_CACHE_MB`. It shares the registered cache clearing contract.
 Cache payloads must not grow after insertion because byte accounting occurs at put.
 
+The document cache defaults to 96 MiB. The 2 GiB Fly deployment explicitly sets
+`OPM_DOC_CACHE_MB=144`, bringing registered cache budgets to 360 MiB per process
+(proxy advice 128, document 144, KRX 32, screener 24, dividend 16, financial 16).
+These budgets account for retained payloads, not total RSS or transient parsing
+allocations. The disk budget and memory reclamation/restart thresholds are unchanged.
+
+Treat this as a staged capacity trial. Observe at least 24 hours including an actual
+workload peak before considering another increase. Compare cache hits, capacity
+evictions, latency, RSS peaks and VM available memory; quiet uptime alone is not
+evidence of capacity. Pause expansion on repeated RSS at or above 1300 MiB or
+sustained VM available memory below 384 MiB. An OOM or automatic memory restart
+requires rollback and investigation. Roll back by reverting the Fly override through
+the normal CI deployment. Both machines receive the override; this is not an
+isolated single-machine canary.
+
 Disk accounting and sweeping both include `.json` and `.json.gz`, excluding partial
 writes. Disk sweeping is byte-triggered rather than an immediate hard capacity
 invariant. Observe volume free space separately from the configured cache budget.

@@ -4,6 +4,11 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## 2026-10-05
 
+### Staged document cache increase
+
+- Increase the document RAM cache from 96 to 144 MiB on the 2 GiB production deployment. Registered budgets total 360 MiB per process; runtime defaults and reclamation/restart thresholds stay unchanged.
+- Require at least 24 hours of observation including an actual workload peak before considering another increase. Pause and rollback criteria are in the [memory operations contract](operations/memory.md).
+
 ### Cache and memory operational safety
 
 - Disk accounting includes compressed documents and volume free space. Financial results use a byte-bounded expiring cache included in shared reclamation.
