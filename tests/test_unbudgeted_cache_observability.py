@@ -84,4 +84,5 @@ def test_the_real_caches_are_registered_at_their_definition_site(_isolate_regist
                 "open_proxy_mcp.services.trading"):
         importlib.reload(importlib.import_module(mod))
     names = {n for n, _ in C._UNBUDGETED_CACHES}
-    assert {"financial_metrics", "law_fulltext", "law_index", "trading_quote"} <= names
+    assert {"law_fulltext", "law_index", "trading_quote"} <= names
+    assert "financial_metrics" in C.cache_stats()

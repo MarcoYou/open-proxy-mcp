@@ -2,6 +2,15 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## 2026-10-05
+
+### Cache and memory operational safety
+
+- Disk accounting includes compressed documents and volume free space. Financial results use a byte-bounded expiring cache included in shared reclamation.
+- Administration supports expiry-first, limited reclamation and separates removed payload bytes from process memory reduction. Diagnostic GET requests no longer force collection.
+- Client occupancy, recent activity, busy requests, and evictable clients are reported separately. Failed readiness returns an HTTP failure; authenticated short drain leases allow in-flight requests to finish before restart.
+- See the [memory operations contract](operations/memory.md). Public MCP tool inputs and outputs are unchanged.
+
 ## Unreleased — 2026-10-01
 
 ### Company Snapshot — quick company overview

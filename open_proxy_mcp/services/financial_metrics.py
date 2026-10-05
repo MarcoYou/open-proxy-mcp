@@ -2552,36 +2552,23 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
 # ── Phase 3 F2 — 응답 caching (TTL 5분) ──
 # 같은 (company, scope, year, consolidated) 조합 재호출 시 동일 결과 보장.
 # advise_vote의 3 run 호출 시 모든 run에서 동일 fm_payload 반환 → cash_dividend 결정 결정성.
-import time as _time_mod
-from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
-_FM_CACHE: dict[tuple, tuple[float, dict[str, Any]]] = {}
-_FM_CACHE_TTL = 300.0  # 5분
-
-# TTL 은 **읽을 때만** 걸린다(아래 `_fm_cache_get`) — 쓰고 다시 안 읽히는 키는 안 지워진다.
-# 값이 통짜 페이로드라 그 잔여가 얼마인지 밖에서 보이는 편이 낫다. 지금은 재는 중이고,
-# 자라는 게 확인되면 상한이나 sweep 을 단다(재기 전에 고르지 않는다).
-_register_unbudgeted_cache("financial_metrics", lambda: _FM_CACHE)
+from open_proxy_mcp.dart.client import LruByteCache, _env_mb
+_FM_CACHE_TTL = 300.0
+# Payloads are immutable after insertion. The shared registered cache participates in reclamation.
+_FM_CACHE = LruByteCache(_env_mb("OPM_FINANCIAL_CACHE_MB", 16), _FM_CACHE_TTL, "financial_metrics")
 
 
 def _fm_cache_get(key: tuple) -> dict[str, Any] | None:
     from open_proxy_mcp.dart.as_of import get_strict_as_of
     if get_strict_as_of() is not None:
         return None
-    entry = _FM_CACHE.get(key)
-    if not entry:
-        return None
-    ts, payload = entry
-    if _time_mod.time() - ts > _FM_CACHE_TTL:
-        _FM_CACHE.pop(key, None)
-        return None
-    return payload
+    return _FM_CACHE.get(key)
 
 
 def _fm_cache_set(key: tuple, payload: dict[str, Any]) -> None:
     from open_proxy_mcp.dart.as_of import get_strict_as_of
-    if get_strict_as_of() is not None:
-        return
-    _FM_CACHE[key] = (_time_mod.time(), payload)
+    if get_strict_as_of() is None:
+        _FM_CACHE.put(key, payload)
 
 
 async def build_financial_metrics_payload(

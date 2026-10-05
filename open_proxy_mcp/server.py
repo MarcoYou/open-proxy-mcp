@@ -12,6 +12,7 @@ import time
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.capture import CaptureMiddleware
+from open_proxy_mcp.maintenance import AdmissionMiddleware, maintenance
 from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.extensions import load_extensions
 from open_proxy_mcp.resources import register_all_resources
@@ -151,8 +152,13 @@ def build_mcp() -> MCPServer:
             _data["law_corpus_articles"] = (load_index().get("meta") or {}).get("n_articles", 0)
         except Exception as exc:      # 헬스체크가 이것 때문에 죽으면 안 된다
             _data["error"] = str(exc)[:120]
+        ready = ("error" not in _data and all(_data.get(k, 0) > 0 for k in
+                 ("law_rules", "law_provisions", "law_corpus_articles")))
+        servicing = ready and not maintenance.draining
         return JSONResponse({
-            "status": "ok" if all(v for k, v in _data.items() if k != "error") else "degraded",
+            "status": "ok" if servicing else "degraded",
+            "observed_at": time.time(), "health_schema": 2,
+            "maintenance": maintenance.stats(),
             "tools": len(await mcp.list_tools()),
             "data": _data,
             "cache": cache_stats(),
@@ -194,7 +200,22 @@ def build_mcp() -> MCPServer:
             # 260906: 웹 차단 신호(403·429·차단 페이지). 차단은 IP 기준이라 그 머신의 사용자
             #   전원이 같이 막힌다 — 조용히 실패하게 두지 않고 밖에서 보이게 한다.
             "web_block": web_block_stats(),
-        })
+        }, status_code=200 if servicing else 503)
+
+    @mcp.custom_route("/admin/drain", methods=["POST"])
+    async def _admin_drain(request):
+        from starlette.responses import JSONResponse
+        want, got = os.environ.get("OPM_ADMIN_KEY"), request.headers.get("x-admin-key")
+        if not want or not got or not hmac.compare_digest(want, got):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        try:
+            seconds = int(request.query_params.get("seconds", "0"))
+            if not 0 <= seconds <= 120:
+                raise ValueError()
+        except ValueError:
+            return JSONResponse({"error": "seconds must be 0..120"}, status_code=400)
+        maintenance.set_drain(seconds)
+        return JSONResponse({"instance": _instance_tag(), **maintenance.stats()})
 
     # 캐시를 밖에서 비우고, **비워졌는지 같은 응답으로 확인**한다. (260901)
     #   왜 — 08:30 두 머신이 동시에 OOM 으로 죽었다. 그때 손으로 할 수 있는 게
@@ -207,7 +228,7 @@ def build_mcp() -> MCPServer:
     @mcp.custom_route("/admin/cache", methods=["POST"])
     async def _admin_cache(request):
         from starlette.responses import JSONResponse
-        from open_proxy_mcp.dart.client import cache_clear
+        from open_proxy_mcp.dart.client import cache_clear, cache_reclaim
 
         want = os.environ.get("OPM_ADMIN_KEY")
         got = request.headers.get("x-admin-key")
@@ -227,8 +248,20 @@ def build_mcp() -> MCPServer:
         #   를 냈다 — 즉 **캐시를 건드리지 않고도 회수할 몫이 따로 있다.** 낮은 문턱에서는
         #   이쪽만 돌리고, 캐시는 정말 급할 때 비운다.
         do_cache = request.query_params.get("cache", "1") != "0"
+        mode = request.query_params.get("mode", "all")
+        try:
+            target_mb = int(request.query_params.get("target_mb", "64"))
+            if mode not in {"all", "expired", "pressure"} or not 0 <= target_mb <= 256:
+                raise ValueError()
+        except ValueError:
+            return JSONResponse({"error": "invalid reclamation mode or target"}, status_code=400)
         steps = {"start": _mem_stats()}
-        result = cache_clear(disk=disk) if do_cache else {"skipped": "cache"}
+        if not do_cache:
+            result = {"skipped": "cache", "removed_bytes": 0}
+        elif mode == "all":
+            result = cache_clear(disk=disk)
+        else:
+            result = cache_reclaim(target_mb * 1048576 if mode == "pressure" else 0)
         steps["after_cache"] = _mem_stats()
 
         import gc as _gc
@@ -257,7 +290,7 @@ def build_mcp() -> MCPServer:
 
         return JSONResponse({
             "instance": _instance_tag(),
-            "cleared": do_cache,
+            "cleared": do_cache, "mode": mode,
             "disk": disk,
             "steps": steps,
             "freed_mb": {
@@ -334,6 +367,7 @@ def build_mcp() -> MCPServer:
             ("open_proxy_mcp.dart.fx", "_MEM"),
         ]
         stores = {}
+        detailed = request.query_params.get("detail") == "1"
         for mod, name in targets:
             try:
                 obj = getattr(importlib.import_module(mod), name, None)
@@ -348,7 +382,11 @@ def build_mcp() -> MCPServer:
             except Exception:
                 n = None
             est, truncated = None, False
-            if isinstance(obj, dict) and n:
+            if callable(getattr(obj, "stats", None)):
+                measured = obj.stats()
+                stores[f"{mod.split('.')[-1]}.{name}"] = {**measured, "registered": True}
+                continue
+            if detailed and isinstance(obj, dict) and n:
                 sample = list(itertools.islice(obj.items(), 5))
                 per = 0.0
                 for k, v in sample:
@@ -358,19 +396,21 @@ def build_mcp() -> MCPServer:
                     truncated = truncated or t1 or t2
                 est = round(per / len(sample) * n / 1048576, 1)
             stores[f"{mod.split('.')[-1]}.{name}"] = {
-                "entries": n, "est_mb": est, "sampled": min(5, n or 0),
+                "entries": n, "est_mb": est, "sampled": min(5, n or 0) if detailed else 0,
                 "truncated": truncated}
 
-        counts = Counter(type(o).__name__ for o in gc.get_objects())
+        # GET is observational: never trigger collection. Expensive object enumeration is opt-in.
+        detailed = request.query_params.get("detail") == "1"
+        counts = Counter(type(o).__name__ for o in gc.get_objects()) if detailed else None
         return JSONResponse({
             "instance": _instance_tag(),
             "mem": _mem_stats(),
             "registry_mb": (cache_stats() or {}).get("_used_mb"),
             "clients": client_registry_stats(),
             "off_registry": stores,
-            "gc": {"objects": sum(counts.values()),
-                   "collected_now": gc.collect(),
-                   "top_types": counts.most_common(15)},
+            "gc": {"objects": sum(counts.values()) if counts is not None else None,
+                   "collection_performed": False,
+                   "top_types": counts.most_common(15) if counts is not None else []},
         })
 
     return mcp
@@ -443,7 +483,7 @@ def _mem_stats() -> dict:
         import resource
         peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         # 리눅스는 KB, macOS 는 바이트로 준다.
-        out["peak_rss_mb"] = round(peak / (1024 if peak > 10 ** 7 else 1) / 1024, 1)
+        out["peak_rss_mb"] = round(peak / (1048576 if sys.platform == "darwin" else 1024), 1)
     except Exception:
         pass
     try:
@@ -463,6 +503,13 @@ def _mem_stats() -> dict:
                 out[key] = round(int(v) / 1024 / 1024, 1)
         except Exception:
             pass
+    try:
+        with open("/proc/meminfo") as f:
+            values = {line.split(":", 1)[0]: int(line.split()[1]) for line in f if ":" in line}
+        out["vm_total_mb"] = round(values["MemTotal"] / 1024, 1)
+        out["vm_available_mb"] = round(values["MemAvailable"] / 1024, 1)
+    except (OSError, ValueError, KeyError, IndexError):
+        pass
     if out.get("cg_used_mb") and out.get("cg_limit_mb"):
         out["cg_pct"] = round(out["cg_used_mb"] / out["cg_limit_mb"] * 100, 1)
     return out
@@ -591,6 +638,8 @@ class ApiKeyMiddleware:
             #   핸드셰이크(initialize·ping)도 뺀다 — 비용이 0 에 가까워 줄을 만들지 않는다.
             if is_call:
                 ledger_enter(ledger)
+                from open_proxy_mcp.dart.client import client_request_enter
+                client_key = client_request_enter()
             # 이 요청이 도는 동안 **프로세스 전체**가 쓴 CPU 시간. 이 요청 「자신의」 CPU 가
             # 아니다 — 단일 이벤트루프라 남의 코루틴이 태운 것도 여기 들어온다. 그게 노림수다:
             # 기다린 시간(네트워크)과 코어가 실제로 일한 시간을 가르는 것이 목적이지, 누가
@@ -705,6 +754,9 @@ class ApiKeyMiddleware:
                 # 조건 없이 부른다 — 등록 안 된 장부면 no-op 이다. 여기에도 `if is_call`
                 # 을 달면 **한쪽만 고쳐질 자리**가 하나 더 생긴다(이 레포에서 다섯 번 겪었다).
                 ledger_exit(ledger)     # 예외로 빠져나가도 반드시 뺀다
+                if is_call:
+                    from open_proxy_mcp.dart.client import client_request_exit
+                    client_request_exit(client_key)
         else:
             await self.app(scope, receive, send)
 
@@ -777,6 +829,7 @@ def build_app(server=None):
     # CaptureMiddleware 는 `OPM_CAPTURE_DIR` 이 있을 때만 실제로 일한다(운영에는 없다).
     app.add_middleware(CaptureMiddleware)
     app.add_middleware(ApiKeyMiddleware)
+    app.add_middleware(AdmissionMiddleware)
     return app
 
 
