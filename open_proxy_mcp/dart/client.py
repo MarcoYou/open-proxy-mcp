@@ -725,6 +725,8 @@ class LruByteCache:
         self._low_bytes = int(max_bytes * _CACHE_LOW_RATIO)
         self.evictions = 0
         self.rejections = 0   # 단일 항목이 예산보다 커서 안 담긴 횟수
+        self.hits = self.misses = self.expirations = 0
+        self._last_expiry_sweep = 0.0
         self.sweeps = 0       # 고수위에 닿아 저수위까지 쓸어낸 횟수 (evict 와 따로 센다)
         _CACHE_REGISTRY.append(self)
 
@@ -733,12 +735,16 @@ class LruByteCache:
         with self._lock:
             entry = self._entries.get(key)
             if entry is None:
+                self.misses += 1
                 return None
             value, expires_at, nbytes = entry
             if time.time() >= expires_at:
                 del self._entries[key]
                 self._total_bytes -= nbytes
+                self.misses += 1
+                self.expirations += 1
                 return None
+            self.hits += 1
             # LRU touch — 맨 뒤(최근)로 이동
             del self._entries[key]
             self._entries[key] = entry
@@ -751,6 +757,8 @@ class LruByteCache:
         260824: screener 가 「끝날짜가 과거면 안 변한다」를 쓰려고 열었다.
         """
         nbytes = _cache_entry_bytes(value)
+        if time.time() - self._last_expiry_sweep >= 60:
+            self.purge_expired()
         with self._lock:
             old = self._entries.pop(key, None)
             if old is not None:
@@ -800,6 +808,30 @@ class LruByteCache:
             self._total_bytes -= entry[2]
             return entry[0]
 
+    def purge_expired(self) -> int:
+        """Remove expired entries independently of whether their keys are read again."""
+        now, freed = time.time(), 0
+        with self._lock:
+            for key, (_, expires, size) in list(self._entries.items()):
+                if now >= expires:
+                    del self._entries[key]
+                    self._total_bytes -= size
+                    self.expirations += 1
+                    freed += size
+            self._last_expiry_sweep = now
+        return freed
+
+    def trim_bytes(self, requested: int) -> int:
+        """Evict the oldest entries only until requested payload bytes are released."""
+        freed = 0
+        with self._lock:
+            while freed < requested and self._entries:
+                size = self._entries.pop(next(iter(self._entries)))[2]
+                self._total_bytes -= size
+                self.evictions += 1
+                freed += size
+        return freed
+
     def clear(self) -> None:
         with self._lock:
             self._entries.clear()
@@ -815,6 +847,8 @@ class LruByteCache:
                 "fill_pct": round(100 * self._total_bytes / self._max_bytes, 1) if self._max_bytes else 0.0,
                 "evictions": self.evictions,
                 "rejections": self.rejections,
+                "hits": self.hits, "misses": self.misses,
+                "expirations": self.expirations,
                 "sweeps": self.sweeps,
                 "high_pct": round(100 * _CACHE_HIGH_RATIO),
                 "low_pct": round(100 * _CACHE_LOW_RATIO),
@@ -910,7 +944,7 @@ def _sweep_disk_cache(written: int = 0, force: bool = False) -> int:
     try:
         with os.scandir(_DISK_CACHE_DIR) as it:
             for e in it:
-                if not (e.name.endswith(".json") or e.name.endswith(".json.gz")):
+                if not _is_disk_cache_file(e.name):
                     continue    # 260823 압축 전환 — 두 형식이 한동안 섞여 산다
                 try:
                     st = e.stat()
@@ -945,6 +979,10 @@ def _sweep_disk_cache(written: int = 0, force: bool = False) -> int:
     return freed
 
 
+def _is_disk_cache_file(name: str) -> bool:
+    return name.endswith((".json", ".json.gz"))
+
+
 def _disk_cache_stats() -> dict:
     """디스크는 **메모리 예산 밖**이라 따로 센다.
 
@@ -955,7 +993,7 @@ def _disk_cache_stats() -> dict:
     try:
         with os.scandir(_DISK_CACHE_DIR) as it:
             for e in it:
-                if not e.name.endswith(".json"):
+                if not _is_disk_cache_file(e.name):
                     continue
                 try:
                     nbytes += e.stat().st_size
@@ -964,7 +1002,15 @@ def _disk_cache_stats() -> dict:
                 entries += 1
     except OSError:
         pass
+    space = {}
+    try:
+        import shutil
+        usage = shutil.disk_usage(_DISK_CACHE_DIR)
+        space = {"volume_free_bytes": usage.free, "volume_total_bytes": usage.total}
+    except OSError:
+        pass
     return {
+        **space,
         "name": "document_disk",
         "dir": _DISK_CACHE_DIR,
         "persistent": not _DISK_CACHE_DIR.startswith(tempfile.gettempdir()),
@@ -1082,10 +1128,25 @@ def cache_clear(disk: bool = False) -> dict:
     freed = None
     if disk:
         freed = _sweep_disk_cache(force=True)
-    import gc
-    gc.collect()          # 비운 뒤 실제로 반납되는지 보려면 수거를 한 번 돌려야 한다
     after = cache_stats()
-    return {"before": before, "after": after, "disk_freed_bytes": freed}
+    return {"before": before, "after": after, "disk_freed_bytes": freed,
+            "scope": "registered_memory_caches", "excluded": ["static_data", "client_connections"],
+            "removed_bytes": sum(c["bytes"] for k, c in before.items()
+                                 if isinstance(c, dict) and k != "document_disk")}
+
+
+def cache_reclaim(target_bytes: int = 0) -> dict:
+    """Expired first, then limited oldest payloads from the largest cache. No GC/disk IO deletion."""
+    before = cache_stats()
+    expired = sum(c.purge_expired() for c in _CACHE_REGISTRY)
+    removed = expired
+    for c in sorted(_CACHE_REGISTRY, key=lambda c: c.stats()["bytes"], reverse=True):
+        if removed >= target_bytes:
+            break
+        removed += c.trim_bytes(target_bytes - removed)
+    return {"before": before, "after": cache_stats(), "removed_bytes": removed,
+            "expired_bytes": expired, "scope": "registered_memory_caches",
+            "excluded": ["disk", "static_data", "client_connections"]}
 
 
 # ── sqlite master cache (KIS 참고, iter27 ship) ──
@@ -3535,6 +3596,22 @@ _INSTANCE_IDLE_SEC = float(os.environ.get("OPM_CLIENT_IDLE_SEC", "600"))
 _instances: dict[str, "DartClient"] = {}
 _instance_seen: dict[str, float] = {}
 _instance_evictions = 0
+_active_client_keys: dict[str, int] = {}
+
+
+def client_request_enter() -> str:
+    key = _ctx_opendart_key.get() or os.getenv("OPENDART_API_KEY") or "__default__"
+    _active_client_keys[key] = _active_client_keys.get(key, 0) + 1
+    return key
+
+
+def client_request_exit(key: str) -> None:
+    count = _active_client_keys.get(key, 0) - 1
+    if count > 0:
+        _active_client_keys[key] = count
+    else:
+        _active_client_keys.pop(key, None)
+
 
 
 def _close_client(cli: "DartClient") -> None:
@@ -3564,7 +3641,7 @@ def _evict_idle_clients() -> None:
         if cli is None:
             _instance_seen.pop(key, None)
             continue
-        if getattr(cli, "_doc_inflight", None):
+        if getattr(cli, "_doc_inflight", None) or _active_client_keys.get(key, 0):
             continue                       # 아직 일하는 중 — 손대지 않는다
         _instances.pop(key, None)
         _instance_seen.pop(key, None)
@@ -3573,10 +3650,19 @@ def _evict_idle_clients() -> None:
 
 
 def client_registry_stats() -> dict:
-    """/health·/admin 이 본다. **크기는 개수 × 실측 908KB 로 어림한다** —
-    객체 안쪽을 재는 계산은 비싸고, 여기서 답할 질문은 「몇 개나 쥐고 있나」다."""
+    """Occupancy is not activity. Recent and busy sets overlap and are never exposed by key."""
+    now = time.time()
+    recent = busy = eligible = 0
+    for key, cli in list(_instances.items()):
+        is_recent = now - _instance_seen.get(key, 0) < _INSTANCE_IDLE_SEC
+        is_busy = bool(getattr(cli, "_doc_inflight", None)) or _active_client_keys.get(key, 0) > 0
+        recent += is_recent
+        busy += is_busy
+        eligible += not is_recent and not is_busy
     return {"entries": len(_instances), "max": _INSTANCE_MAX,
-            "evictions": _instance_evictions,
+            "evictions": _instance_evictions, "recent": recent, "busy": busy,
+            "evictable": eligible, "idle_sec": _INSTANCE_IDLE_SEC,
+            "over_limit": max(0, len(_instances) - _INSTANCE_MAX),
             "est_mb": round(len(_instances) * 0.908, 1)}
 
 
