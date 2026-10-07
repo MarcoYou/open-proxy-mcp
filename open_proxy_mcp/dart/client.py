@@ -1018,7 +1018,7 @@ def _is_disk_cache_file(name: str) -> bool:
     return name.endswith((".json", ".json.gz"))
 
 
-def _disk_cache_stats(directory=None, strict=False) -> dict:
+def _disk_cache_stats(directory=None, strict=False, temporary_only=False) -> dict:
     """디스크는 **메모리 예산 밖**이라 따로 센다.
 
     `persistent` 는 「이 캐시가 배포를 견디는가」다 — 종전 사고가 정확히 그 지점이라
@@ -1029,6 +1029,8 @@ def _disk_cache_stats(directory=None, strict=False) -> dict:
     try:
         with os.scandir(directory or _DISK_CACHE_DIR) as it:
             for e in it:
+                if temporary_only and not e.name.endswith(".tmp"):
+                    continue
                 if e.name.endswith(".tmp"):
                     try:
                         temp_bytes += e.stat().st_size
@@ -3471,7 +3473,10 @@ class DartClient:
             # level 6(기본) — 9 로 올려도 공시 문서는 1%p 남짓 더 줄고 쓰기만 느려진다.
             with _disk_write_guard(self._disk_cache_dir):
                 _expire_disk_cache_temps(self._disk_cache_dir)
-                stats = _disk_cache_stats(self._disk_cache_dir, strict=True)
+                # Managed admission needs scratch sizes only; full accounting stays
+                # in health/the byte-triggered sweep, not every small document write.
+                stats = _disk_cache_stats(self._disk_cache_dir, strict=True,
+                                          temporary_only=_DISK_CACHE_MANAGED)
                 if (stats["temporary_bytes"] >= _DISK_TEMP_MAX_BYTES
                         or stats["temporary_entries"] >= _DISK_TEMP_MAX_FILES):
                     _note_corpus_blocked("temporary_limit")
