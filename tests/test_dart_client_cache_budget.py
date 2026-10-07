@@ -398,6 +398,28 @@ def test_local_corpus_stops_new_copies_at_budget_preserves_replay_and_counts_gzi
     assert not (tmp_path / "20260101000005.json.gz").exists()
 
 
+def test_managed_disk_stops_crash_temporary_accumulation_without_deleting_unknown_evidence(tmp_path, monkeypatch):
+    import open_proxy_mcp.dart.client as C
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", True)
+    monkeypatch.setattr(C, "_DISK_TEMP_MAX_BYTES", 100)
+    monkeypatch.setattr(C, "_DISK_TEMP_MAX_FILES", 2)
+    c = C.DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+    evidence = tmp_path / "legacy-writer.tmp"
+    evidence.write_bytes(b'x' * 101)
+    c._save_to_disk("20260101000001", {"body": "blocked"})
+    assert evidence.read_bytes() == b'x' * 101
+    assert not list(tmp_path.glob("*.json*"))
+    assert C._disk_cache_stats()["admission_reason"] == "temporary_limit"
+    evidence.write_bytes(b'')
+    (tmp_path / "another.tmp").write_bytes(b'')
+    c._save_to_disk("20260101000001", {"body": "also blocked"})
+    assert len(list(tmp_path.glob("*.tmp"))) == 2
+    assert not list(tmp_path.glob("*.json*"))
+
+
 def test_sweep_is_triggered_by_bytes_not_file_count(tmp_path, monkeypatch):
     """**개수로 세면 크기를 못 본다** — 260804 OOM 과 같은 실수의 디스크판이다.
 

@@ -921,10 +921,13 @@ _DISK_CACHE_MANAGED = bool(os.environ.get("OPM_DOC_CACHE_DIR"))
 _DISK_CACHE_MAX_BYTES = _env_mb("OPM_DOC_DISK_CACHE_MB", 640)
 _DISK_CORPUS_MAX_BYTES = _env_mb("OPM_DOC_CORPUS_MB", 2048)
 _DISK_CORPUS_MAX_FILES = 4096
+_DISK_TEMP_MAX_BYTES = 32 * 1024**2
+_DISK_TEMP_MAX_FILES = 64
 _DISK_SWEEP_BYTES = _env_mb("OPM_DOC_DISK_SWEEP_MB", 32)   # 이만큼 쓰면 한 번 훑는다
 _disk_bytes_since_sweep = _DISK_SWEEP_BYTES    # 첫 write 에서 한 번 — 부팅 시 초과분 정리
 _disk_evictions = 0
 _disk_corpus_blocked = 0
+_disk_admission_reason = ""
 _disk_write_lock = threading.Lock()
 
 
@@ -949,10 +952,12 @@ def _expire_disk_cache_temps(directory):
                 os.unlink(entry.path)
 
 
-def _note_corpus_blocked():
-    global _disk_corpus_blocked
-    if not _disk_corpus_blocked:
-        logger.warning("로컬 회귀 원문 보관 상한 — 새 디스크 사본만 생략; 기존 자료 유지")
+def _note_corpus_blocked(reason="corpus_limit"):
+    global _disk_corpus_blocked, _disk_admission_reason
+    if not _disk_corpus_blocked or _disk_admission_reason != reason:
+        title = "문서 캐시 임시파일 상한" if reason == "temporary_limit" else "로컬 회귀 원문 보관 상한"
+        logger.warning(f"{title} — 새 디스크 사본만 생략; 기존 자료·조회 결과 유지")
+    _disk_admission_reason = reason
     _disk_corpus_blocked += 1
 
 
@@ -1065,6 +1070,9 @@ def _disk_cache_stats(directory=None, strict=False) -> dict:
         "fill_pct": round(100 * (nbytes + temp_bytes) / limit, 1) if limit else 0.0,
         "evictions": _disk_evictions,
         "admission_blocked": _disk_corpus_blocked,
+        "admission_reason": _disk_admission_reason,
+        "temporary_max_bytes": _DISK_TEMP_MAX_BYTES,
+        "temporary_max_files": _DISK_TEMP_MAX_FILES,
     }
 
 
@@ -3463,8 +3471,12 @@ class DartClient:
             # level 6(기본) — 9 로 올려도 공시 문서는 1%p 남짓 더 줄고 쓰기만 느려진다.
             with _disk_write_guard(self._disk_cache_dir):
                 _expire_disk_cache_temps(self._disk_cache_dir)
+                stats = _disk_cache_stats(self._disk_cache_dir, strict=True)
+                if (stats["temporary_bytes"] >= _DISK_TEMP_MAX_BYTES
+                        or stats["temporary_entries"] >= _DISK_TEMP_MAX_FILES):
+                    _note_corpus_blocked("temporary_limit")
+                    return
                 if not _DISK_CACHE_MANAGED:
-                    stats = _disk_cache_stats(self._disk_cache_dir, strict=True)
                     if (stats["retained_bytes"] >= _DISK_CORPUS_MAX_BYTES
                             or stats["entries"] + stats["temporary_entries"] >= _DISK_CORPUS_MAX_FILES):
                         _note_corpus_blocked()
