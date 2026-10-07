@@ -27,6 +27,9 @@ GitHub Actions에서는 작업 요약에도 상태를 남긴다. 원문 예외�
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
+import json
 import os
 import sys
 from datetime import datetime, timedelta
@@ -82,22 +85,35 @@ def main() -> int:
                     help="fwd_hist 의 as_of 가 이 ISO 주 수를 넘으면 실패 (13주 롤링)")
     ap.add_argument("--tables", action="store_true",
                     help="테이블별 용량 breakdown(100KB 초과 상위 12개)도 출력 — 읽기만 한다")
+    ap.add_argument("--json", action="store_true",
+                    help="단일 JSON 상태(healthy/action_needed/execution_error)와 안전한 점검 본문")
     a = ap.parse_args()
 
     url = os.getenv("DATABASE_URL")
     if not url:
+        if a.json:
+            print(json.dumps({"version": 1, "status": "execution_error",
+                              "report": "DATABASE_URL 이 없다 — 감시를 실행하지 못했다."}, ensure_ascii=False))
+            return 1
         _report_status("CHECK_ERROR", "DATABASE_URL 이 없다 — 감시를 실행하지 못했다.")
         return 1
 
     try:
+        if a.json:
+            with contextlib.redirect_stdout(io.StringIO()) as report:
+                result = _check(a, url)
+            print(json.dumps({"version": 1, "status": "healthy" if result == 0 else "action_needed",
+                              "report": report.getvalue()}, ensure_ascii=False))
+            return result
         return _check(a, url)
     except Exception as exc:
         # psycopg 예외에는 URL·사용자명·호스트 등 접속 정보가 들어갈 수 있다.
         # 오류 종류만 남기고 traceback/원문은 로그와 작업 요약 모두에서 생략한다.
-        _report_status(
-            "CHECK_ERROR",
-            f"감시를 완료하지 못했다 ({type(exc).__name__}). DB 연결 설정·접근·조회 권한을 확인할 것.",
-        )
+        detail = f"감시를 완료하지 못했다 ({type(exc).__name__}). DB 연결 설정·접근·조회 권한을 확인할 것."
+        if a.json:
+            print(json.dumps({"version": 1, "status": "execution_error", "report": detail}, ensure_ascii=False))
+        else:
+            _report_status("CHECK_ERROR", detail)
         return 1
 
 

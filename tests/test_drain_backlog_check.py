@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta
+import json
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -111,6 +112,35 @@ def test_snapshot_week_stats_accepts_one_date_per_week():
 
     assert weeks == 4
     assert duplicates == 0
+
+
+@pytest.mark.parametrize("kind", ["healthy", "action_needed", "execution_error", "missing_config"])
+def test_json_status_distinguishes_complete_warning_from_failed_observation(harness, monkeypatch, capsys, kind):
+    connect, _ = harness
+    monkeypatch.setattr("sys.argv", ["drain_backlog_check.py", "--json"])
+    connection = FakeConnection(size_mb=490 if kind == "action_needed" else 100)
+    if kind == "execution_error":
+        connect.side_effect = psycopg.OperationalError(f"synthetic failure {TEST_DATABASE_URL}")
+    elif kind == "missing_config":
+        monkeypatch.delenv("DATABASE_URL")
+    else:
+        connect.side_effect = None
+        connect.return_value = connection
+    result = checker.main()
+    captured = capsys.readouterr()
+    value = json.loads(captured.out)  # exactly one JSON; no human/Actions prefix
+    expected = "execution_error" if kind == "missing_config" else kind
+    assert value["status"] == expected
+    assert value["version"] == 1
+    assert result == (0 if kind == "healthy" else 1)
+    assert "fixture-secret" not in captured.out + captured.err
+    assert "db.invalid" not in captured.out + captured.err
+    if kind == "missing_config":
+        connect.assert_not_called()
+    if kind in ("healthy", "action_needed"):
+        assert connection.closed
+        assert connection.calls
+        assert "DB " in value["report"]
 
 
 def test_missing_config_is_checker_error(harness, monkeypatch, capsys):
