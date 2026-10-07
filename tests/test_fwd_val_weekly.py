@@ -2,8 +2,8 @@
 
 지키는 것: ① 새 날짜 + 가장 최근 날짜만 다시 계산 ② 업종 분류·시장 구분은 추정 날짜 이하 가장 최근
 스냅샷 — 더 새 스냅샷이 있어도 끌어오지 않는다(없을 때만 가장 이른 것) ③ 그 주 뒤 상장 종목의 시장은
-가장 최근이 아니라 그 뒤 첫 시세 ④ 배당 분모 표기는 수집 머신과 같다 ⑤ 보통주는 끝자리로 가른다
-(영문 섞인 새 종목코드도 들어온다) — 수집 머신 흉내(숫자 코드만)는 검증 모드에서만 ⑥ 쓰기는 칸 이름으로.
+가장 최근이 아니라 그 뒤 첫 시세 ④ 배당 분모 표기는 수집 머신과 같다 ⑤ 영문 보통주를 포함하고
+종류 미확인 코드와 우선주는 제외한다 ⑥ 쓰기는 칸 이름으로.
 """
 import datetime as dt
 import importlib.util
@@ -94,7 +94,7 @@ class _Con:
         return _Cur(self.seen)
 
 
-def test_common_stock_rule_is_the_last_character_and_collector_mimic_only_in_check():
+def test_compute_and_collector_check_use_the_same_population():
     con = _Con()
     fv.compute(con, D[-1], "20260828", "20260911")
     sql, params = con.seen[-1]
@@ -102,8 +102,33 @@ def test_common_stock_rule_is_the_last_character_and_collector_mimic_only_in_che
     assert params == {"as_of": D[-1], "class_dd": "20260828", "mk_dd": "20260911"}
     # 시장 구분: mk_dd 부터 **가장 이른** 시세 — 그 주에 있으면 그 값, 뒤에 상장했으면 첫 관측(최신이 아니라)
     assert "WHERE price_dd >= %(mk_dd)s" in sql and "ORDER BY ticker, price_dd\n" in sql
-    fv.compute(con, D[-1], "20260828", "20260911", collector_like=True)
-    assert "h.stock_code ~ '^[0-9]{6}$'" in con.seen[-1][0]
+    seen = con.seen[-1]
+    fv.check_against_collector(con, D[-1], "20260828", "20260911")
+    assert con.seen[-2] == seen
+
+
+def test_actual_aggregate_includes_alpha_common_and_excludes_unconfirmed_and_preferred():
+    import duckdb
+
+    with duckdb.connect(":memory:") as con:
+        con.execute("create table wise_sector(ticker varchar, sector_code varchar, sector varchar, "
+                    "industry_code varchar, industry varchar, snap_dd varchar)")
+        con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
+        con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
+                    "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
+                    "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")
+        for code, cap, profit in (("005930", 1000, 100), ("0126Z0", 2000, 200),
+                                  ("0161M0", 999000, 1), ("005935", 888000, 1)):
+            con.execute("insert into krx_weekly values (?, 'KS', '20260911')", [code])
+            con.execute("insert into fwd_hist values (?, 2027, ?, ?, 1000, 20, 100, 1, "
+                        "DATE '2026-09-13', true, 'FY', 'IFRS연결', '2027/12')", [code, cap, profit])
+        sql = fv.AGG_SQL.replace("%(class_dd)s", "'20260828'") \
+            .replace("%(mk_dd)s", "'20260911'").replace("%(as_of)s", "DATE '2026-09-13'")
+        result = con.execute(sql)
+        rows = [dict(zip((column[0] for column in result.description), row)) for row in result.fetchall()]
+        assert len(rows) == 2
+        assert all(row["scheme"] == "market" and row["n_total"] == 2 for row in rows)
+        assert all(row["cap_krw"] == 3000 and row["ni_krw"] == 300 and row["fwd_per"] == 10 for row in rows)
 
 
 def test_upsert_names_every_column_and_keeps_the_key_out_of_the_update():

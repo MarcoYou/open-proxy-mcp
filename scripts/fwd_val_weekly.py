@@ -8,9 +8,8 @@
 왜 `fwd_agg` 에 넣지 않나:
 - 토요일 체인의 `push_fwd_agg.py` 는 올릴 때 **그 날짜의 `fwd_agg` 행을 분류 구분 없이 전부 지우고** 다시 넣는다.
   하위업종을 같은 표에 넣으면 매주 지워진다.
-- `fwd_agg` 는 보통주를 「숫자 6자리 + 끝자리 0」으로 가른다. 2024년부터 나오는 **영문 섞인 새 종목코드**
-  (0126Z0 삼성에피스홀딩스 등)가 전부 「우선주·기타」로 빠진다(260913 실측 9종목).
-  여기서는 끝자리만 본다 — 새 코드도 끝자리 0 이 보통주다.
+- `fwd_hist` 에는 주식 종류 칸이 없다. 영문이 섞인 새 보통주 코드도 포함하되,
+  종류가 미확인인 0161M0는 확인될 때까지 집계에서 제외한다.
 - 트레일링 PER 은 **적자 회사까지 더한다**(`opm_val_market`). `fwd_agg` 는 흑자 추정만 더한다.
   나란히 놓으면 방식 차이가 기대이익 차이로 읽힌다. 그래서 두 벌을 둔다(아래).
 
@@ -102,7 +101,7 @@ COMMENT ON TABLE {TABLE} IS
   'fwd_per·fwd_pbr=적자 포함 합(트레일링과 같은 방식), *_pos=분모>0 종목만(fwd_agg 방식).';
 """
 
-#: 집계 SQL. {extra} = 검증용 모집단 조건(수집 머신 흉내 — 숫자 코드만). 평소엔 빈 문자열.
+#: 실제 집계와 수집 머신 대조는 같은 보통주·미확인 제외 조건을 사용한다.
 AGG_SQL = """
 WITH cls AS (
   SELECT ticker, sector_code, sector, industry_code, industry
@@ -119,7 +118,8 @@ WITH cls AS (
                                      (h.basis <> 'IFRS연결'), h.period) AS rn
   FROM fwd_hist h
   WHERE h.as_of = %(as_of)s AND h.is_estimate AND h.period_type = 'FY' AND h.mktcap_krw IS NOT NULL
-    AND right(h.stock_code, 1) = '0' {extra}
+    AND right(h.stock_code, 1) = '0'
+    AND h.stock_code <> '0161M0' -- 주식 종류 미확인: 끝자리만으로 보통주를 확정하지 않는다.
 ), p AS (
   SELECT mk.market, cls.sector_code, cls.sector, cls.industry_code, cls.industry,
          e.fiscal_year AS fy, e.mktcap_krw::float8 AS cap, e.ni_ctrl_krw::float8 AS ni, e.rev_krw::float8 AS rev,
@@ -230,12 +230,11 @@ def prune_stale_days(con, hist_days: list) -> int:
 
 # ── 실행 ───────────────────────────────────────────────────────────────
 
-def compute(con, as_of, class_dd: str, mk_dd: str, collector_like: bool = False) -> list[dict]:
+def compute(con, as_of, class_dd: str, mk_dd: str) -> list[dict]:
     from psycopg.rows import dict_row
 
-    extra = "AND h.stock_code ~ '^[0-9]{6}$'" if collector_like else ""
     with con.cursor(row_factory=dict_row) as cur:
-        cur.execute(AGG_SQL.format(extra=extra), {"as_of": as_of, "class_dd": class_dd, "mk_dd": mk_dd})
+        cur.execute(AGG_SQL, {"as_of": as_of, "class_dd": class_dd, "mk_dd": mk_dd})
         return cur.fetchall()
 
 
@@ -245,14 +244,14 @@ _TOL = {"fwd_per": 1e-6, "fwd_pbr": 5e-3, "fwd_psr": 1e-6, "fwd_div_yield_pct": 
 
 
 def check_against_collector(con, as_of, class_dd: str, mk_dd: str) -> int:
-    """수집 머신 방식(숫자 코드만·분모>0만)으로 다시 내서 `fwd_agg` 와 대조한다. 어긋난 칸 수를 돌려준다.
+    """같은 보통주 모집단·분모>0 방식으로 `fwd_agg` 와 대조한다. 어긋난 칸 수를 돌려준다.
 
     업종분류가 없는 종목은 `fwd_agg` 에서 「미분류」 칸으로, 여기서는 어느 칸에도 안 들어간다 — 대조에서 뺀다.
     """
     from psycopg.rows import dict_row
 
     mine = {}
-    for r in compute(con, as_of, class_dd, mk_dd, collector_like=True):
+    for r in compute(con, as_of, class_dd, mk_dd):
         if r["scheme"] == "wics_industry":
             continue
         key = (r["market"], r["scheme"], "ALL" if r["scheme"] == "market" else r["label"])
