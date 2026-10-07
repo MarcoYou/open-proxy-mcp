@@ -420,6 +420,39 @@ def test_managed_disk_stops_crash_temporary_accumulation_without_deleting_unknow
     assert not list(tmp_path.glob("*.json*"))
 
 
+def test_managed_admission_does_not_stat_every_completed_document(tmp_path, monkeypatch):
+    import open_proxy_mcp.dart.client as C
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", True)
+    monkeypatch.setattr(C, "_sweep_disk_cache", lambda _: 0)  # the periodic sweep is deliberately full
+    for i in range(256):
+        (tmp_path / f"20260101{i:06d}.json.gz").write_bytes(b'x')
+    (tmp_path / "unknown.tmp").write_bytes(b'evidence')
+    scanned_documents = []
+    original = C.os.scandir
+    class Entry:
+        def __init__(self, entry): self.entry = entry
+        def __getattr__(self, name): return getattr(self.entry, name)
+        def stat(self, *args, **kwargs):
+            if C._is_disk_cache_file(self.entry.name):
+                scanned_documents.append(self.entry.name)
+            return self.entry.stat(*args, **kwargs)
+    class Scan:
+        def __init__(self, directory): self.iterator = original(directory)
+        def __enter__(self): return (Entry(e) for e in self.iterator)
+        def __exit__(self, *args): self.iterator.close()
+    monkeypatch.setattr(C.os, "scandir", Scan)
+    c = C.DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+    c._save_to_disk("20261008009999", {"body": "saved"})
+    assert not scanned_documents
+    assert c._load_from_disk("20261008009999") == {"body": "saved"}
+    health = C._disk_cache_stats(strict=True)
+    assert health["entries"] == 257 and len(scanned_documents) == 257
+    assert health["temporary_entries"] == 1 and health["temporary_bytes"] == len(b'evidence')
+
+
 def test_sweep_is_triggered_by_bytes_not_file_count(tmp_path, monkeypatch):
     """**개수로 세면 크기를 못 본다** — 260804 OOM 과 같은 실수의 디스크판이다.
 
