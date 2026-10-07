@@ -34,12 +34,18 @@ OPM 은 파서가 아니라 에이전틱 제품이다. 사용자는 우리 응�
   로그가 잠긴다).
 - **키를 안 남긴다.** `ApiKeyMiddleware` 가 로그에 쓰는 것과 같은 마스킹을 요청 인자와
   응답 본문 양쪽에 건다. DART 뷰어 URL 에 `crtfc_key=` 가 실려 나올 수 있다.
+- **자동 기록은 유한하다.** 기존·미확인·하위 폴더 자료까지 128 MiB·4,096개 안에서
+  새 UTF-8 본문을 저장한다. 가득 차면 기존 자료를 지우거나 본문을 자르지 않고
+  캡처만 보류한다. 호스트 저장 여유 5 GiB도 남긴다.
 """
 
+import contextlib
 import json
 import logging
 import os
 import re
+import shutil
+import stat
 import time
 from datetime import datetime
 
@@ -56,6 +62,9 @@ _SECRET_IN_URL = re.compile(r"((?:opendart|crtfc_key)=)[^&\s\"'\\]+")
 #: 넘길 일이 없다. 상한을 두는 이유는 1 GB VM 에 OOM 이력(260804)이 있어서다 —
 #: 응답과 달리 요청은 통째로 담을 이유가 없다.
 _MAX_ARG_BYTES = 64 * 1024
+_CAPTURE_MAX_BYTES = 128 * 1024 * 1024
+_CAPTURE_MAX_ENTRIES = 4096
+_CAPTURE_FREE_RESERVE = 5 * 1024 * 1024 * 1024
 
 _warned = False
 
@@ -71,9 +80,69 @@ def _warn_once(exc: BaseException) -> None:
     global _warned
     if not _warned:
         _warned = True
-        logger.warning(
-            "%s 기록 실패 — 이 프로세스에서는 더 알리지 않는다: %r", CAPTURE_ENV, exc
-        )
+        detail = exc.safe_reason if isinstance(exc, _CaptureHold) else type(exc).__name__
+        logger.warning("%s 캡처 기록 보류 — %s · MCP 응답과 기존 자료는 유지합니다. "
+                       "보관 정책/공간을 확인하세요; 같은 프로세스에서 반복 알리지 않습니다.",
+                       CAPTURE_ENV, detail)
+
+
+class _CaptureHold(OSError):
+    def __init__(self, reason):
+        self.safe_reason = reason  # Only fixed prose and locally counted numbers.
+        super().__init__(reason)
+
+
+@contextlib.contextmanager
+def _capture_locked(directory):
+    # ponytail: shared capture lock/tree scan; use indexed accounting only if measured throughput needs it.
+    import fcntl  # Optional capture stays off on hosts without this native lock.
+    directory = os.path.abspath(directory)
+    if os.path.islink(directory):
+        raise _CaptureHold("보관 폴더 심링크 · 경로 확인 필요")
+    os.makedirs(directory, exist_ok=True)
+    if not stat.S_ISDIR(os.lstat(directory).st_mode):
+        raise _CaptureHold("보관 경로가 폴더가 아님")
+    # Fixed sibling lock does not become a JSONL input or consume a new daily entry.
+    parent, name = os.path.split(directory)
+    fd = os.open(os.path.join(parent, f".{name}.capture.lock"),
+                 os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        lock = os.fstat(fd)
+        if not stat.S_ISREG(lock.st_mode) or lock.st_nlink != 1:
+            raise _CaptureHold("캡처 잠금 경로 확인 필요")
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield directory
+    finally:
+        os.close(fd)
+
+
+def _capture_admission(directory, path, pending_bytes):
+    used = count = 0
+    def failed(error):
+        raise error
+    for base, dirs, files in os.walk(directory, followlinks=False, onerror=failed):
+        count += len(dirs) + len(files)
+        for name in dirs:
+            if not stat.S_ISDIR(os.lstat(os.path.join(base, name)).st_mode):
+                raise _CaptureHold("하위 보관 경로 심링크 · 기존 자료 보존")
+        for name in files:
+            info = os.lstat(os.path.join(base, name))
+            if not stat.S_ISREG(info.st_mode):
+                raise _CaptureHold("보관 자료가 일반 파일이 아님 · 기존 자료 보존")
+            used += info.st_size
+    extra = 0 if os.path.lexists(path) else 1
+    if (used + pending_bytes > _CAPTURE_MAX_BYTES
+            or count + extra > _CAPTURE_MAX_ENTRIES):
+        raise _CaptureHold(f"저장 상한 — {used/1048576:.2f}/{_CAPTURE_MAX_BYTES/1048576:.0f} MiB, "
+                           f"{count}/{_CAPTURE_MAX_ENTRIES}개; 이번 +{pending_bytes:,} B/{extra}개")
+    if not extra:
+        info = os.lstat(path)
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+            raise _CaptureHold("오늘 기록 경로가 일반 단일 파일이 아님")
+    free = shutil.disk_usage(directory).free
+    if free < _CAPTURE_FREE_RESERVE + pending_bytes:
+        raise _CaptureHold(f"호스트 여유 {free/1073741824:.2f} GiB < "
+                           f"보호 여유 {_CAPTURE_FREE_RESERVE/1073741824:.0f} GiB + 이번 {pending_bytes:,} B")
 
 
 def _mask(text: str) -> str:
@@ -160,7 +229,6 @@ def write_record(tool: str, arguments, response_text: str, is_error: bool,
     if not d:
         return None
     try:
-        os.makedirs(d, exist_ok=True)
         now = datetime.now().astimezone()
         path = os.path.join(d, f"calls-{now.strftime('%Y%m%d')}.jsonl")
         rec = {
@@ -173,8 +241,15 @@ def write_record(tool: str, arguments, response_text: str, is_error: bool,
             "bytes": nbytes,          # 응답 wire 바이트(= 호출측이 무는 비용의 대리 지표)
         }
         line = _mask(json.dumps(rec, ensure_ascii=False)) + "\n"
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(line)
+        body = line.encode("utf-8")
+        with _capture_locked(d) as directory:
+            path = os.path.join(directory, os.path.basename(path))
+            _capture_admission(directory, path, len(body))
+            fd = os.open(path, os.O_APPEND | os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "ab") as f:
+                f.write(body)
+                f.flush()
+                os.fsync(f.fileno())
         return path
     except Exception as exc:          # 디렉터리 없음·권한 없음·디스크 참 — 전부 여기로
         _warn_once(exc)

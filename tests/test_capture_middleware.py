@@ -272,3 +272,73 @@ def test_the_middleware_is_wired_into_the_served_app():
     assert CaptureMiddleware in cls
     # 키 게이트가 바깥이어야 401 이 기록에 섞이지 않는다(add_middleware 는 앞에 끼운다).
     assert cls.index(ApiKeyMiddleware) < cls.index(CaptureMiddleware)
+
+
+def test_retained_capture_budget_preserves_response_unknown_and_concurrent_records(
+        tmp_path, monkeypatch, caplog):
+    """Real ASGI holds are fail-soft; real process races stay inside retained limits."""
+    import pathlib
+    import subprocess
+    import sys
+    import open_proxy_mcp.capture as cap
+
+    root = tmp_path / "bounded"
+    root.mkdir()
+    unknown = root / "unknown-original.dat"
+    unknown.write_bytes(b"protected original")
+    monkeypatch.setenv("OPM_CAPTURE_DIR", str(root))
+    monkeypatch.setattr(cap, "_CAPTURE_MAX_BYTES", unknown.stat().st_size)
+    monkeypatch.setattr(cap, "_warned", False)
+    wire = _jsonrpc_result("본문 전문이 상한 때문에 잘려서는 안 됩니다")
+    with caplog.at_level("WARNING", logger="open_proxy_mcp.capture"):
+        for _ in range(3):
+            assert _run(_rpc(), wire) == wire
+    assert list(root.glob("calls-*.jsonl")) == []
+    assert unknown.read_bytes() == b"protected original"
+    assert len(caplog.records) == 1 and "MCP 응답과 기존 자료" in caplog.text
+
+    monkeypatch.setattr(cap, "_CAPTURE_MAX_BYTES", 4096)
+    # Empty unknown directories consume inodes; links and failed scans never permit appends.
+    (root / "unknown-dir").mkdir()
+    monkeypatch.setattr(cap, "_CAPTURE_MAX_ENTRIES", 2)
+    assert _run(_rpc(), wire) == wire and list(root.glob("calls-*.jsonl")) == []
+    monkeypatch.setattr(cap, "_CAPTURE_MAX_ENTRIES", 4096)
+    protected = tmp_path / "external-original"
+    protected.write_bytes(b"external custody")
+    link = root / "unknown-link"
+    link.symlink_to(protected)
+    assert _run(_rpc(), wire) == wire and protected.read_bytes() == b"external custody"
+    link.unlink()  # Test fixture only; no production capture is touched.
+    with monkeypatch.context() as scoped:
+        scoped.setattr(cap.shutil, "disk_usage", lambda _: type("Disk", (), {"free": 0})())
+        assert _run(_rpc(), wire) == wire and list(root.glob("calls-*.jsonl")) == []
+    with monkeypatch.context() as scoped:
+        scoped.setattr(cap.os, "walk", lambda *a, **kw: (_ for _ in ()).throw(OSError("scan failed")))
+        assert _run(_rpc(), wire) == wire and list(root.glob("calls-*.jsonl")) == []
+
+    race = tmp_path / "race"
+    source = str(pathlib.Path(cap.__file__).resolve().parents[1])
+    code = ("import sys,os,time;sys.path.insert(0,sys.argv[1]);"
+            "import open_proxy_mcp.capture as c;os.environ['OPM_CAPTURE_DIR']=sys.argv[2];"
+            "c._CAPTURE_MAX_BYTES=1000;"
+            "\nwhile not os.path.exists(sys.argv[3]):time.sleep(.005)"
+            "\nc.write_record('fixture',{'corp':'한글'},'response kept whole',False,0,19)")
+    go = tmp_path / "GO"
+    children = [subprocess.Popen([sys.executable, "-c", code, source, str(race), str(go)],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE) for _ in range(6)]
+    try:
+        go.write_text("go")
+        outputs = [child.communicate(timeout=15) for child in children]
+        assert all(child.returncode == 0 for child in children), outputs
+    finally:
+        for child in children:
+            if child.poll() is None:
+                child.kill()
+                child.wait()
+    records = list(race.glob("calls-*.jsonl"))
+    assert len(records) == 1 and records[0].stat().st_size <= 1000
+    rows = [json.loads(line) for line in records[0].read_text().splitlines()]
+    assert 0 < len(rows) < 6
+    assert all(row["response_text"] == "response kept whole" and row["arguments"] == {"corp": "한글"}
+               for row in rows)
+    assert unknown.read_bytes() == b"protected original"
