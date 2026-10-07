@@ -913,17 +913,47 @@ _DIVIDEND_CACHE = LruByteCache(_env_mb("OPM_DIVIDEND_CACHE_MB", 16), _DOC_CACHE_
 #: 볼륨 이전 전의 디스크 적중은 24h 13건뿐이라 분포를 논할 표본이 아니었다.
 #: **먼저 LRU 로 두고 적중 분포를 재본 뒤** 필요하면 그때 빈도를 얹는다.
 #:
-#: **청소는 경로를 명시한 곳에서만 한다.** 예산의 목적은 볼륨을 지키는 것이고, 볼륨이
-#: 아니면 지킬 것이 없다. 로컬 기본 경로(`/tmp/opm_cache`)는 그냥 캐시가 아니라
-#: **회귀 재생의 유일한 소재**다(CLAUDE.md: 회귀 캐시는 DART 응답 경계에서만 만든다).
-#: 거기에 예산을 집행하면 그 소재를 우리 손으로 지운다 — 260810 실측 로컬 1.35GB/2,350건.
+#: 로컬 기본 경로는 회귀 원문이므로 자동 퇴출하지 않는다. 대신 2 GiB 상한에 닿으면
+#: 새 사본 저장만 생략한다. 기존 원문을 지우지 않으며 요청 결과는 그대로 반환한다.
 _DISK_CACHE_DIR = (os.environ.get("OPM_DOC_CACHE_DIR")
                    or os.path.join(tempfile.gettempdir(), "opm_cache"))
 _DISK_CACHE_MANAGED = bool(os.environ.get("OPM_DOC_CACHE_DIR"))
 _DISK_CACHE_MAX_BYTES = _env_mb("OPM_DOC_DISK_CACHE_MB", 640)
+_DISK_CORPUS_MAX_BYTES = _env_mb("OPM_DOC_CORPUS_MB", 2048)
+_DISK_CORPUS_MAX_FILES = 4096
 _DISK_SWEEP_BYTES = _env_mb("OPM_DOC_DISK_SWEEP_MB", 32)   # 이만큼 쓰면 한 번 훑는다
 _disk_bytes_since_sweep = _DISK_SWEEP_BYTES    # 첫 write 에서 한 번 — 부팅 시 초과분 정리
 _disk_evictions = 0
+_disk_corpus_blocked = 0
+_disk_write_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def _disk_write_guard(directory):
+    with _disk_write_lock, open(os.path.join(directory, ".write.lock"), "a") as lock:
+        if os.name == "posix":
+            import fcntl
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        # ponytail: non-POSIX uses one writer process; add a process lock if needed there.
+        yield
+
+
+def _expire_disk_cache_temps(directory):
+    """Only our unpublished, day-old files; the writer lock excludes live writers."""
+    cutoff = time.time() - 86400
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            if (re.fullmatch(r"\.\d{14}-[a-z0-9_]{8}\.tmp", entry.name)
+                    and entry.is_file(follow_symlinks=False) and not entry.is_symlink()
+                    and entry.stat().st_mtime < cutoff):
+                os.unlink(entry.path)
+
+
+def _note_corpus_blocked():
+    global _disk_corpus_blocked
+    if not _disk_corpus_blocked:
+        logger.warning("로컬 회귀 원문 보관 상한 — 새 디스크 사본만 생략; 기존 자료 유지")
+    _disk_corpus_blocked += 1
 
 
 def _sweep_disk_cache(written: int = 0, force: bool = False) -> int:
@@ -983,24 +1013,33 @@ def _is_disk_cache_file(name: str) -> bool:
     return name.endswith((".json", ".json.gz"))
 
 
-def _disk_cache_stats() -> dict:
+def _disk_cache_stats(directory=None, strict=False) -> dict:
     """디스크는 **메모리 예산 밖**이라 따로 센다.
 
     `persistent` 는 「이 캐시가 배포를 견디는가」다 — 종전 사고가 정확히 그 지점이라
     숫자보다 먼저 보이게 둔다."""
     entries = 0
     nbytes = 0
+    temp_entries = temp_bytes = 0
     try:
-        with os.scandir(_DISK_CACHE_DIR) as it:
+        with os.scandir(directory or _DISK_CACHE_DIR) as it:
             for e in it:
+                if e.name.endswith(".tmp"):
+                    try:
+                        temp_bytes += e.stat().st_size
+                        temp_entries += 1
+                    except OSError:
+                        if strict: raise
                 if not _is_disk_cache_file(e.name):
                     continue
                 try:
                     nbytes += e.stat().st_size
                 except OSError:
+                    if strict: raise
                     continue
                 entries += 1
     except OSError:
+        if strict: raise
         pass
     space = {}
     try:
@@ -1009,6 +1048,7 @@ def _disk_cache_stats() -> dict:
         space = {"volume_free_bytes": usage.free, "volume_total_bytes": usage.total}
     except OSError:
         pass
+    limit = _DISK_CACHE_MAX_BYTES if _DISK_CACHE_MANAGED else _DISK_CORPUS_MAX_BYTES
     return {
         **space,
         "name": "document_disk",
@@ -1017,9 +1057,14 @@ def _disk_cache_stats() -> dict:
         "swept": _DISK_CACHE_MANAGED,     # 예산이 집행되는 곳인가 (로컬 회귀 소재는 안 건드림)
         "entries": entries,
         "bytes": nbytes,
-        "max_bytes": _DISK_CACHE_MAX_BYTES,
-        "fill_pct": round(100 * nbytes / _DISK_CACHE_MAX_BYTES, 1) if _DISK_CACHE_MAX_BYTES else 0.0,
+        "temporary_entries": temp_entries,
+        "temporary_bytes": temp_bytes,
+        "retained_bytes": nbytes + temp_bytes,
+        "max_bytes": limit,
+        "max_files": None if _DISK_CACHE_MANAGED else _DISK_CORPUS_MAX_FILES,
+        "fill_pct": round(100 * (nbytes + temp_bytes) / limit, 1) if limit else 0.0,
         "evictions": _disk_evictions,
+        "admission_blocked": _disk_corpus_blocked,
     }
 
 
@@ -3409,27 +3454,47 @@ class DartClient:
 
     def _save_to_disk(self, rcept_no: str, doc: dict):
         """임시 파일에 쓰고 rename 한다 — 쓰다 죽어도 **부분 파일이 캐시로 읽히지 않게**."""
+        tmp = None
         try:
             os.makedirs(self._disk_cache_dir, exist_ok=True)
             path = self._disk_cache_path(rcept_no)
-            tmp = f"{path}.{os.getpid()}.tmp"
             # 260823 gzip 전환. 금융사 정기보고서가 20~42MB 라 평문으로 두면 볼륨이 금방 찬다
             # (실측 42.2MB → 2.0MB, 4%). 푸는 비용은 0.01초라 읽기 경로에 영향이 없다.
             # level 6(기본) — 9 로 올려도 공시 문서는 1%p 남짓 더 줄고 쓰기만 느려진다.
-            with gzip.open(tmp, "wt", encoding="utf-8", compresslevel=6) as f:
-                json.dump(doc, f, ensure_ascii=False)
-            os.replace(tmp, path)               # 같은 파일시스템 내 원자적 교체
-            written = os.path.getsize(path)
-            # 옛 평문 사본이 남아 있으면 지운다 — 같은 문서를 두 벌 들고 있을 이유가 없다
-            legacy = self._disk_cache_paths(rcept_no)[1]
-            if os.path.exists(legacy):
-                try:
-                    os.remove(legacy)
-                except OSError:
-                    pass
+            with _disk_write_guard(self._disk_cache_dir):
+                _expire_disk_cache_temps(self._disk_cache_dir)
+                if not _DISK_CACHE_MANAGED:
+                    stats = _disk_cache_stats(self._disk_cache_dir, strict=True)
+                    if (stats["retained_bytes"] >= _DISK_CORPUS_MAX_BYTES
+                            or stats["entries"] + stats["temporary_entries"] >= _DISK_CORPUS_MAX_FILES):
+                        _note_corpus_blocked()
+                        return
+                fd, tmp = tempfile.mkstemp(prefix=f".{rcept_no}-", suffix=".tmp", dir=self._disk_cache_dir)
+                os.close(fd)
+                with gzip.open(tmp, "wt", encoding="utf-8", compresslevel=6) as f:
+                    json.dump(doc, f, ensure_ascii=False)
+                written = os.path.getsize(tmp)
+                legacy = self._disk_cache_paths(rcept_no)[1]
+                if not _DISK_CACHE_MANAGED:
+                    used = _disk_cache_stats(self._disk_cache_dir, strict=True)["retained_bytes"]
+                    # The current tmp is already counted. Only gzip replacement is atomic;
+                    # legacy deletion can fail, so its bytes cannot finance the new copy.
+                    replaced = os.path.getsize(path) if os.path.isfile(path) else 0
+                    if used - replaced > _DISK_CORPUS_MAX_BYTES:
+                        _note_corpus_blocked()
+                        return
+                os.replace(tmp, path)           # 같은 파일시스템 내 원자적 교체
+                if os.path.exists(legacy):
+                    try:
+                        os.remove(legacy)
+                    except OSError:
+                        pass
         except OSError as e:
             logger.warning(f"disk cache 쓰기 실패(무시): {rcept_no} ({e})")
             return
+        finally:
+            if tmp is not None:
+                with contextlib.suppress(OSError): os.remove(tmp)
         _sweep_disk_cache(written)
 
     def _own_gate(self) -> "asyncio.Semaphore":

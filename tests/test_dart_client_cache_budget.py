@@ -332,6 +332,72 @@ def test_the_local_regression_corpus_is_never_swept(tmp_path, monkeypatch):
     assert C._disk_cache_stats()["swept"] is False
 
 
+def test_local_corpus_stops_new_copies_at_budget_preserves_replay_and_counts_gzip(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    import open_proxy_mcp.dart.client as C
+    monkeypatch.setenv("OPENDART_API_KEY", "0" * 40)
+    monkeypatch.setattr(C, "_DISK_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(C, "_DISK_CACHE_MANAGED", False)
+    monkeypatch.setattr(C, "_DISK_CORPUS_MAX_BYTES", 400)
+    monkeypatch.setattr(C, "_disk_corpus_blocked", 0)
+    old = tmp_path / "20260101000001.json"
+    original = '{"body":"' + 'x' * 200 + '"}'
+    old.write_text(original)
+    c = C.DartClient()
+    monkeypatch.setattr(c, "_disk_cache_dir", str(tmp_path))
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(lambda i: c._save_to_disk(f"2026010101{i:04d}", {"body": "새 원문" * 30}), range(20)))
+    stats = C._disk_cache_stats()
+    assert stats["bytes"] == sum(p.stat().st_size for p in tmp_path.glob("*.json*")) <= 400
+    assert stats["entries"] == len(list(tmp_path.glob("*.json*"))) > 1
+    assert stats["admission_blocked"] > 0
+    assert old.read_text() == original
+    assert c._load_from_disk("20260101000001")["body"] == 'x' * 200
+    assert not list(tmp_path.glob("*.tmp"))
+    # Legacy conversion needs room until old unlink succeeds; gzip replacement is atomic.
+    monkeypatch.setattr(C, "_DISK_CORPUS_MAX_BYTES", stats["bytes"] + 200)
+    c._save_to_disk("20260101000001", {"body": "new"})
+    assert c._load_from_disk("20260101000001")["body"] == "new"
+    assert not old.exists()
+    with monkeypatch.context() as blocked:
+        blocked.setattr(C.os, "scandir", lambda *args: (_ for _ in ()).throw(OSError("unreadable")))
+        c._save_to_disk("20260101009999", {"body": "held"})
+    assert not (tmp_path / "20260101009999.json.gz").exists()
+    assert not list(tmp_path.glob("*.tmp"))
+    # Failure to delete legacy must never finance a new gzip copy.
+    legacy = tmp_path / "20260101000002.json"
+    legacy.write_text('{"body":"' + 'z' * 350 + '"}')
+    retained = C._disk_cache_stats()["retained_bytes"]
+    monkeypatch.setattr(C, "_DISK_CORPUS_MAX_BYTES", retained + 50)
+    remove = C.os.remove
+    def fail_legacy(path):
+        if str(path) == str(legacy): raise PermissionError("held")
+        return remove(path)
+    with monkeypatch.context() as failed:
+        failed.setattr(C.os, "remove", fail_legacy)
+        c._save_to_disk("20260101000002", {"body": "conversion"})
+    assert legacy.exists()
+    assert not legacy.with_suffix(".json.gz").exists()
+    assert C._disk_cache_stats()["retained_bytes"] == retained
+    # A killed writer's recent tmp is counted, so the next writer cannot add another.
+    import os, time
+    leftover = tmp_path / ".20260101000003-abcdefgh.tmp"
+    leftover.write_bytes(b'partial' * 100)
+    c._save_to_disk("20260101000004", {"body": "blocked"})
+    assert not (tmp_path / "20260101000004.json.gz").exists()
+    assert C._disk_cache_stats()["temporary_bytes"] == leftover.stat().st_size
+    # Only our day-old unpublished files expire; unrelated temps stay under budget.
+    unknown = tmp_path / "unknown.tmp"
+    unknown.write_bytes(b'evidence')
+    os.utime(leftover, (time.time()-90000,) * 2)
+    c._save_to_disk("20260101000004", {"body": "still blocked"})
+    assert not leftover.exists() and unknown.read_bytes() == b'evidence'
+    monkeypatch.setattr(C, "_DISK_CORPUS_MAX_BYTES", retained + 1000)
+    monkeypatch.setattr(C, "_DISK_CORPUS_MAX_FILES", C._disk_cache_stats()["entries"])
+    c._save_to_disk("20260101000005", {"body": "file count blocked"})
+    assert not (tmp_path / "20260101000005.json.gz").exists()
+
+
 def test_sweep_is_triggered_by_bytes_not_file_count(tmp_path, monkeypatch):
     """**개수로 세면 크기를 못 본다** — 260804 OOM 과 같은 실수의 디스크판이다.
 
