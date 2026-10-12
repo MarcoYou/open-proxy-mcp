@@ -1,8 +1,8 @@
 {
  "meta": {
   "version": "v1",
-  "source_commit": "3757f59c886b8fb731e6960148e2197e3bce40e8",
-  "source_committed_date": "2026-10-02T12:00:00+09:00",
+  "source_commit": "52b5ad07226bdabff4fa7c9789186b62e9f7c2ad",
+  "source_committed_date": "2026-10-08T12:00:00+09:00",
   "n_articles": 3950,
   "anchor_df_max": 198,
   "df": {
