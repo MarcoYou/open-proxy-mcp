@@ -483,3 +483,21 @@ def test_quote_payload_end_to_end_on_postgres_is_json_serializable_and_matches_l
     json.dumps(first, ensure_ascii=False)
     assert first["data"]["quote"]["close_krw"] == 70_000 and first["data"]["quote"]["change_pct"] is None
     assert any("등락률" in w for w in first["warnings"])
+
+
+def test_missing_migration_degrades_quotes_to_live_without_taking_the_shared_pool_down(pg17, monkeypatch):
+    """마이그레이션 전에 배포돼도(`krx_daily_v` 없음) quote 는 라이브로 답하고, 그 SQL 오류가 공용 풀을 내려 다른 질의를 느리게 만들지 않는다."""
+    import importlib
+    import open_proxy_mcp.db as dbm
+    dbm = importlib.reload(dbm)                      # 싱글턴 풀을 새로 — 앞선 테스트의 풀 상태를 물려받지 않는다
+    monkeypatch.setenv("DATABASE_URL", pg17)
+    try:
+        for _ in range(3):
+            assert krx_daily.read_quote("005930", "").ok is False        # 뷰가 없다 → 읽을 수 없음(호출자는 KRX 라이브로)
+        assert dbm._pool is not None and dbm._pool_disabled_until == 0.0, "SQL 오류가 풀을 내렸다"
+        assert dbm.pg_rows("SELECT 1") == [(1,)]                          # 같은 풀로 다른 질의는 정상
+        assert dbm.pool_stats()["enabled"] is True
+    finally:
+        if dbm._pool is not None:
+            dbm._pool.close()
+        importlib.reload(dbm)
