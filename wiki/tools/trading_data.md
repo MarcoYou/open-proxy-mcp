@@ -4,7 +4,7 @@ title: trading_data
 domain: data
 status: 등록 완료 (260824 — tools/trading.py)
 scope: [firm, quote, market, sector, universe]
-data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 주간 시세 저장분, 시장·섹터 시총 집계 저장분, 기준가 조정 저장분, WICS 업종분류 저장분]
+data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 최근 7거래일 일별 시세 저장분, 주간 시세 저장분, 시장·섹터 시총 집계 저장분, 기준가 조정 저장분, WICS 업종분류 저장분]
 related_disclosures: []
 related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24
@@ -47,7 +47,7 @@ trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380") 
 | company | str | firm·quote 필수 | 회사명 / ticker(6자리) / corp_code | "" |
 | scope | str | no | `firm`(종목 시계열) / `quote`(단일 거래일 전체 시세) / `market` / `sector` / `universe`(종목 순위표) | "firm" |
 | format | str | no | "md" / "json" — 전 구간 시계열은 json 의 `data.series` | "md" |
-| as_of | str | no | quote 전용. YYYYMMDD. 비우면 최근 거래일 | "" |
+| as_of | str | no | quote 전용. YYYYMMDD. 비우면 최근 거래일. **최근 7거래일 안이면 DB, 그 이전이면 KRX 라이브** | "" |
 | since | str | no | firm·market·sector 시계열 시작일 YYYYMMDD. firm 은 주간 시세 보존 하한(`data.weekly_from`)보다 이르면 하한부터 주고 경고로 알린다 | "" |
 | scheme | str | no | sector 전용. `중분류`(28) / `대분류`(10). 옛 값(`wics_industry`·`wics_sector`)도 받는다 | "중분류" |
 | bucket | str | no | sector 전용. 섹터명·코드 지정 시 그 섹터의 전 구간 시계열 | "" |
@@ -58,8 +58,33 @@ trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380") 
 |---|---|---|---|
 | firm | `krx_weekly` (+ `krx_adj_events`) | 0 | 0 |
 | market · sector | `krx_cap_agg` 사전계산 | 0 | 0 |
-| quote | KRX 일별매매정보 라이브 | 0 | 0~2 (오늘분은 캐시 적중 시 0) |
+| quote | **최근 7거래일: 일별 시세 저장분(DB 한 왕복)** · 그 이전: KRX 일별매매정보 라이브 | 0 | 7거래일 안 **0** · 그 이전 0~2 (같은 날짜는 전종목 응답을 2일치 캐시해 날짜당 1회) |
 | universe | `krx_weekly` 최신 완결 주 1콜 + DART 회사 원장(캐시)으로 이름 | 0 | 0 |
+
+### quote — 최근 7거래일은 DB, 그 이전은 KRX 라이브 (261018)
+
+`scope=quote` 는 하루에 약 400번 KRX 를 불러 전종목 응답을 버리고 한 줄만 캐시했다(KRX 호출의 96%). 이제 서버가 매 거래일
+KRX 응답 전체(시·고·저·종가, 거래량, 거래대금, 상장주식수)를 **최근 7거래일치** 저장해 두고(`krx_daily`), 그 안의 날짜는 DB 한 번으로 답한다.
+
+| `as_of` | 어디서 | KRX |
+|---|---|---|
+| 비움 · 최근 7거래일 안 | 일별 시세 저장분 | 0 |
+| 7거래일보다 오래됨 | KRX 라이브(그 날짜 전종목 응답을 2일치 캐시) | 날짜당 2콜 |
+| 휴장일·보관된 적 없는 날 · DB 미연결 | KRX 라이브 | 0~2 |
+
+- **시총은 `종가 × 상장주식수`, 대비·등락률은 같은 종목의 보관된 전 거래일 종가 대비**로 읽을 때 계산한다(저장하지 않는다).
+  보관 창의 첫날·신규상장일은 전 거래일 행이 없어 DB 만으로는 못 낸다 — 그 날짜는 KRX 값으로 채운다(못 받으면 그 두 칸만 비우고 경고).
+  액면분할·권리락일의 KRX 공표 등락률은 기준가 대비라 이 계산값과 다를 수 있다. 응답의 `data.source`(`db`/`krx_live`)로 어느 쪽인지 밝힌다.
+- 출력 모양은 두 경로가 같다(같은 키·같은 단위). 다른 것은 `data.source` 와 `method` 문구뿐이다.
+- 하루 첫 시세 질문이 KRX 갱신을 떠안아 2~12초 기다리던 것도 없어졌다 — 갱신은 아래 백그라운드 작업이 한다.
+
+**KRX 시세 백그라운드 갱신** (`open_proxy_mcp/services/krx_refresher.py`, 서버가 뜰 때 함께 시작):
+- 평일 07:30~20:00 KST 에 10분마다(그리고 서버가 뜬 직후 한 번) 확인한다. KRX 는 전일 데이터를 익일 오전에 게시한다.
+- DB 가 기대 거래일(오늘 이전의 마지막 평일)을 이미 가졌으면 **아무것도 안 한다**(KRX 0콜). 아니면 머신 2대 중 DB 잠금
+  (`pg_try_advisory_lock`)을 잡은 하나만 KRX 에서 받아 `krx_weekly` 와 `krx_daily` 를 한 트랜잭션에 쓰고 7거래일 밖을 지운다.
+  저장되면 그날은 더 확인하지 않는다. 평일 휴장 다음 날은 KRX 가 빈 응답을 주므로 하루 종일 확인만 반복한다(깨지는 것은 없다).
+- 요청 경로는 DB 상태(`max(price_dd)`)만 읽는다 — KRX 를 부르지도 갱신을 떠안지도 않는다. `OPM_KRX_REFRESHER=0` 이면 갱신기를 띄우지 않는다.
+- 스키마(표·뷰·권한)는 서버가 만들지 않는다 — 배포 전에 `scripts/krx_daily_ddl.py` 로 한 번 적용한다.
 
 ### universe — 시총 순위 목록은 여기가 유일한 일괄 조회다 (260916)
 
@@ -115,6 +140,7 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 ## 배치
 | 스크립트 | 무엇을 | 언제 |
 |---|---|---|
+| 서버 백그라운드(`krx_refresher`) | `krx_weekly`·최근 7거래일 일별 시세 갱신 — 평일 07:30~20:00 10분 간격, 기대 거래일이 저장되면 멈춤 | 서버 상시 |
 | `scripts/krx_cap_agg.py` | `krx_cap_agg` 재적재 (44,636행 · 8MB) — 보존 하한 이전 재집계는 거절 | 일간 (krx_weekly 갱신 후) |
 | `scripts/refresh_sector_class.py` | 업종분류 관측(`wise_sector`) | 월 1회 (`.github/workflows/sector-class-monthly.yml` cron) |
 
@@ -139,6 +165,8 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 
 ## 변경 이력
 
+- 2026-10-18: `scope=quote` 를 **최근 7거래일은 DB(KRX 0콜), 그 이전은 KRX 라이브**로 바꿈 — 하루 약 400회이던 서버의 KRX 실시간 호출이 7거래일 안에서는 0회.
+  출력 키는 그대로이고 `data.source` 가 더해졌다. 과거일 조회는 전종목 응답을 날짜별로 2일치 캐시한다. KRX 시세 갱신은 요청 경로에서 서버 백그라운드 작업으로 옮겼다.
 - 2026-10-18: 주간 시세 저장분을 최근 3년 + 종목별 연말 행으로 줄이는 데 맞춰 `scope=firm` 의 주간 시계열에 **하한**을 둠
   (`data.weekly_from` · 전 기간·하한 이전 `since` 는 하한부터 + 경고). 시장·섹터 집계는 그대로. 재집계·백필 배치는 하한 이전을 다시 쓰지 않는다.
 

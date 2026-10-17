@@ -142,6 +142,8 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
   두 곳에 살아 갈라진다. 스키마 상세는 private 레포(data-storage-registry) 참조.
 - 스냅샷은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
   매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
+  261018: 시세 갱신의 주 담당은 서버 백그라운드 작업(`krx_refresher`)이다 — 이 배치는 서버가 못 했을 때의 예비이고,
+  서버가 이미 갱신했으면 DB 가 최신이라 시세 콜을 하지 않는다. 같은 응답을 최근 7거래일 일별 시세에도 함께 쓴다([[trading_data]]).
 - **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
   (1회성, DART 0콜)가 채운 과거 78개 월말 — 시장 156행 + 섹터 11,014행, FY0·TTM·MRQ 세 기준 모두 백필
   완료(260706, 최초엔 FY0만이었으나 분기 백필 완주 후 확장). "2020년부터 코스피 PER/PBR 추이" 응답 가능.
@@ -261,12 +263,12 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
 | DART stockTotqySttus | 1 | 유통주식수 |
 | DART alotMatter(배당) | ~2 | 연간 요약 |
 | **DART 합계** | **11 (최대 ~15, 실측 260705)** | per-firm. scope=market/sector/firm_history는 **DART·KRX 0콜(DB만)** |
-| KRX (시세) | **serve-time 0** | 주간 시세 저장분에서 읽음. 라이브 KRX는 하루 1회 최신 거래일 스냅샷 확보 시만(전종목 2콜, 코스피·코스닥 병렬) → **유저 수 무관 하루 ~수십콜 bounded**. KRX 개인키 일 10,000 한도 보호 |
+| KRX (시세) | **serve-time 0** | 주간 시세 저장분에서 읽음. 요청 경로는 KRX 를 부르지 않는다(DB 상태만 읽음). 최신 거래일 스냅샷은 서버 백그라운드 작업이 평일 아침 확보(전종목 2콜) → **유저 수 무관 하루 수 콜 bounded**. KRX 개인키 일 10,000 한도 보호 |
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
 
 **KRX 시세 = 주간 시세 저장분 서빙**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
 공유)라 라이브 유저를 직접 서빙하면 키 소진 시 배수 N/M 위험. FX 캐시와 동형 — 매일 최신 거래일
-전종목 스냅샷을 라이브로 확보해 **'그 주(ISO week)' 슬롯에 덮어쓰며 갱신**(전날 종가까지 표시), 주중
+전종목 스냅샷을 서버 백그라운드 작업이 확보해 **'그 주(ISO week)' 슬롯에 덮어쓰며 갱신**(전날 종가까지 표시), 주중
 일별은 다음 거래일에 덮여 사라지고 **주 마지막 거래일만 영구 보존**(주당 1스냅샷 ~52/년 = 무료티어
 보호). valuation은 DB 우선 읽기, 서빙 KRX 콜 = 하루 ~2. 축적 주간가격은 v1.1 5년밴드·PIT 재사용.
 price_date로 기준일 투명.
