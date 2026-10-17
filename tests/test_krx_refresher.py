@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import pathlib
 import sys
 from datetime import date, datetime
@@ -733,3 +734,18 @@ def test_all_blocking_io_runs_off_the_event_loop(monkeypatch):
     assert len(seen["db_latest"]) == 2 and len(seen["bump"]) == 2                  # 잠금 앞·뒤 두 번, KRX 두 콜
     on_loop = sorted(k for k, tids in seen.items() if loop_tid in tids)
     assert not on_loop, f"이벤트 루프에서 도는 블로킹 호출: {on_loop}"
+
+
+def test_the_reason_for_being_off_is_visible_in_the_production_log(monkeypatch, capsys):
+    """Fly 에서 켜졌는지 꺼졌는지는 배포 직후 로그 한 줄로 알 수 있어야 한다 — 꺼졌어도 이유가 INFO 로 찍힌다(루트 로거는 WARNING 이라 따로 핸들러를 단다)."""
+    monkeypatch.setenv(R.ENV_FLAG, "0")
+    for name in R._LOGGERS:                                  # 앞선 테스트가 달아 둔 핸들러를 치우고 처음 상태에서 시작
+        lg = logging.getLogger(name)
+        lg.handlers[:] = [h for h in lg.handlers if not getattr(h, "_opm_krx_refresher", False)]
+    assert R.start() is None
+    err = capsys.readouterr().err
+    assert "KRX 갱신기 꺼짐" in err and R.ENV_FLAG in err
+    assert logging.getLogger(R.__name__).isEnabledFor(logging.INFO)
+    assert logging.getLogger(R.__name__).propagate is True   # 다른 수집기(caplog 등)를 막지 않는다
+    R.start()                                                # 다시 불러도 핸들러는 하나
+    assert sum(1 for h in logging.getLogger(R.__name__).handlers if getattr(h, "_opm_krx_refresher", False)) == 1

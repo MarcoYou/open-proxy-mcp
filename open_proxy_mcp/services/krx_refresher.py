@@ -331,7 +331,10 @@ _LOGGERS = ("open_proxy_mcp.services.krx_refresher", "open_proxy_mcp.krx_daily",
 
 
 def _install_log() -> None:
-    """갱신기 관련 로거에 stderr 핸들러(INFO)를 단다. 여러 번 불려도 한 번만 단다. 전파는 끊어 두 번 찍히지 않게 한다."""
+    """갱신기 관련 로거에 stderr 핸들러(INFO)를 단다. 여러 번 불려도 한 번만 단다.
+
+    전파(propagate)는 건드리지 않는다 — 운영 루트 로거에는 핸들러가 없어 중복 출력이 없고, 끊어 버리면 테스트의 caplog 같은 다른 수집기가
+    이 로거의 기록을 못 받는다."""
     import sys
     for name in _LOGGERS:
         lg = logging.getLogger(name)
@@ -342,16 +345,15 @@ def _install_log() -> None:
         h._opm_krx_refresher = True                        # type: ignore[attr-defined]
         lg.addHandler(h)
         lg.setLevel(logging.INFO)
-        lg.propagate = False
 
 
 def start() -> Handle | None:
     """실행 중인 이벤트 루프에서 갱신 작업을 띄운다. 켤 수 없으면 이유를 로그에 남기고 None."""
+    _install_log()                      # 「꺼짐」의 이유도 운영 로그(INFO)에 보여야 배포 뒤 「왜 안 도나」를 알 수 있다
     reason = disabled_reason()
     if reason:
         logger.info("KRX 갱신기 꺼짐: %s", reason)
         return None
-    _install_log()
     stop_event = asyncio.Event()
     task = asyncio.get_running_loop().create_task(_loop(stop_event), name="krx-refresher")
     logger.info("KRX 갱신기 시작: 평일 %s~%s KST 10분 간격 + 기동 직후 1회",
