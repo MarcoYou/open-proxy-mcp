@@ -5,6 +5,7 @@
 서버 쓰기 경로가 표를 만들지 않으므로 별도 스크립트로 둔다. **전부 멱등**이다(다시 돌려도 같은 결과).
 
     python3 scripts/krx_daily_ddl.py            # SQL 을 화면에 낸다. 아무것도 실행하지 않는다 — SQL 편집기에 붙여 넣을 수 있다
+    python3 scripts/krx_daily_ddl.py --no-tx    # BEGIN/COMMIT 없이 본문만 — 자체적으로 트랜잭션을 거는 도구(마이그레이션 적용기)용
     python3 scripts/krx_daily_ddl.py --apply    # DATABASE_URL 의 DB 에 한 트랜잭션으로 적용한다 (실패하면 전부 되돌린다)
 
 ■ 표 `krx_daily` — 사실값만. 시가총액·등락률은 저장하지 않고 뷰가 계산한다.
@@ -84,9 +85,10 @@ def apply(url: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--apply", action="store_true", help="DATABASE_URL 의 DB 에 적용 (없으면 SQL 만 출력)")
+    ap.add_argument("--no-tx", action="store_true", help="출력할 때 BEGIN/COMMIT 을 붙이지 않는다")
     args = ap.parse_args()
     if not args.apply:
-        sys.stdout.write(render())
+        sys.stdout.write(STATEMENTS if args.no_tx else render())
         return 0
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")

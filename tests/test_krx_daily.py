@@ -286,3 +286,29 @@ def test_read_quote_sql_is_one_statement_with_two_params():
     assert krx_daily.QUOTE_SQL.count("%s") == 2
     assert ";" not in krx_daily.QUOTE_SQL
     assert "krx_daily_v" in krx_daily.QUOTE_SQL and "LATERAL" in krx_daily.QUOTE_SQL
+
+
+def test_ddl_script_prints_by_default_and_never_applies_without_the_flag(capsys, monkeypatch):
+    """스키마 스크립트는 기본이 「출력만」이다 — 실수로 DB 를 만지지 않는다. --no-tx 는 BEGIN/COMMIT 없는 본문."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("krx_daily_ddl", ROOT / "scripts" / "krx_daily_ddl.py")
+    ddl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ddl)
+    applied = []
+    monkeypatch.setattr(ddl, "apply", lambda url: applied.append(url))
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
+    monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py"])
+    assert ddl.main() == 0
+    out = capsys.readouterr().out
+    assert out.startswith("BEGIN;") and out.rstrip().endswith("COMMIT;") and not applied
+    for needle in ("CREATE TABLE IF NOT EXISTS krx_daily", "CREATE OR REPLACE VIEW krx_daily_v", "CREATE OR REPLACE VIEW price_latest",
+                   "ENABLE ROW LEVEL SECURITY", "CREATE POLICY krx_daily_read", "REVOKE ALL ON krx_daily, krx_daily_v, price_latest FROM anon, authenticated"):
+        assert needle in out
+    assert "GRANT" not in out.upper().replace("REVOKE", "")            # anon/authenticated 에 권한을 주는 문장은 없다
+    monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--no-tx"])
+    assert ddl.main() == 0
+    body = capsys.readouterr().out
+    assert "BEGIN" not in body and "COMMIT" not in body and body.startswith("CREATE TABLE") and not applied
+    monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--apply"])
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: None, raising=False)
+    assert ddl.main() == 0 and applied == ["postgresql://u:p@localhost/x"]     # 명시했을 때만 적용
