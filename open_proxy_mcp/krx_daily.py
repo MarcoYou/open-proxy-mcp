@@ -113,12 +113,12 @@ QUOTE_SQL = (
     "SELECT d.dd, d.lo, d.hi, "
     "EXISTS (SELECT 1 FROM krx_daily x WHERE x.trd_dd = d.dd) AS present, "
     "v.market, v.open, v.high, v.low, v.close, v.volume, v.value, v.list_shrs, v.mktcap, "
-    "v.prev_close, v.chg, v.chg_pct "
+    "v.prev_dd, v.prev_close, v.chg, v.chg_pct "
     "FROM d LEFT JOIN LATERAL ("
     "SELECT * FROM krx_daily_v WHERE ticker = %s AND trd_dd = d.dd) v ON true"
 )
 _QUOTE_COLS = ("dd", "lo", "hi", "present", "market", "open", "high", "low", "close", "volume", "value",
-               "list_shrs", "mktcap", "prev_close", "chg", "chg_pct")
+               "list_shrs", "mktcap", "prev_dd", "prev_close", "chg", "chg_pct")
 
 
 @dataclass(frozen=True)

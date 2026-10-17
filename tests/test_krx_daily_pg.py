@@ -91,7 +91,7 @@ def test_no_grants_for_anon_or_authenticated_even_with_default_privileges(pg17):
                 for priv in ("SELECT", "INSERT", "UPDATE", "DELETE"):
                     assert c.execute("SELECT has_table_privilege(%s,%s,%s)", (role, obj, priv)).fetchone()[0] is False, \
                         f"{role} 에 {obj} {priv} 권한이 남아 있다"
-        # 서버가 쓰는 역할과 읽기 전용 역할은 그대로 읽는다
+        # 서버가 쓰는 역할과 읽기 전용 역할은 그대로 읽는다 — opm_ro 는 이 테스트의 기본 권한에 없으므로 DDL 의 GRANT 덕분이다
         assert c.execute("SELECT has_table_privilege('opm_ro','krx_daily','SELECT')").fetchone()[0] is True
         assert c.execute("SELECT has_table_privilege('opm_ro','price_latest','SELECT')").fetchone()[0] is True
         assert c.execute("SELECT has_table_privilege('service_role','krx_daily','SELECT')").fetchone()[0] is True
@@ -124,18 +124,18 @@ def test_view_computes_mktcap_and_change_vs_previous_stored_day(pg17):
     _write(pg17, "20261015", [_row("A00001", 1100, shrs=10)], [])                       # A00002 는 이 날 행이 없다(정지·구멍)
     _write(pg17, "20261016", [_row("A00001", 990, shrs=10), _row("A00002", 210, shrs=5)], [])
     with psycopg.connect(pg17) as c:
-        rows = {(t, d): (m, p, ch, pc) for t, d, m, p, ch, pc in c.execute(
-            "SELECT ticker, trd_dd, mktcap, prev_close, chg, chg_pct FROM krx_daily_v").fetchall()}
+        rows = {(t, d): (m, pdd, p, ch, pc) for t, d, m, pdd, p, ch, pc in c.execute(
+            "SELECT ticker, trd_dd, mktcap, prev_dd, prev_close, chg, chg_pct FROM krx_daily_v").fetchall()}
     # 시총 = 종가 × 상장주식수
     assert rows[("A00001", "20261014")][0] == 10_000
     # 보관 창의 첫날은 직전 행이 없어 비어 있다
-    assert rows[("A00001", "20261014")][1:] == (None, None, None)
-    assert rows[("A00002", "20261014")][1:] == (None, None, None)
-    # 직전 거래일 종가 대비 (소수 2자리)
-    assert rows[("A00001", "20261015")][1:] == (1000, 100, pytest.approx(10.00))
-    assert rows[("A00001", "20261016")][1:] == (1100, -110, pytest.approx(-10.00))
-    # 종목마다 자기 직전 행을 본다 — A00002 의 직전은 15일이 아니라 14일
-    assert rows[("A00002", "20261016")][1:] == (200, 10, pytest.approx(5.00))
+    assert rows[("A00001", "20261014")][1:] == (None, None, None, None)
+    assert rows[("A00002", "20261014")][1:] == (None, None, None, None)
+    # 직전 보관 행 대비 (소수 2자리) — 직전 행의 날짜(prev_dd)도 함께 낸다
+    assert rows[("A00001", "20261015")][1:] == ("20261014", 1000, 100, pytest.approx(10.00))
+    assert rows[("A00001", "20261016")][1:] == ("20261015", 1100, -110, pytest.approx(-10.00))
+    # 종목마다 자기 직전 행을 본다 — A00002 의 직전은 15일이 아니라 14일(prev_dd 가 이틀 전을 가리켜 「직전 거래일이 아님」을 알린다)
+    assert rows[("A00002", "20261016")][1:] == ("20261014", 200, 10, pytest.approx(5.00))
 
 
 def test_view_change_is_null_not_error_when_previous_close_is_zero_or_null(pg17):
@@ -145,7 +145,7 @@ def test_view_change_is_null_not_error_when_previous_close_is_zero_or_null(pg17)
     with psycopg.connect(pg17) as c:
         got = {t: (pc, ch, cp) for t, pc, ch, cp in c.execute(
             "SELECT ticker, prev_close, chg, chg_pct FROM krx_daily_v WHERE trd_dd='20261016'").fetchall()}
-    assert got["Z00001"] == (0, 500, None)            # 직전 종가 0 → 등락률은 NULL(0 으로 나누지 않는다)
+    assert got["Z00001"] == (0, None, None)           # 직전 종가 0 → 대비·등락률 모두 NULL(종가가 그대로 「대비」로 새지 않는다)
     assert got["Z00002"] == (100, None, None)         # 종가 '-' → NULL
 
 
@@ -156,6 +156,9 @@ def test_price_latest_is_one_row_per_ticker_at_its_own_latest_day(pg17):
     _write(pg17, "20261016", [_row("L00001", 12), _row("L00003", 30)], [])
     with psycopg.connect(pg17) as c:
         got = c.execute("SELECT ticker, trd_dd, price_dd, close FROM price_latest ORDER BY ticker").fetchall()
+        assert [r[0] for r in c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='price_latest' "
+                                        "AND column_name IN ('price_dd','prev_dd','chg_pct','mktcap') ORDER BY 1").fetchall()] == \
+            ["chg_pct", "mktcap", "prev_dd", "price_dd"]
         n = c.execute("SELECT count(*) FROM price_latest").fetchone()[0]
     assert n == 3
     assert got == [("L00001", "20261016", "20261016", 12), ("L00002", "20261014", "20261014", 20),
@@ -224,7 +227,7 @@ def test_upsert_writes_weekly_and_daily_in_one_transaction_and_isolates_daily_fa
 
     # ① 표가 없을 때 — krx_weekly 는 그대로 동작한다
     ok = pmd._krx_db_upsert("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)])
-    assert ok is True
+    assert ok == (True, False)                        # 주간은 커밋, 일별 표가 없어 기록 못 함 — 호출자가 구분할 수 있다
     with psycopg.connect(pg17) as c:
         assert c.execute("SELECT price_dd, ticker, market, close, mktcap, list_shrs FROM krx_weekly ORDER BY ticker").fetchall() == [
             ("20261013", "005930", "KS", 70_000, 70_000 * 1_000_000, 1_000_000),
@@ -232,7 +235,7 @@ def test_upsert_writes_weekly_and_daily_in_one_transaction_and_isolates_daily_fa
 
     # ② 마이그레이션 적용 뒤 — 같은 호출이 두 표를 함께 쓴다. 같은 주(10/12~18)의 옛 일자 20261013 은 weekly 에서 지워진다
     _apply(pg17)
-    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) is True
+    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) == (True, True)
     with psycopg.connect(pg17) as c:
         assert [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly").fetchall()] == ["20261015"]
         assert c.execute("SELECT trd_dd, ticker, close, volume, value FROM krx_daily ORDER BY ticker").fetchall() == [
@@ -246,7 +249,7 @@ def test_upsert_failure_in_daily_rolls_back_only_the_daily_part(pg17, monkeypatc
         c.execute(KRX_WEEKLY_DDL)
         c.execute("CREATE TABLE krx_daily (trd_dd text NOT NULL, ticker text NOT NULL, PRIMARY KEY (trd_dd, ticker))")  # 열이 모자란 가짜 표
     monkeypatch.setenv("DATABASE_URL", pg17)
-    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) is True
+    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) == (True, False)
     with psycopg.connect(pg17) as c:
         assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 2
         assert c.execute("SELECT count(*) FROM krx_daily").fetchone()[0] == 0
@@ -280,14 +283,14 @@ def test_read_quote_latest_day_with_change_in_one_round_trip(pg17, quote_db):
     r = got.row
     assert (r["open"], r["high"], r["low"], r["close"], r["volume"], r["value"], r["list_shrs"], r["mktcap"]) == \
         (101_000, 104_000, 100_500, 103_000, 777, 99_999, 10, 1_030_000)
-    assert (r["prev_close"], r["chg"], float(r["chg_pct"]), r["market"]) == (100_000, 3_000, 3.0, "KS")
+    assert (r["prev_dd"], r["prev_close"], r["chg"], float(r["chg_pct"]), r["market"]) == ("20261015", 100_000, 3_000, 3.0, "KS")
 
 
 def test_read_quote_specific_day_missing_ticker_and_absent_day(pg17, quote_db):
     _write(pg17, "20261015", [_row("005930", 100_000)], [])
     _write(pg17, "20261016", [_row("005930", 103_000), _row("000660", 90_000)], [])
     hit = krx_daily.read_quote("005930", "20261015")
-    assert hit.row["close"] == 100_000 and hit.row["prev_close"] is None            # 창의 첫날 — 직전 행 없음
+    assert hit.row["close"] == 100_000 and hit.row["prev_close"] is None and hit.row["prev_dd"] is None   # 창의 첫날 — 직전 행 없음
     no_ticker = krx_daily.read_quote("000660", "20261015")                          # 그 날은 있는데 이 종목이 없다
     assert no_ticker.ok and no_ticker.day_present and no_ticker.row is None
     absent = krx_daily.read_quote("005930", "20261012")                             # 창 안이지만 보관된 적 없는 날(휴장·구멍)
@@ -392,7 +395,13 @@ def test_a_crashed_holder_releases_the_lock_when_its_connection_dies(pg17):
     b = psycopg.connect(pg17, autocommit=True)
     assert b.execute("SELECT pg_try_advisory_lock(%s)", (krx_daily.REFRESH_LOCK_KEY,)).fetchone()[0] is False
     a.close()                                              # 해제 호출 없이 연결만 닫는다
-    assert b.execute("SELECT pg_try_advisory_lock(%s)", (krx_daily.REFRESH_LOCK_KEY,)).fetchone()[0] is True
+    import time
+    deadline, got = time.time() + 5, False
+    while not got and time.time() < deadline:              # 서버가 끊긴 연결의 백엔드를 정리하는 것은 비동기다 — 잠깐 기다린다
+        got = b.execute("SELECT pg_try_advisory_lock(%s)", (krx_daily.REFRESH_LOCK_KEY,)).fetchone()[0]
+        if not got:
+            time.sleep(0.05)
+    assert got is True
     b.close()
 
 
@@ -501,3 +510,82 @@ def test_missing_migration_degrades_quotes_to_live_without_taking_the_shared_poo
         if dbm._pool is not None:
             dbm._pool.close()
         importlib.reload(dbm)
+
+
+def test_opm_ro_reads_only_because_the_ddl_grants_it(pg17):
+    """픽스처의 기본 권한에는 opm_ro 가 없다 — DDL 에서 GRANT 를 빼면 읽기 전용 역할이 막힌다(권한 테스트가 헛돌지 않는다는 대조)."""
+    ddl = _ddl()
+    without_grant = ddl.STATEMENTS.replace("GRANT SELECT ON krx_daily, krx_daily_v, price_latest TO opm_ro;\n", "")
+    assert without_grant != ddl.STATEMENTS
+    with psycopg.connect(pg17) as c:
+        c.execute(without_grant)
+        c.commit()
+        assert c.execute("SELECT has_table_privilege('opm_ro','krx_daily','SELECT')").fetchone()[0] is False
+    _apply(pg17)
+    with psycopg.connect(pg17) as c:
+        assert c.execute("SELECT has_table_privilege('opm_ro','krx_daily','SELECT')").fetchone()[0] is True
+        assert c.execute("SELECT has_table_privilege('opm_ro','price_latest','SELECT')").fetchone()[0] is True
+
+
+def _quote_with(pg17, monkeypatch, rows_by_day, as_of="", krx_row=None):
+    """주어진 일별 행으로 진짜 뷰를 채우고 `build_quote_payload` 를 돌린다. KRX 라이브는 `krx_row`(없으면 None)를 돌려준다."""
+    import asyncio
+    from open_proxy_mcp.services import trading as T
+    for dd, rows in rows_by_day.items():
+        _write(pg17, dd, rows, [])
+
+    async def fake_resolve(q):
+        return {"corp_name": "삼성전자", "stock_code": "005930", "corp_cls": "Y"}, None
+    monkeypatch.setattr(T, "_resolve_listed", fake_resolve)
+    live_calls = []
+
+    async def live(dd, ticker):
+        live_calls.append(dd)
+        return krx_row
+    monkeypatch.setattr(T, "_krx_quote_row", live)
+    return asyncio.run(T.build_quote_payload("삼성전자", as_of=as_of)), live_calls
+
+
+def test_a_missed_trading_day_is_not_reported_as_a_daily_change(pg17, quote_db, monkeypatch):
+    """KRX 가 한 날을 0행으로 줘서 빠졌다면(10/13 없음) 10/14 의 「전일 대비」는 이틀 변동이다 — 조용히 20.00% 로 내지 않고 KRX 공표값으로 확인한다."""
+    krx = {"ISU_CD": "005930", "MKT_NM": "KOSPI", "TDD_CLSPRC": "120,000", "TDD_OPNPRC": "118,000", "TDD_HGPRC": "121,000",
+           "TDD_LWPRC": "117,000", "CMPPREVDD_PRC": "2,000", "ACC_TRDVOL": "1,000", "ACC_TRDVAL": "120,000,000",
+           "MKTCAP": "1", "LIST_SHRS": "1,000,000", "FLUC_RT": "1.69"}
+    p, live = _quote_with(pg17, monkeypatch, {"20261012": [_row("005930", 100_000)], "20261014": [_row("005930", 120_000)]},
+                          as_of="20261014", krx_row=krx)
+    assert live == ["20261014"] and p["data"]["source"] == "krx_live"
+    assert p["data"]["quote"]["change_pct"] == 1.69                       # KRX 공표값, DB 의 이틀치 20.0 이 아니다
+
+
+def test_a_missed_day_without_krx_blanks_the_change_instead_of_guessing(pg17, quote_db, monkeypatch):
+    p, live = _quote_with(pg17, monkeypatch, {"20261012": [_row("005930", 100_000)], "20261014": [_row("005930", 120_000)]},
+                          as_of="20261014", krx_row=None)
+    q = p["data"]["quote"]
+    assert p["status"] == "ok" and p["data"]["source"] == "db" and q["close_krw"] == 120_000
+    assert q["change_pct"] is None and q["change_krw"] is None            # 이틀치 20.0% 를 하루 변동처럼 내지 않는다
+    assert any("대비·등락률은 비웠습니다" in w for w in p["warnings"])
+
+
+def test_a_stock_split_day_is_taken_from_krx_not_from_the_stored_previous_close(pg17, quote_db, monkeypatch):
+    """5:1 액면분할(500,000 → 101,000): 직전 행 대비는 −79.8% 지만 KRX 공표는 기준가 대비 +1.00% — ±30% 를 넘으면 DB 값을 쓰지 않는다."""
+    krx = {"ISU_CD": "005930", "MKT_NM": "KOSPI", "TDD_CLSPRC": "101,000", "TDD_OPNPRC": "100,000", "TDD_HGPRC": "102,000",
+           "TDD_LWPRC": "99,000", "CMPPREVDD_PRC": "1,000", "ACC_TRDVOL": "5,000", "ACC_TRDVAL": "505,000,000",
+           "MKTCAP": "1", "LIST_SHRS": "5,000,000", "FLUC_RT": "1.00"}
+    rows = {"20261015": [_row("005930", 500_000, shrs=1_000_000)], "20261016": [_row("005930", 101_000, shrs=5_000_000)]}
+    p, live = _quote_with(pg17, monkeypatch, rows, as_of="20261016", krx_row=krx)
+    assert live == ["20261016"] and p["data"]["quote"]["change_pct"] == 1.0
+    p2, live2 = _quote_with(pg17, monkeypatch, {}, as_of="20261016", krx_row=None)       # KRX 가 없으면 −79.8 을 내지 않고 비운다
+    assert p2["data"]["quote"]["change_pct"] is None and p2["data"]["quote"]["close_krw"] == 101_000
+
+
+def test_a_normal_day_after_a_weekend_uses_the_stored_change_without_krx(pg17, quote_db, monkeypatch):
+    """금요일 → 월요일은 정상 거래일 간격이다 — DB 값을 믿고 KRX 를 부르지 않는다."""
+    p, live = _quote_with(pg17, monkeypatch, {"20261016": [_row("005930", 100_000)], "20261019": [_row("005930", 103_000)]}, as_of="20261019")
+    assert live == [] and p["data"]["source"] == "db" and p["data"]["quote"]["change_pct"] == 3.0
+
+
+def test_a_zero_previous_close_does_not_leak_the_price_as_the_change(pg17, quote_db, monkeypatch):
+    p, live = _quote_with(pg17, monkeypatch, {"20261015": [_row("005930", 0)], "20261016": [_row("005930", 500)]}, as_of="20261016")
+    q = p["data"]["quote"]
+    assert q["change_krw"] is None and q["change_pct"] is None and q["close_krw"] == 500
+    assert live == ["20261016"]

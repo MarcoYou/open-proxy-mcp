@@ -119,17 +119,18 @@ def _krx_db_get(price_dd: str, ticker: str) -> dict:
     return {}
 
 
-def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> bool:
+def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> tuple[bool, bool]:
     """전종목 스냅샷을 krx_weekly에 기록 + 같은 ISO주의 옛 price_dd 삭제(수렴) — 한 트랜잭션.
     → 주중엔 '주 내 최신 거래일' 1개, 주 마감 후엔 '주별 최종거래일'로 굳음(기존 의미 보존).
     mkt는 endpoint 기준 태깅(KOSPI/KOSDAQ — 기존 값 형식과 일치). 컬럼명 명시(위치의존 금지).
 
     261018: 같은 응답의 전 필드를 `krx_daily` 에도 **같은 트랜잭션**으로 쓰고 7거래일보다 오래된 날을 지운다
     (`krx_daily.write_daily` — SAVEPOINT 안이라 그 표가 없거나 고장 나도 krx_weekly 쓰기는 커밋된다. krx_weekly 동작은 그대로).
-    반환: krx_weekly 커밋 여부. krx_daily 결과는 로그로 남는다(실패는 ERROR)."""
+    반환 (krx_weekly 커밋 여부, krx_daily 기록 여부). krx_daily 만 실패하면 (True, False) — 호출자(갱신기)가 「최신 거래일이 저장됐다」고
+    착각하지 않도록 둘을 따로 돌려준다. krx_daily 실패는 ERROR 로그로도 남는다."""
     url = os.getenv("DATABASE_URL")
     if not url or not (kospi or kosdaq):
-        return False
+        return (False, False)
     recs = []
     for market, rows in ((MKT_KS, kospi), (MKT_KQ, kosdaq)):  # DB 는 KS/KQ (market_codes)
         for row in rows:
@@ -139,7 +140,7 @@ def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> bool:
             recs.append((price_dd, isu, market, _num(row.get("TDD_CLSPRC")),
                          _num(row.get("MKTCAP")), _num(row.get("LIST_SHRS"))))
     if not recs:
-        return False
+        return (False, False)
     wk_start, wk_end = _iso_wk_range(price_dd)
     try:
         import psycopg
@@ -157,10 +158,10 @@ def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> bool:
         if ok:
             logger.info("KRX 스냅샷 기록 %s: krx_weekly %d행 · krx_daily %d행(오래된 %d행 삭제)",
                         price_dd, len(recs), n, pruned)
-        return True
+        return (True, ok)
     except Exception as exc:  # noqa: BLE001 — 호출 경로를 깨지 않는다. 다만 조용히 삼키지는 않는다
         logger.warning("KRX 스냅샷 기록 실패 %s: %s: %s", price_dd, type(exc).__name__, exc)
-        return False
+        return (False, False)
 
 
 async def _krx_market_live(basDd: str) -> dict[str, dict]:

@@ -36,7 +36,7 @@ def _corp(monkeypatch, ticker="005930", name="삼성전자", cls="Y"):
 def _db_row(**kw):
     row = {"market": "KS", "open": 70_500, "high": 71_500, "low": 70_000, "close": 71_000, "volume": 12_345_678,
            "value": 876_543_210_000, "list_shrs": 5_919_637_922, "mktcap": 420_294_092_462_000,
-           "prev_close": 70_000, "chg": 1_000, "chg_pct": Decimal("1.43")}
+           "prev_dd": "20261015", "prev_close": 70_000, "chg": 1_000, "chg_pct": Decimal("1.43")}
     row.update(kw)
     return row
 
@@ -94,7 +94,7 @@ def test_empty_as_of_uses_the_latest_stored_day(monkeypatch):
     monkeypatch.setattr(T, "_krx_quote_row", _no_krx_async)
     monkeypatch.setattr(pmd, "_fetch_live_snapshot", _no_krx_async)
     calls = []
-    p = _quote(monkeypatch, _lookup(_db_row(), day="20261015"), as_of="", read_calls=calls)
+    p = _quote(monkeypatch, _lookup(_db_row(prev_dd="20261014"), day="20261015"), as_of="", read_calls=calls)
     assert calls == [("005930", "")] and p["data"]["as_of"] == "20261015" and "20261015" in p["subject"]
 
 
@@ -127,7 +127,7 @@ def test_oldest_stored_day_takes_the_official_change_from_krx(monkeypatch):
         seen.append((dd, ticker))
         return _krx_row(CMPPREVDD_PRC="-500", FLUC_RT="-0.71")
     monkeypatch.setattr(T, "_krx_quote_row", live)
-    p = _quote(monkeypatch, _lookup(_db_row(prev_close=None, chg=None, chg_pct=None), day="20261008"), as_of="20261008")
+    p = _quote(monkeypatch, _lookup(_db_row(prev_dd=None, prev_close=None, chg=None, chg_pct=None), day="20261008"), as_of="20261008")
     assert seen == [("20261008", "005930")] and p["data"]["source"] == "krx_live"
     assert p["data"]["quote"]["change_krw"] == -500 and p["data"]["quote"]["change_pct"] == -0.71
 
@@ -136,7 +136,7 @@ def test_oldest_stored_day_without_krx_serves_db_values_and_says_change_is_missi
     async def none(dd, ticker):
         return None
     monkeypatch.setattr(T, "_krx_quote_row", none)
-    p = _quote(monkeypatch, _lookup(_db_row(prev_close=None, chg=None, chg_pct=None), day="20261008"), as_of="20261008")
+    p = _quote(monkeypatch, _lookup(_db_row(prev_dd=None, prev_close=None, chg=None, chg_pct=None), day="20261008"), as_of="20261008")
     q = p["data"]["quote"]
     assert p["status"] == "ok" and p["data"]["source"] == "db"
     assert q["close_krw"] == 71_000 and q["change_krw"] is None and q["change_pct"] is None
@@ -373,8 +373,79 @@ def test_markdown_shows_a_dash_not_none_when_the_change_is_unavailable(monkeypat
     async def none(dd, ticker):
         return None
     monkeypatch.setattr(T, "_krx_quote_row", none)
-    p = _quote(monkeypatch, _lookup(_db_row(prev_close=None, chg=None, chg_pct=None), day="20261008"), as_of="20261008")
+    p = _quote(monkeypatch, _lookup(_db_row(prev_dd=None, prev_close=None, chg=None, chg_pct=None), day="20261008"), as_of="20261008")
     md = _render_quote(p)
     assert "None" not in md and "| 대비 | - (-) |" in md
     p2 = _quote(monkeypatch, _lookup(_db_row()), as_of="20261016")
     assert "| 대비 | 1,000원 (1.43%) |" in _render_quote(p2)
+
+
+# ── 대비·등락률을 믿을 수 있나 (`_change_is_reliable`) ───────────────────────────────
+
+@pytest.mark.parametrize("dd,row,expected", [
+    ("20261016", dict(prev_dd="20261015", prev_close=70_000, chg_pct=Decimal("1.43")), True),          # 목 → 금
+    ("20261019", dict(prev_dd="20261016", prev_close=70_000, chg_pct=Decimal("-2.00")), True),         # 금 → 월(주말 건너뜀)
+    ("20261016", dict(prev_dd="20261014", prev_close=70_000, chg_pct=Decimal("1.43")), False),         # 직전 평일(15일) 행이 없다: 휴장일일 수도, 빠진 날일 수도
+    ("20261016", dict(prev_dd=None, prev_close=None, chg_pct=None), False),                            # 직전 행 없음(보관 첫날·신규상장일)
+    ("20261016", dict(prev_dd="20261015", prev_close=0, chg_pct=None), False),                         # 직전 종가 0
+    ("20261016", dict(prev_dd="20261015", prev_close=500_000, chg_pct=Decimal("-79.80")), False),     # 5:1 분할 — 일일 제한폭(±30%) 밖
+    ("20261016", dict(prev_dd="20261015", prev_close=70_000, chg_pct=Decimal("30.00")), True),         # 상·하한가 경계는 정상 변동
+    ("20261016", dict(prev_dd="20261015", prev_close=70_000, chg_pct=Decimal("-30.01")), False),
+])
+def test_change_reliability_rules(dd, row, expected):
+    assert T._change_is_reliable(dd, row) is expected
+
+
+def test_unreliable_change_goes_to_krx_official_value_and_blanks_when_krx_is_unavailable(monkeypatch):
+    seen = []
+
+    async def live(dd, ticker):
+        seen.append(dd)
+        return _krx_row(CMPPREVDD_PRC="1,000", FLUC_RT="1.00", TDD_CLSPRC="101,000")
+    monkeypatch.setattr(T, "_krx_quote_row", live)
+    split = _lookup(_db_row(prev_close=500_000, chg=-399_000, chg_pct=Decimal("-79.80"), close=101_000))
+    p = _quote(monkeypatch, split, as_of="20261016")
+    assert seen == ["20261016"] and p["data"]["source"] == "krx_live" and p["data"]["quote"]["change_pct"] == 1.0
+
+    async def none(dd, ticker):
+        return None
+    monkeypatch.setattr(T, "_krx_quote_row", none)
+    p2 = _quote(monkeypatch, split, as_of="20261016")
+    q = p2["data"]["quote"]
+    assert p2["data"]["source"] == "db" and q["close_krw"] == 101_000 and q["change_pct"] is None and q["change_krw"] is None
+    assert any("대비·등락률은 비웠습니다" in w for w in p2["warnings"])
+
+
+def test_gap_before_the_day_goes_to_krx_official_value(monkeypatch):
+    seen = []
+
+    async def live(dd, ticker):
+        seen.append(dd)
+        return _krx_row()
+    monkeypatch.setattr(T, "_krx_quote_row", live)
+    gap = _lookup(_db_row(prev_dd="20261012"), day="20261014")                    # 13일(화) 행이 없는 채 12일 대비 — 이틀 변동
+    p = _quote(monkeypatch, gap, as_of="20261014")
+    assert seen == ["20261014"] and p["data"]["source"] == "krx_live"
+
+
+def test_db_lookups_run_off_the_event_loop(monkeypatch):
+    """quote 의 DB 한 왕복과 요청 경로의 기준일 조회는 루프 밖 스레드에서 돈다."""
+    import threading
+    _corp(monkeypatch)
+    seen = {}
+
+    def fake_read(ticker, dd=""):
+        seen["read_quote"] = threading.get_ident()
+        return _lookup(_db_row())
+    monkeypatch.setattr(T, "read_quote", fake_read)
+    monkeypatch.setattr(pmd, "_krx_db_latest_dd", lambda: seen.__setitem__("latest_dd", threading.get_ident()) or "20261016")
+    pmd._serving_dd_invalidate()
+
+    async def go():
+        tid = threading.get_ident()
+        await T.build_quote_payload("삼성전자", as_of="20261016")
+        await pmd._serving_price_dd()
+        return tid
+    loop_tid = asyncio.run(go())
+    pmd._serving_dd_invalidate()
+    assert set(seen) == {"read_quote", "latest_dd"} and loop_tid not in seen.values()

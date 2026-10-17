@@ -202,7 +202,7 @@ def test_upsert_keeps_weekly_behaviour_and_adds_daily_before_the_single_commit(m
     c = FakeConn()
     _patch_connect(monkeypatch, c)
     ok = pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540", "250,000")])
-    assert ok is True
+    assert ok == (True, True)                                   # (krx_weekly 커밋, krx_daily 기록)
     expected = [
         ("execute", "DELETE FROM krx_weekly WHERE"),
         ("executemany", "INSERT INTO krx_weekly("),
@@ -229,17 +229,17 @@ def test_upsert_commits_weekly_even_when_daily_fails_and_reports_true(monkeypatc
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
     c = FakeConn(fail_daily=True)
     _patch_connect(monkeypatch, c)
-    assert pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540")]) is True
+    assert pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540")]) == (True, False)   # 주간은 커밋, 일별만 실패 — 호출자가 구분한다
     assert c.commits == 1 and ("rollback_to_savepoint",) in c.log
 
 
 def test_upsert_returns_false_without_db_or_rows_and_on_weekly_error(monkeypatch, caplog):
     from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    assert pmd._krx_db_upsert("20261015", [_row("005930")], []) is False
+    assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == (False, False)
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
-    assert pmd._krx_db_upsert("20261015", [], []) is False
-    assert pmd._krx_db_upsert("20261015", [{"TDD_CLSPRC": "1"}], []) is False        # 종목코드 없는 행뿐
+    assert pmd._krx_db_upsert("20261015", [], []) == (False, False)
+    assert pmd._krx_db_upsert("20261015", [{"TDD_CLSPRC": "1"}], []) == (False, False)        # 종목코드 없는 행뿐
 
     class Boom(FakeConn):
         def cursor(self):
@@ -247,16 +247,16 @@ def test_upsert_returns_false_without_db_or_rows_and_on_weekly_error(monkeypatch
     c = Boom()
     _patch_connect(monkeypatch, c)
     with caplog.at_level("WARNING"):
-        assert pmd._krx_db_upsert("20261015", [_row("005930")], []) is False
+        assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == (False, False)
     assert c.commits == 0
     assert any("KRX 스냅샷 기록 실패" in r.message for r in caplog.records)
 
 
 # ── read_quote: 한 왕복의 결과를 해석한다 ────────────────────────────────────────
 
-def _quote_result(dd="20261016", lo="20261008", hi="20261016", present=True, with_row=True, prev=100_000):
-    row = ("KS", 101_000, 104_000, 100_500, 103_000, 777, 99_999, 10, 1_030_000, prev,
-           3_000 if prev else None, 3.0 if prev else None) if with_row else (None,) * 12
+def _quote_result(dd="20261016", lo="20261008", hi="20261016", present=True, with_row=True, prev=100_000, prev_dd="20261015"):
+    row = ("KS", 101_000, 104_000, 100_500, 103_000, 777, 99_999, 10, 1_030_000, prev_dd if prev else None, prev,
+           3_000 if prev else None, 3.0 if prev else None) if with_row else (None,) * 13
     return [(dd, lo, hi, present) + row]
 
 
@@ -267,7 +267,8 @@ def test_read_quote_maps_the_single_row(monkeypatch):
     assert len(calls) == 1 and calls[0][1] == ("20261016", "005930")        # 한 번만 묻는다 · as_of 앞뒤 공백 제거
     assert got.ok and got.day == "20261016" and got.window == ("20261008", "20261016") and got.day_present
     assert got.row["close"] == 103_000 and got.row["prev_close"] == 100_000 and got.row["market"] == "KS"
-    assert set(got.row) >= {"open", "high", "low", "close", "volume", "value", "list_shrs", "mktcap", "chg", "chg_pct"}
+    assert got.row["prev_dd"] == "20261015"
+    assert set(got.row) >= {"open", "high", "low", "close", "volume", "value", "list_shrs", "mktcap", "prev_dd", "prev_close", "chg", "chg_pct"}
 
 
 def test_read_quote_row_none_when_the_day_has_no_such_ticker(monkeypatch):
@@ -304,7 +305,9 @@ def test_ddl_script_prints_by_default_and_never_applies_without_the_flag(capsys,
     for needle in ("CREATE TABLE IF NOT EXISTS krx_daily", "CREATE OR REPLACE VIEW krx_daily_v", "CREATE OR REPLACE VIEW price_latest",
                    "ENABLE ROW LEVEL SECURITY", "CREATE POLICY krx_daily_read", "REVOKE ALL ON krx_daily, krx_daily_v, price_latest FROM anon, authenticated"):
         assert needle in out
-    assert "GRANT" not in out.upper().replace("REVOKE", "")            # anon/authenticated 에 권한을 주는 문장은 없다
+    grants = [ln for ln in out.splitlines() if ln.upper().startswith("GRANT")]
+    assert grants == ["GRANT SELECT ON krx_daily, krx_daily_v, price_latest TO opm_ro;"]     # 새로 주는 권한은 읽기 전용 역할 하나뿐
+    assert not any(role in ln for ln in grants for role in ("anon", "authenticated"))
     monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--no-tx"])
     assert ddl.main() == 0
     body = capsys.readouterr().out

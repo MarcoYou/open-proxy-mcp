@@ -35,6 +35,7 @@ from open_proxy_mcp.services.price_multiple_data import (
     _fetch_live_snapshot,
     _num,
     _pg_rows,
+    _price_dates,
     _resolve_listed,
     _weekly_bounds,
 )
@@ -368,8 +369,33 @@ _METHOD_LIVE = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_tr
                 "시가(TDD_OPNPRC)는 첫 체결가라 기준가와 다릅니다.")
 _METHOD_DB = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본을 서버가 매 거래일 보관한 최근 7거래일 저장분. "
               "그 날짜 실제 체결가 — 수정주가가 아닙니다. 시가는 첫 체결가라 기준가와 다릅니다. "
-              "시가총액 = 종가 × 상장주식수, 등락률·대비 = 보관된 전 거래일 종가 대비로 계산한 값입니다"
-              "(액면분할·권리락일은 KRX 공표 등락률이 기준가 대비라 다를 수 있습니다).")
+              "시가총액 = 종가 × 상장주식수. 대비·등락률 = 직전 평일 종가 대비로 계산한 값이며, 직전 평일 행이 없거나(휴장 다음 날·빠진 날) "
+              "변동이 일일 제한폭(±30%)을 넘거나(액면분할·권리락 등 기준가 조정일) 직전 행이 없으면(보관 첫날·신규상장일) KRX 공표값을 씁니다.")
+
+#: KRX 일일 가격제한폭. 전일 종가 대비 이보다 큰 변동은 정상 거래일의 변동이 아니다 — 기준가 조정일이거나, 사이의 거래일이 빠진 비교다.
+_DAILY_LIMIT_PCT = 30.0
+
+
+def _prev_weekday(dd: str) -> str:
+    """`dd` 의 직전 평일(YYYYMMDD) — 이 서버의 거래일 달력(`_price_dates`)을 그대로 쓴다."""
+    from datetime import date
+    d = date(int(dd[:4]), int(dd[4:6]), int(dd[6:]))
+    return next(x for x in _price_dates(d) if x < dd)
+
+
+def _change_is_reliable(dd: str, r: dict) -> bool:
+    """DB 가 계산한 대비·등락률이 KRX 공표값과 같다고 믿을 수 있나.
+
+    DB 의 「전 거래일」은 같은 종목의 직전 **보관 행**이다. 그것이 진짜 직전 거래일이 아닐 수 있다 —
+      · 보관 창의 첫날·신규상장일 → 직전 행이 없다
+      · 직전 평일 행이 없다 → 휴장일일 수도, KRX 가 0행을 줘서 빠진 날일 수도 있다(구분할 달력이 없다)
+      · 변동이 ±30% 를 넘는다 → 액면분할·병합·권리락·감자 등 기준가 조정일(KRX 공표 등락률은 기준가 대비)
+    이 셋이면 틀린 숫자를 조용히 내지 않고 KRX 공표값으로 확인한다."""
+    if not r.get("prev_close") or r.get("chg_pct") is None or not r.get("prev_dd"):
+        return False
+    if r["prev_dd"] != _prev_weekday(dd):
+        return False
+    return abs(float(r["chg_pct"])) <= _DAILY_LIMIT_PCT
 
 
 def _quote_day_get(basDd: str) -> dict[str, dict] | None:
@@ -476,15 +502,17 @@ async def build_quote_payload(company: str, format: str = "md",
     if lookup.ok and lookup.day_present:
         # 이 날짜는 보관돼 있다 — 종목이 없으면 KRX 를 부르지 않고 「없다」고 답한다.
         dd = lookup.day or dd
-        if lookup.row is not None and lookup.row.get("prev_close") is not None:
-            db_row = lookup.row
-        elif lookup.row is not None:
-            # 전 거래일 종가가 보관 창 안에 없다(가장 오래된 날·신규상장일) → 등락률을 DB 만으로는 못 낸다.
-            # KRX 값으로 채운다(날짜별 LRU 라 이 날짜는 KRX 를 한 번만 부른다). 못 받으면 DB 값에 등락률만 비운다.
-            row = await _krx_quote_row(dd, ticker)
-            if not row:
+        if lookup.row is not None:
+            if _change_is_reliable(dd, lookup.row):
                 db_row = lookup.row
-                warns.append("전 거래일 종가가 보관 범위 밖이라 대비·등락률을 계산하지 못했습니다(나머지 값은 그대로입니다).")
+            else:
+                # 대비·등락률을 DB 만으로는 믿을 수 없다(`_change_is_reliable`) → KRX 공표값으로 채운다.
+                # 날짜별 LRU 라 이 날짜는 KRX 를 한 번만 부른다. 못 받으면 DB 값에서 그 두 칸만 비운다.
+                row = await _krx_quote_row(dd, ticker)
+                if not row:
+                    db_row = {**lookup.row, "chg": None, "chg_pct": None}
+                    warns.append("전 거래일 대비 변동을 믿을 수 없는 날(보관 첫날·신규상장일·휴장 다음 날·기준가 조정일)인데 KRX 공표값을 "
+                                 "받지 못해 대비·등락률은 비웠습니다(나머지 값은 그대로입니다).")
     elif not dd:
         # ★ 저장분의 최신일을 그대로 KRX 에 묻지 않는다. DB 를 못 읽거나 표가 비었을 때만 이 경로다 — KRX 가 저장분에 있는 날짜를
         #   0행으로 돌려줄 수 있어서다(260824 실측: 20260821 저장분은 있는데 API 는 0행, 20260820 은 2,763행).

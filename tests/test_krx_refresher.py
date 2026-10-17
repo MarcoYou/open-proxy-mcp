@@ -32,9 +32,11 @@ def _rows(n, prefix="A"):
 def _clean():
     R._LOGGED_FRESH.clear()
     R._BUSY_STREAK["n"] = 0
+    R._COOLDOWN["n"] = 0
     yield
     R._LOGGED_FRESH.clear()
     R._BUSY_STREAK["n"] = 0
+    R._COOLDOWN["n"] = 0
 
 
 # ── 달력 ────────────────────────────────────────────────────────────────────
@@ -91,8 +93,9 @@ def test_disable_flag_and_missing_prerequisites(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://x")
     monkeypatch.setenv("KRX_API_KEY", "k")
     monkeypatch.delenv("KRX_OPEN_API_KEY", raising=False)
+    monkeypatch.setenv("FLY_MACHINE_ID", "m1")                             # Fly 머신 — 기본 켜짐
     monkeypatch.delenv(R.ENV_FLAG, raising=False)
-    assert R.disabled_reason() is None                                    # 기본은 켜짐
+    assert R.disabled_reason() is None
     for off in ("0", "false", "OFF", "no"):
         monkeypatch.setenv(R.ENV_FLAG, off)
         assert R.ENV_FLAG in R.disabled_reason()
@@ -104,6 +107,22 @@ def test_disable_flag_and_missing_prerequisites(monkeypatch):
     assert "KRX" in R.disabled_reason()
     monkeypatch.setenv("KRX_OPEN_API_KEY", "k2")                           # 대체 키 이름도 인정
     assert R.disabled_reason() is None
+
+
+def test_off_by_default_outside_fly_so_a_dev_pc_with_prod_env_never_becomes_a_second_writer(monkeypatch):
+    """`.env` 에 운영 DATABASE_URL·KRX 키가 있는 로컬 실행(`python -m open_proxy_mcp`·파일럿)이 조용히 운영 시세를 쓰지 않는다."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://prod-like")
+    monkeypatch.setenv("KRX_API_KEY", "k")
+    monkeypatch.delenv("FLY_MACHINE_ID", raising=False)
+    monkeypatch.delenv(R.ENV_FLAG, raising=False)
+    assert "FLY_MACHINE_ID" in R.disabled_reason()
+    monkeypatch.setenv(R.ENV_FLAG, "")                                      # 빈 값도 「명시 안 함」
+    assert "FLY_MACHINE_ID" in R.disabled_reason()
+    monkeypatch.setenv(R.ENV_FLAG, "1")                                     # 일부러 켜면 어디서나 켜진다
+    assert R.disabled_reason() is None
+    monkeypatch.setenv(R.ENV_FLAG, "0")                                     # 끄기는 어디서나 이긴다
+    monkeypatch.setenv("FLY_MACHINE_ID", "m1")
+    assert R.ENV_FLAG in R.disabled_reason()
 
 
 def test_start_returns_none_when_disabled_and_creates_no_task(monkeypatch):
@@ -127,8 +146,9 @@ def test_tests_run_with_the_refresher_off_by_default():
 class Sim:
     """DB 상태·잠금·KRX 를 흉내 낸다. 두 머신이 같은 Sim 을 공유하면 같은 DB 를 보는 것과 같다."""
 
-    def __init__(self, monkeypatch, stored="20261015", published=True, kospi=900, kosdaq=1800, write_ok=True, lock_held_by_other=False):
-        self.stored, self.published, self.write_ok = stored, published, write_ok
+    def __init__(self, monkeypatch, stored="20261015", published=True, kospi=900, kosdaq=1800, write_ok=True, lock_held_by_other=False,
+                 daily_ok=True):
+        self.stored, self.published, self.write_ok, self.daily_ok = stored, published, write_ok, daily_ok
         self.kospi_n, self.kosdaq_n = kospi, kosdaq
         self.locked = lock_held_by_other
         self.lock_attempts = self.fetches = self.writes = self.krx_calls = 0
@@ -162,10 +182,10 @@ class Sim:
 
     async def _write(self, dd, kospi, kosdaq):
         self.writes += 1
-        if self.write_ok:
+        if self.write_ok and self.daily_ok:                  # krx_daily 까지 써야 max(trd_dd) 가 움직인다
             self.stored = dd
             self.written.append((dd, len(kospi), len(kosdaq)))
-        return self.write_ok
+        return (self.write_ok, self.write_ok and self.daily_ok)
 
 
 def test_fresh_db_means_zero_krx_calls_and_no_lock(monkeypatch):
@@ -259,12 +279,43 @@ def test_half_snapshots_are_never_written(monkeypatch, kospi, kosdaq):
     assert res.outcome in ("incomplete", "not_published") and sim.writes == 0 and sim.stored == "20261015"
 
 
-def test_write_failure_is_reported_and_leaves_the_day_open_for_the_next_tick(monkeypatch):
+def test_write_failure_is_reported_and_leaves_the_day_open_after_a_short_rest(monkeypatch):
     sim = Sim(monkeypatch, stored="20261015", write_ok=False)
     res = asyncio.run(R.run_cycle(MON))
     assert res.outcome == "write_failed" and sim.stored == "20261015" and sim.locked is False
     sim.write_ok = True
-    assert asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, 10))).outcome == "refreshed"
+    for hh, mm in ((8, 10), (8, 20)):                                            # 실패 뒤 2틱은 쉰다 — 같은 날을 10분마다 다시 받지 않는다
+        assert asyncio.run(R.run_cycle(kst(2026, 10, 19, hh, mm))).outcome == "cooldown"
+    assert sim.fetches == 1
+    assert asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, 30))).outcome == "refreshed" and sim.fetches == 2
+
+
+def test_a_krx_daily_only_failure_is_not_reported_as_refreshed_and_does_not_hammer_krx(monkeypatch, caplog):
+    """krx_weekly 는 커밋됐는데 krx_daily 만 실패하면 max(trd_dd) 는 낡은 채다 — 「기록 완료」로 보고하면 매 틱 같은 날을 다시 받는다(리뷰 지적)."""
+    sim = Sim(monkeypatch, stored="20261015")
+    calls = []
+
+    async def weekly_only(dd, kospi, kosdaq):
+        calls.append(dd)
+        return (True, False)
+    monkeypatch.setattr(R, "_write", weekly_only)
+    with caplog.at_level("ERROR"):
+        res = asyncio.run(R.run_cycle(MON))
+    assert res.outcome == "daily_failed" and sim.stored == "20261015"
+    assert any("krx_daily 기록에 실패" in r.message for r in caplog.records)
+    outs = [asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, m))).outcome for m in (10, 20, 30)]
+    assert outs == ["cooldown", "cooldown", "daily_failed"]                       # 10분마다가 아니라 30분 간격으로 늦춰진다
+    assert sim.fetches == 2 and len(calls) == 2
+
+
+def test_failures_cost_far_fewer_krx_calls_than_retrying_every_tick(monkeypatch):
+    sim = Sim(monkeypatch, stored="20261015", kospi=900, kosdaq=50)                # 코스닥이 반쪽으로 계속 온다
+    from datetime import timedelta
+    ticks = [kst(2026, 10, 19, 7, 30) + timedelta(minutes=10 * i) for i in range(75)]       # 07:30 ~ 19:50, 하루치 틱
+    assert ticks[-1] == kst(2026, 10, 19, 19, 50) and all(R.in_window(t) for t in ticks)
+    for t in ticks:
+        asyncio.run(R.run_cycle(t))
+    assert sim.krx_calls <= 2 * 25 + 2                                             # 75틱 중 약 25번만 시도(틱당 2콜) — 10분마다였다면 150
 
 
 def test_unreadable_db_skips_the_tick_without_lock_or_krx(monkeypatch):
@@ -465,14 +516,14 @@ def test_fetch_day_treats_errors_as_empty_and_logs(monkeypatch, caplog):
     assert any("KRX 호출 실패" in r.message for r in caplog.records)
 
 
-def test_write_invalidates_the_serving_date_cache_on_success_only(monkeypatch):
+def test_write_invalidates_the_serving_date_cache_on_weekly_success_only(monkeypatch):
     from open_proxy_mcp.services import price_multiple_data as pmd
-    monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q: True)
+    monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q: (True, True))
     pmd._SERVING_DD.update(dd="20261015", at=1e18)
-    assert asyncio.run(R._write("20261016", [1], [2])) is True and pmd._SERVING_DD["dd"] is None
+    assert asyncio.run(R._write("20261016", [1], [2])) == (True, True) and pmd._SERVING_DD["dd"] is None
     pmd._SERVING_DD.update(dd="20261015", at=1e18)
-    monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q: False)
-    assert asyncio.run(R._write("20261016", [1], [2])) is False and pmd._SERVING_DD["dd"] == "20261015"
+    monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q: (False, False))
+    assert asyncio.run(R._write("20261016", [1], [2])) == (False, False) and pmd._SERVING_DD["dd"] == "20261015"
 
 
 # ── 루프와 앱 연결 ─────────────────────────────────────────────────────────
@@ -640,3 +691,45 @@ def test_stop_never_hangs_the_shutdown_even_if_cleanup_is_stuck(monkeypatch):
         await R.stop(h)
         return time.monotonic() - t0
     assert asyncio.run(go()) < 2.0
+
+
+def test_all_blocking_io_runs_off_the_event_loop(monkeypatch):
+    """DB 조회·잠금·쓰기·호출 장부(bump)는 전부 이벤트 루프 밖 스레드에서 돈다 — 하나라도 루프에서 돌면 그동안 모든 요청과 헬스체크(15초)가 멈춘다.
+    (리뷰 지적: `asyncio.to_thread` 를 몇 개 빼도 종전 테스트는 그대로 통과했다.) 같은 함수를 여러 번 부르므로 호출마다 스레드를 모은다."""
+    import threading
+    from open_proxy_mcp.dart import krx_meter
+    from open_proxy_mcp.services import price_multiple_data as pmd
+    seen: dict[str, list[int]] = {}
+
+    def mark(name):
+        seen.setdefault(name, []).append(threading.get_ident())
+
+    def record(name, ret):
+        def f(*a, **k):
+            mark(name)
+            return ret
+        return f
+
+    class Conn(LockConn):
+        def execute(self, sql, params=()):
+            mark("lock_sql:" + ("unlock" if "unlock" in sql else "try"))
+            return super().execute(sql, params)
+
+        def close(self):
+            mark("lock_close")
+            super().close()
+    conn = Conn(grant=True)
+    monkeypatch.setattr(R, "_db_latest_dd", record("db_latest", "20261015"))
+    monkeypatch.setattr(R, "_open_lock_conn", lambda: (mark("lock_open"), conn)[1])
+    _fake_httpx(monkeypatch, {"stk_bydd_trd": _Resp({"OutBlock_1": _rows(400, "K")}), "ksq_bydd_trd": _Resp({"OutBlock_1": _rows(400, "Q")})})
+    monkeypatch.setattr(krx_meter, "bump", record("bump", None))
+    monkeypatch.setattr(pmd, "_krx_db_upsert", record("upsert", (True, True)))
+
+    async def go():
+        return threading.get_ident(), await R.run_cycle(MON)
+    loop_tid, res = asyncio.run(go())
+    assert res.outcome == "refreshed"
+    assert set(seen) == {"db_latest", "lock_open", "lock_sql:try", "lock_sql:unlock", "lock_close", "bump", "upsert"}, seen
+    assert len(seen["db_latest"]) == 2 and len(seen["bump"]) == 2                  # 잠금 앞·뒤 두 번, KRX 두 콜
+    on_loop = sorted(k for k, tids in seen.items() if loop_tid in tids)
+    assert not on_loop, f"이벤트 루프에서 도는 블로킹 호출: {on_loop}"

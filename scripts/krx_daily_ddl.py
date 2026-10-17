@@ -10,11 +10,13 @@
 
 ■ 표 `krx_daily` — 사실값만. 시가총액·등락률은 저장하지 않고 뷰가 계산한다.
     trd_dd 는 `krx_weekly.price_dd` 와 같은 YYYYMMDD 문자열. 기본키 (trd_dd, ticker) + 색인 (ticker, trd_dd).
-■ 뷰 `krx_daily_v` — 모든 행 + `mktcap = close × list_shrs` + 같은 종목의 **직전 보관 거래일** 대비 `prev_close`·`chg`·`chg_pct`.
-    보관 창의 첫날(과 신규상장일)은 직전 행이 없어 NULL 이다.
+■ 뷰 `krx_daily_v` — 모든 행 + `mktcap = close × list_shrs` + 같은 종목의 **직전 보관 행** 대비 `prev_dd`·`prev_close`·`chg`·`chg_pct`.
+    보관 창의 첫날(과 신규상장일)은 직전 행이 없어 NULL 이다. 직전 종가가 0 이면 `chg`·`chg_pct` 도 NULL.
+    🔴 직전 보관 행이 곧 「직전 거래일」은 아니다 — 빠진 날(KRX 0행·서버 중단)이나 액면분할·권리락일(기준가 조정)에는 이 값이 KRX 공표 등락률과
+    다르다. 읽는 쪽이 `prev_dd` 가 직전 평일인지·변동폭이 일일 제한폭(±30%) 안인지 보고 믿을지 정한다(`services/trading.py`).
 ■ 뷰 `price_latest` — 종목마다 가장 늦은 `trd_dd` 한 줄. `price_dd`(= trd_dd) 열을 함께 내 `krx_weekly` 를 읽던 쪽이 표 이름만 바꿔 쓸 수 있다.
 ■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`)이다. 서버 역할(`postgres`)은 RLS 를 우회하고, 읽기 전용
-    역할(`opm_ro`)은 이 정책으로 읽는다. 뷰는 `security_invoker` 라 호출자 권한으로 평가된다.
+    역할(`opm_ro`)은 이 정책 + 명시적 `GRANT SELECT`(`krx_listing`·`fwd` 계열 스크립트와 같은 방식)로 읽는다. 뷰는 `security_invoker` 라 호출자 권한으로 평가된다.
     🔴 `anon`·`authenticated` 에는 **권한을 주지 않는다** — 이 프로젝트의 기본 권한 설정(default privileges)이 새 표·뷰를 만들 때
     두 역할에 SELECT 를 자동으로 주므로, 그것을 명시적으로 거둔다(Data API 를 닫을 예정이므로 노출을 늘리지 않는다).
 ■ 보관은 쓰는 쪽이 한다: 가장 최근 서로 다른 거래일 7개만 남기고 지운다(`open_proxy_mcp/krx_daily.py`).
@@ -49,8 +51,9 @@ CREATE INDEX IF NOT EXISTS idx_krx_daily_isu ON krx_daily (ticker, trd_dd);
 CREATE OR REPLACE VIEW krx_daily_v WITH (security_invoker = true) AS
 SELECT d.trd_dd, d.ticker, d.market, d.open, d.high, d.low, d.close, d.volume, d.value, d.list_shrs,
        d.close * d.list_shrs AS mktcap,
+       lag(d.trd_dd) OVER w AS prev_dd,
        lag(d.close) OVER w AS prev_close,
-       d.close - lag(d.close) OVER w AS chg,
+       d.close - NULLIF(lag(d.close) OVER w, 0) AS chg,
        round((d.close - lag(d.close) OVER w)::numeric * 100 / NULLIF(lag(d.close) OVER w, 0), 2) AS chg_pct
 FROM krx_daily d
 WINDOW w AS (PARTITION BY d.ticker ORDER BY d.trd_dd);
@@ -58,7 +61,7 @@ WINDOW w AS (PARTITION BY d.ticker ORDER BY d.trd_dd);
 CREATE OR REPLACE VIEW price_latest WITH (security_invoker = true) AS
 SELECT DISTINCT ON (v.ticker)
        v.trd_dd, v.trd_dd AS price_dd, v.ticker, v.market, v.open, v.high, v.low, v.close,
-       v.volume, v.value, v.list_shrs, v.mktcap, v.prev_close, v.chg, v.chg_pct
+       v.volume, v.value, v.list_shrs, v.mktcap, v.prev_dd, v.prev_close, v.chg, v.chg_pct
 FROM krx_daily_v v
 ORDER BY v.ticker, v.trd_dd DESC;
 
@@ -67,6 +70,7 @@ DROP POLICY IF EXISTS krx_daily_read ON krx_daily;
 CREATE POLICY krx_daily_read ON krx_daily FOR SELECT USING (true);
 
 REVOKE ALL ON krx_daily, krx_daily_v, price_latest FROM anon, authenticated;
+GRANT SELECT ON krx_daily, krx_daily_v, price_latest TO opm_ro;
 """
 
 

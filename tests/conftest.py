@@ -74,9 +74,10 @@ def pg17(_pg17_server):
                 c.execute(f"CREATE ROLE {role} {attrs}")
     url = url_for(db)
     with psycopg.connect(url, autocommit=True) as c:
-        # 운영과 같은 기본 권한: postgres 가 public 에 새로 만드는 표·뷰에 anon/authenticated/opm_ro 가 SELECT 를 자동으로 받는다.
+        # 운영과 같은 기본 권한: postgres 가 public 에 새로 만드는 표·뷰에 anon/authenticated 가 SELECT 를 자동으로 받는다.
+        # 🔴 opm_ro 는 일부러 뺀다 — 운영 기본 권한에 의존하지 않고 DDL 이 직접 줘야 읽히는지(권한 테스트가 헛돌지 않는지) 보려는 것이다.
         c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public "
-                  "GRANT SELECT ON TABLES TO anon, authenticated, opm_ro")
+                  "GRANT SELECT ON TABLES TO anon, authenticated")
         c.execute("ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public "
                   "GRANT ALL ON TABLES TO service_role")
     yield url
