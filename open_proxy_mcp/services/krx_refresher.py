@@ -259,9 +259,10 @@ async def _sleep_or_stop(stop: asyncio.Event, seconds: float) -> bool:
         return False
 
 
-async def _loop(stop: asyncio.Event, startup_delay: float = STARTUP_DELAY_SEC) -> None:
+async def _loop(stop: asyncio.Event, startup_delay: float | None = None) -> None:
     """서버가 뜬 직후 한 번(창 밖이어도), 이후 평일 창 안에서 10분마다."""
-    if await _sleep_or_stop(stop, startup_delay + random.uniform(0, 10)):
+    delay = STARTUP_DELAY_SEC if startup_delay is None else startup_delay      # 호출 시점의 값(테스트가 바꿀 수 있게)
+    if await _sleep_or_stop(stop, delay + random.uniform(0, min(10.0, delay))):
         return
     await _safe_cycle()
     while True:

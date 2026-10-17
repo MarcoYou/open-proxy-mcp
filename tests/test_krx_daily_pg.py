@@ -412,3 +412,35 @@ def test_seven_trading_days_of_refresher_cycles_roll_the_window(pg17, refresher_
         weekly = [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly ORDER BY 1").fetchall()]
     assert days == fetches[1:]                                # 8일치를 썼지만 가장 오래된 날이 빠져 7일
     assert weekly == ["20261016", "20261021"]                 # krx_weekly 는 지금과 같다 — 지난주 마지막 거래일 + 이번 주 최신 하루
+
+
+def test_server_startup_runs_one_refresh_cycle_and_shutdown_is_clean(pg17, refresher_env, monkeypatch):
+    """`build_app()` 이 만든 실제 앱을 띄우면(refresher 켬) 기동 직후 한 번 확인해 DB 를 채우고, 종료 때 작업이 깨끗이 멈춘다."""
+    import time
+    from starlette.testclient import TestClient
+    from open_proxy_mcp.server import build_app
+    R, fetches = refresher_env
+    monkeypatch.setenv(R.ENV_FLAG, "1")
+    monkeypatch.setenv("KRX_API_KEY", "test-key")
+    monkeypatch.setattr(R, "STARTUP_DELAY_SEC", 0.0)
+    task_ref = {}
+    real_start = R.start
+
+    def spy_start():
+        h = real_start()
+        task_ref["h"] = h
+        return h
+    monkeypatch.setattr(R, "start", spy_start)
+    with TestClient(build_app()):
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            with psycopg.connect(pg17) as c:
+                n = c.execute("SELECT count(*) FROM krx_daily").fetchone()[0]
+            if n:
+                break
+            time.sleep(0.1)
+        assert n == 800 and len(fetches) == 1                  # 기동 직후 한 번: 기대 거래일 하나를 받아 두 표에 썼다
+        assert task_ref["h"] is not None and not task_ref["h"].task.done()   # 상시 작업이 돌고 있다
+    assert task_ref["h"].task.done()                           # 서버가 꺼지면 작업도 멈춘다
+    with psycopg.connect(pg17) as c:                           # 잠금도 남지 않았다
+        assert c.execute("SELECT pg_try_advisory_lock(%s)", (krx_daily.REFRESH_LOCK_KEY,)).fetchone()[0] is True
