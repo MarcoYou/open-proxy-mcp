@@ -341,7 +341,10 @@ async def stop(handle: Handle | None) -> None:
 def attach_to_app(app) -> None:
     """Starlette 앱의 lifespan 을 감싸 서버가 뜰 때 갱신기를 띄우고 꺼질 때 멈춘다.
     갱신기를 못 띄워도 앱은 뜬다(서빙이 갱신기에 의존하지 않는다 — 옛 날짜를 읽을 뿐이다)."""
-    inner = app.router.lifespan_context
+    inner = getattr(getattr(app, "router", None), "lifespan_context", None)
+    if inner is None:                   # Starlette 이 아닌 앱(테스트용 대역 등) — 서빙을 깨지 않고 갱신기만 포기한다
+        logger.warning("KRX 갱신기: 앱에 lifespan 이 없어 연결하지 못했다")
+        return
 
     @contextlib.asynccontextmanager
     async def _lifespan(a):

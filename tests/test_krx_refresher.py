@@ -603,3 +603,12 @@ def test_build_app_wires_the_refresher_into_the_server_lifespan(monkeypatch):
     with TestClient(build_app()):
         assert events == ["start"]
     assert events == ["start", "stop"]
+
+
+def test_attach_to_app_leaves_a_non_starlette_app_alone(caplog):
+    class Odd:
+        pass
+    app = Odd()
+    with caplog.at_level("WARNING"):
+        R.attach_to_app(app)                                  # 예외 없이 지나간다
+    assert not hasattr(app, "router") and any("lifespan" in r.message for r in caplog.records)
