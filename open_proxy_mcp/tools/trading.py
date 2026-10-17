@@ -164,7 +164,7 @@ def _render_quote(p: dict[str, Any]) -> str:
         return f"{v:,}{unit}" if v is not None else "-"
     L = [f"# {p['subject']}", "", "| 항목 | 값 |", "|---|---|",
          f"| 종가 | {n('close_krw')} |",
-         f"| 대비 | {n('change_krw')} ({q.get('change_pct')}%) |",
+         f"| 대비 | {n('change_krw')} ({'-' if q.get('change_pct') is None else str(q['change_pct']) + '%'}) |",
          f"| 시가 / 고가 / 저가 | {n('open_krw')} / {n('high_krw')} / {n('low_krw')} |",
          f"| 거래량 | {n('volume', '주')} |",
          f"| 거래대금 | {_조(q.get('value_krw'))} |",

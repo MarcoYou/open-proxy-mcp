@@ -444,3 +444,42 @@ def test_server_startup_runs_one_refresh_cycle_and_shutdown_is_clean(pg17, refre
     assert task_ref["h"].task.done()                           # 서버가 꺼지면 작업도 멈춘다
     with psycopg.connect(pg17) as c:                           # 잠금도 남지 않았다
         assert c.execute("SELECT pg_try_advisory_lock(%s)", (krx_daily.REFRESH_LOCK_KEY,)).fetchone()[0] is True
+
+
+def test_quote_payload_end_to_end_on_postgres_is_json_serializable_and_matches_live_shape(pg17, quote_db, monkeypatch):
+    """진짜 뷰가 돌려준 값(Decimal·bigint)이 `build_quote_payload` 를 거쳐 JSON 으로 나가고, 라이브 경로와 같은 모양인지."""
+    import asyncio
+    import json
+    from open_proxy_mcp.services import trading as T
+    _write(pg17, "20261015", [_row("005930", 70_000, o=69_000, h=70_500, l=68_500, vol=1_000, val=70_000_000, shrs=5_919_637_922)], [])
+    _write(pg17, "20261016", [_row("005930", 71_000, o=70_500, h=71_500, l=70_000, vol=12_345_678, val=876_543_210_000, shrs=5_919_637_922)], [])
+
+    async def fake_resolve(q):
+        return {"corp_name": "삼성전자", "stock_code": "005930", "corp_cls": "Y"}, None
+    monkeypatch.setattr(T, "_resolve_listed", fake_resolve)
+
+    async def no_krx(*a, **k):
+        raise AssertionError("7거래일 안은 KRX 를 부르면 안 된다")
+    monkeypatch.setattr(T, "_krx_quote_row", no_krx)
+
+    p = asyncio.run(T.build_quote_payload("삼성전자", as_of=""))
+    json.dumps(p, ensure_ascii=False)                                   # Decimal 이 새면 여기서 터진다
+    q = p["data"]["quote"]
+    assert p["data"]["as_of"] == "20261016" and p["data"]["source"] == "db"
+    assert q == {"close_krw": 71_000, "open_krw": 70_500, "high_krw": 71_500, "low_krw": 70_000, "change_krw": 1_000,
+                 "volume": 12_345_678, "value_krw": 876_543_210_000, "mktcap_krw": 71_000 * 5_919_637_922,
+                 "list_shrs": 5_919_637_922, "change_pct": 1.43}
+    live_q, _ = T._quote_from_krx_row({"TDD_CLSPRC": "71,000", "TDD_OPNPRC": "70,500", "TDD_HGPRC": "71,500", "TDD_LWPRC": "70,000",
+                                       "CMPPREVDD_PRC": "1,000", "ACC_TRDVOL": "12,345,678", "ACC_TRDVAL": "876,543,210,000",
+                                       "MKTCAP": str(71_000 * 5_919_637_922), "LIST_SHRS": "5,919,637,922",
+                                       "FLUC_RT": "1.43"})
+    assert live_q == q                                                    # 같은 하루를 KRX 원본으로 읽은 값과 한 칸도 다르지 않다
+
+    # 보관 창의 첫날(20261015)은 직전 행이 없어 DB 만으로는 등락률을 못 낸다 → KRX 값으로 채운다(여기선 KRX 없음 → 값만 DB, 등락률 비움)
+    async def none(dd, t):
+        return None
+    monkeypatch.setattr(T, "_krx_quote_row", none)
+    first = asyncio.run(T.build_quote_payload("삼성전자", as_of="20261015"))
+    json.dumps(first, ensure_ascii=False)
+    assert first["data"]["quote"]["close_krw"] == 70_000 and first["data"]["quote"]["change_pct"] is None
+    assert any("등락률" in w for w in first["warnings"])

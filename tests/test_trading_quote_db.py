@@ -365,3 +365,16 @@ def test_request_path_has_no_refresh_call_left():
     assert "_ensure_krx_fresh" not in src and "_serving_price_dd" in src
     # 배치 스크립트용 갱신 함수는 그대로 남아 있다(예비 갱신자)
     assert callable(pmd._ensure_krx_fresh)
+
+
+def test_markdown_shows_a_dash_not_none_when_the_change_is_unavailable(monkeypatch):
+    """보관 창의 첫날을 KRX 없이 DB 값만으로 낼 때 대비·등락률 칸이 「(None%)」로 새지 않는다."""
+    from open_proxy_mcp.tools.trading import _render_quote
+    async def none(dd, ticker):
+        return None
+    monkeypatch.setattr(T, "_krx_quote_row", none)
+    p = _quote(monkeypatch, _lookup(_db_row(prev_close=None, chg=None, chg_pct=None), day="20261008"), as_of="20261008")
+    md = _render_quote(p)
+    assert "None" not in md and "| 대비 | - (-) |" in md
+    p2 = _quote(monkeypatch, _lookup(_db_row()), as_of="20261016")
+    assert "| 대비 | 1,000원 (1.43%) |" in _render_quote(p2)
