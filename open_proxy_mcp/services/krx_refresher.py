@@ -44,6 +44,9 @@ ENV_FLAG = "OPM_KRX_REFRESHER"
 INTERVAL_SEC = 600                      # 10분
 WINDOW_START = dtime(7, 30)             # 평일 07:30 KST 부터
 WINDOW_END = dtime(20, 0)               # 20:00 KST 전까지
+#: 확인하는 요일(월=0). 설계는 평일만이다. ⚠ KRX 는 금요일 데이터를 토요일 아침에 게시하므로 평일만 돌면 금요일 종가가 월요일 아침에야
+#: 반영된다(주말에는 목요일 종가가 최신으로 서빙). 토요일(5)을 넣으면 그 공백이 사라진다 — 하루 약 8콜 추가. 바꾸려면 이 한 곳만.
+WINDOW_WEEKDAYS = frozenset({0, 1, 2, 3, 4})
 STARTUP_DELAY_SEC = 15.0                # 서버가 뜬 뒤 첫 확인까지(부팅 부하와 겹치지 않게)
 #: 코스피 약 950·코스닥 약 1,800 행이 정상이다. 이보다 적으면 반쪽 응답으로 보고 쓰지 않는다.
 MIN_ROWS_PER_MARKET = 300
@@ -75,7 +78,7 @@ def now_kst() -> datetime:
 
 def in_window(now: datetime) -> bool:
     """평일 07:30 ≤ 시각 < 20:00 (KST) 인가. `now` 는 KST 기준 시각이어야 한다."""
-    return now.weekday() < 5 and WINDOW_START <= now.time() < WINDOW_END
+    return now.weekday() in WINDOW_WEEKDAYS and WINDOW_START <= now.time() < WINDOW_END
 
 
 def expected_dd(now: datetime) -> str:

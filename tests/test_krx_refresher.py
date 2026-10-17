@@ -612,3 +612,11 @@ def test_attach_to_app_leaves_a_non_starlette_app_alone(caplog):
     with caplog.at_level("WARNING"):
         R.attach_to_app(app)                                  # 예외 없이 지나간다
     assert not hasattr(app, "router") and any("lifespan" in r.message for r in caplog.records)
+
+
+def test_window_weekdays_is_a_single_switch(monkeypatch):
+    """요일 범위는 상수 하나다 — 토요일을 넣으면 토요일 창이 열리고 일요일은 그대로 닫혀 있다(운영자가 바꾸려는 경우의 계약)."""
+    assert R.WINDOW_WEEKDAYS == frozenset({0, 1, 2, 3, 4}) and not R.in_window(kst(2026, 10, 24, 9, 0))
+    monkeypatch.setattr(R, "WINDOW_WEEKDAYS", frozenset({0, 1, 2, 3, 4, 5}))
+    assert R.in_window(kst(2026, 10, 24, 9, 0)) and not R.in_window(kst(2026, 10, 25, 9, 0))
+    assert R.expected_dd(kst(2026, 10, 24, 9, 0)) == "20261023"        # 토요일 아침의 기대 거래일 = 금요일
