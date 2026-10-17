@@ -14,8 +14,9 @@ import uuid
 import pytest
 
 # 서버 앱을 띄우는 테스트(`build_app()` + TestClient)가 KRX 시세 백그라운드 갱신기를 띄우지 않게 한다.
-# 갱신기 자체의 테스트는 이 값을 직접 바꾸거나 함수를 직접 부른다.
-os.environ.setdefault("OPM_KRX_REFRESHER", "0")
+# 🔴 setdefault 가 아니라 **강제**다 — 개발자 셸에 `OPM_KRX_REFRESHER=1` 과 운영 `DATABASE_URL` 이 있어도 테스트가 운영 DB 를 쓰는 갱신기를
+# 띄우지 못하게 한다. 갱신기 자체의 테스트는 `monkeypatch` 로 값을 바꾸거나 함수를 직접 부른다.
+os.environ["OPM_KRX_REFRESHER"] = "0"
 
 
 def _free_port() -> int:
