@@ -15,6 +15,7 @@ from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
 
 import asyncio
+import contextvars
 import logging
 import os
 import time
@@ -106,7 +107,7 @@ async def _weekly_bounds() -> tuple[str, str]:
     (`open_proxy_mcp/krx_retention.py`). 오늘 날짜가 아니라 **저장된 최신 주**를 쓴다 — 자르는 쪽이 그걸 쓰므로
     서버 하한이 더 이르면 연말 한 점씩만 남은 구간이 주간 곡선에 섞여 들어온다.
     표가 비었거나 못 읽으면(None) 오늘로 대신한다 — 그 뒤 질의가 어차피 no_data/db_error 로 갈린다."""
-    latest = await asyncio.to_thread(_krx_db_latest_dd) or today_kst().strftime("%Y%m%d")
+    latest = await _db_call(_krx_db_latest_dd) or today_kst().strftime("%Y%m%d")
     return latest, krx_weekly_cutoff(latest)
 
 
@@ -323,6 +324,61 @@ def _pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
     """
     from open_proxy_mcp.db import pg_rows
     return pg_rows(sql, params)
+
+
+# ── 한 호출 안의 DB 읽기를 겹쳐 돌린다 (261018, Supabase 재설계 4단계 T5) ───────────────────────────────────────────
+# `scope=firm_history` 는 서로 입력이 필요 없는 읽기 9번을, `scope=firm` 은 5번을 **차례로** 기다렸다. 읽기 하나가 Fly 도쿄 ↔ Supabase 서울
+# 왕복(≈30ms 이상)이라 대기의 대부분이 왕복이다. 입력이 겹치지 않는 것끼리 묶어 한꺼번에 보낸다(firm_history 9→3 왕복, firm 5→2 왕복).
+#
+# 🔴 **한 호출이 풀을 다 쓰지 못하게 호출 단위로 상한을 둔다.** 풀은 머신당 5커넥션(`db.py`), `asyncio.to_thread` 기본 스레드 풀도 1 CPU 에서 5칸이다.
+#    상한이 없으면 호출 하나가 둘을 다 차지해 같은 머신의 다른 도구가 줄을 서고, 풀이 2초 넘게 막히면 `pg_rows` 가 풀을 60초 내린다
+#    (모든 질의가 핸드셰이크 124ms 짜리 직접 접속으로 떨어진다). 그래서 기본 3 — 나머지 2칸은 다른 호출 몫이다.
+#    `OPM_PG_FANOUT=1` 이면 종전처럼 읽기를 하나씩 보낸다(롤백 손잡이 — 배포 없이 환경변수만 바꾼다).
+def _env_fanout() -> int:
+    try:
+        return max(1, int(os.environ.get("OPM_PG_FANOUT", "") or 3))
+    except ValueError:                 # 오타 하나로 서버가 못 뜨면 안 된다 — 기본값으로
+        return 3
+
+
+_PG_FANOUT = _env_fanout()
+#: 지금 도는 `_gather_db` 의 호출 단위 상한. 컨텍스트 변수라 안쪽 `asyncio.gather`(→ 새 태스크)도 같은 상한을 이어받는다.
+_PG_SLOTS: contextvars.ContextVar[asyncio.Semaphore | None] = contextvars.ContextVar("opm_pg_slots", default=None)
+
+
+async def _db_call(fn, *args):
+    """`asyncio.to_thread(fn, *args)` — `_gather_db` 안이면 호출 단위 상한의 칸을 얻은 뒤에만 스레드로 보낸다. 밖이면 종전 `to_thread` 와 같다."""
+    sem = _PG_SLOTS.get()
+    if sem is None:
+        return await asyncio.to_thread(fn, *args)
+    async with sem:
+        return await asyncio.to_thread(fn, *args)
+
+
+async def _db_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
+    """`_pg_rows` 한 번을 이벤트 루프 밖 스레드에서. 반환 계약도 `_pg_rows` 그대로다(None = 장애, [] = 데이터 없음)."""
+    return await _db_call(_pg_rows, sql, params)
+
+
+async def _gather_db(*aws) -> list:
+    """서로 입력이 필요 없는 DB 읽기(코루틴)들을 동시에 기다리고 결과를 **넣은 순서대로** 돌려준다.
+
+    · 동시에 도는 읽기는 호출당 `_PG_FANOUT` 개까지다. 안쪽에서 `_gather_db`/`asyncio.gather` 를 또 써도 같은 상한을 쓴다(이미 상한 안이면 새로 만들지 않는다).
+    · 하나가 예외를 내도 나머지를 끝까지 기다린 뒤 **넣은 순서상 첫** 예외를 올린다. 종전 차례 실행에서 처음 터진 예외가 올라가던 것과 같은 모양이고,
+      끝나지 않은 읽기가 이 호출 밖에 남지 않는다.
+    · 장애(None)는 예외가 아니다 — 각 읽기가 `_pg_rows` 계약대로 None 을 돌려주고, 어떻게 다룰지는 호출부가 종전과 똑같이 정한다."""
+    token = None
+    if _PG_SLOTS.get() is None:
+        token = _PG_SLOTS.set(asyncio.Semaphore(_PG_FANOUT))
+    try:
+        res = await asyncio.gather(*aws, return_exceptions=True)     # 태스크는 여기서 만들어져 위 상한을 컨텍스트로 물려받는다
+    finally:
+        if token is not None:
+            _PG_SLOTS.reset(token)
+    for r in res:
+        if isinstance(r, BaseException):
+            raise r
+    return list(res)
 
 
 _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, 잠시 후 재시도. (배치 미실행과 다름)"
@@ -742,25 +798,33 @@ def _pit_fy(price_dd: str) -> int:
     return y - 1 if m >= 4 else y - 2
 
 
+def _needs_fx(currency: str | None) -> bool:
+    """재무를 KRW 로 환산해야 하는 통화인가. 환산은 환율 조회(외부 호출·직접 접속)를 연도·분기 순서대로 이어 가므로, 이 경우엔 두 재무 로더를 겹치지 않는다."""
+    return (currency or "KRW").upper() not in ("KRW", "NODATA", "?")
+
+
 async def _firm_fin_by_fy(ticker: str, currency: str = "KRW") -> dict[int, tuple]:
     """종목 FY별 (지배순이익, 지배자본) — KRW 환산 완료. dart_finstat_y(FY2018~과거, 스케일오류
     정정치 ni_restated/eq_restated 우선) ∪ dart_fundamentals(최신 확정 FY=_latest_annual_fy()).
-    비KRW는 FY 기말환율 환산."""
-    rows = await asyncio.to_thread(_pg_rows,
-        "SELECT fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y WHERE ticker=%s "
-        "AND (fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (ticker,)) or []
+    비KRW는 FY 기말환율 환산.
+
+    261018: 연간 재무와 최신 확정 FY 요약은 입력이 겹치지 않아 두 읽기를 함께 보낸다(환산은 읽은 뒤 종전 순서 그대로)."""
+    rows, cur = await _gather_db(
+        _db_rows("SELECT fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y WHERE ticker=%s "
+                 "AND (fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (ticker,)),
+        _db_rows("SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s", (ticker,)),
+    )
+    rows = rows or []
     fin: dict[int, tuple] = {}
     for fy, ni, eq, ni_r, eq_r in rows:
         ni_f = ni_r if ni_r is not None else ni
         eq_f = eq_r if eq_r is not None else eq
         fin[int(fy)] = (float(ni_f) if ni_f is not None else None,
                         float(eq_f) if eq_f is not None else None)
-    cur = await asyncio.to_thread(_pg_rows,
-        "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s", (ticker,))
     if cur and cur[0][0] is not None:
         fin[_latest_annual_fy()] = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
     ccy = (currency or "KRW").upper()
-    if ccy not in ("KRW", "NODATA", "?"):
+    if _needs_fx(currency):
         for fy in list(fin):
             fx = await fx_to_krw(ccy, f"{fy}1231")
             ni_f, eq_f = fin[fy]
@@ -788,14 +852,14 @@ def _pit_quarter(price_dd: str) -> tuple[int, int]:
 async def _firm_fin_by_q(ticker: str, currency: str = "KRW") -> dict[tuple, tuple]:
     """종목 (fy,quarter)별 (지배순이익 누적, 지배자본 잔액) — KRW 환산. dart_finstat_q.
     비KRW는 분기말 환율(Q1 0331·Q2 0630·Q3 0930·Q4 1231)로 환산 — 누적순익은 분기말 근사."""
-    rows = await asyncio.to_thread(_pg_rows,
+    rows = await _db_rows(
         "SELECT fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE ticker=%s", (ticker,)) or []
     finq: dict[tuple, tuple] = {}
     for fy, q, ni, eq in rows:
         finq[(int(fy), int(q))] = (float(ni) if ni is not None else None,
                                    float(eq) if eq is not None else None)
     ccy = (currency or "KRW").upper()
-    if ccy not in ("KRW", "NODATA", "?"):
+    if _needs_fx(currency):
         qend = {1: "0331", 2: "0630", 3: "0930", 4: "1231"}
         fxcache: dict[str, float | None] = {}
         for (fy, q) in list(finq):
@@ -833,7 +897,7 @@ async def _annual_pit_band(ticker: str, currency: str = "KRW",
     """연말 PIT PER/PBR 밴드 — **이미 있는 데이터로 질의 시 계산**(백필 저장 X, compute-on-query).
     연말 보통주 시총(krx_weekly, ticker=보통주 코드) ÷ 그 시점 최신 확정 FY 재무(dart_finstat_y).
     시총 기반이라 수정주가(분할·무상증자) 조정 불변. 비KRW는 그 FY 기말환율로 KRW 환산."""
-    caps = await asyncio.to_thread(_pg_rows,
+    caps = await _db_rows(
         "SELECT DISTINCT ON (substring(price_dd,1,4)) substring(price_dd,1,4), price_dd, mktcap "
         "FROM krx_weekly WHERE ticker=%s AND substring(price_dd,5,2)='12' "
         "ORDER BY substring(price_dd,1,4), price_dd DESC", (ticker,)) or []
@@ -871,7 +935,7 @@ async def _weekly_series(ticker: str, currency: str = "KRW",
     비우면 저장된 최신 주에서 스스로 구한다(`_weekly_bounds`)."""
     if since_dd is None:
         _, since_dd = await _weekly_bounds()
-    px = await asyncio.to_thread(_pg_rows,
+    px = await _db_rows(
         "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd",
         (ticker, since_dd)) or []
     if fin is None:
@@ -976,25 +1040,35 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
         return {"tool": "price_multiple_data", "status": "unlisted", "subject": query,
                 "warnings": [f"'{company}' 는 찾았으나 상장 종목이 아니다 — 배수는 주가가 있어야 낸다."]}
     isu = corp["stock_code"]
-    cur_row = await asyncio.to_thread(_pg_rows,
-        "SELECT market, induty, currency FROM dart_fundamentals WHERE ticker=%s", (isu,))
+    # 261018(재설계 4단계 T5): 이 아래 DB 읽기 9번은 종전에 **차례로** 기다렸다(왕복 ≈30ms+ × 9). 서로 입력이 필요 없는 것끼리 3단계로 묶는다 —
+    #   ⓐ 통화·기준 주·주간 스냅샷   ⓑ 연간·분기 재무(통화가 정해져야 환산한다)   ⓒ 연말 밴드·주간 곡선(ⓑ의 재무와 ⓐ의 기준 주가 필요)·수정주가 flag.
+    #   동시에 도는 읽기는 호출당 `_PG_FANOUT`(기본 3)개까지라 단계마다 한 왕복이다(9 → 3 왕복). 결과·오류 처리는 종전과 같다.
+    cur_row, (_, weekly_from), rows = await _gather_db(
+        _db_rows("SELECT market, induty, currency FROM dart_fundamentals WHERE ticker=%s", (isu,)),
+        _weekly_bounds(),                                            # 주간 곡선은 보존 하한 이후만
+        # ② 주간 스냅샷 — 최근/현재 촘촘한 포인트(앞으로 cron이 축적)
+        _db_rows("SELECT snap_dd, market, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
+                 "FROM opm_val_firm WHERE ticker=%s ORDER BY snap_dd", (isu,)),
+    )
+    if rows is None:      # 종전엔 재무·곡선을 다 계산한 뒤에야 걸렀다 — 같은 응답을 뒤 단계 없이 곧바로 낸다
+        return {"tool": "price_multiple_data", "status": "db_error", "subject": corp.get("corp_name", query),
+                "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     currency = (cur_row[0][2] if cur_row and cur_row[0][2] else "KRW")
     # ① 연말 PIT 밴드 + ③ 차트용 주간 dense series + ④ 최근 12개월 월말 요약 — 이미 있는 데이터
     #    (krx_weekly × mkt_finstat_y연간 × mkt_finstat_q분기)로 질의 시 계산(저장 X). 재무 로더는
     #    한 번만 만들어 공유. series는 FY0(연)+TTM/MRQ(분기) 곡선, summary는 그 월말 다운샘플.
-    fin = await _firm_fin_by_fy(isu, currency)
-    finq = await _firm_fin_by_q(isu, currency)
-    band = await _annual_pit_band(isu, currency, fin=fin)           # 종목별 연말 행 — 전체 기간(보존 대상)
-    _, weekly_from = await _weekly_bounds()                          # 주간 곡선은 보존 하한 이후만
-    series = await _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from)
+    if _needs_fx(currency):
+        # 비KRW(두산밥캣=USD 등): 환산이 환율 조회를 연도 → 분기 순서로 이어 간다. 겹치면 연말(1231)을 연간·분기 양쪽이 동시에 묻는다 — 종전 순서 그대로 둔다.
+        fin = await _firm_fin_by_fy(isu, currency)
+        finq = await _firm_fin_by_q(isu, currency)
+    else:
+        fin, finq = await _gather_db(_firm_fin_by_fy(isu, currency), _firm_fin_by_q(isu, currency))
+    band, series, flags = await _gather_db(
+        _annual_pit_band(isu, currency, fin=fin),                    # 종목별 연말 행 — 전체 기간(보존 대상)
+        _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from),
+        _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)),
+    )
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
-    # ② 주간 스냅샷 — 최근/현재 촘촘한 포인트(앞으로 cron이 축적)
-    rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, market, sector, cap, per_fy0, per_ttm, pbr_fy0, pbr_mrq "
-        "FROM opm_val_firm WHERE ticker=%s ORDER BY snap_dd", (isu,))
-    if rows is None:
-        return {"tool": "price_multiple_data", "status": "db_error", "subject": corp.get("corp_name", query),
-                "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not band and not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": corp.get("corp_name", query),
                 "warnings": ["시계열 없음 — 과거 시세(krx_weekly)·재무(dart_finstat_y)·주간 스냅샷 모두 미수집."]}
@@ -1009,10 +1083,8 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     latest_dd = series[-1]["asof"] if series else (rows[-1][0] if rows else "?")
     warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용.",
                 weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."]
-    # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고).
-    flags = await asyncio.to_thread(_pg_rows,
-        "SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)) or []
-    for fl, detail in flags:
+    # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고). (읽기는 위 ⓒ 단계에서 함께 했다)
+    for fl, detail in flags or []:
         if fl == "spinoff_break":
             warnings.append("⚠ 인적분할 이력(spinoff_break) — 분할 시점 시총 점프 + 직후 배수는 "
                             "재무 반영 지연으로 왜곡 가능. 시계열 비교 주의.")
@@ -1147,7 +1219,7 @@ async def _eps_adj_factor(ticker: str, after_dd: str) -> float:
     뒤쪽이 깨져도 앞쪽만 돌면 멀쩡해 보였고, 실제로 260705 부터 라벨 쪽이 실행 불가였다.
     EPS는 가격과 같은 방향으로 조정(주식수 n배 → EPS 1/n = ×factor). 유상증자·감자·미라벨(None)은
     보수적으로 제외 — 잔여는 sanity 경고가 방어."""
-    rows = await asyncio.to_thread(_pg_rows,
+    rows = await _db_rows(
         "SELECT adj_factor FROM krx_adj_events WHERE ticker=%s AND event_dd>%s "
         "AND event_type IN ('split','merge','bonus','stock_div') AND adj_factor IS NOT NULL "
         "AND label_confidence='confirmed'", (ticker, after_dd))
@@ -1166,12 +1238,12 @@ async def _shares_ratio(ticker: str, after_dd: str) -> float | None:
     `_eps_adj_factor` 가 조용히 1.0 을 돌려주고 공시 EPS 조각들이 **옛 분모와 새 분모로 섞인 채**
     조립된다(메이슨캐피탈 실측: TTM 지배순이익 -70억인데 EPS(TTM) +39원, PER 32.31 이 나갔다).
     """
-    first = await asyncio.to_thread(_pg_rows,
-        "SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND price_dd>%s AND list_shrs>0 "
-        "ORDER BY price_dd ASC LIMIT 1", (ticker, after_dd))
-    last = await asyncio.to_thread(_pg_rows,
-        "SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND list_shrs>0 "
-        "ORDER BY price_dd DESC LIMIT 1", (ticker,))
+    first, last = await _gather_db(      # 261018: 기준일 뒤 첫 주와 가장 최근 주는 서로 입력이 필요 없다 — 함께 보낸다
+        _db_rows("SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND price_dd>%s AND list_shrs>0 "
+                 "ORDER BY price_dd ASC LIMIT 1", (ticker, after_dd)),
+        _db_rows("SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND list_shrs>0 "
+                 "ORDER BY price_dd DESC LIMIT 1", (ticker,)),
+    )
     if not first or not last or not first[0][0] or not last[0][0]:
         return None
     return last[0][0] / first[0][0]
@@ -1323,13 +1395,20 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   리노 검산: 2,002 + 532 − 1,933×0.2 = 2,147 (균일분모 2,148과 정합).
     eps_adj = None  # 보정 발동 시 {"current": f, "prior_q": f} — 근거 투명(explain에 표시)
     shares_unadjusted = None  # 계수 누락 탐지 시 {"shares_ratio": r, "factor": f} — PER 무효화
+    flag_rows: list | None = []   # 수정주가 flag — 아래 경고에서 쓴다 (읽기는 EPS 보정 읽기와 한 묶음)
     if stock_code and any(x is not None for x in (eps_fy_disc, eps_qc_disc, eps_qp_disc)):
         # 🔴 결산기준일도 **고른 분기**를 따라가야 한다 — 분기를 최신으로 옮겨 놓고 날짜만
         #    0331 로 두면 그 사이의 액면분할·무상증자를 한 번 더 세거나 빠뜨린다.
         _QEND = {"11013": "0331", "11012": "0630", "11014": "0930"}
         _qe = _QEND.get(q_code, "0331")
-        f_cur = await _eps_adj_factor(stock_code, f"{fy + 1}{_qe}")  # 연간·당해분기 결산기준일 이후
-        f_qp = await _eps_adj_factor(stock_code, f"{fy}{_qe}")       # 전년동기 결산기준일 이후
+        # 261018(재설계 4단계 T5): 수정계수 둘 · 주식수 배율(읽기 2) · 수정주가 flag — 읽기 5번이 서로 입력이 필요 없는데 종전엔 차례로 기다렸다.
+        #   한 묶음으로 보낸다(동시에 도는 읽기는 호출당 `_PG_FANOUT` 개까지 → 5번 차례 대기 = 2 왕복). 아래 보정 계산은 종전 순서 그대로다.
+        f_cur, f_qp, r_cur, flag_rows = await _gather_db(
+            _eps_adj_factor(stock_code, f"{fy + 1}{_qe}"),   # 연간·당해분기 결산기준일 이후
+            _eps_adj_factor(stock_code, f"{fy}{_qe}"),       # 전년동기 결산기준일 이후
+            _shares_ratio(stock_code, f"{fy + 1}{_qe}"),
+            _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (stock_code,)),
+        )
         if f_cur != 1.0 or f_qp != 1.0:
             eps_adj = {"current": round(f_cur, 6), "prior_q": round(f_qp, 6)}
         if eps_fy_disc is not None:
@@ -1339,9 +1418,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         if eps_qp_disc is not None:
             eps_qp_disc *= f_qp
         # 계수 누락 탐지 — 조용히 틀린 값을 내느니 N/M 을 낸다
-        r_cur = await _shares_ratio(stock_code, f"{fy + 1}{_qe}")
         if r_cur and not (_ADJ_INVARIANT_LO <= f_cur * r_cur <= _ADJ_INVARIANT_HI):
             shares_unadjusted = {"shares_ratio": round(r_cur, 4), "factor": round(f_cur, 4)}
+    elif stock_code:
+        flag_rows = await _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (stock_code,))
     eps_ttm_disc = (eps_fy_disc + eps_qc_disc - eps_qp_disc) \
         if None not in (eps_fy_disc, eps_qc_disc, eps_qp_disc) else None
 
@@ -1494,8 +1574,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "FY0·TTM PER의 증감 방향 비교 주의.")
     # 수정주가 파이프라인 flag — 분할·미해결 조정 종목은 배수 해석 주의(재무 QA: 삼바 분할 실증).
     if stock_code:
-        for fl, _detail in (await asyncio.to_thread(
-                _pg_rows, "SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (stock_code,)) or []):
+        for fl, _detail in flag_rows or []:
             if fl == "spinoff_break":
                 warnings.append("⚠️ 인적분할 이력 — 분할 전후 재무·주식수 불연속으로 FY0 배수(특히 공시 "
                                 "EPS의 가중평균 주식수)가 왜곡될 수 있음. TTM·MRQ 중심 해석 권장.")
