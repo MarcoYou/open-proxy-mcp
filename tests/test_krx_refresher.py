@@ -620,3 +620,23 @@ def test_window_weekdays_is_a_single_switch(monkeypatch):
     monkeypatch.setattr(R, "WINDOW_WEEKDAYS", frozenset({0, 1, 2, 3, 4, 5}))
     assert R.in_window(kst(2026, 10, 24, 9, 0)) and not R.in_window(kst(2026, 10, 25, 9, 0))
     assert R.expected_dd(kst(2026, 10, 24, 9, 0)) == "20261023"        # 토요일 아침의 기대 거래일 = 금요일
+
+
+def test_stop_never_hangs_the_shutdown_even_if_cleanup_is_stuck(monkeypatch):
+    """정리(잠금 해제·연결 닫기)가 DB 때문에 걸려도 서버 종료가 끌리지 않는다 — 상한 뒤에는 포기한다."""
+    import time
+    monkeypatch.setattr(R, "STOP_TIMEOUT_SEC", 0.2)
+
+    async def stubborn():
+        try:
+            await asyncio.sleep(60)
+        finally:
+            await asyncio.sleep(60)                         # 멈춘 DB 를 기다리는 정리
+
+    async def go():
+        h = R.Handle(asyncio.get_running_loop().create_task(stubborn()), asyncio.Event())
+        await asyncio.sleep(0)
+        t0 = time.monotonic()
+        await R.stop(h)
+        return time.monotonic() - t0
+    assert asyncio.run(go()) < 2.0

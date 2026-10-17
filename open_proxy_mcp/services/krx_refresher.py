@@ -333,13 +333,17 @@ def start() -> Handle | None:
     return Handle(task, stop_event)
 
 
+#: 서버가 꺼질 때 갱신 작업이 정리를 끝내길 기다리는 상한(초). DB 가 멈춰 정리가 걸려도 배포·종료가 끌리지 않게 한다.
+STOP_TIMEOUT_SEC = 5.0
+
+
 async def stop(handle: Handle | None) -> None:
     if handle is None:
         return
     handle.stop_event.set()
     handle.task.cancel()
-    with contextlib.suppress(asyncio.CancelledError, Exception):
-        await handle.task
+    with contextlib.suppress(asyncio.CancelledError, asyncio.TimeoutError, Exception):
+        await asyncio.wait_for(handle.task, timeout=STOP_TIMEOUT_SEC)
 
 
 def attach_to_app(app) -> None:
