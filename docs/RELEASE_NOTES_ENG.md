@@ -10,6 +10,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - The first quote question of the day no longer waits 2-12 seconds on a KRX refresh. The server refreshes in the background Monday–Saturday mornings (07:30-20:00 KST; Saturday picks up Friday's close).
 - Market cap is close × listed shares; change and change % are computed against the previous weekday's close. When the previous weekday has no stored row (day after a holiday or a missed day) or the move exceeds ±30% (stock split, ex-rights and other base-price adjustments), the KRX-published figures are used instead.
 
+### Faster dividend and per-company valuation-history lookups
+
+- `dividend_data` no longer freezes the rest of the server while it waits for the database. The span of fiscal years is remembered for 6 hours instead of being re-queried on every call. Output is unchanged.
+- `price_multiple_data` `scope="firm_history"` (a company's weekly history) and `scope="firm"` (one company) send database lookups that do not depend on each other at the same time. One call sends at most 3 lookups at once; output is unchanged.
+- The indexes on the dividend ledger (`div_declared`) are applied once by the operator (`scripts/div_indexes_ddl.py`).
+
 ## 2026-10-05
 
 ### Staged document cache increase
