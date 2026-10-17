@@ -27,6 +27,10 @@
           # 완결된 ISO주마다 금→월 순으로 그 주 마지막 거래일을 찾아 전종목 적재. 주 단위 commit·기적재 주 skip
           # 이라 재개 가능. KRX 일 10,000콜 한도 — 콜 간 0.35s + 9,000콜에서 강제 중단.
           # (구 --update 는 A 단계 _ensure_krx_fresh 가 매일 담당하므로 없앴다.)
+          # 🔴 261017: 보존 하한(최신 주 3년 전) 이전 주는 **건너뛴다.** krx_weekly 는 최근 3년 + 종목별로 해마다 마지막 행(연말 행)만
+          #    남기도록 줄이는데(open_proxy_mcp/krx_retention.py), 기적재 skip 은 「지금 표에 있는 주」만 보므로 잘린 뒤엔
+          #    지운 옛 주가 전부 「미적재」로 보여 KRX 에서 다시 받아 도로 넣어 버린다(수천 콜 + 줄인 용량 복귀).
+          #    연말 행(해마다 마지막 주 포함)은 이미 적재돼 있어 기존 규칙으로 건너뛴다. 되살려야 하면 --allow-before-cutoff.
 
 ※ 스냅샷 저장의 단일 정본. 시장 aggregate 를 FX(비KRW 22사) 환산 없이 만들던 옛 경로
   (옛 aggregate --report/--snapshot·market_val_sector.py, 둘 다 삭제)는 저장에 쓰지 않는다 — QA 260705.
@@ -38,6 +42,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+from open_proxy_mcp.krx_retention import krx_weekly_cutoff
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
 from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
@@ -123,7 +128,7 @@ KRX_ENDPOINTS = [
 ]
 BACKFILL_THROTTLE_S = 0.35     # 콜 간 간격 (일 10,000 한도 대비 완충)
 BACKFILL_MAX_CALLS = 9_000     # 하루 한도의 90%에서 강제 중단
-BACKFILL_SINCE = "20151201"    # krx_weekly 는 2015-12 부터 — 기적재 주는 어차피 skip
+BACKFILL_SINCE = "20151201"    # krx_weekly 는 2015-12 부터 — 기적재 주는 어차피 skip (보존 하한 이전은 아래 가드가 따로 거른다)
 DDL_KRX_WEEKLY = """
 CREATE TABLE IF NOT EXISTS krx_weekly (
   price_dd  text NOT NULL, ticker text NOT NULL, market text,
@@ -176,8 +181,21 @@ def _week_candidates(since: date, until: date) -> list[list[str]]:
     return weeks
 
 
-async def backfill(since: date, limit_weeks: int | None = None) -> None:
-    """krx_weekly 과거 주간 백필 — 주 단위 idempotent(DELETE 후 COPY, commit). 기적재 주 skip → 재개 가능."""
+def _split_weeks_by_cutoff(weeks: list[list[str]], cutoff: str) -> tuple[list[list[str]], list[list[str]]]:
+    """(남길 주, 보존 하한 이전이라 건너뛸 주). 주 후보일은 [금,목,수,화,월] — 가장 늦은 후보(금)가 하한 이전이면
+    그 주의 행은 어느 요일로 잡혀도 하한 이전이다(정리 때 지워질 행을 다시 넣지 않는다)."""
+    keep: list[list[str]] = []
+    skipped: list[list[str]] = []
+    for cands in weeks:
+        (skipped if cands[0] < cutoff else keep).append(cands)
+    return keep, skipped
+
+
+async def backfill(since: date, limit_weeks: int | None = None, allow_before_cutoff: bool = False) -> None:
+    """krx_weekly 과거 주간 백필 — 주 단위 idempotent(DELETE 후 COPY, commit). 기적재 주 skip → 재개 가능.
+
+    보존 하한(최신 주 3년 전) 이전 주는 건너뛴다 — 잘린 표에서는 지운 주가 전부 「미적재」로 보여 도로 받아 넣게 된다.
+    `allow_before_cutoff=True`(--allow-before-cutoff) 일 때만 하한 이전도 받는다."""
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
     assert key, "KRX_API_KEY 없음 (.env)"
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20)
@@ -186,6 +204,15 @@ async def backfill(since: date, limit_weeks: int | None = None) -> None:
     done_days = {r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly").fetchall()}
 
     weeks = _week_candidates(since, date.today())
+    # 보존 하한 — 표의 최신 주가 낡았거나 표가 비어도 오늘 기준으로 잡는다(정리 쪽과 같은 정의: open_proxy_mcp/krx_retention.py).
+    latest_dd = max([date.today().strftime("%Y%m%d"), *done_days])
+    cutoff = krx_weekly_cutoff(latest_dd)
+    if not allow_before_cutoff:
+        weeks, skipped = _split_weeks_by_cutoff(weeks, cutoff)
+        if skipped:
+            print(f"보존 하한 {cutoff}(최신 {latest_dd} 기준 3년) 이전 {len(skipped)}주"
+                  f"({skipped[0][-1]}~{skipped[-1][0]})는 건너뜀 — krx_weekly 는 하한 이전을 종목별 연말 행만 보존한다. "
+                  "연말 행을 되살려야 하면 --allow-before-cutoff.", flush=True)
     todo = [c for c in weeks if not (set(c) & done_days)]   # 후보일 중 하나라도 있으면 그 주는 기적재
     if limit_weeks:
         todo = todo[:limit_weeks]
@@ -435,9 +462,11 @@ if __name__ == "__main__":
                     help="krx_weekly 과거 주간 백필만 수행(스냅샷 B~D 미실행). 재개 가능")
     ap.add_argument("--since", default=BACKFILL_SINCE, help="--backfill 시작일 YYYYMMDD (기본 20151201)")
     ap.add_argument("--limit-weeks", type=int, default=None, help="--backfill 에서 이번 실행에 적재할 최대 주 수")
+    ap.add_argument("--allow-before-cutoff", action="store_true",
+                    help="--backfill 에서 보존 하한(최신 주 3년 전) 이전 주도 받는다 — 기본은 건너뜀(연말 행 복구용)")
     a = ap.parse_args()
     if a.backfill:
         _since = date(int(a.since[:4]), int(a.since[4:6]), int(a.since[6:8]))
-        asyncio.run(backfill(_since, a.limit_weeks))
+        asyncio.run(backfill(_since, a.limit_weeks, a.allow_before_cutoff))
     else:
         asyncio.run(run(dry=a.dry))

@@ -31,7 +31,16 @@
   대상 구간을 지우고 다시 넣는다. 파생 100%(krx_weekly × 분류 스냅샷)라 되살릴 원천이 항상
   있고, 같은 실행에서 만든 값으로 채우므로 260705 의 DELETE 사고와 형태가 다르다.
 
-실행: python3 scripts/krx_cap_agg.py [--since 20151230 | --full]
+★ 🔴 보존 하한 이전은 다시 쓰지 않는다 (261017). `krx_weekly` 는 최근 3년 + 종목별로 해마다 마지막 행(연말 행)만
+  남기도록 줄인다(`open_proxy_mcp/krx_retention.py`). 그러면 하한 이전 구간의 **원천은 종목별 연말 행 한 줄씩**뿐이다 —
+  해의 마지막 주를 뺀 날짜는 그해 상장폐지·정지한 종목의 마지막 행만 남은 **부분 행**이라, 그 날짜로 다시 집계하면 시총 합이
+  터무니없이 작아진다. 거기서부터 다시 집계하면 옛 주간 집계를 지우고 그 값으로 갈아 끼우게 된다 — 되살릴 원천이 없다.
+  · 평소(최신 주·새 업종분류 관측)는 모두 하한 안쪽이라 달라지는 게 없다.
+  · `--since`/`--full` 이 하한 이전을 가리키면 **거절**한다. 정말 필요하면 `--allow-before-cutoff`.
+  · 그때도 하한 이전은 **원천이 온전한 날짜(해마다 마지막 주)만** 다시 집계하고 그 날짜의 집계만 지운다 — 나머지 옛 집계
+    (원천이 부분 행뿐인 날짜 포함)는 건드리지 않는다.
+
+실행: python3 scripts/krx_cap_agg.py [--since 20231016 | --full] [--allow-before-cutoff]
 """
 from __future__ import annotations
 
@@ -47,6 +56,8 @@ from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 import psycopg
+
+from open_proxy_mcp.krx_retention import krx_weekly_cutoff
 
 DDL = """
 CREATE TABLE IF NOT EXISTS krx_cap_agg (
@@ -74,7 +85,7 @@ ON CONFLICT (price_dd, market, scheme, bucket) DO UPDATE SET
 # 시장 전체 — 분류와 무관하므로 스냅샷 시대(era)를 나눌 필요가 없다. 한 번에 훑는다.
 Q_MARKET = """
 SELECT price_dd, market, count(*), sum(mktcap)::bigint
-FROM krx_weekly WHERE price_dd >= %s AND mktcap > 0
+FROM krx_weekly WHERE price_dd >= %s AND mktcap > 0{src}
 GROUP BY 1,2
 """
 
@@ -85,7 +96,7 @@ SELECT k.price_dd, k.market,
        count(*), sum(k.mktcap)::bigint
 FROM krx_weekly k
 LEFT JOIN wise_sector w ON w.ticker = k.ticker AND w.snap_dd = %s
-WHERE k.price_dd >= %s AND k.price_dd < %s AND k.mktcap > 0
+WHERE k.price_dd >= %s AND k.price_dd < %s AND k.mktcap > 0{src}
 GROUP BY 1,2,3,4
 """
 
@@ -119,11 +130,54 @@ def _choose_since(*, requested: str | None, full: bool, source_min: str,
     return _week_start(source_max), "최신 주 갱신"
 
 
+def _guard_since(*, since: str, reason: str, cutoff: str, allow: bool) -> tuple[bool, str]:
+    """(진행 여부, 안내). 보존 하한 이전을 다시 쓰려는 요청을 막는다.
+
+    하한 이전 구간의 원천은 종목별 연말 행 한 줄씩이라 거기서 다시 집계하면 되살릴 수 없는 옛 집계를 갈아 끼운다.
+    「최초 적재」(집계 표가 비어 지울 것이 없다)는 그대로 통과시킨다.
+    """
+    if since >= cutoff:
+        return True, ""
+    if reason == "최초 적재":
+        return True, (f"⚠ 최초 적재라 지울 집계가 없다 — 하한({cutoff}) 이전은 해마다 마지막 주 한 점씩만 집계된다.")
+    if allow:
+        return True, (f"⚠ --allow-before-cutoff — 하한({cutoff}) 이전 {since} 부터 다시 집계한다. 하한 이전은 원천이 온전한 "
+                      "날짜(해마다 마지막 주)만 다시 집계하고 그 날짜의 집계만 지운다 — 나머지 옛 집계는 그대로 둔다.")
+    return False, (f"🔴 {reason}({since})이 보존 하한({cutoff})보다 이르다 — krx_weekly 는 하한 이전을 종목별 연말 행 한 줄씩만 보존해 "
+                   "그 구간은 다시 집계하면 되살릴 수 없는 옛 집계를 지우게 된다. 거절한다. "
+                   "정말 필요하면 --allow-before-cutoff.")
+
+
+def _src_filter(since: str, cutoff: str, whole_dates: list[str], col: str) -> tuple[str, tuple]:
+    """원천 날짜 제한(SQL 조각, 파라미터). 하한 이상 구간은 촘촘하니 제한이 없다(종전 쿼리 그대로).
+
+    하한 아래는 **원천이 온전한 날짜**(`whole_dates` = 해마다 마지막 주)만 읽는다 — 그 밖의 날짜 행은 그해 상장폐지한
+    종목의 마지막 행뿐이라 그 날짜의 시총 합이 아니다. 그 값으로 집계하면 옛 집계를 터무니없이 작은 값으로 덮는다.
+    """
+    if since >= cutoff:
+        return "", ()
+    return f" AND ({col} >= %s OR {col} = ANY(%s))", (cutoff, whole_dates)
+
+
+def _delete_stmt(since: str, cutoff: str, whole_dates: list[str]) -> tuple[str, tuple]:
+    """다시 넣을 구간의 옛 집계를 지우는 문장. **되살릴 수 없는 집계는 지우지 않는다.**
+
+    하한 이상 구간은 원천이 촘촘하니 `since` 이후를 전부 지운다(버킷이 비면 옛 행이 남지 않게 — 종전과 같다).
+    하한 아래는 다시 집계하는 날짜(`whole_dates`, 원천이 온전한 날짜)의 집계만 지운다 — 그 날짜는 곧 다시 넣는다.
+    """
+    if since >= cutoff:
+        return "DELETE FROM krx_cap_agg WHERE price_dd >= %s", (since,)
+    return ("DELETE FROM krx_cap_agg WHERE price_dd >= %s AND (price_dd >= %s OR price_dd = ANY(%s))",
+            (since, cutoff, whole_dates))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--since", help="이 날짜부터 집계 (YYYYMMDD)")
     mode.add_argument("--full", action="store_true", help="krx_weekly 전 구간을 다시 집계")
+    ap.add_argument("--allow-before-cutoff", action="store_true",
+                    help="보존 하한(최신 주 3년 전) 이전 구간 재집계를 허용 — 하한 이전은 원천이 온전한 날짜(해마다 마지막 주)만 다시 쓴다")
     a = ap.parse_args()
 
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30)
@@ -152,10 +206,26 @@ def main() -> int:
         latest_snap=snaps[-1],
         latest_sector_asof=latest_sector_asof,
     )
-    print(f"재계산 시작 {since} · {reason}", flush=True)
+    cutoff = krx_weekly_cutoff(source_max)
+    cy0 = cutoff[:4] + "0101"   # 하한이 속한 해의 1월 1일 — 이보다 이른 해만 「그 해 전역 마지막 주」가 온전한 날짜다
+    ok, note = _guard_since(since=since, reason=reason, cutoff=cutoff, allow=a.allow_before_cutoff)
+    if not ok:
+        print(note, file=sys.stderr)
+        con.close()
+        return 2
+    print(f"재계산 시작 {since} · {reason} (보존 하한 {cutoff})", flush=True)
+    if note:
+        print(note, flush=True)
+
+    # 하한 이전을 다시 쓰는 경우(허용 플래그·최초 적재): 원천이 온전한 날짜 = 해마다 마지막 주(하한이 속한 해 이전)만
+    whole_dates = [r[0] for r in con.execute(
+        "SELECT max(price_dd) FROM krx_weekly WHERE price_dd >= %s AND price_dd < %s GROUP BY left(price_dd, 4)",
+        (since, cy0))] if since < cutoff else []
+    mkt_src, mkt_src_params = _src_filter(since, cutoff, whole_dates, "price_dd")
+    sec_src, sec_src_params = _src_filter(since, cutoff, whole_dates, "k.price_dd")
 
     rows: list[tuple] = []
-    for dd, mkt, n, cap in con.execute(Q_MARKET, (since,)):
+    for dd, mkt, n, cap in con.execute(Q_MARKET.format(src=mkt_src), (since, *mkt_src_params)):
         rows.append((dd, mkt, "market", "_ALL", "전체", n, cap, None))
     print(f"시장 집계 {len(rows):,}행", flush=True)
 
@@ -164,14 +234,15 @@ def main() -> int:
                                ("wics_industry", "industry_code", "industry")):
         before = len(rows)
         for snap, start, end in eras:
-            q = Q_SECTOR.format(code=code, name=name)
-            for dd, mkt, bucket, label, n, cap in con.execute(q, (snap, start, end)):
+            q = Q_SECTOR.format(code=code, name=name, src=sec_src)
+            for dd, mkt, bucket, label, n, cap in con.execute(q, (snap, start, end, *sec_src_params)):
                 rows.append((dd, mkt, scheme, bucket, label, n, cap, snap))
         print(f"{scheme} 집계 {len(rows)-before:,}행 (스냅샷 시대 {len(eras)}개)", flush=True)
 
     # 지우고-넣기를 한 트랜잭션으로. 중간에 죽어도 옛 표가 그대로 남는다(빈 표가 되지 않는다).
+    del_sql, del_params = _delete_stmt(since, cutoff, whole_dates)
     with con.cursor() as cur:
-        cur.execute("DELETE FROM krx_cap_agg WHERE price_dd >= %s", (since,))
+        cur.execute(del_sql, del_params)
         deleted = cur.rowcount
         for i in range(0, len(rows), 5000):
             cur.executemany(UPSERT, rows[i:i + 5000])

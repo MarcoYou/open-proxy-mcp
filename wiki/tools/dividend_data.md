@@ -8,7 +8,7 @@ data_source: [DART 정기보고서 alotMatter(사업·반기·분기, div_declar
 related_disclosures: [사업보고서, 반기보고서, 분기보고서, 현금배당결정]
 related_concepts: [배당성향, 배당수익률, 분기배당, 연결-별도, 단위-표기-규약, 시점-제약]
 created: 2026-09-02
-updated: 2026-09-04
+updated: 2026-10-18
 ---
 
 # dividend_data
@@ -72,6 +72,8 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 
 상장 여부는 `krx_listing`(`krx_weekly` 주간 시세의 티커별 첫 관측일 파생, 별도 배치로
 구움 — 요청마다 계산하면 3,257종목 전 스캔이 280ms 라 도구 안에서 못 쓴다)으로 가른다.
+배치는 **증분**이다(2026-10-18) — 최근 주만 읽어 기존 값에 합치고 `first_seen_dd` 는 줄어들기만 한다. 주간 시세 저장분을
+최근 3년 + 종목별 연말 행으로 줄여도 옛 첫 관측일이 밀리지 않는다(전량 재계산은 잘린 표에서 857종목의 첫 관측일을 그 해 마지막 행으로 밀어 버린다).
 🔴 **`first_seen_dd` 는 상장일이 아니라 관측 시작일**이다 — 관측창(2015-12-30~) 이전부터
 있던 종목은 `before_window=True` 로 표시되고, 그 창이 우리 배당 창(2020~)을 통째로
 덮으므로 판단엔 지장이 없다. 실측(260903): 배당사 28곳이 FY2020 종료 시점에 미상장이었다
@@ -163,6 +165,8 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
 
 ## 변경 이력
+- 2026-10-18: `krx_listing` 배치를 증분으로 — 관측창 시작은 상수(20151230), 새 관측은 최근 주만 읽어 `first_seen_dd=LEAST`·`last_seen_dd=GREATEST` 로 합친다.
+  주간 시세 저장분을 줄여도 값이 유지된다(도구 동작 변화 없음).
 - 2026-09-03: 부분 장애 경로 정리 — 매칭 수·모집단·원장·이력열 질의 하나만 실패해도 예외나
   「없다」 대신 「모른다」로 렌더. 이력열 `-` 범례를 「상장 여부를 모름」으로 넓히고 조회
   실패는 `?` 로 분리. 도구 설명의 옛 이름 `dividend` → `dividend_disclosure`.
