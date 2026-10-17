@@ -19,6 +19,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import datetime, timedelta
 from fractions import Fraction
+from open_proxy_mcp.krx_retention import krx_weekly_pair_floor
 
 
 def d2dt(s): return datetime.strptime(s, "%Y%m%d")
@@ -42,16 +43,28 @@ def main():
     #   뒤쪽이 260705 부터 실행 불가였는데 앞쪽만 돌아 아무도 몰랐다(v2 드랍 때 「코드참조 0건」
     #   확인이 틀렸다). 게다가 `DELETE` 후 재생성 방식이라 실행하면 라벨이 통째로 날아갔다.
     #   이제 지울 것이 없다 — 비어 있는 칸만 채운다.
+    # 261017: 직전 주간 시장(prev_mkt)은 krx_weekly 에서 읽는다. krx_weekly 를 최근 3년 + 종목별 연말 행으로 줄이면
+    #   (`open_proxy_mcp/krx_retention.py`) 하한 이전 이벤트의 「직전 주」가 최대 1년 전 연말 행으로 잡혀, 그 사이 시장을
+    #   옮긴 종목이 `excluded_market_transfer` 로 **영구** 오라벨된다(실측 261017 모의: 068270 20181227 1건).
+    #   이 스크립트는 매일 미판정 전부를 다시 보므로 하한(+14일) 이전 이벤트는 이미 한 번 판정을 받았다 — 건너뛰어도
+    #   잃는 것이 없고(판정 결과는 krx_adj_events 에 남아 있다), 새 이벤트는 늘 최근이라 그대로 처리된다.
+    latest = con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
+    floor = krx_weekly_pair_floor(latest) if latest else "00000000"   # 시세가 비면 prev_mkt 가 None 이라 시장이전 판정은 일어나지 않는다
     resets = con.execute("""
         SELECT e.ticker, e.event_dd, e.adj_factor_raw, e.market,
                (SELECT w.market FROM krx_weekly w
                  WHERE w.ticker = e.ticker AND w.price_dd < e.event_dd
                  ORDER BY w.price_dd DESC LIMIT 1) AS prev_mkt
           FROM krx_adj_events e
-         WHERE e.label_confidence IS NULL OR e.label_confidence = 'unlabeled'
-         ORDER BY e.ticker, e.event_dd""").fetchall()
+         WHERE (e.label_confidence IS NULL OR e.label_confidence = 'unlabeled')
+           AND e.event_dd >= %s
+         ORDER BY e.ticker, e.event_dd""", (floor,)).fetchall()
+    n_old = con.execute(
+        "SELECT count(*) FROM krx_adj_events WHERE (label_confidence IS NULL OR label_confidence = 'unlabeled') "
+        "AND event_dd < %s", (floor,)).fetchone()[0]
     total = con.execute("SELECT count(*) FROM krx_adj_events").fetchone()[0]
-    print(f"조정 사건 {total:,}건 중 라벨 미판정 {len(resets):,}건 처리")
+    print(f"조정 사건 {total:,}건 중 라벨 미판정 {len(resets):,}건 처리"
+          + (f" (보존 하한+14일 {floor} 이전 미판정 {n_old:,}건은 전후 주간 점이 연말 행이라 건너뜀)" if n_old else ""))
 
     from collections import defaultdict
 

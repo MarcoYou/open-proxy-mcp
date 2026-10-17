@@ -29,6 +29,13 @@
   설명되지 않은 불연속이다. 소각은 p≈1·r<1 로 p×r 이 r 만큼 벗어나므로 걸리는데,
   그건 실제로 시총이 준 것이라 「시계열 비교 주의」가 맞다.
 
+■ 🔴 하한 이전 이벤트는 평가하지 않는다 (261017)
+  이 탐지는 이벤트 전후의 `krx_weekly` 종가(직전 주·직후 주)로 p 를 낸다. `krx_weekly` 를 최근 3년 + 종목별로 해마다 마지막 행
+  (연말 행)으로 줄이면(`open_proxy_mcp/krx_retention.py`) 하한 이전 이벤트의 전후 점이 **1년 간격 연말 행**으로 잡혀
+  p 가 틀어진다 — 실측(261017, 잘린 표 모의): 오래된 이벤트 26건의 전후 간격 중앙값 364일, **새 가짜 경고 7종목**
+  (경고는 사용자 응답에 `unresolved_adjustment` 로 붙는다). 이 탐지는 매일 돌아 모든 이벤트를 이미 한 번씩 평가했으므로
+  하한(+14일 — 직전 점이 촘촘한 구간에 들 여유) 이전 이벤트는 **건너뛰어도 잃는 판정이 없다**(기존 딱지는 병합으로 그대로 남는다).
+
 용례:
   python3 scripts/krx_stock_flags.py            # 갱신(기존 spinoff_break 보존)
   python3 scripts/krx_stock_flags.py --dry      # 저장 없이 산출만
@@ -48,6 +55,8 @@ from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
 import psycopg
+
+from open_proxy_mcp.krx_retention import krx_weekly_pair_floor
 
 DDL = """
 -- PK 는 (ticker) 하나 — **종목당 딱지 하나**가 기존 설계다(실측: 155행 = 115+40, 겹침 0).
@@ -75,6 +84,19 @@ def main() -> int:
     # ── 신규 탐지: 주식수 10%+ 감소 · 리셋 없음 · 시총 불연속(|p×r−1| > 15%)
     #    리셋이 있으면 거래소가 가격을 조정했다는 뜻 = 설명된 이벤트라 대상이 아니다.
     #    p 는 krx_weekly 근사(주간 해상도) — 원장에 일별 종가가 없다. 그래서 문턱을 넉넉히 잡는다.
+    # 261017: 평가 대상은 보존 하한(+14일) 이후 이벤트뿐 — 위 docstring 「하한 이전 이벤트는 평가하지 않는다」.
+    latest = con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
+    if not latest:
+        print("🔴 krx_weekly 가 비었다 — 전후 가격을 못 구해 평가하지 않는다", file=sys.stderr)
+        con.close()
+        return 1
+    floor = krx_weekly_pair_floor(latest)
+    n_old = con.execute(
+        """SELECT count(*) FROM krx_shares_ledger l
+             LEFT JOIN krx_adj_events b ON b.ticker = l.ticker AND b.event_dd = l.event_dd
+            WHERE l.prev_shrs IS NOT NULL AND l.prev_shrs > 0 AND l.new_shrs IS NOT NULL
+              AND l.new_shrs::numeric / l.prev_shrs < %s AND b.ticker IS NULL
+              AND l.event_dd < %s""", (_MIN_DROP, floor)).fetchone()[0]
     rows = con.execute(
         """
         WITH e AS (
@@ -89,12 +111,13 @@ def main() -> int:
             ON b.ticker = l.ticker AND b.event_dd = l.event_dd
           WHERE l.prev_shrs IS NOT NULL AND l.prev_shrs > 0 AND l.new_shrs IS NOT NULL
             AND l.new_shrs::numeric / l.prev_shrs < %s
-            AND b.ticker IS NULL)
+            AND b.ticker IS NULL
+            AND l.event_dd >= %s)
         SELECT ticker, event_dd, r, p FROM e
         WHERE p IS NOT NULL AND ABS(p * r - 1) > %s
         ORDER BY ticker, event_dd
         """,
-        (_MIN_DROP, _MIN_DEV),
+        (_MIN_DROP, floor, _MIN_DEV),
     ).fetchall()
 
     per: dict[str, list[dict]] = {}
@@ -129,6 +152,7 @@ def main() -> int:
         "SELECT flag, count(*) FROM krx_stock_flags GROUP BY flag").fetchall())
     print(f"=== krx_stock_flags 갱신 ({today}) ===")
     print(f"  이전            : {before}")
+    print(f"  평가 제외       : {n_old}이벤트 (보존 하한+14일 {floor} 이전 — 전후 주간 점이 연말 행이라 믿을 수 없다·기존 판정은 보존)")
     print(f"  신규 규칙 산출  : {len(per)}종목 / {sum(len(v) for v in per.values())}이벤트 ({_RULE})")
     print(f"  기존에 없던 것  : {added}이벤트 · 병합 후 {len(merged)}종목")
     if skipped:
