@@ -7,7 +7,7 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 ### Last 7 trading days of quotes served from the database — faster `trading_data` quotes
 
 - `trading_data(scope="quote")` answers instantly for the **last 7 trading days** from daily quotes the server keeps (open, high, low, close, volume, traded value, listed shares); only older dates are fetched from KRX. Output fields are unchanged; `data.source` is added.
-- The first quote question of the day no longer waits 2-12 seconds on a KRX refresh. The server refreshes in the background on weekday mornings (07:30-20:00 KST).
+- The first quote question of the day no longer waits 2-12 seconds on a KRX refresh. The server refreshes in the background Monday–Saturday mornings (07:30-20:00 KST; Saturday picks up Friday's close).
 - Market cap is close × listed shares; change and change % are computed against the previous weekday's close. When the previous weekday has no stored row (day after a holiday or a missed day) or the move exceeds ±30% (stock split, ex-rights and other base-price adjustments), the KRX-published figures are used instead.
 
 ## 2026-10-05

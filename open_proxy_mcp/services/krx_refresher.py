@@ -6,7 +6,7 @@
 요청 경로(`price_multiple_data._market_for`·`trading_data(quote)`)는 DB 상태(`max(price_dd)`·`krx_daily`)만 읽는다.
 
 ■ 언제
-  평일(월~금) 07:30 ≤ 시각 < 20:00 KST 에 10분마다(10분 경계 + 0~20초 지터), 그리고 서버가 뜬 직후 한 번(창 밖이어도).
+  월~토 07:30 ≤ 시각 < 20:00 KST 에 10분마다(10분 경계 + 0~20초 지터), 그리고 서버가 뜬 직후 한 번(창 밖이어도).
   KRX 는 전일 데이터를 익일 오전에 게시한다(T+1) — 07:30 에는 보통 아직 없다. 게시될 때까지 10분마다 확인하고, 저장되면 그날은 멈춘다.
 ■ 무엇을 기다리나(「기대 거래일」)
   오늘 이전의 마지막 평일 — `price_multiple_data._price_dates` 가 이 서버의 유일한 거래일 달력이다(주말만 안다).
@@ -44,12 +44,12 @@ logger = logging.getLogger(__name__)
 
 ENV_FLAG = "OPM_KRX_REFRESHER"
 INTERVAL_SEC = 600                      # 10분
-WINDOW_START = dtime(7, 30)             # 평일 07:30 KST 부터
+WINDOW_START = dtime(7, 30)             # 월~토 07:30 KST 부터
 WINDOW_END = dtime(20, 0)               # 20:00 KST 전까지
-#: 확인하는 요일(월=0). 설계는 평일만이다. ⚠ 전일 데이터를 익일 오전에 게시하는 규칙(T+1)대로라면 금요일 데이터는 토요일 아침에 나오므로,
-#: 평일만 돌면 금요일 종가가 월요일 아침에야 반영된다(주말에는 목요일 종가가 최신으로 서빙 — 토요일 게시는 실측으로 확인하지 못했다).
-#: 토요일(5)을 넣으면 그 공백이 사라진다 — 하루 약 8콜 추가. 바꾸려면 이 한 곳만.
-WINDOW_WEEKDAYS = frozenset({0, 1, 2, 3, 4})
+#: 확인하는 요일(월=0). 월~토 — KRX 는 전일 데이터를 익일 오전에 게시(T+1)하므로 금요일 종가는 토요일 아침에 나온다
+#: (2026-10-17 토 08:54 KST 에 금요일 20261016 행이 이미 기록된 것을 운영 DB 에서 확인). 토요일을 빼면 주말 내내 목요일 종가가
+#: 최신으로 서빙된다. 토요일 추가 비용은 하루 약 8콜. 바꾸려면 이 한 곳만.
+WINDOW_WEEKDAYS = frozenset({0, 1, 2, 3, 4, 5})
 STARTUP_DELAY_SEC = 15.0                # 서버가 뜬 뒤 첫 확인까지(부팅 부하와 겹치지 않게)
 #: 코스피 약 950·코스닥 약 1,800 행이 정상이다. 이보다 적으면 반쪽 응답으로 보고 쓰지 않는다.
 MIN_ROWS_PER_MARKET = 300
@@ -87,7 +87,7 @@ def now_kst() -> datetime:
 
 
 def in_window(now: datetime) -> bool:
-    """평일 07:30 ≤ 시각 < 20:00 (KST) 인가. `now` 는 KST 기준 시각이어야 한다."""
+    """월~토 07:30 ≤ 시각 < 20:00 (KST) 인가. `now` 는 KST 기준 시각이어야 한다."""
     return now.weekday() in WINDOW_WEEKDAYS and WINDOW_START <= now.time() < WINDOW_END
 
 

@@ -48,10 +48,10 @@ def _clean():
     (kst(2026, 10, 21, 13, 0), True),
     (kst(2026, 10, 23, 19, 59, 59), True),     # 금 19:59:59 까지
     (kst(2026, 10, 23, 20, 0, 0), False),      # 20:00:00 부터 밖
-    (kst(2026, 10, 24, 10, 0), False),         # 토
+    (kst(2026, 10, 24, 10, 0), True),          # 토 — 금요일 종가가 토요일 아침에 게시되므로 창이 열려 있다
     (kst(2026, 10, 18, 10, 0), False),         # 일
 ])
-def test_window_is_weekdays_0730_to_2000_kst(now, expected):
+def test_window_is_mon_to_sat_0730_to_2000_kst(now, expected):
     assert R.in_window(now) is expected
 
 
@@ -530,9 +530,9 @@ def test_write_invalidates_the_serving_date_cache_on_weekly_success_only(monkeyp
 # ── 루프와 앱 연결 ─────────────────────────────────────────────────────────
 
 def test_loop_runs_once_at_startup_then_only_inside_the_window(monkeypatch):
-    cycles, sleeps = [], iter([False, False, False, True])        # 시작 지연 · 토요일 틱 · 월요일 틱 · 종료
+    cycles, sleeps = [], iter([False, False, False, True])        # 시작 지연 · 일요일 틱 · 월요일 틱 · 종료
     # now_kst() 는 반복마다 두 번 불린다(다음 틱까지 잘 시간 계산 · 깬 뒤 창 판정)
-    clock = iter([kst(2026, 10, 24, 8, 50), kst(2026, 10, 24, 9, 0),
+    clock = iter([kst(2026, 10, 25, 8, 50), kst(2026, 10, 25, 9, 0),
                   kst(2026, 10, 26, 8, 0), kst(2026, 10, 26, 8, 10), kst(2026, 10, 26, 8, 10)])
 
     async def fake_sleep(stop, seconds):
@@ -544,7 +544,7 @@ def test_loop_runs_once_at_startup_then_only_inside_the_window(monkeypatch):
     monkeypatch.setattr(R, "_safe_cycle", fake_cycle)
     monkeypatch.setattr(R, "now_kst", lambda: next(clock))
     asyncio.run(R._loop(asyncio.Event()))
-    assert cycles == [None, kst(2026, 10, 26, 8, 10)]             # 기동 직후 1회(창과 무관) + 평일 창 안의 틱만. 토요일 틱은 건너뜀
+    assert cycles == [None, kst(2026, 10, 26, 8, 10)]             # 기동 직후 1회(창과 무관) + 창(월~토) 안의 틱만. 일요일 틱은 건너뜀
 
 
 def test_loop_exits_immediately_if_stopped_during_the_startup_delay(monkeypatch):
@@ -667,11 +667,14 @@ def test_attach_to_app_leaves_a_non_starlette_app_alone(caplog):
 
 
 def test_window_weekdays_is_a_single_switch(monkeypatch):
-    """요일 범위는 상수 하나다 — 토요일을 넣으면 토요일 창이 열리고 일요일은 그대로 닫혀 있다(운영자가 바꾸려는 경우의 계약)."""
-    assert R.WINDOW_WEEKDAYS == frozenset({0, 1, 2, 3, 4}) and not R.in_window(kst(2026, 10, 24, 9, 0))
-    monkeypatch.setattr(R, "WINDOW_WEEKDAYS", frozenset({0, 1, 2, 3, 4, 5}))
+    """요일 범위는 상수 하나다 — 기본은 월~토(금요일 종가가 토요일 아침에 게시되므로 토요일 창이 열려 있다), 일요일은 닫혀 있다.
+    운영자가 평일만으로 줄이면 토요일 창이 닫힌다(운영자가 바꾸려는 경우의 계약)."""
+    assert R.WINDOW_WEEKDAYS == frozenset({0, 1, 2, 3, 4, 5})
     assert R.in_window(kst(2026, 10, 24, 9, 0)) and not R.in_window(kst(2026, 10, 25, 9, 0))
     assert R.expected_dd(kst(2026, 10, 24, 9, 0)) == "20261023"        # 토요일 아침의 기대 거래일 = 금요일
+    assert R.expected_dd(kst(2026, 10, 26, 9, 0)) == "20261023"        # 월요일 아침도 금요일 — 토요일에 이미 받았으면 0콜
+    monkeypatch.setattr(R, "WINDOW_WEEKDAYS", frozenset({0, 1, 2, 3, 4}))
+    assert not R.in_window(kst(2026, 10, 24, 9, 0))
 
 
 def test_stop_never_hangs_the_shutdown_even_if_cleanup_is_stuck(monkeypatch):
