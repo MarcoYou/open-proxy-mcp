@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import difflib
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -16,6 +17,7 @@ import time
 import unicodedata
 from typing import Any
 
+_log = logging.getLogger(__name__)
 
 _ROOT = Path(__file__).resolve().parents[1]
 _LOCAL_MARKET_CAP_PATH = _ROOT / "data/market_cap.json"
@@ -208,23 +210,60 @@ _market_context: MarketContext | None = None
 _market_context_lock = asyncio.Lock()
 _market_context_loaded_at = 0.0
 _MARKET_CONTEXT_TTL_SECONDS = 3_600
+#: 새 읽기를 못 믿어 이전 맥락을 지켰을 때 다시 읽을 때까지의 간격(초).
+_MARKET_CONTEXT_RETRY_SECONDS = 60
+#: 마지막 적재가 정한 유효 시간 — 평소 `_MARKET_CONTEXT_TTL_SECONDS`, 이전 맥락을 지킨 직후엔 `…_RETRY_SECONDS`.
+_market_context_valid_for = _MARKET_CONTEXT_TTL_SECONDS
+#: 「최근」 스냅샷의 한계 — `_database_market_context` 가 active 를 켜는 기준과 같다.
+_MARKET_CONTEXT_FRESH_DAYS = 14
 
 
 def _market_context_is_fresh() -> bool:
     return (
         _market_context is not None
         and _market_context_loaded_at > 0
-        and time.monotonic() - _market_context_loaded_at < _MARKET_CONTEXT_TTL_SECONDS
+        and time.monotonic() - _market_context_loaded_at < _market_context_valid_for
     )
 
 
+def _is_complete_recent(ctx: MarketContext | None) -> bool:
+    """DB(krx_weekly)에서 온 **완전한** 스냅샷이고 as_of 가 최근인가 — 지킬 만한 맥락의 조건."""
+    if ctx is None or ctx.source != "krx_weekly" or ctx.active_tickers is None:
+        return False
+    try:
+        age = today_kst() - datetime.strptime(ctx.as_of_date, "%Y%m%d").date()
+    except ValueError:
+        return False
+    return age <= timedelta(days=_MARKET_CONTEXT_FRESH_DAYS)
+
+
+def _should_keep_previous(prev: MarketContext | None, new: MarketContext | None) -> bool:
+    """이번 읽기가 이전보다 못하면 이전 맥락을 지킨다.
+
+    못하다 = 읽기가 비었거나 실패했다(`None` — 빈 표·접속 실패·시간 초과) 또는 반쪽/낡은 스냅샷이다
+    (`active_tickers=None`). 지킬 만한 이전(`_is_complete_recent`)이 없으면 종전처럼 새 값을 쓴다.
+
+    🔴 261017: 종전엔 `None` 이면 곧바로 로컬 인기도 prior(상위 종목 표본·active 없음)로 **갈아 끼우고 한 시간을
+    붙들었다.** `krx_weekly` 를 자르는 30~60초(표가 비는 구간)나 접속 1초 시간 초과 한 번에, 완전한 시총·상장 명부로
+    하던 이름 해석이 한 시간 동안 표본 기반으로 떨어졌다(폐지 회사 되살림·시총 순위 왜곡)."""
+    return _is_complete_recent(prev) and (new is None or new.active_tickers is None)
+
+
 async def load_market_context() -> MarketContext:
-    global _market_context, _market_context_loaded_at
+    global _market_context, _market_context_loaded_at, _market_context_valid_for
     if _market_context_is_fresh():
         return _market_context
     async with _market_context_lock:
         if not _market_context_is_fresh():
             database = await asyncio.to_thread(_database_market_context)
+            if _should_keep_previous(_market_context, database):
+                _log.warning(
+                    "시장 맥락 갱신이 비어 있거나 반쪽이다(%s) — 이전 DB 맥락(as_of %s)을 유지하고 %d초 뒤 다시 읽는다",
+                    "읽기 실패·빈 표" if database is None else "반쪽/낡은 스냅샷",
+                    _market_context.as_of_date, _MARKET_CONTEXT_RETRY_SECONDS)
+                _market_context_loaded_at = time.monotonic()
+                _market_context_valid_for = _MARKET_CONTEXT_RETRY_SECONDS
+                return _market_context
             local = _local_market_context()
             if database:
                 merged = dict(local.market_caps)
@@ -238,6 +277,7 @@ async def load_market_context() -> MarketContext:
             else:
                 _market_context = local
             _market_context_loaded_at = time.monotonic()
+            _market_context_valid_for = _MARKET_CONTEXT_TTL_SECONDS
     return _market_context
 
 

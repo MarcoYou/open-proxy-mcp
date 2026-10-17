@@ -8,7 +8,7 @@ data_source: [DART financial_metrics 4EP(요약), DART company.json(업종·결�
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [배당수익률, 당기순이익, ROE, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-07-05
-updated: 2026-10-08
+updated: 2026-10-18
 ---
 
 # price_multiple_data
@@ -43,8 +43,10 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 - "업종별 선행 PER" → sector(`대분류`·`중분류`): 선행 PER·PBR 칸 + 종목수 옆 괄호(추정 종목 수)
 
 ### 과거 시점 `as_of` (260907)
-`as_of="20251231"`(또는 `2025-12-31`). `scope=firm` 이면 실시간 계산 대신 `firm_history` 의 **전 구간 주간 곡선**(krx_weekly 2015~ × DART 재무 PIT)에서
-기준일 이하 가장 최근 점의 PER(FY0·TTM)·PBR(FY0·MRQ)·시총을 준다 — 배당수익률은 과거 시점 미제공. `market`·`sector` 는
+`as_of="20251231"`(또는 `2025-12-31`). `scope=firm` 이면 실시간 계산 대신 `firm_history` 의 **최근 3년 주간 곡선**(krx_weekly × DART 재무 PIT)에서
+기준일 이하 가장 최근 점의 PER(FY0·TTM)·PBR(FY0·MRQ)·시총을 준다 — 배당수익률은 과거 시점 미제공.
+기준일이 곡선 하한(`data.weekly_from`, 저장된 최신 주의 달력 3년 전)보다 이르면 가까운 옛 점으로 답하지 않고
+「주간 시세는 최근 3년까지 제공(연말 값은 전체 기간)」 안내를 준다(`no_data`) — 연말 값은 `firm_history` 의 `history`(연말 PIT 밴드). `market`·`sector` 는
 기준일 이하 스냅샷으로 표를 그린다. 형제 도구 `trading_data` 의 `as_of` 와 같은 뜻. 비우면 종전과 같이 최신.
 달력에 없는 날짜(`20260231` 등)는 거부한다(260918 — 자릿수만 보던 때는 선행 조회가 DB 에서 실패했다).
 
@@ -63,7 +65,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 | `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
 | `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
 | `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
-| `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=전구간 주간 곡선(`data.series`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
+| `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=최근 3년 주간 곡선(`data.series`, 하한 `data.weekly_from` — 그 이전은 연말 밴드), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
 
 ### 배당수익률 (260831 추가)
@@ -182,7 +184,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
 | 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + 환율 캐시 저장분 | 기능통화 · 기말환율 | 비KRW → 재무 KRW 환산 |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
-| 시세 | **주간 시세 저장분(검증 자산, 2015-12~)** 우선 → 미스·최신 확보 시만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
+| 시세 | **주간 시세 저장분(검증 자산 — 최근 3년 + 종목별 해마다 마지막 행)** 우선 → 미스·최신 확보 시만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
 | 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) | 배당수익률 |
 
 ## 연산 파이프라인
@@ -315,6 +317,8 @@ sequenceDiagram
 ## 변경 이력
 
 - 2026-10-08: 선행 집계에서 주식 종류 미확인 0161M0를 제외하고, 수집 배치 대조의 예전 숫자 코드 제한을 제거했다.
+- 2026-10-18: 주간 시세 저장분을 최근 3년 + 종목별 연말 행으로 줄이는 데 맞춰 `firm_history` 주간 곡선에 하한(`data.weekly_from`)을 두고
+  경고 한 줄을 붙임. `as_of`(firm)가 하한보다 이르면 가까운 옛 연말 점으로 답하지 않고 안내. 연말 밴드(`history`)는 전체 기간 그대로.
 - 2026-09-21: `scheme` 값을 중립 이름 「대분류」·「중분류」로(기본 「중분류」, 옛 값도 받는다). 출력의 분류 이름표도 「업종 대분류·중분류」.
 - 2026-09-18: 시장·WICS 대분류·하위업종 표에 **선행 PER·PBR**(JSON 에 선행 PSR·흑자만 PER) — `opm_val_fwd`(`scripts/fwd_val_weekly.py`,
   market-val-weekly 안에서 매일). 트레일링과 같은 합산 방식(적자 추정 포함)·추정 종목 수 병기·선행 추이. 선행 배당수익률 출처를

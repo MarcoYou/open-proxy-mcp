@@ -35,6 +35,7 @@ from open_proxy_mcp.services.financial_metrics import build_financial_metrics_pa
 from open_proxy_mcp.services.dividend import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
+from open_proxy_mcp.krx_retention import krx_weekly_cutoff, weekly_window_note
 
 _KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
 _KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
@@ -87,6 +88,15 @@ def _iso_wk_range(price_dd: str) -> tuple[str, str]:
 def _krx_db_latest_dd() -> str | None:
     rows = _pg_rows("SELECT MAX(price_dd) FROM krx_weekly")
     return rows[0][0] if rows and rows[0][0] else None
+
+
+async def _weekly_bounds() -> tuple[str, str]:
+    """(저장된 최신 주, 주간 곡선 하한). 하한 = 최신 주의 달력 3년 전 — `krx_weekly` 를 자르는 쪽과 같은 정의
+    (`open_proxy_mcp/krx_retention.py`). 오늘 날짜가 아니라 **저장된 최신 주**를 쓴다 — 자르는 쪽이 그걸 쓰므로
+    서버 하한이 더 이르면 연말 한 점씩만 남은 구간이 주간 곡선에 섞여 들어온다.
+    표가 비었거나 못 읽으면(None) 오늘로 대신한다 — 그 뒤 질의가 어차피 no_data/db_error 로 갈린다."""
+    latest = await asyncio.to_thread(_krx_db_latest_dd) or today_kst().strftime("%Y%m%d")
+    return latest, krx_weekly_cutoff(latest)
 
 
 def _krx_db_get(price_dd: str, ticker: str) -> dict:
@@ -798,13 +808,21 @@ async def _annual_pit_band(ticker: str, currency: str = "KRW",
 
 async def _weekly_series(ticker: str, currency: str = "KRW",
                          fin: dict[int, tuple] | None = None,
-                         finq: dict[tuple, tuple] | None = None) -> list[dict]:
+                         finq: dict[tuple, tuple] | None = None,
+                         since_dd: str | None = None) -> list[dict]:
     """차트용 주간 dense 시계열 — 주간 보통주 시총(krx_weekly) × 재무.
     FY0(연 계단, dart_finstat_y) + TTM/MRQ(분기 계단, dart_finstat_q). 분모는 공시시점 계단,
     주가는 주간이라 곡선은 촘촘. 시총 기반이라 수정주가 조정 불변. 반환은 asof 오름차순.
-    TTM = FY(y-1) + 누적(y,q) − 누적(y-1,q) — 전년 동분기 필요해 사실상 2020~부터 산출."""
+    TTM = FY(y-1) + 누적(y,q) − 누적(y-1,q) — 전년 동분기 필요해 사실상 2020~부터 산출.
+
+    261017: **`since_dd`(보존 하한) 이상만 읽는다.** krx_weekly 는 최근 3년 + 종목별로 해마다 마지막 행(연말 행)만
+    남기도록 줄이는데, 하한 이전은 연말 한 점씩이라 그대로 읽으면 촘촘한 곡선 앞에 1년 간격 점이 조용히 섞인다.
+    비우면 저장된 최신 주에서 스스로 구한다(`_weekly_bounds`)."""
+    if since_dd is None:
+        _, since_dd = await _weekly_bounds()
     px = await asyncio.to_thread(_pg_rows,
-        "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s ORDER BY price_dd", (ticker,)) or []
+        "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd",
+        (ticker, since_dd)) or []
     if fin is None:
         fin = await _firm_fin_by_fy(ticker, currency)
     if finq is None:
@@ -851,18 +869,32 @@ def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
 
 
 async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
-    """종목의 **과거 시점** 배수 — firm_history 의 전 구간 주간 곡선(krx_weekly 2015~ × DART 재무 PIT)에서 as_of 이하
+    """종목의 **과거 시점** 배수 — firm_history 의 주간 곡선(krx_weekly 최근 3년 × DART 재무 PIT)에서 as_of 이하
     가장 최근 점 하나. `opm_val_firm` 은 최근 10주만 있어 과거로 못 간다(260907 실측: 20260703~20260904).
-    scope=firm 의 실시간 계산(DART×krx)은 과거로 못 가므로 곡선으로 답한다."""
+    scope=firm 의 실시간 계산(DART×krx)은 과거로 못 가므로 곡선으로 답한다.
+
+    261017: 주간 곡선은 보존 하한(최신 주 3년 전) 이후만이다. 그 이전 기준일은 연말 한 점씩만 남아 있어
+    「가장 가까운 옛 점」으로 답하면 몇 달~1년 낡은 값이 기준일 값처럼 나간다 — 그렇게 답하지 않고 안내한다."""
     hist = await build_firm_history_payload(company, format="json")
     if hist.get("status") != "ok":
         return hist
     d = hist["data"]
-    pts = [p for p in (d.get("series") or []) if str(p.get("asof", "")) <= as_of]
+    series = d.get("series") or []
+    floor = d.get("weekly_from") or (krx_weekly_cutoff(series[-1]["asof"]) if series else None)
+    pts = [p for p in series if str(p.get("asof", "")) <= as_of]
     if not pts:
-        first = (d.get("series") or [{}])[0].get("asof")
+        warns: list[str] = []
+        if floor and as_of < floor:
+            warns.append(f"기준일 {as_of} 은 제공 범위 밖입니다. {weekly_window_note(floor)} "
+                         "연말 값은 `scope=firm_history` 의 `history`(연말 PIT 밴드)에서 전체 기간으로 봅니다.")
+        first = series[0].get("asof") if series else None
+        if first:
+            warns.append(f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {first}. 기준일을 비우면 현재 값.")
+        elif not warns:
+            warns.append(f"기준일 {as_of} 이하 주간 점 없음 — 최근 3년 안에 시세가 없어 주간 곡선이 비어 있습니다"
+                         "(거래정지·상장폐지 가능). 연말 값은 `scope=firm_history` 의 `history` 에서 봅니다.")
         return {"tool": "price_multiple_data", "status": "no_data", "subject": hist.get("subject", company),
-                "warnings": [f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {first}. 기준일을 비우면 현재 값."]}
+                "warnings": warns}
     p = pts[-1]
     return {"tool": "price_multiple_data", "status": "ok", "subject": hist.get("subject", company),
             "data": {"scope": "firm_at", "ticker": d.get("ticker"), "as_of_requested": as_of, "as_of": p["asof"],
@@ -901,8 +933,9 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     #    한 번만 만들어 공유. series는 FY0(연)+TTM/MRQ(분기) 곡선, summary는 그 월말 다운샘플.
     fin = await _firm_fin_by_fy(isu, currency)
     finq = await _firm_fin_by_q(isu, currency)
-    band = await _annual_pit_band(isu, currency, fin=fin)
-    series = await _weekly_series(isu, currency, fin=fin, finq=finq)
+    band = await _annual_pit_band(isu, currency, fin=fin)           # 종목별 연말 행 — 전체 기간(보존 대상)
+    _, weekly_from = await _weekly_bounds()                          # 주간 곡선은 보존 하한 이후만
+    series = await _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from)
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
     # ② 주간 스냅샷 — 최근/현재 촘촘한 포인트(앞으로 cron이 축적)
     rows = await asyncio.to_thread(_pg_rows,
@@ -923,7 +956,8 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
               "source": "주간"} for r in rows]
     hist.sort(key=lambda h: h["asof"])
     latest_dd = series[-1]["asof"] if series else (rows[-1][0] if rows else "?")
-    warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용."]
+    warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용.",
+                weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."]
     # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고).
     flags = await asyncio.to_thread(_pg_rows,
         "SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)) or []
@@ -940,9 +974,11 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     return {"tool": "price_multiple_data", "status": "ok", "subject": corp.get("corp_name", query),
             "data": {"scope": "firm_history", "ticker": isu, "market": market,
                      "sector": sector, "history": hist, "series": series, "summary": summary,
+                     "weekly_from": weekly_from,
                      "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 dart_finstat_y·PIT) · "
                                "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 dart_finstat_q) · "
-                               "MRQ PBR=최근분기 지배자본. 차트=전구간 주간 곡선(series), 요약=최근 12개월 "
+                               "MRQ PBR=최근분기 지배자본. 차트=최근 3년 주간 곡선(series, weekly_from 이후 — 그 이전 "
+                               "연말 값은 history 의 연말 항목), 요약=최근 12개월 "
                                "월말(summary). 시총 기반이라 분할·무상증자 등 조정성 이벤트에 불변(유증·자사주 "
                                "소각·인적분할의 실제 시총 점프는 그대로 반영)."},
             "warnings": warnings}
