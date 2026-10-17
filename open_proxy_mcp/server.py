@@ -359,7 +359,7 @@ def build_mcp() -> MCPServer:
         # 장부 밖 후보 — 모듈 수준에 살면서 트래픽을 따라 자랄 수 있는 것들.
         targets = [
             ("open_proxy_mcp.services.financial_metrics", "_FM_CACHE"),
-            ("open_proxy_mcp.services.trading", "_QUOTE_CACHE"),
+            ("open_proxy_mcp.services.trading", "_QUOTE_DAYS"),
             ("open_proxy_mcp.services.law_lookup", "_FULLTEXT_CACHE"),
             ("open_proxy_mcp.services.law_lookup", "_INDEX_CACHE"),
             ("open_proxy_mcp.services.shareholder_meeting_parser", "_LAST_CAREER_RAW"),
@@ -830,6 +830,10 @@ def build_app(server=None):
     app.add_middleware(CaptureMiddleware)
     app.add_middleware(ApiKeyMiddleware)
     app.add_middleware(AdmissionMiddleware)
+    # 261018: KRX 시세 갱신을 요청 경로에서 떼어 서버 백그라운드 작업으로 옮겼다(평일 07:30~20:00 KST 10분 간격, 머신 2대 중
+    # 잠금을 잡은 하나만). 서버가 뜰 때 띄우고 꺼질 때 멈춘다. `OPM_KRX_REFRESHER=0` 이면 안 띄운다.
+    from open_proxy_mcp.services.krx_refresher import attach_to_app
+    attach_to_app(app)
     return app
 
 
