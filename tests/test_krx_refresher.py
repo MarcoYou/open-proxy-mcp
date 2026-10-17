@@ -31,8 +31,10 @@ def _rows(n, prefix="A"):
 @pytest.fixture(autouse=True)
 def _clean():
     R._LOGGED_FRESH.clear()
+    R._BUSY_STREAK["n"] = 0
     yield
     R._LOGGED_FRESH.clear()
+    R._BUSY_STREAK["n"] = 0
 
 
 # ── 달력 ────────────────────────────────────────────────────────────────────
@@ -195,6 +197,30 @@ def test_only_the_lock_holder_proceeds(monkeypatch):
     res = asyncio.run(R.run_cycle(MON))
     assert res.outcome == "lock_busy" and sim.lock_attempts == 1
     assert sim.fetches == 0 and sim.writes == 0 and res.krx_calls == 0
+
+
+def test_a_lock_stuck_for_three_ticks_is_bypassed_so_the_refresher_cannot_stay_dead(monkeypatch, caplog):
+    """보유자가 죽었는데 풀러가 그 연결을 바로 정리하지 못하면 잠금이 남을 수 있다 — 30분(3틱) 연속 막히면 잠금 없이 진행한다(쓰기는 멱등)."""
+    sim = Sim(monkeypatch, stored="20261015", lock_held_by_other=True)
+    outs = []
+    with caplog.at_level("WARNING"):
+        for hh, mm in ((8, 0), (8, 10), (8, 20)):
+            outs.append(asyncio.run(R.run_cycle(kst(2026, 10, 19, hh, mm))).outcome)
+    assert outs == ["lock_busy", "lock_busy", "refreshed"]
+    assert sim.fetches == 1 and sim.stored == "20261016"
+    assert any("잠금 없이 진행" in r.message for r in caplog.records)
+    assert R._BUSY_STREAK["n"] == R.LOCK_BUSY_STREAK_LIMIT                    # 우회한 틱까지 센다 — 다음 신선 확인에서 0 으로
+
+
+def test_busy_streak_resets_once_the_db_is_fresh_or_the_lock_is_held(monkeypatch):
+    sim = Sim(monkeypatch, stored="20261015", lock_held_by_other=True)
+    asyncio.run(R.run_cycle(MON))
+    assert R._BUSY_STREAK["n"] == 1
+    sim.stored = "20261016"                                                    # 상대 머신이 끝냈다
+    assert asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, 10))).outcome == "fresh" and R._BUSY_STREAK["n"] == 0
+    sim.stored, sim.locked = "20261015", False                                 # 다음 거래일, 이번엔 잠금을 잡는다
+    asyncio.run(R.run_cycle(kst(2026, 10, 20, 8, 0)))
+    assert R._BUSY_STREAK["n"] == 0
 
 
 def test_recheck_after_taking_the_lock_skips_work_the_other_machine_just_did(monkeypatch):

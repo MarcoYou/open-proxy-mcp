@@ -47,6 +47,9 @@ WINDOW_END = dtime(20, 0)               # 20:00 KST 전까지
 STARTUP_DELAY_SEC = 15.0                # 서버가 뜬 뒤 첫 확인까지(부팅 부하와 겹치지 않게)
 #: 코스피 약 950·코스닥 약 1,800 행이 정상이다. 이보다 적으면 반쪽 응답으로 보고 쓰지 않는다.
 MIN_ROWS_PER_MARKET = 300
+#: 잠금이 이만큼 연속으로(10분 × 3 = 30분) 「다른 머신이 쥐고 있다」로만 보이면 비정상이다(보통 한 번 쓰는 데 몇 초). 잠금 보유자가 죽었는데
+#: 풀러가 그 연결을 바로 정리하지 못한 경우를 상정한다 — 이 경우 잠금 없이 진행한다. 잠금은 KRX 호출을 아끼려는 장치일 뿐이고 쓰기는 멱등이다.
+LOCK_BUSY_STREAK_LIMIT = 3
 
 _FALSE = {"0", "false", "off", "no"}
 _DB_DOWN = object()                     # 「DB 를 못 읽었다」 — 값이 비었다(None)와 구분
@@ -196,6 +199,7 @@ class CycleResult:
     rows: int = 0
 
 
+_BUSY_STREAK = {"n": 0}               # 잠금이 연속으로 막힌 횟수(이 프로세스 기준)
 _LOGGED_FRESH: dict[str, str] = {}       # 「이미 최신」은 기대 거래일마다 한 번만 INFO 로 남긴다(틱마다 찍으면 하루 140줄)
 
 
@@ -208,6 +212,7 @@ async def run_cycle(now: datetime | None = None) -> CycleResult:
         logger.warning("KRX 갱신기: DB 를 읽지 못했다 — 이번 틱 건너뜀")
         return CycleResult("db_error", exp)
     if stored and stored >= exp:
+        _BUSY_STREAK["n"] = 0
         if _LOGGED_FRESH.get("dd") != exp:
             _LOGGED_FRESH["dd"] = exp
             logger.info("KRX 갱신기: 기대 거래일 %s 는 이미 저장됨(최신 %s) — 오늘은 더 확인하지 않는다", exp, stored)
@@ -216,26 +221,38 @@ async def run_cycle(now: datetime | None = None) -> CycleResult:
     async with _advisory_lock() as held:
         if held is None:
             return CycleResult("db_error", exp, stored)
-        if not held:
-            logger.debug("KRX 갱신기: 다른 머신이 갱신 중 — 건너뜀")
-            return CycleResult("lock_busy", exp, stored)
-        stored = await asyncio.to_thread(_db_latest_dd)       # 잠금을 잡은 뒤 다시 본다 — 상대가 방금 끝냈을 수 있다
-        if stored is _DB_DOWN:
-            return CycleResult("db_error", exp)
-        if stored and stored >= exp:
-            return CycleResult("fresh", exp, stored)
-        kospi, kosdaq, calls = await _fetch_day(exp)
-        if not kospi:
-            logger.info("KRX 갱신기: %s 아직 게시 전이거나 휴장 (KRX %d콜, 저장 최신 %s)", exp, calls, stored)
-            return CycleResult("not_published", exp, stored, calls)
-        if len(kospi) < MIN_ROWS_PER_MARKET or len(kosdaq) < MIN_ROWS_PER_MARKET:
-            logger.warning("KRX 갱신기: %s 응답이 반쪽(KOSPI %d / KOSDAQ %d) — 기록하지 않는다", exp, len(kospi), len(kosdaq))
-            return CycleResult("incomplete", exp, stored, calls)
-        if not await _write(exp, kospi, kosdaq):
-            return CycleResult("write_failed", exp, stored, calls)
-        rows = len(kospi) + len(kosdaq)
-        logger.info("KRX 갱신기: %s 기록 완료 (%d행, KRX %d콜)", exp, rows, calls)
-        return CycleResult("refreshed", exp, exp, calls, rows)
+        if held:
+            _BUSY_STREAK["n"] = 0
+        else:
+            _BUSY_STREAK["n"] += 1
+            if _BUSY_STREAK["n"] < LOCK_BUSY_STREAK_LIMIT:
+                logger.debug("KRX 갱신기: 다른 머신이 갱신 중 — 건너뜀 (%d회째)", _BUSY_STREAK["n"])
+                return CycleResult("lock_busy", exp, stored)
+            logger.warning("KRX 갱신기: 잠금이 %d틱 연속 잡혀 있다 — 보유자가 사라진 것으로 보고 잠금 없이 진행(쓰기는 멱등)",
+                           _BUSY_STREAK["n"])
+        return await _refresh_locked(exp)
+
+
+async def _refresh_locked(exp: str) -> CycleResult:
+    """잠금을 잡은(또는 잠금이 비정상으로 막혀 건너뛴) 상태에서 하는 일 — 다시 확인하고, 받고, 쓴다."""
+    stored = await asyncio.to_thread(_db_latest_dd)           # 잠금을 잡은 뒤 다시 본다 — 상대가 방금 끝냈을 수 있다
+    if stored is _DB_DOWN:
+        return CycleResult("db_error", exp)
+    if stored and stored >= exp:
+        _BUSY_STREAK["n"] = 0
+        return CycleResult("fresh", exp, stored)
+    kospi, kosdaq, calls = await _fetch_day(exp)
+    if not kospi:
+        logger.info("KRX 갱신기: %s 아직 게시 전이거나 휴장 (KRX %d콜, 저장 최신 %s)", exp, calls, stored)
+        return CycleResult("not_published", exp, stored, calls)
+    if len(kospi) < MIN_ROWS_PER_MARKET or len(kosdaq) < MIN_ROWS_PER_MARKET:
+        logger.warning("KRX 갱신기: %s 응답이 반쪽(KOSPI %d / KOSDAQ %d) — 기록하지 않는다", exp, len(kospi), len(kosdaq))
+        return CycleResult("incomplete", exp, stored, calls)
+    if not await _write(exp, kospi, kosdaq):
+        return CycleResult("write_failed", exp, stored, calls)
+    rows = len(kospi) + len(kosdaq)
+    logger.info("KRX 갱신기: %s 기록 완료 (%d행, KRX %d콜)", exp, rows, calls)
+    return CycleResult("refreshed", exp, exp, calls, rows)
 
 
 async def _safe_cycle(now: datetime | None = None) -> CycleResult | None:
