@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
@@ -286,7 +287,9 @@ def register_tools(mcp):
         min_payments: screen 전용. **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사(결정공시 기준 — 원장 분기 빈칸 추정이 아니다). `quarterly_only=True` 는 `min_payments=2` 의 별칭(하위호환).
         ref: dividend_disclosure, price_multiple_data, forward_estimates_data, screener, evidence
         """
-        rng = dd.year_range()
+        # 261018: 아래 `dd.*` 는 전부 **동기 DB 호출**이다. async 함수 안에서 그대로 부르면 질의가 끝날 때까지 서버 전체(다른 도구·/health)가
+        #   멈춘다 — 연도 범위 질의만 평균 475ms(차가운 캐시 1.5초)였다. 스레드로 보내 루프를 비워 둔다.
+        rng = await asyncio.to_thread(dd.year_range)
         if rng is None:
             return "## 배당 원장 DB 조회 실패 (`status=db_error`)\n\n> 일시 장애일 수 있다. 잠시 뒤 다시."
         lo, hi = rng
@@ -294,17 +297,17 @@ def register_tools(mcp):
         y1 = year_to or hi
 
         if scope == "market":
-            data = dd.aggregate_history("market", "코스피", y0, y1)
+            data = await asyncio.to_thread(dd.aggregate_history, "market", "코스피", y0, y1)
             if data.get("status") != "ok":
                 return "## 시장 배당 집계 조회 실패 (`status=db_error`)"
             return as_pretty_json(data) if format == "json" else _render_agg("market", "코스피", data)
 
         if scope == "sector":
             if not sector:
-                names = dd.sector_list()
+                names = await asyncio.to_thread(dd.sector_list)
                 return ("## 섹터를 지정하라 (`status=invalid`)\n\n"
                         + "\n".join(f"- {s}" for s in names))
-            data = dd.aggregate_history("sector", sector, y0, y1)
+            data = await asyncio.to_thread(dd.aggregate_history, "sector", sector, y0, y1)
             if data.get("status") != "ok":
                 return "## 섹터 배당 집계 조회 실패 (`status=db_error`)"
             if not data.get("rows"):
@@ -332,7 +335,8 @@ def register_tools(mcp):
                 cond.append(f"섹터 {sector}")
 
             lim = max(1, min(limit, 300))
-            data = dd.screen(
+            data = await asyncio.to_thread(
+                dd.screen,
                 year,
                 min_payout=min_payout if min_payout >= 0 else None,
                 max_payout=max_payout if max_payout >= 0 else None,
@@ -349,11 +353,12 @@ def register_tools(mcp):
             if data.get("status") != "ok":
                 return "## 배당 스크리닝 조회 실패 (`status=db_error`)"
 
-            complete = dd.payment_scope_years()
+            complete = await asyncio.to_thread(dd.payment_scope_years)
             hist_years = list(range(min(complete), max(complete) + 1)) if complete else []
             pairs = [(r["corp_code"], r["ticker"]) for r in (data.get("rows") or [])]
             # None = 이력 질의 실패(렌더가 「모른다」로 낸다) · {} = 셀 회사가 없다.
-            hist = dd.payment_history(pairs, hist_years[0], hist_years[-1]) if pairs and hist_years else {}
+            hist = (await asyncio.to_thread(dd.payment_history, pairs, hist_years[0], hist_years[-1])
+                    if pairs and hist_years else {})
 
             if format == "json":
                 return as_pretty_json({"status": "ok", "data": data, "conditions": cond,
@@ -374,10 +379,10 @@ def register_tools(mcp):
                             for c in early["data"]["candidates"]))
         if not corp:
             return f"## '{company}' 을(를) 찾지 못했다 (`status=not_found`)"
-        data = dd.firm_history(corp.get("corp_code", ""), y0, y1)
+        data = await asyncio.to_thread(dd.firm_history, corp.get("corp_code", ""), y0, y1)
         if data.get("status") != "ok":
             return "## 배당 원장 조회 실패 (`status=db_error`)"
-        pay = dd.payment_counts(corp.get("corp_code", ""), y0, y1)
+        pay = await asyncio.to_thread(dd.payment_counts, corp.get("corp_code", ""), y0, y1)
         if format == "json":
             return as_pretty_json({"status": "ok", "subject": corp.get("corp_name"),
                                    "data": data, "payment_counts": pay})

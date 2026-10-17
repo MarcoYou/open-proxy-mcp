@@ -161,10 +161,17 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
   특별배당을 재원으로 쓴다는 문장은 뺀다. **꺼져 있어도 「없다」가 아니다** — 판단은
   바로 아래 비고 원문을 읽고 한다.
 
+## DB 호출 (261018)
+- 모든 DB 읽기는 이벤트 루프 밖 스레드에서 돈다. 종전엔 async 도구 안에서 동기로 불러, 질의가 끝날 때까지 서버 전체(다른 도구·`/health`)가 멈췄다.
+- 사업연도 범위(`MIN/MAX(bsns_year)`)는 호출마다 묻지 않고 프로세스 메모리에 **6시간** 담는다(새 사업연도는 연 1~2회 적재). 실패·빈 표는 담지 않는다.
+- 원장 `div_declared` 는 인덱스가 없어 매 질의가 표 전체를 훑었다. 인덱스 두 개(`(corp_code, reprt_code, bsns_year)` · `(bsns_year)`)는
+  `scripts/div_indexes_ddl.py` 로 사람이 한 번 적용한다(서버는 DDL 을 실행하지 않는다). 결정공시 표(`div_payment`)는 이미 `(corp_code, fiscal_year)` 인덱스를 쓰므로 더하지 않았다.
+
 ## 관련
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
 
 ## 변경 이력
+- 2026-10-18: DB 호출을 이벤트 루프 밖으로 옮기고 사업연도 범위를 6시간 메모리 캐시. 원장 인덱스 스크립트 추가. 출력은 그대로.
 - 2026-10-18: `krx_listing` 배치를 증분으로 — 관측창 시작은 상수(20151230), 새 관측은 최근 주만 읽어 `first_seen_dd=LEAST`·`last_seen_dd=GREATEST` 로 합친다.
   주간 시세 저장분을 줄여도 값이 유지된다(도구 동작 변화 없음).
 - 2026-09-03: 부분 장애 경로 정리 — 매칭 수·모집단·원장·이력열 질의 하나만 실패해도 예외나
