@@ -8,14 +8,14 @@ data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 주간 시세 저장분,
 related_disclosures: []
 related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24
-updated: 2026-10-01
+updated: 2026-10-18
 ---
 
 # trading_data
 
 ## 한 줄 요약
-가격과 **규모** 그 자체 — 종목의 주가·시가총액·상장주식수 시계열(주간, 2015-12~), 시장·섹터
-시총 집계 시계열, 특정 거래일의 전체 시세(OHLC·거래량·거래대금·등락률). 배수(PER·PBR)는
+가격과 **규모** 그 자체 — 종목의 주가·시가총액·상장주식수 시계열(주간, 최근 3년 — 연말 값은 전체 기간), 시장·섹터
+시총 집계 시계열(2015-12~ 전 구간), 특정 거래일의 전체 시세(OHLC·거래량·거래대금·등락률). 배수(PER·PBR)는
 [[price_multiple_data]] 가 맡는다.
 
 전제 개념: [[시가총액]](상장주식수 × 종가, `krx_weekly` 단일 소스) · [[단위-표기-규약]](`_krw`·`list_shrs`).
@@ -48,7 +48,7 @@ trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380") 
 | scope | str | no | `firm`(종목 시계열) / `quote`(단일 거래일 전체 시세) / `market` / `sector` / `universe`(종목 순위표) | "firm" |
 | format | str | no | "md" / "json" — 전 구간 시계열은 json 의 `data.series` | "md" |
 | as_of | str | no | quote 전용. YYYYMMDD. 비우면 최근 거래일 | "" |
-| since | str | no | firm·market·sector 시계열 시작일 YYYYMMDD | "" |
+| since | str | no | firm·market·sector 시계열 시작일 YYYYMMDD. firm 은 주간 시세 보존 하한(`data.weekly_from`)보다 이르면 하한부터 주고 경고로 알린다 | "" |
 | scheme | str | no | sector 전용. `중분류`(28) / `대분류`(10). 옛 값(`wics_industry`·`wics_sector`)도 받는다 | "중분류" |
 | bucket | str | no | sector 전용. 섹터명·코드 지정 시 그 섹터의 전 구간 시계열 | "" |
 | universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」(KOSPI 시총상위 200 대체)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다. 「코스피 120」처럼 숫자만 있고 「상위·시총」이 없으면 **추측하지 않고 되묻는다**(`invalid` + 제안 문구). 숫자 뒤 개·종목·기업·회사·개사·곳은 무관(「코스피 시가총액 상위 200개 기업」). 이름 나열에서 회사를 하나도 못 찾아도 되묻는다(260918) | "" |
@@ -70,6 +70,20 @@ trading_data(scope="universe", universe="삼성전자, SK하이닉스, 005380") 
 낸다. 순위는 **요청한 시장 안에서** 시총 내림차순이고, 기준일은 최신 완결 주의 마지막 거래일이지
 오늘이 아니다(`data.as_of`). md 표는 300종목까지, 전체는 json 의 `data.rows`. 이 목록은
 `forward_estimates_data(universe=…)`·`screener(universe=…)` 에 같은 문장으로 넘길 수 있다.
+
+## 주간 시세 보존 하한 (2026-10-18)
+
+`scope=firm` 이 읽는 주간 시세 저장분은 저장 용량 때문에 **최근 3년 + 종목별로 해마다 마지막 행(연말 행)** 만 남긴다.
+하한은 저장된 최신 주의 **달력 3년 전**(같은 월·일, 2월 29일이면 2월 28일 — `open_proxy_mcp/krx_retention.py` 의
+`krx_weekly_cutoff`)이고 응답의 `data.weekly_from` 에 담긴다.
+
+- `since` 가 없거나(전 기간) 하한보다 이르면 **하한부터** 준다. 하한 이전은 종목별 연말 한 점씩만 남아 있어 주간 시계열에
+  섞으면 촘촘한 곡선 앞에 1년 간격 점이 조용히 끼어든다 — 그래서 섞지 않고, 경고에 「주간 시세는 최근 3년까지
+  제공(연말 값은 전체 기간)」과 하한 날짜를 붙인다.
+- 연말 시총·배수는 [[price_multiple_data]] `scope=firm_history` 의 연말 항목에서 전체 기간으로 본다.
+- 시장·섹터 시총 집계(`krx_cap_agg`)는 집계 결과라 줄이지 않는다 — 2015-12~ 전 구간 그대로.
+- 배치도 하한 이전을 다시 쓰지 않는다 — `krx_cap_agg.py` 의 하한 이전 `--since`/`--full` 은 거절(`--allow-before-cutoff`
+  로만, 그때도 원천이 남은 날짜의 집계만 다시 쓴다)이고, `market_val_weekly.py --backfill` 은 하한 이전 주를 건너뛴다.
 
 ## 반드시 알아야 할 것 셋
 
@@ -101,7 +115,7 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 ## 배치
 | 스크립트 | 무엇을 | 언제 |
 |---|---|---|
-| `scripts/krx_cap_agg.py` | `krx_cap_agg` 재적재 (44,636행 · 8MB) | 일간 (krx_weekly 갱신 후) |
+| `scripts/krx_cap_agg.py` | `krx_cap_agg` 재적재 (44,636행 · 8MB) — 보존 하한 이전 재집계는 거절 | 일간 (krx_weekly 갱신 후) |
 | `scripts/refresh_sector_class.py` | 업종분류 관측(`wise_sector`) | 월 1회 (`.github/workflows/sector-class-monthly.yml` cron) |
 
 업종분류 수집의 날짜 계약:
@@ -124,6 +138,9 @@ WICS 구성종목에 없는 종목(우선주·신규상장 등, 20260821 기준 
 요청 경로에서 3초는 260823 의 502(느린 한 경로가 워커를 소진)와 같은 형태라 사전계산으로 뺐다.
 
 ## 변경 이력
+
+- 2026-10-18: 주간 시세 저장분을 최근 3년 + 종목별 연말 행으로 줄이는 데 맞춰 `scope=firm` 의 주간 시계열에 **하한**을 둠
+  (`data.weekly_from` · 전 기간·하한 이전 `since` 는 하한부터 + 경고). 시장·섹터 집계는 그대로. 재집계·백필 배치는 하한 이전을 다시 쓰지 않는다.
 
 - 2026-10-01: 업종 수집의 자동 날짜 소급 범위와 명시 날짜 계약을 분리하고, 모든 업종의 응답일·완전성을 저장 전에 검증.
 

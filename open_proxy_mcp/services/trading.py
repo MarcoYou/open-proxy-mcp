@@ -23,6 +23,7 @@ from typing import Any
 
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 
+from open_proxy_mcp.krx_retention import weekly_window_note
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.price_multiple_data import (
@@ -32,6 +33,7 @@ from open_proxy_mcp.services.price_multiple_data import (
     _num,
     _pg_rows,
     _resolve_listed,
+    _weekly_bounds,
 )
 
 TOOL = "trading_data"
@@ -160,10 +162,20 @@ async def build_firm_series_payload(company: str, format: str = "md",
     if not ticker:
         return _err(corp.get("corp_name", company), "unlisted", "비상장 — 시세 시계열이 없습니다.")
 
+    # 261017: 주간 시세는 **보존 하한(저장된 최신 주의 달력 3년 전) 이후만** 준다. `krx_weekly` 는 최근 3년 + 종목별로
+    #   해마다 마지막 행(연말 행)만 남기도록 줄이는데, 하한 이전을 그대로 읽으면 촘촘한 주간 곡선 앞에 1년 간격 점이
+    #   조용히 섞인다. since 가 없으면(전 기간) 하한부터, since 가 하한보다 이르면 하한으로 올려 읽고 그 사실을 말한다.
+    _, floor = await _weekly_bounds()
+    req = (since or "").strip()
+    if len(req.replace("-", "")) == 8 and req.replace("-", "").isdigit():
+        req = req.replace("-", "")
+    lo = max(req, floor) if req else floor
     sql = ("SELECT price_dd, market, close, mktcap, list_shrs FROM krx_weekly "
-           "WHERE ticker=%s" + (" AND price_dd>=%s" if since else "") + " ORDER BY price_dd")
-    args = (ticker, since) if since else (ticker,)
-    rows = await asyncio.to_thread(_pg_rows, sql, args)
+           "WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd")
+    rows = await asyncio.to_thread(_pg_rows, sql, (ticker, lo))
+    window_note = (weekly_window_note(floor)
+                   + " 연말 시총·배수는 `price_multiple_data` 의 `scope=firm_history` 연말 항목에서 전체 기간으로 볼 수 있습니다."
+                   + (f" (요청한 since {req} 가 하한보다 이르러 하한부터 줍니다.)" if req and req < floor else ""))
     if rows is None:
         name = corp.get("corp_name", company)
         if _db_configured():
@@ -171,7 +183,7 @@ async def build_firm_series_payload(company: str, format: str = "md",
         return await _firm_live_fallback(name, ticker)
     if not rows:
         return _err(corp.get("corp_name", company), "no_data",
-                    f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).")
+                    f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).", window_note)
 
     freq = (freq or _FREQ_DEFAULT["firm"]).strip().lower()
     full = [{"asof": r[0], "close_krw": r[2], "mktcap_krw": r[3], "list_shrs": r[4]} for r in rows]
@@ -187,6 +199,8 @@ async def build_firm_series_payload(company: str, format: str = "md",
 
     warns = [f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
              f"연속이지만 주가는 끊깁니다."]
+    if not req or req < floor:
+        warns.append(window_note)
     if ev:
         warns.append(f"⚠ 구간 내 기준가 조정 {len(ev)}회 "
                      f"({', '.join(f'{d}(×{c:g})' for d, c in ev[:5])}"
@@ -195,7 +209,7 @@ async def build_firm_series_payload(company: str, format: str = "md",
     return {"tool": TOOL, "status": "ok",
             "subject": f"{corp.get('corp_name', company)}({ticker})",
             "data": {"scope": "firm", "ticker": ticker, "market": rows[-1][1],
-                     "as_of": latest["asof"], "from": first["asof"], "points": len(series),
+                     "as_of": latest["asof"], "from": first["asof"], "weekly_from": floor, "points": len(series),
                      "freq": freq, "points_weekly": len(full),
                      "latest": latest, "series": series,
                      "price_adjusted": False,
