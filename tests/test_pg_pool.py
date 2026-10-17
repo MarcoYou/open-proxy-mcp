@@ -242,3 +242,58 @@ def test_pool_stats_reports_retry_countdown(db, monkeypatch):
     monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
     st = db.pool_stats()
     assert st["enabled"] is False and "retry_in_sec" in st
+
+
+def test_a_query_error_does_not_take_the_pool_down_or_retry_directly(db, monkeypatch):
+    """없는 표·뷰나 권한 없음(SQLSTATE 42xxx)은 SQL 의 문제지 풀의 문제가 아니다 — 풀을 60초 내리면 모든 도구가 느려진다.
+
+    261018: 마이그레이션 전에 배포되거나 새 뷰의 권한이 빠졌을 때 `krx_daily_v` 질의가 정기적으로 실패해도 서버 전체가 느려지지 않아야 한다.
+    """
+    import psycopg
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
+    direct = {"n": 0}
+
+    class _Pool:
+        closed = 0
+
+        def connection(self):
+            raise psycopg.errors.UndefinedTable('relation "krx_daily_v" does not exist')
+
+        def close(self):
+            _Pool.closed += 1
+
+    pool = _Pool()
+    monkeypatch.setattr(db, "_pool", pool)
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
+    monkeypatch.setattr(psycopg, "connect", lambda *a, **k: direct.__setitem__("n", direct["n"] + 1))
+    for _ in range(3):
+        assert db.pg_rows("SELECT * FROM krx_daily_v") is None
+    assert db._pool is pool and _Pool.closed == 0, "SQL 오류로 풀을 내리면 안 된다"
+    assert db._pool_disabled_until == 0.0
+    assert direct["n"] == 0, "같은 SQL 을 직접 접속으로 다시 보낼 이유가 없다"
+
+
+def test_non_query_errors_still_take_the_pool_down(db, monkeypatch):
+    """구분은 좁다 — SQL 오류만 예외고, 그 밖의 알 수 없는 오류는 종전대로 풀을 내린다."""
+    import psycopg
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x/y")
+
+    class _Pool:
+        def connection(self):
+            raise RuntimeError("풀 고갈")
+
+        def close(self):
+            pass
+    monkeypatch.setattr(db, "_pool", _Pool())
+    monkeypatch.setattr(db, "_pool_disabled_until", 0.0)
+
+    class _C:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, *a, **k):
+            return type("R", (), {"fetchall": lambda s: [(1,)]})()
+    monkeypatch.setattr(psycopg, "connect", lambda *a, **k: _C())
+    assert db.pg_rows("SELECT 1") == [(1,)] and db._pool is None and db._pool_disabled_until > 0
+    assert db._is_query_error(psycopg.errors.InsufficientPrivilege("x")) is True
+    assert db._is_query_error(psycopg.OperationalError("x")) is False
+    assert db._is_query_error(RuntimeError("x")) is False

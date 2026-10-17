@@ -15,7 +15,9 @@ from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
 
 import asyncio
+import logging
 import os
+import time
 from typing import Any
 
 import httpx
@@ -36,6 +38,9 @@ from open_proxy_mcp.services.dividend import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
 from open_proxy_mcp.krx_retention import krx_weekly_cutoff, weekly_window_note
+from open_proxy_mcp import krx_daily as _krx_daily
+
+logger = logging.getLogger(__name__)
 
 _KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
 _KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
@@ -52,10 +57,12 @@ def _div(a, b):
     return (a / b) if (a not in (None,) and b not in (None, 0)) else None
 
 
-def _price_dates() -> list[str]:
-    """최근 12일 중 주말 제외 후보일 — KRX가 빈값 줄 토·일 콜 낭비 제거(API QA)."""
+def _price_dates(today=None) -> list[str]:
+    """최근 12일 중 주말 제외 후보일(최신 먼저) — KRX가 빈값 줄 토·일 콜 낭비 제거(API QA).
+    `today` 를 주면 그 날짜 기준(백그라운드 갱신기가 시각을 직접 넘긴다). 이 서버의 유일한 거래일 달력이다 —
+    공휴일은 모르고, KRX 빈 응답으로 자연히 걸러진다."""
     from datetime import date, timedelta
-    today = today_kst()
+    today = today or today_kst()
     out = []
     for i in range(12):
         d = today - timedelta(days=i)
@@ -67,9 +74,13 @@ def _price_dates() -> list[str]:
 # KRX 시세 = 기존 검증 자산 **krx_weekly**(주별 최종거래일 전종목, 2015-12~, 원장 대조 불일치 0,
 # 수정주가 파이프라인과 공유)에서 서빙 — 별도 테이블 신설 금지(260705 krx_weekly_px 중복 생성 → 폐기).
 # 라이브 KRX는 개인키 1개·일 10,000콜 한도(배치와 공유)라 유저마다 못 씀. FX 캐시와 동형:
-#  · 매일 최신 거래일 스냅샷을 불러와 '그 ISO주' 슬롯에 수렴(같은 주 옛 price_dd 삭제 후 insert, 트랜잭션)
+#  · 매일 최신 거래일 스냅샷을 '그 ISO주' 슬롯에 수렴(같은 주 옛 price_dd 삭제 후 insert, 트랜잭션)
 #    → 서빙엔 전날 종가까지 표시, 주중 일별은 덮여 사라지고 주 마지막 거래일만 남음(연 ~52스냅샷 bounded)
-#  · 이 daily-refresh가 krx_weekly의 주기 갱신자 역할도 겸함(수정주가 파이프라인 신선도 유지).
+#  · 261018: 같은 응답을 `krx_daily`(최근 7거래일, 시·고·저·종·거래량·거래대금·주식수)에도 같은 트랜잭션으로 쓴다.
+#  · 261018: **갱신은 요청 경로가 아니라 서버 백그라운드 작업이 한다**(`services/krx_refresher.py`, 평일 07:30~20:00 10분 간격,
+#    `pg_try_advisory_lock` 으로 두 머신 중 하나만). 요청 경로(`_market_for`)는 DB 의 `max(price_dd)` 만 읽는다 —
+#    하루 첫 질문이 KRX 갱신을 떠안아 2~12초 기다리던 것과, 게시 전에 하루 1회 래치가 굳어 옛 날짜를 종일 쓰던 것을 없앤다.
+#    `_ensure_krx_fresh`(갱신 능력 있음)는 **배치 스크립트 전용**으로 남는다 — 서버가 못 했을 때의 예비.
 # price_date로 기준일 투명 노출(며칠 전 종가여도 날짜 명시 → 사용자 판단).
 # 260821 OOM 수습: 무상한 dict → 바이트 상한 LRU. 날짜별 전종목(~2,766)+:split 중복 저장이
 # 무제한 누적하던 것을 32MB(≈수일치)로 캡. 초과 시 오래된 날짜부터 evict.
@@ -108,13 +119,18 @@ def _krx_db_get(price_dd: str, ticker: str) -> dict:
     return {}
 
 
-def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> None:
+def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> tuple[bool, bool]:
     """전종목 스냅샷을 krx_weekly에 기록 + 같은 ISO주의 옛 price_dd 삭제(수렴) — 한 트랜잭션.
     → 주중엔 '주 내 최신 거래일' 1개, 주 마감 후엔 '주별 최종거래일'로 굳음(기존 의미 보존).
-    mkt는 endpoint 기준 태깅(KOSPI/KOSDAQ — 기존 값 형식과 일치). 컬럼명 명시(위치의존 금지)."""
+    mkt는 endpoint 기준 태깅(KOSPI/KOSDAQ — 기존 값 형식과 일치). 컬럼명 명시(위치의존 금지).
+
+    261018: 같은 응답의 전 필드를 `krx_daily` 에도 **같은 트랜잭션**으로 쓰고 7거래일보다 오래된 날을 지운다
+    (`krx_daily.write_daily` — SAVEPOINT 안이라 그 표가 없거나 고장 나도 krx_weekly 쓰기는 커밋된다. krx_weekly 동작은 그대로).
+    반환 (krx_weekly 커밋 여부, krx_daily 기록 여부). krx_daily 만 실패하면 (True, False) — 호출자(갱신기)가 「최신 거래일이 저장됐다」고
+    착각하지 않도록 둘을 따로 돌려준다. krx_daily 실패는 ERROR 로그로도 남는다."""
     url = os.getenv("DATABASE_URL")
     if not url or not (kospi or kosdaq):
-        return
+        return (False, False)
     recs = []
     for market, rows in ((MKT_KS, kospi), (MKT_KQ, kosdaq)):  # DB 는 KS/KQ (market_codes)
         for row in rows:
@@ -124,7 +140,7 @@ def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> None:
             recs.append((price_dd, isu, market, _num(row.get("TDD_CLSPRC")),
                          _num(row.get("MKTCAP")), _num(row.get("LIST_SHRS"))))
     if not recs:
-        return
+        return (False, False)
     wk_start, wk_end = _iso_wk_range(price_dd)
     try:
         import psycopg
@@ -137,14 +153,20 @@ def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> None:
                     "VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT (price_dd, ticker) DO UPDATE SET "
                     "market=EXCLUDED.market, close=EXCLUDED.close, mktcap=EXCLUDED.mktcap, "
                     "list_shrs=EXCLUDED.list_shrs", recs)
+            ok, n, pruned = _krx_daily.write_daily(c, price_dd, kospi, kosdaq)
             c.commit()
-    except Exception:
-        pass
+        if ok:
+            logger.info("KRX 스냅샷 기록 %s: krx_weekly %d행 · krx_daily %d행(오래된 %d행 삭제)",
+                        price_dd, len(recs), n, pruned)
+        return (True, ok)
+    except Exception as exc:  # noqa: BLE001 — 호출 경로를 깨지 않는다. 다만 조용히 삼키지는 않는다
+        logger.warning("KRX 스냅샷 기록 실패 %s: %s: %s", price_dd, type(exc).__name__, exc)
+        return (False, False)
 
 
 async def _krx_market_live(basDd: str) -> dict[str, dict]:
     """KRX 전종목(코스피+코스닥) 라이브 fetch → {단축코드: row}. 2시장 병렬 + basDd 인메모리 캐시.
-    ⚠ 개인키 한도 때문에 서빙은 krx_daily(DB) 우선 — 이 경로는 하루 1회 스냅샷 확보·DB미스 fallback만."""
+    ⚠ 개인키 한도 때문에 서빙은 DB(krx_weekly·krx_daily) 우선 — 이 경로는 DB미스 fallback·배치용이다."""
     _cached = _KRX_CACHE.get(basDd)
     if _cached is not None:
         return _cached
@@ -182,9 +204,38 @@ async def _fetch_live_snapshot() -> tuple[str | None, dict[str, dict]]:
     return None, {}
 
 
+#: 요청 경로의 기준일(`krx_weekly` 의 max(price_dd)) 짧은 캐시 — 질문마다 DB 를 한 번 더 왕복하지 않으려는 것이다.
+#: 60초면 백그라운드 갱신기가 쓴 새 거래일을 다른 머신도 1분 안에 본다. 빈 값은 담지 않는다.
+_SERVING_DD_TTL_SEC = 60.0
+_SERVING_DD: dict[str, Any] = {"dd": None, "at": 0.0}
+
+
+async def _serving_price_dd() -> str | None:
+    """**요청 경로**가 서빙할 최신 price_dd — DB 상태(`max(price_dd)`)만 읽는다. KRX 를 부르지도, 갱신을 떠안지도 않는다.
+
+    갱신은 서버 백그라운드 작업(`services/krx_refresher.py`)이 한다. 종전 `_ensure_krx_fresh` 는 하루 첫 질문이 KRX 를
+    스캔·기록하며 2~12초를 기다렸고, KRX 게시 전에 하루 1회 래치가 굳으면 그날 종일 옛 날짜를 썼다 — 둘 다 여기엔 없다.
+    DB 를 못 읽거나 표가 비면 None(→ 호출자의 라이브 폴백)."""
+    now = time.monotonic()
+    dd = _SERVING_DD.get("dd")
+    if dd and now - _SERVING_DD.get("at", 0.0) < _SERVING_DD_TTL_SEC:
+        return dd
+    dd = await asyncio.to_thread(_krx_db_latest_dd)
+    if dd:
+        _SERVING_DD.update(dd=dd, at=now)
+    return dd or None
+
+
+def _serving_dd_invalidate() -> None:
+    """갱신기가 새 거래일을 쓴 직후 이 머신의 캐시를 비운다(다른 머신은 TTL 로 따라온다)."""
+    _SERVING_DD.update(dd=None, at=0.0)
+
+
 async def _ensure_krx_fresh() -> str | None:
-    """하루 1회(프로세스): 최신 거래일 스냅샷으로 krx_weekly 갱신(같은 ISO주 수렴). 반환 = 서빙할 price_dd.
-    매일 갱신(전날 종가까지 표시)하되 주중 일별은 덮여 사라지고 주 마지막 거래일만 영구 보존."""
+    """**배치 스크립트 전용**(`scripts/market_val_weekly.py`·`market_fund_quarterly.py`) — 서버 요청 경로는 부르지 않는다.
+    하루 1회(프로세스): 최신 거래일 스냅샷으로 krx_weekly(+krx_daily) 갱신(같은 ISO주 수렴). 반환 = 서빙할 price_dd.
+    매일 갱신(전날 종가까지 표시)하되 주중 일별은 덮여 사라지고 주 마지막 거래일만 영구 보존.
+    서버 백그라운드 갱신기가 이미 썼으면 DB 가 최신이라 KRX 를 부르지 않는다(예비 역할)."""
     from datetime import date
     today = today_kst().strftime("%Y%m%d")
     if _KRX_STATE.get("day") == today and _KRX_STATE.get("latest_dd"):
@@ -209,8 +260,7 @@ async def _ensure_krx_fresh() -> str | None:
                     await asyncio.to_thread(_krx_db_upsert, dd, kospi, kosdaq)
                     db_latest = dd
                 else:
-                    import logging
-                    logging.getLogger(__name__).warning(
+                    logger.warning(
                         "KRX 스냅샷 반쪽(KOSPI %d/KOSDAQ %d) — krx_weekly 기록 스킵", len(kospi), len(kosdaq))
             else:
                 db_latest = max(db_latest, dd)   # dd ≤ db_latest: 저장분이 이미 최신 — 그대로 서빙
@@ -220,8 +270,9 @@ async def _ensure_krx_fresh() -> str | None:
 
 async def _market_for(stock_code: str) -> dict:
     """보통주 종가·시총·상장주식수 — krx_weekly(DB, 검증 자산) 우선, 라이브 KRX fallback.
-    price_date로 기준일 노출. 배수 분자는 보통주 시총(우선주 시총은 cap_pref 로 별도)."""
-    latest_dd = await _ensure_krx_fresh()
+    price_date로 기준일 노출. 배수 분자는 보통주 시총(우선주 시총은 cap_pref 로 별도).
+    기준일은 DB 상태만 읽는다(`_serving_price_dd`) — 갱신은 백그라운드 갱신기 몫이다."""
+    latest_dd = await _serving_price_dd()
     if latest_dd:
         row = await asyncio.to_thread(_krx_db_get, latest_dd, stock_code)
         if row.get("price"):

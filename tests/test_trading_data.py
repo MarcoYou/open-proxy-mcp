@@ -150,11 +150,11 @@ def test_market_render_totals_both_markets():
 # ── 5. quote 캐시가 배수 산출용 캐시를 오염시키지 않는다 ──
 def test_quote_cache_is_separate_from_krx_snapshot_cache():
     """임의 과거일 조회가 `_KRX_CACHE`(32MB, 오늘 스냅샷) 를 밀어내면 배수 산출이 매 요청마다
-    KRX 를 다시 부른다. 장부를 나눠 뒀는지 확인한다."""
+    KRX 를 다시 부른다. 장부를 나눠 뒀는지 확인한다. (261018: 한 줄 캐시 → 날짜별 전종목 LRU 2일치)"""
     from open_proxy_mcp.services import trading
     from open_proxy_mcp.services.price_multiple_data import _KRX_CACHE
-    assert trading._QUOTE_CACHE is not _KRX_CACHE
-    assert isinstance(trading._QUOTE_CACHE_MAX, int) and trading._QUOTE_CACHE_MAX > 0
+    assert trading._QUOTE_DAYS is not _KRX_CACHE
+    assert isinstance(trading._QUOTE_DAYS_MAX, int) and trading._QUOTE_DAYS_MAX == 2
 
 
 @pytest.mark.parametrize("bad", ["nope", "history", "explain"])
@@ -173,13 +173,19 @@ def test_quote_does_not_cache_empty_result():
 
     260824 실측: `krx_weekly` 에 20260821 이 있는데 KRX API 는 그 날짜에 0행을 준다
     (20260820 은 2,763행). 260703 에도 같은 일이 있었다 — 일시 소실은 상수다.
+    261018: 캐시 단위가 한 줄에서 하루 전종목으로 바뀌었다 — 빈 날·한 시장만 온 날은 여전히 담지 않는다
+    (끝까지 도는 호출 수 검증은 `test_trading_quote_db.py`).
     """
-    import inspect
-
     from open_proxy_mcp.services import trading
-    src = inspect.getsource(trading._krx_quote_row)
-    assert "if row:" in src, "빈 결과를 캐시에 넣으면 안 된다"
-    assert "_QUOTE_CACHE[(basDd, ticker)] = row\n" in src
+    trading._QUOTE_DAYS.clear()
+    rows = [{"ISU_CD": "000001", "TDD_CLSPRC": "1"}]
+    trading._quote_day_put("20200101", [], [])
+    trading._quote_day_put("20200101", rows, [])
+    trading._quote_day_put("20200101", [], rows)
+    assert not trading._QUOTE_DAYS
+    trading._quote_day_put("20200101", rows, rows)
+    assert list(trading._QUOTE_DAYS) == ["20200101"]
+    trading._QUOTE_DAYS.clear()
 
 
 def test_quote_default_date_uses_krx_reality_not_db_latest():

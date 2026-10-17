@@ -131,6 +131,20 @@ def _conn_errors() -> tuple[type[BaseException], ...]:
     return (psycopg.OperationalError, psycopg.InterfaceError)
 
 
+def _is_query_error(exc: BaseException) -> bool:
+    """SQL 자체가 틀린 오류(없는 표·뷰, 권한 없음, 문법 — SQLSTATE 42xxx)인가. 풀 문제가 아니다.
+
+    261018: `krx_daily` 계열 질의가 정기적으로 이 경로를 지나게 되면서 생긴 구분이다. 마이그레이션 전에 배포했거나 권한이 빠진 경우
+    그 질의만 계속 실패하는데, 종전에는 이것도 「풀 고장」으로 보고 풀을 60초 내려 **모든 도구의 질의**가 직접 접속(핸드셰이크 124ms)으로
+    떨어졌다. 같은 SQL 을 직접 접속으로 한 번 더 보내 봐야 같은 오류다.
+    """
+    try:
+        import psycopg
+    except Exception:                         # noqa: BLE001
+        return False
+    return isinstance(exc, psycopg.ProgrammingError)
+
+
 def pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
     """조회 결과 행. **None = DB 미설정/장애** (no_data 와 구분 — 오진 방지), [] = 데이터 없음.
 
@@ -156,6 +170,10 @@ def pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
             except Exception as exc2:         # noqa: BLE001
                 _disable_pool(f"재시도 실패 {type(exc2).__name__}: {exc2}")
         except Exception as exc:              # noqa: BLE001
+            if _is_query_error(exc):
+                # SQL 자체의 오류 — 풀은 멀쩡하다. 내리지도, 같은 SQL 을 직접 접속으로 다시 보내지도 않는다.
+                logger.warning("DB 질의 오류(풀은 그대로): %s: %s", type(exc).__name__, exc)
+                return None
             # 연결 계열이 아니다 — 풀 고갈·설정 오류 쪽이다. 한 번 물고 곧장 내린다.
             #   질의 자체가 틀린 경우에도 아래로 가지만, 그건 같은 예외로 끝난다.
             #   ★ 안 내리면 다음 질의도 같은 타임아웃을 다시 문다.
