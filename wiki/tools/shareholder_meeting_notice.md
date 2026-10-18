@@ -2,14 +2,15 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
-updated: 2026-09-04
-description: 주주총회 소집공고 (사전) — DART API/XML 기반
+updated: 2026-10-18
+description: 주주총회 소집공고 (사전) — DART API/XML 기반 · 이사회 소집결의(scope=resolution)
 related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_structure, proxy_contest, evidence]
 ---
 
 # shareholder_meeting_notice
 
 주총 **소집공고** 공시 데이터 (사전 — DART API/XML). 빠르고 안정 (0.5-1.5s). summary 기본 응답은 경량이고 stage별 `timings_ms`를 노출한다.
+공고보다 먼저 나오는 **이사회 소집결의**(거래소 공시)는 `scope="resolution"` — 아래 「소집결의」 절.
 
 ## 왜 notice 와 results 가 갈려 있나
 
@@ -17,7 +18,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 fragile)이다. 한 tool 에 묶으면 fragile 한 쪽이 안정된 쪽까지 느리게·불안하게 만든다.
 `proxy_advise_before_meeting` / `shareholder_meeting_results` 의 사전·사후 분리와 같은 축이다.
 
-## scope (5종)
+## scope (6종)
 
 | scope | 데이터 | 시간 |
 |---|---|---|
@@ -26,6 +27,7 @@ fragile)이다. 한 tool 에 묶으면 fragile 한 쪽이 안정된 쪽까지 �
 | `compensation` | 보수한도 안건 + 소진율 | 0.5s |
 | `aoi_change` | 정관변경 (변경 전/후/사유) **+ 퇴직금 변경 raw** (260505 통합) | 0.5s |
 | `prov_financials` (NEW 260506) | 잠정 재무제표 4 quadrant raw — consolidated/separate × balance_sheet/income_statement + flat metrics | 0.5s |
+| `resolution` (NEW 261018) | **이사회 소집결의**(거래소 공시 I001) — 일시·장소·기준일·안건표·후보표 원문 + 결의 정정 이력(판마다 정정 비교표). 공고 전 단계 | 판 수만큼 |
 
 ### 폐지된 scope
 
@@ -155,6 +157,8 @@ sequenceDiagram
 ## 사용 예
 
 ```
+"고려아연 임시주총 이사회 결의 안건 — 공고 전이라도" → scope="resolution"
+"알엔투테크놀로지 임시주총 일정이 몇 번 바뀌었어?" → scope="resolution" (결의 정정 이력)
 "삼성전자 다음 주총 안건 알려줘"
 "LG화학 사외이사 후보 명단"
 "이사 후보 누구고 재선임이야 신임이야?"
@@ -162,6 +166,37 @@ sequenceDiagram
 "현대차 정관변경 변경 전/후 비교"
 "LG화학 주총소집공고 rcept_no=20260224004273으로 다시 파싱해줘"
 ```
+
+## 소집결의 (`scope="resolution"`, 261018)
+
+주총 공시는 다섯 칸을 지난다 — 이사회 결의 → **소집결의 공시**(거래소 I001) → 소집공고(주총 2주 전, E006) → 개최 → 결과.
+다른 scope 는 소집공고부터 읽어서, **결의만 나온 임시주총은 2주 넘게 「주총 없음」**이었다. 결의는 정정도 잦다 —
+정정 있는 주총 129/279(47%), 최장 21단(2026-07-01~08-14 접수 전수 실측). 유가·코스닥은 결의가 사실상 항상 앞선다(공고 낸 225곳 중 결의 없는 곳 1곳).
+
+**원문 표를 칸 그대로 옮긴다**(`services/meeting_resolution.py`). 결의 서식은 표 세 가지뿐이고 표 밖에는 제목 말고 글이 없다.
+
+| 표 | 원문 | 출력 |
+|---|---|---|
+| 본표 | 구분 · 일시 · 장소 · 의결권행사기준일 · 이사회결의일 · 사외이사 참석/불참 · 감사 참석 · 기타 투자판단 · ※관련공시 | `meeting` — 값은 원문 글자, 날짜만 `meeting_date`·`*_iso` 덧붙임. 찾은 줄 원문 `meta_rows` |
+| 안건표 | 번호 · 회의목적사항 · 비고 | `agenda.items[{no, title, note, sub_items?, shareholder_proposal?, cumulative_voting?}]` · `status` listed/undetermined(`- - -`)/absent |
+| 후보표 | 성명 · 출생년월 · 임기 · 신규선임여부 · 경력 … | `candidates[{columns, rows}]` |
+| 그 밖 | 사업목적 변경 세부내역 등 | `other_tables` (json) |
+
+- 번호·순서·합친 칸이 회사마다 달라(`1. 일시 | 날짜 | …` 두 줄 · `2. 일시 | 날짜 | 시각` 한 줄) **이름 칸 낱말로** 찾는다. 합친 칸은 펼친 격자로 읽는다(`services/doc_tables.py`).
+- 주주제안은 회사가 안건·비고 칸에 적은 낱말(`주주제안`·`소수주주`)만 본다 — `주주제안 보고` 는 아니다. 판정하지 않는다.
+- 후보자 식별번호 꼴(`741220-000000`)은 가린다.
+
+**정정 이력** — 그 회사의 기간 목록(원본+정정, `last_reprt_at=N`)을 받아 묶는다.
+- 원본이 묶음을 열고, 정정은 **같은 정기/임시의** 가장 최근 묶음에 붙는다(제목 기준, 0콜). 정기 정정이 임시 묶음에 붙지 않는다.
+- 판마다 정정 비교표(`services/amendment_table.py`)를 붙인다 — `versions[].amendment`.
+- 정정본의 「정정관련 공시서류제출일」은 직전 판이 아니라 **원본**을 가리키는 일이 많다. 그 날짜가 묶음의 앞 판에 없으면 `pointer_check: mismatch` + 경고(다른 주총의 정정이거나 원본이 구간 밖).
+- **값은 본표가 있는 가장 최근 판에서** 읽는다(대조표만 있는 정정판이 있다). 그보다 새 판의 비교표가 일시·장소·기준일 등을 고쳤으면 `meeting.later_amendments` + 경고 — 실례 휴온스 2026-08-04 「1. 일시 → -」(일시를 지웠다).
+- 판이 12개를 넘으면 최근 12판만 열고 앞 판은 `versions_listed_only` 에 목록만.
+- 같은 회사의 소집공고(E006)가 결의 뒤에 나왔으면 `notice` 로 가리키고 다음 경로를 `summary` 로 안내한다.
+
+**외부 호출** — 목록 I001(회사·구간, 페이지 수만큼) + 원문(묶음의 판 수, 최대 12 — 캐시면 0) + 공고 목록 E006 1. `rcept_no` 를 주면 그 판 1건만 읽는다(이력 없음).
+
+**한계** — 묶기는 제목의 정기/임시와 순서로 한다. 같은 날 같은 종류의 결의가 둘이면(다른 주총) 원공시 날짜 대조가 경고로만 알린다. 관련공시 링크는 KIND 접수번호(`related_links[].krx_acptno`)까지이고 DART 접수번호로 잇지 않는다.
 
 ## 회차 선택 구간 — 회의일 기준이다 (260808)
 
@@ -188,6 +223,7 @@ sequenceDiagram
   못 보던 상태였다.
 
 ## 변경 이력
+- 2026-10-18: **`scope="resolution"` 신설 — 이사회 소집결의**(거래소 공시) 본표·안건표·후보표 원문 + 결의 정정 이력(판마다 정정 비교표, 원공시 날짜 대조, 대조표만 있는 판 뒤의 값 변경 경고). 소집공고가 아직 없는 임시주총이 「주총 없음」으로 보이던 것. `summary` 가 공고를 못 찾으면 next_actions 에 `resolution` 을 안내.
 - 2026-09-09: 표 파서가 DART 셀 태그 `<TE>`/`<TU>` 를 못 읽어 **열이 잘리던** 것 수정
   (`_CELL_TAGS`). `<TE>` 는 `<TD>` 와 같은 행에 섞여 오므로 증상은 「행이 빈다」가 아니라
   「표가 그럴듯한 모양으로 뜻만 달라진다」였다 — 예: `['사업연도','부터']`(날짜 누락).

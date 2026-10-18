@@ -35,7 +35,7 @@ updated: 2026-10-18
 ### 🗳️ 주주총회 · 의결권
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [shareholder_meeting_notice](shareholder_meeting_notice.md) | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 |
+| [shareholder_meeting_notice](shareholder_meeting_notice.md) | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 · 공고 전 **이사회 소집결의**와 그 정정 이력(`scope="resolution"`) |
 | [shareholder_meeting_results](shareholder_meeting_results.md) | 주총 **결과**(주총 후) — 안건별 가결/부결·찬반율 |
 | [proxy_advise_before_meeting](proxy_advise_before_meeting.md) | **의결권 보조** — 안건별 찬성/반대/검토 + 근거 (핵심 도구) |
 | [proxy_guideline](proxy_guideline.md) | **의결권 판단 기준 문서** — 위 판정 사유에 달리는 인용(「OPM Guideline §…」)의 원문. 회사·DART 무관, API 0회 |

@@ -20,16 +20,14 @@
 
 from __future__ import annotations
 
-import html as _html
 import re
 from typing import Any
 
-_TR = re.compile(r"(?is)<tr\b[^>]*>(.*?)</tr>")
-# 🔴 **칸 태그가 넷이다.** 거래소 서식(XForms HTML)은 `td`, 주요사항보고서 XML 은 머리글이 `th` 로,
-# 값 칸이 `te`(입력 칸)·`tu`(단위 칸)로 오기도 한다. 하나만 보면 그 서식의 표가 통째로 안 읽힌다.
-_CELL = re.compile(r"(?is)<(t[dheu])\b([^>]*)>(.*?)</\1\s*>")
-_BR = re.compile(r"(?is)<br\b[^>]*>")
-_TAG = re.compile(r"<[^>]+>")
+from open_proxy_mcp.services.doc_tables import CELL_RE as _CELL
+from open_proxy_mcp.services.doc_tables import TR_RE as _TR
+from open_proxy_mcp.services.doc_tables import cell_text as _cell_text
+from open_proxy_mcp.services.doc_tables import compact as _compact
+
 _ROWSPAN = re.compile(r"(?i)\browspan\s*=\s*[\"']?(\d+)")
 _KDATE = re.compile(r"(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})")
 
@@ -42,22 +40,6 @@ STATUS_NOTE = {
     "reason_only": "정정사유만 있고 비교표가 없다 — 첨부만 바꾼 정정([첨부정정])이거나 본문을 통째로 다시 낸 정정이다.",
     "table_absent": "정정 비교표를 찾지 못했다 — 서식이 다르거나 이미지일 수 있다. 원문 링크로 확인할 것.",
 }
-
-
-def _compact(s: str) -> str:
-    """견줄 때만 쓴다 — 머리글이 `정 정 전` 처럼 글자 사이가 벌어져 온다."""
-    return re.sub(r"\s+", "", s or "")
-
-
-def _cell_text(frag: str) -> str:
-    """표 한 칸 → 글. **`<br>` 은 줄바꿈으로 살린다** — 한 칸에 여러 값을 눌러 담는 회사가 있다.
-
-    실체를 먼저 풀고 공백을 접는다. 거꾸로 하면 `&nbsp;` 가 접힌 **뒤에** `\\xa0` 로 풀려
-    칸 앞머리에 남는다(Agent D 2026-08-28 — 앞에서부터 맞추는 검사가 통째로 어긋났다).
-    """
-    text = _html.unescape(_TAG.sub(" ", _BR.sub("\n", frag or "")))
-    lines = [" ".join(line.split()) for line in text.split("\n")]
-    return "\n".join(line for line in lines if line)
 
 
 def _iso_date(s: str) -> str | None:
