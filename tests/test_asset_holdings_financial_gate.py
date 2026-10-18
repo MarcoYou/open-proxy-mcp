@@ -4,6 +4,9 @@
 운영 실측(261018): SK·LG(업종코드 64992) 가 `is_financial` true → 「금융업 — 배수 미제공」, 지분 NAV 배수 null.
 KSIC 는 금융지주와 일반지주를 같은 64992 에 넣는다. `financial_metrics` 는 이미 260713 에 이 둘을 연결 BS 계정으로
 가르는 규칙을 검증해 두었다 — 이 tool 도 그 규칙을 그대로 쓴다(공유 파생지표 재사용).
+호출부(빌드 수준 — `is_financial`·금융업 경고·일반 지주회사 배수)는 `test_asset_holdings_listed_mark.py` 의
+LG(64992, 금융 계정 없음)·신한지주형(64992 + 예수부채) 사례가 막는다 — 여기 헬퍼만 시험하면 호출부를 옛 업종코드
+앞 두 자리 판정으로 되돌려도 아무것도 실패하지 않았다(261018 검토).
 """
 from __future__ import annotations
 

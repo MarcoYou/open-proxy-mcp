@@ -6,7 +6,8 @@
       시총 대비는 point-in-time.
 
 스콥(260720 2개로 정리 — 딥하게 다듬은 건 이 둘뿐):
-  summary(기본) 계정 API 자산 티어 + 상장지분 시가마크(↑) − 담보·우발 haircut 플래그 ÷ 시총 = net NAV 배수
+  summary(기본) 계정 API 자산 티어 + 잉여자산 배수 + 지분 NAV(타법인출자현황 합산 — 상장 시가·비상장 장부가) 배수
+                + 담보·우발 haircut 플래그
   detail        III.주석 원문 markdown(토지 원가vs공정가치·지분증권 명세·담보제공·우발부채)
 
 원칙: 구조화 가능한 것(계정·타법인출자)은 숫자로, 주석(담보·우발·토지gap)은 markdown-primary(caller 판단).
@@ -19,6 +20,7 @@ from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_cu
 from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
 
 import asyncio
+import calendar
 import re
 from typing import Any
 
@@ -43,14 +45,28 @@ def _norm(nm: str) -> str:
     return _WS.sub("", _NORM.sub("", nm or "")).strip()
 
 
+def _won(v: int) -> str:
+    """경고 문장용 원화 표기 — 1조 이상은 「x.xx조」, 그 밖은 「x억」(렌더러 `_f` 와 같은 꼴)."""
+    e = (v or 0) / 1e8
+    return f"{e / 1e4:,.2f}조" if abs(e) >= 1e4 else f"{e:,.0f}억"
+
+
 # ── BS 계정 라인 → 목적·환금성 티어 (전수조사 검증 로직 이식) ──
 def _is_current(nm: str) -> bool:
     return ("유동" in nm and "비유동" not in nm) or ("단기" in nm and "장기" not in nm)
 
 
+#: 자본 쪽 계정을 가르는 낱말. 계정 API 의 재무상태표(sj_div BS)에는 자산·부채·**자본** 줄이 함께 온다.
+#: 261018: 「기타포괄손익누계액」(자본)이 「기타포괄」 낱말로 FVOCI 지분(자산) 티어에 들어가 자산으로 더해졌다 —
+#:   실측 LG 5.19조·현대차 5.24조가 「우호·제휴 지분」 버킷과 지분 NAV 에 섞였다. 자본 줄은 자산 티어가 아니다.
+_EQUITY_WORDS = ("누계액", "잉여금", "적립금", "자본", "비지배", "평가손익", "평가이익", "평가손실")
+
+
 def _tier(nm: str) -> str | None:
-    """BS 계정명 → 티어. 함정: 부채·비금융자산·매출채권 제외."""
+    """BS 계정명 → 티어. 함정: 부채·자본·비금융자산·매출채권 제외."""
     if "부채" in nm or "비금융자산" in nm or "매출채권" in nm:
+        return None
+    if any(w in nm for w in _EQUITY_WORDS):
         return None
     if "매각예정" in nm or "처분자산집단" in nm:
         return "held_for_sale"                        # IFRS5 near-cash
@@ -154,8 +170,8 @@ def _bs_tiers(fin_list: list[dict]) -> tuple[dict[str, int], list[dict]]:
     lines = []
     for x in fin_list:
         nm = (x.get("account_nm") or "").strip()
-        if x.get("sj_div") != "BS":
-            continue
+        if x.get("sj_div") != "BS" or any(w in nm for w in _EQUITY_WORDS):
+            continue                                      # 자본 줄은 중복 제거의 기준 금액에도 넣지 않는다
         lines.append({"nm": nm, "amt": _num(x.get("thstrm_amount"))})
     tiers: dict[str, int] = {}
     kept = []
@@ -170,7 +186,7 @@ def _bs_tiers(fin_list: list[dict]) -> tuple[dict[str, int], list[dict]]:
 # ── 상장 투자사명 → 종목코드 후보 (공용 기업 마스터 해석기) ──
 # 261018: 종전엔 `<레포>/configs/master.db` 를 **경로를 박아** 직접 열었다. 운영 이미지엔 그 파일이 없고
 #   기업 마스터는 볼륨(`OPM_MASTER_DB_PATH=/data/master.db`)에 있어, 여는 데 실패 → 빈 사전 → **모든 상장지분이
-#   조용히 미해결**이었다(운영 실측 삼성물산 12/12·SK 12/12, 경고 0). 로컬 체크아웃엔 그 파일이 있어 재현되지 않았다.
+#   조용히 미해결**이었다(운영 실측 삼성물산 0/12·SK 0/13·LG 0/7 평가, 경고 0). 로컬 체크아웃엔 그 파일이 있어 재현되지 않았다.
 #   이제 서버가 이미 메모리에 올린 기업 마스터(`lookup_corp_code_all`)로 찾는다 — 경로 설정을 한 곳만 따른다.
 #   덤으로 공식명과 다른 표기(「삼성생명보험」→삼성생명, 「엘지전자」→LG전자, 「KCC」→케이씨씨)도 같은 해석기 규칙으로 잡힌다.
 #   `resolve_company_query` 는 쓰지 않는다 — 그 관문은 「이 요청이 조사한 기업」 장부와 추정 경고에 적어서, 보유지분 이름이
@@ -203,22 +219,46 @@ async def _stake_codes(client, name: str) -> tuple[list[str], str | None]:
     return codes[:_CODES_PER_NAME], None
 
 
-def _db_closes(price_dd: str | None, codes: list[str]) -> tuple[str | None, dict[str, int]] | None:
-    """일별 시세 저장분(`krx_daily`, 코스피·코스닥 전 종목)에서 그 거래일 종가 — 종목 여럿을 한 번 왕복으로.
+#: 시세 출처 값(`listed_stakes.price_source`) — 시세 tool(`trading_data` quote 의 `data.source`)·가격 배수 서비스와 같은 어휘.
+#: 261018: 종전엔 저장소 표 이름(`krx_daily`)·`krx` 를 값으로 냈다 — 같은 개념을 두 tool 이 다른 값으로 내지 않게 맞춘다.
+_PX_DB = "db"                 # 일별 시세 저장분(서버가 매 거래일 보관한 KRX 응답)
+_PX_LIVE = "krx_live"         # 저장분에서 받지 못해 요청 경로에서 KRX 를 직접 불러 받은 값
+_PX_PORTAL = "portal"         # 포털 시세(KRX 키 없음·장애 때 종목별로만)
+_PX_PER_STOCK = {"krx": _PX_LIVE, "portal": _PX_PORTAL}   # `client.get_stock_price` 의 source → 위 어휘
 
-    `price_dd` 를 주면 그날(시총과 같은 기준일), 없으면 저장분의 가장 늦은 거래일. 반환 (거래일, {종목코드: 종가}).
+
+def _db_quotes(day: str, codes: list[str]) -> dict[str, tuple[int, int]] | None:
+    """일별 시세 저장분(`krx_daily`, 코스피·코스닥 전 종목)에서 그 거래일의 (종가, 상장주식수) — 종목 여럿을 한 번 왕복으로.
+
+    상장주식수는 같은 행에서 함께 읽는다 — 기말 뒤 주식수 변동(분할·병합)을 가릴 때 **종가와 같은 날** 의 주식수가 필요하다.
     None = DB 미설정·장애(호출자가 라이브로 간다). 빈 사전 = 그날 그 종목들이 저장분에 없다."""
     from open_proxy_mcp.db import pg_rows
-    if price_dd:
-        rows = pg_rows("SELECT ticker, close, trd_dd FROM krx_daily WHERE trd_dd = %s AND ticker = ANY(%s)",
-                       (price_dd, codes))
-    else:
-        rows = pg_rows("SELECT ticker, close, trd_dd FROM krx_daily "
-                       "WHERE trd_dd = (SELECT max(trd_dd) FROM krx_daily) AND ticker = ANY(%s)", (codes,))
+    rows = pg_rows("SELECT ticker, close, list_shrs FROM krx_daily WHERE trd_dd = %s AND ticker = ANY(%s)",
+                   (day, codes))
     if rows is None:
         return None
-    closes = {r[0]: _num(r[1]) for r in rows if _num(r[1])}
-    return (rows[0][2] if rows else price_dd), closes
+    return {r[0]: (_num(r[1]), _num(r[2])) for r in rows if _num(r[1])}
+
+
+def _db_share_adjust(codes: list[str], qty_dd: str, upto_dd: str) -> tuple[dict[str, float], dict[str, int]] | None:
+    """보유수량 기준일(`qty_dd`) 뒤 ~ 종가 거래일(`upto_dd`)의 수정계수와, 기준일 시점의 상장주식수 — 종목 여럿을 한 번에.
+
+    · 수정계수: `krx_adj_events` 의 조정성 이벤트(가격 배수 서비스 `ADJ_EVENT_SQL` 과 같은 조건 — 분할·병합·무상증자·주식배당,
+      확정 라벨). 종목별 누적곱이다(1:5 분할 = 0.2 — 가격 방향). 보유수량은 이것으로 **나눠** 오늘 주식수 기준으로 맞춘다.
+    · 기준일 상장주식수: `krx_weekly` 에서 기준일 **이전** 마지막 주. 계수가 빠진 이벤트를 잡는 데 쓴다(오늘 주식수 ÷ 이것).
+    None = DB 장애(확인 못 함)."""
+    from open_proxy_mcp.db import pg_rows
+    ev = pg_rows("SELECT ticker, adj_factor FROM krx_adj_events WHERE ticker = ANY(%s) AND event_dd > %s "
+                 "AND event_dd <= %s AND " + _val.ADJ_EVENT_SQL, (codes, qty_dd, upto_dd))
+    base = pg_rows("SELECT DISTINCT ON (ticker) ticker, list_shrs FROM krx_weekly WHERE ticker = ANY(%s) "
+                   "AND price_dd <= %s AND list_shrs > 0 ORDER BY ticker, price_dd DESC", (codes, qty_dd))
+    if ev is None or base is None:
+        return None
+    factors: dict[str, float] = {}
+    for t, x in ev:
+        if x and float(x) > 0:
+            factors[t] = factors.get(t, 1.0) * float(x)
+    return factors, {t: _num(s) for t, s in base if _num(s)}
 
 
 def _prev_trading_day() -> str | None:
@@ -238,36 +278,61 @@ def _doc_listed(doc_text: str, names: list[str]) -> dict[str, bool]:
     return out
 
 
+def _rate(s) -> float:
+    """지분율 문자열(「51.70」「100」「-」) → 숫자. 못 읽으면 0."""
+    try:
+        return float(str(s).replace(",", "").replace("%", "").strip())
+    except (ValueError, TypeError):
+        return 0.0
+
+
 _MARK_CAP = 40          # 이름 해석·평가 대상 상한(장부가 큰 순) — 시세는 DB 한 번 왕복이라 콜이 아니라 해석 시간을 막는 상한
 _LIVE_PX_CAP = 12       # 종목별 라이브 시세 콜 상한 — DB·KRX 전종목 스냅샷을 둘 다 못 얻었을 때만 쓴다(종전 「콜 상한 12」)
+#: 타법인출자현황의 합계 줄 이름 — 개별 보유분이 아니다. 261018: 원문에 「합계 … 상장」 이 붙어 있으면 상장 후보로 들어가
+#:   합계 장부가가 한 번 더 더해졌다(실측 한화: 합계 5.96조가 「보유수량 없음」 미해결로 상장지분 장부가·시가 양쪽에).
+_TOTAL_ROWS = {"합계", "계", "소계", "총계"}
 
 
 async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
-                              price_dd: str | None = None) -> dict[str, Any]:
-    """타법인출자 상장 건을 시가마크(보유수량×종가). sanity(장부>총자산 제외)·상장은 doc 권위값.
+                              price_dd: str | None = None, qty_dd: str | None = None) -> dict[str, Any]:
+    """타법인출자현황(별도 기준 보유지분)을 상장은 시가(보유수량×종가), 비상장은 장부가로 나눠 센다.
+    sanity(장부>피투자사 총자산 제외)·상장 여부는 원문 doc 권위값. `qty_dd` = 보유수량 기준일(보고 기간 말).
 
     261018 재작성(운영에서 상장지분이 하나도 평가되지 않던 결함):
       · 이름 → 종목코드: 서버가 쓰는 기업 마스터 해석기(`_stake_codes`). 종전 경로 박은 sqlite 는 운영에 없었다.
-      · 종가: **시총과 같은 원천·같은 거래일**(`price_dd` = 시총 기준일)의 일별 시세 저장분을 한 번에 읽는다(`_db_closes`).
+      · 종가: **시총과 같은 원천·같은 거래일**(`price_dd` = 시총 기준일, 없으면 서빙 기준일)의 일별 시세 저장분을 한 번에 읽는다.
         종전엔 종목마다 KRX 를 **오늘 날짜**로 불렀는데 KRX 일별 시세는 다음 날 게시라 늘 빈 응답이었고(주말도 빈 응답),
         그 엔드포인트는 코스피만 담아 코스닥 보유지분은 날짜가 맞아도 못 찾았다. 결국 포털 시세로 떨어졌고, 포털 종가는
         거래소 공식 종가와 다를 수 있다(실측 20261016 삼성전자 포털 217,000 · KRX 215,500 — 같은 응답의 시총은 KRX 값).
       · DB 를 못 읽으면 KRX 전종목 스냅샷(가격 배수 서비스와 같은 캐시 — 시총을 라이브로 구했다면 같은 날짜라 추가 콜 0),
         그것도 없으면(키 없음·장애) 종목별 시세(`get_stock_price`, 상한 `_LIVE_PX_CAP`)로 간다.
+      · 기말 뒤 액면분할·병합·무상증자: 보유수량은 보고 기간 말 기준인데 종가는 오늘 기준이다. 수정계수로 보유수량을 오늘 주식수
+        기준으로 맞춘다(실측 LG 의 엘에스일렉트릭 690,167주 — 20260413 1/5 분할 뒤 종가로 곱해 시가 1,094억, 실제 약 5,473억).
+        계수는 없는데 상장주식수가 바뀌었으면(계수 파이프라인 지연·감자) 평가하지 않고 사유와 함께 장부가로 둔다.
       · 못 평가한 건은 이름·장부가·사유를 `unresolved` 에 싣는다 — 종전엔 개수만 남아 「왜 0건인가」를 알 수 없었다.
-      · `n_listed` 와 합계가 같은 집합을 센다 — 종전엔 상한(12) 밖 후보가 개수에만 들고 합계에서 빠졌다(SK 13 vs 12)."""
+      · `n_listed` 와 합계가 같은 집합을 센다 — 종전엔 상한(12) 밖 후보가 개수에만 들고 합계에서 빠졌다(SK 13 vs 12).
+      · 비상장 보유분의 장부가 합(`unlisted_book_krw`)도 함께 낸다 — 지분 NAV(보유지분 합산)의 나머지 절반이다."""
     listed_map = _doc_listed(doc_text, [h.get("inv_prm") or "" for h in holdings])
     cand = []
+    unlisted_book = unlisted_major = n_unlisted = 0
     for h in holdings:
+        key = _norm(h.get("inv_prm") or "")
+        if key in _TOTAL_ROWS:                           # 합계 줄 — 개별 보유분이 아니다
+            continue
         book = _num(h.get("trmend_blce_acntbk_amount"))
+        qty = _num(h.get("trmend_blce_qy"))
         ta = _num(h.get("recent_bsns_year_fnnr_sttus_tot_assets"))
         if ta > 0 and book > ta * 1.05:                # sanity: 필링 자릿수오류 제외
             continue
-        if not listed_map.get(_norm(h.get("inv_prm") or "")):
+        if not book and not qty:                       # 기중 전량 처분(기말 수량·장부가 0) — 셀 보유분이 없다
             continue
-        if not book and not _num(h.get("trmend_blce_qy")):   # 기중 전량 처분(기말 수량·장부가 0) — 평가할 보유분이 없다
-            continue
-        cand.append((book, h))
+        if listed_map.get(key):
+            cand.append((book, h))
+        else:
+            unlisted_book += book
+            n_unlisted += 1
+            if _rate(h.get("trmend_blce_qota_rt")) > 50:
+                unlisted_major += book
     cand.sort(key=lambda x: x[0], reverse=True)  # book 동률 시 dict 2차비교로 TypeError 방지(260721)
 
     # 1) 이름 → 종목코드 후보
@@ -288,22 +353,30 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
     want = sorted({c for r in rows for c in r["codes"]})
     px: dict[str, int] = {}
     px_dd: dict[str, str] = {}
+    now_shrs: dict[str, int] = {}   # 종가와 같은 날의 상장주식수(저장분·전종목 스냅샷에서만 — 종목별 시세엔 없다)
     day, source = price_dd, None
     whole_day = False          # True = 그날 전 종목을 본 결과(DB·전종목 스냅샷) — 없으면 「그날 시세 없음」이 사실이다
     tried: set[str] = set()    # 종목별 라이브로 실제 물어본 코드
     if want:
-        db = await asyncio.to_thread(_db_closes, price_dd, want)
-        if db is not None and db[1]:
-            day, px = db
-            source, whole_day = "krx_daily", True
+        if not day:
+            # 시총을 못 구했을 때 — 서빙 기준일은 가격 배수 서비스의 정의 한 곳을 따른다(이 파일에 두 번째 정의를 두지 않는다)
+            day = await _val._serving_price_dd()
+        db = await asyncio.to_thread(_db_quotes, day, want) if day else None
+        if db:
+            px = {c: v[0] for c, v in db.items()}
+            now_shrs = {c: v[1] for c, v in db.items() if v[1]}
+            source, whole_day = _PX_DB, True
         else:
             # DB 장애 또는 그날 저장분에 하나도 없음 → 라이브. 날짜는 시총 기준일, 없으면 직전 거래일.
-            day = price_dd or (db[0] if db else None) or _prev_trading_day()
+            day = day or _prev_trading_day()
             snap = await _val._krx_market_live(day) if day else {}
             if snap:
-                px = {c: _num(snap[c].get("TDD_CLSPRC")) for c in want
-                      if c in snap and _num(snap[c].get("TDD_CLSPRC"))}
-                source, whole_day = "krx", True
+                for c in want:
+                    if c in snap and _num(snap[c].get("TDD_CLSPRC")):
+                        px[c] = _num(snap[c].get("TDD_CLSPRC"))
+                        if _num(snap[c].get("LIST_SHRS")):
+                            now_shrs[c] = _num(snap[c].get("LIST_SHRS"))
+                source, whole_day = _PX_LIVE, True
             else:
                 for r in rows:                             # 장부가 큰 순 — 상한 안에서 큰 것부터
                     if not r["codes"] or len(tried) >= _LIVE_PX_CAP:
@@ -319,11 +392,18 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
                     if p and _num(p.get("closing_price")):
                         px[code] = _num(p.get("closing_price"))
                         px_dd[code] = str(p.get("base_date") or day or "")
-                        source = source or p.get("source")
+                        source = source or _PX_PER_STOCK.get(p.get("source"), p.get("source"))
         if whole_day:
             px_dd = {c: day for c in px}
 
-    # 3) 평가 — 동명 후보는 그날 시세가 있는 코드 하나로 가린다
+    # 3) 기말 뒤 주식수 변동 — 수정계수·기준일 상장주식수(한 번에). 못 읽으면 확인 못 한 채 보유수량 그대로 쓴다(경고로 밝힌다).
+    adj = None
+    if px and qty_dd:
+        upto = day or max(px_dd.values(), default="") or today_kst().strftime("%Y%m%d")
+        adj = await asyncio.to_thread(_db_share_adjust, sorted(px), qty_dd, upto)
+    factors, base = adj if adj else ({}, {})
+
+    # 4) 평가 — 동명 후보는 그날 시세가 있는 코드 하나로 가린다
     marked, unresolved, book_sum, mkt_sum = [], [], 0, 0
     for r in rows:
         book_sum += r["book"]
@@ -331,11 +411,25 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
         why = r["why"]
         if why is None and len(priced) == 1:
             code = priced[0]
-            mkt = r["qty"] * px[code]
-            mkt_sum += mkt
-            marked.append({"name": r["name"], "code": code, "book_krw": r["book"], "mkt_krw": mkt,
-                           "gap_krw": mkt - r["book"], "px": px[code], "px_date": px_dd.get(code), "qty": r["qty"]})
-            continue
+            f = factors.get(code, 1.0)
+            ratio = (now_shrs[code] / base[code]) if (now_shrs.get(code) and base.get(code)) else None
+            # 불변식(가격 배수 서비스와 같은 밴드): 조정성 이벤트는 주가와 주식수가 상쇄해 계수 × 주식수 배율 ≈ 1.
+            # 벗어나면 계수가 빠졌거나(파이프라인 지연) 계수 대상이 아닌 감자·대규모 증자다 — 보유수량을 확정할 수 없다.
+            if ratio is not None and not (_val._ADJ_INVARIANT_LO <= f * ratio <= _val._ADJ_INVARIANT_HI):
+                why = (f"보유수량 기준일({qty_dd}) 뒤 상장주식수가 {ratio:.2f}배가 됐는데 "
+                       + ("확정된 수정계수가 없다" if f == 1.0 else f"확정된 수정계수({f:g})와 맞지 않는다")
+                       + " — 분할·병합·감자로 보유수량이 바뀌었을 수 있다")
+            else:
+                qty_now = round(r["qty"] / f) if f != 1.0 else r["qty"]
+                mkt = qty_now * px[code]
+                mkt_sum += mkt
+                item = {"name": r["name"], "code": code, "book_krw": r["book"], "mkt_krw": mkt,
+                        "gap_krw": mkt - r["book"], "px": px[code], "px_date": px_dd.get(code), "qty": r["qty"]}
+                if f != 1.0:
+                    item["qty_adj"] = qty_now              # 기말 수량 ÷ 수정계수 = 오늘 주식수 기준 수량
+                    item["adj_factor"] = round(f, 6)
+                marked.append(item)
+                continue
         if why is None:
             if len(priced) > 1:
                 why = f"같은 상호의 상장 종목이 여럿({', '.join(priced)}) — 어느 쪽인지 확정 못 함"
@@ -352,10 +446,14 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
             # 평가 기준일 — 모두 같은 날이면 그 날, 종목별 라이브로 섞였으면 None(항목별 px_date 를 본다)
             "price_date": dates.pop() if len(dates) == 1 else None,
             "price_source": source if marked else None,
+            "qty_date": qty_dd,
+            # 기말 뒤 분할·병합 확인 여부 — False 면 시가를 낸 종목의 보유수량을 확인 없이 기말 그대로 썼다
+            "qty_adjust_checked": (adj is not None) if marked else None,
             "listed_book_krw": book_sum, "listed_mkt_krw": mkt_sum,
             "unrealized_gap_krw": mkt_sum - book_sum, "n_listed": len(cand),
-            "n_marked": len(marked), "n_unresolved": len(unresolved)}
-
+            "n_marked": len(marked), "n_unresolved": len(unresolved),
+            "unlisted_book_krw": unlisted_book, "unlisted_majority_book_krw": unlisted_major,
+            "n_unlisted": n_unlisted}
 
 
 from open_proxy_mcp.dart.client import get_dart_client  # noqa: E402
@@ -368,6 +466,20 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,  # noqa
                                              resolve_company_query)
 
 _YEAR = re.compile(r"\((\d{4})\.\d{2}\)")
+_PERIOD = re.compile(r"\((\d{4})\.(\d{2})\)")
+
+
+def _period_end(report_nm: str | None) -> str | None:
+    """보고서 이름(「사업보고서 (2025.12)」)의 기간 말 날짜 YYYYMMDD — 타법인출자현황 보유수량의 기준일. 못 읽으면 None."""
+    m = _PERIOD.search(report_nm or "")
+    if not m or not 1 <= int(m.group(2)) <= 12:
+        return None
+    y, mo = int(m.group(1)), int(m.group(2))
+    return f"{y}{mo:02d}{calendar.monthrange(y, mo)[1]:02d}"
+
+
+#: 일반 지주회사 업종코드(KSIC 64992 — 금융지주도 같은 코드라 금융업 판정이 아닌 것만 일반 지주회사로 본다).
+_HOLDCO_KSIC = "64992"
 
 
 def _is_financial(induty: str, fin_list: list[dict]) -> bool:
@@ -532,8 +644,11 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             induty = ""
         is_fin = _is_financial(induty, fin.get("list") or [])
         is_reit = bool(re.search(r"리츠|REIT", name, re.I))
+        # 일반 지주회사(64992 이면서 금융업 아님) — 연결 재무상태표의 현금·투자자산 대부분이 자회사 몫이다(아래 잉여자산 배수).
+        is_holdco = (induty == _HOLDCO_KSIC) and not is_fin
         data["induty_code"] = induty or None
         data["is_financial"] = is_fin
+        data["is_holding_company"] = is_holdco
         data["is_reit"] = is_reit
         if is_reit:
             warnings.append("REIT 추정(사명 기준) — 투자부동산이 본업이라 잉여자산에서 제외")
@@ -549,7 +664,8 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         # 시총을 먼저 구한다 — 보유지분 종가를 **시총과 같은 거래일**로 맞추려는 것이다(배수의 분자·분모가 같은 날).
         mcap, mcap_meta = await _market_cap(isu)
         mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
-                                         (mcap_meta or {}).get("date") if mcap else None)
+                                         (mcap_meta or {}).get("date") if mcap else None,
+                                         _period_end(rept.get("report_nm")))
         data["listed_stakes"] = mark
         if mark["n_unresolved"]:
             _un = sorted(mark["unresolved"], key=lambda u: -(u.get("book_krw") or 0))
@@ -559,6 +675,10 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         if mcap and mark.get("price_date") and mcap_meta.get("date") and mark["price_date"] != mcap_meta["date"]:
             warnings.append(f"보유지분 시가 기준일({mark['price_date']})과 시총 기준일({mcap_meta['date']})이 다르다 — "
                             "지분 NAV 배수의 분자·분모 날짜가 어긋난다.")
+        if mark.get("qty_adjust_checked") is False:
+            warnings.append(f"보유수량은 {mark.get('qty_date') or '보고 기간 말'} 기준인데 그 뒤의 액면분할·병합·무상증자를 "
+                            f"확인하지 못했다({'시세 저장분을 읽지 못함' if mark.get('qty_date') else '보유수량 기준일을 알 수 없음'}) "
+                            "— 그런 종목이 있으면 시가가 그 배수만큼 틀린다.")
         pledged = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
         contingent = _basis.annotate(_av.extract_contingent("", stripped=stripped))
         data["haircuts"] = {"pledged": pledged.get("status"), "contingent": contingent.get("status")}
@@ -612,29 +732,54 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             surplus = t.get("cash", 0) + t.get("trading", 0) + t.get("ltinv", 0) + t.get("held_for_sale", 0)
             if not is_reit:
                 surplus += t.get("inv_prop", 0)
-        # 지분 NAV: 관계기업(시가마크 반영) + FVOCI(비금융만 — 금융업은 FVOCI도 본업 포트폴리오).
-        assoc_nav = mark["listed_mkt_krw"] + max(0, t.get("assoc", 0) - mark["listed_book_krw"])
-        if not is_fin:
-            assoc_nav += t.get("oci", 0)
+        # 지분 NAV = **타법인출자현황(별도 기준 직접 보유분) 하나로** 합산: 상장은 시가(미해결은 장부가), 비상장은 장부가.
+        # 261018: 종전 산식 `상장 시가 + max(0, 연결 관계기업 − 상장 장부가) + 연결 FVOCI` 는 별도 기준 보유 목록과 연결 재무상태표를
+        #   섞어 같은 지분을 두 번 셌다 — 시가마크가 살아나자 배수가 크게 부풀었다(같은 읽기 전용 DB·같은 날 실측):
+        #   ① 삼성물산 3.25배 — 연결 FVOCI 44.8조가 곧 삼성전자·삼성생명·삼성SDS 의 기말 공정가치인데 같은 종목이 시가로 또 들어갔다.
+        #   ② LG 2.88배 — 연결 관계기업(지분법 23.7조)에서 별도 원가(6.9조)를 뺀 16.8조를 「비상장 잔여」로 더했다(같은 상장 관계사의 평가차).
+        #   ③ SK 2.46배 — 상장 보유분이 연결 자회사라 연결 관계기업에 없는데 그 원가를 거기서 뺐고, 자회사의 관계사 지분이 시가와 겹쳤다.
+        #   보유 목록 하나로 세면 같은 지분이 두 번 들어갈 길이 없다(삼성물산 2.4배·LG 1.6배·SK 2.0배 — 지주사 NAV 의 관행 산식).
+        #   타법인출자현황이 비면(소규모·미제출) 재무상태표 관계기업+FVOCI 장부가로 낸다 — 이때도 한 기준이다(`equity_nav_basis`).
+        bs_equity = t.get("assoc", 0) + (0 if is_fin else t.get("oci", 0))   # 금융업은 FVOCI 도 본업 포트폴리오
+        if mark["n_listed"] or mark["n_unlisted"]:
+            equity_nav, equity_basis = mark["listed_mkt_krw"] + mark["unlisted_book_krw"], "holdings"
+            _gap = bs_equity - equity_nav
+            if not is_fin and stmt_cur == "KRW" and _gap > 0 and (not mcap or _gap >= mcap * 0.1):
+                # 보유 목록은 회사가 **직접** 든 지분뿐이다. 비상장 자회사를 거쳐 든 상장 지분(영풍 → 100% 자회사 → 고려아연)은
+                # 그 자회사의 장부가로만 들어가 낮게 나온다. 연결 장부가가 더 크면 그런 간접 보유가 있다는 뜻일 수 있다 — 숨기지 않는다.
+                # 시총의 10% 미만 차이는 배수를 바꾸지 못하는 잡음이라 말하지 않는다(실측 서희건설 320억 차이 · 시총 4,300억).
+                _fs_word = {"CFS": "연결 ", "OFS": "별도 "}.get(fs_div or "", "")
+                warnings.append(f"{_fs_word}재무상태표의 관계기업·FVOCI 장부가 합계 {_won(bs_equity)} > 보유지분 합산 지분 NAV "
+                                f"{_won(equity_nav)} — 자회사를 거쳐 든 지분은 합산에 그 자회사 장부가로만 들어가 "
+                                "지분 NAV 가 낮게 나왔을 수 있다(nav.equity_bs_book_krw 참고).")
+        else:
+            equity_nav, equity_basis = bs_equity, "balance_sheet"
         mixed_krw = t.get("mixed", 0)
         if is_fin:
             warnings.append("금융업 — 트레이딩·FVOCI 자산이 본업이라 surplus/지분NAV 배수는 미제공(자산표만 참고)")
-        # 지분 NAV 는 BS(기능통화 환산분)와 타법인출자현황(otrCprInvstmntSttus — 통화 미선언)
-        # 장부가가 섞인다. 기능통화가 KRW 가 아니면 두 출처의 통화를 확증할 수 없으므로
-        # 배수를 내지 않는다 — 조용히 섞은 값을 내느니 「기준을 확증 못 했다」를 말한다.
+        if is_holdco:
+            # 261018: 일반 지주회사는 금융업 판정을 바로잡으며(SK·LG) 잉여자산 배수가 처음 나가게 됐는데, 연결 현금·투자자산은
+            #   대부분 자회사 몫이고 부채도 빼지 않은 값이라 지주회사 자신의 잉여자산이 아니다(실측 SK 연결 현금 28.7조 → 1.14배 「시총 초과」).
+            #   지주회사의 가치는 보유지분 합산(지분 NAV)으로 본다 — 잉여자산 배수는 종전처럼 내지 않는다.
+            warnings.append("일반 지주회사 — 연결 현금·투자자산은 대부분 자회사 몫(부채 미차감)이라 잉여자산 배수는 내지 않는다. "
+                            "지분 NAV(보유지분 합산)를 본다.")
+        # 지분 NAV 의 장부가 부분은 타법인출자현황(otrCprInvstmntSttus — 통화 미선언)에서 온다.
+        # 기능통화가 KRW 가 아니면 그 장부가가 어느 통화인지 확증할 수 없으므로 배수를 내지 않는다 —
+        # 조용히 섞은 값을 내느니 「기준을 확증 못 했다」를 말한다.
         # 환산이 성립해야 배수를 낸다. 실패 경로(환율 조회 불가)에서는 티어가 원행 통화 그대로라
         # KRW 시총으로 나누면 고치려던 그 오류가 그대로 남는다 — 그래서 배수 전체를 내지 않는다.
         _cov_ok = (stmt_cur == "KRW") or bool(data.get("fx_rate_to_krw"))
-        # 지분 NAV 는 여기에 더해 타법인출자현황(otrCprInvstmntSttus — 통화 미선언) 장부가가 섞인다.
         _equity_cov_ok = _cov_ok and (stmt_cur == "KRW")
         if _cov_ok and not _equity_cov_ok:
             warnings.append("지분 NAV 배수 미제공 — 타법인출자현황 장부가의 통화 선언이 없어 "
                             f"환산분(BS·{stmt_cur}→KRW)과 같은 기준임을 확증할 수 없다. 자산 절대액만 참고.")
         data["nav"] = {
-            "surplus_krw": surplus, "equity_nav_krw": assoc_nav,
+            "surplus_krw": surplus, "equity_nav_krw": equity_nav,
+            "equity_nav_basis": equity_basis,
+            "equity_bs_book_krw": bs_equity,
             "listed_unrealized_gap_krw": mark["unrealized_gap_krw"],
-            "surplus_cov": (surplus / mcap) if (mcap and not is_fin and _cov_ok) else None,
-            "equity_nav_cov": (assoc_nav / mcap) if (mcap and not is_fin and _equity_cov_ok) else None,
+            "surplus_cov": (surplus / mcap) if (mcap and not is_fin and not is_holdco and _cov_ok) else None,
+            "equity_nav_cov": (equity_nav / mcap) if (mcap and not is_fin and _equity_cov_ok) else None,
             "mixed_combined_krw": mixed_krw,
             "mixed_combined_cov": (mixed_krw / mcap) if (mcap and mixed_krw and _cov_ok) else None,
             "haircut_flags": [k for k, v in data["haircuts"].items() if v == "MARKDOWN"],
