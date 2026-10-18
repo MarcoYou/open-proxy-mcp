@@ -32,6 +32,7 @@ from open_proxy_mcp.krx_daily import read_quote
 from open_proxy_mcp.krx_retention import weekly_window_note
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
+from open_proxy_mcp.services.company import COMPANY_LOOKUP_NEXT_ACTION, company_not_found_warning
 from open_proxy_mcp.services.price_multiple_data import (
     _DB_ERROR_PAYLOAD_WARN,
     _KRX_CACHE,
@@ -88,6 +89,15 @@ def _downsample(series: list[dict], freq: str) -> list[dict]:
 
 def _err(subject: str, status: str, *warns: str) -> dict[str, Any]:
     return {"tool": TOOL, "status": status, "subject": subject, "warnings": list(warns)}
+
+
+def _not_found(company: str) -> dict[str, Any]:
+    """회사를 못 찾았을 때 — 다른 도구와 같은 정본 안내(`company_not_found_warning`: 사명 변경 행선지·종목코드 탈출구·회사 명부 기준 시각).
+    261018: 종전엔 입력 이름만 되풀이한 「…찾지 못했습니다.」 한 줄이라, 같은 입력을 `price_multiple_data` 는 정본 안내로 답하는데 여기만 달랐다
+    (공용 해석기 `_resolve_listed` 를 거쳐 `resolve_company_query` 를 직접 부르지 않아 안내 일관성 시험에 안 걸렸다)."""
+    out = _err(company, "not_found", company_not_found_warning(company, listed_only=True))
+    out["next_actions"] = [COMPANY_LOOKUP_NEXT_ACTION]
+    return out
 
 
 def _quoted_ticker(corp: dict) -> tuple[str, str]:
@@ -252,7 +262,7 @@ async def build_firm_series_payload(company: str, format: str = "md",
         early["tool"] = TOOL
         return early
     if not corp:
-        return _err(company, "not_found", f"'{company}' 상장사를 찾지 못했습니다.")
+        return _not_found(company)
     ticker, class_note = _quoted_ticker(corp)
     if not ticker:
         return _err(corp.get("corp_name", company), "unlisted", "비상장 — 시세 시계열이 없습니다.")
@@ -603,7 +613,7 @@ async def build_quote_payload(company: str, format: str = "md",
         early["tool"] = TOOL
         return early
     if not corp:
-        return _err(company, "not_found", f"'{company}' 상장사를 찾지 못했습니다.")
+        return _not_found(company)
     ticker, class_note = _quoted_ticker(corp)
     if not ticker:
         return _err(corp.get("corp_name", company), "unlisted", "비상장 — 시세가 없습니다.")

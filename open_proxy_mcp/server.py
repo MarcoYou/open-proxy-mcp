@@ -923,7 +923,7 @@ def _serve(app, host: str, port: int) -> None:
 def _shutdown_aware_server_class():
     """uvicorn 서버 + 종료 신호를 받는 **순간** 사용 기록기가 모으던 묶음을 쓰게 하는 한 줄(261018 T7).
 
-    기록은 5초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
+    기록은 2초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
     요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(kill_timeout, 기본 5초) 뒤
     강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
     `usage.begin_shutdown()` 은 비차단이다(깃발 + 큐 깨우기) — 신호 처리기 안에서 불러도 된다."""

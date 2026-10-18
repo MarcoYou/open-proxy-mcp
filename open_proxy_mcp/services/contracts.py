@@ -209,6 +209,13 @@ def _weak_resolution_warnings() -> list[str]:
     for weak in weak_resolutions():
         others = weak.get("candidates", 1) - 1
         tail = f" (다른 후보 {others}곳)" if others > 0 else ""
+        inactive = weak.get("inactive")
+        if inactive:
+            # 261018: 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정한 경우(`CompanyResolver._inactive_single`).
+            who = f"이 회사(종목코드 {inactive['ticker']})" if inactive.get("ticker") else "이 회사"
+            day = f"최신 거래일({inactive['as_of']})" if inactive.get("as_of") else "최신 거래일"
+            tail += (f". {who}는 {day} 코스피·코스닥 시세에 없는 **상장폐지·코넥스 등** 비활성 회사입니다 — "
+                     "지금 거래되는 회사 중엔 이름이 맞는 곳이 없고, 이름이 부분 일치하는 회사가 이 하나뿐이라 골랐습니다")
         line = (
             f"「{weak['query']}」를 **{weak['corp_name']}**(으)로 추정했습니다 — 이름이 정확히 "
             f"일치하지 않습니다{tail}. 다른 회사를 뜻했다면 종목코드나 정식명으로 다시 물어보세요."
