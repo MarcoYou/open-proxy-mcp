@@ -877,11 +877,12 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
                     ecos_fx_rate = await fx_to_krw(stmt_cur, _fx_dd)
                     if ecos_fx_rate is None:
                         fx_err = f"err:fx_{stmt_cur}"
-                    elif fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:
-                        # 261019: ECOS 를 못 받아 야후 대체값으로 환산했다 — 값은 담되(누락보다 낫다) 로그에 남긴다.
-                        #   대체값은 이제 환율 표에 굳지 않지만 이 행의 원화 값에는 들어간다. 배치 환경에 ECOS_API_KEY 를 둘 것.
-                        print(f"::warning::[환율] {isu} {yr}Q{q} {stmt_cur} {_fx_dd} — ECOS 대신 야후 대체값 {ecos_fx_rate}", flush=True)
                     else:
+                        if fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:
+                            # 261019: ECOS 를 못 받아 야후 대체값으로 환산했다 — 값은 담되(누락보다 낫다) 로그에 남긴다.
+                            #   대체값은 이제 환율 표에 굳지 않지만 이 행의 원화 값에는 들어간다. 배치 환경에 ECOS_API_KEY 를 둘 것.
+                            #   ★ 경고만 하고 환산은 아래에서 그대로 한다(elif 로 붙이면 환산을 건너뛰어 원통화 값이 「ok」로 들어간다).
+                            print(f"::warning::[환율] {isu} {yr}Q{q} {stmt_cur} {_fx_dd} — ECOS 대신 야후 대체값 {ecos_fx_rate}", flush=True)
                         def _fx(x): return x * ecos_fx_rate if x is not None else None
                         # 261018: 전기 칸도 원으로 — 대조 상대(연간 표의 직전 연도 자본)는 원 단위다. 종전엔 원통화 그대로
                         #   대어 USD 보고사의 비율이 1/환율(≈10⁻³)로 떨어져 「단위 오류 ÷0.001」로 오판, 멀쩡한 값을 1,000배로
