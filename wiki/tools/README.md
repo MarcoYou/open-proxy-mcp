@@ -49,7 +49,7 @@ updated: 2026-10-18
 | [business_details](business_details.md) | **"II.사업의 내용" 11필드**: 사업부문별 매출·영업이익 + **사업장·가동률·연구개발·수주·고객·원재료·제품가격** + **D-트랙(금융/REIT): 영업현황·재무건전성·투자부동산**(KSIC 게이트). segments 정형→저신뢰 시 원문 마크다운, 나머지는 **markdown-primary**. `period=latest` 기본(사업·반기·분기 중 최신), `bsns_year`+`reprt_code`로 특정 과거 시점 조회(시계열은 반복 호출). KOSPI500 census 검증(사업의내용_ksic별양식) |
 | [asset_holdings](asset_holdings.md) | **자산주·NAV 스크리닝** — 보유 자산(현금성·투자부동산·지분증권·관계기업) 티어 + **상장지분 시가마크** + 시총 대비 잉여자산/지분NAV 배수. "시총보다 보유 자산이 값진가"에 답함 |
 | [price_multiple_data](price_multiple_data.md) | 상대가치 **배수** — PER·PBR·배당수익률, 기업·시장·섹터 시계열, 시장·섹터 선행 PER·PBR (구 `valuation`) |
-| [forward_estimates_data](forward_estimates_data.md) | **컨센서스 포워드 추정치** — 내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률 + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`), DART 아님. 커버리지 713/2,764종목 · 유니버스 리비전 스크린(`universe=`, `window=1w·4w·12w`) |
+| [forward_estimates_data](forward_estimates_data.md) | **컨센서스 포워드 추정치** — 내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률 + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`), DART 아님. 커버리지 713/2,764종목 · 유니버스 리비전 스크린(`universe=`, `window=1w·4w·12w·26w·52w`) · 리비전 이력 DB 52주(구간형 저장 뒤) |
 | [trading_data](trading_data.md) | 거래·**규모** — 주가·시총·상장주식수 시계열, 시장·섹터 시총 집계, 단일시점 시세(OHLC·거래량), 시총 순위 목록(`scope="universe"`) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 + 서식 표 11종(이사회 구성·출석률·겸직·안건별 찬반) |
 | [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |

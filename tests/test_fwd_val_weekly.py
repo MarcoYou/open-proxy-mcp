@@ -238,9 +238,66 @@ def test_actual_aggregate_includes_alpha_common_and_excludes_unconfirmed_and_pre
             .replace("%(mk_dd)s", "'20260911'").replace("%(as_of)s", "DATE '2026-09-13'")
         result = con.execute(sql)
         rows = [dict(zip((column[0] for column in result.description), row)) for row in result.fetchall()]
-        assert len(rows) == 2
-        assert all(row["scheme"] == "market" and row["n_total"] == 2 for row in rows)
-        assert all(row["cap_krw"] == 3000 and row["ni_krw"] == 300 and row["fwd_per"] == 10 for row in rows)
+        market = [row for row in rows if row["scheme"] == "market"]
+        assert len(market) == 2
+        assert all(row["n_total"] == 2 for row in market)
+        assert all(row["cap_krw"] == 3000 and row["ni_krw"] == 300 and row["fwd_per"] == 10 for row in market)
+        # 업종분류가 없는 두 종목은 대분류 「미분류」 버킷에 같은 값으로 든다(261018, 감사 8) — 하위업종에는 없다
+        unc = [row for row in rows if row["scheme"] != "market"]
+        assert {(r["scheme"], r["market"], r["bucket"], r["label"]) for r in unc} == {
+            ("wics_sector", "KS", fv.UNCLASSIFIED, "미분류"), ("wics_sector", "ALL", fv.UNCLASSIFIED, "미분류")}
+        assert all(r["n_total"] == 2 and r["cap_krw"] == 3000 and r["fwd_per"] == 10 for r in unc)
+
+
+def _sector_agg_db(con):
+    """대분류 둘(분류 있음 2종목 + 분류 없음 1종목)의 작은 원본 — 미분류 버킷 시험용."""
+    con.execute("create table wise_sector(ticker varchar, sector_code varchar, sector varchar, "
+                "industry_code varchar, industry varchar, snap_dd varchar)")
+    con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
+    con.execute("create table krx_daily(trd_dd varchar, ticker varchar, market varchar)")
+    con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
+                "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
+                "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")
+    con.execute("insert into wise_sector values ('005930', 'G45', 'IT', 'G4530', '반도체', '20260828'), "
+                "('000660', 'G45', 'IT', 'G4530', '반도체', '20260828')")
+    for code, mk, cap in (("005930", "KS", 1000), ("000660", "KS", 500), ("123450", "KQ", 70)):
+        con.execute("insert into krx_weekly values (?, ?, '20260911')", [code, mk])
+        con.execute("insert into fwd_hist values (?, 2027, ?, 10, 1000, 20, 100, 1, "
+                    "DATE '2026-09-13', true, 'FY', 'IFRS연결', '2027/12')", [code, cap])
+    sql = fv.AGG_SQL.replace("%(class_dd)s", "'20260828'") \
+        .replace("%(mk_dd)s", "'20260911'").replace("%(as_of)s", "DATE '2026-09-13'")
+    result = con.execute(sql)
+    return [dict(zip((c[0] for c in result.description), r)) for r in result.fetchall()]
+
+
+def test_unclassified_bucket_makes_sector_rows_add_up_to_the_market():
+    """감사 8(261018): 은퇴한 수집 머신 집계에 있던 「미분류」 대분류 버킷을 되살린다 — 대분류 합 = 시장 행."""
+    import duckdb
+
+    with duckdb.connect(":memory:") as con:
+        rows = _sector_agg_db(con)
+    by = {(r["scheme"], r["market"], r["bucket"]): r for r in rows}
+    for mk in ("KS", "KQ", "ALL"):
+        sector_sum = sum(r["n_total"] for k, r in by.items() if k[0] == "wics_sector" and k[1] == mk)
+        assert sector_sum == by[("market", mk, "_ALL")]["n_total"]
+    assert by[("wics_sector", "KQ", fv.UNCLASSIFIED)]["label"] == "미분류"
+    assert by[("wics_sector", "KQ", fv.UNCLASSIFIED)]["cap_krw"] == 70
+    assert ("wics_sector", "KS", fv.UNCLASSIFIED) not in by           # 코스피는 둘 다 분류돼 있다 — 빈 버킷을 만들지 않는다
+    assert not [k for k in by if k[0] == "wics_industry" and k[2] == fv.UNCLASSIFIED]   # 하위업종에는 두지 않는다
+    assert by[("wics_sector", "KS", "G45")]["n_total"] == 2           # 분류된 버킷은 그대로
+
+
+def test_check_does_not_count_the_new_bucket_as_drift_on_days_written_before_it(capsys):
+    """미분류 버킷이 생기기 전에 쓴 날짜: 다시 내면 그 행이 있지만 원본이 바뀐 것이 아니다 — 어긋남 0, 이유를 한 줄."""
+    stored = [_stored(market="KS", scheme="market", bucket="_ALL")]
+    fresh = [_agg(market="KS"), _agg(market="KS", scheme="wics_sector", bucket=fv.UNCLASSIFIED, label="미분류")]
+    con = _Con(stored=stored)
+    assert fv.check_against_stored(con, dt.date(2026, 9, 13), "20260828", "20260911", fresh) == 0
+    assert "미분류 버킷은 아직 저장 전" in capsys.readouterr().out
+    # 버킷이 이미 저장된 날짜면 평소대로 센다(한쪽에만 있는 행은 어긋남)
+    stored2 = stored + [_stored(market="KS", scheme="wics_sector", bucket=fv.UNCLASSIFIED, label="미분류")]
+    fresh2 = [_agg(market="KS")]
+    assert fv.check_against_stored(_Con(stored=stored2), dt.date(2026, 9, 13), "20260828", "20260911", fresh2) == 1
 
 
 def test_market_split_sees_this_weeks_new_listing_from_the_daily_store():

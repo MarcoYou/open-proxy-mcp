@@ -81,6 +81,15 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - Legal names that spell an English name in Hangul ("삼성에스디아이" → Samsung SDI, "삼성이앤에이" → Samsung E&A) and REIT legal names ("롯데위탁관리부동산투자회사" → LOTTE REIT) also resolve. They are accepted only when they become exactly a registered name, and never when two companies match.
 - Names that already resolved are unchanged. Preferred-share names ("삼성전자우") are still only inferred as the common-share company.
 
+### Consensus revisions over 26 and 52 weeks — `forward_estimates_data`
+
+- In step with the storage change that keeps **52 weeks** of consensus history in the database, revisions add **26-week and 52-week** comparisons — both per company (`bundle="revision"`) and in the universe screen (`window="26w"`, `"52w"`).
+- Per company, the 26-week and 52-week columns appear only once the history reaches that far; until then the response says "only N weeks of history". Today (7 weeks of history) the 1/4/12-week table is unchanged.
+- The "13-week rolling" note now states **how many weeks the database actually holds**, and that older weeks live only in an off-database archive this tool does not read.
+- After the storage change, a company whose latest snapshot is older than the newest one (delisted, suspended, or dropped from coverage) gets a warning instead of an old snapshot read as current.
+- Response fields are unchanged; `revision.first_as_of`, `history_weeks`, `windows_not_reached` and `db_window_weeks` are added.
+- The consensus comparison on preliminary earnings (`provisional_earnings` → `consensus_gap`) follows the same rule: its source note states the weeks actually held, and it gives the same reference snapshot and values after the storage change.
+
 ## 2026-10-05
 
 ### Staged document cache increase

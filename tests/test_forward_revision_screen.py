@@ -368,3 +368,24 @@ def test_flat_and_short_history_are_not_sole_updates(monkeypatch):
     _stub(monkeypatch, hist=sorted(hist, key=lambda r: (r[0], r[1])))
     p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))
     assert p["data"]["sole_update"] == []
+
+
+def test_26w_and_52w_windows_are_accepted_and_short_history_is_flagged(monkeypatch):
+    """261018(DB 보관 52주): 스크린 창에 26w·52w. 이력이 14주뿐이면 행마다 「이력 짧음」으로 가장 오래된 스냅샷과 비교한다."""
+    calls = _stub(monkeypatch)
+    for win, days in (("26w", 182), ("52w", 364)):
+        p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4", window=win))
+        d = p["data"]
+        assert p["status"] == "ok" and d["window"] == win and d["window_days"] == days
+        top = d["rows"][0]
+        assert top["ticker"] == "005930" and top["history_short"] is True and f"op_krw_{win}_pct" in top
+        assert any(f"이력이 {win} 에 못 미쳐" in w for w in p["warnings"])
+    assert all("fwd_asof" not in sql for sql, _ in calls)          # 주별 모양(교체 전) 질의 그대로
+    md = tool._render_revision_screen(p)
+    assert "영업이익 52w | 이동 | 매출 52w" in md and "(이력 짧음)" in md
+
+
+def test_screen_note_names_the_actual_db_retention(monkeypatch):
+    _stub(monkeypatch)
+    note = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))["data"]["note"]
+    assert "13주 롤링" not in note and "최근 13주" in note and "보관본" in note
