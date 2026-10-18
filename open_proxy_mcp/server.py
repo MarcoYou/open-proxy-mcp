@@ -204,6 +204,9 @@ def build_mcp() -> MCPServer:
             # 260906: 웹 차단 신호(403·429·차단 페이지). 차단은 IP 기준이라 그 머신의 사용자
             #   전원이 같이 막힌다 — 조용히 실패하게 두지 않고 밖에서 보이게 한다.
             "web_block": web_block_stats(),
+            # 261019: 콜드 서빙(3년 하한 이전 주간 곡선을 DB 밖 서빙본에서 잇는 것) — 켜짐·받은 판·받은 시각·검증된 파일·강등 까닭.
+            #   못 읽어도 응답은 종전(최근 3년 + 안내)으로 강등할 뿐이라 status 는 낮추지 않는다. URL·키는 싣지 않는다.
+            "cold": _cold_stats(),
         }, status_code=200 if servicing else 503)
 
     @mcp.custom_route("/admin/drain", methods=["POST"])
@@ -488,6 +491,15 @@ _NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답
 #: 1 GB VM 에 OOM 이력(260804)이 있어 상한 없는 누적은 그대로 둘 수 없다.
 #: 여기서 멈춰도 replay 가 나머지를 receive() 로 흘려보내므로 하류는 온전한 본문을 받는다.
 _MAX_SNIFF_BYTES = 64 * 1024
+
+
+def _cold_stats() -> dict:
+    """`/health` 의 `cold` — 헬스체크가 이것 때문에 죽으면 안 된다."""
+    try:
+        from open_proxy_mcp import cold_store
+        return cold_store.stats()
+    except Exception as exc:  # noqa: BLE001
+        return {"error": type(exc).__name__}
 
 
 def _mem_stats() -> dict:
@@ -860,6 +872,9 @@ def build_app(server=None):
     #   해석 실패 때 다시 받는 길은 요청 경로(`DartClient.lookup_corp_code_all`)에 있다. `OPM_CORP_REFRESHER=0` 이면 둘 다 끈다.
     from open_proxy_mcp.services import corp_registry_refresher
     corp_registry_refresher.attach_to_app(app)
+    # 261019: 콜드 서빙 예열·서빙 목록 갱신(배경). `OPM_COLD=1` 일 때만 받는다 — 기본 꺼짐이면 아무 일도 하지 않는다.
+    from open_proxy_mcp import cold_store
+    cold_store.attach_to_app(app)
     return app
 
 
