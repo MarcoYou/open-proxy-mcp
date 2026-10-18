@@ -305,7 +305,7 @@ async def _ensure_krx_fresh() -> str | None:
 
 #: `_market_for` 반환의 출처 표시(`source`) — 값을 어디서 받았나. `trading_data(scope="quote")` 의 `data.source` 와 같은 값을 쓴다.
 PRICE_SOURCE_DB = "db"              # 일별 시세 저장분(서버가 매 거래일 보관한 KRX 응답)
-PRICE_SOURCE_LIVE = "krx_live"      # 저장분 미스 → 요청 경로에서 KRX 를 직접 불러 받은 값
+PRICE_SOURCE_LIVE = "krx_live"      # 저장분에서 받지 못함(그 종목 행 없음·저장분 읽기 실패·DB 미연결 서버) → 요청 경로에서 KRX 를 직접 불러 받은 값
 
 
 async def _market_for(stock_code: str) -> dict:
@@ -320,7 +320,7 @@ async def _market_for(stock_code: str) -> dict:
         row = await asyncio.to_thread(_krx_db_get, latest_dd, stock_code)
         if row.get("price"):
             return {**row, "source": PRICE_SOURCE_DB}
-    # DB 미스(최신 스냅샷에 아직 없는 신규상장·정지 해제 등) → 라이브 단발 fallback
+    # 저장분에서 못 받음 — 최신 스냅샷에 아직 없는 신규상장·정지 해제, 저장분 읽기 실패(기준일 None), DB 를 붙이지 않은 서버 → 라이브 단발 fallback
     for d in _price_dates():
         snap = await _krx_market_live(d)
         base = snap.get(stock_code)
@@ -1326,6 +1326,15 @@ async def _shares_outstanding(client, cc: str, year: int) -> dict:
     return out
 
 
+def _dps_fetch_failed(div_err: Any) -> bool:
+    """배당 사항 조회가 **실패**했나 — `_annual_summary` 의 두 번째 값(실패 시 「alotMatter 조회 실패: {DART 상태}」, 아니면 None).
+    상태 013(조회된 데이터 없음)은 실패가 아니라 그 사업보고서에 배당 항목이 없다는 뜻이라(`guideline_research` 등도 013 을 no_rows 로 친다)
+    무배당·미공시 쪽에 둔다. 그 밖의 상태(요청 한도·전송 오류 등)는 실패 — DPS 를 모른다(261018)."""
+    if not div_err:
+        return False
+    return str(div_err).rsplit(":", 1)[-1].strip() != "013"
+
+
 async def _build_valuation_payload_impl(company: str, format: str = "md") -> dict[str, Any]:
     client = get_dart_client()
     query = (company or "").strip()
@@ -1388,7 +1397,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # TTM(flow) = FY + 1Q(당해) − 1Q(전년); MRQ(stock) = 최근 분기 잔액
     q_cur, q_prev = fy + 1, fy  # 예: fy=2025 → 1Q2026, 1Q2025
     # P2: 연간 재무원장·유통주식수·배당 — fy만 의존 → 병렬.
-    (fy_rows, fs_used), sh, (div_sum, _div_meta) = await asyncio.gather(
+    (fy_rows, fs_used), sh, (div_sum, div_err) = await asyncio.gather(
         _acntall(client, cc, fy, "11011"),
         _shares_outstanding(client, cc, fy),
         _annual_summary(cc, fy),
@@ -1519,6 +1528,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
 
     # DPS = alotMatter 보통주 결의 현금배당금 (이미 주당값 — 주식수 불필요). div_sum = P2 병렬 fetch.
     dps = (div_sum or {}).get("cash_dps") or None
+    # 261018: 조회 **실패**도 dps=None 이라 무배당과 구분이 안 됐다(실패 사유를 버렸다) → explain 이 DART 장애 때도 「없음(무배당 또는 미공시)」.
+    dps_fetch_failed = _dps_fetch_failed(div_err)
 
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
     # EPS(FY0): 공시값 우선 — fy_rows 직접(비KRW는 ×환율) → fm(eps_krw) → 지배순이익÷보통주 폴백.
@@ -1635,6 +1646,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                                 "EPS의 가중평균 주식수)가 왜곡될 수 있음. TTM·MRQ 중심 해석 권장.")
             elif fl == "unresolved_adjustment":
                 warnings.append("⚠️ 미해결 주가조정 이력 — 과거 가격 비교 시 주의.")
+    if dps_fetch_failed:
+        warnings.append("DART 배당 사항 조회 실패 — DPS·배당수익률 미확인(무배당이라는 뜻이 아니다, 일시 장애 가능). PER·PBR 값은 그대로다.")
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
 
@@ -1645,7 +1658,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             "identifiers": {"ticker": stock_code, "corp_code": cc},
             "sector_class": "financial" if is_financial else "general",
             "fiscal_year": fy, "price_krw": price, "price_date": mk.get("date"),
-            # 261018: 주가를 어디서 받았나 — "db"(일별 시세 저장분) / "krx_live"(저장분 미스 → KRX 직접) / None(못 받음).
+            # 261018: 주가를 어디서 받았나 — "db"(일별 시세 저장분) / "krx_live"(저장분에서 못 받음 → KRX 직접) / None(못 받음).
             #   `scope="explain"` 의 주가 인풋 줄이 이것으로 출처를 고른다(종전엔 라이브 폴백이어도 「저장분 서빙」이라 적었다).
             "price_source": mk.get("source"),
             "multiples": {
@@ -1668,7 +1681,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "ttm_quarter_year": q_cur,
                 "controlling_equity_krw": ctrl_equity,
                 "shares_common": shares_common, "shares_total": shares_total,
-                "dps_krw": dps, "revenue_fy0_krw": revenue_fy,
+                # 261018: dps_krw=None 의 뜻을 가른다 — True = DART 배당 사항 조회 실패(값 미확인) / False = 조회는 됐고 보통주 DPS 가 없음(무배당 또는 미공시).
+                "dps_krw": dps, "dps_fetch_failed": dps_fetch_failed, "revenue_fy0_krw": revenue_fy,
                 "common_market_cap_krw": mk.get("common_mktcap"),
                 "capital_impairment_status": cap_status,
                 "functional_currency": stmt_cur,

@@ -361,10 +361,11 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 
 
 #: `data.price_source` → 주가 인풋 줄의 출처 문구(261018). 종전엔 값을 어디서 받았든 「저장분 서빙」 한 가지였다 —
-#: 저장분에 없어 KRX 를 직접 불러 받은 값도 저장분에서 읽은 것처럼 적혔다. 모르는 값(None 등)이면 출처 갈래를 적지 않는다.
+#: 저장분에서 받지 못해 KRX 를 직접 불러 받은 값도 저장분에서 읽은 것처럼 적혔다. 모르는 값(None 등)이면 출처 갈래를 적지 않는다.
+#: krx_live 는 세 경우를 다 덮는 말로 쓴다 — 그 종목 행이 저장분에 없음 · 저장분을 읽지 못함(DB 장애) · DB 를 붙이지 않은 서버(자체 호스팅).
 _PRICE_SOURCE_TEXT = {
     "db": "KRX 일별시세, 일별 시세 저장분 서빙",
-    "krx_live": "KRX 일별시세, 저장분에 없어 KRX 에서 직접 조회",
+    "krx_live": "KRX 일별시세, 저장분에서 받지 못해 KRX 에서 직접 조회",
 }
 
 
@@ -383,6 +384,21 @@ def _n(v: Any, unit: str = "", missing: str = "미확정") -> str:
     return f"{v:,}{unit}" if isinstance(v, (int, float)) and not isinstance(v, bool) else missing
 
 
+def _dps_text(i: dict[str, Any]) -> str:
+    """explain 의 DPS 칸. 값이 없을 때 「무배당」과 「모름」을 가른다(261018) — `dps_fetch_failed` 가 True 면 DART 조회 실패라 값을 모르고,
+    False 면 조회는 됐는데 보통주 DPS 가 없다. 그 칸이 없는 응답(출처를 모름)에는 어느 쪽으로도 단정하지 않는다
+    (「not found 를 there is none 으로 바꾸지 말 것」)."""
+    v = i.get("dps_krw")
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return f"{v:,}원"
+    failed = i.get("dps_fetch_failed")
+    if failed is True:
+        return "미확인 — DART 배당 사항 조회 실패(무배당이라는 뜻이 아님)"
+    if failed is False:
+        return "없음(무배당 또는 미공시)"
+    return "미확인(무배당·미공시 또는 조회 실패)"
+
+
 def _render_explain_firm(p: dict[str, Any]) -> str:
     """종목별 수치 근거 — 실제 값 대입 계산 과정."""
     d = p["data"]; i = d["inputs"]; m = d["multiples"]
@@ -399,7 +415,7 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
          if i.get("controlling_equity_krw") is not None else "- 지배자본: 미확정",
          f"- 유통주식수(자기주식 제외 — DART stockTotqySttus): 보통주 {_n(i.get('shares_common'))}"
          f" / 합계(보통+우선) {_n(i.get('shares_total'))}",
-         f"- DPS(보통주 현금배당 — DART alotMatter): {_n(i.get('dps_krw'), '원', '없음(무배당 또는 미공시)')}"]
+         f"- DPS(보통주 현금배당 — DART alotMatter): {_dps_text(i)}"]
     if fx:
         L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 회계기말 환율 {fx:,.1f}원/{cur}(한국은행 ECOS)로 KRW 환산된 값")
     L += ["", "## 계산 과정"]

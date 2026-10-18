@@ -66,7 +66,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 | `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
 | `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
 | `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=최근 3년 주간 곡선(`data.series`, 하한 `data.weekly_from` — 그 이전은 연말 밴드), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
-| `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변. 주가 인풋 줄의 출처는 `price_source` 대로(저장분 서빙 / 저장분에 없어 KRX 직접 조회), 주가를 못 받았으면 「미확보」 |
+| `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변. 주가 인풋 줄의 출처는 `price_source` 대로(저장분 서빙 / 저장분에서 받지 못해 KRX 직접 조회), 주가를 못 받았으면 「미확보」. DPS 칸은 `dps_fetch_failed` 로 무배당(「없음(무배당 또는 미공시)」)과 조회 실패(「미확인」)를 가른다 |
 
 ### 배당수익률 (260831 추가)
 
@@ -233,7 +233,7 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
   "sector_class": "general",           // general | financial
   "fiscal_year": 2025,
   "price_krw": 64400, "price_date": "20260703",
-  "price_source": "db",                // db(일별 시세 저장분) | krx_live(저장분 미스 → KRX 직접 조회) | null(주가 못 받음)
+  "price_source": "db",                // db(일별 시세 저장분) | krx_live(저장분에서 못 받음 — 종목 행 없음·저장분 읽기 실패·DB 없는 서버 → KRX 직접 조회) | null(주가 못 받음)
   "multiples": {
     "per_fy0": 15.19, "per_ttm": 14.58,
     "pbr_mrq": 0.86, "pbr_basis": "MRQ",
@@ -245,6 +245,7 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
     "controlling_equity_krw": 7171963096800,
     "shares_common": 95713802, "shares_total": 95713802,
     "dps_krw": 1700, "revenue_fy0_krw": 8870273429400,
+    "dps_fetch_failed": false,         // true = DART 배당 사항 조회 실패(DPS·배당수익률 미확인, 경고 동반) | false = 조회됨(dps_krw null 이면 무배당 또는 미공시)
     "common_market_cap_krw": 6173130586000,
     "capital_impairment_status": "normal",
     "functional_currency": "USD", "fx_rate_to_krw": 1434.9
@@ -333,7 +334,11 @@ sequenceDiagram
 
 ## 변경 이력
 
-- 2026-10-18: `firm` 응답에 **`price_source`**(`db` = 일별 시세 저장분 / `krx_live` = 저장분 미스로 KRX 직접 조회 / null)를 더했다.
+- 2026-10-18: `firm` 의 `inputs` 에 **`dps_fetch_failed`** 를 더했다 — DART 배당 사항 조회가 실패해도(013 = 데이터 없음은 실패가 아님) DPS 가 null 이라
+  무배당과 구분이 안 됐고, `explain` 의 DPS 칸이 장애 때도 「없음(무배당 또는 미공시)」이라 적었다. 이제 실패면 경고 한 줄(「DART 배당 사항 조회 실패 — DPS·배당수익률 미확인…」)과
+  explain 「미확인 — DART 배당 사항 조회 실패」. `price_source=krx_live` 의 explain 문구도 「저장분에서 받지 못해 KRX 에서 직접 조회」로 —
+  그 종목 행이 없을 때뿐 아니라 저장분을 읽지 못했을 때·DB 를 붙이지 않은 서버도 같은 값이다.
+- 2026-10-18: `firm` 응답에 **`price_source`**(`db` = 일별 시세 저장분 / `krx_live` = 저장분에서 못 받아 KRX 직접 조회 / null)를 더했다.
   `explain` 의 주가 인풋 줄이 값을 어디서 받았든 「일별 시세 저장분 서빙」이라 적던 것을 실제 출처대로 적고,
   주가를 못 받았을 때(저장분·KRX 직접 조회 모두 실패) 숫자 서식 오류로 explain 응답 전체가 실패하던 것을 「미확보」로 적게 고쳤다.
   같은 explain 블록에서 없는 값이 「None」·「None원」으로 나가던 칸(유통주식수·DPS·EPS·BPS·일부 미확정 순이익)은 「미확정」·「없음(무배당 또는 미공시)」으로,

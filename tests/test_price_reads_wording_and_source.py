@@ -6,11 +6,16 @@
    method 의 「연간 dart_finstat_y」, 그리고 같은 두 도구(price_multiple_data·trading_data)의 시장·산업 빈 스냅샷 안내
    (「opm_val_market 비어있음 — market_val_weekly 배치 미실행」·「krx_cap_agg 비어있음 — krx_cap_agg.py 배치 미실행」) ·
    확정 배당수익률 조회 실패 안내 · explain 의 수정계수 출처(`krx_adj_events`). 이 시험이 PR #89 가 건드린 8개 도구의 모듈 전체를 훑어 재발을 막는다.
-② `scope="explain"` 의 주가 인풋 줄이 값을 어디서 받았든 「일별 시세 저장분 서빙」이라고 적었다 — `_market_for` 가 저장분 미스로 KRX 를
+② `scope="explain"` 의 주가 인풋 줄이 값을 어디서 받았든 「일별 시세 저장분 서빙」이라고 적었다 — `_market_for` 가 저장분에서 받지 못해 KRX 를
    직접 불러 받은 값도. 이제 `_market_for` 반환의 `source`("db"/"krx_live") → firm `data.price_source` → 인풋 줄 문구.
-   실측(20261018 운영 DB 읽기 전용): 한창(005110)은 보관된 마지막 행이 10/14 라 기준일(10/16) 서빙에서 저장분 미스 → KRX 직접 조회 경로를 탄다.
-   작업 중 같은 블록에서 더: 주가를 못 받으면(저장분·KRX 직접 조회 모두 실패) `None:,` 서식에서 TypeError 가 나 explain 응답 전체가 죽었고
-   (로컬 파일럿·KRX 키 없음에서 한창으로 재현), 없는 값이 「DPS…: None원」·「보통주 None」·「= **None**」으로 나갔다.
+   라이브 폴백이 성공하는 경우는 셋이다 — 최신 기준일 저장분에 그 종목 행이 아직 없음(신규상장 등) · 저장분을 읽지 못함(DB 장애로 기준일 None) ·
+   DB 를 붙이지 않은 서버(공개 저장소 자체 호스팅). 그래서 krx_live 문구는 「저장분에서 받지 못해 KRX 에서 직접 조회」로 셋을 다 덮는다(2차 검토).
+   작업 중 같은 블록에서 더: 주가를 못 받으면(저장분·KRX 직접 조회 모두 실패) `None:,` 서식에서 TypeError 가 나 explain 응답 전체가 죽었고,
+   없는 값이 「DPS…: None원」·「보통주 None」·「= **None**」으로 나갔다. 실측(20261018 운영 DB 읽기 전용): 한창(005110)은 일별 저장분 마지막 행이
+   10/14(종가 11원 — 정리매매 뒤 상장폐지로 보임)이고 10/15·10/16 행이 없다 → 저장분도 KRX 직접 조회도 비어 이 크래시 경로를 탄다
+   (로컬 파일럿·KRX 키 없음에서 재현). 같은 날 price_latest 날짜가 기준일보다 이른 5종목이 모두 이런 경우다.
+   2차 검토에서 더: DPS 칸이 DART 배당 사항 조회 **실패**도 「없음(무배당 또는 미공시)」이라 적었다 — 실패 사유를 버렸기 때문이다.
+   이제 firm `inputs.dps_fetch_failed`(013 = 데이터 없음은 실패가 아님) + 경고 한 줄, explain 은 「미확인 — DART 배당 사항 조회 실패」.
 ③ 서빙 기준일(`krx_daily` 의 가장 늦은 거래일)을 `screener._krx_latest_dd` 와 `price_multiple_data._krx_daily_latest_dd` 가 같은 SQL 로
    따로 정의했다 → `krx_daily.latest_day` 한 곳. 두 이름은 남아 위임하고(여러 시험이 그 이름을 바꿔 끼운다), 각 모듈의 DB 읽기로 읽는다.
 """
@@ -163,13 +168,18 @@ def test_market_for_marks_where_the_price_came_from(monkeypatch):
     monkeypatch.setattr(S, "_krx_db_get", lambda dd, t: {"price": 71_000, "date": dd, "common_mktcap": 1, "list_shrs": 2})
     assert asyncio.run(S._market_for("005930")) == {"price": 71_000, "date": "20261016", "common_mktcap": 1, "list_shrs": 2,
                                                    "source": "db"}
-    # 저장분 미스 → KRX 직접 조회
+    # 저장분에 그 종목 행이 없음 → KRX 직접 조회
     monkeypatch.setattr(S, "_krx_db_get", lambda dd, t: {})
 
     async def live(dd):
         return {"005930": {"TDD_CLSPRC": "72,000", "MKTCAP": "3", "LIST_SHRS": "4"}}
     monkeypatch.setattr(S, "_krx_market_live", live)
     monkeypatch.setattr(S, "_price_dates", lambda today=None: ["20261016"])
+    assert asyncio.run(S._market_for("005930"))["source"] == "krx_live"
+    # 저장분을 읽지 못함(DB 장애·DB 없는 서버 → 기준일 None) → 저장분 행 조회 없이 KRX 직접 조회 — 같은 krx_live
+    S._serving_dd_invalidate()
+    monkeypatch.setattr(S, "_krx_daily_latest_dd", lambda: None)
+    monkeypatch.setattr(S, "_krx_db_get", lambda dd, t: pytest.fail("기준일이 없으면 저장분 행을 읽지 않는다"))
     assert asyncio.run(S._market_for("005930"))["source"] == "krx_live"
     # 둘 다 못 받으면 종전처럼 빈 dict(출처도 없다)
 
@@ -182,7 +192,7 @@ def test_market_for_marks_where_the_price_came_from(monkeypatch):
 
 @pytest.mark.parametrize("source,expected,absent", [
     ("db", "(20261016 종가 — KRX 일별시세, 일별 시세 저장분 서빙)", "직접 조회"),
-    ("krx_live", "(20261016 종가 — KRX 일별시세, 저장분에 없어 KRX 에서 직접 조회)", "저장분 서빙"),
+    ("krx_live", "(20261016 종가 — KRX 일별시세, 저장분에서 받지 못해 KRX 에서 직접 조회)", "저장분 서빙"),
     (None, "(20261016 종가 — KRX 일별시세)", "저장분 서빙"),                     # 출처를 모르면 갈래를 적지 않는다
 ], ids=["db", "krx_live", "unknown"])
 def test_explain_price_line_follows_the_actual_source_through_the_mcp_tool(monkeypatch, source, expected, absent):
@@ -240,7 +250,7 @@ def test_explain_never_prints_python_none_for_missing_inputs():
     p = _explain_payload(price=None, source=None)
     p["data"]["inputs"] = {"net_income_fy0_krw": 61_110_643_142, "net_income_ttm_krw": None, "controlling_equity_krw": None,
                            "eps_fy0_krw": None, "eps_ttm_basis": "disclosed_assembled", "eps_ttm_krw": None,
-                           "shares_common": None, "shares_total": None, "dps_krw": None}
+                           "shares_common": None, "shares_total": None, "dps_krw": None, "dps_fetch_failed": False}
     md = TP._render_explain_firm(p)
     assert "None" not in md, md
     assert "- 지배순이익: FY0=61,110,643,142원 / TTM=미확정 (일부 미확정)" in md
@@ -261,3 +271,57 @@ def test_explain_shows_nm_not_none_when_a_multiple_is_withheld():
     p["data"]["multiples"] = {"per_fy0": None, "per_ttm": None, "pbr_mrq": None}
     md = TP._render_explain_firm(p)
     assert "**None**" not in md and "PER(FY0) = 보통주 시총 ÷ 지배순이익(FY0) → **N/M**" in md
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+# ② 의 2차 — DPS 가 없을 때 「무배당」과 「모름(조회 실패)」을 가른다
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+def test_dps_fetch_failed_reads_the_annual_summary_reason_and_013_is_not_a_failure(monkeypatch):
+    """`_annual_summary` 의 실패 사유 모양(「alotMatter 조회 실패: {상태}」)에 기대므로 그 모양을 실제 함수로 고정한다."""
+    from open_proxy_mcp.dart.client import DartClientError
+    from open_proxy_mcp.services import dividend as D
+
+    def client_raising(status):
+        class C:
+            async def get_dividend_info(self, cc, year, rc):
+                raise DartClientError(status, "x")
+        return lambda: C()
+    for status, failed in (("013", False), ("020", True), ("TRANSPORT_ERROR", True), ("800", True)):
+        monkeypatch.setattr(D, "get_dart_client", client_raising(status))
+        summary, err = asyncio.run(D._annual_summary("00126380", 2025))
+        assert summary == {} and err == f"alotMatter 조회 실패: {status}"
+        assert S._dps_fetch_failed(err) is failed, status
+    assert S._dps_fetch_failed(None) is False and S._dps_fetch_failed({}) is False   # 성공(골든 시험의 가짜는 {} 를 준다)
+
+
+@pytest.mark.parametrize("summary,err,failed,line,warned", [
+    ({"cash_dps": 1444}, None, False, "DART alotMatter): 1,444원", False),
+    ({"cash_dps": 0}, None, False, "DART alotMatter): 없음(무배당 또는 미공시)", False),
+    ({}, "alotMatter 조회 실패: 013", False, "DART alotMatter): 없음(무배당 또는 미공시)", False),
+    ({}, "alotMatter 조회 실패: 020", True, "DART alotMatter): 미확인 — DART 배당 사항 조회 실패(무배당이라는 뜻이 아님)", True),
+], ids=["paid", "zero_dps", "no_rows_013", "fetch_failed"])
+def test_firm_and_explain_tell_a_failed_dividend_lookup_from_no_dividend(monkeypatch, summary, err, failed, line, warned):
+    run_firm(S, monkeypatch.setattr, "fm_normal")
+
+    async def annual_summary(cc, fy):
+        return summary, err
+    monkeypatch.setattr(S, "_annual_summary", annual_summary)
+    js = json.loads(_tool_text("price_multiple_data", {"company": "삼성전자", "format": "json"}))
+    assert js["data"]["inputs"]["dps_fetch_failed"] is failed
+    assert js["data"]["inputs"]["dps_krw"] == (summary.get("cash_dps") or None)
+    notice = "DART 배당 사항 조회 실패 — DPS·배당수익률 미확인(무배당이라는 뜻이 아니다, 일시 장애 가능). PER·PBR 값은 그대로다."
+    assert (notice in js["data"]["warnings"]) is warned
+    out = _tool_text("price_multiple_data", {"company": "삼성전자", "scope": "explain"})
+    dps_line = next(ln for ln in out.splitlines() if ln.startswith("- DPS("))
+    assert dps_line.endswith(line), dps_line
+    assert (notice in out) is warned                                              # explain 의 「유의(원문 경고)」에도 실린다
+    md = _tool_text("price_multiple_data", {"company": "삼성전자"})
+    assert (notice in md) is warned                                               # 기본 md 의 「주의」에도
+
+
+def test_explain_dps_cell_without_the_flag_does_not_assert_no_dividend():
+    """`dps_fetch_failed` 칸이 없는 응답(출처 불명)이면 무배당으로도 실패로도 단정하지 않는다."""
+    p = _explain_payload(price=70_000, source="db")
+    p["data"]["inputs"]["dps_krw"] = None
+    md = TP._render_explain_firm(p)
+    assert "DART alotMatter): 미확인(무배당·미공시 또는 조회 실패)" in md and "없음(무배당" not in md
