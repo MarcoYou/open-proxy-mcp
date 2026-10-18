@@ -3,7 +3,9 @@
 한 번 실행이 하는 일 (KRX 4콜 + DART 0콜 + ECOS 0콜):
   A. 시세 확인 — 일별 시세 저장분(krx_daily)이 직전 영업일까지 있나, 없으면 KRX 최신 거래일을 받아 기록(valuation 공용 로직 재사용).
      261018(재설계 5-1 쓰는 쪽): 기록의 주는 krx_daily, krx_weekly 는 닫힌 주만(서버 갱신기·`_krx_db_upsert` 가 옮겨 적는다).
-  B. opm_val_firm  — 종목별 PER/PBR 주간 스냅샷 (그 날 krx_daily_v 시총 × dart_fundamentals 재무)
+  B. 종목별 PER/PBR — 그 날 krx_daily_v 시총 × dart_fundamentals 재무. **메모리에서만** 계산한다(261018, 재설계 6단계:
+     `opm_val_firm` 저장을 멈췄다 — 그 표를 읽던 서버 쪽은 6단계 서버 PR 이 계산으로 바꾸고, 표는 백업 뒤 지운다.
+     이 배치는 그 표를 만들지도 쓰지도 않는다 — 표가 없어도 깨지지 않는다).
   C. opm_val_market — 시장 전체(KOSPI/KOSDAQ) 시총가중 aggregate (우선주 시총 보통주 귀속)
   D. opm_val_market — 시장 전체(scheme='market') 만. 섹터 집계는 업종분류 기준으로 이관(260823).
 
@@ -64,11 +66,6 @@ MIN_SNAPSHOT_TICKERS = 1_500
 FY = 2025
 FY_END = f"{FY}1231"  # 비KRW 재무 환산 기준(회계기말 환율) — valuation tool과 동일 규칙
 
-DDL_FIRM = """CREATE TABLE IF NOT EXISTS opm_val_firm(
-  snap_dd text, ticker text, market text, sector text, cap double precision, cap_pref double precision,
-  per_fy0 double precision, per_ttm double precision,
-  pbr_fy0 double precision, pbr_mrq double precision,
-  PRIMARY KEY(snap_dd, ticker))"""
 # 260706 병합 A: opm_val_market 하나가 시장전체(sector='_ALL')+섹터별 행을 함께 담음.
 # sector는 NOT NULL(PK 포함, PG는 PK에 NULL 불가+UNIQUE는 NULL≠NULL이라 중복 누적) — 센티넬 '_ALL'.
 DDL_MKT = """CREATE TABLE IF NOT EXISTS opm_val_market(
@@ -78,7 +75,6 @@ DDL_MKT = """CREATE TABLE IF NOT EXISTS opm_val_market(
   cap double precision, cap_pref double precision, ni_ttm double precision, eq double precision,
   PRIMARY KEY(snap_dd, market, sector))"""
 DDL_MIGRATE = (
-    "ALTER TABLE opm_val_firm ADD COLUMN IF NOT EXISTS cap_pref double precision",
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS cap_pref double precision",
     # 섹터 밴드 통일(260705): 과거 연말은 FY0만 산출 가능 → sector 행에도 per_fy0/pbr_fy0 저장해
     # 현재(주간)·과거를 FY0 단일 기준으로 비교. 주간행은 per_ttm/pbr_mrq도 함께 채움.
@@ -314,7 +310,7 @@ async def run(dry: bool = False) -> int:
     print(f"A. 일별 시세 최신 = {snap_dd}")
 
     con = psycopg.connect(os.environ["DATABASE_URL"])
-    for ddl in (DDL_FIRM, DDL_MKT) + DDL_MIGRATE:
+    for ddl in (DDL_MKT,) + DDL_MIGRATE:
         con.execute(ddl)
     con.commit()
 
@@ -377,7 +373,7 @@ async def run(dry: bool = False) -> int:
     if fx_skipped:
         print(f"  ⚠ FX 미확보로 제외: {fx_skipped}")
 
-    # B. 종목별 스냅샷
+    # B. 종목별 배수 — 메모리에서만(261018 재설계 6단계: opm_val_firm 저장 중단). 시장 집계와 같은 모집단인지 세는 데 쓴다.
     firm_recs = []
     for isu, market, ind, nf, nt, ef, em in firms:
         cap = caps.get(isu)
@@ -392,7 +388,7 @@ async def run(dry: bool = False) -> int:
             (cap / ef) if ef and ef > 0 else None,      # pbr_fy0
             (cap / eq) if eq and eq > 0 else None,      # pbr_mrq
         ))
-    print(f"B. opm_val_firm {len(firm_recs)}종목 (시총 매칭 기준)")
+    print(f"B. 종목별 배수 {len(firm_recs)}종목 (시총 매칭 기준 · 메모리에서만 — 저장하지 않음)")
 
     # C. 시장 aggregate (agg와 동일 산식 — 분자·분모 짝 맞춤)
     agg = defaultdict(lambda: dict(cap=0, ni_fy=0, ni_ttm=0, eq=0, eq_fy=0,
@@ -476,17 +472,10 @@ async def run(dry: bool = False) -> int:
     # 260706 병합: 시장전체(sector='_ALL')와 섹터별 행을 opm_val_market 하나에 함께 저장.
     # 260823: **KSIC 섹터 집계는 더 이상 저장하지 않는다.** 섹터 배수·시총의 기준 축은
     #   업종분류 기준(sector_val_backfill.py, 같은 배치의 앞 단계)으로 옮겼다. KSIC 는 「기업이 어느
-    #   업종인가」를 알려주는 용도로만 남는다 — opm_val_firm.sector 는 그대로 채운다.
+    #   업종인가」를 알려주는 용도로만 남는다(종목별 행 `opm_val_firm` 저장은 261018 중단 — 위 B 참조).
     #   과거 KSIC 집계 11,790행은 지우지 않는다(재생성 가능하지만 이력이라 보존).
     all_mkt_recs = mkt_recs
     with con.cursor() as cur:
-        _wk_converge(cur, "opm_val_firm", snap_dd)
-        cur.executemany("""INSERT INTO opm_val_firm
-            (snap_dd, ticker, market, sector, cap, cap_pref, per_fy0, per_ttm, pbr_fy0, pbr_mrq)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (snap_dd, ticker) DO UPDATE SET market=EXCLUDED.market, sector=EXCLUDED.sector,
-            cap=EXCLUDED.cap, cap_pref=EXCLUDED.cap_pref, per_fy0=EXCLUDED.per_fy0,
-            per_ttm=EXCLUDED.per_ttm, pbr_fy0=EXCLUDED.pbr_fy0, pbr_mrq=EXCLUDED.pbr_mrq""", firm_recs)
         _wk_converge(cur, "opm_val_market", snap_dd)
         cur.executemany("""INSERT INTO opm_val_market
             (snap_dd, market, scheme, sector, label, n, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, cap_pref, ni_ttm, eq, ni_fy0)
@@ -498,7 +487,7 @@ async def run(dry: bool = False) -> int:
     con.commit()
     if unmapped:
         print(f"(우선주 미매핑 시총 {unmapped/1e12:.1f}조 — 제외)")
-    print(f"저장 완료: snap_dd={snap_dd} · firm {len(firm_recs)} · market {len(mkt_recs)} (KSIC 섹터 집계는 중단 — 업종분류 기준으로 이관)")
+    print(f"저장 완료: snap_dd={snap_dd} · market {len(mkt_recs)} (종목별 {len(firm_recs)}종목은 메모리에서만 · KSIC 섹터 집계는 중단 — 업종분류 기준으로 이관)")
     con.close()
     return 0
 

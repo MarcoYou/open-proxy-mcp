@@ -50,13 +50,16 @@ def test_default_window_and_days():
     assert len(led.days_between(since, until)) == 3
 
 
-def test_pick_snapshot_latest_at_or_before_else_oldest():
-    snaps = ["20260731", "20260828"]
-    assert led.pick_snapshot(snaps, "20260915") == "20260828"
-    assert led.pick_snapshot(snaps, "20260810") == "20260731"
-    assert led.pick_snapshot(snaps, "20260101") == "20260731"     # 백필 초기: 가장 가까운(오래된) 것
-    assert led.pick_snapshot([], "20260915") is None
-
+def test_ledger_no_longer_writes_sector_or_mktcap_copies():
+    """261018(재설계 6단계): `dart_events` 의 업종·시총 복사본 칸을 쓰지 않는다 — 읽는 쪽이 원본과 조인한다.
+    칸을 지워도 배치가 깨지지 않게 DDL·UPSERT·행 어디에도 그 이름이 없다(`industry` 색인 생성문 포함)."""
+    for col in ("sector", "industry", "sector_dd", "mktcap_won", "mktcap_dd"):
+        assert col not in led.UPSERT_EVENT.split("ON CONFLICT")[0] and f"{col} =" not in led.UPSERT_EVENT
+        assert f"\n  {col} " not in led.DDL
+    assert "dart_events_industry_dt" not in led.DDL
+    row = led.row_from_item(_item("20260915000001", "단일판매ㆍ공급계약체결", code="000001"), {"order"})
+    assert not {"sector", "industry", "sector_dd", "mktcap_won", "mktcap_dd"} & set(led.db_row(row))
+    assert "_cap" in row and "_cap" not in led.db_row(row)            # 상세 순서용 시총은 내부 키 — 저장하지 않는다
 
 def test_scan_codes_union():
     assert led.scan_codes_for(["order", "dividend", "treasury"]) == ["B001", "I001"]
@@ -111,7 +114,7 @@ def test_scan_day_dedups_rcept_and_records_coverage(monkeypatch):
 def test_fetch_details_respects_cap_and_skip(monkeypatch):
     rows = [led.row_from_item(_item(f"2026091500000{i}", "단일판매ㆍ공급계약체결", code=f"00000{i}"), {"order"})
             for i in range(1, 4)]
-    rows[1]["mktcap_won"] = 10**14
+    rows[1]["_cap"] = 10**14                                            # 상세 순서용(메모리) 시총
 
     class Client:                       # 전역 콜 카운터 — 상한은 이것으로 잰다
         n = 0

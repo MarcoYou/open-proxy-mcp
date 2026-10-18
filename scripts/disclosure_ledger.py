@@ -6,9 +6,12 @@
 업종별 흐름·수주 강도·리비전 대조 같은 조회 도구는 전부 이 표 위에 얹는다.
 
 무엇을 쌓나: `dart_events` — 접수번호 1행. 분류(유형·세부·단계·정정 여부)는 screener 의
-분류기를 **그대로** 쓴다(사본을 두면 두 곳이 갈린다). 업종은 업종분류(월 1회 스냅샷,
-접수일 이전 최신), 시총은 접수일 이전 최신 시세(일별 저장분 `krx_daily_v` 창 안이면 그날, 밖이면 `krx_weekly` 주간)를 붙인다. 수주·자사주·배당·
+분류기를 **그대로** 쓴다(사본을 두면 두 곳이 갈린다). 수주·자사주·배당·
 증자·잠정실적은 기존 상세 파서로 금액·매출비율 등 핵심 숫자를 `detail`(jsonb)에 담는다.
+업종·시총은 **저장하지 않는다**(261018, 재설계 6단계): 종전엔 업종분류 스냅샷·주간 시세의 값을 `sector`·`industry`·
+`mktcap_won`(+ 각 기준일 `sector_dd`·`mktcap_dd`)에 복사해 두었는데, 원본 표가 이미 있고 복사본은 재스캔 때 날짜가 흔들렸다.
+읽는 쪽(서버)이 접수일 기준으로 조인한다. 이 배치는 그 칸을 읽지도 쓰지도 않는다(칸을 지워도 깨지지 않는다).
+시총은 상세 파싱 순서(콜 상한 안에서 큰 회사 먼저)에만 메모리로 쓴다 — `rank_caps`.
 `dart_events_scan` — 날짜×코드별로 DART 가 몇 건이라 했고 몇 페이지를 실제로 받았는지.
 기준선은 모수가 정직해야 뜻이 있다. 빠진 날은 「0건」이 아니라 「안 본 날」이다.
 
@@ -73,11 +76,6 @@ CREATE TABLE IF NOT EXISTS dart_events (
   dedup_key     text,
   report_nm     text,
   flr_nm        text,
-  sector        text,
-  industry      text,
-  sector_dd     text,
-  mktcap_won    bigint,
-  mktcap_dd     text,
   detail_status text,
   detail        jsonb,
   detail_note   text,
@@ -85,7 +83,6 @@ CREATE TABLE IF NOT EXISTS dart_events (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS dart_events_dt_kind ON dart_events (rcept_dt, kind);
-CREATE INDEX IF NOT EXISTS dart_events_industry_dt ON dart_events (industry, rcept_dt);
 CREATE INDEX IF NOT EXISTS dart_events_stock_dt ON dart_events (stock_code, rcept_dt);
 CREATE TABLE IF NOT EXISTS dart_events_scan (
   scan_dd     date NOT NULL,
@@ -102,21 +99,16 @@ CREATE TABLE IF NOT EXISTS dart_events_scan (
 
 UPSERT_EVENT = """
 INSERT INTO dart_events (rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, subtype,
-  stage, is_correction, dedup_key, report_nm, flr_nm, sector, industry, sector_dd, mktcap_won, mktcap_dd,
+  stage, is_correction, dedup_key, report_nm, flr_nm,
   detail_status, detail, detail_note, updated_at)
 VALUES (%(rcept_no)s, %(rcept_dt)s, %(corp_code)s, %(corp_name)s, %(stock_code)s, %(corp_cls)s, %(kind)s,
-  %(subtype)s, %(stage)s, %(is_correction)s, %(dedup_key)s, %(report_nm)s, %(flr_nm)s, %(sector)s,
-  %(industry)s, %(sector_dd)s, %(mktcap_won)s, %(mktcap_dd)s, %(detail_status)s, %(detail)s, %(detail_note)s, now())
+  %(subtype)s, %(stage)s, %(is_correction)s, %(dedup_key)s, %(report_nm)s, %(flr_nm)s,
+  %(detail_status)s, %(detail)s, %(detail_note)s, now())
 ON CONFLICT (rcept_no) DO UPDATE SET
   corp_name = EXCLUDED.corp_name, stock_code = EXCLUDED.stock_code, corp_cls = EXCLUDED.corp_cls,
   kind = EXCLUDED.kind, subtype = EXCLUDED.subtype, stage = EXCLUDED.stage,
   is_correction = EXCLUDED.is_correction, dedup_key = EXCLUDED.dedup_key, report_nm = EXCLUDED.report_nm,
   flr_nm = EXCLUDED.flr_nm,
-  sector = COALESCE(EXCLUDED.sector, dart_events.sector),
-  industry = COALESCE(EXCLUDED.industry, dart_events.industry),
-  sector_dd = COALESCE(EXCLUDED.sector_dd, dart_events.sector_dd),
-  mktcap_won = COALESCE(EXCLUDED.mktcap_won, dart_events.mktcap_won),
-  mktcap_dd = COALESCE(EXCLUDED.mktcap_dd, dart_events.mktcap_dd),
   -- 상세는 **이미 파싱된 것을 실패로 되돌리지 않는다** — 그뿐이다. 260917 버그: 예전 SQL 은
   -- 「새 값이 parsed/partial 이 아니면 옛 값을 유지」였는데, 첫 시도에서 옛 값이 기본치
   -- scan_only(아직 안 본 상태)일 때도 이 규칙이 걸려 실제 결과(no_data 등)가 영영 안 남고
@@ -192,24 +184,13 @@ def row_from_item(item: dict, allowed: set[str]) -> dict | None:
         "dedup_key": dedup_key,
         "report_nm": report_nm.strip(),
         "flr_nm": (item.get("flr_nm") or "").strip() or None,
-        "sector": None, "industry": None, "sector_dd": None,
-        "mktcap_won": None, "mktcap_dd": None,
         "detail_status": "scan_only", "detail": None, "detail_note": None,
         # 내부 — 상세 디스패치용(_fetch_detail 이 읽는 키). DB 에는 안 들어간다.
+        "_cap": None,                   # 상세 파싱 순서용 시총(rank_caps) — 저장하지 않는다
         "_detail_kind": tdef.get("detail_kind"),
         "_force_detail": _force_details(tdef, report_nm, is_corr),
         "filed_at": f"{rcept_dt[:4]}-{rcept_dt[4:6]}-{rcept_dt[6:8]}",
     }
-
-
-def pick_snapshot(snaps: list[str], dd: str) -> str | None:
-    """접수일 이전 가장 최신 스냅샷. 하나도 없으면 가장 오래된 것(초기 백필에서 그 앞 날짜는
-    스냅샷이 없다 — 없다고 비워 두는 것보다 가장 가까운 것을 붙이고 `*_dd` 로 밝히는 편이 낫다)."""
-    if not snaps:
-        return None
-    ordered = sorted(snaps)
-    before = [s for s in ordered if s <= dd]
-    return before[-1] if before else ordered[0]
 
 
 def scan_codes_for(types: list[str]) -> list[str]:
@@ -223,54 +204,28 @@ def db_row(row: dict) -> dict:
     return out
 
 
-# ── DB 보강 ────────────────────────────────────────────────────────────
+# ── 상세 파싱 순서 ─────────────────────────────────────────────────────
 
-def enrich(con, rows: list[dict]) -> None:
-    """업종(업종분류 스냅샷)·시총을 접수일 이전 최신 스냅샷에서 붙인다. DB 만, DART 0콜.
+#: 최신 거래일 전 종목 시총(일별 시세 저장분). 접수일 시점 값일 필요는 없다 — 순서만 정한다.
+RANK_CAPS_SQL = ("SELECT ticker, mktcap FROM krx_daily_v WHERE trd_dd = (SELECT max(trd_dd) FROM krx_daily) "
+                 "AND ticker = ANY(%s) AND mktcap IS NOT NULL")
 
-    시총 원천(261018, 재설계 5-1): **일별 시세 저장분(`krx_daily_v`, 최근 7거래일)을 먼저** 보고, 접수일이 그 창보다 이르면
-    `krx_weekly`(주마다 그 주 마지막 거래일)를 본다. 종전엔 `krx_weekly` 만 봤는데 그 표의 주중 행은 같은 주의 다음 날 기록 때
-    지워졌다 — 최근 3일 재스캔이 같은 공시에 다른 날짜의 시총을 붙였다(실측: 접수 10-15 공시에 20261008 시총). 일별 창 안의
-    날짜는 지워지지 않으니 재스캔해도 같은 날(접수일 이하 가장 늦은 거래일)이 붙는다. 같은 날짜가 두 표에 다 있으면 일별 것을 쓴다."""
+
+def rank_caps(con, rows: list[dict]) -> None:
+    """상세 파싱 순서(콜 상한 안에서 큰 회사 먼저)에 쓸 시총을 행의 내부 키 `_cap` 에 붙인다. DB 만, DART 0콜, **저장하지 않는다**.
+
+    261018(재설계 6단계): `dart_events` 의 시총·업종 복사본 칸을 없앴다 — 읽는 쪽이 접수일 기준으로 조인한다. 종전에는 그 칸의
+    값으로 순서를 정했으므로, 순서만은 여기서 메모리로 유지한다. 시세를 못 읽으면 순서 없이(접수번호 순) 그대로 간다."""
     tickers = sorted({r["stock_code"] for r in rows if r.get("stock_code")})
     if not tickers:
         return
-    sec_snaps = [r[0] for r in con.execute("SELECT DISTINCT snap_dd FROM wise_sector").fetchall()]
-    lo = yyyymmdd(min(r["rcept_dt"] for r in rows) - timedelta(days=14))
-    hi = yyyymmdd(max(r["rcept_dt"] for r in rows))
-    daily_snaps = {r[0] for r in con.execute("SELECT DISTINCT trd_dd FROM krx_daily").fetchall()}
-    cap_snaps = [r[0] for r in con.execute(
-        "SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s AND price_dd <= %s", (lo, hi)).fetchall()]
-    if not cap_snaps:   # 창 안에 주간 시점이 없으면 그 이전 최신 하나
-        prev = con.execute("SELECT max(price_dd) FROM krx_weekly WHERE price_dd <= %s", (hi,)).fetchone()[0]
-        cap_snaps = [prev] if prev else []
-    cap_snaps = sorted(set(cap_snaps) | daily_snaps)
-    sec_cache: dict[str, dict[str, tuple[str, str]]] = {}
-    cap_cache: dict[str, dict[str, int]] = {}
+    try:
+        caps = {t: int(c) for t, c in con.execute(RANK_CAPS_SQL, (tickers,)).fetchall()}
+    except Exception as e:              # noqa: BLE001 — 순서만 잃는다
+        print(f"  (상세 순서용 시총 조회 실패 {type(e).__name__} — 순서 없이 진행)", flush=True)
+        return
     for r in rows:
-        t = r.get("stock_code")
-        if not t:
-            continue
-        dd = yyyymmdd(r["rcept_dt"])
-        s_dd = pick_snapshot(sec_snaps, dd)
-        if s_dd:
-            if s_dd not in sec_cache:
-                sec_cache[s_dd] = {a: (b, c) for a, b, c in con.execute(
-                    "SELECT ticker, sector, industry FROM wise_sector WHERE snap_dd=%s AND ticker = ANY(%s)",
-                    (s_dd, tickers)).fetchall()}
-            hit = sec_cache[s_dd].get(t)
-            if hit:
-                r["sector"], r["industry"], r["sector_dd"] = hit[0], hit[1], s_dd
-        c_dd = pick_snapshot(cap_snaps, dd)
-        if c_dd:
-            if c_dd not in cap_cache:
-                src = ("krx_daily_v WHERE trd_dd=%s" if c_dd in daily_snaps else "krx_weekly WHERE price_dd=%s")
-                cap_cache[c_dd] = {a: int(b) for a, b in con.execute(
-                    f"SELECT ticker, mktcap FROM {src} AND ticker = ANY(%s) AND mktcap IS NOT NULL",
-                    (c_dd, tickers)).fetchall()}
-            cap = cap_cache[c_dd].get(t)
-            if cap is not None:
-                r["mktcap_won"], r["mktcap_dd"] = cap, c_dd
+        r["_cap"] = caps.get(r.get("stock_code"))
 
 
 def already_detailed(con, rcept_nos: list[str]) -> set[str]:
@@ -319,7 +274,7 @@ async def fetch_details(client, rows: list[dict], kinds: tuple[str, ...], max_ca
     된다(260916 실측: 전역 30콜을 83으로 셌다). 상한이 이르게 걸리는 쪽이라 위험하진 않지만
     「600콜 상한」이 600콜이어야 말이 된다."""
     targets = [r for r in rows if r.get("_detail_kind") in kinds and r["rcept_no"] not in skip]
-    targets.sort(key=lambda r: (not r["_force_detail"], -(r.get("mktcap_won") or 0)))
+    targets.sort(key=lambda r: (not r["_force_detail"], -(r.get("_cap") or 0)))
     running = {"calls": 0}
     base = client.api_call_snapshot()
     done = skipped = 0
@@ -369,7 +324,7 @@ async def run(since: date, until: date, types: list[str], details: bool, detail_
     for day in days_between(since, until):
         rows, coverage = await scan_day(client, day, codes, allowed)
         if con is not None:
-            enrich(con, rows)
+            rank_caps(con, rows)
         stats = {}
         if details and rows:
             skip = already_detailed(con, [r["rcept_no"] for r in rows]) if con is not None else set()
