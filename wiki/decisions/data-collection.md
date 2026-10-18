@@ -28,6 +28,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 2. KRX Open API — `https://data-dbg.krx.co.kr/svc/apis/...` (주가 fallback)
 3. Naver 검색 API — `https://naverapihub.apigw.ntruss.com/search/v1/...`(HUB, 우선) · `https://openapi.naver.com/v1/search/...`(개발자센터, 2027-06-30 까지)
 4. Naver Finance JSON — `https://api.finance.naver.com/...`
+4-1. Naver 증권(모바일) JSON — `https://m.stock.naver.com/api/index/{지수}/enrollStocks` (지수 구성종목 목록 — 아래 4.6, 261018)
 
 ### B. HTML 크롤링 (반정형)
 
@@ -94,7 +95,8 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 
 - Endpoint: `https://opendart.fss.or.kr/api/corpCode.xml`
 - 응답: ZIP → XML (전체 상장+비상장 corp_code)
-- 호출 위치: `DartClient._load_corp_codes()` (모듈 글로벌 캐시 `_corp_code_cache` — 프로세스 동안 1회만 로드)
+- 호출 위치: `DartClient._load_corp_codes()` (모듈 글로벌 캐시 `_corp_code_cache` — 프로세스가 뜰 때 1회 적재) ·
+  `DartClient.refresh_corp_codes()` (261018 — 하루 한 번·신규상장 신호·해석 실패 때 새로 받아 통째로 바꿔 끼움. 아래 「원장 관측」)
 - 사용: `lookup_corp_code()` / `lookup_corp_code_all()` (종목코드/회사명/약칭/영문명 → corp_code 변환)
 
 ### Alias 매핑
@@ -424,6 +426,23 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 시가총액·로고: AlphaSquare CDN 경유 — open-proxy-ai 프론트엔드 별도 수집
 - 192개 기업 로고 정적 (네이버 금융 직접 호출 아님)
 
+## 4.6 지수 구성종목 목록 — 코스피200·코스닥150 원장 (261018)
+
+- Endpoint: `https://m.stock.naver.com/api/index/{KPI200|KQI150}/enrollStocks?page=N&pageSize=60` (61 이상은 400 — 짧은 쪽이 끝)
+- 호출 위치: `scripts/krx_index_members.py` (매일 `.github/workflows/index-members-daily.yml`) — 서버는 부르지 않는다. 원장 `krx_index_members` 만 읽는다.
+- 받는 것: **종목코드만**(`itemCode`). 응답의 가격·시총은 쓰지 않는다.
+- 왜 이 원천인가: KRX 는 지수 구성종목을 무료 API 로 주지 않는다 — Open API 서비스 목록에 구성종목 항목이 없고(지수는 일별시세만),
+  정보데이터시스템 「지수구성종목」(`MDCSTAT00601`)은 조회·내려받기 모두 로그인 요구(비로그인 응답 `LOGOUT`, 261018 확인),
+  지수 사이트는 구성정보를 구매 요청으로 판다. 옛 PC 편입종목 화면(`finance.naver.com/sise/entryJongmok.naver`)은 410 으로 닫혔다.
+- **확인(쓰기 조건)**: 목록 종목들의 KRX 일별 매매정보(`sto/stk_bydd_trd`·`sto/ksq_bydd_trd`) `MKTCAP`·`ACC_TRDVOL`·`ACC_TRDVAL` 합이
+  같은 날 KRX 지수 일별시세(`idx/kospi_dd_trd` 「코스피 200」·`idx/kosdaq_dd_trd` 「코스닥 150」)의 세 값과 **정확히 같을 때만** 쓴다.
+  실측 20261016: 코스피200 201종목·코스닥150 150종목 모두 세 합 차이 0. 종목 하나만 달라도 거래량 합이 어긋난다.
+- 구성이 바뀐 날(정기변경 6·12월 · 수시변경) 아침에는 목록(새 구성)과 전 거래일 KRX 합계(옛 구성)가 어긋난다 → 쓰지 않고 경고, 다음 날 맞춘다.
+  직전 확인에서 4일을 넘게 어긋나면 실패로 알린다. 목록·KRX 응답 이상(HTTP 오류·모양·종목 수 범위 밖·중복)은 바로 실패.
+- 속도: 지수당 4~7요청, 프로세스 공통 웹 속도제한(`throttle_web_request`). KRX 3~7콜/일.
+- 없는 것: KRX300 — 이 목록에 그 지수가 없고 KRX 무료 원천도 없다(원장 미보유). 코리아 밸류업 지수(`KVALUE`)·코스피100(`KPI100`)은 같은 방식으로
+  받아 KRX 합계와 맞는 것을 확인했지만(20261016 차이 0) 유니버스 문법이 그 이름을 받지 않아 담지 않았다.
+
 ---
 
 # 5. KRX Open API (종가 1차)
@@ -435,6 +454,8 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 환경변수: `KRX_API_KEY` 또는 `KRX_OPEN_API_KEY`
 - 승인 상태: 전 서비스 승인 완료 (2026-04-08, 자세한 내역은 [[KRX-KIND]])
 - get_stock_price()는 KRX → Naver 순서로 fallback
+- 지수 일별시세(`idx/kospi_dd_trd`·`idx/kosdaq_dd_trd`·`idx/krx_dd_trd`): 지수마다 `MKTCAP`·`ACC_TRDVOL`·`ACC_TRDVAL` = 구성종목 합.
+  지수 구성종목 원장 적재가 목록 확인에 쓴다(4.6). 구성종목 목록 자체는 Open API 에 없다.
 
 ---
 
@@ -648,6 +669,34 @@ OPM 운영(2026-07-12~ XML 단독):
 TTL 은 이 수치를 며칠 보고 정한다. 걸 때는 **fail-open** — 만료됐는데 새로 못 받으면 옛 값을
 계속 쓰되 「원장 기준일 이후라 아직 없을 수 있다」를 응답에 붙인다. 만료됐다고 답을 못 내면 더 나쁘다.
 
+### 회사 목록 새로 받기 (261018)
+
+수치가 답을 줬다 — 261018 운영 두 머신 모두 `as_of` 20261008·119,601사(그날 새로 받은 명부는 119,664사)였고,
+10/15 상장 멜콘(179880)을 `price_multiple_data`·`trading_data` 가 not_found 로 답했다. `age_hours` 는 0.2 였다 — 그 값은
+**메모리에 올린 뒤** 시간이라 원장의 나이를 가렸다. 그래서 `fetched_at`·`fetched_age_hours`(DART 에서 받은 시각)를 따로 싣는다.
+
+새로 받는 길은 셋이고, 모두 실패하면 옛 명부를 그대로 쓴다(fail-open):
+
+| 길 | 언제 | 상한 |
+|---|---|---|
+| 정기 | 서버 백그라운드 갱신기(`services/corp_registry_refresher.py`)가 기동 직후·1시간마다 보고, 받은 지 23시간이 넘었으면 | 하루 1회 |
+| 신규상장 신호 | `krx_daily` 최신일(활성 상장 명부)에 있는 보통주 코드(끝자리 0)가 명부에 없으면 — 새로 받은 뒤에도 남은 코드(DART 가 늦게 싣는 경우)는 다시 세지 않고, 받기가 실패했으면 다음 확인 때 다시 | 시간당 1회 |
+| 해석 실패 | `lookup_corp_code_all` 이 빈 결과(종목코드는 명부에 없는 보통주 코드일 때만)이고 명부를 받은 지 1시간이 넘었으면 — 받고 다시 찾는다(최대 20초 대기) | 시간당 1회 |
+
+- **우선주는 신호가 아니다.** DART 명부에는 보통주 코드만 있어 `krx_daily` 의 우선주 114개(261018 실측, 전부 끝자리 0 이 아님)는
+  늘 명부에 없다. 보통주 코드 기준으로는 새 명부에서 없는 코드가 0개, 10/12 명부에서는 179880 하나였다.
+- **명부에 이미 있는데 못 찾은 코드**(영숫자 코드 해석 등)는 받아도 안 바뀌므로 신호로 세지 않는다.
+- **받기는 프로세스에 하나** — 동시 요청은 같은 받기를 기다린다. 기다리던 요청이 끊겨도 받기는 끝까지 간다.
+  받기는 요청 문맥을 물려받지 않고 서버 키로 돈다(서버 키가 없을 때만 요청자의 키).
+- **반쪽 응답 방어** — 검증(10만 사·상장 3,000·영문명 90%)에 더해, 상장사 수가 지금 명부보다 3% 넘게 줄었으면 버린다.
+  단 지금 명부가 3일 넘게 묵었으면(며칠째 같은 이유로 버리는 중) 받아들이고 WARNING 을 남긴다 — DART 쪽 정리였다면 영영 굳는 편이 더 나쁘다.
+- **해석은 조각으로** — 30MB XML 을 `ET.fromstring` 한 번에 읽으면 그동안 GIL 을 안 놓아 스레드로 빼도 이벤트 루프가 멈춘다.
+  256KB 조각으로 먹이는 풀 파서로 바꿨다(실측 119,664사: 정점 261MB → 69MB, 1.6초 → 1.8초).
+- **머신 두 대** — 볼륨(sqlite)이 머신마다 따로라 각자 받는다. 서로 기다리거나 덮어쓸 것이 없고, 잠깐 한쪽만 새 명부여도
+  다른 쪽은 해석 실패 길이 메운다. 같은 파일을 쓰는 다른 프로세스(로컬)가 더 새로 받아 두었으면 받지 않고 그것을 올린다.
+- 끄기: `OPM_CORP_REFRESHER=0` — 자동으로 새로 받는 길 전부(시험·비상용). 프로세스가 뜰 때의 첫 적재(sqlite 7일 상한)는 그대로다.
+- 덤: 사명 이력(`corp_name_history`)은 받을 때마다 남으므로 이제 하루 단위로 쌓인다(종전 주 단위).
+
 ## 11.2 캐시 정책
 
 한도는 **개수가 아니라 바이트**다. 260804 OOM 의 뿌리가 개수 예산이었다 — 사업보고서 한
@@ -655,7 +704,7 @@ TTL 은 이 수치를 며칠 보고 정한다. 걸 때는 **fail-open** — 만�
 
 | 캐시 | 저장소 | 예산 | 키 |
 |---|---|---|---|
-| corpCode.xml | 모듈 글로벌 (`_corp_code_cache`) + sqlite(`/data/master.db`) | unlimited | 프로세스 단위 |
+| corpCode.xml | 모듈 글로벌 (`_corp_code_cache`) + sqlite(`/data/master.db`) | unlimited | 하루 1회 + 신호 때 통째로 교체 (261018) |
 | document.xml + viewer 본문 | 메모리 LRU (`_DOC_CACHE`, 전역) | **96MB** + TTL 24h | `doc:` / `viewer:` 네임스페이스 |
 | 과거 배당(alotMatter) | 메모리 LRU (`_DIVIDEND_CACHE`, 전역) | **16MB** + TTL 24h | corp_code + 연도 |
 | list.json (검색) | 인스턴스 dict | 50건 (실측 ~0.5MB) | corp_code+bgn+end+pblntf_ty (단일 corp + page1 + count100만) |
@@ -820,10 +869,12 @@ DB 쪽 필터만 걸어서 `str(None)`="None" 이 65,500건짜리 가짜 범주�
 |---|---|---|
 | 사용 기록 워커가 접속할 때 | CREATE/ALTER 22문장 — `ALTER TABLE` 은 칸이 이미 있어도 표 전체 잠금을 잡는다 | DDL 없음 |
 | 표 소유자가 아닌 역할(최소 권한 계정)에서 | `must be owner` 로 거절 → 2초마다 재접속, 0행 | 쓰기 권한만 있으면 쓴다 |
-| 확정(COMMIT) | 호출 1건마다 | 첫 행부터 5초 모아 한 번(`OPM_USAGE_FLUSH_SEC`) |
+| 확정(COMMIT) | 호출 1건마다 | 첫 행부터 2초 모아 한 번(`OPM_USAGE_FLUSH_SEC`, 261018 5초→2초 — 아래) |
 | 쓰기 실패 | 그 묶음을 버림 | 들고 다시 씀 — 이벤트는 `event_id` 로, 기업 집계는 `RETURNING` 으로 이번에 들어간 행만 더해 두 번 세지 않는다 |
 | 종료 | (즉시 쓰므로 해당 없음) | 종료 신호에서 곧장 쓰고 atexit 에서 끝낸다 — fly 는 정해진 시간 뒤 강제 종료하므로 atexit 만으론 모자라다 |
 | KRX 호출 장부 `bump()` | 20번째 호출이 그 자리에서 새 접속 + CREATE TABLE — async 경로라 이벤트루프가 멈췄다 | 메모리 계수만. 쓰기는 배경 스레드가 공용 풀로(표가 없을 때만 만든다) |
+
+**묶음 창 5초 → 2초**(261018). 디스크 송신함(볼륨 sqlite)은 워커가 **꺼낸 묶음**만 받친다 — 모으는 창 안의 행은 아직 메모리에만 있어 종료 신호 없는 강제 종료(OOM 등)에 잃는다. 운영 7일 호출 시각(36,711건)으로 모의하면 무작위 시점에 창 안에 든 행의 기대값이 5초 0.21건 → 2초 0.09건이고, 하루 확정 횟수는 1,835 → 2,872번(분당 2번꼴)이다. 확정 횟수보다 잃는 폭을 줄이는 쪽을 택했다. 요청 경로는 그대로 메모리 큐만 만진다.
 
 **호출 인자 두 칸**(`scope` text · `as_of` date, 261018). 인자는 정책이 세 번 바뀌는 동안 한 번도 안 열었던 자리라
 **닫힌 목록**으로만 연다 — 미들웨어는 본문에서 이 두 키만 꺼내고(`server._extract_call_dims`), 저장 경계(`usage._call_dims`)가
@@ -908,6 +959,7 @@ POSIX에서 프로세스 간 잠금으로 검사·게시를 직렬화한다. 원
 | (참고) news_check (v1) | Naver 뉴스 OpenAPI | — | — |
 | (참고) get_stock_price | KRX `stk_bydd_trd` | Naver Finance siseJson | — |
 | (참고) get_portal_corp_profile | Naver coinfo + sise_group_detail | — | — |
+| (참고) 지수 구성종목 원장 `krx_index_members` | Naver 증권 enrollStocks(코드만) | KRX 지수 일별시세 합계로 확인 | 원장을 못 읽으면 유니버스가 시총 상위 정원으로 대체(경고) |
 | (참고) proxy_guideline | data/asset_managers/ JSON (정적) | — | — |
 
 ---

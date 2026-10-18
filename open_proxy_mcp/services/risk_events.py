@@ -39,6 +39,7 @@ from open_proxy_mcp.services.contracts import (
     build_filing_meta,
     status_from_filing_meta,
 )
+from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.exchange_actions import (
     EXTRA_CATEGORIES,
@@ -518,6 +519,7 @@ async def _build_market_scan_payload(
     client = get_dart_client()
     rows: list[dict[str, Any]] = []
     api_calls = 0
+    scan_failed = False
     keywords = _category_filter_keywords(category)
 
     def _page_cap(fanout: int) -> int:
@@ -525,7 +527,15 @@ async def _build_market_scan_payload(
         return list_pages_per_code(fanout)
 
     async def _sweep(detail_ty: str, page_cap: int) -> tuple[list[dict[str, Any]], int]:
-        first = await client.search_filings(bgn_de=bgn_de, end_de=end_de, pblntf_detail_ty=detail_ty, page_no=1)
+        try:
+            first = await client.search_filings(bgn_de=bgn_de, end_de=end_de, pblntf_detail_ty=detail_ty, page_no=1)
+        except DartClientError as exc:
+            # 013 = 이 채널·구간에 공시가 없다 — **빈 채널**이지 실패가 아니다(261018). 종전엔 한 채널만 비어도
+            # (주말·공휴일 하루 구간, 거래소 시장조치가 없는 날 등) 예외가 gather 를 깨서 다른 채널에서 받은 것까지
+            # 버리고 「시장 전체 스캔 실패: 013」으로 끝났다. 그 밖의 오류는 그대로 올려 실패로 적는다.
+            if is_no_data(exc):
+                return [], 1
+            raise
         calls = 1
         total_page = min(int(first.get("total_page") or 1), page_cap)
         pages = [first]
@@ -575,6 +585,7 @@ async def _build_market_scan_payload(
             rows.append(row)
     except DartClientError as exc:
         warnings.append(f"시장 전체 스캔 실패: {exc.status}")
+        scan_failed = True
     rows.sort(key=lambda r: (r.get("rcept_dt", ""), r.get("rcept_no", "")), reverse=True)
 
     if include_details and rows:
@@ -589,7 +600,8 @@ async def _build_market_scan_payload(
         nm = r.get("corp_name") or r.get("filer_name") or "?"
         by_company[nm] = by_company.get(nm, 0) + 1
 
-    filing_meta = build_filing_meta(filing_count=len(rows), parsing_failures=0)
+    # 스캔이 실패(013 이 아닌 DART 오류)했는데 0건이면 「리스크 공시 없음」이 아니라 「모른다」다 → status=error(261018).
+    filing_meta = build_filing_meta(filing_count=len(rows), parsing_failures=0, fetch_failed=scan_failed)
     data: dict[str, Any] = {
         "mode": "market_scan",
         "category": category or "all",
@@ -737,7 +749,8 @@ async def build_risk_events_payload(
         for row in rows[:details_limit]:
             if not (row.get("details") or {}):
                 parsing_failures += 1
-    filing_meta = build_filing_meta(filing_count=len(rows), parsing_failures=parsing_failures)
+    # 검색이 실패(013 이 아닌 DART 오류 — 013 은 검색 도우미가 빈 목록으로 준다)했는데 0건이면 「없음」이 아니라 「모른다」다(261018).
+    filing_meta = build_filing_meta(filing_count=len(rows), parsing_failures=parsing_failures, fetch_failed=bool(error))
 
     data: dict[str, Any] = {
         "mode": "company",

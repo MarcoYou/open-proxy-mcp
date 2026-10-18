@@ -430,7 +430,8 @@ async def build_order_contracts_payload(
         keywords=_SUPPLY_KEYWORDS,
     )
     warnings = list(win_warn)
-    if error and error != "013":
+    search_failed = bool(error and error != "013")
+    if search_failed:
         warnings.append(f"수주 공시 검색 실패: {error}")
 
     # 문서 본문 병렬 fetch — 각 공시는 독립적이라 gather (형제 tool corporate_deals·treasury_share
@@ -445,8 +446,10 @@ async def build_order_contracts_payload(
 
     events: list[dict[str, Any]] = []
     doc_calls = 0
+    doc_failed = 0      # 본문을 받지 못한 공시 수(DART 오류) — 0건 결과를 「수주 없음」으로 적지 않는 데 쓴다
     for it, doc in fetched:
         if doc is None:
+            doc_failed += 1
             continue
         rcept_no = it.get("rcept_no", "")
         doc_calls += 1
@@ -487,15 +490,25 @@ async def build_order_contracts_payload(
         )
         for o in orders[:10] if o.get("rcept_no")
     ]
-    if items and not orders and not terminations:
-        warnings.append("수주 공시는 있으나 본문 파싱에서 유효 계약을 만들지 못했다.")
+    # 공시는 찾았는데 계약을 하나도 못 만들었다 = 본문을 못 받았다(`_dedup` 은 행을 버리지 않는다) — 「수주 없음」(no_filing)이
+    # 아니라 「찾았으나 못 읽었다」(partial)다(261018: 종전엔 이 경우도 no_filing 이었다).
+    found_unread = bool(items) and not orders and not terminations
+    if found_unread:
+        warnings.append(
+            f"수주 공시 {min(len(items), max_documents)}건을 찾았으나 본문 {doc_failed}건을 DART 에서 받지 못해 계약 내용을 "
+            "읽지 못했다 — 「수주 없음」이 아니다. 잠시 뒤 다시 조회한다."
+            if doc_failed else "수주 공시는 있으나 본문 파싱에서 유효 계약을 만들지 못했다.")
     if terminations and not orders:
         warnings.append(f"체결 공시 없이 계약 해지 {len(terminations)}건만 있다 (과거 수주의 해지).")
 
     return ToolEnvelope(
         tool="order_contracts",
-        # 해지(termination)만 있어도 '수주했다 해지'라는 정보다 — no_filing(수주 자체 없음)과 구분
-        status=AnalysisStatus.EXACT if (orders or terminations) else AnalysisStatus.NO_FILING,
+        # 해지(termination)만 있어도 '수주했다 해지'라는 정보다 — no_filing(수주 자체 없음)과 구분.
+        # 검색이 실패(013 이 아닌 DART 오류)했는데 0건이면 「수주 없음」이 아니라 「모른다」다 → error(261018).
+        # 공시를 찾았으나 본문을 못 읽었으면 partial(「없음」이 아니다).
+        status=(AnalysisStatus.EXACT if (orders or terminations)
+                else AnalysisStatus.PARTIAL if found_unread
+                else AnalysisStatus.ERROR if search_failed else AnalysisStatus.NO_FILING),
         subject=selected.get("corp_name", company_query),
         warnings=warnings + notices,
         data={

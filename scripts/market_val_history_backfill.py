@@ -34,6 +34,7 @@ load_dotenv(ROOT / ".env")
 import psycopg
 from scripts.market_val_weekly import bucket, label
 from open_proxy_mcp.services.price_multiple_data import _pit_quarter, _ttm_ni, _mrq_eq
+from open_proxy_mcp.services import report_calendar as rcal
 
 DDL_MIGRATE = (
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS per_fy0 double precision",
@@ -80,9 +81,9 @@ WHERE (opm_val_market.label, opm_val_market.n, opm_val_market.cap, opm_val_marke
 """
 
 
-def _pit_fy(dd: str) -> int:
-    y, m = int(dd[:4]), int(dd[4:6])
-    return y - 1 if m >= 4 else y - 2
+def _pit_fy(dd: str, fye: int = 12) -> int:
+    """12월 결산은 4월 이후 전년, 아니면 전전년(종전 식). 261018: 결산월 `fye` 를 받는다(`report_calendar.pit_annual`)."""
+    return rcal.pit_annual(dd, fye)
 
 
 async def main() -> None:
@@ -113,12 +114,13 @@ async def main() -> None:
         "ORDER BY substring(price_dd,1,6), price_dd DESC", (since,))]
     today = date.today(); cur_ym = f"{today.year}{today.month:02d}"
     months = sorted(d for d in months if d[:6] < cur_ym)
-    print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · 종목 {len(meta)}", flush=True)
+    # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
+    fye_of = rcal.load_fye_map(con)
+    print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · 종목 {len(meta)}(12월 결산이 아닌 {len(fye_of)})", flush=True)
 
     nmk = nsec = 0
     for d in months:
-        fy = _pit_fy(d)
-        fy_q, q = _pit_quarter(d)
+        pit = {rcal.Fiscal(): (_pit_fy(d), _pit_quarter(d))}   # 공시 달력(결산월·외국 상장사 기한) → (그 시점 FY, (분기 칸)) — 12월 결산은 날짜마다 한 번
         caps = {r[0]: float(r[1] or 0) for r in con.execute(
             "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s", (d,))}
         # ⚠ 4지표 각각 독립 시총분모 필수 — 한 firm이 ni_fy0는 없고 ni_ttm만 있어도 그 firm의 cap이
@@ -133,9 +135,13 @@ async def main() -> None:
             cap = caps.get(isu)
             if not cap or market not in (MKT_KS, MKT_KQ):
                 continue
+            fye = rcal.fiscal(fye_of.get(isu, 12), isu)
+            if fye not in pit:
+                pit[fye] = (_pit_fy(d, fye), _pit_quarter(d, fye))
+            fy, (fy_q, q) = pit[fye]
             fin = fin_all.get(isu, {})
             f = fin.get(fy)
-            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q)
+            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q, fye)
             eq_mrq = _mrq_eq(fin, finq_all.get(isu, {}), fy_q, q)
             if not f and ni_ttm is None and eq_mrq is None:
                 continue

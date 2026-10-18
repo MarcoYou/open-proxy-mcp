@@ -11,7 +11,7 @@
   python3 scripts/usage_tracker.py --export DIR    # daily.csv·weekly.csv·users.csv·summary.json
   python3 scripts/usage_tracker.py --report       # 요약만
   python3 scripts/usage_tracker.py --paths [일수] # 원문 경로(주/viewer/KIND) + 폴백이 문 시간
-  python3 scripts/usage_tracker.py --corps [일수] # 조회된 기업 순위(사용자와 분리된 집계)
+  python3 scripts/usage_tracker.py --corps [일수] # 조회된 기업 순위(사용자와 분리된 집계 · 90일 넘은 주는 보관본과 합침)
   python3 scripts/usage_tracker.py --migrate-local # 로컬 sqlite events → Postgres 1회 이전(시드)
 
 legacy(로컬 sqlite 수집 — Postgres 전환 전 과거 데이터 확보용):
@@ -81,10 +81,10 @@ def _pg_conn():
 #: **경로는 `events_drain` 의 것을 그대로 쓴다** — 여기 사본을 두면 이중장부가 되고,
 #: 한쪽만 바뀌면 조용히 다른 폴더를 보게 된다(260817 SELF_HASHES 사본 사고와 같은 모양).
 try:
-    from events_drain import OUT_DIR as DRAINED_DIR
+    from events_drain import OUT_DIR as DRAINED_DIR, STORAGE_REPO
 except ImportError:                      # `import scripts.usage_tracker` 로 들어온 경우
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from events_drain import OUT_DIR as DRAINED_DIR
+    from events_drain import OUT_DIR as DRAINED_DIR, STORAGE_REPO
 
 #: `usage/events/*.parquet` 만 읽는다(260904 CSV→parquet — 주당 30MB 가 1.5MB). 한 폴더 위
 #: `usage/` 에 있는 `opm_events_all_*.parquet`(통합 재생성본)·`*_purged.csv`(일부러 걷어낸 테스트
@@ -1118,6 +1118,112 @@ def paths_report(days: int = 7):
     con.close()
 
 
+# ── 기업 조회 집계 보관본 합류 (ops_corp_daily 90일 롤링) ─────────────────────
+#: `ops_corp_daily` 는 90일 롤링이다 — 완결 주(KST 월~일)를 비공개 저장소의
+#: `usage/corp_daily/{주시작yymmdd}-{주끝mmdd}.parquet` 로 내보내고, 원격에 올라간 파일을 대조한
+#: **뒤에만** DB 에서 지운다. DB 만 읽으면 `--corps`(기간 없이)가 말하는 「전 기간」이 **조용히
+#: 최근 90~96일로 줄어든다** — 기간 줄은 찍히지만 「총 N건」이 어디서부터 빠졌는지는 안 보인다.
+#: 이벤트 드레인(260817)에서 겪은 것과 같은 모양이라 같은 꼴(`drained_columns`)로 합친다.
+#: **경로는 이벤트 백업과 같은 저장소(`events_drain.STORAGE_REPO`)에서 파생한다** — 사본을 두지 않는다.
+CORP_ARCHIVE_DIR = STORAGE_REPO / "usage" / "corp_daily"
+#: 옆에 놓이는 `{주}.manifest.json`(행 수·지문 영수증)과 내보내기 도중의 `.{주}.parquet.fresh` 는 글로브 밖이다.
+CORP_ARCHIVE_GLOB = "*.parquet"
+_CORP_WEEK_RE = re.compile(r"^(\d{2})(\d{2})(\d{2})-\d{4}$")
+
+
+def _archive_week(path: Path):
+    """파일 이름 `yymmdd-mmdd` → 그 주 월요일(date). 이름 규칙 밖이면 None(읽기는 하되 구간 계산에서 뺀다)."""
+    import datetime as _dt
+    m = _CORP_WEEK_RE.match(path.stem)
+    if not m:
+        return None
+    try:
+        return _dt.date(2000 + int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def corp_archive_counts(before=None, after=None) -> dict | None:
+    """보관본 Parquet 에서 `after < log_dd < before` 구간의 기업별 합계. 보관본이 없으면 None.
+
+    · `before` = DB 의 **전 기간** 최소 `log_dd`(창 안의 최소가 아니다). 그날부터는 DB 가 정본이라
+      보관본은 그 앞만 읽는다 — 롤링이 내보낸 뒤 지우기 전에 멈춘 주가 있어도 **두 번 세지 않는다**.
+    · `after`  = `--corps N` 의 창 경계. DB 쪽 `log_dd > current_date - N` 과 같은 **초과** 경계다.
+    · `read_parquet(..., union_by_name=true)` — 나중에 칸이 늘어도 옛 주가 이름으로 맞춰진다
+      (위치로 맞추면 행이 밀린다. `drained_columns` 와 같은 이유).
+    · 같은 (날짜, 기업)이 두 파일에 있으면(재내보내기·사본) 한 번만 센다. **값이 다르면 멈춘다** —
+      어느 쪽이 맞는지 모르는 채로 합계를 내면 조용히 틀린다.
+
+    반환 {"counts": {corp_code: n}, "lo", "hi"(창 안 보관본 구간, date|None), "files", "weeks"(주 월요일들),
+          "overlap_days"(보관본에 있지만 DB 가 정본이라 뺀 날 수), "dup_rows"(파일끼리 겹친 행 수)}
+    """
+    import datetime as _dt
+    files = sorted(CORP_ARCHIVE_DIR.glob(CORP_ARCHIVE_GLOB)) if CORP_ARCHIVE_DIR.is_dir() else []
+    if not files:
+        return None
+    import duckdb  # 서버 런타임 의존성 아님 — 통계 경로 전용(dev 그룹)
+
+    paths = "[" + ", ".join("'" + f.as_posix().replace("'", "''") + "'" for f in files) + "]"
+    src = f"read_parquet({paths}, union_by_name=true)"
+    duck = duckdb.connect()
+    try:
+        names = {r[0] for r in duck.execute(f"DESCRIBE SELECT * FROM {src}").fetchall()}
+        missing = {"log_dd", "corp_code", "requests"} - names
+        if missing:
+            raise SystemExit(f"기업 집계 보관본에 {sorted(missing)} 칸이 없다 — 합칠 수 없어 멈춘다: {sorted(names)}")
+        duck.execute(
+            "CREATE TEMP TABLE k AS SELECT CAST(log_dd AS DATE) AS d, corp_code AS c, "
+            "min(requests) AS n, max(requests) AS n2, count(*) AS copies "
+            f"FROM {src} WHERE log_dd IS NOT NULL AND corp_code IS NOT NULL GROUP BY 1, 2")
+        bad = duck.execute("SELECT count(*), CAST(min(d) AS VARCHAR) FROM k WHERE n <> n2").fetchone()
+        if bad[0]:
+            raise SystemExit(f"기업 집계 보관본에서 같은 (날짜, 기업)이 서로 다른 값으로 {bad[0]:,}건 겹친다"
+                             f"(첫 날 {bad[1]}) — 어느 쪽이 맞는지 몰라 멈춘다.")
+        dup = duck.execute("SELECT coalesce(sum(copies - 1), 0) FROM k").fetchone()[0]
+        conds, params = [], []
+        if before is not None:
+            conds.append("d < ?"); params.append(before)
+        if after is not None:
+            conds.append("d > ?"); params.append(after)
+        where = ("WHERE " + " AND ".join(conds)) if conds else ""
+        counts = {c: int(n) for c, n in duck.execute(
+            f"SELECT c, sum(n) FROM k {where} GROUP BY 1", params).fetchall()}
+        lo, hi = duck.execute(
+            f"SELECT CAST(min(d) AS VARCHAR), CAST(max(d) AS VARCHAR) FROM k {where}", params).fetchone()
+        overlap = duck.execute("SELECT count(DISTINCT d) FROM k WHERE d >= ?", [before]).fetchone()[0] \
+            if before is not None else 0
+    finally:
+        duck.close()
+    return {"counts": counts,
+            "lo": _dt.date.fromisoformat(lo) if lo else None,
+            "hi": _dt.date.fromisoformat(hi) if hi else None,
+            "files": len(files), "weeks": sorted({w for w in map(_archive_week, files) if w}),
+            "overlap_days": int(overlap), "dup_rows": int(dup)}
+
+
+def corp_archive_gaps(weeks, db_lo=None, after=None) -> list:
+    """보관본과 DB 를 이었을 때 **어디에도 없는 날** — [(시작, 끝)] (양끝 포함, date).
+
+    · 보관본 주 사이에 빠진 주(월요일 기준 7일 간격이 끊긴 곳)
+    · 마지막 보관 주의 다음 날부터 DB 첫날 전날까지(롤링은 완결 주만 지우므로 정상이면 0일이다)
+    파일 이름(주)으로 판단한다 — 조회가 하나도 없던 날도 그 주 파일이 있으면 「있다」로 본다.
+    DB 첫날이 월요일이 아니면(그 월요일에 조회가 없었다) 며칠이 걸릴 수 있다 — 그래서 경보가 아니라 안내다.
+    `after` 이하(창 밖)는 빼고 낸다.
+    """
+    import datetime as _dt
+    one, week = _dt.timedelta(days=1), _dt.timedelta(days=7)
+    gaps = []
+    ws = sorted(set(weeks))
+    for a, b in zip(ws, ws[1:]):
+        if b - a > week:
+            gaps.append((a + week, b - one))
+    if ws and db_lo is not None and ws[-1] + week < db_lo:
+        gaps.append((ws[-1] + week, db_lo - one))
+    if after is not None:
+        gaps = [(max(s, after + one), e) for s, e in gaps if e > after]
+    return gaps
+
+
 def corp_report(top: int = 15, days: int | None = None):
     """어느 기업이 많이 조회되나 — **사용자와 떼어낸** 집계(`ops_corp_daily`)에서 읽는다.
 
@@ -1125,23 +1231,59 @@ def corp_report(top: int = 15, days: int | None = None):
     셋이 붙으면 「이 사용자가 언제 어느 기업을 조사했는지」가 되고, 그건 조사 이력이다.
     원하는 답은 누가 봤는지를 몰라도 나오므로 쓰는 시점에 사용자를 뗐다.
     그래서 여기서는 **「몇 명이 봤나」를 낼 수 없다** — 의도한 한계다.
+
+    **DB 첫날 이전은 보관본(Parquet)에서 읽는다**(위 `CORP_ARCHIVE_DIR`). 경계는 DB 의 전 기간 최소
+    날짜 하나 — 그 앞은 보관본, 그날부터는 DB. 그래서 겹친 주가 있어도 두 번 세지 않고, 롤링 전후로
+    전 기간 합계가 같다. 보관본이 없으면 종전처럼 DB 만 읽고 그 사실을 알린다.
     """
+    import datetime as _dt
     if not using_pg():
         raise SystemExit("--corps 는 Postgres 백엔드에서만 (DATABASE_URL 필요)")
     con = _pg_conn()
-    where = f"WHERE log_dd > current_date - {int(days)}" if days else ""
-    rows = con.execute(
-        f"SELECT corp_code, sum(requests) n FROM ops_corp_daily {where} "
-        f"GROUP BY 1 ORDER BY 2 DESC LIMIT {int(top)}").fetchall()
-    total, corps, lo, hi = con.execute(
-        f"SELECT coalesce(sum(requests),0), count(DISTINCT corp_code), min(log_dd), max(log_dd) "
-        f"FROM ops_corp_daily {where}").fetchone()
-    con.close()
+    try:
+        where = f"WHERE log_dd > current_date - {int(days)}" if days else ""
+        cut = f"current_date - {int(days)}" if days else "NULL::date"
+        # 경계(db_lo)는 **창과 무관한** DB 전체 최소 날짜다 — 창 안 최소로 자르면 보관본이 창 안 DB 구간과 겹친다.
+        db_lo, cutoff = con.execute(f"SELECT min(log_dd), {cut} FROM ops_corp_daily").fetchone()
+        db_counts = {c: int(n) for c, n in con.execute(
+            f"SELECT corp_code, sum(requests) FROM ops_corp_daily {where} GROUP BY 1").fetchall()}
+        w_lo, w_hi = con.execute(f"SELECT min(log_dd), max(log_dd) FROM ops_corp_daily {where}").fetchone()
+    finally:
+        con.close()
+
+    arch = corp_archive_counts(before=db_lo, after=cutoff)
+    # 창이 DB 첫날 앞까지 닿는가 — 안 닿으면(예: `--corps 30`) 보관본은 원래 쓸 데가 없다.
+    reaches_back = db_lo is None or cutoff is None or cutoff < db_lo - _dt.timedelta(days=1)
+    if arch is None and reaches_back:
+        print(f"⚠️  기업 집계 보관본이 없다({CORP_ARCHIVE_DIR}/{CORP_ARCHIVE_GLOB}) — DB 구간"
+              f"({db_lo or '-'} ~)만 집계한다.\n"
+              f"    90일 롤링이 지운 주가 있다면 그만큼 빠진다. OPM_STORAGE_REPO 가 맞는지,"
+              f" 그 클론을 최신으로 받았는지(git pull) 확인.",
+              file=sys.stderr)
+    a_counts = arch["counts"] if arch else {}
+    counts = dict(db_counts)
+    for c, n in a_counts.items():
+        counts[c] = counts.get(c, 0) + n
+    total = sum(counts.values())
     if not total:
-        print("집계 없음 — ops_corp_daily 가 비어 있다.")
+        print("집계 없음 — ops_corp_daily 와 보관본이 비어 있다.")
         return
-    span = f"{lo} ~ {hi}" if lo else ""
-    print(f"\n=== 조회된 기업 (총 {total:,}건 · {corps:,}개사 · {span}) ===")
+    a_lo, a_hi = (arch["lo"], arch["hi"]) if arch and a_counts else (None, None)
+    lo = min(d for d in (a_lo, w_lo) if d is not None)
+    hi = max(d for d in (a_hi, w_hi) if d is not None)
+    print(f"\n=== 조회된 기업 (총 {total:,}건 · {len(counts):,}개사 · {lo} ~ {hi}) ===")
+    if a_counts:
+        db_part = f" + DB {w_lo} ~ {w_hi}" if w_lo else ""
+        print(f"  · 보관본 {a_lo} ~ {a_hi}{db_part} (DB 첫날 {db_lo} 이전만 보관본에서 — 이중 계상 없음)")
+    if arch:
+        if arch["overlap_days"]:
+            print(f"  · 보관본과 DB 가 {arch['overlap_days']}일 겹친다 — 그 날들은 DB 값을 썼다", file=sys.stderr)
+        if arch["dup_rows"]:
+            print(f"  · 보관본 파일끼리 같은 행 {arch['dup_rows']:,}건이 겹쳐 한 번만 셌다", file=sys.stderr)
+        for s, e in corp_archive_gaps(arch["weeks"], db_lo, cutoff):
+            print(f"⚠️  {s} ~ {e} 가 보관본에도 DB 에도 없다 — 조회가 정말 없던 날인지, 저장소 클론이"
+                  f" 오래됐는지(git pull)·보관이 빠졌는지 확인", file=sys.stderr)
+    rows = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:int(top)]
     names = {}
     try:                                    # 코드→이름은 있으면 붙이고, 없으면 코드만 낸다
         from open_proxy_mcp.dart.client import _MASTER_DB_PATH

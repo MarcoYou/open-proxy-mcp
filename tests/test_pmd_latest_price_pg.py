@@ -21,9 +21,9 @@ import pytest
 psycopg = pytest.importorskip("psycopg")
 
 from open_proxy_mcp.services import price_multiple_data as S  # noqa: E402
-from test_krx_daily_pg import KRX_WEEKLY_DDL, _ddl  # noqa: E402 — 스키마는 krx_daily 시험과 같은 것을 쓴다
+from test_krx_daily_pg import KRX_WEEKLY_DDL, _ddl, _fill_big, put_daily  # noqa: E402 — 스키마는 krx_daily 시험과 같은 것을 쓴다
 
-# 10/9(금)은 한글날 휴장 — 지난주 마지막 거래일은 목요일이다. 일별 저장분은 최근 7거래일.
+# 10/9(금)은 한글날 휴장 — 지난주 마지막 거래일은 목요일이다. 일별 저장분(보관 창은 약 1년)에 이 7거래일이 있다.
 DAYS = ["20261007", "20261008", "20261012", "20261013", "20261014", "20261015", "20261016"]
 LAST_WEEK, THIS_WEEK = "20261008", "20261016"
 OLD_YEAR_END = "20260102"           # 주식수 배율의 기준일(20251231) 뒤 첫 주
@@ -92,9 +92,8 @@ def db(pg17, monkeypatch):
 
 def _load(url: str, *, this_week_in_weekly: bool) -> None:
     with psycopg.connect(url) as c:
+        put_daily(c, [(d, t, m, close, shrs) for t, by_day in _daily().items() for d, (m, close, shrs) in by_day.items()])
         with c.cursor() as cur:
-            cur.executemany("INSERT INTO krx_daily (trd_dd, ticker, market, close, list_shrs) VALUES (%s,%s,%s,%s,%s)",
-                            [(d, t, m, close, shrs) for t, by_day in _daily().items() for d, (m, close, shrs) in by_day.items()])
             cur.executemany("INSERT INTO krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) VALUES (%s,%s,%s,%s,%s,%s)",
                             _weekly(this_week_in_weekly))
         c.commit()
@@ -258,7 +257,7 @@ def test_without_the_daily_store_serving_degrades_to_live_and_never_to_krx_weekl
     """마이그레이션 전 배포·표 장애 — 기준일을 못 읽으면 종전 강등 경로(KRX 라이브)를 탄다. 서빙 단면에 krx_weekly 대신 읽기를 새로 만들지 않는다."""
     _load(db.url, this_week_in_weekly=True)
     with psycopg.connect(db.url, autocommit=True) as c:
-        c.execute("DROP VIEW price_latest; DROP VIEW krx_daily_v; DROP TABLE krx_daily")
+        c.execute("DROP VIEW price_latest, krx_daily_v, krx_daily; DROP TABLE krx_px, krx_day, krx_ticker")
     db.live.clear()
     assert asyncio.run(S._serving_price_dd()) is None
     assert asyncio.run(S._market_for(A)) == {} and db.live              # 라이브로 갔다(이 시험의 라이브는 빈 응답)
@@ -272,25 +271,24 @@ def test_without_the_daily_store_serving_degrades_to_live_and_never_to_krx_weekl
 # 실행 계획 — 종목 조건이 뷰(LAG 창·DISTINCT ON) 아래 (ticker, trd_dd) 인덱스로 내려가 전 종목을 훑지 않는다
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
 def test_moved_queries_use_the_index_on_a_full_size_window(db, monkeypatch):
+    """1년 창에 가까운 크기(120거래일 × 2,800종목)에서 옮긴 읽기 넷이 사실값 표를 훑지 않는다 — 기준일은 달력, 종목 한 줄은 기본키."""
     with psycopg.connect(db.url) as c:
-        c.execute("""INSERT INTO krx_daily (trd_dd, ticker, market, open, high, low, close, volume, value, list_shrs)
-                     SELECT to_char(date '2026-10-05' + d, 'YYYYMMDD'), lpad(t::text, 6, '0'), 'KS',
-                     1000, 1100, 900, 1000 + t % 50, 100, 100000, 1000000
-                     FROM generate_series(0, 6) d, generate_series(1, 2800) t""")
-        c.execute("ANALYZE krx_daily")
+        _fill_big(c)
         c.commit()
+        last = c.execute("SELECT max(dd) FROM krx_day").fetchone()[0]
     db.sqls.clear()
     dd = asyncio.run(S._serving_price_dd())
-    assert dd == "20261011"
+    assert dd == last
     S._krx_db_get(dd, "000777")
     asyncio.run(S._shares_ratio("000777", "20251231"))        # 최신 주식수 읽기는 기준일 뒤 첫 주와 함께 늘 나간다
-    _candidate_order(monkeypatch, {"000777": "테스트하나", "000778": "테스트둘"})
-    daily_sqls = [(s, p) for s, p in db.sqls if "krx_daily" in s or "price_latest" in s]
+    assert _candidate_order(monkeypatch, {"000777": "테스트하나", "000778": "테스트둘"}) == ["000778", "000777"]
+    daily_sqls = [(s, p) for s, p in db.sqls if "krx_day" in s or "krx_daily" in s or "price_latest" in s]
     assert {s.split(" WHERE ")[0] for s, _ in daily_sqls} == {
-        "SELECT max(trd_dd) FROM krx_daily", "SELECT close, mktcap, list_shrs, price_dd FROM price_latest",
+        "SELECT max(dd) FROM krx_day", "SELECT close, mktcap, list_shrs, price_dd FROM price_latest",
         "SELECT list_shrs FROM price_latest", "SELECT ticker, mktcap FROM krx_daily_v"}
     with psycopg.connect(db.url) as c:
         for sql, params in daily_sqls:
             plan = "\n".join(r[0] for r in c.execute("EXPLAIN (COSTS OFF) " + sql, params).fetchall())
-            assert "Seq Scan on krx_daily" not in plan, f"{sql}\n{plan}"
-            assert "idx_krx_daily_isu" in plan or "krx_daily_pkey" in plan, f"{sql}\n{plan}"
+            assert "Seq Scan on krx_px" not in plan, f"{sql}\n{plan}"
+            if "krx_px" in plan:
+                assert "krx_px_pkey" in plan or "krx_px_dd_brin" in plan, f"{sql}\n{plan}"

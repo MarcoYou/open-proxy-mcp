@@ -26,7 +26,8 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import date
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
-from open_proxy_mcp.dart.fx import statement_currency, fx_to_krw
+from open_proxy_mcp.dart.fx import fiscal_year_end_date, statement_currency, fx_to_krw
+from open_proxy_mcp.services import report_calendar as rcal
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
@@ -36,7 +37,33 @@ def _latest_annual_fy(today: date | None = None) -> int:
 
 
 # 2018 ~ 최신 확정 FY(자동 확장) — 신규 사업연도 공시 후 재실행하면 resume(done)이 그 FY만 수집.
+# 261018: 수집 대상 상한은 종목마다 결산월로 센다(`fetch` 의 `rcal.latest_annual`) — 이 목록은 12월 결산 기준(종전 그대로, 표시용).
 YEARS = list(range(2018, _latest_annual_fy() + 1))
+#: 사업보고서 nodata(그 표기의 보고서가 없음) 를 다시 받는 기간 — 공시 시점(결산월 다음 넷째 달 1일)부터 이 날수까지(261018).
+#: 분기 수집(`market_fund_quarterly.NODATA_RETRY_DAYS`)과 같은 규칙: 첫 실행 때 아직 안 낸 회사가 나중에 내도 영영 비지 않게.
+ANNUAL_NODATA_RETRY_DAYS = int(os.getenv("SERIES_NODATA_RETRY_DAYS", "400"))
+
+
+def fetch_plan(firms, have: dict, fye_of: dict, today: date | None = None,
+               nodata_days: int | None = None) -> list[tuple]:
+    """받을 (ticker, corp_code, fy) — 순수 함수(시험 대상).
+
+    261018(재설계 6단계, 결산월): 종전엔 모든 회사의 상한이 12월 결산 규칙(4월 이후 전년)이라 3월 결산 회사의 2026.03 사업보고서
+    (6월 제출)를 2027년 4월에야 받았다. 이제 종목마다 결산월로 「지금 나와 있어야 할 최신 사업보고서 표기」(`report_calendar.latest_annual`)까지 받는다.
+    이미 있는 행: ok·restate_only = 완료(종전과 같다) · err = 다시 받는다 · nodata = 공시 시점 뒤 `ANNUAL_NODATA_RETRY_DAYS` 일 안이면 다시 받는다
+    (종전엔 어떤 상태든 행이 있으면 완료라, 첫 실행 때 아직 안 낸 회사는 영영 비었다)."""
+    t = today or date.today()
+    days = ANNUAL_NODATA_RETRY_DAYS if nodata_days is None else nodata_days
+    out = []
+    for isu, cc in firms:
+        fye = fye_of.get(isu, 12)
+        for y in range(2018, rcal.latest_annual(t, fye) + 1):
+            f = have.get((isu, y))
+            if f is None or f.startswith("err:"):
+                out.append((isu, cc, y))
+            elif f == "nodata" and 0 <= (t - rcal.cell_available(y, 4, fye)).days <= days:
+                out.append((isu, cc, y))
+    return out
 DDL = """CREATE TABLE IF NOT EXISTS dart_finstat_y(
   ticker text, fy int, fs text, ni double precision, eq double precision,
   ni_restated double precision, eq_restated double precision,
@@ -55,8 +82,14 @@ def gid(rows, account_id, sj, field="thstrm_amount"):
     return gid_exact(rows, account_id, sj, field)
 
 def _pg():
-    con=psycopg.connect(os.environ["DATABASE_URL"]); con.execute(DDL)
-    for stmt in DDL_MIGRATE: con.execute(stmt)
+    """261018: 표·칸이 이미 있으면 DDL 을 보내지 않는다 — 이 수집이 주 1회 일정(finstat-quarterly)에 들어가면서, 있어도 표 전체 잠금을
+    잡는 `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 를 매번 보내지 않게(서버의 연간 재무 읽기와 겹치지 않게)."""
+    con=psycopg.connect(os.environ["DATABASE_URL"])
+    have=con.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                     "AND table_name='dart_finstat_y' AND column_name IN ('ni_restated','eq_restated')").fetchone()[0]
+    if have < 2:
+        con.execute(DDL)
+        for stmt in DDL_MIGRATE: con.execute(stmt)
     con.commit()
     return con
 
@@ -87,20 +120,25 @@ def _flush(buf):
         except psycopg.OperationalError:
             if attempt==2: raise
 
-async def fetch():
+async def fetch(tickers: list[str] | None = None):
+    """`tickers` 를 주면 그 종목만(261018 — 결산월이 12월이 아닌 회사의 새 사업보고서만 좁혀 받을 때)."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     sleep_s = float(os.getenv("SERIES_SLEEP", "0.45"))  # 260706: 필요시 조정, 기본값은 검증된 0.45 유지
     con=_pg()
     buf=[]
     firms=[r for r in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
-    done={(r[0],r[1]) for r in con.execute("SELECT ticker, fy FROM dart_finstat_y")}
+    if tickers:
+        firms=[r for r in firms if r[0] in set(tickers)]
+    have={(r[0],int(r[1])): (r[2] or "") for r in con.execute("SELECT ticker, fy, fetched FROM dart_finstat_y")}
+    fye_of=rcal.load_fye_map(con)
     # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — dart_finstat_y DB값으로 동적
     # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
     # 전 수집) MAX()로 앵커를 잡으면 오염값이 그대로 앵커가 되어 가드가 무력화되는 자기오염 실측 확인.
     market_max_ni = MARKET_MAX_NI_ANCHOR
     con.close()  # 이후 쓰기는 _flush(fresh conn)만 사용
-    todo=[(i,c,y) for i,c in firms for y in YEARS if (i,y) not in done]
-    print(f"대상 {len(firms)}사 × {len(YEARS)}년 · 남은 {len(todo)}건",flush=True)
+    todo=fetch_plan(firms, have, fye_of)
+    n_re=sum(1 for i,_,y in todo if (i,y) in have)
+    print(f"대상 {len(firms)}사(12월 결산이 아닌 {len(fye_of)}사는 결산월로 상한) · 남은 {len(todo)}건(그중 다시 받기 {n_re})",flush=True)
     c=get_dart_client(); k=0
     async def acnt(cc,yr,fs):
         try:
@@ -127,7 +165,8 @@ async def fetch():
             # 저장은 항상 KRW 원칙: 하위 소비처(firm_history 등)의 read-time FX를 이걸로 대체 가능.
             stmt_cur = statement_currency(rows)
             if stmt_cur != "KRW":
-                ecos_fx_rate = await fx_to_krw(stmt_cur, f"{yr}1231")  # 대부분 12월 결산 근사(라이브 경로와 동일 근사)
+                # 261018: 결산월 말일(12월 결산이면 종전과 같은 12/31 — 2월 결산 외화 보고사가 아직 오지 않은 12/31 환율을 쓰던 것을 고침)
+                ecos_fx_rate = await fx_to_krw(stmt_cur, fiscal_year_end_date(yr, fye_of.get(isu, 12)))
                 if ecos_fx_rate is None:
                     buf.append((isu,yr,None,None,None,None,None,f"err:fx_{stmt_cur}"))
                     if len(buf)>=25: _flush(buf)
@@ -267,7 +306,8 @@ if __name__=="__main__":
     ap.add_argument("--backfill-restated",action="store_true",
                     help="종목당 1콜(fy=2024)로 2022~2024 재작성치만 백필")
     ap.add_argument("--series",action="store_true")
+    ap.add_argument("--tickers",type=str,help="--fetch 를 이 종목만(콤마구분)")
     a=ap.parse_args()
-    if a.fetch: asyncio.run(fetch())
+    if a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
     elif a.backfill_restated: asyncio.run(backfill_restated())
     else: series()

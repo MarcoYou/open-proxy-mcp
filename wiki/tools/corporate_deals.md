@@ -9,7 +9,7 @@ related_concepts: [특수관계인, 동일인]
 related_decisions: [pblntf-ty-필터링]
 
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-10-18
 ---
 
 # corporate_deals
@@ -180,6 +180,7 @@ sequenceDiagram
 - 단일공급계약 매출 의존도 계산 (financial_metrics tool과 연계, TODO).
 
 ## 변경 이력
+- 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-07-13: `_find_pct_near` 값 누출 교정(라벨 뒤 같은 줄 주석까지만 허용·다음 줄까지만 값 취득·
   콤마/숫자가 뒤따르면 거부) — % 공란("-")일 때 아래 금액의 앞자리를 %로 오취득하던 것.
   `parsing_failures` 를 `_detail_status`(ok/parse_empty/fetch_error/empty_doc)로 재정의하고

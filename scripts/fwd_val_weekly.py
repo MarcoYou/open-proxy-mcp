@@ -3,7 +3,8 @@
 왜: 선행 PER·PBR 은 수집 머신의 토요일 체인이 만들던 `fwd_agg` 에 시장·업종 대분류까지만 있었고,
 도구는 그중 선행 배당수익률만 서빙했다. 하위업종(28)은 집계 자체가 없었다. 수집 머신의 로컬 원본을
 건드리지 않고 **운영 DB 에 이미 있는 것만으로** 만든다 —
-추정치 이력 `fwd_hist`(주 1회, 13주 롤링) + 업종분류 스냅샷(월 1회) + 시장 구분 `krx_weekly`.
+추정치 이력 `fwd_hist`(주 1회. DB 보관은 주별 모양 13주, 구간형 저장 뒤 창 52주 — `open_proxy_mcp/fwd_window.py`)
++ 업종분류 스냅샷(월 1회) + 시장 구분 `krx_weekly`.
 `fwd_agg` 는 재설계 5단계(2610)에서 은퇴했다 — 시장·업종 선행 배수를 저장하는 곳은 이 표 하나다.
 
 - `fwd_hist` 에는 주식 종류 칸이 없다. 영문이 섞인 새 보통주 코드도 포함하되,
@@ -20,8 +21,11 @@
 - `fwd_per_pos`·`fwd_pbr_pos` — 분모가 0 초과인 종목만(벤더 관행, 옛 `fwd_agg` 와 같은 방식).
 - `fwd_psr` 는 매출 > 0 종목만(한 벌). 선행 배당수익률 분모 = 추정 DPS 가 있는 종목 시총(옛 `fwd_agg` 와 같다).
 
-모집단: 시장 행 = 추정이 있는 보통주 전부. 대분류·하위업종 행 = 그중 업종분류가 있는 종목
-(분류 없는 종목은 시장 행에만 든다 — 260913 에 1종목).
+모집단: 시장 행 = 추정이 있는 보통주 전부. 대분류·하위업종 행 = 그중 업종분류가 있는 종목.
+분류 없는 종목(신규 상장·분류 누락 — 261017 에 4종목)은 대분류의 **「미분류」 버킷**(`_UNCLASSIFIED`, 시장별 + ALL 로
+주 많아야 3행)에 든다 — 그래서 대분류 합이 시장 행과 같다. 은퇴한 `fwd_agg` 에 있던 버킷을 되살린 것이다(261018,
+시총 집계 `krx_cap_agg` 와 같은 버킷 이름). 하위업종에는 두지 않는다(대분류의 미분류 한 줄과 같은 종목이다).
+이미 쓴 날짜에 이 버킷이 없으면 정상 실행이 그 행만 채운다(그 날짜의 저장 분류·시세 날짜로 — 다른 행은 건드리지 않는다).
 
 시점 규칙(판단 시점 이후 정보를 쓰지 않는다):
 - 업종 = 추정 날짜 **이하 가장 최근 업종분류 스냅샷**(`class_dd`). 그보다 이른 스냅샷이 없으면 가장 이른 것(소급 —
@@ -34,10 +38,13 @@
 - 같은 날짜는 다시 계산해도 같은 값이 나온다. 그래서 이미 쓴 과거 날짜는 건너뛰고, **가장 최근 날짜**만 매번 다시
   계산한다(체인이 같은 날짜를 다시 올릴 수 있다). 전부 다시 쓰려면 `--recompute`.
 
-보관 — **전체**(2610~). 원본 `fwd_hist` 는 13주만 남으므로 이 표가 선행 배수의 유일한 이력이다.
+보관 — **전체**(2610~). 원본 `fwd_hist` 는 DB 창(13주 → 구간형 저장 뒤 52주)만 남으므로 이 표가 선행 배수의
+유일한 DB 이력이다.
+- 원본 날짜 목록: 주별 모양은 뷰의 `DISTINCT as_of`, 달력 모양은 게시 달력 `fwd_asof` 의 창 안 날짜
+  (창보다 이른 날짜는 판 일부가 보관본으로 옮겨졌을 수 있어 집계하지 않는다 — `fwd_window` 「창」).
 - 지우는 것은 **원본 창 안에서 원본에 없는 날짜**뿐이다 — 창 = 원본의 가장 이른 날짜가 속한 ISO 주의 월요일부터.
   같은 ISO 주 재송출로 대체된 날짜(예: 월요일 보강분을 그 주 토요일분이 덮음)가 여기에 걸린다.
-- 창보다 이른 날짜는 원본에서 롤링으로 빠졌을 뿐이라 남긴다. (260918~2610 에는 원본에 없는 날짜를 전부 지워
+- 창보다 이른 날짜는 원본 창 밖으로 나갔을 뿐이라 남긴다. (260918~2610 에는 원본에 없는 날짜를 전부 지워
   이 표도 사실상 13주 롤링이었다.) 원본이 일부 주만 보여도 그보다 이른 집계는 지워지지 않는다.
 
 실행 (DART·KRX 0콜, 수 초):
@@ -61,12 +68,16 @@ from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
+from open_proxy_mcp import fwd_window  # noqa: E402
 from open_proxy_mcp.krx_daily import weekly_with_latest  # noqa: E402
 
 #: 시장 구분 원천 — 닫힌 주 + 일별 최신 거래일(261018). 칸은 세 개만 읽는다.
 WEEKLY_MARKET = weekly_with_latest("price_dd, ticker, market")
 
 TABLE = "opm_val_fwd"
+#: 분류 없는 종목의 대분류 버킷 — 시총 집계(`krx_cap_agg`)와 같은 이름·이름표.
+UNCLASSIFIED = "_UNCLASSIFIED"
+UNCLASSIFIED_LABEL = "미분류"
 
 DDL = f"""
 CREATE TABLE IF NOT EXISTS {TABLE} (
@@ -106,7 +117,8 @@ CREATE TABLE IF NOT EXISTS {TABLE} (
   PRIMARY KEY (as_of, market, scheme, bucket)
 );
 COMMENT ON TABLE {TABLE} IS
-  '선행(애널리스트 추정) PER·PBR·PSR·배당수익률 — scheme market(bucket _ALL)·wics_sector·wics_industry(bucket=업종 코드). '
+  '선행(애널리스트 추정) PER·PBR·PSR·배당수익률 — scheme market(bucket _ALL)·wics_sector·wics_industry(bucket=업종 코드, '
+  '대분류의 분류 없는 종목은 _UNCLASSIFIED). '
   'scripts/fwd_val_weekly.py 가 fwd_hist + wise_sector(class_dd) + 주간 시세(krx_weekly + 일별 최신일, mk_dd)로 만든다. '
   'fwd_per·fwd_pbr=적자 포함 합(트레일링과 같은 방식), *_pos=분모>0 종목만(벤더 관행). '
   '보관 전체 — fwd_hist 창 안에서 원본에 없는 날짜(같은 ISO 주 재송출)만 지운다.';
@@ -142,8 +154,10 @@ WITH cls AS (
 ), x AS (
   SELECT v.scheme, m.market, v.bucket, v.label, v.parent, p.fy, p.cap, p.ni, p.rev, p.eq, p.dps, p.price
   FROM p
+  -- 분류 없는 종목은 대분류의 「미분류」 버킷으로(대분류 합 = 시장 행). 하위업종에는 두지 않는다.
   CROSS JOIN LATERAL (VALUES ('market', '_ALL', NULL, NULL),
-                             ('wics_sector', p.sector_code, p.sector, NULL),
+                             ('wics_sector', COALESCE(p.sector_code, '_UNCLASSIFIED'),
+                                             CASE WHEN p.sector_code IS NULL THEN '미분류' ELSE p.sector END, NULL),
                              ('wics_industry', p.industry_code, p.industry, p.sector)
                      ) AS v(scheme, bucket, label, parent)
   CROSS JOIN LATERAL (VALUES (p.market), ('ALL')) AS m(market)
@@ -330,14 +344,61 @@ def check_against_stored(con, as_of, class_dd: str, mk_dd: str, fresh: list[dict
         print(f"    대조 {as_of}: 저장분은 분류 {main_pair[0]}·시세 {main_pair[1]}, 지금 고르면 {class_dd}·{mk_dd}"
               " — 저장할 때의 날짜로 다시 내서 대조")
     lines: list[str] = []
+    # 「미분류」 버킷(261018)이 생기기 전에 쓴 날짜는 그 버킷이 없다 — 원본이 바뀐 것이 아니라 버킷이 새로 생긴 것이라
+    # 어긋남으로 세지 않는다(정상 실행이 그 행만 채운다 — `fill_unclassified`).
+    unclassified_stored = any(r["bucket"] == UNCLASSIFIED for r in stored)
     for pair in sorted(pairs, key=lambda p: (p[0] or "", p[1] or "")):
         mine = fresh if pair == (class_dd, mk_dd) else compute(con, as_of, *pair)
+        if not unclassified_stored:
+            mine = [r for r in mine if r["bucket"] != UNCLASSIFIED]
         group = [r for r in stored if (r["class_dd"], r["mk_dd"]) == pair]
         lines += diff_rows(group, mine, report_missing=(pair == main_pair))
     for line in lines:
         print(f"    {line}")
-    print(f"    대조 {as_of}: 저장 {len(stored)}행 중 어긋남 {len(lines)}건")
+    print(f"    대조 {as_of}: 저장 {len(stored)}행 중 어긋남 {len(lines)}건"
+          + ("" if unclassified_stored else " · 미분류 버킷은 아직 저장 전(대조에서 뺌)"))
     return len(lines)
+
+
+def load_hist_days(con) -> tuple[list, bool]:
+    """원본 날짜 목록과 저장 모양 — (날짜들, 달력 모양인가). `open_proxy_mcp/fwd_window.py` 의 정의를 그대로 쓴다.
+
+    주별 모양: 뷰의 `DISTINCT as_of`(13주). 달력 모양: 게시 달력의 창 안 날짜 — 뷰 DISTINCT 는 이력 52주면 느리고,
+    창보다 이른 날짜는 판 일부가 보관본으로 옮겨졌을 수 있어 집계하면 틀린다."""
+    _exists, on_calendar = fwd_window.parse_probe(con.execute(fwd_window.PROBE_SQL).fetchone())
+    if on_calendar:
+        rows = con.execute(fwd_window.DAYS_SQL_CALENDAR, (fwd_window.window_days(),)).fetchall()
+    else:
+        rows = con.execute(fwd_window.DAYS_SQL_LEGACY).fetchall()
+    return [r[0] for r in rows], on_calendar
+
+
+def fill_unclassified(con, days: list, skip: set) -> int:
+    """이미 쓴 날짜 중 「미분류」 버킷이 없는 날짜에 그 행만 넣는다. 넣은 행 수를 돌려준다.
+
+    그 날짜를 저장할 때 쓴 분류·시세 날짜(가장 많은 쌍)로 다시 낸다 — 이미 쓴 다른 행은 건드리지 않는다
+    (「이미 쓴 과거 날짜는 새 분류로 흔들지 않는다」와 같은 원칙). 분류 없는 종목이 없던 날은 넣을 것이 없다.
+    days = 원본 창 안 날짜(창 밖은 원본이 없어 다시 낼 수 없다), skip = 이번 실행이 통째로 계산하는 날짜."""
+    have = {r[0] for r in con.execute(
+        f"SELECT DISTINCT as_of FROM {TABLE} WHERE scheme = 'wics_sector' AND bucket = %s", (UNCLASSIFIED,)
+    ).fetchall()}
+    added = 0
+    for as_of in days:
+        if as_of in skip or as_of in have:
+            continue
+        pair = con.execute(
+            f"SELECT class_dd, mk_dd, count(*) FROM {TABLE} WHERE as_of = %s "
+            "GROUP BY 1, 2 ORDER BY 3 DESC, 1, 2 LIMIT 1", (as_of,)).fetchone()
+        if not pair:
+            continue
+        class_dd, mk_dd = pair[0], pair[1]
+        rows = [r for r in compute(con, as_of, class_dd, mk_dd) if r["bucket"] == UNCLASSIFIED]
+        if not rows:
+            continue
+        with con.cursor() as cur:
+            cur.executemany(UPSERT, finish_rows(as_of, class_dd, mk_dd, rows))
+        added += len(rows)
+    return added
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -362,7 +423,7 @@ def main(argv: list[str] | None = None) -> int:
     if not class_dds:
         print("분류 스냅샷 표가 비었다 — 업종분류 배치(sector-class-monthly)가 먼저 돌아야 한다.", file=sys.stderr)
         return 1
-    hist_days = [r[0] for r in con.execute("SELECT DISTINCT as_of FROM fwd_hist ORDER BY 1").fetchall()]
+    hist_days, on_calendar = load_hist_days(con)
     if not hist_days:
         print("fwd_hist 가 비었다 — 토요일 체인의 이력 송출이 먼저 돌아야 한다.", file=sys.stderr)
         return 1
@@ -377,7 +438,9 @@ def main(argv: list[str] | None = None) -> int:
     done = set() if a.dry else {r[0] for r in con.execute(f"SELECT DISTINCT as_of FROM {TABLE}").fetchall()}
     days = pick_days(hist_days, done, a.recompute or a.dry)
     print(f"선행 배수 집계 · 업종분류 스냅샷 {len(class_dds)}개(최신 {max(class_dds)}) · 추정치 이력 {len(hist_days)}일"
-          f" ({hist_days[0]} ~ {hist_days[-1]}) · 이번에 {len(days)}일" + (" · 쓰지 않음(--dry)" if a.dry else ""))
+          f" ({hist_days[0]} ~ {hist_days[-1]}"
+          + (f", 게시 달력 창 {fwd_window.hot_weeks()}주" if on_calendar else "") + f") · 이번에 {len(days)}일"
+          + (" · 쓰지 않음(--dry)" if a.dry else ""))
     total, bad = 0, 0
     for as_of in days:
         dd = as_of.strftime("%Y%m%d")
@@ -400,6 +463,10 @@ def main(argv: list[str] | None = None) -> int:
               f" · 분류 {class_dd}{'(소급)' if class_dd > dd else ''} · 시장 구분 {mk_dd}")
         total += len(rows)
     if not a.dry:
+        filled = fill_unclassified(con, hist_days, set(days))
+        if filled:
+            print(f"「미분류」 버킷이 없던 날짜에 그 행만 {filled}개 채움(저장 때의 분류·시세 날짜로)")
+            total += filled
         n, d0, d1 = con.execute(f"SELECT count(*), min(as_of), max(as_of) FROM {TABLE}").fetchone()
         print(f"합계 {total}행 반영 · {TABLE} 현황 {n}행 · {d0} ~ {d1}")
     con.close()

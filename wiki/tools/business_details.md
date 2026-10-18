@@ -3,12 +3,12 @@ type: tool
 title: business_details
 domain: data
 scope: [revenue_breakdown, sites, utilization, rnd, backlog, customers, raw_materials, product_pricing, financial_ops, financial_soundness, investment_property, key_contracts]
-data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json A001/A002/A003]
+data_source: [DART get_document (전체보고서 XML 1콜 → II.사업의 내용 + 연결재무제표주석 부문정보 슬라이스), search list.json 정기공시(A) 1콜]
 related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: []
 related_decisions: [260717_1220_decision_business-content-tool-roadmap, XML-vs-PDF, ksic-sector-mapping]
 created: 2026-07-18
-updated: 2026-09-04
+updated: 2026-10-18
 ---
 
 # business_details
@@ -174,6 +174,8 @@ DART **`get_document`(전체 보고서 XML) 1 API콜**([[XML-vs-PDF]]) → text�
 
 **014(document.xml 부재) 폴백 — 정정보고서 처리**: 최신 정기보고서가 **첨부/기재정정**이면 그 정정본의 `document.xml`이 부재해 `get_document`가 DART 014를 낸다. 첨부정정은 **첨부(감사보고서 등)만 갱신**하고 II.사업의 내용 본문은 담지 않으므로(첨부정정은 viewer 노드트리도 정정표지 9개뿐) — `_find_report_candidates`가 전 후보를 rcept_dt 내림차순 반환하고, 014 시 **동일 기수(`(2025.12)` 라벨 일치) 원본 보고서로 get_document 폴백**한다(작년 기수로는 폴백 안 함). 실측: KB금융(최신 `[기재정정]` 014 → 하루 전 원본 1.66M), 삼성화재(`[첨부정정]` 014 → 원본 1.08M) 모두 영업·건전성 정상 회수. 폴백 사실은 `warnings` + `data.fetch_method="get_document(정정폴백)"`로 투명 기록. 동일기수 원본도 전부 014면 **최종적으로 viewer 웹fetch 폴백**(`_fetch_viewer_sec`, 극소수·느림), 그것도 실패 시 graceful ERROR.
 
+**보고서 후보 검색은 list.json 1콜** (261018): 정기공시(`pblntf_ty=A`) 2024-01-01 이후 한 쪽(30건)을 받아 보고서 이름(사업·반기·분기)으로 거른다. 종전엔 상세유형(A001·A002·A003)마다 따로 물었는데, DART 는 `pblntf_ty` 를 함께 주면 상세유형을 무시하고 대분류 전체를 준다(실측 삼성전자: A001·A003 모두 같은 11건, 상세유형만 주면 사업보고서 3건) — 같은 목록을 세 번 받아(latest 기준 DART 2콜 낭비) 같은 보고서가 후보에 세 번 들었다. 받는 범위·결과 집합은 그대로다.
+
 ## 파싱전략 (핵심 — [[260717_1220_decision_business-content-tool-roadmap]])
 flatten 이 2D 표를 1D 로 뭉개 행·열 정렬이 깨지는 것이 이 서식의 근본 난제다.
 **설계 결정**: MCP tool 은 이미 호출측 LLM 이 부르므로 **내부 LLM 을 두지 않는다** —
@@ -300,6 +302,7 @@ find_segment_candidates   6.5초      build_region_index       6.4초 (건당 2�
 코드에 「줄였다」는 주석만 남는다.</sub>
 
 ## 변경 이력
+- 2026-10-18: 연도 없는 보고서 후보 검색을 list.json 3콜 → 1콜 — DART 가 `pblntf_ty` 와 함께 준 상세유형을 무시해 같은 목록을 세 번 받고 같은 보고서가 후보에 중복으로 들던 것. 결과는 그대로(2026 신규 관측 43사에서 세 검색 건수가 늘 같았다 — 013 이 일부 유형에만 섞이는 경우도 그래서 없다).
 - 2026-09-07: 꼬리줄의 내부 진단값 「주석fetch=None」 제거 — 조회 시간만 남긴다.
 - 2026-08-06: 발견 경위·census 서술을 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).
 - 2026-08-03: `absence_kind` 4갈래 신설 · `basis`(연결/별도)를 XBRL 컨텍스트로 판별.

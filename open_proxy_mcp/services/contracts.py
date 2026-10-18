@@ -13,7 +13,8 @@ class AnalysisStatus(str, Enum):
     """분석 결과 상태.
 
     - EXACT: 사건 발견 + 모든 필드 정상 파싱
-    - NO_FILING: 조회 구간에 사건 자체가 없는 정상 케이스 (PARTIAL과 분리)
+    - NO_FILING: 조회 구간에 사건 자체가 없는 정상 케이스 (PARTIAL과 분리). DART 013(조회된 데이터 없음)이 여기다 —
+      실패가 아니라 답이다. 반대로 목록 조회가 **실패**해서 0건이면 NO_FILING 이 아니라 ERROR(`filing_status=fetch_failed`).
     - PARTIAL: 사건은 발견됐으나 일부 필드 파싱 실패 (진짜 부분 실패)
     - AMBIGUOUS: 회사 식별 등 입력 모호
     - CONFLICT: 둘 이상의 소스 결과가 충돌
@@ -35,6 +36,7 @@ def build_filing_meta(
     filing_count: int,
     parsed_count: int | None = None,
     parsing_failures: int = 0,
+    fetch_failed: bool = False,
 ) -> dict[str, Any]:
     """11 data tool 공통 filing 메타.
 
@@ -42,12 +44,22 @@ def build_filing_meta(
     - filing_count: 발견된 공시/이벤트 수
     - parsed_count: 정상 파싱된 수 (None이면 filing_count - parsing_failures)
     - parsing_failures: 진짜 partial failure (필드 누락 등)
-    - filing_status: "no_filing" | "all_parsed" | "partial_failure"
+    - filing_status: "no_filing" | "all_parsed" | "partial_failure" | "fetch_failed"
+    - fetch_failed=True: 목록 조회 자체가 실패해 0건이 「없다」가 아니라 「모른다」인 경우(261018).
+      `no_filing` 은 False 로 두고 `filing_status="fetch_failed"` 로 적는다 — 조회 실패를 「없음」으로 내보내지 않는다.
     """
 
     if parsed_count is None:
         parsed_count = max(filing_count - parsing_failures, 0)
 
+    if fetch_failed and filing_count <= 0:
+        return {
+            "no_filing": False,
+            "filing_count": 0,
+            "parsed_count": 0,
+            "parsing_failures": int(parsing_failures),
+            "filing_status": "fetch_failed",
+        }
     if filing_count <= 0:
         filing_status = "no_filing"
     elif parsing_failures > 0:
@@ -65,8 +77,13 @@ def build_filing_meta(
 
 
 def status_from_filing_meta(meta: dict[str, Any]) -> "AnalysisStatus":
-    """filing 메타에서 표준 status 도출 (data tool 공통)."""
+    """filing 메타에서 표준 status 도출 (data tool 공통).
 
+    `fetch_failed`(목록 조회 실패로 0건 — 「없다」가 아니라 「모른다」)는 `error` 다(261018).
+    """
+
+    if meta.get("filing_status") == "fetch_failed":
+        return AnalysisStatus.ERROR
     if meta.get("no_filing"):
         return AnalysisStatus.NO_FILING
     if int(meta.get("parsing_failures", 0)) > 0:
@@ -170,7 +187,7 @@ def _merge_declared(existing: list[str]) -> list[str]:
     tool 이 안쪽 tool 의 응답을 감싸면(`director_board` 는 `[notice] ` 를 붙여 옮긴다)
     같은 문장이 두 번 나온다 — 접두어가 붙은 사본도 같은 것으로 본다.
     """
-    declared = _weak_resolution_warnings()
+    declared = _weak_resolution_warnings() + _share_class_warnings()
     if not declared:
         return existing
     kept = [w for w in existing if not any(w.endswith(line) for line in declared)]
@@ -192,12 +209,42 @@ def _weak_resolution_warnings() -> list[str]:
     for weak in weak_resolutions():
         others = weak.get("candidates", 1) - 1
         tail = f" (다른 후보 {others}곳)" if others > 0 else ""
+        inactive = weak.get("inactive")
+        if inactive:
+            # 261018: 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정한 경우(`CompanyResolver._inactive_single`).
+            who = f"이 회사(종목코드 {inactive['ticker']})" if inactive.get("ticker") else "이 회사"
+            day = f"최신 거래일({inactive['as_of']})" if inactive.get("as_of") else "최신 거래일"
+            tail += (f". {who}는 {day} 코스피·코스닥 시세에 없는 **상장폐지·코넥스 등** 비활성 회사입니다 — "
+                     "지금 거래되는 회사 중엔 이름이 맞는 곳이 없고, 이름이 부분 일치하는 회사가 이 하나뿐이라 골랐습니다")
         line = (
             f"「{weak['query']}」를 **{weak['corp_name']}**(으)로 추정했습니다 — 이름이 정확히 "
             f"일치하지 않습니다{tail}. 다른 회사를 뜻했다면 종목코드나 정식명으로 다시 물어보세요."
         )
         # 한 요청이 같은 회사를 여러 이름으로 해석하기도 한다(tool 이 내부에서 재조회).
         # 같은 문장을 두 번 싣지 않는다.
+        if line not in lines:
+            lines.append(line)
+    return lines
+
+
+def _share_class_warnings() -> list[str]:
+    """종류주(우선주 등) 코드로 물어 발행 회사로 해석한 것을 응답 맨 앞에 밝힌다(261018).
+
+    KRX 단축코드 끝자리가 0 이 아니면 종류주다(005935 삼성전자우). 회사 원장에는 보통주 코드만 있어 종전엔 「못 찾음」이었다.
+    이제 발행 회사로 식별하므로, 회사 단위 값(공시·재무·배수)이 그 종류주가 아니라 **회사** 것임을 말한다. 배수(PER·PBR)의 시총은
+    보통주 시총이다(우선주 시총은 배수에서 뺀다 — price_multiple_data 정의). 그 종류주 자체의 시세는 시세 도구가 준다.
+    적는 곳은 해석 확정 관문(`_resolve_match`·`lookup_corp_code`), 읽는 곳은 여기 하나다(추정 고지와 같은 구조)."""
+    try:
+        from open_proxy_mcp.dart.client import share_class_resolutions
+    except Exception:  # pragma: no cover - import 경로가 없는 환경
+        return []
+    lines: list[str] = []
+    for sc in share_class_resolutions():
+        line = (
+            f"「{sc['ticker']}」는 **{sc['corp_name']}**(보통주 {sc['issuer_ticker']})의 종류주(우선주 등) 종목코드라 "
+            "발행 회사로 식별했습니다 — 공시·재무·배수 같은 회사 단위 값은 발행 회사 기준이고(배수의 시총은 보통주 시총), "
+            f"이 종류주 자체의 주가·시총은 `trading_data(company=\"{sc['ticker']}\")` 가 줍니다."
+        )
         if line not in lines:
             lines.append(line)
     return lines

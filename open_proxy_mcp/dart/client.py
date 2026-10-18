@@ -31,6 +31,7 @@ import tempfile
 import threading
 import zipfile
 import xml.etree.ElementTree as ET
+import contextvars
 from contextvars import ContextVar
 from datetime import date, datetime, timedelta
 from html import unescape
@@ -301,12 +302,16 @@ _LEDGER_MAX_CORPS = 20
 _LEDGER_MAX_WEAK = 5
 
 
-def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int) -> None:
+def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int,
+                         *, inactive: dict | None = None) -> None:
     """이름이 정확히 맞지 않아 **추정으로 고른** 기업을 적는다.
 
     `_note_corp` 와 같은 관문에서 적는다 — 확정 지점이 하나이므로 여기서 놓치면 어디서도
     못 잡는다. 읽는 쪽은 `ToolEnvelope.to_dict()` 하나뿐이라, tool 이 늘어도 전파가 끊기지
     않는다(23개 서비스가 해석기의 `confidence` 를 전부 버리고 있던 게 이 결함의 원인이었다).
+
+    `inactive` = 활성 회사엔 맞는 이름이 없어 비활성(상장폐지·합병·코넥스 등) 회사 하나로 확정했을 때
+    `{"ticker": 종목코드, "as_of": 활성 명부 기준 거래일}` — 고지 문장에 「상장폐지·코넥스 등」을 덧붙인다(261018).
     """
     ledger = _ctx_ledger.get()
     if ledger is None or not query or not corp_name:
@@ -314,12 +319,37 @@ def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int)
     weak = ledger.setdefault("weak_resolutions", [])
     if len(weak) >= _LEDGER_MAX_WEAK or any(w["query"] == query for w in weak):
         return
-    weak.append({"query": query, "corp_name": corp_name, "kind": kind, "candidates": candidates})
+    entry = {"query": query, "corp_name": corp_name, "kind": kind, "candidates": candidates}
+    if inactive:
+        entry["inactive"] = {"ticker": str(inactive.get("ticker") or ""), "as_of": str(inactive.get("as_of") or "")}
+    weak.append(entry)
 
 
 def weak_resolutions() -> list[dict]:
     ledger = _ctx_ledger.get()
     return list((ledger or {}).get("weak_resolutions") or [])
+
+
+def note_share_class_resolution(corp: dict | None) -> None:
+    """종류주(우선주 등) 코드로 물어 **발행 회사로** 해석한 것을 적는다(261018).
+
+    `note_weak_resolution` 과 같은 관문·같은 장부 — 읽는 쪽은 `ToolEnvelope.to_dict()`·`declare_weak_resolution` 하나다.
+    회사 단위 도구(공시·재무·배수)는 005935 를 삼성전자로 답하므로, 어느 코드를 어느 회사로 읽었는지 응답 맨 앞에 밝힌다.
+    해석기 결과가 종류주 코드 일치가 아니면 아무것도 하지 않는다."""
+    ledger = _ctx_ledger.get()
+    meta = ((corp or {}).get("_resolution") or {}).get("share_class") or {}
+    if ledger is None or not meta.get("ticker"):
+        return
+    seen = ledger.setdefault("share_class_resolutions", [])
+    if len(seen) >= _LEDGER_MAX_WEAK or any(s["ticker"] == meta["ticker"] for s in seen):
+        return
+    seen.append({"ticker": meta["ticker"], "issuer_ticker": meta.get("issuer_ticker") or "",
+                 "corp_name": (corp or {}).get("corp_name") or ""})
+
+
+def share_class_resolutions() -> list[dict]:
+    ledger = _ctx_ledger.get()
+    return list((ledger or {}).get("share_class_resolutions") or [])
 
 
 #: **조용한 대체의 종류 — 닫힌 목록.**
@@ -328,6 +358,7 @@ def weak_resolutions() -> list[dict]:
 #: 새 종류를 더할 땐 여기에 먼저 적는다 — 테스트가 호출부의 문자열을 이 목록과 대조한다.
 DEGRADATION_KINDS = frozenset({
     "universe_fallback",   # 요청한 종목 범위를 못 만들어 **더 넓은 범위**로 답했다
+    "universe_approximated",  # 지수 구성종목 원장을 못 읽어 **시총 순위로 근사**해 답했다(261018)
     "period_fallback",     # 요청한 기간을 못 읽어 기본 기간으로 답했다
     "report_substituted",  # 요청한 보고서가 없어 다른 보고서(반기·분기·전년)로 답했다
     "statement_basis",     # 연결(CFS)이 없어 별도(OFS)로 답했다 — 기준이 섞인다
@@ -588,12 +619,16 @@ _corp_code_cache: list[dict] | None = None
 _registry_meta: dict[str, dict] = {}
 
 
-def _note_registry(name: str, items, *, source: str) -> None:
-    """원장 적재를 기록한다 — 개수·기준일·대략 바이트·적재 시각.
+def _note_registry(name: str, items, *, source: str, fetched_at: "datetime | None" = None) -> None:
+    """원장 적재를 기록한다 — 개수·기준일·대략 바이트·적재 시각(+ DART 에서 받은 시각).
 
     바이트는 **표본 추정**이다. 전수 계산은 118k 항목을 재귀로 도는 일이라 적재 경로를 몇 초
     늘린다(그 경로는 이미 6~15초짜리 콜드스타트다). 여기서 필요한 건 정확한 값이 아니라
     「이게 66MB 급 상주 소비자다」를 잊지 않는 것이다 — 260804 OOM 이 안 보이던 캐시에서 났다.
+
+    `fetched_at` 은 그 원장을 **DART 에서 받은 시각**이다(sqlite `_meta.last_updated` 와 같은 기준, 시간대 없는 로컬
+    시각). 261018: `loaded_at`(메모리에 올린 시각)만 보이던 탓에, 배포 직후 /health 는 「0.2시간」인데 원장은 열흘 전
+    것이었다 — 신규상장사를 못 찾는 이유가 안 보였다. 둘을 함께 싣는다.
     """
     try:
         n = len(items)
@@ -605,28 +640,42 @@ def _note_registry(name: str, items, *, source: str) -> None:
         if sample and isinstance(sample[0], dict):
             # 기준일은 전수를 봐야 최댓값이 나온다. 문자열 비교라 118k 도 수 ms 다(실측 7ms).
             as_of = max((str(x.get("modify_date") or "") for x in items), default="")
-        _registry_meta[name] = {
+        meta = {
             "entries": n,
             "bytes_est": int(avg * n),
             "as_of": as_of or None,
             "loaded_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
             "source": source,
         }
+        if fetched_at is not None:
+            # 시간대 없는 로컬 시각 → UTC 로 적는다(`astimezone` 은 시간대 없는 값을 로컬로 본다)
+            meta["fetched_at"] = fetched_at.astimezone(_dt.timezone.utc).isoformat(timespec="seconds")
+        _registry_meta[name] = meta
     except Exception as exc:   # noqa: BLE001 — 관측이 서빙을 깨면 안 된다
         logger.debug("registry meta 기록 실패 (%s): %s", name, exc)
 
 
+def _hours_since(iso: str | None, now: "_dt.datetime") -> float | None:
+    try:
+        return round((now - _dt.datetime.fromisoformat(iso)).total_seconds() / 3600, 1) if iso else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def registry_stats() -> dict:
-    """`/health` 노출용. 나이(시간)는 볼 때 계산한다 — 저장해 두면 그 값이 낡는다."""
+    """`/health` 노출용. 나이(시간)는 볼 때 계산한다 — 저장해 두면 그 값이 낡는다.
+
+    `age_hours` 는 메모리에 올린 뒤 지난 시간, `fetched_age_hours` 는 **DART 에서 받은 뒤** 지난 시간이다(신선도는 뒤쪽).
+    회사 목록에는 갱신 상태(`refresh` — 마지막 시도·이유·결과·횟수)를 붙인다."""
     out: dict[str, dict] = {}
     now = _dt.datetime.now(_dt.timezone.utc)
     for name, m in _registry_meta.items():
-        age = None
-        try:
-            age = round((now - _dt.datetime.fromisoformat(m["loaded_at"])).total_seconds() / 3600, 1)
-        except Exception:  # noqa: BLE001
-            pass
-        out[name] = {**m, "age_hours": age}
+        row = {**m, "age_hours": _hours_since(m.get("loaded_at"), now)}
+        if "fetched_at" in m:
+            row["fetched_age_hours"] = _hours_since(m.get("fetched_at"), now)
+        if name == "corp_master":
+            row["refresh"] = corp_refresh_stats()
+        out[name] = row
     return out
 _corp_code_lock: asyncio.Lock | None = None  # lazy init (asyncio loop 필요)
 
@@ -1207,9 +1256,222 @@ def cache_reclaim(target_bytes: int = 0) -> dict:
 # ── sqlite master cache (KIS 참고, iter27 ship) ──
 # corpCode.xml 50MB 영구 cache → cold start 6-15s → ms.
 # fly.io volume mount 시 machine restart에도 영구.
-# TTL 24h — 자동 update.
 _MASTER_DB_PATH = Path(os.environ.get("OPM_MASTER_DB_PATH", "configs/master.db"))
+#: **프로세스가 뜰 때** sqlite 를 그대로 믿는 상한. 이보다 오래됐으면 첫 적재가 DART 에서 새로 받는다(그동안 첫 요청이 기다린다).
+#: 평소의 신선도는 이 값이 아니라 아래 「회사 명부 신선도」가 맡는다 — 이 값은 갱신기가 오래 못 돈 볼륨을 위한 바닥이다.
 _MASTER_DB_TTL_HOURS = 168   # 7d (corpCode 변경 빈도 낮음, 24h이었지만 idle 후 첫 호출마다 50MB 재다운로드 발생)
+
+# ── 회사 명부 신선도 (261018) ──
+# 🔴 종전엔 만료가 sqlite 층(7일)에만 있었고, 그것도 **프로세스가 뜰 때 한 번** 봤다. 메모리에 올라간 명부는 프로세스가
+#    죽을 때까지 그대로라, 신규상장사를 최대 7일+ 「그런 상장사 없다」로 답했다(261018 실측: 운영 두 머신 모두 명부 기준일
+#    20261008·119,601사 — 10/15 상장 멜콘(179880)이 price_multiple_data·trading_data 에서 not_found. 새로 받은 명부는 119,664사이고
+#    멜콘 행의 종목코드가 비어 있다가 179880 으로 채워져 있었다).
+# 이제 세 길로 새로 받는다 — 셋 다 **실패하면 옛 명부를 그대로 쓴다**(받은 것이 검증을 못 넘어도 마찬가지):
+#   ① 정기: 서버 백그라운드 갱신기(`services/corp_registry_refresher.py`)가 기동 직후와 1시간마다 나이를 보고 하루 한 번 받는다.
+#   ② 신규상장 신호: 일별 시세 저장분(`krx_daily`) 최신일에 있는 보통주 코드가 명부에 없으면(= 새로 상장했는데 명부가 모른다) 받는다.
+#      우선주(끝자리 5·7·9·K…)는 원래 DART 명부에 없어(261018 실측 114개 — 전부 우선주) 보통주 코드(끝자리 0)만 센다.
+#   ③ 해석 실패: 종목코드·corp_code·회사명 조회가 비었을 때 명부가 1시간보다 오래됐으면 한 번 받고 다시 찾는다(시간당 1회 상한).
+# 받기는 프로세스에 하나만 돈다(동시 요청은 같은 받기를 기다린다). 머신마다 볼륨(sqlite)이 따로라 두 머신은 각자 받는다 —
+#   서로 기다리거나 덮어쓸 것이 없고, 잠깐 한쪽만 새 명부여도 다른 쪽은 ③ 이 메운다.
+#: ① 정기 갱신 기준 — 갱신기가 1시간마다 보므로 23시간이면 하루 한 번(23~24시간 사이)이 된다.
+_CORP_REFRESH_AGE_HOURS = 23
+#: ③ 해석 실패발 재수신은 명부가 이만큼 묵었을 때만 — 방금 받은 명부를 또 받지 않는다.
+_CORP_MISS_MIN_AGE_SEC = 3600
+#: ②·③ 의 시도 사이 최소 간격(성공·실패 모두 센다) = 시간당 1회 상한. DART 가 계속 실패해도 매 요청이 다시 받지 않는다.
+_CORP_TRIGGER_MIN_GAP_SEC = 3600
+#: ③ 에서 요청이 받기를 기다리는 상한(초). 넘으면 지금 명부로 답하고 받기는 뒤에서 마저 한다.
+_CORP_MISS_WAIT_SEC = 20.0
+#: 새로 받은 명부의 상장사 수가 지금 명부의 이 비율 밑이면 버린다 — DART 의 반쪽 응답이 상장사 수백 곳을 하루 동안 지우지
+#: 않게 한다(검증 `_validate_corp_master` 의 절대 하한 3,000 은 3,999 → 3,100 같은 손실을 못 막는다). 상장폐지는 주에 몇 곳이다.
+_CORP_LISTED_MIN_RATIO = 0.97
+#: 단, 지금 명부가 이보다 묵었으면(= 며칠째 같은 이유로 버리고 있으면) 줄어든 명부도 받는다 — DART 가 정말로 정리한 것(예: 상장폐지
+#: 법인의 남은 종목코드 일괄 삭제)이라면 영영 못 받고 굳는 편이 더 나쁘다. WARNING 으로 남긴다.
+_CORP_SHRINK_ACCEPT_AFTER_SEC = 3 * 86400
+#: corpCode.xml(약 30MB)을 먹이는 조각 크기. 통째 파싱은 C 호출 한 번이라 그동안 GIL 을 안 놓는다(스레드로 빼도 루프가 멈춘다).
+_CORP_XML_CHUNK = 256 * 1024
+#: 보통주 단축코드 모양 — 숫자로 시작하는 6자리 영숫자(「005930」·「0126Z0」). 끝자리는 따로 본다.
+_TICKER_SHAPE_RE = re.compile(r"[0-9][0-9A-Z]{5}")
+
+#: 명부 새로 받기 줄은 이 로거로 — 운영 루트 로거는 WARNING 이라, 갱신기(`corp_registry_refresher._install_log`)가 여기에
+#: stderr 핸들러를 달아 「새로 받음 — 새 종목코드 …」 INFO 가 운영 로그에 보이게 한다.
+_corp_log = logging.getLogger("open_proxy_mcp.dart.corp_registry")
+
+#: 지금 메모리 명부의 출처와 갱신 상태. `fetched_at` = 그 명부를 DART 에서 받은 시각(시간대 없는 로컬 — sqlite `_meta` 와 같은 기준).
+_corp_registry_state: dict = {
+    "fetched_at": None, "source": None,
+    "last_attempt_mono": None, "last_attempt_at": None, "last_reason": None,
+    "last_outcome": None, "last_error": None, "last_added": None,
+    "attempts": 0, "refreshed": 0, "failed": 0, "rejected": 0,
+    #: 「일별 시세엔 있는데 **새로 받은 뒤에도** 명부엔 없던」 보통주 코드 — 같은 코드로 매시간 다시 받지 않게(DART 가 늦게 싣는 경우).
+    #: 받기가 실패한 코드는 넣지 않는다(다음 확인 때 다시 받는다).
+    "krx_baseline": None,
+}
+#: 진행 중인 받기(단일 실행). 끝났거나 다른 이벤트 루프 것이면 새로 띄운다.
+_corp_refresh_task: "asyncio.Task | None" = None
+#: (id(명부), 종목코드 집합) — 명부가 바뀔 때만 다시 만든다(119k 순회 약 10ms)
+_corp_ticker_cache: "tuple[int, frozenset[str]] | None" = None
+
+
+def _master_db_updated_at() -> "datetime | None":
+    """sqlite 명부를 DART 에서 받은 시각(`_meta.last_updated`). 파일·값이 없거나 못 읽으면 None."""
+    if not _MASTER_DB_PATH.exists():
+        return None
+    try:
+        conn = sqlite3.connect(_MASTER_DB_PATH)
+        try:
+            row = conn.execute("SELECT value FROM _meta WHERE key='last_updated'").fetchone()
+        finally:
+            conn.close()
+        return datetime.fromisoformat(row[0]) if row and row[0] else None
+    except (sqlite3.Error, ValueError):
+        return None
+
+
+def _parse_corp_zip(data: bytes) -> list[dict]:
+    """corpCode.xml ZIP → 회사 목록. 조각(`_CORP_XML_CHUNK`)씩 먹이는 풀 파서로 읽는다.
+
+    통째 파싱(`ET.fromstring`)은 약 30MB XML 을 C 호출 한 번으로 읽어 그동안 GIL 을 놓지 않는다 — 백그라운드 갱신을
+    스레드로 빼도 그 몇 초 동안 이벤트 루프(다른 요청)가 멈춘다. 조각으로 먹이면 조각 사이마다 루프가 돈다.
+    메모리 정점도 낮다(261018 실측 119,664사: 정점 261MB → 69MB, 시간은 1.6초 → 1.8초).
+    """
+    corps: list[dict] = []
+
+    def _drain(parser) -> None:
+        for _event, el in parser.read_events():
+            if el.tag != "list":
+                continue
+            corps.append({
+                "corp_code": el.findtext("corp_code", ""),
+                "corp_name": el.findtext("corp_name", ""),
+                "corp_eng_name": el.findtext("corp_eng_name", ""),
+                "stock_code": el.findtext("stock_code", "").strip(),
+                "modify_date": el.findtext("modify_date", ""),
+            })
+            el.clear()
+
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        parser = ET.XMLPullParser(events=("end",))
+        with z.open(z.namelist()[0]) as f:
+            while chunk := f.read(_CORP_XML_CHUNK):
+                parser.feed(chunk)
+                _drain(parser)
+        parser.close()
+        _drain(parser)
+    return corps
+
+
+def _corp_tickers(corps: list[dict]) -> frozenset[str]:
+    """명부의 종목코드 집합(대문자). 명부가 바뀔 때만 다시 만든다."""
+    global _corp_ticker_cache
+    cached = _corp_ticker_cache
+    if cached is not None and cached[0] == id(corps):
+        return cached[1]
+    tickers = frozenset(str(c.get("stock_code") or "").strip().upper() for c in corps if c.get("stock_code"))
+    _corp_ticker_cache = (id(corps), tickers)
+    return tickers
+
+
+def _install_corp_codes(corps: list[dict], *, source: str, fetched_at: "datetime | None") -> None:
+    """메모리 명부를 통째로 바꿔 끼운다(대입 한 번 — 읽는 쪽은 옛 목록이나 새 목록 중 하나를 본다).
+
+    해석기(`company_resolver.get_company_resolver`)는 명부 객체가 바뀌면 다음 조회 때 색인을 새로 만든다.
+    """
+    global _corp_code_cache
+    _corp_code_cache = corps
+    _corp_registry_state["fetched_at"] = fetched_at
+    _corp_registry_state["source"] = source
+    _note_registry("corp_master", corps, source=source, fetched_at=fetched_at)
+
+
+def _corp_registry_age_sec(now: "datetime | None" = None) -> float | None:
+    """지금 메모리 명부를 DART 에서 받은 뒤 지난 초. 출처를 모르면(시험이 직접 꽂은 명부 등) None."""
+    fetched = _corp_registry_state.get("fetched_at")
+    if fetched is None:
+        return None
+    return ((now or datetime.now()) - fetched).total_seconds()
+
+
+def corp_registry_as_of() -> str | None:
+    """지금 메모리 명부를 DART 에서 받은 시각 — 「2026-10-18 22:04 KST」. 출처를 모르면(시험이 직접 꽂은 명부 등) None.
+
+    「못 찾았다」 안내에 싣는다(261018) — 그 뒤에 상장했거나 사명을 바꾼 회사는 명부에 아직 없을 수 있어, 사용자가 신규상장 여부를 가늠한다.
+    `fetched_at` 은 시간대 없는 그 머신의 로컬 시각이라(운영 머신은 UTC) 로컬로 읽어 KST 로 옮긴다."""
+    fetched = _corp_registry_state.get("fetched_at")
+    if fetched is None:
+        return None
+    try:
+        return fetched.astimezone(_dt.timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M KST")
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+def _corp_trigger_gap_ok() -> bool:
+    """신호(②·③)로 받는 시도가 지난 시도에서 `_CORP_TRIGGER_MIN_GAP_SEC` 이상 지났나 — 시간당 상한."""
+    last = _corp_registry_state.get("last_attempt_mono")
+    return last is None or time.monotonic() - last >= _CORP_TRIGGER_MIN_GAP_SEC
+
+
+def _corp_auto_refresh_off() -> bool:
+    """`OPM_CORP_REFRESHER=0` — 자동으로 새로 받는 길(백그라운드 갱신기·해석 실패 재수신)을 모두 끈다(시험·비상용).
+    프로세스가 뜰 때의 첫 적재(sqlite 7일 상한)는 그대로 돈다."""
+    return (os.environ.get("OPM_CORP_REFRESHER") or "").strip().lower() in {"0", "false", "off", "no"}
+
+
+def _corp_refresh_inflight() -> bool:
+    task = _corp_refresh_task
+    if task is None or task.done():
+        return False
+    try:
+        return task.get_loop() is asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+
+
+def corp_registry_miss_kind(query: str, results: list[dict], corps: list[dict]) -> str | None:
+    """이 조회 결과가 「명부가 낡아서 못 찾았을 수 있는」 실패인가 → 'ticker' · 'corp_code' · 'name' · None.
+
+    - 종목코드 모양(숫자로 시작하는 6자리 영숫자): 결과에 그 코드가 없고 **명부에도 없는** 보통주 코드(끝자리 0)일 때만.
+      명부에 이미 있는데 못 찾은 것(영숫자 코드 해석 등)은 명부가 낡아서가 아니다 — 받아도 안 바뀐다.
+      우선주 코드(끝자리 5·7·9·K…)는 원래 DART 명부에 없다 — 받아도 안 바뀐다.
+    - corp_code(8자리 숫자)·회사명: 결과가 하나도 없을 때. 약한 추정이라도 결과가 있으면 실패로 보지 않는다.
+      단, 지금 거래되는 회사엔 맞는 이름이 없어 **비활성 회사 하나로** 확정했거나 그런 회사 여럿을 고르지 않은 후보로 돌려준 결과
+      (`is_inactive_fallback`)는 실패와 같이 본다 —
+      명부가 낡아 신규상장사를 모르면, 이름이 겹치는 옛 법인이 그 자리를 차지하기 때문이다(받고 다시 찾으면 신규상장사가 이긴다).
+    """
+    from open_proxy_mcp.company_resolver import is_inactive_fallback
+
+    q = (query or "").strip()
+    if not q:
+        return None
+    up = q.upper()
+    if _TICKER_SHAPE_RE.fullmatch(up):
+        if not up.endswith("0") or up in _corp_tickers(corps):
+            return None
+        if any(str(r.get("stock_code") or "").strip().upper() == up for r in results):
+            return None
+        return "ticker"
+    if results and not is_inactive_fallback(results):
+        return None
+    return "corp_code" if re.fullmatch(r"\d{8}", q) else "name"
+
+
+def corp_refresh_stats() -> dict:
+    """`/health` 의 `registry.corp_master.refresh` — 마지막 시도·이유·결과와 누적 횟수. 키 값은 싣지 않는다."""
+    st = _corp_registry_state
+    return {
+        "last_attempt_at": st.get("last_attempt_at"),
+        "last_reason": st.get("last_reason"),
+        "last_outcome": st.get("last_outcome"),
+        "last_error": st.get("last_error"),
+        "last_added_tickers": st.get("last_added"),
+        "attempts": st.get("attempts", 0),
+        "refreshed": st.get("refreshed", 0),
+        "failed": st.get("failed", 0),
+        "rejected": st.get("rejected", 0),
+        "inflight": _corp_refresh_inflight(),
+        "policy": {"daily_hours": _CORP_REFRESH_AGE_HOURS, "miss_min_age_sec": _CORP_MISS_MIN_AGE_SEC,
+                   "trigger_min_gap_sec": _CORP_TRIGGER_MIN_GAP_SEC},
+    }
 
 # ── 정기보고서 제출 법인 명부 ──
 # 🔴 **「상장사냐」가 아니라 「공시 의무가 있느냐」로 판별해야 한다.** 260823 실측 —
@@ -1823,6 +2085,33 @@ class DartClient:
         except sqlite3.Error as exc:
             logger.warning(f"sqlite master save 실패 (memory cache만 사용): {exc}")
 
+    async def _download_corp_codes(self) -> list[dict]:
+        """DART 에서 corpCode.xml 을 받아 검증까지 마친 회사 목록을 돌려준다. 실패하면 예외(메모리·sqlite 는 건드리지 않는다).
+
+        F6/F7 (Phase 4): httpx ReadError/ConnectError 시 3회 retry (1/2/4s backoff).
+        해석은 작업 스레드에서 조각씩 한다(`_parse_corp_zip`) — 백그라운드 갱신이 이벤트 루프를 붙들지 않게.
+        """
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                data = await self._request_binary("corpCode.xml", {})
+                corps = await asyncio.to_thread(_parse_corp_zip, data)
+                _validate_corp_master(corps)
+                return corps
+            except (httpx.ReadError, httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError) as exc:
+                last_exc = exc
+                if attempt < 2:
+                    wait = 1.0 * (2 ** attempt)  # 1s / 2s / 4s
+                    logger.warning(f"corpCode 받기 attempt {attempt+1} failed ({type(exc).__name__}): retry in {wait}s")
+                    await asyncio.sleep(wait)
+            except DartClientError:
+                raise
+            except Exception as exc:
+                logger.warning(f"corpCode master parse/validation 실패: {type(exc).__name__}: {exc}")
+                raise
+        assert last_exc is not None
+        raise last_exc
+
     async def _load_corp_codes(self) -> list[dict]:
         """corpCode.xml 로드 — 3-layer cache: memory → sqlite (TTL 7d) → DART download.
 
@@ -1830,12 +2119,13 @@ class DartClient:
         ReadError/ConnectError 시 3회 retry (1/2/4s backoff).
         iter27 (KIS 참고): sqlite master cache (7d TTL) — cold start 6-15s → ms.
         OPM_MASTER_DB_PATH env로 위치 변경 가능 (fly.io volume mount 등).
+        261018: 여기는 **처음 올리는** 길이다. 올린 뒤 새로 받는 것은 `refresh_corp_codes`(정기·신규상장 신호·해석 실패)가 한다.
 
         Returns:
             [{"corp_code": "00126380", "corp_name": "삼성전자",
               "stock_code": "005930", "modify_date": "20240101"}, ...]
         """
-        global _corp_code_cache, _corp_code_lock
+        global _corp_code_lock
         # Layer 1: memory cache
         if _corp_code_cache is not None:
             return _corp_code_cache
@@ -1847,59 +2137,173 @@ class DartClient:
             if _corp_code_cache is not None:
                 return _corp_code_cache
 
-            # Layer 2: sqlite cache (TTL 7d)
-            corps = self._master_db_load()
+            # Layer 2: sqlite cache (TTL 7d) — 12만 행 읽기는 작업 스레드에서(그동안 다른 요청이 멈추지 않게)
+            corps = await asyncio.to_thread(self._master_db_load)
             if corps:
                 logger.info(f"corp_codes loaded from sqlite master ({len(corps)} corps, fresh ≤7d)")
-                _corp_code_cache = corps
-                _note_registry("corp_master", corps, source="sqlite")
+                _install_corp_codes(corps, source="sqlite", fetched_at=_master_db_updated_at())
                 return corps
 
             # Layer 3: DART download (3회 retry)
-            last_exc: Exception | None = None
-            for attempt in range(3):
-                try:
-                    data = await self._request_binary("corpCode.xml", {})
-                    z = zipfile.ZipFile(io.BytesIO(data))
-                    xml_file = z.namelist()[0]
-                    xml_content = z.read(xml_file)
-                    root = ET.fromstring(xml_content)
-                    corps = []
-                    for item in root.findall("list"):
-                        corps.append({
-                            "corp_code": item.findtext("corp_code", ""),
-                            "corp_name": item.findtext("corp_name", ""),
-                            "corp_eng_name": item.findtext("corp_eng_name", ""),
-                            "stock_code": item.findtext("stock_code", "").strip(),
-                            "modify_date": item.findtext("modify_date", ""),
-                        })
-                    _validate_corp_master(corps)
-                    _corp_code_cache = corps
-                    _note_registry("corp_master", corps, source="download")
-                    # sqlite save (실패해도 memory cache로 계속)
-                    self._master_db_save(corps)
-                    return corps
-                except (httpx.ReadError, httpx.ConnectError, httpx.ReadTimeout, httpx.RemoteProtocolError) as exc:
-                    last_exc = exc
-                    if attempt < 2:
-                        wait = 1.0 * (2 ** attempt)  # 1s / 2s / 4s
-                        logger.warning(f"_load_corp_codes attempt {attempt+1} failed ({type(exc).__name__}): retry in {wait}s")
-                        await asyncio.sleep(wait)
-                except DartClientError as exc:
-                    last_exc = exc
-                    break
-                except Exception as exc:
-                    last_exc = exc
-                    logger.warning(f"corpCode master parse/validation 실패: {type(exc).__name__}: {exc}")
-                    break
+            try:
+                corps = await self._download_corp_codes()
+            except Exception as exc:
+                last_exc: Exception = exc
+            else:
+                fetched = datetime.now()
+                _install_corp_codes(corps, source="download", fetched_at=fetched)
+                # sqlite save (실패해도 memory cache로 계속)
+                await asyncio.to_thread(self._master_db_save, corps)
+                return corps
 
-            fallback_corps = self._master_db_load(require_english=False, allow_stale=True)
+            fallback_corps = await asyncio.to_thread(self._master_db_load, require_english=False, allow_stale=True)
             if fallback_corps:
                 logger.warning("corpCode 영문명 갱신 실패 — 기존 한글 master로 fail-open")
-                _corp_code_cache = fallback_corps
-                _note_registry("corp_master", fallback_corps, source="stale_sqlite")
+                _install_corp_codes(fallback_corps, source="stale_sqlite", fetched_at=_master_db_updated_at())
                 return fallback_corps
             raise DartClientError("CORPCODE_DOWNLOAD_FAILED", f"corpCode.xml 3회 retry 모두 실패: {type(last_exc).__name__}: {last_exc}")
+
+    # ── 회사 명부 새로 받기 (261018) — 정책은 모듈 상단 「회사 명부 신선도」 ──
+
+    async def refresh_corp_codes(self, *, reason: str, wait: float | None = None) -> bool:
+        """명부를 DART 에서 새로 받아 바꿔 끼운다. 새 명부가 들어갔으면 True.
+
+        **프로세스에 하나만 돈다** — 이미 받는 중이면 새로 받지 않고 그 받기를 기다린다. 기다리던 요청이 취소되거나
+        `wait` 초를 넘겨도 받기 자체는 끝까지 간다(`shield`). 받기는 요청 문맥(사용자 키·호출 장부·기준일)을 물려받지
+        않는 빈 문맥에서 서버 키로 돈다 — 서버 키가 없을 때만 이 클라이언트(요청자의 키)를 쓴다.
+        """
+        global _corp_refresh_task
+        loop = asyncio.get_running_loop()
+        task = _corp_refresh_task if _corp_refresh_inflight() else None
+        if task is None:
+            client = self._corp_refresh_client()
+            task = contextvars.Context().run(
+                loop.create_task, client._refresh_corp_codes_once(reason), name="corp-registry-refresh")
+            _corp_refresh_task = task
+        try:
+            if wait is None:
+                return await asyncio.shield(task)
+            return await asyncio.wait_for(asyncio.shield(task), timeout=wait)
+        except asyncio.TimeoutError:
+            _corp_log.info(f"회사 명부 받기가 {wait:.0f}초를 넘겼다 — 지금 명부로 답하고 받기는 뒤에서 마저 한다 ({reason})")
+            return False
+
+    def _corp_refresh_client(self) -> "DartClient":
+        """명부 받기에 쓸 클라이언트 — 서버 키가 있으면 서버 키 클라이언트(사용자 키를 쓰지 않는다), 없으면 자신."""
+        if os.getenv("OPENDART_API_KEY"):
+            try:
+                return contextvars.Context().run(get_dart_client)
+            except Exception:  # noqa: BLE001 — 못 만들면 자신으로
+                pass
+        return self
+
+    async def _refresh_corp_codes_once(self, reason: str) -> bool:
+        """한 번 받아 검증하고, 통과하면 메모리 → sqlite 순으로 바꾼다. 어떤 실패도 예외로 새지 않는다(옛 명부 유지)."""
+        st = _corp_registry_state
+        st["last_attempt_mono"] = time.monotonic()
+        st["last_attempt_at"] = _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
+        st["last_reason"] = reason
+        st["attempts"] = st.get("attempts", 0) + 1
+        try:
+            corps = await self._download_corp_codes()
+        except Exception as exc:  # noqa: BLE001 — 네트워크·한도·검증 실패 — 옛 명부를 그대로 쓴다
+            st["failed"] = st.get("failed", 0) + 1
+            st["last_outcome"] = "failed"
+            # 예외 문자열에는 요청 URL(키 포함)이 섞일 수 있다 — /health 에는 종류와 DART 상태 코드만 싣는다.
+            status = getattr(exc, "status", "")
+            st["last_error"] = f"{type(exc).__name__}[{status}]" if status else type(exc).__name__
+            _corp_log.warning(f"회사 명부 새로 받기 실패({reason}, {st['last_error']}) — 지금 명부(기준 {st.get('fetched_at')})를 계속 쓴다")
+            return False
+        old = _corp_code_cache
+        old_tickers = _corp_tickers(old) if old else frozenset()
+        new_tickers = _corp_tickers(corps)
+        shrunk = bool(old) and len(new_tickers) < len(old_tickers) * _CORP_LISTED_MIN_RATIO
+        if shrunk and (_corp_registry_age_sec() or 0) >= _CORP_SHRINK_ACCEPT_AFTER_SEC:
+            _corp_log.warning(f"회사 명부 새로 받기({reason}): 상장사 {len(old_tickers)} → {len(new_tickers)} 로 줄었지만 지금 명부가 "
+                              f"{_CORP_SHRINK_ACCEPT_AFTER_SEC // 86400}일 넘게 묵어 받아들인다 — DART 쪽 정리인지 확인 필요")
+        elif shrunk:
+            st["rejected"] = st.get("rejected", 0) + 1
+            st["last_outcome"] = "rejected"
+            st["last_error"] = f"listed {len(old_tickers)}→{len(new_tickers)}"
+            _corp_log.warning(f"회사 명부 새로 받기({reason}): 상장사 {len(old_tickers)} → {len(new_tickers)} 로 줄어 "
+                           f"반쪽 응답으로 보고 버린다 — 지금 명부를 계속 쓴다")
+            return False
+        _install_corp_codes(corps, source="refresh", fetched_at=datetime.now())
+        await asyncio.to_thread(self._master_db_save, corps)
+        added = sorted(new_tickers - old_tickers)
+        st["refreshed"] = st.get("refreshed", 0) + 1
+        st["last_outcome"] = "refreshed"
+        st["last_error"] = None
+        st["last_added"] = added[:20]
+        _corp_log.info(f"회사 명부 새로 받음({reason}): {len(corps)}사 · 상장 {len(new_tickers)} "
+                    f"(새 종목코드 {len(added)}{': ' + ', '.join(added[:10]) if added else ''})")
+        # 색인을 지금 만들어 둔다 — 옛 명부를 붙든 해석기가 바로 풀리고, 다음 요청이 색인 만드는 시간을 안 낸다.
+        with contextlib.suppress(Exception):
+            from open_proxy_mcp.company_resolver import get_company_resolver
+            await get_company_resolver(corps, _CORP_ALIASES, await self.periodic_filers())
+        return True
+
+    async def _refresh_corp_codes_on_miss(self, kind: str) -> bool:
+        """해석 실패(③) — 명부가 `_CORP_MISS_MIN_AGE_SEC` 보다 묵었고 시간당 상한 안이면 한 번 받고 기다린다.
+        이미 받는 중이면 조건 없이 그 받기를 기다린다(새로 받지 않는다). 새 명부가 들어갔으면 True."""
+        if _corp_auto_refresh_off():
+            return False
+        if not _corp_refresh_inflight():
+            age = _corp_registry_age_sec()
+            if age is None or age < _CORP_MISS_MIN_AGE_SEC or not _corp_trigger_gap_ok():
+                return False
+        return await self.refresh_corp_codes(reason=f"miss:{kind}", wait=_CORP_MISS_WAIT_SEC)
+
+    async def _krx_listed_missing(self, corps: list[dict]) -> "frozenset[str] | None":
+        """일별 시세 저장분 최신일(활성 상장 명부)에 있는데 회사 명부에 없는 **보통주** 코드. 시세 맥락이 없으면 None."""
+        from open_proxy_mcp.company_resolver import load_market_context
+        ctx = await load_market_context()
+        active = ctx.active_tickers
+        if not active:
+            return None
+        tickers = _corp_tickers(corps)
+        return frozenset(t for t in active if t.upper().endswith("0") and t.upper() not in tickers)
+
+    async def corp_registry_tick(self) -> str:
+        """백그라운드 갱신기의 한 번 확인 → 'refreshed' · 'refresh_failed' · 'reloaded' · 'fresh'.
+
+        ① 명부가 아직 안 올라왔으면 올린다(기동 직후 예열). 같은 sqlite 를 다른 프로세스가 더 새로 받아 두었으면 받지 않고 그것을 올린다.
+        ② 받은 지 `_CORP_REFRESH_AGE_HOURS` 시간이 넘었으면 받는다(정기).
+        ③ 일별 시세 최신일에 있는 보통주 코드가 명부에 없으면 받는다(신규상장 신호, 시간당 상한). 새로 받은 뒤에도 남은 코드
+           (DART 가 늦게 싣는 경우)는 기준선에 두어 다시 세지 않는다. 받기가 실패하면 기준선을 바꾸지 않아 다음 확인 때 다시 받는다.
+        """
+        corps = await self._load_corp_codes()
+        st = _corp_registry_state
+        disk = await asyncio.to_thread(_master_db_updated_at)
+        mem = st.get("fetched_at")
+        # 여유 5분 — 이 프로세스가 받은 직후 저장하는 시각(저장이 몇 초 걸린다)을 「남이 더 새로 받았다」로 읽지 않게.
+        if disk is not None and mem is not None and disk > mem + timedelta(minutes=5):
+            fresh = await asyncio.to_thread(self._master_db_load)
+            if fresh:
+                _install_corp_codes(fresh, source="sqlite", fetched_at=disk)
+                _corp_log.info(f"회사 명부: 같은 sqlite 의 더 새 명부(받은 시각 {disk.isoformat(timespec='seconds')})를 올렸다")
+                return "reloaded"
+        age = _corp_registry_age_sec()
+        if age is None or age >= _CORP_REFRESH_AGE_HOURS * 3600:
+            return "refreshed" if await self.refresh_corp_codes(reason="daily") else "refresh_failed"
+        missing = await self._krx_listed_missing(corps)
+        if missing is None:
+            return "fresh"
+        new = missing - (st.get("krx_baseline") or frozenset())
+        if not new:
+            st["krx_baseline"] = missing
+            return "fresh"
+        if not _corp_trigger_gap_ok():
+            return "fresh"      # 기준선을 바꾸지 않는다 — 다음 확인 때 다시 본다
+        _corp_log.info(f"회사 명부: 일별 시세에 있는데 명부에 없는 보통주 코드 {len(new)}개({', '.join(sorted(new)[:10])}) — 새로 받는다")
+        ok = await self.refresh_corp_codes(reason="krx_new_listing")
+        if ok:
+            # 새로 받았는데도 남은 코드(DART 가 늦게 싣는 경우)만 기준선에 넣는다 — 같은 코드로 매시간 다시 받지 않게.
+            after = await self._krx_listed_missing(_corp_code_cache or corps)
+            st["krx_baseline"] = after if after is not None else missing
+        # 받기가 실패·거절됐으면 기준선을 그대로 둔다 — 넣어 버리면 다음 정기 갱신(최대 23시간 뒤)까지 이 신호가 다시 안 선다.
+        #   다음 확인(시간당 상한)에 같은 신호로 다시 받는다.
+        return "refreshed" if ok else "refresh_failed"
 
 
     # ── 정기보고서 제출 법인 명부 ──
@@ -2073,6 +2477,7 @@ class DartClient:
         # **확정된** 것만 적는다 — 후보 목록(lookup_corp_code_all)은 적지 않는다.
         # 「무엇을 조사했나」는 서버가 그 기업이라고 결론 낸 것이지, 스쳐간 후보가 아니다.
         _note_corp(results[0].get("corp_code"))
+        note_share_class_resolution(results[0])
         return results[0]
 
     async def lookup_corp_code_all(self, query: str) -> list[dict]:
@@ -2086,7 +2491,16 @@ class DartClient:
         corps = await self._load_corp_codes()
         resolver = await get_company_resolver(corps, _CORP_ALIASES,
                                               await self.periodic_filers())
-        return resolver.search(query)
+        results = resolver.search(query)
+        # 261018: 못 찾은 것이 「명부가 낡아서」일 수 있으면(신규상장 종목코드·새 회사명) 한 번 새로 받고 다시 찾는다.
+        #   조건·상한은 `_refresh_corp_codes_on_miss` — 명부가 1시간보다 묵었고 시간당 1회, 받는 중이면 그것을 기다린다.
+        kind = corp_registry_miss_kind(query, results, corps)
+        if kind and await self._refresh_corp_codes_on_miss(kind):
+            corps = await self._load_corp_codes()
+            resolver = await get_company_resolver(corps, _CORP_ALIASES,
+                                                  await self.periodic_filers())
+            results = resolver.search(query)
+        return results
 
     async def suggest_corp_candidates(self, query: str, limit: int = 5) -> list[dict]:
         """조회 실패 시 보여줄 근접 후보. 자동 선택이 아니라 사람이 고르게 하는 용도."""
@@ -2996,6 +3410,18 @@ class DartClient:
             "reprt_code": reprt_code,
             "fs_div": fs_div,
         })
+
+    async def get_fnltt_xbrl(self, rcept_no: str, reprt_code: str = "11011") -> bytes:
+        """재무제표 원본 파일(fnlttXbrl) — 그 보고서의 XBRL 인스턴스·스키마·링크베이스 ZIP 바이트.
+
+        261018: 분기 재무 수집(`scripts/market_fund_quarterly.py`)이 전체 재무제표(fnlttSinglAcntAll) 응답에서 지배 순이익·자본을
+        찾지 못한 보고서만 이걸로 다시 본다(재무상태표가 빠진 응답 등). 서버 도구는 쓰지 않는다.
+
+        Args:
+            rcept_no: 접수번호(14자리)
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request_binary("fnlttXbrl.xml", {"rcept_no": rcept_no, "reprt_code": reprt_code})
 
     async def get_other_corp_investment(
         self,

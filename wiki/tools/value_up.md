@@ -9,7 +9,7 @@ related_concepts: [주주환원, 배당성향]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
 
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-10-18
 ---
 
 # value_up
@@ -212,6 +212,7 @@ KIND fallback +1, 진단검색 +2, role backfill +1, treasury cross-ref +1.
 - ROE/PBR/배당성향 목표 자동 추출 (TODO, 현재는 highlights 문장만).
 
 ## 변경 이력
+- 2026-10-18: md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-04-18: value_up tool 검증 + release_v2 go
 - 2026-04-19: 4개 기업 (KB금융 / 하나금융지주 / LG에너지솔루션 / 메리츠금융지주) summary 통과
 - 2026-04-29: 200기업 audit 50.5% exact (no_filing 48% 분리)

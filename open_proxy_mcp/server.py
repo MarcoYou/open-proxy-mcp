@@ -174,6 +174,8 @@ def build_mcp() -> MCPServer:
             # 메모리 층에는 만료가 없어서 fly 의 suspend/재개로 프로세스가 오래 살면 그만큼
             # 묵는다(sqlite TTL 7일은 메모리가 비었을 때만 걸린다). 신규 상장사를 「없다」고
             # 답하는 조용한 실패라, 먼저 **얼마나 묵는지 보이게** 한다.
+            # 261018: 회사 목록은 이제 하루 한 번 + 신호 때 새로 받는다(`services/corp_registry_refresher.py`).
+            #   신선도는 `fetched_at`·`fetched_age_hours`(DART 에서 받은 시각)로 보고, 갱신 상태는 `refresh` 에 있다.
             "registry": registry_stats(),
             # 풀이 실제로 서고 있나 · 대기가 쌓이나. 「빠르게 하려고 둔 것」이 조용히
             #   fail-open 으로 꺼져 있으면 숫자로만은 알 수 없어서 함께 낸다.
@@ -854,6 +856,10 @@ def build_app(server=None):
     # 잠금을 잡은 하나만). 서버가 뜰 때 띄우고 꺼질 때 멈춘다. `OPM_KRX_REFRESHER=0` 이면 안 띄운다.
     from open_proxy_mcp.services.krx_refresher import attach_to_app
     attach_to_app(app)
+    # 261018: 회사 명부(DART corpCode)도 서버 백그라운드에서 하루 한 번 + 신규상장 신호 때 새로 받는다(머신마다 자기 sqlite).
+    #   해석 실패 때 다시 받는 길은 요청 경로(`DartClient.lookup_corp_code_all`)에 있다. `OPM_CORP_REFRESHER=0` 이면 둘 다 끈다.
+    from open_proxy_mcp.services import corp_registry_refresher
+    corp_registry_refresher.attach_to_app(app)
     return app
 
 
@@ -917,7 +923,7 @@ def _serve(app, host: str, port: int) -> None:
 def _shutdown_aware_server_class():
     """uvicorn 서버 + 종료 신호를 받는 **순간** 사용 기록기가 모으던 묶음을 쓰게 하는 한 줄(261018 T7).
 
-    기록은 5초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
+    기록은 2초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
     요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(kill_timeout, 기본 5초) 뒤
     강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
     `usage.begin_shutdown()` 은 비차단이다(깃발 + 큐 깨우기) — 신호 처리기 안에서 불러도 된다."""

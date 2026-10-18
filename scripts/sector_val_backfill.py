@@ -43,8 +43,10 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
+from open_proxy_mcp.krx_daily import LATEST_DAY_SQL
 from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS
 from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
+from open_proxy_mcp.services import report_calendar as rcal
 
 UPSERT = """
 INSERT INTO opm_val_market
@@ -100,6 +102,9 @@ def main() -> int:
             "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
         finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
 
+    # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
+    fye_of = rcal.load_fye_map(con)
+
     months = [r[0] for r in con.execute(
         "SELECT DISTINCT ON (substring(price_dd,1,6)) price_dd FROM krx_weekly "
         "WHERE price_dd>=%s ORDER BY substring(price_dd,1,6), price_dd DESC", (a.since,))]
@@ -116,7 +121,7 @@ def main() -> int:
         #   지난 금요일이 최신이라, 그대로 쓰면 섹터 배수가 최대 한 주 낡는다. 같은 달이면 그 달의 점을 바꾸고 새 달이면 덧붙인다.
         #   주중 임시 점은 같은 배치의 `market_val_weekly`(같은 주 수렴)가 주마다 한 점으로 정리한다.
         months = sorted(months)
-        latest = con.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+        latest = con.execute(LATEST_DAY_SQL).fetchone()[0]          # 261019: 일별 최신일 = 달력(krx_day)
         if latest and (not months or latest > months[-1]):
             daily_dd = latest
             if months and months[-1][:6] == latest[:6]:
@@ -131,8 +136,7 @@ def main() -> int:
         use = max((s for s in snaps if s <= d), default=snaps[0])
         if use > d:
             n_backfilled += 1
-        fy = _pit_fy(d)
-        fy_q, q = _pit_quarter(d)
+        pit = {rcal.Fiscal(): (_pit_fy(d), _pit_quarter(d))}   # 공시 달력(결산월·외국 상장사 기한) → (그 시점 FY, (분기 칸)) — 12월 결산은 날짜마다 한 번
         src = "krx_daily_v WHERE trd_dd=%s" if d == daily_dd else "krx_weekly WHERE price_dd=%s"
         caps = {r[0]: float(r[1] or 0) for r in con.execute(f"SELECT ticker, mktcap FROM {src}", (d,))}
 
@@ -149,9 +153,13 @@ def main() -> int:
             market = mkts.get(isu)
             if not cls or not cap or market not in (MKT_KS, MKT_KQ):
                 continue
+            fye = rcal.fiscal(fye_of.get(isu, 12), isu)
+            if fye not in pit:
+                pit[fye] = (_pit_fy(d, fye), _pit_quarter(d, fye))
+            fy, (fy_q, q) = pit[fye]
             fin = fin_all.get(isu, {})
             f = fin.get(fy)
-            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q)
+            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q, fye)
             eq_mrq = _mrq_eq(fin, finq_all.get(isu, {}), fy_q, q)
             if not f and ni_ttm is None and eq_mrq is None:
                 continue

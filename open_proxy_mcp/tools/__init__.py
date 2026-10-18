@@ -3,6 +3,7 @@
 import asyncio
 import functools
 import importlib
+import json
 import pkgutil
 
 import httpx
@@ -26,6 +27,56 @@ def classify_error(exc: BaseException) -> str:
     return "crash"
 
 
+#: 종류주 코드를 받아 **그 종류주 자체의 값**을 주는 도구 — 회사 단위 고지(「발행 회사로 식별했습니다」)를 붙이면 틀린 말이 된다.
+#: 이 도구는 자기 안내(「이 응답의 종가·시총·상장주식수는 이 종류주 자체의 값」)를 따로 싣는다(`services/trading._quoted_ticker`).
+_OWN_SHARE_CLASS_NOTE = frozenset({"trading_data"})
+
+
+def _declare_resolution_notes(tool_name: str, result):
+    """해석 확정 관문이 요청 장부에 적은 고지 — 이름 **추정**(비활성 회사로 확정한 경우 포함)과 종류주(우선주 등) 코드를 발행 회사로
+    읽었다는 것 — 가 응답에 빠졌으면 맨 앞에 붙인다. 도구 경계의 안전망(261018).
+
+    고지는 해석 확정 관문이 요청 장부에 적고 `ToolEnvelope.to_dict()`·`declare_weak_resolution` 이 읽는데, 그 둘을 거치지 않고
+    dict·md 를 직접 만드는 경로(`forward_estimates_data` · `dividend_data` · `price_multiple_data` 의 firm_history·과거 시점 firm·sector ·
+    `trading_data` 의 universe)는 「005935」를 삼성전자 값으로 **고지 없이** 줬다(종전엔 그 코드가 `not_found` 였다). 추정도 같았다 —
+    `dividend_data(company="현대미포")` 는 상장폐지된 에이치디현대미포의 배당 표를 「추정했다」·「비활성 회사」 한 줄 없이 냈다
+    (다른 도구는 맨 앞에 밝힌다 — [[company]] 「이름이 정확히 맞지 않으면 응답이 그 사실을 밝힌다」). 모든 도구가 이 경계를 지나므로
+    여기서 한 번 더 본다. 이미 실려 있으면(대부분의 도구) 응답을 건드리지 않는다 — 추정·종류주 코드가 없는 요청은 장부가 비어 아무것도 하지 않는다.
+    종류주 고지만 `_OWN_SHARE_CLASS_NOTE` 도구에서 뺀다(그 종류주 자체의 값을 주므로). 추정 고지는 모든 도구에 같다."""
+    if not isinstance(result, str):
+        return result
+    from open_proxy_mcp.services.contracts import _share_class_warnings, _weak_resolution_warnings, as_pretty_json
+
+    # 순서는 `ToolEnvelope`(`_merge_declared`)와 같다 — 추정 먼저, 종류주 다음.
+    lines = _weak_resolution_warnings()
+    if tool_name not in _OWN_SHARE_CLASS_NOTE:
+        lines += _share_class_warnings()
+    if not lines:
+        return result
+    if result.lstrip().startswith("{"):
+        # JSON 응답 — 문자열 안의 따옴표가 이스케이프되므로 직렬화된 모양으로 찾는다.
+        missing = [ln for ln in lines if json.dumps(ln, ensure_ascii=False)[1:-1] not in result]
+        if not missing:
+            return result
+        try:
+            obj = json.loads(result)
+        except ValueError:
+            obj = None                                   # JSON 이 아니다 — 아래 md 경로
+        else:
+            if isinstance(obj, dict) and isinstance(obj.get("warnings", []), list):
+                obj["warnings"] = missing + list(obj.get("warnings") or [])
+                return as_pretty_json(obj)
+            return result                                # 붙일 자리가 없는 JSON — 깨뜨리지 않는다
+    missing = [ln for ln in lines if ln not in result]
+    if not missing:
+        return result
+    block = "\n".join(f"> ⚠ {ln}" for ln in missing)
+    head, _sep, rest = result.partition("\n")
+    if head.startswith("#"):
+        return f"{head}\n\n{block}\n{rest}" if rest else f"{head}\n\n{block}"
+    return f"{block}\n\n{result}"
+
+
 def _wrap_tool_errors(fn):
     """모든 tool 코루틴을 감싸는 중앙 안전망:
       ① DART 외부·부하 예외(DART_EXTERNAL_ERRORS) → 크래시 대신 graceful 응답(is_error=false).
@@ -34,12 +85,13 @@ def _wrap_tool_errors(fn):
       ② 그 외 예외(진짜 코드버그) → `[ekind=xxx]` 태그를 붙여 re-raise → FastMCP isError=true.
          (태그를 본문에 싣는 이유: MCP streamable 전송이 요청/응답을 별도 태스크로 쪼개
          contextvar 역전파가 불안정 → 미들웨어가 본문에서 태그만 뽑아 기록, 원문 미저장.)
+      ③ 이름 추정·종류주 코드 고지가 빠진 응답이면 맨 앞에 붙인다(`_declare_resolution_notes`).
     """
 
     @functools.wraps(fn)
     async def inner(*args, **kwargs):
         try:
-            return await fn(*args, **kwargs)
+            return _declare_resolution_notes(getattr(fn, "__name__", ""), await fn(*args, **kwargs))
         except DART_EXTERNAL_ERRORS as exc:  # 외부·부하 → graceful degrade
             return degrade_response(getattr(fn, "__name__", "tool"),
                                     kwargs.get("format", "md"), exc)
