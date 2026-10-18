@@ -393,6 +393,20 @@ def _pg():
     return psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15)
 
 
+def _ensure_ddl(con) -> None:
+    """분기 재무 표와 칸(`ni_case`·`eq_case`)이 **없을 때만** DDL 을 보낸다(261019, 재설계 6단계).
+
+    `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 는 칸이 이미 있어도 표 전체 잠금(ACCESS EXCLUSIVE)을 먼저 잡는다 — 10-19 Postgres 17 실측: 열린 읽기
+    트랜잭션 뒤에서 기다리고, 그동안 서버의 분기 재무 읽기(firm_history·업종 비교)가 그 뒤에 줄 선다. 종전엔 `--fetch` 만 이 DDL 을 보냈는데
+    `--seed` 가 주간 일정 두 곳(finstat-quarterly·market-val-weekly)에 들어가면서 매번 보내지 않게 한다. `market_val_series._pg` 와 같은 규칙."""
+    have = con.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                       "AND table_name='dart_finstat_q' AND column_name IN ('ni_case','eq_case')").fetchone()[0]
+    if have < 2:
+        con.execute(DDL)
+        for _m in DDL_MIGRATE:
+            con.execute(_m)
+
+
 def derive_fundamentals(tickers: list[str] | None = None) -> None:
     """dart_fundamentals 재무 4열(ni_fy·ni_ttm·eq_fy·eq_mrq)을 dart_finstat_q(분기+Q4연간)에서 파생 —
     **DART 0콜**. SSOT = dart_finstat_q. 원통화 raw 유지(daily cron이 fx_rate로 KRW 환산). 최신 공시분기
@@ -629,11 +643,10 @@ def seed_q4() -> None:
     (466100·471820·082270)은 Q4 칸에 값이 있는데, 종전 식으로 돌리면 NULL 로 덮여 재무 요약 연간 값이 사라졌다. 둘 다 값이면 연간 표(정본)를 따른다.
     ③ 「최신 FY 가 연간 표에 아직 없으면 재무 요약에서 bootstrap」 하던 경로를 뺐다 — 재무 요약의 연간 값(`ni_fy`·`eq_fy`)은 260902 부터 **이 표의
     Q4 칸에서 파생**되므로, 연간 표가 비었을 때 그 값을 새 FY 칸에 넣으면 지난해 값이 올해 표기로 들어간다(4월 첫 실행에서 연간 수집이 한 행도 못 쓰고
-    멈춘 경우). 연간 값은 연간 표(`market_val_series --fetch`)로만 들어온다."""
+    멈춘 경우). 연간 값은 연간 표(`market_val_series --fetch`)로만 들어온다.
+    261019: 표·칸이 이미 있으면 DDL 을 보내지 않는다(`_ensure_ddl` — 칸이 있어도 표 전체 잠금을 기다리던 것)."""
     con = _pg(); con.autocommit = True
-    con.execute(DDL)
-    for _m in DDL_MIGRATE:
-        con.execute(_m)
+    _ensure_ddl(con)
     n1 = con.execute("""
         INSERT INTO dart_finstat_q (ticker, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
         SELECT ticker, fy, 4, '11011', fs,
@@ -725,9 +738,7 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
       공시 마감 전 칸·4분기(사업보고서 — seed 몫)는 빼고, `years` 와 무관하게 그 칸의 연도를 쓴다."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con = _pg(); con.autocommit = True
-    con.execute(DDL)
-    for _m in DDL_MIGRATE:
-        con.execute(_m)
+    _ensure_ddl(con)                     # 261019: 표·칸이 있으면 DDL 을 보내지 않는다
     if only:
         pilot = sorted({k[0] for k in only})
     if pilot:

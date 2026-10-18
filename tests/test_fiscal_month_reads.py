@@ -279,6 +279,25 @@ def test_seed_writes_only_changed_rows_and_never_bootstraps_from_the_summary(fdb
     assert capsys.readouterr().out.count("Q4 seed") == 4
 
 
+def test_seed_does_not_wait_for_the_table_lock_when_the_columns_exist(fdb, monkeypatch):
+    """261019: `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 는 칸이 있어도 표 전체 잠금을 기다린다 — 서버 읽기가 열린 동안 주간 일정의 seed 가
+    그 뒤에 줄 서고, 그 seed 뒤에 다음 서버 읽기들이 줄 섰다. 표·칸이 있으면 DDL 을 보내지 않는다(없으면 종전처럼 만든다)."""
+    with psycopg.connect(fdb, autocommit=True) as c:
+        c.execute("INSERT INTO dart_finstat_y (ticker, fy, fs, ni, eq, fetched) VALUES ('A', 2024, 'CFS', 10, 100, 'ok')")
+    monkeypatch.setenv("PGOPTIONS", "-c lock_timeout=1500")       # 잠금을 기다리면 1.5초 뒤 실패한다(종전 코드)
+    with psycopg.connect(fdb) as reader:                           # 서버 읽기 — 트랜잭션이 열린 동안 AccessShareLock
+        reader.execute("SELECT count(*) FROM dart_finstat_q").fetchone()
+        Q.seed_q4()
+        reader.rollback()
+    assert _q(fdb, "SELECT fy, ni_cum, eq FROM dart_finstat_q WHERE quarter=4") == [(2024, 10.0, 100.0)]
+    # 표가 없으면(새 DB) 종전처럼 만든다 — 칸 둘까지
+    with psycopg.connect(fdb, autocommit=True) as c:
+        c.execute("DROP TABLE dart_finstat_q")
+    Q.seed_q4()
+    cols = {r[0] for r in _q(fdb, "SELECT column_name FROM information_schema.columns WHERE table_name='dart_finstat_q'")}
+    assert {"ni_case", "eq_case"} <= cols and _q(fdb, "SELECT count(*) FROM dart_finstat_q") == [(1,)]
+
+
 class _ListClient:
     """정기공시 목록·회사 개황 대역. 목록은 창마다 같은 내용을 한 쪽으로 준다(코스피·코스닥 각각)."""
 
