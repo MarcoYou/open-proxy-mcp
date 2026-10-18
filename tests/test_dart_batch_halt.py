@@ -353,6 +353,29 @@ def test_quarterly_xbrl_other_errors_still_leave_the_cell_empty(qdb, monkeypatch
     assert {c[1:] for c in _h1_cells(qdb)} == {(200.0, None, "ok", "CIS_ID", "NODATA")}
 
 
+def test_quarterly_refetch_failure_does_not_wipe_an_ok_cell(qdb, monkeypatch):
+    """`--refetch` 는 ok 칸도 다시 받는다. 그때 그 칸만의 오류(900)·환율 실패가 나도 받아 둔 값을 빈 값·err 로 덮지 않는다
+    (서버는 이 표의 값을 상태와 무관하게 읽는다). nodata 칸 위에는 종전처럼 err 를 적어 다음 실행이 다시 받는다."""
+    class _Odd(_QuotaDart):
+        async def get_fnltt_singl_acnt_all(self, corp_code, bsns_year, reprt_code="11011", fs_div="CFS"):
+            if corp_code in ("0000000A", "0000000B"):
+                self.calls.append(("acnt", corp_code, str(bsns_year), reprt_code, fs_div))
+                raise DartClientError("900", "정의되지 않은 오류")
+            return await super().get_fnltt_singl_acnt_all(corp_code, bsns_year, reprt_code, fs_div)
+    usd = [{**x, "currency": "USD"} for x in H1_OK]
+    _use(monkeypatch, _Odd(9, acnt={("0000000C", "2026", "11013", "CFS"): usd}))
+
+    async def _no_rate(*a, **k):
+        return None
+    monkeypatch.setattr(Q, "fx_to_krw", _no_rate)
+    asyncio.run(Q.fetch([2026], conc=1, only={("A", 2026, 1), ("B", 2026, 2), ("C", 2026, 1)}))
+    got = {(t, qq): rest for t, qq, *rest in _q(qdb, "SELECT ticker, quarter, ni_cum, eq, fetched FROM dart_finstat_q "
+                                                     "WHERE (ticker, quarter) IN (('A', 1), ('B', 2), ('C', 1))")}
+    assert got[("A", 1)] == [1.0, 1.0, "ok"]                                     # DART 오류 — 받아 둔 값 그대로
+    assert got[("C", 1)] == [1.0, 1.0, "ok"]                                     # 환율 실패 — 받아 둔 값 그대로
+    assert got[("B", 2)][:2] == [None, None] and got[("B", 2)][2].startswith("err:DART API 에러 [900]")   # nodata 위엔 종전처럼
+
+
 # ── 분기 전기 칸 보충(--prior-from-next) ────────────────────────────────────
 
 def _next_year_q1(ni_prior, eq_prior, eq_now=10000):

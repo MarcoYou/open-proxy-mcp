@@ -678,6 +678,9 @@ def seed_q4() -> None:
 
 
 def _flush(buf) -> None:
+    """261019: 실패(err:…) 행은 이미 받은 ok 행을 덮지 않는다 — `--refetch` 는 ok 칸도 다시 받는데, 그때 DART 오류·환율 실패가 나면 종전엔
+    그 칸의 순이익·자본을 빈 값과 err 로 덮었다(서버는 이 표의 값을 상태와 무관하게 읽으므로 그 칸이 곧바로 비었다). 그 밖의 행(nodata·err)
+    위에는 종전처럼 err 를 적어 다음 실행이 다시 받는다."""
     if not buf:
         return
     with _pg() as c:
@@ -688,7 +691,8 @@ def _flush(buf) -> None:
                 ON CONFLICT (ticker, fy, quarter) DO UPDATE SET
                   reprt_code=EXCLUDED.reprt_code, fs=EXCLUDED.fs, ni_cum=EXCLUDED.ni_cum,
                   eq=EXCLUDED.eq, fetched=EXCLUDED.fetched, ni_case=EXCLUDED.ni_case,
-                  eq_case=EXCLUDED.eq_case""", buf)
+                  eq_case=EXCLUDED.eq_case
+                WHERE NOT (EXCLUDED.fetched LIKE 'err:%%' AND dart_finstat_q.fetched = 'ok')""", buf)
         c.commit()
     buf.clear()
 
