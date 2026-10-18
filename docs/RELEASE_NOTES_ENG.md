@@ -4,6 +4,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### Amendment cards show what changed — `screener`
+
+- Amendment cards in `screener(details=true)` now carry the filing's own **item · before · after table**, cell text as written, with the stated reason, the amended document and its original filing date. Each row is marked changed, added or deleted.
+- Previously only the latest amended values were shown, so what had been corrected was invisible. E.g. a supply-contract amendment "confirmed contract amount 27,631,500,000 → 34,028,600,000", or preliminary-earnings amendments by revenue and growth-rate block.
+- When there is no table, the card says why — attachment-only amendment, values only in footnotes, or form not recognized.
+- Usually no extra DART call (the same document is already cached). Treasury-share and capital-raise amendments, which use structured APIs only, cost one call each.
+
 ### Company-name inference picks only currently listed companies
 
 - When a company is inferred from a partial name (e.g. "현대미포", "동양생명"), companies that did not trade on KOSPI or KOSDAQ on the latest trading day — delisted or merged companies and KONEX companies — are no longer chosen. Their official names and tickers still resolve ("에이치디현대미포", "HD현대미포", "010620").
