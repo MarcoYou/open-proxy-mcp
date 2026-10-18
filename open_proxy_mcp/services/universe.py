@@ -147,7 +147,7 @@ def is_preferred(ticker: str, names: dict[str, str]) -> bool:
 
 def _padded(spec: str) -> tuple[str, int | None, str]:
     """순위 스펙이면 (여유를 둔 스펙, 원래 N, 접두) — 우선주를 뺀 뒤에도 N 이 차게.
-    지수(kospi200·kosdaq150)는 여기서 다루지 않는다 — 구성종목 원장을 먼저 보고, 못 읽었을 때만 `_index_fallback` 이 이 함수를 쓴다."""
+    지수(kospi200·kosdaq150)는 여기서 다루지 않는다 — 구성종목 원장을 먼저 보고, 못 읽었을 때만 `list_universe` 의 대체 경로가 이 함수를 쓴다."""
     m = _RANK_SPEC.match(spec)
     if not m:
         return spec, None, ""

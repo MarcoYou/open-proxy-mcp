@@ -230,9 +230,14 @@ def test_verify_needs_all_three_sums_exact():
     rows = [_stock("A00001", 100, 10, 1000), _stock("A00002", 50, 7, 500), _stock("A00003", 49, 7, 499)]
     idx = {"IDX_NM": "코스피 200", "MKTCAP": "150", "ACC_TRDVOL": "17", "ACC_TRDVAL": "1500"}
     assert S.verify(frozenset({"A00001", "A00002"}), rows, idx).ok
-    # 비슷한 종목으로 하나 바뀌면(시총 1 차이) — 셋 중 어느 것도 맞지 않는다
+    # 비슷한 종목으로 하나 바뀌면(시총·거래대금 1 차이, 거래량은 같다) — 맞지 않는다
     c = S.verify(frozenset({"A00001", "A00003"}), rows, idx)
     assert not c.ok and "차" in c.describe()
+    # 셋 다 따로 본다 — 한 칸만 어긋나도 쓰지 않는다(시총이 우연히 같아도 거래량·거래대금이 가른다)
+    for col, bad in (("MKTCAP", "151"), ("ACC_TRDVOL", "18"), ("ACC_TRDVAL", "1501")):
+        c = S.verify(frozenset({"A00001", "A00002"}), rows, {**idx, col: bad})
+        assert not c.ok, col
+        assert sum(s != k for s, k in zip(c.sums, c.krx)) == 1, col
     # KRX 그 시장 자료에 없는 종목
     c = S.verify(frozenset({"A00001", "B00009"}), rows, idx)
     assert not c.ok and c.missing == ["B00009"]
