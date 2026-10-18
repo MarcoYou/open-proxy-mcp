@@ -33,6 +33,9 @@ def test_usage_insert_columns_match_placeholders_and_tuple():
     src = open("open_proxy_mcp/usage.py", encoding="utf-8").read()
     assert re.search(r"_q\.put_nowait\(tuple\(vals\[c\] for c in _EVENT_COLUMNS\)\)", src), \
         "큐 튜플이 _EVENT_COLUMNS 순서로 조립되지 않는다"
+    # 송신함에서 되읽는 값도 이름으로 같은 목록에 맞춘다.
+    assert re.search(r"tuple\(json\.loads\(r\[0\]\)\.get\(c\) for c in _EVENT_COLUMNS\)", src), \
+        "송신함 값이 _EVENT_COLUMNS 순서로 복원되지 않는다"
 
 
 def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
