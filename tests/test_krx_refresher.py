@@ -619,7 +619,7 @@ def test_app_still_boots_when_the_refresher_cannot_start(monkeypatch):
     assert order == ["inner_enter", "inner_exit"]
 
 
-def test_real_start_and_stop_manage_a_task(monkeypatch):
+def test_real_start_and_stop_manage_a_task(monkeypatch, caplog):
     monkeypatch.setenv(R.ENV_FLAG, "1")
     monkeypatch.setenv("DATABASE_URL", "postgresql://x")
     monkeypatch.setenv("KRX_API_KEY", "k")
@@ -638,8 +638,11 @@ def test_real_start_and_stop_manage_a_task(monkeypatch):
         await R.stop(h)
         assert h.task.done()
         await R.stop(None)                                  # None 도 안전
-    asyncio.run(go())
+    with caplog.at_level("INFO", logger=R.__name__):
+        asyncio.run(go())
     assert ran[0] == "started"
+    # 시작 로그의 요일은 실제 창(WINDOW_WEEKDAYS = 월~토)과 같다 — 토요일에도 도는데 「평일」로 적지 않는다
+    assert any("KRX 갱신기 시작: 월~토 07:30~20:00 KST" in r.getMessage() for r in caplog.records)
 
 
 def test_build_app_wires_the_refresher_into_the_server_lifespan(monkeypatch):

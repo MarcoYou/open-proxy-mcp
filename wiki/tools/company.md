@@ -57,7 +57,7 @@ company(
     "confidence": "high",
     "reason": "...",
     "market_data_as_of": "20260721",
-    "market_data_source": "krx_weekly|local_popularity_prior",
+    "market_data_source": "krx_daily|local_popularity_prior",
     "ranking_signal": "market_cap|local_popularity_prior",
     "alternatives": []
   },
@@ -84,7 +84,7 @@ company(
 
 ## Data sources
 - **DART API**: `corpCode.xml` (한글명·공식 영문명·식별자, ZIP→XML, memory→SQLite 캐시), `company.json` (법인번호/업종코드), `list.json` (최근 공시).
-- **KRX 주간 스냅샷**: 전체 활성 상장 여부 + 시가총액 prior. 요청별 조회 없이 resolver 생성 시 한 번 메모리에 적재.
+- **KRX 일별 시세 저장분(`krx_daily`, 최신 거래일 전 종목 단면)**: 전체 상장 여부 + 시가총액 prior. 요청별 조회 없이 resolver 생성 시 한 번 메모리에 적재(1시간 캐시).
 - 외부 호출: 최대 3회 (corpCode 캐시 적중 시 2회).
 
 ## Flow
@@ -200,6 +200,8 @@ PRIMARY KEY 가 중복을 흡수하니 실제로 행이 느는 건 사명이 바
 - 2026-10-18: 추론 tier 가 비활성 회사에만 걸려 통째로 비면 **최후 수단으로 다음 tier 까지 내려간다**. 「세이」·「루트」는 이름에 그 조각을 품은 활성 상장사(세이브존I&C·에이루트)가 있는데도 토큰이 코넥스(세이프아시아·루트락)에만 걸려 「못 찾음」이었다. 대표 66 + 활성 이름 앞 2글자 1,206 중 바뀜은 이 2개, 정식명 3,995 중 0. 활성 이름 가운데 2글자 조각 2,454 중 「못 찾음」 78 → 0(대부분 이미 부분일치로 고르던 규칙과 같아진다). 이미 답이 나오던 질의는 바뀌지 않는다.
 - 2026-10-18: 못 찾았을 때 근접 후보에 **이름 가운데 부분일치**를 더한다. 활성 명부가 켜지자 「현대미포」·「더존」·「루트」처럼 질의가 이름 가운데에 있거나 2·3글자인 조각은 앞자르기만 보던 제안이 비어 「못 찾음」만 나갔다(대표 8개 중 7개 후보 0개, 「인프라코어」는 엉뚱한 인프라웨어테크놀러지 1개) → 8개 모두 원래 회사가 후보 1순위. 자동 선택은 여전히 없다.
 - 2026-10-18: 활성 상장 명부가 처음으로 실제로 켜진다. 완전성 판정이 `KOSPI`/`KOSDAQ` 을 세는데 DB 값은 2026-08-23 개명 뒤 `KS`/`KQ` 라 그동안 늘 꺼져 있었다(`active_registry_used=false`) — 부분명이 상장폐지 회사를 고르고 근거 문구가 「종목코드 보유 법인」으로 나갔다. 판정을 시장 코드 정규화(`market_codes.to_db`)로 맞췄다.
+- 2026-10-18: 이름 해석의 시총·상장 명부 근거를 일별 시세 저장분의 최신 거래일 단면(`krx_daily`)에서 읽는다(종전 `krx_weekly` 이번 주 행).
+  `company_resolution.market_data_source` 값이 `krx_weekly` → `krx_daily`. 시총·기준일 값은 그대로.
 - 2026-09-07: 최근 공시 표의 분류가 코드(`ownership_block`)로 나가던 것 → 우리말(대량보유 보고·주총 소집공고·배당 결정 …). 영어 응답은 코드 유지.
 - 2026-08-08: 사명 변경 이력 누적(`corp_name_history`) + 미발견 안내가 현재 사명을 알려줌 (위 절).
 - 2026-08-06: 스윕 서사·측정 상세를 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).

@@ -48,7 +48,7 @@ def _hist_rows():
 def _stub(monkeypatch, uni_rows=_UNI, hist=None, resolved=True, db_ok=True):
     async def lu(raw):
         return uni.UniverseList(spec="kospi:4", label="KOSPI 시총상위 4", resolved=resolved,
-                                notice="" if resolved else "krx_weekly 조회 실패 → 전체시장으로 대체.",
+                                notice="" if resolved else "시세 저장분 조회 실패 → 전체시장으로 대체.",
                                 as_of="20260911", rows=list(uni_rows), db_ok=db_ok)
     monkeypatch.setattr(uni, "list_universe", lu)
     monkeypatch.setattr(fe, "_hist_available", lambda: True)

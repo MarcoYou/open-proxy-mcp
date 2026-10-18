@@ -113,8 +113,11 @@ def _coerce(v: str):
     접수번호(rcept_no)·corp_code 이고 tool 은 전부 `str` 로 받는다. int 로 넘기면 호출이
     pydantic 검증에서 죽는데, 에러가 「타입」 이야기라 인자를 잘못 쓴 줄 알고 헤매게 된다.
     (굳이 수로 넘기려면 따옴표 없이 못 하니 `--json` 처럼 코드를 고치는 쪽이 맞다.)
+    261018: **6자리 숫자도** 문자열로 둔다 — 종목코드 모양이다. 0 으로 시작하는 코드(`005930`)는 JSON 이 못 읽어 우연히 문자열로
+    남았지만 `950260`·`352820` 같은 코드는 int 로 넘어가 `company` 검증에서 죽었다(실측: 「Input should be a valid string」).
+    수를 받는 인자(`section_chars=120000` 등)는 숫자 문자열을 그대로 받아 수로 바꾸므로(검증기 lax 모드) 문자열로 둬도 된다.
     """
-    if v.isdigit() and len(v) >= 8:
+    if v.isdigit() and (len(v) >= 8 or len(v) == 6):
         return v
     try:
         return json.loads(v)

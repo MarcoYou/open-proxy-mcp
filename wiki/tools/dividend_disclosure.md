@@ -8,7 +8,7 @@ related_disclosures: [현금배당결정, 주식배당결정, 배당기준일결
 related_concepts: [배당성향, 배당수익률, 분기배당, 특별배당, 감액배당, 자본준비금, 당기순이익, 주주환원]
 related_decisions: [배당공시유형, DART-KIND-매핑-화이트리스트-2026-04]
 created: 2026-05-01
-updated: 2026-09-03
+updated: 2026-10-18
 ---
 
 # dividend_disclosure
@@ -105,7 +105,7 @@ scope:
 
 ## Data sources
 - **DART API**: `alotMatter` (사업보고서, 1차 source), `현금ㆍ현물배당결정` 공시 합산 (alotMatter 비거나 cash_dps=0일 때 fallback)
-- **KRX Open API**: 시세 fallback
+- **현재가 기준 배당수익률의 시세**: 일별 시세 저장분의 최신 거래일 종가([[price_multiple_data]] `_market_for` 재사용, DART·KRX 0콜) — 저장분에 없을 때만 **KRX Open API** 로 확인
 - 외부 호출: summary 13회 (배당결정 공시 N건 본문), history 21회 (+ 분기교정)
 
 ## Flow
@@ -245,6 +245,7 @@ sequenceDiagram
 같은 규칙을 쓴다(`tests/test_dividend_share_class.py`).
 
 ## 변경 이력
+- 2026-10-18: 현재가 기준 배당수익률의 시세 출처 표기를 「krx_weekly」 → 「일별 시세 저장분(최신 거래일 종가)」 — [[price_multiple_data]] `_market_for` 가 일별 저장분을 읽게 바뀐 데 따른 것. 값은 그대로다.
 - 2026-09-06: **종류주식이 보통주 DPS 를 덮던 것 수정** — 위 「주당값과 총액의 기준」 절.
   라벨 정리: 그 밖 종류 DPS 는 원문 표기로, 시가배당률에 (보통주)·(그 종류) 병기, 배당총액에
   「전 종류 합산 신고총액」, history 헤더에 (보통주).

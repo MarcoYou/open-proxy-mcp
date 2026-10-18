@@ -79,7 +79,7 @@ def _detail_line(card: dict) -> str | None:
         return " · ".join(parts)
     if tc == "treasury":
         parts = [f"금액 {_won(f.get('amount_won'))}"]
-        # 분모 항상: 시총대비% — 추출기가 안 주면 amount ÷ 시총(krx_weekly, 이미 카드에 부착)으로 파생.
+        # 분모 항상: 시총대비% — 추출기가 안 주면 amount ÷ 시총(일별 시세 저장분 최신 거래일, 이미 카드에 부착)으로 파생.
         ratio = f.get("mktcap_ratio_pct")
         if ratio is None and f.get("amount_won") and card.get("mktcap_won"):
             ratio = round(f["amount_won"] / card["mktcap_won"] * 100, 2)
@@ -414,7 +414,7 @@ def register_tools(mcp):
         universe: **사람 말로 받는다** — "전체"(디폴트) / "코스피"·"코스닥"(시장 전체) / "코스피200" / "코스피 시총 상위 30"·"코스닥 상위 50"·"시총 상위 100"·"코스피 시가총액 상위 200개 기업"(숫자 뒤 개·종목·기업·회사·개사·곳 무관) / "삼성전자, SK하이닉스"(이름 나열, 자동 코드화). 나열에서 회사를 하나도 못 찾거나 「코스피 120」처럼 수인지 이름인지 모를 때는 **조회하지 않고 되묻는다**(status=needs_input — 시장 전체로 바꿔 보이지 않는다). 옛 문법(all·kospi200·kospi:N·kosdaq:N·top_mktcap:N·market:kospi|kosdaq·custom:…)도 그대로 동작. 각 카드에 시총 병기.
         details: false(디폴트, scan만) / true(문서 열어 숫자 — **이번 페이지 건만** 연다. 기간>30일이면 자동 off, 기간>7일이면 preview. 유니버스 크기로는 더 이상 막지 않는다).
         offset: 이어받기 위치(디폴트 0). 응답의 `paging.next_offset` 을 그대로 넣으면 다음 묶음이 온다. **매칭 수(`paging.matched`)와 이번에 실은 수(`paging.returned`)는 다른 값이다** — 표시된 건수를 전체로 읽지 말 것.
-        rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(krx_weekly) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.
+        rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(일별 시세 저장분에 보관된 최신 거래일 기준 — 유니버스 순위도 같은 날) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.
         view: 비우면 카드 보기(위 설명 전부). **"흐름"이면 흐름 보기** — 매일 밤 쌓이는 공시 원장만 읽어(DART 0콜) ① 업종 대분류·중분류별 새 공시 건수·금액을 직전 N주 같은 일수 환산 평소와 비교(「평소 대비 몇 배」) ② 매출 대비 비율이 기준 이상인 큰 수주 목록 ③ 올해 회사별 누적 수주(공시에 적힌 매출 대비 %의 합)를 준다. "지난주 업종별 수주 평소보다 많이 떴나"·"올해 수주가 매출 대비 가장 많이 쌓인 회사"·"업종별 자사주·증자 흐름"은 이것. 흐름 보기의 types 기본은 수주, period 기본은 원장 최신일까지 최근 7일(나머지 말은 카드 보기와 같은 뜻, 3개월 한도 없음 — 「이번 주·달·분기·올해」는 원장 최신일까지, 원장이 아직 그 칸에 없으면 가장 최근 칸을 보이고 밝힌다), universe 는 카드 보기와 같은 문법. 정정·해지는 새 공시로 세지 않고 따로 센다. 원장은 밤 배치라 오늘 뜬 공시는 카드 보기로.
         level: 흐름 보기의 업종 분류 단계 — "둘 다"(기본) / "대분류"(10) / "중분류"(28).
         baseline_weeks: 흐름 보기의 비교 기준 주 수(기본 13, 1~52).

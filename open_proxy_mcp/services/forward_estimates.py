@@ -902,7 +902,7 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
     if not ul.db_ok:
         st = "db_error" if os.getenv("DATABASE_URL") else "db_unconfigured"
         return {"tool": TOOL, "status": st, "subject": subject,
-                "warnings": ["유니버스를 만들 주간 시세 저장분을 읽지 못했다 — "
+                "warnings": ["유니버스를 만들 시세 저장분을 읽지 못했다 — "
                              + ("일시 장애일 수 있다, 재시도할 것." if st == "db_error"
                                 else "이 서버에는 저장분 DB 가 연결돼 있지 않다. 재시도해도 되지 않는다.")]}
     if not ul.resolved:
@@ -1002,7 +1002,7 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
         warnings.append("종목별 최신 스냅샷 날짜가 다르다: " + " · ".join(latest_dates)
                         + " — 같은 날 기준이 아니니 순위를 정밀 비교로 읽지 말 것.")
     if ul.as_of:
-        warnings.append(f"유니버스(시총 순위)는 주간 시세 저장분 {ul.as_of} 기준.")
+        warnings.append(f"유니버스(시총 순위)는 시세 저장분에 보관된 최신 거래일({ul.as_of}) 기준.")
 
     data: dict[str, Any] = {
         "scope": "revision_screen", "universe": raw, "label": ul.label,

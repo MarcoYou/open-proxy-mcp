@@ -264,7 +264,8 @@ async def _safe_getdoc(client, rcept_no: str) -> dict:
 
 
 async def _market_cap(stock_code: str):
-    """시총 = valuation tool과 동일 소스(krx_weekly, 상장주식수 기준) 재사용 — DART 0콜, Postgres 캐시.
+    """시총 = valuation tool과 동일 소스(`_market_for` — 일별 시세 저장분의 최신 거래일, 상장주식수 기준) 재사용 — DART 0콜, Postgres 캐시.
+    261018: 출처가 krx_weekly 이번 주 행 → 일별 저장분(`price_latest`)으로 옮겨졌다(값은 같다). 이 함수는 그대로다.
     260721 버그수정: 이전엔 DART 유통주식수(distb_stock_co, 자기주식 제외)×종가로 자체계산해
     관행적 '시가총액'(상장주식수 전체 기준, valuation/포털/KRX 표준)보다 자기주식 비율만큼
     과소산출됐다(서희건설 실측: 유통 1.85억주 vs 상장 2.30억주 — 시총 19% 과소, 잉여자산배수 왜곡).

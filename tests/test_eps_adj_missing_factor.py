@@ -57,7 +57,10 @@ def test_share_change_still_warns_about_eps_input():
 
 
 def test_shares_ratio_reads_krx_weekly_not_dart():
-    """배율은 KRX 상장주식수(실측)에서 온다 — DART 유통주식수는 자기주식 제외라 개념이 다르다."""
+    """배율은 KRX 상장주식수(실측)에서 온다 — DART 유통주식수는 자기주식 제외라 개념이 다르다.
+    261018: 최신 주식수는 일별 저장분(`price_latest`)을 먼저 보고, 없으면 krx_weekly 로 대신한다. 기준일 뒤 첫 주는 krx_weekly."""
     src = inspect.getsource(V._shares_ratio)
     assert "krx_weekly" in src and "list_shrs" in src
+    assert "FROM price_latest" in src, "최신 주식수가 일별 저장분을 보지 않는다 — krx_weekly 에 이번 주 행이 없으면 낡는다"
+    assert src.index("FROM price_latest") < src.index("ORDER BY price_dd DESC"), "krx_weekly 최신 행은 일별 저장분에 없을 때의 대신 읽기여야 한다"
     assert "stockTotqySttus" not in src

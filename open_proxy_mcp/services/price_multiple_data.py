@@ -72,16 +72,24 @@ def _price_dates(today=None) -> list[str]:
     return out
 
 
-# KRX 시세 = 기존 검증 자산 **krx_weekly**(주별 최종거래일 전종목, 2015-12~, 원장 대조 불일치 0,
-# 수정주가 파이프라인과 공유)에서 서빙 — 별도 테이블 신설 금지(260705 krx_weekly_px 중복 생성 → 폐기).
+# KRX 시세의 **지난 값**(주간 곡선·연말 밴드·주식수 배율의 첫 주) = 기존 검증 자산 **krx_weekly**(주별 최종거래일 전종목,
+# 2015-12~, 원장 대조 불일치 0, 수정주가 파이프라인과 공유) — 주간 사본 테이블 신설 금지(260705 krx_weekly_px 중복 생성 → 폐기).
+# **최신값**(종가·시총·상장주식수)은 261018 부터 일별 시세 저장분에서 읽는다(아래 「재설계 5-1」 항목).
 # 라이브 KRX는 개인키 1개·일 10,000콜 한도(배치와 공유)라 유저마다 못 씀. FX 캐시와 동형:
 #  · 매일 최신 거래일 스냅샷을 '그 ISO주' 슬롯에 수렴(같은 주 옛 price_dd 삭제 후 insert, 트랜잭션)
 #    → 서빙엔 전날 종가까지 표시, 주중 일별은 덮여 사라지고 주 마지막 거래일만 남음(연 ~52스냅샷 bounded)
 #  · 261018: 같은 응답을 `krx_daily`(최근 7거래일, 시·고·저·종·거래량·거래대금·주식수)에도 같은 트랜잭션으로 쓴다.
-#  · 261018: **갱신은 요청 경로가 아니라 서버 백그라운드 작업이 한다**(`services/krx_refresher.py`, 평일 07:30~20:00 10분 간격,
-#    `pg_try_advisory_lock` 으로 두 머신 중 하나만). 요청 경로(`_market_for`)는 DB 의 `max(price_dd)` 만 읽는다 —
+#  · 261018: **갱신은 요청 경로가 아니라 서버 백그라운드 작업이 한다**(`services/krx_refresher.py`, 월~토 07:30~20:00 10분 간격,
+#    `pg_try_advisory_lock` 으로 두 머신 중 하나만). 요청 경로(`_market_for`)는 DB 의 최신 거래일만 읽는다 —
 #    하루 첫 질문이 KRX 갱신을 떠안아 2~12초 기다리던 것과, 게시 전에 하루 1회 래치가 굳어 옛 날짜를 종일 쓰던 것을 없앤다.
 #    `_ensure_krx_fresh`(갱신 능력 있음)는 **배치 스크립트 전용**으로 남는다 — 서버가 못 했을 때의 예비.
+#  · 261018(재설계 5-1, 읽는 쪽): **최신값은 일별 시세 저장분에서 읽는다.** 서빙 기준일 = `krx_daily` 의 max(trd_dd)
+#    (`_krx_daily_latest_dd`), 종목 한 줄 = `price_latest`(종목마다 가장 늦은 거래일 한 줄, 기준일 이후 행만 — `_krx_db_get`),
+#    최신일 여러 종목 = `krx_daily_v WHERE trd_dd=기준일`.
+#    기준일과 행은 늘 같은 원천에서 읽고, 일별 저장분을 못 읽으면 krx_weekly 로 돌아가지 않고 기존 강등 경로(KRX 라이브)를 탄다.
+#    krx_weekly 는 주간 곡선·연말 밴드·주식수 배율의 첫 주 같은 **지난 값**을 읽을 때만 쓴다(`_weekly_bounds` 의 하한도 그대로 krx_weekly 기준).
+#    쓰는 쪽(위 수렴)은 아직 그대로라 지금은 두 표의 최신값이 같다(실측 20261016: 2,762종목 종가·시총·주식수 차이 0) —
+#    다음 단계에서 krx_weekly 에 이번 주 행이 없어져도 최신값 응답이 낡지 않게 하려는 것이다.
 # price_date로 기준일 투명 노출(며칠 전 종가여도 날짜 명시 → 사용자 판단).
 # 260821 OOM 수습: 무상한 dict → 바이트 상한 LRU. 날짜별 전종목(~2,766)+:split 중복 저장이
 # 무제한 누적하던 것을 32MB(≈수일치)로 캡. 초과 시 오래된 날짜부터 evict.
@@ -98,8 +106,20 @@ def _iso_wk_range(price_dd: str) -> tuple[str, str]:
 
 
 def _krx_db_latest_dd() -> str | None:
+    """krx_weekly 의 최신 주(max(price_dd)). 주간 곡선 하한(`_weekly_bounds`)과 배치 갱신(`_ensure_krx_fresh`) 전용 —
+    표를 자르는 쪽과 같은 정의여야 해서 krx_weekly 를 본다. **최신값 서빙 기준일은 `_krx_daily_latest_dd`** 다(261018)."""
     rows = _pg_rows("SELECT MAX(price_dd) FROM krx_weekly")
     return rows[0][0] if rows and rows[0][0] else None
+
+
+def _krx_daily_latest_dd() -> str | None:
+    """서빙 기준일 — 일별 시세 저장분(`krx_daily`)의 가장 늦은 거래일(261018, 재설계 5-1).
+
+    주간 표의 이번 주 행이 없어져도(다음 단계) 최신값이 낡지 않도록 일별 저장분을 본다. 기본키 (trd_dd, ticker) 역방향 스캔 한 번이다.
+    비었거나 못 읽으면 None — krx_weekly 로 대신하지 않는다(기준일과 행은 같은 원천에서 읽는다). 호출자는 기존 강등 경로(KRX 라이브)를 탄다.
+    정의는 `krx_daily.latest_day` 한 곳이다 — 유니버스·시총 단면의 기준일(`screener._krx_latest_dd`)과 같은 것. 읽기는 이 모듈의
+    `_pg_rows` 로 한다(시험이 이 모듈의 DB 읽기를 바꿔 끼운다)."""
+    return _krx_daily.latest_day(_pg_rows)
 
 
 async def _weekly_bounds() -> tuple[str, str]:
@@ -112,11 +132,22 @@ async def _weekly_bounds() -> tuple[str, str]:
 
 
 def _krx_db_get(price_dd: str, ticker: str) -> dict:
-    rows = _pg_rows("SELECT close, mktcap, list_shrs FROM krx_weekly "
-                    "WHERE price_dd=%s AND ticker=%s", (price_dd, ticker))
+    """그 종목의 최신 종가·시총·상장주식수 — `price_latest`(종목마다 가장 늦은 거래일 한 줄)에서, 서빙 기준일(`price_dd`) 이후 행만.
+
+    261018: krx_weekly 의 이번 주 행 → 일별 저장분. ticker 조건은 뷰 안의 (ticker, trd_dd) 인덱스로 내려가 한 종목만 읽는다.
+    기준일 조건(`price_dd >= 기준일`)이 가르는 두 경우:
+      · 그 종목의 최신 행이 기준일보다 **이르면**(보관 창 안에서 상장폐지·거래정지) 옛 날짜를 최신처럼 내지 않고 미스로 돌린다
+        → 호출자가 지금처럼 라이브로 확인한다(종전 `WHERE price_dd=기준일` 과 같은 뜻).
+      · 그 종목의 최신 행이 기준일보다 **늦으면**(다른 머신의 갱신기가 새 거래일을 쓴 직후, 이 머신의 60초 기준일 캐시가 아직
+        하루 전일 때) 그 행을 그대로 낸다 — 같은 날짜만 찾으면 모든 종목이 미스가 나 요청마다 KRX 라이브를 부르고 몇 초씩 기다린다.
+        이때 `date` 는 기준일이 아니라 **행 자신의 거래일**이다(값과 날짜가 늘 같은 행에서 나온다).
+    캐시가 맞을 때는 행의 거래일 = 기준일이라 종전과 값·날짜가 같다.
+    시총은 뷰가 종가 × 상장주식수로 계산한 값이다(실측 20261016 krx_weekly 저장값과 2,762종목 차이 0)."""
+    rows = _pg_rows("SELECT close, mktcap, list_shrs, price_dd FROM price_latest "
+                    "WHERE ticker=%s AND price_dd>=%s", (ticker, price_dd))
     if rows and rows[0][0]:
         r = rows[0]
-        return {"price": r[0], "date": price_dd, "common_mktcap": r[1], "list_shrs": r[2]}
+        return {"price": r[0], "date": r[3], "common_mktcap": r[1], "list_shrs": r[2]}
     return {}
 
 
@@ -205,23 +236,26 @@ async def _fetch_live_snapshot() -> tuple[str | None, dict[str, dict]]:
     return None, {}
 
 
-#: 요청 경로의 기준일(`krx_weekly` 의 max(price_dd)) 짧은 캐시 — 질문마다 DB 를 한 번 더 왕복하지 않으려는 것이다.
+#: 요청 경로의 기준일(`krx_daily` 의 max(trd_dd)) 짧은 캐시 — 질문마다 DB 를 한 번 더 왕복하지 않으려는 것이다.
 #: 60초면 백그라운드 갱신기가 쓴 새 거래일을 다른 머신도 1분 안에 본다. 빈 값은 담지 않는다.
+#: 그 1분 동안 캐시가 하루 전이어도 종목 한 줄(`_krx_db_get`)은 기준일 이후 행을 받으므로 새 거래일 행을 그대로 낸다(KRX 라이브로 새지 않는다).
 _SERVING_DD_TTL_SEC = 60.0
 _SERVING_DD: dict[str, Any] = {"dd": None, "at": 0.0}
 
 
 async def _serving_price_dd() -> str | None:
-    """**요청 경로**가 서빙할 최신 price_dd — DB 상태(`max(price_dd)`)만 읽는다. KRX 를 부르지도, 갱신을 떠안지도 않는다.
+    """**요청 경로**가 서빙할 최신 거래일 — DB 상태(`krx_daily` 의 max(trd_dd), `_krx_daily_latest_dd`)만 읽는다.
+    KRX 를 부르지도, 갱신을 떠안지도 않는다.
 
     갱신은 서버 백그라운드 작업(`services/krx_refresher.py`)이 한다. 종전 `_ensure_krx_fresh` 는 하루 첫 질문이 KRX 를
     스캔·기록하며 2~12초를 기다렸고, KRX 게시 전에 하루 1회 래치가 굳으면 그날 종일 옛 날짜를 썼다 — 둘 다 여기엔 없다.
-    DB 를 못 읽거나 표가 비면 None(→ 호출자의 라이브 폴백)."""
+    261018: krx_weekly 의 max(price_dd) → 일별 저장분. 행을 읽는 쪽(`_krx_db_get` 의 `price_latest`, 후보 시총의 `krx_daily_v`)과 같은 원천이다.
+    DB 를 못 읽거나 표가 비면 None(→ 호출자의 라이브 폴백). krx_weekly 로 대신하지 않는다."""
     now = time.monotonic()
     dd = _SERVING_DD.get("dd")
     if dd and now - _SERVING_DD.get("at", 0.0) < _SERVING_DD_TTL_SEC:
         return dd
-    dd = await asyncio.to_thread(_krx_db_latest_dd)
+    dd = await asyncio.to_thread(_krx_daily_latest_dd)
     if dd:
         _SERVING_DD.update(dd=dd, at=now)
     return dd or None
@@ -269,22 +303,31 @@ async def _ensure_krx_fresh() -> str | None:
     return db_latest
 
 
+#: `_market_for` 반환의 출처 표시(`source`) — 값을 어디서 받았나. `trading_data(scope="quote")` 의 `data.source` 와 같은 값을 쓴다.
+PRICE_SOURCE_DB = "db"              # 일별 시세 저장분(서버가 매 거래일 보관한 KRX 응답)
+PRICE_SOURCE_LIVE = "krx_live"      # 저장분에서 받지 못함(그 종목 행 없음·저장분 읽기 실패·DB 미연결 서버) → 요청 경로에서 KRX 를 직접 불러 받은 값
+
+
 async def _market_for(stock_code: str) -> dict:
-    """보통주 종가·시총·상장주식수 — krx_weekly(DB, 검증 자산) 우선, 라이브 KRX fallback.
+    """보통주 종가·시총·상장주식수 — 일별 시세 저장분(DB) 우선, 라이브 KRX fallback.
     price_date로 기준일 노출. 배수 분자는 보통주 시총(우선주 시총은 cap_pref 로 별도).
-    기준일은 DB 상태만 읽는다(`_serving_price_dd`) — 갱신은 백그라운드 갱신기 몫이다."""
+    기준일은 DB 상태만 읽는다(`_serving_price_dd`) — 갱신은 백그라운드 갱신기 몫이다.
+    261018: krx_weekly 의 이번 주 행 → `krx_daily` 기준일 + `price_latest` 한 줄. 반환 키(price·date·common_mktcap·list_shrs)와 값은 그대로다.
+    261018: 반환에 **`source`**(`PRICE_SOURCE_DB` / `PRICE_SOURCE_LIVE`)를 더했다 — `scope="explain"` 의 주가 인풋 줄이 라이브 폴백으로
+    받은 값에도 「일별 시세 저장분 서빙」이라고 적던 것을 실제 출처대로 적게 하려는 것이다. 못 받으면 종전처럼 {}."""
     latest_dd = await _serving_price_dd()
     if latest_dd:
         row = await asyncio.to_thread(_krx_db_get, latest_dd, stock_code)
         if row.get("price"):
-            return row
-    # DB 미스(최신 스냅샷에 아직 없는 신규상장·정지 해제 등) → 라이브 단발 fallback
+            return {**row, "source": PRICE_SOURCE_DB}
+    # 저장분에서 못 받음 — 최신 스냅샷에 아직 없는 신규상장·정지 해제, 저장분 읽기 실패(기준일 None), DB 를 붙이지 않은 서버 → 라이브 단발 fallback
     for d in _price_dates():
         snap = await _krx_market_live(d)
         base = snap.get(stock_code)
         if base and _num(base.get("TDD_CLSPRC")):
             return {"price": _num(base.get("TDD_CLSPRC")), "date": d,
-                    "common_mktcap": _num(base.get("MKTCAP")), "list_shrs": _num(base.get("LIST_SHRS"))}
+                    "common_mktcap": _num(base.get("MKTCAP")), "list_shrs": _num(base.get("LIST_SHRS")),
+                    "source": PRICE_SOURCE_LIVE}
     return {}
 
 
@@ -382,6 +425,9 @@ async def _gather_db(*aws) -> list:
 
 
 _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, 잠시 후 재시도. (배치 미실행과 다름)"
+#: 시장·산업 주간 밸류 스냅샷이 비었을 때(배치 미실행). 261018: 사용자 문장에 표·배치 이름(종전 「opm_val_market 비어있음 —
+#: market_val_weekly 배치 미실행」)을 쓰지 않는다 — 260907 저장소 이름 정리의 남은 자리.
+_VAL_SNAPSHOT_EMPTY_WARN = "주간 밸류 스냅샷이 비어 있음 — 집계 배치 미실행."
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -545,7 +591,7 @@ async def _div_yield_map(scheme: str) -> tuple[dict, dict]:
             ruler.setdefault("actual_fiscal_year", fy)
             ruler.setdefault("actual_price_dd", price_dd)
     elif rows is None:
-        ruler["actual_error"] = "확정 배당수익률 조회 실패 — div_yield_hist"
+        ruler["actual_error"] = "확정 배당수익률 조회 실패 — 일시 장애 가능, PER·PBR 값은 그대로다."   # 261018: 표 이름 대신 선행 쪽과 같은 안내
     return act, ruler
 
 
@@ -588,7 +634,7 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": "시장 밸류에이션",
-                "warnings": ["opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
+                "warnings": [_VAL_SNAPSHOT_EMPTY_WARN]}
     hist = [{"snap_dd": r[0], "market": r[1],
              "per_fy0": r[2] and round(r[2], 2), "per_ttm": r[3] and round(r[3], 2),
              "pbr_fy0": r[4] and round(r[4], 2), "pbr_mrq": r[5] and round(r[5], 2),
@@ -630,7 +676,7 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
                                "시장·섹터의 PER이 크게 높아짐, KOSDAQ 고PER의 주원인. PBR 병행 해석 권장). "
                                "※ 표기 PER 분모별 Σ시총은 해당 지표 보유 종목만 — cap_krw(전체 시총)"
                                "÷ni_ttm_krw 재계산과 다를 수 있음"},
-            "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — market_val_weekly가 갱신."]}
+            "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — 매일 집계 배치가 갱신."]}
 
 
 # 260823: 분류 축이 둘이 됐다. `sector != '_ALL'` 만으로 거르면 KSIC 와 업종분류가 **섞여**
@@ -666,7 +712,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": "산업별 밸류에이션",
-                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else "opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
+                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else _VAL_SNAPSHOT_EMPTY_WARN]}
     as_of = rows[0][0]
     sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
                 "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
@@ -1071,7 +1117,8 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
     if not band and not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": corp.get("corp_name", query),
-                "warnings": ["시계열 없음 — 과거 시세(krx_weekly)·재무(dart_finstat_y)·주간 스냅샷 모두 미수집."]}
+                # 261018: 사용자 문장에 저장소 표 이름을 쓰지 않는다(종전 「과거 시세(krx_weekly)·재무(dart_finstat_y)」 — 260907 정리의 남은 자리).
+                "warnings": ["시계열 없음 — 과거 시세(주간 시세 저장분)·연간 재무·주간 스냅샷 모두 미수집."]}
     hist = [{"period": b["period"], "asof": b["asof"], "cap_krw": b["cap_krw"],
              "per_fy0": b["per_fy0"], "per_ttm": None, "pbr": b["pbr_fy0"],
              "source": b["source"]} for b in band]
@@ -1093,13 +1140,13 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     market = rows[-1][1] if rows else (cur_row[0][0] if cur_row else None)
     sector = rows[-1][2] if rows else (cur_row[0][1] if cur_row else None)
     if not summary and not band:
-        warnings.append("주간 곡선 미산출 — krx_weekly 시세 또는 재무(dart_finstat_y/dart_finstat_q) 미수집.")
+        warnings.append("주간 곡선 미산출 — 주간 시세 저장분 또는 재무(연간·분기) 미수집.")
     return {"tool": "price_multiple_data", "status": "ok", "subject": corp.get("corp_name", query),
             "data": {"scope": "firm_history", "ticker": isu, "market": market,
                      "sector": sector, "history": hist, "series": series, "summary": summary,
                      "weekly_from": weekly_from,
-                     "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 dart_finstat_y·PIT) · "
-                               "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 dart_finstat_q) · "
+                     "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 재무·PIT) · "
+                               "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 재무) · "
                                "MRQ PBR=최근분기 지배자본. 차트=최근 3년 주간 곡선(series, weekly_from 이후 — 그 이전 "
                                "연말 값은 history 의 연말 항목), 요약=최근 12개월 "
                                "월말(summary). 시총 기반이라 분할·무상증자 등 조정성 이벤트에 불변(유증·자사주 "
@@ -1231,19 +1278,26 @@ async def _eps_adj_factor(ticker: str, after_dd: str) -> float:
 
 
 async def _shares_ratio(ticker: str, after_dd: str) -> float | None:
-    """(after_dd, 오늘] 상장주식수 변동배율 — krx_weekly 실측. 계수 누락 탐지용.
+    """(after_dd, 오늘] 상장주식수 변동배율 — KRX 상장주식수 실측(krx_weekly · 일별 저장분). 계수 누락 탐지용.
 
     260823: 수정계수 파이프라인이 **cron 없이 수동**이라(private wiki 「이벤트/수동」) 7주 밀려
     있었고, 그 사이 액면병합·분할 62종목의 계수가 통째로 비었다. 계수가 없으면
     `_eps_adj_factor` 가 조용히 1.0 을 돌려주고 공시 EPS 조각들이 **옛 분모와 새 분모로 섞인 채**
     조립된다(메이슨캐피탈 실측: TTM 지배순이익 -70억인데 EPS(TTM) +39원, PER 32.31 이 나갔다).
+
+    261018(재설계 5-1): 분자(가장 최근 상장주식수)는 일별 저장분 `price_latest` 에서 읽는다 — krx_weekly 에 이번 주 행이
+    없어져도 최신 주식수를 본다. 그 종목 행이 없거나(7거래일 넘게 거래정지·주식수 0) 못 읽으면(표 장애) **종전 krx_weekly 질의로 대신한다**
+    — 배율이 비면 계수 누락을 못 잡아 섞인 EPS 가 그대로 나간다. 분모(기준일 뒤 첫 주)는 지난 값이라 krx_weekly 그대로다.
+    분모가 없으면 배율을 낼 수 없으니 대신 읽기도 하지 않는다(장애 중에 읽기를 늘리지 않는다).
     """
-    first, last = await _gather_db(      # 261018: 기준일 뒤 첫 주와 가장 최근 주는 서로 입력이 필요 없다 — 함께 보낸다
+    first, last = await _gather_db(      # 261018: 기준일 뒤 첫 주와 가장 최근 주식수는 서로 입력이 필요 없다 — 함께 보낸다
         _db_rows("SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND price_dd>%s AND list_shrs>0 "
                  "ORDER BY price_dd ASC LIMIT 1", (ticker, after_dd)),
-        _db_rows("SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND list_shrs>0 "
-                 "ORDER BY price_dd DESC LIMIT 1", (ticker,)),
+        _db_rows("SELECT list_shrs FROM price_latest WHERE ticker=%s AND list_shrs>0", (ticker,)),
     )
+    if first and first[0][0] and not (last and last[0][0]):
+        last = await _db_rows("SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND list_shrs>0 "
+                              "ORDER BY price_dd DESC LIMIT 1", (ticker,))
     if not first or not last or not first[0][0] or not last[0][0]:
         return None
     return last[0][0] / first[0][0]
@@ -1272,6 +1326,15 @@ async def _shares_outstanding(client, cc: str, year: int) -> dict:
     return out
 
 
+def _dps_fetch_failed(div_err: Any) -> bool:
+    """배당 사항 조회가 **실패**했나 — `_annual_summary` 의 두 번째 값(실패 시 「alotMatter 조회 실패: {DART 상태}」, 아니면 None).
+    상태 013(조회된 데이터 없음)은 실패가 아니라 그 사업보고서에 배당 항목이 없다는 뜻이라(`guideline_research` 등도 013 을 no_rows 로 친다)
+    무배당·미공시 쪽에 둔다. 그 밖의 상태(요청 한도·전송 오류 등)는 실패 — DPS 를 모른다(261018)."""
+    if not div_err:
+        return False
+    return str(div_err).rsplit(":", 1)[-1].strip() != "013"
+
+
 async def _build_valuation_payload_impl(company: str, format: str = "md") -> dict[str, Any]:
     client = get_dart_client()
     query = (company or "").strip()
@@ -1298,9 +1361,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             corps = await client._load_corp_codes()  # 실사용 QA P2: "삼성전자를 찾으셨나요?" 오도 방지
             cand = [c for c in corps if c.get("stock_code") and query in c["corp_name"]]
             if cand:  # 시총순 정렬 — 사용자가 의도했을 가능성이 큰 대형사(삼성전자)부터
-                latest = await asyncio.to_thread(_krx_db_latest_dd)
+                # 261018: 서빙 기준일(`krx_daily` 최신일) + 그날의 일별 저장분 — 기준일과 행을 같은 원천에서 읽는다. 시총만 고른다(등락 같은 창 칸은 안 고른다).
+                latest = await _serving_price_dd()
                 caps = {r[0]: r[1] for r in (await asyncio.to_thread(
-                    _pg_rows, "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s "
+                    _pg_rows, "SELECT ticker, mktcap FROM krx_daily_v WHERE trd_dd=%s "
                     "AND ticker = ANY(%s)", (latest, [c["stock_code"] for c in cand])) or [])} if latest else {}
                 alts = sorted(cand, key=lambda c: -(caps.get(c["stock_code"]) or 0))[:5]
         alt_txt = ("  혹시 이 상장사를 찾으셨나요? " +
@@ -1333,7 +1397,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # TTM(flow) = FY + 1Q(당해) − 1Q(전년); MRQ(stock) = 최근 분기 잔액
     q_cur, q_prev = fy + 1, fy  # 예: fy=2025 → 1Q2026, 1Q2025
     # P2: 연간 재무원장·유통주식수·배당 — fy만 의존 → 병렬.
-    (fy_rows, fs_used), sh, (div_sum, _div_meta) = await asyncio.gather(
+    (fy_rows, fs_used), sh, (div_sum, div_err) = await asyncio.gather(
         _acntall(client, cc, fy, "11011"),
         _shares_outstanding(client, cc, fy),
         _annual_summary(cc, fy),
@@ -1464,6 +1528,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
 
     # DPS = alotMatter 보통주 결의 현금배당금 (이미 주당값 — 주식수 불필요). div_sum = P2 병렬 fetch.
     dps = (div_sum or {}).get("cash_dps") or None
+    # 261018: 조회 **실패**도 dps=None 이라 무배당과 구분이 안 됐다(실패 사유를 버렸다) → explain 이 DART 장애 때도 「없음(무배당 또는 미공시)」.
+    dps_fetch_failed = _dps_fetch_failed(div_err)
 
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
     # EPS(FY0): 공시값 우선 — fy_rows 직접(비KRW는 ×환율) → fm(eps_krw) → 지배순이익÷보통주 폴백.
@@ -1580,6 +1646,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                                 "EPS의 가중평균 주식수)가 왜곡될 수 있음. TTM·MRQ 중심 해석 권장.")
             elif fl == "unresolved_adjustment":
                 warnings.append("⚠️ 미해결 주가조정 이력 — 과거 가격 비교 시 주의.")
+    if dps_fetch_failed:
+        warnings.append("DART 배당 사항 조회 실패 — DPS·배당수익률 미확인(무배당이라는 뜻이 아니다, 일시 장애 가능). PER·PBR 값은 그대로다.")
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
 
@@ -1590,6 +1658,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             "identifiers": {"ticker": stock_code, "corp_code": cc},
             "sector_class": "financial" if is_financial else "general",
             "fiscal_year": fy, "price_krw": price, "price_date": mk.get("date"),
+            # 261018: 주가를 어디서 받았나 — "db"(일별 시세 저장분) / "krx_live"(저장분에서 못 받음 → KRX 직접) / None(못 받음).
+            #   `scope="explain"` 의 주가 인풋 줄이 이것으로 출처를 고른다(종전엔 라이브 폴백이어도 「저장분 서빙」이라 적었다).
+            "price_source": mk.get("source"),
             "multiples": {
                 "per_fy0": per_fy, "per_ttm": per_ttm,
                 "pbr_mrq": pbr, "pbr_basis": equity_basis,
@@ -1610,7 +1681,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "ttm_quarter_year": q_cur,
                 "controlling_equity_krw": ctrl_equity,
                 "shares_common": shares_common, "shares_total": shares_total,
-                "dps_krw": dps, "revenue_fy0_krw": revenue_fy,
+                # 261018: dps_krw=None 의 뜻을 가른다 — True = DART 배당 사항 조회 실패(값 미확인) / False = 조회는 됐고 보통주 DPS 가 없음(무배당 또는 미공시).
+                "dps_krw": dps, "dps_fetch_failed": dps_fetch_failed, "revenue_fy0_krw": revenue_fy,
                 "common_market_cap_krw": mk.get("common_mktcap"),
                 "capital_impairment_status": cap_status,
                 "functional_currency": stmt_cur,
