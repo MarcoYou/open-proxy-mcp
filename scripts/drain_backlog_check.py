@@ -11,11 +11,14 @@
   · `--apply` 는 되돌릴 수 없는 삭제다. 백업 커밋이 **사람 손으로** 확인된 뒤에 도는 게 맞다.
 감시는 **읽기만** 한다(SELECT + 용량 조회). 지우지도, 쓰지도 않는다.
 
-260914 확장: 용량 % 하나로는 부족했다. events 를 다 비워도 `fwd`(서빙용 스냅샷, 벌당 ≈31MB)와
+260914 확장: 용량 % 하나로는 부족했다. events 를 다 비워도 `fwd`(서빙용 스냅샷)와
 `fwd_hist`(리비전 이력)가 DB 의 대부분이라, 보존 정책(fwd 최신 4주 · fwd_hist 13주)이
-지켜지는지를 **불변식**으로 같이 본다. 새 fwd 한 벌을 먼저 올린 뒤 정리하므로 500MB 직전에서
-알리면 늦다. 경고선은 90%다. fwd 정리는 private forward-collector 의
-`prune_fwd.py --keep-weeks 4`가, fwd_hist 는 `push_fwd_hist.py`의 롤링이 맡는다.
+지켜지는지를 **불변식**으로 같이 본다. 새 주를 먼저 올린 뒤 정리하므로 500MB 직전에서
+알리면 늦다. 경고선은 90%다.
+2610(재설계 5단계): `fwd`·`fwd_hist` 는 같은 이름·같은 칸의 **뷰**가 됐다(밑은 사실값 표, 벌당 ≈31MB → ≈9MB).
+보존은 private 컨센서스 수집기의 주간 송출 `push_fwd_fact.py` 가 한 트랜잭션으로 맡는다 —
+그 주 교체(같은 ISO 주 재송출 포함) → 5주차를 이력으로 → 14주차 삭제. 이 감시는 뷰를 그대로 읽는다
+(`to_regclass` 는 뷰도 찾는다). 옛 `prune_fwd.py`·`push_fwd_hist.py` 는 은퇴했다.
 
 실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P] [--tables]
                                               [--fwd-max-weeks N] [--hist-max-weeks N]
@@ -142,7 +145,8 @@ def _check(a: argparse.Namespace, url: str) -> int:
         cur_week = con.execute(
             "SELECT count(*) FROM ops_tool_calls WHERE ts_ns >= %s", (_to_ns(now_week),)
         ).fetchone()[0]
-        # fwd·fwd_hist 는 as_of(date) 벌 단위다. 같은 주 재송출은 한 주로 센다 — prune_fwd 와 같은 단위.
+        # fwd·fwd_hist 는 as_of(date) 벌 단위다. 같은 주 재송출은 한 주로 센다 — 주간 송출(push_fwd_fact.py)과
+        # 같은 ISO 주 단위. 2610 부터 둘 다 뷰지만 질의는 같다.
         def _weeks(table: str) -> tuple[list, int, int]:
             if not con.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{table}",)).fetchone()[0]:
                 return [], 0, 0
@@ -187,11 +191,12 @@ def _check(a: argparse.Namespace, url: str) -> int:
     if len(weeks) > a.max_weeks:
         bad.append(f"완결 주 {len(weeks)}개가 밀렸다(허용 {a.max_weeks})")
     if fwd_weeks > a.fwd_max_weeks:
-        bad.append(f"fwd 스냅샷 {fwd_weeks}주가 쌓였다(허용 {a.fwd_max_weeks}) — 토요일 체인의 prune_fwd.py 가 안 돌았다")
+        bad.append(f"fwd 스냅샷 {fwd_weeks}주가 쌓였다(허용 {a.fwd_max_weeks}) — 토요일 체인의 주간 송출"
+                   "(push_fwd_fact.py)이 5주차를 이력으로 넘기지 못했다")
     if fwd_duplicate_days:
         bad.append(f"fwd 같은 ISO 주에 날짜가 {fwd_duplicate_days}개 더 있다 — 재송출 중복을 정리할 것")
     if hist_weeks > a.hist_max_weeks:
-        bad.append(f"fwd_hist {hist_weeks}주 (롤링 {a.hist_max_weeks}) — push_fwd_hist.py 의 정리가 안 돌았다")
+        bad.append(f"fwd_hist {hist_weeks}주 (롤링 {a.hist_max_weeks}) — 주간 송출(push_fwd_fact.py)의 14주차 정리가 안 돌았다")
     if hist_duplicate_days:
         bad.append(f"fwd_hist 같은 ISO 주에 날짜가 {hist_duplicate_days}개 더 있다 — 주간 이력 정책 위반")
     if pct >= a.warn_pct:
@@ -205,9 +210,9 @@ def _check(a: argparse.Namespace, url: str) -> int:
     if (fwd_weeks > a.fwd_max_weeks or hist_weeks > a.hist_max_weeks
             or fwd_duplicate_days or hist_duplicate_days):
         print("""
-조치 (fwd·fwd_hist — private open-proxy-storage/forward-collector, 원본은 그 머신의 DuckDB·jsonl 이라 내보내기 불필요):
-  python3 prune_fwd.py --keep-weeks 4 --dry-run     # 지울 날짜 확인 → 빼고 다시 실행
-  python3 push_fwd_hist.py --keep-weeks 13        # 이력 롤링""")
+조치 (fwd·fwd_hist — private 컨센서스 수집기, 원본은 그 머신의 로컬 DB·jsonl 이라 내보내기 불필요):
+  그 머신의 토요일 체인 기록에서 주간 송출(push_fwd_fact.py) 단계가 실패했는지 본다.
+  최신 날짜로 그 송출을 다시 돌린다 — 그 주 교체·5주차 이력 이동·14주차 삭제가 한 트랜잭션이라 재실행해도 같다.""")
     if pct >= a.warn_pct and not n:
         print("\nevents 가 비어 있어 드레인으로 회수할 공간이 없다. --tables 로 테이블별 용량과 보존 정책을 확인할 것.")
     if len(weeks) > a.max_weeks or (pct >= a.warn_pct and n):

@@ -276,6 +276,28 @@ def test_retention_boundary_with_empty_events(harness, monkeypatch, capsys, tabl
     assert f"상태: {status}" in summary.read_text()
 
 
+@pytest.mark.parametrize(("table", "count", "phrase"), [
+    ("fwd", 5, "5주차를 이력으로 넘기지 못했다"), ("hist", 14, "14주차 정리가 안 돌았다"),
+])
+def test_retention_action_points_to_the_weekly_fact_push(harness, capsys, table, count, phrase):
+    """2610: fwd·fwd_hist 는 뷰다. 보존을 맡는 것은 수집기의 주간 송출 하나 — 은퇴한 정리 스크립트를 안내하지 않는다."""
+    connect, summary = harness
+    con = FakeConnection(events=[], **{table: _weekly_dates(count)})
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 1
+
+    output = capsys.readouterr().out
+    assert phrase in output and phrase in summary.read_text()
+    assert "push_fwd_fact.py" in output
+    for retired in ("prune_fwd.py", "push_fwd_hist.py --keep-weeks", "open-proxy-storage/forward-collector"):
+        assert retired not in output
+    # 뷰 이름 그대로 같은 질의 — to_regclass 는 뷰도 찾는다
+    queries = [sql for sql, _ in con.calls]
+    assert queries.count("SELECT to_regclass(%s) IS NOT NULL") == 2
+
+
 @pytest.mark.parametrize("table", ["fwd", "hist"])
 def test_same_week_duplicates_warn_with_empty_events(harness, capsys, table):
     connect, summary = harness

@@ -155,7 +155,8 @@ jobs:
       # 260918 신설 — `price_multiple_data` 의 선행 PER·PBR(시장·업종 대분류·중분류)이 읽는 표 `opm_val_fwd`.
       #   원천은 수집 머신이 토요일 저녁에 올리는 추정치 이력(`fwd_hist`) + 업종분류 + 주간 시세의 시장 구분.
       #   새 날짜와 가장 최근 날짜만 계산해 평일엔 몇 초짜리 재계산 하나다(토요일 수집분은 일요일 아침 반영).
-      #   수집 머신의 `fwd_agg` 에 넣지 않는 이유: 그쪽 송출이 날짜별로 행을 통째로 지우고 다시 넣는다.
+      #   2610: 수집 머신 집계 `fwd_agg` 는 은퇴 — 선행 배수를 저장하는 곳은 이 표 하나라 **전체 보관**한다
+      #   (원본 `fwd_hist` 창 안에서 원본에 없는 날짜만 지운다). `fwd_hist` 는 같은 이름·같은 칸의 뷰가 됐다.
       #   시세의 시장 구분을 쓰므로 위 시세 스냅샷 **뒤**에 온다.
       - name: 선행 배수 집계 — 시장·업종 (DART·KRX 0콜)
         if: ${{ !cancelled() }}
@@ -203,7 +204,7 @@ jobs:
               closed = [w.last for w in plan_weeks(days) if w.closed]
               if closed and (wk or "") < closed[-1]:
                   print(f"::warning::krx_weekly 최신 {wk} 가 일별 저장분의 닫힌 주 {closed[-1]} 를 따라오지 못했다 — 주간 닫기 확인(다음 기록 때 다시 닫는다)")
-              # 260918: 선행 배수가 추정치 이력의 최신 날짜를 따라왔나
+              # 260918: 선행 배수가 추정치 이력의 최신 날짜를 따라왔나 (2610~ fwd_hist 는 뷰 — 같은 질의)
               fh = c.execute("SELECT max(as_of) FROM fwd_hist").fetchone()[0]
               fv = c.execute("SELECT max(as_of) FROM opm_val_fwd").fetchone()[0]
               print(f"opm_val_fwd 최신 {fv} / fwd_hist 최신 {fh}")
