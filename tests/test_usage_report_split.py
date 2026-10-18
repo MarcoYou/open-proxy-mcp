@@ -82,8 +82,8 @@ def test_upstream_failure_is_separated_from_our_crash():
 
 
 def test_no_data_is_an_answer_not_a_failure():
-    """013·404 를 실패로 세면 오류율이 부풀고 진짜 고장이 그 안에 묻힌다."""
+    """자료/문서 없음은 실패도, 데이터가 있는 정상 응답도 아니다."""
     ut = _ut()
-    for k in ("no_data", "not_found"):
+    for k in ("no_data", "no_document", "not_found"):
         assert ut.classify_outcome(False, k) == ("자료없음", k)
     assert ut.classify_outcome(False, None) == ("정상", None)

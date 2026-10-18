@@ -2,7 +2,7 @@
 """OPM 사용 통계 도구 — 요청별 이벤트를 누적하고 일/주 통계를 뽑는다.
 
 저장 백엔드(통계 읽기): **DATABASE_URL 있으면 Postgres(Supabase)**, 없으면 로컬 sqlite.
-앱(open_proxy_mcp/usage.py)이 요청 시점에 직접 기록한 events를 그대로 조회한다 → 무손실·합산 불필요.
+앱(open_proxy_mcp/usage.py)이 남긴 이벤트와 주별 백업을 합친다. 완전 수집의 보증은 아니다.
 
 키는 **SHA-256 해시로만** 저장(평문 DART 키 미보관). 시각 버킷(일/주)은 **KST(UTC+9)** 기준.
 
@@ -75,7 +75,7 @@ def _pg_conn():
 #: `events_drain.py` 가 완결 주를 parquet 로 내보내고 DB 에서 지운다. **DB 만 읽으면 지운 만큼
 #: 과거가 통째로 사라진다** — 260817 실측: 7주를 드레인하자 362,994행이 5,511행이 되면서
 #: 오래 쓴 사용자가 전부 「신규」로 재라벨됐다. 백업은 있는데 되읽을 길이 없었다.
-#: 드레인은 앞으로도 계속 돌아야 하므로(무료티어 압박 + 사용자-기업 연결의 수명 상한)
+#: 드레인은 앞으로도 계속 돌아야 하므로(중앙 DB 용량 관리; 백업에는 연결이 남는다)
 #: 이 합류 지점이 없으면 통계는 영구히 「진행 중인 주」만 보게 된다.
 #:
 #: **경로는 `events_drain` 의 것을 그대로 쓴다** — 여기 사본을 두면 이중장부가 되고,
@@ -190,6 +190,7 @@ def drained_columns() -> dict:
                 if r[eid] in have:
                     dup += 1
                     continue
+                have.add(r[eid])  # 백업끼리 겹쳐도 한 번만 센다
                 for k, v in zip(names, r):
                     if v is None or v == "":
                         cols[k].append(None)
@@ -715,7 +716,7 @@ def classify_outcome(is_error, error_kind) -> tuple[str, str | None]:
     if is_error:
         k = error_kind or "untagged"
         return ("상류(DART)" if k.startswith("dart_") else "우리오류"), k
-    if error_kind in ("no_data", "not_found"):
+    if error_kind in ("no_data", "no_document", "not_found"):
         return "자료없음", error_kind
     return "정상", None
 
