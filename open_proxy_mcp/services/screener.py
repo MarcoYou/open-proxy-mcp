@@ -237,7 +237,7 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "code": "control_change", "label": "최대주주변경", "tier": 3,
         "scan_code": "I001",
         "matchers": [("변경", ["최대주주변경"])],
-        "max_items": 20, "detail_kind": None, "force_keywords": ["정정"],
+        "max_items": 20, "detail_kind": "control", "force_keywords": ["정정", "해제", "취소"],
     },
     {
         "code": "litigation", "label": "소송·제재·위험", "tier": 3,
@@ -985,6 +985,24 @@ def _extract_agm_notice(payload: dict, rcept_no: str) -> dict:
     }
 
 
+def _extract_control(payload: dict, rcept_no: str) -> dict:
+    # data.event{kind, kind_label, fields{...}} — 원문 글자 그대로(숫자도 회사가 쓴 꼴)
+    ev = (payload.get("data") or {}).get("event") or {}
+    f = ev.get("fields") or {}
+    who = lambda p: (p or {}).get("name")  # noqa: E731
+    return {
+        "control_kind": ev.get("kind"),
+        "holder_before": f.get("before_holder"),
+        "holder_after": _first(f.get("after_holder"), f.get("expected_holder"), who(f.get("transferee"))),
+        "stake_after_pct": _first(f.get("after_pct"), f.get("expected_pct")),
+        "amount": f.get("amount"),
+        "pledgor": f.get("pledgor"),
+        "stake_if_executed_pct": f.get("pct_if_executed"),
+        "reason": f.get("reason"),
+        "on": _first(f.get("changed_on"), f.get("contract_on"), f.get("released_on")),
+    }
+
+
 def _extract_ownership(payload: dict, rcept_no: str) -> dict:
     # 5%보고서 본체 = data.blocks[]{reporter, ownership_pct, purpose, report_reason, report_type}.
     # major_holders/summary.top_holder는 정기보고서 최대주주(폴백).
@@ -1079,6 +1097,10 @@ _DETAIL_DISPATCH: dict[str, dict[str, Any]] = {
     "earnings": {"module": "open_proxy_mcp.services.provisional_earnings",
                  "fn": "build_provisional_earnings_payload", "extract": _extract_earnings,
                  "kwargs": _build_kwargs_narrow},
+    # 최대주주변경 계열은 접수번호 한 건을 바로 읽는다(서식 다섯 — 변경 사실·양수도·담보 체결·해제).
+    "control": {"module": "open_proxy_mcp.services.control_change",
+                "fn": "build_control_event_payload", "extract": _extract_control,
+                "kwargs": lambda filed_dt: {}, "by_rcept": True},
 }
 
 
@@ -1103,6 +1125,9 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     filed_dt = hit.get("filed_at", "").replace("-", "")
     kwargs = disp["kwargs"](filed_dt)
     # 주총소집은 rcept_no 직접 지정 경로 사용(가장 정확)
+    if disp.get("by_rcept"):
+        kwargs["rcept_no"] = hit.get("rcept_no", "")
+        kwargs["report_nm"] = hit.get("title", "")
     if kind == "agm_notice":
         kwargs["rcept_no"] = hit.get("rcept_no", "")
         if hit.get("subtype") == "소집결의":

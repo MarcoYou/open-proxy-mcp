@@ -4,6 +4,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### When the largest shareholder changes, and the contracts that would change it — `ownership_structure(scope="changes")`
+
+- Reads **largest-shareholder change** filings and the **share transfer** and **share pledge** contracts attached to them (signed and terminated), cell text as written — before/after holder and stake, reason, purpose and funding, transferor, transferee, price and expected date, the stake left if the pledge is fully enforced, termination reason and before/after.
+- `changes` used to read only stake movements where the largest shareholder stays the same, so a company whose largest shareholder changed did not show up here. `screener` largest-shareholder-change cards now open details too.
+- Tables carrying addresses or birth dates (e.g. the debtor profile in pledge filings) are not included.
+
 ### Before the meeting notice — board resolutions to convene and their amendment history — `shareholder_meeting_notice(scope="resolution")`
 
 - Reads the **board resolution to convene** a shareholders' meeting, filed before the meeting notice (which comes two weeks ahead). Date and venue, record date, board date, outside-director attendance, the agenda table (sub-items, shareholder proposals and cumulative voting marked) and nominee tables, cell text as written.
