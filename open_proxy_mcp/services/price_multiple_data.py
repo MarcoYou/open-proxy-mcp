@@ -787,16 +787,16 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
     dbs = _db_scheme(scheme)
     # 261019: 시장 전체 스냅샷의 최신일(as_of 가 있으면 그 이하)을 먼저 읽는다 — 이 축의 최신 스냅샷이 그보다 이르면 「낡았다」고 밝힌다(아래 `stale`).
     #   KSIC 축은 2026-08-23 결정으로 집계를 멈춰(20260821) 8주 전 값을 기준일만 적어 내고 있었다(10-19 검증). 읽기 실패는 판정 없음(None)으로 둔다.
-    mk_rows = await asyncio.to_thread(_pg_rows,
-        "SELECT MAX(snap_dd) FROM opm_val_market WHERE scheme=%s AND sector=%s" + (" AND snap_dd <= %s" if as_of else ""),
-        ("market", "_ALL", as_of) if as_of else ("market", "_ALL"))
+    #   이 축 표 읽기와 서로 입력이 필요 없어 한 묶음으로 보낸다(왕복이 늘지 않게 — `_gather_db`).
     params: tuple = (dbs, dbs, as_of) if as_of else (dbs, dbs)
-    rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0, "
-        "ni_fy0, ni_ttm FROM opm_val_market "
-        "WHERE sector != '_ALL' AND scheme=%s "
-        f"AND snap_dd=({sub}) "
-        "ORDER BY market, cap DESC", params)
+    mk_rows, rows = await _gather_db(
+        _db_rows("SELECT MAX(snap_dd) FROM opm_val_market WHERE scheme=%s AND sector=%s" + (" AND snap_dd <= %s" if as_of else ""),
+                 ("market", "_ALL", as_of) if as_of else ("market", "_ALL")),
+        _db_rows("SELECT snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0, "
+                 "ni_fy0, ni_ttm FROM opm_val_market "
+                 "WHERE sector != '_ALL' AND scheme=%s "
+                 f"AND snap_dd=({sub}) "
+                 "ORDER BY market, cap DESC", params))
     if rows is None:
         return {"tool": "price_multiple_data", "status": "db_error", "subject": "산업별 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
@@ -834,7 +834,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
             MID: "업종 중분류"}
     mk_latest = mk_rows[0][0] if mk_rows and mk_rows[0] and isinstance(mk_rows[0][0], str) else None
     stale = None
-    # 과거 기준일(as_of)은 KSIC 축만 본다 — 업종분류 축은 2026-07 주간 집계 전까지 월말 한 점씩이라(시장 전체는 그 사이 주간도 있다)
+    # 과거 기준일(as_of)은 KSIC 축만 본다 — 업종분류 축은 2026-08-21 전까지 월말 한 점씩이라(시장 전체는 2026-07 부터 주간 — 07-03~08-14 사이 업종분류는 0731 하나)
     #   과거 기준일에서 그 축이 시장보다 이른 것은 설계대로다.
     if mk_latest and mk_latest > as_of and (not as_of_req or scheme == "ksic"):
         stale = {"axis_as_of": as_of, "market_as_of": mk_latest,
@@ -916,7 +916,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 company_ctx = {"name": corp.get("corp_name"), "ticker": isu, "market": market,
                                "sector": sec, "sector_label": lbl,
                                "sector_asof": locals().get("_class_asof"),  # 업종분류 소급 여부 표시
-                               "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
+                               "firm_per_ttm": pt and _round_mult(pt, 2), "firm_pbr_mrq": pb and _round_mult(pb, 2),   # 261019: 0 이 아닌 배수를 0 으로 만들지 않는다(firm·곡선과 같은 규칙)
                                "sector_per_ttm": spt and round(spt, 2), "sector_pbr_mrq": spb and round(spb, 2)}
                 if fnote.get("basis"):
                     b = fnote["basis"]
@@ -1129,8 +1129,8 @@ async def _annual_pit_band(ticker: str, currency: str = "KRW",
         _impaired = eq_k is not None and eq_k <= 0
         band.append({
             "period": yr_s, "asof": price_dd, "pit_fy": pit_fy, "cap_krw": round(cap),
-            "per_fy0": round(cap / ni_k, 2) if (ni_k and ni_k > 0 and not _impaired) else None,
-            "pbr_fy0": round(cap / eq_k, 2) if eq_k and eq_k > 0 else None,
+            "per_fy0": _round_mult(cap / ni_k, 2) if (ni_k and ni_k > 0 and not _impaired) else None,   # 261019: 유효숫자 둘(`_round_mult`)
+            "pbr_fy0": _round_mult(cap / eq_k, 2) if eq_k and eq_k > 0 else None,
             "source": f"연말(PIT FY{pit_fy})",
         })
     return band
@@ -1894,6 +1894,16 @@ def _dps_fetch_failed(div_err: Any) -> bool:
     return str(div_err).rsplit(":", 1)[-1].strip() != "013"
 
 
+async def _alot_optional(corp_code: str, year: int) -> tuple[dict[str, Any], str | None]:
+    """반기·분기 결산 DPS 를 맞추려고 **더** 읽는 사업연도의 배당 사항(261019) — 실패해도 응답을 막지 않는다.
+    `_annual_summary` 는 DART 상태 오류만 「조회 실패」로 돌려주고 전송 오류(재시도 소진·HTTP 5xx)는 예외로 올린다. 기본 읽기(그 사업연도)는
+    종전 그대로 두고, 보조 읽기의 예외는 「조회 실패」로 바꿔 PER·PBR 응답을 지킨다(배당 fail-open — 위키 「배당수익률」)."""
+    try:
+        return await _annual_summary(corp_code, year)
+    except Exception as exc:  # noqa: BLE001 — 보조 읽기: 어떤 실패든 종전 값으로 내려간다
+        return {}, f"alotMatter 조회 실패: {type(exc).__name__}"
+
+
 #: 회사 개황에서 업종코드를 못 받았을 때의 대체 — 저장된 업종코드(재무 요약)와 업종분류 최신 스냅샷의 대분류를 한 왕복으로.
 _FIN_CLASS_SQL = ("SELECT (SELECT induty FROM dart_fundamentals WHERE ticker=%s), "
                   "(SELECT sector FROM wise_sector WHERE ticker=%s ORDER BY snap_dd DESC LIMIT 1)")
@@ -2078,6 +2088,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     fx_qc = fx_qp = 1.0           # 분기 칸(당해·전년 동기) 기간 말 환율
     fx_q_fallback = False         # 분기 말 환율을 못 받아 사업연도 말 환율로 대신했나
     fy_end_dd = None
+    fx_qc_dd, fx_qp_dd = _d_cur, _d_prev   # 분기 값에 **실제로 쓴** 환율의 날짜(대신했으면 사업연도 말) — 응답·경고에 그대로 적는다
     if stmt_cur != "KRW":
         # 261019: 칸을 결산월(`fye`)로 골랐으면 환산 기준일(그 사업연도 말)도 그 달 — 개황 결산월은 결산월을 바꾼 회사에서 칸과 어긋난다.
         acc_mt = f"{fye.month:02d}" if nondec else str(info.get("acc_mt") or "12").zfill(2)
@@ -2090,9 +2101,12 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         else:
             r_fy, r_qc, r_qp = await fx_to_krw(stmt_cur, fy_end_dd), None, None
         ecos_fx_rate = r_fy or 1.0
-        if qc_rows and not ttm_is_annual:
+        # 사업연도 말 환율을 못 받으면 분기 값도 환산하지 않는다 — 분기만 원화로 바꾸면 TTM = 외화 연간 + 원화 분기 − 원화 분기로
+        #   통화가 섞인다(종전처럼 전부 미환산 + 아래 「환율 조회 실패」 경고가 차라리 읽힌다).
+        if qc_rows and not ttm_is_annual and r_fy:
             fx_q_fallback = not (r_qc and r_qp)
             fx_qc, fx_qp = (r_qc or ecos_fx_rate), (r_qp or ecos_fx_rate)
+            fx_qc_dd, fx_qp_dd = (_d_cur if r_qc else fy_end_dd), (_d_prev if r_qp else fy_end_dd)
         else:
             fx_qc = fx_qp = ecos_fx_rate
 
@@ -2201,16 +2215,17 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   6개월짜리인지(반기 결산) 12개월짜리인지(결산월 변경 이행기) 모른다. 12월 결산(결산기 하나)은 읽기가 늘지 않고 종전 그대로다.
     #   주기가 고르지 않으면(결산월 변경 이행기) 종전 값.
     dps_periods = None
-    dps_next_failed = False
+    dps_next_failed = dps_prev_failed = False
     _per = period_dps((div_sum or {}).get("items"))
     if len(_per) > 1:
         if fy + 1 <= today_kst().year:
-            nxt, nxt_err = await _annual_summary(cc, fy + 1)
+            nxt, nxt_err = await _alot_optional(cc, fy + 1)
             dps_next_failed = _dps_fetch_failed(nxt_err)
             _per.update(period_dps((nxt or {}).get("items")))
         dps_periods = trailing_period_dps(_per)
         if dps_periods is None:
-            prv, _ = await _annual_summary(cc, fy - 1)
+            prv, prv_err = await _alot_optional(cc, fy - 1)
+            dps_prev_failed = _dps_fetch_failed(prv_err)
             _prev = period_dps((prv or {}).get("items"))
             if _prev:
                 dps_periods = trailing_period_dps({**_prev, **_per})
@@ -2296,8 +2311,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         # 261019: 기간마다 그 기간 말 환율 — 어느 값에 어느 환율을 썼는지 적는다(분기 칸이 없으면 사업연도 말 하나).
         _dd = lambda x: f"{x[:4]}-{x[4:6]}-{x[6:]}"
         if qc_rows and not ttm_is_annual:
-            _rates = (f"연간(FY0)은 {fy} 사업연도 말({_dd(fy_end_dd)}) {ecos_fx_rate:,.1f}원 · 최근 분기 누적·자본(MRQ)은 {_dd(_d_cur)} "
-                      f"{fx_qc:,.1f}원 · 전년 동기 누적은 {_dd(_d_prev)} {fx_qp:,.1f}원")
+            _rates = (f"연간(FY0)은 {fy} 사업연도 말({_dd(fy_end_dd)}) {ecos_fx_rate:,.1f}원 · 최근 분기 누적·자본(MRQ)은 {_dd(fx_qc_dd)} "
+                      f"{fx_qc:,.1f}원 · 전년 동기 누적은 {_dd(fx_qp_dd)} {fx_qp:,.1f}원")
         else:
             _rates = f"{fy} 사업연도 말({_dd(fy_end_dd)}) {ecos_fx_rate:,.1f}원"
         warnings.append(f"기능통화 {stmt_cur} — 재무를 기간 말 환율(원/{stmt_cur})로 KRW 환산: {_rates}. 순이익은 원칙상 기간 평균 환율이라 "
@@ -2355,6 +2370,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                         "연 배당의 일부만 잡힌다.")
         if dps_next_failed:
             warnings.append("다음 사업연도 배당 사항 조회 실패 — 가장 늦은 결산기가 빠졌을 수 있다(DPS 는 읽은 결산기까지의 최근 12개월 합).")
+    elif dps_next_failed or dps_prev_failed:
+        # 결산기가 여럿인데 보조 읽기가 실패해 주기를 확인하지 못했다 — DPS 는 종전 값(사업보고서 마지막 결산기)이다. 말없이 반쪽 값을 내지 않는다.
+        warnings.append(f"{'다음' if dps_next_failed else '앞'} 사업연도 배당 사항 조회 실패 — 사업보고서에 결산기가 여럿인데 최근 12개월을 맞추지 못해 "
+                        "DPS 는 마지막 결산기 값이다(반기·분기 결산이면 연 배당의 일부만 잡힌다 — 다시 조회하면 맞춰질 수 있다).")
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
     if _fye_note(fye):                 # 261018(결산월): 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
@@ -2419,8 +2438,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     if ecos_fx_rate != 1.0:
         # 261019: 값마다 쓴 기간 말 환율(분기 칸이 없으면 FY0 하나) — 외화 보고사에서만 칸이 생긴다.
         inputs["fx_rates_to_krw"] = {"fy0": {"date": fy_end_dd, "rate": ecos_fx_rate},
-                                     **({"quarter": {"date": _d_cur, "rate": fx_qc},
-                                         "prior_quarter": {"date": _d_prev, "rate": fx_qp}}
+                                     **({"quarter": {"date": fx_qc_dd, "rate": fx_qc},
+                                         "prior_quarter": {"date": fx_qp_dd, "rate": fx_qp}}
                                         if qc_rows and not ttm_is_annual else {})}
     if format == "md":
         payload["markdown"] = _render_md(payload)

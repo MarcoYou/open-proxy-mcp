@@ -60,8 +60,9 @@ def _alot(*groups) -> list[dict]:
 
 
 def _run_live(mp, *, reports=KRW_REPORTS, alot=None, induty="68112", revenue=600_000_000_000, fx=None, price=4080,
-              cap=1_000_000_000_000, db_rows=None, cap_status="normal"):
-    """alot = {사업연도: alotMatter 행} (없으면 그 해 배당 없음). fx = {날짜: 환율} — 주면 그 날짜로만 답한다."""
+              cap=1_000_000_000_000, db_rows=None, cap_status="normal", alot_err=None):
+    """alot = {사업연도: alotMatter 행} (없으면 그 해 배당 없음). fx = {날짜: 환율} — 주면 그 날짜로만 답한다.
+    alot_err = {사업연도: 오류 문자열} — 그 해 배당 사항 조회가 실패한 것으로."""
     seen = {"alot": [], "fx": [], "sql": []}
 
     async def resolve(q):
@@ -83,6 +84,8 @@ def _run_live(mp, *, reports=KRW_REPORTS, alot=None, induty="68112", revenue=600
 
     async def annual_summary(cc, year):
         seen["alot"].append(year)
+        if (alot_err or {}).get(year):
+            return {}, alot_err[year]
         items = (alot or {}).get(year)
         if not items:
             return {}, None
@@ -183,6 +186,32 @@ def test_without_newer_periods_the_previous_year_confirms_the_cadence(monkeypatc
     assert seen["alot"] == [2025, 2026, 2024] and p["data"]["inputs"]["dps_krw"] == 240
 
 
+def test_next_year_failure_is_said_and_the_read_periods_still_count(monkeypatch):
+    """다음 사업연도 배당 사항 조회가 실패하면 가장 늦은 결산기가 빠졌을 수 있다 — 읽은 결산기까지의 합을 쓰고 그렇다고 적는다."""
+    p, seen = _run_live(monkeypatch, alot={2024: _alot(("2024-06-30", "103"), ("2024-12-31", "112")),
+                                           2025: _alot(("2025-06-30", "117"), ("2025-12-31", "123"))},
+                        alot_err={2026: "alotMatter 조회 실패: 020"})
+    assert seen["alot"] == [2025, 2026, 2024] and p["data"]["inputs"]["dps_krw"] == 240
+    assert any(w.startswith("다음 사업연도 배당 사항 조회 실패") for w in p["data"]["warnings"])
+
+
+def test_transport_error_in_an_extra_dividend_read_keeps_the_multiples(monkeypatch):
+    """보조 읽기(다음·앞 사업연도)의 전송 오류가 PER·PBR 응답을 통째로 막지 않는다 — 종전 DPS(마지막 결산기)로 내려가고 그렇다고 적는다."""
+    async def boom_after_first(cc, year):
+        if year != 2025:
+            raise RuntimeError("ReadTimeout")
+        s = D.build_dividend_summary(_alot(("2025-06-30", "117"), ("2025-12-31", "123")), "사업보고서(기말)")
+        s["source"] = "alotMatter"
+        return s, None
+    p, _ = _run_live(monkeypatch)
+    monkeypatch.setattr(S, "_annual_summary", boom_after_first)
+    p = asyncio.run(S.build_valuation_payload("330590", format="json"))
+    d = p["data"]
+    assert p["status"] == "ok" and d["multiples"]["per_fy0"] is not None
+    assert d["inputs"]["dps_krw"] == 123 and "dps_basis" not in d["inputs"]
+    assert any(w.startswith("다음 사업연도 배당 사항 조회 실패 — 사업보고서에 결산기가 여럿인데") for w in d["warnings"])
+
+
 def test_fiscal_month_change_keeps_the_old_value(monkeypatch):
     """6월 결산(12개월) → 12월 결산 이행기(7~12월 6개월) — 같은 사업연도에 결산기가 둘이지만 반기 결산이 아니다."""
     p, seen = _run_live(monkeypatch, alot={2024: _alot(("2024-06-30", "280")),
@@ -218,11 +247,42 @@ def test_foreign_reporter_converts_each_period_at_its_own_end_rate(monkeypatch):
     assert "최근 분기 누적·자본 2026-06-30 1,541.5원" in md
 
 
+def _eps(rows: list[dict], annual: str | None = None, cum: str | None = None) -> list[dict]:
+    r = {"sj_div": "IS", "account_id": "ifrs-full_BasicEarningsLossPerShare", "thstrm_amount": annual or "0.1"}
+    if cum is not None:
+        r["thstrm_add_amount"] = cum
+    return rows + [r]
+
+
+def test_foreign_reporter_assembles_ttm_eps_at_each_period_end_rate(monkeypatch):
+    """EPS(TTM) 도 조각마다 그 기간 말 환율(지배순이익 TTM 과 같은 규칙) — 종전엔 USD 로 조립한 뒤 사업연도 말 환율 하나를 곱했다."""
+    reports = {(2025, "11011"): _eps(USD_REPORTS[(2025, "11011")], annual="2.95"),
+               (2026, "11012"): _eps(USD_REPORTS[(2026, "11012")], cum="1.80"),
+               (2025, "11012"): _eps(USD_REPORTS[(2025, "11012")], cum="1.20")}
+    p, _ = _run_live(monkeypatch, reports=reports, fx=FX, induty="29241")
+    i = p["data"]["inputs"]
+    assert i["eps_ttm_basis"] == "disclosed_assembled"
+    assert i["eps_ttm_krw"] == round(2.95 * 1434.9 + 1.80 * 1541.5 - 1.20 * 1356.4)
+    assert i["eps_fy0_krw"] == round(2.95 * 1434.9)
+
+
+def test_fiscal_year_rate_failure_converts_nothing_rather_than_mixing_currencies(monkeypatch):
+    """사업연도 말 환율만 못 받으면 분기 값도 환산하지 않는다 — 분기만 원화로 바꾸면 TTM 에 외화 연간과 원화 분기가 섞인다."""
+    p, _ = _run_live(monkeypatch, reports=USD_REPORTS, fx={"20260630": 1541.5, "20250630": 1356.4}, induty="29241")
+    i = p["data"]["inputs"]
+    assert i["net_income_ttm_krw"] == 283e6 + 180e6 - 120e6 and i["controlling_equity_krw"] == 5_100e6
+    assert i["fx_rate_to_krw"] is None and "fx_rates_to_krw" not in i
+    assert any("환율 조회 실패 — 배수 통화 불일치 가능" in w for w in p["data"]["warnings"])
+
+
 def test_quarter_rate_failure_falls_back_to_the_fiscal_year_rate_and_says_so(monkeypatch):
     p, _ = _run_live(monkeypatch, reports=USD_REPORTS, fx={"20251231": 1434.9}, induty="29241")
     i = p["data"]["inputs"]
     assert i["controlling_equity_krw"] == round(5_100e6 * 1434.9)
     assert any("분기 말 환율 조회 실패" in w for w in p["data"]["warnings"])
+    # 대신 쓴 환율은 그 날짜로 적는다 — 분기 말 날짜에 사업연도 말 환율을 붙여 「6월 말 환율 1,434.9」처럼 읽히지 않게
+    assert i["fx_rates_to_krw"]["quarter"] == {"date": "20251231", "rate": 1434.9}
+    assert any("최근 분기 누적·자본(MRQ)은 2025-12-31 1,434.9원" in w for w in p["data"]["warnings"])
 
 
 def test_krw_reporter_is_unchanged(monkeypatch):
@@ -269,7 +329,7 @@ def _sector_rows(axis_latest, market_latest):
     return rows
 
 
-def _sector(mp, scheme, axis_latest, market_latest, as_of=None):
+def _sector(mp, scheme, axis_latest, market_latest, as_of=None, company=""):
     async def no_fwd(*a, **k):
         return {}, {}, None
 
@@ -278,7 +338,7 @@ def _sector(mp, scheme, axis_latest, market_latest, as_of=None):
     mp.setattr(S, "_pg_rows", _sector_rows(axis_latest, market_latest))
     mp.setattr(S, "_fwd_val_map", no_fwd)
     mp.setattr(S, "_div_yield_map", no_div)
-    return asyncio.run(S.build_sector_val_payload(scheme=scheme, format="json", as_of=as_of))
+    return asyncio.run(S.build_sector_val_payload(company=company, scheme=scheme, format="json", as_of=as_of))
 
 
 def test_frozen_ksic_axis_says_so(monkeypatch):
@@ -296,7 +356,7 @@ def test_fresh_axis_is_unchanged(monkeypatch):
 
 
 def test_past_as_of_flags_only_the_ksic_axis(monkeypatch):
-    """업종분류 축은 2026-07 주간 집계 전까지 월말 한 점씩이라 과거 기준일에서 시장보다 이른 것이 설계대로다."""
+    """업종분류 축은 2026-08-21 전까지 월말 한 점씩이라(시장 전체는 2026-07 부터 주간) 과거 기준일에서 시장보다 이른 것이 설계대로다."""
     assert "stale" not in _sector(monkeypatch, "중분류", "20260626", "20260710", as_of="20260715")["data"]
     assert _sector(monkeypatch, "ksic", "20260821", "20260911", as_of="20260915")["data"]["stale"]["market_as_of"] == "20260911"
     assert "stale" not in _sector(monkeypatch, "ksic", "20260515", "20260515", as_of="20260515")["data"]
@@ -397,9 +457,25 @@ def test_firm_at_says_when_it_answers_with_a_much_earlier_point(monkeypatch):
 def test_explain_never_prints_python_none_for_the_impairment_status(monkeypatch):
     p, _ = _run_live(monkeypatch, cap_status=None, reports={}, induty="292", revenue=None)
     md = TP._render_explain_firm(p)
-    assert "자본잠식 상태: 판정 불가(자본금·자본 미확정 — 재무 없음)" in md and "None" not in md
+    assert "자본잠식 상태: 판정 불가(재무 없음)" in md and "None" not in md
+    p3, _ = _run_live(monkeypatch, cap_status=None, induty="26110")      # 재무는 있는데 자본금 칸이 비어 판정이 없는 회사
+    assert "- 자본잠식 상태: 판정 불가(자본금 또는 자본 값을 재무에서 찾지 못함)" in TP._render_explain_firm(p3)
     p2, _ = _run_live(monkeypatch, cap_status="normal", induty="26110")
     assert "- 자본잠식 상태: 없음\n" in TP._render_explain_firm(p2) + "\n"
+
+
+def test_tiny_multiple_in_the_sector_company_row_is_not_rounded_to_zero(monkeypatch):
+    """업종 비교 기업 행도 firm·곡선과 같은 규칙 — 같은 종목이 firm 에선 0.0038, 업종 비교에선 0.0 으로 갈리지 않게."""
+    async def resolve(q):
+        return {"corp_name": "한창", "stock_code": "005110", "corp_code": "00105235"}, None
+
+    async def firm_val_at(isu, as_of):
+        return ("649", "KS", 0.0038, 0.0199, {})
+    monkeypatch.setattr(S, "_resolve_listed", resolve)
+    monkeypatch.setattr(S, "_firm_val_at", firm_val_at)
+    p = _sector(monkeypatch, "ksic", "20260821", "20260821", company="005110")
+    c = p["data"]["company"]
+    assert c["firm_per_ttm"] == 0.0038 and c["firm_pbr_mrq"] == 0.02
 
 
 def test_tiny_multiple_is_not_rounded_to_zero(monkeypatch):

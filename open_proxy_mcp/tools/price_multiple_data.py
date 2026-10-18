@@ -422,11 +422,15 @@ _IMPAIRMENT_TEXT = {
 }
 
 
-def _impairment_text(v: Any) -> str:
+def _impairment_text(v: Any, i: dict[str, Any] | None = None) -> str:
     """explain 의 자본잠식 줄(261019). 종전엔 `i.get(…, '-')` 라 칸이 있고 값이 None 이면 파이썬 `None` 이 그대로 나갔다
-    (10-19 검증: 재무 없는 신규상장 멜콘 「자본잠식 상태: None」). 판정이 없으면 까닭을 적는다."""
+    (10-19 검증: 재무 없는 신규상장 멜콘 「자본잠식 상태: None」). 판정이 없으면 까닭을 적는다 — 판정은 자본금이나 자본이 비어도
+    None 이라(`financial_metrics`), 순이익·자본이 있는 회사에 「재무 없음」이라 하지 않는다."""
     if v is None:
-        return "판정 불가(자본금·자본 미확정 — 재무 없음)"
+        i = i or {}
+        if i.get("net_income_fy0_krw") is None and i.get("controlling_equity_krw") is None:
+            return "판정 불가(재무 없음)"
+        return "판정 불가(자본금 또는 자본 값을 재무에서 찾지 못함)"
     return _IMPAIRMENT_TEXT.get(v, str(v))
 
 
@@ -495,7 +499,7 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     dq = d.get("data_quality") or {}
     L += ["", "## 신뢰도",
           f"- 스케일가드: {dq.get('scale_tier', '-')} (재무 단위오류 검사 — 항등식·시장최댓값 기준)",
-          f"- 자본잠식 상태: {_impairment_text(i.get('capital_impairment_status'))}"]
+          f"- 자본잠식 상태: {_impairment_text(i.get('capital_impairment_status'), i)}"]
     # 조건은 둘 다 보면서 출력은 `or` 로 하나만 봤다 — 데이터 경고가 있으면 봉투 경고
     # (「이 회사가 맞나」 추정 고지)가 통째로 사라졌다. 봉투를 앞에 두고 둘 다 싣는다.
     _seen: set[str] = set()
