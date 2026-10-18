@@ -4,7 +4,7 @@
   · 업종 = 원본 업종분류 스냅샷(`wise_sector`)과 조인 — 접수일 이하 가장 최근 스냅샷(없으면 가장 이른 것). 스냅샷은 표 전체에서 고른다(원장 배치의
           `pick_snapshot` 과 같은 선택). 261019: 그 스냅샷에 종목이 없으면 그 종목의 가장 가까운 스냅샷(접수일 이하 가장 최근, 없으면 접수일 뒤 가장 이른 것) —
           신규 상장 종목이 상장 뒤 첫 스냅샷 전 공시에서 「업종 미상」이던 것. 어느 스냅샷에도 없는 종목만 비운다.
-  · 시총 = 원장의 `mktcap_won` 그대로. 시세 표와 조인하지 않는다 — 일별 원본이 7거래일 뒤 잘려 나중엔 공시 시점 값을 다시 만들 수 없다.
+  · 시총 = 원장의 `mktcap_won` 그대로. 시세 표와 조인하지 않는다 — 일별 원본은 보관 창(261019~ 약 1년, 그 전 7거래일) 뒤 잘려 나중엔 공시 시점 값을 다시 만들 수 없다.
   · 업종 복사본 칸(`sector`·`industry`·`sector_dd`)이 **없는** 표(운영에서 지운 뒤)에서도 돌고, 칸이 **있어도 읽지 않는다**(엉뚱한 값을 넣어 두고 확인).
 같은 파일에서 `price_multiple_data._firm_cap_at`(업종 비교의 그 날 시총 — 그 날 행, 없으면 같은 주 그 날 이하 가장 늦은 행, 그것도 없으면 같은 주 그 날 뒤
 가장 이른 행)도 실제 SQL 로 확인한다.
@@ -22,7 +22,7 @@ psycopg = pytest.importorskip("psycopg")
 
 from open_proxy_mcp.services import disclosure_flow as df  # noqa: E402
 from open_proxy_mcp.services import price_multiple_data as S  # noqa: E402
-from test_krx_daily_pg import KRX_WEEKLY_DDL, _ddl  # noqa: E402
+from test_krx_daily_pg import KRX_WEEKLY_DDL, _ddl, put_daily  # noqa: E402
 
 # 운영에서 업종 복사본 칸 셋을 지운 뒤의 모양(시총 칸 `mktcap_won`·`mktcap_dd` 는 남는다). 지우기 전 모양은 `with_sector_cols=True` 로 더한다.
 EVENTS_DDL = """CREATE TABLE dart_events (
@@ -41,6 +41,13 @@ SHRS = 1_000_000
 
 def _close(t: str, d: str) -> int:
     return {A: 10_000, B: 20_000, C: 30_000, E: 50_000}[t] + int(d[-2:]) * 10
+
+
+def _drop_daily(c, ticker: str, days: tuple[str, ...]) -> None:
+    """일별 저장분에서 그 종목의 그 날 행을 지운다 — 뷰(`krx_daily`) 대신 사실값 표에서(#124 구조). 달력의 행 수도 맞춘다."""
+    c.execute("DELETE FROM krx_px WHERE tid = (SELECT tid FROM krx_ticker WHERE ticker=%s) AND to_char(trd_dd, 'YYYYMMDD') = ANY(%s)",
+              (ticker, list(days)))
+    c.execute("UPDATE krx_day d SET n = (SELECT count(*) FROM krx_px p WHERE p.trd_dd = d.trd_dd)")
 
 
 def _stored_cap(no: str) -> int:
@@ -69,8 +76,8 @@ def _load(url: str, *, with_sector_cols: bool = False, daily: bool = True) -> No
                         [(d, t, "KS", _close(t, d), _close(t, d) * SHRS, SHRS) for d in wk for t in (A, B, C, E)])
         if daily:
             # E 는 일별 응답에 없다(거래정지 등)
-            cur.executemany("INSERT INTO krx_daily (trd_dd, ticker, market, close, list_shrs) VALUES (%s,%s,%s,%s,%s)",
-                            [(d, t, "KS", _close(t, d) + 1, SHRS) for d in DAYS for t in (A, B, C)])
+            # 261019(#124): 일별 저장분은 번호표·달력·사실값 표 + 같은 이름의 뷰다 — 시험 도우미로 넣는다(`INSERT INTO krx_daily` 는 뷰라 안 된다)
+            put_daily(c, [(d, t, "KS", _close(t, d) + 1, SHRS) for d in DAYS for t in (A, B, C)])
         ev = [  # (접수번호, 접수일, 종목, 유형, 시장구분)
             ("r01", date(2026, 10, 14), A, "order", "Y"),   # 업종은 0821 스냅샷(1016 은 접수일 뒤)
             ("r02", date(2026, 10, 17), A, "order", "Y"),   # 토요일 → 1016 스냅샷
@@ -229,10 +236,10 @@ def test_firm_cap_at_order_earlier_before_later_weekly_before_daily(db):
     _load(db)
     with psycopg.connect(db, autocommit=True) as c:
         # A: 10/12 일별 행이 빠졌다(그 날 행 없음, 같은 주 그 날 이하 행도 없음) · 10/14 일별 행도 빠졌다(10/13 일별 행은 있다)
-        c.execute("DELETE FROM krx_daily WHERE ticker=%s AND trd_dd IN ('20261012', '20261014')", (A,))
+        _drop_daily(c, A, ("20261012", "20261014"))
         # B: 같은 주 주간 행(10/16)이 없고 일별은 10/14 부터
         c.execute("DELETE FROM krx_weekly WHERE ticker=%s AND price_dd='20261016'", (B,))
-        c.execute("DELETE FROM krx_daily WHERE ticker=%s AND trd_dd IN ('20261012', '20261013')", (B,))
+        _drop_daily(c, B, ("20261012", "20261013"))
     # 그 날 이하 일별(10/13)이 그 날 뒤 주간(10/16)보다 먼저
     assert asyncio.run(S._firm_cap_at(A, "20261014")) == (_cap(A, "20261013", daily=True), "KS")
     # 그 날 이하가 없으면 그 날 뒤 — 주간(10/16)이 일별(10/13)보다 먼저
