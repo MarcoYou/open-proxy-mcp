@@ -251,7 +251,7 @@ def test_price_latest_is_one_row_per_ticker_at_its_own_latest_day(pg17):
                    ("L00003", "20261016", "20261016", 30)]
 
 
-# ── 쓰기: 모든 필드 · 7거래일 롤링 · krx_weekly 와 같은 트랜잭션 ─────────────────────
+# ── 쓰기: 모든 필드 · 보관 창 정리 · krx_weekly 와 같은 트랜잭션 ─────────────────────
 
 def test_write_daily_stores_every_field_for_every_ticker_with_market_tags(pg17):
     _apply(pg17)
@@ -589,7 +589,7 @@ def test_quote_payload_end_to_end_on_postgres_is_json_serializable_and_matches_l
     monkeypatch.setattr(T, "_resolve_listed", fake_resolve)
 
     async def no_krx(*a, **k):
-        raise AssertionError("7거래일 안은 KRX 를 부르면 안 된다")
+        raise AssertionError("보관 창 안은 KRX 를 부르면 안 된다")
     monkeypatch.setattr(T, "_krx_quote_row", no_krx)
 
     p = asyncio.run(T.build_quote_payload("삼성전자", as_of=""))

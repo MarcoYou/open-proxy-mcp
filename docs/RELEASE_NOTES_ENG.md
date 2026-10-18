@@ -63,7 +63,7 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ### Weekly prices store closed weeks only · year-end values use the actual last trading day
 
-- The weekly price store no longer deletes and rewrites the current week's rows every trading day; it stores each week's last trading day once, after the week ends. The current week's latest values still come from the last-7-trading-days daily quotes — `trading_data`, `price_multiple_data` and `screener` responses are unchanged.
+- The weekly price store no longer deletes and rewrites the current week's rows every trading day; it stores each week's last trading day once, after the week ends. The current week's latest values still come from the daily quotes — `trading_data`, `price_multiple_data` and `screener` responses are unchanged.
 - Fixed the year's last trading day (Dec 30) being deleted by the next year's first trading day in years where Dec 31 falls on a Tuesday–Thursday. Year-end values for 2019, 2024 and 2025 were a day or two early (the Friday: Dec 27, Dec 27, Dec 26); year-end bands and year-end dividend yields now use the actual last trading day. `trading_data(scope="firm")` series gain one extra point in the week the year changes.
 
 ### About a year of quotes served from the database — faster `trading_data` quotes

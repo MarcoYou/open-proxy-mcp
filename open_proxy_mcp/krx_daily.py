@@ -22,8 +22,10 @@
   이번 주(아직 안 닫힌 주) 최신값은 일별 저장분에만 있다 — 「닫힌 주 + 최신 거래일」 모양이 필요한 배치는 `WEEKLY_WITH_LATEST` 를 읽는다.
   같은 규칙의 주 닫는 날 표시가 달력(`krx_day.wk_close`)에도 있다(`WK_CLOSE_SQL`).
 ■ 휴장 판정(`closed_verdict`): 코스피·코스닥 **둘 다** 비고, 그 날 뒤로 평일이 2일 이상 지났고, 다음 저장 거래일의 기준가(종가 − 공표 대비)가
-  그 앞 저장 거래일 종가와 이어질 때(이을 수 있으면)만 휴장이다. 빈 응답 한 번으로 정하지 않는다 — KRX 는 게시 전·일시적으로
+  그 앞 저장 거래일 종가와 이어질 때만 휴장이다. 빈 응답 한 번으로 정하지 않는다 — KRX 는 게시 전·일시적으로
   거래일을 0행으로 준다(20260702 실측: 코스피 빈 응답 한 번을 휴장으로 적어 그날 기준가 리셋 1건·주식수 변동 8건이 어긋났다).
+  다음 거래일이 아직 저장되지 않았거나 그 날 공표 대비가 없으면 **판정을 미룬다**(휴장으로 적지 않는다) — KRX 오류(키 만료·한도·장애)도
+  빈 응답으로 오므로, 미루지 않으면 하루 넘게 KRX 가 막힌 거래일이 휴장으로 굳어 다시 메워지지 않는다(10-19 검토에서 재현).
 
 이 모듈은 **DB 와 순수 함수만** 다룬다(네트워크 없음). KRX 를 부르는 쪽은 `services/krx_refresher.py`.
 `services/price_multiple_data.py` 를 import 하지 않는다 — 그쪽이 이 모듈을 import 한다(순환 방지).
@@ -155,6 +157,16 @@ WHERE d.wk_close IS DISTINCT FROM (d.trd_dd IN (SELECT trd_dd FROM want))
 PRUNE_CANDIDATES_SQL = "SELECT dd, n, closed, cold FROM krx_day WHERE trd_dd < %s ORDER BY trd_dd"
 PRUNE_PX_SQL = "DELETE FROM krx_px WHERE trd_dd = ANY(%s)"
 PRUNE_DAY_SQL = "DELETE FROM krx_day WHERE trd_dd = ANY(%s)"
+#: 지울 날의 행이 있던 BRIN(날짜 범위 요약 색인) 블록 범위의 요약을 **지우기 직전에** 지운다. 지운 빈 자리는 기록 뒤 VACUUM 으로
+#: 곧 다음 날 행이 다시 쓰는데, BRIN 요약은 줄지 않고 합쳐져 그 범위가 [지운 날, 새 날]로 넓어진다 — 과거일 단면이 재사용된 범위를
+#: 모두 읽게 된다(10-18 실측, 운영과 같은 적재 뒤 80일 롤링: 가장 오래된 날 단면 lossy 36 → 2,177 블록, 1년이면 표 전체).
+#: 요약을 지운 범위는 다음 VACUUM 이 남은 행으로 다시 요약한다(같은 실측에서 lossy 약 50 유지). 범위 크기는 색인의 pages_per_range
+#: (`scripts/krx_daily_ddl.py` 의 16)와 같아야 한다. 색인 소유자(또는 MAINTAIN 권한)만 부를 수 있다 — 못 부르면 경고만 하고 지운다.
+BRIN_INDEX = "krx_px_dd_brin"
+BRIN_PAGES_PER_RANGE = 16
+PRUNE_DESUMMARIZE_SQL = (
+    "SELECT r.b, brin_desummarize_range(%s::regclass, r.b) FROM ("
+    "SELECT DISTINCT ((p.ctid::text::point)[0]::bigint / %s) * %s AS b FROM krx_px p WHERE p.trd_dd = ANY(%s)) r")
 
 
 @dataclass(frozen=True)
@@ -165,11 +177,24 @@ class Pruned:
     held: tuple[str, ...] = ()
 
 
+def _desummarize(conn: Any, days: list[date]) -> int:
+    """지울 날(`days`)의 행이 있는 BRIN 블록 범위 요약을 지운다(`PRUNE_DESUMMARIZE_SQL`) → 지운 범위 수.
+    실패해도(권한 등) 보관 창 정리는 계속한다 — 요약이 넓어지는 것은 과거일 단면이 느려질 뿐 값은 같다. 자기 SAVEPOINT 안에서 돈다."""
+    try:
+        with conn.transaction():
+            return len(conn.execute(PRUNE_DESUMMARIZE_SQL, (BRIN_INDEX, BRIN_PAGES_PER_RANGE, BRIN_PAGES_PER_RANGE, days)).fetchall())
+    except Exception as exc:                         # noqa: BLE001 — 성능 장치일 뿐이다
+        logger.warning("일별 시세 보관 창 정리: BRIN 요약 지우기 실패(지우기는 계속 — 과거일 단면이 느려질 수 있다) %s: %s",
+                       type(exc).__name__, exc)
+        return 0
+
+
 def prune_window(conn: Any) -> Pruned:
     """보관 창(`window_lo`) 밖의 날을 지운다 — 휴장일·행 없는 날·**콜드 보관본에 들어간 날(`cold`)만**.
 
     `conn` 은 트랜잭션 안의 psycopg 연결이다(예외는 호출자의 SAVEPOINT 가 받는다). 콜드에 없는 날은 지우지 않고 WARNING 을 남긴다 —
-    보관본 연도 파일을 올린 쪽이 `krx_day.cold` 를 켜면 다음 기록 때 지운다."""
+    보관본 연도 파일을 올린 쪽이 `krx_day.cold` 를 켜면 다음 기록 때 지운다. 행이 있는 날을 지우기 직전에 그 행들의 BRIN 블록 범위 요약을
+    지운다(`PRUNE_DESUMMARIZE_SQL` — 빈 자리를 다음 날 행이 다시 써도 요약이 넓어지지 않게)."""
     latest = conn.execute(LATEST_DAY_SQL).fetchone()[0]
     if not latest:
         return Pruned()
@@ -180,6 +205,9 @@ def prune_window(conn: Any) -> Pruned:
     rows = 0
     if go:
         days = [_d(x) for x in go]
+        with_rows = [_d(dd) for dd, n, closed, cold in cands if dd in go and n]
+        if with_rows:
+            _desummarize(conn, with_rows)
         rows = _rowcount(conn.execute(PRUNE_PX_SQL, (days,)))
         conn.execute(PRUNE_DAY_SQL, (days,))
     if held:
@@ -217,7 +245,7 @@ def write_daily(conn: Any, price_dd: str, kospi: list, kosdaq: list) -> tuple[bo
                         # (value, volume, list_shrs, open, high, low, close, cmp, trd_dd, tid, market)
                         cp.write_row((r[8], r[7], r[9], r[3], r[4], r[5], r[6], r[10], day, tid, _MKT_CHAR[r[2]]))
                 cur.execute(WK_CLOSE_SQL)
-                pruned = prune_window(cur)
+                pruned = prune_window(conn)              # 연결로 — BRIN 요약 지우기가 자기 SAVEPOINT 를 건다
         return True, len(by), pruned.rows
     except Exception as exc:                         # noqa: BLE001 — 호출자가 반환값으로 가른다
         logger.error("krx_daily 기록 실패 — 스키마(scripts/krx_daily_ddl.py) 적용 여부·권한 확인: %s: %s",
@@ -273,7 +301,9 @@ def closed_verdict(kospi_empty: bool, kosdaq_empty: bool, weekdays_since: int,
     · 둘 다 비어도 그 날 뒤로 평일이 `CLOSED_MIN_WEEKDAYS` 일 지나기 전에는 모른다(게시 전 빈 응답).
     · 다음 저장 거래일로 기준가 연속성을 볼 수 있으면(`cont`, 비교 `CONTINUITY_MIN_N` 종목 이상) 그것으로 정한다 —
       어긋남 ≤ 5% 면 휴장, ≥ 50% 면 거래일(KRX 일시 빈 응답), 그 사이는 모른다.
-    · 볼 수 없으면(다음 거래일이 아직 없음·공표 대비 없음) 둘 다 빈 응답 + 평일 경과로 휴장이다."""
+    · 볼 수 없으면(다음 거래일이 아직 없음·공표 대비 없음·비교 종목이 너무 적음) **모른다** — 다음 거래일이 저장된 뒤 다시 판정한다.
+      KRX 오류(키 만료·한도·장애)도 빈 응답으로 온다. 「두 시장 빈 응답 + 평일 경과」만으로 휴장을 적으면 하루 넘게 KRX 가 막힌
+      거래일이 휴장으로 굳는다 — 달력의 휴장은 다시 묻지 않으므로 그 날은 영영 메워지지 않고, 금요일이면 그 주가 목요일로 닫힌다."""
     if not (kospi_empty and kosdaq_empty):
         return "trading"
     if weekdays_since < CLOSED_MIN_WEEKDAYS:
@@ -284,8 +314,7 @@ def closed_verdict(kospi_empty: bool, kosdaq_empty: bool, weekdays_since: int,
             return "closed"
         if ratio >= CONTINUITY_TRADING_MIN:
             return "trading"
-        return "unknown"
-    return "closed"
+    return "unknown"
 
 
 # ── 갱신기가 읽는 달력 상태 ─────────────────────────────────────────────────

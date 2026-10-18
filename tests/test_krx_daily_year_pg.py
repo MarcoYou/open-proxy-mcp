@@ -255,3 +255,125 @@ def test_sync_weekly_only_looks_back_a_few_weeks(db, monkeypatch):
         c.commit()
     assert res.ok and res.closed == ("20261016",)                    # 1월 주는 기간 밖 — 건드리지 않는다
     assert sum(1 for s, _ in seen if s == krx_daily.WEEK_MAX_SQL) == 1
+
+
+# ── 갱신기 끝까지(가짜 KRX): KRX 오류를 휴장으로 굳히지 않는다 ───────────────────────────
+
+def _refresher(monkeypatch, url, serve):
+    """갱신기(`services.krx_refresher`)를 이 DB 에 묶고 KRX 를 `serve(basDd)` → (코스피 행, 코스닥 행) 대역으로 바꾼다. 반환: (R, 받은 날 기록)."""
+    from open_proxy_mcp.services import krx_refresher as R
+    monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.setattr(R, "_LOGGED_FRESH", {})
+    monkeypatch.setattr(R, "_GAP_TRIES", {})
+    monkeypatch.setitem(R._COOLDOWN, "n", 0)
+    monkeypatch.setitem(R._BUSY_STREAK, "n", 0)
+    asked = []
+
+    async def fake_fetch(dd, both=False):
+        asked.append(dd)
+        ks, kq = serve(dd)
+        if not ks and not both:
+            return [], [], 1
+        return ks, kq, 2
+    monkeypatch.setattr(R, "_fetch_day", fake_fetch)
+    return R, asked
+
+
+def _market(close_of, cmp, n=300):
+    """코스피·코스닥 각 n 종목(갱신기 최소 행 수 300 이상) — close_of(i) 종가, 공표 대비 cmp."""
+    ks = [_row(f"{i:06d}", close_of(i), cmp=cmp) for i in range(n)]
+    kq = [_row(f"{900000 + i:06d}", close_of(i), cmp=cmp) for i in range(n)]
+    return ks, kq
+
+
+def _kst(y, m, d, hh, mm):
+    from datetime import datetime
+    from open_proxy_mcp.clock import KST
+    return datetime(y, m, d, hh, mm, tzinfo=KST)
+
+
+def test_a_trading_day_krx_failed_to_serve_for_a_day_is_not_recorded_as_a_holiday(db, monkeypatch):
+    """KRX 가 하루 넘게 오류를 낸다(키 만료·한도·장애 — 갱신기는 오류를 빈 응답으로 받는다). 목 07:30 에는 화(20261013)가 평일 2일이
+    지났지만 그 뒤 저장 거래일이 없어 기준가 연속성을 볼 수 없다 → 휴장으로 적지 않는다(종전: 「두 시장 빈 응답 + 평일 2일」로 휴장 →
+    달력의 휴장은 다시 묻지 않아 KRX 가 돌아와도 그 거래일이 영영 비었다). KRX 가 돌아오면 그 날을 메운다."""
+    url, _ = db
+    ks, kq = _market(lambda i: 1_000 + i, 0)
+    _write(url, "20261012", ks, kq)
+    days = {"20261013": _market(lambda i: 1_010 + i, 10), "20261014": _market(lambda i: 1_020 + i, 10)}
+    up = {"on": False}
+    R, asked = _refresher(monkeypatch, url, lambda dd: days[dd] if up["on"] and dd in days else ([], []))
+    res = asyncio.run(R.run_cycle(_kst(2026, 10, 15, 7, 30)))                   # KRX 장애 중 — 기대 거래일(수)과 화를 묻는다
+    assert res.outcome == "not_published" and res.closed_days == () and "20261013" in asked
+    with psycopg.connect(url) as c:
+        assert c.execute("SELECT count(*) FROM krx_day WHERE dd = '20261013'").fetchone()[0] == 0
+    up["on"] = True                                                              # KRX 회복
+    res = asyncio.run(R.run_cycle(_kst(2026, 10, 15, 8, 50)))
+    assert res.outcome == "refreshed" and res.filled == ("20261013",)
+    with psycopg.connect(url) as c:
+        assert c.execute("SELECT dd, n, closed FROM krx_day WHERE dd >= '20261013' ORDER BY 1").fetchall() == [
+            ("20261013", 600, False), ("20261014", 600, False)]
+
+
+def test_a_holiday_is_recorded_once_the_next_trading_day_is_stored(db, monkeypatch):
+    """한글날(20261009 금) — 화 07:30 에는 다음 거래일(월)이 아직 저장 전이라 판정을 미루고, 월이 저장되는 틱에서 기준가가 이어지는 것을 보고
+    휴장으로 적는다. 그 뒤로는 묻지 않는다."""
+    url, _ = db
+    ks, kq = _market(lambda i: 1_000 + i, 0)
+    _write(url, "20261008", ks, kq)
+    pub = {"20261012": False}
+    mon = _market(lambda i: 1_005 + i, 5)                                       # 기준가 1,000+i = 목요일 종가(이어진다)
+    R, asked = _refresher(monkeypatch, url, lambda dd: mon if dd == "20261012" and pub[dd] else ([], []))
+    res = asyncio.run(R.run_cycle(_kst(2026, 10, 13, 7, 30)))
+    assert res.outcome == "not_published" and res.closed_days == ()            # 월 게시 전 — 금은 아직 모른다
+    pub["20261012"] = True
+    res = asyncio.run(R.run_cycle(_kst(2026, 10, 13, 8, 50)))
+    assert res.outcome == "refreshed" and res.closed_days == ("20261009",)
+    with psycopg.connect(url) as c:
+        assert c.execute("SELECT dd, n, closed FROM krx_day ORDER BY 1").fetchall() == [
+            ("20261008", 600, False), ("20261009", 0, True), ("20261012", 600, False)]
+    asked.clear()
+    assert asyncio.run(R.run_cycle(_kst(2026, 10, 13, 9, 0))).outcome == "fresh" and asked == []
+
+
+# ── 보관 창 정리 뒤 BRIN 이 넓어지지 않는다 ─────────────────────────────────────
+
+def _lossy(c, dd):
+    """그 날 단면을 BRIN 비트맵으로 읽을 때의 lossy 블록 수."""
+    c.execute("SET enable_seqscan = off")
+    c.execute("SET enable_indexscan = off")
+    plan = "\n".join(r[0] for r in c.execute(
+        "EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, SUMMARY OFF) SELECT count(*) FROM krx_px WHERE trd_dd = %s", (dd,)).fetchall())
+    assert "krx_px_dd_brin" in plan, plan
+    import re
+    return int(re.search(r"lossy=(\d+)", plan).group(1))
+
+
+def test_pruned_space_reused_by_new_days_does_not_widen_the_brin_for_older_slices(db):
+    """창 밖 콜드 날을 지운 빈 자리를 다음 날 행이 다시 써도(기록마다 VACUUM — 갱신기 흐름) 남은 과거일 단면이 그 재사용 블록을 읽지 않는다.
+    지우기 직전에 그 범위의 BRIN 요약을 지우지 않으면 요약이 [지운 날, 새 날]로 넓어져 그 사이 모든 날의 단면이 재사용 블록을 다 읽는다
+    (10-18 실측: 80일 롤링 뒤 가장 오래된 날 lossy 36 → 2,177 블록)."""
+    url, _ = db
+    tickers = [f"{i:06d}" for i in range(3_000)]
+
+    def put(dd):
+        _write(url, dd, [_row(t, 1_000 + i, cmp=0) for i, t in enumerate(tickers)], [])
+        with psycopg.connect(url, autocommit=True) as c:
+            c.execute("VACUUM (ANALYZE) krx_px, krx_day")
+    old = ["20250106", "20250107", "20250108"]
+    for dd in old + ["20251201"]:
+        put(dd)
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("UPDATE krx_day SET cold = true WHERE dd = ANY(%s)", (old,))
+        base = _lossy(c, date(2025, 12, 1))
+        old_last = c.execute("SELECT max((ctid::text::point)[0]) FROM krx_px WHERE trd_dd < '2025-02-01'").fetchone()[0]
+    put("20260116")                                                              # 창 첫날 20250109 — 콜드 세 날을 지운다
+    with psycopg.connect(url, autocommit=True) as c:
+        assert c.execute("SELECT count(*) FROM krx_day WHERE dd = ANY(%s)", (old,)).fetchone()[0] == 0
+    for dd in ("20260119", "20260120", "20260121"):                              # 지운 자리를 다시 쓴다
+        put(dd)
+    with psycopg.connect(url, autocommit=True) as c:
+        got = _lossy(c, date(2025, 12, 1))
+        reused = c.execute("SELECT count(DISTINCT (ctid::text::point)[0]) FROM krx_px WHERE trd_dd >= '2026-01-19' "
+                           "AND (ctid::text::point)[0] <= %s", (old_last,)).fetchone()[0]
+    assert reused > 0                                                            # 시험 전제: 새 날 행이 지운 자리를 실제로 다시 썼다
+    assert got <= base + krx_daily.BRIN_PAGES_PER_RANGE, (base, got, reused)    # 넓어졌으면 재사용 블록(수십)만큼 는다

@@ -454,7 +454,7 @@ def test_judge_closed_reads_continuity_and_records_only_a_closed_verdict(monkeyp
     monkeypatch.setenv("DATABASE_URL", "postgresql://x")
     import psycopg
     monkeypatch.setattr(psycopg, "connect", lambda *a, **k: Conn())
-    for cont, want in (((2700, 3), "closed"), ((2700, 2600), "trading"), ((2700, 600), "unknown"), (None, "closed")):
+    for cont, want in (((2700, 3), "closed"), ((2700, 2600), "trading"), ((2700, 600), "unknown"), (None, "unknown")):
         calls.clear()
         monkeypatch.setattr(krx_daily, "continuity", lambda c, dd, cont=cont: cont)
         monkeypatch.setattr(krx_daily, "record_closed", lambda c, dd: calls.append(("record", dd)) or True)

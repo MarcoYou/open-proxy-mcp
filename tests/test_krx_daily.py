@@ -84,8 +84,9 @@ def test_weekdays_after_counts_weekdays_up_to_today(dd, today, n):
     (True, True, 2, (2700, 135), "closed"),       # 5% 까지
     (True, True, 2, (2766, 2546), "trading"),     # 20260703 실측: 거래일을 빠뜨리면 거의 모든 종목이 어긋난다
     (True, True, 2, (2700, 600), "unknown"),      # 그 사이 — 정하지 않는다
-    (True, True, 2, None, "closed"),              # 다음 거래일이 아직 없거나 공표 대비가 없음 — 두 시장 빈 응답 + 평일 2일
-    (True, True, 2, (50, 40), "closed"),          # 비교 종목이 너무 적으면 연속성은 근거가 아니다
+    (True, True, 2, None, "unknown"),             # 다음 거래일이 아직 없거나 공표 대비가 없음 — 미룬다(KRX 오류도 빈 응답이다)
+    (True, True, 9, None, "unknown"),             # 평일이 많이 지나도 연속성을 못 보면 휴장으로 굳히지 않는다
+    (True, True, 2, (50, 2), "unknown"),          # 비교 종목이 너무 적으면 연속성은 근거가 아니다 — 미룬다
 ])
 def test_closed_verdict_never_trusts_a_single_empty_response(ks, kq, since, cont, want):
     assert krx_daily.closed_verdict(ks, kq, since, cont) == want
@@ -251,13 +252,35 @@ def test_prune_deletes_only_closed_or_cold_days_and_warns_about_the_rest(caplog)
     assert [str(d) for d in day[2][0]] == ["2025-10-08", "2025-10-10"]
     cand = _entry(c, krx_daily.PRUNE_CANDIDATES_SQL)
     assert str(cand[2][0]) == "2025-10-14"                             # window_lo(20261021)
+    # 행이 있는 날(콜드)만, 지우기 직전에, 자기 SAVEPOINT 안에서 BRIN 요약을 지운다(휴장일은 행이 없어 뺀다)
+    des = _entry(c, krx_daily.PRUNE_DESUMMARIZE_SQL)
+    assert des[2][:3] == ("krx_px_dd_brin", 16, 16) and [str(d) for d in des[2][3]] == ["2025-10-10"]
+    i = c.log.index(des)
+    assert c.log[i - 1] == ("savepoint",) and c.log[i + 1] == ("release",) and c.log.index(px) > i
     assert any("콜드 보관본에 없어 지우지 않았다" in r.message and "20251013~20251014" in r.message for r in caplog.records)
 
 
 def test_prune_with_nothing_outside_the_window_deletes_nothing():
     c = FakeConn(latest="20261016", cands=[])
     ok, _, pruned = krx_daily.write_daily(c, "20261016", [_row("005930")], [])
-    assert ok and pruned == 0 and not any(x in (_norm(krx_daily.PRUNE_PX_SQL), _norm(krx_daily.PRUNE_DAY_SQL)) for x in _sqls(c))
+    assert ok and pruned == 0 and not any(x in (_norm(krx_daily.PRUNE_PX_SQL), _norm(krx_daily.PRUNE_DAY_SQL),
+                                                _norm(krx_daily.PRUNE_DESUMMARIZE_SQL)) for x in _sqls(c))
+
+
+def test_prune_keeps_deleting_when_the_brin_desummarize_fails(caplog):
+    """BRIN 요약 지우기는 성능 장치다 — 권한 등으로 실패해도 그 SAVEPOINT 만 되돌리고 보관 창 정리는 그대로 한다."""
+    c = FakeConn(latest="20261021", cands=[("20251010", 2764, False, True)])
+    real = c.execute
+
+    def failing(sql, params=()):
+        if _norm(sql) == _norm(krx_daily.PRUNE_DESUMMARIZE_SQL):
+            raise RuntimeError("must be owner of index krx_px_dd_brin")
+        return real(sql, params)
+    c.execute = failing
+    with caplog.at_level("WARNING"):
+        ok, _, pruned = krx_daily.write_daily(c, "20261021", [_row("005930")], [])
+    assert ok and pruned == 5 and ("rollback_to_savepoint",) in c.log
+    assert any("BRIN 요약 지우기 실패" in r.message for r in caplog.records)
 
 
 def test_write_daily_failure_never_raises_so_the_weekly_write_still_commits(caplog):
