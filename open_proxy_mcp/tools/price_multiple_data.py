@@ -15,6 +15,7 @@ from open_proxy_mcp.services.price_multiple_data import (
     _norm_as_of,
 )
 from open_proxy_mcp.market_codes import to_label as mkt_label
+from open_proxy_mcp.dart.fx import SRC_ECOS, fx_source_label
 
 _STATUS_TITLE = {
     "invalid": "입력 오류",
@@ -458,13 +459,18 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     if fx:
         rates = i.get("fx_rates_to_krw") or {}
         q, qp = rates.get("quarter"), rates.get("prior_quarter")
+        # 261019: 출처를 칸마다 받은 그대로 적는다 — 종전엔 늘 「한국은행 ECOS」였는데 야후 대체값일 때도 그렇게 적었다.
+        srcs = {e.get("source") for e in (rates.get("fy0"), q, qp) if e}
+        src_txt = (fx_source_label(SRC_ECOS) if srcs == {SRC_ECOS} else
+                   " · ".join(f"{k} {fx_source_label(e.get('source'))}" for k, e in
+                              (("FY0", rates.get("fy0")), ("최근 분기", q), ("전년 동기", qp)) if e))
         if q and qp:   # 261019: 기간마다 그 기간 말 환율(곡선·업종 비교와 같은 규칙)
             def _d(x): return f"{x[:4]}-{x[4:6]}-{x[6:]}"
-            L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 기간 말 환율(원/{cur}, 한국은행 ECOS)로 KRW 환산된 값: "
+            L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 기간 말 환율(원/{cur}, {src_txt})로 KRW 환산된 값: "
                      f"FY0 {fx:,.1f}원 · 최근 분기 누적·자본 {_d(q['date'])} {q['rate']:,.1f}원 · "
                      f"전년 동기 누적 {_d(qp['date'])} {qp['rate']:,.1f}원")
         else:
-            L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 회계기말 환율 {fx:,.1f}원/{cur}(한국은행 ECOS)로 KRW 환산된 값")
+            L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 회계기말 환율 {fx:,.1f}원/{cur}({src_txt})로 KRW 환산된 값")
     L += ["", "## 계산 과정"]
     def _calc(lbl, formula, num, den, out, unit=""):
         if num is not None and den and out is not None:       # 분모가 있어도 완전자본잠식이면 배수는 None(N/M) — 「**None**」 금지
