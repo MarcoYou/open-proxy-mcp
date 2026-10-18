@@ -38,13 +38,16 @@ class FakeConnection:
     """Read-only synthetic DB boundary; unknown SQL is always a test failure."""
 
     def __init__(self, *, events=None, size_mb=100, fwd=None, hist=None, fail_on=None,
-                 calendar=None, stale_versions=(0, None)):
+                 calendar=None, stale_versions=(0, None), edge=None):
         self.events = [checker._to_ns(NOW)] if events is None else events
         self.size_mb = Decimal(str(size_mb))
         self.snapshots = {"fwd": fwd, "fwd_hist": hist}
         # calendar = 게시 달력 날짜(구간형 저장 뒤 — 뷰가 `fwd_asof` 를 읽는다). None 이면 주별 모양.
         self.calendar = calendar
         self.stale_versions = stale_versions
+        # edge = 창 첫날 (n_fact, n_stock, 그 날 판 수, 그 날 시세 행 수). None 이면 쓰는 쪽 칸이 없는 DB(검사를 건너뛴다).
+        self.edge = edge
+        self.edge_day = None
         self.fail_on = fail_on
         self.calls = []
         self.autocommit = False
@@ -78,6 +81,11 @@ class FakeConnection:
         if query == "SELECT count(*), min(valid_to) FROM fwd_fact_ver WHERE valid_to <= %s" and self.calendar:
             self.grace = params[0]
             return FakeResult([self.stale_versions])
+        if query == " ".join(checker.EDGE_READY_SQL.split()) and self.calendar:
+            return FakeResult([(self.edge is not None,)])
+        if query == " ".join(checker.EDGE_SQL.split()) and self.edge is not None:
+            self.edge_day = params[0]
+            return FakeResult([self.edge])
         for table, days in self.snapshots.items():
             if query == f"SELECT DISTINCT as_of FROM {table} ORDER BY 1":
                 return FakeResult([(day,) for day in sorted(set(days))])
@@ -494,3 +502,48 @@ def test_workflow_no_longer_pins_the_legacy_limits():
     wf = (Path(__file__).resolve().parents[1] / ".github/workflows/drain-backlog-weekly.yml").read_text(encoding="utf-8")
     run = [ln for ln in wf.splitlines() if "drain_backlog_check.py" in ln and "run:" in ln]
     assert run and all("--fwd-max-weeks" not in ln and "--hist-max-weeks" not in ln for ln in run)
+
+
+def test_calendar_shape_checks_that_the_first_day_of_the_window_is_whole(harness, monkeypatch, capsys):
+    """창 첫날(읽는 쪽이 읽는 가장 이른 날 — 52w 리비전 기준일)이 한 벌이면 정상이고, 그 날을 고른다."""
+    connect, _ = harness
+    monkeypatch.setenv("FWD_HOT_WEEKS", "4")
+    cal = _weekly_dates(5)                                    # 창 4주 + 양 끝 = 5벌
+    con = FakeConnection(events=[], calendar=cal, edge=(30708, 2764, 30708, 2764))
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 0
+
+    output = capsys.readouterr().out
+    assert con.edge_day == min(cal) == max(cal) - timedelta(days=28)
+    assert f"창 첫날 {min(cal)} — 판 30,708/30,708 · 시세 2,764/2,764" in output and "상태: OK" in output
+
+
+@pytest.mark.parametrize("edge", [(30708, 2764, 29001, 2764), (30708, 2764, 30708, 2700)])
+def test_calendar_shape_flags_a_partial_first_day_of_the_window(harness, monkeypatch, capsys, edge):
+    """쓰는 쪽 창이 더 짧거나 창 정리가 경계 날짜의 판·시세를 깎으면 그 날은 일부 종목만 보인다 — 조용히 틀린 답이라 알린다.
+    달력 길이·창 밖 닫힌 판 검사로는 안 잡힌다(달력은 창 안이고, 지워진 판은 이미 없다)."""
+    connect, _ = harness
+    con = FakeConnection(events=[], calendar=_weekly_dates(53), edge=edge)
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 1
+
+    output = capsys.readouterr().out
+    assert con.edge_day == min(_weekly_dates(53))
+    assert "이 한 벌이 아니다" in output and "52w 리비전 기준일" in output
+    assert "FWD_HOT_WEEKS" in output and "창 경계 날짜" in output             # 조치: 두 쪽 창 길이·경계 날짜
+
+
+def test_calendar_shape_skips_the_first_day_check_without_the_writer_columns(harness, capsys):
+    """게시 달력에 n_fact·n_stock(또는 시세 표)이 없는 DB 는 검사를 건너뛴다 — 없는 칸을 질의해 검사가 죽지 않게."""
+    connect, _ = harness
+    con = FakeConnection(events=[], calendar=_weekly_dates(10))
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 0
+
+    assert con.edge_day is None and "창 첫날" not in capsys.readouterr().out

@@ -370,3 +370,32 @@ def test_drain_monitor_reads_the_right_dates_per_shape(db, monkeypatch, capsys, 
         assert checker.main() == 1
         out = capsys.readouterr().out
         assert "보다 길다" in out and "창 밖 닫힌 판" in out
+
+
+@pytest.mark.parametrize("calendar_pruned", [True, False])
+def test_drain_monitor_catches_a_writer_window_shorter_than_the_readers(db, monkeypatch, capsys, calendar_pruned):
+    """쓰는 쪽이 창 4주로 판을 정리했는데 읽는 쪽 창은 52주(기본)일 때:
+    · 쓰는 쪽이 창 밖 날짜의 달력 행도 지웠으면 읽는 쪽은 그 날짜를 못 본다 — 정상.
+    · 달력 행을 남겼으면 읽는 쪽은 일부 종목만 남은 날을 한 벌로 읽는다(서버 리비전·선행 집계가 조용히 틀린다).
+      달력 길이(8주 ≤ 53)·창 밖 닫힌 판(이미 지움) 검사로는 안 잡힌다 — 창 첫날 검사가 잡는다."""
+    from scripts import drain_backlog_check as checker
+    _load(db, "calendar")
+    cutoff = WEEKS[-1] - dt.timedelta(days=28)
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("DELETE FROM fwd_fact_ver WHERE valid_to <= %s", (cutoff,))
+        if calendar_pruned:
+            c.execute("DELETE FROM fwd_price WHERE as_of < %s", (cutoff,))
+            c.execute("DELETE FROM fwd_asof WHERE as_of < %s", (cutoff,))
+    rows = fe._fetch_hist("005930")                                            # 읽는 쪽 창 52주
+    monkeypatch.setattr(sys, "argv", ["drain_backlog_check.py"])
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    result = checker.main()
+    out = capsys.readouterr().out
+    if calendar_pruned:
+        assert min(r["as_of"] for r in rows) == cutoff
+        assert result == 0 and f"창 첫날 {cutoff}" in out and "상태: OK" in out
+    else:
+        assert min(r["as_of"] for r in rows) == WEEKS[0]                      # 일부만 남은 날을 읽는다
+        assert result == 1 and f"창 첫날 {WEEKS[0]} 이 한 벌이 아니다" in out
+        assert "보다 길다 —" not in out and "1주 넘게 남았다" not in out         # 다른 검사로는 안 잡힌다

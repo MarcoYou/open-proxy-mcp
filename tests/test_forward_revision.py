@@ -227,3 +227,21 @@ def test_probe_reads_odd_rows_as_the_legacy_shape():
     assert fe_fw.parse_probe((True,)) == (True, False)
     assert fe_fw.parse_probe((False, True)) == (False, False)
     assert fe_fw.parse_probe(None) == (False, False)
+
+
+def test_long_window_note_only_promises_what_the_db_can_hold(monkeypatch):
+    """「이력이 쌓이면 나온다」는 그 창이 DB 보관 안에 들 때만 참이다 — 주별 모양(13주)에서 26w·52w 는 영영 안 나온다."""
+    rev = {"rows": [{}], "windows_not_reached": ["26w", "52w"], "history_weeks": 7, "first_as_of": "2026-08-29"}
+    _probe(monkeypatch, calendar=False)
+    fe._hist_available()
+    w = fe._long_windows_warning(rev)
+    assert w.startswith("리비전 26w·52w: 이 종목 이력이 7주(2026-08-29~)뿐이라 싣지 않았다")
+    assert "DB 에는 최근 13주만 두어 이력이 쌓여도 나오지 않는다" in w and "쌓이면 나온다" not in w
+    _probe(monkeypatch, calendar=True)
+    fe._hist_available()
+    assert fe._long_windows_warning(rev).endswith("이력이 그만큼 쌓이면 나온다(DB 에는 최근 52주를 둔다).")
+    monkeypatch.setenv("FWD_HOT_WEEKS", "30")                               # 창을 줄이면 26w 만 닿는다
+    w = fe._long_windows_warning(rev)
+    assert "26w 는 이력이 그만큼 쌓이면 나오고, 52w 는 DB 에 최근 30주만 두어 나오지 않는다" in w
+    assert fe._long_windows_warning(dict(rev, windows_not_reached=[])) is None
+    assert fe._long_windows_warning(dict(rev, rows=[])) is None

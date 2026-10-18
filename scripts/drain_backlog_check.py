@@ -22,7 +22,8 @@
 261018(구간형 저장): 뷰가 게시 달력 `fwd_asof` 위로 옮겨 가면(`open_proxy_mcp/fwd_window.py` 의 「달력 모양」)
 `fwd`·`fwd_hist` 는 같은 달력을 읽고 둘 다 창 `FWD_HOT_WEEKS`(기본 52주)를 담는다. 그때 이 감시는
 ① 달력의 ISO 주 수 ≤ 창+1(양 끝 포함) ② 같은 ISO 주 중복 0 ③ 창 밖으로 닫힌 판이 1주 넘게 남지 않았나
-를 본다. 4주·13주 상한은 주별 모양일 때만 기본값이다. 어느 모양인지는 뷰의 정의로 가른다(표 이름이 아니라).
+④ 창 첫날(읽는 쪽이 읽는 가장 이른 날 — 52w 리비전 기준일)이 온전한 한 벌인가(판 수 = 달력 n_fact, 시세 행 = n_stock)
+를 본다. ④는 쓰는 쪽 창이 읽는 쪽 창(`FWD_HOT_WEEKS`)보다 짧거나 창 정리가 경계 날짜를 깎을 때 조용히 틀리는 것을 잡는다. 4주·13주 상한은 주별 모양일 때만 기본값이다. 어느 모양인지는 뷰의 정의로 가른다(표 이름이 아니라).
 
 실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P] [--tables]
                                               [--fwd-max-weeks N] [--hist-max-weeks N]
@@ -54,6 +55,15 @@ load_dotenv(ROOT / ".env")
 # 다른 주를 세게 되고, 그때 감시는 있으나 마나가 된다.
 from events_drain import KST, _kst, _to_ns, _week_start  # noqa: E402
 from open_proxy_mcp import fwd_window  # noqa: E402 — 컨센서스 이력 창·저장 모양의 정의(서버·집계 배치와 같은 것)
+
+
+#: 달력 모양 창 첫날 검사 — 쓰는 쪽 표·칸이 있을 때만(없으면 건너뛴다).
+EDGE_READY_SQL = ("SELECT to_regclass('public.fwd_price') IS NOT NULL AND (SELECT count(*) FROM information_schema.columns "
+                  "WHERE table_schema = 'public' AND table_name = 'fwd_asof' AND column_name IN ('n_fact', 'n_stock')) = 2")
+EDGE_SQL = ("SELECT a.n_fact, a.n_stock, "
+            "(SELECT count(*) FROM fwd_fact_ver f WHERE f.valid_from <= a.as_of AND a.as_of < f.valid_to), "
+            "(SELECT count(*) FROM fwd_price p WHERE p.as_of = a.as_of) "
+            "FROM fwd_asof a WHERE a.as_of = %s")
 
 
 def _snapshot_week_stats(days) -> tuple[int, int]:
@@ -162,6 +172,7 @@ def _check(a: argparse.Namespace, url: str) -> int:
         # (뷰의 DISTINCT 는 이력 52주면 느리다). 창 밖으로 닫힌 판이 남았는지도 여기서 센다.
         _exists, on_calendar = fwd_window.parse_probe(con.execute(fwd_window.PROBE_SQL).fetchone())
         stale_versions: tuple[int, object] = (0, None)
+        window_edge = None          # (창 첫날, n_fact, n_stock, 그 날 판 수, 그 날 시세 행 수)
         if on_calendar:
             cal_days = [r[0] for r in con.execute("SELECT as_of FROM fwd_asof ORDER BY 1").fetchall()]
             cal_weeks, cal_duplicate_days = _snapshot_week_stats(cal_days)
@@ -173,6 +184,12 @@ def _check(a: argparse.Namespace, url: str) -> int:
                 grace = cal_days[-1] - timedelta(days=fwd_window.window_days() + 7)
                 stale_versions = tuple(con.execute(
                     "SELECT count(*), min(valid_to) FROM fwd_fact_ver WHERE valid_to <= %s", (grace,)).fetchone())
+                # 창 첫날이 온전한 한 벌인가 — 읽는 쪽(서버·배치)은 그 날을 읽는다(52w 리비전 기준일). 쓰는 쪽 창이 더 짧거나
+                # 창 경계 날짜의 판·시세를 지우고 달력 행만 남기면 그 날은 일부 종목만 보인다 — 조용히 틀린 답이 된다.
+                # 일부만 지워지는 것은 가장 이른 날부터라 창 첫날 하나만 본다(판 수 = 달력 n_fact, 시세 행 = n_stock).
+                first = next((d for d in cal_days if d >= fwd_window.window_start(cal_days[-1])), None)
+                if first is not None and con.execute(EDGE_READY_SQL).fetchone()[0]:
+                    window_edge = (first, *con.execute(EDGE_SQL, (first,)).fetchone())
         else:
             fwd_days, fwd_weeks, fwd_duplicate_days = _weeks("fwd")
             hist_days, hist_weeks, hist_duplicate_days = _weeks("fwd_hist")
@@ -208,6 +225,9 @@ def _check(a: argparse.Namespace, url: str) -> int:
                   f" — 창 {window}주(양 끝 포함 {fwd_max}주까지)")
         if stale_versions[0]:
             print(f"창 밖 닫힌 판 {stale_versions[0]:,}개 (가장 이른 끝 {stale_versions[1]})")
+        if window_edge:
+            print(f"창 첫날 {window_edge[0]} — 판 {window_edge[3]:,}/{window_edge[1]:,} · "
+                  f"시세 {window_edge[4]:,}/{window_edge[2]:,}")
     else:
         if fwd_days:
             print(f"fwd {len(fwd_days)}벌 · {fwd_weeks}주 ({fwd_days[0]} ~ {fwd_days[-1]}) — 보존 한도 {fwd_max}주")
@@ -221,6 +241,7 @@ def _check(a: argparse.Namespace, url: str) -> int:
     else:
         print("\n밀린 완결 주 없음.")
 
+    edge_broken = bool(window_edge and (window_edge[3] != window_edge[1] or window_edge[4] != window_edge[2]))
     bad = []
     if len(weeks) > a.max_weeks:
         bad.append(f"완결 주 {len(weeks)}개가 밀렸다(허용 {a.max_weeks})")
@@ -235,6 +256,10 @@ def _check(a: argparse.Namespace, url: str) -> int:
         if stale_versions[0]:
             bad.append(f"창 밖 닫힌 판 {stale_versions[0]:,}개가 1주 넘게 남았다(가장 이른 끝 {stale_versions[1]}) — "
                        "창 정리가 안 돌았다")
+        if edge_broken:
+            bad.append(f"창 첫날 {window_edge[0]} 이 한 벌이 아니다(판 {window_edge[3]:,}/{window_edge[1]:,} · "
+                       f"시세 {window_edge[4]:,}/{window_edge[2]:,}) — 읽는 쪽은 그 날을 읽어(52w 리비전 기준일) 일부 종목만 "
+                       "보고 답한다. 창 정리가 읽는 쪽 창 안의 판·시세를 지웠다")
     else:
         if fwd_weeks > fwd_max:
             bad.append(f"fwd 스냅샷 {fwd_weeks}주가 쌓였다(허용 {fwd_max}) — 토요일 체인의 주간 송출"
@@ -253,11 +278,14 @@ def _check(a: argparse.Namespace, url: str) -> int:
 
     _report_status("ATTENTION_NEEDED", "검사는 완료됐으나 운영 조치가 필요하다. 경고 항목을 확인할 것.", bad)
     print("\n⚠️  " + " · ".join(bad))
-    if on_calendar and (fwd_weeks > min(fwd_max, hist_max) or fwd_duplicate_days or stale_versions[0]):
+    if on_calendar and (fwd_weeks > min(fwd_max, hist_max) or fwd_duplicate_days or stale_versions[0]
+                        or edge_broken):
         print("""
 조치 (fwd·fwd_hist 게시 달력 — private 컨센서스 수집기, 원본은 그 머신의 로컬 DB 라 지워도 다시 낼 수 있다):
   같은 ISO 주 중복이면 토요일 체인의 주간 송출(push_fwd_fact.py)을 그 주 날짜로 다시 돌린다 — 송출이 그 주를 되돌리고 다시 쓴다.
-  창이 길거나 창 밖 닫힌 판이 남았으면 창 정리 기록을 본다 — 보관본 내보내기와 대조가 끝난 판만 지우므로 다시 돌려도 같다.""")
+  창이 길거나 창 밖 닫힌 판이 남았으면 창 정리 기록을 본다 — 보관본 내보내기와 대조가 끝난 판만 지우므로 다시 돌려도 같다.
+  창 첫날이 한 벌이 아니면 쓰는 쪽과 읽는 쪽(서버·이 감시·선행 집계 배치의 FWD_HOT_WEEKS)의 창 길이가 같은지,
+  창 정리가 창 경계 날짜(최신 − 창)의 판·시세를 남기는지 본다 — 창 정리는 창 밖 날짜의 달력 행도 함께 지워야 한다.""")
     if not on_calendar and (fwd_weeks > fwd_max or hist_weeks > hist_max
                             or fwd_duplicate_days or hist_duplicate_days):
         print("""

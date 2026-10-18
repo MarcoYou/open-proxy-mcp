@@ -365,6 +365,28 @@ def _hist_source_note() -> str:
             "DB 밖 보관본에만 있어 이 도구가 읽지 않는다)")
 
 
+def _long_windows_warning(revision: dict[str, Any]) -> str | None:
+    """이력이 못 닿아 뺀 긴 창(26w·52w) 안내 한 줄, 뺀 창이 없으면 None.
+
+    「이력이 쌓이면 나온다」는 그 창이 DB 보관 안에 들 때만 참이다 — 주별 모양(보관 13주)에서 26w·52w 는 이력이
+    아무리 쌓여도 나오지 않는다. 그래서 창마다 DB 보관(`_db_hist_weeks()`)과 견줘 말을 가른다 (261018 검토)."""
+    names = revision.get("windows_not_reached") or []
+    if not (revision.get("rows") and names):
+        return None
+    keep = _db_hist_weeks()
+    span = dict(_REV_WINDOWS_LONG)
+    later = [n for n in names if span[n] <= keep * 7]
+    never = [n for n in names if span[n] > keep * 7]
+    head = (f"리비전 {'·'.join(names)}: 이 종목 이력이 {revision['history_weeks']}주"
+            f"({revision['first_as_of']}~)뿐이라 싣지 않았다 — ")
+    if not never:
+        return head + f"이력이 그만큼 쌓이면 나온다(DB 에는 최근 {keep}주를 둔다)."
+    if not later:
+        return head + f"DB 에는 최근 {keep}주만 두어 이력이 쌓여도 나오지 않는다."
+    return (head + f"{'·'.join(later)} 는 이력이 그만큼 쌓이면 나오고, {'·'.join(never)} 는 DB 에 최근 {keep}주만 "
+            "두어 나오지 않는다.")
+
+
 def _fetch_hist(stock_code: str) -> list[dict[str, Any]] | None:
     """`fwd_hist` 추정 행 전부(DB 창 안 — 주별 모양 13주, 달력 모양 52주). None = DB 장애. [] = 표 없음/이력 없음."""
     from open_proxy_mcp import fwd_window as fw
@@ -787,10 +809,9 @@ async def build_forward_estimates_payload(
                     if b["partial"]:
                         warnings.append(f"리비전 {name}: 이력이 {b['days']}일치뿐이라 가장 오래된 "
                                         f"스냅샷({b['as_of']})과 비교했다 — **{name} 가 아니다**, 이력이 짧아 부분 비교다.")
-            if revision["rows"] and revision["windows_not_reached"]:
-                warnings.append(f"리비전 {'·'.join(revision['windows_not_reached'])}: 이 종목 이력이 "
-                                f"{revision['history_weeks']}주({revision['first_as_of']}~)뿐이라 싣지 않았다 — "
-                                f"이력이 그만큼 쌓이면 나온다(DB 에는 최근 {_db_hist_weeks()}주를 둔다).")
+            long_note = _long_windows_warning(revision)
+            if long_note:
+                warnings.append(long_note)
 
     ruler = {
         "as_of": str(env.get("as_of")) if env.get("as_of") else None,
