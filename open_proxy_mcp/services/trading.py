@@ -429,11 +429,13 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     unc = [b for b in buckets if b["bucket"] == "_UNCLASSIFIED"]
     if unc:
         tot = sum(b["cap_krw"] for b in buckets) or 1
-        # 261018: 업종분류 저장분은 공급처 구성종목에서만 빠진 상장 종목(직전 분류)과 우선주(같은 회사 보통주 분류)를
-        #   이어 쓴다(scripts/refresh_sector_class.py). 남는 미분류는 공급처가 분류를 준 적 없는 종목과 그 우선주다.
+        # 261018: 업종분류 저장분은 공급처 구성종목에 없는 상장 보통주를 기업 정보 화면의 산업(한 단계 아래)으로 채우고,
+        #   화면을 못 본 종목은 직전 분류를, 우선주는 같은 회사 보통주 분류를 잇는다(scripts/refresh_sector_class.py).
+        #   남는 미분류는 두 원천 모두에 분류가 없는(또는 화면의 산업이 대응표에 없는) 종목과 그 우선주다.
         warns.append(f"미분류 {sum(b['n'] for b in unc)}종목 · 시총 "
-                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 업종분류 공급처가 분류를 준 적 없는 종목"
-                     "(외국 기업·장기 거래정지·신규상장 등)과 그 우선주. 구성종목에서만 빠진 상장 종목은 직전 분류를, "
+                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 업종분류 공급처의 구성종목 응답에도 기업 정보 화면에도 "
+                     "분류가 없는 종목(화면의 산업이 하위업종 대응표에 없는 경우 포함)과 그 우선주. 구성종목에 없는 상장 보통주는 "
+                     "기업 정보 화면의 산업을 하위업종으로 올려 쓰고, 화면을 못 본 종목은 직전 분류를, "
                      "우선주는 같은 회사 보통주 분류를 이어 씁니다. "
                      "버리지 않고 `_UNCLASSIFIED` 로 남겨 섹터 합 = 시장 합을 유지합니다.")
     return {"tool": TOOL, "status": "ok", "subject": f"섹터 시가총액 ({_SCHEMES[scheme]})",
