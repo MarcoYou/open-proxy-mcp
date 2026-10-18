@@ -37,6 +37,17 @@ def snap_par_ratio(f):
             return rv, f"{r.numerator}/{r.denominator}"
     return None, None
 
+#: 라벨 칸 UPDATE — 여섯 칸이 지금 값과 **다를 때만** 쓴다(같으면 행을 다시 쓰지 않아 죽은 행이 안 생긴다).
+#: 자리표시자 순서: SET 6 · 비교 6 · 키 2 (키가 끝에 온다).
+UPDATE_LABELS = """
+    UPDATE krx_adj_events SET
+      adj_factor = %s, event_type = %s, label_source = %s,
+      rcept_no = %s, label_confidence = %s, note = %s
+    WHERE (adj_factor, event_type, label_source, rcept_no, label_confidence, note)
+          IS DISTINCT FROM (%s::double precision, %s::text, %s::text, %s::text, %s::text, %s::text)
+      AND ticker = %s AND event_dd = %s"""
+
+
 def main():
     con = psycopg.connect(os.environ["DATABASE_URL"])
     # 260823 통합: 표가 하나가 되면서 이 스크립트는 **INSERT 가 아니라 라벨 칸 UPDATE** 가 됐다.
@@ -108,15 +119,16 @@ def main():
         stats[conf] += 1
         if etype: stats[f"type:{etype}"] += 1
 
+    # 261018(재설계 v02 7단계): **값이 바뀐 행만** 고친다. 이 패스는 매일 미판정 전부(운영 885건)를 다시 판정하는데,
+    #   대부분 결과가 어제와 같다. 같은 값으로 UPDATE 해도 Postgres 는 행을 새로 써 죽은 행을 남긴다 — 그래서 하루 885건씩
+    #   죽은 행이 쌓였다(운영 누적 UPDATE 14.5만 회 / 3,760행 표). 같으면 건너뛰고, 판정이 실제로 바뀐 행만 쓴다.
+    params = [(f, etype, src, evid, conf, note, f, etype, src, evid, conf, note, isu, dd)
+              for (isu, dd, f, _raw, etype, src, evid, conf, note) in rows]
     with con.cursor() as cur:
-        cur.executemany("""
-            UPDATE krx_adj_events SET
-              adj_factor = %s, event_type = %s, label_source = %s,
-              rcept_no = %s, label_confidence = %s, note = %s
-            WHERE ticker = %s AND event_dd = %s""",
-            [(f, etype, src, evid, conf, note, isu, dd)
-             for (isu, dd, f, _raw, etype, src, evid, conf, note) in rows])
+        cur.executemany(UPDATE_LABELS, params)
+        changed = cur.rowcount
     con.commit()
+    print(f"라벨 칸이 실제로 바뀐 행: {max(changed or 0, 0):,}/{len(params):,}")
     n = con.execute("SELECT count(*) FROM krx_adj_events WHERE label_confidence <> 'unlabeled'").fetchone()[0]
     print(f"라벨 부착 누계: {n:,}행")
     for k in sorted(stats): print(f"  {k}: {stats[k]}")
