@@ -9,6 +9,7 @@ KRW 주가/시총 ÷ USD 자본으로 배수를 계산하면 환율(≈1,440)배
   - 저장 규칙: **과거(확정) 날짜 = 영구 저장**(회계기말=분기말은 값이 안 바뀜, 불변). "오늘/최신"은
     변동값이라 영구 저장 안 함 — _MEM을 조회기준일(오늘)로 키잉해 하루 지나면 자동 미스→재조회.
   - 밸류에이션은 항상 과거 분기말로 조회(재무=회계기말 기준)하므로 실제 저장 대상 = 분기말뿐(연 4개).
+  - 읽기는 SELECT 한 줄(공용 읽기 풀), 표 생성은 쓰기 경로가 **표가 없을 때만** 한다(261018, `_db_get` 참조).
 
 정확도(v1): stock(자본)·flow(순이익) 모두 회계기말 환율 하나로 환산(수 % 오차, 호출부 경고). flow
 원칙상 평균환율은 v1.1.
@@ -25,6 +26,7 @@ from datetime import datetime, timedelta
 import httpx
 
 from open_proxy_mcp.dart.as_of import get_strict_as_of, note_strict_exclusion
+from open_proxy_mcp.db import pg_rows
 
 _log = logging.getLogger(__name__)
 
@@ -50,8 +52,15 @@ _ECOS_ITEM = {
     "CHF": ("0000014", 1), "AUD": ("0000017", 1), "CAD": ("0000013", 1),
     "SGD": ("0000024", 1), "VND": ("0000035", 100),
 }
+#: 표 정의. **쓰기 경로가 표가 없을 때만** 보낸다(`_db_put`). 읽기는 이것을 보내지 않는다(`_db_get` 261018).
 _FX_DDL = ("CREATE TABLE IF NOT EXISTS ecos_fx_rate("
            "base_ccy text, fx_dd text, rate double precision, PRIMARY KEY(base_ccy, fx_dd))")
+_FX_SELECT = "SELECT rate FROM ecos_fx_rate WHERE base_ccy=%s AND fx_dd=%s"
+# ON CONFLICT 대상은 PK(_FX_DDL)와 같아야 한다. 727ba1bd 의 dt→fx_dd 개명이 이 절만 놓쳐서 psycopg 가
+# UndefinedColumn 을 던졌고, `_db_put` 의 except 가 삼켜 **한 행도 안 쌓였다** — 표는 늘 비어 있고
+# 프로세스가 뜰 때마다 ECOS 를 다시 물었다(로그에도 흔적이 없었다).
+_FX_INSERT = ("INSERT INTO ecos_fx_rate(base_ccy, fx_dd, rate) VALUES(%s,%s,%s) "
+              "ON CONFLICT (base_ccy, fx_dd) DO NOTHING")
 _YF = "https://query1.finance.yahoo.com/v8/finance/chart/{pair}"
 
 
@@ -65,36 +74,41 @@ def _settled(date: str) -> bool:
 
 
 def _db_get(ccy: str, date: str) -> float | None:
-    url = os.getenv("DATABASE_URL")
-    if not url:
+    """영구 캐시 조회 — **SELECT 한 줄뿐**. None = 미스(행 없음·표 없음·권한 없음·DB 미설정/장애 모두).
+
+    261018: 종전엔 읽을 때마다 `_FX_DDL`(CREATE TABLE IF NOT EXISTS)을 먼저 보냈다. Postgres 는 표가 **이미 있어도**
+    읽기 전용 트랜잭션에선 `cannot execute CREATE TABLE in a read-only transaction`, 스키마 생성 권한이 없는 역할
+    (opm_ro)에선 `permission denied for schema public` 을 낸다. 그 예외를 except 가 말없이 삼켜 **읽기 전용 서버
+    (시험 서버·읽기 전용 파일럿)는 캐시에 행이 있어도 한 번도 못 읽고** 매번 ECOS/야후로 갔다(운영 DB 를 읽기 전용
+    역할로 실측: 있는 행인데 None). 쓰기 역할(운영)에서도 읽을 때마다 새 접속 + DDL 왕복이 붙었다.
+    → 공용 읽기 풀(`db.pg_rows` — autocommit, 서빙 경로 DB 읽기의 한 곳)로 SELECT 만 보낸다. 표가 없으면
+    (undefined_table) 풀 쪽이 경고를 남기고 None 을 주므로 미스로 처리된다. 표는 쓰기 경로가 만든다(`_db_put`).
+    """
+    rows = pg_rows(_FX_SELECT, (ccy, date))
+    if not rows or rows[0][0] is None:
         return None
-    try:
-        import psycopg
-        with psycopg.connect(url, connect_timeout=8) as c:
-            c.execute(_FX_DDL)
-            r = c.execute("SELECT rate FROM ecos_fx_rate WHERE base_ccy=%s AND fx_dd=%s",
-                          (ccy, date)).fetchone()
-            return r[0] if r else None
-    except Exception:
-        return None
+    return float(rows[0][0])
 
 
 def _db_put(ccy: str, date: str, rate: float) -> None:
+    """영구 캐시 저장(이미 있으면 그대로 둔다). **표가 있으면 DDL 을 보내지 않는다** — 넣어 보고 표가 없을 때만
+    한 번 만들고 다시 넣는다. 운영은 표가 이미 있어 이 분기에 오지 않는다(새 DB·로컬 개발 DB 용).
+    읽기 전용 세션·역할이면 INSERT 가 거절되고 아래 except 가 받는다(읽기 쪽에는 영향 없음)."""
     url = os.getenv("DATABASE_URL")
     if not url:
         return
     try:
         import psycopg
         with psycopg.connect(url, connect_timeout=8) as c:
-            c.execute(_FX_DDL)
-            # ON CONFLICT 대상은 PK(_FX_DDL)와 같아야 한다. 727ba1bd 의 dt→fx_dd 개명이 이 절만
-            # 놓쳐서 psycopg 가 UndefinedColumn 을 던졌고, 아래 except 가 삼켜 **한 행도 안 쌓였다**
-            # — 표는 늘 비어 있고 프로세스가 뜰 때마다 ECOS 를 다시 물었다(로그에도 흔적이 없었다).
-            c.execute("INSERT INTO ecos_fx_rate(base_ccy, fx_dd, rate) VALUES(%s,%s,%s) "
-                      "ON CONFLICT (base_ccy, fx_dd) DO NOTHING", (ccy, date, rate))
+            try:
+                c.execute(_FX_INSERT, (ccy, date, rate))
+            except psycopg.errors.UndefinedTable:
+                c.rollback()            # 실패한 트랜잭션을 되돌려야 다음 문장을 받는다
+                c.execute(_FX_DDL)
+                c.execute(_FX_INSERT, (ccy, date, rate))
             c.commit()
     except Exception as exc:   # noqa: BLE001
-        # 삼키되 흔적은 남긴다 — 조용한 실패라서 위 버그가 오래 살아남았다.
+        # 삼키되 흔적은 남긴다 — 조용한 실패라서 _FX_INSERT 위 주석의 버그가 오래 살아남았다.
         _log.debug("fx cache put failed (%s %s): %s", ccy, date, exc)
 
 
