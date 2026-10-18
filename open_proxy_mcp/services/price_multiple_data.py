@@ -1259,6 +1259,13 @@ def _eps_disclosed(rows: list, *fields: str) -> float | None:
     return None
 
 
+#: 수정계수를 곱할 **조정성 이벤트**의 조건 — 액면분할·병합·무상증자·주식배당, 계수가 있고 라벨이 확정된 것만.
+#: 주가와 주식수가 서로 상쇄하는 이벤트다(유상증자·감자·미라벨은 뺀다). 계수를 읽는 곳은 이 조건 하나를 쓴다 —
+#: `_eps_adj_factor`(공시 EPS 정렬)와 `asset_holdings`(기말 보유수량을 오늘 주식수 기준으로, 261018).
+ADJ_EVENT_SQL = ("event_type IN ('split','merge','bonus','stock_div') AND adj_factor IS NOT NULL "
+                 "AND label_confidence='confirmed'")
+
+
 async def _eps_adj_factor(ticker: str, after_dd: str) -> float:
     """(after_dd, 오늘] 조정성 이벤트(액면분할·병합·무상증자·주식배당)의 누적 수정계수 —
     수정주가 파이프라인 krx_adj_events(기준가 리셋 실측 + 라벨) 재사용.
@@ -1267,9 +1274,8 @@ async def _eps_adj_factor(ticker: str, after_dd: str) -> float:
     EPS는 가격과 같은 방향으로 조정(주식수 n배 → EPS 1/n = ×factor). 유상증자·감자·미라벨(None)은
     보수적으로 제외 — 잔여는 sanity 경고가 방어."""
     rows = await _db_rows(
-        "SELECT adj_factor FROM krx_adj_events WHERE ticker=%s AND event_dd>%s "
-        "AND event_type IN ('split','merge','bonus','stock_div') AND adj_factor IS NOT NULL "
-        "AND label_confidence='confirmed'", (ticker, after_dd))
+        "SELECT adj_factor FROM krx_adj_events WHERE ticker=%s AND event_dd>%s AND " + ADJ_EVENT_SQL,
+        (ticker, after_dd))
     f = 1.0
     for (x,) in rows or []:
         if x and x > 0:

@@ -61,11 +61,21 @@ def _render(p: dict) -> str:
                      + ("  ← 시총 초과!" if sc > 1 else ""))
         elif d.get("is_financial"):
             L.append(f"- {surplus_label} {surplus_str} (금융업이라 배수 미제공, 절대액만 참고)")
+        elif d.get("is_holding_company"):
+            # 261018: 연결 현금은 대부분 자회사 몫 — 「시총 초과!」로 읽히면 안 된다
+            L.append(f"- {surplus_label} {surplus_str} (일반 지주회사라 배수 미제공 — 연결 현금·투자자산 대부분이 자회사 몫)")
         else:
             L.append(f"- {surplus_label} {surplus_str} (시총 없어 배수 미산출)")
         if nc:
-            L.append(f"- **지분 NAV**(지배·전략지분, 상장분 시가마크) {_f(nav.get('equity_nav_krw'))}"
-                     f" → 시총 대비 **{nc:.2f}배**")
+            if nav.get("equity_nav_basis") == "holdings":
+                # 261018: 보유 목록(별도 기준 직접 보유분) 하나로 센다 — 연결 재무상태표와 섞어 같은 지분을 두 번 세던 산식을 버렸다
+                um = m.get("unlisted_majority_book_krw") or 0
+                L.append(f"- **지분 NAV**(보유지분 합산 — 상장 시가·비상장 장부가) {_f(nav.get('equity_nav_krw'))}"
+                         f" → 시총 대비 **{nc:.2f}배**"
+                         + (f" (그중 지분율 50% 초과 비상장 장부가 {_f(um)} — 대개 종속기업)" if um else ""))
+            else:
+                L.append(f"- **지분 NAV**(재무상태표 관계기업+FVOCI 장부가) {_f(nav.get('equity_nav_krw'))}"
+                         f" → 시총 대비 **{nc:.2f}배**")
         mc = nav.get("mixed_combined_krw")
         if mc:
             mcv = nav.get("mixed_combined_cov")
@@ -73,12 +83,20 @@ def _render(p: dict) -> str:
                      + (f" → 시총 대비 {mcv:.2f}배" if mcv else "")
                      + " — 지배지분 섞여있어 위 지분NAV엔 미포함(지분법원가 기준, 참고용만)")
         if m.get("n_marked"):
-            L.append(f"- 상장 보유지분 시가마크 {m['n_marked']}/{m['n_listed']}종 · "
+            L.append(f"- 상장 보유지분 시가마크 {m['n_marked']}/{m['n_listed']}종"
+                     + (f"({m['price_date']} 종가)" if m.get("price_date") else "") + " · "
                      f"장부 대비 미실현 **{_f(m['unrealized_gap_krw'])}**"
                      + (f" (미해결 {m['n_unresolved']}종은 장부가 유지)" if m.get("n_unresolved") else ""))
             for h in (m.get("marked") or [])[:5]:
                 L.append(f"    - {h['name']}: 장부 {_f(h['book_krw'])} → 시가 {_f(h['mkt_krw'])}"
-                         f" ({'+' if h['gap_krw'] >= 0 else ''}{_f(h['gap_krw'])})")
+                         f" ({'+' if h['gap_krw'] >= 0 else ''}{_f(h['gap_krw'])})"
+                         + (f" — 기말 뒤 분할·병합 반영(보유 {h['qty']:,}주 → {h['qty_adj']:,}주)" if h.get("qty_adj") else ""))
+        elif m.get("n_listed"):
+            # 261018: 하나도 평가하지 못했을 때 이 줄이 통째로 빠져 「상장 보유지분이 없다」로 읽혔다.
+            L.append(f"- 상장 보유지분 {m['n_listed']}종 — 시가를 못 구해 **전부 장부가 유지**"
+                     f"(장부 {_f(m.get('listed_book_krw'))})")
+        for u in sorted(m.get("unresolved") or [], key=lambda u: -(u.get("book_krw") or 0))[:3]:
+            L.append(f"    - 미해결 {u['name']}: 장부 {_f(u.get('book_krw'))} — {u.get('reason', '')}")
         hf = nav.get("haircut_flags") or []
         if hf:
             names = {"pledged": "담보제공 자산", "contingent": "우발부채·지급보증"}
@@ -135,7 +153,7 @@ def register_tools(mcp):
         when: 자산주·NAV·청산가치·지주사 할인·숨은 부동산/지분 분석. "이 회사 자산 뭐 있어? 자산 대비 싸?"(summary) · 원문 명세로 직접 확인(detail). 전사 밸류(PER/PBR)는 `price_multiple_data`, 재무비율은 `financial_metrics`.
         scope: **`summary`(기본)** — 자산을 목적버킷(현금성/환금성증권·재테크형/우호제휴지분/지배관계사지분/투자용부동산/본업자산)으로 분류해 "재테크형·부동산 자산주형·지주사 할인형·우호지분형" 한 줄 서사(`asset_story`) + 세부 계정 + **상장 보유지분 시가마크** + 담보·우발 haircut 플래그 + 시총 대비 배수(잉여자산/지분NAV, 금융업은 미제공) / **`detail`** — III.주석 원문 markdown(토지 원가vs공정가치·지분증권·담보·우발) — summary에서 haircut 플래그가 뜨거나 숫자 원문을 직접 확인하고 싶을 때.
         report: `annual`(기본)·`half`·`quarter`·`q1`·`q3`·`latest` — 어느 정기보고서 기준인지. `year`=사업연도(예 2024)를 주면 그 해 보고서(전년 비교). 분기·반기는 주석 항목이 얇아 detail 명세가 없을 수 있음. `[첨부정정]` 은 건너뜀.
-        rule: 구조화(계정·타법인출자)는 숫자, 주석(토지gap·담보·우발)은 **원문 markdown 반환→caller가 읽어 판단**. 시가마크는 상장 보유지분만(비상장은 장부가). **배수는 부채 미차감 gross → PBR 병용**. 담보·우발은 NAV에서 차감해야 정확(detail로 확인). **금융업(KSIC 64/65/66)은 투자자산=본업**이라 금융 리그 라벨.
+        rule: 구조화(계정·타법인출자)는 숫자, 주석(토지gap·담보·우발)은 **원문 markdown 반환→caller가 읽어 판단**. **지분 NAV = 타법인출자현황(회사가 직접 든 지분) 합산 — 상장은 시가, 비상장은 장부가**(자회사를 거친 간접 보유는 그 자회사 장부가로만 잡힘). **배수는 부채 미차감 gross → PBR 병용**. 일반 지주회사(64992)는 잉여자산 배수 미제공(연결 현금 대부분이 자회사 몫). 담보·우발은 NAV에서 차감해야 정확(detail로 확인). **금융업(KSIC 64/65/66 — 일반 지주회사 64992 는 연결 BS 에 예수부채·보험계약부채 등이 있을 때만)은 투자자산=본업**이라 금융 리그 라벨.
         ref: price_multiple_data, financial_metrics, business_details, treasury_share
         """
         payload = await build_asset_holdings_payload(company, scope=scope, report=report, year=year)
