@@ -21,6 +21,16 @@ PIT는 **읽기 시점**에 표준 공시지연으로 매핑(저장 X): 1Q→5/1
 Rate limit(하드룰 준수): 동시성 1 · 0.45s sleep(≈133콜/분, 910 안전) · ReadError 즉시 중단(resume) ·
 25건마다 flush · 최종 flush는 try로 감싸 blip에도 버퍼 손실 최소화.
 
+재개(resume) 규칙(261018): ok 는 완료, err 는 다음 실행에 다시 받는다. **nodata 는 그 분기의 공시 마감 뒤
+`NODATA_RETRY_DAYS`(400)일 동안 매 실행 다시 받는다** — 종전엔 nodata 도 완료로 봐서, 마감 직후 첫 실행 때
+아직 안 낸 회사가 그 뒤에 내도 영영 비어 있었다(늦게 내는 외국 상장사·제출 지연, 결산월이 12월이 아니라 그
+(사업연도, 보고서) 칸의 보고서가 실행 시점엔 아직 없던 회사). 400일 = 1년 뒤 같은 분기를 받을 때도 전년 동분기
+(TTM 에 필요)를 한 번 더 본다.
+
+칸의 뜻: (fy, quarter) = DART 의 (bsns_year, reprt_code) 그대로다. DART 는 사업연도를 **그 보고서 기준일의 달력
+연도**로 붙인다 — 12월 결산이 아니면 같은 fy 안의 네 칸이 서로 다른 회계연도·달력 분기를 가리킨다(3월 결산:
+quarter 4 = 그해 3월말 사업보고서, 1 = 6월말, 2 = 9월말, 3 = 12월말). 이 표는 받은 그대로 저장한다.
+
 실행:
   python3 scripts/market_fund_quarterly.py --seed              # Q4 seed(0콜)만
   python3 scripts/market_fund_quarterly.py --pilot 005930,000660,051910  # 소표본 전분기(검증용)
@@ -60,6 +70,19 @@ _Q_DEADLINE = {1: (5, 15), 2: (8, 14), 3: (11, 14)}
 def _disclosed(fy: int, q: int, today: date | None = None) -> bool:
     mo, dy = _Q_DEADLINE[q]
     return (today or date.today()) >= date(fy, mo, dy)
+
+
+#: nodata 분기를 다시 받는 기간 — 그 분기 공시 마감일부터 이 날수까지(261018, 위 「재개 규칙」).
+#: 10-18 실측: 2026 반기 칸 nodata 63종목 중 24종목은 마감 뒤(8/24~10/07) 반기보고서를 냈는데도 비어 있었다.
+NODATA_RETRY_DAYS = int(os.getenv("FUND_Q_NODATA_RETRY_DAYS", "400"))
+
+
+def _retry_nodata(fy: int, q: int, today: date | None = None, days: int | None = None) -> bool:
+    """이 nodata 분기를 이번 실행에 다시 받는가 — 공시 마감이 지났고, 지난 지 `days`일 이하."""
+    t = today or date.today()
+    mo, dy = _Q_DEADLINE[q]
+    since = (t - date(fy, mo, dy)).days
+    return 0 <= since <= (NODATA_RETRY_DAYS if days is None else days)
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
@@ -215,18 +238,22 @@ def _pg():
     return psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15)
 
 
-def derive_fundamentals() -> None:
+def derive_fundamentals(tickers: list[str] | None = None) -> None:
     """dart_fundamentals 재무 4열(ni_fy·ni_ttm·eq_fy·eq_mrq)을 dart_finstat_q(분기+Q4연간)에서 파생 —
     **DART 0콜**. SSOT = dart_finstat_q. 원통화 raw 유지(daily cron이 fx_rate로 KRW 환산). 최신 공시분기
     기준 TTM/MRQ라 분기 공시마다 자동 최신화(옛 시장 aggregate 수집기는 1Q 고정·done셋이라 갱신 불가였음 — 260902 삭제).
-      ni_fy/eq_fy = 최신 완결 FY(Q4) · eq_mrq = 최신 분기 자본 · ni_ttm = FY(y-1)+누적(y,q)−누적(y-1,q)."""
+      ni_fy/eq_fy = 최신 완결 FY(Q4) · eq_mrq = 최신 분기 자본 · ni_ttm = FY(y-1)+누적(y,q)−누적(y-1,q).
+
+    261018: `tickers` 를 주면 그 종목만(재수집한 종목만 좁혀 돌릴 때). 값이 그대로인 행은 고쳐 쓰지 않는다 —
+    종전엔 매 실행 전 종목을 같은 값으로 UPDATE 했다(주 1회 재확인 실행이 늘어도 죽은 행이 늘지 않게)."""
     from collections import defaultdict
     con = _pg(); con.autocommit = True
     q: dict[str, dict] = defaultdict(dict)
-    for isu, fy, quarter, ni, eq in con.execute(
-            "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q"):
+    sql = "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q"
+    rows = con.execute(sql + " WHERE ticker = ANY(%s)", (list(tickers),)) if tickers else con.execute(sql)
+    for isu, fy, quarter, ni, eq in rows:
         q[isu][(int(fy), int(quarter))] = (ni, eq)
-    updated = 0
+    seen = updated = 0
     for isu, m in q.items():
         # ni·eq 앵커를 **독립**으로(Data-QA #2): 최신분기가 eq만 있고 ni=None이어도 ni_ttm이 불필요하게
         # None 되지 않게 — 각 지표의 최신 유효분기 기준. 값 있는 분기가 곧 available(저장=공시분).
@@ -250,11 +277,14 @@ def derive_fundamentals() -> None:
                 cum_prev = m.get((lfy - 1, lq), (None, None))[0]
                 fy_prev = m.get((lfy - 1, 4), (None, None))[0]
                 ni_ttm = (fy_prev + cum_now - cum_prev) if None not in (cum_now, cum_prev, fy_prev) else None
-        con.execute("UPDATE dart_fundamentals SET ni_fy=%s, ni_ttm=%s, eq_fy=%s, eq_mrq=%s WHERE ticker=%s",
-                    (ni_fy, ni_ttm, eq_fy, eq_mrq, isu))
-        updated += 1
+        cur = con.execute(
+            "UPDATE dart_fundamentals SET ni_fy=%s, ni_ttm=%s, eq_fy=%s, eq_mrq=%s WHERE ticker=%s "
+            "AND (ni_fy, ni_ttm, eq_fy, eq_mrq) IS DISTINCT FROM (%s::float8, %s::float8, %s::float8, %s::float8)",
+            (ni_fy, ni_ttm, eq_fy, eq_mrq, isu, ni_fy, ni_ttm, eq_fy, eq_mrq))
+        seen += 1
+        updated += cur.rowcount
     con.close()
-    print(f"derive: dart_fundamentals {updated}사 재무 4열 파생 갱신(DART 0콜)", flush=True)
+    print(f"derive: dart_fundamentals {seen}사 재무 4열 파생 · 값이 바뀐 {updated}사 갱신(DART 0콜)", flush=True)
 
 
 DDL_FUNDAMENTALS = """CREATE TABLE IF NOT EXISTS dart_fundamentals(
@@ -398,10 +428,27 @@ def _self_ref_map(con) -> dict:
     return {t: max(_st.median(vs), vs[-1]) for t, vs in ann.items() if vs}
 
 
-async def fetch(years, pilot=None, conc=2) -> None:
+def _resume_sets(rows, nodata_days: int | None = None, today: date | None = None) -> tuple[set, set]:
+    """(이미 끝난 분기, 다시 받을 nodata 분기). rows = (ticker, fy, quarter, fetched) — Q1~Q3 행.
+
+    ok·그 밖의 값 = 완료 · err:… = 완료 아님(종전과 같다) · nodata = 마감 뒤 `nodata_days` 일 안이면 다시 받는다(261018)."""
+    done, retry = set(), set()
+    for t, fy, qq, f in rows:
+        key = (t, int(fy), int(qq))
+        if f is not None and f.startswith("err:"):
+            continue
+        if f == "nodata" and _retry_nodata(key[1], key[2], today=today, days=nodata_days):
+            retry.add(key)
+            continue
+        done.add(key)
+    return done, retry
+
+
+async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> None:
     """동시성 conc(기본 2, CLAUDE.md 허용) 워커풀. DART client _throttle_api가 910/분 강제하므로
     안전. 큐에서 분기 작업을 꺼내 CFS→OFS + backoff 재시도. 지속 outage면 stop 세팅 → 워커 종료 →
-    resume 가능. 버퍼는 lock 보호, flush는 to_thread로 이벤트루프 비차단."""
+    resume 가능. 버퍼는 lock 보호, flush는 to_thread로 이벤트루프 비차단.
+    `nodata_days`: nodata 를 다시 받는 기간(일) — 비우면 `NODATA_RETRY_DAYS`."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con = _pg(); con.autocommit = True
     con.execute(DDL)
@@ -413,11 +460,12 @@ async def fetch(years, pilot=None, conc=2) -> None:
     else:
         firms = [r for r in con.execute(
             "SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
-    # 분기 단위 resume — **ok/nodata만 완료로 간주**. err(일일한도[020]·기타 실패)는 done에서 제외 →
+    # 분기 단위 resume — ok 는 완료. err(일일한도[020]·기타 실패)는 done에서 제외 →
     # 재실행 시 자동 재수집(DART 일일한도 20k/키 리셋 후 남은분 채움). DO UPDATE로 err행 덮어씀.
-    done = {(r[0], r[1], r[2]) for r in con.execute(
-        "SELECT ticker, fy, quarter FROM dart_finstat_q WHERE quarter != 4 "
-        "AND (fetched IS NULL OR fetched NOT LIKE 'err:%')")}
+    # 261018: nodata 도 마감 뒤 NODATA_RETRY_DAYS 일 동안은 다시 받는다(`_resume_sets`) — 종전엔 완료로 봐서
+    #   마감 직후 비어 있던 회사가 나중에 내도 다시 받지 않았다.
+    done, retry = _resume_sets(con.execute(
+        "SELECT ticker, fy, quarter, fetched FROM dart_finstat_q WHERE quarter != 4").fetchall(), nodata_days)
     # 260829: 가드에 넘길 「그 회사 자신의 자」 — 연간 자본의 중앙값과 가장 최근 연간 자본 중 큰 쪽.
     #   중앙값만 쓰면 실제로 커진 회사(증자)를 오탐한다. 실측 74,918행에서 오탐 0·목표 8행 전부 적중.
     self_ref = _self_ref_map(con)
@@ -430,10 +478,14 @@ async def fetch(years, pilot=None, conc=2) -> None:
     todo = [(i, c, y, q, rc) for i, c in firms for y in years
             for q, rc in QFETCH if (i, y, q) not in done and _disclosed(y, q)]
     yspan = sorted({y for _, _, y, _, _ in todo})
-    print(f"대상 {len(firms)}사 · 공시완료 분기만 · 남은 {len(todo)}건(연도 {yspan}) · 동시성 {conc}", flush=True)
+    n_retry = sum(1 for i, _, y, q, _ in todo if (i, y, q) in retry)
+    print(f"대상 {len(firms)}사 · 공시완료 분기만 · 남은 {len(todo)}건(연도 {yspan}, 그중 nodata 재확인 {n_retry}) · "
+          f"동시성 {conc}", flush=True)
     c = get_dart_client()
     buf: list = []; lock = asyncio.Lock(); stop = asyncio.Event()
     prog = {"n": 0}; total = len(todo)
+    # 결과를 상태별로 센다 — 「종료」만으로는 몇 건이 실제로 채워졌는지 모른다(CLAUDE.md 12: 양쪽 세기).
+    tally = {"ok": 0, "nodata": 0, "err": 0, "refilled": 0}
     queue: asyncio.Queue = asyncio.Queue()
     for item in todo:
         queue.put_nowait(item)
@@ -478,6 +530,7 @@ async def fetch(years, pilot=None, conc=2) -> None:
                     stop.set(); print(f"네트워크({type(e).__name__}) — 중단(재개 가능)", flush=True); return
                 async with lock:
                     buf.append((isu, yr, q, rc, None, None, None, f"err:{str(e)[:30]}", "ERR", "ERR"))
+                    tally["err"] += 1
             else:
                 ni, ni_case = extract_controlling_ni_cum(rows)
                 eq, eq_case = extract_controlling_eq(rows)
@@ -496,10 +549,15 @@ async def fetch(years, pilot=None, conc=2) -> None:
                         fx_err = f"err:fx_{stmt_cur}"
                     else:
                         def _fx(x): return x * ecos_fx_rate if x is not None else None
-                        ni, eq, assets, liab, eq_total = (_fx(v) for v in (ni, eq, assets, liab, eq_total))
+                        # 261018: 전기 칸도 원으로 — 대조 상대(연간 표의 직전 연도 자본)는 원 단위다. 종전엔 원통화 그대로
+                        #   대어 USD 보고사의 비율이 1/환율(≈10⁻³)로 떨어져 「단위 오류 ÷0.001」로 오판, 멀쩡한 값을 1,000배로
+                        #   「복구」했다(10-18 실측 글로벌에스엠 2026 반기 자본 130.9조). 같은 분기말 환율이라 기말 환율과의 차이는
+                        #   10의 거듭제곱 판정(±20%)에 걸리지 않는다.
+                        ni, eq, assets, liab, eq_total, eq_frm = (_fx(v) for v in (ni, eq, assets, liab, eq_total, eq_frm))
                 if fx_err:
                     async with lock:
                         buf.append((isu, yr, q, rc, None, None, None, fx_err, "ERR", "ERR"))
+                        tally["err"] += 1
                 else:
                     v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total,
                                      self_ref=self_ref.get(isu),
@@ -520,6 +578,9 @@ async def fetch(years, pilot=None, conc=2) -> None:
                     st = "ok" if (ni is not None or eq is not None) else "nodata"
                     async with lock:
                         buf.append((isu, yr, q, rc, fs, ni, eq, st, ni_case, eq_case))
+                        tally[st] += 1
+                        if st == "ok" and (isu, yr, q) in retry:
+                            tally["refilled"] += 1
             prog["n"] += 1
             if prog["n"] % 300 == 0:
                 print(f"{prog['n']}/{total}", flush=True)
@@ -530,7 +591,8 @@ async def fetch(years, pilot=None, conc=2) -> None:
         await maybe_flush(force=True)
     except Exception as e:
         print(f"최종 flush 실패({type(e).__name__}) — 재개 시 복구", flush=True)
-    print("fetch 종료", flush=True)
+    print(f"fetch 종료 — ok {tally['ok']}(그중 nodata → ok {tally['refilled']}) · nodata {tally['nodata']} · "
+          f"err {tally['err']}", flush=True)
 
 
 if __name__ == "__main__":
@@ -544,6 +606,10 @@ if __name__ == "__main__":
     ap.add_argument("--years", type=str, help="콤마구분 연도(기본 2019~2026)")
     ap.add_argument("--conc", type=int, default=int(os.getenv("FUND_Q_CONC", "2")),
                     help="동시성(기본 2, CLAUDE.md 허용 1~2)")
+    ap.add_argument("--nodata-retry-days", type=int, default=None,
+                    help=f"nodata 분기를 다시 받는 기간(공시 마감 뒤 일수, 기본 {NODATA_RETRY_DAYS})")
+    ap.add_argument("--tickers", type=str,
+                    help="--derive 를 이 종목만(콤마구분) — 재수집한 종목만 좁혀 파생할 때")
     a = ap.parse_args()
     yrs = [int(y) for y in a.years.split(",")] if a.years else YEARS_DEFAULT
     conc = max(1, min(2, a.conc))  # 하드 상한 2(910 한도·CLAUDE.md 준수)
@@ -552,9 +618,9 @@ if __name__ == "__main__":
     if a.seed:
         seed_q4()
     if a.derive:
-        derive_fundamentals()
+        derive_fundamentals(a.tickers.split(",") if a.tickers else None)
     if a.pilot:
         seed_q4()
-        asyncio.run(fetch(yrs, pilot=a.pilot.split(","), conc=conc))
+        asyncio.run(fetch(yrs, pilot=a.pilot.split(","), conc=conc, nodata_days=a.nodata_retry_days))
     elif a.fetch:
-        asyncio.run(fetch(yrs, conc=conc))
+        asyncio.run(fetch(yrs, conc=conc, nodata_days=a.nodata_retry_days))
