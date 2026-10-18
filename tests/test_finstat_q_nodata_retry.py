@@ -68,17 +68,19 @@ FINSTAT_Y_DDL = """CREATE TABLE dart_finstat_y(
   ni_restated double precision, eq_restated double precision, PRIMARY KEY(ticker, fy))"""
 
 
-def _report(ni_cum: int, eq: int) -> list[dict]:
-    """반기보고서 응답 모양 — 지배 순이익(누적)·지배 자본과 항등식(자산=부채+자본)이 맞는 총계."""
+def _report(ni_cum: int, eq: int, cur: str = "KRW", eq_frm: int | None = None) -> list[dict]:
+    """반기보고서 응답 모양 — 지배 순이익(누적)·지배 자본과 항등식(자산=부채+자본)이 맞는 총계.
+    `eq_frm` = 자본총계의 전기 칸(직전 사업연도말)."""
     def row(sj, aid, nm, ordv, **amt):
-        return {"sj_div": sj, "account_id": aid, "account_nm": nm, "ord": str(ordv), "currency": "KRW",
+        return {"sj_div": sj, "account_id": aid, "account_nm": nm, "ord": str(ordv), "currency": cur,
                 **{k: str(v) for k, v in amt.items()}}
+    frm = {} if eq_frm is None else {"frmtrm_amount": eq_frm}
     return [
         row("IS", "ifrs-full_ProfitLossAttributableToOwnersOfParent", "지배기업 소유주지분", 1,
             thstrm_amount=ni_cum // 2, thstrm_add_amount=ni_cum),
         row("BS", "ifrs-full_Assets", "자산총계", 1, thstrm_amount=eq * 3),
         row("BS", "ifrs-full_Liabilities", "부채총계", 2, thstrm_amount=eq * 2),
-        row("BS", "ifrs-full_Equity", "자본총계", 3, thstrm_amount=eq),
+        row("BS", "ifrs-full_Equity", "자본총계", 3, thstrm_amount=eq, **frm),
         row("BS", "ifrs-full_EquityAttributableToOwnersOfParent", "지배기업 소유주지분", 4, thstrm_amount=eq),
     ]
 
@@ -180,3 +182,32 @@ def test_derive_only_named_tickers_and_only_when_values_change(fdb, capsys):
     Q.derive_fundamentals(["A"])                              # 같은 값 — 고쳐 쓰지 않는다
     assert "값이 바뀐 0사 갱신" in capsys.readouterr().out
     assert _q(url, "SELECT xmin::text FROM dart_fundamentals WHERE ticker='A'") == xmin
+
+
+def test_prior_period_check_compares_in_won_for_foreign_currency_reports(fdb, monkeypatch, capsys):
+    """USD 보고사 — 전기 칸(원통화)을 원 단위 연간 자본과 그대로 대면 비율이 1/환율(≈10⁻³)이라 「단위 오류 ÷0.001」로
+    오판해 멀쩡한 값을 1,000배로 만들었다(10-18 실측 글로벌에스엠 2026 반기 자본 130.9조). 진짜 1,000배 오류는 계속 고친다."""
+    url, fake = fdb
+    rate = 1300.0
+
+    async def fx(cur, dd):
+        return rate if cur == "USD" else None
+    monkeypatch.setattr(Q, "fx_to_krw", fx)
+    with psycopg.connect(url, autocommit=True) as c:
+        for t in ("F", "G"):
+            c.execute("INSERT INTO dart_fundamentals (ticker, corp_code, fetched) VALUES (%s, %s, 'ok')", (t, f"0000000{t}"))
+            c.execute("INSERT INTO dart_finstat_q (ticker, fy, quarter, reprt_code, fs, fetched) VALUES "
+                      "(%s, 2026, 1, '11013', 'CFS', 'ok'), (%s, 2026, 2, '11012', 'OFS', 'nodata')", (t, t))
+            c.execute("INSERT INTO dart_finstat_y (ticker, fy, fs, eq, fetched) VALUES (%s, 2025, 'CFS', %s, 'ok')",
+                      (t, 100_000_000 * 1220.0))                  # 직전 연말 자본 — 그때 환율로 원 환산해 저장된 값
+    fake.avail[("0000000F", "2026", "11012", "CFS")] = _report(2_000_000, 100_150_000, "USD", eq_frm=100_000_000)
+    fake.avail[("0000000G", "2026", "11012", "CFS")] = _report(2_000_000_000, 100_150_000_000, "USD",
+                                                             eq_frm=100_000_000_000)    # 보고서 통째로 1,000배
+    asyncio.run(Q.fetch([2026], conc=1))
+    got = dict((t, (eq, case)) for t, eq, case in _q(
+        url, "SELECT ticker, eq, eq_case FROM dart_finstat_q WHERE ticker IN ('F','G') AND fy=2026 AND quarter=2"))
+    assert got["F"] == (100_150_000 * rate, "BS_ID")             # 그대로 — 1,000배로 「복구」하지 않는다
+    assert got["G"][1] == "SCALE_FIXED_DIV1000"
+    assert got["G"][0] == pytest.approx(100_150_000 * rate)      # 진짜 단위 오류는 종전처럼 고친다
+    out = capsys.readouterr().out
+    assert "[가드] G 2026Q2 단위오류 ÷1,000" in out and "[가드] F" not in out

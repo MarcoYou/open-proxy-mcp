@@ -549,7 +549,11 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
                         fx_err = f"err:fx_{stmt_cur}"
                     else:
                         def _fx(x): return x * ecos_fx_rate if x is not None else None
-                        ni, eq, assets, liab, eq_total = (_fx(v) for v in (ni, eq, assets, liab, eq_total))
+                        # 261018: 전기 칸도 원으로 — 대조 상대(연간 표의 직전 연도 자본)는 원 단위다. 종전엔 원통화 그대로
+                        #   대어 USD 보고사의 비율이 1/환율(≈10⁻³)로 떨어져 「단위 오류 ÷0.001」로 오판, 멀쩡한 값을 1,000배로
+                        #   「복구」했다(10-18 실측 글로벌에스엠 2026 반기 자본 130.9조). 같은 분기말 환율이라 기말 환율과의 차이는
+                        #   10의 거듭제곱 판정(±20%)에 걸리지 않는다.
+                        ni, eq, assets, liab, eq_total, eq_frm = (_fx(v) for v in (ni, eq, assets, liab, eq_total, eq_frm))
                 if fx_err:
                     async with lock:
                         buf.append((isu, yr, q, rc, None, None, None, fx_err, "ERR", "ERR"))
