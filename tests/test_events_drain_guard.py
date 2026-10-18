@@ -122,3 +122,68 @@ def test_module_imports_without_duckdb(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", fake)
     m = _mod()
     assert m.OUT_DIR.name == "events" and m.OUT_DIR.parent.name == "usage"
+
+
+def test_rerun_preserves_previous_archive_and_receipt(tmp_path):
+    import datetime as dt
+    import json
+    m = _mod()
+    start = dt.datetime(2026, 8, 31, tzinfo=m.KST)
+    end = start + dt.timedelta(days=7)
+    p = tmp_path / "260831-0906.parquet"
+    source = tmp_path / "source.csv"
+
+    def archive(rows):
+        with source.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([n for n, _ in COLS])
+            writer.writerows(rows)
+        m._archive_week(source, p, COLS, start, end)
+
+    a = ("a", m._to_ns(start), "h1")
+    b = ("b", m._to_ns(start + dt.timedelta(days=1)), "h2")
+    archive([a])
+    archive([b])
+    receipt = p.with_suffix(".manifest.json").read_bytes()
+    assert json.loads(receipt)["rows"] == 2
+    archive([b])
+    assert p.with_suffix(".manifest.json").read_bytes() == receipt
+    assert duckdb.sql(f"SELECT event_id FROM read_parquet('{p}') ORDER BY event_id").fetchall() == [("a",), ("b",)]
+
+
+def test_conflicting_event_does_not_replace_backup(tmp_path):
+    import datetime as dt
+    m = _mod()
+    start = dt.datetime(2026, 8, 31, tzinfo=m.KST)
+    end = start + dt.timedelta(days=7)
+    p, source = tmp_path / "week.parquet", tmp_path / "source.csv"
+    _write(m, p, COLS, [("a", m._to_ns(start), "h1")])
+    original = p.read_bytes()
+    with source.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([n for n, _ in COLS])
+        writer.writerow(("a", m._to_ns(start), "changed"))
+    with pytest.raises(ValueError, match="내용이 달라"):
+        m._archive_week(source, p, COLS, start, end)
+    assert p.read_bytes() == original
+
+
+def test_rerun_after_columns_were_added_keeps_old_rows_and_new_columns(tmp_path):
+    """261018: 기록 표에 `scope`·`as_of` 가 붙었다(재설계 T8). 옛 칸 구성으로 이미 보관된 주에 늦은 행이 와서 새 칸 구성으로
+    다시 드레인하면, 옛 행은 그대로(새 칸은 NULL) · 새 행은 새 칸 값까지 남아야 한다 — 이름으로 맞춰 합친다(union_by_name)."""
+    import datetime as dt
+    m = _mod()
+    start = dt.datetime(2026, 10, 12, tzinfo=m.KST)
+    end = start + dt.timedelta(days=7)
+    p, source = tmp_path / "261012-1018.parquet", tmp_path / "source.csv"
+    old = ("a", m._to_ns(start), "h1")
+    _write(m, p, COLS, [old])                              # 옛 칸 구성의 보관본
+    new_cols = COLS + [("scope", "text"), ("as_of", "date")]
+    with source.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([n for n, _ in new_cols])
+        writer.writerow(("b", m._to_ns(start + dt.timedelta(days=1)), "h2", "quote", "2026-10-16"))
+    m._archive_week(source, p, new_cols, start, end)
+    got = duckdb.sql(f'SELECT event_id, key_hash, "scope", CAST(as_of AS VARCHAR) FROM read_parquet(\'{p}\') '
+                     "ORDER BY event_id").fetchall()
+    assert got == [("a", "h1", None, None), ("b", "h2", "quote", "2026-10-16")]

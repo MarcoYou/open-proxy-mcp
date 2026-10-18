@@ -34,8 +34,12 @@ usage_tracker.py의 코호트 분석(예: "N일차 재방문율")은 raw events�
       import 만 하는 쪽(usage_tracker·drain_backlog_check 의 경로·시계 상수)은 duckdb 없이도 되게 지연 import.
 """
 import csv
+import hashlib
+import json
 import os
+import subprocess
 import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -81,7 +85,8 @@ def _table_columns(con) -> list[tuple[str, str]]:
     유일하게 안전한 방식이다."""
     return [(r[0], r[1]) for r in con.execute(
         "SELECT column_name, data_type FROM information_schema.columns "
-        "WHERE table_name = 'ops_tool_calls' ORDER BY ordinal_position").fetchall()]
+        "WHERE table_schema = 'public' AND table_name = 'ops_tool_calls' "
+        "ORDER BY ordinal_position").fetchall()]
 
 
 def _write_parquet(tmp_csv: Path, fpath: Path, cols: list[tuple[str, str]]) -> None:
@@ -95,6 +100,110 @@ def _write_parquet(tmp_csv: Path, fpath: Path, cols: list[tuple[str, str]]) -> N
         f"columns={{{types}}}, nullstr='') ORDER BY ts_ns) "
         f"TO '{fpath.as_posix()}' (FORMAT parquet, COMPRESSION zstd)")
     duck.close()
+
+
+def _archive_week(tmp_csv: Path, fpath: Path, cols, start: datetime, end: datetime) -> None:
+    """검증 전에는 기존 백업을 덮지 않는다. 재실행은 기존 이벤트를 보존하며 합친다."""
+    import duckdb
+    with tempfile.TemporaryDirectory(prefix=".archive-", dir=fpath.parent) as scratch:
+        fresh = Path(scratch) / "fresh.parquet"
+        merged = Path(scratch) / "merged.parquet"
+        _write_parquet(tmp_csv, fresh, cols)
+        duck = duckdb.connect()
+        try:
+            duck.read_parquet(str(fresh)).create_view("fresh")
+            count, ids = duck.execute("SELECT count(*),count(DISTINCT event_id) FROM fresh").fetchone()
+            if count != ids:
+                raise ValueError("새 백업의 이벤트 ID가 비었거나 중복되어 중단")
+            files = [str(fresh)]
+            if fpath.exists():
+                old_names = {r[0] for r in duck.execute(
+                    "DESCRIBE SELECT * FROM read_parquet(?)", [str(fpath)]).fetchall()}
+                common = [n for n, _ in cols if n in old_names and n != "event_id"]
+                changed = " OR ".join(f'a."{n}" IS DISTINCT FROM b."{n}"' for n in common)
+                if changed and duck.execute(
+                    f"SELECT count(*) FROM read_parquet(?) a JOIN fresh b USING(event_id) "
+                    f"WHERE {changed}", [str(fpath)]).fetchone()[0]:
+                    raise ValueError("같은 이벤트 ID의 내용이 달라 기존 백업을 보존하고 중단")
+                files.append(str(fpath))
+            duck.read_parquet(files, union_by_name=True).create_view("sources")
+            duck.execute("CREATE TABLE archive AS SELECT * EXCLUDE (rn) FROM ("
+                         "SELECT *, row_number() OVER (PARTITION BY event_id ORDER BY ts_ns) rn "
+                         "FROM sources) WHERE rn = 1")
+            if duck.execute("SELECT count(*) FROM archive WHERE ts_ns < ? OR ts_ns >= ?",
+                            [_to_ns(start), _to_ns(end)]).fetchone()[0]:
+                raise ValueError("주간 백업에 다른 주의 이벤트가 섞여 중단")
+            n, unique = duck.execute("SELECT count(*), count(DISTINCT event_id) FROM archive").fetchone()
+            archived_columns = [r[0] for r in duck.execute("DESCRIBE archive").fetchall()]
+            if n != unique:
+                raise ValueError("이벤트 ID가 비었거나 중복되어 중단")
+            target = str(merged).replace("'", "''")
+            duck.execute(f"COPY (SELECT * FROM archive ORDER BY ts_ns) TO '{target}' "
+                         "(FORMAT parquet, COMPRESSION zstd)")
+            if duck.execute("SELECT count(*) FROM (SELECT * FROM archive EXCEPT ALL "
+                            "SELECT * FROM read_parquet(?))", [str(merged)]).fetchone()[0]:
+                raise ValueError("백업을 되읽은 값이 달라 중단")
+        finally:
+            duck.close()
+        os.replace(merged, fpath)
+    receipt = {"version": 1, "start": start.isoformat(), "end_exclusive": end.isoformat(),
+               "rows": n, "unique_event_ids": unique, "columns": archived_columns,
+               "sha256": hashlib.sha256(fpath.read_bytes()).hexdigest(),
+               "verified_at": datetime.now(tz=KST).isoformat()}
+    manifest = fpath.with_suffix(".manifest.json")
+    if manifest.exists():
+        previous = json.loads(manifest.read_text(encoding="utf-8"))
+        if all(previous.get(k) == v for k, v in receipt.items() if k != "verified_at"):
+            return  # 재실행 때 검증 시각만 바꿔 이미 푸시한 검증증을 무효화하지 않는다
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=fpath.parent,
+                                     prefix=".manifest-", delete=False) as f:
+        json.dump(receipt, f, ensure_ascii=False, indent=2)
+        temp_manifest = f.name
+    os.replace(temp_manifest, manifest)
+
+
+def _backup_is_pushed(fpath: Path) -> bool:
+    """로컬 파일과 원격 추적 브랜치의 백업·검증증이 같아야 삭제를 허용한다."""
+    try:
+        branch = subprocess.check_output(["git", "branch", "--show-current"],
+                                         cwd=STORAGE_REPO, text=True).strip()
+        if not branch:
+            return False
+        subprocess.run(["git", "fetch", "origin", f"{branch}:refs/remotes/origin/{branch}"],
+                       cwd=STORAGE_REPO, check=True, capture_output=True, timeout=120)
+        for p in (fpath, fpath.with_suffix(".manifest.json")):
+            rel = str(p.relative_to(STORAGE_REPO))
+            local = subprocess.check_output(["git", "hash-object", str(p)], text=True).strip()
+            remote = subprocess.check_output(["git", "rev-parse", f"origin/{branch}:{rel}"],
+                                            cwd=STORAGE_REPO, text=True, stderr=subprocess.DEVNULL).strip()
+            if local != remote:
+                return False
+        return True
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+
+
+def _delete_verified_rows(con, cols, rows, start, end) -> int:
+    """백업한 행을 잠그고 내용·기간을 재확인한다. 불일치면 삭제 전체를 롤백한다."""
+    names = [n for n, _ in cols]
+    ids = [dict(zip(names, row))["event_id"] for row in rows]
+    with con.transaction():
+        current = con.execute(sql.SQL(
+            "SELECT {} FROM public.ops_tool_calls WHERE event_id = ANY(%s) "
+            "AND ts_ns >= %s AND ts_ns < %s FOR UPDATE").format(
+                sql.SQL(", ").join(sql.Identifier(n) for n in names)),
+            (ids, _to_ns(start), _to_ns(end))).fetchall()
+        by_id = lambda values: {dict(zip(names, r))["event_id"]: r for r in values}
+        if by_id(current) != by_id(rows):
+            raise ValueError("백업 이후 원본이 바뀌어 삭제 중단")
+        deleted = con.execute("DELETE FROM public.ops_tool_calls WHERE event_id = ANY(%s) "
+                              "AND ts_ns >= %s AND ts_ns < %s",
+                              (ids, _to_ns(start), _to_ns(end))).rowcount
+        left = con.execute("SELECT count(*) FROM public.ops_tool_calls "
+                           "WHERE event_id = ANY(%s)", (ids,)).fetchone()[0]
+        if deleted != len(rows) or left:
+            raise ValueError("삭제 건수 불일치 — 롤백")
+    return deleted
 
 
 def _verify_backup(fpath: Path, cols: list[tuple[str, str]], n_rows: int) -> bool:
@@ -121,23 +230,24 @@ def _verify_backup(fpath: Path, cols: list[tuple[str, str]], n_rows: int) -> boo
     return True
 
 
-def main(apply: bool) -> None:
+def main(apply: bool) -> tuple[list[Path], int]:
     if not STORAGE_REPO.is_dir():
         print(f"저장소 폴더 없음: {STORAGE_REPO}\n"
               f"  → git clone https://github.com/MarcoYou/open-proxy-storage.git 를 그 경로에 하거나\n"
               f"    .env에 OPM_STORAGE_REPO=<실제 클론 경로> 를 지정하세요. 중단.")
-        return
-    con = psycopg.connect(os.environ["DATABASE_URL"]); con.autocommit = True
+        raise FileNotFoundError("백업 저장소 없음")
+    con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15); con.autocommit = True
     row = con.execute("SELECT MIN(ts_ns), MAX(ts_ns) FROM ops_tool_calls").fetchone()
     if not row or row[0] is None:
-        print("events 테이블 비어있음 — 드레인 대상 없음"); con.close(); return
+        print("events 테이블 비어있음 — 드레인 대상 없음"); con.close(); return [], 0
     mn, mx = row
     first_week = _week_start(_kst(mn))
     now_week = _week_start(datetime.now(tz=KST))  # 현재 진행 중인 주(미완결) — 절대 대상 아님
 
     cols = _table_columns(con)
     if not cols:
-        print("컬럼 목록을 못 읽었다 — 백업이 온전한지 보장할 수 없으므로 중단."); con.close(); return
+        con.close()
+        raise ValueError("컬럼 목록을 못 읽어 중단")
 
     print(f"events 범위: {_kst(mn)} ~ {_kst(mx)} · mode={'APPLY' if apply else 'DRY-RUN'}")
     print(f"백업 컬럼 {len(cols)}개(스키마 파생): {', '.join(n for n, _t in cols)}")
@@ -151,6 +261,7 @@ def main(apply: bool) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     w = first_week
     drained_total = 0
+    archived = []
     while w < now_week:
         w_end = w + timedelta(days=7)
         rows = con.execute(
@@ -169,18 +280,22 @@ def main(apply: bool) -> None:
             writer.writerow([n for n, _t in cols])
             writer.writerows(rows)
         try:
-            _write_parquet(tmp_csv, fpath, cols)
+            _archive_week(tmp_csv, fpath, cols, w, w_end)
         finally:
             tmp_csv.unlink(missing_ok=True)
+        archived.append(fpath)
         print(f"[{w.date()}~{(w_end - timedelta(days=1)).date()}] {len(rows)}건 "
               f"× {len(cols)}컬럼 → events/{fpath.name} ({fpath.stat().st_size / 1048576:.2f} MB)")
-        if not _verify_backup(fpath, cols, len(rows)):
-            print("  → 아무것도 지우지 않고 중단한다.")
-            con.close()
-            return
         if apply:
-            ids = [r[0] for r in rows]
-            deleted = con.execute("DELETE FROM ops_tool_calls WHERE event_id = ANY(%s)", (ids,)).rowcount
+            if not _backup_is_pushed(fpath):
+                print("  → 백업과 검증증이 원격에 보존되지 않아 삭제하지 않고 중단한다.")
+                con.close()
+                raise SystemExit(1)
+            try:
+                deleted = _delete_verified_rows(con, cols, rows, w, w_end)
+            except Exception:
+                con.close()
+                raise
             print(f"  ✓ DB에서 {deleted}건 삭제")
         drained_total += len(rows)
         w = w_end
@@ -192,6 +307,7 @@ def main(apply: bool) -> None:
     if not apply:
         print("(dry-run — DB 변경 없음. 실제 삭제하려면 --apply)")
     con.close()
+    return archived, drained_total
 
 
 if __name__ == "__main__":
