@@ -61,7 +61,8 @@ jobs:
           from open_proxy_mcp.index_members import INDEXES, LATEST_SQL, STALE_DAYS, days_behind
           bad = False
           with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
-              latest_px = c.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+              from open_proxy_mcp.krx_daily import LATEST_DAY_SQL   # 일별 최신 거래일 = 달력(krx_day) — 261019
+              latest_px = c.execute(LATEST_DAY_SQL).fetchone()[0]
               for code, spec in INDEXES.items():
                   rows = c.execute(LATEST_SQL, (code, code)).fetchall()
                   n = len(rows)

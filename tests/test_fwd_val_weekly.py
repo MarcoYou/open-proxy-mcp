@@ -226,6 +226,7 @@ def test_actual_aggregate_includes_alpha_common_and_excludes_unconfirmed_and_pre
                     "industry_code varchar, industry varchar, snap_dd varchar)")
         con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
         con.execute("create table krx_daily(trd_dd varchar, ticker varchar, market varchar)")
+        con.execute("create table krx_day(dd varchar, n integer)")          # 261019: 일별 최신일은 달력에서
         con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
                     "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
                     "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")
@@ -255,6 +256,7 @@ def _sector_agg_db(con):
                 "industry_code varchar, industry varchar, snap_dd varchar)")
     con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
     con.execute("create table krx_daily(trd_dd varchar, ticker varchar, market varchar)")
+    con.execute("create table krx_day(dd varchar, n integer)")          # 261019: 일별 최신일은 달력에서
     con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
                 "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
                 "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")
@@ -310,11 +312,13 @@ def test_market_split_sees_this_weeks_new_listing_from_the_daily_store():
                     "industry_code varchar, industry varchar, snap_dd varchar)")
         con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
         con.execute("create table krx_daily(trd_dd varchar, ticker varchar, market varchar)")
+        con.execute("create table krx_day(dd varchar, n integer)")          # 261019: 일별 최신일은 달력에서
         con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
                     "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
                     "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")
         con.execute("insert into krx_weekly values ('005930', 'KS', '20260911')")            # 지난주 금요일(닫힌 주)
         con.execute("insert into krx_daily values ('20260915', '005930', 'KS'), ('20260915', '123450', 'KQ')")
+        con.execute("insert into krx_day values ('20260915', 2)")
         for code in ("005930", "123450"):
             con.execute("insert into fwd_hist values (?, 2027, 1000, 100, 1000, 20, 100, 1, "
                         "DATE '2026-09-16', true, 'FY', 'IFRS연결', '2027/12')", [code])

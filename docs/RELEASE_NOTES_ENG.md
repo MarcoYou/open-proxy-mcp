@@ -63,14 +63,14 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ### Weekly prices store closed weeks only · year-end values use the actual last trading day
 
-- The weekly price store no longer deletes and rewrites the current week's rows every trading day; it stores each week's last trading day once, after the week ends. The current week's latest values still come from the last-7-trading-days daily quotes — `trading_data`, `price_multiple_data` and `screener` responses are unchanged.
+- The weekly price store no longer deletes and rewrites the current week's rows every trading day; it stores each week's last trading day once, after the week ends. The current week's latest values still come from the daily quotes — `trading_data`, `price_multiple_data` and `screener` responses are unchanged.
 - Fixed the year's last trading day (Dec 30) being deleted by the next year's first trading day in years where Dec 31 falls on a Tuesday–Thursday. Year-end values for 2019, 2024 and 2025 were a day or two early (the Friday: Dec 27, Dec 27, Dec 26); year-end bands and year-end dividend yields now use the actual last trading day. `trading_data(scope="firm")` series gain one extra point in the week the year changes.
 
-### Last 7 trading days of quotes served from the database — faster `trading_data` quotes
+### About a year of quotes served from the database — faster `trading_data` quotes
 
-- `trading_data(scope="quote")` answers instantly for the **last 7 trading days** from daily quotes the server keeps (open, high, low, close, volume, traded value, listed shares); only older dates are fetched from KRX. Output fields are unchanged; `data.source` is added.
-- The first quote question of the day no longer waits 2-12 seconds on a KRX refresh. The server refreshes in the background Monday–Saturday mornings (07:30-20:00 KST; Saturday picks up Friday's close).
-- Market cap is close × listed shares; change and change % are computed against the previous weekday's close. When the previous weekday has no stored row (day after a holiday or a missed day) or the move exceeds ±30% (stock split, ex-rights and other base-price adjustments), the KRX-published figures are used instead.
+- `trading_data(scope="quote")` answers instantly for **about the last year** (from the latest trading day back one year and one week) from daily quotes the server keeps (open, high, low, close, volume, traded value, listed shares, change); only older dates are fetched from KRX. Output fields are unchanged; `data.source` is added.
+- The first quote question of the day no longer waits 2-12 seconds on a KRX refresh. The server refreshes in the background Monday–Saturday mornings (07:30-20:00 KST; Saturday picks up Friday's close) and fills in days it missed while down.
+- Market cap is close × listed shares. Change and change % are the KRX-published figures (against the base price), stored with each day — they match KRX on the day after a holiday and on stock-split or ex-rights days too.
 
 ### Faster dividend and per-company valuation-history lookups
 

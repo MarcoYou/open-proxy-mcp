@@ -193,10 +193,10 @@ _BLOCK_MARKERS = ("접근이 제한", "비정상적인 접근", "Access Denied",
 #: 차단이 아니라 답이므로 연속 실패로 세지 않는다 — 세면 옛 스냅샷의 상장폐지 종목 셋이 잇달아 나올 때 조회 전체가 멈춘다.
 _NO_COMPANY_MARKER = "올바른 종목이 아닙니다"
 
-#: 스냅샷 날짜 이하 가장 늦은 시세일 — 닫힌 주(krx_weekly)와 최근 7거래일(krx_daily)을 함께 본다.
+#: 스냅샷 날짜 이하 가장 늦은 시세일 — 닫힌 주(krx_weekly)와 일별 저장분(최근 약 1년 — 날짜는 달력 krx_day)을 함께 본다.
 #: 월간 워크플로의 「시세 조인」 확인과 같은 규칙이다.
 LISTED_DAY_SQL = """SELECT max(d) FROM (SELECT max(price_dd) d FROM krx_weekly WHERE price_dd <= %s
-                   UNION ALL SELECT max(trd_dd) FROM krx_daily WHERE trd_dd <= %s) x"""
+                   UNION ALL SELECT max(dd) FROM krx_day WHERE n > 0 AND dd <= %s) x"""
 LISTED_SQL = """SELECT ticker FROM krx_daily WHERE trd_dd = %s
                 UNION SELECT ticker FROM krx_weekly WHERE price_dd = %s"""
 

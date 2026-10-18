@@ -9,7 +9,7 @@
   **전 종목**(우선주 포함) 합이다 — KRX 공표 시총과 같은 모집단. 표를 아예 나눠 뒀다(krx_cap_agg).
 
 ★ 주간 저장 시계열(`krx_weekly`)에는 OHLC·거래량·거래대금이 없다 — 종가·시총·상장주식수 3개뿐이다.
-  그 넷은 `scope=quote` 가 준다. **최근 7거래일은 DB**(`krx_daily`, 서버 백그라운드 갱신기가 매 거래일 채운다 — KRX 0콜),
+  그 넷은 `scope=quote` 가 준다. **최근 약 1년(최신 거래일 − 1년 − 1주)은 DB**(일별 시세 저장분, 서버 백그라운드 갱신기가 매 거래일 채운다 — KRX 0콜),
   그보다 오래된 날짜만 KRX 를 직접 불러 그 날짜만 준다(2콜, 전종목 응답은 날짜별 소형 LRU 에 2일치 보관).
   `scope=firm` 시계열의 **끝점**은 일별 저장분의 그 종목 최신 한 줄(`price_latest`)이다(261018) — 주간 표는 닫힌 주만 갖게 될 것이라
   「이번 주 최신값」을 주간 표에 기대지 않는다(`_with_daily_tail`).
@@ -55,7 +55,7 @@ _SCHEMES = {
     MID: "업종 중분류 28",
 }
 
-#: 과거일 시세의 **전종목 응답**을 날짜별로 2일치까지 보관하는 작은 LRU. 보관 창(최근 7거래일) 밖의 날짜를 조회하면 KRX 를
+#: 과거일 시세의 **전종목 응답**을 날짜별로 2일치까지 보관하는 작은 LRU. 보관 창(최근 약 1년) 밖의 날짜를 조회하면 KRX 를
 #: 2콜 부르는데, 종전에는 그 응답을 버리고 한 줄만 기억했다 — 한 사용자가 650종목을 훑으면 같은 날짜를 650번 불렀다(10/17 실제 사례).
 #: 이제 날짜당 1회다. 구조 {basDd: {단축코드: 줄인 행}}, 가장 오래 안 쓴 날짜부터 밀려난다.
 #: `_KRX_CACHE`(32MB, 오늘 스냅샷)에는 넣지 않는다 — 임의 과거일 조회가 오늘 스냅샷을 밀어내면 `_market_for`(배수 산출)가
@@ -476,7 +476,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
             "warnings": warns}
 
 
-# ── 3. 단일시점 시세 (OHLC·거래량·거래대금·등락률) — 최근 7거래일은 DB, 그 이전은 KRX 라이브 ──────────────
+# ── 3. 단일시점 시세 (OHLC·거래량·거래대금·등락률) — 최근 약 1년은 DB, 그 이전은 KRX 라이브 ──────────────
 _QUOTE_FIELDS = (
     ("TDD_CLSPRC", "close_krw", "종가"), ("TDD_OPNPRC", "open_krw", "시가"),
     ("TDD_HGPRC", "high_krw", "고가"), ("TDD_LWPRC", "low_krw", "저가"),
@@ -490,10 +490,11 @@ _QUOTE_KEEP_KEYS = ("ISU_CD",) + tuple(src for src, _, _ in _QUOTE_FIELDS) + ("M
 _METHOD_LIVE = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본. "
                 "그 날짜 실제 체결가 — 수정주가가 아닙니다. "
                 "시가(TDD_OPNPRC)는 첫 체결가라 기준가와 다릅니다.")
-_METHOD_DB = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본을 서버가 매 거래일 보관한 최근 7거래일 저장분. "
+_METHOD_DB = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본을 서버가 매 거래일 보관한 최근 약 1년(최신 거래일 − 1년 − 1주) 저장분. "
               "그 날짜 실제 체결가 — 수정주가가 아닙니다. 시가는 첫 체결가라 기준가와 다릅니다. "
-              "시가총액 = 종가 × 상장주식수. 대비·등락률 = 직전 평일 종가 대비로 계산한 값이며, 직전 평일 행이 없거나(휴장 다음 날·빠진 날) "
-              "변동이 일일 제한폭(±30%)을 넘거나(액면분할·권리락 등 기준가 조정일) 직전 행이 없으면(보관 첫날·신규상장일) KRX 공표값을 씁니다.")
+              "시가총액 = 종가 × 상장주식수. 대비·등락률 = KRX 공표값(기준가 대비 — 휴장 다음 날·권리락일에도 KRX 와 같습니다)을 함께 보관해 씁니다. "
+              "공표값이 보관되지 않은 날만 직전 평일 종가 대비로 계산하고, 직전 평일 행이 없거나(휴장 다음 날·빠진 날) "
+              "변동이 일일 제한폭(±30%)을 넘거나(액면분할·권리락 등 기준가 조정일) 직전 행이 없으면(보관 첫날·신규상장일) KRX 공표값을 받아 씁니다.")
 
 #: KRX 일일 가격제한폭. 전일 종가 대비 이보다 큰 변동은 정상 거래일의 변동이 아니다 — 기준가 조정일이거나, 사이의 거래일이 빠진 비교다.
 _DAILY_LIMIT_PCT = 30.0
@@ -588,12 +589,21 @@ def _quote_from_krx_row(row: dict) -> tuple[dict, str | None]:
     return q, mkt_label(row.get("MKT_NM") or "")
 
 
+def _published_change(r: dict) -> bool:
+    """그 행에 KRX 공표 대비(`krx_chg` — 저장한 `CMPPREVDD_PRC`)가 있나. 있으면 대비·등락률은 그것이다(KRX 라이브 경로와 같은 값)."""
+    return r.get("krx_chg") is not None
+
+
 def _quote_from_db_row(r: dict) -> tuple[dict, str | None]:
-    """`krx_daily_v` 한 줄 → KRX 라이브 경로와 **같은 키·같은 단위**의 시세. 시총·대비·등락률은 뷰가 계산한 값이다."""
+    """`krx_daily_v` 한 줄 → KRX 라이브 경로와 **같은 키·같은 단위**의 시세. 시총은 뷰가 계산한 값이다.
+    대비·등락률은 KRX 공표값(`krx_chg`·`krx_chg_pct` — 라이브 경로의 `CMPPREVDD_PRC`·`FLUC_RT` 와 같은 값, 원본 1년치 전수 재현 확인)이고,
+    공표값이 보관되지 않은 행(교체 직후 옮겨 온 행 등)만 직전 보관 행 대비 계산값(`chg`·`chg_pct`)을 쓴다."""
+    pub = _published_change(r)
+    chg, pct = (r["krx_chg"], r.get("krx_chg_pct")) if pub else (r["chg"], r["chg_pct"])
     q = {"close_krw": r["close"], "open_krw": r["open"], "high_krw": r["high"], "low_krw": r["low"],
-         "change_krw": r["chg"], "volume": r["volume"], "value_krw": r["value"],
+         "change_krw": chg, "volume": r["volume"], "value_krw": r["value"],
          "mktcap_krw": r["mktcap"], "list_shrs": r["list_shrs"],
-         "change_pct": float(r["chg_pct"]) if r["chg_pct"] is not None else None}
+         "change_pct": float(pct) if pct is not None else None}
     return q, mkt_label(r["market"])
 
 
@@ -601,7 +611,7 @@ async def build_quote_payload(company: str, format: str = "md",
                               as_of: str = "") -> dict[str, Any]:
     """특정 거래일 전체 시세 — OHLC·거래량·거래대금·등락률.
 
-    ① `as_of` 가 비었거나 **보관 창(최근 7거래일) 안**이면 DB 한 왕복(KRX 0콜).
+    ① `as_of` 가 비었거나 **보관 창(최근 약 1년) 안**이면 DB 한 왕복(KRX 0콜).
     ② 더 오래된 날짜·휴장일·보관 구멍·DB 미연결이면 KRX 라이브(최대 2콜, 날짜별 LRU 라 같은 날짜는 1회)."""
     if not (company or "").strip():
         return _err(company, "invalid", "company 가 필요합니다 — 종목명 또는 6자리 코드.")
@@ -626,7 +636,7 @@ async def build_quote_payload(company: str, format: str = "md",
         # 이 날짜는 보관돼 있다 — 종목이 없으면 KRX 를 부르지 않고 「없다」고 답한다.
         dd = lookup.day or dd
         if lookup.row is not None:
-            if _change_is_reliable(dd, lookup.row):
+            if _published_change(lookup.row) or _change_is_reliable(dd, lookup.row):
                 db_row = lookup.row
             else:
                 # 대비·등락률을 DB 만으로는 믿을 수 없다(`_change_is_reliable`) → KRX 공표값으로 채운다.
