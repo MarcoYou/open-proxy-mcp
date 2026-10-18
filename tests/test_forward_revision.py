@@ -106,3 +106,124 @@ def test_one_week_window_uses_previous_saturday():
     assert r["rows"][0]["vs"]["1w"]["op_krw_pct"] == 8.33          # (130-120)/120
     assert list(r["baselines"]) == ["1w", "4w", "12w"]
     assert r["baselines"]["4w"]["partial"] and r["baselines"]["12w"]["partial"]   # 이력 3주 → 둘 다 가장 오래된 것과 비교
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# 261018 — DB 보관 52주(구간형 저장): 26w·52w 리비전은 이력이 앞 창보다 길 때만
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+def test_long_windows_appear_when_history_reaches_them():
+    days = _weekly(53)                                   # 52주 + 1 → 52w 기준이 정확히 잡힌다
+    hist = [_row(d, "2027.12E", op_krw=100 + i) for i, d in enumerate(days)]
+    r = fe.compute_revision(hist)
+    assert list(r["baselines"]) == ["1w", "4w", "12w", "26w", "52w"]
+    assert r["baselines"]["26w"] == {"as_of": days[-27].isoformat(), "days": 182, "partial": False}
+    assert r["baselines"]["52w"] == {"as_of": days[0].isoformat(), "days": 364, "partial": False}
+    assert r["rows"][0]["vs"]["52w"]["op_krw_pct"] == 52.0                 # (152-100)/100
+    assert r["windows_not_reached"] == [] and r["history_weeks"] == 52
+    assert set(r["summary"]) == {"1w", "4w", "12w", "26w", "52w"}
+
+
+def test_long_windows_are_left_out_not_duplicated_when_history_is_short():
+    """이력 7주(지금 운영): 26w·52w 를 「가장 오래된 스냅샷과 부분 비교」로 내면 12w 와 같은 칸이 둘 더 생긴다 — 빼고 알린다."""
+    days = _weekly(8)
+    hist = [_row(d, "2026.12E", op_krw=100 + i) for i, d in enumerate(days)]
+    r = fe.compute_revision(hist)
+    assert list(r["baselines"]) == ["1w", "4w", "12w"]                     # 종전 응답과 같은 창
+    assert r["baselines"]["12w"]["partial"] is True
+    assert r["windows_not_reached"] == ["26w", "52w"]
+    assert r["history_weeks"] == 7 and r["first_as_of"] == days[0].isoformat()
+
+
+def test_26w_is_a_partial_comparison_once_history_passes_12w():
+    """이력 20주: 12w 는 정확, 26w 는 가장 오래된 스냅샷(19주 전)과 부분 비교 — 12w 와 다른 날이라 싣는다. 52w 는 같은 날이라 뺀다."""
+    days = _weekly(20)
+    hist = [_row(d, "2026.12E", op_krw=100 + i) for i, d in enumerate(days)]
+    r = fe.compute_revision(hist)
+    assert r["baselines"]["12w"]["partial"] is False
+    assert r["baselines"]["26w"] == {"as_of": days[0].isoformat(), "days": 133, "partial": True}
+    assert "52w" not in r["baselines"] and r["windows_not_reached"] == ["52w"]
+
+
+def test_screen_mode_keeps_a_partial_long_window():
+    """유니버스 스크린은 고른 창 하나를 낸다 — 26w 를 골랐으면 이력이 짧아도 부분 비교(「이력 짧음」)로 싣는다."""
+    days = _weekly(8)
+    hist = [_row(d, "2026.12E", op_krw=100 + i) for i, d in enumerate(days)]
+    r = fe.compute_revision(hist, long_needs_history=False)
+    assert r["baselines"]["26w"] == {"as_of": days[0].isoformat(), "days": 49, "partial": True}
+    assert r["windows_not_reached"] == []
+
+
+# ── 저장 모양별 질의 — 주별 모양(교체 전)은 질의가 글자까지 그대로, 달력 모양은 창 조건 ────────────────────
+def _probe(monkeypatch, calendar: bool, latest=dt.date(2026, 10, 17)):
+    calls = []
+
+    def pg(sql, params=()):
+        calls.append((sql, params))
+        if sql == fe_fw.PROBE_SQL:
+            return [(True, calendar)]
+        if sql == fe_fw.LATEST_SQL_CALENDAR:
+            return [(latest,)]
+        return []
+    monkeypatch.setattr(fe, "pg_rows", pg)
+    # 캐시를 통째로 갈아 끼운다 — 시험이 끝나면 되돌아가 다른 시험(스크린)에 달력 모양이 새지 않는다
+    monkeypatch.setattr(fe, "_hist_cache", {"at": 0.0, "ok": None, "cal": False, "latest": None})
+    return calls
+
+
+from open_proxy_mcp import fwd_window as fe_fw  # noqa: E402
+
+
+def test_legacy_shape_history_query_is_unchanged(monkeypatch):
+    calls = _probe(monkeypatch, calendar=False)
+    fe._fetch_hist("005930")
+    assert calls[-1] == ("SELECT as_of, period, period_type, rev_krw, op_krw, ni_ctrl_krw, eps_krw, dps_krw "
+                         "FROM fwd_hist WHERE stock_code=%s AND is_estimate ORDER BY as_of", ("005930",))
+    assert fe._db_hist_weeks() == 13
+    fe._fetch_hist_many(["005930"], "FY", 98)
+    assert "fwd_asof" not in calls[-1][0] and calls[-1][1] == ("FY", ["005930"])
+    assert fe._stale_snapshot_warning(dt.date(2026, 9, 19)) is None       # 주별 모양의 응답은 종전과 같다
+
+
+def test_calendar_shape_history_queries_carry_the_window(monkeypatch):
+    calls = _probe(monkeypatch, calendar=True)
+    fe._fetch_hist("005930")
+    sql, params = calls[-1]
+    assert "as_of >= (SELECT max(as_of) FROM fwd_asof) - %s::int" in sql and sql.endswith("ORDER BY as_of")
+    assert params == ("005930", 364)
+    assert fe._db_hist_weeks() == 52
+    fe._fetch_hist_many(["005930"], "FY", fe._screen_span_days(28))
+    assert calls[-1][1] == ("FY", ["005930"], 91)                         # 4w 스크린은 13주(관측 폭) 만 읽는다
+    fe._fetch_hist_many(None, "ALL", fe._screen_span_days(364))
+    assert calls[-1][1] == (364,)                                          # 52w 는 창 전체(창보다 넓게 읽지 않는다)
+
+
+def test_window_setting_shrinks_the_history_query(monkeypatch):
+    calls = _probe(monkeypatch, calendar=True)
+    monkeypatch.setenv("FWD_HOT_WEEKS", "26")
+    fe._fetch_hist("005930")
+    assert calls[-1][1] == ("005930", 182)
+    assert fe._db_hist_weeks() == 26
+    monkeypatch.setenv("FWD_HOT_WEEKS", "abc")
+    assert fe_fw.hot_weeks() == 52                                         # 잘못된 값이면 기본값
+
+
+def test_stale_snapshot_warning_only_on_the_calendar_shape(monkeypatch):
+    _probe(monkeypatch, calendar=True, latest=dt.date(2026, 10, 17))
+    assert fe._stale_snapshot_warning(dt.date(2026, 10, 17)) is None
+    w = fe._stale_snapshot_warning(dt.date(2026, 4, 18))
+    assert w and "최신 컨센서스 스냅샷(2026-10-17)에 없다" in w and "2026-04-18 스냅샷" in w and "182일 전" in w
+
+
+def test_source_note_says_what_the_db_actually_keeps(monkeypatch):
+    _probe(monkeypatch, calendar=False)
+    fe._hist_available()
+    assert "최근 13주" in fe._hist_source_note() and "13주 롤링" not in fe._hist_source_note()
+    _probe(monkeypatch, calendar=True)
+    fe._hist_available()
+    assert "최근 52주" in fe._hist_source_note() and "보관본" in fe._hist_source_note()
+
+
+def test_probe_reads_odd_rows_as_the_legacy_shape():
+    assert fe_fw.parse_probe((True,)) == (True, False)
+    assert fe_fw.parse_probe((False, True)) == (False, False)
+    assert fe_fw.parse_probe(None) == (False, False)

@@ -19,6 +19,10 @@
 보존은 private 컨센서스 수집기의 주간 송출 `push_fwd_fact.py` 가 한 트랜잭션으로 맡는다 —
 그 주 교체(같은 ISO 주 재송출 포함) → 5주차를 이력으로 → 14주차 삭제. 이 감시는 뷰를 그대로 읽는다
 (`to_regclass` 는 뷰도 찾는다). 옛 `prune_fwd.py`·`push_fwd_hist.py` 는 은퇴했다.
+261018(구간형 저장): 뷰가 게시 달력 `fwd_asof` 위로 옮겨 가면(`open_proxy_mcp/fwd_window.py` 의 「달력 모양」)
+`fwd`·`fwd_hist` 는 같은 달력을 읽고 둘 다 창 `FWD_HOT_WEEKS`(기본 52주)를 담는다. 그때 이 감시는
+① 달력의 ISO 주 수 ≤ 창+1(양 끝 포함) ② 같은 ISO 주 중복 0 ③ 창 밖으로 닫힌 판이 1주 넘게 남지 않았나
+를 본다. 4주·13주 상한은 주별 모양일 때만 기본값이다. 어느 모양인지는 뷰의 정의로 가른다(표 이름이 아니라).
 
 실행:  python3 scripts/drain_backlog_check.py [--max-weeks N] [--warn-pct P] [--tables]
                                               [--fwd-max-weeks N] [--hist-max-weeks N]
@@ -49,6 +53,7 @@ load_dotenv(ROOT / ".env")
 # 주 계산·시간대는 **드레인 본체의 것을 그대로 쓴다.** 사본을 두면 감시가 실제 대상과
 # 다른 주를 세게 되고, 그때 감시는 있으나 마나가 된다.
 from events_drain import KST, _kst, _to_ns, _week_start  # noqa: E402
+from open_proxy_mcp import fwd_window  # noqa: E402 — 컨센서스 이력 창·저장 모양의 정의(서버·집계 배치와 같은 것)
 
 
 def _snapshot_week_stats(days) -> tuple[int, int]:
@@ -82,10 +87,10 @@ def main() -> int:
                     help="허용할 밀린 완결 주 수 (기본 0 — 한 주만 밀려도 바로 알린다)")
     ap.add_argument("--warn-pct", type=int, default=90,
                     help="무료티어 경고선 %% (기본 90 — 새 fwd 한 벌의 일시 공간까지 남긴다)")
-    ap.add_argument("--fwd-max-weeks", type=int, default=4,
-                    help="fwd 최대 ISO 주 수 (최신 4주)")
-    ap.add_argument("--hist-max-weeks", type=int, default=13,
-                    help="fwd_hist 의 as_of 가 이 ISO 주 수를 넘으면 실패 (13주 롤링)")
+    ap.add_argument("--fwd-max-weeks", type=int, default=None,
+                    help="fwd 최대 ISO 주 수 (기본: 주별 모양 4주 · 달력 모양 창+1 주)")
+    ap.add_argument("--hist-max-weeks", type=int, default=None,
+                    help="fwd_hist 의 as_of 가 이 ISO 주 수를 넘으면 실패 (기본: 주별 모양 13주 · 달력 모양 창+1 주)")
     ap.add_argument("--tables", action="store_true",
                     help="테이블별 용량 breakdown(100KB 초과 상위 12개)도 출력 — 읽기만 한다")
     ap.add_argument("--json", action="store_true",
@@ -153,8 +158,24 @@ def _check(a: argparse.Namespace, url: str) -> int:
             days = [r[0] for r in con.execute(f"SELECT DISTINCT as_of FROM {table} ORDER BY 1").fetchall()]
             weeks, duplicate_days = _snapshot_week_stats(days)
             return days, weeks, duplicate_days
-        fwd_days, fwd_weeks, fwd_duplicate_days = _weeks("fwd")
-        hist_days, hist_weeks, hist_duplicate_days = _weeks("fwd_hist")
+        # 저장 모양 — 뷰가 게시 달력을 읽으면(구간형 저장 뒤) 두 뷰의 날짜는 달력 하나다. 달력이 싸고 정확하다
+        # (뷰의 DISTINCT 는 이력 52주면 느리다). 창 밖으로 닫힌 판이 남았는지도 여기서 센다.
+        _exists, on_calendar = fwd_window.parse_probe(con.execute(fwd_window.PROBE_SQL).fetchone())
+        stale_versions: tuple[int, object] = (0, None)
+        if on_calendar:
+            cal_days = [r[0] for r in con.execute("SELECT as_of FROM fwd_asof ORDER BY 1").fetchall()]
+            cal_weeks, cal_duplicate_days = _snapshot_week_stats(cal_days)
+            fwd_days, fwd_weeks, fwd_duplicate_days = cal_days, cal_weeks, cal_duplicate_days
+            hist_days, hist_weeks, hist_duplicate_days = cal_days, cal_weeks, cal_duplicate_days
+            if cal_days and con.execute("SELECT to_regclass(%s) IS NOT NULL",
+                                        ("public.fwd_fact_ver",)).fetchone()[0]:
+                # 창 정리는 `valid_to ≤ 최신 − 창` 인 판을 지운다. 1주 늦음까지는 봐 준다(송출이 정리보다 먼저 돌 수 있다).
+                grace = cal_days[-1] - timedelta(days=fwd_window.window_days() + 7)
+                stale_versions = tuple(con.execute(
+                    "SELECT count(*), min(valid_to) FROM fwd_fact_ver WHERE valid_to <= %s", (grace,)).fetchone())
+        else:
+            fwd_days, fwd_weeks, fwd_duplicate_days = _weeks("fwd")
+            hist_days, hist_weeks, hist_duplicate_days = _weeks("fwd_hist")
         # --tables 일 때만 한 번 더 읽는다(옛 DB 용량 리포트와 같은 SQL). 기본 경로는 그대로.
         tables = con.execute("""
           SELECT relname, pg_total_relation_size(relid) b, n_live_tup
@@ -175,10 +196,23 @@ def _check(a: argparse.Namespace, url: str) -> int:
         for name, b, live in tables:
             print(f"  {name:<24} {b/1024/1024:>7.1f} MB  ({b / total_b * 100:>4.1f}%)  {live:>10,}행")
     print(f"진행 중인 주({now_week.date()}~) {cur_week:,}행 — 드레인 대상 아님")
-    if fwd_days:
-        print(f"fwd {len(fwd_days)}벌 · {fwd_weeks}주 ({fwd_days[0]} ~ {fwd_days[-1]}) — 보존 한도 {a.fwd_max_weeks}주")
-    if hist_days:
-        print(f"fwd_hist {len(hist_days)}벌 · {hist_weeks}주 ({hist_days[0]} ~ {hist_days[-1]}) — 롤링 {a.hist_max_weeks}주")
+    window = fwd_window.hot_weeks()
+    # 상한 — 주는 값이 있으면 그것, 없으면 모양별 기본(주별 4주·13주 / 달력 창+1 주 — 창의 양 끝 날짜가 둘 다 든다)
+    fwd_max = a.fwd_max_weeks if a.fwd_max_weeks is not None else (
+        window + 1 if on_calendar else fwd_window.LEGACY_FWD_WEEKS)
+    hist_max = a.hist_max_weeks if a.hist_max_weeks is not None else (
+        window + 1 if on_calendar else fwd_window.LEGACY_HIST_WEEKS)
+    if on_calendar:
+        if fwd_days:
+            print(f"fwd·fwd_hist 게시 달력 {len(fwd_days)}벌 · {fwd_weeks}주 ({fwd_days[0]} ~ {fwd_days[-1]})"
+                  f" — 창 {window}주(양 끝 포함 {fwd_max}주까지)")
+        if stale_versions[0]:
+            print(f"창 밖 닫힌 판 {stale_versions[0]:,}개 (가장 이른 끝 {stale_versions[1]})")
+    else:
+        if fwd_days:
+            print(f"fwd {len(fwd_days)}벌 · {fwd_weeks}주 ({fwd_days[0]} ~ {fwd_days[-1]}) — 보존 한도 {fwd_max}주")
+        if hist_days:
+            print(f"fwd_hist {len(hist_days)}벌 · {hist_weeks}주 ({hist_days[0]} ~ {hist_days[-1]}) — 롤링 {hist_max}주")
 
     if weeks:
         print(f"\n밀린 완결 주 {len(weeks)}개 · {sum(c for *_, c in weeks):,}건")
@@ -190,15 +224,27 @@ def _check(a: argparse.Namespace, url: str) -> int:
     bad = []
     if len(weeks) > a.max_weeks:
         bad.append(f"완결 주 {len(weeks)}개가 밀렸다(허용 {a.max_weeks})")
-    if fwd_weeks > a.fwd_max_weeks:
-        bad.append(f"fwd 스냅샷 {fwd_weeks}주가 쌓였다(허용 {a.fwd_max_weeks}) — 토요일 체인의 주간 송출"
-                   "(push_fwd_fact.py)이 5주차를 이력으로 넘기지 못했다")
-    if fwd_duplicate_days:
-        bad.append(f"fwd 같은 ISO 주에 날짜가 {fwd_duplicate_days}개 더 있다 — 재송출 중복을 정리할 것")
-    if hist_weeks > a.hist_max_weeks:
-        bad.append(f"fwd_hist {hist_weeks}주 (롤링 {a.hist_max_weeks}) — 주간 송출(push_fwd_fact.py)의 14주차 정리가 안 돌았다")
-    if hist_duplicate_days:
-        bad.append(f"fwd_hist 같은 ISO 주에 날짜가 {hist_duplicate_days}개 더 있다 — 주간 이력 정책 위반")
+    if on_calendar:
+        # 두 뷰가 같은 달력을 읽으니 한 번만 센다.
+        if fwd_weeks > min(fwd_max, hist_max):
+            bad.append(f"게시 달력 {fwd_weeks}주가 창(허용 {min(fwd_max, hist_max)}주)보다 길다 — 창 밖 날짜는 뷰에서 "
+                       "판 일부만 보인다. 창 정리(창 밖 닫힌 판을 보관본으로 내보낸 뒤 지우는 주간 작업)가 달력을 줄이지 못했다")
+        if fwd_duplicate_days:
+            bad.append(f"게시 달력 같은 ISO 주에 날짜가 {fwd_duplicate_days}개 더 있다 — 주 1벌 계약 위반"
+                       "(리비전 기준일·선행 집계 날짜가 흔들린다)")
+        if stale_versions[0]:
+            bad.append(f"창 밖 닫힌 판 {stale_versions[0]:,}개가 1주 넘게 남았다(가장 이른 끝 {stale_versions[1]}) — "
+                       "창 정리가 안 돌았다")
+    else:
+        if fwd_weeks > fwd_max:
+            bad.append(f"fwd 스냅샷 {fwd_weeks}주가 쌓였다(허용 {fwd_max}) — 토요일 체인의 주간 송출"
+                       "(push_fwd_fact.py)이 5주차를 이력으로 넘기지 못했다")
+        if fwd_duplicate_days:
+            bad.append(f"fwd 같은 ISO 주에 날짜가 {fwd_duplicate_days}개 더 있다 — 재송출 중복을 정리할 것")
+        if hist_weeks > hist_max:
+            bad.append(f"fwd_hist {hist_weeks}주 (롤링 {hist_max}) — 주간 송출(push_fwd_fact.py)의 14주차 정리가 안 돌았다")
+        if hist_duplicate_days:
+            bad.append(f"fwd_hist 같은 ISO 주에 날짜가 {hist_duplicate_days}개 더 있다 — 주간 이력 정책 위반")
     if pct >= a.warn_pct:
         bad.append(f"무료티어 {pct:.0f}% (경고선 {a.warn_pct}%)")
     if not bad:
@@ -207,8 +253,13 @@ def _check(a: argparse.Namespace, url: str) -> int:
 
     _report_status("ATTENTION_NEEDED", "검사는 완료됐으나 운영 조치가 필요하다. 경고 항목을 확인할 것.", bad)
     print("\n⚠️  " + " · ".join(bad))
-    if (fwd_weeks > a.fwd_max_weeks or hist_weeks > a.hist_max_weeks
-            or fwd_duplicate_days or hist_duplicate_days):
+    if on_calendar and (fwd_weeks > min(fwd_max, hist_max) or fwd_duplicate_days or stale_versions[0]):
+        print("""
+조치 (fwd·fwd_hist 게시 달력 — private 컨센서스 수집기, 원본은 그 머신의 로컬 DB 라 지워도 다시 낼 수 있다):
+  같은 ISO 주 중복이면 토요일 체인의 주간 송출(push_fwd_fact.py)을 그 주 날짜로 다시 돌린다 — 송출이 그 주를 되돌리고 다시 쓴다.
+  창이 길거나 창 밖 닫힌 판이 남았으면 창 정리 기록을 본다 — 보관본 내보내기와 대조가 끝난 판만 지우므로 다시 돌려도 같다.""")
+    if not on_calendar and (fwd_weeks > fwd_max or hist_weeks > hist_max
+                            or fwd_duplicate_days or hist_duplicate_days):
         print("""
 조치 (fwd·fwd_hist — private 컨센서스 수집기, 원본은 그 머신의 로컬 DB·jsonl 이라 내보내기 불필요):
   그 머신의 토요일 체인 기록에서 주간 송출(push_fwd_fact.py) 단계가 실패했는지 본다.

@@ -162,15 +162,26 @@ _BUNDLES = ("core", "growth", "quality", "keys", "revision")
 # revision — 컨센서스가 **어디서 왔나** (260904 신설)
 #
 # `fwd` 는 「지금 얼마」만 답한다. 추정치의 방향 전환은 주가보다 먼저 움직이는 신호라
-# 「1주·4주·12주 전 대비 얼마나 올랐/내렸나」를 `fwd_hist`(슬림 18칸 · 추정 보유 종목 · 주 1회 토 ·
-# 13주 롤링, 260904 신설)에서 읽는다. 기준일은 **목표일 이전의 가장 가까운 스냅샷**이다 —
+# 「1주·4주·12주(+26주·52주) 전 대비 얼마나 올랐/내렸나」를 `fwd_hist`(슬림 18칸 · 추정 보유 종목 ·
+# 주 1회 토, 260904 신설)에서 읽는다. 기준일은 **목표일 이전의 가장 가까운 스냅샷**이다 —
 # 주 1회라 정확히 28일 전은 없다. 이력이 목표일까지 안 닿으면 가장 오래된 스냅샷을 쓰고
 # `partial=true` 로 밝힌다(「없음」과 「짧음」을 구별한다). 분모는 |기준값| — 적자에서 흑자로
 # 돌아선 것도 방향은 「상향」이다.
+#
+# DB 보관(261018): 주별 모양은 13주, 구간형 저장(값이 바뀔 때만 새 판) 뒤로는 창 `FWD_HOT_WEEKS`(기본 52주) —
+# `open_proxy_mcp/fwd_window.py`. 26w·52w 는 그래서 생겼다. 이 둘은 **이력이 앞 창보다 길 때만** 싣는다 —
+# 이력 7주에서 26w 를 「가장 오래된 스냅샷과 부분 비교」로 내면 12w 와 같은 날짜·같은 값이 칸만 늘린다.
+# 1w·4w·12w 는 종전대로 짧으면 부분 비교로 싣는다(응답 계약 그대로).
 # ─────────────────────────────────────────────────────────────────────────────
 _REV_WINDOWS: tuple[tuple[str, int], ...] = (("1w", 7), ("4w", 28), ("12w", 91))   # 1w 는 260916 추가 — 주간 루틴이 직전 주 대비를 원했다
+_REV_WINDOWS_LONG: tuple[tuple[str, int], ...] = (("26w", 182), ("52w", 364))     # 261018 — DB 보관 52주
+_REV_WINDOWS_ALL: tuple[tuple[str, int], ...] = _REV_WINDOWS + _REV_WINDOWS_LONG
+_REV_LONG_NAMES = frozenset(n for n, _ in _REV_WINDOWS_LONG)
 _REV_METRICS: tuple[str, ...] = ("rev_krw", "op_krw", "ni_ctrl_krw", "eps_krw", "dps_krw")
 _REV_MIN_GAP_DAYS = 6  # 이보다 가까운 스냅샷은 「전」이 아니다
+#: 유니버스 스크린이 읽는 이력 폭(일) — 창 일수 + 1주, 적어도 13주. 주별 모양의 13주 보관과 같은 관측 폭이라
+#: 「단발 갱신」(관측 구간 내내 보합이다가 한 번만 움직임) 판정이 보관이 52주로 늘어도 같은 뜻을 지킨다.
+_REV_SCREEN_MIN_DAYS = 91
 
 # ─── 분모 가드 (260921) ───────────────────────────────────────────────────────
 # `_pct` 의 분모는 |기준값| 이라 **기준 영업이익이 0 에 가까우면 %가 폭주한다.** 적자가 깊어진
@@ -229,17 +240,23 @@ def _pct(now: Any, base: Any) -> float | None:
         return None
 
 
-def compute_revision(hist: list[dict[str, Any]], windows=_REV_WINDOWS) -> dict[str, Any]:
+def compute_revision(hist: list[dict[str, Any]], windows=_REV_WINDOWS_ALL, *,
+                     long_needs_history: bool = True) -> dict[str, Any]:
     """`fwd_hist` 추정 행들(dict: as_of·period·period_type·<metrics>) → 리비전 표.
 
     반환:
       as_of_latest, snapshots(이력 날짜 수), baselines{win: {as_of, days, partial}},
       rows[{period, period_type, now{...}, vs{win: {as_of, <metric>_pct...}}}],
-      summary{win: {up, down, flat, n, basis:"op_krw"}}
+      summary{win: {up, down, flat, n, basis:"op_krw"}},
+      first_as_of·history_weeks(이력의 첫 스냅샷과 그 뒤 주 수), windows_not_reached(이력이 못 닿아 뺀 긴 창)
     hist 가 비면 rows=[] 로 돌려준다 — 호출부가 「자료 없음」으로 말한다.
+
+    long_needs_history: 26w·52w 를 **이력이 앞 창보다 길 때만** 싣는다(종목 단위 bundle=revision).
+      False 면 1w·4w·12w 처럼 짧아도 가장 오래된 스냅샷과 부분 비교로 싣는다(유니버스 스크린 — 고른 창 하나를 낸다).
     """
     if not hist:
-        return {"as_of_latest": None, "snapshots": 0, "baselines": {}, "rows": [], "summary": {}}
+        return {"as_of_latest": None, "snapshots": 0, "baselines": {}, "rows": [], "summary": {},
+                "first_as_of": None, "history_weeks": 0, "windows_not_reached": []}
     import datetime as _dt
 
     def _d(v: Any) -> _dt.date:
@@ -251,7 +268,10 @@ def compute_revision(hist: list[dict[str, Any]], windows=_REV_WINDOWS) -> dict[s
     days = sorted(by_day)
     latest = days[-1]
     baselines: dict[str, dict[str, Any]] = {}
+    not_reached: list[str] = []
+    prev_base: _dt.date | None = None
     for name, span in windows:
+        long = name in _REV_LONG_NAMES and long_needs_history
         target = latest - _dt.timedelta(days=span)
         cands = [d for d in days if d <= target]
         if cands:
@@ -259,9 +279,16 @@ def compute_revision(hist: list[dict[str, Any]], windows=_REV_WINDOWS) -> dict[s
         else:
             older = [d for d in days if (latest - d).days >= _REV_MIN_GAP_DAYS]
             if not older:
+                if long:
+                    not_reached.append(name)
                 continue
             b, partial = older[0], True
+            if long and b == prev_base:
+                # 앞 창(12w·26w)과 같은 날짜와 비교하게 된다 — 이 창이 따로 말해 주는 것이 없다.
+                not_reached.append(name)
+                continue
         baselines[name] = {"as_of": b.isoformat(), "days": (latest - b).days, "partial": partial}
+        prev_base = b
 
     rows: list[dict[str, Any]] = []
     summary: dict[str, dict[str, Any]] = {n: {"up": 0, "down": 0, "flat": 0, "n": 0, "basis": "op_krw"}
@@ -288,36 +315,73 @@ def compute_revision(hist: list[dict[str, Any]], windows=_REV_WINDOWS) -> dict[s
                 s["up" if op > 0.5 else "down" if op < -0.5 else "flat"] += 1
         rows.append({"period": period, "period_type": ptype, "now": now, "vs": vs})
     return {"as_of_latest": latest.isoformat(), "snapshots": len(days),
-            "baselines": baselines, "rows": rows, "summary": summary}
+            "baselines": baselines, "rows": rows, "summary": summary,
+            "first_as_of": days[0].isoformat(), "history_weeks": (latest - days[0]).days // 7,
+            "windows_not_reached": not_reached}
 
 
-_hist_cache: dict[str, Any] = {"at": 0.0, "ok": None}
+_hist_cache: dict[str, Any] = {"at": 0.0, "ok": None, "cal": False, "latest": None}
 
 
 def _hist_available() -> bool | None:
     """`fwd_hist` 표가 있나 — 10분 캐시. None = DB 장애.
     없는 표를 바로 질의하면 db.pg_rows 가 풀을 60초 내린다(질의 오류를 장애로 본다) —
-    그래서 `to_regclass` 로 먼저 묻는다. 이건 표가 없어도 오류가 아니다."""
+    그래서 `to_regclass` 로 먼저 묻는다. 이건 표가 없어도 오류가 아니다.
+    같은 질의가 저장 모양(주별 / 달력 — `open_proxy_mcp/fwd_window.py`)도 알아 두고, 달력 모양이면
+    달력의 최신 날짜를 함께 캐시한다(이력 질의의 창 조건·「최신 스냅샷에 없음」 표시가 쓴다)."""
+    from open_proxy_mcp import fwd_window as fw
+
     now = time.monotonic()
     if _hist_cache["ok"] is not None and now - _hist_cache["at"] < 600:
         return _hist_cache["ok"]
-    r = pg_rows("SELECT to_regclass('public.fwd_hist') IS NOT NULL")
+    r = pg_rows(fw.PROBE_SQL)
     if r is None:
         return None
-    _hist_cache.update(at=now, ok=bool(r and r[0][0]))
+    ok, cal = fw.parse_probe(r[0] if r else None)
+    latest = None
+    if cal:
+        lr = pg_rows(fw.LATEST_SQL_CALENDAR)
+        if lr is None:
+            return None
+        latest = lr[0][0] if lr else None
+    _hist_cache.update(at=now, ok=ok, cal=cal, latest=latest)
     return _hist_cache["ok"]
 
 
+def _hist_on_calendar() -> bool:
+    """`fwd_hist` 가 게시 달력 위의 뷰인가(구간형 저장 뒤). `_hist_available()` 이 채운 값을 읽는다 — 모르면 주별 모양."""
+    return bool(_hist_cache.get("cal"))
+
+
+def _db_hist_weeks() -> int:
+    """DB 가 담는 이력 주 수 — 주별 모양 13, 달력 모양은 창(`FWD_HOT_WEEKS`, 기본 52). 안내 문구가 쓴다."""
+    from open_proxy_mcp import fwd_window as fw
+    return fw.hot_weeks() if _hist_on_calendar() else fw.LEGACY_HIST_WEEKS
+
+
+def _hist_source_note() -> str:
+    """리비전 출처 한 줄 — 실제 보관을 말한다(주별 모양 13주 / 달력 모양 창 52주). 창 밖은 DB 밖 보관본이다."""
+    return (f"출처 `fwd_hist`(주 1회 토 스냅샷 — DB 에는 최근 {_db_hist_weeks()}주를 두고, 그보다 오래된 주는 "
+            "DB 밖 보관본에만 있어 이 도구가 읽지 않는다)")
+
+
 def _fetch_hist(stock_code: str) -> list[dict[str, Any]] | None:
-    """`fwd_hist` 추정 행 전부(13주 롤링이라 많아야 ~150행). None = DB 장애. [] = 표 없음/이력 없음."""
+    """`fwd_hist` 추정 행 전부(DB 창 안 — 주별 모양 13주, 달력 모양 52주). None = DB 장애. [] = 표 없음/이력 없음."""
+    from open_proxy_mcp import fwd_window as fw
+
     avail = _hist_available()
     if avail is None:
         return None
     if not avail:
         return []
     cols = ("as_of", "period", "period_type") + _REV_METRICS
-    rows = pg_rows(f"SELECT {', '.join(cols)} FROM fwd_hist "
-                   "WHERE stock_code=%s AND is_estimate ORDER BY as_of", (stock_code,))
+    sql = f"SELECT {', '.join(cols)} FROM fwd_hist WHERE stock_code=%s AND is_estimate"
+    params: tuple = (stock_code,)
+    if _hist_on_calendar():
+        # 창 밖 날짜는 판 일부가 이미 보관본으로 옮겨졌을 수 있다 — 읽지 않는다(`fwd_window` 「창」).
+        sql += " AND " + fw.window_cond()
+        params += (fw.window_days(),)
+    rows = pg_rows(sql + " ORDER BY as_of", params)
     if rows is None:
         return None
     return [dict(zip(cols, r)) for r in rows]
@@ -415,6 +479,28 @@ def _fetch(stock_code: str, colmap: dict[str, str]) -> list[dict[str, Any]] | No
             rec[n] = v
         out.append(rec)
     return out
+
+
+def _stale_snapshot_warning(as_of: Any) -> str | None:
+    """종목의 최신 스냅샷이 전체 최신 스냅샷보다 이르면 경고 한 줄, 아니면 None.
+
+    `_fetch` 는 그 종목이 있는 가장 늦은 날을 읽는다. 주별 모양은 88칸을 4주만 담아 늦어 봐야 3주였지만, 달력 모양은
+    창(52주) 안 어느 주든 될 수 있다 — 수집 대상에서 빠진 종목(상장폐지·거래정지 등)의 반년 전 값을 「지금」으로
+    읽으면 안 된다. 달력의 최신 날짜는 `_hist_available()` 캐시(10분)에서 꺼낸다. 주별 모양이거나 모르면 None —
+    주별 모양의 응답은 종전과 같다."""
+    import datetime as _dt
+
+    if not as_of or not _hist_available() or not _hist_on_calendar():
+        return None
+    latest = _hist_cache.get("latest")
+    if latest is None:
+        return None
+    mine = as_of if isinstance(as_of, _dt.date) else _dt.date.fromisoformat(str(as_of)[:10])
+    if mine >= latest:
+        return None
+    return (f"⚠ 이 종목은 최신 컨센서스 스냅샷({latest.isoformat()})에 없다 — 위 값은 **{mine.isoformat()} 스냅샷**"
+            f"({(latest - mine).days}일 전)이다. 그 뒤 수집 대상에서 빠졌다(상장폐지·거래정지·커버리지 제외 등). "
+            "지금의 컨센서스로 읽지 말 것.")
 
 
 def _period_sort_key(p: str) -> tuple:
@@ -674,11 +760,14 @@ async def build_forward_estimates_payload(
         if dd.replace("-", "") != as_of.replace("-", ""):
             warnings.append(f"⚠ 스냅샷 날짜({as_of})와 **주가 날짜({dd})가 다르다** — 배수는 "
                             f"{dd} 종가로 계산됐다. 「{as_of} 기준 PER」이라고 쓰지 말 것.")
+    stale = await asyncio.to_thread(_stale_snapshot_warning, env.get("as_of"))
+    if stale:
+        warnings.append(stale)
 
     absent = {k: v for k, v in _ABSENT_ON_ESTIMATE.items()
               if _spec(k)[2] in bundles} if est_rows else {}
 
-    # ── revision: 1주·4주·12주 전 대비 (fwd_hist) ──────────────────────────────────
+    # ── revision: 1주·4주·12주(+이력이 닿으면 26주·52주) 전 대비 (fwd_hist) ─────────────
     revision: dict[str, Any] | None = None
     if "revision" in bundles and est_rows:
         hist = await asyncio.to_thread(_fetch_hist, isu)
@@ -698,6 +787,10 @@ async def build_forward_estimates_payload(
                     if b["partial"]:
                         warnings.append(f"리비전 {name}: 이력이 {b['days']}일치뿐이라 가장 오래된 "
                                         f"스냅샷({b['as_of']})과 비교했다 — **{name} 가 아니다**, 이력이 짧아 부분 비교다.")
+            if revision["rows"] and revision["windows_not_reached"]:
+                warnings.append(f"리비전 {'·'.join(revision['windows_not_reached'])}: 이 종목 이력이 "
+                                f"{revision['history_weeks']}주({revision['first_as_of']}~)뿐이라 싣지 않았다 — "
+                                f"이력이 그만큼 쌓이면 나온다(DB 에는 최근 {_db_hist_weeks()}주를 둔다).")
 
     ruler = {
         "as_of": str(env.get("as_of")) if env.get("as_of") else None,
@@ -734,14 +827,17 @@ async def build_forward_estimates_payload(
                                       "추정 행에 아예 채우지 않는 종류라서 비어 있다. "
                                       "회사 특성으로 읽지 말 것.")
     if revision is not None:
-        revision["note"] = ("기준일은 목표일(1w=7일·4w=28일·12w=91일) **이전의 가장 가까운 주간 스냅샷**. "
+        revision["db_window_weeks"] = _db_hist_weeks()
+        revision["note"] = ("기준일은 목표일(1w=7일·4w=28일·12w=91일·26w=182일·52w=364일) "
+                            "**이전의 가장 가까운 주간 스냅샷**. 26w·52w 는 이력이 앞 창보다 길 때만 싣는다. "
                             "%는 (지금−기준)/|기준|. 방향 집계는 FY 추정 행의 영업이익 기준 상향/하향 개수"
-                            "(±0.5% 안은 flat). 출처 `fwd_hist`(주 1회 토, 13주 롤링) — 그 너머는 없다.")
+                            "(±0.5% 안은 flat). " + _hist_source_note() + ".")
         data["revision"] = revision
     if len(bundles) < len(_BUNDLES):
         data["more"] = ("더 필요하면 bundle 을 넓히세요 — "
                         "growth(성장률·전기값·PEG) · quality(수익성·재무비율) · "
-                        "keys(내부키·회계연도 칸) · revision(1주·4주·12주 전 대비 추정 변화) · all(전부). "
+                        "keys(내부키·회계연도 칸) · revision(1주·4주·12주 전 대비 추정 변화 — 이력이 닿으면 "
+                        "26주·52주도) · all(전부). "
                         "기본 core 는 크기를 줄이려고 자른 것이지 그것이 정답이라서가 아니다.")
     return {"tool": TOOL, "status": "ok" if est_rows else "no_estimates",
             "subject": subject, "data": data, "warnings": warnings}
@@ -759,9 +855,20 @@ _REV_SCREEN_COLS: tuple[str, ...] = ("stock_code", "as_of", "period", "period_ty
 _REV_SCREEN_MD_MAX = 300
 
 
-def _fetch_hist_many(codes: list[str] | None, period_type: str) -> list[tuple] | None:
+def _screen_span_days(window_days: int) -> int:
+    """유니버스 스크린이 읽는 이력 폭(일): 창 + 1주(기준일이 목표일보다 며칠 이를 수 있다), 적어도 13주, 많아야 DB 창."""
+    from open_proxy_mcp import fwd_window as fw
+    return min(fw.window_days(), max(_REV_SCREEN_MIN_DAYS, window_days + 7))
+
+
+def _fetch_hist_many(codes: list[str] | None, period_type: str,
+                     span_days: int | None = None) -> list[tuple] | None:
     """유니버스의 `fwd_hist` 추정 행을 한 질의로. codes=None 이면 커버리지 전 종목.
-    None = DB 장애 · [] = 표 없음/이력 없음."""
+    None = DB 장애 · [] = 표 없음/이력 없음.
+    span_days: 달력 모양(이력 52주)에서 최신 날짜부터 읽을 일수 — 전 종목 52주를 매번 읽지 않는다
+    (로컬 2년 합성 실측: 전 이력 210ms → 13주 67ms). 주별 모양은 13주뿐이라 붙이지 않는다(질의 그대로)."""
+    from open_proxy_mcp import fwd_window as fw
+
     avail = _hist_available()
     if avail is None:
         return None
@@ -775,6 +882,9 @@ def _fetch_hist_many(codes: list[str] | None, period_type: str) -> list[tuple] |
     if codes is not None:
         sql += " AND stock_code = ANY(%s)"
         params.append(codes)
+    if _hist_on_calendar():
+        sql += " AND " + fw.window_cond()
+        params.append(min(fw.window_days(), span_days) if span_days else fw.window_days())
     sql += " ORDER BY stock_code, as_of"
     return pg_rows(sql, tuple(params))
 
@@ -836,7 +946,8 @@ def _rank_basis(pct: float | None, base_op: float | None) -> str:
 def _screen_row(code: str, hist: list[dict[str, Any]], win: str,
                 meta: dict[str, Any]) -> dict[str, Any] | None:
     """종목 하나의 이력 → 스크린 한 행. 초점은 **가장 가까운 연간 추정 기간**(FY 가 없으면 첫 행)."""
-    rev = compute_revision(hist)
+    # 고른 창 하나를 낸다 — 26w·52w 도 이력이 짧으면 가장 오래된 스냅샷과 부분 비교(「이력 짧음」)로 싣는다.
+    rev = compute_revision(hist, long_needs_history=False)
     if not rev["rows"]:
         return None
     fy = [x for x in rev["rows"] if x["period_type"] == "FY"] or rev["rows"]
@@ -886,7 +997,7 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
 
     raw = (universe or "").strip()
     win = (window or "4w").strip().lower()
-    windows = dict(_REV_WINDOWS)
+    windows = dict(_REV_WINDOWS_ALL)        # 26w·52w(261018) — 이력이 짧으면 행마다 「이력 짧음」
     if win not in windows:
         return {"tool": TOOL, "status": "invalid", "subject": raw,
                 "warnings": [f"window '{window}' 없음 — {' / '.join(windows)} 중 선택."]}
@@ -909,7 +1020,8 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
         return {"tool": TOOL, "status": "no_data", "subject": subject,
                 "warnings": [ul.notice or "유니버스를 해석하지 못했다 — 표현을 바꿔 다시 부를 것."]}
     codes = [r["ticker"] for r in ul.rows]
-    rows = await asyncio.to_thread(_fetch_hist_many, codes if codes else None, pt)
+    rows = await asyncio.to_thread(_fetch_hist_many, codes if codes else None, pt,
+                                   _screen_span_days(windows[win]))
     if rows is None:
         return {"tool": TOOL, "status": "db_error", "subject": subject,
                 "warnings": ["리비전 이력(`fwd_hist`) 조회 실패 — **장애**다, 자료 없음이 아니다. 재시도할 것."]}
@@ -1022,7 +1134,7 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
                  "`sole_update` 는 관측 구간 내내 같다가 이번 한 번만 움직인 행 — 누적 추세가 아니라 단발 "
                  "갱신이라는 **사실만** 말한다. 원인(재편·커버리지·갱신 주기)은 판정하지 않는다. "
                  "비교 불가(변화율 없음)는 순위 밖. "
-                 "출처 `fwd_hist`(주 1회 토, 13주 롤링) — 그 너머는 없다. 컨센서스 스냅샷이지 DART 공시가 아니다."),
+                 + _hist_source_note() + ". 컨센서스 스냅샷이지 DART 공시가 아니다."),
     }
     return {"tool": TOOL, "status": "ok" if out else "no_estimates", "subject": subject,
             "data": data, "warnings": warnings}

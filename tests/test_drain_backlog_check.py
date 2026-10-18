@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import psycopg
 import pytest
 
+from open_proxy_mcp import fwd_window
 from scripts import drain_backlog_check as checker
 from scripts.drain_backlog_check import _snapshot_week_stats
 
@@ -36,10 +37,14 @@ class FakeResult:
 class FakeConnection:
     """Read-only synthetic DB boundary; unknown SQL is always a test failure."""
 
-    def __init__(self, *, events=None, size_mb=100, fwd=None, hist=None, fail_on=None):
+    def __init__(self, *, events=None, size_mb=100, fwd=None, hist=None, fail_on=None,
+                 calendar=None, stale_versions=(0, None)):
         self.events = [checker._to_ns(NOW)] if events is None else events
         self.size_mb = Decimal(str(size_mb))
         self.snapshots = {"fwd": fwd, "fwd_hist": hist}
+        # calendar = 게시 달력 날짜(구간형 저장 뒤 — 뷰가 `fwd_asof` 를 읽는다). None 이면 주별 모양.
+        self.calendar = calendar
+        self.stale_versions = stale_versions
         self.fail_on = fail_on
         self.calls = []
         self.autocommit = False
@@ -61,8 +66,18 @@ class FakeConnection:
             return FakeResult([(sum(ts >= params[0] for ts in self.events),)])
         if query == "SELECT pg_database_size(current_database())/1024.0/1024":
             return FakeResult([(self.size_mb,)])
+        if query == " ".join(fwd_window.PROBE_SQL.split()):
+            exists = self.calendar is not None or self.snapshots["fwd_hist"] is not None
+            return FakeResult([(exists, self.calendar is not None)])
+        if query == "SELECT to_regclass(%s) IS NOT NULL" and params[0] == "public.fwd_fact_ver":
+            return FakeResult([(self.calendar is not None,)])
         if query == "SELECT to_regclass(%s) IS NOT NULL":
             return FakeResult([(self.snapshots[params[0].split(".")[-1]] is not None,)])
+        if query == "SELECT as_of FROM fwd_asof ORDER BY 1" and self.calendar is not None:
+            return FakeResult([(day,) for day in sorted(self.calendar)])
+        if query == "SELECT count(*), min(valid_to) FROM fwd_fact_ver WHERE valid_to <= %s" and self.calendar:
+            self.grace = params[0]
+            return FakeResult([self.stale_versions])
         for table, days in self.snapshots.items():
             if query == f"SELECT DISTINCT as_of FROM {table} ORDER BY 1":
                 return FakeResult([(day,) for day in sorted(set(days))])
@@ -384,3 +399,98 @@ def test_github_annotation_distinguishes_attention_from_error(harness, capsys):
     output = capsys.readouterr().out
     assert "::error title=drain-backlog CHECK_ERROR::" in output
     assert "::warning" not in output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# 261018 — 구간형 저장 뒤(달력 모양): fwd·fwd_hist 가 같은 게시 달력을 읽고 창 FWD_HOT_WEEKS(기본 52주)를 담는다
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+def test_legacy_shape_keeps_the_4_and_13_week_limits_and_the_same_queries(harness, capsys):
+    """뷰가 아직 주별 표 위면(교체 전) 상한·질의·문구가 종전 그대로다 — 달력 질의를 하지 않는다."""
+    connect, _ = harness
+    con = FakeConnection(events=[], fwd=_weekly_dates(5), hist=_weekly_dates(13))
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 1                                       # fwd 5주 > 4주
+
+    output = capsys.readouterr().out
+    assert "보존 한도 4주" in output and "롤링 13주" in output and "5주차를 이력으로 넘기지 못했다" in output
+    queries = [sql for sql, _ in con.calls]
+    assert not any("fwd_asof ORDER BY" in q or "fwd_fact_ver" in q for q in queries)
+
+
+def test_calendar_shape_allows_the_full_window(harness, capsys):
+    """달력 모양: 4주·13주가 아니라 창 52주(+양 끝 1주)가 상한이다 — 52주를 담는 것이 정상이다."""
+    connect, _ = harness
+    con = FakeConnection(events=[], calendar=_weekly_dates(53))
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 0
+
+    output = capsys.readouterr().out
+    assert "게시 달력 53벌 · 53주" in output and "창 52주(양 끝 포함 53주까지)" in output
+    assert "상태: OK" in output
+    queries = [sql for sql, _ in con.calls]
+    assert "SELECT DISTINCT as_of FROM fwd ORDER BY 1" not in queries          # 뷰 DISTINCT 대신 달력
+    assert "SELECT DISTINCT as_of FROM fwd_hist ORDER BY 1" not in queries
+    assert con.grace == _weekly_dates(1)[0] - timedelta(days=52 * 7 + 7)     # 창 + 1주 늦음까지 봐 준다
+
+
+def test_calendar_shape_flags_a_calendar_longer_than_the_window(harness, capsys):
+    connect, summary = harness
+    con = FakeConnection(events=[], calendar=_weekly_dates(54))
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 1
+
+    output = capsys.readouterr().out
+    assert "게시 달력 54주가 창(허용 53주)보다 길다" in output and "창 정리" in output
+    assert "5주차를 이력으로" not in output                                   # 주별 모양의 조치를 안내하지 않는다
+    assert "ATTENTION_NEEDED" in summary.read_text()
+
+
+def test_calendar_shape_flags_closed_versions_left_outside_the_window(harness, capsys):
+    connect, _ = harness
+    con = FakeConnection(events=[], calendar=_weekly_dates(10), stale_versions=(1234, date(2024, 1, 6)))
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 1
+
+    output = capsys.readouterr().out
+    assert "창 밖 닫힌 판 1,234개가 1주 넘게 남았다" in output
+
+
+def test_calendar_shape_flags_same_week_duplicates(harness, capsys):
+    connect, _ = harness
+    con = FakeConnection(events=[], calendar=[THIS_WEEK.date(), (THIS_WEEK + timedelta(days=1)).date()])
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 1
+
+    output = capsys.readouterr().out
+    assert "게시 달력 같은 ISO 주에 날짜가 1개 더 있다" in output and "주 1벌 계약" in output
+
+
+def test_calendar_window_follows_the_setting(harness, monkeypatch, capsys):
+    """창은 설정값(`FWD_HOT_WEEKS`) — 예산 규칙으로 26주로 줄이면 감시도 27주를 상한으로 본다."""
+    connect, _ = harness
+    monkeypatch.setenv("FWD_HOT_WEEKS", "26")
+    con = FakeConnection(events=[], calendar=_weekly_dates(28))
+    connect.side_effect = None
+    connect.return_value = con
+
+    assert checker.main() == 1
+
+    assert "게시 달력 28주가 창(허용 27주)보다 길다" in capsys.readouterr().out
+
+
+def test_workflow_no_longer_pins_the_legacy_limits():
+    """주간 감시 워크플로가 4·13 을 박아 두면 교체 뒤 52주를 담는 정상 상태가 매주 실패한다 — 모양별 기본값을 쓴다."""
+    from pathlib import Path
+    wf = (Path(__file__).resolve().parents[1] / ".github/workflows/drain-backlog-weekly.yml").read_text(encoding="utf-8")
+    run = [ln for ln in wf.splitlines() if "drain_backlog_check.py" in ln and "run:" in ln]
+    assert run and all("--fwd-max-weeks" not in ln and "--hist-max-weeks" not in ln for ln in run)
