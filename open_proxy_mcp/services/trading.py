@@ -29,7 +29,7 @@ from open_proxy_mcp.company_resolver import share_class_ticker
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 from open_proxy_mcp.krx_daily import read_quote
 
-from open_proxy_mcp.krx_retention import COLD_DEGRADED_NOTE, weekly_cold_note, weekly_window_note
+from open_proxy_mcp.krx_retention import weekly_window_note
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.company import COMPANY_LOOKUP_NEXT_ACTION, company_not_found_warning
@@ -47,6 +47,7 @@ from open_proxy_mcp.services.price_multiple_data import (
     _resolve_listed,
     _weekly_bounds,
 )
+from open_proxy_mcp.krx_retention import COLD_DEGRADED_NOTE, weekly_cold_note   # 261019 콜드 서빙(3년 하한 이전 주간 곡선)
 
 TOOL = "trading_data"
 
@@ -324,15 +325,21 @@ async def build_firm_series_payload(company: str, format: str = "md",
         f"연속이지만 주가는 끊깁니다."]
     if not cold_used and (not req or req < floor):
         warns.append(window_note)
+    elif cold_used and cold.first_cold:      # 261019: 하한 이전을 보관본에서 이었다 — 이음매 문장(값·주 정의는 같다)
+        warns.append(weekly_cold_note(cold.first_cold, cold.seam))
     if ev:
         warns.append(f"⚠ 구간 내 기준가 조정 {len(ev)}회 "
                      f"({', '.join(f'{d}(×{c:g})' for d, c in ev[:5])}"
                      f"{' …' if len(ev) > 5 else ''}) — 가격 시계열이 그 지점에서 불연속입니다. "
                      f"연속 비교가 필요하면 시가총액을 쓰세요(조정 불변).")
-    out = {"tool": TOOL, "status": "ok",
+    return {"tool": TOOL, "status": "ok",
             "subject": _subject(corp, company, ticker, class_note),
             "data": {"scope": "firm", "ticker": ticker,
                      **({"issuer_ticker": (corp.get("stock_code") or "").strip()} if class_note else {}),
+                     # 261019(설계 v03 D2): 콜드 서빙으로 이었을 때만 cold_until·sources — 꺼짐·강등 응답은 칸이 종전 그대로다
+                     **({"cold_until": cold.seam,
+                         "sources": {"cold": cold.n_cold, "db_weekly": len(full) - cold.n_cold - int(daily_end),
+                                     "db_daily_tail": int(daily_end)}} if cold_used else {}),
                      "market": rows[-1][1],
                      "as_of": latest["asof"], "from": first["asof"],
                      "weekly_from": cold.start if cold_used else floor, "points": len(series),
@@ -340,15 +347,8 @@ async def build_firm_series_payload(company: str, format: str = "md",
                      "latest": latest, "series": series,
                      "price_adjusted": False,
                      "adj_events": [{"event_dd": d, "adj_factor": float(c)} for d, c in ev],
-                     "method": _FIRM_METHOD_TAIL if daily_end else _FIRM_METHOD_WEEKLY,
-                     # 261019(설계 v03 D2): 콜드 서빙으로 이었을 때만 — 꺼짐·강등 응답은 칸이 종전 그대로다
-                     **({"cold_until": cold.seam,
-                         "sources": {"cold": cold.n_cold, "db_weekly": len(full) - cold.n_cold - int(daily_end),
-                                     "db_daily_tail": int(daily_end)}} if cold_used else {})},
+                     "method": _FIRM_METHOD_TAIL if daily_end else _FIRM_METHOD_WEEKLY},
             "warnings": warns}
-    if cold_used and cold.first_cold:
-        out["data"]["method"] += " " + weekly_cold_note(cold.first_cold, cold.seam)
-    return out
 
 
 # ── 2. 시장·섹터 시총 집계 ────────────────────────────────────────────────────

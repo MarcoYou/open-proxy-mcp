@@ -135,7 +135,9 @@ def test_cold_joins_three_years_back_without_duplicates(monkeypatch, cold_servin
     # DB 질의는 종전과 같다(하한 = DB 주간 구간 시작) — 콜드가 DB 질의를 바꾸지 않는다
     assert [c for c in calls if "FROM krx_weekly" in c[0]][0][1] == ("005930", "20231016")
     assert not any("주간 시세는 최근 3년까지 제공" in w for w in p["warnings"]) and NOTE not in p["warnings"]
-    assert "보관본(DB 밖 서빙본)" in d["method"] and "2015-12-30" in d["method"]
+    seam_note = [w for w in p["warnings"] if "보관본(DB 밖 서빙본)" in w]
+    assert len(seam_note) == 1 and "2015-12-30" in seam_note[0] and "2023-10-16" in seam_note[0]
+    assert d["method"] == T._FIRM_METHOD_WEEKLY                    # 출처 설명은 종전 그대로(이음매는 경고 줄에)
     # 값은 서빙본 그대로(종가·시총 = 종가 × 주식수)
     first = d["series"][0]
     assert (first["close_krw"], first["mktcap_krw"], first["list_shrs"]) == (25_000, 25_000 * SH, SH)
@@ -242,7 +244,7 @@ def test_stock_listed_after_the_seam_does_not_claim_archive_rows(monkeypatch, co
     p, _ = _firm(monkeypatch, weekly=[_w("20251128", 300_000), _w("20251205", 310_000)])
     d = p["data"]
     assert d["sources"]["cold"] == 0 and d["from"] == "20251128"
-    assert "보관본(DB 밖 서빙본)" not in d["method"]                 # 이은 것이 없으면 출처 문장도 없다
+    assert not any("보관본(DB 밖 서빙본)" in w for w in p["warnings"])   # 이은 것이 없으면 이음매 문장도 없다
     md = _render_firm(p)
     assert "주간 곡선 2개(20251128~)" in md and "이전은 보관본" not in md
     assert not any("최근 3년까지" in w for w in p["warnings"])         # 보관본을 봤고 그 전 시세가 없다 — 3년 안내는 필요 없다
