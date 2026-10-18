@@ -234,3 +234,52 @@ def test_krw_scaled_keeps_small_cap_visible():
     assert krw_scaled(6_156_000_000_000_000).startswith("6,156.0조")
     assert krw_scaled(None) == "-"
     assert krw_scaled(0) == "0원"
+
+
+# ── 261018: 업종분류 보강 뒤 섹터 시계열 — 보존 하한 앞뒤 계단, 최신에 없는 미분류 버킷 ──
+
+def _sector_db(monkeypatch, latest_buckets, series_rows):
+    """krx_cap_agg 두 질의(최신 시점 버킷 · 버킷 시계열)를 흉내 낸다. DB 0콜."""
+    from open_proxy_mcp.services import trading as svc
+    seen = []
+
+    def fake(sql, args=()):
+        seen.append((sql, args))
+        if "max(price_dd)" in sql:
+            return [(m, b, lab, cap, n, "20261016", "20261016") for m, b, lab, cap, n in latest_buckets]
+        return [r for r in series_rows if r[0] >= (args[2] if len(args) > 2 else "")]
+    monkeypatch.setattr(svc, "_pg_rows", fake)
+    return svc, seen
+
+
+_HEALTH_SERIES = [("20231013", "KQ", 70 * 10**12, 228), ("20231020", "KQ", 68 * 10**12, 258),
+                  ("20261016", "KQ", 90 * 10**12, 290)]
+
+
+def test_sector_series_spanning_the_reclass_boundary_warns_about_the_step(monkeypatch):
+    """보존 하한 이전 집계는 업종분류 보강(이어 쓰기·우선주·기업 화면) 전 값이다 — 그 경계를 넘는 시계열은 계단을 말해야 한다
+    (실측: 코스닥 건강관리 20231013 228 → 20231020 258종목, 실제 편입이 아님)."""
+    import asyncio
+    svc, _ = _sector_db(monkeypatch, [("KQ", "G35", "건강관리", 90 * 10**12, 290)], _HEALTH_SERIES)
+    p = asyncio.run(svc.build_cap_agg_payload("sector", bucket="건강관리", freq="weekly"))
+    assert p["status"] == "ok" and any("계단" in w and svc._SECTOR_RECLASS_SINCE in w for w in p["warnings"])
+    p = asyncio.run(svc.build_cap_agg_payload("sector", bucket="건강관리", freq="weekly", since="20231020"))
+    assert not any("계단" in w for w in p["warnings"]), "경계 뒤 구간만이면 경고하지 않는다"
+    p = asyncio.run(svc.build_cap_agg_payload("sector"))
+    assert not any("계단" in w for w in p["warnings"]), "시계열이 없으면(최신 버킷만) 경고하지 않는다"
+
+
+def test_unclassified_series_stays_reachable_when_latest_has_none(monkeypatch):
+    """최신 시점 미분류가 0 이면 최신 버킷 목록에 `_UNCLASSIFIED` 가 없다 — 그래도 과거 미분류 시계열은 물을 수 있어야 한다
+    (261018 전에는 최신에 미분류가 있어 되던 요청이다)."""
+    import asyncio
+    unc = [("20231020", "KQ", 21 * 10**12, 162), ("20261008", "KQ", 2 * 10**12, 10)]
+    svc, seen = _sector_db(monkeypatch, [("KQ", "G35", "건강관리", 90 * 10**12, 290)], unc)
+    for want in ("미분류", "_UNCLASSIFIED"):
+        p = asyncio.run(svc.build_cap_agg_payload("sector", bucket=want, freq="weekly"))
+        assert p["status"] == "ok" and p["data"]["bucket"] == "미분류"
+        assert [s["n"] for s in p["data"]["series"]] == [162, 10]
+        assert any("미분류는 0종목" in w for w in p["warnings"])
+    assert any(args[1] == "_UNCLASSIFIED" for _, args in seen if len(args) > 1)
+    p = asyncio.run(svc.build_cap_agg_payload("sector", bucket="없는섹터"))
+    assert p["status"] == "not_found"

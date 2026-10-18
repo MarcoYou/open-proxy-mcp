@@ -97,7 +97,7 @@ def test_cross_section_reads_one_day_of_the_daily_store(rec, monkeypatch):
     monkeypatch.setattr(psycopg, "connect", lambda *a, **k: _Rec(rec, [("005930", 10)]))   # 시총 맵은 (코드, 시총) 두 칸
     assert S._krx_mktcap_map(["005930", "000660"], "20260821") == {"005930": 10}
     latest, top, market, cap = (sql for sql, _ in rec[-4:])
-    assert latest == "SELECT max(trd_dd) FROM krx_daily"
+    assert latest == "SELECT max(dd) FROM krx_day WHERE n > 0"          # 261019: 기준일은 달력에서
     for sql in (top, market, cap):
         assert "FROM krx_daily_v WHERE trd_dd=%s" in sql
     for sql in (latest, top, market, cap):

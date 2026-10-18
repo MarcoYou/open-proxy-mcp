@@ -110,6 +110,9 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
                 selected.get("corp_name", ""),
                 meta.get("match_kind", ""),
                 int(meta.get("candidate_count") or len(candidates) or 1),
+                # 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정했으면 「상장폐지·코넥스 등」 고지를 덧붙인다.
+                inactive=({"ticker": selected.get("stock_code", ""), "as_of": meta.get("market_data_as_of") or ""}
+                          if meta.get("inactive_listing") else None),
             )
     return status, selected, candidates
 
@@ -307,7 +310,17 @@ def _resolution_reasons(
     kind: str,
     active_registry_used: bool,
     ranking_signal: str,
+    inactive_listing: bool = False,
 ) -> dict[str, str]:
+    if inactive_listing:
+        # 261018: 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정(`CompanyResolver._inactive_single`) — 「활성 상장사 후보 중 시총 우선」이 아니다.
+        how_ko = "입력 토큰을 모두 포함하는" if kind == "token" else "부분 회사명과 일치하는"
+        how_en = "All query tokens matched" if kind == "token" else "Partial name matched"
+        return {
+            "ko": f"활성 상장사에는 후보가 없고, {how_ko} 비활성(상장폐지·합병·코넥스 등) 회사가 하나뿐이라 그 회사로 식별",
+            "en": (f"No active listed company matched; {how_en.lower()} exactly one inactive "
+                   "(delisted, merged, KONEX, etc.) company, so it was selected"),
+        }
     ko_universe = "활성 상장사" if active_registry_used else "종목코드 보유 법인"
     en_universe = "active listed companies" if active_registry_used else "companies with a ticker"
     _KO_RANK = {"market_cap": "시가총액", "local_popularity_prior": "로컬 인기도 prior",
@@ -322,12 +335,17 @@ def _resolution_reasons(
             "token": f"입력 토큰을 모두 포함하는 {ko_universe} 후보 중 {ko_rank} 우선",
             "substring": f"부분 회사명과 일치하는 {ko_universe} 후보 중 {ko_rank} 우선",
             "fuzzy": f"제한적 오타 교정 후 {ko_universe} 후보 중 {ko_rank} 우선",
+            # 261018: 식별자로 찾은 것을 「공식명 또는 등록 별칭 일치」로 적고 있었다(matched_on 은 ticker 인데 문장은 이름 일치).
+            "ticker": "종목코드 일치",
+            "corp_code": "DART 고유번호(corp_code) 일치",
             "share_class": "종류주(우선주 등) 종목코드 — 발행 회사로 식별",
         }.get(kind, "공식명 또는 등록 별칭 일치"),
         "en": {
             "token": f"All query tokens matched; ranked {en_universe} by {en_rank}",
             "substring": f"Partial name matched; ranked {en_universe} by {en_rank}",
             "fuzzy": f"Applied limited typo correction, then ranked {en_universe} by {en_rank}",
+            "ticker": "Matched the ticker (stock code)",
+            "corp_code": "Matched the DART corp_code",
             "share_class": "Class-share (e.g. preferred) ticker — resolved to the issuing company",
         }.get(kind, "Matched an official name or registered alias"),
     }
@@ -349,10 +367,13 @@ def _resolution_payload(
         bool(meta.get("active_registry_used")),
         # 메타가 비었으면 **없는 근거를 주장하지 않는다** — 원장 최신순이 사실이다.
         str(meta.get("ranking_signal") or "registry_recency"),
+        inactive_listing=bool(meta.get("inactive_listing")),
     )
     reason = reason_i18n["en" if english else "ko"]
     # 종류주 코드로 찾았으면 어느 코드였는지 싣는다(그 밖의 응답은 칸이 늘지 않는다).
     share_class = {"share_class": meta["share_class"]} if meta.get("share_class") else {}
+    # 비활성 회사 하나로 확정했으면 그 사실을 칸으로도 싣는다(그 밖의 응답은 칸이 늘지 않는다).
+    inactive = {"listing_status": "inactive"} if meta.get("inactive_listing") else {}
     return {
         "query": query,
         "response_language": "en" if english else "ko",
@@ -366,6 +387,7 @@ def _resolution_payload(
         "ranking_signal": meta.get("ranking_signal"),
         "alternatives": alternatives,
         **share_class,
+        **inactive,
     }
 
 
@@ -438,7 +460,7 @@ async def build_company_payload(
         warnings = [
             (f"No listed company matched '{query}'. A company that has been renamed will not match "
              "its former name — the registry carries current names only. Retry with the 6-digit "
-             "ticker, which survives a rename.")
+             "ticker, which survives a rename." + _registry_as_of_note(english=True))
             if english else company_not_found_warning(query)
         ]
         if unlisted_only:
@@ -601,7 +623,24 @@ def company_not_found_warning(query: str, *, listed_only: bool = False) -> str:
         f"'{query}'에 해당하는 {subject}를 찾지 못했다. "
         "사명이 바뀐 회사는 옛 이름으로 조회되지 않는다(회사 목록에 현재 사명만 있다) — "
         "종목코드 6자리로 다시 조회하면 사명이 바뀌어도 찾을 수 있다."
+        + _registry_as_of_note()
     )
+
+
+def _registry_as_of_note(english: bool = False) -> str:
+    """「못 찾았다」 끝에 붙이는 회사 명부 기준 시각(261018) — 명부가 낡았을 때만이 아니라 **늘** 싣는다.
+
+    그 시각 뒤에 상장했거나 사명을 바꾼 회사는 명부에 아직 없을 수 있다 — 사용자가 「신규상장이라 아직 없는가」를 스스로 가늠한다.
+    명부는 하루 한 번 + 못 찾았을 때(1시간보다 묵었으면) 새로 받으므로, 여기 시각은 그 시도 뒤의 것이다. 시각을 모르면 붙이지 않는다."""
+    from open_proxy_mcp.dart.client import corp_registry_as_of
+
+    as_of = corp_registry_as_of()
+    if not as_of:
+        return ""
+    if english:
+        return (f" Company registry as of {as_of} (when the DART company list was fetched) — "
+                "a company listed or renamed after that may not be in it yet.")
+    return f" 회사 명부 기준: {as_of}(DART 회사 목록을 받은 시각) — 그 뒤 상장·사명 변경은 아직 명부에 없을 수 있다."
 
 
 #: 회사 미해결 안내의 **다음 경로**. 문구를 tool 마다 지어내지 않게 상수로 둔다.

@@ -48,7 +48,6 @@ from __future__ import annotations
 
 import calendar
 import logging
-import time
 from typing import Any
 
 from open_proxy_mcp.db import pg_rows
@@ -429,33 +428,14 @@ def screen(
     }
 
 
-#: 원장이 담은 사업연도 범위 `(처음, 마지막)` 의 메모리 캐시 TTL. 범위는 새 사업연도를 적재할 때(연 1~2회)만 바뀐다 — 6시간이면 충분하다.
-#: 261018: 이 질의는 `dividend_data` 의 **모든 호출**이 맨 앞에서 한 번씩 물었다. 그런데 `div_declared` 에 인덱스가 없어 표 전체(38,183행·
-#:   1,683쪽)를 읽었다 — 평균 475ms, 차가운 캐시 1.5초(운영 `pg_stat_statements` 335회·`EXPLAIN` 실측). 인덱스(`scripts/div_indexes_ddl.py`)가 있으면
-#:   1ms 미만이지만, 인덱스가 없는 환경(배포가 DDL 보다 먼저 나간 경우 포함)에서도 첫 호출 뒤에는 이 비용이 없다.
-_YEAR_RANGE_TTL_SEC = 6 * 3600.0
-#: ((처음, 마지막), 저장 시각[monotonic]). 튜플 하나를 통째로 바꿔 끼운다 — 스레드 여럿이 읽고 써도 반쪽 값이 보이지 않는다.
-_YEAR_RANGE_CACHE: tuple[tuple[int, int], float] | None = None
-
-
 def year_range() -> tuple[int, int] | None:
-    """원장의 `(처음, 마지막)` 사업연도. **None = 질의 실패 또는 빈 표** — 호출부가 `db_error` 로 낸다.
+    """원장의 `(처음, 마지막)` 사업연도 — **호출마다 DB 에 묻는다**. None = 질의 실패 또는 빈 표 — 호출부가 `db_error` 로 낸다.
 
-    성공한 값만 `_YEAR_RANGE_TTL_SEC` 동안 담는다. 실패·빈 표를 담으면 DB 장애 한 번이 6시간 동안 「조회 실패」로 굳는다.
-    동기 함수다 — async 호출부는 `asyncio.to_thread` 로 부른다(`tools/dividend_data.py`)."""
-    global _YEAR_RANGE_CACHE
-    ent, now = _YEAR_RANGE_CACHE, time.monotonic()
-    if ent is not None and now - ent[1] < _YEAR_RANGE_TTL_SEC:
-        return ent[0]
+    261018: 이 질의가 인덱스 없이 표 전체(38,183행)를 읽던 때(평균 475ms) 6시간 메모리 캐시를 붙였는데(#88), 그 대가로 새 사업연도를
+    적재한 뒤 최대 6시간(머신마다) 기본 연도·범위가 지난해로 남았다. 같은 PR 의 인덱스 `div_declared_yr`(`scripts/div_indexes_ddl.py`)가
+    운영에 있어 이제 MIN·MAX 는 인덱스 양 끝 한 칸씩만 읽는다(운영 EXPLAIN — Index Only Scan, 행 1개씩). 그래서 캐시를 없앴다 —
+    적재 직후 바로 보인다. 동기 함수다 — async 호출부는 `asyncio.to_thread` 로 부른다(`tools/dividend_data.py`)."""
     rows = _rows("SELECT MIN(bsns_year), MAX(bsns_year) FROM div_declared")
     if not rows or rows[0][0] is None:
         return None
-    rng = (rows[0][0], rows[0][1])
-    _YEAR_RANGE_CACHE = (rng, now)
-    return rng
-
-
-def year_range_cache_clear() -> None:
-    """캐시를 비운다 — 테스트와 수동 점검용. 새 사업연도를 적재한 직후 바로 보고 싶을 때도 쓴다."""
-    global _YEAR_RANGE_CACHE
-    _YEAR_RANGE_CACHE = None
+    return (rows[0][0], rows[0][1])

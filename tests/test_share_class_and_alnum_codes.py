@@ -410,13 +410,12 @@ def test_tool_boundary_leaves_declared_and_unrelated_responses_byte_identical():
 # ── 시장 맥락: 종류주 관측표 읽기 (Postgres 17) ──────────────────────────────
 def test_market_context_reads_observed_share_classes_and_survives_a_missing_table(pg17, monkeypatch):
     psycopg = pytest.importorskip("psycopg")
-    from test_krx_daily_pg import _apply
+    from test_krx_daily_pg import _apply, put_daily
 
     _apply(pg17)
     monkeypatch.setenv("DATABASE_URL", pg17)
     with psycopg.connect(pg17, autocommit=True) as c:
-        c.execute("INSERT INTO krx_daily (trd_dd, ticker, market, close, list_shrs) VALUES "
-                  "('20261016', '005930', 'KS', 215500, 10), ('20261016', '005935', 'KS', 167200, 5)")
+        put_daily(c, [("20261016", "005930", "KS", 215500, 10), ("20261016", "005935", "KS", 167200, 5)])
     ctx = CR._database_market_context()                       # 관측표가 아직 없다(마이그레이션 전) — 맥락은 그대로 읽힌다
     assert ctx is not None and ctx.market_caps == {"005930": 2_155_000, "005935": 836_000}
     assert ctx.share_class_tickers == frozenset()

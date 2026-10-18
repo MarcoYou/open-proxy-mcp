@@ -233,7 +233,7 @@ def test_serving_day_has_one_definition_read_through_each_modules_own_db_reader(
     monkeypatch.setattr(screener, "pg_rows", lambda sql, params=(): seen.append(("screener", sql)) or [("20261016",)])
     assert S._krx_daily_latest_dd() == screener._krx_latest_dd() == "20261016"
     assert seen == [("pmd", krx_daily.LATEST_DAY_SQL), ("screener", krx_daily.LATEST_DAY_SQL)]
-    assert krx_daily.LATEST_DAY_SQL == "SELECT max(trd_dd) FROM krx_daily"      # 시험들이 이 SQL 모양으로 가짜 DB 를 맞춘다
+    assert krx_daily.LATEST_DAY_SQL == "SELECT max(dd) FROM krx_day WHERE n > 0"   # 시험들이 이 SQL 모양으로 가짜 DB 를 맞춘다(261019 달력)
     # 빈 표·장애는 둘 다 None — krx_weekly 로 대신하지 않는다
     for ans in ([(None,)], None, []):
         monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(), a=ans: a)

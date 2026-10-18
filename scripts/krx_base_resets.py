@@ -10,6 +10,13 @@
 KRX Open API 한도: 키당 1일(0~24시) 10,000콜 — 본 스크립트 상한 CALL_CAP(기본 9,000).
 전수 스윕 ≈ 2,573거래일 × 2시장 ≈ 5,150콜. 재개 가능(일 단위 커밋, 중단 시 재실행).
 
+휴장 판정(261019): 빈 응답 한 번으로 휴장을 적지 않는다. 코스피·코스닥이 **둘 다** 비고 그 날 뒤로 평일이 2일 이상 지났을 때만 후보로 두고,
+다음 거래일의 기준가(종가 − 전일대비)가 그 앞 거래일 종가와 이어지는 것을 확인한 뒤 그 거래일과 같은 커밋에 적는다
+(`open_proxy_mcp.krx_daily.closed_verdict` — 서버 갱신기와 같은 규칙). 종전에는 코스피 빈 응답 한 번(게시 전·일시 빈 응답)을
+휴장으로 적었고, 장부가 「처리함」으로 보아 다시 메우지 않았다(20260702 실측: 그날 기준가 리셋 1건 누락·주식수 변동 8건 하루 늦게 기록).
+일시 오류·한 시장만 온 날·아직 확정 못 한 날에서는 **멈춘다** — 다음 실행이 그 날부터 다시 묻는다(건너뛰고 다음 날을 처리하면 그 날은 영영
+안 메워지고, 다음 날의 직전 종가가 하루 어긋난다).
+
 실행:
   python scripts/krx_base_resets.py --sweep [--since 20160104] [--cap 9000]
   python scripts/krx_base_resets.py --update      # 최근 30일만 (주간 유지용)
@@ -28,6 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
+from open_proxy_mcp.krx_daily import closed_verdict, weekdays_after
 from dotenv import load_dotenv
 
 load_dotenv(ROOT / ".env")
@@ -112,8 +120,11 @@ async def sweep(since: date, cap: int):
             con.execute(stmt)
     con.commit()
 
-    done = {r[0] for r in con.execute("SELECT price_dd FROM krx_reset_sweep_checkpoint").fetchall()}
-    # 재개 시 prev_close 시드: ① 마지막 처리일 재조회 ② 부재 종목은 krx_weekly 최근 종가
+    ck = dict(con.execute("SELECT price_dd, n_stocks FROM krx_reset_sweep_checkpoint").fetchall())
+    done = set(ck)
+    # 재개 시 prev_close 시드: ① 마지막 「거래일」 처리일 재조회 ② 부재 종목은 krx_weekly 최근 종가.
+    #   261019: 마지막 처리일이 휴장(n_stocks=0)이면 그 날 재조회는 빈 응답이라 시드가 주간 종가(지난 금요일)로 밀렸다 —
+    #   마지막 거래일을 다시 받는다(그 뒤로는 휴장뿐이라 직전 종가가 그대로다).
     prev_close: dict[str, float] = {}
     # 260823: 주식수 원장(krx_shares_ledger)을 같은 스냅샷에서 함께 적는다 — **KRX 콜 0 추가**.
     #   원장은 writer 가 없어 20260701 에 멎어 있었는데, `krx_stock_flags`(시계열 해석 주의 딱지)가
@@ -122,10 +133,11 @@ async def sweep(since: date, cap: int):
     #   여기 붙이는 이유 — 이 스윕이 이미 전종목 일별 스냅샷(LIST_SHRS 포함)을 받아온다.
     prev_shrs: dict[str, int] = {}
     last = max(done) if done else None
+    last_trading = max((d for d, n in ck.items() if n), default=None)
     async with httpx.AsyncClient(timeout=30, verify=_ssl_ctx()) as h:
         if last:
             for market, url in URLS:
-                snap = await _fetch(h, key, url, last, cap) or []
+                snap = (await _fetch(h, key, url, last_trading, cap) or []) if last_trading else []
                 for x in snap:
                     c = _num(x.get("TDD_CLSPRC"))
                     if c:
@@ -141,11 +153,12 @@ async def sweep(since: date, cap: int):
                                          WHERE price_dd <= %s AND list_shrs > 0 ORDER BY ticker, price_dd DESC""",
                                       (last,)).fetchall():
                 prev_shrs.setdefault(isu, int(n))
-            print(f"재개: 처리일 {len(done)} (마지막 {last}) | 시드 종목 {len(prev_close):,}", flush=True)
+            print(f"재개: 처리일 {len(done)} (마지막 {last}, 마지막 거래일 {last_trading}) | 시드 종목 {len(prev_close):,}", flush=True)
 
         days = []
         d = since if not last else date(int(last[:4]), int(last[4:6]), int(last[6:8])) + timedelta(days=1)
         today = date.today()
+        today_dd = today.strftime("%Y%m%d")
         while d < today:
             if d.weekday() < 5 and d.strftime("%Y%m%d") not in done:
                 days.append(d.strftime("%Y%m%d"))
@@ -154,27 +167,32 @@ async def sweep(since: date, cap: int):
 
         t0 = time.time()
         n_resets = n_days = n_shrs = 0
+        pending: list[str] = []      # 두 시장 모두 빈 응답 + 평일 2일 경과 — 다음 거래일 기준가 연속성으로 확정할 휴장 후보
         try:
             for day in days:
                 snaps = []
-                empty = False
                 for market, url in URLS:
                     s = await _fetch(h, key, url, day, cap)
                     if s is None:
                         snaps = None
                         break
-                    if market == MKT_KS and not s:
-                        empty = True  # 휴장 (시장 전체)
-                        break
                     snaps.append((market, s))
                 if snaps is None:
-                    continue  # 일시 오류 — 미기록, 재실행 때 재시도
-                if empty:
-                    con.execute("INSERT INTO krx_reset_sweep_checkpoint VALUES (%s,0) ON CONFLICT DO NOTHING", (day,))
-                    con.commit()
-                    n_days += 1
+                    print(f"  {day} 일시 오류 — 여기서 멈춘다(다음 실행이 이 날부터 다시)", flush=True)
+                    break
+                sizes = [len(s) for _, s in snaps]
+                if not any(sizes):
+                    if weekdays_after(day, today_dd) < 2:
+                        print(f"  {day} 두 시장 빈 응답 — 아직 게시 전일 수 있어 멈춘다(휴장으로 적지 않음)", flush=True)
+                        break
+                    pending.append(day)
                     continue
-                rows, srows, n_st = [], [], 0
+                if not all(sizes):
+                    print(f"  {day} 한 시장만 응답(KOSPI {sizes[0]} / KOSDAQ {sizes[1]}) — 멈춘다", flush=True)
+                    break
+                rows, srows, n_st, n_cmp = [], [], 0, 0
+                new_close: dict[str, float] = {}
+                new_shrs: dict[str, int] = {}
                 for market, snap in snaps:
                     for x in snap:
                         isu = x.get("ISU_CD")
@@ -185,9 +203,11 @@ async def sweep(since: date, cap: int):
                         n_st += 1
                         base = close - chg
                         pc = prev_close.get(isu)
+                        if pc:
+                            n_cmp += 1
                         if pc and abs(base - pc) > max(pc * 0.001, 1.0):
                             rows.append((isu, day, market, pc, base, close, base / pc, base / pc))
-                        prev_close[isu] = close
+                        new_close[isu] = close
                         # 주식수 원장 — 변동한 날만 적는다(원장 기존 규약과 동일).
                         # 첫 등장(prev 없음)은 prev_shrs=NULL 로 기록 — 신규상장 표시.
                         ns = _num(x.get("LIST_SHRS"))
@@ -195,8 +215,19 @@ async def sweep(since: date, cap: int):
                             ps = prev_shrs.get(isu)
                             if ps is None or ps != int(ns):
                                 srows.append((isu, day, ps, int(ns), market))
-                            prev_shrs[isu] = int(ns)
+                            new_shrs[isu] = int(ns)
+                if pending:
+                    # 휴장 후보 확정 — 이 거래일의 기준가가 후보 앞 거래일 종가와 이어지면(어긋남이 기준가 조정 몇 종목뿐) 휴장이다.
+                    v = closed_verdict(True, True, weekdays_after(pending[-1], today_dd), (n_cmp, len(rows)))
+                    if v != "closed":
+                        print(f"  {','.join(pending)} 는 두 시장 빈 응답이지만 {day} 기준가가 이어지지 않는다"
+                              f"(어긋남 {len(rows)}/{n_cmp}, 판정 {v}) — 휴장으로 적지 않고 멈춘다(다음 실행이 다시 묻는다)", flush=True)
+                        break
+                prev_close.update(new_close)
+                prev_shrs.update(new_shrs)
                 with con.cursor() as cur:
+                    for p in pending:
+                        cur.execute("INSERT INTO krx_reset_sweep_checkpoint VALUES (%s,0) ON CONFLICT DO NOTHING", (p,))
                     if rows:
                         # 라벨 칸은 비워 둔다 — adj_factor_v3.py 가 나중에 UPDATE 로 채운다.
                         # adj_factor 는 우선 실측과 같게 두고, 액면비율 스냅이 걸리면 그때 덮인다.
@@ -211,11 +242,16 @@ async def sweep(since: date, cap: int):
                                            VALUES (%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING""", srows)
                     cur.execute("INSERT INTO krx_reset_sweep_checkpoint VALUES (%s,%s) ON CONFLICT DO NOTHING", (day, n_st))
                 con.commit()
+                n_days += 1 + len(pending)
+                if pending:
+                    print(f"  휴장 확정 {','.join(pending)} ({day} 기준가 연속 — 어긋남 {len(rows)}/{n_cmp})", flush=True)
+                pending = []
                 n_resets += len(rows)
                 n_shrs += len(srows)
-                n_days += 1
                 if n_days % 100 == 0:
                     print(f"  {n_days}일 | 리셋 {n_resets:,}건 | 콜 {_calls} | {time.time()-t0:.0f}s (마지막 {day})", flush=True)
+            if pending:
+                print(f"  휴장 후보 {','.join(pending)} — 다음 거래일이 아직 없어 이번엔 적지 않는다(다음 실행이 확정)", flush=True)
         except RuntimeError as e:
             print(f"\n중단: {e}", flush=True)
 

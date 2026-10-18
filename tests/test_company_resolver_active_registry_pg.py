@@ -100,11 +100,14 @@ def test_keep_previous_matrix_through_the_real_read(full_snapshot, monkeypatch, 
         assert CR._market_context_valid_for == CR._MARKET_CONTEXT_TTL_SECONDS
 
 
-def test_inferred_search_drops_a_delisted_company_but_its_exact_name_still_resolves(full_snapshot):
-    """활성 명부가 켜졌을 때 사용자에게 보이는 차이 — 운영 실측 「현대미포」→ 에이치디현대미포(상장폐지)가 더는 추정되지 않는다."""
+def test_inferred_search_flags_a_delisted_company_but_its_exact_name_still_resolves(full_snapshot):
+    """활성 명부가 켜졌을 때 사용자에게 보이는 차이 — 운영 실측 「현대미포」→ 에이치디현대미포(상장폐지).
+    261018: 활성 회사엔 맞는 이름이 없고 비활성 회사 하나만 맞으면 그 회사를 **비활성 표지와 함께** 고른다(종전 이 시험은 「못 찾음」을 단언했다)."""
     ctx = _load()
     resolver = CompanyResolver(CORPS, {}, ctx)
-    assert resolver.search("현대미포") == []                                   # 부분일치(추론)로 폐지 회사를 되살리지 않는다
+    hit = resolver.search("현대미포")
+    assert [c["stock_code"] for c in hit] == [DELISTED]
+    assert hit[0]["_resolution"]["inactive_listing"] is True and hit[0]["_resolution"]["inferred"]
     exact = resolver.search("에이치디현대미포")                                 # 정식명은 그대로 찾는다
     assert [c["stock_code"] for c in exact] == [DELISTED]
     assert exact[0]["_resolution"]["active_registry_used"] is True
@@ -113,3 +116,4 @@ def test_inferred_search_drops_a_delisted_company_but_its_exact_name_still_resol
     # 대조: 같은 시총·기준일에 명부만 끄면(고치기 전 운영) 폐지 회사가 추정 1순위로 나온다
     off = CompanyResolver(CORPS, {}, MarketContext(ctx.market_caps, None, ctx.as_of_date, ctx.source))
     assert [c["stock_code"] for c in off.search("현대미포")] == [DELISTED]
+    assert "inactive_listing" not in off.search("현대미포")[0]["_resolution"]   # 명부가 꺼지면 비활성인지 모른다 — 표지도 없다

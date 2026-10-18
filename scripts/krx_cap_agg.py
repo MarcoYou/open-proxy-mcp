@@ -18,8 +18,8 @@
 
 ★ 섹터는 소급이다. 분류 공급처는 조회 시점 구성종목만 주고 우리는 2026-08 부터 모았다. 날짜마다
   「그 날짜 이하 최신 스냅샷, 없으면 가장 이른 것」을 쓰고 `sector_asof` 로 어느 관측을 적용했는지
-  남긴다. 분류가 없는 종목(공급처가 분류를 준 적 없는 외국 기업·신규상장 등 — 우선주는 분류 저장분이 같은 회사
-  보통주 분류를 잇는다, 261018)은 버리지 않고 `_UNCLASSIFIED` 버킷에 남긴다 —
+  남긴다. 분류가 없는 종목(공급처의 구성종목 응답에도 기업 정보 화면에도 분류가 없는 종목 — 구성종목에 없는 상장 보통주는 분류
+  저장분이 기업 정보 화면의 산업으로 채우고, 우선주는 같은 회사 보통주 분류를 잇는다, 261018)은 버리지 않고 `_UNCLASSIFIED` 버킷에 남긴다 —
   조용히 빠지면 섹터 합이 시장 합보다 작은 이유를 아무도 모른다.
 
 ★ 평소에는 최신 주만 다시 적재한다. 외부 API 호출은 없어도 전 구간 DELETE·INSERT가 매주
@@ -66,7 +66,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
-from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
+from open_proxy_mcp.krx_daily import LATEST_DAY_SQL, WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_cutoff, week_unit
 
 DDL = """
@@ -210,7 +210,7 @@ def main() -> int:
         print("krx_weekly 비어 있음 — 먼저 시세를 적재한다")
         return 1
     # 원천 최신 = 닫힌 주와 일별 최신 거래일 중 늦은 쪽(이번 주 임시 점). 보존 하한은 표를 자르는 쪽과 같게 krx_weekly 최신에서 잰다.
-    daily_max = con.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+    daily_max = con.execute(LATEST_DAY_SQL).fetchone()[0]          # 261019: 일별 최신일 = 달력(krx_day)
     source_max = max(weekly_max, daily_max or "")
     latest_sector_asof, agg_latest = con.execute(
         "SELECT max(sector_asof) FILTER (WHERE scheme <> 'market'), max(price_dd) FILTER (WHERE scheme = 'market') FROM krx_cap_agg"

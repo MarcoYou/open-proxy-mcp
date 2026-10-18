@@ -15,6 +15,8 @@
 #   4배로 쌓이기만 한다. 월말 기준으로 12장/년이면 시계열로 충분하다.
 #
 # 콜: 분류 트리 1 + 하위업종 28 ≈ 29콜/월. 무자료 탐침은 최대 10콜 추가(14일 소급).
+#   + 기업 정보 화면(261018): 구성종목에 없는 상장 보통주 1콜씩(20261016 기준 192) + 쓰는 대응마다 본보기 확인 1콜(수십).
+#     상한 WICS_COMPANY_MAX_CALLS(기본 600). 분당 40건이라 약 5~7분.
 # 모든 요청은 프로세스 공통 웹 속도제한을 따르며, 상류 오류에는 날짜를 바꿔 재시도하지 않는다. DART·KRX 0콜.
 
 name: sector-class-monthly
@@ -37,7 +39,7 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30  # 261018: 기업 정보 화면 조회(분당 40건 · 약 250콜) 몫으로 15 → 30
     steps:
       - uses: actions/checkout@v6
 
@@ -57,6 +59,9 @@ jobs:
         # 261018: 응답은 업종 **지수 구성종목**이라 상장 종목이 편입 요건에서 빠지면 응답에서도 빠진다(분류는 그대로).
         #   DB 적재는 관측 행에 더해 구성종목에서만 빠진 상장 종목(직전 분류)과 우선주(보통주 분류)를 출처 칸과 함께 잇는다.
         #   정적 맵(JSON)은 관측만 담는다. 규칙은 스크립트 머리말 「구성종목 ≠ 분류 대상」.
+        # 261018: 구성종목에 없는 상장 보통주는 공급처 기업 정보 화면의 「산업」(한 단계 아래)을 대응표로 하위업종에 올려 관측(wise_company)으로 쓴다.
+        #   대응표 = 20261016 구성종목 관측 2,456종목 전수의 화면 값 ↔ 하위업종(open_proxy_mcp/data/sector_class/company_industry_map.json).
+        #   화면 조회가 막혀도 실패로 끝내지 않는다 — 경고만 남기고 그 종목은 이어 쓰기·미분류로 둔다(구성종목 관측 적재가 먼저다).
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
@@ -82,15 +87,17 @@ jobs:
               by = dict(c.execute("SELECT src, count(*) FROM wise_sector WHERE snap_dd=%s GROUP BY 1",
                                   (latest,)).fetchall())
               n, obs = sum(by.values()), by.get("wise", 0)
-              print(f"최신 시점 출처별: 관측 {obs:,} · 이어 쓰기 {by.get('carry', 0):,} · 우선주 {by.get('pref', 0):,}")
+              print(f"최신 시점 출처별: 관측 {obs:,} · 기업 화면 {by.get('wise_company', 0):,} · "
+                    f"이어 쓰기 {by.get('carry', 0):,} · 우선주 {by.get('pref', 0):,}")
               if obs < 1000:
                   raise SystemExit(f"::error::최신 시점 관측 종목이 {obs}개 — 1,000 미만이면 불완전 수집")
               # 시세와 조인되는지(섹터 집계가 실제로 되는 상태인가).
-              # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주(주마다 마지막 거래일)만 담고, 최근 7거래일은 일별 저장분 krx_daily 에 있다.
+              # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주(주마다 마지막 거래일)만 담고, 최근 약 1년은 일별 저장분 krx_daily 에 있다
+              #   (261019: 일별 최신일·날짜는 달력 krx_day 에서 읽는다 — 호환 뷰 위의 max(trd_dd) 는 1년치 조인을 다 푼다).
               #   분류 기준일(보통 월말 거래일)은 주중일 때가 많아 krx_weekly 정확일자로는 0건이 정상이다 — 「기준일 이하 가장 늦은 시세일」로
               #   두 표를 함께 보고 조인한다(집계 스크립트도 같은 날 이하 최신 시세를 쓴다).
               pd = c.execute("""SELECT max(d) FROM (SELECT max(price_dd) d FROM krx_weekly WHERE price_dd <= %s
-                                UNION ALL SELECT max(trd_dd) FROM krx_daily WHERE trd_dd <= %s) x""",
+                                UNION ALL SELECT max(dd) FROM krx_day WHERE n > 0 AND dd <= %s) x""",
                              (latest, latest)).fetchone()[0]
               j = c.execute("""SELECT count(*) FROM wise_sector w
                                JOIN (SELECT ticker FROM krx_daily WHERE trd_dd=%s

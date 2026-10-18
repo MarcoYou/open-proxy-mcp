@@ -115,7 +115,8 @@ def test_listing_window_start_is_a_constant_and_daily_query_is_bounded():
     # 일상 경로가 쓰는 쿼리는 하한(>=)이 걸려 있고, 전량 GROUP BY 는 비교 전용(Q_FULL)으로만 남는다
     assert "WHERE price_dd >= %(start)s" in L.Q_RECENT and "price_dd >=" not in L.Q_FULL and "price_dd <=" not in L.Q_FULL
     # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주만 담는다 — 이번 주 관측은 일별 저장분에서 같이 읽는다(같은 하한)
-    assert "FROM krx_daily WHERE trd_dd >= %(start)s" in L.Q_RECENT
+    # 261019: 하한은 사실값 표의 날짜 칸에 직접 건다(호환 뷰에 걸면 하한이 달력 쪽에 걸려 1년치 사실값을 다 훑는다)
+    assert "FROM krx_px p JOIN krx_ticker k ON k.tid = p.tid WHERE p.trd_dd >= to_date(%(start)s, 'YYYYMMDD')" in _norm(L.Q_RECENT)
 
 
 def test_listing_merge_one_only_shrinks_first_and_grows_last():
@@ -316,7 +317,7 @@ def _cap_agg_handler(weekly_max="20261016", daily_max="20261016", agg_latest="20
             return [("20260821",)]
         if s.startswith("SELECT min(price_dd), max(price_dd) FROM krx_weekly"):
             return [("20151230", weekly_max)]
-        if s.startswith("SELECT max(trd_dd) FROM krx_daily"):
+        if s.startswith("SELECT max(dd) FROM krx_day WHERE n > 0"):
             return [(daily_max,)]
         if s.startswith("SELECT max(sector_asof) FILTER (WHERE scheme <> 'market'), max(price_dd) FILTER (WHERE scheme = 'market') FROM krx_cap_agg"):
             return [("20260821", agg_latest)]
@@ -358,7 +359,7 @@ def test_cap_agg_reads_this_weeks_latest_day_from_the_daily_store(monkeypatch, c
     deletes = [(s, p) for s, p in con.statements if s.lstrip().upper().startswith("DELETE")]
     assert deletes == [("DELETE FROM krx_cap_agg WHERE price_dd >= %s", ("20261019",))]     # 이번 주 월요일부터(어제의 임시 점을 갈아 끼운다)
     src = [_norm(s) for s, _ in con.statements if "sum(mktcap)" in s]
-    assert src and "FROM krx_daily d WHERE d.trd_dd = (SELECT max(trd_dd) FROM krx_daily)" in src[0]
+    assert src and "FROM krx_daily d WHERE d.trd_dd = (SELECT max(dd) FROM krx_day WHERE n > 0)" in src[0]
     assert "보존 하한 20231016" in out.out and "일별 최신 20261021" in out.out
 
 

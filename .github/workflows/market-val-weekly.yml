@@ -177,7 +177,7 @@ jobs:
         #   ① 시총 집계(krx_cap_agg) 최신 == 일별 최신일 — 아니면 실패.
         #   ② 밸류에이션 스냅샷(opm_val_firm·opm_val_market) 최신 snap_dd 가 일별 최신일과 다르면 경고, 2거래일 이상 뒤처지면 실패.
         #      종전 확인은 이 둘을 보지 않아, 스냅샷 단계가 건너뛰어져도(종목유형 조회 실패 등 — 로그 100회 중 3회) 초록불이었다.
-        #      뒤처진 거래일 수는 일별 저장분(최근 7거래일)에 있는 「그 날 이후 거래일」 수로 센다(창 밖이면 7 이상).
+        #      뒤처진 거래일 수는 일별 저장분의 달력(krx_day, 약 1년)에 있는 「그 날 이후 거래일」 수로 센다.
         #   ③ krx_weekly 최신(닫힌 주)이 일별 저장분의 닫힌 주를 따라왔나 — 주간 닫기가 멈추면 경고.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -186,7 +186,8 @@ jobs:
           import os, psycopg
           from open_proxy_mcp.krx_daily import plan_weeks
           with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
-              days = [r[0] for r in c.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1").fetchall()]
+              # 261019: 보관 거래일 목록은 달력(krx_day)에서 — 호환 뷰 위의 DISTINCT trd_dd 는 1년치 조인을 다 푼다.
+              days = [r[0] for r in c.execute("SELECT dd FROM krx_day WHERE n > 0 ORDER BY 1").fetchall()]
               if not days:
                   raise SystemExit("::error::일별 시세 저장분(krx_daily)이 비었다 — 서버 갱신기 확인")
               daily = days[-1]
@@ -200,7 +201,7 @@ jobs:
               print(f"최신 시점 {n}행 (시장 2 + 업종 대분류·중분류 × 2시장)")
               for table, extra in (("opm_val_firm", ""), ("opm_val_market", " WHERE scheme='market'")):
                   snap = c.execute(f"SELECT max(snap_dd) FROM {table}{extra}").fetchone()[0]
-                  behind = sum(1 for d in days if snap is None or d > snap)   # 창보다 이르면 창 전체(7) 이상
+                  behind = sum(1 for d in days if snap is None or d > snap)   # 창보다 이르면 창 전체 이상
                   print(f"{table} 최신 snap_dd {snap} · 일별 최신 {daily} · 뒤처진 거래일 {behind}")
                   if behind >= 2:
                       failed.append(f"{table} 가 {behind}거래일 뒤처짐 ({snap} < {daily}) — 스냅샷 단계 실패·건너뜀")

@@ -551,7 +551,7 @@ def resolve_period(period: str, *, cursor: str = "",
 #   지우고 다시 넣는 일을 그만둔다), 그때 여기가 그대로면 유니버스·시총이 지난주 값으로 낡는다.
 #   실측(20261016): 두 저장분의 같은 날 단면이 2,762종목 종가·시총·상장주식수·시장 모두 차이 0 — 응답은 그대로다.
 # 🔴 단면은 **기준일을 먼저 읽고 그 날 행만** 본다(`max(trd_dd) FROM krx_daily` → `krx_daily_v WHERE trd_dd=%s`).
-#   종목별 최신 행 뷰(`price_latest`)를 날짜 조건 없이 통째로 읽지 않는다 — 보관 창(7거래일) 안에서 상장폐지된
+#   종목별 최신 행 뷰(`price_latest`)를 날짜 조건 없이 통째로 읽지 않는다 — 보관 창(약 1년) 안에서 상장폐지된
 #   종목은 옛 날짜 행이 그대로 남아(실측 5종목) 오늘 순위에 섞인다. 종목 몇 개의 최신값이면 그 뷰가 맞다.
 # 🔴 고르는 칸은 사실값 + mktcap 뿐이다 — 등락(chg·chg_pct·prev_*)은 종목별 창 계산이라 단면에서 고르면 느려진다
 #   (실측 전 종목 단면: 사실값 칸만 6.9ms, 창 칸까지 40ms).
@@ -633,6 +633,15 @@ def _looks_like_code(tok: str) -> bool:
     return bool(re.fullmatch(r"[0-9A-Z]{6}", tok)) and sum(c.isdigit() for c in tok) >= 4
 
 
+def _inactive_universe_note(tok: str, sel: dict) -> str:
+    """유니버스 이름이 비활성 회사(상장폐지·합병·코넥스 등) 하나로 확정됐을 때의 안내 한 조각(261018)."""
+    meta = sel.get("_resolution") or {}
+    who = f"{sel.get('corp_name') or tok}({sel.get('stock_code') or ''})"
+    day = f"최신 거래일({meta['market_data_as_of']})" if meta.get("market_data_as_of") else "최신 거래일"
+    return (f"'{tok}'→{who}는 {day} 코스피·코스닥 시세에 없는 상장폐지·코넥스 등 비활성 회사 — "
+            "시세·시총을 쓰는 표에는 행이 없다")
+
+
 async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFilter:
     """custom:… 토큰을 코드/이름 혼용으로 해석. 코드는 그대로, 이름은 resolve_company_query로 코드화."""
     tokens = [t.strip() for t in re.split(r"[,，]+", raw) if t.strip()]
@@ -661,15 +670,22 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
             return tok, None, f"'{tok}' 조회 중 오류 — 종목코드 6자리로 다시 준다."
         sel = getattr(res, "selected", None)
         if sel:
-            return tok, (sel or {}).get("stock_code"), ""
+            # 261018: 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정했으면(`CompanyResolver._inactive_single`) 넣되 **밝힌다** —
+            #   그 종목은 최신 거래일 시세가 없어 시세·시총 표(trading_data·forward_estimates_data 의 유니버스)에서 행 없이 사라진다.
+            #   종전(못 찾음)엔 「미해결」로 밝혔는데, 확정만 하고 말하지 않으면 그 회사가 조용히 빠진다.
+            meta = sel.get("_resolution") or {}
+            return tok, sel.get("stock_code"), (_inactive_universe_note(tok, sel) if meta.get("inactive_listing") else "")
         if getattr(res, "status", None) == AnalysisStatus.AMBIGUOUS:
             return tok, None, company_ambiguous_warning(tok, getattr(res, "candidates", None))
         return tok, None, company_not_found_warning(tok)
 
+    inactive: list[str] = []
     if name_tokens:
         for tok, sc, hint in await asyncio.gather(*[_resolve_one(t) for t in name_tokens]):
             if sc:
                 codes.add(sc.strip())
+                if hint:
+                    inactive.append(hint)
             else:
                 notes.append(hint or f"'{tok}' 미식별(모호/없음)")
     if not codes:
@@ -682,6 +698,8 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
         return UniverseFilter(label="지정종목", resolved=False, allowed=None, price_dd=price_dd, question=ask)
     # 부분 해결 시: 해결분으로 진행함을 명시(전체 degrade로 오해 방지)
     notice = (f"해결된 {len(codes)}종목으로 진행 — 미해결: " + " · ".join(notes)) if notes else ""
+    if inactive:
+        notice = " / ".join(x for x in (notice, "비활성 회사로 식별: " + " · ".join(inactive)) if x)
     return UniverseFilter(label=f"지정 {len(codes)}종목", resolved=True,
                           notice=notice, allowed=codes, price_dd=price_dd)
 
