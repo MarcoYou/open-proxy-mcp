@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS krx_adj_events (
   adj_factor_raw double precision, adj_factor double precision,
   event_type text, rcept_no text, label_source text, label_confidence text, note text,
   PRIMARY KEY (ticker, event_dd));
-CREATE INDEX IF NOT EXISTS idx_adj_events_isu ON krx_adj_events (ticker, event_dd);
+-- 261018: idx_adj_events_isu (ticker, event_dd) 생성 줄을 뺐다 — 기본키와 칸·순서가 같은 중복 인덱스였다
+--   (운영 0.24 MiB, 조회는 기본키가 그대로 받는다). 운영에서 지운 뒤 이 줄이 남아 있으면 매일 되살아난다.
 CREATE TABLE IF NOT EXISTS krx_shares_ledger (
   ticker text NOT NULL, event_dd text NOT NULL,
   prev_shrs bigint, new_shrs bigint, market text,
