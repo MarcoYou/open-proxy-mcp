@@ -39,6 +39,9 @@ _UNIT_MULTIPLIERS = {
 #   · 비고가 ※ 로 시작하는 서식에서는 본문이 통째로 사라졌다(15건).
 #   · 정정공시는 정정 후 본문 뒤에 **정정 전 본문 전체**가 이어 붙는데, 옛 경계는 그것을
 #     비고 안으로 끌고 들어왔다(60건). 그래서 배당결정 본문 머리글도 경계로 세운다.
+#     (261019 다시 잼: 캐시 정정 원문 250건 전부 본문 머리가 **한 번뿐**이고 「정정사항」 표가 그 앞에 있다.
+#      끌려 들어온 것은 표의 11번 행 — 정정전·정정후 비고 — 이었다. 이제 정정 공시는 본문만 읽으므로
+#      (`_split_amendment`) 이 경계는 서식이 다른 원문을 위한 안전장치로 남는다.)
 # ※ 를 그냥 무시하는 것도 안 된다 — 「※ 관련공시」 꼬리 뒤에 다른 공시가 붙는다(20240403800157).
 _REMARKS_RE = re.compile(
     r"11\.\s*기타\s*투자판단과\s*관련한\s*중요사항\s*(.*?)"
@@ -90,12 +93,128 @@ def safe_int(value) -> int:
     return int(safe_float(value))
 
 
+# 날짜 칸 — 하이픈(2026-02-24)만 보던 것을 점(2026.02.24)·빗금·「년 월」 표기까지 받는다. 결과는 늘 YYYY-MM-DD.
+# 🔴 261019 — 정정사항 표가 점 날짜로 적힌 정정(엠앤씨솔루션 20260204801233 「10. 이사회결의일(결정일) 2025.02.04
+#   2026.02.04」)에서 하이픈만 보던 정규식이 표를 건너뛰어 정정전 결의일을 잃었다. 본문 칸도 같은 규칙을 쓴다.
+_DATE_SRC = r"(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})(?!\d)"
+
+
+def _iso_date(match: re.Match | None, first_group: int = 1) -> str | None:
+    """정규식 일치(연·월·일 세 묶음) → YYYY-MM-DD. 달·날이 말이 안 되면 None."""
+    if not match:
+        return None
+    y, m, d = (int(match.group(first_group + i)) for i in range(3))
+    if not (1 <= m <= 12 and 1 <= d <= 31):
+        return None
+    return f"{y:04d}-{m:02d}-{d:02d}"
+
+
+# 정정 공시 — 머리(정정일자 · 1. 정정관련 공시서류 · 2. 정정관련 공시서류제출일 · 3. 정정사유) 뒤에
+#   「4. 정정사항」 표(정정항목 · 정정전 · 정정후)가 오고, 그 **뒤에** 정정 후 본문(「현금ㆍ현물배당 결정 1. 배당구분 …」)이 온다.
+# 🔴 261019 — 칸마다 첫 일치를 잡던 파서가 표의 **정정전 값**을 읽었다. 표에 오른 칸(배당금총액·배당기준일·결의일…)만
+#   정정전 값으로 나가고 나머지는 본문 값이라, 정정본이 정본이 되는 자리(중복 제거 뒤 남는 쪽)에 고치기 전 숫자가 섰다.
+#   실측(맥미니 캐시 정정 원문 250건, 고치기 전 전문 vs 본문): 112건에서 핵심 칸이 갈렸다 — 배당금총액 74 · 결의일 15 ·
+#   주총일 15 · 지급일 13 · 기준일 8 · 1주당 3 · 구분 2(비고까지 넣으면 174건). 원 공시 4,377건은 전 칸 같다.
+#   동화약품 20260224801063 은 기준일 2025-03-25 → 2026-03-25 (「단순 착오」) 정정인데 2025-03-25 를 읽어
+#   FY2025 결산배당이 FY2024 로 갔다. 이제 값은 본문에서만 읽고, 표는 원 공시를 찾는 열쇠(정정전 결의일 ·
+#   배당구분 · 기준일)와 정정 항목 메타로만 쓴다.
+# 본문 머리는 서식 이름부터 잡는다 — 표에도 「1. 배당구분」 행이 있을 수 있다(한온시스템 20210209800389: 분기배당 → 결산배당).
+_BODY_HEAD_RE = re.compile(
+    r"(?:현금\s*ㆍ?\s*현물\s*배당|주식\s*배당|분기\s*ㆍ?\s*중간\s*배당)\s*결정\s*1\.\s*배당구분"
+)
+_AMEND_TABLE_RE = re.compile(r"정정\s*사항(?=.{0,40}?정정\s*전.{0,20}?정정\s*후)")
+_AMEND_REASON_RE = re.compile(r"정정\s*사유\s*:?\s*(.*?)\s*(?:\d{1,2}\s*\.\s*)?$")
+_AMEND_FILED_RE = re.compile(r"정정\s*관련\s*공시\s*서류\s*제출\s*일\s*:?\s*" + _DATE_SRC)
+_AMEND_BOARD_RE = re.compile(r"이사회\s*결의일\s*(?:\(\s*결정일\s*\))?\s*" + _DATE_SRC)
+_AMEND_RECORD_RE = re.compile(r"배당\s*기준일\s*" + _DATE_SRC)
+_AMEND_TYPE_RE = re.compile(r"배당\s*구분\s*(결산배당|중간배당|분기배당)")
+# 표가 금액 행을 「숫자 → -」로 고쳤나(결정 취소 정정의 모양).
+_AMEND_CLEARED_RE = re.compile(
+    r"(?:1\s*주당\s*배당금\s*\(\s*원\s*\)\s*(?:보통\s*주식\s*)?|배당금\s*총액\s*\(\s*원\s*\)\s*)[\d,]+\s*[-－](?!\d)"
+)
+# 표의 행 이름 → 이 파서의 칸 이름. 11번(기타 투자판단) 행 뒤는 정정전·정정후 비고 글이라 거기서 멈춘다
+#   (실측 250건 중 16건에서 그 글에 「4. 주주총회 예정일자는 …」 같은 번호 문장이 이어진다). 종류주식 묶음도 그 안의
+#   「ㆍ배당금총액(원)」 같은 하위 줄을 행으로 세지 않게 거기서 멈춘다.
+_AMEND_ITEMS = (
+    ("dividend_type", r"배당\s*구분"),
+    ("dividend_method", r"배당\s*(?:의\s*)?종류"),
+    ("dps", r"1\s*주당\s*배당금"),
+    ("yield", r"시가\s*배당\s*[율률]"),
+    ("total_amount", r"배당[금급]?\s*총액"),
+    ("record_date", r"배당\s*기준일"),
+    ("payment_date", r"배당금?\s*지급\s*예정\s*일"),
+    ("agm_required", r"주주\s*총회\s*개최\s*여부"),
+    ("agm_date", r"주주\s*총회\s*예정\s*일"),
+    ("board_date", r"이사회\s*결의일"),
+    ("differential_dividend", r"차등\s*배당\s*여부"),
+    ("attendance", r"사외\s*이사\s*참석|감사\s*\(\s*사외\s*이사가\s*아닌"),
+    ("preferred_stocks", r"【\s*종류\s*주식에\s*대한\s*배당"),
+    ("remarks", r"기타\s*투자\s*판[단관]"),
+)
+_AMEND_ITEM_RE = re.compile(
+    r"(?:^|\s)(?:\d{1,2}\s*\.\s*)?(?:"
+    + "|".join(f"(?P<{name}>{pattern})" for name, pattern in _AMEND_ITEMS)
+    + ")"
+)
+
+
+def _split_amendment(clean: str) -> tuple[str | None, str, bool]:
+    """(정정 머리+표, 값을 읽을 본문, 본문을 찾았나). 정정 공시가 아니면 (None, 전문, True).
+
+    정정 공시인데 본문 머리를 못 찾으면 전문을 그대로 돌려준다(종전 동작) — 값이 정정전일 수 있다는 표시는
+    `amendment.values_from` 이 나른다. 캐시 실측 250건에서는 0건이다.
+    """
+    table = _AMEND_TABLE_RE.search(clean)
+    if not table:
+        return None, clean, True
+    head = _BODY_HEAD_RE.search(clean, table.end())
+    if not head:
+        return clean, clean, False
+    return clean[: head.start()], clean[head.start():], True
+
+
+def _amendment_meta(pre: str, body_found: bool) -> dict:
+    """정정 머리·「정정사항」 표에서 원 공시를 찾는 열쇠와 정정 항목을 뽑는다 — **값은 여기서 안 읽는다.**
+
+    · `board_date_before` — 표의 이사회결의일 정정전 값. 결의일을 고친 정정(SK 20260210: 2025-02-10 → 2026-02-10)도
+      원 결의와 묶이게 한다. 표에 그 행이 없으면 None(= 결의일은 안 고쳤다, 본문 값이 곧 원 공시 값).
+    · `record_date_before` · `dividend_type_before` — 같은 날 결의가 둘일 때 원 공시를 가르는 보조 열쇠.
+    · `original_filed` — 「정정관련 공시서류제출일」(원 공시 접수일).
+    · `items` — 표에 오른 행(이 파서의 칸 이름). 정보용이다.
+    """
+    table_at = _AMEND_TABLE_RE.search(pre)
+    header = pre[: table_at.start()] if table_at else pre
+    table = pre[table_at.start():] if table_at else ""
+    reason = _AMEND_REASON_RE.search(header)
+    items: list[str] = []
+    for match in _AMEND_ITEM_RE.finditer(table):
+        name = match.lastgroup
+        if name and name not in items:
+            items.append(name)
+        if name in ("remarks", "preferred_stocks"):
+            break
+    dividend_type = _AMEND_TYPE_RE.search(table)
+    return {
+        "values_from": "정정후 본문" if body_found else "전문(본문 머리 못 찾음 — 정정전 값일 수 있다)",
+        "reason": (reason.group(1).strip()[:200] or None) if reason else None,
+        "original_filed": _iso_date(_AMEND_FILED_RE.search(header)),
+        "board_date_before": _iso_date(_AMEND_BOARD_RE.search(table)),
+        "record_date_before": _iso_date(_AMEND_RECORD_RE.search(table)),
+        "dividend_type_before": dividend_type.group(1) if dividend_type else None,
+        "items": items,
+    }
+
+
 def parse_dividend_decision(text: str) -> dict | None:
-    """Parse the standard exchange disclosure for a dividend decision."""
+    """Parse the standard exchange disclosure for a dividend decision.
+
+    정정 공시면 값은 정정 후 본문에서 읽고, 앞의 「정정사항」 표는 `amendment` 메타로만 낸다(`_split_amendment`).
+    """
     if not text:
         return None
     clean = re.sub(r"\.xforms[^}]+\}", "", text).strip()
     clean = re.sub(r"\s+", " ", clean)
+    pre, clean, body_found = _split_amendment(clean)
     result = {}
 
     match = re.search(r"1\.\s*배당구분\s*(결산배당|중간배당|분기배당)", clean)
@@ -121,14 +240,13 @@ def parse_dividend_decision(text: str) -> dict | None:
     result["total_amount"] = safe_int(match.group(1)) if match else 0
 
     date_fields = (
-        ("record_date", r"6\.\s*배당기준일\s*(\d{4}-\d{2}-\d{2})"),
-        ("payment_date", r"7\.\s*배당금지급\s*예정일자\s*(\d{4}-\d{2}-\d{2})"),
-        ("agm_date", r"9\.\s*주주총회\s*예정일자\s*(\d{4}-\d{2}-\d{2})"),
-        ("board_date", r"10\.\s*이사회결의일\s*\(결정일\)\s*(\d{4}-\d{2}-\d{2})"),
+        ("record_date", r"6\.\s*배당기준일\s*"),
+        ("payment_date", r"7\.\s*배당금지급\s*예정일자\s*"),
+        ("agm_date", r"9\.\s*주주총회\s*예정일자\s*"),
+        ("board_date", r"10\.\s*이사회결의일\s*\(결정일\)\s*"),
     )
-    for field, pattern in date_fields:
-        match = re.search(pattern, clean)
-        result[field] = match.group(1) if match else None
+    for field, label in date_fields:
+        result[field] = _iso_date(re.search(label + _DATE_SRC, clean))
     match = re.search(r"8\.\s*주주총회\s*개최여부\s*(개최|미개최|미해당)", clean)
     result["agm_required"] = match.group(1) if match else None
 
@@ -177,7 +295,16 @@ def parse_dividend_decision(text: str) -> dict | None:
     if preferred_stocks:
         result["preferred_detail"] = preferred_stocks[0]
     if not result.get("dps_common") and not result.get("total_amount"):
+        # 정정 후 본문에 금액이 없고 표가 금액을 「-」로 지웠으면 **결정 취소 정정**이다(웅진씽크빅 20200508800742:
+        #   「배당기준일 명부확정 절차를 사전 진행하지 못해 … 배당금 지급 결정 취소」 — 1주당 20 → -, 총액 → -).
+        #   종전엔 표의 정정전 값(20원)을 읽어 취소된 배당이 지급으로 남았다. 빈 결과(None)로 버리면 원 공시가
+        #   대체되지 않으므로 취소 표시를 단 행으로 낸다. 그 밖의 빈 본문(서식이 다른 것)은 종전처럼 None.
+        if pre is not None and body_found and _AMEND_CLEARED_RE.search(pre):
+            result["amendment"] = {**_amendment_meta(pre, body_found), "cancelled": True}
+            return result
         return None
+    if pre is not None:
+        result["amendment"] = _amendment_meta(pre, body_found)
     return result
 
 

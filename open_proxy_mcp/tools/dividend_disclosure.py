@@ -55,6 +55,21 @@ def _fiscal_meta_line(summary: dict[str, Any], data: dict[str, Any]) -> str:
     return f"_{span}{end_month}월 결산 · {data.get('fiscal_year_basis', '')}_"
 
 
+def _decision_kind(item: dict[str, Any]) -> str:
+    """「구분」 칸 — 배당구분에 정정 표시를 붙인다(261019).
+
+    정정 공시는 값이 정정 후 본문에서 온다(`dividend_parser._split_amendment`). 금액을 「-」로 지운 정정은
+    결정 취소라 지급이 아니다 — 합산·건수에서 빠지고 여기서만 보인다.
+    """
+    label = item.get("dividend_type") or "-"
+    meta = item.get("amendment") or {}
+    if meta.get("cancelled"):
+        return f"{label} [정정·취소]"
+    if meta:
+        return f"{label} [정정]"
+    return label
+
+
 def _decision_remarks_lines(decisions: list[dict[str, Any]]) -> list[str]:
     """배당결정 원문 11번 「기타 투자판단과 관련한 중요사항」 — **결의마다 전문**을 낸다.
 
@@ -178,7 +193,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.extend(["", "## 최근 배당결정", "| 공시일 | 구분 | DPS(보통) | 기준일 | 공시번호 |", "|--------|------|-----------|--------|----------|"])
         for item in _shown:
             lines.append(
-                f"| {item.get('rcept_dt', '')} | {item.get('dividend_type', '-') or '-'} | {item.get('dps_common', 0):,}원 | "
+                f"| {item.get('rcept_dt', '')} | {_decision_kind(item)} | {item.get('dps_common', 0):,}원 | "
                 f"{item.get('record_date', '-') or '-'} | `{item.get('rcept_no', '')}` |"
             )
         if _total > len(_shown):
@@ -238,6 +253,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
             for r in qb:
                 amend = " [정정]" if r.get("is_amendment") else ""
                 supersed = " (대체됨)" if r.get("is_superseded") else ""
+                supersed += " (취소)" if r.get("is_cancelled") else ""
                 lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
             lines.append("")
             lines.append("> 최신연도 정확값은 위 '누적차분' 표 참조. 이 표는 공시 추적용(기준일·공시번호·정정 이력).")
@@ -259,7 +275,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률(결의 당시)+**현재가 기준 배당수익률**(최신 거래일 종가, 일별 시세 저장분), 분기별 추이. 미래 정책·약속 X.
         when: 실제 지급된 배당 확인. 분기배당 회사는 `history`로 분기별 breakdown. 미래 정책/약속은 `value_up`.
-        rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시 is_superseded 표시. 미래 약속 추가 금지. 자유서술 칸은 **원문 전문**을 낸다 — 결정공시 비고(11번 「기타 투자판단과 관련한 중요사항」)는 결의마다, `alotMatter` 항목 행은 `detail` 에서. 특별·기념배당·감액배당 재원·자기주식 제외 산정·주총 갈음·차등배당은 그 칸에만 적히니 **파생 플래그(`정책 신호`)를 믿지 말고 원문을 읽어라.**
+        rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시는 정정 후 본문 값을 쓰고(앞 「정정사항」 표는 원 공시를 찾는 열쇠·정정 항목 메타 `amendment` 로만), 고친 앞 공시는 기준일이 바뀌어도 is_superseded, 금액을 지운 정정은 결정 취소(합산 제외). 미래 약속 추가 금지. 자유서술 칸은 **원문 전문**을 낸다 — 결정공시 비고(11번 「기타 투자판단과 관련한 중요사항」)는 결의마다, `alotMatter` 항목 행은 `detail` 에서. 특별·기념배당·감액배당 재원·자기주식 제외 산정·주총 갈음·차등배당은 그 칸에만 적히니 **파생 플래그(`정책 신호`)를 믿지 말고 원문을 읽어라.**
         scope: `summary` 선배당-후결의+감액배당 메타+최근 결정 10건(비고 원문 포함) / `detail` 요약+최근 결정 50건(비고 원문 포함)+`alotMatter` 항목 행 원문 / `history` N년 추이+분기 breakdown+policy_signals
         ref: value_up, treasury_share, shareholder_meeting_notice, company, ownership_structure, evidence
         """
