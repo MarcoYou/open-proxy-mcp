@@ -21,7 +21,7 @@
 적으면 그게 바로 「모르는 것을 아는 것처럼 적는」 짓이다. 그래서 `before_window` 를 둔다 —
 참이면 「창 이전부터 상장 · 정확한 시점은 이 표가 모른다」는 뜻이고, 배당 창(FY2018~)
 전체를 덮으므로 판단에는 충분하다.
-창 이후 첫 관측은 주간 해상도라 실제 상장일보다 최대 6일 늦을 수 있다. 연 단위로 쓰는 한
+창 이후 첫 관측은 주간 해상도라 실제 상장일보다 최대 6일 늦을 수 있다(배치가 매일 일별 최신일을 함께 보므로 보통은 그날이다). 연 단위로 쓰는 한
 문제가 되지 않지만, 12월 마지막 주 상장은 해가 넘어갈 수 있다(실측 1건: 490470 —
 원장 20251229 vs 주간 20260102). 일 단위 판단에는 쓰지 않는다.
 
@@ -94,11 +94,15 @@ class WindowError(RuntimeError):
     """증분으로 만들 수 없는 상태 — 호출부가 메시지를 그대로 보여 주고 실패로 끝낸다."""
 
 
+#: 새 관측 = 최근 주간 행 + 일별 시세 저장분(최근 7거래일) — 261018(재설계 5-1 쓰는 쪽). krx_weekly 는 닫힌 주만 담게 되어
+#: 이번 주에 새로 상장·폐지한 종목은 주가 닫힐 때까지 krx_weekly 에 없다. 종전엔 매일 이번 주 행(그날 최신일)이 있어 관측이 그날
+#: 바로 반영됐다 — 일별 저장분을 함께 읽어 그대로 둔다(첫·끝 관측은 LEAST/GREATEST 로 합쳐지므로 더 촘촘한 날짜가 이긴다).
 Q_RECENT = """
 SELECT w.ticker, (array_agg(w.market ORDER BY w.price_dd DESC))[1] AS market,
        min(w.price_dd) AS first_dd, max(w.price_dd) AS last_dd
-  FROM krx_weekly w
- WHERE w.price_dd >= %s
+  FROM (SELECT price_dd, ticker, market FROM krx_weekly WHERE price_dd >= %(start)s
+        UNION ALL
+        SELECT trd_dd, ticker, market FROM krx_daily WHERE trd_dd >= %(start)s) w
  GROUP BY w.ticker
 """
 
@@ -262,7 +266,7 @@ def build(con, *, dry: bool = False) -> int:
         return 1
 
     t0 = time.time()
-    observed = _observe(con, Q_RECENT, (start,))
+    observed = _observe(con, Q_RECENT, {"start": start})
     if len(observed) < MIN_TICKERS:
         print(f"🔴 {start} 이후에 보인 종목이 {len(observed)}개뿐이다(하한 {MIN_TICKERS}) — 상류 이상으로 보고 덮지 않는다",
               file=sys.stderr)
@@ -345,7 +349,7 @@ def compare(con, stale_weeks: int = 0) -> int:
             print(f"🔴 [{label}] {exc}", file=sys.stderr)
             return 1
         t0 = time.time()
-        observed = _observe(con, Q_RECENT, (start,))
+        observed = _observe(con, Q_RECENT, {"start": start})
         n_rows = con.execute("SELECT count(*) FROM krx_weekly WHERE price_dd >= %s", (start,)).fetchone()[0]
         changed, stats = merge_rows(ex, observed)
         t_inc = time.time() - t0

@@ -40,6 +40,12 @@
   · 그때도 하한 이전은 **원천이 온전한 날짜(해마다 마지막 주)만** 다시 집계하고 그 날짜의 집계만 지운다 — 나머지 옛 집계
     (원천이 부분 행뿐인 날짜 포함)는 건드리지 않는다.
 
+★ 이번 주 최신 점은 일별 시세 저장분에서 온다 (261018, 재설계 5-1 쓰는 쪽). `krx_weekly` 는 닫힌 주만 담게 되어 주중에는
+  지난 금요일이 최신이다. 원천을 「닫힌 주 + 일별 최신 거래일」(`krx_daily.WEEKLY_WITH_LATEST`)로 읽어 종전과 같은 모양
+  (주마다 그 주 마지막 거래일, 이번 주는 최신 거래일)을 유지한다. 이번 주 임시 점은 그 주가 닫히면 다음 실행이 지우고 닫힌 날로 바꾼다.
+  재계산 시작은 「원천 최신 주」와 「집계 표의 최신 점이 속한 주」 중 이른 쪽의 첫날이다 — 배치가 며칠 걸러도(또는 임시 점이 남아도)
+  그 사이 주를 놓치지 않는다. 한 주 = ISO 주를 달력 연도로 자른 것(`krx_retention.week_unit`).
+
 실행: python3 scripts/krx_cap_agg.py [--since 20231016 | --full] [--allow-before-cutoff]
 """
 from __future__ import annotations
@@ -57,7 +63,8 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
-from open_proxy_mcp.krx_retention import krx_weekly_cutoff
+from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
+from open_proxy_mcp.krx_retention import krx_weekly_cutoff, week_unit
 
 DDL = """
 CREATE TABLE IF NOT EXISTS krx_cap_agg (
@@ -83,9 +90,10 @@ ON CONFLICT (price_dd, market, scheme, bucket) DO UPDATE SET
 """
 
 # 시장 전체 — 분류와 무관하므로 스냅샷 시대(era)를 나눌 필요가 없다. 한 번에 훑는다.
+# 원천 = 닫힌 주(krx_weekly) + 일별 최신 거래일(이번 주 임시 점) — 261018.
 Q_MARKET = """
 SELECT price_dd, market, count(*), sum(mktcap)::bigint
-FROM krx_weekly WHERE price_dd >= %s AND mktcap > 0{src}
+FROM """ + WEEKLY_WITH_LATEST + """ w WHERE price_dd >= %s AND mktcap > 0{src}
 GROUP BY 1,2
 """
 
@@ -94,7 +102,7 @@ Q_SECTOR = """
 SELECT k.price_dd, k.market,
        COALESCE(w.{code}, '_UNCLASSIFIED'), COALESCE(w.{name}, '미분류'),
        count(*), sum(k.mktcap)::bigint
-FROM krx_weekly k
+FROM """ + WEEKLY_WITH_LATEST + """ k
 LEFT JOIN wise_sector w ON w.ticker = k.ticker AND w.snap_dd = %s
 WHERE k.price_dd >= %s AND k.price_dd < %s AND k.mktcap > 0{src}
 GROUP BY 1,2,3,4
@@ -113,21 +121,24 @@ def _eras(snaps: list[str], since: str) -> list[tuple[str, str, str]]:
 
 
 def _week_start(dd: str) -> str:
-    """YYYYMMDD가 속한 ISO 주의 월요일."""
-    day = dt.datetime.strptime(dd, "%Y%m%d").date()
-    return (day - dt.timedelta(days=day.weekday())).strftime("%Y%m%d")
+    """YYYYMMDD 가 속한 주의 첫날 — ISO 주를 달력 연도로 자른 것(`krx_retention.week_unit`, 261018)."""
+    return week_unit(dd)[0]
 
 
 def _choose_since(*, requested: str | None, full: bool, source_min: str,
-                  source_max: str, latest_snap: str, latest_sector_asof: str | None) -> tuple[str, str]:
-    """재계산 시작일과 이유. 새 분류는 그 날짜 이후에만 영향을 준다."""
+                  source_max: str, latest_snap: str, latest_sector_asof: str | None,
+                  agg_latest: str | None = None) -> tuple[str, str]:
+    """재계산 시작일과 이유. 새 분류는 그 날짜 이후에만 영향을 준다.
+
+    평소(최신 주 갱신)는 원천 최신 주와 집계 표 최신 점이 속한 주 중 **이른 쪽**부터 — 261018. 집계 표의 최신 점이 지난주의
+    임시 점(그 주가 닫히기 전 일별 최신일)이면 그 주부터 다시 만들어 닫힌 날로 바꾸고, 배치가 며칠 걸렀으면 그 사이 주를 채운다."""
     if requested:
         return requested, "지정 구간"
     if full or latest_sector_asof is None:
         return source_min, "전 구간" if full else "최초 적재"
     if latest_snap > latest_sector_asof:
         return latest_snap, "새 업종분류 관측 반영"
-    return _week_start(source_max), "최신 주 갱신"
+    return _week_start(min(source_max, agg_latest) if agg_latest else source_max), "최신 주 갱신"
 
 
 def _guard_since(*, since: str, reason: str, cutoff: str, allow: bool) -> tuple[bool, str]:
@@ -191,13 +202,16 @@ def main() -> int:
         print("분류 스냅샷 표가 비어 있음 — refresh_sector_class.py 를 먼저 돌린다")
         return 1
 
-    source_min, source_max = con.execute("SELECT min(price_dd), max(price_dd) FROM krx_weekly").fetchone()
+    source_min, weekly_max = con.execute("SELECT min(price_dd), max(price_dd) FROM krx_weekly").fetchone()
     if not source_min:
         print("krx_weekly 비어 있음 — 먼저 시세를 적재한다")
         return 1
-    latest_sector_asof = con.execute(
-        "SELECT max(sector_asof) FROM krx_cap_agg WHERE scheme <> 'market'"
-    ).fetchone()[0]
+    # 원천 최신 = 닫힌 주와 일별 최신 거래일 중 늦은 쪽(이번 주 임시 점). 보존 하한은 표를 자르는 쪽과 같게 krx_weekly 최신에서 잰다.
+    daily_max = con.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+    source_max = max(weekly_max, daily_max or "")
+    latest_sector_asof, agg_latest = con.execute(
+        "SELECT max(sector_asof) FILTER (WHERE scheme <> 'market'), max(price_dd) FILTER (WHERE scheme = 'market') FROM krx_cap_agg"
+    ).fetchone()
     since, reason = _choose_since(
         requested=a.since,
         full=a.full,
@@ -205,15 +219,16 @@ def main() -> int:
         source_max=source_max,
         latest_snap=snaps[-1],
         latest_sector_asof=latest_sector_asof,
+        agg_latest=agg_latest,
     )
-    cutoff = krx_weekly_cutoff(source_max)
+    cutoff = krx_weekly_cutoff(weekly_max)
     cy0 = cutoff[:4] + "0101"   # 하한이 속한 해의 1월 1일 — 이보다 이른 해만 「그 해 전역 마지막 주」가 온전한 날짜다
     ok, note = _guard_since(since=since, reason=reason, cutoff=cutoff, allow=a.allow_before_cutoff)
     if not ok:
         print(note, file=sys.stderr)
         con.close()
         return 2
-    print(f"재계산 시작 {since} · {reason} (보존 하한 {cutoff})", flush=True)
+    print(f"재계산 시작 {since} · {reason} (보존 하한 {cutoff} · 닫힌 주 최신 {weekly_max} · 일별 최신 {daily_max})", flush=True)
     if note:
         print(note, flush=True)
 

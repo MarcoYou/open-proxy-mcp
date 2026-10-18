@@ -1,8 +1,9 @@
 """주간 밸류에이션 스냅샷 배치 — DB-first 서빙의 갱신자 (cron 대상).
 
 한 번 실행이 하는 일 (KRX 4콜 + DART 0콜 + ECOS 0콜):
-  A. krx_weekly 갱신 — 최신 거래일 전종목 스냅샷, 같은 ISO주 수렴(valuation 공용 로직 재사용)
-  B. opm_val_firm  — 종목별 PER/PBR 주간 스냅샷 (krx_weekly 시총 × dart_fundamentals 재무)
+  A. 시세 확인 — 일별 시세 저장분(krx_daily)이 직전 영업일까지 있나, 없으면 KRX 최신 거래일을 받아 기록(valuation 공용 로직 재사용).
+     261018(재설계 5-1 쓰는 쪽): 기록의 주는 krx_daily, krx_weekly 는 닫힌 주만(서버 갱신기·`_krx_db_upsert` 가 옮겨 적는다).
+  B. opm_val_firm  — 종목별 PER/PBR 주간 스냅샷 (그 날 krx_daily_v 시총 × dart_fundamentals 재무)
   C. opm_val_market — 시장 전체(KOSPI/KOSDAQ) 시총가중 aggregate (우선주 시총 보통주 귀속)
   D. opm_val_market — 시장 전체(scheme='market') 만. 섹터 집계는 업종분류 기준으로 이관(260823).
 
@@ -16,15 +17,20 @@
 통화(260705 실측 버그 수정): mkt_fundamentals의 비KRW 22사(USD/CNY/JPY)는 재무가 원통화 저장
   → ecos_fx_rate(Supabase 캐시, FY 기말환율)로 KRW 환산 후 합산/배수 산출. 캐시 미스 시 그 종목 제외+경고.
 
-수렴 규칙(무료티어 보호): 모든 스냅샷 테이블은 같은 ISO주의 옛 snap_dd를 지우고 기록
-  → 주중 매일 돌려도 주당 1스냅샷, 주 마지막 거래일로 굳음. (fx·krx_weekly와 동일 패턴)
+수렴 규칙(무료티어 보호): 모든 스냅샷 테이블은 같은 주의 옛 snap_dd를 지우고 기록
+  → 주중 매일 돌려도 주당 1스냅샷, 주 마지막 거래일로 굳음. 한 주 = ISO 주를 달력 연도 안으로 자른 것
+  (`krx_retention.week_unit` — 261018: 연말 거래일이 다음 해 첫 주에 지워지지 않게).
+
+🔴 가드(261018): 스냅샷 날짜의 시총이 MIN_SNAPSHOT_TICKERS(1,500) 종목보다 적으면 **아무것도 지우지 않고 실패로 끝낸다.**
+  종전엔 그 날짜에 krx_weekly 행이 없으면(쓰는 쪽이 닫힌 주만 쓰게 되면 주중엔 늘 그렇다) 같은 주 스냅샷을 지운 뒤
+  0행을 저장하고 「저장 완료」로 끝났다 — 오류 없이 조용히 비는 형태였다.
 
 실행: python3 scripts/market_val_weekly.py            # 전체 A→D
       python3 scripts/market_val_weekly.py --dry      # B~D 저장 생략(산출만) — A(krx_weekly 갱신)·DDL은 수행
       python3 scripts/market_val_weekly.py --backfill [--since 20151201] [--limit-weeks N]
           # krx_weekly 과거 주간 백필만(스냅샷 B~D 는 돌지 않는다). 옛 KRX 주간 적재 스크립트의 --backfill 흡수
           # (260902 · 원본은 open-proxy-storage archive/opm-scripts).
-          # 완결된 ISO주마다 금→월 순으로 그 주 마지막 거래일을 찾아 전종목 적재. 주 단위 commit·기적재 주 skip
+          # 완결된 주(ISO 주를 달력 연도로 자른 것)마다 금→월 순으로 그 주 마지막 거래일을 찾아 전종목 적재. 주 단위 commit·기적재 주 skip
           # 이라 재개 가능. KRX 일 10,000콜 한도 — 콜 간 0.35s + 9,000콜에서 강제 중단.
           # (구 --update 는 A 단계 _ensure_krx_fresh 가 매일 담당하므로 없앴다.)
           # 🔴 261017: 보존 하한(최신 주 3년 전) 이전 주는 **건너뛴다.** krx_weekly 는 최근 3년 + 종목별로 해마다 마지막 행(연말 행)만
@@ -42,7 +48,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from open_proxy_mcp.krx_retention import krx_weekly_cutoff
+from open_proxy_mcp.krx_retention import krx_weekly_cutoff, week_unit
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
 from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
@@ -50,6 +56,10 @@ import httpx, psycopg
 
 from open_proxy_mcp.dart.fx import fx_to_krw
 from open_proxy_mcp.services.price_multiple_data import _ensure_krx_fresh, _iso_wk_range
+
+#: 스냅샷 날짜에 시총이 있는 종목이 이보다 적으면 상류(일별 시세 저장분)가 비었거나 반쪽이다 — 지우지 않고 실패로 끝낸다.
+#: 정상은 약 2,760종목(코스피 약 950 + 코스닥 약 1,800). `krx_listing.MIN_TICKERS` 와 같은 문턱.
+MIN_SNAPSHOT_TICKERS = 1_500
 
 FY = 2025
 FY_END = f"{FY}1231"  # 비KRW 재무 환산 기준(회계기말 환율) — valuation tool과 동일 규칙
@@ -189,12 +199,19 @@ async def _backfill_fetch(h: httpx.AsyncClient, url: str, key: str, price_dd: st
 
 
 def _week_candidates(since: date, until: date) -> list[list[str]]:
-    """완결된 ISO주별 후보일 [금,목,수,화,월]. 진행 중인 이번 주는 제외(최근 주는 A 단계가 담당)."""
+    """완결된 주별 후보 평일(늦은 날부터 — 보통 [금,목,수,화,월]). 진행 중인 이번 주는 제외(최근 주는 A 단계가 담당).
+
+    261018: 한 주 = ISO 주를 **달력 연도 안으로 자른 것**(`krx_retention.week_unit`). 연도를 넘는 ISO 주는 둘로 나눈다 —
+    종전엔 그 주의 금요일(다음 해)만 잡혀 그해 마지막 거래일(12/29~30)이 백필되지 않았다(2019 연말 행이 20191227 인 이유)."""
     weeks = []
     monday = since - timedelta(days=since.weekday())
     last_full_monday = until - timedelta(days=until.weekday() + 7)  # 지난주 월요일
     while monday <= last_full_monday:
-        weeks.append([(monday + timedelta(days=d)).strftime("%Y%m%d") for d in (4, 3, 2, 1, 0)])
+        units: dict[tuple[str, str], list[str]] = {}
+        for d in (4, 3, 2, 1, 0):
+            dd = (monday + timedelta(days=d)).strftime("%Y%m%d")
+            units.setdefault(week_unit(dd), []).append(dd)
+        weeks.extend(units[u] for u in sorted(units))
         monday += timedelta(days=7)
     return weeks
 
@@ -274,31 +291,43 @@ async def backfill(since: date, limit_weeks: int | None = None, allow_before_cut
 
 
 def _wk_converge(cur, table: str, snap_dd: str, extra_where: str = "") -> None:
-    """같은 ISO주의 다른 snap_dd 행 삭제 — 주당 1스냅샷 수렴."""
+    """같은 주의 다른 snap_dd 행 삭제 — 주당 1스냅샷 수렴. 주 = ISO 주를 달력 연도로 자른 것(`_iso_wk_range`)."""
     s, e = _iso_wk_range(snap_dd)
     cur.execute(f"DELETE FROM {table} WHERE snap_dd >= %s AND snap_dd <= %s AND snap_dd != %s"
                 + extra_where, (s, e, snap_dd))
 
 
-async def run(dry: bool = False) -> None:
-    # A. krx_weekly 갱신 (valuation 공용 — 최신 거래일 확보 + 같은 주 수렴, KRX 최대 2콜)
+def _snapshot_caps(con, snap_dd: str) -> dict[str, int]:
+    """스냅샷 날짜의 전 종목(우선주 포함) 시총 — 일별 시세 저장분 `krx_daily_v`(시총 = 종가 × 상장주식수).
+
+    261018(재설계 5-1 쓰는 쪽): 종전 `krx_weekly WHERE price_dd=snap_dd`. krx_weekly 는 닫힌 주만 담게 되어 주중 snap_dd(일별 최신일)
+    행이 없다 → 0종목. `_ensure_krx_fresh` 가 돌려주는 날짜는 일별 저장분의 최신일이라 여기서 읽는 것이 같은 원천이다."""
+    return {c: (m or 0) for c, m in con.execute(
+        "SELECT ticker, mktcap FROM krx_daily_v WHERE trd_dd=%s", (snap_dd,))}
+
+
+async def run(dry: bool = False) -> int:
+    # A. 시세 확인 (valuation 공용 — 일별 저장분이 직전 영업일까지 있나, 없으면 기록. KRX 최대 2콜)
     snap_dd = await _ensure_krx_fresh()
     if not snap_dd:
-        print("KRX 최신 거래일 확보 실패 — 중단"); return
-    print(f"A. krx_weekly 최신 = {snap_dd}")
+        print("::error::KRX 최신 거래일 확보 실패 — 중단(기존 스냅샷 보존)"); return 1
+    print(f"A. 일별 시세 최신 = {snap_dd}")
 
     con = psycopg.connect(os.environ["DATABASE_URL"])
     for ddl in (DDL_FIRM, DDL_MKT) + DDL_MIGRATE:
         con.execute(ddl)
     con.commit()
 
-    # 시세: krx_weekly에서 (전 종목 — 우선주 포함)
-    wk = {c: (m or 0) for c, m in con.execute(
-        "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s", (snap_dd,))}
+    # 시세: 일별 저장분에서 (전 종목 — 우선주 포함)
+    wk = _snapshot_caps(con, snap_dd)
+    if len(wk) < MIN_SNAPSHOT_TICKERS:   # 아래 수렴 DELETE 가 기존 스냅샷을 빈 데이터로 덮는 것을 막는다
+        print(f"::error::{snap_dd} 시총이 {len(wk)}종목뿐(하한 {MIN_SNAPSHOT_TICKERS:,}) — 일별 시세 저장분(krx_daily)이 비었거나 "
+              "반쪽이다. 스냅샷을 쓰지 않고 실패로 끝낸다(기존 데이터 보존).", flush=True)
+        con.close(); return 1
     kinds = await _krx_kinds(snap_dd)  # KRX 2콜
     if not kinds:  # 양 endpoint 실패 → caps 전부 빈값 → 수렴 DELETE가 기존 스냅샷을 빈 데이터로
         print("⚠ KRX 종목유형(kinds) 확보 실패 — 스냅샷 중단(기존 데이터 보존)")  # 덮는 사고 방지(QA)
-        con.close(); return
+        con.close(); return 0
     # 보통주 시총 = 배수 분자(260705 확정). 우선주 시총은 배수에서 제외, 보통주 코드로 매핑해
     # cap_pref로 별도 저장(정보 노출용). 종류주권·K/L 등 우선주류는 '보통주 아님'으로 전부 pref 취급.
     caps: dict[str, float] = {}
@@ -441,7 +470,7 @@ async def run(dry: bool = False) -> None:
     print(f"D. opm_val_market(섹터행) {len(sec_recs)}버킷 · per_fy0 채움 {_sec_fy0}/{len(sec_recs)}")
 
     if dry:
-        print("(--dry: 저장 생략)"); con.close(); return
+        print("(--dry: 저장 생략)"); con.close(); return 0
 
     # 저장 — 전부 같은 ISO주 수렴 + 컬럼명 명시 INSERT (위치의존 금지).
     # 260706 병합: 시장전체(sector='_ALL')와 섹터별 행을 opm_val_market 하나에 함께 저장.
@@ -471,6 +500,7 @@ async def run(dry: bool = False) -> None:
         print(f"(우선주 미매핑 시총 {unmapped/1e12:.1f}조 — 제외)")
     print(f"저장 완료: snap_dd={snap_dd} · firm {len(firm_recs)} · market {len(mkt_recs)} (KSIC 섹터 집계는 중단 — 업종분류 기준으로 이관)")
     con.close()
+    return 0
 
 
 if __name__ == "__main__":
@@ -487,4 +517,4 @@ if __name__ == "__main__":
         _since = date(int(a.since[:4]), int(a.since[4:6]), int(a.since[6:8]))
         asyncio.run(backfill(_since, a.limit_weeks, a.allow_before_cutoff))
     else:
-        asyncio.run(run(dry=a.dry))
+        sys.exit(asyncio.run(run(dry=a.dry)))

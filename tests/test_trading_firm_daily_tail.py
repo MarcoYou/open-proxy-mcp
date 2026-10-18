@@ -169,8 +169,12 @@ def test_helper_contract():
     # 다음 해 첫 주(ISO 연도가 바뀌는 경계) — 2026-12-31(목, 53주) 다음 2027-01-04(월, 1주)는 다른 주
     yr = [_w("20261231", 1)]
     assert T._with_daily_tail(yr, [_w("20270104", 2)], lo) == [_w("20261231", 1), _w("20270104", 2)]
-    # 2027-01-01(금)은 2026-12-31 과 같은 ISO 주(2026년 53주) — 교체
-    assert T._with_daily_tail(yr, [_w("20270101", 2)], lo) == [_w("20270101", 2)]
+    # 261018(재설계 5-1 쓰는 쪽): 한 주 = ISO 주를 달력 연도로 자른 것. 2025-12-30(화)과 2026-01-02(금)은 같은 ISO 주(2026-W01)지만
+    #   다른 주다 — 교체하면 그해 마지막 거래일(연말 행)이 시계열에서 사라진다. 뒤에 붙인다.
+    ye = [_w("20251230", 1)]
+    assert T._with_daily_tail(ye, [_w("20260102", 2)], lo) == [_w("20251230", 1), _w("20260102", 2)]
+    # 같은 연도 안의 같은 ISO 주는 종전처럼 교체
+    assert T._with_daily_tail([_w("20251229", 1)], [_w("20251230", 2)], lo) == [_w("20251230", 2)]
     # 바로 다음 주가 아니어도(주간 쓰기가 몇 주 밀린 경우) 더 늦은 주면 뒤에 붙인다 — 「다음 주」만이 아니다
     assert T._with_daily_tail(WEEKLY, [_w("20261027", 3)], lo) == [*WEEKLY, _w("20261027", 3)]
 
@@ -280,14 +284,14 @@ def firm_pg(pg17, monkeypatch):
     return pg17, psycopg
 
 
-def _write_current_world():
-    """쓰는 쪽을 지금 그대로 돌린다 — 주간은 같은 ISO 주의 옛 날짜를 지우고, 일별은 6일을 다 갖는다."""
+def _write_days():
+    """서버의 실제 쓰기(`_krx_db_upsert`)로 6일을 쓴다 — 일별은 6일을 다 갖고, 주간은 닫힌 주만(금요일 10/2·10/9) 갖는다(261018 쓰는 쪽)."""
     from open_proxy_mcp.services import price_multiple_data as pmd
     from test_krx_daily_pg import _row
     for i, dd in enumerate(DAYS):
         kospi = [_row("005930", 70_000 + 500 * i, shrs=SH)]
         kosdaq = [_row("247540", 250_000 - 1_000 * i)] if dd <= "20261008" else []
-        assert pmd._krx_db_upsert(dd, kospi, kosdaq) == (True, True)
+        assert pmd._krx_db_upsert(dd, kospi, kosdaq).daily_ok
 
 
 def _firm(name="삼성전자"):
@@ -301,14 +305,18 @@ def _comparable(p):
     return {**p, "data": d, "warnings": [w for w in p["warnings"] if "주간 시세는 최근 3년까지" not in w]}
 
 
-def test_pg_current_world_and_next_world_answer_the_same(firm_pg, monkeypatch):
+def test_pg_old_world_and_closed_week_world_answer_the_same(firm_pg, monkeypatch):
+    """쓰는 쪽이 닫힌 주만 남긴 지금(261018) 응답이, 종전 쓰는 쪽(이번 주 행을 매일 다시 넣던 것) 때 응답과 같다 — 끝점이 이번 주를 잇는다."""
     url, psycopg = firm_pg
-    _write_current_world()
+    _write_days()
     with psycopg.connect(url, autocommit=True) as c:
         c.execute("INSERT INTO krx_adj_events (ticker, event_dd, market, adj_factor) VALUES (%s, %s, %s, %s)",
                   ("005930", "20261013", "KS", 0.5))
         weekly = [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly ORDER BY 1").fetchall()]
-    assert weekly == ["20261002", "20261009", "20261013"]                # 지금: 닫힌 주 마지막 날 + 이번 주 최신 하루
+        assert weekly == ["20261002", "20261009"]                        # 닫힌 주만 — 이번 주(10/12~13) 행은 없다
+        # 종전 세계를 만든다: 옛 쓰는 쪽이 매일 넣던 이번 주 최신 하루(10/13)를 주간 표에 넣는다
+        c.execute("INSERT INTO krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) "
+                  "SELECT trd_dd, ticker, market, close, mktcap, list_shrs FROM krx_daily_v WHERE trd_dd=%s", ("20261013",))
 
     now = _firm()
     assert now["status"] == "ok" and now["data"]["as_of"] == "20261013"
@@ -320,7 +328,7 @@ def test_pg_current_world_and_next_world_answer_the_same(firm_pg, monkeypatch):
     assert _firm() == now
     monkeypatch.setattr(T, "_with_daily_tail", _TAIL)
 
-    # 다음 세계: 쓰는 쪽이 닫힌 주만 남긴다(이번 주 행 없음). 일별은 그대로.
+    # 지금 세계로 되돌린다: 쓰는 쪽이 닫힌 주만 남긴다(이번 주 행 없음). 일별은 그대로.
     with psycopg.connect(url, autocommit=True) as c:
         c.execute("DELETE FROM krx_weekly WHERE price_dd >= %s", ("20261012",))
     nxt = _firm()
@@ -336,10 +344,10 @@ def test_pg_current_world_and_next_world_answer_the_same(firm_pg, monkeypatch):
 
 
 def test_pg_mid_week_delisting_gets_its_last_trading_day_back(firm_pg):
-    """쓰는 쪽이 같은 ISO 주의 옛 날짜를 지우므로, 주 중간(목)에 폐지된 종목은 주간에서 그 목요일이 사라진다(금요일 행에 없으니).
+    """주는 그 주 마지막 거래일(금요일) 단면으로 닫히므로, 주 중간(목)에 폐지된 종목은 주간에 그 목요일이 없다(금요일 행에 없으니).
     일별 보관 창 안에서는 끝점이 그 마지막 거래일을 되살린다 — 운영 실측(261018) 2종목이 이 모양이다."""
     url, psycopg = firm_pg
-    _write_current_world()
+    _write_days()
     with psycopg.connect(url, autocommit=True) as c:
         weekly = [r[0] for r in c.execute("SELECT price_dd FROM krx_weekly WHERE ticker=%s ORDER BY 1", ("247540",)).fetchall()]
         latest = c.execute("SELECT price_dd, close FROM price_latest WHERE ticker=%s", ("247540",)).fetchone()
@@ -356,7 +364,7 @@ def test_pg_new_listing_with_no_weekly_row_yet(firm_pg):
     from open_proxy_mcp import krx_daily
     from test_krx_daily_pg import _row
     url, psycopg = firm_pg
-    _write_current_world()
+    _write_days()
     with psycopg.connect(url) as c:                                     # 이번 주 화요일에 상장 — 주간에는 아직 없다
         assert krx_daily.write_daily(c, "20261013", [_row("005930", 72_500, shrs=SH)],
                                      [_row("0088M0", 12_000, shrs=2_000_000)])[0]

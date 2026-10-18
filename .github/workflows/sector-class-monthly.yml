@@ -77,14 +77,20 @@ jobs:
               n = c.execute("SELECT count(*) FROM wise_sector WHERE snap_dd=%s", (latest,)).fetchone()[0]
               if n < 1000:
                   raise SystemExit(f"::error::최신 시점 종목이 {n}개 — 1,000 미만이면 불완전 수집")
-              # krx_weekly 와 조인되는지(섹터 집계가 실제로 되는 상태인가)
+              # 시세와 조인되는지(섹터 집계가 실제로 되는 상태인가).
+              # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주(주마다 마지막 거래일)만 담고, 최근 7거래일은 일별 저장분 krx_daily 에 있다.
+              #   분류 기준일(보통 월말 거래일)은 주중일 때가 많아 krx_weekly 정확일자로는 0건이 정상이다 — 「기준일 이하 가장 늦은 시세일」로
+              #   두 표를 함께 보고 조인한다(집계 스크립트도 같은 날 이하 최신 시세를 쓴다).
+              pd = c.execute("""SELECT max(d) FROM (SELECT max(price_dd) d FROM krx_weekly WHERE price_dd <= %s
+                                UNION ALL SELECT max(trd_dd) FROM krx_daily WHERE trd_dd <= %s) x""",
+                             (latest, latest)).fetchone()[0]
               j = c.execute("""SELECT count(*) FROM wise_sector w
-                               JOIN krx_weekly k ON k.ticker=w.ticker AND k.price_dd=w.snap_dd
-                               WHERE w.snap_dd=%s""", (latest,)).fetchone()[0]
-              print(f"krx_weekly 정확일자 조인: {j:,}/{n:,}")
-              if j == 0:
-                  print("::warning::그 날짜에 krx_weekly 포인트가 없다 — 소비 측은 "
-                        "가장 가까운 price_dd 로 조인해야 한다(주간 수렴이라 금요일이 아닐 수 있음)")
+                               JOIN (SELECT ticker FROM krx_daily WHERE trd_dd=%s
+                                     UNION SELECT ticker FROM krx_weekly WHERE price_dd=%s) k ON k.ticker=w.ticker
+                               WHERE w.snap_dd=%s""", (pd, pd, latest)).fetchone()[0]
+              print(f"시세 조인(분류 기준일 {latest} 이하 최신 시세일 {pd}): {j:,}/{n:,}")
+              if j < n * 0.9:
+                  print(f"::warning::분류 종목 중 {pd} 시세와 맞는 종목이 {j:,}/{n:,} — 시세 저장분(krx_daily·krx_weekly) 확인")
           PY
 
       - name: 업종분류 기준 시장·섹터 집계 (DART·KRX 0콜)

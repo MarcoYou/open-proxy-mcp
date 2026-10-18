@@ -113,7 +113,9 @@ def _norm(sql: str) -> str:
 def test_listing_window_start_is_a_constant_and_daily_query_is_bounded():
     assert L.WINDOW_LO == R.KRX_WEEKLY_ORIGIN_DD == "20151230"
     # 일상 경로가 쓰는 쿼리는 하한(>=)이 걸려 있고, 전량 GROUP BY 는 비교 전용(Q_FULL)으로만 남는다
-    assert "w.price_dd >= %s" in L.Q_RECENT and "price_dd >=" not in L.Q_FULL and "price_dd <=" not in L.Q_FULL
+    assert "WHERE price_dd >= %(start)s" in L.Q_RECENT and "price_dd >=" not in L.Q_FULL and "price_dd <=" not in L.Q_FULL
+    # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주만 담는다 — 이번 주 관측은 일별 저장분에서 같이 읽는다(같은 하한)
+    assert "FROM krx_daily WHERE trd_dd >= %(start)s" in L.Q_RECENT
 
 
 def test_listing_merge_one_only_shrinks_first_and_grows_last():
@@ -203,7 +205,7 @@ def test_listing_build_reads_only_recent_weeks_and_upserts_changed_rows(monkeypa
     con = FakeCon(handler)
     assert L.build(con) == 0
     # 전량 GROUP BY 는 한 번도 안 돈다. 읽기 시작은 직전 구축 주(20261009)에서 56일 전
-    assert seen["full"] == 0 and seen["recent"] == [("20260814",)]
+    assert seen["full"] == 0 and seen["recent"] == [{"start": "20260814"}]
     assert seen["cut_checks"] == []                                       # 표가 비지 않았으면 컷 판별(전체 훑기)을 하지 않는다
     (sql, rows), = con.many
     assert sql is L.UPSERT and "LEAST(krx_listing.first_seen_dd, EXCLUDED.first_seen_dd)" in sql \
@@ -268,7 +270,7 @@ def test_listing_build_bootstraps_from_full_history(monkeypatch):
     handler, seen = _listing_handler(existing=[], observed=[("000000", "KS", "20151230", "20261016"), ("000001", "KQ", "20200103", "20261016")], table_cut=False)
     con = FakeCon(handler)
     assert L.build(con) == 0
-    assert seen["recent"] == [("20151230",)]
+    assert seen["recent"] == [{"start": "20151230"}]
     (_, rows), = con.many
     assert {r[0]: r[4] for r in rows} == {"000000": True, "000001": False}    # before_window
 
@@ -307,16 +309,18 @@ def test_cap_agg_source_filter_reads_only_whole_dates_below_the_cutoff():
     assert sql == " AND (k.price_dd >= %s OR k.price_dd = ANY(%s))" and params == (CUTOFF, ["20201230"])
 
 
-def _cap_agg_handler():
+def _cap_agg_handler(weekly_max="20261016", daily_max="20261016", agg_latest="20261016"):
     def handler(sql, params):
         s = _norm(sql)
         if s.startswith("SELECT DISTINCT snap_dd FROM wise_sector"):
             return [("20260821",)]
         if s.startswith("SELECT min(price_dd), max(price_dd) FROM krx_weekly"):
-            return [("20151230", "20261016")]
-        if s.startswith("SELECT max(sector_asof) FROM krx_cap_agg"):
-            return [("20260821",)]
-        if s.startswith("SELECT price_dd, market, count(*), sum(mktcap)::bigint FROM krx_weekly"):
+            return [("20151230", weekly_max)]
+        if s.startswith("SELECT max(trd_dd) FROM krx_daily"):
+            return [(daily_max,)]
+        if s.startswith("SELECT max(sector_asof) FILTER (WHERE scheme <> 'market'), max(price_dd) FILTER (WHERE scheme = 'market') FROM krx_cap_agg"):
+            return [("20260821", agg_latest)]
+        if s.startswith("SELECT price_dd, market, count(*), sum(mktcap)::bigint FROM (SELECT price_dd, ticker, market, close, mktcap, list_shrs FROM krx_weekly UNION ALL"):
             return [("20261016", "KS", 900, 10 ** 15)]
         if s.startswith("SELECT k.price_dd, k.market,"):
             return [("20261016", "KS", "G10", "에너지", 10, 10 ** 12)]
@@ -326,8 +330,8 @@ def _cap_agg_handler():
     return handler
 
 
-def _run_cap_agg(monkeypatch, argv, capsys):
-    con = FakeCon(_cap_agg_handler())
+def _run_cap_agg(monkeypatch, argv, capsys, **state):
+    con = FakeCon(_cap_agg_handler(**state))
     monkeypatch.setattr(C.psycopg, "connect", lambda *a, **k: con)
     monkeypatch.setenv("DATABASE_URL", "unused")
     monkeypatch.setattr(sys, "argv", ["krx_cap_agg.py", *argv])
@@ -344,6 +348,27 @@ def test_cap_agg_daily_run_is_unchanged(monkeypatch, capsys):
     reads = [(_norm(s), p) for s, p in con.statements if "FROM krx_weekly" in s and ("sum(mktcap)" in s or "k.price_dd" in s)]
     assert reads and not any("ANY(%s)" in q for q, _ in reads) and reads[0][1] == ("20261012",)
     assert "보존 하한 20231016" in out.out
+
+
+def test_cap_agg_reads_this_weeks_latest_day_from_the_daily_store(monkeypatch, capsys):
+    """261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주만 담는다. 원천은 「닫힌 주 + 일별 최신일」이라 이번 주 임시 점이 들어오고,
+    재계산은 그 주 첫날부터다. 보존 하한은 표를 자르는 쪽과 같게 krx_weekly(닫힌 주) 최신에서 잰다."""
+    rc, con, out = _run_cap_agg(monkeypatch, [], capsys, weekly_max="20261016", daily_max="20261021", agg_latest="20261020")
+    assert rc == 0
+    deletes = [(s, p) for s, p in con.statements if s.lstrip().upper().startswith("DELETE")]
+    assert deletes == [("DELETE FROM krx_cap_agg WHERE price_dd >= %s", ("20261019",))]     # 이번 주 월요일부터(어제의 임시 점을 갈아 끼운다)
+    src = [_norm(s) for s, _ in con.statements if "sum(mktcap)" in s]
+    assert src and "FROM krx_daily d WHERE d.trd_dd = (SELECT max(trd_dd) FROM krx_daily)" in src[0]
+    assert "보존 하한 20231016" in out.out and "일별 최신 20261021" in out.out
+
+
+def test_cap_agg_rebuilds_from_the_week_of_a_stale_provisional_point(monkeypatch, capsys):
+    """배치가 며칠 걸러 집계 표의 최신 점이 지난주 임시 점(목요일)으로 남아 있으면, 그 주 첫날부터 다시 만들어 닫힌 날(금요일)로 바꾸고
+    이번 주까지 채운다 — 종전처럼 원천 최신 주만 다시 만들면 지난주 임시 점이 남고 닫힌 금요일 집계가 빠진다."""
+    rc, con, _ = _run_cap_agg(monkeypatch, [], capsys, weekly_max="20261016", daily_max="20261020", agg_latest="20261015")
+    assert rc == 0
+    deletes = [(s, p) for s, p in con.statements if s.lstrip().upper().startswith("DELETE")]
+    assert deletes == [("DELETE FROM krx_cap_agg WHERE price_dd >= %s", ("20261012",))]
 
 
 def test_cap_agg_refuses_a_since_before_the_cutoff(monkeypatch, capsys):
@@ -373,6 +398,17 @@ def test_cap_agg_override_deletes_only_dates_that_can_be_recomputed(monkeypatch,
 # ═══════════════════════════════════════════════════════════════════════════════
 # 3. market_val_weekly — 백필 가드
 # ═══════════════════════════════════════════════════════════════════════════════
+def test_backfill_week_candidates_split_the_iso_week_at_the_year_boundary():
+    """연도를 넘는 ISO 주는 두 주로 — 종전엔 그 주의 금요일(다음 해)만 잡혀 그해 마지막 거래일이 백필되지 않았다(2019 연말 행 20191227)."""
+    weeks = W._week_candidates(dt.date(2025, 12, 22), dt.date(2026, 1, 14))
+    assert weeks == [["20251226", "20251225", "20251224", "20251223", "20251222"],
+                     ["20251231", "20251230", "20251229"],              # 연말 주 — 12/31 휴장이면 12/30 이 잡힌다
+                     ["20260102", "20260101"],                          # 새해 첫 주
+                     ["20260109", "20260108", "20260107", "20260106", "20260105"]]
+    w2019 = W._week_candidates(dt.date(2019, 12, 23), dt.date(2020, 1, 15))
+    assert ["20191231", "20191230"] in w2019 and ["20200103", "20200102", "20200101"] in w2019
+
+
 def test_backfill_split_weeks_by_cutoff():
     weeks = W._week_candidates(dt.date(2023, 9, 1), dt.date(2023, 11, 10))
     keep, skipped = W._split_weeks_by_cutoff(weeks, "20231016")

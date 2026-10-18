@@ -151,6 +151,9 @@ class FakeConn:
         self.commits += 1
         self.log.append(("commit",))
 
+    def rollback(self):
+        self.log.append(("rollback",))
+
     def __enter__(self):
         return self
 
@@ -183,7 +186,7 @@ def test_write_daily_with_no_rows_touches_nothing():
     assert c.log == []
 
 
-# ── _krx_db_upsert: krx_weekly 는 그대로, krx_daily 는 같은 트랜잭션 ────────────────
+# ── _krx_db_upsert: krx_daily 가 주(主), 닫힌 주만 krx_weekly(부) — 한 트랜잭션 ─────────────
 
 def _patch_connect(monkeypatch, conn):
     import psycopg
@@ -196,60 +199,109 @@ def _patch_connect(monkeypatch, conn):
     return seen
 
 
-def test_upsert_keeps_weekly_behaviour_and_adds_daily_before_the_single_commit(monkeypatch):
+def _patch_sync(monkeypatch, conn, result):
+    """주간 닫기(`krx_daily.sync_weekly`)를 기록만 하는 대역으로 — 실제 SQL 은 pg17 시험(test_krx_weekly_close_pg.py)이 본다."""
+    from open_proxy_mcp.services import price_multiple_data as pmd
+
+    def fake_sync(c):
+        assert c is conn                                      # 일별 기록과 같은 연결(같은 트랜잭션)
+        conn.log.append(("sync_weekly",))
+        return result
+    monkeypatch.setattr(pmd._krx_daily, "sync_weekly", fake_sync)
+
+
+def test_upsert_writes_daily_then_closes_weeks_before_the_single_commit(monkeypatch):
+    """261018(재설계 5-1 쓰는 쪽): 매 거래일 krx_weekly 의 이번 주 행을 지우고 다시 넣던 것을 멈췄다 — 이 함수는 krx_weekly 에 직접
+    아무것도 쓰지 않고, 일별 기록 뒤 같은 트랜잭션에서 주간 닫기를 부른다(닫힌 주만 옮겨 적는다)."""
     from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
     c = FakeConn()
     _patch_connect(monkeypatch, c)
-    ok = pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540", "250,000")])
-    assert ok == (True, True)                                   # (krx_weekly 커밋, krx_daily 기록)
-    expected = [
-        ("execute", "DELETE FROM krx_weekly WHERE"),
-        ("executemany", "INSERT INTO krx_weekly("),
-        ("savepoint", ""),
-        ("executemany", "INSERT INTO krx_daily ("),
-        ("execute", "DELETE FROM krx_daily WHERE"),
-        ("release", ""),
-        ("commit", ""),
-    ]
-    assert [e[0] for e in c.log] == [k for k, _ in expected]                       # 순서: weekly → (savepoint) daily → 커밋 한 번
-    for entry, (_, prefix) in zip(c.log, expected):
-        assert not prefix or entry[1].startswith(prefix), (entry[1], prefix)
-    assert c.commits == 1                                               # 한 번의 커밋 = 같은 트랜잭션
-    delete_weekly = c.log[0]
-    assert delete_weekly[2] == ("20261012", "20261018", "20261015")      # 같은 ISO 주(월~일)의 다른 일자만 지운다
-    weekly_recs = c.log[1][2]
-    assert weekly_recs == [("20261015", "005930", "KS", 71_000, 420_294_092_462_000, 5_919_637_922),
-                           ("20261015", "247540", "KQ", 250_000, 420_294_092_462_000, 5_919_637_922)]
-    assert len(c.log[3][2]) == 2
+    _patch_sync(monkeypatch, c, krx_daily.WeeklySync(True, ("20261009",), 0))
+    res = pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540", "250,000")])
+    assert res == pmd.KrxWrite(True, True, ("20261009",)) and res.daily_ok
+    # 바깥 트랜잭션 하나(첫 savepoint·마지막 release) 안에 일별 기록(SAVEPOINT)과 주간 닫기 — 한 커밋
+    assert [e[0] for e in c.log] == ["savepoint", "savepoint", "executemany", "execute", "release", "sync_weekly", "release"]
+    assert c.log[2][1].startswith("INSERT INTO krx_daily (") and len(c.log[2][2]) == 2
+    assert c.log[3][1].startswith("DELETE FROM krx_daily WHERE")
+    assert not any("krx_weekly" in (e[1] if len(e) > 1 else "") for e in c.log)   # 이번 주 행을 지우고 다시 넣지 않는다
 
 
-def test_upsert_commits_weekly_even_when_daily_fails_and_reports_true(monkeypatch):
+def test_upsert_commits_the_daily_write_even_when_the_weekly_close_fails(monkeypatch):
+    """주간 닫기는 부(副)다 — 실패해도 일별 기록(서빙 기준일)은 커밋되고 성공으로 보고한다. 다음 기록이 다시 닫는다."""
+    from open_proxy_mcp.services import price_multiple_data as pmd
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
+    c = FakeConn()
+    _patch_connect(monkeypatch, c)
+    _patch_sync(monkeypatch, c, krx_daily.WeeklySync(False))
+    assert pmd._krx_db_upsert("20261016", [_row("005930")], [_row("247540")]) == pmd.KrxWrite(True, False, ())
+    assert c.log[0] == ("savepoint",) and c.log[-1] == ("release",)          # 바깥 트랜잭션은 그대로 커밋된다
+
+
+def test_upsert_commits_nothing_when_the_daily_write_fails(monkeypatch):
+    """일별 기록이 주(主)다 — 실패하면 주간 닫기도 부르지 않고 아무것도 커밋하지 않는다(서빙 기준일과 주간 표가 어긋나지 않게)."""
     from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
     c = FakeConn(fail_daily=True)
     _patch_connect(monkeypatch, c)
-    assert pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540")]) == (True, False)   # 주간은 커밋, 일별만 실패 — 호출자가 구분한다
-    assert c.commits == 1 and ("rollback_to_savepoint",) in c.log
+    _patch_sync(monkeypatch, c, krx_daily.WeeklySync(True))
+    assert pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540")]) == pmd.KrxWrite(False)
+    assert ("rollback_to_savepoint",) in c.log and ("sync_weekly",) not in c.log
+    assert not any(e[0] == "executemany" for e in c.log)                     # 일별 행도 하나 남지 않는다(SAVEPOINT 로 되돌림)
 
 
-def test_upsert_returns_false_without_db_or_rows_and_on_weekly_error(monkeypatch, caplog):
+def test_upsert_returns_false_without_db_or_rows_and_on_connection_error(monkeypatch, caplog):
     from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == (False, False)
+    assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == pmd.KrxWrite(False)
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
-    assert pmd._krx_db_upsert("20261015", [], []) == (False, False)
-    assert pmd._krx_db_upsert("20261015", [{"TDD_CLSPRC": "1"}], []) == (False, False)        # 종목코드 없는 행뿐
+    assert pmd._krx_db_upsert("20261015", [], []) == pmd.KrxWrite(False)
+    assert pmd._krx_db_upsert("20261015", [{"TDD_CLSPRC": "1"}], []) == pmd.KrxWrite(False)        # 종목코드 없는 행뿐
 
-    class Boom(FakeConn):
-        def cursor(self):
-            raise RuntimeError("connection reset")
-    c = Boom()
-    _patch_connect(monkeypatch, c)
+    import psycopg
+
+    def boom(*a, **k):
+        raise psycopg.OperationalError("connection reset")
+    monkeypatch.setattr(psycopg, "connect", boom)
     with caplog.at_level("WARNING"):
-        assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == (False, False)
-    assert c.commits == 0
+        assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == pmd.KrxWrite(False)
     assert any("KRX 스냅샷 기록 실패" in r.message for r in caplog.records)
+
+
+# ── plan_weeks: 어느 주가 닫혔나 (순수 함수) ────────────────────────────────────
+
+def test_plan_weeks_closes_a_week_on_its_friday_or_when_a_later_week_appears():
+    W = krx_daily.WeekPlan
+    # 이번 주(목요일까지) — 아직 안 닫힘. 지난주는 금요일이 있어 닫힘.
+    assert krx_daily.plan_weeks(["20261008", "20261012", "20261013", "20261014", "20261015"]) == [
+        W("20261005", "20261011", "20261008", True),        # 금(10/9) 휴장 — 더 늦은 주가 있어 목요일로 닫힌다(R2)
+        W("20261012", "20261018", "20261015", False),
+    ]
+    # 금요일이 저장되면 그 주가 바로 닫힌다(R1 — 토요일 아침 기록)
+    assert krx_daily.plan_weeks(["20261015", "20261016"]) == [W("20261012", "20261018", "20261016", True)]
+    assert krx_daily.plan_weeks([]) == []
+
+
+def test_plan_weeks_splits_the_iso_week_at_the_year_boundary():
+    """2025-12-30(화)과 2026-01-02(금)은 같은 ISO 주(2026-W01)다. 한 주로 묶으면 12/30 이 지워진다 — 연도에서 나눈다."""
+    W = krx_daily.WeekPlan
+    assert krx_daily.plan_weeks(["20251229", "20251230"]) == [W("20251229", "20251231", "20251230", False)]   # 12/31 은 휴장 — 아직 열림
+    assert krx_daily.plan_weeks(["20251229", "20251230", "20260102"]) == [
+        W("20251229", "20251231", "20251230", True),         # 다음 해 첫 거래일이 저장되면 그해 마지막 거래일로 닫힌다
+        W("20260101", "20260104", "20260102", True),         # 1/2 는 금요일 — 그 주의 마지막 평일이라 바로 닫힌다
+    ]
+    # 2024-12-30(월) · 2025-01-02(목): 연말 주는 월요일 하루, 새해 주는 목·금
+    assert krx_daily.plan_weeks(["20241230", "20250102"]) == [
+        W("20241230", "20241231", "20241230", True), W("20250101", "20250105", "20250102", False)]
+
+
+def test_weekly_with_latest_only_names_weekly_columns():
+    sql = krx_daily.weekly_with_latest("price_dd, ticker, market")
+    assert sql.startswith("(SELECT price_dd, ticker, market FROM krx_weekly UNION ALL SELECT d.trd_dd AS price_dd,")
+    assert "d.trd_dd = (SELECT max(trd_dd) FROM krx_daily)" in sql and "> (SELECT COALESCE(max(price_dd), '') FROM krx_weekly)" in sql
+    assert "d.close * d.list_shrs AS mktcap" in krx_daily.WEEKLY_WITH_LATEST
+    with pytest.raises(ValueError):
+        krx_daily.weekly_with_latest("price_dd, volume")
 
 
 # ── read_quote: 한 왕복의 결과를 해석한다 ────────────────────────────────────────

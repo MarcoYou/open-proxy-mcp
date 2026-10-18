@@ -16,7 +16,9 @@
   ① `max(trd_dd)` 가 기대 거래일 이상이면 아무것도 안 한다(DB 조회 1번, KRX 0콜, 잠금도 안 잡음).
   ② 아니면 전용 연결에서 `pg_try_advisory_lock(고정키)` — 못 잡으면(다른 머신이 일하는 중) 이번 틱은 건너뛴다.
   ③ 잡았으면 DB 를 다시 확인한다(잠금을 기다리는 사이 상대가 끝냈을 수 있다) → 아직이면 KRX 에서 그 날을 받는다(코스피 1콜, 있으면 코스닥 1콜).
-  ④ 두 시장이 모두 충분히 오면 `_krx_db_upsert` 로 `krx_weekly` + `krx_daily` 를 한 트랜잭션에 쓰고 7거래일 밖을 지운다. 잠금 해제.
+  ④ 두 시장이 모두 충분히 오면 `_krx_db_upsert` 로 `krx_daily` 에 쓰고 7거래일 밖을 지운다. 같은 트랜잭션에서 닫힌 주만 `krx_weekly` 에
+     옮겨 적는다(261018 재설계 5-1 — 금요일이 저장되면 그 주를, 다음 주 첫 기록 때 그 앞 주를). 잠금 해제.
+     성공 판정은 `krx_daily` 기록 하나다 — 주간 닫기가 실패해도 「기록 완료」이고(ERROR 로그), 다음 기록이 다시 닫는다.
   전용 연결을 쓰는 이유: 세션 잠금은 연결 수명을 따른다. 연결을 닫으면 해제가 보장돼, 해제 호출이 실패해도 잠금이 새지 않는다.
   🔴 Supabase 풀러는 **세션 모드(5432)** 여야 한다. 트랜잭션 모드(6543)에서는 세션 잠금이 보장되지 않는다.
 ■ 켜고 끄기
@@ -56,8 +58,8 @@ MIN_ROWS_PER_MARKET = 300
 #: 잠금이 이만큼 연속으로(10분 × 3 = 30분) 「다른 머신이 쥐고 있다」로만 보이면 비정상이다(보통 한 번 쓰는 데 몇 초). 잠금 보유자가 죽었는데
 #: 풀러가 그 연결을 바로 정리하지 못한 경우를 상정한다 — 이 경우 잠금 없이 진행한다. 잠금은 KRX 호출을 아끼려는 장치일 뿐이고 쓰기는 멱등이다.
 LOCK_BUSY_STREAK_LIMIT = 3
-#: KRX 를 받고도 못 쓴 틱(반쪽 응답·쓰기 실패·krx_daily 만 실패) 뒤에 건너뛰는 틱 수. 그대로 두면 10분마다 같은 날을 다시 받아(2콜)
-#: krx_weekly 까지 다시 쓰게 된다 — 30분 간격으로 늦춘다.
+#: KRX 를 받고도 못 쓴 틱(반쪽 응답·쓰기 실패) 뒤에 건너뛰는 틱 수. 그대로 두면 10분마다 같은 날을 다시 받아(2콜)
+#: 다시 쓰려 하게 된다 — 30분 간격으로 늦춘다.
 FAILURE_COOLDOWN_TICKS = 2
 
 _FALSE = {"0", "false", "off", "no"}
@@ -108,15 +110,13 @@ def seconds_to_next_tick(now: datetime) -> float:
 # ── DB·KRX 입출력 (테스트에서 이 작은 함수들을 바꿔 끼운다) ─────────────────────────
 
 def _db_latest_dd():
-    """저장된 최신 거래일. `krx_daily` 가 기준이고, 그 표가 아직 없으면(마이그레이션 전 배포) `krx_weekly` 로 대신한다 —
-    그래야 표가 없어도 지금처럼 `krx_weekly` 갱신은 이어진다. 비었으면 None, 읽을 수 없으면 `_DB_DOWN`."""
+    """저장된 최신 거래일 = `krx_daily` 의 가장 늦은 거래일(정의는 `krx_daily.latest_day` 한 곳). 비었으면 None, 읽을 수 없으면 `_DB_DOWN`.
+
+    261018(재설계 5-1 쓰는 쪽): 종전엔 `krx_daily` 를 못 읽으면(마이그레이션 전 배포) `krx_weekly` 최신일로 대신했다. 이제 `krx_weekly` 는
+    닫힌 주만 담아 주중에는 늘 지난 금요일이라, 대신 읽으면 「아직 안 썼다」로 보여 같은 날을 10분마다 다시 받게 된다.
+    `krx_daily` 가 기록의 주이므로 못 읽으면 그대로 장애(`_DB_DOWN`)다."""
     from open_proxy_mcp.db import pg_rows
-    rows = pg_rows("SELECT max(trd_dd) FROM krx_daily")
-    if rows is None:
-        rows = pg_rows("SELECT max(price_dd) FROM krx_weekly")
-        if rows is None:
-            return _DB_DOWN
-    return (rows[0][0] if rows and rows[0][0] else None)
+    return krx_daily.latest_day(pg_rows, on_error=_DB_DOWN)
 
 
 def _open_lock_conn():
@@ -191,13 +191,14 @@ async def _fetch_day(basDd: str) -> tuple[list, list, int]:
     return kospi, kosdaq, calls
 
 
-async def _write(dd: str, kospi: list, kosdaq: list) -> tuple[bool, bool]:
-    """`krx_weekly` + `krx_daily` 를 한 트랜잭션에 쓴다 → (krx_weekly 커밋 여부, krx_daily 기록 여부)."""
+async def _write(dd: str, kospi: list, kosdaq: list):
+    """`krx_daily` 에 쓰고 닫힌 주만 `krx_weekly` 에 옮긴다(한 트랜잭션) → `price_multiple_data.KrxWrite`.
+    261018(재설계 5-1 쓰는 쪽): 성공 판정·기준일 캐시 무효화의 기준이 krx_weekly 커밋 → **krx_daily 기록**으로 바뀌었다."""
     from open_proxy_mcp.services import price_multiple_data as pmd
-    weekly_ok, daily_ok = await asyncio.to_thread(pmd._krx_db_upsert, dd, kospi, kosdaq)
-    if weekly_ok:
+    res = await asyncio.to_thread(pmd._krx_db_upsert, dd, kospi, kosdaq)
+    if res.daily_ok:
         pmd._serving_dd_invalidate()    # 이 머신은 바로 새 날짜를 본다(다른 머신은 TTL 로)
-    return weekly_ok, daily_ok
+    return res
 
 
 # ── 한 번의 확인 ─────────────────────────────────────────────────────────────
@@ -205,12 +206,15 @@ async def _write(dd: str, kospi: list, kosdaq: list) -> tuple[bool, bool]:
 @dataclass(frozen=True)
 class CycleResult:
     """outcome: fresh(이미 최신 — 0콜) · refreshed(새로 씀) · not_published(KRX 에 아직 없음) · lock_busy(다른 머신이 일하는 중)
-    · incomplete(반쪽 응답이라 안 씀) · write_failed · daily_failed(krx_weekly 만 쓰이고 krx_daily 실패) · cooldown(실패 직후 쉬는 틱) · db_error."""
+    · incomplete(반쪽 응답이라 안 씀) · write_failed(krx_daily 기록 실패 — 아무것도 커밋 안 됨) · cooldown(실패 직후 쉬는 틱) · db_error.
+    261018(재설계 5-1 쓰는 쪽): `daily_failed`(krx_weekly 만 쓰이고 krx_daily 실패)는 없어졌다 — krx_daily 가 실패하면 krx_weekly 도 쓰지 않는다.
+    weekly_ok=False 는 「krx_daily 는 기록했지만 주간 닫기가 실패」다(refreshed 안에서만 의미 — 다음 기록이 다시 닫는다)."""
     outcome: str
     expected: str | None = None
     stored: str | None = None
     krx_calls: int = 0
     rows: int = 0
+    weekly_ok: bool = True
 
 
 _COOLDOWN = {"n": 0}                    # 실패 뒤 더 건너뛸 틱 수
@@ -269,20 +273,20 @@ async def _refresh_locked(exp: str) -> CycleResult:
         logger.warning("KRX 갱신기: %s 응답이 반쪽(KOSPI %d / KOSDAQ %d) — 기록하지 않는다", exp, len(kospi), len(kosdaq))
         _COOLDOWN["n"] = FAILURE_COOLDOWN_TICKS
         return CycleResult("incomplete", exp, stored, calls)
-    weekly_ok, daily_ok = await _write(exp, kospi, kosdaq)
-    if not weekly_ok:
+    res = await _write(exp, kospi, kosdaq)
+    if not res.daily_ok:
+        # 아무것도 커밋되지 않았다(일별 기록이 주다) → max(trd_dd) 는 그대로 낡았다. 같은 날을 10분마다 다시 받지 않도록 쉰다.
+        # (원인은 보통 마이그레이션 미적용·권한·DB 장애 — write_daily/_krx_db_upsert 가 로그를 남겼다.)
         _COOLDOWN["n"] = FAILURE_COOLDOWN_TICKS
         return CycleResult("write_failed", exp, stored, calls)
-    if not daily_ok:
-        # krx_weekly 는 커밋됐지만 krx_daily 가 안 쓰였다 → max(trd_dd) 는 그대로 낡았다. 「기록 완료」라고 하지 않고, 같은 날을 10분마다
-        # 다시 받지 않도록 쉰다. (원인은 보통 마이그레이션 미적용·권한 — write_daily 가 ERROR 로그를 남겼다.)
-        logger.error("KRX 갱신기: %s 의 krx_weekly 는 기록했지만 krx_daily 기록에 실패 — 위 ERROR 와 마이그레이션 적용 여부 확인", exp)
-        _COOLDOWN["n"] = FAILURE_COOLDOWN_TICKS
-        return CycleResult("daily_failed", exp, stored, calls)
     _COOLDOWN["n"] = 0
     rows = len(kospi) + len(kosdaq)
-    logger.info("KRX 갱신기: %s 기록 완료 (%d행, KRX %d콜)", exp, rows, calls)
-    return CycleResult("refreshed", exp, exp, calls, rows)
+    closed = ",".join(res.closed) or "-"
+    if res.weekly_ok:
+        logger.info("KRX 갱신기: %s 기록 완료 (%d행, KRX %d콜, 주간 닫음 %s)", exp, rows, calls, closed)
+    else:
+        logger.error("KRX 갱신기: %s 기록 완료 (%d행, KRX %d콜) — 단 krx_weekly 주간 닫기 실패, 다음 기록 때 다시 닫는다", exp, rows, calls)
+    return CycleResult("refreshed", exp, exp, calls, rows, res.weekly_ok)
 
 
 async def _safe_cycle(now: datetime | None = None) -> CycleResult | None:

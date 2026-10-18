@@ -3,9 +3,9 @@
 옮긴 것: `screener` 의 기준일(`_krx_latest_dd`)·시총 상위 N(`_krx_top_mktcap`)·시장 전 종목(`_krx_market_codes`)·
 카드 시총(`_krx_mktcap_map`)과 `universe` 순위표 행(`_krx_rows`). 종전엔 `krx_weekly` 의 이번 주 행(max(price_dd))을 읽었다.
 
-① **지금 세계** — 쓰는 쪽(`_krx_db_upsert`)이 매 거래일 이번 주 `krx_weekly` 행을 지우고 다시 넣는다. 이때 옮긴 읽기는
-   종전 `krx_weekly` 질의와 **같은 값**을 낸다(응답이 바뀌지 않는다).
-② **다음 단계 세계** — `krx_weekly` 에 닫힌 지난주 행만 있고 이번 주 최신일은 `krx_daily` 에만 있다. 옮긴 읽기는 최신일
+① **종전 세계** — 옛 쓰는 쪽이 매 거래일 이번 주 `krx_weekly` 행을 지우고 다시 넣던 모양(261018 쓰는 쪽 변경 뒤에는 시험이 손으로
+   덧붙여 만든다). 이때 옮긴 읽기는 종전 `krx_weekly` 질의와 **같은 값**을 낸다(응답이 바뀌지 않는다).
+② **다음 단계 세계 = 지금 쓰는 쪽** — `krx_weekly` 에 닫힌 지난주 행만 있고 이번 주 최신일은 `krx_daily` 에만 있다. 옮긴 읽기는 최신일
    단면을 내고, 종전 질의는 지난주 값(그 사이 상장폐지된 종목 포함)으로 낡는다.
 ③ 보관 창 안에서 상장폐지된 종목은 종목별 최신 행 뷰(`price_latest`)에 옛 날짜 행으로 남는다 — 단면 읽기에 섞이지 않는다.
 ④ 일별 저장분이 없으면(마이그레이션 전) `krx_weekly` 로 돌아가지 않고 기존 강등 경로를 탄다.
@@ -86,15 +86,19 @@ def db(pg17, monkeypatch):
 
 
 def _fill(url):
-    """운영 쓰기 함수로 닷새를 차례로 넣는다 — krx_weekly 는 지난주 마지막 날 + 이번 주 최신일, krx_daily 는 닷새 전부."""
+    """운영 쓰기 함수로 닷새를 차례로 넣는다 — krx_weekly 는 닫힌 지난주(금요일)만, krx_daily 는 닷새 전부(261018 쓰는 쪽).
+    그다음 종전 세계(옛 쓰는 쪽이 매일 넣던 이번 주 최신일 행)를 손으로 덧붙인다 — 그 날 일별 단면과 같은 값이다."""
     from open_proxy_mcp.services import price_multiple_data as pmd
     _ddl().apply(url)
     for dd, (kospi, kosdaq) in DAYS.items():
-        assert pmd._krx_db_upsert(dd, kospi, kosdaq) == (True, True)
+        assert pmd._krx_db_upsert(dd, kospi, kosdaq).daily_ok
     with psycopg.connect(url) as c:
         weekly = [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly ORDER BY 1").fetchall()]
         daily = [r[0] for r in c.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1").fetchall()]
-    assert weekly == [LAST_WEEK, TODAY]
+        assert weekly == [LAST_WEEK]                     # 쓰는 쪽은 이번 주 행을 쓰지 않는다
+        c.execute("INSERT INTO krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) "
+                  "SELECT trd_dd, ticker, market, close, mktcap, list_shrs FROM krx_daily_v WHERE trd_dd=%s", (TODAY,))
+        c.commit()
     assert daily == list(DAYS)
 
 
@@ -199,8 +203,11 @@ def test_delisted_ticker_lingers_in_price_latest_but_not_in_the_cross_section(db
 
 def test_without_daily_store_it_degrades_instead_of_reading_weekly(db):
     from open_proxy_mcp.services import price_multiple_data as pmd
-    # 마이그레이션 전: krx_weekly 에만 행이 있다(쓰는 쪽은 그래도 주간을 커밋한다)
-    assert pmd._krx_db_upsert(TODAY, *DAYS[TODAY]) == (True, False)
+    # 마이그레이션 전: krx_weekly 에만 행이 있다(종전 쓰는 쪽이 남긴 이번 주 행). 지금 쓰는 쪽은 일별 표가 없으면 아무것도 쓰지 않는다
+    assert pmd._krx_db_upsert(TODAY, *DAYS[TODAY]) == pmd.KrxWrite(False)
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("INSERT INTO krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) VALUES (%s,%s,%s,%s,%s,%s)",
+                  (TODAY, A, KS, 100_000, 100_000 * SHRS, SHRS))
     assert screener._krx_latest_dd() is None
     uf = asyncio.run(screener.resolve_universe("kospi:2"))
     assert uf.resolved is False and uf.allowed is None

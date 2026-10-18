@@ -148,8 +148,9 @@ class Sim:
     """DB 상태·잠금·KRX 를 흉내 낸다. 두 머신이 같은 Sim 을 공유하면 같은 DB 를 보는 것과 같다."""
 
     def __init__(self, monkeypatch, stored="20261015", published=True, kospi=900, kosdaq=1800, write_ok=True, lock_held_by_other=False,
-                 daily_ok=True):
-        self.stored, self.published, self.write_ok, self.daily_ok = stored, published, write_ok, daily_ok
+                 weekly_ok=True):
+        # write_ok = krx_daily 기록 성공(성공 판정 — 261018 재설계 5-1 쓰는 쪽) · weekly_ok = 같은 트랜잭션의 주간 닫기 성공(부)
+        self.stored, self.published, self.write_ok, self.weekly_ok = stored, published, write_ok, weekly_ok
         self.kospi_n, self.kosdaq_n = kospi, kosdaq
         self.locked = lock_held_by_other
         self.lock_attempts = self.fetches = self.writes = self.krx_calls = 0
@@ -182,11 +183,12 @@ class Sim:
         return _rows(self.kospi_n, "K"), _rows(self.kosdaq_n, "Q"), 2
 
     async def _write(self, dd, kospi, kosdaq):
+        from open_proxy_mcp.services.price_multiple_data import KrxWrite
         self.writes += 1
-        if self.write_ok and self.daily_ok:                  # krx_daily 까지 써야 max(trd_dd) 가 움직인다
+        if self.write_ok:                                   # krx_daily 를 써야 max(trd_dd) 가 움직인다
             self.stored = dd
             self.written.append((dd, len(kospi), len(kosdaq)))
-        return (self.write_ok, self.write_ok and self.daily_ok)
+        return KrxWrite(self.write_ok, self.write_ok and self.weekly_ok, ())
 
 
 def test_fresh_db_means_zero_krx_calls_and_no_lock(monkeypatch):
@@ -291,22 +293,15 @@ def test_write_failure_is_reported_and_leaves_the_day_open_after_a_short_rest(mo
     assert asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, 30))).outcome == "refreshed" and sim.fetches == 2
 
 
-def test_a_krx_daily_only_failure_is_not_reported_as_refreshed_and_does_not_hammer_krx(monkeypatch, caplog):
-    """krx_weekly 는 커밋됐는데 krx_daily 만 실패하면 max(trd_dd) 는 낡은 채다 — 「기록 완료」로 보고하면 매 틱 같은 날을 다시 받는다(리뷰 지적)."""
-    sim = Sim(monkeypatch, stored="20261015")
-    calls = []
-
-    async def weekly_only(dd, kospi, kosdaq):
-        calls.append(dd)
-        return (True, False)
-    monkeypatch.setattr(R, "_write", weekly_only)
+def test_a_weekly_close_failure_is_still_refreshed_and_does_not_refetch(monkeypatch, caplog):
+    """261018(재설계 5-1 쓰는 쪽): 성공 판정은 krx_daily 기록이다. 같은 트랜잭션의 주간 닫기만 실패하면 max(trd_dd) 는 나아갔으므로
+    「기록 완료」(ERROR 로그로 닫기 실패를 알린다)이고, 다음 틱은 이미 최신이라 KRX 를 다시 부르지 않는다 — 닫기는 다음 기록이 다시 한다."""
+    sim = Sim(monkeypatch, stored="20261015", weekly_ok=False)
     with caplog.at_level("ERROR"):
         res = asyncio.run(R.run_cycle(MON))
-    assert res.outcome == "daily_failed" and sim.stored == "20261015"
-    assert any("krx_daily 기록에 실패" in r.message for r in caplog.records)
-    outs = [asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, m))).outcome for m in (10, 20, 30)]
-    assert outs == ["cooldown", "cooldown", "daily_failed"]                       # 10분마다가 아니라 30분 간격으로 늦춰진다
-    assert sim.fetches == 2 and len(calls) == 2
+    assert res.outcome == "refreshed" and res.weekly_ok is False and sim.stored == "20261016"
+    assert any("주간 닫기 실패" in r.message for r in caplog.records)
+    assert asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, 10))).outcome == "fresh" and sim.fetches == 1
 
 
 def test_failures_cost_far_fewer_krx_calls_than_retrying_every_tick(monkeypatch):
@@ -436,22 +431,20 @@ def test_lock_connect_failure_yields_none(monkeypatch):
 
 # ── DB 상태 읽기 ───────────────────────────────────────────────────────────
 
-def test_db_latest_prefers_krx_daily_and_falls_back_to_weekly_when_the_table_is_missing(monkeypatch):
+def test_db_latest_reads_only_krx_daily_and_never_falls_back_to_weekly(monkeypatch):
+    """261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주만 담아 주중엔 지난 금요일이다 — 대신 읽으면 「아직 안 썼다」로 보여
+    같은 날을 10분마다 다시 받는다. krx_daily 를 못 읽으면 그대로 장애다. 정의는 `krx_daily.latest_day` 한 곳."""
     seen = []
 
     def fake(sql, params=()):
         seen.append(sql)
         return {"SELECT max(trd_dd) FROM krx_daily": [("20261016",)]}.get(sql)
     monkeypatch.setattr("open_proxy_mcp.db.pg_rows", fake)
-    assert R._db_latest_dd() == "20261016" and len(seen) == 1
+    assert R._db_latest_dd() == "20261016" and seen == [krx_daily.LATEST_DAY_SQL]
 
-    seen.clear()                                          # krx_daily 없음(마이그레이션 전 배포) → krx_weekly 로 대신: 갱신이 멎지 않는다
-    monkeypatch.setattr("open_proxy_mcp.db.pg_rows",
-                        lambda sql, params=(): seen.append(sql) or ({"SELECT max(price_dd) FROM krx_weekly": [("20261015",)]}.get(sql)))
-    assert R._db_latest_dd() == "20261015" and len(seen) == 2
-
-    monkeypatch.setattr("open_proxy_mcp.db.pg_rows", lambda sql, params=(): None)     # 둘 다 못 읽음
-    assert R._db_latest_dd() is R._DB_DOWN
+    seen.clear()                                          # krx_daily 를 못 읽음 → krx_weekly 를 보지 않고 장애
+    monkeypatch.setattr("open_proxy_mcp.db.pg_rows", lambda sql, params=(): seen.append(sql) or None)
+    assert R._db_latest_dd() is R._DB_DOWN and seen == [krx_daily.LATEST_DAY_SQL]
     monkeypatch.setattr("open_proxy_mcp.db.pg_rows", lambda sql, params=(): [(None,)])  # 표는 있으나 비었음
     assert R._db_latest_dd() is None
 
@@ -517,14 +510,16 @@ def test_fetch_day_treats_errors_as_empty_and_logs(monkeypatch, caplog):
     assert any("KRX 호출 실패" in r.message for r in caplog.records)
 
 
-def test_write_invalidates_the_serving_date_cache_on_weekly_success_only(monkeypatch):
+def test_write_invalidates_the_serving_date_cache_on_daily_success_only(monkeypatch):
+    """기준일 캐시 무효화의 기준은 krx_daily 기록(261018 재설계 5-1 쓰는 쪽) — 주간 닫기 실패와는 무관하다."""
     from open_proxy_mcp.services import price_multiple_data as pmd
-    monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q: (True, True))
+    for res in (pmd.KrxWrite(True, True, ("20261016",)), pmd.KrxWrite(True, False)):
+        monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q, res=res: res)
+        pmd._SERVING_DD.update(dd="20261015", at=1e18)
+        assert asyncio.run(R._write("20261016", [1], [2])) == res and pmd._SERVING_DD["dd"] is None
     pmd._SERVING_DD.update(dd="20261015", at=1e18)
-    assert asyncio.run(R._write("20261016", [1], [2])) == (True, True) and pmd._SERVING_DD["dd"] is None
-    pmd._SERVING_DD.update(dd="20261015", at=1e18)
-    monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q: (False, False))
-    assert asyncio.run(R._write("20261016", [1], [2])) == (False, False) and pmd._SERVING_DD["dd"] == "20261015"
+    monkeypatch.setattr(pmd, "_krx_db_upsert", lambda dd, k, q: pmd.KrxWrite(False))
+    assert asyncio.run(R._write("20261016", [1], [2])) == pmd.KrxWrite(False) and pmd._SERVING_DD["dd"] == "20261015"
 
 
 # ── 루프와 앱 연결 ─────────────────────────────────────────────────────────
@@ -730,7 +725,7 @@ def test_all_blocking_io_runs_off_the_event_loop(monkeypatch):
     monkeypatch.setattr(R, "_open_lock_conn", lambda: (mark("lock_open"), conn)[1])
     _fake_httpx(monkeypatch, {"stk_bydd_trd": _Resp({"OutBlock_1": _rows(400, "K")}), "ksq_bydd_trd": _Resp({"OutBlock_1": _rows(400, "Q")})})
     monkeypatch.setattr(krx_meter, "bump", record("bump", None))
-    monkeypatch.setattr(pmd, "_krx_db_upsert", record("upsert", (True, True)))
+    monkeypatch.setattr(pmd, "_krx_db_upsert", record("upsert", pmd.KrxWrite(True, True)))
 
     async def go():
         return threading.get_ident(), await R.run_cycle(MON)

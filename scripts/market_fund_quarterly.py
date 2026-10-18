@@ -263,6 +263,10 @@ DDL_FUNDAMENTALS = """CREATE TABLE IF NOT EXISTS dart_fundamentals(
   eq_fy double precision, eq_mrq double precision, fetched text)"""
 
 
+#: 신규 편입 대상을 고를 상장 종목 수 하한 — 정상은 약 2,760종목. 이보다 적으면 일별 시세 저장분이 비었거나 반쪽이다(261018).
+INCLUDE_NEW_MIN_LISTED = 1_500
+
+
 async def include_new_tickers() -> int:
     """KRX 최신 거래일 상장 **보통주** 가운데 dart_fundamentals 에 없는 종목을 등록한다 — 옛 시장 aggregate
     수집기(--fetch)가 하던 유일한 잔존 역할(260902 흡수). 이 표의 `fetched='ok'` 행이 분기(fetch)·연간
@@ -287,7 +291,13 @@ async def include_new_tickers() -> int:
     con = _pg(); con.autocommit = True
     con.execute(DDL_FUNDAMENTALS)
     known = {r[0] for r in con.execute("SELECT ticker FROM dart_fundamentals")}
-    listed = con.execute("SELECT ticker, market FROM krx_weekly WHERE price_dd=%s", (snap_dd,)).fetchall()
+    # 261018(재설계 5-1 쓰는 쪽): krx_weekly → 일별 시세 저장분. `_ensure_krx_fresh` 가 돌려주는 날짜는 krx_daily 최신일이고
+    #   krx_weekly 는 닫힌 주만 담아 주중 그 날짜 행이 없다 — 종전 질의는 조용히 0종목(「신규 0」)이 됐다.
+    listed = con.execute("SELECT ticker, market FROM krx_daily WHERE trd_dd=%s", (snap_dd,)).fetchall()
+    if len(listed) < INCLUDE_NEW_MIN_LISTED:   # 반쪽·빈 저장분을 「신규 없음」으로 읽지 않는다
+        print(f"::error::include-new: {snap_dd} 일별 시세가 {len(listed)}종목뿐 — 저장분이 비었거나 반쪽이다. 건너뜀", flush=True)
+        con.close()
+        return 0
     new = [(t, m) for t, m in listed if t not in known and kinds.get(t) == "보통주"]
     print(f"include-new: {snap_dd} 상장 {len(listed)} · 기등록 {len(known)} · 신규 보통주 {len(new)}", flush=True)
     c = get_dart_client()

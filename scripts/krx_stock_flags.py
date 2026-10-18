@@ -56,6 +56,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
+from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_pair_floor
 
 DDL = """
@@ -97,15 +98,17 @@ def main() -> int:
             WHERE l.prev_shrs IS NOT NULL AND l.prev_shrs > 0 AND l.new_shrs IS NOT NULL
               AND l.new_shrs::numeric / l.prev_shrs < %s AND b.ticker IS NULL
               AND l.event_dd < %s""", (_MIN_DROP, floor)).fetchone()[0]
+    # 261018(재설계 5-1 쓰는 쪽): 전후 종가의 원천은 「닫힌 주 + 일별 최신 거래일」(`WEEKLY_WITH_LATEST`) — krx_weekly 는 닫힌 주만
+    #   담게 되어 이번 주 사건의 「직후 점」이 주가 닫힐 때까지 없다. 종전 krx_weekly(이번 주 행 = 그날 최신일)와 같은 모양으로 읽는다.
     rows = con.execute(
         """
         WITH e AS (
           SELECT l.ticker, l.event_dd,
                  l.new_shrs::numeric / l.prev_shrs AS r,
-                 (SELECT close FROM krx_weekly WHERE ticker=l.ticker AND price_dd>=l.event_dd
-                   ORDER BY price_dd LIMIT 1)::numeric
-                 / NULLIF((SELECT close FROM krx_weekly WHERE ticker=l.ticker AND price_dd<l.event_dd
-                   ORDER BY price_dd DESC LIMIT 1), 0) AS p
+                 (SELECT w.close FROM """ + WEEKLY_WITH_LATEST + """ w WHERE w.ticker=l.ticker AND w.price_dd>=l.event_dd
+                   ORDER BY w.price_dd LIMIT 1)::numeric
+                 / NULLIF((SELECT w.close FROM """ + WEEKLY_WITH_LATEST + """ w WHERE w.ticker=l.ticker AND w.price_dd<l.event_dd
+                   ORDER BY w.price_dd DESC LIMIT 1), 0) AS p
           FROM krx_shares_ledger l
           LEFT JOIN krx_adj_events b
             ON b.ticker = l.ticker AND b.event_dd = l.event_dd
