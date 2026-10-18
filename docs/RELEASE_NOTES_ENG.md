@@ -4,6 +4,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### Provisional earnings now show the gap to consensus
+
+- `provisional_earnings` compares a quarterly provisional result with **the consensus from the week before the filing** and shows the expected revenue, operating profit and controlling net income with the gap (%). The provisional figures and the original table are unchanged; a comparison line and JSON `data.consensus_gap` are added.
+- The consensus used is the latest weekly snapshot **before** the filing date — estimates revised after the filing are not used. The snapshot date, basis (consolidated/separate) and source are stated.
+- Monthly results (monthly sales or volumes), fiscal-year results, cumulative periods and consolidated/separate mismatches are not compared; the reason is given instead. When no consensus is found the tool says "outside coverage" or "outside history" rather than "none" (estimate history starts 2026-08-29 and is kept for 13 weeks).
+- Measured on 39 provisional filings from 2026-08-29 to 10-18: 26 monthly filings excluded, 9 of 13 quarterly filings compared (Samsung Electronics Q3 revenue −4.7%, operating profit −2.9%).
+
 ### When the largest shareholder changes, and the contracts that would change it — `ownership_structure(scope="changes")`
 
 - Reads **largest-shareholder change** filings and the **share transfer** and **share pledge** contracts attached to them (signed and terminated), cell text as written — before/after holder and stake, reason, purpose and funding, transferor, transferee, price and expected date, the stake left if the pledge is fully enforced, termination reason and before/after.

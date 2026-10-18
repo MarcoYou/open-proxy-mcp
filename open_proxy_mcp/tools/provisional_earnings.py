@@ -25,6 +25,31 @@ def _won(v):
     return f"{v:,.0f}"
 
 
+_GAP_STATUS = {"not_comparable": "비교 안 함", "out_of_coverage": "커버리지 밖 — 모름",
+               "out_of_history": "이력 밖 — 모름", "unknown": "모름"}
+
+
+def _render_gap(g: dict | None) -> str:
+    """`consensus_gap` 한 줄. 컨센서스가 없을 때 「없다」가 아니라 「모른다/커버리지 밖」으로 말한다."""
+    if not g:
+        return ""
+    if g.get("status") != "ok":
+        return f"_컨센서스 대비: {_GAP_STATUS.get(g.get('status'), '모름')} — {g.get('why', '')}_"
+    parts = []
+    for key in ("revenue", "operating_profit", "net_income_controlling"):
+        c = (g.get("metrics") or {}).get(key) or {}
+        if c.get("diff_krw") is None:
+            continue
+        pct = f" ({c['gap_pct']:+.1f}%)" if c.get("gap_pct") is not None else ""
+        loss = " · 적자 예상 대비라 %는 방향만" if c.get("gap_caveat") else ""
+        parts.append(f"{_LABEL[key]} {_won(c['actual_krw'])} vs 예상 {_won(c['consensus_krw'])}{pct}{loss}")
+    line = (f"**컨센서스 대비** (공시 {g.get('lag_days')}일 전 {g.get('as_of')} 주간 스냅샷 · "
+            f"{g.get('period')} · {g.get('basis')}): " + " · ".join(parts))
+    if g.get("caveats"):
+        line += "\n_⚠ " + " · ".join(g["caveats"]) + "_"
+    return line + "\n_차이 %=(잠정−컨센서스)/|컨센서스| · 컨센서스는 추정치 스냅샷이지 DART 공시가 아니다_"
+
+
 def _render(p: dict) -> str:
     status = p.get("status")
     d = p.get("data", {}) or {}
@@ -76,6 +101,9 @@ def _render(p: dict) -> str:
             L.append("\n" + " · ".join(parts))
     elif d.get("kind") == "non_financial":
         L.append("\n_표준 재무표(매출/영업이익) 미기재 — 도메인 실적표(지역별 매출·판매대수·수주·판매량 등)로 공시. 아래 원문표에서 읽으세요_")
+    gap = _render_gap(d.get("consensus_gap"))
+    if gap:
+        L.append("\n" + gap)
 
     # table_markdown(primary): 원문 실적표 통째
     if d.get("table_markdown"):
@@ -94,9 +122,9 @@ def register_tools(mcp):
     async def provisional_earnings(company: str, format: str = "md", months: int = 6, start_date: str = "", end_date: str = "") -> str:
         """desc: DART 영업(잠정)실적(공정공시 I002)과 결산 잠정치(I001)에서 **잠정 매출·영업이익·순이익**과 회계연도 기준 비교율을 추출. 정기보고서 확정치보다 **먼저 나오는 가장 빠른 실적 신호**.
         when: 최신 분기 실적을 정기보고서(financial_metrics 확정치) 나오기 전에 볼 때. **잠정치**(감사 전)라 확정과 다를 수 있음 — 확정 재무비율은 `financial_metrics`.
-        rule: 재무형(매출·영업이익 표)은 구조화 반환. 자동차 판매대수 등 **비재무형**은 raw 마크다운(kind=non_financial). 연결/별도 basis·실적기간·단위 명시. 값은 원문 그대로(원 단위 정규화), 잠정치.
+        rule: 재무형(매출·영업이익 표)은 구조화 반환. 자동차 판매대수 등 **비재무형**은 raw 마크다운(kind=non_financial). 연결/별도 basis·실적기간·단위 명시. 값은 원문 그대로(원 단위 정규화), 잠정치. 분기 잠정치엔 **공시 직전 주 컨센서스 대비**(`consensus_gap`: 매출·영업이익·지배순이익 예상치와 차이%, 기준 스냅샷일) — 못 찾으면 「없음」이 아니라 커버리지 밖·이력 밖.
         window: 기본 최근 `months`=6개월 안의 **가장 최근** 잠정실적 1건. 과거 분기를 보려면 `start_date`·`end_date`(YYYYMMDD)로 공시일 창을 좁힌다 — 예 2025년 3분기 잠정실적은 `start_date="20251001", end_date="20251115"`. 창 안에 여러 건이면 최신 1건.
-        ref: financial_metrics, screener, price_multiple_data
+        ref: financial_metrics, screener, price_multiple_data, forward_estimates_data
         """
         for nm, v in (("start_date", start_date), ("end_date", end_date)):
             if v and not re.fullmatch(r"\d{8}", v):
