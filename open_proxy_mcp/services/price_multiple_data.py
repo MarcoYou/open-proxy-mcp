@@ -1027,28 +1027,38 @@ def _pit_impaired(price_dd: str, fin: dict[int, tuple], finq: dict[tuple, tuple]
 
 
 def _pit_raw(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple]) -> dict | None:
-    """주간 곡선의 한 점(반올림 전) — 그 날 보통주 시총 ÷ 그 시점까지 공시된 재무(PIT). 그 시점 확정 FY 재무가 없거나 시총이 없으면 None.
+    """주간 곡선의 한 점(반올림 전) — 그 날 보통주 시총 ÷ 그 시점까지 공시된 재무(PIT). 시총이 없으면 None.
+    그 시점 확정 FY 의 연간 재무가 없으면(신규 상장 등) FY0 배수는 비우고 분기 배수만 낸다 — 그것도 없으면 None(점을 만들지 않는다).
 
     261018(재설계 6단계): `_weekly_series` 의 반복 본문을 떼어 냈다. 업종 비교(`build_sector_val_payload` 의 company)가
     종목별 밸류에이션 스냅샷 표 대신 **같은 함수로** 그 날 한 점을 계산한다 — 곡선과 업종 비교가 한 정의를 쓴다.
-    반올림 전 값을 따로 두는 까닭: 업종 비교는 종전처럼 원값을 소수 둘째 자리로 한 번만 반올림한다(셋째 자리 반올림을 거치면 드물게 끝자리가 달라진다)."""
-    fy = _pit_fy(price_dd)
-    if fy not in fin or not cap:
+    반올림 전 값을 따로 두는 까닭: 업종 비교는 종전처럼 원값을 소수 둘째 자리로 한 번만 반올림한다(셋째 자리 반올림을 거치면 드물게 끝자리가 달라진다).
+
+    261018(같은 단계, 신규 상장): 종전엔 그 시점 확정 FY 의 연간 행이 없으면 분기 자본이 있어도 None 이었다. 상장 첫해 종목(직전 사업보고서가
+    없다 — 예: 2026년 상장, 분기 표에는 2026년 1·2분기 자본이 있다)은 곡선이 통째로 비고(firm_history 「시계열 없음」), 업종 비교의 PBR(MRQ)도
+    N/M 이 됐다 — 스냅샷 표는 재무 요약의 최근 분기 자본으로 값을 냈다(10-18 운영 최신 주 4종목, 같은 값). 이제 분기 자본으로 PBR(MRQ)를 낸다.
+    PER(TTM)은 직전 사업연도 연간 순이익이 있어야 하므로(`_ttm_ni`) 이 경우 언제나 비고, 스냅샷 표도 비어 있었다. `pit_fy` 는 그 시점 규칙상
+    확정 FY 그대로다(값이 없음은 FY0 배수 null 로 드러난다 — 연간 행은 있는데 값이 빈 종목과 같은 모양)."""
+    if not cap:
         return None
-    ni_k, eq_k = fin[fy]
+    fy = _pit_fy(price_dd)
+    ni_k, eq_k = fin.get(fy, (None, None))
     cap = float(cap)
     aq_fy, aq_q = _pit_quarter(price_dd)
     ttm = _ttm_ni(fin, finq, aq_fy, aq_q)
     mrq = _mrq_eq(fin, finq, aq_fy, aq_q)
     # 260829: 완전자본잠식 시점은 배수를 내지 않는다(마스터 지시).
     _impaired = _pit_impaired(price_dd, fin, finq)
-    return {
+    p = {
         "asof": price_dd, "pit_fy": fy, "pit_q": f"{aq_fy}Q{aq_q}", "cap": cap,
         "per_fy0": cap / ni_k if (ni_k and ni_k > 0 and not _impaired) else None,
         "pbr": cap / eq_k if eq_k and eq_k > 0 else None,
         "per_ttm": cap / ttm if (ttm and ttm > 0 and not _impaired) else None,
         "pbr_mrq": cap / mrq if mrq and mrq > 0 else None,
     }
+    if fy not in fin and p["per_ttm"] is None and p["pbr_mrq"] is None:
+        return None   # 연간 행도 분기 배수도 없다 — 종전처럼 점을 만들지 않는다(시총만 있는 점으로 곡선을 채우지 않는다)
+    return p
 
 
 def _r3(v):
@@ -1064,9 +1074,9 @@ def _pit_point(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tupl
             "per_fy0": _r3(p["per_fy0"]), "pbr": _r3(p["pbr"]), "per_ttm": _r3(p["per_ttm"]), "pbr_mrq": _r3(p["pbr_mrq"])}
 
 
-#: `_firm_cap_at` 의 질의 — 그 날 행(주간 → 일별), 없으면 **같은 주 안 그 날 이하 가장 늦은 행**(주간 → 일별). 앞 칸이 이긴다(`src`).
-#: 「같은 주」 = `_iso_wk_range`(ISO 주를 달력 연도 안으로 자른 것 — krx_weekly 의 주 닫기와 같은 정의). 그 날보다 **뒤** 날짜는 쓰지 않는다
-#: (기준일에 아직 없던 종가를 쓰지 않는다 — 주간 곡선의 「그 날 이하」 규칙과 같다).
+#: `_firm_cap_at` 의 질의 — 그 날 행(주간 → 일별), 없으면 **같은 주 안 그 날 이하 가장 늦은 행**(주간 → 일별),
+#: 그것도 없으면 **같은 주 안 그 날 뒤 가장 이른 행**(주간 → 일별). 앞 칸이 이긴다(`src`).
+#: 「같은 주」 = `_iso_wk_range`(ISO 주를 달력 연도 안으로 자른 것 — krx_weekly 의 주 닫기와 같은 정의). 다른 주의 행은 쓰지 않는다.
 _FIRM_CAP_SQL = (
     "SELECT mktcap, market, src FROM ("
     " SELECT mktcap, market, 1 AS src FROM krx_weekly WHERE ticker=%s AND price_dd=%s"
@@ -1075,6 +1085,10 @@ _FIRM_CAP_SQL = (
     " ORDER BY price_dd DESC LIMIT 1)"
     " UNION ALL (SELECT mktcap, market, 4 AS src FROM krx_daily_v WHERE ticker=%s AND trd_dd >= %s AND trd_dd < %s"
     " ORDER BY trd_dd DESC LIMIT 1)"
+    " UNION ALL (SELECT mktcap, market, 5 AS src FROM krx_weekly WHERE ticker=%s AND price_dd > %s AND price_dd <= %s"
+    " ORDER BY price_dd LIMIT 1)"
+    " UNION ALL (SELECT mktcap, market, 6 AS src FROM krx_daily_v WHERE ticker=%s AND trd_dd > %s AND trd_dd <= %s"
+    " ORDER BY trd_dd LIMIT 1)"
     ") x ORDER BY src LIMIT 1")
 
 
@@ -1082,15 +1096,20 @@ async def _firm_cap_at(ticker: str, dd: str) -> tuple[float | None, str | None] 
     """그 날 종목 보통주 시총과 시장. None = DB 장애, (None, None) = 그 주에 쓸 행이 없음.
 
     고르는 순서(`_FIRM_CAP_SQL`): ① 주간 시세 저장분(`krx_weekly`, 주 마지막 거래일·연말 행)의 그 날 행 ② 일별 시세 저장분(`krx_daily_v`,
-    최근 7거래일)의 그 날 행 ③ 그 날 행이 정확히 없으면 **같은 주 안** krx_weekly 의 그 날 이하 가장 늦은 행 ④ 그것도 없으면 일별 저장분의 같은 주·그 날 이하 가장 늦은 행.
+    최근 7거래일)의 그 날 행 ③ 그 날 행이 정확히 없으면 **같은 주 안** krx_weekly 의 그 날 이하 가장 늦은 행 ④ 그것도 없으면 일별 저장분의 같은 주·그 날 이하 가장 늦은 행
+    ⑤ 그것도 없으면 **같은 주 안** krx_weekly 의 그 날 뒤 가장 이른 행 ⑥ 그것도 없으면 일별 저장분의 같은 주·그 날 뒤 가장 이른 행.
 
     261018(재설계 6단계): 업종 비교의 기준일은 시장·업종 스냅샷(`opm_val_market`)의 날짜다. krx_weekly 는 닫힌 주만 담으므로(5-1 쓰는 쪽)
-    이번 주 스냅샷 날짜는 일별 저장분에만 있다(②). ③④ 는 스냅샷 날짜와 주간 행 날짜가 어긋난 주의 대비다 — 주간 행이 스냅샷보다 이른
-    거래일로 닫힌 주는 일별 보관 창(7거래일)이 지나면 ①② 가 모두 비어 업종 비교에서 기업 행이 조용히 빠진다. 같은 주의 더 이른 날 값으로 대신한다.
-    스냅샷보다 **뒤** 날짜의 주간 행(예: 그 주 마지막 배치가 실패해 스냅샷이 목요일, 주간 행이 금요일)은 쓰지 않는다 — 그 경우는 창이 지나면
-    「종목 스냅샷 없음」이다. 두 표 모두 시총 = 종가 × 상장주식수라 같은 날이면 같은 값이다."""
-    wk0, _ = _iso_wk_range(dd)
-    rows = await _db_rows(_FIRM_CAP_SQL, (ticker, dd, ticker, dd, ticker, wk0, dd, ticker, wk0, dd))
+    이번 주 스냅샷 날짜는 일별 저장분에만 있다(②). ③~⑥ 은 스냅샷 날짜와 주간 행 날짜가 어긋난 주의 대비다 — 일별 보관 창(7거래일)이 지나면
+    ①② 가 모두 비어 업종 비교에서 기업 행이 조용히 빠진다(「종목 스냅샷 없음」).
+      · 주간 행이 스냅샷보다 이른 거래일로 닫힌 주 → 같은 주의 더 이른 날 값(③④).
+      · 주간 행이 스냅샷보다 늦은 주(예: 그 주 마지막 배치가 실패해 스냅샷은 목요일, 주간 행은 금요일) → 같은 주의 더 늦은 날 값(⑤⑥).
+        종전 스냅샷 표는 이 경우 스냅샷 날짜의 시총으로 행이 있었다 — 행을 잃는 것보다 같은 주 하루 이틀 차이의 시총이 종전 응답에 가깝다.
+        그 날 이하 행이 있으면 언제나 그쪽이 먼저다. 다른 주로는 넘어가지 않는다(연도 경계 주도 둘로 나뉜 그대로).
+    두 표 모두 시총 = 종가 × 상장주식수라 같은 날이면 같은 값이다."""
+    wk0, wk1 = _iso_wk_range(dd)
+    rows = await _db_rows(_FIRM_CAP_SQL, (ticker, dd, ticker, dd, ticker, wk0, dd, ticker, wk0, dd,
+                                          ticker, dd, wk1, ticker, dd, wk1))
     if rows is None:
         return None
     if not rows or not rows[0][0]:
@@ -1111,7 +1130,7 @@ async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, fl
     값이 비어 있는 종목은 PER(TTM)·PBR(MRQ)를 비운다(N/M) — 스냅샷 표는 그날 수집돼 있던 가장 늦은 분기(대개 직전 사업연도 말)를
     썼다. firm_history 곡선이 이미 그렇게 낸다. 그 빈 분기는 대부분 분기보고서가 있는데 수집 결과가 `nodata` 로 남은 **분기 재무 수집 공백**이다
     (예: 3월 결산 법인의 반기) — 값을 대신 채우지 않고 수집을 고쳐 다시 받는다(별도 작업). 재무 요약에 연간 값이 빈 종목(외국 상장사 등)은
-    연간 재무 표로 채워 오히려 값이 생긴다."""
+    연간 재무 표로 채워 오히려 값이 생긴다. 상장 첫해 종목(그 시점 확정 FY 의 연간 행이 없다)은 분기 자본으로 PBR(MRQ)를 낸다 — 스냅샷 표와 같은 값(`_pit_raw`)."""
     cur_row, cap_mkt = await _gather_db(
         _db_rows("SELECT market, induty, currency, fetched FROM dart_fundamentals WHERE ticker=%s", (ticker,)),
         _firm_cap_at(ticker, dd),

@@ -88,9 +88,11 @@ def _sectors(scheme: str) -> list[tuple]:
 
 
 class FakeDb:
-    def __init__(self, scheme: str, *, induty="26110", fetched="ok", currency="KRW", cap=CAP, fin_q=None):
+    def __init__(self, scheme: str, *, induty="26110", fetched="ok", currency="KRW", cap=CAP, fin_q=None, fin_y=None, fund_fy=None):
         self.scheme, self.induty, self.fetched, self.currency, self.cap = scheme, induty, fetched, currency, cap
         self.fin_q = FIN_Q if fin_q is None else fin_q
+        self.fin_y = FIN_Y if fin_y is None else fin_y
+        self.fund_fy = FUND_FY if fund_fy is None else fund_fy
         self.log: list[str] = []
 
     def snapshot_row(self):
@@ -122,9 +124,9 @@ class FakeDb:
         if "FROM krx_weekly WHERE ticker=%s AND price_dd=%s UNION ALL" in s:
             return [(self.cap, "KS", 1)] if self.cap else []
         if "FROM dart_finstat_y" in s:
-            return FIN_Y
+            return list(self.fin_y)
         if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
-            return [FUND_FY]
+            return [self.fund_fy]
         if "FROM dart_finstat_q" in s:
             return list(self.fin_q)
         raise AssertionError("가짜 DB 가 모르는 SQL: " + s)
@@ -169,6 +171,12 @@ CASES = {
     "impaired_no_ctx": dict(scheme="중분류", fin_q=[(2025, 2, 9.0e12, 58.0e12), (2026, 2, 12.0e12, -1.0)]),
     "fundamentals_not_ok": dict(scheme="ksic", fetched="nocorp"),
     "no_price_that_day": dict(scheme="중분류", cap=None),
+    # 상장 첫해 — 직전 사업연도 연간 행이 없고(연간 재무 표 nodata · 재무 요약 연간 값 null) 분기 표에 올해 1·2분기만 있다.
+    # 스냅샷 표는 재무 요약의 최근 분기 자본으로 PBR(MRQ)를 냈고 PER(TTM)은 비었다(10-18 운영 최신 주 4종목 — 153890·439960·477850·487580).
+    "new_listing_no_annual_row": dict(scheme="ksic", fin_y=[], fund_fy=(None, None),
+                                      fin_q=[(2026, 1, -0.3e12, 10.0e12), (2026, 2, 0.9e12, 31.0e12)]),
+    "new_listing_no_annual_row_mid": dict(scheme="중분류", fin_y=[], fund_fy=(None, None),
+                                          fin_q=[(2026, 1, -0.3e12, 10.0e12), (2026, 2, 0.9e12, 31.0e12)]),
 }
 
 
@@ -199,11 +207,33 @@ def test_the_cases_exercise_both_branches(monkeypatch):
 
 def test_firm_value_uses_the_daily_store_when_the_snapshot_date_is_not_a_weekly_row():
     """`_firm_cap_at` 은 그 날 주간 행이 없으면 일별 저장분을 보고(닫힌 주만 담는 krx_weekly 에 없는 이번 주 스냅샷 날짜), 그 날 행이 정확히 없으면
-    같은 주 안 그 날 이하 가장 늦은 행으로 대신한다. 실제 SQL 실행은 pg17 시험(`test_disclosure_flow_join_pg.py::test_firm_cap_at_*`)."""
+    같은 주 안 그 날 이하 가장 늦은 행, 그것도 없으면 같은 주 안 그 날 뒤 가장 이른 행으로 대신한다(각 단계 주간 → 일별).
+    실제 SQL 실행은 pg17 시험(`test_disclosure_flow_join_pg.py::test_firm_cap_at_*`)."""
     body = " ".join(S._FIRM_CAP_SQL.split())
     assert "FROM krx_weekly WHERE ticker=%s AND price_dd=%s" in body and "FROM krx_daily_v WHERE ticker=%s AND trd_dd=%s" in body
-    assert "price_dd >= %s AND price_dd < %s ORDER BY price_dd DESC LIMIT 1" in body, "같은 주·그 날 이하(뒤 날짜는 쓰지 않는다)"
-    assert "ORDER BY src LIMIT 1" in body, "같은 날 두 표에 다 있으면 주간 행(곡선과 같은 원천)을 먼저 쓴다"
+    assert "price_dd >= %s AND price_dd < %s ORDER BY price_dd DESC LIMIT 1" in body, "같은 주·그 날 이하 가장 늦은 행"
+    assert "price_dd > %s AND price_dd <= %s ORDER BY price_dd LIMIT 1" in body, "같은 주·그 날 뒤 가장 이른 행"
+    assert "trd_dd > %s AND trd_dd <= %s ORDER BY trd_dd LIMIT 1" in body
+    srcs = [int(x) for x in re.findall(r"(\d) AS src", body)]
+    assert srcs == [1, 2, 3, 4, 5, 6], "그 날(주간·일별) → 그 날 이하(주간·일별) → 그 날 뒤(주간·일별)"
+    assert "ORDER BY src LIMIT 1" in body, "앞 단계가 이긴다 — 같은 날 두 표에 다 있으면 주간 행(곡선과 같은 원천)"
+
+
+def test_firm_cap_at_binds_the_same_week_bounds(monkeypatch):
+    """자리표시자 순서 — 그 날 이하 쪽은 (주 첫날, 그 날), 그 날 뒤 쪽은 (그 날, 주 끝날). 주 = 달력 연도 안으로 자른 ISO 주."""
+    seen = []
+
+    def rows(sql, params=()):
+        seen.append(params)
+        return [(1.0e12, "KS", 5)]
+    monkeypatch.setattr(S, "_pg_rows", rows)
+    assert asyncio.run(S._firm_cap_at(ISU, "20261014")) == (1.0e12, "KS")
+    assert seen[0] == (ISU, "20261014", ISU, "20261014", ISU, "20261012", "20261014", ISU, "20261012", "20261014",
+                       ISU, "20261014", "20261018", ISU, "20261014", "20261018")
+    seen.clear()
+    asyncio.run(S._firm_cap_at(ISU, "20251231"))      # 연도 경계 주 — 2026-01-01 이후로 넘어가지 않는다
+    assert seen[0][11:13] == ("20251231", "20251231") and seen[0][5:7] == ("20251229", "20251231")
+    assert S._FIRM_CAP_SQL.count("%s") == len(seen[0])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -227,7 +257,49 @@ def test_pit_point_is_the_rounded_raw_point():
                   "per_fy0": round(CAP / 20.0e12, 3), "pbr": round(CAP / 60.0e12, 3),
                   "per_ttm": round(CAP / TTM, 3), "pbr_mrq": round(CAP / MRQ, 3)}
     assert raw["per_ttm"] == CAP / TTM
-    assert S._pit_point(AS_OF, None, fin, finq) is None and S._pit_point(AS_OF, CAP, {}, finq) is None
+    assert S._pit_point(AS_OF, None, fin, finq) is None
     assert S._pit_impaired(AS_OF, fin, {(2026, 2): (1.0, -5.0)})
     imp = S._pit_point(AS_OF, CAP, fin, {(2025, 2): (9.0e12, 58.0e12), (2026, 2): (12.0e12, -5.0)})
     assert imp["per_fy0"] is None and imp["per_ttm"] is None and imp["pbr_mrq"] is None and imp["pbr"] is not None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# ④ 그 시점 확정 FY 의 연간 행이 없는 종목(상장 첫해) — 분기 자본이 있으면 PBR(MRQ)만 낸다(곡선·업종 비교 같은 함수)
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+NEW_Q = {(2026, 1): (-0.3e12, 10.0e12), (2026, 2): (0.9e12, 31.0e12)}
+
+
+def test_new_listing_without_an_annual_row_gets_pbr_mrq_only():
+    pt = S._pit_point(AS_OF, CAP, {}, NEW_Q)
+    assert pt == {"asof": AS_OF, "pit_fy": 2025, "pit_q": "2026Q2", "cap_krw": round(CAP),
+                  "per_fy0": None, "pbr": None, "per_ttm": None, "pbr_mrq": round(CAP / 31.0e12, 3)}
+    assert S._pit_raw(AS_OF, CAP, {}, NEW_Q)["pbr_mrq"] == CAP / 31.0e12, "업종 비교는 반올림 전 값을 받는다"
+    # 그 시점 분기(1분기 마감 5/15 뒤 · 반기 마감 8/14 전)는 1분기 자본
+    assert S._pit_point("20260731", CAP, {}, NEW_Q)["pbr_mrq"] == round(CAP / 10.0e12, 3)
+
+
+def test_the_annual_row_still_wins_when_it_exists():
+    """연간 행이 있으면 종전 그대로(FY0 배수 포함) — 바뀌는 것은 연간 행이 **없을** 때뿐이다."""
+    fin = {2025: (20.0e12, 60.0e12)}
+    pt = S._pit_point(AS_OF, CAP, fin, NEW_Q)
+    assert pt["per_fy0"] == round(CAP / 20.0e12, 3) and pt["pbr"] == round(CAP / 60.0e12, 3) and pt["pbr_mrq"] == round(CAP / 31.0e12, 3)
+
+
+@pytest.mark.parametrize("dd,finq", [
+    (AS_OF, {(2026, 1): (-0.3e12, 10.0e12)}),                 # 그 시점 분기(2026 2분기) 칸이 비었다 — 앞 분기로 대신하지 않는다
+    (AS_OF, {}),                                               # 분기 표에도 없다
+    ("20260430", NEW_Q),                                       # 4/1~5/14 의 기준은 직전 사업보고서(연간) — 연간 행이 없으면 낼 것이 없다
+    (AS_OF, {(2026, 2): (0.9e12, -1.0)}),                      # 완전자본잠식(260829 — 배수를 내지 않는다)
+])
+def test_no_point_when_nothing_can_be_computed_without_the_annual_row(dd, finq):
+    """연간 행도 분기 배수도 없으면 종전처럼 점을 만들지 않는다 — 시총만 있는 점으로 곡선·응답 상태를 바꾸지 않는다."""
+    assert S._pit_raw(dd, CAP, {}, finq) is None and S._pit_point(dd, CAP, {}, finq) is None
+
+
+def test_new_listing_curve_and_sector_compare_agree(monkeypatch):
+    """firm_history 곡선의 그 주 점 = 업종 비교의 기업 PBR(MRQ) — 한 함수(`_pit_raw`)."""
+    with monkeypatch.context() as mp:
+        p = _run(S, mp, FakeDb("ksic", **{k: v for k, v in CASES["new_listing_no_annual_row"].items() if k != "scheme"}), "ksic")
+    c = p["data"]["company"]
+    assert c["firm_per_ttm"] is None and c["firm_pbr_mrq"] == round(CAP / 31.0e12, 2)
+    assert round(S._pit_raw(AS_OF, CAP, {}, NEW_Q)["pbr_mrq"], 2) == c["firm_pbr_mrq"]

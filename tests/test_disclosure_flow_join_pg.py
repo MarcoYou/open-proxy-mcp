@@ -5,7 +5,8 @@
           그 스냅샷에 종목이 없으면 비운다(원장 배치의 `pick_snapshot` 과 같은 선택).
   · 시총 = 원장의 `mktcap_won` 그대로. 시세 표와 조인하지 않는다 — 일별 원본이 7거래일 뒤 잘려 나중엔 공시 시점 값을 다시 만들 수 없다.
   · 업종 복사본 칸(`sector`·`industry`·`sector_dd`)이 **없는** 표(운영에서 지운 뒤)에서도 돌고, 칸이 **있어도 읽지 않는다**(엉뚱한 값을 넣어 두고 확인).
-같은 파일에서 `price_multiple_data._firm_cap_at`(업종 비교의 그 날 시총 — 그 날 행, 없으면 같은 주 그 날 이하 가장 늦은 행)도 실제 SQL 로 확인한다.
+같은 파일에서 `price_multiple_data._firm_cap_at`(업종 비교의 그 날 시총 — 그 날 행, 없으면 같은 주 그 날 이하 가장 늦은 행, 그것도 없으면 같은 주 그 날 뒤
+가장 이른 행)도 실제 SQL 로 확인한다.
 
 로컬 Docker 의 `postgres:17` 이 필요하다(`tests/conftest.py` 의 `pg17`). 없으면 건너뛴다. network 0.
 """
@@ -181,20 +182,41 @@ def test_firm_cap_at_exact_day_weekly_then_daily(db):
     assert asyncio.run(S._firm_cap_at(A, "20261014")) == (_cap(A, "20261014", daily=True), "KS"), "주간 행이 없으면 그 날 일별 행"
 
 
-def test_firm_cap_at_falls_back_within_the_same_week_never_later(db):
-    """그 날 행이 정확히 없으면 같은 주(ISO 주를 달력 연도 안으로 자른 것) 안 그 날 이하 가장 늦은 행 — 주간 먼저, 없으면 일별."""
+def test_firm_cap_at_falls_back_within_the_same_week(db):
+    """그 날 행이 정확히 없으면 같은 주(ISO 주를 달력 연도 안으로 자른 것) 안 그 날 이하 가장 늦은 행, 그것도 없으면 그 날 뒤 가장 이른 행 —
+    각 단계 주간 먼저, 없으면 일별. 다른 주로는 넘어가지 않는다."""
     _load(db)
     assert asyncio.run(S._firm_cap_at(A, "20261009")) == (_cap(A, "20261008"), "KS"), "휴장일 → 같은 주 앞 거래일의 주간 행"
     assert asyncio.run(S._firm_cap_at(A, "20261011")) == (_cap(A, "20261008"), "KS"), "일요일"
     assert asyncio.run(S._firm_cap_at(A, "20261018")) == (_cap(A, "20261016"), "KS")
-    # 그 날보다 뒤 날짜는 쓰지 않는다: E 는 일별 행이 없고, 같은 주 주간 행(10/16)은 기준일(10/14) 뒤 · 지난주 행(10/8)은 다른 주
-    assert asyncio.run(S._firm_cap_at(E, "20261014")) == (None, None)
-    assert asyncio.run(S._firm_cap_at(E, "20261013")) == (None, None)
-    # 연도 경계 주는 둘로 나뉜다 — 12/31(휴장)은 같은 해 연말 행, 1/1 은 지난해 행을 쓰지 않는다
+    # 그 날 이하 행이 없으면 같은 주 뒤 날짜: E 는 일별 행이 없고, 같은 주 주간 행(10/16)은 기준일(10/14) 뒤 — 지난주 행(10/8)은 다른 주라 쓰지 않는다
+    assert asyncio.run(S._firm_cap_at(E, "20261014")) == (_cap(E, "20261016"), "KS")
+    assert asyncio.run(S._firm_cap_at(E, "20261012")) == (_cap(E, "20261016"), "KS")
+    assert asyncio.run(S._firm_cap_at(E, "20261005")) == (_cap(E, "20261008"), "KS")
+    # 같은 주에 아무 행도 없으면 비운다(다음 주 월요일 — 지난주 행으로 내려가지 않는다)
+    assert asyncio.run(S._firm_cap_at(E, "20261019")) == (None, None)
+    # 연도 경계 주는 둘로 나뉜다 — 12/31(휴장)은 같은 해 연말 행, 1/1(휴장)은 같은 해(2026) 쪽 첫 거래일 행 · 지난해 연말 행은 쓰지 않는다
     assert asyncio.run(S._firm_cap_at(A, "20251231")) == (_cap(A, "20251230"), "KS")
-    assert asyncio.run(S._firm_cap_at(A, "20260101")) == (None, None)
+    assert asyncio.run(S._firm_cap_at(A, "20260101")) == (_cap(A, "20260102"), "KS")
     # 주간 행이 없는 주 → 일별 저장분의 같은 주·그 날 이하 가장 늦은 행
     with psycopg.connect(db, autocommit=True) as c:
         c.execute("DELETE FROM krx_weekly WHERE price_dd = '20261016'")
     assert asyncio.run(S._firm_cap_at(B, "20261017")) == (_cap(B, "20261016", daily=True), "KS")
     assert asyncio.run(S._firm_cap_at(B, "20261018")) == (_cap(B, "20261016", daily=True), "KS")
+
+
+def test_firm_cap_at_order_earlier_before_later_weekly_before_daily(db):
+    """고르는 순서: 그 날(주간 → 일별) → 그 날 이하(주간 → 일별) → 그 날 뒤(주간 → 일별)."""
+    _load(db)
+    with psycopg.connect(db, autocommit=True) as c:
+        # A: 10/12 일별 행이 빠졌다(그 날 행 없음, 같은 주 그 날 이하 행도 없음) · 10/14 일별 행도 빠졌다(10/13 일별 행은 있다)
+        c.execute("DELETE FROM krx_daily WHERE ticker=%s AND trd_dd IN ('20261012', '20261014')", (A,))
+        # B: 같은 주 주간 행(10/16)이 없고 일별은 10/14 부터
+        c.execute("DELETE FROM krx_weekly WHERE ticker=%s AND price_dd='20261016'", (B,))
+        c.execute("DELETE FROM krx_daily WHERE ticker=%s AND trd_dd IN ('20261012', '20261013')", (B,))
+    # 그 날 이하 일별(10/13)이 그 날 뒤 주간(10/16)보다 먼저
+    assert asyncio.run(S._firm_cap_at(A, "20261014")) == (_cap(A, "20261013", daily=True), "KS")
+    # 그 날 이하가 없으면 그 날 뒤 — 주간(10/16)이 일별(10/13)보다 먼저
+    assert asyncio.run(S._firm_cap_at(A, "20261012")) == (_cap(A, "20261016"), "KS")
+    # 그 날 뒤 주간도 없으면 일별의 그 날 뒤 가장 이른 행(10/14)
+    assert asyncio.run(S._firm_cap_at(B, "20261012")) == (_cap(B, "20261014", daily=True), "KS")
