@@ -185,12 +185,15 @@ def test_suggest_full_query_infix_ranks_before_a_shorter_prefix_match():
     assert [c["corp_name"] for c in near] == ["에이치디현대인프라코어", "인프라웨어테크놀러지"]
 
 
+#: 「루트」를 이름 가운데·앞(혼합 토큰)에 품은 활성 상장사 — 토큰 색인의 「루트」는 코넥스 루트락에만 걸린다.
+_ROOTS = [
+    {"corp_code": "r1", "corp_name": "에이루트", "corp_eng_name": "A ROOT", "stock_code": "096690", "modify_date": "20250101"},
+    {"corp_code": "r2", "corp_name": "루트K", "corp_eng_name": "ROOT K", "stock_code": "195990", "modify_date": "20250101"},
+]
+
+
 def test_suggest_short_fragment_orders_by_market_cap_and_respects_limit():
-    extra = [
-        {"corp_code": "r1", "corp_name": "에이루트", "corp_eng_name": "A ROOT", "stock_code": "096690", "modify_date": "20250101"},
-        {"corp_code": "r2", "corp_name": "루트K", "corp_eng_name": "ROOT K", "stock_code": "195990", "modify_date": "20250101"},
-    ]
-    resolver = _gone_resolver(extra, {"096690": 50, "195990": 30})
+    resolver = _gone_resolver(_ROOTS, {"096690": 50, "195990": 30})
     assert [c["corp_name"] for c in resolver.suggest("루트")] == ["에이루트", "루트K", "루트락"]
     assert [c["corp_name"] for c in resolver.suggest("루트", limit=2)] == ["에이루트", "루트K"]
     assert resolver.suggest("트") == []                  # 한 글자는 제안하지 않는다
@@ -199,6 +202,37 @@ def test_suggest_short_fragment_orders_by_market_cap_and_respects_limit():
 def test_suggest_keeps_prefix_candidates_when_no_name_contains_the_query():
     near = _gone_resolver().suggest("에이플러스에셋어드바이저")
     assert [c["corp_name"] for c in near] == ["에이플러스에셋"]
+
+
+def test_search_falls_past_inactive_token_hits_to_an_active_substring_match():
+    # 「세이」의 토큰(이름 앞부분)은 코넥스 세이프아시아에만 걸려 활성 필터가 통째로 비운다 —
+    # 거기서 멈추면 「못 찾음」. 최후 수단으로 부분일치까지 내려가 이름에 「세이」를 품은 활성 상장사를 고른다.
+    extra = [
+        {"corp_code": "s1", "corp_name": "세이프아시아", "corp_eng_name": "SAFE ASIA", "stock_code": "066330", "modify_date": "20260101"},
+        {"corp_code": "s2", "corp_name": "세이브존I&C", "corp_eng_name": "SAVEZONE I&C", "stock_code": "067830", "modify_date": "20250101"},
+    ]
+    matches = _gone_resolver(extra, {"067830": 40}).search("세이")
+    assert [m["corp_name"] for m in matches] == ["세이브존I&C"]
+    meta = matches[0]["_resolution"]
+    assert meta["match_kind"] == "substring" and meta["inferred"] and meta["auto_selected"]
+    status, selected, _ = _resolve_match("세이", matches)
+    assert status == AnalysisStatus.EXACT and selected and selected["stock_code"] == "067830"
+
+    roots = _gone_resolver(_ROOTS, {"096690": 50, "195990": 30}).search("루트")
+    assert [m["corp_name"] for m in roots] == ["에이루트", "루트K"]      # 루트락(비활성)은 되살리지 않는다
+    assert _gone_resolver().search("루트") == []                         # 비활성뿐이면 여전히 못 찾음
+
+
+def test_last_resort_runs_after_latinized_retry_so_existing_answers_stay():
+    # 「엘비」: 토큰은 비활성 엘비라이프뿐. 지금 답(역음차 'lb' → LB세미콘)을 한글 부분일치 「티엘비」가
+    # 가로채면 안 된다 — 내려가기는 다른 경로가 모두 빈 뒤에만 한다(시총은 일부러 티엘비가 크다).
+    extra = [
+        {"corp_code": "l0", "corp_name": "엘비라이프", "corp_eng_name": "LBLIFE", "stock_code": "900010", "modify_date": "20200101"},
+        {"corp_code": "l1", "corp_name": "LB세미콘", "corp_eng_name": "LB SEMICON INC", "stock_code": "061970", "modify_date": "20250101"},
+        {"corp_code": "l2", "corp_name": "티엘비", "corp_eng_name": "TLB CO., LTD.", "stock_code": "356860", "modify_date": "20250101"},
+    ]
+    matches = _gone_resolver(extra, {"061970": 30, "356860": 60}).search("엘비")
+    assert matches and matches[0]["corp_name"] == "LB세미콘"
 
 
 def test_curated_historical_alias_wins_over_old_official_name():
