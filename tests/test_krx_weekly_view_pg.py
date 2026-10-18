@@ -267,6 +267,36 @@ def test_drop_legacy_only_when_every_old_row_is_still_in_the_view(two, monkeypat
     assert _q(b, "SELECT to_regclass('krx_weekly_legacy') IS NULL") == [(True,)] and _weekly(b) == _weekly(a)
 
 
+
+def test_rollback_drops_old_rows_the_view_no_longer_shows(two, monkeypatch):
+    """되돌리기 = 뷰가 **지금** 보여 주는 행. 교체 뒤 압축 표에서 빠진 옛 주(3년 롤링 흉내)는 되살린 표에서도 빠진다 — 관문이 대조."""
+    a, b = two
+    _run(two, "20261005", "20261016", monkeypatch)
+    _apply(b, "switch")
+    _x(b, "DELETE FROM krx_wk w USING krx_ticker k WHERE k.tid = w.tid AND k.ticker = 'D00000' AND w.wk_dd = '2025-08-29'")
+    _x(b, "UPDATE krx_wk_day SET n = n - 1 WHERE wk_dd = '2025-08-29'")
+    before = _weekly(b)
+    assert ("20250829", "D00000") not in [(r[0], r[1]) for r in before]
+    assert _q(b, "SELECT count(*) FROM krx_weekly_legacy WHERE price_dd = '20250829' AND ticker = 'D00000'") == [(1,)]
+    _apply(b, "rollback")
+    assert _kind(b) == "r" and _weekly(b) == before
+
+
+def test_switch_rollback_and_drop_compare_by_sorting_and_take_the_reader_lock_only_at_the_end():
+    """🔴 운영 DB 는 메모리가 작다 — 대조는 정렬로만(해시 집합 연산은 work_mem 을 넘어도 디스크로 내리지 않는다), work_mem 을 올리지 않는다
+    (종전 64MB + 글자 대조: 로컬 실측 백엔드 개인 메모리 433MB). 무거운 G2 는 이름을 바꾸기 **전**(옛 표 SHARE 잠금 — 읽기는 그대로)."""
+    d = _wddl()
+    for mode in ("switch", "rollback", "drop-legacy"):
+        sql = d.body(mode)
+        assert "SET LOCAL work_mem" not in sql and "SET LOCAL enable_hashagg = off;" in sql, mode
+        assert "::text FROM" not in sql, mode                                   # 행 → 글자 대조(추정 200행 → 해시) 없음
+    sw = d.body("switch")
+    order = [sw.index(x) for x in ("LOCK TABLE krx_weekly IN SHARE MODE", "INSERT INTO krx_wk (", "G2 관문 통과",
+                                    "ALTER TABLE krx_weekly RENAME TO krx_weekly_legacy",
+                                    "CREATE OR REPLACE VIEW krx_weekly ", "pg_get_viewdef('krx_weekly'::regclass)")]
+    assert order == sorted(order)
+    assert d.VIEW_SELECT in d.SWITCH_G2_SQL and d.VIEW_SELECT in d.VIEW                  # 임시 뷰와 같은 이름 뷰는 글자 그대로 같은 정의
+
 # ── 보관 창 정리: 옮기지 못하면 지우지 않는다 ─────────────────────────────────────────
 
 def test_prune_keeps_a_week_closing_day_it_could_not_move_and_retries_next_time(two, monkeypatch, caplog):
@@ -364,8 +394,10 @@ def test_switch_pre_grants_the_server_account_only_what_the_move_needs(two, monk
         c.execute("INSERT INTO krx_wk (list_shrs, close, wk_dd, tid, market) VALUES (1, 1, '2025-09-12', %s, 'S') "
                   "ON CONFLICT (tid, wk_dd) DO NOTHING", (tid,))
         c.execute("UPDATE krx_wk_day SET n = 1 WHERE wk_dd = '2025-09-12'")
-        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        with pytest.raises(psycopg.errors.InsufficientPrivilege), c.transaction():
             c.execute("DELETE FROM krx_wk WHERE wk_dd = '2025-09-12'")
+        with pytest.raises(psycopg.errors.InsufficientPrivilege), c.transaction():    # 달력은 행 수 칸(n)만 고친다
+            c.execute("UPDATE krx_wk_day SET dd = dd WHERE wk_dd = '2025-09-12'")
         c.rollback()
     # RLS 를 따르는 계정으로 만들어도 되게 정책도 둔다(시험 역할은 다른 시험과 같은 BYPASSRLS — 정책은 있는지만 본다)
     pols = {r[0] for r in _q(b, "SELECT polname FROM pg_policy WHERE polrelid IN ('krx_wk'::regclass, 'krx_wk_day'::regclass)")}
