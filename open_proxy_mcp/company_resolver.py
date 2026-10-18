@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db
 
 import asyncio
+from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import difflib
@@ -177,6 +180,20 @@ def _local_market_context() -> MarketContext:
 _DB_MARKET_SOURCE = "krx_daily"
 
 
+#: 전 종목 단면으로 믿을 시장별 최소 종목 수 — 키는 DB 저장값(`market_codes`). 261018 실측 KS 940 · KQ 1,822.
+_COMPLETE_MIN_TICKERS = {MKT_KS: 700, MKT_KQ: 1_200}
+
+
+def _is_complete_universe(markets: Iterable[str | None]) -> bool:
+    """단면의 시장 칸들이 코스피·코스닥 전 종목을 덮나. 활성 상장 명부(`active_tickers`)를 켤지 가르는 판정이다.
+
+    🔴 261018: 종전엔 `'KOSPI'`/`'KOSDAQ'` 리터럴을 셌는데 DB 값은 260823 개명 뒤 `KS`/`KQ` 라 전 종목이 다 있어도
+    늘 거짓이었다 — 활성 명부 필터와 이전 맥락 유지 보호가 그 뒤로 운영에서 한 번도 켜지지 않았다(오류 없이 꺼져 있었다).
+    시장 값은 `to_db` 로 정규화해 센다 — 적재·조회(price_multiple_data·screener)와 같은 기준이라 옛 표기 행도 같은 시장으로 센다."""
+    counts = Counter(mkt_to_db(m) for m in markets)
+    return all(counts[code] >= need for code, need in _COMPLETE_MIN_TICKERS.items())
+
+
 def _database_market_context() -> MarketContext | None:
     """최신 거래일 전 종목 단면(시총·시장)을 일별 시세 저장분에서 읽는다. 읽을 수 없거나 비었으면 None.
 
@@ -201,18 +218,17 @@ def _database_market_context() -> MarketContext | None:
                 (as_of_date,),
             ).fetchall()
         caps = {str(ticker): int(cap or 0) for ticker, cap, _market in rows if ticker}
-        market_counts: dict[str, int] = {}
-        for _ticker, _cap, market in rows:
-            market_counts[str(market or "").upper()] = market_counts.get(str(market or "").upper(), 0) + 1
         # A partial snapshot must never be treated as the complete active universe.
         fresh = False
         try:
             fresh = today_kst() - datetime.strptime(as_of_date, "%Y%m%d").date() <= timedelta(days=14)
         except ValueError:
             pass
-        # ⚠ 기존 결함(고치지 않음, 별도 결정): DB 시장 표기는 KS/KQ 인데 여기선 KOSPI/KOSDAQ 를 세어 complete 가 늘
-        # 거짓이다 → active 늘 None(test_existing_market_label_mismatch_keeps_the_active_registry_off).
-        complete = market_counts.get("KOSPI", 0) >= 700 and market_counts.get("KOSDAQ", 0) >= 1_200
+        complete = _is_complete_universe(market for _ticker, _cap, market in rows)
+        if not complete and len(rows) >= sum(_COMPLETE_MIN_TICKERS.values()):
+            # 행 수는 전 종목인데 시장별로 못 채웠다 = 시장 표기가 또 바뀌었을 가능성. 종전엔 이 경우가 조용히 꺼져 있었다.
+            _log.warning("시장 맥락 %s: %d행인데 시장별 종목 수가 기준 미달이라 활성 명부를 끈다 — 시장 칸 값 %s",
+                         as_of_date, len(rows), dict(Counter(str(m) for _t, _c, m in rows).most_common(4)))
         active = frozenset(caps) if complete and fresh else None
         return MarketContext(caps, active, as_of_date, _DB_MARKET_SOURCE)
     except Exception:
@@ -260,9 +276,7 @@ def _should_keep_previous(prev: MarketContext | None, new: MarketContext | None)
     붙들었다.** `krx_weekly` 를 자르는 30~60초(표가 비는 구간)나 접속 1초 시간 초과 한 번에, 완전한 시총·상장 명부로
     하던 이름 해석이 한 시간 동안 표본 기반으로 떨어졌다(폐지 회사 되살림·시총 순위 왜곡).
     261018: 단면 원천을 `krx_daily` 로 옮긴 뒤에도(그 표는 쓰는 동안 비는 구간이 없다) 접속 1초 시간 초과·마이그레이션 전
-    배포(표·뷰 없음)는 똑같이 `None` 이라 이 보호는 그대로 둔다.
-    ⚠ 다만 지금은 `_database_market_context` 의 시장 표기 불일치(KS/KQ 대 KOSPI/KOSDAQ) 때문에 active 가 늘 None 이라
-    지킬 만한 이전이 생기지 않는다 — 실제로는 읽기가 한 번 실패하면 종전처럼 로컬 폴백으로 간다(기존 결함, 별도 결정)."""
+    배포(표·뷰 없음)는 똑같이 `None` 이라 이 보호는 그대로 둔다."""
     return _is_complete_recent(prev) and (new is None or new.active_tickers is None)
 
 
