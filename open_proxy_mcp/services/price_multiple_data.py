@@ -1341,15 +1341,22 @@ def _fye_note(fye) -> str | None:
 _HIST_WEEKS = 16
 
 
-def _weekly_hist_items(px: list, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> list[dict]:
+def _weekly_hist_items(px: list, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12,
+                       latest_dd: str | None = None) -> list[dict]:
     """주간 시세 행(`_weekly_series(raw_out=…)`)의 최근 `_HIST_WEEKS` 주 → `history` 의 「주간」 항목(종전 주간 스냅샷 표 모양).
+    「최근 16주」는 시장의 최근 16주다(`latest_dd` = 저장된 최신 주, 그 16주 전 날 뒤만) — 종전 표가 주마다 전 종목을 담았으므로, 상장폐지·거래정지로
+    시세가 끊긴 종목은 그 창 안에 남은 주만 나온다(종전과 같다).
 
     값은 그 주 업종 비교 기업 행과 같다(`_row_val` — 곡선 점, 그 시점 칸이 비면 앞선 칸으로 세고 그 항목에 `basis` 를 붙인다)를 소수 둘째 자리로
     한 번 반올림한다. `pbr` 은 PBR(MRQ), 없으면 PBR(FY0) — 종전 규칙. 재무가 없어 셀 것이 없는 주(인프라 펀드 등 — 종전 스냅샷 표는 시총만 담았다)는
     배수 없이 시총만 낸다. 그 시점 완전자본잠식인 주는 뺀다(260829 마스터 지시 — 스냅샷 배치도 08-29 부터 그 종목을 빼고 저장했다)."""
     out = []
+    since = None
+    if latest_dd:
+        from datetime import date, timedelta
+        since = (date(int(latest_dd[:4]), int(latest_dd[4:6]), int(latest_dd[6:8])) - timedelta(weeks=_HIST_WEEKS)).strftime("%Y%m%d")
     for price_dd, cap in px[-_HIST_WEEKS:]:
-        if not cap:
+        if not cap or (since and price_dd <= since):
             continue
         rv = _row_val(price_dd, cap, fin, finq, fye)
         if rv is None:
@@ -1392,7 +1399,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     #   주간 배치가 따로 저장해 둔 것이고, 여기서는 `history` 에 「주간」 항목(최근 16주)을 덧붙이는 데만 썼다 — 같은 주는 곡선(`series`)에 이미 있다.
     #   DB 장애 판정(db_error)은 그 읽기 대신 ⓐ 의 재무 요약 읽기로 한다 — 통화를 모른 채 KRW 로 계산하지 않는다.
     # 261018(결산월): 재무 요약에서 결산월(`acc_mt`)도 함께 읽는다 — 칸 고르기·TTM·환율 기준일에 쓴다(비었으면 12월 = 종전과 같다).
-    cur_row, (_, weekly_from) = await _gather_db(
+    cur_row, (latest_wk, weekly_from) = await _gather_db(
         _db_rows("SELECT market, induty, currency, acc_mt, fetched FROM dart_fundamentals WHERE ticker=%s", (isu,)),
         _weekly_bounds(),                                            # 주간 곡선은 보존 하한 이후만
     )
@@ -1417,7 +1424,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
         _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)),
     )
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
-    weekly_hist = _weekly_hist_items(px, fin, finq, fye) if cur_row and cur_row[0][4] == "ok" else []
+    weekly_hist = _weekly_hist_items(px, fin, finq, fye, latest_wk) if cur_row and cur_row[0][4] == "ok" else []
     if not band and not series and not weekly_hist:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": corp.get("corp_name", query),
                 # 261018: 사용자 문장에 저장소 표 이름을 쓰지 않는다(종전 「과거 시세(krx_weekly)·재무(dart_finstat_y)」 — 260907 정리의 남은 자리).

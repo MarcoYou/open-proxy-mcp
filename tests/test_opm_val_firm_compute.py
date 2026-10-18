@@ -485,3 +485,13 @@ def test_summary_annual_is_not_laid_on_the_latest_year_when_it_is_an_older_years
     assert asyncio.run(S._firm_fin_by_fy("241820")) == {2024: (-52.3e9, 7.1e9)}
     monkeypatch.setattr(S, "_pg_rows", rows_for((3.0e9, 8.0e9)))           # 2025 값(분기 표 사업보고서 칸)이면 종전처럼 얹는다
     assert asyncio.run(S._firm_fin_by_fy("241820"))[2025] == (3.0e9, 8.0e9)
+
+
+def test_weekly_history_items_are_the_markets_last_16_weeks_not_the_stocks():
+    """상장폐지·거래정지로 시세가 끊긴 종목 — 종전 표는 시장의 최근 16주에 행이 있던 주만 담았다(10-18 운영 222160: 07-03 한 주).
+    그 종목의 마지막 16개 시세 행(3~7월)을 내지 않는다."""
+    fin = {2025: (20.0e12, 60.0e12)}
+    px = [(d, c) for d, c in _weeks(20, "20260220")]          # 2026-02-20 ~ 2026-07-03
+    items = S._weekly_hist_items(px, fin, {}, 12, "20261016")
+    assert [h["asof"] for h in items] == ["20260703"]
+    assert len(S._weekly_hist_items(px, fin, {}, 12)) == 16, "기준 주를 모르면(시험용) 마지막 16행"
