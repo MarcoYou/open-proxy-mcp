@@ -155,6 +155,24 @@ def _detail_line(card: dict) -> str | None:
         if f.get("agenda_status") == "undetermined":
             return "안건 미정(결의 단계 — 확정 시 정정 공시)"
         return f"안건 {f.get('agenda_count','?')}건" if f.get("agenda_count") else None
+    if tc == "control_change":
+        kind = f.get("control_kind")
+        if kind in ("change", "transfer_contract"):
+            arrow = "→" if kind == "change" else "→(예정)"
+            head = f"{f.get('holder_before') or '?'} {arrow} {f.get('holder_after') or '?'}" if f.get("holder_before") \
+                else f"{'변경후' if kind == 'change' else '변경예정'} {f.get('holder_after') or '?'}"
+            parts = [head + (f" {f['stake_after_pct']}%" if f.get("stake_after_pct") else "")]
+            if f.get("amount"):
+                parts.append(f"대금 {f['amount']}원")
+        elif kind == "pledge_contract":
+            parts = [f"담보 {f.get('pledgor') or '?'}"]
+            if f.get("stake_if_executed_pct"):
+                parts.append(f"실행시 지분 {f['stake_if_executed_pct']}%")
+        else:
+            parts = ["계약 해제·취소" + (f" — {f['reason'][:40]}" if f.get("reason") else "")]
+        if f.get("on"):
+            parts.append(f.get("on"))
+        return " · ".join(parts)
     if tc == "ownership5":
         parts = []
         if f.get("holder"):
