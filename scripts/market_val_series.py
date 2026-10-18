@@ -253,9 +253,12 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
                 eq_r=gid(rows,eqa,("BS",),field) or gid(rows,"ifrs-full_Equity",("BS",),field)
                 if stmt_cur!="KRW" and (ni_r is not None or eq_r is not None):
                     # 261019: 저장은 항상 원화(fetch 와 같은 규칙 — 그 해 결산월 말일 환율). 환율을 못 구하면 그 해는 쓰지 않는다.
-                    rate=await fx_to_krw(stmt_cur, fiscal_year_end_date(fy_off, fye_of.get(isu, 12)))
+                    _fx_dd=fiscal_year_end_date(fy_off, fye_of.get(isu, 12))
+                    rate=await fx_to_krw(stmt_cur, _fx_dd)
                     if rate is None:
                         continue
+                    if fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:   # 261019: fetch 와 같은 경고
+                        print(f"::warning::[환율] {isu} FY{fy_off} 정정 {stmt_cur} {_fx_dd} — ECOS 대신 야후 대체값 {rate}",flush=True)
                     ni_r, eq_r = (v*rate if v is not None else None for v in (ni_r, eq_r))
                 if ni_r is not None or eq_r is not None:
                     restate_buf.append((isu,fy_off,fs,None,None,ni_r,eq_r,"restate_only"))

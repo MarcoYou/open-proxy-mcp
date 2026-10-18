@@ -1037,10 +1037,13 @@ async def fill_prior_from_next(keys: set[tuple[str, int, int]], dry: bool = Fals
         p_eq, eq_case = prior_equity_from_sce(rows)
         stmt_cur = statement_currency(rows)
         if stmt_cur != "KRW":
-            rate = await fx_to_krw(stmt_cur, rcal.cell_end(fy, q, fye).strftime("%Y%m%d"))
+            _fx_dd = rcal.cell_end(fy, q, fye).strftime("%Y%m%d")
+            rate = await fx_to_krw(stmt_cur, _fx_dd)
             if rate is None:
                 result[(t, fy, q)] = f"건너뜀(환율 {stmt_cur} 조회 실패)"
                 continue
+            if fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:   # 261019: 수집(--fetch)과 같은 경고
+                print(f"::warning::[환율] {t} {fy}Q{q} 정정 {stmt_cur} {_fx_dd} — ECOS 대신 야후 대체값 {rate}", flush=True)
             p_ni, p_eq = (v * rate if v is not None else None for v in (p_ni, p_eq))
         ref = self_ref.get(t)
         if p_ni is not None and check_self_relative(p_ni, ref)["triggered"]:
