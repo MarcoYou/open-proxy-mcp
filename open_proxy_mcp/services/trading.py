@@ -132,6 +132,13 @@ _DB_UNSET_WARN = ("이 서버에는 스냅샷 DB(`DATABASE_URL`)가 연결돼 �
 #: 시총 집계 저장분이 비었을 때(배치 미실행). 261018: 사용자 문장에 표·배치 이름(종전 「krx_cap_agg 비어있음 —
 #: krx_cap_agg.py 배치 미실행」)을 쓰지 않는다 — 260907 저장소 이름 정리(`_DB_UNSET_WARN` 의 「주간 시세·시총 집계」)와 같은 말.
 _CAP_AGG_EMPTY_WARN = "시총 집계 저장분이 비어 있음 — 집계 배치 미실행."
+#: 261018: 섹터 집계(krx_cap_agg)는 이 날짜(그때의 주간 시세 보존 하한)부터만 업종분류 보강분 — 구성종목에서만 빠진 상장 종목의
+#:   이어 쓰기·우선주·기업 정보 화면 관측(scripts/refresh_sector_class.py) — 을 반영해 다시 집계했다. 그 이전 점은 원천 주간 시세가
+#:   종목별 연말 행만 남아 다시 집계하지 못한 옛 값(구성종목 관측만으로 센 값)이라, 버킷 종목 수·시총이 이 날짜 앞뒤로 계단처럼
+#:   바뀐다(실측: 코스닥 건강관리 20231013 228 → 20231020 258종목, 코스닥 미분류 283 → 162). 실제 편입·이탈이 아니다.
+#:   하한 이전을 차가운 층 원천으로 다시 집계하면 이 상수와 경고를 지운다.
+_SECTOR_RECLASS_SINCE = "20231016"
+_UNCLASSIFIED_BUCKET = {"bucket": "_UNCLASSIFIED", "label": "미분류"}
 _LIVE_ONLY_WARN = ("⚠ **KRX 라이브 · 시계열 아님** — 스냅샷 DB 가 없어 최신 1시점만 KRX 에서 직접 "
                    "받아온 값입니다. 과거 추이·기간 비교는 이 서버에서 할 수 없습니다.")
 
@@ -409,6 +416,9 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
         match = next((b for b in buckets
                       if want in (b["bucket"], b["label"]) or want.lower() == (b["label"] or "").lower()),
                      None)
+        if not match and want in (_UNCLASSIFIED_BUCKET["bucket"], _UNCLASSIFIED_BUCKET["label"]):
+            # 261018: 최신 시점에 미분류가 0 이면 최신 버킷 목록에 없다 — 그래도 과거 구간의 미분류 시계열은 있다.
+            match = _UNCLASSIFIED_BUCKET
         if not match:
             return _err(want, "not_found",
                         f"'{want}' 버킷이 {scheme} 에 없습니다. "
@@ -426,14 +436,24 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     if sector_asof and sector_asof > as_of:
         warns.append(f"⚠ 업종분류는 {sector_asof} 관측을 과거에 **소급** 적용한 것입니다 "
                      "— 그때 그 업종이 아니었던 회사가 섞입니다.")
+    if series and series[0]["asof"] < _SECTOR_RECLASS_SINCE:
+        warns.append(f"⚠ {_SECTOR_RECLASS_SINCE} 이전 점은 업종분류 보강(구성종목에서만 빠진 상장 종목의 직전 분류·우선주의 "
+                     "보통주 분류·기업 정보 화면의 산업) 전에 집계된 값입니다 — 그때는 이 종목들이 미분류로 세어져, 버킷 종목 수·시총이 "
+                     "그 날짜 앞뒤로 계단처럼 바뀝니다(섹터는 늘고 미분류는 준다. 실제 편입·이탈이 아님). "
+                     "추이를 비교할 때는 그 날짜 이후 구간을 쓰십시오.")
+    if bucket == _UNCLASSIFIED_BUCKET["label"] and not any(b["bucket"] == _UNCLASSIFIED_BUCKET["bucket"] for b in buckets):
+        warns.append(f"최신 {as_of} 미분류는 0종목입니다 — 미분류가 0 인 시점은 집계 행이 없어, 시계열은 미분류가 있던 "
+                     "마지막 시점에서 끝납니다(그 뒤는 0).")
     unc = [b for b in buckets if b["bucket"] == "_UNCLASSIFIED"]
     if unc:
         tot = sum(b["cap_krw"] for b in buckets) or 1
-        # 261018: 업종분류 저장분은 공급처 구성종목에서만 빠진 상장 종목(직전 분류)과 우선주(같은 회사 보통주 분류)를
-        #   이어 쓴다(scripts/refresh_sector_class.py). 남는 미분류는 공급처가 분류를 준 적 없는 종목과 그 우선주다.
+        # 261018: 업종분류 저장분은 공급처 구성종목에 없는 상장 보통주를 기업 정보 화면의 산업(한 단계 아래)으로 채우고,
+        #   화면을 못 본 종목은 직전 분류를, 우선주는 같은 회사 보통주 분류를 잇는다(scripts/refresh_sector_class.py).
+        #   남는 미분류는 두 원천 모두에 분류가 없는(또는 화면의 산업이 대응표에 없는) 종목과 그 우선주다.
         warns.append(f"미분류 {sum(b['n'] for b in unc)}종목 · 시총 "
-                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 업종분류 공급처가 분류를 준 적 없는 종목"
-                     "(외국 기업·장기 거래정지·신규상장 등)과 그 우선주. 구성종목에서만 빠진 상장 종목은 직전 분류를, "
+                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 업종분류 공급처의 구성종목 응답에도 기업 정보 화면에도 "
+                     "분류가 없는 종목(화면의 산업이 하위업종 대응표에 없는 경우 포함)과 그 우선주. 구성종목에 없는 상장 보통주는 "
+                     "기업 정보 화면의 산업을 하위업종으로 올려 쓰고, 화면을 못 본 종목은 직전 분류를, "
                      "우선주는 같은 회사 보통주 분류를 이어 씁니다. "
                      "버리지 않고 `_UNCLASSIFIED` 로 남겨 섹터 합 = 시장 합을 유지합니다.")
     return {"tool": TOOL, "status": "ok", "subject": f"섹터 시가총액 ({_SCHEMES[scheme]})",
