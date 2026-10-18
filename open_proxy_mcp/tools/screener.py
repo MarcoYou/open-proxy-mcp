@@ -125,7 +125,9 @@ def _gap_lines(card: dict) -> list[str]:
             c = (g.get("metrics") or {}).get(key)
             if not c:
                 continue
-            gap = f"{c['gap_pct']:+.1f}%" if c.get("gap_pct") is not None else f"{_won(c.get('diff_krw'))} 차"
+            # 원값에서 한 번만 반올림 — 저장된 `gap_pct`(소수 둘째)를 다시 깎으면 −5.4478% 가 −5.5% 로 찍힌다
+            gap = (f"{c['diff_krw'] / abs(c['consensus_krw']) * 100:+.1f}%" if c.get("gap_pct") is not None
+                   else f"{_won(c.get('diff_krw'))} 차")
             loss = "·적자 예상 대비" if c.get("gap_caveat") else ""
             parts.append(f"{label} {gap}(예상 {_won(c.get('consensus_krw'))}{loss})")
         if not parts:
@@ -216,6 +218,10 @@ def _detail_line(card: dict) -> str | None:
         if f.get("fiscal_year"):
             if f.get("period_kind") == "annual":
                 parts.append(f"{f['fiscal_year']} 사업연도 결산 잠정치")
+            elif f.get("period_kind") == "month" and f.get("period_month"):
+                # 한 달짜리 공시(월 매출·판매량)에 「3분기」를 붙이면 9월 실적이 분기 실적으로 읽힌다 —
+                # `provisional_earnings` md 와 같은 「9월(월간)」 꼴(261018).
+                parts.append(f"{f['fiscal_year']}년 {f['period_month']}월(월간)")
             elif f.get("fiscal_quarter"):
                 parts.append(f"{f['fiscal_year']} 사업연도 {f['fiscal_quarter']}분기")
         if f.get("period"):

@@ -1069,6 +1069,7 @@ def _extract_earnings(payload: dict, rcept_no: str) -> dict:
         "fiscal_year": d.get("fiscal_year"),
         "fiscal_quarter": d.get("fiscal_quarter"),
         "period_kind": d.get("period_kind"),
+        "period_month": d.get("period_month"),   # 월간 공시의 달 — 카드 라벨용(261018)
         "fiscal_year_end_month": d.get("fiscal_year_end_month"),
         "comparison_basis": d.get("comparison_basis"),
         "correction": d.get("correction"),

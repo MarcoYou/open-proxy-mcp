@@ -113,3 +113,23 @@ def test_digest_footnote_once_when_a_line_is_shown():
 def test_digest_no_footnote_without_lines():
     card = _card({"revenue_krw": 1})
     assert T._GAP_FOOTNOTE not in T._render_digest(_digest([card]))
+
+
+def test_card_percent_rounds_once_from_raw_values():
+    # 국도화학 2026.09 매출: (4,398.57억 − 4,652억) ÷ 4,652억 = −5.4478% → 「−5.4%」(공시알리미 카드와 같다)
+    gap = {"status": "ok", "as_of": "2026-10-10", "lag_days": 6, "metrics": {
+        "revenue": {"consensus_krw": 465_200_000_000, "diff_krw": 439_857_000_000 - 465_200_000_000,
+                    "gap_pct": -5.45}}}
+    line = T._gap_lines(_card({"consensus_gap": gap}))[0]
+    assert "매출 -5.4%(" in line and "-5.5%" not in line
+
+
+def test_monthly_card_is_not_labelled_as_a_quarter():
+    # 신세계 2026-09 월 매출 — 종전엔 「2026 사업연도 3분기 · 기간 2026-09-01~2026-09-30」
+    payload = {"status": "exact", "data": {
+        "headline": {"revenue": {"value_krw": 1981 * 10**8}}, "kind": "financial", "consolidated": False,
+        "period_kind": "month", "period_month": 9, "fiscal_year": 2026, "fiscal_quarter": 3,
+        "period": {"start": "2026-09-01", "end": "2026-09-30"}, "comparison_basis": "전년동월 대비"}}
+    line = T._detail_line(_card(S._extract_earnings(payload, "x")))
+    assert line.startswith("2026년 9월(월간) · 기간 2026-09-01~2026-09-30"), line
+    assert "분기" not in line
