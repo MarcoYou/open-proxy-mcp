@@ -321,34 +321,37 @@ def test_listing_observes_this_weeks_new_listing_from_the_daily_store(wdb, monke
     assert got["K00000"] == ("20151230", "20261013")                 # 최종 관측일도 이번 주 최신일까지 나아간다
 
 
-def test_disclosure_ledger_keeps_working_after_the_copy_columns_are_dropped(wdb):
-    """261018(재설계 6단계): `dart_events` 의 업종·시총 복사본 칸(`sector`·`industry`·`sector_dd`·`mktcap_won`·`mktcap_dd`)을 운영에서
-    지운다. 옛 모양의 표(칸 + `industry` 색인)에서 칸을 지운 뒤에도 배치의 DDL·쓰기가 그대로 돌아야 한다.
-    상세 파싱 순서용 시총은 일별 시세 최신일에서 메모리로만 읽는다."""
+def test_disclosure_ledger_after_sector_columns_are_dropped_still_stores_the_filing_day_cap(wdb):
+    """261018(재설계 6단계): `dart_events` 의 업종 복사본 칸(`sector`·`industry`·`sector_dd`)과 `industry` 색인을 운영에서 지운다.
+    옛 모양의 표에서 그것만 지운 뒤에도 배치의 DDL·쓰기가 돌고, 시총(`mktcap_won`·`mktcap_dd`)은 계속 **저장**된다 —
+    접수일 이하 가장 늦은 거래일, 일별 창 안이면 일별 시세에서. 일별 창 안 날짜는 지워지지 않으니 재스캔해도 같은 날이 붙는다
+    (종전엔 krx_weekly 주중 행이 다음 날 지워져 접수 10-15 공시에 20261008 시총이 붙었다)."""
     from scripts import disclosure_ledger as DL
-    old_ddl = DL.DDL.replace("  flr_nm        text,\n",
-                             "  flr_nm        text,\n  sector text,\n  industry text,\n  sector_dd text,\n"
-                             "  mktcap_won bigint,\n  mktcap_dd text,\n")
+    old_ddl = DL.DDL.replace("  flr_nm        text,\n", "  flr_nm        text,\n  sector text,\n  industry text,\n  sector_dd text,\n")
     with psycopg.connect(wdb, autocommit=True) as c:
-        c.execute(old_ddl)                                               # 옛 표(복사본 칸 있음)
+        c.execute(old_ddl)                                               # 옛 표(업종 복사본 칸 있음)
         c.execute("CREATE INDEX dart_events_industry_dt ON dart_events (industry, rcept_dt)")
-        c.execute("ALTER TABLE dart_events DROP COLUMN sector, DROP COLUMN industry, DROP COLUMN sector_dd, "
-                  "DROP COLUMN mktcap_won, DROP COLUMN mktcap_dd")       # 운영에서 할 일
+        c.execute("ALTER TABLE dart_events DROP COLUMN sector, DROP COLUMN industry, DROP COLUMN sector_dd")   # 운영에서 할 일
         c.execute(DL.DDL)                                                # 배치가 매번 거는 DDL 이 깨지지 않는다
-    _write("20261015")
-    rows = [DL.row_from_item({"rcept_no": "20261015000001", "rcept_dt": "20261015", "corp_code": "00000001",
-                              "corp_name": "가", "stock_code": "K00001", "corp_cls": "Y",
-                              "report_nm": "단일판매ㆍ공급계약체결", "flr_nm": "가"}, {"order"}),
-            DL.row_from_item({"rcept_no": "20261015000002", "rcept_dt": "20261015", "corp_code": "00000002",
-                              "corp_name": "나", "stock_code": "K00002", "corp_cls": "Y",
-                              "report_nm": "단일판매ㆍ공급계약체결", "flr_nm": "나"}, {"order"})]
-    with psycopg.connect(wdb, autocommit=True) as c:
-        DL.rank_caps(c, rows)
-        with c.cursor() as cur:
-            for r in rows:
-                cur.execute(DL.UPSERT_EVENT, DL.db_row(r))
-                cur.execute(DL.UPSERT_EVENT, DL.db_row(r))               # 재스캔(같은 행 다시) — ON CONFLICT 갱신
-    caps = dict(_q(wdb, "SELECT ticker, mktcap FROM krx_daily_v WHERE trd_dd='20261015'"))
-    assert [r["_cap"] for r in rows] == [caps["K00001"], caps["K00002"]]
-    assert _q(wdb, "SELECT rcept_no, stock_code, kind FROM dart_events ORDER BY 1") == [
-        ("20261015000001", "K00001", "order"), ("20261015000002", "K00002", "order")]
+    for dd in ("20261008", "20261012", "20261013", "20261014", "20261015"):
+        _write(dd)
+
+    def scan():
+        rows = [DL.row_from_item({"rcept_no": "20261015000001", "rcept_dt": "20261015", "corp_code": "00000001",
+                                  "corp_name": "가", "stock_code": "K00001", "corp_cls": "Y",
+                                  "report_nm": "단일판매ㆍ공급계약체결", "flr_nm": "가"}, {"order"}),
+                DL.row_from_item({"rcept_no": "20261010000002", "rcept_dt": "20261010", "corp_code": "00000002",
+                                  "corp_name": "나", "stock_code": "K00002", "corp_cls": "Y",
+                                  "report_nm": "단일판매ㆍ공급계약체결", "flr_nm": "나"}, {"order"})]   # 토요일 접수 → 목(10/8)
+        with psycopg.connect(wdb, autocommit=True) as c:
+            DL.enrich(c, rows)
+            with c.cursor() as cur:
+                for r in rows:
+                    cur.execute(DL.UPSERT_EVENT, DL.db_row(r))
+        return _q(wdb, "SELECT rcept_no, mktcap_dd, mktcap_won FROM dart_events ORDER BY 1")
+    first = scan()
+    k15 = _q(wdb, "SELECT mktcap FROM krx_daily_v WHERE trd_dd='20261015' AND ticker='K00001'")[0][0]
+    k08 = _q(wdb, "SELECT mktcap FROM krx_weekly WHERE price_dd='20261008' AND ticker='K00002'")[0][0]
+    assert first == [("20261010000002", "20261008", k08), ("20261015000001", "20261015", k15)]
+    _write("20261016")                                                   # 다음 날 재스캔 — 같은 공시에 같은 날·같은 값
+    assert scan() == first
