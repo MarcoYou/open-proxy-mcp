@@ -399,3 +399,66 @@ def test_drain_monitor_catches_a_writer_window_shorter_than_the_readers(db, monk
         assert min(r["as_of"] for r in rows) == WEEKS[0]                      # 일부만 남은 날을 읽는다
         assert result == 1 and f"창 첫날 {WEEKS[0]} 이 한 벌이 아니다" in out
         assert "보다 길다 —" not in out and "1주 넘게 남았다" not in out         # 다른 검사로는 안 잡힌다
+
+
+def _add_quarter(url: str, shape: str) -> None:
+    """005930 2026.09 분기 추정(주마다 영업이익이 오른다 — 판이 주마다 나뉜다)을 두 모양에 같은 사실로 넣는다."""
+    q = [10**12 + i * 10**10 for i in range(len(WEEKS))]
+    with psycopg.connect(url, autocommit=True) as c:
+        for i, d in enumerate(WEEKS):
+            if shape == "legacy":
+                c.execute("INSERT INTO fwd_hist_t (as_of, stock_code, period, period_type, is_estimate, basis, fiscal_year, "
+                          "period_end, rev_krw, op_krw, ni_ctrl_krw) VALUES (%s, '005930', '2026.09E', 'Q', true, 'IFRS연결', "
+                          "2026, '2026-09-30', %s, %s, %s)", (d, q[i] * 10, q[i], q[i] * 8 // 10))
+            else:
+                to = WEEKS[i + 1] if i + 1 < len(WEEKS) else "infinity"
+                c.execute("INSERT INTO fwd_fact_ver (stock_code, period, period_type, is_estimate, valid_from, valid_to, "
+                          "fiscal_year, period_end, basis, rev_krw, op_krw, ni_ctrl_krw) VALUES ('005930', '2026.09E', 'Q', "
+                          "true, %s, %s, 2026, '2026-09-30', 1, %s, %s, %s)", (d, to, q[i] * 10, q[i], q[i] * 8 // 10))
+            if shape == "calendar":
+                c.execute("UPDATE fwd_asof SET n_fact = n_fact + 1 WHERE as_of = %s", (d,))
+
+
+def _gaps(monkeypatch, url: str) -> dict:
+    monkeypatch.setenv("DATABASE_URL", url)
+    _fresh_cache(monkeypatch)
+    actual = {"revenue": 10_500 * 10**9, "operating_profit": 1_040 * 10**9, "net_income_controlling": None}
+    out = {}
+    for filed in ("2026-08-20", "2026-09-20", "2026-10-08", "2026-10-30"):
+        g = fe.quarter_consensus_gap("005930", "2026-09-30", filed, actual, True)
+        out[filed] = {k: v for k, v in g.items() if k not in ("source", "why", "note")}   # 문구는 보관 주 수를 말해 모양별로 다르다
+    return out
+
+
+def test_consensus_gap_is_the_same_in_both_shapes(pg17, monkeypatch):
+    """#111 잠정실적 컨센서스 대비 — 저장 전환 전후 같은 값(기준일·간격·예상치·차이·상태)."""
+    other = _second_db(pg17)
+    _load(pg17, "legacy")
+    _add_quarter(pg17, "legacy")
+    _load(other, "calendar")
+    _add_quarter(other, "calendar")
+    monkeypatch.setattr(dbm_module(), "_pool", None)
+    monkeypatch.setattr(dbm_module(), "_pool_disabled_until", float("inf"))
+    a, b = _gaps(monkeypatch, pg17), _gaps(monkeypatch, other)
+    assert a == b
+    assert a["2026-08-20"]["status"] == "out_of_history"
+    assert (a["2026-09-20"]["as_of"], a["2026-10-08"]["as_of"], a["2026-10-30"]["as_of"]) == ("2026-09-19", "2026-09-26", "2026-10-24")
+    assert a["2026-10-08"]["metrics"]["operating_profit"]["consensus_krw"] == 10**12 + 4 * 10**10
+
+
+def test_consensus_gap_reads_only_inside_the_window_on_the_calendar(pg17, monkeypatch):
+    """달력 모양에서 창(여기선 4주) 밖 날짜는 판 일부가 보관본으로 옮겨졌을 수 있다 — 그 날 스냅샷으로 맞대지 않고 「이력 밖」이다.
+    창 안 공시는 전환 전과 같은 기준일이다."""
+    _load(pg17, "calendar")
+    _add_quarter(pg17, "calendar")
+    monkeypatch.setattr(dbm_module(), "_pool", None)
+    monkeypatch.setattr(dbm_module(), "_pool_disabled_until", float("inf"))
+    monkeypatch.setenv("FWD_HOT_WEEKS", "4")                                   # 창 첫날 = 10-24 − 28일 = 09-26
+    g = _gaps(monkeypatch, pg17)
+    assert g["2026-09-20"]["status"] == "out_of_history"                       # 09-19 스냅샷은 창 밖 — 읽지 않는다
+    assert (g["2026-10-08"]["as_of"], g["2026-10-30"]["as_of"]) == ("2026-09-26", "2026-10-24")
+
+
+def dbm_module():
+    import open_proxy_mcp.db as dbm
+    return dbm

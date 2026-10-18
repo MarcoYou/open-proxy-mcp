@@ -3,7 +3,7 @@ type: decision
 title: 컨센서스 이력 창 — DB 에 52주를 두고 읽는 쪽은 창 안만 읽는다
 date: 2026-10-18
 status: 읽는 쪽 준비 (261018) — 저장 전환 전후 어느 쪽에서도 같은 답. 저장 전환·창 밖 보관본 서빙은 별도 작업
-related: [forward_estimates_data, price_multiple_data]
+related: [forward_estimates_data, price_multiple_data, provisional_earnings]
 ---
 
 # 컨센서스 이력 창 (`FWD_HOT_WEEKS`)
@@ -52,6 +52,12 @@ related: [forward_estimates_data, price_multiple_data]
 - 유니버스 스크린은 고른 창 하나를 낸다. 26w·52w 도 이력이 짧으면 행마다 「이력 짧음」이다. 매번 전 종목 52주를
   읽지 않고 고른 창 + 1주(적어도 13주)만 읽는다. 13주는 전환 전 보관과 같은 관측 폭이라 「단발 갱신」 판정의
   뜻이 그대로다.
+
+## 잠정실적 컨센서스 대비
+
+- [[provisional_earnings]] 의 `consensus_gap`(공시 직전 분기 추정 대비)도 같은 계약을 따른다. 달력 모양에서는 분기 스냅샷 질의에
+  창 조건을 붙이고, 「이력이 공시일 전까지 닿나」는 게시 달력을 같은 창으로 묻는다. 주별 모양 질의는 글자까지 그대로다.
+- 출처 문구와 `out_of_history` 의 까닭은 「13주 롤링」이 아니라 그때 DB 가 담는 주 수를 말한다.
 
 ## 선행 집계·감시
 

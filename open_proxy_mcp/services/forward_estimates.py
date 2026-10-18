@@ -1176,7 +1176,9 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
 # 컨센서스라 매출 −31.5% 의 **가짜 차이**가 났다 → 연결/별도가 다르면 계산하지 않는다. 기준일 간격 2~12일.
 #
 # 상태는 여기서 가른다 — 직전 스냅샷에 그 분기가 없으면 `out_of_coverage`, 이력이 공시일까지 못 닿으면
-# `out_of_history`(13주 롤링 창 밖), DB 장애면 `unknown`. 셋 다 「컨센서스가 없었다」가 아니라 「우리가 모른다」다.
+# `out_of_history`(DB 에 둔 이력 창 밖 — 주별 모양 13주, 구간형 저장 뒤 52주), DB 장애면 `unknown`. 셋 다 「컨센서스가
+# 없었다」가 아니라 「우리가 모른다」다. 구간형 저장 뒤(달력 모양)에는 두 질의 모두 리비전 이력과 같은 창 조건을 붙인다
+# (`fwd_window` 「창」 — 창 밖 날짜는 판 일부만 남아 읽지 않는다). 주별 모양의 질의는 글자까지 그대로다(261018).
 # 도구는 `ok` 일 때만 칸을 싣는다(261018 결정) — 모르면 컨센서스를 보이지 않고 잠정 값만 보인다.
 # ─────────────────────────────────────────────────────────────────────────────
 #: (잠정실적 headline 키, `fwd_hist` 칸). 순이익은 **지배주주순이익끼리만** 맞댄다 — 컨센서스가 지배순이익이다.
@@ -1184,7 +1186,12 @@ _GAP_METRICS: tuple[tuple[str, str], ...] = (
     ("revenue", "rev_krw"), ("operating_profit", "op_krw"), ("net_income_controlling", "ni_ctrl_krw"))
 _GAP_STALE_DAYS = 14   # 주 1회 스냅샷이 한 번 빠지면(10-03 결측) 12일. 이보다 길면 「오래된 예상」이라 적는다
 _GAP_COLS: tuple[str, ...] = ("as_of", "period", "is_estimate", "basis", "rev_krw", "op_krw", "ni_ctrl_krw")
-_GAP_SOURCE = "컨센서스 추정치 주간 스냅샷 `fwd_hist` (토요일 적재, 13주 롤링) — DART 공시가 아니다"
+
+
+def _gap_source() -> str:
+    """출처 한 줄 — 실제 DB 보관을 말한다(주별 모양 13주 / 달력 모양 창 52주). 「13주 롤링」을 박아 두면 저장 전환 뒤 틀린다."""
+    return (f"컨센서스 추정치 주간 스냅샷 `fwd_hist` (토요일 적재, DB 에는 최근 {_db_hist_weeks()}주 — 그보다 오래된 주는 "
+            "DB 밖 보관본) — DART 공시가 아니다")
 
 
 def _as_date(v: Any):
@@ -1200,18 +1207,29 @@ def _fetch_quarter_consensus(stock_code: str, period_end: Any, filed: Any) -> di
     """한 종목·한 분기의 `fwd_hist` 스냅샷 전부 + 「이력이 공시일 전까지 닿나」. None = DB 장애.
 
     두 번째 질의(`EXISTS … as_of < 공시일`)는 4ms — 전체 최소 as_of(1.6초)를 묻지 않는다.
+    달력 모양(구간형 저장 뒤)이면 둘 다 창 안만 본다 — 스냅샷은 창 조건을, 「닿나」는 뷰 대신 게시 달력(`fwd_asof`)을
+    같은 창으로 묻는다(뷰는 그 날 유효한 판을 잇느라 무겁다. 게시된 날 = 뷰에 행이 있는 날). 주별 모양 질의는 그대로다.
     """
+    from open_proxy_mcp import fwd_window as fw
+
     avail = _hist_available()
     if avail is None:
         return None
     if not avail:
         return {"rows": [], "history_reaches": False}
-    rows = pg_rows(f"SELECT {', '.join(_GAP_COLS)} FROM fwd_hist "
-                   "WHERE stock_code=%s AND period_type='Q' AND period_end=%s ORDER BY as_of",
-                   (stock_code, _as_date(period_end)))
+    sql = (f"SELECT {', '.join(_GAP_COLS)} FROM fwd_hist "
+           "WHERE stock_code=%s AND period_type='Q' AND period_end=%s")
+    params: tuple = (stock_code, _as_date(period_end))
+    reach_sql, reach_params = "SELECT EXISTS (SELECT 1 FROM fwd_hist WHERE as_of < %s)", (_as_date(filed),)
+    if _hist_on_calendar():
+        sql += " AND " + fw.window_cond()
+        params += (fw.window_days(),)
+        reach_sql = "SELECT EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND " + fw.window_cond() + ")"
+        reach_params += (fw.window_days(),)
+    rows = pg_rows(sql + " ORDER BY as_of", params)
     if rows is None:
         return None
-    reach = pg_rows("SELECT EXISTS (SELECT 1 FROM fwd_hist WHERE as_of < %s)", (_as_date(filed),))
+    reach = pg_rows(reach_sql, reach_params)
     if reach is None:
         return None
     return {"rows": [dict(zip(_GAP_COLS, r)) for r in rows],
@@ -1240,10 +1258,10 @@ def compute_consensus_gap(actual: dict[str, Any], *, filed: Any, consolidated: b
     pre = [r for r in rows if _as_date(r["as_of"]) < fd]
     if not pre:
         if not history_reaches:
-            return {"status": "out_of_history", "source": _GAP_SOURCE,
-                    "why": "컨센서스 이력이 공시일 전까지 닿지 않는다(주간 스냅샷 13주 롤링 창 밖) — "
+            return {"status": "out_of_history", "source": _gap_source(),
+                    "why": f"컨센서스 이력이 공시일 전까지 닿지 않는다(DB 에 둔 최근 {_db_hist_weeks()}주 창 밖) — "
                            "그때 예상이 얼마였는지 **모른다**. 컨센서스가 없었다는 뜻이 아니다."}
-        return {"status": "out_of_coverage", "source": _GAP_SOURCE,
+        return {"status": "out_of_coverage", "source": _gap_source(),
                 "why": "공시 전 주간 스냅샷에 이 종목의 이 분기 추정이 없었다 — **커버리지 밖**이다"
                        "(애널리스트 미커버 소형주이거나 연간 추정만 있는 종목). "
                        "컨센서스가 없었다는 뜻이 아니라 우리 스냅샷이 모른다는 뜻이다."}
@@ -1251,7 +1269,7 @@ def compute_consensus_gap(actual: dict[str, Any], *, filed: Any, consolidated: b
     as_of = _as_date(pick["as_of"])
     base: dict[str, Any] = {"as_of": as_of.isoformat(), "lag_days": (fd - as_of).days,
                             "period": pick.get("period"), "basis": pick.get("basis"),
-                            "source": _GAP_SOURCE}
+                            "source": _gap_source()}
     if not pick.get("is_estimate"):
         return {"status": "out_of_coverage", **base,
                 "why": "공시 전 스냅샷에서 이 분기가 이미 실적 행이었다 — 비교할 추정이 아니다."}
@@ -1305,7 +1323,7 @@ def quarter_consensus_gap(stock_code: str, period_end: Any, filed: Any, actual: 
     """잠정실적 한 건 → 공시 직전 분기 컨센서스 대비. DB 2질의(동기 — 호출부가 `asyncio.to_thread`)."""
     got = _fetch_quarter_consensus(stock_code, period_end, filed)
     if got is None:
-        return {"status": "unknown", "source": _GAP_SOURCE,
+        return {"status": "unknown", "source": _gap_source(),
                 "why": "컨센서스 DB 조회 실패 — **장애**다, 컨센서스가 없다는 뜻이 아니다. 잠정 실적값은 정상이다."}
     return compute_consensus_gap(actual, filed=filed, consolidated=consolidated,
                                  rows=got["rows"], history_reaches=got["history_reaches"])

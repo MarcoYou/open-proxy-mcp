@@ -88,6 +88,7 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 - 「13주 롤링」 안내를 **지금 DB 가 실제로 담는 주 수**로 바꿨습니다. 그보다 오래된 주는 DB 밖 보관본에만 있어 이 도구가 읽지 않는다고 밝힙니다.
 - 저장 전환 뒤에는 수집 대상에서 빠진 종목(상장폐지·거래정지 등)의 옛 스냅샷을 지금 값처럼 내지 않도록, 그 종목의 스냅샷이 최신보다 이르면 경고합니다.
 - 응답 칸은 그대로이고 `revision.first_as_of`·`history_weeks`·`windows_not_reached`·`db_window_weeks` 가 더해집니다.
+- 잠정실적(`provisional_earnings`)의 컨센서스 대비 칸(`consensus_gap`)도 같은 기준을 따릅니다 — 출처 안내가 실제 보관 주 수를 말하고, 저장 전환 뒤에도 같은 기준일·같은 값을 냅니다.
 
 ## 2026-10-05
 

@@ -245,3 +245,26 @@ def test_long_window_note_only_promises_what_the_db_can_hold(monkeypatch):
     assert "26w 는 이력이 그만큼 쌓이면 나오고, 52w 는 DB 에 최근 30주만 두어 나오지 않는다" in w
     assert fe._long_windows_warning(dict(rev, windows_not_reached=[])) is None
     assert fe._long_windows_warning(dict(rev, rows=[])) is None
+
+
+def test_consensus_gap_queries_keep_the_legacy_sql_and_add_the_window_on_the_calendar(monkeypatch):
+    """잠정실적 컨센서스 대비(#111)도 리비전과 같은 계약 — 주별 모양 두 질의는 글자까지 그대로(병합된 #111 과 같다),
+    달력 모양은 분기 스냅샷에 창 조건, 「이력이 닿나」는 게시 달력을 같은 창으로. 출처·까닭 문구는 실제 보관 주 수."""
+    calls = _probe(monkeypatch, calendar=False)
+    fe._fetch_quarter_consensus("005930", "2026-09-30", "2026-10-08")
+    assert calls[-2:] == [
+        ("SELECT as_of, period, is_estimate, basis, rev_krw, op_krw, ni_ctrl_krw FROM fwd_hist "
+         "WHERE stock_code=%s AND period_type='Q' AND period_end=%s ORDER BY as_of", ("005930", dt.date(2026, 9, 30))),
+        ("SELECT EXISTS (SELECT 1 FROM fwd_hist WHERE as_of < %s)", (dt.date(2026, 10, 8),))]
+    gone = fe.compute_consensus_gap({"revenue": 1}, filed="2026-10-08", consolidated=True, rows=[], history_reaches=False)
+    assert "최근 13주 창 밖" in gone["why"] and "DB 에는 최근 13주" in gone["source"] and "13주 롤링" not in gone["source"]
+    calls = _probe(monkeypatch, calendar=True)
+    fe._fetch_quarter_consensus("005930", "2026-09-30", "2026-10-08")
+    win = fe_fw.window_cond()
+    assert calls[-2:] == [
+        ("SELECT as_of, period, is_estimate, basis, rev_krw, op_krw, ni_ctrl_krw FROM fwd_hist "
+         f"WHERE stock_code=%s AND period_type='Q' AND period_end=%s AND {win} ORDER BY as_of",
+         ("005930", dt.date(2026, 9, 30), 364)),
+        (f"SELECT EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND {win})", (dt.date(2026, 10, 8), 364))]
+    gone = fe.compute_consensus_gap({"revenue": 1}, filed="2026-10-08", consolidated=True, rows=[], history_reaches=False)
+    assert "최근 52주 창 밖" in gone["why"] and "DB 에는 최근 52주" in gone["source"]

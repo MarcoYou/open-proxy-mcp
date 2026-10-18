@@ -88,6 +88,7 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - The "13-week rolling" note now states **how many weeks the database actually holds**, and that older weeks live only in an off-database archive this tool does not read.
 - After the storage change, a company whose latest snapshot is older than the newest one (delisted, suspended, or dropped from coverage) gets a warning instead of an old snapshot read as current.
 - Response fields are unchanged; `revision.first_as_of`, `history_weeks`, `windows_not_reached` and `db_window_weeks` are added.
+- The consensus comparison on preliminary earnings (`provisional_earnings` → `consensus_gap`) follows the same rule: its source note states the weeks actually held, and it gives the same reference snapshot and values after the storage change.
 
 ## 2026-10-05
 
