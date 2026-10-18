@@ -11,7 +11,7 @@
   D6  상장 여부를 모르게 된 옛 스냅샷(보존 하한 이전 — 주간 시세가 종목별 연말 행만 남음)은 이미 만든 파생 행을 지우지 않는다.
       지우면 그 뒤 스냅샷의 이어 쓰기 사슬이 끊겨 최신 스냅샷에서도 종목이 미분류로 떨어진다.
   D7  기업 정보 화면 관측(`wise_company`, 261018)은 관측이다 — 다시 만들기가 지우지 않고, 그 종목은 이어 쓰지 않으며, 우선주가 잇고,
-      다음 스냅샷이 조회하지 못하면 이어 쓴다. 그 날 구성종목에 다시 나오면 구성종목 관측이 이긴다.
+      다음 스냅샷이 조회하지 못하면 이어 쓴다. 그 날 구성종목에 다시 나오면 구성종목 관측이 이긴다(화면 관측 쓰기도 구성종목 행을 덮지 않는다).
   D8  `--company-only` — 모든 스냅샷에 화면 관측을 더하되, 대응은 스냅샷마다 그 날 구성종목인 본보기로 확인한다. dry-run 은 쓰지 않는다.
 Docker 가 없으면 건너뛴다(`tests/conftest.py` 의 `pg17`).
 """
@@ -223,6 +223,19 @@ def test_d7_company_rows_are_observations(db, monkeypatch):
     with psycopg.connect(db) as c:
         assert _snap(c, "20261016")["950160"] == ("G4530", "wise", None)
         assert _snap(c, "20261030")["950160"] == ("G4530", "carry", "20261016")
+
+
+def test_d7_company_rows_never_overwrite_constituent_rows(db):
+    """화면 관측은 그 날 구성종목 관측(`wise`)을 덮지 않는다 — `--company-only` 가 후보를 정한 뒤 화면을 도는 사이에 같은 날짜를
+    다시 수집해 그 종목이 구성종목으로 들어온 경우 등. 이어 쓰기 행은 화면 관측이 대신한다."""
+    _rederive(db)
+    with psycopg.connect(db) as con:
+        S.write_company_rows(con, "20261016", [("005930", *C, "wise_company", "20261018:생물공학"),
+                                               ("000040", *C, "wise_company", "20261018:생물공학")])
+        con.commit()
+        s16 = _snap(con, "20261016")
+    assert s16["005930"] == ("G4530", "wise", None)
+    assert s16["000040"] == ("G3520", "wise_company", "20261018:생물공학")
 
 
 def test_d8_company_only_backfills_every_snapshot_with_per_snapshot_checks(db, monkeypatch):
