@@ -125,8 +125,12 @@ def test_truncated_object_is_retryable(cold_serving):
     good = info["object_path"].read_bytes()
     info["object_path"].write_bytes(good[: len(good) // 2])
     r = _run(C.ready("krx_weekly_hist"))
-    assert isinstance(r, C.ColdError) and r.reason == "download"      # 잘린 스트림은 「검증 실패」가 아니다 — 다음 요청에서 다시 받는다
+    assert isinstance(r, C.ColdError) and r.reason == "download"      # 잘린 스트림은 「검증 실패」가 아니다 — 쉬었다가 다시 받는다
     info["object_path"].write_bytes(good)
+    again = _run(C.ready("krx_weekly_hist"))                          # 쉬는 동안은 같은 까닭(저장소를 요청마다 두드리지 않는다)
+    assert isinstance(again, C.ColdError) and again.reason == "download" and C.stats()["counters"]["downloads"] == 0
+    with C._lock:                                                     # 쉬는 시간이 지났다
+        C._backoff.clear()
     assert isinstance(_run(C.ready("krx_weekly_hist")), C.Ready)
 
 
@@ -370,3 +374,46 @@ def test_scrub_removes_urls_tokens_and_hosts():
     out = C._scrub(msg, MURL)
     assert TOKEN not in out and "storage.example.test" not in out and "<url>" in out
     assert "https://" not in C._scrub("see https://elsewhere.example/x?y=1")
+
+
+def test_health_carries_cold_and_never_degrades_because_of_it(monkeypatch, tmp_path):
+    from starlette.testclient import TestClient
+
+    from open_proxy_mcp.server import mcp
+
+    client = TestClient(mcp.streamable_http_app())
+    body = client.get("/health").json()
+    assert body["cold"]["enabled"] is False and body["cold"]["datasets"] == {}
+    # 켜졌는데 서빙 목록을 못 받는다 — 서버 상태는 그대로 ok(응답은 최근 3년으로 강등될 뿐)
+    monkeypatch.setenv("OPM_COLD", "1")
+    monkeypatch.setenv("OPM_COLD_MANIFEST_URL", MURL)
+    monkeypatch.setenv("OPM_COLD_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr(C, "_TRANSPORT", httpx.MockTransport(lambda req: httpx.Response(403)))
+    assert isinstance(_run(C.ready("krx_weekly_hist")), C.ColdError)
+    r = client.get("/health")
+    assert r.status_code == 200 and r.json()["status"] == "ok"
+    cold = r.json()["cold"]
+    assert cold["enabled"] and cold["degraded"] == {"http_403": 1} and _no_secret_in(cold)
+
+
+def test_failed_manifest_fetch_backs_off_instead_of_hammering(cold_serving, monkeypatch):
+    hits: list = []
+    _https_setup(cold_serving, monkeypatch, manifest_status=403, counter=hits)
+    for _ in range(5):
+        r = _run(C.ready("krx_weekly_hist"))
+        assert isinstance(r, C.ColdError) and r.reason == "http_403"
+    assert sum(1 for h in hits if h.endswith("manifest.json")) == 1
+    assert C.stats()["degraded"] == {"http_403": 5}
+
+
+def test_verified_version_does_not_queue_behind_the_download_thread(cold_serving, monkeypatch):
+    cold_serving(ROWS, upto=UPTO)
+    assert isinstance(_run(C.ready("krx_weekly_hist")), C.Ready)
+    blocker = threading.Event()
+    C._executor().submit(blocker.wait, 5)          # 받기 스레드가 다른 일(긴 받기)로 막혀 있다
+    try:
+        t = time.perf_counter()
+        r = _run(C.ready("krx_weekly_hist", wait=0.5))
+        assert isinstance(r, C.Ready) and time.perf_counter() - t < 0.4
+    finally:
+        blocker.set()

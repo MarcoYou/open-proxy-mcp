@@ -166,6 +166,9 @@ _state: dict[str, Any] = {
 _verified: dict[str, dict] = {}          # sha256 → {"path", "received_at", "bytes", "how"}
 _bad: dict[str, tuple[str, float]] = {}  # sha256 → (검증 실패 까닭, 시각) — `_BAD_RETRY_SEC` 동안 그 판을 다시 받지 않는다
 _BAD_RETRY_SEC = 3600.0
+#: 받기 실패(403·400·네트워크·시간 한도) 뒤 같은 일을 다시 하기까지 — 요청마다 저장소를 두드리지 않게. 키 = "manifest" | 파일 sha.
+_backoff: dict[str, tuple[str, float]] = {}
+_BACKOFF_SEC = 300.0
 _counters: dict[str, int] = {"reads": 0, "rows": 0, "downloads": 0, "download_bytes": 0, "verify_reuse": 0}
 _degraded: dict[str, int] = {}
 _read_ms: list[float] = []
@@ -209,6 +212,7 @@ def reset_for_tests() -> None:
         _state.update(manifest=None, manifest_sha=None, manifest_fetched=0.0, manifest_error=None, manifest_tries=0)
         _verified.clear()
         _bad.clear()
+        _backoff.clear()
         for k in _counters:
             _counters[k] = 0
         _degraded.clear()
@@ -317,16 +321,19 @@ def _refresh_manifest_sync() -> dict:
     except ColdError as e:
         with _lock:
             _state["manifest_error"] = {"reason": e.reason, "at": time.time()}
+            _backoff["manifest"] = (e.reason, time.time() + _BACKOFF_SEC)
         raise
     except Exception as e:  # noqa: BLE001 — 네트워크·JSON 오류는 강등 사유로 바꾼다
         with _lock:
             _state["manifest_error"] = {"reason": "manifest_fetch", "at": time.time(),
                                         "detail": _scrub(f"{type(e).__name__}: {e}", url)}
+            _backoff["manifest"] = ("manifest_fetch", time.time() + _BACKOFF_SEC)
         raise ColdError("manifest_fetch", _scrub(f"{type(e).__name__}: {e}", url)) from None
     sha = hashlib.sha256(raw).hexdigest()
     now = time.time()
     with _lock:
         _state.update(manifest=m, manifest_sha=sha, manifest_fetched=now, manifest_error=None)
+        _backoff.pop("manifest", None)
     try:                                          # 디스크 사본(재시작 직후 네트워크 없이도 이미 받은 파일을 쓰게) — 실패해도 서빙은 계속
         d = _cold_dir()
         d.mkdir(parents=True, exist_ok=True)
@@ -369,6 +376,10 @@ async def _manifest(wait: float) -> dict:
             m, fetched = _state["manifest"], _state["manifest_fetched"]
     age = time.time() - fetched if m is not None else None
     if m is None or age > _max_age_sec():
+        with _lock:
+            bo = _backoff.get("manifest")
+        if bo and time.time() < bo[1]:                # 방금 실패했다 — 저장소를 두드리지 않고 같은 까닭으로 강등
+            raise ColdError("manifest_stale" if m is not None else bo[0], "서빙 목록 받기를 잠시 쉬는 중(직전 실패)")
         try:
             return await asyncio.wait_for(_single_flight("manifest", _refresh_manifest_sync), timeout=wait)
         except asyncio.TimeoutError:
@@ -378,7 +389,10 @@ async def _manifest(wait: float) -> dict:
                 raise ColdError("manifest_stale", "서빙 목록을 새로 받지 못했고 마지막 성공본이 너무 묵었다") from None
             raise
     if age > _ttl_sec():
-        _start("manifest", _refresh_manifest_sync)   # 배경에서 새로 받는다 — 실패는 상태(manifest_error)에 남고 지금 것을 쓴다
+        with _lock:
+            bo = _backoff.get("manifest")
+        if not (bo and time.time() < bo[1]):
+            _start("manifest", _refresh_manifest_sync)   # 배경에서 새로 받는다 — 실패는 상태(manifest_error)에 남고 지금 것을 쓴다
     return m
 
 
@@ -476,6 +490,7 @@ def _ensure_file_sync(dataset: str, head: dict, entry: dict, manifest_url: str) 
     with _dir_lock(_cold_dir()):
         if final.exists() and final.stat().st_size == entry["bytes"] and _sha_file(final) == sha:
             _check_sqlite(final, entry, head)
+            _prune_dir(d, keep={entry["file"]})
             info = {"path": str(final), "received_at": final.stat().st_mtime, "bytes": entry["bytes"], "how": "reused"}
             with _lock:
                 _verified[sha] = info
@@ -602,22 +617,29 @@ async def ready(dataset: str, *, wait: float | None = None) -> Ready | ColdError
     try:
         m = await _manifest(wait)
         head, entry = _dataset_entry(m, dataset)
+        sha = entry["sha256"]
         with _lock:
-            bad = _bad.get(entry["sha256"])
-        if bad and time.time() - bad[1] < _BAD_RETRY_SEC:
-            raise ColdError(bad[0], "이 판은 앞서 검증에 실패했다(한 시간 뒤 다시 받는다)")
-        left = max(0.05, wait - (time.monotonic() - t0))
-        try:
-            info = await asyncio.wait_for(
-                _single_flight("file:" + entry["sha256"], _ensure_file_sync, dataset, head, entry, _manifest_url()),
-                timeout=left)
-        except asyncio.TimeoutError:
-            raise ColdError("timeout", "서빙본 받기가 기다림 한도를 넘었다(배경에서 계속)") from None
-        except ColdError as e:
-            if e.reason in ("sha_mismatch", "bad_file"):
+            bad, bo, hit = _bad.get(sha), _backoff.get(sha), _verified.get(sha)
+        if hit and os.path.exists(hit["path"]):          # 늘 지나는 길 — 이미 검증한 판이면 받기 스레드를 거치지 않는다
+            info = hit
+        else:
+            if bad and time.time() - bad[1] < _BAD_RETRY_SEC:
+                raise ColdError(bad[0], "이 판은 앞서 검증에 실패했다(한 시간 뒤 다시 받는다)")
+            if bo and time.time() < bo[1]:
+                raise ColdError(bo[0], "서빙본 받기를 잠시 쉬는 중(직전 실패)")
+            left = max(0.05, wait - (time.monotonic() - t0))
+            try:
+                info = await asyncio.wait_for(
+                    _single_flight("file:" + sha, _ensure_file_sync, dataset, head, entry, _manifest_url()), timeout=left)
+            except asyncio.TimeoutError:
+                raise ColdError("timeout", "서빙본 받기가 기다림 한도를 넘었다(배경에서 계속)") from None
+            except ColdError as e:
                 with _lock:
-                    _bad[entry["sha256"]] = (e.reason, time.time())
-            raise
+                    if e.reason in ("sha_mismatch", "bad_file"):
+                        _bad[sha] = (e.reason, time.time())
+                    elif e.reason not in ("disk_cap", "disk_full", "no_url", "bad_url"):
+                        _backoff[sha] = (e.reason, time.time() + _BACKOFF_SEC)
+                raise
     except ColdError as e:
         _note_degraded(e.reason, str(e))
         return e
