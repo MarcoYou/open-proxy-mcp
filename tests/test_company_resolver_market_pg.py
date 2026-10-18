@@ -116,9 +116,9 @@ def test_empty_or_missing_daily_store_returns_none_without_falling_back_to_krx_w
     assert CR._database_market_context() is None
 
 
-def test_existing_market_label_mismatch_keeps_the_active_registry_off(pg17, monkeypatch):
-    """기존 결함 고정 — 완전성 판정은 'KOSPI'/'KOSDAQ' 을 세는데 DB 의 시장 칸은 KS/KQ 라 전 종목이 다 있어도
-    `active_tickers` 는 늘 None 이다. 이름 해석 동작이 바뀌는 문제라 별도 결정 전까지 이 단계는 동작을 바꾸지 않는다."""
+def test_full_ks_kq_cross_section_turns_the_active_registry_on(pg17, monkeypatch):
+    """DB 시장 칸 그대로(KS/KQ)의 전 종목 단면이면 `active_tickers` 가 켜진다 — 종전엔 'KOSPI'/'KOSDAQ' 을 세어 늘 None 이었다.
+    옛 표기(KOSPI/KOSDAQ) 행도 `to_db` 로 같은 시장으로 세므로 똑같이 켜진다."""
     _apply(pg17)
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute("INSERT INTO krx_daily (trd_dd, ticker, market, close, list_shrs) "
@@ -126,9 +126,9 @@ def test_existing_market_label_mismatch_keeps_the_active_registry_off(pg17, monk
                   "FROM generate_series(1, 2100) t")
     monkeypatch.setenv("DATABASE_URL", pg17)
     monkeypatch.setattr(CR, "today_kst", lambda: date(2026, 10, 18))                # 신선도 조건은 채운다(2일 전)
+    everyone = frozenset(f"{t:06d}" for t in range(1, 2101))
     ctx = CR._database_market_context()
-    assert ctx is not None and len(ctx.market_caps) == 2100 and ctx.active_tickers is None
-    # 대조: 같은 행을 전체 이름으로 적으면 켜진다 — 원인이 시장 표기 하나뿐임을 보인다
+    assert ctx is not None and len(ctx.market_caps) == 2100 and ctx.active_tickers == everyone
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute("UPDATE krx_daily SET market = CASE market WHEN 'KS' THEN 'KOSPI' ELSE 'KOSDAQ' END")
-    assert CR._database_market_context().active_tickers == frozenset(f"{t:06d}" for t in range(1, 2101))
+    assert CR._database_market_context().active_tickers == everyone

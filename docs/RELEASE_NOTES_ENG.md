@@ -4,6 +4,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### Company-name inference picks only currently listed companies
+
+- When a company is inferred from a partial name (e.g. "현대미포", "동양생명"), companies that did not trade on KOSPI or KOSDAQ on the latest trading day — delisted or merged companies and KONEX companies — are no longer chosen. Their official names and tickers still resolve ("에이치디현대미포", "HD현대미포", "010620").
+- This was the intended design, but it had been switched off since the 2026-08-23 market-code rename. The inference reason now reads "active listed companies" instead of "companies with a ticker". Official-name lookups are unchanged.
+- If the quote store cannot be read once, the previous listing registry is kept and re-read after one minute.
+
 ### Last 7 trading days of quotes served from the database — faster `trading_data` quotes
 
 - `trading_data(scope="quote")` answers instantly for the **last 7 trading days** from daily quotes the server keeps (open, high, low, close, volume, traded value, listed shares); only older dates are fetched from KRX. Output fields are unchanged; `data.source` is added.
