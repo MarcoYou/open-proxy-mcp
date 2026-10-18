@@ -205,3 +205,99 @@ def test_a_held_stake_name_does_not_borrow_an_inactive_lookalike():
     assert codes == [] and why == "국내 상장 종목코드를 찾지 못함(해외 상장·상장폐지이거나 공식 상호와 표기가 다름)"
     codes, why = asyncio.run(A._stake_codes(_Client(), "삼성전자"))
     assert codes == ["005930"] and why is None
+
+
+# ── 도구 경계: 응답을 직접 만드는 도구도 「추정·비활성 회사」를 맨 앞에 밝힌다 ──────────────────────────────
+
+def _boundary(name: str, result: str) -> str:
+    from open_proxy_mcp.tools import _wrap_tool_errors
+
+    async def tool_fn(**_kw):
+        return result
+    tool_fn.__name__ = name
+    return asyncio.run(_wrap_tool_errors(tool_fn)())
+
+
+def _inactive_line() -> str:
+    C._resolve_match("현대미포", _resolver().search("현대미포"))
+    return ToolEnvelope(tool="t", status=AnalysisStatus.EXACT).to_dict()["warnings"][0]
+
+
+def test_tool_boundary_adds_the_guess_notice_to_replies_built_without_the_envelope():
+    """261018 검토: `ToolEnvelope`·`declare_weak_resolution` 을 거치지 않고 dict·md 를 직접 만드는 경로(`dividend_data` ·
+    `forward_estimates_data` · `price_multiple_data` 의 firm_history·sector · `trading_data` universe)는 「현대미포」를 상장폐지된
+    에이치디현대미포로 고르고도 「추정했다」·「비활성 회사」를 한 줄도 싣지 않았다. 경계가 빠진 고지를 채운다 — JSON 은 warnings 맨 앞, md 는 제목 아래."""
+    import json
+
+    line = _inactive_line()
+    assert "상장폐지·코넥스 등" in line
+    md = _boundary("dividend_data", "## 에이치디현대미포 (010620) — 확정 배당\n\n| 연도 | DPS |")
+    assert md.startswith("## 에이치디현대미포 (010620) — 확정 배당\n\n> ⚠ " + line) and md.count(line) == 1
+    js = json.loads(_boundary("dividend_data", json.dumps({"status": "ok", "subject": "에이치디현대미포", "data": {}},
+                                                          ensure_ascii=False)))
+    assert js["warnings"] == [line]                                               # warnings 칸이 없던 응답
+    fwd = json.loads(_boundary("forward_estimates_data", json.dumps({"warnings": ["기존"]}, ensure_ascii=False)))
+    assert fwd["warnings"] == [line, "기존"]
+    # 종류주 고지를 스스로 싣는 trading_data 도 추정 고지는 경계가 채운다(universe 경로엔 없었다)
+    trd = json.loads(_boundary("trading_data", json.dumps({"tool": "trading_data", "warnings": []}, ensure_ascii=False)))
+    assert trd["warnings"] == [line]
+
+
+def test_tool_boundary_leaves_replies_that_already_carry_the_notice_byte_identical():
+    import json
+
+    from open_proxy_mcp.services.contracts import as_pretty_json
+
+    line = _inactive_line()
+    declared = as_pretty_json(ToolEnvelope(tool="t", status=AnalysisStatus.EXACT, warnings=["기존"]).to_dict())
+    assert _boundary("dividend_disclosure", declared) == declared                  # 봉투가 이미 실었다(따옴표 이스케이프 포함)
+    md = "# trading_data: 에이치디현대미포\n\n- " + line + "\n- 20261016 에 010620 시세가 없습니다"
+    assert _boundary("trading_data", md) == md                                     # declare_inferred 가 이미 실었다
+    prefixed = json.dumps({"warnings": ["[notice] " + line]}, ensure_ascii=False)
+    assert _boundary("director_board", prefixed) == prefixed                       # 감싸는 도구가 접두어를 붙여 옮긴 사본
+    _ctx_ledger.set(None)
+    new_request_ledger()
+    C._resolve_match("에이치디현대미포", _resolver().search("에이치디현대미포"))     # 정식명 — 추정 아님, 장부 빔
+    assert _boundary("dividend_data", "## 에이치디현대미포") == "## 에이치디현대미포"
+
+
+def test_dividend_data_firm_tells_the_guess_and_the_inactive_listing(monkeypatch):
+    """실제 `dividend_data` 도구를 경계째로 — 「현대미포」 배당 이력이 「추정·비활성」 고지와 함께 나간다(md·json)."""
+    import json
+
+    from open_proxy_mcp.services import dividend_data as dd
+    from open_proxy_mcp.services import price_multiple_data as P
+    from open_proxy_mcp.tools import _wrap_tool_errors
+    from open_proxy_mcp.tools import dividend_data as dd_tool
+
+    async def _resolve_listed(q):
+        _status, selected, _ = C._resolve_match(q, _resolver().search(q))
+        return selected, None
+    monkeypatch.setattr(P, "_resolve_listed", _resolve_listed)
+    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    monkeypatch.setattr(dd, "firm_history", lambda *_a: {"status": "ok", "annual_failed": False, "quarterly_failed": False,
+                                                          "empty_kind_rows_folded": 0, "annual": [], "quarterly": []})
+    monkeypatch.setattr(dd, "payment_counts", lambda *_a: {"status": "ok", "complete_years": [2020, 2021, 2022, 2023, 2024],
+                                                           "rows": [], "decisions": []})
+
+    class _Reg:
+        tools: dict = {}
+
+        def tool(self, *a, **k):
+            def deco(fn):
+                self.tools[fn.__name__] = _wrap_tool_errors(fn)
+                return fn
+            return deco
+
+    reg = _Reg()
+    dd_tool.register_tools(reg)
+    fn = reg.tools["dividend_data"]
+    md = asyncio.run(fn(company="현대미포", scope="firm"))
+    head, _, rest = md.partition("\n")
+    assert head.startswith("## 에이치디현대미포 (010620)")
+    assert rest.lstrip().startswith("> ⚠ 「현대미포」를 **에이치디현대미포**(으)로 추정했습니다")
+    assert "**상장폐지·코넥스 등** 비활성 회사" in rest
+    _ctx_ledger.set(None)
+    new_request_ledger()
+    js = json.loads(asyncio.run(fn(company="현대미포", scope="firm", format="json")))
+    assert js["subject"] == "에이치디현대미포" and js["warnings"][0].startswith("「현대미포」를 **에이치디현대미포**(으)로 추정했습니다")
