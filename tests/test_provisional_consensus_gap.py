@@ -283,7 +283,7 @@ def test_payload_keeps_headline_and_adds_gap(monkeypatch):
     assert g["metrics"]["operating_profit"]["gap_pct"] == -82.35
     assert seen["actual"]["revenue"] == 4399 * 1e8
     md = T._render(p)
-    assert "**컨센서스 대비** (공시 6일 전 2026-10-10" in md and "vs 예상 272억 (-82.3%)" in md
+    assert "**컨센서스 대비** (공시 6일 전 2026-10-10" in md and "vs 예상 272억 (-82.4%)" in md          # (48억−272억)÷272억 = −82.353% — 한 번만 반올림
 
 
 def test_gap_crash_does_not_break_payload(monkeypatch):
@@ -308,3 +308,12 @@ def test_render_non_ok_is_empty():
     for status in ("out_of_coverage", "out_of_history", "unknown", "not_comparable"):
         assert T._render_gap({"status": status, "why": "이유"}) == ""
     assert T._render_gap(None) == ""
+
+
+def test_md_percent_rounds_once_from_raw_values():
+    # 국도화학 2026.09 매출: (4,398.57억 − 4,652억) ÷ 4,652억 = −5.4478% → 「−5.4%」. 저장값 −5.45 를 다시 깎으면 −5.5.
+    c = {"actual_krw": 439_857_000_000, "consensus_krw": 465_200_000_000,
+         "diff_krw": 439_857_000_000 - 465_200_000_000, "gap_pct": -5.45}
+    line = T._render_gap({"status": "ok", "as_of": "2026-10-10", "lag_days": 6, "period": "2026.09E",
+                          "basis": "IFRS연결", "metrics": {"revenue": c}})
+    assert "(-5.4%)" in line and "(-5.5%)" not in line
