@@ -519,7 +519,7 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None) -
     (100일 창 ≈ 90콜, 2018년부터 ≈ 900콜) + 사업보고서가 창 안에 없고 저장값도 빈 종목만 회사 개황 1콜씩."""
     from collections import defaultdict
     from datetime import timedelta
-    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, market_window_end
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, market_window_end, dart_halts_batch, dart_batch_halt_line
     t = today or date.today()
     start = since or (t - timedelta(days=ACC_MT_SCAN_DAYS))
     con = _pg(); con.autocommit = True
@@ -554,14 +554,20 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None) -
             cur = end + timedelta(days=1)
     out: dict[str, int] = {}
     changed: list[tuple] = []
+    halted = False
     for cc, (tk, stored) in firms.items():
         comp = None
-        if not months.get(cc) and stored is None:
+        if not months.get(cc) and stored is None and not halted:
             try:
                 comp = (await c.get_company_info(cc)).get("acc_mt")
                 calls += 1
-            except DartClientError:
+            except DartClientError as e:
                 comp = None
+                if dart_halts_batch(e):
+                    # 261019: 키 한도·키 문제·점검 — 남은 종목도 같은 답이다. 더 부르지 않는다(그 종목은 결산월을 정하지 않고 둔다 —
+                    #   저장값이 빈 채라 다음 실행이 다시 본다). 종전엔 종목마다 쉬지 않고 불렀다.
+                    halted = True
+                    print(dart_batch_halt_line(e, "회사 개황"), flush=True)
         new = decide_acc_mt(stored, months.get(cc, set()), comp)
         if new is not None and new != stored:
             out[tk] = new
@@ -738,7 +744,7 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
     `nodata_days`: nodata 를 다시 받는 기간(일) — 비우면 `NODATA_RETRY_DAYS`.
     `only`: {(종목, fy, quarter)} — 이 칸만 다시 받는다(이미 ok 여도). 파서를 고친 뒤 그 파서로 비던 칸만 다시 채울 때(261018 `--refetch`).
       공시 마감 전 칸·4분기(사업보고서 — seed 몫)는 빼고, `years` 와 무관하게 그 칸의 연도를 쓴다."""
-    from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     con = _pg(); con.autocommit = True
     _ensure_ddl(con)                     # 261019: 표·칸이 있으면 DDL 을 보내지 않는다
     if only:
@@ -749,8 +755,9 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
     else:
         firms = [r for r in con.execute(
             "SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
-    # 분기 단위 resume — ok 는 완료. err(일일한도[020]·기타 실패)는 done에서 제외 →
+    # 분기 단위 resume — ok 는 완료. err(기타 실패)는 done에서 제외 →
     # 재실행 시 자동 재수집(DART 일일한도 20k/키 리셋 후 남은분 채움). DO UPDATE로 err행 덮어씀.
+    # 261019: 키 한도[020]·키 문제·점검은 err 로 적지 않고 그 자리에서 멈춘다(`dart_halts_batch`) — 못 받은 칸은 행이 그대로라 다음 실행이 받는다.
     # 261018: nodata 도 마감 뒤 NODATA_RETRY_DAYS 일 동안은 다시 받는다(`_resume_sets`) — 종전엔 완료로 봐서
     #   마감 직후 비어 있던 회사가 나중에 내도 다시 받지 않았다.
     # 261018(결산월): 마감·환율 기준일·전기 칸 대조 연도를 종목 결산월로 센다(12월 결산은 종전과 같다).
@@ -779,6 +786,13 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
     c = get_dart_client()
     buf: list = []; lock = asyncio.Lock(); stop = asyncio.Event()
     prog = {"n": 0}; total = len(todo)
+
+    def _halt(e) -> None:
+        """261019: 키 한도·키 문제·점검(`dart_halts_batch` — 남은 키까지 다 본 뒤) — 남은 칸도 같은 답이다. 그 칸은 적지 않고(행이 그대로라
+        다음 실행의 재개 규칙이 받는다) 모든 worker 를 멈춘다. 종전엔 칸마다 err 로 적고 쉬지 않고 다음 칸을 불렀다."""
+        if not stop.is_set():
+            print(dart_batch_halt_line(e, f"{prog['n']}/{total}칸 처리"), flush=True)
+        stop.set()
     # 결과를 상태별로 센다 — 「종료」만으로는 몇 건이 실제로 채워졌는지 모른다(CLAUDE.md 12: 양쪽 세기).
     tally = {"ok": 0, "nodata": 0, "err": 0, "refilled": 0, "xbrl": 0, "xbrl_filled": 0}
     queue: asyncio.Queue = asyncio.Queue()
@@ -807,7 +821,8 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
                 raise
 
     async def xbrl_lookup(rows, rc, fs, yr, q, fye) -> dict:
-        """같은 접수번호의 XBRL 원본 → `xbrl_controlling`. 받지 못하면(키 한도·문서 없음·형식 오류) {} — 그 칸은 종전처럼 빈 채로 둔다."""
+        """같은 접수번호의 XBRL 원본 → `xbrl_controlling`. 받지 못하면(문서 없음·형식 오류) {} — 그 칸은 종전처럼 빈 채로 둔다.
+        키 한도·키 문제·점검(`dart_halts_batch`)은 올린다(261019 — 종전엔 이것도 {} 로 삼켜 그 칸을 빈 채로 적었다)."""
         rcept = next((r.get("rcept_no") for r in rows if r.get("rcept_no")), None)
         getter = getattr(c, "get_fnltt_xbrl", None)
         if not rcept or getter is None:
@@ -819,6 +834,9 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
             await asyncio.sleep(SLEEP)
             return xbrl_controlling(data, fs, rcal.cell_end(yr, q, fye), fiscal_year_start(yr, q, fye))
         except Exception as e:  # noqa: BLE001 — 대체 경로라 실패해도 종전 결과(빈 칸)를 지킨다
+            if dart_halts_batch(e):
+                # 261019: 키 한도로 못 받은 원본은 「원본 없음」이 아니다 — 그 칸을 빈 채로 적지 않고 배치를 멈춘다(worker 가 받는다).
+                raise
             print(f"[XBRL] {rcept} 못 읽음({type(e).__name__}) — 그 칸은 빈 채로", flush=True)
             return {}
 
@@ -839,9 +857,12 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
             except Exception as e:
                 if _is_net(e):
                     stop.set(); print(f"네트워크({type(e).__name__}) — 중단(재개 가능)", flush=True); return
+                if dart_halts_batch(e):
+                    _halt(e); return
                 async with lock:
                     buf.append((isu, yr, q, rc, None, None, None, f"err:{str(e)[:30]}", "ERR", "ERR"))
                     tally["err"] += 1
+                await asyncio.sleep(SLEEP)   # 261019: 오류 뒤에도 같은 간격
             else:
                 ni, ni_case = extract_controlling_ni_cum(rows)
                 eq, eq_case = extract_controlling_eq(rows)
@@ -858,7 +879,10 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
                 # 261018: 응답은 있는데 지배 순이익·자본이 비면 같은 보고서의 XBRL 원본에서 그 칸만 찾는다(그 보고서 1콜).
                 #   이미 찾은 값은 바꾸지 않는다. 원본의 통화가 응답과 다르면 쓰지 않는다(아래 환산을 같은 규칙으로 탄다).
                 if (ni is None or eq is None) and rows:
-                    x = await xbrl_lookup(rows, rc, fs, yr, q, fye)
+                    try:
+                        x = await xbrl_lookup(rows, rc, fs, yr, q, fye)
+                    except Exception as e:   # xbrl_lookup 은 멈춰야 하는 오류만 올린다 — 이 칸은 적지 않는다
+                        _halt(e); return
                     for key in ("ni", "eq"):
                         got = x.get(key)
                         if got is None or got[2] != stmt_cur:
@@ -989,7 +1013,7 @@ async def fill_prior_from_next(keys: set[tuple[str, int, int]], dry: bool = Fals
 
     지키는 것: 원본 칸·fetched·이미 있는 정정 값은 그대로 · 다음 해 보고서가 아직 공시 마감 전이면 건너뜀 · 외화 보고사는 그 칸의 기간 말
     환율로 원화 환산(수집과 같은 규칙) · 회사 자기 규모의 20배를 넘는 값(단위 오류 꼴)은 쓰지 않는다. 결과 = 칸별 처리 사유."""
-    from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     from open_proxy_mcp.services.scale_guard import check_self_relative
     keys = {(t, int(fy), int(q)) for t, fy, q in keys if int(q) in (1, 2, 3)}
     con = _pg(); con.autocommit = True
@@ -1015,7 +1039,11 @@ async def fill_prior_from_next(keys: set[tuple[str, int, int]], dry: bool = Fals
 
     result: dict[tuple, str] = {}
     writes = []
-    for t, fy, q in sorted(keys):
+    halted = None   # 261019: 키 한도·키 문제·점검·네트워크면 남은 칸은 부르지 않고, 그때까지 받은 칸은 쓴다(종전엔 예외로 죽어 0칸)
+    for i, (t, fy, q) in enumerate(sorted(keys)):
+        if halted is not None:
+            result[(t, fy, q)] = f"중단 — 앞 칸에서 {halted} (다음 실행이 받는다)"
+            continue
         cell, cc, fye = cells.get((t, fy, q)), corp.get(t), fye_of.get(t, 12)
         if cell is None or cc is None:
             result[(t, fy, q)] = "행 없음"
@@ -1028,9 +1056,21 @@ async def fill_prior_from_next(keys: set[tuple[str, int, int]], dry: bool = Fals
             result[(t, fy, q)] = "건너뜀(다음 해 같은 분기 보고서가 아직 공시 마감 전)"
             continue
         rc = Q_TO_RC[q]
-        fs = "CFS"; rows = await acnt(cc, fy + 1, rc, fs); await asyncio.sleep(SLEEP)
-        if not rows:
-            fs = "OFS"; rows = await acnt(cc, fy + 1, rc, fs); await asyncio.sleep(SLEEP)
+        try:
+            fs = "CFS"; rows = await acnt(cc, fy + 1, rc, fs); await asyncio.sleep(SLEEP)
+            if not rows:
+                fs = "OFS"; rows = await acnt(cc, fy + 1, rc, fs); await asyncio.sleep(SLEEP)
+        except Exception as e:
+            if dart_halts_batch(e) or _is_net(e):
+                halted = str(e)
+                print(dart_batch_halt_line(e, f"{i}/{len(keys)}칸 처리"), flush=True)
+                result[(t, fy, q)] = f"중단 — {e} (다음 실행이 받는다)"
+                continue
+            if isinstance(e, DartClientError):   # 그 칸만의 오류 — 그 칸만 건너뛴다(종전엔 예외로 죽어 받은 칸까지 버렸다)
+                result[(t, fy, q)] = f"오류 — {e}"
+                await asyncio.sleep(SLEEP)
+                continue
+            raise
         if not rows:
             result[(t, fy, q)] = "다음 해 같은 분기 보고서도 API 에 없음"
             continue
