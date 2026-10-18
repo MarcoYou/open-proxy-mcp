@@ -15,6 +15,7 @@ from open_proxy_mcp.services.dividend import (
     _alot_multiyear_summaries,
     _fiscal_end_month,
     _fiscal_period,
+    _judgeable_undecided_years,
     _latest_completed_fiscal_year,
 )
 from open_proxy_mcp.tools.dividend_disclosure import _render
@@ -117,3 +118,27 @@ def test_undecided_fiscal_year_is_not_shown_as_paid():
     # 「0원 지급」으로 읽히면 안 된다.
     assert "| 0원 |" not in out
     assert "| 2026 | 2025-07-01~2026-06-30 | - |" in out
+
+
+def test_undecided_check_covers_every_completed_year_when_search_reaches_today():
+    """기본 조회(작년 기준) — 검색이 오늘까지 덮으니 끝난 사업연도를 다 본다(포시에스 6월 결산 FY2026)."""
+    today = date(2026, 10, 19)
+    assert _judgeable_undecided_years(2025, 2026, 6, date(2026, 12, 31), today) == [2026]
+    assert _judgeable_undecided_years(2024, 2025, 12, date(2026, 12, 31), today) == [2025]
+
+
+def test_past_year_query_does_not_call_unsearched_years_undecided():
+    """year=2020 → 결정공시 검색은 2021-12-31 까지. 그 뒤 사업연도의 결의는 읽지 않았으니 「미결의」가 아니다.
+
+    삼성전자 detail year=2020 실측(261019): FY2022~FY2025 를 「결의 공시 없음 — 미결의」로 경고했다
+    (원장엔 2024 1,446원·2025 1,668원 확정 배당이 있다).
+    """
+    today = date(2026, 10, 19)
+    assert _judgeable_undecided_years(2020, 2025, 12, date(2021, 12, 31), today) == []
+    # year=2024 → 검색 2025-12-31 까지 — FY2025 결산배당 결의(2026년 초)는 범위 밖
+    assert _judgeable_undecided_years(2024, 2025, 12, date(2025, 12, 31), today) == []
+    # 3월 결산 FY2025(2025-03-31 종료)는 2025-12-31 까지의 검색이 결의 시기를 덮는다 — 판정 대상
+    assert _judgeable_undecided_years(2024, 2026, 3, date(2025, 12, 31), today) == [2025]
+    # 결산월을 모르면 구간을 지어내지 않는다
+    assert _judgeable_undecided_years(2020, 2025, None, date(2021, 12, 31), today) == []
+    assert _judgeable_undecided_years(2020, None, 12, date(2021, 12, 31), today) == []

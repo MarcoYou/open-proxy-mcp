@@ -470,6 +470,9 @@ def _nl_universe(universe: str) -> str:
     if re.match(r"^(all|kospi200|kosdaq150|kospi:|kosdaq:|kospi_top:|kosdaq_top:|top_mktcap:|market:|custom:)",
                 low):
         return raw
+    # 「KTOP30」(KRX 지수)은 아래 순위 말(「top 30」)로 읽지 않는다 — 나열 해석이 지원하지 않는 지수라고 안내한다(261019).
+    if re.fullmatch(r"ktop\s*30", low):
+        return f"custom:{raw}"
     # "코스피 시총 상위 30" · "코스닥 상위 50" · "시총 상위 100"
     # 260918: 숫자 뒤 「개 기업」「개 종목」「개 회사」「개사」「곳」도 받는다 — 종전엔 「200개 기업」이 회사 이름
     #   나열로 읽혀 해석에 실패했고, 카드 보기는 시장 전체로 바꿔 보였다(루틴 프롬프트가 이 꼴이다).
@@ -642,8 +645,46 @@ def _inactive_universe_note(tok: str, sel: dict) -> str:
             "시세·시총을 쓰는 표에는 행이 없다")
 
 
+#: KRX 지수 이름 — 이 서버가 구성종목을 아는 지수(코스피200·코스닥150)는 `_UNIVERSE_ALIASES` 에 있고, 나머지는 여기서 알아본다.
+#: 회사 이름 찾기로 보내지 않는다(261019 실측: 「KRX300」이 회사 못 찾음으로 떨어져 「사명이 바뀐 회사는 옛 이름으로 조회되지
+#: 않는다」 안내까지 붙었다). 「코스피 100」·「코스피50」처럼 숫자만 붙은 꼴은 시총 순위일 수도 있어 `universe.clarification` 이 묻는다.
+_W = r"[가-힣a-z\-]+"
+_UNSUPPORTED_INDEX = re.compile(
+    rf"^(?:krx\s*\d+(?:\s*{_W})*|krx\s+{_W}(?:\s*{_W})*|ktop\s*30"          # KRX300·KRX100·KRX 반도체·KTOP30
+    rf"|(?:코스피|kospi)\s*200\s+[가-힣a-z]{{2,}}(?:\s*{_W})*"                 # 코스피200 정보기술(섹터 지수)
+    rf"|(?:코스닥|kosdaq)\s*150\s+[가-힣a-z]{{2,}}(?:\s*{_W})*"
+    r"|(?:코스닥|kosdaq)\s*(?:글로벌|global)|(?:코스피|코스닥|kospi|kosdaq)\s*(?:대형|중형|소형)주?"
+    r"|.+지수)$", re.I)
+#: 순위 말이 들어 있으면 지수 이름이 아니다(「KRX 시총 상위 100」 = 전체시장 순위).
+_RANK_WORDS = ("상위", "시총", "시가총액")
+
+
+def _set_spec(tok: str) -> str | None:
+    """나열 안의 한 토큰이 종목 **집합** 이름(지수·시장)이면 그 스펙(kospi200·kosdaq150·market:kospi·market:kosdaq), 아니면 None.
+    끝의 「지수」는 떼고 본다(「코스피200 지수」 = 코스피200)."""
+    low = tok.strip().lower()
+    base = re.sub(r"\s*지수$", "", low)
+    for key in (low, re.sub(r"\s+", "", low), base, re.sub(r"\s+", "", base)):
+        spec = _UNIVERSE_ALIASES.get(key)
+        if spec in _index_members.INDEXES or spec in ("market:kospi", "market:kosdaq"):
+            return spec
+    return None
+
+
+def unsupported_index_note(tok: str) -> str | None:
+    """지원하지 않는 KRX 지수 이름이면 그렇게 말하는 문장, 아니면 None."""
+    t = (tok or "").strip()
+    if not t or _set_spec(t) or any(w in t for w in _RANK_WORDS) or not _UNSUPPORTED_INDEX.match(t):
+        return None
+    return (f"「{t}」은 지수 이름으로 보인다 — 이 서버의 지수 구성종목 원장은 코스피200·코스닥150 두 지수뿐이라 "
+            f"「{t}」 구성종목은 지원하지 않는다(시총 순위로 바꿔 보이지 않는다)")
+
+
 async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFilter:
-    """custom:… 토큰을 코드/이름 혼용으로 해석. 코드는 그대로, 이름은 resolve_company_query로 코드화."""
+    """custom:… 토큰을 코드/이름 혼용으로 해석. 코드는 그대로, 이름은 resolve_company_query로 코드화.
+
+    261019: 나열 안의 지수·시장 이름(「코스피200, 코스닥150」·「코스피, 코스닥」)은 그 집합들의 **합집합**으로 읽는다 —
+    종전엔 회사 이름으로 찾다가 못 찾아 「사명 변경」 안내로 되물었다. 지원하지 않는 지수 이름(KRX300 등)은 지수라고 말한다."""
     tokens = [t.strip() for t in re.split(r"[,，]+", raw) if t.strip()]
     if not tokens:
         return UniverseFilter(label="지정종목", resolved=False, allowed=None, price_dd=price_dd,
@@ -652,11 +693,38 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
     codes: set[str] = set()
     notes: list[str] = []
     name_tokens: list[str] = []
+    set_tokens: list[tuple[str, str]] = []
+    index_notes: list[str] = []
     for tok in tokens:
-        if _looks_like_code(tok.upper()):
+        spec = _set_spec(tok)
+        if spec:
+            set_tokens.append((tok, spec))
+        elif inote := unsupported_index_note(tok):
+            index_notes.append(inote)
+        elif _looks_like_code(tok.upper()):
             codes.add(tok.upper())
         else:
             name_tokens.append(tok)
+    notes.extend(index_notes)
+
+    # 지수·시장 이름 → 그 집합(지수는 구성종목 원장, 원장을 못 읽으면 `resolve_universe` 가 시총 순위 대체를 밝힌다)
+    set_labels: list[str] = []
+    set_notices: list[str] = []
+    members_dds: list[str | None] = []
+    done_specs: set[str] = set()
+    for tok, spec in set_tokens:
+        if spec in done_specs:
+            continue                                   # 같은 집합을 두 번 적었다
+        done_specs.add(spec)
+        sub = await resolve_universe(spec)
+        if sub.resolved and sub.allowed:
+            codes |= sub.allowed
+            set_labels.append(sub.label)
+            members_dds.append(sub.members_dd)
+            if sub.notice:
+                set_notices.append(sub.notice)
+        else:
+            notes.append(f"'{tok}' 종목 집합을 만들지 못했다" + (f"({sub.notice})" if sub.notice else ""))
 
     async def _resolve_one(tok: str) -> tuple[str, str | None, str]:
         """(토큰, 종목코드, 안내) — 못 찾은 이유를 **토큰마다** 말한다.
@@ -679,7 +747,12 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
             return tok, None, company_ambiguous_warning(tok, getattr(res, "candidates", None))
         return tok, None, company_not_found_warning(tok)
 
+    from open_proxy_mcp.services.universe import clarification
     inactive: list[str] = []
+    # 「코스피100」처럼 수인지 지수·이름인지 모를 토큰은 회사로 찾지 않고 그 토큰에 대한 질문을 안내로 단다.
+    ask_tokens = [(t, clarification(t)) for t in name_tokens]
+    notes.extend(q for _t, q in ask_tokens if q)
+    name_tokens = [t for t, q in ask_tokens if not q]
     if name_tokens:
         for tok, sc, hint in await asyncio.gather(*[_resolve_one(t) for t in name_tokens]):
             if sc:
@@ -690,17 +763,31 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
                 notes.append(hint or f"'{tok}' 미식별(모호/없음)")
     if not codes:
         # 260918: 시장 전체로 바꾸지 않는다 — 되묻는다. 「코스피 120」처럼 수인지 이름인지 모를 꼴은 전용 질문으로.
-        from open_proxy_mcp.services.universe import clarification
-        ask = clarification(raw) or (
-            f"「{raw}」에서 회사를 하나도 찾지 못해 조회하지 않았다(시장 전체로 바꿔 보이지 않는다). "
-            "종목 이름·코드를 쉼표로 나열하거나, 순위라면 「코스피 시총 상위 50」처럼 주세요."
-            + ((" 찾지 못한 이유: " + " · ".join(notes)) if notes else ""))
+        if index_notes and len(index_notes) == len(tokens):
+            # 지원하지 않는 지수 이름만 왔다 — 회사 못 찾음(사명 변경 안내)으로 말하지 않는다.
+            ask = (" · ".join(index_notes) + ". 「코스피200」·「코스닥150」·「코스피200, 코스닥150」(합집합) 중에서 고르거나, "
+                   "시총 순위라면 「시총 상위 300」(코스피·코스닥 혼합 — 지수 구성과 다르다)처럼, 종목이면 이름·코드를 쉼표로 나열해 주세요.")
+        else:
+            ask = clarification(raw) or (
+                f"「{raw}」에서 회사를 하나도 찾지 못해 조회하지 않았다(시장 전체로 바꿔 보이지 않는다). "
+                "종목 이름·코드를 쉼표로 나열하거나, 순위라면 「코스피 시총 상위 50」처럼 주세요."
+                + ((" 찾지 못한 이유: " + " · ".join(notes)) if notes else ""))
         return UniverseFilter(label="지정종목", resolved=False, allowed=None, price_dd=price_dd, question=ask)
     # 부분 해결 시: 해결분으로 진행함을 명시(전체 degrade로 오해 방지)
     notice = (f"해결된 {len(codes)}종목으로 진행 — 미해결: " + " · ".join(notes)) if notes else ""
     if inactive:
         notice = " / ".join(x for x in (notice, "비활성 회사로 식별: " + " · ".join(inactive)) if x)
-    return UniverseFilter(label=f"지정 {len(codes)}종목", resolved=True,
+    if set_notices:
+        notice = " / ".join(x for x in (notice, *set_notices) if x)
+    only_sets = bool(set_labels) and len(set_tokens) == len(tokens)
+    if only_sets:
+        # 지수·시장 이름만 나열 — 그 집합들의 합집합. 모두 지수 원장에서 왔으면 원장 확인일(가장 이른 것)을 함께 싣는다.
+        label = "+".join(set_labels)
+        members_dd = (min(d for d in members_dds if d) if members_dds and all(members_dds) else None)
+        return UniverseFilter(label=label, resolved=True, notice=notice, allowed=codes, price_dd=price_dd,
+                              members_dd=members_dd)
+    label = f"지정 {len(codes)}종목" + (f"({'+'.join(set_labels)} 포함)" if set_labels else "")
+    return UniverseFilter(label=label, resolved=True,
                           notice=notice, allowed=codes, price_dd=price_dd)
 
 
