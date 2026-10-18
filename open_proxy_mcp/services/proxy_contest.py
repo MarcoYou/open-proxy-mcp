@@ -888,6 +888,11 @@ async def _litigation_items(
     return primary_rows, dedup_meta, notices, None
 
 
+#: `ownership_structure._latest_block_rows` 가 5% 대량보유 조회 **실패**(013 이 아닌 DART 오류) 때 돌려주는 안내의 머리.
+#: 그 함수는 실패를 예외 대신 문구로 주므로 이 머리로 가른다 — 문구가 바뀌면 tests/test_dart_no_data_wording.py 가 깨진다.
+_BLOCK_LOOKUP_FAILED = "5% 대량보유 공시 조회 실패"
+
+
 async def _control_context(corp_code: str, company_query: str, target_year: int | None) -> tuple[dict[str, Any], list[str]]:
     client = get_dart_client()
     warnings: list[str] = []
@@ -975,6 +980,11 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
     else:
         # timeline_rows를 더 이상 버리지 않고 시계열 신호 추출에 사용 (260605)
         latest_blocks, block_timeline, block_warning = blocks_res
+        # `_latest_block_rows` 는 DART 오류를 예외로 올리지 않고 안내 문구로 돌려준다 — 013 이면 「5% 대량보유 공시 없음」(답),
+        # 그 밖(020 한도·800 점검 등)이면 「5% 대량보유 공시 조회 실패 — …」. 실패면 5% 활성 시그널 0건은 「없다」가 아니라
+        # 「모른다」다(261018: 이 경로만 빠져 020 이 「…시그널 없음 (정상)」으로 나갈 수 있었다).
+        if (block_warning or "").startswith(_BLOCK_LOOKUP_FAILED):
+            lookup_failed = True
     if block_warning:
         warnings.append(block_warning)
     treasury_snapshot = _treasury_snapshot(stock_total, treasury_data)

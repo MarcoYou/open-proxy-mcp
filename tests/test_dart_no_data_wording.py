@@ -171,8 +171,10 @@ _TOOLS = [
     ("treasury_share", "build_treasury_share_payload", {"scope": "summary"}),
     ("order_contracts", "build_order_contracts_payload", {}),
     ("corp_gov_report", "build_corp_gov_report_payload", {"scope": "filings"}),
+    ("corp_gov_report", "build_corp_gov_report_payload", {"scope": "summary"}),   # 「대상 보고서 없음」 분기
     ("risk_events", "build_risk_events_payload", {}),
 ]
+_TOOL_IDS = [t[0] + (f"-{t[2]['scope']}" if t[0] == "corp_gov_report" else "") for t in _TOOLS]
 _NONE_PHRASES = ("(정상)", "무배당으로 본다", "공시 없음", "없음.")
 
 
@@ -184,7 +186,7 @@ def _build(monkeypatch, module_name, builder, kwargs):
     return _run(fn("에이치디현대미포", **kwargs))
 
 
-@pytest.mark.parametrize("module_name,builder,kwargs", _TOOLS, ids=[t[0] for t in _TOOLS])
+@pytest.mark.parametrize("module_name,builder,kwargs", _TOOLS, ids=_TOOL_IDS)
 def test_lookup_failure_is_not_reported_as_none(monkeypatch, dart_answers, module_name, builder, kwargs):
     """020(한도)로 목록을 못 읽었으면 0건은 「없음 (정상)」이 아니라 「모른다」다 — status=error, 실패 사유는 경고에."""
     dart_answers("020")
@@ -197,7 +199,7 @@ def test_lookup_failure_is_not_reported_as_none(monkeypatch, dart_answers, modul
         assert data["filing_status"] == "fetch_failed" and data["no_filing"] is False
 
 
-@pytest.mark.parametrize("module_name,builder,kwargs", _TOOLS, ids=[t[0] for t in _TOOLS])
+@pytest.mark.parametrize("module_name,builder,kwargs", _TOOLS, ids=_TOOL_IDS)
 def test_no_data_is_reported_as_none_not_failure(monkeypatch, dart_answers, module_name, builder, kwargs):
     """013 만 받으면 「없음」이 답이다 — status=no_filing, 경고에 「실패」·「013」이 없다."""
     dart_answers("013")
@@ -330,6 +332,7 @@ def test_market_risk_scan_status(monkeypatch, status, expect):
     assert p["status"] == expect
     assert any("시장 전체 리스크 공시 없음" in w for w in p["warnings"]) is (status == "013")
     assert any("시장 전체 스캔 실패: 020" in w for w in p["warnings"]) is (status == "020")
+    assert any("스캔 실패" in w for w in p["warnings"]) is (status == "020"), p["warnings"]   # 종전: 「시장 전체 스캔 실패: 013」
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
@@ -356,7 +359,8 @@ def test_financial_metrics_failure_is_not_absent(monkeypatch, dart_answers, stat
     from open_proxy_mcp.services import financial_metrics as FM
     from open_proxy_mcp.tools.financial_metrics import _render
     monkeypatch.setattr(FM, "resolve_company_query", _fake_resolve)
-    monkeypatch.setattr(FM, "_FM_CACHE", type(FM._FM_CACHE)(1, 1.0, "test-fm"))
+    # 캐시는 실제로 담을 수 있는 크기로 — 1바이트짜리면 무엇도 안 담겨 아래 「안 담겼다」 단언이 늘 참이 된다.
+    monkeypatch.setattr(FM, "_FM_CACHE", type(FM._FM_CACHE)(16 * 1024 * 1024, 300.0, "test-fm"))
     dart_answers(status)
     p = _run(FM.build_financial_metrics_payload("에이치디현대미포", scope="summary", year=2026))
     assert p["status"] == expect, p["warnings"]
@@ -367,6 +371,7 @@ def test_financial_metrics_failure_is_not_absent(monkeypatch, dart_answers, stat
         md = _render(p)
         assert "일부 공시를 읽지 못했습니다" not in md        # 공시가 없는 해는 「읽기 실패」가 아니다
         assert not any("reprt_code=" in w or "no_filing" in w for w in p["warnings"]), p["warnings"]
+        assert FM._fm_cache_get(("에이치디현대미포", "summary", 2026, 3, True)) is not None  # 양성 대조 — 「없음」 답은 캐시된다
     else:
         assert FM._fm_cache_get(("에이치디현대미포", "summary", 2026, 3, True)) is None   # 실패 응답은 5분 캐시에 굳히지 않는다
 
@@ -452,3 +457,133 @@ def test_shareholder_commitment_status_follows_upstream_failures(monkeypatch, da
     monkeypatch.setattr(SC, "_capital_return_impact", no_impact)
     p = _run(SC.build_shareholder_commitment_payload("에이치디현대미포"))
     assert p["status"] == expect, (p["status"], p["warnings"])
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+# ⑩ 적대적 검토에서 더 나온 것 — 실패를 「없음」으로 적는 자리가 남아 있던 곳 · 덮이지 않던 분기
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+def test_financial_notes_year_search_failure_is_not_no_filing(monkeypatch, dart_answers):
+    """`year` 를 준 보고서 검색이 020 이면 「보고서 없음」(no_filing)이 아니라 실패다 — 013 만 「없음」.
+
+    종전 `_candidates` 는 DartClientError 를 전부 삼켜 0건으로 만들었고, 이 PR 이 0건을 status=no_filing 으로 적게 되면서
+    한도 초과가 「그 해 보고서가 없다」로 나갈 뻔했다.
+    """
+    from open_proxy_mcp.server import mcp
+    from open_proxy_mcp.tools import financial_notes as T
+
+    def search(status):
+        async def fn(client, corp_code, bsns_year, reprt_code):
+            raise DartClientError(status, "x")
+        return fn
+    monkeypatch.setattr(T, "_find_report_for_bsns_year", search("013"))
+    assert _run(T._candidates(None, "C", "half", "2019")) == []
+    monkeypatch.setattr(T, "_find_report_for_bsns_year", search("020"))
+    with pytest.raises(DartClientError):
+        _run(T._candidates(None, "C", "half", "2019"))
+
+    # 한 종류라도 찾았으면 그것을 쓴다(다른 종류의 실패로 찾은 것을 버리지 않는다)
+    async def mixed(client, corp_code, bsns_year, reprt_code):
+        if reprt_code == "11013":
+            return [{"rcept_no": "Q1", "rcept_dt": "20190515", "report_nm": "분기보고서 (2019.03)"}]
+        raise DartClientError("020", "x")
+    monkeypatch.setattr(T, "_find_report_for_bsns_year", mixed)
+    assert [r["rcept_no"] for r in _run(T._candidates(None, "C", "quarter", "2019"))] == ["Q1"]
+
+    # 도구 응답 — 공용 래퍼가 error·재시도 안내로 적는다
+    monkeypatch.setattr(T, "resolve_company_query", _fake_resolve)
+    monkeypatch.setattr(T, "_find_report_for_bsns_year", search("020"))
+
+    async def call(args):
+        r = await mcp.call_tool("financial_notes", args)
+        return "".join(getattr(c, "text", "") for c in (r if isinstance(r, list) else r.content))
+    body = json.loads(_run(call({"company": "에이치디현대미포", "year": "2019", "period": "half", "format": "json"})))
+    assert body["status"] == "error" and body["data"]["error_kind"] == "rate_limited", body
+    monkeypatch.setattr(T, "_find_report_for_bsns_year", search("013"))
+    body = json.loads(_run(call({"company": "에이치디현대미포", "year": "2019", "period": "half", "format": "json"})))
+    assert body["status"] == "no_filing", body
+
+
+@pytest.mark.parametrize("status,failed", [("020", True), ("013", False)])
+def test_control_context_block_lookup_failure_counts_as_lookup_failure(monkeypatch, status, failed):
+    """5% 대량보유(majorstock) 조회는 `_latest_block_rows` 가 예외 대신 문구로 돌려준다 — 020 이면 실패 표시가 서야 한다.
+
+    종전엔 예외(httpx 등)일 때만 lookup_failed 였고, 가장 흔한 DART 오류(020·800)는 문구로만 남아 0건 시그널이
+    「…시그널 없음 (정상)」으로 나갈 수 있었다. 013 은 「5% 대량보유 공시 없음」(답)이라 실패가 아니다.
+    """
+    from open_proxy_mcp.services import ownership_structure as OS
+    from open_proxy_mcp.services import proxy_contest as PC
+
+    class BlockClient:
+        async def get_block_holders(self, corp_code):
+            raise DartClientError(status, "x")
+    monkeypatch.setattr(OS, "get_dart_client", lambda: BlockClient())
+    monkeypatch.setattr(PC, "get_dart_client", lambda: _ControlClient({"2026": None}))
+    ctx, warnings = _run(PC._control_context(MIPO["corp_code"], "에이치디현대미포", 2027))
+    assert ctx["lookup_failed"] is failed, warnings
+    assert any(w.startswith(PC._BLOCK_LOOKUP_FAILED) for w in warnings) is failed, warnings
+    if not failed:
+        assert any("5% 대량보유 공시 없음" in w for w in warnings), warnings
+
+
+@pytest.mark.parametrize("status,expect", [("020", "partial"), ("013", "no_filing")])
+def test_proxy_contest_payload_lookup_failure_is_partial_not_none(monkeypatch, dart_answers, status, expect):
+    """분쟁 신호 목록을 못 읽었으면(020) 0건은 「시그널 없음 (정상)」이 아니다 — partial·fetch_failed. 013 만이면 no_filing."""
+    from open_proxy_mcp.services import proxy_contest as PC
+    monkeypatch.setattr(PC, "resolve_company_query", _fake_resolve)
+    dart_answers(status)
+    p = _run(PC.build_proxy_contest_payload("에이치디현대미포", start_date="20260101", end_date="20261018"))
+    assert p["status"] == expect, (p["status"], p["warnings"])
+    normal = any("시그널 없음 (정상)" in w for w in p["warnings"])
+    assert normal is (status == "013"), p["warnings"]
+    if status == "020":
+        assert p["data"]["filing_status"] == "fetch_failed" and p["data"]["no_filing"] is False
+
+
+def test_dividend_summary_failure_alone_is_not_no_dividend(monkeypatch, dart_answers):
+    """배당 사항(alotMatter)만 실패(020)하고 배당결정 검색은 013(없음)이면 — 「무배당으로 본다 (정상)」이 아니라 「모른다」."""
+    from open_proxy_mcp.services import dividend as D
+    monkeypatch.setattr(D, "resolve_company_query", _fake_resolve)
+
+    async def summary_failed(corp_code, year):
+        return {}, "alotMatter 조회 실패: 020"
+    monkeypatch.setattr(D, "_annual_summary", summary_failed)
+    dart_answers("013")
+    p = _run(D.build_dividend_payload("에이치디현대미포", scope="summary"))
+    assert p["status"] == "error", (p["status"], p["warnings"])
+    assert p["data"]["filing_status"] == "fetch_failed"
+    assert not any("무배당으로 본다" in w for w in p["warnings"]), p["warnings"]
+
+
+@pytest.mark.parametrize("scope", ["filings", "summary"])
+def test_kosdaq_corp_gov_report_search_failure_is_not_voluntary_non_filing(monkeypatch, dart_answers, scope):
+    """코스닥(자율공시) 회사라도 검색이 실패(020)했으면 「미제출 (정상)」이 아니다 — 두 분기(목록·대상 보고서 없음) 모두."""
+    from open_proxy_mcp.services import corp_gov_report as CG
+    monkeypatch.setattr(CG, "resolve_company_query", _fake_resolve)
+
+    async def kosdaq(self, corp_code):
+        return {"corp_name": MIPO["corp_name"], "corp_cls": "K"}
+    monkeypatch.setattr(dart_client.DartClient, "get_company_info", kosdaq)
+    dart_answers("020")
+    p = _run(CG.build_corp_gov_report_payload("에이치디현대미포", scope=scope))
+    assert p["status"] == "error", (p["status"], p["warnings"])
+    assert not any("(정상)" in w or "원문을 찾지 못함" in w for w in p["warnings"]), p["warnings"]
+    dart_answers("013")
+    p = _run(CG.build_corp_gov_report_payload("에이치디현대미포", scope=scope))
+    assert p["status"] == "no_filing" and any("미제출 (정상)" in w for w in p["warnings"]), (p["status"], p["warnings"])
+
+
+def test_order_contracts_found_but_unread_is_partial_not_no_filing(monkeypatch, dart_answers):
+    """수주 공시를 찾았는데 본문을 하나도 못 받았으면(020 등) 「수주 없음」(no_filing)이 아니다 — partial, 사유는 경고에."""
+    from open_proxy_mcp.services import order_contracts as OC
+    monkeypatch.setattr(OC, "resolve_company_query", _fake_resolve)
+    hit = {"rcept_no": "20260901000123", "rcept_dt": "20260901", "report_nm": "단일판매ㆍ공급계약체결",
+           "flr_nm": MIPO["corp_name"], "corp_code": MIPO["corp_code"]}
+
+    async def one_hit(**kwargs):
+        return [hit], [], None
+    monkeypatch.setattr(OC, "search_filings_by_report_name", one_hit)
+    dart_answers("020")                     # 본문(원문) 조회도 실패하게 — 원문 경로는 픽스처가 014 로 답한다
+    p = _run(OC.build_order_contracts_payload("에이치디현대미포"))
+    assert p["status"] == "partial", (p["status"], p["warnings"])
+    assert any("1건을 찾았으나 본문 1건을 DART 에서 받지 못해" in w for w in p["warnings"]), p["warnings"]
+    assert p["data"]["orders"] == [] and p["data"]["terminations"] == []

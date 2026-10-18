@@ -101,7 +101,7 @@ DART 문서에는 목차 좌표가 태그로 박혀 있다(`<TITLE AASSOCNOTE="D
 | `exact` | 보고서를 읽었다. 필드별 결과는 `notes[필드].status` 에 있다 |
 | `partial` | 필드 하나라도 원문을 못 받았거나(`NOT_COLLECTED`) 표를 찾고도 못 읽었다(`EXTRACTION_FAILED`) |
 | `no_filing` | 그 해·그 종류의 정기보고서가 없다(DART 013 — 실패가 아니라 답). `warnings` 에 「… 보고서를 찾지 못했습니다」 |
-| `error` | 원문을 받지 못했다(첨부정정 014·전송 오류 등, `data.status=NOT_COLLECTED`) · 회사를 못 찾았다 |
+| `error` | 원문을 받지 못했다(첨부정정 014·전송 오류 등, `data.status=NOT_COLLECTED`) · 보고서 검색 자체가 DART 오류(020 한도·800 점검 등)로 실패했다(`data.error_kind` — 「없다」가 아니라 「모른다」) · 회사를 못 찾았다 |
 | `ambiguous` | 회사 후보가 여럿이다 |
 
 필드별 `notes[필드].status` 는 데이터 칸이라 값을 그대로 둔다 — `OK`(표를 찾음) · `NOT_APPLICABLE`(그 주석이 없는 회사 —

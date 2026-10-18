@@ -15,6 +15,7 @@ from open_proxy_mcp.services.business_details import (
 from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning, COMPANY_LOOKUP_NEXT_ACTION
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import ToolEnvelope
+from open_proxy_mcp.services.dart_safety import is_no_data
 
 
 #: 필드별 주석 상태(`notes[필드].status` — 데이터 칸이라 값은 그대로 둔다)를 **사람이 읽는 말로**. md 에 엔진 식별자
@@ -530,18 +531,25 @@ async def _candidates(client, corp_code: str, period: str, year: str) -> list[di
     codes = _YEAR_CODES.get((period or "latest").strip().lower()) or _YEAR_CODES["latest"]
     out: list[dict] = []
     seen: set[str] = set()
+    failed: DartClientError | None = None
     for code in codes:
         # 🔴 **그 해에 그 보고서가 없으면 DART 는 013 을 던진다.** 260824 실측 —
         #    KB손해보험 `year=2019` 이 `DartClientError [013]` 로 그대로 터졌다.
-        #    「없다」는 예외가 아니라 답이다 — 삼켜서 「찾지 못했습니다」로 내보낸다.
+        #    「없다」는 예외가 아니라 답이다 — 삼켜서 「찾지 못했습니다」(status=no_filing)로 내보낸다.
+        #    그 밖의 오류(020 한도·800 점검 등)는 「없다」가 아니라 「모른다」다 — 하나도 못 찾았으면 아래에서 그대로 올려
+        #    공용 래퍼가 실패(status=error·재시도 안내)로 적게 한다(261018: 삼키면 no_filing 으로 나간다).
         try:
             found = await _find_report_for_bsns_year(client, corp_code, y, code)
-        except DartClientError:
+        except DartClientError as exc:
+            if not is_no_data(exc):
+                failed = exc
             continue
         for r in found:
             if r["rcept_no"] not in seen:
                 seen.add(r["rcept_no"])
                 out.append(r)
+    if not out and failed is not None:
+        raise failed
     out.sort(key=lambda r: r.get("rcept_dt", ""), reverse=True)
     return out
 
@@ -590,7 +598,8 @@ def register_tools(mcp):
             miss = (f"{year} 사업연도의 {period} 보고서를 찾지 못했습니다"
                     if (year or "").strip() else "정기보고서를 찾지 못했습니다")
             # 261018: 종전엔 봉투 없는 `{"error": …}` 라 status 가 아예 없었다. 그 해·그 종류 보고서가 없는 것은
-            # 실패가 아니라 답이다(DART 013 을 삼킨 자리 — 위 `_candidates`) → no_filing.
+            # 실패가 아니라 답이다(DART 013 — 위 `_candidates`) → no_filing. 검색 자체가 실패했으면 `_candidates` 가
+            # 예외를 올려 여기 오지 않는다(공용 래퍼가 error 로 적는다).
             env = ToolEnvelope(tool="financial_notes", status=AnalysisStatus.NO_FILING, subject=name,
                                warnings=[miss],
                                data={"query": company, "company": name, "corp_code": corp_code,
