@@ -25,7 +25,9 @@ from open_proxy_mcp.services.contracts import (
     build_filing_meta,
     build_usage,
 )
+from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
+from open_proxy_mcp.company_resolver import krx_code, share_class_ticker
 
 _RECENT_LOOKBACK_DAYS = 180
 _KSIC_PATH = Path(__file__).resolve().parent.parent / "data/ksic/ksic10_ko.json"
@@ -38,7 +40,23 @@ except Exception:
 def _prefers_english(query: str, language: str = "auto") -> bool:
     if language in {"ko", "en"}:
         return language == "en"
+    # 종목코드는 언어가 아니다 — 신형 영숫자 코드(「0126Z0」)의 영문 글자로 영어 응답을 고르지 않는다(261018: 코드만 넣었는데 영어로 답했다).
+    if krx_code(query):
+        return False
     return bool(re.search(r"[A-Za-z]", query or "")) and not bool(re.search(r"[가-힣]", query or ""))
+
+
+#: 이름이 아니라 식별자(종목코드·종류주 코드·corp_code)로 찾은 결과 — 상장·명부 필터를 건너뛴다(숫자 코드와 같은 대우).
+_IDENTIFIER_KINDS = frozenset({"ticker", "corp_code", "share_class"})
+
+
+def _identifier_query(raw: str, matches: list[dict[str, Any]]) -> bool:
+    """종목코드·corp_code 로 물었나. 숫자 6·8자리는 종전대로 모양만 보고, 신형 영숫자 코드·종류주 코드는 해석기가 코드로 찾았을 때만
+    (코드 모양인데 코드가 아니면 종전처럼 이름 검색 결과라 이름 질의와 같은 필터를 탄다)."""
+    if re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw):
+        return True
+    meta = (matches[0].get("_resolution") or {}) if matches else {}
+    return meta.get("match_kind") in _IDENTIFIER_KINDS
 
 
 def _resolve_induty_name(induty_code: str) -> str:
@@ -81,8 +99,10 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
     """
     status, selected, candidates = _resolve_match_impl(query, matches)
     if selected:
-        from open_proxy_mcp.dart.client import _note_corp, note_weak_resolution
+        from open_proxy_mcp.dart.client import _note_corp, note_share_class_resolution, note_weak_resolution
         _note_corp(selected.get("corp_code"))
+        # 종류주 코드로 물었으면 발행 회사로 해석했다는 사실을 응답 맨 앞에 밝힌다(추정 고지와 같은 장부·같은 경로).
+        note_share_class_resolution(selected)
         meta = selected.get("_resolution") or {}
         if meta.get("inferred"):
             note_weak_resolution(
@@ -90,6 +110,9 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
                 selected.get("corp_name", ""),
                 meta.get("match_kind", ""),
                 int(meta.get("candidate_count") or len(candidates) or 1),
+                # 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정했으면 「상장폐지·코넥스 등」 고지를 덧붙인다.
+                inactive=({"ticker": selected.get("stock_code", ""), "as_of": meta.get("market_data_as_of") or ""}
+                          if meta.get("inactive_listing") else None),
             )
     return status, selected, candidates
 
@@ -102,7 +125,7 @@ def _resolve_match_impl(query: str, matches: list[dict[str, Any]]) -> tuple[Anal
     resolver_meta = matches[0].get("_resolution") or {}
     if resolver_meta.get("match_kind"):
         kind = resolver_meta.get("match_kind")
-        if kind in {"ticker", "corp_code"}:
+        if kind in _IDENTIFIER_KINDS:
             return AnalysisStatus.EXACT, matches[0], matches
         if not resolver_meta.get("inferred"):
             if len(matches) == 1 or resolver_meta.get("strong_disambiguated"):
@@ -208,13 +231,34 @@ async def _safe_company_info(corp_code: str) -> tuple[dict[str, Any], str | None
     except DartClientError as exc:
         return {}, f"DART company.json 조회 실패: {exc.status}"
 
+#: 최근 공시 목록을 어떻게 받았나 — `_safe_recent_filings` 의 네 번째 값.
+#:   ok          받았다(0건일 수도 있다)
+#:   no_filing   DART 가 013(조회된 데이터 없음)으로 답했다 — **그 구간에 공시가 없다는 답**이다(실패 아님)
+#:   fetch_failed 그 밖의 DART 오류(020 한도·800 점검·전송 오류 등) — 공시가 있는지 **모른다**
+RECENT_FILINGS_OK, RECENT_FILINGS_NONE, RECENT_FILINGS_FAILED = "ok", "no_filing", "fetch_failed"
+
+
+def recent_filings_none_note(window: dict[str, str], english: bool = False) -> str:
+    """013 안내 문구 — 실패가 아니라 정보다(261018: 종전 「최근 공시 인덱스 조회 실패: 013」)."""
+    start, end = window.get("start_date", ""), window.get("end_date", "")
+    if english:
+        return (f"No DART filings in the search window ({start}~{end}) — the lookup succeeded; "
+                "there were none in that period.")
+    return f"조회 구간({start}~{end})에 DART 공시가 없습니다 — 조회는 정상이며 그 기간 공시가 0건입니다."
+
+
 async def _safe_recent_filings(
     corp_code: str,
     max_items: int,
     *,
     start_date: str = "",
     end_date: str = "",
-) -> tuple[list[dict[str, Any]], dict[str, str], str | None]:
+) -> tuple[list[dict[str, Any]], dict[str, str], str | None, str]:
+    """최근 공시 목록. 반환 (공시, 조회 구간, 경고, 목록 상태 — `RECENT_FILINGS_*`).
+
+    DART 013 은 「그 구간에 공시가 없다」는 **답**이라 실패 경고를 싣지 않는다 — 안내 문구는 응답 언어를 아는
+    호출부가 `recent_filings_none_note` 로 붙인다. 그 밖의 오류만 「조회 실패: {상태}」로 적는다.
+    """
     client = get_dart_client()
     begin_date, finish_date, window_warnings = resolve_date_window(
         start_date=start_date,
@@ -222,6 +266,8 @@ async def _safe_recent_filings(
         default_end=today_kst(),
         lookback_days=_RECENT_LOOKBACK_DAYS,
     )
+    window = {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}
+    window_note = " / ".join(window_warnings) if window_warnings else None
     try:
         result = await client.search_filings(
             corp_code=corp_code,
@@ -230,7 +276,10 @@ async def _safe_recent_filings(
             page_count=min(max(max_items * 3, 20), 100),
         )
     except DartClientError as exc:
-        return [], {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}, f"최근 공시 인덱스 조회 실패: {exc.status}"
+        if is_no_data(exc):
+            return [], window, window_note, RECENT_FILINGS_NONE
+        failed = f"최근 공시 인덱스 조회 실패: {exc.status}"
+        return [], window, (f"{window_note} / {failed}" if window_note else failed), RECENT_FILINGS_FAILED
 
     filings: list[dict[str, Any]] = []
     for item in result.get("list", [])[:max_items]:
@@ -242,8 +291,7 @@ async def _safe_recent_filings(
             "filer_name": item.get("flr_nm", ""),
             "pblntf_ty": item.get("pblntf_ty", ""),
         })
-    warning = " / ".join(window_warnings) if window_warnings else None
-    return filings, {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}, warning
+    return filings, window, window_note, RECENT_FILINGS_OK
 
 
 def _candidate_row(corp: dict[str, Any]) -> dict[str, Any]:
@@ -262,7 +310,17 @@ def _resolution_reasons(
     kind: str,
     active_registry_used: bool,
     ranking_signal: str,
+    inactive_listing: bool = False,
 ) -> dict[str, str]:
+    if inactive_listing:
+        # 261018: 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정(`CompanyResolver._inactive_single`) — 「활성 상장사 후보 중 시총 우선」이 아니다.
+        how_ko = "입력 토큰을 모두 포함하는" if kind == "token" else "부분 회사명과 일치하는"
+        how_en = "All query tokens matched" if kind == "token" else "Partial name matched"
+        return {
+            "ko": f"활성 상장사에는 후보가 없고, {how_ko} 비활성(상장폐지·합병·코넥스 등) 회사가 하나뿐이라 그 회사로 식별",
+            "en": (f"No active listed company matched; {how_en.lower()} exactly one inactive "
+                   "(delisted, merged, KONEX, etc.) company, so it was selected"),
+        }
     ko_universe = "활성 상장사" if active_registry_used else "종목코드 보유 법인"
     en_universe = "active listed companies" if active_registry_used else "companies with a ticker"
     _KO_RANK = {"market_cap": "시가총액", "local_popularity_prior": "로컬 인기도 prior",
@@ -277,11 +335,18 @@ def _resolution_reasons(
             "token": f"입력 토큰을 모두 포함하는 {ko_universe} 후보 중 {ko_rank} 우선",
             "substring": f"부분 회사명과 일치하는 {ko_universe} 후보 중 {ko_rank} 우선",
             "fuzzy": f"제한적 오타 교정 후 {ko_universe} 후보 중 {ko_rank} 우선",
+            # 261018: 식별자로 찾은 것을 「공식명 또는 등록 별칭 일치」로 적고 있었다(matched_on 은 ticker 인데 문장은 이름 일치).
+            "ticker": "종목코드 일치",
+            "corp_code": "DART 고유번호(corp_code) 일치",
+            "share_class": "종류주(우선주 등) 종목코드 — 발행 회사로 식별",
         }.get(kind, "공식명 또는 등록 별칭 일치"),
         "en": {
             "token": f"All query tokens matched; ranked {en_universe} by {en_rank}",
             "substring": f"Partial name matched; ranked {en_universe} by {en_rank}",
             "fuzzy": f"Applied limited typo correction, then ranked {en_universe} by {en_rank}",
+            "ticker": "Matched the ticker (stock code)",
+            "corp_code": "Matched the DART corp_code",
+            "share_class": "Class-share (e.g. preferred) ticker — resolved to the issuing company",
         }.get(kind, "Matched an official name or registered alias"),
     }
 
@@ -302,8 +367,13 @@ def _resolution_payload(
         bool(meta.get("active_registry_used")),
         # 메타가 비었으면 **없는 근거를 주장하지 않는다** — 원장 최신순이 사실이다.
         str(meta.get("ranking_signal") or "registry_recency"),
+        inactive_listing=bool(meta.get("inactive_listing")),
     )
     reason = reason_i18n["en" if english else "ko"]
+    # 종류주 코드로 찾았으면 어느 코드였는지 싣는다(그 밖의 응답은 칸이 늘지 않는다).
+    share_class = {"share_class": meta["share_class"]} if meta.get("share_class") else {}
+    # 비활성 회사 하나로 확정했으면 그 사실을 칸으로도 싣는다(그 밖의 응답은 칸이 늘지 않는다).
+    inactive = {"listing_status": "inactive"} if meta.get("inactive_listing") else {}
     return {
         "query": query,
         "response_language": "en" if english else "ko",
@@ -316,6 +386,8 @@ def _resolution_payload(
         "market_data_source": meta.get("market_data_source"),
         "ranking_signal": meta.get("ranking_signal"),
         "alternatives": alternatives,
+        **share_class,
+        **inactive,
     }
 
 
@@ -342,7 +414,7 @@ async def build_company_payload(
     _mark("lookup_corp_code_all", stage_started_at)
 
     raw = (query or "").strip()
-    numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
+    numeric_query = _identifier_query(raw, matches)
     unlisted_only = False
     if not numeric_query and matches:
         # 🔴 260824: 여기에 **상장사 필터가 두 벌** 있었다. `resolve_company_query` 는 명부
@@ -388,7 +460,7 @@ async def build_company_payload(
         warnings = [
             (f"No listed company matched '{query}'. A company that has been renamed will not match "
              "its former name — the registry carries current names only. Retry with the 6-digit "
-             "ticker, which survives a rename.")
+             "ticker, which survives a rename." + _registry_as_of_note(english=True))
             if english else company_not_found_warning(query)
         ]
         if unlisted_only:
@@ -436,7 +508,7 @@ async def build_company_payload(
     )
 
     stage_started_at = time.perf_counter()
-    (company_info, company_warn), (recent_filings, filings_window, filings_warn) = await asyncio.gather(
+    (company_info, company_warn), (recent_filings, filings_window, filings_warn, filings_state) = await asyncio.gather(
         company_info_task,
         filings_task,
     )
@@ -452,15 +524,20 @@ async def build_company_payload(
         "E": "비상장",
     }
     warnings = [warning for warning in (company_warn, filings_warn) if warning]
+    if filings_state == RECENT_FILINGS_NONE:
+        warnings.append(recent_filings_none_note(filings_window, _prefers_english(query, language)))
     if not company_info.get("jurir_no"):
         warnings.append("ISIN is not connected to the company tool yet." if _prefers_english(query, language) else "ISIN은 아직 company tool에 연결되지 않았다.")
 
     # company tool은 회사 정보가 항상 있어 no_filing 케이스가 거의 없다.
     # 다만 recent_filings 0건은 NO_FILING으로 표시 (정상). company_info 자체가
     # 없는 경우 (corp_code 미등록)는 위에서 ERROR로 분기되어 여기 도달 안 함.
+    # 🔴 목록 조회가 **실패**했으면(013 이 아닌 DART 오류) 0건은 「없다」가 아니라 「모른다」다 —
+    #    no_filing 으로 적지 않는다(261018: 종전엔 실패도 no_filing·「최근 공시 없음」으로 나갔다).
     filing_meta = build_filing_meta(
         filing_count=len(recent_filings),
         parsing_failures=0,
+        fetch_failed=filings_state == RECENT_FILINGS_FAILED,
     )
 
     payload = {
@@ -470,6 +547,8 @@ async def build_company_payload(
         "canonical_name": corp_name,
         "identifiers": {
             "ticker": selected.get("stock_code", ""),
+            # 종류주 코드로 물었을 때만 — 회사 식별자(ticker)는 보통주 코드 그대로, 물은 종류주 코드는 따로 싣는다.
+            **({"share_class_ticker": share_class_ticker(selected)} if share_class_ticker(selected) else {}),
             "corp_code": selected.get("corp_code", ""),
             "isin": "",
             "jurir_no": company_info.get("jurir_no", ""),
@@ -544,7 +623,24 @@ def company_not_found_warning(query: str, *, listed_only: bool = False) -> str:
         f"'{query}'에 해당하는 {subject}를 찾지 못했다. "
         "사명이 바뀐 회사는 옛 이름으로 조회되지 않는다(회사 목록에 현재 사명만 있다) — "
         "종목코드 6자리로 다시 조회하면 사명이 바뀌어도 찾을 수 있다."
+        + _registry_as_of_note()
     )
+
+
+def _registry_as_of_note(english: bool = False) -> str:
+    """「못 찾았다」 끝에 붙이는 회사 명부 기준 시각(261018) — 명부가 낡았을 때만이 아니라 **늘** 싣는다.
+
+    그 시각 뒤에 상장했거나 사명을 바꾼 회사는 명부에 아직 없을 수 있다 — 사용자가 「신규상장이라 아직 없는가」를 스스로 가늠한다.
+    명부는 하루 한 번 + 못 찾았을 때(1시간보다 묵었으면) 새로 받으므로, 여기 시각은 그 시도 뒤의 것이다. 시각을 모르면 붙이지 않는다."""
+    from open_proxy_mcp.dart.client import corp_registry_as_of
+
+    as_of = corp_registry_as_of()
+    if not as_of:
+        return ""
+    if english:
+        return (f" Company registry as of {as_of} (when the DART company list was fetched) — "
+                "a company listed or renamed after that may not be in it yet.")
+    return f" 회사 명부 기준: {as_of}(DART 회사 목록을 받은 시각) — 그 뒤 상장·사명 변경은 아직 명부에 없을 수 있다."
 
 
 #: 회사 미해결 안내의 **다음 경로**. 문구를 tool 마다 지어내지 않게 상수로 둔다.
@@ -583,7 +679,7 @@ async def resolve_company_query(query: str) -> CompanyResolution:
     matches = await client.lookup_corp_code_all(query)
 
     raw = (query or "").strip()
-    numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
+    numeric_query = _identifier_query(raw, matches)
     if not numeric_query:
         # 🔴 **판별 기준은 「상장사냐」가 아니라 「공시 의무가 있느냐」다.** 260823 실측 —
         #    DART 는 상장폐지돼도 stock_code 를 지우지 않고(신한은행·우리은행·KB손해보험

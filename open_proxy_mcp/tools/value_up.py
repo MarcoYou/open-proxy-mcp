@@ -56,7 +56,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     if data.get("no_filing"):
         lines.extend([
             "## 공시 없음",
-            "- 조사 구간 내 기업가치제고(밸류업) 공시 없음 (정상 NO_FILING).",
+            "- 조사 구간 내 기업가치제고(밸류업) 공시 없음 (정상).",
             "",
         ])
 

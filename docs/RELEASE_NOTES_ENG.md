@@ -10,6 +10,25 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - When there is no overlap, reports are grouped by the **share count behind each stake** (shares held ÷ stake). Reports filed on either side of a debt-for-equity swap, capital reduction or new share issue have different denominators and cannot be added — at STX, the swap-era reports (KDB, Woori Bank, NH Bank) sit on about 170.52M shares, Bumhan Industries after the reduction and third-party allotment on about 28.66M. The `blocks` view shows this as a table; the data gains `block_camps.report_bases`, `overlap_found` and `over_100_note`. If no reason can be found, the note says so and points to the filings.
 - When a reporter files two 5% reports on the same day, the **later** one is now taken as current. Until now the one listed first won, so STX's Shinhan Bank kept its 5.81% swap-era stake although a same-day 0.34% report followed the capital reduction (STX total 199.86% → 194.05%). The path that estimates the largest shareholder from 5% reports had the same issue.
 
+### Largest-shareholder stake change reports are read by column name · no more birth dates — `ownership_structure(scope="changes")`
+
+- The stake change report summary now shows the **shares, stake and report date** of the previous and current reports, and the change. Until now the report date (e.g. 2026-09-21) landed in the shares slot, the shares in the stake slot, and the current report came out as 0 shares — for every such report since the feature shipped in 2026-04.
+- 🔴 The holdings table no longer puts an **individual holder's birth date in the shares column**. Personal details (birth date, business registration number, gender, nationality) are not included from any table; only a marker that they were left out. The holdings table now has name, relation, domestic/foreign and common/total shares and stake.
+- The "(largest shareholder change)" form shows the **before** and **after** holder groups separately. Holder names in per-person changes no longer come out as the section heading ("4. 개인별 세부변동사항").
+- A table whose columns are not recognised is reported as "not read — table N of the filing (section heading)" and raised as a warning, never filled with zeros. A mismatch between the summary total and the holdings total is flagged.
+
+### The morning disclosure digest shows the consensus gap on provisional-earnings cards too
+
+- Provisional-earnings cards in `screener(details=true)` get one line such as "vs consensus revenue −4.7% (expected 204.57T KRW) · operating profit −2.9% (expected 110.57T KRW) — snapshot 2026-09-26, 12 days before the filing". In JSON it is the card's `detail_fields.consensus_gap`.
+- Only quarterly cards that were compared with consensus get the line. Monthly results and cards with no consensus found show the provisional figures only, as before. 9 of 17 earnings cards from 2026-10-07 to 10-16.
+
+### Provisional earnings now show the gap to consensus
+
+- `provisional_earnings` compares a quarterly provisional result with **the consensus from the week before the filing** and shows the expected revenue, operating profit and controlling net income with the gap (%). The provisional figures and the original table are unchanged; a comparison line and JSON `data.consensus_gap` are added.
+- The consensus used is the latest weekly snapshot **before** the filing date — estimates revised after the filing are not used. The snapshot date, basis (consolidated/separate) and source are stated.
+- Monthly results (monthly sales or volumes), fiscal-year results, cumulative periods, consolidated/separate mismatches and cases where no consensus is found (outside coverage or history) show only the provisional figures, without a comparison line (estimate history starts 2026-08-29 and is kept for 13 weeks).
+- Measured on 39 provisional filings from 2026-08-29 to 10-18: 26 monthly filings excluded, 9 of 13 quarterly filings compared (Samsung Electronics Q3 revenue −4.7%, operating profit −2.9%).
+
 ### When the largest shareholder changes, and the contracts that would change it — `ownership_structure(scope="changes")`
 
 - Reads **largest-shareholder change** filings and the **share transfer** and **share pledge** contracts attached to them (signed and terminated), cell text as written — before/after holder and stake, reason, purpose and funding, transferor, transferee, price and expected date, the stake left if the pledge is fully enforced, termination reason and before/after.
@@ -23,6 +42,15 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - Resolutions are amended often (almost half of meetings), so each version comes with its **amendment history** — reason and changed cells (before → after). Warns when an amendment points to another meeting, or when a comparison-only amendment cleared the date.
 - `screener` opens board-resolution cards through this path too — fixing cards that showed zero agenda items or labelled an extraordinary meeting as annual. Shows "agenda pending" when there is none yet.
 
+### "No data" is an answer, "lookup failed" is a failure — response wording and status values corrected
+
+- Places that reported DART's "no data found" as a failure now say it as information. E.g. for a merged or delisted company, `company` no longer says "최근 공시 인덱스 조회 실패: 013" (recent filings lookup failed) but "no DART filings in the search window — the lookup succeeded", and `dividend_disclosure` drops "alotMatter 조회 실패: 013" (it only means that year's annual report does not exist; the existing note explains it).
+- Conversely, when a DART rate limit, maintenance window or transport error kept a list from being read, tools used to answer "no filings (normal)", "treated as no dividend (normal)" and `no_filing`. They now say "unknown": `status=error` (`partial` for `proxy_contest` and `shareholder_commitment`, which still show what they did receive) with `filing_status=fetch_failed` — `dividend_disclosure`, `corporate_deals`, `corporate_restructuring`, `dilutive_issuance`, `treasury_share`, `order_contracts`, `corp_gov_report`, `risk_events`, `financial_metrics`, and `company` (recent filings). `order_contracts` that finds supply-contract filings but cannot fetch any of their documents now returns `partial`, not `no_filing`.
+- `proxy_contest` ownership register: when the base-year annual report is not filed yet (January–March every year, or after a merger or delisting), it falls back to the previous year's report and says which year. Until now the ownership context came back empty with "ownership register lookup failed".
+- `provisional_earnings`: a company with no preliminary-earnings filings returned "filing search failed" (`error`); it now returns `no_filing`. `risk_events` market-wide scan: one empty channel (e.g. a single weekend or holiday) no longer fails the whole scan.
+- `financial_notes` status values were upper-case `OK`/`NO_DATA`; they now use the same `exact`/`partial`/`no_filing`/`error` as other tools, and a missing report returns a response with a status (`error`, not `no_filing`, when the report search itself fails with a DART error). Field states in markdown read as words instead of `NOT_APPLICABLE`.
+- `financial_metrics`: removed the "reprt_code=11013 no_filing" line and the "⚠ some filings could not be read" line for years without financial filings. Values for normal data are unchanged.
+
 ### Amendment cards show what changed — `screener`
 
 - Amendment cards in `screener(details=true)` now carry the filing's own **item · before · after table**, cell text as written, with the stated reason, the amended document and its original filing date. Each row is marked changed, added or deleted.
@@ -30,26 +58,36 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - When there is no table, the card says why — attachment-only amendment, values only in footnotes, or form not recognized.
 - Usually no extra DART call (the same document is already cached). Treasury-share and capital-raise amendments, which use structured APIs only, cost one call each.
 
+### "KOSPI200" now means the actual KOSPI 200 constituents · "KOSDAQ150" is accepted
+
+- In `screener`, `trading_data(scope="universe")` and `forward_estimates_data(universe=…)`, "코스피200" (KOSPI 200) used to fall back to the **top 200 KOSPI stocks by market cap** because there was no constituent ledger. The index is chosen by sector representativeness and liquidity, not by market-cap rank, so the two differed — as of 2026-10-16, 34 of the 201 actual constituents (Hite Jinro, Ottogi, Chong Kun Dang, Daewoong Pharmaceutical, …) were missing and 33 non-members (REITs, an infrastructure fund, …) were included.
+- Answers now use the actual constituents. The membership is refreshed daily and applied only when it matches the index totals published by KRX (market cap, volume and trading value) exactly. Responses carry the membership check date (`members_dd`) and warn if the check is more than 10 days behind.
+- "코스닥150" (KOSDAQ 150) and "KOSPI 200" (with a space) are understood — previously they were asked back as "top 150 by market cap, or a company name?".
+- The ranked list is not cut at the nominal size (a spun-off company stays in the index until the next regular review, so some days have 201 members). Only when the constituent ledger cannot be read does it fall back to the market-cap ranking, and it says so.
+
 ### Company-name inference picks only currently listed companies
 
-- When a company is inferred from a partial name (e.g. "현대미포", "동양생명"), companies that did not trade on KOSPI or KOSDAQ on the latest trading day — delisted or merged companies and KONEX companies — are no longer chosen. Their official names and tickers still resolve ("에이치디현대미포", "HD현대미포", "010620").
+- When a company is inferred from a partial name and any company that traded on KOSPI or KOSDAQ on the latest trading day matches, companies that did not trade — delisted or merged companies and KONEX companies — are not chosen ("세이" → SAVEZONE I&C). Their official names and tickers still resolve ("에이치디현대미포", "HD현대미포", "010620").
+- When no trading company matches and **exactly one non-trading company** does, that company is returned ("현대미포" → HD Hyundai Mipo · "동양생명" → Tongyang Life Insurance). The response says up front that it is a delisted/KONEX-type inactive company; `company` reports low confidence and `listing_status=inactive`. If two or more such companies match ("더존"), none is chosen and near candidates are shown.
+- The notice that a company was inferred from a partial name (the "「현대미포」를 **에이치디현대미포**(으)로 추정했습니다 …" line) was missing from `dividend_data`, `forward_estimates_data`, the history and sector views of `price_multiple_data`, and the company-list view of `trading_data`. These now carry it at the top too. Values are unchanged.
+- When a name in a company list (`universe="삼성전자, 현대미포"`) resolves to such a company, it stays in the list with the note "identified as an inactive company — no row in price or market-cap tables" (it has no latest quote, so `trading_data` and `forward_estimates_data` tables have no row for it). Holdings valuation (`asset_holdings`) does not attach such a company as a "guessed candidate".
 - This was the intended design, but it had been switched off since the 2026-08-23 market-code rename. The inference reason now reads "active listed companies" instead of "companies with a ticker". Official-name lookups are unchanged.
 - If the quote store cannot be read once, the previous listing registry is kept and re-read after one minute.
 
 ### Weekly prices store closed weeks only · year-end values use the actual last trading day
 
-- The weekly price store no longer deletes and rewrites the current week's rows every trading day; it stores each week's last trading day once, after the week ends. The current week's latest values still come from the last-7-trading-days daily quotes — `trading_data`, `price_multiple_data` and `screener` responses are unchanged.
+- The weekly price store no longer deletes and rewrites the current week's rows every trading day; it stores each week's last trading day once, after the week ends. The current week's latest values still come from the daily quotes — `trading_data`, `price_multiple_data` and `screener` responses are unchanged.
 - Fixed the year's last trading day (Dec 30) being deleted by the next year's first trading day in years where Dec 31 falls on a Tuesday–Thursday. Year-end values for 2019, 2024 and 2025 were a day or two early (the Friday: Dec 27, Dec 27, Dec 26); year-end bands and year-end dividend yields now use the actual last trading day. `trading_data(scope="firm")` series gain one extra point in the week the year changes.
 
-### Last 7 trading days of quotes served from the database — faster `trading_data` quotes
+### About a year of quotes served from the database — faster `trading_data` quotes
 
-- `trading_data(scope="quote")` answers instantly for the **last 7 trading days** from daily quotes the server keeps (open, high, low, close, volume, traded value, listed shares); only older dates are fetched from KRX. Output fields are unchanged; `data.source` is added.
-- The first quote question of the day no longer waits 2-12 seconds on a KRX refresh. The server refreshes in the background Monday–Saturday mornings (07:30-20:00 KST; Saturday picks up Friday's close).
-- Market cap is close × listed shares; change and change % are computed against the previous weekday's close. When the previous weekday has no stored row (day after a holiday or a missed day) or the move exceeds ±30% (stock split, ex-rights and other base-price adjustments), the KRX-published figures are used instead.
+- `trading_data(scope="quote")` answers instantly for **about the last year** (from the latest trading day back one year and one week) from daily quotes the server keeps (open, high, low, close, volume, traded value, listed shares, change); only older dates are fetched from KRX. Output fields are unchanged; `data.source` is added.
+- The first quote question of the day no longer waits 2-12 seconds on a KRX refresh. The server refreshes in the background Monday–Saturday mornings (07:30-20:00 KST; Saturday picks up Friday's close) and fills in days it missed while down.
+- Market cap is close × listed shares. Change and change % are the KRX-published figures (against the base price), stored with each day — they match KRX on the day after a holiday and on stock-split or ex-rights days too.
 
 ### Faster dividend and per-company valuation-history lookups
 
-- `dividend_data` no longer freezes the rest of the server while it waits for the database. The span of fiscal years is remembered for 6 hours instead of being re-queried on every call. Output is unchanged.
+- `dividend_data` no longer freezes the rest of the server while it waits for the database. The span of fiscal years is read through an index on every call, so a newly loaded fiscal year shows up on the next call. Output is unchanged.
 - `price_multiple_data` `scope="firm_history"` (a company's weekly history) and `scope="firm"` (one company) send database lookups that do not depend on each other at the same time. One call sends at most 3 lookups at once; output is unchanged.
 - The indexes on the dividend ledger (`div_declared`) are applied once by the operator (`scripts/div_indexes_ddl.py`).
 
@@ -58,6 +96,23 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - Official names carrying a Korean legal-form marker ("한화갤러리아㈜", "(주)한화갤러리아") now resolve as exact matches rather than inferences.
 - Legal names that spell an English name in Hangul ("삼성에스디아이" → Samsung SDI, "삼성이앤에이" → Samsung E&A) and REIT legal names ("롯데위탁관리부동산투자회사" → LOTTE REIT) also resolve. They are accepted only when they become exactly a registered name, and never when two companies match.
 - Names that already resolved are unchanged. Preferred-share names ("삼성전자우") are still only inferred as the common-share company.
+
+### Consensus revisions over 26 and 52 weeks — `forward_estimates_data`
+
+- In step with the storage change that keeps **52 weeks** of consensus history in the database, revisions add **26-week and 52-week** comparisons — both per company (`bundle="revision"`) and in the universe screen (`window="26w"`, `"52w"`).
+- Per company, the 26-week and 52-week columns appear only once the history reaches that far; until then the response says "only N weeks of history". Today (7 weeks of history) the 1/4/12-week table is unchanged.
+- The "13-week rolling" note now states **how many weeks the database actually holds**, and that older weeks live only in an off-database archive this tool does not read.
+- After the storage change, a company whose latest snapshot is older than the newest one (delisted, suspended, or dropped from coverage) gets a warning instead of an old snapshot read as current.
+- Response fields are unchanged; `revision.first_as_of`, `history_weeks`, `windows_not_reached` and `db_window_weeks` are added.
+- The consensus comparison on preliminary earnings (`provisional_earnings` → `consensus_gap`) follows the same rule: its source note states the weeks actually held, and it gives the same reference snapshot and values after the storage change.
+
+### Small fixes — not-found guidance · evidence order · call count
+
+- When a company cannot be found, the guidance now always ends with the **company-registry time** ("Company registry as of 2026-10-18 22:04 KST …") — a company listed after that may not be in it yet.
+- `trading_data` (per-company prices and quotes) and `dividend_data` (a company's dividend history) now give the same not-found guidance as the other tools (where a renamed company went, retry by ticker). They used to return a single "not found" line.
+- `company` lookups by ticker or corp_code no longer give the reason "Matched an official name or registered alias"; they say "Matched the ticker (stock code)" / "Matched the DART corp_code".
+- `law_lookup` evidence references (`evidence_refs`) no longer change order each time the server restarts; they follow the result ranking.
+- `business_details` asks the DART filing list once instead of three times (the same list) when finding reports. Results are unchanged.
 
 ## 2026-10-05
 

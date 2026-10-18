@@ -1356,7 +1356,9 @@ def build_law_lookup_payload(
 
     evidence_refs = []
     meta = idx.get("meta", {})
-    seen_laws = {r["law"] for r in results}
+    # 결과에 처음 나온 순서(= 순위)대로. 261018: 종전엔 집합(set)을 돌아 문자열 해시 씨앗에 따라 프로세스마다 순서가 바뀌었다
+    #   (같은 질의가 머신·재시작마다 「상법·자본시장법」「자본시장법·상법」으로 갈렸다).
+    seen_laws = list(dict.fromkeys(r["law"] for r in results))
     for lw in seen_laws:
         linfo = next((L for L in meta.get("laws", []) if L.get("law_short") == lw), {})
         evidence_refs.append(EvidenceRef(

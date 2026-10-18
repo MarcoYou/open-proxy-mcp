@@ -45,12 +45,17 @@ def _calls(tree) -> set[str]:
     return out
 
 
+#: 회사를 해석하는 관문들. `_resolve_listed`(가격 배수 서비스의 상장사 해석 — 안에서 `resolve_company_query` 를 부른다)를 거치는 모듈도
+#: 같은 안내를 줘야 한다 — 261018: `trading_data`·`dividend_data` 가 이 길로 해석하며 「상장사를 찾지 못했습니다」 한 줄만 냈다.
+RESOLVERS = {"resolve_company_query", "_resolve_listed"}
+
+
 def test_every_company_resolving_module_uses_the_canonical_hint():
-    """`resolve_company_query` 를 부르면 못 찾았을 때의 안내도 정본으로 준다."""
+    """`resolve_company_query`(또는 그것을 감싼 `_resolve_listed`)를 부르면 못 찾았을 때의 안내도 정본으로 준다."""
     bad = []
     for rel, _p, tree in _modules():
         calls = _calls(tree)
-        if "resolve_company_query" not in calls or rel in EXEMPT:
+        if not (calls & RESOLVERS) or rel in EXEMPT:
             continue
         if not (calls & HELPERS):
             bad.append(rel)

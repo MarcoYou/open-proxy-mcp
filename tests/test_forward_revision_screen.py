@@ -368,3 +368,43 @@ def test_flat_and_short_history_are_not_sole_updates(monkeypatch):
     _stub(monkeypatch, hist=sorted(hist, key=lambda r: (r[0], r[1])))
     p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))
     assert p["data"]["sole_update"] == []
+
+
+def test_26w_and_52w_windows_are_accepted_and_short_history_is_flagged(monkeypatch):
+    """261018(DB 보관 52주): 스크린 창에 26w·52w. 이력이 14주뿐이면 행마다 「이력 짧음」으로 가장 오래된 스냅샷과 비교한다."""
+    calls = _stub(monkeypatch)
+    for win, days in (("26w", 182), ("52w", 364)):
+        p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4", window=win))
+        d = p["data"]
+        assert p["status"] == "ok" and d["window"] == win and d["window_days"] == days
+        top = d["rows"][0]
+        assert top["ticker"] == "005930" and top["history_short"] is True and f"op_krw_{win}_pct" in top
+        assert any(f"이력이 {win} 에 못 미쳐" in w for w in p["warnings"])
+    assert all("fwd_asof" not in sql for sql, _ in calls)          # 주별 모양(교체 전) 질의 그대로
+    md = tool._render_revision_screen(p)
+    assert "영업이익 52w | 이동 | 매출 52w" in md and "(이력 짧음)" in md
+
+
+def test_screen_note_names_the_actual_db_retention(monkeypatch):
+    _stub(monkeypatch)
+    note = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))["data"]["note"]
+    assert "13주 롤링" not in note and "최근 13주" in note and "보관본" in note
+
+
+def test_index_universe_names_the_ledger_not_a_cap_ranking(monkeypatch):
+    """261019: 「코스닥150」은 지수 구성종목 원장에서 온 집합이다(#113) — 경고가 「시총 순위」라고 적으면 그 PR 이 바로잡은 오해
+    (지수 = 시총 상위 N)를 되살린다. `trading_data(scope=universe)` 처럼 원장 확인일 `members_dd` 를 싣고 원장이라고 적는다.
+    시총 순위 유니버스는 종전 문장·칸 그대로."""
+    _stub(monkeypatch)
+    p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))
+    assert "members_dd" not in p["data"]
+    assert any(w.startswith("유니버스(시총 순위)는") and "20260911" in w for w in p["warnings"])
+
+    async def lu(raw):
+        return uni.UniverseList(spec="kosdaq150", label="KOSDAQ150", resolved=True, as_of="20260911",
+                                rows=list(_UNI), members_dd="20260910")
+    monkeypatch.setattr(uni, "list_universe", lu)
+    p = asyncio.run(fe.build_revision_screen_payload("코스닥150"))
+    assert p["status"] == "ok" and p["data"]["members_dd"] == "20260910" and p["data"]["universe_as_of"] == "20260911"
+    assert not any("시총 순위)는" in w for w in p["warnings"])
+    assert any("KOSDAQ150 구성종목 원장(마지막 확인 20260910)" in w and "최신 거래일(20260911)" in w for w in p["warnings"])

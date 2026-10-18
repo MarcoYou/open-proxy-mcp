@@ -31,8 +31,8 @@ updated: 2026-10-18
 | `dividend_data` | 여러 해·조건·시장·섹터를 DB 에서 (이 문서) | 0 |
 
 ## 한 줄 요약
-DART 정기보고서 `alotMatter` **전수 수집본**(코스피 828사 × FY2020~2025)과 「현금ㆍ현물배당결정」
-원문 집계(FY2020~2024)를 스코프로 갈라 읽는다. 한 회사의 여러 해(`firm`), 조건으로 거르기
+DART 정기보고서 `alotMatter` **전수 수집본**(코스피 약 830사 × FY2020~, 매주 갱신)과 「현금ㆍ현물배당결정」
+원문 집계(온전한 해만 횟수)를 스코프로 갈라 읽는다. 한 회사의 여러 해(`firm`), 조건으로 거르기
 (`screen`), 시장 전체 집계(`market`), WICS 섹터별 집계(`sector`) 넷.
 
 ## 사용법
@@ -58,9 +58,16 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 직접 센 것 — 원장 분기 칸이 비었는지 여부와 무관하다. `quarterly_only=True` 는
 `min_payments=2` 의 별칭으로 남겼다(하위호환).
 
-**FY2020~2024 만** 신뢰한다(`div_payment_scope.is_complete`). FY2018·2019 는 수집창
-이전 결의가 빠졌고, FY2025 는 결산 결의가 다음 해 접수라 아직 안 걷혔다. 그 밖의 해에
+**온전한 해만** 신뢰한다(`div_payment_scope.is_complete`). FY2018·2019 는 수집창
+이전 결의가 빠졌고, 최근 해는 결산 결의가 이듬해(9·11월 결산사는 그 뒤)에 접수돼 아직 다 안 걷혔다
+— 수집 기준일이 그 해 결의 마감 추정일(`reason`)을 넘으면 저절로 온전해진다. 그 밖의 해에
 걸면 `status=scope_incomplete` 를 낸다 — 조용히 틀린 답을 내지 않는다.
+
+## 올해 — 분기 행이 먼저 들어온다 (261019)
+원장은 매주 갱신된다. 올해 1분기·반기 보고서 행이 사업보고서(이듬해 3월)보다 먼저 들어오므로,
+`screen` 의 **기본 사업연도는 사업보고서가 있는 마지막 해**다. 사업보고서가 아직 없는 해를
+`bsns_year` 로 직접 고르면 「아직 사업보고서 없음」(`status=invalid`)으로 답한다 — 빈 목록을
+「그런 회사가 없다」로 읽지 않게. 그 해 분기 배당은 `firm`(분기 표, 기본 구간이 올해까지)으로 본다.
 
 ## 결정공시 이력열·`firm` 결정공시 표 — 0 과 모름을 가른다
 | 값 | 뜻 |
@@ -151,7 +158,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
   맞았다. 신고총액 하나만 낸다.
 - **한 종목의 우선주가 여러 종류(우·2우B·3우B)여도 「우선주」 한 줄로 나온다.**
 - **정정 여부 칸이 없다.** 접수번호가 사업연도보다 뒤인 줄이 정정본일 수 있다.
-- **결정공시 횟수는 코스피·FY2020~2024 만.** 코스닥·그 밖 연도는 `dividend_disclosure` 로
+- **결정공시 횟수는 코스피·온전한 해만.** 코스닥·그 밖 연도는 `dividend_disclosure` 로
   회사 하나씩 확인한다.
 - **특별배당의 금액을 못 가른다.** 정기·특별분이 한 결의에 합산돼도 서식에 분리 칸이
   없다. 비고에 주당 특별배당분이 적힌 예외적인 경우만 [[dividend_disclosure]] 가
@@ -163,7 +170,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 
 ## DB 호출 (261018)
 - 모든 DB 읽기는 이벤트 루프 밖 스레드에서 돈다. 종전엔 async 도구 안에서 동기로 불러, 질의가 끝날 때까지 서버 전체(다른 도구·`/health`)가 멈췄다.
-- 사업연도 범위(`MIN/MAX(bsns_year)`)는 호출마다 묻지 않고 프로세스 메모리에 **6시간** 담는다(새 사업연도는 연 1~2회 적재). 실패·빈 표는 담지 않는다.
+- 사업연도 범위(`MIN/MAX(bsns_year)`)는 **호출마다** 묻는다 — 인덱스 `div_declared_yr` 양 끝 한 칸씩만 읽는다(운영 EXPLAIN Index Only Scan). 새 사업연도를 적재하면 다음 호출부터 기본 연도·범위에 보인다(261018 — 그 전엔 6시간 메모리 캐시라 적재 뒤 최대 6시간, 머신마다 지난해가 기본이었다).
 - 원장 `div_declared` 는 인덱스가 없어 매 질의가 표 전체를 훑었다. 인덱스 두 개(`(corp_code, reprt_code, bsns_year)` · `(bsns_year)`)는
   `scripts/div_indexes_ddl.py` 로 사람이 한 번 적용한다(서버는 DDL 을 실행하지 않는다). 결정공시 표(`div_payment`)는 이미 `(corp_code, fiscal_year)` 인덱스를 쓰므로 더하지 않았다.
 - 원장 5표(`div_declared`·`div_quarterly`·`div_payment`·`div_payment_scope`·`div_yield_hist`)에 기본키를 건다 — `scripts/div_keys_ddl.py` 로 사람이 한 번 적용.
@@ -175,6 +182,8 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
 
 ## 변경 이력
+- 2026-10-18: 회사 이름이 추정으로 맞으면(비활성 회사로 확정한 경우 포함) `firm` 응답 맨 앞에 [[company]] 와 같은 추정 고지를 싣는다 — 종전엔 「현대미포」가 상장폐지된 에이치디현대미포의 표로 고지 없이 나갔다(md 는 제목 아래 `> ⚠`, json 은 `warnings`). 표 내용은 그대로.
+- 2026-10-18: 사업연도 범위 6시간 캐시를 걷어냈다 — 새 사업연도 적재가 다음 호출부터 보인다(인덱스가 있어 비용 없음). `firm` 에서 회사를 못 찾으면 다른 도구와 같은 정본 안내(사명 변경 행선지·종목코드·회사 명부 기준 시각)를 싣고, `format=json` 이면 JSON 으로 낸다(종전 제목 한 줄).
 - 2026-10-18: 원장 5표 기본키 스크립트(`scripts/div_keys_ddl.py`) — 적재가 바뀐 행만 맞추는 키. 출력은 그대로.
 - 2026-10-18: DB 호출을 이벤트 루프 밖으로 옮기고 사업연도 범위를 6시간 메모리 캐시. 원장 인덱스 스크립트 추가. 출력은 그대로.
 - 2026-10-18: `krx_listing` 배치를 증분으로 — 관측창 시작은 상수(20151230), 새 관측은 최근 주만 읽어 `first_seen_dd=LEAST`·`last_seen_dd=GREATEST` 로 합친다.

@@ -22,6 +22,7 @@ from open_proxy_mcp.services.contracts import (
     build_usage,
     status_from_filing_meta,
 )
+from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import (
     fetch_filings_for_title_scan,
@@ -172,6 +173,12 @@ async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], st
     try:
         data = await client.get_dividend_info(corp_code, str(year), "11011")
     except DartClientError as exc:
+        if is_no_data(exc):
+            # 013 = 그 사업연도 사업보고서의 배당 사항이 DART 에 없다(미제출·합병·상장폐지 등) — **실패가 아니라 답**이고,
+            # 빈 표(정상 응답 + 항목 없음, 아래)와 같은 뜻이라 같은 값을 돌려준다(261018: 종전엔 「alotMatter 조회 실패: 013」
+            # 이 dividend_disclosure 경고에 그대로 실렸다). 요약이 비면 호출부가 배당결정 공시 합산 또는 「무배당으로 본다」
+            # 안내를 이미 싣고, price_multiple_data 의 `_dps_fetch_failed` 도 None 을 「실패 아님」으로 읽는다.
+            return {}, None
         return {}, f"alotMatter 조회 실패: {exc.status}"
     items = parse_dividend_items(data)
     if not items:
@@ -1119,9 +1126,12 @@ async def build_dividend_payload(
     has_dividend_signal = bool(details) or bool(
         latest_summary and int(latest_summary.get("cash_dps") or 0) > 0
     )
+    # 🔴 배당 사항(alotMatter)·배당결정 공시 검색 중 하나라도 **실패**(013 이 아닌 DART 오류)했는데 0건이면 「무배당」이 아니라
+    #    「모른다」다 — no_filing·「무배당으로 본다 (정상)」으로 적지 않는다(261018: 020 한도 초과가 무배당으로 나갔다).
     filing_meta = build_filing_meta(
         filing_count=len(details) + (1 if (latest_summary and int(latest_summary.get("cash_dps") or 0) > 0) else 0),
         parsing_failures=0,
+        fetch_failed=bool(summary_warning or filing_warning),
     )
 
     data: dict[str, Any] = {

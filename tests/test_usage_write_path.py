@@ -90,6 +90,14 @@ def _rows(seen):
 
 # ── DB 없이 ──────────────────────────────────────────────────────────────
 
+def test_default_window_is_two_seconds_and_the_env_still_overrides(load_usage, monkeypatch):
+    """261018: 5초 → 2초. 송신함은 꺼낸 묶음만 받치고 **모으는 창 안의 행은 메모리에만** 있어 강제 종료에 잃는다 — 그 폭을 줄인다."""
+    monkeypatch.delenv("OPM_USAGE_FLUSH_SEC", raising=False)
+    assert load_usage()._FLUSH_SEC == 2.0
+    monkeypatch.setenv("OPM_USAGE_FLUSH_SEC", "5")
+    assert load_usage()._FLUSH_SEC == 5.0
+
+
 def test_records_inside_the_window_go_out_as_one_batch(load_usage, monkeypatch):
     """묶어 쓰기 — 창(`_FLUSH_SEC`) 안에 들어온 30건이 **한 번에** 나간다. 종전엔 30번 확정했다."""
     usage = load_usage(_FLUSH_SEC=0.5)

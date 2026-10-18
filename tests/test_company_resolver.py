@@ -148,10 +148,17 @@ def test_active_registry_does_not_revive_inactive_inferred_candidates():
         {"corp_code": "old2", "corp_name": "삼성과거회사", "corp_eng_name": "OLD SAMSUNG TWO", "stock_code": "900002", "modify_date": "20200101"},
     ]
     market = MarketContext({"900001": 100, "900002": 90}, frozenset({"005930"}), "20260721")
-    assert CompanyResolver(corps, {}, market).search("삼성") == []
+    hit = CompanyResolver(corps, {}, market).search("삼성")
+    # 261019: 비활성 후보 둘 — 되살려 **고르지는** 않는다(시총이 있어도 자동 선택 아님). 다만 빈 목록 대신 고르지 않은 후보로 돌려
+    # 확정 관문이 AMBIGUOUS(후보표)로 답하게 한다 — `_resolve_listed` 를 타는 도구가 후보를 잃지 않게(`_inactive_single`).
+    assert [h["corp_name"] for h in hit] == ["삼성옛회사", "삼성과거회사"]
+    assert all(not h["_resolution"]["auto_selected"] and h["_resolution"]["inactive_listing"] for h in hit)
+    status, selected, _ = _resolve_match("삼성", hit)
+    assert status == AnalysisStatus.AMBIGUOUS and selected is None
 
 
-#: 활성 명부 밖(합병·상장폐지·코넥스) 회사들 — 이름 조각이 이 회사들을 가리키면 검색은 「못 찾음」이고 제안만 남는다.
+#: 활성 명부 밖(합병·상장폐지·코넥스) 회사들. 이름 조각이 이 회사 **하나만** 가리키면 검색은 그 회사를 비활성 표지와 함께 고르고
+#: (261018 — `tests/test_company_resolver_inactive_single.py`), 둘 이상이면 고르지 않은 후보(AMBIGUOUS)로 돌려준다(261019).
 _GONE = [
     {"corp_code": "g1", "corp_name": "에이치디현대미포", "corp_eng_name": "HD HYUNDAI MIPO", "stock_code": "010620", "modify_date": "20251201"},
     {"corp_code": "g2", "corp_name": "에이치디현대인프라코어", "corp_eng_name": "HD HYUNDAI INFRACORE", "stock_code": "042670", "modify_date": "20250101"},
@@ -167,9 +174,11 @@ def _gone_resolver(extra: list[dict] | None = None, caps: dict[str, int] | None 
     return CompanyResolver(corps, ALIASES, MarketContext({**MARKET.market_caps, **(caps or {})}, active, "20261016"))
 
 
-def test_suggest_shows_inactive_company_whose_name_contains_the_query_but_never_selects_it():
+def test_suggest_shows_inactive_company_whose_name_contains_the_query():
     resolver = _gone_resolver()
-    assert resolver.search("현대미포") == []            # 검색은 비활성 회사를 되살리지 않는다(자동 선택 없음)
+    # 261018: 이 조각을 품은 회사가 비활성 하나뿐이면 검색이 그 회사를 고른다(비활성 표지·추정) — 제안은 그대로다.
+    hit = resolver.search("현대미포")
+    assert [h["corp_name"] for h in hit] == ["에이치디현대미포"] and hit[0]["_resolution"]["inactive_listing"]
     near = resolver.suggest("현대미포")
     assert [c["corp_name"] for c in near] == ["에이치디현대미포"]
     assert "_resolution" not in near[0]                  # 제안은 해석 결과가 아니다 — 확정 표지를 달지 않는다
@@ -180,7 +189,8 @@ def test_suggest_full_query_infix_ranks_before_a_shorter_prefix_match():
     # 앞자르기 「인프라」(3글자)만 맞는 쪽이 시총(로컬 prior)이 커도, 질의 5글자를 다 품은 쪽이 먼저다.
     market = MarketContext({**MARKET.market_caps, "247300": 999}, MARKET.active_tickers, "20261016")
     resolver = CompanyResolver([*CORPS, *_GONE], ALIASES, market)
-    assert resolver.search("인프라코어") == []
+    # 검색은 질의 5글자를 다 품은 비활성 회사 하나를 고른다(261018) — 앞자르기만 맞는 인프라웨어테크놀러지는 후보가 아니다.
+    assert [h["corp_name"] for h in resolver.search("인프라코어")] == ["에이치디현대인프라코어"]
     near = resolver.suggest("인프라코어")
     assert [c["corp_name"] for c in near] == ["에이치디현대인프라코어", "인프라웨어테크놀러지"]
 
@@ -219,8 +229,10 @@ def test_search_falls_past_inactive_token_hits_to_an_active_substring_match():
     assert status == AnalysisStatus.EXACT and selected and selected["stock_code"] == "067830"
 
     roots = _gone_resolver(_ROOTS, {"096690": 50, "195990": 30}).search("루트")
-    assert [m["corp_name"] for m in roots] == ["에이루트", "루트K"]      # 루트락(비활성)은 되살리지 않는다
-    assert _gone_resolver().search("루트") == []                         # 비활성뿐이면 여전히 못 찾음
+    assert [m["corp_name"] for m in roots] == ["에이루트", "루트K"]      # 활성 회사가 맞으면 루트락(비활성)은 되살리지 않는다
+    # 활성 회사가 하나도 안 맞고 비활성 루트락 하나만 맞으면 그 회사를 비활성 표지와 함께 고른다(261018).
+    only = _gone_resolver().search("루트")
+    assert [m["corp_name"] for m in only] == ["루트락"] and only[0]["_resolution"]["inactive_listing"]
 
 
 def test_last_resort_runs_after_latinized_retry_so_existing_answers_stay():

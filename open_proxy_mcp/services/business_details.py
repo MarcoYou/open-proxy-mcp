@@ -1211,27 +1211,32 @@ async def _find_report_candidates(client, corp_code: str, period: str) -> list[d
     period="latest"(기본)=사업·반기·분기 통틀어 rcept_dt 최신(분기보고서가 연간보다 신선). II.사업의
     내용은 분기/반기도 완전구조라 동일 필드 파싱 — [[사업의내용_ksic별양식]]."""
     if period == "annual":
-        detail, toks = ["A001"], ["사업보고서"]
+        toks = ["사업보고서"]
     elif period in ("half", "semiannual", "반기"):
         # 🔴 260823 추가 — "quarterly" 는 분기와 반기를 함께 잡는다. 최신이 반기면 반기가
         #    나와서 **분기만 콕 집을 방법이 없었다.** 금융사는 분기마다 사용제한 잔액이
         #    크게 움직여 기준시점이 판단을 좌우한다 — 둘을 갈라 부를 수 있어야 한다.
-        detail, toks = ["A002"], ["반기보고서"]
+        toks = ["반기보고서"]
     elif period in ("quarter", "분기"):
-        detail, toks = ["A003"], ["분기보고서"]
+        toks = ["분기보고서"]
     elif period == "quarterly":
-        detail, toks = ["A002", "A003"], ["분기보고서", "반기보고서"]
+        toks = ["분기보고서", "반기보고서"]
     else:  # "latest"(기본) — 정기보고서 3종 중 가장 최근 제출분
-        detail, toks = ["A001", "A002", "A003"], ["사업보고서", "분기보고서", "반기보고서"]
-    from datetime import date
+        toks = ["사업보고서", "분기보고서", "반기보고서"]
     end = today_kst().strftime("%Y%m%d")
+    # 🔴 261018: 종전엔 상세유형마다 따로 물었다(latest 3번·quarterly 2번). 그런데 DART list.json 은 `pblntf_ty` 를 함께 주면
+    #    `pblntf_detail_ty` 를 무시하고 그 대분류(A=정기공시) 전체를 준다(실측: 삼성전자 A001·A003 모두 11건 같은 목록, detail 만 주면 사업보고서 3건 —
+    #    `dilution_allottees` 의 C001 실측과 같은 동작). 그래서 같은 목록을 2~3번 받아 **같은 보고서가 2~3번** 후보에 들었고, 최신 보고서의
+    #    원문이 014 면 같은 접수번호를 다시 받으러 갔다. 한 번 받아 보고서 이름으로 거른다 — 결과 집합은 그대로다(2026 신규 관측 43사 실측:
+    #    세 검색의 건수가 늘 같았고, 013 도 셋이 함께였다). 상세유형만 보내는 쪽으로 바꾸지 않는 까닭: 받는 범위를 지금과 같게 둔다.
+    res = await client.search_filings(bgn_de="20240101", end_de=end, corp_code=corp_code,
+                                      pblntf_ty="A", page_count=30)
     out: list[dict] = []
-    for dty in detail:
-        res = await client.search_filings(bgn_de="20240101", end_de=end, corp_code=corp_code,
-                                          pblntf_ty="A", pblntf_detail_ty=dty, page_count=30)
-        for r in res.get("list", []):
-            if any(t in r.get("report_nm", "") for t in toks):
-                out.append(r)
+    seen: set[str] = set()
+    for r in res.get("list", []):
+        if any(t in r.get("report_nm", "") for t in toks) and r.get("rcept_no") not in seen:
+            seen.add(r.get("rcept_no"))
+            out.append(r)
     out.sort(key=lambda r: r.get("rcept_dt", ""), reverse=True)
     return out
 

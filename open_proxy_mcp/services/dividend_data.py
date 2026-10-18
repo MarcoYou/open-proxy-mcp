@@ -1,10 +1,12 @@
 """dividend_data — 확정 배당 원장(`div_declared`·`div_quarterly`) + 결정공시 집계(`div_payment`) 조회 서비스.
 
 무엇 — 두 갈래를 각자 그대로 읽는다. **여기서 DART 를 호출하지 않는다.**
-  · 원장 — DART 정기보고서 `alotMatter` 를 코스피 828사 × 사업연도 2020~2025 × 보고서 4종으로
-    전수 수집. **얼마·배당성향**(금액)의 유일한 출처.
+  · 원장 — DART 정기보고서 `alotMatter` 를 코스피 약 830사 × 사업연도 2020~ × 보고서 4종으로
+    전수 수집(매주 갱신 — 법정 마감이 지난 보고서만). **얼마·배당성향**(금액)의 유일한 출처.
+    🔴 올해처럼 사업보고서(`11011`)가 아직 없는 해는 1분기·반기 등 분기 보고서 행만 있다 — 연간 확정치를
+    쓰는 화면(screen 기본 연도)은 `latest_annual_year()` 를 본다.
   · 결정공시 — 「현금ㆍ현물배당결정」 원문을 배당 한 번 = 한 행으로 접은 것(`div_payment`,
-    FY2020~2024 온전). **몇 번 배당했나**(횟수)의 유일한 출처. 실측(260903)으로 확인됨 —
+    온전한 해는 `div_payment_scope.is_complete` — 수집 기준일이 그 해 결산 결의 마감을 넘으면 켜진다). **몇 번 배당했나**(횟수)의 유일한 출처. 실측(260903)으로 확인됨 —
     원장 기반 분기배당 판정(구 `quarterly_only`)은 FY2024 「2회 이상」을 20사로 냈는데
     실제는 84사다(누락 64사, 오탐 0). 원장의 분기 칸은 회사 절반이 비워 두므로 「안 했다」와
     「모른다」를 못 가른다 — 결정공시는 실제로 접수된 건이므로 그 구멍이 없다.
@@ -40,15 +42,14 @@
   - **보통/우선 총액 배분은 내지 않는다.** `alotMatter` 에 종류별 발행주식수가 없어
     `DPS × 주식수` 로 만든 배분값은 신고총액과 57.2% 만 5% 이내로 맞았다(2026-09-02 검산).
     종류별 DPS 는 원문 그대로 내고, **총액은 신고총액 하나만** 낸다.
-  - **결정공시 횟수 집계는 FY2020~2024 만** 신뢰한다. FY2018·2019 는 수집창 이전 결의가
-    빠졌고, FY2025 는 결산 결의가 다음 해 접수라 아직 안 걷혔다 — `div_payment_scope` 가
-    그 사실을 표로 갖고 있다.
+  - **결정공시 횟수 집계는 온전한 해만** 신뢰한다(`payment_scope_years()`). FY2018·2019 는 수집창
+    이전 결의가 빠졌고, 최근 해는 결산 결의가 이듬해(비12월 결산은 그 뒤)에 접수돼 아직 다 안 걷혔다 —
+    `div_payment_scope` 가 그 사실을 표로 갖고 있다(`reason` 에 마감 추정일).
 """
 from __future__ import annotations
 
 import calendar
 import logging
-import time
 from typing import Any
 
 from open_proxy_mcp.db import pg_rows
@@ -356,8 +357,8 @@ def screen(
     `div_declared`, **횟수**(`min_payments`)는 결정공시 `div_payment` — 자를 재료에서
     만들지 않는다(원장 스스로 배당구분을 4칸으로 억지로 나눈 값이 아니라, 실제 접수건 수).
 
-    `min_payments` — **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사. FY2020~2024
-    만 신뢰한다(`payment_scope_years()`) — 그 밖의 해에 걸면 `scope_incomplete` 를 낸다.
+    `min_payments` — **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사. 온전한 해만
+    신뢰한다(`payment_scope_years()`) — 그 밖의 해에 걸면 `scope_incomplete` 를 낸다.
 
     🔴 260903 갈아엎음 — 종전(`quarterly_only`)은 분기 **원장**(`div_quarterly`)의 확정
     칸이 2개 이상인지를 봤는데, 원장은 대다수 회사가 분기 배당칸을 비워 둔다. 실측
@@ -429,33 +430,27 @@ def screen(
     }
 
 
-#: 원장이 담은 사업연도 범위 `(처음, 마지막)` 의 메모리 캐시 TTL. 범위는 새 사업연도를 적재할 때(연 1~2회)만 바뀐다 — 6시간이면 충분하다.
-#: 261018: 이 질의는 `dividend_data` 의 **모든 호출**이 맨 앞에서 한 번씩 물었다. 그런데 `div_declared` 에 인덱스가 없어 표 전체(38,183행·
-#:   1,683쪽)를 읽었다 — 평균 475ms, 차가운 캐시 1.5초(운영 `pg_stat_statements` 335회·`EXPLAIN` 실측). 인덱스(`scripts/div_indexes_ddl.py`)가 있으면
-#:   1ms 미만이지만, 인덱스가 없는 환경(배포가 DDL 보다 먼저 나간 경우 포함)에서도 첫 호출 뒤에는 이 비용이 없다.
-_YEAR_RANGE_TTL_SEC = 6 * 3600.0
-#: ((처음, 마지막), 저장 시각[monotonic]). 튜플 하나를 통째로 바꿔 끼운다 — 스레드 여럿이 읽고 써도 반쪽 값이 보이지 않는다.
-_YEAR_RANGE_CACHE: tuple[tuple[int, int], float] | None = None
+def latest_annual_year() -> int | None:
+    """사업보고서(`11011`) 행이 있는 **마지막** 사업연도. None = 질의 실패 또는 사업보고서 행이 없음.
+
+    261019: 원장이 매주 갱신되면서 올해(사업보고서는 이듬해 3월)의 1분기·반기 행이 먼저 들어온다. 그러면
+    `year_range()` 의 끝(모든 보고서 기준)이 올해가 되는데, 연간 확정치만 쓰는 screen 이 그 해를 기본으로 잡으면
+    **연도 없이 부른 스크리닝이 빈 결과**를 낸다. 연간 확정치의 기본 연도는 이것으로 고른다.
+    운영 계획: `div_declared_yr`(bsns_year) 인덱스를 뒤에서부터 훑다 첫 `11011` 행에서 멈춘다 — 올해 분기 행 수천 개만 지나간다."""
+    rows = _rows("SELECT MAX(bsns_year) FROM div_declared WHERE reprt_code = %s", (_ANNUAL,))
+    if not rows or rows[0][0] is None:
+        return None
+    return rows[0][0]
 
 
 def year_range() -> tuple[int, int] | None:
-    """원장의 `(처음, 마지막)` 사업연도. **None = 질의 실패 또는 빈 표** — 호출부가 `db_error` 로 낸다.
+    """원장의 `(처음, 마지막)` 사업연도 — **호출마다 DB 에 묻는다**. None = 질의 실패 또는 빈 표 — 호출부가 `db_error` 로 낸다.
 
-    성공한 값만 `_YEAR_RANGE_TTL_SEC` 동안 담는다. 실패·빈 표를 담으면 DB 장애 한 번이 6시간 동안 「조회 실패」로 굳는다.
-    동기 함수다 — async 호출부는 `asyncio.to_thread` 로 부른다(`tools/dividend_data.py`)."""
-    global _YEAR_RANGE_CACHE
-    ent, now = _YEAR_RANGE_CACHE, time.monotonic()
-    if ent is not None and now - ent[1] < _YEAR_RANGE_TTL_SEC:
-        return ent[0]
+    261018: 이 질의가 인덱스 없이 표 전체(38,183행)를 읽던 때(평균 475ms) 6시간 메모리 캐시를 붙였는데(#88), 그 대가로 새 사업연도를
+    적재한 뒤 최대 6시간(머신마다) 기본 연도·범위가 지난해로 남았다. 같은 PR 의 인덱스 `div_declared_yr`(`scripts/div_indexes_ddl.py`)가
+    운영에 있어 이제 MIN·MAX 는 인덱스 양 끝 한 칸씩만 읽는다(운영 EXPLAIN — Index Only Scan, 행 1개씩). 그래서 캐시를 없앴다 —
+    적재 직후 바로 보인다. 동기 함수다 — async 호출부는 `asyncio.to_thread` 로 부른다(`tools/dividend_data.py`)."""
     rows = _rows("SELECT MIN(bsns_year), MAX(bsns_year) FROM div_declared")
     if not rows or rows[0][0] is None:
         return None
-    rng = (rows[0][0], rows[0][1])
-    _YEAR_RANGE_CACHE = (rng, now)
-    return rng
-
-
-def year_range_cache_clear() -> None:
-    """캐시를 비운다 — 테스트와 수동 점검용. 새 사업연도를 적재한 직후 바로 보고 싶을 때도 쓴다."""
-    global _YEAR_RANGE_CACHE
-    _YEAR_RANGE_CACHE = None
+    return (rows[0][0], rows[0][1])
