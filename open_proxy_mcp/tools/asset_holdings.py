@@ -73,12 +73,19 @@ def _render(p: dict) -> str:
                      + (f" → 시총 대비 {mcv:.2f}배" if mcv else "")
                      + " — 지배지분 섞여있어 위 지분NAV엔 미포함(지분법원가 기준, 참고용만)")
         if m.get("n_marked"):
-            L.append(f"- 상장 보유지분 시가마크 {m['n_marked']}/{m['n_listed']}종 · "
+            L.append(f"- 상장 보유지분 시가마크 {m['n_marked']}/{m['n_listed']}종"
+                     + (f"({m['price_date']} 종가)" if m.get("price_date") else "") + " · "
                      f"장부 대비 미실현 **{_f(m['unrealized_gap_krw'])}**"
                      + (f" (미해결 {m['n_unresolved']}종은 장부가 유지)" if m.get("n_unresolved") else ""))
             for h in (m.get("marked") or [])[:5]:
                 L.append(f"    - {h['name']}: 장부 {_f(h['book_krw'])} → 시가 {_f(h['mkt_krw'])}"
                          f" ({'+' if h['gap_krw'] >= 0 else ''}{_f(h['gap_krw'])})")
+        elif m.get("n_listed"):
+            # 261018: 하나도 평가하지 못했을 때 이 줄이 통째로 빠져 「상장 보유지분이 없다」로 읽혔다.
+            L.append(f"- 상장 보유지분 {m['n_listed']}종 — 시가를 못 구해 **전부 장부가 유지**"
+                     f"(장부 {_f(m.get('listed_book_krw'))})")
+        for u in sorted(m.get("unresolved") or [], key=lambda u: -(u.get("book_krw") or 0))[:3]:
+            L.append(f"    - 미해결 {u['name']}: 장부 {_f(u.get('book_krw'))} — {u.get('reason', '')}")
         hf = nav.get("haircut_flags") or []
         if hf:
             names = {"pledged": "담보제공 자산", "contingent": "우발부채·지급보증"}

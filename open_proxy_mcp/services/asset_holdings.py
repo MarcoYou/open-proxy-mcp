@@ -2,7 +2,8 @@
 
 설계: 자산저평가주 전수조사(private research 260719) + 공시전문가↔밸류투자자 토론(260720).
 소스: 연결 BS 계정 API(fnlttSinglAcntAll, 감사·구조화) + 타법인출자현황(otrCprInvstmntSttus) +
-      III.재무 주석(asset_valuation 엔진) + 시세(get_stock_price). 시총 대비는 point-in-time.
+      III.재무 주석(asset_valuation 엔진) + 시세(일별 시세 저장분 krx_daily — 시총과 같은 거래일, 못 읽으면 라이브).
+      시총 대비는 point-in-time.
 
 스콥(260720 2개로 정리 — 딥하게 다듬은 건 이 둘뿐):
   summary(기본) 계정 API 자산 티어 + 상장지분 시가마크(↑) − 담보·우발 haircut 플래그 ÷ 시총 = net NAV 배수
@@ -17,15 +18,13 @@ from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_cu
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
 
+import asyncio
 import re
-import sqlite3
-from pathlib import Path
 from typing import Any
 
 from open_proxy_mcp.dart.client import DartClientError
 from open_proxy_mcp.services import asset_valuation as _av
 
-_MASTER = Path(__file__).resolve().parent.parent.parent / "configs" / "master.db"
 _NORM = re.compile(r"㈜|\(주\)|\(유\)|주식회사|\(재\)|\(사\)")
 _WS = re.compile(r"\s+")
 _THRESH = 10**8  # 1억 노이즈 컷
@@ -168,17 +167,64 @@ def _bs_tiers(fin_list: list[dict]) -> tuple[dict[str, int], list[dict]]:
     return tiers, kept
 
 
-# ── 상장 투자사명 → stock_code (master.db, 동명이인 리스크는 caller에 투명) ──
-def _listed_lookup() -> dict[str, str]:
+# ── 상장 투자사명 → 종목코드 후보 (공용 기업 마스터 해석기) ──
+# 261018: 종전엔 `<레포>/configs/master.db` 를 **경로를 박아** 직접 열었다. 운영 이미지엔 그 파일이 없고
+#   기업 마스터는 볼륨(`OPM_MASTER_DB_PATH=/data/master.db`)에 있어, 여는 데 실패 → 빈 사전 → **모든 상장지분이
+#   조용히 미해결**이었다(운영 실측 삼성물산 12/12·SK 12/12, 경고 0). 로컬 체크아웃엔 그 파일이 있어 재현되지 않았다.
+#   이제 서버가 이미 메모리에 올린 기업 마스터(`lookup_corp_code_all`)로 찾는다 — 경로 설정을 한 곳만 따른다.
+#   덤으로 공식명과 다른 표기(「삼성생명보험」→삼성생명, 「엘지전자」→LG전자, 「KCC」→케이씨씨)도 같은 해석기 규칙으로 잡힌다.
+#   `resolve_company_query` 는 쓰지 않는다 — 그 관문은 「이 요청이 조사한 기업」 장부와 추정 경고에 적어서, 보유지분 이름이
+#   응답 맨 앞 「추정으로 골랐다」 문구나 조사 기업 집계에 섞인다. 후보 목록 함수는 적지 않는다.
+_CODES_PER_NAME = 3      # 동명 상장 후보(상장폐지 뒤 코드가 남은 옛 법인 포함) 몇 개까지 시세로 가려 볼지
+
+
+async def _stake_codes(client, name: str) -> tuple[list[str], str | None]:
+    """보유 법인명 → 상장 종목코드 후보들, 못 찾았으면 ([], 사유).
+
+    후보가 여럿일 수 있다 — DART 는 상장폐지 뒤에도 종목코드를 지우지 않아 「SK」「삼성물산」은 옛 법인 코드가 함께 나온다
+    (기업 마스터 실측: 정규화 이름 충돌 30건). 여기서 고르지 않고 **그 거래일 시세가 있는 코드**로 가린다(`_mark_listed_stakes`).
+    이름이 정확히 맞지 않아 추정으로만 잡힌 후보는 받지 않는다 — 다른 회사 시세로 평가하느니 장부가로 두는 편이 낫다."""
     try:
-        con = sqlite3.connect(f"file:{_MASTER}?mode=ro", uri=True)
-        m = {}
-        for cn, sc in con.execute("SELECT corp_name, stock_code FROM corp_codes WHERE stock_code!=''"):
-            m[_norm(cn)] = sc.strip()
-        con.close()
-        return m
-    except sqlite3.Error:
-        return {}
+        matches = await client.lookup_corp_code_all(name)
+    except Exception:                                   # noqa: BLE001 — 해석 실패가 응답 전체를 깨면 안 된다
+        return [], "종목코드 조회 실패"
+    listed = [m for m in (matches or []) if (m.get("stock_code") or "").strip()]
+    if not listed:
+        return [], "국내 상장 종목코드를 찾지 못함(해외 상장·상장폐지이거나 공식 상호와 표기가 다름)"
+    if (listed[0].get("_resolution") or {}).get("inferred"):
+        return [], f"상호가 정확히 맞지 않음(추정 후보: {listed[0].get('corp_name')})"
+    codes: list[str] = []
+    for m in listed:
+        if (m.get("_resolution") or {}).get("inferred"):
+            continue
+        code = m["stock_code"].strip()
+        if code not in codes:
+            codes.append(code)
+    return codes[:_CODES_PER_NAME], None
+
+
+def _db_closes(price_dd: str | None, codes: list[str]) -> tuple[str | None, dict[str, int]] | None:
+    """일별 시세 저장분(`krx_daily`, 코스피·코스닥 전 종목)에서 그 거래일 종가 — 종목 여럿을 한 번 왕복으로.
+
+    `price_dd` 를 주면 그날(시총과 같은 기준일), 없으면 저장분의 가장 늦은 거래일. 반환 (거래일, {종목코드: 종가}).
+    None = DB 미설정·장애(호출자가 라이브로 간다). 빈 사전 = 그날 그 종목들이 저장분에 없다."""
+    from open_proxy_mcp.db import pg_rows
+    if price_dd:
+        rows = pg_rows("SELECT ticker, close, trd_dd FROM krx_daily WHERE trd_dd = %s AND ticker = ANY(%s)",
+                       (price_dd, codes))
+    else:
+        rows = pg_rows("SELECT ticker, close, trd_dd FROM krx_daily "
+                       "WHERE trd_dd = (SELECT max(trd_dd) FROM krx_daily) AND ticker = ANY(%s)", (codes,))
+    if rows is None:
+        return None
+    closes = {r[0]: _num(r[1]) for r in rows if _num(r[1])}
+    return (rows[0][2] if rows else price_dd), closes
+
+
+def _prev_trading_day() -> str | None:
+    """오늘 이전의 가장 가까운 평일 — KRX 일별 시세는 다음 날 게시라 오늘 값은 없다(공휴일은 빈 응답으로 걸러진다)."""
+    today = today_kst().strftime("%Y%m%d")
+    return next((d for d in _val._price_dates() if d < today), None)
 
 
 def _doc_listed(doc_text: str, names: list[str]) -> dict[str, bool]:
@@ -192,12 +238,25 @@ def _doc_listed(doc_text: str, names: list[str]) -> dict[str, bool]:
     return out
 
 
+_MARK_CAP = 40          # 이름 해석·평가 대상 상한(장부가 큰 순) — 시세는 DB 한 번 왕복이라 콜이 아니라 해석 시간을 막는 상한
+_LIVE_PX_CAP = 12       # 종목별 라이브 시세 콜 상한 — DB·KRX 전종목 스냅샷을 둘 다 못 얻었을 때만 쓴다(종전 「콜 상한 12」)
+
+
 async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
-                              base_date: str) -> dict[str, Any]:
-    """타법인출자 상장 건을 시가마크(보유수량×주가). sanity(장부>총자산 제외)·상장은 doc 권위값.
-    시가마크는 top-N(장부가) 상장 건만(콜 상한)."""
+                              price_dd: str | None = None) -> dict[str, Any]:
+    """타법인출자 상장 건을 시가마크(보유수량×종가). sanity(장부>총자산 제외)·상장은 doc 권위값.
+
+    261018 재작성(운영에서 상장지분이 하나도 평가되지 않던 결함):
+      · 이름 → 종목코드: 서버가 쓰는 기업 마스터 해석기(`_stake_codes`). 종전 경로 박은 sqlite 는 운영에 없었다.
+      · 종가: **시총과 같은 원천·같은 거래일**(`price_dd` = 시총 기준일)의 일별 시세 저장분을 한 번에 읽는다(`_db_closes`).
+        종전엔 종목마다 KRX 를 **오늘 날짜**로 불렀는데 KRX 일별 시세는 다음 날 게시라 늘 빈 응답이었고(주말도 빈 응답),
+        그 엔드포인트는 코스피만 담아 코스닥 보유지분은 날짜가 맞아도 못 찾았다. 결국 포털 시세로 떨어졌고, 포털 종가는
+        거래소 공식 종가와 다를 수 있다(실측 20261016 삼성전자 포털 217,000 · KRX 215,500 — 같은 응답의 시총은 KRX 값).
+      · DB 를 못 읽으면 KRX 전종목 스냅샷(가격 배수 서비스와 같은 캐시 — 시총을 라이브로 구했다면 같은 날짜라 추가 콜 0),
+        그것도 없으면(키 없음·장애) 종목별 시세(`get_stock_price`, 상한 `_LIVE_PX_CAP`)로 간다.
+      · 못 평가한 건은 이름·장부가·사유를 `unresolved` 에 싣는다 — 종전엔 개수만 남아 「왜 0건인가」를 알 수 없었다.
+      · `n_listed` 와 합계가 같은 집합을 센다 — 종전엔 상한(12) 밖 후보가 개수에만 들고 합계에서 빠졌다(SK 13 vs 12)."""
     listed_map = _doc_listed(doc_text, [h.get("inv_prm") or "" for h in holdings])
-    code_map = _listed_lookup()
     cand = []
     for h in holdings:
         book = _num(h.get("trmend_blce_acntbk_amount"))
@@ -206,32 +265,96 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
             continue
         if not listed_map.get(_norm(h.get("inv_prm") or "")):
             continue
+        if not book and not _num(h.get("trmend_blce_qy")):   # 기중 전량 처분(기말 수량·장부가 0) — 평가할 보유분이 없다
+            continue
         cand.append((book, h))
     cand.sort(key=lambda x: x[0], reverse=True)  # book 동률 시 dict 2차비교로 TypeError 방지(260721)
-    marked, book_sum, mkt_sum, unresolved = [], 0, 0, 0
-    for book, h in cand[:12]:                           # 콜 상한 12
+
+    # 1) 이름 → 종목코드 후보
+    rows: list[dict[str, Any]] = []
+    for i, (book, h) in enumerate(cand):
         nm = h.get("inv_prm") or ""
-        code = code_map.get(_norm(nm))
         qty = _num(h.get("trmend_blce_qy"))
-        px = None
-        if code and qty:
-            try:
-                p = await client.get_stock_price(code, base_date)
-                px = _num(p.get("closing_price")) if p else None
-            except (DartClientError, Exception):        # noqa: BLE001
-                px = None
-        book_sum += book
-        if px:
-            mkt = qty * px
-            mkt_sum += mkt
-            marked.append({"name": nm, "book_krw": book, "mkt_krw": mkt,
-                           "gap_krw": mkt - book, "px": px, "qty": qty})
+        codes, why = [], None
+        if i >= _MARK_CAP:
+            why = f"평가 상한 {_MARK_CAP}종 밖(장부가 작은 순)"
+        elif not qty:
+            why = "보유수량 없음"
         else:
-            mkt_sum += book                             # 미해결은 장부가 유지(보수적)
-            unresolved += 1
-    return {"marked": marked, "listed_book_krw": book_sum, "listed_mkt_krw": mkt_sum,
+            codes, why = await _stake_codes(client, nm)
+        rows.append({"name": nm, "book": book, "qty": qty, "codes": codes, "why": why})
+
+    # 2) 종가 — 일별 시세 저장분 → KRX 전종목 스냅샷 → 종목별 시세(콜 상한)
+    want = sorted({c for r in rows for c in r["codes"]})
+    px: dict[str, int] = {}
+    px_dd: dict[str, str] = {}
+    day, source = price_dd, None
+    whole_day = False          # True = 그날 전 종목을 본 결과(DB·전종목 스냅샷) — 없으면 「그날 시세 없음」이 사실이다
+    tried: set[str] = set()    # 종목별 라이브로 실제 물어본 코드
+    if want:
+        db = await asyncio.to_thread(_db_closes, price_dd, want)
+        if db is not None and db[1]:
+            day, px = db
+            source, whole_day = "krx_daily", True
+        else:
+            # DB 장애 또는 그날 저장분에 하나도 없음 → 라이브. 날짜는 시총 기준일, 없으면 직전 거래일.
+            day = price_dd or (db[0] if db else None) or _prev_trading_day()
+            snap = await _val._krx_market_live(day) if day else {}
+            if snap:
+                px = {c: _num(snap[c].get("TDD_CLSPRC")) for c in want
+                      if c in snap and _num(snap[c].get("TDD_CLSPRC"))}
+                source, whole_day = "krx", True
+            else:
+                for r in rows:                             # 장부가 큰 순 — 상한 안에서 큰 것부터
+                    if not r["codes"] or len(tried) >= _LIVE_PX_CAP:
+                        continue
+                    code = r["codes"][0]                   # 해석기 순위 1위(활성 종목 우선) — 콜을 아끼려 하나만
+                    if code in tried:                      # 같은 법인이 두 줄(보통·우선 등)이면 한 번만 묻는다
+                        continue
+                    tried.add(code)
+                    try:
+                        p = await client.get_stock_price(code, day or today_kst().strftime("%Y%m%d"))
+                    except Exception:                      # noqa: BLE001 — 시세 하나 실패가 응답 전체를 깨면 안 된다
+                        p = None
+                    if p and _num(p.get("closing_price")):
+                        px[code] = _num(p.get("closing_price"))
+                        px_dd[code] = str(p.get("base_date") or day or "")
+                        source = source or p.get("source")
+        if whole_day:
+            px_dd = {c: day for c in px}
+
+    # 3) 평가 — 동명 후보는 그날 시세가 있는 코드 하나로 가린다
+    marked, unresolved, book_sum, mkt_sum = [], [], 0, 0
+    for r in rows:
+        book_sum += r["book"]
+        priced = [c for c in r["codes"] if px.get(c)]
+        why = r["why"]
+        if why is None and len(priced) == 1:
+            code = priced[0]
+            mkt = r["qty"] * px[code]
+            mkt_sum += mkt
+            marked.append({"name": r["name"], "code": code, "book_krw": r["book"], "mkt_krw": mkt,
+                           "gap_krw": mkt - r["book"], "px": px[code], "px_date": px_dd.get(code), "qty": r["qty"]})
+            continue
+        if why is None:
+            if len(priced) > 1:
+                why = f"같은 상호의 상장 종목이 여럿({', '.join(priced)}) — 어느 쪽인지 확정 못 함"
+            elif whole_day:
+                why = f"{day} 거래일 시세 없음(코스피·코스닥 밖 시장이거나 상장폐지)"
+            elif r["codes"] and r["codes"][0] not in tried and tried:
+                why = f"라이브 시세 조회 상한 {_LIVE_PX_CAP}종 밖(시세 저장분을 읽지 못함)"
+            else:
+                why = "시세 조회 실패(시세 저장분·거래소·포털 모두 응답 없음)"
+        mkt_sum += r["book"]                              # 미해결은 장부가 유지(보수적)
+        unresolved.append({"name": r["name"], "book_krw": r["book"], "reason": why})
+    dates = {m["px_date"] for m in marked}
+    return {"marked": marked, "unresolved": unresolved,
+            # 평가 기준일 — 모두 같은 날이면 그 날, 종목별 라이브로 섞였으면 None(항목별 px_date 를 본다)
+            "price_date": dates.pop() if len(dates) == 1 else None,
+            "price_source": source if marked else None,
+            "listed_book_krw": book_sum, "listed_mkt_krw": mkt_sum,
             "unrealized_gap_krw": mkt_sum - book_sum, "n_listed": len(cand),
-            "n_marked": len(marked), "n_unresolved": unresolved}
+            "n_marked": len(marked), "n_unresolved": len(unresolved)}
 
 
 
@@ -406,13 +529,22 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         _basis = _av.BasisIndex(sec.get("note_html", "") or "")
         stripped = _basis.stripped
         doc_text = sec.get("full_text", "") or sec.get("note_html", "") or ""
+        # 시총을 먼저 구한다 — 보유지분 종가를 **시총과 같은 거래일**로 맞추려는 것이다(배수의 분자·분모가 같은 날).
+        mcap, mcap_meta = await _market_cap(isu)
         mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
-                                         today_kst().strftime("%Y%m%d"))
+                                         (mcap_meta or {}).get("date") if mcap else None)
         data["listed_stakes"] = mark
+        if mark["n_unresolved"]:
+            _un = sorted(mark["unresolved"], key=lambda u: -(u.get("book_krw") or 0))
+            _names = ", ".join(u["name"] for u in _un[:3]) + (f" 외 {len(_un) - 3}종" if len(_un) > 3 else "")
+            warnings.append(f"상장 보유지분 {mark['n_listed']}종 중 {mark['n_unresolved']}종은 시가를 못 구해 장부가로 두었다"
+                            f"({_names}) — 지분 NAV 의 그만큼은 장부가 기준이다. 종목별 사유는 listed_stakes.unresolved.")
+        if mcap and mark.get("price_date") and mcap_meta.get("date") and mark["price_date"] != mcap_meta["date"]:
+            warnings.append(f"보유지분 시가 기준일({mark['price_date']})과 시총 기준일({mcap_meta['date']})이 다르다 — "
+                            "지분 NAV 배수의 분자·분모 날짜가 어긋난다.")
         pledged = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
         contingent = _basis.annotate(_av.extract_contingent("", stripped=stripped))
         data["haircuts"] = {"pledged": pledged.get("status"), "contingent": contingent.get("status")}
-        mcap, mcap_meta = await _market_cap(isu)
         data["market_cap_krw"] = mcap
         data["market_cap_meta"] = mcap_meta
         t = data["_tiers"]

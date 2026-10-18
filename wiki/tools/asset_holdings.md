@@ -3,7 +3,7 @@ type: tool
 title: asset_holdings
 domain: data
 scope: [summary, detail]
-data_source: [DART fnlttSinglAcntAll(계정 API), DART otrCprInvstmntSttus(타법인출자현황), DART get_document(III.재무 주석), get_stock_price(보유지분 시가마크), KRX 일별 시세 저장분(시총 — price_multiple_data._market_for 재사용)]
+data_source: [DART fnlttSinglAcntAll(계정 API), DART otrCprInvstmntSttus(타법인출자현황), DART get_document(III.재무 주석), KRX 일별 시세 저장분 krx_daily(보유지분 시가마크 — 시총과 같은 거래일, 못 읽으면 KRX 전종목·포털 라이브), 기업 마스터 해석기(보유 법인명→종목코드), KRX 일별 시세 저장분(시총 — price_multiple_data._market_for 재사용)]
 related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
@@ -62,9 +62,13 @@ updated: 2026-10-18
   · `equity_nav_krw`/`equity_nav_cov`(지분 NAV = 관계기업[시가마크 반영]+FVOCI) ·
   **`mixed_combined_krw`/`mixed_combined_cov`**(결합계정 별도 참고라인 — 지배지분 섞여있어 위
   equity_nav엔 미포함) · `haircut_flags`(담보·우발 존재 시).
-- `listed_stakes`: 타법인출자 상장 건 top-12(장부가) 시가마크. `marked[].{name,book_krw,mkt_krw,gap_krw,px,qty}` ·
-  `listed_book_krw`/`listed_mkt_krw`/`unrealized_gap_krw` · `n_listed`(후보 수) · `n_marked`(시가 확보) · `n_unresolved`(시세
-  못 구해 **장부가로 유지**한 건 — 보수적, 이 수가 크면 시가마크 신뢰도 낮음).
+- `listed_stakes`: 타법인출자 중 원문이 「상장」이라 적은 건(기중 전량 처분 — 기말 수량·장부가 0 — 은 뺀다)의 시가마크.
+  `marked[].{name,code,book_krw,mkt_krw,gap_krw,px,px_date,qty}` · `unresolved[].{name,book_krw,reason}`(시가를 못 구해
+  **장부가로 유지**한 건과 그 사유 — 국내 상장 종목코드 없음(해외 상장·상장폐지·표기 차이)·상호 추정 일치·그 거래일 시세 없음·
+  라이브 조회 상한 밖) · `price_date`(평가 종가의 거래일 — 시총 `market_cap_meta.date` 와 같다. 종목별 라이브로 섞이면 `None`) ·
+  `price_source`(`krx_daily` 일별 시세 저장분 / `krx` 거래소 전종목 라이브 / `portal` 포털 시세) ·
+  `listed_book_krw`/`listed_mkt_krw`/`unrealized_gap_krw` · `n_listed`(후보 수 = `n_marked` + `n_unresolved`, 합계도 같은 집합).
+  미해결이 있으면 경고 한 줄로 이름(장부가 큰 순 3개)을 밝힌다 — 지분 NAV 의 그만큼은 장부가 기준이다.
 - `haircuts`: `{pledged, contingent}` 상태(담보·우발 주석 존재 여부).
 - `is_financial`(KSIC 64/65/66 게이트) · `is_reit`(사명 "리츠"/"REIT" 휴리스틱) — 둘 다 투자부동산이
   본업이라 잉여자산에서 제외하고 라벨링.
@@ -95,7 +99,12 @@ updated: 2026-10-18
 - **타법인출자**: `otrCprInvstmntSttus` — per-holding 취득원가·장부가·지분율. **상장여부는 API에
   없음** → 원문 doc에서 종목명 인접 "(비)상장" 텍스트로 도출(권위값, name-join 동명이인 오판 방지).
 - **III.재무 주석**: `asset_valuation.py`의 markdown-primary 추출(토지·투자부동산·지분증권·담보·우발).
-- **시세**: `get_stock_price`/`get_stock_total` — top-12(장부가) 상장 보유만 콜(상한으로 비용 제한).
+- **보유 법인명 → 종목코드**: 서버의 기업 마스터 해석기(`lookup_corp_code_all` — company tool 과 같은 색인·별칭·음차 규칙).
+  상장폐지 뒤에도 코드가 남은 동명 옛 법인(「SK」「삼성물산」)은 **그 거래일 시세가 있는 코드**로 가린다. 추정 일치는 받지 않는다.
+  후보 목록 함수라 「이 요청이 조사한 기업」 장부·추정 경고에 보유지분 이름이 섞이지 않는다.
+- **시세**: 시총([[price_multiple_data]] `_market_for`)을 먼저 구하고 **그 거래일**의 일별 시세 저장분(`krx_daily`, 코스피·코스닥)을
+  종목 여럿 한 번 왕복으로 읽는다 — KRX 콜 0. DB 를 못 읽으면 KRX 전종목 스냅샷(가격 배수와 같은 캐시 — 시총을 라이브로
+  구했다면 같은 날짜라 추가 콜 0), 그것도 없으면 종목별 시세(`get_stock_price`, 직전 거래일, 상한 12종).
 
 ## 파싱 전략
 `asset_valuation.py`의 content-signature(순수 lookahead, `_find_regions`)가 앵커±윈도를 markdown으로
@@ -123,6 +132,9 @@ updated: 2026-10-18
 - 053160류 "원가 컬럼 자체가 없는 장부금액 표"는 시그니처로 계산 불가(데이터 자체 부재) —
   markdown 통짜 덤프 + 저신뢰 라벨이 후보안, 미구현.
 - holdco/fin_sub_suspect(비금융지주 산하 금융자회사 섞임) 라벨은 스코프 크리프 판단, later.
+- 보유지분 이름 해석이 못 잡는 표기(261018 실측, 장부가로 유지): 리츠의 법적 상호(「에스케이위탁관리부동산투자회사」=SK리츠,
+  「삼성에프엔위탁관리부동산투자회사」=삼성FN리츠) · 한글 음차가 중간에 낀 상호(「삼성이앤에이」=삼성E&A) · 우선주(「삼성전자우」 —
+  해석기가 보통주로 추정 일치시켜 받지 않는다). 고칠 곳은 이 tool 이 아니라 공용 해석기의 별칭이다.
 - 지분 NAV·잉여자산 모두 **원가/장부가 기준**(투자부동산은 공정가치 gap이 있어도 자동 반영 안 함) —
   gap은 `scope="detail"`에서 caller가 직접 읽어 반영.
 
@@ -150,6 +162,14 @@ updated: 2026-10-18
   (`otrCprInvstmntSttus`, 통화 미선언) 장부가가 섞여 BS 환산분과 같은 기준임을 확증할 수 없다.
 
 ## 변경 이력
+- 2026-10-18: **운영에서 상장 보유지분이 하나도 시가마크되지 않던 결함 수정**(실측 삼성물산 0/12·SK 0/12·LG 0/7, 경고 없음).
+  종목코드 사전을 `<레포>/configs/master.db` 라는 박아 둔 경로에서 읽었는데 운영 이미지엔 그 파일이 없고 기업 마스터는 볼륨
+  (`OPM_MASTER_DB_PATH`)에 있어 빈 사전이 됐다(로컬 체크아웃엔 파일이 있어 재현되지 않았다). 이제 서버의 기업 마스터 해석기를 쓴다.
+  종가도 바꿨다 — 종전엔 종목마다 KRX 를 **오늘 날짜**로 불렀는데 KRX 일별 시세는 다음 날 게시라 늘 빈 응답이었고 그 엔드포인트는
+  코스피만 담아, 결국 포털 종가(거래소 공식 종가와 다를 수 있다 — 20261016 삼성전자 포털 217,000·KRX 215,500)로 떨어졌다.
+  이제 **시총과 같은 거래일**의 일별 시세 저장분을 한 번에 읽는다. `unresolved[]`(이름·장부가·사유)·`price_date`·`price_source`·
+  `marked[].code/px_date` 신설, 미해결 경고, 하나도 못 구했을 때 렌더 한 줄. 상한(12) 밖 후보가 개수에만 들고 합계에서 빠지던
+  것도 같은 집합으로 맞췄다(SK 13 vs 12). 시세 콜 상한 12 는 DB 를 못 읽을 때의 종목별 라이브에만 남는다.
 - 2026-10-18: 시총 출처 표기를 「최신 주간 종가(주간 시세 저장분)」 → 「최신 거래일 종가(일별 시세 저장분)」 — [[price_multiple_data]] `_market_for` 가
   일별 저장분을 읽게 바뀐 데 따른 것. 이 tool 의 코드·값은 그대로다.
 - 2026-09-09: 환율 기준일을 실제로 산출한다 — 종전엔 `fnlttSinglAcntAll` 행의 `thstrm_dt` 를 캤는데
