@@ -24,6 +24,8 @@ def test_health_returns_200_without_auth():
     assert body["status"] == "ok"
     # 도구가 0개면 살아 있어도 쓸모가 없다 — 등록까지 확인한다
     assert body["tools"] > 0, body
+    assert body["usage"]["basis"] == "tool_calls.v1"
+    assert "pending" in body["usage"] and "record_failures" in body["usage"]
 
 
 def test_health_is_registered_on_the_http_app():

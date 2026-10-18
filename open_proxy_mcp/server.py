@@ -138,6 +138,7 @@ def build_mcp() -> MCPServer:
                                         doc_gate_stats, inflight_now, registry_stats,
                                         unbudgeted_cache_stats, web_block_stats)
         from open_proxy_mcp.db import pool_stats
+        from open_proxy_mcp.usage import stats as usage_stats
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
         #   여기 실어 배포 직후 눈으로 확인할 수 있게 한다. 0 이면 status 를 degraded 로 낮춘다.
@@ -161,6 +162,7 @@ def build_mcp() -> MCPServer:
             "maintenance": maintenance.stats(),
             "tools": len(await mcp.list_tools()),
             "data": _data,
+            "usage": usage_stats(),
             "cache": cache_stats(),
             # 260909: 예산 **없는** 전역 dict 캐시들. `cache` 가 0.0MB 를 보고하는 동안
             #   프로세스는 30분에 466MB 가 늘었다 — 자라는 것이 관측 밖에 있다는 뜻이다.
@@ -618,7 +620,7 @@ class ApiKeyMiddleware:
             await send({"type": "http.response.body", "body": body})
             return
 
-        # 사용 통계 기록 (요청 1건 = 이벤트 1건). 기록은 비동기 큐라 지연 0.
+        # 사용 통계 기록 (요청 1건 = 이벤트 1건). 메모리 큐에 넣기만 해 지연 0 — 송신함·중앙 DB 쓰기는 워커 몫(usage.py).
         # 요청 본문(JSON-RPC)을 버퍼링해 tool명 추출 후 그대로 앱에 재생(replay).
         if opendart and scope.get("path", "").startswith("/mcp"):
             import time as _t

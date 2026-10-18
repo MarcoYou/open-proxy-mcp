@@ -11,6 +11,8 @@ primary_region = 'nrt'
 [env]
   # sqlite master cache (corpCode 영구화) — fly volume mount 위치
   OPM_MASTER_DB_PATH = '/data/master.db'
+  # 중앙 DB 장애·재시작 때 재전송할 송신함. 배포로 지워지는 컨테이너 안에 두지 않는다.
+  OPM_USAGE_OUTBOX_PATH = '/data/usage-outbox.db'
   # 문서 디스크 캐시도 볼륨으로. 종전 기본값 /tmp/opm_cache 는 컨테이너 이미지 안이라
   # **배포마다 통째로 사라졌다** — 메모리 캐시가 죽는 그 순간 받침도 같이 죽었다.
   # 260810 실측: 배포 직후 적중률 0%, 디스크 적중 24h 13건. 예산·청소는 client.py 참조.
