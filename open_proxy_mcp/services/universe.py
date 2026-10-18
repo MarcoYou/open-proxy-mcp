@@ -193,7 +193,10 @@ async def list_universe(universe: str) -> UniverseList:
                             as_of=uf.price_dd, db_ok=False)
     names = await _names_by_ticker()
     # 직접 고른 코드와 지수 구성종목(원장 그대로)은 우선주 판정으로 빼지 않는다 — 고른 쪽이 정한 집합이다.
+    # 261019: 나열 안의 시장 이름(「코스피, 코스닥」)을 풀어 넣은 종목(`pref_screen`)은 「코스피 전체」와 같이 우선주를 뺀다 —
+    #   종전엔 우선주 114종목이 이름 없이(「-」) 순위에 끼었다(같은 날 「코스피 전체」는 111종목을 빼고 밝혔다).
     keep_pref = spec.startswith("custom:") or uf.members_dd is not None
+    pref_screen = getattr(uf, "pref_screen", frozenset())
     if uf.members_dd is not None:
         # 원장에는 있는데 그 날 시세가 없는 구성종목(거래정지·신규 편입 직후 등) — 빼고 밝힌다. 조용히 줄이지 않는다.
         seen = {r[0] for r in rows}
@@ -206,7 +209,7 @@ async def list_universe(universe: str) -> UniverseList:
     out: list[dict[str, Any]] = []
     excluded = 0
     for t, m, cap, close, shrs in rows:
-        if not keep_pref and is_preferred(t, names):
+        if (not keep_pref or t in pref_screen) and is_preferred(t, names):
             excluded += 1
             continue
         out.append({"rank": len(out) + 1, "ticker": t, "name": names.get(t) or "-",

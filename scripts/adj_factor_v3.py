@@ -8,6 +8,8 @@
 - 계수 = 거래소 기준가 리셋 실측 그대로. 라벨은 event_type + evidence(rcept_no)만 부여.
 - 라벨 미확인 → confidence='unlabeled' (계수는 유효 — 거래소 실측).
 - 시장이전(KOSPI↔KOSDAQ): 벤더 미적용 → confidence='excluded_market_transfer'로 보존(소비 시 제외).
+- 호가단위 맞춤(261019): 기준가가 전일 종가를 호가단위로 올리거나 내린 것뿐인 리셋(×1.0014 류, 대부분 기업인수목적회사) →
+  event_type='tick_rounding'·confidence='excluded_tick_rounding' 으로 보존(소비 시 제외). 기업 행위가 아니다(`open_proxy_mcp/krx_ticks.py`).
 - 액면변경(split/merge): 액면가 비율로 스냅(측정치가 비율의 ±0.5% 이내면 정확한 유리수로 치환) — 벤더(Quanti) 방식 정렬.
 콜: 0 (전부 Supabase 로컬 조인).
 """
@@ -21,6 +23,7 @@ from datetime import datetime, timedelta
 from fractions import Fraction
 from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_pair_floor
+from open_proxy_mcp.krx_ticks import TICK_ROUNDING_LABEL, TICK_ROUNDING_TYPE, is_tick_rounding
 
 
 def d2dt(s): return datetime.strptime(s, "%Y%m%d")
@@ -68,7 +71,8 @@ def main():
         SELECT e.ticker, e.event_dd, e.adj_factor_raw, e.market,
                (SELECT w.market FROM """ + WEEKLY_WITH_LATEST + """ w
                  WHERE w.ticker = e.ticker AND w.price_dd < e.event_dd
-                 ORDER BY w.price_dd DESC LIMIT 1) AS prev_mkt
+                 ORDER BY w.price_dd DESC LIMIT 1) AS prev_mkt,
+               e.prev_close, e.base_price
           FROM krx_adj_events e
          WHERE (e.label_confidence IS NULL OR e.label_confidence = 'unlabeled')
            AND e.event_dd >= %s
@@ -83,7 +87,7 @@ def main():
     from collections import defaultdict
 
     rows, stats = [], defaultdict(int)
-    for isu, dd, f, mkt, pm in resets:   # pm = 리셋일 직전 주간 mkt (위 서브쿼리에서 함께 온다)
+    for isu, dd, f, mkt, pm, pc, bp in resets:   # pm = 리셋일 직전 주간 mkt (위 서브쿼리에서 함께 온다) · pc·bp = 전일 종가·기준가
         raw_f = f
         etype = src = evid = note = None
         conf = "unlabeled"
@@ -94,6 +98,14 @@ def main():
             rows.append((isu, dd, f, raw_f, "market_transfer", "reset", None,
                          "excluded_market_transfer", f"{pm}→{mkt}"))
             stats["excluded_market_transfer"] += 1
+            continue
+
+        # ①-2 호가단위 맞춤 제외 (261019): 기준가가 전일 종가를 호가단위에 맞춘 것뿐 — 기업 행위가 아니다. 계수는 실측 그대로 두고
+        #   라벨로 「소비할 때 뺀다」만 표시한다(시장이전과 같은 방식). 서빙(`trading_data` firm)도 같은 판정으로 불연속에서 뺀다.
+        if is_tick_rounding(pc, bp, mkt, dd):
+            rows.append((isu, dd, f, raw_f, TICK_ROUNDING_TYPE, "reset", None, TICK_ROUNDING_LABEL,
+                         f"호가단위 맞춤 {pc:g}→{bp:g}"))
+            stats[TICK_ROUNDING_LABEL] += 1
             continue
 
         # ② ③ 삭제(260823). v2(라벨 장부)·dart_capital_events(공시 근거) 두 표는 **소진됐다** —
