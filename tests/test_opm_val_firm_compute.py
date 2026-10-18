@@ -190,6 +190,11 @@ def test_sector_compare_matches_the_snapshot_table_answer(monkeypatch, name):
         db = FakeDb(scheme, **kw)
         p_new = _run(S, mp, db, scheme)
     assert not any("opm_val_firm" in s for s in db.log), "새 코드가 스냅샷 표를 읽었다"
+    # 261019: 기업 행이 없을 때 종전 문장 「종목 스냅샷 없음(비상장·미수집)」(없앤 표를 가리킨다)이 실제 까닭으로 바뀐다 — 그 한 문장만 다르다
+    w_old = [i for i, w in enumerate(p_old["warnings"]) if "종목 스냅샷 없음" in w]
+    if w_old:
+        assert "기업 행 없음 — " in p_new["warnings"][w_old[0]] and "스냅샷" not in p_new["warnings"][w_old[0]]
+        p_new["warnings"][w_old[0]] = p_old["warnings"][w_old[0]]
     assert json.dumps(p_new, ensure_ascii=False, default=str) == json.dumps(p_old, ensure_ascii=False, default=str)
 
 
@@ -445,8 +450,10 @@ def test_firm_history_of_a_fund_without_financials_is_ok_with_cap_only_weeks(mon
                 return [("KS", "64992", "KRW", None, fetched)]
             if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
                 return [(px[-1][0],)]
-            if "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
-                return list(px)
+            if "SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
+                return [(d, c, "w") for d, c in px]
+            if s.startswith("SELECT 'below'"):
+                return []
             if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
                 return [(None, None)]
             if "FROM dart_finstat_y" in s or "FROM dart_finstat_q" in s or "FROM krx_stock_flags" in s or "DISTINCT ON" in s:

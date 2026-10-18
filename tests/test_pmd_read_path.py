@@ -64,8 +64,10 @@ def route(sql: str) -> str:
         return "caps"
     if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
         return "latest"
-    if "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
-        return "px"
+    if "SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
+        return "px"                                  # 261019(감사 3): 같은 왕복에 곡선 끝점 후보(일별 최신 한 줄 'd') — 여기 가짜에는 없다
+    if s.startswith("SELECT 'below', price_dd, count(*) FROM krx_weekly"):
+        return "weekly_start"                        # 261019(감사 2): DB 에 실제로 남은 주간 구간의 시작(없으면 3년 하한)
     if "opm_val_firm" in s:
         raise AssertionError("종목별 밸류에이션 스냅샷 표는 없앴다(재설계 6단계) — 읽으면 안 된다: " + s)
     if "FROM krx_stock_flags" in s:
@@ -110,7 +112,7 @@ class FakeDb:
             if val is FAIL:
                 return None
             if key == "px":
-                return [tuple(r) for r in val if r[0] >= params[1]]
+                return [(*r, "w") for r in val if r[0] >= params[1]]
             if key == "adj":
                 return [tuple(r) for r in val.get(params[1], [])]
             return copy.deepcopy(val)
@@ -244,6 +246,7 @@ def run_firm_history(mod, setattr_, name, *, delay=0.0, raise_on=None, data=None
     setattr_(mod, "today_kst", lambda: TODAY)
     setattr_(mod, "_resolve_listed", resolve)
     setattr_(mod, "fx_to_krw", _fx_factory(fx_log))
+    getattr(mod, "_WEEKLY_START_CACHE", {}).clear()     # 261019: 주간 구간 시작 캐시 — 실행마다 같은 읽기 묶음이 나가게
     payload = asyncio.run(mod.build_firm_history_payload("삼성전자", format="json"))
     return payload, db, fx_log
 
@@ -396,17 +399,18 @@ def test_firm_sequential_and_overlapped_are_identical(mp, name):
 
 
 def test_firm_history_issues_exactly_eight_reads_and_never_the_snapshot_table(mp):
-    """8번 — 종전 9번에서 종목별 밸류에이션 스냅샷 표 읽기만 빠졌다(재설계 6단계). 겹치기가 읽기를 늘리거나 빼먹지 않는다(재무 요약 실패로 일찍 끝나는 경우만 예외)."""
+    """8번 — 종전 9번에서 종목별 밸류에이션 스냅샷 표 읽기만 빠졌다(재설계 6단계). 겹치기가 읽기를 늘리거나 빼먹지 않는다(재무 요약 실패로 일찍 끝나는 경우만 예외).
+    261019: 주간 구간 시작 읽기가 하나 더 있다(감사 2 — 1시간 캐시라 대부분의 호출은 8번 그대로). 곡선 끝점(일별 최신 한 줄)은 곡선 읽기와 같은 왕복이다."""
     _, db, _ = run_firm_history(S, mp, "fh_samsung")
     assert sorted(k for k, _ in db.log) == sorted(
-        ["cur_row", "fin_y", "fund", "fin_q", "caps", "latest", "px", "flags"])
+        ["cur_row", "fin_y", "fund", "fin_q", "caps", "latest", "weekly_start", "px", "flags"])   # 261019: 주간 구간 시작(1시간 캐시)
 
 
 def test_firm_history_stops_early_when_the_fundamentals_read_fails(mp):
     """DB 장애(재무 요약 읽기 None)면 재무·곡선을 읽지 않고 db_error 를 곧바로 낸다 — 장애 중에 읽기 6번을 더 보내지 않는다."""
     payload, db, _ = run_firm_history(S, mp, "fh_only_cur_row_fails")
     assert payload["status"] == "db_error"
-    assert sorted(k for k, _ in db.log) == ["cur_row", "latest"]
+    assert sorted(k for k, _ in db.log) == ["cur_row", "latest", "weekly_start"]
 
 
 def test_firm_reads_exactly_the_five_reads_of_before(mp):

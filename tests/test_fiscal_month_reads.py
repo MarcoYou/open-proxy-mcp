@@ -92,14 +92,16 @@ class _Rows:
             return [(fy, ni, eq, None, None) for fy, (ni, eq) in FIN_MAR.items()]
         if "FROM dart_finstat_q" in s:
             return [(fy, q, ni, eq) for (fy, q), (ni, eq) in FINQ_MAR.items()]
-        if "UNION ALL" in s and "FROM krx_weekly" in s:
+        if "UNION ALL" in s and "FROM krx_weekly" in s and "AS src" in s:     # 업종 비교의 그 날 시총(`_FIRM_CAP_SQL`)
             return [(CAP, "KS", 1)]
         if "DISTINCT ON (substring(price_dd,1,4))" in s:
             return [("2025", "20251230", CAP)]
         if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
             return [("20261016",)]
-        if "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
-            return [("20260515", CAP), ("20261016", CAP)]
+        if "SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
+            return [("20260515", CAP, "w"), ("20261016", CAP, "w")]
+        if s.startswith("SELECT 'below'"):
+            return []
         if "FROM krx_stock_flags" in s:
             return []
         raise AssertionError("모르는 SQL: " + s)

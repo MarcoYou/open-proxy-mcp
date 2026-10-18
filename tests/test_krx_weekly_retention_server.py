@@ -26,8 +26,11 @@ def test_weekly_series_reads_only_from_the_cutoff(monkeypatch):
     seen = []
 
     def fake_rows(sql, params=()):
-        seen.append((" ".join(sql.split()), params))
-        return [("20231020", 1000.0), ("20231027", 1100.0)]
+        s = " ".join(sql.split())
+        seen.append((s, params))
+        if s.startswith("SELECT 'below'"):            # 261019: DB 에 실제로 남은 주간 구간 — 하한 아래엔 연말 행뿐(지금 운영과 같은 모양)
+            return [("below", "20221229", 2558), ("first", "20231020", 2634), ("ref", "20261016", 2762)]
+        return [("20231020", 1000.0, "w"), ("20231027", 1100.0, "w")]
 
     monkeypatch.setattr(S, "_pg_rows", fake_rows)
     monkeypatch.setattr(S, "_krx_db_latest_dd", lambda: "20261016")
@@ -35,10 +38,10 @@ def test_weekly_series_reads_only_from_the_cutoff(monkeypatch):
     # 명시한 하한
     series = asyncio.run(S._weekly_series("005930", fin=fin, finq={}, since_dd="20231016"))
     assert [p["asof"] for p in series] == ["20231020", "20231027"]
-    assert "price_dd>=%s" in seen[-1][0] and seen[-1][1] == ("005930", "20231016")
-    # 비우면 저장된 최신 주(20261016)의 달력 3년 전 — 표를 자르는 쪽과 같은 정의
+    assert "price_dd>=%s" in seen[-1][0] and seen[-1][1] == ("005930", "20231016", "005930")
+    # 비우면 저장된 최신 주(20261016)의 달력 3년 전 — 표를 자르는 쪽과 같은 정의(하한 아래에 이어진 주간 행이 없을 때)
     asyncio.run(S._weekly_series("005930", fin=fin, finq={}))
-    assert seen[-1][1] == ("005930", R.krx_weekly_cutoff("20261016")) == ("005930", "20231016")
+    assert seen[-1][1] == ("005930", R.krx_weekly_cutoff("20261016"), "005930") == ("005930", "20231016", "005930")
 
 
 def test_weekly_bounds_use_stored_latest_week_not_today(monkeypatch):
