@@ -322,6 +322,28 @@ def weak_resolutions() -> list[dict]:
     return list((ledger or {}).get("weak_resolutions") or [])
 
 
+def note_share_class_resolution(corp: dict | None) -> None:
+    """종류주(우선주 등) 코드로 물어 **발행 회사로** 해석한 것을 적는다(261018).
+
+    `note_weak_resolution` 과 같은 관문·같은 장부 — 읽는 쪽은 `ToolEnvelope.to_dict()`·`declare_weak_resolution` 하나다.
+    회사 단위 도구(공시·재무·배수)는 005935 를 삼성전자로 답하므로, 어느 코드를 어느 회사로 읽었는지 응답 맨 앞에 밝힌다.
+    해석기 결과가 종류주 코드 일치가 아니면 아무것도 하지 않는다."""
+    ledger = _ctx_ledger.get()
+    meta = ((corp or {}).get("_resolution") or {}).get("share_class") or {}
+    if ledger is None or not meta.get("ticker"):
+        return
+    seen = ledger.setdefault("share_class_resolutions", [])
+    if len(seen) >= _LEDGER_MAX_WEAK or any(s["ticker"] == meta["ticker"] for s in seen):
+        return
+    seen.append({"ticker": meta["ticker"], "issuer_ticker": meta.get("issuer_ticker") or "",
+                 "corp_name": (corp or {}).get("corp_name") or ""})
+
+
+def share_class_resolutions() -> list[dict]:
+    ledger = _ctx_ledger.get()
+    return list((ledger or {}).get("share_class_resolutions") or [])
+
+
 #: **조용한 대체의 종류 — 닫힌 목록.**
 #:
 #: 오타로 새 범주가 생기면 집계가 조용히 갈라진다(그것 자체가 오늘 고치려는 병이다).
@@ -2073,6 +2095,7 @@ class DartClient:
         # **확정된** 것만 적는다 — 후보 목록(lookup_corp_code_all)은 적지 않는다.
         # 「무엇을 조사했나」는 서버가 그 기업이라고 결론 낸 것이지, 스쳐간 후보가 아니다.
         _note_corp(results[0].get("corp_code"))
+        note_share_class_resolution(results[0])
         return results[0]
 
     async def lookup_corp_code_all(self, query: str) -> list[dict]:

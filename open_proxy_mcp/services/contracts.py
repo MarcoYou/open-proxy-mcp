@@ -170,7 +170,7 @@ def _merge_declared(existing: list[str]) -> list[str]:
     tool 이 안쪽 tool 의 응답을 감싸면(`director_board` 는 `[notice] ` 를 붙여 옮긴다)
     같은 문장이 두 번 나온다 — 접두어가 붙은 사본도 같은 것으로 본다.
     """
-    declared = _weak_resolution_warnings()
+    declared = _weak_resolution_warnings() + _share_class_warnings()
     if not declared:
         return existing
     kept = [w for w in existing if not any(w.endswith(line) for line in declared)]
@@ -198,6 +198,29 @@ def _weak_resolution_warnings() -> list[str]:
         )
         # 한 요청이 같은 회사를 여러 이름으로 해석하기도 한다(tool 이 내부에서 재조회).
         # 같은 문장을 두 번 싣지 않는다.
+        if line not in lines:
+            lines.append(line)
+    return lines
+
+
+def _share_class_warnings() -> list[str]:
+    """종류주(우선주 등) 코드로 물어 발행 회사로 해석한 것을 응답 맨 앞에 밝힌다(261018).
+
+    KRX 단축코드 끝자리가 0 이 아니면 종류주다(005935 삼성전자우). 회사 원장에는 보통주 코드만 있어 종전엔 「못 찾음」이었다.
+    이제 발행 회사로 식별하므로, 회사 단위 값(공시·재무·배수)이 그 종류주가 아니라 **회사** 것임을 말한다. 배수(PER·PBR)의 시총은
+    보통주 시총이다(우선주 시총은 배수에서 뺀다 — price_multiple_data 정의). 그 종류주 자체의 시세는 시세 도구가 준다.
+    적는 곳은 해석 확정 관문(`_resolve_match`·`lookup_corp_code`), 읽는 곳은 여기 하나다(추정 고지와 같은 구조)."""
+    try:
+        from open_proxy_mcp.dart.client import share_class_resolutions
+    except Exception:  # pragma: no cover - import 경로가 없는 환경
+        return []
+    lines: list[str] = []
+    for sc in share_class_resolutions():
+        line = (
+            f"「{sc['ticker']}」는 **{sc['corp_name']}**(보통주 {sc['issuer_ticker']})의 종류주(우선주 등) 종목코드라 "
+            "발행 회사로 식별했습니다 — 공시·재무·배수 같은 회사 단위 값은 발행 회사 기준이고(배수의 시총은 보통주 시총), "
+            f"이 종류주 자체의 주가·시총은 `trading_data(company=\"{sc['ticker']}\")` 가 줍니다."
+        )
         if line not in lines:
             lines.append(line)
     return lines

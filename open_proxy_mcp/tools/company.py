@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-from open_proxy_mcp.services.company import build_company_payload
+from open_proxy_mcp.services.company import _prefers_english, build_company_payload
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.tools._shared import company_id_line
 
@@ -18,7 +17,7 @@ def _english_response(payload: dict[str, Any]) -> bool:
     if resolution.get("response_language"):
         return resolution["response_language"] == "en"
     query = str(data.get("query") or payload.get("subject") or "")
-    return bool(re.search(r"[A-Za-z]", query)) and not bool(re.search(r"[가-힣]", query))
+    return _prefers_english(query)
 
 
 def _render_error(payload: dict[str, Any]) -> str:
@@ -125,6 +124,8 @@ def _render_exact(payload: dict[str, Any]) -> str:
         "| Field | Value |" if english else "| 항목 | 값 |",
         "|-------|-------|" if english else "|------|----|",
         f"| ticker | `{identifiers.get('ticker', '')}` |" if identifiers.get("ticker") else ("| ticker | Unlisted/unknown |" if english else "| ticker | 비상장/미상 |"),
+        *([f"| {'Class-share ticker (queried)' if english else '종류주 코드(요청)'} | `{identifiers['share_class_ticker']}` |"]
+          if identifiers.get("share_class_ticker") else []),
         f"| corp_code | `{identifiers.get('corp_code', '')}` |",
         f"| ISIN | `{identifiers.get('isin', '')}` |" if identifiers.get("isin") else ("| ISIN | Not connected |" if english else "| ISIN | 아직 미연결 |"),
         f"| {'Corporate registration no.' if english else '법인등록번호'} | `{identifiers.get('jurir_no', '')}` |" if identifiers.get("jurir_no") else ("| Corporate registration no. | - |" if english else "| 법인등록번호 | - |"),
@@ -199,7 +200,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 기업 식별 + 최근 공시 인덱스. 모든 data tool 공통 입구. 회사명/ticker/corp_code → 시장·업종·최근 공시.
         when: 검색 시작 → ticker/corp_code 확정 후속 tool에 전달. 최근 공시 종류·빈도 훑을 때.
-        rule: 비상장 법인 자동 제외 (상장사 전용). 공식 한글·영문명과 별칭을 우선하고, 부분명은 활성 상장·시총 격차가 충분할 때만 자동 추론. 공식명 exact는 시총보다 우선.
+        rule: 비상장 법인 자동 제외 (상장사 전용). 공식 한글·영문명과 별칭을 우선하고, 부분명은 활성 상장·시총 격차가 충분할 때만 자동 추론. 공식명 exact는 시총보다 우선. ticker 는 KRX 단축코드 6자 — 숫자뿐 아니라 영문이 섞인 신형 코드(0126Z0)도 받는다. 우선주·종류주 코드(005935·00088K)는 발행 회사(보통주와 같은 corp_code)로 식별하고 맨 앞 경고와 `identifiers.share_class_ticker` 로 밝힌다. 코드만 넣으면 응답 언어는 한국어(기본).
         params: query, max_recent_filings(1-20), start_date/end_date(YYYYMMDD), language(auto|ko|en)
         ref: shareholder_meeting_notice, ownership_structure, dividend_disclosure, proxy_contest, value_up
         """
@@ -214,8 +215,8 @@ def register_tools(mcp):
             language=requested_language,
         )
         if requested_language == "auto":
-            query_is_english = bool(re.search(r"[A-Za-z]", query)) and not bool(re.search(r"[가-힣]", query))
-            requested_language = "en" if query_is_english else "ko"
+            # 서비스와 같은 판정 — 종목코드(신형 영숫자 「0126Z0」 포함)는 언어가 아니라 기본(한국어)이다.
+            requested_language = "en" if _prefers_english(query) else "ko"
         payload.setdefault("data", {})["display_language"] = requested_language
 
         if format == "json":

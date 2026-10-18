@@ -171,6 +171,39 @@ def spelling_variants(compact: str) -> list[list[str]]:
     return groups
 
 
+#: KRX 단축코드 — 6자, 숫자·영문 대문자. 숫자가 바닥나 2024년 신형 규칙부터 영문이 섞인다
+#: (보통주 0126Z0 삼성에피스홀딩스 · 0001A0 덕양에너젠 / 종류주 00088K 한화3우B · 33626L).
+#: 회사명과 가르려고 숫자 4자 이상을 요구한다 — 유니버스 코드 판정(`services/screener._looks_like_code`)과 같은 규칙이다.
+_KRX_CODE_RE = re.compile(r"[0-9A-Z]{6}")
+
+
+def krx_code(text: str) -> str:
+    """입력이 KRX 단축코드 모양이면 대문자 코드, 아니면 "". 소문자로 적은 영숫자 코드(「0126z0」)도 받는다."""
+    code = (text or "").strip().upper()
+    if _KRX_CODE_RE.fullmatch(code) and sum(ch.isdigit() for ch in code) >= 4:
+        return code
+    return ""
+
+
+def issuer_ticker(code: str) -> str:
+    """종류주(우선주 등) 코드의 보통주 코드. 보통주 코드이거나 코드 모양이 아니면 "".
+
+    KRX 단축코드의 끝자리는 주식 종류다 — 0 이 보통주, 그 밖(5·7·9·K·L·M …)은 같은 발행 회사의 종류주이고
+    앞 5자가 발행 회사다(005935 삼성전자우 → 005930 · 005387 현대차2우B → 005380 · 00680K → 006800 미래에셋증권).
+    DART 회사 원장은 보통주 코드만 갖는다. 같은 규칙을 유니버스 순위표의 우선주 판정(`services/universe.is_preferred`)이 쓴다.
+    261018 실측: 최신 거래일 시세 2,762종목 중 원장에 없는 114종목이 전부 이 규칙으로 원장의 보통주에 닿았다."""
+    c = krx_code(code)
+    if not c or c[5] == "0":
+        return ""
+    return c[:5] + "0"
+
+
+def share_class_ticker(corp: dict[str, Any] | None) -> str:
+    """해석기가 종류주 코드로 찾은 결과면 그 종류주 코드, 아니면 "". 시세 도구가 회사(보통주)가 아니라 그 종류주의 값을 읽을 때 쓴다."""
+    sc = ((corp or {}).get("_resolution") or {}).get("share_class") or {}
+    return str(sc.get("ticker") or "")
+
+
 def _is_inferred(results: list[dict[str, Any]]) -> bool:
     """부분일치·유사일치처럼 이름이 정확히 맞지 않아 추정한 결과인가."""
     return bool(results) and bool((results[0].get("_resolution") or {}).get("inferred"))
@@ -235,6 +268,9 @@ class MarketContext:
     active_tickers: frozenset[str] | None = None
     as_of_date: str = ""
     source: str = "none"
+    #: 시세 저장분에서 관측된 종류주 코드(끝자리 0 이 아닌 것) — 상장폐지된 것까지(`krx_listing`). 최신 거래일 단면(`market_caps`)과 함께
+    #: 종류주 코드를 발행 회사로 이을지 가르는 근거다(관측된 적 없는 코드를 규칙만으로 회사에 붙이지 않는다).
+    share_class_tickers: frozenset[str] = frozenset()
 
 
 def _local_market_context() -> MarketContext:
@@ -292,6 +328,7 @@ def _database_market_context() -> MarketContext | None:
                 "SELECT ticker, mktcap, market FROM krx_daily_v WHERE trd_dd=%s",
                 (as_of_date,),
             ).fetchall()
+            share_classes = _observed_share_classes(conn)
         caps = {str(ticker): int(cap or 0) for ticker, cap, _market in rows if ticker}
         # A partial snapshot must never be treated as the complete active universe.
         fresh = False
@@ -305,9 +342,22 @@ def _database_market_context() -> MarketContext | None:
             _log.warning("시장 맥락 %s: %d행인데 시장별 종목 수가 기준 미달이라 활성 명부를 끈다 — 시장 칸 값 %s",
                          as_of_date, len(rows), dict(Counter(str(m) for _t, _c, m in rows).most_common(4)))
         active = frozenset(caps) if complete and fresh else None
-        return MarketContext(caps, active, as_of_date, _DB_MARKET_SOURCE)
+        return MarketContext(caps, active, as_of_date, _DB_MARKET_SOURCE, share_classes)
     except Exception:
         return None
+
+
+def _observed_share_classes(conn: Any) -> frozenset[str]:
+    """시세 저장분에서 관측된 종류주 코드 — 종목별 최초·최종 관측표(`krx_listing`, 주간 시세 파생)에서 끝자리가 0 이 아닌 것.
+    상장폐지된 종류주까지 든다(그 주간 곡선이 저장분에 남아 있다). 읽을 수 없으면(표 없음·권한) 빈 집합 — 시장 맥락은 그대로 쓴다.
+    세이브포인트 안에서 읽어 실패가 같은 연결의 나머지를 깨지 않게 한다."""
+    try:
+        with conn.transaction():
+            rows = conn.execute("SELECT ticker FROM krx_listing WHERE right(ticker, 1) <> '0'").fetchall()
+    except Exception:
+        _log.info("종류주 관측표(krx_listing)를 읽지 못해 최신 거래일 단면의 종류주만 쓴다", exc_info=True)
+        return frozenset()
+    return frozenset(str(r[0]).strip().upper() for r in rows if r and r[0])
 
 
 _market_context: MarketContext | None = None
@@ -379,6 +429,7 @@ async def load_market_context() -> MarketContext:
                     database.active_tickers,
                     database.as_of_date,
                     database.source,
+                    database.share_class_tickers,
                 )
             else:
                 _market_context = local
@@ -390,7 +441,8 @@ async def load_market_context() -> MarketContext:
 class CompanyResolver:
     """Immutable lookup indexes built once per corp-code master revision."""
 
-    _STRONG_KINDS = {"ticker", "corp_code", "official", "alias", "normalized"}
+    #: share_class = 종류주(우선주 등) 종목코드로 찾은 발행 회사 — 코드 조회라 추정이 아니다.
+    _STRONG_KINDS = {"ticker", "corp_code", "share_class", "official", "alias", "normalized"}
 
     def __init__(
         self,
@@ -416,6 +468,8 @@ class CompanyResolver:
         self._listed_ids: set[int] = set()
         #: 이름으로 찾을 수 있는 행 — 상장사 + 정기보고서 제출 법인
         self._searchable_ids: set[int] = set()
+        #: 종류주 코드 → 발행 회사의 보통주 코드. 시세 저장분에서 관측된 코드만(`MarketContext.share_class_tickers`·최신 단면).
+        self._share_class: dict[str, str] = {}
         self._build_indexes()
 
     @staticmethod
@@ -464,6 +518,13 @@ class CompanyResolver:
             }:
                 if key and target_ids:
                     self._alias.setdefault(key, []).extend(target_ids)
+
+        # 종류주 코드(005935·00088K) — 원장에는 보통주 코드만 있다. 시세 저장분에서 관측된 코드 중 원장에 없고, 끝자리를 0 으로
+        # 바꾼 보통주 코드가 원장에 있는 것만 잇는다(`issuer_ticker`). 관측된 적 없는 코드(오타 005931 등)는 규칙만으로 회사에 붙이지 않는다.
+        for code in itertools.chain(self.market.market_caps, self.market.share_class_tickers):
+            base = issuer_ticker(code)
+            if base and code not in self._ticker and base in self._ticker:
+                self._share_class.setdefault(code, base)
 
     def _active_preferred(
         self,
@@ -640,9 +701,19 @@ class CompanyResolver:
         numeric = raw_query.isdigit()
         row_ids: list[int] = []
         kind = ""
+        share_class = ""
+        code = krx_code(raw_query)
 
-        if re.fullmatch(r"\d{6}", raw_query):
-            row_ids, kind = self._ticker.get(raw_query, []), "ticker"
+        if re.fullmatch(r"\d{6}", raw_query) or (code and (code in self._ticker or code in self._share_class)):
+            # 종목코드. 숫자 6자리는 종전대로 늘 이 길이다. 영숫자(신형 0126Z0)·소문자는 원장 또는 관측된 종류주에 있을 때만 —
+            # 없으면 종전처럼 아래 이름 검색으로 내려간다(261018: 종전엔 숫자 6자리만 코드로 읽어 신형 코드 상장사 64곳이 코드로 안 찾혔다).
+            numeric = True
+            key = code or raw_query
+            row_ids, kind = self._ticker.get(key, []), "ticker"
+            if not row_ids and key in self._share_class:
+                # 종류주 코드 → 발행 회사(보통주와 같은 corp_code). 어느 종류주로 물었는지는 `_resolution.share_class` 로 남긴다 —
+                # 시세 도구는 그 종류주 자체의 값을, 회사 단위 도구는 발행 회사의 값을 준다.
+                row_ids, kind, share_class = self._ticker.get(self._share_class[key], []), "share_class", key
         elif re.fullmatch(r"\d{8}", raw_query):
             row_ids, kind = self._corp_code.get(raw_query, []), "corp_code"
         else:
@@ -719,6 +790,10 @@ class CompanyResolver:
             dominant = False
 
         results = [self._decorate(i, kind, inferred, len(ranked) - 1) for i in ranked]
+        if share_class:
+            for result in results:
+                result["_resolution"]["share_class"] = {
+                    "ticker": share_class, "issuer_ticker": self._share_class[share_class]}
         if results:
             results[0]["_resolution"]["auto_selected"] = auto_selected
             results[0]["_resolution"]["dominant"] = dominant
