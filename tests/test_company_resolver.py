@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import sqlite3
+from datetime import date
+
+import pytest
 
 from open_proxy_mcp import company_resolver as resolver_module
 from open_proxy_mcp.company_resolver import CompanyResolver, MarketContext
@@ -237,6 +241,73 @@ def test_expired_market_context_is_reloaded(monkeypatch):
     loaded = asyncio.run(resolver_module.load_market_context())
     assert loaded.as_of_date == "20260721"
     assert calls == [True]
+
+
+@pytest.mark.parametrize("markets,expected", [
+    (["KS"] * 700 + ["KQ"] * 1_200, True),                     # DB 저장값(260823 개명 뒤) — 종전 판정은 여기서 거짓이었다
+    (["KOSPI"] * 700 + ["KOSDAQ"] * 1_200, True),              # 옛 표기 행도 같은 시장으로 센다(to_db)
+    ([" ks"] * 700 + ["kq "] * 1_200, True),
+    (["KS"] * 699 + ["KQ"] * 1_200, False),                    # 반쪽 단면
+    (["KS"] * 2_000, False),                                   # 한 시장만
+    (["KOSPI200"] * 1_000 + ["X"] * 1_000 + [None], False),    # 모르는 표기는 어느 시장으로도 세지 않는다
+])
+def test_complete_universe_counts_markets_by_db_code(markets, expected):
+    assert resolver_module._is_complete_universe(markets) is expected
+
+
+class _FakeConn:
+    """`_database_market_context` 가 여는 접속 흉내 — 첫 질의(인자 없음)는 기준일, 둘째(기준일 인자)는 단면 행."""
+
+    def __init__(self, as_of: str, rows: list[tuple]):
+        self.as_of, self.rows = as_of, rows
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, sql, params=None):
+        one, rows = (self.as_of,), self.rows
+        return type("Cur", (), {"fetchone": lambda _s: one, "fetchall": lambda _s: rows})()
+
+
+def _snapshot(ks: int, kq: int, ks_label: str = "KS", kq_label: str = "KQ") -> list[tuple]:
+    return ([(f"{i:06d}", 1_000 + i, ks_label) for i in range(ks)]
+            + [(f"{ks + i:06d}", 1_000 + i, kq_label) for i in range(kq)])
+
+
+def test_database_market_context_turns_the_active_registry_on_for_a_full_ks_kq_snapshot(monkeypatch):
+    """실제 함수 경로 — DB 가 주는 KS/KQ 그대로의 전 종목 단면이면 활성 명부가 켜진다(종전엔 늘 None)."""
+    import psycopg
+    rows = _snapshot(800, 1_300)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake")
+    monkeypatch.setattr(psycopg, "connect", lambda *a, **k: _FakeConn("20261016", rows))
+    monkeypatch.setattr(resolver_module, "today_kst", lambda: date(2026, 10, 18))
+    ctx = resolver_module._database_market_context()
+    assert ctx is not None and ctx.active_tickers == frozenset(t for t, _c, _m in rows)
+    # 같은 단면이라도 낡았으면(14일 초과) 켜지 않는다
+    monkeypatch.setattr(resolver_module, "today_kst", lambda: date(2026, 11, 1))
+    assert resolver_module._database_market_context().active_tickers is None
+
+
+def test_full_size_snapshot_with_unknown_market_labels_stays_off_and_says_why(monkeypatch, caplog):
+    """행 수는 전 종목인데 시장 표기를 못 알아보면 끄되, 이번엔 조용히 끄지 않는다 — 로그에 시장 칸 값을 남긴다."""
+    import psycopg
+    monkeypatch.setenv("DATABASE_URL", "postgresql://fake")
+    monkeypatch.setattr(psycopg, "connect",
+                        lambda *a, **k: _FakeConn("20261016", _snapshot(800, 1_300, "STK", "KSQ")))
+    monkeypatch.setattr(resolver_module, "today_kst", lambda: date(2026, 10, 18))
+    with caplog.at_level(logging.WARNING, logger=resolver_module.__name__):
+        ctx = resolver_module._database_market_context()
+    assert ctx is not None and len(ctx.market_caps) == 2_100 and ctx.active_tickers is None
+    assert any("활성 명부를 끈다" in r.getMessage() and "STK" in r.getMessage() for r in caplog.records)
+    # 반쪽 단면(행 수 자체가 모자람)은 평소 상황이라 경고하지 않는다
+    caplog.clear()
+    monkeypatch.setattr(psycopg, "connect", lambda *a, **k: _FakeConn("20261016", _snapshot(300, 300)))
+    with caplog.at_level(logging.WARNING, logger=resolver_module.__name__):
+        assert resolver_module._database_market_context().active_tickers is None
+    assert not caplog.records
 
 
 def test_new_sqlite_round_trip_preserves_english_name(tmp_path, monkeypatch):
