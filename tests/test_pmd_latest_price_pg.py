@@ -124,6 +124,12 @@ def _old_market_for(url, ticker) -> dict:
     return {}
 
 
+def _mf(ticker) -> dict:
+    """`_market_for` 의 값 칸(출처 표시 `source` 를 뺀 것) — 종전 반환과 같은 키로 값을 대조한다.
+    261018: 반환에 출처 표시(`source` = "db" / "krx_live")가 더해졌다. 출처는 따로 단언한다."""
+    return {k: v for k, v in asyncio.run(S._market_for(ticker)).items() if k != "source"}
+
+
 def _old_shares_ratio(url, ticker, after_dd):
     first, last = _q(url, OLD_SHARES_FIRST, (ticker, after_dd)), _q(url, OLD_SHARES_LAST, (ticker,))
     if not first or not last or not first[0][0] or not last[0][0]:
@@ -170,8 +176,9 @@ def test_current_world_moved_reads_give_the_same_values_as_the_old_krx_weekly_re
     _load(db.url, this_week_in_weekly=True)
     assert asyncio.run(S._serving_price_dd()) == _q(db.url, OLD_LATEST)[0][0] == THIS_WEEK
     for t in [A, B, C, D, E, *CANDS]:
-        assert asyncio.run(S._market_for(t)) == _old_market_for(db.url, t), t
-    assert asyncio.run(S._market_for(A)) == {"price": 75_000, "date": THIS_WEEK, "common_mktcap": 75_000 * A_SHRS, "list_shrs": A_SHRS}
+        assert _mf(t) == _old_market_for(db.url, t), t
+        assert asyncio.run(S._market_for(t)).get("source") == ("db" if _old_market_for(db.url, t) else None), t   # DB 에서 받은 값은 출처가 db
+    assert _mf(A) == {"price": 75_000, "date": THIS_WEEK, "common_mktcap": 75_000 * A_SHRS, "list_shrs": A_SHRS}
     assert asyncio.run(S._market_for(D))["price"] == 21_000            # 이번 주 신규상장도 두 길 모두 DB 에서
     for t in (A, B, E):
         assert asyncio.run(S._shares_ratio(t, "20251231")) == _old_shares_ratio(db.url, t, "20251231"), t
@@ -196,9 +203,9 @@ def test_next_world_serves_this_weeks_latest_day_not_last_weeks_close(db, monkey
     assert _q(db.url, OLD_LATEST)[0][0] == LAST_WEEK                    # 종전 기준일이라면 지난주 목요일
     assert asyncio.run(S._serving_price_dd()) == THIS_WEEK
     db.live.clear()
-    assert asyncio.run(S._market_for(A)) == {"price": 75_000, "date": THIS_WEEK, "common_mktcap": 75_000 * A_SHRS, "list_shrs": A_SHRS}
+    assert _mf(A) == {"price": 75_000, "date": THIS_WEEK, "common_mktcap": 75_000 * A_SHRS, "list_shrs": A_SHRS}
     assert _old_market_for(db.url, A)["price"] == 70_000                # 종전 읽기였다면 낡은 값
-    assert asyncio.run(S._market_for(D)) == {"price": 21_000, "date": THIS_WEEK, "common_mktcap": 21_000 * 30_000_000,
+    assert _mf(D) == {"price": 21_000, "date": THIS_WEEK, "common_mktcap": 21_000 * 30_000_000,
                                              "list_shrs": 30_000_000}  # 이번 주 신규상장 — 주간 표엔 아직 없다
     assert db.live == [], "일별 저장분에 있는 종목인데 라이브를 불렀다"
     assert _weekly_reads(db.sqls) == [], "최신값 경로가 krx_weekly 를 읽었다"
@@ -227,8 +234,8 @@ def test_a_day_stale_serving_date_cache_still_serves_the_new_day_without_live_ca
     S._SERVING_DD.update(dd="20261015", at=time.monotonic())
     assert asyncio.run(S._serving_price_dd()) == "20261015"              # 캐시가 하루 낡았다
     db.live.clear()
-    assert asyncio.run(S._market_for(A)) == {"price": 75_000, "date": THIS_WEEK, "common_mktcap": 75_000 * A_SHRS, "list_shrs": A_SHRS}
-    assert asyncio.run(S._market_for(B)) == {"price": 42_000, "date": THIS_WEEK, "common_mktcap": 42_000 * B_SHRS * 5,
+    assert _mf(A) == {"price": 75_000, "date": THIS_WEEK, "common_mktcap": 75_000 * A_SHRS, "list_shrs": A_SHRS}
+    assert _mf(B) == {"price": 42_000, "date": THIS_WEEK, "common_mktcap": 42_000 * B_SHRS * 5,
                                              "list_shrs": B_SHRS * 5}
     assert asyncio.run(S._market_for(D))["date"] == THIS_WEEK
     assert db.live == [], "캐시된 기준일이 하루 낡았다고 라이브를 불렀다"

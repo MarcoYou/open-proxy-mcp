@@ -309,7 +309,7 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 | 지표 | 산식 | 기준 |
 |---|---|---|
 | EPS(FY0) | DART **공시 기본주당이익** (가중평균 주식수·우선주 배분 반영) | 계속+중단영업 분리 공시는 합산, 결측 시 지배순이익÷보통주 폴백 |
-| EPS(TTM) | **공시 EPS 조립** = FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS | FY0과 같은 공시 기준(대칭). 기중 액면분할·무상증자·주식배당은 수정계수(krx_adj_events)로 각 조각을 현재 기준 정렬 |
+| EPS(TTM) | **공시 EPS 조립** = FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS | FY0과 같은 공시 기준(대칭). 기중 액면분할·무상증자·주식배당은 수정계수(거래소 기준가 조정 이력)로 각 조각을 현재 기준 정렬 |
 | BPS | 지배자본(최근분기 MRQ, 부재 시 FY말) ÷ 합계 유통주식수(보통+우선, 자기주식 제외) | 지배주주 귀속 |
 | PER | **보통주 시총 ÷ 지배순이익** | FY0·TTM 각각 |
 | PBR | **보통주 시총 ÷ 지배자본** | MRQ (부재 시 FY말) |
@@ -360,6 +360,29 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 특정 종목의 실제 대입 계산은 `price_multiple_data(company="종목", scope="explain")`."""
 
 
+#: `data.price_source` → 주가 인풋 줄의 출처 문구(261018). 종전엔 값을 어디서 받았든 「저장분 서빙」 한 가지였다 —
+#: 저장분에 없어 KRX 를 직접 불러 받은 값도 저장분에서 읽은 것처럼 적혔다. 모르는 값(None 등)이면 출처 갈래를 적지 않는다.
+_PRICE_SOURCE_TEXT = {
+    "db": "KRX 일별시세, 일별 시세 저장분 서빙",
+    "krx_live": "KRX 일별시세, 저장분에 없어 KRX 에서 직접 조회",
+}
+
+
+def _price_input_line(price: Any, pdate: Any, source: Any) -> str:
+    """explain 의 주가 인풋 줄. 주가를 못 받았으면(일별 시세 저장분·KRX 직접 조회 모두 실패) 숫자 서식에서 죽지 않고 그렇게 적는다
+    (261018 — 종전엔 `None:,` 에서 TypeError 가 나 explain 응답 전체가 실패했다)."""
+    if price is None:
+        return "- 주가: **미확보** (일별 시세 저장분·KRX 직접 조회 모두에서 받지 못함 — 시총 기반 배수는 N/M)"
+    return f"- 주가: **{price:,}원** ({pdate} 종가 — {_PRICE_SOURCE_TEXT.get(source, 'KRX 일별시세')})"
+
+
+def _n(v: Any, unit: str = "", missing: str = "미확정") -> str:
+    """explain 의 숫자 칸 — 값이 없으면 파이썬 `None` 을 그대로 흘리지 않고 `missing` 으로 적는다.
+    261018 실측(로컬 파일럿, 한창 005110): 「DPS(보통주 현금배당 — DART alotMatter): None원」. 종전엔 `v and format(v, ',')` 이라
+    없는 값이 「None」·「None원」으로 사용자 화면에 나갔다."""
+    return f"{v:,}{unit}" if isinstance(v, (int, float)) and not isinstance(v, bool) else missing
+
+
 def _render_explain_firm(p: dict[str, Any]) -> str:
     """종목별 수치 근거 — 실제 값 대입 계산 과정."""
     d = p["data"]; i = d["inputs"]; m = d["multiples"]
@@ -367,29 +390,29 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     fx, cur = i.get("fx_rate_to_krw"), i.get("functional_currency", "KRW")
     L = [f"# {p['subject']} 수치 근거 (계산 과정)", "",
          f"## 인풋과 출처",
-         f"- 주가: **{price:,}원** ({pdate} 종가 — KRX 일별시세, 일별 시세 저장분 서빙)",
+         _price_input_line(price, pdate, d.get("price_source")),
          f"- 지배순이익 FY0: {i['net_income_fy0_krw']:,}원 / TTM: "
          f"{i['net_income_ttm_krw']:,}원 (DART 재무제표 원문, 지배주주 귀속 계정)"
          if i.get("net_income_fy0_krw") is not None and i.get("net_income_ttm_krw") is not None else
-         f"- 지배순이익: FY0={i.get('net_income_fy0_krw')} / TTM={i.get('net_income_ttm_krw')} (일부 미확정)",
+         f"- 지배순이익: FY0={_n(i.get('net_income_fy0_krw'), '원')} / TTM={_n(i.get('net_income_ttm_krw'), '원')} (일부 미확정)",
          f"- 지배자본(MRQ 우선): {i['controlling_equity_krw']:,}원"
          if i.get("controlling_equity_krw") is not None else "- 지배자본: 미확정",
-         f"- 유통주식수(자기주식 제외 — DART stockTotqySttus): 보통주 {i.get('shares_common') and format(i['shares_common'], ',')}"
-         f" / 합계(보통+우선) {i.get('shares_total') and format(i['shares_total'], ',')}",
-         f"- DPS(보통주 현금배당 — DART alotMatter): {i.get('dps_krw') and format(i['dps_krw'], ',')}원"]
+         f"- 유통주식수(자기주식 제외 — DART stockTotqySttus): 보통주 {_n(i.get('shares_common'))}"
+         f" / 합계(보통+우선) {_n(i.get('shares_total'))}",
+         f"- DPS(보통주 현금배당 — DART alotMatter): {_n(i.get('dps_krw'), '원', '없음(무배당 또는 미공시)')}"]
     if fx:
         L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 회계기말 환율 {fx:,.1f}원/{cur}(한국은행 ECOS)로 KRW 환산된 값")
     L += ["", "## 계산 과정"]
     def _calc(lbl, formula, num, den, out, unit=""):
-        if num is not None and den:
+        if num is not None and den and out is not None:       # 분모가 있어도 완전자본잠식이면 배수는 None(N/M) — 「**None**」 금지
             L.append(f"- {lbl} = {formula} = {num:,} ÷ {den:,} = **{out}{unit}**")
         else:
             L.append(f"- {lbl} = {formula} → **N/M** (분모≤0·적자·자본잠식 또는 데이터 미확정)")
-    L.append(f"- EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **{i.get('eps_fy0_krw') and format(i['eps_fy0_krw'], ',')}원**"
+    L.append(f"- EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **{_n(i.get('eps_fy0_krw'), '원')}**"
              " (부재 시 지배순이익÷보통주 폴백)")
     if i.get("eps_ttm_basis") == "disclosed_assembled":
         L.append(f"- EPS(TTM) = **공시 EPS 조립**(FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS) = "
-                 f"**{i.get('eps_ttm_krw') and format(i['eps_ttm_krw'], ',')}원** — FY0과 같은 공시 가중평균 기준(대칭)")
+                 f"**{_n(i.get('eps_ttm_krw'), '원')}** — FY0과 같은 공시 가중평균 기준(대칭)")
         adj = i.get("eps_adj_factors")
         if adj:
             parts = []
@@ -398,14 +421,14 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
             if adj.get("prior_q") != 1.0:
                 parts.append(f"전년동기 EPS ×{adj['prior_q']:g}")
             L.append(f"  - **수정계수 보정 적용**: {' · '.join(parts)} — 기중 액면분할·무상증자·주식배당으로 "
-                     "옛 분모 기준인 공시 EPS를 현재 기준으로 정렬 (krx_adj_events, 거래소 기준가 리셋 실측)")
+                     "옛 분모 기준인 공시 EPS를 현재 기준으로 정렬 (거래소 기준가 리셋 실측 수정계수)")
     elif i.get("net_income_ttm_krw") is not None and i.get("shares_common"):
         L.append(f"- EPS(TTM) = 폴백: TTM 지배순이익 ÷ 보통주 = {i['net_income_ttm_krw']:,} ÷ "
-                 f"{i['shares_common']:,} = **{i.get('eps_ttm_krw') and format(i['eps_ttm_krw'], ',')}원**"
+                 f"{i['shares_common']:,} = **{_n(i.get('eps_ttm_krw'), '원')}**"
                  "  (공시 EPS 결측 — FY0과 기준 다름 주의)")
     if i.get("controlling_equity_krw") is not None and i.get("shares_total"):
         L.append(f"- BPS = 지배자본(MRQ) ÷ 합계주식수 = {i['controlling_equity_krw']:,} ÷ "
-                 f"{i['shares_total']:,} = **{i.get('bps_krw') and format(i['bps_krw'], ',')}원**")
+                 f"{i['shares_total']:,} = **{_n(i.get('bps_krw'), '원')}**")
     # 260823: 배수는 **시총 기반**(주가÷EPS 에서 전환) — 주식수가 분자·분모에서 상쇄돼
     #   액면분할·병합에 불변이고, 스냅샷 스코프와 정의가 같아진다. 기준을 계산식에 그대로 쓴다.
     cap = i.get("common_market_cap_krw")

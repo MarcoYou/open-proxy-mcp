@@ -20,6 +20,7 @@ from open_proxy_mcp.dart.client import (MARKET_WINDOW_MAX_MONTHS, LruByteCache, 
                                         list_pages_per_code, market_window_start,
                                         note_degradation)
 from open_proxy_mcp.db import pg_rows
+from open_proxy_mcp import krx_daily as _krx_daily   # 서빙 기준일 정의(`latest_day`) — DB·순수 함수만 있는 모듈이라 순환 없음
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
@@ -555,9 +556,10 @@ def resolve_period(period: str, *, cursor: str = "",
 
 def _krx_latest_dd() -> str | None:
     """서빙 단면의 기준일 — 일별 시세 저장분에 보관된 가장 늦은 거래일(YYYYMMDD). 비었거나 장애면 None.
-    이름은 그대로 둔다(여러 시험이 이 이름을 바꿔 끼운다)."""
-    rows = pg_rows("SELECT max(trd_dd) FROM krx_daily")
-    return rows[0][0] if rows and rows[0][0] else None
+    이름은 그대로 둔다(여러 시험이 이 이름을 바꿔 끼운다).
+    261018: 정의는 `krx_daily.latest_day` 한 곳이다 — 종목 최신가의 기준일(`price_multiple_data._krx_daily_latest_dd`)과 같은 것.
+    읽기는 이 모듈의 `pg_rows` 로 한다(시험이 이 모듈의 DB 읽기를 바꿔 끼운다)."""
+    return _krx_daily.latest_day(pg_rows)
 
 
 def _krx_mktcap_map(tickers: Iterable[str], price_dd: str) -> dict[str, int]:

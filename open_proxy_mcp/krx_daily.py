@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from open_proxy_mcp.market_codes import KQ as MKT_KQ
 from open_proxy_mcp.market_codes import KS as MKT_KS
@@ -148,3 +148,19 @@ def read_quote(ticker: str, as_of: str = "") -> QuoteLookup:
     cols = _QUOTE_COLS[4:]                           # LEFT JOIN 이 맞는 행을 못 찾으면 이 열이 전부 NULL
     row = {k: r[k] for k in cols} if any(r[k] is not None for k in cols) else None
     return QuoteLookup(ok=True, day=r["dd"], window=(r["lo"], r["hi"]), day_present=bool(r["present"]), row=row)
+
+
+#: 서빙 기준일 — 일별 시세 저장분에 보관된 가장 늦은 거래일. 기본키 (trd_dd, ticker) 역방향 스캔 한 번이다.
+LATEST_DAY_SQL = "SELECT max(trd_dd) FROM krx_daily"
+
+
+def latest_day(read_rows: Callable[..., Any]) -> str | None:
+    """서빙 기준일(YYYYMMDD) — `krx_daily` 의 가장 늦은 거래일. 비었거나 못 읽으면 None.
+
+    261018: 유니버스·시총 단면의 기준일(`services/screener._krx_latest_dd`)과 종목 최신가의 기준일
+    (`services/price_multiple_data._krx_daily_latest_dd`)이 같은 질의를 따로 적고 있었다 — 정의는 여기 한 곳이고 둘은 위임한다.
+    `read_rows` 는 **호출 모듈의 DB 읽기 함수**(`db.pg_rows` 계약: None = 미설정·장애, [] = 없음)다. 각 모듈의 시험이 그 모듈의
+    DB 읽기(`screener.pg_rows`·`price_multiple_data._pg_rows`)를 바꿔 끼우므로, 어느 함수로 읽을지는 호출자가 정한다.
+    비거나 장애여도 `krx_weekly` 로 대신하지 않는다 — 기준일과 행은 같은 원천에서 읽는다(호출자가 기존 강등 경로를 탄다)."""
+    rows = read_rows(LATEST_DAY_SQL)
+    return rows[0][0] if rows and rows[0][0] else None

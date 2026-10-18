@@ -436,7 +436,8 @@ def test_market_for_falls_back_to_live_not_to_krx_weekly_when_daily_is_unreadabl
     monkeypatch.setattr(pmd, "_krx_market_live", fake_live)
     monkeypatch.setattr(pmd, "_price_dates", lambda today=None: ["20261016", "20261015"])
     row = asyncio.run(pmd._market_for("005930"))
-    assert row == {"price": 71_000, "date": "20261016", "common_mktcap": 420_294_092_462_000, "list_shrs": 5_919_637_922}
+    assert row == {"price": 71_000, "date": "20261016", "common_mktcap": 420_294_092_462_000, "list_shrs": 5_919_637_922,
+                   "source": "krx_live"}                                   # 261018: 라이브로 받은 값은 출처가 그렇다고 적힌다
     assert live == ["20261016"] and all("krx_weekly" not in s for s, _ in seen)
     pmd._serving_dd_invalidate()
 

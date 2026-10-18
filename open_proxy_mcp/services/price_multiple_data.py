@@ -116,9 +116,10 @@ def _krx_daily_latest_dd() -> str | None:
     """서빙 기준일 — 일별 시세 저장분(`krx_daily`)의 가장 늦은 거래일(261018, 재설계 5-1).
 
     주간 표의 이번 주 행이 없어져도(다음 단계) 최신값이 낡지 않도록 일별 저장분을 본다. 기본키 (trd_dd, ticker) 역방향 스캔 한 번이다.
-    비었거나 못 읽으면 None — krx_weekly 로 대신하지 않는다(기준일과 행은 같은 원천에서 읽는다). 호출자는 기존 강등 경로(KRX 라이브)를 탄다."""
-    rows = _pg_rows("SELECT max(trd_dd) FROM krx_daily")
-    return rows[0][0] if rows and rows[0][0] else None
+    비었거나 못 읽으면 None — krx_weekly 로 대신하지 않는다(기준일과 행은 같은 원천에서 읽는다). 호출자는 기존 강등 경로(KRX 라이브)를 탄다.
+    정의는 `krx_daily.latest_day` 한 곳이다 — 유니버스·시총 단면의 기준일(`screener._krx_latest_dd`)과 같은 것. 읽기는 이 모듈의
+    `_pg_rows` 로 한다(시험이 이 모듈의 DB 읽기를 바꿔 끼운다)."""
+    return _krx_daily.latest_day(_pg_rows)
 
 
 async def _weekly_bounds() -> tuple[str, str]:
@@ -302,23 +303,31 @@ async def _ensure_krx_fresh() -> str | None:
     return db_latest
 
 
+#: `_market_for` 반환의 출처 표시(`source`) — 값을 어디서 받았나. `trading_data(scope="quote")` 의 `data.source` 와 같은 값을 쓴다.
+PRICE_SOURCE_DB = "db"              # 일별 시세 저장분(서버가 매 거래일 보관한 KRX 응답)
+PRICE_SOURCE_LIVE = "krx_live"      # 저장분 미스 → 요청 경로에서 KRX 를 직접 불러 받은 값
+
+
 async def _market_for(stock_code: str) -> dict:
     """보통주 종가·시총·상장주식수 — 일별 시세 저장분(DB) 우선, 라이브 KRX fallback.
     price_date로 기준일 노출. 배수 분자는 보통주 시총(우선주 시총은 cap_pref 로 별도).
     기준일은 DB 상태만 읽는다(`_serving_price_dd`) — 갱신은 백그라운드 갱신기 몫이다.
-    261018: krx_weekly 의 이번 주 행 → `krx_daily` 기준일 + `price_latest` 한 줄. 반환 키(price·date·common_mktcap·list_shrs)와 값은 그대로다."""
+    261018: krx_weekly 의 이번 주 행 → `krx_daily` 기준일 + `price_latest` 한 줄. 반환 키(price·date·common_mktcap·list_shrs)와 값은 그대로다.
+    261018: 반환에 **`source`**(`PRICE_SOURCE_DB` / `PRICE_SOURCE_LIVE`)를 더했다 — `scope="explain"` 의 주가 인풋 줄이 라이브 폴백으로
+    받은 값에도 「일별 시세 저장분 서빙」이라고 적던 것을 실제 출처대로 적게 하려는 것이다. 못 받으면 종전처럼 {}."""
     latest_dd = await _serving_price_dd()
     if latest_dd:
         row = await asyncio.to_thread(_krx_db_get, latest_dd, stock_code)
         if row.get("price"):
-            return row
+            return {**row, "source": PRICE_SOURCE_DB}
     # DB 미스(최신 스냅샷에 아직 없는 신규상장·정지 해제 등) → 라이브 단발 fallback
     for d in _price_dates():
         snap = await _krx_market_live(d)
         base = snap.get(stock_code)
         if base and _num(base.get("TDD_CLSPRC")):
             return {"price": _num(base.get("TDD_CLSPRC")), "date": d,
-                    "common_mktcap": _num(base.get("MKTCAP")), "list_shrs": _num(base.get("LIST_SHRS"))}
+                    "common_mktcap": _num(base.get("MKTCAP")), "list_shrs": _num(base.get("LIST_SHRS")),
+                    "source": PRICE_SOURCE_LIVE}
     return {}
 
 
@@ -416,6 +425,9 @@ async def _gather_db(*aws) -> list:
 
 
 _DB_ERROR_PAYLOAD_WARN = "스냅샷 DB 연결 실패 — 일시 장애 가능, 잠시 후 재시도. (배치 미실행과 다름)"
+#: 시장·산업 주간 밸류 스냅샷이 비었을 때(배치 미실행). 261018: 사용자 문장에 표·배치 이름(종전 「opm_val_market 비어있음 —
+#: market_val_weekly 배치 미실행」)을 쓰지 않는다 — 260907 저장소 이름 정리의 남은 자리.
+_VAL_SNAPSHOT_EMPTY_WARN = "주간 밸류 스냅샷이 비어 있음 — 집계 배치 미실행."
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -579,7 +591,7 @@ async def _div_yield_map(scheme: str) -> tuple[dict, dict]:
             ruler.setdefault("actual_fiscal_year", fy)
             ruler.setdefault("actual_price_dd", price_dd)
     elif rows is None:
-        ruler["actual_error"] = "확정 배당수익률 조회 실패 — div_yield_hist"
+        ruler["actual_error"] = "확정 배당수익률 조회 실패 — 일시 장애 가능, PER·PBR 값은 그대로다."   # 261018: 표 이름 대신 선행 쪽과 같은 안내
     return act, ruler
 
 
@@ -622,7 +634,7 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": "시장 밸류에이션",
-                "warnings": ["opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
+                "warnings": [_VAL_SNAPSHOT_EMPTY_WARN]}
     hist = [{"snap_dd": r[0], "market": r[1],
              "per_fy0": r[2] and round(r[2], 2), "per_ttm": r[3] and round(r[3], 2),
              "pbr_fy0": r[4] and round(r[4], 2), "pbr_mrq": r[5] and round(r[5], 2),
@@ -664,7 +676,7 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
                                "시장·섹터의 PER이 크게 높아짐, KOSDAQ 고PER의 주원인. PBR 병행 해석 권장). "
                                "※ 표기 PER 분모별 Σ시총은 해당 지표 보유 종목만 — cap_krw(전체 시총)"
                                "÷ni_ttm_krw 재계산과 다를 수 있음"},
-            "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — market_val_weekly가 갱신."]}
+            "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — 매일 집계 배치가 갱신."]}
 
 
 # 260823: 분류 축이 둘이 됐다. `sector != '_ALL'` 만으로 거르면 KSIC 와 업종분류가 **섞여**
@@ -700,7 +712,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     if not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": "산업별 밸류에이션",
-                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else "opm_val_market 비어있음 — market_val_weekly 배치 미실행."]}
+                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else _VAL_SNAPSHOT_EMPTY_WARN]}
     as_of = rows[0][0]
     sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
                 "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
@@ -1105,7 +1117,8 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
     if not band and not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": corp.get("corp_name", query),
-                "warnings": ["시계열 없음 — 과거 시세(krx_weekly)·재무(dart_finstat_y)·주간 스냅샷 모두 미수집."]}
+                # 261018: 사용자 문장에 저장소 표 이름을 쓰지 않는다(종전 「과거 시세(krx_weekly)·재무(dart_finstat_y)」 — 260907 정리의 남은 자리).
+                "warnings": ["시계열 없음 — 과거 시세(주간 시세 저장분)·연간 재무·주간 스냅샷 모두 미수집."]}
     hist = [{"period": b["period"], "asof": b["asof"], "cap_krw": b["cap_krw"],
              "per_fy0": b["per_fy0"], "per_ttm": None, "pbr": b["pbr_fy0"],
              "source": b["source"]} for b in band]
@@ -1127,13 +1140,13 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     market = rows[-1][1] if rows else (cur_row[0][0] if cur_row else None)
     sector = rows[-1][2] if rows else (cur_row[0][1] if cur_row else None)
     if not summary and not band:
-        warnings.append("주간 곡선 미산출 — krx_weekly 시세 또는 재무(dart_finstat_y/dart_finstat_q) 미수집.")
+        warnings.append("주간 곡선 미산출 — 주간 시세 저장분 또는 재무(연간·분기) 미수집.")
     return {"tool": "price_multiple_data", "status": "ok", "subject": corp.get("corp_name", query),
             "data": {"scope": "firm_history", "ticker": isu, "market": market,
                      "sector": sector, "history": hist, "series": series, "summary": summary,
                      "weekly_from": weekly_from,
-                     "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 dart_finstat_y·PIT) · "
-                               "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 dart_finstat_q) · "
+                     "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 재무·PIT) · "
+                               "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 재무) · "
                                "MRQ PBR=최근분기 지배자본. 차트=최근 3년 주간 곡선(series, weekly_from 이후 — 그 이전 "
                                "연말 값은 history 의 연말 항목), 요약=최근 12개월 "
                                "월말(summary). 시총 기반이라 분할·무상증자 등 조정성 이벤트에 불변(유증·자사주 "
@@ -1632,6 +1645,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             "identifiers": {"ticker": stock_code, "corp_code": cc},
             "sector_class": "financial" if is_financial else "general",
             "fiscal_year": fy, "price_krw": price, "price_date": mk.get("date"),
+            # 261018: 주가를 어디서 받았나 — "db"(일별 시세 저장분) / "krx_live"(저장분 미스 → KRX 직접) / None(못 받음).
+            #   `scope="explain"` 의 주가 인풋 줄이 이것으로 출처를 고른다(종전엔 라이브 폴백이어도 「저장분 서빙」이라 적었다).
+            "price_source": mk.get("source"),
             "multiples": {
                 "per_fy0": per_fy, "per_ttm": per_ttm,
                 "pbr_mrq": pbr, "pbr_basis": equity_basis,

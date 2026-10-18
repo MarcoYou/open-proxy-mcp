@@ -97,6 +97,9 @@ def _err(subject: str, status: str, *warns: str) -> dict[str, Any]:
 _DB_UNSET_WARN = ("이 서버에는 스냅샷 DB(`DATABASE_URL`)가 연결돼 있지 않습니다 — **재시도해도 "
                   "되지 않습니다.** 저장 시계열(주간 시세·시총 집계)을 쓰는 조회는 이 서버에서 "
                   "제공되지 않습니다.")
+#: 시총 집계 저장분이 비었을 때(배치 미실행). 261018: 사용자 문장에 표·배치 이름(종전 「krx_cap_agg 비어있음 —
+#: krx_cap_agg.py 배치 미실행」)을 쓰지 않는다 — 260907 저장소 이름 정리(`_DB_UNSET_WARN` 의 「주간 시세·시총 집계」)와 같은 말.
+_CAP_AGG_EMPTY_WARN = "시총 집계 저장분이 비어 있음 — 집계 배치 미실행."
 _LIVE_ONLY_WARN = ("⚠ **KRX 라이브 · 시계열 아님** — 스냅샷 DB 가 없어 최신 1시점만 KRX 에서 직접 "
                    "받아온 값입니다. 과거 추이·기간 비교는 이 서버에서 할 수 없습니다.")
 
@@ -295,7 +298,7 @@ async def _market_live_fallback() -> dict[str, Any]:
                      "latest": latest, "series": [],
                      "timeseries_available": False, "source": "KRX 라이브",
                      "method": "Σ시총 = 그 거래일 상장된 **전 종목**(우선주 포함) 합 — KRX 일별매매정보 "
-                               "원본을 시장별로 합산. 저장분(krx_cap_agg)과 모집단 정의가 같습니다."},
+                               "원본을 시장별로 합산. 시총 집계 저장분과 모집단 정의가 같습니다."},
             "warnings": [_DB_UNSET_WARN, _LIVE_ONLY_WARN]}
 
 
@@ -322,7 +325,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
                 return await _market_live_fallback()
             return _err("시장 시총", "db_error", _DB_ERROR_PAYLOAD_WARN)
         if not rows:
-            return _err("시장 시총", "no_data", "krx_cap_agg 비어있음 — krx_cap_agg.py 배치 미실행.")
+            return _err("시장 시총", "no_data", _CAP_AGG_EMPTY_WARN)
         freq = (freq or _FREQ_DEFAULT["market"]).strip().lower()
         full = [{"asof": r[0], "market": r[1], "cap_krw": r[2], "n": r[3]} for r in rows]
         series = _downsample(full, freq)
@@ -353,7 +356,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
             "시장 전체 시총(`scope=\"market\"`)과 종목 최신 시총(`scope=\"firm\"`)은 KRX 라이브로 "
             "받을 수 있습니다.")
     if not snap:
-        return _err("섹터 시총", "no_data", "krx_cap_agg 비어있음 — krx_cap_agg.py 배치 미실행.")
+        return _err("섹터 시총", "no_data", _CAP_AGG_EMPTY_WARN)
     as_of = snap[0][6]
     buckets = [{"market": r[0], "bucket": r[1], "label": r[2], "cap_krw": r[3], "n": r[4]}
                for r in snap]

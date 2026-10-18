@@ -66,7 +66,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 | `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
 | `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
 | `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=최근 3년 주간 곡선(`data.series`, 하한 `data.weekly_from` — 그 이전은 연말 밴드), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
-| `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변 |
+| `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변. 주가 인풋 줄의 출처는 `price_source` 대로(저장분 서빙 / 저장분에 없어 KRX 직접 조회), 주가를 못 받았으면 「미확보」 |
 
 ### 배당수익률 (260831 추가)
 
@@ -233,6 +233,7 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
   "sector_class": "general",           // general | financial
   "fiscal_year": 2025,
   "price_krw": 64400, "price_date": "20260703",
+  "price_source": "db",                // db(일별 시세 저장분) | krx_live(저장분 미스 → KRX 직접 조회) | null(주가 못 받음)
   "multiples": {
     "per_fy0": 15.19, "per_ttm": 14.58,
     "pbr_mrq": 0.86, "pbr_basis": "MRQ",
@@ -278,6 +279,8 @@ price_date로 기준일 투명.
 종목 한 줄 = `price_latest`(그 종목의 가장 늦은 거래일이 기준일보다 이르지 않을 때만 — 보관 창 안에서 상장폐지된 종목의 옛 날짜는 내지 않고,
 기준일 캐시가 하루 낡았을 때는 새 거래일 행을 그 날짜와 함께 낸다), 비상장 질의의 상장 후보 시총 정렬 = 그 기준일의 `krx_daily_v`.
 기준일과 행은 같은 원천에서 읽고, 일별 저장분을 못 읽으면 주간 저장분으로 돌아가지 않고 라이브 KRX 로 확인한다.
+어느 쪽에서 받았는지는 `price_source`(`db` / `krx_live`)로 응답에 남는다 — `trading_data(scope="quote")` 의 `data.source` 와 같은 값.
+서빙 기준일의 정의(`krx_daily` 최신 거래일)는 `open_proxy_mcp/krx_daily.py` 의 `latest_day` 한 곳이고, `screener` 유니버스 단면의 기준일도 같은 것을 쓴다.
 주간 시세 저장분은 지난 값(주간 곡선·연말 밴드·주식수 배율의 첫 주)에만 쓴다.
 
 **fetch 병렬화**: 최상위 await 를 의존성 3단계 gather 로 묶는다 — P1(financial_metrics·company·KRX,
@@ -330,6 +333,13 @@ sequenceDiagram
 
 ## 변경 이력
 
+- 2026-10-18: `firm` 응답에 **`price_source`**(`db` = 일별 시세 저장분 / `krx_live` = 저장분 미스로 KRX 직접 조회 / null)를 더했다.
+  `explain` 의 주가 인풋 줄이 값을 어디서 받았든 「일별 시세 저장분 서빙」이라 적던 것을 실제 출처대로 적고,
+  주가를 못 받았을 때(저장분·KRX 직접 조회 모두 실패) 숫자 서식 오류로 explain 응답 전체가 실패하던 것을 「미확보」로 적게 고쳤다.
+  같은 explain 블록에서 없는 값이 「None」·「None원」으로 나가던 칸(유통주식수·DPS·EPS·BPS·일부 미확정 순이익)은 「미확정」·「없음(무배당 또는 미공시)」으로,
+  배수를 내지 않는 경우(완전자본잠식)의 계산 줄은 「= **None**」 대신 N/M 으로 적는다.
+  사용자 문장의 저장소 표 이름을 중립 표현으로 — `firm_history` 의 「시계열 없음」·「주간 곡선 미산출」 경고와 method(연간·분기 재무),
+  시장·산업 빈 스냅샷 안내(「주간 밸류 스냅샷이 비어 있음 — 집계 배치 미실행」), 확정 배당수익률 조회 실패 안내, explain·방법론의 수정계수 출처. 값은 그대로다.
 - 2026-10-18: `firm`(과 이를 재사용하는 `dividend_disclosure` 현재가 수익률·`asset_holdings` 시총)의 **최신 시세를 일별 시세 저장분에서 읽는다** —
   기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest`, 상장 후보 시총 정렬 = 그날의 `krx_daily_v`. 주식수 배율의 최근 주식수도
   `price_latest`(없으면 종전 주간 행). 지금은 주간 저장분의 이번 주 행과 값이 같아 응답이 바뀌지 않는다(20261016 2,762종목 차이 0) —
