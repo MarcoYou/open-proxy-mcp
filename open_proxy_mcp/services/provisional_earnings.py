@@ -369,6 +369,56 @@ async def _find_latest_provisional(client, corp_code: str, bgn_de: str, end_de: 
     return cands[0] if cands else None
 
 
+def _gap_not_applicable(parsed: dict[str, Any], stock_code: str | None) -> dict[str, Any] | None:
+    """분기 컨센서스와 맞댈 수 없는 공시면 그 이유(`consensus_gap` 칸), 맞댈 수 있으면 None. DB 를 묻기 전에 거른다.
+
+    261018 실측 39건 중 26건이 월간(월 매출·판매량)이었다 — 분기 추정과 기간이 달라 맞대면 거짓 숫자가 된다.
+    """
+    def _no(status: str, why: str) -> dict[str, Any]:
+        return {"status": status, "why": why}
+    if not stock_code:
+        return _no("out_of_coverage", "상장 종목코드가 없다 — 컨센서스 스냅샷은 상장사만 담는다")
+    if parsed.get("kind") != "financial":
+        # `non_financial` 은 「headline 이 비었다」는 뜻이다 — 판매대수 표만이 아니라 지표가 한 칸에 뭉친 정정 표도 여기로 온다.
+        return _no("not_comparable", "표에서 매출·영업이익 숫자를 뽑지 못했다(판매대수 같은 비재무형 실적표이거나 "
+                                     "지표가 한 칸에 뭉친 정정 표) — 맞댈 숫자가 없다")
+    kind = parsed.get("period_kind")
+    if kind == "month":
+        return _no("not_comparable", "월간 실적 — 분기 컨센서스와 기간이 달라 맞대지 않는다")
+    if kind == "annual":
+        return _no("not_comparable", "연간(결산) 잠정치 — 이 칸은 분기 컨센서스만 맞댄다")
+    if kind != "quarter" or not (parsed.get("period") or {}).get("end"):
+        return _no("unknown", "실적기간을 날짜로 읽지 못했다 — 어느 분기 컨센서스와 맞댈지 모른다")
+    if parsed.get("cumulative"):
+        return _no("not_comparable", "누적 기간(반기·3분기 누적) — 분기 컨센서스와 기간이 달라 맞대지 않는다")
+    return None
+
+
+async def _consensus_gap(parsed: dict[str, Any], stock_code: str | None, rcept_dt: str) -> dict[str, Any]:
+    """잠정 headline → 공시 직전 분기 컨센서스 대비. 계산은 `forward_estimates`(규칙 6) — 여기선 고르기만 한다.
+    원문 값(`headline`·`table_markdown`)은 건드리지 않고 비교 칸만 더한다."""
+    skip = _gap_not_applicable(parsed, stock_code)
+    if skip:
+        return skip
+    from open_proxy_mcp.services.forward_estimates import quarter_consensus_gap
+    head = parsed.get("headline") or {}
+
+    def _v(key: str) -> float | None:
+        return (head.get(key) or {}).get("value_krw")
+
+    actual = {"revenue": _v("revenue"), "operating_profit": _v("operating_profit"),
+              "net_income_controlling": _v("net_income_controlling")}
+    if actual["net_income_controlling"] is None and parsed.get("consolidated") is False:
+        # 별도 재무제표엔 비지배지분이 없다 — 별도 당기순이익이 곧 주주 몫이다(연결이면 맞대지 않는다).
+        actual["net_income_controlling"] = _v("net_income")
+    gap = await asyncio.to_thread(quarter_consensus_gap, stock_code, parsed["period"]["end"], rcept_dt,
+                                  actual, parsed.get("consolidated"))
+    if parsed.get("correction") and gap.get("as_of"):
+        gap.setdefault("caveats", []).append(
+            "정정 공시다 — 기준일을 정정일 전으로 잡아 원공시 뒤 스냅샷일 수 있다(그 추정은 원공시 잠정치를 이미 봤을 수 있다)")
+    return gap
+
+
 async def build_provisional_earnings_payload(
     company_query: str, *, months: int = 6, start_date: str | None = None,
     end_date: str | None = None, format: str = "md",
@@ -445,5 +495,13 @@ async def build_provisional_earnings_payload(
                    "rcept_dt": rept.get("rcept_dt"), "url": url},
         **parsed,
     }
+    # 컨센서스와 맞댔을 때만 칸을 붙인다(261018 결정). 모르거나 없거나 맞댈 수 없으면 칸 없이 파싱 값만 —
+    # 월간·커버리지 밖·이력 밖·DB 장애·연결/별도 불일치의 이유는 `_consensus_gap` 이 status·why 로 내지만 싣지 않는다.
+    try:
+        gap = await _consensus_gap(parsed, corp.get("stock_code"), rept.get("rcept_dt") or "")
+    except Exception:  # noqa: BLE001 — 비교 칸이 실패해도 잠정 실적값은 그대로 낸다
+        gap = None
+    if gap and gap.get("status") == "ok":
+        data["consensus_gap"] = gap
     return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.EXACT,
                         subject=corp.get("corp_name", ""), data=data, warnings=warnings).to_dict()

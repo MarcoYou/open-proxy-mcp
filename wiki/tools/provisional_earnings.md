@@ -3,7 +3,7 @@ type: tool
 title: provisional_earnings
 domain: data
 scope: [영업잠정실적, 결산잠정치, 매출, 영업이익, 순이익, YoY, QoQ]
-data_source: [DART search list.json I001(결산잠정치)/I002(공정공시) 발견, get_document 원문 HTML 파싱]
+data_source: [DART search list.json I001(결산잠정치)/I002(공정공시) 발견, get_document 원문 HTML 파싱, 컨센서스 추정치 주간 스냅샷 fwd_hist(비교 칸만)]
 related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [연결-별도, 단위-표기-규약, 시점-제약]
 related_decisions: [ksic-sector-mapping]
@@ -25,6 +25,8 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 > "최근 일주일 사이 잠정실적 공시 낸 회사들 보여줘"
 >
 > "LG에너지솔루션 잠정실적, 전년 동기랑 비교해서 정리해줘"
+>
+> "삼성전자 3분기 잠정실적, 컨센서스보다 잘 나왔어?"
 
 (`docs/features/` 의 같은 예시 — 자연어로 물으면 AI 가 이 도구를 고른다.)
 
@@ -59,6 +61,42 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 - `kind`: `financial` | `non_financial`(자동차 판매대수·조선 수주 등 — 재무표 전부 '-'이고 도메인표만).
 - `consolidated`(연결/별도) · `unit_raw`(조원/억원/백만원) · `period`(실적기간, 문구에서 계산했으면 `source=quarter_text`) · `report`(rcept_no·공시일·url).
 - `fiscal_year` · `period_kind`(annual·quarter·month) · `fiscal_quarter` · `period_month` · `cumulative` · `fiscal_year_end_month`(+`_source`: company·period·default) · `comparison_basis`.
+- `consensus_gap`(261018): **공시 직전 분기 컨센서스 대비** — 맞댔을 때만 있다. 원문 값(`headline`·`table_markdown`)은 그대로 두고 비교만 더한다.
+  계산은 [[forward_estimates_data]] 서비스(`forward_estimates.compute_consensus_gap`)가 한다 — 아래 「컨센서스 대비」 절.
+
+## 컨센서스 대비 (`consensus_gap`, 261018)
+
+「예상보다 잘 나왔나」를 한 칸으로. 외부 호출 없이 우리 컨센서스 스냅샷(`fwd_hist`, 토요일 주간 적재)을 읽는다.
+
+| 칸 | 뜻 |
+|---|---|
+| `status` | 항상 `ok` — 칸이 있으면 맞댄 것이다 |
+| `as_of` · `lag_days` | 쓴 스냅샷 날짜와 공시일까지 날 수. 스냅샷은 **공시일 전**(`as_of < 공시일`) 가장 최근 것 |
+| `period` · `basis` | 컨센서스 쪽 기간 라벨(`2026.09E`)과 기준(`IFRS연결`·`IFRS별도`·`GAAP개별`) |
+| `metrics.{revenue,operating_profit,net_income_controlling}` | `actual_krw`(잠정, 원문 값) · `consensus_krw` · `diff_krw`(잠정−컨센서스) · `gap_pct`((잠정−컨센서스)/\|컨센서스\|) · 한쪽이 비면 `why` · 컨센서스 ≤ 0 이면 `gap_caveat` |
+| `caveats` | 스냅샷이 14일보다 오래됨 · 연결/별도를 한쪽에서 모름 · 정정 공시(기준일이 원공시 뒤일 수 있음) |
+
+**맞대지 못하면 칸이 없다**(261018 결정) — 월간·연간 결산·누적 기간·headline 없음·연결/별도 불일치·커버리지 밖(공시 전 스냅샷에 그 분기 추정 없음)·이력 밖(이력이 공시일 전까지 안 닿음)·DB 장애. 컨센서스 값을 보이지 않고 파싱한 잠정 값만 보인다. 서비스(`forward_estimates.compute_consensus_gap`)는 이 경우들을 `not_comparable`·`out_of_coverage`·`out_of_history`·`unknown` 으로 가르지만(시험이 본다) 도구 응답엔 싣지 않는다 — 칸이 없다는 것은 「컨센서스가 없었다」가 아니라 「맞대지 않았다」다.
+| `source` · `note` | 출처(DART 공시가 아님)와 계산식 |
+
+- **기준일을 공시 전으로 묶는 이유**: 공시 뒤 스냅샷은 잠정치를 보고 고친 추정이다. 삼성전자 2026.09 영업이익 컨센서스는 09-26 110.6조 → 10-08 잠정 107.4조 공시 → 10-10 106.9조. 공시 뒤 것과 맞대면 놀람이 지워진다.
+- **DB 를 묻기 전에 거른다**: 월간(월 매출·판매량)·연간 결산·누적 기간·비재무형·종목코드 없음. 분기 컨센서스와 기간이 다른 숫자를 맞대지 않는다.
+- **연결/별도가 다르면 계산하지 않는다**: 대한항공 2026.09 는 별도 잠정 매출 vs 연결 컨센서스로 −31.5% 의 가짜 차이가 났다.
+- **순이익은 지배주주순이익끼리**: 컨센서스가 지배순이익이다. 별도 공시면 당기순이익이 곧 주주 몫이라 그것을 쓰고, 연결 공시에 지배 행이 없으면 맞대지 않는다(비지배지분 포함).
+- md 는 「**컨센서스 대비** (공시 N일 전 YYYY-MM-DD 주간 스냅샷 · 기간 · 기준): 매출액 X vs 예상 Y (±%) · …」 한 줄. 맞대지 못하면 줄이 없다. md 의 %는 원값(`diff_krw`÷|`consensus_krw`|)에서 한 번만 반올림한다 — 저장된 `gap_pct`(소수 둘째)를 다시 깎으면 −5.4478% 가 −5.5% 로 찍힌다.
+
+**실측 (261018, 운영 DB 읽기 전용)** — 2026-08-29~10-18 잠정실적 공시 39건:
+
+| 구분 | 건수 |
+|---|---|
+| 월간 공시(비교 대상 아님) | 26 |
+| 분기 공시 | 13 |
+| └ 공시 직전 스냅샷에 분기 추정 행 있음 | 10 |
+| 　└ 연결/별도 일치 → 계산 | 9 |
+| └ 추정 자체 없음(코스닥 소형 2) · 연간 추정만(1) | 3 |
+
+기준일 간격 2~12일(중앙 4.5일 — 10-03 스냅샷 결측 때 11~12일). 비교 9건의 지표: 매출 8 · 영업이익 8 · 지배순이익 3(대형사 잠정공시는 순이익을 적지 않는다).
+**이력 한계**: `fwd_hist` 는 2026-08-29 부터, 13주 롤링이다 — 7~8월 2분기 공시는 `out_of_history`, 10월 공시도 내년 1월께 창 밖으로 나간다.
 
 ## 파싱전략 (markdown-primary + best-effort headline)
 - **table_markdown이 진실**: 잠정실적은 항상 표라서 정형 positional 파싱보다 **표를 통째 마크다운으로 렌더**(colspan/rowspan 확장 `_table_to_grid`)가 robust. 재무형·비재무형(판매대수·수주) 모두 같은 방식.
@@ -87,6 +125,10 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 
 ## 변경 이력
 
+- 2026-10-18: **`consensus_gap` 신설 — 공시 직전 분기 컨센서스 대비.** 계산은 `forward_estimates.compute_consensus_gap`(공유 파생지표 재사용).
+  기준일은 공시일 전 가장 최근 주간 스냅샷, 연결/별도 불일치·월간·연간·누적·비재무형은 계산하지 않는다. 맞대지 못하면
+  (커버리지 밖·이력 밖·장애 포함) 칸 없이 파싱 값만. 실측 분기 13건 중 9건 계산(삼성전자 매출 −4.7%·영업이익 −2.9%).
+  DB 2질의(분기 공시만), DART 콜 변화 없음. 시험 `tests/test_provisional_consensus_gap.py`.
 - 2026-09-07: **라벨 파생 정정.** 결산월을 실적기간 시작월에서 추정하던 것(`start.month - 1`)을 회사정보 `acc_mt` 로 —
   삼성전자 2025.07~09 이 「2026 사업연도 1분기 · 6월 결산」으로 나가던 결함. 한 달짜리 기간(현대차·기아·HD현대중공업 월별
   실적)은 `month` 로 「2026년 4월(월간)」. 둘째 줄에 공시일과 실적기간을 나란히. 창 안 최신이 `[첨부정정]` 이면 본문이
@@ -104,5 +146,6 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 
 ## 관련
 - [[financial_metrics]] (확정 재무 — 잠정과 대비)
+- [[forward_estimates_data]] (컨센서스 — `consensus_gap` 계산의 정본)
 - [[공시유형코드체계]] (I002 공정공시)
 - [[사업보고서]] · [[분기보고서]] (확정 정기보고서)

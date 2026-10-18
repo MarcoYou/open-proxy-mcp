@@ -4,6 +4,18 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### The morning disclosure digest shows the consensus gap on provisional-earnings cards too
+
+- Provisional-earnings cards in `screener(details=true)` get one line such as "vs consensus revenue −4.7% (expected 204.57T KRW) · operating profit −2.9% (expected 110.57T KRW) — snapshot 2026-09-26, 12 days before the filing". In JSON it is the card's `detail_fields.consensus_gap`.
+- Only quarterly cards that were compared with consensus get the line. Monthly results and cards with no consensus found show the provisional figures only, as before. 9 of 17 earnings cards from 2026-10-07 to 10-16.
+
+### Provisional earnings now show the gap to consensus
+
+- `provisional_earnings` compares a quarterly provisional result with **the consensus from the week before the filing** and shows the expected revenue, operating profit and controlling net income with the gap (%). The provisional figures and the original table are unchanged; a comparison line and JSON `data.consensus_gap` are added.
+- The consensus used is the latest weekly snapshot **before** the filing date — estimates revised after the filing are not used. The snapshot date, basis (consolidated/separate) and source are stated.
+- Monthly results (monthly sales or volumes), fiscal-year results, cumulative periods, consolidated/separate mismatches and cases where no consensus is found (outside coverage or history) show only the provisional figures, without a comparison line (estimate history starts 2026-08-29 and is kept for 13 weeks).
+- Measured on 39 provisional filings from 2026-08-29 to 10-18: 26 monthly filings excluded, 9 of 13 quarterly filings compared (Samsung Electronics Q3 revenue −4.7%, operating profit −2.9%).
+
 ### When the largest shareholder changes, and the contracts that would change it — `ownership_structure(scope="changes")`
 
 - Reads **largest-shareholder change** filings and the **share transfer** and **share pledge** contracts attached to them (signed and terminated), cell text as written — before/after holder and stake, reason, purpose and funding, transferor, transferee, price and expected date, the stake left if the pledge is fully enforced, termination reason and before/after.

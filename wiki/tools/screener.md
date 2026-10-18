@@ -25,6 +25,7 @@ related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuanc
 - `period_kind`: 연간·분기 등 보고기간 종류
 - `fiscal_quarter`: 회사 결산월 기준 분기
 - `comparison_basis`: 전년동기·직전분기 등 비교 기준
+- `consensus_gap`(261018, details): 분기 잠정실적이 **공시 직전 주 컨센서스와 맞대졌을 때만** — 지표별 예상치(`consensus_krw`)·차이(`diff_krw`·`gap_pct`)·기준 스냅샷일(`as_of`·`lag_days`)·기간·연결/별도. [[provisional_earnings]] 가 계산한 칸을 카드 크기로 옮기기만 한다(맞댄 지표만, 출처·계산식 문장은 md 각주에 한 번). md 카드에 「컨센서스 대비 매출 −4.7%(예상 204.57조원) · 영업이익 −2.9%(…) — 공시 12일 전 2026-09-26 스냅샷」 한 줄. 월간·커버리지 밖·이력 밖·장애·연결/별도 불일치면 칸도 줄도 없이 잠정 값만(실적 카드의 2/3 가 월간이라 「비교 안 함」이 다이제스트를 덮는다). 추가 DART 콜 0 — 분기 카드마다 DB 2질의.
 
 > **왜 Action Tool인가** (domain: action): `proxy_advise_before_meeting`·`shareholder_commitment`과
 > 같은 계열 — upstream data tool을 오케스트레이션해 판단/요약을 만든다. details=true면 유형별 파서
@@ -391,6 +392,8 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
 - `dedup_key`에 대상일 미포함 — 같은 회사가 같은 유형을 다른 날 또 내면 run 간 알림 dedup은 커서로 관리.
 
 ## 변경 이력
+- 2026-10-18: **잠정실적 카드에 「컨센서스 대비」 줄** — [[provisional_earnings]] `consensus_gap` 을 카드로(맞댄 카드·맞댄 지표만, 못 맞대면 잠정 값만). 10-07~10-16 실제 17장 중 9장에 줄. md 각주 한 번. DART 콜 변화 없음.
+- 2026-10-18: 월간 실적 카드 라벨 「2026 사업연도 3분기」 → 「2026년 9월(월간)」(카드 칸 `period_month` 추가). 한 달짜리 월 매출·판매량이 분기 실적으로 읽히던 것.
 - 2026-10-18: **최대주주변경 카드 details** — 최대주주변경 계열 다섯 서식(`services/control_change.py`)을 접수번호로 바로 읽어 카드에 전후 지분·대금·담보 실행시 지분·해제 사유. 문서 1건(캐시면 0).
 - 2026-10-18: 주총 **소집결의 카드**를 결의 읽기(`scope="resolution"`)로 — 공고 파서가 결의 원문을 읽어 안건 0건·정기/임시 뒤바뀜·안건 이름에 다음 행 번호가 붙던 것. 「안건 미정」 표시, 「외 N건」은 원래 안건 수로.
 - 2026-10-18: **정정 카드에 정정 비교표**(`amendment`) — details 대상 정정 카드가 회사가 붙인 「정정항목·정정전·정정후」 표를

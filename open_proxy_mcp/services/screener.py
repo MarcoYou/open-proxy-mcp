@@ -1055,6 +1055,25 @@ def _extract_ownership(payload: dict, rcept_no: str) -> dict:
     }
 
 
+def _card_gap(g: dict | None) -> dict | None:
+    """`provisional_earnings` 의 `consensus_gap` 을 카드 크기로. 계산은 다시 하지 않는다(규칙 6 — 그대로 옮긴다).
+
+    카드에는 맞댄 카드·맞댄 지표만 싣는다(이유 문장은 `provisional_earnings` 에 있다). 출처·계산식 문장
+    (`source`·`note`)은 카드마다 같아 md 각주에 한 번만 적는다 — 실적 카드가 40장이면 40번 싣지 않는다.
+    """
+    if not g or g.get("status") != "ok":
+        # 맞대지 못한 카드엔 싣지 않는다(261018 결정) — 실적 카드의 2/3 가 월간이라 「비교 안 함」이 다이제스트를
+        # 덮는다. 이유가 궁금하면 `provisional_earnings` 가 status·why 를 준다.
+        return None
+    out = {k: g[k] for k in ("status", "as_of", "lag_days", "period", "basis", "caveats")
+           if g.get(k) not in (None, "", [])}
+    metrics = {k: {kk: c[kk] for kk in ("consensus_krw", "diff_krw", "gap_pct", "gap_caveat") if c.get(kk) is not None}
+               for k, c in (g.get("metrics") or {}).items() if c.get("diff_krw") is not None}
+    if metrics:
+        out["metrics"] = metrics
+    return out
+
+
 def _extract_earnings(payload: dict, rcept_no: str) -> dict:
     # 실제 payload: data.headline{revenue/operating_profit/net_income:{value_krw,yoy_pct}} + kind/consolidated
     d = payload.get("data") or {}
@@ -1078,9 +1097,11 @@ def _extract_earnings(payload: dict, rcept_no: str) -> dict:
         "fiscal_year": d.get("fiscal_year"),
         "fiscal_quarter": d.get("fiscal_quarter"),
         "period_kind": d.get("period_kind"),
+        "period_month": d.get("period_month"),   # 월간 공시의 달 — 카드 라벨용(261018)
         "fiscal_year_end_month": d.get("fiscal_year_end_month"),
         "comparison_basis": d.get("comparison_basis"),
         "correction": d.get("correction"),
+        "consensus_gap": _card_gap(d.get("consensus_gap")),   # 공시 직전 분기 컨센서스 대비(261018)
     }
 
 
