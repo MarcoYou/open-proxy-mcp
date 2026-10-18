@@ -1102,7 +1102,7 @@ def _cell_label(cell: tuple[int, int]) -> str:
 
 
 def _pit_fallback(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> dict:
-    """그 시점 칸(PIT)이 비어 PER(TTM)·PBR(MRQ)를 셀 수 없을 때, **그보다 앞선 칸 가운데 값이 있는 가장 늦은 칸**으로 센다(업종 비교 기업 행 전용).
+    """그 시점 칸(PIT)이 비어 PER(TTM)·PBR(MRQ)를 셀 수 없을 때, **그보다 앞선 칸 가운데 값이 있는 가장 늦은 칸**으로 센다(업종 비교 기업 행·firm_history 「주간」 항목 — `_row_val`).
 
     261018(재설계 6단계, 감사 4 — 설계 v03 §6-0 P-1): 종전 스냅샷 표는 그날 수집돼 있던 가장 늦은 분기(재무 요약 파생값)로 값을 냈다.
     읽을 때 계산으로 바꾸며 분모를 그 시점 칸(PIT)으로 맞추자, 그 칸이 비는 종목 — 리츠(결산마다 사업보고서만 — 1·3분기 칸이 없다)·
