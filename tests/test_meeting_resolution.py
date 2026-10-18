@@ -286,3 +286,12 @@ def test_screener_says_agenda_is_pending():
     line = T._detail_line({"type": {"code": "agm_notice"},
                            "detail_fields": {"agenda_status": "undetermined", "meeting_type": "extraordinary"}})
     assert line.startswith("안건 미정")
+
+
+def test_screener_card_flattens_multiline_agenda_titles():
+    """안건 칸의 원문 줄바꿈(동운아나텍 `사내이사 선임의 건\\n후보자 : …`)이 카드 한 줄을 깨지 않는다 — json 원본은 그대로."""
+    payload = {"data": {"scope": "resolution", "meeting_type": "extraordinary", "meeting": {},
+                        "agenda": {"status": "listed", "items": [{"title": "사내이사 선임의 건\n후보자 : 김규호(신규)"}]}}}
+    f = S._extract_agm_notice(payload, "x")
+    assert f["agenda_titles"] == ["사내이사 선임의 건 / 후보자 : 김규호(신규)"]
+    assert payload["data"]["agenda"]["items"][0]["title"].count("\n") == 1

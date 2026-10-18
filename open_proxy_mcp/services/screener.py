@@ -968,7 +968,8 @@ def _extract_agm_notice(payload: dict, rcept_no: str) -> dict:
         return {
             "meeting_type": data.get("meeting_type"),
             "meeting_date": (data.get("meeting") or {}).get("meeting_date"),
-            "agenda_titles": [i.get("title") for i in items if i.get("title")][:12],
+            # 안건 칸은 원문 줄바꿈째 온다(`사내이사 선임의 건\n후보자 : …`) — 카드는 한 줄이라 ` / ` 로 편다
+            "agenda_titles": [" / ".join(i["title"].split("\n")) for i in items if i.get("title")][:12],
             "agenda_count": len(items) or None,
             "agenda_status": agenda.get("status"),
         }
@@ -999,7 +1000,10 @@ def _extract_control(payload: dict, rcept_no: str) -> dict:
         "pledgor": f.get("pledgor"),
         "stake_if_executed_pct": f.get("pct_if_executed"),
         "reason": f.get("reason"),
-        "on": _first(f.get("changed_on"), f.get("contract_on"), f.get("released_on")),
+        # 해제 서식의 날짜는 **해제일**이다 — 원계약 체결일도 같은 서식에 있어 먼저 집으면 몇 달 전 날짜가 찍힌다(아스타 20261016900765)
+        "on": (_first(f.get("released_on"), f.get("contract_on"))
+               if ev.get("kind") in ("pledge_release", "transfer_release")
+               else _first(f.get("changed_on"), f.get("contract_on"))),
     }
 
 

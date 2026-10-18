@@ -368,7 +368,9 @@ def _control_event_lines(ev: dict[str, Any]) -> list[str]:
     if a:
         out.append(f"- 정정: {_v(a.get('reason'))}" + (f" (원공시 {a['original_filed_date']})" if a.get("original_filed_date") else ""))
         for r in (a.get("rows") or [])[:3]:
-            out.append(f"  - {r['item']}: {' / '.join(r['before'].split(chr(10)))[:60]} → {' / '.join(r['after'].split(chr(10)))[:60]}")
+            # 항목 이름도 원문 줄바꿈째 온다(`2. 계약 내역\n-양수도 대금…`) — md 한 줄 안에서는 ` / ` 로
+            item = " / ".join(r["item"].split(chr(10)))
+            out.append(f"  - {item}: {' / '.join(r['before'].split(chr(10)))[:60]} → {' / '.join(r['after'].split(chr(10)))[:60]}")
     if ev.get("notes"):
         note = " / ".join(ev["notes"][0].split("\n"))
         out.append(f"- 기타: {note[:200]}{'…' if len(note) > 200 else ''}")

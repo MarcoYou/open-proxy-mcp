@@ -155,3 +155,21 @@ def test_ownership_markdown_renders_each_form():
     err = O._control_event_lines({"status": "error", "error": "DART 014", "kind": "change",
                                   "kind_label": "최대주주 변경", "rcept_no": "x", "rcept_dt": "y"})
     assert "원문을 못 읽었다" in err[1]
+
+
+def test_release_cards_show_the_release_date_not_the_original_contract_date():
+    ev = _ev("control_transfer_release_20260923900724.html", "최대주주 변경을 수반하는 주식 양수도 계약 해제ㆍ취소 등")
+    f = S._extract_control({"data": {"event": ev}}, ev["rcept_no"])
+    assert f["on"] == "2026-09-23"                     # 해소일 — 원계약 체결일(2026-07-17)이 아니다
+    ev = _ev("control_transfer_contract_20260915900712.html", "최대주주 변경을 수반하는 주식양수도 계약 체결")
+    assert S._extract_control({"data": {"event": ev}}, ev["rcept_no"])["on"] == "2026-09-15"
+
+
+def test_ownership_amendment_lines_keep_one_line_per_cell():
+    from open_proxy_mcp.tools import ownership_structure as O
+    ev = _ev("control_transfer_contract_20260915900712.html", "최대주주 변경을 수반하는 주식양수도 계약 체결")
+    ev["amendment"] = {"reason": "예정일 변경", "rows": [
+        {"item": "3. 변경예정 최대주주\n-변경 예정일자", "before": "2026-10-30", "after": "2026-12-30", "change": "changed"}]}
+    lines = O._control_event_lines(ev)
+    assert "  - 3. 변경예정 최대주주 / -변경 예정일자: 2026-10-30 → 2026-12-30" in lines
+    assert not any("\n" in ln for ln in lines[1:])     # 첫 줄의 앞 줄바꿈은 절 머리 띄움(의도)

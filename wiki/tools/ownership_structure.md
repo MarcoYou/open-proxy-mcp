@@ -202,3 +202,4 @@ sequenceDiagram
 - 2026-04-29: speed optimization 3x (asyncio.gather), 200기업 audit 90.8% exact
 - 2026-05-01: tool wiki 페이지 작성
 - 2026-10-18: `changes` 에 **최대주주변경 계열**(`control_events`) — 최대주주변경 · 변경 수반 주식양수도·담보 계약 체결·해제 다섯 서식을 원문 칸 그대로(인적사항 표 제외). 스크리너 최대주주변경 카드의 안내가 빈손이던 것.
+- 2026-10-18: `control_events` md 의 정정 줄에서 항목 이름의 원문 줄바꿈을 ` / ` 로(줄이 깨지던 것). json 은 그대로.
