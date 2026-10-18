@@ -42,6 +42,9 @@
   · `--since`/`--full` 이 하한 이전을 가리키면 **거절**한다. 정말 필요하면 `--allow-before-cutoff`.
   · 그때도 하한 이전은 **원천이 온전한 날짜(해마다 마지막 주)만** 다시 집계하고 그 날짜의 집계만 지운다 — 나머지 옛 집계
     (원천이 부분 행뿐인 날짜 포함)는 건드리지 않는다.
+  · 261019: 하한 이전 **업종 행**은 콜드 서빙본(하한 이전 주간 시세 전 행 sqlite)으로 다시 낼 수 있다 — `--cold-sqlite PATH [--apply]`.
+    다시 낸 시장 행이 저장된 시장 행과 전부 같을 때만 쓰고(원천 확인), 시장 행은 건드리지 않는다. 옛 스냅샷(특히 가장 이른 것 — 하한 이전에
+    소급된다)의 파생 행이 바뀌면 이 길로 하한 이전도 맞춘다(10-19 운영: 업종분류 보강 전 값이던 407날짜를 다시 내 하한 앞뒤 계단을 없앴다).
 
 ★ 이번 주 최신 점은 일별 시세 저장분에서 온다 (261018, 재설계 5-1 쓰는 쪽). `krx_weekly` 는 닫힌 주만 담게 되어 주중에는
   지난 금요일이 최신이다. 원천을 「닫힌 주 + 일별 최신 거래일」(`krx_daily.WEEKLY_WITH_LATEST`)로 읽어 종전과 같은 모양
@@ -50,6 +53,7 @@
   그 사이 주를 놓치지 않는다. 한 주 = ISO 주를 달력 연도로 자른 것(`krx_retention.week_unit`).
 
 실행: python3 scripts/krx_cap_agg.py [--since 20231016 | --full] [--allow-before-cutoff]
+      python3 scripts/krx_cap_agg.py --cold-sqlite <서빙본.sqlite> [--apply]   # 하한 이전 업종 행(261019)
 """
 from __future__ import annotations
 
@@ -185,13 +189,123 @@ def _delete_stmt(since: str, cutoff: str, whole_dates: list[str]) -> tuple[str, 
             (since, cutoff, whole_dates))
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 하한 이전 업종 버킷을 콜드 서빙본으로 다시 집계 (261019, `--cold-sqlite`).
+# DB krx_weekly 는 하한 이전을 종목별 연말 행만 남겨 위 경로로는 연말 날짜만 다시 낼 수 있다. 콜드 서빙본(서버가 3년 이전 주간 곡선을 잇는
+# 같은 sqlite — `open_proxy_mcp.cold_store`, 뷰 `krx_weekly`)은 하한 이전 **전 행**이라 그 구간의 모든 주를 지금 분류 규칙으로 다시 낼 수 있다.
+# 업종분류 보강(이어 쓰기·우선주·기업 정보 화면, 261018)이 하한 이후만 반영돼 섹터 시계열이 하한 앞뒤로 계단이 지던 것을 이 길로 없앤다.
+# 규칙은 Q_MARKET·Q_SECTOR 와 같다(mktcap > 0 · 그 날짜 이하 최신 스냅샷, 없으면 가장 이른 것 · 분류 없음 = _UNCLASSIFIED/「미분류」).
+# 안전장치: 다시 낸 **시장 행이 저장된 시장 행과 하나라도 다르면 거절**한다(원천이 저장 당시와 같다는 증거 — 날짜·종목 수·시총 합 전부).
+# 시장 행은 쓰지 않는다. 업종 행만 한 트랜잭션에서 지우고 다시 넣고, 커밋 전에 업종 합 = 시장 합을 확인한다.
+# ─────────────────────────────────────────────────────────────────────────────
+def _snap_for(snaps: list[str], dd: str) -> str:
+    """`_eras` 와 같은 규칙 — 가장 이른 스냅샷은 그 이전 날짜까지 소급하고, 그 뒤는 날짜 이하 최신."""
+    use = snaps[0]
+    for s in snaps:
+        if s <= dd:
+            use = s
+    return use
+
+
+def cold_sector_rows(weekly, snaps: list[str], cls: dict[str, dict[str, tuple]]):
+    """weekly = [(price_dd, ticker, market, mktcap)], cls = {snap: {ticker: (sector_code, sector, industry_code, industry)}}
+    → (시장 {(날짜, 시장): [종목 수, 시총]}, 업종 {(날짜, 시장, scheme, bucket): [종목 수, 시총, 이름, 쓴 스냅샷]})."""
+    from collections import defaultdict
+    mkt: dict[tuple, list] = defaultdict(lambda: [0, 0])
+    sec: dict[tuple, list] = defaultdict(lambda: [0, 0, None, None])
+    for dd, t, m, cap in weekly:
+        if cap is None or cap <= 0:
+            continue
+        mkt[(dd, m)][0] += 1
+        mkt[(dd, m)][1] += int(cap)
+        snap = _snap_for(snaps, dd)
+        k = cls.get(snap, {}).get(t)
+        for scheme, ci, ni in (("wics_sector", 0, 1), ("wics_industry", 2, 3)):
+            code = k[ci] if k and k[ci] is not None else "_UNCLASSIFIED"
+            name = k[ni] if k and k[ni] is not None else "미분류"
+            r = sec[(dd, m, scheme, code)]
+            r[0] += 1
+            r[1] += int(cap)
+            r[2], r[3] = name, snap
+    return dict(mkt), dict(sec)
+
+
+def cold_reclass(con, sqlite_path: str, cutoff: str, snaps: list[str], apply: bool) -> int:
+    """하한(`cutoff`) 이전 업종 행을 콜드 서빙본으로 다시 집계한다. `apply` 가 아니면 대조만(쓰지 않는다). 반환 = 종료 코드."""
+    import hashlib
+    import sqlite3
+    from urllib.parse import quote
+    sha = hashlib.sha256(Path(sqlite_path).read_bytes()).hexdigest()
+    lite = sqlite3.connect(f"file:{quote(str(sqlite_path))}?mode=ro&immutable=1", uri=True)
+    try:
+        weekly = lite.execute("SELECT price_dd, ticker, market, mktcap FROM krx_weekly WHERE price_dd < ?", (cutoff,)).fetchall()
+    finally:
+        lite.close()
+    cls: dict[str, dict[str, tuple]] = {}
+    for snap, t, sc, sn, ic, inn in con.execute(
+            "SELECT snap_dd, ticker, sector_code, sector, industry_code, industry FROM wise_sector"):
+        cls.setdefault(snap, {})[t] = (sc, sn, ic, inn)
+    mkt, sec = cold_sector_rows(weekly, snaps, cls)
+    stored_m = {(d, m): [n, cap] for d, m, n, cap in con.execute(
+        "SELECT price_dd, market, n, cap FROM krx_cap_agg WHERE scheme='market' AND price_dd < %s", (cutoff,))}
+    stored_s = {(d, m, s, b): (n, cap) for d, m, s, b, n, cap in con.execute(
+        "SELECT price_dd, market, scheme, bucket, n, cap FROM krx_cap_agg WHERE scheme <> 'market' AND price_dd < %s", (cutoff,))}
+    dates = sorted({d for d, _ in mkt})
+    print(f"콜드 서빙본 sha256 {sha[:16]} · 하한 {cutoff} 이전 {len(weekly):,}행 · 날짜 {len(dates)}개"
+          + (f"({dates[0]}~{dates[-1]})" if dates else "") + f" · 업종분류 스냅샷 {snaps}", flush=True)
+    bad_m = sorted(k for k in set(mkt) | set(stored_m) if mkt.get(k) != stored_m.get(k))
+    print(f"시장 행: 다시 {len(mkt):,} · 저장 {len(stored_m):,} · 다른 행 {len(bad_m)}", flush=True)
+    if bad_m or not mkt:
+        for k in bad_m[:5]:
+            print(f"   {k} 다시 {mkt.get(k)} 저장 {stored_m.get(k)}")
+        print("🔴 거절 — 다시 낸 시장 행이 저장분과 다르다(원천이 저장 당시와 같다는 확인 실패). 아무것도 쓰지 않았다.", file=sys.stderr)
+        con.rollback()
+        return 2
+    changed = [k for k in set(sec) | set(stored_s) if tuple(sec.get(k, (None, None))[:2]) != tuple(stored_s.get(k, (None, None)))]
+    unc = lambda rows: sum(v[1] for k, v in rows.items() if k[2] == "wics_sector" and k[3] == "_UNCLASSIFIED")  # noqa: E731
+    print(f"업종 행: 다시 {len(sec):,} · 저장 {len(stored_s):,} · 다른 키 {len(changed):,} · 날짜 {len({k[0] for k in changed})}개 · "
+          f"미분류 시총 합(대분류, 전 날짜) {unc(stored_s):,} → {unc(sec):,}", flush=True)
+    if not apply:
+        con.rollback()
+        print("대조만 — 쓰려면 --apply")
+        return 0
+    rows = [(d, m, s, b, v[2], v[0], v[1], v[3]) for (d, m, s, b), v in sorted(sec.items())]
+    try:
+        with con.cursor() as cur:
+            cur.execute("SET LOCAL lock_timeout = '3s'")
+            cur.execute("DELETE FROM krx_cap_agg WHERE scheme <> 'market' AND price_dd < %s", (cutoff,))
+            deleted = cur.rowcount
+            for i in range(0, len(rows), 5000):
+                cur.executemany(UPSERT, rows[i:i + 5000])
+            bad = cur.execute("""
+                SELECT m.price_dd, m.market, s.scheme FROM
+                  (SELECT price_dd, market, n, cap FROM krx_cap_agg WHERE scheme='market' AND price_dd < %s) m
+                  JOIN (SELECT price_dd, market, scheme, sum(n) n, sum(cap) cap FROM krx_cap_agg
+                        WHERE scheme <> 'market' AND price_dd < %s GROUP BY 1,2,3) s
+                    ON s.price_dd = m.price_dd AND s.market = m.market
+                WHERE s.cap <> m.cap OR s.n <> m.n LIMIT 5""", (cutoff, cutoff)).fetchall()
+        if bad:
+            con.rollback()
+            print(f"::error:: 업종 합 ≠ 시장 합 — 되돌림 {bad}", file=sys.stderr)
+            return 1
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    print(f"적용: 하한 이전 업종 행 {deleted:,} 지우고 {len(rows):,} 넣음 · 업종 합 = 시장 합(종목 수·시총) 확인")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--since", help="이 날짜부터 집계 (YYYYMMDD)")
     mode.add_argument("--full", action="store_true", help="krx_weekly 전 구간을 다시 집계")
+    mode.add_argument("--cold-sqlite", metavar="PATH",
+                      help="하한 이전 업종 행을 콜드 서빙본(sqlite, 뷰 krx_weekly)으로 다시 집계 — 기본은 대조만, --apply 로 쓴다(261019)")
     ap.add_argument("--allow-before-cutoff", action="store_true",
                     help="보존 하한(최신 주 3년 전) 이전 구간 재집계를 허용 — 하한 이전은 원천이 온전한 날짜(해마다 마지막 주)만 다시 쓴다")
+    ap.add_argument("--apply", action="store_true", help="--cold-sqlite 결과를 쓴다(없으면 대조만)")
     a = ap.parse_args()
 
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=30)
@@ -209,6 +323,10 @@ def main() -> int:
     if not source_min:
         print("krx_weekly 비어 있음 — 먼저 시세를 적재한다")
         return 1
+    if a.cold_sqlite:
+        rc = cold_reclass(con, a.cold_sqlite, krx_weekly_cutoff(weekly_max), snaps, a.apply)
+        con.close()
+        return rc
     # 원천 최신 = 닫힌 주와 일별 최신 거래일 중 늦은 쪽(이번 주 임시 점). 보존 하한은 표를 자르는 쪽과 같게 krx_weekly 최신에서 잰다.
     daily_max = con.execute(LATEST_DAY_SQL).fetchone()[0]          # 261019: 일별 최신일 = 달력(krx_day)
     source_max = max(weekly_max, daily_max or "")
