@@ -47,7 +47,7 @@ CORP = {"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
 def route(sql: str) -> str:
     s = " ".join(sql.split())
-    if "SELECT market, induty, currency FROM dart_fundamentals" in s:
+    if "SELECT market, induty, currency, acc_mt FROM dart_fundamentals" in s:   # 261018: 결산월 칸을 함께 읽는다
         return "cur_row"
     if "FROM dart_finstat_y" in s:
         return "fin_y"
@@ -128,7 +128,7 @@ _WEEKLY_DD = ["20231020", "20240119", "20240419", "20240719", "20241018", "20250
 
 def _fh_base() -> dict:
     return {
-        "cur_row": [("KS", "264", "KRW")],
+        "cur_row": [("KS", "264", "KRW", None)],
         "fin_y": [(2019, 21_500_000_000_000, 240_000_000_000_000, None, None),
                   (2020, 26_400_000_000_000, 260_000_000_000_000, None, None),
                   (2021, 39_900_000_000_000, 300_000_000_000_000, None, None),
@@ -156,10 +156,10 @@ def _fh(**over) -> dict:
 FH_SCENARIOS: dict[str, dict] = {
     "fh_samsung": _fh(),
     "fh_flags": _fh(flags=[("spinoff_break", "2026-05"), ("unresolved_adjustment", "x"), ("other", "y")]),
-    "fh_usd_reporter": _fh(cur_row=[("KS", "264", "USD")]),
+    "fh_usd_reporter": _fh(cur_row=[("KS", "264", "USD", None)]),
     "fh_no_data": {"cur_row": [], "fin_y": [], "fund": [], "fin_q": [], "caps": [], "latest": [], "px": [], "flags": []},
-    "fh_non_samsung_bucket": _fh(cur_row=[("KQ", "29271", "KRW")]),          # 반도체 장비 → 261(프리픽스 재배정), 오버라이드 없는 종목
-    "fh_no_induty": _fh(cur_row=[("KQ", None, "KRW")]),                      # 업종코드가 비면 섹터도 비운다(종전 폴백과 같다)
+    "fh_non_samsung_bucket": _fh(cur_row=[("KQ", "29271", "KRW", None)]),          # 반도체 장비 → 261(프리픽스 재배정), 오버라이드 없는 종목
+    "fh_no_induty": _fh(cur_row=[("KQ", None, "KRW", None)]),                      # 업종코드가 비면 섹터도 비운다(종전 폴백과 같다)
     "fh_every_read_fails": _fh(cur_row=FAIL, fin_y=FAIL, fund=FAIL, fin_q=FAIL, caps=FAIL, latest=FAIL, px=FAIL, flags=FAIL),
 }
 # 읽기 하나씩 실패시킨 변형 — 응답이 종전과 같은 모양으로 무너지는지(종전: `or []`. DB 장애 판정은 재무 요약 읽기 — 그것만 db_error)

@@ -119,8 +119,8 @@ class FakeDb:
             return [("20251226", 12.0, 11.0, 1.5, 1.4, 800e12, 1e12, 1e12), (AS_OF, 14.0, 13.0, 1.9, 1.8, 900e12, 1e12, 1e12)]
         if "FROM wise_sector WHERE ticker=%s" in s:
             return [("G2530", "반도체와반도체장비", "20261016")]
-        if s.startswith("SELECT market, induty, currency, fetched FROM dart_fundamentals"):
-            return [("KS", self.induty, self.currency, self.fetched)]
+        if s.startswith("SELECT market, induty, currency, fetched, acc_mt FROM dart_fundamentals"):
+            return [("KS", self.induty, self.currency, self.fetched, None)]   # 261018: 결산월 칸(비면 12월 = 종전 응답)
         if "FROM krx_weekly WHERE ticker=%s AND price_dd=%s UNION ALL" in s:
             return [(self.cap, "KS", 1)] if self.cap else []
         if "FROM dart_finstat_y" in s:

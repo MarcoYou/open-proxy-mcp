@@ -26,9 +26,10 @@ import httpx
 import calendar
 
 from open_proxy_mcp.dart.client import get_dart_client, DartClientError, LruByteCache, _env_mb
-from open_proxy_mcp.dart.fx import fx_to_krw, statement_currency
+from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.ksic_sector import ksic_bucket
+from open_proxy_mcp.services import report_calendar as _rc
 from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
                                              company_ambiguous_warning,
                                              company_not_found_warning,
@@ -859,11 +860,13 @@ def _latest_annual_fy() -> int:
     return t.year - 1 if t.month >= 4 else t.year - 2
 
 
-def _pit_fy(price_dd: str) -> int:
-    """PIT 근사: 그 시점 최신 확정 FY. 사업보고서 3월 중순 공시 → 4월 이후면 전년 FY, 아니면 전전년
-    (look-ahead 방지). market_val_series.py series()와 동일 규칙."""
-    y, m = int(price_dd[:4]), int(price_dd[4:6])
-    return y - 1 if m >= 4 else y - 2
+def _pit_fy(price_dd: str, fye: int = 12) -> int:
+    """PIT 근사: 그 시점 최신 확정 FY(사업보고서의 DART 사업연도 표기). 12월 결산이면 사업보고서 3월 공시 → 4월 이후면 전년 FY,
+    아니면 전전년(look-ahead 방지 — market_val_series.py series()와 동일 규칙).
+
+    261018(재설계 6단계): 결산월 `fye` 를 받는다(`report_calendar.pit_annual` — 결산월 다음 넷째 달 1일부터). 3월 결산이면 7/1 부터 그해 3월 말
+    사업보고서(표기 = 그해). 12월 결산(기본값)은 종전과 같다."""
+    return _rc.pit_annual(price_dd, fye)
 
 
 def _needs_fx(currency: str | None) -> bool:
@@ -871,12 +874,17 @@ def _needs_fx(currency: str | None) -> bool:
     return (currency or "KRW").upper() not in ("KRW", "NODATA", "?")
 
 
-async def _firm_fin_by_fy(ticker: str, currency: str = "KRW") -> dict[int, tuple]:
+async def _firm_fin_by_fy(ticker: str, currency: str = "KRW", fye: int = 12) -> dict[int, tuple]:
     """종목 FY별 (지배순이익, 지배자본) — KRW 환산 완료. dart_finstat_y(FY2018~과거, 스케일오류
     정정치 ni_restated/eq_restated 우선) ∪ dart_fundamentals(최신 확정 FY=_latest_annual_fy()).
     비KRW는 FY 기말환율 환산.
 
-    261018: 연간 재무와 최신 확정 FY 요약은 입력이 겹치지 않아 두 읽기를 함께 보낸다(환산은 읽은 뒤 종전 순서 그대로)."""
+    261018: 연간 재무와 최신 확정 FY 요약은 입력이 겹치지 않아 두 읽기를 함께 보낸다(환산은 읽은 뒤 종전 순서 그대로).
+
+    261018(재설계 6단계, 결산월): 재무 요약의 연간 값(`ni_fy`·`eq_fy`)을 얹는 자리 `_latest_annual_fy()` 는 **12월 결산의 달력 규칙**이다.
+    12월 결산이 아니면(`fye`) 얹지 않는다 — 그 값은 분기 표 사업보고서 칸 가운데 가장 늦은 칸에서 파생되는데, 그 칸의 사업연도 표기가 달력 규칙과
+    다를 수 있어(3월 결산은 7월부터 그해 3월 말 사업보고서가 최신) 엉뚱한 해에 얹히면 연간 값을 덮어쓴다. 같은 값은 연간 재무 표에 이미 있다
+    (파생의 원천이 연간 표다). 환산 기준일은 결산월 말일(`fiscal_year_end_date` — 12월 결산이면 종전과 같은 12/31)."""
     rows, cur = await _gather_db(
         _db_rows("SELECT fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y WHERE ticker=%s "
                  "AND (fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (ticker,)),
@@ -889,37 +897,32 @@ async def _firm_fin_by_fy(ticker: str, currency: str = "KRW") -> dict[int, tuple
         eq_f = eq_r if eq_r is not None else eq
         fin[int(fy)] = (float(ni_f) if ni_f is not None else None,
                         float(eq_f) if eq_f is not None else None)
-    if cur and cur[0][0] is not None:
+    if cur and cur[0][0] is not None and _rc.fye_month(fye) == 12:
         fin[_latest_annual_fy()] = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
     ccy = (currency or "KRW").upper()
     if _needs_fx(currency):
         for fy in list(fin):
-            fx = await fx_to_krw(ccy, f"{fy}1231")
+            fx = await fx_to_krw(ccy, fiscal_year_end_date(fy, _rc.fye_month(fye)))
             ni_f, eq_f = fin[fy]
             fin[fy] = ((ni_f * fx if ni_f is not None else None,
                         eq_f * fx if eq_f is not None else None) if fx else (None, None))
     return fin
 
 
-def _pit_quarter(price_dd: str) -> tuple[int, int]:
-    """그 시점까지 공시된 최신 분기 → (fy, quarter). 공시지연(look-ahead 방지):
-    사업보고서(Q4) 익년 3월 · 1Q 5/15 · 반기 8/14 · 3Q 11/14. Q4 경계는 _pit_fy(4월)와 일치."""
-    y, m, d = int(price_dd[:4]), int(price_dd[4:6]), int(price_dd[6:8])
-    md = m * 100 + d
-    if md >= 1114:
-        return (y, 3)
-    if md >= 814:
-        return (y, 2)
-    if md >= 515:
-        return (y, 1)
-    if m >= 4:            # 사업보고서(전년) — _pit_fy와 동일 경계
-        return (y - 1, 4)
-    return (y - 1, 3)     # 1~3월: 전년 3Q가 최신
+def _pit_quarter(price_dd: str, fye: int = 12) -> tuple[int, int]:
+    """그 시점까지 공시된 최신 분기 → (fy, quarter) — 분기 재무 표의 칸(DART 사업연도 표기·보고서 순번). 공시지연(look-ahead 방지):
+    12월 결산이면 사업보고서(Q4) 익년 3월 · 1Q 5/15 · 반기 8/14 · 3Q 11/14. Q4 경계는 _pit_fy(4월)와 일치.
+
+    261018(재설계 6단계): 결산월 `fye` 를 받는다(`report_calendar.pit_cell`). 칸의 기간 말을 결산월로 계산하고(3월 결산의 「반기」 칸 = 9월 말)
+    분기·반기는 기간 말 + 45일, 사업보고서는 결산월 다음 넷째 달 1일부터 쓴다. 종전엔 모든 회사의 칸을 달력 분기로 읽어 12월 결산이 아닌
+    회사는 아직 안 나온 보고서를 앞당겨 썼다(3월 결산 「2026 반기」 = 2026.09 말 기준 · 11/14 마감인데 8/14 부터). 12월 결산(기본값)은 종전과 같다."""
+    return _rc.pit_cell(price_dd, fye)
 
 
-async def _firm_fin_by_q(ticker: str, currency: str = "KRW") -> dict[tuple, tuple]:
+async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> dict[tuple, tuple]:
     """종목 (fy,quarter)별 (지배순이익 누적, 지배자본 잔액) — KRW 환산. dart_finstat_q.
-    비KRW는 분기말 환율(Q1 0331·Q2 0630·Q3 0930·Q4 1231)로 환산 — 누적순익은 분기말 근사."""
+    비KRW는 분기말 환율(Q1 0331·Q2 0630·Q3 0930·Q4 1231)로 환산 — 누적순익은 분기말 근사.
+    261018(결산월): 환율 기준일은 그 칸의 실제 기간 말(`report_calendar.cell_end` — 12월 결산이면 종전 네 날짜 그대로)."""
     rows = await _db_rows(
         "SELECT fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE ticker=%s", (ticker,)) or []
     finq: dict[tuple, tuple] = {}
@@ -928,10 +931,9 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW") -> dict[tuple, tupl
                                    float(eq) if eq is not None else None)
     ccy = (currency or "KRW").upper()
     if _needs_fx(currency):
-        qend = {1: "0331", 2: "0630", 3: "0930", 4: "1231"}
         fxcache: dict[str, float | None] = {}
         for (fy, q) in list(finq):
-            key = f"{fy}{qend[q]}"
+            key = _rc.cell_end(fy, q, _rc.fye_month(fye)).strftime("%Y%m%d")
             if key not in fxcache:
                 fxcache[key] = await fx_to_krw(ccy, key)
             fx = fxcache[key]
@@ -941,13 +943,16 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW") -> dict[tuple, tupl
     return finq
 
 
-def _ttm_ni(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int) -> float | None:
-    """TTM 지배순이익 = FY(fy-1) 연간 + 누적(fy,q) − 누적(fy-1,q). q==4면 사업보고서=연간(fy)."""
+def _ttm_ni(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int, fye: int = 12) -> float | None:
+    """TTM 지배순이익 = FY(fy-1) 연간 + 누적(fy,q) − 누적(fy-1,q). q==4면 사업보고서=연간(fy).
+
+    261018(결산월): 「직전 회계연도 연간」의 표기는 `report_calendar.prior_annual` — 12월 결산이면 종전 그대로 fy-1, 3월 결산의 1~3분기 칸
+    (6·9·12월 말)이면 같은 해 fy(그해 3월 말 사업보고서). 1년 전 같은 칸은 결산월과 무관하게 (fy-1, q)."""
     if q == 4:
         return fin.get(fy, (None, None))[0]
     cum_now = finq.get((fy, q), (None, None))[0]
     cum_prev = finq.get((fy - 1, q), (None, None))[0]
-    fy_prev = fin.get(fy - 1, (None, None))[0]
+    fy_prev = fin.get(_rc.prior_annual(fy, q, fye), (None, None))[0]
     if cum_now is None or cum_prev is None or fy_prev is None:
         return None
     return fy_prev + cum_now - cum_prev
@@ -961,19 +966,20 @@ def _mrq_eq(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int) ->
 
 
 async def _annual_pit_band(ticker: str, currency: str = "KRW",
-                           fin: dict[int, tuple] | None = None) -> list[dict]:
+                           fin: dict[int, tuple] | None = None, fye: int = 12) -> list[dict]:
     """연말 PIT PER/PBR 밴드 — **이미 있는 데이터로 질의 시 계산**(백필 저장 X, compute-on-query).
     연말 보통주 시총(krx_weekly, ticker=보통주 코드) ÷ 그 시점 최신 확정 FY 재무(dart_finstat_y).
-    시총 기반이라 수정주가(분할·무상증자) 조정 불변. 비KRW는 그 FY 기말환율로 KRW 환산."""
+    시총 기반이라 수정주가(분할·무상증자) 조정 불변. 비KRW는 그 FY 기말환율로 KRW 환산.
+    261018(결산월): 「그 시점 최신 확정 FY」를 결산월로 고른다(`_pit_fy(…, fye)` — 3월 결산의 12월 말이면 그해 3월 말 사업보고서)."""
     caps = await _db_rows(
         "SELECT DISTINCT ON (substring(price_dd,1,4)) substring(price_dd,1,4), price_dd, mktcap "
         "FROM krx_weekly WHERE ticker=%s AND substring(price_dd,5,2)='12' "
         "ORDER BY substring(price_dd,1,4), price_dd DESC", (ticker,)) or []
     if fin is None:
-        fin = await _firm_fin_by_fy(ticker, currency)
+        fin = await _firm_fin_by_fy(ticker, currency, fye)
     band = []
     for yr_s, price_dd, cap in caps:
-        pit_fy = _pit_fy(price_dd)
+        pit_fy = _pit_fy(price_dd, fye)
         if pit_fy not in fin or not cap:
             continue
         ni_k, eq_k = fin[pit_fy]
@@ -992,7 +998,7 @@ async def _annual_pit_band(ticker: str, currency: str = "KRW",
 async def _weekly_series(ticker: str, currency: str = "KRW",
                          fin: dict[int, tuple] | None = None,
                          finq: dict[tuple, tuple] | None = None,
-                         since_dd: str | None = None) -> list[dict]:
+                         since_dd: str | None = None, fye: int = 12) -> list[dict]:
     """차트용 주간 dense 시계열 — 주간 보통주 시총(krx_weekly) × 재무.
     FY0(연 계단, dart_finstat_y) + TTM/MRQ(분기 계단, dart_finstat_q). 분모는 공시시점 계단,
     주가는 주간이라 곡선은 촘촘. 시총 기반이라 수정주가 조정 불변. 반환은 asof 오름차순.
@@ -1007,26 +1013,26 @@ async def _weekly_series(ticker: str, currency: str = "KRW",
         "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd",
         (ticker, since_dd)) or []
     if fin is None:
-        fin = await _firm_fin_by_fy(ticker, currency)
+        fin = await _firm_fin_by_fy(ticker, currency, fye)
     if finq is None:
-        finq = await _firm_fin_by_q(ticker, currency)
+        finq = await _firm_fin_by_q(ticker, currency, fye)
     series = []
     for price_dd, cap in px:
-        pt = _pit_point(price_dd, cap, fin, finq)
+        pt = _pit_point(price_dd, cap, fin, finq, fye)
         if pt is not None:
             series.append(pt)
     return series
 
 
-def _pit_impaired(price_dd: str, fin: dict[int, tuple], finq: dict[tuple, tuple]) -> bool:
+def _pit_impaired(price_dd: str, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> bool:
     """그 시점 완전자본잠식(지배자본 ≤ 0)인가 — 최근분기(MRQ) 자본, 없으면 그 시점 확정 FY 말 자본. 260829 마스터 지시: 잠식 시점은 배수를 내지 않는다."""
-    aq_fy, aq_q = _pit_quarter(price_dd)
+    aq_fy, aq_q = _pit_quarter(price_dd, fye)
     mrq = _mrq_eq(fin, finq, aq_fy, aq_q)
-    eq_now = mrq if mrq is not None else fin.get(_pit_fy(price_dd), (None, None))[1]
+    eq_now = mrq if mrq is not None else fin.get(_pit_fy(price_dd, fye), (None, None))[1]
     return eq_now is not None and eq_now <= 0
 
 
-def _pit_raw(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple]) -> dict | None:
+def _pit_raw(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> dict | None:
     """주간 곡선의 한 점(반올림 전) — 그 날 보통주 시총 ÷ 그 시점까지 공시된 재무(PIT). 시총이 없으면 None.
     그 시점 확정 FY 의 연간 재무가 없으면(신규 상장 등) FY0 배수는 비우고 분기 배수만 낸다 — 그것도 없으면 None(점을 만들지 않는다).
 
@@ -1038,17 +1044,20 @@ def _pit_raw(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple]
     없다 — 예: 2026년 상장, 분기 표에는 2026년 1·2분기 자본이 있다)은 곡선이 통째로 비고(firm_history 「시계열 없음」), 업종 비교의 PBR(MRQ)도
     N/M 이 됐다 — 스냅샷 표는 재무 요약의 최근 분기 자본으로 값을 냈다(10-18 운영 최신 주 4종목, 같은 값). 이제 분기 자본으로 PBR(MRQ)를 낸다.
     PER(TTM)은 직전 사업연도 연간 순이익이 있어야 하므로(`_ttm_ni`) 이 경우 언제나 비고, 스냅샷 표도 비어 있었다. `pit_fy` 는 그 시점 규칙상
-    확정 FY 그대로다(값이 없음은 FY0 배수 null 로 드러난다 — 연간 행은 있는데 값이 빈 종목과 같은 모양)."""
+    확정 FY 그대로다(값이 없음은 FY0 배수 null 로 드러난다 — 연간 행은 있는데 값이 빈 종목과 같은 모양).
+
+    261018(같은 단계, 결산월): `fye`(결산월)로 그 시점 칸을 고른다 — `pit_fy`·`pit_q` 는 DART 표기(사업연도 = 보고서 기준일의 해) 그대로라
+    3월 결산의 `2026Q1` 은 2026.06 말 1분기보고서다. 12월 결산(기본값)은 종전과 같다."""
     if not cap:
         return None
-    fy = _pit_fy(price_dd)
+    fy = _pit_fy(price_dd, fye)
     ni_k, eq_k = fin.get(fy, (None, None))
     cap = float(cap)
-    aq_fy, aq_q = _pit_quarter(price_dd)
-    ttm = _ttm_ni(fin, finq, aq_fy, aq_q)
+    aq_fy, aq_q = _pit_quarter(price_dd, fye)
+    ttm = _ttm_ni(fin, finq, aq_fy, aq_q, fye)
     mrq = _mrq_eq(fin, finq, aq_fy, aq_q)
     # 260829: 완전자본잠식 시점은 배수를 내지 않는다(마스터 지시).
-    _impaired = _pit_impaired(price_dd, fin, finq)
+    _impaired = _pit_impaired(price_dd, fin, finq, fye)
     p = {
         "asof": price_dd, "pit_fy": fy, "pit_q": f"{aq_fy}Q{aq_q}", "cap": cap,
         "per_fy0": cap / ni_k if (ni_k and ni_k > 0 and not _impaired) else None,
@@ -1065,9 +1074,9 @@ def _r3(v):
     return round(v, 3) if v is not None else None
 
 
-def _pit_point(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple]) -> dict | None:
+def _pit_point(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> dict | None:
     """`_pit_raw` 를 곡선 응답 모양으로(시총은 원 단위 정수, 배수는 소수 셋째 자리)."""
-    p = _pit_raw(price_dd, cap, fin, finq)
+    p = _pit_raw(price_dd, cap, fin, finq, fye)
     if p is None:
         return None
     return {"asof": p["asof"], "pit_fy": p["pit_fy"], "pit_q": p["pit_q"], "cap_krw": round(p["cap"]),
@@ -1126,27 +1135,32 @@ async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, fl
       · KSIC 섹터 = `ksic_bucket(업종코드)` — 배치와 같은 규칙(41,311행 전부 일치).
     None 이 되는 경우는 스냅샷 표에 행이 없던 경우와 같게 맞췄다: 재무 요약이 없거나 수집 정상이 아님 · 그 날 시세 행이 없음 ·
     그 시점 완전자본잠식(260829 마스터 지시 — 배치도 그 종목을 빼고 저장했다). DB 장애도 None(종전 `or []` 와 같다).
-    값이 달라지는 곳(10-18 운영 대조, 최신 주 20261016 2,561종목 중 67종목): 분모가 그 시점까지 공시 마감이 지난 분기(PIT)라, 분기 표에 그 분기
-    값이 비어 있는 종목은 PER(TTM)·PBR(MRQ)를 비운다(N/M) — 스냅샷 표는 그날 수집돼 있던 가장 늦은 분기(대개 직전 사업연도 말)를
-    썼다. firm_history 곡선이 이미 그렇게 낸다. 그 빈 분기는 대부분 분기보고서가 있는데 수집 결과가 `nodata` 로 남은 **분기 재무 수집 공백**이다
-    (예: 3월 결산 법인의 반기) — 값을 대신 채우지 않고 수집을 고쳐 다시 받는다(별도 작업). 재무 요약에 연간 값이 빈 종목(외국 상장사 등)은
-    연간 재무 표로 채워 오히려 값이 생긴다. 상장 첫해 종목(그 시점 확정 FY 의 연간 행이 없다)은 분기 자본으로 PBR(MRQ)를 낸다 — 스냅샷 표와 같은 값(`_pit_raw`)."""
+    값이 달라지는 곳: 분모가 그 시점까지 공시 마감이 지난 분기(PIT)라, 그 칸 값이 비어 있으면 PER(TTM)·PBR(MRQ)를 비운다(N/M) — 스냅샷 표는
+    그날 수집돼 있던 가장 늦은 분기(재무 요약의 파생값)를 썼다. firm_history 곡선이 이미 그렇게 낸다. 빈 칸의 원인은 셋이다.
+      · 늦게 낸 보고서를 다시 받지 않던 **분기 재무 수집 결함** — 수집 쪽을 고쳐(마감 뒤 400일 재확인) 다시 받았다.
+      · 반기보고서 미제출·리츠(결산마다 사업보고서만)·새로 받은 분기에서 적자 전환 — 정의상 N/M 이 맞다.
+      · 12월 결산이 아닌 회사 — 종전엔 칸을 달력 분기로 읽어 기한 전 칸을 골랐다. 이제 결산월(`dart_fundamentals.acc_mt`)로 칸을 고른다(아래).
+    재무 요약에 연간 값이 빈 종목(외국 상장사 등)은 연간 재무 표로 채워 오히려 값이 생긴다. 상장 첫해 종목(그 시점 확정 FY 의 연간 행이 없다)은
+    분기 자본으로 PBR(MRQ)를 낸다 — 스냅샷 표와 같은 값(`_pit_raw`).
+
+    261018(같은 단계, 결산월): 재무 요약의 결산월(`acc_mt`)을 함께 읽어 칸 고르기·TTM·환율 기준일에 쓴다. 비었으면 12월(종전과 같다)."""
     cur_row, cap_mkt = await _gather_db(
-        _db_rows("SELECT market, induty, currency, fetched FROM dart_fundamentals WHERE ticker=%s", (ticker,)),
+        _db_rows("SELECT market, induty, currency, fetched, acc_mt FROM dart_fundamentals WHERE ticker=%s", (ticker,)),
         _firm_cap_at(ticker, dd),
     )
     if not cur_row or cur_row[0][3] != "ok" or not cap_mkt or cap_mkt[0] is None:
         return None
-    market, induty, currency, _ = cur_row[0]
+    market, induty, currency, _, acc_mt = cur_row[0]
     currency = currency or "KRW"
+    fye = _rc.fiscal(acc_mt, ticker)               # 결산월 + 외국 상장사 기한(12월 결산이 아닐 때만)
     if _needs_fx(currency):                       # 환산은 환율 조회를 연도 → 분기 순서로 이어 간다(firm_history 와 같은 순서)
-        fin = await _firm_fin_by_fy(ticker, currency)
-        finq = await _firm_fin_by_q(ticker, currency)
+        fin = await _firm_fin_by_fy(ticker, currency, fye)
+        finq = await _firm_fin_by_q(ticker, currency, fye)
     else:
-        fin, finq = await _gather_db(_firm_fin_by_fy(ticker, currency), _firm_fin_by_q(ticker, currency))
-    if _pit_impaired(dd, fin, finq):
+        fin, finq = await _gather_db(_firm_fin_by_fy(ticker, currency, fye), _firm_fin_by_q(ticker, currency, fye))
+    if _pit_impaired(dd, fin, finq, fye):
         return None
-    p = _pit_raw(dd, cap_mkt[0], fin, finq)
+    p = _pit_raw(dd, cap_mkt[0], fin, finq, fye)
     return (ksic_bucket(induty, ticker), market, p and p["per_ttm"], p and p["pbr_mrq"])
 
 
@@ -1196,12 +1210,32 @@ async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": hist.get("subject", company),
                 "warnings": warns}
     p = pts[-1]
+    # 261018(결산월): 12월 결산이 아니면 곡선의 「결산월 …」 안내(칸 표기 읽는 법)를 그대로 옮긴다 — 12월 결산은 종전과 같다(안내 없음).
+    fye_notes = [w for w in (hist.get("warnings") or []) if str(w).startswith(_FYE_NOTE_HEAD)]
     return {"tool": "price_multiple_data", "status": "ok", "subject": hist.get("subject", company),
             "data": {"scope": "firm_at", "ticker": d.get("ticker"), "as_of_requested": as_of, "as_of": p["asof"],
                      "market": d.get("market"), "sector": d.get("sector") or d.get("induty"),
                      "pit_fy": p.get("pit_fy"), "pit_q": p.get("pit_q"), "cap_krw": p.get("cap_krw"),
                      "per_fy0": p.get("per_fy0"), "per_ttm": p.get("per_ttm"), "pbr_fy0": p.get("pbr"), "pbr_mrq": p.get("pbr_mrq")},
-            "warnings": [f"주간 스냅샷(주 마지막 거래일 {p['asof']}) · 재무는 그 시점까지 공시된 값(FY0={p.get('pit_fy')}, 분기={p.get('pit_q')}) · 배당수익률은 과거 시점 미제공."]}
+            "warnings": [f"주간 스냅샷(주 마지막 거래일 {p['asof']}) · 재무는 그 시점까지 공시된 값(FY0={p.get('pit_fy')}, 분기={p.get('pit_q')}) · 배당수익률은 과거 시점 미제공."]
+                        + fye_notes}
+
+
+#: 12월 결산이 아닌 종목의 곡선·과거 시점 응답에 붙는 안내의 머리(이 머리로 firm_at 이 옮겨 붙인다).
+_FYE_NOTE_HEAD = "결산월 "
+
+
+def _fye_note(fye) -> str | None:
+    """12월 결산이 아니면 칸 표기(`pit_fy`·`pit_q`) 읽는 법 한 줄 — 12월 결산은 None(종전 응답 그대로)."""
+    month = _rc.fye_month(fye)
+    if month == 12:
+        return None
+    m = {q: _rc.cell_month(q, month) for q in (1, 2, 3, 4)}
+    lag = ("분기·반기는 기간 말 + 60일, 사업보고서는 결산월 다음 다섯째 달 1일(외국 상장사 제출 기한)"
+           if getattr(fye, "foreign", False) else "분기·반기는 기간 말 + 45일, 사업보고서는 결산월 다음 넷째 달 1일")
+    return (f"{_FYE_NOTE_HEAD}{month}월 — 분기·연간 칸은 DART 표기(사업연도 = 보고서 기준일의 해)다: "
+            f"1분기 = 그해 {m[1]}월 말 · 반기 = {m[2]}월 말 · 3분기 = {m[3]}월 말 · 사업보고서 = 그해 {m[4]}월 말. "
+            f"그 시점 칸은 {lag}부터 쓴다(공시 기한 — 아직 안 나온 보고서를 앞당겨 쓰지 않는다).")
 
 
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
@@ -1232,26 +1266,28 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     # 261018(재설계 6단계): ⓐ 에 있던 종목별 밸류에이션 스냅샷 표 읽기를 뺐다(9 → 8 읽기). 그 표는 같은 주간 시총 × 재무 요약을
     #   주간 배치가 따로 저장해 둔 것이고, 여기서는 `history` 에 「주간」 항목(최근 16주)을 덧붙이는 데만 썼다 — 같은 주는 곡선(`series`)에 이미 있다.
     #   DB 장애 판정(db_error)은 그 읽기 대신 ⓐ 의 재무 요약 읽기로 한다 — 통화를 모른 채 KRW 로 계산하지 않는다.
+    # 261018(결산월): 재무 요약에서 결산월(`acc_mt`)도 함께 읽는다 — 칸 고르기·TTM·환율 기준일에 쓴다(비었으면 12월 = 종전과 같다).
     cur_row, (_, weekly_from) = await _gather_db(
-        _db_rows("SELECT market, induty, currency FROM dart_fundamentals WHERE ticker=%s", (isu,)),
+        _db_rows("SELECT market, induty, currency, acc_mt FROM dart_fundamentals WHERE ticker=%s", (isu,)),
         _weekly_bounds(),                                            # 주간 곡선은 보존 하한 이후만
     )
     if cur_row is None:   # DB 장애 — 재무·곡선을 읽지 않고 곧바로 낸다
         return {"tool": "price_multiple_data", "status": "db_error", "subject": corp.get("corp_name", query),
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     currency = (cur_row[0][2] if cur_row and cur_row[0][2] else "KRW")
+    fye = _rc.fiscal(cur_row[0][3] if cur_row else None, isu)   # 결산월 + 외국 상장사 기한(12월 결산이 아닐 때만)
     # ① 연말 PIT 밴드 + ③ 차트용 주간 dense series + ④ 최근 12개월 월말 요약 — 이미 있는 데이터
     #    (krx_weekly × mkt_finstat_y연간 × mkt_finstat_q분기)로 질의 시 계산(저장 X). 재무 로더는
     #    한 번만 만들어 공유. series는 FY0(연)+TTM/MRQ(분기) 곡선, summary는 그 월말 다운샘플.
     if _needs_fx(currency):
         # 비KRW(두산밥캣=USD 등): 환산이 환율 조회를 연도 → 분기 순서로 이어 간다. 겹치면 연말(1231)을 연간·분기 양쪽이 동시에 묻는다 — 종전 순서 그대로 둔다.
-        fin = await _firm_fin_by_fy(isu, currency)
-        finq = await _firm_fin_by_q(isu, currency)
+        fin = await _firm_fin_by_fy(isu, currency, fye)
+        finq = await _firm_fin_by_q(isu, currency, fye)
     else:
-        fin, finq = await _gather_db(_firm_fin_by_fy(isu, currency), _firm_fin_by_q(isu, currency))
+        fin, finq = await _gather_db(_firm_fin_by_fy(isu, currency, fye), _firm_fin_by_q(isu, currency, fye))
     band, series, flags = await _gather_db(
-        _annual_pit_band(isu, currency, fin=fin),                    # 종목별 연말 행 — 전체 기간(보존 대상)
-        _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from),
+        _annual_pit_band(isu, currency, fin=fin, fye=fye),           # 종목별 연말 행 — 전체 기간(보존 대상)
+        _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from, fye=fye),
         _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)),
     )
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
@@ -1270,6 +1306,8 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     latest_dd = series[-1]["asof"] if series else "?"
     warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용.",
                 weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."]
+    if _fye_note(fye):                         # 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
+        warnings.append(_fye_note(fye))
     # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고). (읽기는 위 ⓒ 단계에서 함께 했다)
     for fl, detail in flags or []:
         if fl == "spinoff_break":
@@ -1532,8 +1570,26 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         client.get_company_info(cc),
         _market_for(stock_code),
     )
-    s = fm.get("data", {}).get("summary") or {}
+    # 261018(재설계 6단계, 결산월): 회사 개황의 결산월이 12월이 아니면 재무 요약 표의 결산월(`acc_mt`)을 읽어 그것으로 최신 사업보고서와 그 뒤
+    #   분기 칸을 고른다 — 곡선·업종 비교와 같은 값이다(결산월을 바꾼 회사·반기 결산 리츠는 그 칸이 12 = 종전 읽기. 개황은 「지금」 결산월이라
+    #   저장된 칸과 어긋날 수 있다). 12월 결산은 읽기 하나 늘지 않고 종전 그대로다.
+    fye = _rc.Fiscal()
+    if _rc.fye_month(info.get("acc_mt")) != 12:
+        fye_row = await _db_rows("SELECT acc_mt FROM dart_fundamentals WHERE ticker=%s", (stock_code,))
+        fye = _rc.fiscal(fye_row[0][0] if fye_row else None, stock_code)
+    nondec = fye.month != 12
     fy = fm.get("data", {}).get("year")
+    if nondec and fy is not None:
+        # 12월 결산이 아니면 재무 요약의 기본 연도(달력 규칙: 4월 이후 전년)가 최신 사업보고서가 아닐 수 있다 — 3월 결산은 7월부터 그해 3월 말
+        #   사업보고서가 나와 있다(종전엔 한 해 앞 사업보고서를 FY0 로, 그 뒤 분기를 다음 해 표기로 찾아 TTM 이 한 해 어긋났다).
+        #   최신 사업보고서가 실제로 있을 때만 그 해로 바꾼다(늦게 낸 회사는 종전 연도 그대로).
+        fy_a = _rc.latest_annual(today_kst(), fye)
+        if fy_a != fy:
+            fm_a = await build_financial_metrics_payload(stock_code, scope="summary", year=fy_a, consolidated=True)
+            if (fm_a.get("data", {}).get("year") == fy_a
+                    and (fm_a.get("data", {}).get("summary") or {}).get("reprt_code") == "11011"):
+                fm, fy = fm_a, fy_a
+    s = fm.get("data", {}).get("summary") or {}
     if fy is None:  # 상장사여도 재무 미확정(신규상장·SPAC 등) → fy+1 크래시 방지, 명확한 상태 반환
         return {"tool": "price_multiple_data", "status": "no_financials", "subject": name,
                 "warnings": [f"'{name}'({stock_code}) 재무 데이터를 확정하지 못함 — 밸류에이션 산출 불가."]}
@@ -1546,7 +1602,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     is_financial = induty[:2] in ("64", "65", "66") or revenue_fy is None
 
     # TTM(flow) = FY + 1Q(당해) − 1Q(전년); MRQ(stock) = 최근 분기 잔액
-    q_cur, q_prev = fy + 1, fy  # 예: fy=2025 → 1Q2026, 1Q2025
+    q_cur = fy + 1  # 예: fy=2025 → 1Q2026 (전년 같은 칸 = q_cur − 1 → 1Q2025)
+    # 261018(결산월): 사업보고서 fy 다음 회계연도의 분기 칸 표기 — 12월 결산이면 모두 fy+1(종전 그대로). 3월 결산이면 모두 fy(6·9·12월 말),
+    #   6월 결산이면 1분기·반기는 fy(9·12월 말)·3분기는 fy+1(3월 말). 전년 같은 칸은 언제나 그 표기 − 1.
+    q_lab = _rc.quarter_labels_after(fy, fye)
     # P2: 연간 재무원장·유통주식수·배당 — fy만 의존 → 병렬.
     (fy_rows, fs_used), sh, (div_sum, div_err) = await asyncio.gather(
         _acntall(client, cc, fy, "11011"),
@@ -1568,15 +1627,28 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #    고른 코드를 전년에 그대로 쓰고, 전년이 비면 그 코드를 버리고 다음 후보로 내려간다.
     _Q_CODES = ("11014", "11012", "11013")  # 3분기누적 · 반기누적 · 1분기누적
     qc_rows, qp_rows, q_code = [], [], "11013"
-    for _rc in _Q_CODES:
-        _qc, _ = await _acntall(client, cc, q_cur, _rc, fs_used)
+    _Q_OF = {"11013": 1, "11012": 2, "11014": 3}
+    any_q_after = False
+    for _rcode in _Q_CODES:
+        _cur = q_lab[_Q_OF[_rcode]] if nondec else q_cur
+        _qc, _ = await _acntall(client, cc, _cur, _rcode, fs_used)
         if not _qc:
             continue
-        _qp, _ = await _acntall(client, cc, q_prev, _rc, fs_used)
+        any_q_after = True
+        _qp, _ = await _acntall(client, cc, _cur - 1, _rcode, fs_used)
         if not _qp:
             continue          # 짝이 없으면 뺄 수 없다 — 다음(더 이른) 분기로 내려간다
-        qc_rows, qp_rows, q_code = _qc, _qp, _rc
+        qc_rows, qp_rows, q_code = _qc, _qp, _rcode
+        if nondec:
+            q_cur = _cur
         break
+    # 261018(결산월): 12월 결산이 아니고 사업보고서 fy 뒤 분기 칸이 아직 하나도 없으면(최신 공시가 사업보고서) TTM = 그 사업보고서 연간 값 —
+    #   곡선(`_ttm_ni` 의 사업보고서 칸)과 같은 정의. 6월 결산은 10/1~11/13 이 그렇다. 12월 결산은 종전 그대로(4~5월 TTM 비움).
+    ttm_is_annual = nondec and not any_q_after
+    if ttm_is_annual:
+        q_code, q_cur = "11011", fy
+    elif nondec and not qc_rows:
+        q_cur = q_lab[1]      # 짝을 못 찾음 — 표기만 결산월 칸으로(종전 12월 결산의 fy+1 1분기와 같은 자리)
 
     # 통화 환산: 기능통화≠KRW(두산밥캣=USD 등)면 회계기말 환율로 KRW 환산 — KRW 주가/시총과
     # 통화 일치시켜야 배수가 유효(미환산 시 환율배수만큼 왜곡: 두산밥캣 PBR 1,238 오탐). wiki §9.
@@ -1616,12 +1688,21 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         #    0331 로 두면 그 사이의 액면분할·무상증자를 한 번 더 세거나 빠뜨린다.
         _QEND = {"11013": "0331", "11012": "0630", "11014": "0930"}
         _qe = _QEND.get(q_code, "0331")
+        _d_cur, _d_prev = f"{fy + 1}{_qe}", f"{fy}{_qe}"
+        if nondec:   # 261018(결산월): 고른 칸의 실제 기간 말(사업보고서가 최신이면 그 결산일)
+            if ttm_is_annual:
+                _lab, _q = fy, 4
+            else:
+                _q = _Q_OF.get(q_code, 1)
+                _lab = q_cur if qc_rows else q_lab[_q]
+            _d_cur = _rc.cell_end(_lab, _q, fye).strftime("%Y%m%d")
+            _d_prev = _rc.cell_end(_lab - 1, _q, fye).strftime("%Y%m%d")
         # 261018(재설계 4단계 T5): 수정계수 둘 · 주식수 배율(읽기 2) · 수정주가 flag — 읽기 5번이 서로 입력이 필요 없는데 종전엔 차례로 기다렸다.
         #   한 묶음으로 보낸다(동시에 도는 읽기는 호출당 `_PG_FANOUT` 개까지 → 5번 차례 대기 = 2 왕복). 아래 보정 계산은 종전 순서 그대로다.
         f_cur, f_qp, r_cur, flag_rows = await _gather_db(
-            _eps_adj_factor(stock_code, f"{fy + 1}{_qe}"),   # 연간·당해분기 결산기준일 이후
-            _eps_adj_factor(stock_code, f"{fy}{_qe}"),       # 전년동기 결산기준일 이후
-            _shares_ratio(stock_code, f"{fy + 1}{_qe}"),
+            _eps_adj_factor(stock_code, _d_cur),   # 연간·당해분기 결산기준일 이후
+            _eps_adj_factor(stock_code, _d_prev),  # 전년동기 결산기준일 이후
+            _shares_ratio(stock_code, _d_cur),
             _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (stock_code,)),
         )
         if f_cur != 1.0 or f_qp != 1.0:
@@ -1639,11 +1720,15 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         flag_rows = await _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (stock_code,))
     eps_ttm_disc = (eps_fy_disc + eps_qc_disc - eps_qp_disc) \
         if None not in (eps_fy_disc, eps_qc_disc, eps_qp_disc) else None
+    if ttm_is_annual:                  # 261018(결산월): 최신 공시가 사업보고서 — TTM = 그 연간 값(12월 결산은 해당 없음)
+        eps_ttm_disc = eps_fy_disc
 
     ni_fy = _fx(_ctrl_ni(fy_rows))
     ni_qc = _fx(_ctrl_ni_cum(qc_rows))
     ni_qp = _fx(_ctrl_ni_cum(qp_rows))
     ni_ttm = (ni_fy + ni_qc - ni_qp) if None not in (ni_fy, ni_qc, ni_qp) else None
+    if ttm_is_annual:
+        ni_ttm = ni_fy
     eq_mrq = _fx(_ctrl_equity(qc_rows))
     eq_fy = _fx(_ctrl_equity(fy_rows))
     ctrl_equity = eq_mrq if eq_mrq is not None else eq_fy  # MRQ 우선, 미공시시 FY0
@@ -1801,6 +1886,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append("DART 배당 사항 조회 실패 — DPS·배당수익률 미확인(무배당이라는 뜻이 아니다, 일시 장애 가능). PER·PBR 값은 그대로다.")
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
+    if _fye_note(fye):                 # 261018(결산월): 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
+        warnings.append(_fye_note(fye))
 
     payload = {
         "tool": "price_multiple_data", "status": "ok", "subject": name,
@@ -1827,7 +1914,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "net_income_fy0_krw": ni_fy, "net_income_ttm_krw": ni_ttm,
                 # TTM 이 **어느 분기까지** 반영한 것인지. 이 값이 없어서 한 분기 뒤처진
                 # 것을 아무도 못 봤다(2026-08-30). 기준은 값에 붙어 다녀야 한다.
-                "ttm_quarter": {"11013": "1분기 누적", "11012": "반기 누적",
+                "ttm_quarter": {"11013": "1분기 누적", "11012": "반기 누적", "11011": "사업보고서(연간)",
                                 "11014": "3분기 누적"}.get(q_code, q_code),
                 "ttm_quarter_year": q_cur,
                 "controlling_equity_krw": ctrl_equity,

@@ -9,14 +9,16 @@ TTM PER(최근 4분기 지배순이익 합)·MRQ PBR(최근분기 지배자본)�
   eq     = 지배자본 **기말 잔액**(BS, 기간무관).
 
 수집 절약: **Q4(사업보고서)는 이미 있는 연간 데이터에서 seed(DART 0콜)** —
-  · 과거 FY = dart_finstat_y(ni=연간누적=Q4누적, eq=FY말자본, restated 우선)
-  · 최신 확정 FY(_latest_annual_fy) = dart_fundamentals(ni_fy, eq_fy) — ni_fy/eq_fy는 가변열
+  · dart_finstat_y(ni=연간누적=Q4누적, eq=FY말자본, restated 우선) — 연간 표가 정본(261018: 재무 요약에서 넣던 bootstrap 은 뺐다)
   나머지 Q1(11013)·반기(11012)·3Q(11014)만 DART 수집.
 
 추출: financial_metrics._extract_cumulative_is 규칙 재사용 — 분기/반기 손익은 thstrm_add_amount(누적),
 1Q·사업보고서는 thstrm(=누적). BS는 thstrm(잔액). 지배주주 귀속 account_id. 스케일가드(소프트센).
 
-PIT는 **읽기 시점**에 표준 공시지연으로 매핑(저장 X): 1Q→5/15·반기→8/14·3Q→11/14·사업보고서→익년 4/1.
+PIT는 **읽기 시점**에 표준 공시지연으로 매핑(저장 X): 1Q→5/15·반기→8/14·3Q→11/14·사업보고서→익년 4/1(12월 결산).
+261018: 칸의 실제 기간 말·공시 시점은 회사 결산월(`dart_fundamentals.acc_mt`)로 센다 — `open_proxy_mcp/services/report_calendar.py`.
+  수집 마감(`_disclosed`)·nodata 재확인 기간·외화 환율 기준일·전기 칸 대조 연도·파생(--derive)의 「최신 분기」와 TTM 직전 연간이 모두 그 매핑을 쓴다.
+  12월 결산(결산월 칸이 비었을 때 포함)은 종전과 같다.
 
 Rate limit(하드룰 준수): 동시성 1 · 0.45s sleep(≈133콜/분, 910 안전) · ReadError 즉시 중단(resume) ·
 25건마다 flush · 최종 flush는 try로 감싸 blip에도 버퍼 손실 최소화.
@@ -36,13 +38,15 @@ quarter 4 = 그해 3월말 사업보고서, 1 = 6월말, 2 = 9월말, 3 = 12월�
   python3 scripts/market_fund_quarterly.py --pilot 005930,000660,051910  # 소표본 전분기(검증용)
   python3 scripts/market_fund_quarterly.py --fetch             # 전 종목 Q1~Q3 백필(재개 가능, ~1.5h)
   python3 scripts/market_fund_quarterly.py --fetch --years 2020,2021,2022,2023,2024,2025
+  python3 scripts/market_fund_quarterly.py --acc-mt [--acc-mt-since 20180101]
+      # 결산월(dart_fundamentals.acc_mt)을 사업보고서 이름의 기준월로 채운다·고친다(기본 최근 100일 목록, 처음엔 2018년부터)
   python3 scripts/market_fund_quarterly.py --include-new [--fetch]
       # 신규 상장 보통주를 dart_fundamentals 에 등록(KRX 2~4콜 + DART 0콜). 옛 시장 aggregate 수집기(--fetch)의
       # 유일한 잔존 기능(260902 흡수·원본은 open-proxy-storage archive/opm-scripts). 재무 4열은 넣지 않는다 —
       # 이후 --fetch(분기)·market_val_series --fetch
       # (연간)·--derive 가 채운다. --fetch 와 같이 주면 등록 직후 그 종목의 분기 수집까지 이어진다.
 """
-import argparse, asyncio, os, sys
+import argparse, asyncio, os, re, sys
 from datetime import date
 from pathlib import Path
 
@@ -54,8 +58,7 @@ import psycopg
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 from open_proxy_mcp.services.financial_metrics import normalize_amount
 from open_proxy_mcp.dart.fx import statement_currency, fx_to_krw
-
-_QEND = {1: "0331", 2: "0630", 3: "0930", 4: "1231"}
+from open_proxy_mcp.services import report_calendar as rcal
 
 # 분기 수집연도: 2019~현재. 2018 분기는 2019 TTM에만 필요(→ 2020~ 추이엔 불필요)해 제외 —
 # 2018은 seed_q4가 mkt_finstat_y에서 Q4(연간)만 seed. TTM은 2019 동분기가 있어 2020~부터 산출.
@@ -67,9 +70,13 @@ QFETCH = [(1, "11013"), (2, "11012"), (3, "11014")]
 _Q_DEADLINE = {1: (5, 15), 2: (8, 14), 3: (11, 14)}
 
 
-def _disclosed(fy: int, q: int, today: date | None = None) -> bool:
-    mo, dy = _Q_DEADLINE[q]
-    return (today or date.today()) >= date(fy, mo, dy)
+def _disclosed(fy: int, q: int, today: date | None = None, fye: int = 12) -> bool:
+    """그 칸의 공시 마감이 지났는가. 261018(결산월): 마감은 칸의 실제 기간 말 + 45일(`report_calendar.cell_available`) —
+    12월 결산이면 종전 5/15·8/14·11/14 그대로. 6월 결산의 「3분기」 칸(3월 말)은 5/15 부터 받는다(종전엔 달력 3분기라 11/14 까지 미뤘다)."""
+    if fye == 12:
+        mo, dy = _Q_DEADLINE[q]
+        return (today or date.today()) >= date(fy, mo, dy)
+    return (today or date.today()) >= rcal.cell_available(fy, q, fye)
 
 
 #: nodata 분기를 다시 받는 기간 — 그 분기 공시 마감일부터 이 날수까지(261018, 위 「재개 규칙」).
@@ -77,11 +84,14 @@ def _disclosed(fy: int, q: int, today: date | None = None) -> bool:
 NODATA_RETRY_DAYS = int(os.getenv("FUND_Q_NODATA_RETRY_DAYS", "400"))
 
 
-def _retry_nodata(fy: int, q: int, today: date | None = None, days: int | None = None) -> bool:
-    """이 nodata 분기를 이번 실행에 다시 받는가 — 공시 마감이 지났고, 지난 지 `days`일 이하."""
+def _retry_nodata(fy: int, q: int, today: date | None = None, days: int | None = None, fye: int = 12) -> bool:
+    """이 nodata 분기를 이번 실행에 다시 받는가 — 공시 마감이 지났고, 지난 지 `days`일 이하. 마감은 결산월로(`_disclosed` 와 같다)."""
     t = today or date.today()
-    mo, dy = _Q_DEADLINE[q]
-    since = (t - date(fy, mo, dy)).days
+    if fye == 12:
+        mo, dy = _Q_DEADLINE[q]
+        since = (t - date(fy, mo, dy)).days
+    else:
+        since = (t - rcal.cell_available(fy, q, fye)).days
     return 0 <= since <= (NODATA_RETRY_DAYS if days is None else days)
 
 
@@ -245,7 +255,12 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
       ni_fy/eq_fy = 최신 완결 FY(Q4) · eq_mrq = 최신 분기 자본 · ni_ttm = FY(y-1)+누적(y,q)−누적(y-1,q).
 
     261018: `tickers` 를 주면 그 종목만(재수집한 종목만 좁혀 돌릴 때). 값이 그대로인 행은 고쳐 쓰지 않는다 —
-    종전엔 매 실행 전 종목을 같은 값으로 UPDATE 했다(주 1회 재확인 실행이 늘어도 죽은 행이 늘지 않게)."""
+    종전엔 매 실행 전 종목을 같은 값으로 UPDATE 했다(주 1회 재확인 실행이 늘어도 죽은 행이 늘지 않게).
+
+    261018(재설계 6단계, 결산월): 「최신 분기」와 TTM 의 직전 연간 값을 칸 표기 `(fy, quarter)` 의 크기 순서가 아니라 **실제 기간 말**로
+    고른다(`report_calendar` — 결산월은 이 표의 `acc_mt`, 비었으면 12월). 12월 결산이면 표기 순서 = 기간 말 순서라 결과가 종전과 같다.
+    12월 결산이 아니면 종전엔 같은 해 표기의 사업보고서 칸(3월 결산 = 그해 3월 말)을 그해 마지막 칸으로 보고, TTM 의 직전 연간 값을
+    한 해 앞(fy-1)에서 가져왔다 — 3월 결산의 2026 1분기(6월 말) TTM 이 2025.03 사업보고서 + (2026.06 − 2025.06 누적)이 됐다(맞는 값은 2026.03)."""
     from collections import defaultdict
     con = _pg(); con.autocommit = True
     q: dict[str, dict] = defaultdict(dict)
@@ -253,8 +268,11 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
     rows = con.execute(sql + " WHERE ticker = ANY(%s)", (list(tickers),)) if tickers else con.execute(sql)
     for isu, fy, quarter, ni, eq in rows:
         q[isu][(int(fy), int(quarter))] = (ni, eq)
+    fye_of = _fye_map(con)
     seen = updated = 0
     for isu, m in q.items():
+        fye = fye_of.get(isu, 12)
+        latest = lambda keys: max(keys, key=lambda k: rcal.cell_end(k[0], k[1], fye))  # noqa: E731 — 실제 기간 말이 가장 늦은 칸
         # ni·eq 앵커를 **독립**으로(Data-QA #2): 최신분기가 eq만 있고 ni=None이어도 ni_ttm이 불필요하게
         # None 되지 않게 — 각 지표의 최신 유효분기 기준. 값 있는 분기가 곧 available(저장=공시분).
         ni_present = [(fy, qq) for (fy, qq), (ni, eq) in m.items() if ni is not None]
@@ -266,16 +284,16 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
         fys4 = [fy for (fy, qq), (ni, eq) in m.items() if qq == 4 and (ni is not None or eq is not None)]
         fy_full = max(fys4) if fys4 else None                    # 최신 완결 사업연도
         ni_fy, eq_fy = m.get((fy_full, 4), (None, None)) if fy_full else (None, None)
-        eq_mrq = m[max(eq_present)][1] if eq_present else None    # eq 있는 최신분기
+        eq_mrq = m[latest(eq_present)][1] if eq_present else None    # eq 있는 최신분기(기간 말 기준)
         ni_ttm = None
         if ni_present:
-            lfy, lq = max(ni_present)                             # ni 있는 최신분기 기준 TTM
+            lfy, lq = latest(ni_present)                          # ni 있는 최신분기 기준 TTM
             if lq == 4:
                 ni_ttm = m.get((lfy, 4), (None, None))[0]
             else:
                 cum_now = m.get((lfy, lq), (None, None))[0]
                 cum_prev = m.get((lfy - 1, lq), (None, None))[0]
-                fy_prev = m.get((lfy - 1, 4), (None, None))[0]
+                fy_prev = m.get((rcal.prior_annual(lfy, lq, fye), 4), (None, None))[0]   # 12월 결산이면 lfy-1(종전과 같다)
                 ni_ttm = (fy_prev + cum_now - cum_prev) if None not in (cum_now, cum_prev, fy_prev) else None
         cur = con.execute(
             "UPDATE dart_fundamentals SET ni_fy=%s, ni_ttm=%s, eq_fy=%s, eq_mrq=%s WHERE ticker=%s "
@@ -290,7 +308,115 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
 DDL_FUNDAMENTALS = """CREATE TABLE IF NOT EXISTS dart_fundamentals(
   ticker text PRIMARY KEY, corp_code text, market text, fs text,
   ni_fy double precision, ni_ttm double precision,
-  eq_fy double precision, eq_mrq double precision, fetched text)"""
+  eq_fy double precision, eq_mrq double precision, fetched text,
+  acc_mt smallint CHECK (acc_mt BETWEEN 1 AND 12))"""
+
+
+def _fye_map(con) -> dict[str, int]:
+    """종목 → 결산월(`dart_fundamentals.acc_mt`, 12월이 아닌 것만). 칸이 아직 없거나(DDL 전) 비었으면 12월로 본다 — 종전과 같은 읽기.
+
+    261018 신설(재설계 6단계). 채우기는 `--acc-mt`(가장 최근 사업보고서의 기준월), 칸 만들기는 `scripts/fundamentals_ddl.py`."""
+    m = rcal.load_fye_map(con)
+    if not m and not con.execute("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' "
+                                 "AND table_name='dart_fundamentals' AND column_name='acc_mt')").fetchone()[0]:
+        print("결산월 칸(dart_fundamentals.acc_mt)이 없다 — 모든 종목을 12월 결산으로 읽는다(scripts/fundamentals_ddl.py --apply)", flush=True)
+    return m
+
+
+#: `--acc-mt` 가 보는 사업보고서 접수 기간(오늘부터 거꾸로 일수). 주 1회 실행이면 넉넉하다 — 결산월이 바뀐 회사는 새 결산월의 첫 사업보고서가
+#: 이 창에 들어오는 주에 잡힌다. 처음 채울 때는 `--acc-mt-since 20180101`(연간 표가 2018 사업연도부터다 — 그 사이 결산월을 바꾼 회사를 가려낸다).
+ACC_MT_SCAN_DAYS = int(os.getenv("FUND_ACC_MT_SCAN_DAYS", "100"))
+_ANNUAL_NM = re.compile(r"사업보고서\s*\((\d{4})\.(\d{2})\)")
+
+
+def decide_acc_mt(stored: int | None, months: set[int], company_acc_mt=None) -> int | None:
+    """결산월 하나를 정한다(순수 함수 — 시험 대상).
+
+    · 창 안 사업보고서의 기준월이 하나 = 그 달 — 저장값이 비었거나 같을 때.
+    · 기준월이 둘 이상이거나 저장값과 다르면 = 12(종전 읽기 그대로). 결산월을 바꾼 회사(바꾼 해의 DART 칸이 두 결산월에서 겹친다 — 같은 해
+      표기의 1분기보고서가 둘)와 결산마다 사업보고서를 내는 리츠·인프라 펀드(반기·분기 결산)는 결산월 하나로 칸을 못 읽는다.
+      한 번 12 가 되면 그대로다(다음 실행에 새 달이 보여도 저장값 12 와 달라 12).
+    · 창 안 사업보고서가 없으면 = 저장값, 그것도 없으면 회사 개황(company.json)의 결산월(상장 첫해 — 아직 사업보고서가 없다)."""
+    ms = set(months)
+    if stored is not None:
+        ms.add(int(stored))
+    if len(ms) > 1:
+        return 12
+    if len(ms) == 1:
+        return ms.pop()
+    if company_acc_mt in (None, ""):
+        return None
+    return rcal.fye_month(company_acc_mt)
+
+
+async def refresh_acc_mt(since: date | None = None, today: date | None = None) -> dict[str, int]:
+    """`dart_fundamentals.acc_mt`(결산월)을 채운다·고친다 — DART 공시 목록의 사업보고서 이름(「사업보고서 (2026.03)」)의 기준월로.
+
+    261018 신설(재설계 6단계). 회사 개황(company.json)의 결산월은 **지금** 결산월이라, 결산월을 바꾸는 중인 회사(예: 6월 → 12월로 바꾸는
+    회사는 개황이 이미 12월인데 저장된 칸은 6월 기준)를 틀리게 읽는다 — 저장된 칸은 보고서를 따르므로 보고서 이름이 정본이다.
+    콜: 정기공시 목록(코스피·코스닥, 분기·반기보고서도 섞여 온다 — DART 가 상세 유형 거르기를 받지 않는다) 3개월 창 × 쪽수
+    (100일 창 ≈ 90콜, 2018년부터 ≈ 900콜) + 사업보고서가 창 안에 없고 저장값도 빈 종목만 회사 개황 1콜씩."""
+    from collections import defaultdict
+    from datetime import timedelta
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, market_window_end
+    t = today or date.today()
+    start = since or (t - timedelta(days=ACC_MT_SCAN_DAYS))
+    con = _pg(); con.autocommit = True
+    firms = {cc: (tk, m) for tk, cc, m in con.execute(
+        "SELECT ticker, corp_code, acc_mt FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")}
+    con.close()
+    c = get_dart_client()
+    months: dict[str, set[int]] = defaultdict(set)
+    calls = 0
+    for cls in ("Y", "K"):
+        cur = start
+        while cur <= t:
+            end = min(market_window_end(cur), t)
+            page = 1
+            while True:
+                try:
+                    res = await c.search_filings(bgn_de=cur.strftime("%Y%m%d"), end_de=end.strftime("%Y%m%d"),
+                                                 pblntf_ty="A", corp_cls=cls, page_no=page, page_count=100)
+                except DartClientError as e:
+                    if "013" in str(e):
+                        break
+                    raise
+                calls += 1
+                await asyncio.sleep(SLEEP)             # 다른 수집기와 같은 예의(0.45초) — 분당 910 한도를 넉넉히 밑돈다
+                for it in res.get("list") or []:
+                    hit = _ANNUAL_NM.search(it.get("report_nm") or "")
+                    if hit and it.get("corp_code") in firms:
+                        months[it["corp_code"]].add(int(hit.group(2)))
+                if page >= int(res.get("total_page") or 1):
+                    break
+                page += 1
+            cur = end + timedelta(days=1)
+    out: dict[str, int] = {}
+    changed: list[tuple] = []
+    for cc, (tk, stored) in firms.items():
+        comp = None
+        if not months.get(cc) and stored is None:
+            try:
+                comp = (await c.get_company_info(cc)).get("acc_mt")
+                calls += 1
+            except DartClientError:
+                comp = None
+        new = decide_acc_mt(stored, months.get(cc, set()), comp)
+        if new is not None and new != stored:
+            out[tk] = new
+            changed.append((tk, stored, new, sorted(months.get(cc, set())), comp))
+    if out:
+        con = _pg(); con.autocommit = True
+        with con.cursor() as cur:
+            cur.executemany("UPDATE dart_fundamentals SET acc_mt=%s WHERE ticker=%s AND acc_mt IS DISTINCT FROM %s",
+                            [(m, tk, m) for tk, m in out.items()])
+        con.close()
+    for tk, old, new, ms, comp in sorted(changed):
+        if old is not None:   # 이미 있던 결산월이 바뀜 — 사람이 볼 일(결산월 변경·리츠)
+            print(f"[결산월] {tk} {old} → {new} (창 안 사업보고서 기준월 {ms})", flush=True)
+    n_set = sum(1 for _, old, *_ in changed if old is None)
+    print(f"acc-mt: 사업보고서 목록 {start}~{t} · 대상 {len(firms)}사 · 새로 채움 {n_set} · 바뀜 {len(changed) - n_set} · DART {calls}콜", flush=True)
+    return out
 
 
 #: 신규 편입 대상을 고를 상장 종목 수 하한 — 정상은 약 2,760종목. 이보다 적으면 일별 시세 저장분이 비었거나 반쪽이다(261018).
@@ -351,12 +477,18 @@ async def include_new_tickers() -> int:
 
 
 def seed_q4() -> None:
-    """Q4(사업보고서) 행을 이미 있는 연간 데이터에서 seed — DART 0콜."""
+    """Q4(사업보고서) 행을 이미 있는 연간 데이터에서 seed — DART 0콜.
+
+    261018(재설계 6단계): ① 값이 같은 행은 다시 쓰지 않는다(종전엔 매번 전 행 ~1.6만 행을 같은 값으로 UPDATE — 주 1회·매일 일정에 넣으면서 죽은 행이
+    쌓이지 않게). ② 연간 표의 빈 칸(NULL)이 Q4 칸의 값을 지우지 않는다 — 10-18 운영: 연간 표에 순이익·자본 칸만 빈 행이 있는 12월 결산 3종목
+    (466100·471820·082270)은 Q4 칸에 값이 있는데, 종전 식으로 돌리면 NULL 로 덮여 재무 요약 연간 값이 사라졌다. 둘 다 값이면 연간 표(정본)를 따른다.
+    ③ 「최신 FY 가 연간 표에 아직 없으면 재무 요약에서 bootstrap」 하던 경로를 뺐다 — 재무 요약의 연간 값(`ni_fy`·`eq_fy`)은 260902 부터 **이 표의
+    Q4 칸에서 파생**되므로, 연간 표가 비었을 때 그 값을 새 FY 칸에 넣으면 지난해 값이 올해 표기로 들어간다(4월 첫 실행에서 연간 수집이 한 행도 못 쓰고
+    멈춘 경우). 연간 값은 연간 표(`market_val_series --fetch`)로만 들어온다."""
     con = _pg(); con.autocommit = True
     con.execute(DDL)
     for _m in DDL_MIGRATE:
         con.execute(_m)
-    # FY2018~2024: dart_finstat_y (restated 우선)
     n1 = con.execute("""
         INSERT INTO dart_finstat_q (ticker, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
         SELECT ticker, fy, 4, '11011', fs,
@@ -366,25 +498,16 @@ def seed_q4() -> None:
         FROM dart_finstat_y
         WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL
         ON CONFLICT (ticker, fy, quarter) DO UPDATE SET
-          ni_cum=EXCLUDED.ni_cum, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched
+          ni_cum=COALESCE(EXCLUDED.ni_cum, dart_finstat_q.ni_cum), eq=COALESCE(EXCLUDED.eq, dart_finstat_q.eq),
+          fetched=CASE WHEN COALESCE(EXCLUDED.ni_cum, dart_finstat_q.ni_cum) IS NOT NULL
+                         OR COALESCE(EXCLUDED.eq, dart_finstat_q.eq) IS NOT NULL THEN 'ok' ELSE 'nodata' END
+        WHERE (dart_finstat_q.ni_cum, dart_finstat_q.eq)
+              IS DISTINCT FROM (COALESCE(EXCLUDED.ni_cum, dart_finstat_q.ni_cum), COALESCE(EXCLUDED.eq, dart_finstat_q.eq))
+           OR dart_finstat_q.fetched IS DISTINCT FROM
+              (CASE WHEN COALESCE(EXCLUDED.ni_cum, dart_finstat_q.ni_cum) IS NOT NULL
+                      OR COALESCE(EXCLUDED.eq, dart_finstat_q.eq) IS NOT NULL THEN 'ok' ELSE 'nodata' END)
     """).rowcount
-    # 최신 완결 FY가 아직 mkt_finstat_y에 없을 때만 mkt_fundamentals에서 **bootstrap**(INSERT-only).
-    # ⚠ dart_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 '최신 완결 FY'로 덮어쓰는 가변열 →
-    # 과거 특정연도(하드코딩 2025)에 DO UPDATE로 쓰면 롤오버 시 그 값이 다음 FY로 바뀌어 mkt_finstat_q의
-    # 과거 Q4가 오염되고 TTM이 조용히 틀어짐(Data-QA #1). 방지: 대상 FY 동적(_latest_annual_fy) +
-    # hist에 없을 때만 + **DO NOTHING**(hist가 들어오면 n1이 authoritative, bootstrap은 절대 덮지 않음).
-    lfy = _latest_annual_fy()
-    in_hist = con.execute("SELECT 1 FROM dart_finstat_y WHERE fy=%s LIMIT 1", (lfy,)).fetchone()
-    n2 = 0
-    if not in_hist:
-        n2 = con.execute("""
-            INSERT INTO dart_finstat_q (ticker, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
-            SELECT ticker, %s, 4, '11011', fs, ni_fy, eq_fy,
-                   CASE WHEN ni_fy IS NOT NULL OR eq_fy IS NOT NULL THEN 'ok' ELSE 'nodata' END
-            FROM dart_fundamentals WHERE fetched='ok'
-            ON CONFLICT (ticker, fy, quarter) DO NOTHING
-        """, (lfy,)).rowcount
-    print(f"Q4 seed: dart_finstat_y {n1}행 + dart_fundamentals bootstrap(FY{lfy}, hist부재시만) {n2}행")
+    print(f"Q4 seed: dart_finstat_y → 분기 표 사업보고서 칸 {n1}행(새로 넣거나 값이 바뀐 행만)")
     con.close()
 
 
@@ -428,16 +551,19 @@ def _self_ref_map(con) -> dict:
     return {t: max(_st.median(vs), vs[-1]) for t, vs in ann.items() if vs}
 
 
-def _resume_sets(rows, nodata_days: int | None = None, today: date | None = None) -> tuple[set, set]:
+def _resume_sets(rows, nodata_days: int | None = None, today: date | None = None,
+                 fye_of: dict | None = None) -> tuple[set, set]:
     """(이미 끝난 분기, 다시 받을 nodata 분기). rows = (ticker, fy, quarter, fetched) — Q1~Q3 행.
 
-    ok·그 밖의 값 = 완료 · err:… = 완료 아님(종전과 같다) · nodata = 마감 뒤 `nodata_days` 일 안이면 다시 받는다(261018)."""
+    ok·그 밖의 값 = 완료 · err:… = 완료 아님(종전과 같다) · nodata = 마감 뒤 `nodata_days` 일 안이면 다시 받는다(261018).
+    `fye_of` = 종목 → 결산월(없으면 12월) — 마감을 칸의 실제 기간 말로 센다."""
     done, retry = set(), set()
+    fye_of = fye_of or {}
     for t, fy, qq, f in rows:
         key = (t, int(fy), int(qq))
         if f is not None and f.startswith("err:"):
             continue
-        if f == "nodata" and _retry_nodata(key[1], key[2], today=today, days=nodata_days):
+        if f == "nodata" and _retry_nodata(key[1], key[2], today=today, days=nodata_days, fye=fye_of.get(t, 12)):
             retry.add(key)
             continue
         done.add(key)
@@ -464,8 +590,11 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
     # 재실행 시 자동 재수집(DART 일일한도 20k/키 리셋 후 남은분 채움). DO UPDATE로 err행 덮어씀.
     # 261018: nodata 도 마감 뒤 NODATA_RETRY_DAYS 일 동안은 다시 받는다(`_resume_sets`) — 종전엔 완료로 봐서
     #   마감 직후 비어 있던 회사가 나중에 내도 다시 받지 않았다.
+    # 261018(결산월): 마감·환율 기준일·전기 칸 대조 연도를 종목 결산월로 센다(12월 결산은 종전과 같다).
+    fye_of = _fye_map(con)
     done, retry = _resume_sets(con.execute(
-        "SELECT ticker, fy, quarter, fetched FROM dart_finstat_q WHERE quarter != 4").fetchall(), nodata_days)
+        "SELECT ticker, fy, quarter, fetched FROM dart_finstat_q WHERE quarter != 4").fetchall(), nodata_days,
+        fye_of=fye_of)
     # 260829: 가드에 넘길 「그 회사 자신의 자」 — 연간 자본의 중앙값과 가장 최근 연간 자본 중 큰 쪽.
     #   중앙값만 쓰면 실제로 커진 회사(증자)를 오탐한다. 실측 74,918행에서 오탐 0·목표 8행 전부 적중.
     self_ref = _self_ref_map(con)
@@ -475,8 +604,8 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
                for r in con.execute("SELECT ticker, fy, eq, eq_restated FROM dart_finstat_y")
                if (r[3] if r[3] is not None else r[2])}
     con.close()
-    todo = [(i, c, y, q, rc) for i, c in firms for y in years
-            for q, rc in QFETCH if (i, y, q) not in done and _disclosed(y, q)]
+    todo = [(i, c, y, q, code) for i, c in firms for y in years
+            for q, code in QFETCH if (i, y, q) not in done and _disclosed(y, q, fye=fye_of.get(i, 12))]
     yspan = sorted({y for _, _, y, _, _ in todo})
     n_retry = sum(1 for i, _, y, q, _ in todo if (i, y, q) in retry)
     print(f"대상 {len(firms)}사 · 공시완료 분기만 · 남은 {len(todo)}건(연도 {yspan}, 그중 nodata 재확인 {n_retry}) · "
@@ -543,8 +672,10 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
                 # market_val_series.py 연간 fetch와 동일 패턴(statement_currency+fx_to_krw) 재사용.
                 stmt_cur = statement_currency(rows)
                 fx_err = None
+                fye = fye_of.get(isu, 12)
                 if stmt_cur != "KRW":
-                    ecos_fx_rate = await fx_to_krw(stmt_cur, f"{yr}{_QEND[q]}")
+                    # 261018(결산월): 환율 기준일 = 칸의 실제 기간 말(12월 결산이면 종전 0331·0630·0930 그대로)
+                    ecos_fx_rate = await fx_to_krw(stmt_cur, rcal.cell_end(yr, q, fye).strftime("%Y%m%d"))
                     if ecos_fx_rate is None:
                         fx_err = f"err:fx_{stmt_cur}"
                     else:
@@ -559,9 +690,10 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
                         buf.append((isu, yr, q, rc, None, None, None, fx_err, "ERR", "ERR"))
                         tally["err"] += 1
                 else:
+                    # 전기 칸 = 직전 결산 자본 — 그 사업보고서 표기는 결산월로(12월 결산이면 yr-1, 3월 결산의 1~3분기면 같은 해)
                     v = scale_assess(thstrm=ni, assets=assets, liabilities=liab, equity=eq_total,
                                      self_ref=self_ref.get(isu),
-                                     frmtrm_equity=eq_frm, known_prev_equity=prev_eq.get((isu, yr - 1)))
+                                     frmtrm_equity=eq_frm, known_prev_equity=prev_eq.get((isu, rcal.prior_annual(yr, q, fye))))
                     if v["tier"] == "hard":
                         pm = v["diagnostics"].get("prior_period_mismatch") or {}
                         if pm.get("triggered"):
@@ -610,11 +742,18 @@ if __name__ == "__main__":
                     help=f"nodata 분기를 다시 받는 기간(공시 마감 뒤 일수, 기본 {NODATA_RETRY_DAYS})")
     ap.add_argument("--tickers", type=str,
                     help="--derive 를 이 종목만(콤마구분) — 재수집한 종목만 좁혀 파생할 때")
+    ap.add_argument("--acc-mt", action="store_true",
+                    help="결산월(dart_fundamentals.acc_mt)을 사업보고서 이름의 기준월로 채운다·고친다(DART 목록 ~90콜)")
+    ap.add_argument("--acc-mt-since", type=str,
+                    help=f"--acc-mt 가 볼 사업보고서 접수 시작일 YYYYMMDD(기본 최근 {ACC_MT_SCAN_DAYS}일 — 처음 채울 땐 20180101)")
     a = ap.parse_args()
     yrs = [int(y) for y in a.years.split(",")] if a.years else YEARS_DEFAULT
     conc = max(1, min(2, a.conc))  # 하드 상한 2(910 한도·CLAUDE.md 준수)
     if a.include_new:
         asyncio.run(include_new_tickers())   # fetch 가 firms 를 DB 에서 다시 읽으므로 같은 실행에서 이어진다
+    if a.acc_mt:                             # 결산월 — 신규 등록 뒤·수집 앞(수집 마감을 결산월로 센다)
+        _since = a.acc_mt_since
+        asyncio.run(refresh_acc_mt(since=date(int(_since[:4]), int(_since[4:6]), int(_since[6:8])) if _since else None))
     if a.seed:
         seed_q4()
     if a.derive:
