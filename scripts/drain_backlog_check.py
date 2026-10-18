@@ -211,12 +211,16 @@ def _check(a: argparse.Namespace, url: str) -> int:
     if pct >= a.warn_pct and not n:
         print("\nevents 가 비어 있어 드레인으로 회수할 공간이 없다. --tables 로 테이블별 용량과 보존 정책을 확인할 것.")
     if len(weeks) > a.max_weeks or (pct >= a.warn_pct and n):
+        # 261018: 4) 가 `VACUUM FULL` 이었다 — 표 전체를 잠그는 명령이라 정기 절차에서 뺐다(일요일 크론도 꺼져 있다).
+        #   평범한 VACUUM 으로 빈 자리를 표시하면 다음 주 기록이 그 자리를 다시 쓴다. 자동 드레인도 그렇게 한다.
         print("""
-조치 (private 레포 백업이 먼저다 — 지우는 쪽만 영속이고 남기는 쪽이 휘발이면 백업이 아니다):
-  1) python3 scripts/events_drain.py                 # dry-run: parquet 만 쓴다(usage/events/)
-  2) open-proxy-storage 에서 usage/events/*.parquet 커밋·푸시
-  3) python3 scripts/events_drain.py --apply         # 검증 후 DELETE
-  4) VACUUM FULL ops_tool_calls;                     # 여기까지 해야 용량이 실제로 돌아온다
+조치 — 먼저 자동 드레인 결과를 본다(월 09:00, private open-proxy-storage/usage_auto_drain.py):
+  결과 장부 open-proxy-storage/usage/auto-drain-last.json 의 status·error_type
+손으로 할 때 (private 레포 백업이 먼저다 — 지우는 쪽만 영속이고 남기는 쪽이 휘발이면 백업이 아니다):
+  1) python3 scripts/events_drain.py                 # dry-run: 주 파일 + 검증증(.manifest.json)을 쓴다(usage/events/)
+  2) open-proxy-storage 에서 그 주 파일·검증증 커밋·푸시   # --apply 는 원격의 파일이 로컬과 같을 때만 지운다
+  3) python3 scripts/events_drain.py --apply         # 원격 보존 확인 → 행을 잠그고 백업과 대조 → DELETE
+  4) VACUUM (ANALYZE) ops_tool_calls;                # 빈 자리를 다음 주 기록이 다시 쓴다. VACUUM FULL(표 전체 잠금)은 쓰지 않는다
 자세히: private wiki-private/architecture/usage-telemetry-operations.md""")
     return 1
 
