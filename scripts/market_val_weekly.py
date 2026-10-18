@@ -102,20 +102,38 @@ def label(code: str) -> str:
 
 
 async def _krx_kinds(price_dd: str) -> dict[str, str]:
-    """종목 유형(보통주/우선주) — isu_base_info 2콜. 우선주 시총 귀속용."""
+    """종목 유형(보통주/우선주) — isu_base_info 2콜. 우선주 시총 귀속용.
+
+    반환 계약은 그대로다 — 받은 행만 담고, 두 시장 다 못 받으면 빈 dict(호출부가 스냅샷을 건너뛴다).
+    261018: 시장별로 못 받으면 **이유를 한 줄 남긴다**(HTTP 상태 · 목록 없음 · 0행 · 예외 이름. 키·응답 본문은 남기지 않는다).
+      종전엔 예외를 삼켜, 드물게 난 두 시장 동시 실패(새벽만이 아니라 낮에도 · 다음 실행이 메움)가 KRX 의 빠른 오류
+      응답인지 빈 응답인지 가를 수 없었다(시간 초과는 아니다 — 그 단계가 30초 한도보다 훨씬 빨리 끝났다).
+      `::warning::` 줄은 GitHub Actions 실행 요약의 주석으로 떠서 로그를 열지 않아도 보인다(job 은 실패시키지 않는다).
+    """
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
     from open_proxy_mcp.dart.krx_meter import bump
     kinds: dict[str, str] = {}
     async with httpx.AsyncClient(timeout=30) as h:
         for ep in ("stk_isu_base_info", "ksq_isu_base_info"):
+            status, n, why = None, 0, ""
             try:
                 bump()
                 r = await h.get(f"https://data-dbg.krx.co.kr/svc/apis/sto/{ep}",
                                 headers={"AUTH_KEY": key}, params={"basDd": price_dd})
-                for row in next(v for v in r.json().values() if isinstance(v, list)):
+                status = r.status_code
+                rows = next((v for v in r.json().values() if isinstance(v, list)), None)
+                if rows is None:
+                    why = "응답에 목록 없음"
+                for row in rows or ():
                     kinds[row["ISU_SRT_CD"]] = row.get("KIND_STKCERT_TP_NM", "")
-            except Exception:
-                pass
+                    n += 1
+                if rows is not None and not n:
+                    why = "0행"
+            except Exception as e:
+                why = type(e).__name__ + (f"({n}행 받은 뒤)" if n else "")
+            if why:
+                http = f"HTTP {status} · " if status is not None else ""
+                print(f"::warning::KRX 종목유형 {ep}(basDd={price_dd}) 실패 — {http}{why}", flush=True)
     return kinds
 
 
