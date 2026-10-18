@@ -1473,6 +1473,29 @@ def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
     return out
 
 
+def _cold_firm_at_miss(d: dict, as_of: str) -> list[str] | None:
+    """콜드 서빙(3년 하한 이전을 보관본에서 이은 곡선, `data.cold_until` 있음)에서 기준일 이하 점이 없을 때의 안내 — 아니면 None(종전 흐름).
+
+    종전 안내(`weekly_window_note` — 「주간 시세는 최근 3년까지」)는 DB 하한 기준이라, 2015-12 부터 이은 곡선에는 맞지 않는다.
+      · 주간 시세 시작(`weekly_from`) 전 → 범위 밖
+      · 시세는 있지만 곡선 첫 점 전(그 시점 공시 재무가 없음) → 첫 점과 까닭
+      · 곡선이 비었음 → 그 기간 시세나 공시 재무가 없음
+    곡선 밖 대체 점(`series_gap_fill`)이 기준일 이하에 있으면 None — 종전 흐름이 그것으로 답한다."""
+    if not d.get("cold_until"):
+        return None
+    series = d.get("series") or []
+    if any(str(p.get("asof", "")) <= as_of for p in series + list(d.get("series_gap_fill") or [])):
+        return None
+    start = d.get("weekly_from") or ""
+    yearend = "연말 값은 `scope=firm_history` 의 `history`(연말 PIT 밴드)에서 봅니다."
+    if start and as_of < start:
+        return [f"기준일 {as_of} 은 주간 시세 시작({start[:4]}-{start[4:6]}-{start[6:]}) 이전이라 제공 범위 밖입니다. {yearend}"]
+    if series:
+        return [f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {series[0]['asof']}. 기준일을 비우면 현재 값. "
+                "곡선은 그 시점에 공시된 재무(사업보고서·분기보고서)가 있는 주부터 점이 있습니다."]
+    return [f"기준일 {as_of} 이하 주간 점 없음 — 주간 곡선이 비어 있습니다(그 기간 시세나 공시된 재무가 없음 — 거래정지·상장폐지 가능). {yearend}"]
+
+
 async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
     """종목의 **과거 시점** 배수 — firm_history 의 주간 곡선(krx_weekly 최근 3년 × DART 재무 PIT)에서 as_of 이하
     가장 최근 점 하나(260907: 종목별 주간 스냅샷 표는 최근 몇 주만 있어 과거로 못 갔다 — 261018 그 표는 없앴다).
@@ -1484,28 +1507,20 @@ async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
     if hist.get("status") != "ok":
         return hist
     d = hist["data"]
+    cold_miss = _cold_firm_at_miss(d, as_of)       # 261019: 콜드 서빙으로 이은 곡선에서 답이 없는 기준일 — 그 곡선에 맞는 안내
+    if cold_miss:
+        return {"tool": "price_multiple_data", "status": "no_data", "subject": hist.get("subject", company), "warnings": cold_miss}
     series = d.get("series") or []
     floor = d.get("weekly_from") or (krx_weekly_cutoff(series[-1]["asof"]) if series else None)
     pts = [p for p in series if str(p.get("asof", "")) <= as_of]
     if not pts:
         warns: list[str] = []
-        cold_until = d.get("cold_until")              # 261019: 하한 이전을 콜드 서빙(보관본)으로 이은 곡선이면 범위 밖 = 주간 시세 시작 전
         if floor and as_of < floor:
-            if cold_until:
-                warns.append(f"기준일 {as_of} 은 주간 시세 시작({floor[:4]}-{floor[4:6]}-{floor[6:]}) 이전이라 제공 범위 밖입니다. "
-                             "연말 값은 `scope=firm_history` 의 `history`(연말 PIT 밴드)에서 봅니다.")
-            else:
-                warns.append(f"기준일 {as_of} 은 제공 범위 밖입니다. {weekly_window_note(floor)} "
-                             "연말 값은 `scope=firm_history` 의 `history`(연말 PIT 밴드)에서 전체 기간으로 봅니다.")
-                if COLD_DEGRADED_NOTE in (hist.get("warnings") or []):
-                    warns.append(COLD_DEGRADED_NOTE)
+            warns.append(f"기준일 {as_of} 은 제공 범위 밖입니다. {weekly_window_note(floor)} "
+                         "연말 값은 `scope=firm_history` 의 `history`(연말 PIT 밴드)에서 전체 기간으로 봅니다.")
         first = series[0].get("asof") if series else None
         if first:
-            warns.append(f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {first}. 기준일을 비우면 현재 값."
-                         + (" 곡선은 그 시점에 공시된 재무(사업보고서)가 있는 주부터 점이 있습니다." if cold_until and floor and as_of >= floor else ""))
-        elif not warns and cold_until:
-            warns.append(f"기준일 {as_of} 이하 주간 점 없음 — 주간 곡선이 비어 있습니다(그 기간 시세나 공시된 재무가 없음 — "
-                         "거래정지·상장폐지 가능). 연말 값은 `scope=firm_history` 의 `history` 에서 봅니다.")
+            warns.append(f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {first}. 기준일을 비우면 현재 값.")
         elif not warns:
             warns.append(f"기준일 {as_of} 이하 주간 점 없음 — 최근 3년 안에 시세가 없어 주간 곡선이 비어 있습니다"
                          "(거래정지·상장폐지 가능). 연말 값은 `scope=firm_history` 의 `history` 에서 봅니다.")
@@ -1593,6 +1608,22 @@ def _weekly_hist_items(px: list, fin: dict[int, tuple], finq: dict[tuple, tuple]
     return out
 
 
+def _cold_warnings(warnings: list[str], cold: dict, weekly_from: str) -> None:
+    """firm_history 경고 고치기(제자리) — 콜드 서빙으로 이었으면 둘째 줄(하한 안내)을 이음매 문장으로, 켜져 있는데 못 읽었으면 일시 안내 한 줄.
+    꺼짐·필요 없음(`cold` 빈 dict)이면 손대지 않는다(종전 응답 그대로)."""
+    if not cold:
+        return
+    old = weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."
+    if not cold.get("used"):
+        warnings.append(COLD_DEGRADED_NOTE)
+        return
+    c0, s0 = cold["start"], cold["seam"]
+    note = (f"주간 곡선은 {c0[:4]}-{c0[4:6]}-{c0[6:]} 부터의 주간 시세로 계산합니다({s0[:4]}-{s0[4:6]}-{s0[6:]} 이전은 "
+            "보관본(DB 밖 서빙본)에서 이었습니다 — 같은 원천·같은 주 정의, 겹치는 날짜 없음). 점은 그 시점에 공시된 "
+            "재무(사업보고서)가 있는 주부터입니다. 연말 값은 `history` 의 「연말(PIT FY…)」 항목.")
+    warnings[:] = [note if w == old else w for w in warnings]
+
+
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
     """종목별 밸류에이션 히스토리 — 연말 PIT 밴드(전체 기간) + 주간 곡선(최근 3년). PER/PBR/시총 시계열(수정주가 조정 불변).
     전부 주간 시세 저장분 × DART 재무(연간·분기)로 읽을 때 계산한다(261018: 종목별 주간 스냅샷 표 읽기를 뺐다 — 재설계 6단계)."""
@@ -1668,18 +1699,11 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     hist += weekly_hist
     hist.sort(key=lambda h: h["asof"])
     latest_dd = series[-1]["asof"] if series else (weekly_hist[-1]["asof"] if weekly_hist else "?")   # 곡선이 없으면 「주간」 항목의 마지막 주(종전과 같다)
-    if cold_used:   # 261019: 3년 하한 이전은 보관본(DB 밖 서빙본)에서 이었다 — 곡선은 그 시점에 공시된 재무가 있는 주부터 점이 있다
-        c0, s0 = cold["start"], cold["seam"]
-        span_note = (f"주간 곡선은 {c0[:4]}-{c0[4:6]}-{c0[6:]} 부터의 주간 시세로 계산합니다({s0[:4]}-{s0[4:6]}-{s0[6:]} 이전은 "
-                     "보관본(DB 밖 서빙본)에서 이었습니다 — 같은 원천·같은 주 정의, 겹치는 날짜 없음). 점은 그 시점에 공시된 "
-                     "재무(사업보고서)가 있는 주부터입니다. 연말 값은 `history` 의 「연말(PIT FY…)」 항목.")
-    else:
-        span_note = weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."
-    warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용.", span_note]
-    if cold and not cold_used:         # 켜져 있는데 이번에 보관본을 못 읽었다 — 종전 응답 + 일시 안내 한 줄
-        warnings.append(COLD_DEGRADED_NOTE)
+    warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용.",
+                weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."]
     if _fye_note(fye):                         # 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
         warnings.append(_fye_note(fye))
+    _cold_warnings(warnings, cold, weekly_from)   # 261019(설계 v03 D2): 콜드 서빙으로 이었으면 하한 안내를 이음매 문장으로, 못 읽었으면 일시 안내 한 줄
     # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고). (읽기는 위 ⓒ 단계에서 함께 했다)
     for fl, detail in flags or []:
         if fl == "spinoff_break":

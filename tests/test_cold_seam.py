@@ -356,9 +356,21 @@ def test_firm_at_answers_in_the_past_with_the_cold_curve(monkeypatch, cold_servi
     assert r["status"] == "no_data" and "곡선의 첫 점은 20190405" in r["warnings"][0] and "재무" in r["warnings"][0]
 
 
-def test_firm_at_degraded_says_it_is_temporary(monkeypatch, cold_serving):
+def test_firm_at_degraded_is_the_old_answer(monkeypatch, cold_serving):
+    """과거 시점은 곡선의 경고를 옮기지 않는다 — 강등이면 꺼짐과 글자까지 같은 응답(종전 3년 안내)."""
     cold_serving(COLD_ROWS, upto="20231016", max_dd="20231015")
     monkeypatch.setenv("OPM_COLD_MANIFEST_URL", "file:///nonexistent/serve/manifest.json")
     _pmd(monkeypatch)
     q = asyncio.run(S.build_firm_at_payload("삼성전자", "20210630"))
-    assert q["status"] == "no_data" and "주간 시세는 최근 3년까지 제공" in q["warnings"][0] and NOTE in q["warnings"]
+    assert q["status"] == "no_data" and "주간 시세는 최근 3년까지 제공" in q["warnings"][0]
+    monkeypatch.setenv("OPM_COLD", "0")
+    assert asyncio.run(S.build_firm_at_payload("삼성전자", "20210630")) == q
+
+
+def test_firm_at_gap_fill_points_take_over_from_the_cold_message():
+    """곡선 밖 대체 점(`series_gap_fill`)이 기준일 이하에 있으면 콜드 안내를 내지 않는다(종전 흐름이 그것으로 답한다)."""
+    d = {"cold_until": "20231016", "weekly_from": "20151230", "series": [{"asof": "20190517"}],
+         "series_gap_fill": [{"asof": "20190405"}]}
+    assert S._cold_firm_at_miss(d, "20190410") is None
+    assert "곡선의 첫 점은 20190517" in S._cold_firm_at_miss(d, "20190401")[0]
+    assert S._cold_firm_at_miss({**d, "cold_until": None}, "20190401") is None       # 콜드로 잇지 않은 곡선 — 종전 흐름
