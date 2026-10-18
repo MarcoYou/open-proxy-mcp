@@ -429,9 +429,13 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     unc = [b for b in buckets if b["bucket"] == "_UNCLASSIFIED"]
     if unc:
         tot = sum(b["cap_krw"] for b in buckets) or 1
+        # 261018: 업종분류 저장분은 공급처 구성종목에서만 빠진 상장 종목(직전 분류)과 우선주(같은 회사 보통주 분류)를
+        #   이어 쓴다(scripts/refresh_sector_class.py). 남는 미분류는 공급처가 분류를 준 적 없는 종목과 그 우선주다.
         warns.append(f"미분류 {sum(b['n'] for b in unc)}종목 · 시총 "
-                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 우선주·신규상장 등 업종분류 구성종목에 "
-                     "없는 것. 버리지 않고 `_UNCLASSIFIED` 로 남겨 섹터 합 = 시장 합을 유지합니다.")
+                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 업종분류 공급처가 분류를 준 적 없는 종목"
+                     "(외국 기업·장기 거래정지·신규상장 등)과 그 우선주. 구성종목에서만 빠진 상장 종목은 직전 분류를, "
+                     "우선주는 같은 회사 보통주 분류를 이어 씁니다. "
+                     "버리지 않고 `_UNCLASSIFIED` 로 남겨 섹터 합 = 시장 합을 유지합니다.")
     return {"tool": TOOL, "status": "ok", "subject": f"섹터 시가총액 ({_SCHEMES[scheme]})",
             "data": {"scope": "sector", "scheme": scheme, "scheme_desc": _SCHEMES[scheme],
                      "as_of": as_of, "sector_asof": sector_asof,

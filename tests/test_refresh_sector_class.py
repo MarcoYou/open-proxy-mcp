@@ -317,3 +317,70 @@ def test_keyless_throttle_uses_existing_process_clock(monkeypatch):
 def test_malformed_offsets_and_iso_forms_are_rejected(value):
     with pytest.raises(ValueError, match="유효하지 않은 TRD_DT"):
         S.parse_trade_date(value)
+
+
+# ── 261018: 구성종목 ≠ 분류 대상 — 파생 행(이어 쓰기·우선주) ─────────────────────────────
+
+CLS_A = ("G25", "경기관련소비재", "G2510", "자동차와부품")
+CLS_B = ("G45", "IT", "G4530", "반도체와반도체장비")
+
+
+def _rows_by_ticker(rows):
+    return {r[0]: r for r in rows}
+
+
+def test_carry_only_listed_tickers_dropped_from_constituents():
+    """직전 관측에 있었고 지금도 상장인데 구성종목에서만 빠진 종목만 잇는다 — 상장폐지 종목은 되살리지 않는다."""
+    prev = {"000040": (CLS_A, "wise", None), "000050": (CLS_A, "wise", None), "005930": (CLS_B, "wise", None)}
+    observed = {"005930": CLS_B}
+    out = _rows_by_ticker(S.derive_rows(observed, prev, "20260828", listed={"000040", "005930"}))
+    assert out == {"000040": ("000040", *CLS_A, "carry", "20260828")}
+
+
+def test_carry_chain_keeps_the_date_actually_observed():
+    """이어 쓴 행을 다시 이을 때 출처 날짜는 실제로 관측한 날짜 그대로다(중간 스냅샷 날짜로 바꾸지 않는다)."""
+    prev = {"000040": (CLS_A, "carry", "20260821")}
+    out = S.derive_rows({}, prev, "20260828", listed={"000040"})
+    assert out == [("000040", *CLS_A, "carry", "20260821")]
+
+
+def test_observed_wins_over_carry_and_reclassification_is_not_overridden():
+    """다시 관측된 종목은 관측 행이 이긴다 — 공급처가 다른 업종으로 옮겼으면 그 분류가 맞다."""
+    prev = {"000040": (CLS_A, "wise", None)}
+    assert S.derive_rows({"000040": CLS_B}, prev, "20260828", listed={"000040"}) == []
+
+
+def test_preferred_inherits_common_class_including_carried_common():
+    """우선주(끝자리 ≠ 0)는 같은 회사 보통주(앞 5자리 + 0)의 이 스냅샷 분류를 잇는다 — 보통주가 이어 쓰기여도."""
+    prev = {"000040": (CLS_A, "wise", None)}
+    observed = {"005930": CLS_B}
+    listed = {"005930", "005935", "000040", "000045", "00104K", "123457"}
+    out = _rows_by_ticker(S.derive_rows(observed, prev, "20260828", listed))
+    assert out["005935"] == ("005935", *CLS_B, "pref", "005930")
+    assert out["000045"] == ("000045", *CLS_A, "pref", "000040")
+    assert "00104K" not in out and "123457" not in out  # 보통주 분류가 없으면 지어내지 않는다
+    assert out["000040"][5] == "carry"
+
+
+def test_preferred_rows_are_rederived_not_carried():
+    """직전 스냅샷의 우선주 파생 행은 잇지 않는다 — 보통주가 이번에 다른 업종이면 우선주도 그 업종이다."""
+    prev = {"005935": (CLS_A, "pref", "005930"), "005930": (CLS_A, "wise", None)}
+    out = S.derive_rows({"005930": CLS_B}, prev, "20260828", listed={"005930", "005935"})
+    assert out == [("005935", *CLS_B, "pref", "005930")]
+
+
+def test_unobserved_common_is_never_invented():
+    """공급처가 한 번도 분류를 준 적 없는 보통주는 파생 행을 만들지 않는다."""
+    assert S.derive_rows({"005930": CLS_B}, {}, None, listed={"005930", "950160", "001570"}) == []
+
+
+def test_rederive_flag_skips_fetch(monkeypatch):
+    called = []
+
+    async def fetch(*a, **k):
+        called.append("fetch")
+        raise AssertionError("수집하면 안 된다")
+    monkeypatch.setattr(S, "fetch_snapshot", fetch)
+    monkeypatch.setattr(S, "rederive_db", lambda dry_run=False: called.append(("rederive", dry_run)) or 0)
+    assert asyncio.run(S.main(args(rederive=True, dry_run=True))) == 0
+    assert called == [("rederive", True)]
