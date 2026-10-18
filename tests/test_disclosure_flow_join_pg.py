@@ -1,12 +1,11 @@
-"""공시 흐름 보기의 업종·시총을 **읽을 때 조인**한다 — Postgres 17 에서 실제 SQL 로 검증 (261018, Supabase 재설계 6단계).
+"""공시 흐름 보기의 업종은 **읽을 때 조인**, 시총은 **원장에 저장된 값** — Postgres 17 에서 실제 SQL 로 검증 (261018, Supabase 재설계 6단계).
 
-종전: 원장 배치가 넣을 때 복사해 둔 `dart_events.sector`·`industry`·`mktcap_won` 을 읽었다. 이제 원본 표(`wise_sector`·`krx_daily_v`·`krx_weekly`)와
-조인한다(`disclosure_flow._EVENTS_SQL`). 규칙(원장 배치가 붙이던 것과 같은 출처·같은 선택):
-  · 업종 = 접수일 이하 가장 최근 업종분류 스냅샷(없으면 가장 이른 것). 스냅샷은 표 전체에서 고르고, 그 스냅샷에 종목이 없으면 비운다.
-  · 시총 = 접수일 이하 최신 거래일. 일별 저장분 창(최근 7거래일) 안이면 그 거래일 일별 행, 창보다 이르면 접수일 이하 가장 최근 주간 행.
-          창 안인데 그 종목 일별 행이 없으면 주간 행으로 대신한다. 일별 저장분이 비면 전부 주간.
-  · 복사본 칸이 **없는** 표(칸을 지운 뒤)에서도 돌고, 칸이 **있어도 읽지 않는다**(엉뚱한 값을 넣어 두고 확인).
-같은 파일에서 `price_multiple_data._firm_cap_at`(업종 비교의 그 날 시총)도 실제 SQL 로 확인한다.
+종전: 원장 배치가 넣을 때 복사해 둔 `dart_events.sector`·`industry`·`mktcap_won` 을 읽었다. 이제(`disclosure_flow._EVENTS_SQL`)
+  · 업종 = 원본 업종분류 스냅샷(`wise_sector`)과 조인 — 접수일 이하 가장 최근 스냅샷(없으면 가장 이른 것). 스냅샷은 표 전체에서 고르고,
+          그 스냅샷에 종목이 없으면 비운다(원장 배치의 `pick_snapshot` 과 같은 선택).
+  · 시총 = 원장의 `mktcap_won` 그대로. 시세 표와 조인하지 않는다 — 일별 원본이 7거래일 뒤 잘려 나중엔 공시 시점 값을 다시 만들 수 없다.
+  · 업종 복사본 칸(`sector`·`industry`·`sector_dd`)이 **없는** 표(운영에서 지운 뒤)에서도 돌고, 칸이 **있어도 읽지 않는다**(엉뚱한 값을 넣어 두고 확인).
+같은 파일에서 `price_multiple_data._firm_cap_at`(업종 비교의 그 날 시총 — 그 날 행, 없으면 같은 주 그 날 이하 가장 늦은 행)도 실제 SQL 로 확인한다.
 
 로컬 Docker 의 `postgres:17` 이 필요하다(`tests/conftest.py` 의 `pg17`). 없으면 건너뛴다. network 0.
 """
@@ -23,14 +22,13 @@ from open_proxy_mcp.services import disclosure_flow as df  # noqa: E402
 from open_proxy_mcp.services import price_multiple_data as S  # noqa: E402
 from test_krx_daily_pg import KRX_WEEKLY_DDL, _ddl  # noqa: E402
 
-# 운영의 원장에서 칸 셋을 지운 뒤 모양(복사본 칸 없음). 칸이 있는 모양은 `with_copy_cols=True` 로 더한다.
+# 운영에서 업종 복사본 칸 셋을 지운 뒤의 모양(시총 칸 `mktcap_won`·`mktcap_dd` 는 남는다). 지우기 전 모양은 `with_sector_cols=True` 로 더한다.
 EVENTS_DDL = """CREATE TABLE dart_events (
   rcept_no text PRIMARY KEY, rcept_dt date NOT NULL, corp_code text, corp_name text, stock_code text, corp_cls text,
   kind text NOT NULL, subtype text, stage text, is_correction boolean NOT NULL DEFAULT false, dedup_key text,
-  report_nm text, flr_nm text, detail_status text, detail jsonb, detail_note text,
+  report_nm text, flr_nm text, mktcap_won bigint, mktcap_dd text, detail_status text, detail jsonb, detail_note text,
   first_seen_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now())"""
-COPY_COLS = ("ALTER TABLE dart_events ADD COLUMN sector text, ADD COLUMN industry text, ADD COLUMN sector_dd text, "
-             "ADD COLUMN mktcap_won bigint, ADD COLUMN mktcap_dd text")
+SECTOR_COLS = "ALTER TABLE dart_events ADD COLUMN sector text, ADD COLUMN industry text, ADD COLUMN sector_dd text"
 WISE_DDL = """CREATE TABLE wise_sector (snap_dd text NOT NULL, ticker text NOT NULL, sector_code text, sector text,
   industry_code text, industry text, PRIMARY KEY (snap_dd, ticker))"""
 
@@ -43,13 +41,18 @@ def _close(t: str, d: str) -> int:
     return {A: 10_000, B: 20_000, C: 30_000, E: 50_000}[t] + int(d[-2:]) * 10
 
 
-def _load(url: str, *, with_copy_cols: bool = False, daily: bool = True) -> None:
+def _stored_cap(no: str) -> int:
+    """원장 배치가 저장해 둔 시총 — 시세 표 어디에도 없는 값으로 넣어, 조인이 아니라 저장 칸을 읽는지 가른다."""
+    return 7_000_000_000 + int(no[1:])
+
+
+def _load(url: str, *, with_sector_cols: bool = False, daily: bool = True) -> None:
     with psycopg.connect(url, autocommit=True) as c:
         c.execute(KRX_WEEKLY_DDL)
         c.execute(EVENTS_DDL)
         c.execute(WISE_DDL)
-        if with_copy_cols:
-            c.execute(COPY_COLS)
+        if with_sector_cols:
+            c.execute(SECTOR_COLS)
     _ddl().apply(url)
     with psycopg.connect(url) as c, c.cursor() as cur:
         # 업종분류 스냅샷 둘 — B 는 새 스냅샷에서 빠졌다(공급처가 뺀 종목), C 는 새 스냅샷에서 업종이 바뀌었다
@@ -57,29 +60,30 @@ def _load(url: str, *, with_copy_cols: bool = False, daily: bool = True) -> None
             ("20260821", A, "G45", "IT", "G4530", "반도체"), ("20260821", B, "G20", "산업재", "G2010", "자본재"),
             ("20260821", C, "G25", "경기소비재", "G2510", "자동차"),
             ("20261016", A, "G45", "IT", "G4530", "반도체"), ("20261016", C, "G20", "산업재", "G2010", "자본재")])
-        # 주간 = 주 마지막 거래일 행. 10/16 은 이번 주 행(지금 쓰는 쪽은 매일 다시 쓴다)
-        wk = ["20260731", "20260925", "20261002", "20261008", "20261016"]
+        # 주간 = 닫힌 주의 마지막 거래일 행 + 연말 행(20251230 — 연도 경계 주는 둘로 나뉜다)
+        wk = ["20251230", "20260102", "20260731", "20260925", "20261002", "20261008", "20261016"]
         cur.executemany("INSERT INTO krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) VALUES (%s,%s,%s,%s,%s,%s)",
                         [(d, t, "KS", _close(t, d), _close(t, d) * SHRS, SHRS) for d in wk for t in (A, B, C, E)])
         if daily:
-            # E 는 일별 응답에 없다(거래정지 등) — 창 안 공시는 주간 행으로 대신해야 한다
+            # E 는 일별 응답에 없다(거래정지 등)
             cur.executemany("INSERT INTO krx_daily (trd_dd, ticker, market, close, list_shrs) VALUES (%s,%s,%s,%s,%s)",
                             [(d, t, "KS", _close(t, d) + 1, SHRS) for d in DAYS for t in (A, B, C)])
         ev = [  # (접수번호, 접수일, 종목, 유형, 시장구분)
-            ("r01", date(2026, 10, 14), A, "order", "Y"),   # 창 안 수요일 → 그날 일별 시총, 업종은 0821 스냅샷(1016 은 뒤)
-            ("r02", date(2026, 10, 17), A, "order", "Y"),   # 창 안 토요일 → 10/16 일별, 업종은 1016 스냅샷
-            ("r03", date(2026, 10, 6), A, "order", "Y"),    # 창보다 이른 화요일 → 주간 10/2(금)
-            ("r04", date(2026, 8, 1), A, "order", "Y"),     # 첫 스냅샷(0821)보다 이르다 → 가장 이른 스냅샷 · 주간 7/31
+            ("r01", date(2026, 10, 14), A, "order", "Y"),   # 업종은 0821 스냅샷(1016 은 접수일 뒤)
+            ("r02", date(2026, 10, 17), A, "order", "Y"),   # 토요일 → 1016 스냅샷
+            ("r03", date(2026, 10, 6), A, "order", "Y"),
+            ("r04", date(2026, 8, 1), A, "order", "Y"),     # 첫 스냅샷(0821)보다 이르다 → 가장 이른 스냅샷
             ("r05", date(2026, 10, 17), B, "order", "K"),   # 1016 스냅샷에 없다 → 업종 비움(0821 로 내려가지 않는다)
             ("r06", date(2026, 10, 17), C, "treasury", "Y"),  # 1016 스냅샷의 새 업종
-            ("r07", date(2026, 10, 15), E, "order", "Y"),   # 창 안인데 일별 행 없음 → 주간 10/8 로 대신
+            ("r07", date(2026, 10, 15), E, "order", "Y"),   # 업종분류에 없는 종목
             ("r08", date(2026, 10, 14), None, "order", "E"),  # 비상장 → 업종·시총 없음
         ]
-        cur.executemany("INSERT INTO dart_events (rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, report_nm) "
-                        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
-                        [(no, dt, f"c{no}", f"회사{no}", t, cls, k, "단일판매ㆍ공급계약체결") for no, dt, t, k, cls in ev])
-        if with_copy_cols:   # 복사본 칸에 엉뚱한 값 — 읽으면 시험이 깨진다
-            cur.execute("UPDATE dart_events SET sector='복사본', industry='복사본', mktcap_won=1, sector_dd='19000101', mktcap_dd='19000101'")
+        cur.executemany("INSERT INTO dart_events (rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, report_nm, "
+                        "mktcap_won, mktcap_dd) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                        [(no, dt, f"c{no}", f"회사{no}", t, cls, k, "단일판매ㆍ공급계약체결",
+                          _stored_cap(no) if t else None, dt.strftime("%Y%m%d") if t else None) for no, dt, t, k, cls in ev])
+        if with_sector_cols:   # 업종 복사본 칸에 엉뚱한 값 — 읽으면 시험이 깨진다
+            cur.execute("UPDATE dart_events SET sector='복사본', industry='복사본', sector_dd='19000101'")
         c.commit()
 
 
@@ -96,62 +100,101 @@ def db(pg17, monkeypatch):
     return pg17
 
 
-def _fetch(kinds=("order", "treasury"), tickers=None, corp_cls=None):
-    rows = df._fetch_events(list(kinds), date(2026, 7, 1), date(2026, 10, 18), tickers, corp_cls)
+def _fetch(kinds=("order", "treasury"), tickers=None, corp_cls=None, since=date(2026, 7, 1), until=date(2026, 10, 18)):
+    rows = df._fetch_events(list(kinds), since, until, tickers, corp_cls)
     assert rows is not None, "SQL 이 실패했다"
     return rows
 
 
 def _expect() -> dict[str, tuple]:
-    d = lambda t, dd: (_close(t, dd) + 1) * SHRS       # noqa: E731 — 일별 행(주간보다 1원 높게 넣어 출처를 가른다)
-    w = lambda t, dd: _close(t, dd) * SHRS             # noqa: E731
     return {
-        "r01": ("IT", "반도체", d(A, "20261014")),
-        "r02": ("IT", "반도체", d(A, "20261016")),
-        "r03": ("IT", "반도체", w(A, "20261002")),
-        "r04": ("IT", "반도체", w(A, "20260731")),
-        "r05": (None, None, d(B, "20261016")),
-        "r06": ("산업재", "자본재", d(C, "20261016")),
-        "r07": (None, None, w(E, "20261008")),                # E 는 업종분류에도 없다
+        "r01": ("IT", "반도체", _stored_cap("r01")),
+        "r02": ("IT", "반도체", _stored_cap("r02")),
+        "r03": ("IT", "반도체", _stored_cap("r03")),
+        "r04": ("IT", "반도체", _stored_cap("r04")),
+        "r05": (None, None, _stored_cap("r05")),
+        "r06": ("산업재", "자본재", _stored_cap("r06")),
+        "r07": (None, None, _stored_cap("r07")),
         "r08": (None, None, None),
     }
 
 
-def test_join_follows_the_ledger_rules_without_the_copy_columns(db):
+def test_sector_is_joined_and_market_cap_is_the_stored_value_without_the_sector_columns(db):
     _load(db)
     rows = _fetch()
     got = {r["rcept_no"]: (r["sector"], r["industry"], r["mktcap_won"]) for r in rows}
     assert got == _expect()
     assert list(rows[0]) == list(df._EVENT_COLS) + ["via_sub", "sub_dup"], "응답 키·순서는 그대로"
-    assert all(isinstance(r["mktcap_won"], int) for r in rows if r["mktcap_won"] is not None), "원 단위 정수(종전 bigint 칸과 같은 형)"
+    assert all(isinstance(r["mktcap_won"], int) for r in rows if r["mktcap_won"] is not None), "원 단위 정수(bigint 칸 그대로)"
     keys = [(r["rcept_dt"], r["rcept_no"]) for r in rows]
-    assert keys == sorted(keys), "접수일·접수번호 순 — 조인 계획에 따라 흔들리지 않는다"
+    assert keys == sorted(keys), "접수일·접수번호 순 — 실행마다 같은 순서"
 
 
-def test_copy_columns_are_ignored_when_they_still_exist(db):
-    """칸을 지우기 전(지금 운영)에도 같은 답 — 복사본 칸의 값은 읽지 않는다."""
-    _load(db, with_copy_cols=True)
+def test_sector_copy_columns_are_ignored_while_they_still_exist(db):
+    """칸을 지우기 전(지금 운영)에도 같은 답 — 업종 복사본 칸의 값은 읽지 않는다."""
+    _load(db, with_sector_cols=True)
     got = {r["rcept_no"]: (r["sector"], r["industry"], r["mktcap_won"]) for r in _fetch()}
     assert got == _expect()
 
 
-def test_without_the_daily_store_every_event_uses_the_weekly_rows(db):
+def test_market_cap_does_not_depend_on_the_price_stores(db):
+    """시총은 원장의 저장값 — 일별 시세 저장분이 비어도, 주간 표가 바뀌어도 같은 값(공시 시점 값이 시간이 지나도 그대로다)."""
     _load(db, daily=False)
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("UPDATE krx_weekly SET mktcap = 1")
     got = {r["rcept_no"]: r["mktcap_won"] for r in _fetch()}
-    assert got["r01"] == _close(A, "20261008") * SHRS, "창이 없으면 접수일 이하 가장 최근 주(10/8)"
-    assert got["r02"] == _close(A, "20261016") * SHRS
+    assert got == {k: v[2] for k, v in _expect().items()}
 
 
-def test_universe_filters_still_apply(db):
+def test_universe_filters_and_date_range_still_apply(db):
     _load(db)
     assert {r["rcept_no"] for r in _fetch(tickers=[B, C])} == {"r05", "r06"}
     assert {r["rcept_no"] for r in _fetch(corp_cls="K")} == {"r05"}
     assert {r["rcept_no"] for r in _fetch(kinds=("treasury",))} == {"r06"}
+    assert {r["rcept_no"] for r in _fetch(since=date(2026, 10, 14), until=date(2026, 10, 15))} == {"r01", "r07", "r08"}
+    # 원장 첫날보다 훨씬 이른 시작(날짜 고르기는 원장 첫날부터) · 공시가 없는 기간
+    assert {r["rcept_no"] for r in _fetch(since=date(2000, 1, 1))} == set(_expect())
+    assert _fetch(since=date(2026, 9, 1), until=date(2026, 9, 30)) == []
 
 
-def test_firm_cap_at_prefers_the_weekly_row_then_the_daily_store(db):
+def test_empty_ledger_and_empty_sector_table(db):
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute(EVENTS_DDL)
+        c.execute(WISE_DDL)
+    assert _fetch() == []
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("INSERT INTO dart_events (rcept_no, rcept_dt, stock_code, corp_cls, kind, mktcap_won) "
+                  "VALUES ('z1', '2026-10-14', %s, 'Y', 'order', 5)", (A,))
+    rows = _fetch()
+    assert [(r["rcept_no"], r["sector"], r["mktcap_won"]) for r in rows] == [("z1", None, 5)], "업종분류 스냅샷이 없으면 업종만 비운다"
+
+
+# ── 업종 비교의 그 날 시총(`_firm_cap_at`) ──────────────────────────────────────────────────
+
+def _cap(t, d, *, daily=False):
+    return float((_close(t, d) + (1 if daily else 0)) * SHRS)
+
+
+def test_firm_cap_at_exact_day_weekly_then_daily(db):
     _load(db)
-    assert asyncio.run(S._firm_cap_at(A, "20261016")) == (float(_close(A, "20261016") * SHRS), "KS"), "같은 날 둘 다 있으면 주간 행"
-    assert asyncio.run(S._firm_cap_at(A, "20261014")) == (float((_close(A, "20261014") + 1) * SHRS), "KS"), "주간 행이 없으면 일별"
-    assert asyncio.run(S._firm_cap_at(A, "20261010")) == (None, None), "둘 다 없는 날(토요일)"
+    assert asyncio.run(S._firm_cap_at(A, "20261016")) == (_cap(A, "20261016"), "KS"), "같은 날 둘 다 있으면 주간 행"
+    assert asyncio.run(S._firm_cap_at(A, "20261014")) == (_cap(A, "20261014", daily=True), "KS"), "주간 행이 없으면 그 날 일별 행"
+
+
+def test_firm_cap_at_falls_back_within_the_same_week_never_later(db):
+    """그 날 행이 정확히 없으면 같은 주(ISO 주를 달력 연도 안으로 자른 것) 안 그 날 이하 가장 늦은 행 — 주간 먼저, 없으면 일별."""
+    _load(db)
+    assert asyncio.run(S._firm_cap_at(A, "20261009")) == (_cap(A, "20261008"), "KS"), "휴장일 → 같은 주 앞 거래일의 주간 행"
+    assert asyncio.run(S._firm_cap_at(A, "20261011")) == (_cap(A, "20261008"), "KS"), "일요일"
+    assert asyncio.run(S._firm_cap_at(A, "20261018")) == (_cap(A, "20261016"), "KS")
+    # 그 날보다 뒤 날짜는 쓰지 않는다: E 는 일별 행이 없고, 같은 주 주간 행(10/16)은 기준일(10/14) 뒤 · 지난주 행(10/8)은 다른 주
     assert asyncio.run(S._firm_cap_at(E, "20261014")) == (None, None)
+    assert asyncio.run(S._firm_cap_at(E, "20261013")) == (None, None)
+    # 연도 경계 주는 둘로 나뉜다 — 12/31(휴장)은 같은 해 연말 행, 1/1 은 지난해 행을 쓰지 않는다
+    assert asyncio.run(S._firm_cap_at(A, "20251231")) == (_cap(A, "20251230"), "KS")
+    assert asyncio.run(S._firm_cap_at(A, "20260101")) == (None, None)
+    # 주간 행이 없는 주 → 일별 저장분의 같은 주·그 날 이하 가장 늦은 행
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("DELETE FROM krx_weekly WHERE price_dd = '20261016'")
+    assert asyncio.run(S._firm_cap_at(B, "20261017")) == (_cap(B, "20261016", daily=True), "KS")
+    assert asyncio.run(S._firm_cap_at(B, "20261018")) == (_cap(B, "20261016", daily=True), "KS")

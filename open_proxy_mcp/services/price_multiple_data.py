@@ -1064,17 +1064,33 @@ def _pit_point(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tupl
             "per_fy0": _r3(p["per_fy0"]), "pbr": _r3(p["pbr"]), "per_ttm": _r3(p["per_ttm"]), "pbr_mrq": _r3(p["pbr_mrq"])}
 
 
-async def _firm_cap_at(ticker: str, dd: str) -> tuple[float | None, str | None] | None:
-    """그 날 종목 보통주 시총과 시장 — 주간 시세 저장분(`krx_weekly`, 주 마지막 거래일·연말 행)에 그 날 행이 있으면 그것,
-    없으면 일별 시세 저장분(`krx_daily_v`, 최근 7거래일). None = DB 장애, (None, None) = 그 날 행 없음.
+#: `_firm_cap_at` 의 질의 — 그 날 행(주간 → 일별), 없으면 **같은 주 안 그 날 이하 가장 늦은 행**(주간 → 일별). 앞 칸이 이긴다(`src`).
+#: 「같은 주」 = `_iso_wk_range`(ISO 주를 달력 연도 안으로 자른 것 — krx_weekly 의 주 닫기와 같은 정의). 그 날보다 **뒤** 날짜는 쓰지 않는다
+#: (기준일에 아직 없던 종가를 쓰지 않는다 — 주간 곡선의 「그 날 이하」 규칙과 같다).
+_FIRM_CAP_SQL = (
+    "SELECT mktcap, market, src FROM ("
+    " SELECT mktcap, market, 1 AS src FROM krx_weekly WHERE ticker=%s AND price_dd=%s"
+    " UNION ALL SELECT mktcap, market, 2 AS src FROM krx_daily_v WHERE ticker=%s AND trd_dd=%s"
+    " UNION ALL (SELECT mktcap, market, 3 AS src FROM krx_weekly WHERE ticker=%s AND price_dd >= %s AND price_dd < %s"
+    " ORDER BY price_dd DESC LIMIT 1)"
+    " UNION ALL (SELECT mktcap, market, 4 AS src FROM krx_daily_v WHERE ticker=%s AND trd_dd >= %s AND trd_dd < %s"
+    " ORDER BY trd_dd DESC LIMIT 1)"
+    ") x ORDER BY src LIMIT 1")
 
-    261018(재설계 6단계): 업종 비교의 기준일은 시장·업종 스냅샷의 날짜다. 지금은 그 날짜가 늘 krx_weekly 에 있지만(배치가 이번 주 행을
-    매일 다시 쓴다), 쓰는 쪽이 닫힌 주만 쓰게 바뀌면(5-1 쓰는 쪽) 이번 주 스냅샷 날짜는 일별 저장분에만 있다 — 그때도 같은 날 값을 낸다.
-    두 표 모두 시총 = 종가 × 상장주식수(KRX 가 주는 값과 136만 행 일치)라 같은 날이면 같은 값이다."""
-    rows = await _db_rows(
-        "SELECT mktcap, market, 1 AS src FROM krx_weekly WHERE ticker=%s AND price_dd=%s "
-        "UNION ALL SELECT mktcap, market, 2 AS src FROM krx_daily_v WHERE ticker=%s AND trd_dd=%s "
-        "ORDER BY src LIMIT 1", (ticker, dd, ticker, dd))
+
+async def _firm_cap_at(ticker: str, dd: str) -> tuple[float | None, str | None] | None:
+    """그 날 종목 보통주 시총과 시장. None = DB 장애, (None, None) = 그 주에 쓸 행이 없음.
+
+    고르는 순서(`_FIRM_CAP_SQL`): ① 주간 시세 저장분(`krx_weekly`, 주 마지막 거래일·연말 행)의 그 날 행 ② 일별 시세 저장분(`krx_daily_v`,
+    최근 7거래일)의 그 날 행 ③ 그 날 행이 정확히 없으면 **같은 주 안** krx_weekly 의 그 날 이하 가장 늦은 행 ④ 그것도 없으면 일별 저장분의 같은 주·그 날 이하 가장 늦은 행.
+
+    261018(재설계 6단계): 업종 비교의 기준일은 시장·업종 스냅샷(`opm_val_market`)의 날짜다. krx_weekly 는 닫힌 주만 담으므로(5-1 쓰는 쪽)
+    이번 주 스냅샷 날짜는 일별 저장분에만 있다(②). ③④ 는 스냅샷 날짜와 주간 행 날짜가 어긋난 주의 대비다 — 주간 행이 스냅샷보다 이른
+    거래일로 닫힌 주는 일별 보관 창(7거래일)이 지나면 ①② 가 모두 비어 업종 비교에서 기업 행이 조용히 빠진다. 같은 주의 더 이른 날 값으로 대신한다.
+    스냅샷보다 **뒤** 날짜의 주간 행(예: 그 주 마지막 배치가 실패해 스냅샷이 목요일, 주간 행이 금요일)은 쓰지 않는다 — 그 경우는 창이 지나면
+    「종목 스냅샷 없음」이다. 두 표 모두 시총 = 종가 × 상장주식수라 같은 날이면 같은 값이다."""
+    wk0, _ = _iso_wk_range(dd)
+    rows = await _db_rows(_FIRM_CAP_SQL, (ticker, dd, ticker, dd, ticker, wk0, dd, ticker, wk0, dd))
     if rows is None:
         return None
     if not rows or not rows[0][0]:
@@ -1092,8 +1108,10 @@ async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, fl
     None 이 되는 경우는 스냅샷 표에 행이 없던 경우와 같게 맞췄다: 재무 요약이 없거나 수집 정상이 아님 · 그 날 시세 행이 없음 ·
     그 시점 완전자본잠식(260829 마스터 지시 — 배치도 그 종목을 빼고 저장했다). DB 장애도 None(종전 `or []` 와 같다).
     값이 달라지는 곳(10-18 운영 대조, 최신 주 20261016 2,561종목 중 67종목): 분모가 그 시점까지 공시 마감이 지난 분기(PIT)라, 분기 표에 그 분기
-    값이 비어 있는 종목(DART 무자료 `nodata` 가 대부분)은 PER(TTM)·PBR(MRQ)를 비운다 — 스냅샷 표는 그날 수집돼 있던 가장 늦은 분기(대개 직전 사업연도 말)를
-    썼다. firm_history 곡선이 이미 그렇게 낸다. 재무 요약에 연간 값이 빈 종목(외국 상장사 등)은 연간 재무 표로 채워 오히려 값이 생긴다."""
+    값이 비어 있는 종목은 PER(TTM)·PBR(MRQ)를 비운다(N/M) — 스냅샷 표는 그날 수집돼 있던 가장 늦은 분기(대개 직전 사업연도 말)를
+    썼다. firm_history 곡선이 이미 그렇게 낸다. 그 빈 분기는 대부분 분기보고서가 있는데 수집 결과가 `nodata` 로 남은 **분기 재무 수집 공백**이다
+    (예: 3월 결산 법인의 반기) — 값을 대신 채우지 않고 수집을 고쳐 다시 받는다(별도 작업). 재무 요약에 연간 값이 빈 종목(외국 상장사 등)은
+    연간 재무 표로 채워 오히려 값이 생긴다."""
     cur_row, cap_mkt = await _gather_db(
         _db_rows("SELECT market, induty, currency, fetched FROM dart_fundamentals WHERE ticker=%s", (ticker,)),
         _firm_cap_at(ticker, dd),

@@ -188,62 +188,49 @@ _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "
                "is_external")
 
 
-#: 원장 행에 업종·시총을 **읽을 때 붙인다** (261018, Supabase 재설계 6단계).
-#: 종전엔 원장 배치가 넣을 때 복사해 둔 칸(`sector`·`industry`·`mktcap_won`)을 읽었다. 업종·시총의 저장처를 한 곳으로 두려고
-#: 원본 표와 조인한다 — 원장 배치가 붙이던 규칙과 같게.
-#:   업종 = 업종분류 스냅샷(`wise_sector`)에서 **접수일 이하 가장 최근 스냅샷**, 없으면 가장 이른 스냅샷(배치의 `pick_snapshot`).
+#: 원장 행의 업종은 **읽을 때 붙이고**, 시총은 **원장에 저장된 값**을 읽는다 (261018, Supabase 재설계 6단계).
+#:   업종 = 업종분류 스냅샷(`wise_sector`)에서 **접수일 이하 가장 최근 스냅샷**, 없으면 가장 이른 스냅샷(원장 배치의 `pick_snapshot`).
 #:          스냅샷은 표 전체에서 하나를 고르고 그 스냅샷에 종목이 없으면 비운다 — 종목마다 다른 스냅샷으로 내려가지 않는다(배치와 같다).
-#:   시총 = **접수일 이하 최신 거래일**의 그 종목 시총. 접수일이 일별 시세 저장분(`krx_daily`, 최근 7거래일) 창 안이면 그 거래일의
-#:          `krx_daily_v`(종가 × 상장주식수), 창보다 이르면 주간 시세 저장분(`krx_weekly`)의 접수일 이하 가장 최근 주(그 주 마지막 거래일).
-#:          창 안인데 그 거래일 일별 행이 없는 종목(일별 응답에 빠진 거래정지 종목 등)은 주간의 접수일 이하 가장 최근 행으로 대신한다
-#:          — 원장 배치가 붙이던 값과 같은 출처다(10-18 실측 3개월 9,367행 중 2행). 일별 저장분이 비어 있으면 전부 주간으로 간다.
-#: 원장이 3년(주가 보존과 같은 기간)이라 조인 원본이 늘 남아 있다. 정렬은 접수일·접수번호 — 조인 계획에 따라 행 순서가 흔들리지 않게 한다.
-#: `pick` 은 MATERIALIZED — 날짜 고르기(색인 한 번씩)를 **접수일마다 한 번**만 한다. 빼면 플래너가 CTE 를 펼쳐 공시 행마다 다시 고른다
-#: (10-18 운영 실측, 읽기 전용, 수주 올해치 3,723행 왕복 중앙값: 펼침 173ms → 고정 약 95~125ms. 종전 복사본 칸 읽기는 약 40ms — 흐름 보기 한 번에 약 +60ms).
+#:          종전엔 원장 배치가 넣을 때 복사해 둔 칸(`sector`·`industry`·`sector_dd`)을 읽었다. 원본이 남아 있는 값이라 저장처를 한 곳으로 둔다
+#:          (그 칸은 배치가 더 쓰지 않고 운영에서 지운다 — 이 SQL 은 그 칸을 읽지 않으므로 지우기 전후 모두 돈다).
+#:   시총 = 원장의 `mktcap_won`(접수일 이하 최신 거래일 시총 — 원장 배치가 붙여 저장). **조인하지 않는다**: 일별 시세 원본은 7거래일 뒤 잘려,
+#:          나중에 조인하면 공시 시점 시총 대신 직전 주 종가가 붙는다(10-18 검토 실측 원장 50,724 상장행 중 2,015행 다름, 최대 ±22%) —
+#:          재설계 원칙 「원본이 잘려 나갈 값은 저장한다」.
+#: `pick` = 기간의 날짜마다 업종 스냅샷 하나(색인 한 번씩, MATERIALIZED). 날짜는 원장 첫날 이전으로 늘리지 않는다(빈 날 고르기를 줄인다).
+#: 행 순서(접수일·접수번호)는 DB 가 아니라 `_fetch_events` 에서 정렬한다 — 넓은 행 수만 개를 서버가 정렬하면 작업 메모리를 넘어 디스크로 쏟는다
+#: (10-18 운영 실측, 읽기 전용, 셋을 번갈아 15회 왕복 중앙값: 올해 전체 유형 37,736행 — 종전 복사본 칸 329ms · 시세까지 조인하던 초안 916ms ·
+#:  이 SQL 338ms. 같은 SQL 에 ORDER BY 를 두면 서버 실행이 60 → 142ms — 정렬이 디스크로 쏟는다).
 _EVENTS_SQL = """
-WITH ev AS (
-  SELECT rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, subtype, is_correction, report_nm,
-         detail->>'amount_won' AS amount, detail->>'revenue_ratio_pct' AS ratio,
-         detail->>'counterparty' AS counterparty, detail->>'is_external' AS is_external
-  FROM dart_events
-  WHERE rcept_dt BETWEEN %s AND %s AND kind = ANY(%s){extra}
-),
-dts AS (SELECT DISTINCT rcept_dt, to_char(rcept_dt, 'YYYYMMDD') AS dd FROM ev),
-pick AS MATERIALIZED (
-  SELECT d.rcept_dt,
-         COALESCE((SELECT max(snap_dd) FROM wise_sector WHERE snap_dd <= d.dd),
-                  (SELECT min(snap_dd) FROM wise_sector)) AS sector_dd,
-         CASE WHEN d.dd >= (SELECT min(trd_dd) FROM krx_daily)
-              THEN (SELECT max(trd_dd) FROM krx_daily WHERE trd_dd <= d.dd) END AS daily_dd,
-         (SELECT max(price_dd) FROM krx_weekly WHERE price_dd <= d.dd) AS weekly_dd
-  FROM dts d
+WITH pick AS MATERIALIZED (
+  SELECT g::date AS rcept_dt,
+         COALESCE((SELECT max(snap_dd) FROM wise_sector WHERE snap_dd <= to_char(g, 'YYYYMMDD')),
+                  (SELECT min(snap_dd) FROM wise_sector)) AS sector_dd
+  FROM generate_series(GREATEST(%s::date, (SELECT min(rcept_dt) FROM dart_events)), %s::date, interval '1 day') g
 )
 SELECT e.rcept_no, e.rcept_dt, e.corp_code, e.corp_name, e.stock_code, e.corp_cls, e.kind, e.subtype, e.is_correction,
-       e.report_nm, ws.sector, ws.industry,
-       COALESCE(kd.mktcap, kw.mktcap)::bigint AS mktcap_won,
-       e.amount, e.ratio, e.counterparty, e.is_external
-FROM ev e
+       e.report_nm, ws.sector, ws.industry, e.mktcap_won,
+       e.detail->>'amount_won', e.detail->>'revenue_ratio_pct', e.detail->>'counterparty', e.detail->>'is_external'
+FROM dart_events e
 JOIN pick p ON p.rcept_dt = e.rcept_dt
 LEFT JOIN wise_sector ws ON ws.snap_dd = p.sector_dd AND ws.ticker = e.stock_code
-LEFT JOIN krx_daily_v kd ON kd.trd_dd = p.daily_dd AND kd.ticker = e.stock_code
-LEFT JOIN krx_weekly kw ON kw.price_dd = p.weekly_dd AND kw.ticker = e.stock_code
-ORDER BY e.rcept_dt, e.rcept_no
+WHERE e.rcept_dt BETWEEN %s AND %s AND e.kind = ANY(%s){extra}
 """
 
 
 def _fetch_events(kinds: list[str], since: date, until: date,
                   tickers: list[str] | None, corp_cls: str | None) -> list[dict[str, Any]] | None:
     extra = ""
-    params: list[Any] = [since, until, kinds]
+    params: list[Any] = [since, until, since, until, kinds]      # 앞 둘 = 업종 스냅샷 고르기(`pick`)의 날짜 범위
     if tickers is not None:
-        extra = " AND stock_code = ANY(%s)"
+        extra = " AND e.stock_code = ANY(%s)"
         params.append(tickers)
     elif corp_cls:
-        extra = " AND corp_cls = %s"
+        extra = " AND e.corp_cls = %s"
         params.append(corp_cls)
     r = pg_rows(_EVENTS_SQL.format(extra=extra), tuple(params))
     if r is None:
         return None
+    r = sorted(r, key=lambda x: (x[1], x[0]))                   # 접수일·접수번호 — 실행마다 같은 순서(위 `_EVENTS_SQL` 주석)
     out = []
     for row in r:
         d = dict(zip(_EVENT_COLS, row))

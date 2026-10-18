@@ -198,11 +198,11 @@ def test_the_cases_exercise_both_branches(monkeypatch):
 
 
 def test_firm_value_uses_the_daily_store_when_the_snapshot_date_is_not_a_weekly_row():
-    """`_firm_cap_at` 은 주간 행이 없으면 일별 저장분을 본다 — 쓰는 쪽이 닫힌 주만 쓰게 된 뒤 이번 주 스냅샷 날짜. 실제 SQL 실행은 pg17 시험
-    (`test_disclosure_flow_join_pg.py::test_firm_cap_at_prefers_the_weekly_row_then_the_daily_store`)."""
-    import inspect
-    body = " ".join(inspect.getsource(S._firm_cap_at).split())
+    """`_firm_cap_at` 은 그 날 주간 행이 없으면 일별 저장분을 보고(닫힌 주만 담는 krx_weekly 에 없는 이번 주 스냅샷 날짜), 그 날 행이 정확히 없으면
+    같은 주 안 그 날 이하 가장 늦은 행으로 대신한다. 실제 SQL 실행은 pg17 시험(`test_disclosure_flow_join_pg.py::test_firm_cap_at_*`)."""
+    body = " ".join(S._FIRM_CAP_SQL.split())
     assert "FROM krx_weekly WHERE ticker=%s AND price_dd=%s" in body and "FROM krx_daily_v WHERE ticker=%s AND trd_dd=%s" in body
+    assert "price_dd >= %s AND price_dd < %s ORDER BY price_dd DESC LIMIT 1" in body, "같은 주·그 날 이하(뒤 날짜는 쓰지 않는다)"
     assert "ORDER BY src LIMIT 1" in body, "같은 날 두 표에 다 있으면 주간 행(곡선과 같은 원천)을 먼저 쓴다"
 
 
