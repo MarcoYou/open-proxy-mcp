@@ -45,6 +45,9 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 ### 과거 시점 `as_of` (260907)
 `as_of="20251231"`(또는 `2025-12-31`). `scope=firm` 이면 실시간 계산 대신 `firm_history` 의 **최근 3년 주간 곡선**(krx_weekly × DART 재무 PIT)에서
 기준일 이하 가장 최근 점의 PER(FY0·TTM)·PBR(FY0·MRQ)·시총을 준다 — 배당수익률은 과거 시점 미제공.
+그 주에 곡선 점이 없으면(그 시점 재무 칸이 비었다 — 사업보고서·분기보고서 미제출 등) 앞선 칸(1년 안)으로 센 대체 점(`firm_history` 의
+`data.series_gap_fill`)으로 답하고 `data.basis` 와 「기준 분기 늦음」 경고로 밝힌다(261019 — 업종 비교 기업 행·「주간」 항목과 같은 규칙).
+답한 점이 기준일(그 종목 마지막 시세 날을 넘으면 그 날)보다 2주 넘게 이르면 그렇다고 적는다.
 기준일이 곡선 하한(`data.weekly_from`, 저장된 최신 주의 달력 3년 전)보다 이르면 가까운 옛 점으로 답하지 않고
 「주간 시세는 최근 3년까지 제공(연말 값은 전체 기간)」 안내를 준다(`no_data`) — 연말 값은 `firm_history` 의 `history`(연말 PIT 밴드). `market`·`sector` 는
 기준일 이하 스냅샷으로 표를 그린다. 형제 도구 `trading_data` 의 `as_of` 와 같은 뜻. 비우면 종전과 같이 최신.
@@ -64,7 +67,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 |---|---|---|---|---|
 | company | str | firm·firm_history는 필수 | 회사명 / ticker(6자리) / corp_code. sector에선 선택(소속 섹터 비교) | "" |
 | scope | str | no | `firm`(심층·실시간) / `market` / `sector` / `firm_history`(주간 곡선 + 월말 요약, DB 계산) / `explain`(수치 근거 — company 지정 시 실제 값 대입 계산 과정, 미지정 시 방법론·기준·출처 전문) | "firm" |
-| scheme | str | no | sector 집계 축 — `중분류`(업종 중분류 28) / `대분류`(업종 대분류 10) / `ksic`. 확정 배당수익률은 `대분류` 에만, 선행 PER·PBR·배당수익률은 `대분류`·`중분류` 에 붙는다(KSIC 없음). 옛 값(`wics_industry`·`wics_sector`)도 받는다 | "중분류" |
+| scheme | str | no | sector 집계 축 — `중분류`(업종 중분류 28) / `대분류`(업종 대분류 10) / `ksic`(2026-08-21 집계에서 멈춤 — 아래 「KSIC 축」). 확정 배당수익률은 `대분류` 에만, 선행 PER·PBR·배당수익률은 `대분류`·`중분류` 에 붙는다(KSIC 없음). 옛 값(`wics_industry`·`wics_sector`)도 받는다 | "중분류" |
 | format | str | no | "md" / "json" | "md" |
 
 ## scope 라우팅 — 기능 → 데이터 소스 (DB-first)
@@ -74,7 +77,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 | `firm` | 실시간 DART 재무 × 일별 시세 저장분(`price_latest`) 최신 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
 | `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
 | `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+ company 지정 시 기업 배수: 그 날 주간 시세(없으면 일별) 시총 × 시점별 재무를 **읽을 때 계산** — 261018 종목별 스냅샷 표 폐기) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
-| `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) (+krx_stock_flags 경고) | compute-on-query(저장 X) | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=최근 3년 주간 곡선(`data.series`, 하한 `data.weekly_from` = DB 에 실제로 남은 주간 구간의 시작 — 그 이전은 연말 밴드. 끝점은 일별 최신 거래일 — 이번 주면 `data.series_daily_end`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
+| `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) (+krx_stock_flags 경고) | compute-on-query(저장 X) | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=최근 3년 주간 곡선(`data.series`, 하한 `data.weekly_from` = DB 에 실제로 남은 주간 구간의 시작 — 그 이전은 연말 밴드. 끝점은 일별 최신 거래일 — 이번 주면 `data.series_daily_end`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변. 곡선은 그 시점 칸만 쓴다 — 칸이 다 비어 점을 못 만든 시세 주는 앞선 칸(1년 안)으로 센 대체 점을 곡선 밖 `data.series_gap_fill`(점마다 `basis`)에 싣고 경고 한 줄, 곡선 끝 뒤에도 시세 행이 있으면 `data.price_rows_end`(261019) |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변. 주가 인풋 줄의 출처는 `price_source` 대로(저장분 서빙 / 저장분에서 받지 못해 KRX 직접 조회), 주가를 못 받았으면 「미확보」. DPS 칸은 `dps_fetch_failed` 로 무배당(「없음(무배당 또는 미공시)」)과 조회 실패(「미확인」)를 가른다 |
 
 ### 배당수익률 (260831 추가)
@@ -97,6 +100,14 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 - **PER 과 게이팅이 다르다** — 적자면 PER 은 안 나오지만 배당수익률은 배당이 있으면 값이 난다.
 - **fail-open** — 배당 조회가 실패해도 PER·PBR 표는 그대로 낸다. 칸만 비고 각주에 이유를 남긴다.
 - 소규모 섹터를 합치지 않는다. `n_total` 을 남겨 읽는 쪽이 판단한다.
+
+### KSIC 축 (`scheme="ksic"`) — 2026-08-21 집계에서 멈춤
+2026-08-23 결정(커밋 7731cc20 — 섹터 집계 기준 축을 업종분류로, KSIC 는 기업 분류 용도로만)으로 업종 배수·시총 집계의 기준 축을 업종분류로 옮기고
+KSIC 섹터 집계 저장을 멈췄다(과거 행은 보존). 축 자체는 열려 있어 `scheme="ksic"` 은 **20260821 표**를 낸다. 261019 부터 이 축의 최신 스냅샷이
+시장 전체 스냅샷보다 이르면 응답이 그렇다고 밝힌다 — 마크다운 맨 위 「⚠ 이 축의 마지막 집계는 …」, 경고 한 줄, `data.stale`
+(`axis_as_of`·`market_as_of`·`reason` = `ksic_aggregation_frozen` / 다른 축이면 `axis_not_updated`). 과거 기준일(`as_of`)에서는 KSIC 축만 본다
+(업종분류 축은 2026-08-21 전까지 월말 한 점씩이라 — 시장 전체는 2026-07 부터 주간 — 그 사이 기준일에서 시장보다 이른 것이 설계대로다). 집계를 다시 돌릴지는 위 결정을 바꾸는 일이라 사용자 결정 사항이다
+(배치 `market_val_weekly.py` 는 KSIC 섹터 버킷을 메모리에서 이미 계산한다 — 저장만 멈춘 상태, 주 약 97행).
 
 ### 선행 PER·PBR (260918 추가)
 
@@ -202,12 +213,12 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 |---|---|---|---|
 | 식별 | **`resolve_company_query`(공용 리졸버 — company 툴과 동일 진입, 260705 채택)** → DART corp master | corp_code · stock_code · 상장여부 · ambiguous 후보 | 진입 게이트(동명 다수=후보표 / 비상장·빈입력 차단 / 우선주 등 종류주 코드는 발행 회사로 — 아래 가드 1) |
 | 재무요약 | `build_financial_metrics_payload(stock_code)` → DART **fnlttSinglAcnt·AcntAll·Indx·감사의견** | eps_krw · revenue_krw · roe_pct · capital_impairment_status · fiscal year | EPS(FY0)·ROE·매출·자본잠식 상태 |
-| 업종/결산월 | `get_company_info` → DART **company.json** | induty_code(KSIC) · acc_mt(결산월) | 금융 판별(64/65/66) · FX 기준일 |
+| 업종/결산월 | `get_company_info` → DART **company.json** | induty_code(KSIC) · acc_mt(결산월) | 금융 판별(64/65/66 — 업종코드가 비었을 때만 저장 업종코드 → 업종분류 대분류 「금융」, 261019) · FX 기준일 |
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
-| 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + 환율 캐시 저장분 | 기능통화 · 기말환율 | 비KRW → 재무 KRW 환산 |
+| 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + 환율 캐시 저장분 | 기능통화 · 기간 말 환율(사업연도 말 · 고른 분기 말 · 전년 동기 분기 말) | 비KRW → 재무 KRW 환산(값마다 그 기간 말 — 261019) |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
 | 시세 | **일별 시세 저장분(최근 약 1년)** 우선 — 기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest` → 미스(그날 행 없는 신규상장·거래정지 등)만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap(종가×상장주식수) · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
-| 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) | 배당수익률 |
+| 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) · 반기·분기 결산이면 결산기별 보통주 DPS(`period_dps` — 다음·앞 사업연도 사업보고서도) | 배당수익률(반기·분기 결산 = 최근 12개월 결산기 합, 261019) |
 
 ## 연산 파이프라인
 ```
@@ -219,7 +230,8 @@ BPS          = 지배자본(MRQ 우선, 없으면 FY0) ÷ shares_total(합계 �
 PER(FY0)     = 보통주 시총 ÷ 지배순이익(FY0)                                # 260823: 주가÷EPS 에서 전환
 PER(TTM)     = 보통주 시총 ÷ TTM 지배순이익
 PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pbr_basis 로 표기)
-배당수익률    = FY0 DPS(alotMatter 보통주 현금배당) ÷ 현재가 × 100
+배당수익률    = FY0 DPS(alotMatter 보통주 현금배당) ÷ 현재가 × 100   # 반기·분기 결산은 최근 12개월 결산기 DPS 합(261019)
+환율(비KRW)   = 연간 값 × 사업연도 말 · 분기 누적·자본 × 그 분기 말 · 전년 동기 누적 × 그 분기 말   # 261019 — 곡선·업종 비교와 같은 규칙
 ```
 - **배수는 시총 기반**(`multiples_basis: common_mktcap_over_controlling_income`, 260823 전환). 종전 「주가÷EPS·
   주가÷BPS」는 분모에 주식수가 들어가 액면분할·병합 때 옛 주식수 EPS 와 새 주가가 섞였다(메이슨캐피탈 적자인데
@@ -244,7 +256,8 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
 3. **스케일가드**(`services/scale_guard.py`, 설계 근거 private wiki): hard=②항등식(자산=부채+자본)·
    ③시장최댓값배수 / soft=①배수점프·④시총비율. **개별조회는 마스킹 안 함 — 값 유지 + 강한 경고**.
    (시장 aggregate는 반대로 무효화 — 소비 맥락이 다르므로.)
-4. **통화**: 비KRW면 회계기말 환율로 순이익·자본·자산·부채 환산 후 배수 산출 + 환산 경고.
+4. **통화**: 비KRW면 기간 말 환율로 순이익·자본·자산·부채 환산 후 배수 산출 + 환산 경고(값마다 쓴 날짜·환율). 연간(FY0)은 사업연도 말,
+   분기 누적·자본(MRQ)은 그 분기 말, 전년 동기 누적은 그 분기 말(261019 — 종전엔 모두 사업연도 말 하나: 두산밥캣 PBR 0.67 → 0.62).
 
 ## 출력 schema (data dict)
 ```json
@@ -267,9 +280,12 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
     "shares_common": 95713802, "shares_total": 95713802,
     "dps_krw": 1700, "revenue_fy0_krw": 8870273429400,
     "dps_fetch_failed": false,         // true = DART 배당 사항 조회 실패(DPS·배당수익률 미확인, 경고 동반) | false = 조회됨(dps_krw null 이면 무배당 또는 미공시)
+    "dps_basis": {"rule": "trailing_12m_periods", "period_months": 6, "periods": [{"stlm_dt": "2025-12-31", "dps_krw": 123}, …]},  // 반기·분기 결산만(261019) — 그 밖엔 칸 없음
     "common_market_cap_krw": 6173130586000,
     "capital_impairment_status": "normal",
-    "functional_currency": "USD", "fx_rate_to_krw": 1434.9
+    "functional_currency": "USD", "fx_rate_to_krw": 1434.9,   // 사업연도(FY0) 말 환율
+    "fx_rates_to_krw": {"fy0": {"date": "20251231", "rate": 1434.9}, "quarter": {"date": "20260630", "rate": 1541.5},
+                        "prior_quarter": {"date": "20250630", "rate": 1356.4}}   // 외화 보고사만(261019)
   },
   "warnings": ["기능통화 USD — 재무를 …환율 1,434.9원/USD로 KRW 환산…", "주가 기준일 …"],
   "data_quality": {"scale_tier": "clean", "scale_flags": [], "values_masked": false},
@@ -286,7 +302,7 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
 | DART company.json | 1 | 업종·결산월 |
 | DART fnlttSinglAcntAll ×3 | 3 (~6) | 연간+1Q당해+1Q전년, CFS→OFS 폴백 시 최대 2배 |
 | DART stockTotqySttus | 1 | 유통주식수 |
-| DART alotMatter(배당) | ~2 | 연간 요약 |
+| DART alotMatter(배당) | ~2 | 연간 요약. 반기·분기 결산(결산기 둘 이상)이면 다음·앞 사업연도 사업보고서 최대 +2(261019) |
 | **DART 합계** | **11 (최대 ~15, 실측 260705)** | per-firm. scope=market/sector/firm_history는 **DART·KRX 0콜(DB만)** |
 | KRX (시세) | **serve-time 0** | 일별 시세 저장분에서 읽음. 요청 경로는 KRX 를 부르지 않는다(DB 상태만 읽음). 최신 거래일 스냅샷은 서버 백그라운드 작업이 월~토 아침 확보(전종목 2콜) → **유저 수 무관 하루 수 콜 bounded**. KRX 개인키 일 10,000 한도 보호 |
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
@@ -349,12 +365,32 @@ sequenceDiagram
 - **shares_bad**(유통주식수 파싱오류) 시 PBR·EPS_ttm은 무효화되나 eps_fy0(공시값)는 유지 — 흑자
   종목이면 EPS 과소·PER 과대 누수 가능(v1.1: eps_fy0도 차단).
 - **unlisted 상장후보 안내**가 리졸버 exact-match 단락으로 비는 경우(예 "삼성") — 부분매치 별도조회(v1.1).
-- 리츠 전용 섹터 처리 없음 / 데이터부재(상폐) 종목이 금융으로 오분류(경미).
+- 리츠 전용 섹터 처리 없음. (데이터 부재 종목의 금융 오분류는 261019 에 고침 — 업종코드로 판정.)
+- 반기·분기 결산 리츠의 배당은 최근 12개월 결산기 합이지만, 결산기가 둘뿐인 갓 상장한 리츠는 주기를 확인할 앞 결산기가 없어 마지막 결산기 하나다.
 - v1.1 백로그: RIM·EV/EBITDA·PSR·FCF·peer 랭킹·자기 5년 밴드·PIT 시계열 · FX 평균환율(flow) ·
   한국은행 ECOS를 야후 폴백 대신 정본 유지 · 우선주 총시총 합산.
 
 ## 변경 이력
 
+- 2026-10-19: **10-19 기능 검증의 「원래 있던 결함」 다섯 갈래를 고친다**(그날 아침 코드도 같았다 — 회귀 아님).
+  - **반기·분기 결산 배당수익률** — 사업보고서 요약의 DPS 는 결산기가 여럿이면 마지막 한 결산기라 리츠 수익률이 절반(반기)~4분의 1(분기)로 나갔다
+    (운영 10-19: 롯데리츠 3.01%·SK리츠 1.24%·신한알파리츠 3.25%). 결산기가 둘 이상이면 다음(필요하면 앞) 사업연도 사업보고서도 읽어
+    **최근 12개월 결산기 보통주 DPS 합**을 쓴다(6.42%·5.05%·6.56% — DART 직접 조회 합과 일치). 창 첫 결산기의 앞 결산기까지 같은 주기여야 하고
+    (결산월 변경 이행기의 12개월+6개월을 더하지 않는다), 12월 결산은 읽기·값이 그대로다. `inputs.dps_basis`·경고 한 줄·explain DPS 줄에 결산기별 값.
+  - **외화 보고사 환율** — TTM·MRQ 까지 사업연도 말 환율 하나로 환산했다. 값마다 그 기간 말 환율(곡선·업종 비교와 같은 규칙):
+    두산밥캣 PER(TTM) 9.96 → 9.27 · PBR 0.67 → 0.62, 딥커머스 5.41 → 5.13 · 0.18 → 0.16(검증의 원천 표 재계산과 일치). `inputs.fx_rates_to_krw`, 경고·explain 에 날짜별 환율.
+    분기 말 환율을 못 받으면 사업연도 말 환율로 대신하고 경고한다. 평균 환율 규칙은 아직 없다(`dart/fx.py` v1.1).
+  - **금융·지주 판정** — 「매출이 비면 금융」 폴백을 뺐다. 재무 없는 신규상장(멜콘 업종코드 292·글로벌테크놀로지)이 「금융·지주 업종」으로 나갔다.
+    업종코드가 있으면 그것만(64·65·66), 회사 개황을 못 받았을 때만 저장 업종코드 → 업종분류 대분류 「금융」.
+  - **KSIC 축 낡음 표시** — `scheme="ksic"` 이 8주 전(20260821) 표를 기준일만 적어 냈다. 위 「KSIC 축」 절 — 집계 재개는 2026-08-23 결정을 바꾸는 일이라 하지 않았다.
+  - **곡선 공백의 과거 시점** — 피씨엘(241820, 2025 사업보고서 미제출)은 곡선이 20260327 에서 끝나 `as_of=20260814` 가 20주 전 점으로 까닭 없이 답했다.
+    곡선은 그대로 두고(그 시점 칸만 쓰는 규칙) 앞선 칸으로 센 대체 점을 `firm_history` 의 `series_gap_fill` 에 싣고, 과거 시점은 그 점으로 답하며 `basis`·「기준 분기 늦음」을 밝힌다.
+  - **표기** — explain 「자본잠식 상태: None」(재무 없는 회사) → 「판정 불가(…)」, 상태 코드는 우리말(「없음」·「부분 자본잠식」…). 0 이 아닌 배수가 반올림으로 0 이 되면
+    유효숫자 둘(한창 PER(FY0) 「0.0」 → 0.0038 — 정리매매가 11원). 같은 규칙을 연말 밴드(`history` 의 「연말」 항목)·업종 비교 기업 행에도 쓴다.
+  - **같은 날 검토 보강** — 사업연도 말 환율을 못 받으면 분기 값도 환산하지 않는다(분기만 원화로 바꾸면 TTM 에 통화가 섞인다 — 종전처럼 전부 미환산 + 「환율 조회 실패」 경고).
+    분기 말 환율을 사업연도 말 환율로 대신했으면 `fx_rates_to_krw`·경고에 대신 쓴 날짜를 적는다. 배당 보조 읽기(다음·앞 사업연도)의 전송 오류는
+    「조회 실패」로 내려가 PER·PBR 응답을 막지 않고, 주기를 못 맞춰 마지막 결산기 값을 쓰면 그렇다고 적는다. explain 「판정 불가」는 재무가 아예 없을 때와
+    자본금·자본 칸만 빌 때를 가른다. 업종 표 읽기와 시장 최신일 읽기는 한 묶음(왕복 늘지 않음).
 - 2026-10-19: **결산월을 12월로 바꾼 회사의 실시간 `firm` 이 곡선·업종 비교와 같은 칸을 쓴다.** 실시간 `firm` 은 회사 개황(DART company)의 결산월이
   12월이면 재무 요약 표의 결산월 칸(`acc_mt` — 저장된 칸이 따르는 결산월)을 읽지 않았다. 개황은 「지금」 결산월이라, 결산월을 12월로 바꿨지만 새 결산월의
   사업보고서가 아직 없는 회사(저장된 칸은 옛 결산월)는 실시간 `firm` 만 12월로 읽어 FY0 가 한 해 낡았다 — 운영 10-19 001080(6월 칸): `firm` 은 FY2025

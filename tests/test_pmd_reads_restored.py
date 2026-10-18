@@ -203,6 +203,8 @@ HIST = [("20251226", 12.0, 11.0, 1.5, 1.4, 800e12, 1e12, 1e12), (AS_OF, 14.0, 13
 def _sector_db(seen, *, wise=True):
     def rows(sql, params=()):
         s = " ".join(sql.split())
+        if s.startswith("SELECT MAX(snap_dd) FROM opm_val_market WHERE scheme=%s AND sector=%s"):   # 261019: 시장 전체 최신일(축 낡음 판정)
+            return [(AS_OF,)]
         if s.startswith("SELECT snap_dd, market, sector, label, n, cap, per_ttm"):
             sec = "261" if params[0] == "ksic" else ("G45" if params[0] == "wics_sector" else "G4530")
             return [(AS_OF, "KS", sec, "반도체", 30, 900e12, 13.456, 1.876, 14.0, 1.9, 1e12, 1e12)]
