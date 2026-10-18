@@ -231,6 +231,16 @@ async def _fetch_major_with_fallback(
     return [], source_meta, warnings
 
 
+def _block_report_order(item: dict[str, Any]) -> tuple[str, str]:
+    """같은 보고자의 5% 보고 중 「나중 것」을 가르는 열쇠 — 접수일, 같은 날이면 접수번호.
+
+    🔴 접수일만 비교하면 같은 날 두 번 낸 보고 중 **목록에 먼저 나온 것**이 남는다(261018 실측,
+    STX 신한은행 2026-10-14: 출자전환 5.81% → 같은 날 감자·신주 뒤 0.34%. 옛 5.81% 가 「최신」이
+    되어 5% 블록에 남았다). 접수번호는 접수 순서대로 매겨진다.
+    """
+    return (item.get("rcept_dt", "") or "", item.get("rcept_no", "") or "")
+
+
 async def _fetch_largest_shareholder_from_blocks(
     client,
     corp_code: str,
@@ -260,8 +270,7 @@ async def _fetch_largest_shareholder_from_blocks(
         reporter = (item.get("repror", "") or "").strip()
         if not reporter:
             continue
-        rcept_dt = item.get("rcept_dt", "")
-        if reporter not in latest_by_reporter or rcept_dt > latest_by_reporter[reporter].get("rcept_dt", ""):
+        if reporter not in latest_by_reporter or _block_report_order(item) > _block_report_order(latest_by_reporter[reporter]):
             latest_by_reporter[reporter] = item
 
     rows: list[dict[str, Any]] = []
@@ -396,6 +405,9 @@ def _build_block_camps(blocks: list[dict[str, Any]]) -> dict[str, Any]:
     여기서는 겹치는 보고자들을 한 편으로 묶고, 편 안에서 **같은 이름을 한 번만 세어**
     편별 순 지분을 낸다. 편 전원의 합계표가 읽혔고 각 보고서의 합이 헤드라인과 맞을 때만
     순 지분을 확정값으로 내고, 하나라도 못 읽었으면 숫자를 내지 않고 겹침 사실만 보여준다.
+
+    100% 를 넘는 까닭은 겹침만이 아니다 — 보고마다 지분율의 기준 주식총수가 다를 수 있다
+    (`report_bases`). 그 문장은 찾은 까닭만으로 `over_100_note` 에 만든다.
     """
     if not blocks:
         return {}
@@ -483,13 +495,115 @@ def _build_block_camps(blocks: list[dict[str, Any]]) -> dict[str, Any]:
         round(sum(c["net_pct"] for c in camps), 2)
         if all(c["net_pct"] is not None for c in camps) else None
     )
-    return {
+    result = {
         "headline_total_pct": headline_total,
         "exceeds_100": headline_total > 100.0,
         "net_total_pct": net_total,
+        "overlap_found": any(c["block_count"] > 1 for c in camps),
+        # 합계표를 읽은 보고 수 — 특별관계자 없이 본인만 있는 표(범한산업)도 읽은 것이다.
+        "holder_tables_read": sum(1 for row in blocks if row.get("co_holders") is not None),
         "camps": camps,
         "shared_holders_between_reporters": shared_pairs,
+        "report_bases": _block_report_bases(blocks),
     }
+    result["over_100_note"] = _over_100_note(result, len(blocks)) if result["exceeds_100"] else ""
+    return result
+
+
+#: 기준 주식총수(보유주식수 ÷ 지분율)가 이만큼 넘게 벌어지면 다른 기준으로 본다.
+#: 5% 이상 블록에서 지분율 반올림(±0.005%p)이 만드는 오차는 0.1% 안쪽이다.
+_BASIS_TOLERANCE = 0.02
+
+
+def _block_report_bases(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """5% 보고를 「지분율의 기준 주식총수」가 같은 것끼리 묶는다(261018, STX).
+
+    보고 지분율은 **그 보고 시점의** 주식등의 총수가 분모다. 그 사이 신주 발행·감자·출자전환으로
+    총수가 바뀌면, 서로 다른 때 낸 보고는 겹치는 사람이 없어도 더하면 100% 를 넘는다
+    (STX 2026-10: 출자전환 보고들은 약 1억 7천만 주, 감자·제3자배정 뒤 범한산업은 약 2,866만 주 기준).
+    전환사채 등 잠재주식을 가진 보고자는 그 몫을 분모에 넣으므로 같은 때라도 조금 클 수 있다.
+    보유주식수가 없는 보고는 빼고, 묶음은 가장 늦게 접수된 보고가 있는 것부터.
+    """
+    points = sorted(
+        (
+            (_to_int(row.get("shares")) * 100 / _to_float(row.get("ownership_pct")), row)
+            for row in blocks
+            if _to_int(row.get("shares")) > 0 and _to_float(row.get("ownership_pct")) > 0
+        ),
+        key=lambda p: p[0],
+    )
+    groups: list[list[tuple[float, dict[str, Any]]]] = []
+    for point in points:
+        if groups and point[0] <= groups[-1][0][0] * (1 + _BASIS_TOLERANCE):
+            groups[-1].append(point)
+        else:
+            groups.append([point])
+    bases: list[dict[str, Any]] = []
+    for group in groups:
+        rows = sorted((row for _t, row in group), key=lambda r: -_to_float(r.get("ownership_pct")))
+        dates = sorted(format_iso_date(r.get("report_date", "")) for r in rows)
+        bases.append({
+            "implied_total_shares": int(round(group[len(group) // 2][0])),
+            "reporters": [r.get("reporter", "") for r in rows],
+            "report_dates": [dates[0], dates[-1]],
+            "rcept_nos": [r.get("rcept_no", "") for r in rows],
+        })
+    bases.sort(key=lambda b: max(b["rcept_nos"]), reverse=True)
+    return bases
+
+
+def _approx_shares(n: int) -> str:
+    man = int(round(n / 10_000))
+    if man == 0:
+        return f"{n:,}주"
+    eok, rest = divmod(man, 10_000)
+    if not eok:
+        return f"약 {man:,}만 주"
+    return f"약 {eok}억 {rest:,}만 주" if rest else f"약 {eok}억 주"
+
+
+def _over_100_note(camps: dict[str, Any], block_count: int) -> str:
+    """5% 보고 합이 100% 를 넘을 때 **실제로 찾은 까닭만** 말한다.
+
+    🔴 예전 문구는 늘 「같은 특별관계자를 서로 품고 있어 … 겹치는 몫을 한 번만 세면 N%」였다.
+    겹치는 보고자가 없으면 N 이 단순 합과 같은 수가 되어 말이 안 됐다(STX 「199.86% … 한 번만 세면
+    199.86%」). 겹침은 겹침을 찾았을 때만, 기준 주식총수 차이는 그것이 보일 때만 말한다.
+    """
+    head = f"5% 대량보유 보고 지분율을 그냥 더하면 {camps['headline_total_pct']:.2f}%로 100%를 넘는다 — "
+    net = camps.get("net_total_pct")
+    if camps.get("overlap_found"):
+        text = head + (
+            "보고자들이 같은 특별관계자를 서로 품고 있어 같은 주식이 여러 번 신고되기 때문이다. "
+            "단순 합산은 하면 안 된다."
+        )
+        if net is None:
+            text += " 겹치는 보고자 목록은 아래에 있으나, 합계표를 못 읽은 보고자가 있어 순 지분은 계산하지 않았다."
+        elif net <= 100.0:
+            return text + f" 겹치는 몫을 한 번만 세면 {net:.2f}%다."
+        else:
+            text += f" 겹치는 몫을 한 번만 세도 {net:.2f}%로 여전히 100%를 넘는다."
+    else:
+        text = head + (
+            "단순 합산은 하면 안 된다. 보고자끼리 겹치는 특별관계자는 찾지 못했다"
+            f"(특별관계자 합계표를 읽은 보고 {camps.get('holder_tables_read', 0)}/{block_count}건)."
+        )
+    bases = camps.get("report_bases") or []
+    if len(bases) >= 2:
+        parts = []
+        for base in bases:
+            first, last = base["report_dates"]
+            when = first if first == last else f"{first}~{last}"
+            more = f" 외 {len(base['reporters']) - 1}건" if len(base["reporters"]) > 1 else ""
+            parts.append(f"{_approx_shares(base['implied_total_shares'])}({base['reporters'][0]}{more} {when})")
+        return text + (
+            " 보고마다 지분율의 기준 주식총수(보유주식수 ÷ 지분율)가 다르다 — " + " · ".join(parts) + ". "
+            "보고 사이에 신주 발행·감자·출자전환 등으로 주식총수가 바뀌었거나, 전환사채 등 잠재주식을 "
+            "분모에 넣은 보고라는 뜻이다. 기준이 다른 지분율끼리는 더할 수 없고, 옛 기준 보고의 지분율은 "
+            "지금 지분이 아닐 수 있다 — 각 보고의 원문(접수번호)에서 보고 사유·변동일을 확인할 것."
+        )
+    if camps.get("overlap_found") and net is None:
+        return text      # 까닭(겹침)은 찾았고, 몫만 못 셌다
+    return text + " 넘는 까닭을 이 자료로는 밝히지 못했다 — 각 보고의 원문(접수번호)을 확인할 것."
 
 
 def _build_control_map(
@@ -610,7 +724,7 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
         reporter = item.get("repror", "").strip()
         if not reporter:
             continue
-        if reporter not in latest_by_reporter or item.get("rcept_dt", "") > latest_by_reporter[reporter].get("rcept_dt", ""):
+        if reporter not in latest_by_reporter or _block_report_order(item) > _block_report_order(latest_by_reporter[reporter]):
             latest_by_reporter[reporter] = item
 
     latest_rows: list[dict[str, Any]] = []
@@ -659,6 +773,7 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
             "reporter": reporter,
             "report_date": item.get("rcept_dt", ""),
             "rcept_no": rcept_no,
+            "shares": _to_int(item.get("stkqy", 0)),
             "ownership_pct": ownership_pct,
             "purpose": purpose,
             "report_type": item.get("report_tp", ""),
@@ -1296,20 +1411,11 @@ async def build_ownership_structure_payload(
     top_holder = _top_holder_summary(major_rows)
     # 공동보유자 분해를 모든 scope의 5% 블록에 부착 (summary/blocks에서도 노출되도록).
     _enrich_co_holders(latest_blocks, major_rows)
-    # 보고자끼리 같은 특별관계자를 품고 있으면 5% 보고 지분율은 단순 합산이 안 된다.
+    # 5% 보고 지분율은 단순 합산이 안 된다 — 보고자끼리 같은 특별관계자를 품고 있거나(겹침),
+    # 보고마다 기준 주식총수가 달라서(시점 차이). 까닭은 찾은 것만 말한다(`_over_100_note`).
     block_camps = _build_block_camps(latest_blocks)
-    if block_camps.get("exceeds_100"):
-        _net = block_camps.get("net_total_pct")
-        _tail = (
-            f" 겹치는 몫을 한 번만 세면 {_net:.2f}%다."
-            if _net is not None
-            else " 겹치는 보고자 목록은 아래에 있으나, 합계표를 못 읽은 보고자가 있어 순 지분은 계산하지 않았다."
-        )
-        warnings.append(
-            f"5% 대량보유 보고 지분율을 그냥 더하면 {block_camps['headline_total_pct']:.2f}%로 100%를 넘는다 — "
-            "보고자들이 같은 특별관계자를 서로 품고 있어 같은 주식이 여러 번 신고되기 때문이다. 단순 합산은 하면 안 된다."
-            + _tail
-        )
+    if block_camps.get("over_100_note"):
+        warnings.append(block_camps["over_100_note"])
     active_signals = [
         row for row in latest_blocks
         if row["purpose"] not in ("단순투자", "단순투자/일반투자", "불명")

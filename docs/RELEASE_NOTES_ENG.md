@@ -4,6 +4,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### When 5% block stakes add up to more than 100%, the note now says why — `ownership_structure`
+
+- The note "adding up 5% block-holding stakes exceeds 100%" always blamed reporters holding the same related parties, and when no reporters overlapped it still printed "counting the overlap once gives" the **same number** as the plain sum (STX: "199.86% … counted once: 199.86%"). Overlap is now mentioned only when overlapping reporters are actually found.
+- When there is no overlap, reports are grouped by the **share count behind each stake** (shares held ÷ stake). Reports filed on either side of a debt-for-equity swap, capital reduction or new share issue have different denominators and cannot be added — at STX, the swap-era reports (KDB, Woori Bank, NH Bank) sit on about 170.52M shares, Bumhan Industries after the reduction and third-party allotment on about 28.66M. The `blocks` view shows this as a table; the data gains `block_camps.report_bases`, `overlap_found` and `over_100_note`. If no reason can be found, the note says so and points to the filings.
+- When a reporter files two 5% reports on the same day, the **later** one is now taken as current. Until now the one listed first won, so STX's Shinhan Bank kept its 5.81% swap-era stake although a same-day 0.34% report followed the capital reduction (STX total 199.86% → 194.05%). The path that estimates the largest shareholder from 5% reports had the same issue.
+
 ### Largest-shareholder stake change reports are read by column name · no more birth dates — `ownership_structure(scope="changes")`
 
 - The stake change report summary now shows the **shares, stake and report date** of the previous and current reports, and the change. Until now the report date (e.g. 2026-09-21) landed in the shares slot, the shares in the stake slot, and the current report came out as 0 shares — for every such report since the feature shipped in 2026-04.
