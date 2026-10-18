@@ -11,11 +11,14 @@ PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년
 부풀림)가 실제로 있다. 원본 하나만 보고는 못 잡지만(두 DART 엔드포인트가 같은 버그를 공유),
 **다음 해 보고서의 전기(frmtrm_amount) 비교치는 회사가 재작성하면서 정상화**돼 있다(실측 확인:
 소프트센 FY2022 매출 73,373,050,121,000,000 → FY2023 보고서 전기란엔 73,373,050,121로 정정).
-그래서 매 연도 fy를 가져올 때 **다음 해(fy+1) 보고서의 전기 비교치도 함께 수집**해 `ni_restated`/
-`eq_restated`에 저장하고, series() 계산 시 **restated가 있으면 그걸 우선** 사용한다.
+그래서 **다음 해 보고서의 전기·전전기 비교치**를 `ni_restated`/`eq_restated`에 저장하고(`--backfill-restated` — 정기
+`--fetch` 는 그해 칸만 받는다. 261019 정정: 종전 문구는 fetch 가 함께 받는다고 적었으나 코드는 그런 적이 없다), 읽는 쪽은
+**restated가 있으면 그걸 우선** 사용한다. 원 보고서가 API 에 없는 해(금융업의 XBRL 이전 사업보고서 등)도 이 길로 채운다.
 
 실행: python3 scripts/market_val_series.py --fetch   # 과거 FY 배치(재개 가능, ~100분)
       python3 scripts/market_val_series.py --series  # 분기 시계열 산출
+      python3 scripts/market_val_series.py --backfill-restated [--tickers 001720 --report-year 2024]
+          # 그 해 사업보고서의 전기·전전기 칸 → (해-1)·(해-2) 재작성치. --tickers 를 주면 「이미 처리됨」 판정 없이 그 종목만(261019)
 """
 import argparse, asyncio, os, sys
 from pathlib import Path
@@ -42,18 +45,23 @@ YEARS = list(range(2018, _latest_annual_fy() + 1))
 #: 사업보고서 nodata(그 표기의 보고서가 없음) 를 다시 받는 기간 — 공시 시점(결산월 다음 넷째 달 1일)부터 이 날수까지(261018).
 #: 분기 수집(`market_fund_quarterly.NODATA_RETRY_DAYS`)과 같은 규칙: 첫 실행 때 아직 안 낸 회사가 나중에 내도 영영 비지 않게.
 ANNUAL_NODATA_RETRY_DAYS = int(os.getenv("SERIES_NODATA_RETRY_DAYS", "400"))
+#: 261019: 다시 받기 창(위)과 상관없이 nodata 를 다시 받을 사업연도(쉼표) — 수집기가 그 해 응답을 못 읽어 nodata 로 굳은 해를 한 번 다시 받을 때.
+#: 예) `SERIES_REFETCH_NODATA_FY=2018` — 2018 사업보고서는 옛 계정 분류체계(`ifrs_` 접두어)라 종전 수집기가 읽지 못했다(`gid`).
+REFETCH_NODATA_FY = frozenset(int(y) for y in os.getenv("SERIES_REFETCH_NODATA_FY", "").replace(" ", "").split(",") if y.isdigit())
 
 
 def fetch_plan(firms, have: dict, fye_of: dict, today: date | None = None,
-               nodata_days: int | None = None) -> list[tuple]:
+               nodata_days: int | None = None, refetch_nodata_fy=None) -> list[tuple]:
     """받을 (ticker, corp_code, fy) — 순수 함수(시험 대상).
 
     261018(재설계 6단계, 결산월): 종전엔 모든 회사의 상한이 12월 결산 규칙(4월 이후 전년)이라 3월 결산 회사의 2026.03 사업보고서
     (6월 제출)를 2027년 4월에야 받았다. 이제 종목마다 결산월로 「지금 나와 있어야 할 최신 사업보고서 표기」(`report_calendar.latest_annual`)까지 받는다.
     이미 있는 행: ok·restate_only = 완료(종전과 같다) · err = 다시 받는다 · nodata = 공시 시점 뒤 `ANNUAL_NODATA_RETRY_DAYS` 일 안이면 다시 받는다
-    (종전엔 어떤 상태든 행이 있으면 완료라, 첫 실행 때 아직 안 낸 회사는 영영 비었다)."""
+    (종전엔 어떤 상태든 행이 있으면 완료라, 첫 실행 때 아직 안 낸 회사는 영영 비었다).
+    `refetch_nodata_fy`(기본 `REFETCH_NODATA_FY`)의 해는 창과 상관없이 nodata 를 다시 받는다(261019 — 수집기 결함으로 굳은 nodata)."""
     t = today or date.today()
     days = ANNUAL_NODATA_RETRY_DAYS if nodata_days is None else nodata_days
+    again = REFETCH_NODATA_FY if refetch_nodata_fy is None else frozenset(refetch_nodata_fy)
     out = []
     for isu, cc in firms:
         fye = fye_of.get(isu, 12)
@@ -61,7 +69,7 @@ def fetch_plan(firms, have: dict, fye_of: dict, today: date | None = None,
             f = have.get((isu, y))
             if f is None or f.startswith("err:"):
                 out.append((isu, cc, y))
-            elif f == "nodata" and 0 <= (t - rcal.cell_available(y, 4, fye)).days <= days:
+            elif f == "nodata" and (y in again or 0 <= (t - rcal.cell_available(y, 4, fye)).days <= days):
                 out.append((isu, cc, y))
     return out
 DDL = """CREATE TABLE IF NOT EXISTS dart_finstat_y(
@@ -78,8 +86,16 @@ def num(v):
     except: return None
 
 def gid(rows, account_id, sj, field="thstrm_amount"):
-    """정확일치(exact) — substring(in) 금지(260704 실측: 접두어 충돌로 오탐 확인, wiki §9)."""
-    return gid_exact(rows, account_id, sj, field)
+    """정확일치(exact) — substring(in) 금지(260704 실측: 접두어 충돌로 오탐 확인, wiki §9).
+
+    261019: 새 분류체계(`ifrs-full_…`)의 그 계정이 응답에 없으면 **옛 분류체계의 같은 이름**(`ifrs_…`)을 정확일치로 본다.
+    2018 사업보고서(그 이전도)는 옛 분류체계로 제출돼 `ifrs_ProfitLossAttributableToOwnersOfParent`·`ifrs_EquityAttributableToOwnersOfParent`
+    처럼 온다 — 종전엔 이를 못 찾아 FY2018 이 거의 전부 nodata 였다(운영 10-19: 2,599종목 중 2,559 · 005930 DART 직접 확인).
+    분기 수집(`market_fund_quarterly`)은 이미 두 접두어를 다 본다. 같은 계정의 이름만 바뀐 것이라 뜻은 같다."""
+    v = gid_exact(rows, account_id, sj, field)
+    if v is None and account_id.startswith("ifrs-full_"):
+        v = gid_exact(rows, "ifrs_" + account_id[len("ifrs-full_"):], sj, field)
+    return v
 
 def _pg():
     """261018: 표·칸이 이미 있으면 DDL 을 보내지 않는다 — 이 수집이 주 1회 일정(finstat-quarterly)에 들어가면서, 있어도 표 전체 잠금을
@@ -194,35 +210,49 @@ async def fetch(tickers: list[str] | None = None):
     print("fetch 종료",flush=True)
 
 
-async def backfill_restated():
-    """이미 수집된 firms에 대해 **fy=2024 딱 1콜만** 재조회 — fnlttSinglAcntAll이 thstrm(2024)·
+async def backfill_restated(tickers: list[str] | None = None, report_year: int = 2024):
+    """이미 수집된 firms에 대해 **fy=report_year(기본 2024) 딱 1콜만** 재조회 — fnlttSinglAcntAll이 thstrm(2024)·
     frmtrm(2023)·bfefrmtrm(2022)을 한 응답에 다 주므로, 5년 재조회 없이 종목당 1콜로 2022~2024
-    3개년 재작성치를 확보(소프트센 032680 실측으로 bfefrmtrm 제공 확인, 260704)."""
+    3개년 재작성치를 확보(소프트센 032680 실측으로 bfefrmtrm 제공 확인, 260704).
+
+    261019: `tickers` 를 주면 그 종목만, 「이미 처리됨」 판정 없이 받는다 — 종전 판정은 두 해 중 **하나라도** 재작성치가 있으면 처리됐다고
+    봐서, 한 해만 채워진 종목(10-19 운영 신영증권 001720 — 2022 칸만 있고 2023 칸이 빔. 원 사업보고서(2023.03)는 API 에 없다)을 다시
+    보지 않았다. `report_year` 로 다른 해 보고서의 비교치도 받는다(DART 표기 — 결산월과 무관하게 전기 = 표기 −1, 전전기 = −2)."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con=_pg()
     firms=[r for r in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
-    fs_map={r[0]:r[1] for r in con.execute("SELECT ticker, fs FROM dart_finstat_y WHERE fy=2024")}
-    # 이 함수는 fy=2024 보고서를 조회해 fy=2023·2022 행에 재작성치를 쓴다(fy=2024 자체엔 안 씀).
-    # 따라서 완료 판정은 2023/2022 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다.
-    done={r[0] for r in con.execute(
-        "SELECT ticker FROM dart_finstat_y WHERE fy IN (2022,2023) "
-        "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)")}
+    fs_map={r[0]:r[1] for r in con.execute("SELECT ticker, fs FROM dart_finstat_y WHERE fy=%s", (report_year,))}
+    # 이 함수는 fy=report_year 보고서를 조회해 그 앞 두 해 행에 재작성치를 쓴다(report_year 자체엔 안 씀).
+    # 따라서 완료 판정은 두 해 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다(tickers 를 주면 판정하지 않는다).
+    done=set() if tickers else {r[0] for r in con.execute(
+        "SELECT ticker FROM dart_finstat_y WHERE fy IN (%s,%s) "
+        "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (report_year-2, report_year-1))}
+    fye_of=rcal.load_fye_map(con)
     con.close()
+    if tickers:
+        firms=[r for r in firms if r[0] in set(tickers)]
     todo=[(i,c) for i,c in firms if i not in done]
-    print(f"대상 {len(firms)}사 · 남은 {len(todo)}건 (종목당 1콜, fy=2024)",flush=True)
+    print(f"대상 {len(firms)}사 · 남은 {len(todo)}건 (종목당 1콜, fy={report_year})",flush=True)
     c=get_dart_client(); k=0
     restate_buf=[]
     for isu,cc in todo:
         k+=1
         try:
             fs=fs_map.get(isu,"CFS")
-            d=await c.get_fnltt_singl_acnt_all(cc,"2024","11011",fs)
+            d=await c.get_fnltt_singl_acnt_all(cc,str(report_year),"11011",fs)
             rows=(d.get("list") or []) if isinstance(d,dict) else []
             await asyncio.sleep(0.45)
             attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
-            for fy_off,field in ((2023,"frmtrm_amount"),(2022,"bfefrmtrm_amount")):
+            stmt_cur=statement_currency(rows) if rows else "KRW"
+            for fy_off,field in ((report_year-1,"frmtrm_amount"),(report_year-2,"bfefrmtrm_amount")):
                 ni_r=gid(rows,attr,("CIS","IS"),field) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"),field)
                 eq_r=gid(rows,eqa,("BS",),field) or gid(rows,"ifrs-full_Equity",("BS",),field)
+                if stmt_cur!="KRW" and (ni_r is not None or eq_r is not None):
+                    # 261019: 저장은 항상 원화(fetch 와 같은 규칙 — 그 해 결산월 말일 환율). 환율을 못 구하면 그 해는 쓰지 않는다.
+                    rate=await fx_to_krw(stmt_cur, fiscal_year_end_date(fy_off, fye_of.get(isu, 12)))
+                    if rate is None:
+                        continue
+                    ni_r, eq_r = (v*rate if v is not None else None for v in (ni_r, eq_r))
                 if ni_r is not None or eq_r is not None:
                     restate_buf.append((isu,fy_off,fs,None,None,ni_r,eq_r,"restate_only"))
             if len(restate_buf)>=25: _flush(restate_buf)
@@ -304,10 +334,11 @@ if __name__=="__main__":
     ap=argparse.ArgumentParser()
     ap.add_argument("--fetch",action="store_true")
     ap.add_argument("--backfill-restated",action="store_true",
-                    help="종목당 1콜(fy=2024)로 2022~2024 재작성치만 백필")
+                    help="종목당 1콜(fy=--report-year, 기본 2024)로 그 앞 두 해 재작성치만 백필")
+    ap.add_argument("--report-year",type=int,default=2024,help="--backfill-restated 가 읽을 사업보고서 표기 연도")
     ap.add_argument("--series",action="store_true")
-    ap.add_argument("--tickers",type=str,help="--fetch 를 이 종목만(콤마구분)")
+    ap.add_argument("--tickers",type=str,help="--fetch·--backfill-restated 를 이 종목만(콤마구분)")
     a=ap.parse_args()
     if a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
-    elif a.backfill_restated: asyncio.run(backfill_restated())
+    elif a.backfill_restated: asyncio.run(backfill_restated(a.tickers.split(",") if a.tickers else None, a.report_year))
     else: series()
