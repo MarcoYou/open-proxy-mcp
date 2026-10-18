@@ -10,6 +10,8 @@
    어느 코드를 어느 회사로 읽었는지는 응답 맨 앞 경고로 밝힌다(추정 고지와 같은 장부·같은 경로).
    관측된 적 없는 코드(오타 005931)는 규칙만으로 회사에 붙이지 않는다.
 ③ 덤 — `trading_data` 만 이름 추정 고지를 버려 「삼성전자우」가 보통주 시세로 경고 없이 바뀌었다. 이제 다른 도구와 같은 문장을 싣는다.
+④ 응답을 직접 만드는 도구(`forward_estimates_data`·`dividend_data`·`price_multiple_data` 의 firm_history 등)는 종류주 고지를 싣지 않아
+   005935 를 삼성전자 값으로 고지 없이 줬다 — 모든 도구가 지나는 경계(`tools._wrap_tool_errors`)가 빠진 고지를 채운다.
 
 앞부분은 network 0 · DB 0. 마지막 시험만 로컬 Docker `postgres:17`(`tests/conftest.py` 의 `pg17`)이 필요하다 — 없으면 건너뛴다.
 """
@@ -304,6 +306,105 @@ def test_trading_declares_an_inferred_name_like_the_other_tools():
 def test_trading_declares_nothing_for_exact_lookups():
     C._resolve_match("005930", _resolver().search("005930"))
     assert T.declare_inferred({"warnings": ["x"]})["warnings"] == ["x"]
+
+
+class _Registry:
+    """FastMCP 대역 — `@mcp.tool()` 계약만 흉내내 tool 함수를 붙잡는다(도구 본문의 배선까지 프로덕션 경로로 탄다)."""
+
+    def __init__(self) -> None:
+        self.tools: dict = {}
+
+    def tool(self, *args, **kwargs):
+        def deco(fn):
+            self.tools[fn.__name__] = fn
+            return fn
+        return deco
+
+
+@pytest.mark.parametrize("scope, builder", [("firm", "build_firm_series_payload"), ("quote", "build_quote_payload")])
+def test_trading_tool_wires_the_inferred_notice(monkeypatch, scope, builder):
+    """도우미(`declare_inferred`)만이 아니라 도구가 firm·quote 결과에 실제로 거는지 — 배선이 빠지면 여기서 깨진다."""
+    import json
+
+    from open_proxy_mcp.tools import trading as trading_tool
+
+    async def fake_build(company, **_kw):
+        C._resolve_match(company, [{"corp_name": "삼성전자", "corp_code": "00126380", "stock_code": "005930",
+                                    "_resolution": {"match_kind": "fuzzy", "inferred": True, "auto_selected": True,
+                                                    "candidate_count": 1}}])
+        return {"tool": "trading_data", "status": "ok", "subject": "삼성전자(005930)", "warnings": ["**수정주가 아님** …"]}
+
+    monkeypatch.setattr(trading_tool, builder, fake_build)
+    reg = _Registry()
+    trading_tool.register_tools(reg)
+    out = json.loads(asyncio.run(reg.tools["trading_data"](company="삼성전자우", scope=scope, format="json")))
+    assert out["warnings"][0].startswith("「삼성전자우」를 **삼성전자**(으)로 추정했습니다")
+    assert out["warnings"][-1] == "**수정주가 아님** …"
+
+
+def test_company_tool_answers_a_code_shaped_miss_in_korean(monkeypatch):
+    """도구 쪽 언어 판정도 서비스와 같다 — 못 찾은 코드 모양 질의(「0126Z1」)의 표시 언어가 영어로 돌지 않는다."""
+    import json
+
+    from open_proxy_mcp.tools import company as company_tool
+
+    async def fake_payload(query, **_kw):
+        return {"tool": "company", "status": "error", "subject": query, "warnings": [], "data": {"candidates": []}}
+
+    monkeypatch.setattr(company_tool, "build_company_payload", fake_payload)
+    reg = _Registry()
+    company_tool.register_tools(reg)
+    out = json.loads(asyncio.run(reg.tools["company"](query="0126Z1", format="json")))
+    assert out["data"]["display_language"] == "ko"
+
+
+# ── 도구 경계의 안전망: 고지가 빠진 응답 ───────────────────────────────────────
+_NOTICE_HEAD = "「005935」는 **삼성전자**(보통주 005930)의 종류주"
+
+
+def _boundary(name: str, result: str) -> str:
+    from open_proxy_mcp.tools import _wrap_tool_errors
+
+    async def tool_fn(**_kw):
+        return result
+    tool_fn.__name__ = name
+    return asyncio.run(_wrap_tool_errors(tool_fn)())
+
+
+def test_tool_boundary_adds_a_missing_share_class_notice_once():
+    """`ToolEnvelope`·`declare_weak_resolution` 을 거치지 않는 응답(forward_estimates_data·dividend_data·
+    price_multiple_data 의 firm_history 등)도 종류주 고지를 싣는다 — JSON 은 warnings 맨 앞, md 는 제목 바로 아래."""
+    import json
+
+    C._resolve_match("005935", _resolver().search("005935"))
+    raw = json.dumps({"tool": "forward_estimates_data", "status": "ok", "warnings": ["기존"]}, ensure_ascii=False, indent=2)
+    out = json.loads(_boundary("forward_estimates_data", raw))
+    assert out["warnings"][0].startswith(_NOTICE_HEAD) and out["warnings"][1:] == ["기존"]
+    no_key = json.loads(_boundary("dividend_data", json.dumps({"status": "ok", "data": {}})))
+    assert no_key["warnings"][0].startswith(_NOTICE_HEAD)                      # warnings 칸이 없던 응답
+    md = _boundary("price_multiple_data", "# 삼성전자 밸류에이션 히스토리\n\n| 월 | PER |")
+    assert md.startswith("# 삼성전자 밸류에이션 히스토리\n\n> ⚠ " + _NOTICE_HEAD)
+    assert md.endswith("\n\n| 월 | PER |") and md.count(_NOTICE_HEAD) == 1
+    odd = '{"warnings": {"k": "v"}}'                                               # 붙일 자리가 없는 JSON 은 깨뜨리지 않는다
+    assert _boundary("dividend_data", odd) == odd
+
+
+def test_tool_boundary_leaves_declared_and_unrelated_responses_byte_identical():
+    import json
+
+    C._resolve_match("005935", _resolver().search("005935"))
+    declared = ToolEnvelope(tool="t", status=AnalysisStatus.EXACT, warnings=["기존"]).to_dict()
+    raw = json.dumps(declared, ensure_ascii=False, indent=2)                    # 이미 실린 JSON(따옴표 이스케이프 포함)
+    assert _boundary("financial_metrics", raw) == raw
+    md = "# 제목\n\n## 주의\n- " + declared["warnings"][0]
+    assert _boundary("price_multiple_data", md) == md                           # 이미 실린 md
+    trading = '{"warnings": ["005935 는 삼성전자(보통주 005930)의 종류주 …"]}'
+    assert _boundary("trading_data", trading) == trading                       # 그 종류주 자체의 값을 주는 도구는 제외
+    _ctx_ledger.set(None)
+    new_request_ledger()
+    C._resolve_match("005930", _resolver().search("005930"))                    # 종류주로 묻지 않은 요청 — 그대로
+    assert _boundary("forward_estimates_data", '{"warnings": []}') == '{"warnings": []}'
+    assert _boundary("dividend_data", "# 삼성전자") == "# 삼성전자"
 
 
 # ── 시장 맥락: 종류주 관측표 읽기 (Postgres 17) ──────────────────────────────
