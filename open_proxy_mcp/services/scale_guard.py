@@ -72,6 +72,34 @@ def check_balance_identity(assets, liabilities, equity, tol_pct: float = 0.01) -
     return {"triggered": diff_pct > tol_pct, "diff_pct": diff_pct}
 
 
+#: 항등식이 깨진 폭이 이 배수 이상이면 단위(스케일) 오류로 본다 — 자산과 (부채+자본) 중 큰 쪽 ÷ 작은 쪽.
+_BALANCE_SCALE_FACTOR = 10.0
+
+
+def check_balance_identity_scale(assets, liabilities, equity, factor: float = _BALANCE_SCALE_FACTOR,
+                                 tol_pct: float = 0.01) -> dict:
+    """② 항등식 위반이 **단위 오류 꼴**인가 — 자산총계와 (부채총계 + 자본총계)가 `factor`(10)배 이상 벌어졌을 때만.
+
+    261019(재설계 P1 — 분기 재무 원천 결측): 종전엔 항등식이 0.01% 만 어긋나도 hard(값 무효화)였다. 운영 분기 표에서 이 검사
+    **하나만** 켜져 무효화된 행 22개를 DART 원문으로 다시 받아 보니 어긋남이 0.01%~32%(한 행은 자산 칸만 틀려 5.1배 — 모두 10배 미만)였고, 지배 순이익·자본은
+    그 회사 제 규모·전기 칸과 맞았다 — 원문의 자산총계·부채총계 칸이 틀렸을 뿐이다(예: 삼성생명 2025 반기·3분기 응답의 자산총계·
+    부채총계가 1분기 값 그대로 — 같은 응답의 「자본과부채총계」와도 다르다). 반대로 같은 표의 진짜 단위 오류 8행(÷10³·÷10⁶)은 전부
+    항등식이 0.0000% 로 맞았고(보고서가 통째로 부풀려진다) 다른 검사(회사 자기 규모·전기 칸 대조·자릿수)가 잡았다.
+    단위 오류는 원·천원·백만원 경계라 1,000배 단위다 — 한 칸만 틀려도 그 칸이 자산의 1% 이상이면 10배 넘게 벌어진다.
+    그래서 10배 미만 어긋남은 「원문 칸 불일치」(soft — 경고만)로, 10배 이상이거나 (부채+자본)이 0 이하인데 자산이 양수면 hard 로 둔다."""
+    base = check_balance_identity(assets, liabilities, equity, tol_pct)
+    if not base.get("triggered"):
+        return {**base, "triggered": False, "mismatch": False}
+    rhs = liabilities + equity
+    if rhs <= 0 or assets <= 0:
+        ratio = None
+        scale_like = (assets > 0) != (rhs > 0)
+    else:
+        ratio = max(assets, rhs) / min(assets, rhs)
+        scale_like = ratio >= factor
+    return {"triggered": scale_like, "mismatch": True, "diff_pct": base["diff_pct"], "ratio": ratio}
+
+
 def check_digit_cap(value, cap_digits: int = _DIGIT_CAP) -> dict:
     """③(백스톱) 자릿수 상한 — market_max 없을 때만 쓰는 최후 방어선(회사규모 무관 즉시 판정
     가능하나, 소형주 중간배율 오류·대형주 100배 오류를 놓치는 한계 있음 — check_market_relative_cap 우선)."""
@@ -199,14 +227,18 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
     """4개 체크 종합. tier: 'hard'(②③ 중 하나라도 → N/M 무효화) / 'soft'(①④만 → 경고만) / 'clean'.
     market_max 제공 시 ③은 시장최댓값 대비 배수(원칙적, 회사규모 무관 작동) — 없으면 자릿수 백스톱.
 
+    ②(항등식)는 261019 부터 **단위 오류 꼴(10배 이상)일 때만** hard(`balance_identity`)다. 그보다 작은 어긋남은 soft
+    `balance_identity_mismatch`(원문 칸 불일치 — 경고만) — 근거는 `check_balance_identity_scale`.
+
     ①(배수점프)은 260704 전수 재검증(dart_finstat_y 12,995행)에서 오탐률 39/40(97.5%)로 확인돼
     hard에서 제외 — 중소형사의 정상적 실적 급변동(적자↔흑자 전환 등)이 "10^n 근접"이라는 통계적
     기준에 흔하게 걸림(대형 우량주 위주 표본검증에선 안 드러난 사각지대). 정보성 soft 신호로만 유지.
     """
     hard_scale_check = (check_market_relative_cap(thstrm, market_max) if market_max
                          else check_digit_cap(thstrm))
+    bal = check_balance_identity_scale(assets, liabilities, equity)
     hard = {
-        "balance_identity": check_balance_identity(assets, liabilities, equity),
+        "balance_identity": bal,
         "market_relative_cap" if market_max else "digit_cap": hard_scale_check,
     }
     # 260829: 자릿수 상한이 **순이익에만** 걸려 있었다. 자본은 아무도 안 봤다 —
@@ -228,6 +260,9 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
     soft = {
         "magnitude_jump": check_magnitude_jump(thstrm, frmtrm),
         "mktcap_ratio": check_mktcap_ratio(thstrm, mktcap),
+        # 261019: 항등식이 어긋났지만 단위 오류 꼴은 아닌 경우 — 원문의 자산·부채 총계 칸이 다른 칸과 안 맞는다는 신호(값은 쓴다)
+        "balance_identity_mismatch": {"triggered": bool(bal.get("mismatch") and not bal.get("triggered")),
+                                      "diff_pct": bal.get("diff_pct"), "ratio": bal.get("ratio")},
     }
     hard_hit = [k for k, v in hard.items() if v.get("triggered")]
     soft_hit = [k for k, v in soft.items() if v.get("triggered")]

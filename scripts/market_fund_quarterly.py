@@ -40,6 +40,8 @@ quarter 4 = 그해 3월말 사업보고서, 1 = 6월말, 2 = 9월말, 3 = 12월�
   python3 scripts/market_fund_quarterly.py --fetch --years 2020,2021,2022,2023,2024,2025
   python3 scripts/market_fund_quarterly.py --acc-mt [--acc-mt-since 20180101]
       # 결산월(dart_fundamentals.acc_mt)을 사업보고서 이름의 기준월로 채운다·고친다(기본 최근 100일 목록, 처음엔 2018년부터)
+  python3 scripts/market_fund_quarterly.py --prior-from-next 105560:2023:1,105560:2023:2 [--dry]
+      # 261019: API 에 보고서가 없는 nodata 칸(금융업 2023 반기까지 등)을 다음 해 같은 분기 보고서의 전년 동기 값으로 정정 칸에(아래 「전기 칸 보충」)
   python3 scripts/market_fund_quarterly.py --include-new [--fetch]
       # 신규 상장 보통주를 dart_fundamentals 에 등록(KRX 2~4콜 + DART 0콜). 옛 시장 aggregate 수집기(--fetch)의
       # 유일한 잔존 기능(260902 흡수·원본은 open-proxy-storage archive/opm-scripts). 재무 4열은 넣지 않는다 —
@@ -923,6 +925,149 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
           f"err {tally['err']} · XBRL 원본 {tally['xbrl']}건 → 채운 칸 {tally['xbrl_filled']}", flush=True)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 전기 칸 보충(261019, 재설계 P1 — 원천 결측). DART 재무제표 API(전체 재무제표·주요계정 둘 다)가 그 보고서를 **아예 주지 않는**
+# 칸이 있다(`fetched='nodata'`). 10-19 실측: 금융업(은행·보험·증권 지주)은 2023 반기까지의 분기 보고서가 API 에 없다 — KB금융
+# 2023 1분기·반기, 삼성생명 2023 1분기·반기 모두 [013]. 원 보고서는 공시돼 있지만 구조화 재무가 없다(XBRL 이 없던 시기).
+# 같은 값은 **다음 해 같은 분기 보고서의 전년 동기 칸**에 있다 — 손익은 전기 누적(frmtrm_add_amount), 자본은 자본변동표의 전기 말
+# 잔액. 그 값을 원본 칸(ni_cum·eq)이 아니라 정정 칸(ni_cum_restated·eq_restated)에 근거(restate_why)와 함께 둔다 — 읽는 쪽은 이미
+# `COALESCE(정정, 원본)` 이다(연간 표의 재작성치·단위 오류 정정과 같은 자리). 원본 칸·수집 상태(fetched)는 건드리지 않으므로 정기
+# 수집이 나중에 원 보고서를 받으면 그 값이 원본 칸에 들어가고, 정정 칸이 계속 우선한다(다음 해 보고서가 재작성한 값 = 회사가 고친 값).
+# ─────────────────────────────────────────────────────────────────────────────
+#: 전년 동기 **누적** 손익 칸 — 1분기는 3개월 = 누적이라 3개월 칸도 쓴다. 반기·3분기의 frmtrm_q_amount 는 3개월이라 쓰지 않는다.
+_PRIOR_NI_FIELDS = {1: ("frmtrm_add_amount", "frmtrm_q_amount", "frmtrm_amount"), 2: ("frmtrm_add_amount",), 3: ("frmtrm_add_amount",)}
+
+
+def _as_prior_rows(rows, quarter: int) -> list[dict]:
+    """다음 해 같은 분기 보고서 rows → 손익(IS·CIS) 행의 당기 칸을 「전년 동기 누적」으로 바꾼 rows. 추출 트리
+    (`extract_controlling_ni_cum` — 지배 귀속 코드·이름·총계−비지배)를 그대로 쓰려고. 전기 칸이 빈 행은 빈 값이 된다."""
+    fields = _PRIOR_NI_FIELDS[quarter]
+    out = []
+    for r in rows:
+        if r.get("sj_div") in ("IS", "CIS"):
+            v = next((r.get(f) for f in fields if normalize_amount(r.get(f)) is not None), "")
+            out.append({**r, "thstrm_add_amount": v, "thstrm_amount": v})
+        else:
+            out.append(r)
+    return out
+
+
+def prior_equity_from_sce(rows) -> tuple[float | None, str]:
+    """다음 해 같은 분기 보고서 → (전년 같은 분기 말 지배자본, 케이스). 못 정하면 (None, 사유).
+
+    재무상태표의 전기 칸은 직전 **사업연도 말**이라 분기 말 잔액이 아니다. 자본변동표의 기말 행(`ifrs-full_Equity`, 구성요소마다 한 행)은
+    당기 칸 = 이번 분기 말, 전기 칸(frmtrm_q_amount) = 전년 같은 분기 말이다. 구성요소 가운데 **이번 분기 말 값이 같은 보고서 재무상태표의
+    지배자본과 같은 행**만 믿는다(그 행이 지배 몫 합계라는 확인 — 이익잉여금 같은 다른 구성요소·비지배·총계 행은 걸리지 않는다).
+    그런 행들의 전기 값이 서로 다르면 쓰지 않는다."""
+    cur_eq, _ = extract_controlling_eq(rows)
+    if cur_eq is None:
+        return None, "NO_CURRENT_EQ"
+    prev = set()
+    for r in rows:
+        if r.get("sj_div") != "SCE" or r.get("account_id") != "ifrs-full_Equity":
+            continue
+        cur, pv = normalize_amount(r.get("thstrm_amount")), normalize_amount(r.get("frmtrm_q_amount"))
+        if cur is None or pv is None or abs(float(cur) - cur_eq) > 0.5:
+            continue
+        prev.add(float(pv))
+    if not prev:
+        return None, "NO_SCE_ROW"
+    if len(prev) > 1:
+        return None, "SCE_AMBIGUOUS"
+    return prev.pop(), "SCE_PRIOR"
+
+
+async def fill_prior_from_next(keys: set[tuple[str, int, int]], dry: bool = False) -> dict:
+    """`keys`(종목, 사업연도, 분기 1~3) 가운데 **수집 상태가 nodata 이고 값·정정 값이 모두 빈** 칸만, 다음 해 같은 분기 보고서의 전년 동기
+    값으로 정정 칸을 채운다(위 머리 주석). 보고서 하나에 1~2콜(연결 → 별도). `dry` 면 쓰지 않고 무엇을 쓸지 출력만 한다.
+
+    지키는 것: 원본 칸·fetched·이미 있는 정정 값은 그대로 · 다음 해 보고서가 아직 공시 마감 전이면 건너뜀 · 외화 보고사는 그 칸의 기간 말
+    환율로 원화 환산(수집과 같은 규칙) · 회사 자기 규모의 20배를 넘는 값(단위 오류 꼴)은 쓰지 않는다. 결과 = 칸별 처리 사유."""
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    from open_proxy_mcp.services.scale_guard import check_self_relative
+    keys = {(t, int(fy), int(q)) for t, fy, q in keys if int(q) in (1, 2, 3)}
+    con = _pg(); con.autocommit = True
+    tickers = sorted({k[0] for k in keys})
+    corp = {t: cc for t, cc in con.execute(
+        "SELECT ticker, corp_code FROM dart_fundamentals WHERE ticker = ANY(%s)", (tickers,))}
+    cells = {(t, int(fy), int(q)): rest for t, fy, q, *rest in con.execute(
+        "SELECT ticker, fy, quarter, fetched, ni_cum, eq, ni_cum_restated, eq_restated FROM dart_finstat_q "
+        "WHERE ticker = ANY(%s)", (tickers,))}
+    fye_of = _fye_map(con)
+    self_ref = _self_ref_map(con)
+    con.close()
+    c = get_dart_client()
+
+    async def acnt(cc, yr, rc, fs):
+        try:
+            d = await c.get_fnltt_singl_acnt_all(cc, str(yr), rc, fs)
+            return (d.get("list") or []) if isinstance(d, dict) else []
+        except DartClientError as e:
+            if "[013]" in str(e):
+                return []
+            raise
+
+    result: dict[tuple, str] = {}
+    writes = []
+    for t, fy, q in sorted(keys):
+        cell, cc, fye = cells.get((t, fy, q)), corp.get(t), fye_of.get(t, 12)
+        if cell is None or cc is None:
+            result[(t, fy, q)] = "행 없음"
+            continue
+        fetched, ni, eq, ni_r, eq_r = cell
+        if fetched != "nodata" or ni is not None or eq is not None or ni_r is not None or eq_r is not None:
+            result[(t, fy, q)] = f"건너뜀(상태 {fetched} · 값 또는 정정 값 있음)"
+            continue
+        if not _disclosed(fy + 1, q, fye=fye):
+            result[(t, fy, q)] = "건너뜀(다음 해 같은 분기 보고서가 아직 공시 마감 전)"
+            continue
+        rc = Q_TO_RC[q]
+        fs = "CFS"; rows = await acnt(cc, fy + 1, rc, fs); await asyncio.sleep(SLEEP)
+        if not rows:
+            fs = "OFS"; rows = await acnt(cc, fy + 1, rc, fs); await asyncio.sleep(SLEEP)
+        if not rows:
+            result[(t, fy, q)] = "다음 해 같은 분기 보고서도 API 에 없음"
+            continue
+        p_ni, ni_case = extract_controlling_ni_cum(_as_prior_rows(rows, q))
+        p_eq, eq_case = prior_equity_from_sce(rows)
+        stmt_cur = statement_currency(rows)
+        if stmt_cur != "KRW":
+            rate = await fx_to_krw(stmt_cur, rcal.cell_end(fy, q, fye).strftime("%Y%m%d"))
+            if rate is None:
+                result[(t, fy, q)] = f"건너뜀(환율 {stmt_cur} 조회 실패)"
+                continue
+            p_ni, p_eq = (v * rate if v is not None else None for v in (p_ni, p_eq))
+        ref = self_ref.get(t)
+        if p_ni is not None and check_self_relative(p_ni, ref)["triggered"]:
+            p_ni, ni_case = None, f"{ni_case}→규모 이상(버림)"
+        if p_eq is not None and check_self_relative(p_eq, ref)["triggered"]:
+            p_eq, eq_case = None, f"{eq_case}→규모 이상(버림)"
+        if p_ni is None and p_eq is None:
+            result[(t, fy, q)] = f"전년 동기 값 없음(순이익 {ni_case} · 자본 {eq_case})"
+            continue
+        rcept = next((r.get("rcept_no") for r in rows if r.get("rcept_no")), "?")
+        why = (f"전기 칸 보충(261019) — DART 재무제표 API 에 이 칸의 보고서가 없어(013) 다음 해 같은 분기 보고서({fy + 1} {rc} {fs}, "
+               f"접수 {rcept})의 전년 동기 값: 순이익 {ni_case}(전기 누적) · 자본 {eq_case}(자본변동표 전기 말)"
+               + (f" · {stmt_cur}→KRW {rcal.cell_end(fy, q, fye):%Y%m%d} 환율" if stmt_cur != "KRW" else ""))
+        writes.append((p_ni, p_eq, why, t, fy, q))
+        result[(t, fy, q)] = f"채움 순이익 {p_ni} ({ni_case}) · 자본 {p_eq} ({eq_case}) · {fs} 접수 {rcept}"
+    for k, v in sorted(result.items()):
+        print(f"[전기 칸] {k[0]} {k[1]}Q{k[2]} — {v}", flush=True)
+    if writes and not dry:
+        with _pg() as con2:
+            con2.execute("SET LOCAL lock_timeout = '3s'")
+            with con2.cursor() as cur:
+                # 원본 칸·상태는 건드리지 않는다. 정정 칸이 그 사이 채워졌으면(다른 실행) 그대로 둔다.
+                cur.executemany(
+                    "UPDATE dart_finstat_q SET ni_cum_restated=%s, eq_restated=%s, restate_why=%s "
+                    "WHERE ticker=%s AND fy=%s AND quarter=%s AND fetched='nodata' AND ni_cum IS NULL AND eq IS NULL "
+                    "AND ni_cum_restated IS NULL AND eq_restated IS NULL", writes)
+            con2.commit()
+    print(f"전기 칸 보충 — 대상 {len(keys)}칸 · {'쓸 칸' if dry else '쓴 칸'} {len(writes)}"
+          + (" (--dry: 쓰지 않음)" if dry else ""), flush=True)
+    return result
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", action="store_true", help="Q4 seed(0콜)")
@@ -938,6 +1083,10 @@ if __name__ == "__main__":
                     help=f"nodata 분기를 다시 받는 기간(공시 마감 뒤 일수, 기본 {NODATA_RETRY_DAYS})")
     ap.add_argument("--refetch", type=str,
                     help="이 칸만 다시 받는다(이미 ok 여도) — 종목:사업연도:분기 콤마구분(예 000540:2026:2). 파서를 고친 뒤 비던 칸만 채울 때")
+    ap.add_argument("--prior-from-next", type=str,
+                    help="API 에 보고서가 없는 nodata 칸을 다음 해 같은 분기 보고서의 전년 동기 값으로 정정 칸에 채운다 — "
+                         "종목:사업연도:분기 콤마구분(예 105560:2023:1). 칸당 1~2콜")
+    ap.add_argument("--dry", action="store_true", help="--prior-from-next 를 쓰지 않고 출력만")
     ap.add_argument("--tickers", type=str,
                     help="--derive 를 이 종목만(콤마구분) — 재수집한 종목만 좁혀 파생할 때")
     ap.add_argument("--acc-mt", action="store_true",
@@ -956,6 +1105,9 @@ if __name__ == "__main__":
         seed_q4()
     if a.derive:
         derive_fundamentals(a.tickers.split(",") if a.tickers else None)
+    if a.prior_from_next:
+        asyncio.run(fill_prior_from_next({(t, int(fy), int(qq)) for t, fy, qq in
+                                          (x.split(":") for x in a.prior_from_next.split(",") if x)}, dry=a.dry))
     if a.refetch:
         _only = {(t, int(fy), int(qq)) for t, fy, qq in (x.split(":") for x in a.refetch.split(",") if x)}
         asyncio.run(fetch(yrs, conc=conc, only=_only))
