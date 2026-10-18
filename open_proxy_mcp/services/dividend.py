@@ -165,7 +165,59 @@ async def _decision_details(filings: list[dict[str, Any]]) -> list[dict[str, Any
         return parsed
 
     results = await asyncio.gather(*[_fetch(item) for item in filings])
-    return [r for r in results if r is not None]
+    return _mark_superseded([r for r in results if r is not None])
+
+
+def _is_cancelled(decision: dict[str, Any]) -> bool:
+    """금액을 「-」로 지운 정정(배당 결정 취소). 지급이 아니다 — 합산·건수에서 뺀다."""
+    return bool((decision.get("amendment") or {}).get("cancelled"))
+
+
+def _mark_superseded(details: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """정정 공시가 고친 앞 공시(원 공시·앞선 정정)에 `superseded_by`(정정 접수번호)를 단다. (261019)
+
+    🔴 파서가 정정 공시의 값을 정정 **후** 본문에서 읽게 되면서(`dividend_parser._split_amendment`) 종전의
+    「(사업연도, 분기, 기준일) 같으면 최신 1건」 중복 제거만으로는 원 공시를 못 지운다 — 정정이 고치는 것이
+    바로 기준일이기 때문이다(동화약품 20260224801063: 기준일 2025-03-25 → 2026-03-25 면 원 공시는 FY2024 결산,
+    정정은 FY2025 결산으로 갈려 둘 다 남는다). 종전에 맞아 보였던 것은 파서가 정정전 값을 읽어 키가 우연히 같았기 때문이다.
+    그래서 정정 공시 쪽 메타(`amendment`)로 원 공시를 직접 찾는다.
+
+    · 열쇠 — 결의일(표에 정정전 값이 있으면 그것, 없으면 본문 값 = 안 고친 것) + 배당구분(같은 규칙).
+    · 결의일로 못 찾으면 「정정관련 공시서류제출일」(원 공시 접수일) + 배당구분.
+    · 후보가 여럿이면(같은 날 결의 둘) 기준일 정정전 값으로, 그다음 표에 오르지 않은(= 안 고친) 금액이 같은 것으로 좁힌다.
+      좁혀 비면 좁히기 전 후보를 쓴다.
+    """
+    ordered = sorted(details, key=lambda d: d.get("rcept_no", ""))
+    for index, amend in enumerate(ordered):
+        meta = amend.get("amendment")
+        if not meta or not index:
+            continue
+        earlier = ordered[:index]
+        dtype = meta.get("dividend_type_before") or amend.get("dividend_type")
+        board = meta.get("board_date_before") or amend.get("board_date")
+
+        def _same_type(d: dict[str, Any]) -> bool:
+            return not dtype or d.get("dividend_type") == dtype
+
+        cand = [d for d in earlier if board and d.get("board_date") == board and _same_type(d)]
+        if not cand and meta.get("original_filed"):
+            filed = meta["original_filed"].replace("-", "")
+            cand = [d for d in earlier
+                    if "".join(ch for ch in (d.get("rcept_dt") or "") if ch.isdigit())[:8] == filed and _same_type(d)]
+        if len(cand) > 1:
+            record = meta.get("record_date_before") or amend.get("record_date")
+            narrowed = [d for d in cand if d.get("record_date") == record] if record else []
+            narrowed = narrowed or cand
+            changed = set(meta.get("items") or [])
+            for field, item in (("total_amount", "total_amount"), ("dps_common", "dps")):
+                if item in changed or len(narrowed) < 2:
+                    continue
+                same = [d for d in narrowed if d.get(field) == amend.get(field)]
+                narrowed = same or narrowed
+            cand = narrowed
+        for d in cand:
+            d["superseded_by"] = amend.get("rcept_no", "")
+    return details
 
 
 async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], str | None]:
@@ -665,14 +717,19 @@ def _quarter_label(item: dict[str, Any]) -> str:
     return dtype or "기타"
 
 
-def _effective_decisions(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _effective_decisions(
+    decisions: list[dict[str, Any]], *, keep_cancelled: bool = False
+) -> list[dict[str, Any]]:
     """같은 (fiscal_year, 분기, 기준일) 그룹에서 최신(rcept_dt, rcept_no) 1건만 남긴다.
 
     정정공시(`[기재정정]…`)나 동일 결의 재공시가 합산에 중복 반영돼 DPS가 부풀려지는
     것을 막기 위한 dedup. `_quarterly_breakdown` 의 is_superseded 판정과 같은 키를 쓴다.
+    정정이 고친 앞 공시(`superseded_by`, `_mark_superseded`)는 키와 상관없이 먼저 뺀다.
+    결정 취소 정정(`_is_cancelled`)도 지급이 아니라 뺀다 — 목록에 보여 줄 때만 `keep_cancelled=True`.
     """
     ordered = sorted(
-        decisions,
+        (d for d in decisions
+         if not d.get("superseded_by") and (keep_cancelled or not _is_cancelled(d))),
         key=lambda d: (d.get("rcept_dt", ""), d.get("rcept_no", "")),
     )
     effective: dict[tuple, dict[str, Any]] = {}
@@ -704,12 +761,21 @@ def _quarterly_breakdown(decisions: list[dict[str, Any]], year_list: list[int]) 
             "record_date": item.get("record_date", ""),
             "type": item.get("dividend_type", ""),
             "is_amendment": "정정" in (item.get("report_name", "") or ""),
+            # 정정이 고친 앞 공시는 키(연도·분기·기준일)가 달라도 대체됐다 — 정정이 기준일을 고친 경우(`_mark_superseded`).
+            "is_superseded": bool(item.get("superseded_by")),
+            "is_cancelled": _is_cancelled(item),
         })
-    rows.sort(key=lambda r: (r["year"], r["rcept_dt"]))
+    # 🔴 접수일이 같으면 접수번호로 — 같은 날 정정(동화약품·하나금융지주)은 원 공시와 접수일이 같다. 접수일만으로
+    #    정렬하면 입력 순서(최신 먼저)가 남아 **정정본이 (대체됨)**, 원 공시가 남는 쪽이 됐다(261019 운영 응답 실측).
+    #    `_effective_decisions` 는 이미 (접수일, 접수번호)로 정렬한다 — 두 곳이 같은 쪽을 남기게 맞춘다.
+    rows.sort(key=lambda r: (r["year"], r["rcept_dt"], r["rcept_no"]))
     # dedupe: same (year, quarter, record_date) → keep latest (rcept_dt) only as effective.
     # 나머지는 is_superseded=True 표시 (raw audit 보존, 합계는 effective만).
+    # 이미 대체됐거나 취소 정정인 행은 키 비교에 끼지 않는다 — 그 행이 남의 행을 대체됐다고 표시하지 않게.
     seen: dict[tuple, int] = {}
     for i, r in enumerate(rows):
+        if r["is_superseded"] or r["is_cancelled"]:
+            continue
         key = (r["year"], r["quarter"], r["record_date"])
         if key in seen:
             # 이전 entry는 superseded (later iteration이 latest)
@@ -1163,7 +1229,7 @@ async def build_dividend_payload(
     # latest_decisions 노출용 — 정정/재공시 중복 제거 (연도·분기·기준일 최신 1건) + 최신순.
     # 연간 집계와 동일한 _effective_decisions 키를 써서 표시/합산 일관성 유지.
     effective_details = sorted(
-        _effective_decisions(details),
+        _effective_decisions(details, keep_cancelled=True),
         key=lambda d: (d.get("rcept_dt", ""), d.get("rcept_no", "")),
         reverse=True,
     )
@@ -1239,7 +1305,7 @@ async def build_dividend_payload(
         data["detail"] = {
             "annual_summary": latest_summary,
             "latest_decisions": effective_details[:50],
-            "decision_count": len(effective_details),
+            "decision_count": sum(1 for d in effective_details if not _is_cancelled(d)),
             "raw_decision_count": len(details),
         }
         # alotMatter (사업보고서) vs filings 합산 mismatch warning
