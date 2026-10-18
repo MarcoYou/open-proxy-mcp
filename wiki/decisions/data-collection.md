@@ -28,6 +28,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 2. KRX Open API — `https://data-dbg.krx.co.kr/svc/apis/...` (주가 fallback)
 3. Naver 검색 API — `https://naverapihub.apigw.ntruss.com/search/v1/...`(HUB, 우선) · `https://openapi.naver.com/v1/search/...`(개발자센터, 2027-06-30 까지)
 4. Naver Finance JSON — `https://api.finance.naver.com/...`
+4-1. Naver 증권(모바일) JSON — `https://m.stock.naver.com/api/index/{지수}/enrollStocks` (지수 구성종목 목록 — 아래 4.6, 261018)
 
 ### B. HTML 크롤링 (반정형)
 
@@ -425,6 +426,23 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 시가총액·로고: AlphaSquare CDN 경유 — open-proxy-ai 프론트엔드 별도 수집
 - 192개 기업 로고 정적 (네이버 금융 직접 호출 아님)
 
+## 4.6 지수 구성종목 목록 — 코스피200·코스닥150 원장 (261018)
+
+- Endpoint: `https://m.stock.naver.com/api/index/{KPI200|KQI150}/enrollStocks?page=N&pageSize=60` (61 이상은 400 — 짧은 쪽이 끝)
+- 호출 위치: `scripts/krx_index_members.py` (매일 `.github/workflows/index-members-daily.yml`) — 서버는 부르지 않는다. 원장 `krx_index_members` 만 읽는다.
+- 받는 것: **종목코드만**(`itemCode`). 응답의 가격·시총은 쓰지 않는다.
+- 왜 이 원천인가: KRX 는 지수 구성종목을 무료 API 로 주지 않는다 — Open API 서비스 목록에 구성종목 항목이 없고(지수는 일별시세만),
+  정보데이터시스템 「지수구성종목」(`MDCSTAT00601`)은 조회·내려받기 모두 로그인 요구(비로그인 응답 `LOGOUT`, 261018 확인),
+  지수 사이트는 구성정보를 구매 요청으로 판다. 옛 PC 편입종목 화면(`finance.naver.com/sise/entryJongmok.naver`)은 410 으로 닫혔다.
+- **확인(쓰기 조건)**: 목록 종목들의 KRX 일별 매매정보(`sto/stk_bydd_trd`·`sto/ksq_bydd_trd`) `MKTCAP`·`ACC_TRDVOL`·`ACC_TRDVAL` 합이
+  같은 날 KRX 지수 일별시세(`idx/kospi_dd_trd` 「코스피 200」·`idx/kosdaq_dd_trd` 「코스닥 150」)의 세 값과 **정확히 같을 때만** 쓴다.
+  실측 20261016: 코스피200 201종목·코스닥150 150종목 모두 세 합 차이 0. 종목 하나만 달라도 거래량 합이 어긋난다.
+- 구성이 바뀐 날(정기변경 6·12월 · 수시변경) 아침에는 목록(새 구성)과 전 거래일 KRX 합계(옛 구성)가 어긋난다 → 쓰지 않고 경고, 다음 날 맞춘다.
+  직전 확인에서 4일을 넘게 어긋나면 실패로 알린다. 목록·KRX 응답 이상(HTTP 오류·모양·종목 수 범위 밖·중복)은 바로 실패.
+- 속도: 지수당 4~7요청, 프로세스 공통 웹 속도제한(`throttle_web_request`). KRX 3~7콜/일.
+- 없는 것: KRX300 — 이 목록에 그 지수가 없고 KRX 무료 원천도 없다(원장 미보유). 코리아 밸류업 지수(`KVALUE`)·코스피100(`KPI100`)은 같은 방식으로
+  받아 KRX 합계와 맞는 것을 확인했지만(20261016 차이 0) 유니버스 문법이 그 이름을 받지 않아 담지 않았다.
+
 ---
 
 # 5. KRX Open API (종가 1차)
@@ -436,6 +454,8 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 환경변수: `KRX_API_KEY` 또는 `KRX_OPEN_API_KEY`
 - 승인 상태: 전 서비스 승인 완료 (2026-04-08, 자세한 내역은 [[KRX-KIND]])
 - get_stock_price()는 KRX → Naver 순서로 fallback
+- 지수 일별시세(`idx/kospi_dd_trd`·`idx/kosdaq_dd_trd`·`idx/krx_dd_trd`): 지수마다 `MKTCAP`·`ACC_TRDVOL`·`ACC_TRDVAL` = 구성종목 합.
+  지수 구성종목 원장 적재가 목록 확인에 쓴다(4.6). 구성종목 목록 자체는 Open API 에 없다.
 
 ---
 
@@ -937,6 +957,7 @@ POSIX에서 프로세스 간 잠금으로 검사·게시를 직렬화한다. 원
 | (참고) news_check (v1) | Naver 뉴스 OpenAPI | — | — |
 | (참고) get_stock_price | KRX `stk_bydd_trd` | Naver Finance siseJson | — |
 | (참고) get_portal_corp_profile | Naver coinfo + sise_group_detail | — | — |
+| (참고) 지수 구성종목 원장 `krx_index_members` | Naver 증권 enrollStocks(코드만) | KRX 지수 일별시세 합계로 확인 | 원장을 못 읽으면 유니버스가 시총 상위 정원으로 대체(경고) |
 | (참고) proxy_guideline | data/asset_managers/ JSON (정적) | — | — |
 
 ---

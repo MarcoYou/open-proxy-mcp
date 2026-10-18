@@ -130,6 +130,8 @@ def test_empty_result_is_reported_as_unresolved_not_silently_widened(rec, monkey
     from open_proxy_mcp.services import screener
     monkeypatch.setattr(screener, "_krx_latest_dd", lambda: "20260821")
     monkeypatch.setattr(screener, "_krx_top_mktcap", lambda *a, **k: set())
+    # 261018: kospi200 은 지수 구성종목 원장을 먼저 본다 — 여기서는 원장도 못 읽어 시총 순위로 대체하려다 그것마저 빈 경우다.
+    monkeypatch.setattr(screener, "_index_members_latest", lambda code: None)
     uf = asyncio.run(screener.resolve_universe("kospi200"))
     assert uf.resolved is False
     assert uf.allowed is None

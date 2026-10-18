@@ -880,7 +880,7 @@ def _screen_row(code: str, hist: list[dict[str, Any]], win: str,
 async def build_revision_screen_payload(universe: str, window: str = "4w",
                                         period_type: str = "FY", format: str = "md") -> dict[str, Any]:
     """유니버스(「코스피 시총 상위 100」·이름 나열·「전체」) 전 종목의 컨센서스 리비전 표.
-    DB 2콜(유니버스 1 + 이력 1) · DART 0콜."""
+    DB 2콜(유니버스 1 + 이력 1 — 지수 「코스피200」·「코스닥150」은 구성종목 원장 1콜 더) · DART 0콜."""
     import os
     from open_proxy_mcp.services.universe import list_universe
 

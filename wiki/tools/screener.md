@@ -166,8 +166,8 @@ sequenceDiagram
 - `types`: `core`(디폴트) / `all` / 쉼표구분 코드. period: 사람 말(아래 「기간 말」 표) 또는 코드 — today / yesterday /
   **since_yesterday**(디폴트) / last_7d / last_30d / custom:N / this_week·prev_week / this_month·prev_month /
   this_quarter·prev_quarter / ytd·prev_year / custom(+시작·끝).
-- **universe**(2026-07-15 시장 분리 + 이름 해석): **all**(디폴트 전체시장) / `kospi200`(=KOSPI 시총상위200,
-  **코스닥 미포함** — 지수 원장 부재라 시총상위 대체) / `kospi:N` · `kosdaq:N`(시장별 시총상위) /
+- **universe**(2026-07-15 시장 분리 + 이름 해석): **all**(디폴트 전체시장) / `kospi200` · `kosdaq150`(지수 구성종목
+  원장 — `universe.members_dd` 가 구성 확인 거래일, 원장을 못 읽으면 그 시장 시총상위 정원 대체 + 안내, 2026-10-18) / `kospi:N` · `kosdaq:N`(시장별 시총상위) /
   `top_mktcap:N`(전체시장 시총상위, 시장 혼합 — 라벨로 명시) / `market:kospi`·`market:kosdaq`(시장 전체) /
   `custom:종목,종목`(**코드 또는 회사명 혼용** — "삼성전자" 같은 이름은 `resolve_company_query`로 자동 코드화,
   미해결분은 notice로 투명 고지). 시총·시장 소스 = 일별 시세 저장분에 보관된 최신 거래일 단면(DART 0콜 —
@@ -238,7 +238,7 @@ screener 만 `period="last_7d"` · `universe="kospi:30"` · `custom_start=` 같�
 | 기간 말 전체 | 아래 「기간 말 — 카드·흐름 공통」 표 |
 | "20260817~20260824" · "2026-08-01 ~ 2026-08-20" · "20260820" | `custom` + 시작·종료 |
 | `start_date`/`end_date` (레포 공통 인자) | `custom` + 그 창 |
-| "전체" · "코스피" · "코스닥" · "코스피200" | `all` · `market:kospi` · `market:kosdaq` · `kospi200` |
+| "전체" · "코스피" · "코스닥" · "코스피200" · "코스닥150" | `all` · `market:kospi` · `market:kosdaq` · `kospi200` · `kosdaq150` |
 | "코스피 시총 상위 30" · "코스닥 상위 50" · "시총 상위 100" · "코스피 시가총액 상위 200개 기업" | `kospi:30` · `kosdaq:50` · `top_mktcap:100` · `kospi:200` — 숫자 뒤 개·종목·기업·회사·개사·곳은 무관(260918) |
 | "삼성전자, SK하이닉스" | `custom:…` (이름→코드 변환은 거기서 이미 한다) |
 | "자사주, 배당" · "수주·실적" · "주총 지분" · "합병" | `treasury,dividend` · `order,earnings` · … |
@@ -386,8 +386,8 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
   집는 한계 — rcept_no 매칭 시 정확.
 - **미결 갭 3개(결정 대기)**: ① 잠정실적 전용 파서(현재 earnings=scan-only) ② 5%대량보유 변동
   sub-table depth(현재 top holder만 추출) ③ universe 유형별 override(유형마다 다른 유니버스 적용).
-- **sector 필터·kospi200**: KSIC 조인·구성종목 원장 부재 → v1은 `resolved:false` + notice로 전체시장
-  대체(투명 degrade). kospi200은 시총상위200 대체+안내.
+- **sector 필터**: KSIC 조인 부재 → v1은 `resolved:false` + notice로 전체시장
+  대체(투명 degrade). (kospi200 은 2026-10-18 부터 구성종목 원장 — 시총상위200 대체는 원장을 못 읽을 때만.)
 - `dedup_key`에 대상일 미포함 — 같은 회사가 같은 유형을 다른 날 또 내면 run 간 알림 dedup은 커서로 관리.
 
 ## 변경 이력
@@ -401,6 +401,7 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
   최신 거래일**로 옮겼다. 지금은 같은 날 같은 값이라 응답은 그대로이고, 주간 저장분이 닫힌 주만 담게 돼도 시총·순위가 지난주로 낡지 않는다.
   보관 창 안에서 상장폐지된 종목의 옛 행은 순위에 섞이지 않는다(기준일 하루의 행만 읽는다). 저장분 조회 실패 안내는
   「시세 저장분 조회 실패 → 전체시장으로 대체」(시장 전체면 DART 시장 구분으로 제한)로 바꿨다.
+- 2026-10-18: `universe` 「코스피200」을 지수 구성종목 원장에서(종전 KOSPI 시총상위 200 대체 — 공식 구성과 34종목 차이, 우선주 포함). 「코스닥150」·「KOSPI 200」도 받는다. 응답 `universe.members_dd` 추가. 원장을 못 읽을 때만 종전 대체 + 안내.
 - 2026-09-21: 카드의 포털 링크를 뺐다(DART 링크만, JSON 의 `naver_url` 없음). 흐름 보기의 분류 이름표를 「업종 대분류·중분류」로.
 - 2026-09-18: **유니버스 말** — 숫자 뒤 「개 기업·개 종목·개 회사·개사·곳」도 순위로 읽는다. 이름 나열에서 회사를 하나도
   못 찾으면 시장 전체로 대체하지 않고 되묻는다(`needs_input`, DART·원장 0콜). 카드·흐름 보기와 유니버스 목록 공통.

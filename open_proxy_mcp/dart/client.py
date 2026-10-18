@@ -351,6 +351,7 @@ def share_class_resolutions() -> list[dict]:
 #: 새 종류를 더할 땐 여기에 먼저 적는다 — 테스트가 호출부의 문자열을 이 목록과 대조한다.
 DEGRADATION_KINDS = frozenset({
     "universe_fallback",   # 요청한 종목 범위를 못 만들어 **더 넓은 범위**로 답했다
+    "universe_approximated",  # 지수 구성종목 원장을 못 읽어 **시총 순위로 근사**해 답했다(261018)
     "period_fallback",     # 요청한 기간을 못 읽어 기본 기간으로 답했다
     "report_substituted",  # 요청한 보고서가 없어 다른 보고서(반기·분기·전년)로 답했다
     "statement_basis",     # 연결(CFS)이 없어 별도(OFS)로 답했다 — 기준이 섞인다
