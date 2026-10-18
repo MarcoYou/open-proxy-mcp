@@ -6,9 +6,12 @@
 업종별 흐름·수주 강도·리비전 대조 같은 조회 도구는 전부 이 표 위에 얹는다.
 
 무엇을 쌓나: `dart_events` — 접수번호 1행. 분류(유형·세부·단계·정정 여부)는 screener 의
-분류기를 **그대로** 쓴다(사본을 두면 두 곳이 갈린다). 업종은 업종분류(월 1회 스냅샷,
-접수일 이전 최신), 시총은 접수일 이전 최신 시세(일별 저장분 `krx_daily_v` 창 안이면 그날, 밖이면 `krx_weekly` 주간)를 붙인다. 수주·자사주·배당·
-증자·잠정실적은 기존 상세 파서로 금액·매출비율 등 핵심 숫자를 `detail`(jsonb)에 담는다.
+분류기를 **그대로** 쓴다(사본을 두면 두 곳이 갈린다). 시총은 접수일 이하 최신 시세(일별 저장분 `krx_daily_v` 창 안이면 그날,
+밖이면 `krx_weekly` 주간)를 `mktcap_won`·`mktcap_dd` 에 **저장한다** — 일별 원본은 7거래일 뒤 잘려, 나중에 조인하면 공시 시점 시총
+대신 직전 주 종가가 붙는다(재설계 원칙 「원본이 DB 에서 잘려 나갈 값은 저장한다」, 6단계 검토 실측 50,724행 중 2,015행이 달라짐).
+업종은 **저장하지 않는다**(261018, 재설계 6단계): 원본(업종분류 스냅샷 `wise_sector`)이 남아 있어 읽는 쪽이 접수일 기준으로 조인한다
+(일치율 99.99%). 종전의 `sector`·`industry`·`sector_dd` 칸은 읽지도 쓰지도 않는다 — 칸을 지워도 깨지지 않는다.
+수주·자사주·배당·증자·잠정실적은 기존 상세 파서로 금액·매출비율 등 핵심 숫자를 `detail`(jsonb)에 담는다.
 `dart_events_scan` — 날짜×코드별로 DART 가 몇 건이라 했고 몇 페이지를 실제로 받았는지.
 기준선은 모수가 정직해야 뜻이 있다. 빠진 날은 「0건」이 아니라 「안 본 날」이다.
 
@@ -73,9 +76,6 @@ CREATE TABLE IF NOT EXISTS dart_events (
   dedup_key     text,
   report_nm     text,
   flr_nm        text,
-  sector        text,
-  industry      text,
-  sector_dd     text,
   mktcap_won    bigint,
   mktcap_dd     text,
   detail_status text,
@@ -85,7 +85,6 @@ CREATE TABLE IF NOT EXISTS dart_events (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS dart_events_dt_kind ON dart_events (rcept_dt, kind);
-CREATE INDEX IF NOT EXISTS dart_events_industry_dt ON dart_events (industry, rcept_dt);
 CREATE INDEX IF NOT EXISTS dart_events_stock_dt ON dart_events (stock_code, rcept_dt);
 CREATE TABLE IF NOT EXISTS dart_events_scan (
   scan_dd     date NOT NULL,
@@ -102,19 +101,16 @@ CREATE TABLE IF NOT EXISTS dart_events_scan (
 
 UPSERT_EVENT = """
 INSERT INTO dart_events (rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, subtype,
-  stage, is_correction, dedup_key, report_nm, flr_nm, sector, industry, sector_dd, mktcap_won, mktcap_dd,
+  stage, is_correction, dedup_key, report_nm, flr_nm, mktcap_won, mktcap_dd,
   detail_status, detail, detail_note, updated_at)
 VALUES (%(rcept_no)s, %(rcept_dt)s, %(corp_code)s, %(corp_name)s, %(stock_code)s, %(corp_cls)s, %(kind)s,
-  %(subtype)s, %(stage)s, %(is_correction)s, %(dedup_key)s, %(report_nm)s, %(flr_nm)s, %(sector)s,
-  %(industry)s, %(sector_dd)s, %(mktcap_won)s, %(mktcap_dd)s, %(detail_status)s, %(detail)s, %(detail_note)s, now())
+  %(subtype)s, %(stage)s, %(is_correction)s, %(dedup_key)s, %(report_nm)s, %(flr_nm)s,
+  %(mktcap_won)s, %(mktcap_dd)s, %(detail_status)s, %(detail)s, %(detail_note)s, now())
 ON CONFLICT (rcept_no) DO UPDATE SET
   corp_name = EXCLUDED.corp_name, stock_code = EXCLUDED.stock_code, corp_cls = EXCLUDED.corp_cls,
   kind = EXCLUDED.kind, subtype = EXCLUDED.subtype, stage = EXCLUDED.stage,
   is_correction = EXCLUDED.is_correction, dedup_key = EXCLUDED.dedup_key, report_nm = EXCLUDED.report_nm,
   flr_nm = EXCLUDED.flr_nm,
-  sector = COALESCE(EXCLUDED.sector, dart_events.sector),
-  industry = COALESCE(EXCLUDED.industry, dart_events.industry),
-  sector_dd = COALESCE(EXCLUDED.sector_dd, dart_events.sector_dd),
   mktcap_won = COALESCE(EXCLUDED.mktcap_won, dart_events.mktcap_won),
   mktcap_dd = COALESCE(EXCLUDED.mktcap_dd, dart_events.mktcap_dd),
   -- 상세는 **이미 파싱된 것을 실패로 되돌리지 않는다** — 그뿐이다. 260917 버그: 예전 SQL 은
@@ -192,7 +188,6 @@ def row_from_item(item: dict, allowed: set[str]) -> dict | None:
         "dedup_key": dedup_key,
         "report_nm": report_nm.strip(),
         "flr_nm": (item.get("flr_nm") or "").strip() or None,
-        "sector": None, "industry": None, "sector_dd": None,
         "mktcap_won": None, "mktcap_dd": None,
         "detail_status": "scan_only", "detail": None, "detail_note": None,
         # 내부 — 상세 디스패치용(_fetch_detail 이 읽는 키). DB 에는 안 들어간다.
@@ -226,7 +221,10 @@ def db_row(row: dict) -> dict:
 # ── DB 보강 ────────────────────────────────────────────────────────────
 
 def enrich(con, rows: list[dict]) -> None:
-    """업종(업종분류 스냅샷)·시총을 접수일 이전 최신 스냅샷에서 붙인다. DB 만, DART 0콜.
+    """시총을 접수일 이하 최신 시세에서 붙인다(`mktcap_won`·`mktcap_dd`). DB 만, DART 0콜.
+
+    업종은 붙이지 않는다(261018, 재설계 6단계) — 원본 업종분류 스냅샷이 남아 있어 읽는 쪽이 접수일 기준으로 조인한다.
+    시총은 저장한다 — 일별 원본이 7거래일 뒤 잘려 나중에는 공시 시점 값을 다시 만들 수 없다.
 
     시총 원천(261018, 재설계 5-1): **일별 시세 저장분(`krx_daily_v`, 최근 약 1년)을 먼저** 보고, 접수일이 그 창보다 이르면
     `krx_weekly`(주마다 그 주 마지막 거래일)를 본다. 종전엔 `krx_weekly` 만 봤는데 그 표의 주중 행은 같은 주의 다음 날 기록 때
@@ -235,7 +233,6 @@ def enrich(con, rows: list[dict]) -> None:
     tickers = sorted({r["stock_code"] for r in rows if r.get("stock_code")})
     if not tickers:
         return
-    sec_snaps = [r[0] for r in con.execute("SELECT DISTINCT snap_dd FROM wise_sector").fetchall()]
     lo = yyyymmdd(min(r["rcept_dt"] for r in rows) - timedelta(days=14))
     hi = yyyymmdd(max(r["rcept_dt"] for r in rows))
     daily_snaps = {r[0] for r in con.execute("SELECT dd FROM krx_day WHERE n > 0").fetchall()}   # 261019: 보관 거래일 = 달력
@@ -245,22 +242,12 @@ def enrich(con, rows: list[dict]) -> None:
         prev = con.execute("SELECT max(price_dd) FROM krx_weekly WHERE price_dd <= %s", (hi,)).fetchone()[0]
         cap_snaps = [prev] if prev else []
     cap_snaps = sorted(set(cap_snaps) | daily_snaps)
-    sec_cache: dict[str, dict[str, tuple[str, str]]] = {}
     cap_cache: dict[str, dict[str, int]] = {}
     for r in rows:
         t = r.get("stock_code")
         if not t:
             continue
         dd = yyyymmdd(r["rcept_dt"])
-        s_dd = pick_snapshot(sec_snaps, dd)
-        if s_dd:
-            if s_dd not in sec_cache:
-                sec_cache[s_dd] = {a: (b, c) for a, b, c in con.execute(
-                    "SELECT ticker, sector, industry FROM wise_sector WHERE snap_dd=%s AND ticker = ANY(%s)",
-                    (s_dd, tickers)).fetchall()}
-            hit = sec_cache[s_dd].get(t)
-            if hit:
-                r["sector"], r["industry"], r["sector_dd"] = hit[0], hit[1], s_dd
         c_dd = pick_snapshot(cap_snaps, dd)
         if c_dd:
             if c_dd not in cap_cache:
