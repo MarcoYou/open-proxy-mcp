@@ -497,19 +497,38 @@ class CompanyResolver:
         포스코디엑스→「POSCO홀딩스」). 같은 계산을 '제안'으로 쓰면 안전하다 —
         고르는 것은 사람이다. 「에이플러스에셋어드바이저」→「에이플러스에셋」처럼
         접미가 붙은 상호, 개명·상장폐지된 이름을 사용자가 알아볼 수 있게 한다.
+
+        순서: ① 질의 전체를 이름에 품은 곳(시총·원장 최신순) ② 질의 앞부분이 긴 순으로 맞는 곳. `limit` 개까지.
         """
         base = normalize_compact(query)
         seen: dict[int, None] = {}
+        # 질의 **전체**가 이름 가운데 든 곳이 먼저다 — 「현대미포」→「에이치디현대미포」처럼 앞자르기로는
+        # 영영 안 닿는다(261018 실측: 활성 명부가 켜지자 상장폐지·합병·코넥스 조각 8개 중 7개가 후보 0개).
+        # 맞춘 글자 수가 질의 길이 그대로라 아래 앞자르기(최대 길이−1)보다 늘 낫다 — 「인프라코어」는
+        # 3글자만 맞는 「인프라웨어테크놀러지」보다 5글자를 다 품은 「에이치디현대인프라코어」를 먼저 보인다.
+        # 한 글자는 거의 모든 이름에 들어 있어 제안이 못 된다.
+        if len(base) >= 2:
+            for row_id in sorted(self._substring_ids(base), key=self._rank_key, reverse=True):
+                seen.setdefault(row_id, None)
         for end in range(len(base) - 1, 2, -1):
+            if len(seen) >= limit:
+                break
             for row_id in self._compact.get(base[:end], []):
                 if row_id in self._listed_ids:
                     seen.setdefault(row_id, None)
             for row_id in self._tokens.get(base[:end], set()):
                 if row_id in self._listed_ids:
                     seen.setdefault(row_id, None)
-            if len(seen) >= limit:
-                break
         return [self.corps[i] for i in list(seen)[:limit]]
+
+    def _substring_ids(self, compact: str) -> list[int]:
+        """종목코드가 있는 법인 중 이름(한글·영문 compact)에 `compact` 가 든 행. 메모리 원장만 훑는다."""
+        return [
+            i for i in self._listed_ids
+            for corp in (self.corps[i],)
+            if compact in normalize_compact(corp.get("corp_name", ""))
+            or compact in normalize_compact(corp.get("corp_eng_name", ""))
+        ]
 
     def _search_one(self, query: str) -> list[dict[str, Any]]:
         raw_query = (query or "").strip()
@@ -556,12 +575,7 @@ class CompanyResolver:
             if not row_ids and compact:
                 # Korean brand fragments are not whitespace-tokenizable. This fallback scans
                 # only the in-memory master and runs only after every indexed path missed.
-                row_ids = [
-                    i for i in self._listed_ids
-                    for corp in (self.corps[i],)
-                    if compact in normalize_compact(corp.get("corp_name", ""))
-                    or compact in normalize_compact(corp.get("corp_eng_name", ""))
-                ]
+                row_ids = self._substring_ids(compact)
                 if row_ids:
                     kind = "substring"
 

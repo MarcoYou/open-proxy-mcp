@@ -151,6 +151,56 @@ def test_active_registry_does_not_revive_inactive_inferred_candidates():
     assert CompanyResolver(corps, {}, market).search("삼성") == []
 
 
+#: 활성 명부 밖(합병·상장폐지·코넥스) 회사들 — 이름 조각이 이 회사들을 가리키면 검색은 「못 찾음」이고 제안만 남는다.
+_GONE = [
+    {"corp_code": "g1", "corp_name": "에이치디현대미포", "corp_eng_name": "HD HYUNDAI MIPO", "stock_code": "010620", "modify_date": "20251201"},
+    {"corp_code": "g2", "corp_name": "에이치디현대인프라코어", "corp_eng_name": "HD HYUNDAI INFRACORE", "stock_code": "042670", "modify_date": "20250101"},
+    {"corp_code": "g3", "corp_name": "인프라웨어테크놀러지", "corp_eng_name": "INFRAWARE TECHNOLOGY", "stock_code": "247300", "modify_date": "20240101"},
+    {"corp_code": "g4", "corp_name": "루트락", "corp_eng_name": "ROOTLOCK", "stock_code": "253610", "modify_date": "20260101"},
+    {"corp_code": "g5", "corp_name": "에이플러스에셋", "corp_eng_name": "A PLUS ASSET", "stock_code": "244920", "modify_date": "20260101"},
+]
+
+
+def _gone_resolver(extra: list[dict] | None = None, caps: dict[str, int] | None = None) -> CompanyResolver:
+    corps = [*CORPS, *_GONE, *(extra or [])]
+    active = frozenset({*MARKET.active_tickers, "244920", *(caps or {})})
+    return CompanyResolver(corps, ALIASES, MarketContext({**MARKET.market_caps, **(caps or {})}, active, "20261016"))
+
+
+def test_suggest_shows_inactive_company_whose_name_contains_the_query_but_never_selects_it():
+    resolver = _gone_resolver()
+    assert resolver.search("현대미포") == []            # 검색은 비활성 회사를 되살리지 않는다(자동 선택 없음)
+    near = resolver.suggest("현대미포")
+    assert [c["corp_name"] for c in near] == ["에이치디현대미포"]
+    assert "_resolution" not in near[0]                  # 제안은 해석 결과가 아니다 — 확정 표지를 달지 않는다
+    assert [c["corp_name"] for c in resolver.suggest("Mipo")] == ["에이치디현대미포"]
+
+
+def test_suggest_full_query_infix_ranks_before_a_shorter_prefix_match():
+    # 앞자르기 「인프라」(3글자)만 맞는 쪽이 시총(로컬 prior)이 커도, 질의 5글자를 다 품은 쪽이 먼저다.
+    market = MarketContext({**MARKET.market_caps, "247300": 999}, MARKET.active_tickers, "20261016")
+    resolver = CompanyResolver([*CORPS, *_GONE], ALIASES, market)
+    assert resolver.search("인프라코어") == []
+    near = resolver.suggest("인프라코어")
+    assert [c["corp_name"] for c in near] == ["에이치디현대인프라코어", "인프라웨어테크놀러지"]
+
+
+def test_suggest_short_fragment_orders_by_market_cap_and_respects_limit():
+    extra = [
+        {"corp_code": "r1", "corp_name": "에이루트", "corp_eng_name": "A ROOT", "stock_code": "096690", "modify_date": "20250101"},
+        {"corp_code": "r2", "corp_name": "루트K", "corp_eng_name": "ROOT K", "stock_code": "195990", "modify_date": "20250101"},
+    ]
+    resolver = _gone_resolver(extra, {"096690": 50, "195990": 30})
+    assert [c["corp_name"] for c in resolver.suggest("루트")] == ["에이루트", "루트K", "루트락"]
+    assert [c["corp_name"] for c in resolver.suggest("루트", limit=2)] == ["에이루트", "루트K"]
+    assert resolver.suggest("트") == []                  # 한 글자는 제안하지 않는다
+
+
+def test_suggest_keeps_prefix_candidates_when_no_name_contains_the_query():
+    near = _gone_resolver().suggest("에이플러스에셋어드바이저")
+    assert [c["corp_name"] for c in near] == ["에이플러스에셋"]
+
+
 def test_curated_historical_alias_wins_over_old_official_name():
     corps = [
         {"corp_code": "old", "corp_name": "셀트리온헬스케어", "corp_eng_name": "CELLTRION HEALTHCARE", "stock_code": "091990", "modify_date": "20230101"},
