@@ -68,7 +68,7 @@ financial_metrics(
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | scope | str | no | 7종 (아래 참조) | "summary" |
-| year | int | no | 사업연도, 0이면 최신 완료 사업연도 | 0 |
+| year | int | no | 사업연도, 0이면 최신 완료 사업연도(결산월 기준 — 12월 결산 4/1부터 전년, 2월 결산 JTC 는 7/1부터 그해 2월 말 사업연도. `quarterly`·`qoq` 는 올해) | 0 |
 | years | int | no | yearly/audit_opinion 누적 연수 (**상한 10** — 초과 요청은 줄이고 그 사실을 warning 으로 알린다) | 3 |
 | consolidated | bool | no | True=CFS(연결, 한국 표준), False=OFS(별도) | True |
 | sj_div | list[str] | no | `accounts` 전용 — 재무제표 종류 필터(`BS`·`IS`·`CIS`·`CF`·`SCE`). 미지정이면 전부 | - |
@@ -338,6 +338,10 @@ sequenceDiagram
   거기서 다시 환산하면 환율이 두 번 곱해진다(260908 실측 8.87조 → 12,728조).
 
 ## 변경 이력
+- 2026-10-19 (3): `year` 를 주지 않은 `summary`·`yearly`·`yoy`·`audit_opinion`·`accounts` 의 기준 사업연도를 **결산월로** 고른다(`report_calendar.latest_annual` —
+  재무 수집·배수 도구와 같은 규칙). 종전엔 모든 회사에 12월 결산 규칙(4월 이후 전년)을 써서 12월 결산이 아닌 회사(상장 33사)는 이미 낸 최신 사업보고서를
+  건너뛰고 한 해 앞 것을 요약했다 — JTC(2월 결산) 요약이 2026.02 사업보고서(5/28 제출)를 두고 FY2025(2025.02). 12월 결산·결산월을 모를 때는 그대로다
+  (2016~2031 모든 날 대조).
 - 2026-10-19: `quarterly`·`qoq` 환산 통화를 보고서마다 — 위 「기능통화」 절의 「보고 통화를 바꾼 회사」. 통화를 바꾸지 않은 회사의 출력은 그대로다.
 - 2026-10-18: 정기보고서 네 종이 모두 DART 013 인 해의 경고 「{연도}년 reprt_code=11013 no_filing」(마지막으로 본 보고서 코드 + 엔진 상태어) → 「{연도}년 정기보고서(사업·3분기·반기·1분기) 재무제표 미공시」, md 의 「⚠ 일부 공시를 읽지 못했습니다」 줄은 일부 파싱 실패(`partial_failure`)에만 — 공시가 없는 해는 읽기 실패가 아니다. 재무 조회가 DART 오류(020·800·전송 오류)로 실패해 0건이면 「재무 공시 미존재 (정상 …)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed` 이고 그 응답은 5분 캐시에 넣지 않는다.
 - 2026-09-09 (3): `accounts` 의 CIS/SCE 는 이미 동작했으나(추가 작업 불필요) **SCE 행이 표를 깼다** —
