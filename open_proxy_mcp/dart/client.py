@@ -302,12 +302,16 @@ _LEDGER_MAX_CORPS = 20
 _LEDGER_MAX_WEAK = 5
 
 
-def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int) -> None:
+def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int,
+                         *, inactive: dict | None = None) -> None:
     """이름이 정확히 맞지 않아 **추정으로 고른** 기업을 적는다.
 
     `_note_corp` 와 같은 관문에서 적는다 — 확정 지점이 하나이므로 여기서 놓치면 어디서도
     못 잡는다. 읽는 쪽은 `ToolEnvelope.to_dict()` 하나뿐이라, tool 이 늘어도 전파가 끊기지
     않는다(23개 서비스가 해석기의 `confidence` 를 전부 버리고 있던 게 이 결함의 원인이었다).
+
+    `inactive` = 활성 회사엔 맞는 이름이 없어 비활성(상장폐지·합병·코넥스 등) 회사 하나로 확정했을 때
+    `{"ticker": 종목코드, "as_of": 활성 명부 기준 거래일}` — 고지 문장에 「상장폐지·코넥스 등」을 덧붙인다(261018).
     """
     ledger = _ctx_ledger.get()
     if ledger is None or not query or not corp_name:
@@ -315,7 +319,10 @@ def note_weak_resolution(query: str, corp_name: str, kind: str, candidates: int)
     weak = ledger.setdefault("weak_resolutions", [])
     if len(weak) >= _LEDGER_MAX_WEAK or any(w["query"] == query for w in weak):
         return
-    weak.append({"query": query, "corp_name": corp_name, "kind": kind, "candidates": candidates})
+    entry = {"query": query, "corp_name": corp_name, "kind": kind, "candidates": candidates}
+    if inactive:
+        entry["inactive"] = {"ticker": str(inactive.get("ticker") or ""), "as_of": str(inactive.get("as_of") or "")}
+    weak.append(entry)
 
 
 def weak_resolutions() -> list[dict]:
@@ -1384,6 +1391,20 @@ def _corp_registry_age_sec(now: "datetime | None" = None) -> float | None:
     return ((now or datetime.now()) - fetched).total_seconds()
 
 
+def corp_registry_as_of() -> str | None:
+    """지금 메모리 명부를 DART 에서 받은 시각 — 「2026-10-18 22:04 KST」. 출처를 모르면(시험이 직접 꽂은 명부 등) None.
+
+    「못 찾았다」 안내에 싣는다(261018) — 그 뒤에 상장했거나 사명을 바꾼 회사는 명부에 아직 없을 수 있어, 사용자가 신규상장 여부를 가늠한다.
+    `fetched_at` 은 시간대 없는 그 머신의 로컬 시각이라(운영 머신은 UTC) 로컬로 읽어 KST 로 옮긴다."""
+    fetched = _corp_registry_state.get("fetched_at")
+    if fetched is None:
+        return None
+    try:
+        return fetched.astimezone(_dt.timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M KST")
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
 def _corp_trigger_gap_ok() -> bool:
     """신호(②·③)로 받는 시도가 지난 시도에서 `_CORP_TRIGGER_MIN_GAP_SEC` 이상 지났나 — 시간당 상한."""
     last = _corp_registry_state.get("last_attempt_mono")
@@ -1413,7 +1434,11 @@ def corp_registry_miss_kind(query: str, results: list[dict], corps: list[dict]) 
       명부에 이미 있는데 못 찾은 것(영숫자 코드 해석 등)은 명부가 낡아서가 아니다 — 받아도 안 바뀐다.
       우선주 코드(끝자리 5·7·9·K…)는 원래 DART 명부에 없다 — 받아도 안 바뀐다.
     - corp_code(8자리 숫자)·회사명: 결과가 하나도 없을 때. 약한 추정이라도 결과가 있으면 실패로 보지 않는다.
+      단, 지금 거래되는 회사엔 맞는 이름이 없어 **비활성 회사 하나로** 확정한 결과(`is_inactive_fallback`)는 실패와 같이 본다 —
+      명부가 낡아 신규상장사를 모르면, 이름이 겹치는 옛 법인이 그 자리를 차지하기 때문이다(받고 다시 찾으면 신규상장사가 이긴다).
     """
+    from open_proxy_mcp.company_resolver import is_inactive_fallback
+
     q = (query or "").strip()
     if not q:
         return None
@@ -1424,7 +1449,7 @@ def corp_registry_miss_kind(query: str, results: list[dict], corps: list[dict]) 
         if any(str(r.get("stock_code") or "").strip().upper() == up for r in results):
             return None
         return "ticker"
-    if results:
+    if results and not is_inactive_fallback(results):
         return None
     return "corp_code" if re.fullmatch(r"\d{8}", q) else "name"
 

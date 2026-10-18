@@ -24,6 +24,7 @@ import calendar
 import re
 from typing import Any
 
+from open_proxy_mcp.company_resolver import is_inactive_fallback
 from open_proxy_mcp.dart.client import DartClientError
 from open_proxy_mcp.services import asset_valuation as _av
 
@@ -205,7 +206,10 @@ async def _stake_codes(client, name: str) -> tuple[list[str], str | None]:
     except Exception:                                   # noqa: BLE001 — 해석 실패가 응답 전체를 깨면 안 된다
         return [], "종목코드 조회 실패"
     listed = [m for m in (matches or []) if (m.get("stock_code") or "").strip()]
-    if not listed:
+    # 261018: 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 고른 결과(`is_inactive_fallback`)는 **못 찾은 것과 같다** — 그 법인은
+    #   최신 거래일 시세가 없어 평가할 수 없고, 「추정 후보」로 달면 해외 상장 법인(현대차 보유 「HMI」)에 이름 조각이 겹치는
+    #   옛 법인(케이에이치미래물산)을 붙이는 오해만 남는다.
+    if not listed or is_inactive_fallback(listed):
         return [], "국내 상장 종목코드를 찾지 못함(해외 상장·상장폐지이거나 공식 상호와 표기가 다름)"
     if (listed[0].get("_resolution") or {}).get("inferred"):
         return [], f"상호가 정확히 맞지 않음(추정 후보: {listed[0].get('corp_name')})"

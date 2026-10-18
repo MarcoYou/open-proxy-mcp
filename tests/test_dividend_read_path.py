@@ -1,8 +1,11 @@
-"""dividend_data 읽기 경로(재설계 4단계 T3) — 연도 범위 캐시 · 이벤트 루프 보호.
+"""dividend_data 읽기 경로(재설계 4단계 T3) — 연도 범위 · 이벤트 루프 보호.
 
 근거(운영 `pg_stat_statements`·`EXPLAIN`, 2026-10-18): `SELECT MIN(bsns_year), MAX(bsns_year) FROM div_declared` 는 인덱스가 없어 표 전체(38,183행·1,683쪽)를
 읽었다 — 335회 평균 475ms, 차가운 캐시 1.5초. 게다가 `tools/dividend_data.py` 는 이 동기 호출을 async 함수 안에서 그대로 불러, 질의가 끝날 때까지
 **서버 전체(다른 도구·/health)가 멈췄다.** DB 0콜 — 전부 `dd._rows` 를 바꿔 끼운다.
+
+261018 후속: 그때 붙인 6시간 캐시는 새 사업연도 적재 뒤 최대 6시간 지난해를 기본 연도로 냈다. 인덱스 `div_declared_yr` 가 운영에 있어
+(MIN·MAX = Index Only Scan 양 끝 한 칸씩) 캐시를 없앴다 — 아래 1절이 그것을 잠근다.
 """
 from __future__ import annotations
 
@@ -15,13 +18,6 @@ import pytest
 from open_proxy_mcp.services import dividend_data as dd
 from open_proxy_mcp.services import price_multiple_data as pmd
 from open_proxy_mcp.tools import dividend_data as dd_tool
-
-
-@pytest.fixture(autouse=True)
-def _fresh_cache():
-    dd.year_range_cache_clear()
-    yield
-    dd.year_range_cache_clear()
 
 
 class _Registry:
@@ -43,7 +39,7 @@ def _tool():
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
-# 1. 연도 범위 캐시
+# 1. 연도 범위 — 캐시 없이 호출마다 묻는다
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
 def _counting_rows(monkeypatch, result=((2020, 2025),)):
     calls = []
@@ -55,50 +51,42 @@ def _counting_rows(monkeypatch, result=((2020, 2025),)):
     return calls
 
 
-def test_year_range_hits_the_database_once_within_the_ttl(monkeypatch):
-    calls = _counting_rows(monkeypatch)
+def test_a_newly_loaded_fiscal_year_shows_up_on_the_very_next_call(monkeypatch):
+    """새 사업연도를 적재하면 다음 호출부터 보인다 — 종전엔 6시간(머신마다) 지난해가 기본 연도였다."""
+    _counting_rows(monkeypatch)
     assert dd.year_range() == (2020, 2025)
-    assert dd.year_range() == (2020, 2025)
-    assert dd.year_range() == (2020, 2025)
-    assert len(calls) == 1 and "MIN(bsns_year)" in calls[0], "TTL 안에서 질의를 반복했다"
-
-
-def test_year_range_refreshes_after_the_ttl_and_picks_up_a_new_year(monkeypatch):
-    calls = _counting_rows(monkeypatch)
-    assert dd.year_range() == (2020, 2025)
-    monkeypatch.setattr(dd, "_YEAR_RANGE_TTL_SEC", 0.0)                       # 만료
     monkeypatch.setattr(dd, "_rows", lambda sql, params=(): [(2020, 2026)])    # 새 사업연도를 적재했다
-    assert dd.year_range() == (2020, 2026)
+    assert dd.year_range() == (2020, 2026), "적재한 새 사업연도가 캐시에 가려졌다"
 
 
-def test_year_range_ttl_is_six_hours():
-    assert dd._YEAR_RANGE_TTL_SEC == 6 * 3600
+def test_year_range_asks_the_database_on_every_call(monkeypatch):
+    calls = _counting_rows(monkeypatch)
+    for _ in range(3):
+        assert dd.year_range() == (2020, 2025)
+    assert len(calls) == 3 and all("MIN(bsns_year)" in c and "MAX(bsns_year)" in c for c in calls)
 
 
-def test_a_failed_query_is_not_cached_so_one_outage_cannot_stick_for_hours(monkeypatch):
+def test_no_year_range_cache_is_left_behind():
+    """캐시를 되살리면 위 문제가 돌아온다 — 상수·저장소가 다시 생기지 않게 막는다."""
+    assert not any(hasattr(dd, name) for name in ("_YEAR_RANGE_TTL_SEC", "_YEAR_RANGE_CACHE", "year_range_cache_clear"))
+
+
+def test_a_failed_query_reads_as_none_and_the_next_call_recovers(monkeypatch):
     _counting_rows(monkeypatch, result=None)                                  # DB 장애 = None
     assert dd.year_range() is None
     monkeypatch.setattr(dd, "_rows", lambda sql, params=(): [(2020, 2025)])   # 복구
-    assert dd.year_range() == (2020, 2025), "장애 결과가 캐시에 굳었다"
+    assert dd.year_range() == (2020, 2025)
 
 
-def test_an_empty_table_is_not_cached_either(monkeypatch):
+def test_an_empty_table_reads_as_none(monkeypatch):
     _counting_rows(monkeypatch, result=((None, None),))
     assert dd.year_range() is None
     monkeypatch.setattr(dd, "_rows", lambda sql, params=(): [(2021, 2025)])
     assert dd.year_range() == (2021, 2025)
 
 
-def test_cache_clear_forces_a_fresh_read(monkeypatch):
-    calls = _counting_rows(monkeypatch)
-    dd.year_range()
-    dd.year_range_cache_clear()
-    dd.year_range()
-    assert len(calls) == 2
-
-
-def test_cache_is_safe_when_many_threads_ask_at_once(monkeypatch):
-    """to_thread 로 여러 호출이 동시에 부르면 첫 순간 질의가 겹칠 수 있다 — 값은 언제나 온전해야 한다."""
+def test_year_range_is_safe_when_many_threads_ask_at_once(monkeypatch):
+    """to_thread 로 여러 호출이 동시에 부른다 — 값은 언제나 온전해야 한다."""
     monkeypatch.setattr(dd, "_rows", lambda sql, params=(): (time.sleep(0.01), [(2020, 2025)])[1])
     got = []
     ts = [threading.Thread(target=lambda: got.append(dd.year_range())) for _ in range(8)]
@@ -161,19 +149,22 @@ def test_db_calls_run_off_the_event_loop_and_the_loop_keeps_ticking(monkeypatch)
     assert max(gaps) < _BLOCK_SEC / 2, f"루프가 {max(gaps):.2f}초 멈췄다 — 동기 DB 호출이 루프를 막고 있다"
 
 
-def test_the_second_call_skips_the_year_range_query_and_does_not_block_either(monkeypatch):
+def test_every_call_asks_the_year_range_again_off_the_loop(monkeypatch):
+    """261018: 캐시를 없앴다 — 두 번째 호출도 연도 범위를 다시 묻고(새 사업연도가 바로 보인다), 그 질의도 루프 밖에서 돈다."""
     threads: list[int] = []
     monkeypatch.setattr(dd, "_rows", _slow_rows(threads, delay=0.05))
     tool = _tool()
 
     async def go():
+        main = threading.get_ident()
         await tool(scope="market", format="md")
         n_first = len(threads)
         await tool(scope="market", format="md")
-        return n_first, len(threads) - n_first
+        return main, n_first, len(threads) - n_first
 
-    n_first, n_second = asyncio.run(go())
-    assert n_first == 2 and n_second == 1, "두 번째 호출은 연도 범위 질의를 건너뛰어야 한다(캐시)"
+    main, n_first, n_second = asyncio.run(go())
+    assert n_first == 2 and n_second == 2, "두 번째 호출도 연도 범위 + 집계 두 질의여야 한다"
+    assert main not in threads, "DB 호출이 이벤트 루프 스레드에서 돌았다"
 
 
 def test_every_scope_sends_all_of_its_database_calls_to_worker_threads(monkeypatch):

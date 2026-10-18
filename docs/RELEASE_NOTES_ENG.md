@@ -54,7 +54,9 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ### Company-name inference picks only currently listed companies
 
-- When a company is inferred from a partial name (e.g. "현대미포", "동양생명"), companies that did not trade on KOSPI or KOSDAQ on the latest trading day — delisted or merged companies and KONEX companies — are no longer chosen. Their official names and tickers still resolve ("에이치디현대미포", "HD현대미포", "010620").
+- When a company is inferred from a partial name and any company that traded on KOSPI or KOSDAQ on the latest trading day matches, companies that did not trade — delisted or merged companies and KONEX companies — are not chosen ("세이" → SAVEZONE I&C). Their official names and tickers still resolve ("에이치디현대미포", "HD현대미포", "010620").
+- When no trading company matches and **exactly one non-trading company** does, that company is returned ("현대미포" → HD Hyundai Mipo · "동양생명" → Tongyang Life Insurance). The response says up front that it is a delisted/KONEX-type inactive company; `company` reports low confidence and `listing_status=inactive`. If two or more such companies match ("더존"), none is chosen and near candidates are shown.
+- When a name in a company list (`universe="삼성전자, 현대미포"`) resolves to such a company, it stays in the list with the note "identified as an inactive company — no row in price or market-cap tables" (it has no latest quote, so `trading_data` and `forward_estimates_data` tables have no row for it). Holdings valuation (`asset_holdings`) does not attach such a company as a "guessed candidate".
 - This was the intended design, but it had been switched off since the 2026-08-23 market-code rename. The inference reason now reads "active listed companies" instead of "companies with a ticker". Official-name lookups are unchanged.
 - If the quote store cannot be read once, the previous listing registry is kept and re-read after one minute.
 
@@ -71,7 +73,7 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ### Faster dividend and per-company valuation-history lookups
 
-- `dividend_data` no longer freezes the rest of the server while it waits for the database. The span of fiscal years is remembered for 6 hours instead of being re-queried on every call. Output is unchanged.
+- `dividend_data` no longer freezes the rest of the server while it waits for the database. The span of fiscal years is read through an index on every call, so a newly loaded fiscal year shows up on the next call. Output is unchanged.
 - `price_multiple_data` `scope="firm_history"` (a company's weekly history) and `scope="firm"` (one company) send database lookups that do not depend on each other at the same time. One call sends at most 3 lookups at once; output is unchanged.
 - The indexes on the dividend ledger (`div_declared`) are applied once by the operator (`scripts/div_indexes_ddl.py`).
 
@@ -89,6 +91,14 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - After the storage change, a company whose latest snapshot is older than the newest one (delisted, suspended, or dropped from coverage) gets a warning instead of an old snapshot read as current.
 - Response fields are unchanged; `revision.first_as_of`, `history_weeks`, `windows_not_reached` and `db_window_weeks` are added.
 - The consensus comparison on preliminary earnings (`provisional_earnings` → `consensus_gap`) follows the same rule: its source note states the weeks actually held, and it gives the same reference snapshot and values after the storage change.
+
+### Small fixes — not-found guidance · evidence order · call count
+
+- When a company cannot be found, the guidance now always ends with the **company-registry time** ("Company registry as of 2026-10-18 22:04 KST …") — a company listed after that may not be in it yet.
+- `trading_data` (per-company prices and quotes) and `dividend_data` (a company's dividend history) now give the same not-found guidance as the other tools (where a renamed company went, retry by ticker). They used to return a single "not found" line.
+- `company` lookups by ticker or corp_code no longer give the reason "Matched an official name or registered alias"; they say "Matched the ticker (stock code)" / "Matched the DART corp_code".
+- `law_lookup` evidence references (`evidence_refs`) no longer change order each time the server restarts; they follow the result ranking.
+- `business_details` asks the DART filing list once instead of three times (the same list) when finding reports. Results are unchanged.
 
 ## 2026-10-05
 

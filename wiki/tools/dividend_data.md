@@ -163,7 +163,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 
 ## DB 호출 (261018)
 - 모든 DB 읽기는 이벤트 루프 밖 스레드에서 돈다. 종전엔 async 도구 안에서 동기로 불러, 질의가 끝날 때까지 서버 전체(다른 도구·`/health`)가 멈췄다.
-- 사업연도 범위(`MIN/MAX(bsns_year)`)는 호출마다 묻지 않고 프로세스 메모리에 **6시간** 담는다(새 사업연도는 연 1~2회 적재). 실패·빈 표는 담지 않는다.
+- 사업연도 범위(`MIN/MAX(bsns_year)`)는 **호출마다** 묻는다 — 인덱스 `div_declared_yr` 양 끝 한 칸씩만 읽는다(운영 EXPLAIN Index Only Scan). 새 사업연도를 적재하면 다음 호출부터 기본 연도·범위에 보인다(261018 — 그 전엔 6시간 메모리 캐시라 적재 뒤 최대 6시간, 머신마다 지난해가 기본이었다).
 - 원장 `div_declared` 는 인덱스가 없어 매 질의가 표 전체를 훑었다. 인덱스 두 개(`(corp_code, reprt_code, bsns_year)` · `(bsns_year)`)는
   `scripts/div_indexes_ddl.py` 로 사람이 한 번 적용한다(서버는 DDL 을 실행하지 않는다). 결정공시 표(`div_payment`)는 이미 `(corp_code, fiscal_year)` 인덱스를 쓰므로 더하지 않았다.
 - 원장 5표(`div_declared`·`div_quarterly`·`div_payment`·`div_payment_scope`·`div_yield_hist`)에 기본키를 건다 — `scripts/div_keys_ddl.py` 로 사람이 한 번 적용.
@@ -175,6 +175,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
 
 ## 변경 이력
+- 2026-10-18: 사업연도 범위 6시간 캐시를 걷어냈다 — 새 사업연도 적재가 다음 호출부터 보인다(인덱스가 있어 비용 없음). `firm` 에서 회사를 못 찾으면 다른 도구와 같은 정본 안내(사명 변경 행선지·종목코드·회사 명부 기준 시각)를 싣고, `format=json` 이면 JSON 으로 낸다(종전 제목 한 줄).
 - 2026-10-18: 원장 5표 기본키 스크립트(`scripts/div_keys_ddl.py`) — 적재가 바뀐 행만 맞추는 키. 출력은 그대로.
 - 2026-10-18: DB 호출을 이벤트 루프 밖으로 옮기고 사업연도 범위를 6시간 메모리 캐시. 원장 인덱스 스크립트 추가. 출력은 그대로.
 - 2026-10-18: `krx_listing` 배치를 증분으로 — 관측창 시작은 상수(20151230), 새 관측은 최근 주만 읽어 `first_seen_dd=LEAST`·`last_seen_dd=GREATEST` 로 합친다.
