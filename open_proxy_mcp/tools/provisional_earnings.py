@@ -34,7 +34,10 @@ def _render_gap(g: dict | None) -> str:
         c = (g.get("metrics") or {}).get(key) or {}
         if c.get("diff_krw") is None:
             continue
-        pct = f" ({c['gap_pct']:+.1f}%)" if c.get("gap_pct") is not None else ""
+        # 표시는 원값에서 한 번만 반올림한다 — 저장된 `gap_pct`(소수 둘째)를 다시 한 자리로 깎으면
+        # −5.4478% → −5.45 → −5.5 로 한 칸 어긋난다(국도화학 2026.09 매출, 공시알리미 카드는 −5.4%).
+        pct = (f" ({c['diff_krw'] / abs(c['consensus_krw']) * 100:+.1f}%)"
+               if c.get("gap_pct") is not None else "")
         loss = " · 적자 예상 대비라 %는 방향만" if c.get("gap_caveat") else ""
         parts.append(f"{_LABEL[key]} {_won(c['actual_krw'])} vs 예상 {_won(c['consensus_krw'])}{pct}{loss}")
     line = (f"**컨센서스 대비** (공시 {g.get('lag_days')}일 전 {g.get('as_of')} 주간 스냅샷 · "
