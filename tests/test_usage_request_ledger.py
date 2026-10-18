@@ -141,6 +141,8 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     usage = importlib.reload(importlib.import_module("open_proxy_mcp.usage"))
     assert usage._RECORDING, "테스트가 기록 게이트를 못 열었다 — 아래 단언이 무의미해진다"
+    # 261018: 기록은 5초씩 묶어 쓴다(`_FLUSH_SEC`). 이 시험이 보는 것은 칸 대응이지 묶음 간격이 아니다 — 창을 줄인다.
+    monkeypatch.setattr(usage, "_FLUSH_SEC", 0.05)
 
     # **값을 전부 서로 다르게** 준다. 같은 값이 섞여 있으면 컬럼이 어긋나도 통과한다 —
     # 위치 의존 INSERT 가 조용히 다른 컬럼에 넣는 사고(260704)를 잡으려면 이게 조건이다.
@@ -359,17 +361,25 @@ def test_dead_column_doc_cache_hit_stays_dead():
     안 쓰는 컬럼을 남기는 비용은 용량이 아니라 **오해**다.
 
     되살리려면 그건 결정이어야 한다 — 그때는 이 테스트를 지우면서 이유를 남겨야 한다.
+
+    261018: Postgres 스키마는 서버가 아니라 `scripts/ops_ddl.py` 가 맞춘다(재설계 T7) — PG 쪽 검사를 그 스크립트로 옮겼다.
     """
     from pathlib import Path
 
-    src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
-    text = src.read_text(encoding="utf-8")
-    code = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+    root = Path(__file__).resolve().parent.parent
 
-    assert "ADD COLUMN IF NOT EXISTS doc_cache_hit" not in code, \
+    def _code(rel: str) -> str:
+        text = (root / rel).read_text(encoding="utf-8")
+        return "\n".join(l for l in text.splitlines()
+                         if not l.lstrip().startswith(("#", "--")))
+
+    code = _code("open_proxy_mcp/usage.py")
+    ddl = _code("scripts/ops_ddl.py")
+
+    assert "ADD COLUMN IF NOT EXISTS doc_cache_hit" not in code + ddl, \
         "Postgres 스키마가 죽은 컬럼을 다시 만든다"
-    assert "DROP COLUMN IF EXISTS doc_cache_hit" in code, \
-        "이미 컬럼이 있는 운영 DB 에서 지우는 경로가 사라졌다"
+    assert "DROP COLUMN IF EXISTS doc_cache_hit" in ddl, \
+        "이미 컬럼이 있는 DB 에서 지우는 경로가 사라졌다(scripts/ops_ddl.py)"
     assert '"doc_cache_hit INTEGER"' not in code, \
         "sqlite 마이그레이션 목록에 죽은 컬럼이 남아 있다"
 

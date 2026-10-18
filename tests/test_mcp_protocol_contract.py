@@ -205,7 +205,10 @@ def test_main_serves_exactly_what_build_app_returns(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["open_proxy_mcp.server", "--transport", "streamable-http"])
     monkeypatch.setattr(S, "build_app", spy)
     monkeypatch.setattr(S, "install_api_key_redaction", lambda: seen.update(redacted=True))
-    monkeypatch.setattr(uvicorn, "run", lambda app, host, port: seen.update(app=app, host=host, port=port))
+    # 261018: main 은 `uvicorn.run` 대신 `_serve`(같은 일 + 종료 신호를 사용 기록기에 알림)를 부른다 — 가로채는 자리만 옮겼다.
+    #   `_serve` 가 받은 값을 uvicorn 에 그대로 넘기는지는 바로 아래 시험이 본다.
+    monkeypatch.setattr(S, "_serve", lambda app, host, port: seen.update(app=app, host=host, port=port))
+    monkeypatch.setattr(uvicorn, "run", lambda *a, **k: pytest.fail("main 이 _serve 를 건너뛰고 uvicorn.run 을 직접 불렀다"))
     S.main()
 
     assert "built" in seen, "main() 이 build_app() 을 아예 부르지 않는다"
@@ -218,6 +221,30 @@ def test_main_serves_exactly_what_build_app_returns(monkeypatch):
     assert seen["host"] == "0.0.0.0", (
         f"VM 밖에서 못 닿는 주소에 바인딩한다: {seen['host']}. SDK 기본값은 127.0.0.1 이라 "
         "설정이 안 걸리면 fly 프록시가 못 닿고 전면 장애가 난다.")
+
+
+def test_serve_hands_app_host_port_to_uvicorn_unchanged(monkeypatch):
+    """`_serve` 는 `uvicorn.run(app, host, port)` 와 같아야 한다 — 받은 앱·주소·포트를 그대로, 종료 신호를 아는 서버로.
+    시작에 실패하면(포트 점유 등) uvicorn.run 처럼 종료 코드 3 으로 끝난다(fly 가 재시작하게)."""
+    import uvicorn
+
+    import open_proxy_mcp.server as S
+    seen = {}
+
+    def fake_run(self, sockets=None):
+        seen.update(app=self.config.app, host=self.config.host, port=self.config.port, cls=type(self))
+        self.started = True
+
+    monkeypatch.setattr(uvicorn.Server, "run", fake_run)
+    app = object()
+    S._serve(app, host="0.0.0.0", port=8000)
+    assert seen["app"] is app and seen["host"] == "0.0.0.0" and seen["port"] == 8000
+    assert seen["cls"].handle_exit is not uvicorn.Server.handle_exit, "종료 신호를 사용 기록기에 알리지 않는 서버다"
+
+    monkeypatch.setattr(uvicorn.Server, "run", lambda self, sockets=None: None)   # started=False — 시작 실패
+    with pytest.raises(SystemExit) as ei:
+        S._serve(app, host="0.0.0.0", port=8000)
+    assert ei.value.code == 3
 
 
 @pytest.mark.parametrize("q", ["", "%20", "%20%20", "%09"])
@@ -326,6 +353,43 @@ def test_unreadable_response_is_unclassifiable_not_success(client, monkeypatch):
         f"못 읽은 응답이 is_error={kw.get('is_error')!r} 로 적혔다 — "
         "「모르겠다」가 「성공」으로 둔갑하면 에러율이 조용히 0이 된다")
     assert kw.get("error_kind") == "unclassifiable", kw
+
+
+def test_call_dims_reach_the_ledger_raw_and_nothing_else_rides_along(client, monkeypatch):
+    """261018 T8 — 미들웨어는 인자 중 `scope`·`as_of` **둘만**, 보낸 그대로 넘긴다(거르는 건 `usage._call_dims`).
+    회사명·질의 원문 같은 다른 인자가 기록 호출에 실려 나가는 자리가 없어야 한다."""
+    rows = _drive(client, {"jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                           "params": {"name": "no_such_tool_xyz",
+                                      "arguments": {"company": "삼성전자", "query": "비밀 질의",
+                                                    "scope": "Quote", "as_of": "20261016"}}},
+                  monkeypatch)
+    kw = rows[-1][1]
+    assert kw.get("scope") == "Quote" and kw.get("as_of") == "20261016", kw
+    flat = repr(rows)
+    assert "삼성전자" not in flat and "비밀 질의" not in flat, "다른 인자가 기록 호출에 실렸다"
+
+
+def test_call_dims_extractor_tolerates_garbage():
+    from open_proxy_mcp.server import _extract_call_dims
+    for body in (b"", b"not json", b'{"params": null}', b'{"params": {"arguments": "x"}}',
+                 b'[{"method": "tools/call"}]'):
+        assert _extract_call_dims(body) == (None, None), body
+    assert _extract_call_dims(b'{"params": {"arguments": {"scope": 3}}}') == (3, None)
+
+
+def test_shutdown_signal_tells_the_usage_writer_first(monkeypatch):
+    """종료 신호를 받는 순간 사용 기록기가 모으던 묶음을 쓰게 한다 — atexit 은 강제 종료 앞에서 못 갈 수 있다."""
+    import signal
+
+    import uvicorn
+
+    from open_proxy_mcp import server as S
+    from open_proxy_mcp import usage
+    calls = []
+    monkeypatch.setattr(usage, "begin_shutdown", lambda: calls.append("usage"))
+    srv = S._shutdown_aware_server_class()(uvicorn.Config(lambda *a: None))
+    srv.handle_exit(signal.SIGINT, None)
+    assert calls == ["usage"] and srv.should_exit, "기록기에 알리지 않았거나 uvicorn 종료가 안 걸렸다"
 
 
 def test_request_body_is_not_buffered_without_bound(client, monkeypatch):
