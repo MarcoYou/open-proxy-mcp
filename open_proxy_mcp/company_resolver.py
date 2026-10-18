@@ -7,8 +7,10 @@ import asyncio
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import difflib
+import itertools
 import json
 import logging
+import math
 import os
 from pathlib import Path
 import re
@@ -98,6 +100,74 @@ def latinized_variants(value: str) -> set[str]:
     return out
 
 
+#: 리츠의 법적 상호 꼬리. DART 등록명은 「롯데리츠」·「SK리츠」·「이리츠코크렙」인데 공시(타법인출자현황 등)는
+#: 「롯데위탁관리부동산투자회사」·「에스케이위탁관리부동산투자회사㈜」·「이리츠코크렙기업구조조정부동산투자회사」로 적는다.
+_REIT_LEGAL_FORM_RE = re.compile(r"(?:위탁관리|기업구조조정|자기관리)?부동산투자회사$")
+#: 한 이름에서 만들어 볼 음차 조합의 상한 — 넘으면 연쇄마다 「그대로·전부」 둘만 본다.
+_MAX_SPELLING_COMBOS = 512
+
+
+def _letter_runs(compact: str) -> list[list[tuple[int, int, str]]]:
+    """compact 안의 알파벳 음차 연쇄들 — 연쇄마다 글자별 (시작, 끝, 라틴 글자). 긴 표기부터 맞춰 「에이치」가 「에이」로
+    잘리지 않게 한다. 라틴 글자·숫자는 음차표에 없어 연쇄가 거기서 끊긴다(「삼성이and에이」→ 「이」·「에이」 두 연쇄)."""
+    runs: list[list[tuple[int, int, str]]] = []
+    cur: list[tuple[int, int, str]] = []
+    i = 0
+    while i < len(compact):
+        kw = next((k for k in _LETTER_KO_ORDER if compact.startswith(k, i)), None)
+        if kw:
+            cur.append((i, i + len(kw), _LETTER_KO[kw].lower()))
+            i += len(kw)
+            continue
+        if cur:
+            runs.append(cur)
+            cur = []
+        i += 1
+    if cur:
+        runs.append(cur)
+    return runs
+
+
+def _run_options(run: list[tuple[int, int, str]], *, partial: bool) -> list[tuple[int, int, str] | None]:
+    """연쇄 하나를 어떻게 되돌릴지 — 그대로(None) · 전부 · (partial 이면) 뒷부분만.
+    뒷부분만: 「뉴엔에이아이」의 '엔'은 이름 글자라 '에이아이'만 AI 다(뉴엔AI) · 「형지아이앤씨」→형지I&C."""
+    tails = range(len(run)) if partial else range(1)
+    return [None] + [(run[j][0], run[-1][1], "".join(c[2] for c in run[j:])) for j in tails]
+
+
+def spelling_variants(compact: str) -> list[list[str]]:
+    """정식 상호를 짧은 등록명으로 옮긴 compact 후보들 — **먼저 볼 묶음부터**. 원문 compact 는 넣지 않는다(이미 찾아 봤다).
+
+    - 이름 **가운데·끝**의 알파벳 음차 — 앞머리만 되돌리는 `latinized_variants` 로는 안 닿는다.
+      「삼성에스디아이」→삼성sdi · 「삼성이앤에이」→삼성eanda(=삼성E&A) · 「셀바스에이아이」→셀바스ai.
+      「알파에이아이」의 '알'(R)처럼 우연히 음차표에 걸린 글자가 있어 연쇄를 **골라** 되돌린 조합을 모두 만든다.
+    - 리츠 법적 상호 — 꼬리를 「리츠」로 바꾼 묶음, 그다음 떼어 낸 묶음(위 `_REIT_LEGAL_FORM_RE`). 음차와 겹칠 수 있다
+      (「에스케이위탁관리부동산투자회사」→에스케이리츠→sk리츠). 떼어 낸 쪽이 나중인 까닭: 「에스케이」→sk 는 SK(주)다.
+    🔴 우연 일치가 많으므로 호출자는 등록명과 **정확히** 같아진 변형만 받는다(`CompanyResolver._spelling_variant_hit`)."""
+    bases = [compact]
+    reit = _REIT_LEGAL_FORM_RE.search(compact)
+    if reit and reit.start() >= 2:
+        bases += [compact[: reit.start()] + "리츠", compact[: reit.start()]]
+    groups: list[list[str]] = []
+    for base in bases:
+        runs = _letter_runs(base)
+        options = [_run_options(r, partial=True) for r in runs]
+        if math.prod(len(o) for o in options) > _MAX_SPELLING_COMBOS:
+            options = [_run_options(r, partial=False) for r in runs]
+            while math.prod(len(o) for o in options) > _MAX_SPELLING_COMBOS:
+                options.pop()                                   # 뒤쪽 연쇄는 그대로 둔다
+        group: list[str] = []
+        for combo in itertools.product(*options):
+            variant = base
+            for span in reversed([c for c in combo if c]):        # 뒤에서부터 바꿔야 앞 연쇄의 위치가 안 밀린다
+                a, b, latin = span
+                variant = variant[:a] + latin + variant[b:]
+            if variant != compact and variant not in group:
+                group.append(variant)
+        groups.append(group)
+    return groups
+
+
 def _is_inferred(results: list[dict[str, Any]]) -> bool:
     """부분일치·유사일치처럼 이름이 정확히 맞지 않아 추정한 결과인가."""
     return bool(results) and bool((results[0].get("_resolution") or {}).get("inferred"))
@@ -112,10 +182,15 @@ def normalize_raw(value: str) -> str:
     return re.sub(r"\s+", " ", _nfkc_casefold(value))
 
 
+def strip_legal_form(value: str) -> str:
+    """앞뒤 한국 법인격 표기(㈜·(주)·주식회사 …)만 뗀 이름(NFKC·소문자). 「한화갤러리아㈜」→「한화갤러리아」."""
+    text = _KOREAN_LEGAL_PREFIX_RE.sub("", _nfkc_casefold(value))
+    return _KOREAN_LEGAL_SUFFIX_RE.sub("", text).strip()
+
+
 def name_tokens(value: str) -> tuple[str, ...]:
     """Search tokens shared by Korean, English, and mixed company names."""
-    text = _KOREAN_LEGAL_PREFIX_RE.sub("", _nfkc_casefold(value))
-    text = _KOREAN_LEGAL_SUFFIX_RE.sub("", text)
+    text = strip_legal_form(value)
     text = text.replace("&", " and ").replace("앤", " and ")
     tokens = _NON_WORD_RE.sub(" ", text).split()
     while tokens and tokens[-1] in _LEGAL_SUFFIXES:
@@ -412,6 +487,22 @@ class CompanyResolver:
         modified = int(corp.get("modify_date") or 0)
         return cap, 1 if ticker else 0, modified
 
+    def _spelling_variant_hit(self, compact: str) -> list[dict[str, Any]]:
+        """`spelling_variants` 를 묶음 순서대로 보며, 등록명과 **정확히** 같아진 것이 처음 나온 묶음에서 한 회사로만 모이면
+        그 강한 결과. 아니면 빈 목록.
+
+        약한 일치(토큰·부분·유사)로는 받지 않는다 — 음차표 글자(이·지·시·오 …)는 흔한 음절이라 변형 대부분은 뜻이 없다.
+        서로 다른 회사로 갈리면 고르지 않는다(틀린 회사를 주는 것보다 못 찾는 편이 낫다)."""
+        for group in spelling_variants(compact):
+            exact = [v for v in group if v in self._compact]
+            if not exact:
+                continue                                        # 이 묶음엔 등록명이 없다 — 다음 묶음
+            if len({tuple(sorted(self._compact[v])) for v in exact}) != 1:
+                return []
+            hit = self._search_one(exact[0])
+            return hit if hit and not _is_inferred(hit) else []
+        return []
+
     def _decorate(self, row_id: int, kind: str, inferred: bool, alternatives: int) -> dict[str, Any]:
         corp = dict(self.corps[row_id])
         ticker = str(corp.get("stock_code") or "")
@@ -462,6 +553,11 @@ class CompanyResolver:
                     # 역음차가 약하게만 맞는 것도 버리지 않는다 — 「제이와이피」는
                     # 원문으로는 아무것도 안 걸리고 'jyp' 토큰으로만 JYP Ent. 에 닿는다.
                     weak_alt = hit
+            # 이름 가운데·끝의 음차와 리츠 법적 상호 — 공시의 정식 상호(「삼성에스디아이㈜」·「롯데위탁관리부동산투자회사」)를
+            # 짧은 등록명(삼성SDI·롯데리츠)으로 옮긴다. 등록명과 정확히 같아질 때만 받으므로 약한 결과보다 앞선다.
+            spelled = self._spelling_variant_hit(compact_q)
+            if spelled:
+                return spelled
             if found:
                 return found
             if weak_alt:
@@ -517,8 +613,10 @@ class CompanyResolver:
             if alias_ids:
                 # Curated aliases include intentional historical-name redirects.
                 row_ids, kind = alias_ids, "alias"
-            elif raw in self._official:
-                row_ids, kind = self._official[raw], "official"
+            elif raw in self._official or (bare := normalize_raw(strip_legal_form(raw_query))) in self._official:
+                # 법인격만 붙은 정식명(「한화갤러리아㈜」·「주식회사 카카오」)도 정식명 일치다. 종전엔 normalized 로 내려가
+                # 아래 브랜드 규칙(같은 글자로 시작하는 「한화갤러리아타임월드」가 있다)에 걸려 추정으로 떨어졌다.
+                row_ids, kind = self._official.get(raw) or self._official[bare], "official"
             else:
                 row_ids = self._phrase.get(phrase) or self._compact.get(compact) or []
                 if row_ids:

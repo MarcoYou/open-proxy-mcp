@@ -16,6 +16,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - `price_multiple_data` `scope="firm_history"` (a company's weekly history) and `scope="firm"` (one company) send database lookups that do not depend on each other at the same time. One call sends at most 3 lookups at once; output is unchanged.
 - The indexes on the dividend ledger (`div_declared`) are applied once by the operator (`scripts/div_indexes_ddl.py`).
 
+### Companies resolve from the legal names used in filings
+
+- Official names carrying a Korean legal-form marker ("한화갤러리아㈜", "(주)한화갤러리아") now resolve as exact matches rather than inferences.
+- Legal names that spell an English name in Hangul ("삼성에스디아이" → Samsung SDI, "삼성이앤에이" → Samsung E&A) and REIT legal names ("롯데위탁관리부동산투자회사" → LOTTE REIT) also resolve. They are accepted only when they become exactly a registered name, and never when two companies match.
+- Names that already resolved are unchanged. Preferred-share names ("삼성전자우") are still only inferred as the common-share company.
+
 ## 2026-10-05
 
 ### Staged document cache increase
