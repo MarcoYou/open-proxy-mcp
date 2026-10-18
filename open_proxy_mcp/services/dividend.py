@@ -5,7 +5,7 @@ from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import calendar
-from datetime import date
+from datetime import date, timedelta
 import re
 import time
 from typing import Any
@@ -111,6 +111,33 @@ def _latest_completed_fiscal_year(today: date, end_month: int | None) -> int | N
     if not end_month:
         return None
     return today.year if today.month > end_month else today.year - 1
+
+
+#: 결산이 끝난 뒤 결산배당 결의가 보통 나오는 기간(정기주총 기한 3개월 + 여유).
+_DECISION_LAG_DAYS = 183
+
+
+def _judgeable_undecided_years(newest_reported_fy: int, latest_completed_fy: int | None,
+                               end_month: int | None, searched_until: date, today: date) -> list[int]:
+    """「결산은 끝났는데 결의가 없다(미결의)」를 판정할 수 있는 사업연도들.
+
+    결의 여부는 배당결정 공시 검색 결과로 본다. 검색이 오늘까지 덮으면 끝난 사업연도 전부를 볼 수 있지만,
+    과거 연도를 지정한 조회(year=2020 → 검색은 2021-12-31 까지)는 그 뒤 사업연도의 결의 공시를 **읽지 않았다**.
+    예전엔 그런 해들(FY2022~FY2025)까지 「결의 공시 없음 — 미결의」로 경고했다(삼성전자 year=2020 실측 261019).
+    → 검색 끝이 오늘 전이면, 결산일 + 결의 기간이 검색 범위 안에 드는 해만 판정한다.
+    """
+    if latest_completed_fy is None:
+        return []
+    out: list[int] = []
+    for fy in range(newest_reported_fy + 1, latest_completed_fy + 1):
+        if searched_until < today:
+            period = _fiscal_period(fy, end_month)
+            if not period:
+                continue
+            if date.fromisoformat(period["end"]) + timedelta(days=_DECISION_LAG_DAYS) > searched_until:
+                continue   # 그 해 결의가 나올 시기를 검색이 덮지 않았다 — 모른다(미결의 아님)
+        out.append(fy)
+    return out
 
 
 async def _search_dividend_filings(
@@ -243,6 +270,61 @@ async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], st
         fy = int(digits[:4]) if len(digits) >= 4 else year
         summary.update(_fiscal_period_fields(fy, end_month))
     return summary, None
+
+
+def period_dps(items: list[dict[str, Any]] | None) -> dict[str, int]:
+    """alotMatter 행 → `{결산기준일 YYYYMMDD: 보통주 주당 현금배당(당기)}` — 결산기마다 한 값. (261019)
+
+    반기·분기 결산 회사(리츠 등)는 사업연도 하나에 사업보고서가 결산기마다 따로 나와, `alotMatter`(사업보고서) 한 번에
+    결산기 여럿이 `stlm_dt` 로 갈라져 온다(롯데리츠 FY2025 = 2025-06-30 117원 · 2025-12-31 123원). 결산기마다
+    `build_dividend_summary` 와 **같은 종류 규칙**(`split_by_share_class`)으로 보통주 값을 고른다. 특별배당 줄은 빼고(요약의 `cash_dps` 와 같은 정의),
+    값이 없는 결산기는 0 이다(무배당 — 빈 줄을 버리지 않는다). 결산기준일이 없는 행은 무시한다."""
+    rows: dict[str, list[tuple]] = {}
+    for item in items or []:
+        cat = item.get("category", "")
+        if not ("주당 현금배당금" in cat or ("주당" in cat and "현금배당금" in cat)) or item.get("is_special"):
+            continue
+        dt = "".join(ch for ch in (item.get("stlm_dt") or "") if ch.isdigit())[:8]
+        if len(dt) != 8:
+            continue
+        rows.setdefault(dt, []).append((item.get("stock_type", ""), safe_int(item.get("current", ""))))
+    out: dict[str, int] = {}
+    for dt, dps_rows in rows.items():
+        common, _, _ = split_by_share_class(dps_rows)
+        out[dt] = common or 0
+    return out
+
+
+def _months_between(a: str, b: str) -> int:
+    """YYYYMMDD 두 날의 달 수 차이(b − a, 날짜는 무시) — 결산기준일(월말)끼리 쓴다."""
+    return (int(b[:4]) - int(a[:4])) * 12 + int(b[4:6]) - int(a[4:6])
+
+
+def trailing_period_dps(periods: dict[str, int]) -> dict[str, Any] | None:
+    """반기·분기 결산 회사의 **최근 12개월 결산기 DPS 합**. 해당하지 않으면 None. (261019)
+
+    종전 `price_multiple_data` 는 사업보고서 요약의 `cash_dps` — 결산기가 여럿이면 **마지막 한 결산기** — 를 연 배당처럼 썼다.
+    롯데리츠(반기) 배당수익률이 연 배당 기준의 절반, SK리츠(분기)는 4분의 1로 나갔다(10-19 운영 실측 3.01%·1.24%).
+
+    규칙: 가장 늦은 결산기준일 L 에서 거꾸로 결산 주기(마지막 두 결산기 사이 달 수 — 3 또는 6)마다 결산기가 빠짐없이 있어
+    12개월을 정확히 채울 때만(분기 4개·반기 2개) 그 합을 낸다. **창 첫 결산기의 앞 결산기까지** 같은 주기여야 한다 — 결산기준일만으로는
+    그 결산기가 몇 달짜리인지 모르므로, 앞 결산기와의 간격으로 확인한다. 결산월을 바꾼 해(6월 결산 12개월 사업보고서 + 7~12월 6개월 이행기)처럼
+    주기가 고르지 않거나 확인할 앞 결산기가 없으면 None — 호출부는 종전 값을 쓴다(한 해 반치를 연 배당으로 만들지 않는다).
+    반환: {"dps": 합, "periods": [(결산기준일, DPS) …] 오름차순, "months": 주기}."""
+    dates = sorted(periods)
+    if len(dates) < 2:
+        return None
+    cadence = _months_between(dates[-2], dates[-1])
+    if cadence not in (3, 6):
+        return None
+    need = 12 // cadence
+    if len(dates) < need + 1:
+        return None
+    chain = dates[-(need + 1):]                 # 창(need 개) + 그 앞 결산기 하나 — 간격이 모두 주기여야 한다
+    if any(_months_between(x, y) != cadence for x, y in zip(chain, chain[1:])):
+        return None
+    window = chain[1:]
+    return {"dps": sum(periods[d] for d in window), "periods": [(d, periods[d]) for d in window], "months": cadence}
 
 
 def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int, dict[str, Any]]:
@@ -1084,7 +1166,9 @@ async def build_dividend_payload(
     newest_reported_fy = max(annual_summaries) if annual_summaries else target_year
     if latest_completed_fy is not None:
         decided_fys = {_bucket_fiscal_year(d) for d in details_all}
-        for fy in range(newest_reported_fy + 1, latest_completed_fy + 1):
+        # 검색 범위는 `_search_dividend_filings(…, target_year)` 와 같다(…target_year+1 년 말).
+        for fy in _judgeable_undecided_years(newest_reported_fy, latest_completed_fy, fiscal_end_month,
+                                             date(target_year + 1, 12, 31), today_kst()):
             if fy in decided_fys or fy in annual_summaries:
                 continue
             fiscal = _fiscal_period_fields(fy, fiscal_end_month)

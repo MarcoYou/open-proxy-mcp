@@ -198,6 +198,128 @@ def test_universe_table_fallback_keeps_the_old_shape(ledger, monkeypatch):
     assert any("원장을 읽지 못해" in w for w in p["warnings"])
 
 
+# ── 지수 이름 나열·지원하지 않는 지수 (261019) ─────────────────────────────────
+
+def _no_company_lookup(monkeypatch):
+    async def boom(*a, **k):
+        raise AssertionError("지수 이름을 회사 이름으로 찾았다")
+    monkeypatch.setattr(screener, "resolve_company_query", boom)
+
+
+def test_two_indexes_listed_are_their_union(ledger, monkeypatch):
+    """「코스피200, 코스닥150」 — 종전엔 회사 이름 둘로 읽어 「찾지 못함」(사명 변경 안내)으로 되물었다."""
+    _no_company_lookup(monkeypatch)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe("코스피200, 코스닥150")))
+    assert uf.resolved and not uf.question
+    assert uf.allowed == set(_MEMBERS) | {"196170", "086520"}
+    assert uf.label == "KOSPI200+KOSDAQ150" and uf.members_dd == "20261016" and uf.notice == ""
+    # 띄어 쓴 이름·중복도 같다
+    uf2 = asyncio.run(screener.resolve_universe(screener._nl_universe("KOSPI 200, 코스닥 150, 코스피200")))
+    assert uf2.allowed == uf.allowed and uf2.label == uf.label
+
+
+def test_index_union_in_the_ranking_table(ledger, monkeypatch):
+    _no_company_lookup(monkeypatch)
+    caps = _CAPS + [("196170", "KQ", 20_000_000_000_000, 400_000, 1), ("086520", "KQ", 15_000_000_000_000, 100_000, 1)]
+    _stub_rows(monkeypatch, caps)
+    p = asyncio.run(build_universe_payload("코스피200, 코스닥150"))
+    assert p["status"] == "ok"
+    d = p["data"]
+    assert [r["ticker"] for r in d["rows"]] == ["005930", "000660", "196170", "086520", "000080"]
+    assert d["label"] == "KOSPI200+KOSDAQ150" and d["members_dd"] == "20261016"
+
+
+def test_index_mixed_with_a_company_keeps_both(ledger, monkeypatch):
+    class _Sel:
+        status = "exact"
+        candidates = []
+        selected = {"stock_code": "005380", "corp_name": "현대자동차"}
+
+    async def q(tok, *a, **k):
+        assert tok == "현대차"
+        return _Sel()
+    monkeypatch.setattr(screener, "resolve_company_query", q)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe("코스피200, 현대차")))
+    assert uf.allowed == set(_MEMBERS) | {"005380"}
+    assert uf.label == "지정 4종목(KOSPI200 포함)" and uf.members_dd is None
+
+
+@pytest.mark.parametrize("given", ["KRX300", "KRX 300", "krx100", "KTOP30", "코스닥 글로벌", "코스피200 정보기술",
+                                   "코리아 밸류업 지수", "코스피 대형주"])
+def test_unsupported_index_is_named_as_an_index_not_a_renamed_company(ledger, monkeypatch, given):
+    """261019 실측: 「KRX300」이 회사 못 찾음으로 떨어져 「사명이 바뀐 회사는 옛 이름으로 조회되지 않는다」 안내가 붙었다."""
+    _no_company_lookup(monkeypatch)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe(given)))
+    assert not uf.resolved and uf.allowed is None
+    assert f"「{given}」은 지수 이름으로 보인다" in uf.question
+    assert "코스피200·코스닥150 두 지수뿐" in uf.question and "합집합" in uf.question
+    assert "사명" not in uf.question and "회사를 하나도 찾지 못해" not in uf.question
+    p = asyncio.run(build_universe_payload(given))
+    assert p["status"] == "invalid" and "지수 이름으로 보인다" in p["warnings"][0]
+
+
+def test_unsupported_index_next_to_a_supported_one_is_partial_and_said(ledger, monkeypatch):
+    _no_company_lookup(monkeypatch)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe("코스피200, KRX300")))
+    assert uf.resolved and uf.allowed == set(_MEMBERS)
+    assert "미해결: 「KRX300」은 지수 이름으로 보인다" in uf.notice
+
+
+def test_number_after_market_inside_a_list_is_asked_not_looked_up(ledger, monkeypatch):
+    """「코스피100, 코스닥150」 — 코스피100 은 시총 상위 100 인지 지수(KOSPI100)인지 모른다. 회사로 찾지 않고 그 토큰만 묻는다."""
+    _no_company_lookup(monkeypatch)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe("코스피100, 코스닥150")))
+    assert uf.resolved and uf.allowed == {"196170", "086520"}
+    assert "「코스피100」은 종목 수인지 이름인지 알 수 없어" in uf.notice
+
+
+def test_rank_phrases_and_index_words_keep_their_old_meaning(ledger, monkeypatch):
+    """지수 이름 판정이 순위 말을 가로채지 않는다 — 「KRX 시총 상위 100」은 종전처럼 전체시장 순위다."""
+    assert screener._nl_universe("KRX 시총 상위 100") == "top_mktcap:100"
+    assert screener._nl_universe("코스피 시총 상위 200") == "kospi:200"
+    assert screener.unsupported_index_note("코스피 200개 기업") is None          # 회사 나열 실패로 가는 종전 길
+    # 끝에 「지수」를 붙여도 아는 지수다
+    _no_company_lookup(monkeypatch)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe("코스피200 지수")))
+    assert uf.resolved and uf.allowed == set(_MEMBERS) and uf.label == "KOSPI200" and uf.members_dd == "20261016"
+
+
+def test_market_names_listed_drop_preferred_like_the_whole_market(ledger, monkeypatch):
+    """「코스피, 코스닥」(시장 이름 나열)은 「코스피 전체」와 같이 우선주를 빼고 밝힌다 — 직접 적은 우선주 코드는 그대로 둔다.
+
+    261019 운영 대조(읽기 전용): 「코스피, 코스닥」 2,762행 중 우선주 114종목이 이름 없이(「-」) 순위에 끼었고, 같은 날
+    「코스피 전체」는 우선주 111종목을 빼고 그 사실을 밝혔다."""
+    _no_company_lookup(monkeypatch)
+    kq = [("196170", "KQ", 20_000_000_000_000, 400_000, 1), ("086520", "KQ", 15_000_000_000_000, 100_000, 1)]
+    caps = _CAPS + kq
+    monkeypatch.setattr(screener, "_krx_market_codes",
+                        lambda market, dd: {c[0] for c in caps if c[1] == {"kospi": "KS", "kosdaq": "KQ"}.get(market, market)})
+    _stub_rows(monkeypatch, caps)
+
+    async def names():
+        return dict(_NAMES) | {"196170": "알테오젠", "086520": "에코프로"}
+    monkeypatch.setattr(uni, "_names_by_ticker", names)
+    whole = asyncio.run(build_universe_payload("코스피 전체"))
+    assert "005935" not in [r["ticker"] for r in whole["data"]["rows"]]
+    p = asyncio.run(build_universe_payload("코스피, 코스닥"))
+    assert p["status"] == "ok"
+    tickers = [r["ticker"] for r in p["data"]["rows"]]
+    assert "005935" not in tickers and set(tickers) == {r["ticker"] for r in whole["data"]["rows"]} | {"196170", "086520"}
+    assert any("우선주 1종목은 순위에서 뺐습니다" in w for w in p["warnings"])
+    # 직접 적은 우선주 코드는 고른 것이다 — 시장 이름과 같이 적어도 남는다
+    p2 = asyncio.run(build_universe_payload("코스피, 005935"))
+    assert "005935" in [r["ticker"] for r in p2["data"]["rows"]]
+    # 지수 원장 종목은 판정하지 않는다(우선주가 원장에 들 일은 없지만, 원장이 정한 집합이다)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe("코스피200, 코스피")))
+    assert uf.pref_screen == frozenset({"005935", "005380"})
+
+
+def test_company_names_are_not_mistaken_for_indexes():
+    for name in ("삼성전자", "KB금융", "SK하이닉스", "현대차2우B", "KT&G", "코스맥스", "코스모신소재"):
+        assert screener.unsupported_index_note(name) is None
+    assert screener.unsupported_index_note("코스피200") is None      # 지원하는 지수는 「지원 안 함」이 아니다
+
+
 # ── 적재 스크립트(순수 함수) ─────────────────────────────────────────────────
 
 def _items(codes):
