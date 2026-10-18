@@ -39,7 +39,8 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
-from open_proxy_mcp.services.dividend import _annual_summary, period_dps, trailing_period_dps
+from open_proxy_mcp.services.dividend import (_annual_summary, _num_out, align_dps_to_price, dps_unevenness, period_cash_meta,
+                                               period_dps, trailing_period_dps)
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
 from open_proxy_mcp.krx_retention import (COLD_DEGRADED_NOTE, krx_weekly_cutoff, seam_gap, serving_seam, week_unit,
@@ -2409,20 +2410,50 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     dps_periods = None
     dps_next_failed = dps_prev_failed = False
     _per = period_dps((div_sum or {}).get("items"))
+    _dps_items = list((div_sum or {}).get("items") or [])     # 261019: 결산기마다 총액·접수일(`period_cash_meta`) — 아래 주식 기준 맞춤에 쓴다
     if len(_per) > 1:
         if fy + 1 <= today_kst().year:
             nxt, nxt_err = await _alot_optional(cc, fy + 1)
             dps_next_failed = _dps_fetch_failed(nxt_err)
             _per.update(period_dps((nxt or {}).get("items")))
+            _dps_items += (nxt or {}).get("items") or []
         dps_periods = trailing_period_dps(_per)
         if dps_periods is None:
             prv, prv_err = await _alot_optional(cc, fy - 1)
             dps_prev_failed = _dps_fetch_failed(prv_err)
             _prev = period_dps((prv or {}).get("items"))
+            _dps_items = ((prv or {}).get("items") or []) + _dps_items
             if _prev:
                 dps_periods = trailing_period_dps({**_prev, **_per})
         if dps_periods:
             dps = dps_periods["dps"] or None
+    # 261019(p1b): DPS 를 **지금 주가와 같은 주식 기준**으로 — 결산기준일 뒤 액면분할·병합·무상증자·주식배당(확정 라벨)은 계수를 곱한다
+    #   (`align_dps_to_price`). 종전엔 옛 주식 기준 DPS 를 새 주가로 나눠 분할 비율만큼 부풀었다(10-19 운영 INVENI 015360 1:5 분할 38.46%
+    #   → 7.69%, 미원화학 134380 1:10 42.06% → 4.21%). 같은 읽기로 그 밖의 큰 기준가 조정(리츠 대규모 배당락 — 코람코더원리츠 2026-08-28
+    #   10,930원 → 2,290원)과 반기·분기 결산 DPS 의 큰 편차(자산 처분 이익 배당 — NH프라임리츠 126 → 625 → 837원)를 알린다. 값을 지우지 않는다.
+    #   이벤트가 없으면(대부분) DPS 는 종전 그대로이고 DB 읽기 한 번만 는다. 읽기 실패는 종전 값(배당 fail-open).
+    dps_align = dps_uneven = None
+    if dps and price and stock_code:
+        if dps_periods:
+            _chain = [dps_periods["prior"], *dps_periods["periods"]]
+            _after = dps_periods["periods"][0][0]
+        else:
+            _st = "".join(ch for ch in ((div_sum or {}).get("stlm_dt") or "") if ch.isdigit())[:8]
+            _chain, _after = ([(_st, dps)], _st) if len(_st) == 8 else ([], None)
+        if _chain:
+            _ev = await _db_rows(
+                "SELECT event_dd, adj_factor, event_type, label_confidence, prev_close, base_price FROM krx_adj_events "
+                "WHERE ticker=%s AND event_dd>%s AND adj_factor IS NOT NULL ORDER BY event_dd", (stock_code, _chain[0][0]))
+            if _ev:
+                dps_align = align_dps_to_price(_chain, period_cash_meta(_dps_items), _ev, shares_total, price_after=_after)
+                _aligned = dps_align["periods"]
+                if dps_periods:
+                    dps_periods = {**dps_periods, "periods": _aligned[1:], "dps": _num_out(sum(v for _, v in _aligned[1:]))}
+                    dps = dps_periods["dps"] or None
+                else:
+                    dps = _num_out(_aligned[0][1]) or None
+        if dps_periods:
+            dps_uneven = dps_unevenness([dps_periods["prior"] if not dps_align else dps_align["periods"][0], *dps_periods["periods"]])
 
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
     # EPS(FY0): 공시값 우선 — fy_rows 직접(비KRW는 ×환율) → fm(eps_krw) → 지배순이익÷보통주 폴백.
@@ -2495,6 +2526,11 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # 극단 배수 plausibility (두산밥캣류 단위 오독 방어 — 값은 내되 경고)
     if (pbr and pbr > 100) or (per_fy and per_fy > 500) or (per_ttm and per_ttm > 500):
         warnings.append("⚠️ 배수 비정상 고값 — 재무 단위/스케일 오류 가능(예: 지배자본 과소). 원문 확인 요망.")
+    if not fy_rows and not (div_sum or {}).get("items") and not (sh.get("total") or sh.get("common")):
+        # 261019(p1b): 재무제표·주식 총수·배당 사항이 **모두** 비면 배수가 전부 빈다 — 종전엔 이유 없이 빈 칸만 나갔다(10-19 운영 맥쿼리인프라·
+        #   KB발해인프라·맵스리얼티: 정기보고서를 회사 서식이 아니라 펀드 공시로 낸다 — DART 공시 목록에 사업보고서가 없다).
+        warnings.append("DART 정기보고서의 재무제표·주식 총수·배당 사항이 모두 비어 있다 — 정기보고서를 펀드 공시로 내는 인프라 투융자회사·"
+                        "부동산 펀드 등은 PER·PBR·배당수익률을 낼 수 없다(주가·시총은 맞다). 배당이 없다는 뜻이 아니다.")
     if is_financial:
         # 260823: 종전 문구가 EV/EBITDA·PSR·FCF 를 「산출 제외」라 안내했는데 **애초에 만들지
         #   않는 지표**였다. 없는 것을 뺐다고 말하면 있는 줄 안다. 해석 주의만 남긴다.
@@ -2580,6 +2616,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         # 결산기가 여럿인데 보조 읽기가 실패해 주기를 확인하지 못했다 — DPS 는 종전 값(사업보고서 마지막 결산기)이다. 말없이 반쪽 값을 내지 않는다.
         warnings.append(f"{'다음' if dps_next_failed else '앞'} 사업연도 배당 사항 조회 실패 — 사업보고서에 결산기가 여럿인데 최근 12개월을 맞추지 못해 "
                         "DPS 는 마지막 결산기 값이다(반기·분기 결산이면 연 배당의 일부만 잡힌다 — 다시 조회하면 맞춰질 수 있다).")
+    warnings += _dps_alignment_warnings(dps_align, dps_uneven, dps_periods)
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
     if _fye_note(fye):                 # 261018(결산월): 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
@@ -2641,6 +2678,14 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         # 261019: 반기·분기 결산이면 DPS 가 어느 결산기들의 합인지 — 그런 회사에서만 칸이 생긴다(그 밖엔 사업보고서 한 결산기 그대로).
         inputs["dps_basis"] = {"rule": "trailing_12m_periods", "period_months": dps_periods["months"],
                                "periods": [{"stlm_dt": f"{d[:4]}-{d[4:6]}-{d[6:]}", "dps_krw": v} for d, v in dps_periods["periods"]]}
+        if dps_uneven:      # 261019(p1b): 결산기 DPS 편차가 클 때만 — 가장 큰·작은 결산기와 배수
+            inputs["dps_basis"]["uneven"] = dps_uneven
+    if dps_align and (dps_align["adjusted"] or dps_align["undetermined"]):
+        # 261019(p1b): 결산기준일 뒤 분할·병합 등으로 DPS 를 지금 주식 기준으로 바꿨거나(adjusted) 바꿀지 확인하지 못한(undetermined) 결산기.
+        inputs["dps_share_adjustment"] = {"periods": dps_align["adjusted"], "undetermined": dps_align["undetermined"]}
+    if dps_align and dps_align["price_events"]:
+        # 261019(p1b): DPS 를 바꾸지 않은 큰 기준가 조정(라벨 없음·감자 등) — 배당수익률의 주가 기준이 배당 뒤에 바뀌었다.
+        inputs["price_basis_events"] = dps_align["price_events"]
     if ecos_fx_rate != 1.0:
         # 261019: 값마다 쓴 기간 말 환율(분기 칸이 없으면 FY0 하나) — 외화 보고사에서만 칸이 생긴다.
         # 261019: 칸마다 출처(source — "ecos" 한국은행 매매기준율 / "yahoo" 야후 대체값)를 함께 — 대체값은 영구 표에 넣지 않는다.
@@ -2651,6 +2696,41 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     if format == "md":
         payload["markdown"] = _render_md(payload)
     return payload
+
+
+#: `krx_adj_events.event_type` → 우리말(배당수익률 안내 문구).
+_EVENT_KO = {"split": "액면분할", "merge": "액면병합", "bonus": "무상증자", "stock_div": "주식배당", "reduction": "감자", "mixed": "복합 조정"}
+
+
+def _dps_alignment_warnings(align: dict[str, Any] | None, uneven: dict[str, Any] | None, periods: dict[str, Any] | None) -> list[str]:
+    """DPS 주식 기준 맞춤·큰 기준가 조정·결산기 편차 안내(261019 p1b). 해당이 없으면 빈 목록 — 대부분의 회사는 응답이 그대로다."""
+    out: list[str] = []
+    won = lambda v: f"{v:,}원"
+    for a in (align or {}).get("adjusted") or []:
+        evs = " · ".join(f"{e['event_dd']} {_EVENT_KO.get(e['event_type'], e['event_type'])}(계수 {e['adj_factor']:g})" for e in a["events"])
+        out.append(f"결산기준일 {a['stlm_dt']} 뒤 {evs} — 사업보고서 DPS {won(a['dps_reported_krw'])}를 지금 주식 기준 {won(a['dps_krw'])}로 바꿔 "
+                   "배당수익률을 냈다(옛 주식 기준 DPS 를 새 주가로 나누면 계수만큼 어긋난다).")
+    for u in (align or {}).get("undetermined") or []:
+        evs = " · ".join(f"{e['event_dd']} {_EVENT_KO.get(e['event_type'], e['event_type'])}(계수 {e['adj_factor']:g})" for e in u["events"])
+        out.append(f"⚠️ 결산기준일 {u['stlm_dt']} 뒤 {evs} — DPS {won(u['dps_krw'])}가 그 앞뒤 어느 주식 수 기준인지 확인하지 못해 그대로 썼다. "
+                   "옛 주식 기준이면 배당수익률이 계수만큼 어긋난다.")
+    for e in (align or {}).get("price_events") or []:
+        kind = _EVENT_KO.get(e["event_type"]) or "종류 미확인"
+        pc, bp = e.get("prev_close"), e.get("base_price")
+        px = f"전일 종가 {pc:,.0f}원 → 기준가 {bp:,.0f}원, " if pc and bp else ""
+        out.append(f"⚠️ {e['event_dd']} 기준가 조정({px}계수 {e['adj_factor']:.2f}, {kind}) — 그 앞 결산기 배당을 조정 뒤 주가로 나눴다. "
+                   "대규모 배당락·자본 환급 뒤라면 배당수익률이 실제 배당 수준보다 크게, 확정 전 분할이면 계수만큼 어긋난다. DPS 는 바꾸지 않았다.")
+    if uneven:
+        total = (periods or {}).get("dps")
+        if uneven.get("ratio"):
+            out.append(f"⚠️ 결산기 DPS 차이가 크다 — {uneven['max']['stlm_dt'][:7]} {won(uneven['max']['dps_krw'])}가 "
+                       f"{uneven['min']['stlm_dt'][:7]} {won(uneven['min']['dps_krw'])}의 {uneven['ratio']:g}배(창 바로 앞 결산기 포함). "
+                       f"자산 처분 이익 배당 같은 일회성 배당이나 배당 축소가 섞였으면 12개월 합{f'({won(total)})' if total else ''}과 "
+                       "배당수익률은 앞으로 이어질 수준이 아니다.")
+        if uneven.get("latest_zero"):
+            last = ((periods or {}).get("periods") or [("", 0)])[-1][0]
+            out.append(f"⚠️ 가장 늦은 결산기({last[:4]}-{last[4:6]}) 무배당 — 12개월 합은 그 앞 결산기 배당이라 지금 배당 수준보다 높다.")
+    return out
 
 
 def _render_md(p: dict[str, Any]) -> str:

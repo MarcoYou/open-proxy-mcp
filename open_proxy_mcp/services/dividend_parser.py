@@ -320,6 +320,9 @@ def parse_dividend_items(data: dict) -> list[dict]:
             "previous": item.get("frmtrm", ""),
             "before_previous": item.get("lwfr", ""),
             "stlm_dt": item.get("stlm_dt", ""),
+            # 261019: 그 행이 나온 사업보고서 접수번호(앞 8자리 = 접수일) — 접수일 뒤의 주식 분할·병합은 그 DPS 에 반영됐을 수 없다
+            #   (`dividend.align_dps_to_price`). 반기·분기 결산 회사는 한 응답에 결산기마다 다른 보고서 행이 섞여 온다.
+            "rcept_no": item.get("rcept_no", ""),
             "is_special": "특별" in category,
             "is_stock_dividend": "주식배당" in category or "주당 주식배당" in category,
         })

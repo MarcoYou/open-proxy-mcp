@@ -406,9 +406,18 @@ def _dps_text(i: dict[str, Any]) -> str:
     v = i.get("dps_krw")
     if isinstance(v, (int, float)) and not isinstance(v, bool):
         b = i.get("dps_basis") or {}
+        # 261019(p1b): 결산기준일 뒤 분할·병합으로 지금 주식 기준으로 바꾼 결산기 — 사업보고서 값과 계수를 함께 적는다.
+        adj = {a["stlm_dt"]: a for a in ((i.get("dps_share_adjustment") or {}).get("periods") or [])}
+        def _rep(stlm: str) -> str:
+            a = adj.get(stlm)
+            return f"(사업보고서 {a['dps_reported_krw']:,}원 × 계수 {a['factor']:g})" if a else ""
         if b.get("periods"):   # 261019: 반기·분기 결산 — 최근 12개월 결산기 합
-            parts = " + ".join(f"{p['stlm_dt'][:7]} {p['dps_krw']:,}원" for p in b["periods"])
+            parts = " + ".join(f"{p['stlm_dt'][:7]} {p['dps_krw']:,}원{_rep(p['stlm_dt'])}" for p in b["periods"])
             return f"{v:,}원 (최근 12개월 결산기 {len(b['periods'])}개 합 — {parts})"
+        if len(adj) == 1:
+            a = next(iter(adj.values()))
+            evs = " · ".join(f"{e['event_dd']}" for e in a.get("events") or [])
+            return f"{v:,}원 (사업보고서 {a['dps_reported_krw']:,}원 × 계수 {a['factor']:g} — {evs} 주식 분할·병합 뒤 지금 주식 기준)"
         return f"{v:,}원"
     failed = i.get("dps_fetch_failed")
     if failed is True:
