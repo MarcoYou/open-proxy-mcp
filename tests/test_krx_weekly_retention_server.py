@@ -122,7 +122,7 @@ def test_firm_history_passes_the_cutoff_and_says_so(monkeypatch):
     async def fake_bounds():
         return "20261016", "20231016"
 
-    async def fake_series(isu, cur="KRW", fin=None, finq=None, since_dd=None, fye=12, raw_out=None):
+    async def fake_series(isu, cur="KRW", fin=None, finq=None, since_dd=None, fye=12, raw_out=None, **_):
         got["since_dd"] = since_dd
         return [dict(POINT), dict(LATEST_POINT)]
 

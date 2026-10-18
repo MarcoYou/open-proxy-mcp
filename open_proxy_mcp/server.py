@@ -204,6 +204,9 @@ def build_mcp() -> MCPServer:
             # 260906: 웹 차단 신호(403·429·차단 페이지). 차단은 IP 기준이라 그 머신의 사용자
             #   전원이 같이 막힌다 — 조용히 실패하게 두지 않고 밖에서 보이게 한다.
             "web_block": web_block_stats(),
+            # 261019: 콜드 서빙(3년 하한 이전 주간 곡선을 DB 밖 서빙본에서 잇는 것) — 켜짐·받은 판·받은 시각·검증된 파일·강등 까닭.
+            #   못 읽어도 응답은 종전(최근 3년 + 안내)으로 강등할 뿐이라 status 는 낮추지 않는다. URL·키는 싣지 않는다.
+            "cold": _cold_stats(),
         }, status_code=200 if servicing else 503)
 
     @mcp.custom_route("/admin/drain", methods=["POST"])
@@ -488,6 +491,15 @@ _NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답
 #: 1 GB VM 에 OOM 이력(260804)이 있어 상한 없는 누적은 그대로 둘 수 없다.
 #: 여기서 멈춰도 replay 가 나머지를 receive() 로 흘려보내므로 하류는 온전한 본문을 받는다.
 _MAX_SNIFF_BYTES = 64 * 1024
+
+
+def _cold_stats() -> dict:
+    """`/health` 의 `cold` — 헬스체크가 이것 때문에 죽으면 안 된다."""
+    try:
+        from open_proxy_mcp import cold_store
+        return cold_store.stats()
+    except Exception as exc:  # noqa: BLE001
+        return {"error": type(exc).__name__}
 
 
 def _mem_stats() -> dict:
@@ -860,6 +872,9 @@ def build_app(server=None):
     #   해석 실패 때 다시 받는 길은 요청 경로(`DartClient.lookup_corp_code_all`)에 있다. `OPM_CORP_REFRESHER=0` 이면 둘 다 끈다.
     from open_proxy_mcp.services import corp_registry_refresher
     corp_registry_refresher.attach_to_app(app)
+    # 261019: 콜드 서빙 예열·서빙 목록 갱신(배경). `OPM_COLD=1` 일 때만 받는다 — 기본 꺼짐이면 아무 일도 하지 않는다.
+    from open_proxy_mcp import cold_store
+    cold_store.attach_to_app(app)
     return app
 
 
@@ -924,18 +939,39 @@ def _shutdown_aware_server_class():
     """uvicorn 서버 + 종료 신호를 받는 **순간** 사용 기록기가 모으던 묶음을 쓰게 하는 한 줄(261018 T7).
 
     기록은 2초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
-    요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(kill_timeout, 기본 5초) 뒤
-    강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
-    `usage.begin_shutdown()` 은 비차단이다(깃발 + 큐 깨우기) — 신호 처리기 안에서 불러도 된다."""
+    요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(`fly.toml` kill_timeout — 261019 부터 90초,
+    그 전 기본 5초) 뒤 강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
+
+    261019: `usage.begin_shutdown()` 을 **신호 처리기 안에서 바로 부르지 않는다** — 이벤트 루프에 한 칸 미뤄 부른다.
+    `begin_shutdown` 은 기다리지는 않지만 잠금은 잡는다(`threading.Event.set` 의 조건 잠금, 큐 `put_nowait` 의 큐 잠금). 파이썬 신호
+    처리기는 메인 스레드(= 이벤트 루프)가 하던 일을 **그 자리에서 끊고** 돈다 — 메인 스레드가 그 잠금을 쥔 순간(요청 기록 `usage.record`
+    의 `put_nowait`, 또는 앞 신호의 처리기가 `Event.set` 안에 있을 때 두 번째 신호)에 처리기가 같은 잠금을 기다리면 **영영 풀리지 않는다**
+    (같은 스레드가 쥐고 있다). 로컬 실측(261019): `uv run` 이 중계한 신호와 직접 받은 신호가 겹친 서버가 `threading.py` `__enter__` 에서
+    멈춰 /health 도 답하지 않았다(faulthandler 덤프 — 처리기 두 겹이 같은 `Event.set` 에). 그러면 fly 는 kill_timeout(90초) 내내 기다렸다
+    강제 종료한다. `loop.call_soon_threadsafe` 는 덱에 넣고 자기 소켓에 한 바이트 쓰는 것뿐이라 잠금을 잡지 않는다."""
     import uvicorn
+
+    def _tell_usage() -> None:
+        try:
+            from open_proxy_mcp import usage
+            usage.begin_shutdown()
+        except Exception:                 # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
+            pass
 
     class _Server(uvicorn.Server):
         def handle_exit(self, sig, frame):
+            import asyncio
             try:
-                from open_proxy_mcp import usage
-                usage.begin_shutdown()
-            except Exception:             # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
-                pass
+                loop = asyncio.get_running_loop()
+            except RuntimeError:          # 루프 밖(시험·직접 호출) — 끊긴 일이 없으니 바로 부른다
+                loop = None
+            if loop is None:
+                _tell_usage()
+            else:
+                try:
+                    loop.call_soon_threadsafe(_tell_usage)
+                except RuntimeError:      # 루프가 이미 닫혔다 — atexit 의 flush 가 남은 것을 쓴다
+                    pass
             super().handle_exit(sig, frame)
 
     return _Server

@@ -19,6 +19,10 @@ import pytest
 os.environ["OPM_KRX_REFRESHER"] = "0"
 # 회사 명부(DART corpCode) 백그라운드 갱신기도 같은 이유로 끈다 — 테스트가 DART 에서 명부를 받거나 개발자의 configs/master.db 를 덮지 않게.
 os.environ["OPM_CORP_REFRESHER"] = "0"
+# 콜드 서빙(DB 밖 서빙본을 받아 읽는 것)도 끈다 — 개발자 셸의 `OPM_COLD=1`·서명 URL 로 시험이 네트워크·/data 를 만지지 않게.
+# 콜드 서빙 시험은 `monkeypatch.setenv` 와 아래 `cold_serving` 고정물(로컬 file:// 서빙본)로 켠다.
+os.environ["OPM_COLD"] = "0"
+os.environ.pop("OPM_COLD_MANIFEST_URL", None)
 
 
 def _free_port() -> int:
@@ -99,3 +103,90 @@ def pg17(_pg17_server):
     yield url
     with psycopg.connect(admin, autocommit=True) as c:
         c.execute(f'DROP DATABASE IF EXISTS "{db}" WITH (FORCE)')
+
+
+@pytest.fixture(autouse=True)
+def _reset_cold_store():
+    """콜드 서빙 모듈의 프로세스 상태(받은 목록·검증된 파일·카운터)가 시험 사이로 새지 않게 — 모듈을 이미 읽었을 때만."""
+    import sys
+    yield
+    mod = sys.modules.get("open_proxy_mcp.cold_store")
+    if mod is not None:
+        mod.reset_for_tests()
+
+
+def build_cold_serving(root, rows, *, upto, dataset="krx_weekly_hist", min_dd=None, max_dd=None, url=None,
+                       url_expires_at=None, tamper_sha=False, tamper_object_sha=False):
+    """발행기와 같은 모양의 서빙본 sqlite·gz·`serve/manifest.json` 을 root 아래에 만든다(시험 전용).
+
+    rows = [(ticker, price_dd, market, close, list_shrs)]. 반환 dict(manifest_path, manifest_url, entry, sqlite_path, object_path)."""
+    import gzip
+    import hashlib
+    import json
+    import sqlite3
+    from pathlib import Path
+
+    root = Path(root)
+    build = root / "build"
+    build.mkdir(parents=True, exist_ok=True)
+    tmp = build / f"{dataset}.building.sqlite"
+    if tmp.exists():
+        tmp.unlink()
+    con = sqlite3.connect(tmp, isolation_level=None)
+    con.execute("CREATE TABLE krx_wk_hist (ticker TEXT NOT NULL, price_dd TEXT NOT NULL, market TEXT, close INTEGER NOT NULL, "
+                "list_shrs INTEGER NOT NULL, PRIMARY KEY (ticker, price_dd)) WITHOUT ROWID")
+    con.execute("CREATE VIEW krx_weekly AS SELECT price_dd, ticker, market, close, close * list_shrs AS mktcap, list_shrs "
+                "FROM krx_wk_hist")
+    con.execute("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT NOT NULL) WITHOUT ROWID")
+    con.executemany("INSERT INTO krx_wk_hist VALUES (?, ?, ?, ?, ?)", sorted(rows))
+    con.execute("INSERT INTO meta VALUES ('dataset', ?)", (dataset,))
+    con.execute("PRAGMA application_id = 1330662723")    # 0x4F504D43
+    con.execute("PRAGMA user_version = 1")
+    con.execute("VACUUM")
+    con.close()
+    data = tmp.read_bytes()
+    sha = hashlib.sha256(data).hexdigest()
+    fname = f"{dataset}.{sha[:16]}.sqlite"
+    sqlite_path = build / fname
+    tmp.replace(sqlite_path)
+    obj_dir = root / "serve" / dataset
+    obj_dir.mkdir(parents=True, exist_ok=True)
+    object_path = obj_dir / (fname + ".gz")
+    with open(object_path, "wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as g:
+        g.write(data)
+    obj = object_path.read_bytes()
+    dates = sorted(r[1] for r in rows)
+    entry = {
+        "file": fname, "object": f"serve/{dataset}/{fname}.gz", "encoding": "gzip",
+        "sha256": ("0" * 64) if tamper_sha else sha, "bytes": len(data),
+        "object_sha256": ("0" * 64) if tamper_object_sha else hashlib.sha256(obj).hexdigest(), "object_bytes": len(obj),
+        "rows": len(rows),
+        "coverage": {"min_dd": min_dd or (dates[0] if dates else "20151230"), "max_dd": max_dd or upto, "upto": upto,
+                     "last_row_dd": dates[-1] if dates else None},
+        "file_schema": 1,
+    }
+    if url is not None:
+        entry["url"] = url
+    if url_expires_at is not None:
+        entry["url_expires_at"] = url_expires_at
+    manifest = {"schema": 1, "kind": "opm-cold-serve", "datasets": {dataset: {
+        "engine": "sqlite3", "view": "krx_weekly",
+        "columns": ["price_dd", "ticker", "market", "close", "mktcap", "list_shrs"],
+        "key": ["ticker", "price_dd"], "date_col": "price_dd",
+        "files": [entry], "coverage": {"min_dd": entry["coverage"]["min_dd"], "max_dd": entry["coverage"]["max_dd"]}}}}
+    mpath = root / "serve" / "manifest.json"
+    mpath.write_text(json.dumps(manifest, ensure_ascii=False))
+    return {"manifest_path": mpath, "manifest_url": "file://" + str(mpath), "entry": entry, "manifest": manifest,
+            "sqlite_path": sqlite_path, "object_path": object_path, "object_bytes": obj, "sqlite_bytes": data}
+
+
+@pytest.fixture
+def cold_serving(tmp_path, monkeypatch):
+    """콜드 서빙을 켠 상태 — `make(rows, upto=…)` 로 서빙본·목록을 만들고 환경을 그쪽으로 돌린다. 캐시는 tmp_path/cache."""
+    def make(rows, *, upto, **kw):
+        info = build_cold_serving(tmp_path / "src", rows, upto=upto, **kw)
+        monkeypatch.setenv("OPM_COLD", "1")
+        monkeypatch.setenv("OPM_COLD_MANIFEST_URL", info["manifest_url"])
+        monkeypatch.setenv("OPM_COLD_DIR", str(tmp_path / "cache"))
+        return info
+    return make
