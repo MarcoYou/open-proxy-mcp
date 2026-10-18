@@ -171,9 +171,48 @@ def spelling_variants(compact: str) -> list[list[str]]:
     return groups
 
 
+#: KRX 단축코드 — 6자, 숫자·영문 대문자. 숫자가 바닥나 2024년 신형 규칙부터 영문이 섞인다
+#: (보통주 0126Z0 삼성에피스홀딩스 · 0001A0 덕양에너젠 / 종류주 00088K 한화3우B · 33626L).
+#: 회사명과 가르려고 숫자 4자 이상을 요구한다 — 유니버스 코드 판정(`services/screener._looks_like_code`)과 같은 규칙이다.
+_KRX_CODE_RE = re.compile(r"[0-9A-Z]{6}")
+
+
+def krx_code(text: str) -> str:
+    """입력이 KRX 단축코드 모양이면 대문자 코드, 아니면 "". 소문자로 적은 영숫자 코드(「0126z0」)도 받는다."""
+    code = (text or "").strip().upper()
+    if _KRX_CODE_RE.fullmatch(code) and sum(ch.isdigit() for ch in code) >= 4:
+        return code
+    return ""
+
+
+def issuer_ticker(code: str) -> str:
+    """종류주(우선주 등) 코드의 보통주 코드. 보통주 코드이거나 코드 모양이 아니면 "".
+
+    KRX 단축코드의 끝자리는 주식 종류다 — 0 이 보통주, 그 밖(5·7·9·K·L·M …)은 같은 발행 회사의 종류주이고
+    앞 5자가 발행 회사다(005935 삼성전자우 → 005930 · 005387 현대차2우B → 005380 · 00680K → 006800 미래에셋증권).
+    DART 회사 원장은 보통주 코드만 갖는다. 같은 규칙을 유니버스 순위표의 우선주 판정(`services/universe.is_preferred`)이 쓴다.
+    261018 실측: 최신 거래일 시세 2,762종목 중 원장에 없는 114종목이 전부 이 규칙으로 원장의 보통주에 닿았다."""
+    c = krx_code(code)
+    if not c or c[5] == "0":
+        return ""
+    return c[:5] + "0"
+
+
+def share_class_ticker(corp: dict[str, Any] | None) -> str:
+    """해석기가 종류주 코드로 찾은 결과면 그 종류주 코드, 아니면 "". 시세 도구가 회사(보통주)가 아니라 그 종류주의 값을 읽을 때 쓴다."""
+    sc = ((corp or {}).get("_resolution") or {}).get("share_class") or {}
+    return str(sc.get("ticker") or "")
+
+
 def _is_inferred(results: list[dict[str, Any]]) -> bool:
     """부분일치·유사일치처럼 이름이 정확히 맞지 않아 추정한 결과인가."""
     return bool(results) and bool((results[0].get("_resolution") or {}).get("inferred"))
+
+
+def is_inactive_fallback(results: list[dict[str, Any]]) -> bool:
+    """활성 회사에 맞는 이름이 없어 비활성(상장폐지·합병·코넥스 등) 회사 하나로 확정했거나, 그런 회사 여럿을 고르지 않은 후보로 돌려준
+    결과인가(`CompanyResolver._inactive_single`). 둘 다 「지금 거래되는 회사로는 못 찾았다」 — 명부 재수신·보유지분 평가가 못 찾음과 같이 본다."""
+    return bool(results) and bool((results[0].get("_resolution") or {}).get("inactive_listing"))
 
 
 def _nfkc_casefold(value: str) -> str:
@@ -235,6 +274,9 @@ class MarketContext:
     active_tickers: frozenset[str] | None = None
     as_of_date: str = ""
     source: str = "none"
+    #: 시세 저장분에서 관측된 종류주 코드(끝자리 0 이 아닌 것) — 상장폐지된 것까지(`krx_listing`). 최신 거래일 단면(`market_caps`)과 함께
+    #: 종류주 코드를 발행 회사로 이을지 가르는 근거다(관측된 적 없는 코드를 규칙만으로 회사에 붙이지 않는다).
+    share_class_tickers: frozenset[str] = frozenset()
 
 
 def _local_market_context() -> MarketContext:
@@ -275,7 +317,7 @@ def _database_market_context() -> MarketContext | None:
     261018: 원천을 `krx_weekly` 이번 주 행(max(price_dd))에서 `krx_daily` 로 옮겼다 — 다음 단계에서 `krx_weekly` 는
     닫힌 주만 남기므로 거기서 읽으면 최신일 단면이 일주일까지 낡는다. 기준일과 행은 같은 원천에서 읽는다
     (`krx_daily` 가 비거나 실패하면 `krx_weekly` 로 돌지 않고 None → `load_market_context` 의 이전 맥락 유지·로컬 폴백).
-    🔴 `price_latest` 는 쓰지 않는다 — 보관 창(7거래일) 안에서 상장폐지된 종목의 옛 날짜 행이 남아 명부에 섞인다.
+    🔴 `price_latest` 는 쓰지 않는다 — 보관 창(약 1년) 안에서 상장폐지된 종목의 옛 날짜 행이 남아 명부에 섞인다.
     단면에는 사실값 칸과 `mktcap` 만 고른다(`chg`·`prev_*` 같은 창 칸을 고르면 같은 질의가 몇 배 느려진다)."""
     url = os.getenv("DATABASE_URL")
     if not url:
@@ -283,8 +325,10 @@ def _database_market_context() -> MarketContext | None:
     try:
         import psycopg
 
+        from open_proxy_mcp.krx_daily import LATEST_DAY_SQL
+
         with psycopg.connect(url, connect_timeout=1) as conn:
-            latest = conn.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()
+            latest = conn.execute(LATEST_DAY_SQL).fetchone()      # 261019: 달력(krx_day) — 호환 뷰의 max 는 1년치 조인
             as_of_date = str(latest[0]) if latest and latest[0] else ""
             if not as_of_date:
                 return None
@@ -292,6 +336,7 @@ def _database_market_context() -> MarketContext | None:
                 "SELECT ticker, mktcap, market FROM krx_daily_v WHERE trd_dd=%s",
                 (as_of_date,),
             ).fetchall()
+            share_classes = _observed_share_classes(conn)
         caps = {str(ticker): int(cap or 0) for ticker, cap, _market in rows if ticker}
         # A partial snapshot must never be treated as the complete active universe.
         fresh = False
@@ -305,9 +350,22 @@ def _database_market_context() -> MarketContext | None:
             _log.warning("시장 맥락 %s: %d행인데 시장별 종목 수가 기준 미달이라 활성 명부를 끈다 — 시장 칸 값 %s",
                          as_of_date, len(rows), dict(Counter(str(m) for _t, _c, m in rows).most_common(4)))
         active = frozenset(caps) if complete and fresh else None
-        return MarketContext(caps, active, as_of_date, _DB_MARKET_SOURCE)
+        return MarketContext(caps, active, as_of_date, _DB_MARKET_SOURCE, share_classes)
     except Exception:
         return None
+
+
+def _observed_share_classes(conn: Any) -> frozenset[str]:
+    """시세 저장분에서 관측된 종류주 코드 — 종목별 최초·최종 관측표(`krx_listing`, 주간 시세 파생)에서 끝자리가 0 이 아닌 것.
+    상장폐지된 종류주까지 든다(그 주간 곡선이 저장분에 남아 있다). 읽을 수 없으면(표 없음·권한) 빈 집합 — 시장 맥락은 그대로 쓴다.
+    세이브포인트 안에서 읽어 실패가 같은 연결의 나머지를 깨지 않게 한다."""
+    try:
+        with conn.transaction():
+            rows = conn.execute("SELECT ticker FROM krx_listing WHERE right(ticker, 1) <> '0'").fetchall()
+    except Exception:
+        _log.info("종류주 관측표(krx_listing)를 읽지 못해 최신 거래일 단면의 종류주만 쓴다", exc_info=True)
+        return frozenset()
+    return frozenset(str(r[0]).strip().upper() for r in rows if r and r[0])
 
 
 _market_context: MarketContext | None = None
@@ -379,6 +437,7 @@ async def load_market_context() -> MarketContext:
                     database.active_tickers,
                     database.as_of_date,
                     database.source,
+                    database.share_class_tickers,
                 )
             else:
                 _market_context = local
@@ -390,7 +449,8 @@ async def load_market_context() -> MarketContext:
 class CompanyResolver:
     """Immutable lookup indexes built once per corp-code master revision."""
 
-    _STRONG_KINDS = {"ticker", "corp_code", "official", "alias", "normalized"}
+    #: share_class = 종류주(우선주 등) 종목코드로 찾은 발행 회사 — 코드 조회라 추정이 아니다.
+    _STRONG_KINDS = {"ticker", "corp_code", "share_class", "official", "alias", "normalized"}
 
     def __init__(
         self,
@@ -416,6 +476,8 @@ class CompanyResolver:
         self._listed_ids: set[int] = set()
         #: 이름으로 찾을 수 있는 행 — 상장사 + 정기보고서 제출 법인
         self._searchable_ids: set[int] = set()
+        #: 종류주 코드 → 발행 회사의 보통주 코드. 시세 저장분에서 관측된 코드만(`MarketContext.share_class_tickers`·최신 단면).
+        self._share_class: dict[str, str] = {}
         self._build_indexes()
 
     @staticmethod
@@ -464,6 +526,13 @@ class CompanyResolver:
             }:
                 if key and target_ids:
                     self._alias.setdefault(key, []).extend(target_ids)
+
+        # 종류주 코드(005935·00088K) — 원장에는 보통주 코드만 있다. 시세 저장분에서 관측된 코드 중 원장에 없고, 끝자리를 0 으로
+        # 바꾼 보통주 코드가 원장에 있는 것만 잇는다(`issuer_ticker`). 관측된 적 없는 코드(오타 005931 등)는 규칙만으로 회사에 붙이지 않는다.
+        for code in itertools.chain(self.market.market_caps, self.market.share_class_tickers):
+            base = issuer_ticker(code)
+            if base and code not in self._ticker and base in self._ticker:
+                self._share_class.setdefault(code, base)
 
     def _active_preferred(
         self,
@@ -589,8 +658,57 @@ class CompanyResolver:
             # 가운데 2글자 조각 2,454 중 2,319 는 이미 부분일치로 고르는데, 그 조각으로 시작하는 비활성 회사가
             # 우연히 있는 78 개만 「못 찾음」). 위 경로가 모두 빈 뒤에만 하므로 지금 답이 나오는 질의는 안 바뀐다 —
             # 「엘비」→LB세미콘(역음차)을 한글 부분일치 「티엘비」가 가로채지 않는다.
-            return self._search_one(raw_query, past_inactive=True)
+            past = self._search_one(raw_query, past_inactive=True)
+            if past:
+                return past
+            # 그래도 비었으면 — 지금 거래되는 회사에는 이름이 맞는 곳이 없다. 비활성 회사 하나만 맞으면 그 회사, 둘 이상이면 고르지 않은 후보.
+            return self._inactive_single(raw_query)
         return self._search_one(raw_query)
+
+    def _inactive_single(self, query: str) -> list[dict[str, Any]]:
+        """활성 상장 명부로 거른 뒤 **어느 길에서도** 후보가 없을 때, 이름이 부분만 맞는(토큰·부분일치) 회사가 비활성(상장폐지·합병·
+        코넥스 등 — 최신 거래일 코스피·코스닥 시세에 없는 법인) **한 곳뿐**이면 그 회사로 확정한다. 아니면 빈 목록.
+
+        261018: 활성 명부가 실제로 켜진 뒤(#90) 「현대미포」「인프라코어」「동양생명」「라피」「아퓨」가 오류(근접 후보만)가 됐다.
+        재설계 전에는 이 질의들이 그 회사(에이치디현대미포·에이치디현대인프라코어·동양생명보험·라피치·아퓨어스)로 바로 갔다 —
+        폐지·합병 직후 회사의 배당·주총 이력을 줄임말로 묻는 경우다. 활성 회사가 하나라도 맞으면(「세이」→세이브존I&C) 여기까지 오지 않고,
+        오타 교정(fuzzy)으로 맞은 것은 받지 않는다.
+        결과는 추정(`inferred`)이고 `inactive_listing` 표지를 단다 — 확정 관문이 「상장폐지·코넥스 등」 경고를 싣고(`note_weak_resolution`),
+        `company` 의 신뢰도는 low 다. 활성 명부가 꺼져 있으면(시세 단면 없음) 종전 경로가 이미 비활성 회사도 고르므로 하지 않는다.
+
+        비활성 후보가 **둘 이상**이면(「더존」→더존비즈온·더존디지털웨어) 고르지 않고 **후보로** 돌려준다 — 모두 추정·자동 선택 아님이라
+        확정 관문이 AMBIGUOUS(후보표)로 답한다. 261019 회귀(7a6ccfc3 대비): 종전엔 여기서 빈 목록을 돌려 ERROR 가 됐는데, `company` 는
+        근접 후보를 따로 붙여 보였지만 공용 해석기 `_resolve_listed` 를 타는 `trading_data`·`price_multiple_data`·`forward_estimates_data` 는
+        ERROR 를 후보 없는 「못 찾음」(사명 변경 안내)으로 바꿔, 활성 명부가 켜지기 전 주던 「동명 후보 — 더존비즈온(012510)」을 잃었다.
+        후보에도 `inactive_listing` 을 달아 명부가 낡아 못 찾은 경우와 같이 본다(`is_inactive_fallback` — 신규상장사 재수신 신호 유지)."""
+        active = self.market.active_tickers
+        compact = normalize_compact(query)
+        if active is None or len(compact) < 2:
+            return []
+        token_sets = [self._tokens.get(token, set()) for token in name_tokens(query)]
+        ids, kind = [], ""
+        if token_sets and all(token_sets):
+            ids, kind = sorted(set.intersection(*token_sets)), "token"
+        if not ids:
+            ids, kind = self._substring_ids(compact), "substring"
+        ids = [i for i in ids if i in self._searchable_ids]
+        if not ids:
+            return []
+        if any(self.corps[i].get("stock_code") in active for i in ids):
+            return []                                           # 활성 회사다 — 위 경로가 이미 골랐어야 한다(방어)
+        ranked = sorted(ids, key=self._rank_key, reverse=True)
+        if len({self.corps[i].get("corp_code") for i in ids}) != 1:
+            candidates = [self._decorate(i, kind, True, len(ranked) - 1) for i in ranked]
+            for candidate in candidates:
+                candidate["_resolution"]["inactive_listing"] = True   # auto_selected·dominant 는 _decorate 의 False 그대로 — 고르지 않는다
+            return candidates
+        row_id = ranked[0]
+        result = self._decorate(row_id, kind, True, 0)
+        meta = result["_resolution"]
+        meta["auto_selected"] = True
+        meta["dominant"] = False
+        meta["inactive_listing"] = True
+        return [result]
 
     def suggest(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
         """못 찾았을 때 보여줄 근접 후보. **자동 선택하지 않는다.**
@@ -640,9 +758,19 @@ class CompanyResolver:
         numeric = raw_query.isdigit()
         row_ids: list[int] = []
         kind = ""
+        share_class = ""
+        code = krx_code(raw_query)
 
-        if re.fullmatch(r"\d{6}", raw_query):
-            row_ids, kind = self._ticker.get(raw_query, []), "ticker"
+        if re.fullmatch(r"\d{6}", raw_query) or (code and (code in self._ticker or code in self._share_class)):
+            # 종목코드. 숫자 6자리는 종전대로 늘 이 길이다. 영숫자(신형 0126Z0)·소문자는 원장 또는 관측된 종류주에 있을 때만 —
+            # 없으면 종전처럼 아래 이름 검색으로 내려간다(261018: 종전엔 숫자 6자리만 코드로 읽어 신형 코드 상장사 64곳이 코드로 안 찾혔다).
+            numeric = True
+            key = code or raw_query
+            row_ids, kind = self._ticker.get(key, []), "ticker"
+            if not row_ids and key in self._share_class:
+                # 종류주 코드 → 발행 회사(보통주와 같은 corp_code). 어느 종류주로 물었는지는 `_resolution.share_class` 로 남긴다 —
+                # 시세 도구는 그 종류주 자체의 값을, 회사 단위 도구는 발행 회사의 값을 준다.
+                row_ids, kind, share_class = self._ticker.get(self._share_class[key], []), "share_class", key
         elif re.fullmatch(r"\d{8}", raw_query):
             row_ids, kind = self._corp_code.get(raw_query, []), "corp_code"
         else:
@@ -719,6 +847,10 @@ class CompanyResolver:
             dominant = False
 
         results = [self._decorate(i, kind, inferred, len(ranked) - 1) for i in ranked]
+        if share_class:
+            for result in results:
+                result["_resolution"]["share_class"] = {
+                    "ticker": share_class, "issuer_ticker": self._share_class[share_class]}
         if results:
             results[0]["_resolution"]["auto_selected"] = auto_selected
             results[0]["_resolution"]["dominant"] = dominant

@@ -26,8 +26,11 @@ def test_weekly_series_reads_only_from_the_cutoff(monkeypatch):
     seen = []
 
     def fake_rows(sql, params=()):
-        seen.append((" ".join(sql.split()), params))
-        return [("20231020", 1000.0), ("20231027", 1100.0)]
+        s = " ".join(sql.split())
+        seen.append((s, params))
+        if s.startswith("SELECT 'below'"):            # 261019: DB 에 실제로 남은 주간 구간 — 하한 아래엔 연말 행뿐(지금 운영과 같은 모양)
+            return [("below", "20221229", 2558), ("first", "20231020", 2634), ("ref", "20261016", 2762)]
+        return [("20231020", 1000.0, "w"), ("20231027", 1100.0, "w")]
 
     monkeypatch.setattr(S, "_pg_rows", fake_rows)
     monkeypatch.setattr(S, "_krx_db_latest_dd", lambda: "20261016")
@@ -35,10 +38,10 @@ def test_weekly_series_reads_only_from_the_cutoff(monkeypatch):
     # 명시한 하한
     series = asyncio.run(S._weekly_series("005930", fin=fin, finq={}, since_dd="20231016"))
     assert [p["asof"] for p in series] == ["20231020", "20231027"]
-    assert "price_dd>=%s" in seen[-1][0] and seen[-1][1] == ("005930", "20231016")
-    # 비우면 저장된 최신 주(20261016)의 달력 3년 전 — 표를 자르는 쪽과 같은 정의
+    assert "price_dd>=%s" in seen[-1][0] and seen[-1][1] == ("005930", "20231016", "005930")
+    # 비우면 저장된 최신 주(20261016)의 달력 3년 전 — 표를 자르는 쪽과 같은 정의(하한 아래에 이어진 주간 행이 없을 때)
     asyncio.run(S._weekly_series("005930", fin=fin, finq={}))
-    assert seen[-1][1] == ("005930", R.krx_weekly_cutoff("20261016")) == ("005930", "20231016")
+    assert seen[-1][1] == ("005930", R.krx_weekly_cutoff("20261016"), "005930") == ("005930", "20231016", "005930")
 
 
 def test_weekly_bounds_use_stored_latest_week_not_today(monkeypatch):
@@ -106,26 +109,26 @@ def test_firm_history_passes_the_cutoff_and_says_so(monkeypatch):
     async def fake_resolve(q):
         return {"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126380"}, None
 
-    async def fake_fin_y(isu, cur="KRW"):
+    async def fake_fin_y(isu, cur="KRW", fye=12):
         return {2022: (1.0, 1.0)}
 
-    async def fake_fin_q(isu, cur="KRW"):
+    async def fake_fin_q(isu, cur="KRW", fye=12):
         return {}
 
-    async def fake_band(isu, cur="KRW", fin=None):
+    async def fake_band(isu, cur="KRW", fin=None, fye=12):
         return [{"period": "2022", "asof": "20221229", "pit_fy": 2021, "cap_krw": 4e14, "per_fy0": 10.0,
                  "pbr_fy0": 1.0, "source": "연말(PIT FY2021)"}]
 
     async def fake_bounds():
         return "20261016", "20231016"
 
-    async def fake_series(isu, cur="KRW", fin=None, finq=None, since_dd=None):
+    async def fake_series(isu, cur="KRW", fin=None, finq=None, since_dd=None, fye=12, raw_out=None):
         got["since_dd"] = since_dd
         return [dict(POINT), dict(LATEST_POINT)]
 
     def fake_rows(sql, params=()):
         if "FROM dart_fundamentals" in sql:
-            return [("KS", "C26", "KRW")]
+            return [("KS", "C26", "KRW", None, "ok")]
         return []
 
     monkeypatch.setattr(S, "_resolve_listed", fake_resolve)

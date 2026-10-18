@@ -6,7 +6,10 @@
 공시 필터로만 쓰고 **목록 자체를 돌려주는 도구가 없었을 뿐**이다.
 
 여기서는 그 집합에 시총·종가·시장(일별 시세 저장분의 최신 거래일 단면)과 회사 이름(DART 회사 원장,
-캐시)을 붙여 순위표로 만든다. DART 0콜 · DB 1콜. 순위는 **요청한 시장 안에서** 시총 내림차순이다.
+캐시)을 붙여 순위표로 만든다. DART 0콜 · DB 1콜(지수는 구성종목 원장 1콜 더). 순위는 **요청한 시장 안에서** 시총 내림차순이다.
+
+261018: 「코스피200」·「코스닥150」은 지수 구성종목 원장(`open_proxy_mcp/index_members.py`)에서 종목을 받는다 — 정원으로
+자르지도, 우선주 판정으로 빼지도 않는다(원장이 정한 집합). 원장을 못 읽을 때만 종전처럼 그 시장 시총 상위 정원으로 대체하고 밝힌다.
 
 261018: 시총·종가·시장을 `krx_weekly` 이번 주 행에서 읽던 것을 일별 시세 저장분(`krx_daily_v`)으로 옮겼다.
 기준일은 `resolve_universe` 가 준 날짜(`krx_daily` 의 가장 늦은 거래일)를 그대로 쓴다 — 기준일과 행이 같은
@@ -25,7 +28,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from open_proxy_mcp.company_resolver import issuer_ticker
 from open_proxy_mcp.db import pg_rows
+from open_proxy_mcp.index_members import INDEXES
 from open_proxy_mcp.market_codes import to_label
 
 _RANK_SPEC = re.compile(r"^(kospi|kosdaq|top_mktcap):(\d+)$")
@@ -94,6 +99,7 @@ class UniverseList:
     db_ok: bool = True             # False = 저장분 조회 자체가 안 됨(미설정/장애)
     excluded_pref: int = 0         # 순위에서 뺀 우선주 수
     question: str = ""             # 비어 있지 않으면 해석하지 않고 되물은 것
+    members_dd: str | None = None  # 지수 구성종목 원장에서 만든 목록이면 그 구성의 마지막 확인 거래일(261018)
 
 
 def _krx_rows(price_dd: str, codes: list[str] | None) -> list[tuple] | None:
@@ -132,17 +138,16 @@ async def _names_by_ticker() -> dict[str, str]:
 
 def is_preferred(ticker: str, names: dict[str, str]) -> bool:
     """우선주 판정: 원장에 없는 코드인데 끝자리를 0 으로 바꾼 보통주 코드는 원장에 있다
-    (005935→005930 삼성전자, 005387→005380 현대차, 00680K→006800 미래에셋증권)."""
+    (005935→005930 삼성전자, 005387→005380 현대차, 00680K→006800 미래에셋증권).
+    규칙(끝자리 = 주식 종류)은 이름 해석기가 종류주 코드를 발행 회사로 잇는 것(`company_resolver.issuer_ticker`)과 하나다."""
     t = (ticker or "").strip()
-    if len(t) != 6 or t in names or t[5] == "0":
-        return False
-    return (t[:5] + "0") in names
+    base = issuer_ticker(t)
+    return bool(base) and t not in names and base in names
 
 
 def _padded(spec: str) -> tuple[str, int | None, str]:
-    """순위 스펙이면 (여유를 둔 스펙, 원래 N, 접두) — 우선주를 뺀 뒤에도 N 이 차게."""
-    if spec == "kospi200":
-        return "kospi:240", 200, "kospi"
+    """순위 스펙이면 (여유를 둔 스펙, 원래 N, 접두) — 우선주를 뺀 뒤에도 N 이 차게.
+    지수(kospi200·kosdaq150)는 여기서 다루지 않는다 — 구성종목 원장을 먼저 보고, 못 읽었을 때만 `list_universe` 의 대체 경로가 이 함수를 쓴다."""
     m = _RANK_SPEC.match(spec)
     if not m:
         return spec, None, ""
@@ -159,14 +164,21 @@ async def list_universe(universe: str) -> UniverseList:
     if ask:
         return UniverseList(spec="", label=raw, resolved=False, question=ask)
     spec = _nl_universe(raw)
-    query_spec, n, _prefix = _padded(spec)
-    uf = await resolve_universe(query_spec)
-    label, notice = uf.label, uf.notice
-    if spec == "kospi200":
-        label = "KOSPI200(→KOSPI 시총상위 200 대체)"
-        notice = "KOSPI200 구성종목 원장이 없어 KOSPI 시총상위 200(보통주)으로 대체했다(코스닥 미포함)."
-    elif n is not None:
-        label = re.sub(r"\d+\s*$", str(n), label)
+    idx = INDEXES.get(spec)
+    if idx is not None:
+        # 지수 — 구성종목 원장에서 집합을 받는다(정원·우선주 제외 없이 원장 그대로). 원장을 못 읽었으면 종전처럼
+        #   그 시장 시총 상위 정원으로 대체하되, 우선주를 뺀 뒤에도 정원이 차게 여유를 두고 다시 뽑는다.
+        uf = await resolve_universe(spec)
+        label, notice, n = uf.label, uf.notice, None
+        if uf.members_dd is None and uf.resolved:
+            uf = await resolve_universe(_padded(f"{idx.prefix}:{idx.size}")[0])
+            n = idx.size
+    else:
+        query_spec, n, _prefix = _padded(spec)
+        uf = await resolve_universe(query_spec)
+        label, notice = uf.label, uf.notice
+        if n is not None:
+            label = re.sub(r"\d+\s*$", str(n), label)
     if uf.price_dd is None:
         # 최신 날짜조차 못 읽었다 — 저장분이 없거나 DB 가 죽었다. 종목 집합 문제가 아니다.
         return UniverseList(spec=spec, label=label, resolved=False, notice=notice, db_ok=False)
@@ -180,7 +192,17 @@ async def list_universe(universe: str) -> UniverseList:
         return UniverseList(spec=spec, label=label, resolved=True, notice=notice,
                             as_of=uf.price_dd, db_ok=False)
     names = await _names_by_ticker()
-    keep_pref = spec.startswith("custom:")   # 직접 고른 코드는 우선주라도 뺄 이유가 없다
+    # 직접 고른 코드와 지수 구성종목(원장 그대로)은 우선주 판정으로 빼지 않는다 — 고른 쪽이 정한 집합이다.
+    keep_pref = spec.startswith("custom:") or uf.members_dd is not None
+    if uf.members_dd is not None:
+        # 원장에는 있는데 그 날 시세가 없는 구성종목(거래정지·신규 편입 직후 등) — 빼고 밝힌다. 조용히 줄이지 않는다.
+        seen = {r[0] for r in rows}
+        absent = sorted(set(uf.allowed or ()) - seen)
+        if absent:
+            more = f" 외 {len(absent) - 10}종목" if len(absent) > 10 else ""
+            notice = " ".join(x for x in (notice, (
+                f"구성종목 {len(uf.allowed or ())}개 중 {len(absent)}개는 {uf.price_dd} 시세가 없어 표에서 빠졌다: "
+                + ", ".join(absent[:10]) + more + ".")) if x)
     out: list[dict[str, Any]] = []
     excluded = 0
     for t, m, cap, close, shrs in rows:
@@ -195,4 +217,4 @@ async def list_universe(universe: str) -> UniverseList:
     if n is not None:
         out = out[:n]
     return UniverseList(spec=spec, label=label, resolved=True, notice=notice,
-                        as_of=uf.price_dd, rows=out, excluded_pref=excluded)
+                        as_of=uf.price_dd, rows=out, excluded_pref=excluded, members_dd=uf.members_dd)

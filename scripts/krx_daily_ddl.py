@@ -1,25 +1,35 @@
 #!/usr/bin/env python3
-"""krx_daily 스키마 — 표·인덱스·뷰 2개·접근 제어. **서버는 DDL 을 실행하지 않는다 — 사람이 배포 전에 한 번 적용한다.**
+"""krx_daily 스키마 — 일별 시세를 압축 모양 사실값 표 + 거래일 달력 + 종목 번호표로, 옛 이름은 같은 칸의 뷰로.
+**서버는 DDL 을 실행하지 않는다 — 사람이 배포 전에 한 번 적용한다.** (이 저장소 `scripts/*_ddl.py` 관례: 스크립트 안 상수, 전부 멱등)
 
-261018 신설(Supabase 재설계 3단계). 이 저장소의 DDL 관례(스크립트 안의 `CREATE … IF NOT EXISTS` 상수)를 따르되,
-서버 쓰기 경로가 표를 만들지 않으므로 별도 스크립트로 둔다. **전부 멱등**이다(다시 돌려도 같은 결과).
+261018 신설(재설계 3단계: 표 `krx_daily` 하나, 7거래일) → 261019 개정(재설계 v03 C1: 보관 약 1년, 압축 모양 + 달력 + 번호표).
 
-    python3 scripts/krx_daily_ddl.py            # SQL 을 화면에 낸다. 아무것도 실행하지 않는다 — SQL 편집기에 붙여 넣을 수 있다
-    python3 scripts/krx_daily_ddl.py --no-tx    # BEGIN/COMMIT 없이 본문만 — 자체적으로 트랜잭션을 거는 도구(마이그레이션 적용기)용
-    python3 scripts/krx_daily_ddl.py --apply    # DATABASE_URL 의 DB 에 한 트랜잭션으로 적용한다 (실패하면 전부 되돌린다)
+    python3 scripts/krx_daily_ddl.py                # 새 DB(시험·로컬)용 SQL 출력: 표 3개 + 같은 이름 뷰 3개. 아무것도 실행하지 않는다
+    python3 scripts/krx_daily_ddl.py --no-tx        # BEGIN/COMMIT 없이 본문만 — 자체적으로 트랜잭션을 거는 도구(마이그레이션 적용기)용
+    python3 scripts/krx_daily_ddl.py --shadow       # 운영 그림자: 표 3개 + 그림자 뷰 krx_daily_s·krx_daily_v_s·price_latest_s (옛 표 그대로)
+    python3 scripts/krx_daily_ddl.py --switch       # 운영 교체: 델타 이관 → 옛 표를 krx_daily_legacy 로 → 같은 이름 뷰 3개 → G2 관문 (한 트랜잭션)
+    python3 scripts/krx_daily_ddl.py --apply [--shadow|--switch]   # DATABASE_URL 의 DB 에 한 트랜잭션으로 적용 (실패하면 전부 되돌린다)
 
-■ 표 `krx_daily` — 사실값만. 시가총액·등락률은 저장하지 않고 뷰가 계산한다.
-    trd_dd 는 `krx_weekly.price_dd` 와 같은 YYYYMMDD 문자열. 기본키 (trd_dd, ticker) + 색인 (ticker, trd_dd).
-■ 뷰 `krx_daily_v` — 모든 행 + `mktcap = close × list_shrs` + 같은 종목의 **직전 보관 행** 대비 `prev_dd`·`prev_close`·`chg`·`chg_pct`.
-    보관 창의 첫날(과 신규상장일)은 직전 행이 없어 NULL 이다. 직전 종가가 0 이면 `chg`·`chg_pct` 도 NULL.
-    🔴 직전 보관 행이 곧 「직전 거래일」은 아니다 — 빠진 날(KRX 0행·서버 중단)이나 액면분할·권리락일(기준가 조정)에는 이 값이 KRX 공표 등락률과
-    다르다. 읽는 쪽이 `prev_dd` 가 직전 평일인지·변동폭이 일일 제한폭(±30%) 안인지 보고 믿을지 정한다(`services/trading.py`).
-■ 뷰 `price_latest` — 종목마다 가장 늦은 `trd_dd` 한 줄. `price_dd`(= trd_dd) 열을 함께 내 `krx_weekly` 를 읽던 쪽이 표 이름만 바꿔 쓸 수 있다.
-■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`)이다. 서버 역할(`postgres`)은 RLS 를 우회하고, 읽기 전용
-    역할(`opm_ro`)은 이 정책 + 명시적 `GRANT SELECT`(`krx_listing`·`fwd` 계열 스크립트와 같은 방식)로 읽는다. 뷰는 `security_invoker` 라 호출자 권한으로 평가된다.
-    🔴 `anon`·`authenticated` 에는 **권한을 주지 않는다** — 이 프로젝트의 기본 권한 설정(default privileges)이 새 표·뷰를 만들 때
-    두 역할에 SELECT 를 자동으로 주므로, 그것을 명시적으로 거둔다(Data API 를 닫을 예정이므로 노출을 늘리지 않는다).
-■ 보관은 쓰는 쪽이 한다: 가장 최근 서로 다른 거래일 7개만 남기고 지운다(`open_proxy_mcp/krx_daily.py`).
+■ 표 `krx_px` — 일별 사실값(한 행 = 종목 × 거래일). 칸 순서는 정렬 경계 기준(행 본체 80 B). 시·고·저·종·`cmp` int4,
+    거래량·거래대금·상장주식수 int8(거래대금·주식수는 int4 를 넘는 행이 있다), `trd_dd date`, `tid int4`, `market "char"`('S'/'Q').
+    `cmp` = KRX 공표 전일대비(`CMPPREVDD_PRC`) — 기준가 = close − cmp, 공표 등락률 = cmp / 기준가(원본 1년치 전수 재현 확인).
+    기본키 (tid, trd_dd) + BRIN(블록 범위 요약 색인)(trd_dd, autosummarize). 외래키로 달력·번호표에 없는 행이 생기지 않는다
+    (호환 뷰의 내부 조인이 행을 잃지 않게). 시가총액·등락률은 저장하지 않고 뷰가 계산한다.
+■ 표 `krx_day` — 보관 거래일 달력: date·YYYYMMDD·그날 행 수 n·휴장 closed·주 닫는 날 wk_close(한 주 = ISO 주 ∩ 달력 연도)·
+    콜드 보관 cold(그 날 행이 콜드 보관본 연도 파일에 들어갔다 — 보관본을 올린 쪽이 켠다).
+    최신일·보관 거래일 목록·창 경계는 **여기서** 읽는다(`max(dd) FILTER (WHERE n > 0)`) — 호환 뷰 위의 max(trd_dd)는 조인을 다 푼다.
+■ 표 `krx_ticker` — 종목 번호표(tid ↔ 6자리 단축코드, 영숫자 포함). 🔴 새 종목만 넣는다(`WHERE NOT EXISTS`) —
+    `INSERT … ON CONFLICT DO NOTHING` 만 쓰면 이미 있는 종목마다 번호 생성기 값을 태운다.
+■ 뷰 `krx_daily`·`krx_daily_v`·`price_latest` — 옛 표·뷰와 칸 이름·순서·형이 같다(옛 표 vs 뷰 양방향 EXCEPT ALL 0행 확인). `krx_daily_v` 는
+    직전 보관 행 칸을 창 함수 lag 대신 칸마다 스칼라 부분질의(기본키 역방향 한 번)로 낸다 — `WHERE trd_dd=…` 가 표까지 내려가고,
+    그 칸을 읽지 않는 단면 질의는 부분질의를 돌리지 않는다. 끝에 `krx_chg`·`krx_chg_pct`(KRX 공표 대비·등락률)를 더한다.
+    `price_latest` 는 종목표에서 출발해 종목당 기본키 역방향 한 번(전 행 계산 뒤 DISTINCT ON 하지 않는다), 출력은 종목순(옛 뷰와 같다).
+■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`). 서버 역할은 RLS 를 우회하고, 읽기 전용 역할(`opm_ro`)은
+    이 정책 + 명시적 `GRANT SELECT` 로 읽는다. 뷰는 `security_invoker` 라 호출자 권한으로 평가된다.
+    🔴 `anon`·`authenticated` 에는 **권한을 주지 않는다** — 이 프로젝트의 기본 권한 설정이 새 표·뷰를 만들 때 두 역할에 SELECT 를
+    자동으로 주므로 명시적으로 거둔다.
+■ 보관은 쓰는 쪽이 한다(`open_proxy_mcp/krx_daily.py`): 최신 거래일 − 달력 1년 − 1주 밖의 날을 지우되, **콜드 보관본에 들어간 날
+    (`krx_day.cold`)만** 지운다. 들어가지 않은 날은 남기고 경고한다.
 """
 from __future__ import annotations
 
@@ -31,58 +41,275 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-#: 트랜잭션 본문 — BEGIN/COMMIT 은 `render()` 가 붙인다(`--apply` 는 psycopg 트랜잭션을 쓴다).
-STATEMENTS = """\
-CREATE TABLE IF NOT EXISTS krx_daily (
-  trd_dd    text   NOT NULL,   -- YYYYMMDD (krx_weekly.price_dd 와 같은 형식)
-  ticker    text   NOT NULL,   -- 단축코드 (KRX ISU_CD)
-  market    text,              -- KS / KQ
-  open      bigint,
-  high      bigint,
-  low       bigint,
-  close     bigint,
-  volume    bigint,
-  value     bigint,            -- 거래대금(원)
-  list_shrs bigint,
-  PRIMARY KEY (trd_dd, ticker)
+TABLES = """\
+-- 종목 번호표: 6자리 단축코드(영숫자 0001A0 포함) ↔ 정수 번호. 번호는 한 번 매기면 바뀌지 않는다.
+CREATE TABLE IF NOT EXISTS krx_ticker (
+  tid    integer GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  ticker text NOT NULL UNIQUE
 );
-CREATE INDEX IF NOT EXISTS idx_krx_daily_isu ON krx_daily (ticker, trd_dd);
+-- 보관 거래일 달력: 날짜 두 표기(date·YYYYMMDD), 그날 krx_px 행 수, 휴장, 주 닫는 날, 콜드 보관 여부.
+CREATE TABLE IF NOT EXISTS krx_day (
+  trd_dd   date    PRIMARY KEY,
+  dd       text    NOT NULL UNIQUE,
+  n        integer NOT NULL DEFAULT 0,
+  closed   boolean NOT NULL DEFAULT false,
+  wk_close boolean NOT NULL DEFAULT false,
+  cold     boolean NOT NULL DEFAULT false,
+  CONSTRAINT krx_day_dd_ck CHECK (dd = (extract(year FROM trd_dd)::int * 10000 + extract(month FROM trd_dd)::int * 100
+                                        + extract(day FROM trd_dd)::int)::text),
+  CONSTRAINT krx_day_closed_ck CHECK (NOT closed OR (n = 0 AND NOT wk_close))
+);
+-- 261019: 그림자 단계에 먼저 만든 운영 달력에는 이 칸이 없다(메타데이터만 바뀌는 추가 — 표를 다시 쓰지 않는다).
+ALTER TABLE krx_day ADD COLUMN IF NOT EXISTS cold boolean NOT NULL DEFAULT false;
+-- 일별 사실값(한 행 = 종목 × 거래일). 칸 순서는 정렬 경계에 맞춘 것(행 본체 80 B). 시총·등락은 뷰가 계산한다.
+CREATE TABLE IF NOT EXISTS krx_px (
+  value     bigint,             -- 거래대금(원) ACC_TRDVAL
+  volume    bigint,             -- 거래량 ACC_TRDVOL
+  list_shrs bigint,             -- 상장주식수 LIST_SHRS
+  open      integer,            -- TDD_OPNPRC
+  high      integer,            -- TDD_HGPRC
+  low       integer,            -- TDD_LWPRC
+  close     integer,            -- TDD_CLSPRC
+  cmp       integer,            -- KRX 공표 전일대비 CMPPREVDD_PRC (기준가 = close − cmp)
+  trd_dd    date    NOT NULL REFERENCES krx_day (trd_dd),
+  tid       integer NOT NULL REFERENCES krx_ticker (tid),
+  market    "char"  NOT NULL CONSTRAINT krx_px_market_ck CHECK (market IN ('S', 'Q')),   -- S=KS(코스피) Q=KQ(코스닥)
+  PRIMARY KEY (tid, trd_dd)
+) WITH (autovacuum_vacuum_scale_factor = 0.02, autovacuum_analyze_scale_factor = 0.01);
+CREATE INDEX IF NOT EXISTS krx_px_dd_brin ON krx_px USING brin (trd_dd) WITH (pages_per_range = 16, autosummarize = on);
 
-CREATE OR REPLACE VIEW krx_daily_v WITH (security_invoker = true) AS
-SELECT d.trd_dd, d.ticker, d.market, d.open, d.high, d.low, d.close, d.volume, d.value, d.list_shrs,
-       d.close * d.list_shrs AS mktcap,
-       lag(d.trd_dd) OVER w AS prev_dd,
-       lag(d.close) OVER w AS prev_close,
-       d.close - NULLIF(lag(d.close) OVER w, 0) AS chg,
-       round((d.close - lag(d.close) OVER w)::numeric * 100 / NULLIF(lag(d.close) OVER w, 0), 2) AS chg_pct
-FROM krx_daily d
-WINDOW w AS (PARTITION BY d.ticker ORDER BY d.trd_dd);
+ALTER TABLE krx_ticker ENABLE ROW LEVEL SECURITY;
+ALTER TABLE krx_day    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE krx_px     ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS krx_ticker_read ON krx_ticker;
+CREATE POLICY krx_ticker_read ON krx_ticker FOR SELECT USING (true);
+DROP POLICY IF EXISTS krx_day_read ON krx_day;
+CREATE POLICY krx_day_read ON krx_day FOR SELECT USING (true);
+DROP POLICY IF EXISTS krx_px_read ON krx_px;
+CREATE POLICY krx_px_read ON krx_px FOR SELECT USING (true);
+REVOKE ALL ON krx_ticker, krx_day, krx_px FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE krx_ticker_tid_seq FROM anon, authenticated;
+GRANT SELECT ON krx_ticker, krx_day, krx_px TO opm_ro;
+"""
 
-CREATE OR REPLACE VIEW price_latest WITH (security_invoker = true) AS
-SELECT DISTINCT ON (v.ticker)
-       v.trd_dd, v.trd_dd AS price_dd, v.ticker, v.market, v.open, v.high, v.low, v.close,
-       v.volume, v.value, v.list_shrs, v.mktcap, v.prev_dd, v.prev_close, v.chg, v.chg_pct
-FROM krx_daily_v v
-ORDER BY v.ticker, v.trd_dd DESC;
+VIEWS_TEMPLATE = """\
+CREATE OR REPLACE VIEW krx_daily{S} WITH (security_invoker = true) AS
+SELECT d.dd AS trd_dd, k.ticker,
+       CASE p.market WHEN 'S' THEN 'KS' WHEN 'Q' THEN 'KQ' END::text AS market,
+       p.open::bigint AS open, p.high::bigint AS high, p.low::bigint AS low, p.close::bigint AS close,
+       p.volume, p.value, p.list_shrs
+FROM krx_px p
+JOIN krx_ticker k ON k.tid = p.tid
+JOIN krx_day d ON d.trd_dd = p.trd_dd;
 
-ALTER TABLE krx_daily ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS krx_daily_read ON krx_daily;
-CREATE POLICY krx_daily_read ON krx_daily FOR SELECT USING (true);
+-- 직전 행 칸(prev_dd·prev_close·chg·chg_pct)은 창 함수 lag 대신 칸마다 스칼라 부분질의(같은 종목 바로 앞 「보관」 행 1개, 기본키 역방향 한 번) —
+-- ① WHERE trd_dd=… 가 표까지 내려가고 ② 그 칸을 읽지 않는 질의(단면 시총·universe 등)는 부분질의를 아예 돌리지 않는다
+-- (뷰가 펼쳐지면서 안 쓰는 칸 식이 사라진다). 뜻은 lag 와 같다(직전 보관 행, NULL·0 처리 동일).
+-- krx_chg·krx_chg_pct = KRX 공표 전일대비·등락률(기준가 대비 — 휴장 다음 날·권리락일에도 맞다).
+CREATE OR REPLACE VIEW krx_daily_v{S} WITH (security_invoker = true) AS
+SELECT d.dd AS trd_dd, k.ticker,
+       CASE p.market WHEN 'S' THEN 'KS' WHEN 'Q' THEN 'KQ' END::text AS market,
+       p.open::bigint AS open, p.high::bigint AS high, p.low::bigint AS low, p.close::bigint AS close,
+       p.volume, p.value, p.list_shrs,
+       p.close::bigint * p.list_shrs AS mktcap,
+       (SELECT to_char(q.trd_dd, 'YYYYMMDD') FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS prev_dd,
+       (SELECT q.close::bigint FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS prev_close,
+       (SELECT p.close::bigint - NULLIF(q.close::bigint, 0) FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS chg,
+       (SELECT round((p.close::bigint - q.close::bigint)::numeric * 100::numeric / NULLIF(q.close::bigint, 0)::numeric, 2) FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS chg_pct,
+       p.cmp::bigint AS krx_chg,
+       round(p.cmp::numeric * 100::numeric / NULLIF(p.close - p.cmp, 0)::numeric, 2) AS krx_chg_pct
+FROM krx_px p
+JOIN krx_ticker k ON k.tid = p.tid
+JOIN krx_day d ON d.trd_dd = p.trd_dd;
 
-REVOKE ALL ON krx_daily, krx_daily_v, price_latest FROM anon, authenticated;
-GRANT SELECT ON krx_daily, krx_daily_v, price_latest TO opm_ro;
+-- 종목마다 가장 늦은 보관 행 한 줄(+직전 행 대비). 종목표에서 출발해 종목당 기본키 역방향 한 번 — 전 행을 계산한 뒤 DISTINCT ON 하지 않는다.
+-- 직전 행 칸은 위와 같은 스칼라 부분질의(안 읽으면 안 돈다). 출력은 종목순(옛 뷰의 DISTINCT ON 순서와 같다).
+CREATE OR REPLACE VIEW price_latest{S} WITH (security_invoker = true) AS
+SELECT d.dd AS trd_dd, d.dd AS price_dd, k.ticker,
+       CASE p.market WHEN 'S' THEN 'KS' WHEN 'Q' THEN 'KQ' END::text AS market,
+       p.open::bigint AS open, p.high::bigint AS high, p.low::bigint AS low, p.close::bigint AS close,
+       p.volume, p.value, p.list_shrs,
+       p.close::bigint * p.list_shrs AS mktcap,
+       (SELECT to_char(q.trd_dd, 'YYYYMMDD') FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS prev_dd,
+       (SELECT q.close::bigint FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS prev_close,
+       (SELECT p.close::bigint - NULLIF(q.close::bigint, 0) FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS chg,
+       (SELECT round((p.close::bigint - q.close::bigint)::numeric * 100::numeric / NULLIF(q.close::bigint, 0)::numeric, 2) FROM krx_px q
+         WHERE q.tid = p.tid AND q.trd_dd < p.trd_dd ORDER BY q.trd_dd DESC LIMIT 1) AS chg_pct
+FROM krx_ticker k
+CROSS JOIN LATERAL (SELECT x.* FROM krx_px x WHERE x.tid = k.tid ORDER BY x.trd_dd DESC LIMIT 1) p
+JOIN krx_day d ON d.trd_dd = p.trd_dd
+ORDER BY k.ticker;
+
 """
 
 
-def render() -> str:
+def _views(suffix: str) -> str:
+    """같은 이름 뷰 3개(suffix="") 또는 그림자 뷰(suffix="_s") + 접근 제어."""
+    return VIEWS_TEMPLATE.replace("{S}", suffix) + (
+        f"REVOKE ALL ON krx_daily{suffix}, krx_daily_v{suffix}, price_latest{suffix} FROM anon, authenticated;\n"
+        f"GRANT SELECT ON krx_daily{suffix}, krx_daily_v{suffix}, price_latest{suffix} TO opm_ro;\n")
+
+
+#: 주 닫는 날 다시 계산(멱등) — 정의는 `open_proxy_mcp/krx_daily.py` 의 `WK_CLOSE_SQL` 한 곳(쓰는 쪽이 기록마다 부른다).
+def _wk_close_sql() -> str:
+    from open_proxy_mcp.krx_daily import WK_CLOSE_SQL
+    return WK_CLOSE_SQL.rstrip().rstrip(";") + ";\n"
+
+
+#: 새 DB(시험·로컬): 표 + 같은 이름 뷰.
+STATEMENTS = TABLES + _views("")
+#: 운영 그림자(옛 표 그대로): 표 + 그림자 뷰.
+SHADOW_STATEMENTS = TABLES + _views("_s")
+
+#: 운영 교체 — 옛 표에만 있는 날을 옮기고(cmp NULL — 교체 뒤 KRX 원본으로 채운다) 이름을 바꾼 뒤 같은 이름 뷰를 만든다.
+#: 갱신기 잠금 키를 트랜잭션 동안 쥔다(갱신기는 try 라 그동안 건너뛴다). 이 PR 의 코드 배포와 같은 창이어야 한다(옛 쓰기 코드는 뷰에 INSERT 못 함).
+SWITCH_STATEMENTS = (
+    "SELECT pg_advisory_xact_lock(5715152913032561713);\n"   # krx_daily.REFRESH_LOCK_KEY ("OPMKRXD1")
+    + """\
+DROP TABLE IF EXISTS _mig_days;
+CREATE TEMP TABLE _mig_days ON COMMIT DROP AS
+  SELECT s.trd_dd AS dd, to_date(s.trd_dd, 'YYYYMMDD') AS trd_dd, count(*) AS n
+  FROM krx_daily s GROUP BY s.trd_dd
+  HAVING NOT EXISTS (SELECT 1 FROM krx_px p WHERE p.trd_dd = to_date(s.trd_dd, 'YYYYMMDD'));
+INSERT INTO krx_ticker (ticker)
+  SELECT DISTINCT s.ticker FROM krx_daily s JOIN _mig_days m ON m.dd = s.trd_dd
+  WHERE NOT EXISTS (SELECT 1 FROM krx_ticker k WHERE k.ticker = s.ticker)
+  ORDER BY 1;
+INSERT INTO krx_day (trd_dd, dd, n, closed)
+  SELECT trd_dd, dd, n, false FROM _mig_days
+  ON CONFLICT (trd_dd) DO UPDATE SET n = EXCLUDED.n, closed = false;
+INSERT INTO krx_px (value, volume, list_shrs, open, high, low, close, cmp, trd_dd, tid, market)
+  SELECT s.value, s.volume, s.list_shrs, s.open, s.high, s.low, s.close, NULL, m.trd_dd, k.tid,
+         CASE s.market WHEN 'KS' THEN 'S' WHEN 'KQ' THEN 'Q' END
+  FROM krx_daily s JOIN _mig_days m ON m.dd = s.trd_dd JOIN krx_ticker k ON k.ticker = s.ticker
+  ORDER BY m.trd_dd, k.tid;
+-- 휴장(보관 창 안의 평일 휴장): 스윕 장부 n_stocks=0 인 날 중 옛 표 창 [min, max] 안
+INSERT INTO krx_day (trd_dd, dd, n, closed)
+  SELECT to_date(c.price_dd, 'YYYYMMDD'), c.price_dd, 0, true
+  FROM krx_reset_sweep_checkpoint c
+  WHERE c.n_stocks = 0 AND c.price_dd BETWEEN (SELECT min(trd_dd) FROM krx_daily) AND (SELECT max(trd_dd) FROM krx_daily)
+  ON CONFLICT (trd_dd) DO NOTHING;
+SELECT count(*) AS migrated_days, coalesce(sum(n), 0) AS migrated_rows FROM _mig_days;
+"""
+    + "{WK_CLOSE}"
+    + "ALTER TABLE krx_daily RENAME TO krx_daily_legacy;\n"
+    + "ALTER INDEX krx_daily_pkey RENAME TO krx_daily_legacy_pkey;\n"
+    + "ALTER INDEX idx_krx_daily_isu RENAME TO idx_krx_daily_legacy_isu;\n"
+    + "ALTER POLICY krx_daily_read ON krx_daily_legacy RENAME TO krx_daily_legacy_read;\n"
+    + _views("").replace("CREATE OR REPLACE VIEW krx_daily ", "CREATE VIEW krx_daily ")
+    + "DROP VIEW IF EXISTS price_latest_s, krx_daily_v_s, krx_daily_s;\n"
+)
+
+#: 교체 G2 관문 — 옛 표(이제 krx_daily_legacy)와 새 같은 이름 뷰가 옛 표의 날들에서 같아야 커밋된다. 차이가 있으면 예외 → 전체 되돌림.
+SWITCH_G2_SQL = """\
+-- G2 관문(교체 트랜잭션 안): 옛 표 krx_daily_legacy vs 새 같은 이름 뷰. 옛 뷰 정의를 임시 뷰로 다시 세워 옛 표가 가진 날로 좁혀 대조하고,
+-- 차이가 하나라도 있으면 예외를 던져 교체 전체를 되돌린다(출력만 하고 커밋하지 않는다).
+CREATE TEMP VIEW krx_daily_v_legacy_v AS
+SELECT d.trd_dd, d.ticker, d.market, d.open, d.high, d.low, d.close, d.volume, d.value, d.list_shrs,
+       d.close * d.list_shrs AS mktcap, lag(d.trd_dd) OVER w AS prev_dd, lag(d.close) OVER w AS prev_close,
+       d.close - NULLIF(lag(d.close) OVER w, 0) AS chg,
+       round((d.close - lag(d.close) OVER w)::numeric * 100 / NULLIF(lag(d.close) OVER w, 0), 2) AS chg_pct
+FROM krx_daily_legacy d WINDOW w AS (PARTITION BY d.ticker ORDER BY d.trd_dd);
+CREATE TEMP VIEW price_latest_legacy_v AS
+SELECT DISTINCT ON (v.ticker) v.trd_dd, v.trd_dd AS price_dd, v.ticker, v.market, v.open, v.high, v.low, v.close,
+       v.volume, v.value, v.list_shrs, v.mktcap, v.prev_dd, v.prev_close, v.chg, v.chg_pct
+FROM krx_daily_v_legacy_v v ORDER BY v.ticker, v.trd_dd DESC;
+-- 옛 표가 가진 날로 좁혀 대조한다(그림자는 약 1년, 옛 표는 7거래일 + 델타).
+--  · krx_daily: 그 날들 전 칸 동일(형 그대로 + 글자 표현, 양방향 0행).
+--  · krx_daily_v: 옛 창 첫날은 옛 뷰에 직전 행이 없어 prev_* 가 NULL — 새 뷰는 그 앞날을 본다(의도된 차이). 첫날은 prev 를 뺀 11칸, 둘째 날부터 전 칸.
+--  · price_latest: 옛 창 안(price_dd > 옛 첫날)에 최신 행이 있는 종목만. 창 안 상장폐지 종목(최신 행이 옛 첫날 전)은 새 뷰에만 있다(의도된 차이).
+SET LOCAL statement_timeout = '600s';
+SET LOCAL work_mem = '64MB';
+CREATE TEMP TABLE _g2_win ON COMMIT DROP AS SELECT min(trd_dd) AS lo, max(trd_dd) AS hi, count(*) AS n FROM krx_daily_legacy;
+CREATE TEMP TABLE _g2 (chk text PRIMARY KEY, diff bigint NOT NULL) ON COMMIT DROP;
+INSERT INTO _g2 VALUES
+  ('legacy_empty', (SELECT (n = 0)::int FROM _g2_win)),
+  ('daily_l_minus_s', (SELECT count(*) FROM (SELECT * FROM krx_daily_legacy
+       EXCEPT ALL SELECT s.* FROM krx_daily s, _g2_win w WHERE s.trd_dd BETWEEN w.lo AND w.hi) x)),
+  ('daily_s_minus_l', (SELECT count(*) FROM (SELECT s.* FROM krx_daily s, _g2_win w WHERE s.trd_dd BETWEEN w.lo AND w.hi
+       EXCEPT ALL SELECT * FROM krx_daily_legacy) x)),
+  ('daily_text_l_minus_s', (SELECT count(*) FROM (SELECT t::text FROM krx_daily_legacy t
+       EXCEPT ALL SELECT s::text FROM krx_daily s, _g2_win w WHERE s.trd_dd BETWEEN w.lo AND w.hi) x)),
+  ('daily_text_s_minus_l', (SELECT count(*) FROM (SELECT s::text FROM krx_daily s, _g2_win w WHERE s.trd_dd BETWEEN w.lo AND w.hi
+       EXCEPT ALL SELECT t::text FROM krx_daily_legacy t) x)),
+  ('v_l_minus_s', (SELECT count(*) FROM (SELECT v.* FROM krx_daily_v_legacy_v v, _g2_win w WHERE v.trd_dd > w.lo
+       EXCEPT ALL SELECT s.trd_dd,s.ticker,s.market,s.open,s.high,s.low,s.close,s.volume,s.value,s.list_shrs,s.mktcap,s.prev_dd,s.prev_close,s.chg,s.chg_pct
+       FROM krx_daily_v s, _g2_win w WHERE s.trd_dd > w.lo AND s.trd_dd <= w.hi) x)),
+  ('v_s_minus_l', (SELECT count(*) FROM (SELECT s.trd_dd,s.ticker,s.market,s.open,s.high,s.low,s.close,s.volume,s.value,s.list_shrs,s.mktcap,s.prev_dd,s.prev_close,s.chg,s.chg_pct
+       FROM krx_daily_v s, _g2_win w WHERE s.trd_dd > w.lo AND s.trd_dd <= w.hi
+       EXCEPT ALL SELECT v.* FROM krx_daily_v_legacy_v v, _g2_win w WHERE v.trd_dd > w.lo) x)),
+  ('v_text_l_minus_s', (SELECT count(*) FROM (SELECT v::text FROM krx_daily_v_legacy_v v, _g2_win w WHERE v.trd_dd > w.lo
+       EXCEPT ALL SELECT (s.trd_dd,s.ticker,s.market,s.open,s.high,s.low,s.close,s.volume,s.value,s.list_shrs,s.mktcap,s.prev_dd,s.prev_close,s.chg,s.chg_pct)::text
+       FROM krx_daily_v s, _g2_win w WHERE s.trd_dd > w.lo AND s.trd_dd <= w.hi) x)),
+  ('v_first_l_minus_s', (SELECT count(*) FROM (SELECT v.trd_dd,v.ticker,v.market,v.open,v.high,v.low,v.close,v.volume,v.value,v.list_shrs,v.mktcap
+       FROM krx_daily_v_legacy_v v, _g2_win w WHERE v.trd_dd = w.lo
+       EXCEPT ALL SELECT s.trd_dd,s.ticker,s.market,s.open,s.high,s.low,s.close,s.volume,s.value,s.list_shrs,s.mktcap
+       FROM krx_daily_v s, _g2_win w WHERE s.trd_dd = w.lo) x)),
+  ('v_first_s_minus_l', (SELECT count(*) FROM (SELECT s.trd_dd,s.ticker,s.market,s.open,s.high,s.low,s.close,s.volume,s.value,s.list_shrs,s.mktcap
+       FROM krx_daily_v s, _g2_win w WHERE s.trd_dd = w.lo
+       EXCEPT ALL SELECT v.trd_dd,v.ticker,v.market,v.open,v.high,v.low,v.close,v.volume,v.value,v.list_shrs,v.mktcap
+       FROM krx_daily_v_legacy_v v, _g2_win w WHERE v.trd_dd = w.lo) x)),
+  ('pl_l_minus_s', (SELECT count(*) FROM (SELECT p.* FROM price_latest_legacy_v p, _g2_win w WHERE p.price_dd > w.lo
+       EXCEPT ALL SELECT s.* FROM price_latest s, _g2_win w WHERE s.price_dd > w.lo) x)),
+  ('pl_s_minus_l', (SELECT count(*) FROM (SELECT s.* FROM price_latest s, _g2_win w WHERE s.price_dd > w.lo
+       EXCEPT ALL SELECT p.* FROM price_latest_legacy_v p, _g2_win w WHERE p.price_dd > w.lo) x));
+SELECT chk, diff FROM _g2 ORDER BY chk;
+-- 정보(의도된 차이 — 관문에 넣지 않는다)
+SELECT (SELECT lo FROM _g2_win) AS legacy_lo, (SELECT hi FROM _g2_win) AS legacy_hi, (SELECT n FROM _g2_win) AS legacy_rows,
+  (SELECT count(*) FROM krx_daily_v s, _g2_win w WHERE s.trd_dd = w.lo AND s.prev_dd IS NOT NULL) AS new_first_day_with_prev,
+  (SELECT count(*) FROM price_latest_legacy_v p, _g2_win w WHERE p.price_dd = w.lo) AS legacy_latest_on_first_day,
+  (SELECT count(*) FROM price_latest s, _g2_win w WHERE s.price_dd < w.lo) AS new_latest_before_window;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM _g2 WHERE diff <> 0) THEN
+    RAISE EXCEPTION 'G2 관문 실패 — 교체를 되돌린다: %', (SELECT string_agg(chk || '=' || diff, ', ' ORDER BY chk) FROM _g2 WHERE diff <> 0);
+  END IF;
+  RAISE NOTICE 'G2 관문 통과 — 차이 0';
+END $$;
+"""
+
+SWITCH_STATEMENTS += SWITCH_G2_SQL
+
+
+def body(mode: str) -> str:
+    """모드별 트랜잭션 본문 — full(새 DB) · shadow(운영 그림자) · switch(운영 교체)."""
+    if mode == "full":
+        return STATEMENTS
+    if mode == "shadow":
+        return SHADOW_STATEMENTS
+    if mode == "switch":
+        return TABLES + SWITCH_STATEMENTS.replace("{WK_CLOSE}", _wk_close_sql())
+    raise ValueError(mode)
+
+
+def render(mode: str = "full") -> str:
     """사람이 SQL 편집기에 붙여 넣을 전체 스크립트."""
-    return "BEGIN;\n\n" + STATEMENTS + "\nCOMMIT;\n"
+    return "BEGIN;\nSET LOCAL lock_timeout = '3s';\n\n" + body(mode) + "\nCOMMIT;\n"
 
 
-def apply(url: str) -> None:
+def _relkind(con, name: str):
+    r = con.execute("SELECT c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    "WHERE n.nspname = 'public' AND c.relname = %s", (name,)).fetchone()
+    return r[0] if r else None
+
+
+def apply(url: str, mode: str = "full") -> None:
     import psycopg
     with psycopg.connect(url, connect_timeout=20) as con:      # 한 트랜잭션 — 중간에 실패하면 전부 되돌아간다
-        con.execute(STATEMENTS)
+        con.execute("SET LOCAL lock_timeout = '3s'")
+        kind = _relkind(con, "krx_daily")
+        if mode == "full" and kind == "r":
+            raise SystemExit("krx_daily 가 아직 표다 — 운영은 --shadow(그림자) 또는 --switch(교체)를 쓴다")
+        if mode == "switch" and kind != "r":
+            raise SystemExit("krx_daily 가 표가 아니다 — 이미 교체됐다")
+        con.execute(body(mode))
         con.commit()
 
 
@@ -90,9 +317,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--apply", action="store_true", help="DATABASE_URL 의 DB 에 적용 (없으면 SQL 만 출력)")
     ap.add_argument("--no-tx", action="store_true", help="출력할 때 BEGIN/COMMIT 을 붙이지 않는다")
-    args = ap.parse_args()
-    if not args.apply:
-        sys.stdout.write(STATEMENTS if args.no_tx else render())
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument("--shadow", action="store_true", help="운영 그림자(옛 표 그대로, 그림자 뷰 이름)")
+    g.add_argument("--switch", action="store_true", help="운영 교체(옛 표 → krx_daily_legacy, 같은 이름 뷰)")
+    a = ap.parse_args()
+    mode = "shadow" if a.shadow else "switch" if a.switch else "full"
+    if not a.apply:
+        sys.stdout.write(body(mode) if a.no_tx else render(mode))
         return 0
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
@@ -100,8 +331,8 @@ def main() -> int:
     if not url:
         print("DATABASE_URL 이 없습니다 — 적용하지 않았습니다.", file=sys.stderr)
         return 2
-    apply(url)
-    print("krx_daily 스키마 적용 완료 (멱등 — 다시 실행해도 같은 결과).")
+    apply(url, mode)
+    print(f"krx_daily 스키마 {mode} 적용 완료 (멱등 — 다시 실행해도 같은 결과).")
     return 0
 
 

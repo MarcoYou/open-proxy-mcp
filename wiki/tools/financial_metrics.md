@@ -9,7 +9,7 @@ related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석,
 related_decisions: [open-proxy-guideline]
 
 created: 2026-05-01
-updated: 2026-09-09
+updated: 2026-10-18
 ---
 
 # financial_metrics
@@ -332,6 +332,7 @@ sequenceDiagram
   거기서 다시 환산하면 환율이 두 번 곱해진다(260908 실측 8.87조 → 12,728조).
 
 ## 변경 이력
+- 2026-10-18: 정기보고서 네 종이 모두 DART 013 인 해의 경고 「{연도}년 reprt_code=11013 no_filing」(마지막으로 본 보고서 코드 + 엔진 상태어) → 「{연도}년 정기보고서(사업·3분기·반기·1분기) 재무제표 미공시」, md 의 「⚠ 일부 공시를 읽지 못했습니다」 줄은 일부 파싱 실패(`partial_failure`)에만 — 공시가 없는 해는 읽기 실패가 아니다. 재무 조회가 DART 오류(020·800·전송 오류)로 실패해 0건이면 「재무 공시 미존재 (정상 …)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed` 이고 그 응답은 5분 캐시에 넣지 않는다.
 - 2026-09-09 (3): `accounts` 의 CIS/SCE 는 이미 동작했으나(추가 작업 불필요) **SCE 행이 표를 깼다** —
   `account_detail` 이 축을 `|` 로 잇는데(「자본 [구성요소]|…|자본금 [구성요소]」) 그게 마크다운 표의
   칸 구분자와 충돌해 한 행이 여러 칸으로 갈라졌다. 표 칸에서 이스케이프한다.

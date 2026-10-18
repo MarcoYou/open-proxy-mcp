@@ -246,7 +246,8 @@ async def _enrich_with_document_details(
     return rows, warnings, doc_calls
 
 
-async def _fetch_equity_deals(corp_code: str, corp_name: str, bgn_de: str, end_de: str) -> tuple[list[dict[str, Any]], list[str], int]:
+async def _fetch_equity_deals(corp_code: str, corp_name: str, bgn_de: str, end_de: str) -> tuple[list[dict[str, Any]], list[str], int, bool]:
+    """반환 (행, 안내, 호출 수, 목록 조회 실패 여부). 013(공시 없음)은 검색 도우미가 빈 목록으로 돌려주므로 실패가 아니다."""
     items, notices, error = await search_filings_by_report_name(
         corp_code=corp_code,
         bgn_de=bgn_de,
@@ -261,7 +262,7 @@ async def _fetch_equity_deals(corp_code: str, corp_name: str, bgn_de: str, end_d
     warnings = []
     if error:
         warnings.append(f"타법인주식 거래 조회 실패: {error}")
-        return rows, notices + warnings, api_calls
+        return rows, notices + warnings, api_calls, True
 
     for item in items:
         report_nm = item.get("report_nm", "")
@@ -278,7 +279,7 @@ async def _fetch_equity_deals(corp_code: str, corp_name: str, bgn_de: str, end_d
             "self_filing": _is_self_filing(item.get("flr_nm", ""), corp_name),
             "is_correction": report_nm.startswith("[기재정정]"),
         })
-    return rows, notices + warnings, api_calls
+    return rows, notices + warnings, api_calls, False
 
 
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
@@ -357,10 +358,12 @@ async def build_corporate_deals_payload(
         tasks.append(_fetch_equity_deals(selected["corp_code"], selected.get("corp_name", ""), bgn_de, end_de))
 
     results = await asyncio.gather(*tasks)
-    for rows, notices, api_calls in results:
+    search_failed = False
+    for rows, notices, api_calls, failed in results:
         all_rows.extend(rows)
         warnings.extend(notices)
         total_api_calls += api_calls
+        search_failed = search_failed or failed
 
     all_rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
 
@@ -404,9 +407,11 @@ async def build_corporate_deals_payload(
                 parsing_failures += 1
             elif st in ("fetch_error", "empty_doc"):
                 fetch_failures += 1
+    # 목록 조회가 실패(013 이 아닌 DART 오류)했는데 0건이면 「없음 (정상)」이 아니라 「모른다」다(261018) → status=error.
     filing_meta = build_filing_meta(
         filing_count=len(all_rows),
         parsing_failures=parsing_failures,
+        fetch_failed=search_failed,
     )
     filing_meta["fetch_failures"] = fetch_failures
 

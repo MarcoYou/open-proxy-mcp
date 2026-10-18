@@ -9,7 +9,7 @@ related_concepts: [지분구조, 동일인]
 related_decisions: [pblntf-ty-필터링]
 
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-10-18
 ---
 
 # corporate_restructuring
@@ -147,6 +147,7 @@ sequenceDiagram
 - 외부평가 기관 신뢰도 매트릭스 (TODO).
 
 ## 변경 이력
+- 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-04-21: corporate_restructuring tool 신설 (12 → 13번째 tool, Data 8개째)
 - 2026-04-21: 5/5 전수조사 통과
 - 2026-04-29: 200기업 audit 14.8% exact (no_filing 84.2% 정상)

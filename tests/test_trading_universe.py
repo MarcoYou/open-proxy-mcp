@@ -26,6 +26,8 @@ _NAMES = {"005930": "삼성전자", "000660": "SK하이닉스", "005380": "현�
 
 def _stub(monkeypatch, caps=_CAPS, names=_NAMES, dd="20260911"):
     monkeypatch.setattr(screener, "_krx_latest_dd", lambda: dd)
+    # 지수 구성종목 원장은 못 읽는 것으로 둔다(대체 경로) — 원장이 있을 때는 `test_index_members.py`.
+    monkeypatch.setattr(screener, "_index_members_latest", lambda code: None)
 
     def top(n, price_dd, market=None):
         rows = sorted((c for c in caps if market is None or c[1] == market), key=lambda c: -c[2])

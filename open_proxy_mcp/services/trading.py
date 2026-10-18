@@ -9,7 +9,7 @@
   **전 종목**(우선주 포함) 합이다 — KRX 공표 시총과 같은 모집단. 표를 아예 나눠 뒀다(krx_cap_agg).
 
 ★ 주간 저장 시계열(`krx_weekly`)에는 OHLC·거래량·거래대금이 없다 — 종가·시총·상장주식수 3개뿐이다.
-  그 넷은 `scope=quote` 가 준다. **최근 7거래일은 DB**(`krx_daily`, 서버 백그라운드 갱신기가 매 거래일 채운다 — KRX 0콜),
+  그 넷은 `scope=quote` 가 준다. **최근 약 1년(최신 거래일 − 1년 − 1주)은 DB**(일별 시세 저장분, 서버 백그라운드 갱신기가 매 거래일 채운다 — KRX 0콜),
   그보다 오래된 날짜만 KRX 를 직접 불러 그 날짜만 준다(2콜, 전종목 응답은 날짜별 소형 LRU 에 2일치 보관).
   `scope=firm` 시계열의 **끝점**은 일별 저장분의 그 종목 최신 한 줄(`price_latest`)이다(261018) — 주간 표는 닫힌 주만 갖게 될 것이라
   「이번 주 최신값」을 주간 표에 기대지 않는다(`_with_daily_tail`).
@@ -25,12 +25,14 @@ import os
 from collections import OrderedDict
 from typing import Any
 
+from open_proxy_mcp.company_resolver import share_class_ticker
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 from open_proxy_mcp.krx_daily import read_quote
 
 from open_proxy_mcp.krx_retention import weekly_window_note
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
+from open_proxy_mcp.services.company import COMPANY_LOOKUP_NEXT_ACTION, company_not_found_warning
 from open_proxy_mcp.services.price_multiple_data import (
     _DB_ERROR_PAYLOAD_WARN,
     _KRX_CACHE,
@@ -53,7 +55,7 @@ _SCHEMES = {
     MID: "업종 중분류 28",
 }
 
-#: 과거일 시세의 **전종목 응답**을 날짜별로 2일치까지 보관하는 작은 LRU. 보관 창(최근 7거래일) 밖의 날짜를 조회하면 KRX 를
+#: 과거일 시세의 **전종목 응답**을 날짜별로 2일치까지 보관하는 작은 LRU. 보관 창(최근 약 1년) 밖의 날짜를 조회하면 KRX 를
 #: 2콜 부르는데, 종전에는 그 응답을 버리고 한 줄만 기억했다 — 한 사용자가 650종목을 훑으면 같은 날짜를 650번 불렀다(10/17 실제 사례).
 #: 이제 날짜당 1회다. 구조 {basDd: {단축코드: 줄인 행}}, 가장 오래 안 쓴 날짜부터 밀려난다.
 #: `_KRX_CACHE`(32MB, 오늘 스냅샷)에는 넣지 않는다 — 임의 과거일 조회가 오늘 스냅샷을 밀어내면 `_market_for`(배수 산출)가
@@ -89,6 +91,46 @@ def _err(subject: str, status: str, *warns: str) -> dict[str, Any]:
     return {"tool": TOOL, "status": status, "subject": subject, "warnings": list(warns)}
 
 
+def _not_found(company: str) -> dict[str, Any]:
+    """회사를 못 찾았을 때 — 다른 도구와 같은 정본 안내(`company_not_found_warning`: 사명 변경 행선지·종목코드 탈출구·회사 명부 기준 시각).
+    261018: 종전엔 입력 이름만 되풀이한 「…찾지 못했습니다.」 한 줄이라, 같은 입력을 `price_multiple_data` 는 정본 안내로 답하는데 여기만 달랐다
+    (공용 해석기 `_resolve_listed` 를 거쳐 `resolve_company_query` 를 직접 부르지 않아 안내 일관성 시험에 안 걸렸다)."""
+    out = _err(company, "not_found", company_not_found_warning(company, listed_only=True))
+    out["next_actions"] = [COMPANY_LOOKUP_NEXT_ACTION]
+    return out
+
+
+def _quoted_ticker(corp: dict) -> tuple[str, str]:
+    """(시세를 읽을 종목코드, 종류주 안내). 종류주(우선주 등) 코드로 물었으면 그 종류주 코드 — 회사(보통주)가 아니라 그 종목 자체의
+    시세·시총·상장주식수를 준다(261018: 종전엔 원장에 보통주 코드만 있어 005935 가 「못 찾음」이었다). 아니면 원장의 종목코드, 안내 없음."""
+    stock = (corp.get("stock_code") or "").strip()
+    cls = share_class_ticker(corp)
+    if not cls or not stock:
+        return stock, ""
+    return cls, (f"{cls} 는 {corp.get('corp_name') or stock}(보통주 {stock})의 종류주(우선주 등) 종목코드입니다 — 이 응답의 "
+                 f"종가·시총·상장주식수는 이 종류주 자체의 값입니다(보통주 아님). 보통주는 company=\"{stock}\".")
+
+
+def _subject(corp: dict, company: str, ticker: str, class_note: str) -> str:
+    """응답 제목 — 「삼성전자(005930)」. 종류주면 「삼성전자 종류주(005935)」(원장에 종류주 이름이 없어 발행 회사 이름에 붙인다)."""
+    return f"{corp.get('corp_name', company)}{' 종류주' if class_note else ''}({ticker})"
+
+
+def declare_inferred(payload: dict[str, Any]) -> dict[str, Any]:
+    """이름이 정확히 맞지 않아 **추정으로 고른** 기업을 응답 맨 앞에 밝힌다 — 다른 도구(`declare_weak_resolution`)와 같은 문장(261018).
+
+    종전엔 이 도구만 그 고지를 버렸다 — 「삼성전자우」가 삼성전자(보통주) 시세로 경고 없이 바뀌었다(우선주 이름은 원장에 없어
+    오타 교정으로 보통주 회사에 닿는다). 고지는 「종목코드로 다시」를 안내하고, 우선주는 그 종목코드로 부르면 그 종목 자체 시세를 준다.
+    종류주 **코드** 고지는 싣지 않는다 — 이 도구는 그 종류주 자체의 값을 주므로 따로 적는다(`_quoted_ticker`)."""
+    from open_proxy_mcp.services.contracts import _weak_resolution_warnings
+
+    lines = _weak_resolution_warnings()
+    if not lines or not isinstance(payload, dict):
+        return payload
+    payload["warnings"] = lines + [w for w in payload.get("warnings") or [] if w not in lines]
+    return payload
+
+
 # ── DB 미연결 vs DB 장애 ──────────────────────────────────────────────────────
 # `_pg_rows` 는 **둘 다 None** 으로 돌려준다(`DATABASE_URL` 미설정 / 접속 실패). 종전에는 그 None
 # 을 전부 「일시 장애 · 잠시 후 재시도」로 안내했는데, 스냅샷 DB 를 아예 붙이지 않은 서버에서는
@@ -100,6 +142,13 @@ _DB_UNSET_WARN = ("이 서버에는 스냅샷 DB(`DATABASE_URL`)가 연결돼 �
 #: 시총 집계 저장분이 비었을 때(배치 미실행). 261018: 사용자 문장에 표·배치 이름(종전 「krx_cap_agg 비어있음 —
 #: krx_cap_agg.py 배치 미실행」)을 쓰지 않는다 — 260907 저장소 이름 정리(`_DB_UNSET_WARN` 의 「주간 시세·시총 집계」)와 같은 말.
 _CAP_AGG_EMPTY_WARN = "시총 집계 저장분이 비어 있음 — 집계 배치 미실행."
+#: 261018: 섹터 집계(krx_cap_agg)는 이 날짜(그때의 주간 시세 보존 하한)부터만 업종분류 보강분 — 구성종목에서만 빠진 상장 종목의
+#:   이어 쓰기·우선주·기업 정보 화면 관측(scripts/refresh_sector_class.py) — 을 반영해 다시 집계했다. 그 이전 점은 원천 주간 시세가
+#:   종목별 연말 행만 남아 다시 집계하지 못한 옛 값(구성종목 관측만으로 센 값)이라, 버킷 종목 수·시총이 이 날짜 앞뒤로 계단처럼
+#:   바뀐다(실측: 코스닥 건강관리 20231013 228 → 20231020 258종목, 코스닥 미분류 283 → 162). 실제 편입·이탈이 아니다.
+#:   하한 이전을 차가운 층 원천으로 다시 집계하면 이 상수와 경고를 지운다.
+_SECTOR_RECLASS_SINCE = "20231016"
+_UNCLASSIFIED_BUCKET = {"bucket": "_UNCLASSIFIED", "label": "미분류"}
 _LIVE_ONLY_WARN = ("⚠ **KRX 라이브 · 시계열 아님** — 스냅샷 DB 가 없어 최신 1시점만 KRX 에서 직접 "
                    "받아온 값입니다. 과거 추이·기간 비교는 이 서버에서 할 수 없습니다.")
 
@@ -213,8 +262,8 @@ async def build_firm_series_payload(company: str, format: str = "md",
         early["tool"] = TOOL
         return early
     if not corp:
-        return _err(company, "not_found", f"'{company}' 상장사를 찾지 못했습니다.")
-    ticker = (corp.get("stock_code") or "").strip()
+        return _not_found(company)
+    ticker, class_note = _quoted_ticker(corp)
     if not ticker:
         return _err(corp.get("corp_name", company), "unlisted", "비상장 — 시세 시계열이 없습니다.")
 
@@ -238,9 +287,14 @@ async def build_firm_series_payload(company: str, format: str = "md",
         name = corp.get("corp_name", company)
         if _db_configured():
             return _err(name, "db_error", _DB_ERROR_PAYLOAD_WARN)
-        return await _firm_live_fallback(name, ticker)
+        live = await _firm_live_fallback(name, ticker)
+        if class_note and live.get("status") == "ok":
+            live["subject"] = _subject(corp, company, ticker, class_note)
+            live.setdefault("warnings", []).insert(0, class_note)
+        return live
     if not rows:
         return _err(corp.get("corp_name", company), "no_data",
+                    *([class_note] if class_note else []),
                     f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).", window_note)
 
     freq = (freq or _FREQ_DEFAULT["firm"]).strip().lower()
@@ -255,8 +309,9 @@ async def build_firm_series_payload(company: str, format: str = "md",
                   "AND adj_factor <> 1 ORDER BY event_dd",
         (ticker, first["asof"], latest["asof"])) or []
 
-    warns = [f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
-             f"연속이지만 주가는 끊깁니다."]
+    warns = ([class_note] if class_note else []) + [
+        f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
+        f"연속이지만 주가는 끊깁니다."]
     if not req or req < floor:
         warns.append(window_note)
     if ev:
@@ -265,8 +320,10 @@ async def build_firm_series_payload(company: str, format: str = "md",
                      f"{' …' if len(ev) > 5 else ''}) — 가격 시계열이 그 지점에서 불연속입니다. "
                      f"연속 비교가 필요하면 시가총액을 쓰세요(조정 불변).")
     return {"tool": TOOL, "status": "ok",
-            "subject": f"{corp.get('corp_name', company)}({ticker})",
-            "data": {"scope": "firm", "ticker": ticker, "market": rows[-1][1],
+            "subject": _subject(corp, company, ticker, class_note),
+            "data": {"scope": "firm", "ticker": ticker,
+                     **({"issuer_ticker": (corp.get("stock_code") or "").strip()} if class_note else {}),
+                     "market": rows[-1][1],
                      "as_of": latest["asof"], "from": first["asof"], "weekly_from": floor, "points": len(series),
                      "freq": freq, "points_weekly": len(full),
                      "latest": latest, "series": series,
@@ -369,6 +426,9 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
         match = next((b for b in buckets
                       if want in (b["bucket"], b["label"]) or want.lower() == (b["label"] or "").lower()),
                      None)
+        if not match and want in (_UNCLASSIFIED_BUCKET["bucket"], _UNCLASSIFIED_BUCKET["label"]):
+            # 261018: 최신 시점에 미분류가 0 이면 최신 버킷 목록에 없다 — 그래도 과거 구간의 미분류 시계열은 있다.
+            match = _UNCLASSIFIED_BUCKET
         if not match:
             return _err(want, "not_found",
                         f"'{want}' 버킷이 {scheme} 에 없습니다. "
@@ -386,12 +446,26 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     if sector_asof and sector_asof > as_of:
         warns.append(f"⚠ 업종분류는 {sector_asof} 관측을 과거에 **소급** 적용한 것입니다 "
                      "— 그때 그 업종이 아니었던 회사가 섞입니다.")
+    if series and series[0]["asof"] < _SECTOR_RECLASS_SINCE:
+        warns.append(f"⚠ {_SECTOR_RECLASS_SINCE} 이전 점은 업종분류 보강(구성종목에서만 빠진 상장 종목의 직전 분류·우선주의 "
+                     "보통주 분류·기업 정보 화면의 산업) 전에 집계된 값입니다 — 그때는 이 종목들이 미분류로 세어져, 버킷 종목 수·시총이 "
+                     "그 날짜 앞뒤로 계단처럼 바뀝니다(섹터는 늘고 미분류는 준다. 실제 편입·이탈이 아님). "
+                     "추이를 비교할 때는 그 날짜 이후 구간을 쓰십시오.")
+    if bucket == _UNCLASSIFIED_BUCKET["label"] and not any(b["bucket"] == _UNCLASSIFIED_BUCKET["bucket"] for b in buckets):
+        warns.append(f"최신 {as_of} 미분류는 0종목입니다 — 미분류가 0 인 시점은 집계 행이 없어, 시계열은 미분류가 있던 "
+                     "마지막 시점에서 끝납니다(그 뒤는 0).")
     unc = [b for b in buckets if b["bucket"] == "_UNCLASSIFIED"]
     if unc:
         tot = sum(b["cap_krw"] for b in buckets) or 1
+        # 261018: 업종분류 저장분은 공급처 구성종목에 없는 상장 보통주를 기업 정보 화면의 산업(한 단계 아래)으로 채우고,
+        #   화면을 못 본 종목은 직전 분류를, 우선주는 같은 회사 보통주 분류를 잇는다(scripts/refresh_sector_class.py).
+        #   남는 미분류는 두 원천 모두에 분류가 없는(또는 화면의 산업이 대응표에 없는) 종목과 그 우선주다.
         warns.append(f"미분류 {sum(b['n'] for b in unc)}종목 · 시총 "
-                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 우선주·신규상장 등 업종분류 구성종목에 "
-                     "없는 것. 버리지 않고 `_UNCLASSIFIED` 로 남겨 섹터 합 = 시장 합을 유지합니다.")
+                     f"{sum(b['cap_krw'] for b in unc)/tot:.1%} — 업종분류 공급처의 구성종목 응답에도 기업 정보 화면에도 "
+                     "분류가 없는 종목(화면의 산업이 하위업종 대응표에 없는 경우 포함)과 그 우선주. 구성종목에 없는 상장 보통주는 "
+                     "기업 정보 화면의 산업을 하위업종으로 올려 쓰고, 화면을 못 본 종목은 직전 분류를, "
+                     "우선주는 같은 회사 보통주 분류를 이어 씁니다. "
+                     "버리지 않고 `_UNCLASSIFIED` 로 남겨 섹터 합 = 시장 합을 유지합니다.")
     return {"tool": TOOL, "status": "ok", "subject": f"섹터 시가총액 ({_SCHEMES[scheme]})",
             "data": {"scope": "sector", "scheme": scheme, "scheme_desc": _SCHEMES[scheme],
                      "as_of": as_of, "sector_asof": sector_asof,
@@ -402,7 +476,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
             "warnings": warns}
 
 
-# ── 3. 단일시점 시세 (OHLC·거래량·거래대금·등락률) — 최근 7거래일은 DB, 그 이전은 KRX 라이브 ──────────────
+# ── 3. 단일시점 시세 (OHLC·거래량·거래대금·등락률) — 최근 약 1년은 DB, 그 이전은 KRX 라이브 ──────────────
 _QUOTE_FIELDS = (
     ("TDD_CLSPRC", "close_krw", "종가"), ("TDD_OPNPRC", "open_krw", "시가"),
     ("TDD_HGPRC", "high_krw", "고가"), ("TDD_LWPRC", "low_krw", "저가"),
@@ -416,10 +490,11 @@ _QUOTE_KEEP_KEYS = ("ISU_CD",) + tuple(src for src, _, _ in _QUOTE_FIELDS) + ("M
 _METHOD_LIVE = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본. "
                 "그 날짜 실제 체결가 — 수정주가가 아닙니다. "
                 "시가(TDD_OPNPRC)는 첫 체결가라 기준가와 다릅니다.")
-_METHOD_DB = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본을 서버가 매 거래일 보관한 최근 7거래일 저장분. "
+_METHOD_DB = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본을 서버가 매 거래일 보관한 최근 약 1년(최신 거래일 − 1년 − 1주) 저장분. "
               "그 날짜 실제 체결가 — 수정주가가 아닙니다. 시가는 첫 체결가라 기준가와 다릅니다. "
-              "시가총액 = 종가 × 상장주식수. 대비·등락률 = 직전 평일 종가 대비로 계산한 값이며, 직전 평일 행이 없거나(휴장 다음 날·빠진 날) "
-              "변동이 일일 제한폭(±30%)을 넘거나(액면분할·권리락 등 기준가 조정일) 직전 행이 없으면(보관 첫날·신규상장일) KRX 공표값을 씁니다.")
+              "시가총액 = 종가 × 상장주식수. 대비·등락률 = KRX 공표값(기준가 대비 — 휴장 다음 날·권리락일에도 KRX 와 같습니다)을 함께 보관해 씁니다. "
+              "공표값이 보관되지 않은 날만 직전 평일 종가 대비로 계산하고, 직전 평일 행이 없거나(휴장 다음 날·빠진 날) "
+              "변동이 일일 제한폭(±30%)을 넘거나(액면분할·권리락 등 기준가 조정일) 직전 행이 없으면(보관 첫날·신규상장일) KRX 공표값을 받아 씁니다.")
 
 #: KRX 일일 가격제한폭. 전일 종가 대비 이보다 큰 변동은 정상 거래일의 변동이 아니다 — 기준가 조정일이거나, 사이의 거래일이 빠진 비교다.
 _DAILY_LIMIT_PCT = 30.0
@@ -514,12 +589,21 @@ def _quote_from_krx_row(row: dict) -> tuple[dict, str | None]:
     return q, mkt_label(row.get("MKT_NM") or "")
 
 
+def _published_change(r: dict) -> bool:
+    """그 행에 KRX 공표 대비(`krx_chg` — 저장한 `CMPPREVDD_PRC`)가 있나. 있으면 대비·등락률은 그것이다(KRX 라이브 경로와 같은 값)."""
+    return r.get("krx_chg") is not None
+
+
 def _quote_from_db_row(r: dict) -> tuple[dict, str | None]:
-    """`krx_daily_v` 한 줄 → KRX 라이브 경로와 **같은 키·같은 단위**의 시세. 시총·대비·등락률은 뷰가 계산한 값이다."""
+    """`krx_daily_v` 한 줄 → KRX 라이브 경로와 **같은 키·같은 단위**의 시세. 시총은 뷰가 계산한 값이다.
+    대비·등락률은 KRX 공표값(`krx_chg`·`krx_chg_pct` — 라이브 경로의 `CMPPREVDD_PRC`·`FLUC_RT` 와 같은 값, 원본 1년치 전수 재현 확인)이고,
+    공표값이 보관되지 않은 행(교체 직후 옮겨 온 행 등)만 직전 보관 행 대비 계산값(`chg`·`chg_pct`)을 쓴다."""
+    pub = _published_change(r)
+    chg, pct = (r["krx_chg"], r.get("krx_chg_pct")) if pub else (r["chg"], r["chg_pct"])
     q = {"close_krw": r["close"], "open_krw": r["open"], "high_krw": r["high"], "low_krw": r["low"],
-         "change_krw": r["chg"], "volume": r["volume"], "value_krw": r["value"],
+         "change_krw": chg, "volume": r["volume"], "value_krw": r["value"],
          "mktcap_krw": r["mktcap"], "list_shrs": r["list_shrs"],
-         "change_pct": float(r["chg_pct"]) if r["chg_pct"] is not None else None}
+         "change_pct": float(pct) if pct is not None else None}
     return q, mkt_label(r["market"])
 
 
@@ -527,7 +611,7 @@ async def build_quote_payload(company: str, format: str = "md",
                               as_of: str = "") -> dict[str, Any]:
     """특정 거래일 전체 시세 — OHLC·거래량·거래대금·등락률.
 
-    ① `as_of` 가 비었거나 **보관 창(최근 7거래일) 안**이면 DB 한 왕복(KRX 0콜).
+    ① `as_of` 가 비었거나 **보관 창(최근 약 1년) 안**이면 DB 한 왕복(KRX 0콜).
     ② 더 오래된 날짜·휴장일·보관 구멍·DB 미연결이면 KRX 라이브(최대 2콜, 날짜별 LRU 라 같은 날짜는 1회)."""
     if not (company or "").strip():
         return _err(company, "invalid", "company 가 필요합니다 — 종목명 또는 6자리 코드.")
@@ -539,12 +623,12 @@ async def build_quote_payload(company: str, format: str = "md",
         early["tool"] = TOOL
         return early
     if not corp:
-        return _err(company, "not_found", f"'{company}' 상장사를 찾지 못했습니다.")
-    ticker = (corp.get("stock_code") or "").strip()
+        return _not_found(company)
+    ticker, class_note = _quoted_ticker(corp)
     if not ticker:
         return _err(corp.get("corp_name", company), "unlisted", "비상장 — 시세가 없습니다.")
 
-    warns: list[str] = []
+    warns: list[str] = [class_note] if class_note else []
     row = None              # KRX 원본 행(라이브 경로)
     db_row = None           # krx_daily_v 한 줄(DB 경로)
     lookup = await asyncio.to_thread(read_quote, ticker, dd)    # DB 한 왕복 — 읽을 수 없으면 ok=False
@@ -552,7 +636,7 @@ async def build_quote_payload(company: str, format: str = "md",
         # 이 날짜는 보관돼 있다 — 종목이 없으면 KRX 를 부르지 않고 「없다」고 답한다.
         dd = lookup.day or dd
         if lookup.row is not None:
-            if _change_is_reliable(dd, lookup.row):
+            if _published_change(lookup.row) or _change_is_reliable(dd, lookup.row):
                 db_row = lookup.row
             else:
                 # 대비·등락률을 DB 만으로는 믿을 수 없다(`_change_is_reliable`) → KRX 공표값으로 채운다.
@@ -585,7 +669,7 @@ async def build_quote_payload(company: str, format: str = "md",
             return _err(corp.get("corp_name", company), "unsupported_market",
                         f"{ticker} 는 KONEX 종목입니다 — 이 도구의 시세 소스는 KOSPI·KOSDAQ 두 곳뿐이라 "
                         f"코넥스는 **수록 대상이 아닙니다**(휴장·거래정지와 무관). 공시 기반 도구는 그대로 씁니다.")
-        return _err(corp.get("corp_name", company), "no_data",
+        return _err(corp.get("corp_name", company), "no_data", *warns,
                     f"{dd} 에 {ticker} 시세가 없습니다 — 휴장일·상장 전·거래정지 또는 KRX 키 미설정.")
 
     q, market = _quote_from_db_row(db_row) if db_row else _quote_from_krx_row(row)
@@ -594,8 +678,10 @@ async def build_quote_payload(company: str, format: str = "md",
         warns.append("⚠ 거래량 0 — 무거래일입니다. KRX 는 이 경우 시·고·저가를 0 으로 보냅니다"
                      "(가격이 0 이라는 뜻이 아닙니다).")
     return {"tool": TOOL, "status": "ok",
-            "subject": f"{corp.get('corp_name', company)}({ticker}) {dd} 시세",
-            "data": {"scope": "quote", "ticker": ticker, "as_of": dd,
+            "subject": f"{_subject(corp, company, ticker, class_note)} {dd} 시세",
+            "data": {"scope": "quote", "ticker": ticker,
+                     **({"issuer_ticker": (corp.get("stock_code") or "").strip()} if class_note else {}),
+                     "as_of": dd,
                      "market": market, "quote": q,
                      "price_adjusted": False,
                      "source": "db" if db_row else "krx_live",
@@ -614,7 +700,7 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
     if not raw:
         return _err("유니버스", "invalid",
                     "universe 를 지정하세요 — 예: \"코스피 시총 상위 100\" · \"코스닥 상위 50\" · "
-                    "\"코스피200\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열).")
+                    "\"코스피200\" · \"코스닥150\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열).")
     ul = await list_universe(raw)
     subject = ul.label or raw
     if ul.question:
@@ -632,11 +718,18 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
                         "회사 원장에는 보통주 코드만 있습니다. 우선주 시세는 그 종목코드로 종목 시계열을 따로 부르세요.")
     if ul.notice:
         warnings.append(ul.notice)
+    if ul.members_dd:
+        # 261018: 지수는 구성종목 원장에서 — 정원으로 자르지 않는다(분할 신설회사 편입으로 정원을 잠시 넘길 수 있다).
+        basis = (f"종목은 지수 구성종목 원장에서(KRX 공식 지수 합계와 맞춰 본 구성, 마지막 확인 {ul.members_dd}) — "
+                 "정원으로 자르지 않는다. 순위는 그 안에서 시총 내림차순. ")
+    else:
+        basis = "순위는 요청한 시장 안에서 시총 내림차순. "
     return {"tool": TOOL, "status": "ok", "subject": subject,
             "data": {"scope": "universe", "universe": raw, "spec": ul.spec, "label": ul.label,
                      "as_of": ul.as_of, "n": len(ul.rows), "rows": ul.rows,
-                     "method": "시총 = 그 날 상장주식수 × 종가(우선주는 별도 종목). 순위는 요청한 시장 "
-                               "안에서 시총 내림차순. 이름은 DART 회사 원장에서 붙였고 없으면 「-」. "
+                     **({"members_dd": ul.members_dd} if ul.members_dd else {}),
+                     "method": "시총 = 그 날 상장주식수 × 종가(우선주는 별도 종목). " + basis +
+                               "이름은 DART 회사 원장에서 붙였고 없으면 「-」. "
                                "이 목록을 `forward_estimates_data(universe=…)`·`screener(universe=…)` "
                                "에 그대로 넘길 수 있습니다."},
             "warnings": warnings}
