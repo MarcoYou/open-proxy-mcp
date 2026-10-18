@@ -248,8 +248,10 @@ def test_weekly_and_tail_queries_select_the_same_columns():
 # ═══════════════════════════════════════════════════════════════════════════════
 # ⑤ 진짜 Postgres 17 — 지금 세계와 다음 세계(주간에 닫힌 주만)의 응답이 같다
 # ═══════════════════════════════════════════════════════════════════════════════
+#: 서빙이 읽는 칸만 — 운영 정의(`scripts/krx_base_resets.py` DDL)와 이름·형이 같다. 호가단위 판정에 전일 종가·기준가·라벨을 읽는다(261019).
 ADJ_DDL = """CREATE TABLE IF NOT EXISTS krx_adj_events (
-  ticker text NOT NULL, event_dd text NOT NULL, market text, adj_factor double precision,
+  ticker text NOT NULL, event_dd text NOT NULL, market text, prev_close double precision, base_price double precision,
+  adj_factor double precision, label_confidence text,
   PRIMARY KEY (ticker, event_dd));"""
 
 #: 6 거래일: 40주 목·금, 41주 목·금, 42주(이번 주) 월·화. 247540 은 41주 목요일까지만 거래하고 상장폐지(주 중간).

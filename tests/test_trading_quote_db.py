@@ -171,6 +171,95 @@ def test_holiday_or_gap_inside_the_window_also_goes_live(monkeypatch):
     assert seen == ["20261012"] and p["status"] == "no_data"
 
 
+def _cal(monkeypatch, closed, prev_dd="20261008", next_dd="20261012", calls=None):
+    def fake(dd):
+        if calls is not None:
+            calls.append(dd)
+        return (closed, prev_dd, next_dd)
+    monkeypatch.setattr(T, "_calendar_day", fake)
+
+
+def test_holiday_marked_in_the_calendar_is_answered_without_krx(monkeypatch):
+    """한글날(20261009, 금) — 달력에 휴장으로 적힌 날은 KRX 를 부르지 않고 「휴장일」 + 앞뒤 거래일로 답한다.
+
+    261019 실측: 예전엔 매번 KRX 2콜(빈 응답은 캐시 안 함) 뒤 「휴장일·상장 전·거래정지 또는 KRX 키 미설정」 일반 문구였다."""
+    monkeypatch.setattr(T, "_krx_quote_row", _no_krx_async)
+    cal_calls = []
+    _cal(monkeypatch, True, calls=cal_calls)
+    hol = QuoteLookup(ok=True, day="20261009", window=("20251010", "20261016"), day_present=False, row=None)
+    p = _quote(monkeypatch, hol, as_of="20261009")
+    assert cal_calls == ["20261009"]
+    assert p["status"] == "no_data"
+    assert p["data"]["market_closed"] is True and p["data"]["as_of"] == "20261009"
+    assert p["data"]["prev_trading_day"] == "20261008" and p["data"]["next_trading_day"] == "20261012"
+    msg = p["warnings"][-1]
+    assert "20261009(금) 은 휴장일" in msg and "휴장으로 적힌 평일" in msg and "직전 거래일 20261008" in msg
+    assert "KRX 키 미설정" not in msg
+
+
+def test_weekend_inside_the_window_is_answered_without_krx(monkeypatch):
+    monkeypatch.setattr(T, "_krx_quote_row", _no_krx_async)
+    _cal(monkeypatch, False, prev_dd="20261016", next_dd=None)
+    sat = QuoteLookup(ok=True, day="20261017", window=("20251010", "20261016"), day_present=False, row=None)
+    # 20261017(토)은 창 끝(20261016) 뒤라 지름길 밖 — 지금처럼 KRX 로 확인
+    seen = []
+
+    async def live(dd, ticker):
+        seen.append(dd)
+        return None
+    monkeypatch.setattr(T, "_krx_quote_row", live)
+    p = _quote(monkeypatch, sat, as_of="20261017")
+    assert seen == ["20261017"] and "market_closed" not in (p.get("data") or {})
+    # 창 안의 주말(20261011 일)은 0콜
+    monkeypatch.setattr(T, "_krx_quote_row", _no_krx_async)
+    _cal(monkeypatch, False)
+    sun = QuoteLookup(ok=True, day="20261011", window=("20251010", "20261016"), day_present=False, row=None)
+    p = _quote(monkeypatch, sun, as_of="20261011")
+    assert p["status"] == "no_data" and p["data"]["market_closed"] is True
+    assert "20261011(일) 은 휴장일" in p["warnings"][-1] and "주말" in p["warnings"][-1]
+
+
+def test_unmarked_weekday_gap_and_unreadable_calendar_still_go_live(monkeypatch):
+    seen = []
+
+    async def live(dd, ticker):
+        seen.append(dd)
+        return None
+    monkeypatch.setattr(T, "_krx_quote_row", live)
+    gap = QuoteLookup(ok=True, day="20261012", window=("20251010", "20261016"), day_present=False, row=None)
+    _cal(monkeypatch, False)                                   # 달력에 없는 평일(서버가 쉰 날)
+    assert _quote(monkeypatch, gap, as_of="20261012")["status"] == "no_data"
+    monkeypatch.setattr(T, "_calendar_day", lambda dd: None)   # 달력을 못 읽음
+    hol = QuoteLookup(ok=True, day="20261009", window=("20251010", "20261016"), day_present=False, row=None)
+    assert _quote(monkeypatch, hol, as_of="20261009")["status"] == "no_data"
+    assert seen == ["20261012", "20261009"]
+
+
+def test_konex_and_impossible_dates_skip_the_calendar_shortcut(monkeypatch):
+    monkeypatch.setattr(T, "_calendar_day", _no_krx)
+    async def none(dd, ticker):
+        return None
+    monkeypatch.setattr(T, "_krx_quote_row", none)
+    hol = QuoteLookup(ok=True, day="20261009", window=("20251010", "20261016"), day_present=False, row=None)
+    assert _quote(monkeypatch, hol, as_of="20261009", cls="N")["status"] == "unsupported_market"
+    bad = QuoteLookup(ok=True, day="20260231", window=("20251010", "20261016"), day_present=False, row=None)
+    assert _quote(monkeypatch, bad, as_of="20260231")["status"] == "no_data"
+
+
+def test_calendar_sql_reads_closed_flag_and_neighbours_in_one_statement(monkeypatch):
+    got = []
+
+    def fake_rows(sql, params=()):
+        got.append((sql, params))
+        return [(True, "20261008", "20261012")]
+    monkeypatch.setattr(T, "_pg_rows", fake_rows)
+    assert T._calendar_day("20261009") == (True, "20261008", "20261012")
+    sql, params = got[0]
+    assert sql.count(";") == 0 and "krx_day" in sql and "closed" in sql and params == ("20261009",) * 3
+    monkeypatch.setattr(T, "_pg_rows", lambda sql, params=(): None)
+    assert T._calendar_day("20261009") is None
+
+
 def test_db_unreadable_falls_back_to_live_for_both_forms(monkeypatch):
     down = QuoteLookup(ok=False)
     seen = []
