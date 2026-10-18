@@ -15,6 +15,7 @@ from open_proxy_mcp.services import financial_metrics as fm
 def sources(monkeypatch):
     monkeypatch.setattr(fx, "_MEM", {})
     monkeypatch.setattr(fx, "_MEM_NEG", {})
+    monkeypatch.setattr(fx, "_MEM_FALLBACK", {})
     mocks = {
         "_db_get": Mock(return_value=1450.0),
         "_db_put": Mock(),
@@ -79,7 +80,9 @@ def test_legacy_fx_still_falls_back_to_network_sources(sources):
     assert asyncio.run(fx.fx_to_krw("USD", "20241231")) == 1430.0
     sources["_ecos"].assert_awaited_once_with("USD", "20241231")
     sources["_yahoo"].assert_awaited_once_with("USD", "20241231")
-    sources["_db_put"].assert_called_once_with("USD", "20241231", 1430.0)
+    # 261019: 야후 대체값은 영구 표에 넣지 않는다(종전엔 _db_put("USD", "20241231", 1430.0) — 10-19 운영 6행이 이렇게 굳었다)
+    sources["_db_put"].assert_not_called()
+    assert fx.fx_source("USD", "20241231") == fx.SRC_YAHOO
 
 
 def test_strict_unconverted_amounts_are_missing_without_erasing_ratios_or_original_rows(sources):

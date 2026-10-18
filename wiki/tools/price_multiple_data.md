@@ -223,7 +223,7 @@ KSIC 섹터 집계 저장을 멈췄다(과거 행은 보존). 축 자체는 열�
 | 재무요약 | `build_financial_metrics_payload(stock_code)` → DART **fnlttSinglAcnt·AcntAll·Indx·감사의견** | eps_krw · revenue_krw · roe_pct · capital_impairment_status · fiscal year | EPS(FY0)·ROE·매출·자본잠식 상태 |
 | 업종/결산월 | `get_company_info` → DART **company.json** | induty_code(KSIC) · acc_mt(결산월) | 금융 판별(64/65/66 — 업종코드가 비었을 때만 저장 업종코드 → 업종분류 대분류 「금융」, 261019) · FX 기준일 |
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
-| 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + 환율 캐시 저장분 | 기능통화 · 기간 말 환율(사업연도 말 · 고른 분기 말 · 전년 동기 분기 말) | 비KRW → 재무 KRW 환산(값마다 그 기간 말 — 261019) |
+| 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 대체값 — 저장 안 함, 30분만 기억) + 환율 표 저장분(ECOS 값만) | 기능통화 · 기간 말 환율(사업연도 말 · 고른 분기 말 · 전년 동기 분기 말) | 비KRW → 재무 KRW 환산(값마다 그 기간 말 — 261019) |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
 | 시세 | **일별 시세 저장분(최근 약 1년)** 우선 — 기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest` → 미스(그날 행 없는 신규상장·거래정지 등)만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap(종가×상장주식수) · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
 | 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) · 반기·분기 결산이면 결산기별 보통주 DPS(`period_dps` — 다음·앞 사업연도 사업보고서도) | 배당수익률(반기·분기 결산 = 최근 12개월 결산기 합, 261019) |
@@ -292,8 +292,8 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
     "common_market_cap_krw": 6173130586000,
     "capital_impairment_status": "normal",
     "functional_currency": "USD", "fx_rate_to_krw": 1434.9,   // 사업연도(FY0) 말 환율
-    "fx_rates_to_krw": {"fy0": {"date": "20251231", "rate": 1434.9}, "quarter": {"date": "20260630", "rate": 1541.5},
-                        "prior_quarter": {"date": "20250630", "rate": 1356.4}}   // 외화 보고사만(261019)
+    "fx_rates_to_krw": {"fy0": {"date": "20251231", "rate": 1434.9, "source": "ecos"}, "quarter": {"date": "20260630", "rate": 1541.5, "source": "ecos"},
+                        "prior_quarter": {"date": "20250630", "rate": 1356.4, "source": "ecos"}}   // 외화 보고사만(261019) · source = "ecos"(한국은행 매매기준율) | "yahoo"(야후 대체값 — 경고 동반)
   },
   "warnings": ["기능통화 USD — 재무를 …환율 1,434.9원/USD로 KRW 환산…", "주가 기준일 …"],
   "data_quality": {"scale_tier": "clean", "scale_flags": [], "values_masked": false},
@@ -375,11 +375,15 @@ sequenceDiagram
 - **unlisted 상장후보 안내**가 리졸버 exact-match 단락으로 비는 경우(예 "삼성") — 부분매치 별도조회(v1.1).
 - 리츠 전용 섹터 처리 없음. (데이터 부재 종목의 금융 오분류는 261019 에 고침 — 업종코드로 판정.)
 - 반기·분기 결산 리츠의 배당은 최근 12개월 결산기 합이지만, 결산기가 둘뿐인 갓 상장한 리츠는 주기를 확인할 앞 결산기가 없어 마지막 결산기 하나다.
-- v1.1 백로그: RIM·EV/EBITDA·PSR·FCF·peer 랭킹·자기 5년 밴드·PIT 시계열 · FX 평균환율(flow) ·
-  한국은행 ECOS를 야후 폴백 대신 정본 유지 · 우선주 총시총 합산.
+- v1.1 백로그: RIM·EV/EBITDA·PSR·FCF·peer 랭킹·자기 5년 밴드·PIT 시계열 · FX 평균환율(flow) · 우선주 총시총 합산.
+  (「한국은행 ECOS 를 야후 대체값 대신 정본 유지」는 261019 에 했다 — 환율 표에는 ECOS 값만, 대체값은 출처 칸 `source: "yahoo"` + 경고.)
 
 ## 변경 이력
 
+- 2026-10-19: **환율 출처** — 환율 표(`ecos_fx_rate`)에 야후 종가 6행이 굳어 있었다(JPY 20241231·20250228·20260228·20260331,
+  GBP 20260131·20260331 — ECOS 와 −0.08~+0.62%). ECOS 키가 없는 GitHub Actions 배치가 캐시 미스 날짜를 야후로 받아 영구 저장했고, 서버는 그 값을 읽어
+  출처를 「한국은행 ECOS」로 적었다(JTC FY0 9.1907 — ECOS 9.1338). 이제 야후 대체값은 표에 넣지 않고 30분만 기억하며(그 뒤 ECOS 부터 다시),
+  `inputs.fx_rates_to_krw` 칸마다 `source`("ecos"/"yahoo"), 대체값이면 경고 한 줄, explain 의 출처 문구도 받은 그대로. 운영 6행은 ECOS 값으로 바로잡았다.
 - 2026-10-19: **업종 비교(`company`)의 기업 행이 3년 하한 이전 기준일에 빠지던 것**(콜드 서빙을 켠 뒤 운영에서 발견). 그 날 시총을 DB(주간·일별)에서만
   찾아, 3년 하한 이전 주(DB 에 연말 행만 남음)는 기업 행을 빼고 「그 주에 시세가 없다(상장 전·거래정지·상장폐지)」라고 했다 — 운영 10-19 005930
   `as_of=20210630`: 같은 도구 `firm` + `as_of` 는 보관본을 이은 곡선의 20210625 점으로 답했다. 이제 DB 에 그 주 행이 없으면 보관본의 같은 주 행으로

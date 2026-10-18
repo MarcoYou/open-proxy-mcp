@@ -27,7 +27,8 @@ import httpx
 import calendar
 
 from open_proxy_mcp.dart.client import get_dart_client, DartClientError, LruByteCache, _env_mb
-from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
+from open_proxy_mcp.dart.fx import (FALLBACK_WARNING, SRC_YAHOO, fiscal_year_end_date, fx_source, fx_to_krw,
+                                  statement_currency)
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.ksic_sector import ksic_bucket
 from open_proxy_mcp.services import report_calendar as _rc
@@ -2510,6 +2511,12 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                         "기간 말 근사는 수% 오차가 있다. 곡선·업종 비교와 같은 규칙이고, KRW 시총과 통화가 맞는다.")
         if fx_q_fallback:
             warnings.append(f"⚠️ 분기 말 환율 조회 실패 — 분기 값도 {fy} 사업연도 말 환율로 환산했다(분기 사이 환율 변동만큼 TTM·MRQ 오차).")
+        # 261019: 대체값(야후)을 쓴 날짜가 있으면 밝힌다 — 종전 문구·explain 은 출처를 늘 「한국은행 ECOS」로 적었다.
+        _alt = sorted({d for d in (fy_end_dd, fx_qc_dd if qc_rows and not ttm_is_annual else None,
+                                   fx_qp_dd if qc_rows and not ttm_is_annual else None)
+                       if d and fx_source(stmt_cur, d) == SRC_YAHOO})
+        if _alt:
+            warnings.append(f"⚠️ {', '.join(_dd(d) for d in _alt)} 환율: {FALLBACK_WARNING}")
     elif stmt_cur != "KRW":
         warnings.append(f"⚠️ 기능통화 {stmt_cur}인데 환율 조회 실패 — 배수 통화 불일치 가능, 원문 확인 요망.")
     if scale_verdict and scale_verdict["tier"] == "hard":
@@ -2636,9 +2643,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                                "periods": [{"stlm_dt": f"{d[:4]}-{d[4:6]}-{d[6:]}", "dps_krw": v} for d, v in dps_periods["periods"]]}
     if ecos_fx_rate != 1.0:
         # 261019: 값마다 쓴 기간 말 환율(분기 칸이 없으면 FY0 하나) — 외화 보고사에서만 칸이 생긴다.
-        inputs["fx_rates_to_krw"] = {"fy0": {"date": fy_end_dd, "rate": ecos_fx_rate},
-                                     **({"quarter": {"date": fx_qc_dd, "rate": fx_qc},
-                                         "prior_quarter": {"date": fx_qp_dd, "rate": fx_qp}}
+        # 261019: 칸마다 출처(source — "ecos" 한국은행 매매기준율 / "yahoo" 야후 대체값)를 함께 — 대체값은 영구 표에 넣지 않는다.
+        inputs["fx_rates_to_krw"] = {"fy0": {"date": fy_end_dd, "rate": ecos_fx_rate, "source": fx_source(stmt_cur, fy_end_dd)},
+                                     **({"quarter": {"date": fx_qc_dd, "rate": fx_qc, "source": fx_source(stmt_cur, fx_qc_dd)},
+                                         "prior_quarter": {"date": fx_qp_dd, "rate": fx_qp, "source": fx_source(stmt_cur, fx_qp_dd)}}
                                         if qc_rows and not ttm_is_annual else {})}
     if format == "md":
         payload["markdown"] = _render_md(payload)

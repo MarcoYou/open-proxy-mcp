@@ -29,7 +29,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import date
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
-from open_proxy_mcp.dart.fx import fiscal_year_end_date, statement_currency, fx_to_krw
+from open_proxy_mcp.dart.fx import SRC_YAHOO, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
 from open_proxy_mcp.services import report_calendar as rcal
 
 
@@ -182,11 +182,15 @@ async def fetch(tickers: list[str] | None = None):
             stmt_cur = statement_currency(rows)
             if stmt_cur != "KRW":
                 # 261018: 결산월 말일(12월 결산이면 종전과 같은 12/31 — 2월 결산 외화 보고사가 아직 오지 않은 12/31 환율을 쓰던 것을 고침)
-                ecos_fx_rate = await fx_to_krw(stmt_cur, fiscal_year_end_date(yr, fye_of.get(isu, 12)))
+                _fx_dd = fiscal_year_end_date(yr, fye_of.get(isu, 12))
+                ecos_fx_rate = await fx_to_krw(stmt_cur, _fx_dd)
                 if ecos_fx_rate is None:
                     buf.append((isu,yr,None,None,None,None,None,f"err:fx_{stmt_cur}"))
                     if len(buf)>=25: _flush(buf)
                     continue
+                if fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:
+                    # 261019: ECOS 대신 야후 대체값 — 값은 담고(누락보다 낫다) 로그에 남긴다. 배치 환경에 ECOS_API_KEY 를 둘 것.
+                    print(f"::warning::[환율] {isu} FY{yr} {stmt_cur} {_fx_dd} — ECOS 대신 야후 대체값 {ecos_fx_rate}",flush=True)
                 def _fx(x): return x*ecos_fx_rate if x is not None else None
                 ni,ni_frmtrm,eq,assets,liab,eq_total = (_fx(v) for v in (ni,ni_frmtrm,eq,assets,liab,eq_total))
             # 실시간 스케일 가드(소프트센 032680 사례, wiki §9) — mktcap은 이 배치엔 없어 ①②③만 적용.
@@ -249,9 +253,12 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
                 eq_r=gid(rows,eqa,("BS",),field) or gid(rows,"ifrs-full_Equity",("BS",),field)
                 if stmt_cur!="KRW" and (ni_r is not None or eq_r is not None):
                     # 261019: 저장은 항상 원화(fetch 와 같은 규칙 — 그 해 결산월 말일 환율). 환율을 못 구하면 그 해는 쓰지 않는다.
-                    rate=await fx_to_krw(stmt_cur, fiscal_year_end_date(fy_off, fye_of.get(isu, 12)))
+                    _fx_dd=fiscal_year_end_date(fy_off, fye_of.get(isu, 12))
+                    rate=await fx_to_krw(stmt_cur, _fx_dd)
                     if rate is None:
                         continue
+                    if fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:   # 261019: fetch 와 같은 경고
+                        print(f"::warning::[환율] {isu} FY{fy_off} 정정 {stmt_cur} {_fx_dd} — ECOS 대신 야후 대체값 {rate}",flush=True)
                     ni_r, eq_r = (v*rate if v is not None else None for v in (ni_r, eq_r))
                 if ni_r is not None or eq_r is not None:
                     restate_buf.append((isu,fy_off,fs,None,None,ni_r,eq_r,"restate_only"))

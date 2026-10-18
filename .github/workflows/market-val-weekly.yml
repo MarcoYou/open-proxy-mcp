@@ -8,7 +8,7 @@
 #   한 주 = ISO 주를 달력 연도 안으로 자른 것(`krx_retention.week_unit` — 연말 거래일이 다음 해 첫 주에 지워지지 않게).
 # 갱신 대상: opm_val_market(시장·업종) · krx_listing · krx_stock_flags · krx_cap_agg · opm_val_fwd(선행 배수, 260918).
 #   261018(재설계 6단계): 종목별 스냅샷 opm_val_firm 은 더 쓰지 않는다(종목 배수는 메모리에서만 계산 — 표는 백업 뒤 지운다).
-# 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY (ECOS_API_KEY 불필요 — fx_rate는 DB 캐시 히트)
+# 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY · 있으면 ECOS_API_KEY(261019 — 환율 표에 없는 날짜를 ECOS 로. 없으면 야후 대체값 + 경고, 표에는 넣지 않는다)
 #
 # 선행 step(260705): mkt_fundamentals 재무 4열을 SSOT(mkt_finstat_q 분기재무)에서 파생 — **DART 0콜**.
 # 신규 분기 공시분을 스냅샷 계산 전에 반영(옛 시장 aggregate 스크립트는 done셋 고정이라 갱신 불가였음 — 260902 삭제). 분기 fetch는
@@ -130,6 +130,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 없으면 빈 값(종전과 같다)
         run: uv run python scripts/market_val_weekly.py
 
       # 260903 신설 — `dividend_data` 가 「배당을 안 했다」와 「그해엔 상장 전이었다」를
