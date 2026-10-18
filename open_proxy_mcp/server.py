@@ -12,7 +12,7 @@ import time
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.capture import CaptureMiddleware
-from open_proxy_mcp.maintenance import AdmissionMiddleware, maintenance, note_rpc
+from open_proxy_mcp.maintenance import AdmissionMiddleware, install_listen_drain, maintenance, note_rpc
 from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.extensions import load_extensions
 from open_proxy_mcp.resources import register_all_resources
@@ -122,6 +122,8 @@ def build_mcp() -> MCPServer:
     register_all_prompts(mcp)
     register_all_resources(mcp)  # [실험] 공시 원문을 주소로 — 파싱이 약할 때 AI 가 직접 읽게
     load_extensions(mcp)         # 설치된 확장 패키지가 있으면 그 등록 함수를 부른다(없으면 no-op)
+    # 261019: 2026-07-28 클라이언트의 `subscriptions/listen` 스트림을 종료 신호 때 정상 종료할 수 있게 감싼다(`maintenance.DrainableListen`).
+    install_listen_drain(mcp)
 
     # 헬스 엔드포인트 — 인증 없이 200 을 내는 유일한 경로.
     # 260729 사고: mcp 2.0.0 이 fastmcp 를 제거해 서버가 부팅 즉시 죽었는데, 헬스체크가 없어
@@ -970,10 +972,24 @@ def _shutdown_aware_server_class():
             print(shutdown_report(), file=sys.stderr, flush=True)
         except Exception:                 # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
             pass
+        # 261019: 그 연결의 정체 — 2026-07-28 클라이언트의 `subscriptions/listen` 스트림. 클라이언트가 끊을 때까지 열려 있고
+        #   SDK 는 닫지 않아, uvicorn 이 kill_timeout 내내 기다렸다. 신호 때 정상 종료(마지막 결과 프레임)시킨다 — GET 대기 스트림을
+        #   sse_starlette 가 닫는 것과 같은 자리다. 진행 중인 도구 호출은 건드리지 않는다(그건 끝날 때까지 기다린다).
+        try:
+            from open_proxy_mcp.maintenance import close_listen_streams
+            close_listen_streams()
+        except Exception:                 # noqa: BLE001
+            pass
 
     class _Server(uvicorn.Server):
         def handle_exit(self, sig, frame):
             import asyncio
+            # 261019: **두 번째 신호가 SIGTERM 이어도 강제 종료로 본다.** uvicorn 은 두 번째 SIGINT 만 강제 종료(force_exit)로
+            #   치는데, fly 는 SIGINT → kill_timeout(90초) 뒤 **SIGTERM** → 다시 5초 뒤 VM 강제 종료 순이다. 그래서 SIGTERM 이 와도
+            #   연결을 계속 기다리다 VM 째로 죽었다(「Virtual machine exited abruptly」 — atexit 의 사용 기록 flush 도 못 감).
+            #   첫 신호가 SIGTERM 이면 종전처럼 정상 종료로 시작한다.
+            if self.should_exit and sig == signal.SIGTERM:
+                self.force_exit = True
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:          # 루프 밖(시험·직접 호출) — 끊긴 일이 없으니 바로 부른다
@@ -986,6 +1002,25 @@ def _shutdown_aware_server_class():
                 except RuntimeError:      # 루프가 이미 닫혔다 — atexit 의 flush 가 남은 것을 쓴다
                     pass
             super().handle_exit(sig, frame)
+            # 261019: **강제 종료 표시만으로는 끝나지 않는다** — 남은 연결을 끊는다. uvicorn 은 force_exit 이면 연결·작업 기다림은
+            #   건너뛰지만 그다음 `asyncio.Server.wait_closed()` 를 부르고, 파이썬 3.12 의 그것은 **열린 연결이 모두 닫힐 때까지** 기다린다.
+            #   로컬 실측(261019): 끝나지 않는 스트림 하나를 연 채 SIGINT → SIGTERM 을 주면 force_exit=True 인데도 서버 작업이
+            #   `base_events.py:wait_closed` 에서 멈춰 있었다(두 번째 SIGINT 도 같다). 그래서 강제 종료가 정해지면 남은 연결의 전송을
+            #   끊는다(abort) — 어차피 몇 초 뒤 VM 째로 죽을 연결이고, 끊기면 wait_closed 가 풀려 프로세스가 스스로 끝난다.
+            if self.force_exit and loop is not None:
+                try:
+                    loop.call_soon_threadsafe(self._abort_connections)
+                except RuntimeError:      # 루프가 이미 닫혔다 — 기다릴 연결도 없다
+                    pass
+
+        def _abort_connections(self) -> None:
+            for conn in list(self.server_state.connections):
+                transport = getattr(conn, "transport", None)
+                try:
+                    if transport is not None:
+                        transport.abort()
+                except Exception:         # noqa: BLE001 — 한 연결 때문에 나머지를 못 끊으면 안 된다
+                    pass
 
     return _Server
 

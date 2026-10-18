@@ -72,7 +72,8 @@ def test_open_stream_post_is_listed_with_age_method_and_phase_but_no_values():
 
     def check():
         s = maintenance.open_stats()
-        assert s["total"] == 1 and maintenance.active_posts == 1
+        # listen 스트림은 일이 아니라 알림 통로라 active_posts 에는 안 든다(test_listen_shutdown.py) — 목록에는 있다.
+        assert s["total"] == 1 and maintenance.active_posts == 0
         o = s["oldest"][0]
         assert (o["method"], o["path"], o["rpc"], o["protocol"], o["phase"], o["status"]) == \
             ("POST", "/mcp", "subscriptions/listen", "2026-07-28", "streaming", 200)
