@@ -18,6 +18,7 @@ import asyncio
 import contextvars
 import logging
 import os
+import re
 import time
 from typing import Any, NamedTuple
 
@@ -1447,6 +1448,22 @@ async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
 #: 12월 결산이 아닌 종목의 곡선·과거 시점 응답에 붙는 안내의 머리(이 머리로 firm_at 이 옮겨 붙인다).
 _FYE_NOTE_HEAD = "결산월 "
 
+#: 정기보고서 이름의 기준 연월 — 「사업보고서 (2026.06)」·「[기재정정]사업보고서 (2025.06)」 → 6.
+_REPORT_YM = re.compile(r"\((\d{4})\.(\d{2})\)")
+
+
+def _source_report_month(fm: dict | None) -> int | None:
+    """재무 요약(`build_financial_metrics_payload` summary)이 붙여 둔 출처 정기보고서 이름의 기준월. 없거나 못 읽으면 None.
+
+    261019: 실시간 firm 이 결산월 칸(`dart_fundamentals.acc_mt`)을 읽을지 가르는 데 쓴다 — 이미 받아 둔 값이라 DART·DB 읽기가 늘지 않는다.
+    재무 요약 표의 결산월도 같은 것(사업보고서 이름의 기준월 — `market_fund_quarterly.py --acc-mt`)에서 채운다."""
+    nm = ((((fm or {}).get("data") or {}).get("source_report")) or {}).get("report_nm") or ""
+    m = _REPORT_YM.search(str(nm))
+    if not m:
+        return None
+    month = int(m.group(2))
+    return month if 1 <= month <= 12 else None
+
 
 def _fye_note(fye) -> str | None:
     """12월 결산이 아니면 칸 표기(`pit_fy`·`pit_q`) 읽는 법 한 줄 — 12월 결산은 None(종전 응답 그대로)."""
@@ -1839,8 +1856,13 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # 261018(재설계 6단계, 결산월): 회사 개황의 결산월이 12월이 아니면 재무 요약 표의 결산월(`acc_mt`)을 읽어 그것으로 최신 사업보고서와 그 뒤
     #   분기 칸을 고른다 — 곡선·업종 비교와 같은 값이다(결산월을 바꾼 회사·반기 결산 리츠는 그 칸이 12 = 종전 읽기. 개황은 「지금」 결산월이라
     #   저장된 칸과 어긋날 수 있다). 12월 결산은 읽기 하나 늘지 않고 종전 그대로다.
+    # 261019: 개황이 12월이어도 재무 요약의 출처 사업보고서 이름이 12월 기준이 아니면(「사업보고서 (2025.06)」) 같은 칸을 읽는다 — 결산월을 12월로
+    #   바꿨지만 새 결산월의 사업보고서가 아직 없는 회사(저장된 칸은 옛 결산월 — 10-19 운영 001080 6월·021880 3월)를 종전엔 12월로 읽어
+    #   실시간 firm 만 FY0 가 한 해 낡았다(001080: firm FY2025 PER N/M·TTM 45.82, 같은 날 firm + as_of·업종 비교는 FY2026 116.51).
+    #   보고서 이름은 재무 요약이 이미 받아 둔 값이라 12월 결산(이름이 12월 기준)은 여전히 읽기가 늘지 않는다.
     fye = _rc.Fiscal()
-    if _rc.fye_month(info.get("acc_mt")) != 12:
+    _rep_m = _source_report_month(fm)
+    if _rc.fye_month(info.get("acc_mt")) != 12 or (_rep_m is not None and _rep_m != 12):
         fye_row = await _db_rows("SELECT acc_mt FROM dart_fundamentals WHERE ticker=%s", (stock_code,))
         fye = _rc.fiscal(fye_row[0][0] if fye_row else None, stock_code)
     nondec = fye.month != 12
@@ -1921,7 +1943,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     stmt_cur = statement_currency(fy_rows)
     ecos_fx_rate = 1.0
     if stmt_cur != "KRW":
-        acc_mt = str(info.get("acc_mt") or "12").zfill(2)
+        # 261019: 칸을 결산월(`fye`)로 골랐으면 환산 기준일(그 사업연도 말)도 그 달 — 개황 결산월은 결산월을 바꾼 회사에서 칸과 어긋난다.
+        acc_mt = f"{fye.month:02d}" if nondec else str(info.get("acc_mt") or "12").zfill(2)
         last_day = calendar.monthrange(fy, int(acc_mt))[1]
         ecos_fx_rate = await fx_to_krw(stmt_cur, f"{fy}{acc_mt}{last_day:02d}") or 1.0
 

@@ -388,7 +388,7 @@ def _cum_rows(ni_add: str, eq: str) -> list[dict]:
 
 
 def _run_live(mp, *, company_acc_mt, db_acc_mt, reports, fm_years):
-    """reports = {(사업연도, 보고서코드): 행}. fm_years = {요청 연도(0 = 기본): (응답 연도, 그 요약의 보고서코드)}."""
+    """reports = {(사업연도, 보고서코드): 행}. fm_years = {요청 연도(0 = 기본): (응답 연도, 그 요약의 보고서코드[, 출처 정기보고서 이름])}."""
     seen = {"fm": [], "acnt": [], "sql": []}
 
     async def resolve(q):
@@ -397,9 +397,12 @@ def _run_live(mp, *, company_acc_mt, db_acc_mt, reports, fm_years):
     async def fin_metrics(code, **kw):
         y = kw.get("year") or 0
         seen["fm"].append(y)
-        fy, rc = fm_years[y]
-        return {"data": {"summary": {"eps_krw": None, "revenue_krw": 600_000_000_000, "roe_pct": 10.0,
-                                     "capital_impairment_status": None, "reprt_code": rc}, "year": fy}}
+        fy, rc, *nm = fm_years[y]
+        out = {"data": {"summary": {"eps_krw": None, "revenue_krw": 600_000_000_000, "roe_pct": 10.0,
+                                    "capital_impairment_status": None, "reprt_code": rc}, "year": fy}}
+        if nm:
+            out["data"]["source_report"] = {"report_nm": nm[0]}
+        return out
 
     async def market_for(code):
         return {"price": 1300, "date": "20261016", "common_mktcap": 60_000_000_000, "list_shrs": 46_744_805}
@@ -487,13 +490,59 @@ def test_live_firm_june_right_after_the_annual_uses_the_annual_as_ttm(monkeypatc
     assert {(2026, "11013"), (2026, "11012"), (2027, "11014")} <= set(seen["acnt"])     # 6월 결산의 다음 회계연도 칸
 
 
-def test_live_firm_reads_the_db_month_only_for_non_december_and_trusts_it(monkeypatch):
-    """회사 개황이 6월이어도 재무 요약 표가 12(결산월을 바꾼 회사·반기 결산 리츠)면 종전 읽기. 개황이 12월이면 결산월 읽기 자체가 없다."""
+def test_live_firm_reads_the_db_month_only_when_a_non_december_sign_and_trusts_it(monkeypatch):
+    """회사 개황이 6월이어도 재무 요약 표가 12(결산월을 바꾼 회사·반기 결산 리츠)면 종전 읽기. 개황이 12월이고 출처 사업보고서도 12월 기준
+    (또는 이름이 없음)이면 결산월 읽기 자체가 없다 — 12월 결산은 읽기가 늘지 않는다."""
     p, seen = _run_live(monkeypatch, company_acc_mt="06", db_acc_mt=12, reports=MARCH_REPORTS,
                         fm_years={0: (2025, "11011")})
     assert seen["fm"] == [0] and p["data"]["fiscal_year"] == 2025
     assert (2026, "11014") in seen["acnt"]                                            # 종전: fy+1 표기
     assert not any(w.startswith("결산월") for w in p["data"]["warnings"])
+    for nm in ([], ["사업보고서 (2025.12)"], ["[기재정정]사업보고서 (2025.12)"]):
+        p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=3, reports=MARCH_REPORTS,
+                            fm_years={0: (2025, "11011", *nm)})
+        assert not any("acc_mt" in s for s in seen["sql"]) and p["data"]["fiscal_year"] == 2025
+
+
+def test_live_firm_december_overview_but_non_december_report_reads_the_db_month(monkeypatch):
+    """261019: 개황은 12월(결산월을 12월로 바꿨다)인데 출처 사업보고서 이름이 3월 기준이면 결산월 칸을 읽고 그 칸(3)을 따른다 —
+    곡선·업종 비교와 같은 칸. 종전엔 개황만 보고 12월로 읽어 FY0 가 한 해 낡았다(10-19 운영 021880)."""
     p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=3, reports=MARCH_REPORTS,
-                        fm_years={0: (2025, "11011")})
-    assert not any("acc_mt" in s for s in seen["sql"]) and p["data"]["fiscal_year"] == 2025
+                        fm_years={0: (2025, "11011", "사업보고서 (2026.03)"), 2026: (2026, "11011", "사업보고서 (2026.03)")})
+    assert any("SELECT acc_mt FROM dart_fundamentals" in s for s in seen["sql"])
+    d = p["data"]
+    assert d["fiscal_year"] == 2026 and d["inputs"]["net_income_fy0_krw"] == 26_000_000_000
+    assert d["inputs"]["net_income_ttm_krw"] == 26_000_000_000 + 13_920_000_000 - 5_470_000_000
+    assert any(w.startswith("결산월 3월") for w in d["warnings"])
+    # 칸이 12(결산월을 바꾼 해의 종전 읽기)면 이름이 3월이어도 12월로 읽는다 — 칸을 믿는다
+    p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=12, reports=MARCH_REPORTS,
+                        fm_years={0: (2025, "11011", "사업보고서 (2026.03)")})
+    assert any("SELECT acc_mt FROM dart_fundamentals" in s for s in seen["sql"]) and p["data"]["fiscal_year"] == 2025
+    assert not any(w.startswith("결산월") for w in p["data"]["warnings"])
+
+
+def test_live_firm_december_overview_with_june_cells_uses_the_june_annual(monkeypatch):
+    """10-19 운영 001080(MH머트리얼즈) 재현 — 개황은 12월(결산월 변경), 저장된 칸은 6월 결산이고 2026.06 사업보고서(9/10 제출)가 최신.
+    종전 실시간 firm 은 12월로 읽어 FY2025(2025.06, 적자 → PER N/M)·TTM 2026.03 3분기 조합을 냈고, 같은 날 firm + as_of·업종 비교는
+    FY2026(2026.06) 116.51 이었다. 이제 같은 칸(FY2026 · TTM = 그 사업보고서 연간)을 쓴다."""
+    reports = {(2026, "11011"): _annual_rows("1,193,000,000", "361,379,000,000"),        # 2026.06(연결 흑자)
+               (2025, "11011"): _annual_rows("-3,536,000,000", "188,571,000,000"),       # 2025.06
+               (2026, "11014"): _cum_rows("2,782,000,000", "357,832,000,000"),           # 2026.03 3분기(지난 회계연도)
+               (2025, "11014"): _cum_rows("-3,789,000,000", "188,375,000,000")}
+    p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=6, reports=reports,
+                        fm_years={0: (2025, "11011", "사업보고서 (2026.06)"), 2026: (2026, "11011", "사업보고서 (2026.06)")})
+    d = p["data"]
+    assert d["fiscal_year"] == 2026 and d["inputs"]["net_income_fy0_krw"] == 1_193_000_000
+    assert d["inputs"]["net_income_ttm_krw"] == 1_193_000_000
+    assert (d["inputs"]["ttm_quarter"], d["inputs"]["ttm_quarter_year"]) == ("사업보고서(연간)", 2026)
+    assert d["inputs"]["controlling_equity_krw"] == 361_379_000_000 and d["multiples"]["pbr_basis"] == "FY0"
+    assert d["multiples"]["per_fy0"] == round(60_000_000_000 / 1_193_000_000, 2)
+    assert any(w.startswith("결산월 6월") for w in d["warnings"])
+
+
+def test_source_report_month_parses_only_the_report_name():
+    assert S._source_report_month({"data": {"source_report": {"report_nm": "사업보고서 (2026.06)"}}}) == 6
+    assert S._source_report_month({"data": {"source_report": {"report_nm": "[기재정정]사업보고서 (2025.12)"}}}) == 12
+    for fm in (None, {}, {"data": {}}, {"data": {"source_report": None}}, {"data": {"source_report": {"report_nm": "사업보고서"}}},
+               {"data": {"source_report": {"report_nm": "사업보고서 (2026.13)"}}}):
+        assert S._source_report_month(fm) is None
