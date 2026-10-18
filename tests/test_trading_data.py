@@ -252,21 +252,17 @@ def _sector_db(monkeypatch, latest_buckets, series_rows):
     return svc, seen
 
 
-_HEALTH_SERIES = [("20231013", "KQ", 70 * 10**12, 228), ("20231020", "KQ", 68 * 10**12, 258),
-                  ("20261016", "KQ", 90 * 10**12, 290)]
-
-
-def test_sector_series_spanning_the_reclass_boundary_warns_about_the_step(monkeypatch):
-    """보존 하한 이전 집계는 업종분류 보강(이어 쓰기·우선주·기업 화면) 전 값이다 — 그 경계를 넘는 시계열은 계단을 말해야 한다
-    (실측: 코스닥 건강관리 20231013 228 → 20231020 258종목, 실제 편입이 아님)."""
+def test_sector_series_spanning_the_old_cutoff_no_longer_warns_about_a_step(monkeypatch):
+    """261019: 하한 이전 업종 행도 업종분류 보강분으로 다시 집계했다(콜드 서빙본 — `krx_cap_agg.py --cold-sqlite`). 그래서 20231016 을 넘는
+    시계열에 「계단」 경고를 붙이지 않는다(종전 261018 엔 하한 이전이 보강 전 값이라 228 → 258 계단이 있었다 — 다시 집계 뒤 257 → 258)."""
     import asyncio
-    svc, _ = _sector_db(monkeypatch, [("KQ", "G35", "건강관리", 90 * 10**12, 290)], _HEALTH_SERIES)
+    from open_proxy_mcp.services import trading as svc_mod
+    assert not hasattr(svc_mod, "_SECTOR_RECLASS_SINCE")
+    series = [("20231013", "KQ", 70 * 10**12, 257), ("20231020", "KQ", 68 * 10**12, 258), ("20261016", "KQ", 90 * 10**12, 290)]
+    svc, _ = _sector_db(monkeypatch, [("KQ", "G35", "건강관리", 90 * 10**12, 290)], series)
     p = asyncio.run(svc.build_cap_agg_payload("sector", bucket="건강관리", freq="weekly"))
-    assert p["status"] == "ok" and any("계단" in w and svc._SECTOR_RECLASS_SINCE in w for w in p["warnings"])
-    p = asyncio.run(svc.build_cap_agg_payload("sector", bucket="건강관리", freq="weekly", since="20231020"))
-    assert not any("계단" in w for w in p["warnings"]), "경계 뒤 구간만이면 경고하지 않는다"
-    p = asyncio.run(svc.build_cap_agg_payload("sector"))
-    assert not any("계단" in w for w in p["warnings"]), "시계열이 없으면(최신 버킷만) 경고하지 않는다"
+    assert p["status"] == "ok" and [s["n"] for s in p["data"]["series"]] == [257, 258, 290]
+    assert not any("계단" in w or "업종분류 보강" in w for w in p["warnings"])
 
 
 def test_unclassified_series_stays_reachable_when_latest_has_none(monkeypatch):
