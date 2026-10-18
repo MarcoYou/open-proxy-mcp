@@ -34,6 +34,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Iterable
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.services.amendment_table import card_summary, parse_amendment_table
 from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning
 
 # ── KST(공시 기준 시간대) ──────────────────────────────────────────────
@@ -1125,6 +1126,28 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     return {"detail_status": detail_status, "fields": fields}
 
 
+async def _fetch_amendment(hit: dict, running: dict) -> dict:
+    """정정 카드에 「무엇이 바뀌었나」 — 회사가 붙인 정정 비교표를 원문 그대로 싣는다.
+
+    유형 파서는 최신 정정본의 **지금 값**만 준다. 무엇이 바뀌었는지는 그 공시 머리의 비교표에만 있다.
+    문서 1건 — 유형 파서가 방금 같은 원문을 열었으면 캐시에서 나와 DART 0콜이다(정형 API 만 쓰는
+    자기주식·증자는 1콜). 콜은 details 러닝캡에 함께 센다.
+    """
+    if running["calls"] >= _DETAILS_TOTAL_CALL_CAP:
+        return {"status": "skipped", "note": f"{_DETAILS_TOTAL_CALL_CAP}콜 러닝캡 도달"}
+    client = get_dart_client()
+    before = client.api_call_snapshot()
+    try:
+        doc = await client.get_document_cached(hit.get("rcept_no", ""))
+    except DartClientError as exc:
+        return {"status": "error", "note": f"DART {exc.status}"}
+    except Exception as exc:  # noqa: BLE001 — 표를 못 읽어도 카드는 나간다(조작값 금지)
+        return {"status": "error", "note": type(exc).__name__}
+    finally:
+        running["calls"] += max(0, client.api_call_snapshot() - before)
+    return card_summary(parse_amendment_table((doc or {}).get("html") or ""))
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  메인
 # ══════════════════════════════════════════════════════════════════════
@@ -1410,6 +1433,8 @@ async def _build_screener_payload_impl(
                 h["detail_fields"] = res.get("fields", {})
                 if res.get("note"):
                     h["detail_note"] = res["note"]
+                if h.get("is_correction"):
+                    h["amendment"] = await _fetch_amendment(h, running)
 
         await asyncio.gather(*[_run(h) for h in detail_targets])
         if running["calls"] >= _DETAILS_TOTAL_CALL_CAP:

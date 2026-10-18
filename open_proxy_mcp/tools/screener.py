@@ -64,6 +64,47 @@ _DETAIL_BADGE = {
 }
 
 
+_AMEND_MD_ROWS = 3      # md 카드에 그리는 바뀐 칸 수 — 나머지는 개수만, 전체는 json `amendment.rows`
+_AMEND_MD_CELL = 60     # 칸 글자 상한 — 넘으면 `…` 를 붙인다(잘랐다는 표시를 남긴다)
+_AMEND_SIGN = {"added": "(추가)", "deleted": "(삭제)"}
+
+
+def _amend_cell(s: str) -> str:
+    v = " / ".join((s or "").split("\n")) or "-"
+    return v if len(v) <= _AMEND_MD_CELL else v[:_AMEND_MD_CELL] + "…"
+
+
+def _amend_lines(card: dict) -> list[str]:
+    """정정 카드의 「무엇이 바뀌었나」 — 회사가 붙인 비교표를 칸 글 그대로 옮긴다."""
+    a = card.get("amendment") or {}
+    if not a:
+        return []
+    st = a.get("status")
+    if st in ("skipped", "error"):
+        return [f"    - 정정 비교표 못 읽음 ({a.get('note', st)}) — 원문 링크로 확인"]
+    head = []
+    if a.get("reason"):
+        head.append(f"정정사유 「{_amend_cell(a['reason'])}」")
+    if a.get("original_filed_date") or a.get("original_filed"):
+        head.append(f"원공시 {a.get('original_filed_date') or a['original_filed']}")
+    rows = a.get("rows") or []
+    if st == "parsed":
+        head.append(f"바뀐 칸 {a.get('row_count', len(rows))}개")
+    out = [f"    - 🔁 {' · '.join(head)}"] if head else []
+    if st != "parsed":
+        out.append(f"    - _{a.get('note', '')}_")
+        return out
+    for r in rows[:_AMEND_MD_ROWS]:
+        sign = _AMEND_SIGN.get(r.get("change"), "")
+        name = " · ".join(x for x in (r.get("section"), r.get("item")) if x)
+        out.append(f"        - {_amend_cell(name)}: {_amend_cell(r.get('before'))} → "
+                   f"{_amend_cell(r.get('after'))} {sign}".rstrip())
+    more = a.get("row_count", len(rows)) - min(len(rows), _AMEND_MD_ROWS)
+    if more > 0:
+        out.append(f"        - 그 밖에 {more}칸 — 전체는 `format=\"json\"` 의 `amendment.rows`")
+    return out
+
+
 def _detail_line(card: dict) -> str | None:
     """유형별 핵심필드 한 줄(details=true일 때)."""
     f = card.get("detail_fields") or {}
@@ -245,6 +286,7 @@ def _render_digest(payload: dict[str, Any]) -> str:
                 lines.append(f"    - {dl}{badge}")
             elif badge and h.get("detail_status") not in ("scan_only", "parsed"):
                 lines.append(f"    - _{title}_{badge}")
+            lines.extend(_amend_lines(h))
             # 링크
             dart = h.get("dart_url", "")
             link = f"    - [DART]({dart})" if dart else ""
