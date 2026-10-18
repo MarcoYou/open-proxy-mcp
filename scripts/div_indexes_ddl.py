@@ -23,6 +23,8 @@
                    DROP INDEX CONCURRENTLY IF EXISTS <이름>;
 ■ 크기 — 합계 약 1.4MB(운영 표를 복제한 로컬 Postgres 17 에 같은 문장을 돌려 잰 값: 1,112 kB + 280 kB). 쓰기는 적재 배치뿐이라 부담이 없다.
 ■ 되돌리기 —  DROP INDEX CONCURRENTLY IF EXISTS div_declared_corp_rep_yr;  DROP INDEX CONCURRENTLY IF EXISTS div_declared_yr;
+■ 261018 7단계 — `scripts/div_keys_ddl.py` 가 기본키 `(corp_code, reprt_code, bsns_year, line_no)` 를 걸고 `div_declared_corp_rep_yr` 를 지운다(앞 세 칸이 같아
+    기본키 인덱스가 같은 질의를 맡는다). 그 뒤로 이 스크립트는 기본키가 그 칸들로 시작하면 `div_declared_corp_rep_yr` 를 **다시 만들지 않는다**.
 """
 from __future__ import annotations
 
@@ -45,11 +47,28 @@ INDEXES: tuple[tuple[str, str], ...] = (
 )
 
 
+#: 기본키가 이 칸들로 시작하면 그 기본키 인덱스가 같은 질의를 맡는다(`scripts/div_keys_ddl.py`, 7단계) — 같은 인덱스를 또 만들지 않는다.
+COVERED_BY_PK: dict[str, tuple[str, ...]] = {"div_declared_corp_rep_yr": ("corp_code", "reprt_code", "bsns_year")}
+
+
+def _pk_covering(con, cols: tuple[str, ...]) -> str | None:
+    """div_declared 기본키가 `cols` 로 시작하면 그 이름, 아니면 None."""
+    row = con.execute(
+        "SELECT k.conname, array_agg(a.attname ORDER BY u.ord) FROM pg_constraint k "
+        "CROSS JOIN LATERAL unnest(k.conkey) WITH ORDINALITY u(attnum, ord) "
+        "JOIN pg_attribute a ON a.attrelid = k.conrelid AND a.attnum = u.attnum "
+        "WHERE k.conrelid = to_regclass('public.div_declared') AND k.contype = 'p' GROUP BY k.conname").fetchone()
+    if row and tuple(row[1][:len(cols)]) == tuple(cols):
+        return row[0]
+    return None
+
+
 def render() -> str:
     """사람이 SQL 편집기에 붙여 넣을 스크립트 — BEGIN/COMMIT 이 없다(CONCURRENTLY 는 트랜잭션 밖에서만 돈다). 문장을 하나씩 실행한다."""
     head = ("-- div_declared 인덱스 (CONCURRENTLY: 쓰기를 막지 않는다). 아래 문장을 **하나씩** 실행한다 — 한꺼번에 보내면 암묵 트랜잭션이 되어 실패한다.\n"
             "-- 중간에 끊겼다면 무효 인덱스가 남는다: SELECT indexrelid::regclass, indisvalid FROM pg_index "
-            "WHERE indexrelid::regclass::text LIKE 'div_declared_%';  → DROP INDEX CONCURRENTLY IF EXISTS <이름>; 후 다시.\n")
+            "WHERE indexrelid::regclass::text LIKE 'div_declared_%';  → DROP INDEX CONCURRENTLY IF EXISTS <이름>; 후 다시.\n"
+            "-- 기본키 div_declared_key (corp_code, reprt_code, bsns_year, line_no) 가 이미 있으면(scripts/div_keys_ddl.py) 첫 문장은 건너뛴다 — 기본키가 같은 질의를 맡는다.\n")
     return head + "\n" + "\n\n".join(stmt + ";" for _, stmt in INDEXES) + "\n"
 
 
@@ -71,6 +90,11 @@ def apply(url: str, out=print) -> list[tuple[str, bool, int]]:
     result: list[tuple[str, bool, int]] = []
     with psycopg.connect(url, autocommit=True, connect_timeout=20) as con:
         for name, stmt in INDEXES:
+            pk = _pk_covering(con, COVERED_BY_PK[name]) if name in COVERED_BY_PK else None
+            if pk:
+                out(f"{name}: 기본키 {pk} 가 같은 칸을 앞에서 덮는다 — 만들지 않음")
+                result.append((name, True, 0))
+                continue
             st = _state(con, name)
             if st is not None and not (st[0] and st[1]):
                 out(f"{name}: 이전 시도가 중간에 끊긴 무효 인덱스 — 지우고 다시 만듭니다")

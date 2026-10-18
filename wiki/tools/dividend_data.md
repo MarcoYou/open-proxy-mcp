@@ -166,11 +166,16 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 - 사업연도 범위(`MIN/MAX(bsns_year)`)는 호출마다 묻지 않고 프로세스 메모리에 **6시간** 담는다(새 사업연도는 연 1~2회 적재). 실패·빈 표는 담지 않는다.
 - 원장 `div_declared` 는 인덱스가 없어 매 질의가 표 전체를 훑었다. 인덱스 두 개(`(corp_code, reprt_code, bsns_year)` · `(bsns_year)`)는
   `scripts/div_indexes_ddl.py` 로 사람이 한 번 적용한다(서버는 DDL 을 실행하지 않는다). 결정공시 표(`div_payment`)는 이미 `(corp_code, fiscal_year)` 인덱스를 쓰므로 더하지 않았다.
+- 원장 5표(`div_declared`·`div_quarterly`·`div_payment`·`div_payment_scope`·`div_yield_hist`)에 기본키를 건다 — `scripts/div_keys_ddl.py` 로 사람이 한 번 적용.
+  적재 배치가 사업연도마다 표를 통째로 다시 쓰던 것을 「바뀐 행만」 맞추게 하는 키다. 넷은 이미 있던 UNIQUE 인덱스를 그대로 기본키로 올린다(새 인덱스 없음).
+  `div_declared` 는 원문이 한 보고서에 똑같은 줄을 여러 번 싣는 것을 지우지 않고, 보고서 안 줄 번호 `line_no` 를 더해 `(corp_code, reprt_code, bsns_year, line_no)` 를 키로 쓴다.
+  회사 시계열 질의는 기본키 인덱스가 맡으므로 4단계 인덱스 `(corp_code, reprt_code, bsns_year)` 는 지운다. 도구 출력은 그대로다.
 
 ## 관련
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
 
 ## 변경 이력
+- 2026-10-18: 원장 5표 기본키 스크립트(`scripts/div_keys_ddl.py`) — 적재가 바뀐 행만 맞추는 키. 출력은 그대로.
 - 2026-10-18: DB 호출을 이벤트 루프 밖으로 옮기고 사업연도 범위를 6시간 메모리 캐시. 원장 인덱스 스크립트 추가. 출력은 그대로.
 - 2026-10-18: `krx_listing` 배치를 증분으로 — 관측창 시작은 상수(20151230), 새 관측은 최근 주만 읽어 `first_seen_dd=LEAST`·`last_seen_dd=GREATEST` 로 합친다.
   주간 시세 저장분을 줄여도 값이 유지된다(도구 동작 변화 없음).

@@ -48,6 +48,9 @@ DDL_MIGRATE = (
 #   (snap_dd,market,scheme,sector) 4열로 바뀌었고 scheme 기본값은 'ksic' 다. 그대로 두면
 #   ① 4열 PK 에 3열 ON CONFLICT 라 터지고 ② 시장전체 행이 scheme='ksic' 로 들어가
 #   서비스가 읽는 scheme='market' 행을 영영 못 고친다. 축을 명시한다.
+# 261018(재설계 v02 7단계): 값이 같은 행은 다시 쓰지 않는다(`WHERE … IS DISTINCT FROM`). 이 백필은 2020년 이후 월말 전부를
+#   다시 계산해 올리므로, 종전에는 한 번 돌 때마다 opm_val_market 의 거의 모든 행(운영 18,601행)을 같은 값으로 다시 써서
+#   표 크기만큼 죽은 행이 남았다. 이제 계산 결과가 실제로 달라진 행만 쓴다(새 월말은 종전대로 INSERT).
 UPSERT_MKT = """
 INSERT INTO opm_val_market
   (snap_dd,market,scheme,sector,per_fy0,pbr_fy0,per_ttm,pbr_mrq,cap,ni_fy0,ni_ttm)
@@ -56,6 +59,10 @@ ON CONFLICT (snap_dd,market,scheme,sector) DO UPDATE SET
   per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
   per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap,
   ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm
+WHERE (opm_val_market.per_fy0, opm_val_market.pbr_fy0, opm_val_market.per_ttm, opm_val_market.pbr_mrq,
+       opm_val_market.cap, opm_val_market.ni_fy0, opm_val_market.ni_ttm)
+  IS DISTINCT FROM (EXCLUDED.per_fy0, EXCLUDED.pbr_fy0, EXCLUDED.per_ttm, EXCLUDED.pbr_mrq,
+                    EXCLUDED.cap, EXCLUDED.ni_fy0, EXCLUDED.ni_ttm)
 """
 UPSERT_SEC = """
 INSERT INTO opm_val_market
@@ -66,6 +73,10 @@ ON CONFLICT (snap_dd,market,scheme,sector) DO UPDATE SET
   per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
   per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq,
   ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm
+WHERE (opm_val_market.label, opm_val_market.n, opm_val_market.cap, opm_val_market.per_fy0, opm_val_market.pbr_fy0,
+       opm_val_market.per_ttm, opm_val_market.pbr_mrq, opm_val_market.ni_fy0, opm_val_market.ni_ttm)
+  IS DISTINCT FROM (EXCLUDED.label, EXCLUDED.n, EXCLUDED.cap, EXCLUDED.per_fy0, EXCLUDED.pbr_fy0,
+                    EXCLUDED.per_ttm, EXCLUDED.pbr_mrq, EXCLUDED.ni_fy0, EXCLUDED.ni_ttm)
 """
 
 
