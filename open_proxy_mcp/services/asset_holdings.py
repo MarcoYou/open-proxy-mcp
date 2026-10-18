@@ -368,7 +368,24 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,  # noqa
                                              resolve_company_query)
 
 _YEAR = re.compile(r"\((\d{4})\.\d{2}\)")
-_FIN_SEC = ("64", "65", "66")
+
+
+def _is_financial(induty: str, fin_list: list[dict]) -> bool:
+    """금융업인가 — `financial_metrics` 와 **같은 규칙**을 쓴다(공유 파생지표 재사용, 260713 검증 규칙).
+
+    261018: 종전엔 업종코드 앞 두 자리(64/65/66)만 봐서 **일반 지주회사(64992, SK·LG)** 가 금융업으로 갈렸다 —
+      KSIC 는 금융지주와 일반지주를 같은 64992 에 넣는다. 그래서 지주사 할인을 보라고 만든 이 tool 이 정작 SK·LG 에
+      「금융업 — 배수 미제공」을 냈다(운영 실측 SK·LG `is_financial` true, 지분 NAV 배수 null).
+      규칙: 연결(없으면 별도) 재무상태표에 예수부채·보험계약부채·책임준비금·고객예탁금·매도파생결합 계정이 있으면 금융업
+      (금융지주는 은행·보험 자회사 연결로 이 계정이 뜬다), 아니면 업종코드 64/65/66 중 64992 를 뺀 것."""
+    from open_proxy_mcp.services.financial_metrics import _FIN_BS_SIGNAL, _ksic_is_financial
+    for x in fin_list or []:
+        if x.get("sj_div") != "BS":
+            continue
+        nm = (x.get("account_nm") or "").replace(" ", "")
+        if any(sig in nm for sig in _FIN_BS_SIGNAL):
+            return True
+    return _ksic_is_financial(induty)
 
 
 async def _safe_getdoc(client, rcept_no: str) -> dict:
@@ -513,7 +530,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             induty = (ci.get("induty_code") or "")
         except DartClientError:
             induty = ""
-        is_fin = induty[:2] in _FIN_SEC
+        is_fin = _is_financial(induty, fin.get("list") or [])
         is_reit = bool(re.search(r"리츠|REIT", name, re.I))
         data["induty_code"] = induty or None
         data["is_financial"] = is_fin
