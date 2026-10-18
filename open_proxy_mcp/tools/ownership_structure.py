@@ -119,7 +119,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         lines.extend([
             "", "## 5% 대량보유 최신",
             "> 지분율은 **보고자 본인 + 특별관계자 합산**이다. 「본인」은 보고자가 직접 가진 몫.",
-            "> 보고자끼리 같은 특별관계자를 품고 있을 수 있어 이 표의 지분율은 더하면 안 된다.",
+            "> 보고자끼리 같은 특별관계자를 품고 있거나 보고 시점마다 주식총수가 달라, 이 표의 지분율은 더하면 안 된다.",
             "",
             "| 보고자 | 지분율(본인+특관) | 본인 | 보유목적 | 날짜 | 공시번호 |",
             "|--------|------------------|------|----------|------|----------|",
@@ -169,10 +169,12 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                     lines.append(f"| +{len(_zero)}명 (각 0.0%) | 0.0% | {_reg_cell} |")
 
         # 진영별 순 지분 — 5% 보고를 그냥 더하면 100%를 넘는 문제(같은 주식의 이중 신고)를 푼다.
+        # 겹치는 보고자가 없으면 진영 표는 단순 합을 되풀이할 뿐이라 내지 않는다 — 그때 100%를 넘는
+        # 까닭은 보고마다 다른 기준 주식총수(아래 표)이고, 문장은 유의사항(`over_100_note`)에 있다.
         camps_data = data.get("block_camps") or {}
         camps = camps_data.get("camps") or []
         _merged = any((c.get("block_count") or 1) > 1 for c in camps)
-        if camps and (_merged or camps_data.get("exceeds_100")):
+        if camps and _merged:
             lines.append("")
             lines.append("## 진영별 순 지분 (겹치는 몫을 한 번만 계산)")
             lines.append(
@@ -208,6 +210,23 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                     )
                     more = f" 외 {len(held) - 4}명" if len(held) > 4 else ""
                     lines.append(f"- {who}: {shown}{more}")
+        _bases = camps_data.get("report_bases") or []
+        if camps_data.get("exceeds_100") and len(_bases) >= 2:
+            lines.append("")
+            lines.append("## 보고마다 다른 기준 주식총수 (5% 보고 합이 100%를 넘는 까닭)")
+            lines.append(
+                "> 지분율의 분모는 그 보고 시점의 주식등의 총수다. 기준이 다른 지분율끼리는 더할 수 없고, "
+                "옛 기준 보고의 지분율은 지금 지분이 아닐 수 있다."
+            )
+            lines.append("")
+            lines.append("| 기준 주식총수 (보유주식수 ÷ 지분율) | 보고자 | 접수일 |")
+            lines.append("|------|--------|--------|")
+            for base in _bases:
+                first, last = base.get("report_dates") or ["", ""]
+                lines.append(
+                    f"| {base.get('implied_total_shares', 0):,}주 | {', '.join(base.get('reporters', []))} | "
+                    f"{first if first == last else f'{first} ~ {last}'} |"
+                )
 
     # 자사주는 요약줄 + 100% 지분 구성표에 이미 노출되므로 별도 섹션은 두지 않는다(중복 제거).
     # 자사주 상세(취득/처분 이력 등)는 treasury_share tool.
@@ -391,7 +410,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 최대주주·특수관계인·5% 대량보유 지분 구조 + **공동보유자 분해**. 자사주 detail은 `treasury_share` 별도.
         when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널, **"OO의 N% 지분이 누구누구 공동보유냐 / 보고자 본인 지분은 얼마냐"** 질의.
-        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None. **5% 보고 지분율끼리 더하지 말 것** — 보고자들이 같은 특별관계자를 공유해 같은 주식이 중복 신고된다(고려아연 단순합 111.84%). 중복을 걷어낸 진영별 순 지분은 `block_camps.camps[].net_pct`, 겹침 내역은 `block_camps.shared_holders_between_reporters`, 총합은 `block_camps.net_total_pct`(null이면 계산 불가 — 지어내지 말 것). `reporter_self_pct=0`이면 `reporter_self_note`에 뜻이 담긴다(보고자 본인 직접 보유 없음; 사유는 본 보고서로 확정 불가). DART 013/014/404는 실패가 아니라 「해당 자료 없음」으로 표기된다.
+        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None. **5% 보고 지분율끼리 더하지 말 것** — 보고자들이 같은 특별관계자를 공유해 같은 주식이 중복 신고되거나(고려아연 단순합 111.84%), 보고마다 지분율의 기준 주식총수가 다르다(출자전환·감자·신주 사이에 낸 보고 — STX). 중복을 걷어낸 진영별 순 지분은 `block_camps.camps[].net_pct`, 겹침 내역은 `block_camps.shared_holders_between_reporters`, 총합은 `block_camps.net_total_pct`(null이면 계산 불가 — 지어내지 말 것; `overlap_found=false`면 걷어낸 몫이 없어 단순 합과 같다). 보고별 기준 주식총수(보유주식수÷지분율) 묶음은 `block_camps.report_bases`, 100% 초과 까닭 문장은 `block_camps.over_100_note`. `reporter_self_pct=0`이면 `reporter_self_note`에 뜻이 담긴다(보고자 본인 직접 보유 없음; 사유는 본 보고서로 확정 불가). DART 013/014/404는 실패가 아니라 「해당 자료 없음」으로 표기된다.
         scope: `summary` 최대주주+5%블록(+공동보유자 분해)+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력+공동보유자 분해 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동)+공동보유자 / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) + **최대주주변경·변경 수반 주식양수도·담보 계약 체결·해제(거래소 I001)** 통합
         ref: treasury_share, proxy_contest, evidence
         """

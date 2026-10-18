@@ -61,7 +61,7 @@ scope:
               "active_signal_count": 3},
   "major_holders": [{"name": "...", "relation": "...",
                      "ownership_pct": 19.5, "shares": 11_111}],
-  "blocks": [{"reporter": "...", "ownership_pct": 5.1,
+  "blocks": [{"reporter": "...", "ownership_pct": 5.1, "shares": N,
               "purpose": "경영참여", "report_date": "...",
               "rcept_no": "..."}],
   "treasury": {"issued_shares": N, "treasury_shares": N,
@@ -80,6 +80,7 @@ scope:
 
 핵심 필드:
 - `flags`: `registry_majority` (50%+), `registry_over_30pct`, `treasury_over_5pct`
+- `block_camps`: 5% 보고 합산 — `camps[]`(겹치는 보고자 편별 `net_pct`) · `overlap_found` · `net_total_pct` · `report_bases[]`(기준 주식총수 = 보유주식수÷지분율 묶음 — `implied_total_shares`·`reporters`·`report_dates`·`rcept_nos`) · `over_100_note`(100% 초과 때 찾은 까닭만; 겹침이 없으면 겹침이라 하지 않는다)
 - `active_signal_count`: 5% 대량보유 + 경영참여 목적 신호 수 (분쟁 조기 경보)
 - `change_filings.individual_changes`: 변경일/원인/주식종류/변경전/증감/변경후
 - `control_events[]`: `kind`(change·transfer_contract·pledge_contract·pledge_release·transfer_release) · `fields`(서식별 칸, **원문 글자 그대로**) · `notes` · `related` · `rows`(찾은 줄 원문) · `holders`(변경 전후 보유 현황 표) · `pledges`·`pledge_conditions` · `comparison`(해소 전후) · `amendment`(정정이면 정정 비교표) · `profile_omitted`
@@ -202,3 +203,4 @@ sequenceDiagram
 - 2026-04-29: speed optimization 3x (asyncio.gather), 200기업 audit 90.8% exact
 - 2026-05-01: tool wiki 페이지 작성
 - 2026-10-18: `changes` 에 **최대주주변경 계열**(`control_events`) — 최대주주변경 · 변경 수반 주식양수도·담보 계약 체결·해제 다섯 서식을 원문 칸 그대로(인적사항 표 제외). 스크리너 최대주주변경 카드의 안내가 빈손이던 것.
+- 2026-10-18: 5% 블록 「100% 초과」 유의사항이 찾은 까닭만 말함(`block_camps.over_100_note`) — 겹침은 겹치는 보고자를 찾았을 때만, 아니면 보고별 기준 주식총수 묶음(`report_bases`). 같은 날 두 번 낸 5% 보고는 접수번호가 늦은 것을 최신으로(두 경로). STX 「199.86% … 한 번만 세면 199.86%」 — 신한은행 옛 5.81% 가 남고, 겹침이 없는데 겹침이라 했던 것.
