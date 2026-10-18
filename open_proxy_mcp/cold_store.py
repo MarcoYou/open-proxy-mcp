@@ -260,6 +260,12 @@ def _dataset_entry(m: dict, dataset: str) -> tuple[dict, dict]:
     ok = ok and d.get("date_col") in key and key[0] != key[1]
     if not ok:
         raise ColdError("manifest_schema", f"{dataset} 항목 모양이 어긋났다")
+    try:                               # 달력에 있는 날짜·min ≤ max — 이음매 계산(`krx_retention.serving_seam`)이 요청 중에 터지지 않게
+        lo, hi = (_dt.datetime.strptime(f["coverage"][k], "%Y%m%d") for k in ("min_dd", "max_dd"))
+    except ValueError:
+        raise ColdError("manifest_schema", f"{dataset} coverage 날짜가 달력에 없다") from None
+    if lo > hi:
+        raise ColdError("manifest_schema", f"{dataset} coverage min_dd 가 max_dd 보다 늦다")
     if f.get("file_schema", FILE_SCHEMA) != FILE_SCHEMA:
         raise ColdError("unsupported", f"{dataset} 서빙본 file_schema {f.get('file_schema')} — 이 서버는 {FILE_SCHEMA}")
     return d, f
@@ -478,6 +484,16 @@ def _rss_mb() -> float | None:
     return None
 
 
+def _mark_verified(sha: str, info: dict, d: Path, counter: str) -> None:
+    """검증된 판을 적는다 — 같은 데이터셋 폴더의 옛 판 표시는 지운다(그 파일은 방금 `_prune_dir` 가 지웠다).
+    남겨 두면 `/health` 의 files_ok 가 디스크보다 많게 센다(판이 바뀔 때마다 하나씩 는다)."""
+    with _lock:
+        for k in [k for k, v in _verified.items() if k != sha and Path(v["path"]).parent == d]:
+            del _verified[k]
+        _verified[sha] = info
+        _counters[counter] += 1
+
+
 def _ensure_file_sync(dataset: str, head: dict, entry: dict, manifest_url: str) -> dict:
     """그 판의 파일을 디스크에 검증된 상태로 — 이미 있으면 sha 만 다시 보고, 없으면 받아서 검증 뒤 바꿔 끼운다."""
     sha = entry["sha256"]
@@ -492,9 +508,7 @@ def _ensure_file_sync(dataset: str, head: dict, entry: dict, manifest_url: str) 
             _check_sqlite(final, entry, head)
             _prune_dir(d, keep={entry["file"]})
             info = {"path": str(final), "received_at": final.stat().st_mtime, "bytes": entry["bytes"], "how": "reused"}
-            with _lock:
-                _verified[sha] = info
-                _counters["verify_reuse"] += 1
+            _mark_verified(sha, info, d, "verify_reuse")
             return info
         if entry["bytes"] > _max_bytes():
             raise ColdError("disk_cap", f"서빙본 {entry['bytes']} B 가 상한 {_max_bytes()} B 를 넘는다")
@@ -521,9 +535,8 @@ def _ensure_file_sync(dataset: str, head: dict, entry: dict, manifest_url: str) 
                 tmp.unlink()
         _prune_dir(d, keep={entry["file"]})
         info = {"path": str(final), "received_at": time.time(), "bytes": entry["bytes"], "how": "downloaded"}
+        _mark_verified(sha, info, d, "downloads")
         with _lock:
-            _verified[sha] = info
-            _counters["downloads"] += 1
             _counters["download_bytes"] += got["object_bytes"]
         logger.info("콜드 서빙: %s 받음 · %s · %.1f MiB", dataset, entry["file"], entry["bytes"] / 1048576)
         return info

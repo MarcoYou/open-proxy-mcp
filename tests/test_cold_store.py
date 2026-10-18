@@ -104,6 +104,19 @@ def test_new_version_replaces_and_prunes_the_old_file(cold_serving, tmp_path):
     assert isinstance(r, C.Ready) and r.sha256 == second["entry"]["sha256"]
     names = sorted(p.name for p in (tmp_path / "cache" / "krx_weekly_hist").iterdir())
     assert names == [second["entry"]["file"]]                       # 옛 판·임시 파일 없음
+    assert C.stats()["files_ok"] == 1                                # /health 도 디스크와 같게 — 옛 판 표시가 남지 않는다
+
+
+def test_verified_file_gone_from_disk_is_fetched_again(cold_serving, tmp_path):
+    """검증해 둔 판의 파일이 디스크에서 사라졌으면(볼륨 정리 등) 다음 요청이 읽기 실패 없이 다시 받는다."""
+    info = cold_serving(ROWS, upto=UPTO)
+    assert isinstance(_run(C.ready("krx_weekly_hist")), C.Ready)
+    cached = tmp_path / "cache" / "krx_weekly_hist" / info["entry"]["file"]
+    cached.unlink()
+    r = _run(C.ready("krx_weekly_hist"))
+    assert isinstance(r, C.Ready) and cached.exists()
+    assert C.stats()["counters"]["downloads"] == 2 and C.stats()["files_ok"] == 1
+    assert _run(C.read(r, ("price_dd",), "005930", "20151230", UPTO)) == [("20151230",), ("20160108",), ("20231013",)]
 
 
 # ── 검증 실패 → 강등 ─────────────────────────────────────────────────────────
@@ -155,6 +168,35 @@ def test_wrong_file_header_is_rejected(cold_serving, tmp_path):
     assert isinstance(r, C.ColdError) and r.reason == "bad_file"
 
 
+@pytest.mark.parametrize("edit", [
+    "PRAGMA application_id = 0",                                                     # 머리만 틀림(뷰·칸은 맞다)
+    "PRAGMA user_version = 2",                                                       # 파일 판만 틀림
+    "DROP VIEW krx_weekly; CREATE VIEW krx_weekly AS SELECT price_dd, ticker, close FROM krx_wk_hist",   # 칸만 틀림
+])
+def test_each_file_header_check_rejects_on_its_own(cold_serving, tmp_path, edit):
+    """서빙본 머리 검사(application_id·user_version)와 뷰 칸 검사는 각자 혼자서도 막는다 — 나머지는 다 맞는 파일로."""
+    import gzip
+    import hashlib
+    import sqlite3
+    info = cold_serving(ROWS, upto=UPTO)
+    p = tmp_path / "edited.sqlite"
+    p.write_bytes(info["sqlite_bytes"])
+    con = sqlite3.connect(p, isolation_level=None)
+    con.executescript(edit)
+    con.close()
+    data = p.read_bytes()
+    obj = gzip.compress(data, mtime=0)
+    info["object_path"].write_bytes(obj)
+    m = info["manifest"]
+    e = m["datasets"]["krx_weekly_hist"]["files"][0]
+    e.update(sha256=hashlib.sha256(data).hexdigest(), bytes=len(data), object_sha256=hashlib.sha256(obj).hexdigest(),
+             object_bytes=len(obj))
+    info["manifest_path"].write_text(json.dumps(m))
+    r = _run(C.ready("krx_weekly_hist"))
+    assert isinstance(r, C.ColdError) and r.reason == "bad_file"
+    assert not [x for x in (tmp_path / "cache" / "krx_weekly_hist").iterdir() if x.suffix in (".sqlite", ".part")]
+
+
 @pytest.mark.parametrize("mutate,reason", [
     (lambda m: m.update(schema=2), "manifest_schema"),
     (lambda m: m.update(kind="other"), "manifest_schema"),
@@ -163,6 +205,10 @@ def test_wrong_file_header_is_rejected(cold_serving, tmp_path):
     (lambda m: m["datasets"]["krx_weekly_hist"]["files"][0].update(file="../../etc/x.sqlite"), "manifest_schema"),
     (lambda m: m["datasets"]["krx_weekly_hist"].update(view="krx_weekly; DROP"), "manifest_schema"),
     (lambda m: m["datasets"]["krx_weekly_hist"]["files"][0].update(file_schema=2), "unsupported"),
+    # 달력에 없는 날짜·거꾸로 된 구간 — 이음매 계산이 요청 중에 터지지 않게 목록에서 막는다
+    (lambda m: m["datasets"]["krx_weekly_hist"]["files"][0]["coverage"].update(max_dd="20231399"), "manifest_schema"),
+    (lambda m: m["datasets"]["krx_weekly_hist"]["files"][0]["coverage"].update(min_dd="20230231"), "manifest_schema"),
+    (lambda m: m["datasets"]["krx_weekly_hist"]["files"][0]["coverage"].update(min_dd="20240101"), "manifest_schema"),
 ])
 def test_manifest_shape_errors_degrade(cold_serving, mutate, reason):
     info = cold_serving(ROWS, upto=UPTO)

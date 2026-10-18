@@ -155,6 +155,20 @@ def test_db_rows_before_the_seam_are_not_used(monkeypatch, cold_serving):
     assert p["data"]["sources"]["cold"] == 8
 
 
+def test_db_row_exactly_on_the_seam_comes_from_the_db(monkeypatch, cold_serving):
+    """반열린 경계 — S 날짜의 행은 DB 에서(>= S), 서빙본은 S 전날까지(< S). coverage 가 B 를 넘어 S = B 이고
+    서빙본에도 S 날짜 행이 있을 때 그 날짜는 한 번, DB 값으로 나온다."""
+    rows = COLD_ROWS + [_c("20231017", 99_999)]                 # 서빙본의 S 날짜 행(DB 와 다른 값 — 어느 쪽인지 보이게)
+    cold_serving(rows, upto="20231020", max_dd="20231019")       # C = 20231019 > B
+    weekly = [_w("20231017", 68_500)] + DB_WEEKLY
+    p, _ = _firm(monkeypatch, weekly=weekly, bounds=("20261017", "20231017"))   # B = S = 20231017(화)
+    d = p["data"]
+    assert d["cold_until"] == "20231017"
+    on_seam = [s for s in d["series"] if s["asof"] == "20231017"]
+    assert len(on_seam) == 1 and on_seam[0]["close_krw"] == 68_500
+    assert [s["asof"] for s in d["series"]][7:9] == ["20231013", "20231017"]
+
+
 def test_seam_moves_to_day_after_coverage_when_it_lags_the_cutoff(monkeypatch, cold_serving):
     """coverage 가 B 보다 늦게 따라올 때(C+1 < B) — S = C+1, 그 사이 주는 DB 에서."""
     cold_serving(COLD_ROWS, upto="20231009", max_dd="20231008")
@@ -175,6 +189,34 @@ def test_since_after_the_seam_skips_the_cold_store(monkeypatch, cold_serving):
     monkeypatch.setenv("OPM_COLD", "0")
     off, _ = _firm(monkeypatch, since="20240101")
     assert on == off
+
+
+def test_since_between_the_seam_and_the_cutoff_is_the_off_answer(monkeypatch, cold_serving):
+    """coverage 가 B 보다 늦게 따라올 때(S = C+1 < B) since 가 [S, B) 면 서빙본에서 읽을 것이 없다 — 꺼짐과 같은 응답(이음매 칸 없음)."""
+    cold_serving(COLD_ROWS, upto="20231009", max_dd="20231008")      # S = 20231009, B = 20231023
+    weekly = [_w("20231013", 68_000)] + DB_WEEKLY
+    on, _ = _firm(monkeypatch, weekly=weekly, bounds=("20261023", "20231009"), since="20231011")
+    assert "cold_until" not in on["data"] and "sources" not in on["data"]
+    monkeypatch.setenv("OPM_COLD", "0")
+    off, _ = _firm(monkeypatch, weekly=weekly, bounds=("20261023", "20231009"), since="20231011")
+    assert on == off
+
+
+@pytest.mark.parametrize("how", ["calendar", "boom"])
+def test_anything_breaking_on_the_cold_side_degrades_instead_of_failing(monkeypatch, cold_serving, how):
+    """콜드 쪽 예외(달력에 없는 coverage 날짜, 이음매 계산의 무엇이든)가 요청을 실패시키지 않는다 — 종전 응답 + 일시 안내."""
+    cold_serving(COLD_ROWS, upto="20231016", max_dd="20231399" if how == "calendar" else "20231015")
+    if how == "boom":
+        def boom(*a, **k):
+            raise RuntimeError("boom")
+        monkeypatch.setattr(S, "serving_seam", boom)
+    deg, _ = _firm(monkeypatch)
+    monkeypatch.setenv("OPM_COLD", "0")
+    off, _ = _firm(monkeypatch)
+    s_deg = json.dumps(deg, ensure_ascii=False)
+    assert deg["status"] == "ok" and s_deg.count(NOTE) == 1
+    assert s_deg.replace(" " + NOTE, "") == json.dumps(off, ensure_ascii=False)
+    assert C.stats()["degraded"] == ({"manifest_schema": 1} if how == "calendar" else {"error": 1})
 
 
 def test_since_before_the_seam_starts_at_since(monkeypatch, cold_serving):
@@ -356,15 +398,21 @@ def test_firm_at_answers_in_the_past_with_the_cold_curve(monkeypatch, cold_servi
     assert r["status"] == "no_data" and "곡선의 첫 점은 20190405" in r["warnings"][0] and "재무" in r["warnings"][0]
 
 
-def test_firm_at_degraded_is_the_old_answer(monkeypatch, cold_serving):
-    """과거 시점은 곡선의 경고를 옮기지 않는다 — 강등이면 꺼짐과 글자까지 같은 응답(종전 3년 안내)."""
+def test_firm_at_degraded_says_it_is_temporary(monkeypatch, cold_serving):
+    """강등(켜져 있는데 보관본을 못 읽음) — DB 주간 구간 이전 기준일에 「범위 밖 — 최근 3년까지 제공」이라고 답하지 않고
+    곡선 응답과 같은 일시 안내를 준다. DB 구간 안의 기준일은 꺼짐과 같은 답이고, 꺼짐은 종전 3년 안내 그대로다."""
     cold_serving(COLD_ROWS, upto="20231016", max_dd="20231015")
     monkeypatch.setenv("OPM_COLD_MANIFEST_URL", "file:///nonexistent/serve/manifest.json")
     _pmd(monkeypatch)
     q = asyncio.run(S.build_firm_at_payload("삼성전자", "20210630"))
-    assert q["status"] == "no_data" and "주간 시세는 최근 3년까지 제공" in q["warnings"][0]
+    assert q["status"] == "no_data" and len(q["warnings"]) == 1
+    assert NOTE in q["warnings"][0] and "2023-10-16 이후" in q["warnings"][0]
+    assert "최근 3년까지 제공" not in q["warnings"][0] and "범위 밖" not in q["warnings"][0]
+    inside = asyncio.run(S.build_firm_at_payload("삼성전자", "20261009"))
     monkeypatch.setenv("OPM_COLD", "0")
-    assert asyncio.run(S.build_firm_at_payload("삼성전자", "20210630")) == q
+    off = asyncio.run(S.build_firm_at_payload("삼성전자", "20210630"))
+    assert off["status"] == "no_data" and "주간 시세는 최근 3년까지 제공" in off["warnings"][0] and NOTE not in off["warnings"][0]
+    assert asyncio.run(S.build_firm_at_payload("삼성전자", "20261009")) == inside and inside["status"] == "ok"
 
 
 def test_firm_at_gap_fill_points_take_over_from_the_cold_message():

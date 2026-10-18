@@ -228,6 +228,18 @@ async def _cold_part(ticker: str, req: str, latest: str, floor: str, cols: tuple
     return _ColdSpan(True, None, seam, r.min_dd, len(rows), rows[0][0] if rows else None), rows
 
 
+async def _cold_part_or_degrade(ticker: str, req: str, latest: str, floor: str, cols: tuple[str, ...]
+                                ) -> tuple[_ColdSpan, list | None] | None:
+    """`_cold_part` 를 강등으로 감싼다 — 콜드 쪽에서 무엇이 터져도(목록의 이상한 값 등) DB 곡선(종전 응답 + 일시 안내)은 나간다(S5).
+    감싸지 않으면 `asyncio.gather` 가 그 예외를 올려 DB 를 잘 읽고도 요청 전체가 실패한다."""
+    try:
+        return await _cold_part(ticker, req, latest, floor, cols)
+    except Exception as e:  # noqa: BLE001 — 콜드 실패는 언제나 강등
+        _cold.note_degraded("error", type(e).__name__)
+        logger.warning("콜드 서빙: 이음매 계산 실패 — 강등(%s)", type(e).__name__)
+        return _ColdSpan(False, "error"), None
+
+
 async def _read_weekly(ticker: str, req: str, latest: str, floor: str, db_aw, cols: tuple[str, ...],
                        extra: tuple = ()) -> tuple[list | None, _ColdSpan | None]:
     """주간 곡선 읽기 한 곳 — DB 읽기(`db_aw`, 호출부의 종전 질의 그대로: price_dd >= 하한)와 콜드 읽기를 겹쳐 기다려 잇는다.
@@ -241,7 +253,7 @@ async def _read_weekly(ticker: str, req: str, latest: str, floor: str, db_aw, co
     rows 의 첫 칸은 price_dd 여야 한다."""
     if not _cold.enabled():
         return await db_aw, None
-    db_rows, part = await asyncio.gather(db_aw, _cold_part(ticker, req, latest, floor, cols))
+    db_rows, part = await asyncio.gather(db_aw, _cold_part_or_degrade(ticker, req, latest, floor, cols))
     if part is None:
         return db_rows, None
     span, cold_rows = part
@@ -1473,21 +1485,30 @@ def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
     return out
 
 
-def _cold_firm_at_miss(d: dict, as_of: str) -> list[str] | None:
+def _cold_firm_at_miss(d: dict, as_of: str, warnings: list | None = None) -> list[str] | None:
     """콜드 서빙(3년 하한 이전을 보관본에서 이은 곡선, `data.cold_until` 있음)에서 기준일 이하 점이 없을 때의 안내 — 아니면 None(종전 흐름).
 
     종전 안내(`weekly_window_note` — 「주간 시세는 최근 3년까지」)는 DB 하한 기준이라, 2015-12 부터 이은 곡선에는 맞지 않는다.
       · 주간 시세 시작(`weekly_from`) 전 → 범위 밖
       · 시세는 있지만 곡선 첫 점 전(그 시점 공시 재무가 없음) → 첫 점과 까닭
       · 곡선이 비었음 → 그 기간 시세나 공시 재무가 없음
-    곡선 밖 대체 점(`series_gap_fill`)이 기준일 이하에 있으면 None — 종전 흐름이 그것으로 답한다."""
-    if not d.get("cold_until"):
+    곡선 밖 대체 점(`series_gap_fill`)이 기준일 이하에 있으면 None — 종전 흐름이 그것으로 답한다.
+
+    켜져 있는데 이번에 보관본을 못 읽었으면(곡선 경고 `warnings` 에 `COLD_DEGRADED_NOTE`) DB 주간 구간 이전 기준일에 종전처럼
+    「범위 밖 — 최근 3년까지 제공」이라고 답하지 않는다(사실이 아니다 — 잠시 뒤 다시 부르면 답한다). 곡선 응답과 같은 일시 안내를 준다."""
+    degraded = not d.get("cold_until") and COLD_DEGRADED_NOTE in (warnings or ())
+    if not d.get("cold_until") and not degraded:
         return None
     series = d.get("series") or []
     if any(str(p.get("asof", "")) <= as_of for p in series + list(d.get("series_gap_fill") or [])):
         return None
     start = d.get("weekly_from") or ""
     yearend = "연말 값은 `scope=firm_history` 의 `history`(연말 PIT 밴드)에서 봅니다."
+    if degraded:
+        if not (start and as_of < start):
+            return None                             # DB 주간 구간 안의 기준일 — 종전 흐름(첫 점 안내)이 맞다
+        return [f"기준일 {as_of} 은 지금 읽은 주간 구간({start[:4]}-{start[4:6]}-{start[6:]} 이후) 이전입니다 — "
+                f"{COLD_DEGRADED_NOTE} {yearend}"]
     if start and as_of < start:
         return [f"기준일 {as_of} 은 주간 시세 시작({start[:4]}-{start[4:6]}-{start[6:]}) 이전이라 제공 범위 밖입니다. {yearend}"]
     if series:
@@ -1507,7 +1528,7 @@ async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
     if hist.get("status") != "ok":
         return hist
     d = hist["data"]
-    cold_miss = _cold_firm_at_miss(d, as_of)       # 261019: 콜드 서빙으로 이은 곡선에서 답이 없는 기준일 — 그 곡선에 맞는 안내
+    cold_miss = _cold_firm_at_miss(d, as_of, hist.get("warnings"))   # 261019: 콜드 서빙 곡선에서 답이 없는 기준일 — 그 곡선(강등이면 일시)에 맞는 안내
     if cold_miss:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": hist.get("subject", company), "warnings": cold_miss}
     series = d.get("series") or []
