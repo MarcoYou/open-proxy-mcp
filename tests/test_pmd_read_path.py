@@ -9,6 +9,10 @@
      261018 의도한 변경 두 가지만 골든에 반영했다(그 밖의 값·키 순서는 옛 골든과 글자까지 같음을 대조한 뒤 썼다):
      firm_history 경고 2문장·method 의 저장소 표 이름 → 중립 표현, firm 의 `price_source` 칸(이 시험의 가짜 `_market_for` 는 출처를 안 주므로 null).
      같은 날 2차: firm `inputs.dps_fetch_failed` 칸(가짜 배당 조회는 성공하므로 false) — 이것도 그 한 칸 말고는 글자까지 같음을 대조한 뒤 썼다.
+     같은 날 3차(재설계 6단계 — 종목별 밸류에이션 스냅샷 표 읽기 제거): firm_history 의 `history` 에서 「주간」 항목이 빠지고, 시장·섹터를 재무 요약에서
+     바로 만든다(섹터 = KSIC 하이브리드 버킷 — 가짜 데이터의 005930 은 종목 오버라이드로 261), DB 장애 판정은 재무 요약 읽기로, 시계열 없음 문장에서
+     「주간 스냅샷」을 뺐다. 스냅샷 표만 담던 시나리오 둘(스냅샷 읽기 실패·스냅샷 말고 전부 실패)은 「재무 요약 읽기 실패」·「전부 실패」로 바꿨다.
+     그 밖의 값·키 순서와 firm 골든 전부는 옛 골든과 글자까지 같음을 대조한 뒤 썼다.
   ② 순차(`OPM_PG_FANOUT=1`)와 겹침(기본 3)이 같은 응답·같은 읽기 묶음을 낸다.
   ③ 상한: 한 호출이 동시에 3개를 넘게 DB 를 물지 않는다(중첩 gather 포함).
   ④ 겹쳐서 실제로 빨라진다(가짜 지연으로 잰다) · 오류는 넣은 순서상 첫 예외가 올라온다 · 환경변수 오타가 서버를 못 뜨게 하지 않는다.
@@ -54,8 +58,8 @@ def route(sql: str) -> str:
         return "latest"
     if "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
         return "px"
-    if "FROM opm_val_firm" in s:
-        return "snap"
+    if "opm_val_firm" in s:
+        raise AssertionError("종목별 밸류에이션 스냅샷 표는 없앴다(재설계 6단계) — 읽으면 안 된다: " + s)
     if "FROM krx_stock_flags" in s:
         return "flags"
     if "FROM krx_adj_events" in s:
@@ -136,9 +140,6 @@ def _fh_base() -> dict:
         "caps": [(str(y), f"{y}1229", 3.0e14 + (y - 2020) * 4e13) for y in range(2020, 2026)],
         "latest": [("20261016",)],
         "px": [(d, 3_000_000_000_000_00 + i * 25_000_000_000_000) for i, d in enumerate(_WEEKLY_DD)],
-        "snap": [("20261002", "KS", "264", 4.1e14, 15.1, 12.3, 1.2, 1.1),
-                 ("20261009", "KS", "264", 4.2e14, 15.4, 12.5, 1.2, 1.1),
-                 ("20261016", "KS", "264", 4.3e14, 15.7, 12.7, None, 1.15)],
         "flags": [],
     }
 
@@ -151,13 +152,14 @@ def _fh(**over) -> dict:
 
 FH_SCENARIOS: dict[str, dict] = {
     "fh_samsung": _fh(),
-    "fh_flags_without_snapshots": _fh(flags=[("spinoff_break", "2026-05"), ("unresolved_adjustment", "x"), ("other", "y")], snap=[]),
+    "fh_flags": _fh(flags=[("spinoff_break", "2026-05"), ("unresolved_adjustment", "x"), ("other", "y")]),
     "fh_usd_reporter": _fh(cur_row=[("KS", "264", "USD")]),
-    "fh_no_data": {"cur_row": [], "fin_y": [], "fund": [], "fin_q": [], "caps": [], "latest": [], "px": [], "snap": [], "flags": []},
-    "fh_snapshot_read_fails": _fh(snap=FAIL),
-    "fh_every_other_read_fails": _fh(cur_row=FAIL, fin_y=FAIL, fund=FAIL, fin_q=FAIL, caps=FAIL, latest=FAIL, px=FAIL, flags=FAIL),
+    "fh_no_data": {"cur_row": [], "fin_y": [], "fund": [], "fin_q": [], "caps": [], "latest": [], "px": [], "flags": []},
+    "fh_non_samsung_bucket": _fh(cur_row=[("KQ", "29271", "KRW")]),          # 반도체 장비 → 261(프리픽스 재배정), 오버라이드 없는 종목
+    "fh_no_induty": _fh(cur_row=[("KQ", None, "KRW")]),                      # 업종코드가 비면 섹터도 비운다(종전 폴백과 같다)
+    "fh_every_read_fails": _fh(cur_row=FAIL, fin_y=FAIL, fund=FAIL, fin_q=FAIL, caps=FAIL, latest=FAIL, px=FAIL, flags=FAIL),
 }
-# 읽기 하나씩 실패시킨 변형 — 응답이 종전과 같은 모양으로 무너지는지(종전: `or []`, 스냅샷만 db_error)
+# 읽기 하나씩 실패시킨 변형 — 응답이 종전과 같은 모양으로 무너지는지(종전: `or []`. DB 장애 판정은 재무 요약 읽기 — 그것만 db_error)
 for _k in ("cur_row", "fin_y", "fund", "fin_q", "caps", "latest", "px", "flags"):
     FH_SCENARIOS[f"fh_only_{_k}_fails"] = _fh(**{_k: FAIL})
 
@@ -330,12 +332,17 @@ def test_the_golden_scenarios_actually_exercise_the_interesting_branches(golden)
     """골든이 전부 같은 분기만 타면 증거가 못 된다 — 갈래마다 한 번씩은 탄다."""
     fh = {k: v["payload"] for k, v in golden.items() if k.startswith("fh_")}
     assert fh["fh_samsung"]["status"] == "ok" and len(fh["fh_samsung"]["data"]["series"]) == 13
+    assert all(h["source"].startswith("연말") for h in fh["fh_samsung"]["data"]["history"]), "「주간」 항목은 없앴다(곡선에 같은 주가 있다)"
+    assert fh["fh_samsung"]["data"]["sector"] == "261", "삼성전자는 종목 오버라이드(264 → 261) — 배치가 저장하던 섹터와 같다"
+    assert fh["fh_non_samsung_bucket"]["data"]["sector"] == "261" and fh["fh_non_samsung_bucket"]["data"]["market"] == "KQ"
+    assert fh["fh_no_induty"]["data"]["sector"] is None
     assert fh["fh_no_data"]["status"] == "no_data"
-    assert fh["fh_snapshot_read_fails"]["status"] == "db_error"
-    assert any("인적분할" in w for w in fh["fh_flags_without_snapshots"]["warnings"])
-    assert fh["fh_flags_without_snapshots"]["data"]["market"] == "KS", "스냅샷이 없으면 dart_fundamentals 의 시장을 쓴다"
+    assert fh["fh_only_cur_row_fails"]["status"] == "db_error", "재무 요약을 못 읽으면 통화를 모른다 — KRW 로 계산하지 않는다"
+    assert any("인적분할" in w for w in fh["fh_flags"]["warnings"])
+    assert fh["fh_flags"]["data"]["market"] == "KS"
     assert golden["fh_usd_reporter"]["fx_calls"], "비KRW 시나리오는 환율을 조회해야 한다"
-    assert fh["fh_every_other_read_fails"]["status"] == "ok" and fh["fh_every_other_read_fails"]["data"]["series"] == []
+    assert fh["fh_every_read_fails"]["status"] == "db_error"
+    assert fh["fh_only_px_fails"]["status"] == "ok" and fh["fh_only_px_fails"]["data"]["series"] == []
     fm = {k: v["payload"]["data"]["inputs"] for k, v in golden.items() if k.startswith("fm_") and "__" not in k}
     assert fm["fm_split_adjusted"]["eps_adj_factors"] == {"current": 0.2, "prior_q": 0.1}
     assert fm["fm_factor_missing_warns"]["shares_unadjusted"] is not None
@@ -369,18 +376,18 @@ def test_firm_sequential_and_overlapped_are_identical(mp, name):
     assert seq_db.kinds() == par_db.kinds()
 
 
-def test_firm_history_issues_exactly_the_nine_reads_of_before(mp):
-    """종전과 같은 9번 — 겹치기가 읽기를 늘리거나 빼먹지 않는다(스냅샷 실패로 일찍 끝나는 경우만 예외)."""
+def test_firm_history_issues_exactly_eight_reads_and_never_the_snapshot_table(mp):
+    """8번 — 종전 9번에서 종목별 밸류에이션 스냅샷 표 읽기만 빠졌다(재설계 6단계). 겹치기가 읽기를 늘리거나 빼먹지 않는다(재무 요약 실패로 일찍 끝나는 경우만 예외)."""
     _, db, _ = run_firm_history(S, mp, "fh_samsung")
     assert sorted(k for k, _ in db.log) == sorted(
-        ["cur_row", "fin_y", "fund", "fin_q", "caps", "latest", "px", "snap", "flags"])
+        ["cur_row", "fin_y", "fund", "fin_q", "caps", "latest", "px", "flags"])
 
 
-def test_firm_history_stops_early_when_the_snapshot_read_fails(mp):
-    """종전엔 재무·곡선을 다 읽은 뒤에야 걸렀다. 같은 db_error 응답을 뒤 단계 없이 낸다 — 장애 중에 읽기 6번을 더 보내지 않는다."""
-    payload, db, _ = run_firm_history(S, mp, "fh_snapshot_read_fails")
+def test_firm_history_stops_early_when_the_fundamentals_read_fails(mp):
+    """DB 장애(재무 요약 읽기 None)면 재무·곡선을 읽지 않고 db_error 를 곧바로 낸다 — 장애 중에 읽기 6번을 더 보내지 않는다."""
+    payload, db, _ = run_firm_history(S, mp, "fh_only_cur_row_fails")
     assert payload["status"] == "db_error"
-    assert sorted(k for k, _ in db.log) == ["cur_row", "latest", "snap"]
+    assert sorted(k for k, _ in db.log) == ["cur_row", "latest"]
 
 
 def test_firm_reads_exactly_the_five_reads_of_before(mp):
@@ -473,7 +480,7 @@ def test_two_concurrent_calls_each_respect_their_own_cap(mp):
 # ④ 실제로 빨라진다 · 오류 모양 · 환경변수
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
 def test_overlapping_cuts_the_wall_time_with_a_simulated_round_trip(mp):
-    """읽기 하나를 60ms 왕복으로 흉내 낸다. 차례로면 9 × 60 = 540ms, 겹치면 3단계 ≈ 180ms."""
+    """읽기 하나를 60ms 왕복으로 흉내 낸다. 차례로면 8 × 60 = 480ms, 겹치면 3단계 ≈ 180ms."""
     delay = 0.06
     mp(S, "_PG_FANOUT", 1)
     t0 = time.perf_counter()
@@ -483,7 +490,7 @@ def test_overlapping_cuts_the_wall_time_with_a_simulated_round_trip(mp):
     t0 = time.perf_counter()
     run_firm_history(S, mp, "fh_samsung", delay=delay)
     par = time.perf_counter() - t0
-    assert seq >= 9 * delay * 0.95, f"차례 실행이 너무 빨랐다: {seq:.3f}s"
+    assert seq >= 8 * delay * 0.95, f"차례 실행이 너무 빨랐다: {seq:.3f}s"
     assert par < seq * 0.6, f"겹쳤는데 {par:.3f}s (차례 {seq:.3f}s)"
 
 

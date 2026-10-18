@@ -188,20 +188,60 @@ _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "
                "is_external")
 
 
+#: 원장 행에 업종·시총을 **읽을 때 붙인다** (261018, Supabase 재설계 6단계).
+#: 종전엔 원장 배치가 넣을 때 복사해 둔 칸(`sector`·`industry`·`mktcap_won`)을 읽었다. 업종·시총의 저장처를 한 곳으로 두려고
+#: 원본 표와 조인한다 — 원장 배치가 붙이던 규칙과 같게.
+#:   업종 = 업종분류 스냅샷(`wise_sector`)에서 **접수일 이하 가장 최근 스냅샷**, 없으면 가장 이른 스냅샷(배치의 `pick_snapshot`).
+#:          스냅샷은 표 전체에서 하나를 고르고 그 스냅샷에 종목이 없으면 비운다 — 종목마다 다른 스냅샷으로 내려가지 않는다(배치와 같다).
+#:   시총 = **접수일 이하 최신 거래일**의 그 종목 시총. 접수일이 일별 시세 저장분(`krx_daily`, 최근 7거래일) 창 안이면 그 거래일의
+#:          `krx_daily_v`(종가 × 상장주식수), 창보다 이르면 주간 시세 저장분(`krx_weekly`)의 접수일 이하 가장 최근 주(그 주 마지막 거래일).
+#:          창 안인데 그 거래일 일별 행이 없는 종목(일별 응답에 빠진 거래정지 종목 등)은 주간의 접수일 이하 가장 최근 행으로 대신한다
+#:          — 원장 배치가 붙이던 값과 같은 출처다(10-18 실측 3개월 9,367행 중 2행). 일별 저장분이 비어 있으면 전부 주간으로 간다.
+#: 원장이 3년(주가 보존과 같은 기간)이라 조인 원본이 늘 남아 있다. 정렬은 접수일·접수번호 — 조인 계획에 따라 행 순서가 흔들리지 않게 한다.
+#: `pick` 은 MATERIALIZED — 날짜 고르기(색인 한 번씩)를 **접수일마다 한 번**만 한다. 빼면 플래너가 CTE 를 펼쳐 공시 행마다 다시 고른다
+#: (10-18 운영 실측, 읽기 전용, 수주 올해치 3,723행 왕복 중앙값: 펼침 173ms → 고정 약 95~125ms. 종전 복사본 칸 읽기는 약 40ms — 흐름 보기 한 번에 약 +60ms).
+_EVENTS_SQL = """
+WITH ev AS (
+  SELECT rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, subtype, is_correction, report_nm,
+         detail->>'amount_won' AS amount, detail->>'revenue_ratio_pct' AS ratio,
+         detail->>'counterparty' AS counterparty, detail->>'is_external' AS is_external
+  FROM dart_events
+  WHERE rcept_dt BETWEEN %s AND %s AND kind = ANY(%s){extra}
+),
+dts AS (SELECT DISTINCT rcept_dt, to_char(rcept_dt, 'YYYYMMDD') AS dd FROM ev),
+pick AS MATERIALIZED (
+  SELECT d.rcept_dt,
+         COALESCE((SELECT max(snap_dd) FROM wise_sector WHERE snap_dd <= d.dd),
+                  (SELECT min(snap_dd) FROM wise_sector)) AS sector_dd,
+         CASE WHEN d.dd >= (SELECT min(trd_dd) FROM krx_daily)
+              THEN (SELECT max(trd_dd) FROM krx_daily WHERE trd_dd <= d.dd) END AS daily_dd,
+         (SELECT max(price_dd) FROM krx_weekly WHERE price_dd <= d.dd) AS weekly_dd
+  FROM dts d
+)
+SELECT e.rcept_no, e.rcept_dt, e.corp_code, e.corp_name, e.stock_code, e.corp_cls, e.kind, e.subtype, e.is_correction,
+       e.report_nm, ws.sector, ws.industry,
+       COALESCE(kd.mktcap, kw.mktcap)::bigint AS mktcap_won,
+       e.amount, e.ratio, e.counterparty, e.is_external
+FROM ev e
+JOIN pick p ON p.rcept_dt = e.rcept_dt
+LEFT JOIN wise_sector ws ON ws.snap_dd = p.sector_dd AND ws.ticker = e.stock_code
+LEFT JOIN krx_daily_v kd ON kd.trd_dd = p.daily_dd AND kd.ticker = e.stock_code
+LEFT JOIN krx_weekly kw ON kw.price_dd = p.weekly_dd AND kw.ticker = e.stock_code
+ORDER BY e.rcept_dt, e.rcept_no
+"""
+
+
 def _fetch_events(kinds: list[str], since: date, until: date,
                   tickers: list[str] | None, corp_cls: str | None) -> list[dict[str, Any]] | None:
-    sql = ("SELECT rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, subtype, is_correction, "
-           "report_nm, sector, industry, mktcap_won, detail->>'amount_won', detail->>'revenue_ratio_pct', "
-           "detail->>'counterparty', detail->>'is_external' "
-           "FROM dart_events WHERE rcept_dt BETWEEN %s AND %s AND kind = ANY(%s)")
+    extra = ""
     params: list[Any] = [since, until, kinds]
     if tickers is not None:
-        sql += " AND stock_code = ANY(%s)"
+        extra = " AND stock_code = ANY(%s)"
         params.append(tickers)
     elif corp_cls:
-        sql += " AND corp_cls = %s"
+        extra = " AND corp_cls = %s"
         params.append(corp_cls)
-    r = pg_rows(sql, tuple(params))
+    r = pg_rows(_EVENTS_SQL.format(extra=extra), tuple(params))
     if r is None:
         return None
     out = []

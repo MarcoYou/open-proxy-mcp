@@ -118,8 +118,9 @@ def test_the_guard_actually_sees_the_strings_it_guards():
 def test_firm_history_no_data_and_missing_curve_warnings_are_neutral(monkeypatch):
     p, _, _ = run_firm_history(S, monkeypatch.setattr, "fh_no_data")
     assert p["status"] == "no_data"
-    assert p["warnings"] == ["시계열 없음 — 과거 시세(주간 시세 저장분)·연간 재무·주간 스냅샷 모두 미수집."]
-    p, _, _ = run_firm_history(S, monkeypatch.setattr, "fh_every_other_read_fails")
+    assert p["warnings"] == ["시계열 없음 — 과거 시세(주간 시세 저장분)·재무(연간·분기) 미수집."]
+    # 261018(재설계 6단계): 곡선 없이 연말 밴드만 남는 응답 — 종전 「스냅샷 표 말고 전부 실패」 시나리오 자리(그 표를 없앴다)
+    p, _, _ = run_firm_history(S, monkeypatch.setattr, "fh_only_px_fails")
     assert "주간 곡선 미산출 — 주간 시세 저장분 또는 재무(연간·분기) 미수집." in p["warnings"]
     assert "FY0=직전 확정 FY(연간 재무·PIT)" in p["data"]["method"] and "(분기 재무)" in p["data"]["method"]
     # MCP 로 부른 사용자 화면(md)에도 표 이름이 없다 — 렌더러가 method·warnings 를 그대로 싣는다
