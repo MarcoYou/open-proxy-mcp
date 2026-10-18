@@ -926,16 +926,37 @@ def _shutdown_aware_server_class():
     기록은 2초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
     요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(`fly.toml` kill_timeout — 261019 부터 90초,
     그 전 기본 5초) 뒤 강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
-    `usage.begin_shutdown()` 은 비차단이다(깃발 + 큐 깨우기) — 신호 처리기 안에서 불러도 된다."""
+
+    261019: `usage.begin_shutdown()` 을 **신호 처리기 안에서 바로 부르지 않는다** — 이벤트 루프에 한 칸 미뤄 부른다.
+    `begin_shutdown` 은 기다리지는 않지만 잠금은 잡는다(`threading.Event.set` 의 조건 잠금, 큐 `put_nowait` 의 큐 잠금). 파이썬 신호
+    처리기는 메인 스레드(= 이벤트 루프)가 하던 일을 **그 자리에서 끊고** 돈다 — 메인 스레드가 그 잠금을 쥔 순간(요청 기록 `usage.record`
+    의 `put_nowait`, 또는 앞 신호의 처리기가 `Event.set` 안에 있을 때 두 번째 신호)에 처리기가 같은 잠금을 기다리면 **영영 풀리지 않는다**
+    (같은 스레드가 쥐고 있다). 로컬 실측(261019): `uv run` 이 중계한 신호와 직접 받은 신호가 겹친 서버가 `threading.py` `__enter__` 에서
+    멈춰 /health 도 답하지 않았다(faulthandler 덤프 — 처리기 두 겹이 같은 `Event.set` 에). 그러면 fly 는 kill_timeout(90초) 내내 기다렸다
+    강제 종료한다. `loop.call_soon_threadsafe` 는 덱에 넣고 자기 소켓에 한 바이트 쓰는 것뿐이라 잠금을 잡지 않는다."""
     import uvicorn
+
+    def _tell_usage() -> None:
+        try:
+            from open_proxy_mcp import usage
+            usage.begin_shutdown()
+        except Exception:                 # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
+            pass
 
     class _Server(uvicorn.Server):
         def handle_exit(self, sig, frame):
+            import asyncio
             try:
-                from open_proxy_mcp import usage
-                usage.begin_shutdown()
-            except Exception:             # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
-                pass
+                loop = asyncio.get_running_loop()
+            except RuntimeError:          # 루프 밖(시험·직접 호출) — 끊긴 일이 없으니 바로 부른다
+                loop = None
+            if loop is None:
+                _tell_usage()
+            else:
+                try:
+                    loop.call_soon_threadsafe(_tell_usage)
+                except RuntimeError:      # 루프가 이미 닫혔다 — atexit 의 flush 가 남은 것을 쓴다
+                    pass
             super().handle_exit(sig, frame)
 
     return _Server
