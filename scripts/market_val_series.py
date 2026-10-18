@@ -138,7 +138,7 @@ def _flush(buf):
 
 async def fetch(tickers: list[str] | None = None):
     """`tickers` 를 주면 그 종목만(261018 — 결산월이 12월이 아닌 회사의 새 사업보고서만 좁혀 받을 때)."""
-    from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     sleep_s = float(os.getenv("SERIES_SLEEP", "0.45"))  # 260706: 필요시 조정, 기본값은 검증된 0.45 유지
     con=_pg()
     buf=[]
@@ -207,8 +207,14 @@ async def fetch(tickers: list[str] | None = None):
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
                 _flush(buf)
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
+            if dart_halts_batch(e):
+                # 261019: 키 한도·키 문제·점검(남은 키까지 다 본 뒤) — 남은 항목도 같은 답이다. 멈추고, 이 항목은 err 로 적지 않는다
+                #   (행이 그대로라 다음 실행의 재개 규칙이 이 항목부터 받는다). 종전엔 항목마다 err 로 적고 쉬지 않고 다음을 불렀다.
+                _flush(buf)
+                print(dart_batch_halt_line(e, f"{k-1}/{len(todo)}건 처리"),flush=True); break
             buf.append((isu,yr,None,None,None,None,None,f"err:{str(e)[:30]}"))
             if len(buf)>=25: _flush(buf)
+            await asyncio.sleep(sleep_s)   # 261019: 오류 뒤에도 같은 간격 — 종전엔 오류가 이어지면 쉬지 않고 불렀다
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
     _flush(buf)
     print("fetch 종료",flush=True)
@@ -222,7 +228,7 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
     261019: `tickers` 를 주면 그 종목만, 「이미 처리됨」 판정 없이 받는다 — 종전 판정은 두 해 중 **하나라도** 재작성치가 있으면 처리됐다고
     봐서, 한 해만 채워진 종목(10-19 운영 신영증권 001720 — 2022 칸만 있고 2023 칸이 빔. 원 사업보고서(2023.03)는 API 에 없다)을 다시
     보지 않았다. `report_year` 로 다른 해 보고서의 비교치도 받는다(DART 표기 — 결산월과 무관하게 전기 = 표기 −1, 전전기 = −2)."""
-    from open_proxy_mcp.dart.client import get_dart_client, DartClientError
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     con=_pg()
     firms=[r for r in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
     fs_map={r[0]:r[1] for r in con.execute("SELECT ticker, fs FROM dart_finstat_y WHERE fy=%s", (report_year,))}
@@ -268,6 +274,10 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
                 _flush(restate_buf)
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
+            if dart_halts_batch(e):   # 261019: fetch 와 같은 규칙
+                _flush(restate_buf)
+                print(dart_batch_halt_line(e, f"{k-1}/{len(todo)}건 처리"),flush=True); break
+            await asyncio.sleep(0.45)
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
     _flush(restate_buf)
     print("백필 종료",flush=True)
