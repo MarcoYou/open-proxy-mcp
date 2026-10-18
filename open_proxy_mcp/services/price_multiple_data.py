@@ -39,8 +39,8 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
-from open_proxy_mcp.services.dividend import (_annual_summary, _num_out, align_dps_to_price, dps_unevenness, period_cash_meta,
-                                               period_dps, trailing_period_dps)
+from open_proxy_mcp.services.dividend import (DPS_SHARE_EVENT_TYPES, _annual_summary, _num_out, align_dps_to_price,
+                                               dps_unevenness, period_cash_meta, period_dps, share_ratio_for, trailing_period_dps)
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
 from open_proxy_mcp.krx_retention import (COLD_DEGRADED_NOTE, krx_weekly_cutoff, seam_gap, serving_seam, week_unit,
@@ -2078,6 +2078,46 @@ async def _shares_outstanding(client, cc: str, year: int) -> dict:
     return out
 
 
+#: 이벤트 뒤 상장주식 수를 볼 기간(달력 일) — 무상증자·주식배당 신주는 권리락 뒤 3~5주에 상장한다(`dividend.share_ratio_for`).
+SHARE_LISTING_LAG_DAYS = 63
+#: 이벤트 앞 마지막 주의 상장주식 수 · 이벤트 날부터 위 기간 끝까지 주마다의 상장주식 수(날짜 순) · 일별 저장분 최신 거래일의 상장주식 수
+#: (그날이 기간 안일 때만 — krx_weekly 는 닫힌 주만 있어 이번 주에 상장한 신주는 일별 저장분에만 있다).
+_SHARES_AROUND_SQL = (
+    "SELECT (SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND price_dd<%s AND list_shrs>0 ORDER BY price_dd DESC LIMIT 1), "
+    "ARRAY(SELECT list_shrs FROM krx_weekly WHERE ticker=%s AND price_dd>=%s AND price_dd<=%s AND list_shrs>0 ORDER BY price_dd), "
+    "(SELECT list_shrs FROM price_latest WHERE ticker=%s AND list_shrs>0 AND price_dd<=%s)")
+
+
+async def _dps_events(ticker: str, after_dd: str) -> tuple[list[tuple] | None, dict[str, float]]:
+    """DPS 주식 기준 맞춤(`dividend.align_dps_to_price`)의 입력 — (after_dd, 오늘] 기준가 조정 이벤트와, 확정 라벨이 아닌 조정의
+    앞뒤 상장주식 수 배율(`dividend.share_ratio_for` — 계수의 역수에 가장 가까운 것). (261019 p1b·p1c)
+
+    확정 라벨 분할·병합·무상증자·주식배당은 계수만으로 충분하다. 그 밖의 조정(라벨 원천이 멎어 7월 뒤 이벤트는 모두 unlabeled — 무상증자는
+    종류도 비어 있다)은 상장주식 수가 계수의 역수만큼 바뀌었는지(이벤트 앞 마지막 주 ↔ 이벤트 뒤 `SHARE_LISTING_LAG_DAYS` 안)를 봐야
+    주식 수 조정인지 대규모 배당락·자본 환급인지 가린다. 그런 이벤트가 있을 때만 이벤트마다 한 번 더 읽는다(대부분 이벤트가 없어 읽기 한 번).
+    「excluded_…」 라벨(시장 이전·호가단위 맞춤)은 읽지 않는다. 읽기 실패는 배율 없음과 같다(그 이벤트는 바꾸지 않고 크면 안내 — 배당 fail-open)."""
+    from datetime import datetime, timedelta
+    rows = await _db_rows(
+        "SELECT event_dd, adj_factor, event_type, label_confidence, prev_close, base_price FROM krx_adj_events "
+        "WHERE ticker=%s AND event_dd>%s AND adj_factor IS NOT NULL ORDER BY event_dd", (ticker, after_dd))
+    ratios: dict[str, float] = {}
+    for r in rows or []:
+        dd, f, et, lab = str(r[0]), r[1], r[2], r[3]
+        if not f or (et in DPS_SHARE_EVENT_TYPES and lab == "confirmed") or str(lab or "").startswith("excluded"):
+            continue
+        try:
+            end = (datetime.strptime(dd[:8], "%Y%m%d") + timedelta(days=SHARE_LISTING_LAG_DAYS)).strftime("%Y%m%d")
+        except ValueError:
+            continue
+        sh = await _db_rows(_SHARES_AROUND_SQL, (ticker, dd, ticker, dd, end, ticker, end))
+        if sh:
+            pre, weekly, latest = sh[0][0], list(sh[0][1] or []), sh[0][2]
+            ratio = share_ratio_for(f, pre, weekly + ([latest] if latest else []))
+            if ratio:
+                ratios[dd] = ratio
+    return rows, ratios
+
+
 def _dps_fetch_failed(div_err: Any) -> bool:
     """배당 사항 조회가 **실패**했나 — `_annual_summary` 의 두 번째 값(실패 시 「alotMatter 조회 실패: {DART 상태}」, 아니면 None).
     상태 013(조회된 데이터 없음)은 실패가 아니라 그 사업보고서에 배당 항목이 없다는 뜻이라(`guideline_research` 등도 013 을 no_rows 로 친다)
@@ -2434,26 +2474,28 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   이벤트가 없으면(대부분) DPS 는 종전 그대로이고 DB 읽기 한 번만 는다. 읽기 실패는 종전 값(배당 fail-open).
     dps_align = dps_uneven = None
     if dps and price and stock_code:
-        if dps_periods:
-            _chain = [dps_periods["prior"], *dps_periods["periods"]]
-            _after = dps_periods["periods"][0][0]
-        else:
-            _st = "".join(ch for ch in ((div_sum or {}).get("stlm_dt") or "") if ch.isdigit())[:8]
-            _chain, _after = ([(_st, dps)], _st) if len(_st) == 8 else ([], None)
-        if _chain:
-            _ev = await _db_rows(
-                "SELECT event_dd, adj_factor, event_type, label_confidence, prev_close, base_price FROM krx_adj_events "
-                "WHERE ticker=%s AND event_dd>%s AND adj_factor IS NOT NULL ORDER BY event_dd", (stock_code, _chain[0][0]))
-            if _ev:
-                dps_align = align_dps_to_price(_chain, period_cash_meta(_dps_items), _ev, shares_total, price_after=_after)
-                _aligned = dps_align["periods"]
-                if dps_periods:
-                    dps_periods = {**dps_periods, "periods": _aligned[1:], "dps": _num_out(sum(v for _, v in _aligned[1:]))}
-                    dps = dps_periods["dps"] or None
-                else:
-                    dps = _num_out(_aligned[0][1]) or None
-        if dps_periods:
-            dps_uneven = dps_unevenness([dps_periods["prior"] if not dps_align else dps_align["periods"][0], *dps_periods["periods"]])
+        try:
+            if dps_periods:
+                _chain = [dps_periods["prior"], *dps_periods["periods"]]
+                _after = dps_periods["periods"][0][0]
+            else:
+                _st = "".join(ch for ch in ((div_sum or {}).get("stlm_dt") or "") if ch.isdigit())[:8]
+                _chain, _after = ([(_st, dps)], _st) if len(_st) == 8 else ([], None)
+            if _chain:
+                _ev, _ratios = await _dps_events(stock_code, _chain[0][0])
+                if _ev:
+                    _al = align_dps_to_price(_chain, period_cash_meta(_dps_items), _ev, shares_total, price_after=_after,
+                                             share_ratios=_ratios)
+                    _aligned = _al["periods"]
+                    if dps_periods:
+                        _dp = {**dps_periods, "periods": _aligned[1:], "dps": _num_out(sum(v for _, v in _aligned[1:]))}
+                        dps_periods, dps, dps_align = _dp, (_dp["dps"] or None), _al
+                    else:
+                        dps, dps_align = (_num_out(_aligned[0][1]) or None), _al
+            if dps_periods:
+                dps_uneven = dps_unevenness([dps_periods["prior"] if not dps_align else dps_align["periods"][0], *dps_periods["periods"]])
+        except Exception:  # noqa: BLE001 — 배당 fail-open: 맞춤이 깨져도 PER·PBR 응답과 종전 DPS 는 나간다
+            logger.exception("DPS 주식 기준 맞춤 실패 — 종전 DPS 그대로 (%s)", stock_code)
 
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
     # EPS(FY0): 공시값 우선 — fy_rows 직접(비KRW는 ×환율) → fm(eps_krw) → 지배순이익÷보통주 폴백.
@@ -2706,20 +2748,29 @@ def _dps_alignment_warnings(align: dict[str, Any] | None, uneven: dict[str, Any]
     """DPS 주식 기준 맞춤·큰 기준가 조정·결산기 편차 안내(261019 p1b). 해당이 없으면 빈 목록 — 대부분의 회사는 응답이 그대로다."""
     out: list[str] = []
     won = lambda v: f"{v:,}원"
+    def _ev_txt(e: dict[str, Any]) -> str:
+        # 261019 p1c: 확정 라벨이 아닌데 상장주식수로 확인한 조정은 종류가 비어 있을 수 있다(무상증자) — 확인한 근거를 함께 적는다.
+        kind = _EVENT_KO.get(e["event_type"]) or "종류 미확인 조정"
+        via = f", 상장주식수 × {e['shares_ratio']:g} 로 확인" if e.get("basis") == "listed_shares_ratio" and e.get("shares_ratio") else ""
+        return f"{e['event_dd']} {kind}(계수 {e['adj_factor']:g}{via})"
+
     for a in (align or {}).get("adjusted") or []:
-        evs = " · ".join(f"{e['event_dd']} {_EVENT_KO.get(e['event_type'], e['event_type'])}(계수 {e['adj_factor']:g})" for e in a["events"])
+        evs = " · ".join(_ev_txt(e) for e in a["events"])
         out.append(f"결산기준일 {a['stlm_dt']} 뒤 {evs} — 사업보고서 DPS {won(a['dps_reported_krw'])}를 지금 주식 기준 {won(a['dps_krw'])}로 바꿔 "
                    "배당수익률을 냈다(옛 주식 기준 DPS 를 새 주가로 나누면 계수만큼 어긋난다).")
     for u in (align or {}).get("undetermined") or []:
-        evs = " · ".join(f"{e['event_dd']} {_EVENT_KO.get(e['event_type'], e['event_type'])}(계수 {e['adj_factor']:g})" for e in u["events"])
+        evs = " · ".join(_ev_txt(e) for e in u["events"])
         out.append(f"⚠️ 결산기준일 {u['stlm_dt']} 뒤 {evs} — DPS {won(u['dps_krw'])}가 그 앞뒤 어느 주식 수 기준인지 확인하지 못해 그대로 썼다. "
                    "옛 주식 기준이면 배당수익률이 계수만큼 어긋난다.")
     for e in (align or {}).get("price_events") or []:
         kind = _EVENT_KO.get(e["event_type"]) or "종류 미확인"
         pc, bp = e.get("prev_close"), e.get("base_price")
         px = f"전일 종가 {pc:,.0f}원 → 기준가 {bp:,.0f}원, " if pc and bp else ""
+        # 261019 p1c: 상장주식수를 읽었으면(이벤트 뒤 63일) 주식 수 조정이 아니라는 근거를, 못 읽었으면 그 사실을 적는다.
+        sr = e.get("shares_ratio")
+        sh = (f"상장주식수 × {sr:g} — 주식 수 조정이 아니다" if sr else "상장주식수 확인 못 함 — 분할·병합이면 계수만큼 어긋난다")
         out.append(f"⚠️ {e['event_dd']} 기준가 조정({px}계수 {e['adj_factor']:.2f}, {kind}) — 그 앞 결산기 배당을 조정 뒤 주가로 나눴다. "
-                   "대규모 배당락·자본 환급 뒤라면 배당수익률이 실제 배당 수준보다 크게, 확정 전 분할이면 계수만큼 어긋난다. DPS 는 바꾸지 않았다.")
+                   f"대규모 배당락·자본 환급 뒤라면 배당수익률이 실제 배당 수준보다 크다({sh}). DPS 는 바꾸지 않았다.")
     if uneven:
         total = (periods or {}).get("dps")
         if uneven.get("ratio"):
