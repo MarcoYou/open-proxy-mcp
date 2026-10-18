@@ -2325,7 +2325,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     price = mk.get("price")               # mk = P1 병렬 fetch
 
     # ── 실시간 스케일 오류 가드 (소프트센 032680 사례, wiki §9) ──
-    # hard 등급 = ②(항등식)·③(시장최댓값 배수). soft = ①(배수점프, 실측 오탐 97.5%)·④(시총비율).
+    # hard 등급 = ②(항등식 — 261019 부터 단위 오류 꼴 10배 이상만)·③(시장최댓값 배수). soft = ①(배수점프, 실측 오탐 97.5%)·④(시총비율)·②' 항등식 소폭 어긋남.
     # ★개별 종목 조회에서는 값을 무효화(N/M)하지 않고 그대로 노출 + 강한 경고만 부착 — 이 tool의
     #  철학("배수·인풋·가정 모두 노출, 판단은 사용자")과 자본잠식 처리(값 유지+경고)에 일관.
     #  (기계가 합산하는 시장 aggregate = market_val_series·market_fund_quarterly 수집에서는 반대로 무효화 — 경고문이
@@ -2474,7 +2474,15 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     if scale_verdict and scale_verdict["tier"] == "hard":
         warnings.append(f"🚨 DART 재무 단위(스케일) 오류 강하게 의심({scale_verdict['hard_hit']}) — 아래 순이익·자본·배수는 **원문 그대로**이며 신뢰 불가. 반드시 원문 확인 후 사용. (예: 소프트센 032680 100만배 오류)")
     elif scale_verdict and scale_verdict["tier"] == "soft":
-        warnings.append(f"재무 비율 이상치({scale_verdict['soft_hit']}) — 값은 정상일 수 있음(원샷 이익·자산매각·적자흑자 전환 등). 참고용 플래그.")
+        # 261019: 항등식 어긋남이 단위 오류 꼴(10배 이상)이 아니면 soft 다 — 원문의 자산·부채 총계 칸이 다른 칸과 안 맞는다는 뜻이라
+        #   이익 급변 문구와 따로 적는다(순이익·자본 값은 그 칸을 쓰지 않는다).
+        _bim = (scale_verdict.get("diagnostics") or {}).get("balance_identity_mismatch") or {}
+        _rest = [k for k in scale_verdict["soft_hit"] if k != "balance_identity_mismatch"]
+        if _bim.get("triggered"):
+            warnings.append(f"원문 재무상태표의 자산총계 ≠ 부채총계 + 자본총계(차이 {_bim.get('diff_pct') or 0:.2f}%, 단위 오류 꼴 아님) — "
+                            "순이익·자본 값은 그대로 썼다. 총계 칸을 인용하려면 원문 확인.")
+        if _rest:
+            warnings.append(f"재무 비율 이상치({_rest}) — 값은 정상일 수 있음(원샷 이익·자산매각·적자흑자 전환 등). 참고용 플래그.")
     # 조립 EPS sanity(재무 QA 260705, 이오플로우 실증): 기중 주식수 급변(대규모 유증·감자) 시
     # 서로 다른 가중평균 분모의 EPS를 가감하는 구조적 한계. 단 우선주 배분·가중평균의 '구조적' 괴리
     # (현대차 22% — 정상)는 FY0·TTM 양쪽에 동일하게 나타나므로, **괴리 비율의 변화**(FY0 대비 TTM)와
