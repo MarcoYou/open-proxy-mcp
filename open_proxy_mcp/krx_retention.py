@@ -77,6 +77,22 @@ def _fmt(d: date) -> str:
     return f"{d.year:04d}{d.month:02d}{d.day:02d}"
 
 
+def week_unit(dd: str) -> tuple[str, str]:
+    """`krx_weekly` 의 「한 주」 — dd 가 속한 ISO 주(월~일)를 **그 달력 연도 안으로 자른** (첫날, 끝날) YYYYMMDD.
+
+    261018(재설계 5-1 쓰는 쪽). 종전 정의는 ISO 주 그대로(`_iso_wk_range`)였다. 12/31 이 화·수·목인 해에는 그해 마지막
+    거래일(12/29~30)과 다음 해 첫 거래일(1/2~)이 같은 ISO 주라, 1/2 를 쓰는 순간 같은 주의 옛 날짜로 12/30 이 지워졌다 —
+    보존 규칙의 「그해 마지막 행」·연말 밴드·연말 배당수익률이 하루~이틀 이른 금요일 값이 됐다.
+    실측(운영 DB 261018): 2019·2024·2025 연말 행이 20191227·20241227·20251226(실제 마지막 거래일은 각각 12/30).
+    다음으로 겹치는 해는 2030·2031 이다. 연도 경계에서 주를 둘로 나누면 「주마다 그 주 마지막 거래일 한 점」과
+    「해마다 마지막 거래일 한 점」이 함께 성립한다(연말 주만 주간 점이 하나 더 생긴다).
+    쓰는 쪽(주 닫기·같은 주 정리)과 읽는 쪽(일별 끝점 잇기)이 모두 이 정의 하나를 쓴다."""
+    d = _parse_dd(dd)
+    mon = d - timedelta(days=d.isoweekday() - 1)
+    sun = mon + timedelta(days=6)
+    return _fmt(max(mon, date(d.year, 1, 1))), _fmt(min(sun, date(d.year, 12, 31)))
+
+
 def krx_weekly_cutoff(latest_dd: str) -> str:
     """보존 하한 `price_dd`(YYYYMMDD) — 이 날짜 **이상**의 주는 전부 남긴다.
 

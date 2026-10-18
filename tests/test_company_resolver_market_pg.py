@@ -46,13 +46,14 @@ def _expected_caps(dd: str) -> dict[str, int]:
 
 @pytest.fixture
 def two_weeks(pg17, monkeypatch):
-    """서버의 실제 쓰기(`_krx_db_upsert`)로 두 주(10거래일)를 쓴다 → krx_weekly = 지난주 마지막 날 + 이번 주 최신일, krx_daily = 최근 7거래일."""
+    """서버의 실제 쓰기(`_krx_db_upsert`)로 두 주(10거래일)를 쓴다 → krx_weekly = 닫힌 두 주의 금요일(이번 주도 금요일까지 써서 닫혔다),
+    krx_daily = 최근 7거래일."""
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute(KRX_WEEKLY_DDL)
     _apply(pg17)
     monkeypatch.setenv("DATABASE_URL", pg17)
     for i, dd in enumerate(LAST_WEEK + THIS_WEEK):
-        assert pmd._krx_db_upsert(dd, *_day_rows(i, dd)) == (True, True)
+        assert pmd._krx_db_upsert(dd, *_day_rows(i, dd)).daily_ok
     with psycopg.connect(pg17) as c:
         assert [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly ORDER BY 1").fetchall()] == ["20261009", "20261016"]
         assert c.execute("SELECT min(trd_dd), max(trd_dd), count(DISTINCT trd_dd) FROM krx_daily").fetchone() == ("20261008", "20261016", 7)

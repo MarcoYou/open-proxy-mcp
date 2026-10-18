@@ -27,6 +27,25 @@ def _fridays(start: date, end: date) -> list[str]:
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. 하한 (코디네이터 확정 정의)
 # ═══════════════════════════════════════════════════════════════════════════════
+def test_week_unit_is_the_iso_week_clipped_to_the_calendar_year():
+    """261018(재설계 5-1 쓰는 쪽): krx_weekly 의 한 주 = ISO 주 ∩ 달력 연도. 연도를 넘는 ISO 주는 둘로 나뉜다 —
+    그해 마지막 거래일(12/30)이 다음 해 첫 거래일(1/2)과 같은 주로 묶여 지워지지 않게."""
+    assert R.week_unit("20261014") == ("20261012", "20261018")        # 평범한 주 = ISO 주(월~일)
+    assert R.week_unit("20251230") == ("20251229", "20251231")        # 2026-W01 의 2025년 쪽
+    assert R.week_unit("20260102") == ("20260101", "20260104")        # 2026-W01 의 2026년 쪽
+    assert R.week_unit("20201230") == ("20201228", "20201231")        # 2020-W53(1/1·1/3 은 2021년 쪽)
+    assert R.week_unit("20210101") == ("20210101", "20210103")
+    # 하루하루가 꼭 한 주에 들고, 한 주는 늘 같은 연도 안이며 7일을 넘지 않는다
+    d = date(2015, 12, 1)
+    while d < date(2032, 1, 31):
+        s_, e_ = R.week_unit(d.strftime("%Y%m%d"))
+        assert s_ <= d.strftime("%Y%m%d") <= e_ and s_[:4] == e_[:4]
+        assert (date(int(e_[:4]), int(e_[4:6]), int(e_[6:])) - date(int(s_[:4]), int(s_[4:6]), int(s_[6:]))).days <= 6
+        d += timedelta(days=1)
+    with pytest.raises(ValueError):
+        R.week_unit("2025-12-30")
+
+
 def test_cutoff_is_latest_minus_three_calendar_years():
     assert R.krx_weekly_cutoff("20261016") == "20231016"
     assert R.krx_weekly_cutoff("20260301") == "20230301"

@@ -7,7 +7,7 @@
 
 무엇을 쌓나: `dart_events` — 접수번호 1행. 분류(유형·세부·단계·정정 여부)는 screener 의
 분류기를 **그대로** 쓴다(사본을 두면 두 곳이 갈린다). 업종은 업종분류(월 1회 스냅샷,
-접수일 이전 최신), 시총은 `krx_weekly`(주간, 접수일 이전 최신)를 붙인다. 수주·자사주·배당·
+접수일 이전 최신), 시총은 접수일 이전 최신 시세(일별 저장분 `krx_daily_v` 창 안이면 그날, 밖이면 `krx_weekly` 주간)를 붙인다. 수주·자사주·배당·
 증자·잠정실적은 기존 상세 파서로 금액·매출비율 등 핵심 숫자를 `detail`(jsonb)에 담는다.
 `dart_events_scan` — 날짜×코드별로 DART 가 몇 건이라 했고 몇 페이지를 실제로 받았는지.
 기준선은 모수가 정직해야 뜻이 있다. 빠진 날은 「0건」이 아니라 「안 본 날」이다.
@@ -226,19 +226,25 @@ def db_row(row: dict) -> dict:
 # ── DB 보강 ────────────────────────────────────────────────────────────
 
 def enrich(con, rows: list[dict]) -> None:
-    """업종(업종분류 스냅샷)·시총(krx_weekly)을 접수일 이전 최신 스냅샷에서 붙인다. DB 만, DART 0콜."""
+    """업종(업종분류 스냅샷)·시총을 접수일 이전 최신 스냅샷에서 붙인다. DB 만, DART 0콜.
+
+    시총 원천(261018, 재설계 5-1): **일별 시세 저장분(`krx_daily_v`, 최근 7거래일)을 먼저** 보고, 접수일이 그 창보다 이르면
+    `krx_weekly`(주마다 그 주 마지막 거래일)를 본다. 종전엔 `krx_weekly` 만 봤는데 그 표의 주중 행은 같은 주의 다음 날 기록 때
+    지워졌다 — 최근 3일 재스캔이 같은 공시에 다른 날짜의 시총을 붙였다(실측: 접수 10-15 공시에 20261008 시총). 일별 창 안의
+    날짜는 지워지지 않으니 재스캔해도 같은 날(접수일 이하 가장 늦은 거래일)이 붙는다. 같은 날짜가 두 표에 다 있으면 일별 것을 쓴다."""
     tickers = sorted({r["stock_code"] for r in rows if r.get("stock_code")})
     if not tickers:
         return
     sec_snaps = [r[0] for r in con.execute("SELECT DISTINCT snap_dd FROM wise_sector").fetchall()]
+    lo = yyyymmdd(min(r["rcept_dt"] for r in rows) - timedelta(days=14))
+    hi = yyyymmdd(max(r["rcept_dt"] for r in rows))
+    daily_snaps = {r[0] for r in con.execute("SELECT DISTINCT trd_dd FROM krx_daily").fetchall()}
     cap_snaps = [r[0] for r in con.execute(
-        "SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s AND price_dd <= %s",
-        (yyyymmdd(min(r["rcept_dt"] for r in rows) - timedelta(days=14)),
-         yyyymmdd(max(r["rcept_dt"] for r in rows)))).fetchall()]
+        "SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s AND price_dd <= %s", (lo, hi)).fetchall()]
     if not cap_snaps:   # 창 안에 주간 시점이 없으면 그 이전 최신 하나
-        prev = con.execute("SELECT max(price_dd) FROM krx_weekly WHERE price_dd <= %s",
-                           (yyyymmdd(max(r["rcept_dt"] for r in rows)),)).fetchone()[0]
+        prev = con.execute("SELECT max(price_dd) FROM krx_weekly WHERE price_dd <= %s", (hi,)).fetchone()[0]
         cap_snaps = [prev] if prev else []
+    cap_snaps = sorted(set(cap_snaps) | daily_snaps)
     sec_cache: dict[str, dict[str, tuple[str, str]]] = {}
     cap_cache: dict[str, dict[str, int]] = {}
     for r in rows:
@@ -258,8 +264,9 @@ def enrich(con, rows: list[dict]) -> None:
         c_dd = pick_snapshot(cap_snaps, dd)
         if c_dd:
             if c_dd not in cap_cache:
+                src = ("krx_daily_v WHERE trd_dd=%s" if c_dd in daily_snaps else "krx_weekly WHERE price_dd=%s")
                 cap_cache[c_dd] = {a: int(b) for a, b in con.execute(
-                    "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s AND ticker = ANY(%s) AND mktcap IS NOT NULL",
+                    f"SELECT ticker, mktcap FROM {src} AND ticker = ANY(%s) AND mktcap IS NOT NULL",
                     (c_dd, tickers)).fetchall()}
             cap = cap_cache[c_dd].get(t)
             if cap is not None:

@@ -1,9 +1,13 @@
 # 주간 밸류에이션 스냅샷 배치 — scripts/market_val_weekly.py (cron)
 #
-# 설계(260705): 매일 수집(전일 종가) → 같은 ISO주 슬롯에 수렴 → 주 마지막 거래일만 영구 보존.
+# 설계(260705): 매일 수집(전일 종가) → 같은 주 슬롯에 수렴 → 주 마지막 거래일만 영구 보존.
 # 배치가 멱등·수렴형이라 매일 돌려도 주당 1스냅샷(무료티어 보호). KRX 4콜/일 (일 10,000 한도 대비 무해).
-# 갱신 대상: krx_weekly(시세) · firm_valuation_snapshot(종목별 PER/PBR) · mkt_val_history(시장·섹터,
-#   260706 병합으로 섹터도 이 테이블 sector 컬럼에 수렴) · opm_val_fwd(선행 배수, 260918).
+# 261018(재설계 5-1 쓰는 쪽): 시세의 주(主)는 일별 저장분 `krx_daily`(서버 갱신기가 월~토 아침에 기록), `krx_weekly` 는 **닫힌 주만**
+#   (금요일이 저장되면 그 주를, 다음 주 첫 기록 때 그 앞 주를 옮겨 적는다). 이 워크플로는 시세를 직접 쓰지 않는다 — 서버가 못 했을 때만
+#   `_ensure_krx_fresh` 가 예비로 기록한다. 이번 주 최신 점이 필요한 단계는 「닫힌 주 + 일별 최신일」(`krx_daily.WEEKLY_WITH_LATEST`)을 읽는다.
+#   한 주 = ISO 주를 달력 연도 안으로 자른 것(`krx_retention.week_unit` — 연말 거래일이 다음 해 첫 주에 지워지지 않게).
+# 갱신 대상: opm_val_firm(종목별 PER/PBR) · opm_val_market(시장·업종) · krx_listing · krx_stock_flags · krx_cap_agg ·
+#   opm_val_fwd(선행 배수, 260918).
 # 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY (ECOS_API_KEY 불필요 — fx_rate는 DB 캐시 히트)
 #
 # 선행 step(260705): mkt_fundamentals 재무 4열을 SSOT(mkt_finstat_q 분기재무)에서 파생 — **DART 0콜**.
@@ -126,9 +130,12 @@ jobs:
       # 260903 신설 — `dividend_data` 가 「배당을 안 했다」와 「그해엔 상장 전이었다」를
       #   가르는 데 쓰는 표. 0 으로 메우면 무배당 목록에 상장 3년차가 섞인다
       #   (실측: 배당사 28곳이 FY2020 시점에 미상장 — 그만큼이 0회로 오독될 뻔했다).
-      #   `krx_weekly` 파생이라 위 스냅샷 단계 **뒤**에 온다. 자체 크론을 만들지 않는 이유이기도 하다.
+      #   시세(krx_weekly + krx_daily) 파생이라 위 스냅샷 단계 **뒤**에 온다. 자체 크론을 만들지 않는 이유이기도 하다.
       #   요청마다 계산하면 279ms 라 도구 안에서는 못 쓴다 — 굽고 나면 3,257행/10ms.
+      # 261018: 스냅샷 단계가 가드로 실패해도(일별 시세가 비었거나 반쪽) 이 아래 단계들은 각자 돈다 — 서로 입력이 아니다.
+      #   job 은 실패(빨간불)로 남는다.
       - name: 상장 관측창 표 갱신 (DART·KRX 0콜)
+        if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/krx_listing.py
@@ -137,8 +144,10 @@ jobs:
       #   ★ `opm_val_market.cap`(위 스텝들이 만든 것)과 **다른 값**이다. 저쪽은 배수 분모를 가진
       #     종목만 더한 합이고(실측 KOSPI 5,497조/822사) 이쪽은 상장 전 종목이다(5,713조/942종목).
       #     둘 다 옳은데 뜻이 달라서 표를 나눴다 — 한 이름이 두 뜻을 가지면 하나는 틀리게 쓰인다.
-      #   맨 뒤에 두는 이유: `krx_weekly` 가 이 워크플로 앞쪽에서 갱신되므로 그 뒤라야 최신 주를 잡는다.
+      #   맨 뒤에 두는 이유: 시세가 이 워크플로 앞쪽(스냅샷 단계의 예비 기록)에서 갱신될 수 있으므로 그 뒤라야 최신 점을 잡는다.
+      #   261018: 원천 = 닫힌 주(krx_weekly) + 일별 최신일(이번 주 임시 점). 주가 닫히면 다음 실행이 임시 점을 닫힌 날로 바꾼다.
       - name: 시장·섹터 시총 집계 (DART·KRX 0콜)
+        if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/krx_cap_agg.py
@@ -147,32 +156,61 @@ jobs:
       #   원천은 수집 머신이 토요일 저녁에 올리는 추정치 이력(`fwd_hist`) + 업종분류 + 주간 시세의 시장 구분.
       #   새 날짜와 가장 최근 날짜만 계산해 평일엔 몇 초짜리 재계산 하나다(토요일 수집분은 일요일 아침 반영).
       #   수집 머신의 `fwd_agg` 에 넣지 않는 이유: 그쪽 송출이 날짜별로 행을 통째로 지우고 다시 넣는다.
-      #   `krx_weekly` 를 쓰므로 위 시세 스냅샷 **뒤**에 온다.
+      #   시세의 시장 구분을 쓰므로 위 시세 스냅샷 **뒤**에 온다.
       - name: 선행 배수 집계 — 시장·업종 (DART·KRX 0콜)
+        if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/fwd_val_weekly.py
 
       - name: 집계 확인 — 최신 시점이 들어왔나
+        if: ${{ !cancelled() }}
         # 「성공」이 아니라 **산출물 변화**로 확인한다(법령 배치 교훈: 상류가 죽어도 초록불).
         #   스크립트 자체가 「섹터 합 == 시장 합」 항등을 전 시점에서 검사하고 어긋나면 실패한다.
+        # 261018(재설계 5-1 쓰는 쪽): 기준 = 일별 시세 저장분의 최신 거래일(krx_daily). krx_weekly 는 닫힌 주만 담아 주중엔 지난 금요일이다.
+        #   ① 시총 집계(krx_cap_agg) 최신 == 일별 최신일 — 아니면 실패.
+        #   ② 밸류에이션 스냅샷(opm_val_firm·opm_val_market) 최신 snap_dd 가 일별 최신일과 다르면 경고, 2거래일 이상 뒤처지면 실패.
+        #      종전 확인은 이 둘을 보지 않아, 스냅샷 단계가 건너뛰어져도(종목유형 조회 실패 등 — 로그 100회 중 3회) 초록불이었다.
+        #      뒤처진 거래일 수는 일별 저장분(최근 7거래일)에 있는 「그 날 이후 거래일」 수로 센다(창 밖이면 7 이상).
+        #   ③ krx_weekly 최신(닫힌 주)이 일별 저장분의 닫힌 주를 따라왔나 — 주간 닫기가 멈추면 경고.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           uv run python - <<'PY'
           import os, psycopg
+          from open_proxy_mcp.krx_daily import plan_weeks
           with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+              days = [r[0] for r in c.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1").fetchall()]
+              if not days:
+                  raise SystemExit("::error::일별 시세 저장분(krx_daily)이 비었다 — 서버 갱신기 확인")
+              daily = days[-1]
               agg = c.execute("SELECT max(price_dd) FROM krx_cap_agg").fetchone()[0]
               wk  = c.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
-              print(f"krx_cap_agg 최신 {agg} / krx_weekly 최신 {wk}")
-              if agg != wk:
-                  raise SystemExit(f"::error::집계가 시세보다 낡음 ({agg} < {wk}) — 재적재 실패")
+              print(f"일별 최신 {daily} · krx_cap_agg 최신 {agg} · krx_weekly(닫힌 주) 최신 {wk}")
+              failed = []
+              if agg != daily:
+                  failed.append(f"시총 집계가 시세보다 낡음 ({agg} ≠ {daily}) — 재적재 실패")
               n = c.execute("SELECT count(*) FROM krx_cap_agg WHERE price_dd=%s", (agg,)).fetchone()[0]
               print(f"최신 시점 {n}행 (시장 2 + 업종 대분류·중분류 × 2시장)")
+              for table, extra in (("opm_val_firm", ""), ("opm_val_market", " WHERE scheme='market'")):
+                  snap = c.execute(f"SELECT max(snap_dd) FROM {table}{extra}").fetchone()[0]
+                  behind = sum(1 for d in days if snap is None or d > snap)   # 창보다 이르면 창 전체(7) 이상
+                  print(f"{table} 최신 snap_dd {snap} · 일별 최신 {daily} · 뒤처진 거래일 {behind}")
+                  if behind >= 2:
+                      failed.append(f"{table} 가 {behind}거래일 뒤처짐 ({snap} < {daily}) — 스냅샷 단계 실패·건너뜀")
+                  elif behind == 1:
+                      print(f"::warning::{table} 최신 snap_dd {snap} 가 일별 최신 {daily} 보다 하루 늦다 — 이번 실행의 스냅샷 단계가 건너뛰어졌다(다음 실행이 메운다)")
+              closed = [w.last for w in plan_weeks(days) if w.closed]
+              if closed and (wk or "") < closed[-1]:
+                  print(f"::warning::krx_weekly 최신 {wk} 가 일별 저장분의 닫힌 주 {closed[-1]} 를 따라오지 못했다 — 주간 닫기 확인(다음 기록 때 다시 닫는다)")
               # 260918: 선행 배수가 추정치 이력의 최신 날짜를 따라왔나
               fh = c.execute("SELECT max(as_of) FROM fwd_hist").fetchone()[0]
               fv = c.execute("SELECT max(as_of) FROM opm_val_fwd").fetchone()[0]
               print(f"opm_val_fwd 최신 {fv} / fwd_hist 최신 {fh}")
               if fh and fv != fh:
-                  raise SystemExit(f"::error::선행 배수가 추정치 이력보다 낡음 ({fv} < {fh}) — 집계 실패")
+                  failed.append(f"선행 배수가 추정치 이력보다 낡음 ({fv} < {fh}) — 집계 실패")
+              for f in failed:
+                  print(f"::error::{f}")
+              if failed:
+                  raise SystemExit(1)
           PY

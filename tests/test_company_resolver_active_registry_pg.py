@@ -3,7 +3,8 @@
 261018: 완전성 판정이 'KOSPI'/'KOSDAQ' 을 세는데 DB 값은 260823 개명 뒤 KS/KQ 라 `active_tickers` 가 늘 None 이었다.
 활성 명부 필터(`_active_preferred`)와 이전 맥락 유지 보호(`_should_keep_previous`, PR #86)가 운영에서 한 번도 켜지지 않았는데,
 기존 시험은 `MarketContext(..., active_tickers=frozenset(...))` 를 손으로 만들어 넣어 그 경로를 한 번도 지나지 않았다.
-여기서는 단면을 서버의 실제 시세 쓰기(`_krx_db_upsert` — krx_weekly·krx_daily 를 함께 쓴다)로 만들고 맥락은 실제 읽기로만 얻는다.
+여기서는 단면을 서버의 실제 시세 쓰기(`_krx_db_upsert` — krx_daily 에 쓰고, 금요일이면 그 주를 krx_weekly 에 닫아 넣는다)로 만들고
+맥락은 실제 읽기로만 얻는다.
 그래서 읽기 원천이 krx_weekly 든 krx_daily 든(재설계 5-1 읽는 쪽) 같은 시험이 그대로 통한다.
 
 로컬 Docker 의 `postgres:17` 이 필요하다(`tests/conftest.py` 의 `pg17`). Docker 가 없으면 건너뛴다. 네트워크 0.
@@ -41,7 +42,7 @@ CORPS = [
 def _write(dd: str, ks: list[str], kq: list[str]) -> None:
     kospi = [_row(t, 10_000 + i, shrs=1_000) for i, t in enumerate(ks)]
     kosdaq = [_row(t, 5_000 + i, shrs=1_000) for i, t in enumerate(kq)]
-    assert pmd._krx_db_upsert(dd, kospi, kosdaq) == (True, True)
+    assert pmd._krx_db_upsert(dd, kospi, kosdaq).daily_ok
 
 
 @pytest.fixture

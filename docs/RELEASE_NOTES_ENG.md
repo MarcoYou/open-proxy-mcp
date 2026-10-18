@@ -10,6 +10,11 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - This was the intended design, but it had been switched off since the 2026-08-23 market-code rename. The inference reason now reads "active listed companies" instead of "companies with a ticker". Official-name lookups are unchanged.
 - If the quote store cannot be read once, the previous listing registry is kept and re-read after one minute.
 
+### Weekly prices store closed weeks only · year-end values use the actual last trading day
+
+- The weekly price store no longer deletes and rewrites the current week's rows every trading day; it stores each week's last trading day once, after the week ends. The current week's latest values still come from the last-7-trading-days daily quotes — `trading_data`, `price_multiple_data` and `screener` responses are unchanged.
+- Fixed the year's last trading day (Dec 30) being deleted by the next year's first trading day in years where Dec 31 falls on a Tuesday–Thursday. Year-end values for 2019, 2024 and 2025 were a day or two early (the Friday: Dec 27, Dec 27, Dec 26); year-end bands and year-end dividend yields now use the actual last trading day. `trading_data(scope="firm")` series gain one extra point in the week the year changes.
+
 ### Last 7 trading days of quotes served from the database — faster `trading_data` quotes
 
 - `trading_data(scope="quote")` answers instantly for the **last 7 trading days** from daily quotes the server keeps (open, high, low, close, volume, traded value, listed shares); only older dates are fetched from KRX. Output fields are unchanged; `data.source` is added.

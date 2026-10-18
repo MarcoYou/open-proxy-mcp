@@ -56,6 +56,11 @@ from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
+from open_proxy_mcp.krx_daily import weekly_with_latest  # noqa: E402
+
+#: 시장 구분 원천 — 닫힌 주 + 일별 최신 거래일(261018). 칸은 세 개만 읽는다.
+WEEKLY_MARKET = weekly_with_latest("price_dd, ticker, market")
+
 TABLE = "opm_val_fwd"
 
 DDL = f"""
@@ -97,7 +102,7 @@ CREATE TABLE IF NOT EXISTS {TABLE} (
 );
 COMMENT ON TABLE {TABLE} IS
   '선행(애널리스트 추정) PER·PBR·PSR·배당수익률 — scheme market(bucket _ALL)·wics_sector·wics_industry(bucket=업종 코드). '
-  'scripts/fwd_val_weekly.py 가 fwd_hist + wise_sector(class_dd) + krx_weekly(mk_dd)로 만든다. '
+  'scripts/fwd_val_weekly.py 가 fwd_hist + wise_sector(class_dd) + 주간 시세(krx_weekly + 일별 최신일, mk_dd)로 만든다. '
   'fwd_per·fwd_pbr=적자 포함 합(트레일링과 같은 방식), *_pos=분모>0 종목만(fwd_agg 방식).';
 """
 
@@ -108,7 +113,8 @@ WITH cls AS (
   FROM wise_sector WHERE snap_dd = %(class_dd)s
 ), mk AS (
   -- 추정 날짜 이하 가장 최근 주간 시세(mk_dd)의 시장 구분. 거기 없는 종목(그 주 뒤 상장)만 그 뒤 첫 시세.
-  SELECT DISTINCT ON (ticker) ticker, market FROM krx_weekly
+  -- 261018: 원천 = 닫힌 주 + 일별 최신 거래일(krx_daily.weekly_with_latest) — 이번 주 신규 상장이 주가 닫힐 때까지 빠지지 않게.
+  SELECT DISTINCT ON (ticker) ticker, market FROM """ + WEEKLY_MARKET + """ w
   WHERE price_dd >= %(mk_dd)s
   ORDER BY ticker, price_dd
 ), e AS (
@@ -309,7 +315,7 @@ def main(argv: list[str] | None = None) -> int:
     if not hist_days:
         print("fwd_hist 가 비었다 — 토요일 체인의 이력 송출이 먼저 돌아야 한다.", file=sys.stderr)
         return 1
-    price_dds = [r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly").fetchall()]
+    price_dds = [r[0] for r in con.execute(f"SELECT DISTINCT price_dd FROM {WEEKLY_MARKET} w").fetchall()]
     if not price_dds:
         print("krx_weekly 가 비었다 — 시장 구분을 붙일 수 없다.", file=sys.stderr)
         return 1

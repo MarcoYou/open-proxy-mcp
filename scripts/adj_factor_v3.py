@@ -19,6 +19,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import datetime, timedelta
 from fractions import Fraction
+from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_pair_floor
 
 
@@ -50,9 +51,11 @@ def main():
     #   잃는 것이 없고(판정 결과는 krx_adj_events 에 남아 있다), 새 이벤트는 늘 최근이라 그대로 처리된다.
     latest = con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
     floor = krx_weekly_pair_floor(latest) if latest else "00000000"   # 시세가 비면 prev_mkt 가 None 이라 시장이전 판정은 일어나지 않는다
+    # 261018(재설계 5-1 쓰는 쪽): 직전 시장의 원천은 「닫힌 주 + 일별 최신 거래일」(`WEEKLY_WITH_LATEST`) — 종전 krx_weekly 와 같은 모양.
+    #   krx_weekly 만 보면 이번 주 사건의 직전 점이 지난 금요일로 고정되지만, 종전엔 이번 주 최신일 행도 직전 점이 될 수 있었다.
     resets = con.execute("""
         SELECT e.ticker, e.event_dd, e.adj_factor_raw, e.market,
-               (SELECT w.market FROM krx_weekly w
+               (SELECT w.market FROM """ + WEEKLY_WITH_LATEST + """ w
                  WHERE w.ticker = e.ticker AND w.price_dd < e.event_dd
                  ORDER BY w.price_dd DESC LIMIT 1) AS prev_mkt
           FROM krx_adj_events e

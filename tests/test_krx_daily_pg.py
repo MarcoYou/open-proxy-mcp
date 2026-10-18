@@ -217,41 +217,47 @@ def test_late_correction_of_old_day_does_not_resurrect_pruned_days(pg17):
     assert len(kept) == 7 and "20261001" not in kept
 
 
-def test_upsert_writes_weekly_and_daily_in_one_transaction_and_isolates_daily_failure(pg17, monkeypatch):
-    """`_krx_db_upsert`: krx_weekly 는 지금과 같게 쓰고(같은 ISO주의 옛 일자 삭제), krx_daily 는 같은 커밋에 넣는다.
-    krx_daily 가 없어도(마이그레이션 전) krx_weekly 쓰기는 커밋된다."""
+def test_upsert_writes_daily_first_and_copies_only_closed_weeks_to_weekly(pg17, monkeypatch):
+    """`_krx_db_upsert`(261018 재설계 5-1 쓰는 쪽): krx_daily 가 주(主)다 — 그 표가 없으면 아무것도 커밋하지 않는다.
+    krx_weekly 에는 이번 주 행을 쓰지 않고, 금요일이 저장되는 순간 그 주를 그 날 단면으로 한 번 옮겨 적는다(시총 = 종가 × 주식수)."""
     from open_proxy_mcp.services import price_multiple_data as pmd
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute(KRX_WEEKLY_DDL)
     monkeypatch.setenv("DATABASE_URL", pg17)
 
-    # ① 표가 없을 때 — krx_weekly 는 그대로 동작한다
-    ok = pmd._krx_db_upsert("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)])
-    assert ok == (True, False)                        # 주간은 커밋, 일별 표가 없어 기록 못 함 — 호출자가 구분할 수 있다
+    # ① 일별 표가 없을 때 — 실패로 알리고 krx_weekly 에도 아무것도 남기지 않는다(서빙 기준일과 주간 표가 어긋나지 않게)
+    assert pmd._krx_db_upsert("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)]) == pmd.KrxWrite(False)
     with psycopg.connect(pg17) as c:
-        assert c.execute("SELECT price_dd, ticker, market, close, mktcap, list_shrs FROM krx_weekly ORDER BY ticker").fetchall() == [
-            ("20261013", "005930", "KS", 70_000, 70_000 * 1_000_000, 1_000_000),
-            ("20261013", "247540", "KQ", 250_000, 250_000 * 1_000_000, 1_000_000)]
+        assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 0
 
-    # ② 마이그레이션 적용 뒤 — 같은 호출이 두 표를 함께 쓴다. 같은 주(10/12~18)의 옛 일자 20261013 은 weekly 에서 지워진다
+    # ② 마이그레이션 적용 뒤 — 주중(화·목)은 일별만 쓴다. 이번 주 행은 krx_weekly 에 없다
     _apply(pg17)
-    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) == (True, True)
+    assert pmd._krx_db_upsert("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)]) == pmd.KrxWrite(True, True, ())
+    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) == pmd.KrxWrite(True, True, ())
     with psycopg.connect(pg17) as c:
-        assert [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly").fetchall()] == ["20261015"]
-        assert c.execute("SELECT trd_dd, ticker, close, volume, value FROM krx_daily ORDER BY ticker").fetchall() == [
+        assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 0
+        assert c.execute("SELECT trd_dd, ticker, close, volume, value FROM krx_daily WHERE trd_dd='20261015' ORDER BY ticker").fetchall() == [
             ("20261015", "005930", 71_000, 1000, 5_000_000), ("20261015", "247540", 251_000, 1000, 5_000_000)]
 
+    # ③ 금요일 — 그 주를 닫는다(R1)
+    assert pmd._krx_db_upsert("20261016", [_row("005930", 72_000)], [_row("247540", 252_000)]) == \
+        pmd.KrxWrite(True, True, ("20261016",))
+    with psycopg.connect(pg17) as c:
+        assert c.execute("SELECT price_dd, ticker, market, close, mktcap, list_shrs FROM krx_weekly ORDER BY ticker").fetchall() == [
+            ("20261016", "005930", "KS", 72_000, 72_000 * 1_000_000, 1_000_000),
+            ("20261016", "247540", "KQ", 252_000, 252_000 * 1_000_000, 1_000_000)]
 
-def test_upsert_failure_in_daily_rolls_back_only_the_daily_part(pg17, monkeypatch):
-    """krx_daily 쪽 SQL 이 실패해도 SAVEPOINT 로 격리돼 krx_weekly 는 커밋된다(오류는 반환값·로그로 드러난다)."""
+
+def test_upsert_failure_in_daily_commits_nothing(pg17, monkeypatch):
+    """krx_daily 쪽 SQL 이 실패하면(열이 모자란 표) 주간 닫기도 하지 않고 아무것도 커밋하지 않는다 — 실패는 반환값·로그로 드러난다."""
     from open_proxy_mcp.services import price_multiple_data as pmd
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute(KRX_WEEKLY_DDL)
         c.execute("CREATE TABLE krx_daily (trd_dd text NOT NULL, ticker text NOT NULL, PRIMARY KEY (trd_dd, ticker))")  # 열이 모자란 가짜 표
     monkeypatch.setenv("DATABASE_URL", pg17)
-    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) == (True, False)
+    assert pmd._krx_db_upsert("20261016", [_row("005930", 71_000)], [_row("247540", 251_000)]) == pmd.KrxWrite(False)
     with psycopg.connect(pg17) as c:
-        assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 2
+        assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 0
         assert c.execute("SELECT count(*) FROM krx_daily").fetchone()[0] == 0
 
 
@@ -367,7 +373,7 @@ def test_two_refreshers_race_on_the_real_advisory_lock_and_exactly_one_writes(pg
     assert fetches == ["20261016"]                            # KRX 는 한 번만(2콜 몫)
     with psycopg.connect(pg17) as c:
         assert c.execute("SELECT count(*), count(DISTINCT trd_dd), min(trd_dd) FROM krx_daily").fetchone() == (800, 1, "20261016")
-        assert c.execute("SELECT count(*), min(price_dd) FROM krx_weekly").fetchone() == (800, "20261016")   # 같은 커밋에 둘 다
+        assert c.execute("SELECT count(*), min(price_dd) FROM krx_weekly").fetchone() == (800, "20261016")   # 금요일이라 같은 커밋에 주간도 닫힌다
         # 일이 끝나면 잠금이 풀려 있다 — 다른 세션이 바로 잡는다
         assert c.execute("SELECT pg_try_advisory_lock(%s)", (krx_daily.REFRESH_LOCK_KEY,)).fetchone()[0] is True
     # 같은 날 다음 틱: 저장돼 있으니 KRX 0콜(잠금도 안 잡는다)
@@ -420,7 +426,7 @@ def test_seven_trading_days_of_refresher_cycles_roll_the_window(pg17, refresher_
         days = [r[0] for r in c.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1").fetchall()]
         weekly = [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly ORDER BY 1").fetchall()]
     assert days == fetches[1:]                                # 8일치를 썼지만 가장 오래된 날이 빠져 7일
-    assert weekly == ["20261016", "20261021"]                 # krx_weekly 는 지금과 같다 — 지난주 마지막 거래일 + 이번 주 최신 하루
+    assert weekly == ["20261016"]                             # krx_weekly 는 닫힌 주만 — 지난주 금요일. 이번 주(19~21)는 일별에만 있다
 
 
 def test_server_startup_runs_one_refresh_cycle_and_shutdown_is_clean(pg17, refresher_env, monkeypatch):

@@ -108,11 +108,21 @@ def main() -> int:
     # 260823: 종전엔 현재월을 무조건 제외했다(월말 확정본만). 그런데 일간 배치가 이 스크립트를
     #   부르게 되면서, 제외하면 **사용자가 보는 섹터 배수가 최대 한 달 낡는다**
     #   (실측: KSIC 8/21 vs 업종분류 7/31). 일간 배치는 --include-current 로 최신 주까지 채운다.
+    daily_dd = None
     if not a.include_current:
         months = sorted(d for d in months if d[:6] < cur_ym)
     else:
-        # 현재월은 「그 달의 최신 거래주」 — krx_weekly 최신 포인트를 쓴다
+        # 현재 점은 「일별 시세 저장분의 최신 거래일」 — 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주만 담아 주중에는
+        #   지난 금요일이 최신이라, 그대로 쓰면 섹터 배수가 최대 한 주 낡는다. 같은 달이면 그 달의 점을 바꾸고 새 달이면 덧붙인다.
+        #   주중 임시 점은 같은 배치의 `market_val_weekly`(같은 주 수렴)가 주마다 한 점으로 정리한다.
         months = sorted(months)
+        latest = con.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+        if latest and (not months or latest > months[-1]):
+            daily_dd = latest
+            if months and months[-1][:6] == latest[:6]:
+                months[-1] = latest
+            else:
+                months.append(latest)
     print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · 업종분류 스냅샷 {snaps}", flush=True)
 
     n_rows = n_backfilled = 0
@@ -123,16 +133,15 @@ def main() -> int:
             n_backfilled += 1
         fy = _pit_fy(d)
         fy_q, q = _pit_quarter(d)
-        caps = {r[0]: float(r[1] or 0) for r in con.execute(
-            "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s", (d,))}
+        src = "krx_daily_v WHERE trd_dd=%s" if d == daily_dd else "krx_weekly WHERE price_dd=%s"
+        caps = {r[0]: float(r[1] or 0) for r in con.execute(f"SELECT ticker, mktcap FROM {src}", (d,))}
 
         # (market, scheme, code) → [cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq,
         #                            n, n_nif, n_nit]  (뒤 둘 = 분모를 실제로 더한 회사 수)
         acc: dict[tuple, list] = defaultdict(lambda: [0.0] * 8 + [0, 0, 0])
         label: dict[tuple, str] = {}
         # 시장 구분은 그 날짜의 krx_weekly 에서 (상장 시장이 바뀔 수 있으므로 날짜별로 읽는다)
-        mkts = {r[0]: r[1] for r in con.execute(
-            "SELECT ticker, market FROM krx_weekly WHERE price_dd=%s", (d,))}
+        mkts = {r[0]: r[1] for r in con.execute(f"SELECT ticker, market FROM {src}", (d,))}
 
         for isu, per_snap in classes.items():
             cls = per_snap.get(use)

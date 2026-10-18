@@ -19,7 +19,7 @@ status: 1단계 배치 신설 (260916) — 조회 도구(업종별 흐름·수�
 
 | 표 | 한 행 | 채우는 것 |
 |---|---|---|
-| `dart_events` | 접수번호 1건 | 회사(코드·이름·종목코드·시장), 유형·세부·단계·정정 여부·`dedup_key`, 제목, 제출인, 업종(`wise_sector` 접수일 이전 최신 스냅샷)·시총(`krx_weekly` 접수일 이전 최신 주), 상세 숫자(`detail` jsonb)와 상태 |
+| `dart_events` | 접수번호 1건 | 회사(코드·이름·종목코드·시장), 유형·세부·단계·정정 여부·`dedup_key`, 제목, 제출인, 업종(`wise_sector` 접수일 이전 최신 스냅샷)·시총(접수일 이하 최신 거래일 — 최근 7거래일은 일별 시세 저장분 `krx_daily_v`, 그보다 이르면 `krx_weekly`. 261018: 재스캔 때 날짜가 흔들리던 것을 고침), 상세 숫자(`detail` jsonb)와 상태 |
 | `dart_events_scan` | 날짜 × DART 코드 | DART 가 말한 총 건수, 받은 페이지, 완전 여부, 오류 |
 
 - **분류기는 screener 의 것을 그대로 쓴다.** `TYPE_REGISTRY`·`classify`·`_stage_tag`·`_force_details` 를 import 한다. 사본을 두면 두 곳이 갈리고, 원장과 스크리너가 같은 공시를 다르게 부른다.

@@ -141,7 +141,10 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
   전체) vs 실제 섹터코드로 구분한다(PK: snap_dd·mkt·sector). 섹터 전용 테이블을 따로 두면 같은 산식이
   두 곳에 살아 갈라진다. 스키마 상세는 private 레포(data-storage-registry) 참조.
 - 스냅샷은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
-  매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 ISO주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일).
+  매일 KST 10:17 — 매일 수집(KRX 금요일 지연 게시 커버)→같은 주 수렴→주 마지막 거래일 영구 보존, KRX 4콜/일. 한 주 = ISO 주를
+  달력 연도로 자른 것 — 연말 거래일이 다음 해 첫 주에 지워지지 않게, 261018).
+  261018(재설계 5-1 쓰는 쪽): 스냅샷 시총은 일별 시세 저장분(`krx_daily_v`)의 그 날 단면에서 읽는다 — 주간 시세 저장분은 닫힌 주만 담는다.
+  그 날 종목이 1,500 미만이면 기존 스냅샷을 지우지 않고 실패로 끝낸다(종전엔 0행 저장 후 「완료」).
   261018: 시세 갱신의 주 담당은 서버 백그라운드 작업(`krx_refresher`)이다 — 이 배치는 서버가 못 했을 때의 예비이고,
   서버가 이미 갱신했으면 DB 가 최신이라 시세 콜을 하지 않는다. 같은 응답을 최근 7거래일 일별 시세에도 함께 쓴다([[trading_data]]).
 - **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`

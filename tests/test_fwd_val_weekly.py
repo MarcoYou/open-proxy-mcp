@@ -114,6 +114,7 @@ def test_actual_aggregate_includes_alpha_common_and_excludes_unconfirmed_and_pre
         con.execute("create table wise_sector(ticker varchar, sector_code varchar, sector varchar, "
                     "industry_code varchar, industry varchar, snap_dd varchar)")
         con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
+        con.execute("create table krx_daily(trd_dd varchar, ticker varchar, market varchar)")
         con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
                     "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
                     "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")
@@ -129,6 +130,37 @@ def test_actual_aggregate_includes_alpha_common_and_excludes_unconfirmed_and_pre
         assert len(rows) == 2
         assert all(row["scheme"] == "market" and row["n_total"] == 2 for row in rows)
         assert all(row["cap_krw"] == 3000 and row["ni_krw"] == 300 and row["fwd_per"] == 10 for row in rows)
+
+
+def test_market_split_sees_this_weeks_new_listing_from_the_daily_store():
+    """261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주만 담는다. 이번 주 신규 상장 종목은 주가 닫힐 때까지 krx_weekly 에 없으므로
+    시장 구분 원천에 일별 최신 거래일을 덧붙인다 — 종전 krx_weekly(이번 주 행 = 그날 최신일)와 같은 모집단."""
+    import duckdb
+
+    with duckdb.connect(":memory:") as con:
+        con.execute("create table wise_sector(ticker varchar, sector_code varchar, sector varchar, "
+                    "industry_code varchar, industry varchar, snap_dd varchar)")
+        con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
+        con.execute("create table krx_daily(trd_dd varchar, ticker varchar, market varchar)")
+        con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
+                    "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
+                    "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")
+        con.execute("insert into krx_weekly values ('005930', 'KS', '20260911')")            # 지난주 금요일(닫힌 주)
+        con.execute("insert into krx_daily values ('20260915', '005930', 'KS'), ('20260915', '123450', 'KQ')")
+        for code in ("005930", "123450"):
+            con.execute("insert into fwd_hist values (?, 2027, 1000, 100, 1000, 20, 100, 1, "
+                        "DATE '2026-09-16', true, 'FY', 'IFRS연결', '2027/12')", [code])
+        days = sorted(r[0] for r in con.execute(f"SELECT DISTINCT price_dd FROM {fv.WEEKLY_MARKET} w").fetchall())
+        assert days == ["20260911", "20260915"]                       # 일별 최신일이 주간 최신보다 늦어 덧붙는다
+        mk_dd = fv.snapshot_at_or_before("20260916", days)
+        sql = fv.AGG_SQL.replace("%(class_dd)s", "'20260828'") \
+            .replace("%(mk_dd)s", f"'{mk_dd}'").replace("%(as_of)s", "DATE '2026-09-16'")
+        result = con.execute(sql)
+        rows = [dict(zip((column[0] for column in result.description), row)) for row in result.fetchall()]
+        assert {"KS", "KQ"} <= {r["market"] for r in rows if r["scheme"] == "market"}   # 신규 상장(코스닥)이 빠지지 않는다
+        # 금요일이 닫혀 krx_weekly 에 들어오면 일별 최신일은 덧붙지 않는다(같은 날을 두 번 세지 않는다)
+        con.execute("insert into krx_weekly values ('005930', 'KS', '20260915'), ('123450', 'KQ', '20260915')")
+        assert con.execute(f"SELECT count(*) FROM {fv.WEEKLY_MARKET} w WHERE price_dd='20260915'").fetchone()[0] == 2
 
 
 def test_upsert_names_every_column_and_keeps_the_key_out_of_the_update():
