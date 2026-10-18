@@ -76,6 +76,14 @@ Already admitted POST requests continue and are counted in `maintenance.active_p
 The lease expires automatically if its operator disappears. Old GET streams do not
 count as active tool work. This is an operational safeguard, not a zero-error promise.
 
+`open_requests` lists every open `/mcp` request (GET streams included): `total`,
+`by_kind` counts keyed by HTTP method, JSON-RPC method and phase, and the five oldest
+with age, protocol version, phase (`body`, `handling`, `streaming`, `sent`), status,
+bytes sent and whether the client has disconnected. It never carries query strings,
+arguments, addresses or user agents; method, tool and protocol names outside the fixed
+vocabulary are reported as `other`. The same summary is written to stderr when a
+shutdown signal arrives, so a deploy that waits on open connections shows what it waited for.
+
 Before restart, verify a different instance is ready and has capacity, begin a short
 lease, wait for active POST/tool/document work to reach zero, and recheck the peer.
 Persist the restart intent and cooldown before issuing the command. A successful CLI
