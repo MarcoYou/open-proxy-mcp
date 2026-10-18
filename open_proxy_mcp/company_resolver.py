@@ -474,7 +474,13 @@ class CompanyResolver:
                 listed = [h for h in hit if str(h.get("stock_code") or "").strip()]
                 if len(listed) == 1:
                     return listed
-            return []
+            # 최후 수단 — 토큰·부분일치 단계가 비활성 회사(코넥스·상장폐지)에만 걸려 활성 필터에 통째로
+            # 비었다면 거기서 멈추지 말고 다음 단계로 내려간다. 「세이」는 이름이 「세이」로 시작하는
+            # 세이프아시아(코넥스)에 토큰이 걸려 부분일치(세이브존I&C)까지 못 내려갔다(261018 실측: 활성 이름
+            # 가운데 2글자 조각 2,454 중 2,319 는 이미 부분일치로 고르는데, 그 조각으로 시작하는 비활성 회사가
+            # 우연히 있는 78 개만 「못 찾음」). 위 경로가 모두 빈 뒤에만 하므로 지금 답이 나오는 질의는 안 바뀐다 —
+            # 「엘비」→LB세미콘(역음차)을 한글 부분일치 「티엘비」가 가로채지 않는다.
+            return self._search_one(raw_query, past_inactive=True)
         return self._search_one(raw_query)
 
     def suggest(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
@@ -517,7 +523,8 @@ class CompanyResolver:
             or compact in normalize_compact(corp.get("corp_eng_name", ""))
         ]
 
-    def _search_one(self, query: str) -> list[dict[str, Any]]:
+    def _search_one(self, query: str, *, past_inactive: bool = False) -> list[dict[str, Any]]:
+        """첫 번째로 비지 않은 단계에서 멈춘다. `past_inactive` 면 활성 필터가 통째로 비울 추론 단계는 건너뛴다."""
         raw_query = (query or "").strip()
         if not raw_query:
             return []
@@ -559,12 +566,20 @@ class CompanyResolver:
                     row_ids = list(set.intersection(*token_sets))
                     kind = "token"
 
+            if past_inactive and kind == "token" and not self._active_preferred(
+                    row_ids, numeric=numeric, kind=kind):
+                row_ids, kind = [], ""
+
             if not row_ids and compact:
                 # Korean brand fragments are not whitespace-tokenizable. This fallback scans
                 # only the in-memory master and runs only after every indexed path missed.
                 row_ids = self._substring_ids(compact)
                 if row_ids:
                     kind = "substring"
+
+            if past_inactive and kind == "substring" and not self._active_preferred(
+                    row_ids, numeric=numeric, kind=kind):
+                row_ids, kind = [], ""
 
             if not row_ids and len(compact) >= 5:
                 close_keys = difflib.get_close_matches(compact, self._compact, n=5, cutoff=0.88)
