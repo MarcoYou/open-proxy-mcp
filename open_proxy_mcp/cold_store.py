@@ -183,7 +183,7 @@ def _executor() -> concurrent.futures.ThreadPoolExecutor:
     global _EXEC
     with _lock:
         if _EXEC is None:
-            _EXEC = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="opm-cold")
+            _EXEC = concurrent.futures.ThreadPoolExecutor(max_workers=1, thread_name_prefix="cold_store")
         return _EXEC
 
 
