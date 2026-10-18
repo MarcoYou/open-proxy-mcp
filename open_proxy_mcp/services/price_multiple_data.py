@@ -912,7 +912,13 @@ async def _firm_fin_by_fy(ticker: str, currency: str = "KRW", fye: int = 12) -> 
         fin[int(fy)] = (float(ni_f) if ni_f is not None else None,
                         float(eq_f) if eq_f is not None else None)
     if cur and cur[0][0] is not None and _rc.fye_month(fye) == 12:
-        fin[_latest_annual_fy()] = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
+        ov = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
+        latest = _latest_annual_fy()
+        # 261018: 재무 요약의 연간 값은 「분기 표에서 값이 있는 가장 늦은 사업보고서 칸」이다. 최신 사업보고서를 안 낸 회사(10-18 운영 2종목 —
+        #   082660·241820)는 그 값이 2023·2024년 것인데 2025 자리에 얹혀 FY0 배수·TTM 의 직전 연간이 한두 해 낡은 값으로 나갔다.
+        #   같은 값(순이익·자본 둘 다)이 이미 앞선 해에 있으면 그 해의 값이므로 얹지 않는다(최신 해는 값 없음 = N/M).
+        if not any(y < latest and v == ov for y, v in fin.items()):
+            fin[latest] = ov
     ccy = (currency or "KRW").upper()
     if _needs_fx(currency):
         for fy in list(fin):

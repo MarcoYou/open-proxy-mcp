@@ -463,3 +463,21 @@ def test_firm_history_of_a_fund_without_financials_is_ok_with_cap_only_weeks(mon
     assert "주간 곡선 미산출 — 주간 시세 저장분 또는 재무(연간·분기) 미수집." in p["warnings"]
     monkeypatch.setattr(S, "_pg_rows", rows_for("nocorp"))
     assert asyncio.run(S.build_firm_history_payload("088980", format="json"))["status"] == "no_data"
+
+
+def test_summary_annual_is_not_laid_on_the_latest_year_when_it_is_an_older_years_value(monkeypatch):
+    """최신 사업보고서를 안 낸 회사 — 재무 요약의 연간 값은 그 전 해(2024) 값이다. 그 값을 2025 자리에 얹지 않는다(10-18 운영 241820·082660)."""
+    def rows_for(fund):
+        def rows(sql, params=()):
+            s = " ".join(sql.split())
+            if "FROM dart_finstat_y" in s:
+                return [(2024, -52.3e9, 7.1e9, None, None)]
+            if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
+                return [fund]
+            raise AssertionError(s)
+        return rows
+    monkeypatch.setattr(S, "today_kst", lambda: __import__("datetime").date(2026, 10, 18))
+    monkeypatch.setattr(S, "_pg_rows", rows_for((-52.3e9, 7.1e9)))
+    assert asyncio.run(S._firm_fin_by_fy("241820")) == {2024: (-52.3e9, 7.1e9)}
+    monkeypatch.setattr(S, "_pg_rows", rows_for((3.0e9, 8.0e9)))           # 2025 값(분기 표 사업보고서 칸)이면 종전처럼 얹는다
+    assert asyncio.run(S._firm_fin_by_fy("241820"))[2025] == (3.0e9, 8.0e9)
