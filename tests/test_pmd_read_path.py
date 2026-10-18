@@ -16,6 +16,9 @@
      같은 날 4차(재설계 6단계 — 상장 첫해 PBR(MRQ)): 그 시점 확정 FY 의 연간 값이 없으면 분기 자본으로 PBR(MRQ)만 있는 점을 낸다(`_pit_raw`).
      골든 중 바뀐 것은 연간 재무 읽기 실패(`fh_only_fin_y_fails`)·최신 확정 FY 요약 읽기 실패(`fh_only_fund_fails`) 둘뿐 — 연간 값이 빠진 주에
      PBR(MRQ)만 있는 점이 더해지고(그만큼 월말 요약과 「최신 … 기준」 날짜가 따라 바뀐다), 기존 점·환율 조회 순서·그 밖의 칸은 글자까지 같음을 대조한 뒤 썼다.
+     같은 날 5차(재설계 6단계 — 감사 5, 설계 v03 §6-0 P-1): `history` 의 「주간」 항목(최근 16주)을 곡선 점으로 다시 붙였다. 재무 요약 읽기에 수집 상태
+     칸(`fetched`)이 더해졌다(종전 스냅샷 표처럼 수집 정상인 종목만 「주간」 항목을 낸다). 골든 중 바뀐 것은 시세가 있는 fh_* 11개 시나리오에
+     「주간」 13항목이 더해진 것뿐이고, 그 항목을 빼면 글자까지 같음을 대조한 뒤 썼다.
   ② 순차(`OPM_PG_FANOUT=1`)와 겹침(기본 3)이 같은 응답·같은 읽기 묶음을 낸다.
   ③ 상한: 한 호출이 동시에 3개를 넘게 DB 를 물지 않는다(중첩 gather 포함).
   ④ 겹쳐서 실제로 빨라진다(가짜 지연으로 잰다) · 오류는 넣은 순서상 첫 예외가 올라온다 · 환경변수 오타가 서버를 못 뜨게 하지 않는다.
@@ -47,7 +50,7 @@ CORP = {"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126
 # ═════════════════════════════════════════════════════════════════════════════════════════════════
 def route(sql: str) -> str:
     s = " ".join(sql.split())
-    if "SELECT market, induty, currency, acc_mt FROM dart_fundamentals" in s:   # 261018: 결산월 칸을 함께 읽는다
+    if "SELECT market, induty, currency, acc_mt, fetched FROM dart_fundamentals" in s:   # 261018: 결산월·수집 상태 칸을 함께 읽는다
         return "cur_row"
     if "FROM dart_finstat_y" in s:
         return "fin_y"
@@ -128,7 +131,7 @@ _WEEKLY_DD = ["20231020", "20240119", "20240419", "20240719", "20241018", "20250
 
 def _fh_base() -> dict:
     return {
-        "cur_row": [("KS", "264", "KRW", None)],
+        "cur_row": [("KS", "264", "KRW", None, "ok")],
         "fin_y": [(2019, 21_500_000_000_000, 240_000_000_000_000, None, None),
                   (2020, 26_400_000_000_000, 260_000_000_000_000, None, None),
                   (2021, 39_900_000_000_000, 300_000_000_000_000, None, None),
@@ -156,10 +159,10 @@ def _fh(**over) -> dict:
 FH_SCENARIOS: dict[str, dict] = {
     "fh_samsung": _fh(),
     "fh_flags": _fh(flags=[("spinoff_break", "2026-05"), ("unresolved_adjustment", "x"), ("other", "y")]),
-    "fh_usd_reporter": _fh(cur_row=[("KS", "264", "USD", None)]),
+    "fh_usd_reporter": _fh(cur_row=[("KS", "264", "USD", None, "ok")]),
     "fh_no_data": {"cur_row": [], "fin_y": [], "fund": [], "fin_q": [], "caps": [], "latest": [], "px": [], "flags": []},
-    "fh_non_samsung_bucket": _fh(cur_row=[("KQ", "29271", "KRW", None)]),          # 반도체 장비 → 261(프리픽스 재배정), 오버라이드 없는 종목
-    "fh_no_induty": _fh(cur_row=[("KQ", None, "KRW", None)]),                      # 업종코드가 비면 섹터도 비운다(종전 폴백과 같다)
+    "fh_non_samsung_bucket": _fh(cur_row=[("KQ", "29271", "KRW", None, "ok")]),          # 반도체 장비 → 261(프리픽스 재배정), 오버라이드 없는 종목
+    "fh_no_induty": _fh(cur_row=[("KQ", None, "KRW", None, "ok")]),                      # 업종코드가 비면 섹터도 비운다(종전 폴백과 같다)
     "fh_every_read_fails": _fh(cur_row=FAIL, fin_y=FAIL, fund=FAIL, fin_q=FAIL, caps=FAIL, latest=FAIL, px=FAIL, flags=FAIL),
 }
 # 읽기 하나씩 실패시킨 변형 — 응답이 종전과 같은 모양으로 무너지는지(종전: `or []`. DB 장애 판정은 재무 요약 읽기 — 그것만 db_error)
@@ -335,7 +338,15 @@ def test_the_golden_scenarios_actually_exercise_the_interesting_branches(golden)
     """골든이 전부 같은 분기만 타면 증거가 못 된다 — 갈래마다 한 번씩은 탄다."""
     fh = {k: v["payload"] for k, v in golden.items() if k.startswith("fh_")}
     assert fh["fh_samsung"]["status"] == "ok" and len(fh["fh_samsung"]["data"]["series"]) == 13
-    assert all(h["source"].startswith("연말") for h in fh["fh_samsung"]["data"]["history"]), "「주간」 항목은 없앴다(곡선에 같은 주가 있다)"
+    wk = [h for h in fh["fh_samsung"]["data"]["history"] if h["source"] == "주간"]
+    pts = {p["asof"]: p for p in fh["fh_samsung"]["data"]["series"]}
+    assert len(wk) == 13 and all(h["asof"] in pts for h in wk), "「주간」 항목(최근 16주 — 가짜 시세는 13주)은 곡선의 같은 주 점이다(감사 5)"
+    def near(a, b):
+        return (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 0.0051)
+    assert all(near(h["per_ttm"], pts[h["asof"]]["per_ttm"]) and near(h["per_fy0"], pts[h["asof"]]["per_fy0"])
+               and near(h["pbr"], pts[h["asof"]]["pbr_mrq"] if pts[h["asof"]]["pbr_mrq"] is not None else pts[h["asof"]]["pbr"])
+               and h["cap_krw"] == pts[h["asof"]]["cap_krw"] for h in wk)
+    assert sum(h["per_ttm"] is not None for h in wk) >= 5, "TTM 이 있는 주도 대조한다"
     assert fh["fh_samsung"]["data"]["sector"] == "261", "삼성전자는 종목 오버라이드(264 → 261) — 배치가 저장하던 섹터와 같다"
     assert fh["fh_non_samsung_bucket"]["data"]["sector"] == "261" and fh["fh_non_samsung_bucket"]["data"]["market"] == "KQ"
     assert fh["fh_no_induty"]["data"]["sector"] is None

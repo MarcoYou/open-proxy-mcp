@@ -119,13 +119,13 @@ def test_firm_history_passes_the_cutoff_and_says_so(monkeypatch):
     async def fake_bounds():
         return "20261016", "20231016"
 
-    async def fake_series(isu, cur="KRW", fin=None, finq=None, since_dd=None, fye=12):
+    async def fake_series(isu, cur="KRW", fin=None, finq=None, since_dd=None, fye=12, raw_out=None):
         got["since_dd"] = since_dd
         return [dict(POINT), dict(LATEST_POINT)]
 
     def fake_rows(sql, params=()):
         if "FROM dart_fundamentals" in sql:
-            return [("KS", "C26", "KRW", None)]
+            return [("KS", "C26", "KRW", None, "ok")]
         return []
 
     monkeypatch.setattr(S, "_resolve_listed", fake_resolve)

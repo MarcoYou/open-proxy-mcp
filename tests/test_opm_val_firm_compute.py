@@ -168,7 +168,6 @@ CASES = {
     "mid_normal": dict(scheme="중분류"),
     "major_normal": dict(scheme="대분류"),
     "ksic_folded_small_sector": dict(scheme="ksic", induty="10100"),            # 섹터 표에 없는 버킷 → 기타(소규모) 비교
-    "impaired_no_ctx": dict(scheme="중분류", fin_q=[(2025, 2, 9.0e12, 58.0e12), (2026, 2, 12.0e12, -1.0)]),
     "fundamentals_not_ok": dict(scheme="ksic", fetched="nocorp"),
     "no_price_that_day": dict(scheme="중분류", cap=None),
     # 상장 첫해 — 직전 사업연도 연간 행이 없고(연간 재무 표 nodata · 재무 요약 연간 값 null) 분기 표에 올해 1·2분기만 있다.
@@ -202,7 +201,98 @@ def test_the_cases_exercise_both_branches(monkeypatch):
     assert c["sector_per_ttm"] == 14.12 and c["sector_label"].startswith("반도체")
     with monkeypatch.context() as mp:
         imp = _run(S, mp, FakeDb("중분류", fin_q=[(2025, 2, 9.0e12, 58.0e12), (2026, 2, 12.0e12, -1.0)]), "중분류")
-    assert imp["data"]["company"] is None and any("종목 스냅샷 없음" in w for w in imp["warnings"])
+    assert imp["data"]["company"] is None and any("완전자본잠식" in w for w in imp["warnings"])
+
+
+def test_impaired_firm_still_has_no_row_but_the_warning_says_why(monkeypatch):
+    """완전자본잠식(260829 마스터 지시 — 모든 연산·출력에서 뺀다): 종전처럼 기업 행이 없다. 종전 경고는 「종목 스냅샷 없음(비상장·미수집)」이라
+    상장·수집된 회사를 두고 틀린 말을 했다 — 그 한 문장만 바뀌고 나머지는 옛 코드와 글자까지 같다."""
+    kw = dict(fin_q=[(2025, 2, 9.0e12, 58.0e12), (2026, 2, 12.0e12, -1.0)])
+    old = _old_module()
+    with monkeypatch.context() as mp:
+        p_old = _run(old, mp, FakeDb("중분류", **kw), "중분류")
+    with monkeypatch.context() as mp:
+        p_new = _run(S, mp, FakeDb("중분류", **kw), "중분류")
+    assert p_old["data"]["company"] is None and p_new["data"]["company"] is None
+    w_old = [w for w in p_old["warnings"] if "종목 스냅샷 없음" in w]
+    w_new = [w for w in p_new["warnings"] if "완전자본잠식" in w]
+    assert len(w_old) == 1 and len(w_new) == 1 and "비상장" not in w_new[0]
+    p_new["warnings"][p_new["warnings"].index(w_new[0])] = w_old[0]
+    assert json.dumps(p_new, ensure_ascii=False, default=str) == json.dumps(p_old, ensure_ascii=False, default=str)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# ②-2 그 시점 칸이 비면 앞선 칸으로(감사 4 — 설계 v03 §6-0 P-1) · 「기준 분기 늦음」 표시
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+FUND25 = (20.0e12, 60.0e12)                      # 최신 확정 FY 2025 (ni, eq)
+
+
+def _sector(monkeypatch, scheme="ksic", **kw):
+    with monkeypatch.context() as mp:
+        return _run(S, mp, FakeDb(scheme, **kw), scheme)
+
+
+def test_half_year_report_missing_falls_back_to_q1_with_a_flag(monkeypatch):
+    """반기보고서 미제출(그 시점 칸 2026Q2 가 빔) — 종전 스냅샷 표는 1분기 자본으로 PBR 을 냈다. 이제 같은 칸으로 PBR(MRQ)·PER(TTM)을 세고 표시한다."""
+    fq = [(2025, 1, 4.0e12, 56.0e12), (2025, 2, 9.0e12, 58.0e12), (2026, 1, 5.0e12, 63.0e12)]
+    p = _sector(monkeypatch, fin_q=fq)
+    c = p["data"]["company"]
+    assert c["firm_pbr_mrq"] == round(CAP / 63.0e12, 2)
+    assert c["firm_per_ttm"] == round(CAP / (20.0e12 + 5.0e12 - 4.0e12), 2)
+    assert c["firm_basis"] == {"pit_q": "2026Q2", "per_ttm": "2026Q1", "pbr_mrq": "2026Q1"}
+    assert any(w.startswith("기준 분기 늦음 — SK하이닉스 의 그 시점 칸(2026Q2)이 비어 PER(TTM) 2026Q1 · PBR(MRQ) 2026Q1 칸으로") for w in p["warnings"])
+
+
+def test_semiannual_reit_uses_the_annual_cell(monkeypatch):
+    """반기마다 결산하는 리츠 — 분기 표에 반기 칸만 있고 1·3분기 칸이 없다. 그 시점이 1분기(5/15~8/13)면 직전 사업보고서(연간 표) 칸을 쓴다."""
+    fq = [(2025, 2, 3.4e12, 211e12), (2026, 2, 3.43e12, 207e12)]
+    fy = [(2025, 6.95e12, 214.9e12, None, None)]
+    p = _sector(monkeypatch, fin_q=fq, fin_y=fy, fund_fy=(6.95e12, 214.9e12))
+    c = p["data"]["company"]
+    # 20261016 의 그 시점 칸은 2026Q2(반기) — 값이 있으니 대체도 표시도 없다(응답 모양이 종전 그대로)
+    assert "firm_basis" not in c and not any(w.startswith("기준 분기 늦음") for w in p["warnings"])
+    assert c["firm_pbr_mrq"] == round(CAP / 207e12, 2)
+    # 1분기 창(5/15~8/13)에는 1분기 칸이 없다 → 직전 사업보고서(연간 표) 칸
+    fin = {2025: (6.95e12, 214.9e12)}
+    finq = {(2025, 2): (3.4e12, 211e12), (2026, 2): (3.43e12, 207e12)}
+    fb = S._pit_fallback("20260807", CAP, fin, finq)
+    assert fb["pbr_mrq"] == (CAP / 214.9e12, (2025, 4)) and fb["per_ttm"] == (CAP / 6.95e12, (2025, 4))
+
+
+def test_fallback_only_when_the_cell_is_empty_not_when_it_is_a_loss():
+    """그 칸 값이 있는데 TTM 이 적자면 N/M 그대로다(앞선 칸의 흑자로 바꾸지 않는다)."""
+    fin = {2025: (2.0e12, 60.0e12)}
+    finq = {(2025, 2): (3.0e12, 58.0e12), (2026, 1): (1.0e12, 61.0e12), (2026, 2): (-2.0e12, 62.0e12)}
+    assert S._pit_raw(AS_OF, CAP, fin, finq)["per_ttm"] is None
+    assert S._pit_fallback(AS_OF, CAP, fin, finq) == {}
+
+
+def test_fallback_never_looks_ahead_and_stops_after_a_year():
+    fin = {2025: (20.0e12, 60.0e12)}
+    # 2026Q3(11/14 마감) 칸이 이미 있어도 20261016 에는 쓰지 않는다 — 앞선 칸(2026Q1)으로
+    finq = {(2025, 1): (4.0e12, 56.0e12), (2026, 1): (5.0e12, 63.0e12), (2026, 3): (15.0e12, 70.0e12)}
+    fb = S._pit_fallback(AS_OF, CAP, fin, finq)
+    assert fb["pbr_mrq"][1] == (2026, 1) and fb["per_ttm"][1] == (2026, 1)
+    # 1년 넘게 앞선 칸뿐이면(2025Q1 = 2025-03-31 < 2026Q2 기간 말 1년 전 2025-06-30) 대체하지 않는다
+    old_only = {(2024, 1): (1.0e12, 50.0e12), (2025, 1): (4.0e12, 56.0e12)}
+    assert S._pit_fallback(AS_OF, CAP, {}, old_only) == {}
+    # 연간 표 칸(2025 사업보고서 = 2025-12-31)은 1년 안이다
+    assert S._pit_fallback(AS_OF, CAP, fin, old_only)["pbr_mrq"] == (CAP / 60.0e12, (2025, 4))
+
+
+def test_fallback_to_a_non_positive_equity_is_impaired(monkeypatch):
+    fq = [(2025, 1, 4.0e12, 56.0e12), (2025, 2, 9.0e12, 58.0e12), (2026, 1, -5.0e12, -1.0)]
+    p = _sector(monkeypatch, "중분류", fin_q=fq)
+    assert p["data"]["company"] is None and any("완전자본잠식" in w for w in p["warnings"])
+
+
+def test_twelve_month_fiscal_year_end_cells_are_ordered_by_period_end():
+    """3월 결산 — 칸 표기 순서와 기간 말 순서가 다르다(2026Q4 = 2026.03 말 < 2026Q1 = 2026.06 말). 앞선 칸은 기간 말로 고른다."""
+    fin = {2026: (10.0e12, 100.0e12)}
+    finq = {(2025, 2): (3.0e12, 90.0e12), (2025, 3): (5.0e12, 95.0e12)}   # 2025.09·2025.12 말
+    fb = S._pit_fallback(AS_OF, CAP, fin, finq, 3)                     # 그 시점 칸(3월 결산 20261016) = 2026Q1(6월 말)? 비었다
+    assert S._pit_quarter(AS_OF, 3) == (2026, 1)
+    assert fb["pbr_mrq"] == (CAP / 100.0e12, (2026, 4)), "2026.03 말 사업보고서가 2025.12 말 3분기보다 늦다"
 
 
 def test_firm_value_uses_the_daily_store_when_the_snapshot_date_is_not_a_weekly_row():
@@ -303,3 +393,73 @@ def test_new_listing_curve_and_sector_compare_agree(monkeypatch):
     c = p["data"]["company"]
     assert c["firm_per_ttm"] is None and c["firm_pbr_mrq"] == round(CAP / 31.0e12, 2)
     assert round(S._pit_raw(AS_OF, CAP, {}, NEW_Q)["pbr_mrq"], 2) == c["firm_pbr_mrq"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# ⑤ firm_history `history` 의 「주간」 항목 — 최근 16주를 곡선 점으로(감사 5 — 종전 주간 스냅샷 표 모양)
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+def _weeks(n, start="20260102"):
+    from datetime import date, timedelta
+    d0 = date(int(start[:4]), int(start[4:6]), int(start[6:]))
+    return [((d0 + timedelta(days=7 * i)).strftime("%Y%m%d"), 100.0e12 + i * 1e12) for i in range(n)]
+
+
+def test_weekly_history_items_are_the_last_16_curve_points_in_the_snapshot_shape():
+    fin = {2025: (20.0e12, 60.0e12)}
+    finq = {(2025, 1): (4.0e12, 56.0e12), (2025, 2): (9.0e12, 58.0e12), (2025, 3): (14.0e12, 59.0e12),
+            (2026, 1): (5.0e12, 63.0e12), (2026, 2): (12.0e12, 66.0e12)}
+    px = _weeks(42)
+    items = S._weekly_hist_items(px, fin, finq)
+    assert [h["asof"] for h in items] == [d for d, _ in px[-16:]]
+    last = items[-1]
+    raw = S._pit_raw(px[-1][0], px[-1][1], fin, finq)
+    assert last == {"period": f"{px[-1][0][:4]}-{px[-1][0][4:6]}-{px[-1][0][6:]}", "asof": px[-1][0], "cap_krw": px[-1][1],
+                    "per_fy0": round(raw["per_fy0"], 2), "per_ttm": round(raw["per_ttm"], 2), "pbr": round(raw["pbr_mrq"], 2),
+                    "source": "주간"}
+    assert isinstance(last["cap_krw"], float), "종전 스냅샷 표의 시총은 실수(원 단위)였다"
+
+
+def test_weekly_history_items_cap_only_without_financials_and_skip_impaired_weeks():
+    px = _weeks(20)
+    only_cap = S._weekly_hist_items(px, {}, {})            # 인프라 펀드 꼴 — 재무가 없다: 종전 스냅샷 표는 시총만 담았다
+    assert len(only_cap) == 16 and all(h["per_fy0"] is None and h["per_ttm"] is None and h["pbr"] is None for h in only_cap)
+    fin = {2025: (20.0e12, 60.0e12)}
+    finq = {(2025, 2): (9.0e12, 58.0e12), (2026, 1): (1.0e12, -5.0)}   # 2026 1분기 자본 ≤ 0 — 5/15~8/13 은 잠식 시점
+    items = S._weekly_hist_items(_weeks(30, "20260403"), fin, finq)
+    assert items and all(not ("20260515" <= h["asof"] < "20260814") for h in items), "잠식 시점 주는 뺀다(260829)"
+
+
+def test_firm_history_of_a_fund_without_financials_is_ok_with_cap_only_weeks(monkeypatch):
+    """재무가 전혀 없는 상장 인프라 펀드(088980 꼴) — 종전 main 은 스냅샷 표의 「주간」 16항목(시총만)으로 정상 응답했다. 스냅샷 표를 없앤 뒤
+    한때 「시계열 없음」(no_data)이 됐던 것을 되돌린다. 수집 정상이 아닌 종목은 종전처럼 「주간」 항목이 없다."""
+    px = _weeks(20, "20260605")
+
+    def rows_for(fetched):
+        def rows(sql, params=()):
+            s = " ".join(sql.split())
+            if s.startswith("SELECT market, induty, currency, acc_mt, fetched FROM dart_fundamentals"):
+                return [("KS", "64992", "KRW", None, fetched)]
+            if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
+                return [(px[-1][0],)]
+            if "SELECT price_dd, mktcap FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
+                return list(px)
+            if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
+                return [(None, None)]
+            if "FROM dart_finstat_y" in s or "FROM dart_finstat_q" in s or "FROM krx_stock_flags" in s or "DISTINCT ON" in s:
+                return []
+            raise AssertionError("모르는 SQL: " + s)
+        return rows
+
+    async def resolve(q):
+        return {"corp_name": "맥쿼리인프라", "stock_code": "088980", "corp_code": "00000001"}, None
+    monkeypatch.setattr(S, "_resolve_listed", resolve)
+    monkeypatch.setattr(S, "today_kst", lambda: __import__("datetime").date(2026, 10, 18))
+    monkeypatch.setattr(S, "_pg_rows", rows_for("ok"))
+    p = asyncio.run(S.build_firm_history_payload("088980", format="json"))
+    assert p["status"] == "ok" and p["data"]["series"] == []
+    wk = p["data"]["history"]
+    assert len(wk) == 16 and all(h["source"] == "주간" and h["per_ttm"] is None and h["cap_krw"] for h in wk)
+    assert p["warnings"][0] == f"최신 {px[-1][0]} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용."
+    assert "주간 곡선 미산출 — 주간 시세 저장분 또는 재무(연간·분기) 미수집." in p["warnings"]
+    monkeypatch.setattr(S, "_pg_rows", rows_for("nocorp"))
+    assert asyncio.run(S.build_firm_history_payload("088980", format="json"))["status"] == "no_data"

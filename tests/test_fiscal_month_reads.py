@@ -84,8 +84,8 @@ class _Rows:
         self.log.append(s)
         if s.startswith("SELECT market, induty, currency, fetched, acc_mt FROM dart_fundamentals"):
             return [("KS", "30320", "KRW", "ok", self.acc_mt)]
-        if s.startswith("SELECT market, induty, currency, acc_mt FROM dart_fundamentals"):
-            return [("KS", "30320", "KRW", self.acc_mt)]
+        if s.startswith("SELECT market, induty, currency, acc_mt, fetched FROM dart_fundamentals"):
+            return [("KS", "30320", "KRW", self.acc_mt, "ok")]
         if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
             return [self.fund]
         if "FROM dart_finstat_y" in s:
@@ -115,10 +115,13 @@ def _patch(mp, rows):
 
 def test_sector_compare_firm_row_reads_the_fiscal_month(monkeypatch):
     _patch(monkeypatch, _Rows(3))
-    sec, mkt, per_ttm, pbr_mrq = asyncio.run(S._firm_val_at("018500", "20261016"))
-    assert per_ttm == CAP / (260.0e8 + 140.0e8 - 55.0e8) and pbr_mrq == CAP / 1950.0e8
+    sec, mkt, per_ttm, pbr_mrq, note = asyncio.run(S._firm_val_at("018500", "20261016"))
+    assert per_ttm == CAP / (260.0e8 + 140.0e8 - 55.0e8) and pbr_mrq == CAP / 1950.0e8 and note == {}
     _patch(monkeypatch, _Rows(None))                                     # 결산월 칸이 비면 종전 읽기(12월)
-    assert asyncio.run(S._firm_val_at("018500", "20261016"))[2:] == (None, None)
+    # 종전 읽기의 그 시점 칸(「2026 반기」)은 비었다 → 앞선 칸(「2026 1분기」)으로 세고 표시한다(감사 4 — 종전 스냅샷 표도 그 칸 값을 냈다)
+    *_, per12, pbr12, note12 = asyncio.run(S._firm_val_at("018500", "20261016"))
+    assert (per12, pbr12) == (CAP / (210.0e8 + 140.0e8 - 55.0e8), CAP / 1950.0e8)
+    assert note12 == {"basis": {"pit_q": "2026Q2", "per_ttm": "2026Q1", "pbr_mrq": "2026Q1"}}
 
 
 def test_non_december_does_not_lay_the_summary_annual_on_the_calendar_year(monkeypatch):

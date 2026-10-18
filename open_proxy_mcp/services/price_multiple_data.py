@@ -783,10 +783,15 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
             # 261018(재설계 6단계): 그 날 기업 PER·PBR·시장·KSIC 섹터를 종목별 밸류에이션 스냅샷 표에서 읽던 것을 읽을 때 계산으로 바꿨다
             #   (`_firm_val_at` — 주간 곡선과 같은 정의). KSIC 섹터의 이름·배수는 이미 읽은 이 scheme·이 날짜의 섹터 표(`sectors`)에서
             #   찾는다 — 종전 조인(같은 날·같은 시장·같은 섹터·scheme='ksic')과 같은 행이다. 소수 둘째 자리 반올림도 같은 값이다.
+            # 261018(같은 단계, 감사 4): 그 시점 칸이 비면 앞선 칸으로 센 값과 「기준 분기 늦음」 표시(`fnote["basis"]`) — 그런 종목에서만
+            #   칸·경고가 붙는다(그 밖의 응답은 종전 그대로). 완전자본잠식(`fnote["impaired"]`)은 종전처럼 기업 행을 내지 않되 까닭을 바로 말한다.
             fv = await _firm_val_at(isu, as_of)
             fr = []
+            fnote: dict = {}
+            if fv and fv[4].get("impaired"):
+                fnote, fv = fv[4], None
             if fv:
-                sec, market, pt, pb = fv
+                sec, market, pt, pb, fnote = fv
                 sr = [x for x in sectors if x["market"] == market and x["sector"] == sec] if scheme == "ksic" else []
                 fr = [(sec, market, pt, pb, sr[0]["label"] if sr else None,
                        sr[0]["per_ttm"] if sr else None, sr[0]["pbr_mrq"] if sr else None)]
@@ -823,6 +828,13 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                                "sector_asof": locals().get("_class_asof"),  # 업종분류 소급 여부 표시
                                "firm_per_ttm": pt and round(pt, 2), "firm_pbr_mrq": pb and round(pb, 2),
                                "sector_per_ttm": spt and round(spt, 2), "sector_pbr_mrq": spb and round(spb, 2)}
+                if fnote.get("basis"):
+                    b = fnote["basis"]
+                    company_ctx["firm_basis"] = b
+                    used = " · ".join(f"{nm} {b[k]}" + ("(사업보고서)" if b[k].endswith("Q4") else "")
+                                      for k, nm in (("per_ttm", "PER(TTM)"), ("pbr_mrq", "PBR(MRQ)")) if k in b)
+                    warnings.append(f"기준 분기 늦음 — {corp.get('corp_name')} 의 그 시점 칸({b['pit_q']})이 비어 {used} 칸으로 셌다"
+                                    "(그 시점까지 공시 마감이 지난 칸 가운데 값이 있는 가장 늦은 칸, 1년 안 — 반기 결산 리츠·보고서 미제출·결산월 변경 등).")
                 # 소속 섹터의 과거 시계열(2020-01~, market_val_history_backfill.py가 채움) — 0콜, 이미 DB에 있음.
                 # 소규모(_fold) 섹터면 fold 버킷 자체의 히스토리로 폴백(개별 sec 코드는 mkt_val_history에 없음).
                 hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
@@ -837,6 +849,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                          "pbr_fy0": h[3] and round(h[3], 2), "pbr_mrq": h[4] and round(h[4], 2),
                          "cap_krw": h[5], "ni_fy0_krw": h[6], "ni_ttm_krw": h[7]}
                         for h in hrows]
+            elif fnote.get("impaired"):
+                warnings.append(f"'{company}' 는 그 시점 완전자본잠식(지배주주 자본 ≤ 0) — 기업 배수·비교를 내지 않는다.")
             else:
                 warnings.append(f"'{company}' 종목 스냅샷 없음(비상장·미수집).")
     return {"tool": "price_multiple_data", "status": "ok", "subject": "산업별 밸류에이션",
@@ -998,7 +1012,8 @@ async def _annual_pit_band(ticker: str, currency: str = "KRW",
 async def _weekly_series(ticker: str, currency: str = "KRW",
                          fin: dict[int, tuple] | None = None,
                          finq: dict[tuple, tuple] | None = None,
-                         since_dd: str | None = None, fye: int = 12) -> list[dict]:
+                         since_dd: str | None = None, fye: int = 12,
+                         raw_out: list | None = None) -> list[dict]:
     """차트용 주간 dense 시계열 — 주간 보통주 시총(krx_weekly) × 재무.
     FY0(연 계단, dart_finstat_y) + TTM/MRQ(분기 계단, dart_finstat_q). 분모는 공시시점 계단,
     주가는 주간이라 곡선은 촘촘. 시총 기반이라 수정주가 조정 불변. 반환은 asof 오름차순.
@@ -1021,6 +1036,8 @@ async def _weekly_series(ticker: str, currency: str = "KRW",
         pt = _pit_point(price_dd, cap, fin, finq, fye)
         if pt is not None:
             series.append(pt)
+        if raw_out is not None:                     # 261018(감사 5): firm_history 의 「주간」 항목용 — 시세 행마다 (날짜, 시총), 추가 읽기 0
+            raw_out.append((price_dd, cap))
     return series
 
 
@@ -1068,6 +1085,53 @@ def _pit_raw(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple]
     if fy not in fin and p["per_ttm"] is None and p["pbr_mrq"] is None:
         return None   # 연간 행도 분기 배수도 없다 — 종전처럼 점을 만들지 않는다(시총만 있는 점으로 곡선을 채우지 않는다)
     return p
+
+
+#: 업종 비교 기업 행의 직전 칸 대체가 거슬러 올라가는 한도(그 시점 칸의 기간 말에서 몇 해 전 같은 달 말까지) — 1년(직전 네 칸).
+_FALLBACK_YEARS = 1
+
+
+def _cell_label(cell: tuple[int, int]) -> str:
+    return f"{cell[0]}Q{cell[1]}"
+
+
+def _pit_fallback(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> dict:
+    """그 시점 칸(PIT)이 비어 PER(TTM)·PBR(MRQ)를 셀 수 없을 때, **그보다 앞선 칸 가운데 값이 있는 가장 늦은 칸**으로 센다(업종 비교 기업 행 전용).
+
+    261018(재설계 6단계, 감사 4 — 설계 v03 §6-0 P-1): 종전 스냅샷 표는 그날 수집돼 있던 가장 늦은 분기(재무 요약 파생값)로 값을 냈다.
+    읽을 때 계산으로 바꾸며 분모를 그 시점 칸(PIT)으로 맞추자, 그 칸이 비는 종목 — 리츠(결산마다 사업보고서만 — 1·3분기 칸이 없다)·
+    반기보고서 미제출·결산월을 바꾼 회사(종전 읽기 12월의 칸이 빈다)·늦은 수집 — 의 업종 비교 값이 N/M 이 됐다(10-18 실측 최신 주 7·과거 주 최대 24종목).
+    그래서 그 칸이 **비었을 때만**(값이 있는데 적자·잠식인 경우는 그대로 N/M) 앞선 칸으로 채우고 어느 칸을 썼는지 돌려준다 — 응답은 「기준 분기 늦음」으로
+    표시한다. 앞선 칸만 보므로 아직 안 나온 보고서를 앞당겨 쓰지 않는다. 거슬러 올라가는 한도는 기간 말 기준 1년(`_FALLBACK_YEARS`)이다.
+    곡선(`_pit_raw`)은 바꾸지 않는다 — 곡선은 종전부터 그 칸이 비면 N/M 이었다.
+
+    반환: {"per_ttm": (값 또는 None(적자), 칸), "pbr_mrq": (값 또는 None, 칸), "impaired": 대체 칸 자본 ≤ 0} — 대체가 없으면 빈 dict."""
+    if not cap:
+        return {}
+    cap = float(cap)
+    aq = _pit_quarter(price_dd, fye)
+    month = _rc.fye_month(fye)
+    end0 = _rc.cell_end(aq[0], aq[1], month)
+    floor = _rc._last_day(end0.year - _FALLBACK_YEARS, end0.month)
+    cells = sorted((c for c in set(finq) | {(fy, 4) for fy in fin}
+                    if floor <= _rc.cell_end(c[0], c[1], month) < end0),
+                   key=lambda c: _rc.cell_end(c[0], c[1], month), reverse=True)
+    out: dict = {}
+    if _ttm_ni(fin, finq, aq[0], aq[1], fye) is None:
+        for c in cells:
+            ttm = _ttm_ni(fin, finq, c[0], c[1], fye)
+            if ttm is not None:
+                out["per_ttm"] = (cap / ttm if ttm > 0 else None, c)
+                break
+    if _mrq_eq(fin, finq, aq[0], aq[1]) is None:
+        for c in cells:
+            eq = _mrq_eq(fin, finq, c[0], c[1])
+            if eq is not None:
+                out["pbr_mrq"] = (cap / eq if eq > 0 else None, c)
+                if eq <= 0:
+                    out["impaired"] = True
+                break
+    return out
 
 
 def _r3(v):
@@ -1126,24 +1190,26 @@ async def _firm_cap_at(ticker: str, dd: str) -> tuple[float | None, str | None] 
     return (float(rows[0][0]), rows[0][1])
 
 
-async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, float | None, float | None] | None:
-    """종목의 그 날 (KSIC 섹터 코드, 시장, PER(TTM), PBR(MRQ)) — 배수는 반올림 전 원값. None = 그 날 값을 내지 않는다.
+async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, float | None, float | None, dict] | None:
+    """종목의 그 날 (KSIC 섹터 코드, 시장, PER(TTM), PBR(MRQ), 표시) — 배수는 반올림 전 원값. None = 그 날 행을 내지 않는다.
+    표시(dict)는 평소 빈 dict 다. 「기준 분기 늦음」이면 `basis`(그 시점 칸·실제로 쓴 칸), 완전자본잠식이면 `impaired`.
 
     261018(재설계 6단계): 종전엔 종목별 밸류에이션 스냅샷 표(주간 배치가 시총 × 재무 요약으로 저장)에서 읽었다. 그 표를 없애고 읽을 때 계산한다.
       · 배수 = `_pit_raw`(주간 곡선과 같은 정의 — 그 날 시총 ÷ 그 시점까지 공시된 재무).
       · 시장 = 재무 요약(`dart_fundamentals.market`) — 스냅샷 표도 같은 값을 담았다(16주 41,311행 전부 일치, 같은 날 KRX 시장과도 일치 · 10-18 실측).
       · KSIC 섹터 = `ksic_bucket(업종코드)` — 배치와 같은 규칙(41,311행 전부 일치).
-    None 이 되는 경우는 스냅샷 표에 행이 없던 경우와 같게 맞췄다: 재무 요약이 없거나 수집 정상이 아님 · 그 날 시세 행이 없음 ·
-    그 시점 완전자본잠식(260829 마스터 지시 — 배치도 그 종목을 빼고 저장했다). DB 장애도 None(종전 `or []` 와 같다).
-    값이 달라지는 곳: 분모가 그 시점까지 공시 마감이 지난 분기(PIT)라, 그 칸 값이 비어 있으면 PER(TTM)·PBR(MRQ)를 비운다(N/M) — 스냅샷 표는
-    그날 수집돼 있던 가장 늦은 분기(재무 요약의 파생값)를 썼다. firm_history 곡선이 이미 그렇게 낸다. 빈 칸의 원인은 세 갈래다.
+    None 이 되는 경우는 스냅샷 표에 행이 없던 경우와 같게 맞췄다: 재무 요약이 없거나 수집 정상이 아님 · 그 날 시세 행이 없음. DB 장애도 None
+    (종전 `or []` 와 같다). 그 시점 완전자본잠식(260829 마스터 지시 — 「모든 연산·출력에서 뺀다」, 배치도 08-29 부터 그 종목을 빼고 저장했다)이면
+    배수 없이 `impaired` 표시만 돌려주고, 업종 비교는 기업 행을 내지 않는다 — 종전엔 「종목 스냅샷 없음(비상장·미수집)」이라고 잘못 말했다.
+    분모는 그 시점까지 공시 마감이 지난 분기(PIT)다 — firm_history 곡선과 같다. 스냅샷 표는 그날 수집돼 있던 가장 늦은 분기(재무 요약의 파생값)를
+    썼다. **그 칸이 비면** 앞선 칸 가운데 값이 있는 가장 늦은 칸(1년 안)으로 센다(`_pit_fallback` — 감사 4, `basis` 표시). 빈 칸의 원인은 세 갈래다.
       · **분기 재무 수집 결함** — 늦게 낸 보고서를 다시 받지 않던 것(마감 뒤 400일 재확인으로 고침)과, 응답은 받았는데 지배 순이익·자본을
         못 찾던 파서 공백(표준 계정코드 없는 순이익 총계 행·빈 지배자본 행·재무상태표가 빠진 응답 — 이름으로 찾기·XBRL 원본 대체로 고침).
         둘 다 수집 쪽을 고쳐 다시 받았다.
-      · 정의상 N/M — 반기보고서 미제출·리츠(결산마다 사업보고서만)·그 칸으로 센 TTM 이 적자.
+      · 그 칸이 원래 없음 — 반기보고서 미제출·리츠(결산마다 사업보고서만): 앞선 칸으로 채운다(기준 분기 늦음). 그 칸으로 센 TTM 이 적자면 N/M 그대로다.
       · 수집 공백이 아닌 읽는 쪽 한계 — 12월 결산이 아닌 회사를 달력 분기로 읽던 것(이제 결산월 `dart_fundamentals.acc_mt` 로 칸을 고른다, 아래)과
         상장 첫해 종목(분기 자본으로 PBR(MRQ), `_pit_raw`). 결산월을 바꾼 회사는 바꾼 해의 DART 칸이 두 결산월에서 겹쳐 종전 읽기(12월)로 두므로,
-        그 규칙의 최신 칸이 비면 N/M 이다.
+        그 규칙의 최신 칸이 비면 앞선 칸으로 채운다(기준 분기 늦음).
     재무 요약에 연간 값이 빈 종목(외국 상장사 등)은 연간 재무 표로 채워 오히려 값이 생긴다. 상장 첫해 종목(그 시점 확정 FY 의 연간 행이 없다)은
     분기 자본으로 PBR(MRQ)를 낸다 — 스냅샷 표와 같은 값(`_pit_raw`).
 
@@ -1162,10 +1228,22 @@ async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, fl
         finq = await _firm_fin_by_q(ticker, currency, fye)
     else:
         fin, finq = await _gather_db(_firm_fin_by_fy(ticker, currency, fye), _firm_fin_by_q(ticker, currency, fye))
+    sec = ksic_bucket(induty, ticker)
     if _pit_impaired(dd, fin, finq, fye):
-        return None
+        return (sec, market, None, None, {"impaired": True})
     p = _pit_raw(dd, cap_mkt[0], fin, finq, fye)
-    return (ksic_bucket(induty, ticker), market, p and p["per_ttm"], p and p["pbr_mrq"])
+    per, pbr = (p["per_ttm"], p["pbr_mrq"]) if p else (None, None)
+    fb = _pit_fallback(dd, cap_mkt[0], fin, finq, fye)
+    if not fb:
+        return (sec, market, per, pbr, {})
+    if fb.get("impaired"):                        # 대체 칸의 자본이 0 이하 — 잠식으로 본다(배수 없음)
+        return (sec, market, None, None, {"impaired": True})
+    basis = {"pit_q": _cell_label(_pit_quarter(dd, fye))}
+    if "per_ttm" in fb:
+        per, basis["per_ttm"] = fb["per_ttm"][0], _cell_label(fb["per_ttm"][1])
+    if "pbr_mrq" in fb:
+        pbr, basis["pbr_mrq"] = fb["pbr_mrq"][0], _cell_label(fb["pbr_mrq"][1])
+    return (sec, market, per, pbr, {"basis": basis})
 
 
 def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
@@ -1242,6 +1320,27 @@ def _fye_note(fye) -> str | None:
             f"그 시점 칸은 {lag}부터 쓴다(공시 기한 — 아직 안 나온 보고서를 앞당겨 쓰지 않는다).")
 
 
+#: firm_history `history` 의 「주간」 항목 수 — 종전 주간 스냅샷 표가 담던 최근 16주(설계 v03 감사 5: 22항목 = 연말 6 + 주간 16 유지).
+_HIST_WEEKS = 16
+
+
+def _weekly_hist_items(px: list, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> list[dict]:
+    """주간 시세 행(`_weekly_series(raw_out=…)`)의 최근 `_HIST_WEEKS` 주 → `history` 의 「주간」 항목(종전 주간 스냅샷 표 모양).
+
+    값은 곡선 점과 같은 `_pit_raw`(그 시점까지 공시된 재무)를 소수 둘째 자리로 한 번 반올림한다. `pbr` 은 PBR(MRQ), 없으면 PBR(FY0) — 종전 규칙.
+    재무가 없어 곡선 점이 없는 주(인프라 펀드 등 — 종전 스냅샷 표는 시총만 담았다)는 배수 없이 시총만 낸다. 그 시점 완전자본잠식인 주는 뺀다
+    (260829 마스터 지시 — 스냅샷 배치도 그 종목을 빼고 저장했다)."""
+    out = []
+    for price_dd, cap in px[-_HIST_WEEKS:]:
+        if not cap or _pit_impaired(price_dd, fin, finq, fye):
+            continue
+        p = _pit_raw(price_dd, cap, fin, finq, fye) or {}
+        pbr = p.get("pbr_mrq") if p.get("pbr_mrq") is not None else p.get("pbr")
+        out.append({"period": f"{price_dd[:4]}-{price_dd[4:6]}-{price_dd[6:]}", "asof": price_dd, "cap_krw": float(cap),
+                    "per_fy0": _r2(p.get("per_fy0")), "per_ttm": _r2(p.get("per_ttm")), "pbr": _r2(pbr), "source": "주간"})
+    return out
+
+
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
     """종목별 밸류에이션 히스토리 — 연말 PIT 밴드(전체 기간) + 주간 곡선(최근 3년). PER/PBR/시총 시계열(수정주가 조정 불변).
     전부 주간 시세 저장분 × DART 재무(연간·분기)로 읽을 때 계산한다(261018: 종목별 주간 스냅샷 표 읽기를 뺐다 — 재설계 6단계)."""
@@ -1272,7 +1371,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     #   DB 장애 판정(db_error)은 그 읽기 대신 ⓐ 의 재무 요약 읽기로 한다 — 통화를 모른 채 KRW 로 계산하지 않는다.
     # 261018(결산월): 재무 요약에서 결산월(`acc_mt`)도 함께 읽는다 — 칸 고르기·TTM·환율 기준일에 쓴다(비었으면 12월 = 종전과 같다).
     cur_row, (_, weekly_from) = await _gather_db(
-        _db_rows("SELECT market, induty, currency, acc_mt FROM dart_fundamentals WHERE ticker=%s", (isu,)),
+        _db_rows("SELECT market, induty, currency, acc_mt, fetched FROM dart_fundamentals WHERE ticker=%s", (isu,)),
         _weekly_bounds(),                                            # 주간 곡선은 보존 하한 이후만
     )
     if cur_row is None:   # DB 장애 — 재무·곡선을 읽지 않고 곧바로 낸다
@@ -1289,25 +1388,27 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
         finq = await _firm_fin_by_q(isu, currency, fye)
     else:
         fin, finq = await _gather_db(_firm_fin_by_fy(isu, currency, fye), _firm_fin_by_q(isu, currency, fye))
+    px: list = []
     band, series, flags = await _gather_db(
         _annual_pit_band(isu, currency, fin=fin, fye=fye),           # 종목별 연말 행 — 전체 기간(보존 대상)
-        _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from, fye=fye),
+        _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from, fye=fye, raw_out=px),
         _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)),
     )
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
-    if not band and not series:
+    weekly_hist = _weekly_hist_items(px, fin, finq, fye) if cur_row and cur_row[0][4] == "ok" else []
+    if not band and not series and not weekly_hist:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": corp.get("corp_name", query),
                 # 261018: 사용자 문장에 저장소 표 이름을 쓰지 않는다(종전 「과거 시세(krx_weekly)·재무(dart_finstat_y)」 — 260907 정리의 남은 자리).
                 "warnings": ["시계열 없음 — 과거 시세(주간 시세 저장분)·재무(연간·분기) 미수집."]}
-    # `history` = 연말 PIT 밴드(전체 기간). 261018(재설계 6단계): 종전엔 여기에 주간 스냅샷 표의 최근 16주를 「주간」 항목으로 덧붙였다 —
-    #   같은 주는 `series`(주간 곡선)에 이미 있다. 시총은 같고(41,311행 일치) 분모만 다르다: 곡선은 그 시점까지 공시 마감이 지난 분기(PIT),
-    #   스냅샷은 그날 수집돼 있던 최신 분기였다(10-18 실측 최신 주 2,561종목 중 67종목 · 분기 표에 값이 빈 분기가 있는 종목이 대부분).
-    #   한 종목의 같은 주에 두 값이 나란히 나가던 것이 하나(곡선)로 준다. 마크다운은 연말 항목만 그리므로 화면은 그대로다.
+    # `history` = 연말 PIT 밴드(전체 기간) + 최근 16주 「주간」 항목. 261018(재설계 6단계): 종전 「주간」 항목은 주간 스냅샷 표(최근 16주)에서 읽었다.
+    #   그 표를 없애며 한때 뺐다가(22 → 6항목, 감사 5) 같은 주의 곡선 점(`series` 와 같은 `_pit_raw`)으로 다시 붙인다 — 칸 모양·소수 둘째 자리·
+    #   시총(원 단위 실수)·「pbr = PBR(MRQ), 없으면 PBR(FY0)」 규칙은 종전 그대로다(`_weekly_hist_items`). 마크다운은 연말 항목만 그리므로 화면은 그대로다.
     hist = [{"period": b["period"], "asof": b["asof"], "cap_krw": b["cap_krw"],
              "per_fy0": b["per_fy0"], "per_ttm": None, "pbr": b["pbr_fy0"],
              "source": b["source"]} for b in band]
+    hist += weekly_hist
     hist.sort(key=lambda h: h["asof"])
-    latest_dd = series[-1]["asof"] if series else "?"
+    latest_dd = series[-1]["asof"] if series else (weekly_hist[-1]["asof"] if weekly_hist else "?")   # 곡선이 없으면 「주간」 항목의 마지막 주(종전과 같다)
     warnings = [f"최신 {latest_dd} 기준. 정밀 배수(보통주 주가·배당·경고 포함)는 scope='firm' 사용.",
                 weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."]
     if _fye_note(fye):                         # 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
@@ -1324,8 +1425,8 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     market = cur_row[0][0] if cur_row else None
     induty = cur_row[0][1] if cur_row else None
     sector = ksic_bucket(induty, isu) or induty
-    # 261018(재설계 6단계): 종전 조건은 「곡선도 연말 밴드도 없음」이었다 — 그때는 스냅샷 표의 최근 주간 항목이 남는 경우였다. 그 항목을 뺀 뒤로는
-    #   곡선 없이 연말 밴드만 남는 응답(최근 점이 하나도 없다)에 이 안내가 있어야 한다. 곡선·밴드가 둘 다 없으면 위에서 no_data 로 끝난다.
+    # 261018(재설계 6단계): 종전 조건은 「곡선도 연말 밴드도 없음」이었다. 곡선이 없으면 연말 밴드가 있어도 최근 점이 하나도 없으니(「주간」 항목은
+    #   곡선과 같은 점이거나 시총만 있는 항목이다) 이 안내를 낸다. 곡선·밴드·「주간」 항목이 모두 없으면 위에서 no_data 로 끝난다.
     if not summary:
         warnings.append("주간 곡선 미산출 — 주간 시세 저장분 또는 재무(연간·분기) 미수집.")
     return {"tool": "price_multiple_data", "status": "ok", "subject": corp.get("corp_name", query),
