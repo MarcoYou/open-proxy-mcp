@@ -132,6 +132,24 @@ def test_market_plus_number_asks_instead_of_guessing(monkeypatch, phrase, guess)
     assert uni.clarification("코스피200") is None and uni.clarification("코스피 200") is None
 
 
+def test_rank_rows_read_the_given_day_of_the_daily_store(monkeypatch):
+    """261018: 순위표 행은 `resolve_universe` 가 준 기준일 하루치를 일별 저장분에서 읽는다(기준일과 행이 같은 원천).
+    종목별 최신 행 뷰·`krx_weekly` 를 읽지 않고, 시총 없는 종목은 빼며, 시총 내림차순이다."""
+    seen = []
+
+    def pg(sql, params=()):
+        seen.append((sql, params))
+        return []
+    monkeypatch.setattr(uni, "pg_rows", pg)
+    uni._krx_rows("20261016", None)
+    uni._krx_rows("20261016", ["005930", "000660"])
+    (whole, whole_p), (some, some_p) = seen
+    assert whole == ("SELECT ticker, market, mktcap, close, list_shrs FROM krx_daily_v "
+                     "WHERE trd_dd=%s AND mktcap IS NOT NULL ORDER BY mktcap DESC")
+    assert whole_p == ("20261016",)
+    assert "AND ticker = ANY(%s)" in some and some_p == ("20261016", ["005930", "000660"])
+
+
 def test_is_preferred_rule():
     names = {"005930": "삼성전자", "006800": "미래에셋증권", "196170": "알테오젠"}
     assert uni.is_preferred("005935", names) and uni.is_preferred("00680K", names)

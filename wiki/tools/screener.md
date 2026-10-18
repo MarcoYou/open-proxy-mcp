@@ -2,9 +2,9 @@
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
 domain: action
-updated: 2026-09-21
+updated: 2026-10-18
 scope: [core preset, all, 유형 CSV, 흐름 보기]
-data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + krx_weekly (시총, DART 0콜) + 유형별 파서 재사용(details) + 공시 이벤트 원장 dart_events (흐름 보기, DART 0콜)]
+data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + 일별 시세 저장분 (보관된 최신 거래일의 시총·유니버스 순위, DART 0콜) + 유형별 파서 재사용(details) + 공시 이벤트 원장 dart_events (흐름 보기, DART 0콜)]
 related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
 ---
 
@@ -42,7 +42,7 @@ related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuanc
 |---|---|
 | list.json `report_nm` | 정정 프리픽스(`[기재정정]`/`[첨부정정]`) 감지 + 키워드로 **유형 분류** (B001은 `주요사항보고서(…)` 괄호 안 사유가 판별자) |
 | `report_nm` 키워드 | **단계 태깅** — 결정(예정)≠결과(확정)≠소각(실행)≠철회·해지 (예정치와 실행치를 섞지 않음) |
-| `stock_code` → `krx_weekly.mktcap` | 카드별 **시총 병기** + 시총순 정렬(대형사 상단). DART 0콜 |
+| `stock_code` → 일별 시세 저장분의 시총(보관된 최신 거래일) | 카드별 **시총 병기** + 시총순 정렬(대형사 상단). DART 0콜 |
 | (details) 유형별 파서 payload | 금액·**분모%**(매출대비/시총대비/희석후)·DPS·안건·지분% — 판단이 갈리는 정형필드까지만 |
 
 ## 유형 레지스트리 (13종)
@@ -117,7 +117,7 @@ Tier1 여섯은 details(파서 디스패치) 지원, Tier2/3은 scan-only(같은
 sequenceDiagram
     participant U as User
     participant S as screener
-    participant K as krx_weekly (시총, 0콜)
+    participant K as 일별 시세 저장분 (최신 거래일 시총, 0콜)
     participant L as DART list.json (전체시장 필러, corp_code 無)
     participant P as 유형별 파서 (details)
     U->>S: types·period·universe·details
@@ -157,7 +157,10 @@ sequenceDiagram
   **코스닥 미포함** — 지수 원장 부재라 시총상위 대체) / `kospi:N` · `kosdaq:N`(시장별 시총상위) /
   `top_mktcap:N`(전체시장 시총상위, 시장 혼합 — 라벨로 명시) / `market:kospi`·`market:kosdaq`(시장 전체) /
   `custom:종목,종목`(**코드 또는 회사명 혼용** — "삼성전자" 같은 이름은 `resolve_company_query`로 자동 코드화,
-  미해결분은 notice로 투명 고지). 시총·시장 소스 = `krx_weekly`(DART 0콜), 이름해석도 corp_code 캐시라 DART 0콜.
+  미해결분은 notice로 투명 고지). 시총·시장 소스 = 일별 시세 저장분에 보관된 최신 거래일 단면(DART 0콜 —
+  2026-10-18 전에는 주간 시세 저장분의 이번 주 행, 같은 날 값은 같다), 이름해석도 corp_code 캐시라 DART 0콜.
+  저장분을 못 읽으면 주간 저장분으로 돌아가지 않고 「시세 저장분 조회 실패 → 전체시장으로 대체」(시장 전체면
+  DART 시장 구분으로 제한)를 notice 로 밝힌다.
 - `details`: false(디폴트). **universe가 전체시장이거나 300종목 초과, 또는 기간>30일이면 콜 폭주 방지로 자동
   off**(게이트는 유니버스 "크기" — market:kospi 같은 넓은 유니버스는 details 안 켜짐), 기간>7일이면 preview(캡 1/2).
 - `max_hits`(기본 200, 최대 500) / `offset`(기본 0): 페이징. 응답 `paging.next_offset` 을 `offset` 에 넣으면
@@ -375,6 +378,10 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
 - `dedup_key`에 대상일 미포함 — 같은 회사가 같은 유형을 다른 날 또 내면 run 간 알림 dedup은 커서로 관리.
 
 ## 변경 이력
+- 2026-10-18: 시총 병기·유니버스(시총 순위·시장 전체)의 출처를 주간 시세 저장분의 이번 주 행에서 **일별 시세 저장분에 보관된
+  최신 거래일**로 옮겼다. 지금은 같은 날 같은 값이라 응답은 그대로이고, 주간 저장분이 닫힌 주만 담게 돼도 시총·순위가 지난주로 낡지 않는다.
+  보관 창 안에서 상장폐지된 종목의 옛 행은 순위에 섞이지 않는다(기준일 하루의 행만 읽는다). 저장분 조회 실패 안내는
+  「시세 저장분 조회 실패 → 전체시장으로 대체」(시장 전체면 DART 시장 구분으로 제한)로 바꿨다.
 - 2026-09-21: 카드의 포털 링크를 뺐다(DART 링크만, JSON 의 `naver_url` 없음). 흐름 보기의 분류 이름표를 「업종 대분류·중분류」로.
 - 2026-09-18: **유니버스 말** — 숫자 뒤 「개 기업·개 종목·개 회사·개사·곳」도 순위로 읽는다. 이름 나열에서 회사를 하나도
   못 찾으면 시장 전체로 대체하지 않고 되묻는다(`needs_input`, DART·원장 0콜). 카드·흐름 보기와 유니버스 목록 공통.

@@ -6,6 +6,9 @@
 여기서 지키는 것
   ① 같은 입력 → 같은 응답. `tests/pmd_read_path_golden.json` 은 **겹치기 전 코드(origin/main 43893f5e)가 낸 응답**이다 — 새 코드가 글자까지 같아야 한다.
      읽기 하나씩 실패시킨 변형, 통화가 KRW 가 아닌 종목(환율 조회 순서), 읽기 전부 실패한 경우를 포함한다.
+     261018 의도한 변경 두 가지만 골든에 반영했다(그 밖의 값·키 순서는 옛 골든과 글자까지 같음을 대조한 뒤 썼다):
+     firm_history 경고 2문장·method 의 저장소 표 이름 → 중립 표현, firm 의 `price_source` 칸(이 시험의 가짜 `_market_for` 는 출처를 안 주므로 null).
+     같은 날 2차: firm `inputs.dps_fetch_failed` 칸(가짜 배당 조회는 성공하므로 false) — 이것도 그 한 칸 말고는 글자까지 같음을 대조한 뒤 썼다.
   ② 순차(`OPM_PG_FANOUT=1`)와 겹침(기본 3)이 같은 응답·같은 읽기 묶음을 낸다.
   ③ 상한: 한 호출이 동시에 3개를 넘게 DB 를 물지 않는다(중첩 gather 포함).
   ④ 겹쳐서 실제로 빨라진다(가짜 지연으로 잰다) · 오류는 넣은 순서상 첫 예외가 올라온다 · 환경변수 오타가 서버를 못 뜨게 하지 않는다.
@@ -61,6 +64,8 @@ def route(sql: str) -> str:
         return "shares_first"
     if "SELECT list_shrs FROM krx_weekly" in s and "DESC LIMIT 1" in s:
         return "shares_last"
+    if s == "SELECT list_shrs FROM price_latest WHERE ticker=%s AND list_shrs>0":
+        return "shares_latest"                       # 261018: 최신 주식수는 일별 저장분 먼저(없으면 위 shares_last 로 대신)
     raise AssertionError("가짜 DB 가 모르는 SQL: " + s)
 
 
@@ -193,6 +198,8 @@ def _fm(**over) -> dict:
     }
     d.update(over)
     return d
+# 261018: 최신 상장주식수는 일별 저장분(`price_latest`, 키 shares_latest)을 먼저 읽는다. 시나리오가 따로 주지 않으면 krx_weekly 의 가장 최근 행(shares_last)과
+#   같은 값을 준다 — 지금 운영처럼 두 표의 최신값이 같은 세계다. 그래서 골든(바꾸기 전 코드의 응답)이 그대로 성립해야 한다.
 
 
 FM_SCENARIOS: dict[str, dict] = {
@@ -239,6 +246,7 @@ class _FakeClient:
 def run_firm(mod, setattr_, name, *, delay=0.0, fmt="json", data=None, raise_on=None):
     sc = data if data is not None else FM_SCENARIOS[name]
     fdata = {k: sc[k] for k in ("adj", "shares_first", "shares_last", "flags")}
+    fdata["shares_latest"] = sc.get("shares_latest", sc["shares_last"])
     db = FakeDb(fdata, delay=delay, raise_on=raise_on)
 
     async def resolve(q):
@@ -377,7 +385,7 @@ def test_firm_history_stops_early_when_the_snapshot_read_fails(mp):
 
 def test_firm_reads_exactly_the_five_reads_of_before(mp):
     _, db = run_firm(S, mp, "fm_normal")
-    assert sorted(k for k, _ in db.log) == ["adj", "adj", "flags", "shares_first", "shares_last"]
+    assert sorted(k for k, _ in db.log) == ["adj", "adj", "flags", "shares_first", "shares_latest"]   # 최신 주식수는 일별 저장분(261018)
     _, db = run_firm(S, mp, "fm_no_disclosed_eps_still_reads_flags")
     assert [k for k, _ in db.log] == ["flags"], "공시 EPS 가 없으면 보정 읽기는 건너뛰고 flag 만 읽는다(종전과 같다)"
 
@@ -499,8 +507,8 @@ def test_a_read_that_raises_surfaces_like_before_and_leaves_no_task_behind(mp):
         run_firm_history(S, mp, "fh_samsung", raise_on="fin_y")
     with pytest.raises(RuntimeError, match="flags"):
         run_firm_history(S, mp, "fh_samsung", raise_on="flags")
-    with pytest.raises(RuntimeError, match="shares_last"):
-        run_firm(S, mp, "fm_normal", raise_on="shares_last")
+    with pytest.raises(RuntimeError, match="shares_latest"):
+        run_firm(S, mp, "fm_normal", raise_on="shares_latest")
 
 
 def test_gather_db_returns_in_input_order_and_raises_the_first_exception_in_input_order():
@@ -572,6 +580,36 @@ def test_the_pool_is_not_asked_for_more_than_it_has_by_default():
     """상한 기본값 3 은 풀(`OPM_PG_POOL_MAX` 기본 5)과 기본 스레드 풀(1 CPU → 5칸)의 절반을 조금 넘는 값이다 — 다른 호출 몫이 최소 2칸 남는다."""
     from open_proxy_mcp import db
     assert S._PG_FANOUT <= db._POOL_MAX - 2
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+# 최신 상장주식수 — 일별 저장분 먼저, 없으면 종전 krx_weekly 질의 (261018, 재설계 5-1)
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+def test_latest_shares_prefer_the_daily_store_over_the_weekly_table(mp, golden):
+    """두 표가 다르면 일별 저장분을 쓴다 — krx_weekly 에 이번 주 행이 없는 다음 단계 세계(주간 최신 행은 지난주 값)."""
+    stale_weekly = _fm(shares_first=[(5_000_000_000,)], shares_latest=[(500_000_000,)], shares_last=[(5_000_000_000,)])
+    payload, db = run_firm(S, mp, "", data=stale_weekly)
+    assert _canon(payload) == _canon(golden["fm_factor_missing_warns"]["payload"]), "일별 저장분의 최신 주식수(10:1 병합 뒤)를 봐야 한다"
+    assert "shares_last" not in [k for k, _ in db.log], "일별 저장분에 행이 있으면 krx_weekly 를 다시 읽지 않는다"
+
+
+@pytest.mark.parametrize("latest", [[], FAIL], ids=["no_daily_row", "daily_read_fails"])
+def test_latest_shares_fall_back_to_the_weekly_query_when_the_daily_store_has_no_row(mp, golden, latest):
+    """그 종목 행이 없거나 읽지 못하면 종전 krx_weekly 질의로 대신한다 — 배율이 비면 계수 누락을 못 잡는다. 응답은 종전과 같다."""
+    sc = _fm(shares_first=[(5_000_000_000,)], shares_latest=latest, shares_last=[(500_000_000,)])
+    payload, db = run_firm(S, mp, "", data=sc)
+    assert _canon(payload) == _canon(golden["fm_factor_missing_warns"]["payload"])
+    assert sorted(k for k, _ in db.log) == ["adj", "adj", "flags", "shares_first", "shares_last", "shares_latest"]
+
+
+def test_latest_shares_fallback_is_skipped_when_the_base_week_is_missing(mp, golden):
+    """분모(기준일 뒤 첫 주)가 없으면 배율을 낼 수 없다 — 대신 읽기를 보내지 않는다(장애 중 읽기를 늘리지 않는다). 응답은 종전과 같다."""
+    payload, db = run_firm(S, mp, "fm_shares_ratio_unavailable")
+    assert "shares_last" not in [k for k, _ in db.log]
+    assert _canon(payload) == _canon(golden["fm_shares_ratio_unavailable"]["payload"])
+    payload2, db2 = run_firm(S, mp, "fm_every_read_fails")
+    assert "shares_last" not in [k for k, _ in db2.log]
+    assert _canon(payload2) == _canon(golden["fm_every_read_fails"]["payload"])
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════

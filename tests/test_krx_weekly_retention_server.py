@@ -214,7 +214,7 @@ def _day(days_ago: int) -> str:
 
 
 def _complete(days_ago=3, cap=1) -> MarketContext:
-    return MarketContext({"005930": cap}, frozenset({"005930"}), _day(days_ago), "krx_weekly")
+    return MarketContext({"005930": cap}, frozenset({"005930"}), _day(days_ago), "krx_daily")
 
 
 LOCAL = MarketContext({"005930": 9}, source="local_popularity_prior")
@@ -245,7 +245,7 @@ def test_empty_refresh_keeps_the_previous_complete_context_and_retries_soon(monk
 
 def test_half_snapshot_does_not_replace_a_complete_context(monkeypatch):
     good = _complete()
-    half = MarketContext({"005930": 5}, None, _day(0), "krx_weekly")      # 일부만 읽혔다 → active 없음
+    half = MarketContext({"005930": 5}, None, _day(0), "krx_daily")      # 일부만 읽혔다 → active 없음
     _setup(monkeypatch, good, half)
     assert asyncio.run(CR.load_market_context()) is good
 
@@ -274,12 +274,14 @@ def test_a_stale_previous_context_is_not_protected(monkeypatch):
 
 @pytest.mark.parametrize("prev,new,expected", [
     (_complete(), None, True),
-    (_complete(), MarketContext({}, None, _day(0), "krx_weekly"), True),
+    (_complete(), MarketContext({}, None, _day(0), "krx_daily"), True),
     (_complete(), _complete(0), False),
     (None, None, False),
     (MarketContext({}, None, "", "none"), None, False),
     (_complete(days_ago=30), None, False),
-    (MarketContext({"1": 1}, frozenset({"1"}), "not-a-date", "krx_weekly"), None, False),
+    (MarketContext({"1": 1}, frozenset({"1"}), "not-a-date", "krx_daily"), None, False),
+    # 261018: DB 맥락의 라벨은 일별 시세 저장분(krx_daily) 하나다 — 옮기기 전 라벨은 DB 맥락으로 보지 않는다
+    (MarketContext({"005930": 1}, frozenset({"005930"}), _day(3), "krx_weekly"), None, False),
 ])
 def test_should_keep_previous_matrix(prev, new, expected):
     assert CR._should_keep_previous(prev, new) is expected

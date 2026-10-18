@@ -223,8 +223,8 @@ def test_download_validation_rejects_empty_or_partial_master():
 
 
 def test_expired_market_context_is_reloaded(monkeypatch):
-    stale = MarketContext({"005930": 1}, as_of_date="20200101", source="krx_weekly")
-    fresh = MarketContext({"005930": 2}, as_of_date="20260721", source="krx_weekly")
+    stale = MarketContext({"005930": 1}, as_of_date="20200101", source="krx_daily")
+    fresh = MarketContext({"005930": 2}, as_of_date="20260721", source="krx_daily")
     calls = []
 
     def fake_database_context():

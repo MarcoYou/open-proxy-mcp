@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — 도구 카탈로그
-updated: 2026-09-18
+updated: 2026-10-18
 ---
 
 # 도구(Tool) 카탈로그
@@ -151,7 +151,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | tool | DART API | KIND | Naver | 정적 JSON |
 |------|----------|------|-------|----------|
 | company | ✅ corpCode/company/list | - | 🔧 보강 | - |
-| screener | ✅ list.json 전체시장 필러(corp_code 無) + details=유형별 파서 재사용 | - | 🔧 카드 링크 | ✅ krx_weekly 시총(DART 0콜) |
+| screener | ✅ list.json 전체시장 필러(corp_code 無) + details=유형별 파서 재사용 | - | 🔧 카드 링크 | ✅ 일별 시세 저장분 시총(보관된 최신 거래일, DART 0콜) |
 | governance_screen | ✅ 회사별 유형 필터 list + 선택·지정 원문 document, 원문 창 확장 재사용 | 원문 수집의 허용된 fallback만 | - | - |
 | shareholder_meeting_notice | ✅ list/document | - | - | - |
 | shareholder_meeting_results | ✅ list/document | 🔧 fallback | - | - |
@@ -171,8 +171,8 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | provisional_earnings | ✅ list(I001 결산잠정치·I002 공정공시) + 원문 파싱 | - | - | - |
 | business_details | ✅ get_document 1콜(II.사업의 내용 + 주석 부문정보) + list(A001~A003) | - | - | - |
 | financial_notes | ✅ get_document(III.재무에 관한 사항 주석·재무상태표) | - | - | - |
-| price_multiple_data | ✅ 재무 4EP + company.json + fnlttSinglAcntAll + stockTotqySttus + alotMatter (firm) | - | - | ✅ 주간 시세·시총 저장분 · KRX 시세 · ECOS 환율 |
-| trading_data | - | - | - | ✅ 주간 시세·시장/섹터 시총·기준가 조정·업종분류 저장분 (quote 만 KRX 라이브) |
+| price_multiple_data | ✅ 재무 4EP + company.json + fnlttSinglAcntAll + stockTotqySttus + alotMatter (firm) | - | - | ✅ 일별 시세 저장분(최신값) · 주간 시세·시총 저장분(과거 곡선) · KRX 시세 · ECOS 환율 |
+| trading_data | - | - | - | ✅ 주간 시세(firm 끝점·universe·최근 7거래일 quote 는 일별 시세)·시장/섹터 시총·기준가 조정·업종분류 저장분 (7거래일보다 이전 quote 만 KRX 라이브) |
 | forward_estimates_data | - | - | - | ✅ 컨센서스 스냅샷 저장분(벤더 원천, DART 아님) |
 | dividend_data | - (전수 수집본·결정공시 집계 조회) | - | - | ✅ 배당 확정·분기 저장분(alotMatter 수집본) + 결정공시 집계 + 상장정보 + 업종분류 |
 | director_news | - | - | ✅ 뉴스 검색 API 1콜 | ✅ 부정 키워드 사전 |

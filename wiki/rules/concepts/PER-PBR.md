@@ -14,7 +14,7 @@ related: [시가총액, 연결-별도, 당기순이익, 배당수익률, ROE]
 ## OPM 산식 (`price_multiple_data`, 260823 전환)
 
 ```
-보통주 시총   = KRX 상장주식수(list_shrs) × 최신 주간 종가(krx_weekly)        # common_mktcap — [[시가총액]]
+보통주 시총   = KRX 상장주식수(list_shrs) × 최신 거래일 종가(일별 시세 저장분 price_latest)  # common_mktcap — [[시가총액]]
 TTM 순이익   = ni_fy(연간) + ni_qc(1Q당해) − ni_qp(1Q전년)                  # 지배순이익 기준
 PER(FY0)     = 보통주 시총 ÷ 지배순이익(FY0)
 PER(TTM)     = 보통주 시총 ÷ TTM 지배순이익

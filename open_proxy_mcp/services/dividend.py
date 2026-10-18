@@ -956,7 +956,8 @@ async def build_dividend_payload(
     ]
 
     # 현재가 기준 배당수익률 (valuation 로직 이식, 260705) — yield_dart(결의 당시 시가배당률)와
-    # 별개로 '지금 사면 몇 %인가'를 답한다. 시세 = krx_weekly(Supabase, serve-time KRX 0콜),
+    # 별개로 '지금 사면 몇 %인가'를 답한다. 시세 = 일별 시세 저장분의 최신 거래일 종가(Supabase `price_latest`,
+    # serve-time KRX 0콜 — 261018 krx_weekly 이번 주 행에서 옮김. 저장분에 없으면 `_market_for` 가 KRX 라이브로 확인),
     # 기준일(price_date) 명시. 지역 import — valuation이 이 모듈(_annual_summary)을 import하므로
     # 모듈 top import는 순환.
     if latest_summary and int(latest_summary.get("cash_dps") or 0) > 0:
