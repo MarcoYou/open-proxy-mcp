@@ -41,7 +41,9 @@ from open_proxy_mcp.services.financial_metrics import build_financial_metrics_pa
 from open_proxy_mcp.services.dividend import _annual_summary
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
-from open_proxy_mcp.krx_retention import krx_weekly_cutoff, week_unit, weekly_window_note
+from open_proxy_mcp.krx_retention import (COLD_DEGRADED_NOTE, krx_weekly_cutoff, seam_gap, serving_seam, week_unit,
+                                           weekly_window_note)
+from open_proxy_mcp import cold_store as _cold
 from open_proxy_mcp import krx_daily as _krx_daily
 
 logger = logging.getLogger(__name__)
@@ -187,6 +189,78 @@ async def _weekly_bounds() -> tuple[str, str]:
         return latest, cut
     _WEEKLY_START_CACHE[cut] = (time.monotonic(), start)
     return latest, start
+
+
+# ── 주간 곡선 읽기 한 곳 — DB + 콜드 서빙(3년 하한 이전) 이음매 (261019, 설계 v03 D2) ─────────────────────────────────────
+#: 콜드 서빙 데이터셋 — krx_weekly 의 3년 하한 이전 전 행(서빙본 sqlite, 뷰 이름·칸은 DB 의 krx_weekly 와 같다).
+COLD_WEEKLY = "krx_weekly_hist"
+
+
+class _ColdSpan(NamedTuple):
+    """주간 곡선 한 번 읽기에서 콜드 서빙이 한 일 — 필요했을 때만 만들어진다(꺼짐·필요 없음이면 `_read_weekly` 가 None).
+    used=False 면 강등(reason) — 호출부는 종전 응답(DB 하한 이후 곡선 + 하한 안내)에 `COLD_DEGRADED_NOTE` 한 줄을 더한다."""
+    used: bool
+    reason: str | None = None
+    seam: str | None = None        # S — 콜드는 price_dd < S, DB 는 price_dd >= S
+    start: str | None = None       # 서빙본 coverage 시작 = 곡선 하한(weekly_from)
+    n_cold: int = 0
+    first_cold: str | None = None
+
+
+async def _cold_part(ticker: str, req: str, latest: str, floor: str, cols: tuple[str, ...]
+                     ) -> tuple[_ColdSpan, list | None] | None:
+    """[요청 하한, S) 를 서빙본에서 — None = 필요 없음(요청 하한이 S 이후), (span, None) = 강등, (span, 행) = 읽음."""
+    cut = krx_weekly_cutoff(latest)
+    if req and req >= cut:                     # S ≤ B 이므로 콜드가 필요할 수 없다 — 서빙 목록도 보지 않는다
+        return None
+    r = await _cold.ready(COLD_WEEKLY)
+    if isinstance(r, _cold.ColdError):
+        return _ColdSpan(False, r.reason), None
+    seam = serving_seam(cut, r.max_dd)
+    if req and req >= seam:
+        return None
+    if seam_gap(seam, floor):                  # 서빙본 끝과 DB 주간 구간 시작 사이에 빈 주 — 빈 해가 섞인 곡선은 내지 않는다(S5)
+        _cold.note_degraded("seam_gap", f"S {seam} < DB 하한 {floor}")
+        return _ColdSpan(False, "seam_gap", seam, r.min_dd), None
+    rows = await _cold.read(r, cols, ticker, req or r.min_dd, seam)
+    if rows is None:
+        return _ColdSpan(False, "read_failed", seam, r.min_dd), None
+    return _ColdSpan(True, None, seam, r.min_dd, len(rows), rows[0][0] if rows else None), rows
+
+
+async def _cold_part_or_degrade(ticker: str, req: str, latest: str, floor: str, cols: tuple[str, ...]
+                                ) -> tuple[_ColdSpan, list | None] | None:
+    """`_cold_part` 를 강등으로 감싼다 — 콜드 쪽에서 무엇이 터져도(목록의 이상한 값 등) DB 곡선(종전 응답 + 일시 안내)은 나간다(S5).
+    감싸지 않으면 `asyncio.gather` 가 그 예외를 올려 DB 를 잘 읽고도 요청 전체가 실패한다."""
+    try:
+        return await _cold_part(ticker, req, latest, floor, cols)
+    except Exception as e:  # noqa: BLE001 — 콜드 실패는 언제나 강등
+        _cold.note_degraded("error", type(e).__name__)
+        logger.warning("콜드 서빙: 이음매 계산 실패 — 강등(%s)", type(e).__name__)
+        return _ColdSpan(False, "error"), None
+
+
+async def _read_weekly(ticker: str, req: str, latest: str, floor: str, db_aw, cols: tuple[str, ...],
+                       extra: tuple = ()) -> tuple[list | None, _ColdSpan | None]:
+    """주간 곡선 읽기 한 곳 — DB 읽기(`db_aw`, 호출부의 종전 질의 그대로: price_dd >= 하한)와 콜드 읽기를 겹쳐 기다려 잇는다.
+
+    · 콜드가 꺼져 있거나(`OPM_COLD`≠1) 필요 없으면(요청 하한이 이음매 S 이후) DB 결과를 그대로 돌려준다 — 종전과 같은 질의·같은 결과.
+    · 필요하면 [요청 하한(없으면 서빙본 시작), S) 를 서빙본에서 읽어 앞에 붙이고, DB 행은 price_dd >= S 만 남긴다(반열린 — 중복 0).
+      DB 의 S 이전 연말 행은 서빙본에 같은 값이 있어 곡선에 쓰지 않는다(`krx_retention` S3). 콜드 행에는 `extra` 를 덧붙인다
+      (같은 질의에 끝점 행이 섞인 호출부의 표지 칸).
+    · 콜드를 못 읽으면(강등) DB 결과 그대로 + span.used=False. DB 장애(None)는 종전 장애 경로 그대로다.
+    `db_aw` 는 이 함수가 기다린다(DB 쪽 동시 읽기 상한 `_PG_FANOUT` 은 그 코루틴이 지킨다 — 콜드 읽기는 DB 칸을 쓰지 않는다).
+    rows 의 첫 칸은 price_dd 여야 한다."""
+    if not _cold.enabled():
+        return await db_aw, None
+    db_rows, part = await asyncio.gather(db_aw, _cold_part_or_degrade(ticker, req, latest, floor, cols))
+    if part is None:
+        return db_rows, None
+    span, cold_rows = part
+    if db_rows is None or cold_rows is None:
+        return db_rows, span
+    merged = [(*r, *extra) for r in cold_rows] + [r for r in db_rows if r[0] >= span.seam]
+    return merged, span
 
 
 def _krx_db_get(price_dd: str, ticker: str) -> dict:
@@ -1131,7 +1205,8 @@ async def _weekly_series(ticker: str, currency: str = "KRW",
                          fin: dict[int, tuple] | None = None,
                          finq: dict[tuple, tuple] | None = None,
                          since_dd: str | None = None, fye: int = 12,
-                         raw_out: list | None = None) -> list[dict]:
+                         raw_out: list | None = None, latest_dd: str | None = None,
+                         cold_out: dict | None = None) -> list[dict]:
     """차트용 주간 dense 시계열 — 주간 보통주 시총(krx_weekly) × 재무.
     FY0(연 계단, dart_finstat_y) + TTM/MRQ(분기 계단, dart_finstat_q). 분모는 공시시점 계단,
     주가는 주간이라 곡선은 촘촘. 시총 기반이라 수정주가 조정 불변. 반환은 asof 오름차순.
@@ -1146,8 +1221,15 @@ async def _weekly_series(ticker: str, currency: str = "KRW",
     「최신 X 기준」·series 마지막 점·월말 요약, 이번 주 날짜를 준 과거 시점(firm_at)은 지난 주 값이었다. 종전(주간 표의 이번 주 행을 매일 갈아 끼우던 때)엔
     최신 거래일이 곡선 끝이었다 — 그 모양으로 되돌린다. 시세 도구 종목 시계열(`trading._with_daily_tail`)과 같은 규칙이다."""
     if since_dd is None:
-        _, since_dd = await _weekly_bounds()
-    rows = await _db_rows(_SERIES_SQL, (ticker, since_dd, ticker)) or []
+        latest_dd, since_dd = await _weekly_bounds()
+    db_aw = _db_rows(_SERIES_SQL, (ticker, since_dd, ticker))
+    if cold_out is not None and latest_dd:         # 261019(설계 v03 D2): 하한 이전 주간 곡선을 콜드 서빙에서 잇는다(꺼져 있으면 종전 그대로)
+        rows, span = await _read_weekly(ticker, "", latest_dd, since_dd, db_aw, ("price_dd", "mktcap"), extra=("w",))
+        if span is not None:
+            cold_out.update(span._asdict())
+        rows = rows or []
+    else:
+        rows = await db_aw or []
     px = sorted((r[0], r[1]) for r in rows if r[2] == "w")          # 날짜 오름차순(종목 안에서 날짜는 하나씩)
     px = _join_daily_tail(px, [(r[0], r[1]) for r in rows if r[2] == "d"], since_dd)
     if fin is None:
@@ -1403,6 +1485,38 @@ def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
     return out
 
 
+def _cold_firm_at_miss(d: dict, as_of: str, warnings: list | None = None) -> list[str] | None:
+    """콜드 서빙(3년 하한 이전을 보관본에서 이은 곡선, `data.cold_until` 있음)에서 기준일 이하 점이 없을 때의 안내 — 아니면 None(종전 흐름).
+
+    종전 안내(`weekly_window_note` — 「주간 시세는 최근 3년까지」)는 DB 하한 기준이라, 2015-12 부터 이은 곡선에는 맞지 않는다.
+      · 주간 시세 시작(`weekly_from`) 전 → 범위 밖
+      · 시세는 있지만 곡선 첫 점 전(그 시점 공시 재무가 없음) → 첫 점과 까닭
+      · 곡선이 비었음 → 그 기간 시세나 공시 재무가 없음
+    곡선 밖 대체 점(`series_gap_fill`)이 기준일 이하에 있으면 None — 종전 흐름이 그것으로 답한다.
+
+    켜져 있는데 이번에 보관본을 못 읽었으면(곡선 경고 `warnings` 에 `COLD_DEGRADED_NOTE`) DB 주간 구간 이전 기준일에 종전처럼
+    「범위 밖 — 최근 3년까지 제공」이라고 답하지 않는다(사실이 아니다 — 잠시 뒤 다시 부르면 답한다). 곡선 응답과 같은 일시 안내를 준다."""
+    degraded = not d.get("cold_until") and COLD_DEGRADED_NOTE in (warnings or ())
+    if not d.get("cold_until") and not degraded:
+        return None
+    series = d.get("series") or []
+    if any(str(p.get("asof", "")) <= as_of for p in series + list(d.get("series_gap_fill") or [])):
+        return None
+    start = d.get("weekly_from") or ""
+    yearend = "연말 값은 `scope=firm_history` 의 `history`(연말 PIT 밴드)에서 봅니다."
+    if degraded:
+        if not (start and as_of < start):
+            return None                             # DB 주간 구간 안의 기준일 — 종전 흐름(첫 점 안내)이 맞다
+        return [f"기준일 {as_of} 은 지금 읽은 주간 구간({start[:4]}-{start[4:6]}-{start[6:]} 이후) 이전입니다 — "
+                f"{COLD_DEGRADED_NOTE} {yearend}"]
+    if start and as_of < start:
+        return [f"기준일 {as_of} 은 주간 시세 시작({start[:4]}-{start[4:6]}-{start[6:]}) 이전이라 제공 범위 밖입니다. {yearend}"]
+    if series:
+        return [f"기준일 {as_of} 이하 주간 점 없음 — 곡선의 첫 점은 {series[0]['asof']}. 기준일을 비우면 현재 값. "
+                "곡선은 그 시점에 공시된 재무(사업보고서·분기보고서)가 있는 주부터 점이 있습니다."]
+    return [f"기준일 {as_of} 이하 주간 점 없음 — 주간 곡선이 비어 있습니다(그 기간 시세나 공시된 재무가 없음 — 거래정지·상장폐지 가능). {yearend}"]
+
+
 async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
     """종목의 **과거 시점** 배수 — firm_history 의 주간 곡선(krx_weekly 최근 3년 × DART 재무 PIT)에서 as_of 이하
     가장 최근 점 하나(260907: 종목별 주간 스냅샷 표는 최근 몇 주만 있어 과거로 못 갔다 — 261018 그 표는 없앴다).
@@ -1414,6 +1528,9 @@ async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
     if hist.get("status") != "ok":
         return hist
     d = hist["data"]
+    cold_miss = _cold_firm_at_miss(d, as_of, hist.get("warnings"))   # 261019: 콜드 서빙 곡선에서 답이 없는 기준일 — 그 곡선(강등이면 일시)에 맞는 안내
+    if cold_miss:
+        return {"tool": "price_multiple_data", "status": "no_data", "subject": hist.get("subject", company), "warnings": cold_miss}
     series = d.get("series") or []
     floor = d.get("weekly_from") or (krx_weekly_cutoff(series[-1]["asof"]) if series else None)
     pts = [p for p in series if str(p.get("asof", "")) <= as_of]
@@ -1512,6 +1629,22 @@ def _weekly_hist_items(px: list, fin: dict[int, tuple], finq: dict[tuple, tuple]
     return out
 
 
+def _cold_warnings(warnings: list[str], cold: dict, weekly_from: str) -> None:
+    """firm_history 경고 고치기(제자리) — 콜드 서빙으로 이었으면 둘째 줄(하한 안내)을 이음매 문장으로, 켜져 있는데 못 읽었으면 일시 안내 한 줄.
+    꺼짐·필요 없음(`cold` 빈 dict)이면 손대지 않는다(종전 응답 그대로)."""
+    if not cold:
+        return
+    old = weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."
+    if not cold.get("used"):
+        warnings.append(COLD_DEGRADED_NOTE)
+        return
+    c0, s0 = cold["start"], cold["seam"]
+    note = (f"주간 곡선은 {c0[:4]}-{c0[4:6]}-{c0[6:]} 부터의 주간 시세로 계산합니다({s0[:4]}-{s0[4:6]}-{s0[6:]} 이전은 "
+            "보관본(DB 밖 서빙본)에서 이었습니다 — 같은 원천·같은 주 정의, 겹치는 날짜 없음). 점은 그 시점에 공시된 "
+            "재무(사업보고서)가 있는 주부터입니다. 연말 값은 `history` 의 「연말(PIT FY…)」 항목.")
+    warnings[:] = [note if w == old else w for w in warnings]
+
+
 async def build_firm_history_payload(company: str, format: str = "md") -> dict[str, Any]:
     """종목별 밸류에이션 히스토리 — 연말 PIT 밴드(전체 기간) + 주간 곡선(최근 3년). PER/PBR/시총 시계열(수정주가 조정 불변).
     전부 주간 시세 저장분 × DART 재무(연간·분기)로 읽을 때 계산한다(261018: 종목별 주간 스냅샷 표 읽기를 뺐다 — 재설계 6단계)."""
@@ -1560,11 +1693,14 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     else:
         fin, finq = await _gather_db(_firm_fin_by_fy(isu, currency, fye), _firm_fin_by_q(isu, currency, fye))
     px: list = []
+    cold: dict = {}                    # 261019(설계 v03 D2): 하한 이전 주간 곡선을 콜드 서빙에서 이었나(`_ColdSpan`) — 꺼짐·필요 없음이면 빈 채로
     band, series, flags = await _gather_db(
         _annual_pit_band(isu, currency, fin=fin, fye=fye),           # 종목별 연말 행 — 전체 기간(보존 대상)
-        _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from, fye=fye, raw_out=px),
+        _weekly_series(isu, currency, fin=fin, finq=finq, since_dd=weekly_from, fye=fye, raw_out=px,
+                       latest_dd=latest_wk, cold_out=cold),
         _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (isu,)),
     )
+    cold_used = bool(cold.get("used"))
     summary = _month_end_summary(series, 12)   # 텍스트 표: 최근 12개월 월말 + 분기공시 마커
     # 261019(감사 3): 곡선 끝점을 일별 최신 한 줄로 이었으면(`_join_daily_tail`) 그 날 — 닫힌 최신 주보다 늦은 날이다. 「주간」 항목의 「시장의 최근 16주」도
     #   그 날 기준이다(종전 스냅샷 표도 이번 주 행을 그 주 최신 거래일로 매일 갈아 끼웠다 — 최근 16주 = 이번 주 + 닫힌 15주).
@@ -1588,6 +1724,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
                 weekly_window_note(weekly_from) + " 연말 값은 `history` 의 「연말(PIT FY…)」 항목."]
     if _fye_note(fye):                         # 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
         warnings.append(_fye_note(fye))
+    _cold_warnings(warnings, cold, weekly_from)   # 261019(설계 v03 D2): 콜드 서빙으로 이었으면 하한 안내를 이음매 문장으로, 못 읽었으면 일시 안내 한 줄
     # 수정주가 파이프라인 flag 대조 — 분할(스핀오프)·미해결 조정 종목은 시계열 해석 주의(QA 권고). (읽기는 위 ⓒ 단계에서 함께 했다)
     for fl, detail in flags or []:
         if fl == "spinoff_break":
@@ -1606,7 +1743,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
         warnings.append("주간 곡선 미산출 — 주간 시세 저장분 또는 재무(연간·분기) 미수집.")
     data = {"scope": "firm_history", "ticker": isu, "market": market,
             "sector": sector, "history": hist, "series": series, "summary": summary,
-            "weekly_from": weekly_from,
+            "weekly_from": cold["start"] if cold_used else weekly_from,
             "method": "보통주 시총 ÷ 재무. FY0=직전 확정 FY(연간 재무·PIT) · "
                       "TTM=최근4분기 지배순이익 FY(y-1)+누적(y,q)−누적(y-1,q)(분기 재무) · "
                       "MRQ PBR=최근분기 지배자본. 차트=최근 3년 주간 곡선(series, weekly_from 이후 — 그 이전 "
@@ -1616,6 +1753,12 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
     if daily_end:   # 261019(감사 3): 곡선 끝점을 일별 최신 한 줄로 이었을 때만 — 그 밖의 응답은 칸·문구가 종전 그대로다
         data["series_daily_end"] = daily_end
         data["method"] += f" 곡선 마지막 점({daily_end})은 이번 주 — 주간 저장분은 닫힌 주만 담아, 일별 시세 저장분의 그 종목 최신 거래일로 잇는다."
+    if cold_used:   # 261019(설계 v03 D2): 콜드 서빙으로 이었을 때만 — 꺼짐·강등 응답은 칸·문구가 종전 그대로다
+        data["cold_until"] = cold["seam"]
+        data["method"] = data["method"].replace(
+            "차트=최근 3년 주간 곡선(series, weekly_from 이후 — 그 이전 연말 값은 history 의 연말 항목)",
+            f"차트=주간 곡선(series, weekly_from 이후 — cold_until({cold['seam']}) 이전은 보관본(DB 밖 서빙본)에서 이은 주간 점, "
+            "재무가 공시된 주부터)")
     return {"tool": "price_multiple_data", "status": "ok", "subject": corp.get("corp_name", query),
             "data": data, "warnings": warnings}
 

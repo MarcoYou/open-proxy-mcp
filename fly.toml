@@ -28,6 +28,9 @@ kill_timeout = '90s'
   # 261005: 2 GiB VM에서 문서 RAM 캐시 1단계 확대. 기본값 96 MiB는 유지한다.
   # 등록 캐시 합계 360 MiB/프로세스. 다음 확대는 실제 업무 피크 관찰 후 판단한다.
   OPM_DOC_CACHE_MB = '144'
+  # 261019: 콜드 서빙(3년 하한 이전 주간 곡선을 DB 밖 서빙본에서 잇는 것)의 캐시 자리 — 볼륨이라 배포·재시작에도 남는다(약 28 MiB).
+  # 켜기는 비밀값 둘(`OPM_COLD=1`·`OPM_COLD_MANIFEST_URL` 서빙 목록 서명 URL)로 한다. 없으면 꺼짐(응답 불변).
+  OPM_COLD_DIR = '/data/cold'
 
 [mounts]
   source = 'opm_data'

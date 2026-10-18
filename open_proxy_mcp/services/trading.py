@@ -44,9 +44,11 @@ from open_proxy_mcp.services.price_multiple_data import (
     _num,
     _pg_rows,
     _price_dates,
+    _read_weekly,
     _resolve_listed,
     _weekly_bounds,
 )
+from open_proxy_mcp.krx_retention import COLD_DEGRADED_NOTE, weekly_cold_note   # 261019 콜드 서빙(3년 하한 이전 주간 곡선)
 
 TOOL = "trading_data"
 
@@ -207,6 +209,8 @@ async def _firm_live_fallback(name: str, ticker: str) -> dict[str, Any]:
 #: 칸 목록을 한 곳에만 두어 한쪽만 바뀌어 칸이 조용히 어긋나는 일을 막는다.
 _FIRM_COLS = "price_dd, market, close, mktcap, list_shrs"
 _FIRM_WEEKLY_SQL = f"SELECT {_FIRM_COLS} FROM krx_weekly WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd"
+#: 같은 칸을 콜드 서빙본(같은 이름의 뷰 `krx_weekly`)에서 읽을 때의 칸 목록 — 261019(설계 v03 D2).
+_FIRM_COLD_COLS = tuple(c.strip() for c in _FIRM_COLS.split(","))
 #: 종목 시계열의 끝점 — 일별 저장분에서 그 종목의 가장 늦은 한 줄. ticker 조건이 뷰의 창 아래 인덱스로 내려가 한 종목만 읽는다.
 _FIRM_TAIL_SQL = f"SELECT {_FIRM_COLS} FROM price_latest WHERE ticker=%s"
 
@@ -271,19 +275,25 @@ async def build_firm_series_payload(company: str, format: str = "md",
     # 261017: 주간 시세는 **보존 하한(저장된 최신 주의 달력 3년 전) 이후만** 준다. `krx_weekly` 는 최근 3년 + 종목별로
     #   해마다 마지막 행(연말 행)만 남기도록 줄이는데, 하한 이전을 그대로 읽으면 촘촘한 주간 곡선 앞에 1년 간격 점이
     #   조용히 섞인다. since 가 없으면(전 기간) 하한부터, since 가 하한보다 이르면 하한으로 올려 읽고 그 사실을 말한다.
-    _, floor = await _weekly_bounds()
+    latest_wk, floor = await _weekly_bounds()
     req = (since or "").strip()
     if len(req.replace("-", "")) == 8 and req.replace("-", "").isdigit():
         req = req.replace("-", "")
     lo = max(req, floor) if req else floor
     # 261018: 끝점(이번 주 최신값)은 일별 저장분에서 같이 읽는다. 두 읽기는 서로 입력이 필요 없어 한 왕복으로 겹친다.
-    weekly, tail = await _gather_db(_db_call(_pg_rows, _FIRM_WEEKLY_SQL, (ticker, lo)),
-                                    _db_call(_pg_rows, _FIRM_TAIL_SQL, (ticker,)))
+    # 261019(설계 v03 D2): 주간 읽기는 `_read_weekly` 한 곳을 거친다 — 하한 이전이 필요하면 콜드 서빙(DB 밖 서빙본)을 겹쳐 읽어 앞에 잇는다.
+    #   꺼져 있거나(`OPM_COLD`≠1) 필요 없으면 종전 질의 결과 그대로다. `cold` = 콜드가 한 일(None = 관여 안 함).
+    (weekly, cold), tail = await _gather_db(
+        _read_weekly(ticker, req, latest_wk, floor, _db_call(_pg_rows, _FIRM_WEEKLY_SQL, (ticker, lo)), _FIRM_COLD_COLS),
+        _db_call(_pg_rows, _FIRM_TAIL_SQL, (ticker,)))
+    cold_used = bool(cold and cold.used)
     rows = _with_daily_tail(weekly, tail, lo)
     daily_end = rows is not weekly           # 끝점을 일별 저장분에서 이었나 — 출처 설명이 사실과 맞게
     window_note = (weekly_window_note(floor)
                    + " 연말 시총·배수는 `price_multiple_data` 의 `scope=firm_history` 연말 항목에서 전체 기간으로 볼 수 있습니다."
                    + (f" (요청한 since {req} 가 하한보다 이르러 하한부터 줍니다.)" if req and req < floor else ""))
+    if cold is not None and not cold_used:   # 켜져 있는데 이번에 보관본을 못 읽었다 — 종전 안내 + 일시 한 줄
+        window_note += " " + COLD_DEGRADED_NOTE
     if rows is None:
         name = corp.get("corp_name", company)
         if _db_configured():
@@ -296,7 +306,8 @@ async def build_firm_series_payload(company: str, format: str = "md",
     if not rows:
         return _err(corp.get("corp_name", company), "no_data",
                     *([class_note] if class_note else []),
-                    f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).", window_note)
+                    f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).",
+                    *([] if cold_used else [window_note]))
 
     freq = (freq or _FREQ_DEFAULT["firm"]).strip().lower()
     full = [{"asof": r[0], "close_krw": r[2], "mktcap_krw": r[3], "list_shrs": r[4]} for r in rows]
@@ -322,8 +333,10 @@ async def build_firm_series_payload(company: str, format: str = "md",
     warns = ([class_note] if class_note else []) + [
         f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
         f"연속이지만 주가는 끊깁니다."]
-    if not req or req < floor:
+    if not cold_used and (not req or req < floor):
         warns.append(window_note)
+    elif cold_used and cold.first_cold:      # 261019: 하한 이전을 보관본에서 이었다 — 이음매 문장(값·주 정의는 같다)
+        warns.append(weekly_cold_note(cold.first_cold, cold.seam))
     if ev:
         warns.append(f"⚠ 구간 내 기준가 조정 {len(ev)}회 "
                      f"({', '.join(f'{d}(×{c:g})' for d, c in ev[:5])}"
@@ -337,8 +350,13 @@ async def build_firm_series_payload(company: str, format: str = "md",
             "subject": _subject(corp, company, ticker, class_note),
             "data": {"scope": "firm", "ticker": ticker,
                      **({"issuer_ticker": (corp.get("stock_code") or "").strip()} if class_note else {}),
+                     # 261019(설계 v03 D2): 콜드 서빙으로 이었을 때만 cold_until·sources — 꺼짐·강등 응답은 칸이 종전 그대로다
+                     **({"cold_until": cold.seam,
+                         "sources": {"cold": cold.n_cold, "db_weekly": len(full) - cold.n_cold - int(daily_end),
+                                     "db_daily_tail": int(daily_end)}} if cold_used else {}),
                      "market": rows[-1][1],
-                     "as_of": latest["asof"], "from": first["asof"], "weekly_from": floor, "points": len(series),
+                     "as_of": latest["asof"], "from": first["asof"],
+                     "weekly_from": cold.start if cold_used else floor, "points": len(series),
                      "freq": freq, "points_weekly": len(full),
                      "latest": latest, "series": series,
                      "price_adjusted": False,
