@@ -6,6 +6,7 @@ from open_proxy_mcp.clock import today_kst
 import asyncio
 import calendar
 from datetime import date, timedelta
+import math
 import re
 import time
 from typing import Any
@@ -324,7 +325,220 @@ def trailing_period_dps(periods: dict[str, int]) -> dict[str, Any] | None:
     if any(_months_between(x, y) != cadence for x, y in zip(chain, chain[1:])):
         return None
     window = chain[1:]
-    return {"dps": sum(periods[d] for d in window), "periods": [(d, periods[d]) for d in window], "months": cadence}
+    return {"dps": sum(periods[d] for d in window), "periods": [(d, periods[d]) for d in window], "months": cadence,
+            "prior": (chain[0], periods[chain[0]])}
+
+
+def period_cash_meta(items: list[dict[str, Any]] | None) -> dict[str, dict[str, Any]]:
+    """alotMatter 행 → `{결산기준일 YYYYMMDD: {"total_mil": 현금배당금총액(백만원, 없으면 0), "rcept_dt": 사업보고서 접수일 YYYYMMDD 또는 None}}`.
+
+    DPS 를 지금 주가와 같은 주식 기준으로 맞출 때(`align_dps_to_price`) 쓴다 — 접수일 뒤의 분할·병합은 그 보고서 DPS 에 반영됐을 수 없고,
+    총액 ÷ DPS(배당받은 주식 수)는 DPS 가 이벤트 앞뒤 어느 주식 수 기준인지 알려 준다. (261019)"""
+    out: dict[str, dict[str, Any]] = {}
+    for item in items or []:
+        dt = "".join(ch for ch in (item.get("stlm_dt") or "") if ch.isdigit())[:8]
+        if len(dt) != 8:
+            continue
+        m = out.setdefault(dt, {"total_mil": 0, "rcept_dt": None})
+        rn = str(item.get("rcept_no") or "")
+        if len(rn) >= 8 and rn[:8].isdigit() and (m["rcept_dt"] is None or rn[:8] > m["rcept_dt"]):
+            m["rcept_dt"] = rn[:8]
+        if "현금배당금총액" in (item.get("category") or ""):
+            v = safe_int(item.get("current", ""))
+            if v:
+                m["total_mil"] = v
+    return out
+
+
+#: DPS 를 지금 주가의 주식 기준으로 맞추는 이벤트 — `price_multiple_data.ADJ_EVENT_SQL` 과 같은 조건(확정 라벨의 분할·병합·무상증자·주식배당).
+#: 주가와 주식 수가 서로 상쇄하는 이벤트라, 그 앞에 정한 DPS 는 계수만큼 바꿔야 지금 주가와 견줄 수 있다.
+DPS_SHARE_EVENT_TYPES = ("split", "merge", "bonus", "stock_div")
+#: 그 밖의 기준가 조정(라벨 없음·감자 등)은 DPS 를 바꾸지 않고, 이 범위를 벗어날 만큼 크면 안내만 한다
+#: (리츠 대규모 배당락의 기준가 조정 — 10-19 운영 코람코더원리츠 2026-08-28 10,930원 → 2,290원, 계수 0.21).
+PRICE_EVENT_LO, PRICE_EVENT_HI = 0.8, 1.25
+#: 확정 라벨이 없는 조정을 분할·병합·무상증자(주가와 주식 수가 상쇄)로 볼 기준 — 상장주식 수 배율 r 이 계수 f 의 역수에 가깝고
+#: (f × r = 1 ± 2%) 주식 수가 실제로 바뀌었을 때(|r − 1| ≥ 3%). 라벨 원천(v2·DART 공시 장부)이 2026-06·07 에 멎어 그 뒤 이벤트는
+#: 모두 「unlabeled」라(`scripts/adj_factor_v3.py`), 확정 라벨만 보면 7월 뒤 분할·병합·무상증자를 하나도 못 본다. (261019 p1c)
+SHARE_MATCH_TOL, SHARE_MOVE_MIN = 0.02, 0.03
+
+
+def share_ratio_for(adj_factor: float, pre: float | None, posts: list[float] | None) -> float | None:
+    """이벤트 앞 상장주식 수 `pre` 와 이벤트 뒤 상장주식 수 후보들(`posts` — 날짜 순) 가운데 **계수의 역수에 가장 가까운** 배율. 없으면 None.
+
+    분할·병합은 그날 주식 수가 바뀌지만 무상증자·주식배당 신주는 권리락(기준가 조정일) 뒤 3~5주에 상장한다(10-19 운영 실측 17~33일 —
+    엠앤씨솔루션 06-26 → 07-29, 가온전선 06-30 → 07-23, 남성 07-21 → 08-07). 이벤트 뒤 첫 주 하나만 보면 무상증자는 늘 「주식 수 그대로」라
+    대규모 배당락처럼 보였다. 판정(맞는지)은 `align_dps_to_price` 가 `SHARE_MATCH_TOL`·`SHARE_MOVE_MIN` 으로 한다. (261019 p1c)"""
+    try:
+        f = float(adj_factor)
+        pre = float(pre) if pre else None
+    except (TypeError, ValueError):
+        return None
+    cands = [float(p) / pre for p in (posts or []) if pre and p and float(p) > 0]
+    if not f or f <= 0 or not cands:
+        return None
+    return min(cands, key=lambda r: abs(math.log(f * r)))
+
+
+def _shares_match(f: float, r: float | None) -> bool:
+    return bool(r) and abs(r - 1) >= SHARE_MOVE_MIN and abs(f * r - 1) <= SHARE_MATCH_TOL
+
+
+def _num_out(v: float) -> float | int:
+    """DPS 출력값 — 정수면 int, 아니면 소수 둘째 자리(1:3 분할 1,000원 → 333.33원)."""
+    r = round(v, 2)
+    return int(r) if r == int(r) else r
+
+
+def align_dps_to_price(periods: list[tuple[str, float]], meta: dict[str, dict[str, Any]], events: list[tuple] | None,
+                       shares_fy: float | None, price_after: str | None = None,
+                       share_ratios: dict[str, float] | None = None) -> dict[str, Any]:
+    """결산기 DPS 를 **지금 주가와 같은 주식 기준**으로 맞춘다 — 배당수익률 = DPS ÷ 지금 주가. (261019)
+
+    종전엔 사업보고서 DPS 를 그대로 나눴다. 사업연도가 끝난 뒤 액면분할·무상증자를 하면 DPS 는 옛 주식 기준, 주가는 새 주식 기준이라
+    배당수익률이 분할 비율만큼 부풀었다(10-19 운영: INVENI 015360 1:5 분할 38.46% — 맞는 값 7.69%, 미원화학 134380 1:10 42.06% — 4.21%.
+    병합은 반대로 줄어든다). 배수(PER·PBR)는 시총 기반이라 이 문제가 없다.
+
+    periods: `[(결산기준일 YYYYMMDD, DPS)]`. events: `krx_adj_events` 행 `(event_dd, adj_factor, event_type, label_confidence, prev_close, base_price)`.
+    결산기준일 뒤의 **확정 라벨 분할·병합·무상증자·주식배당**만 계수를 곱한다. 확정 라벨이 없는 조정도 상장주식 수가 그 계수의
+    역수만큼 바뀌었으면(`share_ratios` — 이벤트 앞뒤 상장주식 수 배율(`share_ratio_for`), 계수 × 배율이 1 ± 2% 이고 주식 수가 3% 넘게
+    바뀜) 주가와 주식 수가 상쇄하는 조정으로 보고 곱한다(라벨 원천이 멎었다 — 10-19 운영 영화금속 012280 2026-08-28 5:1 병합·
+    대교 019680 2:1 병합은 unlabeled, 엠앤씨솔루션 484870 2026-06-26 무상증자 1:2 는 DART 공시 라벨 「dart」). 「excluded_…」 라벨
+    (시장 이전·호가단위 맞춤)은 기업 행위가 아니라 빼고 본다.
+      · 사업보고서 접수일 뒤의 이벤트 — 그 DPS 에 반영됐을 수 없다 → 곱한다.
+      · 결산기준일과 접수일 사이의 이벤트 — 배당 기준일이 이벤트 뒤면 DPS 가 이미 새 주식 기준일 수 있다. 배당받은 주식 수(총액 ÷ DPS)가
+        사업연도 말 유통주식 수(`shares_fy`)에 가까우면 옛 기준(곱한다), 이벤트 뒤 주식 수에 가까우면 새 기준(그대로). 둘 다 없으면 그대로 두고
+        `undetermined` 로 알린다.
+    그 밖의 기준가 조정(라벨 없음·감자 등)이 첫 결산기준일(`price_after` 를 주면 그날) 뒤에 크게(계수 0.8 이하·1.25 이상) 있으면
+    `price_events` 로 알린다 — DPS 는 그대로다.
+    반환: `{"periods": [(결산기준일, 맞춘 DPS)], "adjusted": [...], "undetermined": [...], "price_events": [...]}`."""
+    evs = []
+    for row in events or []:
+        dd, f, et, lab = row[0], row[1], row[2], row[3]
+        try:
+            f = float(f) if f is not None else None
+        except (TypeError, ValueError):
+            f = None
+        if not dd or not f or f <= 0 or str(lab or "").startswith("excluded"):
+            continue
+        r = (share_ratios or {}).get(str(dd))
+        evs.append({"event_dd": str(dd), "adj_factor": f, "event_type": et, "label": lab,
+                    "prev_close": row[4] if len(row) > 4 else None, "base_price": row[5] if len(row) > 5 else None,
+                    "shares_match": _shares_match(f, r), "shares_ratio": r})
+
+    def share_event(e: dict[str, Any]) -> bool:
+        return (e["event_type"] in DPS_SHARE_EVENT_TYPES and e["label"] == "confirmed") or e["shares_match"]
+
+    def prod(es: list[dict[str, Any]]) -> float:
+        f = 1.0
+        for e in es:
+            f *= e["adj_factor"]
+        return f
+
+    def ev_out(es: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [{"event_dd": f"{e['event_dd'][:4]}-{e['event_dd'][4:6]}-{e['event_dd'][6:8]}", "event_type": e["event_type"],
+                 "adj_factor": round(e["adj_factor"], 6),
+                 **({"basis": "listed_shares_ratio", "shares_ratio": round(e["shares_ratio"], 4)}
+                    if e["shares_match"] and not (e["event_type"] in DPS_SHARE_EVENT_TYPES and e["label"] == "confirmed") else {})}
+                for e in es]
+
+    out: list[tuple[str, float]] = []
+    adjusted: list[dict[str, Any]] = []
+    undetermined: list[dict[str, Any]] = []
+    for d, v in periods:
+        conf = [e for e in evs if e["event_dd"] > d and share_event(e)]
+        if not conf or not v:
+            out.append((d, v))
+            continue
+        m = meta.get(d) or {}
+        rdt = m.get("rcept_dt")
+        after = [e for e in conf if rdt and e["event_dd"] > rdt]
+        between = [e for e in conf if e not in after]
+        f, used, basis = prod(after), list(after), "filed_before_event" if after else None
+        if between:
+            fb = prod(between)
+            implied = (m.get("total_mil") or 0) * 1_000_000 / v if m.get("total_mil") else None
+            if implied and shares_fy:
+                r = implied / shares_fy
+                if abs(math.log(r)) <= abs(math.log(r * fb)):   # 배당받은 주식 수가 사업연도 말 주식 수에 가깝다 = 옛 주식 기준
+                    f *= fb
+                    used += between
+                    basis = "dividend_shares_pre_event"
+                else:
+                    basis = basis or "dividend_shares_post_event"
+            else:
+                undetermined.append({"stlm_dt": f"{d[:4]}-{d[4:6]}-{d[6:]}", "dps_krw": _num_out(v), "events": ev_out(between)})
+        if f != 1.0:
+            nv = _num_out(v * f)
+            adjusted.append({"stlm_dt": f"{d[:4]}-{d[4:6]}-{d[6:]}", "dps_reported_krw": _num_out(v), "factor": round(f, 6),
+                             "dps_krw": nv, "basis": basis, "events": ev_out(used)})
+            out.append((d, nv))
+        else:
+            out.append((d, v))
+    first = price_after or min((d for d, _ in periods), default=None)
+    price_events = []
+    if first:
+        for e in evs:
+            if e["event_dd"] > first and not share_event(e) and not (PRICE_EVENT_LO < e["adj_factor"] < PRICE_EVENT_HI):
+                price_events.append({**ev_out([e])[0], "prev_close": e["prev_close"], "base_price": e["base_price"],
+                                     **({"shares_ratio": round(e["shares_ratio"], 4)} if e["shares_ratio"] else {})})
+    return {"periods": out, "adjusted": adjusted, "undetermined": undetermined, "price_events": price_events}
+
+
+async def _current_dps_share_basis(ticker: str, corp_code: str, summary: dict[str, Any],
+                                   year: int | None = None) -> tuple[dict[str, Any] | None, list[str]]:
+    """현재가 기준 배당수익률의 DPS 를 지금 주식 기준으로(261019 p1b) — `price_multiple_data` 와 같은 `align_dps_to_price`.
+    반환: (바꿨으면 그 결산기 항목, 경고 문장들). 이벤트가 없으면 (None, []) — 읽기 한 번.
+    결산기준일~접수일 사이 이벤트는 배당받은 주식 수(총액 ÷ DPS)를 사업연도 말 유통주식 수와 견줘야 해서, 그런 회사(드묾)에서만
+    주식 총수를 한 번 더 읽는다(DART 1콜 — 배당 사항을 읽은 사업연도 `year`, 없으면 결산기준일의 해). 못 읽으면 그대로 두고 경고한다."""
+    from open_proxy_mcp.services.price_multiple_data import _dps_events, _shares_outstanding
+    dps = summary.get("cash_dps")
+    per = period_dps(summary.get("items"))
+    st = max(per) if per else "".join(ch for ch in (summary.get("stlm_dt") or "") if ch.isdigit())[:8]
+    if not dps or len(st) != 8:
+        return None, []
+    ev, ratios = await _dps_events(ticker, st)
+    if not ev:
+        return None, []
+    meta = period_cash_meta(summary.get("items"))
+    al = align_dps_to_price([(st, dps)], meta, ev, None, share_ratios=ratios)
+    if al["undetermined"]:
+        try:
+            sh = await _shares_outstanding(get_dart_client(), corp_code, int(year or st[:4]))
+        except Exception:  # noqa: BLE001 — 보조 읽기: 실패하면 확인 못 함 경고
+            sh = {}
+        if (sh or {}).get("total"):
+            al = align_dps_to_price([(st, dps)], meta, ev, sh["total"], share_ratios=ratios)
+    warns = []
+    for u in al["undetermined"]:
+        evs = " · ".join(f"{e['event_dd']} 계수 {e['adj_factor']:g}" for e in u["events"])
+        warns.append(f"결산기준일 {u['stlm_dt']} 뒤 주식 분할·병합({evs}) — DPS 가 그 앞뒤 어느 주식 수 기준인지 확인하지 못해 "
+                     "현재가 기준 배당수익률에 그대로 썼다. 옛 주식 기준이면 계수만큼 어긋난다.")
+    return (al["adjusted"][0] if al["adjusted"] else None), warns
+
+
+def dps_unevenness(chain: list[tuple[str, float]], ratio: float = 3.0) -> dict[str, Any] | None:
+    """반기·분기 결산 DPS 가 결산기마다 크게 다른가 — 최근 12개월 창과 그 앞 결산기 하나(`chain`)에서. 아니면 None. (261019)
+
+    리츠는 자산을 팔면 그 이익을 그 결산기에 배당한다(10-19 운영 NH프라임리츠 2025-11 625원 · 2026-05 837원, 그 앞 2025-05 126원 —
+    DART 원문·이사회 결의 그대로다). 그런 결산기가 창에 들면 12개월 합 배당수익률(39.57%)이 앞으로 이어질 수준이 아니다. 거꾸로 배당을
+    줄이거나 멈춘 결산기가 들어도 같다. 값은 바꾸지 않고 사실만 낸다 — **창 안** 가장 큰 결산기가 앞 결산기까지 넣은 가장 작은(양수) 결산기의
+    `ratio` 배 이상이거나, 창의 가장 늦은 결산기가 무배당인데 다른 결산기에는 배당이 있을 때.
+    가장 작은 쪽은 앞 결산기까지 본다 — NH프라임리츠처럼 창의 두 결산기가 모두 크면 평소 수준(126원)은 앞 결산기만 안다. 가장 큰 쪽은 창 안에서만
+    본다(261019 p1c) — 큰 배당이 창을 벗어나 앞 결산기 자리로 가면 12개월 합은 이미 평소 수준인데도 반년 동안 「일회성이 섞였다」고
+    잘못 알렸다(운영 적재분 이지스밸류플러스리츠 2024-08 612원 → 창 173·172원).
+    반환: `{"max": {...}, "min": {...}, "ratio": 배수 | None, "latest_zero": bool}`."""
+    pos = [(d, v) for d, v in chain if v and v > 0]
+    if len(pos) < 1:
+        return None
+    win = [(d, v) for d, v in chain[1:] if v and v > 0]
+    hi = max(win or pos, key=lambda x: x[1])
+    lo = min(pos, key=lambda x: x[1])
+    latest_zero = bool(chain) and not chain[-1][1] and len(pos) >= 1
+    big = bool(win) and len(pos) >= 2 and hi[1] >= ratio * lo[1]
+    if not (big or latest_zero):
+        return None
+    fmt = lambda x: {"stlm_dt": f"{x[0][:4]}-{x[0][4:6]}-{x[0][6:]}", "dps_krw": _num_out(x[1])}
+    return {"max": fmt(hi), "min": fmt(lo), "ratio": round(hi[1] / lo[1], 1) if big else None, "latest_zero": latest_zero}
 
 
 def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int, dict[str, Any]]:
@@ -1121,8 +1335,20 @@ async def build_dividend_payload(
             from open_proxy_mcp.services.price_multiple_data import _market_for
             _mk = await _market_for(_isu)
             if _mk.get("price"):
-                latest_summary["yield_current_pct"] = round(
-                    latest_summary["cash_dps"] / _mk["price"] * 100, 2)
+                # 261019(p1b): 결산기준일 뒤 액면분할·병합·무상증자(확정 라벨)면 DPS 를 지금 주식 기준으로 바꿔 나눈다 — `price_multiple_data` 와
+                #   같은 규칙(`align_dps_to_price`). 종전엔 옛 주식 기준 DPS 를 새 주가로 나눠 INVENI 38.46%·미원화학 42.06% 가 나갔다.
+                #   결산기준일과 사업보고서 접수일 사이의 이벤트가 있는 회사만 주식 총수를 한 번 더 읽어 확인하고, 못 읽으면 그대로 두고 경고한다.
+                _dps_now = latest_summary["cash_dps"]
+                try:
+                    _adj, _warns = await _current_dps_share_basis(_isu, selected["corp_code"], latest_summary, target_year)
+                except Exception:  # noqa: BLE001 — 배당 fail-open: 맞춤이 깨져도 종전 값으로 수익률을 낸다
+                    _adj, _warns = None, []
+                if _adj:
+                    _dps_now = _adj["dps_krw"]
+                    latest_summary["yield_current_dps_krw"] = _dps_now
+                    latest_summary["yield_current_dps_adjustment"] = _adj
+                warnings.extend(_warns)
+                latest_summary["yield_current_pct"] = round(_dps_now / _mk["price"] * 100, 2)
                 latest_summary["yield_current_price_krw"] = _mk["price"]
                 latest_summary["yield_current_price_date"] = _mk["date"]
 
