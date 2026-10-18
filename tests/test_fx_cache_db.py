@@ -98,7 +98,8 @@ def test_read_only_session_hits_the_cache(pg17, fresh_pool, monkeypatch, options
 
 
 def test_read_only_server_answers_from_cache_without_live_sources(pg17, fresh_pool, monkeypatch):
-    """도구 경로(fx_to_krw)까지 — 캐시 적중이면 ECOS·야후를 부르지 않고, 읽기 전용이라 쓰기도 시도하지 않는다."""
+    """도구 경로(fx_to_krw)까지 — 캐시 적중이면 ECOS·야후를 부르지 않고, 캐시 적중이라 쓰기도 시도하지 않는다
+    (fx_to_krw 는 rate 가 None 일 때만 `_db_put` 으로 간다 — 읽기 전용 여부와는 무관)."""
     _create_prod_like(pg17)
     monkeypatch.setenv("DATABASE_URL", _with_options(pg17, "-c role=opm_ro -c default_transaction_read_only=on"))
     monkeypatch.setattr(fx, "_MEM", {})
