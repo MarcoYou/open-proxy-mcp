@@ -110,7 +110,7 @@ def _iso_wk_range(price_dd: str) -> tuple[str, str]:
 def _krx_db_latest_dd() -> str | None:
     """krx_weekly 의 최신 주(max(price_dd)) — 261018(재설계 5-1 쓰는 쪽)부터 **마지막으로 닫힌 주**. 주간 곡선 하한(`_weekly_bounds`) 전용 —
     표를 자르는 쪽과 같은 정의여야 해서 krx_weekly 를 본다. **최신값 서빙 기준일·배치 갱신 판정은 `_krx_daily_latest_dd`** 다."""
-    rows = _pg_rows("SELECT MAX(price_dd) FROM krx_weekly")
+    rows = _pg_rows(_krx_daily.WEEKLY_LATEST_SQL)
     return rows[0][0] if rows and rows[0][0] else None
 
 
@@ -130,13 +130,19 @@ _WEEKLY_GAP_DAYS = 21
 _WEEKLY_START_CACHE: dict[str, tuple[float, str]] = {}
 _WEEKLY_START_TTL = 3600.0
 #: 하한 아래 날짜별 행 수 · 하한 이후 첫 날짜의 행 수 · 최신 주의 행 수(촘촘한 주의 기준). 하한 아래는 연말 행과 아직 안 지운 주뿐이라 작다
-#: (10-18 운영 1.9만 행 — 롤링을 켜지 않으면 주마다 약 2.7천 행씩 는다). 세 갈래 모두 기본키 (price_dd, ticker) 색인으로 읽는다.
+#: (10-18 운영 1.9만 행 — 롤링을 켜지 않으면 주마다 약 2.7천 행씩 는다). 표면 세 갈래 모두 기본키 (price_dd, ticker) 색인으로 읽는다.
+#: 261019(재설계 v03 C4): `krx_weekly` 가 뷰여도 날짜 조건이 작은 달력에서 먼저 걸리게 — 하한 이후 첫 날짜는 하한 뒤 35일 안에서 먼저 찾고
+#: (주간 점은 많아야 14일 간격 — 없을 때만 전체에서), 최신 주는 `krx_daily.WEEKLY_LATEST_SQL`(최근 몇 주만)로. 뷰 위의 전체 MIN·MAX 는
+#: 조인을 다 풀어 합쳐 약 115 ms(표 1.7 ms) 걸렸다. 자리표시자 = (하한, 하한, 하한 + 35일, 하한).
 _WEEKLY_START_SQL = (
     "SELECT 'below', price_dd, count(*) FROM krx_weekly WHERE price_dd < %s GROUP BY price_dd "
     "UNION ALL SELECT 'first', price_dd, count(*) FROM krx_weekly "
-    "WHERE price_dd = (SELECT MIN(price_dd) FROM krx_weekly WHERE price_dd >= %s) GROUP BY price_dd "
+    "WHERE price_dd = COALESCE((SELECT MIN(price_dd) FROM krx_weekly WHERE price_dd >= %s AND price_dd < %s), "
+    "(SELECT MIN(price_dd) FROM krx_weekly WHERE price_dd >= %s)) GROUP BY price_dd "
     "UNION ALL SELECT 'ref', price_dd, count(*) FROM krx_weekly "
-    "WHERE price_dd = (SELECT MAX(price_dd) FROM krx_weekly) GROUP BY price_dd")
+    "WHERE price_dd = (" + _krx_daily.WEEKLY_LATEST_SQL + ") GROUP BY price_dd")
+#: 하한 뒤 첫 주간 날을 먼저 찾는 범위(달력 일). 설·추석으로 한 주가 비어도 주간 점 사이는 14일을 넘지 않는다.
+_WEEKLY_FIRST_SPAN_DAYS = 35
 
 
 def _weekly_run_start(rows: list[tuple], cut: str) -> str:
@@ -164,7 +170,10 @@ def _weekly_run_start(rows: list[tuple], cut: str) -> str:
 
 def _krx_weekly_start(cut: str) -> str | None:
     """krx_weekly 에 **실제로 남은 주간 구간의 시작**(곡선 하한). None = 장애 — 호출자가 `cut` 으로 대신한다."""
-    rows = _pg_rows(_WEEKLY_START_SQL, (cut, cut))
+    from datetime import date as _date, timedelta as _td
+    c = _date(int(cut[:4]), int(cut[4:6]), int(cut[6:8]))
+    hi = (c + _td(days=_WEEKLY_FIRST_SPAN_DAYS)).strftime("%Y%m%d")
+    rows = _pg_rows(_WEEKLY_START_SQL, (cut, cut, hi, cut))
     return None if rows is None else _weekly_run_start(rows, cut)
 
 
@@ -234,8 +243,10 @@ def _krx_db_upsert(price_dd: str, kospi: list, kosdaq: list) -> KrxWrite:
             # 바깥 트랜잭션 하나에 일별 기록·주간 닫기를 담는다 — 안쪽은 각자 SAVEPOINT. 바깥 블록 없이 부르면 psycopg 는 첫 블록을
             # 그 자체로 커밋하는 트랜잭션으로 다뤄 두 쓰기가 따로 커밋된다.
             with c.transaction():
+                # 261019(재설계 v03 C4): krx_weekly 가 뷰면 「이번에 닫힌 주」를 기록 전후 달력으로 알린다(표면 종전 그대로 — 읽지 않는다).
+                before = _krx_daily.wk_close_days(c) if _krx_daily.weekly_is_view(c) else None
                 ok, n, pruned = _krx_daily.write_daily(c, price_dd, kospi, kosdaq)
-                wk = _krx_daily.sync_weekly(c) if ok else None
+                wk = _krx_daily.sync_weekly(c, before) if ok else None
         if not ok or wk is None:
             return KrxWrite(False)
         logger.info("KRX 스냅샷 기록 %s: krx_daily %d행(오래된 %d행 삭제) · krx_weekly 닫음 %s%s", price_dd, n, pruned,

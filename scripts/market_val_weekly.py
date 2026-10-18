@@ -56,6 +56,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import httpx, psycopg
 
+from open_proxy_mcp import krx_daily as _krx_daily
 from open_proxy_mcp.dart.fx import fx_to_krw
 from open_proxy_mcp.services.price_multiple_data import _ensure_krx_fresh, _iso_wk_range
 
@@ -230,7 +231,9 @@ async def backfill(since: date, limit_weeks: int | None = None, allow_before_cut
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
     assert key, "KRX_API_KEY 없음 (.env)"
     con = psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20)
-    con.execute(DDL_KRX_WEEKLY)
+    # 261019(재설계 v03 C4): krx_weekly 가 뷰면(압축 표 krx_wk + 일별 주 닫는 날) 표 DDL 을 걸지 않는다 — 쓰기는 `krx_daily.write_week` 가 모양을 고른다.
+    if not _krx_daily.weekly_is_view(con):
+        con.execute(DDL_KRX_WEEKLY)
     con.commit()
     done_days = {r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly").fetchall()}
 
@@ -269,11 +272,11 @@ async def backfill(since: date, limit_weeks: int | None = None, allow_before_cut
                  _num(r.get("MKTCAP")), _num(r.get("LIST_SHRS")))
                 for market, rows in rows_by_mkt for r in rows if r.get("ISU_CD")
             ]
-            with con.cursor() as cur:  # 컬럼명 명시 COPY — 위치 의존 금지
-                cur.execute("DELETE FROM krx_weekly WHERE price_dd = %s", (used_day,))
-                with cur.copy("COPY krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) FROM STDIN") as cp:
-                    for rec in recs:
-                        cp.write_row(rec)
+            # 컬럼명 명시 COPY(위치 의존 금지) — 표면 그 날 DELETE 후 COPY, 뷰면 krx_wk 로(일별 보관 창 안의 날은 쓰지 않는다).
+            if not _krx_daily.write_week(con, used_day, recs):
+                con.rollback()
+                empty_weeks += 1
+                continue
             con.commit()
             saved_weeks += 1
             if saved_weeks % 25 == 0 or i == len(todo) - 1:

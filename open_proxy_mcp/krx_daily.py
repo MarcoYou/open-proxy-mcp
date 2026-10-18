@@ -14,13 +14,18 @@
   KRX 공표 대비(`krx_chg`·`krx_chg_pct` = 기준가 대비 — 휴장 다음 날·권리락일에도 공표값과 같다)를 함께 낸다.
 ■ 보관: 최신 거래일 − 달력 1년 − 1주(그 날 포함) 이후. 거래일로 약 250~255일. 그보다 오래된 날은 **콜드 보관본에 들어간 날만**
   지운다(`krx_day.cold` — 보관본 연도 파일을 올린 쪽이 켠다). 들어가지 않은 날은 남기고 경고한다(지운 뒤에는 되살릴 곳이 없다).
-■ 주간 닫기(261018, 재설계 5-1 쓰는 쪽): 이 저장분이 시세 기록의 **주(主)** 다. `krx_weekly` 는 **닫힌 주만** 여기서 한 번 옮겨 적는다
-  (`sync_weekly`). 종전에는 매 거래일 이번 주 `krx_weekly` 행을 지우고 다시 넣어 하루 약 2.2천 행의 죽은 행이 생겼다.
+■ 주간 닫기(261018, 재설계 5-1 쓰는 쪽): 이 저장분이 시세 기록의 **주(主)** 다. `krx_weekly` 는 **닫힌 주만** 담는다.
+  종전에는 매 거래일 이번 주 `krx_weekly` 행을 지우고 다시 넣어 하루 약 2.2천 행의 죽은 행이 생겼다.
     · 한 주 = ISO 주를 달력 연도 안으로 자른 것(`krx_retention.week_unit`) — 연말 거래일이 다음 해 첫 주에 지워지지 않게.
     · 닫는 때: 그 주의 마지막 평일(보통 금요일)이 저장됐거나, 더 늦은 주의 거래일이 저장됐을 때(금요일 휴장·누락 대비).
-    · 닫는 값: 그 주에서 일별 저장분에 있는 가장 늦은 거래일. 같은 주는 **더 늦은 날로만** 바꾼다(이미 같거나 늦은 날이 있으면 그대로).
+    · 닫는 값: 그 주에서 일별 저장분에 있는 가장 늦은 거래일 — 달력(`krx_day.wk_close`)에 표시한다(`WK_CLOSE_SQL`, 기록마다).
   이번 주(아직 안 닫힌 주) 최신값은 일별 저장분에만 있다 — 「닫힌 주 + 최신 거래일」 모양이 필요한 배치는 `WEEKLY_WITH_LATEST` 를 읽는다.
-  같은 규칙의 주 닫는 날 표시가 달력(`krx_day.wk_close`)에도 있다(`WK_CLOSE_SQL`).
+■ `krx_weekly` 의 두 모양(261019, 재설계 v03 C4 — 스키마 `scripts/krx_weekly_ddl.py`). 쓰는 쪽은 DB 를 보고 고른다(`weekly_is_view`) —
+  DDL 을 적용하기 전에 이 코드가 먼저 배포돼도, DDL 을 되돌려도 그대로 돈다.
+    · **뷰**(교체 뒤): `krx_weekly` = 닫힌 주 압축 표 `krx_wk`(일별 창보다 이른 주 + 연말 행) ∪ 일별 저장분의 주 닫는 날 행. 같은 사실을
+      두 번 저장하지 않는다 — 주간 닫기는 달력 표시뿐이고(`sync_weekly` 는 쓰지 않는다), 보관 창 정리(`prune_window`)가 창 밖으로 나가는
+      주 닫는 날 행을 **지우기 전에** `krx_wk` 로 옮긴다(옮기지 못하면 그 날은 지우지 않는다).
+    · **표**(교체 전·되돌린 뒤): 종전 그대로 — `sync_weekly` 가 닫힌 주를 표에 한 번 옮겨 적는다(R1~R3 아래).
 ■ 휴장 판정(`closed_verdict`): 코스피·코스닥 **둘 다** 비고, 그 날 뒤로 평일이 2일 이상 지났고, 다음 저장 거래일의 기준가(종가 − 공표 대비)가
   그 앞 저장 거래일 종가와 이어질 때만 휴장이다. 빈 응답 한 번으로 정하지 않는다 — KRX 는 게시 전·일시적으로
   거래일을 0행으로 준다(20260702 실측: 코스피 빈 응답 한 번을 휴장으로 적어 그날 기준가 리셋 1건·주식수 변동 8건이 어긋났다).
@@ -169,12 +174,52 @@ PRUNE_DESUMMARIZE_SQL = (
     "SELECT DISTINCT ((p.ctid::text::point)[0]::bigint / %s) * %s AS b FROM krx_px p WHERE p.trd_dd = ANY(%s)) r")
 
 
+#: `krx_weekly` 가 무엇인가 — 'v'(뷰: krx_wk + 일별 주 닫는 날, 261019 재설계 v03 C4) · 'r'(표: 쓰는 쪽이 닫힌 주를 옮겨 적는다) · 없음.
+WEEKLY_KIND_SQL = "SELECT c.relkind::text FROM pg_class c WHERE c.oid = to_regclass('krx_weekly')"
+
+
+def weekly_is_view(conn: Any) -> bool:
+    """`krx_weekly` 가 뷰인가(교체 뒤). 표이거나 없거나 못 읽으면 False — 쓰는 쪽은 종전(표) 동작을 한다."""
+    r = conn.execute(WEEKLY_KIND_SQL).fetchone()
+    return bool(r) and r[0] == "v"
+
+
+#: 지울 날 중 주 닫는 날(행 있음) — 뷰 모드에서 지우기 전에 krx_wk 로 옮길 날.
+WK_DAYS_SQL = "SELECT trd_dd FROM krx_day WHERE trd_dd = ANY(%s) AND wk_close AND n > 0 ORDER BY trd_dd"
+#: 옮기기 ① 주 달력 ② 사실값(날짜·번호순 — BRIN 이 촘촘하다) ③ 그 날 행 수 ④ 확인(그 날 일별 행이 전부 krx_wk 에 같은 키로 있나).
+#: 이미 있는 행(교체 때 미리 옮긴 콜드 날)은 그대로 둔다 — 뷰가 지금 보여 주는 쪽이 그 행이다(교체 G2 가 두 쪽 값이 같음을 확인했다).
+MOVE_WK_DAY_SQL = ("INSERT INTO krx_wk_day (wk_dd, dd, n) SELECT d.trd_dd, d.dd, 0 FROM krx_day d "
+                   "WHERE d.trd_dd = ANY(%s) ORDER BY d.trd_dd ON CONFLICT (wk_dd) DO NOTHING")
+MOVE_WK_SQL = ("INSERT INTO krx_wk (list_shrs, close, wk_dd, tid, market) "
+               "SELECT p.list_shrs, p.close, p.trd_dd, p.tid, p.market FROM krx_px p WHERE p.trd_dd = ANY(%s) "
+               "ORDER BY p.trd_dd, p.tid ON CONFLICT (tid, wk_dd) DO NOTHING")
+MOVE_WK_N_SQL = ("UPDATE krx_wk_day c SET n = (SELECT count(*) FROM krx_wk w WHERE w.wk_dd = c.wk_dd) "
+                 "WHERE c.wk_dd = ANY(%s)")
+MOVE_WK_CHECK_SQL = ("SELECT count(*) FROM krx_px p WHERE p.trd_dd = ANY(%s) "
+                     "AND NOT EXISTS (SELECT 1 FROM krx_wk w WHERE w.tid = p.tid AND w.wk_dd = p.trd_dd)")
+
+
+def _move_weeks(conn: Any, wk_days: list[date]) -> int:
+    """주 닫는 날들의 일별 행을 krx_wk 로 옮긴다(자기 SAVEPOINT — 실패하면 예외, 옮긴 것도 되돌린다) → 새로 넣은 행 수."""
+    with conn.transaction():
+        conn.execute(MOVE_WK_DAY_SQL, (wk_days,))
+        moved = _rowcount(conn.execute(MOVE_WK_SQL, (wk_days,)))
+        conn.execute(MOVE_WK_N_SQL, (wk_days,))
+        missing = conn.execute(MOVE_WK_CHECK_SQL, (wk_days,)).fetchone()[0]
+        if missing:
+            raise RuntimeError(f"krx_wk 로 옮긴 뒤에도 일별 행 {missing}개가 없다")
+    return moved
+
+
 @dataclass(frozen=True)
 class Pruned:
-    """보관 창 정리 결과. held = 창 밖인데 콜드 보관본에 들어가지 않아 남긴 날(YYYYMMDD)."""
+    """보관 창 정리 결과. held = 창 밖인데 콜드 보관본에 들어가지 않아 남긴 날(YYYYMMDD).
+    unmoved = (뷰 모드) 주 닫는 날인데 krx_wk 로 옮기지 못해 남긴 날 — 다음 기록 때 다시 옮기고 지운다. moved = 옮긴 행 수."""
     rows: int = 0
     days: tuple[str, ...] = ()
     held: tuple[str, ...] = ()
+    unmoved: tuple[str, ...] = ()
+    moved: int = 0
 
 
 def _desummarize(conn: Any, days: list[date]) -> int:
@@ -194,7 +239,11 @@ def prune_window(conn: Any) -> Pruned:
 
     `conn` 은 트랜잭션 안의 psycopg 연결이다(예외는 호출자의 SAVEPOINT 가 받는다). 콜드에 없는 날은 지우지 않고 WARNING 을 남긴다 —
     보관본 연도 파일을 올린 쪽이 `krx_day.cold` 를 켜면 다음 기록 때 지운다. 행이 있는 날을 지우기 직전에 그 행들의 BRIN 블록 범위 요약을
-    지운다(`PRUNE_DESUMMARIZE_SQL` — 빈 자리를 다음 날 행이 다시 써도 요약이 넓어지지 않게)."""
+    지운다(`PRUNE_DESUMMARIZE_SQL` — 빈 자리를 다음 날 행이 다시 써도 요약이 넓어지지 않게).
+
+    261019(재설계 v03 C4): `krx_weekly` 가 뷰면 지울 날 중 **주 닫는 날**의 행을 먼저 `krx_wk` 로 옮긴다(`_move_weeks`) — 뷰는 일별 저장분의
+    주 닫는 날 행을 그대로 보여 주므로, 옮기지 않고 지우면 그 주가 주간 시세에서 사라진다. 옮기기가 실패하면 그 날들은 지우지 않고
+    ERROR 를 남긴다(일별 기록은 그대로 커밋 — 다음 기록이 다시 옮긴다). 표 모드(교체 전)에서는 옮기지 않는다(표가 이미 그 주를 담고 있다)."""
     latest = conn.execute(LATEST_DAY_SQL).fetchone()[0]
     if not latest:
         return Pruned()
@@ -202,7 +251,18 @@ def prune_window(conn: Any) -> Pruned:
     cands = conn.execute(PRUNE_CANDIDATES_SQL, (_d(lo),)).fetchall()
     go = [dd for dd, n, closed, cold in cands if closed or not n or cold]
     held = tuple(dd for dd, n, closed, cold in cands if not (closed or not n or cold))
-    rows = 0
+    rows = moved = 0
+    unmoved: tuple[str, ...] = ()
+    if go and weekly_is_view(conn):
+        wk_days = [r[0] for r in conn.execute(WK_DAYS_SQL, ([_d(x) for x in go],)).fetchall()]
+        if wk_days:
+            try:
+                moved = _move_weeks(conn, wk_days)
+            except Exception as exc:                 # noqa: BLE001 — 지우지 않고 남긴다(일별 기록은 계속)
+                unmoved = tuple(_dd(d) for d in wk_days)
+                go = [dd for dd in go if dd not in unmoved]
+                logger.error("일별 시세 보관 창 정리: 주 닫는 날 %s 의 행을 krx_wk 로 옮기지 못해 그 날을 지우지 않았다"
+                             "(다음 기록 때 다시) %s: %s", ",".join(unmoved), type(exc).__name__, exc)
     if go:
         days = [_d(x) for x in go]
         with_rows = [_d(dd) for dd, n, closed, cold in cands if dd in go and n]
@@ -215,7 +275,9 @@ def prune_window(conn: Any) -> Pruned:
         logger.warning("일별 시세 보관 창(최신 %s → 첫날 %s) 밖 %d일(%s~%s)이 콜드 보관본에 없어 지우지 않았다 — "
                        "%s년 보관본을 올린 뒤 krx_day.cold 를 켜면 다음 기록 때 지운다",
                        latest, lo, len(held), held[0], held[-1], "·".join(years))
-    return Pruned(rows, tuple(go), held)
+    if moved:
+        logger.info("일별 시세 보관 창 정리: 주 닫는 날 행 %d개를 krx_wk 로 옮긴 뒤 지움", moved)
+    return Pruned(rows, tuple(go), held, unmoved, moved)
 
 
 def write_daily(conn: Any, price_dd: str, kospi: list, kosdaq: list) -> tuple[bool, int, int]:
@@ -366,6 +428,29 @@ SYNC_LOOKBACK_DAYS = 35
 SYNC_DAYS_SQL = ("SELECT dd FROM krx_day WHERE n > 0 AND trd_dd >= "
                  "(SELECT max(trd_dd) FROM krx_day WHERE n > 0) - %s ORDER BY trd_dd")
 
+#: 닫힌 주의 가장 늦은 날 — 달력(`krx_day`)의 가장 늦은 주 닫는 날. 달력이 비었으면(새 DB·시험) `krx_weekly` 의 max(price_dd) 로 대신한다
+#: (그때만 계산 — 앞 값이 있으면 뒤 부분질의는 돌지 않는다). 하한(3년)·짝 비교 하한·「최근 16주」 기준을 정하는 데 쓴다.
+#: 261019(재설계 v03 C4): `krx_weekly` 가 뷰면 정의상 그 max 와 같다(뷰의 최근 주 = 일별 저장분의 주 닫는 날). 뷰 위의 max(price_dd) 는 조인을
+#: 다 풀어 약 50 ms(표 1.5 ms) 걸렸다 — 달력은 0.1 ms. 표 모드에서도 같은 값이다(주간 닫기가 같은 트랜잭션에서 그 날을 표에 쓴다). 다를 수
+#: 있는 것은 닫기가 실패한 드문 때뿐이고(ERROR 로그 · 다음 기록이 메움) 그때도 하한이 한 주 움직일 뿐이다.
+WEEKLY_LATEST_SQL = ("SELECT COALESCE((SELECT max(dd) FROM krx_day WHERE wk_close), "
+                     "(SELECT max(price_dd) FROM krx_weekly))")
+
+#: (뷰 모드) 최근 주 닫는 날들 — 기록 전후로 비교해 「이번 기록이 닫은 주」를 알린다(`sync_weekly(before=…)`).
+WK_CLOSE_DAYS_SQL = ("SELECT dd FROM krx_day WHERE wk_close AND trd_dd >= "
+                     "(SELECT max(trd_dd) FROM krx_day WHERE n > 0) - %s")
+
+
+def wk_close_days(conn: Any) -> frozenset[str] | None:
+    """최근 `SYNC_LOOKBACK_DAYS` 일의 주 닫는 날(YYYYMMDD). 못 읽으면 None(자기 SAVEPOINT — 바깥 트랜잭션을 깨지 않는다)."""
+    try:
+        with conn.transaction():
+            return frozenset(r[0] for r in conn.execute(WK_CLOSE_DAYS_SQL, (SYNC_LOOKBACK_DAYS,)).fetchall())
+    except Exception as exc:                         # noqa: BLE001 — 보고용일 뿐이다
+        logger.warning("주 닫는 날 읽기 실패(보고만 빠진다) %s: %s", type(exc).__name__, exc)
+        return None
+
+
 #: `weekly_with_latest` 가 일별 행을 주간 칸 이름으로 옮기는 법. 시총은 저장하지 않으므로 종가 × 상장주식수(뷰 `krx_daily_v` 와 같다).
 _DAILY_AS_WEEKLY = {"price_dd": "d.trd_dd", "ticker": "d.ticker", "market": "d.market", "close": "d.close",
                     "mktcap": "d.close * d.list_shrs", "list_shrs": "d.list_shrs"}
@@ -376,8 +461,10 @@ def weekly_with_latest(columns: str = "price_dd, ticker, market, close, mktcap, 
 
     쓰는 쪽이 닫힌 주만 `krx_weekly` 에 쓰기 전(~261018)의 그 표와 같은 모양이다 — 주마다 그 주 마지막 거래일, 이번 주는 최신 거래일.
     이번 주의 최신값을 「최신 점」으로 쓰던 배치(시총 집계·상장 관측·딱지·선행 배수 시장 구분·수정계수 직전 시장 등)가 표 이름 대신 읽는다.
-    일별 최신일이 `krx_weekly` 의 최신일보다 늦을 때만 그 하루를 덧붙인다(금요일이 닫힌 뒤에는 덧붙일 것이 없다).
+    일별 최신일이 `krx_weekly` 에 아직 없을 때만 그 하루를 덧붙인다(금요일이 닫힌 뒤에는 덧붙일 것이 없다).
     최신일은 달력(`krx_day`)에서 읽는다(261019 — 호환 뷰 위의 max(trd_dd)는 조인을 다 푼다).
+    261019(재설계 v03 C4): 「krx_weekly 에 아직 없나」를 max(price_dd) 비교 대신 **그 날 행이 있나**로 본다(뜻은 같다 — 주간 날은 일별 최신일
+    이하다). `krx_weekly` 가 뷰여도 그 날 하나만 달력에서 찾는다(뷰 위의 max 는 약 50 ms).
     `columns` 는 `krx_weekly` 칸 이름의 부분집합(쉼표 구분) — 필요한 칸만 읽게 한다."""
     cols = [c.strip() for c in columns.split(",") if c.strip()]
     unknown = [c for c in cols if c not in _DAILY_AS_WEEKLY]
@@ -388,7 +475,7 @@ def weekly_with_latest(columns: str = "price_dd, ticker, market, close, mktcap, 
             "UNION ALL "
             f"SELECT {daily} FROM krx_daily d "
             "WHERE d.trd_dd = (SELECT max(dd) FROM krx_day WHERE n > 0) "
-            "AND d.trd_dd > (SELECT COALESCE(max(price_dd), '') FROM krx_weekly))")
+            "AND NOT EXISTS (SELECT 1 FROM krx_weekly x WHERE x.price_dd = (SELECT max(dd) FROM krx_day WHERE n > 0)))")
 
 
 #: 전 칸 판 — `FROM {WEEKLY_WITH_LATEST} w`.
@@ -438,9 +525,13 @@ class WeeklySync:
     dropped: int = 0                 # 지운 krx_weekly 행(더 늦은 날로 다시 닫기 · 종전 쓰기가 남긴 이번 주 행)
 
 
-def sync_weekly(conn: Any) -> WeeklySync:
-    """일별 저장분에 보이는 (최근 `SYNC_LOOKBACK_DAYS` 일의) 주들을 `krx_weekly` 에 맞춘다 — 닫힌 주는 한 번 옮겨 적고, 이번 주는 옮기지 않는다.
+def sync_weekly(conn: Any, before: frozenset[str] | None = None) -> WeeklySync:
+    """일별 저장분에 보이는 (최근 `SYNC_LOOKBACK_DAYS` 일의) 닫힌 주를 `krx_weekly` 에 맞춘다.
 
+    ■ `krx_weekly` 가 **뷰**면(261019 재설계 v03 C4) 쓸 것이 없다 — 닫힌 주는 달력의 주 닫는 날(`krx_day.wk_close`) 행 그대로 뷰에 보인다.
+      주 닫는 날 표시만 다시 계산하고(멱등 — 기록이 이미 했으면 0행), `before`(기록 직전의 `wk_close_days`)와 비교해 이번에 닫힌 주를
+      `closed` 로 알린다(갱신기 로그 「주간 닫음 …」). `dropped` 는 늘 0 이다.
+    ■ **표**면 종전 그대로 — 닫힌 주는 한 번 옮겨 적고, 이번 주는 옮기지 않는다.
     · 닫힌 주: `krx_weekly` 에 그 주의 같거나 더 늦은 날이 이미 있으면 그대로(R3 — 더 늦은 날로만 바꾼다, 백필이 넣은 금요일을
       일별 저장분의 목요일로 덮지 않는다). 없으면 그 주의 더 이른 날 행을 지우고 가장 늦은 날을 옮겨 적는다.
     · 이번 주: 그 주의 최신일보다 이른 날의 `krx_weekly` 행만 지운다 — 종전 쓰기(매일 이번 주 행을 다시 넣던 것)가 남긴 행이다.
@@ -452,6 +543,15 @@ def sync_weekly(conn: Any) -> WeeklySync:
     주간 닫기는 부(副)라, 실패해도 같은 트랜잭션의 일별 기록은 커밋돼야 한다. 실패는 ERROR 로그와 `ok=False` 로 알린다."""
     try:
         with conn.transaction():
+            if weekly_is_view(conn):
+                changed = conn.execute(WK_CLOSE_SQL.rstrip() + " RETURNING d.dd, d.wk_close").fetchall()
+                newly = {dd for dd, on in changed if on}
+                if before is not None:
+                    after = conn.execute(WK_CLOSE_DAYS_SQL, (SYNC_LOOKBACK_DAYS,)).fetchall()
+                    newly |= {r[0] for r in after} - before
+                if newly:
+                    logger.info("krx_weekly(뷰) 주간 닫기: 닫힌 주 %s — 달력 표시로 뷰에 보인다(표에 쓰지 않는다)", ",".join(sorted(newly)))
+                return WeeklySync(True, tuple(sorted(newly)), 0)
             days = [r[0] for r in conn.execute(SYNC_DAYS_SQL, (SYNC_LOOKBACK_DAYS,)).fetchall()]
             closed: list[str] = []
             dropped = 0
@@ -477,6 +577,56 @@ def sync_weekly(conn: Any) -> WeeklySync:
 def _rowcount(cur: Any) -> int:
     n = getattr(cur, "rowcount", 0)
     return n if n and n > 0 else 0
+
+
+# ── 지난 주 백필 쓰기 (`scripts/market_val_weekly.py --backfill`) ─────────────────────────
+
+#: 표 모드(종전) — 그 날 행을 지우고 다시 넣는다(주 단위 멱등).
+WEEK_DELETE_SQL = "DELETE FROM krx_weekly WHERE price_dd = %s"
+WEEK_COPY_SQL = "COPY krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) FROM STDIN"
+#: 뷰 모드 — 일별 보관 창 첫날(그 날 이후의 주는 일별 저장분이 담는다).
+DAILY_FIRST_DAY_SQL = "SELECT min(dd) FROM krx_day WHERE n > 0"
+WK_ROWS_DELETE_SQL = "DELETE FROM krx_wk WHERE wk_dd = %s"
+WK_DAY_UPSERT_SQL = ("INSERT INTO krx_wk_day (wk_dd, dd, n) VALUES (%s, %s, %s) "
+                     "ON CONFLICT (wk_dd) DO UPDATE SET n = EXCLUDED.n")
+COPY_WK_SQL = "COPY krx_wk (list_shrs, close, wk_dd, tid, market) FROM STDIN"
+
+
+def write_week(conn: Any, price_dd: str, recs: list[tuple]) -> int:
+    """지난 한 주의 닫는 날 전종목을 `krx_weekly` 에 쓴다(백필) → 넣은 행 수. 그 날 행을 통째로 바꾼다(주 단위 멱등).
+    `recs` = (price_dd, ticker, market KS/KQ, close, mktcap, list_shrs). 커밋은 호출자가 한다.
+
+    · 표 모드(종전): 그 날 행 DELETE → COPY.
+    · 뷰 모드(261019 재설계 v03 C4): 압축 표 `krx_wk` + 주 달력 `krx_wk_day` 에 쓴다(새 종목은 번호표에 먼저). 시총은 저장하지 않는다(뷰가
+      종가 × 상장주식수 — KRX 의 MKTCAP 과 같다, 운영 455,505행 대조). 그 날이 일별 보관 창 첫날 이후면 **쓰지 않는다**(0) — 그 주는 일별
+      저장분의 주 닫는 날이 담고, 빠진 날은 서버 갱신기가 메운다(두 곳에 같은 날을 두지 않는다)."""
+    if not weekly_is_view(conn):
+        with conn.cursor() as cur:
+            cur.execute(WEEK_DELETE_SQL, (price_dd,))
+            with cur.copy(WEEK_COPY_SQL) as cp:
+                for rec in recs:
+                    cp.write_row(rec)
+        return len(recs)
+    first = conn.execute(DAILY_FIRST_DAY_SQL).fetchone()[0]
+    if first and price_dd >= first:
+        logger.warning("krx_weekly 백필: %s 는 일별 보관 창(%s~) 안이라 쓰지 않는다 — 그 주는 일별 저장분이 담는다", price_dd, first)
+        return 0
+    by: dict[str, tuple] = {}
+    for r in recs:                                   # 같은 종목이 두 번 오면 마지막 것
+        if r[1] and r[2] in _MKT_CHAR:
+            by[r[1]] = r
+    if not by:
+        return 0
+    day = _d(price_dd)
+    with conn.cursor() as cur:
+        cur.execute(NEW_TICKERS_SQL, (sorted(by),))
+        tids = dict(cur.execute(TIDS_SQL, (list(by),)).fetchall())
+        cur.execute(WK_DAY_UPSERT_SQL, (day, price_dd, len(by)))
+        cur.execute(WK_ROWS_DELETE_SQL, (day,))
+        with cur.copy(COPY_WK_SQL) as cp:
+            for tid, r in sorted((tids[t], r) for t, r in by.items()):
+                cp.write_row((r[5], r[3], day, tid, _MKT_CHAR[r[2]]))
+    return len(by)
 
 
 # ── 조회 ────────────────────────────────────────────────────────────────────

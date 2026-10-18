@@ -19,7 +19,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import datetime, timedelta
 from fractions import Fraction
-from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
+from open_proxy_mcp.krx_daily import WEEKLY_LATEST_SQL, WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_pair_floor
 
 
@@ -60,7 +60,7 @@ def main():
     #   옮긴 종목이 `excluded_market_transfer` 로 **영구** 오라벨된다(실측 261017 모의: 068270 20181227 1건).
     #   이 스크립트는 매일 미판정 전부를 다시 보므로 하한(+14일) 이전 이벤트는 이미 한 번 판정을 받았다 — 건너뛰어도
     #   잃는 것이 없고(판정 결과는 krx_adj_events 에 남아 있다), 새 이벤트는 늘 최근이라 그대로 처리된다.
-    latest = con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
+    latest = con.execute(WEEKLY_LATEST_SQL).fetchone()[0]          # 닫힌 주 최신(261019 v03 C4 — krx_weekly 가 뷰여도 최근 몇 주만 읽는다)
     floor = krx_weekly_pair_floor(latest) if latest else "00000000"   # 시세가 비면 prev_mkt 가 None 이라 시장이전 판정은 일어나지 않는다
     # 261018(재설계 5-1 쓰는 쪽): 직전 시장의 원천은 「닫힌 주 + 일별 최신 거래일」(`WEEKLY_WITH_LATEST`) — 종전 krx_weekly 와 같은 모양.
     #   krx_weekly 만 보면 이번 주 사건의 직전 점이 지난 금요일로 고정되지만, 종전엔 이번 주 최신일 행도 직전 점이 될 수 있었다.
