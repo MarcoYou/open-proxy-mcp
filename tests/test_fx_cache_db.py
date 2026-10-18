@@ -104,6 +104,7 @@ def test_read_only_server_answers_from_cache_without_live_sources(pg17, fresh_po
     monkeypatch.setenv("DATABASE_URL", _with_options(pg17, "-c role=opm_ro -c default_transaction_read_only=on"))
     monkeypatch.setattr(fx, "_MEM", {})
     monkeypatch.setattr(fx, "_MEM_NEG", {})
+    monkeypatch.setattr(fx, "_MEM_FALLBACK", {})
     ecos, yahoo, put = AsyncMock(return_value=1.0), AsyncMock(return_value=1.0), Mock()
     monkeypatch.setattr(fx, "_ecos", ecos)
     monkeypatch.setattr(fx, "_yahoo", yahoo)
