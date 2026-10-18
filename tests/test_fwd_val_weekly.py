@@ -256,6 +256,7 @@ def _sector_agg_db(con):
                 "industry_code varchar, industry varchar, snap_dd varchar)")
     con.execute("create table krx_weekly(ticker varchar, market varchar, price_dd varchar)")
     con.execute("create table krx_daily(trd_dd varchar, ticker varchar, market varchar)")
+    con.execute("create table krx_day(dd varchar, n integer)")          # 261019: 일별 최신일은 달력에서
     con.execute("create table fwd_hist(stock_code varchar, fiscal_year integer, mktcap_krw double, "
                 "ni_ctrl_krw double, rev_krw double, bps_krw double, price_krw double, dps_krw double, "
                 "as_of date, is_estimate boolean, period_type varchar, basis varchar, period varchar)")

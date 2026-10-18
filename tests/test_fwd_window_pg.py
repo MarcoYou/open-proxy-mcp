@@ -146,6 +146,7 @@ MARKET_DDL = """
 CREATE TABLE wise_sector (ticker text, sector_code text, sector text, industry_code text, industry text, snap_dd text);
 CREATE TABLE krx_weekly (ticker text, market text, price_dd text);
 CREATE TABLE krx_daily (trd_dd text, ticker text, market text);
+CREATE TABLE krx_day (dd text, n integer);
 CREATE TABLE ops_tool_calls (ts_ns bigint);
 """
 
