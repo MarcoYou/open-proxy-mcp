@@ -1272,7 +1272,8 @@ _corp_registry_state: dict = {
     "last_attempt_mono": None, "last_attempt_at": None, "last_reason": None,
     "last_outcome": None, "last_error": None, "last_added": None,
     "attempts": 0, "refreshed": 0, "failed": 0, "rejected": 0,
-    #: 마지막 확인 때 「일별 시세엔 있는데 명부엔 없던」 보통주 코드 — 같은 코드로 매시간 다시 받지 않게(DART 가 늦게 싣는 경우)
+    #: 「일별 시세엔 있는데 **새로 받은 뒤에도** 명부엔 없던」 보통주 코드 — 같은 코드로 매시간 다시 받지 않게(DART 가 늦게 싣는 경우).
+    #: 받기가 실패한 코드는 넣지 않는다(다음 확인 때 다시 받는다).
     "krx_baseline": None,
 }
 #: 진행 중인 받기(단일 실행). 끝났거나 다른 이벤트 루프 것이면 새로 띄운다.
@@ -2219,7 +2220,8 @@ class DartClient:
 
         ① 명부가 아직 안 올라왔으면 올린다(기동 직후 예열). 같은 sqlite 를 다른 프로세스가 더 새로 받아 두었으면 받지 않고 그것을 올린다.
         ② 받은 지 `_CORP_REFRESH_AGE_HOURS` 시간이 넘었으면 받는다(정기).
-        ③ 일별 시세 최신일에 있는 보통주 코드가 명부에 없고, 그 코드가 지난 확인 때 없던 것이면 받는다(신규상장 신호, 시간당 상한).
+        ③ 일별 시세 최신일에 있는 보통주 코드가 명부에 없으면 받는다(신규상장 신호, 시간당 상한). 새로 받은 뒤에도 남은 코드
+           (DART 가 늦게 싣는 경우)는 기준선에 두어 다시 세지 않는다. 받기가 실패하면 기준선을 바꾸지 않아 다음 확인 때 다시 받는다.
         """
         corps = await self._load_corp_codes()
         st = _corp_registry_state
@@ -2246,8 +2248,12 @@ class DartClient:
             return "fresh"      # 기준선을 바꾸지 않는다 — 다음 확인 때 다시 본다
         _corp_log.info(f"회사 명부: 일별 시세에 있는데 명부에 없는 보통주 코드 {len(new)}개({', '.join(sorted(new)[:10])}) — 새로 받는다")
         ok = await self.refresh_corp_codes(reason="krx_new_listing")
-        after = await self._krx_listed_missing(_corp_code_cache or corps)
-        st["krx_baseline"] = after if after is not None else missing
+        if ok:
+            # 새로 받았는데도 남은 코드(DART 가 늦게 싣는 경우)만 기준선에 넣는다 — 같은 코드로 매시간 다시 받지 않게.
+            after = await self._krx_listed_missing(_corp_code_cache or corps)
+            st["krx_baseline"] = after if after is not None else missing
+        # 받기가 실패·거절됐으면 기준선을 그대로 둔다 — 넣어 버리면 다음 정기 갱신(최대 23시간 뒤)까지 이 신호가 다시 안 선다.
+        #   다음 확인(시간당 상한)에 같은 신호로 다시 받는다.
         return "refreshed" if ok else "refresh_failed"
 
 

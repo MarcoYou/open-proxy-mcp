@@ -267,6 +267,24 @@ def test_tick_does_not_refetch_hourly_for_a_code_dart_has_not_listed_yet(env):
     assert len(env["downloads"]) == 1
 
 
+def test_tick_retries_the_new_listing_signal_after_a_failed_download(env):
+    """신호로 받다가 DART 가 실패하면(한도·장애) 그 코드를 「늦게 싣는 코드」 기준선에 넣지 않는다 — 다음 확인(시간당 상한)에 다시 받는다.
+    기준선에 넣어 버리면 다음 정기 갱신(최대 23시간 뒤)까지 신호가 다시 안 선다."""
+    _install_old(timedelta(hours=3))
+    env["result"] = C.DartClientError("020", "한도 초과")
+    env["market"]["ctx"] = R.MarketContext({"179880": 1}, frozenset({"005930", "179880"}), "20261016", "krx_daily")
+    cli = _client()
+    assert asyncio.run(cli.corp_registry_tick()) == "refresh_failed"
+    assert asyncio.run(cli.corp_registry_tick()) == "fresh"           # 시간당 상한 안 — 아직 다시 받지 않는다
+    assert len(env["downloads"]) == 1
+    env["result"] = NEW
+    C._corp_registry_state["last_attempt_mono"] = None              # 한 시간이 지났다
+    assert asyncio.run(cli.corp_registry_tick()) == "refreshed"
+    assert len(env["downloads"]) == 2
+    assert any(c["stock_code"] == "179880" for c in C._corp_code_cache)
+    assert C._corp_registry_state["krx_baseline"] == frozenset()
+
+
 def test_tick_without_market_context_only_does_the_daily_check(env):
     _install_old(timedelta(hours=3))
     assert asyncio.run(_client().corp_registry_tick()) == "fresh"
