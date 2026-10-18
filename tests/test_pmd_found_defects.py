@@ -60,9 +60,10 @@ def _alot(*groups) -> list[dict]:
 
 
 def _run_live(mp, *, reports=KRW_REPORTS, alot=None, induty="68112", revenue=600_000_000_000, fx=None, price=4080,
-              cap=1_000_000_000_000, db_rows=None, cap_status="normal", alot_err=None):
+              cap=1_000_000_000_000, db_rows=None, cap_status="normal", alot_err=None, fx_src=None):
     """alot = {사업연도: alotMatter 행} (없으면 그 해 배당 없음). fx = {날짜: 환율} — 주면 그 날짜로만 답한다.
-    alot_err = {사업연도: 오류 문자열} — 그 해 배당 사항 조회가 실패한 것으로."""
+    alot_err = {사업연도: 오류 문자열} — 그 해 배당 사항 조회가 실패한 것으로.
+    fx_src = {날짜: 출처} — 비우면 답한 날짜는 모두 "ecos"(261019 출처 칸)."""
     seen = {"alot": [], "fx": [], "sql": []}
 
     async def resolve(q):
@@ -97,6 +98,11 @@ def _run_live(mp, *, reports=KRW_REPORTS, alot=None, induty="68112", revenue=600
         seen["fx"].append(dd)
         return (fx or {}).get(dd)
 
+    def fx_source(ccy, dd=None):
+        if (fx or {}).get(dd) is None:
+            return None
+        return (fx_src or {}).get(dd, "ecos")
+
     class Client:
         async def get_company_info(self, cc):
             return {"induty_code": induty, "acc_mt": "12"}
@@ -119,6 +125,7 @@ def _run_live(mp, *, reports=KRW_REPORTS, alot=None, induty="68112", revenue=600
     mp.setattr(S, "_shares_outstanding", shares_out)
     mp.setattr(S, "_annual_summary", annual_summary)
     mp.setattr(S, "fx_to_krw", fx_to_krw)
+    mp.setattr(S, "fx_source", fx_source)
     return asyncio.run(S.build_valuation_payload("330590", format="json")), seen
 
 
@@ -238,9 +245,9 @@ def test_foreign_reporter_converts_each_period_at_its_own_end_rate(monkeypatch):
     assert i["net_income_ttm_krw"] == ni_ttm and i["controlling_equity_krw"] == eq_mrq       # 종전엔 셋 다 1,434.9
     assert m["pbr_mrq"] == round(4_879_073_708_500 / eq_mrq, 2)
     assert i["net_income_fy0_krw"] == round(283e6 * 1434.9) and i["fx_rate_to_krw"] == 1434.9   # FY0 는 사업연도 말 그대로
-    assert i["fx_rates_to_krw"] == {"fy0": {"date": "20251231", "rate": 1434.9},
-                                    "quarter": {"date": "20260630", "rate": 1541.5},
-                                    "prior_quarter": {"date": "20250630", "rate": 1356.4}}
+    assert i["fx_rates_to_krw"] == {"fy0": {"date": "20251231", "rate": 1434.9, "source": "ecos"},
+                                    "quarter": {"date": "20260630", "rate": 1541.5, "source": "ecos"},
+                                    "prior_quarter": {"date": "20250630", "rate": 1356.4, "source": "ecos"}}
     w = [x for x in p["data"]["warnings"] if x.startswith("기능통화 USD")]
     assert len(w) == 1 and "2026-06-30 1,541.5원" in w[0] and "2025-06-30 1,356.4원" in w[0]
     md = TP._render_explain_firm(p)
@@ -281,7 +288,7 @@ def test_quarter_rate_failure_falls_back_to_the_fiscal_year_rate_and_says_so(mon
     assert i["controlling_equity_krw"] == round(5_100e6 * 1434.9)
     assert any("분기 말 환율 조회 실패" in w for w in p["data"]["warnings"])
     # 대신 쓴 환율은 그 날짜로 적는다 — 분기 말 날짜에 사업연도 말 환율을 붙여 「6월 말 환율 1,434.9」처럼 읽히지 않게
-    assert i["fx_rates_to_krw"]["quarter"] == {"date": "20251231", "rate": 1434.9}
+    assert i["fx_rates_to_krw"]["quarter"] == {"date": "20251231", "rate": 1434.9, "source": "ecos"}
     assert any("최근 분기 누적·자본(MRQ)은 2025-12-31 1,434.9원" in w for w in p["data"]["warnings"])
 
 

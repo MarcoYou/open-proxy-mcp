@@ -15,7 +15,8 @@
 """
 from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
-from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
+from open_proxy_mcp.dart.fx import (FALLBACK_WARNING, SRC_YAHOO, fiscal_year_end_date, fx_source, fx_to_krw,
+                                  statement_currency)
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
 
@@ -712,10 +713,14 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
                 t = {k: round(v * fx) for k, v in t.items()}
                 data["_tiers"] = t
                 data["fx_rate_to_krw"] = round(fx, 2)
+                _fx_dd = fiscal_year_end_date(int(year), _acc_mt)
+                data["fx_source"] = fx_source(stmt_cur, _fx_dd)   # 261019: "ecos" / "yahoo"(대체값 — 저장 안 함)
                 warnings.append(
                     f"기능통화 {stmt_cur} — BS 자산을 "
-                    f"{fiscal_year_end_date(int(year), _acc_mt)} 기말환율 {fx:,.1f}원/{stmt_cur} 로 "
+                    f"{_fx_dd} 기말환율 {fx:,.1f}원/{stmt_cur} 로 "
                     f"KRW 환산해 시총과 통화를 맞췄다.")
+                if data["fx_source"] == SRC_YAHOO:
+                    warnings.append(f"⚠️ {_fx_dd} 환율: {FALLBACK_WARNING}")
         # 세부 계정 표는 **환산 뒤** 티어로 만든다. 환산 전에 만들면 같은 응답 안에서
         # 목적별 버킷(KRW)과 세부 계정(원행 통화)이 환율배만큼 어긋난다.
         data["assets"] = {_TIER_LABEL[k]: v for k, v in t.items() if v and k != "subs"}
