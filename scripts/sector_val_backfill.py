@@ -43,6 +43,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
+from open_proxy_mcp.krx_daily import LATEST_DAY_SQL
 from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS
 from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
 
@@ -116,7 +117,7 @@ def main() -> int:
         #   지난 금요일이 최신이라, 그대로 쓰면 섹터 배수가 최대 한 주 낡는다. 같은 달이면 그 달의 점을 바꾸고 새 달이면 덧붙인다.
         #   주중 임시 점은 같은 배치의 `market_val_weekly`(같은 주 수렴)가 주마다 한 점으로 정리한다.
         months = sorted(months)
-        latest = con.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+        latest = con.execute(LATEST_DAY_SQL).fetchone()[0]          # 261019: 일별 최신일 = 달력(krx_day)
         if latest and (not months or latest > months[-1]):
             daily_dd = latest
             if months and months[-1][:6] == latest[:6]:

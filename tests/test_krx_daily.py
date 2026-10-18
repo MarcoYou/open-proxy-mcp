@@ -4,7 +4,6 @@
 """
 from __future__ import annotations
 
-import sqlite3
 import sys
 import pathlib
 
@@ -27,73 +26,69 @@ def _row(code, close="71,000", **kw):
 # ── 레코드 만들기 ──────────────────────────────────────────────────────────
 
 def test_daily_records_carry_every_krx_field_in_column_order():
-    recs = krx_daily.daily_records("20261016", [_row("005930")], [_row("247540", "250,000")])
-    assert krx_daily.DAILY_COLUMNS == ("trd_dd", "ticker", "market", "open", "high", "low", "close", "volume", "value", "list_shrs")
+    recs = krx_daily.daily_records("20261016", [_row("005930")], [_row("247540", "250,000", CMPPREVDD_PRC="-1,500")])
+    assert krx_daily.DAILY_COLUMNS == ("trd_dd", "ticker", "market", "open", "high", "low", "close", "volume", "value", "list_shrs", "cmp")
     assert recs == [
-        ("20261016", "005930", "KS", 70_500, 71_500, 70_000, 71_000, 12_345_678, 876_543_210_000, 5_919_637_922),
-        ("20261016", "247540", "KQ", 70_500, 71_500, 70_000, 250_000, 12_345_678, 876_543_210_000, 5_919_637_922),
+        ("20261016", "005930", "KS", 70_500, 71_500, 70_000, 71_000, 12_345_678, 876_543_210_000, 5_919_637_922, 1_000),
+        ("20261016", "247540", "KQ", 70_500, 71_500, 70_000, 250_000, 12_345_678, 876_543_210_000, 5_919_637_922, -1_500),
     ]
     assert all(len(r) == len(krx_daily.DAILY_COLUMNS) for r in recs)
 
 
 def test_daily_records_do_not_store_derived_values():
-    """시총·등락률은 저장하지 않는다 — 뷰가 계산한다(한 행 안의 곱셈·나눗셈은 계산)."""
+    """시총·등락률은 저장하지 않는다 — 뷰가 계산한다(한 행 안의 곱셈·나눗셈은 계산). 공표 전일대비(cmp)는 사실값이라 저장한다."""
     assert "mktcap" not in krx_daily.DAILY_COLUMNS and "chg_pct" not in krx_daily.DAILY_COLUMNS
-    assert "MKTCAP" not in krx_daily.UPSERT_DAILY_SQL and "FLUC_RT" not in krx_daily.UPSERT_DAILY_SQL
+    assert "MKTCAP" not in krx_daily.COPY_PX_SQL and "fluc" not in krx_daily.COPY_PX_SQL.lower()
 
 
 def test_daily_records_tolerate_blank_dash_and_missing_ids():
     recs = krx_daily.daily_records("20261016", [
-        _row("005930", "-", TDD_OPNPRC="", ACC_TRDVOL=None),           # 값이 비었거나 '-' 면 NULL
-        _row(None), _row(""), {"TDD_CLSPRC": "1"},                     # 종목코드가 없는 행은 버린다
+        _row("005930", "-", TDD_OPNPRC="", ACC_TRDVOL=None, CMPPREVDD_PRC="-"),   # 값이 비었거나 '-' 면 NULL
+        _row(None), _row(""), {"TDD_CLSPRC": "1"},                                # 종목코드가 없는 행은 버린다
     ], [])
     assert len(recs) == 1
-    assert recs[0][3] is None and recs[0][6] is None and recs[0][7] is None
+    assert recs[0][3] is None and recs[0][6] is None and recs[0][7] is None and recs[0][10] is None
     assert krx_daily.daily_records("20261016", [], []) == []
     assert krx_daily.daily_records("20261016", None, None) == []
 
 
-# ── 7거래일 롤링 (SQLite 로 같은 SQL 을 돌린다) ─────────────────────────────────
+# ── 보관 창 (최신 거래일 − 달력 1년 − 1주) ───────────────────────────────────────
 
-def _sqlite_exec(con, sql, params=()):
-    return con.execute(sql.replace("%s", "?"), params)
-
-
-def _roll_db():
-    con = sqlite3.connect(":memory:")
-    con.execute("CREATE TABLE krx_daily (trd_dd TEXT NOT NULL, ticker TEXT NOT NULL, market TEXT, open INT, high INT, low INT, "
-                "close INT, volume INT, value INT, list_shrs INT, PRIMARY KEY (trd_dd, ticker))")
-    return con
-
-
-def _put(con, dd, rows):
-    for rec in krx_daily.daily_records(dd, rows, []):
-        _sqlite_exec(con, krx_daily.UPSERT_DAILY_SQL, rec)
-    cur = _sqlite_exec(con, krx_daily.PRUNE_DAILY_SQL, (krx_daily.KEEP_TRADING_DAYS,))
-    return cur.rowcount
+@pytest.mark.parametrize("latest,lo", [
+    ("20261016", "20251009"),       # 운영 실측: 이 창에 거래일 249일
+    ("20261019", "20251012"),
+    ("20280229", "20270221"),       # 윤일 → 평년 2월 28일에서 7일
+    ("20270105", "20251229"),       # 연초 — 해를 넘는다
+])
+def test_window_lo_is_one_calendar_year_and_one_week_back(latest, lo):
+    assert krx_daily.window_lo(latest) == lo
+    assert krx_daily.KEEP_YEARS == 1 and krx_daily.KEEP_EXTRA_DAYS == 7
 
 
-def test_keeps_exactly_the_seven_most_recent_distinct_days():
-    con = _roll_db()
-    days = ["20261005", "20261006", "20261007", "20261008", "20261012", "20261013", "20261014", "20261015", "20261016"]
-    pruned = [_put(con, d, [_row("005930"), _row("000660")]) for d in days]
-    kept = [r[0] for r in con.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1")]
-    assert kept == days[-7:]
-    assert pruned == [0] * 7 + [2, 2]                  # 8번째·9번째 날에 가장 오래된 날(2행)이 하나씩 지워진다
-    assert con.execute("SELECT count(*) FROM krx_daily").fetchone()[0] == 14
+@pytest.mark.parametrize("dd,today,n", [
+    ("20260702", "20260703", 1),    # 다음 날 아침 — 게시 전 빈 응답과 휴장을 가를 수 없다
+    ("20260702", "20260706", 2),    # 금·월 — 판정할 수 있다
+    ("20261009", "20261012", 1),    # 금요일 휴장 → 월요일 아침은 평일 1일
+    ("20261009", "20261013", 2),
+    ("20261016", "20261016", 0),
+])
+def test_weekdays_after_counts_weekdays_up_to_today(dd, today, n):
+    assert krx_daily.weekdays_after(dd, today) == n
 
 
-def test_fewer_than_seven_days_deletes_nothing_and_same_day_rewrite_is_idempotent():
-    con = _roll_db()
-    for d in ("20261014", "20261015", "20261016"):
-        assert _put(con, d, [_row("005930")]) == 0
-    assert _put(con, "20261016", [_row("005930", "72,000")]) == 0
-    assert con.execute("SELECT count(*), max(close) FROM krx_daily").fetchone() == (3, 72_000)
-
-
-def test_keep_days_constant_is_seven():
-    assert krx_daily.KEEP_TRADING_DAYS == 7
-    assert "LIMIT %s" in krx_daily.PRUNE_DAILY_SQL and "DISTINCT trd_dd" in krx_daily.PRUNE_DAILY_SQL
+@pytest.mark.parametrize("ks,kq,since,cont,want", [
+    (False, True, 5, None, "trading"),            # 한 시장이라도 행이 있으면 거래일
+    (True, False, 5, None, "trading"),
+    (True, True, 1, (2700, 3), "unknown"),        # 평일 1일 — 게시 전일 수 있다(20260702 교훈)
+    (True, True, 2, (2700, 3), "closed"),         # 다음 거래일 기준가가 앞 거래일 종가와 이어진다(어긋남은 기준가 조정 몇 종목)
+    (True, True, 2, (2700, 135), "closed"),       # 5% 까지
+    (True, True, 2, (2766, 2546), "trading"),     # 20260703 실측: 거래일을 빠뜨리면 거의 모든 종목이 어긋난다
+    (True, True, 2, (2700, 600), "unknown"),      # 그 사이 — 정하지 않는다
+    (True, True, 2, None, "closed"),              # 다음 거래일이 아직 없거나 공표 대비가 없음 — 두 시장 빈 응답 + 평일 2일
+    (True, True, 2, (50, 40), "closed"),          # 비교 종목이 너무 적으면 연속성은 근거가 아니다
+])
+def test_closed_verdict_never_trusts_a_single_empty_response(ks, kq, since, cont, want):
+    assert krx_daily.closed_verdict(ks, kq, since, cont) == want
 
 
 def test_lock_key_is_a_fixed_positive_bigint():
@@ -103,10 +98,29 @@ def test_lock_key_is_a_fixed_positive_bigint():
 
 # ── write_daily: 가짜 연결 ─────────────────────────────────────────────────
 
+def _norm(sql):
+    return " ".join(sql.split())
+
+
+class _Copy:
+    def __init__(self, conn):
+        self.c = conn
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def write_row(self, row):
+        self.c.copied.append(tuple(row))
+
+
 class _Cur:
     def __init__(self, conn):
         self.c = conn
         self.rowcount = -1
+        self._rows = []
 
     def __enter__(self):
         return self
@@ -115,13 +129,30 @@ class _Cur:
         return False
 
     def execute(self, sql, params=()):
-        self.c.log.append(("execute", " ".join(sql.split()), params))
-        self.rowcount = 5 if sql.lstrip().startswith("DELETE FROM krx_daily") else -1
+        n = _norm(sql)
+        if self.c.fail_daily and "krx_ticker" in n:
+            raise RuntimeError('relation "krx_ticker" does not exist')
+        self.c.log.append(("execute", n, params))
+        self.rowcount, self._rows = -1, []
+        if n == _norm(krx_daily.TIDS_SQL):
+            self._rows = [(t, self.c.tids.setdefault(t, len(self.c.tids) + 1)) for t in params[0]]
+        elif n == _norm(krx_daily.LATEST_DAY_SQL):
+            self._rows = [(self.c.latest,)]
+        elif n == _norm(krx_daily.PRUNE_CANDIDATES_SQL):
+            self._rows = list(self.c.cands)
+        elif n == _norm(krx_daily.PRUNE_PX_SQL):
+            self.rowcount = 5 * len(params[0])
+        return self
 
-    def executemany(self, sql, seq):
-        if self.c.fail_daily and "krx_daily" in sql:
-            raise RuntimeError('relation "krx_daily" does not exist')
-        self.c.log.append(("executemany", " ".join(sql.split()), list(seq)))
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchall(self):
+        return self._rows
+
+    def copy(self, sql):
+        self.c.log.append(("copy", _norm(sql), None))
+        return _Copy(self.c)
 
 
 class _Tx:
@@ -138,11 +169,18 @@ class _Tx:
 
 
 class FakeConn:
-    def __init__(self, fail_daily=False):
+    """psycopg 연결 대역. tids = 이미 번호가 있는 종목(새 종목은 차례로 번호), latest = 달력 최신일, cands = 보관 창 밖 달력 행."""
+
+    def __init__(self, fail_daily=False, tids=None, latest="20261016", cands=()):
         self.log, self.commits, self.fail_daily = [], 0, fail_daily
+        self.tids = dict(tids or {})
+        self.latest, self.cands, self.copied = latest, list(cands), []
 
     def cursor(self):
         return _Cur(self)
+
+    def execute(self, sql, params=()):
+        return _Cur(self).execute(sql, params)
 
     def transaction(self):
         return _Tx(self)
@@ -161,15 +199,65 @@ class FakeConn:
         return False
 
 
-def test_write_daily_runs_inside_a_savepoint_and_prunes_to_seven():
+def _sqls(c):
+    return [e[1] for e in c.log if e[0] in ("execute", "copy")]
+
+
+def _entry(c, sql):
+    return next(e for e in c.log if e[0] == "execute" and e[1] == _norm(sql))
+
+
+def test_write_daily_numbers_new_tickers_then_calendar_then_copies_in_ticker_number_order():
+    c = FakeConn(tids={"247540": 7, "005930": 9})                      # 이미 번호가 있는 두 종목 + 새 종목 하나
+    ok, n, pruned = krx_daily.write_daily(c, "20261016", [_row("005930"), _row("0001A0", "9,000", CMPPREVDD_PRC="-100")],
+                                          [_row("247540", "250,000")])
+    assert (ok, n, pruned) == (True, 3, 0)
+    sqls = _sqls(c)
+    assert sqls[:5] == [_norm(krx_daily.NEW_TICKERS_SQL), _norm(krx_daily.TIDS_SQL), _norm(krx_daily.DAY_UPSERT_SQL),
+                        _norm(krx_daily.DAY_ROWS_DELETE_SQL), _norm(krx_daily.COPY_PX_SQL)]
+    assert sqls[5] == _norm(krx_daily.WK_CLOSE_SQL)                    # 주 닫는 날을 기록마다 다시 계산
+    new = _entry(c, krx_daily.NEW_TICKERS_SQL)
+    assert new[2] == (["0001A0", "005930", "247540"],)                 # 새 종목만 넣는 문장 — 후보는 정렬해서 넘긴다
+    assert "WHERE NOT EXISTS" in krx_daily.NEW_TICKERS_SQL             # ON CONFLICT 만 쓰면 번호 생성기 값을 매일 태운다
+    day = _entry(c, krx_daily.DAY_UPSERT_SQL)
+    assert day[2][1:] == ("20261016", 3) and str(day[2][0]) == "2026-10-16"
+    assert [r[9] for r in c.copied] == [3, 7, 9]                       # 종목 번호순(같은 날 행이 물리적으로 모인다) — 새 종목은 대역이 3번
+    by_tid = {r[9]: r for r in c.copied}
+    assert by_tid[3][:8] == (876_543_210_000, 12_345_678, 5_919_637_922, 70_500, 71_500, 70_000, 9_000, -100)   # 영숫자 코드
+    assert by_tid[7][10] == "Q" and by_tid[9][10] == "S" and str(by_tid[9][8]) == "2026-10-16"
+    assert c.commits == 0                                              # 커밋은 호출자(krx_weekly 와 같은 트랜잭션)가 한다
+    assert c.log[0] == ("savepoint",) and c.log[-1] == ("release",)
+
+
+def test_write_daily_same_ticker_twice_keeps_the_last_row():
     c = FakeConn()
-    ok, n, pruned = krx_daily.write_daily(c, "20261016", [_row("005930")], [_row("247540")])
-    assert (ok, n, pruned) == (True, 2, 5)
-    kinds = [e[0] for e in c.log]
-    assert kinds == ["savepoint", "executemany", "execute", "release"]
-    assert c.log[1][1].startswith("INSERT INTO krx_daily") and len(c.log[1][2]) == 2
-    assert c.log[2][2] == (7,)                          # 프루닝 인자 = 보관 거래일 수
-    assert c.commits == 0                               # 커밋은 호출자(krx_weekly 와 같은 트랜잭션)가 한다
+    ok, n, _ = krx_daily.write_daily(c, "20261016", [_row("005930", "1"), _row("005930", "2")], [])
+    assert (ok, n) == (True, 1) and [r[6] for r in c.copied] == [2]
+
+
+def test_prune_deletes_only_closed_or_cold_days_and_warns_about_the_rest(caplog):
+    """보관 창 밖의 날 — 휴장일·콜드 보관본에 들어간 날만 지운다. 들어가지 않은 거래일은 남기고 경고한다(지운 뒤에는 되살릴 곳이 없다)."""
+    cands = [("20251008", 0, True, False),        # 휴장(행 없음)
+             ("20251010", 2764, False, True),     # 콜드에 있음
+             ("20251013", 2765, False, False),    # 콜드에 없음 → 남긴다
+             ("20251014", 2765, False, False)]
+    c = FakeConn(latest="20261021", cands=cands)                       # 창 첫날 20251014 미만이 후보(대역은 그대로 돌려준다)
+    with caplog.at_level("WARNING"):
+        ok, n, pruned = krx_daily.write_daily(c, "20261021", [_row("005930")], [])
+    assert ok and pruned == 10                                         # 대역: 지운 날 × 5행
+    px = _entry(c, krx_daily.PRUNE_PX_SQL)
+    assert [str(d) for d in px[2][0]] == ["2025-10-08", "2025-10-10"]
+    day = _entry(c, krx_daily.PRUNE_DAY_SQL)
+    assert [str(d) for d in day[2][0]] == ["2025-10-08", "2025-10-10"]
+    cand = _entry(c, krx_daily.PRUNE_CANDIDATES_SQL)
+    assert str(cand[2][0]) == "2025-10-14"                             # window_lo(20261021)
+    assert any("콜드 보관본에 없어 지우지 않았다" in r.message and "20251013~20251014" in r.message for r in caplog.records)
+
+
+def test_prune_with_nothing_outside_the_window_deletes_nothing():
+    c = FakeConn(latest="20261016", cands=[])
+    ok, _, pruned = krx_daily.write_daily(c, "20261016", [_row("005930")], [])
+    assert ok and pruned == 0 and not any(x in (_norm(krx_daily.PRUNE_PX_SQL), _norm(krx_daily.PRUNE_DAY_SQL)) for x in _sqls(c))
 
 
 def test_write_daily_failure_never_raises_so_the_weekly_write_still_commits(caplog):
@@ -221,10 +309,10 @@ def test_upsert_writes_daily_then_closes_weeks_before_the_single_commit(monkeypa
     res = pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540", "250,000")])
     assert res == pmd.KrxWrite(True, True, ("20261009",)) and res.daily_ok
     # 바깥 트랜잭션 하나(첫 savepoint·마지막 release) 안에 일별 기록(SAVEPOINT)과 주간 닫기 — 한 커밋
-    assert [e[0] for e in c.log] == ["savepoint", "savepoint", "executemany", "execute", "release", "sync_weekly", "release"]
-    assert c.log[2][1].startswith("INSERT INTO krx_daily (") and len(c.log[2][2]) == 2
-    assert c.log[3][1].startswith("DELETE FROM krx_daily WHERE")
-    assert not any("krx_weekly" in (e[1] if len(e) > 1 else "") for e in c.log)   # 이번 주 행을 지우고 다시 넣지 않는다
+    kinds = [e[0] for e in c.log]
+    assert kinds[:2] == ["savepoint", "savepoint"] and kinds[-3:] == ["release", "sync_weekly", "release"]
+    assert "copy" in kinds and len(c.copied) == 2
+    assert not any("krx_weekly" in (e[1] if len(e) > 1 and isinstance(e[1], str) else "") for e in c.log)   # 이번 주 행을 지우고 다시 넣지 않는다
 
 
 def test_upsert_commits_the_daily_write_even_when_the_weekly_close_fails(monkeypatch):
@@ -247,7 +335,7 @@ def test_upsert_commits_nothing_when_the_daily_write_fails(monkeypatch):
     _patch_sync(monkeypatch, c, krx_daily.WeeklySync(True))
     assert pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540")]) == pmd.KrxWrite(False)
     assert ("rollback_to_savepoint",) in c.log and ("sync_weekly",) not in c.log
-    assert not any(e[0] == "executemany" for e in c.log)                     # 일별 행도 하나 남지 않는다(SAVEPOINT 로 되돌림)
+    assert not c.copied                                                       # 일별 행도 하나 남지 않는다(SAVEPOINT 로 되돌림)
 
 
 def test_upsert_returns_false_without_db_or_rows_and_on_connection_error(monkeypatch, caplog):
@@ -298,7 +386,7 @@ def test_plan_weeks_splits_the_iso_week_at_the_year_boundary():
 def test_weekly_with_latest_only_names_weekly_columns():
     sql = krx_daily.weekly_with_latest("price_dd, ticker, market")
     assert sql.startswith("(SELECT price_dd, ticker, market FROM krx_weekly UNION ALL SELECT d.trd_dd AS price_dd,")
-    assert "d.trd_dd = (SELECT max(trd_dd) FROM krx_daily)" in sql and "> (SELECT COALESCE(max(price_dd), '') FROM krx_weekly)" in sql
+    assert "d.trd_dd = (SELECT max(dd) FROM krx_day WHERE n > 0)" in sql and "> (SELECT COALESCE(max(price_dd), '') FROM krx_weekly)" in sql
     assert "d.close * d.list_shrs AS mktcap" in krx_daily.WEEKLY_WITH_LATEST
     with pytest.raises(ValueError):
         krx_daily.weekly_with_latest("price_dd, volume")
@@ -308,7 +396,7 @@ def test_weekly_with_latest_only_names_weekly_columns():
 
 def _quote_result(dd="20261016", lo="20261008", hi="20261016", present=True, with_row=True, prev=100_000, prev_dd="20261015"):
     row = ("KS", 101_000, 104_000, 100_500, 103_000, 777, 99_999, 10, 1_030_000, prev_dd if prev else None, prev,
-           3_000 if prev else None, 3.0 if prev else None) if with_row else (None,) * 13
+           3_000 if prev else None, 3.0 if prev else None, 3_000, 3.0) if with_row else (None,) * 15
     return [(dd, lo, hi, present) + row]
 
 
@@ -320,7 +408,9 @@ def test_read_quote_maps_the_single_row(monkeypatch):
     assert got.ok and got.day == "20261016" and got.window == ("20261008", "20261016") and got.day_present
     assert got.row["close"] == 103_000 and got.row["prev_close"] == 100_000 and got.row["market"] == "KS"
     assert got.row["prev_dd"] == "20261015"
-    assert set(got.row) >= {"open", "high", "low", "close", "volume", "value", "list_shrs", "mktcap", "prev_dd", "prev_close", "chg", "chg_pct"}
+    assert set(got.row) >= {"open", "high", "low", "close", "volume", "value", "list_shrs", "mktcap", "prev_dd", "prev_close", "chg", "chg_pct",
+                            "krx_chg", "krx_chg_pct"}
+    assert got.row["krx_chg"] == 3_000
 
 
 def test_read_quote_row_none_when_the_day_has_no_such_ticker(monkeypatch):
@@ -339,6 +429,9 @@ def test_read_quote_sql_is_one_statement_with_two_params():
     assert krx_daily.QUOTE_SQL.count("%s") == 2
     assert ";" not in krx_daily.QUOTE_SQL
     assert "krx_daily_v" in krx_daily.QUOTE_SQL and "LATERAL" in krx_daily.QUOTE_SQL
+    # 창·보관 여부는 달력에서 — 호환 뷰 위의 min/max·EXISTS 는 1년치 조인을 다 푼다(운영 실측 304 ms → 0.23 ms)
+    assert "FROM krx_day WHERE n > 0" in krx_daily.QUOTE_SQL and "FROM krx_daily x" not in krx_daily.QUOTE_SQL
+    assert "v.krx_chg, v.krx_chg_pct" in krx_daily.QUOTE_SQL
 
 
 def test_ddl_script_prints_by_default_and_never_applies_without_the_flag(capsys, monkeypatch):
@@ -348,22 +441,41 @@ def test_ddl_script_prints_by_default_and_never_applies_without_the_flag(capsys,
     ddl = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ddl)
     applied = []
-    monkeypatch.setattr(ddl, "apply", lambda url: applied.append(url))
+    monkeypatch.setattr(ddl, "apply", lambda url, mode="full": applied.append((url, mode)))
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
     monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py"])
     assert ddl.main() == 0
     out = capsys.readouterr().out
     assert out.startswith("BEGIN;") and out.rstrip().endswith("COMMIT;") and not applied
-    for needle in ("CREATE TABLE IF NOT EXISTS krx_daily", "CREATE OR REPLACE VIEW krx_daily_v", "CREATE OR REPLACE VIEW price_latest",
-                   "ENABLE ROW LEVEL SECURITY", "CREATE POLICY krx_daily_read", "REVOKE ALL ON krx_daily, krx_daily_v, price_latest FROM anon, authenticated"):
-        assert needle in out
+    for needle in ("CREATE TABLE IF NOT EXISTS krx_px", "CREATE TABLE IF NOT EXISTS krx_day", "CREATE TABLE IF NOT EXISTS krx_ticker",
+                   "CREATE OR REPLACE VIEW krx_daily ", "CREATE OR REPLACE VIEW krx_daily_v ", "CREATE OR REPLACE VIEW price_latest ",
+                   "ENABLE ROW LEVEL SECURITY", "CREATE POLICY krx_px_read", "security_invoker = true",
+                   "REVOKE ALL ON krx_ticker, krx_day, krx_px FROM anon, authenticated",
+                   "REVOKE ALL ON krx_daily, krx_daily_v, price_latest FROM anon, authenticated"):
+        assert needle in out, needle
+    assert "_s " not in out and "krx_daily_legacy" not in out                     # 새 DB 판에는 그림자·교체가 없다
     grants = [ln for ln in out.splitlines() if ln.upper().startswith("GRANT")]
-    assert grants == ["GRANT SELECT ON krx_daily, krx_daily_v, price_latest TO opm_ro;"]     # 새로 주는 권한은 읽기 전용 역할 하나뿐
+    assert grants == ["GRANT SELECT ON krx_ticker, krx_day, krx_px TO opm_ro;",
+                      "GRANT SELECT ON krx_daily, krx_daily_v, price_latest TO opm_ro;"]     # 새로 주는 권한은 읽기 전용 역할 하나뿐
     assert not any(role in ln for ln in grants for role in ("anon", "authenticated"))
     monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--no-tx"])
     assert ddl.main() == 0
     body = capsys.readouterr().out
-    assert "BEGIN" not in body and "COMMIT" not in body and body.startswith("CREATE TABLE") and not applied
+    assert "BEGIN" not in body and "COMMIT" not in body and body.startswith("-- 종목 번호표") and not applied
+    monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--shadow"])
+    assert ddl.main() == 0
+    sh = capsys.readouterr().out
+    assert "CREATE OR REPLACE VIEW krx_daily_s " in sh and "CREATE OR REPLACE VIEW krx_daily " not in sh
+    monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--switch"])
+    assert ddl.main() == 0
+    sw = capsys.readouterr().out
+    for needle in ("pg_advisory_xact_lock(5715152913032561713)", "ALTER TABLE krx_daily RENAME TO krx_daily_legacy",
+                   "CREATE VIEW krx_daily ", "DROP VIEW IF EXISTS price_latest_s, krx_daily_v_s, krx_daily_s",
+                   "UPDATE krx_day d SET wk_close", "G2 관문 실패"):
+        assert needle in sw, needle
+    assert str(krx_daily.REFRESH_LOCK_KEY) in sw
     monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--apply"])
     monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: None, raising=False)
-    assert ddl.main() == 0 and applied == ["postgresql://u:p@localhost/x"]     # 명시했을 때만 적용
+    assert ddl.main() == 0 and applied == [("postgresql://u:p@localhost/x", "full")]     # 명시했을 때만 적용
+    monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--apply", "--switch"])
+    assert ddl.main() == 0 and applied[-1] == ("postgresql://u:p@localhost/x", "switch")

@@ -94,15 +94,19 @@ class WindowError(RuntimeError):
     """증분으로 만들 수 없는 상태 — 호출부가 메시지를 그대로 보여 주고 실패로 끝낸다."""
 
 
-#: 새 관측 = 최근 주간 행 + 일별 시세 저장분(최근 7거래일) — 261018(재설계 5-1 쓰는 쪽). krx_weekly 는 닫힌 주만 담게 되어
+#: 새 관측 = 최근 주간 행 + 일별 시세 저장분 — 261018(재설계 5-1 쓰는 쪽). krx_weekly 는 닫힌 주만 담게 되어
 #: 이번 주에 새로 상장·폐지한 종목은 주가 닫힐 때까지 krx_weekly 에 없다. 종전엔 매일 이번 주 행(그날 최신일)이 있어 관측이 그날
 #: 바로 반영됐다 — 일별 저장분을 함께 읽어 그대로 둔다(첫·끝 관측은 LEAST/GREATEST 로 합쳐지므로 더 촘촘한 날짜가 이긴다).
+#: 261019(재설계 v03): 일별 저장분이 약 1년이 되면서 호환 뷰(`krx_daily`)에 날짜 하한을 걸면 하한이 달력 쪽에 걸려 사실값 표 전체를
+#: 훑는다 — 사실값 표(`krx_px`)의 날짜 칸에 직접 하한을 걸어 날짜 범위 요약 색인(BRIN)으로 같은 하한 이후만 읽는다(같은 행·같은 칸).
 Q_RECENT = """
 SELECT w.ticker, (array_agg(w.market ORDER BY w.price_dd DESC))[1] AS market,
        min(w.price_dd) AS first_dd, max(w.price_dd) AS last_dd
   FROM (SELECT price_dd, ticker, market FROM krx_weekly WHERE price_dd >= %(start)s
         UNION ALL
-        SELECT trd_dd, ticker, market FROM krx_daily WHERE trd_dd >= %(start)s) w
+        SELECT to_char(p.trd_dd, 'YYYYMMDD'), k.ticker, CASE p.market WHEN 'S' THEN 'KS' WHEN 'Q' THEN 'KQ' END
+          FROM krx_px p JOIN krx_ticker k ON k.tid = p.tid
+         WHERE p.trd_dd >= to_date(%(start)s, 'YYYYMMDD')) w
  GROUP BY w.ticker
 """
 

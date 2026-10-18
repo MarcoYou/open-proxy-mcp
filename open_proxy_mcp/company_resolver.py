@@ -316,7 +316,7 @@ def _database_market_context() -> MarketContext | None:
     261018: 원천을 `krx_weekly` 이번 주 행(max(price_dd))에서 `krx_daily` 로 옮겼다 — 다음 단계에서 `krx_weekly` 는
     닫힌 주만 남기므로 거기서 읽으면 최신일 단면이 일주일까지 낡는다. 기준일과 행은 같은 원천에서 읽는다
     (`krx_daily` 가 비거나 실패하면 `krx_weekly` 로 돌지 않고 None → `load_market_context` 의 이전 맥락 유지·로컬 폴백).
-    🔴 `price_latest` 는 쓰지 않는다 — 보관 창(7거래일) 안에서 상장폐지된 종목의 옛 날짜 행이 남아 명부에 섞인다.
+    🔴 `price_latest` 는 쓰지 않는다 — 보관 창(약 1년) 안에서 상장폐지된 종목의 옛 날짜 행이 남아 명부에 섞인다.
     단면에는 사실값 칸과 `mktcap` 만 고른다(`chg`·`prev_*` 같은 창 칸을 고르면 같은 질의가 몇 배 느려진다)."""
     url = os.getenv("DATABASE_URL")
     if not url:
@@ -324,8 +324,10 @@ def _database_market_context() -> MarketContext | None:
     try:
         import psycopg
 
+        from open_proxy_mcp.krx_daily import LATEST_DAY_SQL
+
         with psycopg.connect(url, connect_timeout=1) as conn:
-            latest = conn.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()
+            latest = conn.execute(LATEST_DAY_SQL).fetchone()      # 261019: 달력(krx_day) — 호환 뷰의 max 는 1년치 조인
             as_of_date = str(latest[0]) if latest and latest[0] else ""
             if not as_of_date:
                 return None

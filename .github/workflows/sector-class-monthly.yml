@@ -92,11 +92,12 @@ jobs:
               if obs < 1000:
                   raise SystemExit(f"::error::최신 시점 관측 종목이 {obs}개 — 1,000 미만이면 불완전 수집")
               # 시세와 조인되는지(섹터 집계가 실제로 되는 상태인가).
-              # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주(주마다 마지막 거래일)만 담고, 최근 7거래일은 일별 저장분 krx_daily 에 있다.
+              # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주(주마다 마지막 거래일)만 담고, 최근 약 1년은 일별 저장분 krx_daily 에 있다
+              #   (261019: 일별 최신일·날짜는 달력 krx_day 에서 읽는다 — 호환 뷰 위의 max(trd_dd) 는 1년치 조인을 다 푼다).
               #   분류 기준일(보통 월말 거래일)은 주중일 때가 많아 krx_weekly 정확일자로는 0건이 정상이다 — 「기준일 이하 가장 늦은 시세일」로
               #   두 표를 함께 보고 조인한다(집계 스크립트도 같은 날 이하 최신 시세를 쓴다).
               pd = c.execute("""SELECT max(d) FROM (SELECT max(price_dd) d FROM krx_weekly WHERE price_dd <= %s
-                                UNION ALL SELECT max(trd_dd) FROM krx_daily WHERE trd_dd <= %s) x""",
+                                UNION ALL SELECT max(dd) FROM krx_day WHERE n > 0 AND dd <= %s) x""",
                              (latest, latest)).fetchone()[0]
               j = c.execute("""SELECT count(*) FROM wise_sector w
                                JOIN (SELECT ticker FROM krx_daily WHERE trd_dd=%s

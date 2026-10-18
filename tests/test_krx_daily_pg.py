@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib.util
 import pathlib
 import sys
+from datetime import date
 
 import pytest
 
@@ -26,22 +27,62 @@ def _ddl():
     return mod
 
 
+#: 옛(261018) 일별 표 — 교체 리허설용.
+OLD_KRX_DAILY_DDL = """CREATE TABLE krx_daily (trd_dd text NOT NULL, ticker text NOT NULL, market text, open bigint, high bigint,
+  low bigint, close bigint, volume bigint, value bigint, list_shrs bigint, PRIMARY KEY (trd_dd, ticker));
+CREATE INDEX idx_krx_daily_isu ON krx_daily (ticker, trd_dd);
+ALTER TABLE krx_daily ENABLE ROW LEVEL SECURITY;
+CREATE POLICY krx_daily_read ON krx_daily FOR SELECT USING (true);
+CREATE VIEW krx_daily_v WITH (security_invoker = true) AS
+SELECT d.trd_dd, d.ticker, d.market, d.open, d.high, d.low, d.close, d.volume, d.value, d.list_shrs,
+       d.close * d.list_shrs AS mktcap, lag(d.trd_dd) OVER w AS prev_dd, lag(d.close) OVER w AS prev_close,
+       d.close - NULLIF(lag(d.close) OVER w, 0) AS chg,
+       round((d.close - lag(d.close) OVER w)::numeric * 100 / NULLIF(lag(d.close) OVER w, 0), 2) AS chg_pct
+FROM krx_daily d WINDOW w AS (PARTITION BY d.ticker ORDER BY d.trd_dd);
+CREATE VIEW price_latest WITH (security_invoker = true) AS
+SELECT DISTINCT ON (v.ticker) v.trd_dd, v.trd_dd AS price_dd, v.ticker, v.market, v.open, v.high, v.low, v.close,
+       v.volume, v.value, v.list_shrs, v.mktcap, v.prev_dd, v.prev_close, v.chg, v.chg_pct
+FROM krx_daily_v v ORDER BY v.ticker, v.trd_dd DESC;"""
+
 KRX_WEEKLY_DDL = """CREATE TABLE IF NOT EXISTS krx_weekly (
   price_dd text NOT NULL, ticker text NOT NULL, market text,
   close bigint, mktcap bigint, list_shrs bigint,
   PRIMARY KEY (price_dd, ticker));"""
 
 
-def _row(code, close, *, o=None, h=None, l=None, vol=1000, val=5_000_000, shrs=1_000_000):
+def _row(code, close, *, o=None, h=None, l=None, vol=1000, val=5_000_000, shrs=1_000_000, cmp=None):
+    """KRX 응답 한 행. cmp = 공표 전일대비(CMPPREVDD_PRC) — 주지 않으면 칸이 없다(공표값이 보관되지 않은 행, 예: 교체 때 옮겨 온 행)."""
     f = lambda n: None if n is None else f"{n:,}"   # noqa: E731 — KRX 는 쉼표 문자열로 준다
-    return {"ISU_CD": code, "TDD_CLSPRC": f(close), "TDD_OPNPRC": f(o if o is not None else close),
-            "TDD_HGPRC": f(h if h is not None else close), "TDD_LWPRC": f(l if l is not None else close),
-            "ACC_TRDVOL": f(vol), "ACC_TRDVAL": f(val), "LIST_SHRS": f(shrs), "MKTCAP": f(close * shrs),
-            "MKT_NM": "KOSPI", "FLUC_RT": "0.00", "CMPPREVDD_PRC": "0"}
+    r = {"ISU_CD": code, "TDD_CLSPRC": f(close), "TDD_OPNPRC": f(o if o is not None else close),
+         "TDD_HGPRC": f(h if h is not None else close), "TDD_LWPRC": f(l if l is not None else close),
+         "ACC_TRDVOL": f(vol), "ACC_TRDVAL": f(val), "LIST_SHRS": f(shrs), "MKTCAP": f(close * shrs),
+         "MKT_NM": "KOSPI", "FLUC_RT": "0.00"}
+    if cmp is not None:
+        r["CMPPREVDD_PRC"] = f(cmp)
+    return r
 
 
 def _apply(url):
     _ddl().apply(url)
+
+
+def put_daily(c, rows):
+    """시험용 — 옛 표 모양의 행 (trd_dd, ticker, market KS/KQ, close, list_shrs[, open, high, low, volume, value, cmp]) 을 새 표
+    (번호표·달력·사실값)에 넣는다(`INSERT INTO krx_daily …` 대신 — 이제 그 이름은 뷰다). 달력의 행 수·주 닫는 날도 쓰는 쪽처럼 맞춘다.
+    `c` 는 psycopg 연결(트랜잭션 또는 autocommit)."""
+    rows = [tuple(r) + (None,) * (11 - len(r)) for r in rows]
+    tickers = sorted({r[1] for r in rows})
+    c.execute(krx_daily.NEW_TICKERS_SQL, (tickers,))
+    tids = dict(c.execute(krx_daily.TIDS_SQL, (tickers,)).fetchall())
+    for d in sorted({r[0] for r in rows}):
+        c.execute("INSERT INTO krx_day (trd_dd, dd, n) VALUES (%s, %s, 0) ON CONFLICT (trd_dd) DO NOTHING",
+                  (date(int(d[:4]), int(d[4:6]), int(d[6:])), d))
+    with c.cursor() as cur, cur.copy(krx_daily.COPY_PX_SQL) as cp:
+        for dd, t, m, close, shrs, o, h, lo, vol, val, cmp in rows:
+            cp.write_row((val, vol, shrs, o, h, lo, close, cmp, date(int(dd[:4]), int(dd[4:6]), int(dd[6:])), tids[t],
+                          {"KS": "S", "KQ": "Q"}[m]))
+    c.execute("UPDATE krx_day d SET n = (SELECT count(*) FROM krx_px p WHERE p.trd_dd = d.trd_dd)")
+    c.execute(krx_daily.WK_CLOSE_SQL)
 
 
 def _write(url, dd, kospi, kosdaq):
@@ -58,24 +99,68 @@ def test_ddl_is_idempotent_and_creates_everything(pg17):
     _apply(pg17)                                        # 두 번째도 오류 없이 같은 결과
     with psycopg.connect(pg17) as c:
         rels = dict(c.execute("SELECT relname, relkind FROM pg_class WHERE relname IN "
-                              "('krx_daily','krx_daily_v','price_latest','idx_krx_daily_isu')").fetchall())
-        assert rels == {"krx_daily": "r", "krx_daily_v": "v", "price_latest": "v", "idx_krx_daily_isu": "i"}
+                              "('krx_px','krx_day','krx_ticker','krx_daily','krx_daily_v','price_latest','krx_px_dd_brin','krx_px_pkey')").fetchall())
+        assert rels == {"krx_px": "r", "krx_day": "r", "krx_ticker": "r", "krx_daily": "v", "krx_daily_v": "v", "price_latest": "v",
+                        "krx_px_dd_brin": "i", "krx_px_pkey": "i"}
         pk = c.execute("SELECT string_agg(a.attname, ',' ORDER BY k.ord) FROM pg_index i "
                        "JOIN LATERAL unnest(i.indkey) WITH ORDINALITY k(attnum, ord) ON true "
                        "JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.attnum "
-                       "WHERE i.indrelid='krx_daily'::regclass AND i.indisprimary").fetchone()[0]
-        assert pk == "trd_dd,ticker"
-        idx = c.execute("SELECT pg_get_indexdef('idx_krx_daily_isu'::regclass)").fetchone()[0]
-        assert "(ticker, trd_dd)" in idx
-        cols = [r[0] for r in c.execute("SELECT column_name FROM information_schema.columns "
-                                        "WHERE table_name='krx_daily' ORDER BY ordinal_position").fetchall()]
-        assert cols == ["trd_dd", "ticker", "market", "open", "high", "low", "close", "volume", "value", "list_shrs"]
-        assert "mktcap" not in cols and "chg_pct" not in cols       # 사실값만 저장한다
-        assert c.execute("SELECT relrowsecurity FROM pg_class WHERE relname='krx_daily'").fetchone()[0] is True
-        pol = c.execute("SELECT policyname, cmd, qual FROM pg_policies WHERE tablename='krx_daily'").fetchall()
-        assert pol == [("krx_daily_read", "SELECT", "true")]
-        opts = dict(c.execute("SELECT relname, reloptions FROM pg_class WHERE relname IN ('krx_daily_v','price_latest')").fetchall())
-        assert all(v == ["security_invoker=true"] for v in opts.values())
+                       "WHERE i.indrelid='krx_px'::regclass AND i.indisprimary").fetchone()[0]
+        assert pk == "tid,trd_dd"
+        assert "USING brin (trd_dd)" in c.execute("SELECT pg_get_indexdef('krx_px_dd_brin'::regclass)").fetchone()[0]
+        types = c.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name='krx_px' "
+                          "ORDER BY ordinal_position").fetchall()
+        assert types == [("value", "bigint"), ("volume", "bigint"), ("list_shrs", "bigint"), ("open", "integer"), ("high", "integer"),
+                         ("low", "integer"), ("close", "integer"), ("cmp", "integer"), ("trd_dd", "date"), ("tid", "integer"),
+                         ("market", '"char"')]
+        assert [r[0] for r in c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='krx_day' "
+                                        "ORDER BY ordinal_position").fetchall()] == ["trd_dd", "dd", "n", "closed", "wk_close", "cold"]
+        # 옛 표와 같은 칸 이름·순서·형(호환 뷰) — 읽는 쪽은 그대로 읽는다
+        cols = c.execute("SELECT column_name, data_type FROM information_schema.columns "
+                         "WHERE table_name='krx_daily' ORDER BY ordinal_position").fetchall()
+        assert cols == [("trd_dd", "text"), ("ticker", "text"), ("market", "text"), ("open", "bigint"), ("high", "bigint"),
+                        ("low", "bigint"), ("close", "bigint"), ("volume", "bigint"), ("value", "bigint"), ("list_shrs", "bigint")]
+        vcols = [r[0] for r in c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='krx_daily_v' "
+                                         "ORDER BY ordinal_position").fetchall()]
+        assert vcols == ["trd_dd", "ticker", "market", "open", "high", "low", "close", "volume", "value", "list_shrs", "mktcap",
+                         "prev_dd", "prev_close", "chg", "chg_pct", "krx_chg", "krx_chg_pct"]
+        for t in ("krx_px", "krx_day", "krx_ticker"):
+            assert c.execute("SELECT relrowsecurity FROM pg_class WHERE relname=%s", (t,)).fetchone()[0] is True
+            assert c.execute("SELECT policyname, cmd, qual FROM pg_policies WHERE tablename=%s", (t,)).fetchall() == \
+                [(f"{t}_read", "SELECT", "true")]
+        opts = dict(c.execute("SELECT relname, reloptions FROM pg_class WHERE relname IN ('krx_daily','krx_daily_v','price_latest')").fetchall())
+        assert len(opts) == 3 and all(v == ["security_invoker=true"] for v in opts.values())
+        assert "autovacuum_vacuum_scale_factor=0.02" in c.execute("SELECT reloptions FROM pg_class WHERE relname='krx_px'").fetchone()[0]
+
+
+def test_ddl_full_mode_refuses_an_old_table_and_shadow_then_switch_rehearses_the_production_cutover(pg17):
+    """운영 순서 리허설: 옛 표(7거래일) → --shadow(새 표 + 그림자 뷰, 옛 표 그대로) → --switch(옛 표를 krx_daily_legacy 로, 같은 이름 뷰, G2 관문)."""
+    ddl = _ddl()
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("CREATE TABLE krx_reset_sweep_checkpoint (price_dd text PRIMARY KEY, n_stocks int)")
+        c.execute("INSERT INTO krx_reset_sweep_checkpoint VALUES ('20261009', 0), ('20261008', 2700)")
+        c.execute(OLD_KRX_DAILY_DDL)
+        for i, dd in enumerate(("20261007", "20261008", "20261012")):
+            c.execute("INSERT INTO krx_daily VALUES (%s,'005930','KS',1,2,0,%s,10,100,1000), (%s,'0001A0','KQ',1,2,0,%s,10,100,50)",
+                      (dd, 70_000 + i * 100, dd, 9_000 + i))
+    with pytest.raises(SystemExit):
+        ddl.apply(pg17, "full")                                         # 옛 표가 있는 DB 에 새 DB 판을 덮지 않는다
+    ddl.apply(pg17, "shadow")
+    with psycopg.connect(pg17) as c:
+        assert c.execute("SELECT relkind FROM pg_class WHERE relname='krx_daily'").fetchone()[0] == "r"
+        assert c.execute("SELECT count(*) FROM krx_daily_s").fetchone()[0] == 0
+    ddl.apply(pg17, "switch")                                           # 델타(옛 표의 3일) 이관 + 휴장 1일 + 이름 바꾸기 + G2 0
+    with psycopg.connect(pg17) as c:
+        kinds = dict(c.execute("SELECT relname, relkind FROM pg_class WHERE relname IN "
+                               "('krx_daily','krx_daily_legacy','krx_daily_s','price_latest_s')").fetchall())
+        assert kinds == {"krx_daily": "v", "krx_daily_legacy": "r"}
+        assert c.execute("SELECT * FROM krx_daily ORDER BY 1, 2").fetchall() == \
+            c.execute("SELECT * FROM krx_daily_legacy ORDER BY 1, 2").fetchall()
+        assert c.execute("SELECT dd, n, closed FROM krx_day ORDER BY 1").fetchall() == [
+            ("20261007", 2, False), ("20261008", 2, False), ("20261009", 0, True), ("20261012", 2, False)]
+        assert c.execute("SELECT count(*) FROM krx_px WHERE cmp IS NULL").fetchone()[0] == 6     # 옮겨 온 행은 공표 대비가 비어 있다
+    with pytest.raises(SystemExit):
+        ddl.apply(pg17, "switch")                                       # 두 번 교체하지 않는다
 
 
 def test_no_grants_for_anon_or_authenticated_even_with_default_privileges(pg17):
@@ -86,7 +171,7 @@ def test_no_grants_for_anon_or_authenticated_even_with_default_privileges(pg17):
         assert c.execute("SELECT has_table_privilege('anon','control_t','SELECT')").fetchone()[0] is True
     _apply(pg17)
     with psycopg.connect(pg17) as c:
-        for obj in ("krx_daily", "krx_daily_v", "price_latest"):
+        for obj in ("krx_daily", "krx_daily_v", "price_latest", "krx_px", "krx_day", "krx_ticker"):
             for role in ("anon", "authenticated"):
                 for priv in ("SELECT", "INSERT", "UPDATE", "DELETE"):
                     assert c.execute("SELECT has_table_privilege(%s,%s,%s)", (role, obj, priv)).fetchone()[0] is False, \
@@ -94,6 +179,7 @@ def test_no_grants_for_anon_or_authenticated_even_with_default_privileges(pg17):
         # 서버가 쓰는 역할과 읽기 전용 역할은 그대로 읽는다 — opm_ro 는 이 테스트의 기본 권한에 없으므로 DDL 의 GRANT 덕분이다
         assert c.execute("SELECT has_table_privilege('opm_ro','krx_daily','SELECT')").fetchone()[0] is True
         assert c.execute("SELECT has_table_privilege('opm_ro','price_latest','SELECT')").fetchone()[0] is True
+        assert c.execute("SELECT has_table_privilege('opm_ro','krx_day','SELECT')").fetchone()[0] is True
         assert c.execute("SELECT has_table_privilege('service_role','krx_daily','SELECT')").fetchone()[0] is True
 
 
@@ -189,32 +275,42 @@ def test_write_daily_is_idempotent_for_the_same_day(pg17):
         assert c.execute("SELECT close FROM krx_daily WHERE ticker='005930'").fetchone()[0] == 72_000
 
 
-def test_rolling_keeps_only_the_7_most_recent_distinct_days(pg17):
+def test_rolling_window_is_one_year_and_only_cold_archived_days_are_deleted(pg17, caplog):
+    """보관 창 = 최신 거래일 − 달력 1년 − 1주. 그보다 오래된 날은 휴장일·콜드 보관본에 들어간 날(cold)만 지우고, 나머지는 남긴 채 경고한다."""
     _apply(pg17)
-    days = ["20261005", "20261006", "20261007", "20261008", "20261012", "20261013", "20261014",   # 10/9 한글날 휴장 포함 — 날짜 연속성이 아니라 「서로 다른 날 7개」
-            "20261015", "20261016"]
-    pruned_seen = []
-    for i, d in enumerate(days):
-        ok, n, pruned = _write(pg17, d, [_row("005930", 100 + i), _row("000660", 200 + i)], [_row("247540", 300 + i)])
-        assert ok and n == 3
-        pruned_seen.append(pruned)
-        with psycopg.connect(pg17) as c:
-            kept = [r[0] for r in c.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1").fetchall()]
-        assert kept == days[max(0, i - 6): i + 1], f"{d} 직후 보관일: {kept}"
-    assert pruned_seen == [0] * 7 + [3, 3]            # 8번째·9번째 날에 가장 오래된 날(3행)이 하나씩 지워진다
+    for d in ("20251001", "20251002", "20251010", "20251013"):
+        _write(pg17, d, [_row("005930", 100), _row("000660", 200)], [_row("247540", 300)])
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("INSERT INTO krx_day (trd_dd, dd, n, closed) VALUES ('2025-10-03', '20251003', 0, true)")   # 개천절 휴장
+        c.execute("UPDATE krx_day SET cold = true WHERE dd = '20251001'")                                     # 2025년 보관본에 들어감
+    with caplog.at_level("WARNING"):
+        ok, n, pruned = _write(pg17, "20261016", [_row("005930", 101)], [])                                  # 창 첫날 20251009
+    assert ok and n == 1 and pruned == 3                                     # 20251001(콜드) 3행만 — 20251003 은 행 없는 휴장
     with psycopg.connect(pg17) as c:
-        assert c.execute("SELECT count(*) FROM krx_daily").fetchone()[0] == 7 * 3
+        assert [r[0] for r in c.execute("SELECT dd FROM krx_day ORDER BY 1").fetchall()] == ["20251002", "20251010", "20251013", "20261016"]
+        assert c.execute("SELECT count(*) FROM krx_daily WHERE trd_dd = '20251002'").fetchone()[0] == 3        # 콜드에 없어 남았다
+    assert any("콜드 보관본에 없어 지우지 않았다" in r.message and "20251002" in r.message for r in caplog.records)
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("UPDATE krx_day SET cold = true WHERE trd_dd < '2026-01-01'")                              # 2025년 보관본을 올린 쪽이 켠다
+    caplog.clear()
+    with caplog.at_level("WARNING"):
+        assert _write(pg17, "20261019", [_row("005930", 102)], [])[2] == 6                                   # 다음 기록 때 창 밖(< 20251012) 둘을 지운다
+    assert not any("콜드" in r.message for r in caplog.records)
+    with psycopg.connect(pg17) as c:
+        assert [r[0] for r in c.execute("SELECT dd FROM krx_day ORDER BY 1").fetchall()] == ["20251013", "20261016", "20261019"]
+        assert c.execute("SELECT count(*) FROM krx_px").fetchone()[0] == 3 + 1 + 1                           # 창 안의 날은 콜드여도 남는다
 
 
-def test_late_correction_of_old_day_does_not_resurrect_pruned_days(pg17):
-    """보관 창 밖의 옛 날짜가 뒤늦게 들어와도(재처리) 곧바로 다시 지워져 7일 창이 유지된다."""
+def test_calendar_n_matches_the_rows_and_a_rewrite_replaces_the_whole_day(pg17):
     _apply(pg17)
-    for d in ("20261008", "20261012", "20261013", "20261014", "20261015", "20261016", "20261019"):
-        _write(pg17, d, [_row("005930", 1)], [])
-    _write(pg17, "20261001", [_row("005930", 1)], [])
+    _write(pg17, "20261016", [_row("005930", 1), _row("000660", 2)], [_row("247540", 3)])
+    _write(pg17, "20261016", [_row("005930", 9)], [_row("247540", 3)])                                    # 정정 재수신 — 그 날을 통째로 바꾼다
     with psycopg.connect(pg17) as c:
-        kept = [r[0] for r in c.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1").fetchall()]
-    assert len(kept) == 7 and "20261001" not in kept
+        assert c.execute("SELECT n, closed FROM krx_day WHERE dd='20261016'").fetchone() == (2, False)
+        assert c.execute("SELECT ticker, close FROM krx_daily ORDER BY 1").fetchall() == [("005930", 9), ("247540", 3)]
+        # 번호는 새 종목에만 — 다시 써도 번호 생성기를 태우지 않는다
+        assert c.execute("SELECT max(tid), count(*) FROM krx_ticker").fetchone() == (3, 3)
+        assert c.execute("SELECT last_value FROM krx_ticker_tid_seq").fetchone()[0] == 3
 
 
 def test_upsert_writes_daily_first_and_copies_only_closed_weeks_to_weekly(pg17, monkeypatch):
@@ -309,21 +405,38 @@ def test_read_quote_on_empty_table_and_when_table_is_missing(pg17, quote_db):
     empty = krx_daily.read_quote("005930", "")
     assert empty.ok and empty.day is None and not empty.day_present and empty.row is None
     with psycopg.connect(pg17, autocommit=True) as c:
-        c.execute("DROP VIEW price_latest; DROP VIEW krx_daily_v; DROP TABLE krx_daily")
+        c.execute("DROP VIEW price_latest, krx_daily_v, krx_daily; DROP TABLE krx_px, krx_day, krx_ticker")
     assert krx_daily.read_quote("005930", "").ok is False                           # 읽을 수 없음 → 호출자는 KRX 라이브로
 
 
-def test_quote_query_plan_uses_the_ticker_index_for_large_tables(pg17):
-    """종목 조건이 뷰(LAG 창) 안으로 밀려 들어가 (ticker, trd_dd) 색인을 쓰는지 — 7일치 약 2만 행에서도 전체 창 계산을 하지 않는다."""
+def _fill_big(c, days=120, tickers=2800):
+    """보관 창 크기에 가까운 표 — 거래일 `days` 일 × `tickers` 종목. 날짜순으로 넣는다(쓰는 쪽과 같은 물리 순서)."""
+    c.execute("INSERT INTO krx_ticker (ticker) SELECT lpad(t::text, 6, '0') FROM generate_series(1, %s) t", (tickers,))
+    c.execute("INSERT INTO krx_day (trd_dd, dd, n) SELECT d, to_char(d, 'YYYYMMDD'), %s FROM "
+              "(SELECT d::date FROM generate_series(date '2026-03-02', date '2026-12-31', interval '1 day') d "
+              " WHERE extract(isodow FROM d) < 6 LIMIT %s) x", (tickers, days))
+    c.execute("INSERT INTO krx_px (value, volume, list_shrs, open, high, low, close, cmp, trd_dd, tid, market) "
+              "SELECT 100000, 100, 1000000, 1000, 1100, 900, 1000 + k.tid % 50, 10, d.trd_dd, k.tid, 'S' "
+              "FROM krx_day d CROSS JOIN krx_ticker k ORDER BY d.trd_dd, k.tid")
+    c.execute("ANALYZE krx_px, krx_day, krx_ticker")
+
+
+def test_request_path_queries_use_the_calendar_and_the_primary_key_on_a_year_sized_table(pg17):
+    """quote(한 왕복)·서빙 기준일·빠진 날 질의가 1년치 사실값 표를 훑지 않는다 — 창·날짜는 달력, 행은 기본키(운영 실측 304 ms → 0.23 ms)."""
     _apply(pg17)
     with psycopg.connect(pg17) as c:
-        c.execute("""INSERT INTO krx_daily SELECT to_char(date '2026-10-05' + d, 'YYYYMMDD'), lpad(t::text, 6, '0'), 'KS',
-                     1000, 1100, 900, 1000 + t % 50, 100, 100000, 1000000
-                     FROM generate_series(0, 6) d, generate_series(1, 2800) t""")
-        c.execute("ANALYZE krx_daily")
-        plan = "\n".join(r[0] for r in c.execute("EXPLAIN (COSTS OFF) " + krx_daily.QUOTE_SQL, ("20261010", "000777")).fetchall())
-    assert "Seq Scan on krx_daily d" not in plan, plan          # 뷰의 창 계산이 전 종목을 훑지 않는다
-    assert "idx_krx_daily_isu" in plan or "krx_daily_pkey" in plan, plan
+        _fill_big(c)
+        c.commit()
+        plan = "\n".join(r[0] for r in c.execute("EXPLAIN (COSTS OFF) " + krx_daily.QUOTE_SQL, ("20260610", "000777")).fetchall())
+        assert "Seq Scan on krx_px" not in plan, plan
+        assert "krx_px_pkey" in plan, plan
+        for sql, params in ((krx_daily.LATEST_DAY_SQL, None), (krx_daily.MISSING_SQL, {"exp": "2026-08-20"})):
+            p = "\n".join(r[0] for r in c.execute("EXPLAIN (COSTS OFF) " + sql, params).fetchall())
+            assert "krx_px" not in p, p                                     # 날짜 질의는 달력(수백 행)만 본다
+        # 단면(그 날 전 종목) — 직전 행 칸을 고르지 않으면 부분질의가 돌지 않는다
+        p = "\n".join(r[0] for r in c.execute("EXPLAIN (COSTS OFF) SELECT ticker, mktcap FROM krx_daily_v WHERE trd_dd = %s",
+                                               ("20260610",)).fetchall())
+        assert "SubPlan" not in p and "Seq Scan on krx_px" not in p, p
 
 
 # ── 갱신기 전체 흐름: 진짜 세션 잠금 + 진짜 쓰기 ───────────────────────────────────
@@ -346,7 +459,7 @@ def refresher_env(pg17, monkeypatch):
     monkeypatch.setattr("open_proxy_mcp.db.pg_rows", pg_rows)
     fetches = []
 
-    async def fake_fetch(basDd):
+    async def fake_fetch(basDd, both=False):
         import asyncio
         fetches.append(basDd)
         await asyncio.sleep(0.2)                       # 다른 머신이 끼어들 시간
@@ -411,22 +524,24 @@ def test_a_crashed_holder_releases_the_lock_when_its_connection_dies(pg17):
     b.close()
 
 
-def test_seven_trading_days_of_refresher_cycles_roll_the_window(pg17, refresher_env):
-    """평일 8일치 아침 틱을 실제 쓰기까지 돌려 7거래일 창이 굴러가는지(8일째에 첫날이 빠지는지) 끝에서 끝까지 본다."""
+def test_refresher_cycles_keep_every_day_and_fill_a_morning_the_server_missed(pg17, refresher_env):
+    """평일 아침 틱을 실제 쓰기까지 돌린다 — 보관 창이 1년이라 8일 동안 지워지는 날이 없고, 서버가 하루 멈췄던 날(10/16 아침 틱 없음 → 10/15 빠짐)은
+    다음 아침에 기대 거래일과 함께 메운다. krx_weekly 는 닫힌 주만."""
     import asyncio
     from datetime import datetime
     from open_proxy_mcp.clock import KST
     R, fetches = refresher_env
-    mornings = [datetime(2026, 10, d, 8, 0, tzinfo=KST) for d in (13, 14, 15, 16, 19, 20, 21, 22)]    # 연속 평일 8일(월요일 아침의 기대일은 금요일)
-    for now in mornings:
-        res = asyncio.run(R.run_cycle(now))
-        assert res.outcome == "refreshed", (now, res)
-    assert fetches == ["20261012", "20261013", "20261014", "20261015", "20261016", "20261019", "20261020", "20261021"]
+    mornings = [datetime(2026, 10, d, 8, 0, tzinfo=KST) for d in (13, 14, 15, 19, 20, 21, 22)]    # 16일(금) 아침 틱이 없다
+    outs = [asyncio.run(R.run_cycle(now)) for now in mornings]
+    assert [o.outcome for o in outs] == ["refreshed"] * 7, outs
+    assert outs[3].filled == ("20261015",)                    # 월요일 아침: 기대 = 금 16일, 빠진 목 15일도 함께
+    assert fetches == ["20261012", "20261013", "20261014", "20261016", "20261015", "20261019", "20261020", "20261021"]
     with psycopg.connect(pg17) as c:
-        days = [r[0] for r in c.execute("SELECT DISTINCT trd_dd FROM krx_daily ORDER BY 1").fetchall()]
+        days = [r[0] for r in c.execute("SELECT dd FROM krx_day WHERE n > 0 ORDER BY 1").fetchall()]
         weekly = [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly ORDER BY 1").fetchall()]
-    assert days == fetches[1:]                                # 8일치를 썼지만 가장 오래된 날이 빠져 7일
-    assert weekly == ["20261016"]                             # krx_weekly 는 닫힌 주만 — 지난주 금요일. 이번 주(19~21)는 일별에만 있다
+        wk_close = [r[0] for r in c.execute("SELECT dd FROM krx_day WHERE wk_close ORDER BY 1").fetchall()]
+    assert days == sorted(fetches)                            # 다 남는다(1년 창)
+    assert weekly == ["20261016"] and wk_close == ["20261016"]   # 닫힌 주 — 지난주 금요일. 이번 주(19~21)는 일별에만 있다
 
 
 def test_server_startup_runs_one_refresh_cycle_and_shutdown_is_clean(pg17, refresher_env, monkeypatch):

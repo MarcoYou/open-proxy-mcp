@@ -1,4 +1,4 @@
-"""trading_data(scope=quote) — 최근 7거래일은 DB, 그 이전은 KRX 라이브(날짜별 LRU) · 요청 경로는 KRX 를 부르지 않는다.
+"""trading_data(scope=quote) — 최근 약 1년은 DB, 그 이전은 KRX 라이브(날짜별 LRU) · 요청 경로는 KRX 를 부르지 않는다.
 
 네트워크 0 · 운영 DB 0 — `read_quote`·KRX 호출을 가짜로 바꿔 끼워 갈림길과 호출 수를 검사한다.
 """
@@ -79,7 +79,7 @@ def test_recent_day_is_answered_from_db_with_zero_krx_calls(monkeypatch):
                           "mktcap_krw": 420_294_092_462_000, "list_shrs": 5_919_637_922, "change_pct": 1.43}
     assert isinstance(d["quote"]["change_pct"], float)                       # Decimal 이 JSON 으로 새지 않는다
     assert d["price_adjusted"] is False and p["warnings"] == []
-    assert "7거래일" in d["method"] and "실제 체결가" in d["method"]
+    assert "최근 약 1년" in d["method"] and "실제 체결가" in d["method"] and "KRX 공표값" in d["method"]
 
 
 def test_db_and_live_payloads_have_the_same_shape_and_values():
@@ -382,13 +382,13 @@ def _sql_spy(monkeypatch, answers):
 
 
 def test_serving_date_reads_krx_daily_and_never_krx_weekly(monkeypatch):
-    seen = _sql_spy(monkeypatch, {"SELECT max(trd_dd) FROM krx_daily": [("20261016",)],
+    seen = _sql_spy(monkeypatch, {"SELECT max(dd) FROM krx_day WHERE n > 0": [("20261016",)],
                                   "SELECT MAX(price_dd) FROM krx_weekly": [("20261009",)]})
     pmd._serving_dd_invalidate()
     assert asyncio.run(pmd._serving_price_dd()) == "20261016"            # krx_weekly 최신 주(지난주)가 아니라 일별 저장분의 최신일
-    assert [s for s, _ in seen] == ["SELECT max(trd_dd) FROM krx_daily"]
+    assert [s for s, _ in seen] == ["SELECT max(dd) FROM krx_day WHERE n > 0"]
     # 일별 저장분을 못 읽거나 비면 None — krx_weekly 로 대신하지 않는다(기준일과 행은 같은 원천에서). 호출자는 라이브로 간다
-    for ans in ({}, {"SELECT max(trd_dd) FROM krx_daily": [(None,)]}):
+    for ans in ({}, {"SELECT max(dd) FROM krx_day WHERE n > 0": [(None,)]}):
         pmd._serving_dd_invalidate()
         seen = _sql_spy(monkeypatch, {**ans, "SELECT MAX(price_dd) FROM krx_weekly": [("20261009",)]})
         assert asyncio.run(pmd._serving_price_dd()) is None
@@ -453,6 +453,34 @@ def test_markdown_shows_a_dash_not_none_when_the_change_is_unavailable(monkeypat
     assert "None" not in md and "| 대비 | - (-) |" in md
     p2 = _quote(monkeypatch, _lookup(_db_row()), as_of="20261016")
     assert "| 대비 | 1,000원 (1.43%) |" in _render_quote(p2)
+
+
+# ── KRX 공표 대비를 보관한 행 (261019 재설계 v03) ─────────────────────────────────────
+
+def test_published_change_is_used_as_is_even_where_the_stored_previous_close_cannot_be_trusted(monkeypatch):
+    """보관한 공표 대비(`krx_chg`·`krx_chg_pct`)가 있으면 그것이 대비·등락률이다 — 휴장 다음 날(직전 평일 행 없음)·분할일(±30% 밖)에도
+    KRX 를 부르지 않는다(종전에는 날짜당 2콜로 공표값을 받았다). KRX 라이브 경로와 같은 값이다."""
+    monkeypatch.setattr(T, "_krx_quote_row", _no_krx_async)
+    for kw in (dict(prev_dd="20261014"),                                              # 15일이 휴장이었다
+               dict(prev_close=500_000, chg=-429_000, chg_pct=Decimal("-85.80"))):     # 분할일 — 직전 종가 대비는 뜻이 없다
+        p = _quote(monkeypatch, _lookup(_db_row(krx_chg=1_000, krx_chg_pct=Decimal("1.43"), **kw)), as_of="20261016")
+        q = p["data"]["quote"]
+        assert p["data"]["source"] == "db" and (q["change_krw"], q["change_pct"]) == (1_000, 1.43) and p["warnings"] == []
+    q_db, _ = T._quote_from_db_row(_db_row(chg=7, chg_pct=Decimal("0.01"), krx_chg=1_000, krx_chg_pct=Decimal("1.43")))
+    q_live, _ = T._quote_from_krx_row(_krx_row())
+    assert q_db == q_live and isinstance(q_db["change_pct"], float)
+
+
+def test_rows_without_a_published_change_keep_the_old_reliability_rule(monkeypatch):
+    """공표 대비가 비어 있는 행(교체 때 옛 표에서 옮겨 온 날)은 종전 규칙 그대로 — 믿을 수 없으면 KRX 공표값을 받는다."""
+    seen = []
+
+    async def live(dd, ticker):
+        seen.append(dd)
+        return _krx_row()
+    monkeypatch.setattr(T, "_krx_quote_row", live)
+    p = _quote(monkeypatch, _lookup(_db_row(prev_dd="20261014", krx_chg=None, krx_chg_pct=None)), as_of="20261016")
+    assert seen == ["20261016"] and p["data"]["source"] == "krx_live"
 
 
 # ── 대비·등락률을 믿을 수 있나 (`_change_is_reliable`) ───────────────────────────────

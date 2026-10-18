@@ -66,7 +66,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
-from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
+from open_proxy_mcp.krx_daily import LATEST_DAY_SQL, WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_cutoff, week_unit
 
 DDL = """
@@ -210,7 +210,7 @@ def main() -> int:
         print("krx_weekly 비어 있음 — 먼저 시세를 적재한다")
         return 1
     # 원천 최신 = 닫힌 주와 일별 최신 거래일 중 늦은 쪽(이번 주 임시 점). 보존 하한은 표를 자르는 쪽과 같게 krx_weekly 최신에서 잰다.
-    daily_max = con.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+    daily_max = con.execute(LATEST_DAY_SQL).fetchone()[0]          # 261019: 일별 최신일 = 달력(krx_day)
     source_max = max(weekly_max, daily_max or "")
     latest_sector_asof, agg_latest = con.execute(
         "SELECT max(sector_asof) FILTER (WHERE scheme <> 'market'), max(price_dd) FILTER (WHERE scheme = 'market') FROM krx_cap_agg"

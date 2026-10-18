@@ -152,7 +152,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
   261018(재설계 5-1 쓰는 쪽): 스냅샷 시총은 일별 시세 저장분(`krx_daily_v`)의 그 날 단면에서 읽는다 — 주간 시세 저장분은 닫힌 주만 담는다.
   그 날 종목이 1,500 미만이면 기존 스냅샷을 지우지 않고 실패로 끝낸다(종전엔 0행 저장 후 「완료」).
   261018: 시세 갱신의 주 담당은 서버 백그라운드 작업(`krx_refresher`)이다 — 이 배치는 서버가 못 했을 때의 예비이고,
-  서버가 이미 갱신했으면 DB 가 최신이라 시세 콜을 하지 않는다. 같은 응답을 최근 7거래일 일별 시세에도 함께 쓴다([[trading_data]]).
+  서버가 이미 갱신했으면 DB 가 최신이라 시세 콜을 하지 않는다. 같은 응답을 일별 시세(최근 약 1년)에도 함께 쓴다([[trading_data]]).
 - **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
   (1회성, DART 0콜)가 채운 과거 78개 월말 — 시장 156행 + 섹터 11,014행, FY0·TTM·MRQ 세 기준 모두 백필
   완료(260706, 최초엔 FY0만이었으나 분기 백필 완주 후 확장). "2020년부터 코스피 PER/PBR 추이" 응답 가능.
@@ -197,7 +197,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
 | 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + 환율 캐시 저장분 | 기능통화 · 기말환율 | 비KRW → 재무 KRW 환산 |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
-| 시세 | **일별 시세 저장분(최근 7거래일)** 우선 — 기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest` → 미스(그날 행 없는 신규상장·거래정지 등)만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap(종가×상장주식수) · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
+| 시세 | **일별 시세 저장분(최근 약 1년)** 우선 — 기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest` → 미스(그날 행 없는 신규상장·거래정지 등)만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap(종가×상장주식수) · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
 | 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) | 배당수익률 |
 
 ## 연산 파이프라인

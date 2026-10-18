@@ -36,6 +36,8 @@ def _old_shape(c):
                  sector text NOT NULL, industry_code text NOT NULL, industry text NOT NULL, PRIMARY KEY (snap_dd, ticker))""")
     c.execute("CREATE TABLE krx_weekly (price_dd text NOT NULL, ticker text NOT NULL, PRIMARY KEY (price_dd, ticker))")
     c.execute("CREATE TABLE krx_daily (trd_dd text NOT NULL, ticker text NOT NULL, PRIMARY KEY (trd_dd, ticker))")
+    # 261019: 일별 저장분의 날짜(최신일·「이하 가장 늦은 날」)는 달력에서 읽는다
+    c.execute("CREATE TABLE krx_day (dd text PRIMARY KEY, n integer NOT NULL DEFAULT 0)")
 
 
 def _obs(c, snap, rows):
@@ -48,6 +50,9 @@ def _listed(c, table, dd, tickers):
     col = "price_dd" if table == "krx_weekly" else "trd_dd"
     with c.cursor() as cur:
         cur.executemany(f"INSERT INTO {table} ({col}, ticker) VALUES (%s,%s)", [(dd, t) for t in [*tickers, *FILLER]])
+    if table == "krx_daily":
+        c.execute("INSERT INTO krx_day (dd, n) SELECT %s, count(*) FROM krx_daily WHERE trd_dd = %s "
+                  "ON CONFLICT (dd) DO UPDATE SET n = EXCLUDED.n", (dd, dd))
 
 
 def _snap(c, snap):
