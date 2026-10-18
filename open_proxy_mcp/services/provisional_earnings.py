@@ -495,9 +495,13 @@ async def build_provisional_earnings_payload(
                    "rcept_dt": rept.get("rcept_dt"), "url": url},
         **parsed,
     }
+    # 컨센서스와 맞댔을 때만 칸을 붙인다(261018 결정). 모르거나 없거나 맞댈 수 없으면 칸 없이 파싱 값만 —
+    # 월간·커버리지 밖·이력 밖·DB 장애·연결/별도 불일치의 이유는 `_consensus_gap` 이 status·why 로 내지만 싣지 않는다.
     try:
-        data["consensus_gap"] = await _consensus_gap(parsed, corp.get("stock_code"), rept.get("rcept_dt") or "")
-    except Exception as e:  # noqa: BLE001 — 비교 칸이 실패해도 잠정 실적값은 그대로 낸다
-        data["consensus_gap"] = {"status": "unknown", "why": f"컨센서스 대비 계산 실패({type(e).__name__}) — 잠정 실적값은 정상이다"}
+        gap = await _consensus_gap(parsed, corp.get("stock_code"), rept.get("rcept_dt") or "")
+    except Exception:  # noqa: BLE001 — 비교 칸이 실패해도 잠정 실적값은 그대로 낸다
+        gap = None
+    if gap and gap.get("status") == "ok":
+        data["consensus_gap"] = gap
     return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.EXACT,
                         subject=corp.get("corp_name", ""), data=data, warnings=warnings).to_dict()

@@ -4,7 +4,8 @@
 지키는 것:
 ① 기준일 = 공시일 **전**(`as_of < 공시일`)의 가장 최근 스냅샷 — 공시 뒤에 고친 추정은 쓰지 않는다(삼성전자 2026.09).
 ② 연결/별도가 다르면 계산하지 않는다(대한항공 2026.09 별도 잠정 vs 연결 컨센서스 매출 −31.5% 가짜 차이).
-③ 「없다」가 아니라 「모른다」 — 커버리지 밖 · 이력 밖 · DB 장애를 서로 다른 상태로.
+③ 「없다」가 아니라 「모른다」 — 커버리지 밖 · 이력 밖 · DB 장애를 서로 다른 상태로 가른다(서비스).
+   도구는 ok 일 때만 칸을 싣는다 — 모르거나 맞댈 수 없으면 칸 없이 파싱 값만(261018 결정).
 ④ 월간·연간·누적·비재무형은 DB 를 묻기 전에 거른다(261018 실측 39건 중 월간 26건).
 ⑤ 원문 값(headline)은 그대로 — 비교 칸만 더한다. 칸 계산이 터져도 잠정 실적은 나간다.
 """
@@ -290,12 +291,20 @@ def test_gap_crash_does_not_break_payload(monkeypatch):
         raise RuntimeError("x")
     p = _builder(monkeypatch, boom)
     assert p["status"] == "exact" and p["data"]["headline"]["revenue"]["value_krw"] == 4399 * 1e8
-    assert p["data"]["consensus_gap"]["status"] == "unknown"
+    assert "consensus_gap" not in p["data"]
 
 
-def test_render_unknown_states_say_dont_know():
-    for status, label in (("out_of_coverage", "커버리지 밖 — 모름"), ("out_of_history", "이력 밖 — 모름"),
-                          ("unknown", "모름"), ("not_comparable", "비교 안 함")):
-        line = T._render_gap({"status": status, "why": "이유"})
-        assert line == f"_컨센서스 대비: {label} — 이유_"
+def test_not_compared_leaves_only_parsed_values(monkeypatch):
+    # 모르거나 없거나 맞댈 수 없으면 컨센서스 칸·줄 없이 파싱 값만(261018 결정).
+    for status in ("out_of_coverage", "out_of_history", "unknown", "not_comparable"):
+        p = _builder(monkeypatch, lambda *a, _s=status, **k: {"status": _s, "why": "이유", "as_of": "2026-10-10"})
+        assert "consensus_gap" not in p["data"], status
+        assert p["data"]["headline"]["revenue"]["value_krw"] == 4399 * 1e8
+        md = T._render(p)
+        assert "컨센서스" not in md, status
+
+
+def test_render_non_ok_is_empty():
+    for status in ("out_of_coverage", "out_of_history", "unknown", "not_comparable"):
+        assert T._render_gap({"status": status, "why": "이유"}) == ""
     assert T._render_gap(None) == ""

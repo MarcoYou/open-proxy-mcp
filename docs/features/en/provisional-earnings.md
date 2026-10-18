@@ -6,7 +6,7 @@
 
 - **Provisional revenue / operating profit / net income** with **year-over-year changes** — shows the filing's original table and structures the headline numbers.
 - States the **consolidated/separate basis** and units alongside.
-- **Gap to consensus** — for quarterly results, adds one line comparing revenue, operating profit and controlling net income with the consensus from the week before the filing (gap in %). The snapshot date and basis are stated; when no consensus is found it says "outside coverage" rather than "none".
+- **Gap to consensus** — for quarterly results, adds one line comparing revenue, operating profit and controlling net income with the consensus from the week before the filing (gap in %). The snapshot date and basis are stated; when no consensus is found or the figures cannot be compared (monthly results etc.), only the provisional figures are shown.
 - Absorbs non-financial provisional filings too — automakers' vehicle sales, food companies' regional revenue — formats differ, but the original table comes through as markdown.
 - Widen the window and it collects several quarters of provisional filings in order.
 - The [market-wide disclosure digest](../../../wiki/tools/screener.md) also surfaces provisional-earnings cards, so a morning routine shows "who reported provisional numbers today" at a glance.
