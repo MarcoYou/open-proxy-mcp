@@ -273,7 +273,7 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
     # 1) 이름 → 종목코드 후보
     rows: list[dict[str, Any]] = []
     for i, (book, h) in enumerate(cand):
-        nm = h.get("inv_prm") or ""
+        nm = (h.get("inv_prm") or "").strip()            # 원자료에 꼬리 공백이 붙어 온다(「SK이노베이션㈜ 」)
         qty = _num(h.get("trmend_blce_qy"))
         codes, why = [], None
         if i >= _MARK_CAP:
