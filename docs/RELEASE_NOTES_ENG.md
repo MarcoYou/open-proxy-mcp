@@ -4,6 +4,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### Largest-shareholder stake change reports are read by column name · no more birth dates — `ownership_structure(scope="changes")`
+
+- The stake change report summary now shows the **shares, stake and report date** of the previous and current reports, and the change. Until now the report date (e.g. 2026-09-21) landed in the shares slot, the shares in the stake slot, and the current report came out as 0 shares — for every such report since the feature shipped in 2026-04.
+- 🔴 The holdings table no longer puts an **individual holder's birth date in the shares column**. Personal details (birth date, business registration number, gender, nationality) are not included from any table; only a marker that they were left out. The holdings table now has name, relation, domestic/foreign and common/total shares and stake.
+- The "(largest shareholder change)" form shows the **before** and **after** holder groups separately. Holder names in per-person changes no longer come out as the section heading ("4. 개인별 세부변동사항").
+- A table whose columns are not recognised is reported as "not read — table N of the filing (section heading)" and raised as a warning, never filled with zeros. A mismatch between the summary total and the holdings total is flagged.
+
 ### When the largest shareholder changes, and the contracts that would change it — `ownership_structure(scope="changes")`
 
 - Reads **largest-shareholder change** filings and the **share transfer** and **share pledge** contracts attached to them (signed and terminated), cell text as written — before/after holder and stake, reason, purpose and funding, transferor, transferee, price and expected date, the stake left if the pledge is fully enforced, termination reason and before/after.
