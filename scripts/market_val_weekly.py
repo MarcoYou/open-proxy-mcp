@@ -102,20 +102,39 @@ def label(code: str) -> str:
 
 
 async def _krx_kinds(price_dd: str) -> dict[str, str]:
-    """종목 유형(보통주/우선주) — isu_base_info 2콜. 우선주 시총 귀속용."""
+    """종목 유형(보통주/우선주) — isu_base_info 2콜. 우선주 시총 귀속용.
+
+    반환 계약은 그대로다 — 받은 행만 담고, 두 시장 다 못 받으면 빈 dict(호출부가 스냅샷을 건너뛴다).
+    261018: 시장별로 못 받으면 **이유를 한 줄 남긴다**(HTTP 상태 · 목록 없음 · 0행 · 예외 이름. 키·응답 본문은 남기지 않는다).
+      종전엔 예외를 그냥 삼켜서, 10-18 02:42 KST 수동 실행의 건너뛰기를 「일요일 새벽 KRX 빈 응답」으로 **추정만** 할 수
+      있었다. 로그가 남은 07-21 이후 같은 건너뛰기 3건 중 2건은 그 시간대가 아니었다(08-07 금 13:11 · 08-16 일 11:40 KST)
+      — 모두 다음 날 실행이 메워 자료 손실은 없었지만, 원인(KRX 일시 장애 / 키·권한 / 시간 초과)을 가를 근거가 없었다.
+      `::warning::` 줄은 GitHub Actions 실행 요약의 주석으로 떠서 로그를 열지 않아도 보인다(job 은 실패시키지 않는다).
+    """
     key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
     from open_proxy_mcp.dart.krx_meter import bump
     kinds: dict[str, str] = {}
     async with httpx.AsyncClient(timeout=30) as h:
         for ep in ("stk_isu_base_info", "ksq_isu_base_info"):
+            status, n, why = None, 0, ""
             try:
                 bump()
                 r = await h.get(f"https://data-dbg.krx.co.kr/svc/apis/sto/{ep}",
                                 headers={"AUTH_KEY": key}, params={"basDd": price_dd})
-                for row in next(v for v in r.json().values() if isinstance(v, list)):
+                status = r.status_code
+                rows = next((v for v in r.json().values() if isinstance(v, list)), None)
+                if rows is None:
+                    why = "응답에 목록 없음"
+                for row in rows or ():
                     kinds[row["ISU_SRT_CD"]] = row.get("KIND_STKCERT_TP_NM", "")
-            except Exception:
-                pass
+                    n += 1
+                if rows is not None and not n:
+                    why = "0행"
+            except Exception as e:
+                why = type(e).__name__ + (f"({n}행 받은 뒤)" if n else "")
+            if why:
+                http = f"HTTP {status} · " if status is not None else ""
+                print(f"::warning::KRX 종목유형 {ep}(basDd={price_dd}) 실패 — {http}{why}", flush=True)
     return kinds
 
 
