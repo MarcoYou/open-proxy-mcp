@@ -105,6 +105,37 @@ def _amend_lines(card: dict) -> list[str]:
     return out
 
 
+_GAP_METRIC_LABEL = (("revenue", "매출"), ("operating_profit", "영업이익"), ("net_income_controlling", "지배순이익"))
+_GAP_FOOTNOTE = ("📈 컨센서스 대비 = (잠정 − 예상) ÷ |예상|. 예상은 공시일 **전** 가장 최근 주간 컨센서스 스냅샷 — "
+                 "DART 공시가 아니다. 한쪽이 빈 지표·출처는 `provisional_earnings` 에 있다")
+
+
+def _gap_lines(card: dict) -> list[str]:
+    """실적 카드의 「컨센서스 대비」 한 줄(details=true). 계산은 `provisional_earnings` 가 했다 — 옮겨 적기만 한다.
+    맞대지 못한 카드(월간·커버리지 밖·이력 밖·장애·연결/별도 불일치)엔 줄을 붙이지 않는다(261018 결정)."""
+    if card["type"]["code"] != "earnings":
+        return []
+    f = card.get("detail_fields") or {}
+    g = f.get("consensus_gap") or {}
+    if not g:
+        return []
+    if g.get("status") == "ok":   # 카드에는 맞댄 것만 온다(`_card_gap`) — 그래도 한 번 더 본다
+        parts = []
+        for key, label in _GAP_METRIC_LABEL:
+            c = (g.get("metrics") or {}).get(key)
+            if not c:
+                continue
+            # 원값에서 한 번만 반올림 — 저장된 `gap_pct`(소수 둘째)를 다시 깎으면 −5.4478% 가 −5.5% 로 찍힌다
+            gap = (f"{c['diff_krw'] / abs(c['consensus_krw']) * 100:+.1f}%" if c.get("gap_pct") is not None
+                   else f"{_won(c.get('diff_krw'))} 차")
+            loss = "·적자 예상 대비" if c.get("gap_caveat") else ""
+            parts.append(f"{label} {gap}(예상 {_won(c.get('consensus_krw'))}{loss})")
+        if not parts:
+            return []
+        return [f"    - 컨센서스 대비 {' · '.join(parts)} — 공시 {g.get('lag_days')}일 전 {g.get('as_of')} 스냅샷"]
+    return []
+
+
 def _detail_line(card: dict) -> str | None:
     """유형별 핵심필드 한 줄(details=true일 때)."""
     f = card.get("detail_fields") or {}
@@ -187,6 +218,10 @@ def _detail_line(card: dict) -> str | None:
         if f.get("fiscal_year"):
             if f.get("period_kind") == "annual":
                 parts.append(f"{f['fiscal_year']} 사업연도 결산 잠정치")
+            elif f.get("period_kind") == "month" and f.get("period_month"):
+                # 한 달짜리 공시(월 매출·판매량)에 「3분기」를 붙이면 9월 실적이 분기 실적으로 읽힌다 —
+                # `provisional_earnings` md 와 같은 「9월(월간)」 꼴(261018).
+                parts.append(f"{f['fiscal_year']}년 {f['period_month']}월(월간)")
             elif f.get("fiscal_quarter"):
                 parts.append(f"{f['fiscal_year']} 사업연도 {f['fiscal_quarter']}분기")
         if f.get("period"):
@@ -285,6 +320,7 @@ def _render_digest(payload: dict[str, Any]) -> str:
         if h["type"]["code"] not in seen:
             seen.append(h["type"]["code"])
 
+    gap_any = False   # 컨센서스 대비 줄이 한 장이라도 있으면 각주를 한 번 단다
     for tc in seen:
         rows = by_type[tc]
         icon = _TYPE_ICON.get(tc, "•")
@@ -307,6 +343,9 @@ def _render_digest(payload: dict[str, Any]) -> str:
                 lines.append(f"    - {dl}{badge}")
             elif badge and h.get("detail_status") not in ("scan_only", "parsed"):
                 lines.append(f"    - _{title}_{badge}")
+            gap = _gap_lines(h)
+            gap_any = gap_any or bool(gap)
+            lines.extend(gap)
             lines.extend(_amend_lines(h))
             # 링크
             dart = h.get("dart_url", "")
@@ -332,6 +371,8 @@ def _render_digest(payload: dict[str, Any]) -> str:
         foot.append(f"정정본이 원본을 대체한 건 {counts['deduped_away']}건")
     if foot:
         lines.append("> " + " · ".join(foot))
+    if gap_any:
+        lines.append(f"> {_GAP_FOOTNOTE}")
     lines += _coverage_block(p)
     if p.get("warnings"):
         lines.append("")
