@@ -245,6 +245,61 @@ async def _annual_summary(corp_code: str, year: int) -> tuple[dict[str, Any], st
     return summary, None
 
 
+def period_dps(items: list[dict[str, Any]] | None) -> dict[str, int]:
+    """alotMatter 행 → `{결산기준일 YYYYMMDD: 보통주 주당 현금배당(당기)}` — 결산기마다 한 값. (261019)
+
+    반기·분기 결산 회사(리츠 등)는 사업연도 하나에 사업보고서가 결산기마다 따로 나와, `alotMatter`(사업보고서) 한 번에
+    결산기 여럿이 `stlm_dt` 로 갈라져 온다(롯데리츠 FY2025 = 2025-06-30 117원 · 2025-12-31 123원). 결산기마다
+    `build_dividend_summary` 와 **같은 종류 규칙**(`split_by_share_class`)으로 보통주 값을 고른다. 특별배당 줄은 빼고(요약의 `cash_dps` 와 같은 정의),
+    값이 없는 결산기는 0 이다(무배당 — 빈 줄을 버리지 않는다). 결산기준일이 없는 행은 무시한다."""
+    rows: dict[str, list[tuple]] = {}
+    for item in items or []:
+        cat = item.get("category", "")
+        if not ("주당 현금배당금" in cat or ("주당" in cat and "현금배당금" in cat)) or item.get("is_special"):
+            continue
+        dt = "".join(ch for ch in (item.get("stlm_dt") or "") if ch.isdigit())[:8]
+        if len(dt) != 8:
+            continue
+        rows.setdefault(dt, []).append((item.get("stock_type", ""), safe_int(item.get("current", ""))))
+    out: dict[str, int] = {}
+    for dt, dps_rows in rows.items():
+        common, _, _ = split_by_share_class(dps_rows)
+        out[dt] = common or 0
+    return out
+
+
+def _months_between(a: str, b: str) -> int:
+    """YYYYMMDD 두 날의 달 수 차이(b − a, 날짜는 무시) — 결산기준일(월말)끼리 쓴다."""
+    return (int(b[:4]) - int(a[:4])) * 12 + int(b[4:6]) - int(a[4:6])
+
+
+def trailing_period_dps(periods: dict[str, int]) -> dict[str, Any] | None:
+    """반기·분기 결산 회사의 **최근 12개월 결산기 DPS 합**. 해당하지 않으면 None. (261019)
+
+    종전 `price_multiple_data` 는 사업보고서 요약의 `cash_dps` — 결산기가 여럿이면 **마지막 한 결산기** — 를 연 배당처럼 썼다.
+    롯데리츠(반기) 배당수익률이 연 배당 기준의 절반, SK리츠(분기)는 4분의 1로 나갔다(10-19 운영 실측 3.01%·1.24%).
+
+    규칙: 가장 늦은 결산기준일 L 에서 거꾸로 결산 주기(마지막 두 결산기 사이 달 수 — 3 또는 6)마다 결산기가 빠짐없이 있어
+    12개월을 정확히 채울 때만(분기 4개·반기 2개) 그 합을 낸다. **창 첫 결산기의 앞 결산기까지** 같은 주기여야 한다 — 결산기준일만으로는
+    그 결산기가 몇 달짜리인지 모르므로, 앞 결산기와의 간격으로 확인한다. 결산월을 바꾼 해(6월 결산 12개월 사업보고서 + 7~12월 6개월 이행기)처럼
+    주기가 고르지 않거나 확인할 앞 결산기가 없으면 None — 호출부는 종전 값을 쓴다(한 해 반치를 연 배당으로 만들지 않는다).
+    반환: {"dps": 합, "periods": [(결산기준일, DPS) …] 오름차순, "months": 주기}."""
+    dates = sorted(periods)
+    if len(dates) < 2:
+        return None
+    cadence = _months_between(dates[-2], dates[-1])
+    if cadence not in (3, 6):
+        return None
+    need = 12 // cadence
+    if len(dates) < need + 1:
+        return None
+    chain = dates[-(need + 1):]                 # 창(need 개) + 그 앞 결산기 하나 — 간격이 모두 주기여야 한다
+    if any(_months_between(x, y) != cadence for x, y in zip(chain, chain[1:])):
+        return None
+    window = chain[1:]
+    return {"dps": sum(periods[d] for d in window), "periods": [(d, periods[d]) for d in window], "months": cadence}
+
+
 def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int, dict[str, Any]]:
     """최신 사업보고서 alotMatter 1회 응답의 당기/전기/전전기 컬럼으로
     최근 3개 사업연도 요약을 구성한다.
