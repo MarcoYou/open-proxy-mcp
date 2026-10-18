@@ -284,6 +284,36 @@ def test_rank_phrases_and_index_words_keep_their_old_meaning(ledger, monkeypatch
     assert uf.resolved and uf.allowed == set(_MEMBERS) and uf.label == "KOSPI200" and uf.members_dd == "20261016"
 
 
+def test_market_names_listed_drop_preferred_like_the_whole_market(ledger, monkeypatch):
+    """「코스피, 코스닥」(시장 이름 나열)은 「코스피 전체」와 같이 우선주를 빼고 밝힌다 — 직접 적은 우선주 코드는 그대로 둔다.
+
+    261019 운영 대조(읽기 전용): 「코스피, 코스닥」 2,762행 중 우선주 114종목이 이름 없이(「-」) 순위에 끼었고, 같은 날
+    「코스피 전체」는 우선주 111종목을 빼고 그 사실을 밝혔다."""
+    _no_company_lookup(monkeypatch)
+    kq = [("196170", "KQ", 20_000_000_000_000, 400_000, 1), ("086520", "KQ", 15_000_000_000_000, 100_000, 1)]
+    caps = _CAPS + kq
+    monkeypatch.setattr(screener, "_krx_market_codes",
+                        lambda market, dd: {c[0] for c in caps if c[1] == {"kospi": "KS", "kosdaq": "KQ"}.get(market, market)})
+    _stub_rows(monkeypatch, caps)
+
+    async def names():
+        return dict(_NAMES) | {"196170": "알테오젠", "086520": "에코프로"}
+    monkeypatch.setattr(uni, "_names_by_ticker", names)
+    whole = asyncio.run(build_universe_payload("코스피 전체"))
+    assert "005935" not in [r["ticker"] for r in whole["data"]["rows"]]
+    p = asyncio.run(build_universe_payload("코스피, 코스닥"))
+    assert p["status"] == "ok"
+    tickers = [r["ticker"] for r in p["data"]["rows"]]
+    assert "005935" not in tickers and set(tickers) == {r["ticker"] for r in whole["data"]["rows"]} | {"196170", "086520"}
+    assert any("우선주 1종목은 순위에서 뺐습니다" in w for w in p["warnings"])
+    # 직접 적은 우선주 코드는 고른 것이다 — 시장 이름과 같이 적어도 남는다
+    p2 = asyncio.run(build_universe_payload("코스피, 005935"))
+    assert "005935" in [r["ticker"] for r in p2["data"]["rows"]]
+    # 지수 원장 종목은 판정하지 않는다(우선주가 원장에 들 일은 없지만, 원장이 정한 집합이다)
+    uf = asyncio.run(screener.resolve_universe(screener._nl_universe("코스피200, 코스피")))
+    assert uf.pref_screen == frozenset({"005935", "005380"})
+
+
 def test_company_names_are_not_mistaken_for_indexes():
     for name in ("삼성전자", "KB금융", "SK하이닉스", "현대차2우B", "KT&G", "코스맥스", "코스모신소재"):
         assert screener.unsupported_index_note(name) is None

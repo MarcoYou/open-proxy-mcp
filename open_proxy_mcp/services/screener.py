@@ -624,6 +624,10 @@ class UniverseFilter:
     #: 지수 구성종목 원장에서 집합을 만들었으면 그 구성이 마지막으로 확인된 거래일(YYYYMMDD). 아니면 None
     #: (원장을 못 읽어 시총 순위로 대체한 경우도 None — 그때는 notice 가 대체를 밝힌다).
     members_dd: str | None = None
+    #: 이름 나열 안의 **시장 이름**(「코스피」·「코스닥」)을 풀어 넣은 종목 중 직접 고르지 않은 것(261019). 순위표
+    #: (`services/universe.list_universe`)는 시장 전체(`market:…`)와 똑같이 이 중 우선주를 빼고 밝힌다 — 직접 적은 코드·이름과
+    #: 지수 원장 종목은 고른 쪽이 정한 집합이라 그대로 둔다. 공시 필터(`contains`)에는 쓰지 않는다.
+    pref_screen: frozenset[str] = frozenset()
 
     def contains(self, stock_code: str, corp_cls: str = "") -> bool:
         if self.allowed is None:
@@ -706,6 +710,7 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
         else:
             name_tokens.append(tok)
     notes.extend(index_notes)
+    market_codes: set[str] = set()                     # 시장 이름을 풀어 넣은 종목(우선주 판정 대상 — `pref_screen`)
 
     # 지수·시장 이름 → 그 집합(지수는 구성종목 원장, 원장을 못 읽으면 `resolve_universe` 가 시총 순위 대체를 밝힌다)
     set_labels: list[str] = []
@@ -718,7 +723,7 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
         done_specs.add(spec)
         sub = await resolve_universe(spec)
         if sub.resolved and sub.allowed:
-            codes |= sub.allowed
+            (market_codes if spec.startswith("market:") else codes).update(sub.allowed)
             set_labels.append(sub.label)
             members_dds.append(sub.members_dd)
             if sub.notice:
@@ -761,6 +766,8 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
                     inactive.append(hint)
             else:
                 notes.append(hint or f"'{tok}' 미식별(모호/없음)")
+    pref_screen = frozenset(market_codes - codes)      # 직접 적었거나 지수 원장에 든 종목은 판정하지 않는다
+    codes |= market_codes
     if not codes:
         # 260918: 시장 전체로 바꾸지 않는다 — 되묻는다. 「코스피 120」처럼 수인지 이름인지 모를 꼴은 전용 질문으로.
         if index_notes and len(index_notes) == len(tokens):
@@ -785,10 +792,10 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
         label = "+".join(set_labels)
         members_dd = (min(d for d in members_dds if d) if members_dds and all(members_dds) else None)
         return UniverseFilter(label=label, resolved=True, notice=notice, allowed=codes, price_dd=price_dd,
-                              members_dd=members_dd)
+                              members_dd=members_dd, pref_screen=pref_screen)
     label = f"지정 {len(codes)}종목" + (f"({'+'.join(set_labels)} 포함)" if set_labels else "")
     return UniverseFilter(label=label, resolved=True,
-                          notice=notice, allowed=codes, price_dd=price_dd)
+                          notice=notice, allowed=codes, price_dd=price_dd, pref_screen=pref_screen)
 
 
 def _index_members_latest(code: str) -> "_index_members.Members | None":
