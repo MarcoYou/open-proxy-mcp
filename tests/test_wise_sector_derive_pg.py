@@ -8,6 +8,8 @@
   D3  다시 돌려도 같은 결과(멱등).
   D4  같은 날짜를 다시 수집하면 다시 나온 종목은 관측으로 돌아오고, 그 뒤 스냅샷의 파생 행도 다시 만든다.
   D5  상장 여부를 모르면(시세 저장분 부족) 파생 행을 만들지 않는다.
+  D6  상장 여부를 모르게 된 옛 스냅샷(보존 하한 이전 — 주간 시세가 종목별 연말 행만 남음)은 이미 만든 파생 행을 지우지 않는다.
+      지우면 그 뒤 스냅샷의 이어 쓰기 사슬이 끊겨 최신 스냅샷에서도 종목이 미분류로 떨어진다.
 Docker 가 없으면 건너뛴다(`tests/conftest.py` 의 `pg17`).
 """
 from __future__ import annotations
@@ -143,3 +145,33 @@ def test_dry_run_rederive_writes_nothing(db, monkeypatch):
     assert S.rederive_db(dry_run=False) == 0
     with psycopg.connect(db) as c:
         assert c.execute("SELECT count(*) FROM wise_sector WHERE src <> 'wise'").fetchone()[0] > 0
+
+
+def test_d6_unknown_listing_keeps_existing_derived_rows_and_chain(db, monkeypatch):
+    """보존 하한이 지나 옛 스냅샷 날짜의 주간 시세가 종목별 연말 행만 남으면(1,000 미만) 그 날의 상장 여부를 모른다.
+    그때 다시 만들기(`--rederive`)·옛 날짜 재수집이 이미 있던 파생 행을 지우면 안 된다 — 0828 의 000050 이어 쓰기가 사라지면
+    1016 도 000050 을 잇지 못해 최신 스냅샷에서 미분류로 떨어진다."""
+    _rederive(db)
+    with psycopg.connect(db) as c:
+        before = {s: _snap(c, s) for s in ("20260821", "20260828", "20261016")}
+    # 보존 하한 이전이 된 0821·0828 — 주간 시세가 그 날 마지막 행인 종목 몇 개만 남는다.
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("DELETE FROM krx_weekly WHERE price_dd IN ('20260821', '20260828') AND ticker NOT IN ('000060')")
+    _, infos = _rederive(db)
+    with psycopg.connect(db) as c:
+        after = {s: _snap(c, s) for s in before}
+    assert after == before
+    assert after["20261016"]["000050"] == ("G2510", "carry", "20260821")
+    assert [i.get("kept", False) for i in infos] == [True, True, False]
+
+    # 옛 날짜를 다시 수집해도 같다 — 다시 나온 종목만 관측으로 바뀌고 나머지 파생 행은 남는다.
+    monkeypatch.setenv("DATABASE_URL", db)
+    monkeypatch.delenv("WICS_DATABASE_URL", raising=False)
+    snapshot = {"requestedDate": "20260828", "asOf": "2026-08-28", "sectorCount": 10, "industryCount": 28,
+                "tickerCount": 2, "data": {t: {"sectorCode": cls[0], "sector": cls[1], "industryCode": cls[2],
+                                                "industry": cls[3]}
+                                            for t, cls in {"000040": A, "005930": B}.items()}}
+    assert S.persist(snapshot)
+    with psycopg.connect(db) as c:
+        assert _snap(c, "20260828") == before["20260828"]
+        assert _snap(c, "20261016") == before["20261016"]

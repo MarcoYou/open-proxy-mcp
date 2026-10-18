@@ -42,6 +42,8 @@ DB: WICS_DATABASE_URL > DATABASE_URL 순으로 DSN을 찾는다.
   공급처가 한 번도 분류를 준 적 없는 보통주(외국 기업·장기 거래정지·신규상장 등)는 지어내지 않는다 — 분류가 없는 채로
   둔다(집계는 `_UNCLASSIFIED`). 정적 맵(JSON)과 `kr_wics_snapshots` 는 **관측만** 담는다(공급처 응답 그대로).
   옛 스냅샷을 다시 수집하면 그 날짜와 그 뒤 스냅샷의 파생 행을 차례로 다시 만든다(이어 쓰기가 앞 스냅샷에 기대므로).
+  상장 여부를 모르는 날짜(주간 시세가 촘촘하지 않은 보존 하한 이전)는 있던 파생 행을 지우지 않고 그대로 둔다.
+  옛 스냅샷의 파생 행이 바뀌면 섹터 시총 집계(`scripts/krx_cap_agg.py`)는 스스로 따라오지 않는다 — `--since` 로 다시 집계한다.
 
 실행:
   python scripts/refresh_sector_class.py                      # 직전 금요일, 파일 + DB
@@ -203,8 +205,21 @@ def ensure_src_columns(con) -> bool:
 def derive_snapshot(con, snap_dd: str) -> dict:
     """그 스냅샷의 파생 행을 지우고 다시 만든다. 관측 행(`wise`)은 건드리지 않는다.
 
-    상장 여부를 판단할 시세가 없거나(그 날짜 이하 시세 없음) 너무 적으면(보존 하한 이전의 부분 행) 파생 행을 만들지 않는다 —
-    상장 종목을 모르는 채로 잇는 것은 상장폐지 종목을 되살리는 일이다."""
+    상장 여부를 판단할 시세가 없거나(그 날짜 이하 시세 없음) 너무 적으면(보존 하한 이전의 부분 행) 파생 행을 새로 만들지 않고
+    **이미 있는 파생 행은 그대로 둔다** — 상장 종목을 모르는 채로 잇는 것은 상장폐지 종목을 되살리는 일이고, 있던 행을 지우는 것은
+    그 행을 만들 때 알던 상장 여부를 버리고 뒤 스냅샷의 이어 쓰기 사슬까지 끊는 일이다(최신 스냅샷에서도 종목이 미분류로 떨어진다).
+    주간 시세는 최근 3년만 촘촘하므로 오래된 스냅샷을 다시 만들 때(`--rederive`·옛 날짜 재수집) 이 경우가 생긴다."""
+    price_dd = con.execute(LISTED_DAY_SQL, (snap_dd, snap_dd)).fetchone()[0]
+    listed = {r[0] for r in con.execute(LISTED_SQL, (price_dd, price_dd))} if price_dd else set()
+    if len(listed) < MIN_TICKERS:
+        by = dict(con.execute("SELECT src, count(*) FROM wise_sector WHERE snap_dd = %s GROUP BY 1",
+                              (snap_dd,)).fetchall())
+        info = {"snap_dd": snap_dd, "prev_dd": None, "price_dd": price_dd, "listed": len(listed),
+                "observed": by.get(SRC_OBSERVED, 0), "carry": by.get(SRC_CARRY, 0), "pref": by.get(SRC_PREF, 0),
+                "kept": True}
+        print(f"DB: {snap_dd} 파생 행 그대로 둠(이어 쓰기 {info['carry']:,} · 우선주 {info['pref']:,}) — 그 날짜 이하 시세일 "
+              f"{price_dd} 의 상장 종목 {len(listed):,}개(< {MIN_TICKERS:,}, 상장 여부를 모른다)", flush=True)
+        return info
     con.execute("DELETE FROM wise_sector WHERE snap_dd = %s AND src <> %s", (snap_dd, SRC_OBSERVED))
     observed = {r[0]: tuple(r[1:]) for r in con.execute(
         "SELECT ticker, sector_code, sector, industry_code, industry FROM wise_sector WHERE snap_dd = %s",
@@ -213,14 +228,8 @@ def derive_snapshot(con, snap_dd: str) -> dict:
     prev = {r[0]: (tuple(r[1:5]), r[5], r[6]) for r in con.execute(
         "SELECT ticker, sector_code, sector, industry_code, industry, src, src_ref FROM wise_sector "
         "WHERE snap_dd = %s", (prev_dd,))} if prev_dd else {}
-    price_dd = con.execute(LISTED_DAY_SQL, (snap_dd, snap_dd)).fetchone()[0]
-    listed = {r[0] for r in con.execute(LISTED_SQL, (price_dd, price_dd))} if price_dd else set()
     info = {"snap_dd": snap_dd, "prev_dd": prev_dd, "price_dd": price_dd, "listed": len(listed),
             "observed": len(observed), "carry": 0, "pref": 0}
-    if len(listed) < MIN_TICKERS:
-        print(f"DB: {snap_dd} 파생 행 생략 — 그 날짜 이하 시세일 {price_dd} 의 상장 종목 {len(listed):,}개"
-              f"(< {MIN_TICKERS:,}, 상장 여부를 모른다)", flush=True)
-        return info
     rows = derive_rows(observed, prev, prev_dd, listed)
     with con.cursor() as cur:
         cur.executemany(
@@ -529,8 +538,9 @@ def persist(snapshot: dict) -> bool:
         )
         # 행 단위 전개 — OPM 이 실제로 쓰는 모양(krx_weekly 조인용)
         snap_dd = snapshot["asOf"].replace("-", "")
-        # 같은 날짜를 다시 수집하면 그 날의 파생 행부터 지운다 — 이번 응답에 다시 나온 종목은 관측으로 돌아온다.
-        con.execute("DELETE FROM wise_sector WHERE snap_dd = %s AND src <> %s", (snap_dd, SRC_OBSERVED))
+        # 같은 날짜를 다시 수집하면 이번 응답에 다시 나온 종목은 업서트가 관측으로 되돌린다(src·src_ref 를 덮는다).
+        # 나머지 파생 행은 아래 다시 만들기가 지우고 새로 만든다 — 여기서 먼저 지우지 않는다: 그 날의 상장 여부를 모르면
+        # (보존 하한 이전 날짜) 다시 만들지 못하므로 있던 파생 행을 그대로 두어야 한다(`derive_snapshot`).
         with con.cursor() as cur:
             cur.executemany(
                 "INSERT INTO wise_sector "
@@ -543,8 +553,10 @@ def persist(snapshot: dict) -> bool:
                 [(snap_dd, t, v["sectorCode"], v["sector"], v["industryCode"], v["industry"], SRC_OBSERVED)
                  for t, v in snapshot["data"].items()])
         # 이 날짜와 그 뒤 스냅샷의 파생 행 — 이어 쓰기가 바로 앞 스냅샷에 기대므로 차례로.
-        rederive_from(con, snap_dd)
+        infos = rederive_from(con, snap_dd)
         con.commit()
+        if len(infos) > 1:  # 최신이 아닌 날짜를 다시 수집했다 — 섹터 시총 집계는 새 관측만 따라온다
+            print(_agg_reminder(snap_dd), flush=True)
         total = con.execute("SELECT count(*) FROM kr_wics_snapshots").fetchone()[0]
         rows, snaps = con.execute(
             "SELECT count(*), count(DISTINCT snap_dd) FROM wise_sector").fetchone()
@@ -575,9 +587,21 @@ def rederive_db(dry_run: bool = False) -> int:
             print("dry-run — 되돌렸다(쓰기 없음)", flush=True)
         else:
             con.commit()
-    print(f"파생 행 {'계산(되돌림)' if dry_run else '다시 만듦'}: 스냅샷 {len(infos)}개 · "
+    kept = sum(1 for i in infos if i.get("kept"))
+    print(f"파생 행 {'계산(되돌림)' if dry_run else '다시 만듦'}: 스냅샷 {len(infos)}개"
+          f"{f'(그중 {kept}개는 상장 여부를 몰라 그대로 둠)' if kept else ''} · "
           f"이어 쓰기 {sum(i['carry'] for i in infos):,} · 우선주 {sum(i['pref'] for i in infos):,}", flush=True)
+    if infos and not dry_run:
+        print(_agg_reminder(infos[0]["snap_dd"]), flush=True)
     return 0
+
+
+def _agg_reminder(first_snap: str) -> str:
+    """옛 스냅샷의 파생 행이 바뀐 뒤의 안내 — 섹터 시총 집계는 스스로 따라오지 않는다(`scripts/krx_cap_agg.py` 머리말)."""
+    return (f"주의: {first_snap} 이후 스냅샷의 파생 행이 바뀌었다. 섹터 시총 집계(krx_cap_agg)는 평소 최신 주만, 새 관측은 그 관측일 "
+            f"이후만 다시 집계하므로 이 변경을 따라오지 않는다 — scripts/krx_cap_agg.py --since <{first_snap}, 가장 이른 스냅샷이면 "
+            "보존 하한> 으로 다시 집계할 것(가장 이른 스냅샷은 그 이전 구간에 소급 적용된다). 보존 하한 이전 주간 점은 원천이 없어 "
+            "다시 집계되지 않는다.")
 
 
 async def main(args: argparse.Namespace) -> int:
