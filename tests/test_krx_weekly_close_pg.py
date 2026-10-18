@@ -186,10 +186,10 @@ def test_ensure_krx_fresh_uses_the_daily_store_and_closes_a_missed_week(wdb, mon
 # ── 조용히 깨지던 배치 ─────────────────────────────────────────────────────────
 
 def _val_tables(url):
-    """`market_val_weekly` 가 읽고 쓰는 표 — 운영처럼 opm_val_market 에 scheme 칸과 그 기본키가 있다."""
+    """`market_val_weekly` 가 읽고 쓰는 표 — 운영처럼 opm_val_market 에 scheme 칸과 그 기본키가 있다.
+    `opm_val_firm` 은 만들지 않는다 — 261018(재설계 6단계)부터 이 배치는 그 표를 쓰지 않고, 운영에서는 백업 뒤 지운다."""
     from scripts import market_val_weekly as W
     with psycopg.connect(url, autocommit=True) as c:
-        c.execute(W.DDL_FIRM)
         c.execute(W.DDL_MKT)
         c.execute("ALTER TABLE opm_val_market ADD COLUMN scheme text NOT NULL DEFAULT 'market'")
         c.execute("ALTER TABLE opm_val_market DROP CONSTRAINT opm_val_market_pkey")
@@ -199,7 +199,7 @@ def _val_tables(url):
         for t, m in [(t, "KS") for t in KS_CODES] + [(t, "KQ") for t in KQ_CODES]:
             c.execute("INSERT INTO dart_fundamentals VALUES (%s, %s, '', 'KRW', 1e9, 1e9, 1e10, 1e10, 'ok')", (t, m))
         # 같은 주의 지난 스냅샷(월요일) — 성공하면 수렴으로 지워지고, 가드가 걸리면 그대로 남아야 한다
-        c.execute("INSERT INTO opm_val_firm (snap_dd, ticker, market, cap) VALUES ('20261012', 'K00000', 'KS', 42)")
+        c.execute("INSERT INTO opm_val_market (snap_dd, market, scheme, sector, cap) VALUES ('20261012', 'KS', 'market', '_ALL', 42)")
     return W
 
 
@@ -224,10 +224,10 @@ def test_market_val_weekly_refuses_a_thin_snapshot_and_keeps_the_existing_one(wd
         _write(dd)
     rc, kinds_calls = _run_snapshot(W, monkeypatch, "20261014")     # 일별 저장분에 5종목뿐 — 하한(1,500) 미만
     assert rc == 1 and kinds_calls == []                             # KRX 종목유형도 부르지 않는다
-    assert _q(wdb, "SELECT snap_dd, ticker, cap FROM opm_val_firm") == [("20261012", "K00000", 42.0)]
+    assert _q(wdb, "SELECT snap_dd, market, cap FROM opm_val_market") == [("20261012", "KS", 42.0)]
     assert "::error::" in capsys.readouterr().out
     rc, _ = _run_snapshot(W, monkeypatch, "20261009")                # 저장분에 없는 날(창 밖) — 0종목도 같은 가드
-    assert rc == 1 and _q(wdb, "SELECT count(*) FROM opm_val_firm") == [(1,)]
+    assert rc == 1 and _q(wdb, "SELECT count(*) FROM opm_val_market") == [(1,)]
 
 
 def test_market_val_weekly_snapshots_the_daily_cross_section_mid_week(wdb, monkeypatch):
@@ -237,11 +237,12 @@ def test_market_val_weekly_snapshots_the_daily_cross_section_mid_week(wdb, monke
         _write(dd)
     rc, _ = _run_snapshot(W, monkeypatch, "20261014")
     assert rc == 0
-    caps = dict(_q(wdb, "SELECT ticker, mktcap FROM krx_daily_v WHERE trd_dd='20261014'"))
-    firm = _q(wdb, "SELECT snap_dd, ticker, cap FROM opm_val_firm ORDER BY ticker")
-    assert {r[0] for r in firm} == {"20261014"}                      # 같은 주 월요일 스냅샷은 수렴으로 지워졌다
-    assert {t: c for _, t, c in firm} == {t: float(v) for t, v in caps.items()}
-    assert {r[0] for r in _q(wdb, "SELECT DISTINCT snap_dd FROM opm_val_market")} == {"20261014"}
+    caps = _q(wdb, "SELECT market, sum(mktcap) FROM krx_daily_v WHERE trd_dd='20261014' GROUP BY 1 ORDER BY 1")
+    mkt = _q(wdb, "SELECT snap_dd, market, cap, n FROM opm_val_market WHERE scheme='market' ORDER BY market")
+    assert [r[0] for r in mkt] == ["20261014", "20261014"]           # 같은 주 월요일 스냅샷은 수렴으로 지워졌다
+    assert [(m, c, n) for _, m, c, n in mkt] == [("KQ", float(caps[0][1]), 2), ("KS", float(caps[1][1]), 3)]
+    # 261018(재설계 6단계): 종목별 표는 만들지도 쓰지도 않는다
+    assert _q(wdb, "SELECT to_regclass('opm_val_firm')") == [(None,)]
 
 
 def test_include_new_lists_tickers_from_the_daily_store(wdb, monkeypatch, capsys):
@@ -320,25 +321,37 @@ def test_listing_observes_this_weeks_new_listing_from_the_daily_store(wdb, monke
     assert got["K00000"] == ("20151230", "20261013")                 # 최종 관측일도 이번 주 최신일까지 나아간다
 
 
-def test_disclosure_cap_uses_the_daily_day_and_does_not_shift_on_rescan(wdb):
-    """접수일 이하 가장 늦은 거래일의 시총 — 일별 창 안이면 그날. 종전엔 주중 krx_weekly 행이 다음 날 지워져 재스캔 때 다른 날이 붙었다
-    (실측: 접수 10-15 공시에 20261008 시총)."""
+def test_disclosure_ledger_after_sector_columns_are_dropped_still_stores_the_filing_day_cap(wdb):
+    """261018(재설계 6단계): `dart_events` 의 업종 복사본 칸(`sector`·`industry`·`sector_dd`)과 `industry` 색인을 운영에서 지운다.
+    옛 모양의 표에서 그것만 지운 뒤에도 배치의 DDL·쓰기가 돌고, 시총(`mktcap_won`·`mktcap_dd`)은 계속 **저장**된다 —
+    접수일 이하 가장 늦은 거래일, 일별 창 안이면 일별 시세에서. 일별 창 안 날짜는 지워지지 않으니 재스캔해도 같은 날이 붙는다
+    (종전엔 krx_weekly 주중 행이 다음 날 지워져 접수 10-15 공시에 20261008 시총이 붙었다)."""
     from scripts import disclosure_ledger as DL
+    old_ddl = DL.DDL.replace("  flr_nm        text,\n", "  flr_nm        text,\n  sector text,\n  industry text,\n  sector_dd text,\n")
     with psycopg.connect(wdb, autocommit=True) as c:
-        c.execute("CREATE TABLE wise_sector (snap_dd text, ticker text, sector_code text, sector text, "
-                  "industry_code text, industry text)")
+        c.execute(old_ddl)                                               # 옛 표(업종 복사본 칸 있음)
+        c.execute("CREATE INDEX dart_events_industry_dt ON dart_events (industry, rcept_dt)")
+        c.execute("ALTER TABLE dart_events DROP COLUMN sector, DROP COLUMN industry, DROP COLUMN sector_dd")   # 운영에서 할 일
+        c.execute(DL.DDL)                                                # 배치가 매번 거는 DDL 이 깨지지 않는다
     for dd in ("20261008", "20261012", "20261013", "20261014", "20261015"):
         _write(dd)
 
-    def enrich():
-        rows = [{"stock_code": "K00000", "rcept_dt": date(2026, 10, 15)},
-                {"stock_code": "K00000", "rcept_dt": date(2026, 10, 10)}]       # 토요일 — 그 이하 최신은 목요일(10/8, 주간에도 있음)
-        with psycopg.connect(wdb) as c:
+    def scan():
+        rows = [DL.row_from_item({"rcept_no": "20261015000001", "rcept_dt": "20261015", "corp_code": "00000001",
+                                  "corp_name": "가", "stock_code": "K00001", "corp_cls": "Y",
+                                  "report_nm": "단일판매ㆍ공급계약체결", "flr_nm": "가"}, {"order"}),
+                DL.row_from_item({"rcept_no": "20261010000002", "rcept_dt": "20261010", "corp_code": "00000002",
+                                  "corp_name": "나", "stock_code": "K00002", "corp_cls": "Y",
+                                  "report_nm": "단일판매ㆍ공급계약체결", "flr_nm": "나"}, {"order"})]   # 토요일 접수 → 목(10/8)
+        with psycopg.connect(wdb, autocommit=True) as c:
             DL.enrich(c, rows)
-        return [(r.get("mktcap_dd"), r.get("mktcap_won")) for r in rows]
-    first = enrich()
-    k15 = _q(wdb, "SELECT mktcap FROM krx_daily_v WHERE trd_dd='20261015' AND ticker='K00000'")[0][0]
-    k08 = _q(wdb, "SELECT mktcap FROM krx_weekly WHERE price_dd='20261008' AND ticker='K00000'")[0][0]
-    assert first == [("20261015", k15), ("20261008", k08)]
-    _write("20261016")                                                    # 다음 날 재스캔 — 같은 공시에 같은 날이 붙는다
-    assert enrich() == first
+            with c.cursor() as cur:
+                for r in rows:
+                    cur.execute(DL.UPSERT_EVENT, DL.db_row(r))
+        return _q(wdb, "SELECT rcept_no, mktcap_dd, mktcap_won FROM dart_events ORDER BY 1")
+    first = scan()
+    k15 = _q(wdb, "SELECT mktcap FROM krx_daily_v WHERE trd_dd='20261015' AND ticker='K00001'")[0][0]
+    k08 = _q(wdb, "SELECT mktcap FROM krx_weekly WHERE price_dd='20261008' AND ticker='K00002'")[0][0]
+    assert first == [("20261010000002", "20261008", k08), ("20261015000001", "20261015", k15)]
+    _write("20261016")                                                   # 다음 날 재스캔 — 같은 공시에 같은 날·같은 값
+    assert scan() == first
