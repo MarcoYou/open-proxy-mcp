@@ -130,6 +130,28 @@ def test_json_quota_then_other_answer_stops_rotating(monkeypatch):
     assert c._http.seen == [K1, K2]
 
 
+def test_user_key_request_still_never_leaves_the_users_key(monkeypatch):
+    """경계: 사용자 키 하나로 온 요청은 한도여도 env 키로 넘어가지 않는다(`test_dart_api_key_pool` 의 약속) — 키를 다 도는 새 고리도."""
+    from open_proxy_mcp.dart.client import DartClient, _ctx_opendart_key
+    user = "u" * 40
+    _client(monkeypatch, {})                       # env 에 우리 키 셋
+    token = _ctx_opendart_key.set(user)
+    try:
+        c = DartClient()
+    finally:
+        _ctx_opendart_key.reset(token)
+    c._http = _Http({user: "020", K1: "000", K2: "000", K3: "000"})
+
+    async def _no_throttle():
+        return None
+    c._throttle_api = _no_throttle
+    with pytest.raises(DartClientError):
+        asyncio.run(c._request("fnlttSinglAcntAll.json", {"corp_code": "00126380"}))
+    with pytest.raises(DartClientError):
+        asyncio.run(c._request_binary("fnlttXbrl.xml", {"rcept_no": "20260814003676"}))
+    assert c._http.seen == [user, user]
+
+
 def test_binary_quota_tries_every_key_before_raising(monkeypatch):
     c = _client(monkeypatch, {K1: "020", K2: "020", K3: "000"})
     assert asyncio.run(c._request_binary("fnlttXbrl.xml", {"rcept_no": "20260814003676"})).startswith(b"PK")
