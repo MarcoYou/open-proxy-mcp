@@ -1235,21 +1235,32 @@ async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, fl
     else:
         fin, finq = await _gather_db(_firm_fin_by_fy(ticker, currency, fye), _firm_fin_by_q(ticker, currency, fye))
     sec = ksic_bucket(induty, ticker)
+    rv = _row_val(dd, cap_mkt[0], fin, finq, fye)
+    if rv is None:
+        return (sec, market, None, None, {"impaired": True})
+    return (sec, market, rv["per_ttm"], rv["pbr_mrq"], {"basis": rv["basis"]} if rv["basis"] else {})
+
+
+def _row_val(dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> dict | None:
+    """종전 종목별 스냅샷 표 한 행의 값(반올림 전) — 업종 비교 기업 행(`_firm_val_at`)과 firm_history 「주간」 항목(`_weekly_hist_items`)이 쓴다.
+
+    곡선 점(`_pit_raw`)과 같고, 그 시점 칸이 비어 PER(TTM)·PBR(MRQ)를 셀 수 없으면 앞선 칸으로 센다(`_pit_fallback` — `basis` 에 그 시점 칸·쓴 칸).
+    None = 그 시점 완전자본잠식(그 시점 칸, 대체했으면 대체 칸의 자본 ≤ 0) — 260829 마스터 지시로 행을 내지 않는다."""
     if _pit_impaired(dd, fin, finq, fye):
-        return (sec, market, None, None, {"impaired": True})
-    p = _pit_raw(dd, cap_mkt[0], fin, finq, fye)
-    per, pbr = (p["per_ttm"], p["pbr_mrq"]) if p else (None, None)
-    fb = _pit_fallback(dd, cap_mkt[0], fin, finq, fye)
-    if not fb:
-        return (sec, market, per, pbr, {})
-    if fb.get("impaired"):                        # 대체 칸의 자본이 0 이하 — 잠식으로 본다(배수 없음)
-        return (sec, market, None, None, {"impaired": True})
-    basis = {"pit_q": _cell_label(_pit_quarter(dd, fye))}
-    if "per_ttm" in fb:
-        per, basis["per_ttm"] = fb["per_ttm"][0], _cell_label(fb["per_ttm"][1])
-    if "pbr_mrq" in fb:
-        pbr, basis["pbr_mrq"] = fb["pbr_mrq"][0], _cell_label(fb["pbr_mrq"][1])
-    return (sec, market, per, pbr, {"basis": basis})
+        return None
+    p = _pit_raw(dd, cap, fin, finq, fye) or {}
+    out = {k: p.get(k) for k in ("per_fy0", "pbr", "per_ttm", "pbr_mrq")}
+    out["basis"] = None
+    fb = _pit_fallback(dd, cap, fin, finq, fye)
+    if fb.get("impaired"):                        # 대체 칸의 자본이 0 이하 — 잠식으로 본다
+        return None
+    if fb:
+        basis = {"pit_q": _cell_label(_pit_quarter(dd, fye))}
+        for k in ("per_ttm", "pbr_mrq"):
+            if k in fb:
+                out[k], basis[k] = fb[k][0], _cell_label(fb[k][1])
+        out["basis"] = basis
+    return out
 
 
 def _month_end_summary(series: list[dict], months: int = 12) -> list[dict]:
@@ -1333,17 +1344,22 @@ _HIST_WEEKS = 16
 def _weekly_hist_items(px: list, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> list[dict]:
     """주간 시세 행(`_weekly_series(raw_out=…)`)의 최근 `_HIST_WEEKS` 주 → `history` 의 「주간」 항목(종전 주간 스냅샷 표 모양).
 
-    값은 곡선 점과 같은 `_pit_raw`(그 시점까지 공시된 재무)를 소수 둘째 자리로 한 번 반올림한다. `pbr` 은 PBR(MRQ), 없으면 PBR(FY0) — 종전 규칙.
-    재무가 없어 곡선 점이 없는 주(인프라 펀드 등 — 종전 스냅샷 표는 시총만 담았다)는 배수 없이 시총만 낸다. 그 시점 완전자본잠식인 주는 뺀다
-    (260829 마스터 지시 — 스냅샷 배치도 그 종목을 빼고 저장했다)."""
+    값은 그 주 업종 비교 기업 행과 같다(`_row_val` — 곡선 점, 그 시점 칸이 비면 앞선 칸으로 세고 그 항목에 `basis` 를 붙인다)를 소수 둘째 자리로
+    한 번 반올림한다. `pbr` 은 PBR(MRQ), 없으면 PBR(FY0) — 종전 규칙. 재무가 없어 셀 것이 없는 주(인프라 펀드 등 — 종전 스냅샷 표는 시총만 담았다)는
+    배수 없이 시총만 낸다. 그 시점 완전자본잠식인 주는 뺀다(260829 마스터 지시 — 스냅샷 배치도 08-29 부터 그 종목을 빼고 저장했다)."""
     out = []
     for price_dd, cap in px[-_HIST_WEEKS:]:
-        if not cap or _pit_impaired(price_dd, fin, finq, fye):
+        if not cap:
             continue
-        p = _pit_raw(price_dd, cap, fin, finq, fye) or {}
-        pbr = p.get("pbr_mrq") if p.get("pbr_mrq") is not None else p.get("pbr")
-        out.append({"period": f"{price_dd[:4]}-{price_dd[4:6]}-{price_dd[6:]}", "asof": price_dd, "cap_krw": float(cap),
-                    "per_fy0": _r2(p.get("per_fy0")), "per_ttm": _r2(p.get("per_ttm")), "pbr": _r2(pbr), "source": "주간"})
+        rv = _row_val(price_dd, cap, fin, finq, fye)
+        if rv is None:
+            continue
+        pbr = rv["pbr_mrq"] if rv["pbr_mrq"] is not None else rv["pbr"]
+        item = {"period": f"{price_dd[:4]}-{price_dd[4:6]}-{price_dd[6:]}", "asof": price_dd, "cap_krw": float(cap),
+                "per_fy0": _r2(rv["per_fy0"]), "per_ttm": _r2(rv["per_ttm"]), "pbr": _r2(pbr), "source": "주간"}
+        if rv["basis"]:
+            item["basis"] = rv["basis"]
+        out.append(item)
     return out
 
 

@@ -16,7 +16,8 @@
      같은 날 4차(재설계 6단계 — 상장 첫해 PBR(MRQ)): 그 시점 확정 FY 의 연간 값이 없으면 분기 자본으로 PBR(MRQ)만 있는 점을 낸다(`_pit_raw`).
      골든 중 바뀐 것은 연간 재무 읽기 실패(`fh_only_fin_y_fails`)·최신 확정 FY 요약 읽기 실패(`fh_only_fund_fails`) 둘뿐 — 연간 값이 빠진 주에
      PBR(MRQ)만 있는 점이 더해지고(그만큼 월말 요약과 「최신 … 기준」 날짜가 따라 바뀐다), 기존 점·환율 조회 순서·그 밖의 칸은 글자까지 같음을 대조한 뒤 썼다.
-     같은 날 5차(재설계 6단계 — 감사 5, 설계 v03 §6-0 P-1): `history` 의 「주간」 항목(최근 16주)을 곡선 점으로 다시 붙였다. 재무 요약 읽기에 수집 상태
+     같은 날 5차(재설계 6단계 — 감사 5, 설계 v03 §6-0 P-1): `history` 의 「주간」 항목(최근 16주)을 그 주 업종 비교 기업 행과 같은 값(곡선 점,
+     그 시점 칸이 비면 앞선 칸 — 감사 4, `basis`)으로 다시 붙였다. 재무 요약 읽기에 수집 상태
      칸(`fetched`)이 더해졌다(종전 스냅샷 표처럼 수집 정상인 종목만 「주간」 항목을 낸다). 골든 중 바뀐 것은 시세가 있는 fh_* 11개 시나리오에
      「주간」 13항목이 더해진 것뿐이고, 그 항목을 빼면 글자까지 같음을 대조한 뒤 썼다.
   ② 순차(`OPM_PG_FANOUT=1`)와 겹침(기본 3)이 같은 응답·같은 읽기 묶음을 낸다.
@@ -340,13 +341,17 @@ def test_the_golden_scenarios_actually_exercise_the_interesting_branches(golden)
     assert fh["fh_samsung"]["status"] == "ok" and len(fh["fh_samsung"]["data"]["series"]) == 13
     wk = [h for h in fh["fh_samsung"]["data"]["history"] if h["source"] == "주간"]
     pts = {p["asof"]: p for p in fh["fh_samsung"]["data"]["series"]}
-    assert len(wk) == 13 and all(h["asof"] in pts for h in wk), "「주간」 항목(최근 16주 — 가짜 시세는 13주)은 곡선의 같은 주 점이다(감사 5)"
+    assert len(wk) == 13 and all(h["asof"] in pts for h in wk), "「주간」 항목(최근 16주 — 가짜 시세는 13주)은 곡선의 같은 주다(감사 5)"
     def near(a, b):
         return (a is None and b is None) or (a is not None and b is not None and abs(a - b) <= 0.0051)
-    assert all(near(h["per_ttm"], pts[h["asof"]]["per_ttm"]) and near(h["per_fy0"], pts[h["asof"]]["per_fy0"])
-               and near(h["pbr"], pts[h["asof"]]["pbr_mrq"] if pts[h["asof"]]["pbr_mrq"] is not None else pts[h["asof"]]["pbr"])
-               and h["cap_krw"] == pts[h["asof"]]["cap_krw"] for h in wk)
-    assert sum(h["per_ttm"] is not None for h in wk) >= 5, "TTM 이 있는 주도 대조한다"
+    plain = [h for h in wk if "basis" not in h]
+    assert len(plain) == 11 and all(
+        near(h["per_ttm"], pts[h["asof"]]["per_ttm"]) and near(h["per_fy0"], pts[h["asof"]]["per_fy0"])
+        and near(h["pbr"], pts[h["asof"]]["pbr_mrq"] if pts[h["asof"]]["pbr_mrq"] is not None else pts[h["asof"]]["pbr"])
+        and h["cap_krw"] == pts[h["asof"]]["cap_krw"] for h in plain), "그 시점 칸으로 셀 수 있는 주는 곡선 점과 같은 값"
+    # 1년 전 같은 분기가 없어 그 시점 TTM 을 셀 수 없는 첫 두 주는 곡선이 N/M — 항목은 앞선 칸(2022 사업보고서)으로 세고 basis 를 단다(업종 비교 기업 행과 같다)
+    assert [(h["asof"], h["basis"].get("per_ttm")) for h in wk if "basis" in h] == [("20231020", "2022Q4"), ("20240119", "2022Q4")]
+    assert all(pts[h["asof"]]["per_ttm"] is None and h["per_ttm"] is not None for h in wk if "basis" in h)
     assert fh["fh_samsung"]["data"]["sector"] == "261", "삼성전자는 종목 오버라이드(264 → 261) — 배치가 저장하던 섹터와 같다"
     assert fh["fh_non_samsung_bucket"]["data"]["sector"] == "261" and fh["fh_non_samsung_bucket"]["data"]["market"] == "KQ"
     assert fh["fh_no_induty"]["data"]["sector"] is None

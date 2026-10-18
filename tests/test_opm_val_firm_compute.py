@@ -424,9 +424,13 @@ def test_weekly_history_items_cap_only_without_financials_and_skip_impaired_week
     only_cap = S._weekly_hist_items(px, {}, {})            # 인프라 펀드 꼴 — 재무가 없다: 종전 스냅샷 표는 시총만 담았다
     assert len(only_cap) == 16 and all(h["per_fy0"] is None and h["per_ttm"] is None and h["pbr"] is None for h in only_cap)
     fin = {2025: (20.0e12, 60.0e12)}
-    finq = {(2025, 2): (9.0e12, 58.0e12), (2026, 1): (1.0e12, -5.0)}   # 2026 1분기 자본 ≤ 0 — 5/15~8/13 은 잠식 시점
+    finq = {(2025, 2): (9.0e12, 58.0e12), (2026, 1): (1.0e12, -5.0), (2026, 2): (3.0e12, 4.0e12)}   # 2026 1분기 자본 ≤ 0 — 5/15~8/13 은 잠식 시점
     items = S._weekly_hist_items(_weeks(30, "20260403"), fin, finq)
     assert items and all(not ("20260515" <= h["asof"] < "20260814") for h in items), "잠식 시점 주는 뺀다(260829)"
+    assert all(h["asof"] >= "20260814" for h in items)
+    # 그 시점 칸(2026 반기)이 비어 앞선 칸(1분기)으로 대체하는데 그 자본이 0 이하면 그것도 잠식 — 뺀다
+    del finq[(2026, 2)]
+    assert S._weekly_hist_items(_weeks(30, "20260403"), fin, finq) == []
 
 
 def test_firm_history_of_a_fund_without_financials_is_ok_with_cap_only_weeks(monkeypatch):
