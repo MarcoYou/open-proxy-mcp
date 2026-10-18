@@ -37,7 +37,7 @@ def _rows(year: int, rc: str, cur: str) -> list[dict]:
     ]
 
 
-def _run(monkeypatch, end_year: int, last_year: int, cur_by_year=None, rates=None, rc_cur=None):
+def _run(monkeypatch, end_year: int, last_year: int, cur_by_year=None, rates=None, rc_cur=None, no_add=()):
     cur_by_year = cur_by_year or _CUR
     rates = _RATES if rates is None else rates
     fx_calls: list[tuple[str, str]] = []
@@ -47,7 +47,10 @@ def _run(monkeypatch, end_year: int, last_year: int, cur_by_year=None, rates=Non
         if year > last_year or (year == last_year and reprt_code in ("11014", "11011")):
             return [], "no_filing"
         cur = (rc_cur or {}).get((year, reprt_code)) or cur_by_year[year]
-        return _rows(year, reprt_code, cur), None
+        rows = _rows(year, reprt_code, cur)
+        if (year, reprt_code) in no_add:           # 누적 칸이 없는 3분기 보고서 — Q4 차분은 Q1+Q2+Q3 합으로
+            rows = [{k: v for k, v in r.items() if k != "thstrm_add_amount"} for r in rows]
+        return rows, None
 
     async def fake_acnt_all(corp_code, year, reprt_code, fs_div):
         return [], "no_filing"
@@ -144,3 +147,26 @@ def test_single_currency_company_unchanged(monkeypatch):
     by = {(r["fiscal_year"], r["fiscal_quarter"]): r for r in rows}
     assert by[(2024, "Q4")]["revenue_krw"] == 120 * 1400
     assert any("12분기 단일환율" in w for w in warnings)
+
+
+def test_currency_switch_mid_year_without_q3_cumulative_sums_quarters_in_krw(monkeypatch):
+    # 3분기 보고서에 누적 칸이 없으면 9개월 = Q1+Q2+Q3 단독 합 — 그 셋(CNY)도 원화로 바꾼 뒤 연간(USD, 원화)에서 뺀다.
+    rc_cur = {(2024, rc): "CNY" for rc in ("11013", "11012", "11014")}
+    rows, _, _ = _run(monkeypatch, end_year=2024, last_year=2025,
+                      cur_by_year={2021: "CNY", 2022: "CNY", 2023: "CNY", 2024: "USD"}, rc_cur=rc_cur,
+                      no_add={(2024, "11014")})
+    by = {(r["fiscal_year"], r["fiscal_quarter"]): r for r in rows}
+    assert by[(2024, "Q4")]["basis"] == "standalone_3m_derived"
+    assert by[(2024, "Q4")]["revenue_krw"] == 420 * 1400 - 300 * 200
+
+
+def test_currency_switch_mid_year_with_failed_rate_keeps_the_annual_figure(monkeypatch):
+    # 한 해 안에서 통화가 바뀌었는데(Q1~Q3 CNY · 연간 USD) CNY 환율을 못 구했다 — USD 연간에서 CNY 9개월을 빼지 않는다.
+    rc_cur = {(2024, rc): "CNY" for rc in ("11013", "11012", "11014")}
+    rows, warnings, _ = _run(monkeypatch, end_year=2024, last_year=2025, rates={"USD": 1400.0},
+                             cur_by_year={2021: "CNY", 2022: "CNY", 2023: "CNY", 2024: "USD"}, rc_cur=rc_cur)
+    by = {(r["fiscal_year"], r["fiscal_quarter"]): r for r in rows}
+    assert by[(2024, "Q4")]["basis"] == "annual_cumulative"
+    assert by[(2024, "Q4")]["revenue_krw"] == 420                     # USD 연간 그대로(경고) — 420 − 300 이 아니다
+    assert any("2024-Q4" in w and "그 해 안에서 보고 통화가 바뀌었는데 환율을 못 구해" in w for w in warnings)
+    assert not any(w.startswith("⚠ 2024년 분기 합이 연간과 차이") for w in warnings)   # 통화가 다른 분기를 더하지 않는다

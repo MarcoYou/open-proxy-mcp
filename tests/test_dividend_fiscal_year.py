@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import calendar
 from datetime import date
 
 from open_proxy_mcp.services.dividend import (
@@ -142,3 +143,65 @@ def test_past_year_query_does_not_call_unsearched_years_undecided():
     # 결산월을 모르면 구간을 지어내지 않는다
     assert _judgeable_undecided_years(2020, 2025, None, date(2021, 12, 31), today) == []
     assert _judgeable_undecided_years(2020, None, 12, date(2021, 12, 31), today) == []
+
+
+def _payload_for(monkeypatch, year: int, end_month: int = 12):
+    """build_dividend_payload 를 DART 0콜로 — 사업보고서 배당 사항은 `year` 해 것만(결산월 `end_month`), 결정공시 검색은 0건."""
+    import asyncio
+
+    from open_proxy_mcp.services import dividend as dv
+    from open_proxy_mcp.services.company import CompanyResolution
+    from open_proxy_mcp.services.contracts import AnalysisStatus
+
+    class _Client:
+        def api_call_snapshot(self):
+            return 0
+
+    async def resolve(_q):
+        return CompanyResolution(status=AnalysisStatus.EXACT, query="삼성전자", candidates=[],
+                                 selected={"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126380"})
+
+    async def annual(_corp, y):
+        last = calendar.monthrange(y, end_month)[1]
+        return {"period": f"{y}", "stlm_dt": f"{y}-{end_month:02d}-{last:02d}", "cash_dps": 1000, "total_dps": 1000,
+                "source": "alotMatter"}, None
+
+    searched = []
+
+    async def search(corp, start, end):
+        searched.append(end)
+        return [], [], [], None
+
+    async def details(_f):
+        return []
+
+    async def capital(*_a, **_k):
+        return False, []
+
+    monkeypatch.setattr(dv, "today_kst", lambda: date(2026, 10, 19))
+    monkeypatch.setattr(dv, "get_dart_client", lambda: _Client())
+    monkeypatch.setattr(dv, "resolve_company_query", resolve)
+    monkeypatch.setattr(dv, "_annual_summary", annual)
+    monkeypatch.setattr(dv, "_search_dividend_filings", search)
+    monkeypatch.setattr(dv, "_decision_details", details)
+    monkeypatch.setattr(dv, "_detect_capital_reserve_reduction", capital)
+    p = asyncio.run(dv.build_dividend_payload("삼성전자", scope="summary", year=year))
+    return p, searched
+
+
+def test_past_year_payload_has_no_undecided_years_it_never_searched(monkeypatch):
+    """도구 전체 경로 — year=2020 은 결정공시를 2021-12-31 까지만 찾는다. 그 뒤 사업연도를 「미결의」로 세우지 않는다."""
+    p, searched = _payload_for(monkeypatch, year=2020)
+    assert searched == [2020]                                  # 검색 끝 = 2021-12-31(… end_year + 1 년 말)
+    assert p["data"].get("undecided_fiscal_years") in (None, [])
+    assert not any("미결의" in w for w in p["warnings"])
+    # 6월 결산이면 FY2021(2021-06-30 종료)의 결의 시기는 그 검색이 덮는다 — 그 해만 판정 대상이다(결의 0건 → 미결의)
+    p6, _ = _payload_for(monkeypatch, year=2020, end_month=6)
+    assert [f["fiscal_year"] for f in p6["data"]["undecided_fiscal_years"]] == [2021]
+
+
+def test_recent_year_payload_still_flags_an_undecided_year(monkeypatch):
+    """대조 — 검색이 오늘까지 덮는 기본 조회(작년 기준)는 종전처럼 끝난 사업연도를 다 본다(6월 결산 FY2026 미결의)."""
+    p, _ = _payload_for(monkeypatch, year=2025, end_month=6)
+    assert [f["fiscal_year"] for f in p["data"]["undecided_fiscal_years"]] == [2026]
+    assert any("FY2026" in w and "미결의" in w for w in p["warnings"])

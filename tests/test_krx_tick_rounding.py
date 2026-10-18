@@ -34,6 +34,9 @@ def test_tick_rounding_separates_rounding_from_real_adjustments():
     assert is_tick_rounding(4_998, 5_000, "KS", "20240101")            # 경계: 기준가 쪽 호가단위(10원)로 판정
     assert not is_tick_rounding(11_820, 11_800, "KS", "20240827")      # 맥쿼리인프라 — 20원(호가단위 10원의 두 칸) 조정
     assert not is_tick_rounding(69_500, 69_200, "KS", "20260316")      # 300원(호가단위 100원의 세 칸)
+    # 정확히 한 칸 — 전일 종가가 이미 호가단위 위에 있으니 맞춤으로 생길 수 없는 어긋남이다(운영 457630·448830 실측, 진짜 조정으로 센다)
+    assert not is_tick_rounding(2_095, 2_100, "KQ", "20250331")
+    assert not is_tick_rounding(2_155, 2_150, "KQ", "20250904")
     assert not is_tick_rounding(208_500, 20_850, "KS", "20161028")     # 액면분할
     assert not is_tick_rounding(None, 2_085, "KQ", "20260702")         # 값이 없으면 판정하지 않는다(조정으로 둔다)
     assert not is_tick_rounding(2_085, 2_085, "KQ", "20260702")        # 어긋남 0 은 사건이 아니다
@@ -85,6 +88,13 @@ def test_firm_does_not_call_tick_rounding_a_discontinuity(monkeypatch):
         {"event_dd": "20261006", "adj_factor": 1.0024, "tick_rounding": True}]
     md = _render_firm(p)
     assert "⚠ 기준가 조정" not in md and "호가단위에 맞춘 날 2회" in md
+
+
+def test_firm_trusts_the_batch_label_when_prices_are_missing(monkeypatch):
+    """라벨 배치가 `excluded_tick_rounding` 을 붙인 행은 전일 종가·기준가가 비어 있어도 맞춤으로 센다(판정과 라벨이 같은 뜻)."""
+    p = _firm(monkeypatch, [("20260929", 1.0014, None, None, "KQ", TICK_ROUNDING_LABEL)])
+    assert not any("⚠ 구간 내 기준가 조정" in w for w in p["warnings"])
+    assert p["data"]["adj_events"] == [{"event_dd": "20260929", "adj_factor": 1.0014, "tick_rounding": True}]
 
 
 def test_firm_still_warns_about_real_adjustments_next_to_rounding(monkeypatch):
