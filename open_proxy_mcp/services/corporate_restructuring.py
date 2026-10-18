@@ -162,13 +162,18 @@ async def _fetch_scope(
     bgn_de: str,
     end_de: str,
 ) -> tuple[list[dict[str, Any]], list[str], int]:
-    """scope별 병렬 fetch. Returns (rows, warnings, api_call_count)."""
+    """scope별 병렬 fetch. Returns (rows, warnings, api_call_count, failed_count).
+
+    failed_count = 013(결정 공시 없음 — 정상)이 아닌 DART 오류로 못 읽은 엔드포인트 수. 0건인데 이게 있으면
+    「재편 공시 없음 (정상)」이 아니라 「모른다」다(261018).
+    """
     client = get_dart_client()
     warnings: list[str] = []
     api_calls = 0
+    failed = 0
 
     async def fetch_endpoint(method, normalizer, label: str):
-        nonlocal api_calls
+        nonlocal api_calls, failed
         try:
             result = await method(corp_code, bgn_de, end_de)
             api_calls += 1
@@ -178,6 +183,7 @@ async def _fetch_scope(
                 api_calls += 1
                 return []
             warnings.append(f"{label} 조회 실패: {exc.status}")
+            failed += 1
             return []
 
     tasks: list[Any] = []
@@ -200,7 +206,7 @@ async def _fetch_scope(
     for row in rows:
         _normalize_row_dates(row)  # DART 원본 '2026년 02월 11일' → ISO (전 tool 관행 통일)
     rows.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
-    return rows, warnings, api_calls
+    return rows, warnings, api_calls, failed
 
 
 def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]:
@@ -269,7 +275,7 @@ async def build_corporate_restructuring_payload(
     bgn_de = format_yyyymmdd(window_start)
     end_de = format_yyyymmdd(window_end)
 
-    rows, fetch_warnings, api_calls = await _fetch_scope(
+    rows, fetch_warnings, api_calls, fetch_failed = await _fetch_scope(
         scope, selected["corp_code"], bgn_de, end_de,
     )
     warnings = list(window_warnings) + fetch_warnings
@@ -287,9 +293,11 @@ async def build_corporate_restructuring_payload(
     # 사건 발견 vs 진짜 partial 분리 메타.
     # corporate_restructuring은 모든 fetch가 DART API 구조화 응답이라
     # API가 "결과 없음(013)"으로 응답하면 사건 자체가 없는 정상 케이스다.
+    # 엔드포인트 조회가 실패(013 이 아닌 오류)했는데 0건이면 「없음 (정상)」이 아니다 → fetch_failed(status=error).
     filing_meta = build_filing_meta(
         filing_count=len(rows),
         parsing_failures=0,
+        fetch_failed=fetch_failed > 0,
     )
 
     data: dict[str, Any] = {

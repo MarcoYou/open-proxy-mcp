@@ -13,7 +13,8 @@ class AnalysisStatus(str, Enum):
     """분석 결과 상태.
 
     - EXACT: 사건 발견 + 모든 필드 정상 파싱
-    - NO_FILING: 조회 구간에 사건 자체가 없는 정상 케이스 (PARTIAL과 분리)
+    - NO_FILING: 조회 구간에 사건 자체가 없는 정상 케이스 (PARTIAL과 분리). DART 013(조회된 데이터 없음)이 여기다 —
+      실패가 아니라 답이다. 반대로 목록 조회가 **실패**해서 0건이면 NO_FILING 이 아니라 ERROR(`filing_status=fetch_failed`).
     - PARTIAL: 사건은 발견됐으나 일부 필드 파싱 실패 (진짜 부분 실패)
     - AMBIGUOUS: 회사 식별 등 입력 모호
     - CONFLICT: 둘 이상의 소스 결과가 충돌
@@ -35,6 +36,7 @@ def build_filing_meta(
     filing_count: int,
     parsed_count: int | None = None,
     parsing_failures: int = 0,
+    fetch_failed: bool = False,
 ) -> dict[str, Any]:
     """11 data tool 공통 filing 메타.
 
@@ -42,12 +44,22 @@ def build_filing_meta(
     - filing_count: 발견된 공시/이벤트 수
     - parsed_count: 정상 파싱된 수 (None이면 filing_count - parsing_failures)
     - parsing_failures: 진짜 partial failure (필드 누락 등)
-    - filing_status: "no_filing" | "all_parsed" | "partial_failure"
+    - filing_status: "no_filing" | "all_parsed" | "partial_failure" | "fetch_failed"
+    - fetch_failed=True: 목록 조회 자체가 실패해 0건이 「없다」가 아니라 「모른다」인 경우(261018).
+      `no_filing` 은 False 로 두고 `filing_status="fetch_failed"` 로 적는다 — 조회 실패를 「없음」으로 내보내지 않는다.
     """
 
     if parsed_count is None:
         parsed_count = max(filing_count - parsing_failures, 0)
 
+    if fetch_failed and filing_count <= 0:
+        return {
+            "no_filing": False,
+            "filing_count": 0,
+            "parsed_count": 0,
+            "parsing_failures": int(parsing_failures),
+            "filing_status": "fetch_failed",
+        }
     if filing_count <= 0:
         filing_status = "no_filing"
     elif parsing_failures > 0:
@@ -65,8 +77,13 @@ def build_filing_meta(
 
 
 def status_from_filing_meta(meta: dict[str, Any]) -> "AnalysisStatus":
-    """filing 메타에서 표준 status 도출 (data tool 공통)."""
+    """filing 메타에서 표준 status 도출 (data tool 공통).
 
+    `fetch_failed`(목록 조회 실패로 0건 — 「없다」가 아니라 「모른다」)는 `error` 다(261018).
+    """
+
+    if meta.get("filing_status") == "fetch_failed":
+        return AnalysisStatus.ERROR
     if meta.get("no_filing"):
         return AnalysisStatus.NO_FILING
     if int(meta.get("parsing_failures", 0)) > 0:

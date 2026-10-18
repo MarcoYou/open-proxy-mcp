@@ -2,7 +2,7 @@
 type: tool
 title: order_contracts — 수주 추적
 domain: data
-updated: 2026-09-02
+updated: 2026-10-18
 scope: [기본 단일]
 data_source: [DART OpenAPI list.json (I001) + 단일판매ㆍ공급계약체결/해지 키워드 + 원문 BeautifulSoup 파싱]
 related: [corporate_deals, financial_metrics, evidence]
@@ -86,3 +86,7 @@ sequenceDiagram
 - 서비스: `open_proxy_mcp/services/order_contracts.py`
 - 검색: I001 단일판매ㆍ공급계약 (일반+자율공시 모두 I001, 자회사 변형 포함 — 시장 실측 확인)
 - 검증 표본·측정 기록: private storage
+
+## 변경 이력
+
+- 2026-10-18: 수주 공시 검색이 실패(013 이 아닌 DART 오류)했는데 0건이면 `status=no_filing` 대신 `error` — 0건이 「수주 없음」이 아니라 「모른다」다.

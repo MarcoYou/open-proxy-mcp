@@ -7,7 +7,7 @@ data_source: [DART get_document(III.재무에 관한 사항 — 연결/별도 �
 related_disclosures: [사업보고서, 반기보고서, 분기보고서]
 related_concepts: [연결-별도, 단위-표기-규약]
 created: 2026-08-23
-updated: 2026-09-06
+updated: 2026-10-18
 ---
 
 # financial_notes
@@ -91,6 +91,24 @@ DART 문서에는 목차 좌표가 태그로 박혀 있다(`<TITLE AASSOCNOTE="D
   명시한다. 분모표가 있으면 이 줄은 「뺄 원본은 위 분모표」로 바뀐다.
 - **단위** — 회사마다 백만원/천원/원이 섞이고 **같은 회사 안에서도 보고서마다 다르다**
   (현대해상: 분기 `원` · 반기 `천원` · 사업 `원`). 이으면 1,000배가 어긋난다.
+
+## 응답 status
+
+다른 공시 도구와 같은 소문자 어휘(`exact`·`partial`·`no_filing`·`error`·`ambiguous`)다.
+
+| status | 뜻 |
+|---|---|
+| `exact` | 보고서를 읽었다. 필드별 결과는 `notes[필드].status` 에 있다 |
+| `partial` | 필드 하나라도 원문을 못 받았거나(`NOT_COLLECTED`) 표를 찾고도 못 읽었다(`EXTRACTION_FAILED`) |
+| `no_filing` | 그 해·그 종류의 정기보고서가 없다(DART 013 — 실패가 아니라 답). `warnings` 에 「… 보고서를 찾지 못했습니다」 |
+| `error` | 원문을 받지 못했다(첨부정정 014·전송 오류 등, `data.status=NOT_COLLECTED`) · 회사를 못 찾았다 |
+| `ambiguous` | 회사 후보가 여럿이다 |
+
+필드별 `notes[필드].status` 는 데이터 칸이라 값을 그대로 둔다 — `OK`(표를 찾음) · `NOT_APPLICABLE`(그 주석이 없는 회사 —
+정상 답) · `NOT_COLLECTED` · `EXTRACTION_FAILED`. md 에는 이 이름 대신 「해당 주석 없음」·「원문 미수집」·「표 판독 실패」로 적는다.
+
+2026-10-18: 종전엔 성공이 대문자 `OK`, 원문 미수집이 `NO_DATA` 였고, 보고서가 없을 때는 봉투 없는 `{"error": …}` 라 status 칸이
+아예 없었다. md 는 필드 상태를 `NOT_APPLICABLE` 처럼 엔진 이름 그대로 찍었다.
 
 ## 응답 형식(`format="md"`)
 표는 GFM 표로 낸다 — 머리 행 다음에 `|---|` 구분행이 있고, 병합 머리(`장부금액 <18칸>`)처럼

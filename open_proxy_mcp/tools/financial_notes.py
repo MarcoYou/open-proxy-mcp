@@ -17,6 +17,29 @@ from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import ToolEnvelope
 
 
+#: 필드별 주석 상태(`notes[필드].status` — 데이터 칸이라 값은 그대로 둔다)를 **사람이 읽는 말로**. md 에 엔진 식별자
+#: (「NOT_APPLICABLE」)를 그대로 찍던 것을 고친다(261018, 산출물 표기 규칙). 모르는 값은 「찾지 못함」.
+_NOTE_STATUS_KO = {
+    svc.NOT_APPLICABLE: "해당 주석 없음",
+    svc.NOT_COLLECTED: "원문 미수집",
+    svc.EXTRACTION_FAILED: "표 판독 실패",
+}
+
+
+def _envelope_status(notes: dict) -> str:
+    """응답 머리 `status` — 다른 공시 도구와 같은 어휘(`AnalysisStatus`, 소문자)로 적는다.
+
+    261018: 종전엔 성공이 대문자 「OK」, 원문 미수집이 「NO_DATA」였다 — 같은 도구가 회사를 못 찾거나
+    후보가 여럿일 때는 `error`·`ambiguous`(소문자)라 한 도구 안에서도 어휘가 갈렸다. 필드 하나라도 원문을 못 받았거나
+    (NOT_COLLECTED) 표를 찾고도 못 읽었으면(EXTRACTION_FAILED) `partial`, 아니면 `exact` —
+    그 주석이 없는 회사(NOT_APPLICABLE)는 정상 답이라 `exact` 를 깎지 않는다.
+    """
+    gaps = {svc.NOT_COLLECTED, svc.EXTRACTION_FAILED}
+    if any((res or {}).get("status") in gaps for res in (notes or {}).values()):
+        return AnalysisStatus.PARTIAL.value
+    return AnalysisStatus.EXACT.value
+
+
 def _against_totals(rec: dict, total_view: dict | None) -> str:
     """세부표 잎 합을 **원문 합계표**와 맞춰 본다. 260824 마스터 지시.
 
@@ -163,7 +186,7 @@ def _render(payload: dict) -> str:
     for field, res in payload["notes"].items():
         L.append(f"## {field}")
         if res["status"] != svc.OK:
-            L += ["", f"> {res['status']} — {res.get('note','')}"]
+            L += ["", f"> {_NOTE_STATUS_KO.get(res['status'], '찾지 못함')} — {res.get('note','')}"]
             _oh = origin_hint(rno, field)
             if _oh:
                 L.append(f"> {_oh}")
@@ -566,8 +589,13 @@ def register_tools(mcp):
         if not cands:
             miss = (f"{year} 사업연도의 {period} 보고서를 찾지 못했습니다"
                     if (year or "").strip() else "정기보고서를 찾지 못했습니다")
-            return json.dumps({"error": miss, "company": company,
-                               "year": year, "period": period}, ensure_ascii=False)
+            # 261018: 종전엔 봉투 없는 `{"error": …}` 라 status 가 아예 없었다. 그 해·그 종류 보고서가 없는 것은
+            # 실패가 아니라 답이다(DART 013 을 삼킨 자리 — 위 `_candidates`) → no_filing.
+            env = ToolEnvelope(tool="financial_notes", status=AnalysisStatus.NO_FILING, subject=name,
+                               warnings=[miss],
+                               data={"query": company, "company": name, "corp_code": corp_code,
+                                     "year": year, "period": period})
+            return json.dumps(env.to_dict(), ensure_ascii=False)
 
         # 🔴 **먼저 목차 노드로 필요한 절만 받아본다.** 전체 문서는 최후 수단이다.
         node_hit = None
@@ -588,7 +616,7 @@ def register_tools(mcp):
                 "fetch": "nodes", "basis": basis, "sections": read_sections,
             }
             if format == "json":
-                env = ToolEnvelope(tool="financial_notes", status="OK", subject=name, data=payload)
+                env = ToolEnvelope(tool="financial_notes", status=_envelope_status(notes), subject=name, data=payload)
                 return json.dumps(env.to_dict(), ensure_ascii=False)
             return _render(payload)
 
@@ -608,7 +636,8 @@ def register_tools(mcp):
             except DartClientError as e:
                 tried.append(f"{r['rcept_no']}({str(e)[:40]})")
         if not html:
-            env = ToolEnvelope(tool="financial_notes", status="NO_DATA", subject=name,
+            # 원문을 받지 못했다(첨부정정 014·전송 오류 등) — 표를 하나도 못 읽은 **실패**다(종전 대문자 「NO_DATA」).
+            env = ToolEnvelope(tool="financial_notes", status=AnalysisStatus.ERROR, subject=name,
                                warnings=[f"원문을 받지 못했습니다 — 시도: {tried}"],
                                data={"status": svc.NOT_COLLECTED})
             return json.dumps(env.to_dict(), ensure_ascii=False)
@@ -622,6 +651,6 @@ def register_tools(mcp):
             "doc_chars": len(html),
         }
         if format == "json":
-            env = ToolEnvelope(tool="financial_notes", status="OK", subject=name, data=payload)
+            env = ToolEnvelope(tool="financial_notes", status=_envelope_status(notes), subject=name, data=payload)
             return json.dumps(env.to_dict(), ensure_ascii=False)
         return _render(payload)

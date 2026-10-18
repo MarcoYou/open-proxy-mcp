@@ -289,7 +289,8 @@ def test_dps_fetch_failed_reads_the_annual_summary_reason_and_013_is_not_a_failu
     for status, failed in (("013", False), ("020", True), ("TRANSPORT_ERROR", True), ("800", True)):
         monkeypatch.setattr(D, "get_dart_client", client_raising(status))
         summary, err = asyncio.run(D._annual_summary("00126380", 2025))
-        assert summary == {} and err == f"alotMatter 조회 실패: {status}"
+        # 013 은 실패 사유가 아니라 「배당 사항 없음」이라 사유 없이(None) 돌아온다(261018) — 빈 표와 같은 값
+        assert summary == {} and err == (None if status == "013" else f"alotMatter 조회 실패: {status}")
         assert S._dps_fetch_failed(err) is failed, status
     assert S._dps_fetch_failed(None) is False and S._dps_fetch_failed({}) is False   # 성공(골든 시험의 가짜는 {} 를 준다)
 

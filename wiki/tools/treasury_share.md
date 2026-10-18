@@ -8,7 +8,7 @@ related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식
 related_concepts: [자사주, 주주환원]
 related_decisions: [배당공시유형]
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-10-18
 ---
 
 # treasury_share
@@ -181,6 +181,7 @@ sequenceDiagram
   정상 부분집행(0.05~1.5)과 전량 블록딜 저가 처분은 통과시킨다 — 그건 오탐이 아니라 사실이다.
 
 ## 변경 이력
+- 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-04-29: treasury_share tool 신설 (CSR 분자 정정 T22 → T23과 함께 도입)
 - 2026-04-29: 5 API 병렬 (asyncio.gather), 200기업 audit 51% exact (no_filing 분리)
 - 2026-05-01: tool wiki 페이지 작성

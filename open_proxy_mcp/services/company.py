@@ -25,6 +25,7 @@ from open_proxy_mcp.services.contracts import (
     build_filing_meta,
     build_usage,
 )
+from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
 
 _RECENT_LOOKBACK_DAYS = 180
@@ -208,13 +209,34 @@ async def _safe_company_info(corp_code: str) -> tuple[dict[str, Any], str | None
     except DartClientError as exc:
         return {}, f"DART company.json 조회 실패: {exc.status}"
 
+#: 최근 공시 목록을 어떻게 받았나 — `_safe_recent_filings` 의 네 번째 값.
+#:   ok          받았다(0건일 수도 있다)
+#:   no_filing   DART 가 013(조회된 데이터 없음)으로 답했다 — **그 구간에 공시가 없다는 답**이다(실패 아님)
+#:   fetch_failed 그 밖의 DART 오류(020 한도·800 점검·전송 오류 등) — 공시가 있는지 **모른다**
+RECENT_FILINGS_OK, RECENT_FILINGS_NONE, RECENT_FILINGS_FAILED = "ok", "no_filing", "fetch_failed"
+
+
+def recent_filings_none_note(window: dict[str, str], english: bool = False) -> str:
+    """013 안내 문구 — 실패가 아니라 정보다(261018: 종전 「최근 공시 인덱스 조회 실패: 013」)."""
+    start, end = window.get("start_date", ""), window.get("end_date", "")
+    if english:
+        return (f"No DART filings in the search window ({start}~{end}) — the lookup succeeded; "
+                "there were none in that period.")
+    return f"조회 구간({start}~{end})에 DART 공시가 없습니다 — 조회는 정상이며 그 기간 공시가 0건입니다."
+
+
 async def _safe_recent_filings(
     corp_code: str,
     max_items: int,
     *,
     start_date: str = "",
     end_date: str = "",
-) -> tuple[list[dict[str, Any]], dict[str, str], str | None]:
+) -> tuple[list[dict[str, Any]], dict[str, str], str | None, str]:
+    """최근 공시 목록. 반환 (공시, 조회 구간, 경고, 목록 상태 — `RECENT_FILINGS_*`).
+
+    DART 013 은 「그 구간에 공시가 없다」는 **답**이라 실패 경고를 싣지 않는다 — 안내 문구는 응답 언어를 아는
+    호출부가 `recent_filings_none_note` 로 붙인다. 그 밖의 오류만 「조회 실패: {상태}」로 적는다.
+    """
     client = get_dart_client()
     begin_date, finish_date, window_warnings = resolve_date_window(
         start_date=start_date,
@@ -222,6 +244,8 @@ async def _safe_recent_filings(
         default_end=today_kst(),
         lookback_days=_RECENT_LOOKBACK_DAYS,
     )
+    window = {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}
+    window_note = " / ".join(window_warnings) if window_warnings else None
     try:
         result = await client.search_filings(
             corp_code=corp_code,
@@ -230,7 +254,10 @@ async def _safe_recent_filings(
             page_count=min(max(max_items * 3, 20), 100),
         )
     except DartClientError as exc:
-        return [], {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}, f"최근 공시 인덱스 조회 실패: {exc.status}"
+        if is_no_data(exc):
+            return [], window, window_note, RECENT_FILINGS_NONE
+        failed = f"최근 공시 인덱스 조회 실패: {exc.status}"
+        return [], window, (f"{window_note} / {failed}" if window_note else failed), RECENT_FILINGS_FAILED
 
     filings: list[dict[str, Any]] = []
     for item in result.get("list", [])[:max_items]:
@@ -242,8 +269,7 @@ async def _safe_recent_filings(
             "filer_name": item.get("flr_nm", ""),
             "pblntf_ty": item.get("pblntf_ty", ""),
         })
-    warning = " / ".join(window_warnings) if window_warnings else None
-    return filings, {"start_date": format_yyyymmdd(begin_date), "end_date": format_yyyymmdd(finish_date)}, warning
+    return filings, window, window_note, RECENT_FILINGS_OK
 
 
 def _candidate_row(corp: dict[str, Any]) -> dict[str, Any]:
@@ -436,7 +462,7 @@ async def build_company_payload(
     )
 
     stage_started_at = time.perf_counter()
-    (company_info, company_warn), (recent_filings, filings_window, filings_warn) = await asyncio.gather(
+    (company_info, company_warn), (recent_filings, filings_window, filings_warn, filings_state) = await asyncio.gather(
         company_info_task,
         filings_task,
     )
@@ -452,15 +478,20 @@ async def build_company_payload(
         "E": "비상장",
     }
     warnings = [warning for warning in (company_warn, filings_warn) if warning]
+    if filings_state == RECENT_FILINGS_NONE:
+        warnings.append(recent_filings_none_note(filings_window, _prefers_english(query, language)))
     if not company_info.get("jurir_no"):
         warnings.append("ISIN is not connected to the company tool yet." if _prefers_english(query, language) else "ISIN은 아직 company tool에 연결되지 않았다.")
 
     # company tool은 회사 정보가 항상 있어 no_filing 케이스가 거의 없다.
     # 다만 recent_filings 0건은 NO_FILING으로 표시 (정상). company_info 자체가
     # 없는 경우 (corp_code 미등록)는 위에서 ERROR로 분기되어 여기 도달 안 함.
+    # 🔴 목록 조회가 **실패**했으면(013 이 아닌 DART 오류) 0건은 「없다」가 아니라 「모른다」다 —
+    #    no_filing 으로 적지 않는다(261018: 종전엔 실패도 no_filing·「최근 공시 없음」으로 나갔다).
     filing_meta = build_filing_meta(
         filing_count=len(recent_filings),
         parsing_failures=0,
+        fetch_failed=filings_state == RECENT_FILINGS_FAILED,
     )
 
     payload = {

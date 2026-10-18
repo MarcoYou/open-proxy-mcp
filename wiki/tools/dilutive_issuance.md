@@ -8,7 +8,7 @@ related_disclosures: [유상증자결정, 전환사채발행결정, 교환사채
 related_concepts: [지분구조, 프록시-파이트]
 related_decisions: [pblntf-ty-필터링]
 created: 2026-05-01
-updated: 2026-09-09
+updated: 2026-10-18
 ---
 
 # dilutive_issuance
@@ -185,6 +185,7 @@ sequenceDiagram
 - 감자 + 유상증자 세트 패턴 자동 감지 (TODO, EDGC 패턴 = 자본잠식 해소 → 3자배정 → 최대주주 변경).
 
 ## 변경 이력
+- 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-09-09: **scope 2종 신설** — 「약속 ↔ 이행」의 사후 절반.
   · `fund_use` 공모·사모 자금의 **사용내역**(`pssrpCptalUseDtls`·`prvsrpCptalUseDtls`, 2콜).
     조달 **계획**(`fdpp_*`)과 **자동 대조하지 않는다** — 항목명이 자유서술이라 기계 매칭은 오답을

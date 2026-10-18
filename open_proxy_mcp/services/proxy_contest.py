@@ -22,6 +22,7 @@ from open_proxy_mcp.services.contracts import (
     build_usage,
     status_from_filing_meta,
 )
+from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.ownership_structure import (
@@ -902,8 +903,38 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         return_exceptions=True,
     )
 
+    # 🔴 013 = 그 사업연도 사업보고서가 DART 에 **아직 없다**(1~3월 제출 전 · 합병·상장폐지) — 실패가 아니라 답이다(261018).
+    #    종전엔 「지분 명부 API 조회 실패: 013」으로 적고 지분 맥락을 통째로 비웠다. 기준연도가 「올해 − 1」이라
+    #    **매년 1~3월(주총 시즌)엔 사업보고서 제출 전이라 거의 모든 회사가 이 길을 탔다.** 한 해 앞 사업보고서로
+    #    내려가 채우고, 어느 해 것인지 밝힌다(`year` → 응답의 `ownership_basis_year`). ownership_structure 의 보고서 사다리와 같은 생각이다.
+    prev_major: Any = None
+    lookup_failed = False       # 013 이 아닌 오류로 지분 명부·5% 블록을 못 읽었나 — 호출부가 「시그널 없음 (정상)」을 막는 데 쓴다
+    if isinstance(major_res, DartClientError) and is_no_data(major_res):
+        prev_year = str(int(bsns_year) - 1)
+        prev_major, prev_stock, prev_treasury = await asyncio.gather(
+            client.get_major_shareholders(corp_code, prev_year),
+            client.get_stock_total(corp_code, prev_year),
+            client.get_treasury_stock(corp_code, prev_year),
+            return_exceptions=True,
+        )
+        if not isinstance(prev_major, BaseException):
+            warnings.append(f"{bsns_year}년 사업보고서가 DART 에 아직 없어(제출 전·합병·상장폐지 등) "
+                            f"{prev_year}년 사업보고서 기준으로 지분 명부를 채웠습니다.")
+            bsns_year = prev_year
+            major_res, stock_total_res, treasury_res = prev_major, prev_stock, prev_treasury
+
     if isinstance(major_res, DartClientError):
-        warnings.append(f"지분 명부 API 조회 실패: {major_res.status}")
+        if not is_no_data(major_res):
+            warnings.append(f"지분 명부 API 조회 실패: {major_res.status}")
+            lookup_failed = True
+        elif isinstance(prev_major, BaseException) and not is_no_data(prev_major):
+            # 올해 몫은 「없다」가 답이고, 내려간 해의 조회는 **실패**했다 — 둘을 섞지 않는다.
+            prev_reason = getattr(prev_major, "status", None) or type(prev_major).__name__
+            warnings.append(f"{bsns_year}년 사업보고서가 DART 에 아직 없고, 그 전 해 지분 명부 조회는 실패했습니다: {prev_reason}")
+            lookup_failed = True
+        else:
+            warnings.append(f"{bsns_year}년과 그 전 해 사업보고서의 최대주주 명부가 DART 에 없습니다(미제출·합병·상장폐지 등) "
+                            "— 조회 실패가 아니며, 지분 맥락은 비워 둡니다.")
         return {
             "year": bsns_year,
             "top_holder": {},
@@ -911,6 +942,7 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
             "treasury_pct": 0.0,
             "control_map": {},
             "registry_names": [],
+            "lookup_failed": lookup_failed,
         }, warnings
     if isinstance(major_res, BaseException):
         raise major_res
@@ -918,7 +950,8 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
 
     if isinstance(stock_total_res, DartClientError):
         stock_total = {"list": []}
-        warnings.append(f"주식총수 API 조회 실패: {stock_total_res.status}")
+        warnings.append(f"{bsns_year}년 사업보고서 주식총수 자료가 DART 에 없습니다." if is_no_data(stock_total_res)
+                        else f"주식총수 API 조회 실패: {stock_total_res.status}")
     elif isinstance(stock_total_res, BaseException):
         raise stock_total_res
     else:
@@ -926,7 +959,8 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
 
     if isinstance(treasury_res, DartClientError):
         treasury_data = {"list": []}
-        warnings.append(f"자사주 API 조회 실패: {treasury_res.status}")
+        warnings.append(f"{bsns_year}년 사업보고서 자기주식 자료가 DART 에 없습니다." if is_no_data(treasury_res)
+                        else f"자사주 API 조회 실패: {treasury_res.status}")
     elif isinstance(treasury_res, BaseException):
         raise treasury_res
     else:
@@ -937,6 +971,7 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         latest_blocks: list[dict[str, Any]] = []
         block_timeline: list[dict[str, Any]] = []
         block_warning = f"5% 블록 조회 실패: {blocks_res}"
+        lookup_failed = True
     else:
         # timeline_rows를 더 이상 버리지 않고 시계열 신호 추출에 사용 (260605)
         latest_blocks, block_timeline, block_warning = blocks_res
@@ -954,6 +989,7 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         "control_map": control_map,
         # 임원 보고자가 명부상 특수관계인인지 대조하는 데 쓴다 (추가 API 콜 0).
         "registry_names": [row.get("name", "") for row in major_rows if row.get("name")],
+        "lookup_failed": lookup_failed,
     }, warnings
 
 
@@ -1639,9 +1675,13 @@ async def build_proxy_contest_payload(
     # 사건 발견 vs 진짜 partial 분리.
     # 위임장(proxy_filing) + 소송(litigation) + 5% 활성 시그널 합산.
     total_signal_filings = len(enriched_proxy_rows) + len(litigation_rows) + len(activist_signals)
+    # 위임장·소송 목록이나 지분 명부·5% 블록을 **못 읽었으면**(013 이 아닌 DART 오류) 0건은 「시그널 없음 (정상)」이 아니라
+    # 「모른다」다(261018: 020 한도 초과가 「…시그널 없음 (정상)」으로 나갔다).
+    signals_lookup_failed = bool(proxy_warning or lit_warning or control_context.get("lookup_failed"))
     filing_meta = build_filing_meta(
         filing_count=total_signal_filings,
         parsing_failures=0,
+        fetch_failed=signals_lookup_failed,
     )
 
     data: dict[str, Any] = {
@@ -1752,6 +1792,10 @@ async def build_proxy_contest_payload(
         "timeline scope로 전체 이벤트 순서 확인" if scope == "summary" else "shareholder_meeting, ownership_structure와 함께 보면 표대결 맥락이 더 선명해진다.",
     ]
     status = status_from_filing_meta(filing_meta)
+    if filing_meta["filing_status"] == "fetch_failed":
+        # 받은 것(지분 맥락·임원 보고 등)은 그대로 보여 주되, 신호 목록 일부를 못 읽었으니 partial — error 로 내리면
+        # md 가 경고만 남기고 받은 지분 맥락까지 감춘다.
+        status = AnalysisStatus.PARTIAL
     if scope == "vote_math":
         vote_math, vote_math_status, vote_math_warnings, vote_math_evidence, vote_math_actions = await _vote_math_scope_data(
             company_query,

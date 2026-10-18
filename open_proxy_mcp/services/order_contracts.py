@@ -430,7 +430,8 @@ async def build_order_contracts_payload(
         keywords=_SUPPLY_KEYWORDS,
     )
     warnings = list(win_warn)
-    if error and error != "013":
+    search_failed = bool(error and error != "013")
+    if search_failed:
         warnings.append(f"수주 공시 검색 실패: {error}")
 
     # 문서 본문 병렬 fetch — 각 공시는 독립적이라 gather (형제 tool corporate_deals·treasury_share
@@ -494,8 +495,10 @@ async def build_order_contracts_payload(
 
     return ToolEnvelope(
         tool="order_contracts",
-        # 해지(termination)만 있어도 '수주했다 해지'라는 정보다 — no_filing(수주 자체 없음)과 구분
-        status=AnalysisStatus.EXACT if (orders or terminations) else AnalysisStatus.NO_FILING,
+        # 해지(termination)만 있어도 '수주했다 해지'라는 정보다 — no_filing(수주 자체 없음)과 구분.
+        # 검색이 실패(013 이 아닌 DART 오류)했는데 0건이면 「수주 없음」이 아니라 「모른다」다 → error(261018).
+        status=(AnalysisStatus.EXACT if (orders or terminations)
+                else AnalysisStatus.ERROR if search_failed else AnalysisStatus.NO_FILING),
         subject=selected.get("corp_name", company_query),
         warnings=warnings + notices,
         data={
