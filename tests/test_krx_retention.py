@@ -283,3 +283,53 @@ def test_prune_where_is_a_top_level_and_so_it_can_become_an_anti_join():
     assert " OR " in keep and "HAVING max(price_dd) < %s" in keep               # 정본(코디네이터 확정 꼴)
     # 성능 함정이 docstring 에 적혀 있다 — 이 술어를 DB 에 돌리는 코드가 읽도록
     assert "work_mem" in (R.keep_predicate.__doc__ or "") and "SET LOCAL work_mem" in (R.__doc__ or "")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 연말 행 = 그해 마지막 주 단위(week_unit)의 닫는 점 — 261019 확인(20191227 2,324행 문제)
+# ═══════════════════════════════════════════════════════════════════════════════
+def _closing_points(trading_days: list[str]) -> list[str]:
+    """쓰는 쪽(주 닫기)이 남기는 주간 점 — 주 단위(week_unit)마다 그 단위의 가장 늦은 거래일."""
+    last: dict[tuple[str, str], str] = {}
+    for d in trading_days:
+        u = R.week_unit(d)
+        last[u] = max(last.get(u, ""), d)
+    return sorted(last.values())
+
+
+def test_year_end_is_last_week_unit_close():
+    """보존 술어의 「종목별 그 연도 마지막 행」 = 그해 마지막 주 단위의 닫는 점. 연도를 넘는 ISO 주(2019·2020·2024·2025·2030·2031)에서도.
+    주를 달력 연도에서 자르므로 같은 정의다 — 그래서 12/30 을 되살린 2019 의 연말 행은 20191230 이고, 20191227 은 [20191223, 20191229]
+    주의 보통 주간 점이라 하한 밖 롤링 대상이 된다(술어 결함이 아니다)."""
+    days = []
+    d = date(2015, 12, 28)
+    while d <= date(2032, 1, 30):
+        if d.isoweekday() < 6 and not (d.month == 12 and d.day == 31) and not (d.month == 1 and d.day == 1):
+            days.append(d.strftime("%Y%m%d"))                    # 평일 — 12/31·1/1 휴장(KRX 연말 휴장일·신정)
+        d += timedelta(days=1)
+    points = _closing_points(days)
+    rows = [("A", p) for p in points] + [("B", p) for p in points if p < "20240615"]   # B 는 2024-06 상장폐지
+    latest = "20311230"
+    ye = R.year_end_rows(rows, latest)
+    by_unit_year: dict[tuple[str, str], str] = {}
+    for t, p in rows:
+        unit_start, unit_end = R.week_unit(p)
+        assert unit_start[:4] == unit_end[:4] == p[:4]            # 주 단위는 늘 한 해 안 — left(price_dd, 4) 가 곧 단위의 연도
+        by_unit_year[(t, unit_end[:4])] = max(by_unit_year.get((t, unit_end[:4]), ""), p)
+    cutoff = R.krx_weekly_cutoff(latest)
+    assert ye == frozenset((t, p) for (t, _y), p in by_unit_year.items() if p < cutoff)
+    assert ("A", "20191230") in ye and ("A", "20191227") not in ye and "20191227" in points   # 2019: 12/27 은 보통 주간 점
+    assert ("A", "20241230") in ye and ("A", "20251230") in ye and ("B", "20240614") in ye
+    assert not R.is_retained("A", "20191227", latest, ye) and R.is_retained("A", "20191230", latest, ye)
+
+
+def test_prune_where_wk_is_the_same_rule_on_the_compact_table():
+    """`krx_weekly` 가 뷰일 때(261019 재설계 v03 C4) 실제 행이 있는 krx_wk(tid, wk_dd date)에 거는 판 — 같은 하한·같은 연말 행 규칙.
+    같은 (종목, 날짜) 집합인지는 Postgres 시험(test_krx_weekly_view_pg.py)이 뷰 위 정본 술어와 대조한다."""
+    sql, params = R.prune_where_wk("20261016")
+    assert params == ("20231016", "20231016")
+    assert sql.startswith("w.wk_dd < to_date(%s, 'YYYYMMDD') AND NOT EXISTS (SELECT 1 FROM (")
+    assert "FROM krx_wk GROUP BY tid, extract(year FROM wk_dd) HAVING max(wk_dd) < to_date(%s, 'YYYYMMDD')) ye" in sql
+    assert " OR " not in sql                                     # 최상위 AND — 반조인으로 풀린다(keep_predicate 의 함정 없음)
+    with pytest.raises(ValueError):
+        R.prune_where_wk("20261016", alias="w; DROP TABLE x")

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sys
 
+from open_proxy_mcp import krx_daily as K
 from open_proxy_mcp import krx_retention as R
 from scripts import adj_factor_v3 as A
 from scripts import krx_stock_flags as F
@@ -107,7 +108,7 @@ def test_stock_flags_evaluates_only_events_after_the_pair_floor(monkeypatch, cap
 
     def handler(sql, params):
         s = _norm(sql)
-        if s == "SELECT max(price_dd) FROM krx_weekly":
+        if s == _norm(K.WEEKLY_LATEST_SQL):
             return [("20261016",)]
         if s.startswith("SELECT count(*) FROM krx_shares_ledger"):
             seen["n_old_params"] = params
@@ -145,7 +146,7 @@ def test_adj_factor_skips_unlabeled_events_before_the_pair_floor(monkeypatch, ca
 
     def handler(sql, params):
         s = _norm(sql)
-        if s == "SELECT max(price_dd) FROM krx_weekly":
+        if s == _norm(K.WEEKLY_LATEST_SQL):
             return [("20261016",)]
         if s.startswith("SELECT e.ticker, e.event_dd, e.adj_factor_raw"):
             seen["resets_params"] = params

@@ -448,7 +448,7 @@ def test_firm_history_of_a_fund_without_financials_is_ok_with_cap_only_weeks(mon
             s = " ".join(sql.split())
             if s.startswith("SELECT market, induty, currency, acc_mt, fetched FROM dart_fundamentals"):
                 return [("KS", "64992", "KRW", None, fetched)]
-            if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
+            if s.startswith("SELECT COALESCE((SELECT max(dd) FROM krx_day WHERE wk_close)"):   # 닫힌 주 최신(261019 v03 C4)
                 return [(px[-1][0],)]
             if "SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
                 return [(d, c, "w") for d, c in px]

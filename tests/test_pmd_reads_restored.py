@@ -16,7 +16,11 @@ from datetime import date, timedelta
 
 import pytest
 
+from open_proxy_mcp import krx_daily as K
 from open_proxy_mcp.services import price_multiple_data as S
+
+#: 닫힌 주 최신 읽기(261019 v03 C4 — 달력 먼저, 비면 krx_weekly max).
+_LATEST = " ".join(K.WEEKLY_LATEST_SQL.split())
 from open_proxy_mcp.services.sector_class import DB_SCHEME, MAJOR, MID
 
 TODAY = date(2026, 10, 21)            # 수요일 — 이번 주(10/19~)는 아직 닫히지 않았다
@@ -55,7 +59,7 @@ def _fh_rows(tail, *, latest="20261016", weekly=None, seen=None):
         s = " ".join(sql.split())
         if s.startswith("SELECT market, induty, currency, acc_mt, fetched FROM dart_fundamentals"):
             return [("KS", "26110", "KRW", None, "ok")]
-        if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
+        if s == _LATEST:
             return [(latest,)]
         if s.startswith("SELECT 'below'"):
             return [("first", weekly[0][0], 2600), ("ref", latest, 2700)]
@@ -161,10 +165,10 @@ def test_weekly_bounds_floor_is_the_stored_weekly_run_start(monkeypatch):
     def rows(sql, params=()):
         s = " ".join(sql.split())
         calls.append(s[:30])
-        if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
+        if s == _LATEST:
             return [("20261023",)]
         if s.startswith("SELECT 'below'"):
-            assert params == ("20231023", "20231023")
+            assert params == ("20231023", "20231023", "20231127", "20231023")   # 첫 주는 하한 뒤 35일 안에서 먼저 찾는다
             return [("below", "20221229", 2558), ("below", "20231020", 2634), ("first", "20231027", 2634), ("ref", "20261023", 2762)]
         raise AssertionError(s)
     monkeypatch.setattr(S, "_pg_rows", rows)
@@ -173,7 +177,7 @@ def test_weekly_bounds_floor_is_the_stored_weekly_run_start(monkeypatch):
     assert sum(c.startswith("SELECT 'below'") for c in calls) == 1, "1시간 캐시 — 최신 주가 같으면 다시 읽지 않는다"
     # 장애(None)면 자르는 쪽의 하한 — 캐시하지 않는다
     S._WEEKLY_START_CACHE.clear()
-    monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): [("20261023",)] if sql.startswith("SELECT MAX(price_dd)") else None)
+    monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): [("20261023",)] if sql == K.WEEKLY_LATEST_SQL else None)
     assert asyncio.run(S._weekly_bounds()) == ("20261023", "20231023") and not S._WEEKLY_START_CACHE
 
 

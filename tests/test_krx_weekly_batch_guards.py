@@ -13,6 +13,7 @@ import sys
 
 import pytest
 
+from open_proxy_mcp import krx_daily as K
 from open_proxy_mcp import krx_retention as R
 from scripts import krx_cap_agg as C
 from scripts import krx_listing as L
@@ -173,7 +174,7 @@ def _listing_handler(*, latest="20261016", existing=(), observed=(), table_cut=F
 
     def handler(sql, params):
         s = _norm(sql)
-        if s == "SELECT max(price_dd) FROM krx_weekly":
+        if s == _norm(K.WEEKLY_LATEST_SQL):
             return [(latest,)]
         if s.startswith("SELECT ticker, market, first_seen_dd, last_seen_dd FROM krx_listing"):
             return list(existing)
