@@ -25,6 +25,7 @@ import os
 from collections import OrderedDict
 from typing import Any
 
+from open_proxy_mcp.company_resolver import share_class_ticker
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 from open_proxy_mcp.krx_daily import read_quote
 
@@ -87,6 +88,37 @@ def _downsample(series: list[dict], freq: str) -> list[dict]:
 
 def _err(subject: str, status: str, *warns: str) -> dict[str, Any]:
     return {"tool": TOOL, "status": status, "subject": subject, "warnings": list(warns)}
+
+
+def _quoted_ticker(corp: dict) -> tuple[str, str]:
+    """(시세를 읽을 종목코드, 종류주 안내). 종류주(우선주 등) 코드로 물었으면 그 종류주 코드 — 회사(보통주)가 아니라 그 종목 자체의
+    시세·시총·상장주식수를 준다(261018: 종전엔 원장에 보통주 코드만 있어 005935 가 「못 찾음」이었다). 아니면 원장의 종목코드, 안내 없음."""
+    stock = (corp.get("stock_code") or "").strip()
+    cls = share_class_ticker(corp)
+    if not cls or not stock:
+        return stock, ""
+    return cls, (f"{cls} 는 {corp.get('corp_name') or stock}(보통주 {stock})의 종류주(우선주 등) 종목코드입니다 — 이 응답의 "
+                 f"종가·시총·상장주식수는 이 종류주 자체의 값입니다(보통주 아님). 보통주는 company=\"{stock}\".")
+
+
+def _subject(corp: dict, company: str, ticker: str, class_note: str) -> str:
+    """응답 제목 — 「삼성전자(005930)」. 종류주면 「삼성전자 종류주(005935)」(원장에 종류주 이름이 없어 발행 회사 이름에 붙인다)."""
+    return f"{corp.get('corp_name', company)}{' 종류주' if class_note else ''}({ticker})"
+
+
+def declare_inferred(payload: dict[str, Any]) -> dict[str, Any]:
+    """이름이 정확히 맞지 않아 **추정으로 고른** 기업을 응답 맨 앞에 밝힌다 — 다른 도구(`declare_weak_resolution`)와 같은 문장(261018).
+
+    종전엔 이 도구만 그 고지를 버렸다 — 「삼성전자우」가 삼성전자(보통주) 시세로 경고 없이 바뀌었다(우선주 이름은 원장에 없어
+    오타 교정으로 보통주 회사에 닿는다). 고지는 「종목코드로 다시」를 안내하고, 우선주는 그 종목코드로 부르면 그 종목 자체 시세를 준다.
+    종류주 **코드** 고지는 싣지 않는다 — 이 도구는 그 종류주 자체의 값을 주므로 따로 적는다(`_quoted_ticker`)."""
+    from open_proxy_mcp.services.contracts import _weak_resolution_warnings
+
+    lines = _weak_resolution_warnings()
+    if not lines or not isinstance(payload, dict):
+        return payload
+    payload["warnings"] = lines + [w for w in payload.get("warnings") or [] if w not in lines]
+    return payload
 
 
 # ── DB 미연결 vs DB 장애 ──────────────────────────────────────────────────────
@@ -214,7 +246,7 @@ async def build_firm_series_payload(company: str, format: str = "md",
         return early
     if not corp:
         return _err(company, "not_found", f"'{company}' 상장사를 찾지 못했습니다.")
-    ticker = (corp.get("stock_code") or "").strip()
+    ticker, class_note = _quoted_ticker(corp)
     if not ticker:
         return _err(corp.get("corp_name", company), "unlisted", "비상장 — 시세 시계열이 없습니다.")
 
@@ -238,9 +270,14 @@ async def build_firm_series_payload(company: str, format: str = "md",
         name = corp.get("corp_name", company)
         if _db_configured():
             return _err(name, "db_error", _DB_ERROR_PAYLOAD_WARN)
-        return await _firm_live_fallback(name, ticker)
+        live = await _firm_live_fallback(name, ticker)
+        if class_note and live.get("status") == "ok":
+            live["subject"] = _subject(corp, company, ticker, class_note)
+            live.setdefault("warnings", []).insert(0, class_note)
+        return live
     if not rows:
         return _err(corp.get("corp_name", company), "no_data",
+                    *([class_note] if class_note else []),
                     f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).", window_note)
 
     freq = (freq or _FREQ_DEFAULT["firm"]).strip().lower()
@@ -255,8 +292,9 @@ async def build_firm_series_payload(company: str, format: str = "md",
                   "AND adj_factor <> 1 ORDER BY event_dd",
         (ticker, first["asof"], latest["asof"])) or []
 
-    warns = [f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
-             f"연속이지만 주가는 끊깁니다."]
+    warns = ([class_note] if class_note else []) + [
+        f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
+        f"연속이지만 주가는 끊깁니다."]
     if not req or req < floor:
         warns.append(window_note)
     if ev:
@@ -265,8 +303,10 @@ async def build_firm_series_payload(company: str, format: str = "md",
                      f"{' …' if len(ev) > 5 else ''}) — 가격 시계열이 그 지점에서 불연속입니다. "
                      f"연속 비교가 필요하면 시가총액을 쓰세요(조정 불변).")
     return {"tool": TOOL, "status": "ok",
-            "subject": f"{corp.get('corp_name', company)}({ticker})",
-            "data": {"scope": "firm", "ticker": ticker, "market": rows[-1][1],
+            "subject": _subject(corp, company, ticker, class_note),
+            "data": {"scope": "firm", "ticker": ticker,
+                     **({"issuer_ticker": (corp.get("stock_code") or "").strip()} if class_note else {}),
+                     "market": rows[-1][1],
                      "as_of": latest["asof"], "from": first["asof"], "weekly_from": floor, "points": len(series),
                      "freq": freq, "points_weekly": len(full),
                      "latest": latest, "series": series,
@@ -540,11 +580,11 @@ async def build_quote_payload(company: str, format: str = "md",
         return early
     if not corp:
         return _err(company, "not_found", f"'{company}' 상장사를 찾지 못했습니다.")
-    ticker = (corp.get("stock_code") or "").strip()
+    ticker, class_note = _quoted_ticker(corp)
     if not ticker:
         return _err(corp.get("corp_name", company), "unlisted", "비상장 — 시세가 없습니다.")
 
-    warns: list[str] = []
+    warns: list[str] = [class_note] if class_note else []
     row = None              # KRX 원본 행(라이브 경로)
     db_row = None           # krx_daily_v 한 줄(DB 경로)
     lookup = await asyncio.to_thread(read_quote, ticker, dd)    # DB 한 왕복 — 읽을 수 없으면 ok=False
@@ -585,7 +625,7 @@ async def build_quote_payload(company: str, format: str = "md",
             return _err(corp.get("corp_name", company), "unsupported_market",
                         f"{ticker} 는 KONEX 종목입니다 — 이 도구의 시세 소스는 KOSPI·KOSDAQ 두 곳뿐이라 "
                         f"코넥스는 **수록 대상이 아닙니다**(휴장·거래정지와 무관). 공시 기반 도구는 그대로 씁니다.")
-        return _err(corp.get("corp_name", company), "no_data",
+        return _err(corp.get("corp_name", company), "no_data", *warns,
                     f"{dd} 에 {ticker} 시세가 없습니다 — 휴장일·상장 전·거래정지 또는 KRX 키 미설정.")
 
     q, market = _quote_from_db_row(db_row) if db_row else _quote_from_krx_row(row)
@@ -594,8 +634,10 @@ async def build_quote_payload(company: str, format: str = "md",
         warns.append("⚠ 거래량 0 — 무거래일입니다. KRX 는 이 경우 시·고·저가를 0 으로 보냅니다"
                      "(가격이 0 이라는 뜻이 아닙니다).")
     return {"tool": TOOL, "status": "ok",
-            "subject": f"{corp.get('corp_name', company)}({ticker}) {dd} 시세",
-            "data": {"scope": "quote", "ticker": ticker, "as_of": dd,
+            "subject": f"{_subject(corp, company, ticker, class_note)} {dd} 시세",
+            "data": {"scope": "quote", "ticker": ticker,
+                     **({"issuer_ticker": (corp.get("stock_code") or "").strip()} if class_note else {}),
+                     "as_of": dd,
                      "market": market, "quote": q,
                      "price_adjusted": False,
                      "source": "db" if db_row else "krx_live",

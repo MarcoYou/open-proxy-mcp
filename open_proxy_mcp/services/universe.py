@@ -25,6 +25,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from open_proxy_mcp.company_resolver import issuer_ticker
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import to_label
 
@@ -132,11 +133,11 @@ async def _names_by_ticker() -> dict[str, str]:
 
 def is_preferred(ticker: str, names: dict[str, str]) -> bool:
     """우선주 판정: 원장에 없는 코드인데 끝자리를 0 으로 바꾼 보통주 코드는 원장에 있다
-    (005935→005930 삼성전자, 005387→005380 현대차, 00680K→006800 미래에셋증권)."""
+    (005935→005930 삼성전자, 005387→005380 현대차, 00680K→006800 미래에셋증권).
+    규칙(끝자리 = 주식 종류)은 이름 해석기가 종류주 코드를 발행 회사로 잇는 것(`company_resolver.issuer_ticker`)과 하나다."""
     t = (ticker or "").strip()
-    if len(t) != 6 or t in names or t[5] == "0":
-        return False
-    return (t[:5] + "0") in names
+    base = issuer_ticker(t)
+    return bool(base) and t not in names and base in names
 
 
 def _padded(spec: str) -> tuple[str, int | None, str]:

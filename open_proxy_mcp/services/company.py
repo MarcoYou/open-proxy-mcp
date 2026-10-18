@@ -27,6 +27,7 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.date_utils import format_yyyymmdd, resolve_date_window
+from open_proxy_mcp.company_resolver import krx_code, share_class_ticker
 
 _RECENT_LOOKBACK_DAYS = 180
 _KSIC_PATH = Path(__file__).resolve().parent.parent / "data/ksic/ksic10_ko.json"
@@ -39,7 +40,23 @@ except Exception:
 def _prefers_english(query: str, language: str = "auto") -> bool:
     if language in {"ko", "en"}:
         return language == "en"
+    # 종목코드는 언어가 아니다 — 신형 영숫자 코드(「0126Z0」)의 영문 글자로 영어 응답을 고르지 않는다(261018: 코드만 넣었는데 영어로 답했다).
+    if krx_code(query):
+        return False
     return bool(re.search(r"[A-Za-z]", query or "")) and not bool(re.search(r"[가-힣]", query or ""))
+
+
+#: 이름이 아니라 식별자(종목코드·종류주 코드·corp_code)로 찾은 결과 — 상장·명부 필터를 건너뛴다(숫자 코드와 같은 대우).
+_IDENTIFIER_KINDS = frozenset({"ticker", "corp_code", "share_class"})
+
+
+def _identifier_query(raw: str, matches: list[dict[str, Any]]) -> bool:
+    """종목코드·corp_code 로 물었나. 숫자 6·8자리는 종전대로 모양만 보고, 신형 영숫자 코드·종류주 코드는 해석기가 코드로 찾았을 때만
+    (코드 모양인데 코드가 아니면 종전처럼 이름 검색 결과라 이름 질의와 같은 필터를 탄다)."""
+    if re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw):
+        return True
+    meta = (matches[0].get("_resolution") or {}) if matches else {}
+    return meta.get("match_kind") in _IDENTIFIER_KINDS
 
 
 def _resolve_induty_name(induty_code: str) -> str:
@@ -82,8 +99,10 @@ def _resolve_match(query: str, matches: list[dict[str, Any]]) -> tuple[AnalysisS
     """
     status, selected, candidates = _resolve_match_impl(query, matches)
     if selected:
-        from open_proxy_mcp.dart.client import _note_corp, note_weak_resolution
+        from open_proxy_mcp.dart.client import _note_corp, note_share_class_resolution, note_weak_resolution
         _note_corp(selected.get("corp_code"))
+        # 종류주 코드로 물었으면 발행 회사로 해석했다는 사실을 응답 맨 앞에 밝힌다(추정 고지와 같은 장부·같은 경로).
+        note_share_class_resolution(selected)
         meta = selected.get("_resolution") or {}
         if meta.get("inferred"):
             note_weak_resolution(
@@ -103,7 +122,7 @@ def _resolve_match_impl(query: str, matches: list[dict[str, Any]]) -> tuple[Anal
     resolver_meta = matches[0].get("_resolution") or {}
     if resolver_meta.get("match_kind"):
         kind = resolver_meta.get("match_kind")
-        if kind in {"ticker", "corp_code"}:
+        if kind in _IDENTIFIER_KINDS:
             return AnalysisStatus.EXACT, matches[0], matches
         if not resolver_meta.get("inferred"):
             if len(matches) == 1 or resolver_meta.get("strong_disambiguated"):
@@ -303,11 +322,13 @@ def _resolution_reasons(
             "token": f"입력 토큰을 모두 포함하는 {ko_universe} 후보 중 {ko_rank} 우선",
             "substring": f"부분 회사명과 일치하는 {ko_universe} 후보 중 {ko_rank} 우선",
             "fuzzy": f"제한적 오타 교정 후 {ko_universe} 후보 중 {ko_rank} 우선",
+            "share_class": "종류주(우선주 등) 종목코드 — 발행 회사로 식별",
         }.get(kind, "공식명 또는 등록 별칭 일치"),
         "en": {
             "token": f"All query tokens matched; ranked {en_universe} by {en_rank}",
             "substring": f"Partial name matched; ranked {en_universe} by {en_rank}",
             "fuzzy": f"Applied limited typo correction, then ranked {en_universe} by {en_rank}",
+            "share_class": "Class-share (e.g. preferred) ticker — resolved to the issuing company",
         }.get(kind, "Matched an official name or registered alias"),
     }
 
@@ -330,6 +351,8 @@ def _resolution_payload(
         str(meta.get("ranking_signal") or "registry_recency"),
     )
     reason = reason_i18n["en" if english else "ko"]
+    # 종류주 코드로 찾았으면 어느 코드였는지 싣는다(그 밖의 응답은 칸이 늘지 않는다).
+    share_class = {"share_class": meta["share_class"]} if meta.get("share_class") else {}
     return {
         "query": query,
         "response_language": "en" if english else "ko",
@@ -342,6 +365,7 @@ def _resolution_payload(
         "market_data_source": meta.get("market_data_source"),
         "ranking_signal": meta.get("ranking_signal"),
         "alternatives": alternatives,
+        **share_class,
     }
 
 
@@ -368,7 +392,7 @@ async def build_company_payload(
     _mark("lookup_corp_code_all", stage_started_at)
 
     raw = (query or "").strip()
-    numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
+    numeric_query = _identifier_query(raw, matches)
     unlisted_only = False
     if not numeric_query and matches:
         # 🔴 260824: 여기에 **상장사 필터가 두 벌** 있었다. `resolve_company_query` 는 명부
@@ -501,6 +525,8 @@ async def build_company_payload(
         "canonical_name": corp_name,
         "identifiers": {
             "ticker": selected.get("stock_code", ""),
+            # 종류주 코드로 물었을 때만 — 회사 식별자(ticker)는 보통주 코드 그대로, 물은 종류주 코드는 따로 싣는다.
+            **({"share_class_ticker": share_class_ticker(selected)} if share_class_ticker(selected) else {}),
             "corp_code": selected.get("corp_code", ""),
             "isin": "",
             "jurir_no": company_info.get("jurir_no", ""),
@@ -614,7 +640,7 @@ async def resolve_company_query(query: str) -> CompanyResolution:
     matches = await client.lookup_corp_code_all(query)
 
     raw = (query or "").strip()
-    numeric_query = re.fullmatch(r"\d{6}", raw) or re.fullmatch(r"\d{8}", raw)
+    numeric_query = _identifier_query(raw, matches)
     if not numeric_query:
         # 🔴 **판별 기준은 「상장사냐」가 아니라 「공시 의무가 있느냐」다.** 260823 실측 —
         #    DART 는 상장폐지돼도 stock_code 를 지우지 않고(신한은행·우리은행·KB손해보험
