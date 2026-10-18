@@ -8,6 +8,7 @@
 """
 import re
 import time
+import weakref
 from collections import Counter
 
 
@@ -67,7 +68,8 @@ class OpenRequest:
     sent      응답을 다 보냈는데 앱이 아직 안 끝남
     """
 
-    __slots__ = ("t0", "method", "path", "pv", "rpc", "tool", "phase", "status", "bytes_out", "client_gone")
+    __slots__ = ("t0", "method", "path", "pv", "rpc", "tool", "phase", "status", "bytes_out", "client_gone",
+                 "counted")
 
     def __init__(self, scope):
         self.t0 = time.monotonic()
@@ -88,6 +90,8 @@ class OpenRequest:
         self.status = None
         self.bytes_out = 0
         self.client_gone = False
+        #: `maintenance.active_posts` 에 세어 둔 요청인가 — listen 스트림으로 밝혀지면 뺀다(`note_rpc`).
+        self.counted = False
 
     def note_rpc(self, method, tool=None) -> None:
         """본문에서 읽은 JSON-RPC 메서드(·도구 이름)를 적는다 — 정해진 꼴만."""
@@ -97,6 +101,13 @@ class OpenRequest:
         self.rpc = method if method in _RPC_METHODS else "other"
         if method == "tools/call" and isinstance(tool, str):
             self.tool = tool if _TOOL_RE.fullmatch(tool) else "other"
+        # 261019: `subscriptions/listen`(2026-07-28 프로토콜)은 일이 아니라 **알림 통로**다 — 예전 GET 대기 스트림의 후신이고,
+        #   클라이언트가 끊을 때까지 열려 있다. `active_posts` 는 「진행 중인 일」(드레인 뒤 0 이 되기를 기다리는 수)이라 GET 처럼
+        #   여기서도 뺀다. 종전엔 이 스트림 하나가 수를 1 로 붙들어, 메모리 가드의 「한가하면 재시작」이 끝내 한가해지지 않았다.
+        #   목록(`open_requests`)에는 그대로 남는다.
+        if method == "subscriptions/listen" and self.counted:
+            self.counted = False
+            maintenance.active_posts -= 1
 
     def on_receive(self, message) -> None:
         t = message.get("type")
@@ -129,6 +140,69 @@ def note_rpc(scope, method, tool=None) -> None:
     entry = scope.get("opm.open")
     if entry is not None:
         entry.note_rpc(method, tool)
+
+
+#: 종료 때 닫을 `subscriptions/listen` 처리기(약한 참조 — 시험이 서버를 여러 번 만들어도 쌓이지 않는다).
+_LISTENS: "weakref.WeakSet[DrainableListen]" = weakref.WeakSet()
+
+
+class DrainableListen:
+    """SDK 의 `subscriptions/listen` 처리기(`ListenHandler`)를 감싸 **종료 신호 때 열린 listen 스트림을 정상 종료**시킨다(261019).
+
+    왜 — 2026-07-28 프로토콜 클라이언트는 `subscriptions/listen` POST 를 SSE 로 열어 두고 끊지 않는다. SDK(mcp 2.0.0)는 그
+    스트림을 `ListenHandler.close()` 로만 정상 종료하는데 **부르는 곳이 없다**. uvicorn 은 종료 신호 뒤 연결이 닫히기를 기다리고
+    (예전 GET 대기 스트림은 sse_starlette 가 신호 때 닫아 주지만 이 POST 스트림은 아니다), fly 는 kill_timeout(90초) 뒤 SIGTERM,
+    다시 5초 뒤 VM 을 죽였다 — 배포마다 그 머신이 84~90초를 기다리고 강제 종료됐다(로컬 재현: SIGINT 뒤 「Waiting for connections
+    to close」에서 멈춤).
+
+    `close()` — 열린 스트림마다 SDK 의 정상 종료(쌓인 알림을 보내고 마지막 결과 프레임으로 끝냄)를 시작하고, 그 뒤에 들어오는 listen 도
+    응답(확인 프레임) 직후 같은 방식으로 끝낸다(클라이언트는 다른 머신에 다시 listen 한다). OPM 은 목록 변경 알림을 내지 않으므로
+    스트림을 닫아도 잃는 알림이 없다.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.closing = False
+        _LISTENS.add(self)
+
+    async def __call__(self, ctx, params):
+        if self.closing:
+            # 이 listen 도 등록되자마자 닫히게 한 칸 뒤에 close 를 건다 — 확인 프레임을 보내는 await 에서 돈다.
+            import asyncio
+            asyncio.get_running_loop().call_soon(self._inner.close)
+        return await self._inner(ctx, params)
+
+    def close(self) -> None:
+        self.closing = True
+        self._inner.close()
+
+
+def install_listen_drain(server) -> "DrainableListen | None":
+    """서버의 `subscriptions/listen` 처리기를 `DrainableListen` 으로 감싼다. SDK 가 바뀌어 처리기를 못 찾으면 None
+    (시험 `test_listen_drain_is_installed_on_the_served_app` 이 그 경우를 잡는다)."""
+    low = getattr(server, "_lowlevel_server", None)
+    get = getattr(low, "get_request_handler", None)
+    entry = get("subscriptions/listen") if get else None
+    inner = getattr(entry, "handler", None)
+    if inner is None or not callable(getattr(inner, "close", None)):
+        return None
+    if isinstance(inner, DrainableListen):
+        return inner
+    wrapped = DrainableListen(inner)
+    low.add_request_handler("subscriptions/listen", entry.params_type, wrapped)
+    return wrapped
+
+
+def close_listen_streams() -> int:
+    """종료 신호 때 부른다 — 열린 listen 스트림을 정상 종료하고, 감싼 처리기 수를 돌려준다."""
+    n = 0
+    for h in list(_LISTENS):
+        try:
+            h.close()
+            n += 1
+        except Exception:                 # noqa: BLE001 — 이것 때문에 종료가 막히면 안 된다
+            pass
+    return n
 
 
 def shutdown_report(limit: int = 10) -> str:
@@ -170,9 +244,10 @@ class AdmissionMiddleware:
 
         if tracked:
             maintenance.active_posts += 1
+            entry.counted = True
         try:
             await self.app(scope, receive_seen, send_seen)
         finally:
             maintenance.open.pop(key, None)
-            if tracked:
+            if entry.counted:
                 maintenance.active_posts -= 1
