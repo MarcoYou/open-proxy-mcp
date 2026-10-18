@@ -2791,14 +2791,14 @@ async def build_financial_metrics_payload(
     # 분기 인지형 디폴트: quarterly/qoq는 이미 제출된 최신 분기(예: 당해 1분기는 5월 공시)를
     # 봐야 하므로 디폴트 end_year를 당해 연도로. _build_quarterly는 end_year-2..end_year를
     # 받고 미공시 분기는 graceful skip이라 호출 수(12) 변동 없이 최신 분기가 포함된다.
-    # summary/yearly/yoy는 연간(사업보고서) 기준이라 _default_recent_year(전년) 유지.
+    # summary/yearly/yoy는 연간(사업보고서) 기준이라 _default_recent_year — 261019: 결산월로(12월 결산이면 종전 「4월 이후 전년」 그대로).
     if year:
         target_year = year
     elif scope in ("quarterly", "qoq"):
         from datetime import date as _date
         target_year = today_kst().year
     else:
-        target_year = _default_recent_year()
+        target_year = _default_recent_year(fiscal_month, selected.get("stock_code"))
 
     warnings: list[str] = []
     if company_info_warning:
@@ -3101,14 +3101,16 @@ def _next_actions(scope: str, data: dict[str, Any]) -> list[str]:
     return actions
 
 
-def _default_recent_year() -> int:
-    """현재 시점 기준 가장 최근 완료된 사업연도.
+def _default_recent_year(fiscal_month: int | None = None, ticker: str | None = None) -> int:
+    """현재 시점 기준 공시돼 있어야 할 최신 사업보고서의 사업연도 표기(DART `bsns_year`).
 
-    DART 사업보고서는 결산일 90일 이내 (3월말까지) 제출 의무.
-    오늘이 4월 이후면 전년도 사업보고서 가용, 그 전이면 전전년.
+    DART 사업보고서는 결산일 90일 이내 제출 의무 — 12월 결산이면 오늘이 4월 이후면 전년, 그 전이면 전전년(종전 규칙 그대로).
+
+    261019: **결산월을 안다**(`report_calendar.latest_annual` — 분기·연간 재무 수집·배수 도구와 같은 규칙). 종전엔 모든 회사에 12월 결산
+    규칙을 써서, 12월 결산이 아닌 회사는 이미 낸 최신 사업보고서를 건너뛰고 한 해 앞 것을 요약했다 — 10-19 운영 JTC(2월 결산) 요약이
+    2026.02 사업보고서(5/28 제출)를 두고 2025.02(FY2025)였다. DART 는 사업연도 표기를 그 보고서 기간 말이 속한 해로 붙인다(2월 결산
+    2026 = 2026.02). 12월 결산이 아닌 외국 상장사(종목코드 9…)는 제출 기한이 길어(사업보고서 120일) 그 기한으로 본다.
+    결산월을 모르면(회사 개황 실패) 12월 — 종전과 같다.
     """
-    from datetime import date
-    today = today_kst()
-    if today.month >= 4:
-        return today.year - 1
-    return today.year - 2
+    from open_proxy_mcp.services import report_calendar as rcal
+    return rcal.latest_annual(today_kst(), rcal.fiscal(fiscal_month or 12, ticker))
