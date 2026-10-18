@@ -608,6 +608,31 @@ class DartClientError(Exception):
         super().__init__(f"DART API 에러 [{status}]: {message}")
 
 
+#: 261019: **키 하나의 사정** — 다른 키라면 받을 수 있다. 020 요청 한도 초과(키의 하루 한도) · 010 등록되지 않은 키 · 011 쓸 수 없는 키 ·
+#: 901 개인정보 보유기간 만료로 쓸 수 없는 키. 클라이언트는 이 답이면 남은 키를 **모두** 차례로 본 뒤에야 오류를 올린다(`_request`·
+#: `_request_binary`) — 종전엔 보조 키로 한 번만 돌아, 연달아 두 키가 막혔으면 셋째 키가 놀아도 오류였다.
+_KEY_SCOPED_STATUSES = frozenset({"010", "011", "020", "901"})
+
+#: 261019: 남은 요청도 **모두 같은 답**을 받을 상태 — 위 키의 사정(남은 키까지 다 본 뒤다) · 012 접근할 수 없는 IP · 800 시스템 점검.
+#: 배치(연간·분기 재무 수집)는 이 오류에서 멈추고, 그 항목과 남은 항목의 행은 그대로 둔다 — 다음 실행의 재개 규칙이 그 자리부터 받는다.
+#: 종전엔 항목마다 err 로 적고 다음 항목을 쉬지 않고 불렀다 — 10-19 운영: 연간 재무 다시 받기가 키의 하루 한도에 닿은 뒤 남은 2,074건을
+#: 몇 분 안에 불러 모두 `err:DART API 에러 [020]…` 으로 적었다(분당 수백 콜, 전부 거절).
+#: 021(조회 가능한 회사 개수 초과 — 최대 100건)은 그 요청의 사정이라 넣지 않는다.
+DART_BATCH_HALT_STATUSES = _KEY_SCOPED_STATUSES | frozenset({"012", "800"})
+
+
+def dart_halts_batch(e: BaseException) -> bool:
+    """배치가 여기서 멈춰야 하는 DART 오류인가(`DART_BATCH_HALT_STATUSES`)."""
+    return isinstance(e, DartClientError) and str(getattr(e, "status", "")) in DART_BATCH_HALT_STATUSES
+
+
+def dart_batch_halt_line(e: BaseException, done: str = "") -> str:
+    """멈춘 배치가 남기는 한 줄. GitHub Actions 안이면 경고 주석(`::warning::`)으로 낸다 — 종전엔 err 행이 표에 남아 막힌 것이
+    보였는데 이제 행을 남기지 않으므로, 잡이 초록으로 끝나도 실행 요약에 뜨게."""
+    line = f"{e} — 중단{f'({done})' if done else ''} · 남은 것은 다음 실행이 이어받는다(행은 그대로)"
+    return f"::warning::{line}" if os.getenv("GITHUB_ACTIONS") == "true" else line
+
+
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
 
@@ -1872,8 +1897,12 @@ class DartClient:
         # DART API는 status "000"이 정상
         status = data.get("status", "")
         if status != "000":
-            # 속도 제한("020") 등 일시적 에러 시 보조 키로 재시도
-            if self._rotate_key():
+            # 속도 제한("020") 등 일시적 에러 시 보조 키로 재시도.
+            # 261019: 키 하나의 사정(`_KEY_SCOPED_STATUSES`)이면 남은 키를 모두 차례로(키마다 한 번), 그 밖의 답은 종전처럼 한 번만.
+            #   다음 키가 키와 무관한 답(013 등)을 주면 그게 답이다.
+            for _ in range(len(self._api_keys) - 1 if status in _KEY_SCOPED_STATUSES else 1):
+                if not self._rotate_key():
+                    break
                 params["crtfc_key"] = self.api_key
                 response = await self._http.get(url, params=params, timeout=30)
                 response.raise_for_status()
@@ -1881,6 +1910,8 @@ class DartClient:
                 status = data.get("status", "")
                 if status == "000":
                     return _as_of_filter_rows(endpoint, data)
+                if status not in _KEY_SCOPED_STATUSES:
+                    break
             message = data.get("message", "알 수 없는 에러")
             raise DartClientError(status, message)
 
@@ -1924,7 +1955,12 @@ class DartClient:
                 #   JSON 경로(`_request`)처럼 보조 키로 한 번 더 간다. 그날 .env 에 보조 키 4개가
                 #   놀고 있는데 document.xml 만 020 으로 그냥 죽었다. 사용자 키 하나뿐이면
                 #   `_rotate_key` 가 False 라 그대로 올린다(남의 키로 안 넘어간다).
-                if status in ("020", "021") and self._rotate_key():
+                # 261019: 키 하나의 사정(`_KEY_SCOPED_STATUSES`)이면 남은 키를 모두 차례로(키마다 한 번) — JSON 경로와 같다.
+                #   021 은 종전처럼 한 번만 더 간다.
+                rotatable = _KEY_SCOPED_STATUSES | {"021"}
+                for _ in range(len(self._api_keys) - 1 if status in _KEY_SCOPED_STATUSES else 1):
+                    if status not in rotatable or not self._rotate_key():
+                        break
                     params["crtfc_key"] = self.api_key
                     response = await self._http.get(url, params=params, timeout=timeout)
                     response.raise_for_status()
@@ -1934,6 +1970,8 @@ class DartClient:
                     status_m = re.search(r'<status>(\d+)</status>', content.decode('utf-8', errors='replace'))
                     msg_m = re.search(r'<message>(.+?)</message>', content.decode('utf-8', errors='replace'))
                     status = status_m.group(1) if status_m else status
+                    if status not in _KEY_SCOPED_STATUSES:
+                        break
                 raise DartClientError(status, msg_m.group(1) if msg_m else "알 수 없는 에러")
 
         # ZIP도 XML도 아닌 비정상 응답 → 보조 키로 재시도
