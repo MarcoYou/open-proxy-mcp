@@ -181,12 +181,37 @@ def _minority_ni(rows):
     return None
 
 
+# 261018(재설계 6단계 — 수집 파서 공백): 당기순이익 총계 행을 **이름으로** 찾는 마지막 단계. 표준 계정코드를 안 쓴
+# 회사(`-표준계정코드 미사용-`)는 총계 행 이름이 「Ⅸ.당기순손실」·「Ⅸ.반기순손실」·「VII. 당기순이익(손실)」·「분기순이익(손실)」 꼴이라
+# 코드로는 못 찾았다(NO_INCOME_ROW — 10-18 운영 036480 2026 1·2분기 등 40행). 이름 전체가 이 꼴일 때만 — 「법인세비용차감전순이익」·
+# 「계속영업이익」·「총포괄손익」·「지배기업 소유주지분 순이익」 같은 다른 행은 걸리지 않는다. 같은 보고서의 XBRL 원본 ProfitLoss 가
+# 있는 행은 값이 전부 같았다(10-18 실측 26행).
+_ENUM_PREFIX = re.compile(r"^(?:[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩⅪⅫ]+|[IVX]+|\d+|\(\d+\))[.)]?")
+_NI_TOTAL_NM = re.compile(r"^(?:당기|당반기|반기|당분기|분기)?순(?:이익|손실|손익)(?:\((?:이익|손실)\))?$")
+
+
+def _ni_total_name(nm) -> bool:
+    s = (nm or "").replace(" ", "")
+    return bool(_NI_TOTAL_NM.match(_ENUM_PREFIX.sub("", s, count=1)))
+
+
+def _total_ni_nm(rows):
+    """당기순이익 총계 — 이름으로(`_ni_total_name`), IS 다음 CIS, 값이 있는 행 가운데 ord 최선두. 코드로 못 찾았을 때만 쓴다."""
+    for sj in ("IS", "CIS"):
+        v = _first(rows, lambda r: r.get("sj_div") == sj and _ni_total_name(r.get("account_nm")) and _cum_is(r) is not None,
+                   _cum_is)
+        if v is not None:
+            return v
+    return None
+
+
 def extract_controlling_ni_cum(rows):
     """지배 당기순이익 누적 → (값, 케이스). 트리:
       NODATA · IS_ID/IS_NM · CIS_ID/CIS_NM — 명시 지배행 [LG화학·삼성·기아]
       TOTAL_MINUS_MINORITY — 명시 지배행 없으나 당기순이익 총계 − 비지배순이익 [유한양행형: 서브토탈 부재]
       TOTAL                — 지배·비지배 귀속 둘 다 부재 → 당기순이익 총계=지배 [001340·NAVER 무소수지분]
-      MINORITY_NO_CTRL / NO_INCOME_ROW — 유도 불가(플래그) → None"""
+      TOTAL_NM[_MINUS_MINORITY] — 위와 같은데 총계 행을 코드가 아니라 이름으로 찾음(261018, 표준 계정코드 미사용 회사)
+      MINORITY_NO_CTRL / NO_INCOME_ROW — 유도 불가(플래그) → None. 수집(`fetch`)은 이때 같은 보고서의 XBRL 원본을 본다."""
     if not any(r.get("sj_div") in ("IS", "CIS") for r in rows):
         return None, "NODATA"
     for sj in ("IS", "CIS"):
@@ -194,8 +219,12 @@ def extract_controlling_ni_cum(rows):
         if v is not None:
             return v, f"{sj}_{sub}"
     tot, mino = _total_ni(rows), _minority_ni(rows)
+    nm = ""
+    if tot is None:                       # 261018: 코드로 못 찾은 총계만 이름으로 — 종전에 값이 나던 행은 그대로다
+        tot = _total_ni_nm(rows)
+        nm = "_NM" if tot is not None else ""
     if tot is not None:
-        return (tot - mino, "TOTAL_MINUS_MINORITY") if mino is not None else (tot, "TOTAL")
+        return (tot - mino, f"TOTAL{nm}_MINUS_MINORITY") if mino is not None else (tot, f"TOTAL{nm}")
     return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_INCOME_ROW")
 
 
@@ -218,19 +247,135 @@ def extract_controlling_eq(rows):
       NODATA · BS_ID/BS_NM — 명시 지배자본행
       TOTAL_MINUS_MINORITY — 명시 지배행 없으나 자본총계 − 비지배지분 [유한양행형: 서브토탈 부재]
       TOTAL                — 지배·비지배 자본 둘 다 부재 → 자본총계=지배 [카카오뱅크 별도·001340]
-      MINORITY_NO_CTRL / NO_EQUITY_ROW — 유도 불가(플래그) → None"""
+      MINORITY_NO_CTRL / NO_EQUITY_ROW — 유도 불가(플래그) → None. 수집(`fetch`)은 이때 같은 보고서의 XBRL 원본을 본다.
+
+    261018(재설계 6단계 — 수집 파서 공백): 지배자본 행(코드·이름)이 **있는데 칸이 빈** 보고서는 종전엔 그 자리에서 None 으로 끝났다
+    (10-18 운영 26행 — 예: 011300 2026 1분기 「지배기업의 소유주에게 귀속되는 자본」 빈칸, 자본총계 306.1억). 이제 값이 있는 행만 지배자본
+    행으로 보고, 없으면 아래 총계 규칙으로 간다. 그 26행은 XBRL 원본에도 자본총계(Equity)만 있었고 값이 같았다(지배·비지배 구분을
+    태깅하지 않은 보고서 — 「둘 다 부재 → 자본총계=지배」와 같은 경우). 지배자본 행에 값이 있는 보고서는 종전 그대로다."""
     if not any(r.get("sj_div") == "BS" for r in rows):
         return None, "NODATA"
-    hit = [r for r in rows if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or "")]
+    hit = [r for r in rows if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or "") and _bal(r) is not None]
     if hit:
         return _bal(min(hit, key=_ordv)), "BS_ID"
-    cands = [r for r in rows if r.get("sj_div") == "BS" and "지배" in _nm(r) and "비지배" not in _nm(r)]
+    cands = [r for r in rows if r.get("sj_div") == "BS" and "지배" in _nm(r) and "비지배" not in _nm(r) and _bal(r) is not None]
     if cands:
         return _bal(min(cands, key=_ordv)), "BS_NM"
     tot, mino = _total_eq(rows), _minority_eq(rows)
     if tot is not None:
         return (tot - mino, "TOTAL_MINUS_MINORITY") if mino is not None else (tot, "TOTAL")
     return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_EQUITY_ROW")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# XBRL 원본 대체(261018, 재설계 6단계 — 수집 파서 공백). 전체 재무제표 API(fnlttSinglAcntAll) 응답이 있는데 지배 순이익·자본이
+# 비는 보고서는 같은 접수번호의 **재무제표 원본 XBRL**(fnlttXbrl, 보고서당 1콜)에서 그 값을 찾는다. API 응답에서 재무상태표가
+# 통째로 빠지거나(10-18 운영 365330·489460 2026 반기 — 손익·현금흐름·자본변동만) 한 줄만 남은 보고서(000540 흥국화재 2026 반기),
+# 손익에 당기순이익 행이 없는 보고서(084180 2023 반기 등)가 있었다 — 원본 XBRL 에는 그 값이 있다(365330: 지배자본 904.68억 =
+# 자본총계 908.32억 − 비지배 3.64억, 같은 보고서 주요계정 API 의 자본총계와도 같다).
+# ─────────────────────────────────────────────────────────────────────────────
+_XBRLI = "{http://www.xbrl.org/2003/instance}"
+_XBRLDI = "{http://xbrl.org/2006/xbrldi}"
+_FS_AXIS = "ConsolidatedAndSeparateFinancialStatementsAxis"
+_FS_MEMBER = {"CFS": "ConsolidatedMember", "OFS": "SeparateMember"}
+_XBRL_EQ = ("EquityAttributableToOwnersOfParent", "Equity", "NoncontrollingInterests")
+_XBRL_NI = ("ProfitLossAttributableToOwnersOfParent", "ProfitLoss", "ProfitLossAttributableToNoncontrollingInterests")
+
+
+def _xbrl_facts(data: bytes) -> list[tuple]:
+    """ZIP 안 XBRL 인스턴스 하나 → [(요소 이름, 차원 {축: 멤버}, 기간, 통화, 값)]. 접두어(ifrs-full: · ifrs:)는 뗀다.
+    기간 = ('I', 날) 또는 ('D', 시작, 끝). 숫자가 아니거나 형식이 맞지 않는 사실값은 뺀다. 인스턴스가 없거나 둘 이상이면 []."""
+    import io
+    import zipfile
+    import xml.etree.ElementTree as ET
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        names = [n for n in z.namelist() if n.lower().endswith(".xbrl")]
+        if len(names) != 1:
+            return []
+        root = ET.fromstring(z.read(names[0]))
+
+    def _d(s):
+        return date.fromisoformat((s or "").strip()[:10])
+
+    ctx = {}
+    for c in root.iter(_XBRLI + "context"):
+        if any(True for _ in c.iter(_XBRLDI + "typedMember")):
+            continue
+        dims = {(m.get("dimension") or "").split(":")[-1]: (m.text or "").strip().split(":")[-1]
+                for m in c.iter(_XBRLDI + "explicitMember")}
+        p = c.find(_XBRLI + "period")
+        try:
+            inst, st, en = (p.find(_XBRLI + k) if p is not None else None for k in ("instant", "startDate", "endDate"))
+            per = ("I", _d(inst.text)) if inst is not None else (("D", _d(st.text), _d(en.text)) if st is not None and en is not None else None)
+        except ValueError:
+            per = None
+        if per:
+            ctx[c.get("id")] = (dims, per)
+    units = {}
+    for u in root.iter(_XBRLI + "unit"):
+        ms = [(m.text or "").strip().split(":")[-1].upper() for m in u.iter(_XBRLI + "measure")]
+        units[u.get("id")] = ms[0] if len(ms) == 1 else None
+    out = []
+    for el in root:
+        cref = el.get("contextRef")
+        if cref not in ctx or el.get("unitRef") not in units:
+            continue
+        try:
+            v = float((el.text or "").strip())
+        except ValueError:
+            continue
+        dims, per = ctx[cref]
+        out.append((el.tag.rsplit("}", 1)[-1], dims, per, units[el.get("unitRef")], v))
+    return out
+
+
+def xbrl_controlling(data: bytes, fs: str, period_end: date, fy_start: date) -> dict:
+    """같은 보고서의 XBRL 원본 → {"eq": (지배자본 기간 말 잔액, 케이스, 통화), "ni": (지배 순이익 누적, 케이스, 통화)} — 찾은 것만.
+
+    맥락: 연결(CFS)이면 연결 멤버, 별도(OFS)면 별도 멤버 **하나만** 붙은 값(자본 구성요소 같은 다른 차원이 붙은 값은 쓰지 않는다).
+    별도만 내는 회사가 차원 없이 태깅했으면(인스턴스에 연결 멤버가 아예 없을 때) 차원 없는 값도 별도로 본다.
+    기간: 자본은 `period_end`(칸의 실제 기간 말) 시점 값만, 순이익은 `fy_start`(그 회계연도 첫날)~`period_end` 누적만. 그 분기 말 값이 없고
+    전기 말 값만 있으면 쓰지 않는다(10-18 실측 488060 2025 3분기 — 자본총계는 전기 말 것뿐). 같은 요소에 다른 값이 둘 이상이면 그 요소는 버린다.
+    고르는 순서(파서와 같은 규칙): 지배 귀속(XBRL_ID) → 총계 − 비지배(XBRL_TOTAL_MINUS_MINORITY) → 총계(XBRL_TOTAL — 지배·비지배를
+    나눠 태깅하지 않은 보고서. 파서의 「둘 다 부재 → 총계=지배」와 같다). 세 요소의 통화가 다르면 쓰지 않는다."""
+    member = _FS_MEMBER.get(fs)
+    facts = _xbrl_facts(data) if member else []
+    has_cons = any(d.get(_FS_AXIS) == "ConsolidatedMember" for _, d, _, _, _ in facts)
+
+    def _ctx_ok(dims):
+        return dims == {_FS_AXIS: member} or (not dims and fs == "OFS" and not has_cons)
+
+    def _chain(names, per_ok):
+        seen: dict[str, set] = {}
+        for n, dims, per, cur, v in facts:
+            if n in names and _ctx_ok(dims) and per_ok(per):
+                seen.setdefault(n, set()).add((v, cur))
+        uniq = {n: next(iter(s)) for n, s in seen.items() if len(s) == 1}
+        ctrl, total, nci = names
+        if ctrl in uniq:
+            return (uniq[ctrl][0], "XBRL_ID", uniq[ctrl][1])
+        if ctrl in seen or total not in uniq or (nci in seen and nci not in uniq):
+            return None                                       # 값이 갈리는 요소가 끼면 버린다
+        if nci in uniq:
+            if uniq[nci][1] != uniq[total][1]:
+                return None
+            return (uniq[total][0] - uniq[nci][0], "XBRL_TOTAL_MINUS_MINORITY", uniq[total][1])
+        return (uniq[total][0], "XBRL_TOTAL", uniq[total][1])
+
+    out = {}
+    eq = _chain(_XBRL_EQ, lambda per: per == ("I", period_end))
+    if eq is not None:
+        out["eq"] = eq
+    ni = _chain(_XBRL_NI, lambda per: per == ("D", fy_start, period_end))
+    if ni is not None:
+        out["ni"] = ni
+    return out
+
+
+def fiscal_year_start(fy: int, quarter: int, fye: int = 12) -> date:
+    """칸 `(fy, quarter)` 이 속한 회계연도의 첫날 = 직전 결산일 다음 날(12월 결산이면 그해 1/1, 3월 결산 2024 1분기면 2024-04-01)."""
+    from datetime import timedelta
+    return rcal.cell_end(rcal.prior_annual(fy, quarter, fye), 4, fye) + timedelta(days=1)
 
 
 DDL = """CREATE TABLE IF NOT EXISTS dart_finstat_q(
@@ -570,16 +715,21 @@ def _resume_sets(rows, nodata_days: int | None = None, today: date | None = None
     return done, retry
 
 
-async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> None:
+async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
+                only: set[tuple[str, int, int]] | None = None) -> None:
     """동시성 conc(기본 2, CLAUDE.md 허용) 워커풀. DART client _throttle_api가 910/분 강제하므로
     안전. 큐에서 분기 작업을 꺼내 CFS→OFS + backoff 재시도. 지속 outage면 stop 세팅 → 워커 종료 →
     resume 가능. 버퍼는 lock 보호, flush는 to_thread로 이벤트루프 비차단.
-    `nodata_days`: nodata 를 다시 받는 기간(일) — 비우면 `NODATA_RETRY_DAYS`."""
+    `nodata_days`: nodata 를 다시 받는 기간(일) — 비우면 `NODATA_RETRY_DAYS`.
+    `only`: {(종목, fy, quarter)} — 이 칸만 다시 받는다(이미 ok 여도). 파서를 고친 뒤 그 파서로 비던 칸만 다시 채울 때(261018 `--refetch`).
+      공시 마감 전 칸·4분기(사업보고서 — seed 몫)는 빼고, `years` 와 무관하게 그 칸의 연도를 쓴다."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con = _pg(); con.autocommit = True
     con.execute(DDL)
     for _m in DDL_MIGRATE:
         con.execute(_m)
+    if only:
+        pilot = sorted({k[0] for k in only})
     if pilot:
         firms = [r for r in con.execute(
             "SELECT ticker, corp_code FROM dart_fundamentals WHERE ticker = ANY(%s) AND fetched='ok'", (pilot,))]
@@ -606,6 +756,9 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
     con.close()
     todo = [(i, c, y, q, code) for i, c in firms for y in years
             for q, code in QFETCH if (i, y, q) not in done and _disclosed(y, q, fye=fye_of.get(i, 12))]
+    if only:
+        todo = [(i, c, y, q, code) for i, c in firms for y in sorted({k[1] for k in only})
+                for q, code in QFETCH if (i, y, q) in only and _disclosed(y, q, fye=fye_of.get(i, 12))]
     yspan = sorted({y for _, _, y, _, _ in todo})
     n_retry = sum(1 for i, _, y, q, _ in todo if (i, y, q) in retry)
     print(f"대상 {len(firms)}사 · 공시완료 분기만 · 남은 {len(todo)}건(연도 {yspan}, 그중 nodata 재확인 {n_retry}) · "
@@ -614,7 +767,7 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
     buf: list = []; lock = asyncio.Lock(); stop = asyncio.Event()
     prog = {"n": 0}; total = len(todo)
     # 결과를 상태별로 센다 — 「종료」만으로는 몇 건이 실제로 채워졌는지 모른다(CLAUDE.md 12: 양쪽 세기).
-    tally = {"ok": 0, "nodata": 0, "err": 0, "refilled": 0}
+    tally = {"ok": 0, "nodata": 0, "err": 0, "refilled": 0, "xbrl": 0, "xbrl_filled": 0}
     queue: asyncio.Queue = asyncio.Queue()
     for item in todo:
         queue.put_nowait(item)
@@ -639,6 +792,22 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
                 if _is_net(ne) and attempt < 8:
                     await asyncio.sleep(min(60, 5 * 2 ** attempt)); continue
                 raise
+
+    async def xbrl_lookup(rows, rc, fs, yr, q, fye) -> dict:
+        """같은 접수번호의 XBRL 원본 → `xbrl_controlling`. 받지 못하면(키 한도·문서 없음·형식 오류) {} — 그 칸은 종전처럼 빈 채로 둔다."""
+        rcept = next((r.get("rcept_no") for r in rows if r.get("rcept_no")), None)
+        getter = getattr(c, "get_fnltt_xbrl", None)
+        if not rcept or getter is None:
+            return {}
+        async with lock:
+            tally["xbrl"] += 1
+        try:
+            data = await getter(rcept, rc)
+            await asyncio.sleep(SLEEP)
+            return xbrl_controlling(data, fs, rcal.cell_end(yr, q, fye), fiscal_year_start(yr, q, fye))
+        except Exception as e:  # noqa: BLE001 — 대체 경로라 실패해도 종전 결과(빈 칸)를 지킨다
+            print(f"[XBRL] {rcept} 못 읽음({type(e).__name__}) — 그 칸은 빈 채로", flush=True)
+            return {}
 
     async def maybe_flush(force=False):
         async with lock:
@@ -673,6 +842,22 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
                 stmt_cur = statement_currency(rows)
                 fx_err = None
                 fye = fye_of.get(isu, 12)
+                # 261018: 응답은 있는데 지배 순이익·자본이 비면 같은 보고서의 XBRL 원본에서 그 칸만 찾는다(그 보고서 1콜).
+                #   이미 찾은 값은 바꾸지 않는다. 원본의 통화가 응답과 다르면 쓰지 않는다(아래 환산을 같은 규칙으로 탄다).
+                if (ni is None or eq is None) and rows:
+                    x = await xbrl_lookup(rows, rc, fs, yr, q, fye)
+                    for key in ("ni", "eq"):
+                        got = x.get(key)
+                        if got is None or got[2] != stmt_cur:
+                            continue
+                        if key == "ni" and ni is None:
+                            ni, ni_case = got[0], got[1]
+                        elif key == "eq" and eq is None:
+                            eq, eq_case = got[0], got[1]
+                        else:
+                            continue
+                        async with lock:
+                            tally["xbrl_filled"] += 1
                 if stmt_cur != "KRW":
                     # 261018(결산월): 환율 기준일 = 칸의 실제 기간 말(12월 결산이면 종전 0331·0630·0930 그대로)
                     ecos_fx_rate = await fx_to_krw(stmt_cur, rcal.cell_end(yr, q, fye).strftime("%Y%m%d"))
@@ -724,7 +909,7 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None) -> No
     except Exception as e:
         print(f"최종 flush 실패({type(e).__name__}) — 재개 시 복구", flush=True)
     print(f"fetch 종료 — ok {tally['ok']}(그중 nodata → ok {tally['refilled']}) · nodata {tally['nodata']} · "
-          f"err {tally['err']}", flush=True)
+          f"err {tally['err']} · XBRL 원본 {tally['xbrl']}건 → 채운 칸 {tally['xbrl_filled']}", flush=True)
 
 
 if __name__ == "__main__":
@@ -740,6 +925,8 @@ if __name__ == "__main__":
                     help="동시성(기본 2, CLAUDE.md 허용 1~2)")
     ap.add_argument("--nodata-retry-days", type=int, default=None,
                     help=f"nodata 분기를 다시 받는 기간(공시 마감 뒤 일수, 기본 {NODATA_RETRY_DAYS})")
+    ap.add_argument("--refetch", type=str,
+                    help="이 칸만 다시 받는다(이미 ok 여도) — 종목:사업연도:분기 콤마구분(예 000540:2026:2). 파서를 고친 뒤 비던 칸만 채울 때")
     ap.add_argument("--tickers", type=str,
                     help="--derive 를 이 종목만(콤마구분) — 재수집한 종목만 좁혀 파생할 때")
     ap.add_argument("--acc-mt", action="store_true",
@@ -758,7 +945,10 @@ if __name__ == "__main__":
         seed_q4()
     if a.derive:
         derive_fundamentals(a.tickers.split(",") if a.tickers else None)
-    if a.pilot:
+    if a.refetch:
+        _only = {(t, int(fy), int(qq)) for t, fy, qq in (x.split(":") for x in a.refetch.split(",") if x)}
+        asyncio.run(fetch(yrs, conc=conc, only=_only))
+    elif a.pilot:
         seed_q4()
         asyncio.run(fetch(yrs, pilot=a.pilot.split(","), conc=conc, nodata_days=a.nodata_retry_days))
     elif a.fetch:

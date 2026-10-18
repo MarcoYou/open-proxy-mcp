@@ -3385,6 +3385,18 @@ class DartClient:
             "fs_div": fs_div,
         })
 
+    async def get_fnltt_xbrl(self, rcept_no: str, reprt_code: str = "11011") -> bytes:
+        """재무제표 원본 파일(fnlttXbrl) — 그 보고서의 XBRL 인스턴스·스키마·링크베이스 ZIP 바이트.
+
+        261018: 분기 재무 수집(`scripts/market_fund_quarterly.py`)이 전체 재무제표(fnlttSinglAcntAll) 응답에서 지배 순이익·자본을
+        찾지 못한 보고서만 이걸로 다시 본다(재무상태표가 빠진 응답 등). 서버 도구는 쓰지 않는다.
+
+        Args:
+            rcept_no: 접수번호(14자리)
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request_binary("fnlttXbrl.xml", {"rcept_no": rcept_no, "reprt_code": reprt_code})
+
     async def get_other_corp_investment(
         self,
         corp_code: str,
