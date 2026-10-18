@@ -54,6 +54,9 @@ jobs:
         #   한 종목이 둘 이상 하위업종에 나타나면 **아무것도 쓰지 않고 중단**한다.
         #   모든 하위업종의 응답일이 선택한 조회일과 같아야 한다. 날짜 누락·혼합·부분 무자료도 중단한다.
         #   불완전 응답을 절반만 반영하면 섹터 집계가 조용히 틀어지므로 전부-아니면-전무가 맞다.
+        # 261018: 응답은 업종 **지수 구성종목**이라 상장 종목이 편입 요건에서 빠지면 응답에서도 빠진다(분류는 그대로).
+        #   DB 적재는 관측 행에 더해 구성종목에서만 빠진 상장 종목(직전 분류)과 우선주(보통주 분류)를 출처 칸과 함께 잇는다.
+        #   정적 맵(JSON)은 관측만 담는다. 규칙은 스크립트 머리말 「구성종목 ≠ 분류 대상」.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
@@ -74,9 +77,14 @@ jobs:
               rows, snaps, latest = c.execute(
                   "SELECT count(*), count(DISTINCT snap_dd), max(snap_dd) FROM wise_sector").fetchone()
               print(f"분류 스냅샷 {rows:,}행 / {snaps}개 시점 · 최신 {latest}")
-              n = c.execute("SELECT count(*) FROM wise_sector WHERE snap_dd=%s", (latest,)).fetchone()[0]
-              if n < 1000:
-                  raise SystemExit(f"::error::최신 시점 종목이 {n}개 — 1,000 미만이면 불완전 수집")
+              # 261018: 관측(공급처 구성종목) + 파생(구성종목에서만 빠진 상장 종목의 직전 분류 · 우선주의 보통주 분류)을
+              #   출처별로 보인다. 완전성 기준(1,000)은 관측 행에만 건다 — 파생 행이 불완전 수집을 가리면 안 된다.
+              by = dict(c.execute("SELECT src, count(*) FROM wise_sector WHERE snap_dd=%s GROUP BY 1",
+                                  (latest,)).fetchall())
+              n, obs = sum(by.values()), by.get("wise", 0)
+              print(f"최신 시점 출처별: 관측 {obs:,} · 이어 쓰기 {by.get('carry', 0):,} · 우선주 {by.get('pref', 0):,}")
+              if obs < 1000:
+                  raise SystemExit(f"::error::최신 시점 관측 종목이 {obs}개 — 1,000 미만이면 불완전 수집")
               # 시세와 조인되는지(섹터 집계가 실제로 되는 상태인가).
               # 261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주(주마다 마지막 거래일)만 담고, 최근 7거래일은 일별 저장분 krx_daily 에 있다.
               #   분류 기준일(보통 월말 거래일)은 주중일 때가 많아 krx_weekly 정확일자로는 0건이 정상이다 — 「기준일 이하 가장 늦은 시세일」로

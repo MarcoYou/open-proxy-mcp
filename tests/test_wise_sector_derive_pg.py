@@ -1,0 +1,145 @@
+"""업종분류 저장분의 파생 행(구성종목에서만 빠진 상장 종목 · 우선주)을 Postgres 17 에서 증명한다 (261018).
+
+배경: 공급처 응답은 업종 지수 구성종목이라, 20261016 수집에서 20260828 에 있던 상장 종목 32개가 빠졌다(분류는 공급처에 그대로).
+`scripts/refresh_sector_class.py` 는 관측 행에 같은 스냅샷 안의 분류를 잇는 파생 행을 더하고 출처(`src`·`src_ref`)를 남긴다.
+
+  D1  옛 모양 표(출처 칸 없음)에 칸을 더하고 기존 행은 관측(`wise`)이 된다.
+  D2  스냅샷을 오래된 것부터 차례로 — 이어 쓰기는 실제 관측 날짜를 잇고, 상장폐지 종목은 되살리지 않는다.
+  D3  다시 돌려도 같은 결과(멱등).
+  D4  같은 날짜를 다시 수집하면 다시 나온 종목은 관측으로 돌아오고, 그 뒤 스냅샷의 파생 행도 다시 만든다.
+  D5  상장 여부를 모르면(시세 저장분 부족) 파생 행을 만들지 않는다.
+Docker 가 없으면 건너뛴다(`tests/conftest.py` 의 `pg17`).
+"""
+from __future__ import annotations
+
+import pytest
+
+psycopg = pytest.importorskip("psycopg")
+
+from scripts import refresh_sector_class as S  # noqa: E402
+
+A = ("G25", "경기관련소비재", "G2510", "자동차와부품")
+B = ("G45", "IT", "G4530", "반도체와반도체장비")
+#: 상장 판단이 1,000종목 미만이면 파생 행을 만들지 않으므로, 시세 저장분에 채울 다른 종목들.
+FILLER = [f"9{n:04}0" for n in range(1000)]
+
+
+def _old_shape(c):
+    """출처 칸이 생기기 전의 운영 표 모양(+ 시세 저장분 최소 칸)."""
+    c.execute("""CREATE TABLE wise_sector (snap_dd text NOT NULL, ticker text NOT NULL, sector_code text NOT NULL,
+                 sector text NOT NULL, industry_code text NOT NULL, industry text NOT NULL, PRIMARY KEY (snap_dd, ticker))""")
+    c.execute("CREATE TABLE krx_weekly (price_dd text NOT NULL, ticker text NOT NULL, PRIMARY KEY (price_dd, ticker))")
+    c.execute("CREATE TABLE krx_daily (trd_dd text NOT NULL, ticker text NOT NULL, PRIMARY KEY (trd_dd, ticker))")
+
+
+def _obs(c, snap, rows):
+    with c.cursor() as cur:
+        cur.executemany("INSERT INTO wise_sector (snap_dd, ticker, sector_code, sector, industry_code, industry) "
+                        "VALUES (%s,%s,%s,%s,%s,%s)", [(snap, t, *cls) for t, cls in rows.items()])
+
+
+def _listed(c, table, dd, tickers):
+    col = "price_dd" if table == "krx_weekly" else "trd_dd"
+    with c.cursor() as cur:
+        cur.executemany(f"INSERT INTO {table} ({col}, ticker) VALUES (%s,%s)", [(dd, t) for t in [*tickers, *FILLER]])
+
+
+def _snap(c, snap):
+    return {r[0]: r[1:] for r in c.execute(
+        "SELECT ticker, industry_code, src, src_ref FROM wise_sector WHERE snap_dd=%s ORDER BY 1", (snap,))}
+
+
+@pytest.fixture
+def db(pg17):
+    with psycopg.connect(pg17, autocommit=True) as c:
+        _old_shape(c)
+        # 0821: 000040·000050·000060 관측. 0828: 000050 이 구성종목에서 빠짐(상장 유지), 000060 은 상장폐지.
+        # 1016: 000040 도 빠짐(상장 유지). 우선주 000045(보통주 000040)·005935(005930) 상장.
+        _obs(c, "20260821", {"000040": A, "000050": A, "000060": A, "005930": B})
+        _obs(c, "20260828", {"000040": A, "005930": B})
+        _obs(c, "20261016", {"005930": B})
+        _listed(c, "krx_weekly", "20260821", ["000040", "000050", "000060", "005930", "005935", "000045"])
+        _listed(c, "krx_weekly", "20260828", ["000040", "000050", "005930", "005935", "000045"])
+        _listed(c, "krx_daily", "20261016", ["000040", "000050", "005930", "005935", "000045"])
+    return pg17
+
+
+def _rederive(url):
+    with psycopg.connect(url) as con:
+        added = S.ensure_src_columns(con)
+        infos = S.rederive_from(con)
+        con.commit()
+    return added, infos
+
+
+def test_d1_d2_columns_added_and_chain_derived(db):
+    added, infos = _rederive(db)
+    assert added
+    with psycopg.connect(db) as c:
+        s21, s28, s16 = _snap(c, "20260821"), _snap(c, "20260828"), _snap(c, "20261016")
+    # 기존 행은 관측. 0821 은 첫 스냅샷이라 이어 쓰기 없음, 우선주만.
+    assert s21["000040"] == ("G2510", "wise", None)
+    assert s21["000045"] == ("G2510", "pref", "000040") and s21["005935"] == ("G4530", "pref", "005930")
+    # 0828: 구성종목에서만 빠진 000050 을 잇는다. 상장폐지 000060 은 잇지 않는다.
+    assert s28["000050"] == ("G2510", "carry", "20260821")
+    assert "000060" not in s28
+    # 1016: 000040 은 0828 관측을, 000050 은 0821 관측을 잇는다(사슬이어도 실제 관측 날짜). 우선주는 이어 쓴 보통주를 잇는다.
+    assert s16["000040"] == ("G2510", "carry", "20260828")
+    assert s16["000050"] == ("G2510", "carry", "20260821")
+    assert s16["000045"] == ("G2510", "pref", "000040")
+    assert [i["carry"] for i in infos] == [0, 1, 2]
+
+
+def test_d3_rederive_is_idempotent(db):
+    _rederive(db)
+    with psycopg.connect(db) as c:
+        before = {s: _snap(c, s) for s in ("20260821", "20260828", "20261016")}
+    added, _ = _rederive(db)
+    assert not added  # 칸은 한 번만 더한다
+    with psycopg.connect(db) as c:
+        assert {s: _snap(c, s) for s in before} == before
+
+
+def test_d4_recollect_returns_observed_and_rederives_later(db, monkeypatch):
+    _rederive(db)
+    monkeypatch.setenv("DATABASE_URL", db)
+    monkeypatch.delenv("WICS_DATABASE_URL", raising=False)
+    # 0828 을 다시 수집했더니 000050 이 응답에 다시 있다(관측으로 돌아와야 한다).
+    snapshot = {"requestedDate": "20260828", "asOf": "2026-08-28", "sectorCount": 10, "industryCount": 28,
+                "tickerCount": 3, "data": {t: {"sectorCode": cls[0], "sector": cls[1], "industryCode": cls[2],
+                                                "industry": cls[3]}
+                                            for t, cls in {"000040": A, "000050": A, "005930": B}.items()}}
+    assert S.persist(snapshot)
+    with psycopg.connect(db) as c:
+        s28, s16 = _snap(c, "20260828"), _snap(c, "20261016")
+        blob = c.execute("SELECT ticker_count FROM kr_wics_snapshots WHERE as_of='2026-08-28'").fetchone()[0]
+    assert s28["000050"] == ("G2510", "wise", None)
+    # 그 뒤 스냅샷도 다시 만들어 이어 쓰기 출처가 새 관측(0828)을 가리킨다.
+    assert s16["000050"] == ("G2510", "carry", "20260828")
+    assert blob == 3  # 원문 스냅샷은 관측만
+
+
+def test_d5_no_price_rows_means_no_derived_rows(pg17):
+    with psycopg.connect(pg17, autocommit=True) as c:
+        _old_shape(c)
+        _obs(c, "20260821", {"000040": A})
+        _obs(c, "20260828", {"005930": B})
+        c.execute("INSERT INTO krx_weekly VALUES ('20260828', '000040'), ('20260828', '005935')")  # 1,000 미만
+    _, infos = _rederive(pg17)
+    assert [(i["carry"], i["pref"]) for i in infos] == [(0, 0), (0, 0)]
+    with psycopg.connect(pg17) as c:
+        assert c.execute("SELECT count(*) FROM wise_sector WHERE src <> 'wise'").fetchone()[0] == 0
+
+
+def test_dry_run_rederive_writes_nothing(db, monkeypatch):
+    _rederive(db)  # 칸이 있는 상태에서
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("DELETE FROM wise_sector WHERE src <> 'wise'")
+    monkeypatch.setenv("DATABASE_URL", db)
+    monkeypatch.delenv("WICS_DATABASE_URL", raising=False)
+    assert S.rederive_db(dry_run=True) == 0
+    with psycopg.connect(db) as c:
+        assert c.execute("SELECT count(*) FROM wise_sector WHERE src <> 'wise'").fetchone()[0] == 0
+    assert S.rederive_db(dry_run=False) == 0
+    with psycopg.connect(db) as c:
+        assert c.execute("SELECT count(*) FROM wise_sector WHERE src <> 'wise'").fetchone()[0] > 0
