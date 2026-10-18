@@ -1434,7 +1434,8 @@ def corp_registry_miss_kind(query: str, results: list[dict], corps: list[dict]) 
       명부에 이미 있는데 못 찾은 것(영숫자 코드 해석 등)은 명부가 낡아서가 아니다 — 받아도 안 바뀐다.
       우선주 코드(끝자리 5·7·9·K…)는 원래 DART 명부에 없다 — 받아도 안 바뀐다.
     - corp_code(8자리 숫자)·회사명: 결과가 하나도 없을 때. 약한 추정이라도 결과가 있으면 실패로 보지 않는다.
-      단, 지금 거래되는 회사엔 맞는 이름이 없어 **비활성 회사 하나로** 확정한 결과(`is_inactive_fallback`)는 실패와 같이 본다 —
+      단, 지금 거래되는 회사엔 맞는 이름이 없어 **비활성 회사 하나로** 확정했거나 그런 회사 여럿을 고르지 않은 후보로 돌려준 결과
+      (`is_inactive_fallback`)는 실패와 같이 본다 —
       명부가 낡아 신규상장사를 모르면, 이름이 겹치는 옛 법인이 그 자리를 차지하기 때문이다(받고 다시 찾으면 신규상장사가 이긴다).
     """
     from open_proxy_mcp.company_resolver import is_inactive_fallback

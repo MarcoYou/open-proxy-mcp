@@ -210,7 +210,8 @@ def _is_inferred(results: list[dict[str, Any]]) -> bool:
 
 
 def is_inactive_fallback(results: list[dict[str, Any]]) -> bool:
-    """활성 회사에 맞는 이름이 없어 비활성(상장폐지·합병·코넥스 등) 회사 하나로 확정한 결과인가(`CompanyResolver._inactive_single`)."""
+    """활성 회사에 맞는 이름이 없어 비활성(상장폐지·합병·코넥스 등) 회사 하나로 확정했거나, 그런 회사 여럿을 고르지 않은 후보로 돌려준
+    결과인가(`CompanyResolver._inactive_single`). 둘 다 「지금 거래되는 회사로는 못 찾았다」 — 명부 재수신·보유지분 평가가 못 찾음과 같이 본다."""
     return bool(results) and bool((results[0].get("_resolution") or {}).get("inactive_listing"))
 
 
@@ -660,7 +661,7 @@ class CompanyResolver:
             past = self._search_one(raw_query, past_inactive=True)
             if past:
                 return past
-            # 그래도 비었으면 — 지금 거래되는 회사에는 이름이 맞는 곳이 없다. 비활성 회사 하나만 맞으면 그 회사다.
+            # 그래도 비었으면 — 지금 거래되는 회사에는 이름이 맞는 곳이 없다. 비활성 회사 하나만 맞으면 그 회사, 둘 이상이면 고르지 않은 후보.
             return self._inactive_single(raw_query)
         return self._search_one(raw_query)
 
@@ -671,9 +672,15 @@ class CompanyResolver:
         261018: 활성 명부가 실제로 켜진 뒤(#90) 「현대미포」「인프라코어」「동양생명」「라피」「아퓨」가 오류(근접 후보만)가 됐다.
         재설계 전에는 이 질의들이 그 회사(에이치디현대미포·에이치디현대인프라코어·동양생명보험·라피치·아퓨어스)로 바로 갔다 —
         폐지·합병 직후 회사의 배당·주총 이력을 줄임말로 묻는 경우다. 활성 회사가 하나라도 맞으면(「세이」→세이브존I&C) 여기까지 오지 않고,
-        비활성 후보가 둘 이상이면(「더존」→더존비즈온·더존디지털웨어) 고르지 않는다. 오타 교정(fuzzy)으로 맞은 것은 받지 않는다.
+        오타 교정(fuzzy)으로 맞은 것은 받지 않는다.
         결과는 추정(`inferred`)이고 `inactive_listing` 표지를 단다 — 확정 관문이 「상장폐지·코넥스 등」 경고를 싣고(`note_weak_resolution`),
-        `company` 의 신뢰도는 low 다. 활성 명부가 꺼져 있으면(시세 단면 없음) 종전 경로가 이미 비활성 회사도 고르므로 하지 않는다."""
+        `company` 의 신뢰도는 low 다. 활성 명부가 꺼져 있으면(시세 단면 없음) 종전 경로가 이미 비활성 회사도 고르므로 하지 않는다.
+
+        비활성 후보가 **둘 이상**이면(「더존」→더존비즈온·더존디지털웨어) 고르지 않고 **후보로** 돌려준다 — 모두 추정·자동 선택 아님이라
+        확정 관문이 AMBIGUOUS(후보표)로 답한다. 261019 회귀(7a6ccfc3 대비): 종전엔 여기서 빈 목록을 돌려 ERROR 가 됐는데, `company` 는
+        근접 후보를 따로 붙여 보였지만 공용 해석기 `_resolve_listed` 를 타는 `trading_data`·`price_multiple_data`·`forward_estimates_data` 는
+        ERROR 를 후보 없는 「못 찾음」(사명 변경 안내)으로 바꿔, 활성 명부가 켜지기 전 주던 「동명 후보 — 더존비즈온(012510)」을 잃었다.
+        후보에도 `inactive_listing` 을 달아 명부가 낡아 못 찾은 경우와 같이 본다(`is_inactive_fallback` — 신규상장사 재수신 신호 유지)."""
         active = self.market.active_tickers
         compact = normalize_compact(query)
         if active is None or len(compact) < 2:
@@ -685,11 +692,17 @@ class CompanyResolver:
         if not ids:
             ids, kind = self._substring_ids(compact), "substring"
         ids = [i for i in ids if i in self._searchable_ids]
-        if len({self.corps[i].get("corp_code") for i in ids}) != 1:
+        if not ids:
             return []
         if any(self.corps[i].get("stock_code") in active for i in ids):
             return []                                           # 활성 회사다 — 위 경로가 이미 골랐어야 한다(방어)
-        row_id = sorted(ids, key=self._rank_key, reverse=True)[0]
+        ranked = sorted(ids, key=self._rank_key, reverse=True)
+        if len({self.corps[i].get("corp_code") for i in ids}) != 1:
+            candidates = [self._decorate(i, kind, True, len(ranked) - 1) for i in ranked]
+            for candidate in candidates:
+                candidate["_resolution"]["inactive_listing"] = True   # auto_selected·dominant 는 _decorate 의 False 그대로 — 고르지 않는다
+            return candidates
+        row_id = ranked[0]
         result = self._decorate(row_id, kind, True, 0)
         meta = result["_resolution"]
         meta["auto_selected"] = True

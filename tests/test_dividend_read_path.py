@@ -183,6 +183,7 @@ def test_every_scope_sends_all_of_its_database_calls_to_worker_threads(monkeypat
         return corp, None
     monkeypatch.setattr(pmd, "_resolve_listed", fake_resolve)
     monkeypatch.setattr(dd, "year_range", record("year_range", (2020, 2025)))
+    monkeypatch.setattr(dd, "latest_annual_year", record("latest_annual_year", 2025))
     monkeypatch.setattr(dd, "aggregate_history", record("aggregate_history", {"status": "ok", "rows": []}))
     monkeypatch.setattr(dd, "sector_list", record("sector_list", ["금융"]))
     monkeypatch.setattr(dd, "screen", record("screen", {"status": "ok", "rows": [{"corp_code": "00126380", "name": "삼성전자", "ticker": "005930"}],
@@ -203,7 +204,7 @@ def test_every_scope_sends_all_of_its_database_calls_to_worker_threads(monkeypat
         await tool(scope="firm", company="삼성전자")
 
     asyncio.run(go())
-    assert set(seen) == {"year_range", "aggregate_history", "sector_list", "screen", "payment_scope_years",
+    assert set(seen) == {"year_range", "latest_annual_year", "aggregate_history", "sector_list", "screen", "payment_scope_years",
                          "payment_history", "firm_history", "payment_counts"}
     assert all(seen.values()), f"루프 스레드에서 돈 호출: {[k for k, v in seen.items() if not v]}"
 
