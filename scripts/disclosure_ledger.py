@@ -119,24 +119,38 @@ ON CONFLICT (rcept_no) DO UPDATE SET
   -- scan_only 로 굳었다 — 해지 단계 공시 85건이 이렇게 「안 본 것」으로 잘못 보였다(실측).
   -- 옳은 규칙: 기존이 parsed/partial(진짜 결과)일 때만 지키고, 그 외(scan_only·이전 실패)는
   -- 새 결과로 갱신한다 — scan_only 는 결과가 아니라 「아직」이라는 뜻이라 지킬 값이 아니다.
+  -- 261019: 같은 이유로 **새 값이 scan_only(이번엔 상세를 안 봄)면 옛 결과를 덮지 않는다.** 종전엔 상세 끈 재스캔
+  -- (`--no-details`)이나 콜 상한에 걸린 행이 이미 본 결과(no_data 등)를 scan_only 로 되돌렸다 — 3일 창 밖 날이면
+  -- 다시 볼 일이 없어 「안 본 것」으로 굳는다(10-19 운영 실측: 10-16 재스캔 14행 no_data → scan_only).
   detail_status = CASE WHEN EXCLUDED.detail_status IN ('parsed','partial') THEN EXCLUDED.detail_status
                        WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail_status
+                       WHEN EXCLUDED.detail_status = 'scan_only' AND dart_events.detail_status IS NOT NULL
+                            THEN dart_events.detail_status
                        ELSE EXCLUDED.detail_status END,
   detail = CASE WHEN EXCLUDED.detail_status IN ('parsed','partial') THEN EXCLUDED.detail
                 WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail
+                WHEN EXCLUDED.detail_status = 'scan_only' AND dart_events.detail_status IS NOT NULL
+                     THEN dart_events.detail
                 ELSE EXCLUDED.detail END,
   detail_note = CASE WHEN EXCLUDED.detail_status IN ('parsed','partial') THEN EXCLUDED.detail_note
                      WHEN dart_events.detail_status IN ('parsed','partial') THEN dart_events.detail_note
+                     WHEN EXCLUDED.detail_status = 'scan_only' AND dart_events.detail_status <> 'scan_only'
+                          THEN dart_events.detail_note
                      ELSE EXCLUDED.detail_note END,
   updated_at = now();
 """
 
+#: 261019: 이미 **다 받은**(complete) 날·코드를 이번 재스캔이 못 받았으면(전송 실패·DART 오류·페이지 일부) 옛 커버리지를 덮지 않는다.
+#   종전엔 재스캔 한 번의 접속 시간 초과가 「total 0 · 불완전」으로 덮었고, 그 날이 3일 창 밖이면 다시 볼 일이 없어 굳었다 —
+#   서버 흐름 보기는 다 본 날(`_DAY_DONE`)만 세므로 그 날이 비교에서 조용히 빠진다(10-19 운영 실측: 10-16 네 코드).
+#   이번에 받은 원장 행은 그대로 upsert 된다 — 커버리지 표만 옛 「다 받음」을 지킨다.
 UPSERT_SCAN = """
 INSERT INTO dart_events_scan (scan_dd, code, total, total_pages, fetched_pages, complete, error, scanned_at)
 VALUES (%(scan_dd)s, %(code)s, %(total)s, %(total_pages)s, %(fetched_pages)s, %(complete)s, %(error)s, now())
 ON CONFLICT (scan_dd, code) DO UPDATE SET total = EXCLUDED.total, total_pages = EXCLUDED.total_pages,
   fetched_pages = EXCLUDED.fetched_pages, complete = EXCLUDED.complete, error = EXCLUDED.error,
-  scanned_at = now();
+  scanned_at = now()
+WHERE EXCLUDED.complete IS TRUE OR dart_events_scan.complete IS NOT TRUE;
 """
 
 
