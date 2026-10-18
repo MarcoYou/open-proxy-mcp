@@ -1,8 +1,9 @@
 """공시 흐름 보기의 업종은 **읽을 때 조인**, 시총은 **원장에 저장된 값** — Postgres 17 에서 실제 SQL 로 검증 (261018, Supabase 재설계 6단계).
 
 종전: 원장 배치가 넣을 때 복사해 둔 `dart_events.sector`·`industry`·`mktcap_won` 을 읽었다. 이제(`disclosure_flow._EVENTS_SQL`)
-  · 업종 = 원본 업종분류 스냅샷(`wise_sector`)과 조인 — 접수일 이하 가장 최근 스냅샷(없으면 가장 이른 것). 스냅샷은 표 전체에서 고르고,
-          그 스냅샷에 종목이 없으면 비운다(원장 배치의 `pick_snapshot` 과 같은 선택).
+  · 업종 = 원본 업종분류 스냅샷(`wise_sector`)과 조인 — 접수일 이하 가장 최근 스냅샷(없으면 가장 이른 것). 스냅샷은 표 전체에서 고른다(원장 배치의
+          `pick_snapshot` 과 같은 선택). 261019: 그 스냅샷에 종목이 없으면 그 종목의 가장 가까운 스냅샷(접수일 이하 가장 최근, 없으면 접수일 뒤 가장 이른 것) —
+          신규 상장 종목이 상장 뒤 첫 스냅샷 전 공시에서 「업종 미상」이던 것. 어느 스냅샷에도 없는 종목만 비운다.
   · 시총 = 원장의 `mktcap_won` 그대로. 시세 표와 조인하지 않는다 — 일별 원본이 7거래일 뒤 잘려 나중엔 공시 시점 값을 다시 만들 수 없다.
   · 업종 복사본 칸(`sector`·`industry`·`sector_dd`)이 **없는** 표(운영에서 지운 뒤)에서도 돌고, 칸이 **있어도 읽지 않는다**(엉뚱한 값을 넣어 두고 확인).
 같은 파일에서 `price_multiple_data._firm_cap_at`(업종 비교의 그 날 시총 — 그 날 행, 없으면 같은 주 그 날 이하 가장 늦은 행, 그것도 없으면 같은 주 그 날 뒤
@@ -34,7 +35,7 @@ WISE_DDL = """CREATE TABLE wise_sector (snap_dd text NOT NULL, ticker text NOT N
   industry_code text, industry text, PRIMARY KEY (snap_dd, ticker))"""
 
 DAYS = ["20261007", "20261008", "20261012", "20261013", "20261014", "20261015", "20261016"]   # 10/9 한글날 휴장
-A, B, C, E = "000001", "000002", "000003", "000005"
+A, B, C, E, F = "000001", "000002", "000003", "000005", "000006"
 SHRS = 1_000_000
 
 
@@ -60,7 +61,8 @@ def _load(url: str, *, with_sector_cols: bool = False, daily: bool = True) -> No
         cur.executemany("INSERT INTO wise_sector VALUES (%s,%s,%s,%s,%s,%s)", [
             ("20260821", A, "G45", "IT", "G4530", "반도체"), ("20260821", B, "G20", "산업재", "G2010", "자본재"),
             ("20260821", C, "G25", "경기소비재", "G2510", "자동차"),
-            ("20261016", A, "G45", "IT", "G4530", "반도체"), ("20261016", C, "G20", "산업재", "G2010", "자본재")])
+            ("20261016", A, "G45", "IT", "G4530", "반도체"), ("20261016", C, "G20", "산업재", "G2010", "자본재"),
+            ("20261016", F, "G35", "헬스케어", "G3510", "건강관리장비와서비스")])     # F = 신규 상장 — 새 스냅샷에만 있다
         # 주간 = 닫힌 주의 마지막 거래일 행 + 연말 행(20251230 — 연도 경계 주는 둘로 나뉜다)
         wk = ["20251230", "20260102", "20260731", "20260925", "20261002", "20261008", "20261016"]
         cur.executemany("INSERT INTO krx_weekly (price_dd, ticker, market, close, mktcap, list_shrs) VALUES (%s,%s,%s,%s,%s,%s)",
@@ -74,10 +76,12 @@ def _load(url: str, *, with_sector_cols: bool = False, daily: bool = True) -> No
             ("r02", date(2026, 10, 17), A, "order", "Y"),   # 토요일 → 1016 스냅샷
             ("r03", date(2026, 10, 6), A, "order", "Y"),
             ("r04", date(2026, 8, 1), A, "order", "Y"),     # 첫 스냅샷(0821)보다 이르다 → 가장 이른 스냅샷
-            ("r05", date(2026, 10, 17), B, "order", "K"),   # 1016 스냅샷에 없다 → 업종 비움(0821 로 내려가지 않는다)
+            ("r05", date(2026, 10, 17), B, "order", "K"),   # 1016 스냅샷에 없다 → 그 종목의 접수일 이하 가장 최근 스냅샷(0821)
             ("r06", date(2026, 10, 17), C, "treasury", "Y"),  # 1016 스냅샷의 새 업종
             ("r07", date(2026, 10, 15), E, "order", "Y"),   # 업종분류에 없는 종목
             ("r08", date(2026, 10, 14), None, "order", "E"),  # 비상장 → 업종·시총 없음
+            ("r09", date(2026, 10, 13), F, "order", "K"),   # 고른 스냅샷(0821)에 없는 신규 상장 → 그 종목의 접수일 뒤 가장 이른 스냅샷(1016)
+            ("r10", date(2026, 8, 1), F, "order", "K"),     # 첫 스냅샷보다 이른 공시도 같다(가장 이른 스냅샷 0821 에 없다 → 1016)
         ]
         cur.executemany("INSERT INTO dart_events (rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, report_nm, "
                         "mktcap_won, mktcap_dd) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -113,10 +117,12 @@ def _expect() -> dict[str, tuple]:
         "r02": ("IT", "반도체", _stored_cap("r02")),
         "r03": ("IT", "반도체", _stored_cap("r03")),
         "r04": ("IT", "반도체", _stored_cap("r04")),
-        "r05": (None, None, _stored_cap("r05")),
+        "r05": ("산업재", "자본재", _stored_cap("r05")),
         "r06": ("산업재", "자본재", _stored_cap("r06")),
         "r07": (None, None, _stored_cap("r07")),
         "r08": (None, None, None),
+        "r09": ("헬스케어", "건강관리장비와서비스", _stored_cap("r09")),
+        "r10": ("헬스케어", "건강관리장비와서비스", _stored_cap("r10")),
     }
 
 
@@ -150,12 +156,25 @@ def test_market_cap_does_not_depend_on_the_price_stores(db):
 def test_universe_filters_and_date_range_still_apply(db):
     _load(db)
     assert {r["rcept_no"] for r in _fetch(tickers=[B, C])} == {"r05", "r06"}
-    assert {r["rcept_no"] for r in _fetch(corp_cls="K")} == {"r05"}
+    assert {r["rcept_no"] for r in _fetch(corp_cls="K")} == {"r05", "r09", "r10"}
     assert {r["rcept_no"] for r in _fetch(kinds=("treasury",))} == {"r06"}
     assert {r["rcept_no"] for r in _fetch(since=date(2026, 10, 14), until=date(2026, 10, 15))} == {"r01", "r07", "r08"}
     # 원장 첫날보다 훨씬 이른 시작(날짜 고르기는 원장 첫날부터) · 공시가 없는 기간
     assert {r["rcept_no"] for r in _fetch(since=date(2000, 1, 1))} == set(_expect())
     assert _fetch(since=date(2026, 9, 1), until=date(2026, 9, 30)) == []
+
+
+def test_ticker_missing_from_the_picked_snapshot_takes_its_nearest_snapshot(db):
+    """261019(PR #110 이 남긴 것): 고른 스냅샷에 종목이 없으면 그 종목의 가장 가까운 스냅샷 — 접수일 이하가 먼저, 없으면 접수일 뒤 가장 이른 것.
+    고른 스냅샷에 종목이 있으면 종전 그대로(그 종목의 다른 스냅샷을 보지 않는다 — C 는 새 업종)."""
+    _load(db)
+    with psycopg.connect(db, autocommit=True) as c:
+        # F 가 나중에 다른 업종으로 한 번 더 관측돼도 접수일에 더 가까운 스냅샷을 쓴다
+        c.execute("INSERT INTO wise_sector VALUES ('20261120', %s, 'G45', 'IT', 'G4530', '반도체')", (F,))
+    got = {r["rcept_no"]: (r["sector"], r["industry"]) for r in _fetch(until=date(2026, 10, 18))}
+    assert got["r09"] == ("헬스케어", "건강관리장비와서비스") and got["r10"] == ("헬스케어", "건강관리장비와서비스")
+    assert got["r06"] == ("산업재", "자본재") and got["r05"] == ("산업재", "자본재")
+    assert got["r07"] == (None, None), "어느 스냅샷에도 없는 종목은 비운다"
 
 
 def test_empty_ledger_and_empty_sector_table(db):

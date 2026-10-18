@@ -190,7 +190,9 @@ _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "
 
 #: 원장 행의 업종은 **읽을 때 붙이고**, 시총은 **원장에 저장된 값**을 읽는다 (261018, Supabase 재설계 6단계).
 #:   업종 = 업종분류 스냅샷(`wise_sector`)에서 **접수일 이하 가장 최근 스냅샷**, 없으면 가장 이른 스냅샷(원장 배치의 `pick_snapshot`).
-#:          스냅샷은 표 전체에서 하나를 고르고 그 스냅샷에 종목이 없으면 비운다 — 종목마다 다른 스냅샷으로 내려가지 않는다(배치와 같다).
+#:          스냅샷은 표 전체에서 하나를 고른다. 261019: 그 스냅샷에 종목이 없으면(신규 상장 — 상장 뒤 첫 스냅샷이 접수일보다 늦다) **그 종목의 가장 가까운
+#:          스냅샷**(접수일 이하 가장 최근, 없으면 접수일 뒤 가장 이른 것 — 업종 비교 `price_multiple_data` 의 종목 분류 고르기와 같은 규칙)으로 채운다.
+#:          종전(배치 복사본·10-18 조인)은 비웠다 — 10-18 운영 원장 33행·10종목(신규 상장·이전 상장)이 「업종 미상」이었다. 고른 스냅샷에 종목이 있으면 종전과 같다.
 #:          종전엔 원장 배치가 넣을 때 복사해 둔 칸(`sector`·`industry`·`sector_dd`)을 읽었다. 원본이 남아 있는 값이라 저장처를 한 곳으로 둔다
 #:          (그 칸은 배치가 더 쓰지 않고 운영에서 지운다 — 이 SQL 은 그 칸을 읽지 않으므로 지우기 전후 모두 돈다).
 #:   시총 = 원장의 `mktcap_won`(접수일 이하 최신 거래일 시총 — 원장 배치가 붙여 저장). **조인하지 않는다**: 일별 시세 원본은 7거래일 뒤 잘려,
@@ -208,11 +210,18 @@ WITH pick AS MATERIALIZED (
   FROM generate_series(GREATEST(%s::date, (SELECT min(rcept_dt) FROM dart_events)), %s::date, interval '1 day') g
 )
 SELECT e.rcept_no, e.rcept_dt, e.corp_code, e.corp_name, e.stock_code, e.corp_cls, e.kind, e.subtype, e.is_correction,
-       e.report_nm, ws.sector, ws.industry, e.mktcap_won,
+       e.report_nm, COALESCE(ws.sector, nb.sector), COALESCE(ws.industry, nb.industry), e.mktcap_won,
        e.detail->>'amount_won', e.detail->>'revenue_ratio_pct', e.detail->>'counterparty', e.detail->>'is_external'
 FROM dart_events e
 JOIN pick p ON p.rcept_dt = e.rcept_dt
 LEFT JOIN wise_sector ws ON ws.snap_dd = p.sector_dd AND ws.ticker = e.stock_code
+LEFT JOIN LATERAL (
+  SELECT w2.sector, w2.industry FROM wise_sector w2
+  WHERE ws.ticker IS NULL AND w2.ticker = e.stock_code
+  ORDER BY (w2.snap_dd <= to_char(e.rcept_dt, 'YYYYMMDD')) DESC,
+           abs(w2.snap_dd::bigint - to_char(e.rcept_dt, 'YYYYMMDD')::bigint)
+  LIMIT 1
+) nb ON true
 WHERE e.rcept_dt BETWEEN %s AND %s AND e.kind = ANY(%s){extra}
 """
 
