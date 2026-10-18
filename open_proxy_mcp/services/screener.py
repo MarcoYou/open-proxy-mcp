@@ -8,7 +8,8 @@
   필러를 100/page로 반환(2026-07-14 I001 하루 102건=2페이지). universe는 메모리 사후필터.
 - list.json item 필드 = corp_code / corp_name / stock_code / corp_cls / report_nm / rcept_no
   / flr_nm / rcept_dt / rm. **정정은 report_nm 프리픽스 `[기재정정]`/`[첨부정정]`**(rm은 시장마커 코/유).
-- 시총은 `krx_weekly`(ticker=6자리 단축코드, mktcap=원, DART 0콜)에서 배치 파생.
+- 시총은 일별 시세 저장분의 최신 거래일 단면(`krx_daily_v`, ticker=6자리 단축코드, mktcap=종가×상장주식수 원,
+  DART 0콜)에서 배치 파생(261018 — 종전 `krx_weekly` 이번 주 행. 아래 universe 절 참조).
 - 유형 판별은 report_nm 키워드(B001은 `주요사항보고서(…)` 괄호 안 사유가 판별자).
 
 게이트는 universe가 아니라 **details**. scan=발견/details=숫자.
@@ -537,11 +538,25 @@ def resolve_period(period: str, *, cursor: str = "",
 
 
 # ══════════════════════════════════════════════════════════════════════
-#  universe (krx_weekly 파생 — DART 0콜)
+#  universe (일별 시세 저장분의 최신 거래일 단면 — DART 0콜)
 # ══════════════════════════════════════════════════════════════════════
+#
+# 261018: 기준일·순위·시장 전 종목·시총을 `krx_weekly` 이번 주 행(max(price_dd))에서 읽던 것을 일별 시세
+#   저장분으로 옮겼다. 다음 단계에서 `krx_weekly` 는 닫힌 주의 마지막 거래일만 담게 되는데(이번 주 행을 매일
+#   지우고 다시 넣는 일을 그만둔다), 그때 여기가 그대로면 유니버스·시총이 지난주 값으로 낡는다.
+#   실측(20261016): 두 저장분의 같은 날 단면이 2,762종목 종가·시총·상장주식수·시장 모두 차이 0 — 응답은 그대로다.
+# 🔴 단면은 **기준일을 먼저 읽고 그 날 행만** 본다(`max(trd_dd) FROM krx_daily` → `krx_daily_v WHERE trd_dd=%s`).
+#   종목별 최신 행 뷰(`price_latest`)를 날짜 조건 없이 통째로 읽지 않는다 — 보관 창(7거래일) 안에서 상장폐지된
+#   종목은 옛 날짜 행이 그대로 남아(실측 5종목) 오늘 순위에 섞인다. 종목 몇 개의 최신값이면 그 뷰가 맞다.
+# 🔴 고르는 칸은 사실값 + mktcap 뿐이다 — 등락(chg·chg_pct·prev_*)은 종목별 창 계산이라 단면에서 고르면 느려진다
+#   (실측 전 종목 단면: 사실값 칸만 6.9ms, 창 칸까지 40ms).
+# 🔴 기준일과 행은 늘 같은 원천이다. 일별 저장분이 비거나 죽으면 `krx_weekly` 로 돌아가지 않고 기존 강등
+#   (`universe_fallback` — 전체시장·DART 시장코드로 대체 + 안내)을 그대로 탄다. 섞어 읽으면 날짜와 행이 어긋난다.
 
 def _krx_latest_dd() -> str | None:
-    rows = pg_rows("SELECT MAX(price_dd) FROM krx_weekly")
+    """서빙 단면의 기준일 — 일별 시세 저장분에 보관된 가장 늦은 거래일(YYYYMMDD). 비었거나 장애면 None.
+    이름은 그대로 둔다(여러 시험이 이 이름을 바꿔 끼운다)."""
+    rows = pg_rows("SELECT max(trd_dd) FROM krx_daily")
     return rows[0][0] if rows and rows[0][0] else None
 
 
@@ -553,7 +568,7 @@ def _krx_mktcap_map(tickers: Iterable[str], price_dd: str) -> dict[str, int]:
     url = os.getenv("DATABASE_URL")
     if not url:
         return {}
-    rows = pg_rows("SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s AND ticker = ANY(%s)",
+    rows = pg_rows("SELECT ticker, mktcap FROM krx_daily_v WHERE trd_dd=%s AND ticker = ANY(%s)",
                    (price_dd, codes)) or []
     return {isu: int(mktcap) for isu, mktcap in rows if mktcap}
 
@@ -561,13 +576,14 @@ def _krx_mktcap_map(tickers: Iterable[str], price_dd: str) -> dict[str, int]:
 def _krx_top_mktcap(n: int, price_dd: str, market: str | None = None) -> set[str]:
     """시총 상위 N 단축코드. market 지정 시 그 시장만 — 시장 혼합 방지.
 
-    ★ market 은 `to_db` 로 **정규화해서** 묻는다. krx_weekly 는 260823 개명 뒤 KS/KQ 를
-      담는데 호출부가 "KOSPI" 를 넘기면 질의가 죽지 않고 **0건**을 준다. 그러면 위쪽
-      `_rank` 가 그걸 「조회 실패」로 읽어 조용히 전체시장으로 대체한다 — 사용자는
-      kospi200 을 물었는데 2,764종목을 받고, 에러는 어디에도 안 뜬다(260824 실측).
+    ★ market 은 `to_db` 로 **정규화해서** 묻는다. 시세 저장분은 260823 개명 뒤 KS/KQ 를
+      담는데(당시 `krx_weekly`, 261018 부터 읽는 `krx_daily` 도 같다) 호출부가 "KOSPI" 를
+      넘기면 질의가 죽지 않고 **0건**을 준다. 그러면 위쪽 `_rank` 가 그걸 「조회 실패」로
+      읽어 조용히 전체시장으로 대체한다 — 사용자는 kospi200 을 물었는데 2,764종목을 받고,
+      에러는 어디에도 안 뜬다(260824 실측).
       호출부를 상수로 바꾸는 것과 **둘 다** 한다. 경계에서 막아야 다음에 또 안 샌다.
     """
-    q = "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND mktcap IS NOT NULL"
+    q = "SELECT ticker FROM krx_daily_v WHERE trd_dd=%s AND mktcap IS NOT NULL"
     params: list = [price_dd]
     if market:
         q += " AND market=%s"
@@ -580,7 +596,7 @@ def _krx_top_mktcap(n: int, price_dd: str, market: str | None = None) -> set[str
 def _krx_market_codes(market: str, price_dd: str) -> set[str]:
     """한 시장(KOSPI/KOSDAQ) 전 종목 단축코드."""
     return {r[0] for r in (pg_rows(
-        "SELECT ticker FROM krx_weekly WHERE price_dd=%s AND market=%s AND mktcap IS NOT NULL",
+        "SELECT ticker FROM krx_daily_v WHERE trd_dd=%s AND market=%s AND mktcap IS NOT NULL",
         (price_dd, to_db(market)),              # 정규화 — `_krx_top_mktcap` 주석 참조
     ) or [])}
 
@@ -592,7 +608,7 @@ class UniverseFilter:
     notice: str = ""
     allowed: set[str] | None = None   # None = 전체시장(필터 없음)
     price_dd: str | None = None
-    corp_cls: str | None = None       # krx_weekly 장애 시 DART 시장코드 fallback
+    corp_cls: str | None = None       # 시세 저장분 장애 시 DART 시장코드 fallback
     #: 비어 있지 않으면 **조회하지 않고 되묻는다**. 회사 목록에서 하나도 못 찾았을 때 시장 전체로 바꿔
     #: 보이지 않는다(260918 — 「코스피 시가총액 상위 200개 기업」이 시장 전체 75건으로 나갔다).
     question: str = ""
@@ -683,7 +699,7 @@ async def resolve_universe(universe: str) -> UniverseFilter:
             #   문장이 사용자 응답에만 실려 나가고 우리가 보는 곳엔 안 쌓였다.
             note_degradation("universe_fallback")
             return UniverseFilter(label=label, resolved=False,
-                                  notice="krx_weekly 조회 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
+                                  notice="시세 저장분 조회 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
         return UniverseFilter(label=label, resolved=True, allowed=allowed, price_dd=price_dd)
 
     # 시장 전체(랭킹 없음) — exact 매칭(kospi200/kospi:N 흡수 방지)
@@ -692,7 +708,7 @@ async def resolve_universe(universe: str) -> UniverseFilter:
         if not codes:
             note_degradation("universe_fallback")
         return UniverseFilter(label="KOSPI 전체", resolved=bool(codes),
-                              notice="" if codes else "krx_weekly 조회 실패 → DART corp_cls=Y로 제한.",
+                              notice="" if codes else "시세 저장분 조회 실패 → DART corp_cls=Y로 제한.",
                               allowed=codes or None, price_dd=price_dd,
                               corp_cls=None if codes else "Y")
     if low in ("market:kosdaq", "kosdaq"):
@@ -700,7 +716,7 @@ async def resolve_universe(universe: str) -> UniverseFilter:
         if not codes:
             note_degradation("universe_fallback")
         return UniverseFilter(label="KOSDAQ 전체", resolved=bool(codes),
-                              notice="" if codes else "krx_weekly 조회 실패 → DART corp_cls=K로 제한.",
+                              notice="" if codes else "시세 저장분 조회 실패 → DART corp_cls=K로 제한.",
                               allowed=codes or None, price_dd=price_dd,
                               corp_cls=None if codes else "K")
 
@@ -1337,7 +1353,7 @@ async def _build_screener_payload_impl(
     deduped_away = superseded
     hits.sort(key=lambda r: r["rcept_no"], reverse=True)  # 최신순
 
-    # ── 시총 배치 부착(krx_weekly, DART 0콜) ───────────────────────────
+    # ── 시총 배치 부착(일별 시세 저장분 최신 거래일, DART 0콜) ─────────
     if uni.price_dd:
         cap_map = _krx_mktcap_map((h["stock_code"] for h in hits), uni.price_dd)
     else:

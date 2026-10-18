@@ -62,7 +62,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 
 | scope | 소스 | 갱신 | 내용 |
 |---|---|---|---|
-| `firm` | 실시간 DART 재무 × `krx_weekly` 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
+| `firm` | 실시간 DART 재무 × 일별 시세 저장분(`price_latest`) 최신 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
 | `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
 | `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+`firm_valuation_snapshot` 비교) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
 | `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) + `firm_valuation_snapshot`(주간 스냅샷, +krx_stock_flags 경고) | compute-on-query(저장 X) + cron 축적 | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=최근 3년 주간 곡선(`data.series`, 하한 `data.weekly_from` — 그 이전은 연말 밴드), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변 |
@@ -164,6 +164,8 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
   - **계수 누락 탐지(260823)**: 조정성 이벤트는 주가·EPS 와 주식수가 상쇄하므로 **계수 f ×
     상장주식수 배율 r ≈ 1** 이 성립한다. 벗어나면 공시 EPS 조각이 옛 분모와 새 분모로 섞였다는
     뜻이라 **PER 을 N/M 으로 무효화**하고 이유를 경고에 적는다(EPS 값은 인풋으로 남겨 진단 가능).
+    r = 최근 상장주식수(일별 시세 저장분 `price_latest`, 그 종목 행이 없으면 주간 시세 저장분의 가장 최근 행) ÷
+    결산기준일 뒤 첫 주의 상장주식수(주간 시세 저장분).
     밴드는 ±50% — 유상증자·감자는 계수 대상이 아니라 r 만 움직이므로 통과시키고 액면분할·병합만
     잡는다. 실측 계기: 메이슨캐피탈(021880) 10:1 병합에 계수가 없어 TTM 지배순이익 **-70억**인데
     EPS(TTM) **+39원**, **PER 32.31** 이 live 로 나갔다(부호까지 뒤집힘).
@@ -186,7 +188,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
 | 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + 환율 캐시 저장분 | 기능통화 · 기말환율 | 비KRW → 재무 KRW 환산 |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
-| 시세 | **주간 시세 저장분(검증 자산 — 최근 3년 + 종목별 해마다 마지막 행)** 우선 → 미스·최신 확보 시만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
+| 시세 | **일별 시세 저장분(최근 7거래일)** 우선 — 기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest` → 미스(그날 행 없는 신규상장·거래정지 등)만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap(종가×상장주식수) · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
 | 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) | 배당수익률 |
 
 ## 연산 파이프라인
@@ -195,7 +197,7 @@ TTM 순이익   = ni_fy(연간) + ni_qc(1Q당해) − ni_qp(1Q전년)      # 지
 EPS(FY0)     = 공시 기본주당이익 (연간 재무제표 직접, 3단 매칭)   # 결측 시 지배순이익÷보통주 폴백
 EPS(TTM)     = 공시 EPS 조립: FY0 + 분기누적(thstrm_add) − 전년동기누적  # FY0과 같은 공시 기준(대칭)
 BPS          = 지배자본(MRQ 우선, 없으면 FY0) ÷ shares_total(합계 유통주식, 보통+우선, 자기주식 제외)
-보통주 시총   = KRX 상장주식수(list_shrs) × 최신 주간 종가(krx_weekly)        # common_mktcap
+보통주 시총   = KRX 상장주식수(list_shrs) × 최신 거래일 종가(price_latest)     # common_mktcap
 PER(FY0)     = 보통주 시총 ÷ 지배순이익(FY0)                                # 260823: 주가÷EPS 에서 전환
 PER(TTM)     = 보통주 시총 ÷ TTM 지배순이익
 PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pbr_basis 로 표기)
@@ -263,15 +265,20 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
 | DART stockTotqySttus | 1 | 유통주식수 |
 | DART alotMatter(배당) | ~2 | 연간 요약 |
 | **DART 합계** | **11 (최대 ~15, 실측 260705)** | per-firm. scope=market/sector/firm_history는 **DART·KRX 0콜(DB만)** |
-| KRX (시세) | **serve-time 0** | 주간 시세 저장분에서 읽음. 요청 경로는 KRX 를 부르지 않는다(DB 상태만 읽음). 최신 거래일 스냅샷은 서버 백그라운드 작업이 평일 아침 확보(전종목 2콜) → **유저 수 무관 하루 수 콜 bounded**. KRX 개인키 일 10,000 한도 보호 |
+| KRX (시세) | **serve-time 0** | 일별 시세 저장분에서 읽음. 요청 경로는 KRX 를 부르지 않는다(DB 상태만 읽음). 최신 거래일 스냅샷은 서버 백그라운드 작업이 월~토 아침 확보(전종목 2콜) → **유저 수 무관 하루 수 콜 bounded**. KRX 개인키 일 10,000 한도 보호 |
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
 
-**KRX 시세 = 주간 시세 저장분 서빙**: KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
+**KRX 시세 = 일별 시세 저장분 서빙**(2026-10-18 — 종전 주간 시세 저장분의 이번 주 행): KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
 공유)라 라이브 유저를 직접 서빙하면 키 소진 시 배수 N/M 위험. FX 캐시와 동형 — 매일 최신 거래일
 전종목 스냅샷을 서버 백그라운드 작업이 확보해 **'그 주(ISO week)' 슬롯에 덮어쓰며 갱신**(전날 종가까지 표시), 주중
 일별은 다음 거래일에 덮여 사라지고 **주 마지막 거래일만 영구 보존**(주당 1스냅샷 ~52/년 = 무료티어
 보호). valuation은 DB 우선 읽기, 서빙 KRX 콜 = 하루 ~2. 축적 주간가격은 v1.1 5년밴드·PIT 재사용.
 price_date로 기준일 투명.
+최신값(종가·시총·상장주식수)은 일별 시세 저장분(`krx_daily`, 최근 7거래일)에서 읽는다 — 기준일 = 그 표의 최신 거래일(60초 캐시),
+종목 한 줄 = `price_latest`(그 종목의 가장 늦은 거래일이 기준일보다 이르지 않을 때만 — 보관 창 안에서 상장폐지된 종목의 옛 날짜는 내지 않고,
+기준일 캐시가 하루 낡았을 때는 새 거래일 행을 그 날짜와 함께 낸다), 비상장 질의의 상장 후보 시총 정렬 = 그 기준일의 `krx_daily_v`.
+기준일과 행은 같은 원천에서 읽고, 일별 저장분을 못 읽으면 주간 저장분으로 돌아가지 않고 라이브 KRX 로 확인한다.
+주간 시세 저장분은 지난 값(주간 곡선·연말 밴드·주식수 배율의 첫 주)에만 쓴다.
 
 **fetch 병렬화**: 최상위 await 를 의존성 3단계 gather 로 묶는다 — P1(financial_metrics·company·KRX,
 fy 무관) → P2(연간원장·주식수·배당, fy 의존) → P3(1Q당해·전년, fs_used 의존). 실측 개별 조회 ~2.2s
@@ -323,6 +330,11 @@ sequenceDiagram
 
 ## 변경 이력
 
+- 2026-10-18: `firm`(과 이를 재사용하는 `dividend_disclosure` 현재가 수익률·`asset_holdings` 시총)의 **최신 시세를 일별 시세 저장분에서 읽는다** —
+  기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest`, 상장 후보 시총 정렬 = 그날의 `krx_daily_v`. 주식수 배율의 최근 주식수도
+  `price_latest`(없으면 종전 주간 행). 지금은 주간 저장분의 이번 주 행과 값이 같아 응답이 바뀌지 않는다(20261016 2,762종목 차이 0) —
+  주간 저장분이 닫힌 주만 갖게 되는 다음 단계에서도 최신값이 낡지 않게 하려는 것. 주간 곡선·연말 밴드·`as_of` 는 그대로 주간 저장분.
+  종목 한 줄은 기준일 이후 행만 받는다 — 다른 머신이 새 거래일을 쓴 직후 기준일 캐시(60초)가 하루 낡아도 KRX 라이브로 새지 않는다.
 - 2026-10-18: `firm_history`·`firm` 의 서로 독립한 DB 읽기를 동시에(호출당 최대 3) 보낸다. 응답·오류 모양·환율 조회 순서는 그대로. 읽기 하나가 실패(None)해도 종전과 같은 모양으로 무너지고,
   주간 스냅샷 읽기가 실패하면 같은 `db_error` 응답을 재무·곡선 계산 없이 곧바로 낸다.
 - 2026-10-08: 선행 집계에서 주식 종류 미확인 0161M0를 제외하고, 수집 배치 대조의 예전 숫자 코드 제한을 제거했다.

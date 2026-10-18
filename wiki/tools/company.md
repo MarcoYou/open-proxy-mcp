@@ -9,7 +9,7 @@ related_concepts: []
 related_decisions: [pblntf-ty-필터링]
 
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-10-18
 ---
 
 # company
@@ -57,7 +57,7 @@ company(
     "confidence": "high",
     "reason": "...",
     "market_data_as_of": "20260721",
-    "market_data_source": "krx_weekly|local_popularity_prior",
+    "market_data_source": "krx_daily|local_popularity_prior",
     "ranking_signal": "market_cap|local_popularity_prior",
     "alternatives": []
   },
@@ -83,7 +83,7 @@ company(
 
 ## Data sources
 - **DART API**: `corpCode.xml` (한글명·공식 영문명·식별자, ZIP→XML, memory→SQLite 캐시), `company.json` (법인번호/업종코드), `list.json` (최근 공시).
-- **KRX 주간 스냅샷**: 전체 활성 상장 여부 + 시가총액 prior. 요청별 조회 없이 resolver 생성 시 한 번 메모리에 적재.
+- **KRX 일별 시세 저장분(`krx_daily`, 최신 거래일 전 종목 단면)**: 전체 상장 여부 + 시가총액 prior. 요청별 조회 없이 resolver 생성 시 한 번 메모리에 적재(1시간 캐시).
 - 외부 호출: 최대 3회 (corpCode 캐시 적중 시 2회).
 
 ## Flow
@@ -187,6 +187,8 @@ PRIMARY KEY 가 중복을 흡수하니 실제로 행이 느는 건 사명이 바
 복구할 수 없고, 그 경우는 「종목코드로 재조회」 안내로 물러난다.
 
 ## 변경 이력
+- 2026-10-18: 이름 해석의 시총·상장 명부 근거를 일별 시세 저장분의 최신 거래일 단면(`krx_daily`)에서 읽는다(종전 `krx_weekly` 이번 주 행).
+  `company_resolution.market_data_source` 값이 `krx_weekly` → `krx_daily`. 시총·기준일 값은 그대로.
 - 2026-09-07: 최근 공시 표의 분류가 코드(`ownership_block`)로 나가던 것 → 우리말(대량보유 보고·주총 소집공고·배당 결정 …). 영어 응답은 코드 유지.
 - 2026-08-08: 사명 변경 이력 누적(`corp_name_history`) + 미발견 안내가 현재 사명을 알려줌 (위 절).
 - 2026-08-06: 스윕 서사·측정 상세를 private storage 로 이관(경계 규칙 [[wiki_schema]] 0.0).

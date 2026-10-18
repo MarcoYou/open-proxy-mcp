@@ -2,11 +2,15 @@
 
 계기: 주간 루틴(영업이익 모멘텀)이 「코스피·코스닥 시총 상위 100」을 만들려고 `trading_data`
 를 종목마다 150번 부르고도 코스닥 70~100위가 빠졌을 수 있다고 자백했다. 그런데 `screener`
-안에는 `resolve_universe` 가 이미 그 집합을 주간 시세 저장분에서 한 질의로 만들고 있었다 —
+안에는 `resolve_universe` 가 이미 그 집합을 시세 저장분에서 한 질의로 만들고 있었다 —
 공시 필터로만 쓰고 **목록 자체를 돌려주는 도구가 없었을 뿐**이다.
 
-여기서는 그 집합에 시총·종가·시장(주간 시세 저장분)과 회사 이름(DART 회사 원장, 캐시)을
-붙여 순위표로 만든다. DART 0콜 · DB 1콜. 순위는 **요청한 시장 안에서** 시총 내림차순이다.
+여기서는 그 집합에 시총·종가·시장(일별 시세 저장분의 최신 거래일 단면)과 회사 이름(DART 회사 원장,
+캐시)을 붙여 순위표로 만든다. DART 0콜 · DB 1콜. 순위는 **요청한 시장 안에서** 시총 내림차순이다.
+
+261018: 시총·종가·시장을 `krx_weekly` 이번 주 행에서 읽던 것을 일별 시세 저장분(`krx_daily_v`)으로 옮겼다.
+기준일은 `resolve_universe` 가 준 날짜(`krx_daily` 의 가장 늦은 거래일)를 그대로 쓴다 — 기준일과 행이 같은
+원천이어야 날짜와 값이 어긋나지 않는다. 이유와 지킬 것은 `services/screener.py` 「universe」 절.
 
 우선주는 뺀다(260916 실측: 코스피 3위가 `005935` 삼성전자우로 나왔다). 회사 순위에서 우선주는
 같은 회사의 두 번째 줄이라 한 자리를 버리는 셈이고, DART 회사 원장은 보통주 코드만 알아 이름도
@@ -85,7 +89,7 @@ class UniverseList:
     label: str                     # 사람이 읽는 이름 (KOSPI 시총상위 100)
     resolved: bool
     notice: str = ""               # 대체·부분 해결 안내 (resolve_universe 가 준 문장)
-    as_of: str | None = None       # 주간 시세 저장분의 최신 price_dd
+    as_of: str | None = None       # 일별 시세 저장분의 최신 거래일(YYYYMMDD) — 순위·시총의 기준일
     rows: list[dict[str, Any]] = field(default_factory=list)
     db_ok: bool = True             # False = 저장분 조회 자체가 안 됨(미설정/장애)
     excluded_pref: int = 0         # 순위에서 뺀 우선주 수
@@ -93,9 +97,12 @@ class UniverseList:
 
 
 def _krx_rows(price_dd: str, codes: list[str] | None) -> list[tuple] | None:
-    """그 날짜의 (ticker, market, mktcap, close, list_shrs). codes=None 이면 전 종목."""
-    sql = ("SELECT ticker, market, mktcap, close, list_shrs FROM krx_weekly "
-           "WHERE price_dd=%s AND mktcap IS NOT NULL")
+    """그 거래일의 (ticker, market, mktcap, close, list_shrs). codes=None 이면 전 종목.
+
+    `price_dd` 는 `resolve_universe` 가 일별 시세 저장분에서 읽은 기준일이다. 종목별 최신 행 뷰(`price_latest`)를
+    쓰지 않는다 — 보관 창 안에서 상장폐지된 종목의 옛 날짜 행이 섞인다. 등락 칸(창 계산)은 고르지 않는다."""
+    sql = ("SELECT ticker, market, mktcap, close, list_shrs FROM krx_daily_v "
+           "WHERE trd_dd=%s AND mktcap IS NOT NULL")
     params: list[Any] = [price_dd]
     if codes is not None:
         sql += " AND ticker = ANY(%s)"

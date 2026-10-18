@@ -3,7 +3,7 @@
 
 261018 신설. 종전에는 **하루 첫 시세 질문**이 KRX 스냅샷 확인·기록을 떠안아 그 사용자가 2~12초를 기다렸고, KRX 가 게시하기 전에
 하루 1회 래치(`_KRX_STATE`)가 굳으면 그날 종일 옛 날짜를 썼다. 이제 갱신은 서버가 뜰 때 함께 시작하는 asyncio 작업 하나가 한다.
-요청 경로(`price_multiple_data._market_for`·`trading_data(quote)`)는 DB 상태(`max(price_dd)`·`krx_daily`)만 읽는다.
+요청 경로(`price_multiple_data._market_for`·`trading_data(quote)`)는 DB 상태(`krx_daily` 의 max(trd_dd)·`price_latest`·`krx_daily_v`)만 읽는다.
 
 ■ 언제
   월~토 07:30 ≤ 시각 < 20:00 KST 에 10분마다(10분 경계 + 0~20초 지터), 그리고 서버가 뜬 직후 한 번(창 밖이어도).
@@ -307,7 +307,7 @@ async def _sleep_or_stop(stop: asyncio.Event, seconds: float) -> bool:
 
 
 async def _loop(stop: asyncio.Event, startup_delay: float | None = None) -> None:
-    """서버가 뜬 직후 한 번(창 밖이어도), 이후 평일 창 안에서 10분마다."""
+    """서버가 뜬 직후 한 번(창 밖이어도), 이후 월~토 창 안에서 10분마다."""
     delay = STARTUP_DELAY_SEC if startup_delay is None else startup_delay      # 호출 시점의 값(테스트가 바꿀 수 있게)
     if await _sleep_or_stop(stop, delay + random.uniform(0, min(10.0, delay))):
         return
@@ -356,7 +356,7 @@ def start() -> Handle | None:
         return None
     stop_event = asyncio.Event()
     task = asyncio.get_running_loop().create_task(_loop(stop_event), name="krx-refresher")
-    logger.info("KRX 갱신기 시작: 평일 %s~%s KST 10분 간격 + 기동 직후 1회",
+    logger.info("KRX 갱신기 시작: 월~토 %s~%s KST 10분 간격 + 기동 직후 1회",
                 WINDOW_START.strftime("%H:%M"), WINDOW_END.strftime("%H:%M"))
     return Handle(task, stop_event)
 

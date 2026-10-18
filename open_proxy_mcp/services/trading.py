@@ -11,6 +11,8 @@
 ★ 주간 저장 시계열(`krx_weekly`)에는 OHLC·거래량·거래대금이 없다 — 종가·시총·상장주식수 3개뿐이다.
   그 넷은 `scope=quote` 가 준다. **최근 7거래일은 DB**(`krx_daily`, 서버 백그라운드 갱신기가 매 거래일 채운다 — KRX 0콜),
   그보다 오래된 날짜만 KRX 를 직접 불러 그 날짜만 준다(2콜, 전종목 응답은 날짜별 소형 LRU 에 2일치 보관).
+  `scope=firm` 시계열의 **끝점**은 일별 저장분의 그 종목 최신 한 줄(`price_latest`)이다(261018) — 주간 표는 닫힌 주만 갖게 될 것이라
+  「이번 주 최신값」을 주간 표에 기대지 않는다(`_with_daily_tail`).
 
 ★ **수정주가가 아니다.** `close` 는 그 날의 실제 종가다 — 액면분할·병합 전후로 끊긴다.
   배수(PER·PBR)는 시총 기반이라 불변이지만 **가격 시계열은 그렇지 않다.** 산출물이 그 사실을
@@ -32,7 +34,10 @@ from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_can
 from open_proxy_mcp.services.price_multiple_data import (
     _DB_ERROR_PAYLOAD_WARN,
     _KRX_CACHE,
+    _db_call,
     _fetch_live_snapshot,
+    _gather_db,
+    _iso_wk_range,
     _num,
     _pg_rows,
     _price_dates,
@@ -145,9 +150,49 @@ async def _firm_live_fallback(name: str, ticker: str) -> dict[str, Any]:
             "warnings": [_DB_UNSET_WARN, _LIVE_ONLY_WARN]}
 
 
+#: 종목 시계열 한 줄의 칸 — 주간 질의와 끝점 질의가 **같이 쓴다**(261018). 두 결과를 한 목록으로 잇고 아래에서 위치로 읽으므로,
+#: 칸 목록을 한 곳에만 두어 한쪽만 바뀌어 칸이 조용히 어긋나는 일을 막는다.
+_FIRM_COLS = "price_dd, market, close, mktcap, list_shrs"
+_FIRM_WEEKLY_SQL = f"SELECT {_FIRM_COLS} FROM krx_weekly WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd"
+#: 종목 시계열의 끝점 — 일별 저장분에서 그 종목의 가장 늦은 한 줄. ticker 조건이 뷰의 창 아래 인덱스로 내려가 한 종목만 읽는다.
+_FIRM_TAIL_SQL = f"SELECT {_FIRM_COLS} FROM price_latest WHERE ticker=%s"
+
+#: 시계열 출처 설명 — 끝점을 실제로 이었는지에 따라 고른다(261018). 잇지 않았으면(지금 거의 모든 종목) 종전 문구 그대로다.
+_FIRM_METHOD_WEEKLY = ("KRX 정보데이터시스템 → 주간 시세 저장분(주 마지막 거래일 보존, 매일 갱신). "
+                       "mktcap=상장주식수×종가(우선주는 별도 종목). "
+                       "OHLC·거래량·거래대금은 저장하지 않습니다 — `scope=quote` 참조.")
+_FIRM_METHOD_TAIL = ("KRX 정보데이터시스템 → 주간 시세 저장분(주마다 그 주 마지막 거래일 한 점). "
+                     "마지막 점은 주간 저장분보다 늦은 일별 시세 저장분의 그 종목 최신 거래일(매 거래일 갱신). "
+                     "mktcap=상장주식수×종가(우선주는 별도 종목). "
+                     "이 시계열에는 OHLC·거래량·거래대금이 없습니다 — `scope=quote` 참조.")
+
+
+def _with_daily_tail(rows: list | None, tail: list | None, lo: str) -> list | None:
+    """주간 행(price_dd 오름차순) 끝에 일별 최신 한 줄을 잇는다 (261018).
+
+    주간 표가 닫힌 주만 갖게 되면(쓰는 쪽 변경, 다음 단계) 이번 주 최신값은 일별 저장분에만 있다. 그래서 끝점은 늘 일별에서 읽는다.
+      · 꼬리가 마지막 주간 점보다 **늦을 때만** 쓴다. 같은 날(지금처럼 주간 표에도 이번 주 행이 있을 때)이면 아무것도 바꾸지 않는다.
+      · 마지막 주간 점과 **같은 ISO 주**면 그 점을 갈아 끼우고, 더 늦은 주면(몇 주 뒤든) 뒤에 붙인다 — 주간 표를 쓰는 쪽이 같은 ISO 주의
+        옛 날짜를 지우는 것과 같은 정의(`_iso_wk_range`)라, 결과는 「주마다 그 주 마지막(또는 최신) 거래일 한 점」 그대로다.
+      · 주간 행이 하나도 없는데 꼬리가 있으면(이번 주 신규상장) 그 한 점이 시계열이다.
+      · 요청 범위(하한 `lo` = since 와 보존 하한 중 늦은 쪽) 밖의 꼬리는 버린다. 이 스코프에는 끝 경계 인자가 없다.
+    주간 읽기가 실패(None)면 그대로 None — 종전 장애 경로를 탄다. 꼬리 읽기 실패(None)·빈 결과는 조용히 주간만 쓴다.
+    꼬리를 쓰지 않으면 **받은 `rows` 객체를 그대로** 돌려준다 — 호출자는 `is` 로 꼬리를 이었는지 가린다(출처 설명 고르기)."""
+    if rows is None or not tail:
+        return rows
+    t = tuple(tail[0])
+    dd = t[0]
+    if not dd or dd < lo or (rows and dd <= rows[-1][0]):
+        return rows
+    if rows and _iso_wk_range(dd)[0] == _iso_wk_range(rows[-1][0])[0]:
+        return [*rows[:-1], t]
+    return [*rows, t]
+
+
 async def build_firm_series_payload(company: str, format: str = "md",
                                     since: str = "", freq: str = "") -> dict[str, Any]:
-    """한 종목의 종가·시총·상장주식수 시계열 (krx_weekly). DB 1콜."""
+    """한 종목의 종가·시총·상장주식수 시계열 — 주간 시세 저장분 + 끝점은 일별 저장분의 최신 한 줄.
+    DB 3왕복(보존 하한 → 주간·끝점 겹쳐 읽기 → 조정 이벤트)."""
     if not (company or "").strip():
         return _err(company, "invalid", "company 가 필요합니다 — 종목명 또는 6자리 코드.")
     # 「코스피 시총 상위 100」 같은 문장은 종목이 아니라 유니버스다 — 순위표로 답한다(260916).
@@ -177,9 +222,11 @@ async def build_firm_series_payload(company: str, format: str = "md",
     if len(req.replace("-", "")) == 8 and req.replace("-", "").isdigit():
         req = req.replace("-", "")
     lo = max(req, floor) if req else floor
-    sql = ("SELECT price_dd, market, close, mktcap, list_shrs FROM krx_weekly "
-           "WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd")
-    rows = await asyncio.to_thread(_pg_rows, sql, (ticker, lo))
+    # 261018: 끝점(이번 주 최신값)은 일별 저장분에서 같이 읽는다. 두 읽기는 서로 입력이 필요 없어 한 왕복으로 겹친다.
+    weekly, tail = await _gather_db(_db_call(_pg_rows, _FIRM_WEEKLY_SQL, (ticker, lo)),
+                                    _db_call(_pg_rows, _FIRM_TAIL_SQL, (ticker,)))
+    rows = _with_daily_tail(weekly, tail, lo)
+    daily_end = rows is not weekly           # 끝점을 일별 저장분에서 이었나 — 출처 설명이 사실과 맞게
     window_note = (weekly_window_note(floor)
                    + " 연말 시총·배수는 `price_multiple_data` 의 `scope=firm_history` 연말 항목에서 전체 기간으로 볼 수 있습니다."
                    + (f" (요청한 since {req} 가 하한보다 이르러 하한부터 줍니다.)" if req and req < floor else ""))
@@ -221,9 +268,7 @@ async def build_firm_series_payload(company: str, format: str = "md",
                      "latest": latest, "series": series,
                      "price_adjusted": False,
                      "adj_events": [{"event_dd": d, "adj_factor": float(c)} for d, c in ev],
-                     "method": "KRX 정보데이터시스템 → 주간 시세 저장분(주 마지막 거래일 보존, 매일 갱신). "
-                               "mktcap=상장주식수×종가(우선주는 별도 종목). "
-                               "OHLC·거래량·거래대금은 저장하지 않습니다 — `scope=quote` 참조."},
+                     "method": _FIRM_METHOD_TAIL if daily_end else _FIRM_METHOD_WEEKLY},
             "warnings": warns}
 
 
@@ -556,7 +601,7 @@ async def build_quote_payload(company: str, format: str = "md",
 
 # ── universe: 종목 순위표 (260916) ────────────────────────────────────────────
 # 「코스피 시총 상위 100 이 뭐야」에 답하는 유일한 일괄 목록. `screener` 의 유니버스 해석기를
-# 그대로 쓰고(공시 필터가 아니라 목록으로), 주간 시세 저장분 1콜 + 회사 원장(캐시)로 이름을 붙인다.
+# 그대로 쓰고(공시 필터가 아니라 목록으로), 시세 저장분(보관된 최신 거래일) 1콜 + 회사 원장(캐시)로 이름을 붙인다.
 # 종목마다 `scope=firm` 을 100번 부르던 루틴(260914 실측)이 이 한 번으로 끝난다.
 async def build_universe_payload(universe: str, format: str = "md") -> dict[str, Any]:
     from open_proxy_mcp.services.universe import list_universe
@@ -572,12 +617,12 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
         return _err(subject, "invalid", ul.question)
     if not ul.db_ok:
         return _db_missing_payload(
-            subject, "종목 순위표는 주간 시세 저장분에서만 만들 수 있어 KRX 라이브로 대체하지 않습니다.")
+            subject, "종목 순위표는 시세 저장분에서만 만들 수 있어 KRX 라이브로 대체하지 않습니다.")
     if not ul.resolved:
         return _err(subject, "no_data", ul.notice or "유니버스를 해석하지 못했습니다 — 표현을 바꿔 다시 부르세요.")
     if not ul.rows:
         return _err(subject, "no_data", f"{ul.as_of} 기준 저장분에 해당 종목이 없습니다.")
-    warnings = [f"주간 스냅샷 기준(최신 {ul.as_of}) — 주 마지막 거래일 시총이지 오늘 시총이 아닙니다."]
+    warnings = [f"보관된 최신 거래일 기준({ul.as_of}) — 그 날 종가로 셈한 시총이지 오늘 장중 시총이 아닙니다."]
     if ul.excluded_pref:
         warnings.append(f"우선주 {ul.excluded_pref}종목은 순위에서 뺐습니다 — 같은 회사의 보통주가 순위에 있고 "
                         "회사 원장에는 보통주 코드만 있습니다. 우선주 시세는 그 종목코드로 종목 시계열을 따로 부르세요.")

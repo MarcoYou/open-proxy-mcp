@@ -330,7 +330,7 @@ def test_unbudgeted_cache_registry_tracks_the_day_lru():
 
 def test_market_for_reads_db_state_only_and_never_triggers_the_refresh(monkeypatch):
     pmd._serving_dd_invalidate()
-    monkeypatch.setattr(pmd, "_krx_db_latest_dd", lambda: "20261015")         # DB 는 하루 낡았다(KRX 게시 전·갱신기 대기 중)
+    monkeypatch.setattr(pmd, "_krx_daily_latest_dd", lambda: "20261015")         # DB 는 하루 낡았다(KRX 게시 전·갱신기 대기 중)
     monkeypatch.setattr(pmd, "_krx_db_get", lambda dd, t: {"price": 71_000, "date": dd, "common_mktcap": 1, "list_shrs": 2})
     for name in ("_ensure_krx_fresh", "_fetch_live_snapshot", "_krx_market_live", "_krx_db_upsert"):
         monkeypatch.setattr(pmd, name, _no_krx_async if name != "_krx_db_upsert" else _no_krx)
@@ -342,7 +342,7 @@ def test_market_for_reads_db_state_only_and_never_triggers_the_refresh(monkeypat
 def test_serving_date_is_cached_for_a_minute_and_empty_is_not_cached(monkeypatch):
     pmd._serving_dd_invalidate()
     reads, clock = [], [1000.0]
-    monkeypatch.setattr(pmd, "_krx_db_latest_dd", lambda: reads.append(1) or "20261015")
+    monkeypatch.setattr(pmd, "_krx_daily_latest_dd", lambda: reads.append(1) or "20261015")
     monkeypatch.setattr(pmd.time, "monotonic", lambda: clock[0])
     assert asyncio.run(pmd._serving_price_dd()) == "20261015" and len(reads) == 1
     clock[0] += 59
@@ -354,7 +354,7 @@ def test_serving_date_is_cached_for_a_minute_and_empty_is_not_cached(monkeypatch
     asyncio.run(pmd._serving_price_dd())
     assert len(reads) == 3                                                              # 갱신기가 쓴 직후엔 즉시
     pmd._serving_dd_invalidate()
-    monkeypatch.setattr(pmd, "_krx_db_latest_dd", lambda: None)
+    monkeypatch.setattr(pmd, "_krx_daily_latest_dd", lambda: None)
     assert asyncio.run(pmd._serving_price_dd()) is None and pmd._SERVING_DD["dd"] is None   # 못 읽은 값은 담지 않는다
     pmd._serving_dd_invalidate()
 
@@ -365,6 +365,80 @@ def test_request_path_has_no_refresh_call_left():
     assert "_ensure_krx_fresh" not in src and "_serving_price_dd" in src
     # 배치 스크립트용 갱신 함수는 그대로 남아 있다(예비 갱신자)
     assert callable(pmd._ensure_krx_fresh)
+
+
+# ── 서빙 기준일·종목 행은 일별 시세 저장분에서 (261018, 재설계 5-1) ─────────────────────────────
+
+def _sql_spy(monkeypatch, answers):
+    """`_pg_rows` 대역 — 나간 SQL(공백 정리)과 인자를 모으고, SQL 앞부분이 맞는 답을 돌려준다(없으면 None = DB 장애)."""
+    seen = []
+
+    def fake(sql, params=()):
+        s = " ".join(sql.split())
+        seen.append((s, tuple(params)))
+        return next((v for k, v in answers.items() if s.startswith(k)), None)
+    monkeypatch.setattr(pmd, "_pg_rows", fake)
+    return seen
+
+
+def test_serving_date_reads_krx_daily_and_never_krx_weekly(monkeypatch):
+    seen = _sql_spy(monkeypatch, {"SELECT max(trd_dd) FROM krx_daily": [("20261016",)],
+                                  "SELECT MAX(price_dd) FROM krx_weekly": [("20261009",)]})
+    pmd._serving_dd_invalidate()
+    assert asyncio.run(pmd._serving_price_dd()) == "20261016"            # krx_weekly 최신 주(지난주)가 아니라 일별 저장분의 최신일
+    assert [s for s, _ in seen] == ["SELECT max(trd_dd) FROM krx_daily"]
+    # 일별 저장분을 못 읽거나 비면 None — krx_weekly 로 대신하지 않는다(기준일과 행은 같은 원천에서). 호출자는 라이브로 간다
+    for ans in ({}, {"SELECT max(trd_dd) FROM krx_daily": [(None,)]}):
+        pmd._serving_dd_invalidate()
+        seen = _sql_spy(monkeypatch, {**ans, "SELECT MAX(price_dd) FROM krx_weekly": [("20261009",)]})
+        assert asyncio.run(pmd._serving_price_dd()) is None
+        assert all("krx_weekly" not in s for s, _ in seen)
+    pmd._serving_dd_invalidate()
+
+
+def test_weekly_latest_week_is_still_krx_weekly_for_the_curve_floor_and_batches(monkeypatch):
+    """`_krx_db_latest_dd` 는 바꾸지 않는다 — 주간 곡선 하한(`_weekly_bounds`)은 표를 자르는 쪽과 같은 정의여야 하고, 배치 갱신도 이것을 쓴다."""
+    seen = _sql_spy(monkeypatch, {"SELECT MAX(price_dd) FROM krx_weekly": [("20261009",)]})
+    assert pmd._krx_db_latest_dd() == "20261009" and seen == [("SELECT MAX(price_dd) FROM krx_weekly", ())]
+
+
+def test_db_row_comes_from_price_latest_on_the_serving_date(monkeypatch):
+    seen = _sql_spy(monkeypatch, {"SELECT close, mktcap, list_shrs, price_dd FROM price_latest":
+                                  [(71_000, 420_294_092_462_000, 5_919_637_922, "20261016")]})
+    row = pmd._krx_db_get("20261016", "005930")
+    assert row == {"price": 71_000, "date": "20261016", "common_mktcap": 420_294_092_462_000, "list_shrs": 5_919_637_922}  # 키·값 그대로
+    assert seen == [("SELECT close, mktcap, list_shrs, price_dd FROM price_latest WHERE ticker=%s AND price_dd>=%s",
+                     ("005930", "20261016"))]
+    # 그 종목의 최신 행이 기준일보다 이르면(보관 창 안의 상장폐지) 뷰가 행을 안 준다 → 미스 → 호출자가 라이브로 확인
+    _sql_spy(monkeypatch, {"SELECT close, mktcap, list_shrs, price_dd FROM price_latest": []})
+    assert pmd._krx_db_get("20261016", "469900") == {}
+    _sql_spy(monkeypatch, {})                                                # DB 장애
+    assert pmd._krx_db_get("20261016", "005930") == {}
+
+
+def test_db_row_date_is_the_rows_own_day_when_the_cached_serving_date_is_a_day_behind(monkeypatch):
+    """다른 머신의 갱신기가 새 거래일을 쓴 직후 이 머신의 기준일 캐시(60초)는 하루 전이다 — 행은 새 거래일 것이고, 날짜도 그 행의 것이다."""
+    _sql_spy(monkeypatch, {"SELECT close, mktcap, list_shrs, price_dd FROM price_latest":
+                           [(72_000, 426_213_930_384_000, 5_919_637_922, "20261016")]})
+    row = pmd._krx_db_get("20261015", "005930")
+    assert row == {"price": 72_000, "date": "20261016", "common_mktcap": 426_213_930_384_000, "list_shrs": 5_919_637_922}
+
+
+def test_market_for_falls_back_to_live_not_to_krx_weekly_when_daily_is_unreadable(monkeypatch):
+    seen = _sql_spy(monkeypatch, {"SELECT MAX(price_dd) FROM krx_weekly": [("20261009",)],
+                                  "SELECT close, mktcap, list_shrs FROM krx_weekly": [(1, 1, 1)]})
+    pmd._serving_dd_invalidate()
+    live = []
+
+    async def fake_live(dd):
+        live.append(dd)
+        return {"005930": _krx_row()} if dd == "20261016" else {}
+    monkeypatch.setattr(pmd, "_krx_market_live", fake_live)
+    monkeypatch.setattr(pmd, "_price_dates", lambda today=None: ["20261016", "20261015"])
+    row = asyncio.run(pmd._market_for("005930"))
+    assert row == {"price": 71_000, "date": "20261016", "common_mktcap": 420_294_092_462_000, "list_shrs": 5_919_637_922}
+    assert live == ["20261016"] and all("krx_weekly" not in s for s, _ in seen)
+    pmd._serving_dd_invalidate()
 
 
 def test_markdown_shows_a_dash_not_none_when_the_change_is_unavailable(monkeypatch):
@@ -438,7 +512,7 @@ def test_db_lookups_run_off_the_event_loop(monkeypatch):
         seen["read_quote"] = threading.get_ident()
         return _lookup(_db_row())
     monkeypatch.setattr(T, "read_quote", fake_read)
-    monkeypatch.setattr(pmd, "_krx_db_latest_dd", lambda: seen.__setitem__("latest_dd", threading.get_ident()) or "20261016")
+    monkeypatch.setattr(pmd, "_krx_daily_latest_dd", lambda: seen.__setitem__("latest_dd", threading.get_ident()) or "20261016")
     pmd._serving_dd_invalidate()
 
     async def go():

@@ -82,6 +82,31 @@ def test_no_market_filter_when_market_is_none(rec):
     assert params == ("20260821", 50)
 
 
+def test_cross_section_reads_one_day_of_the_daily_store(rec, monkeypatch):
+    """261018: 기준일은 일별 저장분의 가장 늦은 거래일, 단면은 **그 날 행만**(`krx_daily_v WHERE trd_dd=%s`).
+
+    종목별 최신 행 뷰(`price_latest`)는 쓰지 않는다 — 보관 창 안에서 폐지된 종목의 옛 행이 섞인다.
+    등락 칸(창 계산)도 고르지 않는다. 기준일과 행이 같은 원천이라 `krx_weekly` 는 어디에도 없다.
+    실제 Postgres 에서의 값 대조는 `test_universe_daily_pg.py`."""
+    import psycopg
+
+    from open_proxy_mcp.services import screener as S
+    S._krx_latest_dd()
+    S._krx_top_mktcap(50, "20260821", "KOSPI")
+    S._krx_market_codes("KOSDAQ", "20260821")
+    monkeypatch.setattr(psycopg, "connect", lambda *a, **k: _Rec(rec, [("005930", 10)]))   # 시총 맵은 (코드, 시총) 두 칸
+    assert S._krx_mktcap_map(["005930", "000660"], "20260821") == {"005930": 10}
+    latest, top, market, cap = (sql for sql, _ in rec[-4:])
+    assert latest == "SELECT max(trd_dd) FROM krx_daily"
+    for sql in (top, market, cap):
+        assert "FROM krx_daily_v WHERE trd_dd=%s" in sql
+    for sql in (latest, top, market, cap):
+        assert "krx_weekly" not in sql and "price_latest" not in sql
+        assert not any(w in sql for w in ("chg", "prev_"))
+    assert "mktcap IS NOT NULL" in top and "mktcap IS NOT NULL" in market      # 시총 없는 종목은 순위·시장에서 뺀다(종전 뜻)
+    assert rec[-3][1] == ("20260821", KS, 50) and rec[-2][1] == ("20260821", KQ)
+
+
 def test_call_sites_use_constants_not_literals():
     """호출부도 상수를 쓴다. 경계 정규화가 있어도 리터럴을 남기면 다음 개명 때 또 샌다 —
     두 곳 다 지키는 것이 이 결함의 교훈이다."""
@@ -109,6 +134,8 @@ def test_empty_result_is_reported_as_unresolved_not_silently_widened(rec, monkey
     assert uf.resolved is False
     assert uf.allowed is None
     assert "전체시장" in uf.notice
+    # 사용자에게 나가는 안내에 저장소 이름을 쓰지 않는다(261018 — 종전 「krx_weekly 조회 실패 → …」)
+    assert uf.notice == "시세 저장분 조회 실패 → 전체시장으로 대체."
 
 
 @pytest.mark.parametrize("spec,corp_cls", [("market:kospi", "Y"), ("market:kosdaq", "K")])
@@ -123,5 +150,6 @@ def test_market_filter_falls_back_to_dart_market_class(rec, monkeypatch, spec, c
     assert uf.resolved is False
     assert uf.allowed is None
     assert uf.corp_cls == corp_cls
+    assert uf.notice.startswith("시세 저장분 조회 실패 →") and "krx_weekly" not in uf.notice
     assert uf.contains("", corp_cls)
     assert not uf.contains("", "K" if corp_cls == "Y" else "Y")

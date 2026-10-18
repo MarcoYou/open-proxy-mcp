@@ -173,7 +173,18 @@ def _local_market_context() -> MarketContext:
         return MarketContext(market_caps={})
 
 
+#: DB 에서 읽은 시장 맥락의 출처 라벨 — 응답의 `market_data_source` 로도 나간다. `_is_complete_recent` 가 같은 값으로 가린다.
+_DB_MARKET_SOURCE = "krx_daily"
+
+
 def _database_market_context() -> MarketContext | None:
+    """최신 거래일 전 종목 단면(시총·시장)을 일별 시세 저장분에서 읽는다. 읽을 수 없거나 비었으면 None.
+
+    261018: 원천을 `krx_weekly` 이번 주 행(max(price_dd))에서 `krx_daily` 로 옮겼다 — 다음 단계에서 `krx_weekly` 는
+    닫힌 주만 남기므로 거기서 읽으면 최신일 단면이 일주일까지 낡는다. 기준일과 행은 같은 원천에서 읽는다
+    (`krx_daily` 가 비거나 실패하면 `krx_weekly` 로 돌지 않고 None → `load_market_context` 의 이전 맥락 유지·로컬 폴백).
+    🔴 `price_latest` 는 쓰지 않는다 — 보관 창(7거래일) 안에서 상장폐지된 종목의 옛 날짜 행이 남아 명부에 섞인다.
+    단면에는 사실값 칸과 `mktcap` 만 고른다(`chg`·`prev_*` 같은 창 칸을 고르면 같은 질의가 몇 배 느려진다)."""
     url = os.getenv("DATABASE_URL")
     if not url:
         return None
@@ -181,12 +192,12 @@ def _database_market_context() -> MarketContext | None:
         import psycopg
 
         with psycopg.connect(url, connect_timeout=1) as conn:
-            latest = conn.execute("SELECT MAX(price_dd) FROM krx_weekly").fetchone()
+            latest = conn.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()
             as_of_date = str(latest[0]) if latest and latest[0] else ""
             if not as_of_date:
                 return None
             rows = conn.execute(
-                "SELECT ticker, mktcap, market FROM krx_weekly WHERE price_dd=%s",
+                "SELECT ticker, mktcap, market FROM krx_daily_v WHERE trd_dd=%s",
                 (as_of_date,),
             ).fetchall()
         caps = {str(ticker): int(cap or 0) for ticker, cap, _market in rows if ticker}
@@ -199,9 +210,11 @@ def _database_market_context() -> MarketContext | None:
             fresh = today_kst() - datetime.strptime(as_of_date, "%Y%m%d").date() <= timedelta(days=14)
         except ValueError:
             pass
+        # ⚠ 기존 결함(고치지 않음, 별도 결정): DB 시장 표기는 KS/KQ 인데 여기선 KOSPI/KOSDAQ 를 세어 complete 가 늘
+        # 거짓이다 → active 늘 None(test_existing_market_label_mismatch_keeps_the_active_registry_off).
         complete = market_counts.get("KOSPI", 0) >= 700 and market_counts.get("KOSDAQ", 0) >= 1_200
         active = frozenset(caps) if complete and fresh else None
-        return MarketContext(caps, active, as_of_date, "krx_weekly")
+        return MarketContext(caps, active, as_of_date, _DB_MARKET_SOURCE)
     except Exception:
         return None
 
@@ -227,8 +240,8 @@ def _market_context_is_fresh() -> bool:
 
 
 def _is_complete_recent(ctx: MarketContext | None) -> bool:
-    """DB(krx_weekly)에서 온 **완전한** 스냅샷이고 as_of 가 최근인가 — 지킬 만한 맥락의 조건."""
-    if ctx is None or ctx.source != "krx_weekly" or ctx.active_tickers is None:
+    """DB(일별 시세 저장분 `krx_daily`)에서 온 **완전한** 스냅샷이고 as_of 가 최근인가 — 지킬 만한 맥락의 조건."""
+    if ctx is None or ctx.source != _DB_MARKET_SOURCE or ctx.active_tickers is None:
         return False
     try:
         age = today_kst() - datetime.strptime(ctx.as_of_date, "%Y%m%d").date()
@@ -245,7 +258,11 @@ def _should_keep_previous(prev: MarketContext | None, new: MarketContext | None)
 
     🔴 261017: 종전엔 `None` 이면 곧바로 로컬 인기도 prior(상위 종목 표본·active 없음)로 **갈아 끼우고 한 시간을
     붙들었다.** `krx_weekly` 를 자르는 30~60초(표가 비는 구간)나 접속 1초 시간 초과 한 번에, 완전한 시총·상장 명부로
-    하던 이름 해석이 한 시간 동안 표본 기반으로 떨어졌다(폐지 회사 되살림·시총 순위 왜곡)."""
+    하던 이름 해석이 한 시간 동안 표본 기반으로 떨어졌다(폐지 회사 되살림·시총 순위 왜곡).
+    261018: 단면 원천을 `krx_daily` 로 옮긴 뒤에도(그 표는 쓰는 동안 비는 구간이 없다) 접속 1초 시간 초과·마이그레이션 전
+    배포(표·뷰 없음)는 똑같이 `None` 이라 이 보호는 그대로 둔다.
+    ⚠ 다만 지금은 `_database_market_context` 의 시장 표기 불일치(KS/KQ 대 KOSPI/KOSDAQ) 때문에 active 가 늘 None 이라
+    지킬 만한 이전이 생기지 않는다 — 실제로는 읽기가 한 번 실패하면 종전처럼 로컬 폴백으로 간다(기존 결함, 별도 결정)."""
     return _is_complete_recent(prev) and (new is None or new.active_tickers is None)
 
 
@@ -380,8 +397,8 @@ class CompanyResolver:
                            and is_financial_name(self.corps[i].get("corp_name", "")))]
             if current:
                 return current
-            # KRX weekly covers KOSPI/KOSDAQ. Preserve exact KONEX or newly listed
-            # companies, but never revive inactive companies for inferred searches.
+            # 일별 시세 저장분(krx_daily)은 코스피·코스닥만 담는다. 코넥스·신규상장은 정확 일치일 때만 살리고,
+            # 추론 검색에서는 비활성 회사를 되살리지 않는다.
             return ids if kind in self._STRONG_KINDS else []
         # 「상장사만」이 아니라 「이름으로 찾을 수 있는 곳」으로 좁힌다 — 정기보고서를 내는
         # 비상장 법인을 여기서 떨어뜨리면 색인해 둔 의미가 없다.

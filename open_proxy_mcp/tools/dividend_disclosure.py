@@ -257,7 +257,7 @@ def register_tools(mcp):
         end_date: str = "",
         format: str = "md",
     ) -> str:
-        """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률(결의 당시)+**현재가 기준 배당수익률**(최신 종가, krx_weekly), 분기별 추이. 미래 정책·약속 X.
+        """desc: 실지급·확정된 배당 **사실**. DPS, 총액, 배당성향, 시가배당률(결의 당시)+**현재가 기준 배당수익률**(최신 거래일 종가, 일별 시세 저장분), 분기별 추이. 미래 정책·약속 X.
         when: 실제 지급된 배당 확인. 분기배당 회사는 `history`로 분기별 breakdown. 미래 정책/약속은 `value_up`.
         rule: source 2단 — (1) 사업보고서 alotMatter(공식값) (2) 현금ㆍ현물배당결정 합산(alotMatter 빈 경우 fallback). 결산배당은 record_date 기준 fiscal year bucket (선배당-후결의 신법). 정정공시 is_superseded 표시. 미래 약속 추가 금지. 자유서술 칸은 **원문 전문**을 낸다 — 결정공시 비고(11번 「기타 투자판단과 관련한 중요사항」)는 결의마다, `alotMatter` 항목 행은 `detail` 에서. 특별·기념배당·감액배당 재원·자기주식 제외 산정·주총 갈음·차등배당은 그 칸에만 적히니 **파생 플래그(`정책 신호`)를 믿지 말고 원문을 읽어라.**
         scope: `summary` 선배당-후결의+감액배당 메타+최근 결정 10건(비고 원문 포함) / `detail` 요약+최근 결정 50건(비고 원문 포함)+`alotMatter` 항목 행 원문 / `history` N년 추이+분기 breakdown+policy_signals

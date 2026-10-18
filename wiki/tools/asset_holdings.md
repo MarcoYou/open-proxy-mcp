@@ -3,12 +3,12 @@ type: tool
 title: asset_holdings
 domain: data
 scope: [summary, detail]
-data_source: [DART fnlttSinglAcntAll(계정 API), DART otrCprInvstmntSttus(타법인출자현황), DART get_document(III.재무 주석), get_stock_price(보유지분 시가마크), KRX krx_weekly 캐시(시총 — price_multiple_data._market_for 재사용)]
+data_source: [DART fnlttSinglAcntAll(계정 API), DART otrCprInvstmntSttus(타법인출자현황), DART get_document(III.재무 주석), get_stock_price(보유지분 시가마크), KRX 일별 시세 저장분(시총 — price_multiple_data._market_for 재사용)]
 related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-09-09
+updated: 2026-10-18
 ---
 
 # asset_holdings
@@ -69,7 +69,7 @@ updated: 2026-09-09
 - `is_financial`(KSIC 64/65/66 게이트) · `is_reit`(사명 "리츠"/"REIT" 휴리스틱) — 둘 다 투자부동산이
   본업이라 잉여자산에서 제외하고 라벨링.
 - `market_cap_krw`: **[[price_multiple_data]] `_market_for` 의 `common_mktcap` 재사용** = KRX 상장주식수(`list_shrs`) ×
-  최신 주간 종가(주간 시세 저장분, DART 0콜). 유통주식수(자기주식 제외)가 아니다 — 260721 변경이력 참조.
+  최신 거래일 종가(일별 시세 저장분, DART 0콜). 유통주식수(자기주식 제외)가 아니다 — 260721 변경이력 참조.
   `market_cap_meta`: `{shares, close, date}` 기준 명시. 시세 실패 시 `None` + `{reason}`.
 - `asset_buckets`: 목적버킷 6분류([[260721_1500_decision_asset-holdings-purpose-buckets]]) — `{라벨: {krw, desc}}`,
   값 있는 버킷만 순서대로. 현금성/환금성증권/우호제휴지분/지배관계사지분/투자용부동산/본업자산.
@@ -150,6 +150,8 @@ updated: 2026-09-09
   (`otrCprInvstmntSttus`, 통화 미선언) 장부가가 섞여 BS 환산분과 같은 기준임을 확증할 수 없다.
 
 ## 변경 이력
+- 2026-10-18: 시총 출처 표기를 「최신 주간 종가(주간 시세 저장분)」 → 「최신 거래일 종가(일별 시세 저장분)」 — [[price_multiple_data]] `_market_for` 가
+  일별 저장분을 읽게 바뀐 데 따른 것. 이 tool 의 코드·값은 그대로다.
 - 2026-09-09: 환율 기준일을 실제로 산출한다 — 종전엔 `fnlttSinglAcntAll` 행의 `thstrm_dt` 를 캤는데
   **그 응답에 없는 필드**라(행 키 17개에 부재) 늘 12월 말로 폴백했다. 이제 회사 정보의 결산월로
   `fx.fiscal_year_end_date()` 를 쓴다(비12월 결산사 3·6월이 그동안 다른 날의 환율을 썼다).
