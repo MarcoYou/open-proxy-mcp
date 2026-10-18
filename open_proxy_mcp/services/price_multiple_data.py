@@ -1044,6 +1044,10 @@ _FIRM_ROW_MISSING = {
     "nocorp": "재무 요약을 DART 회사와 잇지 못했다(회사 고유번호 매칭 없음)",
     "outlier_scale": "재무 요약이 규모 이상치로 걸러졌다",
     "price": "그 주에 시세가 없다(상장 전·거래정지·상장폐지)",
+    # 261019(콜드 서빙 뒤): 3년 하한 이전 기준일 — 종전엔 「그 주에 시세가 없다(상장 전·…)」라고 상장·거래 중이던 회사를 두고 틀린 말을 했다.
+    "window": ("기준일이 주간 시세 보존 구간(최근 3년 + 해마다 연말 행) 밖이다 — 이 서버는 3년 이전 주간 시세 보관본을 쓰지 않는다. "
+               "연말 기준일(12월 마지막 거래일)이면 비교할 수 있다"),
+    "cold_degraded": "3년 이전 주간 시세 보관본을 지금 읽지 못했다(일시 — 잠시 뒤 다시 부르면 답한다)",
 }
 
 
@@ -1056,7 +1060,7 @@ def _firm_row_missing(company: str, why: str | None, as_of: str) -> str:
         return (f"'{company}' 기업 행 없음 — 업종분류 스냅샷 어디에도 없는 종목이다(분류 공급처 구성종목 밖). "
                 "KSIC 축(scheme='ksic')으로는 비교할 수 있다.")
     reason = _FIRM_ROW_MISSING.get(why or "") or f"재무 요약 수집 상태가 정상이 아니다({why})"
-    when = f" — 기준일 {as_of}" if why == "price" else ""
+    when = f" — 기준일 {as_of}" if why in ("price", "window", "cold_degraded") else ""
     return f"'{company}' 기업 행 없음 — {reason}{when}. 기업 배수·비교를 내지 않는다."
 
 
@@ -1446,6 +1450,41 @@ async def _firm_cap_at(ticker: str, dd: str) -> tuple[float | None, str | None] 
     return (float(rows[0][0]), rows[0][1])
 
 
+async def _cold_cap_at(ticker: str, dd: str) -> tuple[str, float | None, str | None]:
+    """DB(주간·일별)에 그 주 행이 없을 때 콜드 서빙본(3년 하한 이전 주간 시세 — 칸·주 정의가 krx_weekly 와 같다)의 **같은 주** 행 (261019).
+    (상태, 시총, 시장) — 상태: "hit"(찾음) · "miss"(보관본을 읽었는데 그 주 행이 없다 — 상장 전·거래정지 등, 또는 보관본 범위 밖)
+    · "off"(콜드 서빙 꺼짐) · "degraded"(켜졌는데 이번에 못 읽음). 고르는 순서는 `_FIRM_CAP_SQL` 의 주간 갈래와 같다 — 그 날 이하 가장 늦은 행,
+    없으면 그 날 뒤 가장 이른 행(같은 주 안).
+
+    업종 비교(company)의 기준일은 시장·업종 스냅샷 날짜라 2020-01 부터다. 3년 하한 이전 주는 DB 에 연말 행만 남아, 같은 도구의
+    `firm` + `as_of`(곡선 — 보관본을 잇는다)는 답하는 날을 업종 비교는 「그 주에 시세가 없다(상장 전·…)」로 기업 행을 뺐다(운영 10-19
+    005930 as_of=20210630: firm 은 20210625 점, 업종 비교는 기업 행 없음)."""
+    if not _cold.enabled():
+        return ("off", None, None)
+    try:
+        r = await _cold.ready(COLD_WEEKLY)
+        if isinstance(r, _cold.ColdError):
+            return ("degraded", None, None)
+        from datetime import date as _date, timedelta as _td
+        wk0, wk1 = _iso_wk_range(dd)
+        if wk0 > r.max_dd or wk1 < r.min_dd:       # 서빙본 범위 밖 주(3년 안에서 시세가 정말 없는 종목 등) — 읽지 않는다
+            return ("miss", None, None)
+        hi = (_date(int(wk1[:4]), int(wk1[4:6]), int(wk1[6:8])) + _td(days=1)).strftime("%Y%m%d")   # [wk0, wk1] — read 는 반열린
+        rows = await _cold.read(r, ("price_dd", "mktcap", "market"), ticker, wk0, hi)
+    except Exception as e:  # noqa: BLE001 — 콜드 실패는 언제나 강등(업종 표는 그대로 나간다)
+        _cold.note_degraded("error", type(e).__name__)
+        logger.warning("콜드 서빙: 업종 비교 그 날 시총 읽기 실패 — 강등(%s)", type(e).__name__)
+        return ("degraded", None, None)
+    if rows is None:
+        return ("degraded", None, None)
+    rows = [x for x in rows if x[1]]
+    if not rows:
+        return ("miss", None, None)
+    le = [x for x in rows if x[0] <= dd]
+    pick = le[-1] if le else rows[0]
+    return ("hit", float(pick[1]), pick[2])
+
+
 async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, float | None, float | None, dict] | None:
     """종목의 그 날 (KSIC 섹터 코드, 시장, PER(TTM), PBR(MRQ), 표시) — 배수는 반올림 전 원값. None = DB 장애.
     표시(dict)는 평소 빈 dict 다. 「기준 분기 늦음」이면 `basis`(그 시점 칸·실제로 쓴 칸), 완전자본잠식이면 `impaired`,
@@ -1480,7 +1519,16 @@ async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, fl
     if not cur_row or cur_row[0][3] != "ok":            # 261019: 까닭을 돌려준다(업종 비교 경고 — `_firm_row_missing`)
         return (None, None, None, None, {"missing": (cur_row[0][3] if cur_row else None) or "nofin"})
     if cap_mkt[0] is None:
-        return (None, cap_mkt[1], None, None, {"missing": "price"})
+        # 261019(콜드 서빙 뒤): DB 에 그 주 행이 없으면 보관본의 같은 주 행 — 3년 하한 이전 기준일(`_cold_cap_at`).
+        #   못 찾으면 까닭을 가른다: 보관본까지 봤는데 없음·하한 이후 = 그 주 시세 없음(종전 문장) / 하한 이전인데 꺼짐 = 보존 구간 밖 / 강등 = 일시.
+        #   하한은 오늘의 달력 3년 전으로 본다(DB 를 더 읽지 않는다) — 그 뒤 주는 DB 에 행이 있어 여기 오지 않는다(시세가 정말 없을 때만 온다).
+        how, ccap, cmkt = await _cold_cap_at(ticker, dd)
+        if how != "hit":
+            why = "price"
+            if how in ("off", "degraded") and dd < krx_weekly_cutoff(today_kst().strftime("%Y%m%d")):
+                why = "window" if how == "off" else "cold_degraded"
+            return (None, cap_mkt[1], None, None, {"missing": why})
+        cap_mkt = (ccap, cmkt)
     market, induty, currency, _, acc_mt = cur_row[0]
     currency = currency or "KRW"
     fye = _rc.fiscal(acc_mt, ticker)               # 결산월 + 외국 상장사 기한(12월 결산이 아닐 때만)
