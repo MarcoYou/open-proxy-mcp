@@ -1,11 +1,22 @@
-"""Short, authenticated drain leases; expiry reopens admission if the operator disappears."""
+"""Short, authenticated drain leases; expiry reopens admission if the operator disappears.
+
+261019: 열린 /mcp 요청 장부도 여기 둔다 — `/health` 의 `open_requests` 와 종료 신호 때 한 줄 기록.
+  배포 때 한 머신이 「도구 호출이 아닌 POST」(active_posts 1~3, inflight 0) 하나 때문에 84~90초를 기다렸다 강제 종료됐는데,
+  그 POST 가 무엇인지 볼 수단이 수(active_posts)뿐이었다. 그래서 요청마다 나이·HTTP 메서드·경로·JSON-RPC 메서드·단계를 적는다.
+  **값은 싣지 않는다** — 쿼리스트링(사용자 DART 키)·인자·IP·User-Agent 는 장부에 들어오지도 않는다. 이름 칸(JSON-RPC 메서드·
+  도구 이름·프로토콜 버전)은 정해진 꼴만 받고 나머지는 "other" 로 적는다(`/health` 는 인증 없는 공개 주소다).
+"""
+import re
 import time
+from collections import Counter
 
 
 class Maintenance:
     def __init__(self):
         self.until = 0.0
         self.active_posts = 0
+        #: 지금 열린 /mcp 요청 — id → `OpenRequest`. AdmissionMiddleware 가 넣고 뺀다.
+        self.open: dict[int, "OpenRequest"] = {}
 
     @property
     def draining(self):
@@ -18,8 +29,114 @@ class Maintenance:
         return {"draining": self.draining, "active_posts": self.active_posts,
                 "lease_seconds": max(0, round(self.until - time.monotonic(), 1))}
 
+    def open_stats(self, limit: int = 5) -> dict:
+        """열린 /mcp 요청 요약 — 총수 · 종류별 수(「HTTP메서드 JSON-RPC메서드 단계」) · 가장 오래된 `limit` 개."""
+        now = time.monotonic()
+        items = sorted(self.open.values(), key=lambda r: r.t0)
+        kinds = Counter(r.kind() for r in items)
+        return {"total": len(items),
+                "by_kind": dict(kinds.most_common(12)),
+                "oldest": [r.view(now) for r in items[:limit]]}
+
 
 maintenance = Maintenance()
+
+
+#: `/health` 에 싣는 JSON-RPC 메서드 이름 — MCP 명세에 있는 것만. 그 밖(오타·임의 문자열)은 "other".
+_RPC_METHODS = frozenset({
+    "initialize", "ping", "server/discover",
+    "tools/list", "tools/call", "prompts/list", "prompts/get",
+    "resources/list", "resources/templates/list", "resources/read",
+    "resources/subscribe", "resources/unsubscribe", "subscriptions/listen",
+    "logging/setLevel", "completion/complete",
+    "tasks/get", "tasks/list", "tasks/cancel", "tasks/result",
+    "notifications/initialized", "notifications/cancelled", "notifications/progress",
+    "notifications/roots/list_changed",
+})
+_HTTP_METHODS = frozenset({"GET", "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTIONS"})
+_PV_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_TOOL_RE = re.compile(r"[a-z][a-z0-9_]{0,47}")
+_PV_HEADER = b"mcp-protocol-version"
+
+
+class OpenRequest:
+    """열린 /mcp 요청 하나. 단계(phase):
+    body      요청 본문을 받는 중(POST)
+    handling  본문을 다 받았고 응답 머리를 아직 안 보냄
+    streaming 응답 머리를 보냈고 본문이 아직 안 끝남(SSE 스트림이면 여기서 오래 머문다)
+    sent      응답을 다 보냈는데 앱이 아직 안 끝남
+    """
+
+    __slots__ = ("t0", "method", "path", "pv", "rpc", "tool", "phase", "status", "bytes_out", "client_gone")
+
+    def __init__(self, scope):
+        self.t0 = time.monotonic()
+        m = scope.get("method") or "?"
+        self.method = m if m in _HTTP_METHODS else "OTHER"
+        p = scope.get("path") or ""
+        self.path = "/mcp" if p in ("/mcp", "/mcp/") else "/mcp/*"
+        pv = None
+        for k, v in scope.get("headers") or ():
+            if k.lower() == _PV_HEADER:
+                s = v.decode("latin-1").strip()
+                pv = s if _PV_RE.fullmatch(s) else "other"
+                break
+        self.pv = pv
+        self.rpc = None
+        self.tool = None
+        self.phase = "body" if self.method == "POST" else "handling"
+        self.status = None
+        self.bytes_out = 0
+        self.client_gone = False
+
+    def note_rpc(self, method, tool=None) -> None:
+        """본문에서 읽은 JSON-RPC 메서드(·도구 이름)를 적는다 — 정해진 꼴만."""
+        if not isinstance(method, str):
+            self.rpc = "other" if method is not None else None
+            return
+        self.rpc = method if method in _RPC_METHODS else "other"
+        if method == "tools/call" and isinstance(tool, str):
+            self.tool = tool if _TOOL_RE.fullmatch(tool) else "other"
+
+    def on_receive(self, message) -> None:
+        t = message.get("type")
+        if t == "http.disconnect":
+            self.client_gone = True
+        elif t == "http.request" and not message.get("more_body", False) and self.phase == "body":
+            self.phase = "handling"
+
+    def on_send(self, message) -> None:
+        t = message.get("type")
+        if t == "http.response.start":
+            self.status = message.get("status")
+            self.phase = "streaming"
+        elif t == "http.response.body":
+            self.bytes_out += len(message.get("body", b"") or b"")
+            if not message.get("more_body", False):
+                self.phase = "sent"
+
+    def kind(self) -> str:
+        return f"{self.method} {self.rpc or '-'} {self.phase}"
+
+    def view(self, now: float) -> dict:
+        return {"age_s": round(now - self.t0, 1), "method": self.method, "path": self.path,
+                "rpc": self.rpc, "tool": self.tool, "protocol": self.pv, "phase": self.phase,
+                "status": self.status, "bytes_out": self.bytes_out, "client_gone": self.client_gone}
+
+
+def note_rpc(scope, method, tool=None) -> None:
+    """안쪽 미들웨어(ApiKeyMiddleware)가 본문을 읽은 뒤 부른다 — 장부가 없으면(시험·/mcp 밖) 아무 일도 안 한다."""
+    entry = scope.get("opm.open")
+    if entry is not None:
+        entry.note_rpc(method, tool)
+
+
+def shutdown_report(limit: int = 10) -> str:
+    """종료 신호 때 stderr(=fly logs)에 남길 한 줄 — 열린 요청이 무엇이었나. 값·키 없음."""
+    import json
+    s = maintenance.open_stats(limit)
+    return "종료 신호: 열린 /mcp 요청 %d — %s" % (s["total"], json.dumps(
+        {"by_kind": s["by_kind"], "oldest": s["oldest"]}, ensure_ascii=False, separators=(",", ":")))
 
 
 class AdmissionMiddleware:
@@ -33,11 +150,29 @@ class AdmissionMiddleware:
             await JSONResponse({"error": "temporarily draining; retry shortly"},
                                status_code=503, headers={"Retry-After": "5"})(scope, receive, send)
             return
-        tracked = is_mcp and scope.get("method") == "POST"
+        if not is_mcp:
+            await self.app(scope, receive, send)
+            return
+        tracked = scope.get("method") == "POST"
+        entry = OpenRequest(scope)
+        scope["opm.open"] = entry
+        key = id(entry)
+        maintenance.open[key] = entry
+
+        async def receive_seen():
+            message = await receive()
+            entry.on_receive(message)
+            return message
+
+        async def send_seen(message):
+            entry.on_send(message)
+            await send(message)
+
         if tracked:
             maintenance.active_posts += 1
         try:
-            await self.app(scope, receive, send)
+            await self.app(scope, receive_seen, send_seen)
         finally:
+            maintenance.open.pop(key, None)
             if tracked:
                 maintenance.active_posts -= 1

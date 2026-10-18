@@ -12,7 +12,7 @@ import time
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.capture import CaptureMiddleware
-from open_proxy_mcp.maintenance import AdmissionMiddleware, maintenance
+from open_proxy_mcp.maintenance import AdmissionMiddleware, maintenance, note_rpc
 from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.extensions import load_extensions
 from open_proxy_mcp.resources import register_all_resources
@@ -187,6 +187,10 @@ def build_mcp() -> MCPServer:
             #   fly 가 부하를 연결 수로 세는 한 그 편중은 로그로도 잘 안 보인다.
             "instance": _instance_tag(),
             "inflight": inflight_now(),
+            # 261019: 지금 열린 /mcp 요청 — 총수·종류별 수·가장 오래된 다섯(나이·HTTP 메서드·경로·JSON-RPC 메서드·도구·프로토콜·단계).
+            #   배포 때 「도구 호출이 아닌 POST」 하나가 종료를 84~90초 붙들었는데 수(`maintenance.active_posts`)만 보였다.
+            #   값(쿼리스트링·인자)·IP·User-Agent 는 없다 — `maintenance.py` 참조.
+            "open_requests": maintenance.open_stats(),
             # 260901: **캐시 예산과 VM 한도는 다른 자다.** 08:30 두 머신이 동시에
             #   exit_code=137·oom_killed 로 죽었는데, 그 직후 /health 의 캐시 점유는
             #   296MB 중 33% 였다 — 「멀쩡하다」로 읽힌다. OOM 은 캐시가 아니라
@@ -654,6 +658,8 @@ class ApiKeyMiddleware:
                     more = False
             tool, is_call = _extract_tool(body)
             call_scope, call_as_of = _extract_call_dims(body) if is_call else (None, None)
+            # 261019: 열린 요청 장부(`/health` open_requests)에 무슨 요청인지 적는다 — 메서드·도구 이름만, 정해진 꼴만.
+            note_rpc(scope, "tools/call" if is_call else tool, tool if is_call else None)
 
             # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
             # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
@@ -955,6 +961,13 @@ def _shutdown_aware_server_class():
         try:
             from open_proxy_mcp import usage
             usage.begin_shutdown()
+        except Exception:                 # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
+            pass
+        # 261019: 무엇을 기다리게 될지 한 줄 남긴다 — uvicorn 은 「Waiting for connections to close」만 찍어서, 배포 때 종료를
+        #   84~90초 붙든 연결이 무엇인지 로그로는 몰랐다. 나이·메서드·단계만(값·키 없음, `maintenance.shutdown_report`).
+        try:
+            from open_proxy_mcp.maintenance import shutdown_report
+            print(shutdown_report(), file=sys.stderr, flush=True)
         except Exception:                 # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
             pass
 
