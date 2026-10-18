@@ -1,16 +1,14 @@
 """선행(애널리스트 추정) 배수 — 시장·업종 대분류·중분류 집계 `opm_val_fwd` (260918 신설).
 
-왜: 선행 PER·PBR 은 수집 머신의 토요일 체인이 만드는 `fwd_agg` 에 시장·업종 대분류까지만 있었고,
+왜: 선행 PER·PBR 은 수집 머신의 토요일 체인이 만들던 `fwd_agg` 에 시장·업종 대분류까지만 있었고,
 도구는 그중 선행 배당수익률만 서빙했다. 하위업종(28)은 집계 자체가 없었다. 수집 머신의 로컬 원본을
 건드리지 않고 **운영 DB 에 이미 있는 것만으로** 만든다 —
 추정치 이력 `fwd_hist`(주 1회, 13주 롤링) + 업종분류 스냅샷(월 1회) + 시장 구분 `krx_weekly`.
+`fwd_agg` 는 재설계 5단계(2610)에서 은퇴했다 — 시장·업종 선행 배수를 저장하는 곳은 이 표 하나다.
 
-왜 `fwd_agg` 에 넣지 않나:
-- 토요일 체인의 `push_fwd_agg.py` 는 올릴 때 **그 날짜의 `fwd_agg` 행을 분류 구분 없이 전부 지우고** 다시 넣는다.
-  하위업종을 같은 표에 넣으면 매주 지워진다.
 - `fwd_hist` 에는 주식 종류 칸이 없다. 영문이 섞인 새 보통주 코드도 포함하되,
   종류가 미확인인 0161M0는 확인될 때까지 집계에서 제외한다.
-- 트레일링 PER 은 **적자 회사까지 더한다**(`opm_val_market`). `fwd_agg` 는 흑자 추정만 더한다.
+- 트레일링 PER 은 **적자 회사까지 더한다**(`opm_val_market`). 옛 `fwd_agg`(벤더 관행)는 흑자 추정만 더했다.
   나란히 놓으면 방식 차이가 기대이익 차이로 읽힌다. 그래서 두 벌을 둔다(아래).
 
 한 종목 = 한 행: **가장 가까운 추정 사업연도**의 연간(FY) 추정. 연결/별도 중복은 값 있는 쪽 → 연결 → 기간표기 순
@@ -19,8 +17,8 @@
 배수 두 벌:
 - `fwd_per`·`fwd_pbr` — **트레일링과 같은 방식**. 추정이 있는 종목 전부(적자·자본잠식 추정 포함)를 더한다.
   합이 0 이하면 비운다(`ni_krw`·`eq_krw` 에 합을 남겨 「적자」와 「자료없음」을 가른다).
-- `fwd_per_pos`·`fwd_pbr_pos` — 분모가 0 초과인 종목만(`fwd_agg` 방식, 벤더 관행). `--check` 가 이것으로 대조한다.
-- `fwd_psr` 는 매출 > 0 종목만(한 벌). 선행 배당수익률은 `fwd_agg` 와 같다(분모 = 추정 DPS 가 있는 종목 시총).
+- `fwd_per_pos`·`fwd_pbr_pos` — 분모가 0 초과인 종목만(벤더 관행, 옛 `fwd_agg` 와 같은 방식).
+- `fwd_psr` 는 매출 > 0 종목만(한 벌). 선행 배당수익률 분모 = 추정 DPS 가 있는 종목 시총(옛 `fwd_agg` 와 같다).
 
 모집단: 시장 행 = 추정이 있는 보통주 전부. 대분류·하위업종 행 = 그중 업종분류가 있는 종목
 (분류 없는 종목은 시장 행에만 든다 — 260913 에 1종목).
@@ -35,19 +33,26 @@
   — 가장 최근 시세가 아니라 가장 가까운 관측을 쓴다(이전상장으로 시장이 바뀐 뒤 값을 끌어오지 않게).
 - 같은 날짜는 다시 계산해도 같은 값이 나온다. 그래서 이미 쓴 과거 날짜는 건너뛰고, **가장 최근 날짜**만 매번 다시
   계산한다(체인이 같은 날짜를 다시 올릴 수 있다). 전부 다시 쓰려면 `--recompute`.
-- `fwd_hist` 롤링에서 빠진 날짜의 파생 행은 실행할 때 같이 지운다. 원본보다 오래 남은 파생값은 조회되면 안 된다.
+
+보관 — **전체**(2610~). 원본 `fwd_hist` 는 13주만 남으므로 이 표가 선행 배수의 유일한 이력이다.
+- 지우는 것은 **원본 창 안에서 원본에 없는 날짜**뿐이다 — 창 = 원본의 가장 이른 날짜가 속한 ISO 주의 월요일부터.
+  같은 ISO 주 재송출로 대체된 날짜(예: 월요일 보강분을 그 주 토요일분이 덮음)가 여기에 걸린다.
+- 창보다 이른 날짜는 원본에서 롤링으로 빠졌을 뿐이라 남긴다. (260918~2610 에는 원본에 없는 날짜를 전부 지워
+  이 표도 사실상 13주 롤링이었다.) 원본이 일부 주만 보여도 그보다 이른 집계는 지워지지 않는다.
 
 실행 (DART·KRX 0콜, 수 초):
   python3 scripts/fwd_val_weekly.py                  # 새 날짜 + 가장 최근 날짜 (cron — market-val-weekly)
   python3 scripts/fwd_val_weekly.py --recompute      # fwd_hist 의 모든 날짜를 다시(날짜마다 그 시점 분류)
   python3 scripts/fwd_val_weekly.py --dry            # 계산만, 쓰지 않음 (모든 날짜)
-  python3 scripts/fwd_val_weekly.py --dry --check    # 수집 머신 방식으로 다시 내서 fwd_agg 와 대조(검증)
+  python3 scripts/fwd_val_weekly.py --dry --check    # 모든 날짜를 다시 내서 저장분과 대조(쓰지 않음) — 원본 구조를 바꾼 뒤 확인
 """
 from __future__ import annotations
 
 import argparse
 import os
 import sys
+from collections import Counter
+from datetime import timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -103,10 +108,11 @@ CREATE TABLE IF NOT EXISTS {TABLE} (
 COMMENT ON TABLE {TABLE} IS
   '선행(애널리스트 추정) PER·PBR·PSR·배당수익률 — scheme market(bucket _ALL)·wics_sector·wics_industry(bucket=업종 코드). '
   'scripts/fwd_val_weekly.py 가 fwd_hist + wise_sector(class_dd) + 주간 시세(krx_weekly + 일별 최신일, mk_dd)로 만든다. '
-  'fwd_per·fwd_pbr=적자 포함 합(트레일링과 같은 방식), *_pos=분모>0 종목만(fwd_agg 방식).';
+  'fwd_per·fwd_pbr=적자 포함 합(트레일링과 같은 방식), *_pos=분모>0 종목만(벤더 관행). '
+  '보관 전체 — fwd_hist 창 안에서 원본에 없는 날짜(같은 ISO 주 재송출)만 지운다.';
 """
 
-#: 실제 집계와 수집 머신 대조는 같은 보통주·미확인 제외 조건을 사용한다.
+#: 집계와 `--check` 재대조가 같은 SQL 을 쓴다 — 보통주·종류 미확인 제외 조건이 이 한 곳에 있다.
 AGG_SQL = """
 WITH cls AS (
   SELECT ticker, sector_code, sector, industry_code, industry
@@ -215,7 +221,7 @@ def snapshot_at_or_before(as_of_dd: str, dds: list[str]) -> str | None:
 
 
 def finish_rows(as_of, class_dd: str, mk_dd: str, rows: list[dict]) -> list[dict]:
-    """집계 결과에 날짜·분류 스냅샷·시세 날짜·배당 분모 표기를 붙인다(`fwd_agg` 와 같은 표기)."""
+    """집계 결과에 날짜·분류 스냅샷·시세 날짜·배당 분모 표기를 붙인다(옛 `fwd_agg` 와 같은 표기)."""
     out = []
     for r in rows:
         d = dict(r)
@@ -225,13 +231,68 @@ def finish_rows(as_of, class_dd: str, mk_dd: str, rows: list[dict]) -> list[dict
     return out
 
 
+def hist_window_start(hist_days: list):
+    """원본 창의 시작 — 원본 `fwd_hist` 의 가장 이른 날짜가 속한 ISO 주의 월요일. 원본이 비면 None.
+
+    주 단위로 여는 까닭: 가장 이른 원본 주에 재송출로 대체된 날짜(예: 금요일분을 토요일분이 덮음)가 남아 있으면
+    그것도 창 안에서 지워야 한다."""
+    if not hist_days:
+        return None
+    first = min(hist_days)
+    return first - timedelta(days=first.weekday())
+
+
 def prune_stale_days(con, hist_days: list) -> int:
-    """원본 `fwd_hist`에서 빠진 날짜의 파생 행을 지운다. 원본이 비었을 때는 호출하지 않는다."""
+    """원본 창 안에서 원본 `fwd_hist` 에 없는 날짜의 파생 행만 지운다 — 같은 ISO 주 재송출로 대체된 날짜 등.
+
+    창보다 이른 날짜는 원본이 13주 롤링으로 내보냈을 뿐이라 **남긴다**(이 표가 선행 배수의 유일한 이력이다).
+    원본이 비었으면 아무것도 지우지 않는다(호출하는 쪽도 원본이 비면 멈춘다)."""
+    start = hist_window_start(hist_days)
+    if start is None:
+        return 0
     cur = con.execute(
-        f"DELETE FROM {TABLE} WHERE NOT (as_of = ANY(%s))",
-        (hist_days,),
+        f"DELETE FROM {TABLE} WHERE as_of >= %s AND NOT (as_of = ANY(%s))",
+        (start, hist_days),
     )
     return cur.rowcount
+
+
+#: `--check` 가 맞춰 보는 칸. 이름·회사 수·연도는 정확히, 합·배수는 상대 1e-9 안(합산 순서에 따른 부동소수 차이만).
+_CHECK_EXACT = ("label", "parent", "n_total", "n_per", "n_per_pos", "n_pbr", "n_pbr_pos", "n_psr", "n_dps",
+                "fy_main", "fy_min", "fy_max")
+_CHECK_FLOAT = ("cap_krw", "ni_krw", "fwd_per", "ni_pos_krw", "fwd_per_pos", "eq_krw", "fwd_pbr", "fwd_pbr_pos",
+                "rev_krw", "fwd_psr", "dps_total_krw", "dps_cap_krw", "fwd_div_yield_pct")
+_CHECK_REL_TOL = 1e-9
+
+
+def _same_float(a, b) -> bool:
+    if a is None or b is None:
+        return a is None and b is None
+    return abs(a - b) <= _CHECK_REL_TOL * max(1.0, abs(a), abs(b))
+
+
+def diff_rows(stored: list[dict], fresh: list[dict], *, report_missing: bool = True) -> list[str]:
+    """저장분과 다시 낸 집계를 (market, scheme, bucket) 으로 맞춰 어긋난 행을 한 줄씩 적는다.
+
+    report_missing=False 면 「다시 내면 있는데 저장분에 없는 행」은 적지 않는다(옛 분류로 남은 일부 행만 볼 때)."""
+    def key(r):
+        return (r["market"], r["scheme"], r["bucket"])
+
+    mine = {key(r): r for r in fresh}
+    out = []
+    for r in sorted(stored, key=key):
+        m = mine.get(key(r))
+        if m is None:
+            out.append(f"{key(r)}: 저장돼 있으나 다시 내면 없다")
+            continue
+        diffs = [f"{c} {r.get(c)} → {m.get(c)}" for c in _CHECK_EXACT if r.get(c) != m.get(c)]
+        diffs += [f"{c} {r.get(c)} → {m.get(c)}" for c in _CHECK_FLOAT if not _same_float(r.get(c), m.get(c))]
+        if diffs:
+            out.append(f"{key(r)}: " + " · ".join(diffs))
+    if report_missing:
+        have = {key(r) for r in stored}
+        out += [f"{k}: 다시 내면 있으나 저장분에 없다" for k in sorted(mine) if k not in have]
+    return out
 
 
 # ── 실행 ───────────────────────────────────────────────────────────────
@@ -244,57 +305,47 @@ def compute(con, as_of, class_dd: str, mk_dd: str) -> list[dict]:
         return cur.fetchall()
 
 
-#: 대조 허용오차. PBR 만 느슨하다 — 수집 머신은 반올림된 종목 PBR 로 자본을 되돌리고(시총÷PBR),
-#: 여기는 BPS 로 되돌린다(시총×BPS÷주가). 실측 차이 0.1% 안팎.
-_TOL = {"fwd_per": 1e-6, "fwd_pbr": 5e-3, "fwd_psr": 1e-6, "fwd_div_yield_pct": 1e-6}
+STORED_SQL = (f"SELECT market, scheme, bucket, class_dd, mk_dd, {', '.join(_CHECK_EXACT + _CHECK_FLOAT)} "
+              f"FROM {TABLE} WHERE as_of = %s")
 
 
-def check_against_collector(con, as_of, class_dd: str, mk_dd: str) -> int:
-    """같은 보통주 모집단·분모>0 방식으로 `fwd_agg` 와 대조한다. 어긋난 칸 수를 돌려준다.
+def check_against_stored(con, as_of, class_dd: str, mk_dd: str, fresh: list[dict]) -> int:
+    """저장된 `opm_val_fwd` 를 지금 원본(`fwd_hist`)으로 다시 낸 집계와 대조한다. 어긋난 행 수를 돌려준다.
 
-    업종분류가 없는 종목은 `fwd_agg` 에서 「미분류」 칸으로, 여기서는 어느 칸에도 안 들어간다 — 대조에서 뺀다.
-    """
+    저장할 때 쓴 분류·시세 날짜(`class_dd`·`mk_dd`)로 다시 내므로 비교 대상은 원본 하나다 — 원본의 물리 구조를
+    바꾼 뒤(2610 뷰 전환) 같은 집계가 나오는지, 원본이 조용히 바뀌지 않았는지를 본다.
+    fresh = 이번 실행이 고른 분류·시세 날짜로 이미 낸 결과(저장분과 날짜 쌍이 같으면 다시 계산하지 않는다).
+    (260918~2610 에는 수집 머신 집계 `fwd_agg` 와 대조했다 — 그 표는 은퇴했다.)"""
     from psycopg.rows import dict_row
 
-    mine = {}
-    for r in compute(con, as_of, class_dd, mk_dd):
-        if r["scheme"] == "wics_industry":
-            continue
-        key = (r["market"], r["scheme"], "ALL" if r["scheme"] == "market" else r["label"])
-        mine[key] = {"n_total": r["n_total"], "n_per": r["n_per_pos"], "fwd_per": r["fwd_per_pos"],
-                     "fwd_pbr": r["fwd_pbr_pos"], "fwd_psr": r["fwd_psr"],
-                     "fwd_div_yield_pct": r["fwd_div_yield_pct"]}
     with con.cursor(row_factory=dict_row) as cur:
-        cur.execute("SELECT market, scheme, bucket, n_total, n_per, fwd_per, fwd_pbr, fwd_psr, fwd_div_yield_pct "
-                    "FROM fwd_agg WHERE as_of = %s AND bucket NOT IN ('미분류', '(미분류)')", (as_of,))
-        theirs = {(r["market"], r["scheme"], r["bucket"]): r for r in cur.fetchall()}
-    if not any(k[1] == "wics_sector" for k in theirs):
-        print(f"    대조 {as_of}: fwd_agg 에 대분류가 없는 날짜(수집 당시 분류 미부착) — 시장 행만 대조")
-    bad, n = 0, 0
-    for k in sorted(theirs):
-        t, m = theirs[k], mine.get(k)
-        n += 1
-        if not m:
-            print(f"    {k}: 이 방식에 없음")
-            bad += 1
-            continue
-        diffs = [f"{c} {m[c]} vs {t[c]}" for c, tol in _TOL.items()
-                 if (m[c] is None) != (t[c] is None)
-                 or (m[c] is not None and abs(m[c] - t[c]) > tol * max(1.0, abs(t[c])))]
-        if m["n_total"] != t["n_total"] or m["n_per"] != t["n_per"]:
-            diffs.append(f"회사 수 {m['n_total']}/{m['n_per']} vs {t['n_total']}/{t['n_per']}")
-        if diffs:
-            bad += 1
-            print(f"    {k}: " + " · ".join(diffs))
-    print(f"    대조 {as_of}: 저장 {n}칸 중 어긋남 {bad}칸")
-    return bad
+        cur.execute(STORED_SQL, (as_of,))
+        stored = cur.fetchall()
+    if not stored:
+        print(f"    대조 {as_of}: 저장분 없음 — 건너뜀")
+        return 0
+    pairs = Counter((r["class_dd"], r["mk_dd"]) for r in stored)
+    main_pair = pairs.most_common(1)[0][0]
+    if main_pair != (class_dd, mk_dd):
+        print(f"    대조 {as_of}: 저장분은 분류 {main_pair[0]}·시세 {main_pair[1]}, 지금 고르면 {class_dd}·{mk_dd}"
+              " — 저장할 때의 날짜로 다시 내서 대조")
+    lines: list[str] = []
+    for pair in sorted(pairs, key=lambda p: (p[0] or "", p[1] or "")):
+        mine = fresh if pair == (class_dd, mk_dd) else compute(con, as_of, *pair)
+        group = [r for r in stored if (r["class_dd"], r["mk_dd"]) == pair]
+        lines += diff_rows(group, mine, report_missing=(pair == main_pair))
+    for line in lines:
+        print(f"    {line}")
+    print(f"    대조 {as_of}: 저장 {len(stored)}행 중 어긋남 {len(lines)}건")
+    return len(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--recompute", action="store_true", help="fwd_hist 의 모든 날짜를 다시 계산(날짜마다 그 시점 분류)")
     ap.add_argument("--dry", action="store_true", help="계산만 하고 쓰지 않는다 (표도 안 만든다)")
-    ap.add_argument("--check", action="store_true", help="수집 머신 방식으로 다시 내서 fwd_agg 와 대조")
+    ap.add_argument("--check", action="store_true",
+                    help="저장된 집계를 지금 원본으로 다시 낸 값과 대조(저장할 때의 분류·시세 날짜로, 쓰기 전에)")
     a = ap.parse_args(argv)
     url = os.getenv("DATABASE_URL")
     if not url:
@@ -322,7 +373,7 @@ def main(argv: list[str] | None = None) -> int:
     if not a.dry:
         pruned = prune_stale_days(con, hist_days)
         if pruned:
-            print(f"원본 이력에서 빠진 파생 행 {pruned}개 삭제")
+            print(f"원본 창({hist_window_start(hist_days)}~) 안에서 원본에 없는 날짜의 파생 행 {pruned}개 삭제")
     done = set() if a.dry else {r[0] for r in con.execute(f"SELECT DISTINCT as_of FROM {TABLE}").fetchall()}
     days = pick_days(hist_days, done, a.recompute or a.dry)
     print(f"선행 배수 집계 · 업종분류 스냅샷 {len(class_dds)}개(최신 {max(class_dds)}) · 추정치 이력 {len(hist_days)}일"
@@ -332,7 +383,10 @@ def main(argv: list[str] | None = None) -> int:
         dd = as_of.strftime("%Y%m%d")
         class_dd = snapshot_at_or_before(dd, class_dds)
         mk_dd = snapshot_at_or_before(dd, price_dds)
-        rows = finish_rows(as_of, class_dd, mk_dd, compute(con, as_of, class_dd, mk_dd))
+        raw = compute(con, as_of, class_dd, mk_dd)
+        if a.check:
+            bad += check_against_stored(con, as_of, class_dd, mk_dd, raw)
+        rows = finish_rows(as_of, class_dd, mk_dd, raw)
         if not a.dry:
             with con.cursor() as cur:
                 cur.executemany(UPSERT, rows)
@@ -345,8 +399,6 @@ def main(argv: list[str] | None = None) -> int:
               f" · 선행 PER 코스피 {ks.get('fwd_per') or 0:.2f} / 코스닥 {kq.get('fwd_per') or 0:.2f}"
               f" · 분류 {class_dd}{'(소급)' if class_dd > dd else ''} · 시장 구분 {mk_dd}")
         total += len(rows)
-        if a.check:
-            bad += check_against_collector(con, as_of, class_dd, mk_dd)
     if not a.dry:
         n, d0, d1 = con.execute(f"SELECT count(*), min(as_of), max(as_of) FROM {TABLE}").fetchone()
         print(f"합계 {total}행 반영 · {TABLE} 현황 {n}행 · {d0} ~ {d1}")
