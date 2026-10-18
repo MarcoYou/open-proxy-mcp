@@ -28,7 +28,11 @@ _STATUS_TITLE = {
 
 
 def _f(v, fmt="{:.2f}"):
-    return fmt.format(v) if v is not None else "N/M"
+    if v is None:
+        return "N/M"
+    if fmt == "{:.2f}" and v != 0 and abs(v) < 0.005:   # 261019: 0.0038 을 「0.00」 으로 그리지 않는다(유효숫자 둘)
+        return f"{v:.2g}"
+    return fmt.format(v)
 
 
 def _fni(v, ni, fmt="{:.2f}"):
@@ -191,6 +195,11 @@ def _render_market(p: dict[str, Any]) -> str:
 def _render_sector(p: dict[str, Any]) -> str:
     d = p["data"]
     lines = [f"# 산업별 밸류에이션 (기준 {d['as_of']} · {d.get('scheme_desc', '')})", ""]
+    st = d.get("stale")
+    if st:   # 261019: 이 축이 시장 전체보다 낡았으면 맨 위에 — 기준일만 보고 최신으로 읽지 않게(까닭은 아래 주의)
+        lines += [f"> ⚠ 이 축의 마지막 집계는 {st['axis_as_of']} — 시장 전체 최신 스냅샷({st['market_as_of']})보다 이르다. "
+                  + ("KSIC 축은 2026-08-23 부터 집계를 멈췄다(업종 배수 기준 축 = 업종분류). 최신 업종 배수는 scheme='중분류'·'대분류'."
+                     if st.get("reason") == "ksic_aggregation_frozen" else "이 축 집계가 그 사이 갱신되지 않았다."), ""]
     c = d.get("company")
     if c:
         lines += [f"**{c['name']}({c['ticker']})** → {c['sector_label']} [{mkt_label(c['market'])}]",
@@ -259,7 +268,7 @@ def _render_sector(p: dict[str, Any]) -> str:
 
 def _render_firm_at(p: dict[str, Any]) -> str:
     d = p["data"]
-    def f(v): return "-" if v is None else f"{v:.2f}"
+    def f(v): return "-" if v is None else _f(v)
     cap = d.get("cap_krw"); cap_s = f"{cap/1e12:,.1f}조" if cap and cap >= 1e12 else (f"{cap/1e8:,.0f}억" if cap else "-")
     L = [f"# {p['subject']} — {d['as_of'][:4]}-{d['as_of'][4:6]}-{d['as_of'][6:]} 기준 밸류에이션 (주간 스냅샷)", "",
          f"- 요청 기준일 {d['as_of_requested']} → 스냅샷 {d['as_of']} · {d.get('market','')} · 섹터 {d.get('sector','') or '-'}", "",
@@ -294,7 +303,11 @@ def _render_firm_history(p: dict[str, Any]) -> str:
             lines.append(f"| {h['period']} | {_f(h.get('per_fy0'))} | {_f(h.get('pbr'))} "
                          f"| {krw_scaled(h.get('cap_krw'))} |")
     if series:
-        lines += ["", f"> 📈 차트용 주간 곡선(최근 3년) {len(series)}개"
+        # 261019 콜드 서빙 — 3년 하한 이전을 보관본에서 이었으면 시세 시작일과 이음매를(곡선 점은 재무가 공시된 주부터)
+        cu = d.get("cold_until")
+        span = ("최근 3년" if not cu else f"{d['weekly_from']}~ — {cu} 이전은 보관본" if series[0]["asof"] < cu
+                else f"{d['weekly_from']}~")
+        lines += ["", f"> 📈 차트용 주간 곡선({span}) {len(series)}개"
                   f"({series[0]['asof']}~{series[-1]['asof']}) = `data.series`(per_fy0·per_ttm·pbr·pbr_mrq). "
                   "위 표는 그 월말 다운샘플. `▲`=분기 재무 공시로 분모 갱신(배수 변화가 가격 vs 실적 구분)."]
     lines += ["", f"> {d['method']}"]
@@ -313,7 +326,7 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 | BPS | 지배자본(최근분기 MRQ, 부재 시 FY말) ÷ 합계 유통주식수(보통+우선, 자기주식 제외) | 지배주주 귀속 |
 | PER | **보통주 시총 ÷ 지배순이익** | FY0·TTM 각각 |
 | PBR | **보통주 시총 ÷ 지배자본** | MRQ (부재 시 FY말) |
-| 배당수익률 | 주당 현금배당(DPS) ÷ 종가 × 100 | 보통주 결의 기준 |
+| 배당수익률 | 주당 현금배당(DPS) ÷ 종가 × 100 | 보통주 결의 기준. 반기·분기 결산(리츠 등)은 최근 12개월 결산기 DPS 합 |
 
 ## 산식 (market/sector/firm_history — 주간 스냅샷)
 - PER = **Σ보통주 시총 ÷ Σ지배순이익** (시총가중 조화평균, KRX 지수 PER 관행) · PBR = Σ보통주 시총 ÷ Σ지배자본(MRQ)
@@ -340,7 +353,8 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 ## 판단 기준 (게이팅)
 - **N/M**: 지배순이익·지배자본 ≤0(적자·자본잠식) 또는 완전자본잠식 → 배수 미산출(음수 PER 금지)
 - **지배주주 귀속**: 순이익·자본 모두 지배지분 기준(비지배 NCI 제외) — 지주사 과대평가 방지
-- **비KRW 기능통화**(두산밥캣 USD 등 22사): 회계기말 환율(한국은행 ECOS 매매기준율)로 KRW 환산
+- **비KRW 기능통화**(두산밥캣 USD 등 22사): 기간 말 환율(한국은행 ECOS 매매기준율)로 KRW 환산 — 연간(FY0)은 사업연도 말,
+  분기 누적·자본(MRQ)은 그 분기 말, 전년 동기 누적은 그 분기 말(곡선·업종 비교와 같은 규칙). 순이익의 기간 평균 환율은 아직 없다(기간 말 근사)
 - **스케일가드**: 재무 단위오류(예: 100만배) 의심 시 개별조회는 값 유지+강한 경고, 시장 집계는 제외
 - **수정주가**: PER/PBR/시총은 **전 스코프가 시총 기반**이라 액면분할·병합·무상증자에 불변(계수 불요).
   유증·소각·분할의 시총 점프는 실제 이벤트라 보존. 260823 전환 이전 firm 은 주가÷EPS 라 계수가
@@ -353,7 +367,7 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 |---|---|---|
 | 재무(순이익·자본·주식수·배당) | DART OpenAPI (전자공시 원문) | firm=실시간 / 스냅샷 원천=분기 배치 |
 | 주가·시총 | KRX 정보데이터시스템 → 일별 시세 저장분(최신값) · 주간 시세 저장분(과거 곡선) | 매일 수집(전일 종가) — 일별은 최근 약 1년, 주간은 주 마지막 거래일 보존 |
-| 환율 | 한국은행 ECOS 매매기준율(공식) | 회계기말 고정값 캐시 |
+| 환율 | 한국은행 ECOS 매매기준율(공식) | 기간 말(사업연도 말·분기 말) 고정값 캐시 |
 | 주간 스냅샷(시장·섹터·종목 히스토리) | 위 조합 재계산 | 매일 배치(주간 수렴) |
 | 선행 배수(시장·업종) | 애널리스트 추정 이력 × 업종분류 × 주간 시세의 시장 구분 | 추정은 주 1회(토) 수집 → 다음 날 아침 집계 |
 
@@ -390,6 +404,10 @@ def _dps_text(i: dict[str, Any]) -> str:
     (「not found 를 there is none 으로 바꾸지 말 것」)."""
     v = i.get("dps_krw")
     if isinstance(v, (int, float)) and not isinstance(v, bool):
+        b = i.get("dps_basis") or {}
+        if b.get("periods"):   # 261019: 반기·분기 결산 — 최근 12개월 결산기 합
+            parts = " + ".join(f"{p['stlm_dt'][:7]} {p['dps_krw']:,}원" for p in b["periods"])
+            return f"{v:,}원 (최근 12개월 결산기 {len(b['periods'])}개 합 — {parts})"
         return f"{v:,}원"
     failed = i.get("dps_fetch_failed")
     if failed is True:
@@ -397,6 +415,27 @@ def _dps_text(i: dict[str, Any]) -> str:
     if failed is False:
         return "없음(무배당 또는 미공시)"
     return "미확인(무배당·미공시 또는 조회 실패)"
+
+
+#: 자본잠식 판정(`financial_metrics` 의 `capital_impairment_status`) → explain 문구(우리말 — 판정 코드는 JSON 칸에 그대로 있다).
+_IMPAIRMENT_TEXT = {
+    "normal": "없음",
+    "partial": "부분 자본잠식(자본금 대비 50% 미만 잠식)",
+    "partial_50plus": "자본잠식 50% 이상(관리종목 위험)",
+    "full": "완전자본잠식(지배주주 자본 ≤ 0)",
+}
+
+
+def _impairment_text(v: Any, i: dict[str, Any] | None = None) -> str:
+    """explain 의 자본잠식 줄(261019). 종전엔 `i.get(…, '-')` 라 칸이 있고 값이 None 이면 파이썬 `None` 이 그대로 나갔다
+    (10-19 검증: 재무 없는 신규상장 멜콘 「자본잠식 상태: None」). 판정이 없으면 까닭을 적는다 — 판정은 자본금이나 자본이 비어도
+    None 이라(`financial_metrics`), 순이익·자본이 있는 회사에 「재무 없음」이라 하지 않는다."""
+    if v is None:
+        i = i or {}
+        if i.get("net_income_fy0_krw") is None and i.get("controlling_equity_krw") is None:
+            return "판정 불가(재무 없음)"
+        return "판정 불가(자본금 또는 자본 값을 재무에서 찾지 못함)"
+    return _IMPAIRMENT_TEXT.get(v, str(v))
 
 
 def _render_explain_firm(p: dict[str, Any]) -> str:
@@ -417,7 +456,15 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
          f" / 합계(보통+우선) {_n(i.get('shares_total'))}",
          f"- DPS(보통주 현금배당 — DART alotMatter): {_dps_text(i)}"]
     if fx:
-        L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 회계기말 환율 {fx:,.1f}원/{cur}(한국은행 ECOS)로 KRW 환산된 값")
+        rates = i.get("fx_rates_to_krw") or {}
+        q, qp = rates.get("quarter"), rates.get("prior_quarter")
+        if q and qp:   # 261019: 기간마다 그 기간 말 환율(곡선·업종 비교와 같은 규칙)
+            def _d(x): return f"{x[:4]}-{x[4:6]}-{x[6:]}"
+            L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 기간 말 환율(원/{cur}, 한국은행 ECOS)로 KRW 환산된 값: "
+                     f"FY0 {fx:,.1f}원 · 최근 분기 누적·자본 {_d(q['date'])} {q['rate']:,.1f}원 · "
+                     f"전년 동기 누적 {_d(qp['date'])} {qp['rate']:,.1f}원")
+        else:
+            L.append(f"- ⚠ 기능통화 {cur} — 위 재무는 회계기말 환율 {fx:,.1f}원/{cur}(한국은행 ECOS)로 KRW 환산된 값")
     L += ["", "## 계산 과정"]
     def _calc(lbl, formula, num, den, out, unit=""):
         if num is not None and den and out is not None:       # 분모가 있어도 완전자본잠식이면 배수는 None(N/M) — 「**None**」 금지
@@ -456,7 +503,7 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     dq = d.get("data_quality") or {}
     L += ["", "## 신뢰도",
           f"- 스케일가드: {dq.get('scale_tier', '-')} (재무 단위오류 검사 — 항등식·시장최댓값 기준)",
-          f"- 자본잠식 상태: {i.get('capital_impairment_status', '-')}"]
+          f"- 자본잠식 상태: {_impairment_text(i.get('capital_impairment_status'), i)}"]
     # 조건은 둘 다 보면서 출력은 `or` 로 하나만 봤다 — 데이터 경고가 있으면 봉투 경고
     # (「이 회사가 맞나」 추정 고지)가 통째로 사라졌다. 봉투를 앞에 두고 둘 다 싣는다.
     _seen: set[str] = set()
@@ -482,11 +529,11 @@ def register_tools(mcp):
     @mcp.tool()
     async def price_multiple_data(company: str = "", scope: str = "firm", format: str = "md",
                         scheme: str = "중분류", as_of: str = "") -> str:
-        """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
+        """desc: 상대가치 밸류에이션 — 기업 심층(PER·PBR·배당수익률) + 시장 전체·산업별·종목 히스토리(주간 스냅샷 — 주간 시세는 DB 3년 + 그 이전(2015-12~)은 DB 밖 보관본에서 이어 붙임, 보관본을 못 읽으면 최근 3년). 한국 표준(연결, 지배주주 귀속). 비KRW 기능통화 자동 KRW 환산(ECOS), 스케일가드, N/M 게이팅.
         when: "PER/PBR 얼마"·"싼가 비싼가"(scope=firm) / "코스피·코스닥 전체 밸류"(market) / "업종별 PER·PBR"·"섹터 대비 어디"(sector, company 지정 시 소속 섹터 비교) / "업종별 선행 PER"·"코스닥 선행 PBR"(market·sector — 트레일링 옆 선행 칸) / "밸류 추이"(firm_history) / **"이 수치 근거·계산 과정이 뭐야?"(explain — company 지정 시 실제 값 대입 계산, 미지정 시 방법론·기준·출처 전문)**. 재무 펀더멘탈 자체는 financial_metrics, 배당 상세는 dividend_disclosure.
         rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × 일별 시세 저장분(최신 거래일 종가·시총, 없으면 KRX 라이브) — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector = Supabase 주간 스냅샷(opm_val_market, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. scope=firm_history 와 sector 의 기업 배수(company 지정 시)는 저장분 없이 읽을 때 계산 — 주간 시세 저장분(그 날이 없으면 일별) 시총 ÷ 그 시점까지 공시된 재무(PIT, 261018). 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct). **scope=market 과 scope=sector(scheme=대분류) 에는 시총가중 배당수익률이 함께 실린다**(260831) — 확정=div_yield_hist(사업연도 12월결산 확정 DPS, 연 1회) · 선행=opm_val_fwd(애널리스트 추정 DPS). PER·PBR 과 **출처 표도 기준일도 모집단도 다르다.** 분모 두 벌(all=무배당 포함 시장 관행값 / payers=배당주만)을 나란히 내는데, 코스닥은 두 값이 두 배 차이라 반드시 같이 읽어야 한다 — 눌림의 절반은 배당력이 아니라 배당하는 회사가 적다는 구성 차이다. PER 과 달리 적자여도 배당이 있으면 값이 난다. 확정은 scheme=ksic·중분류 에 안 붙고(집계 버킷이 업종 대분류다) 중분류 에는 선행만 붙는다. **선행 PER·PBR(260918)**: scope=market 과 scope=sector(scheme=대분류·중분류) 표에 애널리스트 추정 기반 선행 PER·PBR 이 트레일링 옆에 실린다 — 트레일링과 같은 합산 방식(Σ시총÷Σ추정 지배순이익, 적자 추정 포함), 추정이 있는 보통주만(종목수 옆 괄호), 기준일은 주 1회 추정 스냅샷(opm_val_fwd). 흑자 추정만 더한 벤더식(fwd_per_pos)·선행 PSR(fwd_psr)은 JSON. KSIC 에는 선행이 없다. 종목 단위 선행은 forward_estimates_data.
-        as_of: YYYYMMDD(또는 YYYY-MM-DD) 과거 시점. firm → 그 시점 이하 가장 최근 **주간 곡선 점**(firm_history 의 주간 시총 × 그 시점 재무)의 PER·PBR·시총(배당수익률 없음, 주간 시세는 최근 3년까지라 그 이전 기준일은 안내만 — 연말 값은 scope=firm_history) / market·sector → 그 시점 이하 스냅샷. 「작년 말 PER」「2024년 12월 코스피 PBR」. 비우면 최신.
-        scheme: scope=sector 의 분류 축 — "중분류"(기본, 업종 중분류 28) / "대분류"(업종 대분류 10) / "ksic"(KSIC 하이브리드 62버킷).
+        as_of: YYYYMMDD(또는 YYYY-MM-DD) 과거 시점. firm → 그 시점 이하 가장 최근 **주간 곡선 점**(firm_history 의 주간 시총 × 그 시점 재무)의 PER·PBR·시총(배당수익률 없음, 주간 시세는 최근 3년까지라 그 이전 기준일은 안내만 — 연말 값은 scope=firm_history). 그 주 곡선 점이 없으면(그 시점 재무 칸이 빔 — 보고서 미제출 등) 앞선 칸(1년 안)으로 센 대체 점으로 답하고 「기준 분기 늦음」을 밝힌다 / market·sector → 그 시점 이하 스냅샷. 「작년 말 PER」「2024년 12월 코스피 PBR」. 비우면 최신.
+        scheme: scope=sector 의 분류 축 — "중분류"(기본, 업종 중분류 28) / "대분류"(업종 대분류 10) / "ksic"(KSIC 하이브리드 62버킷 — 2026-08-21 집계에서 멈춤, 업종 배수 기준 축은 업종분류. 시장 전체보다 낡은 축은 응답 맨 위·`data.stale` 로 밝힌다).
         status: ok / invalid / not_found / unlisted / no_financials / no_data(배치 미실행). 우선주·종류주 코드(005935)는 발행 회사로 식별해 **회사 배수(보통주 시총 기준 — 위 정의)**를 주고 맨 앞 경고로 밝힌다 — 그 종류주 자체의 주가·시총은 trading_data.
        
         ref: financial_metrics, dividend_disclosure, forward_estimates_data, corp_gov_report, evidence
