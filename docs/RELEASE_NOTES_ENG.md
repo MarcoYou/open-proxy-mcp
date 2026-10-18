@@ -4,6 +4,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### Before the meeting notice — board resolutions to convene and their amendment history — `shareholder_meeting_notice(scope="resolution")`
+
+- Reads the **board resolution to convene** a shareholders' meeting, filed before the meeting notice (which comes two weeks ahead). Date and venue, record date, board date, outside-director attendance, the agenda table (sub-items, shareholder proposals and cumulative voting marked) and nominee tables, cell text as written.
+- An extraordinary meeting with only a board resolution used to look like "no meeting" until the notice appeared. When no notice is found, `summary` now points here.
+- Resolutions are amended often (almost half of meetings), so each version comes with its **amendment history** — reason and changed cells (before → after). Warns when an amendment points to another meeting, or when a comparison-only amendment cleared the date.
+- `screener` opens board-resolution cards through this path too — fixing cards that showed zero agenda items or labelled an extraordinary meeting as annual. Shows "agenda pending" when there is none yet.
+
 ### Amendment cards show what changed — `screener`
 
 - Amendment cards in `screener(details=true)` now carry the filing's own **item · before · after table**, cell text as written, with the stated reason, the amended document and its original filing date. Each row is marked changed, added or deleted.

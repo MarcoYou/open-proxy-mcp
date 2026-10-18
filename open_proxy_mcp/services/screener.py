@@ -961,6 +961,17 @@ def _extract_dilutive(payload: dict, rcept_no: str) -> dict:
 def _extract_agm_notice(payload: dict, rcept_no: str) -> dict:
     # 실제 payload: data.agenda_summary{titles,total_count} + data.agendas[] + data.meeting_type
     data = payload.get("data") or {}
+    if data.get("scope") == "resolution":
+        # 소집결의 — data.meeting{meeting_date} + data.agenda{status, items[{title}]}
+        agenda = data.get("agenda") or {}
+        items = agenda.get("items") or []
+        return {
+            "meeting_type": data.get("meeting_type"),
+            "meeting_date": (data.get("meeting") or {}).get("meeting_date"),
+            "agenda_titles": [i.get("title") for i in items if i.get("title")][:12],
+            "agenda_count": len(items) or None,
+            "agenda_status": agenda.get("status"),
+        }
     summ = data.get("agenda_summary") or {}
     titles = summ.get("titles") or []
     if not titles:
@@ -1094,6 +1105,9 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     # 주총소집은 rcept_no 직접 지정 경로 사용(가장 정확)
     if kind == "agm_notice":
         kwargs["rcept_no"] = hit.get("rcept_no", "")
+        if hit.get("subtype") == "소집결의":
+            # 결의는 공고와 서식이 다르다 — 공고 파서로 읽으면 안건 0건·정기/임시 뒤바뀜(대구백화점 20260811801007).
+            kwargs["scope"] = "resolution"
 
     before = client.api_call_snapshot()
     try:

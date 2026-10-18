@@ -149,8 +149,11 @@ def _detail_line(card: dict) -> str | None:
         titles = f.get("agenda_titles") or []
         if titles:
             head = "; ".join(titles[:3])
-            more = f" 외 {len(titles)-3}건" if len(titles) > 3 else ""
+            total = max(f.get("agenda_count") or 0, len(titles))   # titles 는 12건에서 잘린다 — 수는 원래 건수로
+            more = f" 외 {total-3}건" if total > 3 else ""
             return f"안건 {head}{more}"
+        if f.get("agenda_status") == "undetermined":
+            return "안건 미정(결의 단계 — 확정 시 정정 공시)"
         return f"안건 {f.get('agenda_count','?')}건" if f.get("agenda_count") else None
     if tc == "ownership5":
         parts = []
