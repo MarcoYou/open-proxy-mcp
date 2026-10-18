@@ -141,6 +141,8 @@ def test_record_writes_every_ledger_field_to_sqlite(tmp_path, monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     usage = importlib.reload(importlib.import_module("open_proxy_mcp.usage"))
     assert usage._RECORDING, "테스트가 기록 게이트를 못 열었다 — 아래 단언이 무의미해진다"
+    # 261018: 기록은 5초씩 묶어 쓴다(`_FLUSH_SEC`). 이 시험이 보는 것은 칸 대응이지 묶음 간격이 아니다 — 창을 줄인다.
+    monkeypatch.setattr(usage, "_FLUSH_SEC", 0.05)
 
     # **값을 전부 서로 다르게** 준다. 같은 값이 섞여 있으면 컬럼이 어긋나도 통과한다 —
     # 위치 의존 INSERT 가 조용히 다른 컬럼에 넣는 사고(260704)를 잡으려면 이게 조건이다.
