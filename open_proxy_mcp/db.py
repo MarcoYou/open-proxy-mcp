@@ -29,9 +29,11 @@
 두 겹이 얹혀 있었다. 둘 다 **왕복이 늘어난 것**이지 계산이 무거워진 게 아니다.
   ① 암묵 트랜잭션(약 26ms) — psycopg3 는 autocommit 이 아니면 첫 `execute` 앞에 `BEGIN`
      을 보내고 풀은 반납할 때 `COMMIT` 한다. SELECT 한 줄에 왕복이 셋이 된다.
-     🔴 이 풀로는 **쓰기를 하지 않는다** — 쓰는 곳(`price_multiple_data` 스냅샷 적재·
-     `usage`)은 각자 직접 접속해 트랜잭션을 잡는다. 그래서 autocommit 이 안전하다.
-     풀에 쓰기를 태우게 되는 날 이 줄부터 다시 읽는다.
+     🔴 이 풀로는 **여러 문장을 한 트랜잭션으로 묶는 쓰기를 하지 않는다** — 그런 곳
+     (`price_multiple_data` 스냅샷 적재·`usage` 의 이벤트+집계)은 각자 접속해 트랜잭션을 잡는다.
+     그래서 autocommit 이 안전하다. **한 문장짜리 쓰기**(`pg_execute`, 261018 — KRX 호출 장부의
+     upsert)는 autocommit 에서도 그 문장 하나가 곧 트랜잭션이라 같은 이유로 안전하다.
+     두 문장 이상을 함께 되돌려야 하는 쓰기를 이 풀에 태우게 되는 날 이 줄부터 다시 읽는다.
   ② 빌릴 때 ping(약 29ms) — `check_connection` 이 커넥션마다 `SELECT 1` 을 한 번 더 왕복
      했다. 죽은 커넥션을 넘기지 않으려던 것인데, 값이 **질의 자체보다 비쌌다**.
      대신 아래 `pg_rows` 에서 **연결 계열 예외일 때만 풀로 한 번 더** 간다. 끊긴 커넥션은
@@ -185,6 +187,57 @@ def pg_rows(sql: str, params: tuple = ()) -> list[tuple] | None:
     except Exception as exc:                  # noqa: BLE001
         logger.warning("DB 조회 실패: %s", exc)
         return None
+
+
+def _is_statement_error(exc: BaseException) -> bool:
+    """DB 가 **그 문장을** 거절했나(없는 표·권한·읽기 전용 트랜잭션·제약 위반 등). 연결·풀 문제가 아니다.
+
+    `_is_query_error`(42xxx)보다 넓다 — 쓰기에서는 읽기 전용 세션의 거절(25006, InternalError)도 흔하다. 읽기 전용 파일럿에서
+    장부 쓰기가 거절될 때마다 풀을 60초 내리면 **그동안 모든 도구의 조회**가 직접 접속으로 떨어진다.
+    """
+    try:
+        import psycopg
+    except Exception:                         # noqa: BLE001
+        return False
+    return isinstance(exc, psycopg.DatabaseError) and not isinstance(exc, psycopg.OperationalError)
+
+
+def pg_execute(sql: str, params: tuple = (), *, create_pool: bool = True) -> None:
+    """**한 문장** 쓰기 — 공용 풀(autocommit)로, 풀이 없으면 직접 접속으로. 실패하면 예외를 올린다.
+
+    261018 신설(KRX 호출 장부). 종전 장부는 20콜마다 `psycopg.connect`(핸드셰이크 124ms)를 새로 했다.
+    `pg_rows` 와 달리 None 으로 삼키지 않는다 — 쓰기는 「못 썼다」를 호출자가 알아야 다음에 다시 쓴다.
+    DB 가 그 문장을 거절한 것(`_is_statement_error` — 없는 표·권한·읽기 전용)은 풀을 내리지 않고 그대로 올린다 — 호출자가
+    표를 만들고 다시 쓰거나 다음 차례로 미룰 수 있게.
+    `create_pool=False` 는 프로세스 종료(atexit) 때처럼 풀을 새로 세울 자리가 아닌 곳에서 쓴다 — 이미 있으면 쓰고, 없으면 직접 접속.
+    🔴 두 문장 이상을 한 트랜잭션으로 묶어야 하면 이 함수를 쓰지 않는다(모듈 상단 260903 ①).
+    """
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        raise RuntimeError("DATABASE_URL 미설정")
+    pool = _get_pool() if create_pool else _pool
+    if pool is not None:
+        try:
+            with pool.connection() as conn:
+                conn.execute(sql, params)
+            return
+        except _conn_errors() as exc:
+            logger.debug("PG 쓰기 커넥션 재시도: %s", exc)    # 늙은 커넥션 — 반납 때 버려진다
+            try:
+                with pool.connection() as conn:
+                    conn.execute(sql, params)
+                return
+            except Exception as exc2:         # noqa: BLE001
+                if _is_statement_error(exc2):
+                    raise
+                _disable_pool(f"쓰기 재시도 실패 {type(exc2).__name__}: {exc2}")
+        except Exception as exc:              # noqa: BLE001
+            if _is_statement_error(exc):
+                raise                         # 그 문장의 거절 — 풀은 멀쩡하다. 직접 접속으로 보내 봐야 같다
+            _disable_pool(f"쓰기 {type(exc).__name__}: {exc}")
+    import psycopg
+    with psycopg.connect(url, connect_timeout=8, autocommit=True) as c:
+        c.execute(sql, params)
 
 
 def pool_stats() -> dict:

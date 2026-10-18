@@ -47,6 +47,12 @@ def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
       · 자유 텍스트는 정규화가 안 돼 집계가 무의미하고, 무엇이 딸려 들어올지 모른다.
       · rcept_no 는 「어느 문서를 열었나」라 조회 **결과**에 가깝다.
     이 목록이 늘어난다면 그건 결정이어야지 부주의여선 안 된다.
+
+    261018 — **결정으로** 인자 둘을 열었다(Supabase 재설계 v02 T8, 마스터 승인): `scope`·`as_of`.
+    quote/firm 비중과 「일별 시세 7거래일 창이 충분한가」를 재려면 인자가 있어야 한다. 조건:
+      · 이 둘만이다 — 아래 `allowed_args` 가 닫힌 목록이다. 회사명·질의 원문·문서번호는 여전히 막는다.
+      · 사용자가 보낸 그대로 싣지 않는다 — 저장 경계(`usage._call_dims`)가 정규화한 값만, 못 읽으면 None.
+      · 미들웨어는 본문에서 **두 키만** 꺼낸다(`server._extract_call_dims`) — 다른 인자를 들고 나오는 자리가 없다.
     """
     import re
 
@@ -62,6 +68,16 @@ def test_usage_records_only_normalized_corp_codes_never_raw_arguments():
     # corp 계열은 **정규화된 코드 목록 하나만** 허용한다. 이름·원문이 붙은 변형은 막는다.
     assert {c for c in cols if "corp" in c} == {"corp_codes"}, \
         f"허용되지 않은 corp 계열 컬럼: {sorted(c for c in cols if 'corp' in c)}"
+
+    # 호출 인자에서 온 칸은 **닫힌 목록**이다(261018 결정). 늘리려면 이 줄을 고치면서 이유를 남긴다.
+    import inspect
+
+    from open_proxy_mcp import server
+    allowed_args = {"scope", "as_of"}
+    extract = inspect.getsource(server._extract_call_dims)
+    taken = set(re.findall(r'args\.get\("(\w+)"\)', extract))
+    assert taken == allowed_args, f"미들웨어가 꺼내는 인자가 닫힌 목록과 다르다: {sorted(taken)}"
+    assert allowed_args <= cols, "열기로 한 인자 칸이 기록 칸 목록에 없다"
 
     # 집계 쪽도 코드만 받는다 — 이름·해시가 붙으면 뗀 의미가 없다.
     agg = re.search(r"INSERT INTO ops_corp_daily\((.*?)\)", src, re.S)

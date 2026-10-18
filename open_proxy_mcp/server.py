@@ -440,6 +440,21 @@ def _extract_tool(body: bytes):
         return None, False
 
 
+def _extract_call_dims(body: bytes):
+    """tools/call 본문의 인자 중 **`scope`·`as_of` 두 개만** 꺼낸다 → (scope, as_of), 보낸 그대로(261018 T8).
+
+    정규화·거르기는 저장 경계(`usage._call_dims`)가 한다 — 여기서는 다른 인자(회사명·질의 원문)를 **들고 나오지 않는** 것만 지킨다.
+    본문이 잘렸거나(`_MAX_SNIFF_BYTES`) 깨졌으면 (None, None)."""
+    try:
+        import json
+        args = (json.loads(body).get("params") or {}).get("arguments")
+        if not isinstance(args, dict):
+            return None, None
+        return args.get("scope"), args.get("as_of")
+    except Exception:
+        return None, None
+
+
 #: 응답 본문에서 「이 호출이 실패했나」를 읽는 패턴. **테스트는 이 상수를 import 해서
 #: 실제 wire 바이트와 대조한다** — 테스트가 리터럴을 복사해 가지면, 서버가 눈이 먼 뒤에도
 #: 테스트는 영원히 통과한다(매칭이 0건인 것과 「오류가 없었다」는 구분되지 않는다).
@@ -622,6 +637,7 @@ class ApiKeyMiddleware:
                 else:
                     more = False
             tool, is_call = _extract_tool(body)
+            call_scope, call_as_of = _extract_call_dims(body) if is_call else (None, None)
 
             # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
             # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
@@ -746,7 +762,9 @@ class ApiKeyMiddleware:
                                      #   **줄에 서 있던 것**이 같은 숫자로 보였다.
                                      inflight=ledger.get("inflight_max") or None,
                                      cpu_ms=int((_t.process_time() - cpu0) * 1000),
-                                     lag_ms=int(loop_lag_ms() - lag0))
+                                     lag_ms=int(loop_lag_ms() - lag0),
+                                     # 261018 T8: 인자 둘만, 보낸 그대로 — 거르는 건 usage._call_dims.
+                                     scope=call_scope, as_of=call_as_of)
                 await send(message)
             try:
                 await self.app(scope, replay, send_wrapper)
@@ -878,7 +896,41 @@ def main():
     if hasattr(signal, "SIGUSR1"):
         faulthandler.register(signal.SIGUSR1, all_threads=True, chain=False)
     _install_tool_log()
-    uvicorn.run(app, host=bind_host(), port=bind_port())
+    _serve(app, host=bind_host(), port=bind_port())
+
+
+def _serve(app, host: str, port: int) -> None:
+    """`uvicorn.run(app, host=, port=)` 와 같은 일 — 서버 클래스만 종료 신호를 아는 것으로 바꾼다(261018 T7).
+    시작에 실패하면 종료 코드 3(uvicorn 의 STARTUP_FAILURE)으로 끝내는 것까지 같다."""
+    import uvicorn
+    srv = _shutdown_aware_server_class()(uvicorn.Config(app, host=host, port=port))
+    try:
+        srv.run()
+    except KeyboardInterrupt:
+        pass
+    if not srv.started:
+        sys.exit(3)
+
+
+def _shutdown_aware_server_class():
+    """uvicorn 서버 + 종료 신호를 받는 **순간** 사용 기록기가 모으던 묶음을 쓰게 하는 한 줄(261018 T7).
+
+    기록은 5초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
+    요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(kill_timeout, 기본 5초) 뒤
+    강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
+    `usage.begin_shutdown()` 은 비차단이다(깃발 + 큐 깨우기) — 신호 처리기 안에서 불러도 된다."""
+    import uvicorn
+
+    class _Server(uvicorn.Server):
+        def handle_exit(self, sig, frame):
+            try:
+                from open_proxy_mcp import usage
+                usage.begin_shutdown()
+            except Exception:             # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
+                pass
+            super().handle_exit(sig, frame)
+
+    return _Server
 
 
 if __name__ == "__main__":

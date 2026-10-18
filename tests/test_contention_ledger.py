@@ -99,18 +99,26 @@ def test_columns_are_in_the_single_source_of_truth():
 
 def test_sqlite_migration_covers_every_event_column():
     """이름 기반 ALTER 는 빠뜨리면 에러가 나서 보이지만, **빠뜨린 채 배포되면**
-    그 컬럼만 조용히 안 쌓인다. 목록 둘을 여기서 대조한다."""
+    그 컬럼만 조용히 안 쌓인다. 목록 둘을 여기서 대조한다.
+
+    261018: Postgres 쪽은 서버가 아니라 `scripts/ops_ddl.py` 가 맞춘다(재설계 T7) — 대조 상대를 그 스크립트로 옮겼다."""
+    import importlib.util
     import inspect
+    from pathlib import Path
 
     from open_proxy_mcp import usage
     lite = inspect.getsource(usage._sqlite_connect)
-    pg = inspect.getsource(usage._pg_connect)
+    spec = importlib.util.spec_from_file_location(
+        "ops_ddl", Path(__file__).resolve().parents[1] / "scripts" / "ops_ddl.py")
+    ops_ddl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ops_ddl)
+    pg = ops_ddl.STATEMENTS
     fixed = {"event_id", "ts_ns", "key_hash", "status"}   # CREATE TABLE 본문에 있는 것
     for col in usage._EVENT_COLUMNS:
         if col in fixed:
             continue
         assert f'"{col} ' in lite, f"sqlite 마이그레이션에 {col} 이 없다"
-        assert f"IF NOT EXISTS {col} " in pg, f"PG 마이그레이션에 {col} 이 없다"
+        assert f"IF NOT EXISTS {col} " in pg, f"PG DDL(scripts/ops_ddl.py)에 {col} 이 없다"
 
 
 def test_middleware_passes_both_numbers():

@@ -359,17 +359,25 @@ def test_dead_column_doc_cache_hit_stays_dead():
     안 쓰는 컬럼을 남기는 비용은 용량이 아니라 **오해**다.
 
     되살리려면 그건 결정이어야 한다 — 그때는 이 테스트를 지우면서 이유를 남겨야 한다.
+
+    261018: Postgres 스키마는 서버가 아니라 `scripts/ops_ddl.py` 가 맞춘다(재설계 T7) — PG 쪽 검사를 그 스크립트로 옮겼다.
     """
     from pathlib import Path
 
-    src = Path(__file__).resolve().parent.parent / "open_proxy_mcp" / "usage.py"
-    text = src.read_text(encoding="utf-8")
-    code = "\n".join(l for l in text.splitlines() if not l.lstrip().startswith("#"))
+    root = Path(__file__).resolve().parent.parent
 
-    assert "ADD COLUMN IF NOT EXISTS doc_cache_hit" not in code, \
+    def _code(rel: str) -> str:
+        text = (root / rel).read_text(encoding="utf-8")
+        return "\n".join(l for l in text.splitlines()
+                         if not l.lstrip().startswith(("#", "--")))
+
+    code = _code("open_proxy_mcp/usage.py")
+    ddl = _code("scripts/ops_ddl.py")
+
+    assert "ADD COLUMN IF NOT EXISTS doc_cache_hit" not in code + ddl, \
         "Postgres 스키마가 죽은 컬럼을 다시 만든다"
-    assert "DROP COLUMN IF EXISTS doc_cache_hit" in code, \
-        "이미 컬럼이 있는 운영 DB 에서 지우는 경로가 사라졌다"
+    assert "DROP COLUMN IF EXISTS doc_cache_hit" in ddl, \
+        "이미 컬럼이 있는 DB 에서 지우는 경로가 사라졌다(scripts/ops_ddl.py)"
     assert '"doc_cache_hit INTEGER"' not in code, \
         "sqlite 마이그레이션 목록에 죽은 컬럼이 남아 있다"
 
