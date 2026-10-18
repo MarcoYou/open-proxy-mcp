@@ -344,15 +344,23 @@ async def build_shareholder_commitment_payload(
     )
 
     warnings: list[str] = []
+    #: 「조회 실패」로 끝난 상류(예외 또는 status=error). 261018: 종전엔 상류가 전부 DART 오류로 실패해도 이 도구는
+    #: exact 였다 — 상류 경고만 옮기고 상태값은 「성공」이었다. 일부 실패면 partial, 전부 실패면 error.
+    failed_upstreams: list[str] = []
+    upstream_names: list[str] = []
 
     def _data(res, name: str) -> dict[str, Any]:
         """upstream 예외뿐 아니라 **upstream 자체 warnings도 그대로 전파**한다(260707 발견 —
         value_up 호출 시 조회 구간을 안 넘겨 실제로는 있는 밸류업 계획을 '없음'으로 오판했는데,
         원인은 upstream이 낸 경고를 조용히 버렸기 때문. 이 패턴은 다른 upstream 조합에서도
         반복될 수 있는 일반적 위험이라, 예외/정상 무관하게 upstream warnings를 항상 끌어올린다)."""
+        upstream_names.append(name)
         if isinstance(res, BaseException):
             warnings.append(f"{name} 조회 실패: {res}")
+            failed_upstreams.append(name)
             return {}
+        if res.get("status") == "error":
+            failed_upstreams.append(name)
         for w in (res.get("warnings") or []):
             warnings.append(f"[{name}] {w}")
         return res.get("data") or {}
@@ -438,9 +446,15 @@ async def build_shareholder_commitment_payload(
         "usage": build_usage(get_dart_client().api_call_snapshot() - calls_start),
     }
 
+    if not failed_upstreams:
+        status = AnalysisStatus.EXACT
+    elif len(set(failed_upstreams)) >= len(set(upstream_names)):
+        status = AnalysisStatus.ERROR
+    else:
+        status = AnalysisStatus.PARTIAL
     return ToolEnvelope(
         tool="shareholder_commitment",
-        status=AnalysisStatus.EXACT,
+        status=status,
         subject=canonical_name,
         data=data,
         warnings=warnings,

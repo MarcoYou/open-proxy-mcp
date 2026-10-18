@@ -818,8 +818,12 @@ async def _fetch_decisions(
     end_de: str,
     *,
     timings_ms: dict[str, int] | None = None,
-) -> tuple[dict[str, list[dict]], list[str]]:
-    """취득·처분·신탁체결·신탁해지 4개 API 병렬 호출 + 소각결정 list.json 검색."""
+) -> tuple[dict[str, list[dict]], list[str], bool]:
+    """취득·처분·신탁체결·신탁해지 4개 API 병렬 호출 + 소각결정 list.json 검색.
+
+    세 번째 값 = 조회 실패 여부 — 013(공시 없음 — 정상)이 아닌 DART 오류로 하나라도 못 읽었나. 0건인데 이게 True 면
+    「자사주 이벤트 공시 없음 (정상)」이 아니라 「모른다」다(261018).
+    """
 
     client = get_dart_client()
 
@@ -964,7 +968,7 @@ async def _fetch_decisions(
         "disposal_result": dsp_res_rows,
         "trust_acquisition_status": trust_acq_status_rows,
         "trust_termination_result": trust_term_res_rows,
-    }, warnings
+    }, warnings, (any((w1, w2, w3, w4)) or title_items is None)
 
 
 _DECISION_KEYS = ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation")
@@ -1440,7 +1444,7 @@ async def build_treasury_share_payload(
     warnings: list[str] = list(window_warnings)
 
     stage_started_at = time.perf_counter()
-    bundles, fetch_warnings = await _fetch_decisions(
+    bundles, fetch_warnings, lookup_failed = await _fetch_decisions(
         selected["corp_code"],
         bgn_de,
         end_de,
@@ -1462,6 +1466,7 @@ async def build_treasury_share_payload(
     filing_meta = build_filing_meta(
         filing_count=len(events),
         parsing_failures=0,
+        fetch_failed=lookup_failed,      # 조회 실패 + 0건 → status=error (「없음 (정상)」 아님, 261018)
     )
 
     data: dict[str, Any] = {

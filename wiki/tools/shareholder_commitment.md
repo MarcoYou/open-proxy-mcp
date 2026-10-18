@@ -7,7 +7,7 @@ data_source: [value_up(계획), corp_gov_report(준수변화), dividend_disclosu
 related_disclosures: [기업가치제고계획, 기업지배구조보고서, 현금배당결정, 자기주식결정]
 related_concepts: [자사주, 주주환원]
 created: 2026-07-07
-updated: 2026-08-25
+updated: 2026-10-18
 ---
 
 # shareholder_commitment
@@ -164,6 +164,7 @@ CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이
 
 ## 변경 이력
 
+- 2026-10-18: 상류(value_up·corp_gov_report·dividend_disclosure·treasury_share) 가운데 조회 실패(`status=error` 또는 예외)가 있으면 `status=partial`, 전부 실패면 `error` — 종전엔 상류가 모두 DART 오류로 실패해도 `exact` 였다(상류 경고만 옮겼다).
 - 2026-09-07: 배당수익률 주석의 테이블 이름 `krx_weekly` → 「KRX 연말 종가」.
 
 ## 관련

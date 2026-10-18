@@ -8,7 +8,7 @@ related_disclosures: [기업지배구조보고서]
 related_concepts: [집중투표, 감사위원-의결권-제한, 의결권, 정관변경, 보수한도]
 related_decisions: [BeautifulSoup-파서-선택, XML-vs-PDF]
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-10-18
 ---
 
 # corp_gov_report
@@ -222,6 +222,7 @@ sequenceDiagram
 - 금융회사 PDF 본문 파싱 (OEK PDF parser fallback 검토, TODO).
 
 ## 변경 이력
+- 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. 「KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상 NO_FILING)」 → 「… (정상)」, 검색이 실패했으면 이 문장(과 「원문을 찾지 못함」)을 붙이지 않는다.
 - 2026-08-06: `scope=flags` 신설 — 본문 세부 준수 플래그 78개(72개는 15지표에 없는 사실).
   키는 개념 코드가 아니라 **(개념, 문서 내 순번)** 이고, 답 옆 라벨(「시행 여부」)이 아니라
   서식이 물은 `(N) …` 질문문을 라벨로 쓴다. 자세한 것은 [[기업지배구조보고서]] 「본문 세부 준수

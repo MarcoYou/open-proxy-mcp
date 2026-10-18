@@ -464,7 +464,7 @@ def _render(payload: dict[str, Any]) -> str:
     if not timeline:
         if data.get("no_filing"):
             lines.append("## 공시 없음")
-            lines.append("- 조사 구간 내 희석성 증권 발행 사건 없음 (정상 NO_FILING).")
+            lines.append("- 조사 구간 내 희석성 증권 발행 사건 없음 (정상).")
         else:
             lines.append("조사 구간 내 희석성 증권 발행 사건 없음.")
         return "\n".join(lines)

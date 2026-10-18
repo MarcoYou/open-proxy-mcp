@@ -17,6 +17,15 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 - 결의는 정정이 잦아(주총의 절반 가까이) **정정 이력**을 판마다 함께 줍니다 — 정정사유와 바뀐 칸(전 → 후). 정정이 다른 주총을 가리키거나, 본표 없는 정정판이 일시를 지운 경우 경고합니다.
 - `screener` 의 주총 소집결의 카드도 이 경로로 엽니다 — 안건이 0건이거나 임시주총이 정기로 표시되던 것을 고쳤습니다. 안건이 아직 없으면 「안건 미정」.
 
+### 「자료 없음」은 답, 「조회 실패」는 실패 — 응답 문구와 상태값을 바로잡았습니다
+
+- DART 가 「조회된 데이터 없음」으로 답한 것을 실패로 적던 자리를 정보 문구로 바꿨습니다. 예) 합병·상장폐지된 회사의 `company` 「최근 공시 인덱스 조회 실패: 013」 → 「조회 구간(…)에 DART 공시가 없습니다 — 조회는 정상이며 그 기간 공시가 0건입니다.」, `dividend_disclosure` 의 「alotMatter 조회 실패: 013」은 더 싣지 않습니다(그 해 사업보고서가 없다는 뜻이라 기존 안내가 설명합니다).
+- 반대로 DART 한도 초과·점검·전송 오류로 목록을 **못 읽었는데** 「… 공시 없음 (정상)」·「무배당으로 본다 (정상)」·`no_filing` 으로 답하던 것을 고쳤습니다. 이제 `status=error`(받은 다른 자료가 있는 `proxy_contest`·`shareholder_commitment` 는 `partial`)와 `filing_status=fetch_failed` 로 「모른다」를 밝힙니다 — `dividend_disclosure`·`corporate_deals`·`corporate_restructuring`·`dilutive_issuance`·`treasury_share`·`order_contracts`·`corp_gov_report`·`risk_events`·`financial_metrics`·`company`(최근 공시). `order_contracts` 가 수주 공시를 찾고도 본문을 못 받았을 때도 `no_filing` 이 아니라 `partial` 입니다.
+- `proxy_contest` 지분 명부: 기준 사업보고서가 아직 없으면(매년 1~3월 제출 전·합병·상장폐지) 한 해 앞 사업보고서로 채우고 어느 해 것인지 밝힙니다. 지금까지는 「지분 명부 API 조회 실패」로 지분 맥락이 비었습니다.
+- `provisional_earnings`: 잠정실적 공시가 없는 회사가 「공시 검색 실패」(`error`)로 나가던 것 → `no_filing`. `risk_events` 시장 전체 스캔: 한 채널만 비어도(주말·공휴일 하루 등) 전체가 실패하던 것 → 빈 채널만 빼고 나머지를 보여 줍니다.
+- `financial_notes` 의 상태값이 대문자 `OK`·`NO_DATA` 이던 것을 다른 도구와 같은 `exact`·`partial`·`no_filing`·`error` 로 맞췄고, 보고서가 없을 때도 상태값이 있는 응답을 줍니다(보고서 검색 자체가 DART 오류로 실패하면 `no_filing` 이 아니라 `error`). md 의 필드 상태도 「NOT_APPLICABLE」 대신 「해당 주석 없음」처럼 적습니다.
+- `financial_metrics`: 재무 공시가 없는 해의 「reprt_code=11013 no_filing」 문장과 「⚠ 일부 공시를 읽지 못했습니다」 줄을 걷어냈습니다. 정상 데이터의 값은 바뀌지 않습니다.
+
 ### 정정 공시 카드에 「무엇이 바뀌었나」가 붙습니다 — `screener`
 
 - `screener(details=true)` 의 정정 카드가 그 공시에 회사가 붙인 **정정항목·정정전·정정후 표**를 칸 글 그대로 싣습니다. 정정사유·정정 대상 서류·최초 제출일과 함께, 칸마다 바뀜·추가·삭제를 표시합니다.

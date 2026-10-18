@@ -166,7 +166,11 @@ def _render_exact(payload: dict[str, Any]) -> str:
             f"| {item.get('disclosure_date', '')} | {_filing_type_label(item.get('filing_type', ''), english)} | "
             f"{item.get('report_name', '')} | {item.get('filer_name', '')} | `{item.get('rcept_no', '')}` |"
         )
-    if not filings:
+    if not filings and data.get("filing_status") == "fetch_failed":
+        # 목록 조회가 실패했으면 0건은 「없다」가 아니라 「모른다」다 — 「최근 공시 없음」으로 적지 않는다(261018).
+        lines.append("| - | - | Lookup failed — unknown whether there were filings (see Notes) | - | - |" if english
+                     else "| - | - | 조회 실패 — 공시 유무 미확인(유의사항 참조) | - | - |")
+    elif not filings:
         lines.append("| - | - | No recent filings | - | - |" if english else "| - | - | 최근 공시 없음 | - | - |")
     return "\n".join(lines)
 

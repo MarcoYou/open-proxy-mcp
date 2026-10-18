@@ -22,7 +22,9 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
                                              company_ambiguous_warning,
                                              company_not_found_warning,
                                              resolve_company_query)
+from open_proxy_mcp.dart.client import DartClientError
 from open_proxy_mcp.services.contracts import AnalysisStatus, ToolEnvelope
+from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.segment_candidates import _table_to_grid
 from open_proxy_mcp.services.fiscal_period import period_from_quarter_text, period_metadata
 from open_proxy_mcp.services.revenue_account import match_revenue_label
@@ -332,13 +334,22 @@ def _is_attachment_only_correction(report_nm: str) -> bool:
 
 
 async def _find_provisional_candidates(client, corp_code: str, bgn_de: str, end_de: str) -> list[dict]:
-    """창 안의 실적공시를 최신순으로 — `[첨부정정]` 은 뒤로 보낸다(본문이 없어 읽을 수 없으므로 마지막 수단)."""
-    results = await asyncio.gather(
-        client.search_filings(bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
-                              pblntf_ty="I", pblntf_detail_ty="I002", page_count=40),
-        client.search_filings(bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
-                              pblntf_ty="I", pblntf_detail_ty="I001", page_count=40),
-    )
+    """창 안의 실적공시를 최신순으로 — `[첨부정정]` 은 뒤로 보낸다(본문이 없어 읽을 수 없으므로 마지막 수단).
+
+    DART 013(그 창·유형에 공시 없음)은 **빈 목록**이다 — 실패가 아니다(261018). 종전엔 두 검색 중 하나만 013 이어도
+    예외가 통째로 올라가 다른 쪽에서 찾은 공시까지 버리고 「공시 검색 실패(DART 013)」(status=error)로 끝났다.
+    그 밖의 오류(020 한도·800 점검 등)는 그대로 올린다 — 호출부가 실패로 적는다.
+    """
+    async def _search(detail_ty: str) -> dict:
+        try:
+            return await client.search_filings(bgn_de=bgn_de, end_de=end_de, corp_code=corp_code,
+                                               pblntf_ty="I", pblntf_detail_ty=detail_ty, page_count=40)
+        except DartClientError as exc:
+            if is_no_data(exc):
+                return {"list": []}
+            raise
+
+    results = await asyncio.gather(_search("I002"), _search("I001"))
     cands = []
     for r in results:
         for item in (r.get("list") or []):
