@@ -11,11 +11,14 @@ PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년
 부풀림)가 실제로 있다. 원본 하나만 보고는 못 잡지만(두 DART 엔드포인트가 같은 버그를 공유),
 **다음 해 보고서의 전기(frmtrm_amount) 비교치는 회사가 재작성하면서 정상화**돼 있다(실측 확인:
 소프트센 FY2022 매출 73,373,050,121,000,000 → FY2023 보고서 전기란엔 73,373,050,121로 정정).
-그래서 매 연도 fy를 가져올 때 **다음 해(fy+1) 보고서의 전기 비교치도 함께 수집**해 `ni_restated`/
-`eq_restated`에 저장하고, series() 계산 시 **restated가 있으면 그걸 우선** 사용한다.
+그래서 **다음 해 보고서의 전기·전전기 비교치**를 `ni_restated`/`eq_restated`에 저장하고(`--backfill-restated` — 정기
+`--fetch` 는 그해 칸만 받는다. 261019 정정: 종전 문구는 fetch 가 함께 받는다고 적었으나 코드는 그런 적이 없다), 읽는 쪽은
+**restated가 있으면 그걸 우선** 사용한다. 원 보고서가 API 에 없는 해(금융업의 XBRL 이전 사업보고서 등)도 이 길로 채운다.
 
 실행: python3 scripts/market_val_series.py --fetch   # 과거 FY 배치(재개 가능, ~100분)
       python3 scripts/market_val_series.py --series  # 분기 시계열 산출
+      python3 scripts/market_val_series.py --backfill-restated [--tickers 001720 --report-year 2024]
+          # 그 해 사업보고서의 전기·전전기 칸 → (해-1)·(해-2) 재작성치. --tickers 를 주면 「이미 처리됨」 판정 없이 그 종목만(261019)
 """
 import argparse, asyncio, os, sys
 from pathlib import Path
@@ -194,35 +197,49 @@ async def fetch(tickers: list[str] | None = None):
     print("fetch 종료",flush=True)
 
 
-async def backfill_restated():
-    """이미 수집된 firms에 대해 **fy=2024 딱 1콜만** 재조회 — fnlttSinglAcntAll이 thstrm(2024)·
+async def backfill_restated(tickers: list[str] | None = None, report_year: int = 2024):
+    """이미 수집된 firms에 대해 **fy=report_year(기본 2024) 딱 1콜만** 재조회 — fnlttSinglAcntAll이 thstrm(2024)·
     frmtrm(2023)·bfefrmtrm(2022)을 한 응답에 다 주므로, 5년 재조회 없이 종목당 1콜로 2022~2024
-    3개년 재작성치를 확보(소프트센 032680 실측으로 bfefrmtrm 제공 확인, 260704)."""
+    3개년 재작성치를 확보(소프트센 032680 실측으로 bfefrmtrm 제공 확인, 260704).
+
+    261019: `tickers` 를 주면 그 종목만, 「이미 처리됨」 판정 없이 받는다 — 종전 판정은 두 해 중 **하나라도** 재작성치가 있으면 처리됐다고
+    봐서, 한 해만 채워진 종목(10-19 운영 신영증권 001720 — 2022 칸만 있고 2023 칸이 빔. 원 사업보고서(2023.03)는 API 에 없다)을 다시
+    보지 않았다. `report_year` 로 다른 해 보고서의 비교치도 받는다(DART 표기 — 결산월과 무관하게 전기 = 표기 −1, 전전기 = −2)."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError
     con=_pg()
     firms=[r for r in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' ORDER BY ticker")]
-    fs_map={r[0]:r[1] for r in con.execute("SELECT ticker, fs FROM dart_finstat_y WHERE fy=2024")}
-    # 이 함수는 fy=2024 보고서를 조회해 fy=2023·2022 행에 재작성치를 쓴다(fy=2024 자체엔 안 씀).
-    # 따라서 완료 판정은 2023/2022 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다.
-    done={r[0] for r in con.execute(
-        "SELECT ticker FROM dart_finstat_y WHERE fy IN (2022,2023) "
-        "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)")}
+    fs_map={r[0]:r[1] for r in con.execute("SELECT ticker, fs FROM dart_finstat_y WHERE fy=%s", (report_year,))}
+    # 이 함수는 fy=report_year 보고서를 조회해 그 앞 두 해 행에 재작성치를 쓴다(report_year 자체엔 안 씀).
+    # 따라서 완료 판정은 두 해 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다(tickers 를 주면 판정하지 않는다).
+    done=set() if tickers else {r[0] for r in con.execute(
+        "SELECT ticker FROM dart_finstat_y WHERE fy IN (%s,%s) "
+        "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (report_year-2, report_year-1))}
+    fye_of=rcal.load_fye_map(con)
     con.close()
+    if tickers:
+        firms=[r for r in firms if r[0] in set(tickers)]
     todo=[(i,c) for i,c in firms if i not in done]
-    print(f"대상 {len(firms)}사 · 남은 {len(todo)}건 (종목당 1콜, fy=2024)",flush=True)
+    print(f"대상 {len(firms)}사 · 남은 {len(todo)}건 (종목당 1콜, fy={report_year})",flush=True)
     c=get_dart_client(); k=0
     restate_buf=[]
     for isu,cc in todo:
         k+=1
         try:
             fs=fs_map.get(isu,"CFS")
-            d=await c.get_fnltt_singl_acnt_all(cc,"2024","11011",fs)
+            d=await c.get_fnltt_singl_acnt_all(cc,str(report_year),"11011",fs)
             rows=(d.get("list") or []) if isinstance(d,dict) else []
             await asyncio.sleep(0.45)
             attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
-            for fy_off,field in ((2023,"frmtrm_amount"),(2022,"bfefrmtrm_amount")):
+            stmt_cur=statement_currency(rows) if rows else "KRW"
+            for fy_off,field in ((report_year-1,"frmtrm_amount"),(report_year-2,"bfefrmtrm_amount")):
                 ni_r=gid(rows,attr,("CIS","IS"),field) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"),field)
                 eq_r=gid(rows,eqa,("BS",),field) or gid(rows,"ifrs-full_Equity",("BS",),field)
+                if stmt_cur!="KRW" and (ni_r is not None or eq_r is not None):
+                    # 261019: 저장은 항상 원화(fetch 와 같은 규칙 — 그 해 결산월 말일 환율). 환율을 못 구하면 그 해는 쓰지 않는다.
+                    rate=await fx_to_krw(stmt_cur, fiscal_year_end_date(fy_off, fye_of.get(isu, 12)))
+                    if rate is None:
+                        continue
+                    ni_r, eq_r = (v*rate if v is not None else None for v in (ni_r, eq_r))
                 if ni_r is not None or eq_r is not None:
                     restate_buf.append((isu,fy_off,fs,None,None,ni_r,eq_r,"restate_only"))
             if len(restate_buf)>=25: _flush(restate_buf)
@@ -304,10 +321,11 @@ if __name__=="__main__":
     ap=argparse.ArgumentParser()
     ap.add_argument("--fetch",action="store_true")
     ap.add_argument("--backfill-restated",action="store_true",
-                    help="종목당 1콜(fy=2024)로 2022~2024 재작성치만 백필")
+                    help="종목당 1콜(fy=--report-year, 기본 2024)로 그 앞 두 해 재작성치만 백필")
+    ap.add_argument("--report-year",type=int,default=2024,help="--backfill-restated 가 읽을 사업보고서 표기 연도")
     ap.add_argument("--series",action="store_true")
-    ap.add_argument("--tickers",type=str,help="--fetch 를 이 종목만(콤마구분)")
+    ap.add_argument("--tickers",type=str,help="--fetch·--backfill-restated 를 이 종목만(콤마구분)")
     a=ap.parse_args()
     if a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
-    elif a.backfill_restated: asyncio.run(backfill_restated())
+    elif a.backfill_restated: asyncio.run(backfill_restated(a.tickers.split(",") if a.tickers else None, a.report_year))
     else: series()
