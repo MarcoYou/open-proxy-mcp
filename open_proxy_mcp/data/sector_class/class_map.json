@@ -1,11 +1,11 @@
 {
   "meta": {
-    "requestedDate": "20260828",
-    "asOf": "2026-08-28",
+    "requestedDate": "20261016",
+    "asOf": "2026-10-16",
     "sectorCount": 10,
     "industryCount": 28,
-    "tickerCount": 2477,
-    "refreshedAt": "2026-09-01T07:55:45+00:00",
+    "tickerCount": 2456,
+    "refreshedAt": "2026-10-18T07:16:38+00:00",
     "source": "external"
   },
   "data": {
@@ -14,12 +14,6 @@
       "sector": "건강관리",
       "industryCode": "G3520",
       "industry": "제약과생물공학"
-    },
-    "000040": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2510",
-      "industry": "자동차와부품"
     },
     "000050": {
       "sectorCode": "G25",
@@ -327,12 +321,6 @@
       "industryCode": "G3520",
       "industry": "제약과생물공학"
     },
-    "001000": {
-      "sectorCode": "G40",
-      "sector": "금융",
-      "industryCode": "G4050",
-      "industry": "부동산"
-    },
     "001020": {
       "sectorCode": "G15",
       "sector": "소재",
@@ -368,6 +356,12 @@
       "sector": "소재",
       "industryCode": "G1510",
       "industry": "소재"
+    },
+    "0010S0": {
+      "sectorCode": "G30",
+      "sector": "필수소비재",
+      "industryCode": "G3030",
+      "industry": "가정용품과개인용품"
     },
     "0010V0": {
       "sectorCode": "G35",
@@ -452,12 +446,6 @@
       "sector": "건강관리",
       "industryCode": "G3520",
       "industry": "제약과생물공학"
-    },
-    "001380": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2510",
-      "industry": "자동차와부품"
     },
     "001390": {
       "sectorCode": "G25",
@@ -644,12 +632,6 @@
       "sector": "산업재",
       "industryCode": "G2010",
       "industry": "자본재"
-    },
-    "002070": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2520",
-      "industry": "내구소비재와의류"
     },
     "002100": {
       "sectorCode": "G15",
@@ -1053,6 +1035,12 @@
       "industryCode": "G2550",
       "industry": "소매(유통)"
     },
+    "0035S0": {
+      "sectorCode": "G45",
+      "sector": "IT",
+      "industryCode": "G4510",
+      "industry": "소프트웨어와서비스"
+    },
     "003610": {
       "sectorCode": "G25",
       "sector": "경기관련소비재",
@@ -1359,12 +1347,6 @@
       "industryCode": "G1510",
       "industry": "소재"
     },
-    "004870": {
-      "sectorCode": "G20",
-      "sector": "산업재",
-      "industryCode": "G2010",
-      "industry": "자본재"
-    },
     "004890": {
       "sectorCode": "G15",
       "sector": "소재",
@@ -1454,12 +1436,6 @@
       "sector": "필수소비재",
       "industryCode": "G3020",
       "industry": "식품,음료,담배"
-    },
-    "005360": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2520",
-      "industry": "내구소비재와의류"
     },
     "005380": {
       "sectorCode": "G25",
@@ -1635,12 +1611,6 @@
       "industryCode": "G3020",
       "industry": "식품,음료,담배"
     },
-    "006050": {
-      "sectorCode": "G20",
-      "sector": "산업재",
-      "industryCode": "G2010",
-      "industry": "자본재"
-    },
     "006060": {
       "sectorCode": "G25",
       "sector": "경기관련소비재",
@@ -1706,12 +1676,6 @@
       "sector": "경기관련소비재",
       "industryCode": "G2550",
       "industry": "소매(유통)"
-    },
-    "006380": {
-      "sectorCode": "G15",
-      "sector": "소재",
-      "industryCode": "G1510",
-      "industry": "소재"
     },
     "006400": {
       "sectorCode": "G45",
@@ -2457,12 +2421,6 @@
       "industryCode": "G4520",
       "industry": "기술하드웨어와장비"
     },
-    "011090": {
-      "sectorCode": "G20",
-      "sector": "산업재",
-      "industryCode": "G2010",
-      "industry": "자본재"
-    },
     "011150": {
       "sectorCode": "G30",
       "sector": "필수소비재",
@@ -2612,12 +2570,6 @@
       "sector": "소재",
       "industryCode": "G1510",
       "industry": "소재"
-    },
-    "012170": {
-      "sectorCode": "G50",
-      "sector": "커뮤니케이션서비스",
-      "industryCode": "G5020",
-      "industry": "미디어와엔터테인먼트"
     },
     "012200": {
       "sectorCode": "G25",
@@ -3027,6 +2979,12 @@
       "industryCode": "G1510",
       "industry": "소재"
     },
+    "0161M0": {
+      "sectorCode": "G45",
+      "sector": "IT",
+      "industryCode": "G4510",
+      "industry": "소프트웨어와서비스"
+    },
     "016250": {
       "sectorCode": "G20",
       "sector": "산업재",
@@ -3363,6 +3321,12 @@
       "industryCode": "G2510",
       "industry": "자동차와부품"
     },
+    "0197V0": {
+      "sectorCode": "G40",
+      "sector": "금융",
+      "industryCode": "G4030",
+      "industry": "다각화된금융"
+    },
     "019990": {
       "sectorCode": "G20",
       "sector": "산업재",
@@ -3374,6 +3338,12 @@
       "sector": "경기관련소비재",
       "industryCode": "G2520",
       "industry": "내구소비재와의류"
+    },
+    "0200G0": {
+      "sectorCode": "G40",
+      "sector": "금융",
+      "industryCode": "G4030",
+      "industry": "다각화된금융"
     },
     "020120": {
       "sectorCode": "G50",
@@ -3416,6 +3386,12 @@
       "sector": "IT",
       "industryCode": "G4540",
       "industry": "디스플레이"
+    },
+    "0209J0": {
+      "sectorCode": "G40",
+      "sector": "금융",
+      "industryCode": "G4030",
+      "industry": "다각화된금융"
     },
     "021040": {
       "sectorCode": "G15",
@@ -3861,12 +3837,6 @@
       "industryCode": "G3020",
       "industry": "식품,음료,담배"
     },
-    "027830": {
-      "sectorCode": "G40",
-      "sector": "금융",
-      "industryCode": "G4030",
-      "industry": "다각화된금융"
-    },
     "027970": {
       "sectorCode": "G15",
       "sector": "소재",
@@ -3968,12 +3938,6 @@
       "sector": "금융",
       "industryCode": "G4020",
       "industry": "증권"
-    },
-    "030720": {
-      "sectorCode": "G30",
-      "sector": "필수소비재",
-      "industryCode": "G3020",
-      "industry": "식품,음료,담배"
     },
     "030960": {
       "sectorCode": "G20",
@@ -4623,12 +4587,6 @@
       "industryCode": "G1510",
       "industry": "소재"
     },
-    "037400": {
-      "sectorCode": "G45",
-      "sector": "IT",
-      "industryCode": "G4540",
-      "industry": "디스플레이"
-    },
     "037440": {
       "sectorCode": "G20",
       "sector": "산업재",
@@ -5073,12 +5031,6 @@
       "industryCode": "G4535",
       "industry": "전자와 전기제품"
     },
-    "043340": {
-      "sectorCode": "G20",
-      "sector": "산업재",
-      "industryCode": "G2010",
-      "industry": "자본재"
-    },
     "043360": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -5288,12 +5240,6 @@
       "sector": "IT",
       "industryCode": "G4520",
       "industry": "기술하드웨어와장비"
-    },
-    "047400": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2510",
-      "industry": "자동차와부품"
     },
     "047560": {
       "sectorCode": "G45",
@@ -5823,12 +5769,6 @@
       "industryCode": "G2030",
       "industry": "운송"
     },
-    "054410": {
-      "sectorCode": "G15",
-      "sector": "소재",
-      "industryCode": "G1510",
-      "industry": "소재"
-    },
     "054450": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -5966,12 +5906,6 @@
       "sector": "소재",
       "industryCode": "G1510",
       "industry": "소재"
-    },
-    "058450": {
-      "sectorCode": "G50",
-      "sector": "커뮤니케이션서비스",
-      "industryCode": "G5020",
-      "industry": "미디어와엔터테인먼트"
     },
     "058470": {
       "sectorCode": "G45",
@@ -6392,12 +6326,6 @@
       "sector": "산업재",
       "industryCode": "G2030",
       "industry": "운송"
-    },
-    "065770": {
-      "sectorCode": "G45",
-      "sector": "IT",
-      "industryCode": "G4520",
-      "industry": "기술하드웨어와장비"
     },
     "065950": {
       "sectorCode": "G20",
@@ -7179,12 +7107,6 @@
       "industryCode": "G4530",
       "industry": "반도체와반도체장비"
     },
-    "082640": {
-      "sectorCode": "G40",
-      "sector": "금융",
-      "industryCode": "G4040",
-      "industry": "보험"
-    },
     "082740": {
       "sectorCode": "G20",
       "sector": "산업재",
@@ -7460,12 +7382,6 @@
       "sector": "건강관리",
       "industryCode": "G3520",
       "industry": "제약과생물공학"
-    },
-    "087260": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2510",
-      "industry": "자동차와부품"
     },
     "087600": {
       "sectorCode": "G45",
@@ -8199,12 +8115,6 @@
       "industryCode": "G1010",
       "industry": "에너지"
     },
-    "101000": {
-      "sectorCode": "G20",
-      "sector": "산업재",
-      "industryCode": "G2010",
-      "industry": "자본재"
-    },
     "101140": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -8258,12 +8168,6 @@
       "sector": "필수소비재",
       "industryCode": "G3020",
       "industry": "식품,음료,담배"
-    },
-    "101670": {
-      "sectorCode": "G45",
-      "sector": "IT",
-      "industryCode": "G4535",
-      "industry": "전자와 전기제품"
     },
     "101680": {
       "sectorCode": "G20",
@@ -9129,12 +9033,6 @@
       "industryCode": "G4510",
       "industry": "소프트웨어와서비스"
     },
-    "131760": {
-      "sectorCode": "G45",
-      "sector": "IT",
-      "industryCode": "G4540",
-      "industry": "디스플레이"
-    },
     "131970": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -9356,12 +9254,6 @@
       "sector": "건강관리",
       "industryCode": "G3510",
       "industry": "건강관리장비와서비스"
-    },
-    "142760": {
-      "sectorCode": "G35",
-      "sector": "건강관리",
-      "industryCode": "G3520",
-      "industry": "제약과생물공학"
     },
     "143160": {
       "sectorCode": "G45",
@@ -9807,6 +9699,12 @@
       "industryCode": "G3520",
       "industry": "제약과생물공학"
     },
+    "179880": {
+      "sectorCode": "G45",
+      "sector": "IT",
+      "industryCode": "G4530",
+      "industry": "반도체와반도체장비"
+    },
     "179900": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -10250,12 +10148,6 @@
       "sector": "커뮤니케이션서비스",
       "industryCode": "G5020",
       "industry": "미디어와엔터테인먼트"
-    },
-    "206400": {
-      "sectorCode": "G20",
-      "sector": "산업재",
-      "industryCode": "G2010",
-      "industry": "자본재"
     },
     "206560": {
       "sectorCode": "G50",
@@ -10713,6 +10605,12 @@
       "industryCode": "G3510",
       "industry": "건강관리장비와서비스"
     },
+    "226340": {
+      "sectorCode": "G25",
+      "sector": "경기관련소비재",
+      "industryCode": "G2520",
+      "industry": "내구소비재와의류"
+    },
     "226400": {
       "sectorCode": "G35",
       "sector": "건강관리",
@@ -11055,6 +10953,12 @@
       "industryCode": "G3010",
       "industry": "식품과기본식료품소매"
     },
+    "250030": {
+      "sectorCode": "G25",
+      "sector": "경기관련소비재",
+      "industryCode": "G2520",
+      "industry": "내구소비재와의류"
+    },
     "250060": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -11360,6 +11264,12 @@
       "sector": "경기관련소비재",
       "industryCode": "G2520",
       "industry": "내구소비재와의류"
+    },
+    "266690": {
+      "sectorCode": "G20",
+      "sector": "산업재",
+      "industryCode": "G2010",
+      "industry": "자본재"
     },
     "267250": {
       "sectorCode": "G20",
@@ -11961,12 +11871,6 @@
       "industryCode": "G3510",
       "industry": "건강관리장비와서비스"
     },
-    "303030": {
-      "sectorCode": "G45",
-      "sector": "IT",
-      "industryCode": "G4530",
-      "industry": "반도체와반도체장비"
-    },
     "303360": {
       "sectorCode": "G35",
       "sector": "건강관리",
@@ -12008,12 +11912,6 @@
       "sector": "건강관리",
       "industryCode": "G3510",
       "industry": "건강관리장비와서비스"
-    },
-    "306040": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2520",
-      "industry": "내구소비재와의류"
     },
     "306200": {
       "sectorCode": "G15",
@@ -12489,12 +12387,6 @@
       "industryCode": "G3520",
       "industry": "제약과생물공학"
     },
-    "335870": {
-      "sectorCode": "G25",
-      "sector": "경기관련소비재",
-      "industryCode": "G2520",
-      "industry": "내구소비재와의류"
-    },
     "336060": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -12566,12 +12458,6 @@
       "sector": "IT",
       "industryCode": "G4520",
       "industry": "기술하드웨어와장비"
-    },
-    "340440": {
-      "sectorCode": "G15",
-      "sector": "소재",
-      "industryCode": "G1510",
-      "industry": "소재"
     },
     "340450": {
       "sectorCode": "G35",
@@ -12776,12 +12662,6 @@
       "sector": "필수소비재",
       "industryCode": "G3020",
       "industry": "식품,음료,담배"
-    },
-    "354200": {
-      "sectorCode": "G35",
-      "sector": "건강관리",
-      "industryCode": "G3520",
-      "industry": "제약과생물공학"
     },
     "354320": {
       "sectorCode": "G25",
@@ -13023,6 +12903,12 @@
       "industryCode": "G4520",
       "industry": "기술하드웨어와장비"
     },
+    "368970": {
+      "sectorCode": "G30",
+      "sector": "필수소비재",
+      "industryCode": "G3020",
+      "industry": "식품,음료,담배"
+    },
     "369370": {
       "sectorCode": "G50",
       "sector": "커뮤니케이션서비스",
@@ -13143,12 +13029,6 @@
       "industryCode": "G4050",
       "industry": "부동산"
     },
-    "377220": {
-      "sectorCode": "G35",
-      "sector": "건강관리",
-      "industryCode": "G3510",
-      "industry": "건강관리장비와서비스"
-    },
     "377300": {
       "sectorCode": "G45",
       "sector": "IT",
@@ -13264,6 +13144,12 @@
       "industry": "제약과생물공학"
     },
     "384470": {
+      "sectorCode": "G35",
+      "sector": "건강관리",
+      "industryCode": "G3510",
+      "industry": "건강관리장비와서비스"
+    },
+    "386380": {
       "sectorCode": "G35",
       "sector": "건강관리",
       "industryCode": "G3510",
@@ -14319,12 +14205,6 @@
       "industryCode": "G4510",
       "industry": "소프트웨어와서비스"
     },
-    "465770": {
-      "sectorCode": "G20",
-      "sector": "산업재",
-      "industryCode": "G2030",
-      "industry": "운송"
-    },
     "466100": {
       "sectorCode": "G20",
       "sector": "산업재",
@@ -14349,6 +14229,12 @@
       "industryCode": "G3520",
       "industry": "제약과생물공학"
     },
+    "468670": {
+      "sectorCode": "G20",
+      "sector": "산업재",
+      "industryCode": "G2010",
+      "industry": "자본재"
+    },
     "468760": {
       "sectorCode": "G40",
       "sector": "금융",
@@ -14372,12 +14258,6 @@
       "sector": "IT",
       "industryCode": "G4535",
       "industry": "전자와 전기제품"
-    },
-    "469900": {
-      "sectorCode": "G40",
-      "sector": "금융",
-      "industryCode": "G4030",
-      "industry": "다각화된금융"
     },
     "471820": {
       "sectorCode": "G35",
@@ -14433,12 +14313,6 @@
       "industryCode": "G2010",
       "industry": "자본재"
     },
-    "474660": {
-      "sectorCode": "G40",
-      "sector": "금융",
-      "industryCode": "G4030",
-      "industry": "다각화된금융"
-    },
     "474930": {
       "sectorCode": "G40",
       "sector": "금융",
@@ -14462,12 +14336,6 @@
       "sector": "산업재",
       "industryCode": "G2010",
       "industry": "자본재"
-    },
-    "475240": {
-      "sectorCode": "G40",
-      "sector": "금융",
-      "industryCode": "G4030",
-      "industry": "다각화된금융"
     },
     "475250": {
       "sectorCode": "G40",
@@ -14708,6 +14576,12 @@
       "sector": "산업재",
       "industryCode": "G2010",
       "industry": "자본재"
+    },
+    "486510": {
+      "sectorCode": "G45",
+      "sector": "IT",
+      "industryCode": "G4530",
+      "industry": "반도체와반도체장비"
     },
     "486630": {
       "sectorCode": "G40",
