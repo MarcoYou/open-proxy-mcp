@@ -174,6 +174,8 @@ def build_mcp() -> MCPServer:
             # 메모리 층에는 만료가 없어서 fly 의 suspend/재개로 프로세스가 오래 살면 그만큼
             # 묵는다(sqlite TTL 7일은 메모리가 비었을 때만 걸린다). 신규 상장사를 「없다」고
             # 답하는 조용한 실패라, 먼저 **얼마나 묵는지 보이게** 한다.
+            # 261018: 회사 목록은 이제 하루 한 번 + 신호 때 새로 받는다(`services/corp_registry_refresher.py`).
+            #   신선도는 `fetched_at`·`fetched_age_hours`(DART 에서 받은 시각)로 보고, 갱신 상태는 `refresh` 에 있다.
             "registry": registry_stats(),
             # 풀이 실제로 서고 있나 · 대기가 쌓이나. 「빠르게 하려고 둔 것」이 조용히
             #   fail-open 으로 꺼져 있으면 숫자로만은 알 수 없어서 함께 낸다.
@@ -854,6 +856,10 @@ def build_app(server=None):
     # 잠금을 잡은 하나만). 서버가 뜰 때 띄우고 꺼질 때 멈춘다. `OPM_KRX_REFRESHER=0` 이면 안 띄운다.
     from open_proxy_mcp.services.krx_refresher import attach_to_app
     attach_to_app(app)
+    # 261018: 회사 명부(DART corpCode)도 서버 백그라운드에서 하루 한 번 + 신규상장 신호 때 새로 받는다(머신마다 자기 sqlite).
+    #   해석 실패 때 다시 받는 길은 요청 경로(`DartClient.lookup_corp_code_all`)에 있다. `OPM_CORP_REFRESHER=0` 이면 둘 다 끈다.
+    from open_proxy_mcp.services import corp_registry_refresher
+    corp_registry_refresher.attach_to_app(app)
     return app
 
 
