@@ -64,6 +64,78 @@ _DETAIL_BADGE = {
 }
 
 
+_AMEND_MD_ROWS = 3      # md 카드에 그리는 바뀐 칸 수 — 나머지는 개수만, 전체는 json `amendment.rows`
+_AMEND_MD_CELL = 60     # 칸 글자 상한 — 넘으면 `…` 를 붙인다(잘랐다는 표시를 남긴다)
+_AMEND_SIGN = {"added": "(추가)", "deleted": "(삭제)"}
+
+
+def _amend_cell(s: str) -> str:
+    v = " / ".join((s or "").split("\n")) or "-"
+    return v if len(v) <= _AMEND_MD_CELL else v[:_AMEND_MD_CELL] + "…"
+
+
+def _amend_lines(card: dict) -> list[str]:
+    """정정 카드의 「무엇이 바뀌었나」 — 회사가 붙인 비교표를 칸 글 그대로 옮긴다."""
+    a = card.get("amendment") or {}
+    if not a:
+        return []
+    st = a.get("status")
+    if st in ("skipped", "error"):
+        return [f"    - 정정 비교표 못 읽음 ({a.get('note', st)}) — 원문 링크로 확인"]
+    head = []
+    if a.get("reason"):
+        head.append(f"정정사유 「{_amend_cell(a['reason'])}」")
+    if a.get("original_filed_date") or a.get("original_filed"):
+        head.append(f"원공시 {a.get('original_filed_date') or a['original_filed']}")
+    rows = a.get("rows") or []
+    if st == "parsed":
+        head.append(f"바뀐 칸 {a.get('row_count', len(rows))}개")
+    out = [f"    - 🔁 {' · '.join(head)}"] if head else []
+    if st != "parsed":
+        out.append(f"    - _{a.get('note', '')}_")
+        return out
+    for r in rows[:_AMEND_MD_ROWS]:
+        sign = _AMEND_SIGN.get(r.get("change"), "")
+        name = " · ".join(x for x in (r.get("section"), r.get("item")) if x)
+        out.append(f"        - {_amend_cell(name)}: {_amend_cell(r.get('before'))} → "
+                   f"{_amend_cell(r.get('after'))} {sign}".rstrip())
+    more = a.get("row_count", len(rows)) - min(len(rows), _AMEND_MD_ROWS)
+    if more > 0:
+        out.append(f"        - 그 밖에 {more}칸 — 전체는 `format=\"json\"` 의 `amendment.rows`")
+    return out
+
+
+_GAP_METRIC_LABEL = (("revenue", "매출"), ("operating_profit", "영업이익"), ("net_income_controlling", "지배순이익"))
+_GAP_FOOTNOTE = ("📈 컨센서스 대비 = (잠정 − 예상) ÷ |예상|. 예상은 공시일 **전** 가장 최근 주간 컨센서스 스냅샷 — "
+                 "DART 공시가 아니다. 한쪽이 빈 지표·출처는 `provisional_earnings` 에 있다")
+
+
+def _gap_lines(card: dict) -> list[str]:
+    """실적 카드의 「컨센서스 대비」 한 줄(details=true). 계산은 `provisional_earnings` 가 했다 — 옮겨 적기만 한다.
+    맞대지 못한 카드(월간·커버리지 밖·이력 밖·장애·연결/별도 불일치)엔 줄을 붙이지 않는다(261018 결정)."""
+    if card["type"]["code"] != "earnings":
+        return []
+    f = card.get("detail_fields") or {}
+    g = f.get("consensus_gap") or {}
+    if not g:
+        return []
+    if g.get("status") == "ok":   # 카드에는 맞댄 것만 온다(`_card_gap`) — 그래도 한 번 더 본다
+        parts = []
+        for key, label in _GAP_METRIC_LABEL:
+            c = (g.get("metrics") or {}).get(key)
+            if not c:
+                continue
+            # 원값에서 한 번만 반올림 — 저장된 `gap_pct`(소수 둘째)를 다시 깎으면 −5.4478% 가 −5.5% 로 찍힌다
+            gap = (f"{c['diff_krw'] / abs(c['consensus_krw']) * 100:+.1f}%" if c.get("gap_pct") is not None
+                   else f"{_won(c.get('diff_krw'))} 차")
+            loss = "·적자 예상 대비" if c.get("gap_caveat") else ""
+            parts.append(f"{label} {gap}(예상 {_won(c.get('consensus_krw'))}{loss})")
+        if not parts:
+            return []
+        return [f"    - 컨센서스 대비 {' · '.join(parts)} — 공시 {g.get('lag_days')}일 전 {g.get('as_of')} 스냅샷"]
+    return []
+
+
 def _detail_line(card: dict) -> str | None:
     """유형별 핵심필드 한 줄(details=true일 때)."""
     f = card.get("detail_fields") or {}
@@ -108,9 +180,30 @@ def _detail_line(card: dict) -> str | None:
         titles = f.get("agenda_titles") or []
         if titles:
             head = "; ".join(titles[:3])
-            more = f" 외 {len(titles)-3}건" if len(titles) > 3 else ""
+            total = max(f.get("agenda_count") or 0, len(titles))   # titles 는 12건에서 잘린다 — 수는 원래 건수로
+            more = f" 외 {total-3}건" if total > 3 else ""
             return f"안건 {head}{more}"
+        if f.get("agenda_status") == "undetermined":
+            return "안건 미정(결의 단계 — 확정 시 정정 공시)"
         return f"안건 {f.get('agenda_count','?')}건" if f.get("agenda_count") else None
+    if tc == "control_change":
+        kind = f.get("control_kind")
+        if kind in ("change", "transfer_contract"):
+            arrow = "→" if kind == "change" else "→(예정)"
+            head = f"{f.get('holder_before') or '?'} {arrow} {f.get('holder_after') or '?'}" if f.get("holder_before") \
+                else f"{'변경후' if kind == 'change' else '변경예정'} {f.get('holder_after') or '?'}"
+            parts = [head + (f" {f['stake_after_pct']}%" if f.get("stake_after_pct") else "")]
+            if f.get("amount"):
+                parts.append(f"대금 {f['amount']}원")
+        elif kind == "pledge_contract":
+            parts = [f"담보 {f.get('pledgor') or '?'}"]
+            if f.get("stake_if_executed_pct"):
+                parts.append(f"실행시 지분 {f['stake_if_executed_pct']}%")
+        else:
+            parts = ["계약 해제·취소" + (f" — {f['reason'][:40]}" if f.get("reason") else "")]
+        if f.get("on"):
+            parts.append(f.get("on"))
+        return " · ".join(parts)
     if tc == "ownership5":
         parts = []
         if f.get("holder"):
@@ -125,6 +218,10 @@ def _detail_line(card: dict) -> str | None:
         if f.get("fiscal_year"):
             if f.get("period_kind") == "annual":
                 parts.append(f"{f['fiscal_year']} 사업연도 결산 잠정치")
+            elif f.get("period_kind") == "month" and f.get("period_month"):
+                # 한 달짜리 공시(월 매출·판매량)에 「3분기」를 붙이면 9월 실적이 분기 실적으로 읽힌다 —
+                # `provisional_earnings` md 와 같은 「9월(월간)」 꼴(261018).
+                parts.append(f"{f['fiscal_year']}년 {f['period_month']}월(월간)")
             elif f.get("fiscal_quarter"):
                 parts.append(f"{f['fiscal_year']} 사업연도 {f['fiscal_quarter']}분기")
         if f.get("period"):
@@ -223,6 +320,7 @@ def _render_digest(payload: dict[str, Any]) -> str:
         if h["type"]["code"] not in seen:
             seen.append(h["type"]["code"])
 
+    gap_any = False   # 컨센서스 대비 줄이 한 장이라도 있으면 각주를 한 번 단다
     for tc in seen:
         rows = by_type[tc]
         icon = _TYPE_ICON.get(tc, "•")
@@ -245,6 +343,10 @@ def _render_digest(payload: dict[str, Any]) -> str:
                 lines.append(f"    - {dl}{badge}")
             elif badge and h.get("detail_status") not in ("scan_only", "parsed"):
                 lines.append(f"    - _{title}_{badge}")
+            gap = _gap_lines(h)
+            gap_any = gap_any or bool(gap)
+            lines.extend(gap)
+            lines.extend(_amend_lines(h))
             # 링크
             dart = h.get("dart_url", "")
             link = f"    - [DART]({dart})" if dart else ""
@@ -269,6 +371,8 @@ def _render_digest(payload: dict[str, Any]) -> str:
         foot.append(f"정정본이 원본을 대체한 건 {counts['deduped_away']}건")
     if foot:
         lines.append("> " + " · ".join(foot))
+    if gap_any:
+        lines.append(f"> {_GAP_FOOTNOTE}")
     lines += _coverage_block(p)
     if p.get("warnings"):
         lines.append("")
@@ -411,7 +515,7 @@ def register_tools(mcp):
         types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `governance`(공개매수·위임장권유·최대주주변경·소송·자사주·5%보유·재편·주식양수도) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "공개매수", "위임장", "거버넌스", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(잠정실적: 회계연도·기간·매출·영업익),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10,tender_offer,proxy_solicitation.
         governance: 제목에서 발견한 공시는 조사 대상이며 부정 신호 판정이 아니다. hits의 corp_code/stock_code를 회사별 중복 제거해 최대 30개씩 governance_screen(companies=[...])으로 전달하고 원문을 읽어 평가한다. 공시 수와 회사 수를 구별하고 paging.has_more면 다음 페이지도 확인. 공개매수·위임장권유는 scan-only이며 서로 다른 제출자를 합치지 않는다. 이 호출은 예약 작업을 만들지 않는다.
         period: **사람 말로 받는다**(카드 보기·흐름 보기 같은 뜻, 오늘 기준) — 날: "오늘"/"어제"/"어제부터"/"그저께" · 달력: "이번 주"(월~오늘)/"지난주"(지난주 월~일)/"이번 달"/"지난달"(1일~말일)/"이번 분기"/"지난 분기"/"올해"/"작년" · 굴러가는 창: "최근 7일"(오늘 포함 7일)/"최근 2주"/"지난 한 달"/"최근 3개월"/"3일 전부터" · 절대: "8월"/"2026년 8월"/"3분기"/"2026년 2분기"/"상반기"/"2025년"/"2026-09-01"/"9월 1일"/"9/1" · 범위: "8월 1일부터 8월 20일까지"/"20260801~20260820"/"4월부터 8월 10일 사이" · 시작만: "9월 1일부터"(~오늘). 연도 없는 월·분기는 오늘 이전의 가장 최근 것. 시작 없는 "~까지"는 추측하지 않고 되묻는 안내를 단다. 또는 `start_date`/`end_date`(레포 공통 인자, YYYYMMDD — 2026.09.01 꼴도 받음). 옛 코드(today/yesterday/since_yesterday/last_7d/last_30d/custom+custom_start·custom_end)와 this_week·last_week·this_month·last_month·ytd 같은 코드도 받는다. 디폴트 since_yesterday. 카드 보기는 시장스캔 3개월 하드캡(넘으면 잘라서 밝히고 흐름 보기를 안내).
-        universe: **사람 말로 받는다** — "전체"(디폴트) / "코스피"·"코스닥"(시장 전체) / "코스피200" / "코스피 시총 상위 30"·"코스닥 상위 50"·"시총 상위 100"·"코스피 시가총액 상위 200개 기업"(숫자 뒤 개·종목·기업·회사·개사·곳 무관) / "삼성전자, SK하이닉스"(이름 나열, 자동 코드화). 나열에서 회사를 하나도 못 찾거나 「코스피 120」처럼 수인지 이름인지 모를 때는 **조회하지 않고 되묻는다**(status=needs_input — 시장 전체로 바꿔 보이지 않는다). 옛 문법(all·kospi200·kospi:N·kosdaq:N·top_mktcap:N·market:kospi|kosdaq·custom:…)도 그대로 동작. 각 카드에 시총 병기.
+        universe: **사람 말로 받는다** — "전체"(디폴트) / "코스피"·"코스닥"(시장 전체) / "코스피200"·"코스닥150"(지수 구성종목 원장 — `universe.members_dd` 가 마지막 확인 거래일, 원장을 못 읽으면 시총 상위 정원으로 대체하고 경고) / "코스피 시총 상위 30"·"코스닥 상위 50"·"시총 상위 100"·"코스피 시가총액 상위 200개 기업"(숫자 뒤 개·종목·기업·회사·개사·곳 무관) / "삼성전자, SK하이닉스"(이름 나열, 자동 코드화). 나열에서 회사를 하나도 못 찾거나 「코스피 120」처럼 수인지 이름인지 모를 때는 **조회하지 않고 되묻는다**(status=needs_input — 시장 전체로 바꿔 보이지 않는다). 옛 문법(all·kospi200·kosdaq150·kospi:N·kosdaq:N·top_mktcap:N·market:kospi|kosdaq·custom:…)도 그대로 동작. 각 카드에 시총 병기.
         details: false(디폴트, scan만) / true(문서 열어 숫자 — **이번 페이지 건만** 연다. 기간>30일이면 자동 off, 기간>7일이면 preview. 유니버스 크기로는 더 이상 막지 않는다).
         offset: 이어받기 위치(디폴트 0). 응답의 `paging.next_offset` 을 그대로 넣으면 다음 묶음이 온다. **매칭 수(`paging.matched`)와 이번에 실은 수(`paging.returned`)는 다른 값이다** — 표시된 건수를 전체로 읽지 말 것.
         rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(일별 시세 저장분에 보관된 최신 거래일 기준 — 유니버스 순위도 같은 날) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.

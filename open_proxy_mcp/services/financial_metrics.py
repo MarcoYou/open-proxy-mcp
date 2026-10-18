@@ -13,6 +13,7 @@ from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
 
 import asyncio
+import contextvars
 import os
 import re
 import time
@@ -1447,6 +1448,19 @@ def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
 
 # ── DART 호출 헬퍼 (try/except + AnalysisStatus mapping) ──
 
+#: 이 요청에서 DART 재무 조회가 **실패**(013 「자료 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류 등)한 횟수.
+#: `build_financial_metrics_payload` 가 요청마다 새 상자를 건다(같은 요청의 하위 Task 는 컨텍스트를 복사하므로 같은 상자를
+#: 본다). 261018: 종전엔 재무 조회가 전부 실패해도 0건이 「사업보고서 재무 공시 미존재 (정상 …)」·status=no_filing 으로
+#: 나갔고 그 응답이 5분 캐시에 들어갔다 — 실패를 「없다」로 내보내지 않으려고 센다. 상자가 없으면(다른 서비스가 부를 때) 무시.
+_FETCH_FAILURES: contextvars.ContextVar[dict | None] = contextvars.ContextVar("fm_fetch_failures", default=None)
+
+
+def _note_fetch_failure() -> None:
+    box = _FETCH_FAILURES.get()
+    if box is not None:
+        box["n"] += 1
+
+
 async def _safe_fetch_acnt(corp_code: str, year: int, reprt_code: str, fs_div: str) -> tuple[list[dict[str, Any]], str | None]:
     client = get_dart_client()
     try:
@@ -1461,6 +1475,7 @@ async def _safe_fetch_acnt(corp_code: str, year: int, reprt_code: str, fs_div: s
     except DartClientError as exc:
         if exc.status == "013":
             return [], "no_filing"
+        _note_fetch_failure()
         return [], f"fnlttSinglAcnt({reprt_code}, {fs_div}) 실패: {exc.status} {exc}"
 
 
@@ -1472,6 +1487,7 @@ async def _safe_fetch_acnt_all(corp_code: str, year: int, reprt_code: str, fs_di
     except DartClientError as exc:
         if exc.status == "013":
             return [], "no_filing"
+        _note_fetch_failure()
         return [], f"fnlttSinglAcntAll({reprt_code}, {fs_div}) 실패: {exc.status} {exc}"
 
 
@@ -1743,6 +1759,7 @@ async def _safe_fetch_audit(corp_code: str, year: int) -> tuple[list[dict[str, A
     except DartClientError as exc:
         if exc.status == "013":
             return [], "no_filing"
+        _note_fetch_failure()
         return [], f"accnutAdtorNmNdAdtOpinion 실패: {exc.status} {exc}"
 
 
@@ -1859,11 +1876,13 @@ async def _fetch_acnt_with_fallback(
         if rows:
             return rows, rc, None
         if err == "no_filing":
-            last_err = f"{year}년 reprt_code={rc} no_filing"
+            # DART 013 = 그 보고서가 없다 — 실패가 아니라 다음 보고서로 내려간다. 261018: 종전엔 여기서
+            # 「{year}년 reprt_code=11013 no_filing」(마지막으로 본 보고서 코드 + 엔진 상태어)을 사유로 남겨,
+            # 네 보고서가 모두 없을 때 사용자 경고에 그 문장이 그대로 실렸다(합병사 2026년 실측).
             continue
         if err:
-            last_err = err
-    return [], "11011", last_err or f"{year}년 모든 reprt_code (사업/반기/분기) 미공시"
+            last_err = err          # 진짜 조회 실패는 사유를 남긴다(아래에서 「없음」보다 앞선다)
+    return [], "11011", last_err or f"{year}년 정기보고서(사업·3분기·반기·1분기) 재무제표 미공시"
 
 
 async def _fetch_year_metrics(
@@ -1901,7 +1920,7 @@ async def _fetch_year_metrics(
     else:
         rows_curr, err_curr = await _fetch(memo).acnt(corp_code, year, _REPRT_BUSINESS, fs_div)
         if err_curr == "no_filing":
-            return {}, [f"{year}년 사업보고서 미공시 (fnlttSinglAcnt no_filing)"], 0
+            return {}, [f"{year}년 사업보고서 미공시"], 0
         if err_curr:
             warnings.append(err_curr)
         used_rc = _REPRT_BUSINESS
@@ -2614,6 +2633,8 @@ async def build_financial_metrics_payload(
     cached = _fm_cache_get(cache_key)
     if cached is not None:
         return _note_clamp(cached)
+    fetch_failures = {"n": 0}
+    _FETCH_FAILURES.set(fetch_failures)
 
     fs_div = "CFS" if consolidated else "OFS"
     client = get_dart_client()
@@ -2896,8 +2917,14 @@ async def build_financial_metrics_payload(
             _tag_fiscal(branch.get("current"))
             _tag_fiscal(branch.get("prior"))
 
-    filing_meta = build_filing_meta(filing_count=filing_count, parsing_failures=parsing_failures)
-    if filing_meta["no_filing"]:
+    # 0건인데 재무 조회가 **실패**한 적이 있으면 「없다」가 아니라 「모른다」다 — no_filing·「미존재 (정상)」으로 적지 않는다.
+    filing_meta = build_filing_meta(filing_count=filing_count, parsing_failures=parsing_failures,
+                                    fetch_failed=fetch_failures["n"] > 0)
+    if filing_meta["filing_status"] == "fetch_failed":
+        status = AnalysisStatus.ERROR
+        warnings.append(f"{target_year}년 재무 조회가 DART 오류로 실패해(실패 {fetch_failures['n']}건) 공시가 있는지 "
+                        "확인하지 못했다 — 「미존재」가 아니다. 잠시 뒤 다시 조회한다.")
+    elif filing_meta["no_filing"]:
         status = AnalysisStatus.NO_FILING
         warnings.append(f"{target_year}년 사업보고서 재무 공시 미존재 (정상 — 비상장/신규/폐업 회사 가능성)")
     elif parsing_failures > 0:
@@ -2936,7 +2963,8 @@ async def build_financial_metrics_payload(
         evidence_refs=evidence_refs,
         next_actions=_next_actions(scope, data),
     ).to_dict()
-    _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache (클램프 고지는 캐시에 넣지 않는다)
+    if status != AnalysisStatus.ERROR:   # 조회 실패 응답은 5분 동안 굳히지 않는다(다음 호출이 다시 받는다)
+        _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache (클램프 고지는 캐시에 넣지 않는다)
     return _note_clamp(payload)
 
 

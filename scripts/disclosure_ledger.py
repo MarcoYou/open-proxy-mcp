@@ -226,7 +226,7 @@ def enrich(con, rows: list[dict]) -> None:
     업종은 붙이지 않는다(261018, 재설계 6단계) — 원본 업종분류 스냅샷이 남아 있어 읽는 쪽이 접수일 기준으로 조인한다.
     시총은 저장한다 — 일별 원본이 7거래일 뒤 잘려 나중에는 공시 시점 값을 다시 만들 수 없다.
 
-    시총 원천(261018, 재설계 5-1): **일별 시세 저장분(`krx_daily_v`, 최근 7거래일)을 먼저** 보고, 접수일이 그 창보다 이르면
+    시총 원천(261018, 재설계 5-1): **일별 시세 저장분(`krx_daily_v`, 최근 약 1년)을 먼저** 보고, 접수일이 그 창보다 이르면
     `krx_weekly`(주마다 그 주 마지막 거래일)를 본다. 종전엔 `krx_weekly` 만 봤는데 그 표의 주중 행은 같은 주의 다음 날 기록 때
     지워졌다 — 최근 3일 재스캔이 같은 공시에 다른 날짜의 시총을 붙였다(실측: 접수 10-15 공시에 20261008 시총). 일별 창 안의
     날짜는 지워지지 않으니 재스캔해도 같은 날(접수일 이하 가장 늦은 거래일)이 붙는다. 같은 날짜가 두 표에 다 있으면 일별 것을 쓴다."""
@@ -235,7 +235,7 @@ def enrich(con, rows: list[dict]) -> None:
         return
     lo = yyyymmdd(min(r["rcept_dt"] for r in rows) - timedelta(days=14))
     hi = yyyymmdd(max(r["rcept_dt"] for r in rows))
-    daily_snaps = {r[0] for r in con.execute("SELECT DISTINCT trd_dd FROM krx_daily").fetchall()}
+    daily_snaps = {r[0] for r in con.execute("SELECT dd FROM krx_day WHERE n > 0").fetchall()}   # 261019: 보관 거래일 = 달력
     cap_snaps = [r[0] for r in con.execute(
         "SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s AND price_dd <= %s", (lo, hi)).fetchall()]
     if not cap_snaps:   # 창 안에 주간 시점이 없으면 그 이전 최신 하나

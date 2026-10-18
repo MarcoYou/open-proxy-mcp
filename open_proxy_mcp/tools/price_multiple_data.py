@@ -352,7 +352,7 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 | 데이터 | 출처 | 갱신 |
 |---|---|---|
 | 재무(순이익·자본·주식수·배당) | DART OpenAPI (전자공시 원문) | firm=실시간 / 스냅샷 원천=분기 배치 |
-| 주가·시총 | KRX 정보데이터시스템 → 일별 시세 저장분(최신값) · 주간 시세 저장분(과거 곡선) | 매일 수집(전일 종가) — 일별은 최근 7거래일, 주간은 주 마지막 거래일 보존 |
+| 주가·시총 | KRX 정보데이터시스템 → 일별 시세 저장분(최신값) · 주간 시세 저장분(과거 곡선) | 매일 수집(전일 종가) — 일별은 최근 약 1년, 주간은 주 마지막 거래일 보존 |
 | 환율 | 한국은행 ECOS 매매기준율(공식) | 회계기말 고정값 캐시 |
 | 주간 스냅샷(시장·섹터·종목 히스토리) | 위 조합 재계산 | 매일 배치(주간 수렴) |
 | 선행 배수(시장·업종) | 애널리스트 추정 이력 × 업종분류 × 주간 시세의 시장 구분 | 추정은 주 1회(토) 수집 → 다음 날 아침 집계 |
@@ -487,7 +487,7 @@ def register_tools(mcp):
         rule: scope=firm(기본, company 필수) = 실시간 DART 재무 × 일별 시세 저장분(최신 거래일 종가·시총, 없으면 KRX 라이브) — **PER=보통주 시총÷지배순이익 · PBR=보통주 시총÷지배자본(MRQ)** (260823 전환: 주가÷EPS 는 액면분할·병합 때 옛 주식수 기준 EPS 와 새 주가가 섞여 틀렸다). 주식수가 상쇄돼 조정성 이벤트에 불변이고 **스냅샷 스코프와 정의가 같다**. EPS(공시 기본주당이익)·BPS 는 회사 공식값이라 인풋으로 함께 싣되 배수 산출엔 안 쓴다. 대가 — 가중평균이 아니고(연중 유상증자 시 공시 EPS 와 벌어짐), 분자는 보통주 시총인데 분모엔 우선주 몫이 포함돼 소폭 하향 편향. 분모≤0·완전자본잠식=N/M. scope=market/sector/firm_history = Supabase 주간 스냅샷(opm_val_market·opm_val_market·opm_val_firm, market_val_weekly 배치가 갱신) — PER=**Σ보통주 시총**÷Σ지배순이익(시총가중 조화평균, 우선주 시총은 제외·cap_pref 별도 노출), 시총 기반이라 수정주가 조정 불변. 섹터 분류=KSIC 하이브리드. firm과 스냅샷 방법론 차이(보통주 주가 vs 총시총) 有 — 각 출력에 명시. 값 raw KRW int(_krw), % float(_pct). **scope=market 과 scope=sector(scheme=대분류) 에는 시총가중 배당수익률이 함께 실린다**(260831) — 확정=div_yield_hist(사업연도 12월결산 확정 DPS, 연 1회) · 선행=opm_val_fwd(애널리스트 추정 DPS). PER·PBR 과 **출처 표도 기준일도 모집단도 다르다.** 분모 두 벌(all=무배당 포함 시장 관행값 / payers=배당주만)을 나란히 내는데, 코스닥은 두 값이 두 배 차이라 반드시 같이 읽어야 한다 — 눌림의 절반은 배당력이 아니라 배당하는 회사가 적다는 구성 차이다. PER 과 달리 적자여도 배당이 있으면 값이 난다. 확정은 scheme=ksic·중분류 에 안 붙고(집계 버킷이 업종 대분류다) 중분류 에는 선행만 붙는다. **선행 PER·PBR(260918)**: scope=market 과 scope=sector(scheme=대분류·중분류) 표에 애널리스트 추정 기반 선행 PER·PBR 이 트레일링 옆에 실린다 — 트레일링과 같은 합산 방식(Σ시총÷Σ추정 지배순이익, 적자 추정 포함), 추정이 있는 보통주만(종목수 옆 괄호), 기준일은 주 1회 추정 스냅샷(opm_val_fwd). 흑자 추정만 더한 벤더식(fwd_per_pos)·선행 PSR(fwd_psr)은 JSON. KSIC 에는 선행이 없다. 종목 단위 선행은 forward_estimates_data.
         as_of: YYYYMMDD(또는 YYYY-MM-DD) 과거 시점. firm → 그 시점 이하 가장 최근 **주간 스냅샷**(opm_val_firm)의 PER·PBR·시총(배당수익률 없음, 주간 시세는 최근 3년까지라 그 이전 기준일은 안내만 — 연말 값은 scope=firm_history) / market·sector → 그 시점 이하 스냅샷. 「작년 말 PER」「2024년 12월 코스피 PBR」. 비우면 최신.
         scheme: scope=sector 의 분류 축 — "중분류"(기본, 업종 중분류 28) / "대분류"(업종 대분류 10) / "ksic"(KSIC 하이브리드 62버킷).
-        status: ok / invalid / not_found(우선주는 보통주 코드로) / unlisted / no_financials / no_data(배치 미실행).
+        status: ok / invalid / not_found / unlisted / no_financials / no_data(배치 미실행). 우선주·종류주 코드(005935)는 발행 회사로 식별해 **회사 배수(보통주 시총 기준 — 위 정의)**를 주고 맨 앞 경고로 밝힌다 — 그 종류주 자체의 주가·시총은 trading_data.
        
         ref: financial_metrics, dividend_disclosure, forward_estimates_data, corp_gov_report, evidence
         """

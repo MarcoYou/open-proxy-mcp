@@ -596,7 +596,9 @@ def _render(payload: dict[str, Any]) -> str:
     lines.append(f"- 사업연도 {data.get('year')}" + (f" ({_fp})" if _fp else "") + f" · {_basis} 기준")
     lines.extend(_render_correction_note(data))
     # 일부 파싱 실패는 status 만 PARTIAL 로 바뀌고 warning 이 안 붙는다 — 화면에서 사라지면 안 된다.
-    if (data.get("filing_status") or "") not in ("", "all_parsed"):
+    # 🔴 `no_filing`(DART 013 — 그 해 재무 공시가 없다)은 읽기 실패가 아니라 답이다 — 이 줄을 달지 않는다(261018: 종전엔
+    #    합병사 2026년처럼 공시가 없는 해에도 「⚠ 일부 공시를 읽지 못했습니다 (1건)」이 붙었다. 유의사항이 「미존재 (정상)」을 말한다).
+    if (data.get("filing_status") or "") == "partial_failure":
         _n = data.get("parsing_failures")
         lines.append(f"- ⚠ 일부 공시를 읽지 못했습니다"
                      + (f" ({_n}건)" if _n else "") + " — 수치가 불완전할 수 있습니다.")

@@ -18,13 +18,16 @@
 
 ★ 섹터는 소급이다. 분류 공급처는 조회 시점 구성종목만 주고 우리는 2026-08 부터 모았다. 날짜마다
   「그 날짜 이하 최신 스냅샷, 없으면 가장 이른 것」을 쓰고 `sector_asof` 로 어느 관측을 적용했는지
-  남긴다. 분류가 없는 종목(우선주·신규상장 등)은 버리지 않고 `_UNCLASSIFIED` 버킷에 남긴다 —
+  남긴다. 분류가 없는 종목(공급처의 구성종목 응답에도 기업 정보 화면에도 분류가 없는 종목 — 구성종목에 없는 상장 보통주는 분류
+  저장분이 기업 정보 화면의 산업으로 채우고, 우선주는 같은 회사 보통주 분류를 잇는다, 261018)은 버리지 않고 `_UNCLASSIFIED` 버킷에 남긴다 —
   조용히 빠지면 섹터 합이 시장 합보다 작은 이유를 아무도 모른다.
 
 ★ 평소에는 최신 주만 다시 적재한다. 외부 API 호출은 없어도 전 구간 DELETE·INSERT가 매주
   큰 WAL과 통계 누적을 만들기 때문이다. 새 업종분류 관측이 들어오면 그 관측일부터만 다시 계산한다.
   과거 날짜에는 날짜 이하 최신 스냅샷을 쓰므로 새 관측 이전 구간은 바뀌지 않는다. 원천 정정처럼
-  전 구간을 다시 만들 필요가 있을 때만 `--full`을 쓴다.
+  전 구간을 다시 만들 필요가 있을 때만 `--full`을 쓴다. 단 옛 스냅샷의 파생 행이 바뀌면(`refresh_sector_class.py
+  --rederive`·옛 날짜 재수집, 261018) 평소 실행은 그것을 알아채지 못한다 — 그 스냅샷이 덮는 구간을 `--since` 로 다시 집계한다
+  (가장 이른 스냅샷은 그 이전 구간에 소급되므로 보존 하한부터).
 
 ★ UPSERT 만으로는 부족하다 — 어떤 버킷이 비면(그 날 그 업종 종목이 0) 새로 넣을 행이 없어
   **옛 행이 그대로 남는다.** 그러면 섹터 합이 시장 합보다 커진다. 그래서 한 트랜잭션 안에서
@@ -63,7 +66,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
-from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
+from open_proxy_mcp.krx_daily import LATEST_DAY_SQL, WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_cutoff, week_unit
 
 DDL = """
@@ -207,7 +210,7 @@ def main() -> int:
         print("krx_weekly 비어 있음 — 먼저 시세를 적재한다")
         return 1
     # 원천 최신 = 닫힌 주와 일별 최신 거래일 중 늦은 쪽(이번 주 임시 점). 보존 하한은 표를 자르는 쪽과 같게 krx_weekly 최신에서 잰다.
-    daily_max = con.execute("SELECT max(trd_dd) FROM krx_daily").fetchone()[0]
+    daily_max = con.execute(LATEST_DAY_SQL).fetchone()[0]          # 261019: 일별 최신일 = 달력(krx_day)
     source_max = max(weekly_max, daily_max or "")
     latest_sector_asof, agg_latest = con.execute(
         "SELECT max(sector_asof) FILTER (WHERE scheme <> 'market'), max(price_dd) FILTER (WHERE scheme = 'market') FROM krx_cap_agg"

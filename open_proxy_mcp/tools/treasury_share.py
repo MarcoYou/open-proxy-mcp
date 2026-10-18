@@ -63,7 +63,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     if data.get("no_filing"):
         lines.extend([
             "## 공시 없음",
-            "- 조사 구간 내 자사주 이벤트 공시 없음 (정상 NO_FILING).",
+            "- 조사 구간 내 자사주 이벤트 공시 없음 (정상).",
             f"- 연간 누적은 `scope='annual'`로 확인할 수 있다.",
             "",
         ])

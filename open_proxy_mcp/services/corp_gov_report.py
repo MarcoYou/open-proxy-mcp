@@ -425,6 +425,11 @@ def _parse_principles(text: str) -> list[dict[str, Any]]:
     return principles
 
 
+#: 목록 검색 실패 문구의 머리 — 같은 모듈의 호출부가 이걸로 「실패해서 0건」과 「없어서 0건」을 가른다(261018).
+#: (013 은 검색 도우미가 빈 목록으로 돌려주므로 여기 오지 않는다.)
+_SEARCH_FAILED = "기업지배구조보고서 검색 실패:"
+
+
 async def _fetch_latest_reports(
     corp_code: str,
     years: int = 3,
@@ -446,7 +451,7 @@ async def _fetch_latest_reports(
     api_calls = client.api_call_snapshot() - calls_before
     warnings: list[str] = list(notices)
     if error:
-        warnings.append(f"기업지배구조보고서 검색 실패: {error}")
+        warnings.append(f"{_SEARCH_FAILED} {error}")
         return [], warnings, api_calls
     rows: list[dict[str, Any]] = []
     for it in items:
@@ -595,6 +600,8 @@ async def build_corp_gov_report_payload(
         raise filings_result
     filings, fetch_warnings, _ = filings_result
     warnings: list[str] = list(fetch_warnings)
+    # 검색이 실패했으면 0건은 「미제출」이 아니라 「모른다」다 — 아래 메타를 fetch_failed(status=error)로 적는다(261018).
+    search_failed = any(w.startswith(_SEARCH_FAILED) for w in fetch_warnings)
 
     # 시장 구분 힌트 (KOSDAQ은 자율공시)
     corp_cls = ""
@@ -647,6 +654,7 @@ async def build_corp_gov_report_payload(
         filings_meta = build_filing_meta(
             filing_count=len(filings),
             parsing_failures=(1 if (corp_cls == "Y" and not filings) else 0),
+            fetch_failed=search_failed,
         )
         data["filings"] = filings[:10]
         data.update(filings_meta)
@@ -656,7 +664,7 @@ async def build_corp_gov_report_payload(
         status = status_from_filing_meta(filings_meta)
         if filings_meta["no_filing"]:
             if corp_cls == "K":
-                warnings.append("KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상 NO_FILING)")
+                warnings.append("KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상)")
             else:
                 warnings.append("조회된 기업지배구조보고서 없음")
         return ToolEnvelope(
@@ -683,13 +691,16 @@ async def build_corp_gov_report_payload(
         no_target_meta = build_filing_meta(
             filing_count=0,
             parsing_failures=(1 if corp_cls == "Y" else 0),
+            fetch_failed=search_failed and not filings,
         )
         data.update(no_target_meta)
         data["usage"] = build_usage(client.api_call_snapshot() - calls_start)
         timings_ms["total"] = int((time.perf_counter() - total_started_at) * 1000)
         data["timings_ms"] = timings_ms
-        if corp_cls == "K":
-            warnings.append("KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상 NO_FILING)")
+        if no_target_meta["filing_status"] == "fetch_failed":
+            pass                     # 실패 사유는 위 검색 실패 경고가 이미 말한다 — 「미제출 (정상)」을 덧붙이지 않는다
+        elif corp_cls == "K":
+            warnings.append("KOSDAQ 자율공시 — 기업지배구조보고서 미제출 (정상)")
         else:
             warnings.append("기업지배구조보고서 원문을 찾지 못함")
         return ToolEnvelope(

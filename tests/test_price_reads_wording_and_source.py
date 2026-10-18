@@ -232,7 +232,7 @@ def test_serving_day_has_one_definition_read_through_each_modules_own_db_reader(
     monkeypatch.setattr(screener, "pg_rows", lambda sql, params=(): seen.append(("screener", sql)) or [("20261016",)])
     assert S._krx_daily_latest_dd() == screener._krx_latest_dd() == "20261016"
     assert seen == [("pmd", krx_daily.LATEST_DAY_SQL), ("screener", krx_daily.LATEST_DAY_SQL)]
-    assert krx_daily.LATEST_DAY_SQL == "SELECT max(trd_dd) FROM krx_daily"      # 시험들이 이 SQL 모양으로 가짜 DB 를 맞춘다
+    assert krx_daily.LATEST_DAY_SQL == "SELECT max(dd) FROM krx_day WHERE n > 0"   # 시험들이 이 SQL 모양으로 가짜 DB 를 맞춘다(261019 달력)
     # 빈 표·장애는 둘 다 None — krx_weekly 로 대신하지 않는다
     for ans in ([(None,)], None, []):
         monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(), a=ans: a)
@@ -289,7 +289,8 @@ def test_dps_fetch_failed_reads_the_annual_summary_reason_and_013_is_not_a_failu
     for status, failed in (("013", False), ("020", True), ("TRANSPORT_ERROR", True), ("800", True)):
         monkeypatch.setattr(D, "get_dart_client", client_raising(status))
         summary, err = asyncio.run(D._annual_summary("00126380", 2025))
-        assert summary == {} and err == f"alotMatter 조회 실패: {status}"
+        # 013 은 실패 사유가 아니라 「배당 사항 없음」이라 사유 없이(None) 돌아온다(261018) — 빈 표와 같은 값
+        assert summary == {} and err == (None if status == "013" else f"alotMatter 조회 실패: {status}")
         assert S._dps_fetch_failed(err) is failed, status
     assert S._dps_fetch_failed(None) is False and S._dps_fetch_failed({}) is False   # 성공(골든 시험의 가짜는 {} 를 준다)
 

@@ -21,7 +21,8 @@ from open_proxy_mcp.dart.client import (MARKET_WINDOW_MAX_MONTHS, LruByteCache, 
                                         note_degradation)
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp import krx_daily as _krx_daily   # 서빙 기준일 정의(`latest_day`) — DB·순수 함수만 있는 모듈이라 순환 없음
-from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
+from open_proxy_mcp import index_members as _index_members   # 지수 구성종목 원장(코스피200·코스닥150) — DB 읽기만
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db, to_label
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
 
@@ -34,6 +35,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Iterable
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.services.amendment_table import card_summary, parse_amendment_table
 from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning
 
 # ── KST(공시 기준 시간대) ──────────────────────────────────────────────
@@ -236,7 +238,7 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "code": "control_change", "label": "최대주주변경", "tier": 3,
         "scan_code": "I001",
         "matchers": [("변경", ["최대주주변경"])],
-        "max_items": 20, "detail_kind": None, "force_keywords": ["정정"],
+        "max_items": 20, "detail_kind": "control", "force_keywords": ["정정", "해제", "취소"],
     },
     {
         "code": "litigation", "label": "소송·제재·위험", "tier": 3,
@@ -395,7 +397,9 @@ _UNIVERSE_ALIASES = {
     "전체": "all", "전체시장": "all", "시장전체": "all", "다": "all", "everything": "all",
     "코스피": "market:kospi", "kospi": "market:kospi", "유가증권": "market:kospi",
     "코스닥": "market:kosdaq", "kosdaq": "market:kosdaq",
-    "코스피200": "kospi200", "kospi200": "kospi200", "코스피 200": "kospi200",
+    "코스피200": "kospi200", "kospi200": "kospi200", "코스피 200": "kospi200", "kospi 200": "kospi200",
+    # 261018: 지수 구성종목 원장에 코스닥150 도 담았다. 종전엔 「코스닥150」이 「시총 상위 150 인지 이름인지」 되묻기로 갔다.
+    "코스닥150": "kosdaq150", "kosdaq150": "kosdaq150", "코스닥 150": "kosdaq150", "kosdaq 150": "kosdaq150",
 }
 
 
@@ -463,7 +467,7 @@ def _nl_universe(universe: str) -> str:
     if low in _UNIVERSE_ALIASES:
         return _UNIVERSE_ALIASES[low]
     # 이미 기존 문법이면 그대로 (kospi:30 · top_mktcap:50 · custom:… · market:kospi)
-    if re.match(r"^(all|kospi200|kospi:|kosdaq:|kospi_top:|kosdaq_top:|top_mktcap:|market:|custom:)",
+    if re.match(r"^(all|kospi200|kosdaq150|kospi:|kosdaq:|kospi_top:|kosdaq_top:|top_mktcap:|market:|custom:)",
                 low):
         return raw
     # "코스피 시총 상위 30" · "코스닥 상위 50" · "시총 상위 100"
@@ -547,7 +551,7 @@ def resolve_period(period: str, *, cursor: str = "",
 #   지우고 다시 넣는 일을 그만둔다), 그때 여기가 그대로면 유니버스·시총이 지난주 값으로 낡는다.
 #   실측(20261016): 두 저장분의 같은 날 단면이 2,762종목 종가·시총·상장주식수·시장 모두 차이 0 — 응답은 그대로다.
 # 🔴 단면은 **기준일을 먼저 읽고 그 날 행만** 본다(`max(trd_dd) FROM krx_daily` → `krx_daily_v WHERE trd_dd=%s`).
-#   종목별 최신 행 뷰(`price_latest`)를 날짜 조건 없이 통째로 읽지 않는다 — 보관 창(7거래일) 안에서 상장폐지된
+#   종목별 최신 행 뷰(`price_latest`)를 날짜 조건 없이 통째로 읽지 않는다 — 보관 창(약 1년) 안에서 상장폐지된
 #   종목은 옛 날짜 행이 그대로 남아(실측 5종목) 오늘 순위에 섞인다. 종목 몇 개의 최신값이면 그 뷰가 맞다.
 # 🔴 고르는 칸은 사실값 + mktcap 뿐이다 — 등락(chg·chg_pct·prev_*)은 종목별 창 계산이라 단면에서 고르면 느려진다
 #   (실측 전 종목 단면: 사실값 칸만 6.9ms, 창 칸까지 40ms).
@@ -614,6 +618,9 @@ class UniverseFilter:
     #: 비어 있지 않으면 **조회하지 않고 되묻는다**. 회사 목록에서 하나도 못 찾았을 때 시장 전체로 바꿔
     #: 보이지 않는다(260918 — 「코스피 시가총액 상위 200개 기업」이 시장 전체 75건으로 나갔다).
     question: str = ""
+    #: 지수 구성종목 원장에서 집합을 만들었으면 그 구성이 마지막으로 확인된 거래일(YYYYMMDD). 아니면 None
+    #: (원장을 못 읽어 시총 순위로 대체한 경우도 None — 그때는 notice 가 대체를 밝힌다).
+    members_dd: str | None = None
 
     def contains(self, stock_code: str, corp_cls: str = "") -> bool:
         if self.allowed is None:
@@ -624,6 +631,15 @@ class UniverseFilter:
 def _looks_like_code(tok: str) -> bool:
     """KRX 단축코드(6자 영숫자, 대부분 숫자)인가 — 회사명과 구분. 예: 005930, 900110, 0011A0."""
     return bool(re.fullmatch(r"[0-9A-Z]{6}", tok)) and sum(c.isdigit() for c in tok) >= 4
+
+
+def _inactive_universe_note(tok: str, sel: dict) -> str:
+    """유니버스 이름이 비활성 회사(상장폐지·합병·코넥스 등) 하나로 확정됐을 때의 안내 한 조각(261018)."""
+    meta = sel.get("_resolution") or {}
+    who = f"{sel.get('corp_name') or tok}({sel.get('stock_code') or ''})"
+    day = f"최신 거래일({meta['market_data_as_of']})" if meta.get("market_data_as_of") else "최신 거래일"
+    return (f"'{tok}'→{who}는 {day} 코스피·코스닥 시세에 없는 상장폐지·코넥스 등 비활성 회사 — "
+            "시세·시총을 쓰는 표에는 행이 없다")
 
 
 async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFilter:
@@ -654,15 +670,22 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
             return tok, None, f"'{tok}' 조회 중 오류 — 종목코드 6자리로 다시 준다."
         sel = getattr(res, "selected", None)
         if sel:
-            return tok, (sel or {}).get("stock_code"), ""
+            # 261018: 활성 회사엔 맞는 이름이 없어 비활성 회사 하나로 확정했으면(`CompanyResolver._inactive_single`) 넣되 **밝힌다** —
+            #   그 종목은 최신 거래일 시세가 없어 시세·시총 표(trading_data·forward_estimates_data 의 유니버스)에서 행 없이 사라진다.
+            #   종전(못 찾음)엔 「미해결」로 밝혔는데, 확정만 하고 말하지 않으면 그 회사가 조용히 빠진다.
+            meta = sel.get("_resolution") or {}
+            return tok, sel.get("stock_code"), (_inactive_universe_note(tok, sel) if meta.get("inactive_listing") else "")
         if getattr(res, "status", None) == AnalysisStatus.AMBIGUOUS:
             return tok, None, company_ambiguous_warning(tok, getattr(res, "candidates", None))
         return tok, None, company_not_found_warning(tok)
 
+    inactive: list[str] = []
     if name_tokens:
         for tok, sc, hint in await asyncio.gather(*[_resolve_one(t) for t in name_tokens]):
             if sc:
                 codes.add(sc.strip())
+                if hint:
+                    inactive.append(hint)
             else:
                 notes.append(hint or f"'{tok}' 미식별(모호/없음)")
     if not codes:
@@ -675,15 +698,40 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
         return UniverseFilter(label="지정종목", resolved=False, allowed=None, price_dd=price_dd, question=ask)
     # 부분 해결 시: 해결분으로 진행함을 명시(전체 degrade로 오해 방지)
     notice = (f"해결된 {len(codes)}종목으로 진행 — 미해결: " + " · ".join(notes)) if notes else ""
+    if inactive:
+        notice = " / ".join(x for x in (notice, "비활성 회사로 식별: " + " · ".join(inactive)) if x)
     return UniverseFilter(label=f"지정 {len(codes)}종목", resolved=True,
                           notice=notice, allowed=codes, price_dd=price_dd)
+
+
+def _index_members_latest(code: str) -> "_index_members.Members | None":
+    """지수 구성종목 원장의 가장 늦은 묶음. 못 읽거나 비면 None. 읽기는 이 모듈의 `pg_rows`(시험이 바꿔 끼운다)."""
+    return _index_members.latest(code, pg_rows)
+
+
+def _index_universe(idx: "_index_members.IndexSpec", price_dd: str | None,
+                    rank: Callable[[int, str | None, str], UniverseFilter]) -> UniverseFilter:
+    """지수 → 구성종목 집합. 원장을 못 읽으면 종전처럼 그 시장의 시총 상위 정원으로 대체하고 **대체했다고 밝힌다**.
+
+    구성종목 집합은 시세 저장분과 무관하게 원장에서 온다 — 기준일(`price_dd`)이 없어도 집합은 만든다
+    (공시 필터에는 종목코드만 있으면 된다). 시세 단면이 필요한 호출자(순위표)는 그 날 행을 따로 읽는다."""
+    members = _index_members_latest(idx.code)
+    if members is None:
+        note_degradation("universe_approximated")
+        uf = rank(idx.size, idx.market, f"{idx.label}(→{to_label(idx.market)} 시총상위{idx.size} 대체)")
+        if uf.resolved:
+            uf.notice = (f"{idx.label} 구성종목 원장을 읽지 못해 {to_label(idx.market)} 시총상위 {idx.size}으로 대체했다"
+                         f"(실제 구성과 다를 수 있다 · 다른 시장 미포함).")
+        return uf
+    return UniverseFilter(label=idx.label, resolved=True, allowed=set(members.tickers), price_dd=price_dd,
+                          notice=_index_members.stale_note(idx, members, price_dd), members_dd=members.checked_dd)
 
 
 async def resolve_universe(universe: str) -> UniverseFilter:
     """universe 스펙 → UniverseFilter. 디폴트 all=전체시장(필터 없음).
 
     지원 스펙:
-      all · market:kospi|kosdaq · kospi200(=KOSPI 시총상위200) · kospi:N · kosdaq:N ·
+      all · market:kospi|kosdaq · kospi200 · kosdaq150(지수 구성종목 원장) · kospi:N · kosdaq:N ·
       top_mktcap:N(전체시장 시총상위) · custom:코드|이름,… · sector:…(미구현 degrade)
     """
     spec = (universe or "all").strip()
@@ -738,12 +786,11 @@ async def resolve_universe(universe: str) -> UniverseFilter:
             return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
         return _rank(n, MKT_KQ, f"KOSDAQ 시총상위 {n}")
 
-    # KOSPI200 → 지수 원장 부재라 KOSPI 시총상위 200으로 대체(시장 분리됨, 안내)
-    if low.startswith("kospi200"):
-        uf = _rank(200, MKT_KS, "KOSPI200(→KOSPI 시총상위200 대체)")
-        if uf.resolved:
-            uf.notice = "KOSPI200 구성종목 원장이 없어 KOSPI 시총상위 200으로 대체했다(코스닥 미포함)."
-        return uf
+    # 지수(코스피200·코스닥150) → 구성종목 원장. 261018 전에는 원장이 없어 늘 시총 순위로 대체했다
+    #   (실측 20261016: 공식 201종목 중 34종목이 대체 목록에 없었다 — `open_proxy_mcp/index_members.py`).
+    idx = next((sp for code, sp in _index_members.INDEXES.items() if low.startswith(code)), None)
+    if idx is not None:
+        return _index_universe(idx, price_dd, _rank)
 
     # 전체시장 시총 상위 N (시장 혼합 — 라벨로 명시)
     if low.startswith("top_mktcap:"):
@@ -960,6 +1007,17 @@ def _extract_dilutive(payload: dict, rcept_no: str) -> dict:
 def _extract_agm_notice(payload: dict, rcept_no: str) -> dict:
     # 실제 payload: data.agenda_summary{titles,total_count} + data.agendas[] + data.meeting_type
     data = payload.get("data") or {}
+    if data.get("scope") == "resolution":
+        # 소집결의 — data.meeting{meeting_date} + data.agenda{status, items[{title}]}
+        agenda = data.get("agenda") or {}
+        items = agenda.get("items") or []
+        return {
+            "meeting_type": data.get("meeting_type"),
+            "meeting_date": (data.get("meeting") or {}).get("meeting_date"),
+            "agenda_titles": [i.get("title") for i in items if i.get("title")][:12],
+            "agenda_count": len(items) or None,
+            "agenda_status": agenda.get("status"),
+        }
     summ = data.get("agenda_summary") or {}
     titles = summ.get("titles") or []
     if not titles:
@@ -970,6 +1028,24 @@ def _extract_agm_notice(payload: dict, rcept_no: str) -> dict:
         "meeting_date": _first(data.get("meeting_date"), data.get("meeting_datetime")),
         "agenda_titles": titles,
         "agenda_count": _first(summ.get("total_count"), len(titles) or None),
+    }
+
+
+def _extract_control(payload: dict, rcept_no: str) -> dict:
+    # data.event{kind, kind_label, fields{...}} — 원문 글자 그대로(숫자도 회사가 쓴 꼴)
+    ev = (payload.get("data") or {}).get("event") or {}
+    f = ev.get("fields") or {}
+    who = lambda p: (p or {}).get("name")  # noqa: E731
+    return {
+        "control_kind": ev.get("kind"),
+        "holder_before": f.get("before_holder"),
+        "holder_after": _first(f.get("after_holder"), f.get("expected_holder"), who(f.get("transferee"))),
+        "stake_after_pct": _first(f.get("after_pct"), f.get("expected_pct")),
+        "amount": f.get("amount"),
+        "pledgor": f.get("pledgor"),
+        "stake_if_executed_pct": f.get("pct_if_executed"),
+        "reason": f.get("reason"),
+        "on": _first(f.get("changed_on"), f.get("contract_on"), f.get("released_on")),
     }
 
 
@@ -997,6 +1073,25 @@ def _extract_ownership(payload: dict, rcept_no: str) -> dict:
     }
 
 
+def _card_gap(g: dict | None) -> dict | None:
+    """`provisional_earnings` 의 `consensus_gap` 을 카드 크기로. 계산은 다시 하지 않는다(규칙 6 — 그대로 옮긴다).
+
+    카드에는 맞댄 카드·맞댄 지표만 싣는다(이유 문장은 `provisional_earnings` 에 있다). 출처·계산식 문장
+    (`source`·`note`)은 카드마다 같아 md 각주에 한 번만 적는다 — 실적 카드가 40장이면 40번 싣지 않는다.
+    """
+    if not g or g.get("status") != "ok":
+        # 맞대지 못한 카드엔 싣지 않는다(261018 결정) — 실적 카드의 2/3 가 월간이라 「비교 안 함」이 다이제스트를
+        # 덮는다. 이유가 궁금하면 `provisional_earnings` 가 status·why 를 준다.
+        return None
+    out = {k: g[k] for k in ("status", "as_of", "lag_days", "period", "basis", "caveats")
+           if g.get(k) not in (None, "", [])}
+    metrics = {k: {kk: c[kk] for kk in ("consensus_krw", "diff_krw", "gap_pct", "gap_caveat") if c.get(kk) is not None}
+               for k, c in (g.get("metrics") or {}).items() if c.get("diff_krw") is not None}
+    if metrics:
+        out["metrics"] = metrics
+    return out
+
+
 def _extract_earnings(payload: dict, rcept_no: str) -> dict:
     # 실제 payload: data.headline{revenue/operating_profit/net_income:{value_krw,yoy_pct}} + kind/consolidated
     d = payload.get("data") or {}
@@ -1020,9 +1115,11 @@ def _extract_earnings(payload: dict, rcept_no: str) -> dict:
         "fiscal_year": d.get("fiscal_year"),
         "fiscal_quarter": d.get("fiscal_quarter"),
         "period_kind": d.get("period_kind"),
+        "period_month": d.get("period_month"),   # 월간 공시의 달 — 카드 라벨용(261018)
         "fiscal_year_end_month": d.get("fiscal_year_end_month"),
         "comparison_basis": d.get("comparison_basis"),
         "correction": d.get("correction"),
+        "consensus_gap": _card_gap(d.get("consensus_gap")),   # 공시 직전 분기 컨센서스 대비(261018)
     }
 
 
@@ -1067,6 +1164,10 @@ _DETAIL_DISPATCH: dict[str, dict[str, Any]] = {
     "earnings": {"module": "open_proxy_mcp.services.provisional_earnings",
                  "fn": "build_provisional_earnings_payload", "extract": _extract_earnings,
                  "kwargs": _build_kwargs_narrow},
+    # 최대주주변경 계열은 접수번호 한 건을 바로 읽는다(서식 다섯 — 변경 사실·양수도·담보 체결·해제).
+    "control": {"module": "open_proxy_mcp.services.control_change",
+                "fn": "build_control_event_payload", "extract": _extract_control,
+                "kwargs": lambda filed_dt: {}, "by_rcept": True},
 }
 
 
@@ -1091,8 +1192,14 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     filed_dt = hit.get("filed_at", "").replace("-", "")
     kwargs = disp["kwargs"](filed_dt)
     # 주총소집은 rcept_no 직접 지정 경로 사용(가장 정확)
+    if disp.get("by_rcept"):
+        kwargs["rcept_no"] = hit.get("rcept_no", "")
+        kwargs["report_nm"] = hit.get("title", "")
     if kind == "agm_notice":
         kwargs["rcept_no"] = hit.get("rcept_no", "")
+        if hit.get("subtype") == "소집결의":
+            # 결의는 공고와 서식이 다르다 — 공고 파서로 읽으면 안건 0건·정기/임시 뒤바뀜(대구백화점 20260811801007).
+            kwargs["scope"] = "resolution"
 
     before = client.api_call_snapshot()
     try:
@@ -1123,6 +1230,28 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     else:
         detail_status = "parsed"
     return {"detail_status": detail_status, "fields": fields}
+
+
+async def _fetch_amendment(hit: dict, running: dict) -> dict:
+    """정정 카드에 「무엇이 바뀌었나」 — 회사가 붙인 정정 비교표를 원문 그대로 싣는다.
+
+    유형 파서는 최신 정정본의 **지금 값**만 준다. 무엇이 바뀌었는지는 그 공시 머리의 비교표에만 있다.
+    문서 1건 — 유형 파서가 방금 같은 원문을 열었으면 캐시에서 나와 DART 0콜이다(정형 API 만 쓰는
+    자기주식·증자는 1콜). 콜은 details 러닝캡에 함께 센다.
+    """
+    if running["calls"] >= _DETAILS_TOTAL_CALL_CAP:
+        return {"status": "skipped", "note": f"{_DETAILS_TOTAL_CALL_CAP}콜 러닝캡 도달"}
+    client = get_dart_client()
+    before = client.api_call_snapshot()
+    try:
+        doc = await client.get_document_cached(hit.get("rcept_no", ""))
+    except DartClientError as exc:
+        return {"status": "error", "note": f"DART {exc.status}"}
+    except Exception as exc:  # noqa: BLE001 — 표를 못 읽어도 카드는 나간다(조작값 금지)
+        return {"status": "error", "note": type(exc).__name__}
+    finally:
+        running["calls"] += max(0, client.api_call_snapshot() - before)
+    return card_summary(parse_amendment_table((doc or {}).get("html") or ""))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1410,6 +1539,8 @@ async def _build_screener_payload_impl(
                 h["detail_fields"] = res.get("fields", {})
                 if res.get("note"):
                     h["detail_note"] = res["note"]
+                if h.get("is_correction"):
+                    h["amendment"] = await _fetch_amendment(h, running)
 
         await asyncio.gather(*[_run(h) for h in detail_targets])
         if running["calls"] >= _DETAILS_TOTAL_CALL_CAP:
@@ -1445,7 +1576,9 @@ async def _build_screener_payload_impl(
         "period": {"label": period, "bgn_de": bgn_de, "end_de": end_de, "days": period_days},
         "universe": {"label": uni.label, "resolved": uni.resolved,
                      "size": (len(uni.allowed) if uni.allowed is not None else None),
-                     "notice": uni.notice},
+                     "notice": uni.notice,
+                     # 지수 구성종목 원장에서 만든 집합이면 그 구성의 마지막 확인 거래일(261018)
+                     **({"members_dd": uni.members_dd} if uni.members_dd else {})},
         "coverage": coverage,
         "types": {"selected": sel_types, "scan_codes": scan_codes,
                   "details": details_effective, "details_preview": details_preview,

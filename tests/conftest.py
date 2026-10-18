@@ -17,6 +17,8 @@ import pytest
 # 🔴 setdefault 가 아니라 **강제**다 — 개발자 셸에 `OPM_KRX_REFRESHER=1` 과 운영 `DATABASE_URL` 이 있어도 테스트가 운영 DB 를 쓰는 갱신기를
 # 띄우지 못하게 한다. 갱신기 자체의 테스트는 `monkeypatch` 로 값을 바꾸거나 함수를 직접 부른다.
 os.environ["OPM_KRX_REFRESHER"] = "0"
+# 회사 명부(DART corpCode) 백그라운드 갱신기도 같은 이유로 끈다 — 테스트가 DART 에서 명부를 받거나 개발자의 configs/master.db 를 덮지 않게.
+os.environ["OPM_CORP_REFRESHER"] = "0"
 
 
 def _free_port() -> int:

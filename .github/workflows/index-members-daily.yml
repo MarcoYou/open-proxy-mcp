@@ -1,0 +1,80 @@
+# 지수 구성종목 원장 매일 갱신 — scripts/krx_index_members.py (cron)
+#
+# 261018 신설. 「코스피200」·「코스닥150」 유니버스(screener · trading_data scope=universe · forward_estimates_data universe)가
+# 읽는 원장 `krx_index_members` 를 채운다. 종전에는 원장이 없어 시총 상위 200 으로 대체했고, 공식 구성과 34종목이 달랐다.
+#
+# 원천: 공개 목록(구성종목 코드만) — **KRX 공식 지수 합계(시총·거래량·거래대금)와 셋 다 같을 때만** 쓴다.
+#   KRX 는 구성종목을 무료 API 로 주지 않는다(Open API 에 항목 없음 · 정보데이터시스템은 로그인 필요).
+# 매일인 이유: 정기변경(6·12월)뿐 아니라 수시변경(상장폐지·합병·분할 신설 편입)도 있다. 구성이 그대로면 확인일 칸만 오르고
+#   행은 늘지 않는다(구성이 바뀐 날만 새 묶음 약 350행). 구성이 바뀐 날 아침에는 목록(새 구성)과 전 거래일 KRX 합계(옛 구성)가
+#   어긋나 그날은 쓰지 않는다 — 스크립트가 경고만 내고(직전 확인 4일 안) 다음 날 맞춘다. 그보다 오래 어긋나면 실패로 알린다.
+# 콜: KRX 3~7(지수 시세 2 + 종목 시세 2 + 기준일 찾기) · 공개 목록 4~7요청(프로세스 공통 웹 속도제한). DART 0.
+# 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY (market-val-weekly.yml 과 같은 것)
+
+name: index-members-daily
+
+on:
+  schedule:
+    # 매일 01:47 UTC = KST 10:47. KRX 는 전 거래일 자료를 익일 아침에 낸다(market-val-weekly 가 01:17 UTC 에 같은 자료를 쓴다).
+    #   주말·휴일에도 돈다 — 금요일 자료가 늦게 올라오는 날을 토·일 실행이 메운다. 이미 최신이면 아무것도 쓰지 않는다.
+    - cron: "47 1 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "기준일 YYYYMMDD (비우면 KRX 지수 자료가 있는 가장 늦은 날)"
+        required: false
+
+permissions:
+  contents: read     # 커밋백 없음 — DB 에만 쓴다
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.13"  # 260909 CI 실패 방지 — 정확한 버전은 버전 목록 조회를 건너뛴다. 올릴 때 다른 워크플로와 함께
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: 구성종목 받기 · KRX 공식 합계로 확인 · 적재
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
+        run: |
+          if [ -n "${{ inputs.date }}" ]; then
+            uv run python scripts/krx_index_members.py --date "${{ inputs.date }}"
+          else
+            uv run python scripts/krx_index_members.py
+          fi
+
+      - name: 적재 확인 — 최신 묶음 크기·확인일
+        # 「성공」이 아니라 **산출물**로 확인한다(상류가 죽어도 초록불이 되는 것을 막는다).
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          uv run python - <<'PY'
+          import os, psycopg
+          from open_proxy_mcp.index_members import INDEXES, LATEST_SQL, STALE_DAYS, days_behind
+          bad = False
+          with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+              from open_proxy_mcp.krx_daily import LATEST_DAY_SQL   # 일별 최신 거래일 = 달력(krx_day) — 261019
+              latest_px = c.execute(LATEST_DAY_SQL).fetchone()[0]
+              for code, spec in INDEXES.items():
+                  rows = c.execute(LATEST_SQL, (code, code)).fetchall()
+                  n = len(rows)
+                  snap = rows[0][0] if rows else None
+                  checked = min(r[1] for r in rows) if rows else None
+                  lag = days_behind(checked, latest_px) if checked else None
+                  print(f"{code}: 최신 묶음 {snap} · {n}종목 · 마지막 확인 {checked} · 시세 기준일 {latest_px} 대비 {lag}일")
+                  if n < spec.size * 0.95:
+                      print(f"::error::{code} 최신 묶음이 {n}종목 — 정원 {spec.size} 의 95% 미만")
+                      bad = True
+                  elif lag is not None and lag > STALE_DAYS:
+                      print(f"::error::{code} 마지막 확인이 시세 기준일보다 {lag}일 늦다 — 서버 응답에 낡음 경고가 붙는다")
+                      bad = True
+          raise SystemExit(1 if bad else 0)
+          PY

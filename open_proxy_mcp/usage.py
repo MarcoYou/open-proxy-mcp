@@ -12,12 +12,19 @@
 설계 원칙(프로덕션 요청 경로 보호):
 - 기록은 **백그라운드 워커 스레드 큐** → 요청 경로에서 DB I/O를 만지지 않음(지연 0).
 - 큐 풀·DB 오류가 나도 **요청을 절대 깨지 않음**(전부 swallow). 워커는 죽지 않고 재연결.
-- **묶어 쓴다**(261018, 재설계 4단계 T7): 첫 행부터 `_FLUSH_SEC`(기본 5초) 동안 모아 한 트랜잭션. 종전엔 호출 1건 = 확정 1번.
+- **묶어 쓴다**(261018, 재설계 4단계 T7): 첫 행부터 `_FLUSH_SEC`(기본 2초) 동안 모아 한 트랜잭션. 종전엔 호출 1건 = 확정 1번.
 - **못 쓴 묶음은 들고 있다가 다시 쓴다** — 종전엔 버렸다. 다시 써도 두 번 세지 않는다(`_pg_write`).
 - **종료 때 마지막 묶음을 쓴다** — 종료 신호(`begin_shutdown`, server._serve)에서 모으기를 멈추고 바로 쓰고, atexit(`flush`)에서 끝낸다.
+- **꺼낸 묶음은 볼륨의 송신함에 받쳐 둔다**(261018) — 중앙 DB 에 쓰기 전에 적고 COMMIT 을 확인한 뒤 지운다.
+  DB 가 죽은 채 재시작·배포되거나 종료 때 마지막 쓰기가 실패해도 다음 프로세스가 이어 쓴다. 근거·한계는 `_outbox` 주석.
+- **행 탓으로 거절된 행은 떼어 둔다**(261018) — 한 행 때문에 전부가 막히지 않게 묶음을 나눠 그 행만 격리한다. 지우지 않는다(`_isolate`).
+  프로세스가 시작할 때마다 한 번씩 다시 해 보고(`_AUTO_RETRIES` 번까지), 그 뒤엔 사람이 `requeue` 할 때까지 둔다.
+- 기록·송신함 실패는 요청을 깨지 않되 **상태에 드러낸다**(`stats()` → /health `usage`).
 - **서버는 DDL 을 보내지 않는다**(261018). Postgres 스키마 정본은 `scripts/ops_ddl.py` — 배포 전에 사람이 적용한다.
 
-CLI:  python -m open_proxy_mcp.usage dump   # (sqlite 백엔드용) events를 JSONL로 출력
+CLI:  python -m open_proxy_mcp.usage dump         # (sqlite 백엔드용) events를 JSONL로 출력
+      python -m open_proxy_mcp.usage quarantine   # 격리된 행을 오류 종류별로 센다(내용은 안 보임)
+      python -m open_proxy_mcp.usage requeue      # 원인을 고친 뒤 격리된 행을 송신함으로 되돌린다
 """
 from __future__ import annotations
 
@@ -36,6 +43,7 @@ import time
 
 DATABASE_URL = os.environ.get("DATABASE_URL")  # 있으면 Postgres, 없으면 sqlite
 DB_PATH = os.environ.get("OPM_USAGE_DB_PATH", "/data/usage.db")
+OUTBOX_PATH = os.environ.get("OPM_USAGE_OUTBOX_PATH", DB_PATH + ".outbox")
 MACHINE = os.environ.get("FLY_MACHINE_ID", "local")
 _USE_PG = bool(DATABASE_URL)
 
@@ -67,13 +75,23 @@ def is_protocol(tool) -> bool:
 _RECORDING = MACHINE != "local" or os.environ.get("OPM_USAGE_LOCAL") == "1"
 
 _q: "queue.Queue[tuple]" = queue.Queue(maxsize=10000)
+_outbox_lock = threading.Lock()
+_outbox_con = None
+#: 수집 상태(`stats()`). **개수만** 담는다 — 이벤트·키·기업·DB 오류 원문은 넣지 않는다.
+#:   record_failures = 큐에 못 넣은 행(큐 풀 포함) · write_failures = 중앙 DB 쓰기 실패 횟수 ·
+#:   outbox_failures = 송신함 읽기·쓰기 실패 횟수(이때도 기록은 메모리 경로로 계속 나간다).
+_telemetry = {"accepted": 0, "delivered": 0, "record_failures": 0,
+              "write_failures": 0, "outbox_failures": 0, "last_delivery_ns": None}
 _counter = itertools.count()
 _worker_started = False
 _lock = threading.Lock()
 
 #: 묶음 간격(초). 첫 행이 들어온 뒤 이만큼 더 모아 **한 트랜잭션**으로 쓴다(261018 T7). 종전엔 호출 1건마다
 #: INSERT+집계+COMMIT 이었다. 늘리면 확정 횟수가 줄고, 종료 신호 없이 죽을 때(강제 종료) 잃을 수 있는 폭이 커진다.
-_FLUSH_SEC = float(os.environ.get("OPM_USAGE_FLUSH_SEC", "5") or 5)
+#: 261018 5초 → 2초: 송신함(`_outbox`)은 **꺼낸 묶음**만 받친다 — 이 창 안에서 모으는 중인 행은 여전히 메모리에만 있어 강제 종료(OOM 등)에
+#:   잃는다. 운영 7일(36,711건) 호출 시각으로 모의하면 무작위 시점의 창 안 행 기대값이 0.21 → 0.09건, 하루 확정 횟수는 1,835 → 2,872번
+#:   (분당 2번꼴)이다. 확정 횟수보다 잃는 폭을 줄이는 편이 낫다. 환경변수로 바꿀 수 있다.
+_FLUSH_SEC = float(os.environ.get("OPM_USAGE_FLUSH_SEC", "2") or 2)
 #: 한 묶음의 상한. 실패한 묶음은 이보다 커지지 않는다 — 다음 묶음은 들고 있던 것 뒤에 **상한까지만** 덧붙이므로,
 #: DB 가 오래 죽어 있어도 기억에 남는 것은 이 묶음 하나 + 큐(10,000)다. 넘치면 `record()` 가 새 것을 버린다.
 _MAX_BATCH = 500
@@ -107,8 +125,8 @@ _KST = _dt.timezone(_dt.timedelta(hours=9))
 #:   · `ops_corp_daily` 는 **그대로 둔다**(이중 기록). 연결이 필요 없는 질문은 계속 그쪽으로 답한다 —
 #:     드레인으로 이벤트가 빠져나가도 기업 순위는 남아야 하고, 실제로 그게 유일한 장기 계열이다.
 #:   · 남기는 것은 **정규화된 8자리 코드뿐**이다. 사용자가 친 질의 원문은 여전히 안 남긴다.
-#:   · 드레인(`scripts/events_drain.py`)이 이 부채의 **수명 상한**이다 — 완결 주가 DB 를 떠나면
-#:     연결도 함께 떠난다. 드레인이 멈추면 부채만 무한히 쌓이므로 운영 루틴으로 묶는다.
+#:   · 드레인은 중앙 DB의 보관량만 줄인다. 비공개 백업에는 연결된 이벤트가 남으므로
+#:     개인정보 보유기간을 끝내는 삭제가 아니다. 백업까지 포함한 보관 정책은 별도로 관리한다.
 #: 운영 절차·근거: private `wiki-private/architecture/usage-telemetry-operations.md`.
 def _corp_counts(batch):
     """배치 → {(날짜, corp_code): 건수}. **key_hash 를 들고 나오지 않는다** — 여기가 연결을
@@ -275,6 +293,239 @@ _connect = _pg_connect if _USE_PG else _sqlite_connect
 _write = _pg_write if _USE_PG else _sqlite_write
 
 
+# ── 송신함 ─────────────────────────────────────────────────────────────────
+#: **워커가 큐에서 꺼낸 묶음을 볼륨의 sqlite 에 받쳐 둔다**(261018 — #97 의 묶어 쓰기 위에 얹음).
+#:
+#: #97 은 못 쓴 묶음(`held`)을 **메모리에** 들고 다시 쓴다. 프로세스가 살아 있는 동안은 그걸로 충분하지만,
+#: DB 가 죽은 채 배포·재시작되거나 종료 때 마지막 쓰기가 `_STOP_RETRIES` 안에 안 되면 그 묶음은 사라진다.
+#: 그래서 중앙 DB 에 쓰기 **전에** 여기 적고, COMMIT 을 확인한 **뒤에** 지운다. 다음 프로세스는 남은 것부터 쓴다(`_resume`).
+#: 같은 행을 두 번 써도 되는 것은 `_write` 가 event_id 로 거르고 **새로 들어간 행만** 집계하기 때문이다.
+#:
+#: 지키지 **못하는** 것: 아직 큐·모으는 창(`_FLUSH_SEC`) 안에 있던 행 — 종료 신호 없이 죽으면(OOM·강제 종료) 잃는다.
+#: 요청마다 디스크에 확정하면 막을 수 있지만, 그건 #97 이 없앤 「호출 1건 = 확정 1번」을 요청 경로로 되돌리는 일이다.
+#: 송신함이 망가져도(볼륨 없음·디스크 풀) 기록은 멈추지 않는다 — 메모리 경로로 계속 쓰고 `outbox_failures` 에 센다.
+#: 경로는 fly 볼륨(`fly.toml` 의 OPM_USAGE_OUTBOX_PATH). 컨테이너 안에 두면 배포가 송신함째 지운다.
+def _outbox():
+    """호출자는 `_outbox_lock` 을 잡는다."""
+    global _outbox_con
+    if _outbox_con is None:
+        from pathlib import Path
+        Path(OUTBOX_PATH).parent.mkdir(parents=True, exist_ok=True)
+        con = sqlite3.connect(OUTBOX_PATH, timeout=.1, check_same_thread=False)
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA synchronous=FULL")
+        con.execute("CREATE TABLE IF NOT EXISTS pending ("
+                    "event_id TEXT PRIMARY KEY, ts_ns INTEGER NOT NULL, payload TEXT NOT NULL)")
+        # 중앙 DB 가 **행 탓으로** 거절한 것(`_isolate`). 지우지 않는다 — 시작할 때마다 다시 해 보고(`_retry_quarantined`),
+        # 들어가면 그때 지운다(`_acknowledge`). attempts = 거절당한 횟수. 오류는 종류·SQLSTATE 만 적는다 — 원문엔 값이 실린다.
+        con.execute("CREATE TABLE IF NOT EXISTS quarantine ("
+                    "event_id TEXT PRIMARY KEY, ts_ns INTEGER NOT NULL, payload TEXT NOT NULL, "
+                    "error TEXT NOT NULL, sqlstate TEXT, at_ns INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 1)")
+        con.commit()
+        _outbox_con = con
+    return _outbox_con
+
+
+def _outbox_failed(what: str, e: Exception) -> None:
+    _telemetry["outbox_failures"] += 1
+    sys.stderr.write(f"[usage] 송신함 {what} 실패 — 메모리 경로로 계속: {type(e).__name__}\n")
+
+
+def _outbox_row(row) -> tuple:
+    """행 → 송신함의 (event_id, ts_ns, payload). payload 는 **칸 이름으로** 적은 JSON 이다 — 칸이 늘어난 버전으로
+    재시작해도 `_pending_batch` 가 이름으로 되읽는다(없는 칸은 None). JSON 이 못 담는 값은 문자열로 적는다 —
+    한 행 때문에 묶음 전체가 송신함에 못 들어가면 안 된다(그 값은 중앙 DB 가 거절하고 `_isolate` 가 떼어 낸다)."""
+    ev = dict(zip(_EVENT_COLUMNS, row))
+    return ev["event_id"], ev["ts_ns"], json.dumps(ev, separators=(",", ":"), default=str)
+
+
+def _spool(batch) -> None:
+    """묶음을 송신함에 적는다(이미 있는 행은 건너뜀). 실패해도 예외를 올리지 않는다 — 쓰기는 메모리 경로로 계속한다."""
+    try:
+        with _outbox_lock:
+            con = _outbox()
+            con.executemany("INSERT OR IGNORE INTO pending(event_id, ts_ns, payload) VALUES(?, ?, ?)",
+                            [_outbox_row(r) for r in batch])
+            con.commit()
+    except Exception as e:
+        _outbox_failed("쓰기", e)
+
+
+def _pending_batch(limit: int | None = None) -> list:
+    """송신함에서 오래된 것부터 `limit`(기본 `_MAX_BATCH`)건. 못 읽으면 예외를 올린다 — 부르는 쪽이 정한다."""
+    with _outbox_lock:
+        rows = _outbox().execute("SELECT payload FROM pending ORDER BY ts_ns LIMIT ?",
+                                 (limit or _MAX_BATCH,)).fetchall()
+    return [tuple(json.loads(r[0]).get(c) for c in _EVENT_COLUMNS) for r in rows]
+
+
+def _acknowledge(batch) -> bool:
+    """COMMIT 을 확인한 묶음을 송신함에서 지운다 — 다시 시도해 들어간 격리 행이면 격리 표에서도. 실패하면 행이 남아
+    다음 차례에 한 번 더 쓰인다(두 번 세지 않는다)."""
+    try:
+        ids = [(dict(zip(_EVENT_COLUMNS, r))["event_id"],) for r in batch]
+        with _outbox_lock:
+            con = _outbox()
+            con.executemany("DELETE FROM pending WHERE event_id = ?", ids)
+            con.executemany("DELETE FROM quarantine WHERE event_id = ?", ids)
+            con.commit()
+        return True
+    except Exception as e:
+        _outbox_failed("지우기", e)
+        return False
+
+
+def _resume() -> list:
+    """송신함에 남은 것 — 지난 프로세스가 못 쓰고 끝났거나, 한 묶음보다 많이 남았을 때. 못 읽으면 빈 목록."""
+    try:
+        return _pending_batch()
+    except Exception as e:
+        _outbox_failed("읽기", e)
+        return []
+
+
+def _spool_rest() -> None:
+    """끝내며 못 쓴 것 — 큐에 남은 행까지 송신함에 옮긴다. 다음 프로세스가 쓴다."""
+    rest = []
+    while True:
+        try:
+            item = _q.get_nowait()
+        except queue.Empty:
+            break
+        if item is not _WAKE:
+            rest.append(item)
+    if rest:
+        _spool(rest)
+
+
+# ── 거절된 행 격리 ─────────────────────────────────────────────────────────
+#: 워커는 못 쓴 묶음을 들고 다시 쓴다. 그런데 묶음 안의 **한 행이** 영구적으로 거절되면(값·제약) 그 묶음은 영영 실패하고,
+#: 새 행이 그 뒤에 붙어 **전부가** 함께 막힌다. 송신함 때문에 재시작해도 안 풀린다(#97 단독일 땐 재시작이 풀었다).
+#: 그래서 거절이 「행 탓」으로 보이면 묶음을 반씩 나눠 따로 쓰고, 거절되는 행만 송신함의 `quarantine` 으로 옮긴다.
+#: 「행 탓」이 아니면(접속·스키마 미적용·권한·읽기 전용) 종전대로 **들고 기다린다** — 그건 고치면 다 들어갈 행이다.
+#: 판정은 `_is_permanent` 하나가 한다. 접속 실패는 판정에 넘기지 않는다 — 행과 무관하다(구조로 막는다: `_isolate`·`_worker`).
+def _is_permanent(e: Exception) -> bool:
+    """중앙 DB 쓰기 오류가 **그 행 탓**(다시 써도 영영 안 들어감)인가. True 면 묶음을 나눠 거절되는 행만 격리한다.
+
+    False 가 기본값이어야 하는 쪽이다 — 잘못 True 면 고치면 들어갈 행을 격리(되돌릴 수 있음), 잘못 False 면 전부가 막힌다.
+    두 백엔드(psycopg·sqlite3)가 모두 DB-API 2.0 예외 계층을 따른다: DataError·IntegrityError·ProgrammingError·OperationalError….
+    psycopg 예외는 `sqlstate`(5자리, 앞 2자리가 계열)를 갖고, 서버에 닿기 전 실패(값을 못 넘김)는 `sqlstate` 가 None 이다.
+    """
+    sqlstate = getattr(e, "sqlstate", None)
+    if sqlstate:                                        # 서버가 오류 코드를 붙였다 — 값(22)·제약(23) 위반만 행 탓
+        return sqlstate[:2] in ("22", "23")
+    names = {k.__name__ for k in type(e).__mro__}
+    if names & {"DataError", "IntegrityError"}:         # sqlite3 에는 sqlstate 가 없다 — DB-API 이름으로 본다
+        return True
+    # 서버에 닿기 전 실패(값을 못 넘김)도 행 탓으로 본다(261018 결정 — 격리는 되돌릴 수 있고, 막힘은 쌓이기만 한다).
+    # InterfaceError(닫힌 커서 등)는 드라이버 상태라 아니다.
+    return "ProgrammingError" in names or isinstance(e, (TypeError, ValueError, OverflowError))
+
+
+def _permanent(e: Exception) -> bool:
+    """판정이 넘어져도 워커는 죽지 않는다 — 넘어지면 「들고 기다리기」(격리 없음, 종전 동작)."""
+    try:
+        return bool(_is_permanent(e))
+    except Exception:
+        return False
+
+
+def _delivered(batch) -> bool:
+    """중앙 DB 가 COMMIT 한 묶음 — 세고 송신함에서 지운다. 지우기가 됐는지 돌려준다."""
+    _telemetry["delivered"] += len(batch)
+    _telemetry["last_delivery_ns"] = time.time_ns()
+    return _acknowledge(batch)
+
+
+def _quarantine(row, e: Exception) -> None:
+    """거절된 행 하나를 격리 표로 옮긴다 — 지우지 않는다. 다시 해 보다 또 거절된 행이면 거절 횟수만 올린다.
+    송신함이 망가져 못 옮기면 그 행은 버린다(들고 있으면 전부가 막힌다)."""
+    try:
+        event_id, ts_ns, payload = _outbox_row(row)
+        with _outbox_lock:
+            con = _outbox()
+            con.execute("INSERT INTO quarantine(event_id, ts_ns, payload, error, sqlstate, at_ns) "
+                        "VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(event_id) DO UPDATE SET "
+                        "attempts = attempts + 1, error = excluded.error, sqlstate = excluded.sqlstate, "
+                        "at_ns = excluded.at_ns",
+                        (event_id, ts_ns, payload, type(e).__name__, getattr(e, "sqlstate", None), time.time_ns()))
+            con.execute("DELETE FROM pending WHERE event_id = ?", (event_id,))
+            con.commit()
+    except Exception as oe:
+        _outbox_failed("격리", oe)
+    sys.stderr.write(f"[usage] 거절된 행 1건 격리: {type(e).__name__} {getattr(e, 'sqlstate', None) or ''}\n")
+
+
+def _isolate(con, batch, error):
+    """방금 `error`(행 탓)로 통째로 거절된 묶음 — 다시 쓰지 않고 반씩 나눠 따로 쓰며, 거절되는 행만 격리하고 나머지는 쓴다.
+    독 든 행 k 개면 쓰기 약 2k·log₂n 번(한 행씩 쓰면 n 번).
+
+    도중에 행 탓이 아닌 오류(접속 끊김 등)가 나면 거기서 멈추고 **아직 못 푼 행**을 돌려준다 — 워커가 들고 평소처럼 다시 쓴다
+    (이미 쓴 조각은 지웠고, 다시 써도 두 번 세지 않는다). 돌려주는 것: (접속, 못 푼 행, 그 오류|None, 송신함 지우기가 다 됐나)."""
+    parts, acked = [], True
+
+    def split(part, e):
+        if len(part) == 1:
+            _quarantine(part[0], e)
+        else:
+            mid = len(part) // 2
+            parts.extend([part[mid:], part[:mid]])          # 앞쪽(오래된 행)부터 꺼낸다
+
+    split(batch, error)
+    while parts:
+        part = parts.pop()
+        left = part + [r for p in reversed(parts) for r in p]
+        if con is None:
+            try:
+                con = _connect()
+            except Exception as e:
+                return None, left, e, acked                  # 접속 실패는 판정에 넘기지 않는다
+        try:
+            _write(con, part)
+        except Exception as e:
+            con = _recover(con)
+            if not _permanent(e):
+                return con, left, e, acked
+            split(part, e)
+            continue
+        acked = _delivered(part) and acked
+    return con, [], None, acked
+
+
+#: 격리한 행을 **저절로** 다시 해 보는 상한. 프로세스가 시작할 때(배포·재시작)마다 한 번씩 — 원인을 고치는 길이 대개
+#: 배포라서다(코드 수정, 또는 DDL 적용 뒤 재시작). 이만큼 거절당한 행은 사람이 볼 때까지 둔다 — 같은 실패를 끝없이
+#: 되풀이하지 않는다. 다시 열려면 `requeue`(횟수를 지운다).
+_AUTO_RETRIES = 3
+
+
+def _retry_quarantined() -> int:
+    """시작할 때 — 거절 횟수가 상한 아래인 격리 행을 송신함에 다시 넣는다. 격리 표에서는 **들어가야** 지운다(`_acknowledge`).
+    또 거절되면 `_quarantine` 이 횟수를 올린다. 넣은 행 수(못 하면 0)."""
+    try:
+        with _outbox_lock:
+            con = _outbox()
+            n = con.execute("INSERT OR IGNORE INTO pending(event_id, ts_ns, payload) "
+                            "SELECT event_id, ts_ns, payload FROM quarantine WHERE attempts < ?",
+                            (_AUTO_RETRIES,)).rowcount
+            con.commit()
+        return n
+    except Exception as e:
+        _outbox_failed("격리 재시도", e)
+        return 0
+
+
+def _requeue() -> int:
+    """운영자가 원인을 고친 **뒤에** — 격리 행을 전부 송신함에 다시 넣고 거절 횟수를 지운다(자동 재시도도 다시 열린다).
+    넣은 행 수. 돌고 있는 워커는 다음 쓰기가 성공한 뒤 송신함을 이어 읽을 때 가져가고, 들어가면 격리 표에서 지운다."""
+    with _outbox_lock:
+        con = _outbox()
+        n = con.execute("INSERT OR IGNORE INTO pending(event_id, ts_ns, payload) "
+                        "SELECT event_id, ts_ns, payload FROM quarantine").rowcount
+        con.execute("UPDATE quarantine SET attempts = 0")
+        con.commit()
+    return n
+
+
 # ── 워커 ───────────────────────────────────────────────────────────────────
 def _gather(batch: list) -> list:
     """묶음 하나를 모은다 — 들고 있던 것(지난번에 못 쓴 묶음) 뒤에 큐에서 더 받는다.
@@ -317,9 +568,11 @@ def _worker() -> None:
     """큐를 묶음으로 비워 기록. 요청 스레드와 분리돼 지연을 만들지 않음. 절대 죽지 않음.
 
     못 쓴 묶음은 **버리지 않고** 들고 있다가 다음 차례에 다시 쓴다(종전엔 버렸다 — 실패 1번 = 최대 200행 유실).
-    기다림은 2·4·8…초에서 `_RETRY_MAX_SEC` 로 멈춘다. 끝내는 중에는 0.2초 간격으로 `_STOP_RETRIES` 번만 — 종료를 붙들지 않는다."""
+    기다림은 2·4·8…초에서 `_RETRY_MAX_SEC` 로 멈춘다. 끝내는 중에는 0.2초 간격으로 `_STOP_RETRIES` 번만 — 종료를 붙들지 않는다.
+    들고 있는 묶음은 송신함에도 있다(`_spool`) — 시작할 때 거기 남은 것부터 쓰고, 끝내며 못 쓴 것은 거기 남긴다."""
     con = None
-    held: list = []
+    _retry_quarantined()                   # 격리해 둔 행도 시작할 때마다 한 번씩 다시 — 배포가 원인을 고쳤을 수 있다
+    held: list = _resume()
     fails = 0
     stop_fails = 0
     try:
@@ -329,18 +582,33 @@ def _worker() -> None:
                 batch = _gather(held)
                 held = []
                 if batch:
+                    _spool(batch)                  # 쓰기 전에 적는다 — 실패해도 예외를 올리지 않는다
                     if con is None:
                         con = _connect()
                     _write(con, batch)
                     fails = 0
+                    # 지우기가 된 때만 이어 읽는다 — 안 지워졌는데 읽으면 같은 묶음을 쉼 없이 다시 쓴다.
+                    if _delivered(batch):
+                        held = _resume()
             except Exception as e:
+                # 접속이 있는데 실패했다 = 쓰기가 거절됐다. 접속 실패(con 이 None)는 행 탓일 수 없어 판정하지 않는다.
+                rejected = bool(batch) and con is not None and _permanent(e)
+                con = _recover(con)
+                if rejected:
+                    con, batch, e, acked = _isolate(con, batch, e)
+                    if not batch:                  # 거절된 행만 떼어 내고 나머지는 다 썼다
+                        fails = 0
+                        held = _resume() if acked else []
+                        continue
                 fails += 1
                 held = batch
-                con = _recover(con)
+                _telemetry["write_failures"] += 1
                 if _stopping.is_set():
                     stop_fails += 1
                     if stop_fails > _STOP_RETRIES:
-                        sys.stderr.write(f"[usage] 종료 중 write 실패 — {len(held)}건 못 씀: {type(e).__name__}: {e}\n")
+                        _spool_rest()
+                        sys.stderr.write(f"[usage] 종료 중 write 실패 — {len(held)}건과 큐의 나머지를 송신함에 남김: "
+                                         f"{type(e).__name__}: {e}\n")
                         return
                     time.sleep(0.2)
                     continue
@@ -393,6 +661,31 @@ def flush(timeout: float = 5.0) -> None:
 atexit.register(flush)
 
 
+def stats() -> dict:
+    """수집 상태 — /health 의 `usage`. 개수·나이만 싣는다(개별 이벤트·키·기업·DB 오류 원문은 노출하지 않는다).
+
+    pending = 아직 중앙 DB 의 COMMIT 을 확인 못 한 행 = 송신함 + 큐(아직 송신함에 안 간 것).
+    quarantined = 중앙 DB 가 행 탓으로 거절해 떼어 둔 행(`_isolate`). 하나라도 있으면 degraded — 원인을 보고 `requeue` 한다.
+    기록 중이면 워커를 띄운다 — 재시작 뒤 새 호출이 없어도 fly 의 /health 점검(30초)이 지난 프로세스의 송신함을 비우게 한다.
+    `scripts/usage_health_check.py` 가 이 모양을 읽는다."""
+    result = {"enabled": _RECORDING, "basis": "tool_calls.v1", **_telemetry}
+    if not _RECORDING:
+        return {**result, "pending": 0, "oldest_pending_age_s": 0, "quarantined": 0}
+    _ensure_worker()
+    try:
+        with _outbox_lock:
+            con = _outbox()
+            n, oldest = con.execute("SELECT count(*), min(ts_ns) FROM pending").fetchone()
+            quarantined = con.execute("SELECT count(*) FROM quarantine").fetchone()[0]
+        age = max(0, round((time.time_ns() - oldest) / 1e9)) if oldest else 0
+        result.update(pending=n + _q.qsize(), oldest_pending_age_s=age, quarantined=quarantined)
+        result["status"] = ("degraded" if result["record_failures"] or result["outbox_failures"]
+                            or quarantined or age > 300 else "ok")
+    except Exception:
+        result.update(status="degraded", pending=None, oldest_pending_age_s=None, quarantined=None)
+    return result
+
+
 def _call_dims(scope, as_of) -> tuple[str | None, str | None]:
     """호출 인자 `scope`·`as_of` → 저장해도 되는 값(정규화) 한 쌍. **저장 경계의 문지기**다(261018 T8).
 
@@ -423,7 +716,7 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
            fetch_viewer=None, fetch_kind=None, web_wait_ms=None, weak_kinds=None,
            degraded=None, inflight=None, cpu_ms=None, lag_ms=None,
            scope=None, as_of=None) -> None:
-    """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음.
+    """요청 1건 기록. 요청 경로에서 호출 — 절대 예외를 던지지 않음, 절대 블록하지 않음(디스크도 안 만진다 — 송신함은 워커 몫).
     tool=호출한 MCP method/tool명, latency_ms=처리 시간(ms),
     is_error=tools/call 응답의 isError(툴 내부 실패; HTTP 200이어도 True 가능),
     error_kind=is_error일 때 예외 분류(timeout/upstream/crash/unknown; tools 래퍼가 붙인
@@ -480,8 +773,10 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
                 "inflight": inflight, "cpu_ms": cpu_ms, "lag_ms": lag_ms,
                 "scope": scope_v, "as_of": as_of_v}
         _q.put_nowait(tuple(vals[c] for c in _EVENT_COLUMNS))
+        _telemetry["accepted"] += 1
     except Exception:
-        pass
+        # 큐 풀 포함. 요청은 깨지 않되 /health 에 드러낸다 — 로그는 남기지 않는다(큐가 차면 요청마다 한 줄이 된다).
+        _telemetry["record_failures"] += 1
 
 
 def _dump() -> None:
@@ -494,6 +789,21 @@ def _dump() -> None:
         sys.stdout.write(json.dumps(row) + "\n")
 
 
+def _quarantine_summary() -> list:
+    """격리된 행을 오류 종류별로 센다 — (오류 종류, SQLSTATE, 건수, 자동 재시도가 끝난 건수, 가장 이른 ts_ns).
+    행 내용은 보여 주지 않는다."""
+    with _outbox_lock:
+        return _outbox().execute("SELECT error, sqlstate, count(*), sum(attempts >= ?), min(ts_ns) FROM quarantine "
+                                 "GROUP BY error, sqlstate ORDER BY 3 DESC", (_AUTO_RETRIES,)).fetchall()
+
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "dump":
+    cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+    if cmd == "dump":
         _dump()
+    elif cmd == "quarantine":
+        for error, sqlstate, n, gave_up, first in _quarantine_summary():
+            sys.stdout.write(f"{error}\t{sqlstate or '-'}\t{n}건(자동 재시도 끝 {gave_up}건)\t"
+                             f"첫 행 {_dt.datetime.fromtimestamp(first / 1e9, _KST):%Y-%m-%d %H:%M}\n")
+    elif cmd == "requeue":
+        sys.stdout.write(f"송신함으로 되돌림: {_requeue()}건\n")

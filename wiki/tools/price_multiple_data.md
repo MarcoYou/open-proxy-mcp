@@ -152,7 +152,7 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
   261018(재설계 5-1 쓰는 쪽): 스냅샷 시총은 일별 시세 저장분(`krx_daily_v`)의 그 날 단면에서 읽는다 — 주간 시세 저장분은 닫힌 주만 담는다.
   그 날 종목이 1,500 미만이면 기존 스냅샷을 지우지 않고 실패로 끝낸다(종전엔 0행 저장 후 「완료」).
   261018: 시세 갱신의 주 담당은 서버 백그라운드 작업(`krx_refresher`)이다 — 이 배치는 서버가 못 했을 때의 예비이고,
-  서버가 이미 갱신했으면 DB 가 최신이라 시세 콜을 하지 않는다. 같은 응답을 최근 7거래일 일별 시세에도 함께 쓴다([[trading_data]]).
+  서버가 이미 갱신했으면 DB 가 최신이라 시세 콜을 하지 않는다. 같은 응답을 일별 시세(최근 약 1년)에도 함께 쓴다([[trading_data]]).
 - **market/sector 히스토리는 2020-01~현재, FY0+TTM+MRQ 전부**: cron이 쌓는 최신분 + `market_val_history_backfill.py`
   (1회성, DART 0콜)가 채운 과거 78개 월말 — 시장 156행 + 섹터 11,014행, FY0·TTM·MRQ 세 기준 모두 백필
   완료(260706, 최초엔 FY0만이었으나 분기 백필 완주 후 확장). "2020년부터 코스피 PER/PBR 추이" 응답 가능.
@@ -191,13 +191,13 @@ price_multiple_data(scope="sector", scheme="중분류") # 업종 중분류 28 �
 
 | 단계 | 소스 (호출) | 뽑는 아이템 | 쓰임 |
 |---|---|---|---|
-| 식별 | **`resolve_company_query`(공용 리졸버 — company 툴과 동일 진입, 260705 채택)** → DART corp master | corp_code · stock_code · 상장여부 · ambiguous 후보 | 진입 게이트(동명 다수=후보표 / 비상장·우선주·빈입력 차단) |
+| 식별 | **`resolve_company_query`(공용 리졸버 — company 툴과 동일 진입, 260705 채택)** → DART corp master | corp_code · stock_code · 상장여부 · ambiguous 후보 | 진입 게이트(동명 다수=후보표 / 비상장·빈입력 차단 / 우선주 등 종류주 코드는 발행 회사로 — 아래 가드 1) |
 | 재무요약 | `build_financial_metrics_payload(stock_code)` → DART **fnlttSinglAcnt·AcntAll·Indx·감사의견** | eps_krw · revenue_krw · roe_pct · capital_impairment_status · fiscal year | EPS(FY0)·ROE·매출·자본잠식 상태 |
 | 업종/결산월 | `get_company_info` → DART **company.json** | induty_code(KSIC) · acc_mt(결산월) | 금융 판별(64/65/66) · FX 기준일 |
 | 재무원장 | `get_fnltt_singl_acnt_all` ×3 (연간 11011 + 1Q당해 11013 + 1Q전년 11013) | `_ctrl_ni`(지배순이익) · `_ctrl_equity`(지배자본) · `_gid`(Assets/Liab/Equity, **exact-match**) | TTM 순이익 · BPS · 스케일 항등식 |
 | 통화 | `statement_currency`(currency 필드) + `fx_to_krw` → **ECOS 731Y001**(→야후 폴백) + 환율 캐시 저장분 | 기능통화 · 기말환율 | 비KRW → 재무 KRW 환산 |
 | 주식수 | `get_stock_total` → DART **stockTotqySttus** | distb_stock_co(합계/보통주, 자기주식 제외) | EPS 분모(보통주)·BPS 분모(합계) |
-| 시세 | **일별 시세 저장분(최근 7거래일)** 우선 — 기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest` → 미스(그날 행 없는 신규상장·거래정지 등)만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap(종가×상장주식수) · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
+| 시세 | **일별 시세 저장분(최근 약 1년)** 우선 — 기준일 = `krx_daily` 최신 거래일, 종목 한 줄 = `price_latest` → 미스(그날 행 없는 신규상장·거래정지 등)만 라이브 KRX stk/ksq_bydd_trd | close(종가) · mktcap(종가×상장주식수) · list_shrs | 배수 분자(주가)·시총 노출·주식수 검증 |
 | 배당 | `_annual_summary` → DART **alotMatter** | cash_dps(주당현금배당, 이미 주당값) | 배당수익률 |
 
 ## 연산 파이프라인
@@ -225,8 +225,11 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
   조립 한계는 sanity 경고. 상세 private wiki.
 
 ## 가드 4종
-1. **식별 status**(진입부): `invalid`(빈입력) · `not_found`(미존재·우선주 — 마스터는 보통주 코드만) ·
+1. **식별 status**(진입부): `invalid`(빈입력) · `not_found`(미존재) ·
    `unlisted`(비상장, 주가 없어 배수 불가 + 상장 후보 안내) · `no_financials`(재무 미확정). 크래시·오매핑 0.
+   우선주 등 **종류주 코드**(`005935`)는 공용 리졸버가 발행 회사로 식별해 **회사 배수**를 준다 — 배수 정의(분자 = 보통주 시총, 우선주 시총 제외)
+   그대로라 `005930` 과 같은 값이고, 응답 맨 앞 경고가 「「005935」는 **삼성전자**(보통주 005930)의 종류주…」로 밝힌다(우선주 주가 기준 배수는 만들지 않는다 —
+   분모 이익·자본이 종류별로 공시되지 않는다). 그 종류주 자체의 주가·시총은 `trading_data(company="005935")`. 종전엔 마스터에 보통주 코드만 있어 `not_found`였다.
 2. **N/M 게이팅**: 분모(EPS·BPS)≤0 또는 **완전자본잠식**(cap_status=full)이면 해당 배수 = None(N/M).
    적자를 숫자 배수로 내보내지 않음.
 3. **스케일가드**(`services/scale_guard.py`, 설계 근거 private wiki): hard=②항등식(자산=부채+자본)·
@@ -315,7 +318,7 @@ sequenceDiagram
     participant SH as stockTotqySttus
     participant KX as KRX bydd_trd
     U->>V: company="두산밥캣"
-    V->>R: 식별 → corp_code·stock_code (비상장/우선주 게이트)
+    V->>R: 식별 → corp_code·stock_code (비상장 게이트 · 종류주 코드는 발행 회사)
     V->>FM: 요약(eps·roe·revenue·cap_status·fy)
     V->>V: get_company_info (induty·acc_mt) → 금융판별
     V->>AA: 지배순이익·지배자본·Assets/Liab/Equity
@@ -350,6 +353,8 @@ sequenceDiagram
   무배당과 구분이 안 됐고, `explain` 의 DPS 칸이 장애 때도 「없음(무배당 또는 미공시)」이라 적었다. 이제 실패면 경고 한 줄(「DART 배당 사항 조회 실패 — DPS·배당수익률 미확인…」)과
   explain 「미확인 — DART 배당 사항 조회 실패」. `price_source=krx_live` 의 explain 문구도 「저장분에서 받지 못해 KRX 에서 직접 조회」로 —
   그 종목 행이 없을 때뿐 아니라 저장분을 읽지 못했을 때·DB 를 붙이지 않은 서버도 같은 값이다.
+- 2026-10-18: 우선주 등 **종류주 코드**(`005935`)와 영문이 섞인 **신형 종목코드**(`0126Z0`)를 받는다 — 둘 다 종전엔 `not_found`. 종류주 코드는 발행 회사로 식별해
+  회사 배수(보통주 시총 기준 — 위 정의 그대로, `005930` 과 같은 값)를 주고 경고 맨 앞에 그 사실을 밝힌다(위 「가드 4종」 1). 고친 곳은 공용 리졸버 하나다.
 - 2026-10-18: `firm` 응답에 **`price_source`**(`db` = 일별 시세 저장분 / `krx_live` = 저장분에서 못 받아 KRX 직접 조회 / null)를 더했다.
   `explain` 의 주가 인풋 줄이 값을 어디서 받았든 「일별 시세 저장분 서빙」이라 적던 것을 실제 출처대로 적고,
   주가를 못 받았을 때(저장분·KRX 직접 조회 모두 실패) 숫자 서식 오류로 explain 응답 전체가 실패하던 것을 「미확보」로 적게 고쳤다.

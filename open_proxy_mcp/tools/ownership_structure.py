@@ -221,6 +221,14 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 lines.append(f"| {row['report_date']} | {row['reporter']} | {row['ownership_pct']:.2f}% | {row['purpose']} | `{row['rcept_no']}` |")
 
     if scope == "changes":
+        control_events = data.get("control_events", []) or []
+        lines.extend(["", "## 최대주주 변경 · 변경 수반 계약 (거래소 공시)"])
+        if not control_events:
+            lines.append("- 조사 구간 내 최대주주변경·양수도·담보 계약 공시 없음")
+        for ev in control_events:
+            lines.extend(_control_event_lines(ev))
+        if data.get("control_events_listed_only"):
+            lines.append(f"- 그 밖에 {data['control_events_listed_only']}건은 원문을 열지 않았다 — 구간을 좁혀 다시 부를 것")
         change_filings = data.get("change_filings", [])
         lines.extend(["", "## 최대주주등 소유주식 변동신고서"])
         if not change_filings:
@@ -315,6 +323,60 @@ def _render(payload: dict[str, Any], scope: str) -> str:
     return "\n".join(lines)
 
 
+def _v(x: Any, unit: str = "") -> str:
+    return f"{x}{unit}" if x not in (None, "") else "-"
+
+
+def _control_event_lines(ev: dict[str, Any]) -> list[str]:
+    """최대주주변경 계열 사건 하나 — 원문 칸 글 그대로(숫자는 회사가 쓴 꼴)."""
+    f = ev.get("fields") or {}
+    kind = ev.get("kind")
+    out = [f"\n### {ev.get('rcept_dt', '')} {ev.get('kind_label', '')} (`{ev.get('rcept_no', '')}`)"]
+    if ev.get("status") == "error":
+        out.append(f"- 원문을 못 읽었다 ({ev.get('error', '')}) — 원문 링크로 확인")
+        return out
+    def party(p):
+        return f"{p['name']}({p['relation']})" if p and p.get("relation") else (p or {}).get("name", "-")
+    if kind == "change":
+        out.append(f"- **{_v(f.get('before_holder'))} {_v(f.get('before_pct'), '%')}** → "
+                   f"**{_v(f.get('after_holder'))} {_v(f.get('after_pct'), '%')}** (변경일 {_v(f.get('changed_on'))})")
+        for key, label in (("reason", "사유"), ("purpose", "지분인수 목적"), ("funding", "인수자금"), ("board_plan", "임원 선·해임 계획")):
+            if f.get(key):
+                out.append(f"- {label}: {' / '.join(f[key].split(chr(10)))}")
+    elif kind in ("transfer_contract", "transfer_release"):
+        if kind == "transfer_release":
+            out.append(f"- **{_v(f.get('release_kind'))}** — {_v(f.get('reason'))} (해소일 {_v(f.get('released_on'))})")
+        out.append(f"- 양도 {party(f.get('transferor'))} → 양수 {party(f.get('transferee'))}")
+        out.append(f"- {_v(f.get('shares'), '주')} × {_v(f.get('price_per_share'), '원')} = **{_v(f.get('amount'), '원')}**"
+                   + (f" (계약일 {f['contract_on']})" if f.get("contract_on") else ""))
+        if kind == "transfer_contract" and f.get("expected_holder"):
+            out.append(f"- 변경예정 최대주주: **{f['expected_holder']} {_v(f.get('expected_pct'), '%')}** "
+                       f"({_v(f.get('expected_on'))} 예정)")
+    elif kind == "pledge_contract":
+        out.append(f"- 담보제공자 **{_v(f.get('pledgor'))}** {_v(f.get('pledgor_pct_now'), '%')} → 담보권 전부 실행시 "
+                   f"**{_v(f.get('pct_if_executed'), '%')}**")
+        out.append(f"- 차입 {_v(f.get('debt_total'), '원')} · 담보설정 {_v(f.get('pledge_total'), '원')} · 누적 담보 "
+                   f"{_v(f.get('cumulative_pledged_shares'), '주')} (계약일 {_v(f.get('contract_on'))})")
+    elif kind == "pledge_release":
+        out.append(f"- 해소 {_v(f.get('released_shares'), '주')} · {_v(f.get('released_amount'), '원')} — {_v(f.get('reason'))} "
+                   f"(해소일 {_v(f.get('released_on'))})")
+        for c in ev.get("comparison") or []:
+            out.append(f"  - {c['item']}: {c['before']} → {c['after']}")
+    if not f:
+        out.append("- 본표 칸을 못 찾았다 — 원문 링크로 확인")
+    a = ev.get("amendment") or {}
+    if a:
+        out.append(f"- 정정: {_v(a.get('reason'))}" + (f" (원공시 {a['original_filed_date']})" if a.get("original_filed_date") else ""))
+        for r in (a.get("rows") or [])[:3]:
+            out.append(f"  - {r['item']}: {' / '.join(r['before'].split(chr(10)))[:60]} → {' / '.join(r['after'].split(chr(10)))[:60]}")
+    if ev.get("notes"):
+        note = " / ".join(ev["notes"][0].split("\n"))
+        out.append(f"- 기타: {note[:200]}{'…' if len(note) > 200 else ''}")
+    if ev.get("profile_omitted"):
+        out.append("- _인적사항 표(주소·생년월일)는 싣지 않는다 — 원문 링크_")
+    return out
+
+
 def register_tools(mcp):
 
     @mcp.tool()
@@ -330,7 +392,7 @@ def register_tools(mcp):
         """desc: 최대주주·특수관계인·5% 대량보유 지분 구조 + **공동보유자 분해**. 자사주 detail은 `treasury_share` 별도.
         when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널, **"OO의 N% 지분이 누구누구 공동보유냐 / 보고자 본인 지분은 얼마냐"** 질의.
         rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None. **5% 보고 지분율끼리 더하지 말 것** — 보고자들이 같은 특별관계자를 공유해 같은 주식이 중복 신고된다(고려아연 단순합 111.84%). 중복을 걷어낸 진영별 순 지분은 `block_camps.camps[].net_pct`, 겹침 내역은 `block_camps.shared_holders_between_reporters`, 총합은 `block_camps.net_total_pct`(null이면 계산 불가 — 지어내지 말 것). `reporter_self_pct=0`이면 `reporter_self_note`에 뜻이 담긴다(보고자 본인 직접 보유 없음; 사유는 본 보고서로 확정 불가). DART 013/014/404는 실패가 아니라 「해당 자료 없음」으로 표기된다.
-        scope: `summary` 최대주주+5%블록(+공동보유자 분해)+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력+공동보유자 분해 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동)+공동보유자 / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) 통합
+        scope: `summary` 최대주주+5%블록(+공동보유자 분해)+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력+공동보유자 분해 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동)+공동보유자 / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) + **최대주주변경·변경 수반 주식양수도·담보 계약 체결·해제(거래소 I001)** 통합
         ref: treasury_share, proxy_contest, evidence
         """
         payload = await build_ownership_structure_payload(

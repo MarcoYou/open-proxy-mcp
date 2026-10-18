@@ -32,10 +32,12 @@ def _rows(n, prefix="A"):
 @pytest.fixture(autouse=True)
 def _clean():
     R._LOGGED_FRESH.clear()
+    R._GAP_TRIES.clear()
     R._BUSY_STREAK["n"] = 0
     R._COOLDOWN["n"] = 0
     yield
     R._LOGGED_FRESH.clear()
+    R._GAP_TRIES.clear()
     R._BUSY_STREAK["n"] = 0
     R._COOLDOWN["n"] = 0
 
@@ -145,20 +147,41 @@ def test_tests_run_with_the_refresher_off_by_default():
 # ── 한 번의 확인(run_cycle) ────────────────────────────────────────────────
 
 class Sim:
-    """DB 상태·잠금·KRX 를 흉내 낸다. 두 머신이 같은 Sim 을 공유하면 같은 DB 를 보는 것과 같다."""
+    """DB 상태·잠금·KRX 를 흉내 낸다. 두 머신이 같은 Sim 을 공유하면 같은 DB 를 보는 것과 같다.
+
+    stored = 저장된 최신 거래일(달력), gaps = 보관 창 안에서 달력에 없는 더 이른 평일, empty = KRX 가 빈 응답을 주는 날(휴장 등),
+    verdicts = 빈 응답 날의 휴장 판정(`_judge_closed` 대역 — 기본 "unknown")."""
 
     def __init__(self, monkeypatch, stored="20261015", published=True, kospi=900, kosdaq=1800, write_ok=True, lock_held_by_other=False,
-                 weekly_ok=True):
-        # write_ok = krx_daily 기록 성공(성공 판정 — 261018 재설계 5-1 쓰는 쪽) · weekly_ok = 같은 트랜잭션의 주간 닫기 성공(부)
+                 weekly_ok=True, gaps=(), empty=(), verdicts=None):
+        # write_ok = 일별 기록 성공(성공 판정 — 261018 재설계 5-1 쓰는 쪽) · weekly_ok = 같은 트랜잭션의 주간 닫기 성공(부)
         self.stored, self.published, self.write_ok, self.weekly_ok = stored, published, write_ok, weekly_ok
         self.kospi_n, self.kosdaq_n = kospi, kosdaq
         self.locked = lock_held_by_other
         self.lock_attempts = self.fetches = self.writes = self.krx_calls = 0
-        self.fetched_days, self.written = [], []
-        monkeypatch.setattr(R, "_db_latest_dd", lambda: self.stored)
+        self.fetched_days, self.written, self.fetch_both = [], [], []
+        self.gaps, self.empty = set(gaps), set(empty)
+        self.verdicts = dict(verdicts or {})
+        self.closed, self.judged = set(), []
+        monkeypatch.setattr(R, "_db_state", self._state)
+        monkeypatch.setattr(R, "_judge_closed", self._judge)
         monkeypatch.setattr(R, "_advisory_lock", self._lock)
         monkeypatch.setattr(R, "_fetch_day", self._fetch)
         monkeypatch.setattr(R, "_write", self._write)
+
+    def _state(self, exp):
+        if self.stored is R._DB_DOWN:
+            return R._DB_DOWN
+        missing = [exp] if (not self.stored or self.stored < exp) and exp not in self.closed else []
+        missing += sorted((g for g in self.gaps if g not in self.closed and g < exp), reverse=True)
+        return self.stored, missing
+
+    def _judge(self, dd, today, kospi_empty, kosdaq_empty):
+        self.judged.append((dd, today, kospi_empty, kosdaq_empty))
+        v = self.verdicts.get(dd, "unknown")
+        if v == "closed":
+            self.closed.add(dd)
+        return v
 
     @contextlib.asynccontextmanager
     async def _lock(self):
@@ -172,21 +195,24 @@ class Sim:
         finally:
             self.locked = False
 
-    async def _fetch(self, basDd):
+    async def _fetch(self, basDd, both=False):
         self.fetches += 1
         self.fetched_days.append(basDd)
+        self.fetch_both.append(both)
         await asyncio.sleep(0.01)                       # 다른 머신이 끼어들 틈
-        if not self.published:
-            self.krx_calls += 1
-            return [], [], 1
+        if not self.published or basDd in self.empty:
+            n = 2 if both else 1                         # 휴장 판정이 필요한 날은 코스닥도 묻는다
+            self.krx_calls += n
+            return [], [], n
         self.krx_calls += 2
         return _rows(self.kospi_n, "K"), _rows(self.kosdaq_n, "Q"), 2
 
     async def _write(self, dd, kospi, kosdaq):
         from open_proxy_mcp.services.price_multiple_data import KrxWrite
         self.writes += 1
-        if self.write_ok:                                   # krx_daily 를 써야 max(trd_dd) 가 움직인다
-            self.stored = dd
+        if self.write_ok:                                   # 일별 기록을 써야 달력의 최신일이 움직인다
+            self.stored = max(self.stored or "", dd)
+            self.gaps.discard(dd)
             self.written.append((dd, len(kospi), len(kosdaq)))
         return KrxWrite(self.write_ok, self.write_ok and self.weekly_ok, ())
 
@@ -248,8 +274,8 @@ def test_busy_streak_resets_once_the_db_is_fresh_or_the_lock_is_held(monkeypatch
 
 def test_recheck_after_taking_the_lock_skips_work_the_other_machine_just_did(monkeypatch):
     sim = Sim(monkeypatch, stored="20261015")
-    reads = iter(["20261015", "20261016"])               # 잠금 전에는 낡았는데, 잠금을 잡고 다시 보니 상대가 끝냈다
-    monkeypatch.setattr(R, "_db_latest_dd", lambda: next(reads))
+    reads = iter([("20261015", ["20261016"]), ("20261016", [])])   # 잠금 전에는 낡았는데, 잠금을 잡고 다시 보니 상대가 끝냈다
+    monkeypatch.setattr(R, "_db_state", lambda exp: next(reads))
     res = asyncio.run(R.run_cycle(MON))
     assert res.outcome == "fresh" and sim.lock_attempts == 1 and sim.fetches == 0 and sim.writes == 0
 
@@ -316,7 +342,7 @@ def test_failures_cost_far_fewer_krx_calls_than_retrying_every_tick(monkeypatch)
 
 def test_unreadable_db_skips_the_tick_without_lock_or_krx(monkeypatch):
     sim = Sim(monkeypatch)
-    monkeypatch.setattr(R, "_db_latest_dd", lambda: R._DB_DOWN)
+    monkeypatch.setattr(R, "_db_state", lambda exp: R._DB_DOWN)
     res = asyncio.run(R.run_cycle(MON))
     assert res.outcome == "db_error" and sim.lock_attempts == 0 and sim.fetches == 0
 
@@ -344,6 +370,99 @@ def test_a_weekday_holiday_just_keeps_checking_without_breaking(monkeypatch):
     results = [asyncio.run(R.run_cycle(t)) for t in ticks]
     assert {r.outcome for r in results} == {"not_published"}
     assert sim.writes == 0 and sim.krx_calls == 6      # 틱당 1콜 — 상한 계산의 기초
+
+
+# ── 빠진 날 메우기 · 휴장 기록 (261019 재설계 v03 — 보관 약 1년) ─────────────────────
+
+def test_a_missing_older_weekday_is_filled_in_the_same_tick_after_the_expected_day(monkeypatch):
+    """서버가 하루 멈췄다 — 기대 거래일(월)과 함께 보관 창 안의 빠진 날(지난 수요일)도 메운다. 기대 거래일이 먼저다."""
+    sim = Sim(monkeypatch, stored="20261016", gaps=["20261014"])
+    res = asyncio.run(R.run_cycle(TUE))                                         # 화요일 아침: 기대 = 월 20261019
+    assert (res.outcome, res.expected, res.filled, res.krx_calls) == ("refreshed", "20261019", ("20261014",), 4)
+    assert sim.fetched_days == ["20261019", "20261014"] and [w[0] for w in sim.written] == ["20261019", "20261014"]
+    assert asyncio.run(R.run_cycle(kst(2026, 10, 20, 8, 10))).outcome == "fresh" and sim.fetches == 2
+
+
+def test_only_gaps_left_is_filled_not_refreshed(monkeypatch):
+    sim = Sim(monkeypatch, stored="20261016", gaps=["20261013", "20261014"])
+    res = asyncio.run(R.run_cycle(MON))                                         # 기대 = 금 20261016 은 이미 있다
+    assert res.outcome == "filled" and res.filled == ("20261014", "20261013") and res.stored == "20261016"
+    assert sim.fetched_days == ["20261014", "20261013"]                         # 최근 날부터
+
+
+def test_gap_filling_is_capped_per_tick(monkeypatch):
+    gaps = ["20261005", "20261006", "20261007", "20261008", "20261012"]
+    sim = Sim(monkeypatch, stored="20261016", gaps=gaps)
+    res = asyncio.run(R.run_cycle(MON))
+    assert len(res.filled) == R.FILL_PER_TICK and sim.fetches == R.FILL_PER_TICK
+    asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, 10)))
+    assert sorted(w[0] for w in sim.written) == sorted(gaps)
+
+
+def test_an_empty_day_is_not_judged_until_two_weekdays_have_passed(monkeypatch):
+    """금요일(한글날 20261009) 빈 응답 — 토·월 아침에는 게시 전과 구분할 수 없어 휴장을 판정하지 않는다(코스피 1콜만, 20260702 교훈)."""
+    sim = Sim(monkeypatch, stored="20261008", empty=["20261009"], verdicts={"20261009": "closed"})
+    for now in (kst(2026, 10, 10, 9, 0), kst(2026, 10, 12, 9, 0)):
+        res = asyncio.run(R.run_cycle(now))
+        assert (res.outcome, res.krx_calls, res.closed_days) == ("not_published", 1, ())
+    assert sim.judged == [] and sim.fetch_both == [False, False]
+
+
+def test_a_holiday_is_recorded_once_judged_and_never_asked_again(monkeypatch):
+    """화요일: 기대 거래일(월)을 쓰고, 금요일 빈 응답은 평일 2일이 지났으니 두 시장을 묻고 판정한다 → 휴장으로 적힌 날은 다시 묻지 않는다."""
+    sim = Sim(monkeypatch, stored="20261008", gaps=["20261009"], empty=["20261009"], verdicts={"20261009": "closed"})
+    res = asyncio.run(R.run_cycle(kst(2026, 10, 13, 9, 0)))                     # 기대 = 월 20261012
+    assert (res.outcome, res.closed_days, res.krx_calls) == ("refreshed", ("20261009",), 4)
+    assert sim.judged == [("20261009", "20261013", True, True)] and sim.fetch_both == [False, True]
+    again = asyncio.run(R.run_cycle(kst(2026, 10, 13, 9, 10)))
+    assert again.outcome == "fresh" and sim.fetches == 2
+
+
+def test_the_expected_day_itself_can_be_recorded_closed(monkeypatch):
+    """기대 거래일이 평일 2일 넘게 빈 응답이고(서버가 그동안 멈춰 있었다) 판정이 휴장이면 그 날을 휴장으로 적고 다음 틱은 0콜이다."""
+    sim = Sim(monkeypatch, stored="20261001", empty=["20261002"], verdicts={"20261002": "closed"})
+    monkeypatch.setattr(R, "expected_dd", lambda now: "20261002")
+    res = asyncio.run(R.run_cycle(kst(2026, 10, 6, 9, 0)))
+    assert (res.outcome, res.closed_days, res.krx_calls) == ("closed", ("20261002",), 2) and "20261002" in sim.closed
+    assert asyncio.run(R.run_cycle(kst(2026, 10, 6, 9, 10))).outcome == "fresh" and sim.fetches == 1
+
+
+def test_a_trading_day_that_krx_returns_empty_is_not_recorded_and_gaps_are_rate_limited(monkeypatch):
+    """KRX 가 거래일을 빈 응답으로 준다(기준가가 이어지지 않음 → "trading") — 휴장으로 적지 않고, 그 날은 하루 GAP_TRIES_PER_DAY 번만 묻는다."""
+    sim = Sim(monkeypatch, stored="20261016", gaps=["20260930"], empty=["20260930"], verdicts={"20260930": "trading"})
+    outs = [asyncio.run(R.run_cycle(kst(2026, 10, 19, 8, 10 * i % 60 or 0))) for i in range(6)]
+    assert [o.outcome for o in outs[:R.GAP_TRIES_PER_DAY]] == ["gaps_pending"] * R.GAP_TRIES_PER_DAY
+    assert all(o.outcome == "fresh" for o in outs[R.GAP_TRIES_PER_DAY:])
+    assert sim.fetches == R.GAP_TRIES_PER_DAY and sim.closed == set()
+    asyncio.run(R.run_cycle(kst(2026, 10, 20, 8, 0)))                          # 다음 날에는 다시 묻는다
+    assert sim.fetches > R.GAP_TRIES_PER_DAY
+
+
+def test_judge_closed_reads_continuity_and_records_only_a_closed_verdict(monkeypatch):
+    """`_judge_closed` 는 DB 에서 기준가 연속성을 읽어 `closed_verdict` 로 판정하고, 휴장일 때만 달력에 적는다."""
+    calls = []
+
+    class Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def commit(self):
+            calls.append("commit")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://x")
+    import psycopg
+    monkeypatch.setattr(psycopg, "connect", lambda *a, **k: Conn())
+    for cont, want in (((2700, 3), "closed"), ((2700, 2600), "trading"), ((2700, 600), "unknown"), (None, "unknown")):
+        calls.clear()
+        monkeypatch.setattr(krx_daily, "continuity", lambda c, dd, cont=cont: cont)
+        monkeypatch.setattr(krx_daily, "record_closed", lambda c, dd: calls.append(("record", dd)) or True)
+        assert R._judge_closed("20261009", "20261013", True, True) == want
+        assert (("record", "20261009") in calls) is (want == "closed")
+    calls.clear()
+    assert R._judge_closed("20261009", "20261012", True, True) == "unknown"     # 평일 1일 — 판정 보류
+    assert ("record", "20261009") not in calls
 
 
 # ── 잠금 입출력 ────────────────────────────────────────────────────────────
@@ -431,22 +550,24 @@ def test_lock_connect_failure_yields_none(monkeypatch):
 
 # ── DB 상태 읽기 ───────────────────────────────────────────────────────────
 
-def test_db_latest_reads_only_krx_daily_and_never_falls_back_to_weekly(monkeypatch):
+def test_db_state_reads_the_calendar_once_and_never_falls_back_to_weekly(monkeypatch):
     """261018(재설계 5-1 쓰는 쪽): krx_weekly 는 닫힌 주만 담아 주중엔 지난 금요일이다 — 대신 읽으면 「아직 안 썼다」로 보여
-    같은 날을 10분마다 다시 받는다. krx_daily 를 못 읽으면 그대로 장애다. 정의는 `krx_daily.latest_day` 한 곳."""
+    같은 날을 10분마다 다시 받는다. 일별 저장분을 못 읽으면 그대로 장애다. 261019: 최신일과 빠진 평일을 달력에서 한 왕복으로 읽는다
+    (정의는 `krx_daily.missing_days` 한 곳)."""
     seen = []
 
     def fake(sql, params=()):
-        seen.append(sql)
-        return {"SELECT max(trd_dd) FROM krx_daily": [("20261016",)]}.get(sql)
+        seen.append((sql, params))
+        return [("20261016", ["20261019"])] if sql == krx_daily.MISSING_SQL else None
     monkeypatch.setattr("open_proxy_mcp.db.pg_rows", fake)
-    assert R._db_latest_dd() == "20261016" and seen == [krx_daily.LATEST_DAY_SQL]
+    assert R._db_state("20261019") == ("20261016", ["20261019"])
+    assert [x[0] for x in seen] == [krx_daily.MISSING_SQL] and seen[0][1] == {"exp": date(2026, 10, 19)}
 
-    seen.clear()                                          # krx_daily 를 못 읽음 → krx_weekly 를 보지 않고 장애
+    seen.clear()                                          # 못 읽음 → krx_weekly 를 보지 않고 장애
     monkeypatch.setattr("open_proxy_mcp.db.pg_rows", lambda sql, params=(): seen.append(sql) or None)
-    assert R._db_latest_dd() is R._DB_DOWN and seen == [krx_daily.LATEST_DAY_SQL]
-    monkeypatch.setattr("open_proxy_mcp.db.pg_rows", lambda sql, params=(): [(None,)])  # 표는 있으나 비었음
-    assert R._db_latest_dd() is None
+    assert R._db_state("20261019") is R._DB_DOWN and seen == [krx_daily.MISSING_SQL]
+    monkeypatch.setattr("open_proxy_mcp.db.pg_rows", lambda sql, params=(): [(None, ["20261019"])])  # 달력이 비었음 → 기대 거래일만
+    assert R._db_state("20261019") == (None, ["20261019"])
 
 
 # ── KRX 호출 ───────────────────────────────────────────────────────────────
@@ -721,7 +842,8 @@ def test_all_blocking_io_runs_off_the_event_loop(monkeypatch):
             mark("lock_close")
             super().close()
     conn = Conn(grant=True)
-    monkeypatch.setattr(R, "_db_latest_dd", record("db_latest", "20261015"))
+    monkeypatch.setattr(R, "_db_state", record("db_state", ("20261015", ["20261016"])))
+    monkeypatch.setattr(R, "_vacuum", record("vacuum", None))
     monkeypatch.setattr(R, "_open_lock_conn", lambda: (mark("lock_open"), conn)[1])
     _fake_httpx(monkeypatch, {"stk_bydd_trd": _Resp({"OutBlock_1": _rows(400, "K")}), "ksq_bydd_trd": _Resp({"OutBlock_1": _rows(400, "Q")})})
     monkeypatch.setattr(krx_meter, "bump", record("bump", None))
@@ -731,8 +853,8 @@ def test_all_blocking_io_runs_off_the_event_loop(monkeypatch):
         return threading.get_ident(), await R.run_cycle(MON)
     loop_tid, res = asyncio.run(go())
     assert res.outcome == "refreshed"
-    assert set(seen) == {"db_latest", "lock_open", "lock_sql:try", "lock_sql:unlock", "lock_close", "bump", "upsert"}, seen
-    assert len(seen["db_latest"]) == 2 and len(seen["bump"]) == 2                  # 잠금 앞·뒤 두 번, KRX 두 콜
+    assert set(seen) == {"db_state", "lock_open", "lock_sql:try", "lock_sql:unlock", "lock_close", "bump", "upsert", "vacuum"}, seen
+    assert len(seen["db_state"]) == 2 and len(seen["bump"]) == 2                   # 잠금 앞·뒤 두 번, KRX 두 콜
     on_loop = sorted(k for k, tids in seen.items() if loop_tid in tids)
     assert not on_loop, f"이벤트 루프에서 도는 블로킹 호출: {on_loop}"
 

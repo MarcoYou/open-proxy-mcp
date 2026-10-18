@@ -23,6 +23,7 @@ from open_proxy_mcp.services.contracts import (
     build_usage,
     status_from_filing_meta,
 )
+from open_proxy_mcp.services.control_change import fetch_control_events
 from open_proxy_mcp.services.dart_safety import _NOT_A_FAILURE, classify_degrade
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.holder_table import holder_table_total, parse_holder_table
@@ -1245,11 +1246,19 @@ async def build_ownership_structure_payload(
         data["control_map"] = _build_control_map(major_rows, latest_blocks, treasury_snapshot)
     if scope == "changes":
         stage_started_at = time.perf_counter()
-        change_filings, change_warnings = await _fetch_change_filings(
-            selected["corp_code"], window_start, window_end, client
+        # 최대주주변경 계열(거래소 I001)도 같이 — 변동신고서(I004)는 최대주주가 **그대로인** 지분 이동이고,
+        # 최대주주가 **바뀐** 사실·바뀌게 될 양수도·담보 계약은 이쪽에만 있다(스크리너가 여기로 안내한다).
+        (change_filings, change_warnings), (control_events, control_warnings, control_listed) = await asyncio.gather(
+            _fetch_change_filings(selected["corp_code"], window_start, window_end, client),
+            fetch_control_events(selected["corp_code"], format_yyyymmdd(window_start),
+                                 format_yyyymmdd(window_end), client),
         )
         _mark("change_filings", stage_started_at)
         data["change_filings"] = change_filings
+        data["control_events"] = control_events
+        if control_listed:
+            data["control_events_listed_only"] = control_listed
+        warnings.extend(control_warnings)
         # 5% 대량보유 변동도 합친다. 분쟁사(고려아연 영풍-MBK 등)는 최대주주변동신고서(I004)
         # 대신 주식등의대량보유상황보고서(D001)로 지분이 움직여 change_filings만 보면 빈다.
         # timeline_rows는 753에서 majorstock으로 이미 받아 784에서 window 필터됨(추가 콜 0).

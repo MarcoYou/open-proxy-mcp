@@ -35,7 +35,7 @@ updated: 2026-10-18
 ### 🗳️ 주주총회 · 의결권
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [shareholder_meeting_notice](shareholder_meeting_notice.md) | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 |
+| [shareholder_meeting_notice](shareholder_meeting_notice.md) | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 · 공고 전 **이사회 소집결의**와 그 정정 이력(`scope="resolution"`) |
 | [shareholder_meeting_results](shareholder_meeting_results.md) | 주총 **결과**(주총 후) — 안건별 가결/부결·찬반율 |
 | [proxy_advise_before_meeting](proxy_advise_before_meeting.md) | **의결권 보조** — 안건별 찬성/반대/검토 + 근거 (핵심 도구) |
 | [proxy_guideline](proxy_guideline.md) | **의결권 판단 기준 문서** — 위 판정 사유에 달리는 인용(「OPM Guideline §…」)의 원문. 회사·DART 무관, API 0회 |
@@ -49,7 +49,7 @@ updated: 2026-10-18
 | [business_details](business_details.md) | **"II.사업의 내용" 11필드**: 사업부문별 매출·영업이익 + **사업장·가동률·연구개발·수주·고객·원재료·제품가격** + **D-트랙(금융/REIT): 영업현황·재무건전성·투자부동산**(KSIC 게이트). segments 정형→저신뢰 시 원문 마크다운, 나머지는 **markdown-primary**. `period=latest` 기본(사업·반기·분기 중 최신), `bsns_year`+`reprt_code`로 특정 과거 시점 조회(시계열은 반복 호출). KOSPI500 census 검증(사업의내용_ksic별양식) |
 | [asset_holdings](asset_holdings.md) | **자산주·NAV 스크리닝** — 보유 자산(현금성·투자부동산·지분증권·관계기업) 티어 + **상장지분 시가마크** + 시총 대비 잉여자산/지분NAV 배수. "시총보다 보유 자산이 값진가"에 답함 |
 | [price_multiple_data](price_multiple_data.md) | 상대가치 **배수** — PER·PBR·배당수익률, 기업·시장·섹터 시계열, 시장·섹터 선행 PER·PBR (구 `valuation`) |
-| [forward_estimates_data](forward_estimates_data.md) | **컨센서스 포워드 추정치** — 내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률 + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`), DART 아님. 커버리지 713/2,764종목 · 유니버스 리비전 스크린(`universe=`, `window=1w·4w·12w`) |
+| [forward_estimates_data](forward_estimates_data.md) | **컨센서스 포워드 추정치** — 내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률 + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`), DART 아님. 커버리지 713/2,764종목 · 유니버스 리비전 스크린(`universe=`, `window=1w·4w·12w·26w·52w`) · 리비전 이력 DB 52주(구간형 저장 뒤) |
 | [trading_data](trading_data.md) | 거래·**규모** — 주가·시총·상장주식수 시계열, 시장·섹터 시총 집계, 단일시점 시세(OHLC·거래량), 시총 순위 목록(`scope="universe"`) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 + 서식 표 11종(이사회 구성·출석률·겸직·안건별 찬반) |
 | [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |
@@ -172,7 +172,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | business_details | ✅ get_document 1콜(II.사업의 내용 + 주석 부문정보) + list(A001~A003) | - | - | - |
 | financial_notes | ✅ get_document(III.재무에 관한 사항 주석·재무상태표) | - | - | - |
 | price_multiple_data | ✅ 재무 4EP + company.json + fnlttSinglAcntAll + stockTotqySttus + alotMatter (firm) | - | - | ✅ 일별 시세 저장분(최신값) · 주간 시세·시총 저장분(과거 곡선) · KRX 시세 · ECOS 환율 |
-| trading_data | - | - | - | ✅ 주간 시세(firm 끝점·universe·최근 7거래일 quote 는 일별 시세)·시장/섹터 시총·기준가 조정·업종분류 저장분 (7거래일보다 이전 quote 만 KRX 라이브) |
+| trading_data | - | - | - | ✅ 주간 시세(firm 끝점·universe·최근 약 1년 quote 는 일별 시세)·시장/섹터 시총·기준가 조정·업종분류 저장분 (보관 창보다 이전 quote 만 KRX 라이브) |
 | forward_estimates_data | - | - | - | ✅ 컨센서스 스냅샷 저장분(벤더 원천, DART 아님) |
 | dividend_data | - (전수 수집본·결정공시 집계 조회) | - | - | ✅ 배당 확정·분기 저장분(alotMatter 수집본) + 결정공시 집계 + 상장정보 + 업종분류 |
 | director_news | - | - | ✅ 뉴스 검색 API 1콜 | ✅ 부정 키워드 사전 |

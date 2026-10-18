@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
+from open_proxy_mcp.tools._meeting_resolution_render import render_resolution
 from open_proxy_mcp.tools._shareholder_meeting_render import (
     render_aoi,
     render_board,
@@ -16,7 +17,7 @@ from open_proxy_mcp.tools._shareholder_meeting_render import (
 
 
 # 260505 ralph: scope 정리 — full / agenda 폐지 (summary 흡수) + prov_financials 신설
-_NOTICE_SCOPES = {"summary", "board", "compensation", "aoi_change", "prov_financials"}
+_NOTICE_SCOPES = {"summary", "board", "compensation", "aoi_change", "prov_financials", "resolution"}
 _DEPRECATED_SCOPES = {"agenda", "full"}  # silent fallback to summary
 
 
@@ -40,7 +41,7 @@ def register_tools(mcp):
         rule: 회사 식별 exact만 자동 선택. 정정공시 있으면 최신 정정본 자동 선택.
         meeting_type: `auto`(정기/임시 최신 회차 자동) / `annual` / `extraordinary`
         year: 미지정(0) 시 회의일이 과거 12개월~앞으로 90일 안인 회차를 자동 선택 — **아직 열리지 않은 예정 주총도 포함**되므로 다가오는 임시주총을 보려고 year를 따로 넣을 필요는 없다. 특정 과거 연도를 볼 때만 명시.
-        scope: `summary` 메타+안건+1호 메타 / `board` 이사·감사 후보 / `compensation` 보수한도 / `aoi_change` 정관+퇴직금 변경 raw / `prov_financials` 잠정 재무제표 4 quadrant
+        scope: `summary` 메타+안건+1호 메타 / `board` 이사·감사 후보 / `compensation` 보수한도 / `aoi_change` 정관+퇴직금 변경 raw / `prov_financials` 잠정 재무제표 4 quadrant / `resolution` **이사회 소집결의**(거래소 공시, 공고보다 2주+ 먼저) — 일시·장소·기준일·안건표·후보표 원문 + 정정 이력(판마다 정정 비교표). 공고가 아직 없는 임시주총은 여기서만 보인다
         include_coverage: true면 조회 구간 내 정기/임시 주총 존재 여부를 추가 계산(느려질 수 있음). 기본 false.
         rcept_no: 이미 소집공고 접수번호를 알면 회사/후보 검색을 건너뛰고 직접 파싱.
         ref: company, ownership_structure, proxy_contest, shareholder_meeting_results, proxy_advise_before_meeting, evidence
@@ -66,6 +67,8 @@ def register_tools(mcp):
         status = payload.get("status")
         if status == "ambiguous":
             return render_ambiguous(payload, "shareholder_meeting_notice")
+        if scope == "resolution":
+            return render_resolution(payload)
         if scope == "board":
             return render_board(payload)
         if scope == "compensation":

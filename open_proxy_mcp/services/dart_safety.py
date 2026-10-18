@@ -90,6 +90,25 @@ _RETRYABLE = {"rate_limited", "too_many_targets", "maintenance",
               "timeout", "bad_document", "upstream_5xx", "transient"}
 
 
+def is_no_data(exc_or_status: BaseException | str | None) -> bool:
+    """DART 가 「조회된 데이터가 없다」(013)고 답했나 — **실패가 아니라 답이다.**
+
+    공시 목록(list.json)은 그 구간·유형에 공시가 한 건도 없으면, 정기보고서 API(배당 사항·최대주주 명부 등)는
+    그 사업연도 보고서가 없으면(미제출·합병·상장폐지) 013 을 준다. 이것을 「조회 실패: 013」으로 적으면 읽는 쪽은
+    도구가 고장 났거나 일시 장애인 줄 알고 재시도하거나 답을 미룬다 — 261018 회귀 기준선에서 합병 상장폐지사
+    (에이치디현대미포)의 company 「최근 공시 인덱스 조회 실패: 013」·dividend_disclosure 「… 조회 실패: 013」로 드러났다.
+
+    분류는 `_DART_STATUS_GUIDE` 한 곳을 따른다(도구마다 코드표를 다시 적지 않는다). 020(한도)·800(점검)·
+    키 오류·전송 오류는 False — 호출부가 그대로 **실패**로 적는다. 014(원본 파일 없음)·404(회사·문서 못 찾음)도
+    실패 집계에서는 빠지지만(`_NOT_A_FAILURE`) 뜻이 「그 기간에 공시가 없다」가 아니므로 여기 넣지 않는다.
+    """
+    if isinstance(exc_or_status, str):
+        status = exc_or_status
+    else:
+        status = getattr(exc_or_status, "status", None)
+    return _DART_STATUS_GUIDE.get(str(status or "").strip(), ("", ""))[0] == "no_data"
+
+
 def classify_degrade(exc: BaseException) -> tuple[str, str]:
     """degrade 대상 예외 → (kind, 사용자 안내 문구). 원인별로 행동 유도를 다르게 한다.
     이 결과는 MCP 응답으로 Claude가 읽어 사용자에게 전달·호출방식을 조정하는 데 쓰인다."""
@@ -144,7 +163,10 @@ def degrade_response(tool_name: str, fmt: str, exc: BaseException) -> str:
     아니면 마크다운. 에러 메시지 원문은 싣지 않는다(개인정보 — 예외 클래스명만).
 
     안내문과 별개로 `degrade_marker()` 표지를 **두 포맷 모두**에 싣는다 — 안 실으면
-    이 응답이 통계에서 성공으로 잡힌다(위 함수 주석)."""
+    이 응답이 통계에서 성공으로 잡힌다(위 함수 주석).
+
+    JSON `status` 는 013(`no_data` — 조회된 공시 데이터가 없다)이면 `no_filing`, 그 밖은 `error` 다(261018).
+    종전에는 013 도 `error` 라, 표지(`[nodata=…]`)와 안내문은 「답」이라 말하는데 상태값만 「실패」였다."""
     reason = type(exc).__name__
     kind, msg = classify_degrade(exc)
     marker = degrade_marker(kind)
@@ -152,7 +174,7 @@ def degrade_response(tool_name: str, fmt: str, exc: BaseException) -> str:
         return json.dumps(
             {
                 "tool": tool_name,
-                "status": "error",
+                "status": "no_filing" if kind == "no_data" else "error",
                 "warnings": [msg],
                 "data": {"error_class": reason, "error_kind": kind,
                          "retry": kind in _RETRYABLE, "marker": marker},

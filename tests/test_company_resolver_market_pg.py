@@ -15,7 +15,7 @@ import pytest
 
 psycopg = pytest.importorskip("psycopg")
 
-from test_krx_daily_pg import KRX_WEEKLY_DDL, _apply, _row  # noqa: E402 — 스키마·KRX 행 모양은 그 시험과 같은 것을 쓴다
+from test_krx_daily_pg import KRX_WEEKLY_DDL, _apply, _row, put_daily  # noqa: E402 — 스키마·KRX 행 모양은 그 시험과 같은 것을 쓴다
 
 from open_proxy_mcp import company_resolver as CR  # noqa: E402
 from open_proxy_mcp.company_resolver import CompanyResolver  # noqa: E402
@@ -47,7 +47,7 @@ def _expected_caps(dd: str) -> dict[str, int]:
 @pytest.fixture
 def two_weeks(pg17, monkeypatch):
     """서버의 실제 쓰기(`_krx_db_upsert`)로 두 주(10거래일)를 쓴다 → krx_weekly = 닫힌 두 주의 금요일(이번 주도 금요일까지 써서 닫혔다),
-    krx_daily = 최근 7거래일."""
+    일별 저장분 = 열흘 전부(보관 창은 약 1년)."""
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute(KRX_WEEKLY_DDL)
     _apply(pg17)
@@ -56,7 +56,7 @@ def two_weeks(pg17, monkeypatch):
         assert pmd._krx_db_upsert(dd, *_day_rows(i, dd)).daily_ok
     with psycopg.connect(pg17) as c:
         assert [r[0] for r in c.execute("SELECT DISTINCT price_dd FROM krx_weekly ORDER BY 1").fetchall()] == ["20261009", "20261016"]
-        assert c.execute("SELECT min(trd_dd), max(trd_dd), count(DISTINCT trd_dd) FROM krx_daily").fetchone() == ("20261008", "20261016", 7)
+        assert c.execute("SELECT min(trd_dd), max(trd_dd), count(DISTINCT trd_dd) FROM krx_daily").fetchone() == ("20261005", "20261016", 10)
     return pg17
 
 
@@ -119,17 +119,12 @@ def test_empty_or_missing_daily_store_returns_none_without_falling_back_to_krx_w
 
 def test_full_ks_kq_cross_section_turns_the_active_registry_on(pg17, monkeypatch):
     """DB 시장 칸 그대로(KS/KQ)의 전 종목 단면이면 `active_tickers` 가 켜진다 — 종전엔 'KOSPI'/'KOSDAQ' 을 세어 늘 None 이었다.
-    옛 표기(KOSPI/KOSDAQ) 행도 `to_db` 로 같은 시장으로 세므로 똑같이 켜진다."""
+    (261019: 사실값 표의 시장은 1바이트 S/Q 라 뷰는 KS/KQ 만 낸다 — 옛 표기 행은 더 생길 수 없다.)"""
     _apply(pg17)
     with psycopg.connect(pg17, autocommit=True) as c:
-        c.execute("INSERT INTO krx_daily (trd_dd, ticker, market, close, list_shrs) "
-                  "SELECT '20261016', lpad(t::text, 6, '0'), CASE WHEN t <= 800 THEN 'KS' ELSE 'KQ' END, 1000, 1000 "
-                  "FROM generate_series(1, 2100) t")
+        put_daily(c, [("20261016", f"{t:06d}", "KS" if t <= 800 else "KQ", 1000, 1000) for t in range(1, 2101)])
     monkeypatch.setenv("DATABASE_URL", pg17)
     monkeypatch.setattr(CR, "today_kst", lambda: date(2026, 10, 18))                # 신선도 조건은 채운다(2일 전)
     everyone = frozenset(f"{t:06d}" for t in range(1, 2101))
     ctx = CR._database_market_context()
     assert ctx is not None and len(ctx.market_caps) == 2100 and ctx.active_tickers == everyone
-    with psycopg.connect(pg17, autocommit=True) as c:
-        c.execute("UPDATE krx_daily SET market = CASE market WHEN 'KS' THEN 'KOSPI' ELSE 'KOSDAQ' END")
-    assert CR._database_market_context().active_tickers == everyone

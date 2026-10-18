@@ -3,12 +3,12 @@ type: tool
 title: ownership_structure
 domain: data
 scope: [summary, major_holders, blocks, control_map, changes]
-data_source: [DART OpenAPI 사업보고서 (대주주/지분/자사주) + majorstock + document.xml (5% 보유목적), KIND HTML (changes scope 원문)]
-related_disclosures: [대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서]
+data_source: [DART OpenAPI 사업보고서 (대주주/지분/자사주) + majorstock + document.xml (5% 보유목적), KIND HTML (changes scope 원문), DART list.json I001 + document.xml (최대주주변경 계열, changes scope)]
+related_disclosures: [대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서, 최대주주변경]
 related_concepts: [최대주주, 특수관계인, 대주주, 동일인, 5%-대량보유, 자사주, 소액주주, 지분구조]
 related_decisions: []
 created: 2026-05-01
-updated: 2026-09-02
+updated: 2026-10-18
 ---
 
 # ownership_structure
@@ -29,6 +29,7 @@ ownership_structure(
 - "고려아연 control map" → `scope="control_map"` (3대 카테고리: 명부 등재 / 외부 능동 / 수동)
 - "삼성전자 5% 대량보유 타임라인" → `scope="blocks"` (최신 + 이력; 구 `timeline` scope 통합)
 - "최대주주등소유주식변동신고서 (개인별 변동)" → `scope="changes"`
+- "최대주주 바뀌었어? 양수도 계약·주식담보 걸려 있어?" → `scope="changes"` 의 `control_events`(최대주주변경 · 변경 수반 양수도·담보 계약 체결·해제)
 - "최대주주 누구고 특수관계인 합쳐서 몇 %야?" → `scope="summary"` (특관 개별 내역은 `major_holders`)
 - "국민연금이 5% 넘게 들고 있어?" → `scope="blocks"` (5% 대량보유 보고자·보유목적)
 - "자사주 비율 얼마야?" → `scope="summary"` 의 자사주 snapshot (취득·소각 이벤트는 [[treasury_share]])
@@ -48,7 +49,7 @@ scope:
 - `major_holders`: 최대주주 + 특수관계인 상세
 - `blocks`: 5% 대량보유 최신 N건 + 보고 이력 시계열 (보유목적 보강 포함; 옛 `timeline` 을 흡수)
 - `control_map`: 3대 카테고리 (명부 등재 / 외부 능동 5% / 명부 겹침 5%)
-- `changes`: 최대주주등소유주식변동신고서 (KIND 원문 파싱, 개인별 변동)
+- `changes`: 최대주주등소유주식변동신고서 (KIND 원문 파싱, 개인별 변동) + 5% 대량보유 변동 + **최대주주변경 계열**(거래소 공시 다섯 서식, 아래 「최대주주변경 계열」)
 - 폐지: `treasury`(자사주는 `treasury_share` tool) · `timeline`(`blocks` 에 통합). 넘기면 지원하지 않는 scope 로 돌아온다.
 
 ## 출력 schema (data dict)
@@ -81,6 +82,7 @@ scope:
 - `flags`: `registry_majority` (50%+), `registry_over_30pct`, `treasury_over_5pct`
 - `active_signal_count`: 5% 대량보유 + 경영참여 목적 신호 수 (분쟁 조기 경보)
 - `change_filings.individual_changes`: 변경일/원인/주식종류/변경전/증감/변경후
+- `control_events[]`: `kind`(change·transfer_contract·pledge_contract·pledge_release·transfer_release) · `fields`(서식별 칸, **원문 글자 그대로**) · `notes` · `related` · `rows`(찾은 줄 원문) · `holders`(변경 전후 보유 현황 표) · `pledges`·`pledge_conditions` · `comparison`(해소 전후) · `amendment`(정정이면 정정 비교표) · `profile_omitted`
 
 ## Data sources
 - **DART API**: 사업보고서 (대주주 `hyslrSttus`, 지분 `stkSttus`, 자사주 `tesstkAcqsDspsSttus`), `majorstock` (5% 대량보유 목록), `document.xml` (5% 보유목적 보강)
@@ -129,6 +131,25 @@ sequenceDiagram
 ```
 
 호출 횟수: scope별 3-9회 (summary 9), 대주주 reprt 폴백 + 5% 블록 문서 보강 시 최대 12회.
+`changes` 는 최대주주변경 계열에 목록 I001(구간 페이지 수) + 원문(최근 8건까지, 캐시면 0)을 더한다 — 변동신고서 조회와 동시에 돈다.
+
+## 최대주주변경 계열 (`changes` 의 `control_events`, 261018)
+
+`최대주주등소유주식변동신고서`(I004)는 최대주주가 **그대로인 채** 지분이 움직인 것이다. 최대주주가 **바뀐** 사실과 바뀌게 될 계약은
+거래소 공시(I001) 다섯 서식에만 있다 — 이름이 닮아 겹치는 줄 알기 쉽다. 스크리너가 최대주주변경 카드를 이 도구로 안내하는데,
+그동안 받는 쪽이 이 공시를 읽지 않아 안내를 따라가면 빈손이었다.
+
+| kind | 공시 | 핵심 칸(`fields`) |
+|---|---|---|
+| `change` | 최대주주변경 | 변경 전·후 최대주주·주식수·비율 · 사유 · 지분인수 목적 · 인수자금 · 임원 선·해임 계획 · 변경일·확인일 |
+| `transfer_contract` | 최대주주 변경을 수반하는 주식양수도 계약 체결 | 양도인·양수인(회사와의 관계) · 주식수 · 1주당 가액 · 대금 · 지급조건 · 의무보유 · 변경예정 최대주주·예정일·예정 비율 · 계약일 |
+| `pledge_contract` | … 주식 담보제공 계약 체결 | 담보제공자 · 공시일 현재·**담보권 전부 실행시** 주식수·지분율 · 차입·담보설정 총액 · 누적 계약·주식 · 계약일 (+ `pledges` 채권자별 표 · `pledge_conditions` 실행 조건) |
+| `pledge_release` | … 주식 담보제공 계약 해제ㆍ취소 등 | 채권자 · 담보제공자 · 채무자 · 해소 사유 · 해소 주식수·금액·건수 · 해소일 (+ `comparison` 해소 전후) |
+| `transfer_release` | … 주식 양수도 계약 해제ㆍ취소 등 | 해소 종류·사유 · 당사자 · 주식수·가액·대금 · 체결일·해소일 |
+
+- 합친 칸을 펼친 격자로 읽어 이름 경로(`1. 변경내용 › 변경전 › 소유비율(%)`)로 칸을 고른다(`services/control_change.py`). 모델 0.
+- **인적사항 표는 싣지 않는다** — 담보 서식의 채무자 인적사항, 최대주주변경의 새 최대주주 기본정보처럼 머리에 주소·생년월일 칸이 있는 표. 당사자가 개인일 수 있다. `profile_omitted` 만 남긴다.
+- 정정 공시면 정정 비교표(`amendment`)를 붙인다.
 
 ## 파싱 전략
 - 사업보고서 기반 DART 공식 API 우선.
@@ -180,3 +201,4 @@ sequenceDiagram
 - 2026-04-27: stockknd fix (17건 partial → 0)
 - 2026-04-29: speed optimization 3x (asyncio.gather), 200기업 audit 90.8% exact
 - 2026-05-01: tool wiki 페이지 작성
+- 2026-10-18: `changes` 에 **최대주주변경 계열**(`control_events`) — 최대주주변경 · 변경 수반 주식양수도·담보 계약 체결·해제 다섯 서식을 원문 칸 그대로(인적사항 표 제외). 스크리너 최대주주변경 카드의 안내가 빈손이던 것.

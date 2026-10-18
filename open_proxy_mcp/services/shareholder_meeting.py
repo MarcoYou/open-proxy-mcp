@@ -42,7 +42,8 @@ from open_proxy_mcp.services.shareholder_meeting_parser import (
 )
 
 
-_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "aoi_change", "prov_financials", "results", "full", "advise"}
+_SUPPORTED_SCOPES = {"summary", "agenda", "board", "compensation", "aoi_change", "prov_financials", "results", "full", "advise",
+                     "resolution"}
 _MEETING_TYPE_MAP = {
     "annual": "정기",
     "extraordinary": "임시",
@@ -2072,6 +2073,13 @@ async def build_shareholder_meeting_payload(
         )
         return envelope.to_dict()
 
+    if scope == "resolution":
+        # 소집결의(이사회 결의 단계, 거래소 공시 I001) — 소집공고와 문서·서식·정정 사슬이 달라 따로 읽는다.
+        from open_proxy_mcp.services.meeting_resolution import build_meeting_resolution_payload
+        return await build_meeting_resolution_payload(
+            company_query, meeting_type=meeting_type, year=year, start_date=start_date, end_date=end_date,
+            lookback_months=lookback_months, rcept_no=rcept_no)
+
     target_year = year
     soup_cache: dict[tuple[str, str, Any], Any] = {}
     _INFO_CTX.set({})
@@ -2232,7 +2240,8 @@ async def build_shareholder_meeting_payload(
                 "usage": build_usage(_client.api_call_snapshot() - _calls_start),
                 "timings_ms": timings_ms,
             },
-            next_actions=["meeting_type 또는 year를 바꿔 재조회"],
+            next_actions=["meeting_type 또는 year를 바꿔 재조회",
+                          "소집공고(주총 2주 전) 전이면 이사회 소집결의만 나와 있을 수 있다 — scope=\"resolution\""],
         )
         return envelope.to_dict()
 

@@ -169,7 +169,7 @@ def test_find_report_candidates_separates_half_year_from_quarter() -> None:
             self.asked: list[str] = []
 
         async def search_filings(self, **kw):
-            self.asked.append(kw["pblntf_detail_ty"])
+            self.asked.append(kw.get("pblntf_detail_ty", ""))
             return {"list": [
                 {"report_nm": "반기보고서 (2026.06)", "rcept_no": "1", "rcept_dt": "20260814"},
                 {"report_nm": "분기보고서 (2026.03)", "rcept_no": "2", "rcept_dt": "20260514"},
