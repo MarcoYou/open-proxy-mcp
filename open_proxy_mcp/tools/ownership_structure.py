@@ -234,35 +234,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if not change_filings:
             lines.append("- 조사 구간 내 변동신고서 없음")
         for filing in change_filings:
-            rcept_dt = filing.get("rcept_dt", "")
-            rcept_no = filing.get("rcept_no", "")
-            ov = filing.get("overview", {})
-            lines.append(f"\n### {rcept_dt} ({rcept_no})")
-            if filing.get("parse_error"):
-                lines.append(f"- 파싱 오류: {filing['parse_error']}")
-                continue
-            if ov:
-                before_pct = ov.get("before_pct", 0)
-                after_pct = ov.get("after_pct", 0)
-                before_shares = ov.get("before_shares", 0)
-                after_shares = ov.get("after_shares", 0)
-                delta_pct = round(after_pct - before_pct, 2)
-                lines.append(f"- 직전: {before_shares:,}주 ({before_pct:.2f}%) → 금번: {after_shares:,}주 ({after_pct:.2f}%) / 순변동: {delta_pct:+.2f}%p")
-            for holder in filing.get("individual_changes", []):
-                name = holder.get("holder_name", "")
-                changes = holder.get("changes", [])
-                if not changes:
-                    continue
-                lines.append(f"\n**{name}** 개인별 변동")
-                lines.append("| 변경일 | 변경원인 | 주식종류 | 변경전 | 증감 | 변경후 |")
-                lines.append("|--------|----------|----------|--------|------|--------|")
-                for row in changes:
-                    lines.append(f"| {row['date']} | {row['reason']} | {row['stock_type']} | {row['before']:,} | {row['delta']:+,} | {row['after']:,} |")
-            total_holders = filing.get("total_holders", [])
-            if total_holders:
-                lines.extend(["\n**총괄현황** (금번 기준)", "| 성명 | 관계 | 보통주수 | 비율 |", "|------|------|---------|------|"])
-                for th in total_holders:
-                    lines.append(f"| {th['name']} | {th['relation'] or '-'} | {th['shares']:,} | {th['pct']:.2f}% |")
+            lines.extend(_change_filing_lines(filing))
 
         # 5% 대량보유 변동 — 분쟁사(고려아연 등)는 최대주주변동신고서 대신 이쪽으로 지분이 움직인다.
         block_changes = data.get("block_changes", []) or []
@@ -368,12 +340,70 @@ def _control_event_lines(ev: dict[str, Any]) -> list[str]:
     if a:
         out.append(f"- 정정: {_v(a.get('reason'))}" + (f" (원공시 {a['original_filed_date']})" if a.get("original_filed_date") else ""))
         for r in (a.get("rows") or [])[:3]:
-            out.append(f"  - {r['item']}: {' / '.join(r['before'].split(chr(10)))[:60]} → {' / '.join(r['after'].split(chr(10)))[:60]}")
+            # 항목 이름도 원문 줄바꿈째 온다(`2. 계약 내역\n-양수도 대금…`) — md 한 줄 안에서는 ` / ` 로
+            item = " / ".join(r["item"].split(chr(10)))
+            out.append(f"  - {item}: {' / '.join(r['before'].split(chr(10)))[:60]} → {' / '.join(r['after'].split(chr(10)))[:60]}")
     if ev.get("notes"):
         note = " / ".join(ev["notes"][0].split("\n"))
         out.append(f"- 기타: {note[:200]}{'…' if len(note) > 200 else ''}")
     if ev.get("profile_omitted"):
         out.append("- _인적사항 표(주소·생년월일)는 싣지 않는다 — 원문 링크_")
+    return out
+
+
+def _sh(x: Any, sign: bool = False) -> str:
+    """주식수 — 못 읽은 칸(None)은 `-`. 0 으로 메우지 않는다."""
+    return "-" if x is None else (f"{x:+,}" if sign and x else f"{x:,}")
+
+
+def _pc(x: Any, sign: bool = False) -> str:
+    return "-" if x is None else (f"{x:+.2f}" if sign and x else f"{x:.2f}")
+
+
+def _change_filing_lines(filing: dict[str, Any]) -> list[str]:
+    """최대주주등소유주식변동신고서 한 건 — 보고 묶음마다 개요 · 개인별 변동 · 총괄현황."""
+    rcept_no = filing.get("rcept_no", "")
+    title = " ".join((filing.get("report_nm") or "").split())
+    out = [f"\n### {filing.get('rcept_dt', '')} ({rcept_no})" + (f" {title}" if "변경시" in title else "")]
+    if filing.get("status") == "unrecognized":
+        out.append(f"- **못 읽음** — {' / '.join(filing.get('notes') or [])} (원문 `{rcept_no}`)")
+        return out
+    for rep in filing.get("reports") or []:
+        if rep.get("group"):
+            out.append(f"\n#### [{rep['group']}]")
+        ov = rep.get("overview") or {}
+        b, a, d = ov.get("before") or {}, ov.get("after") or {}, ov.get("delta") or {}
+        before = (f"{_sh(b.get('shares'))}주 ({_pc(b.get('pct'))}%, {b.get('filed_on') or '-'} 보고)"
+                  if b.get("shares") is not None else "직전 보고 없음")
+        out.append(f"- 직전: {before} → 이번: {_sh(a.get('shares'))}주 ({_pc(a.get('pct'))}%, {a.get('filed_on') or '-'} 보고)"
+                   f" / 증감 {_sh(d.get('shares'), sign=True)}주 ({_pc(d.get('pct'), sign=True)}%p)"
+                   + (f" — {a.get('basis')} 기준" if a.get("basis") and a.get("basis") != "합계" else ""))
+        for person in rep.get("individual_changes") or []:
+            changes = person.get("changes") or []
+            if not changes:
+                continue
+            who = " · ".join(x for x in (person.get("relation"), person.get("holder_kind")) if x)
+            out.append(f"\n**{person.get('name') or '(성명 칸 못 읽음)'}**" + (f" ({who})" if who else "") + " 변동")
+            out.extend(["| 변경일 | 변경원인 | 주식종류 | 변경전 | 증감 | 변경후 |",
+                        "|--------|----------|----------|--------|------|--------|"])
+            for row in changes:
+                out.append(f"| {row['date']} | {row['reason']} | {row['stock_type']} | {_sh(row['before'])} | "
+                           f"{_sh(row['delta'], sign=True)} | {_sh(row['after'])} |")
+        holders = rep.get("total_holders") or []
+        if holders:
+            out.extend(["\n**총괄현황** (이번 보고 기준)", "| 성명 | 관계 | 구분 | 보통주 | 비율 | 합계 | 비율 |",
+                        "|------|------|------|-------|------|------|------|"])
+            for h in holders:
+                out.append(f"| {h['name']} | {h.get('relation') or '-'} | {h.get('holder_kind') or '-'} | "
+                           f"{_sh(h.get('common_shares'))} | {_pc(h.get('common_pct'))}% | "
+                           f"{_sh(h.get('total_shares'))} | {_pc(h.get('total_pct'))}% |")
+    for u in filing.get("unread") or []:
+        out.append(f"- **못 읽음**: 원문 `{rcept_no}` 표 {u['table']}"
+                   + (f" (「{u['section']}」)" if u.get("section") else "") + " — 칸 이름을 못 알아봤다, 원문 확인")
+    for note in filing.get("notes") or []:
+        out.append(f"- 확인 필요: {note}")
+    if filing.get("profile_omitted"):
+        out.append("- _인적사항(생년월일·사업자등록번호·성별·국적)은 싣지 않는다 — 원문 링크_")
     return out
 
 

@@ -50,6 +50,21 @@ def test_default_window_and_days():
     assert len(led.days_between(since, until)) == 3
 
 
+def test_ledger_writes_mktcap_but_no_longer_sector_copies():
+    """261018(재설계 6단계): 업종 복사본 칸(`sector`·`industry`·`sector_dd`)은 쓰지 않는다 — 읽는 쪽이 업종분류 스냅샷과 조인한다.
+    칸을 지워도 배치가 깨지지 않게 DDL·UPSERT·행 어디에도 그 이름이 없다(`industry` 색인 생성문 포함).
+    시총(`mktcap_won`·`mktcap_dd`)은 계속 저장한다 — 일별 원본이 7거래일 뒤 잘려 나중엔 공시 시점 값을 다시 만들 수 없다."""
+    for col in ("sector", "industry", "sector_dd"):
+        assert f"%({col})s" not in led.UPSERT_EVENT and f"{col} =" not in led.UPSERT_EVENT
+        assert f"\n  {col} " not in led.DDL
+    assert "dart_events_industry_dt" not in led.DDL
+    for col in ("mktcap_won", "mktcap_dd"):
+        assert f"%({col})s" in led.UPSERT_EVENT and f"{col} = COALESCE(EXCLUDED.{col}" in led.UPSERT_EVENT
+    row = led.row_from_item(_item("20260915000001", "단일판매ㆍ공급계약체결", code="000001"), {"order"})
+    assert set(led.db_row(row)) >= {"mktcap_won", "mktcap_dd"}
+    assert not {"sector", "industry", "sector_dd"} & set(led.db_row(row))
+
+
 def test_pick_snapshot_latest_at_or_before_else_oldest():
     snaps = ["20260731", "20260828"]
     assert led.pick_snapshot(snaps, "20260915") == "20260828"

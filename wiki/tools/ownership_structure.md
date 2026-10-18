@@ -3,7 +3,7 @@ type: tool
 title: ownership_structure
 domain: data
 scope: [summary, major_holders, blocks, control_map, changes]
-data_source: [DART OpenAPI 사업보고서 (대주주/지분/자사주) + majorstock + document.xml (5% 보유목적), KIND HTML (changes scope 원문), DART list.json I001 + document.xml (최대주주변경 계열, changes scope)]
+data_source: [DART OpenAPI 사업보고서 (대주주/지분/자사주) + majorstock + document.xml (5% 보유목적), DART list.json I004 + document.xml (변동신고서 원문, 비면 KIND — 같은 서식), DART list.json I001 + document.xml (최대주주변경 계열, changes scope)]
 related_disclosures: [대량보유상황보고서, 임원·주요주주특정증권등소유상황보고서, 사업보고서, 최대주주등소유주식변동신고서, 최대주주변경]
 related_concepts: [최대주주, 특수관계인, 대주주, 동일인, 5%-대량보유, 자사주, 소액주주, 지분구조]
 related_decisions: []
@@ -49,7 +49,7 @@ scope:
 - `major_holders`: 최대주주 + 특수관계인 상세
 - `blocks`: 5% 대량보유 최신 N건 + 보고 이력 시계열 (보유목적 보강 포함; 옛 `timeline` 을 흡수)
 - `control_map`: 3대 카테고리 (명부 등재 / 외부 능동 5% / 명부 겹침 5%)
-- `changes`: 최대주주등소유주식변동신고서 (KIND 원문 파싱, 개인별 변동) + 5% 대량보유 변동 + **최대주주변경 계열**(거래소 공시 다섯 서식, 아래 「최대주주변경 계열」)
+- `changes`: 최대주주등소유주식변동신고서 (원문을 칸 머리 이름으로 — 개요·개인별 변동·총괄현황, 인적사항 제외, 아래 「변동신고서」) + 5% 대량보유 변동 + **최대주주변경 계열**(거래소 공시 다섯 서식, 아래 「최대주주변경 계열」)
 - 폐지: `treasury`(자사주는 `treasury_share` tool) · `timeline`(`blocks` 에 통합). 넘기면 지원하지 않는 scope 로 돌아온다.
 
 ## 출력 schema (data dict)
@@ -81,12 +81,12 @@ scope:
 핵심 필드:
 - `flags`: `registry_majority` (50%+), `registry_over_30pct`, `treasury_over_5pct`
 - `active_signal_count`: 5% 대량보유 + 경영참여 목적 신호 수 (분쟁 조기 경보)
-- `change_filings.individual_changes`: 변경일/원인/주식종류/변경전/증감/변경후
+- `change_filings[]`: `status`(parsed·partial·unrecognized) · `reports[]`(보고 묶음 — `group` 「변경전/변경후 최대주주등」, `overview.before/after/delta` 의 `shares`·`pct`·`filed_on`, `individual_changes[]` 의 `name`·`relation`·`holder_kind`·`changes`, `total_holders[]` 의 `name`·`relation`·`holder_kind`·`common_*`·`total_*`, `total`) · `unread`(못 읽은 표 번호·절 제목) · `notes` · `profile_omitted` · `source`(dart_api·kind_scraping)
 - `control_events[]`: `kind`(change·transfer_contract·pledge_contract·pledge_release·transfer_release) · `fields`(서식별 칸, **원문 글자 그대로**) · `notes` · `related` · `rows`(찾은 줄 원문) · `holders`(변경 전후 보유 현황 표) · `pledges`·`pledge_conditions` · `comparison`(해소 전후) · `amendment`(정정이면 정정 비교표) · `profile_omitted`
 
 ## Data sources
 - **DART API**: 사업보고서 (대주주 `hyslrSttus`, 지분 `stkSttus`, 자사주 `tesstkAcqsDspsSttus`), `majorstock` (5% 대량보유 목록), `document.xml` (5% 보유목적 보강)
-- **KIND**: 미사용 (false match 위험) — 단, `changes` scope만 원문 파싱
+- **KIND**: 미사용 (false match 위험) — 단, `changes` 의 변동신고서 원문이 DART 에서 빌 때만 폴백(같은 서식, 2026-10-18 실측)
 - 외부 호출: scope별 3-9회, 대주주 reprt 폴백·5% 블록 문서 보강 시 최대 12회 (asyncio.gather 병렬)
 
 ## Flow
@@ -123,7 +123,7 @@ sequenceDiagram
         DD-->>T: 보유목적 텍스트
     end
     opt scope=changes
-        T->>DM: 최대주주등소유주식변동신고서 (KIND 80→00 변환)
+        T->>DD: 최대주주등소유주식변동신고서 list I004 + document.xml (비면 KIND 80→00)
     end
     T->>T: control_map 빌드 (3대 카테고리: 명부 등재 / 외부 능동 / 명부 겹침)
     T->>T: filing_meta + active_signal_count 조립
@@ -151,6 +151,22 @@ sequenceDiagram
 - **인적사항 표는 싣지 않는다** — 담보 서식의 채무자 인적사항, 최대주주변경의 새 최대주주 기본정보처럼 머리에 주소·생년월일 칸이 있는 표. 당사자가 개인일 수 있다. `profile_omitted` 만 남긴다.
 - 정정 공시면 정정 비교표(`amendment`)를 붙인다.
 
+## 변동신고서 (`changes` 의 `change_filings`, 261018 다시 씀)
+
+원문 서식(2019~2026 동일, DART document.xml 과 KIND 가 같다)은 보고 묶음 하나가 표 셋이다 —
+**보고의 개요**(`보고일자 | 소유주식 › 구분·주식수·비율`, 줄은 직전보고서제출일·이번보고서제출일·증감 × 주식 종류),
+**개인별 세부변동사항**(변동 있는 사람마다 표 하나: 인적사항 세 줄 + `변경일 | 변경원인 | 주식의 종류 | 변경전·증감·변경후주식수 | 비고`),
+**총괄현황**(머리 두 줄 — `성명 | 생년월일 또는 사업자등록번호 | 성별 | 국내외 구분 | 국적 | 관계 | 겸직 | 보통주식·종류주식·증권예탁증권·합계 › 주식수·비율`).
+「(최대주주변경시)」 서식은 `[변경전 최대주주등]`·`[변경후 최대주주등]` 두 묶음이 한 원문에 있다(변경후 묶음은 직전 칸이 `-`).
+
+- 합친 칸을 펼친 격자(`doc_tables.table_grids`)에서 **머리 이름**으로 칸을 고른다. 개요 값은 합계 줄(없으면 보통주식 줄).
+- 🔴 **인적사항은 허용 목록 칸만** — 성명·관계·국내외 구분. 생년월일·사업자등록번호·성별·국적·주소는 어느 표에서도 싣지 않고 `profile_omitted` 만.
+- 못 알아본 표 → `unread`(원문 몇 번째 표 · 그 위 절 제목) + 경고, 개요부터 못 찾으면 `status="unrecognized"`. 숫자 꼴이 아닌 칸은 None(화면 `-`) — 0 으로 메우지 않는다.
+- 검산: 개요 이번 합계 ≠ 총괄현황 합계면 `notes` 「확인 필요」.
+- 260419~261018 의 위치 파서는 이 서식을 한 번도 맞게 읽지 못했다 — 보고일자를 주식수로(`직전: 20,260,921주`), 「이번」을 「금번」으로만 찾아 0주,
+  총괄현황 머리 둘째 줄을 주주로, **개인 주주의 생년월일 칸 값을 보유주식 자리로** 냈다. 실측(2026-10-18, 원문 17건: STX 3 · 최근 9개사 · GS 2019/2021/2023/2024 · KIND 폴백 1):
+  고치기 전 맞게 읽힘 0/17 · 생년월일 노출 14건 347줄 → 고친 뒤 17/17 · 원문 민감 칸 값 405개 중 출력 0 · 개요=총괄=주주별 합 17/17.
+
 ## 파싱 전략
 - 사업보고서 기반 DART 공식 API 우선.
 - 5% 대량보유 목적은 최신 원문(document.xml)으로 보강.
@@ -170,7 +186,7 @@ sequenceDiagram
 - [[대량보유상황보고서]] — 5% 변동, 보유목적/보유량 (blocks scope)
 - [[임원·주요주주특정증권등소유상황보고서]] — 임원/10%+ 주주 보유 변동
 - [[사업보고서]] — 정기, 대주주/지분/자사주 종합
-- [[최대주주등소유주식변동신고서]] — KIND 원문, 개인별 변동 (changes scope)
+- [[최대주주등소유주식변동신고서]] — 원문(DART·KIND 같은 서식), 보고 묶음별 개요·개인별 변동·총괄현황 (changes scope)
 
 ## 관련 개념 (rules/concepts/)
 - [[최대주주]] — 본인+특관인 합산 최다 보유자
@@ -193,7 +209,7 @@ sequenceDiagram
 ## 알려진 issue + TODO
 - 5% 보유목적이 `불명`으로 남는 경우 (원문 텍스트 추출 실패) — `requires_review`로 표시.
 - 보고자명 정규화 불완전 케이스 control_map 분리. 동일인 매트릭스 도입 검토 (TODO).
-- changes scope KIND 원문 파싱 시 일부 표 구조 변형은 `parse_error` 표시.
+- 변동신고서 칸 이름을 못 알아본 표는 0 으로 채우지 않고 `unread`(표 번호·절 제목) + 경고. 정정 공시의 정정 비교표는 아직 붙이지 않는다(정정본 값만).
 
 ## 변경 이력
 - 2026-04-18: ownership_structure tool 검증 + release_v2 go
@@ -202,3 +218,5 @@ sequenceDiagram
 - 2026-04-29: speed optimization 3x (asyncio.gather), 200기업 audit 90.8% exact
 - 2026-05-01: tool wiki 페이지 작성
 - 2026-10-18: `changes` 에 **최대주주변경 계열**(`control_events`) — 최대주주변경 · 변경 수반 주식양수도·담보 계약 체결·해제 다섯 서식을 원문 칸 그대로(인적사항 표 제외). 스크리너 최대주주변경 카드의 안내가 빈손이던 것.
+- 2026-10-18: 변동신고서(`change_filings`)를 칸 머리 이름으로 다시 씀 — 보고 묶음(`reports`)별 개요·개인별 변동·총괄현황, 인적사항(생년월일 등) 제외, 못 읽은 표는 `unread`. 위치 파서가 보고일자를 주식수로, 개인 생년월일을 보유주식 자리로 내던 것(도입 때부터).
+- 2026-10-18: `control_events` md 의 정정 줄에서 항목 이름의 원문 줄바꿈을 ` / ` 로(줄이 깨지던 것). json 은 그대로.

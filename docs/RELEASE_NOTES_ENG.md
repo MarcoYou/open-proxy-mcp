@@ -4,6 +4,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-18
 
+### Largest-shareholder stake change reports are read by column name · no more birth dates — `ownership_structure(scope="changes")`
+
+- The stake change report summary now shows the **shares, stake and report date** of the previous and current reports, and the change. Until now the report date (e.g. 2026-09-21) landed in the shares slot, the shares in the stake slot, and the current report came out as 0 shares — for every such report since the feature shipped in 2026-04.
+- 🔴 The holdings table no longer puts an **individual holder's birth date in the shares column**. Personal details (birth date, business registration number, gender, nationality) are not included from any table; only a marker that they were left out. The holdings table now has name, relation, domestic/foreign and common/total shares and stake.
+- The "(largest shareholder change)" form shows the **before** and **after** holder groups separately. Holder names in per-person changes no longer come out as the section heading ("4. 개인별 세부변동사항").
+- A table whose columns are not recognised is reported as "not read — table N of the filing (section heading)" and raised as a warning, never filled with zeros. A mismatch between the summary total and the holdings total is flagged.
+
 ### The morning disclosure digest shows the consensus gap on provisional-earnings cards too
 
 - Provisional-earnings cards in `screener(details=true)` get one line such as "vs consensus revenue −4.7% (expected 204.57T KRW) · operating profit −2.9% (expected 110.57T KRW) — snapshot 2026-09-26, 12 days before the filing". In JSON it is the card's `detail_fields.consensus_gap`.
