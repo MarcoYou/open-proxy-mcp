@@ -20,6 +20,14 @@
 #   창(마감 뒤 한 달) 밖에도 늦게 내는 회사가 있어(10/07 제출 사례) 주 1회 남은 것만 다시 본다 —
 #   남은 nodata 수백 건 × 1~2콜이라 몇 분이다. 창 안의 매일 실행과 겹치는 날은 아래 concurrency 가 줄 세운다.
 #
+# 261018(결산월): 칸의 실제 기간 말·공시 마감을 회사 결산월(dart_fundamentals.acc_mt)로 센다(open_proxy_mcp/services/report_calendar.py).
+#   그래서 이 일정이 분기 수집 앞에 세 단계를 더 돈다 —
+#   ① 결산월 채우기·고치기(--acc-mt: 최근 100일 정기공시 목록의 사업보고서 기준월 · ~90콜, 상장 첫해 종목만 회사 개황 1콜씩)
+#   ② 연간 재무(market_val_series --fetch): 종목마다 결산월로 「지금 나와 있어야 할 최신 사업보고서」까지 받는다. 종전엔 이 수집이
+#      일정에 없었고(수동) 상한이 12월 결산 규칙이라 3월 결산 회사의 2026.03 사업보고서(6월 제출)가 2027년 4월에야 들어왔다.
+#      12월 결산은 4월 첫 주에 한꺼번에(~2,600사), 나머지 결산월은 공시 시점이 지난 첫 월요일에 몇 사씩.
+#   ③ Q4 seed(--seed): 새 연간 행을 분기 표 사업보고서 칸으로 옮긴다(값이 같은 행은 다시 쓰지 않는다 — DART 0콜).
+#
 # 콜: 첫날 ~2,600(전 종목 × 1분기). 이후엔 남은 것만이라 급감.
 #   동시성 2 · 0.45s sleep ≈ 133콜/분 (하드룰 910/분의 15%).
 
@@ -85,7 +93,31 @@ jobs:
                   print(f"FY{fy} Q{q}: {n:,}/{base:,} ({n/base:.0%})")
           PY
 
+      - name: 결산월 채우기·고치기 (DART 목록 ~90콜)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: uv run python scripts/market_fund_quarterly.py --acc-mt
+
+      # 261019: 아래 단계들은 앞 단계가 실패해도 돈다(`!cancelled()` — 잡은 실패로 남아 보인다). 위 결산월 단계는 DART 목록 오류(점검 800·5xx 등)에
+      #   예외로 멈추는데, 기본 규칙(앞 단계 성공일 때만)이면 그 한 번이 이 일정의 본래 일인 분기 수집·파생까지 건너뛰게 했다.
+      #   각 단계는 저장된 것만 읽고 다시 돌아도 같은 결과라(재개·값이 같은 행은 다시 쓰지 않음) 앞 단계가 반쯤 끝나도 안전하다.
+      - name: 연간 재무 수집 — 결산월별 최신 사업보고서 (DART)
+        # 이미 받은 사업연도는 건너뛴다(자료 없음은 공시 시점 뒤 400일 동안 다시 본다). 받을 것이 없으면 0콜.
+        if: ${{ !cancelled() }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: uv run python scripts/market_val_series.py --fetch
+
+      - name: Q4 seed — 새 연간 행을 분기 표 사업보고서 칸으로 (DART 0콜)
+        if: ${{ !cancelled() }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/market_fund_quarterly.py --seed
+
       - name: 분기 재무 수집 (DART)
+        if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
@@ -98,6 +130,7 @@ jobs:
 
       - name: 파생 갱신 + 결과 확인
         # 「성공」이 아니라 **산출물 변화**로 확인한다. 수집이 0건이어도 스크립트는 정상 종료한다.
+        if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |

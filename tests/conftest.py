@@ -27,6 +27,20 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+@pytest.fixture(autouse=True)
+def _reset_weekly_start_cache():
+    """배수 도구의 주간 구간 시작 캐시(`_WEEKLY_START_CACHE`, 1시간)가 시험 사이로 새지 않게 비운다 — 모듈을 이미 읽었을 때만(읽기 비용 0)."""
+    import sys
+
+    def _clear():
+        cache = getattr(sys.modules.get("open_proxy_mcp.services.price_multiple_data"), "_WEEKLY_START_CACHE", None)
+        if cache is not None:
+            cache.clear()
+    _clear()
+    yield
+    _clear()
+
+
 @pytest.fixture(scope="session")
 def _pg17_server():
     """세션당 컨테이너 하나. 반환: (관리용 접속 URL, URL 만들기 함수)."""

@@ -188,22 +188,58 @@ _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "
                "is_external")
 
 
+#: 원장 행의 업종은 **읽을 때 붙이고**, 시총은 **원장에 저장된 값**을 읽는다 (261018, Supabase 재설계 6단계).
+#:   업종 = 업종분류 스냅샷(`wise_sector`)에서 **접수일 이하 가장 최근 스냅샷**, 없으면 가장 이른 스냅샷(원장 배치의 `pick_snapshot`).
+#:          스냅샷은 표 전체에서 하나를 고른다. 261019: 그 스냅샷에 종목이 없으면(신규 상장 — 상장 뒤 첫 스냅샷이 접수일보다 늦다) **그 종목의 가장 가까운
+#:          스냅샷**(접수일 이하 가장 최근, 없으면 접수일 뒤 가장 이른 것 — 업종 비교 `price_multiple_data` 의 종목 분류 고르기와 같은 규칙)으로 채운다.
+#:          종전(배치 복사본·10-18 조인)은 비웠다 — 10-18 운영 원장 33행·10종목(신규 상장·이전 상장)이 「업종 미상」이었다. 고른 스냅샷에 종목이 있으면 종전과 같다.
+#:          종전엔 원장 배치가 넣을 때 복사해 둔 칸(`sector`·`industry`·`sector_dd`)을 읽었다. 원본이 남아 있는 값이라 저장처를 한 곳으로 둔다
+#:          (그 칸은 배치가 더 쓰지 않고 운영에서 지운다 — 이 SQL 은 그 칸을 읽지 않으므로 지우기 전후 모두 돈다).
+#:   시총 = 원장의 `mktcap_won`(접수일 이하 최신 거래일 시총 — 원장 배치가 붙여 저장). **조인하지 않는다**: 일별 시세 원본은 보관 창(261019~ 약 1년, 그 전 7거래일) 뒤 잘려,
+#:          나중에 조인하면 공시 시점 시총 대신 직전 주 종가가 붙는다(10-18 검토 실측 원장 50,724 상장행 중 2,015행 다름, 최대 ±22%) —
+#:          재설계 원칙 「원본이 잘려 나갈 값은 저장한다」.
+#: `pick` = 기간의 날짜마다 업종 스냅샷 하나(색인 한 번씩, MATERIALIZED). 날짜는 원장 첫날 이전으로 늘리지 않는다(빈 날 고르기를 줄인다).
+#: 행 순서(접수일·접수번호)는 DB 가 아니라 `_fetch_events` 에서 정렬한다 — 넓은 행 수만 개를 서버가 정렬하면 작업 메모리를 넘어 디스크로 쏟는다
+#: (10-18 운영 실측, 읽기 전용, 셋을 번갈아 15회 왕복 중앙값: 올해 전체 유형 37,736행 — 종전 복사본 칸 329ms · 시세까지 조인하던 초안 916ms ·
+#:  이 SQL 338ms. 같은 SQL 에 ORDER BY 를 두면 서버 실행이 60 → 142ms — 정렬이 디스크로 쏟는다).
+_EVENTS_SQL = """
+WITH pick AS MATERIALIZED (
+  SELECT g::date AS rcept_dt,
+         COALESCE((SELECT max(snap_dd) FROM wise_sector WHERE snap_dd <= to_char(g, 'YYYYMMDD')),
+                  (SELECT min(snap_dd) FROM wise_sector)) AS sector_dd
+  FROM generate_series(GREATEST(%s::date, (SELECT min(rcept_dt) FROM dart_events)), %s::date, interval '1 day') g
+)
+SELECT e.rcept_no, e.rcept_dt, e.corp_code, e.corp_name, e.stock_code, e.corp_cls, e.kind, e.subtype, e.is_correction,
+       e.report_nm, COALESCE(ws.sector, nb.sector), COALESCE(ws.industry, nb.industry), e.mktcap_won,
+       e.detail->>'amount_won', e.detail->>'revenue_ratio_pct', e.detail->>'counterparty', e.detail->>'is_external'
+FROM dart_events e
+JOIN pick p ON p.rcept_dt = e.rcept_dt
+LEFT JOIN wise_sector ws ON ws.snap_dd = p.sector_dd AND ws.ticker = e.stock_code
+LEFT JOIN LATERAL (
+  SELECT w2.sector, w2.industry FROM wise_sector w2
+  WHERE ws.ticker IS NULL AND w2.ticker = e.stock_code
+  ORDER BY (w2.snap_dd <= to_char(e.rcept_dt, 'YYYYMMDD')) DESC,
+           abs(w2.snap_dd::bigint - to_char(e.rcept_dt, 'YYYYMMDD')::bigint)
+  LIMIT 1
+) nb ON true
+WHERE e.rcept_dt BETWEEN %s AND %s AND e.kind = ANY(%s){extra}
+"""
+
+
 def _fetch_events(kinds: list[str], since: date, until: date,
                   tickers: list[str] | None, corp_cls: str | None) -> list[dict[str, Any]] | None:
-    sql = ("SELECT rcept_no, rcept_dt, corp_code, corp_name, stock_code, corp_cls, kind, subtype, is_correction, "
-           "report_nm, sector, industry, mktcap_won, detail->>'amount_won', detail->>'revenue_ratio_pct', "
-           "detail->>'counterparty', detail->>'is_external' "
-           "FROM dart_events WHERE rcept_dt BETWEEN %s AND %s AND kind = ANY(%s)")
-    params: list[Any] = [since, until, kinds]
+    extra = ""
+    params: list[Any] = [since, until, since, until, kinds]      # 앞 둘 = 업종 스냅샷 고르기(`pick`)의 날짜 범위
     if tickers is not None:
-        sql += " AND stock_code = ANY(%s)"
+        extra = " AND e.stock_code = ANY(%s)"
         params.append(tickers)
     elif corp_cls:
-        sql += " AND corp_cls = %s"
+        extra = " AND e.corp_cls = %s"
         params.append(corp_cls)
-    r = pg_rows(sql, tuple(params))
+    r = pg_rows(_EVENTS_SQL.format(extra=extra), tuple(params))
     if r is None:
         return None
+    r = sorted(r, key=lambda x: (x[1], x[0]))                   # 접수일·접수번호 — 실행마다 같은 순서(위 `_EVENTS_SQL` 주석)
     out = []
     for row in r:
         d = dict(zip(_EVENT_COLS, row))

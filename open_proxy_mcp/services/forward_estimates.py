@@ -715,8 +715,9 @@ async def build_forward_estimates_payload(
     if not corp:
         return {"tool": TOOL, "status": "not_found", "subject": query,
                 "next_actions": [COMPANY_LOOKUP_NEXT_ACTION],
+                # 261019: 종전 「우선주는 보통주 종목코드로 조회한다」 — #114 부터 종류주 코드를 발행 회사로 받으므로 지금 동작대로 말한다.
                 "warnings": [company_not_found_warning(query, listed_only=True),
-                             "우선주는 보통주 종목코드로 조회한다."]}
+                             "우선주·종류주는 그 종목코드(예: 005935)로 조회해도 된다 — 컨센서스는 발행 회사 기준이다."]}
     if not corp.get("stock_code"):
         return {"tool": TOOL, "status": "unlisted", "subject": query,
                 "warnings": [f"'{query}' 는 찾았으나 상장 종목이 아니다 — 컨센서스는 상장사만 있다."]}
