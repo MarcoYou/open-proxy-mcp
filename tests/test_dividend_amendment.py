@@ -223,6 +223,22 @@ def test_same_day_decisions_only_the_corrected_one_is_superseded():
     assert "superseded_by" not in regular
 
 
+def test_same_day_reissue_keeps_the_later_filing_in_the_breakdown():
+    """같은 날 같은 키(연도·분기·기준일)로 두 번 낸 결의 — 분기별 표는 접수번호가 늦은 쪽을 남긴다.
+
+    고치기 전에는 접수일로만 정렬해 입력 순서(공시 검색은 최신 먼저)가 남았다 — 운영 응답에서 동화약품·하나금융지주의
+    같은 날 정정본이 「(대체됨)」, 원 공시가 남는 쪽으로 나갔다. 합산 쪽(`_effective_decisions`)은 이미 접수번호까지 봤다.
+    """
+    base = {"dividend_type": "결산배당", "board_date": "2026-02-10", "record_date": "2025-12-31", "rcept_dt": "20260210",
+            "dps_common": 100, "report_name": "현금ㆍ현물배당결정"}
+    later = {**base, "rcept_no": "20260210000009", "dps_common": 110}
+    earlier = {**base, "rcept_no": "20260210000001"}
+    rows = {r["rcept_no"]: r for r in dv._quarterly_breakdown([later, earlier], [2025])}
+    assert rows["20260210000001"]["is_superseded"] is True
+    assert rows["20260210000009"]["is_superseded"] is False
+    assert [d["rcept_no"] for d in dv._effective_decisions([later, earlier])] == ["20260210000009"]
+
+
 def test_latest_decisions_table_marks_amendments():
     assert tool._decision_kind({"dividend_type": "결산배당"}) == "결산배당"
     assert tool._decision_kind({"dividend_type": "결산배당", "amendment": {"items": []}}) == "결산배당 [정정]"

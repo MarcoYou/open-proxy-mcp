@@ -765,7 +765,10 @@ def _quarterly_breakdown(decisions: list[dict[str, Any]], year_list: list[int]) 
             "is_superseded": bool(item.get("superseded_by")),
             "is_cancelled": _is_cancelled(item),
         })
-    rows.sort(key=lambda r: (r["year"], r["rcept_dt"]))
+    # 🔴 접수일이 같으면 접수번호로 — 같은 날 정정(동화약품·하나금융지주)은 원 공시와 접수일이 같다. 접수일만으로
+    #    정렬하면 입력 순서(최신 먼저)가 남아 **정정본이 (대체됨)**, 원 공시가 남는 쪽이 됐다(261019 운영 응답 실측).
+    #    `_effective_decisions` 는 이미 (접수일, 접수번호)로 정렬한다 — 두 곳이 같은 쪽을 남기게 맞춘다.
+    rows.sort(key=lambda r: (r["year"], r["rcept_dt"], r["rcept_no"]))
     # dedupe: same (year, quarter, record_date) → keep latest (rcept_dt) only as effective.
     # 나머지는 is_superseded=True 표시 (raw audit 보존, 합계는 effective만).
     # 이미 대체됐거나 취소 정정인 행은 키 비교에 끼지 않는다 — 그 행이 남의 행을 대체됐다고 표시하지 않게.
