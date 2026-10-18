@@ -21,7 +21,8 @@ from open_proxy_mcp.dart.client import (MARKET_WINDOW_MAX_MONTHS, LruByteCache, 
                                         note_degradation)
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp import krx_daily as _krx_daily   # 서빙 기준일 정의(`latest_day`) — DB·순수 함수만 있는 모듈이라 순환 없음
-from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db
+from open_proxy_mcp import index_members as _index_members   # 지수 구성종목 원장(코스피200·코스닥150) — DB 읽기만
+from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db, to_label
 
 from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
 
@@ -396,7 +397,9 @@ _UNIVERSE_ALIASES = {
     "전체": "all", "전체시장": "all", "시장전체": "all", "다": "all", "everything": "all",
     "코스피": "market:kospi", "kospi": "market:kospi", "유가증권": "market:kospi",
     "코스닥": "market:kosdaq", "kosdaq": "market:kosdaq",
-    "코스피200": "kospi200", "kospi200": "kospi200", "코스피 200": "kospi200",
+    "코스피200": "kospi200", "kospi200": "kospi200", "코스피 200": "kospi200", "kospi 200": "kospi200",
+    # 261018: 지수 구성종목 원장에 코스닥150 도 담았다. 종전엔 「코스닥150」이 「시총 상위 150 인지 이름인지」 되묻기로 갔다.
+    "코스닥150": "kosdaq150", "kosdaq150": "kosdaq150", "코스닥 150": "kosdaq150", "kosdaq 150": "kosdaq150",
 }
 
 
@@ -464,7 +467,7 @@ def _nl_universe(universe: str) -> str:
     if low in _UNIVERSE_ALIASES:
         return _UNIVERSE_ALIASES[low]
     # 이미 기존 문법이면 그대로 (kospi:30 · top_mktcap:50 · custom:… · market:kospi)
-    if re.match(r"^(all|kospi200|kospi:|kosdaq:|kospi_top:|kosdaq_top:|top_mktcap:|market:|custom:)",
+    if re.match(r"^(all|kospi200|kosdaq150|kospi:|kosdaq:|kospi_top:|kosdaq_top:|top_mktcap:|market:|custom:)",
                 low):
         return raw
     # "코스피 시총 상위 30" · "코스닥 상위 50" · "시총 상위 100"
@@ -615,6 +618,9 @@ class UniverseFilter:
     #: 비어 있지 않으면 **조회하지 않고 되묻는다**. 회사 목록에서 하나도 못 찾았을 때 시장 전체로 바꿔
     #: 보이지 않는다(260918 — 「코스피 시가총액 상위 200개 기업」이 시장 전체 75건으로 나갔다).
     question: str = ""
+    #: 지수 구성종목 원장에서 집합을 만들었으면 그 구성이 마지막으로 확인된 거래일(YYYYMMDD). 아니면 None
+    #: (원장을 못 읽어 시총 순위로 대체한 경우도 None — 그때는 notice 가 대체를 밝힌다).
+    members_dd: str | None = None
 
     def contains(self, stock_code: str, corp_cls: str = "") -> bool:
         if self.allowed is None:
@@ -680,11 +686,34 @@ async def _resolve_custom_universe(raw: str, price_dd: str | None) -> UniverseFi
                           notice=notice, allowed=codes, price_dd=price_dd)
 
 
+def _index_members_latest(code: str) -> "_index_members.Members | None":
+    """지수 구성종목 원장의 가장 늦은 묶음. 못 읽거나 비면 None. 읽기는 이 모듈의 `pg_rows`(시험이 바꿔 끼운다)."""
+    return _index_members.latest(code, pg_rows)
+
+
+def _index_universe(idx: "_index_members.IndexSpec", price_dd: str | None,
+                    rank: Callable[[int, str | None, str], UniverseFilter]) -> UniverseFilter:
+    """지수 → 구성종목 집합. 원장을 못 읽으면 종전처럼 그 시장의 시총 상위 정원으로 대체하고 **대체했다고 밝힌다**.
+
+    구성종목 집합은 시세 저장분과 무관하게 원장에서 온다 — 기준일(`price_dd`)이 없어도 집합은 만든다
+    (공시 필터에는 종목코드만 있으면 된다). 시세 단면이 필요한 호출자(순위표)는 그 날 행을 따로 읽는다."""
+    members = _index_members_latest(idx.code)
+    if members is None:
+        note_degradation("universe_approximated")
+        uf = rank(idx.size, idx.market, f"{idx.label}(→{to_label(idx.market)} 시총상위{idx.size} 대체)")
+        if uf.resolved:
+            uf.notice = (f"{idx.label} 구성종목 원장을 읽지 못해 {to_label(idx.market)} 시총상위 {idx.size}으로 대체했다"
+                         f"(실제 구성과 다를 수 있다 · 다른 시장 미포함).")
+        return uf
+    return UniverseFilter(label=idx.label, resolved=True, allowed=set(members.tickers), price_dd=price_dd,
+                          notice=_index_members.stale_note(idx, members, price_dd), members_dd=members.checked_dd)
+
+
 async def resolve_universe(universe: str) -> UniverseFilter:
     """universe 스펙 → UniverseFilter. 디폴트 all=전체시장(필터 없음).
 
     지원 스펙:
-      all · market:kospi|kosdaq · kospi200(=KOSPI 시총상위200) · kospi:N · kosdaq:N ·
+      all · market:kospi|kosdaq · kospi200 · kosdaq150(지수 구성종목 원장) · kospi:N · kosdaq:N ·
       top_mktcap:N(전체시장 시총상위) · custom:코드|이름,… · sector:…(미구현 degrade)
     """
     spec = (universe or "all").strip()
@@ -739,12 +768,11 @@ async def resolve_universe(universe: str) -> UniverseFilter:
             return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
         return _rank(n, MKT_KQ, f"KOSDAQ 시총상위 {n}")
 
-    # KOSPI200 → 지수 원장 부재라 KOSPI 시총상위 200으로 대체(시장 분리됨, 안내)
-    if low.startswith("kospi200"):
-        uf = _rank(200, MKT_KS, "KOSPI200(→KOSPI 시총상위200 대체)")
-        if uf.resolved:
-            uf.notice = "KOSPI200 구성종목 원장이 없어 KOSPI 시총상위 200으로 대체했다(코스닥 미포함)."
-        return uf
+    # 지수(코스피200·코스닥150) → 구성종목 원장. 261018 전에는 원장이 없어 늘 시총 순위로 대체했다
+    #   (실측 20261016: 공식 201종목 중 34종목이 대체 목록에 없었다 — `open_proxy_mcp/index_members.py`).
+    idx = next((sp for code, sp in _index_members.INDEXES.items() if low.startswith(code)), None)
+    if idx is not None:
+        return _index_universe(idx, price_dd, _rank)
 
     # 전체시장 시총 상위 N (시장 혼합 — 라벨로 명시)
     if low.startswith("top_mktcap:"):
@@ -1509,7 +1537,9 @@ async def _build_screener_payload_impl(
         "period": {"label": period, "bgn_de": bgn_de, "end_de": end_de, "days": period_days},
         "universe": {"label": uni.label, "resolved": uni.resolved,
                      "size": (len(uni.allowed) if uni.allowed is not None else None),
-                     "notice": uni.notice},
+                     "notice": uni.notice,
+                     # 지수 구성종목 원장에서 만든 집합이면 그 구성의 마지막 확인 거래일(261018)
+                     **({"members_dd": uni.members_dd} if uni.members_dd else {})},
         "coverage": coverage,
         "types": {"selected": sel_types, "scan_codes": scan_codes,
                   "details": details_effective, "details_preview": details_preview,

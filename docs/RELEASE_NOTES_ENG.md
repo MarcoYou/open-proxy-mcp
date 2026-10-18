@@ -33,6 +33,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - When there is no table, the card says why — attachment-only amendment, values only in footnotes, or form not recognized.
 - Usually no extra DART call (the same document is already cached). Treasury-share and capital-raise amendments, which use structured APIs only, cost one call each.
 
+### "KOSPI200" now means the actual KOSPI 200 constituents · "KOSDAQ150" is accepted
+
+- In `screener`, `trading_data(scope="universe")` and `forward_estimates_data(universe=…)`, "코스피200" (KOSPI 200) used to fall back to the **top 200 KOSPI stocks by market cap** because there was no constituent ledger. The index is chosen by sector representativeness and liquidity, not by market-cap rank, so the two differed — as of 2026-10-16, 34 of the 201 actual constituents (Hite Jinro, Ottogi, Chong Kun Dang, Daewoong Pharmaceutical, …) were missing and 33 non-members (REITs, an infrastructure fund, …) were included.
+- Answers now use the actual constituents. The membership is refreshed daily and applied only when it matches the index totals published by KRX (market cap, volume and trading value) exactly. Responses carry the membership check date (`members_dd`) and warn if the check is more than 10 days behind.
+- "코스닥150" (KOSDAQ 150) and "KOSPI 200" (with a space) are understood — previously they were asked back as "top 150 by market cap, or a company name?".
+- The ranked list is not cut at the nominal size (a spun-off company stays in the index until the next regular review, so some days have 201 members). Only when the constituent ledger cannot be read does it fall back to the market-cap ranking, and it says so.
+
 ### Company-name inference picks only currently listed companies
 
 - When a company is inferred from a partial name (e.g. "현대미포", "동양생명"), companies that did not trade on KOSPI or KOSDAQ on the latest trading day — delisted or merged companies and KONEX companies — are no longer chosen. Their official names and tickers still resolve ("에이치디현대미포", "HD현대미포", "010620").

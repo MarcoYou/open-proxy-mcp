@@ -660,7 +660,7 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
     if not raw:
         return _err("유니버스", "invalid",
                     "universe 를 지정하세요 — 예: \"코스피 시총 상위 100\" · \"코스닥 상위 50\" · "
-                    "\"코스피200\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열).")
+                    "\"코스피200\" · \"코스닥150\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열).")
     ul = await list_universe(raw)
     subject = ul.label or raw
     if ul.question:
@@ -678,11 +678,18 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
                         "회사 원장에는 보통주 코드만 있습니다. 우선주 시세는 그 종목코드로 종목 시계열을 따로 부르세요.")
     if ul.notice:
         warnings.append(ul.notice)
+    if ul.members_dd:
+        # 261018: 지수는 구성종목 원장에서 — 정원으로 자르지 않는다(분할 신설회사 편입으로 정원을 잠시 넘길 수 있다).
+        basis = (f"종목은 지수 구성종목 원장에서(KRX 공식 지수 합계와 맞춰 본 구성, 마지막 확인 {ul.members_dd}) — "
+                 "정원으로 자르지 않는다. 순위는 그 안에서 시총 내림차순. ")
+    else:
+        basis = "순위는 요청한 시장 안에서 시총 내림차순. "
     return {"tool": TOOL, "status": "ok", "subject": subject,
             "data": {"scope": "universe", "universe": raw, "spec": ul.spec, "label": ul.label,
                      "as_of": ul.as_of, "n": len(ul.rows), "rows": ul.rows,
-                     "method": "시총 = 그 날 상장주식수 × 종가(우선주는 별도 종목). 순위는 요청한 시장 "
-                               "안에서 시총 내림차순. 이름은 DART 회사 원장에서 붙였고 없으면 「-」. "
+                     **({"members_dd": ul.members_dd} if ul.members_dd else {}),
+                     "method": "시총 = 그 날 상장주식수 × 종가(우선주는 별도 종목). " + basis +
+                               "이름은 DART 회사 원장에서 붙였고 없으면 「-」. "
                                "이 목록을 `forward_estimates_data(universe=…)`·`screener(universe=…)` "
                                "에 그대로 넘길 수 있습니다."},
             "warnings": warnings}
