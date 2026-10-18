@@ -5,7 +5,7 @@ from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import calendar
-from datetime import date
+from datetime import date, timedelta
 import re
 import time
 from typing import Any
@@ -111,6 +111,33 @@ def _latest_completed_fiscal_year(today: date, end_month: int | None) -> int | N
     if not end_month:
         return None
     return today.year if today.month > end_month else today.year - 1
+
+
+#: 결산이 끝난 뒤 결산배당 결의가 보통 나오는 기간(정기주총 기한 3개월 + 여유).
+_DECISION_LAG_DAYS = 183
+
+
+def _judgeable_undecided_years(newest_reported_fy: int, latest_completed_fy: int | None,
+                               end_month: int | None, searched_until: date, today: date) -> list[int]:
+    """「결산은 끝났는데 결의가 없다(미결의)」를 판정할 수 있는 사업연도들.
+
+    결의 여부는 배당결정 공시 검색 결과로 본다. 검색이 오늘까지 덮으면 끝난 사업연도 전부를 볼 수 있지만,
+    과거 연도를 지정한 조회(year=2020 → 검색은 2021-12-31 까지)는 그 뒤 사업연도의 결의 공시를 **읽지 않았다**.
+    예전엔 그런 해들(FY2022~FY2025)까지 「결의 공시 없음 — 미결의」로 경고했다(삼성전자 year=2020 실측 261019).
+    → 검색 끝이 오늘 전이면, 결산일 + 결의 기간이 검색 범위 안에 드는 해만 판정한다.
+    """
+    if latest_completed_fy is None:
+        return []
+    out: list[int] = []
+    for fy in range(newest_reported_fy + 1, latest_completed_fy + 1):
+        if searched_until < today:
+            period = _fiscal_period(fy, end_month)
+            if not period:
+                continue
+            if date.fromisoformat(period["end"]) + timedelta(days=_DECISION_LAG_DAYS) > searched_until:
+                continue   # 그 해 결의가 나올 시기를 검색이 덮지 않았다 — 모른다(미결의 아님)
+        out.append(fy)
+    return out
 
 
 async def _search_dividend_filings(
@@ -1084,7 +1111,9 @@ async def build_dividend_payload(
     newest_reported_fy = max(annual_summaries) if annual_summaries else target_year
     if latest_completed_fy is not None:
         decided_fys = {_bucket_fiscal_year(d) for d in details_all}
-        for fy in range(newest_reported_fy + 1, latest_completed_fy + 1):
+        # 검색 범위는 `_search_dividend_filings(…, target_year)` 와 같다(…target_year+1 년 말).
+        for fy in _judgeable_undecided_years(newest_reported_fy, latest_completed_fy, fiscal_end_month,
+                                             date(target_year + 1, 12, 31), today_kst()):
             if fy in decided_fys or fy in annual_summaries:
                 continue
             fiscal = _fiscal_period_fields(fy, fiscal_end_month)
