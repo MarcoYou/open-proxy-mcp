@@ -46,6 +46,7 @@ import psycopg
 from open_proxy_mcp.krx_daily import LATEST_DAY_SQL
 from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS
 from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
+from open_proxy_mcp.services import report_calendar as rcal
 
 UPSERT = """
 INSERT INTO opm_val_market
@@ -101,6 +102,9 @@ def main() -> int:
             "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
         finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
 
+    # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
+    fye_of = rcal.load_fye_map(con)
+
     months = [r[0] for r in con.execute(
         "SELECT DISTINCT ON (substring(price_dd,1,6)) price_dd FROM krx_weekly "
         "WHERE price_dd>=%s ORDER BY substring(price_dd,1,6), price_dd DESC", (a.since,))]
@@ -132,8 +136,7 @@ def main() -> int:
         use = max((s for s in snaps if s <= d), default=snaps[0])
         if use > d:
             n_backfilled += 1
-        fy = _pit_fy(d)
-        fy_q, q = _pit_quarter(d)
+        pit = {rcal.Fiscal(): (_pit_fy(d), _pit_quarter(d))}   # 공시 달력(결산월·외국 상장사 기한) → (그 시점 FY, (분기 칸)) — 12월 결산은 날짜마다 한 번
         src = "krx_daily_v WHERE trd_dd=%s" if d == daily_dd else "krx_weekly WHERE price_dd=%s"
         caps = {r[0]: float(r[1] or 0) for r in con.execute(f"SELECT ticker, mktcap FROM {src}", (d,))}
 
@@ -150,9 +153,13 @@ def main() -> int:
             market = mkts.get(isu)
             if not cls or not cap or market not in (MKT_KS, MKT_KQ):
                 continue
+            fye = rcal.fiscal(fye_of.get(isu, 12), isu)
+            if fye not in pit:
+                pit[fye] = (_pit_fy(d, fye), _pit_quarter(d, fye))
+            fy, (fy_q, q) = pit[fye]
             fin = fin_all.get(isu, {})
             f = fin.get(fy)
-            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q)
+            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q, fye)
             eq_mrq = _mrq_eq(fin, finq_all.get(isu, {}), fy_q, q)
             if not f and ni_ttm is None and eq_mrq is None:
                 continue

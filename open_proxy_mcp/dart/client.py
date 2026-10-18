@@ -1434,7 +1434,8 @@ def corp_registry_miss_kind(query: str, results: list[dict], corps: list[dict]) 
       명부에 이미 있는데 못 찾은 것(영숫자 코드 해석 등)은 명부가 낡아서가 아니다 — 받아도 안 바뀐다.
       우선주 코드(끝자리 5·7·9·K…)는 원래 DART 명부에 없다 — 받아도 안 바뀐다.
     - corp_code(8자리 숫자)·회사명: 결과가 하나도 없을 때. 약한 추정이라도 결과가 있으면 실패로 보지 않는다.
-      단, 지금 거래되는 회사엔 맞는 이름이 없어 **비활성 회사 하나로** 확정한 결과(`is_inactive_fallback`)는 실패와 같이 본다 —
+      단, 지금 거래되는 회사엔 맞는 이름이 없어 **비활성 회사 하나로** 확정했거나 그런 회사 여럿을 고르지 않은 후보로 돌려준 결과
+      (`is_inactive_fallback`)는 실패와 같이 본다 —
       명부가 낡아 신규상장사를 모르면, 이름이 겹치는 옛 법인이 그 자리를 차지하기 때문이다(받고 다시 찾으면 신규상장사가 이긴다).
     """
     from open_proxy_mcp.company_resolver import is_inactive_fallback
@@ -3409,6 +3410,18 @@ class DartClient:
             "reprt_code": reprt_code,
             "fs_div": fs_div,
         })
+
+    async def get_fnltt_xbrl(self, rcept_no: str, reprt_code: str = "11011") -> bytes:
+        """재무제표 원본 파일(fnlttXbrl) — 그 보고서의 XBRL 인스턴스·스키마·링크베이스 ZIP 바이트.
+
+        261018: 분기 재무 수집(`scripts/market_fund_quarterly.py`)이 전체 재무제표(fnlttSinglAcntAll) 응답에서 지배 순이익·자본을
+        찾지 못한 보고서만 이걸로 다시 본다(재무상태표가 빠진 응답 등). 서버 도구는 쓰지 않는다.
+
+        Args:
+            rcept_no: 접수번호(14자리)
+            reprt_code: 11011(사업), 11012(반기), 11013(1분기), 11014(3분기)
+        """
+        return await self._request_binary("fnlttXbrl.xml", {"rcept_no": rcept_no, "reprt_code": reprt_code})
 
     async def get_other_corp_investment(
         self,

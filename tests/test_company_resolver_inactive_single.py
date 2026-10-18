@@ -89,8 +89,21 @@ def test_an_ordinary_inferred_pick_keeps_its_old_sentence():
                     "다른 회사를 뜻했다면 종목코드나 정식명으로 다시 물어보세요.")
 
 
-def test_two_inactive_matches_stay_unresolved():
-    assert _resolver().search("더존") == []               # 더존비즈온·더존디지털웨어 — 고르지 않는다(근접 후보만)
+def test_two_inactive_matches_are_candidates_not_a_pick():
+    """더존비즈온·더존디지털웨어 — 고르지 않는다. 261019: 종전엔 빈 목록(ERROR)이라 `_resolve_listed` 를 타는 도구가 후보를 잃었다 —
+    활성 명부가 켜지기 전(7a6ccfc3)처럼 고르지 않은 후보로 돌려 AMBIGUOUS 가 되게 한다."""
+    hit = _resolver().search("더존")
+    assert [h["corp_name"] for h in hit] == ["더존비즈온", "더존디지털웨어"]          # 원장 최신순(둘 다 시총 없음)
+    for h in hit:
+        meta = h["_resolution"]
+        assert meta["inferred"] and not meta["auto_selected"] and not meta["dominant"]
+        assert meta["inactive_listing"] is True and meta["candidate_count"] == 2
+    assert is_inactive_fallback(hit)
+    status, selected, candidates = C._resolve_match("더존", hit)
+    assert status == AnalysisStatus.AMBIGUOUS and selected is None and len(candidates) == 2
+    assert weak_resolutions() == []                      # 고르지 않았다 — 추정 고지도 없다
+    # 신규상장사를 모르는 낡은 명부일 수 있다 — 못 찾음과 같이 재수신 신호
+    assert corp_registry_miss_kind("더존", hit, [*ACTIVE, *GONE]) == "name"
 
 
 def test_a_typo_is_not_rescued_by_the_inactive_rule():
@@ -158,20 +171,44 @@ def test_company_tool_reports_the_inactive_pick_with_low_confidence(monkeypatch)
     assert r.status == AnalysisStatus.EXACT and r.selected["corp_name"] == "동양생명보험"
 
 
-def test_company_tool_still_errors_with_candidates_when_two_inactive_match(monkeypatch):
+def test_company_tool_shows_the_candidates_when_two_inactive_match(monkeypatch):
     monkeypatch.setattr(C, "get_dart_client", lambda: _FakeClient(_resolver()))
     p = asyncio.run(C.build_company_payload("더존"))
-    assert p["status"] == "error"
+    assert p["status"] == "ambiguous"
     assert [c["corp_name"] for c in p["data"]["candidates"]][:2] == ["더존비즈온", "더존디지털웨어"]
+    monkeypatch.setattr(C, "get_dart_client", lambda: _FakeClient(_resolver()))
+    r = asyncio.run(C.resolve_company_query("더존"))
+    assert r.status == AnalysisStatus.AMBIGUOUS and r.selected is None
+    assert [c["corp_name"] for c in r.candidates] == ["더존비즈온", "더존디지털웨어"]
+
+
+@pytest.mark.parametrize("tool", ["price_multiple_data", "trading_data", "forward_estimates_data"])
+def test_listed_resolver_tools_keep_the_candidates_for_two_inactive_matches(monkeypatch, tool):
+    """261019 회귀(7a6ccfc3 대비, 운영 실측): 「더존」·「국민」·「두산건」처럼 비활성 회사만 여럿 맞는 이름을 공용 해석기
+    `_resolve_listed` 를 타는 세 도구에 주면 종전엔 「동명 후보 여러 건」과 후보표(더존비즈온 012510)를 줬는데, 활성 명부가 켜진 뒤로는
+    ERROR → 후보 없는 「못 찾음」(사명 변경 안내)이 됐다. 다시 후보표로 답한다."""
+    from open_proxy_mcp.services import forward_estimates as F
+    from open_proxy_mcp.services import price_multiple_data as P
+    from open_proxy_mcp.services import trading as T
+
+    monkeypatch.setattr(C, "get_dart_client", lambda: _FakeClient(_resolver()))
+    monkeypatch.setattr(P, "get_dart_client", lambda: _FakeClient(_resolver()))   # 배수 도구는 해석 전에 클라이언트를 잡는다
+    build = {"price_multiple_data": lambda: P._build_valuation_payload_impl("더존"),
+             "trading_data": lambda: T.build_firm_series_payload("더존"),
+             "forward_estimates_data": lambda: F.build_forward_estimates_payload("더존")}[tool]
+    p = asyncio.run(build())
+    assert p["status"] == "ambiguous" and p["tool"] == tool
+    assert [c["corp_name"] for c in p["data"]["candidates"]] == ["더존비즈온", "더존디지털웨어"]
+    assert p["warnings"] == ["'더존' 동명 후보 여러 건 — 아래에서 골라 종목코드로 재시도."]
 
 
 # ── 이름 목록(유니버스)·보유지분 — 비활성 회사로 확정된 이름이 조용히 사라지거나 엉뚱한 후보로 달리지 않는다 ──
 
 class _Res:
-    def __init__(self, hit):
-        self.selected = hit[0] if hit else None
-        self.status = AnalysisStatus.EXACT if hit else AnalysisStatus.ERROR
-        self.candidates = []
+    """확정 관문(`_resolve_match`)을 그대로 거친 결과 — 고르지 않은 후보(AMBIGUOUS)를 확정으로 오인하지 않게."""
+
+    def __init__(self, query, hit):
+        self.status, self.selected, self.candidates = C._resolve_match(query, hit)
 
 
 def test_a_name_list_keeps_the_inactive_pick_but_says_so(monkeypatch):
@@ -180,15 +217,18 @@ def test_a_name_list_keeps_the_inactive_pick_but_says_so(monkeypatch):
     from open_proxy_mcp.services import screener as S
 
     async def _q(tok, *a, **k):
-        return _Res(_resolver().search(tok))
+        return _Res(tok, _resolver().search(tok))
     monkeypatch.setattr(S, "resolve_company_query", _q)
     uf = asyncio.run(S._resolve_custom_universe("삼성전자, 현대미포", "20261016"))
     assert uf.resolved and uf.allowed == {"005930", "010620"}
     assert uf.notice == ("비활성 회사로 식별: '현대미포'→에이치디현대미포(010620)는 최신 거래일(20261016) 코스피·코스닥 시세에 없는 "
                          "상장폐지·코넥스 등 비활성 회사 — 시세·시총을 쓰는 표에는 행이 없다")
-    # 못 찾은 이름이 함께 있으면 종전 「미해결」 안내 뒤에 붙인다
+    # 고르지 않은 이름이 함께 있으면 종전 「미해결」 안내(후보 나열) 뒤에 붙인다
     uf = asyncio.run(S._resolve_custom_universe("삼성전자, 현대미포, 더존", "20261016"))
-    assert uf.notice.startswith("해결된 2종목으로 진행 — 미해결: '더존'") and " / 비활성 회사로 식별: '현대미포'→" in uf.notice
+    assert uf.allowed == {"005930", "010620"}
+    assert uf.notice.startswith("해결된 2종목으로 진행 — 미해결: '더존'는 후보가 여럿이라 자동 선택하지 않았다 — "
+                                "더존비즈온(012510) · 더존디지털웨어(045380)")
+    assert " / 비활성 회사로 식별: '현대미포'→" in uf.notice
     # 활성 회사만이면 안내는 종전 그대로(빈 문자열)
     assert asyncio.run(S._resolve_custom_universe("삼성전자, 세이", "20261016")).notice == ""
 

@@ -70,9 +70,14 @@ jobs:
         run: uv run python scripts/scale_sweep_apply.py --apply
 
       - name: Derive mkt_fundamentals from SSOT (mkt_finstat_q) — DART 0콜
+        # 261018(결산월): 파생 앞에 Q4 seed(연간 표 → 분기 표 사업보고서 칸, 값이 같은 행은 다시 쓰지 않는다). 파생은 TTM 의 직전 연간 값을
+        #   분기 표 사업보고서 칸에서 읽는데, 12월 결산이 아닌 회사의 새 사업보고서는 주 1회 재무 수집(finstat-quarterly)이 연간 표에 넣는다 —
+        #   그 사이에 이 배치가 먼저 돌아도 직전 연간 값이 비지 않게 한다.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: uv run python scripts/market_fund_quarterly.py --derive
+        run: |
+          uv run python scripts/market_fund_quarterly.py --seed
+          uv run python scripts/market_fund_quarterly.py --derive
 
       # 260823 신설 — private wiki adjusted-price-timeseries §3 ④「유지 통합」의 미완 항목.
       #   수정주가 파이프라인은 「이벤트/수동」으로 설계돼 cron 이 없었고, 7/2 이후 7주 방치됐다.

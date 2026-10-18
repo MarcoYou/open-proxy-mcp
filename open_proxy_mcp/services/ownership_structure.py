@@ -9,8 +9,6 @@ import re
 import time
 from typing import Any
 
-from bs4 import BeautifulSoup
-
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.company import company_not_found_warning
@@ -25,6 +23,7 @@ from open_proxy_mcp.services.contracts import (
 )
 from open_proxy_mcp.services.control_change import fetch_control_events
 from open_proxy_mcp.services.dart_safety import _NOT_A_FAILURE, classify_degrade
+from open_proxy_mcp.services.doc_tables import TABLE_RE, cell_text, compact, distinct, table_grids
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.holder_table import holder_table_total, parse_holder_table
 from open_proxy_mcp.services.ownership_parser import parse_holding_purpose, parse_holding_purpose_from_document
@@ -762,94 +761,216 @@ def _sanitize_share_units(major_rows: list[dict[str, Any]], treasury_snapshot: d
     return [f"발행총수가 명부 지분율 대비 {unit:,}배로 기재돼 있어 {unit:,}분의 1로 교정 (DART 원본 단위 오염)"]
 
 
+# ── 최대주주등소유주식변동신고서(I004) ─────────────────────────────────────────────
+# 원문(DART document.xml · KIND 가 같은 서식)은 「보고 묶음」 하나가 표 셋이다:
+#   보고의 개요     `보고일자 | 소유주식(구분·주식수·비율)` — 직전보고서제출일·이번보고서제출일·증감 × 주식 종류
+#   개인별 세부변동  변동 있는 사람마다 표 하나 — 인적사항 세 줄(성명·생년월일·성별 / 국내외 구분·국적 / 관계·겸직) + 변경일 표
+#   총괄현황        머리 두 줄(`보통주식 › 주식수 · 비율` …) — 성명 · 생년월일 또는 사업자등록번호 · 성별 · … · 합계
+# 「(최대주주변경시)」 서식은 `[변경전 최대주주등]`·`[변경후 최대주주등]` 두 묶음이 한 원문에 들어 있다.
+# 칸은 **머리 이름**으로 고른다. 260419~261018 의 위치 파서는 이 서식을 한 번도 맞게 읽지 못했다 — 보고일자를
+# 주식수로, 머리 둘째 줄을 주주로, 총괄현황 「생년월일」 칸 값을 보유주식 자리로 냈다(표본 16건 전부, 2019년 원문 포함).
+# 🔴 인적사항(생년월일·사업자등록번호·성별·국적·주소)은 싣지 않는다 — 당사자 대부분이 개인이다. `profile_omitted` 만.
+
+#: 인적사항 칸 이름(공백 없앤 꼴) → 싣는 이름. 여기 없는 칸은 싣지 않는다(허용 목록).
+_CHANGE_PROFILE_KEEP = {"성명": "name", "국내외구분": "holder_kind", "최대주주및발행회사와의관계": "relation"}
+_CHANGE_PROFILE_LABELS = set(_CHANGE_PROFILE_KEEP) | {
+    "생년월일", "사업자등록번호", "생년월일또는사업자등록번호", "성별", "국적", "주소", "겸직내용1", "겸직내용2"}
+_CHANGE_GROUP_RE = re.compile(r"\[\s*(변경\s*[전후]\s*최대주주\s*등)\s*\]")
+_CHANGE_DATE_RE = re.compile(r"(\d{4})[-.](\d{2})[-.](\d{2})")
+
+
+def _cell_num(text: str, as_float: bool = False) -> int | float | None:
+    """칸 글 → 수. 숫자 꼴이 아니면(`-`·빈칸·글·`781-87-00911`) None — 0 으로 메우지 않는다."""
+    t = compact(text).replace(",", "")
+    neg = t.startswith("(") and t.endswith(")")
+    if neg:
+        t = t[1:-1]
+    if not re.fullmatch(r"[+-]?\d+(?:\.\d+)?", t):
+        return None
+    v = -float(t) if neg else float(t)
+    return v if as_float else int(v)
+
+
+def _change_columns(grid: list[list[str]]) -> tuple[list[str], int]:
+    """머리 → 칸마다 이름(공백 없앤 꼴)과 값 시작 줄. 둘째 줄이 `주식수·비율` 머리면 붙여 `보통주식주식수` 꼴로."""
+    head = [compact(c) for c in grid[0]]
+    if len(grid) > 1 and len(grid[1]) == len(head):
+        second = [compact(c) for c in grid[1]]
+        if any(c in ("주식수", "비율") for c in second) and all(_cell_num(c) is None for c in second):
+            return [a if a == b else a + b for a, b in zip(head, second)], 2
+    return head, 1
+
+
+def _change_col(cols: list[str], *words: str) -> int | None:
+    return next((i for i, c in enumerate(cols) if all(w in c for w in words)), None)
+
+
+def _change_overview(grid: list[list[str]]) -> dict[str, Any] | None:
+    """보고의 개요 → `{before, after, delta}` 각 `{filed_on, shares, pct}`(합계 줄, 없으면 보통주식 줄).
+
+    직전 보고가 없는 첫 보고(변경후 최대주주등)는 직전 칸이 `-` — 그대로 None 으로 둔다.
+    """
+    cols, start = _change_columns(grid)
+    i_kind, i_sh, i_pct = _change_col(cols, "구분"), _change_col(cols, "주식수"), _change_col(cols, "비율")
+    if None in (i_kind, i_sh, i_pct):
+        return None
+    stages: dict[str, dict[str, Any]] = {}
+    for row in grid[start:]:
+        if len(row) <= max(i_kind, i_sh, i_pct):
+            continue
+        label = compact(row[0])
+        stage = ("before" if "직전" in label else "after" if ("이번" in label or "금번" in label)
+                 else "delta" if "증감" in label else None)
+        if stage is None:
+            continue
+        st = stages.setdefault(stage, {"kinds": {}})
+        m = _CHANGE_DATE_RE.search(compact(row[1])) if stage != "delta" and len(row) > 1 else None
+        if m:
+            st["filed_on"] = "-".join(m.groups())
+        st["kinds"][compact(row[i_kind])] = (_cell_num(row[i_sh]), _cell_num(row[i_pct], as_float=True))
+    if "after" not in stages:
+        return None
+    out: dict[str, Any] = {}
+    for stage, st in stages.items():
+        kinds = st["kinds"]
+        basis = "합계" if "합계" in kinds else "보통주식" if "보통주식" in kinds else next(iter(kinds))
+        shares, pct = kinds[basis]
+        out[stage] = {"shares": shares, "pct": pct, "basis": basis}
+        if stage != "delta":
+            out[stage]["filed_on"] = st.get("filed_on")
+        common = kinds.get("보통주식")
+        if basis == "합계" and common and common != (shares, pct):
+            out[stage]["common_shares"], out[stage]["common_pct"] = common
+    return out
+
+
+def _change_person(grid: list[list[str]]) -> dict[str, Any] | None:
+    """개인별 세부변동 표 → `{name, holder_kind, relation, changes}`. 인적사항은 허용 목록 칸만."""
+    hdr = next((i for i, r in enumerate(grid)
+                if {"변경일", "변경원인"} <= {compact(c) for c in r}), None)
+    if hdr is None:
+        return None
+    person: dict[str, Any] = {}
+    for row in grid[:hdr]:
+        cells = distinct(row)
+        for i, cell in enumerate(cells):
+            key = _CHANGE_PROFILE_KEEP.get(compact(cell))
+            if key and i + 1 < len(cells) and compact(cells[i + 1]) not in _CHANGE_PROFILE_LABELS:
+                person[key] = cells[i + 1]
+    cols = [compact(c) for c in grid[hdr]]
+    idx = {"date": _change_col(cols, "변경일"), "reason": _change_col(cols, "변경원인"),
+           "stock_type": _change_col(cols, "종류"), "before": _change_col(cols, "변경전"),
+           "delta": _change_col(cols, "증감"), "after": _change_col(cols, "변경후"), "note": _change_col(cols, "비고")}
+    changes = []
+    for row in grid[hdr + 1:]:
+        if not any(compact(c) not in ("", "-") for c in row):
+            continue
+        cell = {k: (row[i] if i is not None and i < len(row) else "") for k, i in idx.items()}
+        changes.append({
+            "date": cell["date"], "reason": cell["reason"], "stock_type": cell["stock_type"],
+            "before": _cell_num(cell["before"]), "delta": _cell_num(cell["delta"]), "after": _cell_num(cell["after"]),
+            **({"note": cell["note"]} if compact(cell["note"]) not in ("", "-") else {}),
+        })
+    person["changes"] = changes
+    return person
+
+
+def _change_totals(grid: list[list[str]]) -> tuple[list[dict[str, Any]], dict[str, Any] | None] | None:
+    """총괄현황 → (주주 줄들, 합계 줄). 주주 줄은 성명·관계·국내외 구분·보통주식·합계 칸만."""
+    cols, start = _change_columns(grid)
+    i_name = _change_col(cols, "성명")
+    i = {"relation": _change_col(cols, "관계"), "holder_kind": _change_col(cols, "국내외"),
+         "common_shares": _change_col(cols, "보통", "주식수"), "common_pct": _change_col(cols, "보통", "비율"),
+         "total_shares": _change_col(cols, "합계", "주식수"), "total_pct": _change_col(cols, "합계", "비율")}
+    if i_name is None or (i["common_shares"] is None and i["total_shares"] is None):
+        return None
+
+    def at(row: list[str], key: str) -> str:
+        j = i[key]
+        return row[j] if j is not None and j < len(row) else ""
+
+    holders: list[dict[str, Any]] = []
+    total: dict[str, Any] | None = None
+    for row in grid[start:]:
+        name = row[i_name] if i_name < len(row) else ""
+        nums = {k: _cell_num(at(row, k), as_float=k.endswith("pct"))
+                for k in ("common_shares", "common_pct", "total_shares", "total_pct")}
+        if _is_subtotal_row(name):
+            total = nums
+            continue
+        if not compact(name):
+            continue
+        holders.append({"name": _clean_name(name), "relation": at(row, "relation"),
+                        "holder_kind": at(row, "holder_kind"), **nums})
+    return holders, total
+
+
 def _parse_change_filing(html: str, rcept_no: str, rcept_dt: str) -> dict[str, Any]:
-    """KIND HTML에서 최대주주등소유주식변동신고서 파싱."""
-    soup = BeautifulSoup(html, "lxml")
-    tables = soup.find_all("table")
+    """최대주주등소유주식변동신고서 원문 → 보고 묶음(`reports`)마다 개요·개인별 변동·총괄현황.
 
-    if len(tables) < 4:
-        return {"rcept_no": rcept_no, "rcept_dt": rcept_dt, "parse_error": f"테이블 {len(tables)}개 (최소 4개 필요)"}
-
-    def cell_texts(table) -> list[list[str]]:
-        return [
-            [td.get_text(" ", strip=True) for td in row.find_all(["td", "th"])]
-            for row in table.find_all("tr")
-            if row.find_all(["td", "th"])
-        ]
-
-    # 섹션 3 (index 2): 보고의 개요 - 직전/금번 주식수+비율
-    overview: dict[str, Any] = {}
-    try:
-        for cells in cell_texts(tables[2]):
-            joined = "".join(cells)
-            nums = [_to_float(re.sub(r"[^\d.]", "", c)) for c in cells if re.sub(r"[^\d.]", "", c)]
-            if "직전" in joined and nums:
-                overview["before_shares"] = int(nums[0]) if nums else 0
-                overview["before_pct"] = nums[1] if len(nums) > 1 else 0.0
-            elif "금번" in joined and nums:
-                overview["after_shares"] = int(nums[0]) if nums else 0
-                overview["after_pct"] = nums[1] if len(nums) > 1 else 0.0
-    except Exception:
-        pass
-
-    # 섹션 4~N-1 (index 3 to -2): 개인별 세부변동사항
-    individual_changes: list[dict[str, Any]] = []
-    for t in tables[3:-1]:
-        # 주주명은 테이블 직전 bold span에서 추출
-        holder_name = ""
-        prev_span = t.find_previous("span")
-        if prev_span:
-            holder_name = prev_span.get_text(strip=True)
-
-        change_rows: list[dict[str, Any]] = []
-        header_found = False
-        for cells in cell_texts(t):
-            joined = "".join(cells)
-            if not header_found:
-                if "변경일" in joined or "변경원인" in joined:
-                    header_found = True
+    못 알아본 표는 0 으로 메우지 않고 `unread`(몇 번째 표 · 그 위 절 제목)로 남긴다. `status`:
+    `parsed`(전부 읽음) · `partial`(못 읽은 표나 빈 칸이 있음) · `unrecognized`(보고의 개요부터 못 찾음).
+    """
+    reports: list[dict[str, Any]] = []
+    unread: list[dict[str, Any]] = []
+    profile_omitted = False
+    group, pos, n_tables = "", 0, 0
+    for n_tables, m in enumerate(TABLE_RE.finditer(html or ""), start=1):
+        between = cell_text(html[pos:m.start()])
+        pos = m.end()
+        if found := _CHANGE_GROUP_RE.findall(compact(between)):
+            group = found[-1].replace("최대주주등", " 최대주주등")
+        section = between.split("\n")[-1][-40:] if between else ""
+        grids = table_grids(m.group(0))
+        if not grids:
+            continue
+        grid = grids[0]
+        head = compact(" ".join(grid[0]))
+        if "회사명" in head or "발행주식총수" in head or "정정" in head:
+            continue                                   # 머리말(발행회사·발행주식수)·정정 비교표
+        if "보고일자" in head and "소유주식" in head:
+            ov = _change_overview(grid)
+            if ov is None:
+                unread.append({"table": n_tables, "section": section})
                 continue
-            if len(cells) >= 5:
-                change_rows.append({
-                    "date": cells[0],
-                    "reason": cells[1],
-                    "stock_type": cells[2] if len(cells) > 2 else "",
-                    "before": _to_int(cells[3]) if len(cells) > 3 else 0,
-                    "delta": _to_int(cells[4]) if len(cells) > 4 else 0,
-                    "after": _to_int(cells[5]) if len(cells) > 5 else 0,
-                })
-        individual_changes.append({"holder_name": holder_name, "changes": change_rows})
+            reports.append({"group": group, "overview": ov, "individual_changes": [], "total_holders": []})
+            continue
+        if not reports:
+            unread.append({"table": n_tables, "section": section})
+            continue
+        cur = reports[-1]
+        if (person := _change_person(grid)) is not None:
+            cur["individual_changes"].append(person)
+        elif (tot := _change_totals(grid)) is not None:
+            cur["total_holders"], cur["total"] = tot
+        else:
+            unread.append({"table": n_tables, "section": section})
+            continue
+        # 실은 줄은 허용 목록 칸뿐 — 그 밖의 인적사항 칸이 원문에 있었다는 사실만 남긴다
+        profile_omitted = profile_omitted or any(
+            compact(c) in _CHANGE_PROFILE_LABELS - set(_CHANGE_PROFILE_KEEP) for r in grid[:3] for c in r)
 
-    # 마지막 테이블: 최대주주등 주식소유현황 (총괄)
-    total_holders: list[dict[str, Any]] = []
-    try:
-        header_found = False
-        for cells in cell_texts(tables[-1]):
-            joined = "".join(cells)
-            if not header_found:
-                if "성명" in joined or "관계" in joined:
-                    header_found = True
-                continue
-            if not cells[0] or cells[0] in ("계", "합계", "소계"):
-                continue
-            if len(cells) >= 3:
-                # 컬럼: 성명 / 관계 / 보통주수 / 보통주비율 / ... / 합계수 / 합계비율
-                total_holders.append({
-                    "name": cells[0],
-                    "relation": cells[1] if len(cells) > 1 else "",
-                    "shares": _to_int(cells[2]) if len(cells) > 2 else 0,
-                    "pct": _to_float(cells[3]) if len(cells) > 3 else 0.0,
-                })
-    except Exception:
-        pass
-
-    return {
-        "rcept_no": rcept_no,
-        "rcept_dt": rcept_dt,
-        "overview": overview,
-        "individual_changes": individual_changes,
-        "total_holders": total_holders,
-    }
+    out: dict[str, Any] = {"rcept_no": rcept_no, "rcept_dt": rcept_dt, "reports": reports}
+    if profile_omitted:
+        out["profile_omitted"] = True
+    if unread:
+        out["unread"] = unread
+    notes = []
+    for rep in reports:
+        after, total = rep["overview"].get("after") or {}, rep.get("total") or {}
+        label = rep["group"] or "보고"
+        if not rep["total_holders"]:
+            notes.append(f"{label}: 총괄현황 표를 못 찾음")
+        elif after.get("shares") is not None and total.get("total_shares") not in (None, after["shares"]):
+            notes.append(f"{label}: 총괄현황 합계 {total['total_shares']:,}주가 보고의 개요 이번 {after['shares']:,}주와 다름")
+    if notes:
+        out["notes"] = notes
+    if not reports:
+        out["status"] = "unrecognized"
+        out["notes"] = [f"「보고의 개요」 표(보고일자·소유주식 머리)를 못 찾음 — 표 {n_tables}개. 원문 직접 확인"]
+    else:
+        out["status"] = "partial" if (unread or notes) else "parsed"
+    return out
 
 
 async def _fetch_change_filings(
@@ -858,7 +979,7 @@ async def _fetch_change_filings(
     window_end: date,
     client,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """DART 검색 → KIND 크롤링 → 변동신고서 리스트 반환."""
+    """DART 검색 → 원문(document.xml, 비면 KIND — 같은 서식) → 변동신고서 리스트 반환."""
     warnings: list[str] = []
     try:
         result = await client.search_filings(
@@ -920,6 +1041,10 @@ async def _fetch_change_filings(
         parsed["report_nm"] = item.get("report_nm", "최대주주등소유주식변동신고서")
         parsed["acptno"] = acptno
         parsed["source"] = source_used
+        if parsed["status"] != "parsed":
+            where = ", ".join(f"표 {u['table']}" for u in parsed.get("unread", []))
+            warnings.append(f"변동신고서 {rcept_no} 일부를 못 읽음"
+                            + (f" ({where})" if where else "") + " — 원문 확인 (0 으로 메우지 않았다)")
         filings.append(parsed)
 
     return filings, warnings
@@ -1288,11 +1413,11 @@ async def build_ownership_structure_payload(
                 )
             )
     for filing in data.get("change_filings", []):
-        if filing.get("rcept_no") and not filing.get("parse_error"):
+        if filing.get("rcept_no") and filing.get("status") != "unrecognized":
             evidence_refs.append(
                 EvidenceRef(
                     evidence_id=f"ev_change_{filing['rcept_no']}",
-                    source_type=SourceType.KIND_HTML,
+                    source_type=SourceType.KIND_HTML if filing.get("source") == "kind_scraping" else SourceType.DART_XML,
                     rcept_no=filing["rcept_no"],
                     rcept_dt=format_iso_date(filing.get("rcept_dt", "")),
                     report_nm="최대주주등소유주식변동신고서",

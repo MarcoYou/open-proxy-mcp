@@ -715,8 +715,9 @@ async def build_forward_estimates_payload(
     if not corp:
         return {"tool": TOOL, "status": "not_found", "subject": query,
                 "next_actions": [COMPANY_LOOKUP_NEXT_ACTION],
+                # 261019: 종전 「우선주는 보통주 종목코드로 조회한다」 — #114 부터 종류주 코드를 발행 회사로 받으므로 지금 동작대로 말한다.
                 "warnings": [company_not_found_warning(query, listed_only=True),
-                             "우선주는 보통주 종목코드로 조회한다."]}
+                             "우선주·종류주는 그 종목코드(예: 005935)로 조회해도 된다 — 컨센서스는 발행 회사 기준이다."]}
     if not corp.get("stock_code"):
         return {"tool": TOOL, "status": "unlisted", "subject": query,
                 "warnings": [f"'{query}' 는 찾았으나 상장 종목이 아니다 — 컨센서스는 상장사만 있다."]}
@@ -1134,7 +1135,12 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
     if len(latest_dates) > 1:
         warnings.append("종목별 최신 스냅샷 날짜가 다르다: " + " · ".join(latest_dates)
                         + " — 같은 날 기준이 아니니 순위를 정밀 비교로 읽지 말 것.")
-    if ul.as_of:
+    if ul.members_dd:
+        # 261019: 지수(코스피200·코스닥150)는 시총 순위가 아니라 구성종목 원장에서 온 집합이다(#113) — 「시총 순위」라고 적으면
+        #   #113 이 바로잡은 오해(지수 = 시총 상위 N)를 되살린다. 같은 유니버스를 쓰는 `trading_data`·`screener` 처럼 원장 확인일을 밝힌다.
+        warnings.append(f"유니버스는 {ul.label} 구성종목 원장(마지막 확인 {ul.members_dd})"
+                        + (f" — 시총·시총 순위는 시세 저장분에 보관된 최신 거래일({ul.as_of}) 기준." if ul.as_of else "."))
+    elif ul.as_of:
         warnings.append(f"유니버스(시총 순위)는 시세 저장분에 보관된 최신 거래일({ul.as_of}) 기준.")
 
     data: dict[str, Any] = {
@@ -1157,6 +1163,8 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
                  "비교 불가(변화율 없음)는 순위 밖. "
                  + _hist_source_note() + ". 컨센서스 스냅샷이지 DART 공시가 아니다."),
     }
+    if ul.members_dd:
+        data["members_dd"] = ul.members_dd   # 지수 구성종목 원장의 마지막 확인 거래일 — trading_data(scope=universe)와 같은 칸
     return {"tool": TOOL, "status": "ok" if out else "no_estimates", "subject": subject,
             "data": data, "warnings": warnings}
 

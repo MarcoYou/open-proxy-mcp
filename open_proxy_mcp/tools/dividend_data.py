@@ -24,7 +24,7 @@ _RULER = [
     "- **배당성향의 분모**: 공시 원문 `(연결)현금배당성향(%)` 을 그대로 싣는다 — **연결 기준이며 우리가 계산한 값이 아니다.** 같은 회사에서 해마다 크게 튀면 대개 분모(연결 지배순이익)가 움직인 것이다 — 삼성전자 FY2022 17.9% ↔ FY2023 67.8% 는 배당총액 9.81조원이 같은데 지배순이익이 54.7조 → 14.5조원으로 급감한 결과다. 튀는 값은 원문(`evidence`)과 순이익 추이로 먼저 확인한다",
     "- **기간**: 사업연도(`bsns_year`). 12월 결산이 아니면 `결산일` 칸이 실제 결산일이다",
     "- **금액 출처**: DART 정기보고서 `alotMatter` — **확정치**. 추정도 결정공시 예고도 아니다",
-    "- **횟수 출처**: 「현금ㆍ현물배당결정」 원문(결정공시) — 이사회 결의 시점 그대로. FY2020~2024 만 온전하다",
+    "- **횟수 출처**: 「현금ㆍ현물배당결정」 원문(결정공시) — 이사회 결의 시점 그대로. 온전한 해만 센다(`⚠️미완` 이 붙은 해는 결의가 아직 다 안 걷혔다)",
     "- **빈칸**: `확정`/`무배당`/`항목없음`/`보고서없음`을 가른다. 0 으로 메우지 않았다",
     "- **분기**: 누적 차분(3분기 누계 − 반기 누계). 앞 원장이 없으면 `미산출`",
     "- **자유서술 칸**: 결정공시 비고(11번 항목)는 **요약하지 않고 원문 전문**을 싣는다 — "
@@ -219,7 +219,7 @@ def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
          "- **단위**: DPS 주당 원 · 총액 원(KRW) · 배당성향 %",
          "- **금액 출처**: DART 정기보고서 `alotMatter` 사업보고서 — **확정치**",
          "- **횟수 출처**(`min_payments`·이력열): 결정공시 원문 — 실제 이사회 결의 건수. "
-         "FY2020~2024 만 온전하다",
+         + (f"FY{hist_years[0]}~{hist_years[-1]} 만 온전하다" if hist_years else "온전한 해가 없다"),
          "- **배당성향의 분모**: 공시 원문의 `(연결)현금배당성향(%)` 값을 그대로 싣는다 — "
          "**연결 기준이며 우리가 계산한 값이 아니다.**",
          "- **대상**: 보통주(`보통`·`미구분`) 행만. DPS 0원은 배당한 것이 아니므로 뺀다",
@@ -280,10 +280,10 @@ def register_tools(mcp):
         limit: int = 50,
         format: str = "md",
     ) -> str:
-        """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 828사 × 2020~2025)과 결정공시 집계(FY2020~2024)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
+        """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 약 830사 × 2020~, 매주 갱신 — 사업보고서가 아직 없는 올해는 1분기·반기 행만)과 결정공시 집계(온전한 해만 횟수)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
         when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend_disclosure`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
         scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` 업종 대분류(sector 필요)
-        rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 FY2020~2024 만 온전(그 밖은 `scope_incomplete`). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**
+        rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 온전한 해만 센다(그 밖은 `scope_incomplete` — 수집이 이어지면 해가 늘어난다). screen 의 기본 사업연도는 **사업보고서가 있는 마지막 해**다(올해 분기 행만 있는 해가 아니다). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**
         min_payments: screen 전용. **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사(결정공시 기준 — 원장 분기 빈칸 추정이 아니다). `quarterly_only=True` 는 `min_payments=2` 의 별칭(하위호환).
         ref: dividend_disclosure, price_multiple_data, forward_estimates_data, screener, evidence
         """
@@ -316,10 +316,20 @@ def register_tools(mcp):
             return as_pretty_json(data) if format == "json" else _render_agg("sector", sector, data)
 
         if scope == "screen":
-            year = bsns_year or hi
+            # 261019: 연간 확정치(사업보고서)만 거르는 화면이다 — 기본 연도는 사업보고서가 있는 마지막 해.
+            #   원장이 매주 갱신되며 올해 1분기·반기 행이 먼저 들어오므로 `hi`(모든 보고서 기준)를 쓰면 빈 결과가 난다.
+            ann_hi = await asyncio.to_thread(dd.latest_annual_year)
+            if ann_hi is None:
+                return "## 배당 원장 DB 조회 실패 (`status=db_error`)\n\n> 일시 장애일 수 있다. 잠시 뒤 다시."
+            year = bsns_year or ann_hi
             if not (lo <= year <= hi):
                 return (f"## 사업연도 범위 밖 (`status=invalid`)\n\n"
-                        f"> 이 표가 담고 있는 구간은 **FY{lo}~FY{hi}** 다.")
+                        f"> 이 표가 담고 있는 구간은 **FY{lo}~FY{hi}** 다(사업보고서 기준 FY{lo}~FY{ann_hi}).")
+            if year > ann_hi:
+                return (f"## FY{year} 사업보고서 아직 없음 (`status=invalid`)\n\n"
+                        f"> 스크리닝은 연간 확정치(사업보고서)로 거른다 — 사업보고서가 있는 해는 **FY{lo}~FY{ann_hi}** 다. "
+                        f"FY{year} 는 분기 보고서(1분기·반기 등) 행만 실려 있다. 그 해 분기 배당은 `scope=firm`(분기 표)이나 "
+                        "`dividend_disclosure`(실시간) 로 본다.")
             mp = min_payments if min_payments > 0 else (2 if quarterly_only else None)
 
             cond = []
