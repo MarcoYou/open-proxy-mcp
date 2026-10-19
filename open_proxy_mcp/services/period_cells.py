@@ -351,7 +351,12 @@ MARKED_SQL = (f"SELECT ticker, fy, quarter, ni_cum_restated, eq_restated, {AVAIL
 
 
 def load_marked(con) -> list[tuple]:
-    """배치용: 표시 칸 행 [(ticker, fy, quarter, 순이익 누적, 자본, 공시일)]. `con` = psycopg 접속."""
+    """배치용: 표시 칸 행 [(ticker, fy, quarter, 순이익 누적, 자본, 공시일)]. `con` = psycopg 접속.
+    근거 칸(`restate_why`)이 아직 없는 표(그 칸을 만드는 이행 전 — 시험용 최소 표 등)면 빈 목록 — 종전 읽기 그대로(`report_calendar.load_fye_map` 과 같은 규칙)."""
+    has = con.execute("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' "
+                      "AND table_name='dart_finstat_q' AND column_name='restate_why')").fetchone()[0]
+    if not has:
+        return []
     return list(con.execute(MARKED_SQL, (MARK_LIKE,)))
 
 
