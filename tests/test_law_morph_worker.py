@@ -139,3 +139,31 @@ def test_health_reports_the_worker():
     lm = body["law_morph"]
     assert {"mode", "alive", "rss_mb", "idle_exit_sec", "spawns", "fallbacks"} <= set(lm), lm
     assert "pid" not in json.dumps(lm), "자식 PID 는 싣지 않는다"
+
+
+def test_admin_reclaim_stops_the_child_only_when_it_clears_caches(fresh, monkeypatch):
+    """관리자 회수(`/admin/cache`)는 캐시를 비우는 모드(all·pressure)에서만 자식을 내린다 — 가드의 낮은 문턱(`cache=0`)과
+    만료분만 비우는 `expired` 는 자식을 둔다(다음 법령 질의가 1~2초 다시 띄우는 값을 치르지 않게)."""
+    from starlette.testclient import TestClient
+    from open_proxy_mcp import server as S
+    monkeypatch.setenv("OPM_ADMIN_KEY", "fixture")
+    c, h = TestClient(S.build_app()), {"x-admin-key": "fixture"}
+    fresh.tokenize("이사")
+    for q in ("cache=0&trim=0", "mode=expired&trim=0"):
+        body = c.post(f"/admin/cache?{q}", headers=h).json()
+        assert "law_morph_stopped" not in body and fresh.stats()["alive"] is True, (q, body)
+    for q in ("mode=pressure&target_mb=1&trim=0", "trim=0"):
+        fresh.tokenize("이사")
+        body = c.post(f"/admin/cache?{q}", headers=h).json()
+        assert body["law_morph_stopped"] is True and fresh.stats()["alive"] is False, (q, body)
+    assert fresh.tokenize("이사") == _inproc("이사") and fresh.stats()["spawns"] == 3
+
+
+def test_child_near_its_idle_exit_is_replaced_before_writing(fresh, monkeypatch):
+    """쉬어 끝나기 직전(쉼 한도의 90% 넘게 놀았음)인 자식에게는 쓰지 않고 새로 띄운다 — 자식이 막 끝나는 순간 쓴 요청이
+    답 없이 닫히는 경합을 피한다."""
+    fresh.tokenize("이사")
+    first = fresh._proc
+    fresh._last_used -= MW._idle_sec() * 0.95
+    assert fresh.tokenize("감사") == _inproc("감사")
+    assert fresh._proc is not first and fresh.stats()["spawns"] == 2 and fresh.stats()["fallbacks"] == 0
