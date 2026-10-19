@@ -30,6 +30,7 @@ from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_un
 from open_proxy_mcp.krx_daily import read_quote
 
 from open_proxy_mcp.krx_retention import weekly_window_note
+from open_proxy_mcp.krx_ticks import TICK_ROUNDING_LABEL, is_tick_rounding
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.company import COMPANY_LOOKUP_NEXT_ACTION, company_not_found_warning
@@ -43,9 +44,11 @@ from open_proxy_mcp.services.price_multiple_data import (
     _num,
     _pg_rows,
     _price_dates,
+    _read_weekly,
     _resolve_listed,
     _weekly_bounds,
 )
+from open_proxy_mcp.krx_retention import COLD_DEGRADED_NOTE, weekly_cold_note   # 261019 콜드 서빙(3년 하한 이전 주간 곡선)
 
 TOOL = "trading_data"
 
@@ -142,12 +145,9 @@ _DB_UNSET_WARN = ("이 서버에는 스냅샷 DB(`DATABASE_URL`)가 연결돼 �
 #: 시총 집계 저장분이 비었을 때(배치 미실행). 261018: 사용자 문장에 표·배치 이름(종전 「krx_cap_agg 비어있음 —
 #: krx_cap_agg.py 배치 미실행」)을 쓰지 않는다 — 260907 저장소 이름 정리(`_DB_UNSET_WARN` 의 「주간 시세·시총 집계」)와 같은 말.
 _CAP_AGG_EMPTY_WARN = "시총 집계 저장분이 비어 있음 — 집계 배치 미실행."
-#: 261018: 섹터 집계(krx_cap_agg)는 이 날짜(그때의 주간 시세 보존 하한)부터만 업종분류 보강분 — 구성종목에서만 빠진 상장 종목의
-#:   이어 쓰기·우선주·기업 정보 화면 관측(scripts/refresh_sector_class.py) — 을 반영해 다시 집계했다. 그 이전 점은 원천 주간 시세가
-#:   종목별 연말 행만 남아 다시 집계하지 못한 옛 값(구성종목 관측만으로 센 값)이라, 버킷 종목 수·시총이 이 날짜 앞뒤로 계단처럼
-#:   바뀐다(실측: 코스닥 건강관리 20231013 228 → 20231020 258종목, 코스닥 미분류 283 → 162). 실제 편입·이탈이 아니다.
-#:   하한 이전을 차가운 층 원천으로 다시 집계하면 이 상수와 경고를 지운다.
-_SECTOR_RECLASS_SINCE = "20231016"
+#: 261019: 섹터 집계(krx_cap_agg)의 하한 이전 업종 행도 업종분류 보강분으로 다시 집계했다(콜드 서빙본 — 하한 이전 주간 시세 전 행,
+#:   `scripts/krx_cap_agg.py --cold-sqlite`). 종전(261018)엔 그 구간이 보강 전 값이라 버킷 종목 수·시총이 20231016 앞뒤로 계단처럼 바뀌어
+#:   (코스닥 건강관리 20231013 228 → 20231020 258종목) 그 날짜를 넘는 시계열에 경고를 붙였다 — 다시 집계 뒤 같은 두 주가 257 → 258 이라 경고를 지웠다.
 _UNCLASSIFIED_BUCKET = {"bucket": "_UNCLASSIFIED", "label": "미분류"}
 _LIVE_ONLY_WARN = ("⚠ **KRX 라이브 · 시계열 아님** — 스냅샷 DB 가 없어 최신 1시점만 KRX 에서 직접 "
                    "받아온 값입니다. 과거 추이·기간 비교는 이 서버에서 할 수 없습니다.")
@@ -206,6 +206,8 @@ async def _firm_live_fallback(name: str, ticker: str) -> dict[str, Any]:
 #: 칸 목록을 한 곳에만 두어 한쪽만 바뀌어 칸이 조용히 어긋나는 일을 막는다.
 _FIRM_COLS = "price_dd, market, close, mktcap, list_shrs"
 _FIRM_WEEKLY_SQL = f"SELECT {_FIRM_COLS} FROM krx_weekly WHERE ticker=%s AND price_dd>=%s ORDER BY price_dd"
+#: 같은 칸을 콜드 서빙본(같은 이름의 뷰 `krx_weekly`)에서 읽을 때의 칸 목록 — 261019(설계 v03 D2).
+_FIRM_COLD_COLS = tuple(c.strip() for c in _FIRM_COLS.split(","))
 #: 종목 시계열의 끝점 — 일별 저장분에서 그 종목의 가장 늦은 한 줄. ticker 조건이 뷰의 창 아래 인덱스로 내려가 한 종목만 읽는다.
 _FIRM_TAIL_SQL = f"SELECT {_FIRM_COLS} FROM price_latest WHERE ticker=%s"
 
@@ -270,19 +272,25 @@ async def build_firm_series_payload(company: str, format: str = "md",
     # 261017: 주간 시세는 **보존 하한(저장된 최신 주의 달력 3년 전) 이후만** 준다. `krx_weekly` 는 최근 3년 + 종목별로
     #   해마다 마지막 행(연말 행)만 남기도록 줄이는데, 하한 이전을 그대로 읽으면 촘촘한 주간 곡선 앞에 1년 간격 점이
     #   조용히 섞인다. since 가 없으면(전 기간) 하한부터, since 가 하한보다 이르면 하한으로 올려 읽고 그 사실을 말한다.
-    _, floor = await _weekly_bounds()
+    latest_wk, floor = await _weekly_bounds()
     req = (since or "").strip()
     if len(req.replace("-", "")) == 8 and req.replace("-", "").isdigit():
         req = req.replace("-", "")
     lo = max(req, floor) if req else floor
     # 261018: 끝점(이번 주 최신값)은 일별 저장분에서 같이 읽는다. 두 읽기는 서로 입력이 필요 없어 한 왕복으로 겹친다.
-    weekly, tail = await _gather_db(_db_call(_pg_rows, _FIRM_WEEKLY_SQL, (ticker, lo)),
-                                    _db_call(_pg_rows, _FIRM_TAIL_SQL, (ticker,)))
+    # 261019(설계 v03 D2): 주간 읽기는 `_read_weekly` 한 곳을 거친다 — 하한 이전이 필요하면 콜드 서빙(DB 밖 서빙본)을 겹쳐 읽어 앞에 잇는다.
+    #   꺼져 있거나(`OPM_COLD`≠1) 필요 없으면 종전 질의 결과 그대로다. `cold` = 콜드가 한 일(None = 관여 안 함).
+    (weekly, cold), tail = await _gather_db(
+        _read_weekly(ticker, req, latest_wk, floor, _db_call(_pg_rows, _FIRM_WEEKLY_SQL, (ticker, lo)), _FIRM_COLD_COLS),
+        _db_call(_pg_rows, _FIRM_TAIL_SQL, (ticker,)))
+    cold_used = bool(cold and cold.used)
     rows = _with_daily_tail(weekly, tail, lo)
     daily_end = rows is not weekly           # 끝점을 일별 저장분에서 이었나 — 출처 설명이 사실과 맞게
     window_note = (weekly_window_note(floor)
                    + " 연말 시총·배수는 `price_multiple_data` 의 `scope=firm_history` 연말 항목에서 전체 기간으로 볼 수 있습니다."
                    + (f" (요청한 since {req} 가 하한보다 이르러 하한부터 줍니다.)" if req and req < floor else ""))
+    if cold is not None and not cold_used:   # 켜져 있는데 이번에 보관본을 못 읽었다 — 종전 안내 + 일시 한 줄
+        window_note += " " + COLD_DEGRADED_NOTE
     if rows is None:
         name = corp.get("corp_name", company)
         if _db_configured():
@@ -295,7 +303,8 @@ async def build_firm_series_payload(company: str, format: str = "md",
     if not rows:
         return _err(corp.get("corp_name", company), "no_data",
                     *([class_note] if class_note else []),
-                    f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).", window_note)
+                    f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).",
+                    *([] if cold_used else [window_note]))
 
     freq = (freq or _FREQ_DEFAULT["firm"]).strip().lower()
     full = [{"asof": r[0], "close_krw": r[2], "mktcap_krw": r[3], "list_shrs": r[4]} for r in rows]
@@ -303,32 +312,54 @@ async def build_firm_series_payload(company: str, format: str = "md",
     latest, first = full[-1], full[0]        # 최신·시작은 **원본** 기준(다운샘플이 잘라내도 사실은 그대로)
 
     # 조정 이벤트 — 가격 시계열은 수정주가가 아니라 여기서 끊긴다. 있으면 반드시 말한다.
-    ev = await asyncio.to_thread(
-        _pg_rows, "SELECT event_dd, adj_factor FROM krx_adj_events "
+    raw_ev = await asyncio.to_thread(
+        _pg_rows, "SELECT event_dd, adj_factor, prev_close, base_price, market, label_confidence FROM krx_adj_events "
                   "WHERE ticker=%s AND event_dd>=%s AND event_dd<=%s AND adj_factor IS NOT NULL "
                   "AND adj_factor <> 1 ORDER BY event_dd",
         (ticker, first["asof"], latest["asof"])) or []
+    # 261019: 기준가가 전일 종가를 호가단위에 맞춘 것뿐인 날(×1.0014 류 — 기업 행위 아님)은 불연속으로 세지 않고 따로 밝힌다.
+    #   예전엔 하나31호스팩(469900)처럼 이런 날만 10회 있는 종목도 「기준가 조정 10회 … 불연속」이었다(`open_proxy_mcp/krx_ticks.py`).
+    ev: list[tuple[str, float]] = []
+    ticks: list[tuple[str, float]] = []
+    for r in raw_ev:
+        d, c, pc, bp, mk, conf = (list(r) + [None] * 6)[:6]
+        tick = conf == TICK_ROUNDING_LABEL or is_tick_rounding(pc, bp, mk, d)
+        (ticks if tick else ev).append((d, c))
+    tick_days = {d for d, _ in ticks}
 
     warns = ([class_note] if class_note else []) + [
         f"**수정주가 아님** — 종가는 그 날 실제 종가입니다. 시총·주식수는 조정 전후로 "
         f"연속이지만 주가는 끊깁니다."]
-    if not req or req < floor:
+    if not cold_used and (not req or req < floor):
         warns.append(window_note)
+    elif cold_used and cold.first_cold:      # 261019: 하한 이전을 보관본에서 이었다 — 이음매 문장(값·주 정의는 같다)
+        warns.append(weekly_cold_note(cold.first_cold, cold.seam))
     if ev:
         warns.append(f"⚠ 구간 내 기준가 조정 {len(ev)}회 "
                      f"({', '.join(f'{d}(×{c:g})' for d, c in ev[:5])}"
                      f"{' …' if len(ev) > 5 else ''}) — 가격 시계열이 그 지점에서 불연속입니다. "
                      f"연속 비교가 필요하면 시가총액을 쓰세요(조정 불변).")
+    if ticks:
+        warns.append(f"기준가를 호가단위에 맞춘 날 {len(ticks)}회"
+                     f"({', '.join(f'{d}(×{c:g})' for d, c in ticks[:3])}{' …' if len(ticks) > 3 else ''})는 "
+                     "전일 종가를 호가단위로 올리거나 내린 것뿐이라(기업 행위 아님) 불연속으로 세지 않았습니다.")
     return {"tool": TOOL, "status": "ok",
             "subject": _subject(corp, company, ticker, class_note),
             "data": {"scope": "firm", "ticker": ticker,
                      **({"issuer_ticker": (corp.get("stock_code") or "").strip()} if class_note else {}),
+                     # 261019(설계 v03 D2): 콜드 서빙으로 이었을 때만 cold_until·sources — 꺼짐·강등 응답은 칸이 종전 그대로다
+                     **({"cold_until": cold.seam,
+                         "sources": {"cold": cold.n_cold, "db_weekly": len(full) - cold.n_cold - int(daily_end),
+                                     "db_daily_tail": int(daily_end)}} if cold_used else {}),
                      "market": rows[-1][1],
-                     "as_of": latest["asof"], "from": first["asof"], "weekly_from": floor, "points": len(series),
+                     "as_of": latest["asof"], "from": first["asof"],
+                     "weekly_from": cold.start if cold_used else floor, "points": len(series),
                      "freq": freq, "points_weekly": len(full),
                      "latest": latest, "series": series,
                      "price_adjusted": False,
-                     "adj_events": [{"event_dd": d, "adj_factor": float(c)} for d, c in ev],
+                     # 호가단위 맞춤도 지우지 않는다 — 그 날만 `tick_rounding: true` 를 붙여 함께 싣는다(날짜순).
+                     "adj_events": [{"event_dd": d, "adj_factor": float(c), **({"tick_rounding": True} if d in tick_days else {})}
+                                    for d, c in sorted(ev + ticks)],
                      "method": _FIRM_METHOD_TAIL if daily_end else _FIRM_METHOD_WEEKLY},
             "warnings": warns}
 
@@ -446,11 +477,6 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     if sector_asof and sector_asof > as_of:
         warns.append(f"⚠ 업종분류는 {sector_asof} 관측을 과거에 **소급** 적용한 것입니다 "
                      "— 그때 그 업종이 아니었던 회사가 섞입니다.")
-    if series and series[0]["asof"] < _SECTOR_RECLASS_SINCE:
-        warns.append(f"⚠ {_SECTOR_RECLASS_SINCE} 이전 점은 업종분류 보강(구성종목에서만 빠진 상장 종목의 직전 분류·우선주의 "
-                     "보통주 분류·기업 정보 화면의 산업) 전에 집계된 값입니다 — 그때는 이 종목들이 미분류로 세어져, 버킷 종목 수·시총이 "
-                     "그 날짜 앞뒤로 계단처럼 바뀝니다(섹터는 늘고 미분류는 준다. 실제 편입·이탈이 아님). "
-                     "추이를 비교할 때는 그 날짜 이후 구간을 쓰십시오.")
     if bucket == _UNCLASSIFIED_BUCKET["label"] and not any(b["bucket"] == _UNCLASSIFIED_BUCKET["bucket"] for b in buckets):
         warns.append(f"최신 {as_of} 미분류는 0종목입니다 — 미분류가 0 인 시점은 집계 행이 없어, 시계열은 미분류가 있던 "
                      "마지막 시점에서 끝납니다(그 뒤는 0).")
@@ -607,6 +633,39 @@ def _quote_from_db_row(r: dict) -> tuple[dict, str | None]:
     return q, mkt_label(r["market"])
 
 
+#: 보관 창 안에서 행이 없는 날 — 달력(`krx_day`)에 휴장으로 적혀 있나 · 그 앞뒤로 보관된 거래일. 달력은 수백 행이라 한 왕복이 싸다.
+#: `dd` 는 YYYYMMDD 문자열이라 문자열 비교가 날짜 순서와 같다.
+_DAY_CAL_SQL = ("SELECT (SELECT closed FROM krx_day WHERE dd = %s), "
+                "(SELECT max(dd) FROM krx_day WHERE n > 0 AND dd < %s), "
+                "(SELECT min(dd) FROM krx_day WHERE n > 0 AND dd > %s)")
+_WEEKDAY_KO = "월화수목금토일"
+
+
+def _calendar_day(dd: str) -> tuple[bool, str | None, str | None] | None:
+    """(달력에 휴장으로 적혔나, 직전 보관 거래일, 다음 보관 거래일). 못 읽으면 None(호출자는 지금처럼 KRX 로 확인한다)."""
+    rows = _pg_rows(_DAY_CAL_SQL, (dd, dd, dd))
+    if not rows:
+        return None
+    closed, prev_dd, next_dd = rows[0]
+    return bool(closed), prev_dd, next_dd
+
+
+def _closed_day_payload(subject: str, ticker: str, issuer: str | None, dd: str, why: str,
+                        prev_dd: str | None, next_dd: str | None, warns: list[str]) -> dict[str, Any]:
+    """보관 창 안의 휴장일 — KRX 를 부르지 않고 「휴장일」이라고 답한다(상태는 예전과 같은 no_data — 시세가 없다는 뜻은 같다)."""
+    from datetime import date
+    wd = _WEEKDAY_KO[date(int(dd[:4]), int(dd[4:6]), int(dd[6:])).weekday()]
+    hops = " · ".join(x for x in (f"직전 거래일 {prev_dd}" if prev_dd else "",
+                                  f"다음 거래일 {next_dd}" if next_dd else "") if x)
+    msg = (f"{dd}({wd}) 은 휴장일입니다 — {why}. 그 날 체결이 없어 {ticker} 시세가 없습니다."
+           + (f" {hops} 시세는 as_of 로 다시 부르세요." if hops else ""))
+    return {"tool": TOOL, "status": "no_data", "subject": f"{subject} {dd} 시세",
+            "data": {"scope": "quote", "ticker": ticker, **({"issuer_ticker": issuer} if issuer else {}),
+                     "as_of": dd, "market_closed": True,
+                     "prev_trading_day": prev_dd, "next_trading_day": next_dd},
+            "warnings": [*warns, msg]}
+
+
 async def build_quote_payload(company: str, format: str = "md",
                               as_of: str = "") -> dict[str, Any]:
     """특정 거래일 전체 시세 — OHLC·거래량·거래대금·등락률.
@@ -659,6 +718,24 @@ async def build_quote_payload(company: str, format: str = "md",
                         "KRX 최근 거래일 시세를 받지 못했습니다 (키 미설정·상류 장애).")
         row = snap.get(ticker)
     else:
+        lo, hi = lookup.window if lookup.ok else (None, None)
+        try:
+            from datetime import date
+            weekend = date(int(dd[:4]), int(dd[4:6]), int(dd[6:])).weekday() >= 5
+        except ValueError:            # 없는 날짜(20260231 등) — 지름길을 타지 않고 예전처럼 둔다
+            weekend, lo, hi = False, None, None
+        if lo and hi and lo <= dd <= hi and (corp.get("corp_cls") or "").upper() != "N":
+            # 보관 창 안인데 그 날 행이 없다 — 주말이거나 달력에 휴장으로 적힌 평일이면 KRX 를 부르지 않는다.
+            # 예전엔 휴장으로 적힌 날(한글날 20261009·연말 20251231)도 매번 KRX 2콜(빈 응답은 캐시 안 함) 뒤
+            # 「휴장일·상장 전·거래정지 또는 KRX 키 미설정」 일반 문구로 답했다. 달력에 없는 평일(서버가 쉰 날 등)은
+            # 지금처럼 KRX 에 확인한다 — 「없다」고 단정할 근거가 없다. 코넥스는 아래 「수록 대상 아님」 안내가 먼저다.
+            cal = await asyncio.to_thread(_calendar_day, dd)
+            if cal is not None and (cal[0] or weekend):
+                why = ("주말(토·일)이라 시장이 열리지 않았습니다" if weekend
+                       else "거래소 달력(서버가 매 거래일 보관하는 시세의 날짜표)에 휴장으로 적힌 평일입니다")
+                issuer = (corp.get("stock_code") or "").strip() if class_note else None
+                return _closed_day_payload(_subject(corp, company, ticker, class_note), ticker, issuer,
+                                           dd, why, cal[1], cal[2], warns)
         row = await _krx_quote_row(dd, ticker)
 
     if not row and not db_row:

@@ -23,7 +23,8 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.dart.as_of import get_strict_as_of
-from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
+from open_proxy_mcp.dart.fx import (FALLBACK_WARNING, SRC_YAHOO, fiscal_year_end_date, fx_source, fx_to_krw,
+                                  statement_currency)
 from open_proxy_mcp.services.scale_guard import check_balance_identity
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
@@ -1625,13 +1626,17 @@ async def _normalize_currency(
 
     _scale(metrics)
     metrics["fx_rate_to_krw"] = round(rate, 2)
+    metrics["fx_source"] = fx_source(cur, fx_date)      # 261019: "ecos"(한국은행 매매기준율) / "yahoo"(대체값 — 저장 안 함)
     metrics["fx_basis"] = (
         f"{fx_date} 기말환율 — 이 행의 금액(전기 포함)은 전부 이 환율. "
         f"다년 표에서는 **행마다 그 해 기말환율**이라 금액 추이에 환율 변동이 섞이고, "
         f"`*_yoy_pct` 는 환산 전 {cur} 기준이라 환율이 빠진 성장률이다 — 두 열의 기준이 다르다.")
-    return [f"기능통화 {cur} — 금액을 {fx_date} 기말환율 {rate:,.1f}원/{cur} 로 KRW 환산했다. "
-            f"순이익은 원칙상 평균환율이라 수% 오차가 있고, 전기도 같은 환율을 써서 "
-            f"yoy 는 환율 변동이 빠진 {cur} 기준 성장률이다."]
+    out = [f"기능통화 {cur} — 금액을 {fx_date} 기말환율 {rate:,.1f}원/{cur} 로 KRW 환산했다. "
+           f"순이익은 원칙상 평균환율이라 수% 오차가 있고, 전기도 같은 환율을 써서 "
+           f"yoy 는 환율 변동이 빠진 {cur} 기준 성장률이다."]
+    if metrics["fx_source"] == SRC_YAHOO:
+        out.append(f"⚠️ {fx_date} 환율: {FALLBACK_WARNING}")
+    return out
 
 
 def _actual_fs_div(rows: list[dict[str, Any]]) -> str | None:
@@ -2281,7 +2286,11 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     cum9_by_year: dict[int, dict[str, int | None]] = {}  # Q3 보고서의 9개월 누적 (Q4 차분용)
     q_standalone_by_year: dict[int, dict[str, dict[str, int | None]]] = {}
     fs_seen: set[str] = set()  # 실제 사용된 fs_div 추적 (CFS/OFS 폴백·혼재 감지)
-    stmt_cur = "KRW"           # 기능통화 — rows 는 루프 안에서만 살아 있어 여기서 잡아 둔다
+    # 보고 통화는 **보고서마다** 잡는다. 예전엔 첫 보고서(FY-3 Q1)의 통화 하나를 12분기 전부에 썼다 —
+    # 글로벌에스엠(900070)은 2023 CNY → 2024~ USD 라 USD 금액을 CNY 환율로 환산해 약 6.8배 과소였다.
+    # 통화별 분기 누적(Q4 차분 재료)도 그 보고서의 통화를 같이 기억한다.
+    cum9_cur: dict[int, str] = {}
+    qs_cur: dict[tuple[int, str], str] = {}
     last_period_end = ""
     meta: list[tuple[int, str, int, int, str]] = []  # out 과 같은 순서: (bsns_year, reprt_code, fiscal_quarter, fiscal_year, actual_fs)
     for (year, rc, label), (rows, err) in zip(keys, results):
@@ -2292,8 +2301,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             continue
         if not rows:
             continue
-        if stmt_cur == "KRW":
-            stmt_cur = statement_currency(rows)
+        row_cur = statement_currency(rows)
         _pe = next((str(r.get("thstrm_dt") or "") for r in rows if r.get("thstrm_dt")), "")
         _pe = "".join(ch for ch in _pe if ch.isdigit())[:8]
         if _pe > last_period_end:
@@ -2316,9 +2324,12 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         fiscal_label = f"Q{fiscal_quarter}"
         if fiscal_quarter == 3:
             cum9_by_year[fiscal_year] = _build_account_map(rows, period="thstrm_add", induty_code=induty_code)
+            cum9_cur[fiscal_year] = row_cur
         if fiscal_quarter != 4:
             q_standalone_by_year.setdefault(fiscal_year, {})[fiscal_label] = bs_is
+            qs_cur[(fiscal_year, fiscal_label)] = row_cur
         out.append({
+            "_cur": row_cur,   # 이 보고서의 통화 — 반환 전에 functional_currency 로 바꿔 단다
             # year/quarter는 호환 필드지만 이제 실제 사업연도·분기와 동일하게 유지한다.
             "year": fiscal_year,
             "fiscal_year": fiscal_year,
@@ -2377,6 +2388,52 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     target_min_year = end_year - 2
     out = [r for r in out if target_min_year <= r["fiscal_year"] <= end_year]
 
+    # ── 보고 통화 — 남은(표시 대상) 분기들만 본다 ──
+    # 한 통화뿐이면 예전과 같은 단일 환율 경로(아래 끝). 표시 창 **안에서** 통화가 바뀌었으면(예: 2023 CNY·
+    # 2024 USD) 금액을 각 분기 자기 통화로 읽어 **같은 날**(마지막 분기말) 환율로 지금 원화로 바꿔 둔다 —
+    # 그래야 Q4 차분·분기 합 점검·QoQ/YoY 가 한 단위에서 계산된다(통화가 다른 값을 빼거나 나누지 않는다).
+    row_curs = {r["_cur"] for r in out}
+    stmt_cur = next(iter(row_curs)) if len(row_curs) == 1 else "KRW"
+    mixed_cur = len(row_curs) > 1
+    mixed_converted = False
+    fx_date = last_period_end or f"{end_year}1231"
+    fx_by_cur: dict[str, float | None] = {}
+    if mixed_cur:
+        _years_in = {r["fiscal_year"] for r in out}
+        _need = set(row_curs) | {c for fy, c in cum9_cur.items() if fy in _years_in} \
+            | {c for (fy, _q), c in qs_cur.items() if fy in _years_in}
+        for c in sorted(_need):
+            _r = await fx_to_krw(c, fx_date)
+            fx_by_cur[c] = _r if (c == "KRW" or (_r and _r != 1.0)) else None
+        if all(fx_by_cur.values()):
+            def _scale_map(m: dict[str, Any], rate: float) -> None:
+                for k in _QUARTERLY_IS_KEYS + ("total_assets", "total_equity", "total_liabilities"):
+                    v = m.get(k)
+                    if isinstance(v, (int, float)) and not isinstance(v, bool):
+                        m[k] = round(v * rate)
+            for row in out:
+                rate = fx_by_cur[row["_cur"]] or 1.0
+                for k, v in list(row.items()):
+                    if k.endswith("_krw") and isinstance(v, (int, float)) and not isinstance(v, bool):
+                        row[k] = round(v * rate)
+            for fy, m in cum9_by_year.items():
+                if fy in _years_in and fy in cum9_cur:
+                    _scale_map(m, fx_by_cur[cum9_cur[fy]] or 1.0)
+            for fy, qmap in q_standalone_by_year.items():
+                if fy not in _years_in:
+                    continue
+                for ql, m in qmap.items():
+                    if (fy, ql) in qs_cur:
+                        _scale_map(m, fx_by_cur[qs_cur[(fy, ql)]] or 1.0)
+            mixed_converted = True
+
+    def _nine_cur(fy: int) -> str | None:
+        """Q4 차분에 쓰는 9개월 누적의 통화 — Q3 누적이 있으면 그것, 없으면 Q1~Q3 가 한 통화일 때만."""
+        if fy in cum9_cur:
+            return cum9_cur[fy]
+        cs = {qs_cur.get((fy, q)) for q in ("Q1", "Q2", "Q3")}
+        return next(iter(cs)) if len(cs) == 1 else None
+
     # CFS 요청인데 일부/전부 분기가 OFS면 경고 (조용한 폴백·분기 간 기준 혼재 방지).
     if fs_div == "CFS" and "OFS" in fs_seen:
         if "CFS" in fs_seen:
@@ -2395,6 +2452,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         qs = q_standalone_by_year.get(year, {})
         failed_keys = []
         derived_count = 0
+        # 그 해 안에서 통화가 바뀌었는데 원화로 못 바꿨으면(환율 실패) 차분하지 않는다 — 단위가 다른 값을 빼게 된다.
+        cur_clash = mixed_cur and not mixed_converted and _nine_cur(year) != row["_cur"]
         for key in _QUARTERLY_IS_KEYS:
             annual = row[f"{key}_krw"]
             if annual is None:
@@ -2403,7 +2462,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             if nine is None:
                 parts = [qs.get(q, {}).get(key) for q in ("Q1", "Q2", "Q3")]
                 nine = sum(parts) if all(p is not None for p in parts) else None
-            if nine is not None:
+            if nine is not None and not cur_clash:
                 row[f"{key}_krw"] = annual - nine
                 row[f"annual_{key}_krw"] = annual
                 derived_count += 1
@@ -2411,8 +2470,10 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                 failed_keys.append(key)
         if failed_keys:
             row["basis"] = "annual_cumulative"
+            why = ("그 해 안에서 보고 통화가 바뀌었는데 환율을 못 구해" if cur_clash
+                   else "분기 보고서 결측으로")
             warnings.append(
-                f"{year}-Q4 {'/'.join(failed_keys)}은 연간 누적치 — 분기 보고서 결측으로 standalone 차분 불가. QoQ 해석 주의."
+                f"{year}-Q4 {'/'.join(failed_keys)}은 연간 누적치 — {why} standalone 차분 불가. QoQ 해석 주의."
             )
         else:
             row["basis"] = "standalone_3m_derived"  # 연간 − 3분기 누적 차분
@@ -2441,6 +2502,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
         q4 = next((r for r in yr_rows if r["quarter"] == "Q4"), None)
         if not q4 or len(yr_rows) != 4:
             continue
+        if mixed_cur and not mixed_converted and len({r["_cur"] for r in yr_rows}) > 1:
+            continue   # 통화가 다른 분기를 더할 수 없다(환율 실패 경로)
         # 매출만이 아니라 손익 3개 키 전부 검사 — 루닛 실측: 매출 합은 일치하는데
         # 영업이익·순이익만 불일치 (중단영업 재분류 류는 손익 하단에만 영향).
         gaps: dict[str, float] = {}
@@ -2494,10 +2557,46 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "operating_margin_pp": _pp_diff(row.get("operating_margin_pct"), prev_y.get("operating_margin_pct") if prev_y else None),
             "net_profit_margin_pp": _pp_diff(row.get("net_profit_margin_pct"), prev_y.get("net_profit_margin_pct") if prev_y else None),
         }
+        if mixed_cur and not mixed_converted:
+            # 환율 실패 경로 — 통화가 다른 분기 사이 금액 증감률은 뜻이 없다(마진 pp 는 비율이라 그대로 둔다).
+            for _pct, _prev in (("qoq_pct", prev_q), ("yoy_pct", prev_y)):
+                if _prev is not None and _prev["_cur"] != row["_cur"]:
+                    for _k in _QUARTERLY_IS_KEYS:
+                        row[_pct][_k] = None
+    if mixed_cur:
+        # 표시 창 안에서 보고 통화가 바뀐 회사 — 위에서 이미 분기마다 자기 통화로 원화 환산했다(같은 날 환율).
+        _span = {c: sorted(f"{r['fiscal_year']}{r['fiscal_quarter']}" for r in out if r["_cur"] == c)
+                 for c in sorted(row_curs)}
+        _span_txt = " · ".join(f"{c} {v[0]}~{v[-1]}" for c, v in _span.items() if v)
+        for row in out:
+            row["functional_currency"] = row["_cur"]
+            _r = fx_by_cur.get(row["_cur"])
+            row["fx_rate_to_krw"] = round(_r, 2) if (mixed_converted and _r) else (
+                1.0 if row["_cur"] == "KRW" else None)
+            if mixed_converted and _r and row["_cur"] != "KRW":
+                row["fx_source"] = fx_source(row["_cur"], fx_date)
+            if not mixed_converted and row["_cur"] != "KRW" and get_strict_as_of():
+                _exclude_unconverted_amounts(row)
+        if mixed_converted:
+            _rates = " · ".join(f"{c} {fx_by_cur[c]:,.1f}원" for c in sorted(row_curs) if c != "KRW")
+            warnings.append(
+                f"보고 통화가 기간 중 바뀌었다({_span_txt}) — 각 분기 금액을 그 분기 보고 통화로 읽어 "
+                f"{fx_date} 환율({_rates})로 KRW 환산했다(12분기 같은 날 환율 — Q4 차분·증감률도 원화로 계산).")
+            if any(fx_source(c, fx_date) == SRC_YAHOO for c in row_curs if c != "KRW"):
+                warnings.append(f"⚠️ {fx_date} 환율: {FALLBACK_WARNING}")
+        elif get_strict_as_of():
+            warnings.append(
+                f"보고 통화가 기간 중 바뀌었다({_span_txt}) — 기준시점의 환율 공개 여부를 확인할 수 없어 외화 분기의 "
+                "원화 금액을 제외했습니다. 통화가 다른 분기 사이 금액 증감률은 비웠습니다.")
+        else:
+            warnings.append(
+                f"⚠️ 보고 통화가 기간 중 바뀌었는데({_span_txt}) 환율 조회 실패 — 아래 분기 금액은 **각 행의 "
+                f"functional_currency 단위 그대로**이고 원화가 아니다. 통화가 다른 분기 사이 금액 증감률은 비웠다.")
     # 통화 정규화 — 12분기 **전체에 단일 환율**을 쓴다. 분기마다 다른 환율을 쓰면
     # Q4 차분(연간 − 3분기 누적)이 서로 다른 환율의 값을 빼게 되어 Q4 가 오염된다.
-    if stmt_cur != "KRW":
+    elif stmt_cur != "KRW":
         rate = await fx_to_krw(stmt_cur, last_period_end or f"{end_year}1231")
+        _src = fx_source(stmt_cur, last_period_end or f"{end_year}1231")
         if rate and rate != 1.0:
             for row in out:
                 for k, v in list(row.items()):
@@ -2505,9 +2604,12 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                         row[k] = round(v * rate)
                 row["functional_currency"] = stmt_cur
                 row["fx_rate_to_krw"] = round(rate, 2)
+                row["fx_source"] = _src
             warnings.append(
                 f"기능통화 {stmt_cur} — 분기 금액을 {last_period_end} 환율 {rate:,.1f}원/{stmt_cur} 로 "
                 f"KRW 환산했다(12분기 단일환율 — 분기마다 다른 환율을 쓰면 Q4 차분이 오염된다).")
+            if _src == SRC_YAHOO:
+                warnings.append(f"⚠️ {last_period_end or f'{end_year}1231'} 환율: {FALLBACK_WARNING}")
         else:
             for row in out:
                 row["functional_currency"] = stmt_cur
@@ -2522,6 +2624,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                 warnings.append(
                     f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 분기 금액은 **{stmt_cur} 단위 그대로**이고 "
                     f"원화가 아니다. 원화 기준 비교에 그대로 쓰지 말 것.")
+    for row in out:
+        row.pop("_cur", None)
     return out[-num_quarters:], warnings
 
 
@@ -2700,14 +2804,14 @@ async def build_financial_metrics_payload(
     # 분기 인지형 디폴트: quarterly/qoq는 이미 제출된 최신 분기(예: 당해 1분기는 5월 공시)를
     # 봐야 하므로 디폴트 end_year를 당해 연도로. _build_quarterly는 end_year-2..end_year를
     # 받고 미공시 분기는 graceful skip이라 호출 수(12) 변동 없이 최신 분기가 포함된다.
-    # summary/yearly/yoy는 연간(사업보고서) 기준이라 _default_recent_year(전년) 유지.
+    # summary/yearly/yoy는 연간(사업보고서) 기준이라 _default_recent_year — 261019: 결산월로(12월 결산이면 종전 「4월 이후 전년」 그대로).
     if year:
         target_year = year
     elif scope in ("quarterly", "qoq"):
         from datetime import date as _date
         target_year = today_kst().year
     else:
-        target_year = _default_recent_year()
+        target_year = _default_recent_year(fiscal_month, selected.get("stock_code"))
 
     warnings: list[str] = []
     if company_info_warning:
@@ -3010,14 +3114,16 @@ def _next_actions(scope: str, data: dict[str, Any]) -> list[str]:
     return actions
 
 
-def _default_recent_year() -> int:
-    """현재 시점 기준 가장 최근 완료된 사업연도.
+def _default_recent_year(fiscal_month: int | None = None, ticker: str | None = None) -> int:
+    """현재 시점 기준 공시돼 있어야 할 최신 사업보고서의 사업연도 표기(DART `bsns_year`).
 
-    DART 사업보고서는 결산일 90일 이내 (3월말까지) 제출 의무.
-    오늘이 4월 이후면 전년도 사업보고서 가용, 그 전이면 전전년.
+    DART 사업보고서는 결산일 90일 이내 제출 의무 — 12월 결산이면 오늘이 4월 이후면 전년, 그 전이면 전전년(종전 규칙 그대로).
+
+    261019: **결산월을 안다**(`report_calendar.latest_annual` — 분기·연간 재무 수집·배수 도구와 같은 규칙). 종전엔 모든 회사에 12월 결산
+    규칙을 써서, 12월 결산이 아닌 회사는 이미 낸 최신 사업보고서를 건너뛰고 한 해 앞 것을 요약했다 — 10-19 운영 JTC(2월 결산) 요약이
+    2026.02 사업보고서(5/28 제출)를 두고 2025.02(FY2025)였다. DART 는 사업연도 표기를 그 보고서 기간 말이 속한 해로 붙인다(2월 결산
+    2026 = 2026.02). 12월 결산이 아닌 외국 상장사(종목코드 9…)는 제출 기한이 길어(사업보고서 120일) 그 기한으로 본다.
+    결산월을 모르면(회사 개황 실패) 12월 — 종전과 같다.
     """
-    from datetime import date
-    today = today_kst()
-    if today.month >= 4:
-        return today.year - 1
-    return today.year - 2
+    from open_proxy_mcp.services import report_calendar as rcal
+    return rcal.latest_annual(today_kst(), rcal.fiscal(fiscal_month or 12, ticker))

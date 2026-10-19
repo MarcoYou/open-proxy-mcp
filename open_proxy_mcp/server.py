@@ -12,7 +12,7 @@ import time
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from open_proxy_mcp.capture import CaptureMiddleware
-from open_proxy_mcp.maintenance import AdmissionMiddleware, maintenance
+from open_proxy_mcp.maintenance import AdmissionMiddleware, install_listen_drain, maintenance, note_rpc
 from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.extensions import load_extensions
 from open_proxy_mcp.resources import register_all_resources
@@ -122,6 +122,8 @@ def build_mcp() -> MCPServer:
     register_all_prompts(mcp)
     register_all_resources(mcp)  # [실험] 공시 원문을 주소로 — 파싱이 약할 때 AI 가 직접 읽게
     load_extensions(mcp)         # 설치된 확장 패키지가 있으면 그 등록 함수를 부른다(없으면 no-op)
+    # 261019: 2026-07-28 클라이언트의 `subscriptions/listen` 스트림을 종료 신호 때 정상 종료할 수 있게 감싼다(`maintenance.DrainableListen`).
+    install_listen_drain(mcp)
 
     # 헬스 엔드포인트 — 인증 없이 200 을 내는 유일한 경로.
     # 260729 사고: mcp 2.0.0 이 fastmcp 를 제거해 서버가 부팅 즉시 죽었는데, 헬스체크가 없어
@@ -168,6 +170,9 @@ def build_mcp() -> MCPServer:
             #   프로세스는 30분에 466MB 가 늘었다 — 자라는 것이 관측 밖에 있다는 뜻이다.
             #   상한 있는 `trading_quote` 를 대조군으로 같이 싣는다(그게 평평하면 판정이 선다).
             "unbudgeted_cache": unbudgeted_cache_stats(),
+            # 261019: law_lookup 형태소 분석기(Kiwi) 자식 프로세스 — 살아 있나·자식 RSS·쉬면 끝나는 초.
+            #   이 몫(약 470~500 MiB)은 `mem.rss_mb`(이 프로세스)에 안 잡히고 `mem.cg_used_mb`(VM)에는 잡힌다.
+            "law_morph": _law_morph_stats(),
             # 260909: 캐시가 아닌 증가(태스크·스레드 누수, 회수 못 한 순환)를 가르는 자.
             "runtime": _runtime_stats(),
             # 원장(회사 목록·정기보고서 명부) — 「언제 것이고 얼마나 무거운가」.
@@ -187,6 +192,10 @@ def build_mcp() -> MCPServer:
             #   fly 가 부하를 연결 수로 세는 한 그 편중은 로그로도 잘 안 보인다.
             "instance": _instance_tag(),
             "inflight": inflight_now(),
+            # 261019: 지금 열린 /mcp 요청 — 총수·종류별 수·가장 오래된 다섯(나이·HTTP 메서드·경로·JSON-RPC 메서드·도구·프로토콜·단계).
+            #   배포 때 「도구 호출이 아닌 POST」 하나가 종료를 84~90초 붙들었는데 수(`maintenance.active_posts`)만 보였다.
+            #   값(쿼리스트링·인자)·IP·User-Agent 는 없다 — `maintenance.py` 참조.
+            "open_requests": maintenance.open_stats(),
             # 260901: **캐시 예산과 VM 한도는 다른 자다.** 08:30 두 머신이 동시에
             #   exit_code=137·oom_killed 로 죽었는데, 그 직후 /health 의 캐시 점유는
             #   296MB 중 33% 였다 — 「멀쩡하다」로 읽힌다. OOM 은 캐시가 아니라
@@ -204,6 +213,9 @@ def build_mcp() -> MCPServer:
             # 260906: 웹 차단 신호(403·429·차단 페이지). 차단은 IP 기준이라 그 머신의 사용자
             #   전원이 같이 막힌다 — 조용히 실패하게 두지 않고 밖에서 보이게 한다.
             "web_block": web_block_stats(),
+            # 261019: 콜드 서빙(3년 하한 이전 주간 곡선을 DB 밖 서빙본에서 잇는 것) — 켜짐·받은 판·받은 시각·검증된 파일·강등 까닭.
+            #   못 읽어도 응답은 종전(최근 3년 + 안내)으로 강등할 뿐이라 status 는 낮추지 않는다. URL·키는 싣지 않는다.
+            "cold": _cold_stats(),
         }, status_code=200 if servicing else 503)
 
     @mcp.custom_route("/admin/drain", methods=["POST"])
@@ -266,6 +278,14 @@ def build_mcp() -> MCPServer:
             result = cache_clear(disk=disk)
         else:
             result = cache_reclaim(target_mb * 1048576 if mode == "pressure" else 0)
+        if do_cache and mode in ("all", "pressure"):
+            # 261019: law_lookup 형태소 분석기 자식(약 500 MiB)도 내린다 — 다음 법령 질의가 다시 띄운다(약 1.5초).
+            #   그 몫은 이 프로세스 RSS 밖이라 아래 freed_mb 에 안 잡힌다(VM 기준 `cg_used_mb` 에 잡힌다). 처리 중이면 두고 False.
+            try:
+                from open_proxy_mcp.services.morph_worker import worker as _mw
+                result = {**result, "law_morph_stopped": _mw().stop()}
+            except Exception as exc:    # noqa: BLE001
+                result = {**result, "law_morph_stopped": f"error:{type(exc).__name__}"}
         steps["after_cache"] = _mem_stats()
 
         import gc as _gc
@@ -490,6 +510,23 @@ _NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답
 _MAX_SNIFF_BYTES = 64 * 1024
 
 
+def _cold_stats() -> dict:
+    """`/health` 의 `cold` — 헬스체크가 이것 때문에 죽으면 안 된다."""
+    try:
+        from open_proxy_mcp import cold_store
+        return cold_store.stats()
+    except Exception as exc:  # noqa: BLE001
+        return {"error": type(exc).__name__}
+
+
+def _law_morph_stats() -> dict:
+    try:
+        from open_proxy_mcp.services.morph_worker import worker
+        return worker().stats()
+    except Exception as exc:          # noqa: BLE001 — 관측이 헬스체크를 깨면 안 된다
+        return {"error": type(exc).__name__}
+
+
 def _mem_stats() -> dict:
     """프로세스·컨테이너의 실사용 메모리. **OOM 이 보는 자로 잰다.**
 
@@ -642,6 +679,8 @@ class ApiKeyMiddleware:
                     more = False
             tool, is_call = _extract_tool(body)
             call_scope, call_as_of = _extract_call_dims(body) if is_call else (None, None)
+            # 261019: 열린 요청 장부(`/health` open_requests)에 무슨 요청인지 적는다 — 메서드·도구 이름만, 정해진 꼴만.
+            note_rpc(scope, "tools/call" if is_call else tool, tool if is_call else None)
 
             # 장부를 **여기서** 만든다. 하류(캐시·회사해석)는 이 dict 를 고치기만 하고,
             # 우리는 같은 dict 를 들고 있으니 응답이 끝난 뒤 그대로 읽으면 된다.
@@ -860,6 +899,9 @@ def build_app(server=None):
     #   해석 실패 때 다시 받는 길은 요청 경로(`DartClient.lookup_corp_code_all`)에 있다. `OPM_CORP_REFRESHER=0` 이면 둘 다 끈다.
     from open_proxy_mcp.services import corp_registry_refresher
     corp_registry_refresher.attach_to_app(app)
+    # 261019: 콜드 서빙 예열·서빙 목록 갱신(배경). `OPM_COLD=1` 일 때만 받는다 — 기본 꺼짐이면 아무 일도 하지 않는다.
+    from open_proxy_mcp import cold_store
+    cold_store.attach_to_app(app)
     return app
 
 
@@ -924,19 +966,80 @@ def _shutdown_aware_server_class():
     """uvicorn 서버 + 종료 신호를 받는 **순간** 사용 기록기가 모으던 묶음을 쓰게 하는 한 줄(261018 T7).
 
     기록은 2초씩 묶어 쓴다(`usage._FLUSH_SEC`). 종료 때 쓰는 자리를 atexit 에만 두면 모자라다 — uvicorn 은 진행 중인
-    요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(kill_timeout, 기본 5초) 뒤
-    강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
-    `usage.begin_shutdown()` 은 비차단이다(깃발 + 큐 깨우기) — 신호 처리기 안에서 불러도 된다."""
+    요청(도구 호출은 몇 분 걸리기도 한다)이 끝나기를 기한 없이 기다리고, fly 는 정해진 시간(`fly.toml` kill_timeout — 261019 부터 90초,
+    그 전 기본 5초) 뒤 강제 종료하므로 atexit 까지 못 갈 수 있다. 그러면 모으던 묶음이 사라진다.
+
+    261019: `usage.begin_shutdown()` 을 **신호 처리기 안에서 바로 부르지 않는다** — 이벤트 루프에 한 칸 미뤄 부른다.
+    `begin_shutdown` 은 기다리지는 않지만 잠금은 잡는다(`threading.Event.set` 의 조건 잠금, 큐 `put_nowait` 의 큐 잠금). 파이썬 신호
+    처리기는 메인 스레드(= 이벤트 루프)가 하던 일을 **그 자리에서 끊고** 돈다 — 메인 스레드가 그 잠금을 쥔 순간(요청 기록 `usage.record`
+    의 `put_nowait`, 또는 앞 신호의 처리기가 `Event.set` 안에 있을 때 두 번째 신호)에 처리기가 같은 잠금을 기다리면 **영영 풀리지 않는다**
+    (같은 스레드가 쥐고 있다). 로컬 실측(261019): `uv run` 이 중계한 신호와 직접 받은 신호가 겹친 서버가 `threading.py` `__enter__` 에서
+    멈춰 /health 도 답하지 않았다(faulthandler 덤프 — 처리기 두 겹이 같은 `Event.set` 에). 그러면 fly 는 kill_timeout(90초) 내내 기다렸다
+    강제 종료한다. `loop.call_soon_threadsafe` 는 덱에 넣고 자기 소켓에 한 바이트 쓰는 것뿐이라 잠금을 잡지 않는다."""
     import uvicorn
+
+    def _tell_usage() -> None:
+        try:
+            from open_proxy_mcp import usage
+            usage.begin_shutdown()
+        except Exception:                 # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
+            pass
+        # 261019: 무엇을 기다리게 될지 한 줄 남긴다 — uvicorn 은 「Waiting for connections to close」만 찍어서, 배포 때 종료를
+        #   84~90초 붙든 연결이 무엇인지 로그로는 몰랐다. 나이·메서드·단계만(값·키 없음, `maintenance.shutdown_report`).
+        try:
+            from open_proxy_mcp.maintenance import shutdown_report
+            print(shutdown_report(), file=sys.stderr, flush=True)
+        except Exception:                 # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
+            pass
+        # 261019: 그 연결의 정체 — 2026-07-28 클라이언트의 `subscriptions/listen` 스트림. 클라이언트가 끊을 때까지 열려 있고
+        #   SDK 는 닫지 않아, uvicorn 이 kill_timeout 내내 기다렸다. 신호 때 정상 종료(마지막 결과 프레임)시킨다 — GET 대기 스트림을
+        #   sse_starlette 가 닫는 것과 같은 자리다. 진행 중인 도구 호출은 건드리지 않는다(그건 끝날 때까지 기다린다).
+        try:
+            from open_proxy_mcp.maintenance import close_listen_streams
+            close_listen_streams()
+        except Exception:                 # noqa: BLE001
+            pass
 
     class _Server(uvicorn.Server):
         def handle_exit(self, sig, frame):
+            import asyncio
+            # 261019: **두 번째 신호가 SIGTERM 이어도 강제 종료로 본다.** uvicorn 은 두 번째 SIGINT 만 강제 종료(force_exit)로
+            #   치는데, fly 는 SIGINT → kill_timeout(90초) 뒤 **SIGTERM** → 다시 5초 뒤 VM 강제 종료 순이다. 그래서 SIGTERM 이 와도
+            #   연결을 계속 기다리다 VM 째로 죽었다(「Virtual machine exited abruptly」 — atexit 의 사용 기록 flush 도 못 감).
+            #   첫 신호가 SIGTERM 이면 종전처럼 정상 종료로 시작한다.
+            if self.should_exit and sig == signal.SIGTERM:
+                self.force_exit = True
             try:
-                from open_proxy_mcp import usage
-                usage.begin_shutdown()
-            except Exception:             # noqa: BLE001 — 기록 때문에 종료가 막히면 안 된다
-                pass
+                loop = asyncio.get_running_loop()
+            except RuntimeError:          # 루프 밖(시험·직접 호출) — 끊긴 일이 없으니 바로 부른다
+                loop = None
+            if loop is None:
+                _tell_usage()
+            else:
+                try:
+                    loop.call_soon_threadsafe(_tell_usage)
+                except RuntimeError:      # 루프가 이미 닫혔다 — atexit 의 flush 가 남은 것을 쓴다
+                    pass
             super().handle_exit(sig, frame)
+            # 261019: **강제 종료 표시만으로는 끝나지 않는다** — 남은 연결을 끊는다. uvicorn 은 force_exit 이면 연결·작업 기다림은
+            #   건너뛰지만 그다음 `asyncio.Server.wait_closed()` 를 부르고, 파이썬 3.12 의 그것은 **열린 연결이 모두 닫힐 때까지** 기다린다.
+            #   로컬 실측(261019): 끝나지 않는 스트림 하나를 연 채 SIGINT → SIGTERM 을 주면 force_exit=True 인데도 서버 작업이
+            #   `base_events.py:wait_closed` 에서 멈춰 있었다(두 번째 SIGINT 도 같다). 그래서 강제 종료가 정해지면 남은 연결의 전송을
+            #   끊는다(abort) — 어차피 몇 초 뒤 VM 째로 죽을 연결이고, 끊기면 wait_closed 가 풀려 프로세스가 스스로 끝난다.
+            if self.force_exit and loop is not None:
+                try:
+                    loop.call_soon_threadsafe(self._abort_connections)
+                except RuntimeError:      # 루프가 이미 닫혔다 — 기다릴 연결도 없다
+                    pass
+
+        def _abort_connections(self) -> None:
+            for conn in list(self.server_state.connections):
+                transport = getattr(conn, "transport", None)
+                try:
+                    if transport is not None:
+                        transport.abort()
+                except Exception:         # noqa: BLE001 — 한 연결 때문에 나머지를 못 끊으면 안 된다
+                    pass
 
     return _Server
 

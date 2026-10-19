@@ -113,6 +113,8 @@ class FakeDb:
         self.log.append(s)
         if "FROM opm_val_firm" in s:
             return self.snapshot_row()
+        if s.startswith("SELECT MAX(snap_dd) FROM opm_val_market WHERE scheme=%s AND sector=%s"):   # 261019: 시장 전체 최신일(축 낡음 판정)
+            return [(AS_OF,)]
         if s.startswith("SELECT snap_dd, market, sector, label, n, cap, per_ttm"):
             return _sectors(params[0])
         if "FROM opm_val_market WHERE market=%s AND sector=%s AND scheme=%s" in s:

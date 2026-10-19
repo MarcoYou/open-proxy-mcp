@@ -4,6 +4,10 @@
 # 공시 캘린더(마감): 사업보고서 3/31 · 1Q 5/15 · 반기 8/14 · 3Q 11/14.
 #   → 각 마감 며칠 뒤 1회 실행하면 그 분기/연도만 수집(resume·공시-인지로 0낭비).
 #
+# **ECOS 키도 둔다**(ECOS_API_KEY, 261019). 외화 보고사(USD·CNY·JPY·GBP 등) 재무를 원화로 바꿀 때 환율 표에 없는 날짜는 한국은행 ECOS 를
+#   묻는다 — 키가 없으면 야후 대체값으로 환산한다(값은 담기지만 ECOS 와 어긋난다. 10-19 로컬 배치 950170 FY2018 +0.84%). 아래 첫 단계 전에
+#   키가 없으면 경고 한 줄을 낸다(멈추지는 않는다 — 외화 보고사는 몇 곳뿐이고 나머지 수집은 그대로 맞다). fly secrets 에는 이미 있다.
+#
 # **DART 키 필요**(OPENDART_API_KEY[, _2]). 보안 제약상 키는 fly secrets 보관 → 이 스크립트는
 #   fly machine 또는 키 보유 로컬에서 실행(GitHub Actions에 키 복제 금지 — IP차단 가능 키의 노출면
 #   확대 회피, API-spec 검토 권고). 0-DART인 derive는 일일 워크플로(market-val-weekly.yml)가 별도
@@ -22,6 +26,10 @@
 # 실행: bash scripts/refresh_financials.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+if [ -z "${ECOS_API_KEY:-}" ] && ! grep -qs '^ECOS_API_KEY=.' .env; then
+  echo "::warning::[환율] ECOS_API_KEY 가 없다 — 외화 보고사 재무를 환율 표에 없는 날짜마다 야후 대체값으로 환산한다(환경 또는 .env 에 둘 것)"
+fi
 
 echo "═══ [1/4] 연간 재무(mkt_finstat_y) 신규 FY — market_val_series --fetch ═══"
 python3 scripts/market_val_series.py --fetch

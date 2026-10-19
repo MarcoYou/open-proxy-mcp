@@ -21,9 +21,11 @@ from __future__ import annotations
 import asyncio
 import json
 import zipfile
+from datetime import datetime, time as dt_time, timedelta
 
 import httpx
 
+from open_proxy_mcp.clock import KST
 from open_proxy_mcp.dart.client import DartClientError
 
 # 래퍼가 graceful degrade할 외부 예외 집합.
@@ -44,7 +46,7 @@ DART_EXTERNAL_ERRORS = (
 #   012 = 「접근할 수 없는 IP」인데 「조회 빈도를 낮추라」고 안내했다.
 # 둘 다 빈도와 무관한데 사용자에게 빈도를 줄이라고 시키고 있었다.
 #
-# 원인이 다르면 안내도 다르다 — '사용 방식을 바꿔라'는 과호출(020·021·429)에만 붙이고
+# 원인이 다르면 안내도 다르다 — '사용 방식을 바꿔라'는 과호출(021·429)에만 붙이고
 # 지연·점검·결함엔 붙이지 않는다(안 몰았는데 "많이 했다"고 오탐 금지).
 _DART_STATUS_GUIDE = {
     # ── 키 문제: 재시도해도 **절대** 안 된다. 사용자가 키를 고쳐야 한다 ──
@@ -60,10 +62,16 @@ _DART_STATUS_GUIDE = {
     "012": ("blocked_ip",
             "이 서버의 IP 에서 DART 에 접근할 수 없습니다. 사용자가 조치할 수 있는 문제가 "
             "아니므로 운영자에게 알려 주세요."),
+    # ── 키의 하루 한도: 자정(KST)까지 그 키로는 재시도해도 같은 답이다 ──
+    # 261019: 종전엔 「분당 제한 — 나눠서 조회하라」고 안내했다(kind=rate_limited, 재시도 가능). 틀렸다 —
+    #   개발가이드의 020 은 「요청 제한을 초과하였습니다. 일반적으로는 20,000건 이상의 요청에 대하여…」, 즉 **키의 하루
+    #   요청 한도**다(분당 1,000 과는 다른 한도). 2026-10-19 운영: 키가 06:58 에 020 을 받은 뒤 07:00 의 1콜도 020 이었다 —
+    #   간격을 둬도 풀리지 않는다. 하루치는 자정(KST)에 풀린다(실측 2026-08-15 00:01). 그래서 kind 를 따로 두고
+    #   (`daily_limit`) 재시도 표시는 끄고(`retry=false`), 다시 될 시각(`retry_after` — 다음 KST 자정)을 함께 싣는다.
+    "020": ("daily_limit",
+            "이 DART API 키의 하루 요청 한도(보통 20,000건)를 다 썼습니다. 한도는 매일 자정(한국 시간)에 "
+            "초기화되므로, 그 전에는 같은 키로 다시 시도해도 같은 오류가 납니다. 자정 이후에 다시 조회하세요."),
     # ── 호출 방식: 사용자가 조정하면 된다 ──
-    "020": ("rate_limited",
-            "DART 요청 한도를 넘었습니다(분당 제한). 여러 회사를 한꺼번에 조회 중이라면 "
-            "한 번에 1~2곳씩, 잠깐 간격을 두고 나눠서 조회하세요."),
     "021": ("too_many_targets",
             "한 번에 조회 가능한 회사 수(최대 100)를 초과했습니다. 대상을 나눠서 요청하세요."),
     # ── 결과가 없는 것: 실패가 아니라 **답**이다 ──
@@ -88,6 +96,13 @@ _NOT_A_FAILURE = {"no_data", "no_document", "not_found"}
 #: 「키가 틀렸다」가 조용히 성공으로 잡히는 문제가 생길 뻔했다.
 _RETRYABLE = {"rate_limited", "too_many_targets", "maintenance",
               "timeout", "bad_document", "upstream_5xx", "transient"}
+# `daily_limit`(020 키의 하루 한도)은 여기 없다 — 「잠깐 뒤」가 아니라 자정(KST) 뒤에야 된다. 대신 `retry_after` 를 싣는다.
+
+
+def next_kst_midnight(now: datetime | None = None) -> datetime:
+    """다음 KST 자정 — DART 키의 하루 한도(020)가 풀리는 시각. `now` 는 시험용(시간대 있는 값)."""
+    cur = (now or datetime.now(KST)).astimezone(KST)
+    return datetime.combine(cur.date() + timedelta(days=1), dt_time(0, 0), tzinfo=KST)
 
 
 def is_no_data(exc_or_status: BaseException | str | None) -> bool:
@@ -98,7 +113,7 @@ def is_no_data(exc_or_status: BaseException | str | None) -> bool:
     도구가 고장 났거나 일시 장애인 줄 알고 재시도하거나 답을 미룬다 — 261018 회귀 기준선에서 합병 상장폐지사
     (에이치디현대미포)의 company 「최근 공시 인덱스 조회 실패: 013」·dividend_disclosure 「… 조회 실패: 013」로 드러났다.
 
-    분류는 `_DART_STATUS_GUIDE` 한 곳을 따른다(도구마다 코드표를 다시 적지 않는다). 020(한도)·800(점검)·
+    분류는 `_DART_STATUS_GUIDE` 한 곳을 따른다(도구마다 코드표를 다시 적지 않는다). 020(키의 하루 한도)·800(점검)·
     키 오류·전송 오류는 False — 호출부가 그대로 **실패**로 적는다. 014(원본 파일 없음)·404(회사·문서 못 찾음)도
     실패 집계에서는 빠지지만(`_NOT_A_FAILURE`) 뜻이 「그 기간에 공시가 없다」가 아니므로 여기 넣지 않는다.
     """
@@ -112,10 +127,13 @@ def is_no_data(exc_or_status: BaseException | str | None) -> bool:
 def classify_degrade(exc: BaseException) -> tuple[str, str]:
     """degrade 대상 예외 → (kind, 사용자 안내 문구). 원인별로 행동 유도를 다르게 한다.
     이 결과는 MCP 응답으로 Claude가 읽어 사용자에게 전달·호출방식을 조정하는 데 쓰인다."""
-    # 1) DART API 상태코드 (과호출 020·회사수 021·점검 800·접근제한 011/012 등) — 가장 정확
+    # 1) DART API 상태코드 (키 하루 한도 020·회사수 021·점검 800·접근제한 011/012 등) — 가장 정확
     status = getattr(exc, "status", None)
     if isinstance(status, str) and status in _DART_STATUS_GUIDE:
-        return _DART_STATUS_GUIDE[status]
+        kind, msg = _DART_STATUS_GUIDE[status]
+        if kind == "daily_limit":
+            msg += f" (다음 초기화 {next_kst_midnight().strftime('%Y-%m-%d %H:%M')} KST)"
+        return kind, msg
     # 2) HTTP 레벨 (웹 스크래핑·KIND 경로): 429 과호출 / 5xx 서버오류
     if isinstance(exc, httpx.HTTPStatusError) and exc.response is not None:
         code = exc.response.status_code
@@ -166,18 +184,23 @@ def degrade_response(tool_name: str, fmt: str, exc: BaseException) -> str:
     이 응답이 통계에서 성공으로 잡힌다(위 함수 주석).
 
     JSON `status` 는 013(`no_data` — 조회된 공시 데이터가 없다)이면 `no_filing`, 그 밖은 `error` 다(261018).
-    종전에는 013 도 `error` 라, 표지(`[nodata=…]`)와 안내문은 「답」이라 말하는데 상태값만 「실패」였다."""
+    종전에는 013 도 `error` 라, 표지(`[nodata=…]`)와 안내문은 「답」이라 말하는데 상태값만 「실패」였다.
+
+    `daily_limit`(020 키의 하루 한도)이면 `data.retry_after` 에 다음 KST 자정(ISO 8601, +09:00)을 싣는다(261019)."""
     reason = type(exc).__name__
     kind, msg = classify_degrade(exc)
     marker = degrade_marker(kind)
     if (fmt or "md").lower() == "json":
+        data = {"error_class": reason, "error_kind": kind,
+                "retry": kind in _RETRYABLE, "marker": marker}
+        if kind == "daily_limit":
+            data["retry_after"] = next_kst_midnight().isoformat()
         return json.dumps(
             {
                 "tool": tool_name,
                 "status": "no_filing" if kind == "no_data" else "error",
                 "warnings": [msg],
-                "data": {"error_class": reason, "error_kind": kind,
-                         "retry": kind in _RETRYABLE, "marker": marker},
+                "data": data,
             },
             ensure_ascii=False,
             indent=2,

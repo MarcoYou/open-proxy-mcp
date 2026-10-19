@@ -28,6 +28,11 @@
 #      12월 결산은 4월 첫 주에 한꺼번에(~2,600사), 나머지 결산월은 공시 시점이 지난 첫 월요일에 몇 사씩.
 #   ③ Q4 seed(--seed): 새 연간 행을 분기 표 사업보고서 칸으로 옮긴다(값이 같은 행은 다시 쓰지 않는다 — DART 0콜).
 #
+# 261019(환율): 외화 보고사(USD·CNY·JPY·GBP) 재무를 원화로 바꿀 때 환율 표(ecos_fx_rate)에 그 날짜가 없으면 한국은행 ECOS 를 묻는다.
+#   이 일정엔 ECOS_API_KEY 가 없어 야후 대체값으로 환산했고, 그 값이 환율 표에 영구로 굳었다(10-19 운영 6행 — JPY·GBP, ECOS 와 −0.08~+0.62%).
+#   이제 대체값은 표에 넣지 않고(open_proxy_mcp/dart/fx.py) 쓴 행을 `::warning::[환율]` 로 남긴다. 저장소 비밀값 ECOS_API_KEY 를 두면
+#   (서버와 같은 키) 처음부터 ECOS 값으로 환산된다 — 비밀값이 없으면 빈 값이라 동작은 위와 같다.
+#
 # 콜: 첫날 ~2,600(전 종목 × 1분기). 이후엔 남은 것만이라 급감.
 #   동시성 2 · 0.45s sleep ≈ 133콜/분 (하드룰 910/분의 15%).
 
@@ -108,6 +113,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 외화 보고사 환산 — 아래 머리말 참고
         run: uv run python scripts/market_val_series.py --fetch
 
       - name: Q4 seed — 새 연간 행을 분기 표 사업보고서 칸으로 (DART 0콜)
@@ -121,6 +127,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 외화 보고사 환산 — 아래 머리말 참고
         run: |
           if [ -n "${{ inputs.years }}" ]; then
             uv run python scripts/market_fund_quarterly.py --fetch --years "${{ inputs.years }}"

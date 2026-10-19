@@ -392,6 +392,41 @@ def test_shutdown_signal_tells_the_usage_writer_first(monkeypatch):
     assert calls == ["usage"] and srv.should_exit, "기록기에 알리지 않았거나 uvicorn 종료가 안 걸렸다"
 
 
+@pytest.mark.parametrize("held", ["draining_event", "queue"])
+def test_shutdown_signal_never_waits_on_a_lock_the_interrupted_loop_holds(monkeypatch, held):
+    """261019 로컬 실측: 신호 처리기는 메인 스레드(이벤트 루프)를 **그 자리에서 끊고** 돈다. 끊긴 코드가 쥔 잠금(앞 신호 처리기의
+    `Event.set`, 요청 기록의 `put_nowait`)을 처리기가 다시 기다리면 같은 스레드라 영영 안 풀린다 — 서버가 /health 도 못 답하고
+    fly 는 kill_timeout(90초) 뒤에야 강제 종료한다. 처리기는 잠금을 잡지 않고 루프에 한 칸 미뤄 알린다."""
+    import asyncio
+    import queue
+    import signal
+    import threading
+
+    import uvicorn
+
+    from open_proxy_mcp import server as S
+    from open_proxy_mcp import usage
+    monkeypatch.setattr(usage, "_draining", threading.Event())
+    monkeypatch.setattr(usage, "_q", queue.Queue(maxsize=10))
+    lock = usage._draining._cond if held == "draining_event" else usage._q.mutex
+    srv = S._shutdown_aware_server_class()(uvicorn.Config(lambda *a: None))
+    out: dict = {}
+
+    async def interrupted_loop():
+        with lock:                                   # 신호가 이 안에서 왔다
+            srv.handle_exit(signal.SIGTERM, None)
+            out["returned"] = True
+        await asyncio.sleep(0)                       # 미룬 알림이 이 다음 칸에서 돈다
+        await asyncio.sleep(0)
+        out["draining"] = usage._draining.is_set()
+
+    t = threading.Thread(target=lambda: asyncio.run(interrupted_loop()), daemon=True)
+    t.start()
+    t.join(5)
+    assert not t.is_alive(), "신호 처리기가 끊긴 코드가 쥔 잠금을 기다리며 멈췄다(교착)"
+    assert out == {"returned": True, "draining": True} and srv.should_exit
+
+
 def test_request_body_is_not_buffered_without_bound(client, monkeypatch):
     """미들웨어가 본문을 **끝까지** 모으면 안 된다.
 
@@ -458,12 +493,12 @@ def test_upstream_degrade_is_not_counted_as_success(client, monkeypatch):
     """
     import open_proxy_mcp.server as S
 
-    body = _degrade_body("020")                     # 분당 한도 초과 = 답을 못 줌
+    body = _degrade_body("020")                     # 키의 하루 한도 초과 = 답을 못 줌
     assert S._DEGRADED_RE.search(body), "degrade 응답에 표지가 없다 — 통계가 성공으로 적는다"
     assert not any(p in body for p in S._ERR_PATTERNS), (
         "degrade 가 isError 를 달고 있다면 이 테스트의 전제가 틀린 것이다")
     kind = S._DEGRADED_RE.search(body).group(1).decode()
-    assert kind == "rate_limited", kind
+    assert kind == "daily_limit", kind
 
 
 def test_no_data_is_not_counted_as_failure(client):
@@ -509,7 +544,7 @@ def test_middleware_records_upstream_degrade_as_error(client, monkeypatch):
     kw = rows[-1][1]
     assert kw.get("is_error") is True, (
         f"상류 실패가 성공으로 적혔다 — degrade 표지가 미들웨어에 안 닿는다: {kw}")
-    assert kw.get("error_kind") == "dart_rate_limited", kw
+    assert kw.get("error_kind") == "dart_daily_limit", kw
 
 
 def test_middleware_records_no_data_as_success(client, monkeypatch):

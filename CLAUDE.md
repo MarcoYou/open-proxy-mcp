@@ -37,7 +37,7 @@ wiki/                  # 공개 지식 — 주제당 문서 하나, 최신판만
 
 ## Rules
 
-1. **DART API 키당 910/min.** 초과 시 그 키가 2~3시간 차단. batch 최대 30사 + sleep.
+1. **DART API 키당 910/min · 하루 20,000.** 분당 초과 시 그 키가 2~3시간 차단. 하루 한도는 status 020 — 자정(KST)까지 안 풀린다(배치는 멈추고 다음 날 이어받는다). batch 최대 30사 + sleep.
 2. **document.xml 우선.** PDF/OCR 없음(open-proxy-ai 이관). viewer HTML fallback은 service가 명시적으로 둔 것만.
 3. **API 키 비노출.** URL·query·예외·로그·fixture에 전체는 물론 prefix도 남기지 않는다.
 4. **raw/ 절대 수정 금지.** 외부 원본 무결성 보존.

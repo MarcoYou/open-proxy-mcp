@@ -69,6 +69,8 @@ KIND fallback only when the higher-priority source cannot answer the request.
 ## Operational Boundaries
 
 - DART OpenAPI rolling cap: 910 calls per minute, below the external 1,000-call limit.
+  The daily limit is 20,000 requests per key (status `020`); it resets at midnight KST, so a tool
+  answers `error_kind=daily_limit` with `retry=false` and `retry_after` instead of a retry hint.
 - DART and KIND web access: one shared process clock, a random 0.4–1 second gap and
   a rolling cap of 40 requests per minute. After a blocking signal the gap increases
   to 1–2 seconds. Multiple workers must not be used to bypass this protection.

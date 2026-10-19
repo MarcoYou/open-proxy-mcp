@@ -64,11 +64,23 @@ def _render_firm(p: dict[str, Any]) -> str:
         L.append(f"| {s['asof'][:4]}-{s['asof'][4:6]} | {s['close_krw']:,} | "
                  f"{_조(s['mktcap_krw'])} | {s['list_shrs']:,} |")
     L += ["", f"> 📈 주간 곡선 {d['points']}개(최근 3년) = `data.series`. 위 표는 월말 다운샘플."]
-    if d.get("adj_events"):
-        L.append(f"> ⚠ 기준가 조정 {len(d['adj_events'])}회 — "
-                 + ", ".join(f"{e['event_dd']}(×{e['adj_factor']:g})" for e in d["adj_events"][:8]))
+    # 호가단위 맞춤(`tick_rounding`)은 불연속이 아니라 세지 않는다 — 경고 줄(아래)이 따로 밝힌다(261019).
+    real = [e for e in d.get("adj_events") or [] if not e.get("tick_rounding")]
+    if real:
+        L.append(f"> ⚠ 기준가 조정 {len(real)}회 — "
+                 + ", ".join(f"{e['event_dd']}(×{e['adj_factor']:g})" for e in real[:8]))
     L += ["", f"> {d['method']}"] + [f"> {w}" for w in p.get("warnings", [])]
-    return "\n".join(L)
+    return _cold_span("\n".join(L), d)
+
+
+def _cold_span(md: str, d: dict[str, Any]) -> str:
+    """261019 콜드 서빙 — 3년 하한 이전을 보관본에서 이었으면 곡선 안내의 「(최근 3년)」을 실제 시작일·이음매로(보관본에 그 종목 행이 없었으면 시작일만).
+    잇지 않은 응답(꺼짐·강등)은 손대지 않는다."""
+    cu = d.get("cold_until")
+    if not cu:
+        return md
+    span = f"{d['from']}~ — {cu} 이전은 보관본" if d["from"] < cu else f"{d['from']}~"
+    return md.replace("개(최근 3년) = `data.series`", f"개({span}) = `data.series`", 1)
 
 
 def _render_firm_live(p: dict[str, Any]) -> str:
@@ -201,9 +213,9 @@ def register_tools(mcp):
     async def trading_data(company: str = "", scope: str = "firm", format: str = "md",
                            as_of: str = "", since: str = "", scheme: str = "중분류",
                            bucket: str = "", freq: str = "", universe: str = "") -> str:
-        """desc: 거래·규모 데이터 — 종목의 주가·시가총액·상장주식수 시계열(주간, 최근 3년까지 · 끝점은 보관된 최신 거래일 — 연말 값은 전체 기간), 시장·섹터 시총 집계 시계열(2015-12~ 전 구간), 특정 거래일 전체 시세(OHLC·거래량·거래대금·등락률). KRX 정보데이터시스템 공식값.
+        """desc: 거래·규모 데이터 — 종목의 주가·시가총액·상장주식수 시계열(주간 — DB 3년 + 보관본: 그 이전(2015-12~)은 DB 밖 보관본에서 이어 붙이고 `data.cold_until`·`data.sources` 로 밝힘, 보관본을 못 읽으면 최근 3년 + 안내 · 끝점은 보관된 최신 거래일 — 연말 값은 전체 기간), 시장·섹터 시총 집계 시계열(2015-12~ 전 구간), 특정 거래일 전체 시세(OHLC·거래량·거래대금·등락률). KRX 정보데이터시스템 공식값.
         when: "주가 추이"·"시총 얼마"·"상장주식수 변화"(scope=firm) / "코스피 전체 시총"·"시장 규모 추이"(market) / "업종별 시총"·"반도체 섹터 비중"(sector, bucket 으로 특정 섹터 시계열) / "그날 거래량·거래대금·시고저가"(quote, as_of=YYYYMMDD) / **"코스피 시총 상위 100 이 뭐야"·"코스닥 상위 50 목록"·"유니버스 뽑아줘"(universe, universe="코스피 시총 상위 100" — 종목 순위표. 시총 순위 목록은 여기가 유일한 일괄 조회이며 종목마다 firm 을 부르지 말 것)**. **PER·PBR·배당수익률 배수는 `price_multiple_data`** — 여기는 가격·규모 그 자체만.
-        rule: scope=firm = 주간 시세 저장분(krx_weekly, 최근 3년) + 끝점(최신값)은 일별 시세 저장분의 그 종목 최신 거래일 한 줄(주간 마지막 점보다 늦을 때만 — 같은 주면 그 점을 교체(주 = ISO 주를 달력 연도로 자른 것), 더 늦은 주면 추가) · scope=market/sector = 시총 집계 저장분(krx_cap_agg) — 모두 DART·KRX 0콜. scope=quote 는 **최근 약 1년(최신 거래일 − 1년 − 1주)이 서버 DB 저장분**(KRX 0콜 — 서버가 매 거래일 아침 백그라운드로 채운다), 그 이전 날짜만 KRX 라이브(최대 2콜, 같은 날짜는 캐시되어 1회). 보관 창 안의 등락률·대비는 함께 보관한 KRX 공표값(기준가 대비 — 휴장 다음 날·권리락일에도 KRX 와 같다)이다. **`close_krw` 는 수정주가가 아니다** — 액면분할·병합 시점에 불연속이며 산출물이 `price_adjusted:false` 와 조정 이벤트 목록으로 명시한다. 연속 비교에는 `mktcap_krw`(조정 불변)를 쓴다. **시총 = 그 날 상장 전 종목(우선주 포함) 합** — `price_multiple_data` 의 Σ시총(배수 분모를 가진 종목만)보다 3~4% 크다. 섹터는 업종분류(기본 중분류)이며 미분류 종목을 버리지 않고 `_UNCLASSIFIED` 로 남겨 **섹터 합 == 시장 합**이 성립한다. 업종분류는 2026-08 부터 관측이라 그 이전은 소급(sector_asof 로 명시). 시계열 해상도 `freq` — 기본은 firm=weekly / market·sector=monthly(집계는 주간 해상도가 payload 만 4배로 키우고 알려주는 게 없다). `data.points_weekly` 로 원본 관측수를 함께 준다. md 표는 다시 월말·연말 발췌. 값 raw KRX int(_krw). scope=universe 는 `screener` 와 같은 유니버스 문법(「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」·「코스피200」·「코스닥150」·「코스피 전체」·이름/코드 나열)을 받아 시세 저장분 1콜로 순위·코드·이름·시장·시총·종가를 준다(DART 0콜). 「코스피200」·「코스닥150」은 **지수 구성종목 원장**(KRX 공식 지수 합계와 맞춰 본 구성, `data.members_dd` = 마지막 확인 거래일)에서 종목을 받아 원장 1콜이 더 든다 — 정원으로 자르지 않는다. 원장을 못 읽으면 그 시장 시총 상위 정원으로 대체하고 경고로 밝힌다. 기준일은 보관된 최신 거래일(`data.as_of`)이지 오늘(장중)이 아니다. md 표는 300종목까지, 그 이상은 json.
+        rule: scope=firm = 주간 시세 저장분(krx_weekly, 최근 3년 — 그 이전(2015-12~)은 DB 밖 보관본 서빙본을 앞에 잇고 이음매는 `data.cold_until`) + 끝점(최신값)은 일별 시세 저장분의 그 종목 최신 거래일 한 줄(주간 마지막 점보다 늦을 때만 — 같은 주면 그 점을 교체(주 = ISO 주를 달력 연도로 자른 것), 더 늦은 주면 추가) · scope=market/sector = 시총 집계 저장분(krx_cap_agg) — 모두 DART·KRX 0콜. scope=quote 는 **최근 약 1년(최신 거래일 − 1년 − 1주)이 서버 DB 저장분**(KRX 0콜 — 서버가 매 거래일 아침 백그라운드로 채운다), 그 이전 날짜만 KRX 라이브(최대 2콜, 같은 날짜는 캐시되어 1회). 보관 창 안의 휴장일(주말·거래일 달력에 휴장으로 적힌 평일)은 KRX 를 부르지 않고 no_data + `data.market_closed:true`·앞뒤 거래일(`prev_trading_day`·`next_trading_day`)로 답한다. 보관 창 안의 등락률·대비는 함께 보관한 KRX 공표값(기준가 대비 — 휴장 다음 날·권리락일에도 KRX 와 같다)이다. **`close_krw` 는 수정주가가 아니다** — 액면분할·병합 시점에 불연속이며 산출물이 `price_adjusted:false` 와 조정 이벤트 목록으로 명시한다(기준가를 호가단위에 맞춘 것뿐인 날은 `adj_events[].tick_rounding:true` — 불연속으로 세지 않는다). 연속 비교에는 `mktcap_krw`(조정 불변)를 쓴다. **시총 = 그 날 상장 전 종목(우선주 포함) 합** — `price_multiple_data` 의 Σ시총(배수 분모를 가진 종목만)보다 3~4% 크다. 섹터는 업종분류(기본 중분류)이며 미분류 종목을 버리지 않고 `_UNCLASSIFIED` 로 남겨 **섹터 합 == 시장 합**이 성립한다. 업종분류는 2026-08 부터 관측이라 그 이전은 소급(sector_asof 로 명시). 시계열 해상도 `freq` — 기본은 firm=weekly / market·sector=monthly(집계는 주간 해상도가 payload 만 4배로 키우고 알려주는 게 없다). `data.points_weekly` 로 원본 관측수를 함께 준다. md 표는 다시 월말·연말 발췌. 값 raw KRX int(_krw). scope=universe 는 `screener` 와 같은 유니버스 문법(「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」·「코스피200」·「코스닥150」·「코스피 전체」·이름/코드 나열)을 받아 시세 저장분 1콜로 순위·코드·이름·시장·시총·종가를 준다(DART 0콜). 「코스피200」·「코스닥150」은 **지수 구성종목 원장**(KRX 공식 지수 합계와 맞춰 본 구성, `data.members_dd` = 마지막 확인 거래일)에서 종목을 받아 원장 1콜이 더 든다 — 정원으로 자르지 않는다. 원장을 못 읽으면 그 시장 시총 상위 정원으로 대체하고 경고로 밝힌다. 지수·시장 이름 나열(「코스피200, 코스닥150」)은 합집합이고, 원장이 없는 지수 이름(KRX300 등)은 추측하지 않고 지수라고 되묻는다(invalid). 기준일은 보관된 최신 거래일(`data.as_of`)이지 오늘(장중)이 아니다. md 표는 300종목까지, 그 이상은 json.
         status: ok / invalid / not_found(우선주는 그 우선주 코드로 직접) / unlisted / no_data(휴장일·상장 전·배치 미실행) / db_error(일시 장애 — 재시도 유효) / **db_unconfigured**(이 서버에 스냅샷 DB 미연결 — 재시도해도 안 됨. firm·market 은 KRX 라이브 최신 1시점으로 폴백하며 그때 `data.scope="firm_live"` · `timeseries_available:false` · `source:"KRX 라이브"` 가 붙는다. sector 는 업종분류 매핑이 DB 에만 있어 폴백 없음).
         params: company 는 종목명 또는 종목코드(KRX 단축코드 6자 — 영문이 섞인 신형 코드 0126Z0 포함). **우선주·종류주 코드(005935·00088K)는 회사를 발행 회사로 식별하되 firm·quote 의 값은 그 종류주 자체**의 종가·시총·상장주식수다(`data.issuer_ticker` 에 보통주 코드, 맨 앞 경고로 밝힌다). 「삼성전자우」 같은 우선주 **이름**은 회사 원장에 없어 보통주 회사로 추정되며 그 추정을 맨 앞 경고로 밝힌다 — 우선주 시세는 코드로 부른다.
        
