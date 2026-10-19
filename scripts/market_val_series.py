@@ -142,6 +142,28 @@ def ctrl_eq(rows, field="thstrm_amount"):
     return v, None
 
 
+_NIA = "ifrs-full_ProfitLossAttributableToOwnersOfParent"
+
+
+def ctrl_ni(rows, field="thstrm_amount"):
+    """지배 순이익 → (값, 거른 까닭 또는 None). 종전 규칙 그대로: 지배 귀속 순이익 계정(새·옛 접두어, 정확일치) → 없으면(또는 0) 당기순이익 총계.
+
+    261020: 그 계정 줄 값이 **총포괄이익의 지배 몫**이면(값 구조 — 지배 + 비지배가 당기순이익엔 안 맞고 총포괄손익 총계에만 맞는다. 분기 수집의
+    `ni_attrib_side`) 그 줄은 버리고 분기 수집의 지배 순이익 규칙(`extract_controlling_ni_cum`)으로 간다. 지배 순이익 계정 줄에 총포괄 값을 적은
+    회사가 분기 보고서에 있었다(10-20 운영 분기 칸 259 · 336570 2021·2022 반기 등) — 사업보고서도 같은 회사 꼴이면 같은 값이 들어온다."""
+    v = gid(rows, _NIA, ("CIS", "IS"), field)
+    if v:
+        Q = _quarterly()
+        fr = [{**r, "thstrm_amount": r.get(field) or "", "thstrm_add_amount": ""} if r.get("sj_div") in ("IS", "CIS") else r
+              for r in rows]
+        if Q.ni_attrib_side(v, Q._ni_shape(fr)) == "ci":
+            v2, case = Q.extract_controlling_ni_cum(fr)
+            if v2 is not None:
+                return v2, f"지배 순이익 계정 줄 값 {v:.0f}원이 총포괄이익의 지배 몫이라 거름 → {case}"
+        return v, None
+    return gid(rows, "ifrs-full_ProfitLoss", ("CIS", "IS"), field), None
+
+
 def _pg():
     """261018: 표·칸이 이미 있으면 DDL 을 보내지 않는다 — 이 수집이 주 1회 일정(finstat-quarterly)에 들어가면서, 있어도 표 전체 잠금을
     잡는 `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 를 매번 보내지 않게(서버의 연간 재무 읽기와 겹치지 않게)."""
@@ -233,7 +255,9 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
             if not rows:
                 fs=second; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"
-            ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
+            ni,ni_note=ctrl_ni(rows)              # 261020: 지배 순이익 계정 줄의 총포괄 값은 거른다
+            if ni_note:
+                print(f"[순이익] {isu} FY{yr} {ni_note}",flush=True)
             ni_frmtrm=gid(rows,attr,("CIS","IS"),"frmtrm_amount")
             eq,eq_note=ctrl_eq(rows)
             if eq_note:
@@ -320,7 +344,9 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
             attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"
             stmt_cur=statement_currency(rows) if rows else "KRW"
             for fy_off,field in ((report_year-1,"frmtrm_amount"),(report_year-2,"bfefrmtrm_amount")):
-                ni_r=gid(rows,attr,("CIS","IS"),field) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"),field)
+                ni_r,ni_note=ctrl_ni(rows,field)     # 261020: 정정치도 같은 규칙
+                if ni_note:
+                    print(f"[순이익] {isu} FY{fy_off} 정정 {ni_note}",flush=True)
                 eq_r,eq_note=ctrl_eq(rows,field)       # 261019: 납입자본 줄 태깅 오류는 정정치에도 있었다(065680 FY2022·23)
                 if eq_note:
                     print(f"[자본] {isu} FY{fy_off} 정정 {eq_note}",flush=True)
