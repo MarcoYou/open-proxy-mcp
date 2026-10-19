@@ -130,7 +130,16 @@ def ctrl_eq(rows, field="thstrm_amount"):
         bs = [{**r, "thstrm_amount": r.get(field)} for r in rows if r.get("sj_div") == "BS"]
         v, case = Q.extract_controlling_eq(bs)
         return v, f"지배자본 계정이 납입자본 줄({row.get('account_nm')} {val(row):.0f}원)이라 거름 → {case}"
-    return gid(rows, _EQA, ("BS",), field) or gid(rows, "ifrs-full_Equity", ("BS",), field), None
+    v = gid(rows, _EQA, ("BS",), field) or gid(rows, "ifrs-full_Equity", ("BS",), field)
+    if v is None and any(r.get("sj_div") == "BS" for r in rows):
+        # 261019: 두 계정이 다 없으면(표준 계정코드 없이 「지배기업지분」·「자본총계」로 낸 회사) 분기 수집과 같은 이름·총계 규칙으로.
+        #   10-19 운영: 037560 FY2020·21 · 089860 FY2021 — 2026-07 이전 수집기(부분 일치)가 「자본과부채총계」(EquityAndLiabilities)를
+        #   자본으로 읽어 두었고(PBR 이 수 분의 1), 정확 일치로 다시 받으면 빈 값이 됐다. 원문 「지배기업지분」 6,523.8억·1조 2,293억.
+        bs = [{**r, "thstrm_amount": r.get(field)} for r in rows if r.get("sj_div") == "BS"]
+        v2, case = Q.extract_controlling_eq(bs)
+        if v2 is not None:
+            return v2, f"지배자본·자본총계 계정이 없어 이름·총계 규칙 → {case}"
+    return v, None
 
 
 def _pg():

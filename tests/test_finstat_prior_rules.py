@@ -394,3 +394,10 @@ def test_annual_refetch_fixes_capital_line_equity(pg17, monkeypatch):
                         row("BS", "ifrs-full_EquityAttributableToOwnersOfParent", "자본금", 30, frmtrm_amount=4967110000),
                         row("BS", "ifrs-full_NoncontrollingInterests", "비지배지분", 31, frmtrm_amount=-78415589)], "frmtrm_amount")
     assert v == 223924851066.0 + 78415589 and "납입자본 줄" in why
+    # 표준 계정코드 없이 「지배기업지분」·「자본총계」만 낸 회사(037560 FY2021) — 「자본과부채총계」를 자본으로 읽지 않고 이름 규칙으로
+    nostd = [row("BS", NOSTD, "지배기업지분", 48, thstrm_amount=652383502161), row("BS", NOSTD, "자본총계", 54, thstrm_amount=652383502161),
+             row("BS", "ifrs-full_EquityAndLiabilities", "자본과부채총계", 55, thstrm_amount=1488116032317)]
+    v, why = S.ctrl_eq(nostd)
+    assert v == 652383502161.0 and "BS_NM" in why
+    # 종전에 값이 나던 보고서는 그대로(지배자본 계정이 있으면 그 값, 없으면 자본총계 계정)
+    assert S.ctrl_eq([row("BS", "ifrs-full_Equity", "자본총계", 1, thstrm_amount=5)]) == (5.0, None)
