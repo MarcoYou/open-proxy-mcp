@@ -47,9 +47,15 @@ FOREIGN_ANNUAL_LAG_MONTHS = 5
 
 
 class Fiscal(NamedTuple):
-    """회사의 공시 달력 — 결산월과 외국 상장사 여부(제출 기한). 결산월 자리에 int 대신 넘길 수 있다."""
+    """회사의 공시 달력 — 결산월과 외국 상장사 여부(제출 기한). 결산월 자리에 int 대신 넘길 수 있다.
+
+    261020(p1e): `cells` = 반기·분기 결산 회사(리츠 등)의 **결산기 칸** `((fy, quarter, 공시일 YYYYMMDD), …)` — 분기 재무 표에서 근거 칸 머리가
+    `period_cells.MARK` 인 칸(결산기 합으로 쓴 칸)과 그 칸에 쓴 보고서의 최초 접수일. 있으면 `pit_cell` 이 이 칸들 가운데 그날까지 공시된
+    가장 늦은 칸을 고른다(공시 기한 규칙 대신 실제 접수일 — 결산기 사업보고서는 결산 뒤 90일 안이라 45일 규칙이면 미래 정보다).
+    `pit_annual`(FY0 의 사업연도)은 달력 규칙 그대로다(firm 의 FY0 와 같은 정의)."""
     month: int = 12
     foreign: bool = False
+    cells: tuple = ()
 
 
 def fiscal(acc_mt, ticker: str | None = None) -> Fiscal:
@@ -60,8 +66,27 @@ def fiscal(acc_mt, ticker: str | None = None) -> Fiscal:
 
 def _as_fiscal(v) -> Fiscal:
     if isinstance(v, Fiscal):
-        return v if v.month != 12 else Fiscal(12, False)
+        return v if v.month != 12 else Fiscal(12, False, v.cells)
     return Fiscal(fye_month(v), False)
+
+
+def with_cells(fye, cells) -> Fiscal:
+    """공시 달력에 결산기 칸을 붙인다(261020 p1e) — `cells` = {(fy, quarter): 공시일} 또는 ((fy, quarter, 공시일), …). 비었으면 그대로."""
+    f = fye if isinstance(fye, Fiscal) else Fiscal(fye_month(fye), False)
+    if not cells:
+        return f
+    items = cells.items() if isinstance(cells, dict) else ((c[0], c[1]) if len(c) == 2 else ((c[0], c[1]), c[2]) for c in cells)
+    norm = tuple(sorted((int(k[0]), int(k[1]), str(a)) for k, a in items if a))
+    return f._replace(cells=norm) if norm else f
+
+
+def cell_open(fy: int, quarter: int, dd, fye) -> bool:
+    """칸 `(fy, quarter)` 를 그날 쓸 수 있나 — 결산기 칸(`Fiscal.cells`)이 있는 회사는 그 칸의 공시일, 없으면 공시 기한 규칙(`cell_available`)."""
+    f = _as_fiscal(fye)
+    t = _as_date(dd).strftime("%Y%m%d")
+    if f.cells:
+        return any(c[0] == fy and c[1] == quarter and c[2] <= t for c in f.cells)
+    return cell_available(fy, quarter, f) <= _as_date(dd)
 
 
 def fye_month(v) -> int:
@@ -141,6 +166,16 @@ def _pit_cell_any(t: date, fye) -> tuple[int, int]:
 @lru_cache(maxsize=65536)
 def _pit_cell_cached(dd: str, fye: Fiscal) -> tuple[int, int]:
     t = _as_date(dd)
+    if fye.cells:
+        # 261020(p1e): 결산기 칸 — 그날까지 공시된 칸 가운데 기간 말이 가장 늦은 칸. 하나도 없으면(첫 결산기 공시 전) 공시 기한 규칙.
+        best, best_end = None, None
+        for fy, q, av in fye.cells:
+            if av <= dd:
+                e = cell_end(fy, q, fye.month)
+                if best_end is None or e > best_end:
+                    best, best_end = (fy, q), e
+        if best is not None:
+            return best
     if fye.month == 12:
         return _pit_cell_dec(t.year, t.month, t.day)
     return _pit_cell_any(t, fye)
