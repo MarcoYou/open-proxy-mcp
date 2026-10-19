@@ -116,9 +116,12 @@ jobs:
         #   sector-class-monthly 가 월 1회 갱신하지만, 시총·재무는 매일 바뀐다. 집계를 월 1회 배치에만
         #   두면 사용자가 보는 섹터 배수가 최대 한 달 낡는다(실측: KSIC 8/21 vs 업종분류 7/31).
         #   스크립트가 현재월을 건너뛰므로 여기선 --since 로 최근만 훑어 비용을 줄인다.
+        # 261019: --with-stored-weekly — 월말과 함께 이미 저장된 업종 주간 점(닫힌 주)도 같은 산식으로 다시 낸다. 재무가 고쳐지거나
+        #   다음 해 보고서의 재작성치가 들어오면 이 단계가 월말은 매일 다시 내지만 사이 주간 점은 옛 재무 값으로 남아 곡선이 튄다
+        #   (10-19 실측 — 재무 고침 뒤 주간 점 0821~1008 이 월말과 어긋남). 값이 같으면 쓰지 않아(IS DISTINCT FROM) 평소엔 0행, 날짜 몇 개 더 계산.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: uv run python scripts/sector_val_backfill.py --since ${{ inputs.class_since || '20260101' }} --include-current
+        run: uv run python scripts/sector_val_backfill.py --since ${{ inputs.class_since || '20260101' }} --include-current --with-stored-weekly
 
       - name: 과거 시장·섹터 밴드 재적재 (수동 요청 시만 · DART·KRX 0콜)
         if: ${{ inputs.market_history == 'yes' }}
