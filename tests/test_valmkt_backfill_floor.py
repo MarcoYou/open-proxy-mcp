@@ -220,3 +220,72 @@ def test_with_stored_weekly_recomputes_stored_sector_points_between_month_ends(v
     assert after[("20231020", "KQ", "wics_sector", "G45")]["per_fy0"] == pytest.approx(5000 / 200)
     assert [k for k in after if k[0] == "20231020" and k[1] == "KS" and k[2] == "wics_sector"]          # 같은 날 다른 버킷도 낸다
     assert "주간 점 1개" in capsys.readouterr().out
+
+
+# ── 적대적 검토(10-19)에서 변이가 살아남은 곳 — 업종 쪽 최소 커버리지 · nodata 분모 · 이번 달 저장된 점 ─────────────
+def test_sector_minimum_coverage_blanks_multiples_a_small_part_of_the_bucket_produced(vdb, monkeypatch):
+    url, sqlite_path = vdb
+    # 2020-01 TTM 칸을 E(코스피 IT 시총 200)에도 준다 — 같은 버킷의 A(10,000)는 없다 → IT 의 PER(TTM)은 버킷 시총의 2% 로 낸 값 → 비운다.
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("UPDATE dart_finstat_q SET ni_cum = 8.0 WHERE ticker = 'E' AND fy = 2019 AND quarter = 3")
+        c.execute("INSERT INTO dart_finstat_q VALUES ('E', 2018, 3, 6.0, 90.0, NULL, NULL)")
+    _run_both(monkeypatch, "--cold-sqlite", sqlite_path)
+    after = _rows(url)
+    for k in (("20200131", "KS", "wics_sector", "G45"), ("20200131", "KS", "wics_industry", "G4530"),
+              ("20200131", "KS", "ksic", H.bucket("26410", "A"))):
+        assert after[k]["per_ttm"] is None and after[k]["ni_ttm"] is None, k     # 배수와 분모 합을 함께 비운다(「적자」로 읽히지 않게)
+        assert after[k]["per_fy0"] == pytest.approx(10200 / 1010), k              # FY0 는 버킷 전부가 내서 그대로
+    fin = after[("20200131", "KS", "wics_sector", "G40")]                        # B 혼자인 금융 — 버킷 시총 전부가 TTM 칸이 있다 → 낸다
+    assert fin["per_ttm"] == pytest.approx(1000 / 110) and fin["ni_ttm"] == pytest.approx(110.0)
+    assert after[("20200131", "KS", "market", "_ALL")]["per_ttm"] is None          # 시장: B+E 1,200 / 11,200 — 여전히 절반 미만
+
+
+def test_nodata_annual_rows_count_in_n_but_not_in_the_coverage_denominator(vdb, monkeypatch):
+    url, _ = vdb
+    # F: 코스피 IT 시총 20,000 인데 연간 행이 모두 nodata(값 없는 행)·분기 없음. 버킷 수(n)에는 세지만 「재무가 있는 회사」 시총에 넣으면
+    #   A·B 가 시총 전부로 낸 FY0 가 절반 미만으로 보여 비워진다(처음 판의 결함 — (None, None) 튜플이 참).
+    with psycopg.connect(url, autocommit=True) as c:
+        c.cursor().executemany("INSERT INTO krx_weekly VALUES (%s, 'F', 'KS', 200, 20000, 100)",
+                               [(d,) for d in ("20231020", "20231027", "20231124", "20260731", "20260828", "20261016")])
+        c.execute("INSERT INTO wise_sector VALUES ('20260821', 'F', 'G45', 'IT', 'G4530', '반도체')")
+        c.cursor().executemany("INSERT INTO dart_finstat_y VALUES ('F', %s, 'CFS', NULL, NULL, 'nodata', NULL, NULL)",
+                               [(fy,) for fy in range(2018, 2026)])
+        c.execute("INSERT INTO dart_fundamentals VALUES ('F', 'KS', '26410', 'ok')")
+    _run_both(monkeypatch)
+    after = _rows(url)
+    assert after[("20231027", "KS", "market", "_ALL")]["per_fy0"] == pytest.approx(11000 / 1100)
+    assert after[("20231027", "KS", "ksic", H.bucket("26410", "A"))]["per_fy0"] == pytest.approx(10000 / 1000)
+    it = after[("20231027", "KS", "wics_sector", "G45")]
+    assert it["per_fy0"] == pytest.approx(10000 / 1000) and it["n"] == 2            # F 는 n 에 센다
+
+
+def test_with_stored_weekly_and_include_current_also_recomputes_this_months_stored_point(vdb, monkeypatch):
+    url, _ = vdb
+    from datetime import date as _date
+
+    # 이번 달(2026-10)의 닫힌 주 20261016 에 매일 배치가 남긴 업종 점(옛 값)이 있고, 일별 최신일은 20261019(월).
+    #   --include-current 는 이번 달 월말(20261016)을 최신일로 바꿔 끼우므로, 저장된 20261016 은 다시 더해야 다시 계산된다.
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("INSERT INTO opm_val_market (snap_dd, market, scheme, sector, label, n, cap, per_fy0, pbr_fy0, per_ttm, pbr_mrq, "
+                  "ni_fy0, ni_ttm) VALUES ('20261016', 'KQ', 'wics_sector', 'G45', 'IT', 1, 1.0, %s, %s, %s, %s, 1.0, 1.0)",
+                  (OLD, OLD, OLD, OLD))
+        c.execute("CREATE TABLE krx_day (dd text, n integer)")
+        c.execute("INSERT INTO krx_day VALUES ('20261019', 3)")
+        c.execute("CREATE TABLE krx_daily_v (trd_dd text, ticker text, market text, mktcap bigint)")
+        c.cursor().executemany("INSERT INTO krx_daily_v VALUES ('20261019', %s, %s, %s)",
+                               [(t, PX[t][0], PX[t][1] * 100) for t in ("A", "B", "C")])
+
+    class _Oct19(_date):
+        @classmethod
+        def today(cls):
+            return _date(2026, 10, 19)
+
+    monkeypatch.setattr(S, "date", _Oct19)
+    monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py", "--include-current"])
+    assert S.main() == 0
+    after = _rows(url)
+    assert after[("20261019", "KQ", "wics_sector", "G45")]["per_fy0"] == pytest.approx(5000 / 200)   # 현재 점(일별 최신일)
+    assert after[("20261016", "KQ", "wics_sector", "G45")]["per_fy0"] == OLD                        # 플래그 없이는 그대로
+    monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py", "--include-current", "--with-stored-weekly"])
+    assert S.main() == 0
+    assert _rows(url)[("20261016", "KQ", "wics_sector", "G45")]["per_fy0"] == pytest.approx(5000 / 200)
