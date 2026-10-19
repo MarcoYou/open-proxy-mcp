@@ -216,3 +216,57 @@ def test_december_company_is_unchanged(monkeypatch):
     assert "ni_basis" not in i and i["net_income_ttm_krw"] == 120_000_000_000 and i["ttm_quarter"] == "반기 누적"
     assert i["eps_ttm_basis"] != "disclosed_period_sum" and (2026, "11011") not in seen["acnt"]
     assert not any("지배순이익·EPS·PER 은 12개월" in w for w in p["data"]["warnings"])
+
+
+# ── 261019(p1d 적대 검토) — EPS 대체 경로와 방법 고지 ─────────────────────────────────────────────────
+
+def _without_eps(rows: list[dict]) -> list[dict]:
+    return [r for r in rows if r["account_id"] != "ifrs-full_BasicEarningsLossPerShare"]
+
+
+def test_period_sum_eps_falls_back_to_ni_over_shares_when_a_report_has_no_eps(monkeypatch):
+    """결산기 공시 EPS 가 비면 FY0·TTM EPS 모두 12개월 지배순이익 ÷ 보통주 — 한 결산기 EPS(종전 값)를 그대로 두지 않는다."""
+    reports = dict(LOTTE)
+    for k in ((2025, "11011"), (2026, "11011")):            # 겹치는 결산기는 새 보고서 칸을 쓰므로 둘 다 비운다
+        reports[k] = _without_eps(LOTTE[k])
+    p, _ = _run(monkeypatch, overview_acc_mt="06", db_acc_mt=12, reports=reports, alot=LOTTE_ALOT)
+    i = p["data"]["inputs"]
+    shares = 288_968_884
+    fy0, ttm = 16_546_765_792 + 19_627_460_882, 19_627_460_882 + 23_770_182_540
+    assert (i["net_income_fy0_krw"], i["net_income_ttm_krw"]) == (fy0, ttm)
+    assert i["eps_fy0_krw"] == round(fy0 / shares) == 125                         # 한 결산기(2025-12) ÷ 보통주 = 68 이 아니다
+    assert (i["eps_ttm_krw"], i["eps_ttm_basis"]) == (round(ttm / shares), "ni_div_shares_fallback")
+
+
+def test_period_sum_eps_is_not_used_when_a_share_adjustment_factor_applies(monkeypatch):
+    """수정계수 보정이 걸리면(결산기마다 주식 기준이 다를 수 있다) 공시 EPS 합 대신 12개월 지배순이익 ÷ 보통주."""
+    async def factor(ticker, after_dd):
+        return 0.5 if after_dd.startswith("2025") else 1.0
+    monkeypatch.setattr(S, "_eps_adj_factor", factor)
+    p, _ = _run(monkeypatch, overview_acc_mt="06", db_acc_mt=12, reports=LOTTE, alot=LOTTE_ALOT)
+    i = p["data"]["inputs"]
+    shares = 288_968_884
+    assert i["eps_adj_factors"] == {"current": 1.0, "prior_q": 0.5}
+    assert i["eps_fy0_krw"] == round((16_546_765_792 + 19_627_460_882) / shares)
+    assert (i["eps_ttm_krw"], i["eps_ttm_basis"]) == (round((19_627_460_882 + 23_770_182_540) / shares), "ni_div_shares_fallback")
+
+
+def test_method_note_and_explain_describe_the_period_sum(monkeypatch):
+    """방법 고지(`note`)·explain EPS(FY0) 줄이 12개월 결산기 합을 말한다 — 종전 「FY0+분기누적−전년동기누적」 식이 「TTM 기준」 줄과 어긋났다.
+    결산기가 하나인 회사는 문구 그대로."""
+    p, _ = _run(monkeypatch, overview_acc_mt="06", db_acc_mt=12, reports=LOTTE, alot=LOTTE_ALOT)
+    note = p["data"]["note"]
+    assert "TTM=결산기마다 공시한 EPS 의 최근 12개월 합" in note and "분기누적−전년동기누적" not in note
+    assert "TTM=결산기마다 공시한 EPS" in S._render_md(p)
+    ex = TP._render_explain_firm(p)
+    assert "EPS(FY0) = **공시 EPS 결산기 합**(FY0 12개월 결산기 2개 — 결산기마다 사업보고서) = **124원**" in ex
+    q, _ = _run(monkeypatch, overview_acc_mt="03", db_acc_mt=12, reports=SK, alot=SK_ALOT, ticker="395400", cap=SK_CAP, price=5310)
+    assert "TTM=결산기마다 공시한 EPS" in q["data"]["note"]                               # 분기 결산 — TTM 은 합, FY0 는 한 결산기
+    assert "EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **109원**" in TP._render_explain_firm(q)
+    dec = {(2025, "11011"): _report("r1", (57, 56, 55), ("100,000,000,000", "90,000,000,000", "80,000,000,000"), ("1,000", "900", "800"),
+                                    eq="1,000,000,000,000"),
+           (2026, "11012"): _interim("60,000,000,000", "1,050,000,000,000"),
+           (2025, "11012"): _interim("40,000,000,000", "950,000,000,000")}
+    r, _ = _run(monkeypatch, overview_acc_mt="12", db_acc_mt=None, reports=dec, alot={2025: _alot(("2025-12-31", "1,668", "r1"))},
+                ticker="005930")
+    assert "TTM=공시 EPS 조립: FY0+분기누적−전년동기누적" in r["data"]["note"]

@@ -500,8 +500,13 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
             L.append(f"- {lbl} = {formula} = {num:,} ÷ {den:,} = **{out}{unit}**")
         else:
             L.append(f"- {lbl} = {formula} → **N/M** (분모≤0·적자·자본잠식 또는 데이터 미확정)")
-    L.append(f"- EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **{_n(i.get('eps_fy0_krw'), '원')}**"
-             " (부재 시 지배순이익÷보통주 폴백)")
+    _f0 = ((i.get("ni_basis") or {}).get("fy0") or {}).get("periods") or []
+    if len(_f0) > 1:   # 261019(p1d 검토): 반기 결산 — FY0 EPS 도 결산기 합이다(공시 기본주당이익 한 값이 아니다)
+        L.append(f"- EPS(FY0) = **공시 EPS 결산기 합**(FY0 12개월 결산기 {len(_f0)}개 — 결산기마다 사업보고서) = "
+                 f"**{_n(i.get('eps_fy0_krw'), '원')}** (공시 EPS 가 빈 결산기가 있거나 수정계수 보정 대상이면 지배순이익÷보통주)")
+    else:
+        L.append(f"- EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **{_n(i.get('eps_fy0_krw'), '원')}**"
+                 " (부재 시 지배순이익÷보통주 폴백)")
     if i.get("eps_ttm_basis") == "disclosed_assembled":
         L.append(f"- EPS(TTM) = **공시 EPS 조립**(FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS) = "
                  f"**{_n(i.get('eps_ttm_krw'), '원')}** — FY0과 같은 공시 가중평균 기준(대칭)")

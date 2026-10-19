@@ -2819,6 +2819,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
     if _fye_note(fye):                 # 261018(결산월): 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
         warnings.append(_fye_note(fye))
+    # 261019(p1d 검토): TTM 을 12개월 결산기 합으로 냈으면 방법 고지의 TTM 식도 그 식이다 — 종전 식(「FY0+분기누적−전년동기누적」)이 바로 위
+    #   「TTM 기준: 최근 12개월 결산기 … 합」 줄·경고와 어긋났다. 그 밖의 회사는 문구 그대로다.
+    _note_ttm = ("TTM=결산기마다 공시한 EPS 의 최근 12개월 합 · FY0 도 그 사업연도 결산기 12개월 합(반기·분기 결산 — 못 맞추면 마지막 결산기, 주의 참고)"
+                 if ni_win_ttm else "TTM=공시 EPS 조립: FY0+분기누적−전년동기누적")
 
     payload = {
         "tool": "price_multiple_data", "status": "ok", "subject": name,
@@ -2863,7 +2867,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "scale_flags": scale_verdict["hard_hit"] + scale_verdict["soft_hit"],
                 "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
             },
-            "note": "EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준(TTM=공시 EPS 조립: FY0+분기누적−전년동기누적 "
+            "note": f"EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준({_note_ttm} "
                     "— 가중평균 주식수·우선주 배분 반영, 두 PER 직접비교 가능. 클래스별 EPS 미공시사(삼성전자 등)는 "
                     "보·우 합산 가중평균 = 국내 포털·데이터 공급처 관행과 동일). 공시 EPS 결측 시에만 "
                     "지배순이익÷보통주 폴백(경고 부착). "
