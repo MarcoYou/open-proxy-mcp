@@ -2007,6 +2007,99 @@ def _eps_disclosed(rows: list, *fields: str) -> float | None:
     return None
 
 
+_TERM_RE = re.compile(r"제\s*(\d+)\s*기")
+
+
+def _term_no(rows: list, nm_field: str) -> int | None:
+    """전체 재무제표 행의 기수 — 「제 21 기」 → 21. 손익 행부터 본다. 못 읽으면 None."""
+    for sj in ("CIS", "IS", "BS"):
+        for r in rows or []:
+            if r.get("sj_div") == sj:
+                m = _TERM_RE.search(str(r.get(nm_field) or ""))
+                if m:
+                    return int(m.group(1))
+    return None
+
+
+def _rows_rcept(rows: list) -> str | None:
+    """전체 재무제표 행의 접수번호(보고서 하나 — 가장 많이 나온 값)."""
+    seen: dict[str, int] = {}
+    for r in rows or []:
+        rn = str(r.get("rcept_no") or "")
+        if rn:
+            seen[rn] = seen.get(rn, 0) + 1
+    return max(seen, key=seen.get) if seen else None
+
+
+def _report_periods(rows: list) -> dict[int, tuple[float, float | None]]:
+    """사업보고서 하나의 당기·전기·전전기 칸 → `{기수: (지배순이익, 공시 기본 EPS)}`. (261019 p1d)
+
+    반기·분기 결산 회사(리츠)는 결산기마다 사업보고서가 따로 나오고, 그 보고서의 전기·전전기 칸이 **바로 앞 결산기들**이다(SK리츠 2026.06 사업보고서 —
+    제21기 2026.04~06 · 제20기 2026.01~03 · 제19기 2025.10~12, 롯데리츠 2026.06 — 제15기 2026.01~06 · 제14기 2025.07~12). 기수가 하나씩 줄지 않거나
+    순이익이 빈 칸에서 멈춘다(그 앞 칸은 쓰지 않는다)."""
+    out: dict[int, tuple[float, float | None]] = {}
+    k0 = _term_no(rows, "thstrm_nm")
+    if k0 is None:
+        return out
+    for step, (amt, nm) in enumerate((("thstrm_amount", "thstrm_nm"), ("frmtrm_amount", "frmtrm_nm"),
+                                      ("bfefrmtrm_amount", "bfefrmtrm_nm"))):
+        if _term_no(rows, nm) != k0 - step:
+            break
+        ni = _ctrl_ni(rows, amt)
+        if ni is None:
+            break
+        out[k0 - step] = (float(ni), _eps_disclosed(rows, amt))
+    return out
+
+
+def _month_end_shift(yyyymmdd: str, months: int) -> str:
+    """월말 날짜를 `months` 달 옮긴 월말(YYYYMMDD) — 결산기준일(월말)끼리 쓴다."""
+    t = int(yyyymmdd[:4]) * 12 + int(yyyymmdd[4:6]) - 1 + months
+    y, m = divmod(t, 12)
+    return f"{y}{m + 1:02d}{calendar.monthrange(y, m + 1)[1]:02d}"
+
+
+def trailing_period_ni(reports: list[tuple[str, list]], months: int, end: str | None = None) -> dict[str, Any] | None:
+    """반기·분기 결산 회사의 **12개월 결산기 지배순이익 합**(배당의 `trailing_period_dps` 와 같은 원리). 해당이 없으면 None. (261019 p1d)
+
+    reports = [(그 사업보고서 당기 결산기준일 YYYYMMDD, 전체 재무제표 행), …] **새 것부터**. 가장 새 보고서의 당기 결산기(`end` 를 주면 그 결산기)에서
+    거꾸로 12 ÷ months 개 결산기가 빠짐없이 있어야 한다(앞 보고서의 칸으로 메운다 — 겹치는 결산기는 새 보고서 값: 정정·지배/비지배 구분이 반영된
+    비교 칸. 10-19 운영 신한알파리츠 2025-09 결산기 — 그 결산기 보고서는 지배 구분 없이 총순이익 113.1억, 다음 보고서 전기 칸은 지배 67.5억). 앞 보고서는 기수와 결산기준일이 서로 맞아야 쓴다
+    (당기 결산기준일 = 새 보고서 결산기준일 − 기수 차 × months 달 — 결산월을 바꾼 해 같은 어긋남을 섞지 않는다).
+    분기 결산은 사업보고서 하나에 결산기가 셋까지만 실려 보고서 하나로는 12개월이 안 된다.
+    반환 {"ni": 합, "eps": 공시 EPS 합(하나라도 비면 None), "periods": [(결산기준일, 지배순이익), …] 오름차순, "months": months}."""
+    if months not in (3, 6) or not reports:
+        return None
+    need_n = 12 // months
+    vals: dict[int, tuple[float, float | None]] = {}
+    k_end = newest = None
+    for stlm, rows in reports:
+        per = _report_periods(rows)
+        if not per or not stlm or len(stlm) != 8:
+            continue          # 기수·칸을 못 읽은 보고서는 건너뛴다(그다음 보고서가 가장 새 보고서가 된다)
+        k_top = max(per)
+        if k_end is None:
+            k_end, newest = k_top, stlm
+        elif k_top > k_end or _month_end_shift(newest, -(k_end - k_top) * months) != stlm:
+            continue
+        for k, v in per.items():
+            vals.setdefault(k, v)
+    if k_end is None:
+        return None
+    k_last = k_end
+    if end is not None:
+        gap = (int(newest[:4]) * 12 + int(newest[4:6])) - (int(end[:4]) * 12 + int(end[4:6]))
+        if gap < 0 or gap % months or _month_end_shift(newest, -gap) != end:
+            return None
+        k_last = k_end - gap // months
+    terms = range(k_last - need_n + 1, k_last + 1)
+    if any(k not in vals for k in terms):
+        return None
+    eps = [vals[k][1] for k in terms]
+    return {"ni": round(sum(vals[k][0] for k in terms)), "eps": sum(eps) if all(e is not None for e in eps) else None,
+            "periods": [(_month_end_shift(newest, -(k_end - k) * months), round(vals[k][0])) for k in terms], "months": months}
+
+
 #: 수정계수를 곱할 **조정성 이벤트**의 조건 — 액면분할·병합·무상증자·주식배당, 계수가 있고 라벨이 확정된 것만.
 #: 주가와 주식수가 서로 상쇄하는 이벤트다(유상증자·감자·미라벨은 뺀다). 계수를 읽는 곳은 이 조건 하나를 쓴다 —
 #: `_eps_adj_factor`(공시 EPS 정렬)와 `asset_holdings`(기말 보유수량을 오늘 주식수 기준으로, 261018).
@@ -2201,8 +2294,17 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # ── 데이터 fetch 병렬화: 의존성 3단계 (P1 fy 무관 → P2 fy 의존 → P3 fs_used 의존) ──
     # P1: 재무요약(대형 ~7콜)·업종정보·시세 — 모두 cc/stock_code만 의존(fy 불필요) → 병렬.
     #     (이전엔 순차라 info·market이 fm 뒤에서 대기했음). stock_code는 위 unlisted 가드로 보장.
+    # 261019(p1d): 첫 재무 요약의 사업연도를 **12월 결산 달력 규칙으로 직접 준다**(`_latest_annual_fy` — 4월 이후 전년). 결산월은 아래에서
+    #   재무 요약 표의 칸(`dart_fundamentals.acc_mt`)으로 정하고, 12월 결산이 아니면 그 블록이 최신 사업보고서 해로 옮긴다(실제로 낸 경우만).
+    #   #142 가 financial_metrics 의 기본 연도(year=0)를 **회사 개황 결산월**로 바꾸자 이 경로가 그 연도를 그대로 이어받았다 — 개황은 반기·분기
+    #   결산 리츠를 「마지막 결산기 달」(롯데리츠 06·신한알파리츠 03)로 주는데 칸은 12(종전 읽기)라 결산월 보정이 돌지 않아 FY0 가 2026 으로
+    #   남았다. 2026 사업보고서 배당 사항에는 결산기가 하나뿐이라 12개월 합이 빠져 배당수익률이 반토막이 났고(10-19 운영 롯데리츠 6.42% → 3.41%),
+    #   분기 칸은 아직 없는 2027 을 찾아 PER(TTM) 이 비었다(리츠 15종). 최신 사업보고서를 늦게 내는 12월 결산이 아닌 회사도 같은 길로 FY0 가
+    #   빈다(기본 연도 = 아직 없는 사업보고서 → 재무 요약이 분기 보고서로 대체 → 아래 블록은 연도가 같아 그대로 — 코드 경로, 운영 사례는 보지 않았다).
+    #   financial_metrics 도구 자체의 기본 연도(#142 — JTC 등 최신 사업보고서)는 그대로다. 결산월로 고른 최신 사업보고서 해가 달력 규칙과 다른
+    #   회사(10월의 2·3·6월 결산 등)는 재무 요약을 한 번 더 읽는다 — #142 전과 같은 비용이다.
     fm, info, mk = await asyncio.gather(
-        build_financial_metrics_payload(stock_code, scope="summary", year=0, consolidated=True),
+        build_financial_metrics_payload(stock_code, scope="summary", year=_latest_annual_fy(), consolidated=True),
         client.get_company_info(cc),
         _market_for(stock_code),
     )
@@ -2221,7 +2323,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     nondec = fye.month != 12
     fy = fm.get("data", {}).get("year")
     if nondec and fy is not None:
-        # 12월 결산이 아니면 재무 요약의 기본 연도(달력 규칙: 4월 이후 전년)가 최신 사업보고서가 아닐 수 있다 — 3월 결산은 7월부터 그해 3월 말
+        # 12월 결산이 아니면 위에서 준 연도(달력 규칙: 4월 이후 전년)가 최신 사업보고서가 아닐 수 있다 — 3월 결산은 7월부터 그해 3월 말
         #   사업보고서가 나와 있다(종전엔 한 해 앞 사업보고서를 FY0 로, 그 뒤 분기를 다음 해 표기로 찾아 TTM 이 한 해 어긋났다).
         #   최신 사업보고서가 실제로 있을 때만 그 해로 바꾼다(늦게 낸 회사는 종전 연도 그대로).
         fy_a = _rc.latest_annual(today_kst(), fye)
@@ -2499,6 +2601,39 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         except Exception:  # noqa: BLE001 — 배당 fail-open: 맞춤이 깨져도 PER·PBR 응답과 종전 DPS 는 나간다
             logger.exception("DPS 주식 기준 맞춤 실패 — 종전 DPS 그대로 (%s)", stock_code)
 
+    # 261019(p1d): 반기·분기 결산 회사(리츠)는 **순이익도 12개월 결산기 합**이다(배당과 같은 원리 — `trailing_period_ni`). 종전 FY0 는 사업보고서
+    #   하나의 당기(한 결산기 3·6개월) 순이익이라 PER(FY0) 이 2~4배로 부풀었고(10-19 운영 SK리츠 FY0 = 2025.10~12 석 달 323.6억 → PER 49.39),
+    #   반기 결산의 「반기 누적」 TTM 은 6개월 결산기 + 3개월 시점 보고서 − 3개월 시점 보고서라 12개월이 아니었다(롯데리츠 = 2025.10~2026.03 여섯 달).
+    #   FY0 = 사업보고서 fy 의 당기 결산기에서 거꾸로 12개월(그 보고서의 전기·전전기 칸 — 반기 결산은 보고서 하나로 된다), TTM = 가장 새 사업보고서
+    #   (다음 사업연도 결산기가 있으면 그 보고서 — DART 1콜)에서 거꾸로 12개월. 보고서와 결산기준일은 배당 사항의 접수번호로 잇고 기수로 확인한다.
+    #   분기 결산의 FY0 는 보고서 하나에 결산기가 셋뿐이라 맞출 수 없어 종전 값(마지막 결산기)이고 그렇다고 적는다. 결산기가 하나인 회사(12월 결산 등)·
+    #   외화 보고사·주기를 확인하지 못한 해는 이 블록을 타지 않아 응답이 그대로다. 실패는 종전 값(fail-open).
+    ni_win_fy0 = ni_win_ttm = None
+    ni_win_e0 = None
+    if dps_periods and stmt_cur == "KRW" and fy_rows:
+        try:
+            _cad = dps_periods["months"]
+            _rc_end = {}
+            for _it in _dps_items:
+                _st = "".join(ch for ch in (_it.get("stlm_dt") or "") if ch.isdigit())[:8]
+                if _it.get("rcept_no") and len(_st) == 8:
+                    _rc_end[str(_it["rcept_no"])] = _st
+            ni_win_e0 = _rc_end.get(_rows_rcept(fy_rows) or "")
+            if ni_win_e0 and ni_win_e0[:4] == str(fy):
+                _reports = [(ni_win_e0, fy_rows)]
+                if any(d > ni_win_e0 for d in _per):          # 다음 사업연도 결산기가 배당 사항에 보인다 — 그 사업보고서 재무도 읽는다
+                    _nx_rows, _ = await _acntall(client, cc, fy + 1, "11011", fs_used)
+                    _e1 = _rc_end.get(_rows_rcept(_nx_rows) or "")
+                    if _nx_rows and _e1 and _e1[:4] == str(fy + 1):
+                        _reports.insert(0, (_e1, _nx_rows))
+                ni_win_fy0 = trailing_period_ni(_reports, _cad, end=ni_win_e0)
+                ni_win_ttm = trailing_period_ni(_reports, _cad)
+            else:
+                ni_win_e0 = None
+        except Exception:  # noqa: BLE001 — fail-open: 12개월 합을 못 내도 종전 값으로 응답한다
+            logger.exception("결산기 12개월 순이익 합 실패 — 종전 값 그대로 (%s)", stock_code)
+            ni_win_fy0 = ni_win_ttm = ni_win_e0 = None
+
     bps = round(_div(ctrl_equity, shares_total)) if (ctrl_equity and shares_total) else None
     # EPS(FY0): 공시값 우선 — fy_rows 직접(비KRW는 ×환율) → fm(eps_krw) → 지배순이익÷보통주 폴백.
     if eps_fy_disc is not None:
@@ -2518,6 +2653,25 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         eps_ttm_basis = "ni_div_shares_fallback"
     else:
         eps_ttm, eps_ttm_basis = None, None
+    # 261019(p1d): 반기·분기 결산 — 위에서 낸 12개월 결산기 합으로 순이익·EPS 를 바꾼다(EPS 는 결산기마다 공시한 기본 EPS 의 합 — 수정계수 보정이
+    #   걸린 회사는 결산기마다 기준이 달라 지배순이익 ÷ 보통주로 낸다).
+    ttm_label = None
+    if ni_win_fy0:
+        ni_fy = ni_win_fy0["ni"]
+        if ni_win_fy0["eps"] is not None and not eps_adj:
+            eps_fy = round(ni_win_fy0["eps"])
+        elif shares_common:
+            eps_fy = round(_div(ni_fy, shares_common))
+    if ni_win_ttm:
+        ni_ttm = ni_win_ttm["ni"]
+        if ni_win_ttm["eps"] is not None and not eps_adj:
+            eps_ttm, eps_ttm_basis = round(ni_win_ttm["eps"]), "disclosed_period_sum"
+        elif shares_common:
+            eps_ttm, eps_ttm_basis = round(_div(ni_ttm, shares_common)), "ni_div_shares_fallback"
+        else:
+            eps_ttm, eps_ttm_basis = None, None
+        q_code, q_cur = "periods", int(ni_win_ttm["periods"][-1][0][:4])
+        ttm_label = "최근 12개월 결산기"
 
     # ── 가드: 자본잠식·적자·섹터 ──
     impaired_full = cap_status == "full"
@@ -2661,10 +2815,20 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append(f"{'다음' if dps_next_failed else '앞'} 사업연도 배당 사항 조회 실패 — 사업보고서에 결산기가 여럿인데 최근 12개월을 맞추지 못해 "
                         "DPS 는 마지막 결산기 값이다(반기·분기 결산이면 연 배당의 일부만 잡힌다 — 다시 조회하면 맞춰질 수 있다).")
     warnings += _dps_alignment_warnings(dps_align, dps_uneven, dps_periods)
+    if ni_win_fy0 or ni_win_ttm:
+        warnings.append(_period_ni_warning(ni_win_fy0, ni_win_ttm, ni_win_e0, dps_periods["months"]))
+    elif dps_periods and stmt_cur == "KRW" and fy_rows:
+        # 261019(p1d 검토): 배당은 12개월 결산기 합인데 순이익 합을 못 맞추면(접수번호로 못 잇거나 보조 읽기 예외·결산기 부족) 종전엔 **말없이**
+        #   한 결산기 순이익(PER 2~4배)이 나갔다 — 배당의 「맞추지 못해 마지막 결산기」 안내와 같이 밝힌다. 값은 종전 그대로다.
+        warnings.append(_period_ni_missing_warning(ni_win_e0, dps_periods["months"]))
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
     if _fye_note(fye):                 # 261018(결산월): 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
         warnings.append(_fye_note(fye))
+    # 261019(p1d 검토): TTM 을 12개월 결산기 합으로 냈으면 방법 고지의 TTM 식도 그 식이다 — 종전 식(「FY0+분기누적−전년동기누적」)이 바로 위
+    #   「TTM 기준: 최근 12개월 결산기 … 합」 줄·경고와 어긋났다. 그 밖의 회사는 문구 그대로다.
+    _note_ttm = ("TTM=결산기마다 공시한 EPS 의 최근 12개월 합 · FY0 도 그 사업연도 결산기 12개월 합(반기·분기 결산 — 못 맞추면 마지막 결산기, 주의 참고)"
+                 if ni_win_ttm else "TTM=공시 EPS 조립: FY0+분기누적−전년동기누적")
 
     payload = {
         "tool": "price_multiple_data", "status": "ok", "subject": name,
@@ -2691,8 +2855,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "net_income_fy0_krw": ni_fy, "net_income_ttm_krw": ni_ttm,
                 # TTM 이 **어느 분기까지** 반영한 것인지. 이 값이 없어서 한 분기 뒤처진
                 # 것을 아무도 못 봤다(2026-08-30). 기준은 값에 붙어 다녀야 한다.
-                "ttm_quarter": {"11013": "1분기 누적", "11012": "반기 누적", "11011": "사업보고서(연간)",
-                                "11014": "3분기 누적"}.get(q_code, q_code),
+                "ttm_quarter": ttm_label or {"11013": "1분기 누적", "11012": "반기 누적", "11011": "사업보고서(연간)",
+                                             "11014": "3분기 누적"}.get(q_code, q_code),
                 "ttm_quarter_year": q_cur,
                 "controlling_equity_krw": ctrl_equity,
                 "shares_common": shares_common, "shares_total": shares_total,
@@ -2709,7 +2873,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 "scale_flags": scale_verdict["hard_hit"] + scale_verdict["soft_hit"],
                 "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
             },
-            "note": "EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준(TTM=공시 EPS 조립: FY0+분기누적−전년동기누적 "
+            "note": f"EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준({_note_ttm} "
                     "— 가중평균 주식수·우선주 배분 반영, 두 PER 직접비교 가능. 클래스별 EPS 미공시사(삼성전자 등)는 "
                     "보·우 합산 가중평균 = 국내 포털·데이터 공급처 관행과 동일). 공시 EPS 결측 시에만 "
                     "지배순이익÷보통주 폴백(경고 부착). "
@@ -2724,6 +2888,15 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                                "periods": [{"stlm_dt": f"{d[:4]}-{d[4:6]}-{d[6:]}", "dps_krw": v} for d, v in dps_periods["periods"]]}
         if dps_uneven:      # 261019(p1b): 결산기 DPS 편차가 클 때만 — 가장 큰·작은 결산기와 배수
             inputs["dps_basis"]["uneven"] = dps_uneven
+    if ni_win_fy0 or ni_win_ttm:
+        # 261019(p1d): 반기·분기 결산이면 순이익(FY0·TTM)이 어느 결산기들의 합인지 — 그런 회사에서만 칸이 생긴다.
+        def _w(win):
+            return ({"periods": [{"stlm_dt": f"{d[:4]}-{d[4:6]}-{d[6:]}", "net_income_krw": v} for d, v in win["periods"]],
+                     "net_income_krw": win["ni"]} if win else None)
+        inputs["ni_basis"] = {"rule": "trailing_12m_periods", "period_months": dps_periods["months"],
+                              "fy0": _w(ni_win_fy0) or {"periods": [{"stlm_dt": f"{ni_win_e0[:4]}-{ni_win_e0[4:6]}-{ni_win_e0[6:]}"}],
+                                                        "single_period": True},
+                              "ttm": _w(ni_win_ttm)}
     if dps_align and (dps_align["adjusted"] or dps_align["undetermined"]):
         # 261019(p1b): 결산기준일 뒤 분할·병합 등으로 DPS 를 지금 주식 기준으로 바꿨거나(adjusted) 바꿀지 확인하지 못한(undetermined) 결산기.
         inputs["dps_share_adjustment"] = {"periods": dps_align["adjusted"], "undetermined": dps_align["undetermined"]}
@@ -2744,6 +2917,29 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
 
 #: `krx_adj_events.event_type` → 우리말(배당수익률 안내 문구).
 _EVENT_KO = {"split": "액면분할", "merge": "액면병합", "bonus": "무상증자", "stock_div": "주식배당", "reduction": "감자", "mixed": "복합 조정"}
+
+
+def _period_ni_missing_warning(e0: str | None, months: int) -> str:
+    """반기·분기 결산인데 순이익 12개월 합을 못 맞췄을 때 한 줄(261019 p1d 검토) — 값은 사업보고서 하나의 당기(한 결산기) 그대로다."""
+    why = ("읽은 사업보고서로 12개월 결산기를 다 찾지 못해" if e0 else
+           "재무제표 보고서를 배당 사항의 결산기에 잇지 못하거나 조회가 실패해")
+    return (f"{'반기' if months == 6 else '분기'} 결산 회사인데 {why} 지배순이익·EPS·PER 이 사업보고서 마지막 결산기({months}개월) 하나 기준이다 — "
+            "한 결산기 순이익이라 PER 이 2~4배로 부풀 수 있다(배당은 12개월 결산기 합). 다시 조회하면 맞춰질 수 있다.")
+
+
+def _period_ni_warning(fy0: dict[str, Any] | None, ttm: dict[str, Any] | None, e0: str | None, months: int) -> str:
+    """반기·분기 결산 회사의 순이익 12개월 합 안내 한 줄(261019 p1d)."""
+    def _span(w: dict[str, Any]) -> str:
+        return " + ".join(f"{d[:4]}-{d[4:6]}" for d, _ in w["periods"]) + f" 결산기 {w['ni']:,}원"
+    why = ("사업보고서 하나에 결산기가 셋까지만 실려 12개월을 맞출 수 없어" if months == 3 else
+           "12개월 결산기를 다 찾지 못해(상장 첫 결산기·앞 결산기 순이익 빈 칸 등)")
+    parts = [f"FY0 = {_span(fy0)}" if fy0 else
+             (f"FY0 는 {why} 마지막 결산기({e0[:4]}-{e0[4:6]}, {months}개월) 값 그대로" if e0 else "FY0 는 마지막 결산기 값 그대로")]
+    if ttm:
+        parts.append(f"TTM = {_span(ttm)}")
+    return (f"{'반기' if months == 6 else '분기'} 결산 회사 — 지배순이익·EPS·PER 은 12개월 결산기 합이다({' · '.join(parts)}). "
+            "결산기마다 사업보고서가 따로 나와 한 결산기(3·6개월) 순이익을 쓰면 PER 이 2~4배로 부푼다. ROE 는 재무 요약 값(마지막 결산기) 그대로이고, "
+            "주간 곡선·과거 시점·업종 비교의 배수는 아직 저장된 한 결산기 순이익 기준이다.")
 
 
 def _dps_alignment_warnings(align: dict[str, Any] | None, uneven: dict[str, Any] | None, periods: dict[str, Any] | None) -> list[str]:
@@ -2786,6 +2982,16 @@ def _dps_alignment_warnings(align: dict[str, Any] | None, uneven: dict[str, Any]
     return out
 
 
+def _ttm_basis_line(d: dict[str, Any]) -> str:
+    """md 의 「TTM 기준」 줄. 반기·분기 결산(261019 p1d)은 12개월 결산기 합이라 「연간 + 당해 누적 − 전년 동기 누적」 식이 아니다."""
+    i = d["inputs"]
+    t = ((i.get("ni_basis") or {}).get("ttm") or {}).get("periods")
+    if t:
+        return f"- TTM 기준: 최근 12개월 결산기 {len(t)}개 합({' + '.join(p['stlm_dt'][:7] for p in t)})"
+    return (f"- TTM 기준: {i.get('ttm_quarter_year')}년 {i.get('ttm_quarter','-')} "
+            f"(= {d['fiscal_year']} 연간 + 당해 누적 − 전년 동기 누적)")
+
+
 def _render_md(p: dict[str, Any]) -> str:
     d = p["data"]; m = d["multiples"]; i = d["inputs"]
     def g(x, suf="", fmt="{}"):
@@ -2798,8 +3004,7 @@ def _render_md(p: dict[str, Any]) -> str:
         "",
         "## 인풋 (근거 투명)",
         f"- EPS {g(i['eps_fy0_krw'],'','{:,}')}(FY0)/{g(i['eps_ttm_krw'],'','{:,}')}(TTM) · BPS {g(i['bps_krw'],'','{:,}')} · ROE {g(i['roe_pct'],'%')} · DPS {g(i['dps_krw'],'','{:,}')}",
-        f"- TTM 기준: {i.get('ttm_quarter_year')}년 {i.get('ttm_quarter','-')} "
-        f"(= {d['fiscal_year']} 연간 + 당해 누적 − 전년 동기 누적)",
+        _ttm_basis_line(d),
         f"- 지배순이익 {g(i['net_income_fy0_krw'],'','{:,}')}(FY0)/{g(i['net_income_ttm_krw'],'','{:,}')}(TTM) · 지배자본 {g(i['controlling_equity_krw'],'','{:,}')} · 유통주식 보통 {g(i['shares_common'],'','{:,}')}/합계 {g(i['shares_total'],'','{:,}')}",
         f"- 보통주 시총 {g(i['common_market_cap_krw'],'','{:,}')} (업종구분: {'금융·지주' if d['sector_class']=='financial' else '일반(비금융)'})",
     ]
