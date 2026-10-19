@@ -2199,8 +2199,17 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # ── 데이터 fetch 병렬화: 의존성 3단계 (P1 fy 무관 → P2 fy 의존 → P3 fs_used 의존) ──
     # P1: 재무요약(대형 ~7콜)·업종정보·시세 — 모두 cc/stock_code만 의존(fy 불필요) → 병렬.
     #     (이전엔 순차라 info·market이 fm 뒤에서 대기했음). stock_code는 위 unlisted 가드로 보장.
+    # 261019(p1d): 첫 재무 요약의 사업연도를 **12월 결산 달력 규칙으로 직접 준다**(`_latest_annual_fy` — 4월 이후 전년). 결산월은 아래에서
+    #   재무 요약 표의 칸(`dart_fundamentals.acc_mt`)으로 정하고, 12월 결산이 아니면 그 블록이 최신 사업보고서 해로 옮긴다(실제로 낸 경우만).
+    #   #142 가 financial_metrics 의 기본 연도(year=0)를 **회사 개황 결산월**로 바꾸자 이 경로가 그 연도를 그대로 이어받았다 — 개황은 반기·분기
+    #   결산 리츠를 「마지막 결산기 달」(롯데리츠 06·신한알파리츠 03)로 주는데 칸은 12(종전 읽기)라 결산월 보정이 돌지 않아 FY0 가 2026 으로
+    #   남았다. 2026 사업보고서 배당 사항에는 결산기가 하나뿐이라 12개월 합이 빠져 배당수익률이 반토막이 났고(10-19 운영 롯데리츠 6.42% → 3.41%),
+    #   분기 칸은 아직 없는 2027 을 찾아 PER(TTM) 이 비었다(리츠 15종). 최신 사업보고서를 늦게 내는 12월 결산이 아닌 회사도 같은 길로 FY0 가
+    #   빈다(기본 연도 = 아직 없는 사업보고서 → 재무 요약이 분기 보고서로 대체 → 아래 블록은 연도가 같아 그대로 — 코드 경로, 운영 사례는 보지 않았다).
+    #   financial_metrics 도구 자체의 기본 연도(#142 — JTC 등 최신 사업보고서)는 그대로다. 결산월로 고른 최신 사업보고서 해가 달력 규칙과 다른
+    #   회사(10월의 2·3·6월 결산 등)는 재무 요약을 한 번 더 읽는다 — #142 전과 같은 비용이다.
     fm, info, mk = await asyncio.gather(
-        build_financial_metrics_payload(stock_code, scope="summary", year=0, consolidated=True),
+        build_financial_metrics_payload(stock_code, scope="summary", year=_latest_annual_fy(), consolidated=True),
         client.get_company_info(cc),
         _market_for(stock_code),
     )
@@ -2219,7 +2228,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     nondec = fye.month != 12
     fy = fm.get("data", {}).get("year")
     if nondec and fy is not None:
-        # 12월 결산이 아니면 재무 요약의 기본 연도(달력 규칙: 4월 이후 전년)가 최신 사업보고서가 아닐 수 있다 — 3월 결산은 7월부터 그해 3월 말
+        # 12월 결산이 아니면 위에서 준 연도(달력 규칙: 4월 이후 전년)가 최신 사업보고서가 아닐 수 있다 — 3월 결산은 7월부터 그해 3월 말
         #   사업보고서가 나와 있다(종전엔 한 해 앞 사업보고서를 FY0 로, 그 뒤 분기를 다음 해 표기로 찾아 TTM 이 한 해 어긋났다).
         #   최신 사업보고서가 실제로 있을 때만 그 해로 바꾼다(늦게 낸 회사는 종전 연도 그대로).
         fy_a = _rc.latest_annual(today_kst(), fye)
