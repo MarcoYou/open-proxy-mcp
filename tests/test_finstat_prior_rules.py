@@ -219,6 +219,17 @@ def test_spac_merge_week():
     assert Q.spac_merge_week(jump, "26410") == (spac[95][0], 6_000_000)
 
 
+def test_spac_merge_week_ignores_share_change_after_spac_life():
+    """261019 검토: 관측창 전 상장 종목은 첫 주가 창 시작(20151230)이다 — 2016년 초 2,000원대 옛 저가주(002880 꼴: 2,280원 · 9,145만 주)가
+    몇 해 뒤 유상증자로 주식 수가 바뀌어도 스팩 합병이 아니다(스팩은 36개월 안에 합병). 기한 안의 변화는 그대로 합병 주."""
+    old = _weeks(420, lambda i: 2280, lambda i: 91_447_161 if i < 410 else 130_000_000, start=(2015, 12, 30))
+    assert Q.spac_merge_week(old, "30392") is None                         # 410주(약 7.9년) 뒤 — 존속 기한 밖
+    near = _weeks(420, lambda i: 2050, lambda i: 6_000_000 if i < 160 else 30_000_000, start=(2015, 12, 30))
+    assert Q.spac_merge_week(near, "26410") == (near[160][0], 6_000_000)   # 160주(1,120일) — 기한 안
+    late = _weeks(420, lambda i: 2050, lambda i: 6_000_000 if i < 175 else 30_000_000, start=(2015, 12, 30))
+    assert Q.spac_merge_week(late, "26410") is None                        # 175주(1,225일) — 기한 밖
+
+
 def test_source_after_merger():
     pre = [row("SCE", "ifrs-full_Equity", "기말자본", 1, thstrm_amount=6971220554)]
     merged = pre + [row("SCE", "dart_x", "합병으로 인한 변동", 2, thstrm_amount=16561032777)]
@@ -352,6 +363,38 @@ def test_prior_rules_dry_writes_nothing(rdb):
     res = asyncio.run(Q.fill_prior_from_next(KEYS, dry=True, cold_sqlite=cold))
     assert res[("FY", 2024, 1)].startswith("근거만 적음(값은 거름)")
     assert _q(url, "SELECT * FROM dart_finstat_q ORDER BY 1, 2, 3") == before
+
+
+def test_in_report_year_end_check_needs_year_end_match(rdb):
+    """① 의 「보고서 안 판정」(자본변동표 전기 칸 = 재무상태표 전기 칸)은 재무상태표 전기 칸이 정말 직전 사업연도 말일 때만 믿는다 — 연간 표의
+    연말 자본과 1% 넘게 다르면(재무상태표 전기 칸을 전년 동기로 붙인 보고서 꼴) 맞는 값을 버리지 않는다."""
+    url, fake, cold = rdb
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("INSERT INTO dart_fundamentals (ticker, corp_code, fetched, induty) VALUES ('BSQ', '0000000B', 'ok', '26410')")
+        c.execute("INSERT INTO krx_listing (ticker, market, first_seen_dd, last_seen_dd, before_window, window_lo) "
+                  "VALUES ('BSQ', 'KQ', '20151230', '20261016', true, '20151230')")
+        c.execute("INSERT INTO dart_finstat_y (ticker, fy, fs, ni, eq, fetched) VALUES ('BSQ', 2023, 'OFS', 900000000, 5000000000, 'ok')")
+        _ins_q(c, "BSQ", 2023, 1)
+    # 2024 1분기 보고서: 자본변동표 전기 칸(2023 1분기 말) 4,200,000,000 = 재무상태표 전기 칸 4,200,000,000 — 그러나 2023 연말 자본은 50억
+    fake.avail[("0000000B", "2024", "11013", "CFS")] = _sce_next_q1(120_000_000, 5_100_000_000, 4_200_000_000, 4_200_000_000)
+    res = asyncio.run(Q.fill_prior_from_next({("BSQ", 2023, 1)}))
+    assert res[("BSQ", 2023, 1)].startswith("채움"), res
+    assert _q(url, "SELECT ni_cum_restated, eq_restated FROM dart_finstat_q WHERE ticker='BSQ'") == [(120000000.0, 4200000000.0)]
+
+
+def test_hand_edit_between_read_and_write_wins(rdb):
+    """읽은 뒤 쓰기 전에 다른 실행·손 작업이 근거를 적으면(값 칸은 빈 채로) 그 칸은 덮지 않는다(UPDATE 의 restate_why IS NULL)."""
+    url, fake, cold = rdb
+    orig = fake.get_fnltt_singl_acnt_all
+
+    async def racing(corp_code, bsns_year, reprt_code="11011", fs_div="CFS"):
+        with psycopg.connect(url, autocommit=True) as c:
+            c.execute("UPDATE dart_finstat_q SET restate_why='손 작업: 이 칸은 비워 둔다' WHERE ticker='IPO'")
+        return await orig(corp_code, bsns_year, reprt_code, fs_div)
+    fake.get_fnltt_singl_acnt_all = racing
+    asyncio.run(Q.fill_prior_from_next({("IPO", 2024, 1)}))
+    assert _q(url, "SELECT ni_cum_restated, eq_restated, restate_why FROM dart_finstat_q WHERE ticker='IPO'") == [
+        (None, None, "손 작업: 이 칸은 비워 둔다")]
 
 
 # ── 연간 수집: 납입자본 줄 규칙 · --refetch ────────────────────────────────────
