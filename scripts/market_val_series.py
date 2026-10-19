@@ -194,6 +194,8 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
     if tickers:
         firms=[r for r in firms if r[0] in set(tickers)]
     have={(r[0],int(r[1])): (r[2] or "") for r in con.execute("SELECT ticker, fy, fetched FROM dart_finstat_y")}
+    # 261019 --refetch: 그 행이 받았던 재무제표(연결/별도)부터 — 별도만 내는 회사는 연결을 먼저 불러 013 을 받던 콜을 아낀다(빈 응답이면 다른 쪽).
+    fs_had={(r[0],int(r[1])): r[2] for r in con.execute("SELECT ticker, fy, fs FROM dart_finstat_y WHERE fs IS NOT NULL")} if only else {}
     fye_of=rcal.load_fye_map(con)
     # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — dart_finstat_y DB값으로 동적
     # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
@@ -217,9 +219,10 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
     for isu,cc,yr in todo:
         k+=1
         try:
-            fs="CFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
+            first,second=("OFS","CFS") if fs_had.get((isu,yr))=="OFS" else ("CFS","OFS")
+            fs=first; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             if not rows:
-                fs="OFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
+                fs=second; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
             ni_frmtrm=gid(rows,attr,("CIS","IS"),"frmtrm_amount")

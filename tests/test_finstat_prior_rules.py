@@ -115,6 +115,24 @@ def test_prior_equity_tolerates_one_won_rounding_between_statements():
     assert Q.prior_equity_from_sce(off) == (None, "NO_SCE_ROW")
 
 
+def test_prior_equity_total_minus_noncontrolling_when_no_controlling_row():
+    """274400 2023 3분기(연결) — 자본변동표에 지배 몫 합계 행이 없다(구성요소·총계·비지배만). 총계 − 비지배 = 재무상태표 지배자본이면 전기도 그렇게."""
+    comp = "자본 [구성요소]|지배기업의 소유주에게 귀속되는 지분 [구성요소]|"
+    rows = [row("BS", "ifrs-full_EquityAttributableToOwnersOfParent", "지배", 1, thstrm_amount=25764392075),
+            row("SCE", "ifrs-full_Equity", "자본총계", 9, detail="연결재무제표 [member]", thstrm_amount=25714761140, frmtrm_q_amount=14457041445),
+            row("SCE", "ifrs-full_Equity", "자본총계", 9, detail="자본 [구성요소]|비지배지분 [구성요소]", thstrm_amount=-49630935,
+                frmtrm_q_amount=-47356950),
+            row("SCE", "ifrs-full_Equity", "자본총계", 9, detail=comp + "자본잉여금 [구성요소]", thstrm_amount=37591997603,
+                frmtrm_q_amount=24359330913)]
+    assert Q.prior_equity_from_sce(rows) == (14457041445.0 + 47356950, "SCE_TOTAL_MINUS_MINORITY")
+    # 총계 − 비지배가 재무상태표와 맞지 않으면(476040 꼴) 쓰지 않는다
+    bad = [{**rows[0], "thstrm_amount": "20339771693"}] + rows[1:]
+    assert Q.prior_equity_from_sce(bad) == (None, "NO_SCE_ROW")
+    # 당기 칸이 빈 보고서(355690 2024 3분기)는 맞춰 볼 수 없다
+    blank = [rows[0]] + [{**r, "thstrm_amount": ""} for r in rows[1:]]
+    assert Q.prior_equity_from_sce(blank) == (None, "NO_SCE_ROW")
+
+
 # ── 거름 규칙(순수 함수) ─────────────────────────────────────────────────────
 
 def test_fill_mode_respects_reasons():
@@ -359,6 +377,18 @@ def test_annual_refetch_fixes_capital_line_equity(pg17, monkeypatch):
     assert _q(pg17, "SELECT ticker, fy, ni, eq, fetched FROM dart_finstat_y ORDER BY 1") == [
         ("065680", 2024, 19885390796.0, 246382985257.0, "ok"),          # 자본금 줄 대신 자본총계 − 비지배
         ("069960", 2021, 189377183000.0, 117012205000.0, "ok")]         # 받지 못한(013 → nodata) 행은 있던 ok 를 덮지 않는다
+    # 별도로 받았던 행은 별도부터 부른다(연결 013 콜을 아낀다) — 법인세차감전 순이익이 순이익 칸에 들어 있던 옛 행(FY2020·21) 바로잡기
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("INSERT INTO dart_fundamentals (ticker, corp_code, fetched) VALUES ('256150', '01234567', 'ok')")
+        c.execute("INSERT INTO dart_finstat_y (ticker, fy, fs, ni, eq, fetched) VALUES ('256150', 2020, 'OFS', 9427216728, 41296747108, 'ok')")
+    fake.avail[("01234567", "2020", "11011", "OFS")] = [
+        row("CIS", "ifrs-full_ProfitLossBeforeTax", "법인세비용차감전순이익", 10, thstrm_amount=9427216728),
+        row("CIS", "ifrs-full_ProfitLoss", "당기순이익", 12, thstrm_amount=8248807925),
+        row("BS", "ifrs-full_Equity", "자본총계", 3, thstrm_amount=41296747108)]
+    n = len(fake.calls)
+    asyncio.run(S.fetch(only={("256150", 2020)}))
+    assert fake.calls[n:] == [("01234567", "2020", "11011", "OFS")]
+    assert _q(pg17, "SELECT ni, eq, fs FROM dart_finstat_y WHERE ticker='256150'") == [(8248807925.0, 41296747108.0, "OFS")]
     # 같은 규칙은 다음 해 보고서의 정정치에도
     v, why = S.ctrl_eq([row("BS", "ifrs-full_Equity", "자본총계", 29, frmtrm_amount=223924851066),
                         row("BS", "ifrs-full_EquityAttributableToOwnersOfParent", "자본금", 30, frmtrm_amount=4967110000),

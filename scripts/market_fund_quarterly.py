@@ -1042,13 +1042,36 @@ def _same_amount(a: float, b: float) -> bool:
     return abs(a - b) <= max(1.0, abs(b) * 1e-6)
 
 
+def _prior_equity_sce_total_minus_nci(rows, cur_eq: float) -> tuple[float | None, str]:
+    """자본변동표에 지배 몫 합계 행이 없거나(구성요소만) 그 행이 재무상태표와 어긋날 때 — 총계 행(`연결재무제표`·`별도재무제표` 멤버) − 비지배지분 행이
+    이번 분기 말에 재무상태표 지배자본과 같으면, 전기 칸도 총계 − 비지배로 낸다(파서의 `TOTAL_MINUS_MINORITY` 와 같은 규칙).
+    261019: 274400 2023 3분기(지배 몫 합계 행 없음 — 총계 257.15억 − 비지배 −0.50억 = 재무상태표 지배자본 257.64억) · 214610 2021 1분기 ·
+    398120 2025 반기(지배 몫 행 221.86억 ≠ 재무상태표 219.79억, 총계 − 비지배는 같음) 가 이 꼴이라 그 칸 자본이 비었다."""
+    def detail(r):
+        return (r.get("account_detail") or "").replace(" ", "")
+    eq_rows = [r for r in rows if r.get("sj_div") == "SCE" and r.get("account_id") in _SCE_EQUITY_IDS]
+    tot = [r for r in eq_rows if "|" not in detail(r) and detail(r).endswith("재무제표[member]")]
+    nci = [r for r in eq_rows if "비지배" in detail(r) and detail(r).count("|") == 1]
+    if len(tot) != 1 or len(nci) > 1:
+        return None, "NO_SCE_ROW"
+    t_cur, t_prev = normalize_amount(tot[0].get("thstrm_amount")), normalize_amount(tot[0].get("frmtrm_q_amount"))
+    n_cur, n_prev = ((normalize_amount(nci[0].get("thstrm_amount")), normalize_amount(nci[0].get("frmtrm_q_amount")))
+                     if nci else (0, 0))
+    if t_cur is None or t_prev is None or n_cur is None or n_prev is None:
+        return None, "NO_SCE_ROW"
+    if not _same_amount(float(t_cur) - float(n_cur), cur_eq):
+        return None, "NO_SCE_ROW"
+    return float(t_prev) - float(n_prev), "SCE_TOTAL_MINUS_MINORITY"
+
+
 def prior_equity_from_sce(rows) -> tuple[float | None, str]:
     """다음 해 같은 분기 보고서 → (전년 같은 분기 말 지배자본, 케이스). 못 정하면 (None, 사유).
 
     재무상태표의 전기 칸은 직전 **사업연도 말**이라 분기 말 잔액이 아니다. 자본변동표의 기말 행(`ifrs-full_Equity`, 구성요소마다 한 행)은
     당기 칸 = 이번 분기 말, 전기 칸(frmtrm_q_amount) = 전년 같은 분기 말이다. 구성요소 가운데 **이번 분기 말 값이 같은 보고서 재무상태표의
     지배자본과 같은 행**만 믿는다(그 행이 지배 몫 합계라는 확인 — 이익잉여금 같은 다른 구성요소·비지배·총계 행은 걸리지 않는다).
-    그런 행들의 전기 값이 서로 다르면 쓰지 않는다. 261019: 옛 접두어(`ifrs_Equity`)도 읽고, 원 단위 반올림 차이는 같게 본다(`_same_amount`)."""
+    그런 행들의 전기 값이 서로 다르면 쓰지 않는다. 261019: 옛 접두어(`ifrs_Equity`)도 읽고, 원 단위 반올림 차이는 같게 본다(`_same_amount`).
+    그런 행이 없으면 총계 − 비지배로 맞춰 본다(`_prior_equity_sce_total_minus_nci`)."""
     cur_eq, _ = extract_controlling_eq(rows)
     if cur_eq is None:
         return None, "NO_CURRENT_EQ"
@@ -1061,7 +1084,7 @@ def prior_equity_from_sce(rows) -> tuple[float | None, str]:
             continue
         prev.append((abs(float(cur) - cur_eq), float(pv)))
     if not prev:
-        return None, "NO_SCE_ROW"
+        return _prior_equity_sce_total_minus_nci(rows, cur_eq)
     best = min(prev)[1]                            # 지배 몫 행과 (비지배가 없을 때) 총계 행이 반올림만큼 다를 수 있다 — 같으면 하나로
     if any(not _same_amount(pv, best) for _, pv in prev):
         return None, "SCE_AMBIGUOUS"
