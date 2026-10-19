@@ -113,6 +113,8 @@ jobs:
         #   계산은 KSIC 백필과 **같은 함수**(_pit_fy·_ttm_ni·_mrq_eq)를 재사용하고
         #   갈아끼우는 것은 섹터 버킷 하나뿐이다.
         #   과거 월말은 소급(현재 분류를 과거에 적용) — 산출물이 sector_asof 로 그 사실을 남긴다.
+        # 261019: 기본 --since 20200101 이지만 주간 시세 보존 하한 이전 달은 연말만 다시 낸다(나머지는 건너뛰고 저장된 행 그대로) —
+        #   DB 는 하한 이전을 종목별 연말 행만 남겨 그 달 월말 시세가 없다. 하한 이전까지 다시 내는 것은 콜드 서빙본으로 손으로(--cold-sqlite).
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/sector_val_backfill.py

@@ -290,6 +290,15 @@ def series():
         WHEN SUBSTRING(price_dd,5,2)::int<=6 THEN 2 WHEN SUBSTRING(price_dd,5,2)::int<=9 THEN 3 ELSE 4 END
       ORDER BY 1""").fetchall()
     qdates=[r[0] for r in qs if r[0]>="20210601"]
+    # 261019: krx_weekly 는 보존 하한 이전을 종목별 연말 행만 남긴다 — 하한 이전 1~3분기의 「마지막 주간일」은 그 분기에 상장폐지한
+    #   종목 몇 개의 마지막 행이라 시장 합이 아니다. 월말 원천(`month_end_prices`)이 온전하다고 말하는 날짜(연말·촘촘한 구간)만 쓴다.
+    from scripts.month_end_prices import MonthEndPrices
+    _src = MonthEndPrices(con, "20210601")
+    _ok = set(_src.plan.dates)
+    _drop = [d for d in qdates if d not in _ok and d < _src.floor]
+    qdates = [d for d in qdates if d in _ok or d >= _src.floor]
+    if _drop:
+        print(f"[하한] 보존 하한 이전 분기말 {len(_drop)}개 건너뜀(그 날짜 시세가 부분 행뿐): {_drop[0]}~{_drop[-1]}")
     # 재무: FY별 (dart_finstat_y ∪ 최신 확정 FY=_latest_annual_fy()는 dart_fundamentals)
     # restated(다음 해 보고서 전기 비교치)가 있으면 그걸 우선 — 회사가 스스로 재작성한 참값
     # (소프트센 032680 FY2022 사례: 당해 XBRL 100만배 오류를 다음해 보고서가 정상화).
