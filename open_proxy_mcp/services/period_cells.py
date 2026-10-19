@@ -88,7 +88,7 @@ def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str
     ① 지배 귀속 순이익 ② 비지배 순이익 줄이 있으면 총순이익 − 비지배 ③ (더한 길) 지배·비지배 순이익 줄이 없는데 **지배 귀속 총포괄**이 있고
     기타포괄이 0(총포괄 = 총순이익)이면 그 값 — 10-20 원문 신한알파리츠 2023~2025 9월 사업보고서는 순이익을 지배·비지배로 나누지 않고
     총포괄만 나눴다(2025.09 총순이익 113.1억 · 지배 총포괄 67.5억 = 다음 보고서 전기 칸의 지배 순이익). firm 의 길(②의 비지배 0)이면 비지배 몫이
-    섞인다. ④ 총순이익(비지배 없는 회사)."""
+    섞인다. ④ (더한 길) 표준 코드 없는 이름 줄 — 값이 하나로 모일 때만(아래) ⑤ 총순이익(비지배 없는 회사)."""
     sj = ("CIS", "IS")
     v = _g(rows, "ProfitLossAttributableToOwnersOfParent", sj, field)
     if v is not None:
@@ -101,9 +101,37 @@ def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str
     ci = _g(rows, "ComprehensiveIncome", sj, field)
     if pl is not None and ci_o is not None and ci is not None and abs(ci - pl) < 1:
         return ci_o, "CI_OWNERS_OCI0"
+    # ④ 표준 계정코드 없이 이름으로만 지배·비지배를 나눈 보고서(10-20 원문 디앤디플랫폼리츠 2021·2022, ESR켄달스퀘어리츠 2021~2024 사업보고서 —
+    #   「지배기업 소유주지분」·「지배기업주주지분」). 순이익 귀속과 총포괄 귀속 두 곳에 같은 이름 줄이 있어 **값이 하나로 모일 때만** 쓴다(기타포괄이
+    #   있으면 두 값이 달라 쓰지 않는다 — 분기 수집 파서가 총포괄 지배 몫을 순이익으로 고르던 결함을 들이지 않는다).
+    own = set(_nonstd(rows, field, nci=False))
+    if len(own) == 1:
+        return own.pop(), "NM_OWNERS"
+    nci_nm = set(_nonstd(rows, field, nci=True))
+    if pl is not None and len(nci_nm) == 1 and not own:
+        return pl - nci_nm.pop(), "TOTAL_MINUS_NM_NCI"
     if pl is not None:
         return pl, "TOTAL"
     return None, "NONE"
+
+
+def _nonstd(rows: list, field: str, nci: bool) -> list[float]:
+    """표준 계정코드가 없는 손익 줄 가운데 이름이 지배(nci=False) 또는 비지배(nci=True) 귀속인 줄의 값."""
+    out = []
+    for r in rows or []:
+        if r.get("sj_div") not in ("CIS", "IS") or not str(r.get("account_id") or "").startswith("-표준"):
+            continue
+        nm = str(r.get("account_nm") or "").replace(" ", "")
+        if "지배" not in nm or ("비지배" in nm) != nci or "주당" in nm:
+            continue
+        v = r.get(field)
+        if v in (None, "", "-"):
+            continue
+        try:
+            out.append(float(str(v).replace(",", "")))
+        except (TypeError, ValueError):
+            continue
+    return out
 
 
 def ctrl_eq(rows: list, field: str = "thstrm_amount") -> float | None:

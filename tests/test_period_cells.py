@@ -290,3 +290,17 @@ def test_old_taxonomy_prefix_is_read():
             {"rcept_no": "20190329000001", "sj_div": "BS", "account_id": "ifrs_Equity", "thstrm_nm": "제 26 기", "thstrm_amount": "273463533150",
              "frmtrm_nm": "제 25 기", "frmtrm_amount": "306099597613"}]
     assert pc.ctrl_ni(rows, "frmtrm_amount") == (4402740732.0, "ID") and pc.ctrl_eq(rows, "frmtrm_amount") == 306099597613.0
+
+
+def test_owner_line_without_standard_code_only_when_unambiguous():
+    """디앤디플랫폼리츠 2021.09 사업보고서 — 지배·비지배를 표준 코드 없는 이름 줄로만 나눴다(지배 27.7억 · 비지배 −2.7억, 총순이익 25.0억).
+    순이익 귀속·총포괄 귀속 두 곳의 같은 이름 줄이 같은 값일 때만 쓴다(기타포괄이 있어 갈리면 총순이익 — 총포괄 지배 몫을 순이익으로 고르지 않는다)."""
+    def row(aid, nm, v):
+        return {"rcept_no": "20211209000001", "sj_div": "CIS", "account_id": aid, "account_nm": nm, "thstrm_nm": "제 2 기", "thstrm_amount": v}
+    base = [row("ifrs-full_ProfitLoss", "당기순이익(손실)", "2498514116"), row("ifrs-full_ComprehensiveIncome", "총포괄손익", "2498514116"),
+            row("-표준계정코드 미사용-", "지배기업 소유주지분", "2772756487"), row("-표준계정코드 미사용-", "비지배지분", "-274242371")]
+    assert pc.ctrl_ni(base + [row("-표준계정코드 미사용-", "지배기업 소유주지분", "2772756487")]) == (2772756487.0, "NM_OWNERS")
+    split = base + [row("-표준계정코드 미사용-", "지배기업 소유주지분", "2700000000")]          # 기타포괄이 있어 두 값이 갈린다
+    assert pc.ctrl_ni(split) == (2498514116.0, "TOTAL")
+    nci_only = [r for r in base if r["account_nm"] != "지배기업 소유주지분"]
+    assert pc.ctrl_ni(nci_only) == (2498514116.0 + 274242371.0, "TOTAL_MINUS_NM_NCI")
