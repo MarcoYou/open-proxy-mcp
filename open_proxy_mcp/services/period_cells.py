@@ -88,13 +88,21 @@ def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str
     ① 지배 귀속 순이익 ② 비지배 순이익 줄이 있으면 총순이익 − 비지배 ③ (더한 길) 지배·비지배 순이익 줄이 없는데 **지배 귀속 총포괄**이 있고
     기타포괄이 0(총포괄 = 총순이익)이면 그 값 — 10-20 원문 신한알파리츠 2023~2025 9월 사업보고서는 순이익을 지배·비지배로 나누지 않고
     총포괄만 나눴다(2025.09 총순이익 113.1억 · 지배 총포괄 67.5억 = 다음 보고서 전기 칸의 지배 순이익). firm 의 길(②의 비지배 0)이면 비지배 몫이
-    섞인다. ④ (더한 길) 표준 코드 없는 이름 줄 — 값이 하나로 모일 때만(아래) ⑤ 총순이익(비지배 없는 회사)."""
+    섞인다. ④ (더한 길) 표준 코드 없는 이름 줄 — 값이 하나로 모일 때만(아래) ⑤ 총순이익(비지배 없는 회사).
+
+    ①의 지배 귀속 줄은 **값 구조(지배 + 비지배 = 총순이익)가 맞을 때만** 쓴다(261020 p1e 검토). 10-20 원문 신한서부티엔디리츠(404990) 2021~2023
+    사업보고서는 지배 귀속 순이익 줄을 0 으로 적었다(비지배 0 · 총순이익 16.5억 등 — 지배 총포괄 줄은 총순이익과 같다). 그 줄을 그대로 쓰면 결산기
+    순이익이 0 이 되어 사업연도 2021·2022 합이 0 으로 들어갔다. 신한알파리츠(293940) 2020.09 사업보고서 전기 칸은 지배 줄이 총순이익과 같고
+    비지배 −0.6억이 따로 있었다(지배 총포괄 = 총순이익 − 비지배). 구조가 어긋나면 ①을 건너뛰고 ②(총 − 비지배)부터 본다. 비지배 줄이 없는 회사는
+    지배 줄이 0 인데 총순이익이 0 이 아닐 때만 어긋났다고 본다(비지배 줄 없이 비지배가 있는 회사의 정상 값은 그대로 쓴다)."""
     sj = ("CIS", "IS")
     v = _g(rows, "ProfitLossAttributableToOwnersOfParent", sj, field)
-    if v is not None:
-        return v, "ID"
     pl = _g(rows, "ProfitLoss", sj, field)
     nci = _g(rows, "ProfitLossAttributableToNoncontrollingInterests", sj, field)
+    if v is not None:
+        broken = pl is not None and abs(v + (nci or 0) - pl) >= 1 and (nci is not None or v == 0)
+        if not broken:
+            return v, "ID"
     if pl is not None and nci is not None:
         return pl - nci, "TOTAL_MINUS_NCI"
     ci_o = _g(rows, "ComprehensiveIncomeAttributableToOwnersOfParent", sj, field)

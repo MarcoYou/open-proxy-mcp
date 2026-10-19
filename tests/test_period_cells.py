@@ -283,6 +283,30 @@ def test_stored_period_fy0_reads_only_a_matching_cell(monkeypatch):
     assert asyncio.run(S._stored_period_fy0("395400", 2025, "20250930")) == (None, None)       # 결산기가 어긋나면 쓰지 않는다
 
 
+def test_owner_line_is_used_only_when_its_structure_holds():
+    """10-20 원문 신한서부티엔디리츠(404990) 2022.12 사업보고서 — 지배 귀속 순이익 줄이 세 칸 모두 0(비지배 0 · 총순이익 54.4억·33.2억·16.5억,
+    지배 총포괄 = 총순이익). 그 줄을 쓰면 결산기 순이익이 0 이 되어 사업연도 합이 0 으로 들어갔다(운영 FY2021·2022 = 0).
+    신한알파리츠(293940) 2020.09 사업보고서 전기 칸 — 지배 줄 57.2억 = 총순이익인데 비지배 −0.6억이 따로(지배 총포괄 57.9억)."""
+    def row(aid, vals):
+        return {"rcept_no": "20230315000424", "sj_div": "CIS", "account_id": aid, "thstrm_nm": "제 5 기", "frmtrm_nm": "제 4 기",
+                "bfefrmtrm_nm": "제 3 기", **dict(zip(("thstrm_amount", "frmtrm_amount", "bfefrmtrm_amount"), vals))}
+    pl = ("5439414713", "3321786667", "1653483263")
+    rows = [row("ifrs-full_ProfitLoss", pl), row("ifrs-full_ProfitLossAttributableToNoncontrollingInterests", ("0", "0", "0")),
+            row("ifrs-full_ProfitLossAttributableToOwnersOfParent", ("0", "0", "0")), row("ifrs-full_ComprehensiveIncome", pl),
+            row("ifrs-full_ComprehensiveIncomeAttributableToOwnersOfParent", pl)]
+    assert [pc.ctrl_ni(rows, f) for f in ("thstrm_amount", "frmtrm_amount", "bfefrmtrm_amount")] == [
+        (5439414713.0, "TOTAL_MINUS_NCI"), (3321786667.0, "TOTAL_MINUS_NCI"), (1653483263.0, "TOTAL_MINUS_NCI")]
+    assert S._report_periods(rows)[4][0] == 3321786667.0                                       # firm 결산기 경로도 같은 규칙
+    no_nci = [r for r in rows if "NoncontrollingInterests" not in r["account_id"]]          # 비지배 줄 없이 지배 줄 0 — 빈 줄로 본다
+    assert pc.ctrl_ni(no_nci) == (5439414713.0, "CI_OWNERS_OCI0")
+    alpha = [row("ifrs-full_ProfitLoss", ("1", "5722267683", "1")), row("ifrs-full_ProfitLossAttributableToOwnersOfParent", ("1", "5722267683", "1")),
+             row("ifrs-full_ProfitLossAttributableToNoncontrollingInterests", ("0", "-63976713", "0"))]
+    assert pc.ctrl_ni(alpha, "frmtrm_amount") == (5786244396.0, "TOTAL_MINUS_NCI")
+    assert pc.ctrl_ni(alpha) == (1.0, "ID")                                                   # 구조가 맞는 칸은 종전 그대로
+    legit = [row("ifrs-full_ProfitLoss", ("100", "1", "1")), row("ifrs-full_ProfitLossAttributableToOwnersOfParent", ("70", "1", "1"))]
+    assert pc.ctrl_ni(legit) == (70.0, "ID")                                                  # 비지배 줄 없이 비지배가 있는 회사의 정상 값
+
+
 def test_old_taxonomy_prefix_is_read():
     """2018 사업보고서 무렵은 옛 분류체계(`ifrs_…`) — 이리츠코크렙 2018.12 보고서의 전기(2018-06 결산기) 순이익 44.0억."""
     rows = [{"rcept_no": "20190329000001", "sj_div": "CIS", "account_id": "ifrs_ProfitLossAttributableToOwnersOfParent",
