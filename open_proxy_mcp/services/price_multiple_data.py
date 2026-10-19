@@ -2815,6 +2815,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     warnings += _dps_alignment_warnings(dps_align, dps_uneven, dps_periods)
     if ni_win_fy0 or ni_win_ttm:
         warnings.append(_period_ni_warning(ni_win_fy0, ni_win_ttm, ni_win_e0, dps_periods["months"]))
+    elif dps_periods and stmt_cur == "KRW" and fy_rows:
+        # 261019(p1d 검토): 배당은 12개월 결산기 합인데 순이익 합을 못 맞추면(접수번호로 못 잇거나 보조 읽기 예외·결산기 부족) 종전엔 **말없이**
+        #   한 결산기 순이익(PER 2~4배)이 나갔다 — 배당의 「맞추지 못해 마지막 결산기」 안내와 같이 밝힌다. 값은 종전 그대로다.
+        warnings.append(_period_ni_missing_warning(ni_win_e0, dps_periods["months"]))
     if mk.get("date"):
         warnings.append(f"주가 기준일 {mk['date']} 종가 {price:,}원 (KRX).")
     if _fye_note(fye):                 # 261018(결산월): 12월 결산이 아니면 칸 표기 읽는 법(12월 결산은 종전 응답 그대로)
@@ -2911,6 +2915,14 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
 
 #: `krx_adj_events.event_type` → 우리말(배당수익률 안내 문구).
 _EVENT_KO = {"split": "액면분할", "merge": "액면병합", "bonus": "무상증자", "stock_div": "주식배당", "reduction": "감자", "mixed": "복합 조정"}
+
+
+def _period_ni_missing_warning(e0: str | None, months: int) -> str:
+    """반기·분기 결산인데 순이익 12개월 합을 못 맞췄을 때 한 줄(261019 p1d 검토) — 값은 사업보고서 하나의 당기(한 결산기) 그대로다."""
+    why = ("읽은 사업보고서로 12개월 결산기를 다 찾지 못해" if e0 else
+           "재무제표 보고서를 배당 사항의 결산기에 잇지 못하거나 조회가 실패해")
+    return (f"{'반기' if months == 6 else '분기'} 결산 회사인데 {why} 지배순이익·EPS·PER 이 사업보고서 마지막 결산기({months}개월) 하나 기준이다 — "
+            "한 결산기 순이익이라 PER 이 2~4배로 부풀 수 있다(배당은 12개월 결산기 합). 다시 조회하면 맞춰질 수 있다.")
 
 
 def _period_ni_warning(fy0: dict[str, Any] | None, ttm: dict[str, Any] | None, e0: str | None, months: int) -> str:

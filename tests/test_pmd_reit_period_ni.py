@@ -178,6 +178,9 @@ def test_unmatched_receipt_number_keeps_the_previous_values(monkeypatch):
     i = p["data"]["inputs"]
     assert "ni_basis" not in i and i["net_income_fy0_krw"] == 19_627_460_882 and i["ttm_quarter"] == "반기 누적"
     assert (2026, "11011") not in seen["acnt"]
+    # 말없이 한 결산기 순이익을 내지 않는다(261019 p1d 검토) — 배당은 12개월 합이라 PER 만 부푼 줄 모른다
+    w = [x for x in p["data"]["warnings"] if "지배순이익·EPS·PER 이 사업보고서 마지막 결산기(6개월) 하나 기준" in x]
+    assert len(w) == 1 and "잇지 못하거나 조회가 실패해" in w[0]
 
 
 def test_next_report_read_failure_keeps_the_fiscal_year_window(monkeypatch):
@@ -202,6 +205,20 @@ def test_exception_in_the_extra_read_is_fail_open(monkeypatch):
     i = p["data"]["inputs"]
     assert p["status"] == "ok" and "ni_basis" not in i and i["net_income_fy0_krw"] == 19_627_460_882   # 종전 값
     assert i["dps_krw"] == 262 and p0["data"]["inputs"]["ni_basis"]
+    assert any("하나 기준이다 — 한 결산기 순이익이라 PER 이 2~4배로" in x for x in p["data"]["warnings"])
+    assert not any("하나 기준이다 — 한 결산기 순이익이라" in x for x in p0["data"]["warnings"])     # 맞추면 그 안내는 없다
+
+
+def test_quarterly_reit_before_its_next_report_says_the_net_income_is_one_period(monkeypatch):
+    """분기 결산이 4~6월처럼 다음 사업연도 사업보고서가 아직 없으면 결산기가 셋뿐이라 FY0·TTM 모두 못 맞춘다 — 값은 종전 그대로, 까닭을 적는다."""
+    reports = {k: v for k, v in SK.items() if k != (2026, "11011")}
+    alot = {2024: _alot(("2024-12-31", "70", "r24")), 2025: SK_ALOT[2025]}
+    p, seen = _run(monkeypatch, overview_acc_mt="03", db_acc_mt=12, reports=reports, alot=alot, ticker="395400", cap=SK_CAP, price=5310)
+    i = p["data"]["inputs"]
+    assert "ni_basis" not in i and i["net_income_fy0_krw"] == 32_360_769_209 and i["net_income_ttm_krw"] is None
+    assert i["dps_krw"] == 268 and [x["stlm_dt"] for x in i["dps_basis"]["periods"]][-1] == "2025-12-31"
+    w = [x for x in p["data"]["warnings"] if "분기 결산 회사인데 읽은 사업보고서로 12개월 결산기를 다 찾지 못해" in x]
+    assert len(w) == 1 and "마지막 결산기(3개월) 하나 기준" in w[0]
 
 
 def test_december_company_is_unchanged(monkeypatch):
