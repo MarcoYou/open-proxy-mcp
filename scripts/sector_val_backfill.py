@@ -131,16 +131,18 @@ def main() -> int:
     src = MonthEndPrices(con, a.since, a.cold_sqlite)
     print(src.describe(), flush=True)
     months = list(src.plan.dates)
+    keep: set[str] = set()
     if a.with_stored_weekly:
-        # 저장된 업종 날짜 가운데 DB 촘촘한 주간 구간의 닫힌 주 날짜(그 날 시세가 온전하다)만. 월말이 아닌 점 = 매일 배치가 남긴 주간 점.
+        # 저장된 업종 날짜 가운데 DB 촘촘한 주간 구간의 닫힌 주 날짜(그 날 시세가 온전하다) 전부 — 월말이 아닌 점 = 매일 배치가 남긴 주간 점.
+        #   현재월 제외·현재 점 바꿔 끼우기(아래) 뒤에 다시 더한다 — 이번 달의 저장된 점도 빠짐없이 다시 낸다.
         stored = {r[0] for r in con.execute(
             "SELECT DISTINCT snap_dd FROM opm_val_market WHERE scheme IN ('wics_sector', 'wics_industry') AND snap_dd >= %s", (a.since,))}
-        extra = sorted(d for d in stored - set(months) if d in src.dense)
+        keep = {d for d in stored if d in src.dense}
+        for d in keep:
+            src.plan.src[d] = "db"
+        extra = sorted(keep - set(months))
         if extra:
             print(f"저장된 업종 주간 점 {len(extra)}개도 다시 낸다({extra[0]}~{extra[-1]})", flush=True)
-            months = sorted(set(months) | set(extra))
-            for d in extra:
-                src.plan.src[d] = "db"
     today = date.today()
     cur_ym = f"{today.year}{today.month:02d}"
     # 260823: 종전엔 현재월을 무조건 제외했다(월말 확정본만). 그런데 일간 배치가 이 스크립트를
@@ -161,6 +163,7 @@ def main() -> int:
                 months[-1] = latest
             else:
                 months.append(latest)
+    months = sorted(set(months) | keep)
     if not months:
         print("다시 낼 월말이 없다", flush=True)
         src.close(); con.close()

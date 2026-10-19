@@ -128,6 +128,8 @@ def vdb(pg17, monkeypatch, tmp_path):
             for m in ("KS", "KQ"):
                 old.append((dd, m, "market", "_ALL", None, None, 1.0, OLD, OLD, OLD, OLD, 1.0, 1.0, None, None))
             old.append((dd, "KS", "wics_sector", "G45", "IT", 1, 1.0, OLD, OLD, OLD, OLD, 1.0, 1.0, None, None))
+        # 매일 배치가 남긴 업종 주간 점(월말 아님) — --with-stored-weekly 때만 다시 낸다
+        old.append(("20231020", "KQ", "wics_sector", "G45", "IT", 1, 1.0, OLD, OLD, OLD, OLD, 1.0, 1.0, None, None))
         # 주간 스냅샷이 쓴 시장 행(cap_pref 있음) — 과거 밴드 백필이 덮지 않는다
         old.append(("20260731", "KS", "market", "_ALL", None, 2, 1.0, OLD, OLD, OLD, OLD, 1.0, 1.0, 5.0, 7.0))
         c.cursor().executemany("INSERT INTO opm_val_market VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", old)
@@ -205,3 +207,16 @@ def test_sector_backfill_rewrites_only_changed_rows(vdb, monkeypatch):
     with psycopg.connect(url) as c:
         assert c.execute("SELECT snap_dd, market, scheme, sector, xmin::text FROM opm_val_market WHERE scheme LIKE 'wics%' "
                          "ORDER BY 1,2,3,4").fetchall() == before
+
+
+def test_with_stored_weekly_recomputes_stored_sector_points_between_month_ends(vdb, monkeypatch, capsys):
+    url, _ = vdb
+    monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py"])
+    assert S.main() == 0
+    assert _rows(url)[("20231020", "KQ", "wics_sector", "G45")]["per_fy0"] == OLD   # 월말만 — 주간 점은 옛 값 그대로
+    monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py", "--with-stored-weekly"])
+    assert S.main() == 0
+    after = _rows(url)
+    assert after[("20231020", "KQ", "wics_sector", "G45")]["per_fy0"] == pytest.approx(5000 / 200)
+    assert [k for k in after if k[0] == "20231020" and k[1] == "KS" and k[2] == "wics_sector"]          # 같은 날 다른 버킷도 낸다
+    assert "주간 점 1개" in capsys.readouterr().out
