@@ -1529,22 +1529,24 @@ _PERIOD_Q_SQL = ("INSERT INTO dart_finstat_q (ticker, fy, quarter, reprt_code, f
                  "IS DISTINCT FROM (EXCLUDED.ni_cum_restated, EXCLUDED.eq_restated, EXCLUDED.restate_why)")
 
 
-def period_cell_writes(ticker: str, fs: str | None, cells: dict, years: set[int] | None = None) -> dict[str, list]:
-    """결산기 칸(`period_cells.build_cells`) → 쓰기 행(순수 함수 — 시험 대상). `years` 를 주면 그 해 칸만.
+def period_cell_writes(ticker: str, fs: str | None, cells: dict, years: set[int] | None = None, seen: str | None = None) -> dict[str, list]:
+    """결산기 칸(`period_cells.build_cells`) → 쓰기 행(순수 함수 — 시험 대상). `years` 를 주면 그 해 칸만. `seen` = 그때 공시 목록의 가장 늦은
+    접수일(정정 보고서 포함) — 근거 칸 끝에 「목록 YYYYMMDD」로 남겨 다음 수집이 그 뒤 보고서만 본다.
     {"y": [(ticker, fy, fs, 원본 순이익, 원본 자본, 정정 순이익, 정정 자본)], "q4": [(ticker, fy, fs, 원본 순이익, 원본 자본, 정정 순이익, 정정 자본, 근거)],
      "q": [(ticker, fy, quarter, 보고서 코드, fs, 정정 누적, 정정 자본, 근거)]}."""
     rc_of = {1: "11013", 2: "11012", 3: "11014"}
+    tail = f" · 목록 {seen}" if seen else ""
     out: dict[str, list] = {"y": [], "q4": [], "q": []}
     for fy, a in sorted(cells["annual"].items()):
         if years is not None and fy not in years:
             continue
         raw_ni, raw_eq = a.get("own_ni"), a["eq"]          # 원본 칸 = 그 사업보고서 당기(한 결산기) — DART 가 그 칸에 주는 값
         out["y"].append((ticker, fy, fs, raw_ni, raw_eq, a["ni"], a["eq"]))
-        out["q4"].append((ticker, fy, fs, a["ni"] if a["ni"] is not None else raw_ni, a["eq"], a["ni"], a["eq"], a["why"]))
+        out["q4"].append((ticker, fy, fs, a["ni"] if a["ni"] is not None else raw_ni, a["eq"], a["ni"], a["eq"], a["why"] + tail))
     for (fy, q), c in sorted(cells["quarter"].items()):
         if years is not None and fy not in years:
             continue
-        out["q"].append((ticker, fy, q, rc_of[q], fs, c["ni"], c["eq"], c["why"]))
+        out["q"].append((ticker, fy, q, rc_of[q], fs, c["ni"], c["eq"], c["why"] + tail))
     return out
 
 
@@ -1588,8 +1590,10 @@ async def refresh_period_cells(tickers: list[str] | None = None, today: date | N
     cands = (set(tickers) if tickers else (known | period_candidates(con, t0)))
     meta = {r[0]: (r[1], r[2]) for r in con.execute(
         "SELECT ticker, corp_code, fs FROM dart_fundamentals WHERE ticker = ANY(%s) AND corp_code IS NOT NULL", (sorted(cands),))}
+    # 종목마다 이미 본 공시 목록의 끝(근거 칸 「목록 YYYYMMDD」, 없으면 칸 공시일) — 그 뒤에 접수된 보고서(정정 포함)가 있을 때만 다시 받는다.
     last = {r[0]: r[1] for r in con.execute(
-        f"SELECT ticker, max({pcells.AVAIL_SQL}) FROM dart_finstat_q WHERE restate_why LIKE %s GROUP BY ticker", (pcells.MARK_LIKE,))}
+        f"SELECT ticker, max(COALESCE(substring(restate_why from '목록 ([0-9]{{8}})'), {pcells.AVAIL_SQL})) FROM dart_finstat_q "
+        "WHERE restate_why LIKE %s GROUP BY ticker", (pcells.MARK_LIKE,))}
     con.close()
     c = get_dart_client()
     calls = 0
@@ -1684,7 +1688,7 @@ async def refresh_period_cells(tickers: list[str] | None = None, today: date | N
                 if extra:
                     facts = pcells.collect_facts(cal, ann, inter, extra)
             cells = pcells.build_cells(cal, facts, ts)
-            writes = period_cell_writes(t, fs_used, cells, ys)
+            writes = period_cell_writes(t, fs_used, cells, ys, seen=newest)
             if dry:
                 result[t] = f"(dry) 연간 {len(writes['y'])} · 분기 {len(writes['q'])} · 연도 {min(ys)}~{max(ys)}"
                 continue

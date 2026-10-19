@@ -304,3 +304,18 @@ def test_owner_line_without_standard_code_only_when_unambiguous():
     assert pc.ctrl_ni(split) == (2498514116.0, "TOTAL")
     nci_only = [r for r in base if r["account_nm"] != "지배기업 소유주지분"]
     assert pc.ctrl_ni(nci_only) == (2498514116.0 + 274242371.0, "TOTAL_MINUS_NM_NCI")
+
+
+def test_period_cell_writes_remember_the_listing_end():
+    """정정 보고서(같은 결산기를 다시 낸 것)만으로 매일 다시 받지 않게 — 그때 본 공시 목록의 끝을 근거 칸에 남긴다(10-20 운영 348950·350520 —
+    2026.06 사업보고서 정정 9/30·9/11). 칸 공시일(최초 접수일)과 firm 분기 FY0 읽기(사업연도 결산기 개수)는 그대로 읽힌다."""
+    import importlib.util, pathlib
+    spec = importlib.util.spec_from_file_location("mfq", pathlib.Path(__file__).resolve().parents[1] / "scripts" / "market_fund_quarterly.py")
+    mfq = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mfq)
+    _cal, _f, cells = _lotte()
+    w = mfq.period_cell_writes("330590", "OFS", cells, {2025, 2026}, seen="20260930")
+    assert all(r[7].endswith(" · 목록 20260930") for r in w["q"]) and all(r[7].endswith(" · 목록 20260930") for r in w["q4"])
+    assert pc.avail_of(w["q"][-1][7]) == "20260921"
+    q4 = [r for r in w["q4"] if r[1] == 2025][0]
+    assert S._STORED_SPAN.search(q4[7]).groups() == ("202506", "202512", "2")
