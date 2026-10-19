@@ -347,6 +347,7 @@ def extract_controlling_ni_cum(rows):
       TOTAL                — 지배·비지배 귀속 둘 다 부재 → 당기순이익 총계=지배 [001340·NAVER 무소수지분]
       TOTAL_NM[_MINUS_MINORITY] — 위와 같은데 총계 행을 코드가 아니라 이름으로 찾음(261018, 표준 계정코드 미사용 회사)
       …_CIREJ              — 위 총계 규칙인데 지배 줄(id·이름)이 총포괄이익의 지배 몫이라 버린 보고서(261020)
+      …_CINCI              — 순이익 쪽 비지배 줄이 없어 총포괄 쪽 비지배 줄(버린 지배 몫과 짝)로 뺀 보고서(261020 검토 — 근사, 비지배 몫 기타포괄만큼 어긋남)
       MINORITY_NO_CTRL / NO_INCOME_ROW — 유도 불가(플래그) → None. 수집(`fetch`)은 이때 같은 보고서의 XBRL 원본을 본다.
     지배 줄 고르기의 값 구조 검사(지배 + 비지배 = 당기순이익)는 `_ctrl_in_sj` 위 261020 주석."""
     if not any(r.get("sj_div") in ("IS", "CIS") for r in rows):
@@ -363,6 +364,18 @@ def extract_controlling_ni_cum(rows):
     skip = frozenset(id(y) for y, yv in shape[2] for _rk, c in rejected
                      if ci_tot is not None and abs(_cum_is(c) + yv - ci_tot) <= _amt_tol(ci_tot))
     tot, mino = _total_ni(rows), _minority_ni(rows, skip)
+    ci_nci = ""
+    if mino is None and skip:
+        # 261020 검토: 순이익 쪽 비지배 줄이 아예 없고 총포괄 쪽 비지배만 낸 보고서 — 빼지 않으면 지배 몫이 비지배 순이익 전부만큼 커진다.
+        # 총포괄 쪽 비지배로 빼면 비지배 몫의 기타포괄만큼만 어긋난다(10-20 원문 캐시에서 네 줄이 다 있는 1,636건: 비지배 기타포괄 / 비지배 순이익
+        # 중앙값 1.1% · 이쪽이 더 가까운 보고서 87% · 다음 해 보고서 전기 칸으로 맞춰 본 6칸 가운데 5칸 — 238090 2021 반기 총계 17.7억 → 23.3억,
+        # 참값 23.3억). 값 0 인 줄은 빼지 않는다(종전 표시 그대로). 케이스 끝에 `_CINCI`.
+        for sj in ("IS", "CIS"):
+            v = _first(rows, lambda r: r.get("sj_div") == sj and id(r) in skip and _cum_is(r) is not None, _cum_is)
+            if v is not None:
+                if v:
+                    mino, ci_nci = v, "_CINCI"
+                break
     nm = ""
     if tot is None:                       # 261018: 코드로 못 찾은 총계만 이름으로 — 종전에 값이 나던 행은 그대로다
         tot = _total_ni_nm(rows)
@@ -380,7 +393,7 @@ def extract_controlling_ni_cum(rows):
         # (10-20 운영 263860 2026 1분기: 지배·비지배 순이익 줄 둘 다 총포괄 19.8억, 당기순이익 19.7억). 비지배를 빼지 않는다.
         mino = None
     if tot is not None:
-        return (tot - mino, f"TOTAL{nm}_MINUS_MINORITY{rj}") if mino is not None else (tot, f"TOTAL{nm}{rj}")
+        return (tot - mino, f"TOTAL{nm}_MINUS_MINORITY{rj}{ci_nci}") if mino is not None else (tot, f"TOTAL{nm}{rj}")
     return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_INCOME_ROW")
 
 

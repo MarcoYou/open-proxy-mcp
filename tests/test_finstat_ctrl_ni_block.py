@@ -277,3 +277,148 @@ def test_oci_zero_both_blocks_same_value():
 @pytest.mark.parametrize("x, tol", [(7012006146.0, 7012.006146), (36864799000.0, 36864.799), (12345678000.0, 12345.678), (1234567000000.0, 1500000.0), (1000.0, 1500.0), (7.0, 2.0), (0.0, 2.0)])
 def test_amount_tolerance_follows_display_unit(x, tol):
     assert Q._amt_tol(x) == pytest.approx(tol)
+
+
+# ── 261020 검토: 순이익 쪽 비지배가 없는 보고서 · 가를 수 없는 총포괄 id 줄 · 주당이익 이름 줄 ─────────────────────
+
+def test_ci_side_minority_used_when_no_ni_side_minority():
+    """018620 2019 3분기 꼴 — 지배·비지배 몫을 총포괄 쪽에만 냈다(지배 몫은 총포괄이라 버림). 빼지 않으면 비지배 순이익만큼 크다
+    (총계 −28.4억). 총포괄 쪽 비지배로 빼면 −25.87억 — 다음 해 3분기 보고서 전기 칸의 지배 순이익 −25.85억에 비지배 몫 기타포괄만큼 가깝다."""
+    rows = [
+        cis(F + "ProfitLoss", "당기순이익(손실)", 16, -2841717467, -727097514),
+        cis(F + "OtherComprehensiveIncome", "기타포괄손익", 17, -64597871, -34185055),
+        cis(F + "ComprehensiveIncome", "총포괄손익", 20, -2906315338, -761282569),
+        cis(NOSTD, "지배기업 소유주지분", 21, -2651506486, -676832910),
+        cis(NOSTD, "비지배지분", 22, -254808852, -84449659),
+    ]
+    assert Q.extract_controlling_ni_cum(rows) == (-2586908615.0, "TOTAL_MINUS_MINORITY_CIREJ_CINCI")
+
+
+def test_ci_id_minority_used_after_ci_id_ctrl_rejected():
+    """238090 2021 반기 꼴 — 지배 귀속 줄은 총포괄 id 줄뿐(값 구조도 총포괄), 비지배도 총포괄 id 줄뿐. 참값(2022 반기 보고서 전기 칸) 23.27억."""
+    rows = [
+        cis(NOSTD, "종속기업, 공동지배기업과 관계기업으로부터의 기타수익(비용)", 9, 0, 0),
+        cis(F + "ProfitLoss", "당기순이익(손실)", 12, 1765779834, 1278828495),
+        cis(F + "OtherComprehensiveIncome", "기타포괄손익", 13, -77880054, -73241272),
+        cis(F + "ComprehensiveIncome", "총포괄손익", 16, 1687899780, 1205587223),
+        cis(F + "ComprehensiveIncomeAttributableToOwnersOfParent", "총 포괄손익, 지배기업의 소유주에게 귀속되는 지분", 18, 2248711146, 1338960891),
+        cis(F + "ComprehensiveIncomeAttributableToNoncontrollingInterests", "총 포괄손익, 비지배지분", 19, -560811366, -133373668),
+    ]
+    assert Q.extract_controlling_ni_cum(rows) == (2326591200.0, "TOTAL_MINUS_MINORITY_CINCI")
+
+
+def test_ci_side_minority_zero_is_not_subtracted():
+    """총포괄 쪽 비지배가 0 이면 빼지 않는다(종전 표시 그대로)."""
+    rows = [
+        cis(F + "ComprehensiveIncome", "총포괄손익", 10, 9512345671),
+        cis(NOSTD, "지배기업소유주지분", 11, 9512345671),
+        cis(NOSTD, "비지배지분", 12, 0),
+        cis(F + "OtherComprehensiveIncome", "기타포괄손익", 20, -511111111),
+        cis(F + "ProfitLoss", "당기순이익", 25, 10023456782),
+    ]
+    assert Q.extract_controlling_ni_cum(rows) == (10023456782.0, "TOTAL_CIREJ")
+
+
+def test_unverifiable_ci_id_line_is_not_used():
+    """101670 2025 반기 꼴 — 지배 순이익 id 줄 = 총포괄(버림), 총포괄 지배 id 줄 = 기타포괄 값(5,882,958 — 어느 구조에도 안 맞음).
+    총포괄 id 줄은 값 구조가 순이익일 때만 쓴다 — 가를 수 없으면 쓰지 않고 총계(비지배 없음)."""
+    rows = [
+        cis(F + "ComprehensiveIncome", "총포괄손익", 10, -33049669377, -28324410107),
+        cis(F + "ComprehensiveIncomeAttributableToOwnersOfParent", "포괄손익, 지배기업의 소유주에게 귀속되는 지분", 12, 5882958, 41898629),
+        cis(F + "OtherComprehensiveIncome", "기타포괄손익", 21, 5882958, 41898629),
+        cis(F + "ProfitLoss", "당기순이익(손실)", 23, -33055552335, -28366308736),
+        cis(F + "ProfitLossAttributableToOwnersOfParent", "지배기업의 소유주에게 귀속되는 당기순이익(손실)", 25, -33049669377, -28324410107),
+    ]
+    assert Q.extract_controlling_ni_cum(rows) == (-33055552335.0, "TOTAL_CIREJ")
+
+
+def test_eps_name_line_is_never_the_fallback():
+    """086280 2023 3분기 꼴에서 비지배 줄이 응답에 빠졌다면 — 지배 몫 줄을 가를 수 없어 종전처럼 쓰는데, ord 가 앞선 주당이익 줄(원/주, 표준 코드 없음)을
+    대신 집으면 안 된다(종전 규칙은 21,704원을 지배 순이익으로 골랐다)."""
+    rows = [
+        row("IS", NOSTD, "지배기업의 소유주지분에 대한 기본및희석주당이익", 13, thstrm_amount=6505, thstrm_add_amount=21704),
+        row("IS", F + "ProfitLoss", "분기순이익", 18, thstrm_amount=246006924684, thstrm_add_amount=820336758454),
+        row("IS", NOSTD, "지배기업의 소유주지분", 19, thstrm_amount=243952949627, thstrm_add_amount=813890787315),
+    ]
+    assert Q.extract_controlling_ni_cum(rows) == (813890787315.0, "IS_NM")
+
+
+# ── 연간 수집(`scripts/market_val_series.py`)의 `ctrl_ni` ─────────────────────────────────────────
+
+def _series():
+    import importlib.util
+    import pathlib
+    root = pathlib.Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location("market_val_series_ctrl_ni", root / "scripts" / "market_val_series.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def yrow(aid, nm, ordv, cur, prev=None, sj="CIS"):
+    return {"sj_div": sj, "account_id": aid, "account_nm": nm, "ord": str(ordv), "currency": "KRW",
+            "thstrm_amount": str(cur), "frmtrm_amount": "" if prev is None else str(prev), "thstrm_add_amount": ""}
+
+
+def rows_000680_fy2024():
+    """000680 2024 사업보고서 꼴 — 지배 순이익 id 줄 = 총포괄 지배 몫(−448.8억), 비지배 120.7억, 당기순이익 −318.9억. 전기 칸(FY2023)은 비지배 0."""
+    return [
+        yrow(F + "ComprehensiveIncome", "총포괄손익", 9, -32814275801, 9592881336),
+        yrow(F + "ComprehensiveIncomeAttributableToNoncontrollingInterests", "포괄손익, 비지배지분", 11, 12067190440, 0),
+        yrow(F + "ComprehensiveIncomeAttributableToOwnersOfParent", "포괄손익, 지배기업의 소유주에게 귀속되는 지분", 12, -44881466241, 9592881336),
+        yrow(F + "OtherComprehensiveIncome", "기타포괄손익", 21, -923447500, -1112102292),
+        yrow(F + "ProfitLoss", "당기순이익(손실)", 24, -31890828301, 10704983628),
+        yrow(F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분에 귀속되는 당기순이익(손실)", 26, 12067190440, 0),
+        yrow(F + "ProfitLossAttributableToOwnersOfParent", "지배기업의 소유주에게 귀속되는 당기순이익(손실)", 27, -44881466241, 9592881336),
+    ]
+
+
+def test_annual_id_line_with_ci_value_and_minority():
+    v, note = _series().ctrl_ni(rows_000680_fy2024())
+    assert v == -43958018741.0 and "TOTAL_MINUS_MINORITY_CIREJ" in note
+
+
+def test_annual_restated_field_uses_same_rule():
+    """정정치(다음 해 보고서의 전기 칸 — `backfill_restated`)도 같은 규칙: FY2023 지배 순이익 107.05억(총포괄 95.93억이던 것)."""
+    v, note = _series().ctrl_ni(rows_000680_fy2024(), "frmtrm_amount")
+    assert v == 10704983628.0 and "CIREJ" in note
+
+
+def test_annual_id_line_with_ci_value_no_minority():
+    """075180 2025 사업보고서 꼴 — 지배 순이익 id 줄 27.68억 = 총포괄, 당기순이익 −5.15억(비지배 없음)."""
+    rows = [
+        yrow(F + "ComprehensiveIncome", "총포괄손익", 23, 2768099768),
+        yrow(F + "ComprehensiveIncomeAttributableToOwnersOfParent", "포괄손익, 지배기업의 소유주에게 귀속되는 지분", 25, 2768099768),
+        yrow(F + "OtherComprehensiveIncome", "기타포괄손익", 34, 3283520391),
+        yrow(F + "ProfitLoss", "당기순이익(손실)", 41, -515420623),
+        yrow(F + "ProfitLossAttributableToOwnersOfParent", "지배기업의 소유주에게 귀속되는 당기순이익(손실)", 43, 2768099768),
+    ]
+    v, note = _series().ctrl_ni(rows)
+    assert v == -515420623.0 and note.endswith("TOTAL_CIREJ")
+
+
+def test_annual_id_line_ci_value_then_name_line():
+    """302430 2025 사업보고서 꼴 — 지배 순이익 id 줄(총포괄 아래) = 총포괄 −42.77억, 순이익 아래 이름 줄 = 당기순이익 −42.96억(비지배 없음)."""
+    rows = [
+        yrow(NOSTD, "당기총포괄이익(손실)", 11, -4277362668),
+        yrow(F + "ProfitLossAttributableToOwnersOfParent", "지배기업의 소유주", 13, -4277362668),
+        yrow(F + "OtherComprehensiveIncome", "법인세비용차감후기타포괄손익", 22, 18780347),
+        yrow(F + "ProfitLoss", "당기순이익(손실)", 26, -4296143015),
+        yrow(NOSTD, "지배기업의 소유주", 28, -4296143015),
+    ]
+    v, note = _series().ctrl_ni(rows)
+    assert v == -4296143015.0 and note.endswith("CIS_NM")
+
+
+def test_annual_standard_layout_unchanged():
+    """표준 꼴(지배 + 비지배 = 당기순이익)과 지배 계정 0(종전처럼 총계)은 종전 그대로 — 거른 까닭 없음."""
+    S = _series()
+    rows = [
+        yrow(F + "ProfitLoss", "당기순이익", 12, 1000),
+        yrow(F + "ComprehensiveIncome", "총포괄이익", 16, 900),
+        yrow(F + "ProfitLossAttributableToOwnersOfParent", "지배기업 소유주지분", 18, 800),
+        yrow(F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분", 19, 200),
+    ]
+    assert S.ctrl_ni(rows) == (800.0, None)
+    rows[2] = yrow(F + "ProfitLossAttributableToOwnersOfParent", "지배기업 소유주지분", 18, 0)
+    assert S.ctrl_ni(rows) == (1000.0, None)
