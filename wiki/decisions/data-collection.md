@@ -211,7 +211,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 
 ## 1.6 DART API 인증·키 운영
 
-- 환경변수: `OPENDART_API_KEY`(필수), `OPENDART_API_KEY_2`(선택)
+- 환경변수: `OPENDART_API_KEY`(필수), `OPENDART_API_KEY_2`(선택). 재무 배치(연간·분기 수집)는 외화 보고사 환산에 `ECOS_API_KEY` 도 둔다 — [[environment-secrets]]
 - HTTP 요청 단위 키 주입: `?opendart=KEY` 쿼리 → contextvar(`_ctx_opendart_key`) → 인스턴스 캐시(키별 1개)
 - 자동 키 회전: status `020`(rate limit 등) 발생 시 `_rotate_key()` 호출, 보조 키로 1회 재시도
 - 사용량 추적: `_request_counter` (각 service가 `api_call_snapshot()` 차이로 호출 수 보고)

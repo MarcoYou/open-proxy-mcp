@@ -128,6 +128,15 @@ def _db_put(ccy: str, date: str, rate: float) -> None:
         _log.debug("fx cache put failed (%s %s): %s", ccy, date, exc)
 
 
+def ecos_key_missing_note(where: str) -> str | None:
+    """배치가 시작할 때 한 줄(261019) — `ECOS_API_KEY` 가 없으면 외화 보고사 재무를 환율 표에 없는 날짜마다 야후 대체값으로 환산한다
+    (값은 담기지만 ECOS 와 −0.08~+0.84% 어긋난다 — 10-19 로컬 배치 950170 FY2018). 행마다 나오는 경고보다 먼저 「키가 빠졌다」를 알린다. 키 값은 싣지 않는다."""
+    if os.getenv("ECOS_API_KEY"):
+        return None
+    return (f"::warning::[환율] {where}: ECOS_API_KEY 가 없다 — 외화 보고사(USD·CNY·JPY·GBP 등) 재무를 환율 표에 없는 날짜마다 "
+            "야후 대체값으로 환산한다. 배치 환경(저장소 비밀값·.env·셸)에 ECOS_API_KEY 를 둘 것")
+
+
 async def _ecos(ccy: str, date: str) -> float | None:
     """한국은행 ECOS 매매기준율(731Y001). date 이하 최신(주말·공휴일이면 직전 거래일)."""
     key = os.getenv("ECOS_API_KEY")

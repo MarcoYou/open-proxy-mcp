@@ -19,6 +19,9 @@ PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년
       python3 scripts/market_val_series.py --series  # 분기 시계열 산출
       python3 scripts/market_val_series.py --backfill-restated [--tickers 001720 --report-year 2024]
           # 그 해 사업보고서의 전기·전전기 칸 → (해-1)·(해-2) 재작성치. --tickers 를 주면 「이미 처리됨」 판정 없이 그 종목만(261019)
+      python3 scripts/market_val_series.py --refetch 065680:2018,065680:2019
+          # 261019: 이 (종목, 사업연도) 행만 다시 받는다(이미 ok 여도) — 수집 규칙을 고친 뒤 그 규칙으로 틀렸던 행만 바로잡을 때.
+          #   받은 값으로 순이익·자본 칸을 바꾼다(빈 값이면 빈 값으로). 받지 못하면(오류·자료 없음·단위 가드) 있던 ok 행은 그대로 둔다.
 """
 import argparse, asyncio, os, sys
 from pathlib import Path
@@ -29,7 +32,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import date
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
-from open_proxy_mcp.dart.fx import SRC_YAHOO, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
+from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
 from open_proxy_mcp.services import report_calendar as rcal
 
 
@@ -97,6 +100,39 @@ def gid(rows, account_id, sj, field="thstrm_amount"):
         v = gid_exact(rows, "ifrs_" + account_id[len("ifrs-full_"):], sj, field)
     return v
 
+_EQA = "ifrs-full_EquityAttributableToOwnersOfParent"
+_Q = None
+
+
+def _quarterly():
+    """분기 수집기(`market_fund_quarterly.py`)의 순수 추출 함수 — 지배자본 트리를 두 벌로 두지 않으려고 같은 파일을 읽는다."""
+    global _Q
+    if _Q is None:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_mfq_for_series", Path(__file__).with_name("market_fund_quarterly.py"))
+        _Q = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_Q)
+    return _Q
+
+
+def ctrl_eq(rows, field="thstrm_amount"):
+    """지배자본 → (값, 거른 까닭 또는 None). 종전 규칙 그대로: 지배 귀속 계정(새·옛 접두어, 정확일치) → 없으면 자본총계.
+
+    261019: 지배 귀속 계정이 붙은 줄이 **납입자본(자본금) 줄**이면(회사 XBRL 태깅 오류 — 이름이 자본금·납입자본이거나 값이 같은 재무상태표의
+    자본금 계정과 같다) 그 줄은 버리고 분기 수집의 지배자본 규칙(`extract_controlling_eq` — 이름 → 자본총계 − 비지배지분 → 자본총계)으로 간다.
+    10-19 운영: 056360 FY2018~21 · 065680 FY2018~24(FY2022·23 정정치 포함) · 069960 FY2019~21 의 자본이 자본금(49억·50억·1,170억)이라 PBR 이
+    25~40배 부풀었다. 그 길로도 없으면 비운다(값 None — 까닭은 로그)."""
+    Q = _quarterly()
+    val = lambda r: num(r.get(field))  # noqa: E731
+    row = next((r for aid in (_EQA, "ifrs_" + _EQA[len("ifrs-full_"):]) for r in rows
+                if r.get("sj_div") == "BS" and r.get("account_id") == aid and str(r.get(field) or "") != ""), None)
+    if row is not None and Q._capital_line(row, rows, val):
+        bs = [{**r, "thstrm_amount": r.get(field)} for r in rows if r.get("sj_div") == "BS"]
+        v, case = Q.extract_controlling_eq(bs)
+        return v, f"지배자본 계정이 납입자본 줄({row.get('account_nm')} {val(row):.0f}원)이라 거름 → {case}"
+    return gid(rows, _EQA, ("BS",), field) or gid(rows, "ifrs-full_Equity", ("BS",), field), None
+
+
 def _pg():
     """261018: 표·칸이 이미 있으면 DDL 을 보내지 않는다 — 이 수집이 주 1회 일정(finstat-quarterly)에 들어가면서, 있어도 표 전체 잠금을
     잡는 `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 를 매번 보내지 않게(서버의 연간 재무 읽기와 겹치지 않게)."""
@@ -109,13 +145,24 @@ def _pg():
     con.commit()
     return con
 
-def _flush(buf):
-    """버퍼를 새 연결로 일괄 저장 — Supabase 유휴 끊김에 면역(flush마다 fresh conn)."""
+_REPLACE_SQL = (
+    "INSERT INTO dart_finstat_y (ticker,fy,fs,ni,eq,ni_restated,eq_restated,fetched) VALUES(%s,%s,%s,%s,%s,%s,%s,%s) "
+    "ON CONFLICT (ticker,fy) DO UPDATE SET fs=EXCLUDED.fs, ni=EXCLUDED.ni, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched "
+    "WHERE NOT (EXCLUDED.fetched <> 'ok' AND dart_finstat_y.fetched = 'ok')")
+
+
+def _flush(buf, replace=False):
+    """버퍼를 새 연결로 일괄 저장 — Supabase 유휴 끊김에 면역(flush마다 fresh conn).
+    `replace`(261019 `--refetch`): 받은 순이익·자본으로 **바꾼다**(빈 값이면 빈 값으로 — 수집 규칙이 거른 칸을 비우려고). 받지 못한 결과(err·nodata —
+    단위 가드 포함)는 있던 ok 행을 덮지 않는다. 정정치 칸은 손대지 않는다."""
     if not buf: return
     for attempt in (1,2):
         try:
             with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15) as c:
                 with c.cursor() as cur:
+                    if replace:
+                        cur.executemany(_REPLACE_SQL, buf)
+                        c.commit(); buf.clear(); return
                     # 순서 무관 병합: 실제조회(ni/eq)와 재작성(ni_restated/eq_restated)이 어느 순서로
                     # 와도 서로의 필드를 덮어쓰지 않음. fetched는 'restate_only'(선행 삽입용 자리표시)
                     # 보다 실제 상태('ok'/'nodata'/'err:*')가 항상 우선.
@@ -136,8 +183,9 @@ def _flush(buf):
         except psycopg.OperationalError:
             if attempt==2: raise
 
-async def fetch(tickers: list[str] | None = None):
-    """`tickers` 를 주면 그 종목만(261018 — 결산월이 12월이 아닌 회사의 새 사업보고서만 좁혀 받을 때)."""
+async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | None = None):
+    """`tickers` 를 주면 그 종목만(261018 — 결산월이 12월이 아닌 회사의 새 사업보고서만 좁혀 받을 때).
+    `only` = {(종목, 사업연도)} — 그 행만 다시 받는다(이미 ok 여도, 261019 `--refetch`). 결과는 `_flush(replace=True)` 로 쓴다."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     sleep_s = float(os.getenv("SERIES_SLEEP", "0.45"))  # 260706: 필요시 조정, 기본값은 검증된 0.45 유지
     con=_pg()
@@ -153,6 +201,9 @@ async def fetch(tickers: list[str] | None = None):
     market_max_ni = MARKET_MAX_NI_ANCHOR
     con.close()  # 이후 쓰기는 _flush(fresh conn)만 사용
     todo=fetch_plan(firms, have, fye_of)
+    if only:
+        cc_of={i:cc for i,cc in firms}
+        todo=[(i,cc_of[i],y) for i,y in sorted(only) if i in cc_of]
     n_re=sum(1 for i,_,y in todo if (i,y) in have)
     print(f"대상 {len(firms)}사(12월 결산이 아닌 {len(fye_of)}사는 결산월로 상한) · 남은 {len(todo)}건(그중 다시 받기 {n_re})",flush=True)
     c=get_dart_client(); k=0
@@ -169,10 +220,12 @@ async def fetch(tickers: list[str] | None = None):
             fs="CFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             if not rows:
                 fs="OFS"; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
-            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
+            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"
             ni=gid(rows,attr,("CIS","IS")) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"))
             ni_frmtrm=gid(rows,attr,("CIS","IS"),"frmtrm_amount")
-            eq=gid(rows,eqa,("BS",)) or gid(rows,"ifrs-full_Equity",("BS",))
+            eq,eq_note=ctrl_eq(rows)
+            if eq_note:
+                print(f"[자본] {isu} FY{yr} {eq_note}",flush=True)
             assets=gid(rows,"ifrs-full_Assets",("BS",)); liab=gid(rows,"ifrs-full_Liabilities",("BS",))
             eq_total=gid(rows,"ifrs-full_Equity",("BS",))
             # 통화 근본해법(260706): 연도별로 그 응답 자체에서 통화 감지(연도별 통화 상이 가능 —
@@ -186,7 +239,7 @@ async def fetch(tickers: list[str] | None = None):
                 ecos_fx_rate = await fx_to_krw(stmt_cur, _fx_dd)
                 if ecos_fx_rate is None:
                     buf.append((isu,yr,None,None,None,None,None,f"err:fx_{stmt_cur}"))
-                    if len(buf)>=25: _flush(buf)
+                    if len(buf)>=25: _flush(buf, replace=bool(only))
                     continue
                 if fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:
                     # 261019: ECOS 대신 야후 대체값 — 값은 담고(누락보다 낫다) 로그에 남긴다. 배치 환경에 ECOS_API_KEY 를 둘 것.
@@ -201,22 +254,22 @@ async def fetch(tickers: list[str] | None = None):
                 ni=eq=None
             st="ok" if (ni is not None or eq is not None) else "nodata"
             buf.append((isu,yr,fs,ni,eq,None,None,st))
-            if len(buf)>=25: _flush(buf)
+            if len(buf)>=25: _flush(buf, replace=bool(only))
         except Exception as e:
             en=type(e).__name__
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
-                _flush(buf)
+                _flush(buf, replace=bool(only))
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
             if dart_halts_batch(e):
                 # 261019: 키 한도·키 문제·점검(남은 키까지 다 본 뒤) — 남은 항목도 같은 답이다. 멈추고, 이 항목은 err 로 적지 않는다
                 #   (행이 그대로라 다음 실행의 재개 규칙이 이 항목부터 받는다). 종전엔 항목마다 err 로 적고 쉬지 않고 다음을 불렀다.
-                _flush(buf)
+                _flush(buf, replace=bool(only))
                 print(dart_batch_halt_line(e, f"{k-1}/{len(todo)}건 처리"),flush=True); break
             buf.append((isu,yr,None,None,None,None,None,f"err:{str(e)[:30]}"))
-            if len(buf)>=25: _flush(buf)
+            if len(buf)>=25: _flush(buf, replace=bool(only))
             await asyncio.sleep(sleep_s)   # 261019: 오류 뒤에도 같은 간격 — 종전엔 오류가 이어지면 쉬지 않고 불렀다
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
-    _flush(buf)
+    _flush(buf, replace=bool(only))
     print("fetch 종료",flush=True)
 
 
@@ -252,11 +305,13 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
             d=await c.get_fnltt_singl_acnt_all(cc,str(report_year),"11011",fs)
             rows=(d.get("list") or []) if isinstance(d,dict) else []
             await asyncio.sleep(0.45)
-            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"; eqa="ifrs-full_EquityAttributableToOwnersOfParent"
+            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"
             stmt_cur=statement_currency(rows) if rows else "KRW"
             for fy_off,field in ((report_year-1,"frmtrm_amount"),(report_year-2,"bfefrmtrm_amount")):
                 ni_r=gid(rows,attr,("CIS","IS"),field) or gid(rows,"ifrs-full_ProfitLoss",("CIS","IS"),field)
-                eq_r=gid(rows,eqa,("BS",),field) or gid(rows,"ifrs-full_Equity",("BS",),field)
+                eq_r,eq_note=ctrl_eq(rows,field)       # 261019: 납입자본 줄 태깅 오류는 정정치에도 있었다(065680 FY2022·23)
+                if eq_note:
+                    print(f"[자본] {isu} FY{fy_off} 정정 {eq_note}",flush=True)
                 if stmt_cur!="KRW" and (ni_r is not None or eq_r is not None):
                     # 261019: 저장은 항상 원화(fetch 와 같은 규칙 — 그 해 결산월 말일 환율). 환율을 못 구하면 그 해는 쓰지 않는다.
                     _fx_dd=fiscal_year_end_date(fy_off, fye_of.get(isu, 12))
@@ -355,7 +410,14 @@ if __name__=="__main__":
     ap.add_argument("--report-year",type=int,default=2024,help="--backfill-restated 가 읽을 사업보고서 표기 연도")
     ap.add_argument("--series",action="store_true")
     ap.add_argument("--tickers",type=str,help="--fetch·--backfill-restated 를 이 종목만(콤마구분)")
+    ap.add_argument("--refetch",type=str,
+                    help="이 (종목:사업연도) 행만 다시 받는다(이미 ok 여도) — 콤마구분(예 065680:2018). 수집 규칙을 고친 뒤 틀렸던 행만")
     a=ap.parse_args()
-    if a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
+    if a.fetch or a.backfill_restated or a.refetch:
+        _note=ecos_key_missing_note("연간 재무 수집")   # 261019: 외화 보고사 환산 — 키가 빠진 실행을 처음에 한 줄로
+        if _note: print(_note,flush=True)
+    if a.refetch:
+        asyncio.run(fetch(only={(t,int(y)) for t,y in (x.split(":") for x in a.refetch.split(",") if x)}))
+    elif a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
     elif a.backfill_restated: asyncio.run(backfill_restated(a.tickers.split(",") if a.tickers else None, a.report_year))
     else: series()
