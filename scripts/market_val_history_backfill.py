@@ -15,11 +15,19 @@
     전 연도에 곱하면 옛 연도가 4조→4,826조로 폭증(260705 실측 버그). → 시장/섹터 레벨은 no-FX가 정확.
     (개별 종목 firm_history는 통화전환사 옛 연도 오차 존재 — 별도 이슈.) 적자 포함(Σ≤0→NULL).
   · 월말 = 각 월 마지막 거래주. **현재월 제외**(daily cron 소유).
+  · 🔴 261019: 월말 날짜·시총은 `scripts/month_end_prices.py` 에서 고른다. DB krx_weekly 는 보존 하한 이전을 종목별 연말 행만 남겨
+    종전 고르기(`DISTINCT ON (월) max(price_dd)`)가 하한 이전 달마다 상장폐지 종목 1~8개짜리 날짜를 월말로 집어 저장된 행을 덮었다.
+    이제 하한 이전은 연말(12월)만 DB 로, 나머지 달은 콜드 서빙본(`--cold-sqlite`)이 있을 때만 다시 내고 없으면 건너뛴다(저장된 행 그대로).
+  · 261019: 최소 커버리지 — 배수를 낸 회사 시총이 그 버킷에서 재무가 하나라도 있는 회사 시총의 절반 미만이면 그 배수·분모 합을 비운다.
+  · 261019: **주간 스냅샷이 쓴 행은 덮지 않는다**(`cap_pref` 가 있는 행 — `market_val_weekly` 만 그 칸을 채운다). 그 날의 실시간 산식
+    (그때의 재무 요약 × 보통주 시총, 외화 환산 포함)이라 이 백필의 PIT 산식으로 월말 점만 바꾸면 주간 이웃 점과 산식이 달라 곡선이 튄다
+    (10-19 실측: 코스닥 20260828 PER(FY0) 97.18 → 101.85, 앞뒤 주 98.01·94.56). 주간 점이 있는 구간(2026-07~)의 시장 행은 스냅샷 몫이다.
+  · 261019: KSIC 업종 행은 2026-08-23 결정으로 집계를 멈췄다(`KSIC_FROZEN_FROM`) — 그날 이후 월말은 KSIC 행을 새로 만들지 않는다.
 
 저장: opm_val_market(260706 병합 — 시장전체 sector='_ALL' + 섹터별 행 한 테이블, PK snap_dd,market,sector).
   FY0와 TTM/MRQ는 독립 페어링(한쪽 데이터 없어도 다른 쪽은 채움) — firm별로 결측 있을 수 있어서.
 
-실행: python3 scripts/market_val_history_backfill.py
+실행: python3 scripts/market_val_history_backfill.py [--since 20200101] [--cold-sqlite <서빙본.sqlite>]
 """
 import asyncio, os, sys
 from collections import defaultdict
@@ -35,6 +43,7 @@ import psycopg
 from scripts.market_val_weekly import bucket, label
 from open_proxy_mcp.services.price_multiple_data import _pit_quarter, _ttm_ni, _mrq_eq
 from open_proxy_mcp.services import report_calendar as rcal
+from scripts.month_end_prices import MonthEndPrices, covered
 
 DDL_MIGRATE = (
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS per_fy0 double precision",
@@ -60,7 +69,7 @@ ON CONFLICT (snap_dd,market,scheme,sector) DO UPDATE SET
   per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
   per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq, cap=EXCLUDED.cap,
   ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm
-WHERE (opm_val_market.per_fy0, opm_val_market.pbr_fy0, opm_val_market.per_ttm, opm_val_market.pbr_mrq,
+WHERE opm_val_market.cap_pref IS NULL AND (opm_val_market.per_fy0, opm_val_market.pbr_fy0, opm_val_market.per_ttm, opm_val_market.pbr_mrq,
        opm_val_market.cap, opm_val_market.ni_fy0, opm_val_market.ni_ttm)
   IS DISTINCT FROM (EXCLUDED.per_fy0, EXCLUDED.pbr_fy0, EXCLUDED.per_ttm, EXCLUDED.pbr_mrq,
                     EXCLUDED.cap, EXCLUDED.ni_fy0, EXCLUDED.ni_ttm)
@@ -74,11 +83,27 @@ ON CONFLICT (snap_dd,market,scheme,sector) DO UPDATE SET
   per_fy0=EXCLUDED.per_fy0, pbr_fy0=EXCLUDED.pbr_fy0,
   per_ttm=EXCLUDED.per_ttm, pbr_mrq=EXCLUDED.pbr_mrq,
   ni_fy0=EXCLUDED.ni_fy0, ni_ttm=EXCLUDED.ni_ttm
-WHERE (opm_val_market.label, opm_val_market.n, opm_val_market.cap, opm_val_market.per_fy0, opm_val_market.pbr_fy0,
+WHERE opm_val_market.cap_pref IS NULL AND (opm_val_market.label, opm_val_market.n, opm_val_market.cap, opm_val_market.per_fy0, opm_val_market.pbr_fy0,
        opm_val_market.per_ttm, opm_val_market.pbr_mrq, opm_val_market.ni_fy0, opm_val_market.ni_ttm)
   IS DISTINCT FROM (EXCLUDED.label, EXCLUDED.n, EXCLUDED.cap, EXCLUDED.per_fy0, EXCLUDED.pbr_fy0,
                     EXCLUDED.per_ttm, EXCLUDED.pbr_mrq, EXCLUDED.ni_fy0, EXCLUDED.ni_ttm)
 """
+
+
+#: 261019: KSIC 업종 집계를 멈춘 날(2026-08-23 결정 — 업종 배수 기준 축을 업종분류로 옮겼다). 이 날 이후 월말은 KSIC 행을 쓰지 않는다
+#: (서버는 KSIC 축의 마지막 날짜로 「집계가 멈춰 있다」를 알린다 — 여기서 새 월말을 만들면 산식이 다른 점이 그 뒤에 붙는다).
+KSIC_FROZEN_FROM = "20260823"
+
+
+def _multiples(v: list) -> tuple:
+    """누산기 [cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n, n_nif, n_nit, cap_any] → (per_fy0, pbr_fy0, per_ttm, pbr_mrq,
+    ni_fy0, ni_ttm). 합이 0 이하면 배수 None(적자·잠식), 더한 회사가 없거나(n_nif·n_nit = 0) 낸 회사 시총이 버킷의 절반 미만이면(`covered`,
+    261019) 배수와 분모 합 모두 None — 화면은 「자료없음」(분모 합이 남으면 「적자」로 읽힌다)."""
+    cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, _n, n_nif, n_nit, cap_any = v
+    ok_f, ok_bf, ok_t, ok_bm = (covered(c, cap_any) for c in (cap_pf, cap_bf, cap_pt, cap_bm))
+    return ((cap_pf / ni_fy0) if ok_f and ni_fy0 > 0 else None, (cap_bf / eq_fy0) if ok_bf and eq_fy0 > 0 else None,
+            (cap_pt / ni_ttm) if ok_t and ni_ttm > 0 else None, (cap_bm / eq_mrq) if ok_bm and eq_mrq > 0 else None,
+            ni_fy0 if ok_f and n_nif else None, ni_ttm if ok_t and n_nit else None)
 
 
 def _pit_fy(dd: str, fye: int = 12) -> int:
@@ -91,7 +116,10 @@ async def main() -> None:
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", default="20200101")
-    since = ap.parse_args().since
+    ap.add_argument("--cold-sqlite", metavar="PATH",
+                    help="보존 하한 이전 달을 콜드 서빙본(하한 이전 주간 시세 전 행 sqlite)으로 다시 낸다 — 없으면 그 달은 건너뛴다(261019)")
+    a = ap.parse_args()
+    since = a.since
     con = psycopg.connect(os.environ["DATABASE_URL"]); con.autocommit = True
     for m in DDL_MIGRATE:
         con.execute(m)
@@ -108,12 +136,15 @@ async def main() -> None:
     for isu, fy, q, ni_cum, eq in con.execute(
             "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
         finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
-    # 월말 날짜(각 YYYYMM 마지막 거래주), 2020~현재월 이전
-    months = [r[0] for r in con.execute(
-        "SELECT DISTINCT ON (substring(price_dd,1,6)) price_dd FROM krx_weekly WHERE price_dd>=%s "
-        "ORDER BY substring(price_dd,1,6), price_dd DESC", (since,))]
+    # 월말 날짜(각 YYYYMM 마지막 거래주), 2020~현재월 이전 — 261019: 하한 이전은 연말·콜드 서빙본만(`month_end_prices`)
+    src = MonthEndPrices(con, since, a.cold_sqlite)
+    print(src.describe(), flush=True)
     today = date.today(); cur_ym = f"{today.year}{today.month:02d}"
-    months = sorted(d for d in months if d[:6] < cur_ym)
+    months = sorted(d for d in src.plan.dates if d[:6] < cur_ym)
+    if not months:
+        print("다시 낼 월말이 없다", flush=True)
+        src.close(); con.close()
+        return
     # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
     fye_of = rcal.load_fye_map(con)
     print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · 종목 {len(meta)}(12월 결산이 아닌 {len(fye_of)})", flush=True)
@@ -121,16 +152,16 @@ async def main() -> None:
     nmk = nsec = 0
     for d in months:
         pit = {rcal.Fiscal(): (_pit_fy(d), _pit_quarter(d))}   # 공시 달력(결산월·외국 상장사 기한) → (그 시점 FY, (분기 칸)) — 12월 결산은 날짜마다 한 번
-        caps = {r[0]: float(r[1] or 0) for r in con.execute(
-            "SELECT ticker, mktcap FROM krx_weekly WHERE price_dd=%s", (d,))}
+        caps = {t: float(c or 0) for t, _m, c in src.rows(d)}
         # ⚠ 4지표 각각 독립 시총분모 필수 — 한 firm이 ni_fy0는 없고 ni_ttm만 있어도 그 firm의 cap이
         # per_fy0 분자에 섞이면 분자(cap)만 커지고 분모(ni)는 안 커져 PER 왜곡(260706 실측: KOSPI
         # 2020-12 FY0 PER이 32.7→42.8로 오염, FY0 없이 TTM/MRQ만 있는 219사·426조가 원인).
         # market -> {cap_per_fy0, ni_fy0, cap_pbr_fy0, eq_fy0, cap_per_ttm, ni_ttm, cap_pbr_mrq, eq_mrq}
         # 뒤 셋 = n(종목수) · n_nif/n_nit(분모를 실제로 더한 회사 수). 합이 0.0 인 것과 더한 회사가
         # 하나도 없는 것을 금액만으로는 구별할 수 없어, NULL 판정은 **개수**로 한다(260829).
-        mk = defaultdict(lambda: [0.0] * 8 + [0, 0, 0])
-        sec = defaultdict(lambda: [0.0] * 8 + [0, 0, 0])
+        # 261019: 끝 칸 = cap_any(재무가 하나라도 있어 그 버킷에 센 회사의 시총 합) — 최소 커버리지의 분모(`covered`).
+        mk = defaultdict(lambda: [0.0] * 8 + [0, 0, 0] + [0.0])
+        sec = defaultdict(lambda: [0.0] * 8 + [0, 0, 0] + [0.0])
         for isu, (market, ind) in meta.items():
             cap = caps.get(isu)
             if not cap or market not in (MKT_KS, MKT_KQ):
@@ -158,24 +189,21 @@ async def main() -> None:
                 if eq_fy0 is not None: acc[2] += cap; acc[3] += eq_fy0
                 if ni_ttm is not None: acc[4] += cap; acc[5] += ni_ttm; acc[10] += 1
                 if eq_mrq is not None: acc[6] += cap; acc[7] += eq_mrq
+                if (ni_fy0, eq_fy0, ni_ttm, eq_mrq) != (None, None, None, None):
+                    acc[11] += cap   # 연간 행이 nodata(값 없는 행)뿐인 회사는 n 에는 세지만 커버리지 분모에는 넣지 않는다
             if s:
                 sec[(market, s)][8] += 1
         mk_rows, sec_rows = [], []
-        for market, (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, _n, n_nif, n_nit) in mk.items():
+        for market, v in mk.items():
             # 260706 병합: 시장전체 행 = sector='_ALL' 센티넬. 축은 분류와 무관하므로 scheme='market'.
-            mk_rows.append((
-                d, market,
-                (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
-                (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
-                round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
-                ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
-        for (market, s_), (cap_pf, ni_fy0, cap_bf, eq_fy0, cap_pt, ni_ttm, cap_bm, eq_mrq, n, n_nif, n_nit) in sec.items():
+            pf, bf, pt, bm, nif, nit = _multiples(v)
+            mk_rows.append((d, market, pf, bf, pt, bm, round(max(v[0], v[2], v[4], v[6])), nif, nit))
+        for (market, s_), v in sec.items():
             # 이 섹터 버킷은 KSIC 하이브리드(bucket())다 — 업종분류는 sector_val_backfill.py 소관.
-            sec_rows.append((
-                d, market, s_, label(s_), n, round(max(cap_pf, cap_bf, cap_pt, cap_bm)),
-                (cap_pf / ni_fy0) if ni_fy0 > 0 else None, (cap_bf / eq_fy0) if eq_fy0 > 0 else None,
-                (cap_pt / ni_ttm) if ni_ttm > 0 else None, (cap_bm / eq_mrq) if eq_mrq > 0 else None,
-                ni_fy0 if n_nif else None, ni_ttm if n_nit else None))
+            if d >= KSIC_FROZEN_FROM:
+                continue
+            pf, bf, pt, bm, nif, nit = _multiples(v)
+            sec_rows.append((d, market, s_, label(s_), v[8], round(max(v[0], v[2], v[4], v[6])), pf, bf, pt, bm, nif, nit))
         # 260829: 행마다 왕복하던 것을 월 단위로 묶는다. 한 달에 100회 넘게 부르던 것이 2회가 된다
         #   (실측: 15분 job 한도에 79개 월말 중 26개에서 잘렸다 — 원격 DB 라 지연이 곧 비용).
         with con.cursor() as cur:
@@ -185,6 +213,7 @@ async def main() -> None:
         if months.index(d) % 12 == 0:
             print(f"  {d} … 시장 {nmk}행 + 섹터 {nsec}행", flush=True)
     print(f"✓ 과거 FY0+TTM/MRQ 밴드 저장: 시장 {nmk}행 + 섹터 {nsec}행 ({len(months)}개 월말)", flush=True)
+    src.close()
     con.close()
 
 

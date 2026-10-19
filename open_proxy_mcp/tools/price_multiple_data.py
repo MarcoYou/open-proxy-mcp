@@ -43,6 +43,8 @@ def _fni(v, ni, fmt="{:.2f}"):
     적자면 「PER 로는 못 본다, PBR 로 보라」이고, 자료없음이면 「우리가 못 채웠다」다.
     실측(20260828): 섹터 11칸이 전부 적자였는데 결측으로 읽혔다.
     ni 는 그 배수의 **분모 합**이고, None = 더한 회사가 하나도 없음(=자료없음).
+    261019: 시장·업종 트레일링 집계는 배수를 낸 회사의 시총이 그 시장·업종(재무가 있는 회사) 시총의 절반에 못 미치면 배수와 분모 합을
+    함께 비운다(대표값이 아니다 — 2020-01~03 PER(TTM) 코스닥 3종목 등). 그래서 그 표의 「자료없음」은 「모자라서 내지 않았다」까지 뜻한다.
     """
     if v is not None:
         return fmt.format(v)
@@ -184,6 +186,10 @@ def _render_market(p: dict[str, Any]) -> str:
             k, q = by.get("KOSPI", {}), by.get("KOSDAQ", {})
             lines.append(f"| {dd} | {_fni(k.get('per_ttm'), k.get('ni_ttm_krw'))} / {_f(k.get('pbr_mrq'))} "
                          f"| {_fni(q.get('per_ttm'), q.get('ni_ttm_krw'))} / {_f(q.get('pbr_mrq'))} |")
+        if any(h.get("per_ttm") is None and h.get("ni_ttm_krw") is None for h in hist):
+            # 261019: 비운 까닭 — 최소 커버리지(낸 회사 시총 < 시장 시총의 절반)
+            lines.append("> 히스토리의 **「자료없음」** = 그 시점 PER 을 낸 회사의 시총이 시장(재무가 있는 회사) 시총의 절반에 못 미쳐 "
+                         "대표값으로 내지 않았다 — 예: 2020-01~03 PER(TTM)은 직전 해 같은 분기 재무가 있는 회사만 셀 수 있다.")
     lines += _fwd_trend(d.get("fwd_history") or [])
     lines += ["", f"> {d['method']}"]
     lines += _render_fwd_note(d, by_market=d["latest"])
@@ -256,7 +262,8 @@ def _render_sector(p: dict[str, Any]) -> str:
         lines.append("")
     lines.append("> PER 칸의 **「적자 −N조」** = 섹터 합산 지배순이익이 0 이하라 PER 이 성립하지 않는다"
                  "(옆의 금액이 그 합) — 그 경우 PBR로 비교. **「자료없음」** 은 순이익을 채운 회사가 "
-                 "하나도 없다는 뜻으로, 둘은 다른 상태다.")
+                 "없거나, 채운 회사의 시총이 그 섹터(재무가 있는 회사) 시총의 절반에 못 미쳐 대표값으로 내지 않았다는 뜻으로, "
+                 "둘은 다른 상태다(PBR 의 「-」도 같은 기준).")
     lines += _render_fwd_note(d, sector=True)
     if d.get("scheme") == "중분류" and any(s.get("fwd_div_yield_pct") is not None for s in d["sectors"]):
         lines.append("> 확정 배당수익률은 시장 표와 업종 대분류(`scheme=\"대분류\"`)에만 있다 — "

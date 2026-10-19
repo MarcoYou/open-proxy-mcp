@@ -62,7 +62,7 @@ def _opm_val_market(c):
     c.execute("""CREATE TABLE opm_val_market (snap_dd text, market text, scheme text DEFAULT 'ksic', sector text,
                  label text, n integer, cap double precision, per_fy0 double precision, pbr_fy0 double precision,
                  per_ttm double precision, pbr_mrq double precision, ni_fy0 double precision, ni_ttm double precision,
-                 PRIMARY KEY (snap_dd, market, scheme, sector))""")
+                 cap_pref double precision, PRIMARY KEY (snap_dd, market, scheme, sector))""")
 
 
 def test_history_backfill_upserts_skip_identical_rows(pg17):
