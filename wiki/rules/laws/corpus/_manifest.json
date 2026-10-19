@@ -1,9 +1,9 @@
 {
   "source_repo": "github.com/legalize-kr/legalize-kr",
-  "source_commit_sha": "52b5ad07226bdabff4fa7c9789186b62e9f7c2ad",
-  "source_committed_date": "2026-10-08T12:00:00+09:00",
-  "source_promulgated_date": "2026-10-01",
-  "synced_at": "2026-10-12T12:20:44+00:00",
+  "source_commit_sha": "279085df0c3a246ae5f7f0e34c81ff44ea447922",
+  "source_committed_date": "2026-10-16T12:00:00+09:00",
+  "source_promulgated_date": "2026-10-13",
+  "synced_at": "2026-10-19T10:10:44+00:00",
   "n_articles": 3950,
   "files": [
     {
@@ -48,13 +48,13 @@
     {
       "law_key": "자본시장법시행령",
       "rel_path": "자본시장과금융투자업에관한법률/시행령.md",
-      "sha256": "afc98fcd7e5c226a37b786c155ab3cd7440fd096378cabb93bcae9ede251c5e4",
+      "sha256": "52bf9660f79526f56c612ab1e6b7f96d9d17fdc84f9bd625aff538a6c421ba1c",
       "frontmatter": {
         "제목": "자본시장과 금융투자업에 관한 법률 시행령",
         "법령ID": "010817",
-        "법령MST": "290293",
-        "공포일자": "2026-09-29",
-        "시행일자": "2026-10-01",
+        "법령MST": "291081",
+        "공포일자": "2026-10-13",
+        "시행일자": "2026-10-13",
         "상태": "시행"
       }
     },
