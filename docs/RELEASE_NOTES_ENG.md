@@ -2,6 +2,17 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Unreleased — 2026-10-19
+
+### DART "request limit exceeded" (020) is now explained as the daily limit
+
+- When DART answered 020, tools said it was a per-minute limit and suggested querying one or two companies at a time with pauses. 020 is the API key's **daily request limit** (usually 20,000); pauses do not lift it and it resets at midnight KST. The message now says so and gives the next reset time.
+- JSON responses carry `data.error_kind="daily_limit"`, `data.retry=false` and `data.retry_after` (next midnight, `+09:00`). HTTP 429 on web paths stays `rate_limited` (retry shortly).
+
+### The first `law_lookup` query no longer pins about 470 MiB of server memory
+
+- The query morphological analyzer runs in a separate process that exits after 10 minutes without law queries, returning its memory. Answers are unchanged (tokens of all 3,950 articles and 294 responses compared). The first query after a pause takes 1–2 seconds to restart the analyzer, as the very first query did before.
+
 ## Unreleased — 2026-10-18
 
 ### When 5% block stakes add up to more than 100%, the note now says why — `ownership_structure`

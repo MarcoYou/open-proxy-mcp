@@ -35,6 +35,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
+from open_proxy_mcp.services.morph_worker import MorphWorkerError
+from open_proxy_mcp.services.morph_worker import worker as _morph_worker
 
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
@@ -265,6 +267,9 @@ _FULLTEXT_CACHE: dict[str, str] = {}
 # 모른다. 관측 장부에 올려 둔다(정의한 자리에서 등록해야 캐시를 더할 때 안 빠뜨린다).
 _register_unbudgeted_cache("law_fulltext", lambda: _FULLTEXT_CACHE)
 _register_unbudgeted_cache("law_index", lambda: _INDEX_CACHE)
+# 261019 실측(리눅스, 첫 law_lookup 한 번): 원문 20개 파일 전부 ≤4 MiB · 인덱스 +26 · BM25 +10 · Kiwi 모델 +473 MiB.
+#   400~500 MiB 가 뛰고 돌아오지 않던 몫은 원문 캐시가 아니라 Kiwi 였다 — 별도 프로세스로 옮겼다(`morph_worker`).
+#   원문 캐시는 키가 파일 경로라 코퍼스 파일 수(20)를 넘지 못한다 — 상한을 두지 않는다. Kiwi 자식의 상태는 /health `law_morph`.
 
 
 def load_index() -> dict[str, Any]:
@@ -303,7 +308,7 @@ def load_index() -> dict[str, Any]:
 # kiwipiepy = 순수 C++·오프라인·결정적(Java 불필요). 인덱스 빌드(sync)와 질의를 동일 로직으로.
 # 품사: 체언/용언/어근/외국어/숫자/기호수/일반부사. 조사·어미·문장부호는 버림.
 _KIWI_KEEP = ("NNG", "NNP", "NNB", "NR", "NP", "VV", "VA", "VX", "XR", "SL", "SN", "SH", "MAG")
-_KIWI = None  # lazy 싱글턴 (init ~0.7s, 최초 호출 시 1회)
+_KIWI = None  # lazy 싱글턴 (init ~0.7s, 최초 호출 시 1회) — 261019 부터는 별도 프로세스를 못 쓸 때만(`_morph_pairs`)
 
 
 def _get_kiwi():
@@ -318,16 +323,33 @@ def _get_kiwi():
     return _KIWI or None
 
 
+def _morph_pairs(text: str) -> list[tuple[str, str]] | None:
+    """(형태, 품사) 목록 — 별도 프로세스의 Kiwi 를 먼저 쓰고, 못 쓰면 같은 프로세스의 Kiwi(종전 동작). Kiwi 가 없으면 None.
+
+    261019: 같은 프로세스에 두면 첫 질의에 Kiwi 모델이 RSS 약 470 MiB 를 잡고 놓지 않았다(실측·까닭은 `morph_worker`).
+    별도 프로세스는 쉬면(기본 600초) 통째로 끝나 메모리를 돌려준다. 같은 Kiwi(기본 설정)라 토큰은 같다."""
+    w = _morph_worker()
+    if w.enabled():
+        try:
+            return w.tokenize(text or "")
+        except MorphWorkerError:
+            w.fallbacks += 1          # 이 요청은 같은 프로세스로 — 응답은 같다
+    kiwi = _get_kiwi()
+    if not kiwi:
+        return None
+    return [(m.form, m.tag) for m in kiwi.tokenize(text or "")]
+
+
 def morph_tokens(text: str) -> list[str]:
     """text → 형태소 토큰 리스트(BM25용). 숫자(SN/NR)는 1글자도 유지, 나머지는 2글자+.
     sync 인덱스 빌드와 런타임 질의가 반드시 같은 함수를 써야 통계가 정합한다."""
-    kiwi = _get_kiwi()
-    if not kiwi:
+    pairs = _morph_pairs(text)
+    if not pairs:
         return []
     out: list[str] = []
-    for m in kiwi.tokenize(text or ""):
-        if (m.tag in _KIWI_KEEP and len(m.form) > 1) or m.tag in ("SN", "NR"):
-            out.append(m.form)
+    for form, tag in pairs:
+        if (tag in _KIWI_KEEP and len(form) > 1) or tag in ("SN", "NR"):
+            out.append(form)
     return out
 
 
