@@ -493,12 +493,12 @@ def test_upstream_degrade_is_not_counted_as_success(client, monkeypatch):
     """
     import open_proxy_mcp.server as S
 
-    body = _degrade_body("020")                     # 분당 한도 초과 = 답을 못 줌
+    body = _degrade_body("020")                     # 키의 하루 한도 초과 = 답을 못 줌
     assert S._DEGRADED_RE.search(body), "degrade 응답에 표지가 없다 — 통계가 성공으로 적는다"
     assert not any(p in body for p in S._ERR_PATTERNS), (
         "degrade 가 isError 를 달고 있다면 이 테스트의 전제가 틀린 것이다")
     kind = S._DEGRADED_RE.search(body).group(1).decode()
-    assert kind == "rate_limited", kind
+    assert kind == "daily_limit", kind
 
 
 def test_no_data_is_not_counted_as_failure(client):
@@ -544,7 +544,7 @@ def test_middleware_records_upstream_degrade_as_error(client, monkeypatch):
     kw = rows[-1][1]
     assert kw.get("is_error") is True, (
         f"상류 실패가 성공으로 적혔다 — degrade 표지가 미들웨어에 안 닿는다: {kw}")
-    assert kw.get("error_kind") == "dart_rate_limited", kw
+    assert kw.get("error_kind") == "dart_daily_limit", kw
 
 
 def test_middleware_records_no_data_as_success(client, monkeypatch):

@@ -170,6 +170,9 @@ def build_mcp() -> MCPServer:
             #   프로세스는 30분에 466MB 가 늘었다 — 자라는 것이 관측 밖에 있다는 뜻이다.
             #   상한 있는 `trading_quote` 를 대조군으로 같이 싣는다(그게 평평하면 판정이 선다).
             "unbudgeted_cache": unbudgeted_cache_stats(),
+            # 261019: law_lookup 형태소 분석기(Kiwi) 자식 프로세스 — 살아 있나·자식 RSS·쉬면 끝나는 초.
+            #   이 몫(약 470~500 MiB)은 `mem.rss_mb`(이 프로세스)에 안 잡히고 `mem.cg_used_mb`(VM)에는 잡힌다.
+            "law_morph": _law_morph_stats(),
             # 260909: 캐시가 아닌 증가(태스크·스레드 누수, 회수 못 한 순환)를 가르는 자.
             "runtime": _runtime_stats(),
             # 원장(회사 목록·정기보고서 명부) — 「언제 것이고 얼마나 무거운가」.
@@ -275,6 +278,14 @@ def build_mcp() -> MCPServer:
             result = cache_clear(disk=disk)
         else:
             result = cache_reclaim(target_mb * 1048576 if mode == "pressure" else 0)
+        if do_cache and mode in ("all", "pressure"):
+            # 261019: law_lookup 형태소 분석기 자식(약 500 MiB)도 내린다 — 다음 법령 질의가 다시 띄운다(약 1.5초).
+            #   그 몫은 이 프로세스 RSS 밖이라 아래 freed_mb 에 안 잡힌다(VM 기준 `cg_used_mb` 에 잡힌다). 처리 중이면 두고 False.
+            try:
+                from open_proxy_mcp.services.morph_worker import worker as _mw
+                result = {**result, "law_morph_stopped": _mw().stop()}
+            except Exception as exc:    # noqa: BLE001
+                result = {**result, "law_morph_stopped": f"error:{type(exc).__name__}"}
         steps["after_cache"] = _mem_stats()
 
         import gc as _gc
@@ -505,6 +516,14 @@ def _cold_stats() -> dict:
         from open_proxy_mcp import cold_store
         return cold_store.stats()
     except Exception as exc:  # noqa: BLE001
+        return {"error": type(exc).__name__}
+
+
+def _law_morph_stats() -> dict:
+    try:
+        from open_proxy_mcp.services.morph_worker import worker
+        return worker().stats()
+    except Exception as exc:          # noqa: BLE001 — 관측이 헬스체크를 깨면 안 된다
         return {"error": type(exc).__name__}
 
 

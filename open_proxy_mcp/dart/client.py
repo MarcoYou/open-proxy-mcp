@@ -2,7 +2,9 @@
 
 ⚠️ DART 접근 시 주의사항 — **한도는 API 와 웹이 다르다**:
   - OpenDART API: 한도가 **키마다** 걸린다. 분당 1,000회를 넘기면 그 키가 막힌다
-    (실측 2~3시간). 일일 한도는 키당 4만회이지만, 먼저 닿는 건 거의 언제나 분당 쪽이다.
+    (실측 2~3시간). 하루 한도는 키당 20,000회 — 넘기면 status 020 이고 자정(KST)에 풀린다
+    (개발가이드 020 설명 · 실측 2026-08-15 00:01). 여러 배치가 한 키를 나눠 쓰면 하루 쪽에 먼저 닿는다
+    (2026-10-19 운영 배치가 그랬다).
     사용자 키는 요청마다 다르므로 한 사용자가 다른 사용자를 막지는 않는다 —
     위험한 건 **우리 자신의 키**(배치·스크립트)다.
   - DART 웹 스크래핑(원문·KIND): 위 한도와 **별개**이고 공표된 수치도 차단 기준도 없다.
@@ -1772,7 +1774,7 @@ class DartClient:
             # 사용자 키가 없는 경로(로컬 스크립트·배치·부팅 시 corpCode 적재)만 env 키를 쓴다.
             # OPENDART_API_KEY_2, _3, _4, ... 순번 있는 만큼 전부 로드(260705, 키 2개 초과 지원).
             # 분당 스로틀(_api_call_timestamps)은 인스턴스 하나가 전 키 공유 — 키를 늘려도 IP레벨
-            # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 4만)뿐.
+            # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 2만 — 020)뿐.
             primary = os.getenv("OPENDART_API_KEY")
             if primary:
                 self._api_keys.append(primary)
@@ -1897,7 +1899,7 @@ class DartClient:
         # DART API는 status "000"이 정상
         status = data.get("status", "")
         if status != "000":
-            # 속도 제한("020") 등 일시적 에러 시 보조 키로 재시도.
+            # 키의 하루 한도("020") 등 키의 사정이면 보조 키로 재시도.
             # 261019: 키 하나의 사정(`_KEY_SCOPED_STATUSES`)이면 남은 키를 모두 차례로(키마다 한 번), 그 밖의 답은 종전처럼 한 번만.
             #   다음 키가 키와 무관한 답(013 등)을 주면 그게 답이다.
             for _ in range(len(self._api_keys) - 1 if status in _KEY_SCOPED_STATUSES else 1):
@@ -1951,7 +1953,7 @@ class DartClient:
             msg_m = re.search(r'<message>(.+?)</message>', content.decode('utf-8', errors='replace'))
             if status_m:
                 status = status_m.group(1)
-                # 260906: 한도 초과(020 분당 · 021 일일)는 **키의 사정**이지 문서의 사정이 아니다 —
+                # 260906: 한도 초과(020 키의 하루 한도 · 021 조회 회사 수 초과)는 **문서의 사정이 아니다** —
                 #   JSON 경로(`_request`)처럼 보조 키로 한 번 더 간다. 그날 .env 에 보조 키 4개가
                 #   놀고 있는데 document.xml 만 020 으로 그냥 죽었다. 사용자 키 하나뿐이면
                 #   `_rotate_key` 가 False 라 그대로 올린다(남의 키로 안 넘어간다).
