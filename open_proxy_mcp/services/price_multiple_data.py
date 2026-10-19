@@ -2913,9 +2913,10 @@ def _period_ni_warning(fy0: dict[str, Any] | None, ttm: dict[str, Any] | None, e
     """반기·분기 결산 회사의 순이익 12개월 합 안내 한 줄(261019 p1d)."""
     def _span(w: dict[str, Any]) -> str:
         return " + ".join(f"{d[:4]}-{d[4:6]}" for d, _ in w["periods"]) + f" 결산기 {w['ni']:,}원"
+    why = ("사업보고서 하나에 결산기가 셋까지만 실려 12개월을 맞출 수 없어" if months == 3 else
+           "12개월 결산기를 다 찾지 못해(상장 첫 결산기·앞 결산기 순이익 빈 칸 등)")
     parts = [f"FY0 = {_span(fy0)}" if fy0 else
-             (f"FY0 는 사업보고서 하나에 결산기가 셋까지만 실려 12개월을 맞출 수 없어 마지막 결산기({e0[:4]}-{e0[4:6]}, {months}개월) 값 그대로"
-              if e0 else "FY0 는 마지막 결산기 값 그대로")]
+             (f"FY0 는 {why} 마지막 결산기({e0[:4]}-{e0[4:6]}, {months}개월) 값 그대로" if e0 else "FY0 는 마지막 결산기 값 그대로")]
     if ttm:
         parts.append(f"TTM = {_span(ttm)}")
     return (f"{'반기' if months == 6 else '분기'} 결산 회사 — 지배순이익·EPS·PER 은 12개월 결산기 합이다({' · '.join(parts)}). "

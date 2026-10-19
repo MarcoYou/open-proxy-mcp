@@ -119,6 +119,21 @@ def test_quarterly_reit_ttm_is_four_quarters_and_fy0_says_it_is_one(monkeypatch)
     assert "(2025-12 결산기 하나 — 분기 결산이라" in TP._render_explain_firm(p)
 
 
+def test_semiannual_without_the_previous_period_says_why_fy0_is_one_period(monkeypatch):
+    """반기 결산인데 FY0 보고서의 전기 순이익이 비면(상장 첫 결산기 등) FY0 는 그 결산기 하나 — 까닭을 분기 결산과 다르게 적는다."""
+    reports = dict(LOTTE)
+    reports[(2025, "11011")] = _report("20260310002810", (14, 13, 12), ("19,627,460,882", "", ""), ("67", "", ""), eq="1,139,498,580,374")
+    reports.pop((2026, "11011"))
+    p, _ = _run(monkeypatch, overview_acc_mt="06", db_acc_mt=12, reports=reports,
+                alot={2024: _alot(("2024-12-31", "112", "r24")), 2025: LOTTE_ALOT[2025]})
+    i = p["data"]["inputs"]
+    assert "ni_basis" not in i and i["net_income_fy0_krw"] == 19_627_460_882      # FY0·TTM 모두 못 맞추면 칸도 경고도 없다(종전 응답)
+    w = S._period_ni_warning(None, {"periods": [("20251231", 1), ("20260630", 2)], "ni": 3}, "20251231", 6)
+    assert "12개월 결산기를 다 찾지 못해" in w and "셋까지만" not in w
+    i2 = {"ni_basis": {"period_months": 6, "fy0": {"periods": [{"stlm_dt": "2025-12-31"}], "single_period": True}}}
+    assert TP._ni_span(i2, "fy0") == " (2025-12 결산기 하나 — 12개월 결산기를 다 찾지 못했다)"
+
+
 def test_newer_report_values_win_for_overlapping_periods():
     """겹치는 결산기는 새 보고서 값(정정 반영) — 제19기는 2026.06 보고서 칸."""
     older = _report("a", (19, 18, 17), ("100", "10", "1"), ("1", "1", "1"))

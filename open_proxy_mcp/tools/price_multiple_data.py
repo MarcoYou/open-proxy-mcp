@@ -450,9 +450,11 @@ def _impairment_text(v: Any, i: dict[str, Any] | None = None) -> str:
 
 def _ni_span(i: dict[str, Any], key: str) -> str:
     """explain 지배순이익 칸 뒤 괄호 — 반기·분기 결산(261019 p1d)이면 어느 결산기들의 합인지. 그 밖엔 빈 문자열(응답 그대로)."""
-    b = (i.get("ni_basis") or {}).get(key) or {}
+    nb = i.get("ni_basis") or {}
+    b = nb.get(key) or {}
     if b.get("single_period"):
-        return f" ({b['periods'][0]['stlm_dt'][:7]} 결산기 하나 — 분기 결산이라 사업보고서 하나로 12개월을 못 맞춘다)"
+        why = "분기 결산이라 사업보고서 하나로 12개월을 못 맞춘다" if nb.get("period_months") == 3 else "12개월 결산기를 다 찾지 못했다"
+        return f" ({b['periods'][0]['stlm_dt'][:7]} 결산기 하나 — {why})"
     ps = b.get("periods") or []
     if not ps:
         return ""
