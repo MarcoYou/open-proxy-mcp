@@ -193,6 +193,140 @@ def test_server_loaders_use_period_cells(monkeypatch):
     assert p0["pit_q"] == "2025Q1" and round(cap / p0["per_ttm"]) == 16455032132
 
 
+class _ReitRows:
+    """`_pg_rows` 대역(롯데리츠 결산기 칸) — 곡선·과거 시점·업종 비교 기업 행이 **응답 경로에서** 결산기 칸을 공시일부터 쓰는지(261020 검토:
+    `with_cells` 연결을 빼도 종전 시험이 모두 통과했다). 모르는 SQL 은 실패시킨다."""
+    CAP = 1_103_861_136_880
+
+    def __call__(self, sql, params=()):
+        s = " ".join(sql.split())
+        _c, q = _db_cells()
+        if s.startswith("SELECT market, induty, currency"):
+            return [("KS", "68112", "KRW", "ok", 12)] if "fetched, acc_mt" in s else [("KS", "68112", "KRW", 12, "ok")]
+        if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
+            return [(19627460882.0, 1139498580374.0)]
+        if "FROM dart_finstat_y" in s:
+            return [(fy, None, None, None, None, ni, eq, True) for fy, qq, _n, _e, ni, eq, _a in q if qq == 4]
+        if "FROM dart_finstat_q" in s:
+            return q if s.startswith("SELECT fy, quarter,") else []
+        if "UNION ALL" in s and "AS src" in s:
+            return [(self.CAP, "KS", 1)]
+        if "DISTINCT ON (substring(price_dd,1,4))" in s:
+            return [("2024", "20241230", self.CAP)]
+        if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
+            return [("20250829",)]
+        if "SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
+            return [("20250829", self.CAP, "w")]
+        if s.startswith("SELECT 'below'") or "FROM krx_stock_flags" in s:
+            return []
+        raise AssertionError("모르는 SQL: " + s)
+
+
+def test_curve_as_of_and_sector_row_use_filing_dates(monkeypatch):
+    """2025-08-29 — 공시 기한 45일 규칙이면 2025 반기 칸(8/14~)이지만 2025.06 사업보고서는 9/11 접수 → 1분기 칸(= 사업연도 2024, 164.6억).
+    곡선(firm_history)·과거 시점(firm_at)·업종 비교 기업 행(`_firm_val_at`) 셋 다 같은 칸이고, 곡선·과거 시점은 결산기 칸 안내를 단다."""
+    async def resolve(q):
+        return {"corp_name": "롯데리츠", "stock_code": "330590", "corp_code": "01363818"}, None
+    async def bounds():
+        return "20250829", "20230825"
+    monkeypatch.setattr(S, "_pg_rows", _ReitRows())
+    monkeypatch.setattr(S, "_resolve_listed", resolve)
+    monkeypatch.setattr(S, "_weekly_bounds", bounds)
+    monkeypatch.setattr(S, "today_kst", lambda: __import__("datetime").date(2025, 8, 30))
+    cap = _ReitRows.CAP
+    p = asyncio.run(S.build_firm_history_payload("330590", format="json"))
+    pt = p["data"]["series"][-1]
+    assert pt["asof"] == "20250829" and pt["pit_q"] == "2025Q1" and pt["per_ttm"] == round(cap / 16455032132, 3)   # 45일 규칙이면 2025Q2 · 40.6
+    assert sum(w.startswith(S._PERIOD_NOTE_HEAD) for w in p["warnings"]) == 1
+    at = asyncio.run(S.build_firm_at_payload("330590", "20250829"))
+    assert at["data"]["pit_q"] == "2025Q1" and round(at["data"]["per_ttm"], 3) == round(cap / 16455032132, 3)
+    assert any(w.startswith(S._PERIOD_NOTE_HEAD) for w in at["warnings"])
+    _sec, _mkt, per_ttm, _pbr, _note = asyncio.run(S._firm_val_at("330590", "20250829"))
+    assert round(cap / per_ttm) == 16455032132
+
+
+def test_derive_reads_period_cells_only(monkeypatch):
+    """재무 요약 파생(`--derive` — 주간 스냅샷·시장/업종 집계의 원천)도 결산기 칸만 — 표시 없는 3분기 칸(DART 3개월 시점 보고서)이 가장 늦은
+    칸이어도 버리고, ni_ttm = 2025.07~2026.06 12개월(434.0억) · ni_fy = 사업연도 2025 합 · eq_mrq = 2026.06 사업보고서 자본(261020 검토: 이 길을
+    빼도 PG 없이 도는 시험이 모두 통과했다)."""
+    import importlib.util, pathlib
+    spec = importlib.util.spec_from_file_location("mfq", pathlib.Path(__file__).resolve().parents[1] / "scripts" / "market_fund_quarterly.py")
+    mfq = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mfq)
+    _c, q = _db_cells()
+    raw = [("330590", fy, qq, ni, eq) for fy, qq, _n, _e, ni, eq, _a in q] + [("330590", 2026, 3, 5.0, 6.0)]   # 표시 없는 칸
+    marked = [("330590", fy, qq, ni, eq, av) for fy, qq, _n, _e, ni, eq, av in q]
+    upd = {}
+
+    class _Cur(list):
+        rowcount = 1
+
+        def fetchone(self):
+            return self[0] if self else None
+
+    class _Con:
+        autocommit = True
+
+        def execute(self, sql, params=None):
+            s = " ".join(sql.split())
+            if "information_schema.columns" in s:
+                return _Cur([(True,)])
+            if s.startswith("SELECT ticker, fy, quarter, COALESCE"):
+                return _Cur(raw)
+            if s.startswith("SELECT ticker, fy, quarter, ni_cum_restated"):
+                assert params == (pc.MARK_LIKE,)
+                return _Cur(marked)
+            if s.startswith("SELECT ticker, acc_mt FROM dart_fundamentals"):
+                return _Cur([])
+            if s.startswith("UPDATE dart_fundamentals"):
+                upd[params[4]] = params[:4]
+                return _Cur([])
+            raise AssertionError("모르는 SQL: " + s)
+
+        def close(self):
+            pass
+    monkeypatch.setattr(mfq, "_pg", lambda: _Con())
+    mfq.derive_fundamentals()
+    ni_fy, ni_ttm, eq_fy, eq_mrq = upd["330590"]
+    assert (ni_fy, eq_fy) == (36174226674, 1139498580374.0)
+    assert round(ni_ttm) == 43397643422 and eq_mrq == 1127725590182.0
+
+
+def test_annual_restated_backfill_skips_period_cell_tickers(monkeypatch):
+    """연간 재작성치 백필(`market_val_series --backfill-restated`)은 결산기 칸 종목을 부르지도 쓰지도 않는다 — 리츠의 전기·전전기 칸은 앞 결산기라
+    앞 사업연도 정정 칸에 넣으면 12개월 합을 덮는다(10-20 운영 롯데리츠 FY2022·2023 정정 칸이 그렇게 들어가 있었다)."""
+    import importlib.util, pathlib
+    spec = importlib.util.spec_from_file_location("mvs", pathlib.Path(__file__).resolve().parents[1] / "scripts" / "market_val_series.py")
+    mvs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mvs)
+
+    class _Con:
+        def execute(self, sql, params=None):
+            s = " ".join(sql.split())
+            if s.startswith("SELECT ticker, corp_code FROM dart_fundamentals"):
+                return [("330590", "01363818"), ("005930", "00126380")]
+            if "restate_why LIKE" in s:
+                assert params == (pc.MARK_LIKE,)
+                return [("330590",)]
+            if "information_schema.columns" in s:
+                return __import__("types").SimpleNamespace(fetchone=lambda: (False,))
+            return []
+
+        def close(self):
+            pass
+    asked = []
+
+    class _Client:
+        async def get_fnltt_singl_acnt_all(self, cc, *a):
+            asked.append(cc)
+            return {"list": []}
+    monkeypatch.setattr(mvs, "_pg", lambda: _Con())
+    monkeypatch.setattr(mvs, "_flush", lambda *a, **k: None)
+    monkeypatch.setattr("open_proxy_mcp.dart.client.get_dart_client", lambda: _Client())
+    asyncio.run(mvs.backfill_restated())
+    assert asked == ["00126380"]
+
+
 def test_server_loaders_unchanged_without_period_cells(monkeypatch):
     _fake_rows(monkeypatch, {"SELECT fy, quarter,": [(2026, 2, 5.0, 6.0, None, None, None)],
                              "SELECT y.fy,": [(2025, 1.0, 2.0, None, None, None, None, False)], "SELECT ni_fy, eq_fy": []})
