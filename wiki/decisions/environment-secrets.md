@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: 환경변수·시크릿 — 필요한 키 목록 + 설정 위치
-updated: 2026-09-26
+updated: 2026-10-19
 ---
 
 # 환경변수·시크릿
@@ -26,7 +26,7 @@ fly.toml `[env]`에는 경로 같은 **비밀 아닌 설정**만 둔다. API 키
 | `OPENDART_API_KEY` | DART 공시 API (주 데이터 소스) | **필수** | opendart.fss.or.kr |
 | `OPENDART_API_KEY_2` … `_N` | DART 보조 키 (배치·내부용 순번 회전). 분당 한도 910 은 키를 늘려도 그대로, 늘어나는 건 일일 쿼터뿐 | 권장 | opendart.fss.or.kr |
 | `KRX_OPEN_API_KEY` | KRX 시세·시총·상장주식수 (밸류에이션·수정주가) | 밸류에이션 필수 | data.krx.co.kr |
-| `ECOS_API_KEY` | 한국은행 환율(매매기준율) — 기능통화 비KRW 사(두산밥캣·JTC 등) KRW 환산. 서버(fly)와 **배치(GitHub Actions 저장소 비밀값)** 둘 다 — 배치에 없으면 환율 표에 없는 날짜를 야후 대체값으로 환산한다(261019: 표에는 넣지 않고 `::warning::[환율]`) | 밸류에이션 필수 | ecos.bok.or.kr → 오픈API 인증키 |
+| `ECOS_API_KEY` | 한국은행 환율(매매기준율) — 기능통화 비KRW 사(두산밥캣·JTC 등) KRW 환산. 서버(fly)와 **배치(GitHub Actions 저장소 비밀값)** 둘 다 — 배치에 없으면 환율 표에 없는 날짜를 야후 대체값으로 환산한다(261019: 표에는 넣지 않고 `::warning::[환율]`). **손으로 돌리는 재무 배치도 같다**(`scripts/refresh_financials.sh`·`market_fund_quarterly.py --fetch/--refetch/--prior-from-next`·`market_val_series.py --fetch/--refetch/--backfill-restated`) — 실행 환경(셸·`.env`)에 `OPENDART_API_KEY` 와 함께 둔다. 없으면 두 스크립트가 시작할 때 `::warning::[환율] … ECOS_API_KEY 가 없다` 한 줄을 낸다(261019 — 10-19 로컬 배치가 키 없이 돌아 950170 FY2018·2019 두 행이 야후 환율로 들어갔다) | 밸류에이션 필수 | ecos.bok.or.kr → 오픈API 인증키 |
 | `OPM_ADMIN_KEY` | `/admin/cache`·`/admin/memtop` 인증. 없으면 404 로 숨김 | 운영 | (자체 생성) |
 | `OPM_MASTER_DB_PATH` / `OPM_DOC_CACHE_DIR` | corp_code sqlite · 문서 디스크 캐시 경로 (fly.toml `[env]`, 비밀 아님) | 운영 | — |
 | `FASTMCP_HOST` / `FASTMCP_PORT` / `FASTMCP_ALLOWED_HOSTS` | 바인드 주소·포트·허용 호스트 (`run_beta.sh`) | 로컬 | — |

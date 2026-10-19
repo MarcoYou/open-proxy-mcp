@@ -167,7 +167,10 @@ def test_prior_equity_from_statement_of_changes_in_equity():
     assert Q.prior_equity_from_sce(kb_2024_q1()) == (54531173000000.0, "SCE_PRIOR")
     assert Q.prior_equity_from_sce(kb_2024_h1()) == (55638084000000.0, "SCE_PRIOR")
     # 이번 분기 말 값이 재무상태표 지배자본과 같은 행이 없으면 쓰지 않는다(구성요소·총계 행으로 잘못 고르지 않게)
+    # 261019: 지배 몫 행이 없어도 총계 − 비지배가 재무상태표 지배자본과 같으면 전기도 총계 − 비지배(같은 값이 나온다)
     rows = [r for r in kb_2024_q1() if r.get("account_detail") != CTRL]
+    assert Q.prior_equity_from_sce(rows) == (54531173000000.0, "SCE_TOTAL_MINUS_MINORITY")
+    rows = [r for r in rows if "비지배" not in (r.get("account_detail") or "")]       # 총계만으론 지배자본과 안 맞는다
     assert Q.prior_equity_from_sce(rows) == (None, "NO_SCE_ROW")
     # 같은 이번 값의 행이 서로 다른 전기 값을 주면 쓰지 않는다
     dup = kb_2024_q1() + [row("SCE", "ifrs-full_Equity", "자본총계", 31, detail="자본 [구성요소]",
