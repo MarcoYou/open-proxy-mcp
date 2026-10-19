@@ -325,7 +325,7 @@ _METHODOLOGY = """# price_multiple_data 방법론·기준·출처 (수치 근거
 | EPS(FY0) | DART **공시 기본주당이익** (가중평균 주식수·우선주 배분 반영) | 계속+중단영업 분리 공시는 합산, 결측 시 지배순이익÷보통주 폴백 |
 | EPS(TTM) | **공시 EPS 조립** = FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS | FY0과 같은 공시 기준(대칭). 기중 액면분할·무상증자·주식배당은 수정계수(거래소 기준가 조정 이력)로 각 조각을 현재 기준 정렬 |
 | BPS | 지배자본(최근분기 MRQ, 부재 시 FY말) ÷ 합계 유통주식수(보통+우선, 자기주식 제외) | 지배주주 귀속 |
-| PER | **보통주 시총 ÷ 지배순이익** | FY0·TTM 각각 |
+| PER | **보통주 시총 ÷ 지배순이익** | FY0·TTM 각각. 반기·분기 결산(리츠 등 — 결산기마다 사업보고서)은 순이익·EPS 가 12개월 결산기 합(FY0 = 그 사업연도 결산기에서 거꾸로, TTM = 가장 새 사업보고서에서 거꾸로 · 분기 결산 FY0 는 보고서 하나로 못 맞춰 마지막 결산기) |
 | PBR | **보통주 시총 ÷ 지배자본** | MRQ (부재 시 FY말) |
 | 배당수익률 | 주당 현금배당(DPS) ÷ 종가 × 100 | 보통주 결의 기준. 반기·분기 결산(리츠 등)은 최근 12개월 결산기 DPS 합. 결산기준일 뒤 액면분할·병합·무상증자·주식배당이면 DPS × 수정계수(지금 주식 기준) |
 
@@ -448,6 +448,19 @@ def _impairment_text(v: Any, i: dict[str, Any] | None = None) -> str:
     return _IMPAIRMENT_TEXT.get(v, str(v))
 
 
+def _ni_span(i: dict[str, Any], key: str) -> str:
+    """explain 지배순이익 칸 뒤 괄호 — 반기·분기 결산(261019 p1d)이면 어느 결산기들의 합인지. 그 밖엔 빈 문자열(응답 그대로)."""
+    nb = i.get("ni_basis") or {}
+    b = nb.get(key) or {}
+    if b.get("single_period"):
+        why = "분기 결산이라 사업보고서 하나로 12개월을 못 맞춘다" if nb.get("period_months") == 3 else "12개월 결산기를 다 찾지 못했다"
+        return f" ({b['periods'][0]['stlm_dt'][:7]} 결산기 하나 — {why})"
+    ps = b.get("periods") or []
+    if not ps:
+        return ""
+    return f" (12개월 결산기 {len(ps)}개 합 — " + " + ".join(f"{p['stlm_dt'][:7]} {p['net_income_krw']:,}원" for p in ps) + ")"
+
+
 def _render_explain_firm(p: dict[str, Any]) -> str:
     """종목별 수치 근거 — 실제 값 대입 계산 과정."""
     d = p["data"]; i = d["inputs"]; m = d["multiples"]
@@ -456,10 +469,11 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
     L = [f"# {p['subject']} 수치 근거 (계산 과정)", "",
          f"## 인풋과 출처",
          _price_input_line(price, pdate, d.get("price_source")),
-         f"- 지배순이익 FY0: {i['net_income_fy0_krw']:,}원 / TTM: "
-         f"{i['net_income_ttm_krw']:,}원 (DART 재무제표 원문, 지배주주 귀속 계정)"
+         f"- 지배순이익 FY0: {i['net_income_fy0_krw']:,}원{_ni_span(i, 'fy0')} / TTM: "
+         f"{i['net_income_ttm_krw']:,}원{_ni_span(i, 'ttm')} (DART 재무제표 원문, 지배주주 귀속 계정)"
          if i.get("net_income_fy0_krw") is not None and i.get("net_income_ttm_krw") is not None else
-         f"- 지배순이익: FY0={_n(i.get('net_income_fy0_krw'), '원')} / TTM={_n(i.get('net_income_ttm_krw'), '원')} (일부 미확정)",
+         f"- 지배순이익: FY0={_n(i.get('net_income_fy0_krw'), '원')}{_ni_span(i, 'fy0')} / "
+         f"TTM={_n(i.get('net_income_ttm_krw'), '원')}{_ni_span(i, 'ttm')} (일부 미확정)",
          f"- 지배자본(MRQ 우선): {i['controlling_equity_krw']:,}원"
          if i.get("controlling_equity_krw") is not None else "- 지배자본: 미확정",
          f"- 유통주식수(자기주식 제외 — DART stockTotqySttus): 보통주 {_n(i.get('shares_common'))}"
@@ -486,8 +500,13 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
             L.append(f"- {lbl} = {formula} = {num:,} ÷ {den:,} = **{out}{unit}**")
         else:
             L.append(f"- {lbl} = {formula} → **N/M** (분모≤0·적자·자본잠식 또는 데이터 미확정)")
-    L.append(f"- EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **{_n(i.get('eps_fy0_krw'), '원')}**"
-             " (부재 시 지배순이익÷보통주 폴백)")
+    _f0 = ((i.get("ni_basis") or {}).get("fy0") or {}).get("periods") or []
+    if len(_f0) > 1:   # 261019(p1d 검토): 반기 결산 — FY0 EPS 도 결산기 합이다(공시 기본주당이익 한 값이 아니다)
+        L.append(f"- EPS(FY0) = **공시 EPS 결산기 합**(FY0 12개월 결산기 {len(_f0)}개 — 결산기마다 사업보고서) = "
+                 f"**{_n(i.get('eps_fy0_krw'), '원')}** (공시 EPS 가 빈 결산기가 있거나 수정계수 보정 대상이면 지배순이익÷보통주)")
+    else:
+        L.append(f"- EPS(FY0) = 공시 기본주당이익(가중평균 주식수 반영) = **{_n(i.get('eps_fy0_krw'), '원')}**"
+                 " (부재 시 지배순이익÷보통주 폴백)")
     if i.get("eps_ttm_basis") == "disclosed_assembled":
         L.append(f"- EPS(TTM) = **공시 EPS 조립**(FY0 EPS + 당해 분기누적 EPS − 전년동기누적 EPS) = "
                  f"**{_n(i.get('eps_ttm_krw'), '원')}** — FY0과 같은 공시 가중평균 기준(대칭)")
@@ -500,6 +519,10 @@ def _render_explain_firm(p: dict[str, Any]) -> str:
                 parts.append(f"전년동기 EPS ×{adj['prior_q']:g}")
             L.append(f"  - **수정계수 보정 적용**: {' · '.join(parts)} — 기중 액면분할·무상증자·주식배당으로 "
                      "옛 분모 기준인 공시 EPS를 현재 기준으로 정렬 (거래소 기준가 리셋 실측 수정계수)")
+    elif i.get("eps_ttm_basis") == "disclosed_period_sum":   # 261019(p1d): 반기·분기 결산 — 결산기마다 공시한 EPS 의 12개월 합
+        _t = ((i.get("ni_basis") or {}).get("ttm") or {}).get("periods") or []
+        L.append(f"- EPS(TTM) = **공시 EPS 결산기 합**(최근 12개월 결산기 {len(_t)}개 — 결산기마다 사업보고서) = "
+                 f"**{_n(i.get('eps_ttm_krw'), '원')}**")
     elif i.get("net_income_ttm_krw") is not None and i.get("shares_common"):
         L.append(f"- EPS(TTM) = 폴백: TTM 지배순이익 ÷ 보통주 = {i['net_income_ttm_krw']:,} ÷ "
                  f"{i['shares_common']:,} = **{_n(i.get('eps_ttm_krw'), '원')}**"
