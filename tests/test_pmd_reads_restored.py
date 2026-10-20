@@ -190,6 +190,11 @@ def test_weekly_bounds_floor_is_the_stored_weekly_run_start(monkeypatch, kind, s
     monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): [("20261023",)] if sql == K.WEEKLY_LATEST_SQL else None)
     assert S._krx_weekly_start("20231023") is None
 
+    def boom(sql, params=()):
+        raise RuntimeError("읽기 예외")
+    monkeypatch.setattr(S, "_pg_rows", boom)           # 예외도 장애와 같다 — 곡선은 3년 하한으로 낸다(`_weekly_bounds`)
+    assert S._krx_weekly_start("20231023") is None
+
 
 def test_firm_history_keeps_the_stored_week_below_the_moving_cutoff(monkeypatch):
     """10-24 부터: 최신 주 20261023 → 3년 하한 20231023. DB 에 남은 20231020 주가 곡선 첫 점·weekly_from 에 그대로 있다."""
