@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""「지금 확정된 최신 사업연도」(사업보고서 3월 공시 → 4월 이후 전년, 아니면 전전년)의 규칙은 `report_calendar.latest_annual` 한 곳이다(261021 DATA-FY2 B7).
+"""「지금 확정된 최신 사업연도」(사업보고서 3월 공시 → 4월 이후 전년, 아니면 전전년)의 규칙은 `report_calendar.latest_annual` 한 곳이다(261021 DATA-FY1).
 
 종전엔 세 파일이 같은 식을 따로 가졌다 — `market_fund_quarterly._latest_annual_fy`·`market_val_series._latest_annual_fy`·`price_multiple_data._latest_annual_fy`
 (주석이 「동일 규칙」이라고만 적었다). 하나가 고쳐지면 나머지가 조용히 어긋나는 꼴이다. 이제 셋 다 `report_calendar.latest_annual(today, 12)` 의 얇은 껍데기다.

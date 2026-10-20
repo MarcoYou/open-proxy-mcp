@@ -365,7 +365,7 @@ def test_refresh_fiscal_month_from_annual_report_names(fdb, monkeypatch, capsys)
     n_hist = len([x for x in fake.calls if x[0] == "hist"])
     assert asyncio.run(Q.refresh_acc_mt(since=date(2026, 9, 1), today=TODAY)) == {}
     assert _q(fdb, "SELECT acc_mt, acc_mt_prev, acc_mt_since FROM dart_fundamentals WHERE ticker='A'") == [(12, 3, 2026)]
-    assert len([x for x in fake.calls if x[0] == "hist"]) == n_hist + 1 - 1 + 1 or True   # (C 는 창에 6월이 보이면 이력을 한 번 더 확인한다)
+    assert len([x for x in fake.calls if x[0] == "hist"]) == n_hist + 1   # A 는 이력을 받지 않는다 · 리츠 C 만 창에 6월(2026.06)이 보여 이력을 한 번 더 확인한다
 
 
 def test_refresh_for_chosen_tickers_reads_each_history_and_dry_does_not_write(fdb, monkeypatch, capsys):

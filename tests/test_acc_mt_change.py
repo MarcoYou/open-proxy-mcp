@@ -249,6 +249,29 @@ def test_listing_edge_cases():
     assert Q.classify_reports([(2019, 12), (2020, 3), (2021, 3), (2022, 9), (2023, 9)]) == Q.AccMt(9, 3, 2022)
 
 
+@pytest.mark.parametrize("reports", [
+    [(2026, 6), (2026, 12)],                                  # 반기 결산 리츠의 상장 첫해 — 같은 해에 둘이 아직 한 해뿐
+    [(2025, 12), (2026, 6), (2026, 12)],                      # 상장 둘째 해 앞 — 옛 달(6)이 이어지지 않는다
+    [(2025, 2), (2025, 5), (2025, 8)],                        # 분기 결산 리츠의 상장 첫해(0030R0 꼴)
+    [(2025, 8), (2025, 11), (2026, 2)],                       # 분기 결산 — 해를 넘긴 첫 결산기들
+    [(2025, 11), (2026, 5), (2026, 11)],                      # 반기 결산(5·11월)
+])
+def test_young_period_closing_reits_are_not_read_as_a_fiscal_month_change(reports):
+    """상장 첫해의 반기·분기 결산 리츠는 「같은 해에 둘이 한 해뿐」이라 결산월을 바꾼 회사처럼 보인다 — 옛 결산월 사업보고서가 둘 이상 이어지지 않으면
+    종전처럼 12 다(결산월 8·2·11 이나 전환기 표시로 읽으면 그 해 순이익이 연간 칸에서 지워지고 칸의 기간 말이 틀린다). 저장값이 있어도 전체 이력이 같은 답을 낸다."""
+    assert Q.classify_reports(reports) == Q.AccMt(12)
+    assert Q.decide_acc_mt(Q.AccMt(reports[0][1]), reports, None, complete=True) == Q.AccMt(12)
+
+
+def test_a_change_needs_the_old_or_the_new_fiscal_month_to_continue():
+    """옛·새 결산월 사업보고서가 하나씩뿐이면(상장 첫해에 바꾼 회사) 리츠와 가를 수 없어 종전처럼 12. 옛 결산월이 둘 이상 이어지거나, 옛 달이 목록 맨 앞에서
+    하나뿐이어도(목록이 2018년부터라 잘린 꼴) 새 결산월이 둘 이상 이어지면 바꾼 회사로 읽는다."""
+    assert Q.classify_reports([(2024, 3), (2024, 12)]) == Q.AccMt(12)
+    assert Q.classify_reports([(2023, 3), (2024, 3), (2024, 12)]) == Q.AccMt(12, 3, 2024)
+    assert Q.classify_reports([(2024, 3), (2024, 12), (2025, 12)]) == Q.AccMt(12, 3, 2024)
+    assert Q.classify_reports([(2018, 12), (2019, 6), (2020, 6)]) == Q.AccMt(6, 12, 2019)
+
+
 # ═══ D. 재무 요약 파생(--derive) · Q4 seed ══════════════════════════════════════════════════════
 psycopg = pytest.importorskip("psycopg")
 
@@ -528,6 +551,8 @@ def test_firm_does_not_present_the_transition_report_as_a_full_year(monkeypatch)
     d, i, m = p["data"], p["data"]["inputs"], p["data"]["multiples"]
     assert d["fiscal_year"] == 2025 and seen["fm"] == [2025]
     assert (i["net_income_fy0_krw"], i["eps_fy0_krw"], i["roe_pct"], i["revenue_fy0_krw"]) == (None, None, None, None)
+    # 전환기 석 달을 직전 연간으로 쓰는 TTM(순이익·공시 EPS 조립)도 비어 있다 — 공시 EPS(석 달 −5원)가 TTM EPS 로 새지 않는다
+    assert (i["net_income_ttm_krw"], i["eps_ttm_krw"]) == (None, None)
     assert (m["per_fy0"], m["per_ttm"]) == (None, None) and m["pbr_mrq"] == 3.16
     assert any("전환기 — 12개월이 아님" in w and "9월에서 12월로" in w for w in d["warnings"])
     # 결산월 변경 목록을 못 읽은 종전 읽기는 석 달 순이익을 FY0 로 냈다(같은 응답)
