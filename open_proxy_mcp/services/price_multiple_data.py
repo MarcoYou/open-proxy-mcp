@@ -1358,7 +1358,9 @@ def attach_fs_bases(con, fin_all: dict, finq_all: dict) -> tuple[int, int]:
 
     `to_jsonb(표)->>'fs'` 로 읽어 그 칸이 없는 표(시험용 최소 표)에서도 깨지지 않는다(없으면 기준을 모르는 것 — 종전처럼 쓴다). 원본 순이익이 있는 칸만 믿는다(서버
     읽기와 같다 — 값 없는 칸의 `fs` 는 마지막으로 시도한 기준일 뿐이다).
-    분기 표의 사업보고서 칸(quarter=4)도 단다(결산기 칸 종목은 그 칸이 연간이다). 반환 (연간 칸 수, 분기 칸 수)."""
+    연간 기준은 **연간 표에서만** 읽는다(서버 `_FIN_FY_SQL` 과 같다). 분기 표의 사업보고서 칸(quarter=4)은 연간 표에 원본이 없는 해에도 값이 차 있는데
+    (연간 정정 칸 보충값을 옮긴 Q4 seed), 그 칸의 `fs` 는 연간 표의 마지막 시도 기준을 그대로 옮긴 것이라 믿지 않는다 — 믿으면 서버 곡선은 기준을 몰라
+    종전처럼 세는 칸을 백필만 「섞임」으로 빼게 된다(운영 읽기 전용 실측 2020~ 12월 결산 85점·53종목, 예 081180 FY2024). 반환 (연간 칸 수, 분기 칸 수)."""
     n_y = n_q = 0
     for t, fy, fs in con.execute("SELECT ticker, fy, CASE WHEN ni IS NOT NULL THEN to_jsonb(dart_finstat_y)->>'fs' END FROM dart_finstat_y"):
         f = fin_all.get(t)
@@ -1370,11 +1372,6 @@ def attach_fs_bases(con, fin_all: dict, finq_all: dict) -> tuple[int, int]:
         if fs and isinstance(f, _rpit.PitFin) and int(q) != 4:
             f.__dict__.setdefault("fs", {})[(int(fy), int(q))] = fs
             n_q += 1
-        elif fs and int(q) == 4:
-            fa = fin_all.get(t)
-            if isinstance(fa, _rpit.PitFin) and int(fy) not in (fa.__dict__.get("fs") or {}):
-                fa.__dict__.setdefault("fs", {})[int(fy)] = fs        # 연간 표에 그 해가 없으면 분기 표 사업보고서 칸의 기준(결산기 칸 종목)
-                n_y += 1
     return n_y, n_q
 
 
