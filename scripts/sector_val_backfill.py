@@ -57,6 +57,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
+from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.krx_daily import LATEST_DAY_SQL
 from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS
 from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
@@ -125,6 +126,9 @@ def main() -> int:
     fye_for = lambda t: rcal.fiscal(fye_of.get(t, 12), t)          # noqa: E731
     fin_all: dict[str, dict] = rpit.load_annual(con, fye_for)
     finq_all: dict[str, dict] = rpit.load_quarter(con, fye_for)
+    for _t, _v in fye_of.items():       # 261021(DATA-FY2): 결산월을 바꾼 첫 사업보고서(전환기 — 12개월이 아님)의 순이익은 연간 값이 아니다 — 서버와 같이 가린다
+        if _t in fin_all:
+            rcal.mask_transition(fin_all[_t], _v)
     # 261020(p1e): 반기·분기 결산 회사(리츠 등)는 결산기 칸(12개월 결산 회사와 같은 꼴 — `period_cells`)으로 고치고, 칸은 그 보고서 접수일부터 쓴다
     #   (서버 곡선·업종 비교와 같은 규칙). 표시 칸이 없으면 종전 그대로.
     period_of = pcells.apply_marked(fin_all, finq_all, pcells.load_marked(con))
@@ -145,7 +149,7 @@ def main() -> int:
         extra = sorted(keep - set(months))
         if extra:
             print(f"저장된 업종 주간 점 {len(extra)}개도 다시 낸다({extra[0]}~{extra[-1]})", flush=True)
-    today = date.today()
+    today = today_kst()
     cur_ym = f"{today.year}{today.month:02d}"
     # 260823: 종전엔 현재월을 무조건 제외했다(월말 확정본만). 그런데 일간 배치가 이 스크립트를
     #   부르게 되면서, 제외하면 **사용자가 보는 섹터 배수가 최대 한 달 낡는다**
