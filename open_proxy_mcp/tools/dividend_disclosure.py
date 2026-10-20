@@ -114,15 +114,25 @@ def _alot_items_lines(summary: dict[str, Any]) -> list[str]:
     items = summary.get("items") or []
     if not items:
         return []
-    L = ["", "### 사업보고서 배당 항목 원문 (`alotMatter`)", "",
-         "| 항목(원문) | 주식종류 | 당기 | 전기 | 전전기 |", "|---|---|---|---|---|"]
+    # 261021: 결산기가 둘 이상 섞인 응답(반기·분기 결산 리츠)은 같은 항목 줄이 결산기마다 반복된다 — 결산기준일 칸이 없으면 줄이 중복처럼 보이고,
+    #   당기·전기·전전기가 **연속한 결산기**(연 단위가 아니다)라는 것도 읽히지 않는다. 결산기가 하나면 종전 표 그대로다.
+    _multi = len({"".join(ch for ch in str(it.get("stlm_dt") or "") if ch.isdigit()) for it in items} - {""}) > 1
+    L = ["", "### 사업보고서 배당 항목 원문 (`alotMatter`)", ""]
+    if _multi:
+        L += ["| 결산기준일 | 항목(원문) | 주식종류 | 당기 | 전기 | 전전기 |", "|---|---|---|---|---|---|"]
+    else:
+        L += ["| 항목(원문) | 주식종류 | 당기 | 전기 | 전전기 |", "|---|---|---|---|---|"]
     for it in items:
         L.append(
-            f"| {raw_cell(it.get('category'), inline=True) or '-'} "
+            ("" if not _multi else f"| {raw_cell(it.get('stlm_dt'), inline=True) or '-'} ")
+            + f"| {raw_cell(it.get('category'), inline=True) or '-'} "
             f"| {raw_cell(it.get('stock_type'), inline=True) or '-'} "
             f"| {raw_cell(it.get('current'), inline=True) or '-'} "
             f"| {raw_cell(it.get('previous'), inline=True) or '-'} "
             f"| {raw_cell(it.get('before_previous'), inline=True) or '-'} |")
+    if _multi:
+        L += ["", "> 결산기가 여럿인 회사(반기·분기 결산)는 한 행의 당기·전기·전전기가 **연속한 결산기**다(연 단위가 아니다) — "
+              "행의 결산기준일에서 결산 주기만큼씩 거슬러 읽는다."]
     L += ["", "> 위 「연간 요약」 숫자는 이 행들에서 골라낸 파생값이다. "
           "**어긋나면 이 표가 정본이다.** 단위·기준(연결/별도)도 항목명에 적힌 그대로다."]
     return L
@@ -158,6 +168,16 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         #   그 밖 종류의 라벨은 원문 표기(우선주·1종 종류주식 …)를 그대로 쓴다.
         _pref_label = summary.get("cash_dps_preferred_label") or "우선주"
         lines.append(f"- 연간 DPS(보통주): {summary.get('cash_dps', 0):,}원")
+        # 261021: 반기·분기 결산 회사 — 연간 DPS 는 그 해 결산기들의 합이다. 어느 결산기가 얼마인지 보여 준다.
+        _sp = summary.get("settlement_periods") or []
+        if len(_sp) > 1:
+            _cad = {3: "분기", 6: "반기"}.get(summary.get("settlement_months"), "")
+            _latest = summary.get("latest_period") or {}
+            lines.append(
+                f"  - {_cad + ' ' if _cad else ''}결산기 {len(_sp)}개의 합: "
+                + " + ".join(f"{p.get('stlm_dt')} {p.get('dps_krw', 0):,}원" for p in _sp)
+                + (f" _(사업보고서 한 통은 가장 늦은 결산기 {_latest.get('stlm_dt')} 분 {int(_latest.get('cash_dps') or 0):,}원)_"
+                   if _latest.get("cash_dps") else ""))
         if summary.get("cash_dps_preferred"):
             lines.append(f"- 연간 DPS({_pref_label}): {summary.get('cash_dps_preferred', 0):,}원")
         lines.append(f"- 배당총액: {_won(summary.get('total_amount_mil', 0) * 1_000_000)} _(전 종류 합산 신고총액)_")
