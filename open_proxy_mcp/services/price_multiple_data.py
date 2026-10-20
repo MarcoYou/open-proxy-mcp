@@ -746,22 +746,34 @@ def _merge_fwd_ruler(div_ruler: dict, fwd_ruler: dict) -> dict:
     return out
 
 
-async def _div_yield_map(scheme: str) -> tuple[dict, dict]:
+#: 확정 배당 집계의 결산월 — 12월 결산 확정 DPS 만 모은다(위 `_DIV_METHOD`). 과거 기준일의 사업연도 고르기에 쓴다.
+_DIV_FYE = 12
+
+
+async def _div_yield_map(scheme: str, as_of: str | None = None) -> tuple[dict, dict]:
     """(확정, 자) — 키는 (market, bucket). 실패해도 None 이 아니라 빈 dict 를 낸다.
 
     🔴 배당수익률이 없다고 PER·PBR 표까지 죽이지 않는다(fail-open). 표가 통째로 사라지는
        것보다 한 칸이 비는 편이 낫다 — 대신 기준 줄에 「배당수익률 조회 실패」를 남긴다.
     260918: 선행 배당수익률은 선행 배수와 같은 표(`opm_val_fwd`)로 옮겼다 — `_fwd_val_map`.
+    261020(p1j): `as_of`(YYYYMMDD — 응답이 답한 스냅샷 날짜)가 있으면 **그 날까지 확정·공시된 사업연도**만 읽는다. 종전엔 기준일과 상관없이
+       가장 늦은 사업연도라 과거 기준일 응답에 그 뒤의 배당·시총이 실렸다(운영 10-20: as_of 20201030·20250829 가 FY2025, 시총 20251230).
+       12월 결산 FY X 의 결산 배당 결의·사업보고서는 X+1년 3월 말까지 나온다(코스피 결산배당 결의 FY2019~2025 의 99.4~100%) →
+       X+1년 4월 1일부터 쓴다 = 같은 응답 PER·PBR 의 FY0 와 같은 시점 규칙(`report_calendar.pit_annual`). 그 해 이하 가장 늦은 집계를 쓰고,
+       그 해 집계가 아직 없어 앞 해를 쓰면 그렇다고 적는다. 그 이하 집계가 아예 없으면 비우고 까닭을 적는다(가장 늦은 해로 메우지 않는다).
+       시총은 그 사업연도 12월 마지막 주(집계 정의 그대로 — 최신 응답과 같다)라 언제나 기준일보다 앞선다. `as_of` 가 없으면 종전 질의 그대로.
     """
     ruler: dict[str, Any] = {}
     act: dict[tuple, dict] = {}
 
+    pit = _rc.pit_annual(as_of, _DIV_FYE) if as_of else None
     rows = await asyncio.to_thread(_pg_rows,
         "SELECT market, bucket, denom_basis, div_yield_pct, fiscal_year, price_dd, "
         "       n_total, n_div, cov_cap_pct "
         "FROM div_yield_hist WHERE scheme=%s "
-        "AND fiscal_year=(SELECT MAX(fiscal_year) FROM div_yield_hist WHERE scheme=%s) "
-        "AND denom_basis IN ('all','payers')", (scheme, scheme))
+        "AND fiscal_year=(SELECT MAX(fiscal_year) FROM div_yield_hist WHERE scheme=%s"
+        + (" AND fiscal_year <= %s" if pit else "") + ") "
+        "AND denom_basis IN ('all','payers')", (scheme, scheme, pit) if pit else (scheme, scheme))
     if rows:
         for mkt, bucket, basis, pct, fy, price_dd, n_total, n_div, cov in rows:
             d = act.setdefault((mkt, bucket), {})
@@ -772,6 +784,19 @@ async def _div_yield_map(scheme: str) -> tuple[dict, dict]:
             ruler.setdefault("actual_price_dd", price_dd)
     elif rows is None:
         ruler["actual_error"] = "확정 배당수익률 조회 실패 — 일시 장애 가능, PER·PBR 값은 그대로다."   # 261018: 표 이름 대신 선행 쪽과 같은 안내
+    if pit and rows is not None:
+        ruler.update(actual_basis_dd=as_of, actual_pit_fy=pit)
+        fy = ruler.get("actual_fiscal_year")
+        if fy is None:
+            first = await asyncio.to_thread(_pg_rows, "SELECT MIN(fiscal_year) FROM div_yield_hist WHERE scheme=%s", (scheme,))
+            since = first[0][0] if first and first[0] and first[0][0] is not None else None
+            ruler["actual_note_empty"] = (
+                f"기준일 {as_of} 까지 확정·공시된 사업연도는 FY{pit}(12월 결산 — 결산 배당·사업보고서가 다음 해 3월 말까지 나와 4월 1일부터 쓴다)인데 "
+                + (f"확정 배당수익률 집계는 FY{since} 부터라" if since else "그 이하 확정 배당수익률 집계가 없어")
+                + " 확정 칸을 비웠다 — 그 뒤 사업연도 값으로 메우지 않는다.")
+        elif fy < pit:
+            ruler["actual_note_older"] = (f"기준일 {as_of} 까지 확정·공시된 사업연도는 FY{pit} 인데 그 해 확정 배당수익률 집계가 아직 없어 "
+                                          f"FY{fy} 값이다.")
     return act, ruler
 
 
@@ -833,8 +858,9 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
     latest = [h for h in hist if h["snap_dd"] == latest_dd]
     # 260831: 배당수익률 두 벌을 같은 표에 얹는다. 키는 (market, 'ALL').
     # 260918: 선행 PER·PBR 도 얹는다. 선행 키는 (market, '_ALL') — 트레일링 표와 같은 센티넬.
+    # 261020(p1j): 과거 기준일이면 확정 배당은 표가 답한 스냅샷 날짜(`latest_dd`)까지 확정·공시된 사업연도 — 표 머리 「기준 YYYYMMDD」 뒤의 배당을 싣지 않는다.
     (div_act, div_ruler), (fwd, fwd_ruler, fwd_hist) = await asyncio.gather(
-        _div_yield_map("market"), _fwd_val_map("market", as_of, history=True))
+        _div_yield_map("market", latest_dd if as_of else None), _fwd_val_map("market", as_of, history=True))
     for h in latest:
         _attach_div(h, (mkt_to_db(h["market"]), "ALL"), div_act)
         _attach_fwd(h, fwd.get((mkt_to_db(h["market"]), "_ALL")))
@@ -915,8 +941,9 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
     div_act, div_ruler = ({}, {})
     fwd, fwd_ruler = ({}, {})
     if scheme == MAJOR:
+        # 261020(p1j): 과거 기준일이면 확정 배당은 이 축이 답한 스냅샷 날짜까지 확정·공시된 사업연도(시장 표와 같은 규칙).
         (div_act, div_ruler), (fwd, fwd_ruler, _) = await asyncio.gather(
-            _div_yield_map(_db_scheme(MAJOR)), _fwd_val_map(_db_scheme(MAJOR), as_of_req))
+            _div_yield_map(_db_scheme(MAJOR), as_of if as_of_req else None), _fwd_val_map(_db_scheme(MAJOR), as_of_req))
     elif scheme == MID:
         fwd, fwd_ruler, _ = await _fwd_val_map(_db_scheme(MID), as_of_req)
     for srow in sectors:
