@@ -100,9 +100,11 @@ def db(pg17, monkeypatch):
         c.execute(Q.DDL_FUNDAMENTALS)
         c.execute("ALTER TABLE dart_fundamentals ADD COLUMN induty text")      # 운영 표에는 있다(옛 수집기 칸)
         # 기존 행: 숫자 보통주 ok 둘 · 신형 영문 코드 nocorp(해석기가 숫자 6자리만 코드로 읽던 때 적힌 것) · 리츠 0030R0 은 행 없음 · 950260 행 없음
+        #   · D00000 = 그 날 상장 목록에 없는(상장폐지) ok 행, 업종코드 빈 칸 — 업종코드 메우기는 상장 보통주만이라 개황을 부르지 않는다(검토 변이)
         c.execute("INSERT INTO dart_fundamentals (ticker, corp_code, market, fetched, induty, acc_mt) VALUES "
                   "('006800', '00164742', 'KS', 'ok', '66121', 12), ('K00000', 'cK00000', 'KS', 'ok', '264', 12), "
-                  "('Q00000', 'cQ00000', 'KQ', 'ok', '582', 12), ('0126Z0', NULL, 'KS', 'nocorp', NULL, NULL)")
+                  "('Q00000', 'cQ00000', 'KQ', 'ok', '582', 12), ('0126Z0', NULL, 'KS', 'nocorp', NULL, NULL), "
+                  "('D00000', 'cD00000', 'KS', 'ok', NULL, 12)")
     monkeypatch.setitem(sys.modules, "market_val_weekly", types.SimpleNamespace(_krx_kinds=_kinds))
     monkeypatch.setattr(Q, "INCLUDE_NEW_MIN_LISTED", 3)
     monkeypatch.setattr(Q, "SLEEP", 0)
@@ -139,6 +141,7 @@ def test_alnum_nocorp_rows_are_relinked_and_new_common_listings_registered_with_
     # 우선주(00680K)는 관례대로 행을 두지 않는다 · 기존 ok 행은 그대로
     assert "00680K" not in rows
     assert rows["006800"] == ("00164742", "KS", "ok", "66121", 12)
+    assert rows["D00000"] == ("cD00000", "KS", "ok", None, 12)  # 상장 목록에 없는 ok 행은 업종코드가 비어도 그대로(개황을 부르지 않는다)
     assert sorted(client.info_calls) == ["01885222", "01965324", "02031369"]   # 이은 종목만 개황 1콜씩
     assert client.lookups == []                                 # 모두 명부의 종목코드 표로 이었다 — 해석기(정기공시 제출사 명부 만들기)를 거치지 않는다
     out = capsys.readouterr().out
@@ -150,11 +153,13 @@ def test_alnum_nocorp_rows_are_relinked_and_new_common_listings_registered_with_
 
 
 def test_a_daily_limit_on_company_info_keeps_the_link_and_the_next_run_fills_the_industry(db, monkeypatch, capsys):
-    assert _run(monkeypatch, _Client(halt_info=True)) == 3
+    halted = _Client(halt_info=True)
+    assert _run(monkeypatch, halted) == 3
     rows = _rows(db)
     assert rows["0126Z0"][:3] == ("01965324", "KS", "ok") and rows["0126Z0"][3] is None   # 잇기는 남고 업종코드는 빈 채
     out = capsys.readouterr().out
     assert "020" in out and "중단" in out
+    assert len(halted.info_calls) == 1                          # 키 한도(020)면 그 자리에서 멈춘다 — 남은 종목에 같은 답을 받으러 더 부르지 않는다
     client = _Client()
     assert _run(monkeypatch, client) == 0                       # 새로 이을 것은 없고 — 업종코드가 빈 상장 보통주 ok 행만 개황을 부른다
     assert sorted(client.info_calls) == ["01885222", "01965324", "02031369"]
@@ -194,6 +199,8 @@ def test_registry_code_map_is_upper_trimmed_and_prefers_the_latest_record():
     m = corp_by_ticker(CORPS + [{"corp_code": "X", "stock_code": "", "modify_date": "1"},
                                 {"corp_code": "OLD", "stock_code": " 0126z0 ", "modify_date": "20200101"}])
     assert m["0126Z0"] == "01965324" and m["950260"] == "02031369" and "" not in m
+    # 소문자·공백 섞인 명부 기록도 KRX 의 대문자 코드로 찾힌다(위 OLD 는 날짜가 늦은 기록에 져서 대문자화를 따로 확인 못 한다 — 검토 변이)
+    assert corp_by_ticker([{"corp_code": "L", "stock_code": " 0002b0 ", "modify_date": "20260101"}]) == {"0002B0": "L"}
     assert corp_by_ticker([{"corp_code": "A", "stock_code": "0001A0", "modify_date": "20250101"},
                            {"corp_code": "B", "stock_code": "0001A0", "modify_date": "20260101"}]) == {"0001A0": "B"}
 
