@@ -2073,6 +2073,10 @@ async def _fetch_year_metrics(
             bs_is_prev_std = _build_account_map(rows_prev, induty_code=induty_code) if rows_prev else None
             detail_std = _build_account_map_all(rows_detail, induty_code=induty_code) if rows_detail else None
             prior_detail = _build_account_map_all(prior_detail_rows, induty_code=induty_code)
+            # 전년 같은 분기도 3개월 값으로 — 누적 맵(detail_prev)을 그대로 쓰면 3개월 당기를 6·9개월 누적 전기와
+            # 비교하게 된다(079160 2021 반기: 지배 순이익 전년비 +64.59% 는 −845억 대 −2,387억(상반기 누적), 같은 3개월끼리는 +40.97%).
+            # 같은 행(rows_detail_prev)을 cumulative_is=False 로 다시 읽을 뿐이라 DART 콜은 늘지 않는다. BS(잔액)는 두 맵이 같다.
+            detail_prev_std = _build_account_map_all(rows_detail_prev, induty_code=induty_code) if rows_detail_prev else None
             if detail_std:
                 # CF는 누적이므로 당기 = 당기누적 − 직전누적 (cfo/capex/이자지급 등 전 CF 키)
                 for k in _CF_ACCOUNT_PATTERNS:
@@ -2083,7 +2087,7 @@ async def _fetch_year_metrics(
                 bs_is=bs_is_std,
                 bs_is_prev=bs_is_prev_std,
                 detail=detail_std,
-                detail_prev=detail_prev,  # NWC YoY는 잔액 기반이라 기간 무관 — 누적 detail_prev 재사용 OK
+                detail_prev=detail_prev_std,  # 3개월 전년 값(IS) — 잔액(BS·NWC)은 누적 맵과 같다
                 indx_map=None,
                 period_months=3,
                 ttm_revenue=ttm_revenue,  # 회전일수는 basis 무관 — 두 벌 모두 동일 TTM 사용
