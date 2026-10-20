@@ -17,6 +17,7 @@ TTM PER(최근 4분기 지배순이익 합)·MRQ PBR(최근분기 지배자본)�
 
 PIT는 **읽기 시점**에 표준 공시지연으로 매핑(저장 X): 1Q→5/15·반기→8/14·3Q→11/14·사업보고서→익년 4/1(12월 결산).
 261018: 칸의 실제 기간 말·공시 시점은 회사 결산월(`dart_fundamentals.acc_mt`)로 센다 — `open_proxy_mcp/services/report_calendar.py`.
+  261021: 결산월을 바꾼 회사는 사업연도 표기마다 결산월이 다르다(`acc_mt_prev`·`acc_mt_since`) — 첫 사업보고서(전환기, 12개월이 아님)의 순이익은 연간 칸에 넣지 않는다.
   수집 마감(`_disclosed`)·nodata 재확인 기간·외화 환율 기준일·전기 칸 대조 연도·파생(--derive)의 「최신 분기」와 TTM 직전 연간이 모두 그 매핑을 쓴다.
   12월 결산(결산월 칸이 비었을 때 포함)은 종전과 같다.
 
@@ -38,8 +39,10 @@ quarter 4 = 그해 3월말 사업보고서, 1 = 6월말, 2 = 9월말, 3 = 12월�
   python3 scripts/market_fund_quarterly.py --pilot 005930,000660,051910  # 소표본 전분기(검증용)
   python3 scripts/market_fund_quarterly.py --fetch             # 전 종목 Q1~Q3 백필(재개 가능, ~1.5h)
   python3 scripts/market_fund_quarterly.py --fetch --years 2020,2021,2022,2023,2024,2025
-  python3 scripts/market_fund_quarterly.py --acc-mt [--acc-mt-since 20180101]
+  python3 scripts/market_fund_quarterly.py --acc-mt [--acc-mt-since 20180101] [--tickers 334970,154030] [--dry]
       # 결산월(dart_fundamentals.acc_mt)을 사업보고서 이름의 기준월로 채운다·고친다(기본 최근 100일 목록, 처음엔 2018년부터)
+      # 261021: 결산월을 바꾼 회사는 옛 결산월(acc_mt_prev)·새 결산월의 첫 사업연도(acc_mt_since)도 적는다(칸은 scripts/fundamentals_ddl.py). --tickers 는 시장 전체
+      #   목록 없이 그 종목의 전체 이력만(종목당 1~2콜), --dry 는 쓰지 않고 출력만
   python3 scripts/market_fund_quarterly.py --prior-from-next 105560:2023:1,105560:2023:2 [--dry] [--cold-sqlite 서빙본.sqlite]
       # 261019: API 에 보고서가 없는 nodata 칸(금융업 2023 반기까지 등)을 다음 해 같은 분기 보고서의 전년 동기 값으로 정정 칸에(아래 「전기 칸 보충」)
       #   거름 규칙(전년 연간 태깅·상장 전 자본·스팩 합병 전 기간)과 근거 존중은 「전기 칸 보충의 거름 규칙」. 외화 보고사가 있으면 ECOS_API_KEY 를 둘 것.
@@ -53,6 +56,7 @@ quarter 4 = 그해 3월말 사업보고서, 1 = 6월말, 2 = 9월말, 3 = 12월�
 import argparse, asyncio, os, re, sys
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -62,6 +66,7 @@ import psycopg
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess
 from open_proxy_mcp.services.financial_metrics import normalize_amount
 from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fx_source, statement_currency, fx_to_krw
+from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
 
@@ -80,8 +85,8 @@ def _disclosed(fy: int, q: int, today: date | None = None, fye: int = 12) -> boo
     12월 결산이면 종전 5/15·8/14·11/14 그대로. 6월 결산의 「3분기」 칸(3월 말)은 5/15 부터 받는다(종전엔 달력 3분기라 11/14 까지 미뤘다)."""
     if fye == 12:
         mo, dy = _Q_DEADLINE[q]
-        return (today or date.today()) >= date(fy, mo, dy)
-    return (today or date.today()) >= rcal.cell_available(fy, q, fye)
+        return (today or today_kst()) >= date(fy, mo, dy)
+    return (today or today_kst()) >= rcal.cell_available(fy, q, fye)
 
 
 #: nodata 분기를 다시 받는 기간 — 그 분기 공시 마감일부터 이 날수까지(261018, 위 「재개 규칙」).
@@ -91,7 +96,7 @@ NODATA_RETRY_DAYS = int(os.getenv("FUND_Q_NODATA_RETRY_DAYS", "400"))
 
 def _retry_nodata(fy: int, q: int, today: date | None = None, days: int | None = None, fye: int = 12) -> bool:
     """이 nodata 분기를 이번 실행에 다시 받는가 — 공시 마감이 지났고, 지난 지 `days`일 이하. 마감은 결산월로(`_disclosed` 와 같다)."""
-    t = today or date.today()
+    t = today or today_kst()
     if fye == 12:
         mo, dy = _Q_DEADLINE[q]
         since = (t - date(fy, mo, dy)).days
@@ -101,9 +106,13 @@ def _retry_nodata(fy: int, q: int, today: date | None = None, days: int | None =
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
-    """그 시점 확정된 최신 사업연도(사업보고서 3월 공시 → 4월 이후 전년, 아니면 전전년). _pit_fy와 동일."""
-    t = today or date.today()
-    return t.year - 1 if t.month >= 4 else t.year - 2
+    """그 시점 확정된 최신 사업연도(12월 결산 규칙: 사업보고서 3월 공시 → 4월 이후 전년, 아니면 전전년).
+
+    261021(DATA-FY1): 이 규칙은 `report_calendar.latest_annual` 한 곳이다 — 이 파일·`market_val_series`·`price_multiple_data` 의 `_latest_annual_fy` 가
+    세 벌로 따로 있던 것을 얇은 껍데기로 모았다. 날짜는 한국 달력(`today_kst`)이다(서버·배치가 UTC 라 KST 자정~9시에 어제를 주던 것)."""
+    return rcal.latest_annual(today or today_kst(), 12)
+
+
 Q_TO_RC = {1: "11013", 2: "11012", 3: "11014", 4: "11011"}
 # 콜 간 sleep(초) — env로 조정. DART client _throttle_api가 910/분을 별도 강제하므로 이건 예의용.
 SLEEP = float(os.getenv("FUND_Q_SLEEP", "0.45"))
@@ -335,6 +344,9 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
     seen = updated = 0
     for isu, m in q.items():
         fye = fye_of.get(isu, 12)
+        if rcal.is_transition(getattr(fye, "since", 0), fye) and (fye.since, 4) in m:
+            # 261021(DATA-FY2): 결산월을 바꾼 첫 사업보고서는 전환기(12개월이 아님) — 순이익은 연간 값이 아니라 쓰지 않는다(자본은 그 날 잔액이라 그대로)
+            m = {**m, (fye.since, 4): (None, m[(fye.since, 4)][1])}
         latest = lambda keys: max(keys, key=lambda k: rcal.cell_end(k[0], k[1], fye))  # noqa: E731 — 실제 기간 말이 가장 늦은 칸
         # ni·eq 앵커를 **독립**으로(Data-QA #2): 최신분기가 eq만 있고 ni=None이어도 ni_ttm이 불필요하게
         # None 되지 않게 — 각 지표의 최신 유효분기 기준. 값 있는 분기가 곧 available(저장=공시분).
@@ -372,13 +384,16 @@ DDL_FUNDAMENTALS = """CREATE TABLE IF NOT EXISTS dart_fundamentals(
   ticker text PRIMARY KEY, corp_code text, market text, fs text,
   ni_fy double precision, ni_ttm double precision,
   eq_fy double precision, eq_mrq double precision, fetched text,
-  acc_mt smallint CHECK (acc_mt BETWEEN 1 AND 12))"""
+  acc_mt smallint CHECK (acc_mt BETWEEN 1 AND 12),
+  acc_mt_prev smallint CHECK (acc_mt_prev BETWEEN 1 AND 12), acc_mt_since integer CHECK (acc_mt_since BETWEEN 1900 AND 2200),
+  CONSTRAINT dart_fundamentals_acc_mt_change_check CHECK ((acc_mt_prev IS NULL) = (acc_mt_since IS NULL)))"""
 
 
-def _fye_map(con) -> dict[str, int]:
+def _fye_map(con) -> dict[str, "int | rcal.Fiscal"]:
     """종목 → 결산월(`dart_fundamentals.acc_mt`, 12월이 아닌 것만). 칸이 아직 없거나(DDL 전) 비었으면 12월로 본다 — 종전과 같은 읽기.
 
-    261018 신설(재설계 6단계). 채우기는 `--acc-mt`(가장 최근 사업보고서의 기준월), 칸 만들기는 `scripts/fundamentals_ddl.py`."""
+    261018 신설(재설계 6단계). 채우기는 `--acc-mt`(가장 최근 사업보고서의 기준월), 칸 만들기는 `scripts/fundamentals_ddl.py`.
+    261021: 결산월을 바꾼 회사(`acc_mt_prev`·`acc_mt_since`)는 12월이어도 `Fiscal`(옛 결산월·새 결산월 첫 사업연도 포함)로 준다 — 표기마다 맞는 결산월로 읽는다."""
     m = rcal.load_fye_map(con)
     if not m and not con.execute("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' "
                                  "AND table_name='dart_fundamentals' AND column_name='acc_mt')").fetchone()[0]:
@@ -392,74 +407,189 @@ ACC_MT_SCAN_DAYS = int(os.getenv("FUND_ACC_MT_SCAN_DAYS", "100"))
 _ANNUAL_NM = re.compile(r"사업보고서\s*\((\d{4})\.(\d{2})\)")
 
 
-def decide_acc_mt(stored: int | None, months: set[int], company_acc_mt=None) -> int | None:
-    """결산월 하나를 정한다(순수 함수 — 시험 대상).
+class AccMt(NamedTuple):
+    """결산월 한 회사의 판정 — `month` = 지금 결산월, `prev` = 바꾸기 전 옛 결산월, `since` = 새 결산월의 첫 사업연도 표기(전환기 사업보고서의 표기). 안 바꿨으면 `prev`·`since` 는 None."""
+    month: int
+    prev: int | None = None
+    since: int | None = None
 
-    · 창 안 사업보고서의 기준월이 하나 = 그 달 — 저장값이 비었거나 같을 때.
-    · 기준월이 둘 이상이거나 저장값과 다르면 = 12(종전 읽기 그대로). 결산월을 바꾼 회사(바꾼 해의 DART 칸이 두 결산월에서 겹친다 — 같은 해
-      표기의 1분기보고서가 둘)와 결산마다 사업보고서를 내는 리츠·인프라 펀드(반기·분기 결산)는 결산월 하나로 칸을 못 읽는다.
-      한 번 12 가 되면 그대로다(다음 실행에 새 달이 보여도 저장값 12 와 달라 12).
-    · 창 안 사업보고서가 없으면 = 저장값, 그것도 없으면 회사 개황(company.json)의 결산월(상장 첫해 — 아직 사업보고서가 없다)."""
-    ms = set(months)
-    if stored is not None:
-        ms.add(int(stored))
-    if len(ms) > 1:
-        return 12
-    if len(ms) == 1:
-        return ms.pop()
-    if company_acc_mt in (None, ""):
+
+def _as_accmt(v) -> "AccMt | None":
+    if v is None or isinstance(v, AccMt):
+        return v
+    if isinstance(v, (tuple, list)):
+        return AccMt(*v)
+    return AccMt(int(v))
+
+
+def classify_reports(reports) -> "AccMt | None":
+    """사업보고서 목록 `[(표기 연도, 기준월), …]` → 결산월·옛 결산월·새 결산월 첫 사업연도(순수 함수 — 시험 대상). 보고서가 없으면 None.
+
+    261021(DATA-FY2): 종전엔 「창 안 사업보고서 기준월이 둘 이상이면 영원히 12」라 결산월을 바꾼 지 몇 해 지난 회사(334970 2023.06~ · 032800 2022.06~)도 12월로 읽혔다.
+    이제 **가장 최근 사업보고서의 기준월**이 결산월이고, 그 달이 이어진 첫 사업보고서의 연도가 `since`, 그 앞 사업보고서의 달이 `prev` 다.
+    · 같은 해 사업보고서가 **두 해 이상** 둘 이상이면 반기·분기 결산(리츠·인프라 펀드) — 종전처럼 12(결산기 칸 몫: `period_cells`).
+    · 같은 해에 둘이 한 해뿐이면 결산월을 바꾼 해다(154030: 2025.09 + 2025.12 전환기 · 222160: 2024.03 + 2024.12) — 둘 다 보인다.
+    · 목록이 한 달로만 이어지면 안 바꾼 회사. 목록이 짧아 바꾼 해가 안 보이면 바꿨는지 알 수 없다(호출하는 쪽이 회사 전체 목록을 받아 온다).
+    · 상장 첫해의 반기·분기 결산 리츠(2026.06 + 2026.12 · 2025.02 + 2025.05 + 2025.08 — 같은 해에 둘이 아직 한 해뿐이다)는 결산월을 바꾼 회사처럼 보인다.
+      결산기마다 달이 바뀌는 리츠는 같은 달이 이어지지 않으므로, 옛 결산월의 사업보고서가 **둘 이상 이어지거나**(옛 달이 목록 맨 앞에서 하나뿐이면 — 목록이
+      2018년부터라 잘렸을 수 있다 — 새 결산월이 둘 이상 이어질 때) 결산월을 바꾼 회사로 본다. 아니면 가를 수 없어 종전처럼 12(결산기 칸 몫)다."""
+    seen = sorted({(int(y), int(m)) for y, m in reports or [] if 1 <= int(m) <= 12})
+    if not seen:
         return None
-    return rcal.fye_month(company_acc_mt)
+    from collections import Counter
+    if sum(1 for n in Counter(y for y, _ in seen).values() if n >= 2) >= 2:
+        return AccMt(12)
+    month = seen[-1][1]
+    i = len(seen) - 1
+    while i > 0 and seen[i - 1][1] == month:
+        i -= 1
+    if i == 0:
+        return AccMt(month)
+    prev = seen[i - 1][1]
+    j = i - 1
+    while j > 0 and seen[j - 1][1] == prev:
+        j -= 1
+    if i - j < 2 and not (j == 0 and len(seen) - i >= 2):
+        return AccMt(12)              # 옛 결산월이 이어지지 않는다 — 상장 첫해의 반기·분기 결산 리츠와 가를 수 없다(종전 읽기)
+    return AccMt(month, prev, seen[i][0])
 
 
-async def refresh_acc_mt(since: date | None = None, today: date | None = None) -> dict[str, int]:
-    """`dart_fundamentals.acc_mt`(결산월)을 채운다·고친다 — DART 공시 목록의 사업보고서 이름(「사업보고서 (2026.03)」)의 기준월로.
+def decide_acc_mt(stored, reports, company_acc_mt=None, complete: bool = True) -> "AccMt | None":
+    """결산월 하나를 정한다(순수 함수 — 시험 대상). `stored` = 저장된 판정(`AccMt` 또는 결산월 int 또는 None), `reports` = 사업보고서 `[(표기 연도, 기준월)]`.
+
+    · 보고서가 있으면 `classify_reports` — 최근 사업보고서의 기준월을 따르고 옛 결산월과 새 결산월의 첫 사업연도를 함께 돌려준다. 반기·분기 결산은 12.
+    · `complete` 가 거짓(목록이 최근 일부뿐)이면 저장된 결산월과 **다른** 달은 믿지 않는다 — 바꾼 해를 몰라 `since` 를 틀리게 적을 수 있다. 저장값을 그대로 둔다
+      (호출하는 쪽이 회사 전체 목록을 받아 다시 부른다). 저장된 결산월과 같은 달이면 저장된 변경 정보(`prev`·`since`)를 이어받는다.
+    · 보고서가 없으면 = 저장값, 그것도 없으면 회사 개황(company.json)의 결산월(상장 첫해 — 아직 사업보고서가 없다)."""
+    st = _as_accmt(stored)
+    got = classify_reports(reports)
+    if got is None:
+        if st is not None:
+            return st
+        if company_acc_mt in (None, ""):
+            return None
+        return AccMt(rcal.fye_month(company_acc_mt))
+    if st is not None and not complete:
+        return st
+    return got
+
+
+def _acc_mt_for_db(new: "AccMt", has_cols: bool) -> "AccMt":
+    """저장할 값 — 변경 칸(`acc_mt_prev`·`acc_mt_since`)이 아직 없으면(`fundamentals_ddl.py` 적용 전) 종전 규칙대로 결산월을 바꾼 회사는 12(종전 읽기)."""
+    return new if has_cols or new.prev is None else AccMt(12)
+
+
+_REPORT_HIST_FROM = "20180101"        # 회사 한 곳의 사업보고서 전체 이력을 볼 때 목록 시작일(연간 표가 2018 사업연도부터)
+
+
+async def _company_reports(c, cc: str, today: date) -> tuple[list[tuple[int, int]], int]:
+    """회사 한 곳의 사업보고서 `[(표기 연도, 기준월)]` 전체 이력(2018~오늘, 정기공시 목록 `corp_code` 로 거른다) → (목록, DART 콜 수)."""
+    out, page, calls = [], 1, 0
+    while True:
+        res = await c.search_filings(bgn_de=_REPORT_HIST_FROM, end_de=today.strftime("%Y%m%d"), pblntf_ty="A", corp_code=cc,
+                                     page_no=page, page_count=100)
+        calls += 1
+        for it in res.get("list") or []:
+            hit = _ANNUAL_NM.search(it.get("report_nm") or "")
+            if hit:
+                out.append((int(hit.group(1)), int(hit.group(2))))
+        if page >= int(res.get("total_page") or 1):
+            return out, calls
+        page += 1
+        await asyncio.sleep(SLEEP)
+
+
+async def refresh_acc_mt(since: date | None = None, today: date | None = None, tickers: list[str] | None = None,
+                         dry: bool = False) -> dict[str, int]:
+    """`dart_fundamentals.acc_mt`(결산월)·`acc_mt_prev`·`acc_mt_since` 를 채운다·고친다 — DART 공시 목록의 사업보고서 이름(「사업보고서 (2026.03)」)의 기준월로.
 
     261018 신설(재설계 6단계). 회사 개황(company.json)의 결산월은 **지금** 결산월이라, 결산월을 바꾸는 중인 회사(예: 6월 → 12월로 바꾸는
     회사는 개황이 이미 12월인데 저장된 칸은 6월 기준)를 틀리게 읽는다 — 저장된 칸은 보고서를 따르므로 보고서 이름이 정본이다.
     콜: 정기공시 목록(코스피·코스닥, 분기·반기보고서도 섞여 온다 — DART 가 상세 유형 거르기를 받지 않는다) 3개월 창 × 쪽수
-    (100일 창 ≈ 90콜, 2018년부터 ≈ 900콜) + 사업보고서가 창 안에 없고 저장값도 빈 종목만 회사 개황 1콜씩."""
+    (100일 창 ≈ 90콜, 2018년부터 ≈ 900콜) + 사업보고서가 창 안에 없고 저장값도 빈 종목만 회사 개황 1콜씩.
+
+    261021(DATA-FY2): 결산월을 바꾼 회사를 따라간다(`classify_reports`) — 옛 결산월과 새 결산월의 첫 사업연도도 함께 적는다. 창의 목록이 최근 일부뿐이면(주간 100일 창)
+    저장된 결산월과 **다른 달**이 보이는 종목(저장값이 비었으면 달이 둘 이상 보이는 종목)만 그 회사의 사업보고서 전체 이력을 받아(`corp_code` 로 거른 목록 1~2콜) 판정한다 — 결산월을 바꾼 회사인지, 결산마다 사업보고서를 내는
+    리츠·인프라 펀드인지 한 해 목록으로는 가를 수 없다. 결산기 칸이 있는 종목(`dart_finstat_q` 근거 칸 머리 `period_cells.MARK`)은 이미 반기·분기 결산으로 알아 목록을 더 받지 않는다.
+    `tickers` 를 주면 그 종목만 — 시장 전체 목록을 훑지 않고 종목마다 전체 이력 1~2콜(결산월을 바꾼 회사를 고칠 때). `dry` 면 쓰지 않고 출력만.
+    반환: {종목: 새 결산월} — 저장값이 바뀐 종목(변경 칸만 바뀐 종목 포함)."""
     from collections import defaultdict
     from datetime import timedelta
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError, market_window_end, dart_halts_batch, dart_batch_halt_line
-    t = today or date.today()
+    t = today or today_kst()
     start = since or (t - timedelta(days=ACC_MT_SCAN_DAYS))
+    full_scan = start <= date(2018, 12, 31) and not tickers        # 2018년부터 훑었으면 창의 목록이 곧 전체 이력이다
     con = _pg(); con.autocommit = True
-    firms = {cc: (tk, m) for tk, cc, m in con.execute(
-        "SELECT ticker, corp_code, acc_mt FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")}
+    has_cols = con.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dart_fundamentals' "
+                           "AND column_name IN ('acc_mt_prev','acc_mt_since')").fetchone()[0] == 2
+    if has_cols:
+        rows = con.execute("SELECT ticker, corp_code, acc_mt, acc_mt_prev, acc_mt_since FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")
+    else:
+        rows = con.execute("SELECT ticker, corp_code, acc_mt, NULL::smallint, NULL::int FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")
+    firms = {cc: (tk, AccMt(int(m), int(p) if p else None, int(sy) if sy else None) if m is not None else None)
+             for tk, cc, m, p, sy in rows}
+    try:
+        semi = period_tickers(con) if con.execute("SELECT to_regclass('public.dart_finstat_q') IS NOT NULL").fetchone()[0] else set()
+    except psycopg.Error:
+        semi = set()
     con.close()
+    if tickers:
+        want = set(tickers)
+        firms = {cc: v for cc, v in firms.items() if v[0] in want}
     c = get_dart_client()
-    months: dict[str, set[int]] = defaultdict(set)
+    reps: dict[str, set] = defaultdict(set)
     calls = 0
-    for cls in ("Y", "K"):
-        cur = start
-        while cur <= t:
-            end = min(market_window_end(cur), t)
-            page = 1
-            while True:
-                try:
-                    res = await c.search_filings(bgn_de=cur.strftime("%Y%m%d"), end_de=end.strftime("%Y%m%d"),
-                                                 pblntf_ty="A", corp_cls=cls, page_no=page, page_count=100)
-                except DartClientError as e:
-                    if "013" in str(e):
+    if not tickers:
+        for cls in ("Y", "K"):
+            cur = start
+            while cur <= t:
+                end = min(market_window_end(cur), t)
+                page = 1
+                while True:
+                    try:
+                        res = await c.search_filings(bgn_de=cur.strftime("%Y%m%d"), end_de=end.strftime("%Y%m%d"),
+                                                     pblntf_ty="A", corp_cls=cls, page_no=page, page_count=100)
+                    except DartClientError as e:
+                        if "013" in str(e):
+                            break
+                        raise
+                    calls += 1
+                    await asyncio.sleep(SLEEP)             # 다른 수집기와 같은 예의(0.45초) — 분당 910 한도를 넉넉히 밑돈다
+                    for it in res.get("list") or []:
+                        hit = _ANNUAL_NM.search(it.get("report_nm") or "")
+                        if hit and it.get("corp_code") in firms:
+                            reps[it["corp_code"]].add((int(hit.group(1)), int(hit.group(2))))
+                    if page >= int(res.get("total_page") or 1):
                         break
-                    raise
-                calls += 1
-                await asyncio.sleep(SLEEP)             # 다른 수집기와 같은 예의(0.45초) — 분당 910 한도를 넉넉히 밑돈다
-                for it in res.get("list") or []:
-                    hit = _ANNUAL_NM.search(it.get("report_nm") or "")
-                    if hit and it.get("corp_code") in firms:
-                        months[it["corp_code"]].add(int(hit.group(2)))
-                if page >= int(res.get("total_page") or 1):
-                    break
-                page += 1
-            cur = end + timedelta(days=1)
+                    page += 1
+                cur = end + timedelta(days=1)
     out: dict[str, int] = {}
     changed: list[tuple] = []
     halted = False
     for cc, (tk, stored) in firms.items():
         comp = None
-        if not months.get(cc) and stored is None and not halted:
+        rs = reps.get(cc, set())
+        complete = full_scan
+        # 저장된 결산월과 다른 달이 보이거나(결산월을 바꿨거나 반기·분기 결산) 종목을 지정했으면 그 회사의 전체 이력을 받는다. 반기·분기 결산으로 아는 종목은 건너뛴다.
+        need_hist = bool(tickers) or (not full_scan and tk not in semi and (
+            (stored is not None and any(m != stored.month for _, m in rs))
+            or (stored is None and len({m for _, m in rs}) > 1)))        # 저장값이 없어도 창에 달이 둘 보이면(리츠인가 결산월 변경인가) 전체 이력으로
+        if need_hist and not halted:
+            try:
+                rs2, n = await _company_reports(c, cc, t)
+                calls += n
+                await asyncio.sleep(SLEEP)              # 다른 수집기와 같은 예의(0.45초)
+                rs, complete = set(rs2), True
+            except DartClientError as e:
+                if dart_halts_batch(e):
+                    halted = True
+                    print(dart_batch_halt_line(e, "회사 사업보고서 이력"), flush=True)
+                else:
+                    print(f"::warning::[결산월] {tk} 사업보고서 이력 실패({type(e).__name__}) — 저장값 그대로", flush=True)
+                continue
+        elif need_hist:
+            continue
+        elif not rs and stored is None and not halted:
             try:
                 comp = (await c.get_company_info(cc)).get("acc_mt")
                 calls += 1
@@ -470,21 +600,35 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None) -
                     #   저장값이 빈 채라 다음 실행이 다시 본다). 종전엔 종목마다 쉬지 않고 불렀다.
                     halted = True
                     print(dart_batch_halt_line(e, "회사 개황"), flush=True)
-        new = decide_acc_mt(stored, months.get(cc, set()), comp)
-        if new is not None and new != stored:
-            out[tk] = new
-            changed.append((tk, stored, new, sorted(months.get(cc, set())), comp))
-    if out:
+        elif tk in semi and stored is not None:
+            continue                                  # 반기·분기 결산으로 아는 종목 — 결산월은 12(결산기 칸 몫)
+        new = decide_acc_mt(stored, rs, comp, complete=complete or stored is None)
+        if new is None:
+            continue
+        new = _acc_mt_for_db(new, has_cols)
+        if new != stored:
+            out[tk] = new.month
+            changed.append((tk, stored, new, sorted(rs), comp))
+    if out and not dry:
         con = _pg(); con.autocommit = True
         with con.cursor() as cur:
-            cur.executemany("UPDATE dart_fundamentals SET acc_mt=%s WHERE ticker=%s AND acc_mt IS DISTINCT FROM %s",
-                            [(m, tk, m) for tk, m in out.items()])
+            if has_cols:
+                cur.executemany("UPDATE dart_fundamentals SET acc_mt=%s, acc_mt_prev=%s, acc_mt_since=%s WHERE ticker=%s "
+                                "AND (acc_mt, acc_mt_prev, acc_mt_since) IS DISTINCT FROM (%s::smallint, %s::smallint, %s::int)",
+                                [(n.month, n.prev, n.since, tk, n.month, n.prev, n.since) for tk, _o, n, _r, _c in changed])
+            else:
+                cur.executemany("UPDATE dart_fundamentals SET acc_mt=%s WHERE ticker=%s AND acc_mt IS DISTINCT FROM %s",
+                                [(n.month, tk, n.month) for tk, _o, n, _r, _c in changed])
         con.close()
-    for tk, old, new, ms, comp in sorted(changed):
+    for tk, old, new, ms, comp in sorted(changed, key=lambda x: x[0]):
         if old is not None:   # 이미 있던 결산월이 바뀜 — 사람이 볼 일(결산월 변경·리츠)
-            print(f"[결산월] {tk} {old} → {new} (창 안 사업보고서 기준월 {ms})", flush=True)
+            chg = f" · 옛 {new.prev}월 → {new.month}월, {new.since} 사업연도부터" if new.prev else ""
+            print(f"[결산월] {tk} {old.month} → {new.month}{chg} (사업보고서 기준월 {ms})" + (" — dry" if dry else ""), flush=True)
+        elif new.prev:
+            print(f"[결산월] {tk} 새로 채움 {new.month}월 · 옛 {new.prev}월, {new.since} 사업연도부터" + (" — dry" if dry else ""), flush=True)
     n_set = sum(1 for _, old, *_ in changed if old is None)
-    print(f"acc-mt: 사업보고서 목록 {start}~{t} · 대상 {len(firms)}사 · 새로 채움 {n_set} · 바뀜 {len(changed) - n_set} · DART {calls}콜", flush=True)
+    print(f"acc-mt: 사업보고서 목록 {start}~{t} · 대상 {len(firms)}사 · 새로 채움 {n_set} · 바뀜 {len(changed) - n_set} · DART {calls}콜"
+          + (" (쓰지 않음 — dry)" if dry and out else ""), flush=True)
     return out
 
 
@@ -674,14 +818,20 @@ def seed_q4() -> None:
     261019: 표·칸이 이미 있으면 DDL 을 보내지 않는다(`_ensure_ddl` — 칸이 있어도 표 전체 잠금을 기다리던 것)."""
     con = _pg(); con.autocommit = True
     _ensure_ddl(con)
-    n1 = con.execute("""
+    # 261021(DATA-FY2): 결산월을 바꾼 첫 해(`dart_fundamentals.acc_mt_since`)의 사업보고서는 전환기(12개월이 아님) — 그 순이익은 연간 값이 아니라 Q4 칸에 옮기지 않는다.
+    #   칸(`acc_mt_since`)이 아직 없으면(DDL 전) 종전 그대로다.
+    has_since = con.execute("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' "
+                            "AND table_name='dart_fundamentals' AND column_name='acc_mt_since')").fetchone()[0]
+    ni_expr = "CASE WHEN f.acc_mt_since = y.fy THEN NULL ELSE COALESCE(y.ni_restated, y.ni) END" if has_since else "COALESCE(y.ni_restated, y.ni)"
+    join = "LEFT JOIN dart_fundamentals f ON f.ticker = y.ticker" if has_since else ""
+    n1 = con.execute(f"""
         INSERT INTO dart_finstat_q (ticker, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
-        SELECT ticker, fy, 4, '11011', fs,
-               COALESCE(ni_restated, ni), COALESCE(eq_restated, eq),
-               CASE WHEN COALESCE(ni_restated,ni) IS NOT NULL OR COALESCE(eq_restated,eq) IS NOT NULL
+        SELECT y.ticker, y.fy, 4, '11011', y.fs,
+               {ni_expr}, COALESCE(y.eq_restated, y.eq),
+               CASE WHEN {ni_expr} IS NOT NULL OR COALESCE(y.eq_restated,y.eq) IS NOT NULL
                     THEN 'ok' ELSE 'nodata' END
-        FROM dart_finstat_y
-        WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL
+        FROM dart_finstat_y y {join}
+        WHERE y.fetched='ok' OR y.ni_restated IS NOT NULL OR y.eq_restated IS NOT NULL
         ON CONFLICT (ticker, fy, quarter) DO UPDATE SET
           ni_cum=COALESCE(EXCLUDED.ni_cum, dart_finstat_q.ni_cum), eq=COALESCE(EXCLUDED.eq, dart_finstat_q.eq),
           fetched=CASE WHEN COALESCE(EXCLUDED.ni_cum, dart_finstat_q.ni_cum) IS NOT NULL
@@ -692,6 +842,16 @@ def seed_q4() -> None:
               (CASE WHEN COALESCE(EXCLUDED.ni_cum, dart_finstat_q.ni_cum) IS NOT NULL
                       OR COALESCE(EXCLUDED.eq, dart_finstat_q.eq) IS NOT NULL THEN 'ok' ELSE 'nodata' END)
     """).rowcount
+    if has_since:
+        # 이미 들어가 있던 전환기 칸의 순이익을 비우고 표시한다(연간 표의 빈 값은 Q4 칸을 지우지 않는 규칙이라 따로 — 위 ON CONFLICT 의 COALESCE). 값이 같으면 다시 쓰지 않는다.
+        n2 = con.execute("""
+            UPDATE dart_finstat_q q SET ni_cum = NULL, ni_case = 'TRANSITION',
+                   fetched = CASE WHEN q.eq IS NOT NULL THEN 'ok' ELSE 'nodata' END
+            FROM dart_fundamentals f
+            WHERE f.ticker = q.ticker AND f.acc_mt_since = q.fy AND q.quarter = 4
+              AND (q.ni_cum IS NOT NULL OR q.ni_case IS DISTINCT FROM 'TRANSITION')""").rowcount
+        if n2:
+            print(f"Q4 seed: 결산월을 바꾼 첫 해(전환기) 사업보고서 칸 {n2}행의 순이익을 비우고 표시(ni_case=TRANSITION)")
     print(f"Q4 seed: dart_finstat_y → 분기 표 사업보고서 칸 {n1}행(새로 넣거나 값이 바뀐 행만)")
     con.close()
 
@@ -1346,6 +1506,10 @@ async def fill_prior_from_next(keys: set[tuple[str, int, int]], dry: bool = Fals
             result[(t, fy, q)] = "건너뜀(다음 해 같은 분기 보고서가 아직 공시 마감 전)"
             continue
         end, src_end = rcal.cell_end(fy, q, fye), rcal.cell_end(fy + 1, q, fye)
+        if (src_end.year - end.year, src_end.month) != (1, end.month):
+            # 261021(DATA-FY2): 결산월을 바꾼 해를 낀 칸 — 다음 해 같은 분기 보고서의 전기 칸이 이 칸의 기간이 아니다(옛·새 결산월이 다르다)
+            result[(t, fy, q)] = "건너뜀(결산월을 바꾼 해 — 다음 해 같은 분기 보고서의 전기 칸이 이 칸의 기간이 아니다)"
+            continue
         ay = rcal.prior_annual(fy, q, fye) + 1                 # 그 칸이 속한 회계연도의 사업보고서 표기
         ann_end = rcal.cell_end(ay, 4, fye)
         listed, merge, shares0 = None, None, None
@@ -1549,7 +1713,7 @@ async def refresh_period_cells(tickers: list[str] | None = None, today: date | N
     """반기·분기 결산 회사의 결산기 칸을 쓴다(위 머리 주석). 결과 {종목: 처리 사유}."""
     from datetime import timedelta
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
-    t0 = today or date.today()
+    t0 = today or today_kst()
     ts = t0.strftime("%Y%m%d")
     con = _pg(); con.autocommit = True
     known = period_tickers(con)
@@ -1702,9 +1866,9 @@ if __name__ == "__main__":
                     help="--prior-from-next 의 스팩 합병 판정용 하한 이전 주간 시세 서빙본(sqlite, 뷰 krx_weekly) — 상장이 주간 시세 보존 하한보다 "
                          "이른 종목의 상장 + 39개월 안 칸은 이것이 없으면 쓰지 않는다")
     ap.add_argument("--tickers", type=str,
-                    help="--derive 를 이 종목만(콤마구분) — 재수집한 종목만 좁혀 파생할 때")
+                    help="--derive·--acc-mt 를 이 종목만(콤마구분) — 재수집한 종목만 좁혀 파생할 때 · 결산월을 바꾼 회사만 고칠 때")
     ap.add_argument("--acc-mt", action="store_true",
-                    help="결산월(dart_fundamentals.acc_mt)을 사업보고서 이름의 기준월로 채운다·고친다(DART 목록 ~90콜)")
+                    help="결산월(dart_fundamentals.acc_mt·acc_mt_prev·acc_mt_since)을 사업보고서 이름의 기준월로 채운다·고친다(DART 목록 ~90콜 · --tickers 로 좁히면 종목당 1~2콜, --dry 는 쓰지 않음)")
     ap.add_argument("--period-cells", action="store_true",
                     help="반기·분기 결산 회사(리츠 등)의 결산기 칸 — 새 보고서가 있는 종목만 다시 받는다(종목당 목록 1콜 + 새 보고서 연도 1~2콜). --tickers 로 좁힌다")
     ap.add_argument("--period-cells-all", action="store_true", help="--period-cells 를 새 보고서 여부와 무관하게 전 연도 다시")
@@ -1721,7 +1885,8 @@ if __name__ == "__main__":
         asyncio.run(include_new_tickers())   # fetch 가 firms 를 DB 에서 다시 읽으므로 같은 실행에서 이어진다
     if a.acc_mt:                             # 결산월 — 신규 등록 뒤·수집 앞(수집 마감을 결산월로 센다)
         _since = a.acc_mt_since
-        asyncio.run(refresh_acc_mt(since=date(int(_since[:4]), int(_since[4:6]), int(_since[6:8])) if _since else None))
+        asyncio.run(refresh_acc_mt(since=date(int(_since[:4]), int(_since[4:6]), int(_since[6:8])) if _since else None,
+                                   tickers=a.tickers.split(",") if a.tickers else None, dry=a.dry))
     if a.seed:
         seed_q4()
     if a.derive:
