@@ -407,6 +407,17 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
         upto = day or max(px_dd.values(), default="") or today_kst().strftime("%Y%m%d")
         adj = await asyncio.to_thread(_db_share_adjust, sorted(px), qty_dd, upto)
     factors, base = adj if adj else ({}, {})
+    unl_basis: set[str] = set()
+    if adj is not None:
+        # 261021(H4): 확정 라벨이 없어도 상장주식 수가 계수의 역수만큼 바뀐 조정(라벨 원천이 멎은 2026-06·07 뒤의 분할·병합·무상증자 — 모두 unlabeled·dart)을
+        #   곱한다 — 공시 EPS 정렬·배당수익률 맞춤과 같은 판정(`price_multiple_data._unlabeled_share_events`). 종전엔 그런 종목이 아래 불변식에서 「확정된
+        #   수정계수가 없다」로 걸려 시가 평가에서 빠졌다. 읽기 실패는 종전 계수 그대로다.
+        unl = await _val._unlabeled_share_events(sorted(px), qty_dd, upto)
+        if unl:
+            factors = dict(factors)                       # 호출한 쪽 사전을 바꾸지 않는다
+            for t, evs in unl.items():
+                factors[t] = factors.get(t, 1.0) * _val._adj_events_factor(evs, qty_dd)
+                unl_basis.add(t)
 
     # 4) 평가 — 동명 후보는 그날 시세가 있는 코드 하나로 가린다
     marked, unresolved, book_sum, mkt_sum = [], [], 0, 0
@@ -433,6 +444,8 @@ async def _mark_listed_stakes(client, holdings: list[dict], doc_text: str,
                 if f != 1.0:
                     item["qty_adj"] = qty_now              # 기말 수량 ÷ 수정계수 = 오늘 주식수 기준 수량
                     item["adj_factor"] = round(f, 6)
+                    if code in unl_basis:
+                        item["adj_basis"] = "listed_shares_ratio"   # 261021(H4): 계수 일부는 확정 라벨이 아니라 상장주식 수 배율로 확인한 조정
                 marked.append(item)
                 continue
         if why is None:
