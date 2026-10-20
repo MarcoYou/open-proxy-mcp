@@ -15,8 +15,12 @@
 신규 로직은 딱 하나 — **자사주 소각의 장부가(BPS) 손익**:
     장부가손익(KRW) = (매입시점 BPS − 매입시점 가중평균 매입가) × 소각주식수
     가중평균 매입가 = actual_amount_krw ÷ cumulative_shares  (treasury_share, 이미 정확)
-    매입시점 BPS    = controlling_equity(financial_metrics) ÷ shares_total(DART stockTotqySttus,
-                      valuation.py의 _shares_outstanding 그대로 재사용)
+    매입시점 BPS    = 지배자본 ÷ shares_total(DART stockTotqySttus, price_multiple_data.py의
+                      _shares_outstanding 그대로 재사용)
+    지배자본은 비지배지분을 뺀 값이다 — 지주사는 연결 자본총계 대부분이 자회사 비지배 몫이라 총계를 쓰면 BPS 가
+    몇 배 과대해져 「싸게 샀다」가 거꾸로 나온다(한화 FY2025 말 4.09배). 기준 시점은 **매입 기간 말까지 공시돼 있던
+    최신 재무상태표**이고(결과보고서 접수 해 말이 아니다) 어느 자본·어느 보고서·어느 날로 나눴는지는 사이클마다
+    `bps_basis` 에 밝힌다.
 배당은 이 BPS 계산에서 제외한다(배당은 자본만 줄고 주식수는 그대로라 BPS가 오히려 내려가는 반대
 방향 효과 — 대화에서 확정, 섞으면 부정확). 대신 "주주환원 종합"에는 배당을 포함한다.
 
@@ -50,7 +54,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from open_proxy_mcp.dart.client import get_dart_client
+from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.services import controlling_eq as _ceq
+from open_proxy_mcp.services import report_calendar as _rcal
 from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
                                              company_ambiguous_warning,
                                              company_not_found_warning,
@@ -66,39 +72,181 @@ from open_proxy_mcp.services.dividend import build_dividend_payload, _fiscal_per
 from open_proxy_mcp.services.treasury_share import build_treasury_share_payload
 from open_proxy_mcp.services.price_multiple_data import _shares_outstanding, _pg_rows
 from open_proxy_mcp.services.date_utils import resolve_date_window, format_yyyymmdd
+from open_proxy_mcp.services.scale_guard import check_magnitude_jump
 
 _SANITY_LOW, _SANITY_HIGH = 0.3, 3.0
 
 
-async def _bps_at_year(canonical_name: str, corp_code: str, year: int) -> dict[str, Any]:
-    """그 연도 자기자본÷합계유통주식수 = BPS. financial_metrics의 `bps_krw` 필드는 실측 결과
-    항상 None(미구현)이라 `total_equity_krw`(financial_metrics summary) + shares_total(DART
-    stockTotqySttus, valuation.py의 `_shares_outstanding` 그대로 재사용)를 직접 조합한다.
-    ⚠ `total_equity_krw`는 지배지분만이 아니라 총자본(비지배지분 포함)일 수 있음 — financial_metrics가
-    이 scope에서 지배지분만 분리한 필드를 별도로 안 주기 때문(알려진 근사치, valuation.py처럼
-    `_ctrl_equity` 정밀 분리를 하려면 fnlttSinglAcntAll 직접 재구현이 필요해 이번 스코프에서는
-    보류 — 별도 과제)."""
-    from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
+#: 분기·사업보고서 칸 번호(`report_calendar` 의 quarter 1~4) → DART 보고서 코드 · 이름.
+_REPORT_CODE = {1: "11013", 2: "11012", 3: "11014", 4: "11011"}
+_REPORT_LABEL = {1: "1분기보고서", 2: "반기보고서", 3: "3분기보고서", 4: "사업보고서"}
 
-    client = get_dart_client()
-    fm_task = build_financial_metrics_payload(canonical_name, scope="summary", year=year)
+
+def _ymd(v: Any) -> str | None:
+    """`2025-11-24`·`20251124` → `20251124`. 날짜가 아니면 None."""
+    s = "".join(ch for ch in str(v or "") if ch.isdigit())
+    return s[:8] if len(s) >= 8 else None
+
+
+def _iso(ymd: str | None) -> str | None:
+    return f"{ymd[:4]}-{ymd[4:6]}-{ymd[6:8]}" if ymd and len(ymd) == 8 else None
+
+
+async def _shares_total_krw(client: Any, corp_code: str, year: int) -> int | None:
     try:
         sh = await _shares_outstanding(client, corp_code, year)
     except Exception:
-        sh = {"total": None, "common": None}
-    fm = None
+        return None
+    return sh.get("total")
+
+
+async def _equity_annual(canonical_name: str, year: int) -> dict[str, Any]:
+    """종전 길 — 재무 지표 도구 summary 의 **그 사업연도 말** 자본.
+
+    지배자본은 재무 지표 도구가 주는 `controlling_equity_krw`(수집·배수 도구와 같은 공용 규칙으로 고른 값)를 쓴다. 그 칸이 아예 없는
+    옛 응답이거나 지배자본을 못 구해 자본총계로 물러난 응답(`TOTAL_FALLBACK`)이면 자본총계(비지배 포함)를 그대로 쓰되 그 사실을 `warning` 에 남긴다
+    — 조용히 총계로 나누지 않는다."""
+    from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
+
     try:
-        fm = await fm_task
-    except Exception:
-        fm = None
-    total_equity = None
-    if fm and isinstance(fm, dict):
-        total_equity = ((fm.get("data") or {}).get("summary") or {}).get("total_equity_krw")
-    shares_total = sh.get("total")
-    bps = None
-    if total_equity and shares_total:
-        bps = round(total_equity / shares_total)
-    return {"bps_krw": bps, "total_equity_krw": total_equity, "shares_total": shares_total}
+        fm = await build_financial_metrics_payload(canonical_name, scope="summary", year=year)
+    except Exception as exc:  # noqa: BLE001 — 상류 실패는 「없음」이 아니라 사유와 함께 올린다
+        return {"equity_krw": None, "warning": f"재무 지표 조회 실패({type(exc).__name__})"}
+    summary = ((fm or {}).get("data") or {}).get("summary") or {}
+    total = summary.get("total_equity_krw")
+    case = summary.get("controlling_equity_case")
+    out: dict[str, Any] = {
+        "total_equity_krw": total, "equity_case": case,
+        "fiscal_year": year, "reprt_code": summary.get("reprt_code") or "11011",
+    }
+    if "controlling_equity_krw" in summary:
+        ctrl = summary.get("controlling_equity_krw")
+        if ctrl is not None and case != "TOTAL_FALLBACK":
+            return {**out, "equity_krw": ctrl, "equity_basis": "controlling"}
+        if total:
+            return {**out, "equity_krw": total, "equity_basis": "total_incl_minority",
+                    "warning": f"지배자본을 못 구해 자본총계(비지배 포함)로 나눔 — year={year}"}
+        return {**out, "equity_krw": None, "warning": f"자기자본 칸 없음 — year={year}"}
+    if total:
+        return {**out, "equity_krw": total, "equity_basis": "total_incl_minority",
+                "warning": f"재무 지표 응답에 지배자본 칸이 없어 자본총계(비지배 포함)로 나눔 — year={year}"}
+    return {**out, "equity_krw": None, "warning": f"자기자본 칸 없음 — year={year}"}
+
+
+async def _equity_as_of(
+    client: Any, corp_code: str, ref_ymd: str, *, fiscal_month: int | None, ticker: str | None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """기준일(매입 기간 말)까지 **공시돼 있던 최신 정기보고서**의 재무상태표에서 지배자본을 고른다 — DART 1콜(전체 재무제표, 연결).
+
+    어느 보고서인가: `report_calendar.pit_cell` — 분기·반기는 기간 말 + 45일, 사업보고서는 결산 다음 넷째 달 1일(외국 상장사 60일·다섯째 달)
+    까지 낸 것으로 본다. 법정 기한 전에 일찍 낸 다음 보고서는 쓰지 않는다(미래 정보를 안 쓰는 쪽). 결산월을 모르면 12월로 본다.
+    그 보고서가 정정공시를 거쳤으면 응답은 **최신 정정본**이라 접수일이 기준일 뒤일 수 있다 — `filed_after_reference_date` 로 밝힌다.
+
+    못 쓰면 (None, 사유)를 돌려 호출부가 종전 연말 길로 물러나게 한다: 연결 재무제표 없음·조회 실패 · 지배자본 못 고름 · 원화가 아닌 보고 통화 ·
+    같은 응답 안 전기말과 100배 이상 10ⁿ 점프(단위가 틀린 보고서 — 재무 지표 도구의 보고서 사이 단위 가드가 보는 꼴)."""
+    fye = _rcal.fiscal(fiscal_month, ticker)
+    try:
+        fy, q = _rcal.pit_cell(ref_ymd, fye)
+    except (ValueError, TypeError):
+        return None, f"기준일 형식 이상({ref_ymd})"
+    rc = _REPORT_CODE[q]
+    try:
+        d = await client.get_fnltt_singl_acnt_all(corp_code, str(fy), rc, "CFS")
+    except DartClientError as exc:
+        return None, f"{fy} {_REPORT_LABEL[q]} 연결 재무제표 조회 실패(DART {getattr(exc, 'status', '?')})"
+    except Exception as exc:  # noqa: BLE001 — 통신 오류(시간 초과·HTTP 5xx 등)도 도구 전체를 죽이지 않고 연말 길로 물러난다(종전 길도 예외를 삼켰다)
+        return None, f"{fy} {_REPORT_LABEL[q]} 연결 재무제표 조회 실패({type(exc).__name__})"
+    rows = (d.get("list", d) if isinstance(d, dict) else d) or []
+    if not rows:
+        return None, f"{fy} {_REPORT_LABEL[q]} 연결 재무제표 없음"
+    cur = {(r.get("currency") or "").strip() for r in rows if r.get("sj_div") == "BS"} - {""}
+    if cur and cur != {"KRW"}:
+        return None, f"{fy} {_REPORT_LABEL[q]} 보고 통화가 원화가 아님({','.join(sorted(cur))})"
+    ctrl, case = _ceq.controlling_eq(rows, "thstrm_amount")
+    if ctrl is None:
+        return None, f"{fy} {_REPORT_LABEL[q]} 지배자본을 못 고름({case})"
+    prev, _pc = _ceq.controlling_eq(rows, "frmtrm_amount")
+    jump = check_magnitude_jump(ctrl, prev)
+    if jump.get("triggered"):
+        return None, f"{fy} {_REPORT_LABEL[q]} 자본이 전기말의 10^{jump.get('power')}배 — 단위 오류 의심"
+    total = _ceq.total_eq(rows, lambda r: _ceq.amount(r, "thstrm_amount"))
+    rcept_no = str(next((r.get("rcept_no") for r in rows if r.get("rcept_no")), "") or "")
+    rcept_dt = _ymd(rcept_no[:8]) if rcept_no else None
+    return {
+        "equity_krw": ctrl, "equity_basis": "controlling", "equity_case": case,
+        "total_equity_krw": total, "fiscal_year": fy, "reprt_code": rc, "quarter": q,
+        "period_end": _rcal.cell_end(fy, q, fye).isoformat(),
+        "rcept_no": rcept_no or None, "rcept_dt": rcept_dt,
+        "filed_after_reference_date": bool(rcept_dt and rcept_dt > ref_ymd),
+    }, None
+
+
+async def _bps_at_cycle(
+    canonical_name: str, corp_code: str, year: int, *,
+    ref_ymd: str | None, ref_kind: str, fiscal_month: int | None, ticker: str | None,
+) -> dict[str, Any]:
+    """사이클 하나의 BPS = 지배자본 ÷ 합계 유통주식수, 그리고 어느 기준으로 나눴는지(`bps_basis`).
+
+    자본: ① 기준일(매입 기간 말, 없으면 결과보고서 접수일)까지 공시된 최신 정기보고서 재무상태표의 지배자본(`_equity_as_of`, DART 1콜)
+    ② 그게 안 되면 종전처럼 `year` 사업연도 말 자본(`_equity_annual` — 재무 지표 도구의 `controlling_equity_krw`). ②로 물러나면 `fallback_reason` 에 사유.
+    주식수: 종전 그대로 `year` 사업보고서 합계 유통주식수(분기보고서의 주식의 총수 칸은 비어 오는 회사가 있어 못 쓴다). 그 해 사업보고서가 아직 안
+    나온 사이클은 기준일에 공시돼 있던 최신 사업보고서의 주식수로 물러난다(종전엔 BPS 없음).
+    """
+    client = get_dart_client()
+    equity: dict[str, Any] | None = None
+    fallback_reason: str | None = None
+    if ref_ymd:
+        equity, fallback_reason = await _equity_as_of(
+            client, corp_code, ref_ymd, fiscal_month=fiscal_month, ticker=ticker)
+    else:
+        fallback_reason = "매입 기간 말·접수일을 몰라 기준일을 못 정함"
+    source = "latest_filed_as_of_reference_date"
+    if equity is None:
+        source = "annual_year_end"
+        equity = await _equity_annual(canonical_name, year)
+
+    shares_year = year
+    shares_total = await _shares_total_krw(client, corp_code, year)
+    shares_note = f"{year} 사업보고서 합계 유통주식수"
+    if not shares_total and ref_ymd:
+        pit_year = _rcal.pit_annual(ref_ymd, _rcal.fiscal(fiscal_month, ticker))
+        if pit_year != year:
+            shares_total = await _shares_total_krw(client, corp_code, pit_year)
+            if shares_total:
+                shares_year = pit_year
+                shares_note = f"{pit_year} 사업보고서 합계 유통주식수({year} 보고서가 아직 없어 기준일에 공시돼 있던 최신 보고서로 대신함)"
+
+    equity_krw = equity.get("equity_krw")
+    total_krw = equity.get("total_equity_krw")
+    bps = round(equity_krw / shares_total) if equity_krw and shares_total else None
+    bps_total = round(total_krw / shares_total) if total_krw and shares_total else None
+    basis: dict[str, Any] = {
+        "equity": equity.get("equity_basis"),
+        "equity_case": equity.get("equity_case"),
+        "controlling_equity_krw": equity_krw if equity.get("equity_basis") == "controlling" else None,
+        "total_equity_krw": total_krw,
+        "bps_if_total_equity_krw": bps_total,
+        "shares_total": shares_total,
+        "shares_basis": shares_note if shares_total else None,
+        "shares_fiscal_year": shares_year if shares_total else None,
+        "balance_sheet": {
+            "source": source,
+            "reference_date": _iso(ref_ymd),
+            "reference_kind": ref_kind,
+            "fiscal_year": equity.get("fiscal_year"),
+            "report": _REPORT_LABEL.get(equity.get("quarter")) if equity.get("quarter") else "사업보고서",
+            "reprt_code": equity.get("reprt_code"),
+            "period_end": equity.get("period_end"),
+            "rcept_no": equity.get("rcept_no"),
+            "rcept_dt": _iso(equity.get("rcept_dt")),
+            "filed_after_reference_date": equity.get("filed_after_reference_date"),
+        },
+        "fallback_reason": fallback_reason if source == "annual_year_end" else None,
+    }
+    return {
+        "bps_krw": bps, "total_equity_krw": total_krw, "shares_total": shares_total,
+        "bps_basis": basis, "warning": equity.get("warning"),
+    }
 
 
 def _acquisition_events(treasury_data: dict[str, Any]) -> list[dict[str, Any]]:
@@ -114,9 +262,13 @@ def _decision_for(events: list[dict[str, Any]], rcept_no: str) -> dict[str, Any]
 
 
 async def _capital_return_impact(
-    canonical_name: str, corp_code: str, treasury_data: dict[str, Any]
+    canonical_name: str, corp_code: str, treasury_data: dict[str, Any], *,
+    fiscal_month: int | None = None, ticker: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """자사주소각 사이클별 장부가 손익 계산. sanity 필터에 걸리면 flags에 남기고 계산에서 제외."""
+    """자사주소각 사이클별 장부가 손익 계산. sanity 필터에 걸리면 flags에 남기고 계산에서 제외.
+
+    BPS 는 지배자본 기준이고 기준일은 사이클의 매입 기간 말이다(`_bps_at_cycle` — 어느 기준으로 나눴는지 사이클마다 `bps_basis`).
+    `fiscal_month`(결산월)·`ticker` 는 어느 정기보고서가 그 날 공시돼 있었는지 정하는 공시 달력에 쓴다(없으면 12월 결산)."""
     events = treasury_data.get("events") or []
     cycles: list[dict[str, Any]] = []
     flags: list[str] = []
@@ -146,8 +298,23 @@ async def _capital_return_impact(
         year = int((res.get("main_report_date") or res.get("rcept_dt") or "0000")[:4])
         if not year:
             continue
-        bps_info = await _bps_at_year(canonical_name, corp_code, year)
+        ref_kind = "period_end"
+        ref_ymd = _ymd(res.get("period_end"))
+        if not ref_ymd:
+            ref_kind, ref_ymd = "rcept_dt", _ymd(res.get("rcept_dt"))
+        bps_info = await _bps_at_cycle(
+            canonical_name, corp_code, year,
+            ref_ymd=ref_ymd, ref_kind=ref_kind, fiscal_month=fiscal_month, ticker=ticker,
+        )
         bps = bps_info.get("bps_krw")
+        basis = bps_info.get("bps_basis") or {}
+        for msg in (
+            bps_info.get("warning"),
+            (f"BPS 기준일 폴백: {basis['fallback_reason']} — {year} 사업연도 말 자본으로 나눔"
+             if basis.get("fallback_reason") else None),
+        ):
+            if msg and f"{msg} (rcept={res.get('rcept_no')})" not in flags:
+                flags.append(f"{msg} (rcept={res.get('rcept_no')})")
         cycle: dict[str, Any] = {
             "rcept_no": res.get("rcept_no"),
             "decision_rcept_no": linked,
@@ -156,8 +323,9 @@ async def _capital_return_impact(
             "avg_acquisition_price_krw": round(avg_price),
             "acquisition_amount_krw": actual,
             "bps_at_acquisition_krw": bps,
+            "bps_basis": basis,
         }
-        if bps:
+        if bps and bps > 0:
             premium_discount_pct = round((avg_price / bps - 1) * 100, 2)
             book_value_gain_loss_krw = round((bps - avg_price) * shares)
             cycle["premium_discount_pct"] = premium_discount_pct
@@ -166,6 +334,10 @@ async def _capital_return_impact(
                 "매입가가 BPS보다 쌈(장부가 기준 이득)" if book_value_gain_loss_krw > 0
                 else "매입가가 BPS보다 비쌈(장부가 기준 손실, 내재가치 판단은 별도)"
             )
+        elif bps:
+            # 지배자본이 음수(자본잠식)면 BPS 가 음수다 — 매입가와의 비율·손익이 뜻을 잃으므로 내지 않는다(지배자본은 총계보다 음수가 되기 쉽다).
+            cycle["note"] = "매입시점 지배자본 BPS 가 0 이하(자본잠식) — 장부가손익 산출 불가"
+            flags.append(f"BPS 0 이하(자본잠식): rcept={res.get('rcept_no')} year={year} bps={bps:,}")
         else:
             cycle["note"] = "그 연도 BPS 확보 실패 — 장부가손익 산출 불가"
             flags.append(f"BPS 확보 실패: rcept={res.get('rcept_no')} year={year}")
@@ -278,7 +450,7 @@ def _latest_events_beyond_period(
 async def _fill_yearend_yield(ticker: str, div_history: list[dict[str, Any]]) -> None:
     """DART 자체 배당수익률(yield_dart, dividend.history의 yield_pct)은 결의 시점 시가 기준이라
     옛 연도일수록 결측이 많다(실측 확인 260707: 미래에셋증권·현대차·SKC 전부 2021·2022년 None,
-    2023년부터만 값 있음). krx_weekly(연말종가, valuation.py의 _annual_pit_band와 동일 쿼리 패턴)
+    2023년부터만 값 있음). krx_weekly(연말종가, price_multiple_data.py의 _annual_pit_band와 동일 쿼리 패턴)
     로 DPS÷연말종가를 직접 계산해 공백을 메운다 — 원래 값(yield_pct)은 안 건드리고
     `yield_pct_yearend`로 별도 필드 추가(기준일이 다르므로 값이 다를 수 있음을 명시)."""
     rows = await asyncio.to_thread(_pg_rows,
@@ -386,7 +558,10 @@ async def build_shareholder_commitment_payload(
     if ticker and div_history_list:
         await _fill_yearend_yield(ticker, div_history_list)
 
-    capital_return_cycles, quality_flags = await _capital_return_impact(canonical_name, corp_code, treasury_data)
+    capital_return_cycles, quality_flags = await _capital_return_impact(
+        canonical_name, corp_code, treasury_data,
+        fiscal_month=div_summary_data.get("fiscal_year_end_month"), ticker=ticker,
+    )
 
     # CSR 분모·분자 기간 정합: 배당(div_summary_data)이 커버하는 정확한 회계연도를 stlm_dt 기반
     # fiscal_year/fiscal_year_end_month(둘 다 dividend.py가 이미 계산해 top-level에 둔 값, 재사용—

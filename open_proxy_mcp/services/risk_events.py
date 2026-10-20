@@ -37,6 +37,7 @@ from open_proxy_mcp.services.contracts import (
     SourceType,
     ToolEnvelope,
     build_filing_meta,
+    build_usage,
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.dart_safety import is_no_data
@@ -611,7 +612,7 @@ async def _build_market_scan_payload(
         "by_company": dict(sorted(by_company.items(), key=lambda x: -x[1])),
         "events": rows,
         **filing_meta,
-        "usage": {"dart_api_calls": api_calls, "mcp_tool_calls": 1, "dart_daily_limit_per_minute": 1000},
+        "usage": build_usage(api_calls),
         "supported_categories": list(_ACTIVE_CATEGORIES), "muted_categories": list(_MUTED_CATEGORIES),
         "details_guide": _guide_for(rows) if include_details else None,
         "source_window": {"source_chars": source_chars, "max": _SOURCE_CHARS_MAX} if include_details else None,
@@ -767,7 +768,7 @@ async def build_risk_events_payload(
         "casualties": _aggregate_casualties(rows) if include_details else None,
         "events": rows,
         **filing_meta,
-        "usage": {"dart_api_calls": total_api_calls, "mcp_tool_calls": 1, "dart_daily_limit_per_minute": 1000},
+        "usage": build_usage(total_api_calls),
         "supported_categories": list(_ACTIVE_CATEGORIES), "muted_categories": list(_MUTED_CATEGORIES),
         "details_guide": _guide_for(rows) if include_details else None,
         "source_window": {"source_chars": source_chars, "max": _SOURCE_CHARS_MAX} if include_details else None,

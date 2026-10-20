@@ -24,7 +24,7 @@ from open_proxy_mcp import krx_daily as _krx_daily   # 서빙 기준일 정의(`
 from open_proxy_mcp import index_members as _index_members   # 지수 구성종목 원장(코스피200·코스닥150) — DB 읽기만
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db, to_label
 
-from open_proxy_mcp.services.contracts import declare_weak_resolution, AnalysisStatus
+from open_proxy_mcp.services.contracts import build_usage, declare_weak_resolution, AnalysisStatus
 
 import asyncio
 import math
@@ -1703,8 +1703,7 @@ async def _build_screener_payload_impl(
         "warnings": warnings,
         "hits": cards,
         "next_cursor": end_de,   # 다음 실행은 이 값을 cursor로 → 반개구간[end_de, 다음)
-        "usage": {"dart_api_calls": total_calls, "mcp_tool_calls": 1,
-                  "dart_daily_limit_per_minute": 1000},
+        "usage": build_usage(total_calls),
     }
 
 
