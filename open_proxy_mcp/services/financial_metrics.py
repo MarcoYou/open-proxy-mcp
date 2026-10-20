@@ -25,7 +25,7 @@ from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.dart.as_of import get_strict_as_of
 from open_proxy_mcp.dart.fx import (FALLBACK_WARNING, SRC_YAHOO, fiscal_year_end_date, fx_source, fx_to_krw,
                                   statement_currency)
-from open_proxy_mcp.services.scale_guard import check_balance_identity
+from open_proxy_mcp.services.scale_guard import check_balance_identity, reconcile_report_scales, rescale_rows
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
 from open_proxy_mcp.services.revenue_account import pick_revenue_row
@@ -1920,6 +1920,143 @@ def _fetch(memo: "_FetchMemo | None"):
     return memo or _NO_MEMO
 
 
+# ── 보고서 사이 단위 가리기 (261021 fin-eq) ──────────────────────────────────────────────────────────────
+#
+# 회사가 단위를 잘못 적어 사업보고서가 **통째로** 10ⁿ 배인 경우(065150 FY2023 1,000배 — 자산 56.7조 · 032680 FY2022 100만 배)에는 그 보고서
+# 안의 검사(자산 = 부채 + 자본)가 다 맞는다. 같은 날짜의 같은 숫자를 낸 **다른 보고서**와 대야 드러난다 — 사업보고서 N 의 재무상태표 전기 칸은
+# 사업보고서 N−1 의 당기 칸이다(`scale_guard.check_prior_period_mismatch`). 어느 쪽이 틀렸는지는 이어 붙인 보고서들의 다수결로 가린다
+# (`scale_guard.reconcile_report_scales` — 분기 수집·배수 도구 firm 과 같은 규칙). 틀린 보고서는 금액 칸만 10ⁿ 으로 나눠 쓰고(주당 금액은 그대로)
+# 근거를 경고·`data_quality.scale_fix` 에 적는다. **이미 받은 응답끼리만** 대므로 DART 콜은 늘지 않는다(다년 조회는 같은 요청의 `_FetchMemo` 가 겹치는
+# 조회를 이미 하나로 합친다). 두 보고서뿐(요약·단년)이라 다수결이 안 서면 값은 원문 그대로 두고 경고만 한다.
+_SCALE_LINES = (("자본총계", "EQ"), ("자산총계", "AS"))
+_SCALE_LINES_BY_TAG = tuple((tag, nm) for nm, tag in _SCALE_LINES)
+
+
+def _date8(raw: Any) -> str:
+    """'2023.12.31 현재' → '20231231'(숫자 8자리). 못 읽으면 ''."""
+    return "".join(ch for ch in str(raw or "") if ch.isdigit())[:8]
+
+
+def _annual_scale_obs(year: int, rows: list[dict[str, Any]]) -> list[tuple]:
+    """사업보고서 하나(주요계정 rows)가 낸 같은 날짜의 같은 숫자 관측 — 당기 말과 전기 말의 자본총계·자산총계.
+
+    `reconcile_report_scales` 의 관측 꼴 (보고서 라벨, 열쇠, 값, 순서). 열쇠 = 그 숫자가 가리키는 날짜(rows 의 `thstrm_dt`·`frmtrm_dt` — 결산월을 바꾼 회사에서
+    사업연도 표기만으로 짝을 짓지 않으려고)에 통화와 줄(자본/자산)을 붙인 것. 날짜를 못 읽으면 사업연도 표기(당기=year, 전기=year−1)로 짝짓는다."""
+    ccy = statement_currency(rows)
+    out: list[tuple] = []
+    for nm, tag in _SCALE_LINES:
+        row = next((r for r in rows if (r.get("sj_div") or "").strip() == "BS"
+                    and _strip(r.get("account_nm")).replace(" ", "") == nm), None)
+        if row is None:
+            continue
+        for field, dt_field, lag in (("thstrm_amount", "thstrm_dt", 0), ("frmtrm_amount", "frmtrm_dt", 1)):
+            v = normalize_amount(row.get(field))
+            if not v:
+                continue
+            d8 = _date8(row.get(dt_field)) or (_date8(row.get("stlm_dt")) if lag == 0 else "")
+            key = ("D", d8, ccy, tag) if d8 else ("Y", year - lag, ccy, tag)
+            out.append((f"FY{year}", key, float(v), year - lag))
+    return out
+
+
+def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]]) -> dict[str, Any]:
+    """사업보고서들(연도 → 주요계정 rows)끼리 대 단위가 어긋난 보고서를 가린다 → `reconcile_report_scales` 결과에 연도별 정보를 얹은 dict.
+
+    {"status": clean|fixed|undecided|conflict, "divisors": {연도: 나눌 배수}, "method", "pairs": [대조 근거 — 연도로 풀어 둠], "names": {연도: 이름},
+     "rcept": {연도: 접수번호}}. 보고서가 둘 미만이면 clean(대 볼 상대가 없다)."""
+    usable = {y: r for y, r in reports.items() if r}
+    out: dict[str, Any] = {"status": "clean", "divisors": {}, "method": None, "pairs": [],
+                           "names": {y: f"{y} 사업보고서" for y in usable},
+                           "rcept": {y: next((str(r.get("rcept_no")) for r in rows if r.get("rcept_no")), None)
+                                     for y, rows in usable.items()}}
+    if len(usable) < 2:
+        return out
+    obs = [o for y, rows in usable.items() for o in _annual_scale_obs(y, rows)]
+    res = reconcile_report_scales(obs)
+    to_year = lambda lab: int(str(lab)[2:])  # noqa: E731  ('FY2023' → 2023)
+    out["status"] = res["status"]
+    out["method"] = res.get("method")
+    out["divisors"] = {to_year(k): v for k, v in (res.get("divisors") or {}).items()}
+    out["pairs"] = [{"a": to_year(p["a"]), "b": to_year(p["b"]), "a_value": p["a_value"], "b_value": p["b_value"], "power": p["power"],
+                     "line": dict(_SCALE_LINES_BY_TAG).get(p["key"][-1], p["key"][-1])}
+                    for p in res.get("pairs") or [] if p["power"]]
+    return out
+
+
+async def _annual_scale_plan(corp_code: str, years: list[int], fs_div: str, memo: "_FetchMemo") -> dict[str, Any]:
+    """다년 조회(`_build_yearly`·yoy)가 읽을 사업보고서들의 단위 가리기. `years` 는 요청한 사업연도들 — 각 연도의 당기 보고서와 가장 이른 연도의 전기
+    보고서까지 대 본다. `memo` 가 이미 같은 조회를 하나로 합치므로 이 단계가 새로 부르는 DART 는 없다(어차피 `_fetch_year_metrics` 가 부르는 조회다):
+    각 연도의 사업보고서는 `_fetch_acnt_with_fallback` 의 첫 조회이고, 가장 이른 연도의 전기 보고서는 그 연도가 사업보고서를 냈을 때만 읽는다."""
+    ys = sorted(set(years))
+    got = await asyncio.gather(*[_fetch(memo).acnt(corp_code, y, _REPRT_BUSINESS, fs_div) for y in ys])
+    reports = {y: rows for y, (rows, _err) in zip(ys, got) if rows}
+    first = ys[0]
+    if first in reports:
+        rows, _err = await _fetch(memo).acnt(corp_code, first - 1, _REPRT_BUSINESS, fs_div)
+        if rows:
+            reports[first - 1] = rows
+    return _reconcile_annual_scales(reports)
+
+
+def _scale_note(plan: dict[str, Any] | None, year: int) -> tuple[list[dict], dict | None, list[str]]:
+    """연도 `year` 의 지표(당기 보고서 `year` + 전기 보고서 `year−1`)에 걸린 단위 가리기 → (scale_fix 목록, scale_cross_report 또는 None, 경고).
+    바로잡은 보고서가 없고 어긋남도 없으면 모두 비어 응답은 종전 그대로다."""
+    if not plan or plan.get("status") == "clean":
+        return [], None, []
+    used = {year, year - 1}
+    names, rcept = plan["names"], plan["rcept"]
+    pairs = [p for p in plan["pairs"] if p["a"] in used or p["b"] in used]
+    fixes: list[dict] = []
+    warns: list[str] = []
+    if plan["status"] == "fixed":
+        for y, d in sorted(plan["divisors"].items()):
+            if y not in used:
+                continue
+            ev = [{"line": p["line"], "compared_with": names.get(p["b"] if p["a"] == y else p["a"]),
+                   "value_this_report": p["a_value"] if p["a"] == y else p["b_value"],
+                   "value_other_report": p["b_value"] if p["a"] == y else p["a_value"]}
+                  for p in sorted(plan["pairs"], key=lambda q: q["line"] != "자본총계") if y in (p["a"], p["b"])]
+            fixes.append({"report": names.get(y), "rcept_no": rcept.get(y), "divisor": d, "method": plan["method"], "evidence": ev})
+            how = f"÷{d:,.0f}" if d >= 1 else f"×{round(1 / d):,}"
+            first = ev[0]
+            cmp_ = " · ".join(f"{e['compared_with']} {e['value_other_report']:,.0f}" for e in ev if e["line"] == first["line"])
+            warns.append(f"🔧 DART 원문 단위 오류를 바로잡았다 — {names.get(y)}(접수 {rcept.get(y) or '?'})의 같은 날짜 {first['line']} 값 {first['value_this_report']:,.0f}이 "
+                         f"다른 보고서의 같은 날짜 칸({cmp_})과 10의 거듭제곱 배로 어긋나 그 보고서의 금액을 {how} 해 썼다(주당 금액은 그대로, 가린 근거: {plan['method']}). "
+                         "회사가 단위를 잘못 적은 보고서다 — 이 행의 금액·ROE 분모·전년비는 바로잡은 값이다.")
+        return fixes, None, warns
+    if not pairs:
+        return [], None, []
+    pairs = sorted(pairs, key=lambda q: q["line"] != "자본총계")
+    cross = {"status": plan["status"], "method": plan.get("method"),
+             "pairs": [{"line": p["line"], "report": names.get(p["a"]), "value": p["a_value"], "other_report": names.get(p["b"]),
+                        "other_value": p["b_value"], "power": p["power"]} for p in pairs]}
+    cmp_ = " · ".join(f"{names.get(p['a'])} {p['a_value']:,.0f} vs {names.get(p['b'])} {p['b_value']:,.0f}"
+                      for p in pairs if p["line"] == pairs[0]["line"])
+    warns.append(f"🚨 보고서 사이 단위 어긋남 — 같은 날짜의 {pairs[0]['line']} 값이 보고서마다 10의 거듭제곱 배로 다르다({cmp_}). 어느 보고서가 맞는지 "
+                 "가리지 못해(이미 받은 보고서가 둘뿐이거나 서로 엇갈림) 값은 원문 그대로다 — 금액·ROE·전년비를 쓰기 전에 원문 확인 요망. "
+                 "연간 추이 조회(`years` 3 이상)는 앞뒤 해 보고서까지 대어 가린다.")
+    return [], cross, warns
+
+
+def _dedupe_scale_warnings(warnings: list[str]) -> list[str]:
+    """같은 보고서의 단위 경고는 그 보고서를 쓰는 두 해(당기·전기)가 같은 문장을 낸다 — 그 경고(🔧·🚨)만 한 번으로, 다른 경고는 종전 그대로."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for w in warnings:
+        if w.startswith(("🔧", "🚨")):
+            if w in seen:
+                continue
+            seen.add(w)
+        out.append(w)
+    return out
+
+
+def _apply_scale(rows: list[dict[str, Any]], plan: dict[str, Any] | None, year: int) -> list[dict[str, Any]]:
+    """`year` 보고서 rows 의 금액 칸을 plan 의 나눌 배수로 바로잡은 사본(없으면 rows 그대로). 주당 금액 줄은 그대로 둔다."""
+    d = (plan or {}).get("divisors", {}).get(year) if (plan or {}).get("status") == "fixed" else None
+    return rescale_rows(rows, d) if d and rows else rows
+
+
 async def _fetch_acnt_with_fallback(
     corp_code: str,
     year: int,
@@ -1958,10 +2095,13 @@ async def _fetch_year_metrics(
     induty_code: str | None = None,
     is_reit: bool = False,
     memo: "_FetchMemo | None" = None,
+    scale_plan: "dict[str, Any] | asyncio.Future | None" = None,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
 
     `memo` 를 주면 같은 요청 안의 다른 연도와 조회를 공유한다(다년 조회의 인접 연도 중복 제거).
+    `scale_plan` 은 다년 조회가 앞뒤 해 보고서까지 대어 가린 단위 오류 보고서 목록(`_annual_scale_plan`) 또는 그것을 낼 Task — 없으면 이 연도의 당기·전기 두 보고서끼리만 대 본다
+    (둘뿐이면 다수결이 안 서므로 어긋남을 경고만 한다). Task 는 이 연도가 자기 조회를 마친 **뒤에** 기다린다 — 다년 조회의 연도별 병렬이 가리기 때문에 늦춰지지 않는다.
 
     Phase 1 v2 최적화 (iteration 11):
     - fnlttSinglIndx 호출 제거 (DART 산출 지표는 자체 계산값 우선이라 사실상 미사용).
@@ -2027,6 +2167,19 @@ async def _fetch_year_metrics(
     if err_dp and err_dp != "no_filing":
         warnings.append(err_dp)
 
+    # ── 보고서 사이 단위 가리기 (261021 fin-eq) — 사업보고서끼리만(분기 보고서의 전기 칸은 사업연도 말이라 전년 동기 보고서와 짝이 아니다) ──
+    scale_fix: list[dict] = []
+    scale_cross: dict | None = None
+    if used_rc == _REPRT_BUSINESS:
+        if scale_plan is not None and not isinstance(scale_plan, dict):
+            scale_plan = await scale_plan
+        plan = scale_plan if scale_plan is not None else _reconcile_annual_scales({year: rows_curr, year - 1: rows_prev})
+        scale_fix, scale_cross, _scale_ws = _scale_note(plan, year)
+        warnings.extend(_scale_ws)
+        if scale_fix:
+            rows_curr, rows_detail = _apply_scale(rows_curr, plan, year), _apply_scale(rows_detail, plan, year)
+            rows_prev, rows_detail_prev = _apply_scale(rows_prev, plan, year - 1), _apply_scale(rows_detail_prev, plan, year - 1)
+
     # ── PRIMARY = 누적(period-to-date) basis ──
     # 분기/반기 보고서면 손익을 누적(thstrm_add)으로 읽어 CF(누적)와 기간을 맞춘다.
     # 사업보고서·1분기는 누적=당기라 동일. BS(잔액)는 기간 무관.
@@ -2073,6 +2226,10 @@ async def _fetch_year_metrics(
         induty_code=induty_code,
     )
     metrics["year"] = year
+    if scale_fix:
+        metrics.setdefault("data_quality", {})["scale_fix"] = scale_fix
+    elif scale_cross:
+        metrics.setdefault("data_quality", {})["scale_cross_report"] = scale_cross
     # 매출을 표준 「매출액」이 아닌 계정에서 읽었으면 그 사실을 사람용 경고로도 남긴다.
     if metrics.get("revenue_krw") is not None and metrics.get("revenue_standard") is False:
         warnings.append(
@@ -2282,8 +2439,11 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, 
     year_list = list(range(end_year - years + 1, end_year + 1))
     # 연도마다 「당기+전기」를 부르므로 인접 연도가 겹친다 — memo 하나를 나눠 주면 그 겹침이 사라진다.
     memo = _FetchMemo()
+    # 261021(fin-eq): 앞뒤 해 사업보고서끼리 대 단위가 틀린 보고서를 가린다(DART 콜 0 — memo 가 같은 조회를 합친다). 연도별 조회를 막지 않도록 Task 로 두고
+    # 각 연도가 자기 조회를 마친 뒤에 받는다.
+    plan = asyncio.ensure_future(_annual_scale_plan(corp_code, year_list, fs_div, memo))
     tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code,
-                                 is_reit=is_reit, memo=memo) for y in year_list]
+                                 is_reit=is_reit, memo=memo, scale_plan=plan) for y in year_list]
     results = await asyncio.gather(*tasks)
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -2291,7 +2451,7 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, 
         warnings.extend(ws)
         if metrics:
             out.append(metrics)
-    return out, warnings
+    return out, _dedupe_scale_warnings(warnings)
 
 
 _QUARTERLY_IS_KEYS = ("revenue", "operating_profit", "net_income")
@@ -2970,16 +3130,20 @@ async def build_financial_metrics_payload(
 
     elif scope == "yoy":
         # 당기 + 전기 metrics + 감사의견 cross-check — 3 독립 호출 병렬화 (5-8초 ↓)
+        # 261021(fin-eq): 두 해가 겹치는 보고서를 한 번만 받고(memo), 앞뒤 세 해 사업보고서끼리 대 단위 오류 보고서를 가린다 — yearly 와 같은 값.
+        _memo = _FetchMemo()
+        _plan = asyncio.ensure_future(_annual_scale_plan(corp_code, [target_year - 1, target_year], fs_div, _memo))
         curr_t, prev_t, audit_t = await asyncio.gather(
-            _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code),
-            _fetch_year_metrics(corp_code, target_year - 1, fs_div, include_prev=True, induty_code=induty_code),
+            _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code,
+                                memo=_memo, scale_plan=_plan),
+            _fetch_year_metrics(corp_code, target_year - 1, fs_div, include_prev=True, induty_code=induty_code,
+                                memo=_memo, scale_plan=_plan),
             _build_audit_opinion_data(corp_code, target_year, years_back=2),
         )
         curr, ws_curr, _ev1 = curr_t
         prev, ws_prev, _ev2 = prev_t
         audit_data, audit_ws, _audit_ev = audit_t
-        warnings.extend(ws_curr)
-        warnings.extend(ws_prev)
+        warnings.extend(_dedupe_scale_warnings(ws_curr + ws_prev))
         warnings.extend(audit_ws)
         audit_curr = audit_data.get("opinions", [{}])[0] if audit_data.get("opinions") else None
         audit_prev = audit_data.get("opinions", [{}, {}])[1] if len(audit_data.get("opinions", [])) >= 2 else None
