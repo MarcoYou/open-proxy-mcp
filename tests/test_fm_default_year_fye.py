@@ -89,3 +89,66 @@ def test_summary_without_year_asks_dart_for_the_fiscal_month_year(monkeypatch, a
     p = asyncio.run(FM.build_financial_metrics_payload("JTC", scope="summary"))
     assert p["data"]["year"] == want
     assert asked and asked[0] == str(want)
+
+
+# ── 반기·분기 결산 리츠 — 기본 연도는 이미 제출된 가장 새 사업보고서 (261021) ─────────────────────────
+#   롯데리츠(330590)는 결산월이 12 로 잡히지만 6월·12월에 사업보고서를 따로 낸다. 10-21 기본 연도는 2025(제14기 2025.07~12)인데
+#   2026.06 사업보고서(제15기)가 9/21 에 이미 제출돼 있다 — 12월 결산이 아닌 회사가 최신 보고서를 건너뛰던 JTC(위)와 같은 꼴.
+
+LOTTE_REIT = {"corp_code": "01363818", "corp_name": "롯데리츠", "stock_code": "330590"}
+
+
+def _asked_years_for(monkeypatch, company, latest):
+    _at(monkeypatch, date(2026, 10, 21))
+    asked: list[str] = []
+    monkeypatch.setenv("OPENDART_API_KEY", "test-key-not-real")
+
+    async def no_data(self, endpoint, params):
+        raise DartClientError("013", "가짜 응답")
+    monkeypatch.setattr(dart_client.DartClient, "_request", no_data)
+
+    async def resolve(query, *args, **kwargs):
+        return CompanyResolution(status=AnalysisStatus.EXACT, query=query, selected=dict(company), candidates=[])
+
+    async def company_info(cc):
+        return {"acc_mt": "12", "induty_code": "681"}, None
+
+    async def acnt(cc, year, rc, fs):
+        asked.append(str(year))
+        return [], "no_filing"
+
+    async def latest_filed(corp_code, as_of):
+        calls.append(as_of)
+        if isinstance(latest, Exception):
+            raise latest
+        return latest
+
+    calls: list[str] = []
+    monkeypatch.setattr(FM, "resolve_company_query", resolve)
+    monkeypatch.setattr(FM, "_safe_company_info", company_info)
+    monkeypatch.setattr(FM, "_safe_fetch_acnt", acnt)
+    monkeypatch.setattr(FM, "_lookup_induty_code", lambda *a, **k: "681")
+    monkeypatch.setattr(FM, "latest_annual_report_before", latest_filed)
+    monkeypatch.setattr(FM, "_FM_CACHE", type(FM._FM_CACHE)(16 * 1024 * 1024, 300.0, "test-fm-reit-year"))
+    p = asyncio.run(FM.build_financial_metrics_payload(company["corp_name"], scope="summary"))
+    return p, asked, calls
+
+
+@pytest.mark.parametrize("latest,want", [
+    ({"report_nm": "사업보고서 (2026.06)", "rcept_dt": "20260921"}, 2026),   # 6월 결산기 사업보고서가 이미 제출 — 12월 규칙의 2025 보다 새 것
+    ({"report_nm": "[기재정정]사업보고서 (2026.06)", "rcept_dt": "20261005"}, 2026),
+    ({"report_nm": "사업보고서 (2025.12)", "rcept_dt": "20260310"}, 2025),   # 12월 결산기 보고서가 가장 새 것 — 종전과 같다
+    ({"report_nm": "사업보고서 (2024.12)", "rcept_dt": "20250310"}, 2025),   # 옛 보고서(정정 등)가 기본 연도를 끌어내리지 않는다
+    (None, 2025),                                                          # 제출 목록에 없음 — 종전 그대로
+    (RuntimeError("list down"), 2025),                                      # 목록 조회 실패 — 종전 그대로(fail-open)
+])
+def test_reit_summary_without_year_follows_the_latest_filed_annual_report(monkeypatch, latest, want):
+    p, asked, calls = _asked_years_for(monkeypatch, LOTTE_REIT, latest)
+    assert p["data"]["year"] == want and asked and asked[0] == str(want)
+    assert calls == ["20261021"]                                           # 목록은 오늘까지 제출분 한 번
+
+
+def test_non_reit_never_asks_for_the_filing_list(monkeypatch):
+    """리츠가 아닌 회사의 기본 연도는 종전 그대로이고 DART 목록 조회를 늘리지 않는다."""
+    p, asked, calls = _asked_years_for(monkeypatch, JTC, {"report_nm": "사업보고서 (2026.06)"})
+    assert calls == [] and p["data"]["year"] == 2025 and asked[0] == "2025"

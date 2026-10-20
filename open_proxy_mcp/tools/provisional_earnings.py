@@ -78,7 +78,7 @@ def _render(p: dict) -> str:
         period_note = f" · {d['fiscal_year_end_month']}월 결산({src})"
     # 공시일과 실적기간은 다른 정보다 — 둘을 한 줄에 나란히 적는다(260907)
     per_src = "(원문의 분기 표기에서 계산)" if per.get("source") == "quarter_text" else ""
-    L.append(f"_{basis} · 공시일 {rep.get('rcept_dt','?')} · 실적기간 {per.get('start','?')}~{per.get('end','?')}{per_src}{period_note} · 단위원문 {d.get('unit_raw','')}_")
+    L.append(f"_{basis} · 공시일 {rep.get('rcept_dt','?')} · 실적기간 {per.get('start','?')}~{per.get('end','?')}{per_src}{period_note} · 단위원문 {d.get('unit_raw') or '미확인(금액 미환산)'}_")
 
     # headline(best-effort): 재무형이면 매출·영업익·순익 당기+기간에 맞는 비교율
     head = d.get("headline") or {}

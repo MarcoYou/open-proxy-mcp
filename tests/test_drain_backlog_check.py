@@ -37,13 +37,12 @@ class FakeResult:
 class FakeConnection:
     """Read-only synthetic DB boundary; unknown SQL is always a test failure."""
 
-    def __init__(self, *, events=None, size_mb=100, fwd=None, hist=None, fail_on=None,
-                 calendar=None, stale_versions=(0, None), edge=None):
+    def __init__(self, *, events=None, size_mb=100, fail_on=None,
+                 calendar=(), stale_versions=(0, None), edge=None):
         self.events = [checker._to_ns(NOW)] if events is None else events
         self.size_mb = Decimal(str(size_mb))
-        self.snapshots = {"fwd": fwd, "fwd_hist": hist}
-        # calendar = 게시 달력 날짜(구간형 저장 뒤 — 뷰가 `fwd_asof` 를 읽는다). None 이면 주별 모양.
-        self.calendar = calendar
+        # calendar = 게시 달력 날짜(`fwd_asof`, 구간형 저장 — 뷰가 이 달력을 읽는다).
+        self.calendar = list(calendar)
         self.stale_versions = stale_versions
         # edge = 창 첫날 (n_fact, n_stock, 그 날 판 수, 그 날 시세 행 수). None 이면 쓰는 쪽 칸이 없는 DB(검사를 건너뛴다).
         self.edge = edge
@@ -69,26 +68,18 @@ class FakeConnection:
             return FakeResult([(sum(ts >= params[0] for ts in self.events),)])
         if query == "SELECT pg_database_size(current_database())/1024.0/1024":
             return FakeResult([(self.size_mb,)])
-        if query == " ".join(fwd_window.PROBE_SQL.split()):
-            exists = self.calendar is not None or self.snapshots["fwd_hist"] is not None
-            return FakeResult([(exists, self.calendar is not None)])
         if query == "SELECT to_regclass(%s) IS NOT NULL" and params[0] == "public.fwd_fact_ver":
-            return FakeResult([(self.calendar is not None,)])
-        if query == "SELECT to_regclass(%s) IS NOT NULL":
-            return FakeResult([(self.snapshots[params[0].split(".")[-1]] is not None,)])
-        if query == "SELECT as_of FROM fwd_asof ORDER BY 1" and self.calendar is not None:
+            return FakeResult([(True,)])
+        if query == "SELECT as_of FROM fwd_asof ORDER BY 1":
             return FakeResult([(day,) for day in sorted(self.calendar)])
-        if query == "SELECT count(*), min(valid_to) FROM fwd_fact_ver WHERE valid_to <= %s" and self.calendar:
+        if query == "SELECT count(*), min(valid_to) FROM fwd_fact_ver WHERE valid_to <= %s":
             self.grace = params[0]
             return FakeResult([self.stale_versions])
-        if query == " ".join(checker.EDGE_READY_SQL.split()) and self.calendar:
+        if query == " ".join(checker.EDGE_READY_SQL.split()):
             return FakeResult([(self.edge is not None,)])
         if query == " ".join(checker.EDGE_SQL.split()) and self.edge is not None:
             self.edge_day = params[0]
             return FakeResult([self.edge])
-        for table, days in self.snapshots.items():
-            if query == f"SELECT DISTINCT as_of FROM {table} ORDER BY 1":
-                return FakeResult([(day,) for day in sorted(set(days))])
         if "FROM pg_stat_user_tables JOIN pg_statio_user_tables" in query:
             return FakeResult([("synthetic_table", 1024 * 1024, 7)])
         raise AssertionError(f"Unexpected SQL: {query}")
@@ -198,12 +189,12 @@ def test_connection_failure_is_redacted_checker_error(harness, capsys):
 
 
 @pytest.mark.parametrize("fail_on", [
-    "SELECT min", "pg_database_size", "to_regclass", "SELECT DISTINCT as_of",
+    "SELECT min", "pg_database_size", "to_regclass", "FROM fwd_asof",
     "FROM pg_stat_user_tables",
 ])
 def test_query_failure_is_redacted_and_connection_closed(harness, monkeypatch, capsys, fail_on):
     connect, summary = harness
-    con = FakeConnection(fwd=_weekly_dates(1), fail_on=fail_on)
+    con = FakeConnection(calendar=_weekly_dates(1), fail_on=fail_on)
     connect.side_effect = None
     connect.return_value = con
     monkeypatch.setattr("sys.argv", ["drain_backlog_check.py", "--tables"])
@@ -223,7 +214,7 @@ def test_query_failure_is_redacted_and_connection_closed(harness, monkeypatch, c
 @pytest.mark.parametrize("empty", [False, True])
 def test_normal_and_empty_events_still_check_guardrails(harness, capsys, empty):
     connect, summary = harness
-    con = FakeConnection(events=[] if empty else None, fwd=_weekly_dates(4), hist=_weekly_dates(13))
+    con = FakeConnection(events=[] if empty else None, calendar=_weekly_dates(13))
     connect.side_effect = None
     connect.return_value = con
 
@@ -233,8 +224,7 @@ def test_normal_and_empty_events_still_check_guardrails(harness, capsys, empty):
     assert con.autocommit is True
     queries = [sql for sql, _ in con.calls]
     assert any("pg_database_size" in sql for sql in queries)
-    assert "SELECT DISTINCT as_of FROM fwd ORDER BY 1" in queries
-    assert "SELECT DISTINCT as_of FROM fwd_hist ORDER BY 1" in queries
+    assert "SELECT as_of FROM fwd_asof ORDER BY 1" in queries
     assert "상태: OK" in capsys.readouterr().out
     assert "상태: OK" in summary.read_text()
 
@@ -279,61 +269,6 @@ def test_capacity_boundary_with_empty_events(harness, monkeypatch, capsys, size_
     if expected:
         assert "드레인으로 회수할 공간이 없다" in output
         assert "events_drain.py --apply" not in output
-
-
-@pytest.mark.parametrize(("table", "count", "limit", "expected"), [
-    ("fwd", 4, 4, 0), ("fwd", 5, 4, 1), ("fwd", 5, 5, 0),
-    ("hist", 13, 13, 0), ("hist", 14, 13, 1), ("hist", 14, 14, 0),
-])
-def test_retention_boundary_with_empty_events(harness, monkeypatch, capsys, table, count, limit, expected):
-    connect, summary = harness
-    con = FakeConnection(events=[], **{table: _weekly_dates(count)})
-    connect.side_effect = None
-    connect.return_value = con
-    monkeypatch.setattr("sys.argv", ["drain_backlog_check.py", f"--{table}-max-weeks", str(limit)])
-
-    assert checker.main() == expected
-
-    status = "ATTENTION_NEEDED" if expected else "OK"
-    assert f"상태: {status}" in capsys.readouterr().out
-    assert f"상태: {status}" in summary.read_text()
-
-
-@pytest.mark.parametrize(("table", "count", "phrase"), [
-    ("fwd", 5, "5주차를 이력으로 넘기지 못했다"), ("hist", 14, "14주차 정리가 안 돌았다"),
-])
-def test_retention_action_points_to_the_weekly_fact_push(harness, capsys, table, count, phrase):
-    """2610: fwd·fwd_hist 는 뷰다. 보존을 맡는 것은 수집기의 주간 송출 하나 — 은퇴한 정리 스크립트를 안내하지 않는다."""
-    connect, summary = harness
-    con = FakeConnection(events=[], **{table: _weekly_dates(count)})
-    connect.side_effect = None
-    connect.return_value = con
-
-    assert checker.main() == 1
-
-    output = capsys.readouterr().out
-    assert phrase in output and phrase in summary.read_text()
-    assert "push_fwd_fact.py" in output
-    for retired in ("prune_fwd.py", "push_fwd_hist.py --keep-weeks", "open-proxy-storage/forward-collector"):
-        assert retired not in output
-    # 뷰 이름 그대로 같은 질의 — to_regclass 는 뷰도 찾는다
-    queries = [sql for sql, _ in con.calls]
-    assert queries.count("SELECT to_regclass(%s) IS NOT NULL") == 2
-
-
-@pytest.mark.parametrize("table", ["fwd", "hist"])
-def test_same_week_duplicates_warn_with_empty_events(harness, capsys, table):
-    connect, summary = harness
-    con = FakeConnection(events=[], **{table: [THIS_WEEK.date(), (THIS_WEEK + timedelta(days=1)).date()]})
-    connect.side_effect = None
-    connect.return_value = con
-
-    assert checker.main() == 1
-
-    output = capsys.readouterr().out
-    assert "ATTENTION_NEEDED" in output
-    assert "날짜가 1개 더 있다" in output
-    assert "CHECK_ERROR" not in summary.read_text()
 
 
 def test_tables_flag_preserves_read_only_breakdown(harness, monkeypatch, capsys):
@@ -412,21 +347,6 @@ def test_github_annotation_distinguishes_attention_from_error(harness, capsys):
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
 # 261018 — 구간형 저장 뒤(달력 모양): fwd·fwd_hist 가 같은 게시 달력을 읽고 창 FWD_HOT_WEEKS(기본 52주)를 담는다
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
-def test_legacy_shape_keeps_the_4_and_13_week_limits_and_the_same_queries(harness, capsys):
-    """뷰가 아직 주별 표 위면(교체 전) 상한·질의·문구가 종전 그대로다 — 달력 질의를 하지 않는다."""
-    connect, _ = harness
-    con = FakeConnection(events=[], fwd=_weekly_dates(5), hist=_weekly_dates(13))
-    connect.side_effect = None
-    connect.return_value = con
-
-    assert checker.main() == 1                                       # fwd 5주 > 4주
-
-    output = capsys.readouterr().out
-    assert "보존 한도 4주" in output and "롤링 13주" in output and "5주차를 이력으로 넘기지 못했다" in output
-    queries = [sql for sql, _ in con.calls]
-    assert not any("fwd_asof ORDER BY" in q or "fwd_fact_ver" in q for q in queries)
-
-
 def test_calendar_shape_allows_the_full_window(harness, capsys):
     """달력 모양: 4주·13주가 아니라 창 52주(+양 끝 1주)가 상한이다 — 52주를 담는 것이 정상이다."""
     connect, _ = harness
@@ -440,8 +360,7 @@ def test_calendar_shape_allows_the_full_window(harness, capsys):
     assert "게시 달력 53벌 · 53주" in output and "창 52주(양 끝 포함 53주까지)" in output
     assert "상태: OK" in output
     queries = [sql for sql, _ in con.calls]
-    assert "SELECT DISTINCT as_of FROM fwd ORDER BY 1" not in queries          # 뷰 DISTINCT 대신 달력
-    assert "SELECT DISTINCT as_of FROM fwd_hist ORDER BY 1" not in queries
+    assert "SELECT as_of FROM fwd_asof ORDER BY 1" in queries                  # 뷰 DISTINCT 대신 달력
     assert con.grace == _weekly_dates(1)[0] - timedelta(days=52 * 7 + 7)     # 창 + 1주 늦음까지 봐 준다
 
 

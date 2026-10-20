@@ -1196,11 +1196,7 @@ async def build_dilutive_issuance_payload(
         warnings.extend(c_warnings)
         api_calls += c_calls
 
-    usage = {
-        "dart_api_calls": api_calls,
-        "mcp_tool_calls": 1,
-        "dart_daily_limit_per_minute": 1000,
-    }
+    usage = build_usage(api_calls)
 
     # 사건 발견 vs 진짜 partial 분리.
     # 4개 결정 API 모두 DART 구조화 응답이라 결과 0건은 사건 자체가 없는 정상 케이스.

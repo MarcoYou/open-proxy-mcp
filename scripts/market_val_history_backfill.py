@@ -42,7 +42,8 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 from scripts.market_val_weekly import bucket, label
-from open_proxy_mcp.services.price_multiple_data import _pit_quarter, _ttm_ni, _mrq_eq
+from open_proxy_mcp.services.price_multiple_data import _pit_quarter, _ttm_ni, _mrq_eq, attach_fs_bases
+from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
 from open_proxy_mcp.services import restated_pit as rpit
@@ -138,13 +139,19 @@ async def main() -> None:
     fye_for = lambda t: rcal.fiscal(fye_of.get(t, 12), t)          # noqa: E731
     fin_all: dict[str, dict[int, tuple]] = rpit.load_annual(con, fye_for)
     finq_all: dict[str, dict[tuple, tuple]] = rpit.load_quarter(con, fye_for)
+    for _t, _v in fye_of.items():       # 261021(DATA-FY2): 결산월을 바꾼 첫 사업보고서(전환기 — 12개월이 아님)의 순이익은 연간 값이 아니다 — 서버와 같이 가린다
+        if _t in fin_all:
+            rcal.mask_transition(fin_all[_t], _v)
     # 261020(p1e): 반기·분기 결산 회사(리츠 등)는 결산기 칸(12개월 결산 회사와 같은 꼴 — `period_cells`)으로 고치고, 칸은 그 보고서 접수일부터 쓴다
     #   (서버 곡선·업종 비교와 같은 규칙). 표시 칸이 없으면 종전 그대로.
     period_of = pcells.apply_marked(fin_all, finq_all, pcells.load_marked(con))
+    # 261021(L3): TTM 은 직전 연간·당해 누적·전년 누적이 **같은 재무제표 기준(연결·별도)** 일 때만 더하고 뺀다(`_ttm_ni`) — 칸별 기준을 단다(서버 곡선과 같은 규칙).
+    #   섞인 칸은 TTM 이 비어(None) 그 종목의 PER(TTM) 분모에서 빠진다(종전엔 연결 연간 + 별도 누적 − 연결 누적처럼 다른 재무제표끼리 더했다).
+    attach_fs_bases(con, fin_all, finq_all)
     # 월말 날짜(각 YYYYMM 마지막 거래주), 2020~현재월 이전 — 261019: 하한 이전은 연말·콜드 서빙본만(`month_end_prices`)
     src = MonthEndPrices(con, since, a.cold_sqlite)
     print(src.describe(), flush=True)
-    today = date.today(); cur_ym = f"{today.year}{today.month:02d}"
+    today = today_kst(); cur_ym = f"{today.year}{today.month:02d}"
     months = sorted(d for d in src.plan.dates if d[:6] < cur_ym)
     if not months:
         print("다시 낼 월말이 없다", flush=True)

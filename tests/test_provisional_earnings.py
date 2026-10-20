@@ -19,7 +19,7 @@ STRUCTURE_CHANGE_HTML = """
 
 CORRECTION_HTML = """
 <table>
-  <tr><td>실적기간</td><td>2026-04-01 ~ 2026-06-30</td></tr>
+  <tr><td>실적기간</td><td>2026-04-01 ~ 2026-06-30</td><td>(단위 : 백만원, %)</td></tr>
   <tr><td>구분</td><td>정정전</td><td>정정후</td></tr>
   <tr><td>매출액</td><td>170,000,000</td><td>171,500,000</td></tr>
   <tr><td>영업이익</td><td>88,000,000</td><td>89,490,000</td></tr>

@@ -248,7 +248,7 @@ def _render(payload: dict[str, Any]) -> str:
         f"- 사건 수: 총 {counts.get('total', 0)}건 — {cat_summary} / 종속·자회사 {counts.get('subsidiary_reports', 0)} / 정정 {counts.get('corrections', 0)}",
         "",
         "## 사용량",
-        f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_daily_limit_per_minute', 1000)}회)",
+        f"- DART API 호출: {usage.get('dart_api_calls', 0)}회 (분당 한도 {usage.get('dart_limit_per_minute', 1000):,}회(키당)·하루 {usage.get('dart_limit_per_day', 20000):,}회)",
         f"- MCP tool 호출: {usage.get('mcp_tool_calls', 1)}회",
         "",
     ]

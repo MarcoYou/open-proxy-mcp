@@ -43,7 +43,7 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
-from open_proxy_mcp.services.dividend import (DPS_SHARE_EVENT_TYPES, _annual_summary, _num_out, align_dps_to_price,
+from open_proxy_mcp.services.dividend import (DPS_SHARE_EVENT_TYPES, _annual_summary, _num_out, _shares_match, align_dps_to_price,
                                                dps_unevenness, period_cash_meta, period_dps, share_ratio_for, trailing_period_dps)
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR, reconcile_report_scales, rescale_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
@@ -1048,7 +1048,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                     used = " · ".join(f"{nm} {b[k]}" + ("(사업보고서)" if b[k].endswith("Q4") else "")
                                       for k, nm in (("per_ttm", "PER(TTM)"), ("pbr_mrq", "PBR(MRQ)")) if k in b)
                     warnings.append(f"기준 분기 늦음 — {corp.get('corp_name')} 의 그 시점 칸({b['pit_q']})이 비어 {used} 칸으로 셌다"
-                                    "(그 시점까지 공시 마감이 지난 칸 가운데 값이 있는 가장 늦은 칸, 1년 안 — 반기 결산 리츠·보고서 미제출·결산월 변경 등).")
+                                    "(그 시점까지 공시 마감이 지난 칸 가운데 값이 있는 가장 늦은 칸, 1년 안 — 반기 결산 리츠·보고서 미제출·결산월 변경 등)."
+                                    + (_MIXED_FS_NOTE if b.get("per_ttm_why") == "mixed_fs" else ""))
                 # 소속 섹터의 과거 시계열(2020-01~, market_val_history_backfill.py가 채움) — 0콜, 이미 DB에 있음.
                 # 소규모(_fold) 섹터면 fold 버킷 자체의 히스토리로 폴백(개별 sec 코드는 mkt_val_history에 없음).
                 hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
@@ -1115,12 +1116,39 @@ def _firm_row_missing(company: str, why: str | None, as_of: str) -> str:
 
 def _latest_annual_fy() -> int:
     """지금 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년).
-    market_fund_quarterly._latest_annual_fy / market_val_series._latest_annual_fy와 동일 규칙.
+    261021(DATA-FY1): 이 규칙은 `report_calendar.latest_annual` 한 곳이다 — 이 함수·`market_fund_quarterly._latest_annual_fy`·`market_val_series._latest_annual_fy`
+    세 벌이 따로 있던 것을 얇은 껍데기로 모았다(12월 결산 기준 — 결산월은 `_rc.latest_annual(today, fye)`).
     ⚠ dart_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 이 FY로 덮어쓰는 **가변열**이라,
     그 값을 담을 fin[] 키는 반드시 이 헬퍼로 파생해야 함(하드코딩 금지 — FY 넘어가면 조용히 오라벨)."""
-    from datetime import date
-    t = today_kst()
-    return t.year - 1 if t.month >= 4 else t.year - 2
+    return _rc.latest_annual(today_kst(), 12)
+
+
+#: 결산월을 바꾼 회사 목록(종목 → (결산월, 옛 결산월, 새 결산월 첫 사업연도)) — 바꾼 회사는 수십 곳이라 한 번에 읽어 프로세스에 잠깐 둔다(`_FYE_CHANGES_TTL`초).
+#: 변경 칸(`dart_fundamentals.acc_mt_prev`·`acc_mt_since`)은 `to_jsonb` 로 읽어 **칸이 아직 없어도 질의가 깨지지 않는다**(없으면 빈 목록 = 종전 읽기) —
+#: 서버 배포가 `scripts/fundamentals_ddl.py --apply` 보다 먼저여도 된다. 읽기 실패(DB 장애)도 빈 목록(종전 읽기)이고 짧게만 둔다.
+_FYE_CHANGES_TTL = 300.0
+_FYE_CHANGES_FAIL_TTL = 20.0
+_fye_changes_cache: tuple[float, dict] | None = None
+
+
+async def _fye_changes() -> dict[str, tuple[int, int, int]]:
+    global _fye_changes_cache
+    now = time.monotonic()
+    if _fye_changes_cache is not None and _fye_changes_cache[0] > now:
+        return _fye_changes_cache[1]
+    try:
+        rows = await _db_rows(_rc.CHANGES_SQL)
+    except Exception:  # noqa: BLE001 — fail-open: 변경 목록을 못 읽으면 종전 읽기(결산월 하나)
+        rows = None
+    changes = _rc.changes_from_rows(rows) if rows else {}
+    _fye_changes_cache = (now + (_FYE_CHANGES_TTL if rows is not None else _FYE_CHANGES_FAIL_TTL), changes)
+    return changes
+
+
+async def _fiscal_for(ticker: str, acc_mt) -> "_rc.Fiscal":
+    """종목의 공시 달력 — 저장된 결산월(`acc_mt`) + 결산월을 바꾼 회사면 옛 결산월·새 결산월 첫 사업연도(`_fye_changes`). 안 바꾼 회사는 종전 `_rc.fiscal(acc_mt, ticker)`."""
+    ch = (await _fye_changes()).get(ticker)
+    return _rc.fiscal(acc_mt, ticker, ch[1] if ch else None, ch[2] if ch else None)
 
 
 def _pit_fy(price_dd: str, fye: int = 12) -> int:
@@ -1140,9 +1168,11 @@ def _needs_fx(currency: str | None) -> bool:
 #: 연간 재무 + 그 해 분기 표 사업보고서 칸의 결산기 칸(261020 p1e — 표시가 있으면 그 값). 첫 자리표시 = 근거 칸 머리(`period_cells.MARK_LIKE`).
 #: 261020(p1g pit-restated): 끝 두 칸 = 결산기 칸의 공시일 · 연간 정정 칸 출처 접수번호(`restated_rcept_no`) — 정정 칸을 그 출처가 공시된 날부터 쓴다
 #: (`restated_pit`). 출처 칸은 `to_jsonb(y)` 로 읽어 그 칸이 없는 표(만드는 이행 전)에서도 질의가 깨지지 않는다(없으면 NULL — 추정 공시일).
+#: 261021(L3): 끝 칸 = 그 해 연간 값의 재무제표 기준(연결 CFS·별도 OFS, `fs`) — TTM 이 세 칸의 기준을 맞추는 데 쓴다(`_ttm_ni`). 같은 방식으로 읽어 칸이 없어도 깨지지 않는다.
+#: **원본 순이익이 있는 칸만** 믿는다 — 값이 없는 칸(`nodata`)의 `fs` 는 마지막으로 시도한 기준(별도)일 뿐이고, 그 칸의 값은 다음 해 보고서가 채운 정정 칸이라 기준을 모른다.
 _FIN_FY_SQL = ("SELECT y.fy, y.ni, y.eq, y.ni_restated, y.eq_restated, q.ni_cum_restated, q.eq_restated, "
                f"COALESCE(q.restate_why LIKE %s, false), {_pc.AVAIL_SQL.replace('restate_why', 'q.restate_why')}, "
-               "to_jsonb(y)->>'restated_rcept_no' FROM dart_finstat_y y "
+               "to_jsonb(y)->>'restated_rcept_no', CASE WHEN y.ni IS NOT NULL THEN to_jsonb(y)->>'fs' END FROM dart_finstat_y y "
                "LEFT JOIN dart_finstat_q q ON q.ticker=y.ticker AND q.fy=y.fy AND q.quarter=4 "
                "WHERE y.ticker=%s AND (y.fetched='ok' OR y.ni_restated IS NOT NULL OR y.eq_restated IS NOT NULL)")
 
@@ -1177,12 +1207,15 @@ async def _firm_fin_by_fy(ticker: str, currency: str = "KRW", fye: int = 12) -> 
     )
     rows = rows or []
     fin = _rpit.PitFin()
+    fs_of: dict[int, str] = {}              # 261021(L3): 그 해 연간 값의 재무제표 기준(연결/별도) — TTM 이 세 칸의 기준을 맞춘다
     marked: set[int] = set()
     today = today_kst()
     for r in rows:
         fy, ni, eq, ni_r, eq_r, q_ni, q_eq, mk = r[:8]
         mk_av, r_rc = (tuple(r[8:10]) + (None, None))[:2]
         fy = int(fy)
+        if len(r) > 10 and r[10]:
+            fs_of[fy] = r[10]
         if mk:
             # 261020(p1e): 반기·분기 결산 회사의 연간 = 결산기 12개월 합(분기 표 사업보고서 칸의 결산기 칸 — `period_cells`). 합을 못 낸 해는 순이익 없음
             #   (원본 칸은 마지막 한 결산기 값이라 쓰지 않는다 — firm 이 합을 못 맞추면 경고와 함께 그 값을 내는 것과 달리 곡선은 경고를 점마다 달 수 없다).
@@ -1203,10 +1236,12 @@ async def _firm_fin_by_fy(ticker: str, currency: str = "KRW", fye: int = 12) -> 
         #   같은 값(순이익·자본 둘 다)이 이미 앞선 해에 있으면 그 해의 값이므로 얹지 않는다(최신 해는 값 없음 = N/M).
         if not any(y < latest and v == ov for y, v in fin.items()):
             fin[latest] = ov
+    fin.fs = fs_of
+    _rc.mask_transition(fin, fye)        # 261021(DATA-FY2): 결산월을 바꾼 첫 사업보고서(전환기 — 12개월이 아님)의 순이익은 연간 값이 아니다
     ccy = (currency or "KRW").upper()
     if _needs_fx(currency):
         for fy in list(fin):
-            fx = await fx_to_krw(ccy, fiscal_year_end_date(fy, _rc.fye_month(fye)))
+            fx = await fx_to_krw(ccy, fiscal_year_end_date(fy, _rc.month_of(fy, fye)))
             conv = (lambda v: (v[0] * fx if v[0] is not None else None, v[1] * fx if v[1] is not None else None)) if fx \
                 else (lambda v: (None, None))
             fin[fy] = conv(fin[fy])
@@ -1229,15 +1264,17 @@ def _pit_quarter(price_dd: str, fye: int = 12) -> tuple[int, int]:
 class _FinQ(_rpit.PitFin):
     """분기 재무 `{(fy, quarter): (지배순이익 누적, 지배자본)}` + 결산기 칸의 공시일 `cells` `{(fy, quarter): YYYYMMDD}`(261020 p1e — 반기·분기
     결산 회사만, 그 밖엔 빈 dict). 부르는 쪽은 `_rc.with_cells(fye, finq.cells)` 로 칸 고르기에 공시일을 쓴다.
-    261020(p1g): 정정 칸 시점 규칙의 문(`restated_pit.PitFin.gates`)도 단다 — 값은 지금 값, 과거 시점은 `_at`."""
+    261020(p1g): 정정 칸 시점 규칙의 문(`restated_pit.PitFin.gates`)도 단다 — 값은 지금 값, 과거 시점은 `_at`.
+    261021(L3): `fs` `{(fy, quarter): 'CFS'|'OFS'}` — 칸 값의 재무제표 기준(연간은 `PitFin.fs` `{fy: 기준}`). TTM 이 세 칸의 기준을 맞춘다(`_ttm_ni`)."""
     cells: dict = {}
 
 
 #: 분기 재무 — 표시 칸이면 공시일(근거 칸의 「공시 YYYYMMDD」). 첫 자리표시 = 근거 칸 머리(`period_cells.MARK_LIKE`).
 #: 261020(p1g pit-restated): 끝 세 칸 = 원본 칸(순이익 누적·자본)과 정정 칸 출처 접수일(근거 칸의 「접수 YYYYMMDD…」 — 다음 해 같은 분기 보고서).
+#: 261021(L3): 그 뒤 한 칸 = 그 칸 값의 재무제표 기준(`fs`).
 _FIN_Q_SQL = ("SELECT fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq), ni_cum_restated, eq_restated, "
-              f"CASE WHEN restate_why LIKE %s THEN {_pc.AVAIL_SQL} END, ni_cum, eq, {_rpit.WHY_RCEPT_SQL.format(col='restate_why')} "
-              "FROM dart_finstat_q WHERE ticker=%s")
+              f"CASE WHEN restate_why LIKE %s THEN {_pc.AVAIL_SQL} END, ni_cum, eq, {_rpit.WHY_RCEPT_SQL.format(col='restate_why')}, "
+              "CASE WHEN ni_cum IS NOT NULL THEN to_jsonb(dart_finstat_q)->>'fs' END FROM dart_finstat_q WHERE ticker=%s")
 
 
 async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> dict[tuple, tuple]:
@@ -1248,10 +1285,13 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> d
     finq: _FinQ = _FinQ()
     cells = {(int(r[0]), int(r[1])): r[6] for r in rows if r[6]}
     today = today_kst()
+    fs_of: dict[tuple, str] = {}            # 261021(L3): 칸 값의 재무제표 기준(연결/별도)
     for r in rows:
         fy, q, ni, eq, ni_r, eq_r, av = r[:7]
         ni_raw, eq_raw, rc = (tuple(r[7:10]) + (None, None, None))[:3]
         k = (int(fy), int(q))
+        if len(r) > 10 and r[10]:
+            fs_of[k] = r[10]
         gate = None
         if cells:
             # 261020(p1e): 결산기 칸이 있는 종목(반기·분기 결산)은 그 칸만 쓴다 — 값은 정정 칸(결산기 합)만. 표시 없는 1~3분기 칸은 DART 가 준
@@ -1271,11 +1311,12 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> d
         if gate is not None:
             finq.gate(k, (gate[0], (_ff(gate[1][0]), _ff(gate[1][1]))))
     finq.cells = cells
+    finq.fs = fs_of
     ccy = (currency or "KRW").upper()
     if _needs_fx(currency):
         fxcache: dict[str, float | None] = {}
         for (fy, q) in list(finq):
-            key = _rc.cell_end(fy, q, _rc.fye_month(fye)).strftime("%Y%m%d")
+            key = _rc.cell_end(fy, q, fye).strftime("%Y%m%d")
             if key not in fxcache:
                 fxcache[key] = await fx_to_krw(ccy, key)
             fx = fxcache[key]
@@ -1288,11 +1329,36 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> d
     return finq
 
 
+#: 대체 점 경고에 덧붙이는 말 — 그 시점 칸이 비어서가 아니라 TTM 세 칸의 재무제표 기준(연결·별도)이 섞여 있어서 앞선 칸으로 셌다(261021 L3).
+_MIXED_FS_NOTE = (" 그 시점 칸의 PER(TTM)은 직전 연간·당해 누적·전년 누적이 연결과 별도 재무제표로 섞여 있어(같은 기준끼리만 더하고 뺀다) 앞선 칸으로 셌다"
+                  "(`basis.per_ttm_why`=mixed_fs).")
+
+
+def _ttm_bases(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int, fye: int = 12) -> list[str]:
+    """TTM(`_ttm_ni`)이 쓰는 세 칸 — 직전 연간·당해 누적·전년 누적 — 의 재무제표 기준(CFS 연결·OFS 별도) 가운데 **알려진 것**(칸이 비었으면 빠진다). (261021 L3)
+    기준은 `PitFin.fs`(연간 `{fy: 기준}`·분기 `{(fy, q): 기준}`)에서 읽는다 — 그 속성이 없는 dict(시험·옛 호출)는 모르는 것이라 빈 목록."""
+    fs_y, fs_q = getattr(fin, "fs", None) or {}, getattr(finq, "fs", None) or {}
+    got = (fs_y.get(_rc.prior_annual(fy, q, fye)), fs_q.get((fy, q)), fs_q.get((fy - 1, q)))
+    return [b for b in got if b]
+
+
+def _ttm_mixed(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int, fye: int = 12) -> bool:
+    """이 칸의 TTM 세 칸이 **서로 다른 재무제표 기준**(연결과 별도)인가. 기준을 모르는 칸은 보지 않는다(종전처럼 쓴다 — `restated_basis_ok` 와 같은 규칙).
+    분기 칸이 아닌 사업보고서 칸(`q == 4`)은 한 칸이라 섞일 수 없다."""
+    return q != 4 and len(set(_ttm_bases(fin, finq, fy, q, fye))) > 1
+
+
 def _ttm_ni(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int, fye: int = 12) -> float | None:
     """TTM 지배순이익 = FY(fy-1) 연간 + 누적(fy,q) − 누적(fy-1,q). q==4면 사업보고서=연간(fy).
 
     261018(결산월): 「직전 회계연도 연간」의 표기는 `report_calendar.prior_annual` — 12월 결산이면 종전 그대로 fy-1, 3월 결산의 1~3분기 칸
-    (6·9·12월 말)이면 같은 해 fy(그해 3월 말 사업보고서). 1년 전 같은 칸은 결산월과 무관하게 (fy-1, q)."""
+    (6·9·12월 말)이면 같은 해 fy(그해 3월 말 사업보고서). 1년 전 같은 칸은 결산월과 무관하게 (fy-1, q).
+
+    261021(L3): **세 칸은 같은 재무제표 기준(연결 CFS·별도 OFS)일 때만** 더하고 뺀다(`_ttm_mixed`). 종전엔 기준을 보지 않아 한 해 안에 연결·별도가 섞인 종목
+    (종속회사를 처분해 별도만 내게 됐거나 연결을 새로 낸 회사 — 2024~26 12월 결산 TTM 점 19,768 중 1,320점·457종목)이 연결 연간 + 별도 누적 − 연결 누적처럼
+    다른 재무제표끼리 계산한 값을 냈다. 서버 실시간 firm 은 연간에서 정한 기준을 분기에 강제해(`_acntall(…, fs_used)`) 이미 같은 기준이다 — DB 경로를 그와 맞춘다.
+    섞인 칸은 None(비움)이고, 부르는 쪽의 대체 규칙이 그 위에서 돈다: 업종 비교 기업 행·firm_history 「주간」 항목은 앞선 칸 가운데 세 칸이 같은 기준인
+    가장 늦은 칸으로 센다(`_pit_fallback` — `basis` 에 쓴 칸), 곡선은 종전부터 칸이 비면 N/M, 시장·업종 집계는 그 종목의 TTM 을 빼고 센다."""
     if q == 4:
         return fin.get(fy, (None, None))[0]
     cum_now = finq.get((fy, q), (None, None))[0]
@@ -1300,7 +1366,41 @@ def _ttm_ni(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int, fy
     fy_prev = fin.get(_rc.prior_annual(fy, q, fye), (None, None))[0]
     if cum_now is None or cum_prev is None or fy_prev is None:
         return None
+    if _ttm_mixed(fin, finq, fy, q, fye):
+        return None
     return fy_prev + cum_now - cum_prev
+
+
+def _ttm_blocked(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int, fye: int = 12) -> bool:
+    """세 칸 값은 다 있는데 **기준이 섞여서** TTM 을 비운 칸인가(261021 L3) — 곡선 점·대체 `basis` 가 「왜 비었나」를 적는 데 쓴다. 값이 없어 빈 칸은 False."""
+    if q == 4:
+        return False
+    vals = (finq.get((fy, q), (None, None))[0], finq.get((fy - 1, q), (None, None))[0],
+            fin.get(_rc.prior_annual(fy, q, fye), (None, None))[0])
+    return None not in vals and _ttm_mixed(fin, finq, fy, q, fye)
+
+
+def attach_fs_bases(con, fin_all: dict, finq_all: dict) -> tuple[int, int]:
+    """배치(과거 시장·업종 집계 두 백필)용 — 종목별 연간·분기 재무 dict(`restated_pit.load_annual`·`load_quarter` → `period_cells.apply_marked` 뒤)에
+    칸별 재무제표 기준(`PitFin.fs`)을 단다. 서버 `_firm_fin_by_fy`·`_firm_fin_by_q` 가 칸을 읽을 때 단 것과 같다(`_ttm_ni` 가 읽는다). (261021 L3)
+
+    `to_jsonb(표)->>'fs'` 로 읽어 그 칸이 없는 표(시험용 최소 표)에서도 깨지지 않는다(없으면 기준을 모르는 것 — 종전처럼 쓴다). 원본 순이익이 있는 칸만 믿는다(서버
+    읽기와 같다 — 값 없는 칸의 `fs` 는 마지막으로 시도한 기준일 뿐이다).
+    연간 기준은 **연간 표에서만** 읽는다(서버 `_FIN_FY_SQL` 과 같다). 분기 표의 사업보고서 칸(quarter=4)은 연간 표에 원본이 없는 해에도 값이 차 있는데
+    (연간 정정 칸 보충값을 옮긴 Q4 seed), 그 칸의 `fs` 는 연간 표의 마지막 시도 기준을 그대로 옮긴 것이라 믿지 않는다 — 믿으면 서버 곡선은 기준을 몰라
+    종전처럼 세는 칸을 백필만 「섞임」으로 빼게 된다(운영 읽기 전용 실측 2020~ 12월 결산 85점·53종목, 예 081180 FY2024). 반환 (연간 칸 수, 분기 칸 수)."""
+    n_y = n_q = 0
+    for t, fy, fs in con.execute("SELECT ticker, fy, CASE WHEN ni IS NOT NULL THEN to_jsonb(dart_finstat_y)->>'fs' END FROM dart_finstat_y"):
+        f = fin_all.get(t)
+        if fs and isinstance(f, _rpit.PitFin):
+            f.__dict__.setdefault("fs", {})[int(fy)] = fs
+            n_y += 1
+    for t, fy, q, fs in con.execute("SELECT ticker, fy, quarter, CASE WHEN ni_cum IS NOT NULL THEN to_jsonb(dart_finstat_q)->>'fs' END FROM dart_finstat_q"):
+        f = finq_all.get(t)
+        if fs and isinstance(f, _rpit.PitFin) and int(q) != 4:
+            f.__dict__.setdefault("fs", {})[(int(fy), int(q))] = fs
+            n_q += 1
+    return n_y, n_q
 
 
 def _mrq_eq(fin: dict[int, tuple], finq: dict[tuple, tuple], fy: int, q: int) -> float | None:
@@ -1471,6 +1571,8 @@ def _pit_raw(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple]
         "per_ttm": cap / ttm if (ttm and ttm > 0 and not _impaired) else None,
         "pbr_mrq": cap / mrq if mrq and mrq > 0 else None,
     }
+    if _ttm_blocked(fin, finq, aq_fy, aq_q, fye):
+        p["per_ttm_why"] = "mixed_fs"      # 261021(L3): 연간·당해·전년 누적이 연결과 별도로 섞여 TTM 을 비웠다 — 그런 점에서만 칸이 생긴다
     if fy not in fin and p["per_ttm"] is None and p["pbr_mrq"] is None:
         return None   # 연간 행도 분기 배수도 없다 — 종전처럼 점을 만들지 않는다(시총만 있는 점으로 곡선을 채우지 않는다)
     return p
@@ -1501,13 +1603,12 @@ def _pit_fallback(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, t
     fin, finq = _at(fin, finq, price_dd)
     cap = float(cap)
     aq = _pit_quarter(price_dd, fye)
-    month = _rc.fye_month(fye)
-    end0 = _rc.cell_end(aq[0], aq[1], month)
+    end0 = _rc.cell_end(aq[0], aq[1], fye)          # 261021: 표기마다 결산월이 다르다(결산월을 바꾼 회사) — 달 하나가 아니라 달력(`fye`)을 넘긴다
     floor = _rc._last_day(end0.year - _FALLBACK_YEARS, end0.month)
     cells = sorted((c for c in set(finq) | {(fy, 4) for fy in fin}
-                    if floor <= _rc.cell_end(c[0], c[1], month) < end0
+                    if floor <= _rc.cell_end(c[0], c[1], fye) < end0
                     and (not getattr(fye, "cells", None) or _rc.cell_open(c[0], c[1], price_dd, fye))),   # 261020(p1e): 결산기 칸은 공시된 칸만
-                   key=lambda c: _rc.cell_end(c[0], c[1], month), reverse=True)
+                   key=lambda c: _rc.cell_end(c[0], c[1], fye), reverse=True)
     out: dict = {}
     if _ttm_ni(fin, finq, aq[0], aq[1], fye) is None:
         for c in cells:
@@ -1535,8 +1636,11 @@ def _pit_point(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tupl
     p = _pit_raw(price_dd, cap, fin, finq, fye)
     if p is None:
         return None
-    return {"asof": p["asof"], "pit_fy": p["pit_fy"], "pit_q": p["pit_q"], "cap_krw": round(p["cap"]),
-            "per_fy0": _r3(p["per_fy0"]), "pbr": _r3(p["pbr"]), "per_ttm": _r3(p["per_ttm"]), "pbr_mrq": _r3(p["pbr_mrq"])}
+    out = {"asof": p["asof"], "pit_fy": p["pit_fy"], "pit_q": p["pit_q"], "cap_krw": round(p["cap"]),
+           "per_fy0": _r3(p["per_fy0"]), "pbr": _r3(p["pbr"]), "per_ttm": _r3(p["per_ttm"]), "pbr_mrq": _r3(p["pbr_mrq"])}
+    if p.get("per_ttm_why"):
+        out["per_ttm_why"] = p["per_ttm_why"]          # 261021(L3): 새 칸 — 기준이 섞여 PER(TTM)을 비운 점에서만
+    return out
 
 
 #: `_firm_cap_at` 의 질의 — 그 날 행(주간 → 일별), 없으면 **같은 주 안 그 날 이하 가장 늦은 행**(주간 → 일별),
@@ -1663,7 +1767,7 @@ async def _firm_val_at(ticker: str, dd: str) -> tuple[str | None, str | None, fl
         cap_mkt = (ccap, cmkt)
     market, induty, currency, _, acc_mt = cur_row[0]
     currency = currency or "KRW"
-    fye = _rc.fiscal(acc_mt, ticker)               # 결산월 + 외국 상장사 기한(12월 결산이 아닐 때만)
+    fye = await _fiscal_for(ticker, acc_mt)       # 결산월 + 외국 상장사 기한(12월 결산이 아닐 때만) + 결산월을 바꾼 회사의 옛 결산월·첫 사업연도
     if _needs_fx(currency):                       # 환산은 환율 조회를 연도 → 분기 순서로 이어 간다(firm_history 와 같은 순서)
         fin = await _firm_fin_by_fy(ticker, currency, fye)
         finq = await _firm_fin_by_q(ticker, currency, fye)
@@ -1695,6 +1799,8 @@ def _row_val(dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple], fye:
         for k in ("per_ttm", "pbr_mrq"):
             if k in fb:
                 out[k], basis[k] = fb[k][0], _cell_label(fb[k][1])
+        if p.get("per_ttm_why") and "per_ttm" in fb:
+            basis["per_ttm_why"] = p["per_ttm_why"]    # 261021(L3): 그 시점 칸이 「비어서」가 아니라 연결·별도가 섞여서 앞선 칸으로 셌다
         out["basis"] = basis
     return out
 
@@ -1801,6 +1907,7 @@ async def build_firm_at_payload(company: str, as_of: str) -> dict[str, Any]:
                           for k, nm in (("per_ttm", "PER(TTM)"), ("pbr_mrq", "PBR(MRQ)")) if k in b)
         warns.append(f"기준 분기 늦음 — 그 시점 칸({b.get('pit_q')})이 비어 주간 곡선에는 이 주 점이 없다. {used} 칸으로 셌다"
                      "(그 시점까지 공시 마감이 지난 칸 가운데 값이 있는 가장 늦은 칸, 1년 안 — 업종 비교·firm_history 「주간」 항목과 같은 규칙)."
+                     + (_MIXED_FS_NOTE if b.get("per_ttm_why") == "mixed_fs" else "")
                      + (f" FY0 배수는 그 시점 사업연도({p.get('pit_fy')}) 연간 재무가 없어 비운다."
                         if p.get("per_fy0") is None and p.get("pbr") is None else ""))
     # 261019: 답한 점이 요청 기준일(그 종목 마지막 시세 날 — 없으면 곡선 끝 — 을 넘으면 그 날)보다 2주 넘게 이르면 그 사이에 점이 없다는 것을 밝힌다.
@@ -1844,16 +1951,22 @@ def _source_report_month(fm: dict | None) -> int | None:
 
 
 def _fye_note(fye) -> str | None:
-    """12월 결산이 아니면 칸 표기(`pit_fy`·`pit_q`) 읽는 법 한 줄 — 12월 결산은 None(종전 응답 그대로)."""
+    """12월 결산이 아니면 칸 표기(`pit_fy`·`pit_q`) 읽는 법 한 줄 — 12월 결산은 None(종전 응답 그대로).
+    261021: 결산월을 바꾼 회사는 12월이어도 한 줄을 붙인다 — 바꾸기 전 칸은 옛 결산월로 읽고 전환기 사업보고서는 연간 값에 쓰지 않는다."""
     month = _rc.fye_month(fye)
-    if month == 12:
+    since = getattr(fye, "since", 0)
+    if month == 12 and not since:
         return None
     m = {q: _rc.cell_month(q, month) for q in (1, 2, 3, 4)}
     lag = ("분기·반기는 기간 말 + 60일, 사업보고서는 결산월 다음 다섯째 달 1일(외국 상장사 제출 기한)"
            if getattr(fye, "foreign", False) else "분기·반기는 기간 말 + 45일, 사업보고서는 결산월 다음 넷째 달 1일")
-    return (f"{_FYE_NOTE_HEAD}{month}월 — 분기·연간 칸은 DART 표기(사업연도 = 보고서 기준일의 해)다: "
+    note = (f"{_FYE_NOTE_HEAD}{month}월 — 분기·연간 칸은 DART 표기(사업연도 = 보고서 기준일의 해)다: "
             f"1분기 = 그해 {m[1]}월 말 · 반기 = {m[2]}월 말 · 3분기 = {m[3]}월 말 · 사업보고서 = 그해 {m[4]}월 말. "
             f"그 시점 칸은 {lag}부터 쓴다(공시 기한 — 아직 안 나온 보고서를 앞당겨 쓰지 않는다).")
+    if since:
+        note += (f" 결산월을 {fye.prev}월에서 {month}월로 바꿨다 — {since} 사업연도 앞 칸은 {fye.prev}월 기준이고, {since} 사업보고서는 전환기(12개월이 아님)라 "
+                 "연간 순이익에 쓰지 않는다(그 칸의 순이익·그 칸을 직전 연간으로 쓰는 TTM 은 다음 연간 사업보고서 전까지 비어 있다).")
+    return note
 
 
 #: firm_history `history` 의 「주간」 항목 수 — 종전 주간 스냅샷 표가 담던 최근 16주(설계 v03 감사 5: 22항목 = 연말 6 + 주간 16 유지).
@@ -1943,7 +2056,7 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
         return {"tool": "price_multiple_data", "status": "db_error", "subject": corp.get("corp_name", query),
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
     currency = (cur_row[0][2] if cur_row and cur_row[0][2] else "KRW")
-    fye = _rc.fiscal(cur_row[0][3] if cur_row else None, isu)   # 결산월 + 외국 상장사 기한(12월 결산이 아닐 때만)
+    fye = await _fiscal_for(isu, cur_row[0][3] if cur_row else None)   # 결산월 + 외국 상장사 기한(12월 결산이 아닐 때만) + 결산월을 바꾼 회사의 옛 결산월·첫 사업연도
     # ① 연말 PIT 밴드 + ③ 차트용 주간 dense series + ④ 최근 12개월 월말 요약 — 이미 있는 데이터
     #    (krx_weekly × mkt_finstat_y연간 × mkt_finstat_q분기)로 질의 시 계산(저장 X). 재무 로더는
     #    한 번만 만들어 공유. series는 FY0(연)+TTM/MRQ(분기) 곡선, summary는 그 월말 다운샘플.
@@ -2040,19 +2153,73 @@ async def build_firm_history_payload(company: str, format: str = "md") -> dict[s
             "data": data, "warnings": warnings}
 
 
+#: 261021(L1): 한 요청 안에서 `_acntall` 이 **조회 실패**(013 자료 없음이 아닌 DART 상태 오류·전송 오류)를 적는 목록. 반환 모양(`(rows, fs)`)은 그대로 둔다 —
+#: 시험·부르는 쪽이 `_acntall` 을 같은 모양의 가짜로 바꿔 끼운다. 목록이 없으면(요청 밖 호출) 적지 않고 종전처럼 빈 결과만 돌려준다.
+_ACNT_FAILS: contextvars.ContextVar[list | None] = contextvars.ContextVar("opm_acntall_fails", default=None)
+
+
+def _acnt_status(exc: BaseException) -> str:
+    """조회 실패의 상태 표기 — DART 상태 코드(020·010·800 …) 또는 전송 오류 이름."""
+    return str(getattr(exc, "status", None) or type(exc).__name__)
+
+
 async def _acntall(client, cc: str, year: int, rc: str, fs: str | None = None) -> tuple[list, str | None]:
     """fs 지정 시 그 기준만, 미지정 시 CFS(연결)→OFS(별도) 폴백 후 성공한 기준을 함께 반환.
     260704 실측: 카카오뱅크·코스모신소재는 FY2025 연결이 없고 별도만 있어(연결대상 없음) CFS만
-    시도하면 전 지표가 N/M. TTM은 연간·분기를 같은 기준으로 맞춰야 정합(연결/별도 혼용 방지)."""
+    시도하면 전 지표가 N/M. TTM은 연간·분기를 같은 기준으로 맞춰야 정합(연결/별도 혼용 방지).
+
+    261021(L1, fin audit): **013(조회된 데이터 없음)만 「자료 없음」이다.** 종전엔 모든 DART 오류(020 키의 하루 한도·010/011/012/800·전송 오류)를
+    013 과 똑같이 빈 응답으로 삼켜, 재무 조회가 **실패**한 firm 이 N/M 이나 한 분기 이른 TTM 으로 조용히 나갔다(분기 고르기 루프는 빈 응답을 보고
+    다음 후보로 내려간다). 이제 013 이면 종전대로 다음 기준(CFS → OFS)을 본다. 그 밖의 오류는 답이 아니다 — 별도(OFS)로 넘어가지 않고(연결 재무가 있는데
+    못 읽은 것을 별도로 받아 기준이 섞이는 것을 막는다) 빈 결과를 돌려주되 요청의 실패 목록(`_ACNT_FAILS`)에 `{year, reprt_code, fs, status}` 로 적는다.
+    부르는 쪽(firm)은 그 목록으로 분기 고르기를 멈추고 「재무 조회 실패 — 값 미확인」 경고를 단다."""
     for cand in ((fs,) if fs else ("CFS", "OFS")):
         try:
             d = await client.get_fnltt_singl_acnt_all(cc, str(year), rc, cand)
             rows = (d.get("list", d) if isinstance(d, dict) else d) or []
             if rows:
                 return rows, cand
-        except DartClientError:
-            continue
+        except DartClientError as e:
+            if str(e.status) == "013":
+                continue
+            _note_acnt_fail(year, rc, cand, e)
+            return [], None
+        except (httpx.HTTPError, asyncio.TimeoutError) as e:      # 전송 오류 — DART 의 답이 아니다(재시도 소진 · HTTP 5xx)
+            _note_acnt_fail(year, rc, cand, e)
+            return [], None
     return [], None
+
+
+def _note_acnt_fail(year: int, rc: str, fs: str, exc: BaseException) -> None:
+    fails = _ACNT_FAILS.get()
+    if fails is not None:
+        fails.append({"year": int(year), "reprt_code": rc, "fs": fs, "status": _acnt_status(exc)})
+
+
+_REPRT_NAME = {"11011": "사업보고서", "11012": "반기보고서", "11013": "1분기보고서", "11014": "3분기보고서"}
+_DART_STATUS_NOTE = {"020": "요청 한도 초과", "010": "등록되지 않은 키", "011": "사용할 수 없는 키", "012": "접근할 수 없는 IP", "800": "시스템 점검",
+                     "901": "사용 기간 만료 키"}
+
+
+def _fetch_fail_summary(fails: list[dict]) -> list[dict]:
+    """같은 (사업연도, 보고서)의 실패는 하나로 — 응답 `data_quality.dart_fetch_failures` 와 경고가 같이 쓴다. 순서는 처음 실패한 차례."""
+    out: dict[tuple, dict] = {}
+    for f in fails or []:
+        out.setdefault((f["year"], f["reprt_code"]), {"year": f["year"], "report": _REPRT_NAME.get(f["reprt_code"], f["reprt_code"]),
+                                                      "reprt_code": f["reprt_code"], "status": f["status"]})
+    return list(out.values())
+
+
+def _fetch_fail_warning(fails: list[dict], *, ttm_stopped: bool) -> str | None:
+    """재무 조회 **실패** 경고(261021 L1) — 013(자료 없음)과 다르다는 것과 무엇이 비었는지를 적는다. 실패가 없으면 None(응답 그대로)."""
+    summ = _fetch_fail_summary(fails)
+    if not summ:
+        return None
+    what = ", ".join(f"{f['year']} {f['report']}(상태 {f['status']}{'·' + _DART_STATUS_NOTE[f['status']] if f['status'] in _DART_STATUS_NOTE else ''})"
+                     for f in summ)
+    tail = (" TTM 은 더 이른 분기로 대체하지 않았다 — 빈 값은 값 미확인이다." if ttm_stopped else "")
+    return (f"⚠️ 재무 조회 실패 — 값 미확인: DART 전체 재무제표 {what}를 받지 못했다. 「자료 없음」(013)이 아니라 조회 자체가 실패한 것이라 "
+            f"그 보고서에서 오는 값(FY0 순이익·자본, TTM, MRQ)은 비었거나 빠져 있을 수 있다(N/M 이나 적자·자료 없음으로 읽지 말 것).{tail} 잠시 뒤 다시 조회.")
 
 
 def _gid(rows, account_id, sj, field="thstrm_amount"):
@@ -2274,6 +2441,15 @@ ADJ_EVENT_SQL = ("event_type IN ('split','merge','bonus','stock_div') AND adj_fa
                  "AND label_confidence='confirmed'")
 
 
+#: 261021(H4): `ADJ_EVENT_SQL` 의 **나머지** — 확정 라벨의 분할·병합·무상증자·주식배당이 아닌 조정(라벨 없음 · 「dart」 라벨 · 감자 · 혼합 · 종류 없음)에서
+#: 「excluded_…」(시장 이전·호가단위 맞춤)를 뺀 것. 계수만으로는 주식 수 조정인지 대규모 배당락·자본 환급인지 모르므로 상장주식 수 배율로 가려야 쓴다
+#: (`_unlabeled_share_events`). 라벨 원천(v2·DART 공시 장부)이 2026-06·07 에 멎어 그 뒤 이벤트는 모두 이쪽이다(`dividend.SHARE_MATCH_TOL` 주석).
+#: `event_type`·`label_confidence` 가 NULL 일 수 있어 COALESCE — `NOT (NULL AND …)` 이 NULL 이 돼 행이 빠지지 않게.
+UNLABELED_ADJ_SQL = ("adj_factor IS NOT NULL AND adj_factor > 0 "
+                     "AND NOT (COALESCE(event_type,'') IN ('split','merge','bonus','stock_div') AND COALESCE(label_confidence,'')='confirmed') "
+                     "AND left(COALESCE(label_confidence,''),8) <> 'excluded'")
+
+
 async def _eps_adj_factor(ticker: str, after_dd: str) -> float:
     """(after_dd, 오늘] 조정성 이벤트(액면분할·병합·무상증자·주식배당)의 누적 수정계수 —
     수정주가 파이프라인 krx_adj_events(기준가 리셋 실측 + 라벨) 재사용.
@@ -2380,6 +2556,51 @@ async def _dps_events(ticker: str, after_dd: str) -> tuple[list[tuple] | None, d
     return rows, ratios
 
 
+async def _unlabeled_share_events(tickers: list[str], after_dd: str, upto_dd: str | None = None) -> dict[str, list[dict]]:
+    """(after_dd, upto_dd] 기준가 조정 가운데 **확정 라벨이 없어도 주식 수 조정으로 확인되는 것**을 종목별로 — `{종목: [{event_dd, adj_factor, shares_ratio}]}`. (261021 H4)
+
+    공시 EPS 정렬(`_eps_adj_factor`)과 기말 보유수량 맞춤(`asset_holdings`)은 확정 라벨 분할·병합·무상증자·주식배당(`ADJ_EVENT_SQL`)만 계수를 곱했다.
+    라벨 원천이 멎은 2026-06·07 뒤의 분할·병합·무상증자는 모두 「unlabeled」(무상증자는 종류도 비어 있다)이거나 「dart」 라벨이라 하나도 안 곱했다 —
+    EPS 조각이 옛 주식 분모와 새 분모로 섞이고(「상장주식수가 … 배로 바뀌었습니다」 경고), 보유수량은 「확정된 수정계수가 없다」로 시가 평가에서 빠졌다.
+    배당수익률은 이미 같은 판정으로 맞춘다(`dividend.align_dps_to_price`) — 이 함수는 그 판정을 그대로 쓴다: 이벤트 앞 마지막 주의 상장주식 수 ↔ 이벤트 뒤
+    `SHARE_LISTING_LAG_DAYS`(63일, 무상증자 신주 상장 지연) 안의 상장주식 수 배율 r 이 계수 f 의 역수에 가깝고(f × r = 1 ± 2%) 주식 수가 실제로 바뀌었을
+    때(|r − 1| ≥ 3%) — `dividend._shares_match`. 「excluded_…」 라벨은 읽지 않는다. 후보가 없으면(대부분) 읽기 한 번이고, 있으면 후보마다 한 번 더 읽는다.
+    읽기 실패·예외는 빈 결과(종전 계수 그대로) — 배당과 같은 fail-open."""
+    from datetime import datetime, timedelta
+    out: dict[str, list[dict]] = {}
+    try:
+        up = " AND event_dd <= %s" if upto_dd else ""
+        rows = await _db_rows("SELECT ticker, event_dd, adj_factor, event_type, label_confidence FROM krx_adj_events "
+                              "WHERE ticker = ANY(%s) AND event_dd > %s" + up + " AND " + UNLABELED_ADJ_SQL + " ORDER BY ticker, event_dd",
+                              (list(tickers), after_dd, *( (upto_dd,) if upto_dd else () )))
+        for r in rows or []:
+            t, dd, f = r[0], str(r[1]), r[2]
+            try:
+                end = (datetime.strptime(dd[:8], "%Y%m%d") + timedelta(days=SHARE_LISTING_LAG_DAYS)).strftime("%Y%m%d")
+            except ValueError:
+                continue
+            sh = await _db_rows(_SHARES_AROUND_SQL, (t, dd, t, dd, end, t, end))
+            if not sh:
+                continue
+            pre, weekly, latest = sh[0][0], list(sh[0][1] or []), sh[0][2]
+            ratio = share_ratio_for(f, pre, weekly + ([latest] if latest else []))
+            if _shares_match(float(f), ratio):
+                out.setdefault(t, []).append({"event_dd": dd, "adj_factor": float(f), "shares_ratio": round(ratio, 4)})
+    except Exception:  # noqa: BLE001 — fail-open: 확인이 깨져도 종전 계수(확정 라벨만)로 응답한다
+        logger.exception("라벨 없는 주식 수 조정 확인 실패 — 종전 계수 그대로 (%s)", ",".join(tickers[:3]))
+        return {}
+    return out
+
+
+def _adj_events_factor(events: list[dict] | None, after_dd: str) -> float:
+    """`_unlabeled_share_events` 결과 가운데 `after_dd` 뒤 이벤트의 계수 곱(없으면 1.0)."""
+    f = 1.0
+    for e in events or []:
+        if e["event_dd"] > after_dd:
+            f *= e["adj_factor"]
+    return f
+
+
 def _dps_fetch_failed(div_err: Any) -> bool:
     """배당 사항 조회가 **실패**했나 — `_annual_summary` 의 두 번째 값(실패 시 「alotMatter 조회 실패: {DART 상태}」, 아니면 None).
     상태 013(조회된 데이터 없음)은 실패가 아니라 그 사업보고서에 배당 항목이 없다는 뜻이라(`guideline_research` 등도 013 을 no_rows 로 친다)
@@ -2482,11 +2703,14 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   바꿨지만 새 결산월의 사업보고서가 아직 없는 회사(저장된 칸은 옛 결산월 — 10-19 운영 001080 6월·021880 3월)를 종전엔 12월로 읽어
     #   실시간 firm 만 FY0 가 한 해 낡았다(001080: firm FY2025 PER N/M·TTM 45.82, 같은 날 firm + as_of·업종 비교는 FY2026 116.51).
     #   보고서 이름은 재무 요약이 이미 받아 둔 값이라 12월 결산(이름이 12월 기준)은 여전히 읽기가 늘지 않는다.
+    # 261021(DATA-FY2): 결산월을 바꾼 회사는 12월이어도(154030 9→12 · 222160 3→12) 옛 결산월·첫 사업연도를 읽는다(`_fye_changes` — 프로세스에 잠깐 둔 목록이라 읽기가 늘지 않는다).
+    #   그 첫 사업보고서는 전환기(12개월이 아님)라 아래에서 연간 지표를 내지 않는다.
     fye = _rc.Fiscal()
     _rep_m = _source_report_month(fm)
-    if _rc.fye_month(info.get("acc_mt")) != 12 or (_rep_m is not None and _rep_m != 12):
+    if (_rc.fye_month(info.get("acc_mt")) != 12 or (_rep_m is not None and _rep_m != 12)
+            or stock_code in await _fye_changes()):
         fye_row = await _db_rows("SELECT acc_mt FROM dart_fundamentals WHERE ticker=%s", (stock_code,))
-        fye = _rc.fiscal(fye_row[0][0] if fye_row else None, stock_code)
+        fye = await _fiscal_for(stock_code, fye_row[0][0] if fye_row else None)
     nondec = fye.month != 12
     fy = fm.get("data", {}).get("year")
     if nondec and fy is not None:
@@ -2504,6 +2728,11 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         return {"tool": "price_multiple_data", "status": "no_financials", "subject": name,
                 "warnings": [f"'{name}'({stock_code}) 재무 데이터를 확정하지 못함 — 밸류에이션 산출 불가."]}
     eps_fy = s.get("eps_krw"); revenue_fy = s.get("revenue_krw"); roe = s.get("roe_pct")
+    # 261021(DATA-FY2): 결산월을 바꾼 첫 사업보고서(전환기 — 12개월이 아님)의 연간 흐름 값(순이익·EPS·매출·ROE)은 FY0 가 아니다. 낸 값을 비우고 아래 경고로 알린다
+    #   (자본 잔액 — PBR·BPS 는 그 날 값이라 그대로). 최신 사업보고서를 그대로 FY0 로 읽던 154030 FY2025(2025.10~12 석 달 −13.66억).
+    fy_transition = _rc.is_transition(fy, fye)
+    if fy_transition:
+        eps_fy = revenue_fy = roe = None
     cap_status = s.get("capital_impairment_status")
     # 금융사 판별: KSIC 업종코드(induty) 대분류 K = 64(은행·금융지주)·65(보험)·66(증권).
     # 260704 실측: 매출=None 휴리스틱은 인터넷은행(카카오뱅크 영업수익 3조 신고)을 놓쳐 오분류 →
@@ -2523,6 +2752,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   6월 결산이면 1분기·반기는 fy(9·12월 말)·3분기는 fy+1(3월 말). 전년 같은 칸은 언제나 그 표기 − 1.
     q_lab = _rc.quarter_labels_after(fy, fye)
     # P2: 연간 재무원장·유통주식수·배당 — fy만 의존 → 병렬.
+    # 261021(L1): 이 요청의 전체 재무제표 조회 **실패**(013 이 아닌 DART 오류·전송 오류)를 모은다 — `_acntall` 이 적는다. 경고·분기 고르기가 이 목록을 본다.
+    acnt_fails: list[dict] = []
+    _ACNT_FAILS.set(acnt_fails)
     (fy_rows, fs_used), sh, (div_sum, div_err) = await asyncio.gather(
         _acntall(client, cc, fy, "11011"),
         _shares_outstanding(client, cc, fy),
@@ -2549,14 +2781,22 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   같은 날짜라 아래 보고서 사이 단위 가리기가 쓴다(콜은 늘지 않는다 — 이미 읽은 응답).
     _qc_seen: list[tuple[str, list]] = []
     qc_label = None
+    q_fetch_failed = False        # 261021(L1): 분기 고르기 도중 조회가 **실패**했나(013 자료 없음과 다르다) — 그러면 더 이른 분기로 내려가지 않는다
     for _rcode in _Q_CODES:
         _cur = q_lab[_Q_OF[_rcode]] if nondec else q_cur
+        _n_fail = len(acnt_fails)
         _qc, _ = await _acntall(client, cc, _cur, _rcode, fs_used)
+        if len(acnt_fails) > _n_fail:
+            q_fetch_failed = True     # 이 분기가 「없다」가 아니라 「못 읽었다」 — 이른 분기로 대체하면 한 분기 낡은 TTM 을 최신인 양 낸다
+            break
         if not _qc:
             continue
         any_q_after = True
         _qc_seen.append((f"Q:{_cur}:{_rcode}", _qc))
         _qp, _ = await _acntall(client, cc, _cur - 1, _rcode, fs_used)
+        if len(acnt_fails) > _n_fail:
+            q_fetch_failed = True     # 전년 동기를 못 읽었다 — 짝을 못 뺀다. 다음 분기로 내려가지 않고 TTM 은 값 미확인
+            break
         if not _qp:
             continue          # 짝이 없으면 뺄 수 없다 — 다음(더 이른) 분기로 내려간다
         qc_rows, qp_rows, q_code = _qc, _qp, _rcode
@@ -2566,7 +2806,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         break
     # 261018(결산월): 12월 결산이 아니고 사업보고서 fy 뒤 분기 칸이 아직 하나도 없으면(최신 공시가 사업보고서) TTM = 그 사업보고서 연간 값 —
     #   곡선(`_ttm_ni` 의 사업보고서 칸)과 같은 정의. 6월 결산은 10/1~11/13 이 그렇다. 12월 결산은 종전 그대로(4~5월 TTM 비움).
-    ttm_is_annual = nondec and not any_q_after
+    ttm_is_annual = nondec and not any_q_after and not q_fetch_failed   # 261021(L1): 조회 실패는 「분기 보고서가 아직 없다」가 아니다
     if ttm_is_annual:
         q_code, q_cur = "11011", fy
     elif nondec and not qc_rows:
@@ -2653,7 +2893,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     fx_qc_dd, fx_qp_dd = _d_cur, _d_prev   # 분기 값에 **실제로 쓴** 환율의 날짜(대신했으면 사업연도 말) — 응답·경고에 그대로 적는다
     if stmt_cur != "KRW":
         # 261019: 칸을 결산월(`fye`)로 골랐으면 환산 기준일(그 사업연도 말)도 그 달 — 개황 결산월은 결산월을 바꾼 회사에서 칸과 어긋난다.
-        acc_mt = f"{fye.month:02d}" if nondec else str(info.get("acc_mt") or "12").zfill(2)
+        acc_mt = f"{_rc.month_of(fy, fye):02d}" if (nondec or fye.since) else str(info.get("acc_mt") or "12").zfill(2)   # 261021: 결산월을 바꾼 회사는 그 표기의 결산월
         last_day = calendar.monthrange(fy, int(acc_mt))[1]
         fy_end_dd = f"{fy}{acc_mt}{last_day:02d}"
         if qc_rows and not ttm_is_annual:
@@ -2688,7 +2928,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # 가중평균주식수는 어느 endpoint에도 없음 → 주식수를 직접 만들지 않고 공시 EPS끼리 조립:
     #   TTM EPS = FY0 EPS + 당해 분기누적 EPS(thstrm_add_amount) − 전년동기누적 EPS
     # → FY0·TTM 모두 공시 가중평균·우선주 배분 기준 = 분모 비대칭(현대차 29% 괴리·방향 왜곡) 근본 해소.
-    eps_fy_disc = _eps_disclosed(fy_rows, "thstrm_amount")
+    eps_fy_disc = None if fy_transition else _eps_disclosed(fy_rows, "thstrm_amount")
     eps_qc_disc = _eps_disclosed(qc_rows, "thstrm_add_amount", "thstrm_amount")
     eps_qp_disc = _eps_disclosed(qp_rows, "thstrm_add_amount", "thstrm_amount")
     # 수정계수 보정(krx_adj_events, 코스닥 스윕 리노공업 실증): 기중 액면분할·무상증자·주식배당
@@ -2701,16 +2941,26 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     flag_rows: list | None = []   # 수정주가 flag — 아래 경고에서 쓴다 (읽기는 EPS 보정 읽기와 한 묶음)
     if stock_code and any(x is not None for x in (eps_fy_disc, eps_qc_disc, eps_qp_disc)):
         # 결산기준일(`_d_cur`·`_d_prev`)은 위에서 고른 분기 칸의 기간 말이다.
-        # 261018(재설계 4단계 T5): 수정계수 둘 · 주식수 배율(읽기 2) · 수정주가 flag — 읽기 5번이 서로 입력이 필요 없는데 종전엔 차례로 기다렸다.
+        # 261018(재설계 4단계 T5): 수정계수 둘 · 주식수 배율(읽기 2) · 수정주가 flag — 읽기 5번이 서로 입력이 필요 없는데 종전엔 차례로 기다렸다(261021: 라벨 없는 조정 후보 읽기가 여섯째로 같은 묶음 — 왕복은 그대로 2).
         #   한 묶음으로 보낸다(동시에 도는 읽기는 호출당 `_PG_FANOUT` 개까지 → 5번 차례 대기 = 2 왕복). 아래 보정 계산은 종전 순서 그대로다.
-        f_cur, f_qp, r_cur, flag_rows = await _gather_db(
+        f_cur, f_qp, r_cur, flag_rows, ev_unl = await _gather_db(
             _eps_adj_factor(stock_code, _d_cur),   # 연간·당해분기 결산기준일 이후
             _eps_adj_factor(stock_code, _d_prev),  # 전년동기 결산기준일 이후
             _shares_ratio(stock_code, _d_cur),
             _db_rows("SELECT flag, detail FROM krx_stock_flags WHERE ticker=%s", (stock_code,)),
+            # 261021(H4): 확정 라벨이 없어도 상장주식 수가 계수의 역수만큼 바뀐 조정(라벨 원천이 멎은 뒤의 분할·병합·무상증자) — 배당 맞춤과 같은 판정.
+            #   두 기준일 이후 이벤트를 한 번에 읽어(전년 동기 기준일 이후가 넓다) 아래서 기준일별로 나눈다.
+            _unlabeled_share_events([stock_code], _d_prev),
         )
+        _unl = (ev_unl or {}).get(stock_code) or []
+        if _unl:
+            f_cur *= _adj_events_factor(_unl, _d_cur)
+            f_qp *= _adj_events_factor(_unl, _d_prev)
         if f_cur != 1.0 or f_qp != 1.0:
             eps_adj = {"current": round(f_cur, 6), "prior_q": round(f_qp, 6)}
+            if _unl:    # 261021(H4): 새 칸 — 확정 라벨이 아닌 이벤트를 상장주식 수 배율로 확인해 곱했을 때만(어느 이벤트인지)
+                eps_adj["unlabeled_events"] = [{"event_dd": f"{e['event_dd'][:4]}-{e['event_dd'][4:6]}-{e['event_dd'][6:8]}",
+                                                "adj_factor": round(e["adj_factor"], 6), "shares_ratio": e["shares_ratio"]} for e in _unl]
         if eps_fy_disc is not None:
             eps_fy_disc *= f_cur
         if eps_qc_disc is not None:
@@ -2727,7 +2977,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     if ttm_is_annual:                  # 261018(결산월): 최신 공시가 사업보고서 — TTM = 그 연간 값(12월 결산은 해당 없음)
         eps_ttm_disc = eps_fy_disc
 
-    ni_fy = _fx(_ctrl_ni(fy_rows))
+    ni_fy = None if fy_transition else _fx(_ctrl_ni(fy_rows))
     ni_qc = _fxr(_ctrl_ni_cum(qc_rows), fx_qc)     # 261019: 분기 칸은 그 분기 말 환율
     ni_qp = _fxr(_ctrl_ni_cum(qp_rows), fx_qp)
     ni_ttm = (ni_fy + ni_qc - ni_qp) if None not in (ni_fy, ni_qc, ni_qp) else None
@@ -2950,6 +3200,12 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     div_yield = round(_div(dps, price) * 100, 2) if (dps and price and not impaired_full) else None
 
     warnings = []
+    _ff_w = _fetch_fail_warning(acnt_fails, ttm_stopped=q_fetch_failed)     # 261021(L1): 013 이 아닌 재무 조회 실패 — 없으면 응답 그대로
+    if _ff_w:
+        warnings.append(_ff_w)
+    if fy_transition:
+        warnings.append(f"결산월을 {fye.prev}월에서 {fye.month}월로 바꾼 첫 사업보고서(FY{fy}, 전환기 — 12개월이 아님)라 연간 지표(순이익·EPS·매출·ROE·PER(FY0))를 내지 않는다. "
+                        "이를 직전 연간으로 쓰는 PER(TTM)도 다음 연간 사업보고서 전까지 비어 있다. PBR·BPS 는 그 날의 자본 잔액이라 낸다.")
     if impaired_full:
         warnings.append("⚠️ 완전자본잠식(자본≤0) — 상장폐지 위험. PER·PBR N/M. risk_events 확인 요망.")
     elif cap_status == "partial_50plus":
@@ -2959,6 +3215,11 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     _dw = _deficit_warning(eps_fy, ni_fy, per_fy)
     if _dw:
         warnings.append(_dw)
+    if eps_adj and eps_adj.get("unlabeled_events"):
+        # 261021(H4): 확정 라벨이 없는 조정을 상장주식 수 배율로 확인해 공시 EPS 정렬에 곱했다 — 어느 이벤트인지(배당수익률 맞춤과 같은 판정).
+        _ue = " · ".join(f"{e['event_dd']} 계수 {e['adj_factor']:g}(상장주식 수 ×{e['shares_ratio']:g})" for e in eps_adj["unlabeled_events"])
+        warnings.append(f"EPS 정렬에 확정 라벨이 없는 기준가 조정 {len(eps_adj['unlabeled_events'])}건을 반영했다 — {_ue}. 상장주식 수가 계수의 역수만큼 "
+                        "바뀐 것을 확인해 분할·병합·무상증자로 보았다(PER·PBR 은 시총 기반이라 이 조정과 무관하다).")
     if shares_unadjusted:
         r = shares_unadjusted["shares_ratio"]
         # 260823: 배수가 시총 기반으로 바뀌어 **PER·PBR 은 이 영향을 받지 않는다.**
@@ -2967,6 +3228,12 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             f"상장주식수가 결산기준일 이후 {r}배로 바뀌었습니다(액면분할·병합 추정) — "
             "PER·PBR 은 시총 기반이라 영향 없지만, 아래 **EPS는 옛 분모와 새 분모가 섞여 있어** "
             "주당 비교에는 쓰지 마세요.")
+    elif shares_bad and eps_adj:
+        # 261021(H4): 사업연도 말 뒤 병합·감자가 수정계수로 잡힌 종목이다 — DART 유통주식수는 사업보고서(사업연도 말) 기준이라 옛 주식 수다. 파싱오류가 아니다.
+        #   종전엔 이 종목의 계수가 비어(라벨 없음) 바로 위 「상장주식수가 … 배로 바뀌었습니다」가 이 자리를 가져갔는데, 계수가 잡히면 그 문구가 사라져
+        #   아래 「파싱오류 의심」이 같은 종목을 오진하게 된다(000040 2026-07-28 5:1 병합 — DART 유통주식수 4.4배).
+        warnings.append("유통주식수(DART 사업보고서, 사업연도 말 기준)가 지금 상장주식수의 3배를 넘는다 — 사업연도 말 뒤 병합·감자로 상장주식수가 줄어든 것으로 "
+                        "보인다(수정계수 반영 이벤트: eps_adj_factors). 파싱오류가 아니라 옛 주식 수라 주당 지표(BPS)는 비웠다. PER·PBR 은 시총 기반이라 영향 없다.")
     elif shares_bad:
         # 260823: 종전에는 이 문구가 계수 누락 케이스까지 덮어 **원인을 오진**했다
         # (액면병합인데 「DART 파싱오류」라고 안내). 위 분기가 그 경우를 먼저 가져간다.
@@ -3146,6 +3413,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         },
     }
     inputs = payload["data"]["inputs"]
+    if acnt_fails:
+        # 261021(L1): 그런 응답에서만 칸이 생긴다 — 어느 사업연도·보고서가 어떤 DART 상태로 실패했나(013 자료 없음은 여기 들지 않는다).
+        payload["data"]["data_quality"]["dart_fetch_failures"] = _fetch_fail_summary(acnt_fails)
     if scale_fix:
         # 261020(p1f): 보고서 사이 단위 가리기로 금액을 나눈 보고서(그런 응답에서만 칸이 생긴다) — 보고서·접수번호·나눈 배수·가린 근거·대조한 값.
         payload["data"]["data_quality"]["scale_fix"] = scale_fix
