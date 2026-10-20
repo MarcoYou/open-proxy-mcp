@@ -32,15 +32,23 @@
   다음 거래일이 아직 저장되지 않았거나 그 날 공표 대비가 없으면 **판정을 미룬다**(휴장으로 적지 않는다) — KRX 오류(키 만료·한도·장애)도
   빈 응답으로 오므로, 미루지 않으면 하루 넘게 KRX 가 막힌 거래일이 휴장으로 굳어 다시 메워지지 않는다(10-19 검토에서 재현).
 
-이 모듈은 **DB 와 순수 함수만** 다룬다(네트워크 없음). KRX 를 부르는 쪽은 `services/krx_refresher.py`.
+■ 시세 기록 경로 한 곳(261021, DATA-PX8): 한 거래일 전종목을 DB 에 쓰는 함수(`upsert_day`)·주간 닫기 예비(`weekly_sync`)·배치 예비 갱신
+  (`ensure_fresh`)과 KRX 가 쉬는 날을 거르는 거래일 달력(`price_dates`)이 이 모듈에 있다. 종전에는 배수 도구 파일(`price_multiple_data`) 안에
+  있어 갱신기·시험·스크립트가 그 파일의 비공개 이름을 불렀다 — 그 이름은 거기서 그대로 다시 내보낸다(`_krx_db_upsert` 등).
+이 모듈은 **DB 와 순수 함수만** 다룬다. KRX 를 부르는 일은 `krx_api.fetch_day` 한 곳이 하고(`ensure_fresh` 가 그것을 부른다), 서버 안에서
+주기적으로 부르는 쪽은 `services/krx_refresher.py` 다.
 `services/price_multiple_data.py` 를 import 하지 않는다 — 그쪽이 이 모듈을 import 한다(순환 방지).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, NamedTuple
+
+from open_proxy_mcp import krx_api
 
 from open_proxy_mcp.krx_retention import week_unit
 from open_proxy_mcp.market_codes import KQ as MKT_KQ
@@ -94,12 +102,8 @@ def weekdays_after(dd: str, today: str) -> int:
     return n
 
 
-def _num(v: Any) -> int | None:
-    """KRX 숫자 문자열(쉼표 포함)을 정수로. 비었거나 '-' 면 None."""
-    try:
-        return int(str(v).replace(",", "")) if v not in (None, "", "-") else None
-    except Exception:
-        return None
+#: KRX 숫자 문자열(쉼표 포함)을 정수로. 비었거나 '-' 면 None. 정의는 `krx_api.to_int` 한 곳이다.
+_num = krx_api.to_int
 
 
 def daily_records(price_dd: str, kospi: list, kosdaq: list) -> list[tuple]:
@@ -713,3 +717,144 @@ def latest_day(read_rows: Callable[..., Any], on_error: Any = None) -> Any:
     if rows is None:
         return on_error
     return rows[0][0] if rows and rows[0][0] else None
+
+
+# ── 시세 기록 경로 (261021 — 배수 도구 파일에서 옮겨 왔다) ──────────────────────────────────────────
+# 서버 갱신기(`services/krx_refresher`)·배치 예비 갱신·시험·스크립트가 이 함수들을 부른다. 옛 이름은 `price_multiple_data` 가 다시 내보낸다.
+
+class KrxWrite(NamedTuple):
+    """`upsert_day` 결과. **성공 판정은 `daily_ok` 하나다**(261018 재설계 5-1 — 일별 저장분이 기록의 주)."""
+    daily_ok: bool                   # 그 거래일 전종목이 krx_daily 에 커밋됐나(서빙 기준일이 그 날로 나아갔나)
+    weekly_ok: bool = False          # 주간 닫기가 오류 없이 끝났나(닫을 주가 없어도 참). daily_ok 가 거짓이면 늘 거짓
+    closed: tuple[str, ...] = ()     # 이번에 krx_weekly 에 닫아 넣은 거래일들
+
+
+def upsert_day(price_dd: str, kospi: list, kosdaq: list) -> KrxWrite:
+    """한 거래일 전종목을 기록한다 — `krx_daily`(주) + 닫힌 주만 `krx_weekly`(부), 한 트랜잭션.
+
+    261018(재설계 5-1 쓰는 쪽): 종전에는 매 거래일 krx_weekly 의 이번 주 행을 지우고 다시 넣었다(같은 ISO 주 수렴 — 하루 약 2.2천
+    죽은 행). 이제 krx_weekly 는 **닫힌 주만 한 번** 옮겨 적는다(`sync_weekly`: 그 주 마지막 평일이 저장됐거나 더 늦은 주가
+    저장됐을 때, 그 주의 가장 늦은 거래일로. 같은 주는 더 늦은 날로만 바꾼다). 주간 닫기는 SAVEPOINT 안이라 실패해도 일별 기록은
+    커밋되고, 그 주가 일별 보관 창에 남아 있는 동안 다음 기록이 다시 닫는다.
+    일별 기록이 실패하면 아무것도 커밋하지 않는다 — 서빙 기준일(`krx_daily` 최신일)과 주간 표가 어긋나지 않게.
+    market 은 endpoint 기준 태깅(DB 는 KS/KQ — `daily_records`)."""
+    url = os.getenv("DATABASE_URL")
+    if not url or not (kospi or kosdaq) or not daily_records(price_dd, kospi, kosdaq):
+        return KrxWrite(False)
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=20) as c:
+            # 바깥 트랜잭션 하나에 일별 기록·주간 닫기를 담는다 — 안쪽은 각자 SAVEPOINT. 바깥 블록 없이 부르면 psycopg 는 첫 블록을
+            # 그 자체로 커밋하는 트랜잭션으로 다뤄 두 쓰기가 따로 커밋된다.
+            with c.transaction():
+                # 261019(재설계 v03 C4): krx_weekly 가 뷰면 「이번에 닫힌 주」를 기록 전후 달력으로 알린다(표면 종전 그대로 — 읽지 않는다).
+                before = wk_close_days(c) if weekly_is_view(c) else None
+                ok, n, pruned = write_daily(c, price_dd, kospi, kosdaq)
+                wk = sync_weekly(c, before) if ok else None
+        if not ok or wk is None:
+            return KrxWrite(False)
+        logger.info("KRX 스냅샷 기록 %s: krx_daily %d행(오래된 %d행 삭제) · krx_weekly 닫음 %s%s", price_dd, n, pruned,
+                    ",".join(wk.closed) or "-", "" if wk.ok else " (주간 닫기 실패 — 다음 기록 때 다시)")
+        return KrxWrite(True, wk.ok, wk.closed)
+    except Exception as exc:  # noqa: BLE001 — 호출 경로를 깨지 않는다. 다만 조용히 삼키지는 않는다
+        logger.warning("KRX 스냅샷 기록 실패 %s: %s: %s", price_dd, type(exc).__name__, exc)
+        return KrxWrite(False)
+
+
+def weekly_sync() -> bool:
+    """주간 닫기만 따로 한 번 — 배치 예비 갱신(`ensure_fresh`)이 일별 저장분이 이미 최신일 때 부른다(서버 갱신기가 닫기를 놓친 경우의 예비).
+    멱등이라 닫을 주가 없으면 아무것도 안 쓴다. DB 미설정·실패면 False(로그만)."""
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return False
+    try:
+        import psycopg
+        with psycopg.connect(url, connect_timeout=20) as c:
+            wk = sync_weekly(c)
+            c.commit()
+        return wk.ok
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("krx_weekly 주간 닫기(예비) 실패: %s: %s", type(exc).__name__, exc)
+        return False
+
+
+def price_dates(today: date) -> list[str]:
+    """`today` 부터 거슬러 최근 12일 중 주말 제외 후보일(최신 먼저) — KRX 가 빈값 줄 토·일 콜 낭비 제거(API QA).
+    이 서버의 유일한 거래일 달력이다 — 공휴일은 모르고, KRX 빈 응답으로 자연히 걸러진다
+    (보관 창 안의 휴장일은 달력 `krx_day` 에 적혀 있다 — 읽는 쪽은 `trading._calendar_day`)."""
+    out = []
+    for i in range(12):
+        d = today - timedelta(days=i)
+        if d.isoweekday() <= 5:  # 월~금 (공휴일은 KRX 빈 응답으로 자연 skip)
+            out.append(_dd(d))
+    return out
+
+
+#: `ensure_fresh` 의 하루 1회(프로세스) 래치 — {"day": 오늘, "latest_dd": 서빙할 최신 거래일}. 시험이 비운다.
+FRESH_STATE: dict[str, str] = {}
+
+
+async def _live_latest_day(today: date, fetch_day: Callable[..., Any]) -> tuple[str | None, list, list, str]:
+    """KRX 가 실제로 가진 가장 늦은 거래일 — 평일을 거슬러 올라가며 처음 행이 있는 날. → (날짜, 코스피 행, 코스닥 행, 상태).
+    **호출이 실패한 날에서 멈춘다** — 실패를 「그 날은 자료 없음」으로 넘겨 더 옛날 날짜를 최신으로 내지 않는다(DATA-PX8).
+    코스피가 비면 코스닥은 묻지 않는다(1콜) — 전종목이 빈 날은 두 시장이 같이 빈다."""
+    for d in price_dates(today):
+        res = await fetch_day(d, both=False)
+        kospi, kosdaq, _, status = res
+        if status in krx_api.ERROR_STATUSES:
+            return None, kospi, kosdaq, status
+        if any(_num(r.get("TDD_CLSPRC")) for r in (*kospi, *kosdaq)):
+            return d, kospi, kosdaq, status
+    return None, [], [], krx_api.EMPTY
+
+
+async def ensure_fresh(*, today: date, read_rows: Callable[..., Any], fetch_day: Callable[..., Any] | None = None) -> str | None:
+    """**배치 스크립트 전용**(`scripts/market_val_weekly.py`·`market_fund_quarterly.py`) — 서버 요청 경로는 부르지 않는다.
+    하루 1회(프로세스): 일별 저장분(`krx_daily`)이 직전 영업일까지 있나 보고, 없으면 KRX 최신 거래일을 받아 기록한다
+    (`upsert_day` — krx_daily + 닫힌 주만 krx_weekly). 반환 = 일별 저장분의 최신 거래일(배치가 시총을 읽을 날짜).
+    서버 백그라운드 갱신기가 이미 썼으면 DB 가 최신이라 KRX 를 부르지 않는다(예비 역할) — 그때는 주간 닫기만 한 번 더 돈다(멱등).
+
+    `today` 는 호출자가 넘긴다(한국 달력의 오늘 — 시험이 날짜를 바꿔 끼운다). `read_rows` 는 호출 모듈의 DB 읽기 함수(`latest_day` 와 같다).
+
+    261018(재설계 5-1 쓰는 쪽): 최신 판정을 krx_weekly max → **krx_daily max** 로. krx_weekly 는 닫힌 주만 담게 되어 주중에는
+    늘 지난 금요일이라, 종전 판정이면 배치가 매일 KRX 를 다시 훑고 이미 저장된 날을 다시 썼다. 반환값도 일별 최신일이다 —
+    호출자는 그 날짜의 시총을 `krx_daily_v` 에서 읽는다(krx_weekly 에는 이번 주 행이 없다).
+    261021(DATA-PX8): KRX 호출이 **실패**하면(키·한도·장애) 「자료 없음」으로 넘기지 않고 경고를 남기고 저장된 최신일을 그대로 쓴다.
+    이 날의 래치도 굳히지 않는다 — 실패한 날 하루 종일 같은 저장분으로 돌지 않고 다음 호출이 다시 확인한다."""
+    fetch = fetch_day or krx_api.fetch_day
+    today_dd = _dd(today)
+    if FRESH_STATE.get("day") == today_dd and FRESH_STATE.get("latest_dd"):
+        return FRESH_STATE["latest_dd"] or None
+    db_latest = await asyncio.to_thread(latest_day, read_rows)
+    # DB가 이미 '직전 완료 영업일'(오늘 이전 최근 평일)까지 있으면 라이브 스캔 생략 — 콜드 프로세스
+    # 마다 무조건 스캔하던 낭비 제거(API QA: 일요일 8콜 실측). KRX는 T+1 게시라 오늘 데이터는 없다.
+    prev_bd = next((d for d in price_dates(today) if d < today_dd), None)
+    if db_latest and prev_bd and db_latest >= prev_bd:
+        await asyncio.to_thread(weekly_sync)   # 서버 갱신기가 주간 닫기를 놓쳤으면 여기서 메운다(평소 0행)
+        FRESH_STATE.update(day=today_dd, latest_dd=db_latest)
+        return db_latest
+    failed = False
+    if db_latest is None or db_latest < today_dd:   # 직전 영업일 미확보 → 라이브 확인·갱신
+        dd, kospi, kosdaq, status = await _live_latest_day(today, fetch)
+        if status in krx_api.ERROR_STATUSES:
+            failed = True
+            logger.warning("KRX 최신 거래일 확인 실패(%s) — 저장된 최신일 %s 를 그대로 쓴다", krx_api.STATUS_LABEL[status], db_latest)
+        elif dd:
+            # 전진(dd > db_latest)일 때만 기록 — KRX API가 이미 저장된 거래일 데이터를 일시 소실하면
+            # (260703 실측: 금요일 데이터가 이틀째 0행) 스캔이 전일을 잡는데, != 조건이면 저장된
+            # 금요일을 지우고 목요일로 롤백해버림(QA WARN-1). 과거로는 절대 되돌리지 않는다.
+            if db_latest is None or dd > db_latest:
+                if kospi and kosdaq:             # 두 시장 모두 있을 때만 — 반쪽 스냅샷으로 덮기 금지(QA WARN-2)
+                    res = await asyncio.to_thread(upsert_day, dd, kospi, kosdaq)
+                    if res.daily_ok:
+                        db_latest = dd
+                    else:                        # 일별 기록 실패 — 저장되지 않은 날을 최신으로 돌려주지 않는다
+                        logger.warning("KRX 스냅샷 %s 기록 실패 — 저장된 최신일 %s 를 그대로 쓴다", dd, db_latest)
+                else:
+                    logger.warning(
+                        "KRX 스냅샷 반쪽(KOSPI %d/KOSDAQ %d) — 기록 스킵", len(kospi), len(kosdaq))
+            else:
+                db_latest = max(db_latest, dd)   # dd ≤ db_latest: 저장분이 이미 최신 — 그대로 서빙
+    if not failed:
+        FRESH_STATE.update(day=today_dd, latest_dd=db_latest or "")
+    return db_latest

@@ -28,7 +28,7 @@ from typing import Any
 from open_proxy_mcp.company_resolver import share_class_ticker
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 from open_proxy_mcp import krx_api
-from open_proxy_mcp.krx_daily import read_quote
+from open_proxy_mcp.krx_daily import price_dates, read_quote
 
 from open_proxy_mcp.krx_retention import weekly_window_note, with_daily_tail
 from open_proxy_mcp.krx_ticks import TICK_ROUNDING_LABEL, is_tick_rounding
@@ -42,7 +42,6 @@ from open_proxy_mcp.services.price_multiple_data import (
     _fetch_live_snapshot,
     _gather_db,
     _pg_rows,
-    _price_dates,
     _read_weekly,
     _resolve_listed,
     _weekly_bounds,
@@ -513,12 +512,12 @@ _DAILY_LIMIT_PCT = 30.0
 
 
 def _prev_weekday(dd: str) -> str:
-    """`dd` 의 직전 평일(YYYYMMDD) — 주말만 아는 거래일 달력(`_price_dates`)이다. 휴장일은 모른다 — 보관 창 안의 휴장은 달력 표
+    """`dd` 의 직전 평일(YYYYMMDD) — 주말만 아는 거래일 달력(`krx_daily.price_dates`)이다. 휴장일은 모른다 — 보관 창 안의 휴장은 달력 표
     `krx_day`(`_calendar_day`)에 적혀 있지만 이 판정은 그것을 읽지 않는다. 직전 평일 행이 없으면 휴장 다음 날과 KRX 가 빠뜨린 날을 가르지 못해
     `_change_is_reliable` 이 거짓이 되고, 호출자는 KRX 공표값을 확인한다(2콜 더 — 날짜 LRU 라 같은 날짜는 한 번)."""
     from datetime import date
     d = date(int(dd[:4]), int(dd[4:6]), int(dd[6:]))
-    return next(x for x in _price_dates(d) if x < dd)
+    return next(x for x in price_dates(d) if x < dd)
 
 
 def _change_is_reliable(dd: str, r: dict) -> bool:

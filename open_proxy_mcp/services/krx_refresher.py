@@ -2,14 +2,14 @@
 """KRX 시세 백그라운드 갱신기 — 요청 경로에서 KRX 갱신을 떼어낸다 (재설계 T2 · 원칙 P8 「쓰는 주체는 하나」).
 
 261018 신설. 종전에는 **하루 첫 시세 질문**이 KRX 스냅샷 확인·기록을 떠안아 그 사용자가 2~12초를 기다렸고, KRX 가 게시하기 전에
-하루 1회 래치(`_KRX_STATE`)가 굳으면 그날 종일 옛 날짜를 썼다. 이제 갱신은 서버가 뜰 때 함께 시작하는 asyncio 작업 하나가 한다.
+하루 1회 래치(`krx_daily.FRESH_STATE`)가 굳으면 그날 종일 옛 날짜를 썼다. 이제 갱신은 서버가 뜰 때 함께 시작하는 asyncio 작업 하나가 한다.
 요청 경로(`price_multiple_data._market_for`·`trading_data(quote)`)는 DB 상태(달력 `krx_day` 의 최신 거래일·`price_latest`·`krx_daily_v`)만 읽는다.
 
 ■ 언제
   월~토 07:30 ≤ 시각 < 20:00 KST 에 10분마다(10분 경계 + 0~20초 지터), 그리고 서버가 뜬 직후 한 번(창 밖이어도).
   KRX 는 전일 데이터를 익일 오전에 게시한다(T+1) — 07:30 에는 보통 아직 없다. 게시될 때까지 10분마다 확인하고, 저장되면 그날은 멈춘다.
 ■ 무엇을 기다리나
-  「기대 거래일」 = 오늘 이전의 마지막 평일(`price_multiple_data._price_dates` — 주말만 아는 달력). 그리고 261019(재설계 v03)부터
+  「기대 거래일」 = 오늘 이전의 마지막 평일(`krx_daily.price_dates` — 주말만 아는 달력). 그리고 261019(재설계 v03)부터
   **보관 창 안에서 달력(`krx_day`)에 없는 평일**(서버 중단 등으로 빠진 날)도 메운다 — 가장 최근 날부터 틱당 `FILL_PER_TICK` 일.
   평일 휴장일은 달력에 휴장으로 적는다(`krx_daily.closed_verdict`): 코스피·코스닥이 **둘 다** 비고, 그 날 뒤로 평일이 2일 이상 지났고,
   다음 저장 거래일의 기준가가 그 앞 거래일 종가와 이어질 때만. 빈 응답 한 번으로는 적지 않는다(20260702 교훈 —
@@ -23,7 +23,7 @@
   ② 아니면 전용 연결에서 `pg_try_advisory_lock(고정키)` — 못 잡으면(다른 머신이 일하는 중) 이번 틱은 건너뛴다.
   ③ 잡았으면 DB 를 다시 확인한다(잠금을 기다리는 사이 상대가 끝냈을 수 있다) → 아직이면 KRX 에서 그 날을 받는다(코스피 1콜, 있으면 코스닥 1콜.
      휴장 판정이 필요한 날 — 평일이 2일 이상 지난 날 — 은 코스피가 비어도 코스닥을 묻는다).
-  ④ 두 시장이 모두 충분히 오면 `_krx_db_upsert` 로 일별 저장분에 쓰고 보관 창(최신 − 1년 − 1주) 밖의 날 중 콜드 보관본에 들어간 날을 지운다.
+  ④ 두 시장이 모두 충분히 오면 `krx_daily.upsert_day` 로 일별 저장분에 쓰고 보관 창(최신 − 1년 − 1주) 밖의 날 중 콜드 보관본에 들어간 날을 지운다.
      같은 트랜잭션에서 닫힌 주만 `krx_weekly` 에 옮겨 적는다(261018 재설계 5-1 — 금요일이 저장되면 그 주를, 다음 주 첫 기록 때 그 앞 주를).
      커밋 뒤 `VACUUM (ANALYZE)` 로 지운 자리를 바로 되쓰고 통계를 새 날짜에 맞춘다(실패해도 기록은 그대로 — 자동 청소가 뒤따른다). 잠금 해제.
      성공 판정은 일별 기록 하나다 — 주간 닫기가 실패해도 「기록 완료」이고(ERROR 로그), 다음 기록이 다시 닫는다.
@@ -108,10 +108,9 @@ def in_window(now: datetime) -> bool:
 
 def expected_dd(now: datetime) -> str:
     """지금 DB 가 가져야 할 가장 최신 거래일 = 오늘 이전의 마지막 평일(KRX 는 T+1 게시).
-    달력은 기존 `_price_dates`(주말만 안다) — 새 달력을 만들지 않는다."""
-    from open_proxy_mcp.services.price_multiple_data import _price_dates
+    달력은 기존 `krx_daily.price_dates`(주말만 안다) — 새 달력을 만들지 않는다."""
     today = now.strftime("%Y%m%d")
-    return next(d for d in _price_dates(now.date()) if d < today)
+    return next(d for d in krx_daily.price_dates(now.date()) if d < today)
 
 
 def seconds_to_next_tick(now: datetime) -> float:
@@ -230,10 +229,11 @@ async def _fetch_day(basDd: str, both: bool = False) -> krx_api.DayFetch:
 
 
 async def _write(dd: str, kospi: list, kosdaq: list):
-    """일별 저장분에 쓰고 닫힌 주만 `krx_weekly` 에 옮긴다(한 트랜잭션) → `price_multiple_data.KrxWrite`. 성공하면 기준일 캐시를 비우고 청소한다.
-    261018(재설계 5-1 쓰는 쪽): 성공 판정·기준일 캐시 무효화의 기준이 krx_weekly 커밋 → **일별 기록**으로 바뀌었다."""
+    """일별 저장분에 쓰고 닫힌 주만 `krx_weekly` 에 옮긴다(한 트랜잭션) → `krx_daily.KrxWrite`. 성공하면 기준일 캐시를 비우고 청소한다.
+    261018(재설계 5-1 쓰는 쪽): 성공 판정·기준일 캐시 무효화의 기준이 krx_weekly 커밋 → **일별 기록**으로 바뀌었다.
+    261021: 쓰기 함수 정의가 배수 도구 파일에서 `krx_daily.upsert_day` 로 옮겨 왔다."""
     from open_proxy_mcp.services import price_multiple_data as pmd
-    res = await asyncio.to_thread(pmd._krx_db_upsert, dd, kospi, kosdaq)
+    res = await asyncio.to_thread(krx_daily.upsert_day, dd, kospi, kosdaq)
     if res.daily_ok:
         pmd.serving_dd_invalidate()     # 이 머신은 바로 새 날짜를 본다(다른 머신은 TTL 로)
         await asyncio.to_thread(_vacuum)
