@@ -342,9 +342,10 @@ def test_backfill_restated_with_tickers_fills_the_missing_year(gdb):
         row("CIS", "ifrs-full_ProfitLossAttributableToOwnersOfParent", "1. 지배기업소유지분", 9, thstrm_amount=142649513102,
             frmtrm_amount=96390989623, bfefrmtrm_amount=89182585076),
     ]
-    # 종전 판정(두 해 중 하나라도 재작성치가 있으면 처리됨)으로는 건너뛴다
+    # 종전 판정(두 해 중 하나라도 재작성치가 있으면 처리됨)으로는 건너뛰었다. 261020(p1f): 출처 칸(restated_rcept_no)이 있으면 「그 보고서 이상에서
+    #   온 정정 칸」만 처리됨이라, 출처를 모르는 옛 정정 칸(FY2022)만 있는 001720 은 tickers 없이도 받는다.
     asyncio.run(S.backfill_restated())
-    assert ("00136721", "2024", "11011", "CFS") not in fake.calls
+    assert ("00136721", "2024", "11011", "CFS") in fake.calls
     asyncio.run(S.backfill_restated(["001720"], 2024))
     assert _q(url, "SELECT fy, fetched, ni_restated, eq_restated FROM dart_finstat_y WHERE ticker='001720' ORDER BY fy") == [
         (2022, "nodata", 89182585076.0, 1429783198380.0),
