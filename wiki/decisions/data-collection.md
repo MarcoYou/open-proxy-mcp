@@ -224,7 +224,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 | 분당 한도 | 1,000건 (OPM cap 910) | OpenDART 정책 (초과 시 **그 키가** 차단 — 실측 2~3시간) |
 | 클라이언트 최소 간격 | 0.1초 | `_MIN_INTERVAL_API` (분당 600회 이하 보장) |
 | 키 회전 | 키의 사정(020·010·011·901)이면 남은 키 모두, 그 밖은 1회 | `_rotate_key()` |
-| build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute` | services/contracts.py |
+| build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute`(옛 키 · 값 1000 = 분당 공표 한도, 이름과 달리 분당), `dart_limit_per_minute`(1000 분당 공표), `dart_client_cap_per_minute`(910 = OPM 분당 상한, `_API_RATE_LIMIT_PER_MINUTE`), `dart_limit_per_day`(20000 키당 하루) | services/contracts.py `build_usage(n)` — 사용량 블록은 이 함수로만 만든다 |
 
 ---
 
