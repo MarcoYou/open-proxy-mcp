@@ -361,7 +361,7 @@ def test_write_daily_with_no_rows_touches_nothing():
     assert c.log == []
 
 
-# ── _krx_db_upsert: krx_daily 가 주(主), 닫힌 주만 krx_weekly(부) — 한 트랜잭션 ─────────────
+# ── upsert_day(옛 이름 _krx_db_upsert): krx_daily 가 주(主), 닫힌 주만 krx_weekly(부) — 한 트랜잭션 ─────────────
 
 def _patch_connect(monkeypatch, conn):
     import psycopg
@@ -376,26 +376,24 @@ def _patch_connect(monkeypatch, conn):
 
 def _patch_sync(monkeypatch, conn, result):
     """주간 닫기(`krx_daily.sync_weekly`)를 기록만 하는 대역으로 — 실제 SQL 은 pg17 시험(test_krx_weekly_close_pg.py)이 본다."""
-    from open_proxy_mcp.services import price_multiple_data as pmd
 
     def fake_sync(c, before=None):
         assert c is conn                                      # 일별 기록과 같은 연결(같은 트랜잭션)
         assert before is None                                 # 표 모드(대역 연결은 krx_weekly 를 표로 보인다) — 기록 전 달력을 읽지 않는다
         conn.log.append(("sync_weekly",))
         return result
-    monkeypatch.setattr(pmd._krx_daily, "sync_weekly", fake_sync)
+    monkeypatch.setattr(krx_daily, "sync_weekly", fake_sync)
 
 
 def test_upsert_writes_daily_then_closes_weeks_before_the_single_commit(monkeypatch):
     """261018(재설계 5-1 쓰는 쪽): 매 거래일 krx_weekly 의 이번 주 행을 지우고 다시 넣던 것을 멈췄다 — 이 함수는 krx_weekly 에 직접
     아무것도 쓰지 않고, 일별 기록 뒤 같은 트랜잭션에서 주간 닫기를 부른다(닫힌 주만 옮겨 적는다)."""
-    from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
     c = FakeConn()
     _patch_connect(monkeypatch, c)
     _patch_sync(monkeypatch, c, krx_daily.WeeklySync(True, ("20261009",), 0))
-    res = pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540", "250,000")])
-    assert res == pmd.KrxWrite(True, True, ("20261009",)) and res.daily_ok
+    res = krx_daily.upsert_day("20261015", [_row("005930")], [_row("247540", "250,000")])
+    assert res == krx_daily.KrxWrite(True, True, ("20261009",)) and res.daily_ok
     # 바깥 트랜잭션 하나(첫 savepoint·마지막 release) 안에 일별 기록(SAVEPOINT)과 주간 닫기 — 한 커밋
     kinds = [e[0] for e in c.log]
     # 261019(v03 C4): 일별 기록 앞에 krx_weekly 가 뷰인지 한 번 본다(대역은 표 — 기록 전 달력은 읽지 않는다)
@@ -409,34 +407,31 @@ def test_upsert_writes_daily_then_closes_weeks_before_the_single_commit(monkeypa
 
 def test_upsert_commits_the_daily_write_even_when_the_weekly_close_fails(monkeypatch):
     """주간 닫기는 부(副)다 — 실패해도 일별 기록(서빙 기준일)은 커밋되고 성공으로 보고한다. 다음 기록이 다시 닫는다."""
-    from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
     c = FakeConn()
     _patch_connect(monkeypatch, c)
     _patch_sync(monkeypatch, c, krx_daily.WeeklySync(False))
-    assert pmd._krx_db_upsert("20261016", [_row("005930")], [_row("247540")]) == pmd.KrxWrite(True, False, ())
+    assert krx_daily.upsert_day("20261016", [_row("005930")], [_row("247540")]) == krx_daily.KrxWrite(True, False, ())
     assert c.log[0] == ("savepoint",) and c.log[-1] == ("release",)          # 바깥 트랜잭션은 그대로 커밋된다
 
 
 def test_upsert_commits_nothing_when_the_daily_write_fails(monkeypatch):
     """일별 기록이 주(主)다 — 실패하면 주간 닫기도 부르지 않고 아무것도 커밋하지 않는다(서빙 기준일과 주간 표가 어긋나지 않게)."""
-    from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
     c = FakeConn(fail_daily=True)
     _patch_connect(monkeypatch, c)
     _patch_sync(monkeypatch, c, krx_daily.WeeklySync(True))
-    assert pmd._krx_db_upsert("20261015", [_row("005930")], [_row("247540")]) == pmd.KrxWrite(False)
+    assert krx_daily.upsert_day("20261015", [_row("005930")], [_row("247540")]) == krx_daily.KrxWrite(False)
     assert ("rollback_to_savepoint",) in c.log and ("sync_weekly",) not in c.log
     assert not c.copied                                                       # 일별 행도 하나 남지 않는다(SAVEPOINT 로 되돌림)
 
 
 def test_upsert_returns_false_without_db_or_rows_and_on_connection_error(monkeypatch, caplog):
-    from open_proxy_mcp.services import price_multiple_data as pmd
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == pmd.KrxWrite(False)
+    assert krx_daily.upsert_day("20261015", [_row("005930")], []) == krx_daily.KrxWrite(False)
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost/x")
-    assert pmd._krx_db_upsert("20261015", [], []) == pmd.KrxWrite(False)
-    assert pmd._krx_db_upsert("20261015", [{"TDD_CLSPRC": "1"}], []) == pmd.KrxWrite(False)        # 종목코드 없는 행뿐
+    assert krx_daily.upsert_day("20261015", [], []) == krx_daily.KrxWrite(False)
+    assert krx_daily.upsert_day("20261015", [{"TDD_CLSPRC": "1"}], []) == krx_daily.KrxWrite(False)        # 종목코드 없는 행뿐
 
     import psycopg
 
@@ -444,7 +439,7 @@ def test_upsert_returns_false_without_db_or_rows_and_on_connection_error(monkeyp
         raise psycopg.OperationalError("connection reset")
     monkeypatch.setattr(psycopg, "connect", boom)
     with caplog.at_level("WARNING"):
-        assert pmd._krx_db_upsert("20261015", [_row("005930")], []) == pmd.KrxWrite(False)
+        assert krx_daily.upsert_day("20261015", [_row("005930")], []) == krx_daily.KrxWrite(False)
     assert any("KRX 스냅샷 기록 실패" in r.message for r in caplog.records)
 
 
