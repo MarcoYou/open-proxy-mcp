@@ -381,14 +381,38 @@ def split_by_share_class(rows: list[tuple]) -> tuple:
     return common, other, "·".join(labels)
 
 
+def settlement_digits(item: dict) -> str:
+    """alotMatter 행의 결산기준일 → `YYYYMMDD`. 없거나 날짜가 아니면 빈 문자열."""
+    d = "".join(ch for ch in str(item.get("stlm_dt") or "") if ch.isdigit())[:8]
+    return d if len(d) == 8 else ""
+
+
+def latest_period_items(items: list[dict]) -> list[dict]:
+    """결산기가 둘 이상 섞인 응답에서 **가장 늦은 결산기 행**만 — 결산기준일이 빈 행은 남긴다. 결산기가 하나면 그대로. (261021)
+
+    반기·분기 결산 회사(리츠 등)는 사업연도 하나에 사업보고서가 결산기마다 따로 나와, 사업보고서 `alotMatter` 한 번에 결산기 여럿이
+    `stlm_dt` 로 갈라져 온다(롯데리츠 FY2025 = 2025-06-30 행 · 2025-12-31 행). 종전 요약은 결산기준일을 **첫 행**에서, 주당값·총액을 **마지막 행**에서
+    읽어 한 요약 안에서 기준일(2025-06-30)과 DPS(123원·2025-12-31 것)·총액이 서로 다른 결산기였다."""
+    dates = {d for d in (settlement_digits(i) for i in items) if d}
+    if len(dates) < 2:
+        return items
+    latest = max(dates)
+    return [i for i in items if settlement_digits(i) in ("", latest)]
+
+
 def build_dividend_summary(items: list[dict], report_label: str) -> dict:
-    """Build a normalized annual summary from alotMatter rows."""
+    """Build a normalized annual summary from alotMatter rows.
+
+    결산기가 둘 이상 섞인 응답(반기·분기 결산 리츠)은 **가장 늦은 결산기 행**에서 기준일·주당값·총액을 같이 읽는다
+    (`latest_period_items`). 결산기별 값과 사업연도 합은 `dividend.settlement_periods` 가 `items`(원문 전체)에서 만든다."""
     stock_dps = special_dps = total_amount = 0
     payout_ratio = None
     net_income = 0
     settlement_date = ""
     dps_rows: list[tuple] = []
     yield_rows: list[tuple] = []
+    all_items = items
+    items = latest_period_items(items)
     for item in items:
         category = item.get("category", "")
         current = item.get("current", "")
@@ -439,5 +463,5 @@ def build_dividend_summary(items: list[dict], report_label: str) -> dict:
         "net_income_consolidated_mil": net_income,
         "par_value_current": par_current,
         "par_value_previous": par_previous,
-        "items": items,
+        "items": all_items,
     }
