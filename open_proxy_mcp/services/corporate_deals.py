@@ -26,6 +26,7 @@ from open_proxy_mcp.services.contracts import (
     SourceType,
     ToolEnvelope,
     build_filing_meta,
+    build_usage,
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
@@ -388,11 +389,7 @@ async def build_corporate_deals_payload(
         if row.get("autonomous_disclosure"):
             autonomous_count += 1
 
-    usage = {
-        "dart_api_calls": total_api_calls,
-        "mcp_tool_calls": 1,
-        "dart_daily_limit_per_minute": 1000,
-    }
+    usage = build_usage(total_api_calls)
 
     # 사건 발견 vs 진짜 partial 분리. _enrich가 각 대상 row에 _detail_status를 남긴다:
     #   ok / parse_empty(문서는 받았으나 핵심필드 공란=진짜 파싱실패) / fetch_error / empty_doc.

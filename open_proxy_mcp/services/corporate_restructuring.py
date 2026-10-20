@@ -21,6 +21,7 @@ from open_proxy_mcp.services.contracts import (
     SourceType,
     ToolEnvelope,
     build_filing_meta,
+    build_usage,
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.date_utils import (
@@ -284,11 +285,7 @@ async def build_corporate_restructuring_payload(
     for row in rows:
         by_type.setdefault(row.get("type", ""), []).append(row)
 
-    usage = {
-        "dart_api_calls": api_calls,
-        "mcp_tool_calls": 1,
-        "dart_daily_limit_per_minute": 1000,
-    }
+    usage = build_usage(api_calls)
 
     # 사건 발견 vs 진짜 partial 분리 메타.
     # corporate_restructuring은 모든 fetch가 DART API 구조화 응답이라
