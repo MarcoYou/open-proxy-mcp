@@ -438,7 +438,8 @@ def test_annual_id_line_ci_value_then_name_line():
 
 
 def test_annual_standard_layout_unchanged():
-    """표준 꼴(지배 + 비지배 = 당기순이익)과 지배 계정 0(종전처럼 총계)은 종전 그대로 — 거른 까닭 없음."""
+    """표준 꼴(지배 + 비지배 = 당기순이익)은 종전 그대로 — 거른 까닭 없음.
+    지배 계정 0 인데 비지배 200 이 따로 있으면 종전 규칙은 총계 1000(비지배 포함), 261020(p1e firm-ctrl-ni)부터는 분기·서버와 같은 규칙으로 총계 − 비지배."""
     S = _series()
     rows = [
         yrow(F + "ProfitLoss", "당기순이익", 12, 1000),
@@ -447,5 +448,10 @@ def test_annual_standard_layout_unchanged():
         yrow(F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분", 19, 200),
     ]
     assert S.ctrl_ni(rows) == (800.0, None)
-    rows[2] = yrow(F + "ProfitLossAttributableToOwnersOfParent", "지배기업 소유주지분", 18, 0)
-    assert S.ctrl_ni(rows) == (1000.0, None)
+    zero = [yrow(F + "ProfitLoss", "당기순이익", 12, 1000123457), yrow(F + "ComprehensiveIncome", "총포괄이익", 16, 900111111),
+            yrow(F + "ProfitLossAttributableToOwnersOfParent", "지배기업 소유주지분", 18, 0),
+            yrow(F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분", 19, 200045679)]
+    v, note = S.ctrl_ni(zero)
+    assert v == 800077778.0 and note == "종전 규칙 값 1000123457원 → TOTAL_MINUS_MINORITY"
+    zero[3] = yrow(F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분", 19, 0)
+    assert S.ctrl_ni(zero) == (1000123457.0, None)                   # 비지배 0 — 총계 그대로(종전과 같다)
