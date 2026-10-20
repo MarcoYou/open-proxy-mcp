@@ -181,13 +181,19 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         if summary.get("cash_dps_preferred"):
             lines.append(f"- 연간 DPS({_pref_label}): {summary.get('cash_dps_preferred', 0):,}원")
         lines.append(f"- 배당총액: {_won(summary.get('total_amount_mil', 0) * 1_000_000)} _(전 종류 합산 신고총액)_")
+        # 261021: 결산기 합 요약(반기·분기 결산)의 성향·시가배당률은 공시 원문 한 칸이 아니다 — 결산기마다 따로 적힌 값이라 어떻게 만들었는지 라벨에 적는다.
+        _period_sum = summary.get("dps_basis") == "sum_of_settlement_periods"
         if summary.get("payout_ratio_dart") is not None:
-            lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}% _(공시 원문 `(연결)현금배당성향`. 연결·전 종류 합산 기준이며 우리가 계산한 값이 아니다)_")
+            if _period_sum:
+                lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}% _(결산기 배당총액 합 ÷ 결산기 `(연결)당기순이익` 합 — "
+                             "공시 원문 성향은 결산기마다 따로 적혀 더할 수 없어 **우리가 계산했다**)_")
+            else:
+                lines.append(f"- 배당성향: {summary.get('payout_ratio_dart')}% _(공시 원문 `(연결)현금배당성향`. 연결·전 종류 합산 기준이며 우리가 계산한 값이 아니다)_")
         if summary.get("yield_dart") is not None:
             _y = f"- 시가배당률(보통주): {summary.get('yield_dart')}%"
             if summary.get("yield_preferred_dart") is not None:
                 _y += f" · ({_pref_label}) {summary.get('yield_preferred_dart')}%"
-            lines.append(_y + " (결의 당시 공시값)")
+            lines.append(_y + (" (결산기마다 결의 당시 공시값의 합)" if _period_sum else " (결의 당시 공시값)"))
         if summary.get("yield_current_pct") is not None:
             # 261019(p1b): 결산기준일 뒤 분할·병합이면 DPS 를 지금 주식 기준으로 바꿔 나눴다 — 사업보고서 값과 계수를 함께 적는다.
             _adj = summary.get("yield_current_dps_adjustment") or {}
