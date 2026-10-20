@@ -72,6 +72,7 @@ def test_engine_picks_the_fiscal_year_disclosed_by_the_basis_day(db, as_of, fy):
     assert ruler["actual_fiscal_year"] == fy and ruler["actual_price_dd"] == YEAR_END[fy]
     if as_of:
         assert YEAR_END[fy] < as_of and ruler["actual_basis_dd"] == as_of and ruler["actual_pit_fy"] == fy
+        assert "actual_note_older" not in ruler and "actual_note_empty" not in ruler   # 그 해 집계가 있으면 안내 없음(261020 검토)
     else:
         assert ruler == {"actual_fiscal_year": 2025, "actual_price_dd": "20251230"}
 

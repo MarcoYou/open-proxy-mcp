@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """price_multiple_data 시장·업종 표의 **과거 기준일(as_of) 확정 배당수익률** — 그 날까지 확정·공시된 사업연도만 (261020 p1j). network·DB 0.
 
-고치기 전: 확정 배당 집계를 기준일과 상관없이 가장 늦은 사업연도로 읽었다. 운영(10-20 20:44, 릴리스 1223)
+고치기 전: 확정 배당 집계를 기준일과 상관없이 가장 늦은 사업연도로 읽었다. 운영(10-20)
 `scope=market` 의 as_of 20201030·20230331·20250829·20260327 넷 다 FY2025(시총 20251230) 코스피 1.5567%·코스닥 0.6879% —
 기준일보다 뒤의 사업연도·뒤의 시총이다(미래 정보). 업종 대분류(`scheme="대분류"`)도 같은 읽기를 썼다.
 
@@ -112,9 +112,11 @@ def test_past_date_uses_the_fiscal_year_disclosed_by_then_not_the_latest(monkeyp
         assert by["KQ"]["div_yield_pct_all"] == kq_all and by["KS"]["div_price_dd"] == dd <= as_of
         r = j["div_yield_ruler"]
         assert r["actual_fiscal_year"] == fy and r["actual_price_dd"] == dd and r["actual_basis_dd"] == as_of
+        # 261020(검토): 그 해 집계가 있으면 「앞 해 값」·「빈칸」 안내가 붙지 않는다 — `fy < pit` 가 `<=` 로 바뀌면 모든 과거 응답에 거짓 안내가 붙는다.
+        assert r["actual_pit_fy"] == fy and "actual_note_older" not in r and "actual_note_empty" not in r
         out = call({"scope": "market", "as_of": as_of})
         assert f"확정 FY{fy}(시총 {dd})" in out and f"{as_of} 까지 확정·공시된 사업연도" in out
-        assert "FY2025" not in out and "1.56 (1.84)" not in out
+        assert "FY2025" not in out and "1.56 (1.84)" not in out and "까지 확정·공시된 사업연도는 FY" not in out   # ⚠️ 두 안내 모두 없음
 
 
 def test_before_the_first_aggregated_year_leaves_the_cell_blank_and_says_why(monkeypatch):
@@ -149,6 +151,10 @@ def test_a_year_not_aggregated_yet_falls_back_to_the_year_before_and_says_so(mon
     j, by = mkt({"as_of": "20270409"})
     assert by["KS"]["div_fiscal_year"] == 2025 and j["div_yield_ruler"]["actual_pit_fy"] == 2026
     assert "FY2026" in j["div_yield_ruler"]["actual_note_older"] and "FY2025" in j["div_yield_ruler"]["actual_note_older"]
+    # 261020(검토): 사용자가 보는 표 아래에도 그 안내가 나간다(렌더에서 빠지면 JSON 만 알고 표는 모른다).
+    out = call({"scope": "market", "as_of": "20270409"})
+    assert "⚠️ 기준일 20270409 까지 확정·공시된 사업연도는 FY2026 인데" in out and "FY2025 값이다." in out
+    assert "확정 FY2025(시총 20251230) — 20270409 까지 확정·공시된 사업연도" in out
 
 
 def test_latest_response_is_unchanged(monkeypatch):
