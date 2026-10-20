@@ -63,7 +63,7 @@ related: [forward_estimates_data, price_multiple_data, provisional_earnings]
   집계는 지우지 않는다(이 표가 선행 배수의 유일한 DB 이력이다).
 - 같은 배치가 은퇴한 수집 머신 집계에 있던 **「미분류」 대분류 버킷**(`_UNCLASSIFIED`)을 되살린다. 업종분류가 없는
   종목도 대분류 합에 들어가 대분류 합 = 시장 행이 된다. 이미 쓴 날짜에는 그 버킷 행만 채운다.
-- 밀림 감시(`scripts/drain_backlog_check.py`)는 전환 전에는 종전 상한(최신 4주·13주)을, 전환 뒤에는 게시 달력의
+- 밀림 감시(`scripts/drain_backlog_check.py`)는 게시 달력의
   ISO 주 수 ≤ 창+1, 같은 주 중복 0, 창 밖 닫힌 판이 1주 넘게 남지 않았나, 창 첫날이 온전한 한 벌인가(판 수 = 게시 달력
   `n_fact`, 시세 행 = `n_stock`)를 본다.
 
