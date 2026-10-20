@@ -108,3 +108,14 @@ def test_induty_lookup_distinguishes_no_row_from_outage(monkeypatch):
     assert FM._lookup_induty_code("00126380", "005930") is None
     monkeypatch.setattr(db, "pg_rows", lambda sql, params=(): None)     # 미설정·장애
     assert FM._lookup_induty_code("00126380", "") is None
+
+
+def test_induty_lookup_without_ticker_matches_by_corp_code_only(monkeypatch):
+    from open_proxy_mcp import db
+    from open_proxy_mcp.services import financial_metrics as FM
+
+    calls: list[tuple] = []
+    monkeypatch.setattr(db, "pg_rows", lambda sql, params=(): calls.append(params) or [("471",)])
+    assert FM._lookup_induty_code("00126380", "") == "471"
+    # 빈 종목코드는 NULL 로 넘긴다 — 「ticker = ''」 로 빈 종목코드 행을 고르지 않는다.
+    assert calls == [(None, "00126380", None)]

@@ -116,3 +116,15 @@ def test_service_payload_carries_the_unit_warning(monkeypatch):
     assert UNIT_UNKNOWN_WARNING in out["warnings"]
     assert out["data"]["unit_raw"] is None
     assert "consensus_gap" not in out["data"]
+
+
+def test_render_shows_unknown_unit_instead_of_none(monkeypatch):
+    """단위를 못 읽으면 도구 표시도 「None」이 아니라 미확인이라고 적는다."""
+    from open_proxy_mcp.tools.provisional_earnings import _render
+
+    p = parse_provisional_earnings(_html(""), _NAME)
+    md = _render({"status": "exact", "subject": "시험", "data": p, "warnings": [UNIT_UNKNOWN_WARNING]})
+    assert "단위원문 None" not in md
+    assert "단위원문 미확인" in md
+    ok = parse_provisional_earnings(_html("단위 : 억원, %"), _NAME)
+    assert "단위원문 억원" in _render({"status": "exact", "subject": "시험", "data": ok})
