@@ -48,7 +48,7 @@ from open_proxy_mcp.services.dividend import (DPS_SHARE_EVENT_TYPES, _annual_sum
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR, reconcile_report_scales, rescale_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
 from open_proxy_mcp.krx_retention import (COLD_DEGRADED_NOTE, krx_weekly_cutoff, seam_gap, serving_seam, week_unit,
-                                           weekly_window_note)
+                                           weekly_window_note, with_daily_tail, WEEKLY_DAYS_SQL)
 from open_proxy_mcp import cold_store as _cold
 from open_proxy_mcp import krx_daily as _krx_daily
 
@@ -116,8 +116,10 @@ def _iso_wk_range(price_dd: str) -> tuple[str, str]:
 
 
 def _krx_db_latest_dd() -> str | None:
-    """krx_weekly 의 최신 주(max(price_dd)) — 261018(재설계 5-1 쓰는 쪽)부터 **마지막으로 닫힌 주**. 주간 곡선 하한(`_weekly_bounds`) 전용 —
-    표를 자르는 쪽과 같은 정의여야 해서 krx_weekly 를 본다. **최신값 서빙 기준일·배치 갱신 판정은 `_krx_daily_latest_dd`** 다."""
+    """**마지막으로 닫힌 주**의 날짜 — 261018(재설계 5-1 쓰는 쪽)부터 `krx_weekly` 는 닫힌 주만 담는다. 주간 곡선 하한(`_weekly_bounds`) 전용 —
+    표를 자르는 쪽과 같은 정의여야 해서 `krx_weekly` 의 최신 주와 같은 날짜를 낸다. 읽기는 일별 달력의 가장 늦은 주 닫는 날(`krx_day.wk_close`,
+    `WEEKLY_LATEST_SQL` — 261019 v03 C4: 뷰 위 `max(price_dd)` 는 조인을 다 풀어 약 50 ms, 달력은 0.1 ms)이고, 달력이 비었을 때만 `krx_weekly` 의
+    최댓값으로 돌아간다. **최신값 서빙 기준일·배치 갱신 판정은 `_krx_daily_latest_dd`** 다."""
     rows = _pg_rows(_krx_daily.WEEKLY_LATEST_SQL)
     return rows[0][0] if rows and rows[0][0] else None
 
@@ -142,6 +144,7 @@ _WEEKLY_START_TTL = 3600.0
 #: 261019(재설계 v03 C4): `krx_weekly` 가 뷰여도 날짜 조건이 작은 달력에서 먼저 걸리게 — 하한 이후 첫 날짜는 하한 뒤 35일 안에서 먼저 찾고
 #: (주간 점은 많아야 14일 간격 — 없을 때만 전체에서), 최신 주는 `krx_daily.WEEKLY_LATEST_SQL`(최근 몇 주만)로. 뷰 위의 전체 MIN·MAX 는
 #: 조인을 다 풀어 합쳐 약 115 ms(표 1.7 ms) 걸렸다. 자리표시자 = (하한, 하한, 하한 + 35일, 하한).
+#: 이 SQL 은 **표 모드**(`krx_weekly` 가 표 — 교체 전·되돌린 뒤)의 질의다. 뷰 모드는 `_WEEKLY_START_VIEW_SQL`(아래)을 쓴다.
 _WEEKLY_START_SQL = (
     "SELECT 'below', price_dd, count(*) FROM krx_weekly WHERE price_dd < %s GROUP BY price_dd "
     "UNION ALL SELECT 'first', price_dd, count(*) FROM krx_weekly "
@@ -149,6 +152,15 @@ _WEEKLY_START_SQL = (
     "(SELECT MIN(price_dd) FROM krx_weekly WHERE price_dd >= %s)) GROUP BY price_dd "
     "UNION ALL SELECT 'ref', price_dd, count(*) FROM krx_weekly "
     "WHERE price_dd = (" + _krx_daily.WEEKLY_LATEST_SQL + ") GROUP BY price_dd")
+#: 261021(감사 B3): **뷰 모드**의 같은 답 — 뷰 위 `GROUP BY`·`MIN` 대신 날짜 달력(`krx_retention.WEEKLY_DAYS_SQL`, 348행)에서 읽는다.
+#: 종전 질의는 `below` 가 33.9만 행 압축 표를 날짜로 묶어 첫 호출이 88~600 ms 걸렸다(운영 실측). 결과 모양 (종류, 날짜, 행 수)·자리표시자는 같다.
+#: 달력의 날짜별 `n` 은 뷰의 날짜별 행 수와 같다(운영 전 348일 대조 불일치 0 · 하한 아래 189주·첫 날·기준 주 전수 같음 — 시험 `test_weekly_start_calendar_pg`).
+_WEEKLY_START_VIEW_SQL = (
+    "WITH cal AS (" + WEEKLY_DAYS_SQL + ") "
+    "SELECT 'below', dd, n FROM cal WHERE dd < %s "
+    "UNION ALL SELECT 'first', dd, n FROM cal "
+    "WHERE dd = COALESCE((SELECT MIN(dd) FROM cal WHERE dd >= %s AND dd < %s), (SELECT MIN(dd) FROM cal WHERE dd >= %s)) "
+    "UNION ALL SELECT 'ref', dd, n FROM cal WHERE dd = (" + _krx_daily.WEEKLY_LATEST_SQL + ")")
 #: 하한 뒤 첫 주간 날을 먼저 찾는 범위(달력 일). 설·추석으로 한 주가 비어도 주간 점 사이는 14일을 넘지 않는다.
 _WEEKLY_FIRST_SPAN_DAYS = 35
 
@@ -183,9 +195,20 @@ def _weekly_start_params(cut: str) -> tuple[str, str, str, str]:
     return cut, cut, (c + _td(days=_WEEKLY_FIRST_SPAN_DAYS)).strftime("%Y%m%d"), cut
 
 
+def _weekly_start_rows(run, cut: str) -> list[tuple] | None:
+    """`_weekly_run_start` 가 읽는 (종류, 날짜, 행 수) 줄들 — `krx_weekly` 의 모양(뷰/표)에 맞는 질의로 읽는다. `run(sql, params)` → 줄 목록 또는 None(장애).
+    뷰면 달력 질의(`_WEEKLY_START_VIEW_SQL`), 표·못 읽음이면 종전 질의(`_WEEKLY_START_SQL`) — 표 모드에는 주 달력이 없을 수도 낡았을 수도 있다.
+    서버 곡선(`_krx_weekly_start`)과 월말 원천(`scripts/month_end_prices.py`)이 함께 쓴다 — 하한이 둘 다 같은 정의여야 한다."""
+    kind = run(_krx_daily.WEEKLY_KIND_SQL, ())
+    if kind is None:
+        return None
+    is_view = bool(kind) and kind[0][0] == "v"
+    return run(_WEEKLY_START_VIEW_SQL if is_view else _WEEKLY_START_SQL, _weekly_start_params(cut))
+
+
 def _krx_weekly_start(cut: str) -> str | None:
     """krx_weekly 에 **실제로 남은 주간 구간의 시작**(곡선 하한). None = 장애 — 호출자가 `cut` 으로 대신한다."""
-    rows = _pg_rows(_WEEKLY_START_SQL, _weekly_start_params(cut))
+    rows = _weekly_start_rows(_pg_rows, cut)
     return None if rows is None else _weekly_run_start(rows, cut)
 
 
@@ -997,7 +1020,18 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
             #   칸·경고가 붙는다(그 밖의 응답은 종전 그대로). 완전자본잠식(`fnote["impaired"]`)은 종전처럼 기업 행을 내지 않되 까닭을 바로 말한다.
             # 261019(재설계 6단계 읽는 쪽 복원): 기업 행이 없을 때 까닭을 가른다(`why`) — 종전엔 모두 「종목 스냅샷 없음(비상장·미수집)」이라
             #   상장·수집된 회사를 두고 틀린 말을 했다(스냅샷 표는 없앴다). 재무 요약 미수집·그 주 시세 없음·업종분류에 없음·DB 읽기 실패(`_firm_row_missing`).
-            fv = await _firm_val_at(isu, as_of)
+            # 261021(감사 B9④): 업종분류 축의 종목 분류 읽기(`wise_sector`)는 종목·기준일만 있으면 되는데, 종전엔 기업 값(`_firm_val_at`)을 다 기다린 뒤에
+            #   읽어 왕복이 하나 더 들었다. 기업 값의 첫 묶음(재무 요약·그 날 시총)과 한 묶음으로 보낸다(동시 읽기 상한 `_PG_FANOUT` 3 안 — 3개).
+            #   쓰는 자리는 아래 그대로(기업 행이 있을 때만 `wr` 를 본다) — 기업 행이 없는 호출에서 읽기 하나가 헛도는 것뿐 응답은 같다.
+            if scheme != "ksic":
+                _col, _nmc = ("sector_code", "sector") if scheme == MAJOR else ("industry_code", "industry")
+                fv, wr = await _gather_db(
+                    _firm_val_at(isu, as_of),
+                    _db_rows(f"SELECT {_col}, {_nmc}, snap_dd FROM wise_sector WHERE ticker=%s "
+                             "ORDER BY (snap_dd <= %s) DESC, ABS(snap_dd::bigint - %s::bigint) LIMIT 1",
+                             (isu, as_of, as_of)))
+            else:
+                fv, wr = await _firm_val_at(isu, as_of), None
             fr = []
             fnote: dict = {}
             why = "db" if fv is None else None
@@ -1012,12 +1046,6 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 # 업종분류는 종목의 섹터 코드가 분류 스냅샷 표에 있다. 스냅샷은 as_of 이하의
                 # 가장 최근 것, 없으면 가장 이른 것(=소급) — 폴백 규칙은 집계 백필과 동일.
                 _, market, pt, pb, *_ = fr[0]
-                col = "sector_code" if scheme == MAJOR else "industry_code"
-                nmc = "sector" if scheme == MAJOR else "industry"
-                wr = await asyncio.to_thread(_pg_rows,
-                    f"SELECT {col}, {nmc}, snap_dd FROM wise_sector WHERE ticker=%s "
-                    "ORDER BY (snap_dd <= %s) DESC, ABS(snap_dd::bigint - %s::bigint) LIMIT 1",
-                    (isu, as_of, as_of))
                 if wr:
                     sec, lbl, sector_asof = wr[0][0], wr[0][1], wr[0][2]
                     sr = [x for x in sectors if x["market"] == market and x["sector"] == sec]
@@ -1030,7 +1058,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                     fr = []
             if fr:
                 sec, market, pt, pb, lbl, spt, spb = fr[0]
-                if lbl is None:  # 소규모 섹터 → mkt_val_history엔 '_fold'로 접혀 raw 코드 JOIN 미스
+                if lbl is None:  # 소규모 섹터 → 업종 집계 표(opm_val_market)엔 '_fold'로 접혀 raw 코드 JOIN 미스
                     fold = [s for s in sectors if s["market"] == market and s["sector"] == "_fold"]
                     if fold:  # 폴드 버킷과 비교(정직하게 표기) — literal None 렌더 방지(QA 109종목 실측)
                         lbl = f"{fold[0]['label']} (소규모 섹터 {sec} 포함)"
@@ -1051,7 +1079,7 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                                     "(그 시점까지 공시 마감이 지난 칸 가운데 값이 있는 가장 늦은 칸, 1년 안 — 반기 결산 리츠·보고서 미제출·결산월 변경 등)."
                                     + (_MIXED_FS_NOTE if b.get("per_ttm_why") == "mixed_fs" else ""))
                 # 소속 섹터의 과거 시계열(2020-01~, market_val_history_backfill.py가 채움) — 0콜, 이미 DB에 있음.
-                # 소규모(_fold) 섹터면 fold 버킷 자체의 히스토리로 폴백(개별 sec 코드는 mkt_val_history에 없음).
+                # 소규모(_fold) 섹터면 fold 버킷 자체의 히스토리로 폴백(개별 sec 코드는 업종 집계 표 opm_val_market 에 없음).
                 hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
                 # 261019: scheme 은 공개 이름(「대분류」·「중분류」)이고 표의 scheme 칸은 옛 값(wics_sector·wics_industry)이다(`_db_scheme`).
                 #   260921 이름 전환 때 이 질의만 변환이 빠져, 업종분류 축의 sector_history 가 0행이었다(운영 005930 중분류 — 표에는 88행, 10-18 실측).
@@ -1419,19 +1447,9 @@ _SERIES_SQL = ("SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND
 
 
 def _join_daily_tail(px: list, tail: list | None, lo: str) -> list:
-    """주간 시세 행 (날짜, 시총) 오름차순 끝에 일별 최신 한 줄을 잇는다 — 시세 도구 `trading._with_daily_tail` 과 같은 규칙(261019, 감사 3).
-      · 꼬리가 마지막 주간 점보다 **늦을 때만** 쓴다(같은 날이면 그대로 — 금요일이 닫힌 뒤 주간 표에도 그날 행이 있다).
-      · 마지막 주간 점과 **같은 주**(`_iso_wk_range` — ISO 주를 달력 연도로 자른 것, 주를 닫는 쪽과 같은 정의)면 갈아 끼우고, 더 늦은 주면 뒤에 붙인다.
-      · 주간 행이 없는데 꼬리가 있으면(이번 주 신규 상장) 그 한 점이다. 하한(`lo`)보다 이른 꼬리(오래 거래정지)는 버린다.
-    꼬리 읽기가 실패(None)·빈 결과면 주간 행 그대로다."""
-    if not tail or not tail[0] or not tail[0][0]:
-        return px
-    dd, cap = tail[0][0], tail[0][1]
-    if dd < lo or (px and dd <= px[-1][0]):
-        return px
-    if px and _iso_wk_range(dd)[0] == _iso_wk_range(px[-1][0])[0]:
-        return [*px[:-1], (dd, cap)]
-    return [*px, (dd, cap)]
+    """주간 시세 행 (날짜, 시총) 오름차순 끝에 일별 최신 한 줄을 잇는다 (261019, 감사 3) — 규칙은 `krx_retention.with_daily_tail` 한 곳이다
+    (시세 도구 종목 시계열 `trading._with_daily_tail` 과 공용, 261021). 꼬리 읽기가 실패(None)·빈 결과면 주간 행 그대로(같은 객체)다."""
+    return with_daily_tail(px, tail, lo)
 
 
 async def _weekly_series(ticker: str, currency: str = "KRW",

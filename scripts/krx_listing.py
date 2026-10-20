@@ -61,8 +61,8 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
-from open_proxy_mcp.krx_daily import WEEKLY_LATEST_SQL
-from open_proxy_mcp.krx_retention import KRX_WEEKLY_ORIGIN_DD, krx_weekly_cutoff, prune_where
+from open_proxy_mcp.krx_daily import WEEKLY_LATEST_SQL, weekly_is_view
+from open_proxy_mcp.krx_retention import KRX_WEEKLY_ORIGIN_DD, WEEKLY_RANGE_SQL, krx_weekly_cutoff, prune_where
 
 DDL = """
 CREATE TABLE IF NOT EXISTS krx_listing (
@@ -328,7 +328,9 @@ def compare(con, stale_weeks: int = 0) -> int:
     t0 = time.time()
     full = _observe(con, Q_FULL)
     t_full = time.time() - t0
-    window_lo_full = con.execute("SELECT min(price_dd) FROM krx_weekly").fetchone()[0]
+    # 261021(감사 B3): 뷰 모드면 가장 이른 날짜를 뷰 대신 날짜 달력에서(같은 답). 표 모드는 종전 그대로.
+    window_lo_full = con.execute(
+        WEEKLY_RANGE_SQL if weekly_is_view(con) else "SELECT min(price_dd), max(price_dd) FROM krx_weekly").fetchone()[0]
     full_rows = {t: (m, f, l, f == window_lo_full) for t, (m, f, l) in full.items()}
 
     def diff(a: dict[str, tuple], b: dict[str, tuple]) -> tuple[int, int, int]:
