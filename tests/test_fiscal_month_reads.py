@@ -176,19 +176,28 @@ def test_annual_fetch_plan_reaches_the_fiscal_months_latest_annual():
     assert V._latest_annual_fy(TODAY) == 2025
 
 
-@pytest.mark.parametrize("stored, months, comp, want", [
-    (None, {3}, None, 3),                 # 처음 — 사업보고서 기준월 하나
-    (3, {3}, None, 3),
-    (12, {12}, None, 12),
-    (None, {6, 12}, None, 12),            # 반기 결산 리츠·인프라 펀드 — 결산월 하나로 못 읽는다
-    (6, {12}, None, 12),                  # 결산월을 바꿈(6 → 12) — 바뀐 해의 칸이 겹친다 → 종전 읽기
-    (12, {6}, None, 12),                  # 한 번 12 가 되면 그대로
-    (None, set(), "03", 3),               # 상장 첫해 — 사업보고서가 아직 없어 회사 개황
-    (None, set(), None, None),
-    (9, set(), "12", 9),                  # 창 안 사업보고서가 없으면 저장값 그대로(개황은 보지 않는다)
+@pytest.mark.parametrize("stored, reports, comp, want", [
+    (None, [(2026, 3)], None, Q.AccMt(3)),                                # 처음 — 사업보고서 기준월 하나
+    (3, [(2026, 3)], None, Q.AccMt(3)),
+    (12, [(2026, 12)], None, Q.AccMt(12)),
+    (None, [(2024, 6), (2024, 12), (2025, 6), (2025, 12)], None, Q.AccMt(12)),   # 반기 결산 리츠·인프라 펀드 — 같은 해 사업보고서가 둘, 두 해 이상 → 12(결산기 칸 몫)
+    # 261021: 결산월을 바꾼 회사는 이제 따라간다 — 종전엔 「한 번 12 면 영원히 12」였다
+    (6, [(2022, 6), (2023, 6), (2024, 12), (2025, 12)], None, Q.AccMt(12, 6, 2024)),  # 6 → 12, 2024 사업연도부터
+    (12, [(2021, 12), (2022, 12), (2023, 6), (2024, 6)], None, Q.AccMt(6, 12, 2023)),  # 12 → 6 (334970 꼴)
+    (None, [], "03", Q.AccMt(3)),                                        # 상장 첫해 — 사업보고서가 아직 없어 회사 개황
+    (None, [], None, None),
+    (Q.AccMt(9), [], "12", Q.AccMt(9)),                                  # 보고서가 없으면 저장값 그대로(개황은 보지 않는다)
 ])
-def test_decide_fiscal_month(stored, months, comp, want):
-    assert Q.decide_acc_mt(stored, months, comp) == want
+def test_decide_fiscal_month(stored, reports, comp, want):
+    assert Q.decide_acc_mt(stored, reports, comp) == want
+
+
+def test_partial_list_keeps_the_stored_fiscal_month():
+    """주간 100일 창처럼 목록이 일부뿐(`complete=False`)이면 저장된 결산월·변경 정보를 지킨다 — 바꾼 해를 몰라 `since` 를 틀리게 적지 않는다."""
+    stored = Q.AccMt(6, 12, 2023)
+    assert Q.decide_acc_mt(stored, [(2026, 6)], complete=False) == stored
+    assert Q.decide_acc_mt(Q.AccMt(3), [(2026, 12)], complete=False) == Q.AccMt(3)       # 다른 달이 보여도 전체 이력 없이는 믿지 않는다
+    assert Q.decide_acc_mt(Q.AccMt(3), [(2024, 3), (2025, 3), (2026, 12)]) == Q.AccMt(12, 3, 2026)
 
 
 # ═══ B·C·D. Postgres 17 ═══════════════════════════════════════════════════════════════════════════
@@ -300,14 +309,18 @@ def test_seed_does_not_wait_for_the_table_lock_when_the_columns_exist(fdb, monke
 
 
 class _ListClient:
-    """정기공시 목록·회사 개황 대역. 목록은 창마다 같은 내용을 한 쪽으로 준다(코스피·코스닥 각각)."""
+    """정기공시 목록·회사 개황 대역. 시장 목록은 창마다 같은 내용을 한 쪽으로 준다(코스피·코스닥 각각), `corp_code` 를 주면 그 회사의 목록만."""
 
     def __init__(self, reports, company):
         self.reports, self.company, self.calls = reports, company, []
 
-    async def search_filings(self, bgn_de, end_de, pblntf_ty="", corp_cls="", page_no=1, page_count=100, **kw):
-        self.calls.append(("list", corp_cls, bgn_de))
-        rows = [r for r in self.reports if r["cls"] == corp_cls and bgn_de <= r["rcept_dt"] <= end_de]
+    async def search_filings(self, bgn_de, end_de, pblntf_ty="", corp_cls="", page_no=1, page_count=100, corp_code="", **kw):
+        if corp_code:
+            self.calls.append(("hist", corp_code))
+            rows = [r for r in self.reports if r["corp_code"] == corp_code and bgn_de <= r["rcept_dt"] <= end_de]
+        else:
+            self.calls.append(("list", corp_cls, bgn_de))
+            rows = [r for r in self.reports if r["cls"] == corp_cls and bgn_de <= r["rcept_dt"] <= end_de]
         return {"status": "000", "list": rows, "total_page": 1}
 
     async def get_company_info(self, cc):
@@ -317,9 +330,15 @@ class _ListClient:
 
 def test_refresh_fiscal_month_from_annual_report_names(fdb, monkeypatch, capsys):
     reports = [
+        {"cls": "Y", "corp_code": "c1", "report_nm": "사업보고서 (2024.03)", "rcept_dt": "20240620"},
+        {"cls": "Y", "corp_code": "c1", "report_nm": "사업보고서 (2025.03)", "rcept_dt": "20250620"},
         {"cls": "Y", "corp_code": "c1", "report_nm": "사업보고서 (2026.03)", "rcept_dt": "20260622"},
         {"cls": "Y", "corp_code": "c1", "report_nm": "분기보고서 (2026.06)", "rcept_dt": "20260814"},
         {"cls": "K", "corp_code": "c2", "report_nm": "[기재정정]사업보고서 (2025.12)", "rcept_dt": "20260320"},
+        # 반기 결산(리츠) — 같은 해 사업보고서가 둘, 두 해 이상 → 12. 이번 창에는 2025.12 와 2026.06 만 보인다(결산월을 바꾼 회사처럼 보이지만 전체 이력이 가른다)
+        {"cls": "K", "corp_code": "c3", "report_nm": "사업보고서 (2024.06)", "rcept_dt": "20240910"},
+        {"cls": "K", "corp_code": "c3", "report_nm": "사업보고서 (2024.12)", "rcept_dt": "20250310"},
+        {"cls": "K", "corp_code": "c3", "report_nm": "사업보고서 (2025.06)", "rcept_dt": "20250910"},
         {"cls": "K", "corp_code": "c3", "report_nm": "사업보고서 (2025.12)", "rcept_dt": "20260310"},
         {"cls": "K", "corp_code": "c3", "report_nm": "사업보고서 (2026.06)", "rcept_dt": "20260910"},   # 반기 결산
         {"cls": "K", "corp_code": "c9", "report_nm": "사업보고서 (2026.03)", "rcept_dt": "20260601"},   # 우리 종목이 아님
@@ -334,12 +353,51 @@ def test_refresh_fiscal_month_from_annual_report_names(fdb, monkeypatch, capsys)
     assert out == {"A": 3, "B": 12, "C": 12, "N": 6}
     assert dict(_q(fdb, "SELECT ticker, acc_mt FROM dart_fundamentals")) == {"A": 3, "B": 12, "C": 12, "N": 6, "K": 9}
     assert [x for x in fake.calls if x[0] == "company"] == [("company", "c4")]     # 사업보고서가 없고 저장값도 빈 종목만
-    # 다시 돌리면 바뀐 것 없음 — 저장값과 같은 기준월
+    assert [x for x in fake.calls if x[0] == "hist"] == [("hist", "c3")]            # 달이 둘 보이는 종목(리츠인가 결산월 변경인가)만 전체 이력
+    # 다시 돌리면 바뀐 것 없음 — 저장값과 같은 기준월(리츠 C 는 이력으로 12 를 다시 확인한다)
     assert asyncio.run(Q.refresh_acc_mt(since=date(2026, 1, 1), today=TODAY)) == {}
-    # 결산월을 바꾼 사업보고서가 들어오면 12(종전 읽기)로
+    # 261021: 결산월을 바꾼 사업보고서가 들어오면 따라간다 — 종전엔 12(종전 읽기)로 굳었다. 옛 결산월과 새 결산월의 첫 사업연도도 함께 적는다
     reports.append({"cls": "Y", "corp_code": "c1", "report_nm": "사업보고서 (2026.12)", "rcept_dt": "20261001"})
     assert asyncio.run(Q.refresh_acc_mt(since=date(2026, 1, 1), today=TODAY)) == {"A": 12}
-    assert "[결산월] A 3 → 12" in capsys.readouterr().out
+    assert _q(fdb, "SELECT acc_mt, acc_mt_prev, acc_mt_since FROM dart_fundamentals WHERE ticker='A'") == [(12, 3, 2026)]
+    assert "[결산월] A 3 → 12 · 옛 3월 → 12월, 2026 사업연도부터" in capsys.readouterr().out
+    # 바꾼 뒤 다음 실행: 창에는 2026.12 만 보인다(저장값과 같은 달) — 전체 이력을 받지 않고 변경 정보를 지킨다
+    n_hist = len([x for x in fake.calls if x[0] == "hist"])
+    assert asyncio.run(Q.refresh_acc_mt(since=date(2026, 9, 1), today=TODAY)) == {}
+    assert _q(fdb, "SELECT acc_mt, acc_mt_prev, acc_mt_since FROM dart_fundamentals WHERE ticker='A'") == [(12, 3, 2026)]
+    assert len([x for x in fake.calls if x[0] == "hist"]) == n_hist + 1   # A 는 이력을 받지 않는다 · 리츠 C 만 창에 6월(2026.06)이 보여 이력을 한 번 더 확인한다
+
+
+def test_refresh_for_chosen_tickers_reads_each_history_and_dry_does_not_write(fdb, monkeypatch, capsys):
+    """`--acc-mt --tickers` — 시장 전체 목록을 훑지 않고 종목마다 전체 이력 1콜. `--dry` 는 쓰지 않는다."""
+    reports = [{"cls": "K", "corp_code": "cb", "report_nm": f"사업보고서 ({y}.{m:02d})", "rcept_dt": dt}
+               for y, m, dt in ((2022, 12, "20230321"), (2023, 6, "20230915"), (2024, 6, "20240919"), (2025, 6, "20250918"))]
+    fake = _ListClient(reports, {})
+    monkeypatch.setattr("open_proxy_mcp.dart.client.get_dart_client", lambda: fake)
+    monkeypatch.setattr(Q, "SLEEP", 0.0)
+    with psycopg.connect(fdb, autocommit=True) as c:
+        c.execute("INSERT INTO dart_fundamentals (ticker, corp_code, fetched, acc_mt) VALUES ('B1', 'cb', 'ok', 12), ('Z', 'cz', 'ok', 12)")
+    out = asyncio.run(Q.refresh_acc_mt(tickers=["B1"], today=TODAY, dry=True))
+    assert out == {"B1": 6} and _q(fdb, "SELECT acc_mt, acc_mt_prev FROM dart_fundamentals WHERE ticker='B1'") == [(12, None)]
+    assert fake.calls == [("hist", "cb")]                                            # 시장 목록(list) 호출 없음 · 지정하지 않은 종목은 보지 않는다
+    assert "[결산월] B1 12 → 6 · 옛 12월 → 6월, 2023 사업연도부터" in capsys.readouterr().out
+    asyncio.run(Q.refresh_acc_mt(tickers=["B1"], today=TODAY))
+    assert _q(fdb, "SELECT acc_mt, acc_mt_prev, acc_mt_since FROM dart_fundamentals WHERE ticker='B1'") == [(6, 12, 2023)]
+
+
+def test_refresh_without_the_change_columns_keeps_the_old_reading(pg17, monkeypatch):
+    """변경 칸(`acc_mt_prev`·`acc_mt_since`)이 아직 없는 DB(DDL 전) — 결산월을 바꾼 회사는 종전처럼 12(종전 읽기). 칸이 없다고 6 을 적으면 바꾸기 전 칸이 틀리게 읽힌다."""
+    reports = [{"cls": "K", "corp_code": "cb", "report_nm": f"사업보고서 ({y}.{m:02d})", "rcept_dt": dt}
+               for y, m, dt in ((2022, 12, "20230321"), (2023, 6, "20230915"), (2024, 6, "20240919"))]
+    fake = _ListClient(reports, {})
+    monkeypatch.setattr("open_proxy_mcp.dart.client.get_dart_client", lambda: fake)
+    monkeypatch.setattr(Q, "SLEEP", 0.0)
+    monkeypatch.setenv("DATABASE_URL", pg17)
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("CREATE TABLE dart_fundamentals(ticker text PRIMARY KEY, corp_code text, fetched text, acc_mt smallint)")
+        c.execute("INSERT INTO dart_fundamentals VALUES ('B1', 'cb', 'ok', 12)")
+    assert asyncio.run(Q.refresh_acc_mt(tickers=["B1"], today=TODAY)) == {}
+    assert _q(pg17, "SELECT acc_mt FROM dart_fundamentals") == [(12,)]
 
 
 def test_fundamentals_ddl_is_idempotent_and_checks_the_range(pg17, monkeypatch):
