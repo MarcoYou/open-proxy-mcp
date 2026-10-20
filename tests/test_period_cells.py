@@ -477,3 +477,86 @@ def test_period_cell_writes_remember_the_listing_end():
     assert pc.avail_of(w["q"][-1][7]) == "20260921"
     q4 = [r for r in w["q4"] if r[1] == 2025][0]
     assert S._STORED_SPAN.search(q4[7]).groups() == ("202506", "202512", "2")
+
+
+def test_refresh_keeps_the_first_interim_point_the_api_no_longer_returns(monkeypatch):
+    """매일 수집(--period-cells)이 새 보고서가 난 해를 다시 받을 때(261020 p1e 검토) — DART 재무 API 는 (해, 반기 코드)마다 그해 **가장 늦은**
+    3개월 시점 보고서 하나만 준다. 롯데리츠 2026.09 시점 보고서(11/13)가 나오면 (2026, 11012)는 그것만 주어, 이미 쓴 2026 1분기 칸(자본 2026.03 ·
+    공시 05/14)이 앞 결산기 말 자본(2025.12 · 공시 03/10)으로 덮였다. 이미 쓴 칸에서 시점 자본을 되살려 칸이 그대로여야 한다."""
+    import importlib.util, pathlib
+    from datetime import date
+    import open_proxy_mcp.dart.client as dc
+    spec = importlib.util.spec_from_file_location("mfq", pathlib.Path(__file__).resolve().parents[1] / "scripts" / "market_fund_quarterly.py")
+    mfq = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mfq)
+    _cal, _f, now = _lotte()                                        # 10-20 에 쓴 칸
+    w0 = mfq.period_cell_writes("330590", "OFS", now)
+    q1 = [r for r in w0["q"] if r[1:3] == (2026, 1)][0]
+    assert "자본 202603" in q1[7] and pc.avail_of(q1[7]) == "20260514"
+    stored = [(r[0], r[1], r[2], r[6], r[7]) for r in w0["q"]]
+    sep26 = _interim("20261113000700", 16, "1120000000000")
+    api = {("2025", "11011"): LOTTE_ANNUAL[1], ("2026", "11011"): LOTTE_ANNUAL[2],
+           ("2025", "11012"): LOTTE_INTERIM[0], ("2026", "11012"): sep26}     # (해, 반기 코드)는 그해 가장 늦은 시점 하나뿐
+    items = LOTTE_LIST + _items([("반기보고서 (2026.09)", "20261113000700")])
+    calls: list = []
+
+    class _Client:
+        async def search_filings(self, **kw):
+            calls.append("list")
+            return {"list": items, "total_page": 1}
+
+        async def get_fnltt_singl_acnt_all(self, cc, y, rc, fs):
+            calls.append((y, rc, fs))
+            return {"list": api.get((y, rc), []) if fs == "OFS" else []}
+
+    written: list = []
+
+    class _Cur:
+        rowcount = 1
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql, row=None):
+            written.append((sql, row))
+
+    class _Con:
+        autocommit = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql, params=()):
+            if "DISTINCT ticker" in sql:
+                return [("330590",)]
+            if "FROM dart_fundamentals" in sql:
+                return [("330590", "00000330", "OFS")]
+            if "목록 (" in sql:
+                return [("330590", "20260921")]
+            if "quarter < 4" in sql:
+                return stored
+            return []
+
+        def cursor(self):
+            return _Cur()
+
+        def commit(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(mfq, "_pg", lambda: _Con())
+    monkeypatch.setattr(mfq, "SLEEP", 0)
+    monkeypatch.setattr(dc, "get_dart_client", lambda: _Client())
+    res = asyncio.run(mfq.refresh_period_cells(["330590"], today=date(2026, 11, 20)))
+    assert "행 씀" in res["330590"] and ("2024", "11011", "OFS") not in calls      # 새 보고서 해 −1 ~ 올해만 다시 받는다
+    q = {(r[1], r[2]): r for sql, r in written if r and "'nodata'" in sql}
+    assert q[(2026, 1)][5:7] == q1[5:7] and q[(2026, 1)][7] == q1[7] + " · 목록 20261113"   # 1분기 칸 그대로 — 자본 2026.03 · 공시 05/14
+    assert q[(2026, 3)][6] == 1120000000000.0 and "자본 202609" in q[(2026, 3)][7] and pc.avail_of(q[(2026, 3)][7]) == "20261113"

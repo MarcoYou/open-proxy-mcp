@@ -1594,6 +1594,11 @@ async def refresh_period_cells(tickers: list[str] | None = None, today: date | N
     last = {r[0]: r[1] for r in con.execute(
         f"SELECT ticker, max(COALESCE(substring(restate_why from '목록 ([0-9]{{8}})'), {pcells.AVAIL_SQL})) FROM dart_finstat_q "
         "WHERE restate_why LIKE %s GROUP BY ticker", (pcells.MARK_LIKE,))}
+    # 이미 쓴 1~3분기 칸 — 그해 첫 3개월 시점 자본은 API 가 더 주지 않는다(그해 가장 늦은 시점 하나만) — 다시 받을 때 되살린다(`period_cells.stored_points`).
+    stored: dict[str, list] = {}
+    for r in con.execute("SELECT ticker, fy, quarter, eq_restated, restate_why FROM dart_finstat_q WHERE quarter < 4 AND restate_why LIKE %s",
+                         (pcells.MARK_LIKE,)):
+        stored.setdefault(r[0], []).append(tuple(r[1:]))
     con.close()
     c = get_dart_client()
     calls = 0
@@ -1661,7 +1666,8 @@ async def refresh_period_cells(tickers: list[str] | None = None, today: date | N
                     rows, _f = await _acnt(cc, y, "11012", fs_used)
                     if rows:
                         inter.append(rows)
-            facts = pcells.collect_facts(cal, ann, inter)
+            pts0 = pcells.stored_points(stored.get(t), cal)
+            facts = pcells.collect_facts(cal, ann, inter, points0=pts0)
             extra = {}
             if cal["step"] == 3:
                 # 분기 결산 — 그해 가장 늦은 사업보고서에 없는 결산기(대개 사업연도 첫 결산기)는 그 결산기 사업보고서의 XBRL 원본에서
@@ -1686,7 +1692,7 @@ async def refresh_period_cells(tickers: list[str] | None = None, today: date | N
                                 "how": "XBRL_" + ((got.get("ni") or (None, "NONE"))[1]), "filed": reps[0][3]}
                     await asyncio.sleep(SLEEP)
                 if extra:
-                    facts = pcells.collect_facts(cal, ann, inter, extra)
+                    facts = pcells.collect_facts(cal, ann, inter, extra, points0=pts0)
             cells = pcells.build_cells(cal, facts, ts)
             writes = period_cell_writes(t, fs_used, cells, ys, seen=newest)
             if dry:

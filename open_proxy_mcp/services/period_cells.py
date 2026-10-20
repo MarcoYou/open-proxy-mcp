@@ -206,8 +206,32 @@ def calendar_of(listing: list[tuple[str, str, str, str]]) -> dict[str, Any] | No
 
 # ── 사실값 모으기 ──────────────────────────────────────────────────────────────
 
+_EQ_SRC_RE = re.compile(r"자본 (\d{6})")
+
+
+def stored_points(cells: list[tuple] | None, cal: dict[str, Any]) -> dict[str, dict]:
+    """이미 쓴 1~3분기 결산기 칸에서 3개월 시점 자본을 되살린다(261020 p1e 검토) → {시점 기준일: {"eq", "filed"}} — `collect_facts(points0=…)`.
+
+    왜: DART 재무 API 는 (사업연도, 반기 코드)마다 **그해 가장 늦은** 3개월 시점 보고서 하나만 준다. 그해 두 번째 시점 보고서가 나오면
+    (6·12월 결산 리츠는 9월 시점 — 11월 중순) 매일 수집이 그 해를 다시 받을 때 첫 시점(3월) 자본을 다시 받을 수 없어, 그 시점을 쓴 칸이
+    앞 결산기 말 자본·더 이른 공시일로 덮인다(10-20 운영 칸으로 모의 — 432320 2026 반기 칸 자본 2774억 → 1958억, 곡선 PBR 0.89 → 1.26 소급 변경).
+    `cells` = [(fy, quarter, 정정 자본, 근거)] — 근거의 「자본 YYYYMM」이 목록의 3개월 시점(`cal["interims"]`)인 칸만. 공시일 = 목록의 그 시점 최초 접수일.
+    새로 받은 시점 값이 있으면 그 값이 먼저다(`collect_facts`)."""
+    out: dict[str, dict] = {}
+    for _fy, q, eq, why in cells or []:
+        if eq is None or int(q) == 4 or not avail_of(why):
+            continue
+        m = _EQ_SRC_RE.search(str(why))
+        if not m:
+            continue
+        pt = month_end(int(m.group(1)[:4]), int(m.group(1)[4:]))
+        if pt in cal["interims"] and pt not in out:
+            out[pt] = {"eq": float(eq), "filed": cal["interims"][pt]}
+    return out
+
+
 def collect_facts(cal: dict[str, Any], annual_rows: list[list], interim_rows: list[list],
-                  extra: dict[str, dict] | None = None) -> dict[str, Any]:
+                  extra: dict[str, dict] | None = None, points0: dict[str, dict] | None = None) -> dict[str, Any]:
     """사업보고서 원문(연도마다 가장 늦은 것)·3개월 시점 보고서 원문 → 결산기·시점 사실값.
 
     결산기: {기준일: {"ni", "eq", "term", "how", "filed", "regular"}} — 사업보고서 하나의 당기·전기·전전기 칸을 기수로 묶는다
@@ -215,7 +239,8 @@ def collect_facts(cal: dict[str, Any], annual_rows: list[list], interim_rows: li
     여러 보고서에 있으면 **새 보고서 값**(정정·지배 구분이 반영된 비교 칸 — firm `trailing_period_ni` 와 같은 규칙). 「filed」는 그 결산기가
     처음 공시된 날(목록의 그 기준일 사업보고서 최초 접수일, 상장 전 결산기면 그 값이 처음 실린 보고서 접수일).
     「regular」= 길이가 간격과 같다고 볼 수 있는 결산기(제1기 아님 · 앞 결산기 기준일과 간격만큼 떨어짐).
-    시점: {3개월 시점 기준일: {"eq", "filed"}}. `extra` = 그 밖의 경로(XBRL 원본 등)로 얻은 결산기 값 {기준일: {"ni", "eq"}} — 비어 있는 칸만 채운다."""
+    시점: {3개월 시점 기준일: {"eq", "filed"}}. `extra` = 그 밖의 경로(XBRL 원본 등)로 얻은 결산기 값 {기준일: {"ni", "eq"}} — 비어 있는 칸만 채운다.
+    `points0` = 이미 쓴 칸에서 되살린 3개월 시점(`stored_points`) — 이번에 받은 원문에 그 시점이 없을 때만 쓴다."""
     step, ends, by_rc = cal["step"], cal["ends"], cal["by_rcept"]
     reps = []
     for rows in annual_rows:
@@ -272,6 +297,8 @@ def collect_facts(cal: dict[str, Any], annual_rows: list[list], interim_rows: li
         eq = ctrl_eq(rows, "thstrm_amount")
         if eq is not None and pt not in points:
             points[pt] = {"eq": eq, "filed": cal["interims"].get(pt) or rc[:8]}
+    for pt, v in (points0 or {}).items():
+        points.setdefault(pt, v)
     return {"step": step, "periods": periods, "points": points}
 
 
