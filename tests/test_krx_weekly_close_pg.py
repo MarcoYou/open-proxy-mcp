@@ -262,9 +262,16 @@ def test_include_new_lists_tickers_from_the_daily_store(wdb, monkeypatch, capsys
         return {t: "보통주" for t in KS_CODES + KQ_CODES + ("N00000",)}
 
     class Client:
+        async def _load_corp_codes(self):               # 261020: 등록은 명부의 종목코드 표로 먼저 잇는다
+            return [{"corp_code": "00999999", "stock_code": "N00000", "modify_date": "20261014"}]
+
         async def lookup_corp_code(self, ticker):
-            return {"corp_code": "00999999"} if ticker == "N00000" else None
-    monkeypatch.setattr(pmd, "_ensure_krx_fresh", fresh)
+            # 261020: 등록은 결과의 종목코드가 물은 코드와 같을 때만 잇는다(`exact_corp_code`) — 해석기 결과 모양 그대로
+            return {"corp_code": "00999999", "stock_code": "N00000"} if ticker == "N00000" else None
+
+        async def get_company_info(self, cc):           # 261020: 이은 종목의 업종코드·결산월(회사 개황 1콜)
+            return {"induty_code": "264", "acc_mt": "12"}
+    monkeypatch.setattr(pmd, "_ensure_krx_fresh", fresh)   # 261020: 등록은 더 부르지 않는다(저장분 최신일만 읽는다) — 불려도 같은 날
     monkeypatch.setitem(sys.modules, "market_val_weekly", types.SimpleNamespace(_krx_kinds=kinds))
     monkeypatch.setattr("open_proxy_mcp.dart.client.get_dart_client", lambda: Client())
 

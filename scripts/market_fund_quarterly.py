@@ -44,10 +44,11 @@ quarter 4 = 그해 3월말 사업보고서, 1 = 6월말, 2 = 9월말, 3 = 12월�
       # 261019: API 에 보고서가 없는 nodata 칸(금융업 2023 반기까지 등)을 다음 해 같은 분기 보고서의 전년 동기 값으로 정정 칸에(아래 「전기 칸 보충」)
       #   거름 규칙(전년 연간 태깅·상장 전 자본·스팩 합병 전 기간)과 근거 존중은 「전기 칸 보충의 거름 규칙」. 외화 보고사가 있으면 ECOS_API_KEY 를 둘 것.
   python3 scripts/market_fund_quarterly.py --include-new [--fetch]
-      # 신규 상장 보통주를 dart_fundamentals 에 등록(KRX 2~4콜 + DART 0콜). 옛 시장 aggregate 수집기(--fetch)의
+      # 신규 상장 보통주를 dart_fundamentals 에 등록(KRX 2콜 + DART 이은 종목당 회사 개황 1콜). 옛 시장 aggregate 수집기(--fetch)의
       # 유일한 잔존 기능(260902 흡수·원본은 open-proxy-storage archive/opm-scripts). 재무 4열은 넣지 않는다 —
       # 이후 --fetch(분기)·market_val_series --fetch
       # (연간)·--derive 가 채운다. --fetch 와 같이 주면 등록 직후 그 종목의 분기 수집까지 이어진다.
+      # 261020: 회사 고유번호를 못 이었던 행(nocorp)도 매번 다시 잇는다(신형 영문 코드 0126Z0 등) · 주 1회 일정(finstat-quarterly)에서 돈다.
 """
 import argparse, asyncio, os, re, sys
 from datetime import date
@@ -533,59 +534,176 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None) -
 
 #: 신규 편입 대상을 고를 상장 종목 수 하한 — 정상은 약 2,760종목. 이보다 적으면 일별 시세 저장분이 비었거나 반쪽이다(261018).
 INCLUDE_NEW_MIN_LISTED = 1_500
+#: 한 번 실행에 부르는 회사 개황(company.json — 업종코드) 상한. 평소엔 주 몇 종목이고, 밀린 것을 처음 잇는 실행도 백 단위다(261020).
+INCLUDE_NEW_MAX_INFO = int(os.getenv("FUND_INCLUDE_NEW_MAX_INFO", "300"))
+
+
+def corp_by_ticker(corps: list[dict]) -> dict[str, str]:
+    """회사 명부(DART corpCode)의 종목코드(앞뒤 공백 없앤 대문자) → corp_code. 같은 코드가 둘이면 modify_date 가 늦은 것(10-18 명부엔 없다).
+
+    261020: 등록은 이 표로 먼저 잇는다 — 해석기(`lookup_corp_code`)를 거치면 정기공시 제출사 명부를 뒤에서 새로 만들기 시작해(약 180콜)
+    배치 한 번에 쓸모없는 DART 호출이 붙었다(10-20 실측 76종목 잇는 동안 62콜). 표에 없는 코드만 해석기로 다시 본다(명부가 낡았으면 새로 받는다)."""
+    out: dict[str, tuple[str, str]] = {}
+    for corp in corps or ():
+        sc = str(corp.get("stock_code") or "").strip().upper()
+        if not sc or not corp.get("corp_code"):
+            continue
+        md = str(corp.get("modify_date") or "")
+        if sc not in out or md > out[sc][1]:
+            out[sc] = (str(corp["corp_code"]), md)
+    return {k: v[0] for k, v in out.items()}
+
+
+def exact_corp_code(corp: dict | None, ticker: str) -> str | None:
+    """해석기 결과가 **그 종목코드 자체**의 회사일 때만 corp_code — 숫자·영문(신형 0126Z0) 코드 모두 대문자로 같은 규칙.
+
+    261020: 등록은 종목코드로만 잇는다. 해석기는 코드가 명부에 없으면 이름 검색으로 내려가고(`company_resolver._search_one`), 종류주 코드는 발행 회사로
+    잇는다 — 둘 다 「그 종목의 회사」가 아니다. 결과의 종목코드가 물은 코드와 같을 때만 받는다."""
+    if not corp or not corp.get("corp_code"):
+        return None
+    if str(corp.get("stock_code") or "").strip().upper() != str(ticker or "").strip().upper():
+        return None
+    return str(corp["corp_code"])
+
+
+def include_targets(listed, rows: dict, kinds: dict) -> tuple[list, list]:
+    """(새로 넣을 [(종목, 시장)], 회사 고유번호를 다시 이을 [(종목, 시장)]) — 순수 함수(시험 대상). 상장 **보통주**만(KRX 종목유형).
+
+    `rows` = 재무 요약 표의 {종목: (corp_code, fetched)}. 다시 잇는 것 = `fetched='nocorp'` 이고 corp_code 가 빈 행.
+    261020: 종전엔 행이 있으면 무엇이든 건너뛰어, 한 번 nocorp 로 적힌 종목은 영영 다시 보지 않았다 — 해석기가 숫자 6자리만 코드로 읽던 때
+    (10-18 고침) 적힌 신형 영문 코드 상장사 52종목(시총 약 13조)이 그대로 남아 연간·분기 수집·업종 비교·집계에서 빠졌다."""
+    new, again = [], []
+    for t, m in listed:
+        if kinds.get(t) != "보통주":
+            continue
+        row = rows.get(t)
+        if row is None:
+            new.append((t, m))
+        elif row[1] == "nocorp" and not row[0]:
+            again.append((t, m))
+    return new, again
+
+
+def stuck_listed(listed, rows: dict, kinds: dict) -> list[tuple[str, str]]:
+    """상장 **보통주**인데 재무 요약 행이 ok 도 nocorp 도 아닌 [(종목, fetched)] — 순수 함수. 이 단계는 그 행을 바꾸지 않고 경고로 센다.
+
+    261020(검토): 수집기 셋은 ok 행만 대상이라 다른 상태로 남은 상장 보통주는 nocorp 처럼 조용히 빠진다. 10-20 운영 484130(하나34호스팩)이
+    옛 시장 aggregate 수집기의 `outlier_scale`(2025 1분기보고서 100만배 단위 오류로 재무 요약이 −27.7조)로 2024-11 상장부터 곡선·업종 비교·집계에
+    없었다 — 지금 분기 수집기의 가드는 그 칸을 전기 칸 대조로 바로잡는다. 그 상태를 쓰는 코드는 없어 같은 일은 새로 생기지 않지만, 생기면 보이게."""
+    out = []
+    for t, _ in listed:
+        row = rows.get(t)
+        if kinds.get(t) == "보통주" and row is not None and row[1] not in ("ok", "nocorp"):
+            out.append((t, str(row[1])))
+    return sorted(out)
 
 
 async def include_new_tickers() -> int:
-    """KRX 최신 거래일 상장 **보통주** 가운데 dart_fundamentals 에 없는 종목을 등록한다 — 옛 시장 aggregate
-    수집기(--fetch)가 하던 유일한 잔존 역할(260902 흡수). 이 표의 `fetched='ok'` 행이 분기(fetch)·연간
+    """KRX 최신 거래일 상장 **보통주** 가운데 dart_fundamentals 에 없는 종목을 등록하고, 회사 고유번호를 못 이었던 행(nocorp)을 다시 잇는다 —
+    옛 시장 aggregate 수집기(--fetch)가 하던 유일한 잔존 역할(260902 흡수). 이 표의 `fetched='ok'` 행이 분기(fetch)·연간
     (market_val_series)·주간 스냅샷(market_val_weekly) 세 수집기의 대상 집합이라, 여기 없는 신규 상장사는
     어디서도 안 잡힌다(구 스크립트는 done 셋 고정이라 갱신 불가였다).
 
     재무 4열은 쓰지 않는다(NULL) — SSOT 는 dart_finstat_q 이고 파생(--derive)이 채운다. 옛 방식(1Q 고정
-    직접 수집)을 되살리지 않는다. corp_code 미해결이면 fetched='nocorp' 로 남겨 재시도 대상에서 뺀다.
-    콜: KRX ≤4(시세 2 는 _ensure_krx_fresh 가 이미 DB 에 있으면 0, 종목유형 2) · DART 0(corpCode 캐시).
+    직접 수집)을 되살리지 않는다. corp_code 미해결이면 fetched='nocorp' 로 남기고 **다음 실행이 다시 본다**(261020 — 종전엔 영영 뺐다).
+
+    261020(p1e): ① 기준일 = 일별 시세 저장분의 최신 거래일(`krx_daily.latest_day`) — 서버 갱신기가 쓰는 표를 읽기만 한다(주간 일정에서 돌며
+      KRX 시세를 다시 받아 쓰지 않게. 종전 `_ensure_krx_fresh` 는 저장분이 하루 늦으면 KRX 를 훑어 기록했다).
+      ② 잇기는 종목코드 그대로 — 명부의 종목코드 표(`corp_by_ticker`), 없으면 해석기 결과의 종목코드가 같을 때만(`exact_corp_code`). ③ 이은 종목은 회사 개황 1콜로 업종코드(`induty`)를
+      채운다 — 종전 등록 행은 업종코드가 비어 KSIC 업종 버킷이 없었다(기존 ok 행 2,599 은 전부 있다). 업종코드가 빈 상장 보통주 ok 행도 같은 콜로 메운다
+      (개황이 키 한도로 멈췄던 행). 개황이 빈 업종코드를 주면 'none'(옛 수집기와 같은 값 — 다시 부르지 않는다). 결산월(`acc_mt`)은 여기서 정하지 않는다 —
+      사업보고서 이름이 정본인 `--acc-mt`(`refresh_acc_mt`) 한 곳이 정한다(주간 일정에서 이 단계 바로 뒤에 돈다. 반기·분기 결산 리츠는 개황의 결산월과 보고서가 다르다).
+    콜: KRX 2(종목유형) · DART = 이은 종목당 회사 개황 1(상한 `INCLUDE_NEW_MAX_INFO`) + 명부에 없는 코드가 있으면 명부 새로 받기(시간당 1).
     """
-    from open_proxy_mcp.services.price_multiple_data import _ensure_krx_fresh
     from market_val_weekly import _krx_kinds          # 같은 폴더 — 우선주/보통주 판별(KRX isu_base_info 2콜)
-    from open_proxy_mcp.dart.client import get_dart_client
-    snap_dd = await _ensure_krx_fresh()
-    if not snap_dd:
-        print("include-new: KRX 최신 거래일 확보 실패 — 건너뜀", flush=True)
-        return 0
-    kinds = await _krx_kinds(snap_dd)
-    if not kinds:
-        print("include-new: KRX 종목유형(kinds) 확보 실패 — 건너뜀(우선주를 보통주로 넣지 않기 위해)", flush=True)
-        return 0
+    from open_proxy_mcp import krx_daily as _kd
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     con = _pg(); con.autocommit = True
     con.execute(DDL_FUNDAMENTALS)
-    known = {r[0] for r in con.execute("SELECT ticker FROM dart_fundamentals")}
-    # 261018(재설계 5-1 쓰는 쪽): krx_weekly → 일별 시세 저장분. `_ensure_krx_fresh` 가 돌려주는 날짜는 krx_daily 최신일이고
-    #   krx_weekly 는 닫힌 주만 담아 주중 그 날짜 행이 없다 — 종전 질의는 조용히 0종목(「신규 0」)이 됐다.
+    snap_dd = _kd.latest_day(lambda sql, params=(): con.execute(sql, params).fetchall())
+    if not snap_dd:
+        print("include-new: 일별 시세 저장분의 최신 거래일이 없다 — 건너뜀", flush=True)
+        con.close()
+        return 0
+    # 261018(재설계 5-1 쓰는 쪽): krx_weekly → 일별 시세 저장분. krx_weekly 는 닫힌 주만 담아 주중 그 날짜 행이 없다 — 종전 질의는 조용히 0종목(「신규 0」)이 됐다.
     listed = con.execute("SELECT ticker, market FROM krx_daily WHERE trd_dd=%s", (snap_dd,)).fetchall()
     if len(listed) < INCLUDE_NEW_MIN_LISTED:   # 반쪽·빈 저장분을 「신규 없음」으로 읽지 않는다
         print(f"::error::include-new: {snap_dd} 일별 시세가 {len(listed)}종목뿐 — 저장분이 비었거나 반쪽이다. 건너뜀", flush=True)
         con.close()
         return 0
-    new = [(t, m) for t, m in listed if t not in known and kinds.get(t) == "보통주"]
-    print(f"include-new: {snap_dd} 상장 {len(listed)} · 기등록 {len(known)} · 신규 보통주 {len(new)}", flush=True)
+    kinds = await _krx_kinds(snap_dd)
+    if not kinds:
+        print("include-new: KRX 종목유형(kinds) 확보 실패 — 건너뜀(우선주를 보통주로 넣지 않기 위해)", flush=True)
+        con.close()
+        return 0
+    rows = {r[0]: (r[1], r[2]) for r in con.execute("SELECT ticker, corp_code, fetched FROM dart_fundamentals")}
+    has_ind = con.execute("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' "
+                          "AND table_name='dart_fundamentals' AND column_name='induty')").fetchone()[0]
+    new, again = include_targets(listed, rows, kinds)
+    print(f"include-new: {snap_dd} 상장 {len(listed)} · 기등록 {len(rows)} · 신규 보통주 {len(new)} · 회사 고유번호 다시 잇기 {len(again)}", flush=True)
+    stuck = stuck_listed(listed, rows, kinds)
+    if stuck:   # 바꾸지 않는다 — 그 상태를 적은 까닭을 사람이 보고 정한다(실행 요약에 뜨게)
+        print(f"::warning::include-new: 상장 보통주 {len(stuck)}종목이 재무 요약 수집 대상 밖 상태(ok·nocorp 아님) — "
+              + ", ".join(f"{t}({f})" for t, f in stuck[:10]), flush=True)
     c = get_dart_client()
-    n_ok = n_nocorp = 0
-    for ticker, market in new:
-        corp = await c.lookup_corp_code(ticker)
-        if corp and corp.get("corp_code"):
-            con.execute("INSERT INTO dart_fundamentals(ticker, corp_code, market, fetched) "
-                        "VALUES(%s, %s, %s, 'ok') ON CONFLICT (ticker) DO NOTHING",
-                        (ticker, corp["corp_code"], market))
-            n_ok += 1
+    code_map = corp_by_ticker(await c._load_corp_codes()) if (new or again) else {}
+    n_ok = n_nocorp = n_relink = 0
+    linked: list[tuple[str, str]] = []            # (종목, corp_code) — 이번에 ok 로 잇은 것(개황 대상)
+    for ticker, market, relink in [(t, m, False) for t, m in new] + [(t, m, True) for t, m in again]:
+        cc = code_map.get(ticker.strip().upper()) or exact_corp_code(await c.lookup_corp_code(ticker), ticker)
+        if relink:
+            if cc:
+                cur = con.execute("UPDATE dart_fundamentals SET corp_code=%s, market=%s, fetched='ok' "
+                                  "WHERE ticker=%s AND fetched='nocorp' AND corp_code IS NULL", (cc, market, ticker))
+                if cur.rowcount:
+                    n_relink += 1
+                    linked.append((ticker, cc))
+            else:
+                n_nocorp += 1
+            continue
+        if cc:
+            cur = con.execute("INSERT INTO dart_fundamentals(ticker, corp_code, market, fetched) "
+                              "VALUES(%s, %s, %s, 'ok') ON CONFLICT (ticker) DO NOTHING", (ticker, cc, market))
+            if cur.rowcount:
+                n_ok += 1
+                linked.append((ticker, cc))
         else:
             con.execute("INSERT INTO dart_fundamentals(ticker, market, fetched) "
                         "VALUES(%s, %s, 'nocorp') ON CONFLICT (ticker) DO NOTHING", (ticker, market))
             n_nocorp += 1
-    # 양쪽으로 센다(CLAUDE.md 13): 새 행 N건이 실제로 들어갔는지.
-    after = con.execute("SELECT count(*) FROM dart_fundamentals").fetchone()[0]
+    # 회사 개황(업종코드) — 이번에 이은 종목 + 업종코드가 빈 상장 보통주 ok 행(앞 실행이 키 한도로 개황을 못 부른 것). 칸이 없는 DB 면 부르지 않는다.
+    info_todo = list(linked) if has_ind else []
+    if has_ind:
+        seen = {t for t, _ in linked}
+        common = {t for t, _ in listed if kinds.get(t) == "보통주"}
+        info_todo += [(t, cc) for t, cc in con.execute(
+            "SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL AND induty IS NULL ORDER BY ticker")
+            if t in common and t not in seen]
+    n_info = n_ind = 0
+    for ticker, cc in info_todo[:INCLUDE_NEW_MAX_INFO]:
+        try:
+            info = await c.get_company_info(cc)
+            n_info += 1
+        except DartClientError as e:
+            if dart_halts_batch(e):
+                # 키 한도·키 문제·점검 — 남은 종목도 같은 답이다. 더 부르지 않는다(업종코드가 빈 채라 다음 실행이 다시 본다).
+                print(dart_batch_halt_line(e, f"회사 개황 {n_info}/{len(info_todo)}"), flush=True)
+                break
+            print(f"include-new: {ticker} 회사 개황 못 받음({str(e)[:40]}) — 다음 실행이 다시 본다", flush=True)
+            continue
+        await asyncio.sleep(SLEEP)
+        ind = str((info or {}).get("induty_code") or "").strip() or "none"
+        if has_ind:
+            n_ind += con.execute("UPDATE dart_fundamentals SET induty=%s WHERE ticker=%s AND induty IS NULL",
+                                 (ind, ticker)).rowcount
+    if len(info_todo) > INCLUDE_NEW_MAX_INFO:
+        print(f"include-new: 회사 개황 상한 {INCLUDE_NEW_MAX_INFO} — 남은 {len(info_todo) - INCLUDE_NEW_MAX_INFO}종목은 다음 실행", flush=True)
+    # 양쪽으로 센다(CLAUDE.md 13): 새 행·이은 행이 실제로 들어갔는지, 남은 nocorp 는 몇인지.
+    after = con.execute("SELECT count(*), count(*) FILTER (WHERE fetched='nocorp') FROM dart_fundamentals").fetchone()
     con.close()
-    print(f"include-new: 등록 {n_ok}(ok) + {n_nocorp}(nocorp) → dart_fundamentals {len(known)} → {after}행", flush=True)
-    return n_ok
+    print(f"include-new: 등록 {n_ok}(ok) + {n_nocorp}(nocorp) · 다시 이음 {n_relink} → dart_fundamentals {len(rows)} → {after[0]}행"
+          f"(nocorp {after[1]}) · 회사 개황 {n_info}콜(업종코드 {n_ind})", flush=True)
+    return n_ok + n_relink
 
 
 def seed_q4() -> None:
@@ -1612,7 +1730,7 @@ if __name__ == "__main__":
     ap.add_argument("--fetch", action="store_true", help="Q1~Q3 백필")
     ap.add_argument("--derive", action="store_true", help="dart_fundamentals 재무 4열 파생(0콜)")
     ap.add_argument("--include-new", action="store_true",
-                    help="KRX 신규 상장 보통주를 dart_fundamentals 에 등록(KRX ≤4콜·DART 0콜) — --fetch 앞에 수행")
+                    help="KRX 신규 상장 보통주를 dart_fundamentals 에 등록·nocorp 행 다시 잇기(KRX 2콜·DART 이은 종목당 회사 개황 1콜) — --fetch 앞에 수행")
     ap.add_argument("--years", type=str, help="콤마구분 연도(기본 2019~2026)")
     ap.add_argument("--conc", type=int, default=int(os.getenv("FUND_Q_CONC", "2")),
                     help="동시성(기본 2, CLAUDE.md 허용 1~2)")
