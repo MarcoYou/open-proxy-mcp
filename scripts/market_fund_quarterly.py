@@ -567,6 +567,7 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None, t
             try:
                 rs2, n = await _company_reports(c, cc, t)
                 calls += n
+                await asyncio.sleep(SLEEP)              # 다른 수집기와 같은 예의(0.45초)
                 rs, complete = set(rs2), True
             except DartClientError as e:
                 if dart_halts_batch(e):
