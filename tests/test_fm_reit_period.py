@@ -179,6 +179,22 @@ def test_missing_ticker_and_stale_cell_are_unavailable(monkeypatch):
     assert m2["net_income_12m_krw"] is None and "결산기" in m2["twelve_month_basis"]["reason"]
 
 
+def test_non_krw_report_does_not_mix_with_the_krw_stored_cells(monkeypatch):
+    """외화 보고서는 저장된 결산기 칸(원화)과 섞지 않는다 — 12개월 값은 비우고 까닭, 칸은 읽지도 않는다."""
+    def forbidden(sql, params=()):
+        raise AssertionError("외화 보고서는 원화 결산기 칸을 읽지 않는다")
+
+    async def rate(cur, d):
+        return 1300.0
+    usd = {y: [{**r, "currency": "USD"} for r in rows] for y, rows in {2025: FY2025, 2024: FY2024}.items()}
+    _patch(monkeypatch, usd, pg=forbidden)
+    monkeypatch.setattr(fm, "fx_to_krw", rate)
+    m, ws, _ = _run(2025, is_reit=True)
+    assert m["period_months"] == 6 and m["net_income_12m_krw"] is None and m["roe_12m_pct"] is None
+    assert m["twelve_month_basis"]["status"] == "unavailable" and "원화가 아닌" in m["twelve_month_basis"]["reason"]
+    assert any("비웠다" in w and "원화가 아닌" in w for w in ws)
+
+
 # ── 3-2. 분기 결산(SK리츠 3개월)·11월 결산기(0030R0) — 칸은 달력 분기로 묶인다 ─────────────────────────
 
 SK_2026 = _rows("2026.04.01 ~ 2026.06.30", "2026.06.30 현재", rev=100, op=60, ni=40, assets=5000, liab=3000, equity=2000, term="제 21 기")
