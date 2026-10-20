@@ -512,23 +512,18 @@ def _ksic_is_financial(induty_code: str | None) -> bool:
 
 
 def _lookup_induty_code(corp_code: str, stock_code: str = "") -> str | None:
-    """dart_fundamentals(Postgres)에서 induty 조회 — DART 콜 0. 미설정/장애/미수록이면 None."""
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return None
-    try:
-        import psycopg
-        with psycopg.connect(url, connect_timeout=8) as c:
-            if stock_code:
-                row = c.execute("SELECT induty FROM dart_fundamentals WHERE ticker=%s", (stock_code,)).fetchone()
-                if row and row[0]:
-                    return str(row[0])
-            row = c.execute("SELECT induty FROM dart_fundamentals WHERE corp_code=%s", (corp_code,)).fetchone()
-            return str(row[0]) if row and row[0] else None
-    except Exception as exc:  # noqa: BLE001
-        import logging
-        logging.getLogger(__name__).warning("induty 조회 실패: %s", exc)
-        return None
+    """dart_fundamentals(Postgres)에서 induty 조회 — DART 콜 0. 미설정/장애/미수록이면 None.
+
+    공용 접속(`db.pg_rows` 풀)으로 **한 번** 묻는다(종전: 질의마다 새 접속 + 종목코드 → 법인코드 두 번).
+    종목코드로 맞는 행을 우선하고, 없을 때만 법인코드로 맞는 행을 쓴다 — 종전 두 단계와 같은 순서다.
+    """
+    from open_proxy_mcp import db
+    rows = db.pg_rows(
+        "SELECT induty FROM dart_fundamentals "
+        "WHERE (ticker = %s OR corp_code = %s) AND induty IS NOT NULL AND induty <> '' "
+        "ORDER BY CASE WHEN ticker = %s THEN 0 ELSE 1 END LIMIT 1",
+        (stock_code or "", corp_code, stock_code or ""))
+    return str(rows[0][0]) if rows else None
 
 
 def _borrow_local(account_id: str) -> str | None:

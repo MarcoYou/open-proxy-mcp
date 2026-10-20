@@ -70,3 +70,41 @@ def test_quarterly_rows_label_net_income_as_total_including_nci(monkeypatch):
     assert "net_income_basis" in md
     qoq_md = "\n".join(_render_qoq({"qoq": {"current": out[-1], "prior": out[-2] if len(out) > 1 else None, "alerts": []}}))
     assert "순이익(총계·비지배 포함)" in qoq_md
+
+
+# ── 업종코드 조회: 공용 접속 풀로 질의 한 번 (B10 — 종전: 질의마다 새 접속 + 두 질의) ─────────────
+
+def test_induty_lookup_uses_the_shared_pool_with_one_query(monkeypatch):
+    import psycopg
+
+    from open_proxy_mcp import db
+    from open_proxy_mcp.services import financial_metrics as FM
+
+    calls: list[tuple] = []
+
+    def fake_pg_rows(sql, params=()):
+        calls.append((sql, params))
+        return [("471",)]
+
+    def no_direct_connect(*a, **k):
+        raise AssertionError("질의마다 새 접속을 열지 않는다")
+
+    monkeypatch.setattr(db, "pg_rows", fake_pg_rows)
+    monkeypatch.setattr(psycopg, "connect", no_direct_connect)
+    monkeypatch.setenv("DATABASE_URL", "postgresql://not-used/for-test")
+
+    assert FM._lookup_induty_code("00126380", "005930") == "471"
+    assert len(calls) == 1                                  # 종전 두 질의(종목코드 → 법인코드)가 하나로
+    sql, params = calls[0]
+    assert "ticker = %s OR corp_code = %s" in sql and "ORDER BY CASE WHEN ticker = %s" in sql
+    assert params == ("005930", "00126380", "005930")       # 종목코드 행을 우선(종전과 같은 순서)
+
+
+def test_induty_lookup_distinguishes_no_row_from_outage(monkeypatch):
+    from open_proxy_mcp import db
+    from open_proxy_mcp.services import financial_metrics as FM
+
+    monkeypatch.setattr(db, "pg_rows", lambda sql, params=(): [])       # 데이터 없음
+    assert FM._lookup_induty_code("00126380", "005930") is None
+    monkeypatch.setattr(db, "pg_rows", lambda sql, params=(): None)     # 미설정·장애
+    assert FM._lookup_induty_code("00126380", "") is None
