@@ -739,7 +739,10 @@ async def build_quote_payload(company: str, format: str = "md",
         try:
             row = await _krx_quote_row(dd, ticker)
         except KrxQuoteError as exc:
-            return _krx_failed_payload(_subject(corp, company, ticker, class_note), ticker, dd, exc.status, warns)
+            # 코넥스는 KRX 가 응답했어도 행이 없는 종목이다 — 호출 실패와 무관하게 아래 「수록 대상 아님」(unsupported_market)이 답이다.
+            if (corp.get("corp_cls") or "").upper() != "N":
+                return _krx_failed_payload(_subject(corp, company, ticker, class_note), ticker, dd, exc.status, warns)
+            row = None
 
     if not row and not db_row:
         # KONEX(corp_cls="N")는 **구조적 미수록**이다 — 시세 소스가 KOSPI·KOSDAQ 두 endpoint 뿐이라
