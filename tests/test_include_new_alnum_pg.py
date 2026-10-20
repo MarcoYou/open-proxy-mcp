@@ -4,7 +4,7 @@
 상장 보통주 76종목(영문 코드 62 · 숫자 코드 14, 시총 약 14.3조 + α). 연간·분기 수집과 업종 비교·집계가 이 표의 ok 행만 대상으로 해서 모두 빠졌다.
   ① 해석기가 숫자 6자리만 코드로 읽던 때(10-18 고침) 적힌 영문 코드 52종목이 nocorp 로 굳었다 — 등록은 「행이 있으면 건너뜀」이라 다시 보지 않았다.
   ② 등록 단계를 도는 일정이 없어(수동 전용) 8~9월 상장사는 행 자체가 없었다.
-  ③ 등록 행은 업종코드(induty)가 비어 KSIC 업종 버킷이 없었다(기존 ok 행은 전부 있다 — 옛 수집기가 채웠다).
+  ③ 등록 행은 업종코드(induty)가 비어 KSIC 업종 버킷이 없었다(기존 ok 행은 전부 있다 — 옛 수집기가 채웠다). 결산월은 종전대로 결산월 단계가 정한다.
 우선주·종류주(끝자리가 0 이 아닌 코드, KRX 종목유형 우선주·종류주권)는 관례대로 행을 두지 않는다(회사 단위 값은 보통주 행 하나).
 
 순수 함수 시험은 network 0 · DB 0. 등록 시험은 로컬 Docker `postgres:17`(`tests/conftest.py` 의 `pg17`)이 필요하다 — 없으면 건너뛴다.
@@ -44,7 +44,7 @@ KS = ("0126Z0", "0030R0", "006800", "00680K", "K00000")
 KQ = ("950260", "Q00000")
 KINDS = {"0126Z0": "보통주", "0030R0": "보통주", "006800": "보통주", "00680K": "신형우선주", "K00000": "보통주",
          "950260": "보통주", "Q00000": "보통주"}
-INFO = {"01965324": {"induty_code": "64992", "acc_mt": "12"}, "01885222": {"induty_code": "68112", "acc_mt": "06"},
+INFO = {"01965324": {"induty_code": "64992", "acc_mt": "12"}, "01885222": {"induty_code": "68112", "acc_mt": "08"},
         "02031369": {"induty_code": "", "acc_mt": "12"}}
 
 
@@ -57,12 +57,18 @@ def _resolver() -> CompanyResolver:
 class _Client:
     """`include_new_tickers` 가 부르는 것만 — 해석은 진짜 해석기(`CompanyResolver`, 서버 `company` 와 같은 규칙)."""
 
-    def __init__(self, halt_info: bool = False):
+    def __init__(self, halt_info: bool = False, corps=CORPS):
         self.r = _resolver()
+        self.corps = corps
         self.info_calls: list[str] = []
+        self.lookups: list[str] = []
         self.halt_info = halt_info
 
+    async def _load_corp_codes(self):
+        return self.corps
+
     async def lookup_corp_code(self, q):
+        self.lookups.append(q)
         res = self.r.search(q)
         if not res:
             return None
@@ -121,18 +127,20 @@ def _run(monkeypatch, client):
 
 
 def test_alnum_nocorp_rows_are_relinked_and_new_common_listings_registered_with_industry(db, monkeypatch, capsys):
+    """기존 ok 행(006800 은 결산월 12)은 그대로, 이은·새 행은 업종코드까지."""
     client = _Client()
     assert _run(monkeypatch, client) == 3                      # 다시 이음 0126Z0 + 새로 0030R0·950260
     rows = _rows(db)
-    # 신형 영문 코드 nocorp → ok(회사 고유번호·업종코드·결산월)
-    assert rows["0126Z0"] == ("01965324", "KS", "ok", "64992", 12)
+    # 신형 영문 코드 nocorp → ok(회사 고유번호·업종코드). 결산월은 여기서 정하지 않는다 — 결산월 단계(`--acc-mt`, 사업보고서 이름이 정본) 한 곳
+    assert rows["0126Z0"] == ("01965324", "KS", "ok", "64992", None)
     # 행이 없던 영문·숫자 코드 상장 보통주 — 같은 규칙으로 등록. 개황이 빈 업종코드를 주면 'none'(옛 수집기와 같은 값 — 다시 부르지 않는다)
-    assert rows["0030R0"] == ("01885222", "KS", "ok", "68112", 6)
-    assert rows["950260"] == ("02031369", "KQ", "ok", "none", 12)
+    assert rows["0030R0"] == ("01885222", "KS", "ok", "68112", None)
+    assert rows["950260"] == ("02031369", "KQ", "ok", "none", None)
     # 우선주(00680K)는 관례대로 행을 두지 않는다 · 기존 ok 행은 그대로
     assert "00680K" not in rows
     assert rows["006800"] == ("00164742", "KS", "ok", "66121", 12)
     assert sorted(client.info_calls) == ["01885222", "01965324", "02031369"]   # 이은 종목만 개황 1콜씩
+    assert client.lookups == []                                 # 모두 명부의 종목코드 표로 이었다 — 해석기(정기공시 제출사 명부 만들기)를 거치지 않는다
     out = capsys.readouterr().out
     assert "다시 이음 1" in out and "(nocorp 0)" in out
     # 두 번째 실행 — 할 일이 없다(개황도 다시 부르지 않는다)
@@ -150,15 +158,18 @@ def test_a_daily_limit_on_company_info_keeps_the_link_and_the_next_run_fills_the
     client = _Client()
     assert _run(monkeypatch, client) == 0                       # 새로 이을 것은 없고 — 업종코드가 빈 상장 보통주 ok 행만 개황을 부른다
     assert sorted(client.info_calls) == ["01885222", "01965324", "02031369"]
-    assert _rows(db)["0126Z0"] == ("01965324", "KS", "ok", "64992", 12)
+    assert _rows(db)["0126Z0"] == ("01965324", "KS", "ok", "64992", None)
 
 
 def test_a_code_the_registry_does_not_have_stays_nocorp_and_is_tried_again(db, monkeypatch):
     class Stale(_Client):                                       # 명부가 아직 그 코드를 모를 때(DART 가 늦게 싣는다)
         async def lookup_corp_code(self, q):
+            self.lookups.append(q)
             return None if q == "0126Z0" else await super().lookup_corp_code(q)
-    _run(monkeypatch, Stale())
+    stale = Stale(corps=[c for c in CORPS if c["stock_code"] != "0126Z0"])
+    _run(monkeypatch, stale)
     assert _rows(db)["0126Z0"][:3] == (None, "KS", "nocorp")
+    assert stale.lookups == ["0126Z0"]                          # 명부 표에 없는 코드만 해석기로 다시 본다(명부가 낡았으면 해석기가 새로 받는다)
     _run(monkeypatch, _Client())                                # 다음 실행 — 명부가 따라오면 잇는다
     assert _rows(db)["0126Z0"][:3] == ("01965324", "KS", "ok")
 
@@ -176,6 +187,15 @@ def test_link_only_to_the_company_of_that_very_code():
     assert exact_corp_code(share[0], "00680K") is None
     assert exact_corp_code({"corp_code": "00999999"}, "N00000") is None     # 종목코드가 없는 결과(이름 추정 등)는 받지 않는다
     assert exact_corp_code(None, "0126Z0") is None
+
+
+def test_registry_code_map_is_upper_trimmed_and_prefers_the_latest_record():
+    from scripts.market_fund_quarterly import corp_by_ticker
+    m = corp_by_ticker(CORPS + [{"corp_code": "X", "stock_code": "", "modify_date": "1"},
+                                {"corp_code": "OLD", "stock_code": " 0126z0 ", "modify_date": "20200101"}])
+    assert m["0126Z0"] == "01965324" and m["950260"] == "02031369" and "" not in m
+    assert corp_by_ticker([{"corp_code": "A", "stock_code": "0001A0", "modify_date": "20250101"},
+                           {"corp_code": "B", "stock_code": "0001A0", "modify_date": "20260101"}]) == {"0001A0": "B"}
 
 
 def test_targets_are_listed_common_shares_without_a_row_or_with_a_nocorp_row():

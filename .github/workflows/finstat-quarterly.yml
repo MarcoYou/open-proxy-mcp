@@ -20,6 +20,11 @@
 #   창(마감 뒤 한 달) 밖에도 늦게 내는 회사가 있어(10/07 제출 사례) 주 1회 남은 것만 다시 본다 —
 #   남은 nodata 수백 건 × 1~2콜이라 몇 분이다. 창 안의 매일 실행과 겹치는 날은 아래 concurrency 가 줄 세운다.
 #
+# 261020(신규 상장 등록): 수집 대상은 재무 요약 표(dart_fundamentals)의 ok 행이다. 그 표에 신규 상장 보통주를 넣는 단계(--include-new)가
+#   어느 일정에도 없어(수동 전용) 8~9월 상장사가 행 자체가 없었고, 해석기가 숫자 6자리만 코드로 읽던 때 적힌 신형 영문 코드(0126Z0 등) 상장사
+#   52종목은 회사 고유번호 없이(nocorp) 굳어 있었다. 이제 이 일정의 첫 단계가 등록·다시 잇기를 하고 업종코드를 회사 개황으로 채운다
+#   (KRX 종목유형 2콜 + 이은 종목당 DART 1콜). 결산월은 바로 뒤 결산월 단계가, 연간·분기 재무는 같은 실행의 아래 단계들이 받는다.
+#
 # 261018(결산월): 칸의 실제 기간 말·공시 마감을 회사 결산월(dart_fundamentals.acc_mt)로 센다(open_proxy_mcp/services/report_calendar.py).
 #   그래서 이 일정이 분기 수집 앞에 세 단계를 더 돈다 —
 #   ① 결산월 채우기·고치기(--acc-mt: 최근 100일 정기공시 목록의 사업보고서 기준월 · ~90콜, 상장 첫해 종목만 회사 개황 1콜씩)
@@ -98,7 +103,16 @@ jobs:
                   print(f"FY{fy} Q{q}: {n:,}/{base:,} ({n/base:.0%})")
           PY
 
+      - name: 신규 상장 보통주 등록·회사 고유번호 다시 잇기 (KRX 종목유형 2콜 + 이은 종목당 DART 회사 개황 1콜)
+        # 261020: 기준일은 일별 시세 저장분의 최신 거래일(서버 갱신기가 쓴 표를 읽기만 한다 — 여기서 시세를 받아 쓰지 않는다).
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
+        run: uv run python scripts/market_fund_quarterly.py --include-new
+
       - name: 결산월 채우기·고치기 (DART 목록 ~90콜)
+        if: ${{ !cancelled() }}   # 261020: 위 등록 단계가 실패해도 결산월·수집은 돈다(잡은 실패로 남아 보인다)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
