@@ -523,3 +523,99 @@ def test_disk_eviction_is_lru_not_fifo(tmp_path, monkeypatch):
     left = sorted(p.name for p in tmp_path.glob("*.json*"))
     assert "202601010000000.json" in left, (
         f"방금 적중한 문서가 나이 때문에 퇴출됐다 — FIFO 다: {left}")
+
+
+# ── 회사 개황(company.json) 프로세스 캐시 — 261021 ──
+
+def _company_client(monkeypatch, replies):
+    import open_proxy_mcp.dart.client as cl
+
+    cl._COMPANY_INFO_CACHE.clear()
+    c = cl.DartClient(api_keys=["k-test"])
+    calls = []
+
+    async def fake(endpoint, params):
+        calls.append((endpoint, dict(params)))
+        r = replies.pop(0) if replies else {"status": "000", "corp_name": f"회사{params['corp_code']}", "ceo_nm": "x"}
+        if isinstance(r, BaseException):
+            raise r
+        return r
+
+    monkeypatch.setattr(c, "_request", fake)
+    return cl, c, calls
+
+
+def test_company_info_is_cached_for_an_hour_and_returns_independent_copies(monkeypatch):
+    import asyncio
+
+    cl, c, calls = _company_client(monkeypatch, [])
+
+    async def go():
+        a = await c.get_company_info("00126380")
+        a["corp_name"] = "오염"
+        return a, await c.get_company_info("00126380")
+
+    _, b = asyncio.run(go())
+    assert len(calls) == 1
+    assert b["corp_name"] == "회사00126380"
+    cl._COMPANY_INFO_CACHE.clear()
+
+
+def test_company_info_cache_expires_and_is_bounded_and_skips_errors(monkeypatch):
+    import asyncio
+
+    cl, c, calls = _company_client(monkeypatch, [])
+    monkeypatch.setattr(cl, "_COMPANY_INFO_TTL_SEC", 0.0)
+
+    async def expired():
+        await c.get_company_info("1")
+        await c.get_company_info("1")
+
+    asyncio.run(expired())
+    assert len(calls) == 2, "TTL 이 지나면 다시 받는다"
+
+    monkeypatch.setattr(cl, "_COMPANY_INFO_TTL_SEC", 3600.0)
+    monkeypatch.setattr(cl, "_COMPANY_INFO_CACHE_MAX", 2)
+    cl._COMPANY_INFO_CACHE.clear()
+
+    async def many():
+        for cc in ("a", "b", "c"):
+            await c.get_company_info(cc)
+
+    asyncio.run(many())
+    assert len(cl._COMPANY_INFO_CACHE) == 2 and "a" not in cl._COMPANY_INFO_CACHE, "가장 오래된 것부터 밀려난다"
+
+    cl, c2, calls2 = _company_client(monkeypatch, [cl.DartClientError("013", "x")])
+    cl._COMPANY_INFO_CACHE.clear()
+
+    async def err_then_ok():
+        with pytest.raises(cl.DartClientError):
+            await c2.get_company_info("z")
+        return await c2.get_company_info("z")
+
+    out = asyncio.run(err_then_ok())
+    assert out["status"] == "000" and len(calls2) == 2, "오류는 캐시에 두지 않는다"
+    cl._COMPANY_INFO_CACHE.clear()
+
+
+def test_company_info_cache_is_shared_across_client_instances_and_skips_as_of(monkeypatch):
+    import asyncio
+
+    from open_proxy_mcp.dart import as_of
+
+    cl, c, calls = _company_client(monkeypatch, [])
+    c2 = cl.DartClient(api_keys=["k-other"])
+    monkeypatch.setattr(c2, "_request", c._request)
+
+    async def go():
+        await c.get_company_info("1")
+        await c2.get_company_info("1")                       # 키마다 곱해지지 않는다
+        tokens = as_of.set_as_of("20250326")
+        try:
+            await c.get_company_info("1")                    # 기준일 호출은 캐시를 지나치지 않고 그대로 부른다
+        finally:
+            as_of.reset_as_of(tokens)
+
+    asyncio.run(go())
+    assert len(calls) == 2
+    cl._COMPANY_INFO_CACHE.clear()
