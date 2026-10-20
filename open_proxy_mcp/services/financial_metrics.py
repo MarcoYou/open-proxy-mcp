@@ -2019,9 +2019,11 @@ def _scale_note(plan: dict[str, Any] | None, year: int) -> tuple[list[dict], dic
             fixes.append({"report": names.get(y), "rcept_no": rcept.get(y), "divisor": d, "method": plan["method"], "evidence": ev})
             how = f"÷{d:,.0f}" if d >= 1 else f"×{round(1 / d):,}"
             first = ev[0]
-            cmp_ = " · ".join(f"{e['compared_with']} {e['value_other_report']:,.0f}" for e in ev if e["line"] == first["line"])
-            warns.append(f"🔧 DART 원문 단위 오류를 바로잡았다 — {names.get(y)}(접수 {rcept.get(y) or '?'})의 같은 날짜 {first['line']} 값 {first['value_this_report']:,.0f}이 "
-                         f"다른 보고서의 같은 날짜 칸({cmp_})과 10의 거듭제곱 배로 어긋나 그 보고서의 금액을 {how} 해 썼다(주당 금액은 그대로, 가린 근거: {plan['method']}). "
+            # 짝마다 날짜가 다르다(앞 해 보고서와는 전기 말, 뒤 해 보고서와는 당기 말) — 이 보고서 값도 짝마다 함께 적는다.
+            cmp_ = " · ".join(f"이 보고서 {e['value_this_report']:,.0f} 대 {e['compared_with']} {e['value_other_report']:,.0f}"
+                              for e in ev if e["line"] == first["line"])
+            warns.append(f"🔧 DART 원문 단위 오류를 바로잡았다 — {names.get(y)}(접수 {rcept.get(y) or '?'})의 {first['line']} 값이 "
+                         f"같은 날짜를 적은 다른 보고서 칸과 10의 거듭제곱 배로 어긋나({cmp_}) 그 보고서의 금액을 {how} 해 썼다(주당 금액은 그대로, 가린 근거: {plan['method']}). "
                          "회사가 단위를 잘못 적은 보고서다 — 이 행의 금액·ROE 분모·전년비는 바로잡은 값이다.")
         return fixes, None, warns
     if not pairs:
