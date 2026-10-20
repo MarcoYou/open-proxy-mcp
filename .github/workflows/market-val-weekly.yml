@@ -69,6 +69,15 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/scale_sweep_apply.py --apply
 
+      - name: 결산기 칸 — 반기·분기 결산 회사(리츠 등) (DART 목록 ~30콜 + 새 보고서 연도만)
+        # 261020(p1e): 리츠는 결산 달력이 제각각(9가지)이라 새 보고서가 어느 날이든 나온다 — 곡선·업종 비교·집계가 firm 과 하루 안에 맞게 매일 본다.
+        #   이 단계가 실패해도(DART 장애) 아래 DB 단계는 돈다 — 결산기 칸은 그 전 값 그대로다.
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: uv run python scripts/market_fund_quarterly.py --period-cells
+
       - name: Derive mkt_fundamentals from SSOT (mkt_finstat_q) — DART 0콜
         # 261018(결산월): 파생 앞에 Q4 seed(연간 표 → 분기 표 사업보고서 칸, 값이 같은 행은 다시 쓰지 않는다). 파생은 TTM 의 직전 연간 값을
         #   분기 표 사업보고서 칸에서 읽는데, 12월 결산이 아닌 회사의 새 사업보고서는 주 1회 재무 수집(finstat-quarterly)이 연간 표에 넣는다 —

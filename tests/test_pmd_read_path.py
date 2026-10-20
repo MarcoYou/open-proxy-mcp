@@ -45,6 +45,7 @@ from datetime import date
 import pytest
 
 from open_proxy_mcp.services import price_multiple_data as S
+from tests.pmd_fin_rows import pad_fin_rows
 
 GOLDEN = pathlib.Path(__file__).with_name("pmd_read_path_golden.json")
 FAIL = object()                       # 이 읽기는 None(DB 장애)을 돌려준다
@@ -120,7 +121,7 @@ class FakeDb:
                 return [(*r, "w") for r in val if r[0] >= params[1]]
             if key == "adj":
                 return [tuple(r) for r in val.get(params[1], [])]
-            return copy.deepcopy(val)
+            return pad_fin_rows(sql, copy.deepcopy(val))
         finally:
             with self._lock:
                 self.inflight -= 1

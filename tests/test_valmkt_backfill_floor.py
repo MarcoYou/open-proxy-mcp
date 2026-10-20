@@ -289,3 +289,27 @@ def test_with_stored_weekly_and_include_current_also_recomputes_this_months_stor
     monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py", "--include-current", "--with-stored-weekly"])
     assert S.main() == 0
     assert _rows(url)[("20261016", "KQ", "wics_sector", "G45")]["per_fy0"] == pytest.approx(5000 / 200)
+
+
+def test_period_cells_feed_the_sector_backfill_from_their_filing_date(vdb, monkeypatch):
+    """261020(p1e): 반기·분기 결산 회사(결산기 칸 종목)는 업종 집계도 결산기 칸 — 12개월 합을 그 보고서 접수일부터. B 를 리츠처럼 꾸민다:
+    사업연도 2025 = 120(연간 표 원본 100 은 한 결산기) · 2026 반기 칸(1~6월 결산기 70)은 9/21 접수. 2026-08 월말은 공시 기한 45일 규칙이면
+    반기 칸(8/14~)이지만 아직 공시 전이라 1분기 칸(사업연도 2025 그대로) — TTM 120. 표시 없는 3분기 칸(DART 3개월 시점 보고서)은 쓰지 않는다."""
+    from open_proxy_mcp.services import period_cells as pc
+    url, _ = vdb
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("ALTER TABLE dart_finstat_q ADD COLUMN restate_why text")
+        rows = [((2025, 4), 120.0, 810.0, "20260310"), ((2025, 1), 0.0, 790.0, "20250310"), ((2025, 2), 50.0, 800.0, "20250911"),
+                ((2026, 1), 0.0, 805.0, "20260512"), ((2026, 2), 70.0, 820.0, "20260921")]
+        c.execute("DELETE FROM dart_finstat_q WHERE ticker = 'B'")
+        c.cursor().executemany("INSERT INTO dart_finstat_q (ticker, fy, quarter, ni_cum, eq, ni_cum_restated, eq_restated, restate_why) "
+                               "VALUES ('B', %s, %s, %s, NULL, %s, %s, %s)",
+                               [(k[0], k[1], 999.0 if k[1] == 4 else None, ni, eq, pc.why_text(av, "시험")) for k, ni, eq, av in rows])
+        c.execute("INSERT INTO dart_finstat_q (ticker, fy, quarter, ni_cum, eq) VALUES ('B', 2026, 3, 999.0, 999.0)")   # 표시 없는 칸
+    monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py"])
+    assert S.main() == 0
+    after = _rows(url)
+    jul, aug = after[("20260731", "KS", "wics_sector", "G40")], after[("20260828", "KS", "wics_sector", "G40")]
+    assert jul["per_fy0"] == pytest.approx(1000 / 120) and jul["pbr_fy0"] == pytest.approx(1000 / 810)   # 연간 = 결산기 칸(원본 100 아님)
+    assert jul["per_ttm"] == pytest.approx(1000 / 120) and jul["pbr_mrq"] == pytest.approx(1000 / 805)
+    assert aug["per_ttm"] == pytest.approx(1000 / 120) and aug["pbr_mrq"] == pytest.approx(1000 / 805)   # 45일 규칙이면 140(미래 정보)
