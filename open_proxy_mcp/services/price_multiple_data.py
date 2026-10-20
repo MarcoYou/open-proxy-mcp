@@ -33,6 +33,7 @@ from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_can
 from open_proxy_mcp.services.ksic_sector import ksic_bucket
 from open_proxy_mcp.services import report_calendar as _rc
 from open_proxy_mcp.services import period_cells as _pc
+from open_proxy_mcp.services.controlling_ni import controlling_ni as _controlling_ni
 from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
                                              company_ambiguous_warning,
                                              company_not_found_warning,
@@ -1983,18 +1984,34 @@ def _ctrl_equity(rows, field="thstrm_amount"):
     return total - nci
 
 
+def _deficit_warning(eps_fy, ni_fy, per_fy) -> str | None:
+    """FY0 적자 경고 — **PER 을 낸 값(지배순이익)과 같은 근거**로. (261020 p1e firm-ctrl-ni)
+
+    종전엔 공시 EPS 만 보고 「적자 — PER N/M」이라 적었다. PER 은 시총 ÷ 지배순이익이라, 지배순이익 줄을 잘못 고른 응답(10-20 운영 075180: 총포괄 지배 몫
+    27.68억 → per_fy0 19.84 · 공시 EPS 적자)에서 값과 경고가 서로 어긋났다. 지배순이익은 이제 수집과 같은 규칙이라 대개 함께 가지만, 둘이 갈리면
+    (공시 EPS 와 지배순이익의 부호가 다름 — 우선주 몫·계정 차이) 그렇다고 적는다. 공시 EPS 를 못 읽었으면(None) 지배순이익으로 본다(파싱 실패를 적자로 적지 않는다)."""
+    if eps_fy is not None and eps_fy <= 0:   # None(파싱실패)을 '적자'로 오표기 금지 (패널 P1)
+        if per_fy is None:
+            return "적자(FY0 EPS≤0) — PER N/M."
+        return (f"공시 기본 EPS(FY0)는 {eps_fy:,}원(적자)인데 지배순이익(FY0)은 흑자라 PER(FY0) {per_fy} 을 냈습니다 — "
+                "우선주 몫·계정 차이일 수 있어 원문 확인 요망.")
+    if ni_fy is not None and ni_fy <= 0:
+        return "적자(FY0 지배순이익≤0) — PER N/M."
+    return None
+
+
 def _ctrl_ni(rows, field="thstrm_amount"):
-    """지배순이익 = ProfitLossAttributableToOwnersOfParent. 없으면(비지배지분 없는 회사) 총순이익
-    − 비지배귀속 순이익으로 폴백(대칭 로직) — 260704 실측: 카카오뱅크·케이씨텍·코스모신소재가
-    지배순이익 계정 부재로 PER이 N/M이던 것을 해소."""
-    ni = _gid(rows, "ProfitLossAttributableToOwnersOfParent", ("CIS", "IS"), field)
-    if ni is not None:
-        return ni
-    total = _gid(rows, "ProfitLoss", ("CIS", "IS"), field)
-    if total is None:
-        return None
-    nci = _gid(rows, "ProfitLossAttributableToNoncontrollingInterests", ("CIS", "IS"), field) or 0
-    return total - nci
+    """지배순이익(그 칸 — 기본 당기). 261020(p1e firm-ctrl-ni): 수집 배치와 **같은 규칙**(`services/controlling_ni.controlling_ni` — 값 구조 검사).
+
+    종전(260704)은 ① 지배 귀속 순이익 계정 줄(`ifrs-full_ProfitLossAttributableToOwnersOfParent`) 값 그대로 → ② 없으면 총순이익 − 비지배 계정 줄이었다.
+    그래서 ① 줄에 총포괄이익의 지배 몫을 적은 회사는 그 값을, 표준 계정코드 없이 이름으로 지배·비지배를 나눈 회사는 비지배 포함 총계를,
+    옛 분류체계(`ifrs_…`) 보고서는 빈 값을 썼다 — 배치(#152)는 고쳤는데 이 경로만 남아 응답 안에서 값과 경고가 어긋났다
+    (10-20 운영 075180 firm: net_income_fy0 27.68억 = 총포괄 지배 몫 · per_fy0 19.84 인데 같은 응답 경고는 「적자(FY0 EPS≤0) — PER N/M」,
+    FY2025 당기순이익 −5.15억 · TTM 270.6억 vs DB 경로 102.6억). 원문 캐시 6,572건: 분기 칸 2,591·사업보고서 당기 칸 53건이 종전 값과 달랐고,
+    다른 칸은 모두 같다(표준 꼴 — 지배 + 비지배 = 당기순이익 — 은 종전 그대로).
+    원 단위 정수로 낸다(종전과 같다)."""
+    v = _controlling_ni(rows, field)[0]
+    return int(round(v)) if v is not None else None
 
 
 def _ctrl_ni_cum(rows):
@@ -2004,9 +2021,10 @@ def _ctrl_ni_cum(rows):
     따로 준다. **1분기는 둘이 같아서** 이 차이가 여태 드러나지 않았다 — TTM 이 1분기에
     못 박혀 있었기 때문이다(2026-08-30). 반기·3분기로 옮기는 순간 `thstrm_amount` 는
     그 분기 3개월치라 TTM 이 통째로 틀린다. 누적을 먼저 보고, 없을 때만 3개월로 내려간다.
+    261020(p1e firm-ctrl-ni): 줄마다 누적 → 없으면 당기(1분기·사업보고서는 이게 누적) — 분기 수집(`dart_finstat_q.ni_cum`)과 같은 규칙·같은 값.
     """
-    ni = _ctrl_ni(rows, "thstrm_add_amount")
-    return ni if ni is not None else _ctrl_ni(rows, "thstrm_amount")
+    v = _controlling_ni(rows)[0]
+    return int(round(v)) if v is not None else None
 
 
 def _eps_disclosed(rows: list, *fields: str) -> float | None:
@@ -2777,8 +2795,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append("⚠️ 자본잠식 50%↑ — 관리종목 위험.")
     elif cap_status == "partial":
         warnings.append("자본잠식 진행 중.")
-    if eps_fy is not None and eps_fy <= 0:   # None(파싱실패)을 '적자'로 오표기 금지 (패널 P1)
-        warnings.append("적자(FY0 EPS≤0) — PER N/M.")
+    _dw = _deficit_warning(eps_fy, ni_fy, per_fy)
+    if _dw:
+        warnings.append(_dw)
     if shares_unadjusted:
         r = shares_unadjusted["shares_ratio"]
         # 260823: 배수가 시총 기반으로 바뀌어 **PER·PBR 은 이 영향을 받지 않는다.**

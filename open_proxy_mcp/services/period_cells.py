@@ -31,6 +31,7 @@ from collections import Counter
 from typing import Any
 
 from open_proxy_mcp.services.scale_guard import gid_exact
+from open_proxy_mcp.services.controlling_ni import controlling_ni as _controlling_ni
 
 #: 근거 칸 머리 — 이 칸은 결산기 합으로 쓴 칸이다(읽는 쪽은 이 머리로 알아본다).
 MARK = "결산기 12개월"
@@ -84,62 +85,15 @@ def _g(rows, account_id, sj, field):
 
 
 def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str]:
-    """지배순이익과 고른 길. firm(`price_multiple_data._ctrl_ni`)과 같은 순서에 한 길을 더한다:
-    ① 지배 귀속 순이익 ② 비지배 순이익 줄이 있으면 총순이익 − 비지배 ③ (더한 길) 지배·비지배 순이익 줄이 없는데 **지배 귀속 총포괄**이 있고
-    기타포괄이 0(총포괄 = 총순이익)이면 그 값 — 10-20 원문 신한알파리츠 2023~2025 9월 사업보고서는 순이익을 지배·비지배로 나누지 않고
-    총포괄만 나눴다(2025.09 총순이익 113.1억 · 지배 총포괄 67.5억 = 다음 보고서 전기 칸의 지배 순이익). firm 의 길(②의 비지배 0)이면 비지배 몫이
-    섞인다. ④ (더한 길) 표준 코드 없는 이름 줄 — 값이 하나로 모일 때만(아래) ⑤ 총순이익(비지배 없는 회사).
+    """지배순이익과 고른 길 — 수집 배치·서버 firm 과 **같은 규칙**(`services/controlling_ni.controlling_ni`, 값 구조 검사). (261020 p1e firm-ctrl-ni)
 
-    ①의 지배 귀속 줄은 **값 구조(지배 + 비지배 = 총순이익)가 맞을 때만** 쓴다(261020 p1e 검토). 10-20 원문 신한서부티엔디리츠(404990) 2021~2023
-    사업보고서는 지배 귀속 순이익 줄을 0 으로 적었다(비지배 0 · 총순이익 16.5억 등 — 지배 총포괄 줄은 총순이익과 같다). 그 줄을 그대로 쓰면 결산기
-    순이익이 0 이 되어 사업연도 2021·2022 합이 0 으로 들어갔다. 신한알파리츠(293940) 2020.09 사업보고서 전기 칸은 지배 줄이 총순이익과 같고
-    비지배 −0.6억이 따로 있었다(지배 총포괄 = 총순이익 − 비지배). 구조가 어긋나면 ①을 건너뛰고 ②(총 − 비지배)부터 본다. 비지배 줄이 없는 회사는
-    지배 줄이 0 인데 총순이익이 0 이 아닐 때만 어긋났다고 본다(비지배 줄 없이 비지배가 있는 회사의 정상 값은 그대로 쓴다)."""
-    sj = ("CIS", "IS")
-    v = _g(rows, "ProfitLossAttributableToOwnersOfParent", sj, field)
-    pl = _g(rows, "ProfitLoss", sj, field)
-    nci = _g(rows, "ProfitLossAttributableToNoncontrollingInterests", sj, field)
-    if v is not None:
-        broken = pl is not None and abs(v + (nci or 0) - pl) >= 1 and (nci is not None or v == 0)
-        if not broken:
-            return v, "ID"
-    if pl is not None and nci is not None:
-        return pl - nci, "TOTAL_MINUS_NCI"
-    ci_o = _g(rows, "ComprehensiveIncomeAttributableToOwnersOfParent", sj, field)
-    ci = _g(rows, "ComprehensiveIncome", sj, field)
-    if pl is not None and ci_o is not None and ci is not None and abs(ci - pl) < 1:
-        return ci_o, "CI_OWNERS_OCI0"
-    # ④ 표준 계정코드 없이 이름으로만 지배·비지배를 나눈 보고서(10-20 원문 디앤디플랫폼리츠 2021·2022, ESR켄달스퀘어리츠 2021~2024 사업보고서 —
-    #   「지배기업 소유주지분」·「지배기업주주지분」). 순이익 귀속과 총포괄 귀속 두 곳에 같은 이름 줄이 있어 **값이 하나로 모일 때만** 쓴다(기타포괄이
-    #   있으면 두 값이 달라 쓰지 않는다 — 분기 수집 파서가 총포괄 지배 몫을 순이익으로 고르던 결함을 들이지 않는다).
-    own = set(_nonstd(rows, field, nci=False))
-    if len(own) == 1:
-        return own.pop(), "NM_OWNERS"
-    nci_nm = set(_nonstd(rows, field, nci=True))
-    if pl is not None and len(nci_nm) == 1 and not own:
-        return pl - nci_nm.pop(), "TOTAL_MINUS_NM_NCI"
-    if pl is not None:
-        return pl, "TOTAL"
-    return None, "NONE"
-
-
-def _nonstd(rows: list, field: str, nci: bool) -> list[float]:
-    """표준 계정코드가 없는 손익 줄 가운데 이름이 지배(nci=False) 또는 비지배(nci=True) 귀속인 줄의 값."""
-    out = []
-    for r in rows or []:
-        if r.get("sj_div") not in ("CIS", "IS") or not str(r.get("account_id") or "").startswith("-표준"):
-            continue
-        nm = str(r.get("account_nm") or "").replace(" ", "")
-        if "지배" not in nm or ("비지배" in nm) != nci or "주당" in nm:
-            continue
-        v = r.get(field)
-        if v in (None, "", "-"):
-            continue
-        try:
-            out.append(float(str(v).replace(",", "")))
-        except (TypeError, ValueError):
-            continue
-    return out
+    종전엔 이 모듈이 따로 규칙을 두었다(① 지배 귀속 줄 — 구조가 어긋나면 건너뜀 ② 총 − 비지배 ③ 지배 총포괄(기타포괄 0) ④ 표준 코드 없는 이름 줄 —
+    값이 하나로 모일 때만 ⑤ 총순이익). 그 경우들은 공용 규칙이 같은 값을 낸다 — 신한알파리츠 2023~2025 9월 보고서(지배 총포괄만 나눔)는
+    총포괄 id 줄의 값 구조(`CIS_CIID`), 신한서부티엔디리츠 2021~2023(지배 줄 0)은 빈 줄로 보고 다음 후보, 신한알파 2020.09 보고서 전기 칸(지배 줄 = 총계,
+    비지배 −0.64억)은 「비지배와 어긋난 지배 줄」(`controlling_ni._nci_contradicts`), 디앤디플랫폼리츠 이름 줄은 값 구조(`CIS_NM`).
+    원문 캐시(리츠 사업보고서 포함 6,572건)에서 종전 규칙과 값이 다른 칸: 신한알파 2023.09 결산기(당기순이익 694.75억 · 기타포괄 −0.03억 · 총포괄 쪽 비지배
+    15.41억 — 종전은 비지배 포함 총계, 이제 679.34억) 한 결산기와 일반 회사 사업보고서 칸(총포괄 지배 몫을 적은 지배 줄 등 — 배치와 같은 고침)."""
+    return _controlling_ni(rows, field)
 
 
 def ctrl_eq(rows: list, field: str = "thstrm_amount") -> float | None:

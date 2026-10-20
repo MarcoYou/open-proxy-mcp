@@ -23,7 +23,7 @@ PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년
           # 261019: 이 (종목, 사업연도) 행만 다시 받는다(이미 ok 여도) — 수집 규칙을 고친 뒤 그 규칙으로 틀렸던 행만 바로잡을 때.
           #   받은 값으로 순이익·자본 칸을 바꾼다(빈 값이면 빈 값으로). 받지 못하면(오류·자료 없음·단위 가드) 있던 ok 행은 그대로 둔다.
 """
-import argparse, asyncio, os, sys
+import argparse, asyncio, os, re, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ
@@ -35,6 +35,7 @@ from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_asses
 from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
+from open_proxy_mcp.services.controlling_ni import controlling_ni as _cni
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
@@ -84,6 +85,10 @@ DDL_MIGRATE = (
     "ALTER TABLE dart_finstat_y ADD COLUMN IF NOT EXISTS ni_restated double precision",
     "ALTER TABLE dart_finstat_y ADD COLUMN IF NOT EXISTS eq_restated double precision",
 )
+#: 261020(p1e firm-ctrl-ni): 그 행 값이 나온 사업보고서의 접수번호 — 정정 사업보고서가 나오면 다시 받는다(`refetch_amended`). 칸이 없으면(이행 전·권한 없음)
+#: 종전처럼 쓰고 정정 판정은 목록 창(`ANNUAL_AMEND_SCAN_DAYS`) 안의 [기재정정] 만 본다.
+DDL_RCEPT = "ALTER TABLE dart_finstat_y ADD COLUMN IF NOT EXISTS rcept_no text"
+_RCEPT_COL = False
 
 def num(v):
     try: return float(str(v).replace(",","")) if v not in (None,"","-") else None
@@ -147,34 +152,45 @@ _NIA = "ifrs-full_ProfitLossAttributableToOwnersOfParent"
 
 
 def ctrl_ni(rows, field="thstrm_amount"):
-    """지배 순이익 → (값, 거른 까닭 또는 None). 종전 규칙 그대로: 지배 귀속 순이익 계정(새·옛 접두어, 정확일치) → 없으면(또는 0) 당기순이익 총계.
+    """지배 순이익 → (값, 종전 규칙과 달라진 까닭 또는 None).
 
-    261020: 그 계정 줄 값이 **총포괄이익의 지배 몫**이면(값 구조 — 지배 + 비지배가 당기순이익엔 안 맞고 총포괄손익 총계에만 맞는다. 분기 수집의
-    `ni_attrib_side`) 그 줄은 버리고 분기 수집의 지배 순이익 규칙(`extract_controlling_ni_cum`)으로 간다. 지배 순이익 계정 줄에 총포괄 값을 적은
-    회사가 분기 보고서에 있었다(10-20 운영 분기 칸 259 · 336570 2021·2022 반기 등) — 사업보고서도 같은 회사 꼴이면 같은 값이 들어온다."""
-    v = gid(rows, _NIA, ("CIS", "IS"), field)
-    if v:
-        Q = _quarterly()
-        fr = [{**r, "thstrm_amount": r.get(field) or "", "thstrm_add_amount": ""} if r.get("sj_div") in ("IS", "CIS") else r
-              for r in rows]
-        if Q.ni_attrib_side(v, Q._ni_shape(fr)) == "ci":
-            v2, case = Q.extract_controlling_ni_cum(fr)
-            if v2 is not None:
-                return v2, f"지배 순이익 계정 줄 값 {v:.0f}원이 총포괄이익의 지배 몫이라 거름 → {case}"
+    261020(p1e firm-ctrl-ni): 분기 수집·서버 실시간 firm 과 **같은 규칙**(`open_proxy_mcp/services/controlling_ni.controlling_ni` — 값 구조 검사)으로 고른다.
+    종전 규칙은 ① 지배 귀속 순이익 계정 줄(새·옛 접두어, 정확일치) → ② 없으면(또는 0) **당기순이익 총계(비지배 포함)** 였고, #152 가 ① 줄의 값이 총포괄
+    지배 몫일 때만 분기 규칙으로 보냈다. 그래서 지배 계정 없이 이름으로 지배·비지배를 나눈 회사(표준 계정코드 미사용)는 연간 순이익에 비지배 몫이 섞였다
+    (10-20 운영 089860 FY2021: 총계 1,135.8억 — 원문 지배 몫 1,187.5억, 비지배 −51.7억). 이제 비지배가 있으면 값 구조로 지배 몫을 고른다.
+    비지배가 없는 회사(056360 FY2020·21 처럼 지배 줄에 총포괄 계정 id 를 붙였고 지배 몫 = 총계)는 종전과 같은 값이다.
+    두 번째 값은 종전 규칙(① → ②)과 값이 달라졌을 때만 까닭(공용 규칙의 케이스 — `extract_controlling_ni_cum` 트리)을 적는다(수집 로그용)."""
+    v, case = _cni(rows, field)
+    old = gid(rows, _NIA, ("CIS", "IS"), field)
+    if not old:
+        old = gid(rows, "ifrs-full_ProfitLoss", ("CIS", "IS"), field)
+    if v is None or (old is not None and abs(v - old) <= 1):
+        if v is None and old is not None:
+            return old, None             # 공용 규칙이 못 고르면(손익 줄이 없는 응답 꼴) 종전 값 — 값을 지우지 않는다
         return v, None
-    return gid(rows, "ifrs-full_ProfitLoss", ("CIS", "IS"), field), None
+    return v, (f"지배 순이익 계정 줄 값 {old:.0f}원이 총포괄이익의 지배 몫이라 거름 → {case}" if "CIREJ" in case and old is not None
+               else f"종전 규칙 값 {'없음' if old is None else f'{old:.0f}원'} → {case}")
 
 
 def _pg():
     """261018: 표·칸이 이미 있으면 DDL 을 보내지 않는다 — 이 수집이 주 1회 일정(finstat-quarterly)에 들어가면서, 있어도 표 전체 잠금을
     잡는 `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 를 매번 보내지 않게(서버의 연간 재무 읽기와 겹치지 않게)."""
+    global _RCEPT_COL
     con=psycopg.connect(os.environ["DATABASE_URL"])
-    have=con.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
-                     "AND table_name='dart_finstat_y' AND column_name IN ('ni_restated','eq_restated')").fetchone()[0]
-    if have < 2:
+    cols={r[0] for r in con.execute("SELECT column_name FROM information_schema.columns WHERE table_schema='public' "
+                                    "AND table_name='dart_finstat_y'")}
+    if not {"ni_restated","eq_restated"} <= cols:
         con.execute(DDL)
         for stmt in DDL_MIGRATE: con.execute(stmt)
     con.commit()
+    if "rcept_no" not in cols:
+        # 261020: 접수번호 칸(정정 사업보고서 다시 받기의 기준) — 못 만들면(권한 등) 칸 없이 종전처럼 간다(경고 한 줄)
+        try:
+            con.execute("SET lock_timeout = '3s'"); con.execute(DDL_RCEPT); con.commit(); cols.add("rcept_no")
+        except psycopg.Error as e:
+            con.rollback()
+            print(f"::warning::[연간 재무] 접수번호 칸(dart_finstat_y.rcept_no)을 만들지 못했다({type(e).__name__}) — 정정 판정은 목록 창 안의 [기재정정] 만",flush=True)
+    _RCEPT_COL = "rcept_no" in cols
     return con
 
 _REPLACE_SQL = (
@@ -188,12 +204,30 @@ def _flush(buf, replace=False):
     `replace`(261019 `--refetch`): 받은 순이익·자본으로 **바꾼다**(빈 값이면 빈 값으로 — 수집 규칙이 거른 칸을 비우려고). 받지 못한 결과(err·nodata —
     단위 가드 포함)는 있던 ok 행을 덮지 않는다. 정정치 칸은 손대지 않는다."""
     if not buf: return
+    # 261020: 행 끝(9번째)의 접수번호 — 칸이 있으면 함께 쓰고(받지 못한 결과는 있던 값을 둔다), 없으면 떼고 종전 그대로 쓴다.
+    rows9 = [tuple(r) + (None,) * (9 - len(r)) for r in buf]
     for attempt in (1,2):
         try:
             with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15) as c:
                 with c.cursor() as cur:
+                    if _RCEPT_COL:
+                        cur.executemany(
+                            "INSERT INTO dart_finstat_y (ticker,fy,fs,ni,eq,ni_restated,eq_restated,fetched,rcept_no) "
+                            "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (ticker,fy) DO UPDATE SET "
+                            + ("fs=EXCLUDED.fs, ni=EXCLUDED.ni, eq=EXCLUDED.eq, fetched=EXCLUDED.fetched, "
+                               "rcept_no=COALESCE(EXCLUDED.rcept_no, dart_finstat_y.rcept_no) "
+                               "WHERE NOT (EXCLUDED.fetched <> 'ok' AND dart_finstat_y.fetched = 'ok')" if replace else
+                               "fs=COALESCE(EXCLUDED.fs, dart_finstat_y.fs), ni=COALESCE(EXCLUDED.ni, dart_finstat_y.ni), "
+                               "eq=COALESCE(EXCLUDED.eq, dart_finstat_y.eq), "
+                               "ni_restated=COALESCE(EXCLUDED.ni_restated, dart_finstat_y.ni_restated), "
+                               "eq_restated=COALESCE(EXCLUDED.eq_restated, dart_finstat_y.eq_restated), "
+                               "fetched=CASE WHEN EXCLUDED.fetched <> 'restate_only' THEN EXCLUDED.fetched ELSE dart_finstat_y.fetched END, "
+                               "rcept_no=COALESCE(EXCLUDED.rcept_no, dart_finstat_y.rcept_no)"),
+                            rows9)
+                        c.commit(); buf.clear(); return
+                    buf8 = [r[:8] for r in rows9]
                     if replace:
-                        cur.executemany(_REPLACE_SQL, buf)
+                        cur.executemany(_REPLACE_SQL, buf8)
                         c.commit(); buf.clear(); return
                     # 순서 무관 병합: 실제조회(ni/eq)와 재작성(ni_restated/eq_restated)이 어느 순서로
                     # 와도 서로의 필드를 덮어쓰지 않음. fetched는 'restate_only'(선행 삽입용 자리표시)
@@ -209,7 +243,7 @@ def _flush(buf, replace=False):
                         "eq_restated=COALESCE(EXCLUDED.eq_restated, dart_finstat_y.eq_restated), "
                         "fetched=CASE WHEN EXCLUDED.fetched <> 'restate_only' THEN EXCLUDED.fetched "
                         "             ELSE dart_finstat_y.fetched END",
-                        buf)
+                        buf8)
                 c.commit()
             buf.clear(); return
         except psycopg.OperationalError:
@@ -255,11 +289,10 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
             fs=first; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             if not rows:
                 fs=second; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
-            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"
             ni,ni_note=ctrl_ni(rows)              # 261020: 지배 순이익 계정 줄의 총포괄 값은 거른다
             if ni_note:
                 print(f"[순이익] {isu} FY{yr} {ni_note}",flush=True)
-            ni_frmtrm=gid(rows,attr,("CIS","IS"),"frmtrm_amount")
+            ni_frmtrm=ctrl_ni(rows,"frmtrm_amount")[0]   # 261020: 스케일 가드의 전기 값도 같은 규칙(종전 지배 계정 줄)
             eq,eq_note=ctrl_eq(rows)
             if eq_note:
                 print(f"[자본] {isu} FY{yr} {eq_note}",flush=True)
@@ -290,7 +323,7 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
                 print(f"[가드] {isu} FY{yr} 스케일오류 감지({verdict['hard_hit']}) — ni/eq 무효화",flush=True)
                 ni=eq=None
             st="ok" if (ni is not None or eq is not None) else "nodata"
-            buf.append((isu,yr,fs,ni,eq,None,None,st))
+            buf.append((isu,yr,fs,ni,eq,None,None,st,pcells.rows_rcept(rows) if rows else None))   # 261020: 접수번호(정정 판정 기준)
             if len(buf)>=25: _flush(buf, replace=bool(only))
         except Exception as e:
             en=type(e).__name__
@@ -308,6 +341,96 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
     _flush(buf, replace=bool(only))
     print("fetch 종료",flush=True)
+
+
+#: 261020(p1e firm-ctrl-ni): 정정 사업보고서를 찾는 공시 목록 창(오늘부터 거꾸로 일수). 이 수집은 주 1회(분기 마감 뒤 한 달은 매일) 돌고, 행마다 그 값이
+#: 나온 보고서의 접수번호를 남기므로(`rcept_no`) 창은 실행 간격 + 여유면 된다. 빠진 실행을 메울 때는 `--amended-since YYYYMMDD`.
+ANNUAL_AMEND_SCAN_DAYS = int(os.getenv("SERIES_AMEND_SCAN_DAYS", "10"))
+_ANNUAL_RPT = re.compile(r"사업보고서\s*\((\d{4})\.(\d{2})\)")
+
+
+def amended_targets(items, rows: dict, cc_to_ticker: dict) -> set[tuple[str, int]]:
+    """정정 사업보고서가 나온 연간 행 — 다시 받을 {(종목, 사업연도)}(순수 함수, 시험 대상).
+
+    261020(p1e firm-ctrl-ni): 연간 수집은 받은(ok) 행을 다시 받지 않아, 사업보고서를 [기재정정]으로 고쳐 내도 값이 그대로였다(10-20 운영 246710 FY2025:
+    DB −349.4억 · 8/25 기재정정 뒤 DART −319.5억). 분기 결산 리츠의 결산기 칸(#153)처럼 **새 보고서(정정 포함)가 있을 때만** 다시 받는다.
+    `items` = DART 공시 목록 항목(report_nm·rcept_no·corp_code), `rows` = {(종목, 사업연도): (fetched, 저장된 접수번호 또는 None)}.
+    · 사업보고서 이름의 연도(「사업보고서 (2025.12)」 → 2025, 「(2026.03)」 → 2026)가 연간 표의 사업연도다(DART 표기 — 연간 표와 같다).
+    · [첨부정정]·[첨부추가]는 재무제표를 바꾸지 않아 보지 않는다.
+    · 저장된 접수번호가 있으면 그보다 늦은 보고서(정정 포함)가 있을 때, 없으면(칸 이행 전에 받은 행) 목록에 [기재정정]이 있을 때 다시 받는다 —
+      다시 받으면 접수번호가 남아 같은 정정으로 또 받지 않는다. ok 가 아닌 행은 정규 수집(`fetch_plan`)이 본다."""
+    latest: dict[tuple[str, int], str] = {}
+    amended: set[tuple[str, int]] = set()
+    for it in items or []:
+        nm = it.get("report_nm") or ""
+        m = _ANNUAL_RPT.search(nm)
+        t = cc_to_ticker.get(it.get("corp_code"))
+        if not m or not t or "첨부" in nm.split("사업보고서")[0]:
+            continue
+        k = (t, int(m.group(1)))
+        rc = str(it.get("rcept_no") or "")
+        if rc > latest.get(k, ""):
+            latest[k] = rc
+        if "기재정정" in nm:
+            amended.add(k)
+    out = set()
+    for k, rc in latest.items():
+        st, stored = rows.get(k, (None, None))
+        if st != "ok":
+            continue
+        if (stored and rc > stored) or (not stored and k in amended):
+            out.add(k)
+    return out
+
+
+async def refetch_amended(days: int | None = None, since: str | None = None, today: date | None = None) -> set[tuple[str, int]]:
+    """정정 사업보고서가 나온 연간 행만 다시 받는다(`amended_targets` → `fetch(only=…)`, 받은 값으로 바꾼다 — 261019 `--refetch` 와 같은 쓰기).
+    콜: 정기공시 목록(코스피·코스닥 · 창 10일 ≈ 4~10콜 — DART 가 상세 유형 거르기를 받지 않아 분기·반기보고서도 섞여 온다) + 대상 행마다 1~2콜.
+    Q4 seed(연간 → 분기 표 사업보고서 칸)와 파생은 이 뒤 단계가 그대로 옮긴다(값이 같은 행은 다시 쓰지 않는다)."""
+    from datetime import timedelta
+    from open_proxy_mcp.dart.client import get_dart_client, DartClientError, market_window_end, dart_halts_batch, dart_batch_halt_line
+    t = today or date.today()
+    start = date(int(since[:4]), int(since[4:6]), int(since[6:8])) if since else t - timedelta(days=ANNUAL_AMEND_SCAN_DAYS if days is None else days)
+    con = _pg()
+    cc_to_ticker = {cc: tk for tk, cc in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")}
+    rows = {(r[0], int(r[1])): (r[2], r[3] if len(r) > 3 else None) for r in con.execute(
+        "SELECT ticker, fy, fetched" + (", rcept_no" if _RCEPT_COL else "") + " FROM dart_finstat_y")}
+    con.close()
+    c = get_dart_client(); items = []; calls = 0
+    try:
+        for cls in ("Y", "K"):
+            cur = start
+            while cur <= t:
+                end = min(market_window_end(cur), t); page = 1
+                while True:
+                    try:
+                        res = await c.search_filings(bgn_de=cur.strftime("%Y%m%d"), end_de=end.strftime("%Y%m%d"), pblntf_ty="A",
+                                                     corp_cls=cls, page_no=page, page_count=100)
+                    except DartClientError as e:
+                        if "013" in str(e):
+                            break
+                        raise
+                    calls += 1
+                    items += [it for it in res.get("list") or [] if "사업보고서" in (it.get("report_nm") or "")]
+                    if page >= int(res.get("total_page") or 1):
+                        break
+                    page += 1
+                    await asyncio.sleep(0.45)
+                cur = end + timedelta(days=1)
+    except Exception as e:  # noqa: BLE001 — 목록을 다 못 읽으면 다시 받지 않는다(다음 실행이 같은 창을 다시 본다)
+        if dart_halts_batch(e):
+            print(dart_batch_halt_line(e, "정정 사업보고서 목록"), flush=True)
+        else:
+            print(f"::warning::[연간 재무] 정정 사업보고서 목록 실패({type(e).__name__}) — 이번엔 다시 받지 않는다", flush=True)
+        return set()
+    targets = amended_targets(items, rows, cc_to_ticker)
+    print(f"정정 사업보고서: 목록 {start}~{t} 사업보고서 {len(items)}건(DART {calls}콜) · 다시 받을 연간 행 {len(targets)}"
+          + ("" if _RCEPT_COL else " (접수번호 칸 없음 — 창 안 [기재정정] 기준)"), flush=True)
+    for tk, fy in sorted(targets):
+        print(f"  [정정] {tk} FY{fy}", flush=True)
+    if targets:
+        await fetch(only=targets)
+    return targets
 
 
 async def backfill_restated(tickers: list[str] | None = None, report_year: int = 2024):
@@ -346,7 +469,6 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
             d=await c.get_fnltt_singl_acnt_all(cc,str(report_year),"11011",fs)
             rows=(d.get("list") or []) if isinstance(d,dict) else []
             await asyncio.sleep(0.45)
-            attr="ifrs-full_ProfitLossAttributableToOwnersOfParent"
             stmt_cur=statement_currency(rows) if rows else "KRW"
             for fy_off,field in ((report_year-1,"frmtrm_amount"),(report_year-2,"bfefrmtrm_amount")):
                 ni_r,ni_note=ctrl_ni(rows,field)     # 261020: 정정치도 같은 규칙
@@ -462,14 +584,20 @@ if __name__=="__main__":
     ap.add_argument("--report-year",type=int,default=2024,help="--backfill-restated 가 읽을 사업보고서 표기 연도")
     ap.add_argument("--series",action="store_true")
     ap.add_argument("--tickers",type=str,help="--fetch·--backfill-restated 를 이 종목만(콤마구분)")
+    ap.add_argument("--amended",action="store_true",
+                    help="261020: 정정 사업보고서(기재정정)가 나온 연간 행만 다시 받는다(공시 목록 창 --amended-days, 기본 10일)")
+    ap.add_argument("--amended-days",type=int,default=None)
+    ap.add_argument("--amended-since",type=str,default=None,help="정정 판정 목록 시작일 YYYYMMDD(빠진 실행 메우기)")
     ap.add_argument("--refetch",type=str,
                     help="이 (종목:사업연도) 행만 다시 받는다(이미 ok 여도) — 콤마구분(예 065680:2018). 수집 규칙을 고친 뒤 틀렸던 행만")
     a=ap.parse_args()
-    if a.fetch or a.backfill_restated or a.refetch:
+    if a.fetch or a.backfill_restated or a.refetch or a.amended:
         _note=ecos_key_missing_note("연간 재무 수집")   # 261019: 외화 보고사 환산 — 키가 빠진 실행을 처음에 한 줄로
         if _note: print(_note,flush=True)
     if a.refetch:
         asyncio.run(fetch(only={(t,int(y)) for t,y in (x.split(":") for x in a.refetch.split(",") if x)}))
-    elif a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
+    elif a.fetch or a.amended:
+        if a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
+        if a.amended: asyncio.run(refetch_amended(a.amended_days, a.amended_since))   # 261020: 정정 사업보고서가 나온 행만
     elif a.backfill_restated: asyncio.run(backfill_restated(a.tickers.split(",") if a.tickers else None, a.report_year))
     else: series()
