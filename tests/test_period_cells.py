@@ -493,7 +493,8 @@ def test_refresh_keeps_the_first_interim_point_the_api_no_longer_returns(monkeyp
     w0 = mfq.period_cell_writes("330590", "OFS", now)
     q1 = [r for r in w0["q"] if r[1:3] == (2026, 1)][0]
     assert "자본 202603" in q1[7] and pc.avail_of(q1[7]) == "20260514"
-    stored = [(r[0], r[1], r[2], r[6], r[7]) for r in w0["q"]]
+    # 2025 3분기 칸(자본 2025.09 시점)은 낡은 값으로 둔다 — 이번에 받은 원문에 그 시점이 있으면 받은 값이 먼저다(정정 반영)
+    stored = [(r[0], r[1], r[2], 1.0 if r[1:3] == (2025, 3) else r[6], r[7]) for r in w0["q"]]
     sep26 = _interim("20261113000700", 16, "1120000000000")
     api = {("2025", "11011"): LOTTE_ANNUAL[1], ("2026", "11011"): LOTTE_ANNUAL[2],
            ("2025", "11012"): LOTTE_INTERIM[0], ("2026", "11012"): sep26}     # (해, 반기 코드)는 그해 가장 늦은 시점 하나뿐
@@ -557,6 +558,19 @@ def test_refresh_keeps_the_first_interim_point_the_api_no_longer_returns(monkeyp
     monkeypatch.setattr(dc, "get_dart_client", lambda: _Client())
     res = asyncio.run(mfq.refresh_period_cells(["330590"], today=date(2026, 11, 20)))
     assert "행 씀" in res["330590"] and ("2024", "11011", "OFS") not in calls      # 새 보고서 해 −1 ~ 올해만 다시 받는다
+    assert ("2025", "11011", "OFS") in calls and any(r and r[1] == 2025 for sql, r in written if "'11011'" in sql)   # −1 해(전기 칸 정정)도 다시 쓴다
     q = {(r[1], r[2]): r for sql, r in written if r and "'nodata'" in sql}
     assert q[(2026, 1)][5:7] == q1[5:7] and q[(2026, 1)][7] == q1[7] + " · 목록 20261113"   # 1분기 칸 그대로 — 자본 2026.03 · 공시 05/14
+    assert q[(2025, 3)][6] == 1129578756324.0
     assert q[(2026, 3)][6] == 1120000000000.0 and "자본 202609" in q[(2026, 3)][7] and pc.avail_of(q[(2026, 3)][7]) == "20261113"
+
+
+def test_pit_fallback_skips_an_earlier_cell_filed_later():
+    """앞선 칸 대체(`_pit_fallback`)도 결산기 칸은 그날까지 공시된 칸만 — 기간 말이 앞서도 공시가 늦은 칸이 있다(10-20 운영 432320 —
+    상장 전 결산기 칸 2022 사업보고서 칸 공시 2023-10-16 · 2023 사업보고서 칸 2023-10-13). 그 칸을 쓰면 미래 정보다."""
+    fye = rc.with_cells(12, {(2024, 2): "20240901", (2024, 1): "20241201"})
+    fin = {2023: (100.0, 1000.0)}
+    finq = {(2024, 1): (10.0, 900.0), (2023, 1): (5.0, 800.0), (2024, 2): (None, None)}
+    assert rc.pit_cell("20241015", fye) == (2024, 2)
+    assert S._pit_fallback("20241015", 1e4, fin, finq, fye) == {}               # (2024, 1) 은 12/01 공시 — 10/15 엔 아직 없다
+    assert S._pit_fallback("20241215", 1e4, fin, finq, fye)["per_ttm"] == (1e4 / 105.0, (2024, 1))
