@@ -645,9 +645,18 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
     fs_map={r[0]:r[1] for r in con.execute("SELECT ticker, fs FROM dart_finstat_y WHERE fy=%s", (report_year,))}
     # 이 함수는 fy=report_year 보고서를 조회해 그 앞 두 해 행에 재작성치를 쓴다(report_year 자체엔 안 씀).
     # 따라서 완료 판정은 두 해 중 하나라도 재작성치가 있으면 그 종목은 처리됐다고 본다(tickers 를 주면 판정하지 않는다).
-    done=set() if tickers else {r[0] for r in con.execute(
-        "SELECT ticker FROM dart_finstat_y WHERE fy IN (%s,%s) "
-        "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (report_year-2, report_year-1))}
+    # 261020(p1f): 출처 칸이 있으면 「그 보고서(표기 report_year — 그 다음 해에 접수) 이상에서 온 정정 칸이 이미 있는 종목」만 처리됐다고 본다.
+    #   종전 판정(두 해 중 하나라도 정정 칸)은 2024 보고서로 채운 2023 정정 칸 때문에 2025 보고서 백필(--report-year 2025)이 거의 모든 종목을 건너뛰게 했다.
+    #   재작성이 없는 종목은 정정 칸을 쓰지 않으므로 다시 돌리면 다시 받는다(끊긴 실행 이어 돌리기는 --tickers 로 좁힌다).
+    if tickers:
+        done=set()
+    elif _RESTATED_COL:
+        done={r[0] for r in con.execute(
+            "SELECT ticker FROM dart_finstat_y WHERE fy=%s AND restated_rcept_no >= %s", (report_year-1, str(report_year+1)))}
+    else:
+        done={r[0] for r in con.execute(
+            "SELECT ticker FROM dart_finstat_y WHERE fy IN (%s,%s) "
+            "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (report_year-2, report_year-1))}
     fye_of=rcal.load_fye_map(con)
     # 261020(p1e): 반기·분기 결산 회사(결산기 칸 종목)는 건너뛴다 — 그 회사의 전기·전전기 칸은 앞 **결산기**(6·3개월 전)라 앞 사업연도 행에 넣으면
     #   틀린다(10-20 운영 롯데리츠 FY2022·2023 정정 칸이 그렇게 들어가 있었다). 연간 값은 --period-cells 가 결산기 12개월 합으로 쓴다.

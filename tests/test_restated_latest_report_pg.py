@@ -232,3 +232,18 @@ def test_report_of_another_fiscal_year_is_not_used(ydb, capsys):
     out = capsys.readouterr().out
     assert "2025 사업연도 보고서가 왔다" in out
     assert S.report_year_mismatch(rows, 2024) == "2025" and S.report_year_mismatch(rows, 2025) is None and S.report_year_mismatch([], 2024) is None
+
+
+def test_backfill_of_a_newer_report_is_not_skipped_by_older_restated_cells(ydb):
+    """출처 칸이 있으면 「처리됨」은 그 보고서 이상에서 온 정정 칸이 있을 때만 — 종전 판정(앞 두 해 중 하나라도 정정 칸)이면 2024 보고서로 채운
+    FY2023 정정 칸 때문에 2025 보고서 백필(--report-year 2025)이 그 종목을 건너뛰었다."""
+    url, fake = ydb
+    fake.avail[("00000001", "2025", "11011", "CFS")] = _r("20260312000001", ni=400 * B, eq=1700 * B, ni_frm=305 * B, eq_frm=1500 * B,
+                                                          ni_bfe=205 * B, eq_bfe=1205 * B)
+    asyncio.run(S.backfill_restated(report_year=2025))
+    assert ("00000001", "2025", "11011", "CFS") in fake.calls
+    got = {r[0]: r for r in _rows(url, "000001")}
+    assert got[2023][3:6] == (205.0 * B, 1205.0 * B, "20260312000001") and got[2024][3:6] == (305.0 * B, 1500.0 * B, "20260312000001")
+    fake.calls.clear()
+    asyncio.run(S.backfill_restated(report_year=2025))
+    assert ("00000001", "2025", "11011", "CFS") not in fake.calls, "그 보고서 이상에서 온 정정 칸이 있으면 다시 받지 않는다"
