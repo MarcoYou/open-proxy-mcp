@@ -32,7 +32,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Callable, Iterable
+from typing import Any, Awaitable, Callable, Iterable
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.amendment_table import card_summary, parse_amendment_table
@@ -553,7 +553,8 @@ def resolve_period(period: str, *, cursor: str = "",
 #   저장분으로 옮겼다. 다음 단계에서 `krx_weekly` 는 닫힌 주의 마지막 거래일만 담게 되는데(이번 주 행을 매일
 #   지우고 다시 넣는 일을 그만둔다), 그때 여기가 그대로면 유니버스·시총이 지난주 값으로 낡는다.
 #   실측(20261016): 두 저장분의 같은 날 단면이 2,762종목 종가·시총·상장주식수·시장 모두 차이 0 — 응답은 그대로다.
-# 🔴 단면은 **기준일을 먼저 읽고 그 날 행만** 본다(`max(trd_dd) FROM krx_daily` → `krx_daily_v WHERE trd_dd=%s`).
+# 🔴 단면은 **기준일을 먼저 읽고 그 날 행만** 본다(기준일은 달력 `krx_day` 의 가장 늦은 거래일 — `krx_daily.latest_day`,
+#   그다음 `krx_daily_v WHERE trd_dd=%s`).
 #   종목별 최신 행 뷰(`price_latest`)를 날짜 조건 없이 통째로 읽지 않는다 — 보관 창(약 1년) 안에서 상장폐지된
 #   종목은 옛 날짜 행이 그대로 남아(실측 5종목) 오늘 순위에 섞인다. 종목 몇 개의 최신값이면 그 뷰가 맞다.
 # 🔴 고르는 칸은 사실값 + mktcap 뿐이다 — 등락(chg·chg_pct·prev_*)은 종목별 창 계산이라 단면에서 고르면 느려진다
@@ -565,7 +566,8 @@ def _krx_latest_dd() -> str | None:
     """서빙 단면의 기준일 — 일별 시세 저장분에 보관된 가장 늦은 거래일(YYYYMMDD). 비었거나 장애면 None.
     이름은 그대로 둔다(여러 시험이 이 이름을 바꿔 끼운다).
     261018: 정의는 `krx_daily.latest_day` 한 곳이다 — 종목 최신가의 기준일(`price_multiple_data._krx_daily_latest_dd`)과 같은 것.
-    읽기는 이 모듈의 `pg_rows` 로 한다(시험이 이 모듈의 DB 읽기를 바꿔 끼운다)."""
+    읽기는 이 모듈의 `pg_rows` 로 한다(시험이 이 모듈의 DB 읽기를 바꿔 끼운다).
+    동기 함수다 — async 호출부는 `asyncio.to_thread` 로 부른다(이벤트 루프 밖)."""
     return _krx_daily.latest_day(pg_rows)
 
 
@@ -803,16 +805,17 @@ def _index_members_latest(code: str) -> "_index_members.Members | None":
     return _index_members.latest(code, pg_rows)
 
 
-def _index_universe(idx: "_index_members.IndexSpec", price_dd: str | None,
-                    rank: Callable[[int, str | None, str], UniverseFilter]) -> UniverseFilter:
+async def _index_universe(idx: "_index_members.IndexSpec", price_dd: str | None,
+                          rank: Callable[[int, str | None, str], Awaitable[UniverseFilter]]) -> UniverseFilter:
     """지수 → 구성종목 집합. 원장을 못 읽으면 종전처럼 그 시장의 시총 상위 정원으로 대체하고 **대체했다고 밝힌다**.
 
     구성종목 집합은 시세 저장분과 무관하게 원장에서 온다 — 기준일(`price_dd`)이 없어도 집합은 만든다
-    (공시 필터에는 종목코드만 있으면 된다). 시세 단면이 필요한 호출자(순위표)는 그 날 행을 따로 읽는다."""
-    members = _index_members_latest(idx.code)
+    (공시 필터에는 종목코드만 있으면 된다). 시세 단면이 필요한 호출자(순위표)는 그 날 행을 따로 읽는다.
+    원장 읽기는 이벤트 루프 밖 스레드에서 돈다(`asyncio.to_thread`)."""
+    members = await asyncio.to_thread(_index_members_latest, idx.code)
     if members is None:
         note_degradation("universe_approximated")
-        uf = rank(idx.size, idx.market, f"{idx.label}(→{to_label(idx.market)} 시총상위{idx.size} 대체)")
+        uf = await rank(idx.size, idx.market, f"{idx.label}(→{to_label(idx.market)} 시총상위{idx.size} 대체)")
         if uf.resolved:
             uf.notice = (f"{idx.label} 구성종목 원장을 읽지 못해 {to_label(idx.market)} 시총상위 {idx.size}으로 대체했다"
                          f"(실제 구성과 다를 수 있다 · 다른 시장 미포함).")
@@ -829,15 +832,16 @@ async def resolve_universe(universe: str) -> UniverseFilter:
       top_mktcap:N(전체시장 시총상위) · custom:코드|이름,… · sector:…(미구현 degrade)
     """
     spec = (universe or "all").strip()
-    price_dd = _krx_latest_dd()
+    # 시세 DB 읽기는 모두 이벤트 루프 밖 스레드에서 돈다(`asyncio.to_thread` — 루프를 60~100ms 막지 않는다).
+    price_dd = await asyncio.to_thread(_krx_latest_dd)
 
     if spec in ("", "all"):
         return UniverseFilter(label="전체시장", resolved=True, allowed=None, price_dd=price_dd)
 
     low = spec.lower()
 
-    def _rank(n: int, market: str | None, label: str) -> UniverseFilter:
-        allowed = _krx_top_mktcap(n, price_dd, market) if price_dd else set()
+    async def _rank(n: int, market: str | None, label: str) -> UniverseFilter:
+        allowed = (await asyncio.to_thread(_krx_top_mktcap, n, price_dd, market)) if price_dd else set()
         if not allowed:
             # ★ 260824 계기 지점. 이 폴백이 **모든 kospi200 호출에서 100% 발화**하고 있었는데
             #   문장이 사용자 응답에만 실려 나가고 우리가 보는 곳엔 안 쌓였다.
@@ -848,7 +852,7 @@ async def resolve_universe(universe: str) -> UniverseFilter:
 
     # 시장 전체(랭킹 없음) — exact 매칭(kospi200/kospi:N 흡수 방지)
     if low in ("market:kospi", "kospi"):
-        codes = _krx_market_codes(MKT_KS, price_dd) if price_dd else set()
+        codes = (await asyncio.to_thread(_krx_market_codes, MKT_KS, price_dd)) if price_dd else set()
         if not codes:
             note_degradation("universe_fallback")
         return UniverseFilter(label="KOSPI 전체", resolved=bool(codes),
@@ -856,7 +860,7 @@ async def resolve_universe(universe: str) -> UniverseFilter:
                               allowed=codes or None, price_dd=price_dd,
                               corp_cls=None if codes else "Y")
     if low in ("market:kosdaq", "kosdaq"):
-        codes = _krx_market_codes(MKT_KQ, price_dd) if price_dd else set()
+        codes = (await asyncio.to_thread(_krx_market_codes, MKT_KQ, price_dd)) if price_dd else set()
         if not codes:
             note_degradation("universe_fallback")
         return UniverseFilter(label="KOSDAQ 전체", resolved=bool(codes),
@@ -871,20 +875,20 @@ async def resolve_universe(universe: str) -> UniverseFilter:
         except ValueError:
             note_degradation("universe_fallback")
             return UniverseFilter(label=spec, resolved=False, notice="kospi:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
-        return _rank(n, MKT_KS, f"KOSPI 시총상위 {n}")
+        return await _rank(n, MKT_KS, f"KOSPI 시총상위 {n}")
     if low.startswith("kosdaq:") or low.startswith("kosdaq_top:"):
         try:
             n = int(spec.split(":", 1)[1])
         except ValueError:
             note_degradation("universe_fallback")
             return UniverseFilter(label=spec, resolved=False, notice="kosdaq:N 파싱 실패 → 전체시장.", allowed=None, price_dd=price_dd)
-        return _rank(n, MKT_KQ, f"KOSDAQ 시총상위 {n}")
+        return await _rank(n, MKT_KQ, f"KOSDAQ 시총상위 {n}")
 
     # 지수(코스피200·코스닥150) → 구성종목 원장. 261018 전에는 원장이 없어 늘 시총 순위로 대체했다
     #   (실측 20261016: 공식 201종목 중 34종목이 대체 목록에 없었다 — `open_proxy_mcp/index_members.py`).
     idx = next((sp for code, sp in _index_members.INDEXES.items() if low.startswith(code)), None)
     if idx is not None:
-        return _index_universe(idx, price_dd, _rank)
+        return await _index_universe(idx, price_dd, _rank)
 
     # 전체시장 시총 상위 N (시장 혼합 — 라벨로 명시)
     if low.startswith("top_mktcap:"):
@@ -893,7 +897,7 @@ async def resolve_universe(universe: str) -> UniverseFilter:
         except ValueError:
             return UniverseFilter(label=spec, resolved=False,
                                   notice="top_mktcap:N 파싱 실패 → 전체시장으로 대체.", allowed=None, price_dd=price_dd)
-        return _rank(n, None, f"전체시장 시총상위 {n}")
+        return await _rank(n, None, f"전체시장 시총상위 {n}")
 
     if low.startswith("custom:"):
         return await _resolve_custom_universe(spec.split(":", 1)[1], price_dd)
@@ -1583,8 +1587,9 @@ async def _build_screener_payload_impl(
     hits.sort(key=lambda r: r["rcept_no"], reverse=True)  # 최신순
 
     # ── 시총 배치 부착(일별 시세 저장분 최신 거래일, DART 0콜) ─────────
+    # DB 한 왕복은 이벤트 루프 밖 스레드에서 돈다(`asyncio.to_thread`).
     if uni.price_dd:
-        cap_map = _krx_mktcap_map((h["stock_code"] for h in hits), uni.price_dd)
+        cap_map = await asyncio.to_thread(_krx_mktcap_map, [h["stock_code"] for h in hits], uni.price_dd)
     else:
         cap_map = {}
     for h in hits:
