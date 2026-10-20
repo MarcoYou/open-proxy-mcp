@@ -24,6 +24,7 @@ import time
 import asyncio
 import datetime as _dt
 from itertools import islice as _islice
+import itertools as _itertools
 import contextlib
 import calendar
 import collections
@@ -640,6 +641,7 @@ def dart_batch_halt_line(e: BaseException, done: str = "") -> str:
 #: 부르는 일은 없다(실측 최대 수십 건). 바이트는 주요계정 다중회사(100사/콜)처럼 큰 응답이 몇백 건 쌓여 요청 하나가 메모리를 먹지 않게 하는
 #: 안전판이다(예산을 개수만으로 잡다 260804 OOM 이 났다 — 위 캐시 주석). 넘으면 **메모만 포기**하고 호출은 그대로 한다.
 _REQUEST_MEMO_MAX = 512
+_MEMO_IDENTS = _itertools.count(1)
 _REQUEST_MEMO_MAX_BYTES = 8 * 1024 * 1024
 
 
@@ -1908,6 +1910,13 @@ class DartClient:
         self.api_key = self._api_keys[self._key_index]
         return True
 
+    def _memo_id(self) -> int:
+        """요청 단위 메모의 키에 넣는 클라이언트 번호(프로세스 안에서 겹치지 않는다 — `id()` 는 객체가 사라지면 재사용된다)."""
+        mid = self.__dict__.get("_memo_ident")
+        if mid is None:
+            mid = self.__dict__["_memo_ident"] = next(_MEMO_IDENTS)
+        return mid
+
     async def _request(self, endpoint: str, params: dict) -> dict:
         """공통 API 호출 메서드 (JSON 응답용) — **한 요청 안에서 같은 (엔드포인트, 인자)는 한 번만** 부른다.
 
@@ -1915,6 +1924,7 @@ class DartClient:
         (배수 도구 firm 14콜 중 company.json · 사업보고서 재무제표 · 배당 3콜이 동일 인자 중복). 동시에 오면
         진행 중인 한 호출을 함께 기다리고(get_document_cached 의 single-flight 와 같은 꼴), 끝난 뒤에 오면 그 결과를 쓴다.
 
+        - 메모는 **클라이언트(API 키 풀)마다 따로**다 — 키의 사정인 020·010 이 다른 키에 번지지 않게.
         - **요청 장부가 없으면 메모하지 않는다**(배치·스크립트 — 요청 경계가 없다). 장부는 요청마다 새로 만들어지고 응답이
           끝나면 버려지므로 **요청 경계를 넘는 공유는 없다**.
         - 기준일(`as_of`·엄격 모드)이 걸린 호출은 건드리지 않는다 — 응답 행을 걸러내는 일이 호출자의 문맥에 달려 있고 그 기록
@@ -1927,7 +1937,8 @@ class DartClient:
         memo = _request_memo()
         if memo is None:
             return await self._request_http(endpoint, params)
-        key = (endpoint, tuple(sorted((str(k), str(v)) for k, v in params.items() if k != "crtfc_key")))
+        # 키에 **이 클라이언트(=API 키 풀)의 번호**를 넣는다 — 한도(020)·등록 안 된 키(010) 같은 답은 키마다 달라서, 다른 키의 오류를 물려받으면 안 된다.
+        key = (self._memo_id(), endpoint, tuple(sorted((str(k), str(v)) for k, v in params.items() if k != "crtfc_key")))
         entry = memo.get(key)
         if entry is None:
             if len(memo) >= _REQUEST_MEMO_MAX:
