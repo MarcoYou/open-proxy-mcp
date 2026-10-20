@@ -777,6 +777,13 @@ def _build_account_map_all(
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
                     break
+    # 261020(p1e firm-ctrl-ni): 지배 순이익은 수집 배치·price_multiple_data(firm)와 **같은 규칙**(`services/controlling_ni` — 값 구조 검사)으로 고른다.
+    #   위 루프는 지배 귀속 순이익 계정 id 가 든 첫 줄을 그대로 썼고(없으면 아래 요약에서 주요계정 당기순이익 총계 — 비지배 포함), 그래서 그 줄에
+    #   총포괄이익의 지배 몫을 적은 회사(075180 FY2025 27.68억 — 당기순이익은 −5.15억)·표준 계정코드 없이 이름으로 지배·비지배를 나눈 회사(비지배
+    #   포함 총계)에서 ROE·순이익률·순이익 전년비가 firm·DB 와 달랐다. 손익 칸은 위와 같다(누적이면 줄마다 당기 누적 → 없으면 당기).
+    from open_proxy_mcp.services.controlling_ni import controlling_ni as _shared_ctrl_ni   # 순환 가져오기를 피해 여기서
+    _ni_c = _shared_ctrl_ni(rows)[0] if cumulative_is else _shared_ctrl_ni(rows, f"{period}_amount")[0]
+    out["controlling_interest_income"] = int(round(_ni_c)) if _ni_c is not None else None
     # EPS: total 행이 없으면 계속영업 EPS로 채움 (분리공시 회사 — 한화에어로·효성중공업 등)
     if out.get("basic_eps") is None and out.get("_basic_eps_cont") is not None:
         out["basic_eps"] = out["_basic_eps_cont"]

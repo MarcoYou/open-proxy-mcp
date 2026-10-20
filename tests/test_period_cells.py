@@ -102,11 +102,15 @@ def test_first_period_is_not_summed():
 
 
 def test_owner_comprehensive_income_when_profit_is_not_split():
-    """신한알파리츠 2025.09 사업보고서 — 순이익 지배·비지배 줄이 없고 지배 총포괄만(기타포괄 0). firm 종전 규칙은 총순이익(비지배 포함)."""
+    """신한알파리츠 2025.09 사업보고서 — 순이익 지배·비지배 줄이 없고 지배 총포괄만(기타포괄 0). firm 종전 규칙은 총순이익(비지배 포함).
+    261020(p1e firm-ctrl-ni): 결산기 칸·firm 일반 경로·수집 배치가 한 규칙(`controlling_ni`) — 총포괄 id 줄의 값 구조(지배 + 비지배 = 당기순이익)로 고른다."""
     rows = _rep("20251202000364", (15, 14, 13), ("11311947161", "12428538238", "4652415132"), ("1", "1", "1"),
                 owners_ci=("6751988258", "9784917968", "3115415132"))
-    assert pc.ctrl_ni(rows) == (6751988258.0, "CI_OWNERS_OCI0")
-    assert S._ctrl_ni(rows) == 11311947161                                       # 종전 규칙(일반 회사 경로는 그대로)
+    # 원문엔 총포괄 쪽 비지배 줄도 있다(45.6억·26.4억·15.4억 — 지배 총포괄 + 그 줄 = 당기순이익, 기타포괄 0)
+    rows.append({**rows[-1], "account_id": "ifrs-full_ComprehensiveIncomeAttributableToNoncontrollingInterests",
+                 "thstrm_amount": "4559958903", "frmtrm_amount": "2643620270", "bfefrmtrm_amount": "1537000000"})
+    assert pc.ctrl_ni(rows) == (6751988258.0, "CIS_CIID")
+    assert S._ctrl_ni(rows) == 6751988258                                        # 일반 회사 경로도 같은 규칙(종전 11,311,947,161 = 비지배 포함)
     assert S._report_periods(rows)[15][0] == 6751988258.0                        # 리츠 결산기 경로는 같은 규칙
     rows_nci = _rep("x", (2, 1, 0), ("100", "90", "0"), ("1", "1", "1"), nci=("30", "20", "0"))
     assert pc.ctrl_ni(rows_nci)[0] == 70.0
@@ -429,16 +433,18 @@ def test_owner_line_is_used_only_when_its_structure_holds():
             row("ifrs-full_ProfitLossAttributableToOwnersOfParent", ("0", "0", "0")), row("ifrs-full_ComprehensiveIncome", pl),
             row("ifrs-full_ComprehensiveIncomeAttributableToOwnersOfParent", pl)]
     assert [pc.ctrl_ni(rows, f) for f in ("thstrm_amount", "frmtrm_amount", "bfefrmtrm_amount")] == [
-        (5439414713.0, "TOTAL_MINUS_NCI"), (3321786667.0, "TOTAL_MINUS_NCI"), (1653483263.0, "TOTAL_MINUS_NCI")]
+        (5439414713.0, "CIS_CIID"), (3321786667.0, "CIS_CIID"), (1653483263.0, "CIS_CIID")]      # 지배 줄 0 은 빈 줄 → 지배 총포괄(구조가 맞음)
     assert S._report_periods(rows)[4][0] == 3321786667.0                                       # firm 결산기 경로도 같은 규칙
     no_nci = [r for r in rows if "NoncontrollingInterests" not in r["account_id"]]          # 비지배 줄 없이 지배 줄 0 — 빈 줄로 본다
-    assert pc.ctrl_ni(no_nci) == (5439414713.0, "CI_OWNERS_OCI0")
+    assert pc.ctrl_ni(no_nci) == (5439414713.0, "CIS_CIID")
     alpha = [row("ifrs-full_ProfitLoss", ("1", "5722267683", "1")), row("ifrs-full_ProfitLossAttributableToOwnersOfParent", ("1", "5722267683", "1")),
-             row("ifrs-full_ProfitLossAttributableToNoncontrollingInterests", ("0", "-63976713", "0"))]
-    assert pc.ctrl_ni(alpha, "frmtrm_amount") == (5786244396.0, "TOTAL_MINUS_NCI")
-    assert pc.ctrl_ni(alpha) == (1.0, "ID")                                                   # 구조가 맞는 칸은 종전 그대로
+             row("ifrs-full_ProfitLossAttributableToNoncontrollingInterests", ("0", "-63976713", "0")),
+             row("ifrs-full_OtherComprehensiveIncome", ("0", "0", "0")), row("ifrs-full_ComprehensiveIncome", ("1", "5722267683", "1"))]
+    # 원문(2020.09 보고서)엔 기타포괄 0 · 총포괄 = 당기순이익 줄도 있다 — 총계 줄을 믿을 수 있을 때만 그 지배 줄을 버린다(`controlling_ni._tot_corroborated`)
+    assert pc.ctrl_ni(alpha, "frmtrm_amount") == (5786244396.0, "TOTAL_MINUS_MINORITY_IDX")   # 지배 줄 = 총계인데 비지배 −0.64억 — 그 줄을 버림
+    assert pc.ctrl_ni(alpha) == (1.0, "CIS_ID")                                               # 구조가 맞는 칸은 종전 그대로
     legit = [row("ifrs-full_ProfitLoss", ("100", "1", "1")), row("ifrs-full_ProfitLossAttributableToOwnersOfParent", ("70", "1", "1"))]
-    assert pc.ctrl_ni(legit) == (70.0, "ID")                                                  # 비지배 줄 없이 비지배가 있는 회사의 정상 값
+    assert pc.ctrl_ni(legit) == (70.0, "CIS_ID")                                              # 비지배 줄 없이 비지배가 있는 회사의 정상 값
 
 
 def test_old_taxonomy_prefix_is_read():
@@ -447,21 +453,22 @@ def test_old_taxonomy_prefix_is_read():
              "thstrm_nm": "제 26 기", "thstrm_amount": "5065502394", "frmtrm_nm": "제 25 기", "frmtrm_amount": "4402740732"},
             {"rcept_no": "20190329000001", "sj_div": "BS", "account_id": "ifrs_Equity", "thstrm_nm": "제 26 기", "thstrm_amount": "273463533150",
              "frmtrm_nm": "제 25 기", "frmtrm_amount": "306099597613"}]
-    assert pc.ctrl_ni(rows, "frmtrm_amount") == (4402740732.0, "ID") and pc.ctrl_eq(rows, "frmtrm_amount") == 306099597613.0
+    assert pc.ctrl_ni(rows, "frmtrm_amount") == (4402740732.0, "CIS_ID") and pc.ctrl_eq(rows, "frmtrm_amount") == 306099597613.0
 
 
 def test_owner_line_without_standard_code_only_when_unambiguous():
     """디앤디플랫폼리츠 2021.09 사업보고서 — 지배·비지배를 표준 코드 없는 이름 줄로만 나눴다(지배 27.7억 · 비지배 −2.7억, 총순이익 25.0억).
-    순이익 귀속·총포괄 귀속 두 곳의 같은 이름 줄이 같은 값일 때만 쓴다(기타포괄이 있어 갈리면 총순이익 — 총포괄 지배 몫을 순이익으로 고르지 않는다)."""
+    261020(p1e firm-ctrl-ni): 수집 배치와 같은 규칙 — 이름 줄도 값 구조(지배 + 비지배 = 당기순이익)로 고른다. 종전 결산기 규칙은 두 곳의 같은 이름 줄이
+    같은 값일 때만 쓰고 갈리면 총순이익(비지배 포함)이었다. 값 구조로 보면 순이익 쪽 줄(27.7억)이 맞고 총포괄 쪽 줄(27.0억)은 버린다."""
     def row(aid, nm, v):
         return {"rcept_no": "20211209000001", "sj_div": "CIS", "account_id": aid, "account_nm": nm, "thstrm_nm": "제 2 기", "thstrm_amount": v}
     base = [row("ifrs-full_ProfitLoss", "당기순이익(손실)", "2498514116"), row("ifrs-full_ComprehensiveIncome", "총포괄손익", "2498514116"),
             row("-표준계정코드 미사용-", "지배기업 소유주지분", "2772756487"), row("-표준계정코드 미사용-", "비지배지분", "-274242371")]
-    assert pc.ctrl_ni(base + [row("-표준계정코드 미사용-", "지배기업 소유주지분", "2772756487")]) == (2772756487.0, "NM_OWNERS")
+    assert pc.ctrl_ni(base + [row("-표준계정코드 미사용-", "지배기업 소유주지분", "2772756487")]) == (2772756487.0, "CIS_NM")
     split = base + [row("-표준계정코드 미사용-", "지배기업 소유주지분", "2700000000")]          # 기타포괄이 있어 두 값이 갈린다
-    assert pc.ctrl_ni(split) == (2498514116.0, "TOTAL")
+    assert pc.ctrl_ni(split) == (2772756487.0, "CIS_NM")                                     # 순이익 구조에 맞는 줄(종전 2,498,514,116 = 비지배 포함)
     nci_only = [r for r in base if r["account_nm"] != "지배기업 소유주지분"]
-    assert pc.ctrl_ni(nci_only) == (2498514116.0 + 274242371.0, "TOTAL_MINUS_NM_NCI")
+    assert pc.ctrl_ni(nci_only) == (2498514116.0 + 274242371.0, "TOTAL_MINUS_MINORITY")
 
 
 def test_period_cell_writes_remember_the_listing_end():
