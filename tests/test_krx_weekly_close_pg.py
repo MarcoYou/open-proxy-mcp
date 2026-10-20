@@ -23,7 +23,7 @@ psycopg = pytest.importorskip("psycopg")
 
 from test_krx_daily_pg import KRX_WEEKLY_DDL, _ddl, _row  # noqa: E402 — 스키마·KRX 행 모양 재사용
 
-from open_proxy_mcp import krx_daily  # noqa: E402
+from open_proxy_mcp import krx_api, krx_daily  # noqa: E402
 from open_proxy_mcp.services import price_multiple_data as pmd  # noqa: E402
 
 SHRS = 1_000_000
@@ -178,6 +178,11 @@ def test_ensure_krx_fresh_uses_the_daily_store_and_closes_a_missed_week(wdb, mon
     async def no_krx():
         raise AssertionError("일별 저장분이 최신이면 KRX 를 부르지 않는다")
     monkeypatch.setattr(pmd, "_fetch_live_snapshot", no_krx)
+
+    async def no_krx_fetch(*a, **k):
+        raise AssertionError("일별 저장분이 최신이면 KRX 를 부르지 않는다")
+    # 261021: 예비 갱신은 `krx_daily.ensure_fresh` 로 옮겨 KRX 를 `krx_api.fetch_day` 로 부른다 — 막이도 새 자리에 둔다
+    monkeypatch.setattr(krx_api, "fetch_day", no_krx_fetch)
     assert asyncio.run(pmd._ensure_krx_fresh()) == "20261016"
     assert _weekly(wdb) == {"20261016": 5}
     pmd._KRX_STATE.clear()

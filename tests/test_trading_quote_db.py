@@ -754,6 +754,16 @@ def test_quote_payload_says_the_krx_call_failed_not_holiday_or_halt(monkeypatch)
     assert "휴장일·상장 전·거래정지 또는 KRX 키 미설정" not in text          # 종전 문구(실패를 자료 없음으로 읽게 하던 것)가 아니다
 
 
+def test_konex_ticker_stays_unsupported_even_when_the_krx_call_fails(monkeypatch):
+    """코넥스는 시세 소스(코스피·코스닥 두 endpoint)에 애초에 없다 — KRX 호출이 실패해도 답은 종전처럼 「수록 대상 아님」이다."""
+    async def boom(dd, ticker):
+        raise T.KrxQuoteError("transport")
+    monkeypatch.setattr(T, "_krx_quote_row", boom)
+    old = QuoteLookup(ok=True, day="20260115", window=("20261008", "20261016"), day_present=False, row=None)
+    p = _quote(monkeypatch, old, as_of="20260115", cls="N")
+    assert p["status"] == "unsupported_market" and "KONEX" in " ".join(p["warnings"])
+
+
 def test_quote_payload_without_a_failure_keeps_the_old_no_data_wording(monkeypatch):
     async def none(dd, ticker):
         return None
