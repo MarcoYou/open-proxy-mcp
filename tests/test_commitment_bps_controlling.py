@@ -383,6 +383,25 @@ def test_malformed_reference_date_falls_back_instead_of_crashing(patch):
     assert "기준일 형식 이상" in r["bps_basis"]["fallback_reason"] and r["bps_krw"] == round(f["fy"][1] / f["shares"])
 
 
+def test_transport_error_on_balance_sheet_falls_back_instead_of_crashing(patch):
+    """재무상태표 1콜이 DART 답이 아닌 통신 오류(시간 초과 등 — 클라이언트가 재시도 뒤 그대로 올린다)로 실패해도 도구 전체가 죽지 않고 연말 길로 물러난다.
+    종전 길(`_bps_at_year`)은 모든 예외를 삼켰다 — 새 길이 DART 오류만 잡으면 그 사이클 하나 때문에 도구 응답 전체가 사라진다."""
+    import httpx
+
+    f = FIRMS["001040"]
+
+    class TimeoutClient(FakeClient):
+        async def get_fnltt_singl_acnt_all(self, cc, year, rc, fs):
+            self.calls.append(("all", cc, year, rc, fs))
+            raise httpx.ReadTimeout("timeout")
+
+    patch(TimeoutClient({}, {(f["cc"], "2025"): f["shares"]}), _fm_payload(*f["fy"][:2]))
+    r = _bps("001040")
+    assert "ReadTimeout" in r["bps_basis"]["fallback_reason"]
+    assert r["bps_basis"]["balance_sheet"]["source"] == "annual_year_end"
+    assert r["bps_krw"] == round(f["fy"][1] / f["shares"])
+
+
 # ── 6. 낡은 주석 ──────────────────────────────────────────────────────────────────────────────
 
 def test_no_stale_valuation_py_module_name():
