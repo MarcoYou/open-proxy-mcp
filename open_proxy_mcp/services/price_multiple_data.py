@@ -43,7 +43,7 @@ from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
 from open_proxy_mcp.services.dividend import (DPS_SHARE_EVENT_TYPES, _annual_summary, _num_out, align_dps_to_price,
                                                dps_unevenness, period_cash_meta, period_dps, share_ratio_for, trailing_period_dps)
-from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR, reconcile_report_scales, rescale_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
 from open_proxy_mcp.krx_retention import (COLD_DEGRADED_NOTE, krx_weekly_cutoff, seam_gap, serving_seam, week_unit,
                                            weekly_window_note)
@@ -2443,16 +2443,22 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     qc_rows, qp_rows, q_code = [], [], "11013"
     _Q_OF = {"11013": 1, "11012": 2, "11014": 3}
     any_q_after = False
+    # 261020(p1f): 이 고르기에서 읽은 **사업연도 fy 뒤 분기 보고서**(짝이 없어 버린 것도) — 그 재무상태표 전기 칸이 사업보고서 fy 의 당기 말과
+    #   같은 날짜라 아래 보고서 사이 단위 가리기가 쓴다(콜은 늘지 않는다 — 이미 읽은 응답).
+    _qc_seen: list[tuple[str, list]] = []
+    qc_label = None
     for _rcode in _Q_CODES:
         _cur = q_lab[_Q_OF[_rcode]] if nondec else q_cur
         _qc, _ = await _acntall(client, cc, _cur, _rcode, fs_used)
         if not _qc:
             continue
         any_q_after = True
+        _qc_seen.append((f"Q:{_cur}:{_rcode}", _qc))
         _qp, _ = await _acntall(client, cc, _cur - 1, _rcode, fs_used)
         if not _qp:
             continue          # 짝이 없으면 뺄 수 없다 — 다음(더 이른) 분기로 내려간다
         qc_rows, qp_rows, q_code = _qc, _qp, _rcode
+        qc_label = f"Q:{_cur}:{_rcode}"
         if nondec:
             q_cur = _cur
         break
@@ -2478,6 +2484,58 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             _lab = q_cur if qc_rows else q_lab[_q]
         _d_cur = _rc.cell_end(_lab, _q, fye).strftime("%Y%m%d")
         _d_prev = _rc.cell_end(_lab - 1, _q, fye).strftime("%Y%m%d")
+
+    # 261020(p1f unit-restated): **보고서 사이 단위 가리기** — 회사가 단위를 잘못 적어 보고서가 통째로 10ⁿ 배인 경우(0091W0 신영스팩11호 2025
+    #   사업보고서 금액 1,000배 → 종전 firm PBR 0.001 · 지배자본 11조 9,884억 · BPS 1,975,674원). 같은 보고서 안의 검사(항등식·순이익 대 시총)는 다 맞아
+    #   반응하지 않는다 — 같은 날짜의 같은 숫자(자본총계)를 낸 **다른 보고서**와 대야 드러난다: 사업보고서 fy 의 당기 말 = 그 뒤 분기 보고서의 전기 칸,
+    #   사업보고서 fy 의 전기 말 = 전년 동기 분기 보고서의 전기 칸. 어느 보고서가 틀렸는지는 다수결과 시총(PBR) 두 신호로 가리고
+    #   (`scale_guard.reconcile_report_scales` — 분기 수집과 같은 규칙), 가려지면 그 보고서의 금액 칸을 나눠 쓴다(주당 금액은 그대로) — 값과 근거를
+    #   경고·`data_quality.scale_fix` 에 적는다. 못 가리면 값은 원문 그대로 두고 hard 경고. 이미 읽은 응답만 쓴다(DART 콜 0).
+    xr_names: dict[str, tuple[str, list]] = {}
+    _xr: list[tuple] = []
+
+    def _eq_at(rows: list, field: str):
+        v = _gid(rows, "Equity", ("BS",), field)        # 자본총계(같은 숫자 대조라 지배·비지배 구분 없이) → 없으면 지배자본
+        return v if v is not None else _ctrl_equity(rows, field)
+
+    def _xr_add(label: str, name: str, rows: list, cur_key, cur_order: int, frm_key, frm_order: int) -> None:
+        """보고서 하나의 관측 둘 — 당기 말 자본(열쇠 cur_key)과 재무상태표 전기 칸(전 사업연도 말, 열쇠 frm_key). 열쇠에 통화를 붙인다."""
+        if not rows:
+            return
+        xr_names[label] = (name, rows)
+        ccy = statement_currency(rows)
+        _xr.append((label, (*cur_key, ccy), _eq_at(rows, "thstrm_amount"), cur_order))
+        _xr.append((label, (*frm_key, ccy), _eq_at(rows, "frmtrm_amount"), frm_order))
+
+    _QNAME = {"11013": "1분기보고서", "11012": "반기보고서", "11014": "3분기보고서"}
+    _xr_add("FY", f"{fy} 사업보고서", fy_rows, ("FYE", fy), 2, ("FYE", fy - 1), 0)
+    for _lab, _rows in _qc_seen:            # fy 뒤 분기 보고서 — 전기 칸 = 사업연도 fy 말
+        _, _y, _rcode = _lab.split(":")
+        _xr_add(_lab, f"{_y} {_QNAME.get(_rcode, _rcode)}", _rows, ("Q", _lab), 3, ("FYE", fy), 2)
+    if qp_rows and qc_label:                # 전년 동기 분기 보고서 — 전기 칸 = 사업연도 fy−1 말
+        _xr_add("QP", f"{int(qc_label.split(':')[1]) - 1} {_QNAME.get(q_code, q_code)}", qp_rows, ("Q", "QP"), 1, ("FYE", fy - 1), 0)
+    cross_scale = reconcile_report_scales(_xr, mktcap=mk.get("common_mktcap")) if len(xr_names) > 1 else None
+    scale_fix = []
+    if cross_scale and cross_scale["status"] == "fixed":
+        for _lab, _d in cross_scale["divisors"].items():
+            if _lab not in ("FY", "QP", qc_label):
+                continue          # 짝이 없어 값에 쓰지 않는 분기 보고서 — 대조에만 썼다(바로잡을 값이 없다)
+            _nm, _rows = xr_names[_lab]
+            _ev = [p for p in cross_scale["pairs"] if p["power"] and _lab in (p["a"], p["b"])]
+            scale_fix.append({"report": _nm, "rcept_no": _rows_rcept(_rows), "divisor": _d, "method": cross_scale["method"],
+                              "evidence": [{"compared_with": xr_names[p["b"] if p["a"] == _lab else p["a"]][0],
+                                            "equity_this_report": p["a_value"] if p["a"] == _lab else p["b_value"],
+                                            "equity_other_report": p["b_value"] if p["a"] == _lab else p["a_value"]} for p in _ev]})
+            if _lab == "FY":
+                fy_rows = rescale_rows(fy_rows, _d)
+                if revenue_fy is not None:
+                    revenue_fy = round(revenue_fy / _d)
+            elif _lab == "QP":
+                qp_rows = rescale_rows(qp_rows, _d)
+            elif _lab == qc_label:
+                qc_rows = rescale_rows(qc_rows, _d)
+        if not scale_fix:
+            cross_scale = None    # 틀린 보고서가 값에 쓰지 않는 분기 보고서뿐 — 응답 값은 맞다(종전 응답 그대로)
 
     # 통화 환산: 기능통화≠KRW(두산밥캣=USD 등)면 KRW 환산 — KRW 주가/시총과
     # 통화 일치시켜야 배수가 유효(미환산 시 환율배수만큼 왜곡: 두산밥캣 PBR 1,238 오탐). wiki §9.
@@ -2598,6 +2656,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     scale_verdict = scale_assess(
         thstrm=ni_fy, frmtrm=ni_fy_frmtrm, assets=assets_fy, liabilities=liab_fy,
         equity=eq_total_fy, mktcap=mk.get("common_mktcap"), market_max=MARKET_MAX_NI_ANCHOR,
+        cross_report=cross_scale,
     )
 
     # 주식수 sanity: DART 유통 > KRX 상장×3 = 파싱오류(LS에코 ×1e6) → 무효화 (우선주 감안 여유 ×3)
@@ -2842,13 +2901,27 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             warnings.append(f"⚠️ {', '.join(_dd(d) for d in _alt)} 환율: {FALLBACK_WARNING}")
     elif stmt_cur != "KRW":
         warnings.append(f"⚠️ 기능통화 {stmt_cur}인데 환율 조회 실패 — 배수 통화 불일치 가능, 원문 확인 요망.")
-    if scale_verdict and scale_verdict["tier"] == "hard":
+    for _fx_ in scale_fix:
+        # 261020(p1f): 보고서 사이 단위 가리기로 바로잡은 보고서 — 무엇을 몇으로 나눴고 무엇과 대 보았는지(값은 바로잡은 값으로 냈다).
+        _d = _fx_["divisor"]
+        _how = f"÷{_d:,.0f}" if _d >= 1 else f"×{round(1 / _d):,}"
+        _cmp = " · ".join(f"{e['compared_with']} 전기 칸 {e['equity_other_report']:,.0f}원" for e in _fx_["evidence"][:2])
+        _this = _fx_["evidence"][0]["equity_this_report"] if _fx_["evidence"] else None
+        warnings.append(f"🔧 DART 원문 단위 오류를 바로잡았다 — {_fx_['report']}(접수 {_fx_['rcept_no'] or '?'})의 자본총계 "
+                        f"{_this:,.0f}원이 같은 날짜를 적은 다른 보고서({_cmp})와 10의 거듭제곱 배로 어긋나 그 보고서의 금액을 {_how} 해 썼다"
+                        f"(주당 금액은 그대로, 가린 근거: {_fx_['method']}). 회사가 단위를 잘못 적은 보고서다 — 곡선·업종 비교(DB 경로)는 정정 칸을 쓴다.")
+    if cross_scale and cross_scale["status"] in ("undecided", "conflict"):
+        _pp = [p for p in cross_scale["pairs"] if p["power"]]
+        _cmp = " · ".join(f"{xr_names[p['a']][0]} {p['a_value']:,.0f}원 vs {xr_names[p['b']][0]} {p['b_value']:,.0f}원" for p in _pp[:3])
+        warnings.append(f"🚨 보고서 사이 단위 어긋남 — 같은 날짜의 자본총계가 보고서마다 10의 거듭제곱 배로 다르다({_cmp}). 어느 보고서가 맞는지 "
+                        "가리지 못해(다수결·시총 신호가 없거나 서로 엇갈림) 값은 원문 그대로다 — 순이익·자본·배수를 쓰기 전에 원문 확인 요망.")
+    if scale_verdict and scale_verdict["tier"] == "hard" and scale_verdict["hard_hit"] != ["cross_report_scale"]:
         warnings.append(f"🚨 DART 재무 단위(스케일) 오류 강하게 의심({scale_verdict['hard_hit']}) — 아래 순이익·자본·배수는 **원문 그대로**이며 신뢰 불가. 반드시 원문 확인 후 사용. (예: 소프트센 032680 100만배 오류)")
     elif scale_verdict and scale_verdict["tier"] == "soft":
         # 261019: 항등식 어긋남이 단위 오류 꼴(10배 이상)이 아니면 soft 다 — 원문의 자산·부채 총계 칸이 다른 칸과 안 맞는다는 뜻이라
         #   이익 급변 문구와 따로 적는다(순이익·자본 값은 그 칸을 쓰지 않는다).
         _bim = (scale_verdict.get("diagnostics") or {}).get("balance_identity_mismatch") or {}
-        _rest = [k for k in scale_verdict["soft_hit"] if k != "balance_identity_mismatch"]
+        _rest = [k for k in scale_verdict["soft_hit"] if k not in ("balance_identity_mismatch", "cross_report_scale_fixed")]
         if _bim.get("triggered"):
             warnings.append(f"원문 재무상태표의 자산총계 ≠ 부채총계 + 자본총계(차이 {_bim.get('diff_pct') or 0:.2f}%, 단위 오류 꼴 아님) — "
                             "순이익·자본 값은 그대로 썼다. 총계 칸을 인용하려면 원문 확인.")
@@ -2971,6 +3044,14 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         },
     }
     inputs = payload["data"]["inputs"]
+    if scale_fix:
+        # 261020(p1f): 보고서 사이 단위 가리기로 금액을 나눈 보고서(그런 응답에서만 칸이 생긴다) — 보고서·접수번호·나눈 배수·가린 근거·대조한 값.
+        payload["data"]["data_quality"]["scale_fix"] = scale_fix
+    elif cross_scale and cross_scale["status"] in ("undecided", "conflict"):
+        payload["data"]["data_quality"]["scale_cross_report"] = {
+            "status": cross_scale["status"], "method": cross_scale["method"],
+            "pairs": [{"report": xr_names[p["a"]][0], "equity": p["a_value"], "other_report": xr_names[p["b"]][0],
+                       "other_equity": p["b_value"], "power": p["power"]} for p in cross_scale["pairs"] if p["power"]]}
     if dps_periods:
         # 261019: 반기·분기 결산이면 DPS 가 어느 결산기들의 합인지 — 그런 회사에서만 칸이 생긴다(그 밖엔 사업보고서 한 결산기 그대로).
         inputs["dps_basis"] = {"rule": "trailing_12m_periods", "period_months": dps_periods["months"],
