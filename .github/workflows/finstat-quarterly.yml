@@ -135,6 +135,15 @@ jobs:
             uv run python scripts/market_fund_quarterly.py --fetch
           fi
 
+      - name: 결산기 칸 — 반기·분기 결산 회사(리츠 등) (DART 목록 종목당 1콜 + 새 보고서 연도만)
+        # 261020(p1e): 결산기마다 사업보고서를 내는 회사의 결산기 사실값을 12개월 결산 회사와 같은 꼴(사업연도 누적)로 정정 칸에 — 아래 파생이 읽는다.
+        #   새 보고서가 없으면 종목당 목록 1콜뿐이다(open_proxy_mcp/services/period_cells.py).
+        if: ${{ !cancelled() }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: uv run python scripts/market_fund_quarterly.py --period-cells
+
       - name: 파생 갱신 + 결과 확인
         # 「성공」이 아니라 **산출물 변화**로 확인한다. 수집이 0건이어도 스크립트는 정상 종료한다.
         if: ${{ !cancelled() }}

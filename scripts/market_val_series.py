@@ -34,6 +34,7 @@ from datetime import date
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
 from open_proxy_mcp.services import report_calendar as rcal
+from open_proxy_mcp.services import period_cells as pcells
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
@@ -327,9 +328,13 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
         "SELECT ticker FROM dart_finstat_y WHERE fy IN (%s,%s) "
         "AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL)", (report_year-2, report_year-1))}
     fye_of=rcal.load_fye_map(con)
+    # 261020(p1e): 반기·분기 결산 회사(결산기 칸 종목)는 건너뛴다 — 그 회사의 전기·전전기 칸은 앞 **결산기**(6·3개월 전)라 앞 사업연도 행에 넣으면
+    #   틀린다(10-20 운영 롯데리츠 FY2022·2023 정정 칸이 그렇게 들어가 있었다). 연간 값은 --period-cells 가 결산기 12개월 합으로 쓴다.
+    _ptk={r[0] for r in con.execute("SELECT DISTINCT ticker FROM dart_finstat_q WHERE restate_why LIKE %s",(pcells.MARK_LIKE,))}
     con.close()
     if tickers:
         firms=[r for r in firms if r[0] in set(tickers)]
+    firms=[r for r in firms if r[0] not in _ptk]
     todo=[(i,c) for i,c in firms if i not in done]
     print(f"대상 {len(firms)}사 · 남은 {len(todo)}건 (종목당 1콜, fy={report_year})",flush=True)
     c=get_dart_client(); k=0
