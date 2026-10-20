@@ -643,6 +643,9 @@ def dart_batch_halt_line(e: BaseException, done: str = "") -> str:
 _REQUEST_MEMO_MAX = 512
 _MEMO_IDENTS = _itertools.count(1)
 _REQUEST_MEMO_MAX_BYTES = 8 * 1024 * 1024
+#: 숫자 상태지만 **다시 하면 달라질 수 있는** DART 답 — 800 시스템 점검 · 900 알 수 없는 오류(`services/dart_safety` 의 재시도 가능 kind).
+#: 요청 단위 메모는 이 둘을 기억하지 않는다.
+_MEMO_TRANSIENT_STATUSES = frozenset({"800", "900"})
 
 
 class _RequestMemo(dict):
@@ -681,8 +684,10 @@ def _memo_settle(memo: "_RequestMemo", key, task: "asyncio.Future") -> None:
             memo.nbytes += size
         return
     # DART 가 숫자 상태로 답한 오류(013·020 …)만 이 요청 안에서 기억한다. 전송 오류·점유(busy) 같은 것은 지운다.
+    # 숫자 상태라도 점검(800)·알 수 없는 오류(900)는 다시 하면 달라질 수 있는 답이라 지운다 — 같은 요청 안의 재시도
+    # (예: proxy_advise 상류 3회 재시도)가 기억된 오류만 다시 받으면 재시도가 무력해진다.
     status = str(getattr(exc, "status", ""))
-    if not (isinstance(exc, DartClientError) and status.isdigit()):
+    if not (isinstance(exc, DartClientError) and status.isdigit() and status not in _MEMO_TRANSIENT_STATUSES):
         memo.pop(key, None)
 
 
@@ -1931,7 +1936,7 @@ class DartClient:
           (`note_row_drop` 등)도 호출마다 남아야 한다.
         - 호출자마다 **복사본**을 준다(받은 쪽이 고쳐도 다른 호출자·기억된 값이 안 변한다).
         - 오류: DART 가 **답으로** 준 오류(013 자료 없음 · 020 한도 등 — 숫자 상태)는 이 요청 안에서 기억한다. 전송 실패·시간 초과·
-          취소처럼 **다시 하면 달라질 수 있는 것**은 기억하지 않아 다음 호출이 다시 시도한다.
+          취소, 그리고 숫자 상태라도 800 점검·900 알 수 없는 오류처럼 **다시 하면 달라질 수 있는 것**은 기억하지 않아 다음 호출이 다시 시도한다.
         - `dart_api_calls`(실제 HTTP 수)·키 회전·020 처리는 `_request_http` 안에 그대로 있다 — 메모 적중은 세지 않는다.
         """
         memo = _request_memo()
