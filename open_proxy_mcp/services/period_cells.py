@@ -32,6 +32,7 @@ from typing import Any
 
 from open_proxy_mcp.services.controlling_ni import controlling_ni as _controlling_ni
 from open_proxy_mcp.services import controlling_eq as _ceq
+from open_proxy_mcp.services import restated_pit as _rpit
 
 #: 근거 칸 머리 — 이 칸은 결산기 합으로 쓴 칸이다(읽는 쪽은 이 머리로 알아본다).
 MARK = "결산기 12개월"
@@ -348,7 +349,11 @@ def apply_marked(fin_all: dict | None, finq_all: dict | None, rows, keep_q4: boo
 
     표시 칸이 있는 종목은 서버(`price_multiple_data._firm_fin_by_q`·`_firm_fin_by_fy`)와 같은 규칙이다 — 1~3분기 칸은 표시 칸만(값은 정정 칸만,
     표시 없는 칸은 DART 가 준 그해 가장 늦은 3개월 시점 보고서라 버린다), 연간은 표시된 사업보고서 칸 값(순이익 합을 못 낸 해는 None).
-    `keep_q4` = 분기 dict 에 사업보고서 칸도 둔다(재무 요약 파생은 분기 표의 사업보고서 칸을 연간으로 읽는다)."""
+    `keep_q4` = 분기 dict 에 사업보고서 칸도 둔다(재무 요약 파생은 분기 표의 사업보고서 칸을 연간으로 읽는다).
+
+    261020(p1g pit-restated): 결산기 칸마다 **그 공시일 전엔 값 없음** 문을 단다(`restated_pit.marked_gate` — 서버 `_firm_fin_by_fy`·`_firm_fin_by_q` 와
+    같은 규칙). 분기 dict 는 문 달린 dict(`restated_pit.PitFin`)로 바꾸고, 연간 dict 가 문 달린 dict 면 그 해 문을 결산기 칸 공시일로 바꾼다.
+    읽는 쪽은 `restated_pit.at(재무, 기준일)` — 지금 시점(재무 요약 파생)은 값 그대로다."""
     by: dict[str, dict] = {}
     for t, fy, q, ni, eq, av in rows:
         by.setdefault(t, {})[(int(fy), int(q))] = (float(ni) if ni is not None else None,
@@ -356,11 +361,16 @@ def apply_marked(fin_all: dict | None, finq_all: dict | None, rows, keep_q4: boo
     out: dict[str, dict] = {}
     for t, cs in by.items():
         if finq_all is not None:
-            finq_all[t] = {k: (v[0], v[1]) for k, v in cs.items() if keep_q4 or k[1] != 4}
+            fq = _rpit.PitFin({k: (v[0], v[1]) for k, v in cs.items() if keep_q4 or k[1] != 4})
+            for k in fq:
+                fq.gate(k, _rpit.marked_gate(cs[k][2]))
+            finq_all[t] = fq
         if fin_all is not None:
-            fa = fin_all.setdefault(t, {})
+            fa = fin_all.setdefault(t, _rpit.PitFin())
             for (fy, q), v in cs.items():
                 if q == 4:
                     fa[fy] = (v[0], v[1] if v[1] is not None else (fa.get(fy) or (None, None))[1])
+                    if isinstance(fa, _rpit.PitFin):
+                        fa.gate(fy, _rpit.marked_gate(v[2]))
         out[t] = {k: v[2] for k, v in cs.items() if v[2]}
     return out

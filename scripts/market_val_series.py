@@ -39,6 +39,7 @@ from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_asses
 from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
+from open_proxy_mcp.services import restated_pit as rpit
 from open_proxy_mcp.services.controlling_ni import controlling_ni as _cni
 from open_proxy_mcp.services import controlling_eq as _ceq
 
@@ -774,15 +775,22 @@ def series():
     # 재무: FY별 (dart_finstat_y ∪ 최신 확정 FY=_latest_annual_fy()는 dart_fundamentals)
     # restated(다음 해 보고서 전기 비교치)가 있으면 그걸 우선 — 회사가 스스로 재작성한 참값
     # (소프트센 032680 FY2022 사례: 당해 XBRL 100만배 오류를 다음해 보고서가 정상화).
+    # 261020(p1g pit-restated): 단, 분기말 d 에는 그 출처 보고서가 공시된 정정 칸만(`restated_pit` — 서버 곡선·두 과거 백필과 같은 규칙). 원본이 빈
+    #   보충값·10ⁿ 배 단위 고침(위 032680)은 처음부터. 이 진단은 12월 결산 달력(아래 pit_fy)이라 문도 12월 결산으로 본다.
     fin={}
+    gates={}
     restated_used=[]
-    for isu,fy,ni,eq,ni_r,eq_r in con.execute(
-            "SELECT ticker,fy,ni,eq,ni_restated,eq_restated FROM dart_finstat_y WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL"):
-        final_ni = ni_r if ni_r is not None else ni
-        final_eq = eq_r if eq_r is not None else eq
+    _rc_col = "restated_rcept_no" if con.execute(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='dart_finstat_y' "
+        "AND column_name='restated_rcept_no')").fetchone()[0] else "NULL"
+    for isu,fy,ni,eq,ni_r,eq_r,r_rc in con.execute(
+            f"SELECT ticker,fy,ni,eq,ni_restated,eq_restated,{_rc_col} FROM dart_finstat_y WHERE fetched='ok' OR ni_restated IS NOT NULL OR eq_restated IS NOT NULL"):
+        (final_ni, final_eq), g = rpit.annual_cell(int(fy), ni, eq, ni_r, eq_r, r_rc)
         if ni_r is not None and ni is not None and abs(ni_r - ni) > abs(ni) * 0.01:
             restated_used.append((isu, fy, ni, ni_r))
         fin[(isu,fy)]=(final_ni, final_eq)
+        if g is not None:
+            gates[(isu,fy)]=g
     _lfy = _latest_annual_fy()
     for isu,ni,eq in con.execute("SELECT ticker,ni_fy,eq_fy FROM dart_fundamentals WHERE fetched='ok'"):
         fin[(isu,_lfy)]=(ni,eq)
@@ -816,6 +824,8 @@ def series():
             a=agg[market]; a["tot"]+=cap
             f=fin.get((isu,pit_fy))
             if not f: continue
+            g=gates.get((isu,pit_fy))
+            if g and g[0]>d: f=g[1]          # 261020(p1g): 출처 공시 전 — 그때 공시돼 있던 원본 칸
             ni,eq=f
             if ni is not None: a["ni"]+=ni; a["capn"]+=cap
             if eq and eq>0: a["eq"]+=eq; a["cape"]+=cap

@@ -62,6 +62,7 @@ from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS
 from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
+from open_proxy_mcp.services import restated_pit as rpit
 from scripts.month_end_prices import MonthEndPrices, covered
 
 UPSERT = """
@@ -116,21 +117,17 @@ def main() -> int:
             "SELECT ticker, snap_dd, sector_code, sector, industry_code, industry FROM wise_sector"):
         classes[t][sd] = (sc, s, ic, i)
 
-    fin_all: dict[str, dict] = {}
-    for isu, fy, ni, eq, nir, eqr in con.execute(
-            "SELECT ticker, fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y"):
-        fin_all.setdefault(isu, {})[int(fy)] = (
-            nir if nir is not None else ni, eqr if eqr is not None else eq)
-    finq_all: dict[str, dict] = {}
-    for isu, fy, q, ni_cum, eq in con.execute(
-            "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
-        finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
+    # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
+    fye_of = rcal.load_fye_map(con)
+
+    # 261020(p1g pit-restated): 값은 지금 시점(정정 칸 우선 — 종전 그대로), 정정 칸마다 출처 공시일 문(`restated_pit`) — 날짜마다 `rpit.at` 으로
+    #   그 날 공시돼 있던 값을 읽는다(서버 곡선·업종 비교 기업 행·시장 백필과 같은 규칙). 출처를 모르는 옛 정정 칸은 보수적 추정 공시일.
+    fye_for = lambda t: rcal.fiscal(fye_of.get(t, 12), t)          # noqa: E731
+    fin_all: dict[str, dict] = rpit.load_annual(con, fye_for)
+    finq_all: dict[str, dict] = rpit.load_quarter(con, fye_for)
     # 261020(p1e): 반기·분기 결산 회사(리츠 등)는 결산기 칸(12개월 결산 회사와 같은 꼴 — `period_cells`)으로 고치고, 칸은 그 보고서 접수일부터 쓴다
     #   (서버 곡선·업종 비교와 같은 규칙). 표시 칸이 없으면 종전 그대로.
     period_of = pcells.apply_marked(fin_all, finq_all, pcells.load_marked(con))
-
-    # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
-    fye_of = rcal.load_fye_map(con)
 
     # 261019: 월말 = 그 달의 진짜 마지막 주간 날짜를 말할 수 있는 달만(하한 이전은 연말·콜드 서빙본 — `month_end_prices`).
     src = MonthEndPrices(con, a.since, a.cold_sqlite)
@@ -208,10 +205,11 @@ def main() -> int:
             if fye not in pit:
                 pit[fye] = (_pit_fy(d, fye), _pit_quarter(d, fye))
             fy, (fy_q, q) = pit[fye]
-            fin = fin_all.get(isu, {})
+            fin = rpit.at(fin_all.get(isu, {}), d)                 # 261020(p1g): 그 날 공시돼 있던 값(정정 칸은 출처 공시일부터)
+            finq = rpit.at(finq_all.get(isu, {}), d)
             f = fin.get(fy)
-            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q, fye)
-            eq_mrq = _mrq_eq(fin, finq_all.get(isu, {}), fy_q, q)
+            ni_ttm = _ttm_ni(fin, finq, fy_q, q, fye)
+            eq_mrq = _mrq_eq(fin, finq, fy_q, q)
             if not f and ni_ttm is None and eq_mrq is None:
                 continue
             ni_fy0, eq_fy0 = f if f else (None, None)
