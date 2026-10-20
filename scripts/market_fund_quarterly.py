@@ -864,6 +864,20 @@ def include_targets(listed, rows: dict, kinds: dict) -> tuple[list, list]:
     return new, again
 
 
+def stuck_listed(listed, rows: dict, kinds: dict) -> list[tuple[str, str]]:
+    """상장 **보통주**인데 재무 요약 행이 ok 도 nocorp 도 아닌 [(종목, fetched)] — 순수 함수. 이 단계는 그 행을 바꾸지 않고 경고로 센다.
+
+    261020(검토): 수집기 셋은 ok 행만 대상이라 다른 상태로 남은 상장 보통주는 nocorp 처럼 조용히 빠진다. 10-20 운영 484130(하나34호스팩)이
+    옛 시장 aggregate 수집기의 `outlier_scale`(2025 1분기보고서 100만배 단위 오류로 재무 요약이 −27.7조)로 2024-11 상장부터 곡선·업종 비교·집계에
+    없었다 — 지금 분기 수집기의 가드는 그 칸을 전기 칸 대조로 바로잡는다. 그 상태를 쓰는 코드는 없어 같은 일은 새로 생기지 않지만, 생기면 보이게."""
+    out = []
+    for t, _ in listed:
+        row = rows.get(t)
+        if kinds.get(t) == "보통주" and row is not None and row[1] not in ("ok", "nocorp"):
+            out.append((t, str(row[1])))
+    return sorted(out)
+
+
 async def include_new_tickers() -> int:
     """KRX 최신 거래일 상장 **보통주** 가운데 dart_fundamentals 에 없는 종목을 등록하고, 회사 고유번호를 못 이었던 행(nocorp)을 다시 잇는다 —
     옛 시장 aggregate 수집기(--fetch)가 하던 유일한 잔존 역할(260902 흡수). 이 표의 `fetched='ok'` 행이 분기(fetch)·연간
@@ -907,6 +921,10 @@ async def include_new_tickers() -> int:
                           "AND table_name='dart_fundamentals' AND column_name='induty')").fetchone()[0]
     new, again = include_targets(listed, rows, kinds)
     print(f"include-new: {snap_dd} 상장 {len(listed)} · 기등록 {len(rows)} · 신규 보통주 {len(new)} · 회사 고유번호 다시 잇기 {len(again)}", flush=True)
+    stuck = stuck_listed(listed, rows, kinds)
+    if stuck:   # 바꾸지 않는다 — 그 상태를 적은 까닭을 사람이 보고 정한다(실행 요약에 뜨게)
+        print(f"::warning::include-new: 상장 보통주 {len(stuck)}종목이 재무 요약 수집 대상 밖 상태(ok·nocorp 아님) — "
+              + ", ".join(f"{t}({f})" for t, f in stuck[:10]), flush=True)
     c = get_dart_client()
     code_map = corp_by_ticker(await c._load_corp_codes()) if (new or again) else {}
     n_ok = n_nocorp = n_relink = 0

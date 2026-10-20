@@ -179,7 +179,27 @@ def test_a_code_the_registry_does_not_have_stays_nocorp_and_is_tried_again(db, m
     assert _rows(db)["0126Z0"][:3] == ("01965324", "KS", "ok")
 
 
+def test_a_listed_common_share_stuck_outside_ok_is_warned_not_changed(db, monkeypatch, capsys):
+    """옛 수집기 상태(outlier_scale)로 수집 대상 밖에 남은 상장 보통주 — 바꾸지 않고 실행 요약 경고로 센다(10-20 운영 484130)."""
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("UPDATE dart_fundamentals SET fetched='outlier_scale' WHERE ticker='K00000'")
+    before = _rows(db)["K00000"]
+    _run(monkeypatch, _Client())
+    assert _rows(db)["K00000"] == before
+    out = capsys.readouterr().out
+    assert "::warning::include-new: 상장 보통주 1종목이 재무 요약 수집 대상 밖 상태" in out and "K00000(outlier_scale)" in out
+
+
 # ── 순수 함수 ─────────────────────────────────────────────────────────────────
+
+def test_stuck_listed_counts_only_listed_common_shares_outside_ok_and_nocorp():
+    from scripts.market_fund_quarterly import stuck_listed
+    listed = [("A00000", "KS"), ("B00000", "KQ"), ("C00000", "KS"), ("00680K", "KS"), ("E00000", "KQ")]
+    kinds = {"A00000": "보통주", "B00000": "보통주", "C00000": "보통주", "00680K": "신형우선주", "E00000": "보통주"}
+    rows = {"A00000": ("c", "outlier_scale"), "B00000": ("c", "ok"), "C00000": (None, "nocorp"), "00680K": ("c", "err"),
+            "D00000": ("c", "outlier_scale")}               # D00000 = 상장 목록에 없음(상장폐지)
+    assert stuck_listed(listed, rows, kinds) == [("A00000", "outlier_scale")]
+    assert stuck_listed(listed, {}, kinds) == []            # 행이 없는 것은 「새로 넣을 것」(include_targets) 몫
 
 def test_link_only_to_the_company_of_that_very_code():
     from scripts.market_fund_quarterly import exact_corp_code
