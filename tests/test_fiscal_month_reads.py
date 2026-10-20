@@ -23,6 +23,7 @@ from datetime import date
 import pytest
 
 from open_proxy_mcp.services import price_multiple_data as S
+from tests.pmd_fin_rows import pad_fin_rows
 from scripts import market_fund_quarterly as Q
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -89,9 +90,9 @@ class _Rows:
         if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
             return [self.fund]
         if "FROM dart_finstat_y" in s:
-            return [(fy, ni, eq, None, None) for fy, (ni, eq) in FIN_MAR.items()]
+            return pad_fin_rows(sql, [(fy, ni, eq, None, None) for fy, (ni, eq) in FIN_MAR.items()])
         if "FROM dart_finstat_q" in s:
-            return [(fy, q, ni, eq) for (fy, q), (ni, eq) in FINQ_MAR.items()]
+            return pad_fin_rows(sql, [(fy, q, ni, eq) for (fy, q), (ni, eq) in FINQ_MAR.items()])
         if "UNION ALL" in s and "FROM krx_weekly" in s and "AS src" in s:     # 업종 비교의 그 날 시총(`_FIRM_CAP_SQL`)
             return [(CAP, "KS", 1)]
         if "DISTINCT ON (substring(price_dd,1,4))" in s:
@@ -377,6 +378,9 @@ def _annual_rows(ni: str, eq: str) -> list[dict]:
         {"sj_div": "BS", "account_id": "ifrs-full_Liabilities", "thstrm_amount": "300,000,000,000"},
         {"sj_div": "BS", "account_id": "ifrs-full_Equity", "thstrm_amount": "200,000,000,000"},
         {"sj_div": "BS", "account_id": "ifrs-full_EquityAttributableToOwnersOfParent", "thstrm_amount": eq},
+        # 261020: 지배 + 비지배 = 자본총계(2,000억)가 되게 비지배 줄을 둔다 — 지배자본 줄이 자본총계 − 비지배와 1.6배 넘게 어긋나면 그 줄을 믿지 않는다
+        #   (`services/controlling_eq`). 이 응답 모양의 다른 칸(자산·부채·자본총계 — 단위 가드 항등식)은 그대로다.
+        {"sj_div": "BS", "account_id": "ifrs-full_NoncontrollingInterests", "thstrm_amount": f"{200_000_000_000 - int(eq.replace(',', '')):,}"},
         {"sj_div": "IS", "account_id": "ifrs-full_ProfitLossAttributableToOwnersOfParent", "thstrm_amount": ni, "frmtrm_amount": ni},
     ]
 
@@ -388,7 +392,8 @@ def _cum_rows(ni_add: str, eq: str) -> list[dict]:
 
 
 def _run_live(mp, *, company_acc_mt, db_acc_mt, reports, fm_years):
-    """reports = {(사업연도, 보고서코드): 행}. fm_years = {요청 연도(0 = 기본): (응답 연도, 그 요약의 보고서코드[, 출처 정기보고서 이름])}."""
+    """reports = {(사업연도, 보고서코드): 행}. fm_years = {요청 연도: (응답 연도, 그 요약의 보고서코드[, 출처 정기보고서 이름])}.
+    261019(p1d): 첫 재무 요약은 12월 결산 달력 규칙의 연도(TODAY 10-19 → 2025)를 직접 준다 — 종전 키 0(기본 연도)은 이제 오지 않는다."""
     seen = {"fm": [], "acnt": [], "sql": []}
 
     async def resolve(q):
@@ -453,9 +458,9 @@ MARCH_REPORTS = {
 
 def test_live_firm_march_uses_the_latest_annual_and_the_quarter_after_it(monkeypatch):
     p, seen = _run_live(monkeypatch, company_acc_mt="03", db_acc_mt=3, reports=MARCH_REPORTS,
-                        fm_years={0: (2025, "11011"), 2026: (2026, "11011")})
+                        fm_years={2025: (2025, "11011"), 2026: (2026, "11011")})
     d = p["data"]
-    assert seen["fm"] == [0, 2026] and d["fiscal_year"] == 2026
+    assert seen["fm"] == [2025, 2026] and d["fiscal_year"] == 2026
     assert d["inputs"]["net_income_fy0_krw"] == 26_000_000_000
     assert d["inputs"]["net_income_ttm_krw"] == 26_000_000_000 + 13_920_000_000 - 5_470_000_000   # 2026.03 + 2026.06 − 2025.06
     assert (d["inputs"]["ttm_quarter"], d["inputs"]["ttm_quarter_year"]) == ("1분기 누적", 2026)
@@ -468,7 +473,7 @@ def test_live_firm_march_late_filer_keeps_the_previous_annual(monkeypatch):
     """2026.03 사업보고서가 아직 없으면(늦게 냄) 종전 사업연도 그대로 — 그 뒤 분기는 결산월 표기(2025 3분기 = 2025.12)로 찾는다."""
     reports = {k: v for k, v in MARCH_REPORTS.items() if k != (2026, "11011")}
     p, seen = _run_live(monkeypatch, company_acc_mt="03", db_acc_mt=3, reports=reports,
-                        fm_years={0: (2025, "11011"), 2026: (2026, "11013")})
+                        fm_years={2025: (2025, "11011"), 2026: (2026, "11013")})
     d = p["data"]
     assert d["fiscal_year"] == 2025
     assert d["inputs"]["net_income_ttm_krw"] == 21_164_000_000 + 25_920_000_000 - 11_000_000_000
@@ -482,7 +487,7 @@ def test_live_firm_june_right_after_the_annual_uses_the_annual_as_ttm(monkeypatc
                (2026, "11014"): _cum_rows("-3,790,000,000", "188,370,000,000"),      # 2026.03 3분기(지난 회계연도)
                (2025, "11014"): _cum_rows("-29,540,000,000", "228,240,000,000")}
     p, seen = _run_live(monkeypatch, company_acc_mt="06", db_acc_mt=6, reports=reports,
-                        fm_years={0: (2025, "11011"), 2026: (2026, "11011")})
+                        fm_years={2025: (2025, "11011"), 2026: (2026, "11011")})
     d = p["data"]
     assert d["fiscal_year"] == 2026
     assert d["inputs"]["net_income_ttm_krw"] == d["inputs"]["net_income_fy0_krw"] == -3_500_000_000
@@ -494,13 +499,13 @@ def test_live_firm_reads_the_db_month_only_when_a_non_december_sign_and_trusts_i
     """회사 개황이 6월이어도 재무 요약 표가 12(결산월을 바꾼 회사·반기 결산 리츠)면 종전 읽기. 개황이 12월이고 출처 사업보고서도 12월 기준
     (또는 이름이 없음)이면 결산월 읽기 자체가 없다 — 12월 결산은 읽기가 늘지 않는다."""
     p, seen = _run_live(monkeypatch, company_acc_mt="06", db_acc_mt=12, reports=MARCH_REPORTS,
-                        fm_years={0: (2025, "11011")})
-    assert seen["fm"] == [0] and p["data"]["fiscal_year"] == 2025
+                        fm_years={2025: (2025, "11011")})
+    assert seen["fm"] == [2025] and p["data"]["fiscal_year"] == 2025
     assert (2026, "11014") in seen["acnt"]                                            # 종전: fy+1 표기
     assert not any(w.startswith("결산월") for w in p["data"]["warnings"])
     for nm in ([], ["사업보고서 (2025.12)"], ["[기재정정]사업보고서 (2025.12)"]):
         p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=3, reports=MARCH_REPORTS,
-                            fm_years={0: (2025, "11011", *nm)})
+                            fm_years={2025: (2025, "11011", *nm)})
         assert not any("acc_mt" in s for s in seen["sql"]) and p["data"]["fiscal_year"] == 2025
 
 
@@ -508,7 +513,7 @@ def test_live_firm_december_overview_but_non_december_report_reads_the_db_month(
     """261019: 개황은 12월(결산월을 12월로 바꿨다)인데 출처 사업보고서 이름이 3월 기준이면 결산월 칸을 읽고 그 칸(3)을 따른다 —
     곡선·업종 비교와 같은 칸. 종전엔 개황만 보고 12월로 읽어 FY0 가 한 해 낡았다(10-19 운영 021880)."""
     p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=3, reports=MARCH_REPORTS,
-                        fm_years={0: (2025, "11011", "사업보고서 (2026.03)"), 2026: (2026, "11011", "사업보고서 (2026.03)")})
+                        fm_years={2025: (2025, "11011", "사업보고서 (2026.03)"), 2026: (2026, "11011", "사업보고서 (2026.03)")})
     assert any("SELECT acc_mt FROM dart_fundamentals" in s for s in seen["sql"])
     d = p["data"]
     assert d["fiscal_year"] == 2026 and d["inputs"]["net_income_fy0_krw"] == 26_000_000_000
@@ -516,7 +521,7 @@ def test_live_firm_december_overview_but_non_december_report_reads_the_db_month(
     assert any(w.startswith("결산월 3월") for w in d["warnings"])
     # 칸이 12(결산월을 바꾼 해의 종전 읽기)면 이름이 3월이어도 12월로 읽는다 — 칸을 믿는다
     p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=12, reports=MARCH_REPORTS,
-                        fm_years={0: (2025, "11011", "사업보고서 (2026.03)")})
+                        fm_years={2025: (2025, "11011", "사업보고서 (2026.03)")})
     assert any("SELECT acc_mt FROM dart_fundamentals" in s for s in seen["sql"]) and p["data"]["fiscal_year"] == 2025
     assert not any(w.startswith("결산월") for w in p["data"]["warnings"])
 
@@ -530,7 +535,7 @@ def test_live_firm_december_overview_with_june_cells_uses_the_june_annual(monkey
                (2026, "11014"): _cum_rows("2,782,000,000", "357,832,000,000"),           # 2026.03 3분기(지난 회계연도)
                (2025, "11014"): _cum_rows("-3,789,000,000", "188,375,000,000")}
     p, seen = _run_live(monkeypatch, company_acc_mt="12", db_acc_mt=6, reports=reports,
-                        fm_years={0: (2025, "11011", "사업보고서 (2026.06)"), 2026: (2026, "11011", "사업보고서 (2026.06)")})
+                        fm_years={2025: (2025, "11011", "사업보고서 (2026.06)"), 2026: (2026, "11011", "사업보고서 (2026.06)")})
     d = p["data"]
     assert d["fiscal_year"] == 2026 and d["inputs"]["net_income_fy0_krw"] == 1_193_000_000
     assert d["inputs"]["net_income_ttm_krw"] == 1_193_000_000

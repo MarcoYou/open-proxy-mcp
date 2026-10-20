@@ -2,7 +2,9 @@
 
 ⚠️ DART 접근 시 주의사항 — **한도는 API 와 웹이 다르다**:
   - OpenDART API: 한도가 **키마다** 걸린다. 분당 1,000회를 넘기면 그 키가 막힌다
-    (실측 2~3시간). 일일 한도는 키당 4만회이지만, 먼저 닿는 건 거의 언제나 분당 쪽이다.
+    (실측 2~3시간). 하루 한도는 키당 20,000회 — 넘기면 status 020 이고 자정(KST)에 풀린다
+    (개발가이드 020 설명 · 실측 2026-08-15 00:01). 여러 배치가 한 키를 나눠 쓰면 하루 쪽에 먼저 닿는다
+    (2026-10-19 운영 배치가 그랬다).
     사용자 키는 요청마다 다르므로 한 사용자가 다른 사용자를 막지는 않는다 —
     위험한 건 **우리 자신의 키**(배치·스크립트)다.
   - DART 웹 스크래핑(원문·KIND): 위 한도와 **별개**이고 공표된 수치도 차단 기준도 없다.
@@ -606,6 +608,31 @@ class DartClientError(Exception):
     def __init__(self, status: str, message: str):
         self.status = status
         super().__init__(f"DART API 에러 [{status}]: {message}")
+
+
+#: 261019: **키 하나의 사정** — 다른 키라면 받을 수 있다. 020 요청 한도 초과(키의 하루 한도) · 010 등록되지 않은 키 · 011 쓸 수 없는 키 ·
+#: 901 개인정보 보유기간 만료로 쓸 수 없는 키. 클라이언트는 이 답이면 남은 키를 **모두** 차례로 본 뒤에야 오류를 올린다(`_request`·
+#: `_request_binary`) — 종전엔 보조 키로 한 번만 돌아, 연달아 두 키가 막혔으면 셋째 키가 놀아도 오류였다.
+_KEY_SCOPED_STATUSES = frozenset({"010", "011", "020", "901"})
+
+#: 261019: 남은 요청도 **모두 같은 답**을 받을 상태 — 위 키의 사정(남은 키까지 다 본 뒤다) · 012 접근할 수 없는 IP · 800 시스템 점검.
+#: 배치(연간·분기 재무 수집)는 이 오류에서 멈추고, 그 항목과 남은 항목의 행은 그대로 둔다 — 다음 실행의 재개 규칙이 그 자리부터 받는다.
+#: 종전엔 항목마다 err 로 적고 다음 항목을 쉬지 않고 불렀다 — 10-19 운영: 연간 재무 다시 받기가 키의 하루 한도에 닿은 뒤 남은 2,074건을
+#: 몇 분 안에 불러 모두 `err:DART API 에러 [020]…` 으로 적었다(분당 수백 콜, 전부 거절).
+#: 021(조회 가능한 회사 개수 초과 — 최대 100건)은 그 요청의 사정이라 넣지 않는다.
+DART_BATCH_HALT_STATUSES = _KEY_SCOPED_STATUSES | frozenset({"012", "800"})
+
+
+def dart_halts_batch(e: BaseException) -> bool:
+    """배치가 여기서 멈춰야 하는 DART 오류인가(`DART_BATCH_HALT_STATUSES`)."""
+    return isinstance(e, DartClientError) and str(getattr(e, "status", "")) in DART_BATCH_HALT_STATUSES
+
+
+def dart_batch_halt_line(e: BaseException, done: str = "") -> str:
+    """멈춘 배치가 남기는 한 줄. GitHub Actions 안이면 경고 주석(`::warning::`)으로 낸다 — 종전엔 err 행이 표에 남아 막힌 것이
+    보였는데 이제 행을 남기지 않으므로, 잡이 초록으로 끝나도 실행 요약에 뜨게."""
+    line = f"{e} — 중단{f'({done})' if done else ''} · 남은 것은 다음 실행이 이어받는다(행은 그대로)"
+    return f"::warning::{line}" if os.getenv("GITHUB_ACTIONS") == "true" else line
 
 
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
@@ -1747,7 +1774,7 @@ class DartClient:
             # 사용자 키가 없는 경로(로컬 스크립트·배치·부팅 시 corpCode 적재)만 env 키를 쓴다.
             # OPENDART_API_KEY_2, _3, _4, ... 순번 있는 만큼 전부 로드(260705, 키 2개 초과 지원).
             # 분당 스로틀(_api_call_timestamps)은 인스턴스 하나가 전 키 공유 — 키를 늘려도 IP레벨
-            # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 4만)뿐.
+            # 분당한도(910)는 그대로 지켜짐, 늘어나는 건 하루 총 쿼터(키당 2만 — 020)뿐.
             primary = os.getenv("OPENDART_API_KEY")
             if primary:
                 self._api_keys.append(primary)
@@ -1872,8 +1899,12 @@ class DartClient:
         # DART API는 status "000"이 정상
         status = data.get("status", "")
         if status != "000":
-            # 속도 제한("020") 등 일시적 에러 시 보조 키로 재시도
-            if self._rotate_key():
+            # 키의 하루 한도("020") 등 키의 사정이면 보조 키로 재시도.
+            # 261019: 키 하나의 사정(`_KEY_SCOPED_STATUSES`)이면 남은 키를 모두 차례로(키마다 한 번), 그 밖의 답은 종전처럼 한 번만.
+            #   다음 키가 키와 무관한 답(013 등)을 주면 그게 답이다.
+            for _ in range(len(self._api_keys) - 1 if status in _KEY_SCOPED_STATUSES else 1):
+                if not self._rotate_key():
+                    break
                 params["crtfc_key"] = self.api_key
                 response = await self._http.get(url, params=params, timeout=30)
                 response.raise_for_status()
@@ -1881,6 +1912,8 @@ class DartClient:
                 status = data.get("status", "")
                 if status == "000":
                     return _as_of_filter_rows(endpoint, data)
+                if status not in _KEY_SCOPED_STATUSES:
+                    break
             message = data.get("message", "알 수 없는 에러")
             raise DartClientError(status, message)
 
@@ -1920,11 +1953,16 @@ class DartClient:
             msg_m = re.search(r'<message>(.+?)</message>', content.decode('utf-8', errors='replace'))
             if status_m:
                 status = status_m.group(1)
-                # 260906: 한도 초과(020 분당 · 021 일일)는 **키의 사정**이지 문서의 사정이 아니다 —
+                # 260906: 한도 초과(020 키의 하루 한도 · 021 조회 회사 수 초과)는 **문서의 사정이 아니다** —
                 #   JSON 경로(`_request`)처럼 보조 키로 한 번 더 간다. 그날 .env 에 보조 키 4개가
                 #   놀고 있는데 document.xml 만 020 으로 그냥 죽었다. 사용자 키 하나뿐이면
                 #   `_rotate_key` 가 False 라 그대로 올린다(남의 키로 안 넘어간다).
-                if status in ("020", "021") and self._rotate_key():
+                # 261019: 키 하나의 사정(`_KEY_SCOPED_STATUSES`)이면 남은 키를 모두 차례로(키마다 한 번) — JSON 경로와 같다.
+                #   021 은 종전처럼 한 번만 더 간다.
+                rotatable = _KEY_SCOPED_STATUSES | {"021"}
+                for _ in range(len(self._api_keys) - 1 if status in _KEY_SCOPED_STATUSES else 1):
+                    if status not in rotatable or not self._rotate_key():
+                        break
                     params["crtfc_key"] = self.api_key
                     response = await self._http.get(url, params=params, timeout=timeout)
                     response.raise_for_status()
@@ -1934,6 +1972,8 @@ class DartClient:
                     status_m = re.search(r'<status>(\d+)</status>', content.decode('utf-8', errors='replace'))
                     msg_m = re.search(r'<message>(.+?)</message>', content.decode('utf-8', errors='replace'))
                     status = status_m.group(1) if status_m else status
+                    if status not in _KEY_SCOPED_STATUSES:
+                        break
                 raise DartClientError(status, msg_m.group(1) if msg_m else "알 수 없는 에러")
 
         # ZIP도 XML도 아닌 비정상 응답 → 보조 키로 재시도

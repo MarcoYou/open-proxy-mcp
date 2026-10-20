@@ -497,7 +497,8 @@ def test_financial_notes_year_search_failure_is_not_no_filing(monkeypatch, dart_
         r = await mcp.call_tool("financial_notes", args)
         return "".join(getattr(c, "text", "") for c in (r if isinstance(r, list) else r.content))
     body = json.loads(_run(call({"company": "에이치디현대미포", "year": "2019", "period": "half", "format": "json"})))
-    assert body["status"] == "error" and body["data"]["error_kind"] == "rate_limited", body
+    assert body["status"] == "error" and body["data"]["error_kind"] == "daily_limit", body
+    assert body["data"]["retry"] is False and body["data"]["retry_after"].endswith("T00:00:00+09:00"), body
     monkeypatch.setattr(T, "_find_report_for_bsns_year", search("013"))
     body = json.loads(_run(call({"company": "에이치디현대미포", "year": "2019", "period": "half", "format": "json"})))
     assert body["status"] == "no_filing", body

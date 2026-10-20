@@ -20,13 +20,24 @@
 #   창(마감 뒤 한 달) 밖에도 늦게 내는 회사가 있어(10/07 제출 사례) 주 1회 남은 것만 다시 본다 —
 #   남은 nodata 수백 건 × 1~2콜이라 몇 분이다. 창 안의 매일 실행과 겹치는 날은 아래 concurrency 가 줄 세운다.
 #
+# 261020(신규 상장 등록): 수집 대상은 재무 요약 표(dart_fundamentals)의 ok 행이다. 그 표에 신규 상장 보통주를 넣는 단계(--include-new)가
+#   어느 일정에도 없어(수동 전용) 8~9월 상장사가 행 자체가 없었고, 해석기가 숫자 6자리만 코드로 읽던 때 적힌 신형 영문 코드(0126Z0 등) 상장사
+#   52종목은 회사 고유번호 없이(nocorp) 굳어 있었다. 이제 이 일정의 첫 단계가 등록·다시 잇기를 하고 업종코드를 회사 개황으로 채운다
+#   (KRX 종목유형 2콜 + 이은 종목당 DART 1콜). 결산월은 바로 뒤 결산월 단계가, 연간·분기 재무는 같은 실행의 아래 단계들이 받는다.
+#
 # 261018(결산월): 칸의 실제 기간 말·공시 마감을 회사 결산월(dart_fundamentals.acc_mt)로 센다(open_proxy_mcp/services/report_calendar.py).
 #   그래서 이 일정이 분기 수집 앞에 세 단계를 더 돈다 —
 #   ① 결산월 채우기·고치기(--acc-mt: 최근 100일 정기공시 목록의 사업보고서 기준월 · ~90콜, 상장 첫해 종목만 회사 개황 1콜씩)
 #   ② 연간 재무(market_val_series --fetch): 종목마다 결산월로 「지금 나와 있어야 할 최신 사업보고서」까지 받는다. 종전엔 이 수집이
 #      일정에 없었고(수동) 상한이 12월 결산 규칙이라 3월 결산 회사의 2026.03 사업보고서(6월 제출)가 2027년 4월에야 들어왔다.
 #      12월 결산은 4월 첫 주에 한꺼번에(~2,600사), 나머지 결산월은 공시 시점이 지난 첫 월요일에 몇 사씩.
+#      261020: 정정 사업보고서([기재정정])가 나온 연간 행도 다시 받는다(--amended — 최근 10일 목록, 행마다 남긴 접수번호 기준).
 #   ③ Q4 seed(--seed): 새 연간 행을 분기 표 사업보고서 칸으로 옮긴다(값이 같은 행은 다시 쓰지 않는다 — DART 0콜).
+#
+# 261019(환율): 외화 보고사(USD·CNY·JPY·GBP) 재무를 원화로 바꿀 때 환율 표(ecos_fx_rate)에 그 날짜가 없으면 한국은행 ECOS 를 묻는다.
+#   이 일정엔 ECOS_API_KEY 가 없어 야후 대체값으로 환산했고, 그 값이 환율 표에 영구로 굳었다(10-19 운영 6행 — JPY·GBP, ECOS 와 −0.08~+0.62%).
+#   이제 대체값은 표에 넣지 않고(open_proxy_mcp/dart/fx.py) 쓴 행을 `::warning::[환율]` 로 남긴다. 저장소 비밀값 ECOS_API_KEY 를 두면
+#   (서버와 같은 키) 처음부터 ECOS 값으로 환산된다 — 비밀값이 없으면 빈 값이라 동작은 위와 같다.
 #
 # 콜: 첫날 ~2,600(전 종목 × 1분기). 이후엔 남은 것만이라 급감.
 #   동시성 2 · 0.45s sleep ≈ 133콜/분 (하드룰 910/분의 15%).
@@ -93,7 +104,16 @@ jobs:
                   print(f"FY{fy} Q{q}: {n:,}/{base:,} ({n/base:.0%})")
           PY
 
+      - name: 신규 상장 보통주 등록·회사 고유번호 다시 잇기 (KRX 종목유형 2콜 + 이은 종목당 DART 회사 개황 1콜)
+        # 261020: 기준일은 일별 시세 저장분의 최신 거래일(서버 갱신기가 쓴 표를 읽기만 한다 — 여기서 시세를 받아 쓰지 않는다).
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
+        run: uv run python scripts/market_fund_quarterly.py --include-new
+
       - name: 결산월 채우기·고치기 (DART 목록 ~90콜)
+        if: ${{ !cancelled() }}   # 261020: 위 등록 단계가 실패해도 결산월·수집은 돈다(잡은 실패로 남아 보인다)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
@@ -108,7 +128,21 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 외화 보고사 환산 — 아래 머리말 참고
         run: uv run python scripts/market_val_series.py --fetch
+
+      - name: 연간 재무 — 정정 사업보고서 다시 받기 (DART 정기공시 목록 + 대상 행)
+        # 261020(p1e): 최근 10일 정기공시 목록에서 [기재정정] 사업보고서가 나온 연간 행만 다시 받는다(행마다 남긴 접수번호보다 늦은 보고서가 있을 때 —
+        #   종전엔 받은 행을 다시 받지 않아 정정 뒤 값이 그대로였다). 아래 Q4 seed·파생이 바뀐 값을 옮긴다. 정정본에 그 행의 재무제표(연결/별도)가
+        #   없으면 다른 쪽으로 바꿔 쓰지 않는다. 위 단계와 따로 돈다(따로 실패해도 서로 막지 않는다).
+        #   261020(p1f): 다시 받은 정정 보고서의 전기·전전기 칸은 앞 두 해 정정 칸(ni_restated·eq_restated)에 「가장 늦게 접수된 보고서 우선」으로
+        #   쓰고 출처 접수번호(restated_rcept_no)를 남긴다 — 위 정규 수집도 새 사업보고서마다 같다(DART 콜은 늘지 않는다).
+        if: ${{ !cancelled() }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 외화 보고사 환산 — 아래 머리말 참고
+        run: uv run python scripts/market_val_series.py --amended
 
       - name: Q4 seed — 새 연간 행을 분기 표 사업보고서 칸으로 (DART 0콜)
         if: ${{ !cancelled() }}
@@ -121,12 +155,22 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 외화 보고사 환산 — 아래 머리말 참고
         run: |
           if [ -n "${{ inputs.years }}" ]; then
             uv run python scripts/market_fund_quarterly.py --fetch --years "${{ inputs.years }}"
           else
             uv run python scripts/market_fund_quarterly.py --fetch
           fi
+
+      - name: 결산기 칸 — 반기·분기 결산 회사(리츠 등) (DART 목록 종목당 1콜 + 새 보고서 연도만)
+        # 261020(p1e): 결산기마다 사업보고서를 내는 회사의 결산기 사실값을 12개월 결산 회사와 같은 꼴(사업연도 누적)로 정정 칸에 — 아래 파생이 읽는다.
+        #   새 보고서가 없으면 종목당 목록 1콜뿐이다(open_proxy_mcp/services/period_cells.py).
+        if: ${{ !cancelled() }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: uv run python scripts/market_fund_quarterly.py --period-cells
 
       - name: 파생 갱신 + 결과 확인
         # 「성공」이 아니라 **산출물 변화**로 확인한다. 수집이 0건이어도 스크립트는 정상 종료한다.

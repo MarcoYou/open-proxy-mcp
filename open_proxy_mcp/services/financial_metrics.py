@@ -23,7 +23,8 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.dart.client import note_degradation
 from open_proxy_mcp.dart.as_of import get_strict_as_of
-from open_proxy_mcp.dart.fx import fiscal_year_end_date, fx_to_krw, statement_currency
+from open_proxy_mcp.dart.fx import (FALLBACK_WARNING, SRC_YAHOO, fiscal_year_end_date, fx_source, fx_to_krw,
+                                  statement_currency)
 from open_proxy_mcp.services.scale_guard import check_balance_identity
 from open_proxy_mcp.services.company import _company_id, resolve_company_query, _safe_company_info
 from open_proxy_mcp.services.company import company_not_found_warning
@@ -776,6 +777,13 @@ def _build_account_map_all(
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
                     break
+    # 261020(p1e firm-ctrl-ni): 지배 순이익은 수집 배치·price_multiple_data(firm)와 **같은 규칙**(`services/controlling_ni` — 값 구조 검사)으로 고른다.
+    #   위 루프는 지배 귀속 순이익 계정 id 가 든 첫 줄을 그대로 썼고(없으면 아래 요약에서 주요계정 당기순이익 총계 — 비지배 포함), 그래서 그 줄에
+    #   총포괄이익의 지배 몫을 적은 회사(075180 FY2025 27.68억 — 당기순이익은 −5.15억)·표준 계정코드 없이 이름으로 지배·비지배를 나눈 회사(비지배
+    #   포함 총계)에서 ROE·순이익률·순이익 전년비가 firm·DB 와 달랐다. 손익 칸은 위와 같다(누적이면 줄마다 당기 누적 → 없으면 당기).
+    from open_proxy_mcp.services.controlling_ni import controlling_ni as _shared_ctrl_ni   # 순환 가져오기를 피해 여기서
+    _ni_c = _shared_ctrl_ni(rows)[0] if cumulative_is else _shared_ctrl_ni(rows, f"{period}_amount")[0]
+    out["controlling_interest_income"] = int(round(_ni_c)) if _ni_c is not None else None
     # EPS: total 행이 없으면 계속영업 EPS로 채움 (분리공시 회사 — 한화에어로·효성중공업 등)
     if out.get("basic_eps") is None and out.get("_basic_eps_cont") is not None:
         out["basic_eps"] = out["_basic_eps_cont"]
@@ -1625,13 +1633,17 @@ async def _normalize_currency(
 
     _scale(metrics)
     metrics["fx_rate_to_krw"] = round(rate, 2)
+    metrics["fx_source"] = fx_source(cur, fx_date)      # 261019: "ecos"(한국은행 매매기준율) / "yahoo"(대체값 — 저장 안 함)
     metrics["fx_basis"] = (
         f"{fx_date} 기말환율 — 이 행의 금액(전기 포함)은 전부 이 환율. "
         f"다년 표에서는 **행마다 그 해 기말환율**이라 금액 추이에 환율 변동이 섞이고, "
         f"`*_yoy_pct` 는 환산 전 {cur} 기준이라 환율이 빠진 성장률이다 — 두 열의 기준이 다르다.")
-    return [f"기능통화 {cur} — 금액을 {fx_date} 기말환율 {rate:,.1f}원/{cur} 로 KRW 환산했다. "
-            f"순이익은 원칙상 평균환율이라 수% 오차가 있고, 전기도 같은 환율을 써서 "
-            f"yoy 는 환율 변동이 빠진 {cur} 기준 성장률이다."]
+    out = [f"기능통화 {cur} — 금액을 {fx_date} 기말환율 {rate:,.1f}원/{cur} 로 KRW 환산했다. "
+           f"순이익은 원칙상 평균환율이라 수% 오차가 있고, 전기도 같은 환율을 써서 "
+           f"yoy 는 환율 변동이 빠진 {cur} 기준 성장률이다."]
+    if metrics["fx_source"] == SRC_YAHOO:
+        out.append(f"⚠️ {fx_date} 환율: {FALLBACK_WARNING}")
+    return out
 
 
 def _actual_fs_div(rows: list[dict[str, Any]]) -> str | None:
@@ -2568,6 +2580,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             _r = fx_by_cur.get(row["_cur"])
             row["fx_rate_to_krw"] = round(_r, 2) if (mixed_converted and _r) else (
                 1.0 if row["_cur"] == "KRW" else None)
+            if mixed_converted and _r and row["_cur"] != "KRW":
+                row["fx_source"] = fx_source(row["_cur"], fx_date)
             if not mixed_converted and row["_cur"] != "KRW" and get_strict_as_of():
                 _exclude_unconverted_amounts(row)
         if mixed_converted:
@@ -2575,6 +2589,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             warnings.append(
                 f"보고 통화가 기간 중 바뀌었다({_span_txt}) — 각 분기 금액을 그 분기 보고 통화로 읽어 "
                 f"{fx_date} 환율({_rates})로 KRW 환산했다(12분기 같은 날 환율 — Q4 차분·증감률도 원화로 계산).")
+            if any(fx_source(c, fx_date) == SRC_YAHOO for c in row_curs if c != "KRW"):
+                warnings.append(f"⚠️ {fx_date} 환율: {FALLBACK_WARNING}")
         elif get_strict_as_of():
             warnings.append(
                 f"보고 통화가 기간 중 바뀌었다({_span_txt}) — 기준시점의 환율 공개 여부를 확인할 수 없어 외화 분기의 "
@@ -2587,6 +2603,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     # Q4 차분(연간 − 3분기 누적)이 서로 다른 환율의 값을 빼게 되어 Q4 가 오염된다.
     elif stmt_cur != "KRW":
         rate = await fx_to_krw(stmt_cur, last_period_end or f"{end_year}1231")
+        _src = fx_source(stmt_cur, last_period_end or f"{end_year}1231")
         if rate and rate != 1.0:
             for row in out:
                 for k, v in list(row.items()):
@@ -2594,9 +2611,12 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                         row[k] = round(v * rate)
                 row["functional_currency"] = stmt_cur
                 row["fx_rate_to_krw"] = round(rate, 2)
+                row["fx_source"] = _src
             warnings.append(
                 f"기능통화 {stmt_cur} — 분기 금액을 {last_period_end} 환율 {rate:,.1f}원/{stmt_cur} 로 "
                 f"KRW 환산했다(12분기 단일환율 — 분기마다 다른 환율을 쓰면 Q4 차분이 오염된다).")
+            if _src == SRC_YAHOO:
+                warnings.append(f"⚠️ {last_period_end or f'{end_year}1231'} 환율: {FALLBACK_WARNING}")
         else:
             for row in out:
                 row["functional_currency"] = stmt_cur
@@ -2791,14 +2811,14 @@ async def build_financial_metrics_payload(
     # 분기 인지형 디폴트: quarterly/qoq는 이미 제출된 최신 분기(예: 당해 1분기는 5월 공시)를
     # 봐야 하므로 디폴트 end_year를 당해 연도로. _build_quarterly는 end_year-2..end_year를
     # 받고 미공시 분기는 graceful skip이라 호출 수(12) 변동 없이 최신 분기가 포함된다.
-    # summary/yearly/yoy는 연간(사업보고서) 기준이라 _default_recent_year(전년) 유지.
+    # summary/yearly/yoy는 연간(사업보고서) 기준이라 _default_recent_year — 261019: 결산월로(12월 결산이면 종전 「4월 이후 전년」 그대로).
     if year:
         target_year = year
     elif scope in ("quarterly", "qoq"):
         from datetime import date as _date
         target_year = today_kst().year
     else:
-        target_year = _default_recent_year()
+        target_year = _default_recent_year(fiscal_month, selected.get("stock_code"))
 
     warnings: list[str] = []
     if company_info_warning:
@@ -3101,14 +3121,16 @@ def _next_actions(scope: str, data: dict[str, Any]) -> list[str]:
     return actions
 
 
-def _default_recent_year() -> int:
-    """현재 시점 기준 가장 최근 완료된 사업연도.
+def _default_recent_year(fiscal_month: int | None = None, ticker: str | None = None) -> int:
+    """현재 시점 기준 공시돼 있어야 할 최신 사업보고서의 사업연도 표기(DART `bsns_year`).
 
-    DART 사업보고서는 결산일 90일 이내 (3월말까지) 제출 의무.
-    오늘이 4월 이후면 전년도 사업보고서 가용, 그 전이면 전전년.
+    DART 사업보고서는 결산일 90일 이내 제출 의무 — 12월 결산이면 오늘이 4월 이후면 전년, 그 전이면 전전년(종전 규칙 그대로).
+
+    261019: **결산월을 안다**(`report_calendar.latest_annual` — 분기·연간 재무 수집·배수 도구와 같은 규칙). 종전엔 모든 회사에 12월 결산
+    규칙을 써서, 12월 결산이 아닌 회사는 이미 낸 최신 사업보고서를 건너뛰고 한 해 앞 것을 요약했다 — 10-19 운영 JTC(2월 결산) 요약이
+    2026.02 사업보고서(5/28 제출)를 두고 2025.02(FY2025)였다. DART 는 사업연도 표기를 그 보고서 기간 말이 속한 해로 붙인다(2월 결산
+    2026 = 2026.02). 12월 결산이 아닌 외국 상장사(종목코드 9…)는 제출 기한이 길어(사업보고서 120일) 그 기한으로 본다.
+    결산월을 모르면(회사 개황 실패) 12월 — 종전과 같다.
     """
-    from datetime import date
-    today = today_kst()
-    if today.month >= 4:
-        return today.year - 1
-    return today.year - 2
+    from open_proxy_mcp.services import report_calendar as rcal
+    return rcal.latest_annual(today_kst(), rcal.fiscal(fiscal_month or 12, ticker))

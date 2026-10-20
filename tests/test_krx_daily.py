@@ -38,7 +38,7 @@ def test_daily_records_carry_every_krx_field_in_column_order():
 def test_daily_records_do_not_store_derived_values():
     """시총·등락률은 저장하지 않는다 — 뷰가 계산한다(한 행 안의 곱셈·나눗셈은 계산). 공표 전일대비(cmp)는 사실값이라 저장한다."""
     assert "mktcap" not in krx_daily.DAILY_COLUMNS and "chg_pct" not in krx_daily.DAILY_COLUMNS
-    assert "MKTCAP" not in krx_daily.COPY_PX_SQL and "fluc" not in krx_daily.COPY_PX_SQL.lower()
+    assert "MKTCAP" not in krx_daily.INSERT_PX_SQL and "fluc" not in krx_daily.INSERT_PX_SQL.lower()
 
 
 def test_daily_records_tolerate_blank_dash_and_missing_ids():
@@ -103,20 +103,6 @@ def _norm(sql):
     return " ".join(sql.split())
 
 
-class _Copy:
-    def __init__(self, conn):
-        self.c = conn
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *a):
-        return False
-
-    def write_row(self, row):
-        self.c.copied.append(tuple(row))
-
-
 class _Cur:
     def __init__(self, conn):
         self.c = conn
@@ -149,6 +135,16 @@ class _Cur:
             self._rows = list(self.c.cands)
         elif n == _norm(krx_daily.PRUNE_PX_SQL):
             self.rowcount = 5 * len(params[0])
+        elif n == _norm(krx_daily.INSERT_PX_SQL):
+            # 칸별 배열(PX_COLUMNS) → 행. 기록해 두는 꼴은 표의 칸 순서(value … cmp, trd_dd, tid, market)
+            day, cols = params[0], params[1:]
+            assert len(cols) == len(krx_daily.PX_COLUMNS) and len({len(x) for x in cols}) == 1
+            self.c.copied += [r[:8] + (day,) + r[8:] for r in zip(*cols)]
+            self.rowcount = len(cols[0])
+        elif n == _norm(krx_daily.PRUNE_DESUMMARIZE_FN_EXISTS_SQL):
+            self._rows = [(self.c.fn_exists,)]
+        elif n == _norm(krx_daily.PRUNE_DESUMMARIZE_FN_SQL):
+            self._rows = [(len({d for d in params[0]}),)]
         return self
 
     def fetchone(self):
@@ -156,10 +152,6 @@ class _Cur:
 
     def fetchall(self):
         return self._rows
-
-    def copy(self, sql):
-        self.c.log.append(("copy", _norm(sql), None))
-        return _Copy(self.c)
 
 
 class _Tx:
@@ -178,8 +170,8 @@ class _Tx:
 class FakeConn:
     """psycopg 연결 대역. tids = 이미 번호가 있는 종목(새 종목은 차례로 번호), latest = 달력 최신일, cands = 보관 창 밖 달력 행."""
 
-    def __init__(self, fail_daily=False, tids=None, latest="20261016", cands=(), answers=None):
-        self.log, self.commits, self.fail_daily = [], 0, fail_daily
+    def __init__(self, fail_daily=False, tids=None, latest="20261016", cands=(), answers=None, fn_exists=False):
+        self.log, self.commits, self.fail_daily, self.fn_exists = [], 0, fail_daily, fn_exists
         self.tids = dict(tids or {})
         self.latest, self.cands, self.copied = latest, list(cands), []
         self.answers = {_norm(k): v for k, v in (answers or {}).items()}   # 문장 → 돌려줄 행(또는 던질 예외)
@@ -208,21 +200,21 @@ class FakeConn:
 
 
 def _sqls(c):
-    return [e[1] for e in c.log if e[0] in ("execute", "copy")]
+    return [e[1] for e in c.log if e[0] == "execute"]
 
 
 def _entry(c, sql):
     return next(e for e in c.log if e[0] == "execute" and e[1] == _norm(sql))
 
 
-def test_write_daily_numbers_new_tickers_then_calendar_then_copies_in_ticker_number_order():
+def test_write_daily_numbers_new_tickers_then_calendar_then_inserts_in_ticker_number_order():
     c = FakeConn(tids={"247540": 7, "005930": 9})                      # 이미 번호가 있는 두 종목 + 새 종목 하나
     ok, n, pruned = krx_daily.write_daily(c, "20261016", [_row("005930"), _row("0001A0", "9,000", CMPPREVDD_PRC="-100")],
                                           [_row("247540", "250,000")])
     assert (ok, n, pruned) == (True, 3, 0)
     sqls = _sqls(c)
     assert sqls[:5] == [_norm(krx_daily.NEW_TICKERS_SQL), _norm(krx_daily.TIDS_SQL), _norm(krx_daily.DAY_UPSERT_SQL),
-                        _norm(krx_daily.DAY_ROWS_DELETE_SQL), _norm(krx_daily.COPY_PX_SQL)]
+                        _norm(krx_daily.DAY_ROWS_DELETE_SQL), _norm(krx_daily.INSERT_PX_SQL)]
     assert sqls[5] == _norm(krx_daily.WK_CLOSE_SQL)                    # 주 닫는 날을 기록마다 다시 계산
     new = _entry(c, krx_daily.NEW_TICKERS_SQL)
     assert new[2] == (["0001A0", "005930", "247540"],)                 # 새 종목만 넣는 문장 — 후보는 정렬해서 넘긴다
@@ -235,6 +227,31 @@ def test_write_daily_numbers_new_tickers_then_calendar_then_copies_in_ticker_num
     assert by_tid[7][10] == "Q" and by_tid[9][10] == "S" and str(by_tid[9][8]) == "2026-10-16"
     assert c.commits == 0                                              # 커밋은 호출자(krx_weekly 와 같은 트랜잭션)가 한다
     assert c.log[0] == ("savepoint",) and c.log[-1] == ("release",)
+
+
+def test_write_daily_inserts_the_whole_day_in_one_statement_not_copy():
+    """RLS 가 켜진 krx_px 에는 소유자·BYPASSRLS 가 아닌 계정이 COPY FROM 을 못 한다(PG17) — 한 문장 INSERT(칸별 배열 unnest)로 넣는다."""
+    assert krx_daily.INSERT_PX_SQL.startswith("INSERT INTO krx_px ") and not hasattr(krx_daily, "COPY_PX_SQL")
+    assert "WITH ORDINALITY" in krx_daily.INSERT_PX_SQL and krx_daily.INSERT_PX_SQL.rstrip().endswith("ORDER BY u.i")
+    c = FakeConn(tids={"005930": 2, "000660": 1})
+    ok, n, _ = krx_daily.write_daily(c, "20261016", [_row("005930"), _row("000660", "200,000")], [])
+    assert (ok, n) == (True, 2)
+    ins = [e for e in c.log if e[0] == "execute" and e[1] == _norm(krx_daily.INSERT_PX_SQL)]
+    assert len(ins) == 1 and str(ins[0][2][0]) == "2026-10-16"
+    assert ins[0][2][1 + krx_daily.PX_COLUMNS.index("tid")] == [1, 2]          # 종목 번호순
+    assert ins[0][2][1 + krx_daily.PX_COLUMNS.index("market")] == ["S", "S"]
+
+
+def test_prune_desummarizes_through_the_owner_function_when_it_exists():
+    """BRIN 요약 지우기는 색인 소유자만 된다(PG17 MAINTAIN 으로도 안 됨) — 소유자 함수가 있으면 그것을, 없으면 직접 부른다."""
+    c = FakeConn(latest="20261021", cands=[("20251010", 2764, False, True)], fn_exists=True)
+    ok, _, pruned = krx_daily.write_daily(c, "20261021", [_row("005930")], [])
+    assert ok and pruned == 5
+    fn = _entry(c, krx_daily.PRUNE_DESUMMARIZE_FN_SQL)
+    assert [str(d) for d in fn[2][0]] == ["2025-10-10"]
+    assert _norm(krx_daily.PRUNE_DESUMMARIZE_SQL) not in _sqls(c)
+    i = c.log.index(_entry(c, krx_daily.PRUNE_DESUMMARIZE_FN_EXISTS_SQL))
+    assert c.log[i - 1] == ("savepoint",) and c.log.index(fn) < c.log.index(_entry(c, krx_daily.PRUNE_PX_SQL))
 
 
 def test_write_daily_same_ticker_twice_keeps_the_last_row():
@@ -263,7 +280,8 @@ def test_prune_deletes_only_closed_or_cold_days_and_warns_about_the_rest(caplog)
     des = _entry(c, krx_daily.PRUNE_DESUMMARIZE_SQL)
     assert des[2][:3] == ("krx_px_dd_brin", 16, 16) and [str(d) for d in des[2][3]] == ["2025-10-10"]
     i = c.log.index(des)
-    assert c.log[i - 1] == ("savepoint",) and c.log[i + 1] == ("release",) and c.log.index(px) > i
+    j = c.log.index(_entry(c, krx_daily.PRUNE_DESUMMARIZE_FN_EXISTS_SQL))     # 소유자 함수가 없는 DB — 직접 부른다
+    assert c.log[j - 1] == ("savepoint",) and j + 1 == i and c.log[i + 1] == ("release",) and c.log.index(px) > i
     assert any("콜드 보관본에 없어 지우지 않았다" in r.message and "20251013~20251014" in r.message for r in caplog.records)
 
 
@@ -383,7 +401,8 @@ def test_upsert_writes_daily_then_closes_weeks_before_the_single_commit(monkeypa
     # 261019(v03 C4): 일별 기록 앞에 krx_weekly 가 뷰인지 한 번 본다(대역은 표 — 기록 전 달력은 읽지 않는다)
     assert c.log[1][:2] == ("execute", _norm(krx_daily.WEEKLY_KIND_SQL))
     assert kinds[:3] == ["savepoint", "execute", "savepoint"] and kinds[-3:] == ["release", "sync_weekly", "release"]
-    assert "copy" in kinds and len(c.copied) == 2
+    # 261020(#131): COPY 대신 INSERT 한 문장(최소 권한 계정 — RLS 표에 COPY FROM 불가)
+    assert any(e[0] == "execute" and e[1] == _norm(krx_daily.INSERT_PX_SQL) for e in c.log) and len(c.copied) == 2
     assert not any("krx_weekly" in (e[1] if len(e) > 1 and isinstance(e[1], str) else "")   # 이번 주 행을 지우고 다시 넣지 않는다
                    and e[1] != _norm(krx_daily.WEEKLY_KIND_SQL) for e in c.log)                 # (표/뷰 판별 카탈로그 질의만 그 이름을 쓴다)
 
@@ -537,7 +556,8 @@ def test_ddl_script_prints_by_default_and_never_applies_without_the_flag(capsys,
     monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--no-tx"])
     assert ddl.main() == 0
     body = capsys.readouterr().out
-    assert "BEGIN" not in body and "COMMIT" not in body and body.startswith("-- 종목 번호표") and not applied
+    lines = body.splitlines()                          # 트랜잭션 감싸기만 없다(함수 본문의 plpgsql BEGIN 은 그대로)
+    assert "BEGIN;" not in lines and "COMMIT;" not in lines and body.startswith("-- 종목 번호표") and not applied
     monkeypatch.setattr(sys, "argv", ["krx_daily_ddl.py", "--shadow"])
     assert ddl.main() == 0
     sh = capsys.readouterr().out

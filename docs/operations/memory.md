@@ -73,8 +73,24 @@ GET triggers collection. Escalate to detailed sampling only during sustained gro
 `POST /admin/drain?seconds=120` starts a lease (0..120 seconds); zero cancels it.
 During a lease, health returns 503 and new MCP requests receive 503 with Retry-After.
 Already admitted POST requests continue and are counted in `maintenance.active_posts`.
-The lease expires automatically if its operator disappears. Old GET streams do not
-count as active tool work. This is an operational safeguard, not a zero-error promise.
+The lease expires automatically if its operator disappears. Old GET streams and
+`subscriptions/listen` streams (protocol 2026-07-28) are notification channels, not
+active tool work, and are not counted. On a shutdown signal both kinds are closed:
+GET streams by the SSE library, listen streams gracefully with their final result
+frame, so clients listen again elsewhere and the process does not wait on them.
+A second signal of SIGTERM forces exit, matching a second SIGINT, and a forced exit
+aborts the connections still open (Python 3.12's server close otherwise waits for
+every one of them), so the platform's SIGTERM after the kill timeout ends the process
+instead of the VM being killed.
+This is an operational safeguard, not a zero-error promise.
+
+`open_requests` lists every open `/mcp` request (GET streams included): `total`,
+`by_kind` counts keyed by HTTP method, JSON-RPC method and phase, and the five oldest
+with age, protocol version, phase (`body`, `handling`, `streaming`, `sent`), status,
+bytes sent and whether the client has disconnected. It never carries query strings,
+arguments, addresses or user agents; method, tool and protocol names outside the fixed
+vocabulary are reported as `other`. The same summary is written to stderr when a
+shutdown signal arrives, so a deploy that waits on open connections shows what it waited for.
 
 Before restart, verify a different instance is ready and has capacity, begin a short
 lease, wait for active POST/tool/document work to reach zero, and recheck the peer.

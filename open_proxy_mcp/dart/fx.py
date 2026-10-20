@@ -6,8 +6,13 @@ KRW 주가/시총 ÷ USD 자본으로 배수를 계산하면 환율(≈1,440)배
 
 소스 우선순위: ① ECOS(한국은행 매매기준율, 공식·안정) → ② 야후 파이낸스(폴백, 비공식·무키).
 캐시 3층: 인메모리(_MEM) → Supabase ecos_fx_rate(영구) → 소스 호출.
-  - 저장 규칙: **과거(확정) 날짜 = 영구 저장**(회계기말=분기말은 값이 안 바뀜, 불변). "오늘/최신"은
+  - 저장 규칙: **과거(확정) 날짜의 ECOS 값만 영구 저장**(회계기말=분기말은 값이 안 바뀜, 불변). "오늘/최신"은
     변동값이라 영구 저장 안 함 — _MEM을 조회기준일(오늘)로 키잉해 하루 지나면 자동 미스→재조회.
+  - **야후 대체값은 영구 표에 넣지 않는다**(261019) — `_MEM_FALLBACK` 에 `_FALLBACK_TTL_SEC` 동안만 두고, 그 뒤 다시 물으면
+    ECOS 를 다시 시도한다. 종전엔 야후 값도 그대로 영구 저장해, ECOS 키가 없는 GitHub Actions 배치(분기·연간 재무 수집)가
+    캐시 미스를 낸 날짜에 야후 종가가 굳었다(10-19 운영 296행 중 6행 — JPY 20241231·20250228·20260228·20260331,
+    GBP 20260131·20260331 — ECOS 와 −0.08~+0.62% 차이). 표 이름 그대로 이 표는 ECOS 값만 담는다.
+  - 값마다 출처를 기억한다(`fx_source` — "ecos"/"yahoo"). 도구는 응답의 환율 칸 옆에 출처를 적고, 대체값이면 경고한다.
   - 밸류에이션은 항상 과거 분기말로 조회(재무=회계기말 기준)하므로 실제 저장 대상 = 분기말뿐(연 4개).
   - 읽기는 SELECT 한 줄(공용 읽기 풀), 표 생성은 쓰기 경로가 **표가 없을 때만** 한다(261018, `_db_get` 참조).
 
@@ -30,6 +35,7 @@ from open_proxy_mcp.db import pg_rows
 
 _log = logging.getLogger(__name__)
 
+#: ECOS 값(영구 표에서 읽은 값 포함)만 담는다 — 프로세스 수명 동안 그대로 쓴다.
 _MEM: dict[tuple[str, str], float] = {}
 
 #: 실패한 조회는 **짧게만** 기억한다(값=만료 시각). 영구 기억하면 프로세스 수명 내내 고착되고,
@@ -37,7 +43,17 @@ _MEM: dict[tuple[str, str], float] = {}
 _MEM_NEG: dict[tuple[str, str], float] = {}
 _NEG_TTL_SEC = 600.0
 
-#: 환율 상식 범위 — 야후 폴백이 이상값을 주면 영구 캐시에 굳는다.
+#: 야후 대체값도 **짧게만** 기억한다(값, 만료 시각) — 영구 표에는 넣지 않는다(261019). 만료 뒤엔 ECOS 부터 다시 묻는다.
+#: 30분: ECOS 가 잠깐 흔들린 동안 같은 날짜를 거듭 묻는 경로(분기 12개·업종 비교)가 매번 ECOS 타임아웃(15초)을 먹지 않을 만큼,
+#: 그리고 ECOS 가 돌아오면 한 시간 안에 공식 값으로 바뀔 만큼.
+_MEM_FALLBACK: dict[tuple[str, str], tuple[float, float]] = {}
+_FALLBACK_TTL_SEC = 1800.0
+
+#: 출처 표기(`fx_source`) — 응답의 환율 칸 옆에 그대로 나간다.
+SRC_ECOS = "ecos"
+SRC_YAHOO = "yahoo"
+
+#: 환율 상식 범위 — 야후 폴백이 이상값을 주면 그 값으로 환산이 틀어진다(영구 표에는 이제 ECOS 값만 들어간다).
 _FX_MIN, _FX_MAX = 1e-4, 1e5
 
 
@@ -112,6 +128,15 @@ def _db_put(ccy: str, date: str, rate: float) -> None:
         _log.debug("fx cache put failed (%s %s): %s", ccy, date, exc)
 
 
+def ecos_key_missing_note(where: str) -> str | None:
+    """배치가 시작할 때 한 줄(261019) — `ECOS_API_KEY` 가 없으면 외화 보고사 재무를 환율 표에 없는 날짜마다 야후 대체값으로 환산한다
+    (값은 담기지만 ECOS 와 −0.08~+0.84% 어긋난다 — 10-19 로컬 배치 950170 FY2018). 행마다 나오는 경고보다 먼저 「키가 빠졌다」를 알린다. 키 값은 싣지 않는다."""
+    if os.getenv("ECOS_API_KEY"):
+        return None
+    return (f"::warning::[환율] {where}: ECOS_API_KEY 가 없다 — 외화 보고사(USD·CNY·JPY·GBP 등) 재무를 환율 표에 없는 날짜마다 "
+            "야후 대체값으로 환산한다. 배치 환경(저장소 비밀값·.env·셸)에 ECOS_API_KEY 를 둘 것")
+
+
 async def _ecos(ccy: str, date: str) -> float | None:
     """한국은행 ECOS 매매기준율(731Y001). date 이하 최신(주말·공휴일이면 직전 거래일)."""
     key = os.getenv("ECOS_API_KEY")
@@ -180,6 +205,9 @@ async def fx_to_krw(currency: str | None, date: str | None = None) -> float | No
     memkey = (cur, q_date)
     if memkey in _MEM:
         return _MEM[memkey]
+    _fb = _MEM_FALLBACK.get(memkey)
+    if _fb is not None and time.monotonic() < _fb[1]:
+        return _fb[0]                  # 최근 대체값 — 아직 ECOS 를 다시 물을 때가 아니다
     _neg = _MEM_NEG.get(memkey)
     if _neg is not None:
         if time.monotonic() < _neg:
@@ -187,28 +215,67 @@ async def fx_to_krw(currency: str | None, date: str | None = None) -> float | No
         del _MEM_NEG[memkey]           # 만료 → 아래에서 다시 시도
 
     rate: float | None = None
-    if _settled(q_date):               # 과거 확정일 → 영구캐시 조회
+    if _settled(q_date):               # 과거 확정일 → 영구캐시 조회(ECOS 값만 담긴 표)
         rate = await asyncio.to_thread(_db_get, cur, q_date)
-    if rate is None:                   # 캐시 미스 → ECOS 1차, 야후 폴백
-        rate = await _ecos(cur, q_date) or await _yahoo(cur, q_date)
-        if rate is not None and not _plausible(rate):
-            # 야후는 무검증 외부 소스다. 영구 캐시가 살아난 뒤로는 이상값이 **굳으므로**
-            # 저장 전에 한 번 거른다.
-            _log.warning("fx %s %s = %r — 상식 범위 밖이라 버린다", cur, q_date, rate)
-            rate = None
+    if rate is None:                   # 캐시 미스 → ECOS 1차
+        rate = _sane(cur, q_date, "ECOS", await _ecos(cur, q_date))
         if rate is not None and _settled(q_date):
             await asyncio.to_thread(_db_put, cur, q_date, rate)
+    if rate is None:                   # ECOS 실패 → 야후 대체값(저장 안 함, 짧게만 기억)
+        alt = _sane(cur, q_date, "야후", await _yahoo(cur, q_date))
+        if alt is not None:
+            _log.info("fx %s %s — ECOS 를 받지 못해 야후 대체값 %r (영구 표에 넣지 않고 %d초만 기억)",
+                      cur, q_date, alt, int(_FALLBACK_TTL_SEC))
+            _MEM_FALLBACK[memkey] = (alt, time.monotonic() + _FALLBACK_TTL_SEC)
+            _MEM_NEG.pop(memkey, None)
+            return alt
     if rate is None:
         # ★ 실패를 영구 기억하면 그 프로세스는 그 통화·그 날짜를 **영영** 못 가져온다
         #   (fly 는 장수 프로세스라 ECOS 가 한 번 흔들리면 그 뒤 전부 미환산이 된다).
         #   그렇다고 아예 안 담으면 분기 12개를 도는 경로가 매번 두 소스 타임아웃을 다시 먹는다.
-        #   → 짧게만 기억한다.
+        #   → 짧게만 기억한다. 만료된 대체값은 지운다 — 값이 없다는 지금 결과가 더 새롭다.
         _MEM_NEG[memkey] = time.monotonic() + _NEG_TTL_SEC
         _MEM.pop(memkey, None)
+        _MEM_FALLBACK.pop(memkey, None)
         return None
     _MEM[memkey] = rate
     _MEM_NEG.pop(memkey, None)
+    _MEM_FALLBACK.pop(memkey, None)    # ECOS 값이 들어오면 대체값은 버린다
     return rate
+
+
+def _sane(cur: str, q_date: str, src: str, rate: float | None) -> float | None:
+    """상식 범위 밖이면 버린다(경고 로그) — 무검증 외부 값이 환산을 틀지 않게."""
+    if rate is not None and not _plausible(rate):
+        _log.warning("fx %s %s %s = %r — 상식 범위 밖이라 버린다", cur, q_date, src, rate)
+        return None
+    return rate
+
+
+def fx_source(currency: str | None, date: str | None = None) -> str | None:
+    """같은 프로세스에서 방금 받은 `fx_to_krw(currency, date)` 값의 출처 — `SRC_ECOS`(한국은행 매매기준율, 영구 표에서 읽은 값 포함)
+    · `SRC_YAHOO`(야후 대체값) · None(KRW·아직 안 물었음·조회 실패). 네트워크·DB 를 쓰지 않는다.
+
+    대체값은 만료돼도 다음 `fx_to_krw` 가 ECOS 값으로 바꾸기 전까지는 「야후」로 답한다 — 방금 그 값으로 환산한 응답에 출처를 적는 용도다."""
+    cur = (currency or "KRW").upper()
+    if cur in ("KRW", ""):
+        return None
+    key = (cur, date or _today())
+    if key in _MEM:
+        return SRC_ECOS
+    if key in _MEM_FALLBACK:
+        return SRC_YAHOO
+    return None
+
+
+def fx_source_label(source: str | None) -> str:
+    """응답 문장용 출처 이름."""
+    return {SRC_ECOS: "한국은행 ECOS 매매기준율", SRC_YAHOO: "야후 파이낸스 종가(대체값)"}.get(source or "", "출처 미확인")
+
+
+#: 대체값을 쓴 응답에 붙이는 경고(도구 공용).
+FALLBACK_WARNING = ("한국은행 ECOS 매매기준율을 받지 못해 야후 파이낸스 종가로 대신한 환율이 있다 — 비공식 값이라 ECOS 와 "
+                    "다를 수 있다(10-19 운영 실측 −0.1~+0.6%). 저장하지 않으며 30분 뒤 다시 물으면 ECOS 부터 다시 받는다.")
 
 
 def fiscal_year_end_date(fiscal_year: int, acc_mt: str | int | None = None) -> str:

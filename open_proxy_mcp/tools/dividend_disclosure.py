@@ -169,9 +169,15 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                 _y += f" · ({_pref_label}) {summary.get('yield_preferred_dart')}%"
             lines.append(_y + " (결의 당시 공시값)")
         if summary.get("yield_current_pct") is not None:
+            # 261019(p1b): 결산기준일 뒤 분할·병합이면 DPS 를 지금 주식 기준으로 바꿔 나눴다 — 사업보고서 값과 계수를 함께 적는다.
+            _adj = summary.get("yield_current_dps_adjustment") or {}
+            _dps_txt = (f"DPS {summary.get('cash_dps', 0):,}원 × 계수 {_adj.get('factor'):g}"
+                        f"({' · '.join(e.get('event_dd', '') for e in _adj.get('events') or [])} 주식 분할·병합 뒤) = "
+                        f"{summary.get('yield_current_dps_krw'):,}원" if _adj and summary.get("yield_current_dps_krw") is not None
+                        else f"DPS {summary.get('cash_dps', 0):,}원")
             lines.append(
                 f"- 현재가 기준 배당수익률: {summary.get('yield_current_pct')}% "
-                f"(DPS {summary.get('cash_dps', 0):,}원 ÷ 종가 {summary.get('yield_current_price_krw', 0):,}원, "
+                f"({_dps_txt} ÷ 종가 {summary.get('yield_current_price_krw', 0):,}원, "
                 f"{summary.get('yield_current_price_date', '-')} 기준)")
         # 신호 메타 — 선배당-후결의, 감액배당.
         if summary.get("pre_dividend_post_resolution"):

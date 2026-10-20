@@ -18,10 +18,11 @@ import pytest
 
 from open_proxy_mcp import krx_daily as K
 from open_proxy_mcp.services import price_multiple_data as S
+from tests.pmd_fin_rows import pad_fin_rows
+from open_proxy_mcp.services.sector_class import DB_SCHEME, MAJOR, MID
 
 #: 닫힌 주 최신 읽기(261019 v03 C4 — 달력 먼저, 비면 krx_weekly max).
 _LATEST = " ".join(K.WEEKLY_LATEST_SQL.split())
-from open_proxy_mcp.services.sector_class import DB_SCHEME, MAJOR, MID
 
 TODAY = date(2026, 10, 21)            # 수요일 — 이번 주(10/19~)는 아직 닫히지 않았다
 CAP = 150.0e12
@@ -70,9 +71,9 @@ def _fh_rows(tail, *, latest="20261016", weekly=None, seen=None):
         if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
             return [FUND]
         if "FROM dart_finstat_y" in s:
-            return list(FIN_Y)
+            return pad_fin_rows(sql, list(FIN_Y))
         if "FROM dart_finstat_q" in s:
-            return list(FIN_Q)
+            return pad_fin_rows(sql, list(FIN_Q))
         if "DISTINCT ON" in s or "FROM krx_stock_flags" in s:
             return []
         raise AssertionError("모르는 SQL: " + s)
@@ -207,6 +208,8 @@ HIST = [("20251226", 12.0, 11.0, 1.5, 1.4, 800e12, 1e12, 1e12), (AS_OF, 14.0, 13
 def _sector_db(seen, *, wise=True):
     def rows(sql, params=()):
         s = " ".join(sql.split())
+        if s.startswith("SELECT MAX(snap_dd) FROM opm_val_market WHERE scheme=%s AND sector=%s"):   # 261019: 시장 전체 최신일(축 낡음 판정)
+            return [(AS_OF,)]
         if s.startswith("SELECT snap_dd, market, sector, label, n, cap, per_ttm"):
             sec = "261" if params[0] == "ksic" else ("G45" if params[0] == "wics_sector" else "G4530")
             return [(AS_OF, "KS", sec, "반도체", 30, 900e12, 13.456, 1.876, 14.0, 1.9, 1e12, 1e12)]

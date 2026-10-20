@@ -21,6 +21,14 @@
      칸(`fetched`)이 더해졌다(종전 스냅샷 표처럼 수집 정상인 종목만 「주간」 항목을 낸다). 「최근 16주」는 시장의 최근 16주(저장된 최신 주 기준)다.
      골든 중 바뀐 것은 시세가 있는 fh_* 11개 시나리오에 「주간」 항목(가짜 시세의 그 창 안 2주)이 더해진 것뿐이고, 그 항목을 빼면 4차 골든과
      글자까지 같음을 대조한 뒤 썼다.
+     261019(배수 도구 원래 결함): 세 시나리오만 바꿨다 — `fh_usd_reporter` 「주간」 항목 pbr 0.0 → 0.0011(0 이 아닌 배수가 반올림으로 0 이 되면
+     유효숫자 둘 — `_round_mult`), `fh_only_fin_y_fails`·`fh_only_fund_fails` 에 `data.series_gap_fill`(곡선이 비는 주를 앞선 칸으로 센 대체 점)과
+     그 경고 한 줄. 곡선(`series`)·월말 요약·환율 조회 순서·그 밖의 칸과 나머지 시나리오는 글자까지 같음을 대조한 뒤 썼다.
+     261019(같은 날 검토): `fh_usd_reporter` 의 연말 항목 pbr 0.0 → 0.00089~0.001 — 같은 응답의 「주간」 항목은 이미 유효숫자 둘(0.0011)인데
+     연말 밴드만 소수 둘째 자리 반올림으로 0 이 됐다(`_annual_pit_band` 도 `_round_mult`). 그 여섯 칸 밖은 글자까지 같음을 대조했다.
+     261020(p1g pit-restated — 정정 칸은 출처 보고서 공시일부터): 가짜 데이터의 FY2024 정정 순이익(33.0조, 출처 접수번호 없음)은 추정 공시일
+     (2025 사업보고서 공시 시점 2026-04-01) 전 점에서 원본 33.6조로 센다. fh_* 11개 시나리오의 다섯 날짜(20250418·20250718·20251017·20251229·
+     20260116) per_fy0·per_ttm 83항목만 바뀌었고, 그 밖의 칸·환율 조회 순서·firm 시나리오는 글자까지 같음을 대조한 뒤 썼다.
   ② 순차(`OPM_PG_FANOUT=1`)와 겹침(기본 3)이 같은 응답·같은 읽기 묶음을 낸다.
   ③ 상한: 한 호출이 동시에 3개를 넘게 DB 를 물지 않는다(중첩 gather 포함).
   ④ 겹쳐서 실제로 빨라진다(가짜 지연으로 잰다) · 오류는 넣은 순서상 첫 예외가 올라온다 · 환경변수 오타가 서버를 못 뜨게 하지 않는다.
@@ -40,6 +48,7 @@ from datetime import date
 import pytest
 
 from open_proxy_mcp.services import price_multiple_data as S
+from tests.pmd_fin_rows import pad_fin_rows
 
 GOLDEN = pathlib.Path(__file__).with_name("pmd_read_path_golden.json")
 FAIL = object()                       # 이 읽기는 None(DB 장애)을 돌려준다
@@ -115,7 +124,7 @@ class FakeDb:
                 return [(*r, "w") for r in val if r[0] >= params[1]]
             if key == "adj":
                 return [tuple(r) for r in val.get(params[1], [])]
-            return copy.deepcopy(val)
+            return pad_fin_rows(sql, copy.deepcopy(val))
         finally:
             with self._lock:
                 self.inflight -= 1

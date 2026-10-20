@@ -8,7 +8,7 @@
 #   한 주 = ISO 주를 달력 연도 안으로 자른 것(`krx_retention.week_unit` — 연말 거래일이 다음 해 첫 주에 지워지지 않게).
 # 갱신 대상: opm_val_market(시장·업종) · krx_listing · krx_stock_flags · krx_cap_agg · opm_val_fwd(선행 배수, 260918).
 #   261018(재설계 6단계): 종목별 스냅샷 opm_val_firm 은 더 쓰지 않는다(종목 배수는 메모리에서만 계산 — 표는 백업 뒤 지운다).
-# 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY (ECOS_API_KEY 불필요 — fx_rate는 DB 캐시 히트)
+# 필요 secrets: DATABASE_URL, KRX_OPEN_API_KEY · 있으면 ECOS_API_KEY(261019 — 환율 표에 없는 날짜를 ECOS 로. 없으면 야후 대체값 + 경고, 표에는 넣지 않는다)
 #
 # 선행 step(260705): mkt_fundamentals 재무 4열을 SSOT(mkt_finstat_q 분기재무)에서 파생 — **DART 0콜**.
 # 신규 분기 공시분을 스냅샷 계산 전에 반영(옛 시장 aggregate 스크립트는 done셋 고정이라 갱신 불가였음 — 260902 삭제). 분기 fetch는
@@ -69,6 +69,15 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python scripts/scale_sweep_apply.py --apply
 
+      - name: 결산기 칸 — 반기·분기 결산 회사(리츠 등) (DART 목록 ~30콜 + 새 보고서 연도만)
+        # 261020(p1e): 리츠는 결산 달력이 제각각(9가지)이라 새 보고서가 어느 날이든 나온다 — 곡선·업종 비교·집계가 firm 과 하루 안에 맞게 매일 본다.
+        #   이 단계가 실패해도(DART 장애) 아래 DB 단계는 돈다 — 결산기 칸은 그 전 값 그대로다.
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+        run: uv run python scripts/market_fund_quarterly.py --period-cells
+
       - name: Derive mkt_fundamentals from SSOT (mkt_finstat_q) — DART 0콜
         # 261018(결산월): 파생 앞에 Q4 seed(연간 표 → 분기 표 사업보고서 칸, 값이 같은 행은 다시 쓰지 않는다). 파생은 TTM 의 직전 연간 값을
         #   분기 표 사업보고서 칸에서 읽는데, 12월 결산이 아닌 회사의 새 사업보고서는 주 1회 재무 수집(finstat-quarterly)이 연간 표에 넣는다 —
@@ -116,9 +125,12 @@ jobs:
         #   sector-class-monthly 가 월 1회 갱신하지만, 시총·재무는 매일 바뀐다. 집계를 월 1회 배치에만
         #   두면 사용자가 보는 섹터 배수가 최대 한 달 낡는다(실측: KSIC 8/21 vs 업종분류 7/31).
         #   스크립트가 현재월을 건너뛰므로 여기선 --since 로 최근만 훑어 비용을 줄인다.
+        # 261019: --with-stored-weekly — 월말과 함께 이미 저장된 업종 주간 점(닫힌 주)도 같은 산식으로 다시 낸다. 재무가 고쳐지거나
+        #   다음 해 보고서의 재작성치가 들어오면 이 단계가 월말은 매일 다시 내지만 사이 주간 점은 옛 재무 값으로 남아 곡선이 튄다
+        #   (10-19 실측 — 재무 고침 뒤 주간 점 0821~1008 이 월말과 어긋남). 값이 같으면 쓰지 않아(IS DISTINCT FROM) 평소엔 0행, 날짜 몇 개 더 계산.
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: uv run python scripts/sector_val_backfill.py --since ${{ inputs.class_since || '20260101' }} --include-current
+        run: uv run python scripts/sector_val_backfill.py --since ${{ inputs.class_since || '20260101' }} --include-current --with-stored-weekly
 
       - name: 과거 시장·섹터 밴드 재적재 (수동 요청 시만 · DART·KRX 0콜)
         if: ${{ inputs.market_history == 'yes' }}
@@ -130,6 +142,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           KRX_OPEN_API_KEY: ${{ secrets.KRX_OPEN_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 없으면 빈 값(종전과 같다)
         run: uv run python scripts/market_val_weekly.py
 
       # 260903 신설 — `dividend_data` 가 「배당을 안 했다」와 「그해엔 상장 전이었다」를

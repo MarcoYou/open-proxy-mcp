@@ -155,17 +155,28 @@ def _judge_closed(dd: str, today: str, kospi_empty: bool, kosdaq_empty: bool) ->
 
 def _vacuum() -> None:
     """기록 뒤 일별 사실값·달력 청소 + 통계 갱신(보관 창 정리로 지운 자리를 바로 되쓰고, 새 날짜를 계획기가 알게). 실패는 로그만 —
-    표의 자동 청소 인자(`scripts/krx_daily_ddl.py`)가 뒤따른다. VACUUM 은 읽기·쓰기를 막지 않는다."""
+    표의 자동 청소 인자(`scripts/krx_daily_ddl.py`)가 뒤따른다. VACUUM 은 읽기·쓰기를 막지 않는다.
+
+    🔴 VACUUM 은 권한이 없으면 **오류 없이** 그 표를 건너뛰고 서버 경고(`permission denied to vacuum …, skipping it`)만 보낸다 —
+    psycopg 는 그 경고를 기본으로 어디에도 남기지 않는다(261019 로컬 PG17 실측). 표 소유자가 아닌 서버 계정에는 PG17 MAINTAIN 권한이
+    있어야 하므로, 빠졌을 때 조용히 청소를 건너뛰지 않게 서버 경고를 로그로 옮긴다."""
     url = os.getenv("DATABASE_URL")
     if not url:
         return
+    warned: list[str] = []
     try:
         import psycopg
         with psycopg.connect(url, autocommit=True, connect_timeout=10) as c:
+            c.add_notice_handler(lambda d: warned.append(d.message_primary or "")
+                                 if (d.severity_nonlocalized or d.severity) == "WARNING" else None)
             c.execute("SET lock_timeout = '3s'")
             c.execute("VACUUM (ANALYZE) krx_px, krx_day")
     except Exception as exc:            # noqa: BLE001
         logger.warning("KRX 갱신기: 기록 뒤 VACUUM 실패(자동 청소가 뒤따른다) %s: %s", type(exc).__name__, exc)
+        return
+    if warned:
+        logger.warning("KRX 갱신기: 기록 뒤 VACUUM 이 경고를 냈다(권한이면 서버 계정에 MAINTAIN 이 없어 청소·통계를 건너뛰었다 — "
+                       "자동 청소가 뒤따른다): %s", " / ".join(warned))
 
 
 def _open_lock_conn():

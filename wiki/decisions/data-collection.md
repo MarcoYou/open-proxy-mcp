@@ -211,19 +211,19 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 
 ## 1.6 DART API 인증·키 운영
 
-- 환경변수: `OPENDART_API_KEY`(필수), `OPENDART_API_KEY_2`(선택)
+- 환경변수: `OPENDART_API_KEY`(필수), `OPENDART_API_KEY_2`(선택). 재무 배치(연간·분기 수집)는 외화 보고사 환산에 `ECOS_API_KEY` 도 둔다 — [[environment-secrets]]
 - HTTP 요청 단위 키 주입: `?opendart=KEY` 쿼리 → contextvar(`_ctx_opendart_key`) → 인스턴스 캐시(키별 1개)
-- 자동 키 회전: status `020`(rate limit 등) 발생 시 `_rotate_key()` 호출, 보조 키로 1회 재시도
+- 자동 키 회전: 키의 사정(`020` 키의 하루 한도 · `010`·`011`·`901` 키 문제)이면 남은 키를 모두 차례로(키마다 한 번), 그 밖의 비정상 답은 보조 키로 1회 재시도. 사용자 키 하나로 온 요청은 회전하지 않는다
 - 사용량 추적: `_request_counter` (각 service가 `api_call_snapshot()` 차이로 호출 수 보고)
 
 ## 1.7 DART API Rate Limit
 
 | 항목 | 값 | 출처 |
 |---|---|---|
-| 일일 한도 | 20,000건 | OpenDART 정책 |
+| 일일 한도 | 20,000건/키 — 넘기면 status `020`, 자정(KST) 초기화(실측 2026-08-15 00:01) | OpenDART 개발가이드(020 설명) |
 | 분당 한도 | 1,000건 (OPM cap 910) | OpenDART 정책 (초과 시 **그 키가** 차단 — 실측 2~3시간) |
 | 클라이언트 최소 간격 | 0.1초 | `_MIN_INTERVAL_API` (분당 600회 이하 보장) |
-| 키 회전 | rotate on status≠"000" 시 1회 | `_rotate_key()` |
+| 키 회전 | 키의 사정(020·010·011·901)이면 남은 키 모두, 그 밖은 1회 | `_rotate_key()` |
 | build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute` | services/contracts.py |
 
 ---

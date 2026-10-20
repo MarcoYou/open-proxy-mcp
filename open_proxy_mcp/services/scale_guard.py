@@ -72,6 +72,34 @@ def check_balance_identity(assets, liabilities, equity, tol_pct: float = 0.01) -
     return {"triggered": diff_pct > tol_pct, "diff_pct": diff_pct}
 
 
+#: 항등식이 깨진 폭이 이 배수 이상이면 단위(스케일) 오류로 본다 — 자산과 (부채+자본) 중 큰 쪽 ÷ 작은 쪽.
+_BALANCE_SCALE_FACTOR = 10.0
+
+
+def check_balance_identity_scale(assets, liabilities, equity, factor: float = _BALANCE_SCALE_FACTOR,
+                                 tol_pct: float = 0.01) -> dict:
+    """② 항등식 위반이 **단위 오류 꼴**인가 — 자산총계와 (부채총계 + 자본총계)가 `factor`(10)배 이상 벌어졌을 때만.
+
+    261019(재설계 P1 — 분기 재무 원천 결측): 종전엔 항등식이 0.01% 만 어긋나도 hard(값 무효화)였다. 운영 분기 표에서 이 검사
+    **하나만** 켜져 무효화된 행 22개를 DART 원문으로 다시 받아 보니 어긋남이 0.01%~32%(한 행은 자산 칸만 틀려 5.1배 — 모두 10배 미만)였고, 지배 순이익·자본은
+    그 회사 제 규모·전기 칸과 맞았다 — 원문의 자산총계·부채총계 칸이 틀렸을 뿐이다(예: 삼성생명 2025 반기·3분기 응답의 자산총계·
+    부채총계가 1분기 값 그대로 — 같은 응답의 「자본과부채총계」와도 다르다). 반대로 같은 표의 진짜 단위 오류 8행(÷10³·÷10⁶)은 전부
+    항등식이 0.0000% 로 맞았고(보고서가 통째로 부풀려진다) 다른 검사(회사 자기 규모·전기 칸 대조·자릿수)가 잡았다.
+    단위 오류는 원·천원·백만원 경계라 1,000배 단위다 — 한 칸만 틀려도 그 칸이 자산의 1% 이상이면 10배 넘게 벌어진다.
+    그래서 10배 미만 어긋남은 「원문 칸 불일치」(soft — 경고만)로, 10배 이상이거나 (부채+자본)이 0 이하인데 자산이 양수면 hard 로 둔다."""
+    base = check_balance_identity(assets, liabilities, equity, tol_pct)
+    if not base.get("triggered"):
+        return {**base, "triggered": False, "mismatch": False}
+    rhs = liabilities + equity
+    if rhs <= 0 or assets <= 0:
+        ratio = None
+        scale_like = (assets > 0) != (rhs > 0)
+    else:
+        ratio = max(assets, rhs) / min(assets, rhs)
+        scale_like = ratio >= factor
+    return {"triggered": scale_like, "mismatch": True, "diff_pct": base["diff_pct"], "ratio": ratio}
+
+
 def check_digit_cap(value, cap_digits: int = _DIGIT_CAP) -> dict:
     """③(백스톱) 자릿수 상한 — market_max 없을 때만 쓰는 최후 방어선(회사규모 무관 즉시 판정
     가능하나, 소형주 중간배율 오류·대형주 100배 오류를 놓치는 한계 있음 — check_market_relative_cap 우선)."""
@@ -193,11 +221,177 @@ def check_cross_report_jump(value, prev_value, tol: float = _POWER_TOLERANCE) ->
     return {"triggered": False, "ratio": ratio}
 
 
+# ── 보고서 사이 단위 가리기(261020 p1f unit-restated) ────────────────────────────────────────────────────────────
+#: 같은 날짜의 같은 숫자(자본총계)가 두 보고서에서 이 배수 안쪽이면 **같은 단위**로 본다 — 재작성·연결 범위 변경은 수십 % 안쪽이다.
+#: 2배 ~ 10ⁿ(±20%) 사이의 어중간한 비율은 단위 판정에 쓰지 않는다(어느 쪽으로도 묶지 않음).
+_SAME_SCALE_FACTOR = 2.0
+#: 시총 ÷ 자본(PBR)으로 단위를 가를 때 「그럴듯한」 폭 — 10^±1(PBR 0.1~10배). 단위 오류는 100배 이상이라 맞는 단위와 틀린 단위의 PBR 이
+#: 두 자릿수 넘게 벌어진다. 맞는 단위가 이 폭 밖이면(PBR 10배 넘는 회사 등) 시총으로는 가르지 않는다.
+_PBR_PLAUSIBLE_DECADES = 1.0
+#: 금액 칸(원) — 단위를 바로잡을 때 나누는 칸. 주당 금액 줄(EPS 등, 원/주)은 단위 선언과 따로 적혀 나누지 않는다(0091W0 2025 사업보고서:
+#: 금액은 1,000배인데 기본주당이익 −11원은 그대로).
+_AMOUNT_FIELDS = ("thstrm_amount", "thstrm_add_amount", "frmtrm_amount", "frmtrm_add_amount", "frmtrm_q_amount",
+                  "bfefrmtrm_amount", "bfefrmtrm_add_amount")
+
+
+def reconcile_report_scales(obs, *, mktcap=None) -> dict:
+    """여러 보고서가 **같은 날짜의 같은 숫자**(재무상태표 자본총계)를 다른 단위로 적었는지 — 어느 보고서가 10ⁿ 배 틀렸는지 가린다(261020 p1f).
+
+    `check_prior_period_mismatch`(①-c, 분기 수집)는 「그 보고서의 전기 칸 vs 우리가 아는 값」 둘만 대서 **우리가 아는 값을 정답으로** 믿었다.
+    그래서 아는 값(저장된 연간)이 틀리면 맞는 보고서를 1,000배로 「복구」했다(10-20 운영 0091W0 신영스팩11호: 2025 사업보고서 금액이 통째로 1,000배 →
+    맞는 2026 1분기·반기 칸을 ×1,000). 실시간 firm 은 같은 보고서 안의 검사만 해 이런 보고서를 그대로 읽었다(PBR 0.001 · 지배자본 11조 9,884억).
+    단위 오류는 **보고서가 통째로** 틀린다(당기·전기 함께, 항등식 0.0000%) — 보고서 안에서는 안 보이고 **다른 보고서**와 대야 드러난다.
+
+    obs = [(보고서 이름, 날짜 열쇠, 자본총계, 순서)] — 한 보고서가 여러 날짜(당기 말·전기 말)를 낸다. 열쇠가 같으면 같은 날짜·같은 통화의 같은 숫자다
+    (통화를 열쇠에 넣는다 — 원화 보고서와 달러 보고서의 비율 1/1,100 이 10⁻³ 에 붙어 단위 오류로 보이지 않게). 순서는 시총 대조에 쓸 「가장 새 값」 고르기용.
+
+    1. 같은 열쇠를 낸 두 보고서마다 비율 → 10ⁿ(|n|≥2, ±20% — `check_prior_period_mismatch` 와 같은 판정)이면 단위 차 n, 2배 안쪽이면 같은 단위(0),
+       그 사이는 쓰지 않는다. 부호가 다르면 같은 숫자가 아니라 대지 않는다.
+    2. 단위 차를 이어 보고서마다 상대 단위를 매긴다. 고리가 서로 어긋나면 `conflict`(고치지 않는다).
+    3. 어느 단위가 맞나 — 두 신호:
+       · 다수결: 같은 단위인 보고서가 둘 이상이고 다른 어느 단위보다 많다.
+       · 시총(`mktcap`): 가장 새 자본을 각 단위로 바꾼 PBR 가운데 10^±1 안쪽인 것이 하나뿐(틀린 단위는 10ⁿ 배 벌어진다).
+       둘 다 있으면 **같아야** 고친다(엇갈리면 `undecided` — 같은 해 보고서들이 함께 틀린 경우를 다수결이 잘못 고르지 않게). 하나만 있으면 그 신호로.
+    반환: {"status": "clean"|"fixed"|"undecided"|"conflict", "divisors": {보고서: 나눌 배수}, "offsets": {보고서: 상대 단위 n},
+           "pairs": [대조 근거], "method": "majority+mktcap"|"majority"|"mktcap"|None, "pbr": {단위: PBR}}
+    `divisors` 는 status 가 fixed 일 때만 차 있다 — 그 보고서의 금액 칸을 그 값으로 나누면(`rescale_rows`) 맞는 단위가 된다.
+    """
+    obs = [o for o in obs if o is not None]
+    reports: list[str] = []
+    by_key: dict = {}
+    for rep, key, v, order in obs:
+        if rep not in reports:
+            reports.append(rep)
+        if v:
+            by_key.setdefault(key, []).append((rep, float(v), order))
+    pairs, adj = [], {}
+    for key, items in by_key.items():
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                (a, va, _), (b, vb, _) = items[i], items[j]
+                if a == b or (va > 0) != (vb > 0):
+                    continue
+                ratio = abs(va) / abs(vb)
+                pm = check_prior_period_mismatch(va, vb)
+                if pm.get("triggered"):
+                    n = pm["power"]
+                elif 1 / _SAME_SCALE_FACTOR <= ratio <= _SAME_SCALE_FACTOR:
+                    n = 0
+                else:
+                    continue
+                pairs.append({"key": key, "a": a, "b": b, "a_value": va, "b_value": vb, "ratio": ratio, "power": n})
+                adj.setdefault(a, []).append((b, -n))      # 단위(a) − 단위(b) = n
+                adj.setdefault(b, []).append((a, n))
+    out = {"status": "clean", "divisors": {}, "offsets": {}, "pairs": pairs, "method": None, "pbr": {}}
+    off: dict[str, int] = {}
+    comps = []
+    for r in reports:
+        if r in off or r not in adj:
+            continue
+        off[r] = 0
+        comp, stack = [r], [r]
+        while stack:
+            x = stack.pop()
+            for y, d in adj[x]:
+                want = off[x] + d
+                if y not in off:
+                    off[y] = want
+                    comp.append(y)
+                    stack.append(y)
+                elif off[y] != want:
+                    out.update(status="conflict", offsets=dict(off))
+                    return out
+        comps.append(comp)
+    out["offsets"] = dict(off)
+    bad = [c for c in comps if len({off[r] for r in c}) > 1]
+    if not bad:
+        return out
+    divisors, methods = {}, []
+    for comp in bad:
+        cnt: dict[int, int] = {}
+        for r in comp:
+            cnt[off[r]] = cnt.get(off[r], 0) + 1
+        ranked = sorted(cnt.items(), key=lambda kv: -kv[1])
+        maj = ranked[0][0] if (ranked[0][1] >= 2 and ranked[0][1] > ranked[1][1]) else None
+        by_cap = None
+        if mktcap and mktcap > 0:
+            newest = max(((rep, v, order) for rep, _k, v, order in obs if rep in comp and v and v > 0), key=lambda t: t[2], default=None)
+            if newest is not None:
+                rep, v, _ = newest
+                dist = {}
+                for o in cnt:
+                    pbr = mktcap / (v / 10 ** (off[rep] - o))
+                    out["pbr"][o] = pbr
+                    dist[o] = abs(math.log10(pbr))
+                fit = [o for o, d in dist.items() if d <= _PBR_PLAUSIBLE_DECADES]
+                by_cap = fit[0] if len(fit) == 1 else None
+        if maj is not None and by_cap is not None:
+            if maj != by_cap:
+                out.update(status="undecided", method="majority≠mktcap")
+                return out
+            true, how = maj, "majority+mktcap"
+        elif maj is not None:
+            true, how = maj, "majority"
+        elif by_cap is not None:
+            true, how = by_cap, "mktcap"
+        else:
+            out.update(status="undecided")
+            return out
+        methods.append(how)
+        for r in comp:
+            if off[r] != true:
+                divisors[r] = 10 ** (off[r] - true)
+    out.update(status="fixed", divisors=divisors, method="/".join(sorted(set(methods))))
+    return out
+
+
+def _amount(raw):
+    """DART 금액 문자열 → Decimal(쉼표·괄호 음수). 비었거나 숫자가 아니면 None."""
+    from decimal import Decimal, InvalidOperation
+    if raw is None:
+        return None
+    s = str(raw).strip().replace(",", "")
+    if s in ("", "-"):
+        return None
+    neg = s.startswith("(") and s.endswith(")")
+    try:
+        d = Decimal(s.strip("()"))
+    except InvalidOperation:
+        return None
+    return -d if neg else d
+
+
+def rescale_rows(rows: list, divisor) -> list:
+    """보고서 rows 의 **금액 칸**을 `divisor` 로 나눈 사본(`reconcile_report_scales` 의 divisors). 주당 금액 줄(EPS — 계정 id 에 PerShare·
+    이름에 「주당」)은 그대로 둔다. 나눈 값은 쉼표 없는 수 문자열(정수로 떨어지면 정수). divisor 가 1 이면 rows 그대로."""
+    from decimal import Decimal
+    if not rows or not divisor or divisor == 1:
+        return rows
+    dv = Decimal(str(divisor))
+    out = []
+    for r in rows:
+        if "PerShare" in str(r.get("account_id") or "") or "주당" in str(r.get("account_nm") or ""):
+            out.append(r)
+            continue
+        nr = dict(r)
+        for f in _AMOUNT_FIELDS:
+            v = _amount(r.get(f))
+            if v is None:
+                continue
+            q = v / dv
+            nr[f] = str(int(q)) if q == q.to_integral_value() else str(float(q))
+        out.append(nr)
+    return out
+
+
 def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=None,
            mktcap=None, market_max=None, self_ref=None, prev_equity=None,
-           frmtrm_equity=None, known_prev_equity=None) -> dict:
+           frmtrm_equity=None, known_prev_equity=None, cross_report=None) -> dict:
     """4개 체크 종합. tier: 'hard'(②③ 중 하나라도 → N/M 무효화) / 'soft'(①④만 → 경고만) / 'clean'.
     market_max 제공 시 ③은 시장최댓값 대비 배수(원칙적, 회사규모 무관 작동) — 없으면 자릿수 백스톱.
+
+    ②(항등식)는 261019 부터 **단위 오류 꼴(10배 이상)일 때만** hard(`balance_identity`)다. 그보다 작은 어긋남은 soft
+    `balance_identity_mismatch`(원문 칸 불일치 — 경고만) — 근거는 `check_balance_identity_scale`.
 
     ①(배수점프)은 260704 전수 재검증(dart_finstat_y 12,995행)에서 오탐률 39/40(97.5%)로 확인돼
     hard에서 제외 — 중소형사의 정상적 실적 급변동(적자↔흑자 전환 등)이 "10^n 근접"이라는 통계적
@@ -205,8 +399,9 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
     """
     hard_scale_check = (check_market_relative_cap(thstrm, market_max) if market_max
                          else check_digit_cap(thstrm))
+    bal = check_balance_identity_scale(assets, liabilities, equity)
     hard = {
-        "balance_identity": check_balance_identity(assets, liabilities, equity),
+        "balance_identity": bal,
         "market_relative_cap" if market_max else "digit_cap": hard_scale_check,
     }
     # 260829: 자릿수 상한이 **순이익에만** 걸려 있었다. 자본은 아무도 안 봤다 —
@@ -225,10 +420,21 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
     #   같아야 하는 숫자라 어긋나면 곧 오류이고, 어긋난 배수가 복구 배수다.
     if frmtrm_equity and known_prev_equity:
         hard["prior_period_mismatch"] = check_prior_period_mismatch(frmtrm_equity, known_prev_equity)
+    # 261020(p1f): 보고서 사이 단위 가리기(`reconcile_report_scales`) — 단위가 어긋난 보고서가 있는데 어느 쪽이 맞는지 못 가렸으면 hard,
+    #   가려서 바로잡았으면 soft(값은 바로잡은 값 — 근거는 호출부 경고). 맞으면(clean) 칸을 만들지 않는다(종전 응답 그대로).
+    xr_status = (cross_report or {}).get("status")
+    if xr_status in ("undecided", "conflict"):
+        hard["cross_report_scale"] = {"triggered": True, "status": xr_status, "method": cross_report.get("method")}
     soft = {
         "magnitude_jump": check_magnitude_jump(thstrm, frmtrm),
         "mktcap_ratio": check_mktcap_ratio(thstrm, mktcap),
+        # 261019: 항등식이 어긋났지만 단위 오류 꼴은 아닌 경우 — 원문의 자산·부채 총계 칸이 다른 칸과 안 맞는다는 신호(값은 쓴다)
+        "balance_identity_mismatch": {"triggered": bool(bal.get("mismatch") and not bal.get("triggered")),
+                                      "diff_pct": bal.get("diff_pct"), "ratio": bal.get("ratio")},
     }
+    if xr_status == "fixed":
+        soft["cross_report_scale_fixed"] = {"triggered": True, "divisors": dict(cross_report.get("divisors") or {}),
+                                            "method": cross_report.get("method")}
     hard_hit = [k for k, v in hard.items() if v.get("triggered")]
     soft_hit = [k for k, v in soft.items() if v.get("triggered")]
     tier = "hard" if hard_hit else ("soft" if soft_hit else "clean")
