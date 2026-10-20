@@ -111,8 +111,8 @@ def _slow_rows(threads, delay=_BLOCK_SEC):
             return [(2020, 2025)]
         if "FROM div_payment_scope" in s:
             return [(2020,), (2021,), (2022,), (2023,), (2024,)]
-        if "FROM div_declared" in s and "DISTINCT ON (corp_code, bsns_year)" in s:
-            return [(2024, 800, 600, 1.0e13, 30.0), (2023, 800, 590, 0.9e13, 29.0)]
+        if "FROM div_declared" in s and "FROM yr GROUP BY bsns_year" in s:      # 261021: 시장 집계 — 회사·사업연도 한 줄(결산기 합) 위의 해별 집계
+            return [(2024, 800, 600, 1.0e13, 30.0, 0), (2023, 800, 590, 0.9e13, 29.0, 0)]
         return []
     return rows
 

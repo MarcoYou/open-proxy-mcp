@@ -178,3 +178,20 @@ def test_no_trend_enum_reaches_the_reader(monkeypatch, trend):
     out = _call(monkeypatch, payload, scope="summary", format="md")
     assert f"- 추세: {_trend_ko()[trend]}" in out
     assert trend not in out
+
+
+# ── 261021: 결산기가 여럿인 회사(반기·분기 결산 리츠) — 원장 렌더는 결산일을 보이고 합을 따로 낸다 ──────────────────────────────────────────
+def test_dividend_data_firm_render_lists_every_settlement_period_with_its_date():
+    from open_proxy_mcp.tools import dividend_data as dd_tool
+    lines = [("2025-06-30", 117, "20250911000374"), ("2025-12-31", 123, "20260310002810")]
+    annual = [{"bsns_year": 2025, "stock_kind": "보통", "stock_knd_raw": "보통주식", "dps_krw": dps, "div_total_krw": 35_543_000_000.0,
+               "payout_pct": None, "row_status": "확정", "rcept_no": rc, "stlm_dt": st} for st, dps, rc in lines]
+    from open_proxy_mcp.services import dividend_data as dd
+    d = {"status": "ok", "annual_failed": False, "quarterly_failed": False, "empty_kind_rows_folded": 0, "annual": annual,
+         "quarterly": [], "year_totals": dd.year_totals(annual)}
+    md = dd_tool._render_firm("롯데리츠", "330590", d, {"status": "ok", "complete_years": [2025], "rows": [], "decisions": []})
+    assert "| 2025 | 2025-06-30 | 보통주식 | 117원 |" in md and "| 2025 | 2025-12-31 | 보통주식 | 123원 |" in md
+    assert "| 2025 | 2개 | 240원 | 2025-06-30 117원 + 2025-12-31 123원 |" in md
+    one = {**d, "annual": annual[:1], "year_totals": dd.year_totals(annual[:1])}
+    assert "사업연도 합 (결산기가 둘 이상인 해" not in dd_tool._render_firm("롯데리츠", "330590", one, {"status": "ok", "complete_years": [2025], "rows": [], "decisions": []}), \
+        "결산기 하나뿐이면 합 표를 만들지 않는다 — 12월 결산 회사의 화면은 늘지 않는다"
