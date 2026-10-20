@@ -370,3 +370,22 @@ def test_a_ledger_left_over_from_another_context_cannot_serve_a_new_client():
 
     _run(go)
     assert len(http1.calls) == 1 and len(http2.calls) == 1
+
+
+@pytest.mark.parametrize("status", ["800", "900"])
+def test_transient_dart_status_is_not_remembered_so_a_retry_in_the_same_request_calls_again(status):
+    """800 점검·900 알 수 없는 오류는 숫자 상태지만 다시 하면 달라질 수 있다 — 같은 요청 안의 재시도(proxy_advise 상류 3회 등)가
+    기억된 오류만 다시 받으면 재시도가 무력해진다. 다음 호출은 HTTP 를 다시 한다."""
+    http = _FakeHttp(script=[{"status": status, "message": "x"}])
+    c = _client(http)
+
+    async def go():
+        new_request_ledger()
+        with pytest.raises(DartClientError) as ei:
+            await c._request("company.json", {"corp_code": "1"})
+        assert ei.value.status == status
+        return await c._request("company.json", {"corp_code": "1"})
+
+    out = _run(go)
+    assert out["status"] == "000"
+    assert len(http.calls) == 2
