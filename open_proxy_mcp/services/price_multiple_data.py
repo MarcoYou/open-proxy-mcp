@@ -33,6 +33,7 @@ from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_can
 from open_proxy_mcp.services.ksic_sector import ksic_bucket
 from open_proxy_mcp.services import report_calendar as _rc
 from open_proxy_mcp.services import period_cells as _pc
+from open_proxy_mcp.services import restated_pit as _rpit
 from open_proxy_mcp.services.controlling_ni import controlling_ni as _controlling_ni
 from open_proxy_mcp.services import controlling_eq as _ceq
 from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
@@ -1095,10 +1096,22 @@ def _needs_fx(currency: str | None) -> bool:
 
 
 #: 연간 재무 + 그 해 분기 표 사업보고서 칸의 결산기 칸(261020 p1e — 표시가 있으면 그 값). 첫 자리표시 = 근거 칸 머리(`period_cells.MARK_LIKE`).
+#: 261020(p1g pit-restated): 끝 두 칸 = 결산기 칸의 공시일 · 연간 정정 칸 출처 접수번호(`restated_rcept_no`) — 정정 칸을 그 출처가 공시된 날부터 쓴다
+#: (`restated_pit`). 출처 칸은 `to_jsonb(y)` 로 읽어 그 칸이 없는 표(만드는 이행 전)에서도 질의가 깨지지 않는다(없으면 NULL — 추정 공시일).
 _FIN_FY_SQL = ("SELECT y.fy, y.ni, y.eq, y.ni_restated, y.eq_restated, q.ni_cum_restated, q.eq_restated, "
-               "COALESCE(q.restate_why LIKE %s, false) FROM dart_finstat_y y "
+               f"COALESCE(q.restate_why LIKE %s, false), {_pc.AVAIL_SQL.replace('restate_why', 'q.restate_why')}, "
+               "to_jsonb(y)->>'restated_rcept_no' FROM dart_finstat_y y "
                "LEFT JOIN dart_finstat_q q ON q.ticker=y.ticker AND q.fy=y.fy AND q.quarter=4 "
                "WHERE y.ticker=%s AND (y.fetched='ok' OR y.ni_restated IS NOT NULL OR y.eq_restated IS NOT NULL)")
+
+
+def _ff(v):
+    return float(v) if v is not None else None
+
+
+def _at(fin, finq, dd):
+    """기준일 `dd` 의 재무 — 정정 칸은 그 출처 보고서가 공시된 날부터(`restated_pit`, 261020 p1g). 이미 그 날 값(또는 문 없는 dict)이면 그대로."""
+    return _rpit.at(fin, dd), _rpit.at(finq, dd)
 
 
 async def _firm_fin_by_fy(ticker: str, currency: str = "KRW", fye: int = 12) -> dict[int, tuple]:
@@ -1111,25 +1124,35 @@ async def _firm_fin_by_fy(ticker: str, currency: str = "KRW", fye: int = 12) -> 
     261018(재설계 6단계, 결산월): 재무 요약의 연간 값(`ni_fy`·`eq_fy`)을 얹는 자리 `_latest_annual_fy()` 는 **12월 결산의 달력 규칙**이다.
     12월 결산이 아니면(`fye`) 얹지 않는다 — 그 값은 분기 표 사업보고서 칸 가운데 가장 늦은 칸에서 파생되는데, 그 칸의 사업연도 표기가 달력 규칙과
     다를 수 있어(3월 결산은 7월부터 그해 3월 말 사업보고서가 최신) 엉뚱한 해에 얹히면 연간 값을 덮어쓴다. 같은 값은 연간 재무 표에 이미 있다
-    (파생의 원천이 연간 표다). 환산 기준일은 결산월 말일(`fiscal_year_end_date` — 12월 결산이면 종전과 같은 12/31)."""
+    (파생의 원천이 연간 표다). 환산 기준일은 결산월 말일(`fiscal_year_end_date` — 12월 결산이면 종전과 같은 12/31).
+
+    261020(p1g pit-restated): 돌려주는 dict 의 값은 **지금 시점** 값(정정 칸 우선 — 종전 그대로)이고, 정정 칸마다 출처 공시일과 그 전 값을 문으로 단다
+    (`restated_pit.PitFin`). 과거 시점을 세는 쪽(`_pit_raw`·`_pit_impaired`·`_pit_fallback`·`_annual_pit_band`)은 `_at` 으로 그 날 값을 읽는다 —
+    재작성 보고서가 나오기 전 시점엔 그때 공시돼 있던 원본 칸."""
     rows, cur = await _gather_db(
         _db_rows(_FIN_FY_SQL, (_pc.MARK_LIKE, ticker)),
         _db_rows("SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s", (ticker,)),
     )
     rows = rows or []
-    fin: dict[int, tuple] = {}
+    fin = _rpit.PitFin()
     marked: set[int] = set()
-    for fy, ni, eq, ni_r, eq_r, q_ni, q_eq, mk in rows:
+    today = today_kst()
+    for r in rows:
+        fy, ni, eq, ni_r, eq_r, q_ni, q_eq, mk = r[:8]
+        mk_av, r_rc = (tuple(r[8:10]) + (None, None))[:2]
+        fy = int(fy)
         if mk:
             # 261020(p1e): 반기·분기 결산 회사의 연간 = 결산기 12개월 합(분기 표 사업보고서 칸의 결산기 칸 — `period_cells`). 합을 못 낸 해는 순이익 없음
             #   (원본 칸은 마지막 한 결산기 값이라 쓰지 않는다 — firm 이 합을 못 맞추면 경고와 함께 그 값을 내는 것과 달리 곡선은 경고를 점마다 달 수 없다).
-            ni_f, eq_f = q_ni, (q_eq if q_eq is not None else (eq_r if eq_r is not None else eq))
-            marked.add(int(fy))
+            #   261020(p1g): 그 칸의 공시일 전엔 값 없음(`restated_pit.marked_gate` — 칸 고르기 `Fiscal.cells` 와 같은 날짜).
+            now, gate = (q_ni, (q_eq if q_eq is not None else (eq_r if eq_r is not None else eq))), _rpit.marked_gate(mk_av)
+            marked.add(fy)
         else:
-            ni_f = ni_r if ni_r is not None else ni
-            eq_f = eq_r if eq_r is not None else eq
-        fin[int(fy)] = (float(ni_f) if ni_f is not None else None,
-                        float(eq_f) if eq_f is not None else None)
+            # 261020(p1g pit-restated): 지금 값 = 정정 칸 우선(종전 그대로) · 과거 시점은 정정 칸 출처가 공시된 날부터(`restated_pit.annual_cell`).
+            now, gate = _rpit.annual_cell(fy, ni, eq, ni_r, eq_r, r_rc, fye, today)
+        fin[fy] = (_ff(now[0]), _ff(now[1]))
+        if gate is not None:
+            fin.gate(fy, (gate[0], (_ff(gate[1][0]), _ff(gate[1][1]))))
     if cur and cur[0][0] is not None and _rc.fye_month(fye) == 12 and _latest_annual_fy() not in marked:
         ov = (float(cur[0][0]), float(cur[0][1]) if cur[0][1] is not None else None)
         latest = _latest_annual_fy()
@@ -1142,9 +1165,12 @@ async def _firm_fin_by_fy(ticker: str, currency: str = "KRW", fye: int = 12) -> 
     if _needs_fx(currency):
         for fy in list(fin):
             fx = await fx_to_krw(ccy, fiscal_year_end_date(fy, _rc.fye_month(fye)))
-            ni_f, eq_f = fin[fy]
-            fin[fy] = ((ni_f * fx if ni_f is not None else None,
-                        eq_f * fx if eq_f is not None else None) if fx else (None, None))
+            conv = (lambda v: (v[0] * fx if v[0] is not None else None, v[1] * fx if v[1] is not None else None)) if fx \
+                else (lambda v: (None, None))
+            fin[fy] = conv(fin[fy])
+            g = fin.gates.get(fy)
+            if g is not None:                       # 출처 공시 전 값도 같은 환율(그 해 결산월 말)
+                fin.gate(fy, (g[0], conv(g[1])))
     return fin
 
 
@@ -1158,15 +1184,18 @@ def _pit_quarter(price_dd: str, fye: int = 12) -> tuple[int, int]:
     return _rc.pit_cell(price_dd, fye)
 
 
-class _FinQ(dict):
+class _FinQ(_rpit.PitFin):
     """분기 재무 `{(fy, quarter): (지배순이익 누적, 지배자본)}` + 결산기 칸의 공시일 `cells` `{(fy, quarter): YYYYMMDD}`(261020 p1e — 반기·분기
-    결산 회사만, 그 밖엔 빈 dict). 부르는 쪽은 `_rc.with_cells(fye, finq.cells)` 로 칸 고르기에 공시일을 쓴다."""
+    결산 회사만, 그 밖엔 빈 dict). 부르는 쪽은 `_rc.with_cells(fye, finq.cells)` 로 칸 고르기에 공시일을 쓴다.
+    261020(p1g): 정정 칸 시점 규칙의 문(`restated_pit.PitFin.gates`)도 단다 — 값은 지금 값, 과거 시점은 `_at`."""
     cells: dict = {}
 
 
 #: 분기 재무 — 표시 칸이면 공시일(근거 칸의 「공시 YYYYMMDD」). 첫 자리표시 = 근거 칸 머리(`period_cells.MARK_LIKE`).
+#: 261020(p1g pit-restated): 끝 세 칸 = 원본 칸(순이익 누적·자본)과 정정 칸 출처 접수일(근거 칸의 「접수 YYYYMMDD…」 — 다음 해 같은 분기 보고서).
 _FIN_Q_SQL = ("SELECT fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq), ni_cum_restated, eq_restated, "
-              f"CASE WHEN restate_why LIKE %s THEN {_pc.AVAIL_SQL} END FROM dart_finstat_q WHERE ticker=%s")
+              f"CASE WHEN restate_why LIKE %s THEN {_pc.AVAIL_SQL} END, ni_cum, eq, {_rpit.WHY_RCEPT_SQL.format(col='restate_why')} "
+              "FROM dart_finstat_q WHERE ticker=%s")
 
 
 async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> dict[tuple, tuple]:
@@ -1175,9 +1204,13 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> d
     261018(결산월): 환율 기준일은 그 칸의 실제 기간 말(`report_calendar.cell_end` — 12월 결산이면 종전 네 날짜 그대로)."""
     rows = await _db_rows(_FIN_Q_SQL, (_pc.MARK_LIKE, ticker)) or []
     finq: _FinQ = _FinQ()
-    cells = {(int(fy), int(q)): av for fy, q, *_r, av in rows if av}
-    for fy, q, ni, eq, ni_r, eq_r, av in rows:
+    cells = {(int(r[0]), int(r[1])): r[6] for r in rows if r[6]}
+    today = today_kst()
+    for r in rows:
+        fy, q, ni, eq, ni_r, eq_r, av = r[:7]
+        ni_raw, eq_raw, rc = (tuple(r[7:10]) + (None, None, None))[:3]
         k = (int(fy), int(q))
+        gate = None
         if cells:
             # 261020(p1e): 결산기 칸이 있는 종목(반기·분기 결산)은 그 칸만 쓴다 — 값은 정정 칸(결산기 합)만. 표시 없는 1~3분기 칸은 DART 가 준
             #   그해 가장 늦은 3개월 시점 보고서라(10-20 롯데리츠 2025 반기 칸 = 2025.07~09, 11/13 접수) 칸 시점과 맞지 않는다 — 버린다.
@@ -1186,8 +1219,15 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> d
                     continue
             else:
                 ni, eq = ni_r, eq_r
-        finq[k] = (float(ni) if ni is not None else None,
-                   float(eq) if eq is not None else None)
+                gate = _rpit.marked_gate(av)        # 261020(p1g): 공시일 전엔 값 없음(칸 고르기와 같은 날짜)
+        elif k[1] != 4 and (ni_r is not None or eq_r is not None):
+            # 261020(p1g pit-restated): 1~3분기 정정 칸은 그 출처(다음 해 같은 분기 보고서)가 공시된 날부터 — 그 전엔 원본 칸. 원본이 빈 보충값·
+            #   10ⁿ 배 단위 고침은 처음부터(`restated_pit.quarter_cell`). 사업보고서 칸(Q4 seed 사본)은 과거 시점에 값으로 쓰지 않는다(연간 표를 읽는다).
+            (ni, eq), gate = _rpit.quarter_cell(k[0], k[1], ni_raw if ni_r is not None else ni, eq_raw if eq_r is not None else eq,
+                                                ni_r, eq_r, rc, fye, today)
+        finq[k] = (_ff(ni), _ff(eq))
+        if gate is not None:
+            finq.gate(k, (gate[0], (_ff(gate[1][0]), _ff(gate[1][1]))))
     finq.cells = cells
     ccy = (currency or "KRW").upper()
     if _needs_fx(currency):
@@ -1197,9 +1237,12 @@ async def _firm_fin_by_q(ticker: str, currency: str = "KRW", fye: int = 12) -> d
             if key not in fxcache:
                 fxcache[key] = await fx_to_krw(ccy, key)
             fx = fxcache[key]
-            ni_f, eq_f = finq[(fy, q)]
-            finq[(fy, q)] = ((ni_f * fx if ni_f is not None else None,
-                              eq_f * fx if eq_f is not None else None) if fx else (None, None))
+            conv = (lambda v: (v[0] * fx if v[0] is not None else None, v[1] * fx if v[1] is not None else None)) if fx \
+                else (lambda v: (None, None))
+            finq[(fy, q)] = conv(finq[(fy, q)])
+            g = finq.gates.get((fy, q))
+            if g is not None:                       # 출처 공시 전 값도 같은 환율(그 칸 기간 말)
+                finq.gate((fy, q), (g[0], conv(g[1])))
     return finq
 
 
@@ -1242,7 +1285,7 @@ async def _annual_pit_band(ticker: str, currency: str = "KRW",
         pit_fy = _pit_fy(price_dd, fye)
         if pit_fy not in fin or not cap:
             continue
-        ni_k, eq_k = fin[pit_fy]
+        ni_k, eq_k = _rpit.at(fin, price_dd)[pit_fy]     # 261020(p1g): 정정 칸은 그 출처가 공시된 날부터
         cap = float(cap)
         # 260829: 완전자본잠식 시점은 배수를 내지 않는다(마스터 지시) — 집계와 같은 규칙.
         _impaired = eq_k is not None and eq_k <= 0
@@ -1343,6 +1386,7 @@ def _gap_point(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tupl
 
 def _pit_impaired(price_dd: str, fin: dict[int, tuple], finq: dict[tuple, tuple], fye: int = 12) -> bool:
     """그 시점 완전자본잠식(지배자본 ≤ 0)인가 — 최근분기(MRQ) 자본, 없으면 그 시점 확정 FY 말 자본. 260829 마스터 지시: 잠식 시점은 배수를 내지 않는다."""
+    fin, finq = _at(fin, finq, price_dd)
     aq_fy, aq_q = _pit_quarter(price_dd, fye)
     mrq = _mrq_eq(fin, finq, aq_fy, aq_q)
     eq_now = mrq if mrq is not None else fin.get(_pit_fy(price_dd, fye), (None, None))[1]
@@ -1364,9 +1408,12 @@ def _pit_raw(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, tuple]
     확정 FY 그대로다(값이 없음은 FY0 배수 null 로 드러난다 — 연간 행은 있는데 값이 빈 종목과 같은 모양).
 
     261018(같은 단계, 결산월): `fye`(결산월)로 그 시점 칸을 고른다 — `pit_fy`·`pit_q` 는 DART 표기(사업연도 = 보고서 기준일의 해) 그대로라
-    3월 결산의 `2026Q1` 은 2026.06 말 1분기보고서다. 12월 결산(기본값)은 종전과 같다."""
+    3월 결산의 `2026Q1` 은 2026.06 말 1분기보고서다. 12월 결산(기본값)은 종전과 같다.
+
+    261020(p1g pit-restated): 정정 칸은 그 출처 보고서가 공시된 날부터 쓴다(`_at` — `restated_pit`). 그 전엔 그 시점에 공시돼 있던 원본 칸."""
     if not cap:
         return None
+    fin, finq = _at(fin, finq, price_dd)
     fy = _pit_fy(price_dd, fye)
     ni_k, eq_k = fin.get(fy, (None, None))
     cap = float(cap)
@@ -1405,9 +1452,11 @@ def _pit_fallback(price_dd: str, cap, fin: dict[int, tuple], finq: dict[tuple, t
     표시한다. 앞선 칸만 보므로 아직 안 나온 보고서를 앞당겨 쓰지 않는다. 거슬러 올라가는 한도는 기간 말 기준 1년(`_FALLBACK_YEARS`)이다.
     곡선(`_pit_raw`)은 바꾸지 않는다 — 곡선은 종전부터 그 칸이 비면 N/M 이었다.
 
-    반환: {"per_ttm": (값 또는 None(적자), 칸), "pbr_mrq": (값 또는 None, 칸), "impaired": 대체 칸 자본 ≤ 0} — 대체가 없으면 빈 dict."""
+    반환: {"per_ttm": (값 또는 None(적자), 칸), "pbr_mrq": (값 또는 None, 칸), "impaired": 대체 칸 자본 ≤ 0} — 대체가 없으면 빈 dict.
+    261020(p1g): 앞선 칸의 정정 칸도 그 날 공시돼 있던 것만(`_at`)."""
     if not cap:
         return {}
+    fin, finq = _at(fin, finq, price_dd)
     cap = float(cap)
     aq = _pit_quarter(price_dd, fye)
     month = _rc.fye_month(fye)

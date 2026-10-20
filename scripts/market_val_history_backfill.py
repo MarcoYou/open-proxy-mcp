@@ -45,6 +45,7 @@ from scripts.market_val_weekly import bucket, label
 from open_proxy_mcp.services.price_multiple_data import _pit_quarter, _ttm_ni, _mrq_eq
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
+from open_proxy_mcp.services import restated_pit as rpit
 from scripts.month_end_prices import MonthEndPrices, covered
 
 DDL_MIGRATE = (
@@ -128,16 +129,15 @@ async def main() -> None:
     # 종목 메타: 시장·업종 (통화 X — mkt_finstat_y는 이미 원화)
     meta = {r[0]: (r[1], r[2] or "") for r in con.execute(
         "SELECT ticker, market, induty FROM dart_fundamentals WHERE fetched='ok'")}
+    # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
+    fye_of = rcal.load_fye_map(con)
     # 연간 재무(restated 우선, raw 통화) — 종목별 dict로 그룹 (valuation.py의 fin 형태와 동일: {fy:(ni,eq)})
-    fin_all: dict[str, dict[int, tuple]] = {}
-    for isu, fy, ni, eq, nir, eqr in con.execute(
-            "SELECT ticker, fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y"):
-        fin_all.setdefault(isu, {})[int(fy)] = (nir if nir is not None else ni, eqr if eqr is not None else eq)
     # 분기 재무 — 종목별 dict {(fy,q):(ni_cum,eq)}
-    finq_all: dict[str, dict[tuple, tuple]] = {}
-    for isu, fy, q, ni_cum, eq in con.execute(
-            "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
-        finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
+    # 261020(p1g pit-restated): 값은 지금 시점(정정 칸 우선 — 종전 그대로), 정정 칸마다 출처 공시일 문(`restated_pit`) — 월말마다 `rpit.at` 으로
+    #   그 날 공시돼 있던 값을 읽는다(서버 곡선·업종 비교 기업 행과 같은 규칙). 출처를 모르는 옛 정정 칸은 보수적 추정 공시일.
+    fye_for = lambda t: rcal.fiscal(fye_of.get(t, 12), t)          # noqa: E731
+    fin_all: dict[str, dict[int, tuple]] = rpit.load_annual(con, fye_for)
+    finq_all: dict[str, dict[tuple, tuple]] = rpit.load_quarter(con, fye_for)
     # 261020(p1e): 반기·분기 결산 회사(리츠 등)는 결산기 칸(12개월 결산 회사와 같은 꼴 — `period_cells`)으로 고치고, 칸은 그 보고서 접수일부터 쓴다
     #   (서버 곡선·업종 비교와 같은 규칙). 표시 칸이 없으면 종전 그대로.
     period_of = pcells.apply_marked(fin_all, finq_all, pcells.load_marked(con))
@@ -150,8 +150,6 @@ async def main() -> None:
         print("다시 낼 월말이 없다", flush=True)
         src.close(); con.close()
         return
-    # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
-    fye_of = rcal.load_fye_map(con)
     print(f"대상 월말 {len(months)}개({months[0]}~{months[-1]}) · 종목 {len(meta)}(12월 결산이 아닌 {len(fye_of)})", flush=True)
 
     nmk = nsec = 0
@@ -177,10 +175,11 @@ async def main() -> None:
             if fye not in pit:
                 pit[fye] = (_pit_fy(d, fye), _pit_quarter(d, fye))
             fy, (fy_q, q) = pit[fye]
-            fin = fin_all.get(isu, {})
+            fin = rpit.at(fin_all.get(isu, {}), d)                 # 261020(p1g): 그 월말에 공시돼 있던 값(정정 칸은 출처 공시일부터)
+            finq = rpit.at(finq_all.get(isu, {}), d)
             f = fin.get(fy)
-            ni_ttm = _ttm_ni(fin, finq_all.get(isu, {}), fy_q, q, fye)
-            eq_mrq = _mrq_eq(fin, finq_all.get(isu, {}), fy_q, q)
+            ni_ttm = _ttm_ni(fin, finq, fy_q, q, fye)
+            eq_mrq = _mrq_eq(fin, finq, fy_q, q)
             if not f and ni_ttm is None and eq_mrq is None:
                 continue
             ni_fy0, eq_fy0 = f if f else (None, None)
