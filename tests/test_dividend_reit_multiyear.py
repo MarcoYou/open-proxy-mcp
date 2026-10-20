@@ -329,3 +329,18 @@ def test_twelve_month_company_payload_is_unchanged(monkeypatch):
     assert [(r["year"], r["annual_dps"]) for r in p["data"]["history"]] == [(2023, 200), (2024, 250), (2025, 300)]
     assert not any("결산기" in w for w in p["warnings"])
     assert "결산기" not in TD._render(p, "summary")
+
+
+def test_period_sum_payout_and_yield_are_labelled_as_computed(monkeypatch):
+    """결산기 합 요약의 성향은 결산기 총액 합 ÷ 순이익 합(계산값), 시가배당률은 결산기 공시값의 합이다 — 「공시 원문 · 우리가 계산한 값이 아니다」로 내보내지 않는다."""
+    p = _payload(monkeypatch, _lotte25())
+    s = p["data"]["summary"]
+    s["payout_ratio_dart"], s["yield_dart"] = 150.0, 5.79
+    md = TD._render(p, "summary")
+    assert "결산기 배당총액 합 ÷ 결산기 `(연결)당기순이익` 합" in md and "우리가 계산한 값이 아니다" not in md
+    assert "- 시가배당률(보통주): 5.79% (결산기마다 결의 당시 공시값의 합)" in md
+    one = _alot(("500", "500", "500"), {"주당 현금배당금(원)": ("300", "250", "200")}, stlm="2025-12-31", rcept="20260310000100")
+    p1 = _payload(monkeypatch, one)
+    p1["data"]["summary"]["payout_ratio_dart"], p1["data"]["summary"]["yield_dart"] = 30.0, 2.8
+    md1 = TD._render(p1, "summary")
+    assert "공시 원문 `(연결)현금배당성향`" in md1 and "우리가 계산한 값이 아니다" in md1 and "(결의 당시 공시값)" in md1
