@@ -56,6 +56,7 @@ Y_ROWS = [
     ("IMP", 2022, -10 * E8, -50 * E8, -10 * E8, 80 * E8, "20240520000111", "ok"),     # 원본은 완전자본잠식, 재작성은 아님
     ("FB", 2023, 100 * E8, 1000 * E8, 200 * E8, 1000 * E8, "20250318000222", "ok"),
     ("QIMP", 2022, 10 * E8, 100 * E8, None, None, None, "ok"),
+    ("PFIX", 2022, 590.87 * E8, 2159.55 * E8, 109.87 * E8, 2159.55 * E8, None, "ok"),   # 출처 모름 · 순이익만 다름 · 자본 같음 — 원본 칸 결함(세전이익 줄)
 ]
 QREV_WHY = ("261020 검토: 이 보고서엔 순이익 쪽 비지배 줄이 없어 원본 칸은 근사(총포괄 쪽 비지배로 뺀 값) — 다음 해 같은 분기 보고서"
             "(2024 11012 CFS 접수 20240920001234)의 전기 칸에서 지배 귀속 순이익 5000000000원(CIS_ID)을 정정 칸에")
@@ -83,9 +84,9 @@ Q_ROWS = [
 ]
 CAP = 3446 * E8
 DATES = ["20231020", "20231229", "20240405", "20240628", "20240830", "20241227", "20250630", "20260320", "20261016"]
-MKT = {"A": "KS", "OLD": "KQ", "FILL": "KQ", "UNIT": "KQ", "QREV": "KQ", "REIT": "KS", "REIT2": "KS", "IMP": "KQ", "FB": "KQ", "QIMP": "KQ"}
+MKT = {"A": "KS", "OLD": "KQ", "FILL": "KQ", "UNIT": "KQ", "QREV": "KQ", "REIT": "KS", "REIT2": "KS", "IMP": "KQ", "FB": "KQ", "QIMP": "KQ", "PFIX": "KS"}
 SECTOR = {"A": "G10", "OLD": "G20", "FILL": "G30", "UNIT": "G35", "QREV": "G40", "REIT": "G60", "REIT2": "G65", "IMP": "G70", "FB": "G75",
-          "QIMP": "G80"}
+          "QIMP": "G80", "PFIX": "G85"}
 
 
 def _exec(url):
@@ -182,6 +183,14 @@ def test_fills_and_unit_fixes_are_used_from_the_start(rdb):
     assert _point("FILL", "20231229")["pbr"] == pytest.approx(CAP / (300 * E8))
     u = _point("UNIT", "20231229")
     assert u["pbr"] == pytest.approx(CAP / (500 * E8)) and u["per_fy0"] == pytest.approx(CAP / (40 * E8))
+
+
+def test_unknown_source_net_income_fix_with_the_same_equity_is_used_from_the_start(rdb):
+    """출처 모르는 연간 칸에서 순이익만 다르고 자본이 같다 — 원본 칸이 다른 줄(세전이익)을 읽은 결함이고 정정 칸이 그 해 보고서 값(261020 p1g 검토).
+    034730 FY2022 꼴: 2023-12-29 FY0 PER 은 정정 순이익 109.87억으로(원본 590.87억이면 PER 이 1/5 로 틀린다)."""
+    p = _point("PFIX", "20231229")
+    assert p["pit_fy"] == 2022 and p["per_fy0"] == pytest.approx(CAP / (109.87 * E8))
+    assert p["pbr"] == pytest.approx(CAP / (2159.55 * E8))
 
 
 def test_quarterly_restated_cell_waits_for_the_next_years_report(rdb):
@@ -298,6 +307,7 @@ def test_market_and_sector_backfills_follow_the_same_rule(rdb, monkeypatch):
     assert _val(rdb, "20240405", "KS", "wics_sector", "G65")["pbr_fy0"] is None                         # 결산기 칸 공시 전
     assert _val(rdb, "20240628", "KS", "wics_sector", "G65")["pbr_fy0"] == pytest.approx(CAP / (2000 * E8))
     assert _val(rdb, "20231229", "KQ", "wics_sector", "G70") is None                                      # 그 시점 잠식 — 집계에서 뺌
+    assert _val(rdb, "20231229", "KS", "wics_sector", "G85")["per_fy0"] == pytest.approx(CAP / (109.87 * E8))  # 원본 칸 결함 — 정정 값
     # 시장 백필: 코스피 = A + REIT(2024-06 엔 FY2023 행 없음) + REIT2(결산기 칸 FY2023 2,000억)
     ks = _val(rdb, "20240628", "KS", "market", "_ALL")
     assert ks["pbr_fy0"] == pytest.approx(2 * CAP / ((5640.1 + 2000) * E8))

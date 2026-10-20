@@ -27,6 +27,13 @@
   ② 원본과 10ⁿ 배(100배 이상, ±20%) 어긋나는 칸(단위 고침 — 회사가 단위를 잘못 적은 보고서 · `scale_guard.check_prior_period_mismatch`).
      원본은 그 시점의 정보가 아니라 오류다(0091W0 FY2025 1,000배 · 032680 FY2022 100만 배 등).
   ③ 원본과 같은 값.
+  ④ (연간, 출처를 모르는 칸만) 순이익만 다르고 자본은 정정 칸과 **같은**(0.01% 안 — 반올림 수준, `EQ_SAME_TOL`) 칸의 순이익 — 원본 칸 수집
+     결함을 바로잡은 값이다(261020 p1g 검토). 재작성은 이익잉여금을 거쳐 그 해 말 자본도 바꾼다. 자본이 그대로면 회사가 그 해 숫자를 고친 게 아니라
+     원본 칸이 다른 줄을 읽은 것이다 — 10-20 운영 표본(출처 없는 순이익 문 칸, DART 로 그 해 사업보고서를 다시 읽음): 자본이 정확히 같은 67칸 가운데 58칸의 원본이 세전이익
+     (법인세비용차감전) 등 다른 줄이고 정정 칸이 그 해 보고서 값이었다(그 시점에 공시돼 있던 값 — 미래 정보가 아니다). 원본이 맞은 8칸 가운데 7칸은
+     거의 같은 값(비율 0.997~1.024)이라 처음부터 써도 차이가 작다. 자본이 다른 칸(같은 표본에서 원본 자본이 그 해 보고서 값 31/33)과 출처 있는 칸
+     (원문 대조로 자본이 같은(±0.1%) 순이익 문 13칸 모두 원본이 그 해 보고서 값 — 001070 FY2019 0.63배 같은 진짜 재작성)은 문을 단다.
+     예: 034730 FY2022 순이익 원본 5.9조(세전이익) · 정정 1.1조(2022 사업보고서 지배 순이익) — 이 예외가 없으면 2024-03 PER(FY0) 12.6 이 2.35 가 된다.
 
 이 모듈은 순수 함수와 배치용 읽기(`load_annual`·`load_quarter`)만 둔다. 서버(`price_multiple_data._firm_fin_by_fy`·`_firm_fin_by_q`)와 두 과거 백필
 (`scripts/market_val_history_backfill.py`·`scripts/sector_val_backfill.py`)이 같은 함수를 쓴다. 읽는 쪽은 `at(재무, 기준일)` 로 그 날 값을 얻는다.
@@ -160,9 +167,25 @@ def cell(raw: tuple, restated: tuple, avail) -> tuple[tuple, Gate | None]:
     return now, (str(av), (n_pre, e_pre))
 
 
+#: 「자본이 같다」의 허용 — 0.01%(반올림 수준). 10-20 운영: 출처 모르는 순이익 문 칸 가운데 자본 차이가 0 초과 0.01% 이하인 58칸은
+#: 순이익 차이도 1% 이하가 53칸이고, 나머지 5칸은 순이익 비율 0.59~0.95(세전·세후 꼴 — 014470 FY2022 원본 = 세전이익 줄, DART 확인)다.
+EQ_SAME_TOL = 1e-4
+
+
+def ni_parse_fix(ni, eq, ni_r, eq_r) -> bool:
+    """순이익만 다르고 자본은 정정 칸과 같은가(`EQ_SAME_TOL` 안) — 출처 모르는 연간 칸이면 순이익 정정 값은 원본 칸 수집 결함을 바로잡은 값
+    (모듈 설명 ④)."""
+    return (ni is not None and ni_r is not None and ni != ni_r
+            and eq is not None and eq_r is not None and abs(eq - eq_r) <= abs(eq_r) * EQ_SAME_TOL)
+
+
 def annual_cell(fy: int, ni, eq, ni_r, eq_r, rcept_no=None, fye=12, today=None) -> tuple[tuple, Gate | None]:
-    """연간 표 한 행 → (지금 값, 문). 출처는 `restated_rcept_no`, 없으면 보수적 추정(`annual_estimate`)."""
-    return cell((ni, eq), (ni_r, eq_r), lambda: rcept_day(rcept_no) or annual_estimate(fy, fye, today))
+    """연간 표 한 행 → (지금 값, 문). 출처는 `restated_rcept_no`, 없으면 보수적 추정(`annual_estimate`).
+    출처를 모르는 칸에서 순이익만 다르고 자본이 같으면 순이익은 처음부터 정정 값(모듈 설명 ④ — 원본 칸 결함)."""
+    src = rcept_day(rcept_no)
+    if src is None and ni_parse_fix(ni, eq, ni_r, eq_r):
+        ni = ni_r
+    return cell((ni, eq), (ni_r, eq_r), lambda: src or annual_estimate(fy, fye, today))
 
 
 def quarter_cell(fy: int, quarter: int, ni, eq, ni_r, eq_r, rcept=None, fye=12, today=None) -> tuple[tuple, Gate | None]:
