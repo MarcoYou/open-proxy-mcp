@@ -486,9 +486,12 @@ def test_serving_date_reads_krx_daily_and_never_krx_weekly(monkeypatch):
 
 
 def test_weekly_latest_week_is_still_krx_weekly_for_the_curve_floor_and_batches(monkeypatch):
-    """`_krx_db_latest_dd` 는 바꾸지 않는다 — 주간 곡선 하한(`_weekly_bounds`)은 표를 자르는 쪽과 같은 정의여야 하고, 배치 갱신도 이것을 쓴다."""
-    seen = _sql_spy(monkeypatch, {"SELECT MAX(price_dd) FROM krx_weekly": [("20261009",)]})
-    assert pmd._krx_db_latest_dd() == "20261009" and seen == [("SELECT MAX(price_dd) FROM krx_weekly", ())]
+    """`_krx_db_latest_dd` 는 닫힌 주 최신이다 — 주간 곡선 하한(`_weekly_bounds`)은 표를 자르는 쪽과 같은 정의여야 한다.
+    261019(재설계 v03 C4): 달력의 가장 늦은 주 닫는 날을 먼저 읽고(뷰 위의 max 는 약 50 ms), 달력이 비면 krx_weekly 의 max 로 대신한다(한 문장)."""
+    latest = " ".join(pmd._krx_daily.WEEKLY_LATEST_SQL.split())
+    seen = _sql_spy(monkeypatch, {latest: [("20261009",)]})
+    assert pmd._krx_db_latest_dd() == "20261009" and seen == [(latest, ())]
+    assert "FROM krx_day WHERE wk_close" in latest and latest.endswith("(SELECT max(price_dd) FROM krx_weekly))")
 
 
 def test_db_row_comes_from_price_latest_on_the_serving_date(monkeypatch):

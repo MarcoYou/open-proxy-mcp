@@ -91,7 +91,7 @@ def test_r1_friday_closes_its_week_and_r2_a_later_week_closes_a_holiday_week(wdb
 
 def test_daily_write_and_weekly_close_share_one_commit(wdb, monkeypatch):
     """일별 기록과 주간 닫기는 바깥 트랜잭션 하나다 — 그 사이에서 죽으면(여기선 닫기 단계가 예외) 일별 행도 남지 않는다."""
-    def boom(conn):
+    def boom(conn, before=None):
         raise RuntimeError("닫기 직전에 죽었다")
     monkeypatch.setattr(pmd._krx_daily, "sync_weekly", boom)
     assert pmd._krx_db_upsert("20261016", *_day("20261016")) == pmd.KrxWrite(False)

@@ -11,6 +11,7 @@ import sys
 
 import pytest
 
+from open_proxy_mcp import krx_daily as K
 from open_proxy_mcp import krx_retention as R
 from scripts import adj_factor_v3 as A
 from scripts import krx_stock_flags as F
@@ -109,7 +110,7 @@ def test_stock_flags_evaluates_only_events_after_the_pair_floor(monkeypatch, cap
 
     def handler(sql, params):
         s = _norm(sql)
-        if s == "SELECT max(price_dd) FROM krx_weekly":
+        if s == _norm(K.WEEKLY_LATEST_SQL):
             return [("20261016",)]
         if s.startswith("SELECT count(*) FROM krx_shares_ledger"):
             seen["n_old_params"] = params
@@ -147,7 +148,7 @@ def test_adj_factor_skips_unlabeled_events_before_the_pair_floor(monkeypatch, ca
 
     def handler(sql, params):
         s = _norm(sql)
-        if s == "SELECT max(price_dd) FROM krx_weekly":
+        if s == _norm(K.WEEKLY_LATEST_SQL):
             return [("20261016",)]
         if s.startswith("SELECT e.ticker, e.event_dd, e.adj_factor_raw"):
             seen["resets_params"] = params
@@ -176,7 +177,7 @@ def test_adj_factor_labels_tick_rounding_resets_and_keeps_real_ones(monkeypatch,
     """261019: 기준가가 전일 종가를 호가단위에 맞춘 것뿐인 리셋은 `excluded_tick_rounding` 으로 보존(소비 시 제외) — 계수는 실측 그대로."""
     def handler(sql, params):
         s = _norm(sql)
-        if s == "SELECT max(price_dd) FROM krx_weekly":
+        if s == _norm(K.WEEKLY_LATEST_SQL):
             return [("20261016",)]
         if s.startswith("SELECT e.ticker, e.event_dd, e.adj_factor_raw"):
             return [("469900", "20260702", 2085 / 2082, "KQ", "KQ", 2_082.0, 2_085.0),     # 호가단위 맞춤

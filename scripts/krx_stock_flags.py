@@ -56,7 +56,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
-from open_proxy_mcp.krx_daily import WEEKLY_WITH_LATEST
+from open_proxy_mcp.krx_daily import WEEKLY_LATEST_SQL, WEEKLY_WITH_LATEST
 from open_proxy_mcp.krx_retention import krx_weekly_pair_floor
 
 DDL = """
@@ -86,7 +86,7 @@ def main() -> int:
     #    리셋이 있으면 거래소가 가격을 조정했다는 뜻 = 설명된 이벤트라 대상이 아니다.
     #    p 는 krx_weekly 근사(주간 해상도) — 원장에 일별 종가가 없다. 그래서 문턱을 넉넉히 잡는다.
     # 261017: 평가 대상은 보존 하한(+14일) 이후 이벤트뿐 — 위 docstring 「하한 이전 이벤트는 평가하지 않는다」.
-    latest = con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
+    latest = con.execute(WEEKLY_LATEST_SQL).fetchone()[0]          # 닫힌 주 최신(261019 v03 C4 — krx_weekly 가 뷰여도 최근 몇 주만 읽는다)
     if not latest:
         print("🔴 krx_weekly 가 비었다 — 전후 가격을 못 구해 평가하지 않는다", file=sys.stderr)
         con.close()

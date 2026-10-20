@@ -31,7 +31,7 @@ from typing import NamedTuple
 from urllib.parse import quote
 
 from open_proxy_mcp.krx_retention import krx_weekly_cutoff, seam_gap, serving_seam
-from open_proxy_mcp.services.price_multiple_data import _WEEKLY_START_SQL, _weekly_run_start
+from open_proxy_mcp.services.price_multiple_data import _WEEKLY_START_SQL, _weekly_run_start, _weekly_start_params
 
 #: 서빙본 sqlite 머리(application_id) — 엉뚱한 파일을 원천으로 쓰지 않는다(`cold_store.APP_ID` 와 같은 값).
 COLD_APP_ID = 0x4F504D43
@@ -113,7 +113,7 @@ class MonthEndPrices:
         if not latest:
             raise SystemExit("krx_weekly 가 비었다 — 먼저 시세를 적재한다")
         self.cutoff = krx_weekly_cutoff(latest)
-        self.floor = _weekly_run_start(con.execute(_WEEKLY_START_SQL, (self.cutoff, self.cutoff)).fetchall(), self.cutoff)
+        self.floor = _weekly_run_start(con.execute(_WEEKLY_START_SQL, _weekly_start_params(self.cutoff)).fetchall(), self.cutoff)
         db_dates = [r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s", (since,))]
         self.lite = None
         self.cold_max = self.seam = None

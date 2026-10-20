@@ -94,6 +94,8 @@ def vdb(pg17, monkeypatch, tmp_path):
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute("CREATE TABLE krx_weekly (price_dd text, ticker text, market text, close bigint, mktcap bigint, list_shrs bigint, "
                   "PRIMARY KEY (price_dd, ticker))")
+        # 거래일 달력 — 운영에는 v03(261019)부터 있다. 서버의 주간 곡선 하한 질의가 닫힌 주 최신을 달력에서 먼저 읽는다(비면 krx_weekly max).
+        c.execute("CREATE TABLE krx_day (dd text, n integer, wk_close boolean NOT NULL DEFAULT false)")
         rows = [("20200110", "D"), ("20200228", "E")]                          # 하한 아래: 상장폐지 종목의 마지막 행(부분 날짜)
         rows += [("20201230", t) for t in ("A", "B", "C")]                     # 2020 연말 행(온전)
         dense = ["20231020", "20231027", "20231124", "20260731", "20260828", "20261016"]
@@ -269,8 +271,7 @@ def test_with_stored_weekly_and_include_current_also_recomputes_this_months_stor
         c.execute("INSERT INTO opm_val_market (snap_dd, market, scheme, sector, label, n, cap, per_fy0, pbr_fy0, per_ttm, pbr_mrq, "
                   "ni_fy0, ni_ttm) VALUES ('20261016', 'KQ', 'wics_sector', 'G45', 'IT', 1, 1.0, %s, %s, %s, %s, 1.0, 1.0)",
                   (OLD, OLD, OLD, OLD))
-        c.execute("CREATE TABLE krx_day (dd text, n integer)")
-        c.execute("INSERT INTO krx_day VALUES ('20261019', 3)")
+        c.execute("INSERT INTO krx_day (dd, n) VALUES ('20261019', 3)")
         c.execute("CREATE TABLE krx_daily_v (trd_dd text, ticker text, market text, mktcap bigint)")
         c.cursor().executemany("INSERT INTO krx_daily_v VALUES ('20261019', %s, %s, %s)",
                                [(t, PX[t][0], PX[t][1] * 100) for t in ("A", "B", "C")])

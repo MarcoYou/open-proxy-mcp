@@ -121,7 +121,13 @@ class _Cur:
             raise RuntimeError('relation "krx_ticker" does not exist')
         self.c.log.append(("execute", n, params))
         self.rowcount, self._rows = -1, []
-        if n == _norm(krx_daily.TIDS_SQL):
+        ans = self.c.answers.get(n)
+        if isinstance(ans, Exception):
+            raise ans
+        if ans is not None:
+            self._rows = list(ans)
+            self.rowcount = len(self._rows)
+        elif n == _norm(krx_daily.TIDS_SQL):
             self._rows = [(t, self.c.tids.setdefault(t, len(self.c.tids) + 1)) for t in params[0]]
         elif n == _norm(krx_daily.LATEST_DAY_SQL):
             self._rows = [(self.c.latest,)]
@@ -164,10 +170,11 @@ class _Tx:
 class FakeConn:
     """psycopg 연결 대역. tids = 이미 번호가 있는 종목(새 종목은 차례로 번호), latest = 달력 최신일, cands = 보관 창 밖 달력 행."""
 
-    def __init__(self, fail_daily=False, tids=None, latest="20261016", cands=(), fn_exists=False):
+    def __init__(self, fail_daily=False, tids=None, latest="20261016", cands=(), answers=None, fn_exists=False):
         self.log, self.commits, self.fail_daily, self.fn_exists = [], 0, fail_daily, fn_exists
         self.tids = dict(tids or {})
         self.latest, self.cands, self.copied = latest, list(cands), []
+        self.answers = {_norm(k): v for k, v in (answers or {}).items()}   # 문장 → 돌려줄 행(또는 던질 예외)
 
     def cursor(self):
         return _Cur(self)
@@ -301,6 +308,45 @@ def test_prune_keeps_deleting_when_the_brin_desummarize_fails(caplog):
     assert any("BRIN 요약 지우기 실패" in r.message for r in caplog.records)
 
 
+def test_prune_in_view_mode_moves_week_closing_days_to_krx_wk_before_deleting(caplog):
+    """261019(재설계 v03 C4): krx_weekly 가 뷰면 지울 날 중 주 닫는 날의 행을 먼저 krx_wk 로 옮긴다(자기 SAVEPOINT) — 그 다음에 지운다."""
+    from datetime import date as _date
+    c = FakeConn(latest="20261021", cands=[("20251009", 0, True, False), ("20251010", 2764, False, True)],
+                 answers={krx_daily.WEEKLY_KIND_SQL: [("v",)], krx_daily.WK_DAYS_SQL: [(_date(2025, 10, 10),)],
+                          krx_daily.MOVE_WK_CHECK_SQL: [(0,)]})
+    with caplog.at_level("INFO"):
+        ok, _, pruned = krx_daily.write_daily(c, "20261021", [_row("005930")], [])
+    assert ok and pruned == 10
+    sqls = _sqls(c)
+    i_move, i_px = sqls.index(_norm(krx_daily.MOVE_WK_SQL)), sqls.index(_norm(krx_daily.PRUNE_PX_SQL))
+    assert sqls.index(_norm(krx_daily.MOVE_WK_DAY_SQL)) < i_move < sqls.index(_norm(krx_daily.MOVE_WK_N_SQL)) \
+        < sqls.index(_norm(krx_daily.MOVE_WK_CHECK_SQL)) < i_px
+    assert [str(d) for d in _entry(c, krx_daily.WK_DAYS_SQL)[2][0]] == ["2025-10-09", "2025-10-10"]   # 지울 날 중에서 주 닫는 날을 고른다
+    assert [str(d) for d in _entry(c, krx_daily.MOVE_WK_SQL)[2][0]] == ["2025-10-10"]
+    assert [str(d) for d in _entry(c, krx_daily.PRUNE_PX_SQL)[2][0]] == ["2025-10-09", "2025-10-10"]
+
+
+def test_prune_in_view_mode_keeps_the_days_it_could_not_move(caplog):
+    """옮기기가 실패하면(그 SAVEPOINT 만 되돌림) 그 주 닫는 날은 지우지 않는다 — 일별 기록은 성공, ERROR 로 알린다. 다른 날은 그대로 지운다."""
+    from datetime import date as _date
+    c = FakeConn(latest="20261021", cands=[("20251009", 0, True, False), ("20251010", 2764, False, True)],
+                 answers={krx_daily.WEEKLY_KIND_SQL: [("v",)], krx_daily.WK_DAYS_SQL: [(_date(2025, 10, 10),)],
+                          krx_daily.MOVE_WK_SQL: RuntimeError("permission denied for table krx_wk")})
+    with caplog.at_level("ERROR"):
+        ok, _, pruned = krx_daily.write_daily(c, "20261021", [_row("005930")], [])
+    assert ok and pruned == 5                                          # 휴장일(10/9)만 — 대역: 지운 날 × 5행
+    assert [str(d) for d in _entry(c, krx_daily.PRUNE_PX_SQL)[2][0]] == ["2025-10-09"]
+    assert ("rollback_to_savepoint",) in c.log
+    assert any("krx_wk 로 옮기지 못해" in r.message and "20251010" in r.message for r in caplog.records)
+
+
+def test_prune_in_table_mode_never_touches_krx_wk():
+    c = FakeConn(latest="20261021", cands=[("20251010", 2764, False, True)], answers={krx_daily.WEEKLY_KIND_SQL: [("r",)]})
+    ok, _, pruned = krx_daily.write_daily(c, "20261021", [_row("005930")], [])
+    assert ok and pruned == 5
+    assert not any("krx_wk" in s for s in _sqls(c))
+
+
 def test_write_daily_failure_never_raises_so_the_weekly_write_still_commits(caplog):
     c = FakeConn(fail_daily=True)
     with caplog.at_level("ERROR"):
@@ -332,8 +378,9 @@ def _patch_sync(monkeypatch, conn, result):
     """주간 닫기(`krx_daily.sync_weekly`)를 기록만 하는 대역으로 — 실제 SQL 은 pg17 시험(test_krx_weekly_close_pg.py)이 본다."""
     from open_proxy_mcp.services import price_multiple_data as pmd
 
-    def fake_sync(c):
+    def fake_sync(c, before=None):
         assert c is conn                                      # 일별 기록과 같은 연결(같은 트랜잭션)
+        assert before is None                                 # 표 모드(대역 연결은 krx_weekly 를 표로 보인다) — 기록 전 달력을 읽지 않는다
         conn.log.append(("sync_weekly",))
         return result
     monkeypatch.setattr(pmd._krx_daily, "sync_weekly", fake_sync)
@@ -351,9 +398,13 @@ def test_upsert_writes_daily_then_closes_weeks_before_the_single_commit(monkeypa
     assert res == pmd.KrxWrite(True, True, ("20261009",)) and res.daily_ok
     # 바깥 트랜잭션 하나(첫 savepoint·마지막 release) 안에 일별 기록(SAVEPOINT)과 주간 닫기 — 한 커밋
     kinds = [e[0] for e in c.log]
-    assert kinds[:2] == ["savepoint", "savepoint"] and kinds[-3:] == ["release", "sync_weekly", "release"]
+    # 261019(v03 C4): 일별 기록 앞에 krx_weekly 가 뷰인지 한 번 본다(대역은 표 — 기록 전 달력은 읽지 않는다)
+    assert c.log[1][:2] == ("execute", _norm(krx_daily.WEEKLY_KIND_SQL))
+    assert kinds[:3] == ["savepoint", "execute", "savepoint"] and kinds[-3:] == ["release", "sync_weekly", "release"]
+    # 261020(#131): COPY 대신 INSERT 한 문장(최소 권한 계정 — RLS 표에 COPY FROM 불가)
     assert any(e[0] == "execute" and e[1] == _norm(krx_daily.INSERT_PX_SQL) for e in c.log) and len(c.copied) == 2
-    assert not any("krx_weekly" in (e[1] if len(e) > 1 and isinstance(e[1], str) else "") for e in c.log)   # 이번 주 행을 지우고 다시 넣지 않는다
+    assert not any("krx_weekly" in (e[1] if len(e) > 1 and isinstance(e[1], str) else "")   # 이번 주 행을 지우고 다시 넣지 않는다
+                   and e[1] != _norm(krx_daily.WEEKLY_KIND_SQL) for e in c.log)                 # (표/뷰 판별 카탈로그 질의만 그 이름을 쓴다)
 
 
 def test_upsert_commits_the_daily_write_even_when_the_weekly_close_fails(monkeypatch):
@@ -427,7 +478,10 @@ def test_plan_weeks_splits_the_iso_week_at_the_year_boundary():
 def test_weekly_with_latest_only_names_weekly_columns():
     sql = krx_daily.weekly_with_latest("price_dd, ticker, market")
     assert sql.startswith("(SELECT price_dd, ticker, market FROM krx_weekly UNION ALL SELECT d.trd_dd AS price_dd,")
-    assert "d.trd_dd = (SELECT max(dd) FROM krx_day WHERE n > 0)" in sql and "> (SELECT COALESCE(max(price_dd), '') FROM krx_weekly)" in sql
+    assert "d.trd_dd = (SELECT max(dd) FROM krx_day WHERE n > 0)" in sql
+    # 261019(v03 C4): 「krx_weekly 에 그 날이 아직 없나」를 max 비교 대신 그 날 하나로 — 뷰여도 달력에서 한 날만 찾는다
+    assert "NOT EXISTS (SELECT 1 FROM krx_weekly x WHERE x.price_dd = (SELECT max(dd) FROM krx_day WHERE n > 0))" in sql
+    assert "max(price_dd)" not in sql
     assert "d.close * d.list_shrs AS mktcap" in krx_daily.WEEKLY_WITH_LATEST
     with pytest.raises(ValueError):
         krx_daily.weekly_with_latest("price_dd, volume")

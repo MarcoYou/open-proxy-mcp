@@ -71,8 +71,8 @@ def route(sql: str) -> str:
         return "fin_q"
     if "DISTINCT ON (substring(price_dd,1,4))" in s:
         return "caps"
-    if s.startswith("SELECT MAX(price_dd) FROM krx_weekly"):
-        return "latest"
+    if s.startswith("SELECT COALESCE((SELECT max(dd) FROM krx_day WHERE wk_close)"):
+        return "latest"                              # 닫힌 주 최신 — 달력 먼저(261019 v03 C4, `krx_daily.WEEKLY_LATEST_SQL`)
     if "SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
         return "px"                                  # 261019(감사 3): 같은 왕복에 곡선 끝점 후보(일별 최신 한 줄 'd') — 여기 가짜에는 없다
     if s.startswith("SELECT 'below', price_dd, count(*) FROM krx_weekly"):

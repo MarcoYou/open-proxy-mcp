@@ -112,6 +112,8 @@ def rdb(pg17, monkeypatch):
                                [(t, m, -319.44 * E8 if t == "A" else None, 8924.7 * E8 if t == "A" else None) for t, m in MKT.items()])
         c.execute("CREATE TABLE krx_weekly (price_dd text, ticker text, market text, close bigint, mktcap double precision, list_shrs bigint, "
                   "PRIMARY KEY (price_dd, ticker))")
+        # 거래일 달력 — 운영에는 v03(261019)부터 있다. 서버의 주간 곡선 하한 질의가 닫힌 주 최신을 달력에서 먼저 읽는다(비면 krx_weekly max).
+        c.execute("CREATE TABLE krx_day (dd text, n integer, wk_close boolean NOT NULL DEFAULT false)")
         c.cursor().executemany("INSERT INTO krx_weekly VALUES (%s,%s,%s,1,%s,1)", [(d, t, m, CAP) for d in DATES for t, m in MKT.items()])
         c.execute("CREATE TABLE price_latest (ticker text PRIMARY KEY, price_dd text, mktcap double precision)")
         c.execute("CREATE TABLE wise_sector (snap_dd text, ticker text, sector_code text, sector text, industry_code text, industry text)")

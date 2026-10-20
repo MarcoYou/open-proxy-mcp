@@ -61,6 +61,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
+from open_proxy_mcp.krx_daily import WEEKLY_LATEST_SQL
 from open_proxy_mcp.krx_retention import KRX_WEEKLY_ORIGIN_DD, krx_weekly_cutoff, prune_where
 
 DDL = """
@@ -229,7 +230,8 @@ def _observe(con, sql: str, params: tuple = ()) -> dict[str, Row]:
 
 
 def _latest_dd(con) -> str | None:
-    return con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
+    """닫힌 주 최신(= krx_weekly 의 max(price_dd)). 261019(v03 C4): `krx_daily.WEEKLY_LATEST_SQL` — 뷰여도 최근 몇 주만 읽는다."""
+    return con.execute(WEEKLY_LATEST_SQL).fetchone()[0]
 
 
 def _table_is_cut(con, latest_dd: str) -> bool:

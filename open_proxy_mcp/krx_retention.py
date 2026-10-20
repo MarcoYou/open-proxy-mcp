@@ -24,6 +24,15 @@
     같은 답을 내야 한다. 그해 12월에 상장폐지한 종목의 마지막 행도 남고, 하한이 속한 해에 하한 전에 끝난 종목의
     마지막 행도 남는다(전역 마지막 주 한 줄만 남기면 (종목, 연도) 19쌍의 연말 점이 사라진다).
 
+    ■ 「연말 행」과 주 단위(`week_unit` = ISO 주 ∩ 달력 연도)는 **같은 정의**다(261019 확인 — 시험 `test_year_end_is_last_week_unit_close`).
+      주를 달력 연도에서 자르므로 한 주 단위는 늘 한 해 안에 있고, 종목의 「그 연도 마지막 행」은 그해 마지막 주 단위의 닫는 점이다.
+      `left(price_dd, 4)` 묶음이 곧 주 단위의 연도 묶음이다. 그래서 2019 의 연말 행은 20191230(주 단위 [20191230, 20191231] 의 닫는 점)이고,
+      20191227 은 [20191223, 20191229] 주의 보통 주간 점이다 — 5-1(10-18)에서 실제 마지막 거래일 12/30 을 되살린 뒤 20191227 2,324행이
+      롤링 대상으로 바뀐 것은 술어 결함이 아니라 정의대로다(그 행은 콜드 서빙본에 같은 값으로 있다 — 지우는 쪽은 서빙 가드 S7 를 거친다).
+      옛 정의(ISO 주 그대로)였다면 12/30 이 다음 해 첫 주에 섞여 지워졌고 12/27 이 연말 행으로 남았다 — 그 결함은 5-1 에서 고쳤다.
+    ■ 일별 보관 창(약 1년 — `krx_daily.window_lo`)은 3년보다 짧아, 하한보다 이른 행은 전부 닫힌 주 압축 표 `krx_wk` 에 있다
+      (261019 재설계 v03 C4 — `krx_weekly` 가 뷰일 때). 그래서 롤링 대상은 `krx_wk` 만으로 정확히 셀 수 있다(`prune_where_wk`).
+
 순수 함수만 둔다 — DB·시계·네트워크를 부르지 않는다. 호출부가 **그 시점 표의 `max(price_dd)`**
 를 `latest_dd` 로 넘긴다(서버도 오늘 날짜가 아니라 저장된 최신 주를 넘겨야 표를 자르는 쪽과 어긋나지 않는다).
 
@@ -32,6 +41,7 @@
     keep_predicate  보존 행 조건 — 의미의 정본. `price_dd >= 하한 OR (ticker, price_dd) IN (… HAVING max(price_dd) < 하한)` 꼴
     prune_where     그 보수(지울 행)를 `NOT EXISTS` 로 — **큰 표에서는 이쪽을 쓴다**
     prune_statement `DELETE … WHERE prune_where`
+    prune_where_wk  같은 집합을 압축 표 `krx_wk`(tid, wk_dd)에 — `krx_weekly` 가 뷰일 때 실제로 지우는 쪽(D6)이 쓴다
     keep_select     보존 행 SELECT(조인 꼴) — 새 표로 갈아 끼우는 컷용
 
   🔴 성능 함정(운영 실측) — `keep_predicate` 를 큰 표에 **그대로** 쓰면 끝나지 않는다. OR 안의 `IN (서브쿼리)` 는
@@ -238,9 +248,24 @@ def prune_where(latest_dd: str, *, table: str = "krx_weekly", alias: str = "w") 
 
 
 def prune_statement(latest_dd: str, *, table: str = "krx_weekly") -> tuple[str, tuple]:
-    """`DELETE FROM krx_weekly AS w WHERE <prune_where>` — 롤링 정리·컷이 쓰는 지우기. 반환 (SQL, 파라미터)."""
+    """`DELETE FROM krx_weekly AS w WHERE <prune_where>` — 롤링 정리·컷이 쓰는 지우기. 반환 (SQL, 파라미터).
+    `krx_weekly` 가 뷰면(261019 재설계 v03 C4) 뷰에서는 지울 수 없다(오류로 멈춘다) — 압축 표 `krx_wk` 에 `prune_where_wk` 로 지운다."""
     where, params = prune_where(latest_dd, table=table, alias="w")
     return f"DELETE FROM {_ident(table)} AS w WHERE {where}", params
+
+
+def prune_where_wk(latest_dd: str, *, alias: str = "w") -> tuple[str, tuple]:
+    """**지울 행** 조건의 압축 표 판 — `krx_weekly` 가 뷰일 때(261019 재설계 v03 C4) 실제 행이 있는 `krx_wk`(tid, wk_dd date)에 건다.
+    반환 (SQL 조각, 파라미터 (하한, 하한)). `prune_where` 와 같은 (종목, 날짜) 집합이다(번호 ↔ 종목은 1:1, 날짜는 같은 날 —
+    시험 `test_prune_where_wk_matches_the_view_predicate`). 하한보다 이른 행은 전부 `krx_wk` 에 있으므로(일별 보관 창 약 1년 < 3년)
+    연말 행 묶음도 `krx_wk` 만으로 정확하다. 실제로 지우는 쪽(D6 롤링)은 이 술어에 서빙 가드(S7)를 더해 쓴다."""
+    a = _ident(alias)
+    sql = (f"{a}.wk_dd < to_date(%s, 'YYYYMMDD') AND NOT EXISTS (SELECT 1 FROM ("
+           "SELECT tid, max(wk_dd) AS wk_dd FROM krx_wk GROUP BY tid, extract(year FROM wk_dd) "
+           "HAVING max(wk_dd) < to_date(%s, 'YYYYMMDD')) ye "
+           f"WHERE ye.tid = {a}.tid AND ye.wk_dd = {a}.wk_dd)")
+    cutoff = krx_weekly_cutoff(latest_dd)
+    return sql, (cutoff, cutoff)
 
 
 def keep_select(latest_dd: str, *, table: str = "krx_weekly", columns: str = "w.*") -> tuple[str, tuple]:
