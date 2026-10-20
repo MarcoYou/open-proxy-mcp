@@ -130,7 +130,7 @@ CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이
 ## 배당수익률 — 연말종가 기준 보완
 `dividend.history`의 `yield_pct`(DART 자체 결의시점 시가배당률)는 **옛 연도일수록 결측이 많음**을
 실측 확인(미래에셋증권·현대차·SKC 전부 2021·2022년 None, 2023년부터만 값 있음 — DART alotMatter의
-과거 공시 특성). `krx_weekly`(연말종가, `valuation.py`의 `_annual_pit_band`와 동일 쿼리 패턴)로
+과거 공시 특성). `krx_weekly`(연말종가, `price_multiple_data.py`의 `_annual_pit_band`와 동일 쿼리 패턴)로
 `DPS ÷ 연말종가`를 직접 계산해 `yield_pct_yearend` 필드로 별도 노출 — 원본 `yield_pct`는 그대로
 두고 공백만 메운다. 두 값은 **기준일이 다르므로**(결의시점 시가 vs 연말종가) 값이 다를 수 있음을
 출력에 명시.
@@ -174,7 +174,7 @@ CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이
 | `treasury_share` | `summary` | 결정↔실행 사이클 + 정확한 실제금액(260707 단위버그 수정) |
 | DART `fnlttSinglAcntAll` | (client 직접, 연결) | 매입 기간 말까지 공시된 최신 정기보고서 재무상태표 → 지배자본(`services/controlling_eq`) — BPS 분자 |
 | `financial_metrics` | `summary`(사업연도 말) | 위를 못 쓸 때의 폴백 — `controlling_equity_krw`(없는 옛 응답이면 `total_equity_krw` + 경고) |
-| DART `stockTotqySttus` | (client 직접) | 유통주식수 — BPS 분모(`valuation.py`의 `_shares_outstanding` 재사용) |
+| DART `stockTotqySttus` | (client 직접) | 유통주식수 — BPS 분모(`price_multiple_data.py`의 `_shares_outstanding` 재사용) |
 
 ## upstream 호출 계약
 
@@ -201,7 +201,7 @@ CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이
 
 ## 변경 이력
 
-- 2026-10-21: 자사주 소각 사이클 BPS 를 **지배자본**으로, 기준 시점을 **매입 기간 말까지 공시된 최신 재무상태표**로(종전: 자본총계 · 결과보고서 접수 해 말) — 사이클마다 `bps_basis`. 지주사 BPS 가 비지배만큼 부풀던 것을 바로잡는다(한화 ÷4.09 · CJ ÷3.27 · 삼성물산 ÷1.15, 2025 말 기준). 낡은 주석의 옛 모듈명 `valuation.py` → `price_multiple_data.py`.
+- 2026-10-21: 자사주 소각 사이클 BPS 를 **지배자본**으로, 기준 시점을 **매입 기간 말까지 공시된 최신 재무상태표**로(종전: 자본총계 · 결과보고서 접수 해 말) — 사이클마다 `bps_basis`. 지주사 BPS 가 비지배만큼 부풀던 것을 바로잡는다(한화 ÷4.09 · CJ ÷3.27 · 삼성물산 ÷1.15, 2025 말 기준). 낡은 주석·이 문서의 옛 모듈명 `valuation.py` → `price_multiple_data.py`. 재무상태표 1콜이 통신 오류(시간 초과 등)로 실패해도 도구 전체가 죽지 않고 연말 길로 물러난다.
 - 2026-10-18: 상류(value_up·corp_gov_report·dividend_disclosure·treasury_share) 가운데 조회 실패(`status=error` 또는 예외)가 있으면 `status=partial`, 전부 실패면 `error` — 종전엔 상류가 모두 DART 오류로 실패해도 `exact` 였다(상류 경고만 옮겼다).
 - 2026-09-07: 배당수익률 주석의 테이블 이름 `krx_weekly` → 「KRX 연말 종가」.
 
