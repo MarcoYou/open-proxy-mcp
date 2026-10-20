@@ -178,6 +178,11 @@ def test_unreadable_kind_is_an_outage_not_the_old_query(monkeypatch):
     calls = []
     monkeypatch.setattr(pmd, "_pg_rows", lambda sql, params=(): calls.append(sql) or ([("v",)] if "relkind" in sql else None))
     assert pmd._krx_weekly_start("20261001") is None and calls[-1] == pmd._WEEKLY_START_VIEW_SQL
+    # 모양 판별 **한 줄만** 실패하고 다른 읽기는 되는 때도 장애다 — 종전 질의로 넘어가 그 답을 쓰지 않는다
+    calls.clear()
+    monkeypatch.setattr(pmd, "_pg_rows", lambda sql, params=(): calls.append(sql) or (
+        None if "relkind" in sql else [("first", "20261002", 5), ("ref", "20261002", 5)]))
+    assert pmd._krx_weekly_start("20261001") is None and calls == [krx_daily.WEEKLY_KIND_SQL]
 
 
 # ── ④ 뷰 DB 에서 실제로 읽는 표 ──────────────────────────────────────────────────────
@@ -212,8 +217,13 @@ def test_view_query_only_executes_reads_on_the_calendars(worlds):
 # ── ⑤ 같은 꼴의 배치 읽기 ───────────────────────────────────────────────────────────
 
 def test_month_end_prices_reads_the_calendar_in_a_view_and_agrees_with_the_table(worlds):
-    from scripts import month_end_prices as M
     a, b = worlds
+    for since in ("20250801", "20261001"):                 # 시드 시작 · 기록 중간(그보다 이른 날짜를 날짜 목록에서 빼야 한다)
+        _month_end_both_worlds(a, b, since)
+
+
+def _month_end_both_worlds(a, b, since):
+    from scripts import month_end_prices as M
     res = {}
     for name, url in (("a", a), ("b", b)):
         sql_seen: list[str] = []
@@ -226,9 +236,10 @@ def test_month_end_prices_reads_the_calendar_in_a_view_and_agrees_with_the_table
                 sql_seen.append(" ".join(sql.split()))
                 return self.con.execute(sql, params) if params is not None else self.con.execute(sql)
         with psycopg.connect(url) as con:
-            m = M.MonthEndPrices(Spy(con), "20250801")
+            m = M.MonthEndPrices(Spy(con), since)
             res[name] = (m.cutoff, m.floor, sorted(m.dense), m.plan.dates, m.plan.skipped, sql_seen)
-    assert res["a"][:5] == res["b"][:5], "표 세계와 뷰 세계의 월말 원천(하한·촘촘한 구간·계획)이 같다"
+    assert res["a"][:5] == res["b"][:5], ("표 세계와 뷰 세계의 월말 원천(하한·촘촘한 구간·계획)이 같다", since)
+    assert all(d >= since for d in res["b"][2]), "날짜 목록은 since 이후만"
     latest = " ".join(krx_daily.WEEKLY_LATEST_SQL.split())             # 기준 주 질의는 달력이 비었을 때만 도는 뷰 갈래를 글자로 품는다(실행되지 않는다 — ④)
     assert not any("FROM krx_weekly" in s.replace(latest, "") for s in res["b"][5]), "뷰 세계는 뷰를 훑지 않는다 — 달력만"
     assert any("FROM krx_weekly" in s for s in res["a"][5]), "표 세계는 종전 질의"
