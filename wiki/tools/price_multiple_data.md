@@ -473,7 +473,7 @@ sequenceDiagram
     EPS(TTM) 1,672원 → 8,360원, 「상장주식수가 0.2278배로 바뀌었습니다」 경고 → 「EPS 정렬에 확정 라벨이 없는 기준가 조정 1건을 반영했다」, PER(TTM) 0.69·PBR(MRQ) 0.27 은 그대로.
     DART 유통주식수(사업연도 말)가 병합 뒤 상장주식수의 3배를 넘는 종목은 「파싱오류 의심」 대신 「사업연도 말 뒤 병합·감자로 줄어든 것」으로 안내한다(계수가 잡히면 위 경고가 사라져 오진하게 되므로).
     읽기는 firm 의 수정계수 묶음에 하나 더해 같은 왕복에 나간다(후보가 없으면 그것뿐, 있으면 후보마다 한 번 더).
-  - 시험: `tests/test_pmd_acntall_errors.py`(18) · `tests/test_pmd_ttm_same_basis.py`(15 — 실제 SQL 포함) · `tests/test_pmd_eps_adj_share_ratio.py`(14 — 실제 SQL 포함). 고친 줄을 되돌리는 변이 28종을 모두 잡는다.
+  - 시험: `tests/test_pmd_acntall_errors.py`(19) · `tests/test_pmd_ttm_same_basis.py`(15 — 실제 SQL 포함) · `tests/test_pmd_eps_adj_share_ratio.py`(14 — 실제 SQL 포함). 고친 줄을 되돌리는 변이 28종을 모두 잡는다.
     `tests/pmd_read_path_golden.json` 은 바뀐 칸이 없다(읽기 목록만 한 줄 늘었다).
 
 - 2026-10-20: **시장·업종 대분류 표의 과거 기준일 확정 배당수익률 — 그 날까지 확정·공시된 사업연도만**(최신 응답은 그대로).
