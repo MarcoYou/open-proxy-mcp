@@ -23,6 +23,7 @@ _RULER = [
     "- **단위**: 금액 원(KRW) · DPS 주당 원 · 배당성향 %",
     "- **배당성향의 분모**: 공시 원문 `(연결)현금배당성향(%)` 을 그대로 싣는다 — **연결 기준이며 우리가 계산한 값이 아니다.** 같은 회사에서 해마다 크게 튀면 대개 분모(연결 지배순이익)가 움직인 것이다 — 삼성전자 FY2022 17.9% ↔ FY2023 67.8% 는 배당총액 9.81조원이 같은데 지배순이익이 54.7조 → 14.5조원으로 급감한 결과다. 튀는 값은 원문(`evidence`)과 순이익 추이로 먼저 확인한다",
     "- **기간**: 사업연도(`bsns_year`). 12월 결산이 아니면 `결산일` 칸이 실제 결산일이다",
+    "- **결산기가 여럿인 회사**(반기·분기 결산 리츠): 한 사업연도에 사업보고서가 결산기마다 따로 나온다. 사업연도 DPS 는 **그 해 결산기 DPS 의 합**이다(롯데리츠 FY2025 = 2025-06 117원 + 2025-12 123원 = 240원) — 한 결산기만 읽으면 연 배당의 절반(반기)·4분의 1(분기)이다",
     "- **금액 출처**: DART 정기보고서 `alotMatter` — **확정치**. 추정도 결정공시 예고도 아니다",
     "- **횟수 출처**: 「현금ㆍ현물배당결정」 원문(결정공시) — 이사회 결의 시점 그대로. 온전한 해만 센다(`⚠️미완` 이 붙은 해는 결의가 아직 다 안 걷혔다)",
     "- **빈칸**: `확정`/`무배당`/`항목없음`/`보고서없음`을 가른다. 0 으로 메우지 않았다",
@@ -101,6 +102,31 @@ def _history_cell(years: list[int], vals: list[int | None] | None) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────── firm ──
+def _year_totals_block(totals: list[dict[str, Any]]) -> list[str]:
+    """결산기가 둘 이상인 사업연도(반기·분기 결산 리츠)의 **보통주 합**. 결산기가 하나뿐인 해만 있으면 아무것도 내지 않는다. (261021)
+
+    원장 줄은 결산기마다 따로 있고(아래 표) 총액 칸은 가장 늦은 결산기의 총액이 복사된 꼴이라, 줄을 그대로 읽으면 같은 해가 둘로 보이고 총액이 두 배 가까이
+    과소·중복으로 읽힌다. 여기서 DPS 는 결산기 DPS 의 합, 총액은 결산기 총액이 서로 다를 때만 합하고 모두 같으면 합하지 않는다(`total_basis`)."""
+    multi = [t for t in totals if (t.get("n_periods") or 0) > 1]
+    if not multi:
+        return []
+    L = ["", "### 원장 — 사업연도 합 (결산기가 둘 이상인 해, 보통주)", "",
+         "| 사업연도 | 결산기 | DPS 합 | 결산기별 DPS | 배당총액 | 총액 기준 |",
+         "|---|---|---|---|---|---|"]
+    copied = False
+    for t in multi:
+        per = " + ".join(f"{p.get('stlm_dt') or '?'} {_num(p.get('dps_krw'), '원', '{:,.0f}')}" for p in t.get("periods") or [])
+        basis = {"sum": "결산기 총액의 합", "ledger_copy": "† 합하지 않음(복사 꼴)", "single": "-"}.get(t.get("total_basis"), "-")
+        copied = copied or t.get("total_basis") == "ledger_copy"
+        L.append(f"| {t['bsns_year']} | {t['n_periods']}개 | {_num(t.get('dps_krw'), '원', '{:,.0f}')} | {per} | "
+                 f"{_won(t.get('div_total_krw'))} | {basis} |")
+    L += ["", "> 사업연도 DPS = 그 해 결산기 DPS 의 합이다(한 결산기만 읽으면 반기 결산은 연 배당의 절반)."]
+    if copied:
+        L += ["> † 원장은 결산기 줄마다 **가장 늦은 결산기의 총액을 복사**해 둔다(결산기마다 같은 값) — 그대로 더하면 같은 금액이 여러 번 세어져 합하지 않았다. "
+              "표의 총액은 **가장 늦은 결산기 하나의 총액**이라 그 해 실제 총액보다 작다. 결산기별 실제 총액은 `dividend_disclosure` 의 사업보고서 열(당기·전기·전전기)에 있다."]
+    return L
+
+
 def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any]) -> str:
     L = [f"## {name} ({ticker}) — 확정 배당", ""]
     L += _RULER
@@ -140,12 +166,13 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
 
     ann = d.get("annual") or []
     if ann:
+        L += _year_totals_block(d.get("year_totals") or [])
         L += ["", "### 원장 — 얼마 · 배당성향 (사업보고서)", "",
-              "| 사업연도 | 주식 종류 | DPS | 배당총액(신고) | 배당성향 | 상태 | 공시번호 |",
-              "|---|---|---|---|---|---|---|"]
+              "| 사업연도 | 결산일 | 주식 종류 | DPS | 배당총액(신고) | 배당성향 | 상태 | 공시번호 |",
+              "|---|---|---|---|---|---|---|---|"]
         for r in ann:
             L.append(
-                f"| {r['bsns_year']} | {r.get('stock_knd_raw') or r.get('stock_kind') or '-'} | "
+                f"| {r['bsns_year']} | {r.get('stlm_dt') or '-'} | {r.get('stock_knd_raw') or r.get('stock_kind') or '-'} | "
                 f"{_num(r.get('dps_krw'), '원', '{:,.0f}')} | {_won(r.get('div_total_krw'))} | "
                 f"{_num(r.get('payout_pct'), '%')} | {r.get('row_status') or '-'} | "
                 f"`{r.get('rcept_no') or '-'}` |")
@@ -223,15 +250,26 @@ def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
          "- **배당성향의 분모**: 공시 원문의 `(연결)현금배당성향(%)` 값을 그대로 싣는다 — "
          "**연결 기준이며 우리가 계산한 값이 아니다.**",
          "- **대상**: 보통주(`보통`·`미구분`) 행만. DPS 0원은 배당한 것이 아니므로 뺀다",
+         "- **DPS**: 사업연도 안 결산기 DPS 의 합 — 결산기가 하나인 12월 결산 회사는 사업보고서 값 그대로, 반기·분기 결산 리츠는 결산기들의 합이다",
          "- **정렬**: 배당총액 큰 순",
          "",
          f"| 회사 | 종목코드 | DPS | 배당총액(신고) | 배당성향 | 결정공시 이력({hist_label}) | 공시번호 |",
          "|---|---|---|---|---|---|---|"]
+    n_multi = n_copy = 0
     for r in rows:
         cell = "?" if hist is None else _history_cell(hist_years, hist.get(r["corp_code"]))
-        L.append(f"| {r['name']} | `{r['ticker']}` | {_num(r.get('dps_krw'), '원', '{:,.0f}')} | "
-                 f"{_won_short(r.get('div_total_krw'))} | {_num(r.get('payout_pct'), '%')} | "
+        n_per = r.get("n_periods") or 1
+        dps_txt = _num(r.get("dps_krw"), "원", "{:,.0f}") + (f" ({n_per}결산기 합)" if n_per > 1 else "")
+        copied = r.get("total_basis") == "ledger_copy"
+        n_multi += n_per > 1
+        n_copy += copied
+        L.append(f"| {r['name']} | `{r['ticker']}` | {dps_txt} | "
+                 f"{_won_short(r.get('div_total_krw'))}{' †' if copied else ''} | {_num(r.get('payout_pct'), '%')} | "
                  f"{cell} | `{r.get('rcept_no') or '-'}` |")
+    if n_multi:
+        L += ["", f"> {n_multi}사는 한 사업연도에 결산기가 둘 이상(반기·분기 결산)이라 DPS 가 **그 해 결산기 DPS 의 합**이다(`min_dps` 도 이 합에 건다)."]
+    if n_copy:
+        L += [f"> † {n_copy}사는 원장이 결산기 줄마다 가장 늦은 결산기의 총액을 복사해 둔 꼴이라 총액을 더하지 않았다 — 표의 총액은 가장 늦은 결산기 하나분이라 그 해 실제 총액보다 작다."]
     if not rows and matched is not None:
         L += ["", "> 조건에 맞는 회사가 없다. 조건을 넓히거나 사업연도를 바꿔 보라. "
               "**「그런 회사가 없다」이지 「조회가 실패했다」가 아니다.**"]
@@ -255,6 +293,10 @@ def _render_agg(scope: str, key: str, d: dict[str, Any]) -> str:
     for r in d.get("rows") or []:
         L.append(f"| {r['bsns_year']} | {r['n_universe']}사 | {r['n_payers']}사 | "
                  f"{_won(r.get('div_total_krw'))} | {_num(r.get('payout_avg'), '%')} |")
+    n_guard = sum(r.get("n_copy_guard") or 0 for r in d.get("rows") or [])
+    if n_guard:
+        L += ["", f"> 결산기가 둘 이상인 회사(반기·분기 결산 리츠)의 배당총액은 사업연도 안 결산기 총액의 합이다. 다만 원장이 결산기 줄마다 가장 늦은 결산기 총액을 복사해 둔 "
+                  f"{n_guard}개 (회사·사업연도)는 더하지 않고 그 하나를 썼다 — 이 칸들의 총액은 실제보다 작다."]
     L += ["", "> **분모를 두 벌 낸다** — 모집단(그 해 표에 있는 회사 전부)과 배당한 회사. "
           "한 벌만 보면 「배당이 줄었다」와 「배당하는 회사가 줄었다」가 구별되지 않는다.",
           "> 배당성향 평균은 **단순평균**이다(시총가중 아님). 시총가중 배당수익률은 "
