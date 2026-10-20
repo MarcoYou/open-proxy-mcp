@@ -108,16 +108,25 @@ jobs:
       # 261019: 아래 단계들은 앞 단계가 실패해도 돈다(`!cancelled()` — 잡은 실패로 남아 보인다). 위 결산월 단계는 DART 목록 오류(점검 800·5xx 등)에
       #   예외로 멈추는데, 기본 규칙(앞 단계 성공일 때만)이면 그 한 번이 이 일정의 본래 일인 분기 수집·파생까지 건너뛰게 했다.
       #   각 단계는 저장된 것만 읽고 다시 돌아도 같은 결과라(재개·값이 같은 행은 다시 쓰지 않음) 앞 단계가 반쯤 끝나도 안전하다.
-      - name: 연간 재무 수집 — 결산월별 최신 사업보고서 + 정정 사업보고서 (DART)
+      - name: 연간 재무 수집 — 결산월별 최신 사업보고서 (DART)
         # 이미 받은 사업연도는 건너뛴다(자료 없음은 공시 시점 뒤 400일 동안 다시 본다). 받을 것이 없으면 0콜.
-        # 261020(p1e): --amended — 최근 10일 정기공시 목록(~4~10콜)에서 [기재정정] 사업보고서가 나온 연간 행만 다시 받는다(행마다 남긴 접수번호보다
-        #   늦은 보고서가 있을 때 — 종전엔 받은 행을 다시 받지 않아 정정 뒤 값이 그대로였다). 아래 Q4 seed·파생이 바뀐 값을 옮긴다.
         if: ${{ !cancelled() }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
           ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 외화 보고사 환산 — 아래 머리말 참고
-        run: uv run python scripts/market_val_series.py --fetch --amended
+        run: uv run python scripts/market_val_series.py --fetch
+
+      - name: 연간 재무 — 정정 사업보고서 다시 받기 (DART 정기공시 목록 + 대상 행)
+        # 261020(p1e): 최근 10일 정기공시 목록에서 [기재정정] 사업보고서가 나온 연간 행만 다시 받는다(행마다 남긴 접수번호보다 늦은 보고서가 있을 때 —
+        #   종전엔 받은 행을 다시 받지 않아 정정 뒤 값이 그대로였다). 아래 Q4 seed·파생이 바뀐 값을 옮긴다. 정정본에 그 행의 재무제표(연결/별도)가
+        #   없으면 다른 쪽으로 바꿔 쓰지 않는다. 위 단계와 따로 돈다(따로 실패해도 서로 막지 않는다).
+        if: ${{ !cancelled() }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENDART_API_KEY: ${{ secrets.OPENDART_API_KEY }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}     # 261019: 외화 보고사 환산 — 아래 머리말 참고
+        run: uv run python scripts/market_val_series.py --amended
 
       - name: Q4 seed — 새 연간 행을 분기 표 사업보고서 칸으로 (DART 0콜)
         if: ${{ !cancelled() }}

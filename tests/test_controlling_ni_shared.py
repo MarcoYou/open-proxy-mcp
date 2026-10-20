@@ -271,7 +271,8 @@ def test_amended_report_fiscal_label_is_report_year():
 
 
 def test_fetch_then_amended_runs_in_one_event_loop(monkeypatch, capsys):
-    """주간 일정의 `market_val_series.py --fetch --amended` — 정규 수집 뒤 정정 사업보고서 다시 받기가 **같은 이벤트 루프**에서 돈다(261020 검토).
+    """`market_val_series.py --fetch --amended`(한 실행에 둘 다) — 정규 수집 뒤 정정 사업보고서 다시 받기가 **같은 이벤트 루프**에서 돈다(261020 검토).
+    (주간 일정은 두 단계를 따로 돌린다 — 아래 시험. 이 시험은 손으로 둘을 함께 줄 때.)
     종전엔 `asyncio.run` 을 두 번 불러, 정규 수집이 DART 를 한 번이라도 부르면(자료 없음 행 다시 보기 — 주간 실행은 거의 늘) 프로세스에 하나인
     DART 클라이언트의 연결 풀이 닫힌 첫 루프에 묶여 둘째 루프의 정기공시 목록이 `RuntimeError: Event loop is closed` — 경고만 남고 정정 행을 하나도 안 받았다.
     가짜 DART(로컬 HTTP)·가짜 DB 로 실제 클라이언트를 돌린다(DART 0콜 · DB 0). 정정본에 연결 재무제표가 없으면 별도로 바꿔 쓰지 않는다(`keep_fs`)."""
@@ -328,7 +329,7 @@ def test_fetch_then_amended_runs_in_one_event_loop(monkeypatch, capsys):
         monkeypatch.setattr(S2, "_flush", lambda buf, replace=False: buf.clear())
         monkeypatch.setattr(S2.rcal, "load_fye_map", lambda con: {})
         monkeypatch.setattr(S2, "ecos_key_missing_note", lambda *_a: None)
-        S2.main(["--fetch", "--amended"])                         # 주간 일정과 같은 명령줄
+        S2.main(["--fetch", "--amended"])                         # 명령줄 그대로
     finally:
         srv.shutdown()
         dc._instances.pop(key, None)
@@ -339,3 +340,10 @@ def test_fetch_then_amended_runs_in_one_event_loop(monkeypatch, capsys):
     assert first_list > 0                                         # 정규 수집이 먼저 DART 를 불렀다(루프가 바뀌면 깨지던 조건)
     assert hits[first_list:].count("fnlttSinglAcntAll.json") == 1  # 정정 행은 연결만 — 빈 응답이어도 별도로 물러나지 않는다
     assert "있던 행 그대로" in out
+
+
+def test_weekly_schedule_refetches_amended_reports_before_q4_seed():
+    """주간 재무 일정(finstat-quarterly)이 정규 연간 수집 뒤·Q4 seed 앞에 정정 사업보고서 다시 받기를 돈다(바뀐 연간 값을 seed·파생이 옮기게)."""
+    wf = (pathlib.Path(__file__).resolve().parents[1] / ".github/workflows/finstat-quarterly.yml").read_text(encoding="utf-8")
+    order = [ln.strip().split("scripts/", 1)[1] for ln in wf.splitlines() if ln.strip().startswith("run: uv run python scripts/")]
+    assert order.index("market_val_series.py --fetch") < order.index("market_val_series.py --amended") < order.index("market_fund_quarterly.py --seed")
