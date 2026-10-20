@@ -256,3 +256,19 @@ def test_live_firm_unchanged_when_reports_agree(monkeypatch):
     assert d["inputs"]["net_income_ttm_krw"] == 159_609_313 + 21_148_960 - 27_693_145
     assert not any("단위" in w for w in d["warnings"])
     assert calls == [(2025, "11011"), (2026, "11014"), (2026, "11012"), (2026, "11013"), (2025, "11013")]
+
+
+def test_live_firm_ignores_a_broken_quarter_it_does_not_use(monkeypatch):
+    """짝(전년 같은 분기)이 없어 값에 쓰지 않는 분기 보고서가 1,000배여도 응답은 종전 그대로 — 대조에만 쓰고 바로잡을 값이 없다."""
+    q3_x1000 = _report("20261114000009", assets=f"{10_200_000_000 * 1000:,}", liab=f"{1_450_000_000 * 1000:,}", eq=f"{8_700_000_000 * 1000:,}",
+                       assets_frm=f"{10_070_371_574 * 1000:,}", liab_frm=f"{1_407_626_158 * 1000:,}", eq_frm=f"{8_662_745_416 * 1000:,}",
+                       ni="1", ni_add="40,000,000,000")
+    reports = {(2025, "11011"): H_FY2025, (2026, "11014"): q3_x1000, (2026, "11013"): H_2026Q1,
+               (2025, "11013"): _report("20250515000003", assets="9,870,000,000", liab="1,336,810,888", eq="8,533,189,112",
+                                        assets_frm="9,841,878,611", liab_frm="1,336,382,644", eq_frm="8,505,495,967",
+                                        ni="27,693,145", ni_add="27,693,145")}
+    p, _ = _run_live(monkeypatch, reports, cap=H_CAP, shares=H_SHARES, price=H_PRICE)
+    d = p["data"]
+    assert d["data_quality"]["scale_tier"] == "clean" and "scale_fix" not in d["data_quality"]
+    assert d["inputs"]["net_income_ttm_krw"] == 159_609_313 + 21_148_960 - 27_693_145
+    assert not any("단위" in w for w in d["warnings"])

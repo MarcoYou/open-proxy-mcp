@@ -2518,6 +2518,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     scale_fix = []
     if cross_scale and cross_scale["status"] == "fixed":
         for _lab, _d in cross_scale["divisors"].items():
+            if _lab not in ("FY", "QP", qc_label):
+                continue          # 짝이 없어 값에 쓰지 않는 분기 보고서 — 대조에만 썼다(바로잡을 값이 없다)
             _nm, _rows = xr_names[_lab]
             _ev = [p for p in cross_scale["pairs"] if p["power"] and _lab in (p["a"], p["b"])]
             scale_fix.append({"report": _nm, "rcept_no": _rows_rcept(_rows), "divisor": _d, "method": cross_scale["method"],
@@ -2532,6 +2534,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
                 qp_rows = rescale_rows(qp_rows, _d)
             elif _lab == qc_label:
                 qc_rows = rescale_rows(qc_rows, _d)
+        if not scale_fix:
+            cross_scale = None    # 틀린 보고서가 값에 쓰지 않는 분기 보고서뿐 — 응답 값은 맞다(종전 응답 그대로)
 
     # 통화 환산: 기능통화≠KRW(두산밥캣=USD 등)면 KRW 환산 — KRW 주가/시총과
     # 통화 일치시켜야 배수가 유효(미환산 시 환율배수만큼 왜곡: 두산밥캣 PBR 1,238 오탐). wiki §9.
