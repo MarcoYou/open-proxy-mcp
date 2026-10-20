@@ -307,6 +307,33 @@ def test_ci_id_minority_used_after_ci_id_ctrl_rejected():
     assert Q.extract_controlling_ni_cum(rows) == (2326591200.0, "TOTAL_MINUS_MINORITY_CINCI")
 
 
+def test_ci_side_minority_not_subtracted_when_oci_same_sign_and_larger():
+    """044480 2020 1분기 꼴(2차 검토 부호 가드) — 총포괄 쪽 비지배 9.13억이 기타포괄 9.76억과 같은 부호로 그보다 작다 = 비지배 몫이 통째로
+    기타포괄일 수 있다. 빼면 −11.04억(총포괄 지배 몫 −1.28억과도 동떨어짐) — 빼지 않고 총계(−1.92억, 종전 값)."""
+    rows = [
+        cis(F + "ProfitLossBeforeTax", "법인세비용차감전순이익(손실)", 9, 121779917),
+        cis(F + "ProfitLoss", "당기순이익(손실)", 11, -191537154),
+        cis(F + "OtherComprehensiveIncome", "기타포괄손익", 12, 976359965),
+        cis(F + "ComprehensiveIncome", "당기총포괄이익(손실)", 18, 784822811),
+        cis(F + "ComprehensiveIncomeAttributableToOwnersOfParent", "지배기업소유주지분", 20, -127912154),
+        cis(F + "ComprehensiveIncomeAttributableToNoncontrollingInterests", "비지배지분", 21, 912734965),
+    ]
+    assert Q.extract_controlling_ni_cum(rows) == (-191537154.0, "TOTAL")
+
+
+def test_ci_side_minority_subtracted_when_oci_opposite_sign():
+    """123410 2021 반기 꼴 — 기타포괄(+30.4억)과 총포괄 쪽 비지배(−1.29억)가 반대 부호면 비지배 순이익은 그 비지배보다 더 크다(같은 쪽으로) —
+    빼면 총계와 참값 사이로 가므로 뺀다(가드는 같은 부호일 때만)."""
+    rows = [
+        cis(F + "ProfitLoss", "당기순이익(손실)", 12, 10153045084, 3440555734),
+        cis(F + "OtherComprehensiveIncome", "기타포괄손익", 13, 3038474879, 1697935024),
+        cis(F + "ComprehensiveIncome", "총포괄손익", 18, 13191519963, 5138490758),
+        cis(F + "ComprehensiveIncomeAttributableToOwnersOfParent", "총포괄손익, 지배기업의 소유주에게 귀속되는 지분", 20, 13320779814, 5213716610),
+        cis(F + "ComprehensiveIncomeAttributableToNoncontrollingInterests", "총포괄손익, 비지배지분", 21, -129259851, -75225852),
+    ]
+    assert Q.extract_controlling_ni_cum(rows) == (10282304935.0, "TOTAL_MINUS_MINORITY_CINCI")
+
+
 def test_ci_side_minority_zero_is_not_subtracted():
     """총포괄 쪽 비지배가 0 이면 빼지 않는다(종전 표시 그대로)."""
     rows = [
