@@ -24,7 +24,7 @@ def test_norm_as_of_accepts_both_forms_and_rejects_garbage():
 
 def test_market_as_of_picks_the_latest_snapshot_at_or_before(monkeypatch):
     monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): ROWS)
-    async def no_div(scheme): return {}, {}
+    async def no_div(scheme, as_of=None): return {}, {}   # 261020(p1j): 과거 기준일이면 스냅샷 날을 받는다
     monkeypatch.setattr(S, "_div_yield_map", no_div)
     async def no_fwd(scheme, as_of=None, history=False): return {}, {}, []
     monkeypatch.setattr(S, "_fwd_val_map", no_fwd)
