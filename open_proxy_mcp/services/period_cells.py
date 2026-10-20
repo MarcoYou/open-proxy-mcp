@@ -30,7 +30,6 @@ import re
 from collections import Counter
 from typing import Any
 
-from open_proxy_mcp.services.scale_guard import gid_exact
 from open_proxy_mcp.services.controlling_ni import controlling_ni as _controlling_ni
 from open_proxy_mcp.services import controlling_eq as _ceq
 
@@ -77,14 +76,6 @@ def _mdiff(a: str, b: str) -> int:
 
 # ── 원문 행 → 값 ───────────────────────────────────────────────────────────────
 
-def _g(rows, account_id, sj, field):
-    """정확 일치 — 새 분류체계(`ifrs-full_…`)가 없으면 옛 분류체계의 같은 이름(`ifrs_…`, 2018 사업보고서 무렵 — 연간 수집 `market_val_series.gid` 와 같은 규칙)."""
-    v = gid_exact(rows, f"ifrs-full_{account_id}", sj, field)
-    if v is None:
-        v = gid_exact(rows, f"ifrs_{account_id}", sj, field)
-    return float(v) if v is not None else None
-
-
 def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str]:
     """지배순이익과 고른 길 — 수집 배치·서버 firm 과 **같은 규칙**(`services/controlling_ni.controlling_ni`, 값 구조 검사). (261020 p1e firm-ctrl-ni)
 
@@ -98,16 +89,16 @@ def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str
 
 
 def ctrl_eq(rows: list, field: str = "thstrm_amount") -> float | None:
-    """지배자본 — firm(`price_multiple_data._ctrl_equity`)과 같은 규칙(지배 귀속 → 총자본 − 비지배). 261020(p1f eq-suspects): 지배 귀속 계정 줄이
-    자본금·자본 구성요소 줄이거나 자본총계 − 비지배와 크게 어긋나면(`services.controlling_eq.ctrl_line_rejected`) 그 줄을 쓰지 않고 수집과 같은 다음 규칙
-    (`controlling_eq`)으로 간다(firm 과 같다)."""
+    """지배자본 — firm(`price_multiple_data._ctrl_equity`)·연간 수집(`market_val_series.ctrl_eq`)과 같은 규칙: 지배 귀속 계정 줄(새·옛 접두어)을
+    믿을 수 있으면 그 값, 아니면 분기 수집의 공용 규칙(`services.controlling_eq.controlling_eq` — 이름 줄 → 자본총계 − 비지배 → 자본총계).
+    261020(p1f eq-suspects): 지배 귀속 계정 줄이 자본금·자본 구성요소 줄이거나 자본총계 − 비지배와 크게 어긋나면(`ctrl_line_rejected`) 그 줄을 쓰지 않는다.
+    261020(p1g 검토 #159): 종전엔 계정 줄이 없을 때 따로 「자본총계 계정 − 비지배 계정」을 셌다 — 비지배를 표준 코드 없는 「비지배지분」 줄로만 적은
+    보고서는 비지배를 품은 자본총계가 됐고(185490 2023 3분기 622.15억 · 지배기업 소유주 지분 601.89억), 자본총계 계정도 없으면 값이 없었다(082270).
+    이제 계정 줄이 없거나 믿지 못하면 언제나 공용 규칙이다."""
     v, why = _ceq.ctrl_id_value(rows, field, prefixes=("ifrs-full_", "ifrs_"))
-    if v is not None:
-        return v if why is None else _ceq.controlling_eq(rows, field)[0]
-    tot = _g(rows, "Equity", ("BS",), field)
-    if tot is None:
-        return None
-    return tot - (_g(rows, "NoncontrollingInterests", ("BS",), field) or 0)
+    if v is not None and why is None:
+        return v
+    return _ceq.controlling_eq(rows, field)[0]
 
 
 def term_no(rows: list, nm_field: str) -> int | None:
