@@ -145,7 +145,10 @@ async def _equity_as_of(
     못 쓰면 (None, 사유)를 돌려 호출부가 종전 연말 길로 물러나게 한다: 연결 재무제표 없음·조회 실패 · 지배자본 못 고름 · 원화가 아닌 보고 통화 ·
     같은 응답 안 전기말과 100배 이상 10ⁿ 점프(단위가 틀린 보고서 — 재무 지표 도구의 보고서 사이 단위 가드가 보는 꼴)."""
     fye = _rcal.fiscal(fiscal_month, ticker)
-    fy, q = _rcal.pit_cell(ref_ymd, fye)
+    try:
+        fy, q = _rcal.pit_cell(ref_ymd, fye)
+    except (ValueError, TypeError):
+        return None, f"기준일 형식 이상({ref_ymd})"
     rc = _REPORT_CODE[q]
     try:
         d = await client.get_fnltt_singl_acnt_all(corp_code, str(fy), rc, "CFS")
@@ -320,7 +323,7 @@ async def _capital_return_impact(
             "bps_at_acquisition_krw": bps,
             "bps_basis": basis,
         }
-        if bps:
+        if bps and bps > 0:
             premium_discount_pct = round((avg_price / bps - 1) * 100, 2)
             book_value_gain_loss_krw = round((bps - avg_price) * shares)
             cycle["premium_discount_pct"] = premium_discount_pct
@@ -329,6 +332,10 @@ async def _capital_return_impact(
                 "매입가가 BPS보다 쌈(장부가 기준 이득)" if book_value_gain_loss_krw > 0
                 else "매입가가 BPS보다 비쌈(장부가 기준 손실, 내재가치 판단은 별도)"
             )
+        elif bps:
+            # 지배자본이 음수(자본잠식)면 BPS 가 음수다 — 매입가와의 비율·손익이 뜻을 잃으므로 내지 않는다(지배자본은 총계보다 음수가 되기 쉽다).
+            cycle["note"] = "매입시점 지배자본 BPS 가 0 이하(자본잠식) — 장부가손익 산출 불가"
+            flags.append(f"BPS 0 이하(자본잠식): rcept={res.get('rcept_no')} year={year} bps={bps:,}")
         else:
             cycle["note"] = "그 연도 BPS 확보 실패 — 장부가손익 산출 불가"
             flags.append(f"BPS 확보 실패: rcept={res.get('rcept_no')} year={year}")
