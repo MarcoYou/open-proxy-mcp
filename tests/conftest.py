@@ -106,6 +106,31 @@ def pg17(_pg17_server):
 
 
 @pytest.fixture(autouse=True)
+def _reset_dart_request_memo_and_company_info_cache():
+    """DART 회사 개황 프로세스 캐시(`_COMPANY_INFO_CACHE`, 1시간)와 요청 단위 메모(`dart_memo`)가 시험 사이로 새지 않게 비운다.
+
+    시험이 요청 장부를 동기 문맥에서 만들면 그 장부가 다음 시험으로 흘러가고(문맥 변수), 클라이언트 싱글턴이 같으면 메모가
+    다른 시험의 가짜 응답에 적중할 수 있다 — 장부 자체는 두고 메모만 지운다. 모듈을 이미 읽었을 때만(읽기 비용 0)."""
+    import sys
+
+    def _clear():
+        mod = sys.modules.get("open_proxy_mcp.dart.client")
+        if mod is None:
+            return
+        cache = getattr(mod, "_COMPANY_INFO_CACHE", None)
+        if cache is not None:
+            cache.clear()
+        ledger_var = getattr(mod, "_ctx_ledger", None)
+        ledger = ledger_var.get() if ledger_var is not None else None
+        if isinstance(ledger, dict):
+            ledger.pop("dart_memo", None)
+
+    _clear()
+    yield
+    _clear()
+
+
+@pytest.fixture(autouse=True)
 def _reset_cold_store():
     """콜드 서빙 모듈의 프로세스 상태(받은 목록·검증된 파일·카운터)가 시험 사이로 새지 않게 — 모듈을 이미 읽었을 때만."""
     import sys
