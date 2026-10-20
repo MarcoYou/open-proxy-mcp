@@ -271,11 +271,33 @@ async def compare_targets_with_actuals(
                 f"FY{data.get('fiscal_year')} 재무" if data.get("fiscal_year") else "",
             ) if x)
 
+    # 반기·분기 결산 회사(리츠)의 사업보고서는 한 권의 당기가 6·3개월이다 — 연간 목표와 견줄 ROE 는 12개월 값이어야 한다(DATA-FY3).
+    fm_months = fm_data.get("period_months")
+    fm_short = isinstance(fm_months, (int, float)) and not isinstance(fm_months, bool) and fm_months != 12
+
     rows: list[dict[str, Any]] = []
     for t in targets:
         tag, field = t["actual_source"].split(":", 1)
         actual = (fm_data if tag == "fm" else val_data).get(field)
         basis = fm_basis if tag == "fm" else val_basis
+        extra: dict[str, Any] = {}
+        caveat = _METRIC_CAVEATS.get(t["metric_key"], "")
+        note_override = ""
+        if tag == "fm" and fm_short and field == "roe_pct":
+            roe12 = fm_data.get("roe_12m_pct")
+            if isinstance(roe12, (int, float)) and not isinstance(roe12, bool):
+                actual = roe12
+                extra["actual_field"] = "roe_12m_pct"
+                basis = f"{basis} · ROE 는 12개월 결산기 합 ÷ 평균 지배자본 (이 보고서 한 결산기 {int(fm_months)}개월 값 아님)"
+            else:
+                why = (fm_data.get("twelve_month_basis") or {}).get("reason") or "12개월 값 없음"
+                note_override = (f"반기·분기 결산 회사라 사업보고서 한 결산기가 {int(fm_months)}개월이다 — 연간 ROE 가 아니어서 목표와 견주지 않는다"
+                                 f"(12개월 ROE 미확보: {why}; 한 결산기 값 {actual}%)")
+                actual = None
+                extra["actual_field"] = "roe_12m_pct"
+        elif tag == "fm" and fm_short and field in ("roa_pct", "roic_pct"):
+            caveat = (f"{caveat} " if caveat else "") + (f"이 값은 사업보고서 한 결산기 {int(fm_months)}개월 기준(연환산 아님)이다 — "
+                                                         "연간 목표와 직접 견줄 수 없다.")
         verdict, note = _judge(actual if isinstance(actual, (int, float)) else None, t)
         rows.append({
             **t,
@@ -283,8 +305,9 @@ async def compare_targets_with_actuals(
             "actual_basis": basis or "실적 기준 미확인",
             "actual_tool": "financial_metrics" if tag == "fm" else "price_multiple_data",
             "verdict": verdict,
-            "verdict_note": note,
-            "caveat": _METRIC_CAVEATS.get(t["metric_key"], ""),
+            "verdict_note": note_override or note,
+            "caveat": caveat,
+            **extra,
         })
 
     if fm_basis and val_basis and any(r["actual_tool"] == "price_multiple_data" for r in rows):
