@@ -255,6 +255,10 @@ def test_derive_uses_the_latest_clean_ttm(mdb, capsys):
 def test_both_backfills_leave_the_mixed_ticker_out_of_the_ttm_sum(mdb, monkeypatch):
     from scripts import market_val_history_backfill as H
     from scripts import sector_val_backfill as SB
+    # G 의 2023 사업보고서 칸(Q4 seed) — 연간 표에 원본이 없는 해인데 정정 칸 보충값을 옮겨 값이 차 있고, fs 는 연간 표의 마지막 시도 기준(OFS)을 옮긴 것.
+    #   서버(`_FIN_FY_SQL`)는 이 해의 기준을 모른다 — 백필도 이 칸의 fs 를 믿지 않아야 서버 곡선과 같은 값이다(G40 아래 단언).
+    _exec(mdb)("INSERT INTO dart_finstat_q (ticker, fy, quarter, fs, ni_cum, eq, fetched) VALUES ('G', 2023, 4, 'OFS', %s, %s, 'ok') RETURNING ticker",
+               (36 * E8, 330 * E8))
     monkeypatch.setattr(sys, "argv", ["market_val_history_backfill.py", "--since", "20230101"])
     asyncio.run(H.main())
     monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py", "--since", "20230101"])

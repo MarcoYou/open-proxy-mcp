@@ -97,6 +97,19 @@ def test_without_a_request_list_nothing_is_recorded_and_the_result_is_the_old_em
     assert (rows, fs) == ([], None) and fails == []
 
 
+def test_failure_summary_folds_the_same_report_into_one_entry_in_first_failed_order():
+    """같은 (사업연도, 보고서)의 실패는 하나로 — 연결·별도 두 번 실패해도 응답 `dart_fetch_failures`·경고에 한 줄. 순서는 처음 실패한 차례."""
+    fails = [{"year": 2026, "reprt_code": "11012", "fs": "CFS", "status": "020"},
+             {"year": 2025, "reprt_code": "11011", "fs": "CFS", "status": "800"},
+             {"year": 2026, "reprt_code": "11012", "fs": "OFS", "status": "020"}]
+    assert S._fetch_fail_summary(fails) == [
+        {"year": 2026, "report": "반기보고서", "reprt_code": "11012", "status": "020"},
+        {"year": 2025, "report": "사업보고서", "reprt_code": "11011", "status": "800"}]
+    w = S._fetch_fail_warning(fails, ttm_stopped=False)
+    assert w.count("2026 반기보고서") == 1 and "상태 020·요청 한도 초과" in w and "더 이른 분기로 대체하지 않았다" not in w
+    assert S._fetch_fail_warning([], ttm_stopped=True) is None
+
+
 # ═══ firm 경로 ═════════════════════════════════════════════════════════════════════════════════════
 def _annual_rows(ni="100,000,000,000", eq="1,000,000,000,000"):
     return [
