@@ -141,6 +141,27 @@ def _fits_nci_pair(v, shape) -> bool:
     return any(abs(v + ys[i] + ys[j] - tot) <= tol for i in range(len(ys)) for j in range(i + 1, len(ys)))
 
 
+def _total_only_fit(v, shape) -> bool:
+    """후보 값 `v` 가 「비지배 0」으로만 맞나 — `v` = 당기순이익 총계인데 같은 보고서에 0 이 아닌 비지배 줄이 있다(261020 p1j ctrl-rule-068290).
+    그 읽기는 보고서 스스로와 어긋난다(비지배 몫이 있는데 지배 몫 = 총계). 아래 `_nci_fit` 인 다른 후보가 있으면 그쪽이 지배 순이익이다."""
+    tot, _ci, nci = shape
+    if v is None or tot is None:
+        return False
+    tol = _amt_tol(tot)
+    return abs(v - tot) <= tol and any(abs(y) > tol for _r, y in nci)
+
+
+def _nci_fit(v, shape) -> bool:
+    """후보 값 `v` 가 **0 이 아닌** 비지배 줄(하나 또는 두 줄의 합)과 더해 당기순이익 총계가 되나 — `v` 자신은 총계가 아니다(261020 p1j)."""
+    tot, _ci, nci = shape
+    if v is None or tot is None:
+        return False
+    tol = _amt_tol(tot)
+    if abs(v - tot) <= tol:
+        return False
+    return any(abs(y) > tol and abs(v + y - tot) <= tol for _r, y in nci) or _fits_nci_pair(v, shape)
+
+
 def ni_attrib_side(v, shape) -> str | None:
     """지배 몫 후보 값 `v` 가 어느 쪽 구조에 맞나 — 'ni'(지배 + 비지배 = 당기순이익) · 'ci'(당기순이익엔 안 맞고 총포괄손익 총계에만 맞음 —
     총포괄이익의 지배 몫) · None(가를 수 없다: 총계가 없거나 어느 쪽에도 안 맞음). 기타포괄손익이 허용 오차 안이면 두 값이 같아 'ni'."""
@@ -152,19 +173,68 @@ def ni_attrib_side(v, shape) -> str | None:
     return None
 
 
-def _ctrl_cands(rows, sj, val):
+def _ci_row(r) -> bool:
+    """총포괄 쪽 줄 — 계정 id 에 총포괄(`ComprehensiveIncome`)이 들었거나 이름에 「포괄」."""
+    return "ComprehensiveIncome" in (r.get("account_id") or "") or "포괄" in _nm(r)
+
+
+def _is_nci_row(r) -> bool:
+    """머리 줄 짝이 될 순이익 쪽 비지배 줄 — 이름에 「비지배」 또는 순이익 비지배 계정 id, 총포괄 쪽 줄은 빼고. 계정 id 만으로는 보지 않는다 — 총포괄 계속영업
+    비지배 id 를 엉뚱한 줄에 붙인 보고서가 있다(10-20 원문 065150 2025 사업보고서 「계속영업이익(손실)」 줄)."""
+    return (any(k in _nm(r) for k in _NCI_NM) or "ProfitLossAttributableToNoncontrolling" in (r.get("account_id") or "")) and not _ci_row(r)
+
+
+def _is_owner_row(r) -> bool:
+    """머리 줄 짝이 될 순이익 쪽 지배 줄 — 이름에 「지배」 또는 지배 순이익 계정 id(주당이익·비지배·총포괄 쪽 줄 빼고)."""
+    aid, nm = r.get("account_id") or "", _nm(r)
+    if any(k in nm for k in _NCI_NM) or "Noncontrolling" in aid or "PerShare" in aid or _EPS_NM.search(nm) or _ci_row(r):
+        return False
+    return "지배" in nm or _NI_CTRL_ID in aid
+
+
+def _attrib_header(r, seq, val, shape=None) -> bool:
+    """지배 이름·id 를 붙인 **귀속 머리 줄**인가 — 바로 다음 두 줄(같은 표 · 값이 있는 줄 · ord 순)이 지배 줄 하나와 0 이 아닌 비지배 줄 하나이고
+    이 줄 값 = 그 둘의 합(비지배를 품은 소계)이다(261020 p1j ctrl-rule-068290). 그런 줄은 지배 몫 후보(지배 id · 이름 · 계속·중단영업 몫)가 아니다.
+    종전엔 머리 줄을 지배 몫으로 읽어 비지배를 품은 값이 들어갔다. 10-20 원문 캐시 15,915건에서 나온 꼴:
+      · 068290 2022 사업보고서 — 「중단영업순손익의 귀속」 자리에 「지배기업소유주지분의 귀속」 129.50억 → 다음 줄 「지배기업소유주지분의 귀속」 82.99억 ·
+        「비지배지분 귀속」 46.51억(전기 칸 51.76 = 24.04 + 27.72 · 전전기 칸 0.90 = 0.42 + 0.48 도 같은 꼴). 당기 칸 종전 164.42억(비지배 포함 총계) → 117.91억.
+      · 014130 2025 반기·3분기 — 「계속영업반기순이익의 귀속」(지배 기업 id) −76.12억 → 「지배기업 소유주지분」 −71.37억 · 「비지배지분」 −4.75억. 종전은 이 머리 줄을
+        계속영업 지배 몫으로 써 반기 누적 −79.91억(= 반기순이익) → −75.16억(자본변동표 지배 몫과 같음).
+      · 080160 2025 사업보고서 전전기 칸 — 「중단영업 당기순이익(손실)의 귀속」 57.13억 → 지배 27.89억 · 비지배 29.24억. 132.02억 → 102.78억(2023 사업보고서 값).
+      · 417860 2026 1분기·반기 — 지배 순이익 id 줄 「반기순이익(손실)의 귀속」 = 다음 줄 「비지배지분」 8,363원 + 「지배기업소유주지분」.
+    짝 두 줄은 순이익 쪽 줄만(총포괄 쪽 줄 빼고 — `_is_owner_row`·`_is_nci_row`). 이 줄 자신이 0 이 아닌 비지배와 짝이 맞으면(지배 + 비지배 = 당기순이익,
+    `_nci_fit`) 머리 줄이 아니다 — 지배 몫 줄이 우연히 「비지배 + 다음 지배 줄」과 같은 꼴(반올림 허용 오차가 큰 백만 원 단위 보고서)을 막는다."""
+    v = val(r)
+    if not v:
+        return False
+    i = next((k for k, x in enumerate(seq) if x is r), None)
+    if i is None or i + 2 >= len(seq):
+        return False
+    a, b = seq[i + 1], seq[i + 2]
+    tol = _amt_tol(v)
+    if not any(_is_owner_row(own) and _is_nci_row(nci) and abs(val(nci)) > tol and abs(val(own) + val(nci) - v) <= tol
+               for own, nci in ((a, b), (b, a))):
+        return False
+    return not (shape is not None and _nci_fit(v, shape))
+
+
+def _ctrl_cands(rows, sj, val, shape=None):
     """한 재무제표(sj) 안 지배 몫 후보 → [(순위, ord, 값, 서브케이스, 줄)] 순위순, 값이 빈 줄은 뺀다.
     순위 0 = 지배 순이익 id · 1 = 이름 · 2 = 이름에 「포괄」 · 3 = 계속영업 몫 + 중단영업 몫(`PARTS`) 또는 계속영업 몫 줄 없는 중단영업 지배 몫
-    (`DISC` — 「두 줄의 합」에만 쓴다) · 4 = 총포괄 id(`CIID`)."""
+    (`DISC` — 「두 줄의 합」에만 쓴다) · 4 = 총포괄 id(`CIID`). 귀속 머리 줄(`_attrib_header` — `shape` 는 그 값 구조 재료)은 뺀다(261020 p1j)."""
     out, cont, disc = [], [], []
+    seq = sorted((r for r in rows if r.get("sj_div") == sj and val(r) is not None), key=_ordv)
     for r in rows:
         if r.get("sj_div") != sj or val(r) is None:
             continue
         aid, nm = r.get("account_id") or "", _nm(r)
         if _NI_CTRL_ID in aid:
-            out.append((0, _ordv(r), val(r), "ID", r))
+            if not _attrib_header(r, seq, val, shape):
+                out.append((0, _ordv(r), val(r), "ID", r))
             continue
         if any(k in nm for k in _NCI_NM) or "PerShare" in aid or _EPS_NM.search(nm) or any(k in nm for k in _NOT_CTRL_NM):
+            continue
+        if _attrib_header(r, seq, val, shape):
             continue
         if "ComprehensiveIncome" in aid or "포괄" in nm and ("계속" in nm or "중단" in nm):
             if _CI_CTRL_ID in aid:
@@ -262,9 +332,9 @@ def _ctrl_in_sj(rows, sj, val, shape=None):
     값 구조 검사는 위 261020 주석. `shape` = `_ni_shape(rows)`(없으면 계산). IS/CIS 는 ord 시퀀스 별개 → sj 단위."""
     shape = shape or _ni_shape(rows)
     tot = shape[0]
-    fallback, rejected, unk, dropped = None, [], [], 0
+    fallback, rejected, unk, dropped, total_only = None, [], [], 0, None
     tot_ok = None                         # 총계 줄을 믿을 수 있나(`_tot_corroborated`) — 필요할 때 한 번만 센다
-    for rank, _o, v, sub, r in _ctrl_cands(rows, sj, val):
+    for rank, _o, v, sub, r in _ctrl_cands(rows, sj, val, shape):
         if sub == "DISC":
             # 261020 p1f ctrl-scan 검토: 계속영업 몫 줄 없는 「중단영업 지배 몫」 줄은 혼자서는 지배 순이익이 아니다 — 아래 「두 줄의 합」에만 넣는다
             # (가를 수 없는 줄로 남아도 물러나 쓰지 않는다: 지배 id 줄을 총포괄 몫이라 버린 보고서에서 중단 몫만 돌려주던 길을 막는다 — 그때는 총계 − 비지배).
@@ -283,6 +353,14 @@ def _ctrl_in_sj(rows, sj, val, shape=None):
             unk.append(v)
             continue
         if side == "ni":
+            if _total_only_fit(v, shape):
+                # 261020 p1j ctrl-rule-068290: 「비지배 0」으로만 맞는 줄(= 당기순이익 총계, 그런데 0 이 아닌 비지배 줄이 있다)은 바로 쓰지 않는다 —
+                # 지배 줄에 총계를 적은 보고서다. 0 이 아닌 비지배와 짝이 맞는 후보(뒤의 한 줄 · 아래 두 줄의 합)가 없을 때만 쓴다(그때는 종전과
+                # 같은 값·케이스·버린 줄). 10-20 원문 073540 2022 반기: 지배 id 줄 「지배기업의 소유주에게 귀속되는 당기순이익(손실)」 −14.85억 =
+                # 반기순이익인데 앞의 「지배기업 소유주지분」 −14.62억 + 「비지배지분」 −0.22억 = 반기순이익(자본변동표 지배 몫 −14.62억 · 2023 반기
+                # 보고서 전년 동기 칸도 −14.62억). 머리 줄 꼴(`_attrib_header`)이 아니라 위 머리 줄 규칙으로는 못 가른다.
+                total_only = total_only or (v, sub, list(rejected), dropped)
+                continue
             return v, sub, rejected, dropped
         if side == "ci":
             rejected.append((rank, r))
@@ -293,10 +371,22 @@ def _ctrl_in_sj(rows, sj, val, shape=None):
             fallback = fallback or (v, sub)
     # 두 줄의 합이 순이익 구조에 맞으면 계속·중단영업 몫을 이름 없이 나눠 적은 회사다(머리 줄 「계속영업분기순이익」·「중단영업분기순이익」 아래
     # 「지배기업소유주지분」 두 줄 — 10-20 운영 101530 2020 3분기). 한 줄만 쓰면 한 몫만 들어간다.
-    for i in range(len(unk)):
-        for j in range(i + 1, len(unk)):
-            if unk[i] and unk[j] and (ni_attrib_side(unk[i] + unk[j], shape) == "ni" or _fits_nci_pair(unk[i] + unk[j], shape)):
-                return unk[i] + unk[j], "PARTS", rejected, 0
+    # 261020 p1j ctrl-rule-068290: 맞는 두 줄 합이 여럿이면 0 이 아닌 비지배와 짝이 맞는 합(`_nci_fit`)을 「비지배 0」으로만 맞는 합(= 당기순이익
+    # 총계)보다 먼저 쓰고, 「비지배 0」으로만 맞는 한 줄(위 `total_only`)보다도 먼저 쓴다. 10-20 원문 068290 2022 사업보고서: 「계속영업순손익의 귀속 →
+    # 지배기업소유주지분의 귀속」 34.92억 · 「비지배지분 귀속」 0, 다음 줄 「지배기업소유주지분의 귀속」 129.50억(실은 중단영업 몫 총계) →
+    # 「지배기업소유주지분의 귀속」 82.99억 · 「비지배지분 귀속」 46.51억, 당기순이익 164.42억. 종전은 앞선 합 34.92 + 129.50 = 164.42억(비지배 0 줄로
+    # 맞음 — 비지배 포함 총계)을 골랐다. 참값 117.91억(34.92 + 82.99, + 비지배 46.51 = 164.42 · 다음 해 보고서 전기 칸과 같음). 129.50억 줄은 머리 줄
+    # 규칙(`_attrib_header`)도 뺀다 — 이 순서는 머리 줄이 아닌 꼴(다음 두 줄이 지배·비지배 짝이 아닌 소계)에 대한 두 번째 그물이다.
+    pairs = [unk[i] + unk[j] for i in range(len(unk)) for j in range(i + 1, len(unk))
+             if unk[i] and unk[j] and (ni_attrib_side(unk[i] + unk[j], shape) == "ni" or _fits_nci_pair(unk[i] + unk[j], shape))]
+    if total_only is not None or any(_total_only_fit(s, shape) for s in pairs):
+        s = next((s for s in pairs if _nci_fit(s, shape)), None)
+        if s is not None:
+            return s, "PARTS", rejected, 0
+        if total_only is not None:
+            return total_only
+    if pairs:
+        return pairs[0], "PARTS", rejected, 0
     if fallback is not None and not dropped:
         # 지배 id 줄을 비지배와 짝이 안 맞아 버렸으면 가를 수 없는 이름 줄로도 물러나지 않는다 — 총계 − 비지배(값 구조가 맞는 길)로 간다.
         return fallback[0], fallback[1], rejected, dropped
@@ -374,6 +464,8 @@ def extract_controlling_ni_cum(rows):
       …_IDX                — 지배 순이익 계정 id 줄이 순이익 쪽 비지배 계정 줄과 짝이 안 맞아(지배 + 비지배 ≠ 당기순이익) 버린 보고서(261020 p1e firm-ctrl-ni,
                              `_id_off_nci` — 결산기 칸 규칙에서 합침)
       MINORITY_NO_CTRL / NO_INCOME_ROW — 유도 불가(플래그) → None. 수집(`fetch`)은 이때 같은 보고서의 XBRL 원본을 본다.
+    261020 p1j ctrl-rule-068290(케이스 이름은 그대로): 지배 이름·id 를 붙인 귀속 머리 줄(= 다음 지배 줄 + 비지배 줄 — `_attrib_header`)은 후보에서 빼고,
+    「비지배 0」으로만 맞는 후보(= 당기순이익 총계인데 0 이 아닌 비지배 줄이 있다 — `_total_only_fit`)는 0 이 아닌 비지배와 짝이 맞는 후보가 없을 때만 쓴다.
     지배 줄 고르기의 값 구조 검사(지배 + 비지배 = 당기순이익)는 `_ctrl_in_sj` 위 261020 주석."""
     if not any(r.get("sj_div") in ("IS", "CIS") for r in rows):
         return None, "NODATA"
