@@ -181,3 +181,87 @@ def test_two_minority_lines_only_for_two_owner_parts():
     ]
     assert C.ni_attrib_side(901234.0, C._ni_shape(rows)) is None
     assert C._fits_nci_pair(901234.0, C._ni_shape(rows))
+
+
+# ── 261020 p1f ctrl-scan 검토 ──────────────────────────────────────────────────────────────────────────────────────────────
+
+
+def rows_289220_fy2022():
+    """당기순손실 −126.76억인데 귀속 두 줄을 양수로 적었다 — 「지배기업주주지분」 +122.72억 · 「비지배주주지분」 +4.04억(총포괄 쪽도 같은 꼴).
+    자본변동표: 지배 몫 −122.72억 · 비지배 −4.04억."""
+    return [
+        r("CIS", F + "ProfitLossBeforeTax", "법인세비용차감전순손실", 7, -12725175611),
+        r("CIS", F + "ProfitLoss", "당기순손실", 11, -12676277323),
+        r("CIS", F + "OtherComprehensiveIncome", "기타포괄손익", 12, 76606959),
+        r("CIS", F + "ComprehensiveIncome", "총포괄손익", 15, -12599670364),
+        r("CIS", F + "ProfitLossAttributableToOwnersOfParent", "지배기업주주지분", 17, 12272184976),
+        r("CIS", F + "ProfitLossAttributableToNoncontrollingInterests", "비지배주주지분", 18, 404092347),
+        r("CIS", F + "ComprehensiveIncomeAttributableToOwnersOfParent", "지배기업주주지분", 20, 12195578017),
+        r("CIS", F + "ComprehensiveIncomeAttributableToNoncontrollingInterests", "비지배주주지분", 21, 404092347),
+    ]
+
+
+def rows_284620_fy2021():
+    """당기순손실 −162.25억 · 「지배기업의 소유주에게 귀속되는 당기순이익(손실)」 +162.12억 · 비지배 +0.14억 — 자본변동표 지배 몫 −162.12억."""
+    return [
+        r("CIS", F + "ProfitLoss", "당기순이익(손실)", 11, -16225404831),
+        r("CIS", F + "ProfitLossAttributableToOwnersOfParent", "지배기업의 소유주에게 귀속되는 당기순이익(손실)", 13, 16211563377),
+        r("CIS", F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분에 귀속되는 당기순이익(손실)", 14, 13841454),
+        r("CIS", F + "OtherComprehensiveIncome", "기타포괄손익", 15, 1367692197),
+        r("CIS", F + "ComprehensiveIncome", "총포괄손익", 19, -14857712634),
+        r("CIS", F + "ComprehensiveIncomeAttributableToOwnersOfParent", "지배기업의 소유주에게 귀속되는 총포괄손익", 21, -14843353293),
+        r("CIS", NOSTD, "비지배지분에 귀속되는 총포괄손익", 22, -14359341),
+    ]
+
+
+@pytest.mark.parametrize("rows, want", [(rows_289220_fy2022, -12272184976.0), (rows_284620_fy2021, -16211563377.0)])
+def test_owner_and_minority_lines_both_sign_flipped(rows, want):
+    """종전(총계 − 비지배)은 뒤집힌 비지배를 빼 비지배 두 배만큼 어긋났다(289220 −130.80억 · 284620 −162.39억)."""
+    assert C.controlling_ni(rows()) == (want, "CIS_IDNEG")
+
+
+def test_flipped_owner_line_with_zero_minority_stays_total_minus_minority():
+    """비지배가 0 이면 −지배 줄 = 총계 − 0 — 가를 필요가 없어 종전 케이스 그대로(298000 꼴)."""
+    rows = [r("CIS", F + "ProfitLoss", "당기순손실", 1, -73901234567),
+            r("CIS", F + "OtherComprehensiveIncome", "기타포괄손익", 2, 1234567),
+            r("CIS", F + "ComprehensiveIncome", "총포괄손익", 3, -73900000000),
+            r("CIS", F + "ProfitLossAttributableToOwnersOfParent", "지배기업소유주지분", 4, 73901234567),
+            r("CIS", F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분", 5, 0)]
+    assert C.controlling_ni(rows) == (-73901234567.0, "TOTAL_MINUS_MINORITY_IDX")
+
+
+def test_flipped_pair_needs_a_corroborated_total():
+    """총계 줄을 총포괄 − 기타포괄로 믿을 수 없으면(두 줄이 없으면) 지배 줄을 버리지도 뒤집지도 않는다 — 종전 그대로."""
+    rows = [x for x in rows_289220_fy2022() if "Comprehensive" not in x["account_id"]]
+    v, case = C.controlling_ni(rows)
+    assert case != "CIS_IDNEG" and v == 12272184976.0
+
+
+def test_discontinued_owner_line_alone_is_never_the_answer():
+    """계속영업 몫 줄 없는 「중단영업 지배 몫」 줄은 두 줄 합에만 쓴다 — 지배 id 줄을 총포괄 몫이라 버렸거나 지배 줄이 없으면 총계 − 비지배."""
+    ci_rejected = [
+        r("CIS", F + "ProfitLoss", "당기순이익", 1, 1000000007),
+        r("CIS", F + "OtherComprehensiveIncome", "기타포괄손익", 2, 200000003),
+        r("CIS", F + "ComprehensiveIncome", "총포괄손익", 3, 1200000010),
+        r("CIS", F + "ProfitLossAttributableToOwnersOfParent", "지배기업소유주지분", 4, 1100000009),
+        r("CIS", F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분", 5, 100000001),
+        r("CIS", NOSTD, "중단영업지배기업소유주지분", 6, 30000001),
+    ]
+    assert C.controlling_ni(ci_rejected) == (900000006.0, "TOTAL_MINUS_MINORITY_CIREJ")
+    no_owner = [ci_rejected[0], ci_rejected[4],
+                r("CIS", F + "ProfitLossFromDiscontinuedOperationsAttributableToOwnersOfParent", "중단영업이익의 지배기업소유주 귀속분", 6, 30000001)]
+    assert C.controlling_ni(no_owner) == (900000006.0, "TOTAL_MINUS_MINORITY")
+
+
+def _ci_share_only(extra):
+    """지배 몫 줄이 총포괄 몫(1,100,000,009 + 비지배 100,000,001 = 총포괄 1,200,000,010)뿐인 표준코드 없는 연결 보고서 — 총포괄 총계를 이름으로만 찾을 수 있다."""
+    return [r("CIS", NOSTD, "연결당기순이익", 1, 1000000007), *extra,
+            r("CIS", NOSTD, "지배기업소유주지분", 4, 1100000009), r("CIS", NOSTD, "비지배지분", 5, 100000001)]
+
+
+@pytest.mark.parametrize("extra", [[r("CIS", NOSTD, "연결총포괄이익", 3, 1200000010)], [r("CIS", NOSTD, "연결기타포괄손익", 2, 200000003)]],
+                         ids=["연결총포괄이익", "연결기타포괄손익"])
+def test_consolidated_ci_and_oci_total_names_reject_the_ci_share(extra):
+    """「연결」이 붙은 총포괄·기타포괄 총계 이름으로도 총포괄 몫 줄을 가려 버린다(종전엔 가를 수 없는 줄로 그 값을 썼다)."""
+    v, case = C.controlling_ni(_ci_share_only(extra))
+    assert case.endswith("_CIREJ") and v == 1000000007.0

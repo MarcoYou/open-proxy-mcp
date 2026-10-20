@@ -154,7 +154,8 @@ def ni_attrib_side(v, shape) -> str | None:
 
 def _ctrl_cands(rows, sj, val):
     """한 재무제표(sj) 안 지배 몫 후보 → [(순위, ord, 값, 서브케이스, 줄)] 순위순, 값이 빈 줄은 뺀다.
-    순위 0 = 지배 순이익 id · 1 = 이름 · 2 = 이름에 「포괄」 · 3 = 계속영업 몫 + 중단영업 몫(`PARTS`) · 4 = 총포괄 id(`CIID`)."""
+    순위 0 = 지배 순이익 id · 1 = 이름 · 2 = 이름에 「포괄」 · 3 = 계속영업 몫 + 중단영업 몫(`PARTS`) 또는 계속영업 몫 줄 없는 중단영업 지배 몫
+    (`DISC` — 「두 줄의 합」에만 쓴다) · 4 = 총포괄 id(`CIID`)."""
     out, cont, disc = [], [], []
     for r in rows:
         if r.get("sj_div") != sj or val(r) is None:
@@ -185,8 +186,9 @@ def _ctrl_cands(rows, sj, val):
         # 261020 p1f ctrl-scan: 계속영업 몫 줄이 따로 없이 「지배 몫」(이름 줄) 아래 「중단영업 지배 몫」만 적은 보고서 — 중단 몫을 혼자 쓰지 않고 아래 「두 줄의 합」
         # 후보로만 낸다(10-20 원문 00197759 2023 3분기: 「당기순이익의 귀속 → 지배기업의 소유주지분」 −106.69억 + 「중단영업 지배기업의 소유주주지분」 −26.07억
         # = 당기순이익 −132.76억, 비지배 없음). 종전엔 주당이익 줄(「…기본주당계속영업이익」 −470원/주)을 계속영업 몫으로 잘못 짝지어 우연히 맞았다.
+        # 서브케이스 `DISC` — `_ctrl_in_sj` 가 혼자서는 돌려주지 않는다(혼자 값 구조가 맞거나 가를 수 없는 줄로 남아도 — 261020 검토).
         for d in disc:
-            out.append((3, _ordv(d), val(d), "PARTS", d))
+            out.append((3, _ordv(d), val(d), "DISC", d))
     return sorted(out, key=lambda x: (x[0], x[1]))
 
 
@@ -239,19 +241,44 @@ def _id_off_nci(v, r, shape, side) -> bool:
     return side is None or any(abs(y) > tol for y in ys)
 
 
+def _id_nci_negated(v, r, shape) -> bool:
+    """지배 순이익 계정(id) 줄과 순이익 쪽 비지배 계정 줄이 **둘 다 부호가 뒤집혀** 적힌 보고서인가 — (−지배) + (−비지배) = 당기순이익,
+    비지배 ≠ 0(비지배가 0 이면 −지배 = 당기순이익 = 총계 − 0 이라 가를 필요가 없다). `_id_off_nci` 로 버린 지배 id 줄에만 본다(총계 줄은
+    `_tot_corroborated` 로 믿을 수 있을 때). 261020 p1f ctrl-scan 검토: 손실 회사가 귀속 두 줄을 양수로 적은 꼴 — 10-20 원문 289220 2022 사업보고서
+    당기순손실 −126.76억 · 「지배기업주주지분」 +122.72억 · 「비지배주주지분」 +4.04억, 자본변동표 지배 몫 −122.72억 · 비지배 −4.04억. 종전(총계 − 비지배)은
+    뒤집힌 비지배를 빼서 −130.80억(참값보다 비지배 두 배만큼 어긋남). 원문 캐시 9,499건에서 이 꼴 5칸(289220 2021·2022, 284620 2021) — 5칸 모두
+    자본변동표 지배 몫 = −지배 줄."""
+    tot = shape[0]
+    if tot is None or not v:
+        return False
+    tol = _amt_tol(tot)
+    ys = [y for y_row, y in shape[2] if "ProfitLossAttributableToNoncontrolling" in (y_row.get("account_id") or "")
+          and _cum_src(y_row) == _cum_src(r)]
+    return any(abs(y) > tol and abs(-v - y - tot) <= tol for y in ys)
+
+
 def _ctrl_in_sj(rows, sj, val, shape=None):
-    """한 재무제표(sj) 안 지배 귀속 순이익 → (값, 서브케이스 'ID'|'NM'|'PARTS'|'CIID'|None, 총포괄 몫이라 버린 줄 [(순위, 줄)], 비지배와 짝이 안 맞아 버린 지배 id 줄 수).
+    """한 재무제표(sj) 안 지배 귀속 순이익 → (값, 서브케이스 'ID'|'IDNEG'|'NM'|'PARTS'|'CIID'|None, 총포괄 몫이라 버린 줄 [(순위, 줄)], 비지배와 짝이 안 맞아 버린 지배 id 줄 수).
     값 구조 검사는 위 261020 주석. `shape` = `_ni_shape(rows)`(없으면 계산). IS/CIS 는 ord 시퀀스 별개 → sj 단위."""
     shape = shape or _ni_shape(rows)
     tot = shape[0]
     fallback, rejected, unk, dropped = None, [], [], 0
     tot_ok = None                         # 총계 줄을 믿을 수 있나(`_tot_corroborated`) — 필요할 때 한 번만 센다
     for rank, _o, v, sub, r in _ctrl_cands(rows, sj, val):
+        if sub == "DISC":
+            # 261020 p1f ctrl-scan 검토: 계속영업 몫 줄 없는 「중단영업 지배 몫」 줄은 혼자서는 지배 순이익이 아니다 — 아래 「두 줄의 합」에만 넣는다
+            # (가를 수 없는 줄로 남아도 물러나 쓰지 않는다: 지배 id 줄을 총포괄 몫이라 버린 보고서에서 중단 몫만 돌려주던 길을 막는다 — 그때는 총계 − 비지배).
+            if v:
+                unk.append(v)
+            continue
         side = ni_attrib_side(v, shape)
         if rank == 0 and _id_off_nci(v, r, shape, side) and (tot_ok if tot_ok is not None else (tot_ok := _tot_corroborated(rows, tot))):
             # 261020 p1e firm-ctrl-ni: 비지배 줄과 짝이 안 맞는 지배 id 줄(`_id_off_nci`) — 혼자서는 쓰지 않는다. 다만 계속·중단영업 몫을 나눠 적은 회사의
             # 한 몫일 수 있어 아래 「두 줄의 합」에는 넣는다(10-20 원문 049630 2024 3분기: 「지배기업의 소유주(계속)」 27.78억 이 id 줄,
             # 「지배기업의 소유주(중단)」 −3.45억 이 이름 줄 — 합 24.34억 + 비지배 1.21억 = 당기순이익 25.55억).
+            if _id_nci_negated(v, r, shape):
+                # 261020 p1f ctrl-scan 검토: 지배·비지배 두 귀속 줄이 함께 부호가 뒤집힌 꼴(`_id_nci_negated`) — 지배 몫 = −지배 줄.
+                return -v, "IDNEG", rejected, dropped
             dropped += 1
             unk.append(v)
             continue
@@ -334,7 +361,9 @@ def extract_controlling_ni_cum(rows):
       NODATA · IS_ID/IS_NM · CIS_ID/CIS_NM — 명시 지배행 [LG화학·삼성·기아]
       {IS,CIS}_PARTS       — 계속영업 몫 + 중단영업 몫(또는 이름 없이 나눈 두 지배 줄의 합, 값 구조가 순이익) (261020)
                              261020 p1f ctrl-scan: 두 지배 줄의 합은 비지배 두 줄의 합과도 맞춰 본다(계속·중단을 각각 지배·비지배로 나눈 보고서) ·
-                             「중단영업 지배 몫」 줄만 있으면 그 줄도 두 줄 합 후보
+                             「중단영업 지배 몫」 줄만 있으면 그 줄도 두 줄 합 후보(혼자서는 쓰지 않는다 — 검토)
+      {IS,CIS}_IDNEG       — 지배 순이익 id 줄과 순이익 쪽 비지배 id 줄이 둘 다 부호가 뒤집혀 적힌 보고서 → −지배 줄(261020 p1f ctrl-scan 검토,
+                             `_id_nci_negated`)
       {IS,CIS}_CIID        — 총포괄 계정 id 를 붙인 줄인데 값 구조가 순이익(순이익 귀속 줄에 총포괄 id — 056360) (261020)
       TOTAL_MINUS_MINORITY — 명시 지배행 없으나 당기순이익 총계 − 비지배순이익 [유한양행형: 서브토탈 부재]
       TOTAL                — 지배·비지배 귀속 둘 다 부재 → 당기순이익 총계=지배 [001340·NAVER 무소수지분]
