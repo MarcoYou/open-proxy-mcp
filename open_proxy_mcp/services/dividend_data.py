@@ -21,6 +21,12 @@
   - 단위: 금액은 **원(KRW)**, DPS 는 주당 원, 배당성향은 %.
   - 기간: **사업연도**(`bsns_year`/`fiscal_year`). 12월 결산이 아니면 `stlm_dt`/`acc_mt` 가
     실제 결산월이다(코스피 배당사 632/639 가 12월 — 3·6·9·11월 결산 7사는 예외).
+  - 🔴 **반기·분기 결산 회사(리츠 등)는 한 사업연도에 결산기 행이 여럿이다**(`stlm_dt` 가 갈린다 — 롯데리츠 FY2025 = 2025-06-30 117원 · 2025-12-31 123원).
+    회사·사업연도의 DPS 는 **그 해 결산기 DPS 의 합**(240원)이다 — 종전 집계는 `DISTINCT ON (회사, 사업연도)` 로 임의의 한 결산기만 읽거나(`screen` 은 총액이 같은
+    행 가운데 임의 DPS) 결산기 행을 그대로 늘어놓았다. 12월 결산 회사처럼 결산기가 하나면 값은 그대로다. (261021)
+  - 🔴 **원장의 총액 칸은 결산기 행마다 가장 늦은 결산기의 총액이 복사되어 있다**(롯데리츠 2025-06-30 행 355.43억 — 그 결산기 원문은 338.09억). 그래서 합치기 전에
+    확인한다: 한 사업연도 안 결산기 행의 총액이 모두 같으면(`total_basis="ledger_copy"`) 더하지 않고 그 값 하나를 낸다(실제 연 총액은 이보다 크다 — 경고로 알린다).
+    원장이 결산기별 실제 총액으로 다시 쓰이면 더한다(`total_basis="sum"`).
   - 출처: 정기보고서 `alotMatter`(원장) — **확정치**. 결정공시(`div_payment`)는 이사회
     결의 시점 원문 — **결의된 그대로**이지 사업보고서로 재확인된 것은 아니다.
   - 빈칸: `확정`/`무배당`/`항목없음`/`보고서없음` 넷을 가른다. **0 으로 메우지 않는다.**
@@ -71,6 +77,74 @@ def _rows(sql: str, params: tuple = ()) -> list[tuple] | None:
         return None
 
 
+_COMMON_KINDS = ("보통", "미구분")      # 아래 SQL 리터럴 `stock_kind IN ('보통','미구분')` 과 같다 — 바꿀 때 함께 바꾼다.
+
+#: 결산기 행 → 회사·사업연도 한 줄. 결산기(`stlm_dt`)마다 한 행만 고르고(확정 우선 → 총액 큰 순 → 원문 줄 순서 — 같은 결산기에 보통주·우선주(종류 칸이 `-` 인 미구분)
+#: 줄이 여럿이어도 결과가 정해진다. 종전 `DISTINCT ON` 이 총액 동률에서 고르던 줄 = 원문 첫 줄(보통주)과 같아, 12월 결산 회사의 값은 그대로다) 그 위에서 사업연도 합을 낸다. `{join}`·`{where}` 는 호출부 조건(섹터 조인·사업연도 범위 등).
+#: 총액: 결산기 둘 이상인데 총액이 모두 같으면(`ledger_copy` — 원장이 가장 늦은 결산기 총액을 복사해 둔 꼴) 더하지 않고 그 하나를 낸다.
+_YEAR_SQL = """
+  per AS (
+    SELECT DISTINCT ON (d.corp_code, d.bsns_year, d.stlm_dt)
+           d.corp_code, d.name, d.tickers, d.bsns_year, d.stlm_dt, d.dps_krw, d.div_total_krw, d.payout_pct, d.status, d.rcept_no
+      FROM div_declared d {join}
+     WHERE {where}
+     ORDER BY d.corp_code, d.bsns_year, d.stlm_dt, (d.status = '확정') DESC, d.div_total_krw DESC NULLS LAST, d.line_no
+  ),
+  yr AS (
+    SELECT corp_code, bsns_year,
+           (array_agg(name ORDER BY stlm_dt DESC))[1] AS name,
+           (array_agg(tickers ORDER BY stlm_dt DESC))[1] AS tickers,
+           count(*) AS n_periods,
+           bool_or(status = '확정') AS confirmed,
+           sum(dps_krw) FILTER (WHERE status = '확정') AS dps_krw,
+           CASE WHEN count(*) > 1 AND count(DISTINCT div_total_krw) = 1 THEN max(div_total_krw)
+                ELSE sum(div_total_krw) END AS div_total_krw,
+           (count(div_total_krw) > 1 AND count(DISTINCT div_total_krw) = 1) AS copy_guard,
+           (array_agg(payout_pct ORDER BY stlm_dt DESC))[1] AS payout_pct,
+           (array_agg(rcept_no ORDER BY stlm_dt DESC))[1] AS rcept_no
+      FROM per GROUP BY corp_code, bsns_year
+  )
+"""
+
+
+def year_totals(annual: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """`firm_history` 의 원장 행(종류별·결산기별 줄) → **사업연도별 보통주 합**. 결산기가 둘 이상인 해는 DPS 가 그 해 결산기 DPS 의 합이다. (261021)
+
+    SQL 의 `_YEAR_SQL` 과 같은 규칙을 파이썬으로 — 회사 하나의 원장 줄은 이미 읽어 와 있어 질의를 더하지 않는다.
+    같은 결산기에 보통주 줄이 여럿(종류 칸이 비어 우선주가 미구분으로 섞인 경우 등)이면 확정 → 총액 큰 순 → 원문 순서로 한 줄. 반환 줄: `bsns_year`·`n_periods`·`dps_krw`(확정 결산기 합, 없으면 None)·
+    `div_total_krw`·`total_basis`(`single`/`sum`/`ledger_copy`)·`periods`(결산기별 `stlm_dt`·`dps_krw`·`div_total_krw`·`row_status`·`rcept_no`)."""
+    best: dict[tuple, dict[str, Any]] = {}
+    for r in annual:
+        if r.get("stock_kind") not in _COMMON_KINDS:
+            continue
+        key = (r["bsns_year"], r.get("stlm_dt") or "")
+        rank = (r.get("row_status") == "확정", r.get("div_total_krw") if r.get("div_total_krw") is not None else float("-inf"))
+        if key not in best or rank > best[key][0]:       # 동률이면 먼저 온 줄(원문 순서)
+            best[key] = (rank, r)
+    by_year: dict[int, list[dict[str, Any]]] = {}
+    for (fy, _stlm), (_rank, r) in sorted(best.items(), key=lambda kv: kv[0]):
+        by_year.setdefault(fy, []).append(r)
+    out = []
+    for fy in sorted(by_year, reverse=True):
+        rows = by_year[fy]
+        confirmed = [r for r in rows if r.get("row_status") == "확정"]
+        dps = [r["dps_krw"] for r in confirmed if r.get("dps_krw") is not None]
+        totals = [r["div_total_krw"] for r in rows if r.get("div_total_krw") is not None]
+        if len(rows) > 1 and len(totals) > 1 and len(set(totals)) == 1:
+            basis, total = "ledger_copy", totals[0]
+        elif len(rows) > 1:
+            basis, total = "sum", (sum(totals) if totals else None)
+        else:
+            basis, total = "single", (totals[0] if totals else None)
+        out.append({
+            "bsns_year": fy, "n_periods": len(rows),
+            "dps_krw": sum(dps) if dps else None, "div_total_krw": total, "total_basis": basis,
+            "periods": [{"stlm_dt": r.get("stlm_dt"), "dps_krw": r.get("dps_krw"), "div_total_krw": r.get("div_total_krw"),
+                         "row_status": r.get("row_status"), "rcept_no": r.get("rcept_no")} for r in rows],
+        })
+    return out
+
+
 # ─────────────────────────────────────────────────────────────── 회사 시계열 ──
 def firm_history(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]:
     """회사 하나의 사업연도별 확정 배당 — 연간(사업보고서) + 분기(누적차분).
@@ -86,7 +160,7 @@ def firm_history(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]
           FROM div_declared
          WHERE corp_code = %s AND reprt_code = %s
            AND bsns_year BETWEEN %s AND %s
-         ORDER BY bsns_year DESC, stock_kind, stock_knd_raw
+         ORDER BY bsns_year DESC, stlm_dt, stock_kind, stock_knd_raw, line_no
         """,
         (corp_code, _ANNUAL, year_from, year_to),
     )
@@ -122,18 +196,21 @@ def firm_history(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]
             continue
         annual_rows.append(r)
     ann = annual_rows
+    annual_rows_out = [
+        {"bsns_year": r[0], "stock_kind": r[1], "stock_knd_raw": r[2],
+         "dps_krw": r[3], "div_total_krw": r[4], "payout_pct": r[5],
+         "row_status": r[6], "rcept_no": r[7], "stlm_dt": r[8]}
+        for r in (ann or [])
+    ]
 
     return {
         "status": "ok",
         "annual_failed": ann_failed,
         "quarterly_failed": qtr_failed,
         "empty_kind_rows_folded": folded,
-        "annual": [
-            {"bsns_year": r[0], "stock_kind": r[1], "stock_knd_raw": r[2],
-             "dps_krw": r[3], "div_total_krw": r[4], "payout_pct": r[5],
-             "row_status": r[6], "rcept_no": r[7], "stlm_dt": r[8]}
-            for r in (ann or [])
-        ],
+        # 261021: 반기·분기 결산 회사는 한 사업연도에 결산기 줄이 여럿이다 — 줄은 그대로(`annual`) 두고 사업연도별 보통주 합을 따로 낸다(새 칸).
+        "year_totals": year_totals(annual_rows_out),
+        "annual": annual_rows_out,
         "quarterly": [
             {"bsns_year": r[0], "reprt_code": r[1], "q_label": r[2],
              "cum_div_total_krw": r[3], "quarterly_div_krw": r[4],
@@ -285,54 +362,37 @@ def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dic
     🔴 **분모를 두 벌 낸다** — `n_universe`(그 해 표에 있는 회사 전부)와 `n_payers`(실제 배당).
     한 벌만 내면 「배당이 줄었다」와 「배당하는 회사가 줄었다」가 구별되지 않는다.
     🔴 빈 버킷을 0 으로 메우지 않는다 — 「배당 0」과 「잴 회사가 없다」는 다르다.
+    🔴 회사·사업연도 한 줄은 **그 해 결산기 행의 합**이다(`_YEAR_SQL`, 261021) — 반기·분기 결산 회사(리츠)는 결산기 행이 여럿이고, 종전 `DISTINCT ON
+    (회사, 사업연도)` 는 그 가운데 총액이 큰 한 결산기만 셌다. 총액이 결산기 행마다 같은 복사 꼴이면 더하지 않고(`n_copy_guard` 가 그 회사 수) 그 하나를 쓴다.
     """
     # 섹터는 업종분류 최신 스냅샷으로 붙인다. 종목 하나가 여러 티커(우선주)를 갖는
-    # 경우가 있어 `div_declared.tickers` 로 조인하되 corp_code 로 중복을 없앤다.
+    # 경우가 있어 `div_declared.tickers` 로 조인하되 (회사, 사업연도, 결산기) 로 중복을 없앤다.
+    where = ["d.reprt_code = %s", "d.bsns_year BETWEEN %s AND %s", "d.stock_kind IN ('보통','미구분')"]
+    params: list[Any] = [_ANNUAL, year_from, year_to]
+    join = ""
+    ctes = ""
     if scope == "sector":
-        sql = """
-        WITH snap AS (SELECT MAX(snap_dd) AS d FROM wise_sector),
-        base AS (
-          SELECT DISTINCT ON (d.corp_code, d.bsns_year)
-                 d.corp_code, d.bsns_year, d.div_total_krw, d.payout_pct, d.status
-            FROM div_declared d
-            JOIN wise_sector w ON w.ticker = d.tickers AND w.snap_dd = (SELECT d FROM snap)
-           WHERE d.reprt_code = %s AND d.bsns_year BETWEEN %s AND %s
-             AND d.stock_kind IN ('보통','미구분') AND w.sector = %s
-           ORDER BY d.corp_code, d.bsns_year,
-                    (d.status = '확정') DESC, d.div_total_krw DESC NULLS LAST
-        )
+        ctes = "snap AS (SELECT MAX(snap_dd) AS d FROM wise_sector),\n"
+        join = "JOIN wise_sector w ON w.ticker = d.tickers AND w.snap_dd = (SELECT d FROM snap)"
+        where.append("w.sector = %s")
+        params.append(key)
+    sql = f"""
+        WITH {ctes}{_YEAR_SQL.format(join=join, where=' AND '.join(where))}
         SELECT bsns_year, COUNT(*) AS n_universe,
-               COUNT(*) FILTER (WHERE status = '확정' AND div_total_krw > 0) AS n_payers,
-               SUM(div_total_krw) FILTER (WHERE status = '확정') AS div_total_krw,
-               AVG(payout_pct) FILTER (WHERE status = '확정' AND payout_pct IS NOT NULL) AS payout_avg
-          FROM base GROUP BY bsns_year ORDER BY bsns_year DESC
-        """
-        params: tuple = (_ANNUAL, year_from, year_to, key)
-    else:
-        sql = """
-        WITH base AS (
-          SELECT DISTINCT ON (corp_code, bsns_year)
-                 corp_code, bsns_year, div_total_krw, payout_pct, status
-            FROM div_declared
-           WHERE reprt_code = %s AND bsns_year BETWEEN %s AND %s AND stock_kind IN ('보통','미구분')
-           ORDER BY corp_code, bsns_year,
-                    (status = '확정') DESC, div_total_krw DESC NULLS LAST
-        )
-        SELECT bsns_year, COUNT(*) AS n_universe,
-               COUNT(*) FILTER (WHERE status = '확정' AND div_total_krw > 0) AS n_payers,
-               SUM(div_total_krw) FILTER (WHERE status = '확정') AS div_total_krw,
-               AVG(payout_pct) FILTER (WHERE status = '확정' AND payout_pct IS NOT NULL) AS payout_avg
-          FROM base GROUP BY bsns_year ORDER BY bsns_year DESC
-        """
-        params = (_ANNUAL, year_from, year_to)
-    rows = _rows(sql, params)
+               COUNT(*) FILTER (WHERE confirmed AND div_total_krw > 0) AS n_payers,
+               SUM(div_total_krw) FILTER (WHERE confirmed) AS div_total_krw,
+               AVG(payout_pct) FILTER (WHERE confirmed AND payout_pct IS NOT NULL) AS payout_avg,
+               COUNT(*) FILTER (WHERE copy_guard) AS n_copy_guard
+          FROM yr GROUP BY bsns_year ORDER BY bsns_year DESC
+    """
+    rows = _rows(sql, tuple(params))
     if rows is None:
         return {"status": "db_error"}
     return {
         "status": "ok",
         "rows": [
             {"bsns_year": r[0], "n_universe": r[1], "n_payers": r[2],
-             "div_total_krw": r[3], "payout_avg": r[4]}
+             "div_total_krw": r[3], "payout_avg": r[4], "n_copy_guard": r[5] if len(r) > 5 else 0}
             for r in rows
         ],
     }
@@ -372,59 +432,64 @@ def screen(
 
     # `보통`·`미구분`만. 260902 4분류 뒤로 `종류`(상환·전환·무의결권·트래킹스톡)는 여기서
     #   자동으로 빠진다 — 종전엔 그것들이 `우선` 통에 섞여 있었다.
+    # 회사·사업연도 한 줄 = 그 해 결산기 행의 합(`_YEAR_SQL`, 261021). 종전엔 행 단위로 조건을 걸고 총액이 같은 행 가운데 **임의의 한 줄**의 DPS 를 냈다 —
+    #   반기·분기 결산 리츠는 결산기 행의 총액이 복사되어 모두 같아 어느 결산기 DPS 가 나올지 정해져 있지 않았다. 이제 조건(`min_dps`·성향)은 사업연도 합에 건다.
     # `dps_krw > 0` — 표 머리에 「무배당 제외」라고 써 놓고 DPS 0원 회사를 넣고 있었다
     #   (씨티알모빌리티·DB, U7 실측). 원문에 0 이 적혀 있어도 그건 배당한 것이 아니다.
-    where = ["d.reprt_code = %s", "d.bsns_year = %s", "d.stock_kind IN ('보통','미구분')",
-             "d.status = '확정'", "d.dps_krw > 0"]
+    per_where = ["d.reprt_code = %s", "d.bsns_year = %s", "d.stock_kind IN ('보통','미구분')"]
     params: list[Any] = [_ANNUAL, bsns_year]
-    if min_payout is not None:
-        where.append("d.payout_pct >= %s"); params.append(min_payout)
-    if max_payout is not None:
-        where.append("d.payout_pct <= %s"); params.append(max_payout)
-    if min_dps is not None:
-        where.append("d.dps_krw >= %s"); params.append(min_dps)
-
     join = ""
     if sector:
         join = ("JOIN wise_sector w ON w.ticker = d.tickers "
                 "AND w.snap_dd = (SELECT MAX(snap_dd) FROM wise_sector)")
-        where.append("w.sector = %s"); params.append(sector)
+        per_where.append("w.sector = %s"); params.append(sector)
+    where = ["confirmed", "dps_krw > 0"]
+    if min_payout is not None:
+        where.append("payout_pct >= %s"); params.append(min_payout)
+    if max_payout is not None:
+        where.append("payout_pct <= %s"); params.append(max_payout)
+    if min_dps is not None:
+        where.append("dps_krw >= %s"); params.append(min_dps)
     if min_payments is not None and min_payments > 0:
         where.append(
             "(SELECT COUNT(*) FROM div_payment p "
-            " WHERE p.corp_code = d.corp_code AND p.fiscal_year = d.bsns_year) >= %s")
+            " WHERE p.corp_code = yr.corp_code AND p.fiscal_year = yr.bsns_year) >= %s")
         params.append(min_payments)
 
+    # 질의 하나로 — 행 · 조건에 걸린 전체 수(`COUNT(*) OVER ()` — LIMIT 앞에서 센다) · 모집단(조건 전 그 해 회사 수, 첫 CTE). 종전엔 이 셋이 질의 셋이었다(같은 CTE 를
+    #   두 번 돌렸다). 행이 하나도 없을 때만 모집단을 따로 한 번 더 읽는다(매칭 수는 0).
     sql = f"""
-        SELECT DISTINCT ON (d.corp_code)
-               d.corp_code, d.name, d.tickers, d.dps_krw, d.div_total_krw,
-               d.payout_pct, d.rcept_no
-          FROM div_declared d {join}
-         WHERE {' AND '.join(where)}
-         ORDER BY d.corp_code, d.div_total_krw DESC NULLS LAST
+        WITH uni AS (SELECT COUNT(DISTINCT corp_code) AS n FROM div_declared
+                      WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')),
+        {_YEAR_SQL.format(join=join, where=' AND '.join(per_where))}
+        SELECT t.corp_code, t.name, t.tickers, t.dps_krw, t.div_total_krw, t.payout_pct, t.rcept_no, t.n_periods, t.copy_guard,
+               COUNT(*) OVER () AS matched, (SELECT n FROM uni) AS n_universe
+          FROM (SELECT * FROM yr WHERE {' AND '.join(where)}) t
+         ORDER BY t.div_total_krw DESC NULLS LAST, t.corp_code LIMIT %s
     """
-    rows = _rows(f"SELECT * FROM ({sql}) t ORDER BY t.div_total_krw DESC NULLS LAST LIMIT %s",
-                 tuple(params) + (limit,))
+    rows = _rows(sql, (_ANNUAL, bsns_year, *params, limit))
     if rows is None:
         return {"status": "db_error"}
-    # 조건에 걸린 전체 수. `limit` 은 **표시 한도**일 뿐인데 종전엔 이 값이 없어서
-    #   돌려준 행 수를 매칭 수로 읽었다(U7: 「100사」가 실은 121사였다).
-    m = _rows(f"SELECT COUNT(*) FROM ({sql}) t", tuple(params))
-    matched = (m or [(None,)])[0][0]
-    # 분모 — 조건을 걸기 전 그 해 모집단. 「몇 중 몇」이 없으면 결과를 못 읽는다.
-    tot = _rows(
-        "SELECT COUNT(DISTINCT corp_code) FROM div_declared "
-        "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
-        (_ANNUAL, bsns_year))
+    if rows:
+        matched, n_universe = rows[0][9], rows[0][10]
+    else:
+        # 조건에 맞는 회사가 없다(matched = 0). 모집단은 「몇 중 몇」을 읽으려고 따로 낸다 — 이 질의만 실패하면 모집단을 못 센 채 낸다(렌더가 말한다).
+        matched = 0
+        tot = _rows(
+            "SELECT COUNT(DISTINCT corp_code) FROM div_declared "
+            "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
+            (_ANNUAL, bsns_year))
+        n_universe = (tot or [(None,)])[0][0]
     return {
         "status": "ok",
-        "n_universe": (tot or [(None,)])[0][0],
+        "n_universe": n_universe,
         "matched": matched,
         "returned": len(rows),
         "limit": limit,
         "rows": [
             {"corp_code": r[0], "name": r[1], "ticker": r[2], "dps_krw": r[3],
-             "div_total_krw": r[4], "payout_pct": r[5], "rcept_no": r[6]}
+             "div_total_krw": r[4], "payout_pct": r[5], "rcept_no": r[6],
+             "n_periods": r[7], "total_basis": "ledger_copy" if r[8] else ("sum" if r[7] > 1 else "single")}
             for r in rows
         ],
     }
