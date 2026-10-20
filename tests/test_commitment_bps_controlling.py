@@ -364,6 +364,25 @@ def test_cycle_total_equity_fallback_leaves_a_quality_flag(patch):
     assert any("지배자본 칸이 없어" in x for x in flags)
 
 
+def test_negative_controlling_equity_gives_no_gain_loss_numbers(patch):
+    """지배자본이 음수(자본잠식)면 BPS 도 음수 — 프리미엄·손익을 만들지 않고 사유를 남긴다(종전 총계 BPS 는 양수일 수 있다)."""
+    cc, total, ctrl, shares = "00999998", 50_000_000_000, -10_000_000_000, 10_000_000
+    rows = _bs_rows(total, ctrl, "20251114009998", (60_000_000_000, -5_000_000_000))
+    patch(FakeClient({(cc, "2025", "11014"): rows}, {(cc, "2025"): shares}))
+    cycles, flags = asyncio.run(SC._capital_return_impact("잠식", cc, _treasury("999998", shares=100_000, price=1_000), fiscal_month=12, ticker="999998"))
+    c = cycles[0]
+    assert c["bps_at_acquisition_krw"] == -1_000
+    assert "premium_discount_pct" not in c and "book_value_gain_loss_krw" not in c
+    assert "자본잠식" in c["note"] and any("BPS 0 이하" in x for x in flags)
+
+
+def test_malformed_reference_date_falls_back_instead_of_crashing(patch):
+    f = FIRMS["001040"]
+    patch(FakeClient({}, {(f["cc"], "2025"): f["shares"]}), _fm_payload(*f["fy"][:2]))
+    r = _bps("001040", ref_ymd="20251399")
+    assert "기준일 형식 이상" in r["bps_basis"]["fallback_reason"] and r["bps_krw"] == round(f["fy"][1] / f["shares"])
+
+
 # ── 6. 낡은 주석 ──────────────────────────────────────────────────────────────────────────────
 
 def test_no_stale_valuation_py_module_name():
