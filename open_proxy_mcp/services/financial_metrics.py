@@ -522,7 +522,8 @@ def _lookup_induty_code(corp_code: str, stock_code: str = "") -> str | None:
         "SELECT induty FROM dart_fundamentals "
         "WHERE (ticker = %s OR corp_code = %s) AND induty IS NOT NULL AND induty <> '' "
         "ORDER BY CASE WHEN ticker = %s THEN 0 ELSE 1 END LIMIT 1",
-        (stock_code or "", corp_code, stock_code or ""))
+        # 종목코드가 없으면 NULL 로 — 「ticker = ''」 가 빈 종목코드 행을 고르지 않게(법인코드로만 맞춘다).
+        (stock_code or None, corp_code, stock_code or None))
     return str(rows[0][0]) if rows else None
 
 
