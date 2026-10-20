@@ -255,6 +255,7 @@ def compute_capital_impairment(
     controlling_equity: int | float | None,
     total_equity: int | float | None,
     nci: int | float | None = None,
+    controlling_basis: str = "controlling",
 ) -> dict[str, Any]:
     """자본잠식 판정 — **계산식이 사는 유일한 자리.**
 
@@ -276,9 +277,12 @@ def compute_capital_impairment(
                      연결인데 구분 표시가 없는 경우. 문장은 이 값을 읽어 갈라 써야 한다.
 
     상태: 자기자본 ≤ 0 완전 / 50%↑ 관리종목(2년 연속이면 상장폐지) / 0~50% 부분 / 그 외 정상.
+
+    `controlling_basis`: `controlling_equity` 를 준 경우 그 값이 어느 길로 나왔는지(`basis` 에 그대로 남는다). 기본은 지배지분 계정을 직접 읽은
+    `controlling`; 공용 규칙(`controlling_eq`)이 자본총계 − 비지배(`derived`)·자본총계(`total`)로 구한 값이면 그렇게 적는다.
     """
     equity = controlling_equity
-    basis = "controlling"
+    basis = controlling_basis
     if equity is None:
         if total_equity is not None and nci is not None:
             equity, basis = total_equity - nci, "derived"
@@ -672,6 +676,31 @@ def _compute_borrowings(rows: list[dict[str, Any]], period: str = "thstrm") -> d
     }
 
 
+def _shared_ctrl_equity(rows: list[dict[str, Any]], field: str = "thstrm_amount") -> tuple[int | None, str | None]:
+    """지배자본 기말잔액과 고른 길(케이스) — `price_multiple_data._ctrl_equity` 와 같은 식(261021 fin-eq).
+
+    지배자본 계정 줄(`ifrs-full_EquityAttributableToOwnersOfParent`)을 믿을 수 있으면(`ctrl_line_rejected` 가 None) 그 값 → 케이스 `BS_ID`.
+    그 줄을 「자본금」·자본 구성요소 줄에 붙였거나 자본총계 − 비지배와 크게 어긋나면 수집과 같은 다음 규칙(`controlling_eq` — 이름 줄 →
+    자본총계 − 비지배 `TOTAL_MINUS_MINORITY` → 자본총계 `TOTAL`)으로 간다. 값을 못 내면 (None, 까닭) — 부르는 쪽이 자본총계 쪽으로 물러난다.
+    `controlling_eq` 가 이 파일의 `normalize_amount` 를 가져오므로 순환 가져오기를 피해 함수 안에서 가져온다(`controlling_ni` 와 같다)."""
+    from open_proxy_mcp.services import controlling_eq as _ceq
+    eq, why = _ceq.ctrl_id_value(rows, field)
+    if eq is not None and why is None:
+        return int(eq), "BS_ID"
+    v, case = _ceq.controlling_eq(rows, field)
+    return (int(v) if v is not None else None), case
+
+
+def _ctrl_basis(case: str | None) -> str:
+    """공용 지배자본 케이스 → 자본잠식 `basis`. 지배 줄/이름 줄이면 `controlling`, 자본총계 − 비지배면 `derived`, 자본총계 그대로면 `total`."""
+    c = case or ""
+    if c.startswith("TOTAL_MINUS_MINORITY"):
+        return "derived"
+    if c.startswith("TOTAL"):
+        return "total"
+    return "controlling"
+
+
 def _build_account_map_all(
     rows: list[dict[str, Any]],
     period: str = "thstrm",
@@ -702,11 +731,10 @@ def _build_account_map_all(
         is_amount = _extract_cumulative_is(row) if cumulative_is else amount  # IS/CIS 손익용
 
         if sj_div == "BS":
-            # 지배주주 귀속 자본은 account_id로 매칭 — 회사마다 account_nm이 달라(예: "지배기업의
-            # 소유주에게…") substring 매칭이 실패하면 전체자본으로 fallback돼 ROE가 틀어짐.
-            if out.get("controlling_equity") is None and account_id and \
-                    "EquityAttributableToOwnersOfParent" in account_id:
-                out["controlling_equity"] = amount
+            # 지배주주 귀속 자본 줄은 여기서 값으로 채택하지 않는다 — 루프 뒤에서 수집·배수 도구와 **같은 공용 규칙**
+            # (`_shared_ctrl_equity` → `services/controlling_eq`)이 고른다. 종전엔 이 계정 id 가 든 첫 줄을 그대로 써서
+            # 회사가 그 계정을 「자본금」 줄에 붙인 보고서(065680 · 069960 · 000040 · 056360)의 ROE 분모·자본잠식이 틀렸다.
+            if account_id and "EquityAttributableToOwnersOfParent" in account_id:
                 continue
             # 비지배지분 — 지배지분 계정을 아예 안 적는 회사가 있어(실측 고려아연·비덴트·
             # 미래에셋증권) 자본총계에서 이걸 빼야 지배지분이 나온다. 자본총계로 물러나면
@@ -777,6 +805,8 @@ def _build_account_map_all(
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
                     break
+    # 261021(fin-eq): 지배자본도 지배 순이익처럼 수집 배치·price_multiple_data(firm)와 **같은 규칙**으로 고른다.
+    out["controlling_equity"], out["controlling_equity_case"] = _shared_ctrl_equity(rows, f"{period}_amount")
     # 261020(p1e firm-ctrl-ni): 지배 순이익은 수집 배치·price_multiple_data(firm)와 **같은 규칙**(`services/controlling_ni` — 값 구조 검사)으로 고른다.
     #   위 루프는 지배 귀속 순이익 계정 id 가 든 첫 줄을 그대로 썼고(없으면 아래 요약에서 주요계정 당기순이익 총계 — 비지배 포함), 그래서 그 줄에
     #   총포괄이익의 지배 몫을 적은 회사(075180 FY2025 27.68억 — 당기순이익은 −5.15억)·표준 계정코드 없이 이름으로 지배·비지배를 나눈 회사(비지배
@@ -926,14 +956,21 @@ def _compute_metrics(
     # 비지배지분을 포함하면 자회사 소수주주 몫만큼 자기자본이 부풀어 **잠식률이 과소 산정**된다.
     #
     # - 0% 미만: 정상 / 0~50%: 부분 / 50%↑: 관리종목(2년 연속이면 상장폐지) / 자기자본 ≤ 0: 완전
+    #
+    # 261021(fin-eq): 지배자본은 수집·배수 도구와 **같은 공용 규칙**(`_shared_ctrl_equity`)이 고른 값이다 — 지배자본 계정 줄을 「자본금」 줄에
+    # 붙인 보고서(000040 FY2019: 지배자본 계정이 납입자본 줄 1,054.57억 — 자본총계 352.10억 − 비지배 166.69억 = 지배자본 185.41억)는 그 줄을 믿지 않고 자본총계 − 비지배로 간다. 공용 규칙이 값을 못 내면
+    # (전체 재무제표가 없거나 자본총계 줄이 없음) 종전처럼 주요계정 값 → 자본총계 − 비지배 → 자본총계 순.
     _ctrl_equity = detail.get("controlling_equity")
+    _ctrl_case = detail.get("controlling_equity_case") if _ctrl_equity is not None else None
     if _ctrl_equity is None:
         _ctrl_equity = bs_is.get("controlling_equity")
+        _ctrl_case = "ACNT_NAME" if _ctrl_equity is not None else None
     _imp = compute_capital_impairment(
         capital_stock=capital_stock,
         controlling_equity=_ctrl_equity,
         total_equity=total_equity,
         nci=detail.get("nci") if isinstance(detail, dict) else None,
+        controlling_basis=_ctrl_basis(_ctrl_case),
     )
     impairment_equity = _imp["equity_used"]
     capital_impairment_basis = _imp["basis"]
@@ -946,17 +983,24 @@ def _compute_metrics(
 
     # ROE 분모 = 평균 '지배주주 귀속 자본' (국내 표준). 주요계정엔 지배자본이 없어
     # fnlttSinglAcntAll(detail)에서 가져온다. 지배자본 없으면(별도재무·결손) 자본총계로 fallback.
-    controlling_equity = detail.get("controlling_equity")
-    if controlling_equity is None:
-        controlling_equity = bs_is.get("controlling_equity")
-    prev_controlling_equity = detail_prev.get("controlling_equity")
-    if prev_controlling_equity is None:
-        prev_controlling_equity = (bs_is_prev or {}).get("controlling_equity")
-    equity_for_roe = controlling_equity if controlling_equity is not None else total_equity
-    prev_equity_for_roe = (
-        prev_controlling_equity if prev_controlling_equity is not None
-        else (bs_is_prev or {}).get("total_equity")
-    )
+    #
+    # 261021(fin-eq): 분모는 위 자본잠식과 같은 **공용 지배자본**이다. 지배자본 줄이 없는 보고서(419050 FY2025)에서 종전엔 비지배를
+    # 품은 자본총계를 분모로 써 ROE 가 낮게 나왔다 — 이제 공용 규칙의 자본총계 − 비지배, 전체 재무제표가 없어 그것도 못 구할 때만 주요계정 자본총계에서
+    # 비지배(알면)를 뺀 값 → 자본총계 순이다. 어느 길로 골랐는지 `controlling_equity_case` 에 남긴다.
+    def _roe_equity(det: dict, acnt: dict | None, total: int | float | None) -> tuple[int | float | None, str]:
+        v = det.get("controlling_equity")
+        if v is not None:
+            return v, det.get("controlling_equity_case") or "BS_ID"
+        v = (acnt or {}).get("controlling_equity")
+        if v is not None:
+            return v, "ACNT_NAME"
+        nci_ = det.get("nci")
+        if total is not None and nci_ is not None:
+            return total - nci_, "TOTAL_MINUS_NCI"
+        return total, "TOTAL_FALLBACK" if total is not None else "NO_EQUITY"
+
+    equity_for_roe, controlling_equity_case = _roe_equity(detail, bs_is, total_equity)
+    prev_equity_for_roe, _prev_case = _roe_equity(detail_prev, bs_is_prev, (bs_is_prev or {}).get("total_equity"))
     avg_equity = _avg(equity_for_roe, prev_equity_for_roe) if bs_is_prev else equity_for_roe
 
     # detail (fnlttSinglAcntAll)
@@ -1320,6 +1364,13 @@ def _compute_metrics(
         # 어느 자기자본으로 쟀는지 — 규정은 비지배지분 제외이고, 못 구하면 자본총계로 물러난다.
         "capital_impairment_basis": capital_impairment_basis,
         "capital_impairment_ratio_total_pct": capital_impairment_ratio_total_pct,
+        # ── ROE 분모의 지배자본 (261021 fin-eq) ──
+        # 기말 지배자본(= ROE·자본잠식의 자기자본)과 고른 길 — `BS_ID`(지배자본 계정 줄)·`BS_NM`(이름 줄)·`TOTAL_MINUS_MINORITY`(자본총계 − 비지배)·
+        # `TOTAL`(비지배 없음) 또는 줄을 믿지 않았다는 꼬리표 `_CAPLINE`·`_COMPLINE`·`_OFFTOTAL`; 공용 규칙이 못 낸 경우만 `ACNT_NAME`·`TOTAL_MINUS_NCI`·
+        # `TOTAL_FALLBACK`. ROE 는 (이 값 + 전기 값) / 2 가 분모다.
+        "controlling_equity_krw": equity_for_roe,
+        "controlling_equity_case": controlling_equity_case,
+        "prev_controlling_equity_krw": prev_equity_for_roe if bs_is_prev else None,
         # ── 지배구조 cross-check ──
         "subsidiary_count": subsidiary_count,  # Phase 2 — 사업보고서 본문 파싱 필요
         # ── DART 산출 지표 (보조) ──
