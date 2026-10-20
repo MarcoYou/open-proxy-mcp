@@ -1115,7 +1115,7 @@ def _firm_row_missing(company: str, why: str | None, as_of: str) -> str:
 
 def _latest_annual_fy() -> int:
     """지금 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년).
-    261021(DATA-FY2 B7): 이 규칙은 `report_calendar.latest_annual` 한 곳이다 — 이 함수·`market_fund_quarterly._latest_annual_fy`·`market_val_series._latest_annual_fy`
+    261021(DATA-FY1): 이 규칙은 `report_calendar.latest_annual` 한 곳이다 — 이 함수·`market_fund_quarterly._latest_annual_fy`·`market_val_series._latest_annual_fy`
     세 벌이 따로 있던 것을 얇은 껍데기로 모았다(12월 결산 기준 — 결산월은 `_rc.latest_annual(today, fye)`).
     ⚠ dart_fundamentals.ni_fy/eq_fy는 derive_fundamentals가 이 FY로 덮어쓰는 **가변열**이라,
     그 값을 담을 fin[] 키는 반드시 이 헬퍼로 파생해야 함(하드코딩 금지 — FY 넘어가면 조용히 오라벨)."""

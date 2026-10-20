@@ -108,7 +108,7 @@ def _retry_nodata(fy: int, q: int, today: date | None = None, days: int | None =
 def _latest_annual_fy(today: date | None = None) -> int:
     """그 시점 확정된 최신 사업연도(12월 결산 규칙: 사업보고서 3월 공시 → 4월 이후 전년, 아니면 전전년).
 
-    261021(DATA-FY2 B7): 이 규칙은 `report_calendar.latest_annual` 한 곳이다 — 이 파일·`market_val_series`·`price_multiple_data` 의 `_latest_annual_fy` 가
+    261021(DATA-FY1): 이 규칙은 `report_calendar.latest_annual` 한 곳이다 — 이 파일·`market_val_series`·`price_multiple_data` 의 `_latest_annual_fy` 가
     세 벌로 따로 있던 것을 얇은 껍데기로 모았다. 날짜는 한국 달력(`today_kst`)이다(서버·배치가 UTC 라 KST 자정~9시에 어제를 주던 것)."""
     return rcal.latest_annual(today or today_kst(), 12)
 
@@ -429,7 +429,10 @@ def classify_reports(reports) -> "AccMt | None":
     이제 **가장 최근 사업보고서의 기준월**이 결산월이고, 그 달이 이어진 첫 사업보고서의 연도가 `since`, 그 앞 사업보고서의 달이 `prev` 다.
     · 같은 해 사업보고서가 **두 해 이상** 둘 이상이면 반기·분기 결산(리츠·인프라 펀드) — 종전처럼 12(결산기 칸 몫: `period_cells`).
     · 같은 해에 둘이 한 해뿐이면 결산월을 바꾼 해다(154030: 2025.09 + 2025.12 전환기 · 222160: 2024.03 + 2024.12) — 둘 다 보인다.
-    · 목록이 한 달로만 이어지면 안 바꾼 회사. 목록이 짧아 바꾼 해가 안 보이면 바꿨는지 알 수 없다(호출하는 쪽이 회사 전체 목록을 받아 온다)."""
+    · 목록이 한 달로만 이어지면 안 바꾼 회사. 목록이 짧아 바꾼 해가 안 보이면 바꿨는지 알 수 없다(호출하는 쪽이 회사 전체 목록을 받아 온다).
+    · 상장 첫해의 반기·분기 결산 리츠(2026.06 + 2026.12 · 2025.02 + 2025.05 + 2025.08 — 같은 해에 둘이 아직 한 해뿐이다)는 결산월을 바꾼 회사처럼 보인다.
+      결산기마다 달이 바뀌는 리츠는 같은 달이 이어지지 않으므로, 옛 결산월의 사업보고서가 **둘 이상 이어지거나**(옛 달이 목록 맨 앞에서 하나뿐이면 — 목록이
+      2018년부터라 잘렸을 수 있다 — 새 결산월이 둘 이상 이어질 때) 결산월을 바꾼 회사로 본다. 아니면 가를 수 없어 종전처럼 12(결산기 칸 몫)다."""
     seen = sorted({(int(y), int(m)) for y, m in reports or [] if 1 <= int(m) <= 12})
     if not seen:
         return None
@@ -440,7 +443,15 @@ def classify_reports(reports) -> "AccMt | None":
     i = len(seen) - 1
     while i > 0 and seen[i - 1][1] == month:
         i -= 1
-    return AccMt(month) if i == 0 else AccMt(month, seen[i - 1][1], seen[i][0])
+    if i == 0:
+        return AccMt(month)
+    prev = seen[i - 1][1]
+    j = i - 1
+    while j > 0 and seen[j - 1][1] == prev:
+        j -= 1
+    if i - j < 2 and not (j == 0 and len(seen) - i >= 2):
+        return AccMt(12)              # 옛 결산월이 이어지지 않는다 — 상장 첫해의 반기·분기 결산 리츠와 가를 수 없다(종전 읽기)
+    return AccMt(month, prev, seen[i][0])
 
 
 def decide_acc_mt(stored, reports, company_acc_mt=None, complete: bool = True) -> "AccMt | None":

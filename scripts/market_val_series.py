@@ -46,7 +46,7 @@ from open_proxy_mcp.services import controlling_eq as _ceq
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
-    """그 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년). 261021(DATA-FY2 B7): `report_calendar.latest_annual` 한 곳의 얇은 껍데기
+    """그 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년). 261021(DATA-FY1): `report_calendar.latest_annual` 한 곳의 얇은 껍데기
     (세 파일에 따로 있던 규칙을 모았다). 날짜는 한국 달력(`today_kst`)."""
     return rcal.latest_annual(today or today_kst(), 12)
 
