@@ -154,6 +154,8 @@ async def _equity_as_of(
         d = await client.get_fnltt_singl_acnt_all(corp_code, str(fy), rc, "CFS")
     except DartClientError as exc:
         return None, f"{fy} {_REPORT_LABEL[q]} 연결 재무제표 조회 실패(DART {getattr(exc, 'status', '?')})"
+    except Exception as exc:  # noqa: BLE001 — 통신 오류(시간 초과·HTTP 5xx 등)도 도구 전체를 죽이지 않고 연말 길로 물러난다(종전 길도 예외를 삼켰다)
+        return None, f"{fy} {_REPORT_LABEL[q]} 연결 재무제표 조회 실패({type(exc).__name__})"
     rows = (d.get("list", d) if isinstance(d, dict) else d) or []
     if not rows:
         return None, f"{fy} {_REPORT_LABEL[q]} 연결 재무제표 없음"
