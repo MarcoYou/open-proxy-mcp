@@ -339,3 +339,34 @@ def test_memo_byte_budget_stops_remembering_big_responses(monkeypatch):
     led = _run(go)
     assert len(http.calls) == 3
     assert 0 < led["dart_memo"].nbytes <= 600
+
+
+def test_memo_is_per_client_so_a_key_scoped_error_does_not_leak_to_another_key():
+    """020(키의 하루 한도)은 키마다 다르다 — 한 요청 안에서 다른 키 풀의 클라이언트가 같은 질의를 해도 서로의 답을 물려받지 않는다."""
+    quota = {"status": "020", "message": "한도"}
+    http_a = _FakeHttp(script=[quota])
+    http_b = _FakeHttp()
+    a, b = _client(http_a), _client(http_b)
+
+    async def go():
+        new_request_ledger()
+        with pytest.raises(DartClientError):
+            await a._request("company.json", {"corp_code": "1"})
+        return await b._request("company.json", {"corp_code": "1"})
+
+    out = _run(go)
+    assert out["status"] == "000"
+    assert len(http_a.calls) == 1 and len(http_b.calls) == 1
+
+
+def test_a_ledger_left_over_from_another_context_cannot_serve_a_new_client():
+    """앞선 일이 요청 장부를 흘려도(문맥 변수는 복사돼 흐른다) 새 클라이언트는 그 메모에 적중하지 않는다."""
+    http1, http2 = _FakeHttp(), _FakeHttp()
+
+    async def go():
+        new_request_ledger()
+        await _client(http1)._request("company.json", {"corp_code": "1"})
+        await _client(http2)._request("company.json", {"corp_code": "1"})
+
+    _run(go)
+    assert len(http1.calls) == 1 and len(http2.calls) == 1
