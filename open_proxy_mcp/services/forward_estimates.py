@@ -26,123 +26,114 @@ logger = logging.getLogger(__name__)
 TOOL = "forward_estimates_data"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 🔴 칸 이름 매핑 — **여기 한 곳만 고친다**
+# 칸 이름 표 — **여기 한 곳만 고친다**
 #
-# 1단계(DB 층 개명)가 이 파일과 **병렬로** 돌고 있다. 그래서 칸 이름을 코드 여기저기에 흩지
-# 않고 이 표 하나에 모았다. 개명 전/후 이름을 **둘 다** 후보로 적어 두고, 런타임에
-# `information_schema` 로 실제 있는 칸을 골라 쓴다 — **개명 전후 양쪽에서 다 돈다.**
+# 출력 칸 이름 = 운영 `fwd` 뷰의 물리 칸 이름(같다). 옛 이름 후보·개명 탐침은 없다 — 옛 모양은 걷어냈다.
+# 칸이 DB 에 없으면 질의가 실패하고, 그 경로는 기존 `db_error`(자료 없음이 아니라 장애) 안내로 간다.
 #
-#   cands = (새이름, 옛이름)  ← 앞에 있는 것부터 찾아서 처음 있는 것을 쓴다
-#   kind  = money : 물리 칸이 `_eok`(억원)면 ×1e8 해서 **원(KRW)** 으로 통일해 내보낸다
-#                   (마스터 결정 2026-08-30 22:55 — 금액은 전부 원. `_eok` 는 밖으로 안 나간다)
+#   kind  = money : 원(KRW) 정수로 내보낸다. 금액 칸은 전부 원 단위로 저장돼 있다.
+#                   (마스터 결정 2026-08-30 22:55 — 금액은 전부 원. 억원(`_eok`) 은 밖으로 안 나간다)
 #           pct / num / text / bool : 그대로
 #   block = reported(벤더 원천) / derived(우리 계산) / meta(행 식별) / envelope(봉투로 올림)
 #   bundle= core(기본) / growth / quality / keys
 # ─────────────────────────────────────────────────────────────────────────────
-_EOK_TO_KRW = 100_000_000  # 1억원
-
-#: (출력칸, 물리칸 후보들, kind, block, bundle)
-_FIELDS: tuple[tuple[str, tuple[str, ...], str, str, str], ...] = (
+#: (칸 이름 — 물리 칸과 같다, kind, block, bundle)
+_FIELDS: tuple[tuple[str, str, str, str], ...] = (
     # ── 행 식별 (bundle 무관, 항상 나간다) ──────────────────────────────────
-    ("period",        ("period",),        "text", "meta", "always"),
-    ("period_type",   ("period_type",),   "text", "meta", "always"),
-    ("is_estimate",   ("is_estimate",),   "bool", "meta", "always"),
-    ("basis",         ("basis",),         "text", "meta", "always"),
-    ("basis_conflict", ("basis_conflict",), "bool", "meta", "always"),
+    ("period",                       "text", "meta", "always"),
+    ("period_type",                  "text", "meta", "always"),
+    ("is_estimate",                  "bool", "meta", "always"),
+    ("basis",                        "text", "meta", "always"),
+    ("basis_conflict",               "bool", "meta", "always"),
     # ── 봉투로 올리는 칸 (행마다 같은 값 — 16행에 16번 싣지 않는다) ─────────
-    ("as_of",         ("as_of",),         "text", "envelope", "always"),
-    ("price_krw",     ("price_krw",),     "num",  "envelope", "always"),
-    ("price_dd",      ("price_dd",),      "text", "envelope", "always"),
-    ("mktcap_krw",    ("mktcap_krw",),    "num",  "envelope", "always"),
-    ("market",        ("market",),        "text", "envelope", "always"),
-    ("name",          ("name",),          "text", "envelope", "always"),
-    ("sector",        ("sector",),        "text", "envelope", "always"),
-    ("industry",      ("industry",),      "text", "envelope", "always"),
-    ("share_type",    ("share_type",),    "text", "envelope", "always"),
-    ("listing_status", ("listing_status",), "text", "envelope", "always"),
+    ("as_of",                        "text", "envelope", "always"),
+    ("price_krw",                    "num", "envelope", "always"),
+    ("price_dd",                     "text", "envelope", "always"),
+    ("mktcap_krw",                   "num", "envelope", "always"),
+    ("market",                       "text", "envelope", "always"),
+    ("name",                         "text", "envelope", "always"),
+    ("sector",                       "text", "envelope", "always"),
+    ("industry",                     "text", "envelope", "always"),
+    ("share_type",                   "text", "envelope", "always"),
+    ("listing_status",               "text", "envelope", "always"),
     # ── reported — 벤더가 말한 것 ────────────────────────────────────────────
-    ("rev_krw",       ("rev_krw", "rev_eok"),             "money", "reported", "core"),
-    ("op_krw",        ("op_krw", "op_eok"),               "money", "reported", "core"),
-    ("ni_ctrl_krw",   ("ni_ctrl_krw", "ni_ctrl_eok"),     "money", "reported", "core"),
-    ("eps_krw",       ("eps_krw",),                       "num",   "reported", "core"),
-    ("bps_krw",       ("bps_krw",),                       "num",   "reported", "core"),
-    ("dps_krw",       ("dps_krw",),                       "num",   "reported", "core"),
-    ("div_yield_at_period_end_pct",
-     ("div_yield_at_period_end_pct", "div_yield_pct"),    "pct",   "reported", "core"),
-    ("ebitda_krw",    ("ebitda_krw", "ebitda_eok"),       "money", "reported", "quality"),
-    ("roe_pct",       ("roe_pct",),                       "pct",   "reported", "quality"),
-    ("roa_pct",       ("roa_pct",),                       "pct",   "reported", "quality"),
-    ("op_margin_pct", ("op_margin_pct",),                 "pct",   "reported", "quality"),
-    ("net_margin_pct", ("net_margin_pct",),               "pct",   "reported", "quality"),
-    ("payout_pct",    ("payout_pct",),                    "pct",   "reported", "quality"),
-    ("debt_ratio_pct", ("debt_ratio_pct",),               "pct",   "reported", "quality"),
-    ("reserve_ratio_pct", ("reserve_ratio_pct",),         "pct",   "reported", "quality"),
-    ("quick_ratio_pct", ("quick_ratio_pct",),             "pct",   "reported", "quality"),
-    ("capex_krw",     ("capex_krw", "capex_eok"),         "money", "reported", "quality"),
-    ("fcf_krw",       ("fcf_krw", "fcf_eok"),             "money", "reported", "quality"),
-    ("debt_interest_krw",
-     ("debt_interest_krw", "debt_interest_eok"),          "money", "reported", "quality"),
-    ("shares_common", ("shares_common",),                 "num",   "reported", "quality"),
-    ("rev_yoy_vendor_pct",
-     ("rev_yoy_vendor_pct", "rev_yoy_pct"),               "pct",   "reported", "growth"),
+    ("rev_krw",                      "money", "reported", "core"),
+    ("op_krw",                       "money", "reported", "core"),
+    ("ni_ctrl_krw",                  "money", "reported", "core"),
+    ("eps_krw",                      "num", "reported", "core"),
+    ("bps_krw",                      "num", "reported", "core"),
+    ("dps_krw",                      "num", "reported", "core"),
+    ("div_yield_at_period_end_pct",  "pct", "reported", "core"),
+    ("ebitda_krw",                   "money", "reported", "quality"),
+    ("roe_pct",                      "pct", "reported", "quality"),
+    ("roa_pct",                      "pct", "reported", "quality"),
+    ("op_margin_pct",                "pct", "reported", "quality"),
+    ("net_margin_pct",               "pct", "reported", "quality"),
+    ("payout_pct",                   "pct", "reported", "quality"),
+    ("debt_ratio_pct",               "pct", "reported", "quality"),
+    ("reserve_ratio_pct",            "pct", "reported", "quality"),
+    ("quick_ratio_pct",              "pct", "reported", "quality"),
+    ("capex_krw",                    "money", "reported", "quality"),
+    ("fcf_krw",                      "money", "reported", "quality"),
+    ("debt_interest_krw",            "money", "reported", "quality"),
+    ("shares_common",                "num", "reported", "quality"),
+    ("rev_yoy_vendor_pct",           "pct", "reported", "growth"),
     # ── derived — 우리가 계산한 것 ──────────────────────────────────────────
-    ("per",           ("per", "fwd_per"),                 "num",  "derived", "core"),
-    ("pbr",           ("pbr", "fwd_pbr"),                 "num",  "derived", "core"),
-    ("psr",           ("psr", "fwd_psr"),                 "num",  "derived", "core"),
-    ("per_basis",     ("per_basis",),                     "text", "derived", "core"),
-    ("pbr_basis",     ("pbr_basis",),                     "text", "derived", "core"),
-    ("psr_basis",     ("psr_basis",),                     "text", "derived", "core"),
-    ("per_why",       ("per_why",),                       "text", "derived", "core"),
-    ("pbr_why",       ("pbr_why",),                       "text", "derived", "core"),
-    ("psr_why",       ("psr_why",),                       "text", "derived", "core"),
-    ("div_yield_at_price_pct",
-     ("div_yield_at_price_pct", "div_yield_own_pct"),     "pct",  "derived", "core"),
-    ("div_yield_why", ("div_yield_why",),                 "text", "derived", "core"),
-    ("peg",           ("peg",),                           "num",  "derived", "growth"),
-    ("peg_why",       ("peg_why",),                       "text", "derived", "growth"),
-    ("prev_period",   ("prev_period",),                   "text", "derived", "growth"),
-    ("growth_why",    ("growth_why",),                    "text", "derived", "growth"),
-    ("rev_growth_pct", ("rev_growth_pct",),               "pct",  "derived", "growth"),
-    ("op_growth_pct", ("op_growth_pct",),                 "pct",  "derived", "growth"),
-    ("ni_ctrl_growth_pct", ("ni_ctrl_growth_pct",),       "pct",  "derived", "growth"),
-    ("eps_growth_pct", ("eps_growth_pct",),               "pct",  "derived", "growth"),
-    ("dps_growth_pct", ("dps_growth_pct",),               "pct",  "derived", "growth"),
-    ("fcf_growth_pct", ("fcf_growth_pct",),               "pct",  "derived", "growth"),
-    ("rev_growth_disp", ("rev_growth_disp",),             "text", "derived", "growth"),
-    ("op_growth_disp", ("op_growth_disp",),               "text", "derived", "growth"),
-    ("ni_ctrl_growth_disp", ("ni_ctrl_growth_disp",),     "text", "derived", "growth"),
-    ("eps_growth_disp", ("eps_growth_disp",),             "text", "derived", "growth"),
-    ("dps_growth_disp", ("dps_growth_disp",),             "text", "derived", "growth"),
-    ("fcf_growth_disp", ("fcf_growth_disp",),             "text", "derived", "growth"),
-    ("rev_growth_state", ("rev_growth_state",),           "text", "derived", "growth"),
-    ("op_growth_state", ("op_growth_state",),             "text", "derived", "growth"),
-    ("ni_ctrl_growth_state", ("ni_ctrl_growth_state",),   "text", "derived", "growth"),
-    ("eps_growth_state", ("eps_growth_state",),           "text", "derived", "growth"),
-    ("dps_growth_state", ("dps_growth_state",),           "text", "derived", "growth"),
-    ("fcf_growth_state", ("fcf_growth_state",),           "text", "derived", "growth"),
-    ("prev_rev_krw",  ("prev_rev_krw", "prev_rev_eok"),   "money", "derived", "growth"),
-    ("prev_op_krw",   ("prev_op_krw", "prev_op_eok"),     "money", "derived", "growth"),
-    ("prev_ni_ctrl_krw",
-     ("prev_ni_ctrl_krw", "prev_ni_ctrl_eok"),            "money", "derived", "growth"),
-    ("prev_eps_krw",  ("prev_eps_krw",),                  "num",  "derived", "growth"),
-    ("prev_dps_krw",  ("prev_dps_krw",),                  "num",  "derived", "growth"),
-    ("prev_fcf_krw",  ("prev_fcf_krw", "prev_fcf_eok"),   "money", "derived", "growth"),
+    ("per",                          "num", "derived", "core"),
+    ("pbr",                          "num", "derived", "core"),
+    ("psr",                          "num", "derived", "core"),
+    ("per_basis",                    "text", "derived", "core"),
+    ("pbr_basis",                    "text", "derived", "core"),
+    ("psr_basis",                    "text", "derived", "core"),
+    ("per_why",                      "text", "derived", "core"),
+    ("pbr_why",                      "text", "derived", "core"),
+    ("psr_why",                      "text", "derived", "core"),
+    ("div_yield_at_price_pct",       "pct", "derived", "core"),
+    ("div_yield_why",                "text", "derived", "core"),
+    ("peg",                          "num", "derived", "growth"),
+    ("peg_why",                      "text", "derived", "growth"),
+    ("prev_period",                  "text", "derived", "growth"),
+    ("growth_why",                   "text", "derived", "growth"),
+    ("rev_growth_pct",               "pct", "derived", "growth"),
+    ("op_growth_pct",                "pct", "derived", "growth"),
+    ("ni_ctrl_growth_pct",           "pct", "derived", "growth"),
+    ("eps_growth_pct",               "pct", "derived", "growth"),
+    ("dps_growth_pct",               "pct", "derived", "growth"),
+    ("fcf_growth_pct",               "pct", "derived", "growth"),
+    ("rev_growth_disp",              "text", "derived", "growth"),
+    ("op_growth_disp",               "text", "derived", "growth"),
+    ("ni_ctrl_growth_disp",          "text", "derived", "growth"),
+    ("eps_growth_disp",              "text", "derived", "growth"),
+    ("dps_growth_disp",              "text", "derived", "growth"),
+    ("fcf_growth_disp",              "text", "derived", "growth"),
+    ("rev_growth_state",             "text", "derived", "growth"),
+    ("op_growth_state",              "text", "derived", "growth"),
+    ("ni_ctrl_growth_state",         "text", "derived", "growth"),
+    ("eps_growth_state",             "text", "derived", "growth"),
+    ("dps_growth_state",             "text", "derived", "growth"),
+    ("fcf_growth_state",             "text", "derived", "growth"),
+    ("prev_rev_krw",                 "money", "derived", "growth"),
+    ("prev_op_krw",                  "money", "derived", "growth"),
+    ("prev_ni_ctrl_krw",             "money", "derived", "growth"),
+    ("prev_eps_krw",                 "num", "derived", "growth"),
+    ("prev_dps_krw",                 "num", "derived", "growth"),
+    ("prev_fcf_krw",                 "money", "derived", "growth"),
     # ── keys — 정본이 셋인 연도 칸·내부 키. 기본에서 숨긴다 ──────────────────
     #    `fiscal_year`·`fy_end`·`fy_major` 는 30,609행 중 각각 191/218/307행이 서로 다르다.
     #    이름 셋 다 그럴듯해서 그냥 내보내면 LLM 이 아무거나 고른다(판정 5장 ⑤).
     #    1단계가 `fy_canonical`(정본) + `fy_canonical_src`(어느 칸에서 왔나)를 세웠다.
-    ("fy_canonical",  ("fy_canonical",),                  "num",  "keys", "keys"),
-    ("fy_canonical_src", ("fy_canonical_src",),           "text", "keys", "keys"),
-    ("fy_series_irregular", ("fy_series_irregular",),     "bool", "keys", "keys"),
-    ("fiscal_year",   ("fiscal_year",),                   "num",  "keys", "keys"),
-    ("fy_end",        ("fy_end",),                        "num",  "keys", "keys"),
-    ("fy_major",      ("fy_major",),                      "num",  "keys", "keys"),
-    ("period_end",    ("period_end",),                    "text", "keys", "keys"),
-    ("period_months", ("period_months",),                 "num",  "keys", "keys"),
-    ("fyr",           ("fyr",),                           "num",  "keys", "keys"),
-    ("basis_from",    ("basis_from",),                    "text", "keys", "keys"),
-    ("sec_id",        ("sec_id",),                        "num",  "keys", "keys"),
-    ("co_id",         ("co_id",),                         "num",  "keys", "keys"),
+    ("fy_canonical",                 "num", "keys", "keys"),
+    ("fy_canonical_src",             "text", "keys", "keys"),
+    ("fy_series_irregular",          "bool", "keys", "keys"),
+    ("fiscal_year",                  "num", "keys", "keys"),
+    ("fy_end",                       "num", "keys", "keys"),
+    ("fy_major",                     "num", "keys", "keys"),
+    ("period_end",                   "text", "keys", "keys"),
+    ("period_months",                "num", "keys", "keys"),
+    ("fyr",                          "num", "keys", "keys"),
+    ("basis_from",                   "text", "keys", "keys"),
+    ("sec_id",                       "num", "keys", "keys"),
+    ("co_id",                        "num", "keys", "keys"),
 )
 
 #: 추정 행에서 **채움률 0.0%** 인 칸들(판정 5장 ⑧, 실측 2026-08-30).
@@ -168,7 +159,7 @@ _BUNDLES = ("core", "growth", "quality", "keys", "revision")
 # `partial=true` 로 밝힌다(「없음」과 「짧음」을 구별한다). 분모는 |기준값| — 적자에서 흑자로
 # 돌아선 것도 방향은 「상향」이다.
 #
-# DB 보관(261018): 주별 모양은 13주, 구간형 저장(값이 바뀔 때만 새 판) 뒤로는 창 `FWD_HOT_WEEKS`(기본 52주) —
+# DB 보관(구간형 저장 — 값이 바뀔 때만 새 판, 창 `FWD_HOT_WEEKS`, 기본 52주) —
 # `open_proxy_mcp/fwd_window.py`. 26w·52w 는 그래서 생겼다. 이 둘은 **이력이 앞 창보다 길 때만** 싣는다 —
 # 이력 7주에서 26w 를 「가장 오래된 스냅샷과 부분 비교」로 내면 12w 와 같은 날짜·같은 값이 칸만 늘린다.
 # 1w·4w·12w 는 종전대로 짧으면 부분 비교로 싣는다(응답 계약 그대로).
@@ -179,7 +170,7 @@ _REV_WINDOWS_ALL: tuple[tuple[str, int], ...] = _REV_WINDOWS + _REV_WINDOWS_LONG
 _REV_LONG_NAMES = frozenset(n for n, _ in _REV_WINDOWS_LONG)
 _REV_METRICS: tuple[str, ...] = ("rev_krw", "op_krw", "ni_ctrl_krw", "eps_krw", "dps_krw")
 _REV_MIN_GAP_DAYS = 6  # 이보다 가까운 스냅샷은 「전」이 아니다
-#: 유니버스 스크린이 읽는 이력 폭(일) — 창 일수 + 1주, 적어도 13주. 주별 모양의 13주 보관과 같은 관측 폭이라
+#: 유니버스 스크린이 읽는 이력 폭(일) — 창 일수 + 1주, 적어도 13주.
 #: 「단발 갱신」(관측 구간 내내 보합이다가 한 번만 움직임) 판정이 보관이 52주로 늘어도 같은 뜻을 지킨다.
 _REV_SCREEN_MIN_DAYS = 91
 
@@ -320,47 +311,33 @@ def compute_revision(hist: list[dict[str, Any]], windows=_REV_WINDOWS_ALL, *,
             "windows_not_reached": not_reached}
 
 
-_hist_cache: dict[str, Any] = {"at": 0.0, "ok": None, "cal": False, "latest": None}
+_latest_cache: dict[str, Any] = {"at": 0.0, "latest": None}
 
 
-def _hist_available() -> bool | None:
-    """`fwd_hist` 표가 있나 — 10분 캐시. None = DB 장애.
-    없는 표를 바로 질의하면 db.pg_rows 가 풀을 60초 내린다(질의 오류를 장애로 본다) —
-    그래서 `to_regclass` 로 먼저 묻는다. 이건 표가 없어도 오류가 아니다.
-    같은 질의가 저장 모양(주별 / 달력 — `open_proxy_mcp/fwd_window.py`)도 알아 두고, 달력 모양이면
-    달력의 최신 날짜를 함께 캐시한다(이력 질의의 창 조건·「최신 스냅샷에 없음」 표시가 쓴다)."""
+def _hist_latest() -> Any | None:
+    """게시 달력(`fwd_asof`)의 최신 날짜 — 10분 캐시. None = DB 장애(또는 달력이 비어 모름).
+    「최신 스냅샷에 없음」 표시(`_stale_snapshot_warning`)가 쓴다."""
     from open_proxy_mcp import fwd_window as fw
 
     now = time.monotonic()
-    if _hist_cache["ok"] is not None and now - _hist_cache["at"] < 600:
-        return _hist_cache["ok"]
-    r = pg_rows(fw.PROBE_SQL)
-    if r is None:
+    if _latest_cache["latest"] is not None and now - _latest_cache["at"] < 600:
+        return _latest_cache["latest"]
+    lr = pg_rows(fw.LATEST_SQL_CALENDAR)
+    if lr is None:
         return None
-    ok, cal = fw.parse_probe(r[0] if r else None)
-    latest = None
-    if cal:
-        lr = pg_rows(fw.LATEST_SQL_CALENDAR)
-        if lr is None:
-            return None
-        latest = lr[0][0] if lr else None
-    _hist_cache.update(at=now, ok=ok, cal=cal, latest=latest)
-    return _hist_cache["ok"]
-
-
-def _hist_on_calendar() -> bool:
-    """`fwd_hist` 가 게시 달력 위의 뷰인가(구간형 저장 뒤). `_hist_available()` 이 채운 값을 읽는다 — 모르면 주별 모양."""
-    return bool(_hist_cache.get("cal"))
+    latest = lr[0][0] if lr else None
+    _latest_cache.update(at=now, latest=latest)
+    return latest
 
 
 def _db_hist_weeks() -> int:
-    """DB 가 담는 이력 주 수 — 주별 모양 13, 달력 모양은 창(`FWD_HOT_WEEKS`, 기본 52). 안내 문구가 쓴다."""
+    """DB 가 담는 이력 주 수 — 창(`FWD_HOT_WEEKS`, 기본 52). 안내 문구가 쓴다."""
     from open_proxy_mcp import fwd_window as fw
-    return fw.hot_weeks() if _hist_on_calendar() else fw.LEGACY_HIST_WEEKS
+    return fw.hot_weeks()
 
 
 def _hist_source_note() -> str:
-    """리비전 출처 한 줄 — 실제 보관을 말한다(주별 모양 13주 / 달력 모양 창 52주). 창 밖은 DB 밖 보관본이다."""
+    """리비전 출처 한 줄 — DB 보관(창)을 말한다. 창 밖은 DB 밖 보관본이다."""
     return (f"출처 `fwd_hist`(주 1회 토 스냅샷 — DB 에는 최근 {_db_hist_weeks()}주를 두고, 그보다 오래된 주는 "
             "DB 밖 보관본에만 있어 이 도구가 읽지 않는다)")
 
@@ -368,8 +345,8 @@ def _hist_source_note() -> str:
 def _long_windows_warning(revision: dict[str, Any]) -> str | None:
     """이력이 못 닿아 뺀 긴 창(26w·52w) 안내 한 줄, 뺀 창이 없으면 None.
 
-    「이력이 쌓이면 나온다」는 그 창이 DB 보관 안에 들 때만 참이다 — 주별 모양(보관 13주)에서 26w·52w 는 이력이
-    아무리 쌓여도 나오지 않는다. 그래서 창마다 DB 보관(`_db_hist_weeks()`)과 견줘 말을 가른다 (261018 검토)."""
+    「이력이 쌓이면 나온다」는 그 창이 DB 보관(창 일수) 안에 들 때만 참이다 — 그 밖의 창은 이력이 아무리 쌓여도
+    나오지 않는다. 그래서 창마다 DB 보관(`_db_hist_weeks()`)과 견줘 말을 가른다 (261018 검토)."""
     names = revision.get("windows_not_reached") or []
     if not (revision.get("rows") and names):
         return None
@@ -388,22 +365,14 @@ def _long_windows_warning(revision: dict[str, Any]) -> str | None:
 
 
 def _fetch_hist(stock_code: str) -> list[dict[str, Any]] | None:
-    """`fwd_hist` 추정 행 전부(DB 창 안 — 주별 모양 13주, 달력 모양 52주). None = DB 장애. [] = 표 없음/이력 없음."""
+    """`fwd_hist` 추정 행 전부(DB 창 안 — 52주). None = DB 장애. [] = 이력 없음."""
     from open_proxy_mcp import fwd_window as fw
 
-    avail = _hist_available()
-    if avail is None:
-        return None
-    if not avail:
-        return []
     cols = ("as_of", "period", "period_type") + _REV_METRICS
-    sql = f"SELECT {', '.join(cols)} FROM fwd_hist WHERE stock_code=%s AND is_estimate"
-    params: tuple = (stock_code,)
-    if _hist_on_calendar():
-        # 창 밖 날짜는 판 일부가 이미 보관본으로 옮겨졌을 수 있다 — 읽지 않는다(`fwd_window` 「창」).
-        sql += " AND " + fw.window_cond()
-        params += (fw.window_days(),)
-    rows = pg_rows(sql + " ORDER BY as_of", params)
+    # 창 밖 날짜는 판 일부가 이미 보관본으로 옮겨졌을 수 있다 — 읽지 않는다(`fwd_window` 「창」).
+    sql = (f"SELECT {', '.join(cols)} FROM fwd_hist WHERE stock_code=%s AND is_estimate "
+           "AND " + fw.window_cond())
+    rows = pg_rows(sql + " ORDER BY as_of", (stock_code, fw.window_days()))
     if rows is None:
         return None
     return [dict(zip(cols, r)) for r in rows]
@@ -418,52 +387,18 @@ _PER_DEF_FALLBACK = "주가 ÷ EPS"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 물리 칸 해석 — 1단계 개명 전/후 어느 쪽이든 돈다
+# 칸 읽기 — 표 칸 이름은 `_FIELDS` 그대로 쓴다
 # ─────────────────────────────────────────────────────────────────────────────
-_cols_cache: tuple[float, frozenset[str] | None] = (0.0, None)
-_COLS_TTL = 300.0  # 초. 1단계가 도는 중이라 짧게 둔다(개명이 반영되기까지의 지연)
-
-
-def _live_columns(force: bool = False) -> frozenset[str] | None:
-    """운영 `fwd` 표에 **실제로 있는** 칸 이름. None = DB 미설정/장애.
-
-    칸 이름을 상상하지 않는다. 1단계 개명이 병렬로 진행 중이라 코드가 아는 이름과 DB 의 이름이
-    어긋날 수 있는데, 어긋난 순간 조용히 `column does not exist` 로 죽는 대신 **있는 쪽을 고른다.**
-    """
-    global _cols_cache
-    ts, cached = _cols_cache
-    if not force and cached is not None and (time.monotonic() - ts) < _COLS_TTL:
-        return cached
-    rows = pg_rows("SELECT column_name FROM information_schema.columns "
-                   "WHERE table_schema='public' AND table_name='fwd'")
-    if rows is None:
-        return None
-    cols = frozenset(r[0] for r in rows)
-    _cols_cache = (time.monotonic(), cols)
-    return cols
-
-
-def resolve_columns(live: frozenset[str]) -> dict[str, str]:
-    """출력칸 → 물리칸. 후보 중 **DB 에 실제로 있는 첫 번째**를 고른다. 없으면 뺀다."""
-    out: dict[str, str] = {}
-    for name, cands, _kind, _block, _bundle in _FIELDS:
-        for c in cands:
-            if c in live:
-                out[name] = c
-                break
-    return out
-
-
 def _spec(name: str) -> tuple[str, str, str]:
     """(kind, block, bundle)."""
-    for n, _c, kind, block, bundle in _FIELDS:
+    for n, kind, block, bundle in _FIELDS:
         if n == name:
             return kind, block, bundle
     return "text", "reported", "keys"
 
 
-def _to_krw(v: Any, physical: str) -> int | None:
-    """금액 칸을 **원(KRW)** 으로 통일. 물리 칸이 `_eok` 면 ×1e8.
+def _to_krw(v: Any) -> int | None:
+    """금액 칸을 **원(KRW)** 정수로. 칸은 전부 원 단위 물리 칸이다 — 억원(`_eok`) 칸과 ×1e8 분기는 걷어냈다.
 
     마스터 결정(2026-08-30 22:55): 금액은 전부 원. 억원은 응답 밖으로 나가지 않는다.
     한 답변에 `rev_eok=7,384,675.3`(억원)과 `net_income_ttm_krw=44,260,960,000,000`(원)이
@@ -471,18 +406,17 @@ def _to_krw(v: Any, physical: str) -> int | None:
     """
     if v is None:
         return None
-    x = float(v) * (_EOK_TO_KRW if physical.endswith("_eok") else 1)
-    return int(round(x))
+    return int(round(float(v)))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 조회
 # ─────────────────────────────────────────────────────────────────────────────
-def _fetch(stock_code: str, colmap: dict[str, str]) -> list[dict[str, Any]] | None:
-    """최신 as_of 한 벌. None = DB 장애."""
-    names = list(colmap.keys())
-    phys = [colmap[n] for n in names]
-    sql = (f"SELECT {', '.join(phys)} FROM fwd "
+def _fetch(stock_code: str) -> list[dict[str, Any]] | None:
+    """최신 as_of 한 벌. None = DB 장애 — 필수 칸이 없어도 질의가 실패해 여기로 온다."""
+    names = [f[0] for f in _FIELDS]
+    kinds = {f[0]: f[1] for f in _FIELDS}
+    sql = (f"SELECT {', '.join(names)} FROM fwd "
            "WHERE stock_code=%s AND as_of=(SELECT MAX(as_of) FROM fwd WHERE stock_code=%s) "
            "ORDER BY period, period_type")
     rows = pg_rows(sql, (stock_code, stock_code))
@@ -493,9 +427,9 @@ def _fetch(stock_code: str, colmap: dict[str, str]) -> list[dict[str, Any]] | No
         rec: dict[str, Any] = {}
         for i, n in enumerate(names):
             v = r[i]
-            kind = _spec(n)[0]
+            kind = kinds[n]
             if kind == "money":
-                v = _to_krw(v, colmap[n])
+                v = _to_krw(v)
             elif kind == "text" and v is not None:
                 v = str(v)
             rec[n] = v
@@ -506,15 +440,14 @@ def _fetch(stock_code: str, colmap: dict[str, str]) -> list[dict[str, Any]] | No
 def _stale_snapshot_warning(as_of: Any) -> str | None:
     """종목의 최신 스냅샷이 전체 최신 스냅샷보다 이르면 경고 한 줄, 아니면 None.
 
-    `_fetch` 는 그 종목이 있는 가장 늦은 날을 읽는다. 주별 모양은 88칸을 4주만 담아 늦어 봐야 3주였지만, 달력 모양은
-    창(52주) 안 어느 주든 될 수 있다 — 수집 대상에서 빠진 종목(상장폐지·거래정지 등)의 반년 전 값을 「지금」으로
-    읽으면 안 된다. 달력의 최신 날짜는 `_hist_available()` 캐시(10분)에서 꺼낸다. 주별 모양이거나 모르면 None —
-    주별 모양의 응답은 종전과 같다."""
+    `_fetch` 는 그 종목이 있는 가장 늦은 날을 읽는다. 달력 창(52주) 안 어느 주든 될 수 있다 — 수집 대상에서 빠진
+    종목(상장폐지·거래정지 등)의 반년 전 값을 「지금」으로 읽으면 안 된다. 최신 날짜는 `_hist_latest()`(10분 캐시)에서
+    꺼낸다. 최신 날짜를 모르면(DB 장애) None — 경고를 생략한다."""
     import datetime as _dt
 
-    if not as_of or not _hist_available() or not _hist_on_calendar():
+    if not as_of:
         return None
-    latest = _hist_cache.get("latest")
+    latest = _hist_latest()
     if latest is None:
         return None
     mine = as_of if isinstance(as_of, _dt.date) else _dt.date.fromisoformat(str(as_of)[:10])
@@ -724,17 +657,7 @@ async def build_forward_estimates_payload(
     isu = corp["stock_code"]
     subject = corp.get("corp_name", query)
 
-    live = await asyncio.to_thread(_live_columns)
-    if live is None:
-        return {"tool": TOOL, "status": "db_error", "subject": subject,
-                "warnings": ["추정치 DB(Supabase `fwd`) 접속 실패 — **자료 없음이 아니라 장애**다. "
-                             "잠시 후 재시도. 계속되면 운영에 알릴 것."]}
-    colmap = resolve_columns(live)
-    if "period" not in colmap or "is_estimate" not in colmap:
-        return {"tool": TOOL, "status": "db_error", "subject": subject,
-                "warnings": ["`fwd` 표 구조를 알아보지 못했다(필수 칸 없음) — 스키마 개명 진행 중일 수 있다."]}
-
-    recs = await asyncio.to_thread(_fetch, isu, colmap)
+    recs = await asyncio.to_thread(_fetch, isu)
     if recs is None:
         return {"tool": TOOL, "status": "db_error", "subject": subject,
                 "warnings": ["추정치 DB 조회 실패 — **자료 없음이 아니라 장애**다."]}
@@ -743,11 +666,11 @@ async def build_forward_estimates_payload(
         return {"tool": TOOL, "status": "no_estimates", "subject": subject,
                 "data": {"ticker": isu, "coverage": {"in_snapshot": False, "estimate_rows": 0}},
                 "warnings": [f"'{subject}'({isu}) 는 컨센서스 추정치 스냅샷 `fwd` 에 **아예 없다** — "
-                             "커버리지 밖 종목(전체 2,764종목 중 추정 보유 713종목, 25.8%). "
+                             "커버리지 밖 종목(전체 상장사의 약 4분의 1만 추정치를 가진다). "
                              "DB 장애가 아니고 종목 오인도 아니다. "
                              "확정 실적·배수는 `price_multiple_data`·`financial_metrics` 로."]}
 
-    env = {n: recs[0].get(n) for n, _c, _k, block, _b in _FIELDS if block == "envelope"}
+    env = {n: recs[0].get(n) for n, _k, block, _b in _FIELDS if block == "envelope"}
     mktcap = env.get("mktcap_krw")
     gaps = _apply_multiples(recs, mktcap, env.get("price_krw"), env.get("price_dd"))
 
@@ -770,7 +693,7 @@ async def build_forward_estimates_payload(
                         f"core / growth / quality / keys / all 중에서 고르세요.")
     if not est_rows:
         warnings.append(f"'{subject}'({isu}) 는 **컨센서스 추정치가 없다** — 실적 행만 있다. "
-                        "커버리지 밖 종목이다(전체 2,764종목 중 추정 보유 713종목, 25.8%). "
+                        "커버리지 밖 종목이다(전체 상장사의 약 4분의 1만 추정치를 가진다). "
                         "애널리스트 미커버 소형주에서 정상이다. DB 장애가 아니다.")
     if gaps:
         warnings.append("⚠ 벤더 원본(주가÷EPS)과 우리 PER(시총÷지배순이익)이 10% 이상 갈리는 기간: "
@@ -886,16 +809,11 @@ def _screen_span_days(window_days: int) -> int:
 def _fetch_hist_many(codes: list[str] | None, period_type: str,
                      span_days: int | None = None) -> list[tuple] | None:
     """유니버스의 `fwd_hist` 추정 행을 한 질의로. codes=None 이면 커버리지 전 종목.
-    None = DB 장애 · [] = 표 없음/이력 없음.
-    span_days: 달력 모양(이력 52주)에서 최신 날짜부터 읽을 일수 — 전 종목 52주를 매번 읽지 않는다
-    (로컬 2년 합성 실측: 전 이력 210ms → 13주 67ms). 주별 모양은 13주뿐이라 붙이지 않는다(질의 그대로)."""
+    None = DB 장애 · [] = 이력 없음.
+    span_days: 최신 날짜부터 읽을 일수 — 전 종목 창 전부를 매번 읽지 않는다
+    (로컬 2년 합성 실측: 전 이력 210ms → 13주 67ms)."""
     from open_proxy_mcp import fwd_window as fw
 
-    avail = _hist_available()
-    if avail is None:
-        return None
-    if not avail:
-        return []
     sql = f"SELECT {', '.join(_REV_SCREEN_COLS)} FROM fwd_hist WHERE is_estimate"
     params: list[Any] = []
     if period_type in ("FY", "Q"):
@@ -904,9 +822,8 @@ def _fetch_hist_many(codes: list[str] | None, period_type: str,
     if codes is not None:
         sql += " AND stock_code = ANY(%s)"
         params.append(codes)
-    if _hist_on_calendar():
-        sql += " AND " + fw.window_cond()
-        params.append(min(fw.window_days(), span_days) if span_days else fw.window_days())
+    sql += " AND " + fw.window_cond()
+    params.append(min(fw.window_days(), span_days) if span_days else fw.window_days())
     sql += " ORDER BY stock_code, as_of"
     return pg_rows(sql, tuple(params))
 
@@ -1184,9 +1101,9 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
 # 컨센서스라 매출 −31.5% 의 **가짜 차이**가 났다 → 연결/별도가 다르면 계산하지 않는다. 기준일 간격 2~12일.
 #
 # 상태는 여기서 가른다 — 직전 스냅샷에 그 분기가 없으면 `out_of_coverage`, 이력이 공시일까지 못 닿으면
-# `out_of_history`(DB 에 둔 이력 창 밖 — 주별 모양 13주, 구간형 저장 뒤 52주), DB 장애면 `unknown`. 셋 다 「컨센서스가
-# 없었다」가 아니라 「우리가 모른다」다. 구간형 저장 뒤(달력 모양)에는 두 질의 모두 리비전 이력과 같은 창 조건을 붙인다
-# (`fwd_window` 「창」 — 창 밖 날짜는 판 일부만 남아 읽지 않는다). 주별 모양의 질의는 글자까지 그대로다(261018).
+# `out_of_history`(DB 에 둔 이력 창 밖 — 창 52주), DB 장애면 `unknown`. 셋 다 「컨센서스가
+# 없었다」가 아니라 「우리가 모른다」다. 두 질의 모두 리비전 이력과 같은 창 조건을 붙인다
+# (`fwd_window` 「창」 — 창 밖 날짜는 판 일부만 남아 읽지 않는다).
 # 도구는 `ok` 일 때만 칸을 싣는다(261018 결정) — 모르면 컨센서스를 보이지 않고 잠정 값만 보인다.
 # ─────────────────────────────────────────────────────────────────────────────
 #: (잠정실적 headline 키, `fwd_hist` 칸). 순이익은 **지배주주순이익끼리만** 맞댄다 — 컨센서스가 지배순이익이다.
@@ -1197,7 +1114,7 @@ _GAP_COLS: tuple[str, ...] = ("as_of", "period", "is_estimate", "basis", "rev_kr
 
 
 def _gap_source() -> str:
-    """출처 한 줄 — 실제 DB 보관을 말한다(주별 모양 13주 / 달력 모양 창 52주). 「13주 롤링」을 박아 두면 저장 전환 뒤 틀린다."""
+    """출처 한 줄 — 실제 DB 보관(창 일수)을 말한다. 보관 주 수를 글자로 박아 두지 않는다(창 길이는 설정값이다)."""
     return (f"컨센서스 추정치 주간 스냅샷 `fwd_hist` (토요일 적재, DB 에는 최근 {_db_hist_weeks()}주 — 그보다 오래된 주는 "
             "DB 밖 보관본) — DART 공시가 아니다")
 
@@ -1214,26 +1131,16 @@ def _as_date(v: Any):
 def _fetch_quarter_consensus(stock_code: str, period_end: Any, filed: Any) -> dict[str, Any] | None:
     """한 종목·한 분기의 `fwd_hist` 스냅샷 전부 + 「이력이 공시일 전까지 닿나」. None = DB 장애.
 
-    두 번째 질의(`EXISTS … as_of < 공시일`)는 4ms — 전체 최소 as_of(1.6초)를 묻지 않는다.
-    달력 모양(구간형 저장 뒤)이면 둘 다 창 안만 본다 — 스냅샷은 창 조건을, 「닿나」는 뷰 대신 게시 달력(`fwd_asof`)을
-    같은 창으로 묻는다(뷰는 그 날 유효한 판을 잇느라 무겁다. 게시된 날 = 뷰에 행이 있는 날). 주별 모양 질의는 그대로다.
+    「닿나」는 뷰 대신 게시 달력(`fwd_asof`)을 창 안에서 묻는다(뷰는 그 날 유효한 판을 잇느라 무겁다.
+    게시된 날 = 뷰에 행이 있는 날). 전체 최소 as_of 는 묻지 않는다.
     """
     from open_proxy_mcp import fwd_window as fw
 
-    avail = _hist_available()
-    if avail is None:
-        return None
-    if not avail:
-        return {"rows": [], "history_reaches": False}
     sql = (f"SELECT {', '.join(_GAP_COLS)} FROM fwd_hist "
-           "WHERE stock_code=%s AND period_type='Q' AND period_end=%s")
-    params: tuple = (stock_code, _as_date(period_end))
-    reach_sql, reach_params = "SELECT EXISTS (SELECT 1 FROM fwd_hist WHERE as_of < %s)", (_as_date(filed),)
-    if _hist_on_calendar():
-        sql += " AND " + fw.window_cond()
-        params += (fw.window_days(),)
-        reach_sql = "SELECT EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND " + fw.window_cond() + ")"
-        reach_params += (fw.window_days(),)
+           "WHERE stock_code=%s AND period_type='Q' AND period_end=%s AND " + fw.window_cond())
+    params: tuple = (stock_code, _as_date(period_end), fw.window_days())
+    reach_sql = "SELECT EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND " + fw.window_cond() + ")"
+    reach_params: tuple = (_as_date(filed), fw.window_days())
     rows = pg_rows(sql + " ORDER BY as_of", params)
     if rows is None:
         return None
