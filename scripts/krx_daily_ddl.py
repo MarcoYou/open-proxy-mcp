@@ -24,8 +24,12 @@
     직전 보관 행 칸을 창 함수 lag 대신 칸마다 스칼라 부분질의(기본키 역방향 한 번)로 낸다 — `WHERE trd_dd=…` 가 표까지 내려가고,
     그 칸을 읽지 않는 단면 질의는 부분질의를 돌리지 않는다. 끝에 `krx_chg`·`krx_chg_pct`(KRX 공표 대비·등락률)를 더한다.
     `price_latest` 는 종목표에서 출발해 종목당 기본키 역방향 한 번(전 행 계산 뒤 DISTINCT ON 하지 않는다), 출력은 종목순(옛 뷰와 같다).
-■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`). 서버 역할은 RLS 를 우회하고, 읽기 전용 역할(`opm_ro`)은
-    이 정책 + 명시적 `GRANT SELECT` 로 읽는다. 뷰는 `security_invoker` 라 호출자 권한으로 평가된다.
+■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`). 읽기 전용 역할(`opm_ro`)은 이 정책 + 명시적 `GRANT SELECT` 로
+    읽는다. 뷰는 `security_invoker` 라 호출자 권한으로 평가된다. 쓰는 쪽이 표 소유자도 BYPASSRLS 도 아닌 최소 권한 서버 계정이어도 되게
+    한다 — 그 계정의 권한·쓰기 정책은 계정 스크립트가 주고, 이 스크립트는 그 계정이 스스로 못 하는 일 하나를 둔다:
+    `krx_px_brin_desummarize(date[])` — 보관 창 정리 직전의 BRIN 요약 지우기(`brin_desummarize_range` 는 색인 소유자만 부를 수 있다 —
+    PG17 MAINTAIN 권한으로도 안 된다)를 소유자 권한으로 하는 SECURITY DEFINER 함수. 값은 바꾸지 않는다(요약만 지우고 다음 VACUUM 이
+    다시 요약한다). PUBLIC 실행 권한은 거둔다(쓰는 계정에만 준다). 쓰는 쪽(`krx_daily._desummarize`)은 함수가 없으면 직접 부른다.
     🔴 `anon`·`authenticated` 에는 **권한을 주지 않는다** — 이 프로젝트의 기본 권한 설정이 새 표·뷰를 만들 때 두 역할에 SELECT 를
     자동으로 주므로 명시적으로 거둔다.
 ■ 보관은 쓰는 쪽이 한다(`open_proxy_mcp/krx_daily.py`): 최신 거래일 − 달력 1년 − 1주 밖의 날을 지우되, **콜드 보관본에 들어간 날
@@ -163,10 +167,32 @@ def _wk_close_sql() -> str:
     return WK_CLOSE_SQL.rstrip().rstrip(";") + ";\n"
 
 
+#: BRIN 요약 지우기를 소유자 권한으로(모듈 독스트링 「접근 제어」) — 함수 이름·색인·범위 크기는 쓰는 쪽(`open_proxy_mcp/krx_daily.py`)의
+#: 상수 한 곳에서 가져온다. 하는 일은 `krx_daily.PRUNE_DESUMMARIZE_SQL` 과 같다(그 날들의 행이 있는 블록 범위마다 한 번) → 지운 범위 수.
+def _desummarize_fn_sql() -> str:
+    from open_proxy_mcp.krx_daily import BRIN_INDEX, BRIN_PAGES_PER_RANGE, PRUNE_DESUMMARIZE_FN
+    return f"""\
+CREATE OR REPLACE FUNCTION {PRUNE_DESUMMARIZE_FN}(days date[]) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $fn$
+DECLARE b bigint; n integer := 0;
+BEGIN
+  FOR b IN SELECT DISTINCT ((p.ctid::text::point)[0]::bigint / {BRIN_PAGES_PER_RANGE}) * {BRIN_PAGES_PER_RANGE}
+           FROM public.krx_px p WHERE p.trd_dd = ANY(days) LOOP
+    PERFORM brin_desummarize_range('public.{BRIN_INDEX}'::regclass, b);
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END $fn$;
+REVOKE ALL ON FUNCTION {PRUNE_DESUMMARIZE_FN}(date[]) FROM PUBLIC, anon, authenticated;
+"""
+
+
+#: 표 + 소유자 함수 — 모든 모드의 앞부분.
+BASE = TABLES + _desummarize_fn_sql()
 #: 새 DB(시험·로컬): 표 + 같은 이름 뷰.
-STATEMENTS = TABLES + _views("")
+STATEMENTS = BASE + _views("")
 #: 운영 그림자(옛 표 그대로): 표 + 그림자 뷰.
-SHADOW_STATEMENTS = TABLES + _views("_s")
+SHADOW_STATEMENTS = BASE + _views("_s")
 
 #: 운영 교체 — 옛 표에만 있는 날을 옮기고(cmp NULL — 교체 뒤 KRX 원본으로 채운다) 이름을 바꾼 뒤 같은 이름 뷰를 만든다.
 #: 갱신기 잠금 키를 트랜잭션 동안 쥔다(갱신기는 try 라 그동안 건너뛴다). 이 PR 의 코드 배포와 같은 창이어야 한다(옛 쓰기 코드는 뷰에 INSERT 못 함).
@@ -285,7 +311,7 @@ def body(mode: str) -> str:
     if mode == "shadow":
         return SHADOW_STATEMENTS
     if mode == "switch":
-        return TABLES + SWITCH_STATEMENTS.replace("{WK_CLOSE}", _wk_close_sql())
+        return BASE + SWITCH_STATEMENTS.replace("{WK_CLOSE}", _wk_close_sql())
     raise ValueError(mode)
 
 

@@ -128,8 +128,17 @@ DAY_UPSERT_SQL = ("INSERT INTO krx_day (trd_dd, dd, n, closed) VALUES (%s, %s, %
                   "ON CONFLICT (trd_dd) DO UPDATE SET n = EXCLUDED.n, closed = false")
 #: 같은 날을 다시 쓰면(드묾 — 갱신기는 없는 날만 쓴다) 그 날 행을 통째로 바꾼다.
 DAY_ROWS_DELETE_SQL = "DELETE FROM krx_px WHERE trd_dd = %s"
-#: 종목 번호순으로 넣는다 — 같은 날 행이 물리적으로 모여 BRIN(날짜 범위 요약 색인)이 촘촘하다.
-COPY_PX_SQL = "COPY krx_px (value, volume, list_shrs, open, high, low, close, cmp, trd_dd, tid, market) FROM STDIN"
+#: 한 거래일 전종목을 **한 문장**으로 넣는다 — 칸마다 배열 하나(`PX_COLUMNS` 순서, 종목 번호순으로 정렬해 넘긴다)를 `unnest` 가 행으로 펼치고,
+#: WITH ORDINALITY 순서대로 넣는다. 같은 날 행이 물리적으로 모여 BRIN(날짜 범위 요약 색인)이 촘촘하다.
+#: 🔴 COPY 를 쓰지 않는다 — RLS(행 단위 접근 제어)가 켜진 표에는 표 소유자·BYPASSRLS 가 아닌 역할(최소 권한 서버 계정)이
+#:    `COPY FROM` 을 못 한다(PG17 `COPY FROM not supported with row-level security`, 261019 로컬 실측). INSERT 는 RLS 정책을 그대로 따른다.
+PX_COLUMNS = ("value", "volume", "list_shrs", "open", "high", "low", "close", "cmp", "tid", "market")
+INSERT_PX_SQL = (
+    "INSERT INTO krx_px (value, volume, list_shrs, open, high, low, close, cmp, trd_dd, tid, market) "
+    "SELECT u.value, u.volume, u.list_shrs, u.open, u.high, u.low, u.close, u.cmp, %s::date, u.tid, u.market::\"char\" "
+    "FROM unnest(%s::bigint[], %s::bigint[], %s::bigint[], %s::integer[], %s::integer[], %s::integer[], %s::integer[], "
+    "%s::integer[], %s::integer[], %s::text[]) "
+    "WITH ORDINALITY AS u(value, volume, list_shrs, open, high, low, close, cmp, tid, market, i) ORDER BY u.i")
 #: 휴장 기록 — 행이 있는 날(거래일)은 절대 덮지 않는다.
 CLOSED_DAY_SQL = ("INSERT INTO krx_day (trd_dd, dd, n, closed) VALUES (%s, %s, 0, true) "
                   "ON CONFLICT (trd_dd) DO NOTHING")
@@ -161,12 +170,18 @@ PRUNE_DAY_SQL = "DELETE FROM krx_day WHERE trd_dd = ANY(%s)"
 #: 곧 다음 날 행이 다시 쓰는데, BRIN 요약은 줄지 않고 합쳐져 그 범위가 [지운 날, 새 날]로 넓어진다 — 과거일 단면이 재사용된 범위를
 #: 모두 읽게 된다(10-18 실측, 운영과 같은 적재 뒤 80일 롤링: 가장 오래된 날 단면 lossy 36 → 2,177 블록, 1년이면 표 전체).
 #: 요약을 지운 범위는 다음 VACUUM 이 남은 행으로 다시 요약한다(같은 실측에서 lossy 약 50 유지). 범위 크기는 색인의 pages_per_range
-#: (`scripts/krx_daily_ddl.py` 의 16)와 같아야 한다. 색인 소유자(또는 MAINTAIN 권한)만 부를 수 있다 — 못 부르면 경고만 하고 지운다.
+#: (`scripts/krx_daily_ddl.py` 의 16)와 같아야 한다. 못 부르면 경고만 하고 지운다.
+#: 🔴 `brin_desummarize_range` 는 **색인 소유자만** 부를 수 있다 — PG17 의 MAINTAIN 권한으로도 `must be owner of index`(261019 로컬 PG17 실측).
+#:    그래서 소유자가 만든 SECURITY DEFINER 함수 `krx_px_brin_desummarize(date[])`(`scripts/krx_daily_ddl.py` — 같은 문장을 소유자 권한으로)를
+#:    거친다. 함수가 없는 DB(DDL 적용 전)에서는 종전처럼 직접 부른다(소유자 계정에서만 된다).
 BRIN_INDEX = "krx_px_dd_brin"
 BRIN_PAGES_PER_RANGE = 16
 PRUNE_DESUMMARIZE_SQL = (
     "SELECT r.b, brin_desummarize_range(%s::regclass, r.b) FROM ("
     "SELECT DISTINCT ((p.ctid::text::point)[0]::bigint / %s) * %s AS b FROM krx_px p WHERE p.trd_dd = ANY(%s)) r")
+PRUNE_DESUMMARIZE_FN = "krx_px_brin_desummarize"
+PRUNE_DESUMMARIZE_FN_EXISTS_SQL = f"SELECT to_regprocedure('public.{PRUNE_DESUMMARIZE_FN}(date[])') IS NOT NULL"
+PRUNE_DESUMMARIZE_FN_SQL = f"SELECT public.{PRUNE_DESUMMARIZE_FN}(%s::date[])"
 
 
 @dataclass(frozen=True)
@@ -178,10 +193,13 @@ class Pruned:
 
 
 def _desummarize(conn: Any, days: list[date]) -> int:
-    """지울 날(`days`)의 행이 있는 BRIN 블록 범위 요약을 지운다(`PRUNE_DESUMMARIZE_SQL`) → 지운 범위 수.
-    실패해도(권한 등) 보관 창 정리는 계속한다 — 요약이 넓어지는 것은 과거일 단면이 느려질 뿐 값은 같다. 자기 SAVEPOINT 안에서 돈다."""
+    """지울 날(`days`)의 행이 있는 BRIN 블록 범위 요약을 지운다 → 지운 범위 수. 소유자 함수(`PRUNE_DESUMMARIZE_FN`)가 있으면 그것으로,
+    없으면 직접(`PRUNE_DESUMMARIZE_SQL`). 실패해도(권한 등) 보관 창 정리는 계속한다 — 요약이 넓어지는 것은 과거일 단면이 느려질 뿐
+    값은 같다. 자기 SAVEPOINT 안에서 돈다."""
     try:
         with conn.transaction():
+            if conn.execute(PRUNE_DESUMMARIZE_FN_EXISTS_SQL).fetchone()[0]:
+                return int(conn.execute(PRUNE_DESUMMARIZE_FN_SQL, (days,)).fetchone()[0] or 0)
             return len(conn.execute(PRUNE_DESUMMARIZE_SQL, (BRIN_INDEX, BRIN_PAGES_PER_RANGE, BRIN_PAGES_PER_RANGE, days)).fetchall())
     except Exception as exc:                         # noqa: BLE001 — 성능 장치일 뿐이다
         logger.warning("일별 시세 보관 창 정리: BRIN 요약 지우기 실패(지우기는 계속 — 과거일 단면이 느려질 수 있다) %s: %s",
@@ -219,7 +237,7 @@ def prune_window(conn: Any) -> Pruned:
 
 
 def write_daily(conn: Any, price_dd: str, kospi: list, kosdaq: list) -> tuple[bool, int, int]:
-    """한 거래일 전종목을 쓴다 — 새 종목 번호 → 달력(거래일) → 사실값(종목순 COPY) → 주 닫는 날 → 보관 창 정리.
+    """한 거래일 전종목을 쓴다 — 새 종목 번호 → 달력(거래일) → 사실값(종목순 한 문장 INSERT) → 주 닫는 날 → 보관 창 정리.
 
     `conn` 은 **이미 트랜잭션 안에 있는** psycopg 연결이다. 이 함수는 중첩 트랜잭션(SAVEPOINT) 안에서 일하고, 실패해도 예외를
     밖으로 내지 않는다 — 실패는 로그(ERROR)와 반환값으로 알린다. 261018(재설계 5-1 쓰는 쪽)부터 이 저장분이 시세 기록의 주(主)라
@@ -240,10 +258,10 @@ def write_daily(conn: Any, price_dd: str, kospi: list, kosdaq: list) -> tuple[bo
                 tids = dict(cur.execute(TIDS_SQL, (list(by),)).fetchall())
                 cur.execute(DAY_UPSERT_SQL, (day, price_dd, len(by)))
                 cur.execute(DAY_ROWS_DELETE_SQL, (day,))
-                with cur.copy(COPY_PX_SQL) as cp:
-                    for tid, r in sorted((tids[t], r) for t, r in by.items()):
-                        # (value, volume, list_shrs, open, high, low, close, cmp, trd_dd, tid, market)
-                        cp.write_row((r[8], r[7], r[9], r[3], r[4], r[5], r[6], r[10], day, tid, _MKT_CHAR[r[2]]))
+                # PX_COLUMNS 순서(value, volume, list_shrs, open, high, low, close, cmp, tid, market) — 종목 번호순
+                rows = [(r[8], r[7], r[9], r[3], r[4], r[5], r[6], r[10], tid, _MKT_CHAR[r[2]])
+                        for tid, r in sorted((tids[t], r) for t, r in by.items())]
+                cur.execute(INSERT_PX_SQL, (day, *(list(col) for col in zip(*rows))))
                 cur.execute(WK_CLOSE_SQL)
                 pruned = prune_window(conn)              # 연결로 — BRIN 요약 지우기가 자기 SAVEPOINT 를 건다
         return True, len(by), pruned.rows

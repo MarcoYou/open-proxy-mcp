@@ -77,10 +77,10 @@ def put_daily(c, rows):
     for d in sorted({r[0] for r in rows}):
         c.execute("INSERT INTO krx_day (trd_dd, dd, n) VALUES (%s, %s, 0) ON CONFLICT (trd_dd) DO NOTHING",
                   (date(int(d[:4]), int(d[4:6]), int(d[6:])), d))
-    with c.cursor() as cur, cur.copy(krx_daily.COPY_PX_SQL) as cp:
-        for dd, t, m, close, shrs, o, h, lo, vol, val, cmp in rows:
-            cp.write_row((val, vol, shrs, o, h, lo, close, cmp, date(int(dd[:4]), int(dd[4:6]), int(dd[6:])), tids[t],
-                          {"KS": "S", "KQ": "Q"}[m]))
+    for d in sorted({r[0] for r in rows}):
+        px = [(val, vol, shrs, o, h, lo, close, cmp, tids[t], {"KS": "S", "KQ": "Q"}[m])
+              for dd, t, m, close, shrs, o, h, lo, vol, val, cmp in rows if dd == d]
+        c.execute(krx_daily.INSERT_PX_SQL, (date(int(d[:4]), int(d[4:6]), int(d[6:])), *(list(x) for x in zip(*px))))
     c.execute("UPDATE krx_day d SET n = (SELECT count(*) FROM krx_px p WHERE p.trd_dd = d.trd_dd)")
     c.execute(krx_daily.WK_CLOSE_SQL)
 
