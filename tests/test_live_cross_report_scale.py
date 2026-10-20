@@ -272,3 +272,36 @@ def test_live_firm_ignores_a_broken_quarter_it_does_not_use(monkeypatch):
     assert d["data_quality"]["scale_tier"] == "clean" and "scale_fix" not in d["data_quality"]
     assert d["inputs"]["net_income_ttm_krw"] == 159_609_313 + 21_148_960 - 27_693_145
     assert not any("단위" in w for w in d["warnings"])
+
+
+# ═══ 261020 검토 보강 ══════════════════════════════════════════════════════════════════════════════════
+def test_reconcile_reports_a_conflicting_cycle():
+    """A·B 같은 단위, B·C 1,000배, A·C 같은 단위 — 고리가 서로 어긋나면 고르지 않는다(conflict → hard)."""
+    obs = [("A", ("FYE", 2024, "KRW"), 1e9, 0), ("B", ("FYE", 2024, "KRW"), 1e9, 1),
+           ("B", ("FYE", 2025, "KRW"), 1e9, 2), ("C", ("FYE", 2025, "KRW"), 1e12, 3),
+           ("A", ("Q", "A", "KRW"), 1e9, 1), ("C", ("Q", "A", "KRW"), 1e9, 3)]
+    r = G.reconcile_report_scales(obs, mktcap=1e9)
+    assert r["status"] == "conflict" and r["divisors"] == {}
+    assert G.assess(thstrm=1.0, cross_report=r)["hard_hit"] == ["cross_report_scale"]
+
+
+def test_live_firm_divides_revenue_of_the_inflated_report(monkeypatch):
+    """바로잡은 사업보고서의 매출(재무 지표에서 온 값)도 같은 배수로 나눈다."""
+    reports = {(2025, "11011"): SPAC_FY_X1000, (2026, "11013"): SPAC_2026Q1, (2026, "11012"): SPAC_2026H1}
+    p, _ = _run_live(monkeypatch, reports, cap=SPAC_CAP, shares=SPAC_SHARES, price=SPAC_PRICE, revenue=5_000_000_000_000)
+    assert p["data"]["inputs"]["revenue_fy0_krw"] == 5_000_000_000
+
+
+def test_live_firm_matches_the_prior_year_quarter_on_the_prior_fiscal_year_end(monkeypatch):
+    """전년 동기 분기 보고서의 전기 칸은 **사업연도 fy−1 말** — 상장 첫해처럼 fy−1 말 자본(1억)이 fy 말(86.6억)과 크게 달라도
+    100만 배 보고서를 fy−1 말끼리 대 가린다(fy 말과 대면 비율 11,547배라 단위 꼴로 묶이지 않는다)."""
+    fy = _report("20260305001627", assets="10,070,371,574", liab="1,407,626,158", eq="8,662,745,416", assets_frm="150,000,000",
+                 liab_frm="50,000,000", eq_frm="100,000,000", ni="159,609,313", ni_frm="-1,000,000")
+    qp = _report("20250515000003", assets=f"{600_000_000 * _M:,}", liab=f"{100_000_000 * _M:,}", eq=f"{500_000_000 * _M:,}",
+                 assets_frm=f"{150_000_000 * _M:,}", liab_frm=f"{50_000_000 * _M:,}", eq_frm=f"{100_000_000 * _M:,}",
+                 ni=f"{-2_000_000 * _M:,}", ni_add=f"{-2_000_000 * _M:,}")
+    reports = {(2025, "11011"): fy, (2026, "11013"): H_2026Q1, (2025, "11013"): qp}
+    p, _ = _run_live(monkeypatch, reports, cap=H_CAP, shares=H_SHARES, price=H_PRICE)
+    d = p["data"]
+    assert [(f["report"], f["divisor"]) for f in d["data_quality"]["scale_fix"]] == [("2025 1분기보고서", 1_000_000)]
+    assert d["inputs"]["net_income_ttm_krw"] == 159_609_313 + 21_148_960 + 2_000_000

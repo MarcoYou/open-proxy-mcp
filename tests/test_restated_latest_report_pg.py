@@ -247,3 +247,89 @@ def test_backfill_of_a_newer_report_is_not_skipped_by_older_restated_cells(ydb):
     fake.calls.clear()
     asyncio.run(S.backfill_restated(report_year=2025))
     assert ("00000001", "2025", "11011", "CFS") not in fake.calls, "그 보고서 이상에서 온 정정 칸이 있으면 다시 받지 않는다"
+
+
+# ── 261020 검토: 재무제표 기준(연결/별도)·같은 실행 새 행·외화 후보·순이익 칸 보존·--refetch ──────────────────────────────
+
+def _add_firm(url, t, rows):
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("DELETE FROM dart_fundamentals WHERE ticker <> %s", (t,))
+        c.execute("INSERT INTO dart_fundamentals (ticker, corp_code, fetched, acc_mt) VALUES (%s, %s, 'ok', 12) ON CONFLICT DO NOTHING",
+                  (t, "00" + t))
+        for fy, fs, ni, eq, st in rows:
+            c.execute("INSERT INTO dart_finstat_y (ticker, fy, fs, ni, eq, fetched) VALUES (%s,%s,%s,%s,%s,%s)", (t, fy, fs, ni, eq, st))
+
+
+def test_restated_basis_ok():
+    ok = S.restated_basis_ok
+    assert ok("CFS", "CFS") and ok("OFS", "OFS")
+    assert not ok("CFS", "OFS", (58 * B, 440 * B, None, None)), "연결 행에 별도 보고서 값은 재작성이 아니다(154040 FY2021 꼴)"
+    assert not ok("OFS", "CFS", (0.39 * B, 98 * B, None, None)), "별도 행에 연결 보고서 값(스팩 역합병 284620 꼴)"
+    assert ok("OFS", "CFS", (None, None, None, None)), "그 해 행에 값이 하나도 없으면 유일한 값이라 채운다"
+    assert ok(None, "OFS") and ok("CFS", None), "기준을 모르면 종전처럼"
+
+
+def test_report_of_another_statement_basis_is_not_a_restatement(ydb, capsys):
+    """000006 — FY2023·2024 는 연결(CFS), 종속회사를 처분해 FY2025 사업보고서는 별도(OFS)만. 그 전기·전전기 칸은 별도 기준이라
+    연결 행의 정정 칸에 넣지 않는다(정규 수집·정정치 백필 둘 다). 10-20 운영 154040·036000·004870 꼴."""
+    url, fake = ydb
+    _add_firm(url, "000006", [(2023, "CFS", 70 * B, 700 * B, "ok"), (2024, "CFS", 80 * B, 800 * B, "ok")])
+    fake.avail[("00000006", "2025", "11011", "OFS")] = _r("20260312000006", ni=5 * B, eq=300 * B, ni_frm=3 * B, eq_frm=290 * B,
+                                                          ni_bfe=2 * B, eq_bfe=280 * B)
+    asyncio.run(S.fetch(["000006"]))
+    got = {r[0]: r for r in _rows(url, "000006")}
+    assert got[2024][3:6] == (None, None, None) and got[2023][3:6] == (None, None, None), "연결 행은 연결 값 그대로"
+    assert got[2025][1:3] == (5.0 * B, 300.0 * B)
+    out = capsys.readouterr().out
+    assert "재무제표 기준이 달라 쓰지 않는다" in out and "연결/별도 기준 달라 건너뜀 2" in out
+    asyncio.run(S.backfill_restated(["000006"], 2025))
+    got = {r[0]: r for r in _rows(url, "000006")}
+    assert got[2024][3:6] == (None, None, None) and got[2023][3:6] == (None, None, None), "백필도 같은 기준 검사"
+
+
+def test_rows_inserted_in_the_same_run_receive_candidates(ydb):
+    """000007 — 행이 없던 종목: 같은 실행에서 FY2024 를 넣고 이어 FY2025 사업보고서가 FY2024 를 재작성하면 그 정정 칸을 받는다."""
+    url, fake = ydb
+    _add_firm(url, "000007", [])
+    fake.avail[("00000007", "2024", "11011", "CFS")] = _r("20250312000007", ni=80 * B, eq=800 * B)
+    fake.avail[("00000007", "2025", "11011", "CFS")] = _r("20260312000007", ni=90 * B, eq=900 * B, ni_frm=82 * B, eq_frm=800 * B)
+    asyncio.run(S.fetch(["000007"]))
+    got = {r[0]: r for r in _rows(url, "000007")}
+    assert got[2024][1:6] == (80.0 * B, 800.0 * B, 82.0 * B, 800.0 * B, "20260312000007")
+
+
+def test_foreign_currency_candidates_are_converted(ydb, monkeypatch):
+    """000008 — USD 보고사: 전기 칸 후보도 그 해 결산월 말 환율로 원화 환산해 쓴다(환산 없이 대면 10⁻³ 꼴이라 단위 꼴로 건너뛰거나 달러 값이 들어간다)."""
+    url, fake = ydb
+    _add_firm(url, "000008", [(2024, "CFS", 80 * B, 800 * B, "ok")])
+    rows = _r("20260312000008", ni=0.09 * B, eq=0.9 * B, ni_frm=0.082 * B, eq_frm=0.8 * B)
+    for r in rows:
+        r["currency"] = "USD"
+    fake.avail[("00000008", "2025", "11011", "CFS")] = rows
+
+    async def fx(ccy, d):
+        return 1000.0
+    monkeypatch.setattr(S, "fx_to_krw", fx)
+    monkeypatch.setattr(S, "fx_source", lambda *a, **k: "ecos")
+    asyncio.run(S.fetch(["000008"]))
+    got = {r[0]: r for r in _rows(url, "000008")}
+    assert got[2025][1:3] == (pytest.approx(90.0 * B), pytest.approx(900.0 * B))
+    assert got[2024][3:6] == (pytest.approx(82.0 * B), pytest.approx(800.0 * B), "20260312000008")
+
+
+def test_candidate_without_net_income_keeps_the_restated_net_income(ydb):
+    """000001 FY2024 [기재정정]의 전전기 칸에 자본만 있고 순이익이 없으면 FY2022 정정 순이익은 그대로(자본만 새 보고서 값)."""
+    url, fake = ydb
+    fake.avail[("00000001", "2024", "11011", "CFS")] = _r("20260515000001", ni=310 * B, eq=1510 * B, ni_frm=205 * B, eq_frm=1205 * B,
+                                                          ni_bfe=None, eq_bfe=995 * B)
+    asyncio.run(S.fetch(only={("000001", 2024)}, keep_fs=True, amended=True))
+    assert _rows(url, "000001")[0] == (2022, 100.0 * B, 1000.0 * B, 90.0 * B, 995.0 * B, "20260515000001")
+
+
+def test_refetch_without_amended_does_not_clear_unknown_source_restated(ydb):
+    """`--refetch`(정정 다시 받기 아님)로 그 해 보고서를 다시 읽어도 출처 모르는 정정 칸을 비우지 않는다 — 출처 모름 = 가장 이름으로 보는 규칙은
+    최근 정정 보고서(`--amended`)에만 안전하다(옛 원 보고서를 다시 읽으면 더 늦은 해 보고서에서 온 정정 칸을 지울 수 있다)."""
+    url, fake = ydb
+    fake.avail[("00000002", "2023", "11011", "CFS")] = _r("20240315000002", ni=50 * B, eq=500 * B)
+    asyncio.run(S.fetch(only={("000002", 2023)}))
+    assert _rows(url, "000002")[0] == (2023, 50.0 * B, 500.0 * B, 55.0 * B, 505.0 * B, None)
