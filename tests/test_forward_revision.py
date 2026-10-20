@@ -153,42 +153,31 @@ def test_screen_mode_keeps_a_partial_long_window():
     assert r["windows_not_reached"] == []
 
 
-# ── 저장 모양별 질의 — 주별 모양(교체 전)은 질의가 글자까지 그대로, 달력 모양은 창 조건 ────────────────────
-def _probe(monkeypatch, calendar: bool, latest=dt.date(2026, 10, 17)):
+# ── 저장 모양 — 달력 모양 한 벌. 질의는 창 조건을 붙이고, 최신 날짜는 게시 달력에서 ──────────────────────
+def _probe(monkeypatch, latest=dt.date(2026, 10, 17)):
     calls = []
 
     def pg(sql, params=()):
         calls.append((sql, params))
-        if sql == fe_fw.PROBE_SQL:
-            return [(True, calendar)]
         if sql == fe_fw.LATEST_SQL_CALENDAR:
             return [(latest,)]
         return []
     monkeypatch.setattr(fe, "pg_rows", pg)
-    # 캐시를 통째로 갈아 끼운다 — 시험이 끝나면 되돌아가 다른 시험(스크린)에 달력 모양이 새지 않는다
-    monkeypatch.setattr(fe, "_hist_cache", {"at": 0.0, "ok": None, "cal": False, "latest": None})
+    # 캐시를 통째로 갈아 끼운다 — 시험이 끝나면 되돌아가 다른 시험에 최신 날짜가 새지 않는다
+    monkeypatch.setattr(fe, "_latest_cache", {"at": 0.0, "latest": None})
     return calls
 
 
 from open_proxy_mcp import fwd_window as fe_fw  # noqa: E402
 
 
-def test_legacy_shape_history_query_is_unchanged(monkeypatch):
-    calls = _probe(monkeypatch, calendar=False)
-    fe._fetch_hist("005930")
-    assert calls[-1] == ("SELECT as_of, period, period_type, rev_krw, op_krw, ni_ctrl_krw, eps_krw, dps_krw "
-                         "FROM fwd_hist WHERE stock_code=%s AND is_estimate ORDER BY as_of", ("005930",))
-    assert fe._db_hist_weeks() == 13
-    fe._fetch_hist_many(["005930"], "FY", 98)
-    assert "fwd_asof" not in calls[-1][0] and calls[-1][1] == ("FY", ["005930"])
-    assert fe._stale_snapshot_warning(dt.date(2026, 9, 19)) is None       # 주별 모양의 응답은 종전과 같다
-
-
-def test_calendar_shape_history_queries_carry_the_window(monkeypatch):
-    calls = _probe(monkeypatch, calendar=True)
+def test_history_query_carries_the_window(monkeypatch):
+    calls = _probe(monkeypatch)
     fe._fetch_hist("005930")
     sql, params = calls[-1]
-    assert "as_of >= (SELECT max(as_of) FROM fwd_asof) - %s::int" in sql and sql.endswith("ORDER BY as_of")
+    assert sql == ("SELECT as_of, period, period_type, rev_krw, op_krw, ni_ctrl_krw, eps_krw, dps_krw FROM fwd_hist "
+                   "WHERE stock_code=%s AND is_estimate AND as_of >= (SELECT max(as_of) FROM fwd_asof) - %s::int "
+                   "ORDER BY as_of")
     assert params == ("005930", 364)
     assert fe._db_hist_weeks() == 52
     fe._fetch_hist_many(["005930"], "FY", fe._screen_span_days(28))
@@ -198,7 +187,7 @@ def test_calendar_shape_history_queries_carry_the_window(monkeypatch):
 
 
 def test_window_setting_shrinks_the_history_query(monkeypatch):
-    calls = _probe(monkeypatch, calendar=True)
+    calls = _probe(monkeypatch)
     monkeypatch.setenv("FWD_HOT_WEEKS", "26")
     fe._fetch_hist("005930")
     assert calls[-1][1] == ("005930", 182)
@@ -207,39 +196,32 @@ def test_window_setting_shrinks_the_history_query(monkeypatch):
     assert fe_fw.hot_weeks() == 52                                         # 잘못된 값이면 기본값
 
 
-def test_stale_snapshot_warning_only_on_the_calendar_shape(monkeypatch):
-    _probe(monkeypatch, calendar=True, latest=dt.date(2026, 10, 17))
+def test_stale_snapshot_warning_against_the_latest_calendar_date(monkeypatch):
+    _probe(monkeypatch, latest=dt.date(2026, 10, 17))
     assert fe._stale_snapshot_warning(dt.date(2026, 10, 17)) is None
     w = fe._stale_snapshot_warning(dt.date(2026, 4, 18))
     assert w and "최신 컨센서스 스냅샷(2026-10-17)에 없다" in w and "2026-04-18 스냅샷" in w and "182일 전" in w
 
 
+def test_stale_snapshot_warning_is_silent_when_latest_is_unknown(monkeypatch):
+    monkeypatch.setattr(fe, "pg_rows", lambda sql, params=(): None)      # DB 장애
+    monkeypatch.setattr(fe, "_latest_cache", {"at": 0.0, "latest": None})
+    assert fe._stale_snapshot_warning(dt.date(2026, 4, 18)) is None
+
+
 def test_source_note_says_what_the_db_actually_keeps(monkeypatch):
-    _probe(monkeypatch, calendar=False)
-    fe._hist_available()
-    assert "최근 13주" in fe._hist_source_note() and "13주 롤링" not in fe._hist_source_note()
-    _probe(monkeypatch, calendar=True)
-    fe._hist_available()
+    _probe(monkeypatch)
     assert "최근 52주" in fe._hist_source_note() and "보관본" in fe._hist_source_note()
-
-
-def test_probe_reads_odd_rows_as_the_legacy_shape():
-    assert fe_fw.parse_probe((True,)) == (True, False)
-    assert fe_fw.parse_probe((False, True)) == (False, False)
-    assert fe_fw.parse_probe(None) == (False, False)
+    assert "13주" not in fe._hist_source_note()
 
 
 def test_long_window_note_only_promises_what_the_db_can_hold(monkeypatch):
-    """「이력이 쌓이면 나온다」는 그 창이 DB 보관 안에 들 때만 참이다 — 주별 모양(13주)에서 26w·52w 는 영영 안 나온다."""
+    """「이력이 쌓이면 나온다」는 그 창이 DB 보관 안에 들 때만 참이다."""
     rev = {"rows": [{}], "windows_not_reached": ["26w", "52w"], "history_weeks": 7, "first_as_of": "2026-08-29"}
-    _probe(monkeypatch, calendar=False)
-    fe._hist_available()
+    _probe(monkeypatch)
     w = fe._long_windows_warning(rev)
     assert w.startswith("리비전 26w·52w: 이 종목 이력이 7주(2026-08-29~)뿐이라 싣지 않았다")
-    assert "DB 에는 최근 13주만 두어 이력이 쌓여도 나오지 않는다" in w and "쌓이면 나온다" not in w
-    _probe(monkeypatch, calendar=True)
-    fe._hist_available()
-    assert fe._long_windows_warning(rev).endswith("이력이 그만큼 쌓이면 나온다(DB 에는 최근 52주를 둔다).")
+    assert w.endswith("이력이 그만큼 쌓이면 나온다(DB 에는 최근 52주를 둔다).")
     monkeypatch.setenv("FWD_HOT_WEEKS", "30")                               # 창을 줄이면 26w 만 닿는다
     w = fe._long_windows_warning(rev)
     assert "26w 는 이력이 그만큼 쌓이면 나오고, 52w 는 DB 에 최근 30주만 두어 나오지 않는다" in w
@@ -247,18 +229,9 @@ def test_long_window_note_only_promises_what_the_db_can_hold(monkeypatch):
     assert fe._long_windows_warning(dict(rev, rows=[])) is None
 
 
-def test_consensus_gap_queries_keep_the_legacy_sql_and_add_the_window_on_the_calendar(monkeypatch):
-    """잠정실적 컨센서스 대비(#111)도 리비전과 같은 계약 — 주별 모양 두 질의는 글자까지 그대로(병합된 #111 과 같다),
-    달력 모양은 분기 스냅샷에 창 조건, 「이력이 닿나」는 게시 달력을 같은 창으로. 출처·까닭 문구는 실제 보관 주 수."""
-    calls = _probe(monkeypatch, calendar=False)
-    fe._fetch_quarter_consensus("005930", "2026-09-30", "2026-10-08")
-    assert calls[-2:] == [
-        ("SELECT as_of, period, is_estimate, basis, rev_krw, op_krw, ni_ctrl_krw FROM fwd_hist "
-         "WHERE stock_code=%s AND period_type='Q' AND period_end=%s ORDER BY as_of", ("005930", dt.date(2026, 9, 30))),
-        ("SELECT EXISTS (SELECT 1 FROM fwd_hist WHERE as_of < %s)", (dt.date(2026, 10, 8),))]
-    gone = fe.compute_consensus_gap({"revenue": 1}, filed="2026-10-08", consolidated=True, rows=[], history_reaches=False)
-    assert "최근 13주 창 밖" in gone["why"] and "DB 에는 최근 13주" in gone["source"] and "13주 롤링" not in gone["source"]
-    calls = _probe(monkeypatch, calendar=True)
+def test_consensus_gap_queries_add_the_window_and_read_the_calendar_for_reach(monkeypatch):
+    """잠정실적 컨센서스 대비(#111)도 리비전과 같은 계약 — 분기 스냅샷 질의에 창 조건, 「이력이 닿나」는 게시 달력을 같은 창으로."""
+    calls = _probe(monkeypatch)
     fe._fetch_quarter_consensus("005930", "2026-09-30", "2026-10-08")
     win = fe_fw.window_cond()
     assert calls[-2:] == [
