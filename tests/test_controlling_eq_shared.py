@@ -212,6 +212,34 @@ def test_firm_reads_nonstandard_total_line_like_collector():
     assert PC.ctrl_eq([row("IS", "ifrs-full_Revenue", "매출액", 1, thstrm_amount=5)]) is None
 
 
+def test_firm_does_not_count_nonstandard_minority_as_controlling():
+    """자본총계는 계정 코드(`ifrs-full_Equity`)로, 지배·비지배는 표준 코드 없는 이름 줄로만 적은 보고서 — firm·결산기 칸이 따로 「자본총계 계정 −
+    비지배 계정」을 세면 비지배 계정이 없어 비지배를 품은 자본총계가 지배자본이 됐다. 수집(이름 줄 → 자본총계 − 비지배)과 같은 값이어야 한다."""
+    # 077360 2024 3분기(연결) — 지배기업소유주지분 3,067.77억 · 비지배지분 1,300.45억 · 자본총계 4,368.22억(종전 firm 은 4,368.22억)
+    a = [row("BS", NOSTD, "지분법적용 투자지분", 21, thstrm_amount=185464806188),
+         row("BS", NOSTD, "비지배지분", 29, thstrm_amount=130045132756, frmtrm_amount=132197075187),
+         row("BS", NOSTD, "지배기업소유주지분", 30, thstrm_amount=306776704076, frmtrm_amount=289392159384),
+         row("BS", NOSTD, "자본금", 33, thstrm_amount=9087400400, frmtrm_amount=9087400400),
+         row("BS", NOSTD, "기타자본구성요소", 34, thstrm_amount=-65357478562, frmtrm_amount=-65357478562),
+         row("BS", "ifrs-full_Equity", "자본총계", 36, thstrm_amount=436821836832, frmtrm_amount=421589234571),
+         row("BS", "ifrs-full_EquityAndLiabilities", "자본과부채총계", 37, thstrm_amount=777008327790)]
+    assert Q.extract_controlling_eq(a) == (306776704076.0, "BS_NM") and S.ctrl_eq(a)[0] == 306776704076.0
+    assert _ctrl_equity(a) == 306776704076 and _ctrl_equity(a, "frmtrm_amount") == 289392159384
+    assert PC.ctrl_eq(a) == 306776704076.0 and PC.ctrl_eq(a, "frmtrm_amount") == 289392159384.0
+    # 307280 2023 3분기(연결) — 지배 줄 없음, 비지배는 이름 줄(「비지배지분.」)뿐 · 전기 칸 비지배는 음수
+    b = [row("BS", "ifrs-full_Equity", "자본총계", 29, thstrm_amount=30990165758, frmtrm_amount=26825582923),
+         row("BS", NOSTD, "기타자본항목", 31, thstrm_amount=-2224257483, frmtrm_amount=-2202022483),
+         row("BS", NOSTD, "비지배지분.", 32, thstrm_amount=223760406, frmtrm_amount=-41735763),
+         row("BS", "ifrs-full_IssuedCapital", "자본금", 33, thstrm_amount=3650521000, frmtrm_amount=3645440800),
+         row("BS", "ifrs-full_EquityAndLiabilities", "자본과부채총계", 36, thstrm_amount=41185962040)]
+    assert Q.extract_controlling_eq(b) == (30766405352.0, "TOTAL_MINUS_MINORITY")
+    assert _ctrl_equity(b) == 30766405352 and _ctrl_equity(b, "frmtrm_amount") == 26867318686
+    assert PC.ctrl_eq(b) == 30766405352.0 and PC.ctrl_eq(b, "frmtrm_amount") == 26867318686.0
+    # 비지배를 계정 코드로 적은 보고서는 종전과 같다(자본총계 − 비지배 계정)
+    c = [row("BS", "ifrs-full_Equity", "자본총계", 1, thstrm_amount=1000), row("BS", "ifrs-full_NoncontrollingInterests", "비지배지분", 2, thstrm_amount=100)]
+    assert _ctrl_equity(c) == 900 and PC.ctrl_eq(c) == 900.0
+
+
 # ── XBRL 원본 대체 경로 ──────────────────────────────────────────────────────
 
 def test_xbrl_controlling_element_far_from_total_is_not_used():
