@@ -24,6 +24,7 @@ import time
 import asyncio
 import datetime as _dt
 from itertools import islice as _islice
+import itertools as _itertools
 import contextlib
 import calendar
 import collections
@@ -34,6 +35,7 @@ import threading
 import zipfile
 import xml.etree.ElementTree as ET
 import contextvars
+import copy
 from contextvars import ContextVar
 from datetime import date, datetime, timedelta
 from html import unescape
@@ -635,6 +637,60 @@ def dart_batch_halt_line(e: BaseException, done: str = "") -> str:
     return f"::warning::{line}" if os.getenv("GITHUB_ACTIONS") == "true" else line
 
 
+#: 261021: 요청 단위 메모(`DartClient._request`)의 한 요청당 상한 — 항목 수와 **바이트**. 한 도구 호출이 서로 다른 DART 질의를 이만큼 넘게
+#: 부르는 일은 없다(실측 최대 수십 건). 바이트는 주요계정 다중회사(100사/콜)처럼 큰 응답이 몇백 건 쌓여 요청 하나가 메모리를 먹지 않게 하는
+#: 안전판이다(예산을 개수만으로 잡다 260804 OOM 이 났다 — 위 캐시 주석). 넘으면 **메모만 포기**하고 호출은 그대로 한다.
+_REQUEST_MEMO_MAX = 512
+_MEMO_IDENTS = _itertools.count(1)
+_REQUEST_MEMO_MAX_BYTES = 8 * 1024 * 1024
+#: 숫자 상태지만 **다시 하면 달라질 수 있는** DART 답 — 800 시스템 점검 · 900 알 수 없는 오류(`services/dart_safety` 의 재시도 가능 kind).
+#: 요청 단위 메모는 이 둘을 기억하지 않는다.
+_MEMO_TRANSIENT_STATUSES = frozenset({"800", "900"})
+
+
+class _RequestMemo(dict):
+    """한 요청의 메모 — (엔드포인트, 인자) → 진행 중이거나 끝난 공동 호출. `nbytes` 는 기억 중인 성공 응답의 JSON 길이 합."""
+    nbytes = 0
+
+
+def _request_memo() -> "_RequestMemo | None":
+    """이 호출의 요청 단위 메모 — 요청 장부(`_ctx_ledger`)에 매단다. 장부가 없거나 기준일이 걸려 있으면 None(메모 안 함).
+
+    장부는 서버가 요청마다 새로 만들어 하류에 내려보내는 dict 하나라(위 `new_request_ledger` 주석), 동시에 도는 자식 task 도 같은
+    메모를 본다. 요청이 끝나 장부를 놓으면 메모도 함께 사라진다."""
+    ledger = _ctx_ledger.get()
+    if ledger is None or get_as_of() or get_strict_as_of():
+        return None
+    memo = ledger.get("dart_memo")
+    if memo is None:
+        memo = ledger["dart_memo"] = _RequestMemo()
+    return memo
+
+
+def _memo_settle(memo: "_RequestMemo", key, task: "asyncio.Future") -> None:
+    """공동 호출이 끝났을 때 — 기억할 결과만 남기고 나머지는 지운다(다음 호출이 새로 시도)."""
+    if task.cancelled():
+        memo.pop(key, None)
+        return
+    exc = task.exception()          # 가져가는 이가 없어도 「Task exception was never retrieved」가 안 뜨게 여기서 읽는다
+    if exc is None:
+        try:
+            size = len(json.dumps(task.result(), ensure_ascii=False))
+        except (TypeError, ValueError):
+            size = _REQUEST_MEMO_MAX_BYTES + 1          # JSON 으로 못 재는 응답은 기억하지 않는다
+        if memo.nbytes + size > _REQUEST_MEMO_MAX_BYTES:
+            memo.pop(key, None)                         # 예산 초과 — 이 항목은 기억하지 않는다(받은 쪽은 이미 결과를 가졌다)
+        else:
+            memo.nbytes += size
+        return
+    # DART 가 숫자 상태로 답한 오류(013·020 …)만 이 요청 안에서 기억한다. 전송 오류·점유(busy) 같은 것은 지운다.
+    # 숫자 상태라도 점검(800)·알 수 없는 오류(900)는 다시 하면 달라질 수 있는 답이라 지운다 — 같은 요청 안의 재시도
+    # (예: proxy_advise 상류 3회 재시도)가 기억된 오류만 다시 받으면 재시도가 무력해진다.
+    status = str(getattr(exc, "status", ""))
+    if not (isinstance(exc, DartClientError) and status.isdigit() and status not in _MEMO_TRANSIENT_STATUSES):
+        memo.pop(key, None)
+
+
 # 기업 코드 매핑 캐시 (모듈 레벨 — 한번 로드하면 프로세스 동안 유지)
 _corp_code_cache: list[dict] | None = None
 
@@ -946,6 +1002,11 @@ def _env_mb(name: str, default_mb: int) -> int:
 #: 오늘을 포함하는 list.json 조회 결과의 수명 — 이 안에서만 「방금 뜬 공시」가 안 보인다.
 _SEARCH_CACHE_LIVE_TTL_SEC = 120
 _DOC_CACHE_TTL_SEC = 24 * 60 * 60   # 24h — rcept_no 는 immutable 이지만 영구 점유는 막는다.
+
+#: 261021: 회사 개황(company.json) 프로세스 캐시 — 1시간 · 최대 512사(항목당 약 1KB, 합 0.5MB 안팎). 값은 (만료 monotonic, 응답).
+_COMPANY_INFO_TTL_SEC = 3600.0
+_COMPANY_INFO_CACHE_MAX = 512
+_COMPANY_INFO_CACHE: "collections.OrderedDict[str, tuple[float, dict]]" = collections.OrderedDict()
 
 # 프로세스 전역 — DartClient 인스턴스마다 캐시를 들면 안 된다.
 # `_instances` 는 **API 키마다** DartClient 를 하나씩 만든다. 캐시가 인스턴스 소유면
@@ -1854,16 +1915,49 @@ class DartClient:
         self.api_key = self._api_keys[self._key_index]
         return True
 
+    def _memo_id(self) -> int:
+        """요청 단위 메모의 키에 넣는 클라이언트 번호(프로세스 안에서 겹치지 않는다 — `id()` 는 객체가 사라지면 재사용된다)."""
+        mid = self.__dict__.get("_memo_ident")
+        if mid is None:
+            mid = self.__dict__["_memo_ident"] = next(_MEMO_IDENTS)
+        return mid
+
     async def _request(self, endpoint: str, params: dict) -> dict:
-        """공통 API 호출 메서드 (JSON 응답용)
+        """공통 API 호출 메서드 (JSON 응답용) — **한 요청 안에서 같은 (엔드포인트, 인자)는 한 번만** 부른다.
 
-        Args:
-            endpoint: API 엔드포인트 (예: "list.json")
-            params: 쿼리 파라미터 (api_key는 자동 추가)
+        261021: 한 도구 호출(=서버가 연 요청 장부 하나) 안에서 서비스 여러 곳이 같은 질의를 따로 불렀다
+        (배수 도구 firm 14콜 중 company.json · 사업보고서 재무제표 · 배당 3콜이 동일 인자 중복). 동시에 오면
+        진행 중인 한 호출을 함께 기다리고(get_document_cached 의 single-flight 와 같은 꼴), 끝난 뒤에 오면 그 결과를 쓴다.
 
-        Returns:
-            API 응답 JSON (dict)
+        - 메모는 **클라이언트(API 키 풀)마다 따로**다 — 키의 사정인 020·010 이 다른 키에 번지지 않게.
+        - **요청 장부가 없으면 메모하지 않는다**(배치·스크립트 — 요청 경계가 없다). 장부는 요청마다 새로 만들어지고 응답이
+          끝나면 버려지므로 **요청 경계를 넘는 공유는 없다**.
+        - 기준일(`as_of`·엄격 모드)이 걸린 호출은 건드리지 않는다 — 응답 행을 걸러내는 일이 호출자의 문맥에 달려 있고 그 기록
+          (`note_row_drop` 등)도 호출마다 남아야 한다.
+        - 호출자마다 **복사본**을 준다(받은 쪽이 고쳐도 다른 호출자·기억된 값이 안 변한다).
+        - 오류: DART 가 **답으로** 준 오류(013 자료 없음 · 020 한도 등 — 숫자 상태)는 이 요청 안에서 기억한다. 전송 실패·시간 초과·
+          취소, 그리고 숫자 상태라도 800 점검·900 알 수 없는 오류처럼 **다시 하면 달라질 수 있는 것**은 기억하지 않아 다음 호출이 다시 시도한다.
+        - `dart_api_calls`(실제 HTTP 수)·키 회전·020 처리는 `_request_http` 안에 그대로 있다 — 메모 적중은 세지 않는다.
         """
+        memo = _request_memo()
+        if memo is None:
+            return await self._request_http(endpoint, params)
+        # 키에 **이 클라이언트(=API 키 풀)의 번호**를 넣는다 — 한도(020)·등록 안 된 키(010) 같은 답은 키마다 달라서, 다른 키의 오류를 물려받으면 안 된다.
+        key = (self._memo_id(), endpoint, tuple(sorted((str(k), str(v)) for k, v in params.items() if k != "crtfc_key")))
+        entry = memo.get(key)
+        if entry is None:
+            if len(memo) >= _REQUEST_MEMO_MAX:
+                return await self._request_http(endpoint, params)    # 상한 — 메모만 포기하고 호출은 그대로
+            # 자식 task 는 지금의 문맥(요청 장부·사용자 키·기준일)을 사본으로 받는다. 호출자 사전은 건드리지 않게 복사해 넘긴다.
+            entry = asyncio.create_task(self._request_http(endpoint, dict(params)))
+            memo[key] = entry
+            entry.add_done_callback(lambda t, _m=memo, _k=key: _memo_settle(_m, _k, t))
+        # 호출자 취소가 함께 기다리는 다른 호출자의 공동 호출까지 취소하지 않도록 보호한다.
+        result = await asyncio.shield(entry)
+        return copy.deepcopy(result)
+
+    async def _request_http(self, endpoint: str, params: dict) -> dict:
+        """`_request` 의 본체 — 실제 HTTP 한 번(재시도·키 회전 포함). 메모는 `_request` 가 맡는다."""
         if get_strict_as_of():
             params = dict(params)
             if endpoint == "list.json":
@@ -2594,7 +2688,23 @@ class DartClient:
         Returns:
             {"corp_name": ..., "ceo_nm": ..., "fiscal_month": ..., ...}
         """
-        return await self._request("company.json", {"corp_code": corp_code})
+        # 261021: 회사 개황은 하루에도 거의 안 바뀌는데 도구 호출마다 새로 받았다(배수·재무·주총 …이 각자 부름). 프로세스 메모리에
+        #   1시간 둔다 — 키마다 따로 두면 키 수만큼 곱해지므로 **프로세스 전역 하나**(문서 캐시와 같은 이유). 개수 상한이 있고,
+        #   기준일이 걸린 호출(엄격 모드는 신원 칸만 남기는 거름이 있다)은 건드리지 않으며, 오류는 두지 않는다.
+        if get_as_of() or get_strict_as_of():
+            return await self._request("company.json", {"corp_code": corp_code})
+        now = time.monotonic()
+        hit = _COMPANY_INFO_CACHE.get(corp_code)
+        if hit is not None and hit[0] > now:
+            _COMPANY_INFO_CACHE.move_to_end(corp_code)
+            return copy.deepcopy(hit[1])
+        info = await self._request("company.json", {"corp_code": corp_code})
+        if isinstance(info, dict) and info.get("status") == "000":
+            _COMPANY_INFO_CACHE[corp_code] = (now + _COMPANY_INFO_TTL_SEC, copy.deepcopy(info))
+            _COMPANY_INFO_CACHE.move_to_end(corp_code)
+            while len(_COMPANY_INFO_CACHE) > _COMPANY_INFO_CACHE_MAX:
+                _COMPANY_INFO_CACHE.popitem(last=False)
+        return info
 
     # ── 공시 검색 ──
 

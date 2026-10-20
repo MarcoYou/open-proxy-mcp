@@ -205,3 +205,36 @@ def test_recent_year_payload_still_flags_an_undecided_year(monkeypatch):
     p, _ = _payload_for(monkeypatch, year=2025, end_month=6)
     assert [f["fiscal_year"] for f in p["data"]["undecided_fiscal_years"]] == [2026]
     assert any("FY2026" in w and "미결의" in w for w in p["warnings"])
+
+
+# ── 반기·분기 결산 — 결산월은 가장 늦은 결산기로, 사업연도 구간은 그 해 결산기들이 덮는 12개월 (261021, DATA-FY3) ──────────────────────
+def _two_period_response() -> dict:
+    """롯데리츠 FY2025 모양 — 결산기 둘(2025-06-30 · 2025-12-31). 한 행의 당기·전기·전전기는 연속한 결산기."""
+    def rows(stlm, dps, prev, before):
+        base = {"stlm_dt": stlm, "stock_type": "보통주식"}
+        return [{**base, "category": "주당액면가액(원)", "stock_type": "-", "current": "500", "previous": "500", "before_previous": "500"},
+                {**base, "category": "주당 현금배당금(원)", "current": dps, "previous": prev, "before_previous": before}]
+    return {"stlm_dt": "2025-12-31", "items": rows("2025-06-30", "117", "112", "103") + rows("2025-12-31", "123", "117", "112")}
+
+
+def test_two_settlement_periods_name_the_calendar_year_and_the_latest_month():
+    out = _alot_multiyear_summaries(_two_period_response())
+    assert out[2025]["cash_dps"] == 240 and out[2024]["cash_dps"] == 215
+    assert (out[2025]["fiscal_year_end_month"], out[2025]["period_start"], out[2025]["period_end"]) == (12, "2025-01-01", "2025-12-31"), \
+        "종전: 결산월을 첫 행(2025-06-30)에서 읽어 6 → 사업연도 2024-07-01~2025-06-30"
+    assert out[2025]["stlm_dt"] == "2025-12-31"
+    assert _fiscal_end_month(out[2025]["stlm_dt"]) == 12
+
+
+def test_two_period_payload_renders_the_settlement_composition_not_a_fiscal_month_line():
+    p = {"status": "exact", "subject": "롯데리츠", "warnings": [], "data": {
+        "canonical_name": "롯데리츠", "year": 2025, "fiscal_year_basis": FISCAL_YEAR_BASIS, "fiscal_year_end_month": 12,
+        "window": {"start_date": "20230101", "end_date": "20260630"},
+        "summary": {"fiscal_year": 2025, "fiscal_year_end_month": 12, "period_start": "2025-01-01", "period_end": "2025-12-31",
+                    "cash_dps": 240, "total_amount_mil": 69352, "settlement_months": 6,
+                    "settlement_periods": [{"stlm_dt": "2025-06-30", "dps_krw": 117}, {"stlm_dt": "2025-12-31", "dps_krw": 123}],
+                    "latest_period": {"stlm_dt": "2025-12-31", "cash_dps": 123, "total_amount_mil": 35543}}}}
+    md = _render(p, "summary")
+    assert "- 연간 DPS(보통주): 240원" in md
+    assert "  - 반기 결산기 2개의 합: 2025-06-30 117원 + 2025-12-31 123원 _(사업보고서 한 통은 가장 늦은 결산기 2025-12-31 분 123원)_" in md
+    assert "결산 ·" not in md, "12월로 읽으니 비12월 결산 안내 줄(「N월 결산」)을 붙이지 않는다"

@@ -51,7 +51,6 @@ def _stub(monkeypatch, uni_rows=_UNI, hist=None, resolved=True, db_ok=True):
                                 notice="" if resolved else "시세 저장분 조회 실패 → 전체시장으로 대체.",
                                 as_of="20260911", rows=list(uni_rows), db_ok=db_ok)
     monkeypatch.setattr(uni, "list_universe", lu)
-    monkeypatch.setattr(fe, "_hist_available", lambda: True)
     calls = []
 
     def pg(sql, params=()):
@@ -66,7 +65,7 @@ def test_one_query_ranked_by_op_revision(monkeypatch):
     p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))
     assert p["status"] == "ok"
     assert len(calls) == 1 and "= ANY" in calls[0][0] and "period_type=%s" in calls[0][0]
-    assert calls[0][1] == ("FY", ["005930", "000660", "005380", "999999"])
+    assert calls[0][1] == ("FY", ["005930", "000660", "005380", "999999"], 91)   # 4w 스크린: 창 안 13주만 읽는다
     d = p["data"]
     assert d["window"] == "4w" and d["window_days"] == 28
     assert [r["ticker"] for r in d["rows"]] == ["005930", "005380", "000660"]   # 상향 → 유지(짧음) → 하향
@@ -380,7 +379,7 @@ def test_26w_and_52w_windows_are_accepted_and_short_history_is_flagged(monkeypat
         top = d["rows"][0]
         assert top["ticker"] == "005930" and top["history_short"] is True and f"op_krw_{win}_pct" in top
         assert any(f"이력이 {win} 에 못 미쳐" in w for w in p["warnings"])
-    assert all("fwd_asof" not in sql for sql, _ in calls)          # 주별 모양(교체 전) 질의 그대로
+    assert all("as_of >= (SELECT max(as_of) FROM fwd_asof)" in sql for sql, _ in calls)   # 달력 창 조건을 붙인다
     md = tool._render_revision_screen(p)
     assert "영업이익 52w | 이동 | 매출 52w" in md and "(이력 짧음)" in md
 
@@ -388,7 +387,7 @@ def test_26w_and_52w_windows_are_accepted_and_short_history_is_flagged(monkeypat
 def test_screen_note_names_the_actual_db_retention(monkeypatch):
     _stub(monkeypatch)
     note = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))["data"]["note"]
-    assert "13주 롤링" not in note and "최근 13주" in note and "보관본" in note
+    assert "13주 롤링" not in note and "최근 52주" in note and "보관본" in note
 
 
 def test_index_universe_names_the_ledger_not_a_cap_ranking(monkeypatch):

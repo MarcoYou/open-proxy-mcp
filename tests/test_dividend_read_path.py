@@ -111,8 +111,8 @@ def _slow_rows(threads, delay=_BLOCK_SEC):
             return [(2020, 2025)]
         if "FROM div_payment_scope" in s:
             return [(2020,), (2021,), (2022,), (2023,), (2024,)]
-        if "FROM div_declared" in s and "DISTINCT ON (corp_code, bsns_year)" in s:
-            return [(2024, 800, 600, 1.0e13, 30.0), (2023, 800, 590, 0.9e13, 29.0)]
+        if "FROM div_declared" in s and "FROM yr GROUP BY bsns_year" in s:      # 261021: 시장 집계 — 회사·사업연도 한 줄(결산기 합) 위의 해별 집계
+            return [(2024, 800, 600, 1.0e13, 30.0, 0), (2023, 800, 590, 0.9e13, 29.0, 0)]
         return []
     return rows
 
@@ -225,3 +225,79 @@ def test_db_failure_messages_are_unchanged(monkeypatch):
     monkeypatch.setattr(dd, "_rows", lambda sql, params=(): [(2020, 2025)] if "MIN(" in sql else None)
     out = asyncio.run(_tool()(scope="market"))
     assert out == "## 시장 배당 집계 조회 실패 (`status=db_error`)"
+
+
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+# 3. screen 은 질의 하나 · firm 의 두 왕복은 동시에 (261021 B9①②)
+# ═════════════════════════════════════════════════════════════════════════════════════════════════
+def test_screen_reads_rows_matched_count_and_universe_in_one_query(monkeypatch):
+    """종전엔 행 · COUNT(*) · 모집단이 질의 셋이었다 — 같은 CTE 를 두 번 더 돌렸다. 이제 `COUNT(*) OVER ()` 와 첫 CTE 하나로 질의 하나."""
+    calls = []
+
+    def rows(sql, params=()):
+        calls.append((" ".join(sql.split()), params))
+        return [("00126380", "삼성전자", "005930", 1444.0, 9.8e12, 30.0, "20260310000100", 1, False, 57, 825)]
+    monkeypatch.setattr(dd, "_rows", rows)
+    d = dd.screen(2025, min_dps=100, limit=1)
+    assert len(calls) == 1, "행 · 매칭 수 · 모집단이 질의 하나"
+    sql, params = calls[0]
+    assert "COUNT(*) OVER () AS matched" in sql and "(SELECT n FROM uni) AS n_universe" in sql and sql.rstrip().endswith("LIMIT %s")
+    assert params == ("11011", 2025, "11011", 2025, 100, 1), "모집단 CTE → 행 조건 → 한도 순서로 자리표시자와 맞는다"
+    assert (d["matched"], d["n_universe"], d["returned"], d["limit"]) == (57, 825, 1, 1), "limit 은 표시 한도 — 매칭 수는 한도 앞에서 센다"
+    assert d["rows"][0]["dps_krw"] == 1444 and d["rows"][0]["total_basis"] == "single"
+
+
+def test_screen_with_no_matching_company_reads_the_universe_in_a_second_query(monkeypatch):
+    calls = []
+
+    def rows(sql, params=()):
+        calls.append(" ".join(sql.split()))
+        return [] if "OVER ()" in sql else [(825,)]
+    monkeypatch.setattr(dd, "_rows", rows)
+    d = dd.screen(2025, min_dps=10 ** 9)
+    assert len(calls) == 2 and (d["matched"], d["n_universe"], d["rows"]) == (0, 825, [])
+    monkeypatch.setattr(dd, "_rows", lambda sql, params=(): [] if "OVER ()" in sql else None)       # 모집단 질의만 실패
+    d2 = dd.screen(2025, min_dps=10 ** 9)
+    assert d2["status"] == "ok" and d2["matched"] == 0 and d2["n_universe"] is None, "못 센 모집단을 0 으로 메우지 않는다"
+    monkeypatch.setattr(dd, "_rows", lambda sql, params=(): None)
+    assert dd.screen(2025) == {"status": "db_error"}
+
+
+def test_firm_scope_sends_the_ledger_and_the_decision_reads_together(monkeypatch):
+    """원장 시계열과 결정공시 횟수는 입력이 겹치지 않는다 — 두 DB 왕복이 겹쳐 돈다(합계 ≈ 한 번의 시간)."""
+    corp = {"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126380"}
+
+    async def fake_resolve(q):
+        return corp, None
+    monkeypatch.setattr(pmd, "_resolve_listed", fake_resolve)
+    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    spans = {}
+
+    def timed(name, ret):
+        def fn(*a, **k):
+            t0 = time.perf_counter()
+            time.sleep(0.3)
+            spans[name] = (t0, time.perf_counter())
+            return ret
+        return fn
+    monkeypatch.setattr(dd, "firm_history", timed("firm", {"status": "ok", "annual": [], "quarterly": [], "annual_failed": False,
+                                                          "quarterly_failed": False, "empty_kind_rows_folded": 0}))
+    monkeypatch.setattr(dd, "payment_counts", timed("pay", {"status": "ok", "complete_years": [2024], "rows": [], "decisions": []}))
+    t0 = time.perf_counter()
+    out = asyncio.run(_tool()(scope="firm", company="삼성전자"))
+    elapsed = time.perf_counter() - t0
+    assert out.startswith("## 삼성전자 (005930)") and set(spans) == {"firm", "pay"}
+    assert spans["firm"][0] < spans["pay"][1] and spans["pay"][0] < spans["firm"][1], "두 읽기의 구간이 겹친다"
+    assert elapsed < 0.55, f"차례로 기다렸다: {elapsed:.2f}초 (동시면 약 0.3초)"
+
+
+def test_firm_scope_still_reports_a_failed_ledger_read(monkeypatch):
+    corp = {"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126380"}
+
+    async def fake_resolve(q):
+        return corp, None
+    monkeypatch.setattr(pmd, "_resolve_listed", fake_resolve)
+    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    monkeypatch.setattr(dd, "firm_history", lambda *a, **k: {"status": "db_error"})
+    monkeypatch.setattr(dd, "payment_counts", lambda *a, **k: {"status": "ok", "complete_years": [], "rows": [], "decisions": []})
+    assert asyncio.run(_tool()(scope="firm", company="삼성전자")) == "## 배당 원장 조회 실패 (`status=db_error`)"

@@ -106,12 +106,28 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+#: OpenDART 공표 분당 한도(키당). 넘으면 그 키가 2~3시간 막힌다.
+_DART_LIMIT_PER_MINUTE = 1000
+#: OpenDART 하루 한도(키당). 넘으면 status 020, KST 자정에 풀린다.
+_DART_LIMIT_PER_DAY = 20000
+
+
 def build_usage(api_calls: int) -> dict[str, int]:
-    """모든 data tool이 data.usage로 노출하는 공통 블록."""
+    """모든 data tool이 data.usage로 노출하는 공통 블록.
+
+    `dart_daily_limit_per_minute` 은 옛 키다 — 이름과 달리 값은 **분당** 공표 한도(1000)이고
+    계약상 그대로 둔다. 하루 한도는 `dart_limit_per_day`, OPM 이 실제로 쓰는 분당 상한(910)은
+    `dart_client_cap_per_minute` 다.
+    """
+    from open_proxy_mcp.dart.client import _API_RATE_LIMIT_PER_MINUTE
+
     return {
         "dart_api_calls": api_calls,
         "mcp_tool_calls": 1,
-        "dart_daily_limit_per_minute": 1000,
+        "dart_daily_limit_per_minute": _DART_LIMIT_PER_MINUTE,
+        "dart_limit_per_minute": _DART_LIMIT_PER_MINUTE,
+        "dart_client_cap_per_minute": _API_RATE_LIMIT_PER_MINUTE,
+        "dart_limit_per_day": _DART_LIMIT_PER_DAY,
     }
 
 
