@@ -209,6 +209,19 @@ def test_stale_snapshot_warning_is_silent_when_latest_is_unknown(monkeypatch):
     assert fe._stale_snapshot_warning(dt.date(2026, 4, 18)) is None
 
 
+def test_latest_calendar_date_is_cached_for_ten_minutes(monkeypatch):
+    calls = _probe(monkeypatch, latest=dt.date(2026, 10, 17))
+    clock = {"t": 1000.0}
+    monkeypatch.setattr(fe.time, "monotonic", lambda: clock["t"])
+    assert fe._hist_latest() == dt.date(2026, 10, 17)
+    clock["t"] += 599
+    assert fe._hist_latest() == dt.date(2026, 10, 17)
+    assert len(calls) == 1                                                 # 10분 안에는 다시 묻지 않는다
+    clock["t"] += 2
+    fe._hist_latest()
+    assert len(calls) == 2                                                 # 10분이 지나면 다시 묻는다
+
+
 def test_source_note_says_what_the_db_actually_keeps(monkeypatch):
     _probe(monkeypatch)
     assert "최근 52주" in fe._hist_source_note() and "보관본" in fe._hist_source_note()
