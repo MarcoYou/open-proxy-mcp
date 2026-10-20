@@ -249,9 +249,11 @@ def _flush(buf, replace=False):
         except psycopg.OperationalError:
             if attempt==2: raise
 
-async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | None = None):
+async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | None = None, keep_fs: bool = False):
     """`tickers` 를 주면 그 종목만(261018 — 결산월이 12월이 아닌 회사의 새 사업보고서만 좁혀 받을 때).
-    `only` = {(종목, 사업연도)} — 그 행만 다시 받는다(이미 ok 여도, 261019 `--refetch`). 결과는 `_flush(replace=True)` 로 쓴다."""
+    `only` = {(종목, 사업연도)} — 그 행만 다시 받는다(이미 ok 여도, 261019 `--refetch`). 결과는 `_flush(replace=True)` 로 쓴다.
+    `keep_fs`(261020 검토 — 정정 사업보고서 다시 받기): 그 행이 받았던 재무제표(연결/별도)가 빈 응답이면 다른 쪽으로 물러나지 않고 행을 그대로 둔다.
+    정정본에 연결 재무제표가 없다고 연결 행을 별도 값으로 바꿔 쓰면 그 해만 기준이 갈린다(10-20 [기재정정] 12행 — 연결 요청에 빈 응답, 별도만 옴)."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     sleep_s = float(os.getenv("SERIES_SLEEP", "0.45"))  # 260706: 필요시 조정, 기본값은 검증된 0.45 유지
     con=_pg()
@@ -287,6 +289,9 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
         try:
             first,second=("OFS","CFS") if fs_had.get((isu,yr))=="OFS" else ("CFS","OFS")
             fs=first; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
+            if not rows and keep_fs and fs_had.get((isu,yr)):
+                print(f"[정정] {isu} FY{yr} 정정본에 {fs} 재무제표가 없다 — 있던 행 그대로(연결/별도를 바꿔 쓰지 않는다)",flush=True)
+                continue
             if not rows:
                 fs=second; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
             ni,ni_note=ctrl_ni(rows)              # 261020: 지배 순이익 계정 줄의 총포괄 값은 거른다
@@ -429,8 +434,20 @@ async def refetch_amended(days: int | None = None, since: str | None = None, tod
     for tk, fy in sorted(targets):
         print(f"  [정정] {tk} FY{fy}", flush=True)
     if targets:
-        await fetch(only=targets)
+        await fetch(only=targets, keep_fs=True)
     return targets
+
+
+async def fetch_then_amended(tickers: list[str] | None = None, do_fetch: bool = True, amended: bool = False,
+                             days: int | None = None, since: str | None = None) -> None:
+    """정규 수집(`fetch`) 다음 정정 사업보고서 다시 받기(`refetch_amended`) — **한 이벤트 루프에서**(261020 검토).
+    DART 클라이언트(`get_dart_client`)는 프로세스에 하나이고 httpx 연결 풀을 쥔다. 두 단계를 `asyncio.run` 두 번으로 돌리면 앞 단계가 DART 를
+    한 번이라도 부른 날(주간 일정은 거의 늘 — 자료 없음 행을 400일 동안 다시 본다, 10-18 실행 「남은 11건」) 둘째 루프가 닫힌 루프의 연결을 다시 쓰다
+    `RuntimeError: Event loop is closed` 로 정정 목록을 못 읽고, 경고 한 줄만 남긴 채 정정 행을 하나도 다시 받지 않았다."""
+    if do_fetch:
+        await fetch(tickers)
+    if amended:
+        await refetch_amended(days, since)
 
 
 async def backfill_restated(tickers: list[str] | None = None, report_year: int = 2024):
@@ -576,7 +593,8 @@ def series():
             print(f"{d:>9} {market:>7} {pit_fy:>6} {(f'{per:.1f}' if per else 'N/M'):>7} {(f'{pbr:.2f}' if pbr else '-'):>6} {cov:>6.0f}%")
     con.close()
 
-if __name__=="__main__":
+def main(argv: list[str] | None = None) -> None:
+    """명령줄 진입점(261020 검토: 시험이 같은 갈래 고르기를 부를 수 있게 함수로 — 동작은 종전 그대로)."""
     ap=argparse.ArgumentParser()
     ap.add_argument("--fetch",action="store_true")
     ap.add_argument("--backfill-restated",action="store_true",
@@ -590,14 +608,17 @@ if __name__=="__main__":
     ap.add_argument("--amended-since",type=str,default=None,help="정정 판정 목록 시작일 YYYYMMDD(빠진 실행 메우기)")
     ap.add_argument("--refetch",type=str,
                     help="이 (종목:사업연도) 행만 다시 받는다(이미 ok 여도) — 콤마구분(예 065680:2018). 수집 규칙을 고친 뒤 틀렸던 행만")
-    a=ap.parse_args()
+    a=ap.parse_args(argv)
     if a.fetch or a.backfill_restated or a.refetch or a.amended:
         _note=ecos_key_missing_note("연간 재무 수집")   # 261019: 외화 보고사 환산 — 키가 빠진 실행을 처음에 한 줄로
         if _note: print(_note,flush=True)
     if a.refetch:
         asyncio.run(fetch(only={(t,int(y)) for t,y in (x.split(":") for x in a.refetch.split(",") if x)}))
     elif a.fetch or a.amended:
-        if a.fetch: asyncio.run(fetch(a.tickers.split(",") if a.tickers else None))
-        if a.amended: asyncio.run(refetch_amended(a.amended_days, a.amended_since))   # 261020: 정정 사업보고서가 나온 행만
+        asyncio.run(fetch_then_amended(a.tickers.split(",") if a.tickers else None, a.fetch, a.amended, a.amended_days, a.amended_since))
     elif a.backfill_restated: asyncio.run(backfill_restated(a.tickers.split(",") if a.tickers else None, a.report_year))
     else: series()
+
+
+if __name__=="__main__":
+    main()

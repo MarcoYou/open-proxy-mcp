@@ -6,8 +6,12 @@ DART 0콜 · DB 0.
 """
 from __future__ import annotations
 
+import asyncio
+import http.server
 import importlib.util
+import json
 import pathlib
+import threading
 
 import pytest
 
@@ -189,6 +193,22 @@ def test_minority_line_with_only_quarter_value_is_not_a_pair():
     assert C.controlling_ni(rows) == (2756182295.0, "CIS_ID")
 
 
+def test_dropped_id_line_does_not_fall_back_to_unsorted_name_line():
+    """지배 id 줄을 비지배와 짝이 안 맞아 버렸으면(`_id_off_nci`) 값 구조로 가를 수 없는 이름 줄로도 물러나지 않는다 — 총계 − 비지배(값 구조가 맞는 길).
+    (261020 검토 — 변이 시험에서 이 갈래만 시험이 없었다: `fallback is not None and not dropped` 의 `not dropped` 를 빼도 다 통과했다.)
+    꼴: 당기순이익 100억 · 비지배 id 줄 10억 · 지배 id 줄 100억(= 총계 — 비지배와 짝 안 맞음) · 이름 줄 「지배기업소유주지분」 95억(어느 구조에도 안 맞음),
+    총포괄 = 당기순이익(기타포괄 0) — 총계 줄은 믿을 수 있다."""
+    rows = [
+        r("CIS", F + "ProfitLoss", "당기순이익", 10, 10_000_000_000),
+        r("CIS", F + "ProfitLossAttributableToNoncontrollingInterests", "비지배지분", 11, 1_000_000_000),
+        r("CIS", F + "ProfitLossAttributableToOwnersOfParent", "지배기업의 소유주지분", 12, 10_000_000_000),
+        r("CIS", NOSTD, "지배기업소유주지분", 13, 9_500_000_000),
+        r("CIS", F + "OtherComprehensiveIncome", "기타포괄손익", 20, 0),
+        r("CIS", F + "ComprehensiveIncome", "총포괄손익", 21, 10_000_000_000),
+    ]
+    assert C.controlling_ni(rows) == (9_000_000_000.0, "TOTAL_MINUS_MINORITY_IDX")
+
+
 # ── 연간 수집(`market_val_series.ctrl_ni`) — 지배 계정이 없으면 총계(비지배 포함)이던 것 ───────────────────────
 
 def _series():
@@ -248,3 +268,74 @@ def test_amended_report_fiscal_label_is_report_year():
     S2 = _series()
     items = [_it("00100001", "[기재정정]사업보고서 (2026.03)", "20260901000001")]
     assert S2.amended_targets(items, {("000001", 2026): ("ok", "20260615000001")}, {"00100001": "000001"}) == {("000001", 2026)}
+
+
+def test_fetch_then_amended_runs_in_one_event_loop(monkeypatch, capsys):
+    """주간 일정의 `market_val_series.py --fetch --amended` — 정규 수집 뒤 정정 사업보고서 다시 받기가 **같은 이벤트 루프**에서 돈다(261020 검토).
+    종전엔 `asyncio.run` 을 두 번 불러, 정규 수집이 DART 를 한 번이라도 부르면(자료 없음 행 다시 보기 — 주간 실행은 거의 늘) 프로세스에 하나인
+    DART 클라이언트의 연결 풀이 닫힌 첫 루프에 묶여 둘째 루프의 정기공시 목록이 `RuntimeError: Event loop is closed` — 경고만 남고 정정 행을 하나도 안 받았다.
+    가짜 DART(로컬 HTTP)·가짜 DB 로 실제 클라이언트를 돌린다(DART 0콜 · DB 0). 정정본에 연결 재무제표가 없으면 별도로 바꿔 쓰지 않는다(`keep_fs`)."""
+    S2 = _series()
+    from open_proxy_mcp.dart import client as dc
+    hits: list[str] = []
+
+    class H(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            ep = self.path.split("?")[0].rsplit("/", 1)[-1]
+            hits.append(ep)
+            body = ({"status": "000", "total_page": 1, "list": [_it("00000001", "[기재정정]사업보고서 (2024.12)", "20261015000001")]}
+                    if ep == "list.json" else {"status": "013", "message": "조회된 데이타가 없습니다."})
+            b = json.dumps(body).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+
+    class Res(list):
+        def fetchone(self):
+            return self[0] if self else None
+
+    class Con:
+        def execute(self, sql, params=None):
+            s = " ".join(sql.split())
+            if "FROM dart_fundamentals WHERE fetched='ok'" in s:
+                return Res([("000001", "00000001")])
+            if s.startswith("SELECT ticker, fy, fetched FROM dart_finstat_y"):
+                return Res([("000001", 2024, "ok")])
+            if s.startswith("SELECT ticker, fy, fs FROM dart_finstat_y"):
+                return Res([("000001", 2024, "CFS")])
+            return Res([])
+
+        def close(self):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    key = "test-fetch-then-amended-one-loop"
+    try:
+        monkeypatch.setattr(dc, "OPENDART_BASE_URL", f"http://127.0.0.1:{srv.server_address[1]}")
+        for k in [k for k in __import__("os").environ if k.startswith("OPENDART_API_KEY")]:
+            monkeypatch.delenv(k)
+        monkeypatch.setenv("OPENDART_API_KEY", key)
+        monkeypatch.setenv("SERIES_SLEEP", "0")
+        monkeypatch.setattr(S2, "_pg", lambda: Con())
+        monkeypatch.setattr(S2, "_flush", lambda buf, replace=False: buf.clear())
+        monkeypatch.setattr(S2.rcal, "load_fye_map", lambda con: {})
+        monkeypatch.setattr(S2, "ecos_key_missing_note", lambda *_a: None)
+        S2.main(["--fetch", "--amended"])                         # 주간 일정과 같은 명령줄
+    finally:
+        srv.shutdown()
+        dc._instances.pop(key, None)
+        dc._instance_seen.pop(key, None)
+    out = capsys.readouterr().out
+    assert "목록 실패" not in out and "다시 받을 연간 행 1" in out
+    first_list = hits.index("list.json")
+    assert first_list > 0                                         # 정규 수집이 먼저 DART 를 불렀다(루프가 바뀌면 깨지던 조건)
+    assert hits[first_list:].count("fnlttSinglAcntAll.json") == 1  # 정정 행은 연결만 — 빈 응답이어도 별도로 물러나지 않는다
+    assert "있던 행 그대로" in out
