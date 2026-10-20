@@ -35,8 +35,8 @@ _period_metadata = period_metadata
 _UNIT = {"조원": 1e12, "십억원": 1e9, "억원": 1e8, "백만원": 1e6, "천원": 1e3, "원": 1.0}
 
 #: 단위를 원문에서 못 읽었을 때 응답에 싣는 경고 — 금액을 어느 단위로 가정해 환산하지 않는다(DATA-U1).
-UNIT_UNKNOWN_WARNING = ("원문에서 금액 단위(「단위 : …」)를 읽지 못해 headline 금액을 원 단위로 환산하지 않았다 — "
-                        "`unit_raw`=None. 표 원문(table_markdown)의 단위를 확인하고, 증감률(%)만 믿을 것.")
+UNIT_UNKNOWN_WARNING = ("원문에서 금액 단위(「단위 : …」)를 읽지 못해 매출·영업이익 등 금액을 원 단위로 환산하지 않았다 — "
+                        "원문 표의 단위를 확인하고, 증감률(%)만 믿을 것.")
 
 
 def _find_unit(text: str) -> str | None:

@@ -96,6 +96,7 @@ def test_this_year_third_quarter_is_compared_with_last_years_third_quarter(monke
     assert y["period_aligned"] is True
     assert "revenue_decline" not in y["alerts"]          # 옛 값: (1000−650)/1000 = 35% 로 거짓 경고
     assert "period_note" in y and "같은 보고서" in y["period_note"]
+    assert "9개월 누적" in y["period_note"] and "cumulative" not in y["period_note"]   # 사람 말로 — 엔진 식별자를 문장에 싣지 않는다
     assert y["current"]["revenue_yoy_pct"] == -5.8       # 당기가 이미 전기 같은 보고서로 센 값과 이제 한 줄로 맞는다
     assert ("acnt", 2025, "11014") in calls
 
@@ -107,7 +108,7 @@ def test_without_the_same_report_period_sensitive_alerts_are_off_with_a_reason(m
     assert y["period_aligned"] is False
     assert not (set(y["alerts"]) & set(y["alerts_not_evaluated"]))
     assert "revenue_decline" in y["alerts_not_evaluated"]
-    assert any("계산하지 않았" in w for w in p["warnings"])
+    assert any("계산하지 않았" in w and "연간 12개월" in w for w in p["warnings"])
 
 
 def test_annual_vs_annual_is_unchanged_and_real_declines_still_fire(monkeypatch):

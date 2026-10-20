@@ -1331,6 +1331,16 @@ _PERIOD_SENSITIVE_ALERTS = frozenset({
 })
 
 
+def _period_ko(m: dict[str, Any]) -> str:
+    """metrics 한 벌의 손익 기간을 사람 말로 — 「연간 12개월」·「9개월 누적」."""
+    pb = str(m.get("period_basis") or "")
+    if pb.startswith("cumulative_") and pb.endswith("m"):
+        return f"{pb[len('cumulative_'):-1]}개월 누적"
+    if pb == "quarter_3m":
+        return "3개월"
+    return "연간 12개월"
+
+
 def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
                         audit_curr: dict[str, Any] | None = None,
                         audit_prev: dict[str, Any] | None = None) -> list[str]:
@@ -3008,13 +3018,13 @@ async def build_financial_metrics_payload(
             if prev_same and prev_same.get("reprt_code") == same_rc:
                 prev = prev_same
                 ws_prev = ws_same
-                period_note = (f"{target_year}년은 {_REPRT_LABEL.get(same_rc, same_rc)} 기준({curr.get('period_basis')})이라 "
+                period_note = (f"{target_year}년은 {_REPRT_LABEL.get(same_rc, same_rc)} 기준({_period_ko(curr)})이라 "
                                f"전기도 {target_year - 1}년 같은 보고서({_REPRT_LABEL.get(same_rc, same_rc)})로 다시 계산했다 — "
                                f"기간이 같은 값끼리의 전년 비교다.")
             else:
                 period_aligned = False
-                period_note = (f"{target_year}년은 {_REPRT_LABEL.get(same_rc, same_rc)} 기준({curr.get('period_basis')})인데 "
-                               f"{target_year - 1}년 같은 보고서를 찾지 못해 전기는 {prev.get('period_basis')} 이다 — "
+                period_note = (f"{target_year}년은 {_REPRT_LABEL.get(same_rc, same_rc)} 기준({_period_ko(curr)})인데 "
+                               f"{target_year - 1}년 같은 보고서를 찾지 못해 전기는 {_period_ko(prev)} 이다 — "
                                f"기간이 다른 값끼리라 기간에 민감한 경고({', '.join(sorted(_PERIOD_SENSITIVE_ALERTS))})는 계산하지 않았다.")
             warnings.append(period_note)
         warnings.extend(ws_prev)
