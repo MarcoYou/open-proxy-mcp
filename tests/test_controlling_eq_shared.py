@@ -193,6 +193,25 @@ def test_firm_and_period_cells_reject_the_same_lines():
     assert _ctrl_equity(ok) == 1020108293657 and PC.ctrl_eq(ok) == 1020108293657.0
 
 
+def test_firm_reads_nonstandard_total_line_like_collector():
+    """082270 FY2025(연결) — 자본총계를 표준 코드 없이 「자 본 총 계」로만 적고 계정 코드는 부채및자본총계(`EquityAndLiabilities`)에만.
+    지배자본 계정 줄·`ifrs-full_Equity` 가 없어 종전 firm·결산기 칸은 None(PBR 이 경고 없이 N/M) — 같은 원문을 읽는 수집은 572.29억(TOTAL)."""
+    rows = [row("BS", NOSTD, "자 본 총 계", 26, thstrm_amount=57228866333, frmtrm_amount=29005833962),
+            row("BS", NOSTD, "자본잉여금", 28, thstrm_amount=114082920018),
+            row("BS", NOSTD, "자본금", 29, thstrm_amount=21340194500),
+            row("BS", NOSTD, "이익잉여금(결손금)", 30, thstrm_amount=-78423241818),
+            row("BS", NOSTD, "기타자본구성요소", 31, thstrm_amount=228993633),
+            row("BS", "ifrs-full_EquityAndLiabilities", "부 채 및 자 본 총 계", 32, thstrm_amount=158874710036),
+            row("BS", "ifrs-full_Liabilities", "부채총계", 44, thstrm_amount=101645843703)]
+    assert Q.extract_controlling_eq(rows) == (57228866333.0, "TOTAL")
+    assert _ctrl_equity(rows) == 57228866333
+    assert _ctrl_equity(rows, "frmtrm_amount") == 29005833962
+    assert PC.ctrl_eq(rows) == 57228866333.0
+    # 재무상태표가 없으면 종전처럼 None
+    assert _ctrl_equity([row("IS", "ifrs-full_Revenue", "매출액", 1, thstrm_amount=5)]) is None
+    assert PC.ctrl_eq([row("IS", "ifrs-full_Revenue", "매출액", 1, thstrm_amount=5)]) is None
+
+
 # ── XBRL 원본 대체 경로 ──────────────────────────────────────────────────────
 
 def test_xbrl_controlling_element_far_from_total_is_not_used():

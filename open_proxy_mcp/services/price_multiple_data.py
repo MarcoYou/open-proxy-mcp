@@ -1980,7 +1980,11 @@ def _ctrl_equity(rows, field="thstrm_amount"):
     「자본금」 줄(317240 2021 1분기 90.35억 · 자본총계 200.67억)·자본 구성요소 줄(082660 2021 3분기 「기타자본구성요소」)에 붙였거나, 값이 자본총계 −
     비지배와 부호가 다르거나 1.6배 넘게 다르면(065370 2023 3분기 36.92억 · 자본총계 323.72억) 그 줄을 쓰지 않고 수집과 같은 다음 규칙
     (`controlling_eq` — 이름 줄 → 자본총계 − 비지배 → 자본총계, 표준 코드 없는 「자본총계」 줄도 본다)으로 간다. 종전엔 배치(분기·연간 수집)만 자본금 줄을
-    걸렀고 이 경로는 그 값을 그대로 PBR 분모로 썼다."""
+    걸렀고 이 경로는 그 값을 그대로 PBR 분모로 썼다.
+
+    261020(p1f ship): 지배자본 계정 줄도 자본총계 계정(`ifrs-full_Equity`)도 없으면 수집과 같은 규칙(`controlling_eq` — 이름 줄 → 표준 코드 없는
+    「자본총계」 줄 − 비지배)으로 간다. 종전엔 여기서 None 이라 PBR 이 경고 없이 N/M 이었다 — 082270 2024·2025 보고서는 자본총계를 표준 코드 없이
+    「자 본 총 계」로만 적어(부채및자본총계만 계정 코드) firm 지배자본이 비었고, 같은 원문을 읽는 수집은 572.29억(FY2025)을 저장했다."""
     eq, why = _ceq.ctrl_id_value(rows, field)
     if eq is not None:
         if why is None:
@@ -1989,7 +1993,8 @@ def _ctrl_equity(rows, field="thstrm_amount"):
         return int(v) if v is not None else None
     total = _gid(rows, "Equity", ("BS",), field)
     if total is None:
-        return None
+        v, _case = _ceq.controlling_eq(rows, field)
+        return int(v) if v is not None else None
     nci = _gid(rows, "NoncontrollingInterests", ("BS",), field) or 0
     return total - nci
 

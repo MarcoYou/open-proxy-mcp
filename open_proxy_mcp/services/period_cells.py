@@ -100,13 +100,13 @@ def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str
 def ctrl_eq(rows: list, field: str = "thstrm_amount") -> float | None:
     """지배자본 — firm(`price_multiple_data._ctrl_equity`)과 같은 규칙(지배 귀속 → 총자본 − 비지배). 261020(p1f eq-suspects): 지배 귀속 계정 줄이
     자본금·자본 구성요소 줄이거나 자본총계 − 비지배와 크게 어긋나면(`services.controlling_eq.ctrl_line_rejected`) 그 줄을 쓰지 않고 수집과 같은 다음 규칙
-    (`controlling_eq`)으로 간다(firm 과 같다)."""
+    (`controlling_eq`)으로 간다(firm 과 같다). 261020(p1f ship): 자본총계 계정도 없으면(표준 코드 없는 「자본총계」 줄뿐) 수집과 같은 규칙으로(firm 과 같다)."""
     v, why = _ceq.ctrl_id_value(rows, field, prefixes=("ifrs-full_", "ifrs_"))
     if v is not None:
         return v if why is None else _ceq.controlling_eq(rows, field)[0]
     tot = _g(rows, "Equity", ("BS",), field)
     if tot is None:
-        return None
+        return _ceq.controlling_eq(rows, field)[0]
     return tot - (_g(rows, "NoncontrollingInterests", ("BS",), field) or 0)
 
 
