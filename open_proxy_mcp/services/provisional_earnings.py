@@ -33,6 +33,41 @@ from open_proxy_mcp.services.revenue_account import match_revenue_label
 _period_metadata = period_metadata
 
 _UNIT = {"조원": 1e12, "십억원": 1e9, "억원": 1e8, "백만원": 1e6, "천원": 1e3, "원": 1.0}
+
+#: 단위를 원문에서 못 읽었을 때 응답에 싣는 경고 — 금액을 어느 단위로 가정해 환산하지 않는다(DATA-U1).
+UNIT_UNKNOWN_WARNING = ("원문에서 금액 단위(「단위 : …」)를 읽지 못해 매출·영업이익 등 금액을 원 단위로 환산하지 않았다 — "
+                        "원문 표의 단위를 확인하고, 증감률(%)만 믿을 것.")
+
+
+def _find_unit(text: str) -> str | None:
+    """원문의 「단위 : 백만원」·「(단위:억원)」·「단위 : 백만원, %」 에서 금액 단위를 읽는다. 쉼표 유무와 무관하다.
+
+    단위 표기가 없거나 아는 단위가 아니면 None — 호출부가 어떤 단위를 **가정하지 않는다**
+    (종전에는 쉼표가 없는 「(단위 : 억원)」을 못 읽고 백만원으로 환산해 금액이 100배 어긋날 수 있었다).
+    """
+    longest_first = sorted((k for k in _UNIT if len(k) >= 2), key=len, reverse=True)
+    for m in re.finditer(r"단위\s*[:：]\s*([가-힣]+)", text):
+        run = m.group(1)
+        if run in _UNIT:
+            return run
+        hit = next((k for k in longest_first if run.startswith(k)), None)   # 「백만원입니다」처럼 한글이 이어 붙은 꼴
+        if hit:
+            return hit
+    return None
+
+
+def _strip_money(headline: dict[str, Any]) -> dict[str, Any]:
+    """단위를 모를 때 headline 의 원 단위 금액을 비우고 원문 숫자를 `*_raw` 로 남긴다(증감률 %는 단위와 무관해 그대로)."""
+    out: dict[str, Any] = {}
+    for k, v in headline.items():
+        nv = dict(v)
+        for f in ("value_krw", "prior_value_krw", "change_krw"):
+            if f in nv:
+                if nv[f] is not None:
+                    nv[f.replace("_krw", "_raw")] = nv[f]
+                nv[f] = None
+        out[k] = nv
+    return out
 # 재무 잠정실적 표준 5행(별도는 지배주주 line 없어 4행). 정규화 키로 매핑.
 _METRICS = {
     "매출액": "revenue", "영업수익": "revenue",
@@ -189,9 +224,9 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
 
     soup = BeautifulSoup(html, "lxml")
     text = soup.get_text(" ", strip=True)
-    um = re.search(r"단위\s*[:：]\s*([가-힣]+)\s*,", text)
-    unit_label = um.group(1) if um else "백만원"
-    factor = _UNIT.get(unit_label, 1e6)
+    unit_label = _find_unit(text)                 # 못 찾으면 None — 백만원으로 가정하지 않는다
+    factor = _UNIT[unit_label] if unit_label else 1.0   # 단위를 모르면 1.0 으로 읽고 아래에서 금액을 비운다(증감률·종류 판정만 쓴다)
+    unit_extra = {} if unit_label else {"unit_warning": UNIT_UNKNOWN_WARNING}
     consolidated = "연결재무제표기준" in (report_nm or "") or "연결재무제표 기준" in text
     pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
     if pm:
@@ -206,7 +241,7 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
     if correction_headline:
         return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
                 **_period_metadata(period, fiscal_end_month=fiscal_end_month), "kind": "financial", "correction": True,
-                "headline": correction_headline,
+                "headline": correction_headline if unit_label else _strip_money(correction_headline), **unit_extra,
                 "table_markdown": "\n\n".join(p for p in (_clean_render(t) for t in tables) if p)[:6000] or None}
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
                       and any(k in t.get_text() for k in ("매출액", "영업수익", "수익(매출액)", "보험수익", "순영업수익", "공사수익"))), None)
@@ -223,7 +258,8 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
         table_markdown = "\n\n".join(p for p in parts if p)
     table_markdown = (table_markdown or "")[:6000] or None
     return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
-            **period_metadata(period, fiscal_end_month=fiscal_end_month), "kind": kind, "headline": headline,
+            **period_metadata(period, fiscal_end_month=fiscal_end_month), "kind": kind,
+            "headline": headline if unit_label else _strip_money(headline), **unit_extra,
             "table_markdown": table_markdown}
 
 
@@ -253,9 +289,8 @@ def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> d
     """I001 「매출액 또는 손익구조 30% 이상 변경」 표를 같은 headline 계약으로 변환."""
     soup = BeautifulSoup(html, "lxml")
     text = soup.get_text(" ", strip=True)
-    um = re.search(r"단위\s*[:：]\s*([가-힣]+)", text)
-    unit_label = um.group(1) if um else "천원"
-    factor = _UNIT.get(unit_label, 1e3)
+    unit_label = _find_unit(text)                 # 일반 서식과 같은 규칙 — 못 찾으면 None(천원으로 가정하지 않는다)
+    factor = _UNIT[unit_label] if unit_label else 1.0
     consolidated = "연결" in text and "별도" not in text[:600]
     pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
     if pm:
@@ -325,7 +360,9 @@ def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> d
     return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
             **period_metadata(period, annual=True, fiscal_end_month=fiscal_end_month),
             "kind": "financial", "provisional_type": "fiscal_year_change",
-            "headline": headline, "table_markdown": table_markdown}
+            "headline": headline if unit_label else _strip_money(headline),
+            **({} if unit_label else {"unit_warning": UNIT_UNKNOWN_WARNING}),
+            "table_markdown": table_markdown}
 
 
 def _is_attachment_only_correction(report_nm: str) -> bool:
@@ -378,6 +415,8 @@ def _gap_not_applicable(parsed: dict[str, Any], stock_code: str | None) -> dict[
         return {"status": status, "why": why}
     if not stock_code:
         return _no("out_of_coverage", "상장 종목코드가 없다 — 컨센서스 스냅샷은 상장사만 담는다")
+    if parsed.get("unit_warning"):
+        return _no("not_comparable", "금액 단위를 원문에서 읽지 못해 원 단위 금액이 없다 — 맞댈 숫자가 없다")
     if parsed.get("kind") != "financial":
         # `non_financial` 은 「headline 이 비었다」는 뜻이다 — 판매대수 표만이 아니라 지표가 한 칸에 뭉친 정정 표도 여기로 온다.
         return _no("not_comparable", "표에서 매출·영업이익 숫자를 뽑지 못했다(판매대수 같은 비재무형 실적표이거나 "
@@ -486,6 +525,8 @@ async def build_provisional_earnings_payload(
                             warnings=[f"원문 파싱 실패: {type(e).__name__}"
                                       + (f"(DART {getattr(e, 'status', '')})" if isinstance(e, DartClientError) else "")]).to_dict()
     warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)", *extra_warnings]
+    if parsed.get("unit_warning"):
+        warnings.append(parsed["unit_warning"])
     if parsed.get("kind") == "non_financial":
         warnings.append("표준 재무표(매출/영업이익) 미기재 — 도메인 실적표(지역별매출·판매대수·수주·판매량 등)로 공시, table_markdown 참조")
     data = {

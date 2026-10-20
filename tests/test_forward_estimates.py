@@ -1,62 +1,57 @@
-"""forward_estimates — 칸 개명 매핑·단위 통일·배수 게이팅·블록 분리 회귀 (DB/네트워크 0콜).
+"""forward_estimates — 칸 이름 표·단위(원)·배수 게이팅·블록 분리 회귀 (DB/네트워크 0콜).
 
-이 테스트가 지키는 것은 **매핑 표 한 곳**이다. `fwd` 표는 개명이 진행 중이라
-(`fwd_per`→`per` · `*_eok`→`*_krw` · `div_yield_pct`→`div_yield_at_period_end_pct`)
-코드가 아는 이름과 DB 의 이름이 어긋날 수 있는데, 어긋난 순간 조용히 죽지 않고
-**있는 쪽을 고르는지**를 여기서 고정한다.
+이 테스트가 지키는 것: 칸 이름 표(`_FIELDS`)는 운영 `fwd` 뷰의 **물리 칸 이름 그대로**다. 옛 이름 후보·억원(`_eok`)
+칸 분기는 걷어냈으므로, 표에 옛 이름이 다시 들어오거나 억원 칸이 나오면 여기서 막힌다.
 """
 from open_proxy_mcp.services import forward_estimates as fe
 
 
-# ── ① 개명 전/후 어느 쪽 스키마에서도 칸을 찾아낸다 ────────────────────────────
-_OLD = frozenset({
-    "period", "period_type", "is_estimate", "basis", "as_of", "price_krw", "price_dd",
-    "mktcap_krw", "rev_eok", "op_eok", "ni_ctrl_eok", "eps_krw", "bps_krw",
-    "fwd_per", "fwd_pbr", "fwd_psr", "div_yield_pct", "div_yield_own_pct", "rev_yoy_pct",
-})
-_NEW = frozenset({
-    "period", "period_type", "is_estimate", "basis", "as_of", "price_krw", "price_dd",
-    "mktcap_krw", "rev_krw", "op_krw", "ni_ctrl_krw", "eps_krw", "bps_krw",
-    "per", "pbr", "psr", "per_basis", "pbr_basis", "psr_basis",
-    "div_yield_at_period_end_pct", "div_yield_at_price_pct", "rev_yoy_vendor_pct",
-})
+# ── ① 칸 이름 표 = 물리 칸 이름 ───────────────────────────────────────────────
+def test_fields_are_physical_names_with_no_legacy_candidates():
+    assert all(len(f) == 4 for f in fe._FIELDS)                  # (이름, kind, block, bundle) — 후보 목록이 없다
+    names = [n for n, *_ in fe._FIELDS]
+    assert len(names) == len(set(names))
+    assert not [n for n in names if n.endswith("_eok")]         # 억원 칸이 밖으로 나가지 않는다
+    assert not [n for n in names if n in ("fwd_per", "fwd_pbr", "fwd_psr", "div_yield_pct", "div_yield_own_pct",
+                                          "rev_yoy_pct", "rev_eok", "op_eok", "ni_ctrl_eok")]
 
 
-def test_resolve_columns_old_schema():
-    m = fe.resolve_columns(_OLD)
-    assert m["rev_krw"] == "rev_eok"           # 옛 이름을 새 출력칸에 물린다
-    assert m["per"] == "fwd_per"
-    assert m["div_yield_at_period_end_pct"] == "div_yield_pct"
-    assert m["div_yield_at_price_pct"] == "div_yield_own_pct"
-    assert m["rev_yoy_vendor_pct"] == "rev_yoy_pct"
-    assert "per_basis" not in m                # 옛 스키마엔 없다 — 없는 칸을 SELECT 하지 않는다
+def test_fetch_selects_exactly_the_declared_columns(monkeypatch):
+    seen = []
+
+    def fake(sql, params=()):
+        seen.append((sql, params))
+        return []
+    monkeypatch.setattr(fe, "pg_rows", fake)
+    assert fe._fetch("005930") == []
+    sql = seen[0][0]
+    select_list = sql[len("SELECT "):sql.index(" FROM fwd ")].split(", ")
+    assert select_list == [n for n, *_ in fe._FIELDS]
+    assert seen[0][1] == ("005930", "005930")
 
 
-def test_resolve_columns_new_schema():
-    m = fe.resolve_columns(_NEW)
-    assert m["rev_krw"] == "rev_krw"
-    assert m["per"] == "per"
-    assert m["per_basis"] == "per_basis"
-    assert m["div_yield_at_period_end_pct"] == "div_yield_at_period_end_pct"
-
-
-def test_new_name_wins_when_both_exist():
-    """개명 도중 두 이름이 함께 있으면 **새 이름**을 쓴다."""
-    m = fe.resolve_columns(_OLD | _NEW)
-    assert m["rev_krw"] == "rev_krw"
-    assert m["per"] == "per"
+def test_missing_column_is_a_db_error_not_absent(monkeypatch):
+    """필수 칸이 DB 에 없으면 질의가 실패한다 — 그 경로는 장애(None)로 가고, 자료 없음으로 뭉개지 않는다."""
+    monkeypatch.setattr(fe, "pg_rows", lambda sql, params=(): None)
+    assert fe._fetch("005930") is None
 
 
 # ── ② 단위 — 응답은 언제나 원(KRW). 억원은 밖으로 안 나간다 ──────────────────
-def test_eok_is_scaled_to_krw():
-    assert fe._to_krw(7384675.3, "rev_eok") == 738_467_530_000_000
-    assert fe._to_krw(738_467_530_000_000, "rev_krw") == 738_467_530_000_000
-    assert fe._to_krw(None, "rev_eok") is None
+def test_money_is_whole_krw():
+    assert fe._to_krw(738_467_530_000_000) == 738_467_530_000_000
+    assert fe._to_krw(1.6) == 2
+    assert fe._to_krw(None) is None
 
 
-def test_no_eok_field_escapes():
-    """출력칸 이름에 `_eok` 가 하나라도 있으면 단위 통일이 깨진 것이다."""
-    assert not [n for n, *_ in fe._FIELDS if n.endswith("_eok")]
+def test_fetch_converts_money_cells_only(monkeypatch):
+    names = [n for n, *_ in fe._FIELDS]
+    row = [None] * len(names)
+    row[names.index("rev_krw")] = 7384675000000.4
+    row[names.index("name")] = "삼성전자"
+    monkeypatch.setattr(fe, "pg_rows", lambda sql, params=(): [tuple(row)])
+    rec = fe._fetch("005930")[0]
+    assert rec["rev_krw"] == 7384675000000
+    assert rec["name"] == "삼성전자" and rec["per"] is None
 
 
 # ── ③ 배수 — 정의 정렬(시총÷지배순이익) + 뜻 없는 배수 제거 ──────────────────

@@ -36,6 +36,7 @@ from open_proxy_mcp.services.dividend_parser import (
     parse_dividend_items,
     safe_float,
     safe_int,
+    settlement_digits,
     split_by_share_class,
 )
 
@@ -350,6 +351,199 @@ def period_cash_meta(items: list[dict[str, Any]] | None) -> dict[str, dict[str, 
     return out
 
 
+#: 한 행의 당기·전기·전전기 칸 이름과 「몇 번째 앞 결산기인가」(반기·분기 결산 회사는 연 단위가 아니라 결산기 단위로 앞선다).
+_PERIOD_COLUMNS = (("current", 0), ("previous", 1), ("before_previous", 2))
+
+
+def _shift_period_end(d8: str, months: int) -> str:
+    """결산기준일 `YYYYMMDD` 를 `months` 개월(음수 = 과거) 옮긴 **달의 말일** `YYYYMMDD`."""
+    idx = int(d8[:4]) * 12 + int(d8[4:6]) - 1 + months
+    y, m = divmod(idx, 12)
+    m += 1
+    return f"{y:04d}{m:02d}{calendar.monthrange(y, m)[1]:02d}"
+
+
+def _iso8(d8: str) -> str:
+    return f"{d8[:4]}-{d8[4:6]}-{d8[6:8]}"
+
+
+def _column_cell(rows: list[dict[str, Any]], col: str) -> dict[str, Any]:
+    """alotMatter 행(한 결산기분)의 한 칸(`current`/`previous`/`before_previous`)에서 읽은 값 한 묶음.
+
+    주당값은 기말 요약(`build_dividend_summary`)과 **같은 규칙**(`split_by_share_class`)으로 종류를 가른다 —
+    「우선주」 글자 없는 종류주식(1종 종류주식·종류주 …)이 보통주를 덮지 않게. 빈 행(`-`→0)은 버킷을 덮지 않는다."""
+    payout: float | None = None
+    total_amount = 0
+    net_income = 0
+    has_face = False                 # 액면가 = 그 칸의 기간에 회사가 있었다는 신호
+    explicit = False                 # 배당 칸에 `-` 가 아닌 값(`0` 포함)이 적혔다 = 그 결산기에 배당 사항이 보고됐다
+    dps_rows: list[tuple] = []
+    yield_rows: list[tuple] = []
+    for item in rows:
+        cat = item.get("category", "")
+        sknd = item.get("stock_type", "")
+        val_raw = item.get(col, "")
+        if "주당액면가액" in cat and safe_int(val_raw) > 0:
+            has_face = True
+        if ("주당 현금배당금" in cat or "현금배당금총액" in cat) and str(val_raw or "").strip() not in ("", "-", "－", "N/A", "n/a"):
+            explicit = True
+        if "주당 현금배당금" in cat:
+            dps_rows.append((sknd, safe_int(val_raw)))
+        elif "현금배당금총액" in cat:
+            total_amount = safe_int(val_raw)
+        elif "현금배당성향" in cat:
+            v = safe_float(val_raw)
+            if v > 0 and (payout is None or "연결" in cat):
+                payout = v
+        elif "현금배당수익률" in cat:
+            yield_rows.append((sknd, safe_float(val_raw)))
+        elif "연결" in cat and "당기순이익" in cat:
+            net_income = safe_int(val_raw)
+    common, other, pref_label = split_by_share_class(dps_rows)
+    yld, yld_pref, _ = split_by_share_class(yield_rows)
+    return {"dps": common or 0, "dps_pref": other or 0, "pref_label": pref_label, "total_mil": total_amount, "payout": payout,
+            "yield": yld, "yield_pref": yld_pref, "ni": net_income, "face": has_face, "explicit": explicit}
+
+
+def _cell_exists(cell: dict[str, Any]) -> bool:
+    """칸 전체가 비었으면(보고서 범위 밖/회사 미존재) 없는 기간이다. 회사가 있었는데(액면가/순이익 있음) 배당만 0 이면 무배당 — 있는 기간."""
+    return bool(cell["face"] or cell["ni"] != 0 or cell["dps"] > 0 or cell["total_mil"] > 0 or cell["payout"] is not None)
+
+
+def _period_reported(cell: dict[str, Any]) -> bool:
+    """결산기 단위 열에서 그 결산기가 **있었는가** — 액면가만으로는 모자란다(앞 결산기 열이 상장 전인데 액면가 칸만 채워진 서식이 있다 — 신한글로벌액티브리츠 2024-02).
+    배당 칸에 `0` 이라도 적혔거나, 값이 있거나, 순이익이 있으면 있던 결산기다. (결산기가 하나인 응답의 연 단위 열은 종전대로 `_cell_exists`.)"""
+    return bool(cell["explicit"] or cell["dps"] > 0 or cell["total_mil"] > 0 or cell["payout"] is not None or cell["ni"] != 0)
+
+
+def settlement_periods(items: list[dict[str, Any]] | None) -> dict[str, Any] | None:
+    """결산기가 둘 이상 섞인 alotMatter 응답(반기·분기 결산 리츠 등) → **결산기별 값**. 결산기가 하나면 None. (261021)
+
+    반기·분기 결산 회사는 사업연도 하나에 사업보고서가 결산기마다 따로 나온다 — 롯데리츠 FY2025 = 2025-06-30 행(제13기) · 2025-12-31 행(제14기).
+    🔴 **한 행의 당기·전기·전전기는 연 단위가 아니라 결산기 단위다**: 2025-12-31 행 = 123(2025-12) · 117(2025-06) · 112(2024-12), 2025-06-30 행 =
+    117 · 112 · 103(2024-06) — 연속한 결산기다(실측 롯데리츠 등 95개 (회사, 사업연도) 묶음에서 앞 행의 당기 = 뒤 행의 전기가 어긋난 곳 0). 종전
+    다년 칸은 이 열을 「한 해 앞」으로 읽어 FY2024 = 2025-06 결산기 117원 · FY2023 = 2024-12 결산기 112원으로 한 결산기씩 밀렸다.
+
+    행들의 결산기준일 간격이 모두 같고 3·6개월이면(`regular`) 열을 결산기 단위로 읽는다 — 같은 결산기가 여러 행에 있으면 **그 결산기 자신의 행(당기)** 이,
+    없으면 가장 가까운 뒤 보고서의 열이 이긴다. 간격이 고르지 않으면(결산월 변경 이행기: 한국주철관 2020 03→12, 체시스 2023 06→12) 열이 몇 개월 앞인지
+    알 수 없어 행마다 **자기 당기만** 쓰고, 가장 앞 행만 종전처럼 연 단위 전기·전전기를 쓴다.
+    반환: `{"months": 주기|None, "regular": bool, "periods": {결산기말일: 칸}, "face_only": {…}, "dates": [결산기준일…], "covered": (처음, 끝)|None}`."""
+    by: dict[str, list[dict[str, Any]]] = {}
+    for it in items or []:
+        d = settlement_digits(it)
+        if d:
+            by.setdefault(d, []).append(it)
+    if len(by) < 2:
+        return None
+    dates = sorted(by)
+    gaps = {_months_between(a, b) for a, b in zip(dates, dates[1:])}
+    months = next(iter(gaps)) if len(gaps) == 1 else None
+    regular = months in (3, 6)
+    periods: dict[str, dict[str, Any]] = {}
+    face_only: dict[str, dict[str, Any]] = {}      # 액면가만 있는 결산기 — 그 해에 보고된 결산기가 하나도 없을 때만 「무배당 해」로 쓴다
+
+    def put(day: str, cell: dict[str, Any], k: int, src: str, col: str) -> None:
+        keep = _period_reported(cell) if regular else _cell_exists(cell)
+        if not keep:
+            if regular and cell["face"]:
+                face_only.setdefault(day, {**cell, "stlm": day, "k": k, "source_stlm": src, "source_column": col, "rcept_no": ""})
+            return
+        cur = periods.get(day)
+        if cur is None or k < cur["k"]:
+            rc = next((str(r.get("rcept_no") or "") for r in by[src] if r.get("rcept_no")), "")
+            periods[day] = {**cell, "stlm": day, "k": k, "source_stlm": src, "source_column": col, "rcept_no": rc}
+
+    if regular:
+        for src in dates:
+            for col, k in _PERIOD_COLUMNS:
+                put(_shift_period_end(src, -k * months), _column_cell(by[src], col), k, src, col)
+        covered = (_shift_period_end(dates[0], -2 * months), _shift_period_end(dates[-1], 0))
+    else:
+        for src in dates:
+            put(_shift_period_end(src, 0), _column_cell(by[src], "current"), 0, src, "current")
+        first = dates[0]
+        put(_shift_period_end(first, -12), _column_cell(by[first], "previous"), 1, first, "previous")
+        put(_shift_period_end(first, -24), _column_cell(by[first], "before_previous"), 2, first, "before_previous")
+        covered = None
+    return {"months": months if regular else None, "regular": regular, "periods": periods, "face_only": face_only,
+            "dates": dates, "covered": covered}
+
+
+def _fy_settlement_summary(fy: int, plist: list[dict[str, Any]], end_month: int, months: int | None, regular: bool) -> dict[str, Any]:
+    """사업연도 = 그 해(결산기준일의 해)에 끝난 결산기들의 합. 필드는 단일 결산기 다년 칸(`_alot_multiyear_summaries`)과 같다 + 결산기 목록."""
+    plist = sorted(plist, key=lambda p: p["stlm"])
+    dps = sum(p["dps"] for p in plist)
+    pref = sum(p["dps_pref"] for p in plist)
+    total = sum(p["total_mil"] for p in plist)
+    ni = sum(p["ni"] for p in plist)
+    labels = [p["pref_label"] for p in plist if p["pref_label"]]
+
+    def summed(key: str) -> float | None:
+        # 결산기마다 시가배당률 — 그 결산기 DPS 가 0 이면 0 으로 센다. 하나라도 값이 없으면(공시가 그 칸을 비웠다) 합을 만들지 않는다.
+        vals = []
+        for p in plist:
+            v = p[key]
+            if v is None:
+                if p["dps"] > 0 and key == "yield":
+                    return None
+                v = 0.0
+            vals.append(v)
+        return round(sum(vals), 2) if any(vals) else None
+
+    payout = None
+    if any(p["payout"] is not None for p in plist) and ni > 0 and all(p["ni"] != 0 for p in plist):
+        payout = round(total / ni * 100, 2)         # 결산기별 성향은 더할 수 없다 — 배당총액 합 ÷ 순이익 합
+    fiscal = _fiscal_period_fields(fy, end_month)
+    return {
+        "period": f"{fy} 사업보고서(기말)",
+        "stlm_dt": _iso8(plist[-1]["stlm"]),
+        **fiscal,
+        "cash_dps": dps,
+        "cash_dps_preferred": pref,
+        "cash_dps_preferred_label": labels[-1] if labels else "",
+        "stock_dps": 0,
+        "special_dps": 0,
+        "total_dps": dps,
+        "total_amount_mil": total,
+        "payout_ratio_dart": payout,
+        "yield_dart": summed("yield"),
+        "yield_preferred_dart": summed("yield_pref") if pref else None,
+        "net_income_consolidated_mil": ni,
+        "source": "alotMatter_multiyear",
+        "dps_basis": "sum_of_settlement_periods" if regular else "sum_of_settlement_periods_irregular",
+        "settlement_months": months,
+        "settlement_periods": [
+            {"stlm_dt": _iso8(p["stlm"]), "dps_krw": p["dps"], "total_amount_mil": p["total_mil"], "yield_pct": p["yield"],
+             "source_column": p["source_column"], "rcept_no": p["rcept_no"]}
+            for p in plist
+        ],
+    }
+
+
+def _settlement_year_summaries(plan: dict[str, Any]) -> dict[int, dict[str, Any]]:
+    """`settlement_periods` 결과 → `{사업연도: 그 해 결산기 합 요약}`. 사업연도 = 결산기준일의 해, 결산월 = **가장 늦은 결산기**의 달.
+
+    규칙적인 주기에서는 사업연도의 결산기가 모두 열 범위 안에 있을 때만 만든다 — 범위 밖(예: 응답이 2024-06 까지만 거슬러 올라가는데 FY2023)이면
+    한 결산기만 보고 연 DPS 를 지어내지 않고 건너뛴다(호출부가 결정공시 합산으로 채운다). 범위 안에서 칸이 빈 결산기(상장 전)는 없는 결산기로 센다."""
+    dates, months, regular = plan["dates"], plan["months"], plan["regular"]
+    end_month = int(dates[-1][4:6])
+    by_year: dict[int, list[dict[str, Any]]] = {}
+    for day, cell in plan["periods"].items():
+        by_year.setdefault(int(day[:4]), []).append(cell)
+    for day, cell in (plan.get("face_only") or {}).items():       # 보고된 결산기가 없는 해 = 회사는 있었는데 배당 사항이 전부 빈 해(무배당) — 0 으로 둔다
+        if int(day[:4]) not in by_year:
+            by_year.setdefault(int(day[:4]), []).append(cell)
+    out: dict[int, dict[str, Any]] = {}
+    for fy, plist in by_year.items():
+        if regular:
+            lo, hi = plan["covered"]
+            expected = [f"{fy}{m:02d}{calendar.monthrange(fy, m)[1]:02d}" for m in range(1, 13) if (m - end_month) % months == 0]
+            if not all(lo <= d <= hi for d in expected):
+                continue
+        out[fy] = _fy_settlement_summary(fy, plist, end_month, months, regular)
+    return out
+
+
 #: DPS 를 지금 주가의 주식 기준으로 맞추는 이벤트 — `price_multiple_data.ADJ_EVENT_SQL` 과 같은 조건(확정 라벨의 분할·병합·무상증자·주식배당).
 #: 주가와 주식 수가 서로 상쇄하는 이벤트라, 그 앞에 정한 DPS 는 계수만큼 바꿔야 지금 주가와 견줄 수 있다.
 DPS_SHARE_EVENT_TYPES = ("split", "merge", "bonus", "stock_div")
@@ -489,31 +683,74 @@ async def _current_dps_share_basis(ticker: str, corp_code: str, summary: dict[st
     """현재가 기준 배당수익률의 DPS 를 지금 주식 기준으로(261019 p1b) — `price_multiple_data` 와 같은 `align_dps_to_price`.
     반환: (바꿨으면 그 결산기 항목, 경고 문장들). 이벤트가 없으면 (None, []) — 읽기 한 번.
     결산기준일~접수일 사이 이벤트는 배당받은 주식 수(총액 ÷ DPS)를 사업연도 말 유통주식 수와 견줘야 해서, 그런 회사(드묾)에서만
-    주식 총수를 한 번 더 읽는다(DART 1콜 — 배당 사항을 읽은 사업연도 `year`, 없으면 결산기준일의 해). 못 읽으면 그대로 두고 경고한다."""
+    주식 총수를 한 번 더 읽는다(DART 1콜 — 배당 사항을 읽은 사업연도 `year`, 없으면 결산기준일의 해). 못 읽으면 그대로 두고 경고한다.
+    반기·분기 결산 회사(`summary["settlement_periods"]`, 261021)는 사업연도 합 DPS 의 **결산기마다** 따로 맞춘 뒤 더한다 — 결산기 사이에 낀
+    이벤트는 앞 결산기에만 곱해야 한다. 이때 반환 항목은 합산 한 줄(`dps_reported_krw`·`dps_krw`·`factor`·`events`) + 결산기별 `periods`."""
     from open_proxy_mcp.services.price_multiple_data import _dps_events, _shares_outstanding
     dps = summary.get("cash_dps")
-    per = period_dps(summary.get("items"))
-    st = max(per) if per else "".join(ch for ch in (summary.get("stlm_dt") or "") if ch.isdigit())[:8]
+    sp = summary.get("settlement_periods") if summary.get("dps_basis") == "sum_of_settlement_periods" else None
+    meta = period_cash_meta(summary.get("items"))
+    if sp:
+        chain = [(p["stlm_dt"].replace("-", ""), p["dps_krw"]) for p in sp]
+        for p in sp:                                    # 열(전기·전전기)에서 온 결산기는 그 열을 낸 보고서의 접수일·총액으로
+            d = p["stlm_dt"].replace("-", "")
+            if d not in meta:
+                meta[d] = {"total_mil": p.get("total_amount_mil") or 0, "rcept_dt": (p.get("rcept_no") or "")[:8] or None}
+        st = chain[0][0]
+    else:
+        per = period_dps(summary.get("items"))
+        st = max(per) if per else "".join(ch for ch in (summary.get("stlm_dt") or "") if ch.isdigit())[:8]
+        chain = [(st, dps)]
     if not dps or len(st) != 8:
         return None, []
     ev, ratios = await _dps_events(ticker, st)
     if not ev:
         return None, []
-    meta = period_cash_meta(summary.get("items"))
-    al = align_dps_to_price([(st, dps)], meta, ev, None, share_ratios=ratios)
+    al = align_dps_to_price(chain, meta, ev, None, share_ratios=ratios)
     if al["undetermined"]:
         try:
             sh = await _shares_outstanding(get_dart_client(), corp_code, int(year or st[:4]))
         except Exception:  # noqa: BLE001 — 보조 읽기: 실패하면 확인 못 함 경고
             sh = {}
         if (sh or {}).get("total"):
-            al = align_dps_to_price([(st, dps)], meta, ev, sh["total"], share_ratios=ratios)
+            al = align_dps_to_price(chain, meta, ev, sh["total"], share_ratios=ratios)
     warns = []
     for u in al["undetermined"]:
         evs = " · ".join(f"{e['event_dd']} 계수 {e['adj_factor']:g}" for e in u["events"])
         warns.append(f"결산기준일 {u['stlm_dt']} 뒤 주식 분할·병합({evs}) — DPS 가 그 앞뒤 어느 주식 수 기준인지 확인하지 못해 "
                      "현재가 기준 배당수익률에 그대로 썼다. 옛 주식 기준이면 계수만큼 어긋난다.")
-    return (al["adjusted"][0] if al["adjusted"] else None), warns
+    if not al["adjusted"]:
+        return None, warns
+    if len(chain) == 1:
+        return al["adjusted"][0], warns
+    aligned = _num_out(sum(v for _, v in al["periods"]))
+    seen: set[str] = set()
+    events = [e for a in al["adjusted"] for e in a["events"] if not (e["event_dd"] in seen or seen.add(e["event_dd"]))]
+    return {"dps_reported_krw": dps, "factor": round(aligned / dps, 6), "dps_krw": aligned, "events": events,
+            "periods": al["adjusted"]}, warns
+
+
+def _year_sum_summary(summary: dict[str, Any], year_sum: dict[str, Any] | None) -> tuple[dict[str, Any], str | None]:
+    """반기·분기 결산 회사의 요약(가장 늦은 결산기 한 통)을 **사업연도 합**으로 바꾼 새 dict 와 알림 문장. 해당이 없으면 (그대로, None). (261021)
+
+    사업보고서 `alotMatter` 한 통의 주당 배당금·총액은 결산기 하나(반기 결산이면 6개월)분이다 — 요약의 「연간 DPS」로 그대로 내면 롯데리츠 FY2025 가
+    240원이 아니라 123원이다. 규칙적인 주기에서 그 해 결산기가 모두 열 범위 안에 있을 때만(`_alot_multiyear_summaries`) 바꾼다. 가장 늦은 결산기의 값은
+    `latest_period` 에 남긴다. 결산기 길이가 고르지 않은 응답(결산월 변경 이행기)은 합을 헤드라인으로 쓰지 않는다 — 12개월이 아닐 수 있다."""
+    if not summary or not year_sum or year_sum.get("dps_basis") != "sum_of_settlement_periods" or not year_sum.get("cash_dps"):
+        return summary, None
+    periods = year_sum.get("settlement_periods") or []
+    out = {**summary}
+    out["latest_period"] = {"stlm_dt": summary.get("stlm_dt"), "cash_dps": summary.get("cash_dps"),
+                            "total_amount_mil": summary.get("total_amount_mil")}
+    for key in ("cash_dps", "total_dps", "cash_dps_preferred", "total_amount_mil", "payout_ratio_dart", "yield_dart",
+                "yield_preferred_dart", "net_income_consolidated_mil", "dps_basis", "settlement_months", "settlement_periods"):
+        out[key] = year_sum[key]
+    cadence = {3: "분기", 6: "반기"}.get(year_sum.get("settlement_months"), "")
+    parts = " + ".join(f"{p['stlm_dt']} {p['dps_krw']:,}원" for p in periods)
+    note = (f"{cadence} 결산 회사 — FY{year_sum['fiscal_year']} 배당은 결산기 {len(periods)}개의 합이다: {parts} = {year_sum['cash_dps']:,}원 "
+            f"(배당총액 {year_sum['total_amount_mil']:,}백만원). 사업보고서 `alotMatter` 한 통의 주당 배당금은 결산기 하나분이라 "
+            "그것만 연 배당으로 읽으면 어긋난다.")
+    return out, note
 
 
 def dps_unevenness(chain: list[tuple[str, float]], ratio: float = 3.0) -> dict[str, Any] | None:
@@ -549,6 +786,10 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
     공시 합산 fallback 유발 등으로 불안정하다. 반면 최신 보고서의 다년 컬럼
     (current/previous/before_previous)은 단일 출처·동일 기준이라 권위 있다.
     이 값을 history 연간 DPS/배당성향/수익률의 source of truth로 쓴다.
+
+    🔴 결산기가 둘 이상 섞인 응답(반기·분기 결산 리츠)은 열이 연 단위가 아니라 결산기 단위다 — `settlement_periods` 로 결산기별 값을
+    만들고 **사업연도 = 그 해 결산기 합**으로 낸다(261021: 롯데리츠 FY2025 123 → 240 · FY2024 117 → 215, FY2023 은 응답 열 범위 밖이라 건너뜀).
+    결산월은 가장 늦은 결산기준일로 정한다. 결산기가 하나인 응답은 종전 그대로다.
     """
     if not latest_summary:
         return {}
@@ -559,67 +800,38 @@ def _alot_multiyear_summaries(latest_summary: dict[str, Any] | None) -> dict[int
     digits = "".join(ch for ch in stlm if ch.isdigit())
     if len(digits) < 4:
         return {}
+    plan = settlement_periods(items)
+    if plan:
+        return _settlement_year_summaries(plan)
     base_year = int(digits[:4])
     # 결산월을 stlm_dt에서 읽는다. 예전엔 아래에서 stlm_dt를 f"{fy}-12-31"로 박아
     # 6월 결산 회사의 사업연도 구간이 통째로 틀렸다(2026-08-28 U 지적 B-6).
     end_month = _fiscal_end_month(stlm)
-    # 컬럼 → 사업연도 offset (당기=base, 전기=-1, 전전기=-2)
-    columns = {"current": 0, "previous": -1, "before_previous": -2}
     out: dict[int, dict[str, Any]] = {}
-    for col, offset in columns.items():
+    for col, offset in (("current", 0), ("previous", -1), ("before_previous", -2)):   # 컬럼 → 사업연도 offset (당기=base, 전기=-1, 전전기=-2)
         fy = base_year + offset
-        payout: float | None = None
-        total_amount = 0
-        net_income = 0
-        col_has_face_value = False  # 액면가 = 그 해 회사 존재(보고서 범위 내) 신호
-        dps_rows: list[tuple] = []
-        yield_rows: list[tuple] = []
-        for item in items:
-            cat = item.get("category", "")
-            sknd = item.get("stock_type", "")
-            val_raw = item.get(col, "")
-            if "주당액면가액" in cat and safe_int(val_raw) > 0:
-                col_has_face_value = True
-            if "주당 현금배당금" in cat:
-                dps_rows.append((sknd, safe_int(val_raw)))
-            elif "현금배당금총액" in cat:
-                total_amount = safe_int(val_raw)
-            elif "현금배당성향" in cat:
-                v = safe_float(val_raw)
-                if v > 0 and (payout is None or "연결" in cat):
-                    payout = v
-            elif "현금배당수익률" in cat:
-                yield_rows.append((sknd, safe_float(val_raw)))
-            elif "연결" in cat and "당기순이익" in cat:
-                net_income = safe_int(val_raw)
-        # 주당값은 기말 요약과 **같은 규칙**(`split_by_share_class`)으로 종류를 가른다 —
-        #   「우선주」 글자 없는 종류주식(1종 종류주식·종류주 …)이 보통주를 덮지 않게.
-        #   빈 행(`-`→0)은 버킷을 덮지 않는다.
-        _c, _o, pref_label = split_by_share_class(dps_rows)
-        cash_dps, cash_dps_pref = _c or 0, _o or 0
-        yld, yld_pref, _ = split_by_share_class(yield_rows)
+        cell = _column_cell(items, col)
         # 컬럼 전체가 비어 있으면(보고서 범위 밖/회사 미존재) 스킵 → fallback 위임.
         # 회사가 존재했는데(액면가/순이익 있음) 배당만 0이면 = 무배당이므로 0-summary로
         # 유지한다 — pending_annual 제거 후 history 윈도우에서 무배당 연도가 빠지지 않게.
-        existed = col_has_face_value or net_income != 0
-        if cash_dps <= 0 and total_amount <= 0 and payout is None and not existed:
+        if not _cell_exists(cell):
             continue
         fiscal = _fiscal_period_fields(fy, end_month)
         out[fy] = {
             "period": f"{fy} 사업보고서(기말)",
             "stlm_dt": fiscal["period_end"] or f"{fy}-12-31",
             **fiscal,
-            "cash_dps": cash_dps,
-            "cash_dps_preferred": cash_dps_pref,
-            "cash_dps_preferred_label": pref_label,
+            "cash_dps": cell["dps"],
+            "cash_dps_preferred": cell["dps_pref"],
+            "cash_dps_preferred_label": cell["pref_label"],
             "stock_dps": 0,
             "special_dps": 0,
-            "total_dps": cash_dps,
-            "total_amount_mil": total_amount,
-            "payout_ratio_dart": payout,
-            "yield_dart": yld,
-            "yield_preferred_dart": yld_pref,
-            "net_income_consolidated_mil": net_income,
+            "total_dps": cell["dps"],
+            "total_amount_mil": cell["total_mil"],
+            "payout_ratio_dart": cell["payout"],
+            "yield_dart": cell["yield"],
+            "yield_preferred_dart": cell["yield_pref"],
+            "net_income_consolidated_mil": cell["ni"],
             "source": "alotMatter_multiyear",
         }
     return out
@@ -1324,6 +1536,13 @@ async def build_dividend_payload(
         if _in_window(item.get("rcept_dt", ""), start_ymd, end_ymd)
     ]
 
+    # 반기·분기 결산(리츠 등) — 사업보고서 한 통은 결산기 하나분이다. 다년 칸과 요약을 **사업연도 = 그 해 결산기 합**으로 맞춘다(261021).
+    #   결산월은 가장 늦은 결산기준일로 정한다(`build_dividend_summary` 가 가장 늦은 결산기 행에서 읽는다). 현재가 기준 배당수익률도 이 합(12개월)으로 센다.
+    alot_multi = _alot_multiyear_summaries(latest_summary)
+    latest_summary, _sum_note = _year_sum_summary(latest_summary, alot_multi.get(target_year))
+    if _sum_note:
+        warnings.append(_sum_note)
+
     # 현재가 기준 배당수익률 (valuation 로직 이식, 260705) — yield_dart(결의 당시 시가배당률)와
     # 별개로 '지금 사면 몇 %인가'를 답한다. 시세 = 일별 시세 저장분의 최신 거래일 종가(Supabase `price_latest`,
     # serve-time KRX 0콜 — 261018 krx_weekly 이번 주 행에서 옮김. 저장분에 없으면 `_market_for` 가 KRX 라이브로 확인),
@@ -1356,9 +1575,8 @@ async def build_dividend_payload(
     annual_summaries: dict[int, dict[str, Any]] = {}
     year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {target_year: (latest_summary, None)}
 
-    # 권위 소스: 최신 사업보고서 alotMatter 의 다년 컬럼(당기/전기/전전기).
+    # 권위 소스: 최신 사업보고서 alotMatter 의 다년 컬럼(당기/전기/전전기) — 위에서 만든 `alot_multi`.
     # 연도별 개별 호출/결정 합산보다 우선 적용한다.
-    alot_multi = _alot_multiyear_summaries(latest_summary)
 
     for y in year_list:
         summary, warning = year_to_result.get(y, (None, None))
