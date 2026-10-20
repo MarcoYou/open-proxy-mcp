@@ -187,3 +187,12 @@ def test_screen_render_marks_period_sums_and_copied_totals(ledger):
 def test_market_render_notes_copied_totals(ledger):
     md = dd_tool._render_agg("market", "코스피", dd.aggregate_history("market", "코스피", 2024, 2025))
     assert "더하지 않고 그 하나를 썼다" in md
+
+
+def test_screen_single_query_counts_the_whole_match_before_the_display_limit(ledger):
+    """`COUNT(*) OVER ()` 는 LIMIT 앞에서 센다 — 실제 Postgres 에서 limit=2 여도 매칭 수는 5, 모집단은 6."""
+    d = dd.screen(2025, limit=2)
+    assert (d["matched"], d["n_universe"], d["returned"]) == (5, 6, 2)
+    assert [r["corp_code"] for r in d["rows"]] == ["C1", "R1"], "총액 큰 순(C1 9.8조 → R1 355억)"
+    none = dd.screen(2025, min_dps=10 ** 9)
+    assert (none["matched"], none["n_universe"], none["rows"]) == (0, 6, []), "조건에 맞는 회사가 없어도 모집단은 낸다"
