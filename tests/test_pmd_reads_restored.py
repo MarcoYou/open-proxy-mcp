@@ -17,6 +17,7 @@ from datetime import date, timedelta
 import pytest
 
 from open_proxy_mcp.services import price_multiple_data as S
+from tests.pmd_fin_rows import pad_fin_rows
 from open_proxy_mcp.services.sector_class import DB_SCHEME, MAJOR, MID
 
 TODAY = date(2026, 10, 21)            # 수요일 — 이번 주(10/19~)는 아직 닫히지 않았다
@@ -66,9 +67,9 @@ def _fh_rows(tail, *, latest="20261016", weekly=None, seen=None):
         if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
             return [FUND]
         if "FROM dart_finstat_y" in s:
-            return list(FIN_Y)
+            return pad_fin_rows(sql, list(FIN_Y))
         if "FROM dart_finstat_q" in s:
-            return list(FIN_Q)
+            return pad_fin_rows(sql, list(FIN_Q))
         if "DISTINCT ON" in s or "FROM krx_stock_flags" in s:
             return []
         raise AssertionError("모르는 SQL: " + s)

@@ -23,6 +23,7 @@ from datetime import date
 import pytest
 
 from open_proxy_mcp.services import price_multiple_data as S
+from tests.pmd_fin_rows import pad_fin_rows
 from scripts import market_fund_quarterly as Q
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -89,9 +90,9 @@ class _Rows:
         if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
             return [self.fund]
         if "FROM dart_finstat_y" in s:
-            return [(fy, ni, eq, None, None) for fy, (ni, eq) in FIN_MAR.items()]
+            return pad_fin_rows(sql, [(fy, ni, eq, None, None) for fy, (ni, eq) in FIN_MAR.items()])
         if "FROM dart_finstat_q" in s:
-            return [(fy, q, ni, eq) for (fy, q), (ni, eq) in FINQ_MAR.items()]
+            return pad_fin_rows(sql, [(fy, q, ni, eq) for (fy, q), (ni, eq) in FINQ_MAR.items()])
         if "UNION ALL" in s and "FROM krx_weekly" in s and "AS src" in s:     # 업종 비교의 그 날 시총(`_FIRM_CAP_SQL`)
             return [(CAP, "KS", 1)]
         if "DISTINCT ON (substring(price_dd,1,4))" in s:

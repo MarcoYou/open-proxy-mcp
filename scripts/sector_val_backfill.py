@@ -61,6 +61,7 @@ from open_proxy_mcp.krx_daily import LATEST_DAY_SQL
 from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS
 from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_quarter, _ttm_ni
 from open_proxy_mcp.services import report_calendar as rcal
+from open_proxy_mcp.services import period_cells as pcells
 from scripts.month_end_prices import MonthEndPrices, covered
 
 UPSERT = """
@@ -124,6 +125,9 @@ def main() -> int:
     for isu, fy, q, ni_cum, eq in con.execute(
             "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q WHERE quarter != 4"):
         finq_all.setdefault(isu, {})[(int(fy), int(q))] = (ni_cum, eq)
+    # 261020(p1e): 반기·분기 결산 회사(리츠 등)는 결산기 칸(12개월 결산 회사와 같은 꼴 — `period_cells`)으로 고치고, 칸은 그 보고서 접수일부터 쓴다
+    #   (서버 곡선·업종 비교와 같은 규칙). 표시 칸이 없으면 종전 그대로.
+    period_of = pcells.apply_marked(fin_all, finq_all, pcells.load_marked(con))
 
     # 261018(재설계 6단계): 종목 결산월 — 칸 고르기·TTM 직전 연간을 firm_history 와 같은 매핑으로(12월 결산은 종전과 같다).
     fye_of = rcal.load_fye_map(con)
@@ -199,6 +203,8 @@ def main() -> int:
             if not cls or not cap or market not in (MKT_KS, MKT_KQ):
                 continue
             fye = rcal.fiscal(fye_of.get(isu, 12), isu)
+            if isu in period_of:
+                fye = rcal.with_cells(fye, period_of[isu])
             if fye not in pit:
                 pit[fye] = (_pit_fy(d, fye), _pit_quarter(d, fye))
             fy, (fy_q, q) = pit[fye]

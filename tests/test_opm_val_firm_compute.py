@@ -23,6 +23,7 @@ import types
 import pytest
 
 from open_proxy_mcp.services import price_multiple_data as S
+from tests.pmd_fin_rows import pad_fin_rows
 from open_proxy_mcp.services.ksic_sector import ksic_bucket
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -126,11 +127,11 @@ class FakeDb:
         if "FROM krx_weekly WHERE ticker=%s AND price_dd=%s UNION ALL" in s:
             return [(self.cap, "KS", 1)] if self.cap else []
         if "FROM dart_finstat_y" in s:
-            return list(self.fin_y)
+            return pad_fin_rows(sql, list(self.fin_y))
         if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
             return [self.fund_fy]
         if "FROM dart_finstat_q" in s:
-            return list(self.fin_q)
+            return pad_fin_rows(sql, list(self.fin_q))
         raise AssertionError("가짜 DB 가 모르는 SQL: " + s)
 
 
@@ -484,7 +485,7 @@ def test_summary_annual_is_not_laid_on_the_latest_year_when_it_is_an_older_years
         def rows(sql, params=()):
             s = " ".join(sql.split())
             if "FROM dart_finstat_y" in s:
-                return [(2024, -52.3e9, 7.1e9, None, None)]
+                return pad_fin_rows(sql, [(2024, -52.3e9, 7.1e9, None, None)])
             if s == "SELECT ni_fy, eq_fy FROM dart_fundamentals WHERE ticker=%s":
                 return [fund]
             raise AssertionError(s)
