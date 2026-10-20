@@ -208,7 +208,11 @@ def _weekly_start_rows(run, cut: str) -> list[tuple] | None:
 
 def _krx_weekly_start(cut: str) -> str | None:
     """krx_weekly 에 **실제로 남은 주간 구간의 시작**(곡선 하한). None = 장애 — 호출자가 `cut` 으로 대신한다."""
-    rows = _weekly_start_rows(_pg_rows, cut)
+    try:
+        rows = _weekly_start_rows(_pg_rows, cut)
+    except Exception as exc:                  # noqa: BLE001 — 하한을 못 구해도 곡선은 낸다(자르는 쪽의 하한으로). `_pg_rows` 는 던지지 않지만 모양 판별이 하나 더 는 자리라 지킨다
+        logger.warning("주간 구간 시작 읽기 예외 — 3년 하한으로 대신한다: %s: %s", type(exc).__name__, exc)
+        return None
     return None if rows is None else _weekly_run_start(rows, cut)
 
 
@@ -1058,7 +1062,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                     fr = []
             if fr:
                 sec, market, pt, pb, lbl, spt, spb = fr[0]
-                if lbl is None:  # 소규모 섹터 → 업종 집계 표(opm_val_market)엔 '_fold'로 접혀 raw 코드 JOIN 미스
+                # 업종 집계 표 = opm_val_market
+                if lbl is None:  # 소규모 섹터 → 업종 집계 표엔 '_fold'로 접혀 raw 코드 조인 미스
                     fold = [s for s in sectors if s["market"] == market and s["sector"] == "_fold"]
                     if fold:  # 폴드 버킷과 비교(정직하게 표기) — literal None 렌더 방지(QA 109종목 실측)
                         lbl = f"{fold[0]['label']} (소규모 섹터 {sec} 포함)"
