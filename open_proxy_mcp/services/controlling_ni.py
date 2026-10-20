@@ -330,12 +330,131 @@ def _id_nci_negated(v, r, shape) -> bool:
     return any(abs(y) > tol and abs(-v - y - tot) <= tol for y in ys)
 
 
-def _ctrl_in_sj(rows, sj, val, shape=None):
-    """한 재무제표(sj) 안 지배 귀속 순이익 → (값, 서브케이스 'ID'|'IDNEG'|'NM'|'PARTS'|'CIID'|None, 총포괄 몫이라 버린 줄 [(순위, 줄)], 비지배와 짝이 안 맞아 버린 지배 id 줄 수).
-    값 구조 검사는 위 261020 주석. `shape` = `_ni_shape(rows)`(없으면 계산). IS/CIS 는 ord 시퀀스 별개 → sj 단위."""
+# ─────────────────────────────────────────────────────────────────────────────
+# 261021 ni-sce: 자본변동표(SCE) 지배 몫 대조. 손익계산서 줄의 값 구조(지배 + 비지배 = 당기순이익)만으로는 못 가르는 꼴이 남았다
+# (10-20 원문 캐시 · 운영 칸 — 「값 구조 확인 못 함」 칸 84칸·34종목):
+#   · 가를 수 없는 줄로 물러남 — 086520 2021 반기: 「계속영업 반기순이익의 귀속 → 지배기업 소유주지분」 27.60억(계속영업 몫만 — 중단영업 몫 귀속 줄이
+#     없다)을 그대로 썼다. 같은 응답의 자본변동표 지배 몫 5,613.54억 + 비지배 165.57억 = 반기순이익 5,779.11억.
+#   · 지배·비지배 값을 서로 바꿔 적은 원문 — 값 구조(v + y = 총계)는 대칭이라 못 가린다. 009070 2022 사업보고서: 「지배기업의 소유주지분」 이름 줄에
+#     비지배 id, 「비지배지분」 이름 줄에 지배 id(18.08억) — 자본변동표 지배 몫 262.89억. 004590 2023 사업보고서 전기 칸 −724.5만(참 117.90억).
+#   · 총계 규칙으로 물러난 길 — 지배 줄을 총포괄 몫이라 버리고(`_CIREJ`) 비지배를 빼지 않거나(052770 2021 반기 · 347860 2023 1분기), 비지배 id 줄
+#     값이 틀려 지배 id 줄을 버리고 총계 − 그 비지배로 간 꼴(`_IDX` — 145270 2025 사업보고서: 손익계산서 비지배 2.97억 vs 자본변동표 2.91억 = 재무상태표
+#     비지배지분 증가 2.91억), 「비지배지분」 이름 줄에 기타포괄 값을 적은 꼴(196490 2020 사업보고서).
+# 자본변동표는 손익계산서 줄 고르기와 무관한 다른 표라 독립 확인이 된다. 다만 자본변동표도 틀리게 적은 보고서가 있어(합계 열에 3개월 값 · 손실을 양수로
+# 적는 관행 · 외화 표시) **같은 응답의 당기순이익 총계와 맞을 때만** 쓴다(`_sce_ctrl_ni` — SCE 지배 몫 + SCE 비지배 몫 = 손익계산서 당기순이익).
+#: 자본변동표 합계 열(멤버 하나짜리 경로)
+_SCE_TOTAL_MEMBERS = ("연결재무제표", "별도재무제표")
+_MEMBER_SFX = re.compile(r"\[(?:member|구성요소)\]$", re.IGNORECASE)
+
+
+def _sce_member(p: str) -> str:
+    return _MEMBER_SFX.sub("", (p or "").replace(" ", ""))
+
+
+def _sce_ni_row(r) -> bool:
+    """자본변동표의 당기순이익 줄 — 계정 id `…_ProfitLoss`(새·옛 접두어) 또는 표준코드 없는 총계 이름(「당기순이익(손실)」·「반기순이익」·「연결당기순이익」).
+    다른 계정 id 를 붙인 「당기순이익」 이름 줄(외화환산 등 id 를 잘못 붙인 줄)은 보지 않는다."""
+    if r.get("sj_div") != "SCE":
+        return False
+    aid = r.get("account_id") or ""
+    if aid.endswith("_ProfitLoss"):
+        return True
+    if aid and not aid.startswith("-표준계정코드"):
+        return False
+    return _ni_total_name(r.get("account_nm"))
+
+
+def _sce_one(bucket) -> tuple[float | None, bool]:
+    """경로 → 값들 묶음에서 가장 얕은 경로들의 값이 하나로 모이면 (그 값, True), 비었으면 (None, True), 여럿이면 (None, False — 애매)."""
+    if not bucket:
+        return None, True
+    d = min(len(p) for p in bucket)
+    vals = set().union(*(vs for p, vs in bucket.items() if len(p) == d))
+    return (float(vals.pop()), True) if len(vals) == 1 else (None, False)
+
+
+def _sce_ctrl_ni(rows, field: str = "thstrm_amount", shape=None) -> float | None:
+    """같은 응답 자본변동표(sj_div=SCE)의 당기순이익 줄에서 **지배기업 소유주 몫**을 읽는다 — 손익계산서 당기순이익 총계와 맞을 때만, 아니면 None.
+
+    열(account_detail 경로의 마지막 멤버)로 가른다: 「…지배기업의 소유주에게 귀속되는 자본/지분」 = 지배 몫 합계 열 · 「비지배지분」 = 비지배 열 ·
+    「연결재무제표」·「별도재무제표」 = 합계 열 · 나머지 = 구성요소 열. 지배 몫 = ① 지배 몫 합계 열(값이 하나로 모일 때) → ② 없으면 지배 멤버 바로 아래
+    구성요소 열의 합 → ③ 지배 멤버가 아예 없으면 합계 열 − 비지배 열.
+    맞춤(대조 문): 지배 몫 + 비지배 몫(열이 없으면 0) = 손익계산서 당기순이익 총계(`_amt_tol` 안). 손실을 양수로 적는 자본변동표 관행이 있어 두 값의
+    부호를 뒤집어 맞춰 보되 답이 하나로 모일 때만 쓴다(10-20 원문 196490 2020 사업보고서: 지배 몫 +296.05억 · 비지배 +1.18억 · 당기순이익 −294.87억 →
+    −296.05억). 비지배 열이 없는데 손익계산서에 0 이 아닌 비지배 줄이 있으면(두 표가 어긋남) 쓰지 않는다. 같은 경로에 값이 여럿이거나(정정 전·후 줄 등)
+    지배 몫 합계 열 값이 여럿이면 None(애매 — 자본변동표 대조 후보에는 원문 자체가 틀린 오탐이 섞여 있다).
+    `field` = 볼 자본변동표 칸(사업보고서 thstrm·frmtrm·bfefrmtrm · 분기보고서 thstrm = 당기 누적 — DART 응답의 분기 자본변동표엔 당기 칸만 있고 3개월 칸은 없다)."""
+    shape = shape or _ni_shape(rows)
+    tot = shape[0]
+    if tot is None:
+        return None
+    owner, nci, total, comp = {}, {}, {}, {}
+    for r in rows or []:
+        if not _sce_ni_row(r):
+            continue
+        v = normalize_amount(r.get(field))
+        if v is None:
+            continue
+        path = tuple(_sce_member(p) for p in (r.get("account_detail") or "").split("|") if p.strip())
+        if not path:
+            continue
+        last = path[-1]
+        if any(k in last for k in _NCI_NM):
+            b = nci
+        elif "지배" in last and "공동지배" not in last:
+            b = owner
+        elif len(path) == 1 and last in _SCE_TOTAL_MEMBERS:
+            b = total
+        else:
+            b = comp
+        b.setdefault(path, set()).add(int(round(float(v))))
+    if any(len(vs) > 1 for b in (owner, nci, total, comp) for vs in b.values()):
+        return None                                   # 같은 열에 값이 여럿 — 애매
+    o, ok = _sce_one(owner)
+    if not ok:
+        return None
+    n, ok = _sce_one(nci)
+    if not ok:
+        return None
+    if o is None:
+        # 지배 멤버 바로 아래 구성요소 열의 합(지배 몫 합계 열을 안 낸 보고서)
+        kids = {p: vs for p, vs in comp.items() if len(p) >= 2 and "지배" in p[-2] and not any(k in p[-2] for k in _NCI_NM)}
+        if kids:
+            if len({p[:-1] for p in kids}) != 1:
+                return None
+            o = float(sum(next(iter(vs)) for vs in kids.values()))
+        elif not any("지배" in q and not any(k in q for k in _NCI_NM) for p in comp for q in p):
+            t, ok = _sce_one(total)
+            if not ok or t is None or n is None:
+                return None
+            o = t - n                                 # 지배 멤버 없는 보고서 — 합계 열 − 비지배 열
+        else:
+            return None
+    tol = _amt_tol(tot)
+    if n is None:
+        if any(abs(y) > tol for _r, y in shape[2]):
+            return None                               # 손익계산서엔 비지배가 있는데 자본변동표엔 비지배 열이 없다
+        n = 0.0
+    sols = {so * o for so in (1, -1) for sn in (1, -1) if abs(so * o + sn * n - tot) <= tol}
+    if abs(o + n - tot) <= tol:
+        return o
+    return sols.pop() if len(sols) == 1 else None
+
+
+def _near(a, b) -> bool:
+    return a is not None and b is not None and abs(a - b) <= _amt_tol(b)
+
+
+def _ctrl_in_sj(rows, sj, val, shape=None, sce=None):
+    """한 재무제표(sj) 안 지배 귀속 순이익 → (값, 서브케이스 'ID'|'IDNEG'|'NM'|'PARTS'|'CIID'|'SCE'|'…_SCE'|None, 총포괄 몫이라 버린 줄 [(순위, 줄)],
+    비지배와 짝이 안 맞아 버린 지배 id 줄 수). 값 구조 검사는 위 261020 주석. `shape` = `_ni_shape(rows)`(없으면 계산). IS/CIS 는 ord 시퀀스 별개 → sj 단위.
+    `sce` = 같은 응답 자본변동표 지배 몫(`_sce_ctrl_ni` — 없으면 None): 값 구조로 못 가르는 두 곳에서만 본다(261021 ni-sce, 위 주석) —
+    가를 수 없는 줄로 물러날 때(그 줄이 SCE 와 다르면 SCE 와 같은 후보 → 없으면 SCE 값 `SCE`), 지배·비지배 짝이 대칭이라 못 가릴 때
+    (고른 줄 ≠ SCE 인데 짝 비지배 줄 = SCE → 그 줄 `SWAP_SCE`)."""
     shape = shape or _ni_shape(rows)
     tot = shape[0]
     fallback, rejected, unk, dropped, total_only = None, [], [], 0, None
+    subs = []                             # 261021: 가를 수 없는 후보 (값, 서브케이스) — SCE 대조용
     tot_ok = None                         # 총계 줄을 믿을 수 있나(`_tot_corroborated`) — 필요할 때 한 번만 센다
     for rank, _o, v, sub, r in _ctrl_cands(rows, sj, val, shape):
         if sub == "DISC":
@@ -364,6 +483,12 @@ def _ctrl_in_sj(rows, sj, val, shape=None):
                 # 보고서 전년 동기 칸도 −14.62억). 머리 줄 꼴(`_attrib_header`)이 아니라 위 머리 줄 규칙으로는 못 가른다.
                 total_only = total_only or (v, sub, list(rejected), dropped)
                 continue
+            if sce is not None and not _near(v, sce):
+                # 261021 ni-sce: 지배·비지배 짝이 대칭이다 — v + y = 당기순이익이면 y + v 도 그렇다. 고른 줄 ≠ 자본변동표 지배 몫인데 짝 비지배 줄 =
+                # 자본변동표 지배 몫이면 원문이 두 값을 바꿔 적은 것이다(009070 2022 사업보고서 · 004590 2023 사업보고서 당기·전기 칸).
+                y = next((y for _r, y in shape[2] if abs(y) > _amt_tol(tot) and abs(v + y - tot) <= _amt_tol(tot) and _near(y, sce)), None)
+                if y is not None:
+                    return y, "SWAP_SCE", rejected, dropped
             return v, sub, rejected, dropped
         if side == "ci":
             rejected.append((rank, r))
@@ -371,6 +496,7 @@ def _ctrl_in_sj(rows, sj, val, shape=None):
             # 가를 수 없는 줄 — 종전처럼 쓴다(총포괄 id 줄은 값 구조가 맞을 때만). 당기순이익이 있는데 지배 몫이 0 인 줄은 빈 줄로 본다
             # (10-20 운영 045660 2025 1분기: 「당기순이익 → 지배기업소유주지분」 0, 당기순이익 165.7억 · 비지배 없음).
             unk.append(v)
+            subs.append((v, sub))
             fallback = fallback or (v, sub)
     # 두 줄의 합이 순이익 구조에 맞으면 계속·중단영업 몫을 이름 없이 나눠 적은 회사다(머리 줄 「계속영업분기순이익」·「중단영업분기순이익」 아래
     # 「지배기업소유주지분」 두 줄 — 10-20 운영 101530 2020 3분기). 한 줄만 쓰면 한 몫만 들어간다.
@@ -392,6 +518,11 @@ def _ctrl_in_sj(rows, sj, val, shape=None):
         return pairs[0], "PARTS", rejected, 0
     if fallback is not None and not dropped:
         # 지배 id 줄을 비지배와 짝이 안 맞아 버렸으면 가를 수 없는 이름 줄로도 물러나지 않는다 — 총계 − 비지배(값 구조가 맞는 길)로 간다.
+        if sce is not None and not _near(fallback[0], sce):
+            # 261021 ni-sce: 가를 수 없는 줄이 자본변동표 지배 몫과 다르다 — SCE 와 같은 후보, 없으면 SCE 값(SCE 지배 + 비지배 = 당기순이익은
+            # `_sce_ctrl_ni` 가 이미 맞춰 봤다). 10-20 원문 086520 2021 반기: 첫 이름 줄 27.60억(계속영업 몫) → 5,613.54억.
+            hit = next(((v, s) for v, s in subs if _near(v, sce)), None)
+            return (hit[0], f"{hit[1]}_SCE", rejected, dropped) if hit else (sce, "SCE", rejected, dropped)
         return fallback[0], fallback[1], rejected, dropped
     return None, None, rejected, dropped
 
@@ -466,6 +597,11 @@ def extract_controlling_ni_cum(rows):
                              기타포괄손익이 그 비지배와 같은 부호로 그만큼 이상이면 빼지 않는다 — 2차 검토 부호 가드)
       …_IDX                — 지배 순이익 계정 id 줄이 순이익 쪽 비지배 계정 줄과 짝이 안 맞아(지배 + 비지배 ≠ 당기순이익) 버린 보고서(261020 p1e firm-ctrl-ni,
                              `_id_off_nci` — 결산기 칸 규칙에서 합침)
+      {IS,CIS}_SCE         — 값 구조로 못 가른 길(가를 수 없는 줄로 물러남 · 아래 총계 규칙의 `_CIREJ`·`_CINCI`·`_IDX`)이 같은 응답 자본변동표 지배 몫과
+                             다르고 그 값과 같은 후보도 없어 자본변동표 지배 몫을 그대로 씀(261021 ni-sce, `_sce_ctrl_ni` — SCE 지배 + 비지배 = 당기순이익일 때만)
+      {IS,CIS}_{ID,NM,…}_SCE · TOTAL…_SCE — 같은 길에서 자본변동표 지배 몫과 같은 다른 후보를 고름(가를 수 없는 다른 줄 · 총계 − 비지배 줄 · 버린 지배 줄)
+      {IS,CIS}_SWAP_SCE    — 지배 줄 + 비지배 줄 = 당기순이익(대칭)인데 지배 줄 ≠ 자본변동표 지배 몫, 비지배 줄 = 자본변동표 지배 몫 → 비지배 이름 줄 값
+                             (원문이 지배·비지배 값을 바꿔 적음 — 009070 2022 · 004590 2023 사업보고서)
       MINORITY_NO_CTRL / NO_INCOME_ROW — 유도 불가(플래그) → None. 수집(`fetch`)은 이때 같은 보고서의 XBRL 원본을 본다.
     261020 p1j ctrl-rule-068290(케이스 이름은 그대로): 지배 이름·id 를 붙인 귀속 머리 줄(= 다음 지배 줄 + 비지배 줄 — `_attrib_header`)은 후보에서 빼고,
     「비지배 0」으로만 맞는 후보(= 당기순이익 총계인데 0 이 아닌 비지배 줄이 있다 — `_total_only_fit`)는 0 이 아닌 비지배와 짝이 맞는 후보가 없을 때만 쓴다.
@@ -473,13 +609,20 @@ def extract_controlling_ni_cum(rows):
     if not any(r.get("sj_div") in ("IS", "CIS") for r in rows):
         return None, "NODATA"
     shape = _ni_shape(rows)
-    rejected, dropped = [], 0
+    # 261021 ni-sce: 자본변동표 지배 몫(당기 칸 — `controlling_ni(rows, field)` 는 `_field_rows` 가 같은 기간 칸을 이 자리에 옮겨 둔다).
+    # SCE 지배 + 비지배 = 이 행들의 당기순이익일 때만 쓴다 — 손익 줄만 전년 동기 칸으로 옮겨 넘기는 호출(`scripts/market_fund_quarterly._as_prior_rows`)은
+    # 자본변동표가 당기 것이라 대개 맞지 않아 종전 규칙 그대로다(분기보고서 자본변동표는 DART 응답에 당기 칸만 있다 — 10-20 원문 캐시 8,501건 전부).
+    sce = _sce_ctrl_ni(rows, "thstrm_amount", shape)
+    rejected, dropped, dropped_v = [], 0, []
     for sj in ("IS", "CIS"):
-        v, sub, rej, drp = _ctrl_in_sj(rows, sj, _cum_is, shape)
+        v, sub, rej, drp = _ctrl_in_sj(rows, sj, _cum_is, shape, sce)
         dropped += drp
         if v is not None:
             return v, f"{sj}_{sub}" + ("_IDX" if dropped else "")
         rejected += rej
+        if drp:
+            dropped_v += [_cum_is(r) for r in rows if r.get("sj_div") == sj and _NI_CTRL_ID in (r.get("account_id") or "")
+                          and _cum_is(r) is not None]
     # 261020: 버린 총포괄 지배 몫과 「지배 + 비지배 = 총포괄손익」 짝이 맞는 비지배 줄은 총포괄 쪽 비지배라 빼고 찾는다.
     ci_tot = shape[1]
     skip = frozenset(id(y) for y, yv in shape[2] for _rk, c in rejected
@@ -520,14 +663,49 @@ def extract_controlling_ni_cum(rows):
         mino = None
     ix = "_IDX" if dropped else ""
     if tot is not None:
-        return (tot - mino, f"TOTAL{nm}_MINUS_MINORITY{rj}{ci_nci}{ix}") if mino is not None else (tot, f"TOTAL{nm}{rj}{ix}")
+        v, case = (tot - mino, f"TOTAL{nm}_MINUS_MINORITY{rj}{ci_nci}{ix}") if mino is not None else (tot, f"TOTAL{nm}{rj}{ix}")
+        if sce is not None and (rj or ci_nci or ix) and not _near(v, sce):
+            # 261021 ni-sce: 지배 줄을 버리고 총계 규칙으로 물러난 길(총포괄 몫이라 버림 `_CIREJ` · 총포괄 쪽 비지배로 뺀 근사 `_CINCI` · 비지배와 짝이 안 맞아
+            # 버림 `_IDX`)이 자본변동표 지배 몫과 다르다 — 같은 응답의 후보(총계 − 비지배 줄 하나 · 버린 지배 줄 · 총계) 가운데 SCE 와 같은 값, 없으면 SCE 값.
+            #   · 052770 2021 반기(`TOTAL_CIREJ`): 비지배 −23만 원을 총포괄 쪽이라 안 뺐다 −4,734,426,483 → 총계 − 비지배 −4,734,195,889(= SCE).
+            #   · 347860 2023 1분기(`TOTAL_CIREJ`): 지배 id 줄에 총포괄 총계 → −88.48억 → 총계 − 비지배 −87.85억(= SCE).
+            #   · 145270 2025 사업보고서(`TOTAL_MINUS_MINORITY_IDX`): 손익계산서 비지배 줄 2.97억이 틀려(자본변동표·재무상태표 증가 2.91억) 지배 id 줄을 버렸다
+            #     62.10억 → 지배 id 줄 62.16억(= SCE).
+            #   · 196490 2020 사업보고서(`TOTAL_MINUS_MINORITY_IDX`): 「비지배지분」 줄 = 기타포괄 −1.90억 · 지배 id 줄 = 비지배 1.18억 → −292.96억 → SCE −296.05억.
+            cands = [(tot - y, f"{case}_SCE") for _r, y in shape[2]]
+            cands += [(_cum_is(c), f"{case}_SCE") for _rk, c in rejected] + [(x, f"{case}_SCE") for x in dropped_v] + [(tot, f"{case}_SCE")]
+            hit = next(((x, c) for x, c in cands if _near(x, sce)), None)
+            if hit is not None:
+                return hit
+            sj_tot = "IS" if any(r.get("sj_div") == "IS" for r in rows) else "CIS"
+            return sce, f"{sj_tot}_SCE"
+        return v, case
     return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_INCOME_ROW")
 
 
+def _sce_field(field: str, reprt_code) -> str | None:
+    """손익 칸 → 같은 기간의 자본변동표 칸(261021 ni-sce). 자본변동표는 누적 칸만 있다 — 사업보고서는 당기·전기·전전기, 분기보고서는 당기 누적
+    (전년 동기 누적 칸은 짝만 둔다 — DART 응답의 분기 자본변동표엔 당기 칸만 있어 비어 있다). 반기·3분기 보고서의 당기·전기 칸(`thstrm_amount`·
+    `frmtrm_amount` — 3개월)은 맞는 칸이 없다(None). 1분기는 3개월 = 누적."""
+    q3m = str(reprt_code or "") in ("11012", "11014")
+    return {"thstrm_add_amount": "thstrm_amount", "frmtrm_add_amount": "frmtrm_amount",
+            "thstrm_amount": None if q3m else "thstrm_amount", "frmtrm_amount": None if q3m else "frmtrm_amount",
+            "bfefrmtrm_amount": "bfefrmtrm_amount"}.get(field)
+
+
 #: 칸 이름 → 그 칸을 누적 칸 자리에 옮겨 보는 행(아래 `controlling_ni`). 손익 줄만 옮기고 재무상태표 줄은 그대로 둔다.
+#: 261021 ni-sce: 자본변동표 당기순이익 줄은 같은 기간의 자본변동표 칸(`_sce_field`)을 당기 칸 자리에 옮기고 다른 칸은 비운다(맞는 칸이 없으면 다 비운다).
 def _field_rows(rows, field: str):
-    return [{**r, "thstrm_amount": r.get(field) or "", "thstrm_add_amount": ""} if r.get("sj_div") in ("IS", "CIS") else r
-            for r in rows or []]
+    out = []
+    for r in rows or []:
+        if r.get("sj_div") in ("IS", "CIS"):
+            out.append({**r, "thstrm_amount": r.get(field) or "", "thstrm_add_amount": ""})
+        elif r.get("sj_div") == "SCE" and _sce_ni_row(r):
+            col = _sce_field(field, r.get("reprt_code"))
+            out.append({**r, "thstrm_amount": (r.get(col) or "") if col else "", "frmtrm_amount": "", "bfefrmtrm_amount": ""})
+        else:
+            out.append(r)
+    return out
 
 
 def controlling_ni(rows, field: str | None = None) -> tuple[float | None, str]:
