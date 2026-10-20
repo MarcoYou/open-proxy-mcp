@@ -129,6 +129,10 @@ def ctrl_eq(rows, field="thstrm_amount"):
     val = lambda r: num(r.get(field))  # noqa: E731
     row = next((r for aid in (_EQA, "ifrs_" + _EQA[len("ifrs-full_"):]) for r in rows
                 if r.get("sj_div") == "BS" and r.get("account_id") == aid and str(r.get(field) or "") != ""), None)
+    if row is not None and val(row) is None:
+        # 261020(검토): 값이 「-」 같은 빈 표기면 계정 줄이 없는 것으로 본다 — 분기 수집(값이 있는 줄만 지배자본 줄)과 같다. 그러지 않으면 (None, None)
+        #   으로 끝나 그 해가 빈다(main 은 자본총계로 넘어갔다).
+        row = None
     why = _ceq.ctrl_line_rejected(row, rows, val) if row is not None else None
     if row is not None and not why:
         return val(row), None

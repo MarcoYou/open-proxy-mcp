@@ -164,6 +164,16 @@ def test_annual_component_line_note():
     assert v == 25705465130.0 - 15076000 and "자본 구성요소 줄" in why
 
 
+def test_annual_dash_valued_controlling_line_falls_through():
+    """지배자본 계정 줄 값이 「-」(빈 표기)면 계정 줄이 없는 것으로 — 분기 수집과 같은 값. 그 줄에서 멈추면 그 해가 빈다(main 은 자본총계로 넘어갔다)."""
+    rows = [row("BS", ID, "지배기업의 소유주에게 귀속되는 자본", 1, thstrm_amount="-"),
+            row("BS", "ifrs-full_NoncontrollingInterests", "비지배지분", 2, thstrm_amount=1000000),
+            row("BS", "ifrs-full_Equity", "자본총계", 3, thstrm_amount=10000000)]
+    v, why = S.ctrl_eq(rows)
+    assert v == 9000000.0 and "TOTAL_MINUS_MINORITY" in why
+    assert Q.extract_controlling_eq(rows) == (9000000.0, "TOTAL_MINUS_MINORITY")
+
+
 # ── 서버 실시간 firm · 결산기 칸 ──────────────────────────────────────────────
 
 def test_firm_and_period_cells_reject_the_same_lines():
