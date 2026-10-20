@@ -37,6 +37,7 @@ import psycopg
 from datetime import date
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR
 from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
+from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
 from open_proxy_mcp.services import restated_pit as rpit
@@ -45,9 +46,9 @@ from open_proxy_mcp.services import controlling_eq as _ceq
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
-    """그 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년). _pit_fy와 동일."""
-    t = today or date.today()
-    return t.year - 1 if t.month >= 4 else t.year - 2
+    """그 시점 확정된 최신 사업연도 — 사업보고서 3월 공시(4월 이후 전년, 아니면 전전년). 261021(DATA-FY2 B7): `report_calendar.latest_annual` 한 곳의 얇은 껍데기
+    (세 파일에 따로 있던 규칙을 모았다). 날짜는 한국 달력(`today_kst`)."""
+    return rcal.latest_annual(today or today_kst(), 12)
 
 
 # 2018 ~ 최신 확정 FY(자동 확장) — 신규 사업연도 공시 후 재실행하면 resume(done)이 그 FY만 수집.
@@ -70,7 +71,7 @@ def fetch_plan(firms, have: dict, fye_of: dict, today: date | None = None,
     이미 있는 행: ok·restate_only = 완료(종전과 같다) · err = 다시 받는다 · nodata = 공시 시점 뒤 `ANNUAL_NODATA_RETRY_DAYS` 일 안이면 다시 받는다
     (종전엔 어떤 상태든 행이 있으면 완료라, 첫 실행 때 아직 안 낸 회사는 영영 비었다).
     `refetch_nodata_fy`(기본 `REFETCH_NODATA_FY`)의 해는 창과 상관없이 nodata 를 다시 받는다(261019 — 수집기 결함으로 굳은 nodata)."""
-    t = today or date.today()
+    t = today or today_kst()
     days = ANNUAL_NODATA_RETRY_DAYS if nodata_days is None else nodata_days
     again = REFETCH_NODATA_FY if refetch_nodata_fy is None else frozenset(refetch_nodata_fy)
     out = []
@@ -277,15 +278,31 @@ def _flush(buf, replace=False):
 # `--refetch`·백필)이 같은 응답의 전기·전전기 칸을 이 규칙으로 정정 칸에 쓰고 출처 접수번호(`restated_rcept_no`)를 남긴다 — DART 콜은 늘지 않는다.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def prior_candidates(rows, report_fy: int) -> list[tuple[int, float | None, float | None]]:
-    """사업보고서(표기 `report_fy`) 응답의 전기 칸(→ report_fy−1)·전전기 칸(→ report_fy−2) 지배 순이익·지배자본 — 그 해 칸과 **같은 규칙**
-    (`ctrl_ni`·`ctrl_eq`). 둘 다 비면 그 해는 뺀다. 통화 환산은 호출부(그 해 결산월 말 환율)."""
+def prior_candidates(rows, report_fy: int, fye=12, own_terms: dict | None = None) -> list[tuple[int, float | None, float | None]]:
+    """사업보고서(표기 `report_fy`) 응답의 전기 칸·전전기 칸 지배 순이익·지배자본 → `[(그 칸의 표기, 순이익, 자본)]` — 그 해 칸과 **같은 규칙**
+    (`ctrl_ni`·`ctrl_eq`). 둘 다 비면 그 해는 뺀다. 통화 환산은 호출부(그 해 결산월 말 환율).
+
+    261021(DATA-FY2 F10): 종전엔 전기 = `report_fy − 1`·전전기 = `report_fy − 2` 로 가정했다. 결산월을 바꾼 회사는 맞지 않아 정정 칸이 한 결산기씩 밀렸다
+    (154030 FY2024 정정 칸 19.05억 = 실은 2025.09 결산기 · FY2023 −6.34억 = 2024.09 결산기, 222160 FY2022 1.22억 = 2023.03 결산기). 이제 전기·전전기 칸이 실제로
+    어느 표기 칸의 자리인지 결산월로 가르고(`report_calendar.prior_columns` — 그 결산기가 그 표기 칸을 차지한 결산기일 때만, 전환기는 연간 값이 아니라 뺀다)
+    보고서의 기수로 확인한다(`period_cells.term_no` 방식): 세 칸의 기수가 하나씩 줄어야 하고(`제 23 기`·`제 22 기`·`제 21 기` — 어긋나면 그 칸부터 뒤는 쓰지 않는다), 그 칸의 표기를 이 실행에서 읽은
+    그 해 보고서(`own_terms` = {표기: 그 보고서 당기 기수})가 있으면 그 기수가 이 칸의 기수와 같아야 같은 결산기다. 어긋나면 그 칸은 쓰지 않는다.
+    안 바꾼 회사는 종전 식(`report_fy − 1`·`− 2`)과 같다."""
+    cols = rcal.prior_columns(report_fy, fye)
+    terms = [pcells.term_no(rows, f) for f in ("thstrm_nm", "frmtrm_nm", "bfefrmtrm_nm")]
     out = []
-    for fy_off, field in ((report_fy - 1, "frmtrm_amount"), (report_fy - 2, "bfefrmtrm_amount")):
+    for k, ((label, ok, _why), field) in enumerate(zip(cols, ("frmtrm_amount", "bfefrmtrm_amount")), start=1):
+        if terms[k] is not None and terms[k - 1] is not None and terms[k - 1] - terms[k] != 1:
+            break                                      # 기수가 잇따르지 않는다 — 이 칸은 앞 칸의 바로 앞 결산기가 아니다(그 뒤 칸도 한 결산기 이상 밀린다)
+        if not ok:
+            continue
+        own = (own_terms or {}).get(label)
+        if own is not None and terms[0] is not None and own != terms[0] - k:
+            continue                                   # 그 해 보고서의 당기와 기수가 다르다 — 다른 결산기(밀림)
         ni = ctrl_ni(rows, field)[0]
         eq = ctrl_eq(rows, field)[0]
         if ni is not None or eq is not None:
-            out.append((fy_off, ni, eq))
+            out.append((label, ni, eq))
     return out
 
 
@@ -429,6 +446,7 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
     ptk={r[0] for r in con.execute("SELECT DISTINCT ticker FROM dart_finstat_q WHERE restate_why LIKE %s",(pcells.MARK_LIKE,))} \
         if _RESTATED_COL and (con.execute("SELECT to_regclass('public.dart_finstat_q')").fetchone() or [None])[0] else set()
     rops=[]; rstat={"cand":0,"skip_unit":0,"clear":0,"skip_fs":0}
+    terms_of: dict = {}     # 261021(F10): 이 실행에서 읽은 사업보고서의 당기 기수 {종목: {표기: 기수}} — 전기 칸의 기수 대조
     # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — dart_finstat_y DB값으로 동적
     # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
     # 전 수집) MAX()로 앵커를 잡으면 오염값이 그대로 앵커가 되어 가드가 무력화되는 자기오염 실측 확인.
@@ -478,7 +496,7 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
             stmt_cur = statement_currency(rows)
             if stmt_cur != "KRW":
                 # 261018: 결산월 말일(12월 결산이면 종전과 같은 12/31 — 2월 결산 외화 보고사가 아직 오지 않은 12/31 환율을 쓰던 것을 고침)
-                _fx_dd = fiscal_year_end_date(yr, fye_of.get(isu, 12))
+                _fx_dd = fiscal_year_end_date(yr, rcal.month_of(yr, fye_of.get(isu, 12)))
                 ecos_fx_rate = await fx_to_krw(stmt_cur, _fx_dd)
                 if ecos_fx_rate is None:
                     buf.append((isu,yr,None,None,None,None,None,f"err:fx_{stmt_cur}"))
@@ -495,8 +513,15 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
             if verdict["tier"]=="hard":
                 print(f"[가드] {isu} FY{yr} 스케일오류 감지({verdict['hard_hit']}) — ni/eq 무효화",flush=True)
                 ni=eq=None
+            if ni is not None and rcal.is_transition(yr, fye_of.get(isu, 12)):
+                # 261021(DATA-FY2): 결산월을 바꾼 첫 해의 사업보고서는 전환기(12개월이 아님) — 순이익은 연간 칸에 넣지 않는다(자본은 그 날 잔액이라 둔다)
+                print(f"[전환기] {isu} FY{yr} 결산월을 바꾼 첫 사업보고서 — 순이익 {ni:.0f}원은 12개월이 아니라 연간 칸에 넣지 않는다(자본만)",flush=True)
+                ni=None
             st="ok" if (ni is not None or eq is not None) else "nodata"
             rc_own=pcells.rows_rcept(rows) if rows else None
+            if rows:
+                _t0=pcells.term_no(rows,"thstrm_nm")
+                if _t0 is not None: terms_of.setdefault(isu,{})[yr]=_t0
             buf.append((isu,yr,fs,ni,eq,None,None,st,rc_own))   # 261020: 접수번호(정정 판정 기준)
             if _RESTATED_COL and st=="ok":
                 ysnap.setdefault((isu,yr),(ni,eq,None,None))   # 같은 실행에서 새로 넣은 행도 다음 해 보고서의 정정 칸 후보를 받게
@@ -511,9 +536,9 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
                     else:
                         rops.append(("clear",{"t":isu,"fy":yr,"rc":rc_own})); rstat["clear"]+=1
                 # 같은 응답의 전기·전전기 칸 → 앞 두 해 정정 칸 후보(가장 늦게 접수된 보고서 우선 — SQL 이 출처·그 해 보고서 접수번호를 대 본다)
-                for fy_off,cni,ceq in prior_candidates(rows,yr):
+                for fy_off,cni,ceq in prior_candidates(rows,yr,fye_of.get(isu,12),terms_of.get(isu)):
                     if stmt_cur!="KRW":
-                        _r=await fx_to_krw(stmt_cur, fiscal_year_end_date(fy_off, fye_of.get(isu, 12)))
+                        _r=await fx_to_krw(stmt_cur, fiscal_year_end_date(fy_off, rcal.month_of(fy_off, fye_of.get(isu, 12))))
                         if _r is None:
                             continue
                         cni,ceq=(v*_r if v is not None else None for v in (cni,ceq))
@@ -597,7 +622,7 @@ async def refetch_amended(days: int | None = None, since: str | None = None, tod
     Q4 seed(연간 → 분기 표 사업보고서 칸)와 파생은 이 뒤 단계가 그대로 옮긴다(값이 같은 행은 다시 쓰지 않는다)."""
     from datetime import timedelta
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError, market_window_end, dart_halts_batch, dart_batch_halt_line
-    t = today or date.today()
+    t = today or today_kst()
     start = date(int(since[:4]), int(since[4:6]), int(since[6:8])) if since else t - timedelta(days=ANNUAL_AMEND_SCAN_DAYS if days is None else days)
     con = _pg()
     cc_to_ticker = {cc: tk for tk, cc in con.execute("SELECT ticker, corp_code FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")}
@@ -707,7 +732,13 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
                 continue
             stmt_cur=statement_currency(rows) if rows else "KRW"
             rc=pcells.rows_rcept(rows) if rows else None
-            for fy_off,field in ((report_year-1,"frmtrm_amount"),(report_year-2,"bfefrmtrm_amount")):
+            # 261021(DATA-FY2 F10): 전기·전전기 칸의 표기는 결산월로 가른다(결산월을 바꾼 회사는 report_year−1·−2 가 아니다) — 기수로도 확인(`prior_candidates`)
+            _ok_off={fy_off for fy_off,_n,_e in prior_candidates(rows,report_year,fye_of.get(isu,12))}
+            _cols=rcal.prior_columns(report_year,fye_of.get(isu,12))
+            for (fy_off,_ok,_why),field in zip(_cols,("frmtrm_amount","bfefrmtrm_amount")):
+                if not _ok or fy_off not in _ok_off:
+                    if _why: print(f"[정정 칸] {isu} {report_year} 사업보고서의 {'전기' if field.startswith('frmtrm') else '전전기'} 칸은 FY{fy_off} 칸의 자리가 아니다({'전환기' if _why=='transition' else '그 표기 칸은 전환기 보고서가 차지'}) — 쓰지 않는다",flush=True)
+                    continue
                 ni_r,ni_note=ctrl_ni(rows,field)     # 261020: 정정치도 같은 규칙
                 if ni_note:
                     print(f"[순이익] {isu} FY{fy_off} 정정 {ni_note}",flush=True)
@@ -716,7 +747,7 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
                     print(f"[자본] {isu} FY{fy_off} 정정 {eq_note}",flush=True)
                 if stmt_cur!="KRW" and (ni_r is not None or eq_r is not None):
                     # 261019: 저장은 항상 원화(fetch 와 같은 규칙 — 그 해 결산월 말일 환율). 환율을 못 구하면 그 해는 쓰지 않는다.
-                    _fx_dd=fiscal_year_end_date(fy_off, fye_of.get(isu, 12))
+                    _fx_dd=fiscal_year_end_date(fy_off, rcal.month_of(fy_off, fye_of.get(isu, 12)))
                     rate=await fx_to_krw(stmt_cur, _fx_dd)
                     if rate is None:
                         continue
