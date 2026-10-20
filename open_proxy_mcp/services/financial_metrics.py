@@ -2287,8 +2287,12 @@ def _pp_diff(curr: float | None, prev: float | None) -> float | None:
 
 async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                            num_quarters: int = 12, fiscal_month: int | None = None,
-                           induty_code: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+                           induty_code: str | None = None,
+                           failed_out: set[tuple[int, str]] | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
+
+    `failed_out` 을 주면 조회가 **실패**한(013 「자료 없음」이 아닌 020 한도·800 점검·전송 오류) (사업연도, 보고서코드)를
+    거기에 담는다 — `_quarterly_status` 가 그 분기를 「미제출」이 아니라 「조회 실패(미확인)」로 적게 한다(DATA-API1).
 
     DART 필드 실측 (SK하이닉스 2025, 2026-06-12):
     - Q1/Q2/Q3 보고서의 thstrm_amount = 당기 3개월(standalone), thstrm_add_amount = 누적
@@ -2330,6 +2334,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             continue
         if err:
             warnings.append(err)
+            if failed_out is not None:
+                failed_out.add((year, rc))
             continue
         if not rows:
             continue
@@ -2661,9 +2667,31 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     return out[-num_quarters:], warnings
 
 
+_QUARTER_REPRT = {"Q1": "11013", "Q2": "11012", "Q3": "11014", "Q4": "11011"}
+STATUS_UNSUBMITTED = "미제출"
+STATUS_FETCH_FAILED = "조회 실패(미확인)"
+
+
+def _quarter_fetch_failed(failed: set[tuple[int, str]] | None, fiscal_year: int, label: str,
+                          fiscal_month: int | None) -> bool:
+    """그 분기 보고서의 조회가 실패한 적이 있나. 12월 결산이면 DART 사업연도 = 회계연도라 정확히 맞춘다.
+    그 밖의 결산월은 DART 사업연도와 회계연도가 한 해 어긋날 수 있어 앞뒤 한 해까지 의심한다 — 「미제출」이라고
+    단정하는 것보다 「확인 못 했다」가 안전한 쪽이다."""
+    if not failed:
+        return False
+    rc = _QUARTER_REPRT[label]
+    if fiscal_month in (None, 12):
+        return (fiscal_year, rc) in failed
+    return any(r == rc and abs(y - fiscal_year) <= 1 for y, r in failed)
+
+
 def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
-                      fiscal_month: int | None, as_of: date | None = None) -> dict[str, Any]:
-    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출로 구분한다."""
+                      fiscal_month: int | None, as_of: date | None = None,
+                      failed: set[tuple[int, str]] | None = None) -> dict[str, Any]:
+    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출·조회 실패로 구분한다.
+
+    `failed` = 조회가 실패한 (사업연도, 보고서코드) — 그 분기는 보고서가 없는 게 아니라 **읽지 못한** 것이라
+    「미제출」로 적지 않고 「조회 실패(미확인)」로 적는다(DATA-API1·DATA-U3)."""
     as_of = as_of or today_kst()
     present = {r.get("fiscal_quarter") for r in rows if r.get("fiscal_year") == fiscal_year}
     result: dict[str, Any] = {"fiscal_year": fiscal_year, "missing": []}
@@ -2686,8 +2714,11 @@ def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
         item = {
             "fiscal_quarter": label,
             "period_end": period_end.isoformat(),
-            "status": "미제출" if as_of > period_end else "제출기한 전",
+            "status": STATUS_UNSUBMITTED if as_of > period_end else "제출기한 전",
         }
+        if _quarter_fetch_failed(failed, fiscal_year, label, fiscal_month):
+            item["status"] = STATUS_FETCH_FAILED
+            item["reprt_code"] = _QUARTER_REPRT[label]
         result["missing"].append(item)
     return result
 
@@ -2918,15 +2949,21 @@ async def build_financial_metrics_payload(
             ))
 
     elif scope == "quarterly":
+        failed_fetches: set[tuple[int, str]] = set()
         rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month,
-                                          induty_code=induty_code)
+                                          induty_code=induty_code, failed_out=failed_fetches)
         warnings.extend(ws)
         data["quarterly"] = rows
-        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month)
+        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month, failed=failed_fetches)
         for missing in data["quarterly_status"]["missing"]:
-            if missing["status"] == "미제출":
+            if missing["status"] == STATUS_UNSUBMITTED:
                 warnings.append(
                     f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']})는 기간 종료 후 공시가 없어 미제출로 표시함."
+                )
+            elif missing["status"] == STATUS_FETCH_FAILED:
+                warnings.append(
+                    f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']}) 보고서 조회가 DART 오류로 실패해(020 하루 한도·800 점검 등) "
+                    f"제출 여부를 확인하지 못했다 — 「미제출」이 아니다. 잠시 뒤 다시 조회한다."
                 )
         filing_count = len(rows)
         if rows:
