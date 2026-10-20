@@ -79,9 +79,9 @@ DB 에 그 주 행(연말 행 등)이 있으면 보관본을 보지 않는다. �
 | scope | 소스 | 갱신 | 내용 |
 |---|---|---|---|
 | `firm` | 실시간 DART 재무 × 일별 시세 저장분(`price_latest`) 최신 시세 | 매 호출(재무) + 일별(시세) | EPS·BPS·배당·경고·FX·스케일가드 — 정밀 심층 |
-| `market` | `mkt_val_history` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
-| `sector` | `mkt_val_history` (`sector != '_ALL'` 행) (+ company 지정 시 기업 배수: 그 날 주간 시세(없으면 일별 · 3년 하한 이전 주는 보관본 — 아래 「3년 이전 곡선」) 시총 × 시점별 재무를 **읽을 때 계산** — 261018 종목별 스냅샷 표 폐기) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
-| `firm_history` | `krx_weekly`(주간 시총) × `mkt_finstat_y`(연간 FY0) × `mkt_finstat_q`(분기 TTM/MRQ) (+krx_stock_flags 경고) | compute-on-query(저장 X) | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=주간 곡선(`data.series`, 하한 `data.weekly_from` = DB 에 실제로 남은 주간 구간(최근 3년)의 시작 — 그 이전은 연말 밴드. 콜드 서빙이 켜져 있으면 하한은 보관본 시작(20151230)이고 이음매는 `data.cold_until` — 위 「3년 이전 곡선」. 끝점은 일별 최신 거래일 — 이번 주면 `data.series_daily_end`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변. 곡선은 그 시점 칸만 쓴다 — 칸이 다 비어 점을 못 만든 시세 주는 앞선 칸(1년 안)으로 센 대체 점을 곡선 밖 `data.series_gap_fill`(점마다 `basis`)에 싣고 경고 한 줄, 곡선 끝 뒤에도 시세 행이 있으면 `data.price_rows_end`(261019) |
+| `market` | `opm_val_market` (`sector='_ALL'` 행만) **+ `div_yield_hist`(확정 배당) + `opm_val_fwd`(선행 PER·PBR·배당)** | 주간 스냅샷(cron) + 과거 76개월 백필 · 배당 확정은 **연 1회**(4월) · 선행은 주 1회 추정 | KOSPI·KOSDAQ 시총가중 PER/PBR + **선행 PER·PBR** + **배당수익률(확정·선행 × all·payers)** + 히스토리 + 선행 추이 |
+| `sector` | `opm_val_market` (`sector != '_ALL'` 행) (+ company 지정 시 기업 배수: 그 날 주간 시세(없으면 일별 · 3년 하한 이전 주는 보관본 — 아래 「3년 이전 곡선」) 시총 × 시점별 재무를 **읽을 때 계산** — 261018 종목별 스냅샷 표 폐기) · `scheme='wics_sector'` 일 때 **확정 배당 추가** · WICS 두 층에 **선행(`opm_val_fwd`) 추가** | 주간 스냅샷(cron) + 과거 76개월 백필 | KSIC 하이브리드 섹터별 + 기업 vs 섹터 + **소속 섹터 시계열**(company 지정 시). 확정 배당수익률은 **WICS 대분류에만**(집계 버킷이 그 축). 선행 PER·PBR·배당은 WICS 대분류·하위업종, KSIC 에는 없다 |
+| `firm_history` | `krx_weekly`(주간 시총) × `dart_finstat_y`(연간 FY0) × `dart_finstat_q`(분기 TTM/MRQ) (+krx_stock_flags 경고) | compute-on-query(저장 X) | 종목 PER/PBR 시계열 — **FY0·TTM·MRQ 세 기준**. 차트=주간 곡선(`data.series`, 하한 `data.weekly_from` = DB 에 실제로 남은 주간 구간(최근 3년)의 시작 — 그 이전은 연말 밴드. 콜드 서빙이 켜져 있으면 하한은 보관본 시작(20151230)이고 이음매는 `data.cold_until` — 위 「3년 이전 곡선」. 끝점은 일별 최신 거래일 — 이번 주면 `data.series_daily_end`), 텍스트=최근 12개월 월말(`data.summary`, ▲분기공시 마커) + 연말 밴드(장기). TTM=최근4분기 지배순이익(2020~), MRQ=최근분기 지배자본. 시총 기반이라 수정주가 조정 불변. 곡선은 그 시점 칸만 쓴다 — 칸이 다 비어 점을 못 만든 시세 주는 앞선 칸(1년 안)으로 센 대체 점을 곡선 밖 `data.series_gap_fill`(점마다 `basis`)에 싣고 경고 한 줄, 곡선 끝 뒤에도 시세 행이 있으면 `data.price_rows_end`(261019) |
 | `explain` | firm 재계산(company 시) / 정적 텍스트 | — | **수치 근거** — "이 PER 어떻게 나온 거야?"에 계산 과정(실제 값 대입)·기준·출처·주기로 답변. 주가 인풋 줄의 출처는 `price_source` 대로(저장분 서빙 / 저장분에서 받지 못해 KRX 직접 조회), 주가를 못 받았으면 「미확보」. DPS 칸은 `dps_fetch_failed` 로 무배당(「없음(무배당 또는 미공시)」)과 조회 실패(「미확인」)를 가른다 |
 
 ### 배당수익률 (260831 추가)
@@ -176,12 +176,12 @@ KSIC 섹터 집계 저장을 멈췄다(과거 행은 보존). 축 자체는 열�
 달력에 없는 기준일(20260231)이 선행 조회를 DB 에서 죽이던 것, 업종 분류와 시장 구분이 추정 날짜 뒤의 스냅샷을
 쓸 수 있던 것 — 를 고친 뒤 다시 계산했고 값은 그대로였다.
 
-- **FY 라벨은 하드코딩하지 않는다**: `mkt_fundamentals.ni_fy/eq_fy`는 `derive_fundamentals`가
+- **FY 라벨은 하드코딩하지 않는다**: `dart_fundamentals.ni_fy/eq_fy`는 `derive_fundamentals`가
   `_latest_annual_fy()`로 덮어쓰는 **가변열**이다. 이 값을 담는 `fin[]` 키를 연도 리터럴로 박으면
-  FY가 넘어간 뒤 최신 fundamentals 가 옛 FY 라벨을 달고 진짜 그 FY 행(`mkt_finstat_y`)을 덮는다 —
+  FY가 넘어간 뒤 최신 fundamentals 가 옛 FY 라벨을 달고 진짜 그 FY 행(`dart_finstat_y`)을 덮는다 —
   오늘은 멀쩡해 보이고 다음 결산 공시 때 터지는 look-ahead 오염이다. 라벨은 `_latest_annual_fy()`로
   파생한다.
-- **시장·섹터 히스토리는 한 테이블(`mkt_val_history`)**이다 — `sector` 컬럼의 센티넬 `'_ALL'`(시장
+- **시장·섹터 히스토리는 한 테이블(`opm_val_market`)**이다 — `sector` 컬럼의 센티넬 `'_ALL'`(시장
   전체) vs 실제 섹터코드로 구분한다(PK: snap_dd·mkt·sector). 섹터 전용 테이블을 따로 두면 같은 산식이
   두 곳에 살아 갈라진다. 스키마 상세는 private 레포(data-storage-registry) 참조.
 - 스냅샷은 `scripts/market_val_weekly.py`가 갱신(cron `.github/workflows/market-val-weekly.yml`,
@@ -198,7 +198,7 @@ KSIC 섹터 집계 저장을 멈췄다(과거 행은 보존). 축 자체는 열�
   저장된 행을 지킨다. 배수를 낸 회사 시총이 버킷 시총의 절반 미만이면 비운다(「자료없음」). 아래 변경 이력 10-19 참조.
   주간 cron도 **sector 행에 per_fy0/pbr_fy0·ni_ttm·eq 를 채운다**(firm 단위 nf/ef 가 이미 로드돼 있어
   `_ALL` 과 같은 산식으로 합산, 신규 수집 0) — `_ALL` 행과 대칭이라야 `scope="sector"` 현재주 FY0 가
-  비지 않는다. Σ순이익≤0 인 섹터는 N/M. ※ firm_valuation_snapshot이 최신 2주만
+  비지 않는다. Σ순이익≤0 인 섹터는 N/M. ※ 종목 스냅샷 표(`opm_val_firm`, 개명 전 `firm_valuation_snapshot`)가 최신 2주만
   보존해 그 이전 주간 sector 행(~3천)은 재백필 불가 — 연말 밴드가 장기 트렌드 커버.
 - **섹터 소속 시계열**(sector scope + company 지정 시): `company_ctx.sector_history` —
   그 기업 소속 섹터의 78개월 전체 시계열(per_fy0·per_ttm·pbr_fy0·pbr_mrq·cap). md 렌더는 연말만
@@ -206,7 +206,7 @@ KSIC 섹터 집계 저장을 멈췄다(과거 행은 보존). 축 자체는 열�
 - **방법론 통일(260823)**: firm 도 스냅샷과 같이 **보통주 시총÷지배순이익**. 종전엔 firm=주가÷EPS 라 삼성 PER(TTM)
   20.0(firm) vs 21.9(스냅샷)처럼 같은 이름으로 다른 정의가 나갔다. 남는 차이는 스냅샷 `cap_pref`(우선주 시총) 합산 여부.
 - **수정주가**: PER/PBR/시총 시계열은 시총 기반이라 분할·무상증자 **조정 불변**(주가×주식수 상쇄) —
-  조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_factor_v3(기준가 리셋 실측) 적용 필수.
+  조정 불필요. 주당 가격·EPS 시계열을 노출하게 되면 krx_adj_events(기준가 리셋 실측 + 라벨) 적용 필수.
   - **단, firm scope 의 PER 은 EPS 기반이라 계수가 필요하다.** 위 「조정 불필요」는 **스냅샷**
     (market·sector·firm_history, 시총 기반)에만 해당한다. 260823 이전에는 이 구분이 없어
     「조정 불필요」가 넓게 읽혔고, 계수 파이프라인에 cron 이 안 걸린 채 7주 방치됐다.
@@ -218,8 +218,8 @@ KSIC 섹터 집계 저장을 멈췄다(과거 행은 보존). 축 자체는 열�
     밴드는 ±50% — 유상증자·감자는 계수 대상이 아니라 r 만 움직이므로 통과시키고 액면분할·병합만
     잡는다. 실측 계기: 메이슨캐피탈(021880) 10:1 병합에 계수가 없어 TTM 지배순이익 **-70억**인데
     EPS(TTM) **+39원**, **PER 32.31** 이 live 로 나갔다(부호까지 뒤집힘).
-  - **갱신**: `market-val-weekly` 가 매일 `krx_base_resets.py --update` → `adj_factor_v3.py` 를
-    돌린다(260823 신설, KRX ~4콜/일). 종전엔 cron 이 없어 수동이었다.
+  - **갱신**: `market-val-weekly` 가 매일 `krx_base_resets.py --update`(기준가 리셋 측정) → `adj_factor_v3.py`(라벨 부착)를
+    돌린다. 두 단계는 한 표 `krx_adj_events` 로 합쳐졌다(260823 — 옛 표 `krx_base_resets`·`krx_adj_factor_v3` 는 없다). KRX ~4콜/일. 종전엔 cron 이 없어 수동이었다.
 - **비KRW 22사(USD/CNY/JPY) — 환산은 저장 시점에 한다**: `market_val_series.py`/
   `market_fund_quarterly.py` 가 fetch 시점에 그 해/분기 응답에서 `statement_currency()` 로 통화를
   감지해 KRW 로 환산한 뒤 저장한다 — **DB 의 ni/eq 는 항상 KRW**. 라벨도 `currency='KRW'` +
@@ -361,10 +361,7 @@ PBR(MRQ)     = 보통주 시총 ÷ 지배자본(MRQ 우선, 없으면 FY0 — pb
 | ECOS 환율 | 0~1 | 비KRW사만, 분기말 캐시 히트 시 0 |
 
 **KRX 시세 = 일별 시세 저장분 서빙**(2026-10-18 — 종전 주간 시세 저장분의 이번 주 행): KRX Open API는 개인키 1개·일 10,000콜 한도(배치와
-공유)라 라이브 유저를 직접 서빙하면 키 소진 시 배수 N/M 위험. FX 캐시와 동형 — 매일 최신 거래일
-전종목 스냅샷을 서버 백그라운드 작업이 확보해 **'그 주(ISO week)' 슬롯에 덮어쓰며 갱신**(전날 종가까지 표시), 주중
-일별은 다음 거래일에 덮여 사라지고 **주 마지막 거래일만 영구 보존**(주당 1스냅샷 ~52/년 = 무료티어
-보호). valuation은 DB 우선 읽기, 서빙 KRX 콜 = 하루 ~2. 축적 주간가격은 v1.1 5년밴드·PIT 재사용.
+공유)라 라이브 유저를 직접 서빙하면 키 소진 시 배수 N/M 위험. FX 캐시와 동형 — 매일 최신 거래일 전종목 스냅샷을 서버 백그라운드 작업이 일별 시세 저장분에 쌓는다(전날 종가까지 표시). 보관은 최근 **약 1년**(최신 거래일 − 달력 1년 − 1주)이고, 그보다 오래된 주는 **닫힌 주만**(주마다 그 주 마지막 거래일 한 점) 주간 압축 표 `krx_wk` 에 남는다(`krx_daily`·`krx_retention` 기준). valuation은 DB 우선 읽기, 서빙 KRX 콜 = 하루 ~2. 축적 주간가격은 v1.1 5년밴드·PIT 재사용.
 price_date로 기준일 투명.
 최신값(종가·시총·상장주식수)은 일별 시세 저장분(`krx_daily`, 최근 7거래일)에서 읽는다 — 기준일 = 그 표의 최신 거래일(60초 캐시),
 종목 한 줄 = `price_latest`(그 종목의 가장 늦은 거래일이 기준일보다 이르지 않을 때만 — 보관 창 안에서 상장폐지된 종목의 옛 날짜는 내지 않고,
@@ -445,6 +442,7 @@ sequenceDiagram
 
 ## 변경 이력
 
+- 2026-10-21: **지배 순이익 줄을 자본변동표 지배 몫으로 가르기**(PR #166 — 병합 대기). 공용 `controlling_ni` 가 값 구조(지배 + 비지배 = 당기순이익)로 가르지 못하는 세 꼴에서 같은 DART 응답의 자본변동표 「당기순이익 × 지배기업 소유주 지분」 칸으로 후보를 고른다(DATA-NI3). 이 도구의 배수 경로가 쓰는 재무 칸이 같은 규칙을 탄다. 운영 원문 캐시가 덮는 칸 164칸·106종목이 바뀌는 것은 PR 본문에 전후를 적었다(병합·적용 전).
 - 2026-10-20: **시장·업종 대분류 표의 과거 기준일 확정 배당수익률 — 그 날까지 확정·공시된 사업연도만**(최신 응답은 그대로).
   - 확정 배당 집계를 기준일과 상관없이 가장 늦은 사업연도로 읽었다 — 운영(10-20 20:44) `scope=market` 의 as_of 20201030·20230331·20250829·20260327 넷 다
     FY2025(시총 20251230) 코스피 1.5567%·코스닥 0.6879% 였다(기준일보다 뒤 사업연도·뒤 시총). `scope=sector`·`scheme="대분류"` 도 같은 읽기.
