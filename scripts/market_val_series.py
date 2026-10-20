@@ -36,6 +36,7 @@ from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fiscal_year
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
 from open_proxy_mcp.services.controlling_ni import controlling_ni as _cni
+from open_proxy_mcp.services import controlling_eq as _ceq
 
 
 def _latest_annual_fy(today: date | None = None) -> int:
@@ -107,45 +108,42 @@ def gid(rows, account_id, sj, field="thstrm_amount"):
     return v
 
 _EQA = "ifrs-full_EquityAttributableToOwnersOfParent"
-_Q = None
 
 
-def _quarterly():
-    """분기 수집기(`market_fund_quarterly.py`)의 순수 추출 함수 — 지배자본 트리를 두 벌로 두지 않으려고 같은 파일을 읽는다."""
-    global _Q
-    if _Q is None:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("_mfq_for_series", Path(__file__).with_name("market_fund_quarterly.py"))
-        _Q = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_Q)
-    return _Q
+_WHY_EQ = {"CAPLINE": "납입자본 줄", "COMPLINE": "자본 구성요소 줄", "OFFTOTAL": "자본총계 − 비지배와 크게 어긋난 줄"}
 
 
 def ctrl_eq(rows, field="thstrm_amount"):
-    """지배자본 → (값, 거른 까닭 또는 None). 종전 규칙 그대로: 지배 귀속 계정(새·옛 접두어, 정확일치) → 없으면 자본총계.
+    """지배자본 → (값, 종전 규칙과 달라진 까닭 또는 None). 지배 귀속 계정 줄(새·옛 접두어, 정확일치)을 쓰고, 그 줄이 없거나 믿지 못하면
+    분기 수집·서버 실시간 firm 과 **같은 규칙**(`services.controlling_eq.controlling_eq` — 이름 줄 → 자본총계 − 비지배지분 → 자본총계)으로 고른다.
 
-    261019: 지배 귀속 계정이 붙은 줄이 **납입자본(자본금) 줄**이면(회사 XBRL 태깅 오류 — 이름이 자본금·납입자본이거나 값이 같은 재무상태표의
-    자본금 계정과 같다) 그 줄은 버리고 분기 수집의 지배자본 규칙(`extract_controlling_eq` — 이름 → 자본총계 − 비지배지분 → 자본총계)으로 간다.
-    10-19 운영: 056360 FY2018~21 · 065680 FY2018~24(FY2022·23 정정치 포함) · 069960 FY2019~21 의 자본이 자본금(49억·50억·1,170억)이라 PBR 이
-    25~40배 부풀었다. 그 길로도 없으면 비운다(값 None — 까닭은 로그)."""
-    Q = _quarterly()
+    261019: 지배 귀속 계정이 붙은 줄이 **납입자본(자본금) 줄**이면(회사 XBRL 태깅 오류) 그 줄을 버렸다 — 10-19 운영 056360 FY2018~21 · 065680
+    FY2018~24 · 069960 FY2019~21 의 자본이 자본금(49억·50억·1,170억)이라 PBR 이 25~40배 부풀었다.
+    261020(p1f eq-suspects): ① 거르는 줄을 공용 판정(`ctrl_line_rejected`)으로 — 납입자본 줄에 더해 자본 구성요소 줄과 자본총계 − 비지배와 부호가
+    다르거나 1.6배 넘게 다른 줄(060230 FY2018 「지배기업의소유주에게귀속되는자본」 −66.02억 = 자본금 + 결손금만 더한 소계, 자본총계 324.48억 · 비지배 0).
+    ② 지배 귀속 계정 줄이 **없을 때** 종전엔 자본총계 계정(`ifrs-full_Equity` — 비지배 포함)을 그대로 썼다. 분기 수집은 같은 보고서에서 이름 줄
+    (「지배기업소유주지분」 — 표준 코드 없음)이나 자본총계 − 비지배를 쓰므로, 비지배가 있는 회사는 사업보고서 칸(연간 표 → 분기 표 4분기 칸)만
+    비지배를 품어 1~3분기 칸과 기준이 갈렸다(원문 캐시 사업보고서 1,609건 가운데 71건 — 000100 FY2025 2조 3,622.8억 vs 지배 2조 3,068.4억,
+    112040 FY2023 4,007.8억 vs 2,487.8억, 419050 FY2024 1,042.4억 vs 738.4억). 이제 분기와 같은 값이다. 비지배가 없는 회사는 종전과 같다(자본총계).
+    두 번째 값은 종전 규칙과 값이 달라졌을 때만 까닭을 적는다(수집 로그용)."""
     val = lambda r: num(r.get(field))  # noqa: E731
     row = next((r for aid in (_EQA, "ifrs_" + _EQA[len("ifrs-full_"):]) for r in rows
                 if r.get("sj_div") == "BS" and r.get("account_id") == aid and str(r.get(field) or "") != ""), None)
-    if row is not None and Q._capital_line(row, rows, val):
-        bs = [{**r, "thstrm_amount": r.get(field)} for r in rows if r.get("sj_div") == "BS"]
-        v, case = Q.extract_controlling_eq(bs)
-        return v, f"지배자본 계정이 납입자본 줄({row.get('account_nm')} {val(row):.0f}원)이라 거름 → {case}"
-    v = gid(rows, _EQA, ("BS",), field) or gid(rows, "ifrs-full_Equity", ("BS",), field)
-    if v is None and any(r.get("sj_div") == "BS" for r in rows):
-        # 261019: 두 계정이 다 없으면(표준 계정코드 없이 「지배기업지분」·「자본총계」로 낸 회사) 분기 수집과 같은 이름·총계 규칙으로.
-        #   10-19 운영: 037560 FY2020·21 · 089860 FY2021 — 2026-07 이전 수집기(부분 일치)가 「자본과부채총계」(EquityAndLiabilities)를
-        #   자본으로 읽어 두었고(PBR 이 수 분의 1), 정확 일치로 다시 받으면 빈 값이 됐다. 원문 「지배기업지분」 6,523.8억·1조 2,293억.
-        bs = [{**r, "thstrm_amount": r.get(field)} for r in rows if r.get("sj_div") == "BS"]
-        v2, case = Q.extract_controlling_eq(bs)
-        if v2 is not None:
-            return v2, f"지배자본·자본총계 계정이 없어 이름·총계 규칙 → {case}"
-    return v, None
+    why = _ceq.ctrl_line_rejected(row, rows, val) if row is not None else None
+    if row is not None and not why:
+        return val(row), None
+    if not any(r.get("sj_div") == "BS" for r in rows):
+        return None, None
+    v, case = _ceq.controlling_eq(rows, field)
+    if why:
+        x = val(row)
+        return v, f"지배자본 계정이 {_WHY_EQ[why]}({row.get('account_nm')} {'빈 값' if x is None else f'{x:.0f}원'})에 붙어 거름 → {case}"
+    old = gid(rows, "ifrs-full_Equity", ("BS",), field)
+    if old is not None and v is not None and abs(old - v) <= 1:
+        return v, None
+    # 261019: 두 계정이 다 없으면(표준 계정코드 없이 「지배기업지분」·「자본총계」로 낸 회사) 종전에도 이 규칙이었다 — 10-19 운영 037560 FY2020·21 ·
+    #   089860 FY2021(2026-07 이전 수집기가 「자본과부채총계」를 자본으로 읽어 두었던 행).
+    return v, (f"지배자본 계정 줄이 없어 {case}" + ("" if old is None else f"(종전 자본총계 {old:.0f}원 — 비지배 포함)"))
 
 
 _NIA = "ifrs-full_ProfitLossAttributableToOwnersOfParent"
