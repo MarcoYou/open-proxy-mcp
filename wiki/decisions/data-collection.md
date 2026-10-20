@@ -215,6 +215,15 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 - HTTP 요청 단위 키 주입: `?opendart=KEY` 쿼리 → contextvar(`_ctx_opendart_key`) → 인스턴스 캐시(키별 1개)
 - 자동 키 회전: 키의 사정(`020` 키의 하루 한도 · `010`·`011`·`901` 키 문제)이면 남은 키를 모두 차례로(키마다 한 번), 그 밖의 비정상 답은 보조 키로 1회 재시도. 사용자 키 하나로 온 요청은 회전하지 않는다
 - 사용량 추적: `_request_counter` (각 service가 `api_call_snapshot()` 차이로 호출 수 보고)
+- **요청 단위 메모 (261021)**: 한 도구 호출(서버가 요청마다 여는 요청 장부 하나) 안에서 같은 `(엔드포인트, 정렬한 인자)` 의 DART 요청은 HTTP 를 **한 번**만 한다 (`DartClient._request` → 본체 `_request_http`).
+  배수 도구(`price_multiple_data` firm) 한 번이 DART 14콜을 부르는데 그중 3콜(회사 개황·사업보고서 재무제표·배당)이 같은 인자의 중복이었다 (실측 261021: 삼성전자 14→11콜, 롯데리츠 16→14콜 — 응답은 전후 같다).
+  - 동시에 오면 진행 중인 한 호출을 함께 기다리고(문서 `get_document_cached` 의 single-flight 와 같은 꼴 — 한 호출자가 취소돼도 공동 호출은 살린다), 끝난 뒤에 오면 그 결과를 쓴다. 호출자마다 **복사본**을 받아 서로 영향이 없다
+  - **요청 경계를 넘지 않는다** — 메모는 요청 장부에 매달려 응답이 끝나면 함께 사라진다. 장부가 없는 경로(배치·스크립트)는 메모하지 않는다. 요청당 512항목·8MB(기억 중인 응답의 JSON 길이 합) 상한 — 넘으면 메모만 포기하고 호출은 그대로 한다
+  - **기준일(`as_of`)·엄격 과거 시점(`strict_as_of`)이 걸린 호출은 메모하지 않는다** — 응답 행 거르기와 그 기록(`note_row_drop`·엄격 제외 장부)이 호출마다 남아야 하기 때문이다
+  - 오류: DART 가 **숫자 상태로 답한** 오류(`013` 자료 없음·`020` 한도 …)는 같은 요청 안에서만 기억한다(`020` 은 남은 키까지 다 본 뒤의 답이다). 전송 오류·시간 초과·취소·`busy` 처럼 다시 하면 달라질 수 있는 것은 기억하지 않아 다음 호출이 새로 시도한다
+  - 키 회전·`020` 처리·`_request_counter`(`dart_api_calls`, **실제 HTTP 수**)는 `_request_http` 안에 그대로다 — 메모 적중은 세지 않는다. 결과 값은 바뀌지 않는다
+- **회사 개황 캐시 (261021)**: `get_company_info`(`company.json`)는 프로세스 전역 메모리에 **1시간**(`_COMPANY_INFO_TTL_SEC`) 둔다 — 최대 512사(`_COMPANY_INFO_CACHE_MAX`, 항목당 약 1KB, 오래된 것부터 밀려남).
+  키마다 두면 키 수만큼 곱해지므로 전역 하나(문서 캐시와 같은 이유). 정상 응답(`000`)만 두고, 기준일·엄격 과거 시점 호출은 건드리지 않으며, 호출자마다 복사본을 준다
 
 ## 1.7 DART API Rate Limit
 
@@ -224,6 +233,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 | 분당 한도 | 1,000건 (OPM cap 910) | OpenDART 정책 (초과 시 **그 키가** 차단 — 실측 2~3시간) |
 | 클라이언트 최소 간격 | 0.1초 | `_MIN_INTERVAL_API` (분당 600회 이하 보장) |
 | 키 회전 | 키의 사정(020·010·011·901)이면 남은 키 모두, 그 밖은 1회 | `_rotate_key()` |
+| 중복 호출 | 한 요청 안의 같은 (엔드포인트, 인자)는 HTTP 1번 — 사용량 `dart_api_calls` 는 실제 HTTP 수 | 1.6 「요청 단위 메모」 |
 | build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute` | services/contracts.py |
 
 ---
@@ -708,6 +718,8 @@ TTL 은 이 수치를 며칠 보고 정한다. 걸 때는 **fail-open** — 만�
 | document.xml + viewer 본문 | 메모리 LRU (`_DOC_CACHE`, 전역) | **96MB** + TTL 24h | `doc:` / `viewer:` 네임스페이스 |
 | 과거 배당(alotMatter) | 메모리 LRU (`_DIVIDEND_CACHE`, 전역) | **16MB** + TTL 24h | corp_code + 연도 |
 | list.json (검색) | 인스턴스 dict | 50건 (실측 ~0.5MB) | corp_code+bgn+end+pblntf_ty (단일 corp + page1 + count100만) |
+| company.json (회사 개황, 261021) | 프로세스 전역 OrderedDict (`_COMPANY_INFO_CACHE`) | 512사 (≈0.5MB, 위 합계에 안 넣음) + TTL 1h | corp_code |
+| DART 요청 단위 메모 (261021) | 요청 장부 `dart_memo` (응답이 끝나면 사라짐) | 요청당 512항목·8MB | (엔드포인트, 정렬한 인자) — `as_of` 호출은 제외 (→ 1.6) |
 | 스크리너 스캔 | 메모리 LRU (`_SCAN_CACHE`, 전역) | **24MB** + TTL 3분/1시간 | 공시유형+기간 (→ [[screener]]) |
 | proxy_advise | 메모리 LRU (`_PROXY_ADVISE_CACHE`, 전역) | **128MB** + TTL 1h | 회사+연도 |
 | KRX 전종목 스냅샷 | 메모리 LRU (`_KRX_CACHE`, 전역) | **32MB** + TTL 48h | 기준일자 |
