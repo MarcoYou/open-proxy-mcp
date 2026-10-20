@@ -3,7 +3,7 @@
   · 귀속 머리 줄: 「…의 귀속」 머리 줄에 지배 이름·id 를 붙여 비지배를 품은 소계(= 다음 지배 줄 + 비지배 줄)를 적은 보고서 — 그 줄을 지배 몫으로 읽었다
     (068290 2022 사업보고서 당기 칸 164.42억 = 비지배 포함 당기순이익, 참값 117.91억 · 014130 2025 반기 · 080160 2025 사업보고서 전전기 칸 · 417860 2026 반기).
   · 「비지배 0」 읽기: 지배 줄 값 = 당기순이익 총계인데 같은 보고서에 0 이 아닌 비지배 줄이 있고 다른 지배 줄 + 그 비지배 = 총계(073540 2022 반기).
-아래 줄은 그 보고서(DART 전체 재무제표 응답)를 줄였다 — 값은 원문 그대로, 손익 줄만. 참값은 같은 원문의 자본변동표 지배 몫이나 다른 해 보고서 값과 맞춰 봤다.
+아래 줄은 그 보고서(DART 전체 재무제표 응답)를 줄였다 — 계정 id·이름·ord·값은 원문 그대로, 손익 줄만. 참값은 같은 원문의 자본변동표 지배 몫이나 다른 해 보고서 값과 맞춰 봤다.
 DART 0콜 · DB 0.
 """
 from __future__ import annotations
@@ -55,6 +55,18 @@ def test_068290_discontinued_header_named_owner_is_not_the_owner_share(field, wa
     assert C.controlling_ni(rows_068290_fy2022(), field) == (want, "CIS_PARTS")
 
 
+def test_068290_pair_with_minority_wins_when_the_header_is_not_adjacent():
+    """두 번째 그물(합성 — 068290 줄에 주당이익 줄 하나를 머리 줄과 그 짝 사이에 끼움): 머리 줄 판정이 못 잡아도(다음 두 줄이 주당이익·지배 줄) 두 줄 합 가운데
+    0 이 아닌 비지배와 짝이 맞는 합(34.92 + 82.99 = 117.91억)을 「비지배 0」으로만 맞는 합(34.92 + 129.50 = 164.42억 = 당기순이익)보다 먼저 쓴다."""
+    rows = rows_068290_fy2022()
+    k = next(i for i, x in enumerate(rows) if x["ord"] == "24")
+    rows.insert(k + 1, r("CIS", F + "BasicEarningsLossPerShareFromDiscontinuedOperations", "중단영업기본주당이익(손실)", 24, 879, 240))
+    for i, x in enumerate(rows):
+        x["ord"] = str(i + 1)
+    assert C._attrib_header(rows[k], sorted(rows, key=C._ordv), C._cum_is, C._ni_shape(rows)) is False
+    assert C.controlling_ni(rows) == (11791107931.0, "CIS_PARTS")
+
+
 def rows_014130_2025h1():
     """014130 2025 반기(접수 20250829001916) — 「계속영업반기순이익의 귀속」(지배 기업 id) −76.12억 = 지배 −71.37억 + 비지배 −4.75억, 중단영업 지배 −3.79억.
     반기순이익 −79.91억 · 자본변동표 지배 몫 −75.16억. 3개월 칸: 반기순이익 −21.32억 · 참 지배 몫 −18.56억."""
@@ -66,12 +78,12 @@ def rows_014130_2025h1():
         r("CIS", F + "ComprehensiveIncomeFromContinuingOperationsAttributableToOwnersOfParent", "계속영업 총포괄손익", 17, -3154725161, cum=-8554725267),
         r("CIS", F + "ComprehensiveIncomeFromDiscontinuedOperationsAttributableToOwnersOfParent", "중단영업 총포괄손익", 18, -272596120, cum=-379351442),
         r("CIS", F + "ComprehensiveIncomeFromDiscontinuedOperations", "중단영업반기순이익의 귀속", 19, -272596120, cum=-379351442),
-        r("CIS", F + "ProfitLossFromDiscontinuedOperationsAttributableToOwnersOfParent", "지배기업 소유주지분", 20, -272596120, cum=-379351442),
+        r("CIS", F + "IncomeFromDiscontinuedOperationsAttributableToOwnersOfParent", "지배기업 소유주지분", 20, -272596120, cum=-379351442),
         r("CIS", F + "OtherComprehensiveIncome", "기타포괄손익", 31, -1584452558, cum=-1714212966),
         r("CIS", F + "ProfitLoss", "반기순이익(손실)", 37, -2132387275, cum=-7991313478),
         r("CIS", F + "ProfitLossFromContinuingOperations", "반기 계속영업이익(손실)", 39, -1859791155, cum=-7611962036),
         r("CIS", A, "계속영업반기순이익의 귀속", 40, -1859791155, cum=-7611962036),
-        r("CIS", F + "ProfitLossFromContinuingOperationsAttributableToOwnersOfParent", "지배기업 소유주지분", 41, -1583658105, cum=-7136591204),
+        r("CIS", F + "IncomeFromContinuingOperationsAttributableToOwnersOfParent", "지배기업 소유주지분", 41, -1583658105, cum=-7136591204),
         r("CIS", F + "ProfitLossFromContinuingOperationsAttributableToNoncontrollingInterests", "비지배지분", 42, -276133050, cum=-475370832),
         r("CIS", F + "ProfitLossFromDiscontinuedOperations", "중단영업이익(손실)", 43, -272596120, cum=-379351442),
     ]
@@ -99,7 +111,7 @@ def rows_080160_fy2023_in_fy2025_report():
         r("CIS", F + "ProfitLossFromContinuingOperations", "계속영업 당기순이익(손실)", 41, None, None, 7474536679),
         r("CIS", F + "ProfitLossFromDiscontinuedOperations", "중단영업 당기순이익(손실)", 42, None, None, 5713064795),
         r("CIS", P, "중단영업 당기순이익(손실)의 귀속", 43, None, None, 5713064795),
-        r("CIS", F + "ProfitLossFromDiscontinuedOperationsAttributableToOwnersOfParent", "지배기업소유주지분", 44, None, None, 2789112709),
+        r("CIS", F + "IncomeFromDiscontinuedOperationsAttributableToOwnersOfParent", "지배기업소유주지분", 44, None, None, 2789112709),
         r("CIS", F + "ProfitLossFromDiscontinuedOperationsAttributableToNoncontrollingInterests", "비지배지분", 45, None, None, 2923952086),
     ]
 
@@ -126,8 +138,21 @@ def rows_417860_2026h1():
 
 
 def test_417860_owner_id_on_the_attribution_header():
-    """종전 3,838,953,416원(= 반기순이익, 비지배 8,363원 포함)."""
-    assert C.controlling_ni(rows_417860_2026h1()) == (3838945053.0, "CIS_PARTS")
+    """종전 3,838,953,416원(= 반기순이익, 비지배 8,363원 포함). 머리 줄 판정은 짝 두 줄이 (비지배, 지배) 순이어도 잡는다 — 이 보고서는 「비지배지분」이 먼저다
+    (값만 보면 「비지배 0」 읽기 미루기도 같은 값을 내므로 판정 자체를 따로 본다)."""
+    rows = rows_417860_2026h1()
+    assert C.controlling_ni(rows) == (3838945053.0, "CIS_PARTS")
+    seq = sorted(rows, key=C._ordv)
+    assert C._attrib_header(rows[4], seq, C._cum_is, C._ni_shape(rows)) is True
+    # 짝 줄은 순이익 쪽만 — 총포괄 지배 id 줄·기타포괄 비지배 id 줄(이름 「비지배지분」)은 짝이 아니다
+    assert C._is_owner_row(rows[2]) is False
+    assert C._is_nci_row(rows[3]) is False
+
+
+def test_417860_three_month_minority_below_the_amount_tolerance():
+    """261020 p1j 검토: 3개월 칸 — 머리 줄 4,322,513,765 = 지배 4,322,512,149 + 비지배 1,616. 비지배가 허용 오차(총계의 1e-6 = 4,322원)보다 작아
+    종전엔 0 으로 읽어 머리 줄을 놓치고 총계를 골랐다(누적 차 3,838,945,053 − (−483,567,096) = 4,322,512,149 와 1,616원 어긋남)."""
+    assert C.controlling_ni(rows_417860_2026h1(), "thstrm_amount") == (4322512149.0, "CIS_PARTS")
 
 
 def rows_073540_2022h1():
@@ -172,6 +197,9 @@ def test_065150_owner_id_equal_to_total_without_profit_side_minority_stays():
         r("CIS", F + "ProfitLossFromDiscontinuedOperations", "중단영업이익(손실)", 35, -774436379),
     ]
     assert C.controlling_ni(rows) == (8315318465.0, "CIS_ID")
+    # 짝 판정 두 겹을 따로 고정한다 — 「중단영업손실」 줄은 지배 짝이 아니고(이름에 「지배」 없음 · 지배 순이익 id 아님), 총포괄 비지배 id 줄은 비지배 짝이 아니다
+    assert C._is_owner_row(rows[7]) is False
+    assert C._is_nci_row(rows[6]) is False
 
 
 def test_owner_equal_to_total_is_kept_when_nothing_pairs_with_the_minority():
@@ -197,6 +225,10 @@ def test_header_needs_a_nonzero_minority_line():
     ]
     assert C._attrib_header(rows[1], rows, C._cum_is) is False
     assert C.controlling_ni(rows)[0] == 700000000.0
+    # 261020 p1j 검토: 비지배가 0 이 아니어도 합이 비지배 반보다 촘촘하게 맞아야 머리 줄이다 — 지배 줄 = 머리 줄 값이고 비지배 3원이면(합 오차 3원 >
+    # 1.5원) 비지배를 품은 소계가 아니다(허용 오차 150만 원 안이라고 머리 줄로 읽지 않는다).
+    rows[2]["thstrm_amount"] = "3"
+    assert C._attrib_header(rows[1], rows, C._cum_is) is False
 
 
 def test_owner_line_that_pairs_with_minority_is_never_a_header():

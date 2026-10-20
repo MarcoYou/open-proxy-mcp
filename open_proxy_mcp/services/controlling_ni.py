@@ -203,7 +203,10 @@ def _attrib_header(r, seq, val, shape=None) -> bool:
       · 080160 2025 사업보고서 전전기 칸 — 「중단영업 당기순이익(손실)의 귀속」 57.13억 → 지배 27.89억 · 비지배 29.24억. 132.02억 → 102.78억(2023 사업보고서 값).
       · 417860 2026 1분기·반기 — 지배 순이익 id 줄 「반기순이익(손실)의 귀속」 = 다음 줄 「비지배지분」 8,363원 + 「지배기업소유주지분」.
     짝 두 줄은 순이익 쪽 줄만(총포괄 쪽 줄 빼고 — `_is_owner_row`·`_is_nci_row`). 이 줄 자신이 0 이 아닌 비지배와 짝이 맞으면(지배 + 비지배 = 당기순이익,
-    `_nci_fit`) 머리 줄이 아니다 — 지배 몫 줄이 우연히 「비지배 + 다음 지배 줄」과 같은 꼴(반올림 허용 오차가 큰 백만 원 단위 보고서)을 막는다."""
+    `_nci_fit`) 머리 줄이 아니다 — 지배 몫 줄이 우연히 「비지배 + 다음 지배 줄」과 같은 꼴(반올림 허용 오차가 큰 백만 원 단위 보고서)을 막는다.
+    261020 p1j 검토: 비지배는 허용 오차가 아니라 값 자체로 0 이 아닌지 보고, 대신 합은 비지배 반보다 촘촘하게 맞아야 한다(오차 ≤ min(허용 오차, |비지배|/2)) —
+    허용 오차(총계의 1e-6)보다 작은 비지배를 0 으로 읽어 머리 줄을 놓쳤다(10-20 원문 417860 2026 반기 3개월 칸: 머리 줄 4,322,513,765 = 지배 4,322,512,149 +
+    비지배 1,616, 허용 오차 4,322 — 누적 차와 1,616원 어긋난 총계를 골랐다). 비지배가 0 인 줄(지배 줄 = 머리 줄 값)은 여전히 머리 줄이 아니다."""
     v = val(r)
     if not v:
         return False
@@ -212,7 +215,7 @@ def _attrib_header(r, seq, val, shape=None) -> bool:
         return False
     a, b = seq[i + 1], seq[i + 2]
     tol = _amt_tol(v)
-    if not any(_is_owner_row(own) and _is_nci_row(nci) and abs(val(nci)) > tol and abs(val(own) + val(nci) - v) <= tol
+    if not any(_is_owner_row(own) and _is_nci_row(nci) and val(nci) and abs(val(own) + val(nci) - v) <= min(tol, abs(val(nci)) / 2)
                for own, nci in ((a, b), (b, a))):
         return False
     return not (shape is not None and _nci_fit(v, shape))
