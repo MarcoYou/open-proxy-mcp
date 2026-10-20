@@ -437,10 +437,13 @@ def register_tools(mcp):
                 return as_pretty_json({"status": "not_found", "subject": company, "warnings": [warn],
                                        "next_actions": [COMPANY_LOOKUP_NEXT_ACTION]})
             return f"## '{company}' 을(를) 찾지 못했다 (`status=not_found`)\n\n> {warn}\n\n다음: {COMPANY_LOOKUP_NEXT_ACTION}"
-        data = await asyncio.to_thread(dd.firm_history, corp.get("corp_code", ""), y0, y1)
+        # 261021: 원장 시계열(`firm_history`)과 결정공시 횟수(`payment_counts`)는 서로 입력이 필요 없다 — 차례로 기다리던 두 DB 왕복을 동시에 보낸다.
+        data, pay = await asyncio.gather(
+            asyncio.to_thread(dd.firm_history, corp.get("corp_code", ""), y0, y1),
+            asyncio.to_thread(dd.payment_counts, corp.get("corp_code", ""), y0, y1),
+        )
         if data.get("status") != "ok":
             return "## 배당 원장 조회 실패 (`status=db_error`)"
-        pay = await asyncio.to_thread(dd.payment_counts, corp.get("corp_code", ""), y0, y1)
         if format == "json":
             return as_pretty_json({"status": "ok", "subject": corp.get("corp_name"),
                                    "data": data, "payment_counts": pay})

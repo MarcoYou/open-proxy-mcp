@@ -456,35 +456,40 @@ def screen(
             " WHERE p.corp_code = yr.corp_code AND p.fiscal_year = yr.bsns_year) >= %s")
         params.append(min_payments)
 
+    # 질의 하나로 — 행 · 조건에 걸린 전체 수(`COUNT(*) OVER ()` — LIMIT 앞에서 센다) · 모집단(조건 전 그 해 회사 수, 첫 CTE). 종전엔 이 셋이 질의 셋이었다(같은 CTE 를
+    #   두 번 돌렸다). 행이 하나도 없을 때만 모집단을 따로 한 번 더 읽는다(매칭 수는 0).
     sql = f"""
-        WITH {_YEAR_SQL.format(join=join, where=' AND '.join(per_where))}
-        SELECT corp_code, name, tickers, dps_krw, div_total_krw, payout_pct, rcept_no, n_periods, copy_guard
-          FROM yr WHERE {' AND '.join(where)}
+        WITH uni AS (SELECT COUNT(DISTINCT corp_code) AS n FROM div_declared
+                      WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')),
+        {_YEAR_SQL.format(join=join, where=' AND '.join(per_where))}
+        SELECT t.corp_code, t.name, t.tickers, t.dps_krw, t.div_total_krw, t.payout_pct, t.rcept_no, t.n_periods, t.copy_guard,
+               COUNT(*) OVER () AS matched, (SELECT n FROM uni) AS n_universe
+          FROM (SELECT * FROM yr WHERE {' AND '.join(where)}) t
+         ORDER BY t.div_total_krw DESC NULLS LAST, t.corp_code LIMIT %s
     """
-    rows = _rows(f"SELECT * FROM ({sql}) t ORDER BY t.div_total_krw DESC NULLS LAST, t.corp_code LIMIT %s",
-                 tuple(params) + (limit,))
+    rows = _rows(sql, (_ANNUAL, bsns_year, *params, limit))
     if rows is None:
         return {"status": "db_error"}
-    # 조건에 걸린 전체 수. `limit` 은 **표시 한도**일 뿐인데 종전엔 이 값이 없어서
-    #   돌려준 행 수를 매칭 수로 읽었다(U7: 「100사」가 실은 121사였다).
-    m = _rows(f"SELECT COUNT(*) FROM ({sql}) t", tuple(params))
-    matched = (m or [(None,)])[0][0]
-    # 분모 — 조건을 걸기 전 그 해 모집단. 「몇 중 몇」이 없으면 결과를 못 읽는다.
-    tot = _rows(
-        "SELECT COUNT(DISTINCT corp_code) FROM div_declared "
-        "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
-        (_ANNUAL, bsns_year))
+    if rows:
+        matched, n_universe = rows[0][9], rows[0][10]
+    else:
+        # 조건에 맞는 회사가 없다(matched = 0). 모집단은 「몇 중 몇」을 읽으려고 따로 낸다 — 이 질의만 실패하면 모집단을 못 센 채 낸다(렌더가 말한다).
+        matched = 0
+        tot = _rows(
+            "SELECT COUNT(DISTINCT corp_code) FROM div_declared "
+            "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
+            (_ANNUAL, bsns_year))
+        n_universe = (tot or [(None,)])[0][0]
     return {
         "status": "ok",
-        "n_universe": (tot or [(None,)])[0][0],
+        "n_universe": n_universe,
         "matched": matched,
         "returned": len(rows),
         "limit": limit,
         "rows": [
             {"corp_code": r[0], "name": r[1], "ticker": r[2], "dps_krw": r[3],
              "div_total_krw": r[4], "payout_pct": r[5], "rcept_no": r[6],
-             "n_periods": r[7] if len(r) > 7 else 1,
-             "total_basis": ("ledger_copy" if len(r) > 8 and r[8] else ("sum" if len(r) > 7 and r[7] > 1 else "single"))}
+             "n_periods": r[7], "total_basis": "ledger_copy" if r[8] else ("sum" if r[7] > 1 else "single")}
             for r in rows
         ],
     }
