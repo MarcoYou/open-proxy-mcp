@@ -348,14 +348,51 @@ def _extract_cumulative_is(row: dict[str, Any]) -> int | None:
 
 
 # reprt_code별 기간(개월) — 누적(period-to-date) / 당기(standalone)
-def _period_months(reprt_code: str | None, *, cumulative: bool) -> int:
-    """누적이면 보고시점까지 개월(1Q=3·반기=6·3Q=9·연간=12), 당기면 분기=3·연간=12."""
+def _period_months(reprt_code: str | None, *, cumulative: bool, annual_months: int | None = None) -> int:
+    """누적이면 보고시점까지 개월(1Q=3·반기=6·3Q=9·연간=12), 당기면 분기=3·연간=12.
+
+    `annual_months` — 사업보고서(11011) 한 결산기의 **실제 개월**(`_report_period`). 반기·분기 결산 회사(리츠)는 결산기마다 사업보고서를 따로 내서
+    그 보고서의 당기가 6·3개월이다(롯데리츠 FY2025 = 2025.07~12). 종전엔 사업보고서면 무조건 12 라 6개월 순이익이 「연간 12개월」로 적혔다
+    (재무 지표 도구·밸류업 도구 ROE 가 절반). 못 읽으면(None) 종전대로 12.
+    """
     rc = reprt_code or "11011"
-    if rc == "11011":  # 사업보고서(연간) — 누적=당기=12
-        return 12
+    if rc == "11011":  # 사업보고서 — 누적=당기=그 결산기. 보통 12개월
+        return annual_months if annual_months else 12
     if not cumulative:
         return 3  # 분기/반기/3분기 standalone = 3개월
     return {"11013": 3, "11012": 6, "11014": 9}.get(rc, 12)
+
+
+#: 주요계정 손익 줄의 당기 기간 표기 「2025.07.01 ~ 2025.12.31」(재무상태표 줄은 「2025.12.31 현재」).
+_DT_RANGE = re.compile(r"(\d{4})\.(\d{2})\.(\d{2})\s*~\s*(\d{4})\.(\d{2})\.(\d{2})")
+
+
+def _report_period(rows: list[dict[str, Any]] | None, field: str = "thstrm_dt") -> dict[str, Any] | None:
+    """보고서 손익 줄의 기간 표기(`thstrm_dt`) → `{start, end, months}`. 읽지 못하면 None(호출부는 종전대로 12개월).
+
+    개월 = 일수 ÷ 30.4375 반올림 — 52·53주 결산(364·371일)도 12. 1~24개월만 믿는다(그 밖은 날짜 오류로 보고 None).
+    """
+    for r in rows or []:
+        if (r.get("sj_div") or "").upper() not in ("IS", "CIS"):
+            continue
+        m = _DT_RANGE.search(str(r.get(field) or ""))
+        if not m:
+            continue
+        try:
+            start = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            end = date(int(m.group(4)), int(m.group(5)), int(m.group(6)))
+        except ValueError:
+            continue
+        months = round(((end - start).days + 1) / 30.4375)
+        if end < start or not 1 <= months <= 24:
+            continue
+        return {"start": start.isoformat(), "end": end.isoformat(), "months": months}
+    return None
+
+
+def _month_gap(a_end: str, b_end: str) -> int:
+    """a_end − b_end (달 수, ISO 날짜 앞 7자리 기준)."""
+    return (int(a_end[:4]) * 12 + int(a_end[5:7])) - (int(b_end[:4]) * 12 + int(b_end[5:7]))
 
 
 def _build_account_map(
@@ -2102,6 +2139,92 @@ async def _fetch_acnt_with_fallback(
     return [], "11011", last_err or f"{year}년 정기보고서(사업·3분기·반기·1분기) 재무제표 미공시"
 
 
+#: 저장된 결산기 칸 근거 글(`period_cells`)에서 사업연도 칸의 결산기 범위를 읽는다 — 「사업연도 2025 = 202506~202512 결산기 2개 합」.
+_STORED_SPAN = re.compile(r"(\d{6})~(\d{6}) 결산기 (\d+)개 합")
+#: 분기 칸의 「다음 결산기 누적(202606)」·「누적(202603+202606)」 — 그 칸의 누적에 든 결산기들. 마지막이 누적이 끝나는 결산기다.
+_STORED_CUM_TERMS = re.compile(r"누적\(([0-9+]+)\)")
+
+
+def _twelve_month_unavailable(reason: str) -> dict[str, Any]:
+    return {"rule": "stored_period_cells", "status": "unavailable", "reason": reason}
+
+
+async def _period_cells_12m(stock_code: str | None, period_end: str, months: int,
+                            equity_end: float | None = None) -> dict[str, Any]:
+    """반기·분기 결산 회사의 **12개월 결산기 합** 순이익과 ROE — 수집기가 저장한 「결산기 12개월」 칸(`period_cells`)에서 읽는다.
+
+    사업보고서 한 권의 당기는 한 결산기(3·6개월)라 `net_income_krw`·`roe_pct` 가 12개월의 절반(분기 결산이면 4분의 1)이다. 12개월 값은
+    실시간 firm(`price_multiple_data`)·주간 곡선·업종 비교가 이미 쓰는 같은 칸이다 — 이 도구가 따로 12개월 규칙을 두지 않는다.
+      · 결산기 말이 12월 = 그 사업연도 연간 칸(`dart_finstat_q` quarter=4, 마지막 결산기에서 거꾸로 12개월 지배순이익 합).
+      · 그 밖(3·6·9월 말) = 직전 연간 + 그 달 누적 − 전년 같은 달 누적 (읽는 쪽 모두의 같은 TTM 식). 칸이 끝나는 결산기가 보고서 결산기와 같아야 쓴다.
+      · ROE = 12개월 순이익 ÷ 평균 지배자본(결산기 말과 12개월 전 같은 달 말). 12개월 전 자본이 없으면 결산기 말 자본 단독.
+    반환 `status` = "ok" | "unavailable"(까닭 `reason`). DB 미설정·장애(None)와 칸 없음([])을 가른다. 12개월 전체가 안 만들어지면 일부 조각으로 때우지 않는다.
+    """
+    if not stock_code:
+        return _twelve_month_unavailable("종목코드가 없어 저장된 결산기 칸을 찾지 못함")
+    try:
+        y, mo = int(period_end[:4]), int(period_end[5:7])
+    except (TypeError, ValueError):
+        return _twelve_month_unavailable("사업보고서 결산기 말을 읽지 못함")
+    if not 1 <= mo <= 12:
+        return _twelve_month_unavailable("사업보고서 결산기 말을 읽지 못함")
+    q = (mo + 2) // 3               # 칸은 달력 분기로 묶는다 — 그 분기 말 이하 가장 늦은 결산기가 칸의 끝이다(11월 결산기 → 4분기 칸)
+    end6 = f"{y}{mo:02d}"
+    try:
+        from open_proxy_mcp.db import pg_rows
+        from open_proxy_mcp.services import period_cells as _pc
+        rows = await asyncio.to_thread(
+            pg_rows,
+            "SELECT fy, quarter, ni_cum_restated, eq_restated, restate_why FROM dart_finstat_q "
+            "WHERE ticker=%s AND fy IN (%s, %s) AND quarter IN (4, %s) AND restate_why LIKE %s",
+            (stock_code, y, y - 1, q, _pc.MARK_LIKE))
+    except Exception as exc:  # noqa: BLE001 — 12개월 값은 덧붙임이다: 읽기가 깨져도 종전 응답은 나간다
+        return _twelve_month_unavailable(f"DB 조회 실패({type(exc).__name__})")
+    if rows is None:
+        return _twelve_month_unavailable("DB 를 읽지 못함(미설정 또는 장애) — 잠시 뒤 다시 조회하면 채워질 수 있음")
+    cells = {(int(r[0]), int(r[1])): r for r in rows}
+    cur = cells.get((y, q))
+    if cur is None:
+        return _twelve_month_unavailable(f"저장된 결산기 12개월 칸이 없음({y}년 {q}분기 칸) — 수집 대상 밖이거나 아직 수집 전")
+    if cur[2] is None:
+        return _twelve_month_unavailable(f"저장된 {y}년 {q}분기 칸의 12개월 순이익 합이 비어 있음(결산기 가운데 순이익을 못 읽은 것이 있음)")
+    if q == 4:
+        m = _STORED_SPAN.search(str(cur[4]))
+        if not m or m.group(2) != end6:
+            return _twelve_month_unavailable(f"저장된 {y}년 연간 칸의 마지막 결산기가 이 사업보고서 결산기({end6})와 다름")
+        ni12 = float(cur[2])
+        terms = f"{m.group(1)}~{m.group(2)} 결산기 {m.group(3)}개 합"
+    else:
+        annual, prev_q = cells.get((y - 1, 4)), cells.get((y - 1, q))
+        m = _STORED_CUM_TERMS.search(str(cur[4]))
+        if not m or m.group(1).split("+")[-1] != end6:
+            return _twelve_month_unavailable(f"저장된 {y}년 {q}분기 칸의 누적이 이 사업보고서 결산기({end6})에서 끝나지 않음")
+        if annual is None or annual[2] is None or prev_q is None or prev_q[2] is None:
+            return _twelve_month_unavailable(f"직전 연간 칸이나 전년 같은 달 칸이 없어 {end6} 말 12개월 합을 못 맞춤")
+        ni12 = float(annual[2]) + float(cur[2]) - float(prev_q[2])
+        terms = f"{y - 1}년 연간 + {y}년 {end6[4:]}월 누적 − {y - 1}년 같은 달 누적"
+    prev_eq_row = cells.get((y - 1, q))
+    eq_end = equity_end if equity_end is not None else (float(cur[3]) if cur[3] is not None else None)
+    eq_prev = float(prev_eq_row[3]) if prev_eq_row is not None and prev_eq_row[3] is not None else None
+    roe = None
+    if eq_end is not None:
+        avg = (eq_end + eq_prev) / 2 if eq_prev is not None else eq_end
+        if avg > 0:
+            roe = round(ni12 / avg * 100, 2)
+    return {
+        "rule": "stored_period_cells", "status": "ok",
+        "window": f"{_month_back(end6, 11)}~{end6[:4]}-{end6[4:]}", "terms": terms, "period_months": months,
+        "net_income_krw": round(ni12), "equity_end_krw": round(eq_end) if eq_end is not None else None,
+        "equity_prev_krw": round(eq_prev) if eq_prev is not None else None, "roe_pct": roe,
+    }
+
+
+def _month_back(yyyymm: str, n: int) -> str:
+    """YYYYMM 에서 n 달 앞 (YYYY-MM)."""
+    t = int(yyyymm[:4]) * 12 + int(yyyymm[4:6]) - 1 - n
+    return f"{t // 12}-{t % 12 + 1:02d}"
+
+
 async def _fetch_year_metrics(
     corp_code: str,
     year: int,
@@ -2111,6 +2234,7 @@ async def _fetch_year_metrics(
     allow_quarterly_fallback: bool = True,
     induty_code: str | None = None,
     is_reit: bool = False,
+    stock_code: str | None = None,
     memo: "_FetchMemo | None" = None,
     reprt_code: str | None = None,
     scale_plan: "dict[str, Any] | asyncio.Future | None" = None,
@@ -2242,7 +2366,10 @@ async def _fetch_year_metrics(
         if ttm_revenue is None:
             warnings.append(f"{year}년 TTM 회전일수 분모 계산 실패(직전 FY 미조회) — 분기 기간일치로 대체.")
 
-    pm_cum = _period_months(used_rc, cumulative=True)
+    # 사업보고서 한 결산기의 실제 개월 — 반기·분기 결산 회사(리츠)는 6·3개월이다(못 읽으면 12 = 종전).
+    rep_curr = _report_period(rows_curr) if used_rc == _REPRT_BUSINESS else None
+    pm_cum = _period_months(used_rc, cumulative=True, annual_months=rep_curr["months"] if rep_curr else None)
+    short_annual = used_rc == _REPRT_BUSINESS and pm_cum != 12
     metrics = _compute_metrics(
         bs_is=bs_is,
         bs_is_prev=bs_is_prev,
@@ -2275,7 +2402,9 @@ async def _fetch_year_metrics(
     metrics["fiscal_year"] = fiscal_year_from_end(period_end) or year
     metrics["fs_div"] = actual_fs  # 요청값이 아니라 실제 사용된 기준 (CFS 미작성 시 OFS)
     metrics["reprt_code"] = used_rc
-    metrics["period_basis"] = "annual" if used_rc == _REPRT_BUSINESS else f"cumulative_{pm_cum}m"
+    metrics["period_basis"] = (f"period_{pm_cum}m" if short_annual else "annual") if used_rc == _REPRT_BUSINESS else f"cumulative_{pm_cum}m"
+    if short_annual and rep_curr:
+        metrics["period_span"] = {"start": rep_curr["start"], "end": rep_curr["end"], "months": pm_cum}
     # 배당성향은 귀속 기준(DART 사업보고서 '현금배당성향')으로 주입 — 연간보고서에서만 의미 있음.
     # 분기/누적 기간엔 해당 연도 배당이 미확정이라 None(정직). CF dividend_paid_krw는 배당/FCF 전용.
     if used_rc == _REPRT_BUSINESS:
@@ -2284,7 +2413,13 @@ async def _fetch_year_metrics(
             metrics["payout_ratio_note"] = "REIT — 순이익 기준 배당성향 미표시(배당가능이익 분배). DPS·시가배당률 참고"
     else:
         metrics["payout_ratio_pct"] = None
-    if pm_cum < 12:
+    if short_annual:
+        _span_txt = f"({rep_curr['start']}~{rep_curr['end']})" if rep_curr else ""
+        warnings.append(
+            f"{year}년 사업보고서의 이 결산기는 {pm_cum}개월{_span_txt}이다 — 손익·ROE·ROA·자산회전율은 "
+            f"연간(12개월)이 아니라 이 {pm_cum}개월 값이고 연환산이 아니다(회전일수는 기간 보정됨)."
+        )
+    elif pm_cum < 12:
         warnings.append(
             f"{year}년 {pm_cum}개월 누적 기준 — 회전일수는 기간 보정됨, ROE/ROA/자산회전율은 "
             f"연환산 아닌 {pm_cum}개월값(연간 비교 시 주의)."
@@ -2340,9 +2475,15 @@ async def _fetch_year_metrics(
         metrics["period_basis"] = "quarter_3m"
 
     # ── 기준 항상 명시 (사람용 한 줄) — 손익이 당기/누적/연간 중 무엇인지 + 회전일수 기준 ──
-    _tb = {"ttm": "TTM(최근 4분기)", "annual": "연간", "period_matched": "기간보정(분기)"}.get(
+    _tb = {"ttm": "TTM(최근 4분기)", "annual": "연간",
+           "period_matched": f"기간보정({pm_cum}개월)" if short_annual else "기간보정(분기)"}.get(
         metrics.get("turnover_basis"), metrics.get("turnover_basis"))
-    if used_rc == _REPRT_BUSINESS:
+    if short_annual:
+        # 반기·분기 결산 회사(리츠) — 사업보고서가 결산기마다 나와 한 권의 당기가 12개월이 아니다. 「연간 12개월」이라고 적지 않는다.
+        metrics["basis_note"] = (
+            f"손익=사업보고서 한 결산기 {pm_cum}개월" + (f"({rep_curr['start']}~{rep_curr['end']})" if rep_curr else "")
+            + f"(연간 12개월 아님·연환산 아님), 회전일수={_tb} 기준. 12개월 값은 net_income_12m_krw·roe_12m_pct 참조.")
+    elif used_rc == _REPRT_BUSINESS:
         metrics["basis_note"] = "손익=연간(사업보고서, 12개월), 회전일수=연간 기준."
     elif used_rc == "11013":
         metrics["basis_note"] = f"손익=당기 1분기(3개월), 회전일수={_tb} 기준."
@@ -2366,6 +2507,45 @@ async def _fetch_year_metrics(
         warnings.append(
             f"{year}년 자산총계 ≠ 부채총계 + 자본총계 (차이 {_bal['diff_pct']:.2f}%) — "
             f"공시 원문이 그렇다. 값은 그대로 두었으니 인용 전 원문을 확인할 것.")
+
+    # ── 반기·분기 결산 회사 — 12개월 결산기 합 순이익·ROE (새 키; 옛 net_income_krw·roe_pct 는 한 결산기 값 그대로) ──
+    if short_annual:
+        if statement_currency(rows_detail or rows_curr) != "KRW":
+            metrics["twelve_month_basis"] = _twelve_month_unavailable("원화가 아닌 보고서 — 저장된 결산기 칸은 원화 기준")
+            tw = metrics["twelve_month_basis"]
+        else:
+            _eq_end_rows = (detail or {}).get("controlling_equity")
+            if _eq_end_rows is None:
+                _eq_end_rows = bs_is.get("controlling_equity")
+            if _eq_end_rows is None:
+                _eq_end_rows = bs_is.get("total_equity")
+            tw = await _period_cells_12m(stock_code, rep_curr["end"] if rep_curr else "", pm_cum, _eq_end_rows)
+            metrics["twelve_month_basis"] = tw
+        metrics["net_income_12m_krw"] = tw.get("net_income_krw") if tw.get("status") == "ok" else None
+        metrics["roe_12m_pct"] = tw.get("roe_pct") if tw.get("status") == "ok" else None
+        if tw.get("status") == "ok":
+            warnings.append(
+                f"{year}년 {pm_cum}개월 결산기 — 12개월 값은 net_income_12m_krw({tw['net_income_krw']:,}원)·roe_12m_pct"
+                f"({tw['roe_pct'] if tw['roe_pct'] is not None else 'N/M'}%)다: {tw['window']} 결산기 합(저장된 결산기 칸 — 시장 밸류 도구와 같은 값). "
+                f"net_income_krw·roe_pct 는 이 {pm_cum}개월 한 결산기 값 그대로다.")
+        else:
+            warnings.append(
+                f"{year}년 {pm_cum}개월 결산기라 12개월 순이익·ROE(net_income_12m_krw·roe_12m_pct)를 비웠다 — {tw['reason']}. "
+                f"net_income_krw·roe_pct 는 {pm_cum}개월 한 결산기 값이라 연간과 비교하지 말 것.")
+
+    # ── 전기 보고서가 같은 기간의 1년 전이 아니면 전년비(*_yoy_pct)가 아니다 ──
+    # 반기 결산 리츠의 사업보고서는 6개월마다 나온다 — 올해 2026.01~06 의 「전기」(year-1 사업보고서)는 2025.07~12, 곧 직전 결산기이지 1년 전이 아니다.
+    if include_prev and rows_prev and used_rc == _REPRT_BUSINESS:
+        rep_prev = _report_period(rows_prev)
+        if rep_curr and rep_prev:
+            _gap = _month_gap(rep_curr["end"], rep_prev["end"])
+            if rep_prev["months"] != pm_cum or _gap != 12:
+                metrics["yoy_comparable"] = False
+                metrics["prior_period_span"] = {"start": rep_prev["start"], "end": rep_prev["end"], "months": rep_prev["months"]}
+                metrics["yoy_basis_note"] = (
+                    f"전기 보고서 기간 {rep_prev['start']}~{rep_prev['end']}({rep_prev['months']}개월)은 이 결산기"
+                    f"({rep_curr['start']}~{rep_curr['end']}, {pm_cum}개월)의 1년 전이 아니다 — *_yoy_pct 는 전년비가 아니라 직전 기간 대비다.")
+                warnings.append(f"{year}년 " + metrics["yoy_basis_note"])
 
     # 통화 정규화는 **모든 금액 주입이 끝난 뒤** 마지막에 한 번 — 중간에 두면 그 뒤에 붙는
     # standalone·배당 금액이 조용히 환산에서 빠진다(그게 원래 결함의 모양이었다).
@@ -2468,7 +2648,8 @@ async def _build_audit_opinion_data(
     )
 
 
-async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, induty_code: str | None = None, is_reit: bool = False) -> tuple[list[dict[str, Any]], list[str]]:
+async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, induty_code: str | None = None, is_reit: bool = False,
+                        stock_code: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     year_list = list(range(end_year - years + 1, end_year + 1))
     # 연도마다 「당기+전기」를 부르므로 인접 연도가 겹친다 — memo 하나를 나눠 주면 그 겹침이 사라진다.
     memo = _FetchMemo()
@@ -2476,7 +2657,7 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, 
     # 각 연도가 자기 조회를 마친 뒤에 받는다.
     plan = asyncio.ensure_future(_annual_scale_plan(corp_code, year_list, fs_div, memo))
     tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code,
-                                 is_reit=is_reit, memo=memo, scale_plan=plan) for y in year_list]
+                                 is_reit=is_reit, stock_code=stock_code, memo=memo, scale_plan=plan) for y in year_list]
     results = await asyncio.gather(*tasks)
     out: list[dict[str, Any]] = []
     warnings: list[str] = []
@@ -3100,6 +3281,8 @@ async def build_financial_metrics_payload(
         target_year = today_kst().year
     else:
         target_year = _default_recent_year(fiscal_month, selected.get("stock_code"))
+        if is_reit:
+            target_year = await _reit_default_year(corp_code, target_year)
 
     warnings: list[str] = []
     if company_info_warning:
@@ -3136,10 +3319,12 @@ async def build_financial_metrics_payload(
 
     stage_started_at = time.perf_counter()
     if scope == "summary":
-        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit)
+        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit,
+                                                         stock_code=selected.get("stock_code"))
         warnings.extend(ws)
         if metrics:
             data["summary"] = metrics
+            _override_fiscal_period(data, metrics, fiscal_month)
             filing_count = 1
             ref = await _periodic_filing_ref(corp_code, target_year, metrics.get("reprt_code"))
             data["source_report"] = ref or {}
@@ -3156,7 +3341,8 @@ async def build_financial_metrics_payload(
             parsing_failures = 1
 
     elif scope == "yearly":
-        rows, ws = await _build_yearly(corp_code, target_year, years, fs_div, induty_code, is_reit=is_reit)
+        rows, ws = await _build_yearly(corp_code, target_year, years, fs_div, induty_code, is_reit=is_reit,
+                                     stock_code=selected.get("stock_code"))
         warnings.extend(ws)
         data["yearly"] = rows
         filing_count = len(rows)
@@ -3212,9 +3398,9 @@ async def build_financial_metrics_payload(
         _plan = asyncio.ensure_future(_annual_scale_plan(corp_code, [target_year - 1, target_year], fs_div, yoy_memo))
         curr_t, prev_t, audit_t = await asyncio.gather(
             _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code,
-                                memo=yoy_memo, scale_plan=_plan),
+                                stock_code=selected.get("stock_code"), memo=yoy_memo, scale_plan=_plan),
             _fetch_year_metrics(corp_code, target_year - 1, fs_div, include_prev=True, induty_code=induty_code,
-                                memo=yoy_memo, scale_plan=_plan),
+                                stock_code=selected.get("stock_code"), memo=yoy_memo, scale_plan=_plan),
             _build_audit_opinion_data(corp_code, target_year, years_back=2),
         )
         curr, ws_curr, _ev1 = curr_t
@@ -3232,7 +3418,7 @@ async def build_financial_metrics_payload(
             same_rc = curr.get("reprt_code")
             prev_same, ws_same, _ev3 = await _fetch_year_metrics(
                 corp_code, target_year - 1, fs_div, include_prev=True, induty_code=induty_code,
-                memo=yoy_memo, reprt_code=same_rc, scale_plan=_plan)
+                stock_code=selected.get("stock_code"), memo=yoy_memo, reprt_code=same_rc, scale_plan=_plan)
             if prev_same and prev_same.get("reprt_code") == same_rc:
                 prev = prev_same
                 ws_prev = ws_same
@@ -3269,6 +3455,11 @@ async def build_financial_metrics_payload(
         if not period_aligned:
             data["yoy"]["alerts_not_evaluated"] = sorted(_PERIOD_SENSITIVE_ALERTS)
         filing_count = (1 if curr else 0) + (1 if prev else 0)
+        if curr:
+            _override_fiscal_period(data, curr, fiscal_month)
+        if curr and curr.get("yoy_comparable") is False:
+            data["yoy"]["period_comparison"] = {"comparable": False, "note": curr.get("yoy_basis_note"),
+                                                "current": curr.get("period_span"), "prior": curr.get("prior_period_span")}
         if curr:
             ref = await _periodic_filing_ref(corp_code, target_year, curr.get("reprt_code"))
             data["source_report"] = ref or {}
@@ -3444,6 +3635,39 @@ def _next_actions(scope: str, data: dict[str, Any]) -> list[str]:
         if any("적정" not in o.get("adt_opinion", "") for o in opinions):
             actions.append("non-clean 의견: 후보 사외이사 재직 시점 cross-check (이사 회계 risk 이력 검증)")
     return actions
+
+
+async def _reit_default_year(corp_code: str, default_year: int) -> int:
+    """리츠의 기본 사업연도 — 이미 제출된 **가장 새 사업보고서**의 표기 연도(결산월 12 규칙의 연도보다 새 것이 있으면 그 연도).
+
+    반기·분기 결산 리츠는 사업보고서가 결산기마다(3·6개월) 나와 결산월 하나로 「최신 사업보고서」를 정하는 `_default_recent_year` 가 틀린다
+    (롯데리츠 결산월 12 → 10월 기본 연도 2025 인데 2026.06 사업보고서(제15기)가 9/21 에 이미 제출돼 있다 — 12월 결산이 아닌 회사가 최신 보고서를
+    건너뛰던 JTC(#142)와 같은 꼴). DART 목록 1콜. 목록을 못 읽거나 새 것이 없으면 기본 연도 그대로(fail-open).
+    """
+    try:
+        latest = await latest_annual_report_before(corp_code, today_kst().strftime("%Y%m%d"))
+    except Exception:  # noqa: BLE001
+        return default_year
+    m = _ANNUAL_PERIOD.search((latest or {}).get("report_nm") or "")
+    return max(default_year, int(m.group(1))) if m else default_year
+
+
+def _override_fiscal_period(data: dict[str, Any], metrics: dict[str, Any], fiscal_month: int | None) -> None:
+    """사업보고서 한 권의 당기가 12개월이 아니면(반기·분기 결산 리츠) `fiscal_period` 를 **그 보고서의 실제 기간**으로 바꾼다.
+
+    결산월로 만든 기본 표기는 「사업연도 = 그 해 12개월」이라 롯데리츠 FY2026(제15기 2026.01~06)을 2026-01-01~2026-12-31 로 적었다.
+    12개월 보고서는 손대지 않는다(응답 그대로).
+    """
+    span = metrics.get("period_span")
+    if not span:
+        return
+    data["fiscal_period"] = {
+        "start": span["start"],
+        "end": span["end"],
+        "fiscal_year_end_month": fiscal_month,
+        "label": f"{span['start']}~{span['end']} · {span['months']}개월 결산기",
+        "period_months": span["months"],
+    }
 
 
 def _default_recent_year(fiscal_month: int | None = None, ticker: str | None = None) -> int:

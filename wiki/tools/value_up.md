@@ -180,6 +180,10 @@ KIND fallback +1, 진단검색 +2, role backfill +1, treasury cross-ref +1.
 - `meta_amendment`는 최신 공시일 수 있어도 `latest_status` 대체물로 쓰지 않는다.
   - progress와 거의 동일하면 중복 본문을 반복하지 않고 고배당기업 표시/재공시 사실만 표시한다.
   - meta 안에 `implementation_result`가 있으면 `embedded_results`로 progress 옆에 병합 노출한다.
+- **목표 ↔ 실적 대조의 ROE (261021, DATA-FY3)**: 반기·분기 결산 회사(리츠)는 `financial_metrics` 요약의 `period_months` 가 12 가 아니고 `roe_pct` 가 한 결산기(6·3개월) 값이다.
+  이때 ROE 목표는 `roe_12m_pct`(12개월 결산기 합 ÷ 평균 지배자본)로 판정하고 행에 `actual_field:"roe_12m_pct"`·기준 문구를 붙인다(롯데리츠 FY2025: 1.70% → 3.13%).
+  12개월 값을 못 만들면 한 결산기 값으로 판정하지 않고 「대조 못 함」 + 까닭(한 결산기 값 병기)이다. ROA·ROIC 는 값 그대로이고 「한 결산기 N개월 기준(연환산 아님)」 주의가 붙는다.
+  `actual_basis` 의 사업연도는 그 보고서의 실제 기간(`2025-07-01~2025-12-31 · 6개월 결산기`)이다. 12개월 결산 회사는 응답이 그대로다.
 - `_COMMITMENT_KEYWORDS` 매칭 문장 추출 (highlights).
 - summary/commitments scope에 24개월 자사주 이벤트 교차참조 (`treasury_cross_ref`).
 - 알려진 한계:
@@ -212,6 +216,7 @@ KIND fallback +1, 진단검색 +2, role backfill +1, treasury cross-ref +1.
 - ROE/PBR/배당성향 목표 자동 추출 (TODO, 현재는 highlights 문장만).
 
 ## 변경 이력
+- 2026-10-21: 목표 대조(`numeric_targets`)의 ROE 를 반기·분기 결산 리츠에서는 12개월 값(`roe_12m_pct`)으로 판정 — 한 결산기(6개월) ROE 를 연간 목표에 대던 것을 바로잡음(DATA-FY3). 위 「파싱 전략」.
 - 2026-10-18: md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-04-18: value_up tool 검증 + release_v2 go
 - 2026-04-19: 4개 기업 (KB금융 / 하나금융지주 / LG에너지솔루션 / 메리츠금융지주) summary 통과
