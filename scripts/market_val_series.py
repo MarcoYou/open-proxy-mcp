@@ -11,9 +11,12 @@ PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년
 부풀림)가 실제로 있다. 원본 하나만 보고는 못 잡지만(두 DART 엔드포인트가 같은 버그를 공유),
 **다음 해 보고서의 전기(frmtrm_amount) 비교치는 회사가 재작성하면서 정상화**돼 있다(실측 확인:
 소프트센 FY2022 매출 73,373,050,121,000,000 → FY2023 보고서 전기란엔 73,373,050,121로 정정).
-그래서 **다음 해 보고서의 전기·전전기 비교치**를 `ni_restated`/`eq_restated`에 저장하고(`--backfill-restated` — 정기
-`--fetch` 는 그해 칸만 받는다. 261019 정정: 종전 문구는 fetch 가 함께 받는다고 적었으나 코드는 그런 적이 없다), 읽는 쪽은
-**restated가 있으면 그걸 우선** 사용한다. 원 보고서가 API 에 없는 해(금융업의 XBRL 이전 사업보고서 등)도 이 길로 채운다.
+그래서 **다음 해 보고서의 전기·전전기 비교치**를 `ni_restated`/`eq_restated`에 저장하고, 읽는 쪽은 **restated가 있으면 그걸 우선**
+사용한다. 원 보고서가 API 에 없는 해(금융업의 XBRL 이전 사업보고서 등)도 이 길로 채운다.
+261020(p1f): 같은 사업연도를 적은 보고서가 여럿이면 **가장 늦게 접수된 보고서의 값**이 정정 칸을 차지하고 그 접수번호를 `restated_rcept_no`
+(근거 칸)에 남긴다(`restated_wins`). 사업보고서를 읽는 모든 길 — 정규 `--fetch`·정정 사업보고서 다시 받기 `--amended`·`--refetch`·
+`--backfill-restated` — 이 같은 응답의 전기·전전기 칸을 이 규칙으로 쓴다(DART 콜은 늘지 않는다). 그 해 보고서가 정정 칸 출처보다 늦게
+정정되면 정정 칸을 비워 그 해 칸이 쓰인다. 종전엔 `--backfill-restated` 만 정정 칸을 썼고 출처를 남기지 않았다.
 
 실행: python3 scripts/market_val_series.py --fetch   # 과거 FY 배치(재개 가능, ~100분)
       python3 scripts/market_val_series.py --series  # 분기 시계열 산출
@@ -89,6 +92,11 @@ DDL_MIGRATE = (
 #: 종전처럼 쓰고 정정 판정은 목록 창(`ANNUAL_AMEND_SCAN_DAYS`) 안의 [기재정정] 만 본다.
 DDL_RCEPT = "ALTER TABLE dart_finstat_y ADD COLUMN IF NOT EXISTS rcept_no text"
 _RCEPT_COL = False
+#: 261020(p1f unit-restated): 정정 칸(`ni_restated`·`eq_restated`)이 **어느 보고서의 값인지** — 그 사업연도를 전기·전전기 칸에 적은 더 늦은 사업보고서
+#: (정정 포함)의 접수번호(근거 칸). 같은 사업연도를 적은 보고서가 여럿이면 가장 늦게 접수된 보고서의 값이 칸을 차지한다(`restated_wins`).
+#: 칸이 없으면(이행 전·권한 없음) 종전처럼 정정치 백필만 쓰고(덮어쓰기) 수집 경로는 정정 칸을 건드리지 않는다.
+DDL_RESTATED_RCEPT = "ALTER TABLE dart_finstat_y ADD COLUMN IF NOT EXISTS restated_rcept_no text"
+_RESTATED_COL = False
 
 def num(v):
     try: return float(str(v).replace(",","")) if v not in (None,"","-") else None
@@ -175,7 +183,7 @@ def ctrl_ni(rows, field="thstrm_amount"):
 def _pg():
     """261018: 표·칸이 이미 있으면 DDL 을 보내지 않는다 — 이 수집이 주 1회 일정(finstat-quarterly)에 들어가면서, 있어도 표 전체 잠금을
     잡는 `ALTER TABLE … ADD COLUMN IF NOT EXISTS` 를 매번 보내지 않게(서버의 연간 재무 읽기와 겹치지 않게)."""
-    global _RCEPT_COL
+    global _RCEPT_COL, _RESTATED_COL
     con=psycopg.connect(os.environ["DATABASE_URL"])
     cols={r[0] for r in con.execute("SELECT column_name FROM information_schema.columns WHERE table_schema='public' "
                                     "AND table_name='dart_finstat_y'")}
@@ -191,6 +199,14 @@ def _pg():
             con.rollback()
             print(f"::warning::[연간 재무] 접수번호 칸(dart_finstat_y.rcept_no)을 만들지 못했다({type(e).__name__}) — 정정 판정은 목록 창 안의 [기재정정] 만",flush=True)
     _RCEPT_COL = "rcept_no" in cols
+    if "restated_rcept_no" not in cols:
+        # 261020(p1f): 정정 칸의 출처 접수번호 칸 — 못 만들면 종전처럼(경고 한 줄)
+        try:
+            con.execute("SET lock_timeout = '3s'"); con.execute(DDL_RESTATED_RCEPT); con.commit(); cols.add("restated_rcept_no")
+        except psycopg.Error as e:
+            con.rollback()
+            print(f"::warning::[연간 재무] 정정 칸 출처 칸(dart_finstat_y.restated_rcept_no)을 만들지 못했다({type(e).__name__}) — 정정 칸은 백필만 종전처럼",flush=True)
+    _RESTATED_COL = "restated_rcept_no" in cols
     return con
 
 _REPLACE_SQL = (
@@ -249,11 +265,136 @@ def _flush(buf, replace=False):
         except psycopg.OperationalError:
             if attempt==2: raise
 
-async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | None = None, keep_fs: bool = False):
+# ─────────────────────────────────────────────────────────────────────────────
+# 정정 칸 우선 규칙(261020 p1f unit-restated) — 같은 사업연도를 적은 보고서가 여럿이면 **가장 늦게 접수된 보고서**의 값.
+# 종전엔 정정 칸을 `--backfill-restated`(손으로 돌리는 백필, 기본 2024 사업보고서)만 썼고 출처를 남기지 않았다 — 그래서 #155 의 정정 사업보고서 다시
+# 받기(`--amended`)가 그 해 칸만 바꾸고, 정정된 보고서의 전기·전전기 칸에서 오는 앞 두 해 정정 칸(2022·2023 행 약 2,400행의 출처)은 그대로였고,
+# 백필을 다른 해 보고서로 다시 돌리면 늦은 보고서 값을 이른 보고서 값으로 덮을 수 있었다. 이제 사업보고서를 읽는 모든 길(정규 수집·정정 다시 받기·
+# `--refetch`·백필)이 같은 응답의 전기·전전기 칸을 이 규칙으로 정정 칸에 쓰고 출처 접수번호(`restated_rcept_no`)를 남긴다 — DART 콜은 늘지 않는다.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def prior_candidates(rows, report_fy: int) -> list[tuple[int, float | None, float | None]]:
+    """사업보고서(표기 `report_fy`) 응답의 전기 칸(→ report_fy−1)·전전기 칸(→ report_fy−2) 지배 순이익·지배자본 — 그 해 칸과 **같은 규칙**
+    (`ctrl_ni`·`ctrl_eq`). 둘 다 비면 그 해는 뺀다. 통화 환산은 호출부(그 해 결산월 말 환율)."""
+    out = []
+    for fy_off, field in ((report_fy - 1, "frmtrm_amount"), (report_fy - 2, "bfefrmtrm_amount")):
+        ni = ctrl_ni(rows, field)[0]
+        eq = ctrl_eq(rows, field)[0]
+        if ni is not None or eq is not None:
+            out.append((fy_off, ni, eq))
+    return out
+
+
+def restated_wins(cand_rcept: str | None, *, own_rcept: str | None = None, restated_rcept: str | None = None) -> bool:
+    """정정 칸 후보가 칸을 차지하나(순수 함수 — 아래 SQL `_restated_update_sql`·`_restated_upsert_sql` 의 접수번호 조건과 같다).
+
+    후보 = 그 사업연도를 전기·전전기 칸에 적은 **더 늦은 사업보고서**(정정 포함)의 값, `cand_rcept` = 그 보고서 접수번호.
+    · 그 해 보고서(정정 포함, `own_rcept`)가 후보보다 늦게 접수됐으면 그 해 보고서가 이긴다 — 후보는 쓰지 않는다.
+    · 지금 정정 칸의 출처(`restated_rcept`)보다 이르면 쓰지 않는다. 같은 보고서를 다시 읽은 것은 쓴다(규칙을 고친 뒤 같은 원문을 다시 읽을 때).
+    · 출처를 모르는 정정 칸(이 규칙 전 백필 — 출처 칸이 빔)은 가장 이른 것으로 본다: 그 값은 이 규칙이 들어오기 전에 접수된 보고서에서 왔고,
+      이 뒤로 수집이 읽는 보고서(새 사업보고서·최근 정정)는 그보다 늦다. `--backfill-restated --report-year` 로 더 이른 해 보고서를 손으로 다시 돌릴
+      때만 예외가 생길 수 있다(그 보고서가 출처 모르는 칸의 실제 출처보다 이르면 덮는다 — 종전 백필과 같다).
+    접수번호는 「접수일 YYYYMMDD + 일련번호」 14자리라 글자 순서가 곧 접수 순서다."""
+    if not cand_rcept:
+        return False
+    if own_rcept and cand_rcept <= own_rcept:
+        return False
+    if restated_rcept and cand_rcept < restated_rcept:
+        return False
+    return True
+
+
+#: 후보가 그 해 칸과 「같다」고 보는 폭(상대) — 다음 해 보고서가 백만 원 단위로 반올림해 적은 전기 칸(10-20 운영 005830 FY2023 자본 400만 원 차)을
+#: 재작성으로 보지 않는다. 1원 미만 차도 같다.
+RESTATED_SAME_REL = 1e-6
+
+
+def _differs(a, b) -> bool:
+    if a is None:
+        return False
+    if b is None:
+        return True
+    return abs(a - b) > max(1.0, abs(b) * RESTATED_SAME_REL)
+
+
+def restated_worth(cand_ni, cand_eq, row) -> bool:
+    """후보를 쓸 가치가 있나(순수 함수). row = (그 해 순이익, 자본, 정정 순이익, 정정 자본) 또는 None(행 없음).
+    정정 칸이 이미 있으면 늘(값과 출처를 새 보고서로 — 같은 값이면 출처만 바뀐다), 없으면 후보가 그 해 칸과 다를 때만(재작성) —
+    정정 칸이 없고 후보가 그 해 칸과 같으면(재작성 없음) 쓰지 않는다: 회사 2,600곳의 같은 값을 정정 칸에 복사하지 않는다."""
+    if row is None:
+        return cand_ni is not None or cand_eq is not None
+    ni, eq, nir, eqr = row
+    if nir is not None or eqr is not None:
+        return True
+    return _differs(cand_ni, ni) or _differs(cand_eq, eq)
+
+
+def _restated_update_sql() -> str:
+    """수집 경로: 있는 행만 바꾼다(없는 해에 `restate_only` 행을 만들면 `fetch_plan` 이 그 해 보고서를 받지 않는다). 접수번호 조건은 `restated_wins` 와 같다."""
+    own = " AND %(rc)s > COALESCE(rcept_no, '')" if _RCEPT_COL else ""
+    return ("UPDATE dart_finstat_y SET ni_restated=COALESCE(%(ni)s::float8, ni_restated), "
+            "eq_restated=COALESCE(%(eq)s::float8, eq_restated), restated_rcept_no=%(rc)s "
+            "WHERE ticker=%(t)s AND fy=%(fy)s AND %(rc)s >= COALESCE(restated_rcept_no, '')" + own)
+
+
+def _restated_upsert_sql() -> str:
+    """정정치 백필: 행이 없으면 `restate_only` 로 넣는다(종전 그대로), 있으면 규칙대로(접수번호 조건은 `restated_wins` 와 같다)."""
+    own = " AND EXCLUDED.restated_rcept_no > COALESCE(dart_finstat_y.rcept_no, '')" if _RCEPT_COL else ""
+    return ("INSERT INTO dart_finstat_y (ticker,fy,fs,ni,eq,ni_restated,eq_restated,fetched,restated_rcept_no) "
+            "VALUES (%(t)s,%(fy)s,%(fs)s,NULL,NULL,%(ni)s,%(eq)s,'restate_only',%(rc)s) ON CONFLICT (ticker,fy) DO UPDATE SET "
+            "ni_restated=COALESCE(EXCLUDED.ni_restated, dart_finstat_y.ni_restated), "
+            "eq_restated=COALESCE(EXCLUDED.eq_restated, dart_finstat_y.eq_restated), "
+            "restated_rcept_no=EXCLUDED.restated_rcept_no "
+            "WHERE EXCLUDED.restated_rcept_no >= COALESCE(dart_finstat_y.restated_rcept_no, '')" + own)
+
+
+#: 정정 사업보고서로 그 해 칸을 다시 받았을 때 정정 칸 비우기 — 그 정정 보고서가 정정 칸 출처보다 늦으면 그 해 보고서가 가장 늦은 보고서다.
+_RESTATED_CLEAR_SQL = ("UPDATE dart_finstat_y SET ni_restated=NULL, eq_restated=NULL, restated_rcept_no=NULL "
+                       "WHERE ticker=%(t)s AND fy=%(fy)s AND (ni_restated IS NOT NULL OR eq_restated IS NOT NULL) "
+                       "AND COALESCE(restated_rcept_no, '') < %(rc)s")
+
+
+def report_year_mismatch(rows, year: int) -> str | None:
+    """응답의 사업연도(`bsns_year`)가 요청한 해와 다르면 그 해(문자열), 같거나 칸이 없으면 None.
+    10-20 실측: 082660 은 2024 요청에 2025 사업보고서(제25기 — 당기 칸이 비고 전기·전전기 = 2024·2023)가 와서, 정정치 백필이 그 전기·전전기를
+    2023·2022 정정 칸에 넣어 **한 해 밀렸다**(FY2022 정정 칸 = FY2023 값). 캐시 원문 2,210건 가운데 이 한 건뿐이다."""
+    by = next((str(r.get("bsns_year")) for r in rows or [] if r.get("bsns_year")), None)
+    return by if by and by != str(year) else None
+
+
+def unit_mismatch(a, b) -> bool:
+    """같은 사업연도의 같은 숫자인데 10ⁿ 배(|n|≥2) 다른가 — 보고서 사이 단위 오류 꼴(`scale_guard.check_prior_period_mismatch`, 서버 실시간 firm 의
+    보고서 사이 단위 가리기와 같은 판정). 이 꼴이면 어느 쪽이 맞는지 이 자리에선 모르므로 정정 칸을 바꾸지 않고 경고만 남긴다."""
+    from open_proxy_mcp.services.scale_guard import check_prior_period_mismatch
+    return bool(a) and bool(b) and (a > 0) == (b > 0) and check_prior_period_mismatch(a, b).get("triggered", False)
+
+
+def _flush_restated(ops: list[tuple[str, dict]]) -> None:
+    """정정 칸 작업(`("update"|"upsert"|"clear", 값)`)을 새 연결 하나로 차례대로 — 그 해 칸 쓰기(`_flush`) 뒤에 부른다."""
+    if not ops or not _RESTATED_COL:
+        ops.clear(); return
+    sqls = {"update": _restated_update_sql(), "upsert": _restated_upsert_sql(), "clear": _RESTATED_CLEAR_SQL}
+    for attempt in (1, 2):
+        try:
+            with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=15) as c:
+                with c.cursor() as cur:
+                    for kind, params in ops:
+                        cur.execute(sqls[kind], params)
+                c.commit()
+            ops.clear(); return
+        except psycopg.OperationalError:
+            if attempt == 2: raise
+
+
+async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | None = None, keep_fs: bool = False,
+                amended: bool = False):
     """`tickers` 를 주면 그 종목만(261018 — 결산월이 12월이 아닌 회사의 새 사업보고서만 좁혀 받을 때).
     `only` = {(종목, 사업연도)} — 그 행만 다시 받는다(이미 ok 여도, 261019 `--refetch`). 결과는 `_flush(replace=True)` 로 쓴다.
     `keep_fs`(261020 검토 — 정정 사업보고서 다시 받기): 그 행이 받았던 재무제표(연결/별도)가 빈 응답이면 다른 쪽으로 물러나지 않고 행을 그대로 둔다.
-    정정본에 연결 재무제표가 없다고 연결 행을 별도 값으로 바꿔 쓰면 그 해만 기준이 갈린다(10-20 [기재정정] 12행 — 연결 요청에 빈 응답, 별도만 옴)."""
+    정정본에 연결 재무제표가 없다고 연결 행을 별도 값으로 바꿔 쓰면 그 해만 기준이 갈린다(10-20 [기재정정] 12행 — 연결 요청에 빈 응답, 별도만 옴).
+    261020(p1f): 읽은 사업보고서의 전기·전전기 칸을 앞 두 해 정정 칸 후보로 쓴다(`prior_candidates` · `restated_wins` — 가장 늦게 접수된 보고서 우선,
+    출처 접수번호를 남긴다). `amended`(정정 사업보고서 다시 받기): 그 정정 보고서가 그 해 정정 칸의 출처보다 늦으면 정정 칸을 비워 그 해 칸이 쓰이게 한다.
+    반기·분기 결산 회사(결산기 칸 — 정정 칸이 결산기 12개월 합)는 둘 다 하지 않는다. 같은 숫자가 10ⁿ 배 다르면(보고서 사이 단위 오류 꼴) 바꾸지 않고 경고."""
     from open_proxy_mcp.dart.client import get_dart_client, DartClientError, dart_halts_batch, dart_batch_halt_line
     sleep_s = float(os.getenv("SERIES_SLEEP", "0.45"))  # 260706: 필요시 조정, 기본값은 검증된 0.45 유지
     con=_pg()
@@ -265,6 +406,12 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
     # 261019 --refetch: 그 행이 받았던 재무제표(연결/별도)부터 — 별도만 내는 회사는 연결을 먼저 불러 013 을 받던 콜을 아낀다(빈 응답이면 다른 쪽).
     fs_had={(r[0],int(r[1])): r[2] for r in con.execute("SELECT ticker, fy, fs FROM dart_finstat_y WHERE fs IS NOT NULL")} if only else {}
     fye_of=rcal.load_fye_map(con)
+    # 261020(p1f): 정정 칸 후보 대조용 — 지금 유효 값(정정 우선)·정정 칸 유무, 결산기 칸 종목(정정 칸 = 결산기 12개월 합이라 건드리지 않는다)
+    ysnap={(r[0],int(r[1])): (r[2],r[3],r[4],r[5]) for r in con.execute(
+        "SELECT ticker, fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y")} if _RESTATED_COL else {}
+    ptk={r[0] for r in con.execute("SELECT DISTINCT ticker FROM dart_finstat_q WHERE restate_why LIKE %s",(pcells.MARK_LIKE,))} \
+        if _RESTATED_COL and (con.execute("SELECT to_regclass('public.dart_finstat_q')").fetchone() or [None])[0] else set()
+    rops=[]; rstat={"cand":0,"skip_unit":0,"clear":0}
     # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — dart_finstat_y DB값으로 동적
     # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
     # 전 수집) MAX()로 앵커를 잡으면 오염값이 그대로 앵커가 되어 가드가 무력화되는 자기오염 실측 확인.
@@ -294,6 +441,10 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
                 continue
             if not rows:
                 fs=second; rows=await acnt(cc,yr,fs); await asyncio.sleep(sleep_s)
+            if report_year_mismatch(rows, yr):
+                # 261020(p1f): 요청한 사업연도와 다른 해 보고서가 왔다 — 그 값을 이 해 칸·앞 두 해 정정 칸에 넣지 않는다(자료 없음으로)
+                print(f"::warning::[연간 재무] {isu} FY{yr} 요청에 {report_year_mismatch(rows, yr)} 사업연도 보고서가 왔다 — 이 해는 자료 없음으로",flush=True)
+                rows=[]
             ni,ni_note=ctrl_ni(rows)              # 261020: 지배 순이익 계정 줄의 총포괄 값은 거른다
             if ni_note:
                 print(f"[순이익] {isu} FY{yr} {ni_note}",flush=True)
@@ -328,24 +479,54 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
                 print(f"[가드] {isu} FY{yr} 스케일오류 감지({verdict['hard_hit']}) — ni/eq 무효화",flush=True)
                 ni=eq=None
             st="ok" if (ni is not None or eq is not None) else "nodata"
-            buf.append((isu,yr,fs,ni,eq,None,None,st,pcells.rows_rcept(rows) if rows else None))   # 261020: 접수번호(정정 판정 기준)
-            if len(buf)>=25: _flush(buf, replace=bool(only))
+            rc_own=pcells.rows_rcept(rows) if rows else None
+            buf.append((isu,yr,fs,ni,eq,None,None,st,rc_own))   # 261020: 접수번호(정정 판정 기준)
+            if _RESTATED_COL and st=="ok":
+                ysnap.setdefault((isu,yr),(ni,eq,None,None))   # 같은 실행에서 새로 넣은 행도 다음 해 보고서의 정정 칸 후보를 받게
+            if _RESTATED_COL and rows and rc_own and verdict["tier"]!="hard" and isu not in ptk:
+                # 261020(p1f): 정정 사업보고서로 그 해 칸을 다시 받았으면 — 그 보고서가 정정 칸 출처보다 늦을 때 정정 칸을 비운다(SQL 이 출처를 대 본다)
+                cur=ysnap.get((isu,yr))
+                if amended and cur and (cur[2] is not None or cur[3] is not None):
+                    if unit_mismatch(cur[3], eq) or unit_mismatch(cur[2], ni):
+                        rstat["skip_unit"]+=1
+                        print(f"::warning::[정정 칸] {isu} FY{yr} 정정 보고서 값이 정정 칸과 10의 거듭제곱 배 다르다 — 정정 칸 그대로(단위 정정 칸일 수 있다)",flush=True)
+                    else:
+                        rops.append(("clear",{"t":isu,"fy":yr,"rc":rc_own})); rstat["clear"]+=1
+                # 같은 응답의 전기·전전기 칸 → 앞 두 해 정정 칸 후보(가장 늦게 접수된 보고서 우선 — SQL 이 출처·그 해 보고서 접수번호를 대 본다)
+                for fy_off,cni,ceq in prior_candidates(rows,yr):
+                    if stmt_cur!="KRW":
+                        _r=await fx_to_krw(stmt_cur, fiscal_year_end_date(fy_off, fye_of.get(isu, 12)))
+                        if _r is None:
+                            continue
+                        cni,ceq=(v*_r if v is not None else None for v in (cni,ceq))
+                    row=ysnap.get((isu,fy_off))
+                    if row is None or not restated_worth(cni,ceq,row):
+                        continue                       # 행이 없거나(그 해는 정규 수집 몫) 재작성 없음
+                    eff_ni=row[2] if row[2] is not None else row[0]; eff_eq=row[3] if row[3] is not None else row[1]
+                    if unit_mismatch(ceq, eff_eq) or unit_mismatch(cni, eff_ni):
+                        rstat["skip_unit"]+=1
+                        print(f"::warning::[정정 칸] {isu} FY{fy_off} {yr} 사업보고서 전기 칸이 지금 값과 10의 거듭제곱 배 다르다 — 쓰지 않는다(보고서 사이 단위 오류 꼴)",flush=True)
+                        continue
+                    rops.append(("update",{"t":isu,"fy":fy_off,"ni":cni,"eq":ceq,"rc":rc_own})); rstat["cand"]+=1
+            if len(buf)>=25:
+                _flush(buf, replace=bool(only)); _flush_restated(rops)
         except Exception as e:
             en=type(e).__name__
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
-                _flush(buf, replace=bool(only))
+                _flush(buf, replace=bool(only)); _flush_restated(rops)
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
             if dart_halts_batch(e):
                 # 261019: 키 한도·키 문제·점검(남은 키까지 다 본 뒤) — 남은 항목도 같은 답이다. 멈추고, 이 항목은 err 로 적지 않는다
                 #   (행이 그대로라 다음 실행의 재개 규칙이 이 항목부터 받는다). 종전엔 항목마다 err 로 적고 쉬지 않고 다음을 불렀다.
-                _flush(buf, replace=bool(only))
+                _flush(buf, replace=bool(only)); _flush_restated(rops)
                 print(dart_batch_halt_line(e, f"{k-1}/{len(todo)}건 처리"),flush=True); break
             buf.append((isu,yr,None,None,None,None,None,f"err:{str(e)[:30]}"))
             if len(buf)>=25: _flush(buf, replace=bool(only))
             await asyncio.sleep(sleep_s)   # 261019: 오류 뒤에도 같은 간격 — 종전엔 오류가 이어지면 쉬지 않고 불렀다
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
-    _flush(buf, replace=bool(only))
-    print("fetch 종료",flush=True)
+    _flush(buf, replace=bool(only)); _flush_restated(rops)
+    print("fetch 종료" + (f" — 정정 칸 후보 {rstat['cand']}(규칙에 맞을 때만 씀) · 정정 보고서로 비움 {rstat['clear']} · 단위 꼴로 건너뜀 {rstat['skip_unit']}"
+                          if _RESTATED_COL else ""),flush=True)
 
 
 #: 261020(p1e firm-ctrl-ni): 정정 사업보고서를 찾는 공시 목록 창(오늘부터 거꾸로 일수). 이 수집은 주 1회(분기 마감 뒤 한 달은 매일) 돌고, 행마다 그 값이
@@ -434,7 +615,7 @@ async def refetch_amended(days: int | None = None, since: str | None = None, tod
     for tk, fy in sorted(targets):
         print(f"  [정정] {tk} FY{fy}", flush=True)
     if targets:
-        await fetch(only=targets, keep_fs=True)
+        await fetch(only=targets, keep_fs=True, amended=True)
     return targets
 
 
@@ -471,6 +652,9 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
     # 261020(p1e): 반기·분기 결산 회사(결산기 칸 종목)는 건너뛴다 — 그 회사의 전기·전전기 칸은 앞 **결산기**(6·3개월 전)라 앞 사업연도 행에 넣으면
     #   틀린다(10-20 운영 롯데리츠 FY2022·2023 정정 칸이 그렇게 들어가 있었다). 연간 값은 --period-cells 가 결산기 12개월 합으로 쓴다.
     _ptk={r[0] for r in con.execute("SELECT DISTINCT ticker FROM dart_finstat_q WHERE restate_why LIKE %s",(pcells.MARK_LIKE,))}
+    # 261020(p1f): 출처 칸이 있으면 수집과 같은 규칙(가장 늦게 접수된 보고서 우선 · 출처 접수번호 · 단위 꼴이면 건너뜀)으로 쓴다
+    ysnap={(r[0],int(r[1])): (r[2],r[3],r[4],r[5]) for r in con.execute(
+        "SELECT ticker, fy, ni, eq, ni_restated, eq_restated FROM dart_finstat_y")} if _RESTATED_COL else {}
     con.close()
     if tickers:
         firms=[r for r in firms if r[0] in set(tickers)]
@@ -478,7 +662,7 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
     todo=[(i,c) for i,c in firms if i not in done]
     print(f"대상 {len(firms)}사 · 남은 {len(todo)}건 (종목당 1콜, fy={report_year})",flush=True)
     c=get_dart_client(); k=0
-    restate_buf=[]
+    restate_buf=[]; rops=[]
     for isu,cc in todo:
         k+=1
         try:
@@ -486,7 +670,11 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
             d=await c.get_fnltt_singl_acnt_all(cc,str(report_year),"11011",fs)
             rows=(d.get("list") or []) if isinstance(d,dict) else []
             await asyncio.sleep(0.45)
+            if report_year_mismatch(rows, report_year):
+                print(f"::warning::[정정 칸] {isu} {report_year} 요청에 {report_year_mismatch(rows, report_year)} 사업연도 보고서가 왔다 — 쓰지 않는다",flush=True)
+                continue
             stmt_cur=statement_currency(rows) if rows else "KRW"
+            rc=pcells.rows_rcept(rows) if rows else None
             for fy_off,field in ((report_year-1,"frmtrm_amount"),(report_year-2,"bfefrmtrm_amount")):
                 ni_r,ni_note=ctrl_ni(rows,field)     # 261020: 정정치도 같은 규칙
                 if ni_note:
@@ -503,20 +691,33 @@ async def backfill_restated(tickers: list[str] | None = None, report_year: int =
                     if fx_source(stmt_cur, _fx_dd) == SRC_YAHOO:   # 261019: fetch 와 같은 경고
                         print(f"::warning::[환율] {isu} FY{fy_off} 정정 {stmt_cur} {_fx_dd} — ECOS 대신 야후 대체값 {rate}",flush=True)
                     ni_r, eq_r = (v*rate if v is not None else None for v in (ni_r, eq_r))
-                if ni_r is not None or eq_r is not None:
+                if ni_r is None and eq_r is None:
+                    continue
+                if _RESTATED_COL and rc:
+                    # 261020(p1f): 가장 늦게 접수된 보고서 우선 + 출처 접수번호(SQL `_restated_upsert_sql`) · 같은 숫자가 10ⁿ 배 다르면 쓰지 않는다
+                    row=ysnap.get((isu,fy_off))
+                    if not restated_worth(ni_r,eq_r,row):
+                        continue
+                    if row and (unit_mismatch(eq_r, row[3] if row[3] is not None else row[1])
+                                or unit_mismatch(ni_r, row[2] if row[2] is not None else row[0])):
+                        print(f"::warning::[정정 칸] {isu} FY{fy_off} {report_year} 사업보고서 전기 칸이 지금 값과 10의 거듭제곱 배 다르다 — 쓰지 않는다",flush=True)
+                        continue
+                    rops.append(("upsert",{"t":isu,"fy":fy_off,"fs":fs,"ni":ni_r,"eq":eq_r,"rc":rc}))
+                else:
                     restate_buf.append((isu,fy_off,fs,None,None,ni_r,eq_r,"restate_only"))
             if len(restate_buf)>=25: _flush(restate_buf)
+            if len(rops)>=25: _flush_restated(rops)
         except Exception as e:
             en=type(e).__name__
             if "ReadError" in en or "Connect" in en or "Timeout" in en:
-                _flush(restate_buf)
+                _flush(restate_buf); _flush_restated(rops)
                 print(f"네트워크({en}) — 중단(재개 가능)",flush=True); break
             if dart_halts_batch(e):   # 261019: fetch 와 같은 규칙
-                _flush(restate_buf)
+                _flush(restate_buf); _flush_restated(rops)
                 print(dart_batch_halt_line(e, f"{k-1}/{len(todo)}건 처리"),flush=True); break
             await asyncio.sleep(0.45)
         if k%200==0: print(f"{k}/{len(todo)}",flush=True)
-    _flush(restate_buf)
+    _flush(restate_buf); _flush_restated(rops)
     print("백필 종료",flush=True)
 
 def series():

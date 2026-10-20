@@ -5,7 +5,7 @@ tags: [dart-api, financial-statement, quarterly, timeseries, ttm, pit]
 source: DART OpenAPI (fnlttSinglAcntAll)
 related: [분기보고서, 반기보고서, 사업보고서, 공시유형코드체계]
 purpose: DART 분기 재무 API 스펙 — TTM·PIT 계산에 필요한 필드 의미와 공시 타이밍
-updated: 2026-07-06
+updated: 2026-10-20
 ---
 
 # 분기 재무 API 스펙 (fnlttSinglAcntAll)
@@ -182,7 +182,9 @@ TTM = FY(전년, 11011)  +  3Q누적(당해, 11014)  −  3Q누적(전년, 11014
 | 2 | **CFS 부재(별도만)** | CFS 응답 빈 rows | OFS로 재조회 폴백 |
 | 3 | **스케일오류(100만배)** | XBRL 단위 미적용 부풀림 (소프트센 032680 FY2022, 매출 73조×10^6) | scale_guard hard tier → ni/eq 무효화 |
 | 4 | **비12월 결산** | 결산월≠12월 → PIT 매핑 어긋남 | 종목별 결산월 확인해 §4.2 표를 결산월 기준으로 shift |
-| 5 | **재작성(restated)** | 당해 XBRL 오류를 다음해 보고서 전기란이 정정 | `frmtrm/bfefrmtrm`로 재작성치 수집, 있으면 우선 |
+| 5 | **재작성(restated)** | 당해 XBRL 오류를 다음해 보고서 전기란이 정정 | `frmtrm/bfefrmtrm`로 재작성치 수집, 있으면 우선 — 같은 사업연도를 적은 보고서가 여럿이면 **가장 늦게 접수된 보고서**(정정 포함) 값, 출처 접수번호 `restated_rcept_no`(261020). 사업보고서를 읽는 모든 길이 같은 응답의 전기·전전기 칸으로 쓴다 |
+| 6 | **보고서 통째 단위 오류** | 회사가 단위를 잘못 적어 한 보고서 금액이 모두 10ⁿ 배(0091W0 2025 사업보고서 1,000배) — 보고서 안 검사는 다 맞음 | 다른 보고서의 **같은 날짜** 자본총계와 대 본다(`scale_guard.reconcile_report_scales` — 다수결·시총으로 틀린 보고서를 가림). 분기 수집은 전기 칸 대조(`check_prior_period_mismatch`), 실시간 firm 은 읽은 보고서끼리(261020) |
+| 7 | **다른 해 보고서** | 사업연도 Y 요청에 Y+1 보고서가 옴(`bsns_year` 다름 — 082660 2024 요청) | 그 응답은 그 해 칸·정정 칸에 쓰지 않는다(자료 없음, 261020) |
 
 ### 6.1 scale_guard 판정 요약
 
