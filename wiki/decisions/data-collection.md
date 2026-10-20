@@ -235,7 +235,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 | 클라이언트 최소 간격 | 0.1초 | `_MIN_INTERVAL_API` (분당 600회 이하 보장) |
 | 키 회전 | 키의 사정(020·010·011·901)이면 남은 키 모두, 그 밖은 1회 | `_rotate_key()` |
 | 중복 호출 | 한 요청 안의 같은 (엔드포인트, 인자)는 HTTP 1번 — 사용량 `dart_api_calls` 는 실제 HTTP 수 | 1.6 「요청 단위 메모」 |
-| build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute` | services/contracts.py |
+| build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute`(옛 키 · 값 1000 = 분당 공표 한도, 이름과 달리 분당), `dart_limit_per_minute`(1000 분당 공표), `dart_client_cap_per_minute`(910 = OPM 분당 상한, `_API_RATE_LIMIT_PER_MINUTE`), `dart_limit_per_day`(20000 키당 하루) | services/contracts.py `build_usage(n)` — 사용량 블록은 이 함수로만 만든다 |
 
 ---
 
