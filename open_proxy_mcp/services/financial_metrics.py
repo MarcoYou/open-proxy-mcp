@@ -2270,6 +2270,9 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, 
 
 _QUARTERLY_IS_KEYS = ("revenue", "operating_profit", "net_income")
 
+#: `quarterly`·`qoq` 행의 `net_income_krw` 기준 — 비지배지분을 포함한 총계(summary·yearly·yoy 의 `net_income_krw` 는 지배).
+NET_INCOME_BASIS_TOTAL = "total_incl_nci"
+
 
 def _qchg_pct(curr: int | None, prev: int | None) -> float | None:
     """분기 증감률(%). 전기가 0 이하(적자·결측)면 % 비교가 무의미 — None."""
@@ -2382,6 +2385,9 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "revenue_basis": bs_is.get("revenue_basis"),
             "operating_profit_krw": bs_is.get("operating_profit"),
             "net_income_krw": bs_is.get("net_income"),
+            # 분기 표의 순이익은 주요계정 「당기순이익」= **비지배지분을 포함한 총계**다(요약·yoy 의 지배 순이익과 다른 기준).
+            # 000230 2023 3분기: 총계 −574.4억 · 지배 −255.5억. 값은 그대로 두고 기준을 행에 싣는다(DATA-NI2).
+            "net_income_basis": NET_INCOME_BASIS_TOTAL,
             "total_assets_krw": bs_is.get("total_assets"),
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
