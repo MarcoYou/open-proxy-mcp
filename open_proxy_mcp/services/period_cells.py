@@ -32,6 +32,7 @@ from typing import Any
 
 from open_proxy_mcp.services.scale_guard import gid_exact
 from open_proxy_mcp.services.controlling_ni import controlling_ni as _controlling_ni
+from open_proxy_mcp.services import controlling_eq as _ceq
 
 #: 근거 칸 머리 — 이 칸은 결산기 합으로 쓴 칸이다(읽는 쪽은 이 머리로 알아본다).
 MARK = "결산기 12개월"
@@ -97,10 +98,12 @@ def ctrl_ni(rows: list, field: str = "thstrm_amount") -> tuple[float | None, str
 
 
 def ctrl_eq(rows: list, field: str = "thstrm_amount") -> float | None:
-    """지배자본 — firm(`price_multiple_data._ctrl_equity`)과 같은 규칙(지배 귀속 → 총자본 − 비지배)."""
-    v = _g(rows, "EquityAttributableToOwnersOfParent", ("BS",), field)
+    """지배자본 — firm(`price_multiple_data._ctrl_equity`)과 같은 규칙(지배 귀속 → 총자본 − 비지배). 261020(p1f eq-suspects): 지배 귀속 계정 줄이
+    자본금·자본 구성요소 줄이거나 자본총계 − 비지배와 크게 어긋나면(`services.controlling_eq.ctrl_line_rejected`) 그 줄을 쓰지 않고 수집과 같은 다음 규칙
+    (`controlling_eq`)으로 간다(firm 과 같다)."""
+    v, why = _ceq.ctrl_id_value(rows, field, prefixes=("ifrs-full_", "ifrs_"))
     if v is not None:
-        return v
+        return v if why is None else _ceq.controlling_eq(rows, field)[0]
     tot = _g(rows, "Equity", ("BS",), field)
     if tot is None:
         return None

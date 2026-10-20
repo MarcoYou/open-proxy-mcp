@@ -34,6 +34,7 @@ from open_proxy_mcp.services.ksic_sector import ksic_bucket
 from open_proxy_mcp.services import report_calendar as _rc
 from open_proxy_mcp.services import period_cells as _pc
 from open_proxy_mcp.services.controlling_ni import controlling_ni as _controlling_ni
+from open_proxy_mcp.services import controlling_eq as _ceq
 from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
                                              company_ambiguous_warning,
                                              company_not_found_warning,
@@ -1973,10 +1974,19 @@ def _gid(rows, account_id, sj, field="thstrm_amount"):
 def _ctrl_equity(rows, field="thstrm_amount"):
     """지배자본 = EquityAttributableToOwnersOfParent. 없으면(비지배지분 없는 회사는 이 계정을
     아예 안 적음) 총자본 − 비지배지분으로 폴백 — 260704 실측: 카카오뱅크·케이씨텍·코스모신소재·
-    JW중외제약이 지배자본 계정 부재로 PBR이 N/M이던 것을 이 폴백이 해소(NCI 없으면 총자본=지배자본)."""
-    eq = _gid(rows, "EquityAttributableToOwnersOfParent", ("BS",), field)
+    JW중외제약이 지배자본 계정 부재로 PBR이 N/M이던 것을 이 폴백이 해소(NCI 없으면 총자본=지배자본).
+
+    261020(p1f eq-suspects): 지배자본 계정 줄을 쓰기 전에 수집과 **같은 판정**(`services.controlling_eq.ctrl_line_rejected`)을 한다 — 그 계정을
+    「자본금」 줄(317240 2021 1분기 90.35억 · 자본총계 200.67억)·자본 구성요소 줄(082660 2021 3분기 「기타자본구성요소」)에 붙였거나, 값이 자본총계 −
+    비지배와 부호가 다르거나 1.6배 넘게 다르면(065370 2023 3분기 36.92억 · 자본총계 323.72억) 그 줄을 쓰지 않고 수집과 같은 다음 규칙
+    (`controlling_eq` — 이름 줄 → 자본총계 − 비지배 → 자본총계, 표준 코드 없는 「자본총계」 줄도 본다)으로 간다. 종전엔 배치(분기·연간 수집)만 자본금 줄을
+    걸렀고 이 경로는 그 값을 그대로 PBR 분모로 썼다."""
+    eq, why = _ceq.ctrl_id_value(rows, field)
     if eq is not None:
-        return eq
+        if why is None:
+            return int(eq)
+        v, _case = _ceq.controlling_eq(rows, field)
+        return int(v) if v is not None else None
     total = _gid(rows, "Equity", ("BS",), field)
     if total is None:
         return None

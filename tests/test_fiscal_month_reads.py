@@ -378,6 +378,9 @@ def _annual_rows(ni: str, eq: str) -> list[dict]:
         {"sj_div": "BS", "account_id": "ifrs-full_Liabilities", "thstrm_amount": "300,000,000,000"},
         {"sj_div": "BS", "account_id": "ifrs-full_Equity", "thstrm_amount": "200,000,000,000"},
         {"sj_div": "BS", "account_id": "ifrs-full_EquityAttributableToOwnersOfParent", "thstrm_amount": eq},
+        # 261020: 지배 + 비지배 = 자본총계(2,000억)가 되게 비지배 줄을 둔다 — 지배자본 줄이 자본총계 − 비지배와 1.6배 넘게 어긋나면 그 줄을 믿지 않는다
+        #   (`services/controlling_eq`). 이 응답 모양의 다른 칸(자산·부채·자본총계 — 단위 가드 항등식)은 그대로다.
+        {"sj_div": "BS", "account_id": "ifrs-full_NoncontrollingInterests", "thstrm_amount": f"{200_000_000_000 - int(eq.replace(',', '')):,}"},
         {"sj_div": "IS", "account_id": "ifrs-full_ProfitLossAttributableToOwnersOfParent", "thstrm_amount": ni, "frmtrm_amount": ni},
     ]
 

@@ -117,89 +117,39 @@ from open_proxy_mcp.services.controlling_ni import (  # noqa: E402,F401 — 종�
     _ordv, _sj_first, _total_ni, _total_ni_nm, controlling_ni, extract_controlling_ni_cum, ni_attrib_side,
 )
 
-_EQ_CTRL_ID = "EquityAttributableToOwnersOfParent"
+# 지배자본 줄 고르기(트리 BS_ID → BS_NM → 자본총계 − 비지배 → 자본총계 · 납입자본 줄 거르기 261019)는 서버 실시간 firm·결산기 칸·연간 수집과 함께 쓰려고
+# `open_proxy_mcp/services/controlling_eq.py` 로 옮겼다(261020 p1f eq-suspects — 자본 구성요소 줄·자본총계와 크게 어긋난 줄도 거른다). 이 파일의 이름들
+# (`extract_controlling_eq`·`_capital_line`·`_total_eq`·`_minority_eq` …)은 종전처럼 불러 쓸 수 있게 남긴다.
+from open_proxy_mcp.services import controlling_eq as _ceq  # noqa: E402
+
+_EQ_CTRL_ID = _ceq.EQ_CTRL_ID
+_CAPITAL_LINE_NM = _ceq.CAPITAL_LINE_NM
 
 
 def _bal(r):
-    v = normalize_amount(r.get("thstrm_amount"))
-    return float(v) if v is not None else None
+    return _ceq.amount(r)
 
 
 def _total_eq(rows):
-    v = _first(rows, lambda r: r.get("sj_div") == "BS" and (r.get("account_id") or "").endswith("_Equity"), _bal)
-    if v is not None:
-        return v
-    return _first(rows, lambda r: r.get("sj_div") == "BS" and _nm(r) == "자본총계", _bal)
+    return _ceq.total_eq(rows, _bal)
 
 
 def _minority_eq(rows):
-    """비지배지분(자본). 261019: 이름에 「부채」가 든 줄은 빼다 — 「비지배지분부채」(펀드 출자자 몫 같은 부채 계정)를 비지배 **자본**으로 읽어
-    지배자본 = 자본총계 − 그 부채가 되어 음수가 됐다(10-19 운영 100790 2023 3분기~2026 반기 9칸 −2,602억~−3,895억, 같은 보고서 지배자본 3,563억)."""
-    v = _first(rows, lambda r: r.get("sj_div") == "BS" and "NoncontrollingInterests" in (r.get("account_id") or "")
-               and "부채" not in _nm(r), _bal)
-    if v is not None:
-        return v
-    return _first(rows, lambda r: r.get("sj_div") == "BS" and "비지배" in _nm(r) and "부채" not in _nm(r), _bal)
-
-
-# 261019: 「지배기업 소유주지분」 계정(…EquityAttributableToOwnersOfParent)을 **납입자본(자본금) 줄**에 붙인 회사 태깅 오류 — 그 줄 값을
-# 지배자본으로 읽어 PBR 이 25~40배 부풀었다(10-19 운영 세 회사: 056360 2019 1분기~2023 반기 4,898,400,000원 = 「자본금」 줄 ·
-# 065680 2018~2025 3분기 4,967,110,000원 = 「자본금」 줄 · 069960 2019 1분기~2023 반기 117,012,205,000원 = 「납입자본」 줄, 같은 보고서
-# `ifrs-full_IssuedCapital` 과 같은 값). 그 줄은 지배자본 줄로 보지 않고 아래 이름·총계 규칙으로 간다(056360 은 「지배기업지분」 줄,
-# 065680·069960 은 자본총계 − 비지배지분 — 원문 재무상태표 값). 다른 지배자본 줄도, 총계도 없으면 비운다(`CTRL_IS_CAPITAL_LINE`).
-_CAPITAL_LINE_NM = re.compile(r"^(?:납입자본|자본금|보통주자본금)$")
+    return _ceq.minority_eq(rows, _bal)
 
 
 def _capital_line(r, rows, val) -> bool:
-    """지배자본 계정이 붙은 줄 `r` 이 실은 납입자본(자본금) 줄인가 — 이름이 자본금·납입자본이거나, 값이 같은 재무제표의 자본금 계정
-    (`…_IssuedCapital`) 줄과 원 단위로 같다. 지배자본이 자본금과 원 단위까지 같은 회사는 없다(이익잉여금·자본잉여금이 붙는다) —
-    혹 그렇더라도 아래 총계 규칙이 같은 값을 낸다."""
-    if _CAPITAL_LINE_NM.match(_ENUM_PREFIX.sub("", _nm(r), count=1)):
-        return True
-    v = val(r)
-    if v is None:
-        return False
-    for x in rows:
-        if x is r or x.get("sj_div") != r.get("sj_div") or not (x.get("account_id") or "").endswith("_IssuedCapital"):
-            continue
-        c = val(x)
-        if c is not None and abs(c - v) < 0.5:
-            return True
-    return False
+    return _ceq.capital_line(r, rows, val)
 
 
 def extract_controlling_eq(rows):
-    """지배자본 기말잔액 → (값, 케이스). 트리:
-      NODATA · BS_ID/BS_NM — 명시 지배자본행
-      TOTAL_MINUS_MINORITY — 명시 지배행 없으나 자본총계 − 비지배지분 [유한양행형: 서브토탈 부재]
-      TOTAL                — 지배·비지배 자본 둘 다 부재 → 자본총계=지배 [카카오뱅크 별도·001340]
-      MINORITY_NO_CTRL / NO_EQUITY_ROW — 유도 불가(플래그) → None. 수집(`fetch`)은 이때 같은 보고서의 XBRL 원본을 본다.
+    """지배자본 기말잔액(당기 칸) → (값, 케이스) — `services.controlling_eq.controlling_eq` 그대로(트리·케이스는 그 모듈 주석).
 
-    261018(재설계 6단계 — 수집 파서 공백): 지배자본 행(코드·이름)이 **있는데 칸이 빈** 보고서는 종전엔 그 자리에서 None 으로 끝났다
-    (10-18 운영 26행 — 예: 011300 2026 1분기 「지배기업의 소유주에게 귀속되는 자본」 빈칸, 자본총계 306.1억). 이제 값이 있는 행만 지배자본
-    행으로 보고, 없으면 아래 총계 규칙으로 간다. 그 26행은 XBRL 원본에도 자본총계(Equity)만 있었고 값이 같았다(지배·비지배 구분을
-    태깅하지 않은 보고서 — 「둘 다 부재 → 자본총계=지배」와 같은 경우). 지배자본 행에 값이 있는 보고서는 종전 그대로다.
-
-    261019: 지배자본 계정이 붙은 줄이 납입자본(자본금) 줄이면(`_capital_line` — 회사 태깅 오류) 그 줄은 버리고 다음 규칙으로 간다. 케이스 끝에
-    `_CAPLINE` 을 붙여 남긴다(예 `TOTAL_MINUS_MINORITY_CAPLINE`). 다른 길이 없으면 `CTRL_IS_CAPITAL_LINE`(값 없음)."""
-    if not any(r.get("sj_div") == "BS" for r in rows):
-        return None, "NODATA"
-    hit = [r for r in rows if r.get("sj_div") == "BS" and _EQ_CTRL_ID in (r.get("account_id") or "") and _bal(r) is not None]
-    cap = {id(r) for r in hit if _capital_line(r, rows, _bal)}
-    sfx = "_CAPLINE" if cap else ""
-    hit = [r for r in hit if id(r) not in cap]
-    if hit:
-        return _bal(min(hit, key=_ordv)), "BS_ID" + sfx
-    cands = [r for r in rows if r.get("sj_div") == "BS" and "지배" in _nm(r) and "비지배" not in _nm(r) and _bal(r) is not None
-             and id(r) not in cap]
-    if cands:
-        return _bal(min(cands, key=_ordv)), "BS_NM" + sfx
-    tot, mino = _total_eq(rows), _minority_eq(rows)
-    if tot is not None:
-        return (tot - mino, "TOTAL_MINUS_MINORITY" + sfx) if mino is not None else (tot, "TOTAL" + sfx)
-    if cap:
-        return None, "CTRL_IS_CAPITAL_LINE"
-    return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_EQUITY_ROW")
+    261018: 지배자본 행이 있는데 칸이 빈 보고서는 값이 있는 행만 지배자본 행으로 본다. 261019: 납입자본 줄에 붙은 지배자본 계정은 거른다(`_CAPLINE`).
+    261020(p1f eq-suspects): 자본 구성요소 줄(`_COMPLINE` — 082660 2021 3분기 「기타자본구성요소」)·자본총계 − 비지배와 부호가 다르거나 1.6배 넘게 다른 줄
+    (`_OFFTOTAL` — 065370 2023 3분기 자본금 값 · 060230 FY2018 일부 소계)도 거르고, 이름 규칙은 「지배지분손익」·「…공동지배기업투자주식」·「…귀속되지않는자본」
+    같은 줄을 고르지 않는다(082800 2019 1분기)."""
+    return _ceq.controlling_eq(rows)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -292,6 +242,12 @@ def xbrl_controlling(data: bytes, fs: str, period_end: date, fy_start: date) -> 
         #   (API 응답 파서의 `_capital_line` 과 같은 규칙. 그러지 않으면 파서가 비운 칸을 이 대체 경로가 같은 오류 값으로 다시 채운다).
         if cap_name and ctrl in uniq and cap_name in uniq and abs(uniq[ctrl][0] - uniq[cap_name][0]) < 0.5:
             seen.pop(ctrl, None); uniq.pop(ctrl, None); sfx = "_CAPLINE"
+        # 261020(p1f eq-suspects): 지배자본 요소 값이 같은 맥락의 자본총계 − 비지배(없으면 0)와 부호가 다르거나 1.6배 넘게 다르면 그 요소도 없는 것으로 본다
+        #   (API 응답 파서의 `_OFFTOTAL` 과 같은 규칙 — 파서가 거른 줄을 이 대체 경로가 같은 값으로 다시 채우지 않게).
+        if cap_name and ctrl in uniq and total in uniq and (nci not in seen or nci in uniq) and \
+                all(uniq[k][1] == uniq[total][1] for k in (ctrl, nci) if k in uniq) and \
+                _ceq.off_pair(uniq[ctrl][0], uniq[total][0] - (uniq[nci][0] if nci in uniq else 0.0)):
+            seen.pop(ctrl, None); uniq.pop(ctrl, None); sfx = sfx or "_OFFTOTAL"
         if ctrl in uniq:
             return (uniq[ctrl][0], "XBRL_ID", uniq[ctrl][1])
         if ctrl in seen or total not in uniq or (nci in seen and nci not in uniq):
