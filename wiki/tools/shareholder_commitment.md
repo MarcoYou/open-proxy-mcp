@@ -97,6 +97,7 @@ sequenceDiagram
   같은 응답의 전기말과 100배 이상 10ⁿ 점프(단위 오류 의심). 물러난 길은 재무 지표 도구 summary 의 `controlling_equity_krw`(사업연도 말 지배자본)이고, 그 칸이
   아예 없는 옛 응답이거나 지배자본을 못 구해 자본총계로 물러난 응답이면 자본총계 그대로 + `data_quality_flags` 경고(`bps_basis.equity = total_incl_minority`).
   사유는 `bps_basis.fallback_reason` 과 `data_quality_flags` 에 남는다.
+- **지배자본이 음수**(자본잠식)면 BPS 도 음수라 프리미엄·장부가손익을 내지 않는다(`note` = 「BPS 가 0 이하(자본잠식)」 + `data_quality_flags`). 지배자본은 자본총계보다 음수가 되기 쉬워 종전엔 없던 꼴이다.
 - **`bps_basis`**(사이클마다, 새 키 — 종전 키는 그대로): `equity`(`controlling` | `total_incl_minority`) · `equity_case`(공용 규칙이 고른 길 `BS_ID`·`BS_NM`·
   `TOTAL_MINUS_MINORITY`·`TOTAL`) · `controlling_equity_krw` · `total_equity_krw` · `bps_if_total_equity_krw`(종전 방식 BPS — 비교용) · `shares_total`/`shares_basis` ·
   `balance_sheet`(`source` = `latest_filed_as_of_reference_date` | `annual_year_end`, `reference_date`·`reference_kind`(`period_end` | `rcept_dt`), `fiscal_year`,
