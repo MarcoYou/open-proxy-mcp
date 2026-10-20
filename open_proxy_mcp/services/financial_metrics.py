@@ -3023,6 +3023,7 @@ async def build_financial_metrics_payload(
                                f"기간이 같은 값끼리의 전년 비교다.")
             else:
                 period_aligned = False
+                warnings.extend(ws_same)   # 같은 보고서를 못 읽은 까닭(미공시 · 020 한도 등)을 그대로 싣는다
                 period_note = (f"{target_year}년은 {_REPRT_LABEL.get(same_rc, same_rc)} 기준({_period_ko(curr)})인데 "
                                f"{target_year - 1}년 같은 보고서를 찾지 못해 전기는 {_period_ko(prev)} 이다 — "
                                f"기간이 다른 값끼리라 기간에 민감한 경고({', '.join(sorted(_PERIOD_SENSITIVE_ALERTS))})는 계산하지 않았다.")

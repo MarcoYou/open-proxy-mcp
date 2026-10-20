@@ -109,6 +109,7 @@ def test_without_the_same_report_period_sensitive_alerts_are_off_with_a_reason(m
     assert not (set(y["alerts"]) & set(y["alerts_not_evaluated"]))
     assert "revenue_decline" in y["alerts_not_evaluated"]
     assert any("계산하지 않았" in w and "연간 12개월" in w for w in p["warnings"])
+    assert any("2025년 3분기보고서 미공시" in w for w in p["warnings"])    # 같은 보고서를 못 읽은 까닭도 그대로
 
 
 def test_annual_vs_annual_is_unchanged_and_real_declines_still_fire(monkeypatch):
