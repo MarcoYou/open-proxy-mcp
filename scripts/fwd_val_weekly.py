@@ -3,7 +3,7 @@
 왜: 선행 PER·PBR 은 수집 머신의 토요일 체인이 만들던 `fwd_agg` 에 시장·업종 대분류까지만 있었고,
 도구는 그중 선행 배당수익률만 서빙했다. 하위업종(28)은 집계 자체가 없었다. 수집 머신의 로컬 원본을
 건드리지 않고 **운영 DB 에 이미 있는 것만으로** 만든다 —
-추정치 이력 `fwd_hist`(주 1회. DB 보관은 주별 모양 13주, 구간형 저장 뒤 창 52주 — `open_proxy_mcp/fwd_window.py`)
+추정치 이력 `fwd_hist`(주 1회. DB 보관은 창 52주 — `open_proxy_mcp/fwd_window.py`)
 + 업종분류 스냅샷(월 1회) + 시장 구분 `krx_weekly`.
 `fwd_agg` 는 재설계 5단계(2610)에서 은퇴했다 — 시장·업종 선행 배수를 저장하는 곳은 이 표 하나다.
 
@@ -40,7 +40,7 @@
 
 보관 — **전체**(2610~). 원본 `fwd_hist` 는 DB 창(13주 → 구간형 저장 뒤 52주)만 남으므로 이 표가 선행 배수의
 유일한 DB 이력이다.
-- 원본 날짜 목록: 주별 모양은 뷰의 `DISTINCT as_of`, 달력 모양은 게시 달력 `fwd_asof` 의 창 안 날짜
+- 원본 날짜 목록: 게시 달력 `fwd_asof` 의 창 안 날짜
   (창보다 이른 날짜는 판 일부가 보관본으로 옮겨졌을 수 있어 집계하지 않는다 — `fwd_window` 「창」).
 - 지우는 것은 **원본 창 안에서 원본에 없는 날짜**뿐이다 — 창 = 원본의 가장 이른 날짜가 속한 ISO 주의 월요일부터.
   같은 ISO 주 재송출로 대체된 날짜(예: 월요일 보강분을 그 주 토요일분이 덮음)가 여기에 걸린다.
@@ -360,17 +360,12 @@ def check_against_stored(con, as_of, class_dd: str, mk_dd: str, fresh: list[dict
     return len(lines)
 
 
-def load_hist_days(con) -> tuple[list, bool]:
-    """원본 날짜 목록과 저장 모양 — (날짜들, 달력 모양인가). `open_proxy_mcp/fwd_window.py` 의 정의를 그대로 쓴다.
+def load_hist_days(con) -> list:
+    """원본 날짜 목록 — 게시 달력(`fwd_asof`)의 창 안 날짜. `open_proxy_mcp/fwd_window.py` 의 정의를 그대로 쓴다.
 
-    주별 모양: 뷰의 `DISTINCT as_of`(13주). 달력 모양: 게시 달력의 창 안 날짜 — 뷰 DISTINCT 는 이력 52주면 느리고,
-    창보다 이른 날짜는 판 일부가 보관본으로 옮겨졌을 수 있어 집계하면 틀린다."""
-    _exists, on_calendar = fwd_window.parse_probe(con.execute(fwd_window.PROBE_SQL).fetchone())
-    if on_calendar:
-        rows = con.execute(fwd_window.DAYS_SQL_CALENDAR, (fwd_window.window_days(),)).fetchall()
-    else:
-        rows = con.execute(fwd_window.DAYS_SQL_LEGACY).fetchall()
-    return [r[0] for r in rows], on_calendar
+    창보다 이른 날짜는 판 일부가 보관본으로 옮겨졌을 수 있어 집계하면 틀린다. 뷰의 DISTINCT 는 이력 52주면 느리다."""
+    rows = con.execute(fwd_window.DAYS_SQL_CALENDAR, (fwd_window.window_days(),)).fetchall()
+    return [r[0] for r in rows]
 
 
 def fill_unclassified(con, days: list, skip: set) -> int:
@@ -423,7 +418,7 @@ def main(argv: list[str] | None = None) -> int:
     if not class_dds:
         print("분류 스냅샷 표가 비었다 — 업종분류 배치(sector-class-monthly)가 먼저 돌아야 한다.", file=sys.stderr)
         return 1
-    hist_days, on_calendar = load_hist_days(con)
+    hist_days = load_hist_days(con)
     if not hist_days:
         print("fwd_hist 가 비었다 — 토요일 체인의 이력 송출이 먼저 돌아야 한다.", file=sys.stderr)
         return 1
@@ -439,7 +434,7 @@ def main(argv: list[str] | None = None) -> int:
     days = pick_days(hist_days, done, a.recompute or a.dry)
     print(f"선행 배수 집계 · 업종분류 스냅샷 {len(class_dds)}개(최신 {max(class_dds)}) · 추정치 이력 {len(hist_days)}일"
           f" ({hist_days[0]} ~ {hist_days[-1]}"
-          + (f", 게시 달력 창 {fwd_window.hot_weeks()}주" if on_calendar else "") + f") · 이번에 {len(days)}일"
+          + f", 게시 달력 창 {fwd_window.hot_weeks()}주) · 이번에 {len(days)}일"
           + (" · 쓰지 않음(--dry)" if a.dry else ""))
     total, bad = 0, 0
     for as_of in days:

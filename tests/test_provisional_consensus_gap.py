@@ -106,7 +106,6 @@ def test_pre_filing_row_already_actual_is_not_consensus():
 
 
 def test_db_failure_is_unknown_not_absent(monkeypatch):
-    monkeypatch.setattr(fe, "_hist_available", lambda: True)
     monkeypatch.setattr(fe, "pg_rows", lambda sql, params=(): None)
     g = fe.quarter_consensus_gap("005930", "2026-09-30", "20261008", SAMSUNG_ACTUAL, True)
     assert g["status"] == "unknown" and "장애" in g["why"]
@@ -121,13 +120,12 @@ def test_fetch_passes_dates_and_reads_reach(monkeypatch):
             return [(True,)]
         return [tuple(r[c] for c in fe._GAP_COLS) for r in SAMSUNG]
 
-    monkeypatch.setattr(fe, "_hist_available", lambda: True)
     monkeypatch.setattr(fe, "pg_rows", fake)
     g = fe.quarter_consensus_gap("005930", "2026-09-30", "20261008", SAMSUNG_ACTUAL, True)
     assert g["status"] == "ok" and g["as_of"] == "2026-09-26"
-    assert seen[0][1] == ("005930", dt.date(2026, 9, 30))
+    assert seen[0][1] == ("005930", dt.date(2026, 9, 30), 364)          # 창 안만(52주 + 기준일)
     assert "period_type='Q'" in seen[0][0]
-    assert seen[1][1] == (dt.date(2026, 10, 8),)
+    assert seen[1][1] == (dt.date(2026, 10, 8), 364)
 
 
 # ── 지표 칸 ───────────────────────────────────────────────────────────────────
