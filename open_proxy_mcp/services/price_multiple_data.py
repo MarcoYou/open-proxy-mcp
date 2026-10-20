@@ -50,19 +50,17 @@ from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt
 from open_proxy_mcp.krx_retention import (COLD_DEGRADED_NOTE, krx_weekly_cutoff, seam_gap, serving_seam, week_unit,
                                            weekly_window_note, with_daily_tail, WEEKLY_DAYS_SQL)
 from open_proxy_mcp import cold_store as _cold
+from open_proxy_mcp import krx_api as _krx_api
 from open_proxy_mcp import krx_daily as _krx_daily
 
 logger = logging.getLogger(__name__)
 
-_KRX_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
-_KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
+#: KRX 주소·호출은 `krx_api` 한 곳이다(261021, DATA-PX8). 옛 이름은 읽는 쪽이 있어 남긴다.
+_KRX_URL = _krx_api.KOSPI_URL
+_KSQ_URL = _krx_api.KOSDAQ_URL
 
-
-def _num(v):
-    try:
-        return int(str(v).replace(",", "")) if v not in (None, "", "-") else None
-    except Exception:
-        return None
+#: KRX 숫자 문자열(쉼표 포함) → 정수. 정의는 `krx_api.to_int` 한 곳이다.
+_num = _krx_api.to_int
 
 
 def _div(a, b):
@@ -104,6 +102,9 @@ def _price_dates(today=None) -> list[str]:
 # price_date로 기준일 투명 노출(며칠 전 종가여도 날짜 명시 → 사용자 판단).
 # 260821 OOM 수습: 무상한 dict → 바이트 상한 LRU. 날짜별 전종목(~2,766)+:split 중복 저장이
 # 무제한 누적하던 것을 32MB(≈수일치)로 캡. 초과 시 오래된 날짜부터 evict.
+#  261021(DATA-PX8): 날짜마다 **줄인 행 하나**({단축코드: 줄인 행} — `krx_api.ROW_KEYS`, 시장은 행의 `_MKT` 태그)만 담는다. 종전에는 같은 날짜를
+#  전체 행 사전과 시장별 원본 목록(`:split`) 두 벌로 담았다. **두 시장이 모두 온 응답만** 담는다 — 한 시장이 비거나 실패한 반쪽을 담으면
+#  48시간 동안 그 시장 종목이 없는 것으로 서빙됐다.
 _KRX_CACHE = LruByteCache(_env_mb("OPM_KRX_CACHE_MB", 32), 48 * 60 * 60, "krx")
 _KRX_STATE: dict[str, str] = {}              # {"day": 오늘, "latest_dd": 서빙할 최신 price_dd}
 
@@ -385,41 +386,45 @@ def _krx_weekly_sync() -> bool:
         return False
 
 
+class LiveDay(dict):
+    """`_krx_market_live` 결과 — {단축코드: 줄인 행} 이면서 KRX 호출 상태(`status`: `krx_api` 의 ok/empty/오류 넷)를 들고 다닌다.
+    빈 사전이라도 `status` 가 `empty` 면 「그 날 자료 없음」이고 오류 상태면 **실패**다 — 읽는 쪽이 둘을 가른다.
+    시험이 평범한 dict 로 바꿔 끼워도 읽는 쪽은 `getattr(x, "status", None)` 로 읽으니 깨지지 않는다."""
+
+    def __init__(self, rows=(), status: str = _krx_api.OK):
+        super().__init__(rows)
+        self.status = status
+
+
+def _live_failed(snap) -> bool:
+    """이 라이브 결과가 KRX 호출 **실패**(키·한도·장애·전송 오류)인가 — 「그 날 자료 없음」과 가른다."""
+    return getattr(snap, "status", None) in _krx_api.ERROR_STATUSES
+
+
 async def _krx_market_live(basDd: str) -> dict[str, dict]:
-    """KRX 전종목(코스피+코스닥) 라이브 fetch → {단축코드: row}. 2시장 병렬 + basDd 인메모리 캐시.
-    ⚠ 개인키 한도 때문에 서빙은 DB(krx_weekly·krx_daily) 우선 — 이 경로는 DB미스 fallback·배치용이다."""
+    """KRX 전종목(코스피+코스닥) 라이브 fetch → {단축코드: 줄인 행}(`LiveDay`). 2시장 병렬이 아니라 `krx_api.fetch_day` 한 곳 + basDd 인메모리 캐시.
+    ⚠ 개인키 한도 때문에 서빙은 DB(krx_weekly·krx_daily) 우선 — 이 경로는 DB미스 fallback·배치용이다.
+    261021(DATA-PX8): 실패(키·한도·장애·전송 오류)를 빈 사전으로 삼키지 않는다 — 결과의 `status` 에 실려 호출자가 「자료 없음」과 가른다.
+    두 시장이 모두 온 응답만 캐시에 담는다."""
     _cached = _KRX_CACHE.get(basDd)
     if _cached is not None:
         return _cached
-    key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
-    if not key:
-        return {}
-    from open_proxy_mcp.dart.krx_meter import bump
-
-    async def _one(h, url):
-        try:
-            bump()  # KRX 일별 사용량 장부
-            r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": basDd})
-            return next((v for v in r.json().values() if isinstance(v, list)), [])
-        except Exception:
-            return []
-
-    async with httpx.AsyncClient(timeout=30) as h:  # 코스피·코스닥 독립 → 병렬
-        kospi, kosdaq = await asyncio.gather(_one(h, _KRX_URL), _one(h, _KSQ_URL))
-    out: dict[str, dict] = {}
-    for rows in (kospi, kosdaq):
-        for row in rows:
-            out[row.get("ISU_CD")] = row  # bydd_trd ISU_CD = 단축코드
-    if out:
-        _KRX_CACHE.put(basDd, out)
-        _KRX_CACHE.put(basDd + ":split", {"KOSPI": kospi, "KOSDAQ": kosdaq})  # 시장별(krx_weekly 태깅용)
-    return out
+    res = await _krx_api.fetch_day(basDd, both=True)
+    day = LiveDay(_krx_api.index_rows(res.kospi, res.kosdaq), res.status)
+    if res.status == _krx_api.OK and res.kospi and res.kosdaq:
+        _KRX_CACHE.put(basDd, day)
+    return day
 
 
 async def _fetch_live_snapshot() -> tuple[str | None, dict[str, dict]]:
-    """최근 거래일 전종목 스냅샷(첫 데이터 있는 날). 주말·휴장이면 직전 거래일."""
+    """최근 거래일 전종목 스냅샷(첫 데이터 있는 날). 주말·휴장이면 직전 거래일.
+    261021(DATA-PX8): **호출이 실패한 날에서 멈춘다** — 실패를 「그 날은 자료 없음」으로 넘기고 더 옛날 날짜를 최신으로 내면 며칠 전 값이 오늘 값처럼
+    나간다. 멈추면 (None, {}) 이고 이유는 `krx_api` 가 경고 로그로 남겼다."""
     for d in _price_dates():
         snap = await _krx_market_live(d)
+        if _live_failed(snap):
+            logger.warning("KRX 최신 거래일 확인 중단 — %s 호출 실패(%s)", d, getattr(snap, "status", "?"))
+            return None, {}
         if any(_num(r.get("TDD_CLSPRC")) for r in snap.values()):
             return d, snap
     return None, {}
@@ -455,6 +460,10 @@ def _serving_dd_invalidate() -> None:
     _SERVING_DD.update(dd=None, at=0.0)
 
 
+#: 공개 이름 — 갱신기(`krx_refresher`)가 새 거래일을 쓴 직후 부른다. 다른 파일이 비공개 이름을 부르지 않게 한다.
+serving_dd_invalidate = _serving_dd_invalidate
+
+
 async def _ensure_krx_fresh() -> str | None:
     """**배치 스크립트 전용**(`scripts/market_val_weekly.py`·`market_fund_quarterly.py`) — 서버 요청 경로는 부르지 않는다.
     하루 1회(프로세스): 일별 저장분(`krx_daily`)이 직전 영업일까지 있나 보고, 없으면 KRX 최신 거래일을 받아 기록한다
@@ -482,8 +491,7 @@ async def _ensure_krx_fresh() -> str | None:
             # (260703 실측: 금요일 데이터가 이틀째 0행) 스캔이 전일을 잡는데, != 조건이면 저장된
             # 금요일을 지우고 목요일로 롤백해버림(QA WARN-1). 과거로는 절대 되돌리지 않는다.
             if db_latest is None or dd > db_latest:
-                split = _KRX_CACHE.get(dd + ":split") or {}
-                kospi, kosdaq = split.get("KOSPI") or [], split.get("KOSDAQ") or []
+                kospi, kosdaq = _krx_api.split_markets(snap)
                 if kospi and kosdaq:             # 두 시장 모두 있을 때만 — 반쪽 스냅샷으로 덮기 금지(QA WARN-2)
                     res = await asyncio.to_thread(_krx_db_upsert, dd, kospi, kosdaq)
                     if res.daily_ok:
@@ -519,6 +527,9 @@ async def _market_for(stock_code: str) -> dict:
     # 저장분에서 못 받음 — 최신 스냅샷에 아직 없는 신규상장·정지 해제, 저장분 읽기 실패(기준일 None), DB 를 붙이지 않은 서버 → 라이브 단발 fallback
     for d in _price_dates():
         snap = await _krx_market_live(d)
+        if _live_failed(snap):         # 호출 실패(키·한도·장애) — 더 옛날 날짜로 소급해 낡은 값을 최신처럼 내지 않는다(DATA-PX8)
+            logger.warning("KRX 라이브 시세 확인 중단 %s: %s 호출 실패(%s) — 값을 내지 않는다", stock_code, d, snap.status)
+            break
         base = snap.get(stock_code)
         if base and _num(base.get("TDD_CLSPRC")):
             return {"price": _num(base.get("TDD_CLSPRC")), "date": d,
