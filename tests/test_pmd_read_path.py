@@ -82,7 +82,7 @@ def route(sql: str) -> str:
     if "FROM krx_stock_flags" in s:
         return "flags"
     if "FROM krx_adj_events" in s:
-        return "adj"
+        return "adj_unl" if "ORDER BY ticker, event_dd" in s else "adj"   # 261021(H4): 확정 라벨이 아닌 조정 후보 읽기(종목 여럿 질의) — 기본은 후보 없음
     if "SELECT list_shrs FROM krx_weekly" in s and "ASC LIMIT 1" in s:
         return "shares_first"
     if "SELECT list_shrs FROM krx_weekly" in s and "DESC LIMIT 1" in s:
@@ -422,9 +422,9 @@ def test_firm_history_stops_early_when_the_fundamentals_read_fails(mp):
     assert sorted(k for k, _ in db.log) == ["cur_row", "latest", "weekly_start"]
 
 
-def test_firm_reads_exactly_the_five_reads_of_before(mp):
+def test_firm_reads_the_five_reads_of_before_plus_the_unlabeled_adjustment_read(mp):
     _, db = run_firm(S, mp, "fm_normal")
-    assert sorted(k for k, _ in db.log) == ["adj", "adj", "flags", "shares_first", "shares_latest"]   # 최신 주식수는 일별 저장분(261018)
+    assert sorted(k for k, _ in db.log) == ["adj", "adj", "adj_unl", "flags", "shares_first", "shares_latest"]   # 최신 주식수는 일별 저장분(261018) · adj_unl = 라벨 없는 조정 후보(261021 H4, 같은 묶음 — 왕복은 그대로 2)
     _, db = run_firm(S, mp, "fm_no_disclosed_eps_still_reads_flags")
     assert [k for k, _ in db.log] == ["flags"], "공시 EPS 가 없으면 보정 읽기는 건너뛰고 flag 만 읽는다(종전과 같다)"
 
@@ -638,7 +638,7 @@ def test_latest_shares_fall_back_to_the_weekly_query_when_the_daily_store_has_no
     sc = _fm(shares_first=[(5_000_000_000,)], shares_latest=latest, shares_last=[(500_000_000,)])
     payload, db = run_firm(S, mp, "", data=sc)
     assert _canon(payload) == _canon(golden["fm_factor_missing_warns"]["payload"])
-    assert sorted(k for k, _ in db.log) == ["adj", "adj", "flags", "shares_first", "shares_last", "shares_latest"]
+    assert sorted(k for k, _ in db.log) == ["adj", "adj", "adj_unl", "flags", "shares_first", "shares_last", "shares_latest"]
 
 
 def test_latest_shares_fallback_is_skipped_when_the_base_week_is_missing(mp, golden):

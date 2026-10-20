@@ -312,6 +312,48 @@ def _ensure_ddl(con) -> None:
             con.execute(_m)
 
 
+#: 261021(L3): 기준이 섞여 비운 TTM 을 앞선 칸으로 대체할 때 거슬러 올라가는 칸 수 — 서버 업종 비교·「주간」 항목의 `_FALLBACK_YEARS`(1년 = 직전 네 칸)와 같다.
+TTM_BASIS_FALLBACK_CELLS = 4
+
+
+def ttm_from_cells(m: dict, fs_of: dict, fye, lfy: int, lq: int) -> tuple[float | None, bool]:
+    """칸 `(lfy, lq)` 의 TTM 지배순이익(`price_multiple_data._ttm_ni` 와 같은 식)과 **기준이 섞여 비웠나**(순수 함수 — 시험 대상). (261021 L3)
+
+    TTM = 직전 연간 + 당해 누적 − 전년 누적. 세 칸은 같은 재무제표 기준(연결 CFS·별도 OFS)일 때만 더하고 뺀다 — 한 해 안에 기준이 섞인 종목(연결을 새로
+    내거나 종속회사를 처분해 별도만 내게 된 회사)은 종전에 다른 재무제표끼리 계산한 값이 나갔다(서버 firm 은 연간에서 정한 기준을 분기에 강제해 이미 같다).
+    기준을 모르는 칸(`fs_of` 에 없음)은 보지 않는다. 반환 (값 또는 None, 값은 다 있는데 기준이 달라 비웠으면 True)."""
+    if lq == 4:
+        return m.get((lfy, 4), (None, None))[0], False
+    pa = rcal.prior_annual(lfy, lq, fye)                        # 12월 결산이면 lfy-1(종전과 같다)
+    cum_now = m.get((lfy, lq), (None, None))[0]
+    cum_prev = m.get((lfy - 1, lq), (None, None))[0]
+    fy_prev = m.get((pa, 4), (None, None))[0]
+    if None in (cum_now, cum_prev, fy_prev):
+        return None, False
+    if len({b for b in (fs_of.get((pa, 4)), fs_of.get((lfy, lq)), fs_of.get((lfy - 1, lq))) if b}) > 1:
+        return None, True
+    return fy_prev + cum_now - cum_prev, False
+
+
+def pick_ttm(m: dict, fs_of: dict, fye, ni_present: list, latest) -> tuple[float | None, tuple | None]:
+    """재무 요약 `ni_ttm` — ni 있는 **최신 칸**의 TTM. 그 칸이 기준이 섞여 비면 앞선 칸 가운데 TTM 이 되는 가장 늦은 칸(`TTM_BASIS_FALLBACK_CELLS` 칸 안)으로 센다
+    (최신 분기보고서를 아직 안 낸 회사가 앞선 칸의 TTM 을 쓰는 것과 같은 규칙 — 서버의 앞선 칸 대체와 같다). 반환 (값, 쓴 칸)."""
+    if not ni_present:
+        return None, None
+    lfy, lq = latest(ni_present)
+    v, blocked = ttm_from_cells(m, fs_of, fye, lfy, lq)
+    if not blocked:
+        return v, (lfy, lq)
+    end0 = rcal.cell_end(lfy, lq, fye)
+    earlier = sorted((k for k in ni_present if rcal.cell_end(k[0], k[1], fye) < end0),
+                     key=lambda k: rcal.cell_end(k[0], k[1], fye), reverse=True)[:TTM_BASIS_FALLBACK_CELLS]
+    for c in earlier:
+        v, blocked = ttm_from_cells(m, fs_of, fye, c[0], c[1])
+        if v is not None:
+            return v, c
+    return None, None
+
+
 def derive_fundamentals(tickers: list[str] | None = None) -> None:
     """dart_fundamentals 재무 4열(ni_fy·ni_ttm·eq_fy·eq_mrq)을 dart_finstat_q(분기+Q4연간)에서 파생 —
     **DART 0콜**. SSOT = dart_finstat_q. 원통화 raw 유지(daily cron이 fx_rate로 KRW 환산). 최신 공시분기
@@ -324,14 +366,22 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
     261018(재설계 6단계, 결산월): 「최신 분기」와 TTM 의 직전 연간 값을 칸 표기 `(fy, quarter)` 의 크기 순서가 아니라 **실제 기간 말**로
     고른다(`report_calendar` — 결산월은 이 표의 `acc_mt`, 비었으면 12월). 12월 결산이면 표기 순서 = 기간 말 순서라 결과가 종전과 같다.
     12월 결산이 아니면 종전엔 같은 해 표기의 사업보고서 칸(3월 결산 = 그해 3월 말)을 그해 마지막 칸으로 보고, TTM 의 직전 연간 값을
-    한 해 앞(fy-1)에서 가져왔다 — 3월 결산의 2026 1분기(6월 말) TTM 이 2025.03 사업보고서 + (2026.06 − 2025.06 누적)이 됐다(맞는 값은 2026.03)."""
+    한 해 앞(fy-1)에서 가져왔다 — 3월 결산의 2026 1분기(6월 말) TTM 이 2025.03 사업보고서 + (2026.06 − 2025.06 누적)이 됐다(맞는 값은 2026.03).
+
+    261021(L3): TTM 의 세 칸(직전 연간 · 당해 누적 · 전년 누적)은 **같은 재무제표 기준(연결 CFS·별도 OFS)** 일 때만 더하고 뺀다(`ttm_from_cells`). 한 해 안에 기준이
+    섞인 종목의 최신 칸은 비어 앞선 칸의 TTM 으로 센다(`pick_ttm` — 최신 분기보고서를 안 낸 회사가 앞선 칸을 쓰는 것과 같은 규칙, 네 칸 안)."""
     from collections import defaultdict
     con = _pg(); con.autocommit = True
     q: dict[str, dict] = defaultdict(dict)
-    sql = "SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq) FROM dart_finstat_q"
+    sql = ("SELECT ticker, fy, quarter, COALESCE(ni_cum_restated, ni_cum), COALESCE(eq_restated, eq), "
+           "CASE WHEN ni_cum IS NOT NULL THEN fs END FROM dart_finstat_q")          # 끝 칸: 원본 순이익이 있는 칸의 기준만 믿는다(값 없는 칸의 fs 는 마지막 시도)
     rows = con.execute(sql + " WHERE ticker = ANY(%s)", (list(tickers),)) if tickers else con.execute(sql)
-    for isu, fy, quarter, ni, eq in rows:
+    fs_all: dict[str, dict] = defaultdict(dict)       # 261021(L3): 칸 값의 재무제표 기준(연결/별도) — TTM 세 칸이 같은 기준일 때만 더하고 뺀다
+    for r in rows:
+        isu, fy, quarter, ni, eq = r[:5]
         q[isu][(int(fy), int(quarter))] = (ni, eq)
+        if len(r) > 5 and r[5]:                                # 끝 칸 = 재무제표 기준(없는 읽기 모양이면 기준을 모르는 것 — 종전처럼 쓴다)
+            fs_all[isu][(int(fy), int(quarter))] = r[5]
     # 261020(p1e): 반기·분기 결산 회사(리츠 등)는 결산기 칸만(서버 곡선과 같은 규칙 — 표시 없는 1~3분기 칸은 DART 가 준 그해 가장 늦은 3개월 시점
     #   보고서라 버린다, 사업보고서 칸은 결산기 12개월 합). 그래서 재무 요약의 ni_fy·ni_ttm 도 12개월 기준이다.
     marked = [r for r in pcells.load_marked(con) if not tickers or r[0] in set(tickers)]
@@ -360,16 +410,7 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
         fy_full = max(fys4) if fys4 else None                    # 최신 완결 사업연도
         ni_fy, eq_fy = m.get((fy_full, 4), (None, None)) if fy_full else (None, None)
         eq_mrq = m[latest(eq_present)][1] if eq_present else None    # eq 있는 최신분기(기간 말 기준)
-        ni_ttm = None
-        if ni_present:
-            lfy, lq = latest(ni_present)                          # ni 있는 최신분기 기준 TTM
-            if lq == 4:
-                ni_ttm = m.get((lfy, 4), (None, None))[0]
-            else:
-                cum_now = m.get((lfy, lq), (None, None))[0]
-                cum_prev = m.get((lfy - 1, lq), (None, None))[0]
-                fy_prev = m.get((rcal.prior_annual(lfy, lq, fye), 4), (None, None))[0]   # 12월 결산이면 lfy-1(종전과 같다)
-                ni_ttm = (fy_prev + cum_now - cum_prev) if None not in (cum_now, cum_prev, fy_prev) else None
+        ni_ttm, _ttm_cell = pick_ttm(m, fs_all.get(isu, {}), fye, ni_present, latest)   # ni 있는 최신분기 기준 TTM(261021: 세 칸 같은 재무제표 기준)
         cur = con.execute(
             "UPDATE dart_fundamentals SET ni_fy=%s, ni_ttm=%s, eq_fy=%s, eq_mrq=%s WHERE ticker=%s "
             "AND (ni_fy, ni_ttm, eq_fy, eq_mrq) IS DISTINCT FROM (%s::float8, %s::float8, %s::float8, %s::float8)",
