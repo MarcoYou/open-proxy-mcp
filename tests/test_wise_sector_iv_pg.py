@@ -356,7 +356,7 @@ def test_v9_disclosure_sector_join_same_answer(legacy):
         with c.cursor() as cur:
             cur.executemany("INSERT INTO dart_events (rcept_no, rcept_dt, stock_code, kind) VALUES (%s,%s,%s,'order')", ev)
     args = (date(2026, 8, 1), date(2026, 10, 31), date(2026, 8, 1), date(2026, 10, 31), ["order"])
-    q = df._EVENTS_SQL.format(extra="")
+    q = df._EVENTS_SQL.format(extra="", snaps="SELECT DISTINCT snap_dd FROM wise_sector")
     with psycopg.connect(legacy) as c:
         want = sorted(c.execute(q, args).fetchall(), key=lambda r: r[0])
     _switch(legacy)

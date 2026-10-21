@@ -30,6 +30,7 @@ from typing import Any, Callable
 
 from open_proxy_mcp.db import pg_rows
 from open_proxy_mcp.market_codes import KQ, KS, to_label
+from open_proxy_mcp.services import wise_sector_dates as _WSD
 from open_proxy_mcp.services.sector_class import MAJOR, MID
 
 # ── 문법 ──────────────────────────────────────────────────────────────────────
@@ -293,9 +294,9 @@ SELECT d.ticker, d.market, d.close, d.mktcap, d.list_shrs,
        w.sector_code, w.sector, w.industry_code, w.industry, w.src, w.src_ref,
        s.snap, s.snap_min
 FROM {src} d
-CROSS JOIN (SELECT COALESCE((SELECT max(snap_dd) FROM wise_sector WHERE snap_dd <= %s),
-                            (SELECT min(snap_dd) FROM wise_sector)) AS snap,
-                   (SELECT min(snap_dd) FROM wise_sector) AS snap_min) s
+CROSS JOIN (SELECT COALESCE({snap_le},
+                            {snap_min}) AS snap,
+                   {snap_min} AS snap_min) s
 LEFT JOIN wise_sector w ON w.snap_dd = s.snap AND w.ticker = d.ticker
 WHERE d.{col} = %s AND d.mktcap > 0
 ORDER BY d.mktcap DESC, d.ticker
@@ -307,7 +308,12 @@ _ROW_KEYS = ("ticker", "market", "close", "mktcap", "shrs", "major_code", "major
 
 def _read_rows(dd: str, source: str) -> list[dict[str, Any]] | None:
     table, col = _SRC[source]
-    rows = pg_rows(_ROWS_SQL.format(src=table, col=col), (dd, dd))
+
+    def sql(fast: bool) -> str:
+        # 날짜 세 곳(이하 가장 최근 · 가장 이른 둘)은 뷰 모드면 작은 날짜 표에서 읽는다(뷰 위 max/min 은 요청마다 약 10만 행을 세 번 펼쳤다 — `wise_sector_dates`)
+        return _ROWS_SQL.format(src=table, col=col, snap_le=_WSD.max_dd_le(fast), snap_min=_WSD.min_dd(fast))
+
+    rows = _WSD.query(sql, (dd, dd), pg_rows)
     if rows is None:
         return None
     return [dict(zip(_ROW_KEYS, r)) for r in rows]

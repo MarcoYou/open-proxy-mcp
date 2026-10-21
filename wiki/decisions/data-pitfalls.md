@@ -68,6 +68,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | `open_proxy_mcp/services/dart_safety.py` (`is_no_data`·`_DART_STATUS_GUIDE`·`next_kst_midnight`) | DART 상태 코드 분류 한 곳 — 013(답) 대 020·800(실패)(API1, API2) | 모든 도구의 공용 래퍼 · 013 을 직접 다루는 도구 |
 | `open_proxy_mcp/clock.py` (`today_kst`) | 「오늘」은 한국 달력(API5) | 날짜가 「오늘」을 뜻하는 모든 자리 |
 | `open_proxy_mcp/services/filing_search.py` | 공시 목록의 제목 필터 검색 — 기간·공시유형을 먼저 좁힌다(API5) | 이벤트·지배구조·배당 계열 서비스 |
+| `open_proxy_mcp/services/wise_sector_dates.py` (`is_view`·`max_dd`·`snaps_select`·`query`) | 업종분류 뷰 `wise_sector` 위에서 날짜·업종 목록을 고르지 않는다 — 뷰일 때만 밑 표(`wise_sector_snap`·`wise_sector_iv`)를 읽는다(성능, 값은 같다) | 배당 데이터 업종 갈래·`screen` · 업종 구성(`sector_universe`) · 공시 흐름 |
 
 ## 3. 영역별 항목
 

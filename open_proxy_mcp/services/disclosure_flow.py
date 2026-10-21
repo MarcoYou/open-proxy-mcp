@@ -31,6 +31,7 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from open_proxy_mcp.db import pg_rows
+from open_proxy_mcp.services import wise_sector_dates as _WSD
 
 TOOL = "screener"
 LEVEL_LABEL = {"sector": "업종 대분류", "industry": "업종 중분류"}
@@ -206,7 +207,7 @@ _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "
 #: (10-18 운영 실측, 읽기 전용, 셋을 번갈아 15회 왕복 중앙값: 올해 전체 유형 37,736행 — 종전 복사본 칸 329ms · 시세까지 조인하던 초안 916ms ·
 #:  이 SQL 338ms. 같은 SQL 에 ORDER BY 를 두면 서버 실행이 60 → 142ms — 정렬이 디스크로 쏟는다).
 _EVENTS_SQL = """
-WITH snaps AS MATERIALIZED (SELECT DISTINCT snap_dd FROM wise_sector),
+WITH snaps AS MATERIALIZED ({snaps}),
 pick AS MATERIALIZED (
   SELECT g::date AS rcept_dt,
          COALESCE((SELECT max(snap_dd) FROM snaps WHERE snap_dd <= to_char(g, 'YYYYMMDD')),
@@ -240,7 +241,8 @@ def _fetch_events(kinds: list[str], since: date, until: date,
     elif corp_cls:
         extra = " AND e.corp_cls = %s"
         params.append(corp_cls)
-    r = pg_rows(_EVENTS_SQL.format(extra=extra), tuple(params))
+    # 스냅샷 날짜 목록은 뷰 모드면 작은 날짜 표에서 읽는다(뷰 위 DISTINCT 는 요청마다 약 10만 행을 펼쳤다 — 스냅샷 3 → 38개로 약 5ms → 55ms, `wise_sector_dates`)
+    r = _WSD.query(lambda fast: _EVENTS_SQL.format(extra=extra, snaps=_WSD.snaps_select(fast)), tuple(params), pg_rows)
     if r is None:
         return None
     r = sorted(r, key=lambda x: (x[1], x[0]))                   # 접수일·접수번호 — 실행마다 같은 순서(위 `_EVENTS_SQL` 주석)
