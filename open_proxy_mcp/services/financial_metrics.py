@@ -2031,7 +2031,26 @@ def _annual_scale_obs(year: int, rows: list[dict[str, Any]]) -> list[tuple]:
     return out
 
 
-def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]]) -> dict[str, Any]:
+async def _common_mktcap(stock_code: str | None) -> float | None:
+    """상장사의 KRX 보통주 시총(원) — 운영 DB `price_latest`(종목마다 가장 늦은 거래일 한 줄)에서 읽는다. DART 0콜, DB 1회.
+    단위 가리기(`reconcile_report_scales`)의 시총 신호용이다(DATA-SC1). 최근 3주 안 행만 쓴다(상장폐지·장기 거래정지의 낡은 시총으로 PBR 을 재지 않게).
+    상장사가 아니거나 DB 미설정·장애·행 없음이면 None — 호출자는 시총 신호 없이 종전대로 간다."""
+    if not stock_code:
+        return None
+    try:
+        from open_proxy_mcp.db import pg_rows
+        cutoff = (today_kst() - timedelta(days=21)).strftime("%Y%m%d")
+        rows = await asyncio.to_thread(pg_rows, "SELECT mktcap FROM price_latest WHERE ticker=%s AND price_dd>=%s", (stock_code, cutoff))
+    except Exception:  # noqa: BLE001 — 시총은 보조 신호다: 읽기가 깨져도 종전 응답은 나간다
+        return None
+    try:
+        v = float(rows[0][0]) if rows and rows[0][0] is not None else None
+    except (TypeError, ValueError):
+        return None
+    return v if v and v > 0 else None
+
+
+def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]], mktcap: float | None = None) -> dict[str, Any]:
     """사업보고서들(연도 → 주요계정 rows)끼리 대 단위가 어긋난 보고서를 가린다 → `reconcile_report_scales` 결과에 연도별 정보를 얹은 dict.
 
     {"status": clean|fixed|undecided|conflict, "divisors": {연도: 나눌 배수}, "method", "pairs": [대조 근거 — 연도로 풀어 둠], "names": {연도: 이름},
@@ -2044,7 +2063,9 @@ def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]]) -> dict[s
     if len(usable) < 2:
         return out
     obs = [o for y, rows in usable.items() for o in _annual_scale_obs(y, rows)]
-    res = reconcile_report_scales(obs)
+    # 보고서가 둘뿐이면(요약·years=1) 다수결이 서지 않는다 — 시총을 제3 신호로 쓴다(DATA-SC1). 셋 이상이면 다수결이 가리므로 시총을 더해
+    # 낡은 시총이 다수결을 `undecided` 로 막는 일이 없게 한다(두 신호가 엇갈리면 고치지 않는 규칙).
+    res = reconcile_report_scales(obs, mktcap=mktcap if len(usable) <= 2 else None)
     to_year = lambda lab: int(str(lab)[2:])  # noqa: E731  ('FY2023' → 2023)
     out["status"] = res["status"]
     out["method"] = res.get("method")
@@ -2055,7 +2076,8 @@ def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]]) -> dict[s
     return out
 
 
-async def _annual_scale_plan(corp_code: str, years: list[int], fs_div: str, memo: "_FetchMemo") -> dict[str, Any]:
+async def _annual_scale_plan(corp_code: str, years: list[int], fs_div: str, memo: "_FetchMemo",
+                             mktcap: "float | asyncio.Future | None" = None) -> dict[str, Any]:
     """다년 조회(`_build_yearly`·yoy)가 읽을 사업보고서들의 단위 가리기. `years` 는 요청한 사업연도들 — 각 연도의 당기 보고서와 가장 이른 연도의 전기
     보고서까지 대 본다. `memo` 가 이미 같은 조회를 하나로 합치므로 이 단계가 새로 부르는 DART 는 없다(어차피 `_fetch_year_metrics` 가 부르는 조회다):
     각 연도의 사업보고서는 `_fetch_acnt_with_fallback` 의 첫 조회이고, 가장 이른 연도의 전기 보고서는 그 연도가 사업보고서를 냈을 때만 읽는다."""
@@ -2067,7 +2089,9 @@ async def _annual_scale_plan(corp_code: str, years: list[int], fs_div: str, memo
         rows, _err = await _fetch(memo).acnt(corp_code, first - 1, _REPRT_BUSINESS, fs_div)
         if rows:
             reports[first - 1] = rows
-    return _reconcile_annual_scales(reports)
+    if mktcap is not None and not isinstance(mktcap, (int, float)):
+        mktcap = await mktcap
+    return _reconcile_annual_scales(reports, mktcap=mktcap)
 
 
 def _scale_note(plan: dict[str, Any] | None, year: int) -> tuple[list[dict], dict | None, list[str]]:
@@ -2258,6 +2282,7 @@ async def _fetch_year_metrics(
     memo: "_FetchMemo | None" = None,
     reprt_code: str | None = None,
     scale_plan: "dict[str, Any] | asyncio.Future | None" = None,
+    mktcap: "float | asyncio.Future | None" = None,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
 
@@ -2346,7 +2371,9 @@ async def _fetch_year_metrics(
     if used_rc == _REPRT_BUSINESS:
         if scale_plan is not None and not isinstance(scale_plan, dict):
             scale_plan = await scale_plan
-        plan = scale_plan if scale_plan is not None else _reconcile_annual_scales({year: rows_curr, year - 1: rows_prev})
+        if scale_plan is None and mktcap is not None and not isinstance(mktcap, (int, float)):
+            mktcap = await mktcap       # 요약(단년): 보고서가 둘뿐이라 시총이 제3 신호다 — DB 한 번(DART 0콜)
+        plan = scale_plan if scale_plan is not None else _reconcile_annual_scales({year: rows_curr, year - 1: rows_prev}, mktcap=mktcap)
         scale_fix, scale_cross, _scale_ws = _scale_note(plan, year)
         warnings.extend(_scale_ws)
         if scale_fix:
@@ -2701,7 +2728,9 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, 
     memo = _FetchMemo()
     # 261021(fin-eq): 앞뒤 해 사업보고서끼리 대 단위가 틀린 보고서를 가린다(DART 콜 0 — memo 가 같은 조회를 합친다). 연도별 조회를 막지 않도록 Task 로 두고
     # 각 연도가 자기 조회를 마친 뒤에 받는다.
-    plan = asyncio.ensure_future(_annual_scale_plan(corp_code, year_list, fs_div, memo))
+    # years=1 이면 보고서가 당기·전기 둘뿐이라 다수결이 서지 않는다 — 시총을 제3 신호로 쓴다(DATA-SC1). 상장사만, DB 1회.
+    mk_task = asyncio.ensure_future(_common_mktcap(stock_code)) if len(year_list) == 1 and stock_code else None
+    plan = asyncio.ensure_future(_annual_scale_plan(corp_code, year_list, fs_div, memo, mktcap=mk_task))
     tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code,
                                  is_reit=is_reit, stock_code=stock_code, memo=memo, scale_plan=plan) for y in year_list]
     results = await asyncio.gather(*tasks)
@@ -3384,8 +3413,10 @@ async def build_financial_metrics_payload(
 
     stage_started_at = time.perf_counter()
     if scope == "summary":
+        # 요약(단년)은 보고서가 당기·전기 둘뿐이라 단위 어긋남을 다수결로 못 가린다 — 상장사면 KRX 보통주 시총을 제3 신호로 쓴다(DATA-SC1, DB 1회·DART 0콜).
+        _mk = asyncio.ensure_future(_common_mktcap(selected.get("stock_code"))) if selected.get("stock_code") else None
         metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit,
-                                                         stock_code=selected.get("stock_code"))
+                                                         stock_code=selected.get("stock_code"), mktcap=_mk)
         warnings.extend(ws)
         if metrics:
             data["summary"] = metrics

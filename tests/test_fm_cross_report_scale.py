@@ -489,3 +489,90 @@ def test_quarterly_substituted_year_is_not_compared(monkeypatch):
     m, ws, _ = asyncio.run(FM._fetch_year_metrics("00000000", 2025, "CFS"))
     assert m["reprt_code"] == "11014"
     assert "data_quality" not in m and _scale_ws(ws) == []
+
+
+# ═══ 시총을 제3 신호로 — 보고서가 둘뿐인 요약·years=1 (DATA-SC1) ═══════════════════════════════════════════
+def _with_mktcap(mp, value):
+    async def fake(stock_code):
+        return value
+    mp.setattr(FM, "_common_mktcap", fake)
+
+
+def test_summary_scope_passes_market_cap_to_the_reconcile(monkeypatch):
+    _with_mktcap(monkeypatch, 1.5e11)
+    seen = {}
+    real = FM._reconcile_annual_scales
+
+    def spy(reports, mktcap=None):
+        seen["mktcap"] = mktcap
+        return real(reports, mktcap=mktcap)
+    monkeypatch.setattr(FM, "_reconcile_annual_scales", spy)
+    _install(monkeypatch, {2022: A_065150_2022, 2023: A_065150_2023})
+
+    async def run():
+        mk = asyncio.ensure_future(FM._common_mktcap("065150"))
+        return await FM._fetch_year_metrics("00000000", 2023, "CFS", allow_quarterly_fallback=False, stock_code="065150", mktcap=mk)
+    m, ws, _n = asyncio.run(run())
+    assert seen["mktcap"] == 1.5e11
+    assert m["total_assets_krw"] == 56_717_158_975                          # ÷1,000
+    fix = m["data_quality"]["scale_fix"]
+    assert len(fix) == 1 and fix[0]["divisor"] == 1000 and fix[0]["method"] == "mktcap"
+    assert any(w.startswith("🔧") for w in ws)
+
+
+def test_yearly_years_1_uses_market_cap_but_three_reports_do_not(monkeypatch):
+    _with_mktcap(monkeypatch, 1.5e11)
+    y, ws = _yearly(monkeypatch, {2022: A_065150_2022, 2023: A_065150_2023}, 2023, 1)
+    assert y[2023]["total_assets_krw"] == 56_717_158_975_000                # stock_code 를 안 넘기면 시총을 읽지 않는다 — 종전 그대로
+    seen = []
+    real = FM._reconcile_annual_scales
+    monkeypatch.setattr(FM, "_reconcile_annual_scales", lambda reports, mktcap=None: (seen.append(mktcap), real(reports, mktcap=mktcap))[1])
+    _install(monkeypatch, R065150)
+    asyncio.run(FM._build_yearly("00000000", 2025, 3, "CFS", stock_code="065150"))
+    assert seen == [None]                                                   # years=3 → 보고서 4개 → 다수결이 가린다, 시총 신호는 안 쓴다
+
+
+def test_no_market_cap_keeps_warning_only(monkeypatch):
+    _with_mktcap(monkeypatch, None)
+    _install(monkeypatch, {2022: A_065150_2022, 2023: A_065150_2023})
+
+    async def run():
+        mk = asyncio.ensure_future(FM._common_mktcap("065150"))
+        return await FM._fetch_year_metrics("00000000", 2023, "CFS", allow_quarterly_fallback=False, stock_code="065150", mktcap=mk)
+    m, ws, _n = asyncio.run(run())
+    assert m["total_assets_krw"] == 56_717_158_975_000
+    assert m["data_quality"]["scale_cross_report"]["status"] == "undecided"
+
+
+@pytest.mark.parametrize("rows,expect", [([], None), ([(None,)], None), ([(0,)], None), ([(150_000_000_000,)], 1.5e11)])
+def test_common_mktcap_reads_price_latest(monkeypatch, rows, expect):
+    from open_proxy_mcp import db
+    monkeypatch.setattr(db, "pg_rows", lambda sql, params=(): rows)
+    assert asyncio.run(FM._common_mktcap("065150")) == expect
+    assert asyncio.run(FM._common_mktcap(None)) is None
+    monkeypatch.setattr(db, "pg_rows", lambda sql, params=(): None)         # 미설정·장애
+    assert asyncio.run(FM._common_mktcap("065150")) is None
+
+
+def test_summary_payload_reads_market_cap_for_listed_company(monkeypatch):
+    """도구 경로(scope=summary) — 상장사(종목코드 있음)면 시총을 읽어 두 보고서의 단위 어긋남을 바로잡는다(065150 FY2023 ×1,000 꼴)."""
+    from open_proxy_mcp.services.company import CompanyResolution
+    from open_proxy_mcp.services.contracts import AnalysisStatus
+
+    monkeypatch.setenv("OPENDART_API_KEY", "test-key-not-real")
+    _with_mktcap(monkeypatch, 1.5e11)
+    _install(monkeypatch, {2022: A_065150_2022, 2023: A_065150_2023})
+    co = {"corp_code": "00000000", "corp_name": "시험회사", "stock_code": "065150"}
+
+    async def resolve(query, *a, **k):
+        return CompanyResolution(status=AnalysisStatus.EXACT, query=query, selected=dict(co), candidates=[])
+
+    async def info(cc):
+        return {"acc_mt": "12", "induty_code": "471"}, None
+
+    monkeypatch.setattr(FM, "resolve_company_query", resolve)
+    monkeypatch.setattr(FM, "_safe_company_info", info)
+    monkeypatch.setattr(FM, "_FM_CACHE", type(FM._FM_CACHE)(16 * 1024 * 1024, 300.0, "test-fm-sc1"))
+    p = asyncio.run(FM.build_financial_metrics_payload("시험회사", scope="summary", year=2023))
+    assert p["data"]["summary"]["total_assets_krw"] == 56_717_158_975
+    assert p["data"]["summary"]["data_quality"]["scale_fix"][0]["method"] == "mktcap"
