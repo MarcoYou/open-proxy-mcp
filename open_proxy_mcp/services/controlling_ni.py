@@ -364,6 +364,74 @@ def _sce_ni_row(r) -> bool:
     return _ni_total_name(r.get("account_nm"))
 
 
+#: 중단영업 순이익 줄 이름(손익계산서·자본변동표) — 「중단영업반기순이익」·「중단사업 당기순손익」·「중단영업이익(손실)」. 주당이익·귀속·지배 몫 줄은 걸리지 않는다(이름 전체가 이 꼴일 때만).
+_DISC_NI_NM = re.compile(r"^(?:당기|당반기|반기|당분기|분기)?중단(?:영업|사업)(?:당기|당반기|반기|당분기|분기)?(?:순)?(?:이익|손실|손익)(?:\((?:이익|손실)\))?$")
+
+
+def _disc_id(aid) -> bool:
+    """중단영업 순이익 계정 id — `…ProfitLossFromDiscontinuedOperations` · `…LossFromDiscontinuedOperations` (주당이익·세금 줄 id 는 아니다)."""
+    aid = aid or ""
+    return aid.endswith("FromDiscontinuedOperations") and "PerShare" not in aid and "Tax" not in aid
+
+
+def _disc_ni_name(r) -> bool:
+    return bool(_DISC_NI_NM.match(_ENUM_PREFIX.sub("", _nm(r), count=1)))
+
+
+def _sce_disc_row(r) -> bool:
+    """자본변동표의 중단영업 순이익 줄 — 계정 id `…FromDiscontinuedOperations` 또는 표준코드 없는 중단영업 순이익 이름(089470 「중단영업반기순이익」)."""
+    if r.get("sj_div") != "SCE":
+        return False
+    aid = r.get("account_id") or ""
+    if aid and not aid.startswith("-표준계정코드"):
+        return _disc_id(aid)
+    return _disc_ni_name(r)
+
+
+def _tot_row(rows):
+    """`_ni_shape` 의 당기순이익 총계 줄 — 코드(`_ProfitLoss`) 줄, 없으면 이름 줄(IS 다음 CIS · ord 최선두)."""
+    for pred in (lambda r: (r.get("account_id") or "").endswith("_ProfitLoss"), lambda r: _ni_total_name(r.get("account_nm"))):
+        for sj in ("IS", "CIS"):
+            c = [r for r in rows if r.get("sj_div") == sj and pred(r)]
+            if c and _cum_is(min(c, key=_ordv)) is not None:
+                return min(c, key=_ordv)
+    return None
+
+
+def _tot_cols_disagree(rows) -> bool:
+    """1분기·사업보고서인데 당기순이익 총계 줄의 당기 칸과 누적 칸이 서로 다른가 — 두 칸은 같은 값이어야 한다(3개월 = 누적, 한 해 = 누적).
+    261021 ni-sce-fp: 081580 2022 1분기(접수 20220516001078) 「당기순이익」 줄 당기 칸 24.76억(= 세전 25.39억 − 법인세 0.63억) · 누적 칸 30.90억(오기)."""
+    row = _tot_row(rows)
+    if row is None or str(row.get("reprt_code") or "") not in ("11013", "11011"):
+        return False
+    a, b = normalize_amount(row.get("thstrm_amount")), normalize_amount(row.get("thstrm_add_amount"))
+    return a is not None and b is not None and abs(float(a) - float(b)) > _amt_tol(float(a))
+
+
+def _tot_pbt_fit(rows, tot) -> bool:
+    """당기순이익 총계가 같은 보고서의 법인세차감전 이익 − 법인세비용(+ 중단영업 순이익)과 맞는가 — 법인세비용 줄이 없으면 확인 못 함(False)."""
+    if tot is None:
+        return False
+    tol = _amt_tol(tot)
+    pbt = _sj_first(rows, lambda r: (r.get("account_id") or "").endswith("_ProfitLossBeforeTax"))
+    tax = _sj_first(rows, lambda r: "IncomeTaxExpense" in (r.get("account_id") or ""))
+    if pbt is None or tax is None:
+        return False
+    disc = _sj_first(rows, lambda r: _disc_id(r.get("account_id"))) or 0.0
+    return any(abs(pbt + sg * tax + dv - tot) <= tol for sg in (1, -1) for dv in (0.0, disc))
+
+
+def _disc_ni(rows) -> float | None:
+    """당기순이익 총계 줄이 **계속영업 몫뿐**(이름에 「계속영업」·「계속사업」)이고 0 이 아닌 중단영업 순이익 줄이 따로 있으면 그 값(IS 다음 CIS, 누적 우선), 아니면 None.
+    261021 ni-sce-fp: 089470 2023 반기 — `ProfitLoss` 줄 「계속영업반기순이익」 166.84억 · 「중단영업반기순이익」 30.60억은 `ProfitLoss` 계정이 아니다."""
+    row = _tot_row(rows)
+    if row is None or not any(k in _nm(row) for k in _CONT_NM):
+        return None
+    d = _sj_first(rows, lambda r: _disc_id(r.get("account_id")) or (
+        (not (r.get("account_id") or "") or (r.get("account_id") or "").startswith("-표준계정코드")) and _disc_ni_name(r)))
+    return d or None
+
+
 def _sce_one(bucket) -> tuple[float | None, bool]:
     """경로 → 값들 묶음에서 가장 얕은 경로들의 값이 하나로 모이면 (그 값, True), 비었으면 (None, True), 여럿이면 (None, False — 애매)."""
     if not bucket:
@@ -373,24 +441,11 @@ def _sce_one(bucket) -> tuple[float | None, bool]:
     return (float(vals.pop()), True) if len(vals) == 1 else (None, False)
 
 
-def _sce_ctrl_ni(rows, field: str = "thstrm_amount", shape=None) -> float | None:
-    """같은 응답 자본변동표(sj_div=SCE)의 당기순이익 줄에서 **지배기업 소유주 몫**을 읽는다 — 손익계산서 당기순이익 총계와 맞을 때만, 아니면 None.
-
-    열(account_detail 경로의 마지막 멤버)로 가른다: 「…지배기업의 소유주에게 귀속되는 자본/지분」 = 지배 몫 합계 열 · 「비지배지분」 = 비지배 열 ·
-    「연결재무제표」·「별도재무제표」 = 합계 열 · 나머지 = 구성요소 열. 지배 몫 = ① 지배 몫 합계 열(값이 하나로 모일 때) → ② 없으면 지배 멤버 바로 아래
-    구성요소 열의 합 → ③ 지배 멤버가 아예 없으면 합계 열 − 비지배 열.
-    맞춤(대조 문): 지배 몫 + 비지배 몫(열이 없으면 0) = 손익계산서 당기순이익 총계(`_amt_tol` 안). 손실을 양수로 적는 자본변동표 관행이 있어 두 값의
-    부호를 뒤집어 맞춰 보되 답이 하나로 모일 때만 쓴다(10-20 원문 196490 2020 사업보고서: 지배 몫 +296.05억 · 비지배 +1.18억 · 당기순이익 −294.87억 →
-    −296.05억). 비지배 열이 없는데 손익계산서에 0 이 아닌 비지배 줄이 있으면(두 표가 어긋남) 쓰지 않는다. 같은 경로에 값이 여럿이거나(정정 전·후 줄 등)
-    지배 몫 합계 열 값이 여럿이면 None(애매 — 자본변동표 대조 후보에는 원문 자체가 틀린 오탐이 섞여 있다).
-    `field` = 볼 자본변동표 칸(사업보고서 thstrm·frmtrm·bfefrmtrm · 분기보고서 thstrm = 당기 누적 — DART 응답의 분기 자본변동표엔 당기 칸만 있고 3개월 칸은 없다)."""
-    shape = shape or _ni_shape(rows)
-    tot = shape[0]
-    if tot is None:
-        return None
+def _sce_owner(rows, field, tot, nci_pairs, row_pred) -> float | None:
+    """자본변동표 순이익 줄(`row_pred`)의 지배 몫 — 열 가르기·대조 문은 `_sce_ctrl_ni` 설명 그대로. `tot` = 맞출 당기순이익, `nci_pairs` = 손익계산서 비지배 줄들(`_ni_shape`[2])."""
     owner, nci, total, comp = {}, {}, {}, {}
     for r in rows or []:
-        if not _sce_ni_row(r):
+        if not row_pred(r):
             continue
         v = normalize_amount(r.get(field))
         if v is None:
@@ -432,13 +487,45 @@ def _sce_ctrl_ni(rows, field: str = "thstrm_amount", shape=None) -> float | None
             return None
     tol = _amt_tol(tot)
     if n is None:
-        if any(abs(y) > tol for _r, y in shape[2]):
+        if any(abs(y) > tol for _r, y in nci_pairs):
             return None                               # 손익계산서엔 비지배가 있는데 자본변동표엔 비지배 열이 없다
         n = 0.0
     sols = {so * o for so in (1, -1) for sn in (1, -1) if abs(so * o + sn * n - tot) <= tol}
     if abs(o + n - tot) <= tol:
         return o
     return sols.pop() if len(sols) == 1 else None
+
+
+
+
+def _sce_ctrl_ni(rows, field: str = "thstrm_amount", shape=None) -> float | None:
+    """같은 응답 자본변동표(sj_div=SCE)의 당기순이익 줄에서 **지배기업 소유주 몫**을 읽는다 — 손익계산서 당기순이익 총계와 맞을 때만, 아니면 None.
+
+    열(account_detail 경로의 마지막 멤버)로 가른다: 「…지배기업의 소유주에게 귀속되는 자본/지분」 = 지배 몫 합계 열 · 「비지배지분」 = 비지배 열 ·
+    「연결재무제표」·「별도재무제표」 = 합계 열 · 나머지 = 구성요소 열. 지배 몫 = ① 지배 몫 합계 열(값이 하나로 모일 때) → ② 없으면 지배 멤버 바로 아래
+    구성요소 열의 합 → ③ 지배 멤버가 아예 없으면 합계 열 − 비지배 열.
+    맞춤(대조 문): 지배 몫 + 비지배 몫(열이 없으면 0) = 손익계산서 당기순이익 총계(`_amt_tol` 안). 손실을 양수로 적는 자본변동표 관행이 있어 두 값의
+    부호를 뒤집어 맞춰 보되 답이 하나로 모일 때만 쓴다(10-20 원문 196490 2020 사업보고서: 지배 몫 +296.05억 · 비지배 +1.18억 · 당기순이익 −294.87억 →
+    −296.05억). 비지배 열이 없는데 손익계산서에 0 이 아닌 비지배 줄이 있으면(두 표가 어긋남) 쓰지 않는다. 같은 경로에 값이 여럿이거나(정정 전·후 줄 등)
+    지배 몫 합계 열 값이 여럿이면 None(애매 — 자본변동표 대조 후보에는 원문 자체가 틀린 오탐이 섞여 있다).
+    `field` = 볼 자본변동표 칸(사업보고서 thstrm·frmtrm·bfefrmtrm · 분기보고서 thstrm = 당기 누적 — DART 응답의 분기 자본변동표엔 당기 칸만 있고 3개월 칸은 없다)."""
+    shape = shape or _ni_shape(rows)
+    tot = shape[0]
+    if tot is None:
+        return None
+    if _tot_cols_disagree(rows) and not (_tot_corroborated(rows, tot) or _tot_pbt_fit(rows, tot)):
+        # 261021 ni-sce-fp ①: 1분기·사업보고서인데 당기순이익 줄의 당기 칸과 누적 칸이 다르면 총계 줄 자체를 못 믿는다 — 그 총계에 맞춘 자본변동표도 못 믿는다
+        # (081580 2022 1분기: 누적 칸 오기 30.90억에 자본변동표 지배 열 오기 33.26억 + 비지배 −2.36억이 우연히 맞아 떨어졌다. 참 당기순이익 24.76억).
+        # 총포괄 − 기타포괄 또는 세전 − 법인세(+ 중단영업)로 총계가 확인될 때만 쓴다.
+        return None
+    d = _disc_ni(rows)
+    if d is None:
+        return _sce_owner(rows, field, tot, shape[2], _sce_ni_row)
+    # 261021 ni-sce-fp ②: 총계 줄이 계속영업 몫뿐인데 중단영업 순이익 줄이 따로 있다 — 계속영업 줄만 맞추면 중단영업 몫이 빠진다(089470 2023 반기: 계속 183.45억 +
+    # 중단 30.60억 = 214.05억 인데 계속 줄만 쓰면 183.45억). 계속영업(총계 줄)·중단영업(중단영업 순이익 줄) 두 줄이 각각 맞을 때만, 합을 쓴다.
+    o1 = _sce_owner(rows, field, tot, shape[2], _sce_ni_row)
+    o2 = _sce_owner(rows, field, d, [], _sce_disc_row) if o1 is not None else None
+    return None if o1 is None or o2 is None else o1 + o2
 
 
 def _near(a, b) -> bool:
@@ -700,7 +787,7 @@ def _field_rows(rows, field: str):
     for r in rows or []:
         if r.get("sj_div") in ("IS", "CIS"):
             out.append({**r, "thstrm_amount": r.get(field) or "", "thstrm_add_amount": ""})
-        elif r.get("sj_div") == "SCE" and _sce_ni_row(r):
+        elif r.get("sj_div") == "SCE" and (_sce_ni_row(r) or _sce_disc_row(r)):
             col = _sce_field(field, r.get("reprt_code"))
             out.append({**r, "thstrm_amount": (r.get(col) or "") if col else "", "frmtrm_amount": "", "bfefrmtrm_amount": ""})
         else:
