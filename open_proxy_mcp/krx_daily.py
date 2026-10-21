@@ -48,7 +48,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any, Callable, Iterable, NamedTuple
 
-from open_proxy_mcp import krx_api
+from open_proxy_mcp import krx_api, krx_idx
 
 from open_proxy_mcp.krx_retention import week_unit
 from open_proxy_mcp.market_codes import KQ as MKT_KQ
@@ -233,12 +233,15 @@ def _move_weeks(conn: Any, wk_days: list[date]) -> int:
 @dataclass(frozen=True)
 class Pruned:
     """보관 창 정리 결과. held = 창 밖인데 콜드 보관본에 들어가지 않아 남긴 날(YYYYMMDD).
-    unmoved = (뷰 모드) 주 닫는 날인데 krx_wk 로 옮기지 못해 남긴 날 — 다음 기록 때 다시 옮기고 지운다. moved = 옮긴 행 수."""
+    unmoved = (뷰 모드) 주 닫는 날인데 krx_wk 로 옮기지 못해 남긴 날 — 다음 기록 때 다시 옮기고 지운다. moved = 옮긴 행 수.
+    idx_rows = 같은 날들에서 지운 지수 종가 행 수(`krx_idx.prune_daily`). idx_held = 지수 행을 못 지워 시세 정리도 미룬 날."""
     rows: int = 0
     days: tuple[str, ...] = ()
     held: tuple[str, ...] = ()
     unmoved: tuple[str, ...] = ()
     moved: int = 0
+    idx_rows: int = 0
+    idx_held: tuple[str, ...] = ()
 
 
 def _desummarize(conn: Any, days: list[date]) -> int:
@@ -265,7 +268,10 @@ def prune_window(conn: Any) -> Pruned:
 
     261019(재설계 v03 C4): `krx_weekly` 가 뷰면 지울 날 중 **주 닫는 날**의 행을 먼저 `krx_wk` 로 옮긴다(`_move_weeks`) — 뷰는 일별 저장분의
     주 닫는 날 행을 그대로 보여 주므로, 옮기지 않고 지우면 그 주가 주간 시세에서 사라진다. 옮기기가 실패하면 그 날들은 지우지 않고
-    ERROR 를 남긴다(일별 기록은 그대로 커밋 — 다음 기록이 다시 옮긴다). 표 모드(교체 전)에서는 옮기지 않는다(표가 이미 그 주를 담고 있다)."""
+    ERROR 를 남긴다(일별 기록은 그대로 커밋 — 다음 기록이 다시 옮긴다). 표 모드(교체 전)에서는 옮기지 않는다(표가 이미 그 주를 담고 있다).
+
+    261021(P0 지수 종가): 지울 날의 지수 종가(`krx_idx`) 중 주 닫는 날이 아닌 날의 행을 **달력 행을 지우기 전에** 같은 트랜잭션에서 지운다
+    (`krx_idx.prune_daily` — 같은 날·같은 술어. 주 닫는 날은 `krx_wk_day` 로 옮겨지므로 남는다). 지수 행을 못 지운 날은 시세도 지우지 않고 미룬다."""
     latest = conn.execute(LATEST_DAY_SQL).fetchone()[0]
     if not latest:
         return Pruned()
@@ -285,6 +291,13 @@ def prune_window(conn: Any) -> Pruned:
                 go = [dd for dd in go if dd not in unmoved]
                 logger.error("일별 시세 보관 창 정리: 주 닫는 날 %s 의 행을 krx_wk 로 옮기지 못해 그 날을 지우지 않았다"
                              "(다음 기록 때 다시) %s: %s", ",".join(unmoved), type(exc).__name__, exc)
+    idx_rows = 0
+    idx_held: tuple[str, ...] = ()
+    if go:
+        idx_rows, left = krx_idx.prune_daily(conn, [_d(x) for x in go])
+        if left:
+            idx_held = tuple(sorted({_dd(d) for d in left}))
+            go = [dd for dd in go if dd not in idx_held]
     if go:
         days = [_d(x) for x in go]
         with_rows = [_d(dd) for dd, n, closed, cold in cands if dd in go and n]
@@ -299,7 +312,9 @@ def prune_window(conn: Any) -> Pruned:
                        latest, lo, len(held), held[0], held[-1], "·".join(years))
     if moved:
         logger.info("일별 시세 보관 창 정리: 주 닫는 날 행 %d개를 krx_wk 로 옮긴 뒤 지움", moved)
-    return Pruned(rows, tuple(go), held, unmoved, moved)
+    if idx_rows:
+        logger.info("일별 시세 보관 창 정리: 같은 날의 지수 종가 %d행 지움(주 닫는 날은 남김)", idx_rows)
+    return Pruned(rows, tuple(go), held, unmoved, moved, idx_rows, idx_held)
 
 
 def write_daily(conn: Any, price_dd: str, kospi: list, kosdaq: list) -> tuple[bool, int, int]:
