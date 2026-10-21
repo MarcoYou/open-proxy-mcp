@@ -446,7 +446,9 @@ def brinson_fachler(groups: Mapping[str, GroupPeriod]) -> BrinsonPeriod:
     """한 기간의 Brinson-Fachler 분해. 배분 = (wP−wB)(rB_j−RB), 선택 = wB(rP_j−rB_j), 상호작용 = (wP−wB)(rP_j−rB_j).
 
     수익률이 없는 쪽(비중 0)은 중립으로 채운다 — 대상이 안 가진 묶음은 rP := rB(선택·상호작용 0), 벤치마크가 안 가진 묶음은 rB := RB(배분 0).
-    어느 값으로 채워도 합 Σ(배분+선택+상호작용) = Σ wP·rP − Σ wB·rB 는 변하지 않는다."""
+    비중이 0 인 쪽을 채우는 한 합 Σ(배분+선택+상호작용) = Σ wP·rP − Σ wB·rB 는 어느 값으로 채워도 변하지 않는다.
+    비중이 있는데(wP>0 또는 wB>0) 그 쪽 수익률이 None 이면 이 항등식이 깨진다(예: wP>0·rP=None 이면 합이 rP−rB 와 어긋난다) —
+    호출부는 비중이 1e-12 이하일 때만 None 을 넘긴다."""
     r_b_total = sum(g.w_b * g.r_b for g in groups.values() if g.w_b and g.r_b is not None)
     r_p_total = sum(g.w_p * g.r_p for g in groups.values() if g.w_p and g.r_p is not None)
     eff: dict[str, tuple[float, float, float]] = {}
