@@ -56,6 +56,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | `open_proxy_mcp/services/controlling_eq.py` (`controlling_eq`·`ctrl_line_rejected`) | 지배자본 줄 고르기와 못 믿을 줄의 판정(EQ1~EQ4) | 분기·연간 수집 · XBRL 원본 대체 · `price_multiple_data` 실시간 firm · `period_cells` |
 | `open_proxy_mcp/services/restated_pit.py` | 정정 칸은 출처 보고서가 공시된 날부터(PIT4, PIT9) | `price_multiple_data` 곡선·과거 시점·업종 비교 · 시장·업종 과거 백필(`scripts/market_val_history_backfill.py`·`scripts/sector_val_backfill.py`) · `period_cells` |
 | `open_proxy_mcp/services/scale_guard.py` (`assess`·`reconcile_report_scales`·`gid_exact`) | 단위 오류 탐지와 보고서 사이 대조(SC1~SC3), 계정 id 정확 일치(EQ3) | `price_multiple_data` 실시간 firm · 분기·연간 수집 · `restated_pit` |
+| `open_proxy_mcp/services/value_tol.py` (`same`·`differs`·`differs_sql`) | 다시 계산한 실수 값을 저장값과 견줄 때 「같다」의 허용 오차 한 곳 — 읽는 자릿수 차이로 행을 다시 쓰지 않는다(Q7) | 재무 요약 재파생(`scripts/market_fund_quarterly.py` `derive_fundamentals`) |
 | `open_proxy_mcp/services/period_cells.py` | 반기·분기 결산 회사의 결산기 12개월 합(FY3, FY4, DIV1) | `price_multiple_data` · 분기 수집(`--period-cells`) · 시장·업종 집계 배치 |
 | `open_proxy_mcp/services/report_calendar.py` (`fiscal`·`cell_end`·`pit_cell`·`pit_annual`·`latest_annual`) | 칸 `(fy, quarter)` ↔ 실제 기간 말 ↔ 공시 시점, 결산월별 기본 사업연도(FY1, FY2, PIT8) | `price_multiple_data` · `financial_metrics` · `dividend_data` · 수집·백필 스크립트 |
 | `open_proxy_mcp/dart/fx.py` (`fx_to_krw`·`fx_source`·`statement_currency`) | 환율 정본(ECOS)·출처 표시·기능통화 감지(FX1~FX4) | `price_multiple_data` · `financial_metrics` · `asset_holdings` · 분기·연간 수집 |
@@ -365,6 +366,15 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
   `financial_metrics` 의 `yoy` 에 올해를 주면 당해 반기 누적과 전년 연간 12개월로 신호(`revenue_decline` 등)를 계산한다(#170 에서 고침 — 전기를 당기와 같은 보고서로 다시 센다).
 - **막는 곳**: 값 옆에 기간·기준을 싣는다(`ni_basis`·`eps_ttm_basis`·「TTM 기준」 줄·`dps_basis`). 새 비교식은 두 값의 기간이 같은지 먼저 검사한다.
 - **남은 한계**: `yoy` 가 전기의 같은 보고서를 못 찾으면 기간에 민감한 신호는 계산하지 않고(`alerts_not_evaluated`) 까닭을 적는다.
+
+#### DATA-Q7 다시 계산한 실수 값을 저장값과 견줄 때 「같다」의 기준 — 읽는 자릿수 차이는 값이 달라진 것이 아니다
+- **무엇이 틀리나**: 재무 요약 재파생(`derive`)이 저장값과 정확히 같지 않은 행만 쓴다고 하면, 같은 입력을 **읽는 자릿수만 달리해도** 끝자리가 다른 값이 나와 매번 쓴다. 운영 DB 새 연결의 기본
+  `extra_float_digits` 는 0(실수 15자리)이고 운영 배치가 그렇게 읽고 쓰는데, 정밀 읽기(3 — 17자리)로 같은 칸을 다시 계산하면 외화 환산 값처럼 17자리를 다 쓰는 입력에서 합이 상대 2e-15 이하로 다르다.
+  정확 비교는 이를 「바뀐 행」으로 세어 쓰고 다음 배치가 되돌렸다(매일 왕복) — 점검 도구가 「재파생하면 바뀔 종목」을 셀 때도 17종목이 늘 흔들렸다.
+- **공개 예**: 재파생을 정밀 읽기로 돌리면 900xxx·950xxx 외국 상장사와 008700 17종목이 상대 1e-16 ~ 2e-15 끝자리 차이만으로 바뀐 행으로 나왔다. 값이 정말 달라진 종목은 그 위에 얹혀 보였다(#171 의 TTM 88종목).
+- **막는 곳**: `open_proxy_mcp/services/value_tol.py` — 허용 오차를 한 곳에 둔다: 상대 `REL_TOL` 1e-9 **또는** 절대 `ABS_TOL` 0.01(원, 합이 0 근처로 상쇄될 때). 순수 함수(`same`·`differs`)와 SQL 식(`differs_sql`)이 같은
+  규칙이다(빈 칸은 빈 칸끼리만 같다). `derive_fundamentals` 의 쓰기 조건이 이것을 쓴다 — 한 칸이라도 정말 달라졌으면 네 칸을 새 값으로 쓰고, 끝자리 잡음뿐이면 쓰지 않는다.
+- **남은 한계**: 허용 오차는 재파생에만 걸었다. 값이 달라졌는지 견주는 다른 자리(시장·업종 집계의 `IS DISTINCT FROM` 쓰기 조건, 점검 도구의 `--check`)는 자기 기준을 따로 둔다 — 같은 문제를 겪으면 이 모듈을 쓴다.
 
 ### API — DART 응답·한도
 
@@ -737,7 +747,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | DATA-Q1 | 반기·3분기 대체 경로의 3개월 순이익 전년비가 전년 누적과 견줘진다 | 닫힘 #170 |
 | DATA-Q5 | 분기 표 한 해 안에 연결/별도가 섞인 종목이 DB 경로 TTM 에 함께 쓰인다 | 닫힘 #171 (저장된 재무 요약 TTM 칸 88종목을 다시 씀) |
 | DATA-Q6 | `yoy` 에 올해를 주면 당해 반기 누적과 전년 연간 12개월을 견준다 | 닫힘 #170 |
-| DATA-Q7 | 재파생(요약 TTM 등)이 입력 숫자를 읽는 자릿수에 따라 끝자리만 다른 값을 내서, 저장값과의 비교가 17개 종목에서 흔들린다(상대 2e-15 이하, 기준 자릿수 미정) | 열림 |
+| DATA-Q7 | 재파생(요약 TTM 등)이 입력 숫자를 읽는 자릿수에 따라 끝자리만 다른 값을 내서, 저장값과의 비교가 17개 종목에서 흔들린다(상대 2e-15 이하, 기준 자릿수 미정) | 코드 닫힘 — 이 PR(병합 뒤 문서 동기화 PR 이 번호를 채운다): 비교 허용 오차를 `value_tol` 한 곳(상대 1e-9 또는 절대 0.01원)에 두고 재파생 쓰기 조건이 쓴다. 저장값은 바꾸지 않았다 |
 | DATA-API1 | 배수 도구의 DART 조회 보조 함수가 020 을 포함한 모든 오류를 빈 응답으로 삼킨다 | 닫힘 #171 |
 | DATA-API1 | `financial_metrics` 분기 추이가 일부 분기 조회 실패(020 등)를 「미제출」로 표시한다 | 닫힘 #170 |
 | DATA-API1 | `financial_metrics` 분기 공시 상태가 제출 기한(45일) 전이어도 결산일이 지나면 「미제출」이다 | 열림 |

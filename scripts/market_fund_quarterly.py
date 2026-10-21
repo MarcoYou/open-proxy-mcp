@@ -69,6 +69,7 @@ from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fx_source, 
 from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
+from open_proxy_mcp.services import value_tol as vtol
 
 # 분기 수집연도: 2019~현재. 2018 분기는 2019 TTM에만 필요(→ 2020~ 추이엔 불필요)해 제외 —
 # 2018은 seed_q4가 mkt_finstat_y에서 Q4(연간)만 seed. TTM은 2019 동분기가 있어 2020~부터 산출.
@@ -369,7 +370,11 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
     한 해 앞(fy-1)에서 가져왔다 — 3월 결산의 2026 1분기(6월 말) TTM 이 2025.03 사업보고서 + (2026.06 − 2025.06 누적)이 됐다(맞는 값은 2026.03).
 
     261021(L3): TTM 의 세 칸(직전 연간 · 당해 누적 · 전년 누적)은 **같은 재무제표 기준(연결 CFS·별도 OFS)** 일 때만 더하고 뺀다(`ttm_from_cells`). 한 해 안에 기준이
-    섞인 종목의 최신 칸은 비어 앞선 칸의 TTM 으로 센다(`pick_ttm` — 최신 분기보고서를 안 낸 회사가 앞선 칸을 쓰는 것과 같은 규칙, 네 칸 안)."""
+    섞인 종목의 최신 칸은 비어 앞선 칸의 TTM 으로 센다(`pick_ttm` — 최신 분기보고서를 안 낸 회사가 앞선 칸을 쓰는 것과 같은 규칙, 네 칸 안).
+
+    261021(DATA-Q7): 저장값과 견주는 「달라졌다」는 `value_tol`(상대 1e-9 또는 절대 0.01원) 밖일 때만이다 — 운영 배치는 새 연결 기본(`extra_float_digits` 0, 실수 15자리 읽기)으로 읽고 쓰는데
+    정밀 읽기(3)로 같은 칸을 다시 계산하면 외화 환산 값처럼 17자리를 쓰는 입력(900xxx·950xxx·008700 17종목)에서 합이 상대 2e-15 이하로 달라, 정확 비교는 그 17종목을 쓰고
+    다음 배치가 되돌렸다(매일 왕복)."""
     from collections import defaultdict
     con = _pg(); con.autocommit = True
     q: dict[str, dict] = defaultdict(dict)
@@ -413,10 +418,14 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
         ni_fy, eq_fy = m.get((fy_full, 4), (None, None)) if fy_full else (None, None)
         eq_mrq = m[latest(eq_present)][1] if eq_present else None    # eq 있는 최신분기(기간 말 기준)
         ni_ttm, _ttm_cell = pick_ttm(m, fs_all.get(isu, {}), fye, ni_present, latest)   # ni 있는 최신분기 기준 TTM(261021: 세 칸 같은 재무제표 기준)
+        # 261021(DATA-Q7): 「달라졌다」는 `value_tol` 의 허용 오차 밖일 때만 — 운영 배치(extra_float_digits 0, 15자리 읽기)와 정밀 읽기(3)가 같은 입력에서 내는 끝자리 차이로
+        #   17종목(외화 환산 값)을 쓰지 않는다. 한 칸이라도 정말 달라졌으면 네 칸을 새 값으로 쓴다.
+        cols = ("ni_fy", "ni_ttm", "eq_fy", "eq_mrq")
         cur = con.execute(
-            "UPDATE dart_fundamentals SET ni_fy=%s, ni_ttm=%s, eq_fy=%s, eq_mrq=%s WHERE ticker=%s "
-            "AND (ni_fy, ni_ttm, eq_fy, eq_mrq) IS DISTINCT FROM (%s::float8, %s::float8, %s::float8, %s::float8)",
-            (ni_fy, ni_ttm, eq_fy, eq_mrq, isu, ni_fy, ni_ttm, eq_fy, eq_mrq))
+            "UPDATE dart_fundamentals d SET ni_fy=v.ni_fy, ni_ttm=v.ni_ttm, eq_fy=v.eq_fy, eq_mrq=v.eq_mrq "
+            "FROM (SELECT %s::float8 AS ni_fy, %s::float8 AS ni_ttm, %s::float8 AS eq_fy, %s::float8 AS eq_mrq) v WHERE d.ticker=%s AND ("
+            + " OR ".join(vtol.differs_sql(f"d.{c}", f"v.{c}") for c in cols) + ")",
+            (ni_fy, ni_ttm, eq_fy, eq_mrq, isu))
         seen += 1
         updated += cur.rowcount
     con.close()
