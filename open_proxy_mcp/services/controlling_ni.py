@@ -687,6 +687,8 @@ def extract_controlling_ni_cum(rows):
       {IS,CIS}_CIID        — 총포괄 계정 id 를 붙인 줄인데 값 구조가 순이익(순이익 귀속 줄에 총포괄 id — 056360) (261020)
       TOTAL_MINUS_MINORITY — 명시 지배행 없으나 당기순이익 총계 − 비지배순이익 [유한양행형: 서브토탈 부재]
       TOTAL                — 지배·비지배 귀속 둘 다 부재 → 당기순이익 총계=지배 [001340·NAVER 무소수지분]
+      TOTAL_SCE            — TOTAL 인데 같은 응답 자본변동표가 지배 + 비지배 = 당기순이익으로 맞고 비지배 몫이 0 이 아니라 총계에 비지배가 들어 있음 → 자본변동표 지배 몫
+                             (261022 DATA-NI3 — 217500 2026 1분기 −4.05억 → −594.3만 · 081580 FY2023 −4.90억 → −1.62억)
       TOTAL_NM[_MINUS_MINORITY] — 위와 같은데 총계 행을 코드가 아니라 이름으로 찾음(261018, 표준 계정코드 미사용 회사)
       …_CIREJ              — 위 총계 규칙인데 지배 줄(id·이름)이 총포괄이익의 지배 몫이라 버린 보고서(261020)
       …_CINCI              — 순이익 쪽 비지배 줄이 없어 총포괄 쪽 비지배 줄(버린 지배 몫과 짝)로 뺀 보고서(261020 검토 — 근사, 비지배 몫 기타포괄만큼 어긋남.
@@ -775,6 +777,13 @@ def extract_controlling_ni_cum(rows):
                 return hit
             sj_tot = "IS" if any(r.get("sj_div") == "IS" for r in rows) else "CIS"
             return sce, f"{sj_tot}_SCE"
+        if (sce is not None and mino is None and not (nm or rj or ci_nci or ix) and not shape[2]
+                and not _near(tot, sce)):
+            # 261022 DATA-NI3: 순수 TOTAL 길 — 손익계산서에 지배·비지배 귀속 줄이 하나도 없어 총계 = 지배로 읽었는데, 같은 응답의 자본변동표가
+            # 지배 몫 + 비지배 몫 = 당기순이익(`_sce_ctrl_ni` 가 그때만 값을 낸다)으로 맞고 지배 몫이 총계와 다르다 = 비지배 몫이 0 이 아니다 → 총계에는 비지배가 들어 있다.
+            # 자본변동표 지배 몫을 쓴다(케이스 `TOTAL_SCE`). 운영 217500 2026 1분기 −4.05억 → −594.3만(자본변동표 지배 −594.3만 · 비지배 −3.99억),
+            # 081580 FY2023 −4.90억 → −1.62억. 이름으로 찾은 총계(`_NM`)·버린 줄 길(`_CIREJ`·`_CINCI`·`_IDX`)은 위 분기가 이미 다룬다.
+            return sce, "TOTAL_SCE"
         return v, case
     return (None, "MINORITY_NO_CTRL") if mino is not None else (None, "NO_INCOME_ROW")
 
