@@ -55,7 +55,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | `open_proxy_mcp/services/controlling_ni.py` (`controlling_ni`·`ni_attrib_side`) | 지배 귀속 순이익 줄 고르기 — 값 구조 검사(NI1~NI3) | 분기·연간 수집(`scripts/market_fund_quarterly.py`·`scripts/market_val_series.py`) · `price_multiple_data` 실시간 firm · `financial_metrics` · `period_cells` |
 | `open_proxy_mcp/services/controlling_eq.py` (`controlling_eq`·`ctrl_line_rejected`) | 지배자본 줄 고르기와 못 믿을 줄의 판정(EQ1~EQ4) | 분기·연간 수집 · XBRL 원본 대체 · `price_multiple_data` 실시간 firm · `period_cells` |
 | `open_proxy_mcp/services/restated_pit.py` | 정정 칸은 출처 보고서가 공시된 날부터(PIT4, PIT9) | `price_multiple_data` 곡선·과거 시점·업종 비교 · 시장·업종 과거 백필(`scripts/market_val_history_backfill.py`·`scripts/sector_val_backfill.py`) · `period_cells` |
-| `open_proxy_mcp/services/scale_guard.py` (`assess`·`reconcile_report_scales`·`gid_exact`) | 단위 오류 탐지와 보고서 사이 대조(SC1~SC3), 계정 id 정확 일치(EQ3) | `price_multiple_data` 실시간 firm · 분기·연간 수집 · `restated_pit` |
+| `open_proxy_mcp/services/scale_guard.py` (`assess`·`reconcile_report_scales`·`gid_exact`) | 단위 오류 탐지와 보고서 사이 대조(SC1~SC3), 계정 id 정확 일치(EQ3) | `price_multiple_data` 실시간 firm · `financial_metrics` · 연간 수집(`reconcile_report_scales`, DATA-SC4) · 분기 수집(`assess` 의 전기 칸 대조) · `restated_pit` |
 | `open_proxy_mcp/services/period_cells.py` | 반기·분기 결산 회사의 결산기 12개월 합(FY3, FY4, DIV1) | `price_multiple_data` · 분기 수집(`--period-cells`) · 시장·업종 집계 배치 |
 | `open_proxy_mcp/services/report_calendar.py` (`fiscal`·`cell_end`·`pit_cell`·`pit_annual`·`latest_annual`) | 칸 `(fy, quarter)` ↔ 실제 기간 말 ↔ 공시 시점, 결산월별 기본 사업연도(FY1, FY2, PIT8) | `price_multiple_data` · `financial_metrics` · `dividend_data` · 수집·백필 스크립트 |
 | `open_proxy_mcp/dart/fx.py` (`fx_to_krw`·`fx_source`·`statement_currency`) | 환율 정본(ECOS)·출처 표시·기능통화 감지(FX1~FX4) | `price_multiple_data` · `financial_metrics` · `asset_holdings` · 분기·연간 수집 |
@@ -184,7 +184,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 - **막는 곳**: `scale_guard.reconcile_report_scales` — firm 이 이미 읽은 보고서끼리 같은 날짜 자본총계를 댄다(사업보고서 당기 말 ↔ 그 뒤 분기 보고서 전기 칸 등). 비율이 10ⁿ(|n|≥2, ±20%)이면 어느 쪽이 틀렸는지 두 신호로 가린다 — **다수결**(같은 단위 보고서가 둘 이상이고 최다)과
   **시총**(가장 새 자본을 각 단위로 바꾼 PBR 가운데 0.1~10배 안이 하나뿐). 두 신호가 다 있으면 같아야 고친다(같은 해 보고서 둘이 함께 틀린 경우 다수결이 틀린 쪽을 고르는 것을 막는다). 통화가 같은 보고서끼리만 댄다(원화·달러의 1/1,100 이 10⁻³ 에 붙는 오판을 막는다 — 외화 보고사는 환산 뒤 댄다, 글로벌에스엠
   2026 반기 자본 130.9조 오판 → 1,309억). 못 가리면 값은 그대로 두고 hard `cross_report_scale` 표시와 경고를 단다.
-- **남은 한계**: 대 볼 보고서가 둘 미만인 **상장 첫해**(사업보고서 뒤 분기가 아직 없을 때)는 못 잡는다. `financial_metrics` 는 #167 부터 앞뒤 해 사업보고서끼리 다수결로 대조해 금액만 나눠 쓴다(065150 FY2023 ÷1,000 · 032680 FY2022 ÷10⁶) — 보고서가 둘뿐인 `summary`·`years=1` 은 다수결이 서지 않아 값은 그대로 두고 경고만 단다(열린 결함). 저장된 연간 재무 칸의 같은 단위 오류 네 행(065150 FY2023 ×1,000 · 032680 FY2022 ×10⁶ · 311390 FY2022 ×1,000 · 0091W0 FY2025 ×1,000 — 정정 칸은 바른 단위)은 261021 에 바로잡았다. 같은 보고서 사이 대조가 연간 수집(정규 받기·정정 보고서 다시 받기)의 원본 칸 쓰기에는 아직 없다(DATA-SC4).
+- **남은 한계**: 대 볼 보고서가 둘 미만인 **상장 첫해**(사업보고서 뒤 분기가 아직 없을 때)는 못 잡는다. `financial_metrics` 는 #167 부터 앞뒤 해 사업보고서끼리 다수결로 대조해 금액만 나눠 쓴다(065150 FY2023 ÷1,000 · 032680 FY2022 ÷10⁶) — 보고서가 둘뿐인 `summary`·`years=1` 은 다수결이 서지 않아 값은 그대로 두고 경고만 단다(열린 결함). 저장된 연간 재무 칸의 같은 단위 오류 네 행(065150 FY2023 ×1,000 · 032680 FY2022 ×10⁶ · 311390 FY2022 ×1,000 · 0091W0 FY2025 ×1,000 — 정정 칸은 바른 단위)은 261021 에 바로잡았다. 연간 수집(정규 받기·정정 보고서 다시 받기·다시 받기)의 원본 칸 쓰기에도 같은 보고서 사이 대조가 #182 부터 들어갔다(DATA-SC4).
 
 #### DATA-SC2 항등식 검사는 hard/soft 로 나누고 총자본으로 본다
 - **무엇이 틀리나**: 자산 = 부채 + 자본 항등식이 0.01% 만 어긋나도 값을 무효화(hard)하면 **멀쩡한 값을 지운다.** 항등식 양변은 자본**총계**(비지배 포함) 기준이라 지배자본을 넣으면 비지배가 큰 회사가 틀어진다.
@@ -199,6 +199,20 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
   065150 FY2021 은 2023 보고서가 1,000배, 478560 FY2023 은 순이익 0 후보였다.
 - **막는 곳**: 정정 칸 후보가 그 해 칸과 같은 숫자인데 10ⁿ 배(|n|≥2) 다르면 보고서 사이 단위 오류 꼴이라 쓰지 않고 경고만 남긴다(`scale_guard.check_prior_period_mismatch` — 정정 칸 쓰기 경로, #157).
 - **남은 한계**: **부호만 뒤집힌** 후보와 순이익 0 후보는 보조 점검 도구가 걸렀을 뿐 수집 경로의 규칙이 아니다. 원문을 대 보지 못한 행은 규칙대로 채우지 못한 채 남아 있다(2025 사업보고서의 전기·전전기 칸이 출처여야 하는 FY2023·2024 행).
+
+#### DATA-SC4 연간 수집의 원본 칸 쓰기에 보고서 사이 단위 대조가 없다
+- **무엇이 틀리나**: 연간 수집(`scripts/market_val_series.py` 의 정규 `--fetch`·정정 사업보고서 다시 받기 `--amended`·`--refetch`)은 한 보고서 안의 검사(`assess` — 항등식·자릿수·전기 대비)만 했다.
+  회사가 단위를 잘못 적어 사업보고서가 **통째로** 10ⁿ 배면 그 검사는 모두 맞아(항등식 0.0000%) 값이 원본 칸에 그대로 들어간다. 정정 사업보고서가 같은 단위로 오면 한 번 바로잡은 칸에도 10ⁿ 배 값이 도로 들어간다.
+  정정 칸 후보와 정정 칸 비우기만 10ⁿ 어긋난 꼴을 건너뛰었고 원본 칸 쓰기에는 대조가 없었다.
+- **공개 예**: 065150 FY2023(×1,000, 자산 56.7조) · 032680 FY2022(×10⁶) · 311390 FY2022(×1,000) · 0091W0 FY2025(×1,000, 이웃 보고서가 하나뿐) — 모두 DATA-SC1 이 같은 원인으로 저장 칸을 바로잡은 행이다.
+- **막는 곳**: `market_val_series.cross_report_plan` — 새 사업보고서의 당기·전기·전전기 말 자본을 **저장돼 있는 이웃 해 값**(원본 칸 = 그 해 보고서의 접수번호, 정정 칸 = 출처 접수번호 — 접수번호를 모르면 칸 종류·해마다 따로 센다)과 서버 실시간 firm·`financial_metrics` 와 같은
+  `scale_guard.reconcile_report_scales` 로 댄다. 새 보고서와 짝으로 이어진 보고서들만 보고, 지금 바꾸려는 그 해 원본 칸(정정 보고서라면 옛 판)과, 지금 보고서·그 해 옛 판에서 온 앞 해 정정 칸(이 보고서의 메아리)은 비교에서 뺀다. 같은 실행에서 먼저 받은 해도 이웃으로 댄다. 외화 보고사는 저장과 같은 결산월 말 환율로 원화로 바꿔 댄다.
+  새 보고서가 틀렸으면 금액 칸만 10ⁿ 으로 나눠 쓴다(`rescale_rows`, 주당 금액은 그대로 — 가린 근거는 다수결·시총 PBR). 못 가리면(이웃이 하나뿐이고 시총도 못 읽음 등) 값을 쓰지 않는다:
+  정규 수집은 「자료 없음」으로 두어 다음 보고서가 나올 때 다시 보고, 다시 받기는 있던 ok 행을 그대로 둔다. 저장 칸이 틀린 쪽이면(새 보고서가 이웃 다수와 맞음) 새 보고서는 그대로 쓰고 경고만 한다 — 저장 칸 고치기는 이 수집의 일이 아니다.
+  전기·전전기 칸만 저장 값과 어긋나고 당기 자본이 바로 앞 해 저장 값과 이어지면(20배 안쪽) 「보고서가 통째로 틀렸다」는 가정이 서지 않아 당기 값을 나누지도 막지도 않고 그대로 쓴다(그 전기 칸은 정정 칸 쓰기의 단위 꼴 검사가 막는다).
+  DART 콜은 늘지 않는다(어긋남이 있을 때만 시총 한 행을 읽는다). 원문 캐시 사업보고서 11,136개(원화 11,030)를 운영 저장 칸에 대 본 결과 clean 11,027 · 바로잡음 3(위 셋) · 못 가림 0이었다.
+- **남은 한계**: 대 볼 저장 칸이 없는 **상장 첫해**는 못 잡는다(이웃이 없어 clean 으로 둔다). 분기 수집은 아직 옛 규칙이다 — 보고서의 전기 칸을 저장된 연간 값과만 대고 **저장된 연간 값을 정답으로** 믿는다(`check_prior_period_mismatch`, 저장 값이 틀리면 맞는 분기를 10ⁿ 배로 「복구」할 수 있다).
+  이 가드로 연간 저장 칸은 이전보다 믿을 만하지만 분기 쪽을 같은 함수로 옮기는 일은 열려 있다. 외화 보고사 98개는 환율을 거치는 길이라 시험(가짜 환율)으로만 확인했다.
 
 ### PIT — 정정·시점(미래 정보)
 
@@ -710,7 +724,8 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | DATA-SC1 | `financial_metrics` 에 보고서 사이 단위 대조가 없다 | 닫힘 #167 (앞뒤 해 사업보고서 다수결 단위 가드) |
 | DATA-SC1 | `financial_metrics` 의 `summary`·`years=1` 은 보고서가 둘뿐이라 단위 어긋남을 고치지 못하고 경고만 한다 | 열림 |
 | DATA-SC1 | 저장된 연간 재무 칸에 보고서 단위 오류가 남아 있다(065150 FY2023 ×1,000 · 032680 FY2022 ×10⁶ · 311390 FY2022 ×1,000 · 0091W0 FY2025 ×1,000) | 닫힘 — 저장된 칸 네 행을 바로잡음(데이터 고침, 코드 변경 없음). 재발 빈틈은 DATA-SC4 |
-| DATA-SC4 | 연간 수집(정규 받기와 정정 보고서 다시 받기 모두)이 원본 칸을 쓸 때 보고서 사이 단위 대조(`reconcile_report_scales`)가 없다 — 한 보고서 안 검사(`assess`)만 있고, 정정 칸 후보·정정 칸 비우기만 10ⁿ 어긋난 꼴을 건너뛴다. 한 보고서가 통째로 틀린 단위로 오면(정정 보고서 포함) 원본 칸에 어긋난 값이 다시 들어갈 수 있다 | 열림 |
+| DATA-SC4 | 연간 수집(정규 받기와 정정 보고서 다시 받기 모두)이 원본 칸을 쓸 때 보고서 사이 단위 대조(`reconcile_report_scales`)가 없다 — 한 보고서 안 검사(`assess`)만 있고, 정정 칸 후보·정정 칸 비우기만 10ⁿ 어긋난 꼴을 건너뛴다. 한 보고서가 통째로 틀린 단위로 오면(정정 보고서 포함) 원본 칸에 어긋난 값이 다시 들어갈 수 있다 | 닫힘 #182 (`market_val_series.cross_report_plan` — 새 사업보고서의 당기·전기·전전기 자본을 저장된 이웃 해 원본·정정 칸과 `reconcile_report_scales` 로 대 나눠 쓰거나 못 가리면 쓰지 않는다) |
+| DATA-SC4 | 분기 수집의 전기 칸 대조(`check_prior_period_mismatch`)는 저장된 연간 값을 정답으로 믿어, 저장 값이 틀리면 맞는 분기 보고서를 10ⁿ 배로 「복구」할 수 있다 — 실시간 firm·연간 수집의 `reconcile_report_scales`(다수결·시총)와 규칙이 다르다 | 열림 |
 | DATA-PIT5 | 자본이 다른 칸·출처 있는 칸의 원본 칸 수집 결함이 정정 칸에 가려 있다가 과거 시점 점에 드러날 수 있다 | 열림 |
 | DATA-PIT8 | 원본 칸의 공시일이 기한 규칙이라 늦게 낸 보고서를 앞당겨 쓴다 | 열림 |
 | DATA-PIT10 | 065150 FY2023 은 단위 고침 뒤에도 정정 칸 출처 접수일(2026-03-23) 전 시점에 원본 값을 쓴다 — 그보다 먼저 공시된 2024 보고서 전기 칸(2025-03-21 접수)과 1년 동안 다른 값이 나온다(출처 날짜를 가장 늦은 보고서로 잡는 `restated_pit` 의 한계) | 열림 |
