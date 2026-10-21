@@ -369,9 +369,11 @@ _DISC_NI_NM = re.compile(r"^(?:당기|당반기|반기|당분기|분기)?중단(
 
 
 def _disc_id(aid) -> bool:
-    """중단영업 순이익 계정 id — `…ProfitLossFromDiscontinuedOperations` · `…LossFromDiscontinuedOperations` (주당이익·세금 줄 id 는 아니다)."""
+    """중단영업 순이익 계정 id — `…ProfitLossFromDiscontinuedOperations` · `…LossFromDiscontinuedOperations` (주당이익·세금 줄 id 는 아니다).
+    총포괄·현금흐름 조정 줄 id 도 아니다 — 10-20 원문 캐시 손익 표에 `ifrs-full_ComprehensiveIncomeFromDiscontinuedOperations`(중단영업 총포괄) 29줄 ·
+    `dart_AdjustmentsFor…FromDiscontinuedOperations`(현금흐름표 조정 줄을 손익 표에 둔 보고서) 2줄이 있다."""
     aid = aid or ""
-    return aid.endswith("FromDiscontinuedOperations") and "PerShare" not in aid and "Tax" not in aid
+    return aid.endswith("FromDiscontinuedOperations") and not any(k in aid for k in ("PerShare", "Tax", "ComprehensiveIncome", "Adjustments"))
 
 
 def _disc_ni_name(r) -> bool:
