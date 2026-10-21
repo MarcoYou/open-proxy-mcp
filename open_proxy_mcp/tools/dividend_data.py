@@ -333,7 +333,11 @@ def register_tools(mcp):
         """
         # 261018: 아래 `dd.*` 는 전부 **동기 DB 호출**이다. async 함수 안에서 그대로 부르면 질의가 끝날 때까지 서버 전체(다른 도구·/health)가
         #   멈춘다 — 연도 범위 질의만 평균 475ms(차가운 캐시 1.5초)였다. 스레드로 보내 루프를 비워 둔다.
-        rng = await asyncio.to_thread(dd.year_range)
+        # screen 은 사업보고서가 있는 마지막 해(`latest_annual_year`)도 곧 필요하다 — 서로 입력이 필요 없는 두 읽기라 함께 보낸다(풀 왕복 하나 절약).
+        if scope == "screen":
+            rng, ann_hi = await asyncio.gather(asyncio.to_thread(dd.year_range), asyncio.to_thread(dd.latest_annual_year))
+        else:
+            rng, ann_hi = await asyncio.to_thread(dd.year_range), None
         if rng is None:
             return "## 배당 원장 DB 조회 실패 (`status=db_error`)\n\n> 일시 장애일 수 있다. 잠시 뒤 다시."
         lo, hi = rng
@@ -362,7 +366,6 @@ def register_tools(mcp):
         if scope == "screen":
             # 261019: 연간 확정치(사업보고서)만 거르는 화면이다 — 기본 연도는 사업보고서가 있는 마지막 해.
             #   원장이 매주 갱신되며 올해 1분기·반기 행이 먼저 들어오므로 `hi`(모든 보고서 기준)를 쓰면 빈 결과가 난다.
-            ann_hi = await asyncio.to_thread(dd.latest_annual_year)
             if ann_hi is None:
                 return "## 배당 원장 DB 조회 실패 (`status=db_error`)\n\n> 일시 장애일 수 있다. 잠시 뒤 다시."
             year = bsns_year or ann_hi
@@ -389,15 +392,19 @@ def register_tools(mcp):
                 cond.append(f"섹터 {sector}")
 
             lim = max(1, min(limit, 300))
-            data = await asyncio.to_thread(
-                dd.screen,
-                year,
-                min_payout=min_payout if min_payout >= 0 else None,
-                max_payout=max_payout if max_payout >= 0 else None,
-                min_dps=min_dps if min_dps >= 0 else None,
-                min_payments=mp,
-                sector=sector,
-                limit=lim,
+            # 온전한 해 목록(`payment_scope_years`)은 거른 결과와 무관하다 — 거르는 질의와 함께 보낸다(아래 이력 질의가 쓴다).
+            data, complete = await asyncio.gather(
+                asyncio.to_thread(
+                    dd.screen,
+                    year,
+                    min_payout=min_payout if min_payout >= 0 else None,
+                    max_payout=max_payout if max_payout >= 0 else None,
+                    min_dps=min_dps if min_dps >= 0 else None,
+                    min_payments=mp,
+                    sector=sector,
+                    limit=lim,
+                ),
+                asyncio.to_thread(dd.payment_scope_years),
             )
             if data.get("status") == "scope_incomplete":
                 cy = data.get("complete_years") or []
@@ -407,7 +414,6 @@ def register_tools(mcp):
             if data.get("status") != "ok":
                 return "## 배당 스크리닝 조회 실패 (`status=db_error`)"
 
-            complete = await asyncio.to_thread(dd.payment_scope_years)
             hist_years = list(range(min(complete), max(complete) + 1)) if complete else []
             pairs = [(r["corp_code"], r["ticker"]) for r in (data.get("rows") or [])]
             # None = 이력 질의 실패(렌더가 「모른다」로 낸다) · {} = 셀 회사가 없다.

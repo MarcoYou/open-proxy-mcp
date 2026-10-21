@@ -202,6 +202,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
 
 ## 변경 이력
+- 2026-10-22: **screen 의 서로 독립인 작은 읽기를 함께 보낸다** — 연도 범위(`year_range`)와 사업보고서 마지막 해(`latest_annual_year`), 거르기(`screen`)와 온전한 해 목록(`payment_scope_years`)을 차례로 기다리던 것을 `asyncio.gather` 로 묶어 풀 왕복 둘을 아꼈다(각 약 10ms 바닥). 응답은 그대로다.
 - 2026-10-22: **업종 갈래의 날짜·업종 목록 읽기를 빠르게** — `aggregate_history`(업종 갈래)·`screen`(업종 조건)의 최신 스냅샷 날짜와 `sector_list` 의 업종 목록이 `wise_sector` 가 구간 표의 **뷰**(스냅샷 3 → 38개, 102,895행)가 되면서 날짜·업종 목록을 뷰 위에서 고르는 질의가 요청마다 약 10만 행을 펼쳐 느려졌다(서버 실행 시간 MAX(snap_dd) 55ms, DISTINCT sector 45ms, DISTINCT snap_dd 56ms, 업종 구성 날짜 셋 97ms). 새 `services/wise_sector_dates` 가 뷰일 때만 작은 밑 표를 읽는다(최신 날짜·스냅샷 목록 `wise_sector_snap`, 업종 목록 `wise_sector_iv` — 각각 0.3~2ms). 표 모드(교체 전·되돌린 뒤)는 종전 SQL이고 빠른 길이 막히면 종전 SQL로 한 번 더 간다. 응답 키·값은 그대로다. 요청당 약 50ms 감소(서버 측).
 - 2026-10-21: **배당 원장 총액이 결산기별 실제 값으로**(수집기 고침 + 운영 232행 다시 쓰기 — 롯데리츠 FY2025 총액 355.43억 → 693.52억) · 복사 꼴 가드를 「총액이 같고 DPS 가 다를 때」로 좁힘(총액·DPS 가 모두 같은 11개 (회사, 사업연도)는 더한다 — 제이알글로벌리츠 FY2025 226.98 → 453.96억). DATA-DIV1. 응답 키·도구 인자는 그대로.
 - 2026-10-21: **반기·분기 결산 리츠의 회사·사업연도 DPS 를 결산기 합으로**(`screen`·`market`·`sector`·`firm`) — 위 「반기·분기 결산 리츠」 절. 총액은 복사 꼴 가드. `screen` 질의 하나로, `firm` 두 읽기 동시에. 12월 결산 회사의 값·응답 키는 그대로(새 칸만 추가).

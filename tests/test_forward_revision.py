@@ -6,6 +6,8 @@
 """
 import datetime as dt
 
+import pytest
+
 from open_proxy_mcp.services import forward_estimates as fe
 
 
@@ -247,10 +249,36 @@ def test_consensus_gap_queries_add_the_window_and_read_the_calendar_for_reach(mo
     calls = _probe(monkeypatch)
     fe._fetch_quarter_consensus("005930", "2026-09-30", "2026-10-08")
     win = fe_fw.window_cond()
-    assert calls[-2:] == [
-        ("SELECT as_of, period, is_estimate, basis, rev_krw, op_krw, ni_ctrl_krw FROM fwd_hist "
-         f"WHERE stock_code=%s AND period_type='Q' AND period_end=%s AND {win} ORDER BY as_of",
-         ("005930", dt.date(2026, 9, 30), 364)),
-        (f"SELECT EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND {win})", (dt.date(2026, 10, 8), 364))]
+    # 스냅샷 행과 「이력이 닿나」를 질의 하나로 읽는다(UNION ALL — 서로 입력이 필요 없는 두 읽기의 풀 왕복 하나를 아낀다)
+    assert calls[-1] == (
+        "SELECT 0 AS k, as_of, period, is_estimate, basis, rev_krw, op_krw, ni_ctrl_krw, NULL::boolean AS reach FROM fwd_hist "
+        f"WHERE stock_code=%s AND period_type='Q' AND period_end=%s AND {win} "
+        "UNION ALL SELECT 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "
+        f"EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND {win}) ORDER BY 1, 2",
+        ("005930", dt.date(2026, 9, 30), 364, dt.date(2026, 10, 8), 364))
     gone = fe.compute_consensus_gap({"revenue": 1}, filed="2026-10-08", consolidated=True, rows=[], history_reaches=False)
     assert "최근 52주 창 밖" in gone["why"] and "DB 에는 최근 52주" in gone["source"]
+
+
+def test_consensus_gap_single_query_matches_two_query_semantics_on_postgres(pg17, monkeypatch):
+    """스냅샷 행 + 「이력이 닿나」를 합친 질의(UNION ALL)가 실제 Postgres 17 에서 종전 두 질의와 같은 답: 행이 있을 때 · 행이 없고 이력이 닿을 때 · 닿지 않을 때."""
+    psycopg = pytest.importorskip("psycopg")
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("CREATE TABLE fwd_asof (as_of date PRIMARY KEY)")
+        c.execute("CREATE TABLE fwd_hist (stock_code text, period_type text, period_end date, as_of date, period text, is_estimate boolean, "
+                  "basis text, rev_krw numeric, op_krw numeric, ni_ctrl_krw numeric)")
+        c.execute("INSERT INTO fwd_asof VALUES ('2026-09-05'), ('2026-09-26'), ('2026-10-03')")
+        c.execute("INSERT INTO fwd_hist VALUES ('005930','Q','2026-09-30','2026-09-26','2026Q3',true,'IFRS연결',100,10,8),"
+                  "('005930','Q','2026-09-30','2026-09-05','2026Q3',true,'IFRS연결',90,9,7)")
+
+    def run(sql, params=()):
+        with psycopg.connect(pg17) as c:
+            return c.execute(sql, params).fetchall()
+    monkeypatch.setattr(fe, "pg_rows", run)
+    got = fe._fetch_quarter_consensus("005930", "2026-09-30", "2026-10-08")
+    assert [r["as_of"] for r in got["rows"]] == [dt.date(2026, 9, 5), dt.date(2026, 9, 26)]    # 날짜 순
+    assert got["rows"][1]["rev_krw"] == 100 and got["rows"][1]["basis"] == "IFRS연결" and got["history_reaches"] is True
+    none_but_reaches = fe._fetch_quarter_consensus("000660", "2026-09-30", "2026-10-08")
+    assert none_but_reaches == {"rows": [], "history_reaches": True}                           # 이 종목 행은 없고 달력은 공시일 전까지 닿는다
+    not_reaching = fe._fetch_quarter_consensus("000660", "2026-09-30", "2026-09-01")
+    assert not_reaching == {"rows": [], "history_reaches": False}                              # 공시일(09-01) 전 게시일이 창에 없다

@@ -301,3 +301,29 @@ def test_firm_scope_still_reports_a_failed_ledger_read(monkeypatch):
     monkeypatch.setattr(dd, "firm_history", lambda *a, **k: {"status": "db_error"})
     monkeypatch.setattr(dd, "payment_counts", lambda *a, **k: {"status": "ok", "complete_years": [], "rows": [], "decisions": []})
     assert asyncio.run(_tool()(scope="firm", company="삼성전자")) == "## 배당 원장 조회 실패 (`status=db_error`)"
+
+
+def test_screen_sends_independent_reads_together(monkeypatch):
+    """서로 입력이 필요 없는 작은 읽기는 함께 보낸다: 연도 범위 + 사업보고서 마지막 해(둘), 거르기 + 온전한 해 목록(둘). 차례로 보내면 0.4초, 함께면 약 0.2초."""
+    import time
+
+    def slow(ret, delay=0.1):
+        def fn(*a, **k):
+            time.sleep(delay)
+            return ret
+        return fn
+    monkeypatch.setattr(dd, "year_range", slow((2020, 2025)))
+    monkeypatch.setattr(dd, "latest_annual_year", slow(2025))
+    monkeypatch.setattr(dd, "screen", slow({"status": "ok", "rows": [], "matched": 0, "n_universe": 700, "returned": 0, "limit": 50}))
+    monkeypatch.setattr(dd, "payment_scope_years", slow([2020, 2021, 2022]))
+    monkeypatch.setattr(dd, "payment_history", slow({}, 0.0))
+    tool = _tool()
+
+    async def go():
+        t0 = time.perf_counter()
+        out = await tool(scope="screen", bsns_year=2024)
+        return time.perf_counter() - t0, out
+
+    elapsed, out = asyncio.run(go())
+    assert isinstance(out, str)
+    assert elapsed < 0.33, f"차례로 보냈다({elapsed:.2f}s)"

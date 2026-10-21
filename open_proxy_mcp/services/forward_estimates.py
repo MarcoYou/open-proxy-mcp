@@ -1136,19 +1136,20 @@ def _fetch_quarter_consensus(stock_code: str, period_end: Any, filed: Any) -> di
     """
     from open_proxy_mcp import fwd_window as fw
 
-    sql = (f"SELECT {', '.join(_GAP_COLS)} FROM fwd_hist "
-           "WHERE stock_code=%s AND period_type='Q' AND period_end=%s AND " + fw.window_cond())
-    params: tuple = (stock_code, _as_date(period_end), fw.window_days())
-    reach_sql = "SELECT EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND " + fw.window_cond() + ")"
-    reach_params: tuple = (_as_date(filed), fw.window_days())
-    rows = pg_rows(sql + " ORDER BY as_of", params)
-    if rows is None:
+    # 스냅샷 행과 「이력이 닿나」(게시 달력 EXISTS)는 서로 입력이 필요 없다 — 질의 하나로 합쳐 풀 왕복 하나를 아낀다(UNION ALL: 마지막 한 줄이 EXISTS 값).
+    cols = ", ".join(_GAP_COLS)
+    nulls = ", ".join("NULL" for _ in _GAP_COLS)
+    sql = (f"SELECT 0 AS k, {cols}, NULL::boolean AS reach FROM fwd_hist "
+           "WHERE stock_code=%s AND period_type='Q' AND period_end=%s AND " + fw.window_cond()
+           + f" UNION ALL SELECT 1, {nulls}, EXISTS (SELECT 1 FROM fwd_asof WHERE as_of < %s AND " + fw.window_cond() + ") ORDER BY 1, 2")
+    params: tuple = (stock_code, _as_date(period_end), fw.window_days(), _as_date(filed), fw.window_days())
+    got = pg_rows(sql, params)
+    if got is None:
         return None
-    reach = pg_rows(reach_sql, reach_params)
-    if reach is None:
-        return None
-    return {"rows": [dict(zip(_GAP_COLS, r)) for r in rows],
-            "history_reaches": bool(reach and reach[0][0])}
+    rows = [r for r in got if r[0] == 0]
+    reach = [r for r in got if r[0] == 1]
+    return {"rows": [dict(zip(_GAP_COLS, r[1:1 + len(_GAP_COLS)])) for r in rows],
+            "history_reaches": bool(reach and reach[0][-1])}
 
 
 def _basis_is_consolidated(basis: Any) -> bool | None:
