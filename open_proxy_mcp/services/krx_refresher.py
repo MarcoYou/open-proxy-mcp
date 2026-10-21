@@ -29,6 +29,15 @@
      성공 판정은 일별 기록 하나다 — 주간 닫기가 실패해도 「기록 완료」이고(ERROR 로그), 다음 기록이 다시 닫는다.
   전용 연결을 쓰는 이유: 세션 잠금은 연결 수명을 따른다. 연결을 닫으면 해제가 보장돼, 해제 호출이 실패해도 잠금이 새지 않는다.
   🔴 Supabase 풀러는 **세션 모드(5432)** 여야 한다. 트랜잭션 모드(6543)에서는 세션 잠금이 보장되지 않는다.
+■ 지수 종가(261021, P0 — `krx_idx`)
+  시세를 기록한 틱에는 **같은 권고 잠금 안에서** KRX 공식 지수 엔드포인트 셋(`krx_api.fetch_index_day` — 하루 +3콜, 호출 장부에 같이 센다)을 부르고
+  사전(`krx_idx_series`)의 DB 계열(in_db) 종가를 `krx_idx` 에 쓴다(`krx_idx.write_day`, 한 트랜잭션). 무엇을 부를지는 DB 가 정한다 — 달력에
+  「행 있는 거래일」로 적힌 날 중 최근 `krx_idx.LOOKBACK_DAYS` 일 안에서 지수 행이 없는 날(최근 날부터 틱당 `IDX_FILL_PER_TICK` 일).
+  시세가 이미 최신이어도 지수가 빠졌으면 잠금을 잡고 지수만 받는다. 지수 응답이 비면 「아직 게시 전」이다 — 휴장으로 읽지 않는다(휴장은 시세 달력이 정한다).
+  같은 날을 프로세스 하나가 하루 `IDX_TRIES_PER_DAY` 번까지만 묻는다(빈 응답이면 1콜). 기대 거래일까지 다 있으면 그 날은 더 보지 않는다.
+  쓴 뒤 3년 밖 주간 점을 지우고(콜드 서빙본 coverage 안 · 발행 뒤 72시간 — `cold_store.settled_max_dd`) `VACUUM (ANALYZE) krx_idx`.
+  창 밖 일별 점은 시세 보관 창 정리가 같은 날 같은 트랜잭션에서 지운다(`krx_daily.prune_window` → `krx_idx.prune_daily`).
+  끄기: `OPM_KRX_IDX_WRITE=0`(시세 기록은 그대로). 표·사전(in_db 계열)이 없으면 저절로 아무것도 안 한다(하루 한 번 확인 질의만).
 ■ 켜고 끄기
   **Fly 머신(`FLY_MACHINE_ID` 있음)에서는 기본 켜짐**이고, 그 밖(로컬 실행·파일럿·테스트)에서는 기본 꺼짐이다 — `.env` 에 운영 `DATABASE_URL` 과 KRX 키가
   있는 개발 PC 가 조용히 운영 시세를 쓰는 두 번째 갱신자가 되지 않게 한다. 로컬에서 일부러 켜려면 `OPM_KRX_REFRESHER=1`.
@@ -48,7 +57,7 @@ import random
 from dataclasses import dataclass
 from datetime import datetime, time as dtime
 
-from open_proxy_mcp import krx_api, krx_daily
+from open_proxy_mcp import krx_api, krx_daily, krx_idx
 from open_proxy_mcp.clock import KST
 
 logger = logging.getLogger(__name__)
@@ -74,6 +83,10 @@ FAILURE_COOLDOWN_TICKS = 2
 FILL_PER_TICK = 3
 #: 기대 거래일이 아닌 빠진 날을 프로세스 하나가 하루에 묻는 상한 — KRX 가 계속 비워 주는 날(아직 휴장으로 정할 수 없는 날)에 10분마다 콜을 쓰지 않는다.
 GAP_TRIES_PER_DAY = 3
+#: 지수 — 한 틱에 받는 날 수 상한(날 하나 = 최대 3콜, 비었으면 1콜)과 같은 날을 프로세스 하나가 하루에 묻는 상한.
+#: 기대 거래일의 지수가 시세보다 늦게 게시되면 10분마다 1콜로 확인한다 — 하루 상한 6번 × 머신 2대 = 그날 최대 12콜(확인)+3콜(받기).
+IDX_FILL_PER_TICK = 3
+IDX_TRIES_PER_DAY = 6
 
 _FALSE = {"0", "false", "off", "no"}
 _DB_DOWN = object()                     # 「DB 를 못 읽었다」 — 값이 비었다(None)와 구분
@@ -153,7 +166,7 @@ def _judge_closed(dd: str, today: str, kospi_empty: bool, kosdaq_empty: bool) ->
     return verdict
 
 
-def _vacuum() -> None:
+def _vacuum(tables: str = "krx_px, krx_day") -> None:
     """기록 뒤 일별 사실값·달력 청소 + 통계 갱신(보관 창 정리로 지운 자리를 바로 되쓰고, 새 날짜를 계획기가 알게). 실패는 로그만 —
     표의 자동 청소 인자(`scripts/krx_daily_ddl.py`)가 뒤따른다. VACUUM 은 읽기·쓰기를 막지 않는다.
 
@@ -170,13 +183,13 @@ def _vacuum() -> None:
             c.add_notice_handler(lambda d: warned.append(d.message_primary or "")
                                  if (d.severity_nonlocalized or d.severity) == "WARNING" else None)
             c.execute("SET lock_timeout = '3s'")
-            c.execute("VACUUM (ANALYZE) krx_px, krx_day")
+            c.execute(f"VACUUM (ANALYZE) {tables}")
     except Exception as exc:            # noqa: BLE001
         logger.warning("KRX 갱신기: 기록 뒤 VACUUM 실패(자동 청소가 뒤따른다) %s: %s", type(exc).__name__, exc)
         return
     if warned:
-        logger.warning("KRX 갱신기: 기록 뒤 VACUUM 이 경고를 냈다(권한이면 서버 계정에 MAINTAIN 이 없어 청소·통계를 건너뛰었다 — "
-                       "자동 청소가 뒤따른다): %s", " / ".join(warned))
+        logger.warning("KRX 갱신기: 기록 뒤 VACUUM(%s) 이 경고를 냈다(권한이면 서버 계정에 MAINTAIN 이 없어 청소·통계를 건너뛰었다 — "
+                       "자동 청소가 뒤따른다): %s", tables, " / ".join(warned))
 
 
 def _open_lock_conn():
@@ -251,7 +264,9 @@ class CycleResult:
     기대 거래일은 이미 있고 더 이른 빠진 날만 다룬 틱은 filled(하나라도 메움·휴장 기록) 또는 gaps_pending(이번엔 못 메움)이다.
     261018(재설계 5-1 쓰는 쪽): `daily_failed`(krx_weekly 만 쓰이고 krx_daily 실패)는 없어졌다 — 일별 기록이 실패하면 krx_weekly 도 쓰지 않는다.
     weekly_ok=False 는 「일별은 기록했지만 주간 닫기가 실패」다(다음 기록이 다시 닫는다).
-    filled = 이번 틱에 쓴 더 이른 빠진 날들, closed_days = 이번 틱에 휴장으로 적은 날들(기대 거래일 포함)."""
+    filled = 이번 틱에 쓴 더 이른 빠진 날들, closed_days = 이번 틱에 휴장으로 적은 날들(기대 거래일 포함).
+    261021 지수: idx = 이번 틱 지수 쪽 결과(`IdxResult.outcome` — None 이면 지수 쪽은 아무것도 안 봤다), idx_calls = 지수 KRX 호출 수
+    (krx_calls 와 따로 센다), idx_days = 지수를 쓴 날들."""
     outcome: str
     expected: str | None = None
     stored: str | None = None
@@ -260,12 +275,26 @@ class CycleResult:
     weekly_ok: bool = True
     filled: tuple[str, ...] = ()
     closed_days: tuple[str, ...] = ()
+    idx: str | None = None
+    idx_calls: int = 0
+    idx_days: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class IdxResult:
+    """지수 쪽 한 번. outcome: off(스위치 꺼짐) · db_error · not_ready(표·DB 계열 없음 — 적재 전) · fresh(빠진 날 없음) · capped(오늘 상한까지 물음)
+    · written(하나라도 씀) · not_published(빈 응답 — 휴장 판정 아님) · krx_error · write_failed."""
+    outcome: str
+    calls: int = 0
+    days: tuple[str, ...] = ()
 
 
 _COOLDOWN = {"n": 0}                    # 실패 뒤 더 건너뛸 틱 수
 _BUSY_STREAK = {"n": 0}               # 잠금이 연속으로 막힌 횟수(이 프로세스 기준)
 _LOGGED_FRESH: dict[str, str] = {}       # 「이미 최신」은 기대 거래일마다 한 번만 INFO 로 남긴다(틱마다 찍으면 하루 140줄)
 _GAP_TRIES: dict[tuple[str, str], int] = {}   # (오늘, 빠진 날) → 이 프로세스가 오늘 물은 횟수(기대 거래일은 세지 않는다)
+_IDX_TRIES: dict[tuple[str, str], int] = {}   # 지수 — (오늘, 날) → 이 프로세스가 오늘 물은 횟수(기대 거래일 포함)
+_IDX_SETTLED: dict[str, str] = {}              # 지수 — {"dd": 기대 거래일} 이 프로세스가 그 기대 거래일에 더 볼 것이 없다고 본 날
 
 
 def _todo(missing: list[str], exp: str, today: str) -> list[str]:
@@ -293,7 +322,9 @@ async def run_cycle(now: datetime | None = None) -> CycleResult:
             _LOGGED_FRESH["dd"] = exp
             logger.info("KRX 갱신기: 기대 거래일 %s 는 이미 저장됨(최신 %s%s) — 오늘은 더 확인하지 않는다", exp, stored,
                         f", 아직 못 메운 날 {len(missing)}일" if missing else "")
-        return CycleResult("fresh", exp, stored)
+        idx = await _idx_only(exp, today)              # 시세는 최신 — 지수만 빠졌으면 잠금을 잡고 지수만 받는다
+        return CycleResult("fresh", exp, stored, idx=idx.outcome if idx else None,
+                           idx_calls=idx.calls if idx else 0, idx_days=idx.days if idx else ())
 
     if _COOLDOWN["n"] > 0:
         _COOLDOWN["n"] -= 1
@@ -397,7 +428,130 @@ async def _refresh_locked(exp: str, today: str | None = None) -> CycleResult:
     if not failed:
         _COOLDOWN["n"] = 0
     outcome = exp_outcome or ("filled" if (filled or closed) else ("krx_error" if krx_failed else "gaps_pending"))
-    return CycleResult(outcome, exp, stored, calls, rows, weekly_ok, tuple(filled), tuple(closed))
+    # 지수 — 같은 잠금 안에서, 시세를 쓴 뒤. KRX 가 시세에서 실패를 준 틱에는 같은 키로 더 묻지 않는다.
+    idx = None if krx_failed else await _idx_locked(exp, today)
+    return CycleResult(outcome, exp, stored, calls, rows, weekly_ok, tuple(filled), tuple(closed),
+                       idx.outcome if idx else None, idx.calls if idx else 0, idx.days if idx else ())
+
+
+# ── 지수 종가 (261021, P0) ────────────────────────────────────────────────────
+
+def _idx_pending(today: str):
+    """지수를 받아야 할 날(`krx_idx.pending` — 표·사전 확인 + 달력 한 왕복). 못 읽으면 None."""
+    from open_proxy_mcp.db import pg_rows
+    return krx_idx.pending(pg_rows, today)
+
+
+def _idx_todo(p, today: str) -> list[str]:
+    for k in [k for k in _IDX_TRIES if k[0] != today]:
+        del _IDX_TRIES[k]                                       # 날이 바뀌면 센 것을 버린다
+    if not p or not p.ready:
+        return []
+    return [d for d in p.days if _IDX_TRIES.get((today, d), 0) < IDX_TRIES_PER_DAY]
+
+
+async def _fetch_idx(dd: str) -> krx_api.IdxFetch:
+    """KRX 공식 지수 한 거래일(엔드포인트 셋). 호출·키·장부는 `krx_api.fetch_index_day` 한 곳이다."""
+    return await krx_api.fetch_index_day(dd)
+
+
+def _write_idx(parsed, cold_max_dd: str | None):
+    """한 날의 지수 종가 쓰기 + 3년 밖 정리(한 트랜잭션, 잠금 대기 3초) → `krx_idx.IdxWrite`. 실패면 아무것도 커밋하지 않는다."""
+    import psycopg
+    try:
+        with psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=20) as c:
+            with c.transaction():
+                c.execute("SET LOCAL lock_timeout = '3s'")
+                res = krx_idx.write_day(c, parsed)
+                if res.ok:
+                    old = krx_idx.prune_old(c, cold_max_dd)
+                    res = krx_idx.IdxWrite(True, res.rows, res.new, res.absent, old)
+        return res
+    except Exception as exc:            # noqa: BLE001 — 시세 기록·루프를 깨지 않는다
+        logger.warning("KRX 갱신기: %s 지수 종가 기록 실패 %s: %s", parsed.dd, type(exc).__name__, exc)
+        return krx_idx.IdxWrite(False, reason=type(exc).__name__)
+
+
+async def _idx_only(exp: str, today: str) -> IdxResult | None:
+    """시세가 최신인 틱 — 지수만 빠졌으면 잠금을 잡고 받는다. 볼 것이 없으면 None(잠금도 안 잡음). 기대 거래일마다 한 번 「더 없음」을 보면
+    그 날은 다시 묻지 않는다(DB 조회 0)."""
+    if not krx_idx.enabled() or _IDX_SETTLED.get("dd") == exp:
+        return None
+    p = await asyncio.to_thread(_idx_pending, today)
+    if p is None:
+        return None                                              # DB 를 못 읽었다 — 다음 틱에 다시
+    if not _idx_todo(p, today):
+        _IDX_SETTLED["dd"] = exp
+        if not p.ready:
+            logger.info("KRX 갱신기: 지수 종가 표·사전(DB 계열)이 아직 없다 — 지수는 받지 않는다(기대 거래일 %s)", exp)
+        return None
+    async with _advisory_lock() as held:
+        if not held:                                             # 다른 머신이 일하는 중이거나 연결 실패 — 다음 틱
+            return IdxResult("lock_busy" if held is False else "db_error")
+        return await _idx_locked(exp, today)
+
+
+async def _idx_locked(exp: str, today: str) -> IdxResult:
+    """잠금을 잡은 상태에서 — 지수가 빠진 날을 다시 확인하고(상대가 방금 썼을 수 있다) 받고 쓴다. 휴장 판정은 하지 않는다."""
+    if not krx_idx.enabled():
+        return IdxResult("off")
+    p = await asyncio.to_thread(_idx_pending, today)
+    if p is None:
+        return IdxResult("db_error")
+    if not p.ready:
+        _IDX_SETTLED["dd"] = exp
+        return IdxResult("not_ready")
+    todo = _idx_todo(p, today)
+    if not todo:
+        _IDX_SETTLED["dd"] = exp
+        return IdxResult("capped" if p.days else "fresh")
+    calls = 0
+    written: list[str] = []
+    last = "fresh"
+    cold_max: list[str | None] = []                              # 콜드 coverage 는 쓰기가 있을 때 한 번만 본다
+    for dd in todo[:IDX_FILL_PER_TICK]:
+        _IDX_TRIES[(today, dd)] = _IDX_TRIES.get((today, dd), 0) + 1
+        got = await _fetch_idx(dd)
+        calls += got.calls
+        if got.status in krx_api.ERROR_STATUSES:
+            logger.warning("KRX 갱신기: %s 지수 호출 실패(%s) — 다음 틱에 다시 (KRX %d콜)", dd, krx_api.STATUS_LABEL[got.status], got.calls)
+            last = "krx_error"
+            break
+        if got.status != krx_api.OK:
+            # 아직 셋이 다 게시되지 않았다 — 휴장 판정 재료가 아니다(시세 달력이 이미 거래일로 적은 날이다).
+            logger.info("KRX 갱신기: %s 지수 아직 게시 전 (KRX %d콜, 오늘 %d번째)", dd, got.calls, _IDX_TRIES[(today, dd)])
+            last = "not_published"
+            continue
+        parsed = krx_idx.parse_day(dd, got.rows)
+        for msg in parsed.problems[:10]:
+            logger.warning("KRX 갱신기: %s 지수 응답 — %s", dd, msg)
+        if not cold_max:
+            cold_max.append(await _cold_max_dd())
+        res = await asyncio.to_thread(_write_idx, parsed, cold_max[0])
+        if not res.ok:
+            logger.warning("KRX 갱신기: %s 지수 종가를 쓰지 않았다 — %s", dd, res.reason)
+            last = "write_failed"
+            break
+        written.append(dd)
+        if res.new:
+            logger.warning("KRX 갱신기: %s 지수 새 이름 %d개를 사전에 in_db=false 로 등록(값은 DB 에 안 넣음 — 분류해 in_db 를 정할 것): %s",
+                           dd, len(res.new), ", ".join(res.new[:10]))
+        if res.absent:
+            logger.warning("KRX 갱신기: %s 지수 응답에 DB 계열 %d개가 없다: %s", dd, len(res.absent), ", ".join(res.absent[:10]))
+        logger.info("KRX 갱신기: %s 지수 종가 기록 (%d행, KRX %d콜%s)", dd, res.rows, got.calls,
+                    f", 3년 밖 {res.old}행 지움" if res.old else "")
+    if written:
+        await asyncio.to_thread(_vacuum, "krx_idx")
+    return IdxResult("written" if written else last, calls, tuple(written))
+
+
+async def _cold_max_dd() -> str | None:
+    """3년 밖 지수 행을 지워도 되는 콜드 끝 날(발행 뒤 72시간 지난 판의 coverage.max_dd). 콜드가 꺼져 있으면 None."""
+    from open_proxy_mcp import cold_store
+    try:
+        return await cold_store.settled_max_dd(krx_idx.COLD_DATASET)
+    except Exception:                   # noqa: BLE001 — 모르면 지우지 않는다
+        return None
 
 
 async def _safe_cycle(now: datetime | None = None) -> CycleResult | None:

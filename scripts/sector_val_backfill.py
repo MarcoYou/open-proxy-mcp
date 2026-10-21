@@ -39,7 +39,11 @@ scheme:
   월말 0828·0923 은 136.2·134.8 인데 사이 주간 점 0904~0918 은 89.9~101.0 — 다시 낸 뒤 129.3~145.0). 매일 배치(market-val-weekly)가
   이 플래그로 돈다 — 재무 고침·재작성치가 들어와도 월말과 주간 점이 함께 바뀐다(값이 같으면 쓰지 않는다).
 
-실행: python3 scripts/sector_val_backfill.py [--since 20200101] [--include-current] [--cold-sqlite <서빙본.sqlite>] [--with-stored-weekly]
+★ 261021: **DB 에는 3년 창(보존 하한 `krx_weekly_cutoff` 이후)만 쓴다.** 하한 이전 월말은 DB 에 쓰지 않는다 — 그 구간은 콜드 보관본 몫이고
+  서버는 서빙본(`opm_val_market_hist`)에서 읽는다. 하한 이전을 다시 내려면 `--cold-sqlite <서빙본> --hist-out <파일.parquet>` — 결과는
+  Parquet(칸 = `month_end_prices.HIST_COLS`)로만 나가고 올리기·발행은 저장소 밖 운영 도구 몫이다. `--hist-out` 이 없으면 하한 이전 달은 건너뛴다.
+
+실행: python3 scripts/sector_val_backfill.py [--since 20200101] [--include-current] [--cold-sqlite <서빙본.sqlite> --hist-out <파일.parquet>] [--with-stored-weekly]
 """
 from __future__ import annotations
 
@@ -64,7 +68,7 @@ from open_proxy_mcp.services.price_multiple_data import _mrq_eq, _pit_fy, _pit_q
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
 from open_proxy_mcp.services import restated_pit as rpit
-from scripts.month_end_prices import MonthEndPrices, covered
+from scripts.month_end_prices import HIST_COLS, MonthEndPrices, covered, split_window
 
 UPSERT = """
 INSERT INTO opm_val_market
@@ -97,6 +101,8 @@ def main() -> int:
                     help="현재월도 포함(일간 배치용). 기본은 제외 — 월말 확정본만 쌓는다")
     ap.add_argument("--cold-sqlite", metavar="PATH",
                     help="보존 하한 이전 달을 콜드 서빙본(하한 이전 주간 시세 전 행 sqlite)으로 다시 낸다 — 없으면 그 달은 건너뛴다(261019)")
+    ap.add_argument("--hist-out", metavar="PARQUET",
+                    help="보존 하한 이전 월말의 결과를 DB 대신 이 Parquet 로(261021 — DB 에는 3년 창만 쓴다). 없으면 하한 이전 달은 건너뛴다")
     ap.add_argument("--with-stored-weekly", action="store_true",
                     help="이미 저장된 업종 주간 점(월말이 아닌 날짜)도 같은 산식으로 다시 낸다 — 재무를 다시 받은 뒤 전 구간 재계산용(261019)")
     a = ap.parse_args()
@@ -173,6 +179,14 @@ def main() -> int:
             else:
                 months.append(latest)
     months = sorted(set(months) | keep)
+    # 261021: DB 에는 3년 창만 — 하한 이전 월말은 `--hist-out` 일 때만 계산해 Parquet 로, 아니면 건너뛴다.
+    db_months, old_months = split_window(months, src.cutoff)
+    if old_months:
+        print(f"보존 하한 {src.cutoff} 이전 월말 {len(old_months)}개({old_months[0]}~{old_months[-1]}) — DB 에는 쓰지 않는다"
+              + (f" · Parquet 로 낸다({Path(a.hist_out).name})" if a.hist_out else " · 건너뜀(다시 내려면 --cold-sqlite … --hist-out)"),
+              flush=True)
+    months = months if a.hist_out else db_months
+    hist: list[tuple] = []
     if not months:
         print("다시 낼 월말이 없다", flush=True)
         src.close(); con.close()
@@ -247,13 +261,20 @@ def main() -> int:
                          (cpf / nif) if ok_f and nif > 0 else None, (cbf / eqf) if ok_bf and eqf > 0 else None,
                          (cpt / nit) if ok_t and nit > 0 else None, (cbm / eqm) if ok_bm and eqm > 0 else None,
                          nif if ok_f and n_nif else None, nit if ok_t and n_nit else None))
+        if d < src.cutoff:                 # 하한 이전 — DB 에 쓰지 않는다(`--hist-out` 일 때만 여기 온다)
+            hist.extend(rows)
+            continue
         with con.cursor() as cur:
             cur.executemany(UPSERT, rows)
         n_rows += len(rows)
         if len(months) > 12 and months.index(d) % 20 == 0:
             print(f"  {d} … {n_rows:,}행", flush=True)
 
-    print(f"\n업종분류 집계 {n_rows:,}행 · 월말 {len(months)}개 (그중 소급 {n_backfilled}개)")
+    if a.hist_out:
+        from scripts import hist_parquet
+        info = hist_parquet.write(a.hist_out, HIST_COLS, hist)
+        print(f"하한 이전 업종분류 집계 {info['rows']:,}행 → {Path(a.hist_out).name} · sha256 {info['sha256'][:16]} (DB 쓰기 없음)", flush=True)
+    print(f"\n업종분류 집계(DB 3년 창) {n_rows:,}행 · 월말 {len(db_months)}개 (그중 소급 {n_backfilled}개)")
     for r in con.execute("SELECT scheme, count(*) FROM opm_val_market GROUP BY 1 ORDER BY 1"):
         print(f"  {r[0]:16s} {r[1]:,}행")
     src.close()

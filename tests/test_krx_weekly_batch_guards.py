@@ -284,31 +284,23 @@ CUTOFF = "20231016"
 
 
 def test_cap_agg_guard_since():
-    assert C._guard_since(since="20260928", reason="최신 주 갱신", cutoff=CUTOFF, allow=False) == (True, "")
-    assert C._guard_since(since=CUTOFF, reason="지정 구간", cutoff=CUTOFF, allow=False) == (True, "")   # 하한 당일은 안쪽
-    ok, msg = C._guard_since(since="20200101", reason="지정 구간", cutoff=CUTOFF, allow=False)
-    assert ok is False and "거절" in msg and "--allow-before-cutoff" in msg and CUTOFF in msg
-    ok, msg = C._guard_since(since="20151230", reason="전 구간", cutoff=CUTOFF, allow=False)
+    """261021: DB 에는 3년 창(하한 이후)만 쓴다 — 하한 이전 시작은 거절하거나(지정·전 구간) 하한으로 올린다(허용 플래그·최초 적재)."""
+    assert C._guard_since(since="20260928", reason="최신 주 갱신", cutoff=CUTOFF, allow=False) == (True, "", "20260928")
+    assert C._guard_since(since=CUTOFF, reason="지정 구간", cutoff=CUTOFF, allow=False) == (True, "", CUTOFF)   # 하한 당일은 안쪽
+    ok, msg, _ = C._guard_since(since="20200101", reason="지정 구간", cutoff=CUTOFF, allow=False)
+    assert ok is False and "거절" in msg and "--allow-before-cutoff" in msg and "--cold-sqlite" in msg and CUTOFF in msg
+    ok, msg, _ = C._guard_since(since="20151230", reason="전 구간", cutoff=CUTOFF, allow=False)
     assert ok is False
-    ok, msg = C._guard_since(since="20200101", reason="지정 구간", cutoff=CUTOFF, allow=True)
-    assert ok is True and "원천이 온전한 날짜(해마다 마지막 주)만 다시 집계" in msg and "나머지 옛 집계는 그대로" in msg
-    # 최초 적재는 지울 집계가 없어 통과
-    assert C._guard_since(since="20151230", reason="최초 적재", cutoff=CUTOFF, allow=False)[0] is True
+    ok, msg, since = C._guard_since(since="20200101", reason="지정 구간", cutoff=CUTOFF, allow=True)
+    assert ok is True and since == CUTOFF and "3년 창" in msg
+    # 최초 적재도 하한부터(지울 집계가 없어도 3년 밖은 DB 에 쓰지 않는다)
+    assert C._guard_since(since="20151230", reason="최초 적재", cutoff=CUTOFF, allow=False)[::2] == (True, CUTOFF)
 
 
-def test_cap_agg_delete_never_touches_rows_without_a_whole_source():
-    sql, params = C._delete_stmt("20260928", CUTOFF, [])
-    assert sql == "DELETE FROM krx_cap_agg WHERE price_dd >= %s" and params == ("20260928",)
-    sql, params = C._delete_stmt("20200101", CUTOFF, ["20201230", "20221229"])
-    assert "price_dd = ANY(%s)" in sql and "price_dd >= %s OR" in sql
-    assert params == ("20200101", CUTOFF, ["20201230", "20221229"])
-
-
-def test_cap_agg_source_filter_reads_only_whole_dates_below_the_cutoff():
-    """종목별 연말 행 보존이라 하한 아래 날짜 대부분은 상장폐지 종목의 마지막 행뿐인 부분 행이다 — 그 날짜로 집계하면 옛 집계를 망친다."""
-    assert C._src_filter("20260928", CUTOFF, [], "price_dd") == ("", ())              # 평소 쿼리는 그대로
-    sql, params = C._src_filter("20200101", CUTOFF, ["20201230"], "k.price_dd")
-    assert sql == " AND (k.price_dd >= %s OR k.price_dd = ANY(%s))" and params == (CUTOFF, ["20201230"])
+def test_cap_agg_delete_never_goes_below_the_cutoff():
+    """261021: 지우기는 언제나 하한 이후 — 3년 밖 행(콜드로 옮기기 전 남은 행)은 이 배치가 건드리지 않는다."""
+    assert C._delete_stmt("20260928", CUTOFF) == ("DELETE FROM krx_cap_agg WHERE price_dd >= %s", ("20260928",))
+    assert C._delete_stmt("20200101", CUTOFF) == ("DELETE FROM krx_cap_agg WHERE price_dd >= %s", (CUTOFF,))
 
 
 def _cap_agg_handler(weekly_max="20261016", daily_max="20261016", agg_latest="20261016"):
@@ -382,19 +374,20 @@ def test_cap_agg_refuses_a_since_before_the_cutoff(monkeypatch, capsys):
     assert rc == 2 and con.many == []
 
 
-def test_cap_agg_override_deletes_only_dates_that_can_be_recomputed(monkeypatch, capsys):
+def test_cap_agg_override_raises_the_start_to_the_cutoff(monkeypatch, capsys):
+    """261021: --allow-before-cutoff 는 하한으로 올려 진행한다 — 지우기·원천 읽기·넣기 모두 하한 이후(3년 밖 행은 DB 에 쓰지 않는다)."""
     rc, con, out = _run_cap_agg(monkeypatch, ["--since", "20200101", "--allow-before-cutoff"], capsys)
     assert rc == 0
     (sql, params), = [(s, p) for s, p in con.statements if s.lstrip().upper().startswith("DELETE")]
-    assert "price_dd = ANY(%s)" in sql
-    assert params == ("20200101", "20231016", ["20201230", "20221229"])
-    # 다시 집계하는 원천도 같은 날짜로 제한된다(시장·섹터 쿼리 모두) — 부분 행 날짜로 옛 집계를 덮지 않는다
+    assert sql == "DELETE FROM krx_cap_agg WHERE price_dd >= %s" and params == ("20231016",)
     reads = [(_norm(s), p) for s, p in con.statements if s.lstrip().startswith("SELECT") and "FROM krx_weekly" in s
              and ("sum(mktcap)" in s or "k.price_dd" in s)]
-    assert reads and all("= ANY(%s)" in q and p[-2:] == ("20231016", ["20201230", "20221229"]) for q, p in reads)
-    ye_q = [(s, p) for s, p in con.statements if "GROUP BY left(price_dd, 4)" in s]
-    assert ye_q and ye_q[0][1] == ("20200101", "20230101")               # 온전한 날짜(해마다 마지막 주)는 하한이 속한 해(20230101) 이전에서 구한다
-    assert "--allow-before-cutoff" in out.out and con.many               # 다시 넣기는 진행
+    assert reads and not any("ANY(%s)" in q for q, _ in reads)
+    assert [p for q, p in reads if "sum(mktcap)::bigint FROM (" in q][0] == ("20231016",)
+    assert not any("GROUP BY left(price_dd, 4)" in s for s, _ in con.statements)     # 연말 날짜 찾기는 없앴다
+    inserted = [r for _sql, rows in con.many for r in rows]
+    assert inserted and all(r[0] >= "20231016" for r in inserted)
+    assert "--allow-before-cutoff" in out.out and "3년 창" in out.out
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
