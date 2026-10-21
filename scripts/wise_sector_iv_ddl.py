@@ -267,6 +267,7 @@ DROP VIEW pg_temp._wise_sector_next;
 
 #: 되돌리기 — 뷰가 **지금** 보여 주는 행(교체 뒤 새로 쌓인 스냅샷 포함)을 그대로 옛 표로 되살린다. 구간 두 표는 남겨 둔다
 #: (표 모드에서는 쓰는 쪽이 쓰지 않는다 — 다시 교체할 때 새로 채운다). 짝이 되는 코드 되돌리기는 필요 없다(쓰는 쪽이 모드를 본다).
+#: 되돌린 뒤에도 권한 행렬(opm_app_role.py)을 --apply 한다(옛 표 몫 opm_app 정책을 다시 만든다 — 그 전에도 아래 GRANT 로 읽힌다).
 ROLLBACK_BODY = """\
 DO $$
 BEGIN
@@ -295,6 +296,14 @@ BEGIN
   END IF;
 END $$;
 COMMENT ON TABLE wise_sector IS NULL;
+-- 서버 계정(opm_app)이 있으면 되살린 표를 곧바로 읽게 한다 — 교체 뒤 권한 행렬 --apply 가 옛 표 권한을 거뒀으므로, 주지 않으면 다음 --apply
+-- 전까지 서버 업종 조인이 42501 이다(로컬 운영 복원본 리허설에서 확인). 정책은 이름을 되찾은 wise_sector_read(모든 계정 SELECT)가 덮는다.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'opm_app') THEN
+    GRANT SELECT ON wise_sector TO opm_app;
+  END IF;
+END $$;
 -- 뷰에 없는(또는 값이 다른) 옛 행을 지우고, 표에 없는(또는 값이 다른) 뷰 행을 넣는다(기본키 (snap_dd, ticker)).
 DELETE FROM wise_sector t
   WHERE NOT EXISTS (SELECT 1 FROM _ws_now v WHERE v.snap_dd = t.snap_dd AND v.ticker = t.ticker
