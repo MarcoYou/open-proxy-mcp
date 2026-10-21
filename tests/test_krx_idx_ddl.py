@@ -128,6 +128,14 @@ def test_check_reports_drift(db):
     problems = ddl.check(db)
     assert any("krx_idx_series: SELECT 정책" in p for p in problems)
     assert any("krx_idx_series_sid_seq: authenticated" in p for p in problems)
+    # 열쇠가 넓어지거나 외래키가 빠지면 --check 가 잡는다
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("ALTER TABLE krx_idx_series DROP CONSTRAINT krx_idx_series_src_name_key, "
+                  "ADD CONSTRAINT krx_idx_series_src_name_key UNIQUE (src, name, kind)")
+        c.execute("ALTER TABLE krx_idx DROP CONSTRAINT krx_idx_sid_fk")
+    problems = ddl.check(db)
+    assert any("krx_idx_series_src_name_key" in p for p in problems)
+    assert any("krx_idx_sid_fk" in p for p in problems)
 
 
 def test_rerun_revokes_sequence_grants_like_supabase_defaults(db):
@@ -177,7 +185,7 @@ def test_constraints(db):
         # 열쇠 = (src, name) — 같은 이름이 P·Q 양쪽에 있어도 된다(실제 업종 20개), 같은 (src,name) 두 번은 안 된다
         c.execute("INSERT INTO krx_idx_series (src, name, kind, in_db) VALUES ('P', '화학', 's', true), ('Q', '화학', 's', true)")
         with pytest.raises(err.UniqueViolation):
-            c.execute("INSERT INTO krx_idx_series (src, name, kind, in_db) VALUES ('P', '화학', 's', false)")
+            c.execute("INSERT INTO krx_idx_series (src, name, kind, in_db) VALUES ('P', '화학', 't', false)")   # kind 가 달라도 같은 열쇠
         # 공백이 붙은 이름·빈 이름·모르는 src/kind 거절 — ' K-샤프지수(10년)' 같은 앞 공백이 열쇠에 섞이지 않게
         for bad in ("('P', ' 화학2', 's')", "('P', '화학3 ', 's')", "('P', '', 's')", "('Z', '화학4', 's')", "('P', '화학5', 'q')"):
             with pytest.raises((err.CheckViolation, err.UniqueViolation)):

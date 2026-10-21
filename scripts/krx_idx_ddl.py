@@ -92,6 +92,12 @@ EXPECTED_COLUMNS = {
 }
 EXPECTED_PK = {"krx_idx_series": ["sid"], "krx_idx": ["sid", "trd_dd"]}
 EXPECTED_RELOPTIONS = {"krx_idx": {"autovacuum_vacuum_scale_factor=0.02", "autovacuum_analyze_scale_factor=0.01"}}
+#: 점검용 — 이름 붙은 제약(표, 이름) → (종류, 칸). u = 유일, f = 외래키, c = CHECK(칸 비교 안 함). 열쇠 (src, name) 가 넓어지거나 외래키가 빠지면 잡는다.
+EXPECTED_CONSTRAINTS = {
+    "krx_idx_series": {"krx_idx_series_src_name_key": ("u", ["src", "name"]), "krx_idx_series_src_ck": ("c", None),
+                       "krx_idx_series_name_ck": ("c", None), "krx_idx_series_kind_ck": ("c", None), "krx_idx_series_dd_ck": ("c", None)},
+    "krx_idx": {"krx_idx_sid_fk": ("f", ["sid"]), "krx_idx_close_ck": ("c", None)},
+}
 
 
 def render() -> str:
@@ -128,6 +134,14 @@ def check(url: str) -> list[str]:
                 "WHERE i.indrelid = to_regclass(%s) AND i.indisprimary ORDER BY array_position(i.indkey::int2[], a.attnum)", (f"public.{table}",)).fetchall()]
             if pk != EXPECTED_PK[table]:
                 problems.append(f"{table}: 기본키가 다르다 {pk}")
+            got_cons = {r[0]: (r[1], list(r[2])) for r in con.execute(
+                "SELECT c.conname, c.contype::text, ARRAY(SELECT a.attname::text FROM unnest(c.conkey) WITH ORDINALITY k(n, o) "
+                "JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.n ORDER BY k.o) "
+                "FROM pg_constraint c WHERE c.conrelid = to_regclass(%s)", (f"public.{table}",)).fetchall()}
+            for cname, (ctype, ccols) in EXPECTED_CONSTRAINTS[table].items():
+                got_c = got_cons.get(cname)
+                if got_c is None or got_c[0] != ctype or (ccols is not None and got_c[1] != ccols):
+                    problems.append(f"{table}: 제약 {cname} 이 없거나 다르다 got={got_c}")
             want_opts = EXPECTED_RELOPTIONS.get(table, set())
             got_opts = {r[0] for r in con.execute("SELECT unnest(coalesce(reloptions, '{}')) FROM pg_class WHERE oid = to_regclass(%s)", (f"public.{table}",)).fetchall()}
             if want_opts - got_opts:
