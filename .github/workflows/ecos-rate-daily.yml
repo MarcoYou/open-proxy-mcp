@@ -6,7 +6,9 @@
 # **DB 쓰기는 저장소 변수 ECOS_RATE_WRITE=1 이 있어야 한다.** 꺼져 있으면 받아서 계획만 낸다(표가 아직 없어도 정상 종료).
 #   표(scripts/ecos_rate_ddl.py)를 만들고 백필을 확인한 뒤 변수를 켠다: gh variable set ECOS_RATE_WRITE --body 1
 # 콜: ECOS 5/일(계열당 1). DART 0 · KRX 0. 표를 처음 채울 때만 같은 5콜이 창 전체(기준금리는 1999~)를 받는다.
-# 창 밖 지우기(prune)는 일별 실행에 없다 — 수동 실행에서 보관본 coverage·발행 시각을 주고 가드를 통과해야만 한다(스크립트 머리 참조).
+# 창 밖 지우기(prune): 저장소 변수 ECOS_RATE_COLD_MANIFEST(보관본 서빙 목록 주소)가 있고 쓰기가 켜져 있을 때만 받기 뒤 같은 실행에서 이어 돈다
+#   (--prune --manifest … --if-ready: 보관본이 아직 준비되지 않았으면 지우지 않고 정상 종료). 변수를 켜기 전에는 표가 3년 창보다 길어진다(연 약 980행).
+#   수동 실행의 prune 입력은 coverage·발행 시각을 직접 주고 가드를 통과해야만 한다(스크립트 머리 참조).
 # 필요 secrets: DATABASE_URL, ECOS_API_KEY (finstat-quarterly.yml 의 환율 환산과 같은 키)
 
 name: ecos-rate-daily
@@ -79,3 +81,12 @@ jobs:
             args+=(--dry-run)
           fi
           uv run python scripts/ecos_rate_daily.py "${args[@]}"
+
+      - name: 창 밖 지우기 (보관본이 발행·72시간 지난 뒤에만 — 변수가 없으면 건너뛴다)
+        # 보관본 서빙 목록이 데이터셋을 싣고 coverage 가 지울 끝을 덮고 발행 72시간이 지나야 한다. 아직이면 지우지 않고 초록으로 끝난다.
+        if: ${{ vars.ECOS_RATE_WRITE == '1' && vars.ECOS_RATE_COLD_MANIFEST != '' && inputs.prune != true && inputs.dry_run != true }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ECOS_RATE_WRITE: ${{ vars.ECOS_RATE_WRITE }}
+          COLD_MANIFEST: ${{ vars.ECOS_RATE_COLD_MANIFEST }}
+        run: uv run python scripts/ecos_rate_daily.py --prune --manifest "$COLD_MANIFEST" --if-ready
