@@ -20,16 +20,22 @@
     계열마다 창 앞 마지막 행 하나(carry-in)를 더 둔다 — 하한이 휴장일이어도 「그날 이하 최신 값」이 DB 에서 나온다.
   · 표가 비어 있으면(첫 실행) 같은 코드가 창 전체를 계열당 1콜로 채운다. 며칠 쉬었다 돌아와도 `최신 행 − 3일`부터 이어 받는다.
 
+■ 쓰기 전 백업 — `--backup-dir 폴더`
+  바꾸는 행(정정)과 지우는 행(창 밖)의 **옛 값**을 `ecos_rate_update_YYYYMMDD.csv`·`ecos_rate_prune_YYYYMMDD.csv`(series,d,rate)로 같은 트랜잭션 안에서 먼저 남긴다 —
+  파일을 못 쓰면 쓰기도 일어나지 않는다. 새로 넣는 행은 옛 값이 없어 대상이 아니다(되돌리기 = 그 행 지우기). 워크플로가 이 폴더를 산출물(30일)로 올린다.
+  지운 행은 보관본에도 있다(가드 ①).
+
 ■ 창 밖 지우기 — `--prune` (보관본이 발행된 **뒤에야** 돈다)
   DB 는 3년 창만 두고 그 앞은 보관본(콜드 서빙 `ecos_rate_hist`)이 맡는다. 그러나 **지우기 전에는 표가 3년 창보다 길다** — 거래일마다 계열 4개가 한 줄씩 늘어 연 약 980행.
   로컬 PG17 24개월 모의(출발 2,959행): 지우기 없음 + 월 유지보수 4,977행 0.367 MiB(유지보수도 없으면 0.383) · 지우기 + 월 유지보수 3,021행 0.250 MiB. 「3년 창 0.25」는 지우기가 도는 상태의 값이다.
   일별 실행은 저장소 변수 `ECOS_RATE_COLD_MANIFEST`(보관본 서빙 목록 주소)가 있고 쓰기가 켜져 있을 때만, 받기·적재 뒤에 `--prune --manifest <주소> --if-ready` 를 이어 돈다.
   변수가 없으면(보관본이 아직 발행되지 않았으면) 지우지 않는다 — 보관본이 서빙되기 전에 지우면 그 구간을 읽을 곳이 없다. `--if-ready` 는 「아직 아님」(목록에 데이터셋 없음 ·
-  coverage 가 지울 끝을 못 덮음 · 발행 72시간 전)을 정상 종료(0)로 두고, 그 밖의 이상(25%·가장 이른 날 가드, 목록 읽기 실패)은 실패로 둔다.
+  coverage 가 지울 끝을 못 덮음 · 발행 72시간 전)을 정상 종료(0)로 두고, 그 밖의 이상(남는 행 30% 미만·가장 이른 날 가드, 목록 읽기 실패)은 실패로 둔다.
   지우는 쪽이 보관본보다 앞서면 이음매에 구멍이 나므로 세 가드를 **모두** 통과해야 한다:
     ① 보관본 coverage 가 지울 날짜 끝(창 하한 − 1일)을 덮는다(`--cold-coverage-max`, 또는 서빙 목록 `--manifest` 에서 읽는다)
     ② 보관본이 발행된 지 `COLD_DELETE_WAIT_SEC`(72시간 — 서버가 묵은 목록을 쓰는 최대 나이와 같다) 이상 지났다(`--cold-published-at`, 목록이면 `updated_at`)
-    ③ 지울 행이 표의 `MAX_PRUNE_FRACTION`(25%) 이하다(창 계산이 틀렸을 때의 안전판)
+    ③ 지우고 남는 행이 표의 `MIN_KEEP_FRACTION`(30%) 이상이다(창 계산이 틀렸을 때의 안전판 — 남는 쪽 기준이라 지우기가 오래 밀려
+       백로그가 커져도(24개월 늦으면 지울 행이 표의 39%) 막히지 않고, 창 하한이 오늘 쪽으로 잘못 밀려 거의 다 지우게 되는 때만 막는다)
   계열마다 창 앞 마지막 행(carry-in)은 남긴다.
 
 ■ 유지보수 — `--maintain`(쓰기가 켜진 채 KST 매월 1일의 일별 실행에서는 자동)
@@ -89,7 +95,8 @@ REVISION_ALERT = 0.50
 RATE_MIN, RATE_MAX = -1.0, 30.0
 #: 서버 콜드 목록 최대 나이(`cold_store.OPM_COLD_MANIFEST_MAX_AGE_SEC` 기본 72시간)와 같다 — 시험이 둘이 같음을 지킨다.
 COLD_DELETE_WAIT_SEC = 72 * 3600
-MAX_PRUNE_FRACTION = 0.25
+#: 지우고 남는 행이 표에서 차지해야 하는 최소 비율. 지우기가 N년 밀려도 남는 행(≈3년 창)은 표의 (3/(3+N)) — 6년 밀려도 33%.
+MIN_KEEP_FRACTION = 0.30
 #: 같은 배치 둘이 겹쳐 쓰지 않게 — `pg_try_advisory_xact_lock` 키(ASCII "OPMECOSR").
 LOCK_KEY = int.from_bytes(b"OPMECOSR", "big")
 COLD_DATASET = "ecos_rate_hist"
@@ -359,6 +366,22 @@ def read_existing(con, ranges: Mapping[str, tuple[date, date]], *, lock: bool) -
     return out
 
 
+def write_backup(dir_: Path, kind: str, day: date, rows: Sequence[tuple[str, date, float]]) -> Path | None:
+    """쓰기 전 백업 — 바꾸거나 지울 행의 **옛 값**을 CSV(series,d,rate)로 남긴다. 새로 넣는 행은 옛 값이 없어 백업 대상이 아니다.
+    같은 날 다시 돌면 이어 붙인다. 쓰지 못하면 예외 — 호출부는 같은 트랜잭션 안에서 부르므로 쓰기도 일어나지 않는다. 행이 없으면 파일을 만들지 않는다."""
+    if not rows:
+        return None
+    dir_.mkdir(parents=True, exist_ok=True)
+    path = dir_ / f"{TABLE}_{kind}_{day:%Y%m%d}.csv"
+    new = not path.exists()
+    with path.open("a", encoding="utf-8", newline="") as f:
+        if new:
+            f.write("series,d,rate\n")
+        for series, d, rate in rows:
+            f.write(f"{series},{d.isoformat()},{rate!r}\n")
+    return path
+
+
 def apply_plan(con, plan: Plan) -> None:
     """같은 트랜잭션 안에서 쓴다. 고치는 행은 옛 값 조건 — 행 수가 어긋나면 ConflictError."""
     for code, d, new, old in plan.update:
@@ -378,7 +401,7 @@ class Fetched:
     calls: int
 
 
-def settle(con, fetched: Fetched, lo: date, *, write: bool) -> Plan:
+def settle(con, fetched: Fetched, lo: date, *, write: bool, backup_dir: Path | None = None, today: date | None = None) -> Plan:
     """한 트랜잭션: 잠금 → 기존 행 읽기 → 계획 → (write 면) 쓰기. `fetched.points` 는 접기·carry-in 전의 원천 점이다.
 
     🔴 `con` 은 autocommit 연결이어야 한다 — 아니면 `con.transaction()` 이 바깥 트랜잭션의 세이브포인트가 되어
@@ -402,6 +425,8 @@ def settle(con, fetched: Fetched, lo: date, *, write: bool) -> Plan:
         plan = make_plan(points, existing, fetched.ranges)
         check_revisions(plan)
         if write and plan.writes:
+            if backup_dir and plan.update:
+                write_backup(backup_dir, "update", today or datetime.now(KST).date(), [(c, d, old) for c, d, _new, old in plan.update])
             apply_plan(con, plan)
         return plan
 
@@ -474,7 +499,7 @@ def parse_aware(s: str) -> datetime:
 
 
 def prune_rows(con, lo: date, *, cold_min: date, cold_max: date, cold_published_at: datetime,
-               now: datetime, write: bool) -> tuple[int, int]:
+               now: datetime, write: bool, backup_dir: Path | None = None) -> tuple[int, int]:
     """창 밖 행을 지운다. (지울 행 수, 표 행 수). 가드를 못 넘으면 EcosError, 아무것도 지우지 않는다."""
     _need_autocommit(con)
     age = (now - cold_published_at).total_seconds()
@@ -496,9 +521,12 @@ def prune_rows(con, lo: date, *, cold_min: date, cold_max: date, cold_published_
             return 0, total
         if cold_min > mn:
             raise EcosError(f"보관본 coverage 가 {cold_min} 부터 — 표의 가장 이른 날 {mn} 을 덮지 못한다")
-        if n > total * MAX_PRUNE_FRACTION:
-            raise EcosError(f"지울 행 {n} 이 표 {total} 행의 {MAX_PRUNE_FRACTION:.0%} 를 넘는다 — 창 계산이 틀렸는지 확인")
+        if total - n < total * MIN_KEEP_FRACTION:
+            raise EcosError(f"지우고 남는 행 {total - n} 이 표 {total} 행의 {MIN_KEEP_FRACTION:.0%} 에 못 미친다 — 창 계산이 틀렸는지 확인")
         if write:
+            if backup_dir:
+                write_backup(backup_dir, "prune", now.astimezone(KST).date(), con.execute(
+                    f"SELECT r.series::text, r.d, r.rate::float8 {sel} ORDER BY 1, 2", (lo,)).fetchall())
             cur = con.execute(f"DELETE FROM {TABLE} r WHERE r.d < (SELECT max(x.d) FROM {TABLE} x WHERE x.series = r.series AND x.d < %s)", (lo,))
             if cur.rowcount != n:
                 raise ConflictError(f"지운 행 {cur.rowcount} ≠ 센 행 {n}")
@@ -555,6 +583,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--cold-coverage-min", help="보관본 coverage 시작(YYYYMMDD, 기본 20151201)")
     ap.add_argument("--cold-published-at", help="보관본 발행 시각(ISO, 시간대 포함)")
     ap.add_argument("--manifest", help="서빙 목록(https 또는 file://) — coverage·발행 시각을 여기서 읽는다")
+    ap.add_argument("--backup-dir", help="쓰기 전에 바꾸거나 지울 행의 옛 값을 이 폴더에 CSV 로 남긴다(워크플로가 산출물로 올린다)")
     ap.add_argument("--if-ready", action="store_true", help="--prune: 보관본이 아직 준비되지 않았으면(데이터셋 없음·coverage 부족·72시간 전) 지우지 않고 정상 종료")
     args = ap.parse_args(argv)
     _quiet_http_loggers()
@@ -566,13 +595,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if bad:
         print(f"알 수 없는 계열 {bad} — {','.join(BY_CODE)} 중에서", file=sys.stderr)
         return 2
+    backup_dir = Path(args.backup_dir) if args.backup_dir else None
     url = os.environ.get("DATABASE_URL")
     write = write_enabled() and not args.dry_run
     print(f"ecos_rate 일별 — 기준일 {today} · 창 하한 {lo} · 계열 {','.join(codes)} · 쓰기 {'켜짐' if write else '꺼짐(계획만)'}")
 
     import psycopg
     if args.prune:
-        return _main_prune(args, url, lo, write, psycopg)
+        return _main_prune(args, url, lo, write, psycopg, backup_dir)
 
     key = os.environ.get("ECOS_API_KEY")
     if not key:
@@ -606,7 +636,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"  {code} {BY_CODE[code].name}: 원천 {len(pts)}행 · 마지막 {pts[-1][0] if pts else None}")
             print("계획만 냈다 (DB 비교 없음).")
             return 0
-        plan = settle(con, fetched, lo, write=write)
+        plan = settle(con, fetched, lo, write=write, backup_dir=backup_dir, today=today)
         summarize(fetched, plan, wrote=write and plan.writes > 0)
         if write:
             problems = verify(con, today, codes)
@@ -629,11 +659,17 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _report_maintain(con) -> None:
-    before, after = maintain(con)
+    """유지보수는 이미 커밋된 적재 뒤의 뒷정리다 — 실패해도 적재·지우기 결과를 빨간불로 바꾸지 않고 경고만 낸다(`--maintain` 으로 다시 돌릴 수 있다)."""
+    import psycopg
+    try:
+        before, after = maintain(con)
+    except psycopg.Error as exc:
+        print(f"::warning::유지보수(VACUUM·색인 다시 만들기)를 못 했다 ({type(exc).__name__}) — 적재는 끝났다. 필요하면 --maintain 으로 다시 돌린다")
+        return
     print(f"유지보수: 표+색인 {before['total']} → {after['total']} B (색인 {before['index']} → {after['index']}) · {after['rows']}행")
 
 
-def _main_prune(args, url: str | None, lo: date, write: bool, psycopg) -> int:
+def _main_prune(args, url: str | None, lo: date, write: bool, psycopg, backup_dir: Path | None = None) -> int:
     if not url:
         print("DATABASE_URL 이 없습니다.", file=sys.stderr)
         return 2
@@ -651,7 +687,7 @@ def _main_prune(args, url: str | None, lo: date, write: bool, psycopg) -> int:
             published = parse_aware(args.cold_published_at)
         with psycopg.connect(url, connect_timeout=20, autocommit=True) as con:
             n, total = prune_rows(con, lo, cold_min=cmin, cold_max=cmax, cold_published_at=published,
-                                  now=datetime.now(timezone.utc), write=write)
+                                  now=datetime.now(timezone.utc), write=write, backup_dir=backup_dir)
             print(f"창 밖 행 {n} / 표 {total} → {'지웠다' if write and n else '지우지 않았다'} (창 하한 {lo}, 보관본 {cmin}~{cmax})")
             if write and (args.maintain or n):
                 _report_maintain(con)
