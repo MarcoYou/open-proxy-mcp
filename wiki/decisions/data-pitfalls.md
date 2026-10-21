@@ -724,7 +724,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 
 #### DATA-FWD3 `status` 의미와 이력 창
 - **무엇이 틀리나**: 「없음」이 셋이다 — 애널리스트 미커버(`no_estimates`, 오류 아님), 회사를 못 찾음(`not_found`), DB 장애(`db_error`). 뭉뚱그리면 취할 행동이 갈린다. 이력 창은 읽는 쪽과 쓰는 쪽이 같아야 한다.
-- **공개 예**: 전체 2,764종목 중 추정 보유는 713종목(25.8%)이다 — 나머지는 자료 없음이지 오류가 아니다. 추정 행에 원래 없는 칸(`debt_interest_krw`·`reserve_ratio_pct`·`quick_ratio_pct`·`shares_common`)은 채움률 0.0% 라 빈 칸이 아니라 `fields_absent_by_design` 으로 **이유를 적어** 낸다.
+- **공개 예**: 2026-10-17 최신 컨센서스 스냅샷(유니버스 2,648종목)에서 추정 보유는 735종목(27.8%)이다 — 나머지는 자료 없음이지 오류가 아니다. 이 수는 시점이 있는 값이라 시간이 지나면 바뀐다. 추정 행에 원래 없는 칸(`debt_interest_krw`·`reserve_ratio_pct`·`quick_ratio_pct`·`shares_common`)은 채움률 0.0% 라 빈 칸이 아니라 `fields_absent_by_design` 으로 **이유를 적어** 낸다.
 - **막는 곳**: 이력 창 = `as_of ≥ 최신 as_of − 52주`(`FWD_HOT_WEEKS`, 하한 26주)이며 창 안 날짜는 온전한 한 벌이다. 창보다 이른 날짜는 판 일부가 지워졌을 수 있어 읽지 않는다. 26w·52w 리비전은 이력이 앞 창보다 길 때만 싣는다.
   정의는 `open_proxy_mcp/fwd_window.py` 한 곳이다([[consensus-history-window]]).
 - **남은 한계**: 최신 스냅샷에 없는 종목(수집 대상에서 빠진 상장폐지·거래정지)은 그 종목의 가장 늦은 스냅샷을 읽고 경고로 밝힌다.
