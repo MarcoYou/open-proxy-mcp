@@ -2361,6 +2361,25 @@ async def _fetch_year_metrics(
     detail = _build_account_map_all(rows_detail, cumulative_is=True, induty_code=induty_code) if rows_detail else None
     detail_prev = _build_account_map_all(rows_detail_prev, cumulative_is=True, induty_code=induty_code) if rows_detail_prev else None
 
+    # ── 전기 보고서의 실제 재무제표 기준이 당기와 다르면 섞어 견주지 않는다 (DATA-Q5 의 연간 변형) ──
+    # 전기 주요계정은 요청 fs_div 로 불러 연결이 없으면 별도 행이 그대로 오고(`_safe_fetch_acnt`), 전기 전체 재무제표는 당기 actual_fs 로 따로 부른다.
+    # 연결 신규 작성(당기 CFS · 전기 OFS)·연결 중단(당기 OFS · 전기 CFS)이면 전년비·평균자본이 다른 기준끼리 견줘졌다.
+    # 사업보고서면 **당기 보고서의 전기 칸**(당기와 같은 기준으로 다시 적은 값)을 전기로 쓴다. 그 칸을 못 쓰는 분기·반기 보고서는 전기를 버린다.
+    prev_fs_div: str | None = None
+    prev_dropped = False
+    _fs_prev = _actual_fs_div(rows_prev) if rows_prev else None
+    if _fs_prev and _fs_prev != actual_fs:
+        prev_fs_div = _fs_prev
+        if used_rc == _REPRT_BUSINESS and rows_curr:
+            bs_is_prev = _build_account_map(rows_curr, period="frmtrm", induty_code=induty_code)
+            detail_prev = _build_account_map_all(rows_detail, period="frmtrm", induty_code=induty_code) if rows_detail else None
+            warnings.append(f"{year - 1}년 보고서 재무제표 기준({_fs_prev})이 {year}년({actual_fs})과 달라, 전기 값은 {year}년 사업보고서의 전기 칸"
+                            f"(당기와 같은 기준으로 다시 적은 값)을 썼다 — prev_fs_div={_fs_prev}.")
+        else:
+            bs_is_prev, detail_prev, prev_dropped = None, None, True
+            warnings.append(f"{year - 1}년 보고서 재무제표 기준({_fs_prev})이 {year}년({actual_fs})과 달라 전기 값을 쓰지 않았다 — "
+                            f"전년비와 평균자본·평균자산 기준 ROE·ROA 를 내지 않음(prev_fs_div={_fs_prev}).")
+
     if not bs_is:
         return {}, warnings + [f"{year}년 BS/IS 핵심 데이터 파싱 실패"], 0
 
@@ -2402,6 +2421,11 @@ async def _fetch_year_metrics(
         induty_code=induty_code,
     )
     metrics["year"] = year
+    if prev_fs_div:
+        metrics["prev_fs_div"] = prev_fs_div     # 새 키 — 전기 보고서의 재무제표 기준이 당기와 달랐을 때만
+        if prev_dropped:   # 전기를 버렸으면 평균 대신 기말로 떨어진 비율을 내지 않는다
+            for _k in ("roe_pct", "roa_pct", "roe_dupont_pct"):
+                metrics[_k] = None
     if metrics.get("net_income_basis_note"):
         warnings.append(f"{year}년 {metrics['net_income_basis_note']}")
     if scale_fix:
