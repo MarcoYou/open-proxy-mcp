@@ -17,6 +17,9 @@ import pytest
 # 🔴 setdefault 가 아니라 **강제**다 — 개발자 셸에 `OPM_KRX_REFRESHER=1` 과 운영 `DATABASE_URL` 이 있어도 테스트가 운영 DB 를 쓰는 갱신기를
 # 띄우지 못하게 한다. 갱신기 자체의 테스트는 `monkeypatch` 로 값을 바꾸거나 함수를 직접 부른다.
 os.environ["OPM_KRX_REFRESHER"] = "0"
+# 갱신기의 지수 종가 쓰기(`krx_idx`)도 기본으로 끈다 — 갱신기 시험이 `run_cycle` 을 직접 부를 때 개발자 셸의 `DATABASE_URL` 로 지수 쪽이 DB 를
+# 읽거나 쓰지 않게. 지수 시험(`test_krx_idx_refresher.py`)은 `monkeypatch.setenv` 로 켠다.
+os.environ["OPM_KRX_IDX_WRITE"] = "0"
 # 회사 명부(DART corpCode) 백그라운드 갱신기도 같은 이유로 끈다 — 테스트가 DART 에서 명부를 받거나 개발자의 configs/master.db 를 덮지 않게.
 os.environ["OPM_CORP_REFRESHER"] = "0"
 # 콜드 서빙(DB 밖 서빙본을 받아 읽는 것)도 끈다 — 개발자 셸의 `OPM_COLD=1`·서명 URL 로 시험이 네트워크·/data 를 만지지 않게.
