@@ -198,15 +198,19 @@ _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "
 #:   시총 = 원장의 `mktcap_won`(접수일 이하 최신 거래일 시총 — 원장 배치가 붙여 저장). **조인하지 않는다**: 일별 시세 원본은 보관 창(261019~ 약 1년, 그 전 7거래일) 뒤 잘려,
 #:          나중에 조인하면 공시 시점 시총 대신 직전 주 종가가 붙는다(10-18 검토 실측 원장 50,724 상장행 중 2,015행 다름, 최대 ±22%) —
 #:          재설계 원칙 「원본이 잘려 나갈 값은 저장한다」.
-#: `pick` = 기간의 날짜마다 업종 스냅샷 하나(색인 한 번씩, MATERIALIZED). 날짜는 원장 첫날 이전으로 늘리지 않는다(빈 날 고르기를 줄인다).
+#: `pick` = 기간의 날짜마다 업종 스냅샷 하나(MATERIALIZED). 날짜는 원장 첫날 이전으로 늘리지 않는다(빈 날 고르기를 줄인다).
+#:   스냅샷 날짜 목록(`snaps`)은 **한 번만** 읽고 날마다 그 작은 목록에서 고른다(261021, 재설계 E1): `wise_sector` 가 구간 표의 뷰가 되면
+#:   날마다 `max(snap_dd)` 를 뷰에 물을 때 스냅샷 × 구간 조인을 매번 풀어(로컬 운영 복원본 실측: 1년 두 종목 4.7ms → 79~95ms) 느려진다.
+#:   목록을 한 번 읽으면 표·뷰 어느 쪽이든 같은 답이고(운영 복원본 전 기간 51,326행 업종 지문 같음) 뷰에서도 한 번만 푼다.
 #: 행 순서(접수일·접수번호)는 DB 가 아니라 `_fetch_events` 에서 정렬한다 — 넓은 행 수만 개를 서버가 정렬하면 작업 메모리를 넘어 디스크로 쏟는다
 #: (10-18 운영 실측, 읽기 전용, 셋을 번갈아 15회 왕복 중앙값: 올해 전체 유형 37,736행 — 종전 복사본 칸 329ms · 시세까지 조인하던 초안 916ms ·
 #:  이 SQL 338ms. 같은 SQL 에 ORDER BY 를 두면 서버 실행이 60 → 142ms — 정렬이 디스크로 쏟는다).
 _EVENTS_SQL = """
-WITH pick AS MATERIALIZED (
+WITH snaps AS MATERIALIZED (SELECT DISTINCT snap_dd FROM wise_sector),
+pick AS MATERIALIZED (
   SELECT g::date AS rcept_dt,
-         COALESCE((SELECT max(snap_dd) FROM wise_sector WHERE snap_dd <= to_char(g, 'YYYYMMDD')),
-                  (SELECT min(snap_dd) FROM wise_sector)) AS sector_dd
+         COALESCE((SELECT max(snap_dd) FROM snaps WHERE snap_dd <= to_char(g, 'YYYYMMDD')),
+                  (SELECT min(snap_dd) FROM snaps)) AS sector_dd
   FROM generate_series(GREATEST(%s::date, (SELECT min(rcept_dt) FROM dart_events)), %s::date, interval '1 day') g
 )
 SELECT e.rcept_no, e.rcept_dt, e.corp_code, e.corp_name, e.stock_code, e.corp_cls, e.kind, e.subtype, e.is_correction,
