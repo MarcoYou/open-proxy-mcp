@@ -436,20 +436,20 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 - **공개 예**: 2019 의 연말 행은 20191230(주 단위 [20191230, 20191231] 의 닫는 점)이고 20191227 은 [20191223, 20191229] 주의 보통 주간 점이다. 일별 최신 한 줄이 마지막 주간 점과 같은 날이면 그대로, 같은 주면 마지막 점을 그 날로 교체,
   더 늦은 주면 뒤에 한 점 추가한다. 주 중간에 상장폐지된 종목은 주간에서 마지막 거래일이 빠져 있다가 일별 보관 창(약 1년) 안에서는 끝점이 그 마지막 거래일을 되살린다(2종목).
 - **막는 곳**: `krx_retention.week_unit`(한 주 = ISO 주 ∩ 달력 연도, 모든 쓰는 쪽·읽는 쪽이 같은 정의), 월말 원천 `scripts/month_end_prices.py` — 달마다 「그 달의 진짜 마지막 주간 날짜라고 말할 수 있는 날」(DB 촘촘한 주간 구간·하한 아래 연말·콜드 서빙본)만 쓴다.
-- **남은 한계(고침 PR #173 열림 — 병합 뒤 닫힘; 응답 값 변화 0)**: 주간 곡선 끝에 일별 한 줄을 잇는 로직이 `services/trading.py`(`_with_daily_tail`)와 `services/price_multiple_data.py`(`_join_daily_tail`)에 **두 벌**이다.
+- **남은 한계**: 없음 — 주간 곡선 끝에 일별 한 줄을 잇는 로직은 #173 부터 `krx_retention.with_daily_tail` 한 곳이다(시세 도구 `trading._with_daily_tail`·배수 도구 `_join_daily_tail` 은 얇은 껍데기, 응답 값 변화 0).
 
 #### DATA-PX7 전 종목 단면은 달력의 기준일을 먼저 구하고, 뷰 위 전체 MIN/MAX 는 금지한다
 - **무엇이 틀리나**: 주간 시세 `krx_weekly` 를 뷰로 바꾸면 뷰 위의 `max(price_dd)`·`min(price_dd)` 는 모든 행을 훑어 느려진다. 서빙 기준일을 도구마다 다르게 정의하면 같은 응답 안에서 날짜가 갈린다.
 - **공개 예**: 닫힌 주 최신 질의 0.8 ms → 뷰 위에서 56 ms → 달력의 가장 늦은 주 닫는 날로 읽어 0.8 ms. 주간 구간 시작 1.7 ms → 115 ms → 하한 뒤 35일 안에서 첫 주를 먼저 찾아 15 ms(#137). 컨센서스 이력도 날짜 목록을 뷰 DISTINCT(0.8초)가 아니라 게시 달력(0.05 ms)에서 읽는다
   ([[consensus-history-window]]).
-- **막는 곳**: 거래일 달력 `krx_day`·`WEEKLY_LATEST_SQL`·`krx_daily.latest_day`(서빙 기준일 정의 한 곳 — 유니버스·시총 단면의 기준일과 종목 최신가의 기준일이 같다).
-- **남은 한계**: 달력이 비면 표의 max 로 돌아간다.
+- **막는 곳**: 거래일 달력 `krx_day`·`WEEKLY_LATEST_SQL`·`krx_daily.latest_day`(서빙 기준일 정의 한 곳 — 유니버스·시총 단면의 기준일과 종목 최신가의 기준일이 같다). 주간 곡선 시작·날짜 목록은 #173 부터 뷰를 훑지 않고 날짜 달력 둘(`krx_wk_day`·`krx_day` 의 주 닫는 날)에서 읽는다(`krx_retention.WEEKLY_DAYS_SQL`·`WEEKLY_RANGE_SQL`, 뷰 모드일 때만).
+- **남은 한계**: 달력이 비면 표의 max 로 돌아간다. 날짜 달력의 행 수 칸(`n`)은 그 날 뷰 행 수와 같다는 약속에 기댄다 — 날 단위로 쓰는 자리는 같은 트랜잭션에서 `n` 을 함께 적고, 주간 압축 표의 행 일부를 지우는 보존 정리를 쓰게 되면 `n` 도 다시 세어야 한다.
 
 #### DATA-PX8 KRX 라이브 오류를 「자료 없음」으로 삼키지 않는다
 - **무엇이 틀리나**: KRX 호출 실패(키 만료·한도·장애·전송 오류)를 빈 결과로 돌려주면 읽는 쪽은 「그 날 시세가 없다」로 읽는다. 날짜 소급 같은 우회로 숨겨도 안 된다.
 - **공개 예**: DATA-PX1 의 휴장 판정이 빈 응답을 판정 대상으로만 쓰고 확정을 미루는 이유다. 업종분류 수집은 전송·HTTP·JSON 오류와 리다이렉트를 날짜 소급으로 숨기지 않는다.
 - **막는 곳**: 휴장 판정 미루기(`closed_verdict`), 조회 실패는 status 로 올린다(DATA-U3, DATA-API1).
-- **남은 한계(열린 결함)**: KRX 라이브 호출·캐시가 두 벌이고 일별 시세 쓰기 함수(`_krx_db_upsert`)가 배수 서비스 파일 안에 있어 다른 파일이 비공개 함수 16곳을 부른다.
+- **남은 한계**: #174 부터 서버 안 KRX 호출 네 곳(배수 도구 라이브 보조·시세 확인·백그라운드 갱신기·DART 클라이언트 종목 시세)이 `krx_api.fetch_day` 하나를 거치고 결과에 상태를 붙인다 — 키·한도·장애·전송 오류는 「자료 없음」이 아니라 실패다(갱신기 `krx_error` 는 휴장 판정에 넣지 않음, 시세 확인은 `data.krx_status`, 배수 도구 라이브는 실패한 날에서 멈춤, 두 시장이 다 온 응답만 캐시). 일별 시세 쓰기는 `krx_daily.upsert_day` 로 옮겼다(배수 서비스는 옛 이름을 다시 내보낸다). 남은 것: 다른 파일이 부르는 비공개 이름 의존 7곳(`asset_holdings`·`scripts/market_val_weekly.py`·시세 도구 캐시), 배수 도구 응답에는 라이브 실패 사유가 실리지 않는다(열린 결함).
 
 ### AGG — 시장·업종 집계
 
@@ -724,8 +724,9 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | DATA-DIV1 | 배당 원장의 배당총액이 반기·분기 결산 리츠의 결산기 하나분이라 시장·업종 집계·`screen` 의 리츠 총액이 작다(가드로 표시만) | 열림 |
 | DATA-PX3 | 공시 EPS 보정이 확정 라벨 이벤트만 쓴다 — 라벨 원천이 멎은 뒤의 분할·병합은 EPS 정렬이 안 된다 | 닫힘 #171 |
 | DATA-PX3 | 계수가 잡힌 병합 종목의 BPS 는 DART 유통주식수(사업연도 말)가 옛 주식 수라 비운다 | 열림 |
-| DATA-PX6 | 주간 곡선 끝에 일별 한 줄을 잇는 로직이 `services/trading.py` 와 `services/price_multiple_data.py` 에 두 벌이다 | 고침 PR #173 열림 — 병합 뒤 닫힘 (한 곳으로 모음, 응답 값 변화 0. #171 위에 쌓임) |
-| DATA-PX8 | KRX 라이브 호출·캐시가 두 벌이고 일별 시세 쓰기 함수가 배수 서비스 파일 안에 있다 | 열림 (고침 PR 없음 — krx-path 정리 예정) |
+| DATA-PX6 | 주간 곡선 끝에 일별 한 줄을 잇는 로직이 `services/trading.py` 와 `services/price_multiple_data.py` 에 두 벌이다 | 닫힘 #173 (`krx_retention.with_daily_tail` 한 곳, 응답 값 변화 0) |
+| DATA-PX8 | KRX 라이브 호출·캐시가 두 벌이고 일별 시세 쓰기 함수가 배수 서비스 파일 안에 있다 | 닫힘 #174 (`krx_api.fetch_day` 한 곳 · 쓰기는 `krx_daily.upsert_day`) |
+| DATA-PX8 | KRX 쪽 비공개 이름 의존이 7곳 남았다(`asset_holdings`·`scripts/market_val_weekly.py`·시세 도구 캐시) · 배수 도구 응답에 KRX 라이브 실패 사유가 실리지 않는다 | 열림 |
 | DATA-FWD1 | 컨센서스 서비스에 개편 전 옛 모양 상수와 옛 `_eok` 칸 후보가 남아 있다 | 닫힘 #165 |
 
 ## 5. 도구 개발자 체크리스트
