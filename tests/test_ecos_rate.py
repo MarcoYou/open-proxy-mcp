@@ -267,8 +267,8 @@ def _manifest(max_dd="20231006", min_dd="20151201", updated="2026-10-17T00:00:00
     entry = {"file": "ecos_rate_hist.5ec45eed2117af28.sqlite", "sha256": "a" * 64, "bytes": 1234, "rows": 10,
              "coverage": {"min_dd": min_dd, "max_dd": max_dd, "upto": max_dd}, "file_schema": 1}
     return json.dumps({"schema": 1, "kind": "opm-cold-serve", "updated_at": updated, "datasets": {S.COLD_DATASET: {
-        "engine": "sqlite3", "view": "ecos_rate", "columns": ["series", "dd", "rate"], "key": ["series", "dd"],
-        "date_col": "dd", "files": [entry], "coverage": {"min_dd": min_dd, "max_dd": max_dd}}}}).encode()
+        "engine": "sqlite3", "view": "ecos_rate_hist", "columns": list(S.COLD_COLUMNS), "key": ["series", "d"],
+        "date_col": "d", "files": [entry], "coverage": {"min_dd": min_dd, "max_dd": max_dd}}}}).encode()
 
 
 def test_cold_guard_from_manifest_reads_coverage_and_updated_at():
@@ -278,6 +278,34 @@ def test_cold_guard_from_manifest_reads_coverage_and_updated_at():
         S.cold_guard_from_manifest(_manifest(), dataset="no_such")
     with pytest.raises(S.EcosError):
         S.cold_guard_from_manifest(json.dumps({**json.loads(_manifest()), "updated_at": None}).encode())
+
+
+# ═══ 보관본 원천 Parquet — 발행기 정의(데이터셋 ecos_rate_hist = series, d, rate)와 칸 이름이 같아야 한다 ═══════════════
+def _full_series():
+    return {"C": [(D("20231002"), 3.6), (D("20231004"), 3.65)], "K": [(D("20231004"), 3.55)], "B": [(D("20231001"), 3.5)]}
+
+
+def test_cold_columns_match_publisher_dataset_definition():
+    """발행기(콜드 서빙본 만들기)는 날짜 칸을 `d` 로 읽는다. 옛 보관본은 `dd` 로 써서 발행기가 KeyError 로 죽었다(10-21 리허설)."""
+    assert S.COLD_COLUMNS == ("series", "d", "rate")
+
+
+def test_cold_rows_are_sorted_with_yyyymmdd_text_dates():
+    rows = S.cold_hist_rows(_full_series())
+    assert rows == [("B", "20231001", 3.5), ("C", "20231002", 3.6), ("C", "20231004", 3.65), ("K", "20231004", 3.55)]
+    assert all(isinstance(r[1], str) and len(r[1]) == 8 for r in rows)
+
+
+def test_write_cold_parquet_uses_publisher_column_names(tmp_path):
+    import duckdb
+    out = tmp_path / "ecos_rate_hist.parquet"
+    assert S.write_cold_parquet(_full_series(), out) == 4
+    con = duckdb.connect()
+    cols = [r[0] for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{out}')").fetchall()]
+    types = {r[0]: r[1] for r in con.execute(f"DESCRIBE SELECT * FROM read_parquet('{out}')").fetchall()}
+    assert cols == ["series", "d", "rate"] and types["d"] == "VARCHAR" and types["rate"] == "DOUBLE"
+    # 값은 받은 십진 값 그대로 — 4바이트로 줄여 쓰면 3.6 이 3.5999999 로 서빙된다
+    assert con.execute(f"SELECT rate FROM read_parquet('{out}') WHERE series='C' AND d='20231002'").fetchone()[0] == 3.6
 
 
 def test_parse_aware_requires_timezone():
@@ -753,14 +781,47 @@ def test_prune_if_ready_only_softens_not_yet_cases(db, monkeypatch, capsys, tmp_
     assert n_rows() == 31
 
 
-def test_workflow_chains_prune_only_with_manifest_variable_and_switch():
-    """일별 워크플로의 두 번째 단계 — 변수(보관본 목록 주소)와 쓰기 스위치가 모두 있을 때만, 수동 prune·dry_run 과 겹치지 않게."""
+def _wf_steps():
+    """워크플로의 단계 이름 → 그 단계 텍스트(들여쓰기 6칸 `- name:` 기준)."""
     wf = (ROOT / ".github" / "workflows" / "ecos-rate-daily.yml").read_text(encoding="utf-8")
-    assert '--prune --manifest "$COLD_MANIFEST" --if-ready' in wf
-    cond = next(line for line in wf.splitlines() if line.strip().startswith("if:"))
-    for part in ("vars.ECOS_RATE_WRITE == '1'", "vars.ECOS_RATE_COLD_MANIFEST != ''", "inputs.prune != true", "inputs.dry_run != true"):
+    parts = wf.split("\n      - ")
+    return wf, {p.split("\n", 1)[0]: p for p in parts[1:]}
+
+
+def _step(steps, key):
+    hits = [t for name, t in steps.items() if key in name]
+    assert len(hits) == 1, (key, list(steps))
+    return hits[0]
+
+
+def test_workflow_chains_prune_only_when_manifest_secret_and_switch_are_set():
+    """창 밖 지우기가 실제로 도는 조건 넷 — ① 쓰기 스위치 ② 보관본 목록 주소 비밀값 ③ 수동 prune 아님 ④ dry_run 아님.
+    목록 주소는 서명 URL(쿼리에 서명)이라 **비밀값**이다 — 저장소 변수로 두면 공개 저장소의 Actions 로그가 단계의 env 를 그대로 보여 준다."""
+    wf, steps = _wf_steps()
+    prune = _step(steps, "창 밖 지우기 (")
+    assert '--prune --manifest "$COLD_MANIFEST" --if-ready' in prune
+    cond = next(line for line in prune.splitlines() if line.strip().startswith("if:"))
+    for part in ("vars.ECOS_RATE_WRITE == '1'", "steps.cold.outputs.set == '1'", "inputs.prune != true", "inputs.dry_run != true"):
         assert part in cond, part
-    assert "COLD_MANIFEST: ${{ vars.ECOS_RATE_COLD_MANIFEST }}" in wf             # 셸 명령줄에 직접 끼우지 않고 환경 변수로
+    assert "secrets." not in cond                                                  # 비밀값은 if 에 못 쓴다 — 확인 단계의 출력만 본다
+    assert "COLD_MANIFEST: ${{ secrets.ECOS_RATE_COLD_MANIFEST }}" in prune         # 셸 명령줄에 직접 끼우지 않고 환경 변수로
+    assert "vars.ECOS_RATE_COLD_MANIFEST" not in wf                                 # 서명 URL 이 변수로 새지 않는다
+    flag = _step(steps, "비밀값이 있는지")
+    assert "COLD_MANIFEST: ${{ secrets.ECOS_RATE_COLD_MANIFEST }}" in flag and "id: cold" in flag and "GITHUB_OUTPUT" in flag
+    assert "echo $COLD_MANIFEST" not in flag and 'echo "$COLD_MANIFEST"' not in flag          # 확인 단계는 값을 찍지 않고 있음/없음만 낸다
+
+
+def test_workflow_says_loudly_when_prune_is_skipped():
+    """쓰기가 켜져 있는데 목록 주소 비밀값이 없으면 지우기를 건너뛰었다고 매일 로그에 남긴다 — 조용히 표가 커지지 않게."""
+    wf, steps = _wf_steps()
+    note = _step(steps, "건너뛴다는 안내")
+    cond = next(line for line in note.splitlines() if line.strip().startswith("if:"))
+    for part in ("vars.ECOS_RATE_WRITE == '1'", "steps.cold.outputs.set != '1'", "inputs.prune != true", "inputs.dry_run != true"):
+        assert part in cond, part
+    assert "::notice::" in note and "ECOS_RATE_COLD_MANIFEST" in note and "980" in note
+    head = wf.split("name: ecos-rate-daily", 1)[0]
+    for word in ("ECOS_RATE_WRITE", "ECOS_RATE_COLD_MANIFEST", "72시간", "coverage", "비밀값"):
+        assert word in head, word                                                   # 머리 주석에 돌 조건이 모두 적혀 있다
 
 
 def test_workflow_backs_up_old_values_before_writing():

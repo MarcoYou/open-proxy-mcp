@@ -28,8 +28,9 @@
 ■ 창 밖 지우기 — `--prune` (보관본이 발행된 **뒤에야** 돈다)
   DB 는 3년 창만 두고 그 앞은 보관본(콜드 서빙 `ecos_rate_hist`)이 맡는다. 그러나 **지우기 전에는 표가 3년 창보다 길다** — 거래일마다 계열 4개가 한 줄씩 늘어 연 약 980행.
   로컬 PG17 24개월 모의(출발 2,959행): 지우기 없음 + 월 유지보수 4,977행 0.367 MiB(유지보수도 없으면 0.383) · 지우기 + 월 유지보수 3,021행 0.250 MiB. 「3년 창 0.25」는 지우기가 도는 상태의 값이다.
-  일별 실행은 저장소 변수 `ECOS_RATE_COLD_MANIFEST`(보관본 서빙 목록 주소)가 있고 쓰기가 켜져 있을 때만, 받기·적재 뒤에 `--prune --manifest <주소> --if-ready` 를 이어 돈다.
-  변수가 없으면(보관본이 아직 발행되지 않았으면) 지우지 않는다 — 보관본이 서빙되기 전에 지우면 그 구간을 읽을 곳이 없다. `--if-ready` 는 「아직 아님」(목록에 데이터셋 없음 ·
+  **돌 조건**: 일별 워크플로가 받기·적재(성공) 뒤에 `--prune --manifest <주소> --if-ready` 를 이어 도는 것은 ① 저장소 변수 `ECOS_RATE_WRITE=1` ② 저장소 **비밀값** `ECOS_RATE_COLD_MANIFEST`(보관본 서빙 목록 주소 —
+  서명 URL 이라 변수가 아니라 비밀값) ③ 수동 prune 입력 아님 ④ dry_run 아님 — 넷이 모두 맞을 때뿐이다. 비밀값이 없으면(보관본이 아직 발행·확인되지 않았으면) 지우지 않고 안내 줄만 남긴다 —
+  보관본이 서빙되기 전에 지우면 그 구간을 읽을 곳이 없다. 켜는 순서: 발행 → 서버가 목록에서 읽는 것을 확인 → 비밀값 설정. `--if-ready` 는 「아직 아님」(목록에 데이터셋 없음 ·
   coverage 가 지울 끝을 못 덮음 · 발행 72시간 전)을 정상 종료(0)로 두고, 그 밖의 이상(남는 행 30% 미만·가장 이른 날 가드, 목록 읽기 실패)은 실패로 둔다.
   지우는 쪽이 보관본보다 앞서면 이음매에 구멍이 나므로 세 가드를 **모두** 통과해야 한다:
     ① 보관본 coverage 가 지울 날짜 끝(창 하한 − 1일)을 덮는다(`--cold-coverage-max`, 또는 서빙 목록 `--manifest` 에서 읽는다)
@@ -100,6 +101,9 @@ MIN_KEEP_FRACTION = 0.30
 #: 같은 배치 둘이 겹쳐 쓰지 않게 — `pg_try_advisory_xact_lock` 키(ASCII "OPMECOSR").
 LOCK_KEY = int.from_bytes(b"OPMECOSR", "big")
 COLD_DATASET = "ecos_rate_hist"
+#: 보관본 원천 Parquet 의 칸 — 콜드 발행기의 데이터셋 정의(`ecos_rate_hist`: series·d·rate)와 **글자까지 같아야** 한다.
+#: 날짜 칸을 `dd` 로 쓴 보관본은 발행기가 읽지 못했다(10-21 리허설). 날짜는 YYYYMMDD 문자열, 값은 받은 십진 값(DOUBLE).
+COLD_COLUMNS = ("series", "d", "rate")
 _TIME_RE = re.compile(r"[0-9]{8}")
 
 
@@ -150,6 +154,23 @@ def parse_dd(s: str) -> date:
 
 def fmt_dd(d: date) -> str:
     return d.strftime("%Y%m%d")
+
+
+def cold_hist_rows(full: Mapping[str, Sequence[Point]]) -> list[tuple[str, str, float]]:
+    """보관본 원천 행 = (series, YYYYMMDD, rate), 계열·날짜 순. `full` 은 계열별 전 기간 점(기준금리는 접은 점)."""
+    return sorted((code, fmt_dd(d), v) for code, pts in full.items() for d, v in pts)
+
+
+def write_cold_parquet(full: Mapping[str, Sequence[Point]], path: Path) -> int:
+    """보관본 원천 Parquet 을 `COLD_COLUMNS` 칸으로 쓴다(로컬 파일만 — 버킷·DB 에 쓰지 않는다). 쓴 행 수를 돌려준다."""
+    import duckdb
+    rows = cold_hist_rows(full)
+    con = duckdb.connect()
+    cols = ", ".join(f"{c} {t}" for c, t in zip(COLD_COLUMNS, ("VARCHAR", "VARCHAR", "DOUBLE")))
+    con.execute(f"CREATE TABLE h ({cols})")
+    con.executemany("INSERT INTO h VALUES (?, ?, ?)", rows)
+    con.execute("COPY (SELECT * FROM h ORDER BY 1, 2) TO ? (FORMAT PARQUET)", [str(path)])
+    return len(rows)
 
 
 def window_lo(today: date) -> date:
