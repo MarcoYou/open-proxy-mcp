@@ -112,7 +112,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
   014130 2025 반기 누적 −79.91억 → −75.16억(자본변동표 지배 몫), 080160 FY2023 칸 132.02억 → 102.78억. 002880 2019 사업보고서 101.83억 → 101.23억(계속 + 중단 −0.60억),
   072770 2023 사업보고서 총포괄 쌍을 피해 −87.00억, 025560 2023 3분기 −132.76억, 003720 「연결당기순이익」 총계(#158).
 - **막는 곳**: `controlling_ni` 의 머리 줄 판정(`_attrib_header`)·계속+중단 합·총계 이름 판정. 원문 캐시 56,246칸 대조에서 바뀐 칸 16, 나빠진 칸 0.
-- **남은 한계**: `financial_metrics` 의 분기·`qoq` 순이익(`net_income_krw`)은 아직 주요계정 당기순이익 총계(비지배 포함)다 — 079160 2021 2분기 −1,032.27억(지배 −845.09억), 000230 2023 3분기 −574.4억(지배 −255.5억)(열린 결함 — #170 은 `net_income_basis=total_incl_nci` 와 표 머리로 기준만 밝혔고 값은 그대로다).
+- **남은 한계**: `financial_metrics` 의 분기·`qoq` 순이익(`net_income_krw`)은 여전히 주요계정 당기순이익 총계(비지배 포함)다 — 079160 2021 2분기 −1,032.27억(지배 −845.09억), 000230 2023 3분기 −574.4억(지배 −255.5억). #170 은 `net_income_basis=total_incl_nci` 와 표 머리로 기준만 밝혔고, 이 PR 이 지배 몫을 새 키 `net_income_controlling_krw` 로 더했다(저장된 분기 재무 칸 `ni_cum` 의 누적 차분 — DART 0콜). 앞 칸이 없거나 재무제표 기준이 섞이거나 DB 를 못 읽으면 비어 있다.
 - **연간 변형(이 PR)**: `financial_metrics` 연간 `net_income_krw`(「지배주주 귀속」)도 지배 순이익을 못 구하면(전체 재무제표 조회 실패 · `MINORITY_NO_CTRL` · `NO_INCOME_ROW`) 조용히 총계(비지배 포함)로 물러났고, 당기와 전기가 따로 물러나면 전년비가 기준이 섞인 값이 됐다(당기 총계 100 대 전기 지배 50 → +100%, 같은 기준이면 +20%). 새 키 `net_income_basis`·`prev_net_income_basis`(`controlling`/`total_incl_nci`)·`net_income_basis_note`, 기준이 다르면 `net_income_yoy_pct=null` + 경고, 총계 기준이고 비지배가 0 이 아니면 ROE·순이익률 경고. 값과 옛 키는 그대로. 남은 한계: 실시간 경로에는 수집이 쓰는 XBRL 대체 길(`ni_case` XBRL_TOTAL)이 없다.
 
 #### DATA-NI3 원문 모순 — 지배·비지배를 바꿔 적음, 부호 뒤집힘, 지배 줄 0, 「비재배」 오타. 자본변동표로 교차 확인한다
@@ -749,7 +749,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | 번호 | 한 줄 | 고친 PR · 상태 |
 |---|---|---|
 | DATA-U1 | 잠정실적 도구의 단위 읽기가 쉼표가 있는 표기에 기대 기본 백만원으로 떨어진다 | 닫힘 #170 (단위를 못 읽으면 금액 미환산 · `unit_raw=None` + 경고) |
-| DATA-NI2 | `financial_metrics` 분기·`qoq` 순이익이 주요계정 당기순이익 총계(비지배 포함)다 | 일부 — #170 은 표시만(`net_income_basis=total_incl_nci`·표 머리), 값 고침은 열림 |
+| DATA-NI2 | `financial_metrics` 분기·`qoq` 순이익이 주요계정 당기순이익 총계(비지배 포함)다 | 닫힘 — #170 은 표시만(`net_income_basis=total_incl_nci`·표 머리), 이 PR 이 새 키 `net_income_controlling_krw`(저장된 분기 칸 누적 차분, DART 0콜)로 지배 몫을 더함. 옛 `net_income_krw` 는 총계 그대로 |
 | DATA-NI2 | `financial_metrics` 연간 `net_income_krw` 가 지배 순이익을 못 구하면 조용히 총계로 바뀌고 전년비·ROE 가 기준이 섞인 값이 된다 | 닫힘 (이 PR — `net_income_basis`·`prev_net_income_basis` 표시, 기준이 다르면 전년비 비움 + 경고) |
 | DATA-NI3 | 값 구조로 못 가르는 지배 순이익 줄(첫 이름 줄 폴백)과 지배·비지배를 바꿔 적은 보고서를 자본변동표로 교차 확인하지 않는다 | 닫힘 #166 (`controlling_ni` 세 꼴을 자본변동표 지배 몫으로 — 저장된 재무 칸 164칸 가운데 162칸을 새 규칙으로 다시 씀) |
 | DATA-NI3 | 값 구조로 가른 지배 순이익 길에도 자본변동표와 다른 칸이 남아 있다(원문 캐시 대조 322칸 — 귀속 줄 없는 총계 238 · 지배 id 줄 67 · 그 밖 17) | 열림 |

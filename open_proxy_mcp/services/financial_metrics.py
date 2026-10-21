@@ -2767,7 +2767,8 @@ def _pp_diff(curr: float | None, prev: float | None) -> float | None:
 async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                            num_quarters: int = 12, fiscal_month: int | None = None,
                            induty_code: str | None = None,
-                           failed_out: set[tuple[int, str]] | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+                           failed_out: set[tuple[int, str]] | None = None,
+                           stock_code: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
 
     `failed_out` 을 주면 조회가 **실패**한(013 「자료 없음」이 아닌 020 한도·800 점검·전송 오류) (사업연도, 보고서코드)를
@@ -2867,6 +2868,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "total_assets_krw": bs_is.get("total_assets"),
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
+            "_fs": actual or fs_div,   # 이 보고서의 실제 재무제표 기준 — 지배 순이익 DB 칸과 기준이 같을 때만 쓴다(반환 전에 뗀다)
         })
         meta.append((year, rc, fiscal_quarter, fiscal_year, actual or fs_div))
 
@@ -3144,9 +3146,79 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                 warnings.append(
                     f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 분기 금액은 **{stmt_cur} 단위 그대로**이고 "
                     f"원화가 아니다. 원화 기준 비교에 그대로 쓰지 말 것.")
+    await _attach_controlling_ni(out, stock_code, warnings)
     for row in out:
         row.pop("_cur", None)
+        row.pop("_fs", None)
     return out[-num_quarters:], warnings
+
+
+def _prev_cell_key(period_end: str, quarter: int) -> tuple[int, int] | None:
+    """한 분기 앞 칸의 DART 표기 `(fy, quarter)` — 기간 말에서 석 달 앞(그 달 말)의 달력 연도와 직전 순번. 1분기는 앞 칸이 없다(누적 자신이 3개월 값)."""
+    if quarter <= 1:
+        return None
+    try:
+        d = date.fromisoformat(str(period_end)[:10])
+    except ValueError:
+        return None
+    y, m = (d.year, d.month - 3) if d.month > 3 else (d.year - 1, d.month + 9)
+    return y, quarter - 1
+
+
+async def _attach_controlling_ni(rows: list[dict[str, Any]], stock_code: str | None, warnings: list[str]) -> None:
+    """분기 행에 새 키 `net_income_controlling_krw`(지배 순이익 3개월)·`net_income_controlling_source` 를 단다(DATA-NI2). 옛 `net_income_krw`(총계)·`net_income_basis` 는 그대로.
+
+    값 = 운영 `dart_finstat_q.ni_cum`(수집이 공용 `controlling_ni` 규칙으로 저장한 **누적** 지배 순이익)의 차분: 1분기는 그 누적 자체, 2·3분기·4분기는 이 칸 누적 − 한 분기 앞 칸 누적.
+    DART 호출은 늘지 않는다(분기마다 `fnlttSinglAcntAll` 을 더 부르면 하루 한도를 쓴다) — DB 1회. 칸의 키는 DART 표기 `(기간 말 달력 연도, 보고서 순번)`(report_calendar).
+    · 보고 통화가 KRW 가 아닌 행(환산된 값)은 비운다 — 저장 칸과 통화·환율 기준이 달라 섞지 않는다.
+    · 두 칸의 재무제표 기준(`fs`)이 서로 다르거나 이 보고서의 기준과 다르면 비운다(DATA-Q5). 앞 칸이 없으면 비운다(추정하지 않는다).
+    · 정정 칸(`ni_cum_restated`)이 아니라 원본 `ni_cum` 을 쓴다 — 이 행의 총계(`net_income_krw`)도 그 분기 보고서 값이라 같은 시점의 값끼리다.
+    · 종목코드가 없거나 DB 를 못 읽으면 값은 비고(키는 있다) DB 를 못 읽었을 때만 경고한다."""
+    for row in rows:
+        row["net_income_controlling_krw"] = None
+        row["net_income_controlling_source"] = None
+    if not stock_code or not rows:
+        return
+    try:
+        from open_proxy_mcp.db import pg_rows
+        got = await asyncio.to_thread(
+            pg_rows,
+            "SELECT fy, quarter, to_jsonb(dart_finstat_q)->>'fs', ni_cum FROM dart_finstat_q WHERE ticker=%s AND ni_cum IS NOT NULL",
+            (stock_code,))
+    except Exception:  # noqa: BLE001 — 덧붙임이다: 읽기가 깨져도 종전 응답은 나간다
+        got = None
+    if got is None:
+        warnings.append("분기 지배 순이익(net_income_controlling_krw)을 DB 에서 읽지 못해 비웠다(미설정 또는 장애) — net_income_krw 는 비지배 포함 총계다.")
+        return
+    cells: dict[tuple[int, int], tuple[str | None, float]] = {}
+    for fy, q, fs, ni in got:
+        try:
+            cells[(int(fy), int(q))] = ((str(fs).upper() if fs else None), float(ni))
+        except (TypeError, ValueError):
+            continue
+    for row in rows:
+        if row.get("_cur", "KRW") != "KRW":
+            continue
+        try:
+            q = int(str(row["fiscal_quarter"]).lstrip("Q"))
+            pe = date.fromisoformat(str(row.get("period_end"))[:10])
+        except (KeyError, TypeError, ValueError):
+            continue
+        cur = cells.get((pe.year, q))
+        if cur is None:
+            continue
+        rfs = str(row.get("_fs") or "").upper()
+        if (cur[0] and rfs and cur[0] != rfs):
+            continue
+        value = cur[1]
+        if q > 1:
+            pk = _prev_cell_key(str(row.get("period_end")), q)
+            prev = cells.get(pk) if pk else None
+            if prev is None or (prev[0] and cur[0] and prev[0] != cur[0]):
+                continue
+            value = cur[1] - prev[1]
+        row["net_income_controlling_krw"] = int(round(value))
+        row["net_income_controlling_source"] = "db_ni_cum_diff"
 
 
 _QUARTER_REPRT = {"Q1": "11013", "Q2": "11012", "Q3": "11014", "Q4": "11011"}
@@ -3458,7 +3530,8 @@ async def build_financial_metrics_payload(
     elif scope == "quarterly":
         failed_fetches: set[tuple[int, str]] = set()
         rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month,
-                                          induty_code=induty_code, failed_out=failed_fetches)
+                                          induty_code=induty_code, failed_out=failed_fetches,
+                                          stock_code=selected.get("stock_code"))
         warnings.extend(ws)
         data["quarterly"] = rows
         data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month, failed=failed_fetches,
@@ -3572,7 +3645,8 @@ async def build_financial_metrics_payload(
 
     elif scope == "qoq":
         rows, ws = await _build_quarterly(corp_code, target_year, fs_div, num_quarters=4,
-                                           fiscal_month=fiscal_month, induty_code=induty_code)
+                                           fiscal_month=fiscal_month, induty_code=induty_code,
+                                           stock_code=selected.get("stock_code"))
         warnings.extend(ws)
         # 직전 분기 vs 당기 비교
         if len(rows) >= 2:

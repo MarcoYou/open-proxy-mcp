@@ -370,8 +370,11 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
         return ["## 분기 추이", "_데이터 없음_"]
     lines = ["## 분기 추이 (최근 12분기, 전 행 standalone 3개월 기준)"]
     lines.append("")
-    lines.append("| 사업연도-분기 | 매출 | QoQ | YoY | 영업이익 | QoQ | YoY | 순이익(총계·비지배 포함) | 영업이익률 |")
-    lines.append("|-----------|------|-----|-----|----------|-----|-----|--------|------------|")
+    # 지배 순이익(DATA-NI2) — 저장 칸에서 구한 행이 하나라도 있을 때만 열을 더한다(없으면 표 모양은 종전 그대로).
+    has_ctrl = any(r.get("net_income_controlling_krw") is not None for r in rows)
+    lines.append("| 사업연도-분기 | 매출 | QoQ | YoY | 영업이익 | QoQ | YoY | 순이익(총계·비지배 포함) | "
+                 + ("순이익(지배) | " if has_ctrl else "") + "영업이익률 |")
+    lines.append("|-----------|------|-----|-----|----------|-----|-----|--------|" + ("--------|" if has_ctrl else "") + "------------|")
     has_cumulative_q4 = False
     for r in rows:
         qoq = r.get("qoq_pct") or {}
@@ -388,11 +391,13 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
             f"{_format_krw_human(r.get('operating_profit_krw'))} | "
             f"{_chg(qoq.get('operating_profit'))} | {_chg(yoy.get('operating_profit'))} | "
             f"{_format_krw_human(r.get('net_income_krw'))} | "
-            f"{_pct(r.get('operating_margin_pct'))} |"
+            + (f"{_format_krw_human(r.get('net_income_controlling_krw'))} | " if has_ctrl else "")
+            + f"{_pct(r.get('operating_margin_pct'))} |"
         )
     lines.append("")
     lines.append("> Q4는 사업보고서 연간치에서 3개 분기 누적을 차분한 standalone 값. QoQ/YoY는 전기가 적자·결측이면 `-`.")
-    lines.append("> 순이익은 비지배지분을 포함한 총계(`net_income_basis`=total_incl_nci)다 — 요약·연간·yoy 의 지배주주 순이익과 값이 다를 수 있다.")
+    lines.append("> 순이익은 비지배지분을 포함한 총계(`net_income_basis`=total_incl_nci)다 — 요약·연간·yoy 의 지배주주 순이익과 값이 다를 수 있다."
+                 + (" 지배 몫은 `net_income_controlling_krw`(저장된 분기 재무 칸의 누적 지배 순이익 차분)." if has_ctrl else ""))
     nonstd = sorted({r.get("revenue_basis") or r.get("revenue_account_nm") for r in rows
                      if r.get("revenue_krw") is not None and r.get("revenue_standard") is False
                      and (r.get("revenue_basis") or r.get("revenue_account_nm"))})
