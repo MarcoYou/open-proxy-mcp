@@ -338,3 +338,31 @@ def test_v8_reader_queries_same_answer(legacy):
     _switch(legacy)
     with psycopg.connect(legacy) as c:
         assert [c.execute(q, p).fetchall() for q, p in READER_SQL] == want
+
+
+def test_v9_disclosure_sector_join_same_answer(legacy):
+    """서버 공시 흐름의 업종 조인(`disclosure_flow._EVENTS_SQL`) — 표와 뷰에서 같은 답. 첫 스냅샷 이전 공시(가장 이른 스냅샷 소급) ·
+    스냅샷 사이 · 고른 스냅샷에 없는 종목(그 종목의 가장 가까운 스냅샷) · 분류가 없는 종목."""
+    from datetime import date
+
+    from open_proxy_mcp.services import disclosure_flow as df
+    with psycopg.connect(legacy, autocommit=True) as c:
+        c.execute("""CREATE TABLE dart_events (rcept_no text PRIMARY KEY, rcept_dt date NOT NULL, corp_code text, corp_name text,
+                     stock_code text, corp_cls text, kind text NOT NULL, subtype text, is_correction boolean NOT NULL DEFAULT false,
+                     report_nm text, mktcap_won bigint, detail jsonb)""")
+        ev = [("e1", date(2026, 8, 3), "000040"), ("e2", date(2026, 8, 25), "000050"), ("e3", date(2026, 10, 20), "000050"),
+              ("e4", date(2026, 10, 20), "000070"), ("e5", date(2026, 9, 1), "000060"), ("e6", date(2026, 10, 20), "123450"),
+              ("e7", date(2026, 10, 20), None)]
+        with c.cursor() as cur:
+            cur.executemany("INSERT INTO dart_events (rcept_no, rcept_dt, stock_code, kind) VALUES (%s,%s,%s,'order')", ev)
+    args = (date(2026, 8, 1), date(2026, 10, 31), date(2026, 8, 1), date(2026, 10, 31), ["order"])
+    q = df._EVENTS_SQL.format(extra="")
+    with psycopg.connect(legacy) as c:
+        want = sorted(c.execute(q, args).fetchall(), key=lambda r: r[0])
+    _switch(legacy)
+    with psycopg.connect(legacy) as c:
+        got = sorted(c.execute(q, args).fetchall(), key=lambda r: r[0])
+    assert got == want
+    sec = {r[0]: r[10] for r in got}
+    assert sec["e2"] == "경기관련소비재" and sec["e3"] == "경기관련소비재"      # 1016 에 없는 000050 은 가장 가까운 스냅샷(0828 이하 → 0821)
+    assert sec["e4"] == "IT" and sec["e5"] == "경기관련소비재" and sec["e6"] is None and sec["e7"] is None
