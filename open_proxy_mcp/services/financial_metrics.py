@@ -1092,7 +1092,23 @@ def _compute_metrics(
 
     revenue_yoy_pct = _yoy_pct(revenue, prev_revenue)
     operating_profit_yoy_pct = _yoy_pct(operating_profit, prev_operating_profit)
-    net_income_yoy_pct = _yoy_pct(net_income_controlling, prev_net_income_controlling)
+    # 순이익 기준 표시 (DATA-NI2 의 연간 변형) — 지배 순이익을 못 구하면(전체 재무제표 조회 실패·MINORITY_NO_CTRL·NO_INCOME_ROW 꼴) 위에서 조용히 총계(비지배 포함)로 물러난다.
+    # 당기와 전기가 따로 물러나면 전년비가 기준이 섞인 값이 되므로(당기 총계 100 대 전기 지배 50 → +100%, 같은 기준이면 +20%) 기준이 다를 때는 전년비를 내지 않는다.
+    net_income_basis = (NET_INCOME_BASIS_CONTROLLING if controlling_ni is not None
+                        else NET_INCOME_BASIS_TOTAL if net_income is not None else None)
+    prev_net_income_basis = (NET_INCOME_BASIS_CONTROLLING if prev_controlling_ni is not None
+                             else NET_INCOME_BASIS_TOTAL if prev_net_income_total is not None else None)
+    ni_basis_mixed = (net_income_basis is not None and prev_net_income_basis is not None
+                      and net_income_basis != prev_net_income_basis)
+    net_income_yoy_pct = None if ni_basis_mixed else _yoy_pct(net_income_controlling, prev_net_income_controlling)
+    net_income_basis_note = None
+    if ni_basis_mixed:
+        net_income_basis_note = (f"전기·당기 순이익 기준이 달라 전년비를 내지 않음 (당기 {net_income_basis} · 전기 {prev_net_income_basis}) — "
+                                 f"지배 순이익을 구하지 못한 해는 비지배 포함 총계로 적혀 있다.")
+    elif net_income_basis == NET_INCOME_BASIS_TOTAL and detail.get("nci") != 0:
+        # 비지배지분이 0 이면 총계 = 지배라 안전하다. 있거나 모르면 ROE(분자 총계 ÷ 지배자본)·순이익률이 지배 기준보다 높게 나올 수 있다.
+        net_income_basis_note = ("지배 순이익을 구하지 못해 비지배 포함 총계 순이익으로 ROE·순이익률을 냈다 — "
+                                 "비지배지분이 있으면 지배 기준보다 높게 나온다.")
 
     # 총차입금 = _compute_borrowings sum-all(단기+장기+전환+기타차입). account_id 정확매칭.
     # 리스부채·신종자본증권은 별도(리스=IFRS16 별도, 신종자본=IFRS 자본).
@@ -1308,6 +1324,10 @@ def _compute_metrics(
         "ebitda_margin_pct": ebitda_margin_pct,
         "net_income_krw": net_income_controlling,  # 지배주주 귀속 (한국 표준)
         "net_income_total_krw": net_income,  # 합계 (참고용)
+        # 새 키 — net_income_krw 가 실제로 어느 기준 값인가(지배 순이익을 못 구하면 total_incl_nci). 옛 키·값은 그대로.
+        "net_income_basis": net_income_basis,
+        "prev_net_income_basis": prev_net_income_basis,
+        "net_income_basis_note": net_income_basis_note,
         "net_profit_margin_pct": net_profit_margin_pct,
         # ── prev year + yoy (260505 ralph precision iter 2 — 흑자+yoy<0 trigger 활성화용) ──
         "prev_revenue_krw": prev_revenue,
@@ -2382,6 +2402,8 @@ async def _fetch_year_metrics(
         induty_code=induty_code,
     )
     metrics["year"] = year
+    if metrics.get("net_income_basis_note"):
+        warnings.append(f"{year}년 {metrics['net_income_basis_note']}")
     if scale_fix:
         metrics.setdefault("data_quality", {})["scale_fix"] = scale_fix
     elif scale_cross:
@@ -2672,6 +2694,7 @@ _QUARTERLY_IS_KEYS = ("revenue", "operating_profit", "net_income")
 
 #: `quarterly`·`qoq` 행의 `net_income_krw` 기준 — 비지배지분을 포함한 총계(summary·yearly·yoy 의 `net_income_krw` 는 지배).
 NET_INCOME_BASIS_TOTAL = "total_incl_nci"
+NET_INCOME_BASIS_CONTROLLING = "controlling"   # 연간 net_income_krw 가 지배 순이익일 때 (NI2 연간 변형 — _compute_metrics 가 쓴다)
 
 
 def _qchg_pct(curr: int | None, prev: int | None) -> float | None:
