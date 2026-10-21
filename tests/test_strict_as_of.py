@@ -335,6 +335,8 @@ def test_krx_returned_quote_must_have_the_requested_pre_cutoff_day(monkeypatch):
         assert {item["reason"] for item in as_of.strict_exclusions()} == {
             "publication_date_conflict", "publication_unknown",
         }
+    # 261021: 호출은 `krx_api.fetch_day` 한 곳이다 — 종목이 코스피에 있으면 코스닥은 부르지 않는다(1콜), 클라이언트의 연결 풀을 그대로 쓴다
+    assert client._http.get.await_count == 1 and client._http.get.call_args.kwargs["timeout"] == 30
 
 
 def test_kind_search_excludes_unverified_dates_and_clamps_request():

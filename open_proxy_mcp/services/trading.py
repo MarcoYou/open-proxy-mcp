@@ -27,11 +27,12 @@ from typing import Any
 
 from open_proxy_mcp.company_resolver import share_class_ticker
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
-from open_proxy_mcp.krx_daily import read_quote
+from open_proxy_mcp import krx_api
+from open_proxy_mcp.krx_daily import price_dates, read_quote
 
 from open_proxy_mcp.krx_retention import weekly_window_note, with_daily_tail
 from open_proxy_mcp.krx_ticks import TICK_ROUNDING_LABEL, is_tick_rounding
-from open_proxy_mcp.market_codes import to_label as mkt_label
+from open_proxy_mcp.market_codes import KQ as MKT_KQ, KS as MKT_KS, to_label as mkt_label
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
 from open_proxy_mcp.services.company import COMPANY_LOOKUP_NEXT_ACTION, company_not_found_warning
 from open_proxy_mcp.services.price_multiple_data import (
@@ -40,9 +41,7 @@ from open_proxy_mcp.services.price_multiple_data import (
     _db_call,
     _fetch_live_snapshot,
     _gather_db,
-    _num,
     _pg_rows,
-    _price_dates,
     _read_weekly,
     _resolve_listed,
     _weekly_bounds,
@@ -50,6 +49,8 @@ from open_proxy_mcp.services.price_multiple_data import (
 from open_proxy_mcp.krx_retention import COLD_DEGRADED_NOTE, weekly_cold_note   # 261019 콜드 서빙(3년 하한 이전 주간 곡선)
 
 TOOL = "trading_data"
+
+_num = krx_api.to_int       # KRX 숫자 문자열(쉼표 포함) → 정수 — 정의는 `krx_api.to_int` 한 곳
 
 _SCHEMES = {
     "market": "시장 전체 (KOSPI·KOSDAQ)",
@@ -59,7 +60,7 @@ _SCHEMES = {
 
 #: 과거일 시세의 **전종목 응답**을 날짜별로 2일치까지 보관하는 작은 LRU. 보관 창(최근 약 1년) 밖의 날짜를 조회하면 KRX 를
 #: 2콜 부르는데, 종전에는 그 응답을 버리고 한 줄만 기억했다 — 한 사용자가 650종목을 훑으면 같은 날짜를 650번 불렀다(10/17 실제 사례).
-#: 이제 날짜당 1회다. 구조 {basDd: {단축코드: 줄인 행}}, 가장 오래 안 쓴 날짜부터 밀려난다.
+#: 이제 날짜당 1회다. 구조 {basDd: {단축코드: 줄인 행}}, 가장 오래 안 쓴 날짜부터 밀려난다. 줄인 행의 모양은 `_KRX_CACHE` 와 같다(`krx_api.ROW_KEYS`).
 #: `_KRX_CACHE`(32MB, 오늘 스냅샷)에는 넣지 않는다 — 임의 과거일 조회가 오늘 스냅샷을 밀어내면 `_market_for`(배수 산출)가
 #: 매번 KRX 를 다시 부르게 된다. 남의 캐시를 오염시키지 않으려고 작은 장부를 따로 둔다(행을 줄이면 하루 ≈ 2~3MB).
 #: ★ 한 시장이라도 비어 온 응답은 담지 않는다 — 반쪽을 담으면 비어 온 시장의 종목이 그 날짜에 영영 없는 것이 된다.
@@ -166,13 +167,14 @@ def _db_missing_payload(subject: str, *extra: str) -> dict[str, Any]:
 async def _live_split() -> tuple[str | None, dict[str, dict], dict[str, list]]:
     """KRX 최신 거래일 전종목 스냅샷 — (거래일, {단축코드: row}, {"KOSPI": [...], "KOSDAQ": [...]}).
 
-    `_fetch_live_snapshot` 이 `_KRX_CACHE` 에 시장별 원본(`:split`)을 함께 넣어 둔다. 시장 합계는
-    그 시장 태그가 있어야 계산되므로 여기서 같이 꺼낸다(추가 콜 없음).
+    시장 합계는 그 시장 태그가 있어야 계산되므로 스냅샷의 줄인 행을 시장 태그(`krx_api.MARKET_TAG` — 호출한 endpoint 기준)로 가른다
+    (추가 콜 없음. 종전에는 캐시에 시장별 원본 목록을 따로 담아 두었다).
     """
     dd, snap = await _fetch_live_snapshot()
     if not dd:
         return None, {}, {}
-    return dd, snap, (_KRX_CACHE.get(dd + ":split") or {})
+    kospi, kosdaq = krx_api.split_markets(snap)
+    return dd, snap, {"KOSPI": kospi, "KOSDAQ": kosdaq}
 
 
 # ── 1. 종목 시계열 ────────────────────────────────────────────────────────────
@@ -413,9 +415,9 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
                 "warnings": [f"주간 스냅샷 기준(최신 {as_of}) — 주 마지막 거래일."]}
 
     # ── 섹터 ──
-    # 최신일 조회와 스냅샷 조회를 **한 왕복**으로 합친다. `_pg_rows` 는 호출마다 새 커넥션을
-    #   열고(실측 핸드셰이크 124ms vs 질의 63ms — 연결이 질의보다 2배 비싸다) 프로덕션은
-    #   1 CPU 라 `asyncio.to_thread` 풀이 5칸뿐이다. 왕복 하나가 곧 그 5칸 중 하나다.
+    # 최신일 조회와 스냅샷 조회를 **한 왕복**으로 합친다. `_pg_rows` 는 공용 커넥션 풀(`db.pg_rows`, 머신당 5커넥션)에서 연결을 빌린다 —
+    #   풀이 막히면 질의마다 새로 접속(실측 핸드셰이크 124ms vs 질의 63ms)으로 떨어지고, 프로덕션은 1 CPU 라 `asyncio.to_thread` 풀도
+    #   5칸뿐이다. 왕복 하나가 곧 그 5칸 중 하나(와 풀 연결 하나)다.
     snap = await asyncio.to_thread(
         _pg_rows, "SELECT market, bucket, label, cap, n, sector_asof, price_dd FROM krx_cap_agg "
                   "WHERE scheme=%s AND price_dd=(SELECT max(price_dd) FROM krx_cap_agg WHERE scheme=%s) "
@@ -493,7 +495,8 @@ _QUOTE_FIELDS = (
     ("LIST_SHRS", "list_shrs", "상장주식수"),
 )
 #: LRU 에 담을 때 행에서 남기는 키 — 시세 산출에 쓰는 것만(전체 행은 ~25개 키라 날짜당 수 MB 가 더 든다).
-_QUOTE_KEEP_KEYS = ("ISU_CD",) + tuple(src for src, _, _ in _QUOTE_FIELDS) + ("MKT_NM", "FLUC_RT")
+#: 정의는 `krx_api.ROW_KEYS` 한 곳이다(`_QUOTE_FIELDS` 의 원천 칸은 모두 그 안에 있다 — 시험이 대조한다).
+_QUOTE_KEEP_KEYS = krx_api.ROW_KEYS
 
 _METHOD_LIVE = ("KRX 정보데이터시스템 일별매매정보(stk/ksq_bydd_trd) 원본. "
                 "그 날짜 실제 체결가 — 수정주가가 아닙니다. "
@@ -509,10 +512,12 @@ _DAILY_LIMIT_PCT = 30.0
 
 
 def _prev_weekday(dd: str) -> str:
-    """`dd` 의 직전 평일(YYYYMMDD) — 이 서버의 거래일 달력(`_price_dates`)을 그대로 쓴다."""
+    """`dd` 의 직전 평일(YYYYMMDD) — 주말만 아는 거래일 달력(`krx_daily.price_dates`)이다. 휴장일은 모른다 — 보관 창 안의 휴장은 달력 표
+    `krx_day`(`_calendar_day`)에 적혀 있지만 이 판정은 그것을 읽지 않는다. 직전 평일 행이 없으면 휴장 다음 날과 KRX 가 빠뜨린 날을 가르지 못해
+    `_change_is_reliable` 이 거짓이 되고, 호출자는 KRX 공표값을 확인한다(2콜 더 — 날짜 LRU 라 같은 날짜는 한 번)."""
     from datetime import date
     d = date(int(dd[:4]), int(dd[4:6]), int(dd[6:]))
-    return next(x for x in _price_dates(d) if x < dd)
+    return next(x for x in price_dates(d) if x < dd)
 
 
 def _change_is_reliable(dd: str, r: dict) -> bool:
@@ -520,7 +525,7 @@ def _change_is_reliable(dd: str, r: dict) -> bool:
 
     DB 의 「전 거래일」은 같은 종목의 직전 **보관 행**이다. 그것이 진짜 직전 거래일이 아닐 수 있다 —
       · 보관 창의 첫날·신규상장일 → 직전 행이 없다
-      · 직전 평일 행이 없다 → 휴장일일 수도, KRX 가 0행을 줘서 빠진 날일 수도 있다(구분할 달력이 없다)
+      · 직전 평일 행이 없다 → 휴장일일 수도, KRX 가 0행을 줘서 빠진 날일 수도 있다(이 판정은 `krx_day` 달력을 읽지 않는다 — `_prev_weekday`)
       · 변동이 ±30% 를 넘는다 → 액면분할·병합·권리락·감자 등 기준가 조정일(KRX 공표 등락률은 기준가 대비)
     이 셋이면 틀린 숫자를 조용히 내지 않고 KRX 공표값으로 확인한다."""
     if not r.get("prev_close") or r.get("chg_pct") is None or not r.get("prev_dd"):
@@ -541,15 +546,26 @@ def _quote_day_put(basDd: str, kospi: list, kosdaq: list) -> None:
     """두 시장 모두 온 응답만 담는다. 날짜가 2개를 넘으면 가장 오래 안 쓴 날짜를 민다."""
     if not (kospi and kosdaq):
         return
-    _QUOTE_DAYS[basDd] = {r["ISU_CD"]: {k: r.get(k) for k in _QUOTE_KEEP_KEYS}
-                          for rows in (kospi, kosdaq) for r in rows if r.get("ISU_CD")}
+    _QUOTE_DAYS[basDd] = krx_api.index_rows(*([krx_api.reduce_row(r, mkt) for r in rows if r.get("ISU_CD")]
+                                              for mkt, rows in ((MKT_KS, kospi), (MKT_KQ, kosdaq))))
     _QUOTE_DAYS.move_to_end(basDd)
     while len(_QUOTE_DAYS) > _QUOTE_DAYS_MAX:
         _QUOTE_DAYS.popitem(last=False)
 
 
+class KrxQuoteError(Exception):
+    """KRX 호출이 **실패**해 그 날짜 시세를 확인하지 못했다(`status` = `krx_api` 의 실패 상태) — 「그 날 자료 없음」(휴장·거래정지)과 다르다.
+    `_krx_quote_row` 가 올린다. 호출자는 이것을 휴장·자료 없음 문구로 답하지 않는다(DATA-PX8)."""
+
+    def __init__(self, status: str):
+        super().__init__(status)
+        self.status = status
+
+
 async def _krx_quote_row(basDd: str, ticker: str) -> dict | None:
-    """그 날짜 그 종목의 KRX 원본 행(보관 창 밖의 날짜용). 날짜 LRU·`_KRX_CACHE` 에 전종목 응답이 있으면 공짜(0콜), 없으면 2콜.
+    """그 날짜 그 종목의 KRX 줄인 행(보관 창 밖의 날짜용). 날짜 LRU·`_KRX_CACHE` 에 전종목 응답이 있으면 공짜(0콜), 없으면 2콜.
+    **행이 없다(None) = KRX 가 그 날 그 종목을 주지 않았다**(휴장·상장 전·거래정지)는 답이다. KRX 호출이 실패해서 못 찾았으면
+    None 이 아니라 `KrxQuoteError` 를 올린다(261021, DATA-PX8 — 종전에는 키 만료·한도·장애가 None 과 같아 「휴장·거래정지」로 답했다).
 
     ★ 받아온 전종목 응답은 **날짜별 소형 LRU(`_QUOTE_DAYS`, 2일치)** 에 보관한다 — 같은 날짜의 다음 종목은 KRX 를 다시 부르지 않는다.
       `_KRX_CACHE` 에는 넣지 **않는다**(임의 과거일 조회가 오늘 스냅샷을 밀어내면 `_market_for` 가 매번 KRX 를 다시 부른다).
@@ -561,30 +577,16 @@ async def _krx_quote_row(basDd: str, ticker: str) -> dict | None:
     if cached is not None:
         return cached.get(ticker)
 
-    key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
-    if not key:
-        return None
-    import httpx
-
-    from open_proxy_mcp.dart.krx_meter import bump
-    from open_proxy_mcp.services.price_multiple_data import _KRX_URL, _KSQ_URL
-
-    async def _one(h, url):
-        try:
-            bump()
-            r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": basDd})
-            return next((v for v in r.json().values() if isinstance(v, list)), [])
-        except Exception:
-            return []
-
-    async with httpx.AsyncClient(timeout=30) as h:
-        kospi, kosdaq = await asyncio.gather(_one(h, _KRX_URL), _one(h, _KSQ_URL))
+    kospi, kosdaq, _, status = await krx_api.fetch_day(basDd, both=True)
     row = next((r for rows in (kospi, kosdaq) for r in rows if r.get("ISU_CD") == ticker), None)
-    # ★ **빈 결과·반쪽 결과는 캐시하지 않는다.** KRX 는 이미 게시한 거래일을 일시적으로 0행으로 돌려줄 때가
+    # ★ **빈 결과·반쪽 결과·실패는 캐시하지 않는다.** KRX 는 이미 게시한 거래일을 일시적으로 0행으로 돌려줄 때가
     #   있다(260703 실측: 금요일 데이터가 이틀째 0행 / 260824 실측: 20260821 이 0행인데
     #   20260820 은 2,763행). 그 순간의 빈 응답을 캐시하면 프로세스가 살아 있는 동안 그 날짜가
-    #   **영영 없는 것**이 된다 — 상류가 복구돼도 우리만 계속 못 본다. 한 시장만 온 응답도 마찬가지다.
+    #   **영영 없는 것**이 된다 — 상류가 복구돼도 우리만 계속 못 본다. 한 시장만 온 응답·실패한 응답도 마찬가지다
+    #   (실패한 시장은 행이 비어 오므로 `_quote_day_put` 의 「두 시장 모두 있을 때만」이 그대로 막는다).
     _quote_day_put(basDd, kospi, kosdaq)
+    if row is None and status in krx_api.ERROR_STATUSES:
+        raise KrxQuoteError(status)
     return row
 
 
@@ -648,6 +650,16 @@ def _closed_day_payload(subject: str, ticker: str, issuer: str | None, dd: str, 
             "warnings": [*warns, msg]}
 
 
+def _krx_failed_payload(subject: str, ticker: str, dd: str, status: str, warns: list[str]) -> dict[str, Any]:
+    """KRX 호출이 실패해 그 날 시세를 확인하지 못했다 — 「휴장일·상장 전·거래정지」로 답하지 않는다(DATA-PX8).
+    상태 값은 종전 그대로 no_data(상태 어휘를 늘리지 않는다)이고, 실패라는 사실은 경고 문구와 `data.krx_status` 로 올린다."""
+    msg = (f"{dd} 에 {ticker} 시세를 확인하지 못했습니다 — {krx_api.STATUS_LABEL[status]}. 휴장일·상장 전·거래정지 같은 「그 날 시세가 없다」는 답이 "
+           "아니라 KRX 호출이 실패한 것입니다. 잠시 뒤 다시 부르세요(키·한도 문제면 서버 운영자가 고쳐야 합니다).")
+    return {"tool": TOOL, "status": "no_data", "subject": f"{subject} {dd} 시세",
+            "data": {"scope": "quote", "ticker": ticker, "as_of": dd, "krx_status": status},
+            "warnings": [*warns, msg]}
+
+
 async def build_quote_payload(company: str, format: str = "md",
                               as_of: str = "") -> dict[str, Any]:
     """특정 거래일 전체 시세 — OHLC·거래량·거래대금·등락률.
@@ -682,11 +694,17 @@ async def build_quote_payload(company: str, format: str = "md",
             else:
                 # 대비·등락률을 DB 만으로는 믿을 수 없다(`_change_is_reliable`) → KRX 공표값으로 채운다.
                 # 날짜별 LRU 라 이 날짜는 KRX 를 한 번만 부른다. 못 받으면 DB 값에서 그 두 칸만 비운다.
-                row = await _krx_quote_row(dd, ticker)
+                krx_failed = None
+                try:
+                    row = await _krx_quote_row(dd, ticker)
+                except KrxQuoteError as exc:        # KRX 호출 실패 — 「그 날 공표값이 없다」와 다르다
+                    row, krx_failed = None, exc.status
                 if not row:
                     db_row = {**lookup.row, "chg": None, "chg_pct": None}
                     warns.append("전 거래일 대비 변동을 믿을 수 없는 날(보관 첫날·신규상장일·휴장 다음 날·기준가 조정일)인데 KRX 공표값을 "
-                                 "받지 못해 대비·등락률은 비웠습니다(나머지 값은 그대로입니다).")
+                                 "받지 못해 대비·등락률은 비웠습니다(나머지 값은 그대로입니다)."
+                                 + (f" 받지 못한 이유는 {krx_api.STATUS_LABEL[krx_failed]} 입니다 — 잠시 뒤 다시 부르면 채워질 수 있습니다."
+                                    if krx_failed else ""))
     elif not dd:
         # ★ 저장분의 최신일을 그대로 KRX 에 묻지 않는다. DB 를 못 읽거나 표가 비었을 때만 이 경로다 — KRX 가 저장분에 있는 날짜를
         #   0행으로 돌려줄 수 있어서다(260824 실측: 20260821 저장분은 있는데 API 는 0행, 20260820 은 2,763행).
@@ -718,7 +736,13 @@ async def build_quote_payload(company: str, format: str = "md",
                 issuer = (corp.get("stock_code") or "").strip() if class_note else None
                 return _closed_day_payload(_subject(corp, company, ticker, class_note), ticker, issuer,
                                            dd, why, cal[1], cal[2], warns)
-        row = await _krx_quote_row(dd, ticker)
+        try:
+            row = await _krx_quote_row(dd, ticker)
+        except KrxQuoteError as exc:
+            # 코넥스는 KRX 가 응답했어도 행이 없는 종목이다 — 호출 실패와 무관하게 아래 「수록 대상 아님」(unsupported_market)이 답이다.
+            if (corp.get("corp_cls") or "").upper() != "N":
+                return _krx_failed_payload(_subject(corp, company, ticker, class_note), ticker, dd, exc.status, warns)
+            row = None
 
     if not row and not db_row:
         # KONEX(corp_cls="N")는 **구조적 미수록**이다 — 시세 소스가 KOSPI·KOSDAQ 두 endpoint 뿐이라
