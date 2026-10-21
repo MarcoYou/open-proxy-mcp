@@ -1977,7 +1977,7 @@ def _fetch(memo: "_FetchMemo | None"):
 # 회사가 단위를 잘못 적어 사업보고서가 **통째로** 10ⁿ 배인 경우(065150 FY2023 1,000배 — 자산 56.7조 · 032680 FY2022 100만 배)에는 그 보고서
 # 안의 검사(자산 = 부채 + 자본)가 다 맞는다. 같은 날짜의 같은 숫자를 낸 **다른 보고서**와 대야 드러난다 — 사업보고서 N 의 재무상태표 전기 칸은
 # 사업보고서 N−1 의 당기 칸이다(`scale_guard.check_prior_period_mismatch`). 어느 쪽이 틀렸는지는 이어 붙인 보고서들의 다수결로 가린다
-# (`scale_guard.reconcile_report_scales` — 분기 수집·배수 도구 firm 과 같은 규칙). 틀린 보고서는 금액 칸만 10ⁿ 으로 나눠 쓰고(주당 금액은 그대로)
+# (`scale_guard.reconcile_report_scales` — 배수 도구 firm·연간 수집과 같은 함수, 분기 수집은 아직 옛 규칙 `check_prior_period_mismatch` — DATA-SC4). 틀린 보고서는 금액 칸만 10ⁿ 으로 나눠 쓰고(주당 금액은 그대로)
 # 근거를 경고·`data_quality.scale_fix` 에 적는다. **이미 받은 응답끼리만** 대므로 DART 콜은 늘지 않는다(다년 조회는 같은 요청의 `_FetchMemo` 가 겹치는
 # 조회를 이미 하나로 합친다). 두 보고서뿐(요약·단년)이라 다수결이 안 서면 값은 원문 그대로 두고 경고만 한다.
 _SCALE_LINES = (("자본총계", "EQ"), ("자산총계", "AS"))

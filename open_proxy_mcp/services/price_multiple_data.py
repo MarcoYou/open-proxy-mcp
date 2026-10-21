@@ -2773,7 +2773,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   사업보고서 금액 1,000배 → 종전 firm PBR 0.001 · 지배자본 11조 9,884억 · BPS 1,975,674원). 같은 보고서 안의 검사(항등식·순이익 대 시총)는 다 맞아
     #   반응하지 않는다 — 같은 날짜의 같은 숫자(자본총계)를 낸 **다른 보고서**와 대야 드러난다: 사업보고서 fy 의 당기 말 = 그 뒤 분기 보고서의 전기 칸,
     #   사업보고서 fy 의 전기 말 = 전년 동기 분기 보고서의 전기 칸. 어느 보고서가 틀렸는지는 다수결과 시총(PBR) 두 신호로 가리고
-    #   (`scale_guard.reconcile_report_scales` — 분기 수집과 같은 규칙), 가려지면 그 보고서의 금액 칸을 나눠 쓴다(주당 금액은 그대로) — 값과 근거를
+    #   (`scale_guard.reconcile_report_scales` — `financial_metrics`·연간 수집과 같은 함수, 분기 수집은 아직 옛 규칙 — DATA-SC4), 가려지면 그 보고서의 금액 칸을 나눠 쓴다(주당 금액은 그대로) — 값과 근거를
     #   경고·`data_quality.scale_fix` 에 적는다. 못 가리면 값은 원문 그대로 두고 hard 경고. 이미 읽은 응답만 쓴다(DART 콜 0).
     xr_names: dict[str, tuple[str, list]] = {}
     _xr: list[tuple] = []
