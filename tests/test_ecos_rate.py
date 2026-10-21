@@ -52,6 +52,7 @@ def test_ddl_text_shape():
     assert 'series "char"' in sql and "rate   real" in sql and "PRIMARY KEY (series, d)" in sql
     assert "ENABLE ROW LEVEL SECURITY" in sql and "FOR SELECT USING (true)" in sql
     assert "REVOKE ALL ON ecos_rate FROM anon, authenticated" in sql and "GRANT SELECT ON ecos_rate TO opm_ro" in sql
+    assert "REVOKE ALL ON ecos_rate FROM opm_app" in sql                    # 기본 권한이 서버 계정에 준 SELECT 를 거둔다
     assert "ecos_fx_rate" not in ddl.STATEMENTS.replace("COMMENT", "")      # 환율 캐시 표를 건드리지 않는다
     codes = "".join(s.code for s in S.SERIES)
     assert all(f"'{c}'" in ddl.STATEMENTS for c in codes)                  # CHECK 의 허용 코드 = 배치의 계열
@@ -361,6 +362,20 @@ def test_access_control_and_constraints(db):
                 c.execute(sql)
 
 
+def test_ddl_revokes_the_server_account_select_that_default_privileges_grant(pg17):
+    """운영에는 `ALTER DEFAULT PRIVILEGES … GRANT SELECT ON TABLES TO opm_app` 가 있어 새 표를 만든 순간 서버 계정이 읽을 수 있다 — DDL 이 거둬야 한다."""
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='opm_app') THEN CREATE ROLE opm_app NOLOGIN BYPASSRLS; END IF; END $$")   # 역할은 서버 전체 공용 — test_usage_write_path 가 만드는 것과 같은 속성(권한 확인만 하므로 속성은 무관)
+        c.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO opm_app")
+        c.execute("CREATE TABLE _probe_default_acl (x int)")
+        assert c.execute("SELECT has_table_privilege('opm_app','_probe_default_acl','SELECT')").fetchone()[0] is True   # 전제: 기본 권한이 실제로 준다
+        c.execute(ddl.STATEMENTS)
+        c.execute(ddl.STATEMENTS)                                                 # 멱등
+        for priv in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+            assert c.execute("SELECT has_table_privilege('opm_app','ecos_rate',%s)", (priv,)).fetchone()[0] is False
+        assert c.execute("SELECT has_table_privilege('opm_ro','ecos_rate','SELECT')").fetchone()[0] is True
+
+
 def test_series_roundtrips_as_one_char_text(con):
     S.settle(con, _fetched(C=[(D("20261020"), 3.26)]), D("20231007"), write=True)
     assert _rows(con) == [("C", D("20261020"), pytest.approx(3.26, abs=1e-6))]
@@ -463,7 +478,7 @@ def test_prune_guards_and_carry_in(con):
     assert con.execute("SELECT count(*) FROM ecos_rate").fetchone()[0] == total
     # 드라이: 세기만
     n, t = S.prune_rows(con, lo, **kw, write=False)
-    assert (n, t) == (8 * 2 + 1, total)   # C·3 각 8행 + 기준금리 20260101 and con.execute("SELECT count(*) FROM ecos_rate").fetchone()[0] == total
+    assert (n, t) == (8 * 2 + 1, total)   # C·3 각 8행 + 기준금리 20260101 한 행(20260401 은 접혀서 DB 에 없다)
     # 실제: 계열마다 창 앞 마지막 행(carry-in) 하나는 남는다
     n, _ = S.prune_rows(con, lo, **kw, write=True)
     left = _rows(con)
@@ -621,6 +636,61 @@ def test_prune_cli_with_manifest_deletes_only_outside_window_and_keeps_carry_in(
     mf.write_bytes(_manifest(max_dd="20231006", updated=(datetime.now(timezone.utc) - timedelta(hours=10)).isoformat()))
     assert S.main(["--today", "20261021", "--prune", "--manifest", "file://" + str(mf)]) == 1       # 지울 행이 0이어도 가드가 먼저다
     assert "72시간" in capsys.readouterr().out
+
+
+def test_prune_if_ready_only_softens_not_yet_cases(db, monkeypatch, capsys, tmp_path):
+    """일별 실행이 이어 돌리는 `--prune --manifest --if-ready`: 「아직 아님」만 정상 종료(0) — 이상은 여전히 실패."""
+    monkeypatch.setenv("DATABASE_URL", db)
+    monkeypatch.setenv("ECOS_RATE_WRITE", "1")
+    with psycopg.connect(db, autocommit=True) as c:
+        with c.cursor() as cur:
+            cur.executemany('INSERT INTO ecos_rate VALUES (%s::"char", %s, %s::real)',
+                            [("C", D("20230901") + timedelta(days=i), 3.5) for i in range(6)]
+                            + [("C", D("20231009") + timedelta(days=i), 3.6) for i in range(30)])
+
+    def n_rows():
+        with psycopg.connect(db) as c:
+            return c.execute("SELECT count(*) FROM ecos_rate").fetchone()[0]
+
+    mf = tmp_path / "m.json"
+    argv = ["--today", "20261021", "--prune", "--manifest", "file://" + str(mf)]
+    now = datetime.now(timezone.utc)
+    # ① 발행 10시간 — 아직. --if-ready 면 0 + 안내, 없으면 1. 어느 쪽도 지우지 않는다
+    mf.write_bytes(_manifest(max_dd="20231006", updated=(now - timedelta(hours=10)).isoformat()))
+    assert S.main(argv + ["--if-ready"]) == 0 and "아직 이르다" in capsys.readouterr().out
+    assert S.main(argv) == 1
+    capsys.readouterr()
+    # ② 보관본 coverage 가 지울 끝(20231006)을 못 덮음 — 아직
+    mf.write_bytes(_manifest(max_dd="20230915", updated=(now - timedelta(days=5)).isoformat()))
+    assert S.main(argv + ["--if-ready"]) == 0 and "덮지 못한다" in capsys.readouterr().out
+    # ③ 목록에 데이터셋이 아직 없음(보관본 발행 전) — 아직
+    other = json.loads(_manifest(updated=(now - timedelta(days=5)).isoformat()))
+    other["datasets"] = {"krx_cap_agg": other["datasets"][S.COLD_DATASET]}
+    mf.write_bytes(json.dumps(other).encode())
+    assert S.main(argv + ["--if-ready"]) == 0 and "발행 전" in capsys.readouterr().out
+    assert S.main(argv) == 1
+    capsys.readouterr()
+    assert n_rows() == 36                                                         # 여기까지 아무것도 지우지 않았다
+    # ④ 이상은 --if-ready 여도 실패: 목록을 못 읽음 · 보관본 시작이 표 시작보다 늦음(25% 가드는 test_prune_guards_and_carry_in 이 본다)
+    assert S.main(["--today", "20261021", "--prune", "--manifest", "file://" + str(tmp_path / "none.json"), "--if-ready"]) == 1
+    assert "읽지 못했다" in capsys.readouterr().out
+    mf.write_bytes(_manifest(max_dd="20260101", min_dd="20240101", updated=(now - timedelta(days=5)).isoformat()))
+    assert S.main(argv + ["--if-ready"]) == 1 and "덮지 못한다" in capsys.readouterr().out
+    assert n_rows() == 36
+    # ⑤ 준비되면 지운다
+    mf.write_bytes(_manifest(max_dd="20231006", updated=(now - timedelta(days=5)).isoformat()))
+    assert S.main(argv + ["--if-ready"]) == 0 and "지웠다" in capsys.readouterr().out
+    assert n_rows() == 31
+
+
+def test_workflow_chains_prune_only_with_manifest_variable_and_switch():
+    """일별 워크플로의 두 번째 단계 — 변수(보관본 목록 주소)와 쓰기 스위치가 모두 있을 때만, 수동 prune·dry_run 과 겹치지 않게."""
+    wf = (ROOT / ".github" / "workflows" / "ecos-rate-daily.yml").read_text(encoding="utf-8")
+    assert '--prune --manifest "$COLD_MANIFEST" --if-ready' in wf
+    cond = next(line for line in wf.splitlines() if line.strip().startswith("if:"))
+    for part in ("vars.ECOS_RATE_WRITE == '1'", "vars.ECOS_RATE_COLD_MANIFEST != ''", "inputs.prune != true", "inputs.dry_run != true"):
+        assert part in cond, part
+    assert "COLD_MANIFEST: ${{ vars.ECOS_RATE_COLD_MANIFEST }}" in wf             # 셸 명령줄에 직접 끼우지 않고 환경 변수로
 
 
 def test_table_stays_small_at_window_size(con):
