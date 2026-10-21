@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""재무 요약 표(`dart_fundamentals`)의 결산월 칸 — `acc_mt`(결산월) + 결산월을 바꾼 회사의 `acc_mt_prev`(옛 결산월)·`acc_mt_since`(새 결산월의 첫 사업연도).
+"""재무 요약 표(`dart_fundamentals`)의 결산월 칸 — `acc_mt`(결산월) + 결산월을 바꾼 회사의 `acc_mt_prev`(옛 결산월)·`acc_mt_since`(새 결산월의 첫 사업연도)
++ 두 번 바꾼 회사의 더 옛 변경 `acc_mt_prev2`·`acc_mt_since2`.
 분기·연간 재무 칸을 실제 기간 말로 읽는 기준. **서버는 DDL 을 실행하지 않는다 — 사람이 한 번 적용한다.**
 
-261018 신설(Supabase 재설계 v02 6단계, `acc_mt`). 261021: 결산월 변경 칸 둘 추가(DATA-FY2). `scripts/div_keys_ddl.py` 와 같은 관례다: 기본은 SQL 을 화면에 낼 뿐이고, `--apply` 가
+261018 신설(Supabase 재설계 v02 6단계, `acc_mt`). 261021: 결산월 변경 칸 둘 추가(DATA-FY2). 261021: 두 번 바꾼 회사의 더 옛 변경 칸 둘 더(DATA-FY2, 131100). `scripts/div_keys_ddl.py` 와 같은 관례다: 기본은 SQL 을 화면에 낼 뿐이고, `--apply` 가
 `DATABASE_URL` 의 DB 에 적용한다. `--check` 는 같은 DB 를 **읽기만** 해서 무엇을 하게 될지 보인다. **멱등**이다.
 
     python3 scripts/fundamentals_ddl.py            # SQL 을 화면에 낸다. 아무것도 실행하지 않는다
@@ -14,12 +15,14 @@
     읽는 쪽(밸류에이션 곡선·업종 비교·재무 요약 파생·수집 마감)이 칸을 실제 기간 말로 바꾸려면 회사 결산월이 있어야 한다.
     결산월을 **바꾼** 회사는 표기마다 결산월이 다르다 — 옛 결산월과 새 결산월의 첫 사업연도를 알아야 바꾸기 전 칸을 옛 결산월로 읽는다.
 ■ 칸 — `acc_mt smallint`(1~12, `dart_fundamentals_acc_mt_check`) · `acc_mt_prev smallint`(옛 결산월 1~12, `…_acc_mt_prev_check`) · `acc_mt_since integer`(새 결산월의 첫 사업연도 표기,
-    `…_acc_mt_since_check`) · 두 변경 칸은 함께 채우거나 함께 비운다(`dart_fundamentals_acc_mt_change_check`). 비어 있으면 읽는 쪽이 12월·안 바꾼 회사로 본다(종전과 같은 읽기) —
+    `…_acc_mt_since_check`) · 두 변경 칸은 함께 채우거나 함께 비운다(`dart_fundamentals_acc_mt_change_check`).
+    `acc_mt_prev2 smallint`·`acc_mt_since2 integer` = 결산월을 **두 번** 바꾼 회사의 더 옛 변경(`since2` 는 `prev` 결산월의 첫 사업연도, `prev2` 는 그 앞 결산월 — 131100: 12/2019 · 6/2022 · 12) —
+    함께 채우거나 함께 비우고 최근 변경이 있을 때만, `since2 < since`(`dart_fundamentals_acc_mt_change2_check`). 칸이 비면 변경이 한 번뿐이다. 비어 있으면 읽는 쪽이 12월·안 바꾼 회사로 본다(종전과 같은 읽기) —
     그래서 칸을 만든 직후·채우기 전에도 응답은 그대로다. 채우기는 `python3 scripts/market_fund_quarterly.py --acc-mt --acc-mt-since 20180101`(전 종목) 또는
     `--acc-mt --tickers 334970,032800`(종목만 — 종목당 회사 전체 이력 1~2콜).
 ■ 순서 — 서버는 칸이 없어도 읽힌다(결산월 변경 칸은 `to_jsonb` 로 읽어 없으면 빈 목록 = 종전 읽기). 서버 배포 뒤 적용해도 된다. 배치 스크립트는 칸이 없으면 12월 결산·안 바꾼 회사로 읽고 넘어간다.
 ■ 잠금 — `ADD COLUMN`(기본값 없음)은 표 다시 쓰기가 없고, 확인 제약은 표(약 2,650행)를 한 번 훑는다. 모두 순식간이다. `lock_timeout = 3s`.
-■ 되돌리기 — `ALTER TABLE dart_fundamentals DROP COLUMN acc_mt_since, DROP COLUMN acc_mt_prev;`(제약도 함께 지워진다). 서버는 칸이 없어도 읽히므로 코드를 먼저 되돌릴 필요가 없다.
+■ 되돌리기 — `ALTER TABLE dart_fundamentals DROP COLUMN acc_mt_since2, DROP COLUMN acc_mt_prev2, DROP COLUMN acc_mt_since, DROP COLUMN acc_mt_prev;`(제약도 함께 지워진다). 서버는 칸이 없어도 읽히므로 코드를 먼저 되돌릴 필요가 없다.
     `acc_mt` 를 지울 때는 그 칸을 읽는 서버 코드를 먼저 되돌린다.
 """
 from __future__ import annotations
@@ -39,14 +42,19 @@ COLUMNS = (
     ("acc_mt", "smallint", "dart_fundamentals_acc_mt_check", "acc_mt BETWEEN 1 AND 12"),
     ("acc_mt_prev", "smallint", "dart_fundamentals_acc_mt_prev_check", "acc_mt_prev BETWEEN 1 AND 12"),
     ("acc_mt_since", "integer", "dart_fundamentals_acc_mt_since_check", "acc_mt_since BETWEEN 1900 AND 2200"),
+    ("acc_mt_prev2", "smallint", "dart_fundamentals_acc_mt_prev2_check", "acc_mt_prev2 BETWEEN 1 AND 12"),
+    ("acc_mt_since2", "integer", "dart_fundamentals_acc_mt_since2_check", "acc_mt_since2 BETWEEN 1900 AND 2200"),
 )
 #: 변경 칸 둘은 함께 채우거나 함께 비운다.
 PAIR_CHECK = ("dart_fundamentals_acc_mt_change_check", "(acc_mt_prev IS NULL) = (acc_mt_since IS NULL)")
+#: 더 옛 변경 칸 둘도 함께 — 최근 변경이 있고 그보다 앞설 때만(CHECK 는 NULL 이면 통과하므로 `since` 가 비면 거른다).
+PAIR2_CHECK = ("dart_fundamentals_acc_mt_change2_check",
+               "(acc_mt_prev2 IS NULL) = (acc_mt_since2 IS NULL) AND (acc_mt_since2 IS NULL OR (acc_mt_since IS NOT NULL AND acc_mt_since2 < acc_mt_since))")
 COLUMN = COLUMNS[0][0]                 # 종전 이름 — 시험·문서가 부른다
 CHECK = COLUMNS[0][2]
 ADD_COLUMN = f"ALTER TABLE {TABLE} ADD COLUMN IF NOT EXISTS {COLUMNS[0][0]} {COLUMNS[0][1]}"
 ADD_CHECK = f"ALTER TABLE {TABLE} ADD CONSTRAINT {COLUMNS[0][2]} CHECK ({COLUMNS[0][3]})"
-ALL_CHECKS = tuple((c[2], c[3]) for c in COLUMNS) + (PAIR_CHECK,)
+ALL_CHECKS = tuple((c[2], c[3]) for c in COLUMNS) + (PAIR_CHECK, PAIR2_CHECK)
 
 
 def _add_check(name: str, expr: str) -> str:
@@ -57,6 +65,7 @@ def render() -> str:
     """사람이 SQL 편집기에 붙여 넣을 스크립트 — 한 덩어리."""
     out = [f"-- {TABLE}.acc_mt: 회사 결산월(1~12). 비어 있으면 읽는 쪽이 12월로 본다.\n"
            f"-- {TABLE}.acc_mt_prev·acc_mt_since: 결산월을 바꾼 회사의 옛 결산월과 새 결산월의 첫 사업연도(DART 표기). 비어 있으면 안 바꾼 회사.\n"
+           f"-- {TABLE}.acc_mt_prev2·acc_mt_since2: 두 번 바꾼 회사의 더 옛 변경(그 앞 결산월과 `acc_mt_prev` 결산월의 첫 사업연도). 비어 있으면 변경이 한 번뿐.\n"
            f"BEGIN;\nSET LOCAL lock_timeout = '{LOCK_TIMEOUT}';\n"]
     for col, typ, _n, _e in COLUMNS:
         out.append(f"ALTER TABLE {TABLE} ADD COLUMN IF NOT EXISTS {col} {typ};\n")
@@ -86,8 +95,8 @@ def check(con, out=print) -> tuple[str, str]:
     if not con.execute("SELECT to_regclass(%s) IS NOT NULL", (f"public.{TABLE}",)).fetchone()[0]:
         st = ("blocked", "표가 없다")
     elif _all_present(con):
-        n, filled, chg = con.execute(f"SELECT count(*), count({COLUMN}), count(acc_mt_prev) FROM {TABLE}").fetchone()
-        st = ("done", f"칸·확인 제약 있음 · 채운 행 {filled:,}/{n:,} · 결산월을 바꾼 회사 {chg:,}")
+        n, filled, chg, chg2 = con.execute(f"SELECT count(*), count({COLUMN}), count(acc_mt_prev), count(acc_mt_prev2) FROM {TABLE}").fetchone()
+        st = ("done", f"칸·확인 제약 있음 · 채운 행 {filled:,}/{n:,} · 결산월을 바꾼 회사 {chg:,} (두 번 바꾼 회사 {chg2:,})")
     else:
         bad = 0
         if _has_column(con) and not _has_check(con):

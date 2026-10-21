@@ -394,9 +394,11 @@ def derive_fundamentals(tickers: list[str] | None = None) -> None:
     seen = updated = 0
     for isu, m in q.items():
         fye = fye_of.get(isu, 12)
-        if rcal.is_transition(getattr(fye, "since", 0), fye) and (fye.since, 4) in m:
-            # 261021(DATA-FY2): 결산월을 바꾼 첫 사업보고서는 전환기(12개월이 아님) — 순이익은 연간 값이 아니라 쓰지 않는다(자본은 그 날 잔액이라 그대로)
-            m = {**m, (fye.since, 4): (None, m[(fye.since, 4)][1])}
+        for ty in rcal.transition_years(fye):
+            if (ty, 4) in m:
+                # 261021(DATA-FY2): 결산월을 바꾼 첫 사업보고서는 전환기(12개월이 아님) — 순이익은 연간 값이 아니라 쓰지 않는다(자본은 그 날 잔액이라 그대로).
+                #   두 번 바꾼 회사는 전환기가 둘이다.
+                m = {**m, (ty, 4): (None, m[(ty, 4)][1])}
         latest = lambda keys: max(keys, key=lambda k: rcal.cell_end(k[0], k[1], fye))  # noqa: E731 — 실제 기간 말이 가장 늦은 칸
         # ni·eq 앵커를 **독립**으로(Data-QA #2): 최신분기가 eq만 있고 ni=None이어도 ni_ttm이 불필요하게
         # None 되지 않게 — 각 지표의 최신 유효분기 기준. 값 있는 분기가 곧 available(저장=공시분).
@@ -427,7 +429,10 @@ DDL_FUNDAMENTALS = """CREATE TABLE IF NOT EXISTS dart_fundamentals(
   eq_fy double precision, eq_mrq double precision, fetched text,
   acc_mt smallint CHECK (acc_mt BETWEEN 1 AND 12),
   acc_mt_prev smallint CHECK (acc_mt_prev BETWEEN 1 AND 12), acc_mt_since integer CHECK (acc_mt_since BETWEEN 1900 AND 2200),
-  CONSTRAINT dart_fundamentals_acc_mt_change_check CHECK ((acc_mt_prev IS NULL) = (acc_mt_since IS NULL)))"""
+  acc_mt_prev2 smallint CHECK (acc_mt_prev2 BETWEEN 1 AND 12), acc_mt_since2 integer CHECK (acc_mt_since2 BETWEEN 1900 AND 2200),
+  CONSTRAINT dart_fundamentals_acc_mt_change_check CHECK ((acc_mt_prev IS NULL) = (acc_mt_since IS NULL)),
+  CONSTRAINT dart_fundamentals_acc_mt_change2_check CHECK ((acc_mt_prev2 IS NULL) = (acc_mt_since2 IS NULL)
+                                                           AND (acc_mt_since2 IS NULL OR (acc_mt_since IS NOT NULL AND acc_mt_since2 < acc_mt_since))))"""
 
 
 def _fye_map(con) -> dict[str, "int | rcal.Fiscal"]:
@@ -449,10 +454,13 @@ _ANNUAL_NM = re.compile(r"사업보고서\s*\((\d{4})\.(\d{2})\)")
 
 
 class AccMt(NamedTuple):
-    """결산월 한 회사의 판정 — `month` = 지금 결산월, `prev` = 바꾸기 전 옛 결산월, `since` = 새 결산월의 첫 사업연도 표기(전환기 사업보고서의 표기). 안 바꿨으면 `prev`·`since` 는 None."""
+    """결산월 한 회사의 판정 — `month` = 지금 결산월, `prev` = 바꾸기 전 옛 결산월, `since` = 새 결산월의 첫 사업연도 표기(전환기 사업보고서의 표기). 안 바꿨으면 `prev`·`since` 는 None.
+    261021(DATA-FY2): 두 번 바꾼 회사는 더 옛 변경 한 쌍도 — `prev2` = 그 앞 결산월, `since2` = `prev` 결산월의 첫 사업연도 표기(131100: 12 · 6/2022 · 12/2019). 한 번뿐이면 None."""
     month: int
     prev: int | None = None
     since: int | None = None
+    prev2: int | None = None
+    since2: int | None = None
 
 
 def _as_accmt(v) -> "AccMt | None":
@@ -492,6 +500,16 @@ def classify_reports(reports) -> "AccMt | None":
         j -= 1
     if i - j < 2 and not (j == 0 and len(seen) - i >= 2):
         return AccMt(12)              # 옛 결산월이 이어지지 않는다 — 상장 첫해의 반기·분기 결산 리츠와 가를 수 없다(종전 읽기)
+    # 261021(DATA-FY2): 결산월을 **두 번** 바꾼 회사(131100: 2018.12 | 2019.06~2022.06 | 2022.12~) — `prev` 결산월 앞에 다른 달이 이어지면 더 옛 변경도 적는다.
+    #   옛 달이 둘 이상 이어지거나(`prev` 가 이어진 만큼 믿는다), 목록 맨 앞에서 하나뿐인데 그 뒤 `prev` 가 둘 이상 이어지면(목록이 2018년부터라 잘렸을 수 있다) 변경으로 본다.
+    #   아니면 더 옛 변경은 적지 않는다(최근 변경은 그대로) — 결산기마다 달이 바뀌는 리츠와 가를 수 없다.
+    if j > 0:
+        prev2 = seen[j - 1][1]
+        k = j - 1
+        while k > 0 and seen[k - 1][1] == prev2:
+            k -= 1
+        if j - k >= 2 or (k == 0 and i - j >= 2):
+            return AccMt(month, prev, seen[i][0], prev2, seen[j][0])
     return AccMt(month, prev, seen[i][0])
 
 
@@ -515,9 +533,12 @@ def decide_acc_mt(stored, reports, company_acc_mt=None, complete: bool = True) -
     return got
 
 
-def _acc_mt_for_db(new: "AccMt", has_cols: bool) -> "AccMt":
-    """저장할 값 — 변경 칸(`acc_mt_prev`·`acc_mt_since`)이 아직 없으면(`fundamentals_ddl.py` 적용 전) 종전 규칙대로 결산월을 바꾼 회사는 12(종전 읽기)."""
-    return new if has_cols or new.prev is None else AccMt(12)
+def _acc_mt_for_db(new: "AccMt", has_cols: bool, has_cols2: bool = True) -> "AccMt":
+    """저장할 값 — 변경 칸(`acc_mt_prev`·`acc_mt_since`)이 아직 없으면(`fundamentals_ddl.py` 적용 전) 종전 규칙대로 결산월을 바꾼 회사는 12(종전 읽기).
+    더 옛 변경 칸(`acc_mt_prev2`·`acc_mt_since2`)만 없으면 최근 변경 하나만 적는다(그 칸은 `--check` 가 todo 로 알린다)."""
+    if not has_cols:
+        return new if new.prev is None else AccMt(12)
+    return new if has_cols2 or new.prev2 is None else AccMt(new.month, new.prev, new.since)
 
 
 _REPORT_HIST_FROM = "20180101"        # 회사 한 곳의 사업보고서 전체 이력을 볼 때 목록 시작일(연간 표가 2018 사업연도부터)
@@ -561,14 +582,14 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None, t
     start = since or (t - timedelta(days=ACC_MT_SCAN_DAYS))
     full_scan = start <= date(2018, 12, 31) and not tickers        # 2018년부터 훑었으면 창의 목록이 곧 전체 이력이다
     con = _pg(); con.autocommit = True
-    has_cols = con.execute("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dart_fundamentals' "
-                           "AND column_name IN ('acc_mt_prev','acc_mt_since')").fetchone()[0] == 2
-    if has_cols:
-        rows = con.execute("SELECT ticker, corp_code, acc_mt, acc_mt_prev, acc_mt_since FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")
-    else:
-        rows = con.execute("SELECT ticker, corp_code, acc_mt, NULL::smallint, NULL::int FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")
-    firms = {cc: (tk, AccMt(int(m), int(p) if p else None, int(sy) if sy else None) if m is not None else None)
-             for tk, cc, m, p, sy in rows}
+    have = {r[0] for r in con.execute("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='dart_fundamentals' "
+                                      "AND column_name IN ('acc_mt_prev','acc_mt_since','acc_mt_prev2','acc_mt_since2')")}
+    has_cols = {"acc_mt_prev", "acc_mt_since"} <= have
+    has_cols2 = has_cols and {"acc_mt_prev2", "acc_mt_since2"} <= have          # 261021: 결산월을 두 번 바꾼 회사의 더 옛 변경 칸
+    sel = ("acc_mt_prev, acc_mt_since" if has_cols else "NULL::smallint, NULL::int") + (", acc_mt_prev2, acc_mt_since2" if has_cols2 else ", NULL::smallint, NULL::int")
+    rows = con.execute(f"SELECT ticker, corp_code, acc_mt, {sel} FROM dart_fundamentals WHERE fetched='ok' AND corp_code IS NOT NULL")
+    firms = {cc: (tk, AccMt(int(m), int(p) if p else None, int(sy) if sy else None, int(p2) if p2 else None, int(sy2) if sy2 else None) if m is not None else None)
+             for tk, cc, m, p, sy, p2, sy2 in rows}
     try:
         semi = period_tickers(con) if con.execute("SELECT to_regclass('public.dart_finstat_q') IS NOT NULL").fetchone()[0] else set()
     except psycopg.Error:
@@ -646,14 +667,19 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None, t
         new = decide_acc_mt(stored, rs, comp, complete=complete or stored is None)
         if new is None:
             continue
-        new = _acc_mt_for_db(new, has_cols)
+        new = _acc_mt_for_db(new, has_cols, has_cols2)
         if new != stored:
             out[tk] = new.month
             changed.append((tk, stored, new, sorted(rs), comp))
     if out and not dry:
         con = _pg(); con.autocommit = True
         with con.cursor() as cur:
-            if has_cols:
+            if has_cols2:
+                cur.executemany("UPDATE dart_fundamentals SET acc_mt=%s, acc_mt_prev=%s, acc_mt_since=%s, acc_mt_prev2=%s, acc_mt_since2=%s WHERE ticker=%s "
+                                "AND (acc_mt, acc_mt_prev, acc_mt_since, acc_mt_prev2, acc_mt_since2) "
+                                "IS DISTINCT FROM (%s::smallint, %s::smallint, %s::int, %s::smallint, %s::int)",
+                                [(n.month, n.prev, n.since, n.prev2, n.since2, tk, n.month, n.prev, n.since, n.prev2, n.since2) for tk, _o, n, _r, _c in changed])
+            elif has_cols:
                 cur.executemany("UPDATE dart_fundamentals SET acc_mt=%s, acc_mt_prev=%s, acc_mt_since=%s WHERE ticker=%s "
                                 "AND (acc_mt, acc_mt_prev, acc_mt_since) IS DISTINCT FROM (%s::smallint, %s::smallint, %s::int)",
                                 [(n.month, n.prev, n.since, tk, n.month, n.prev, n.since) for tk, _o, n, _r, _c in changed])
@@ -664,9 +690,11 @@ async def refresh_acc_mt(since: date | None = None, today: date | None = None, t
     for tk, old, new, ms, comp in sorted(changed, key=lambda x: x[0]):
         if old is not None:   # 이미 있던 결산월이 바뀜 — 사람이 볼 일(결산월 변경·리츠)
             chg = f" · 옛 {new.prev}월 → {new.month}월, {new.since} 사업연도부터" if new.prev else ""
+            chg += f" · 그 앞 {new.prev2}월 → {new.prev}월, {new.since2} 사업연도부터" if new.prev2 else ""
             print(f"[결산월] {tk} {old.month} → {new.month}{chg} (사업보고서 기준월 {ms})" + (" — dry" if dry else ""), flush=True)
         elif new.prev:
-            print(f"[결산월] {tk} 새로 채움 {new.month}월 · 옛 {new.prev}월, {new.since} 사업연도부터" + (" — dry" if dry else ""), flush=True)
+            print(f"[결산월] {tk} 새로 채움 {new.month}월 · 옛 {new.prev}월, {new.since} 사업연도부터"
+                  + (f" · 그 앞 {new.prev2}월, {new.since2} 사업연도부터" if new.prev2 else "") + (" — dry" if dry else ""), flush=True)
     n_set = sum(1 for _, old, *_ in changed if old is None)
     print(f"acc-mt: 사업보고서 목록 {start}~{t} · 대상 {len(firms)}사 · 새로 채움 {n_set} · 바뀜 {len(changed) - n_set} · DART {calls}콜"
           + (" (쓰지 않음 — dry)" if dry and out else ""), flush=True)
@@ -861,9 +889,12 @@ def seed_q4() -> None:
     _ensure_ddl(con)
     # 261021(DATA-FY2): 결산월을 바꾼 첫 해(`dart_fundamentals.acc_mt_since`)의 사업보고서는 전환기(12개월이 아님) — 그 순이익은 연간 값이 아니라 Q4 칸에 옮기지 않는다.
     #   칸(`acc_mt_since`)이 아직 없으면(DDL 전) 종전 그대로다.
-    has_since = con.execute("SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' "
-                            "AND table_name='dart_fundamentals' AND column_name='acc_mt_since')").fetchone()[0]
-    ni_expr = "CASE WHEN f.acc_mt_since = y.fy THEN NULL ELSE COALESCE(y.ni_restated, y.ni) END" if has_since else "COALESCE(y.ni_restated, y.ni)"
+    #   두 번 바꾼 회사(131100)는 전환기가 둘이다(`acc_mt_since2` 가 있으면 그 해도).
+    since_cols = {r[0] for r in con.execute("SELECT column_name FROM information_schema.columns WHERE table_schema='public' "
+                                            "AND table_name='dart_fundamentals' AND column_name IN ('acc_mt_since','acc_mt_since2')")}
+    has_since = "acc_mt_since" in since_cols
+    is_trans = "(f.acc_mt_since = y.fy OR f.acc_mt_since2 = y.fy)" if "acc_mt_since2" in since_cols else "f.acc_mt_since = y.fy"
+    ni_expr = f"CASE WHEN {is_trans} THEN NULL ELSE COALESCE(y.ni_restated, y.ni) END" if has_since else "COALESCE(y.ni_restated, y.ni)"
     join = "LEFT JOIN dart_fundamentals f ON f.ticker = y.ticker" if has_since else ""
     n1 = con.execute(f"""
         INSERT INTO dart_finstat_q (ticker, fy, quarter, reprt_code, fs, ni_cum, eq, fetched)
@@ -885,11 +916,12 @@ def seed_q4() -> None:
     """).rowcount
     if has_since:
         # 이미 들어가 있던 전환기 칸의 순이익을 비우고 표시한다(연간 표의 빈 값은 Q4 칸을 지우지 않는 규칙이라 따로 — 위 ON CONFLICT 의 COALESCE). 값이 같으면 다시 쓰지 않는다.
-        n2 = con.execute("""
+        is_trans_q = is_trans.replace("y.fy", "q.fy")
+        n2 = con.execute(f"""
             UPDATE dart_finstat_q q SET ni_cum = NULL, ni_case = 'TRANSITION',
                    fetched = CASE WHEN q.eq IS NOT NULL THEN 'ok' ELSE 'nodata' END
             FROM dart_fundamentals f
-            WHERE f.ticker = q.ticker AND f.acc_mt_since = q.fy AND q.quarter = 4
+            WHERE f.ticker = q.ticker AND {is_trans_q} AND q.quarter = 4
               AND (q.ni_cum IS NOT NULL OR q.ni_case IS DISTINCT FROM 'TRANSITION')""").rowcount
         if n2:
             print(f"Q4 seed: 결산월을 바꾼 첫 해(전환기) 사업보고서 칸 {n2}행의 순이익을 비우고 표시(ni_case=TRANSITION)")
