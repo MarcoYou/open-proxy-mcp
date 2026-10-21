@@ -472,8 +472,8 @@ def test_prune_guards_and_carry_in(con):
     # ③ 보관본 시작이 표 가장 이른 날보다 늦음 → 거절
     with pytest.raises(S.EcosError, match="가장 이른 날"):
         S.prune_rows(con, lo, **{**kw, "cold_min": D("20260301")}, write=True)
-    # ④ 지울 행이 표의 25% 넘음 → 거절
-    with pytest.raises(S.EcosError, match="25%"):
+    # ④ 지우고 남는 행이 표의 30% 에 못 미침(창 하한이 오늘 쪽으로 잘못 밀린 꼴) → 거절
+    with pytest.raises(S.EcosError, match="30%"):
         S.prune_rows(con, D("20261015"), **{**kw, "cold_max": D("20261014")}, write=True)
     assert con.execute("SELECT count(*) FROM ecos_rate").fetchone()[0] == total
     # 드라이: 세기만
@@ -486,6 +486,57 @@ def test_prune_guards_and_carry_in(con):
     assert [d for c, d, _ in left if c == "C"][0] == D("20260809") and [d for c, d, _ in left if c == "3"][0] == D("20260809")
     assert [d for c, d, _ in left if c == "B"] == [D("20260716")]               # 기준금리: 창 앞 마지막 변경일 하나만
     assert S.prune_rows(con, lo, **kw, write=True)[0] == 0                       # 멱등
+
+
+def test_prune_backlog_of_two_years_is_not_blocked_by_the_keep_guard(con):
+    """지우기를 24개월 못 한 표(지울 행이 표의 39%)도 한 번에 지울 수 있다 — 예전 「지울 행 ≤ 25%」 가드는 이때 매일 실패했다."""
+    rows = []
+    d = D("20230101")
+    while d < D("20261021"):                                               # 계열 4 × 평일 — 지울 앞쪽(24개월)과 남길 3년 창 뒤쪽
+        if d.weekday() < 5:
+            rows += [(c, d, 3.0) for c in "C13K"]
+        d += timedelta(days=1)
+    with con.cursor() as cur:
+        cur.executemany('INSERT INTO ecos_rate VALUES (%s::"char", %s, %s::real)', rows)
+    lo = D("20241021")                                                      # 앞 약 22개월이 창 밖
+    n, total = S.prune_rows(con, lo, cold_min=D("20151201"), cold_max=D("20241020"),
+                            cold_published_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+                            now=datetime(2026, 10, 21, tzinfo=timezone.utc), write=False)
+    assert n / total > 0.25 and (total - n) / total >= S.MIN_KEEP_FRACTION   # 예전 가드라면 막혔을 크기, 지금은 통과
+    assert S.prune_rows(con, lo, cold_min=D("20151201"), cold_max=D("20241020"),
+                        cold_published_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+                        now=datetime(2026, 10, 21, tzinfo=timezone.utc), write=True)[0] == n
+
+
+def test_backup_csv_holds_old_values_of_updated_and_pruned_rows(con, tmp_path):
+    """쓰기 전 백업 — 정정(옛 값)과 창 밖 지우기(지울 행)가 같은 트랜잭션에서 CSV 로 먼저 남는다. 새 행만 있으면 파일이 없다."""
+    bk = tmp_path / "bk"
+    S.settle(con, _fetched(C=[(D("20261016"), 3.25), (D("20261019"), 3.25)]), D("20231007"), write=True, backup_dir=bk, today=D("20261021"))
+    assert not bk.exists()                                                 # 새 행뿐 — 옛 값이 없다
+    S.settle(con, _fetched(C=[(D("20261016"), 3.25), (D("20261019"), 3.27)]), D("20231007"), write=True, backup_dir=bk, today=D("20261022"))
+    f = bk / "ecos_rate_update_20261022.csv"
+    assert f.read_text(encoding="utf-8").splitlines() == ["series,d,rate", "C,2026-10-19,3.25"]
+    # 쓰기를 안 하는(dry-run) 실행은 백업도 없다
+    S.settle(con, _fetched(C=[(D("20261019"), 3.30)]), D("20231007"), write=False, backup_dir=bk, today=D("20261023"))
+    assert not (bk / "ecos_rate_update_20261023.csv").exists()
+    # 창 밖 지우기
+    _fill(con)
+    now = datetime(2026, 10, 21, tzinfo=timezone.utc)
+    kw = dict(cold_min=D("20151201"), cold_max=D("20260809"), cold_published_at=datetime(2026, 10, 1, tzinfo=timezone.utc), now=now)
+    S.prune_rows(con, D("20260810"), **kw, write=False, backup_dir=bk)
+    assert not list(bk.glob("ecos_rate_prune_*"))
+    n, _ = S.prune_rows(con, D("20260810"), **kw, write=True, backup_dir=bk)
+    lines = (bk / "ecos_rate_prune_20261021.csv").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "series,d,rate" and len(lines) == 1 + n and all(len(x.split(",")) == 3 for x in lines)
+
+
+def test_backup_failure_blocks_the_write(con, tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_text("x")                                                # 폴더 자리에 파일이 있어 만들 수 없다
+    S.settle(con, _fetched(C=[(D("20261019"), 3.25)]), D("20231007"), write=True)
+    with pytest.raises(OSError):
+        S.settle(con, _fetched(C=[(D("20261019"), 3.27)]), D("20231007"), write=True, backup_dir=blocker, today=D("20261021"))
+    assert [round(r[2], 2) for r in _rows(con)] == [3.25]                  # 정정이 일어나지 않았다
 
 
 def test_verify_flags_stale_or_missing_series(con):
@@ -615,6 +666,25 @@ def test_main_maintains_on_first_of_month_and_on_flag_only_when_writing(db, monk
     assert "유지보수" not in capsys.readouterr().out
 
 
+def test_maintain_failure_after_the_write_is_a_warning_not_a_failure(db, monkeypatch, capsys):
+    """유지보수(VACUUM·색인 다시 만들기)가 못 돌아도 이미 커밋된 적재를 빨간불로 바꾸지 않는다 — 경고만."""
+    monkeypatch.setenv("ECOS_API_KEY", KEY)
+    monkeypatch.setenv("DATABASE_URL", db)
+    monkeypatch.setenv("ECOS_RATE_WRITE", "1")
+    pts = {"C": _cal("20261028", [3.2, 3.2, 3.2, 3.2])}
+    monkeypatch.setattr(S, "run_fetch", lambda client, key, codes, today, lo, db_max, since, **k: S.Fetched(
+        {c: pts[c] for c in codes}, {c: (pts[c][0][0], today) for c in codes}, len(codes)))
+
+    def boom(con):
+        raise psycopg.errors.LockNotAvailable("canceling statement due to lock timeout")
+    monkeypatch.setattr(S, "maintain", boom)
+    assert S.main(["--series", "C", "--today", "20261103", "--maintain"]) == 0
+    out = capsys.readouterr().out
+    assert "::warning::유지보수" in out and "LockNotAvailable" in out and "::error::" not in out
+    with psycopg.connect(db) as c:
+        assert c.execute("SELECT count(*) FROM ecos_rate").fetchone()[0] > 0     # 적재는 남아 있다
+
+
 def test_prune_cli_with_manifest_deletes_only_outside_window_and_keeps_carry_in(db, monkeypatch, capsys, tmp_path):
     monkeypatch.setenv("DATABASE_URL", db)
     monkeypatch.setenv("ECOS_RATE_WRITE", "1")
@@ -671,7 +741,7 @@ def test_prune_if_ready_only_softens_not_yet_cases(db, monkeypatch, capsys, tmp_
     assert S.main(argv) == 1
     capsys.readouterr()
     assert n_rows() == 36                                                         # 여기까지 아무것도 지우지 않았다
-    # ④ 이상은 --if-ready 여도 실패: 목록을 못 읽음 · 보관본 시작이 표 시작보다 늦음(25% 가드는 test_prune_guards_and_carry_in 이 본다)
+    # ④ 이상은 --if-ready 여도 실패: 목록을 못 읽음 · 보관본 시작이 표 시작보다 늦음(남는 행 30% 가드는 test_prune_guards_and_carry_in 이 본다)
     assert S.main(["--today", "20261021", "--prune", "--manifest", "file://" + str(tmp_path / "none.json"), "--if-ready"]) == 1
     assert "읽지 못했다" in capsys.readouterr().out
     mf.write_bytes(_manifest(max_dd="20260101", min_dd="20240101", updated=(now - timedelta(days=5)).isoformat()))
@@ -691,6 +761,14 @@ def test_workflow_chains_prune_only_with_manifest_variable_and_switch():
     for part in ("vars.ECOS_RATE_WRITE == '1'", "vars.ECOS_RATE_COLD_MANIFEST != ''", "inputs.prune != true", "inputs.dry_run != true"):
         assert part in cond, part
     assert "COLD_MANIFEST: ${{ vars.ECOS_RATE_COLD_MANIFEST }}" in wf             # 셸 명령줄에 직접 끼우지 않고 환경 변수로
+
+
+def test_workflow_backs_up_old_values_before_writing():
+    """두 쓰기 단계(받기·창 밖 지우기)가 모두 --backup-dir 를 넘기고, 그 폴더를 산출물로 올린다(없으면 건너뜀)."""
+    wf = (ROOT / ".github" / "workflows" / "ecos-rate-daily.yml").read_text(encoding="utf-8")
+    runs = [line for line in wf.splitlines() if "scripts/ecos_rate_daily.py" in line and "uv run" in line]
+    assert len(runs) == 2 and all('--backup-dir "$RUNNER_TEMP/ecos-rate-backup"' in r for r in runs)
+    assert "actions/upload-artifact@v4" in wf and "if-no-files-found: ignore" in wf and "path: ${{ runner.temp }}/ecos-rate-backup" in wf
 
 
 def test_table_stays_small_at_window_size(con):
