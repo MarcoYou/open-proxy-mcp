@@ -519,3 +519,49 @@ def test_discontinued_sce_line_follows_the_same_period_column(field, want):
     """② — 사업보고서의 전기 칸은 계속·중단 두 줄 다 전기 칸을 본다(`_field_rows` 가 중단영업 자본변동표 줄도 같은 기간 칸으로 옮긴다)."""
     rows = rows_annual_cont_disc()
     assert C._sce_ctrl_ni(C._field_rows(rows, field), "thstrm_amount") == want
+
+
+# ───── 261021 ni-sce-fp 검토 — 원문 캐시엔 아직 해당 보고서가 없는 갈래(부분 변이에서 시험이 비어 있던 곳) ─────
+def test_disc_id_and_name_are_discontinued_net_income_only():
+    """중단영업 순이익 줄만 — 주당이익(089470 원문 30번 줄 「기본주당중단영업이익(손실)」)·중단영업 총포괄·현금흐름 조정 줄·귀속 줄은 아니다."""
+    assert C._disc_id(F + "ProfitLossFromDiscontinuedOperations")
+    assert C._disc_id("ifrs_ProfitLossFromDiscontinuedOperations")
+    for aid in (F + "BasicEarningsLossPerShareFromDiscontinuedOperations", F + "ComprehensiveIncomeFromDiscontinuedOperations",
+                "dart_AdjustmentsForProfitLossFromDiscontinuedOperations", F + "ProfitLossFromContinuingOperations"):
+        assert not C._disc_id(aid), aid
+    for nm in ("중단영업반기순이익", "Ⅴ. 중단영업이익(손실)", "중단사업 당기순손익"):
+        assert C._disc_ni_name({"account_nm": nm}), nm
+    for nm in ("중단영업이익(손실)의 귀속", "중단영업순이익 지배기업 소유주지분", "기본주당중단영업이익(손실)", "계속영업반기순이익"):
+        assert not C._disc_ni_name({"account_nm": nm}), nm
+
+
+def test_q1_total_confirmed_by_pbt_minus_tax_plus_discontinued_keeps_sce():
+    """① 의 반대 — 세전 − 법인세에 중단영업 순이익을 더해야 총계가 확인되는 보고서(합성: 081580 에 중단영업 5억 줄을 넣고 세전을 그만큼 낮춤)."""
+    rows = rows_081580_2022q1()
+    for x in rows:
+        if x["account_id"] == F + "ProfitLossBeforeTax":
+            x["thstrm_amount"] = x["thstrm_add_amount"] = str(3090338741 + 63249195 - 500000000)
+    rows.append(rep("11013", [r("CIS", F + "ProfitLossFromDiscontinuedOperations", "중단영업이익(손실)", 10, 500000000, cum=500000000)])[0])
+    assert C._tot_cols_disagree(rows)
+    assert C._sce_ctrl_ni(rows) == 3326498901.0
+
+
+def test_q1_total_line_found_by_name_is_checked_too():
+    """① — 표준 계정코드 없이 이름으로만 적은 총계 줄(「당기순이익(손실)」)도 당기 칸 ≠ 누적 칸을 본다(합성: 081580 총계 줄 id 를 지움)."""
+    rows = rows_081580_2022q1()
+    for x in rows:
+        if x["sj_div"] == "CIS" and x["account_id"] == F + "ProfitLoss":
+            x["account_id"] = NOSTD
+    assert C._tot_cols_disagree(rows)
+    assert C._sce_ctrl_ni(rows) is None
+    assert C.controlling_ni(rows)[0] == 2712238401.0
+
+
+def test_continuing_line_without_sce_nci_column_is_not_used_when_is_has_nci():
+    """② — 계속영업 자본변동표 줄에 비지배 열이 없는데 손익계산서엔 0 이 아닌 비지배 줄이 있으면(두 표가 어긋남) 중단영업 줄이 맞아도 쓰지 않는다
+    (합성: 089470 자본변동표 비지배 열을 지우고 지배 열을 계속영업 총계 166.84억으로)."""
+    rows = [x for x in rows_089470_2023h1() if not (x["sj_div"] == "SCE" and "비지배" in x["account_detail"])]
+    for x in rows:
+        if x["sj_div"] == "SCE" and "계속" in x["account_nm"]:
+            x["thstrm_amount"] = "16684272870"
+    assert C._sce_ctrl_ni(rows) is None
