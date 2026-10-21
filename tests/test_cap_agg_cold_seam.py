@@ -95,14 +95,17 @@ def _val_rows() -> list[dict]:
                          "eq": 2.2e15 / f if weekly else None, "cap_pref": 3.3e13 * f if weekly else None, "ni_fy0": 1.6e14 / f})
             for scheme, codes in (("wics_sector", SEC["wics_sector"] + [("_fold", "기타(소규모)")]),
                                   ("wics_industry", SEC["wics_industry"]),
-                                  ("ksic", [("26", "전자부품"), ("64", "금융")])):
+                                  # KSIC 은 코드 순서를 거꾸로 넣고 몇 달은 cap 이 같다(운영: 시총 0 업종 동률) — DB 힙 순서와 서빙본 기본키 순서가 달라도
+                                  # 단면 순서가 같아야 한다(`ORDER BY market, cap DESC, sector`, 10-21 리허설 24/26 발견)
+                                  ("ksic", [("64", "금융"), ("26", "전자부품"), ("10", "식료품")])):
                 if scheme == "ksic" and d >= "20260823":
                     continue
                 for j, (code, label) in enumerate(codes):
                     rows.append({"snap_dd": d, "market": m, "scheme": scheme, "sector": code, "label": label, "n": 10 + j,
                                  "per_fy0": None if j == 2 and i % 4 == 0 else 9.87654321 * f + j,
                                  "per_ttm": 10.1111111 * f + j, "pbr_fy0": 1.1 * f + j / 10, "pbr_mrq": 1.05 * f + j / 10,
-                                 "cap": (3e14 + j * 1e13) * f if not (j == 1 and i == 5) else None,
+                                 "cap": (0.0 if scheme == "ksic" and i % 3 == 2 else
+                                         (3e14 + j * 1e13) * f if not (j == 1 and i == 5) else None),
                                  "ni_ttm": 2.9e13 / f, "eq": None, "cap_pref": None, "ni_fy0": 3.1e13 / f})
     return rows
 

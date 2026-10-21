@@ -431,7 +431,7 @@ async def _sector_asof_cold(dbs: str, as_of: str, rows: list | None, want_market
     · KSIC 축은 「이 축이 시장보다 낡았나」 판정에 시장 최신일(as_of 이하)도 쓴다 — 판정은 시장 최신일 > 업종 날짜일 때만 서므로
       [업종 날짜, 끝) 의 시장 행만 읽으면 된다(그보다 이른 시장 날짜는 판정을 바꾸지 않는다, 1회 더).
     · 행 모양은 DB 질의와 같다 — (snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0, ni_fy0, ni_ttm),
-      ORDER BY market, cap DESC(Postgres 는 내림차순에서 NULL 이 앞)."""
+      ORDER BY market, cap DESC, sector(Postgres 는 내림차순에서 NULL 이 앞, 같은 cap 은 업종 코드 순)."""
     from datetime import datetime as _dtm, timedelta as _td
     cut = await _agg_cut()
     if as_of >= cut and rows:
@@ -459,7 +459,7 @@ async def _sector_asof_cold(dbs: str, as_of: str, rows: list | None, want_market
     if not got:
         return [], None, _AggSpan(True, None, seam, cut)
     day = max(x[0] for x in got)
-    out = sorted((x for x in got if x[0] == day), key=lambda x: (x[1], x[5] is not None, -(x[5] or 0)))
+    out = sorted((x for x in got if x[0] == day), key=lambda x: (x[1], x[5] is not None, -(x[5] or 0), x[2]))
     mk = None
     if want_market:
         m = await _cold.read(r, ("snap_dd", "sector"), "market", day, hi)
@@ -1032,7 +1032,8 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                  "ni_fy0, ni_ttm FROM opm_val_market "
                  "WHERE sector != '_ALL' AND scheme=%s "
                  f"AND snap_dd=({sub}) "
-                 "ORDER BY market, cap DESC", params))
+                 # 261021: 같은 cap(시총 0 업종 등)은 업종 코드 순 — 없으면 동률 순서가 DB 힙 순서라 서빙본(기본키 순)과 응답 글자가 달랐다
+                 "ORDER BY market, cap DESC, sector", params))
     if rows is None:
         return {"tool": "price_multiple_data", "status": "db_error", "subject": "산업별 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
