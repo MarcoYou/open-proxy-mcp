@@ -45,6 +45,11 @@ DB: WICS_DATABASE_URL > DATABASE_URL 순으로 DSN을 찾는다.
   상장 여부를 모르는 날짜(주간 시세가 촘촘하지 않은 보존 하한 이전)는 있던 파생 행을 지우지 않고 그대로 둔다.
   옛 스냅샷의 파생 행이 바뀌면 섹터 시총 집계(`scripts/krx_cap_agg.py`)는 스스로 따라오지 않는다 — `--since` 로 다시 집계한다.
 
+★ 저장 모양 두 가지 (261021, 재설계 E1 업종 구간형 — `scripts/wise_sector_iv_ddl.py`). `wise_sector` 가 **표**면 종전대로 스냅샷마다 행을 쓴다.
+  **뷰**(교체 뒤 — 밑 표 = 구간 표 `wise_sector_iv` + 스냅샷 날짜 목록 `wise_sector_snap`)면 쓰는 트랜잭션 안에서 뷰의 지금 행을 임시 작업 표로
+  펴서(`sector_store`) 아래 규칙을 **글자 그대로** 그 작업 표에 적용한 뒤, 바뀐 구간만 지우고 넣는다(구간 차분). 넣은 뒤 「뷰 = 작업 표」를
+  전 행·전 칸 확인하고 어긋나면 전체를 되돌린다. 모드는 매번 DB 에서 읽는다 — 이 코드가 교체 전에 배포돼도 표 모드로 지금과 같이 돈다.
+
 ★ 두 번째 관측 원천 — 공급처 기업 정보 화면 (261018). 구성종목 응답에 없는 상장 보통주(위 이어 쓰기 대상 + 한 번도 분류를 받지
   못한 종목 — 20261016 기준 37 + 155)는 공급처의 기업 정보 화면(`COMPANY_URL`, 종목마다 1콜)이 분류를 직접 보여 준다.
   화면은 같은 분류 체계에서 저장 단계(대분류 → 하위업종)의 한 단계 아래인 「산업」 이름을 준다(예: 생물공학, 자동차부품).
@@ -79,6 +84,7 @@ import json
 import os
 import re
 import sys
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -94,6 +100,8 @@ import httpx
 from dotenv import load_dotenv
 
 from open_proxy_mcp.dart.client import throttle_web_request
+from scripts.wise_sector_iv_ddl import (FLUSH_APPLY, FLUSH_CHECK, FLUSH_CHECK_READ, FLUSH_OPEN, WORK_TABLE,
+                                        relkind as _relkind)
 
 load_dotenv(ROOT / ".env")
 
@@ -114,7 +122,7 @@ ISO_DATE_RE = re.compile(
 NO_DATA_TRADE_DATE = "/Date(-62135596800000)/"
 MAX_LOOKBACK_DAYS = 14
 
-DDL = """
+DDL_SNAPSHOTS = """
 CREATE TABLE IF NOT EXISTS kr_wics_snapshots (
     as_of          text PRIMARY KEY,
     requested_date text NOT NULL,
@@ -126,7 +134,11 @@ CREATE TABLE IF NOT EXISTS kr_wics_snapshots (
 );
 CREATE INDEX IF NOT EXISTS idx_kr_wics_snapshots_refreshed
     ON kr_wics_snapshots (refreshed_at DESC);
+"""
 
+#: 옛 모양(스냅샷마다 행) 표 — `wise_sector` 가 아직 없는 DB(새 DB·대시보드 쪽)에서만 만든다. 뷰(E1 교체 뒤)면 만들지 않는다 —
+#: 옛 표는 이름이 바뀌어 색인 이름 `idx_wise_sector_ticker` 가 비므로, 그대로 돌리면 뷰에 색인을 만들려다 실패한다.
+DDL_TABLE = """
 -- 260823(OPM): 위 blob 은 대시보드 모양이다. OPM 은 krx_weekly 와 **조인**해 섹터 시총을
 --   집계하므로 종목당 한 행이 필요하다. jsonb 를 매 질의마다 펴는 건 비싸다.
 --   표 이름은 OPM 규약의 출처 접두사를 따른다(DB 이름 변경은 보류).
@@ -141,6 +153,10 @@ CREATE TABLE IF NOT EXISTS wise_sector (
 );
 CREATE INDEX IF NOT EXISTS idx_wise_sector_ticker ON wise_sector (ticker, snap_dd);
 """
+DDL = DDL_SNAPSHOTS + DDL_TABLE
+
+#: 쓰는 표 이름의 기본값 — 표 모드. 뷰 모드면 `sector_store` 가 작업 표 이름(`_ws_work`)을 준다.
+TABLE = "wise_sector"
 
 #: 행의 출처(261018) — 모듈 머리말 「구성종목 ≠ 분류 대상」·「두 번째 관측 원천」.
 SRC_OBSERVED, SRC_CARRY, SRC_PREF, SRC_COMPANY = "wise", "carry", "pref", "wise_company"
@@ -241,7 +257,10 @@ def ensure_src_columns(con) -> bool:
     """출처 칸이 없으면 더한다. 이미 있으면 표 잠금 없이 끝난다. 더했으면 True.
 
     칸 추가는 **자기 트랜잭션에서 곧바로 커밋**한다 — 뒤따르는 파생 행 쓰기까지 표 전체 잠금을 쥐고 있으면
-    그동안 서버의 업종 조회가 모두 기다린다."""
+    그동안 서버의 업종 조회가 모두 기다린다. 뷰(E1 교체 뒤)면 할 일이 없다 — 출처 칸은 뷰 정의에 있고 칸 설명은 교체 DDL 이 단다."""
+    if _relkind(con) == "v":
+        con.commit()
+        return False
     have = {r[0] for r in con.execute(
         "SELECT column_name FROM information_schema.columns "
         "WHERE table_schema = current_schema() AND table_name = 'wise_sector'")}
@@ -263,7 +282,7 @@ def ensure_src_columns(con) -> bool:
     return True
 
 
-def derive_snapshot(con, snap_dd: str) -> dict:
+def derive_snapshot(con, snap_dd: str, table: str = TABLE) -> dict:
     """그 스냅샷의 파생 행(`carry`·`pref`)을 지우고 다시 만든다. 관측 행(`wise`·`wise_company`)은 건드리지 않는다.
 
     상장 여부를 판단할 시세가 없거나(그 날짜 이하 시세 없음) 너무 적으면(보존 하한 이전의 부분 행) 파생 행을 새로 만들지 않고
@@ -272,7 +291,7 @@ def derive_snapshot(con, snap_dd: str) -> dict:
     주간 시세는 최근 3년만 촘촘하므로 오래된 스냅샷을 다시 만들 때(`--rederive`·옛 날짜 재수집) 이 경우가 생긴다."""
     price_dd, listed = listed_tickers(con, snap_dd)
     if len(listed) < MIN_TICKERS:
-        by = dict(con.execute("SELECT src, count(*) FROM wise_sector WHERE snap_dd = %s GROUP BY 1",
+        by = dict(con.execute(f"SELECT src, count(*) FROM {table} WHERE snap_dd = %s GROUP BY 1",
                               (snap_dd,)).fetchall())
         info = {"snap_dd": snap_dd, "prev_dd": None, "price_dd": price_dd, "listed": len(listed),
                 "observed": by.get(SRC_OBSERVED, 0), "company": by.get(SRC_COMPANY, 0),
@@ -280,22 +299,22 @@ def derive_snapshot(con, snap_dd: str) -> dict:
         print(f"DB: {snap_dd} 파생 행 그대로 둠(이어 쓰기 {info['carry']:,} · 우선주 {info['pref']:,}) — 그 날짜 이하 시세일 "
               f"{price_dd} 의 상장 종목 {len(listed):,}개(< {MIN_TICKERS:,}, 상장 여부를 모른다)", flush=True)
         return info
-    con.execute("DELETE FROM wise_sector WHERE snap_dd = %s AND src = ANY(%s)", (snap_dd, list(DERIVED_SRCS)))
+    con.execute(f"DELETE FROM {table} WHERE snap_dd = %s AND src = ANY(%s)", (snap_dd, list(DERIVED_SRCS)))
     cur_rows = con.execute(
-        "SELECT ticker, sector_code, sector, industry_code, industry, src FROM wise_sector WHERE snap_dd = %s",
+        f"SELECT ticker, sector_code, sector, industry_code, industry, src FROM {table} WHERE snap_dd = %s",
         (snap_dd,)).fetchall()
     observed = {r[0]: tuple(r[1:5]) for r in cur_rows}
     n_company = sum(1 for r in cur_rows if r[5] == SRC_COMPANY)
-    prev_dd = con.execute("SELECT max(snap_dd) FROM wise_sector WHERE snap_dd < %s", (snap_dd,)).fetchone()[0]
+    prev_dd = con.execute(f"SELECT max(snap_dd) FROM {table} WHERE snap_dd < %s", (snap_dd,)).fetchone()[0]
     prev = {r[0]: (tuple(r[1:5]), r[5], r[6]) for r in con.execute(
-        "SELECT ticker, sector_code, sector, industry_code, industry, src, src_ref FROM wise_sector "
+        f"SELECT ticker, sector_code, sector, industry_code, industry, src, src_ref FROM {table} "
         "WHERE snap_dd = %s", (prev_dd,))} if prev_dd else {}
     info = {"snap_dd": snap_dd, "prev_dd": prev_dd, "price_dd": price_dd, "listed": len(listed),
             "observed": len(observed) - n_company, "company": n_company, "carry": 0, "pref": 0}
     rows = derive_rows(observed, prev, prev_dd, listed)
     with con.cursor() as cur:
         cur.executemany(
-            "INSERT INTO wise_sector (snap_dd, ticker, sector_code, sector, industry_code, industry, src, src_ref) "
+            f"INSERT INTO {table} (snap_dd, ticker, sector_code, sector, industry_code, industry, src, src_ref) "
             "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)", [(snap_dd, *r) for r in rows])
     info["carry"] = sum(1 for r in rows if r[5] == SRC_CARRY)
     info["pref"] = sum(1 for r in rows if r[5] == SRC_PREF)
@@ -504,26 +523,58 @@ async def lookup_company_for_snapshot(snapshot: dict) -> list[tuple] | None:
         return None
 
 
-def write_company_rows(con, snap_dd: str, rows: list[tuple]) -> None:
+def write_company_rows(con, snap_dd: str, rows: list[tuple], table: str = TABLE) -> None:
     """기업 화면 관측 행 업서트 — 구성종목 관측 행(`wise`)은 절대 덮지 않는다(그 날 구성종목 응답이 이긴다)."""
     if not rows:
         return
     with con.cursor() as cur:
         cur.executemany(
-            "INSERT INTO wise_sector (snap_dd, ticker, sector_code, sector, industry_code, industry, src, src_ref) "
+            f"INSERT INTO {table} (snap_dd, ticker, sector_code, sector, industry_code, industry, src, src_ref) "
             "VALUES (%s,%s,%s,%s,%s,%s,%s,%s) "
             "ON CONFLICT (snap_dd, ticker) DO UPDATE SET "
             "sector_code=EXCLUDED.sector_code, sector=EXCLUDED.sector, industry_code=EXCLUDED.industry_code, "
             "industry=EXCLUDED.industry, src=EXCLUDED.src, src_ref=EXCLUDED.src_ref "
-            f"WHERE wise_sector.src <> '{SRC_OBSERVED}'",
+            f"WHERE {table}.src <> '{SRC_OBSERVED}'",
             [(snap_dd, *r) for r in rows])
 
 
-def rederive_from(con, snap_dd: str | None = None) -> list[dict]:
+def rederive_from(con, snap_dd: str | None = None, table: str = TABLE) -> list[dict]:
     """snap_dd(없으면 가장 이른 스냅샷)부터 마지막 스냅샷까지 차례로 파생 행을 다시 만든다."""
     snaps = [r[0] for r in con.execute(
-        "SELECT DISTINCT snap_dd FROM wise_sector WHERE snap_dd >= %s ORDER BY 1", (snap_dd or "",))]
-    return [derive_snapshot(con, s) for s in snaps]
+        f"SELECT DISTINCT snap_dd FROM {table} WHERE snap_dd >= %s ORDER BY 1", (snap_dd or "",))]
+    return [derive_snapshot(con, s, table) for s in snaps]
+
+
+@contextmanager
+def sector_store(con):
+    """쓰는 트랜잭션에서 쓸 표 이름을 준다(`with sector_store(con) as T:`) — 모듈 머리말 「저장 모양 두 가지」.
+
+    표 모드(또는 아직 없음): `wise_sector` 그대로 — 종전과 같다.
+    뷰 모드(E1 교체 뒤): 구간 두 표를 SHARE ROW EXCLUSIVE 로 잡고(읽기는 그대로, 다른 쓰기만 기다림) 뷰의 지금 행을 임시 작업 표로 편다.
+      블록이 예외 없이 끝나면 바뀐 구간만 고치고(`FLUSH_APPLY`) 「뷰 = 작업 표」·구간 무결성을 확인한다(`FLUSH_CHECK`) — 어긋나면 예외.
+      커밋·되돌리기는 호출자 몫이다(dry-run 은 고친 뒤 되돌린다 — 같은 확인을 거친다). 작업 표는 트랜잭션이 끝나면 사라진다."""
+    if _relkind(con) != "v":
+        yield TABLE
+        return
+    con.execute(FLUSH_OPEN)
+    yield WORK_TABLE
+    con.execute(FLUSH_APPLY)
+    con.execute(FLUSH_CHECK)
+    bad = [(k, v) for k, v in con.execute(FLUSH_CHECK_READ).fetchall() if v]
+    if bad:
+        raise RuntimeError("업종 구간 쓰기 확인 실패 — 되돌린다: " + ", ".join(f"{k}={v}" for k, v in bad))
+    iv, snaps = con.execute("SELECT (SELECT count(*) FROM wise_sector_iv), (SELECT count(*) FROM wise_sector_snap)").fetchone()
+    print(f"DB: 업종 구간 표 wise_sector_iv {iv:,}행 · 스냅샷 {snaps}개(뷰 = 작업 표 확인)", flush=True)
+
+
+def ensure_tables(con) -> str | None:
+    """원문 스냅샷 표 + (표 모드·새 DB 면) 옛 모양 표를 만든다. 곧바로 커밋. 돌려주는 값 = `wise_sector` 의 종류('r'·'v')."""
+    con.execute(DDL_SNAPSHOTS)
+    if _relkind(con) != "v":
+        con.execute(DDL_TABLE)
+    kind = _relkind(con)
+    con.commit()
+    return kind
 
 
 UPSERT = """
@@ -799,8 +850,7 @@ def persist(snapshot: dict, company: list[tuple] | None = None) -> bool:
     from psycopg.types.json import Jsonb
 
     with psycopg.connect(dsn, connect_timeout=20) as con:
-        con.execute(DDL)
-        con.commit()
+        ensure_tables(con)
         if ensure_src_columns(con):
             print("DB: wise_sector 출처 칸(src·src_ref) 추가", flush=True)
         con.execute(
@@ -819,21 +869,22 @@ def persist(snapshot: dict, company: list[tuple] | None = None) -> bool:
         # 같은 날짜를 다시 수집하면 이번 응답에 다시 나온 종목은 업서트가 관측으로 되돌린다(src·src_ref 를 덮는다).
         # 나머지 파생 행은 아래 다시 만들기가 지우고 새로 만든다 — 여기서 먼저 지우지 않는다: 그 날의 상장 여부를 모르면
         # (보존 하한 이전 날짜) 다시 만들지 못하므로 있던 파생 행을 그대로 두어야 한다(`derive_snapshot`).
-        with con.cursor() as cur:
-            cur.executemany(
-                "INSERT INTO wise_sector "
-                "(snap_dd, ticker, sector_code, sector, industry_code, industry, src, src_ref) "
-                "VALUES (%s,%s,%s,%s,%s,%s,%s,NULL) "
-                "ON CONFLICT (snap_dd, ticker) DO UPDATE SET "
-                "sector_code=EXCLUDED.sector_code, sector=EXCLUDED.sector, "
-                "industry_code=EXCLUDED.industry_code, industry=EXCLUDED.industry, "
-                "src=EXCLUDED.src, src_ref=NULL",
-                [(snap_dd, t, v["sectorCode"], v["sector"], v["industryCode"], v["industry"], SRC_OBSERVED)
-                 for t, v in snapshot["data"].items()])
-        # 기업 화면 관측 — 파생 행보다 먼저 넣어야 다시 만들기가 그 종목을 이어 쓰지 않고 우선주가 그 분류를 잇는다.
-        write_company_rows(con, snap_dd, company or [])
-        # 이 날짜와 그 뒤 스냅샷의 파생 행 — 이어 쓰기가 바로 앞 스냅샷에 기대므로 차례로.
-        infos = rederive_from(con, snap_dd)
+        with sector_store(con) as T:
+            with con.cursor() as cur:
+                cur.executemany(
+                    f"INSERT INTO {T} "
+                    "(snap_dd, ticker, sector_code, sector, industry_code, industry, src, src_ref) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,NULL) "
+                    "ON CONFLICT (snap_dd, ticker) DO UPDATE SET "
+                    "sector_code=EXCLUDED.sector_code, sector=EXCLUDED.sector, "
+                    "industry_code=EXCLUDED.industry_code, industry=EXCLUDED.industry, "
+                    "src=EXCLUDED.src, src_ref=NULL",
+                    [(snap_dd, t, v["sectorCode"], v["sector"], v["industryCode"], v["industry"], SRC_OBSERVED)
+                     for t, v in snapshot["data"].items()])
+            # 기업 화면 관측 — 파생 행보다 먼저 넣어야 다시 만들기가 그 종목을 이어 쓰지 않고 우선주가 그 분류를 잇는다.
+            write_company_rows(con, snap_dd, company or [], T)
+            # 이 날짜와 그 뒤 스냅샷의 파생 행 — 이어 쓰기가 바로 앞 스냅샷에 기대므로 차례로.
+            infos = rederive_from(con, snap_dd, T)
         con.commit()
         if len(infos) > 1:  # 최신이 아닌 날짜를 다시 수집했다 — 섹터 시총 집계는 새 관측만 따라온다
             print(_agg_reminder(snap_dd), flush=True)
@@ -861,7 +912,8 @@ def rederive_db(dry_run: bool = False) -> int:
                 "WHERE table_schema = current_schema() AND table_name = 'wise_sector'")}:
             print("dry-run: 출처 칸이 아직 없다 — 칸을 더하는 실제 실행이 먼저다(이 실행은 아무것도 쓰지 않았다)", flush=True)
             return 0
-        infos = rederive_from(con)
+        with sector_store(con) as T:
+            infos = rederive_from(con, table=T)
         if dry_run:
             con.rollback()
             print("dry-run — 되돌렸다(쓰기 없음)", flush=True)
@@ -926,9 +978,10 @@ async def company_only_db(snap: str | None = None, dry_run: bool = False) -> int
                 "WHERE table_schema = current_schema() AND table_name = 'wise_sector'")}:
             print("dry-run: 출처 칸이 아직 없다 — 칸을 더하는 실제 실행이 먼저다(이 실행은 아무것도 쓰지 않았다)", flush=True)
             return 0
-        for s, rows in results:
-            write_company_rows(con, s, rows)
-        infos = rederive_from(con, results[0][0])
+        with sector_store(con) as T:
+            for s, rows in results:
+                write_company_rows(con, s, rows, T)
+            infos = rederive_from(con, results[0][0], T)
         if dry_run:
             con.rollback()
             print("dry-run — 되돌렸다(쓰기 없음)", flush=True)
