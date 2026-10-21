@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-"""ECOS 무위험 금리 일별 배치 — `ecos_rate` (CD91·KOFR·국고채 1·3년·기준금리). DART 0콜 · KRX 0콜 · **ECOS 하루 5콜**.
+"""ECOS 무위험 금리 일별 배치 — `ecos_rate` (국고채 1년 한 계열). DART 0콜 · KRX 0콜 · **ECOS 하루 1콜**.
 
 ■ 원천 — 한국은행 ECOS `StatisticSearch`(JSON, 연율 %)
-    C  CD(91일)          817Y002 / 010502000   일별(거래일)
-    K  KOFR(공시RFR)     817Y002 / 010901000   일별(2021-11-25~, 끝 날짜가 다른 계열보다 하루 앞서 있다)
-    1  국고채(1년)       817Y002 / 010190000   일별
-    3  국고채(3년)       817Y002 / 010200000   일별
-    B  한국은행 기준금리 722Y001 / 0101000     **달력 날짜마다 같은 값**을 준다(실측 261021: 2015-12-01~ 3,976행, 값이 바뀐 날 24곳)
-                                              → 바뀐 날(적용일)만 한 행으로 접어 둔다. 읽는 법은 다른 계열과 같다(`d <= 기준일` 최신 행).
+    1  국고채(1년)       817Y002 / 010190000   일별(거래일, 2000-02-01~)
+  무위험 금리는 이 한 계열만 담는다 — ECOS 가 거래일마다 값을 낸다(261022 결정: CD91·KOFR·국고채 3년·기준금리는 담지 않는다).
+  표의 모양(series·d·rate)과 보관본 칸은 그대로라 나중에 계열을 더할 수 있다 — 더할 때는 `SERIES` 에 한 줄 + DDL 의 CHECK 허용 코드를 함께 고친다.
   시장금리는 하루 늦게 올라온다(마지막 날짜가 어제). 원천이 정정되는 일이 드물게 있다 → 최근 `RECHECK_DAYS`(30)일은 매번 다시 받아 비교한다.
 
 ■ 쓰기 — 한 트랜잭션, 쓰기 스위치가 켜졌을 때만
@@ -17,8 +14,8 @@
   · `REVISION_ALERT`(0.50%p) 넘게 바뀐 옛 값은 계열 정의가 달라진 것으로 보고 **아무것도 쓰지 않고** 실패한다.
   · `lock_timeout` 3초 · `extra_float_digits` 3 · 같은 배치끼리 겹치지 않게 advisory lock.
   · 창: 하한 = `krx_retention.krx_weekly_cutoff(오늘)` − `WINDOW_PAD_DAYS`(14일). 주간 시세 창이 최신 주(최대 일주일 안팎 늦다)에서 3년을 세므로 그보다 항상 이르다.
-    계열마다 창 앞 마지막 행 하나(carry-in)를 더 둔다 — 하한이 휴장일이어도 「그날 이하 최신 값」이 DB 에서 나온다.
-  · 표가 비어 있으면(첫 실행) 같은 코드가 창 전체를 계열당 1콜로 채운다. 며칠 쉬었다 돌아와도 `최신 행 − 3일`부터 이어 받는다.
+    창 앞 마지막 행 하나(carry-in)를 더 둔다 — 하한이 휴장일이어도 「그날 이하 최신 값」이 DB 에서 나온다.
+  · 표가 비어 있으면(첫 실행) 같은 코드가 창 전체를 1콜로 채운다. 며칠 쉬었다 돌아와도 `최신 행 − 3일`부터 이어 받는다.
 
 ■ 쓰기 전 백업 — `--backup-dir 폴더`
   바꾸는 행(정정)과 지우는 행(창 밖)의 **옛 값**을 `ecos_rate_update_YYYYMMDD.csv`·`ecos_rate_prune_YYYYMMDD.csv`(series,d,rate)로 같은 트랜잭션 안에서 먼저 남긴다 —
@@ -26,8 +23,8 @@
   지운 행은 보관본에도 있다(가드 ①).
 
 ■ 창 밖 지우기 — `--prune` (보관본이 발행된 **뒤에야** 돈다)
-  DB 는 3년 창만 두고 그 앞은 보관본(콜드 서빙 `ecos_rate_hist`)이 맡는다. 그러나 **지우기 전에는 표가 3년 창보다 길다** — 거래일마다 계열 4개가 한 줄씩 늘어 연 약 980행.
-  로컬 PG17 24개월 모의(출발 2,959행): 지우기 없음 + 월 유지보수 4,977행 0.367 MiB(유지보수도 없으면 0.383) · 지우기 + 월 유지보수 3,021행 0.250 MiB. 「3년 창 0.25」는 지우기가 도는 상태의 값이다.
+  DB 는 3년 창만 두고 그 앞은 보관본(콜드 서빙 `ecos_rate_hist`)이 맡는다. 그러나 **지우기 전에는 표가 3년 창보다 길다** — 거래일마다 한 줄씩 늘어 연 약 245행.
+  로컬 PG17 24개월 모의(출발 750행, 날마다 1행 삽입): 지우기 없음 1,254행 0.133 MiB · 지우기 + 월 유지보수 750행 0.125 MiB. 3년 창(750행) 자체는 0.102 MiB 다.
   **돌 조건**: 일별 워크플로가 받기·적재(성공) 뒤에 `--prune --manifest <주소> --if-ready` 를 이어 도는 것은 ① 저장소 변수 `ECOS_RATE_WRITE=1` ② 저장소 **비밀값** `ECOS_RATE_COLD_MANIFEST`(보관본 서빙 목록 주소 —
   서명 URL 이라 변수가 아니라 비밀값) ③ 수동 prune 입력 아님 ④ dry_run 아님 — 넷이 모두 맞을 때뿐이다. 비밀값이 없으면(보관본이 아직 발행·확인되지 않았으면) 지우지 않고 안내 줄만 남긴다 —
   보관본이 서빙되기 전에 지우면 그 구간을 읽을 곳이 없다. 켜는 순서: 발행 → 서버가 목록에서 읽는 것을 확인 → 비밀값 설정. `--if-ready` 는 「아직 아님」(목록에 데이터셋 없음 ·
@@ -37,12 +34,12 @@
     ② 보관본이 발행된 지 `COLD_DELETE_WAIT_SEC`(72시간 — 서버가 묵은 목록을 쓰는 최대 나이와 같다) 이상 지났다(`--cold-published-at`, 목록이면 `updated_at`)
     ③ 지우고 남는 행이 표의 `MIN_KEEP_FRACTION`(30%) 이상이다(창 계산이 틀렸을 때의 안전판 — 남는 쪽 기준이라 지우기가 오래 밀려
        백로그가 커져도(24개월 늦으면 지울 행이 표의 39%) 막히지 않고, 창 하한이 오늘 쪽으로 잘못 밀려 거의 다 지우게 되는 때만 막는다)
-  계열마다 창 앞 마지막 행(carry-in)은 남긴다.
+  창 앞 마지막 행(carry-in)은 남긴다.
 
 ■ 유지보수 — `--maintain`(쓰기가 켜진 채 KST 매월 1일의 일별 실행에서는 자동)
-  `VACUUM (ANALYZE)` + `REINDEX INDEX CONCURRENTLY ecos_rate_pkey`. 계열 다섯 개가 키 공간 다섯 곳의 **오른쪽 끝**에 날마다 한 줄씩 들어가는데,
-  맨 오른쪽이 아닌 쪽의 쪽 나누기는 반반으로 갈라진다. 그대로 두면 2년 뒤 기본키 색인이 처음의 두 배(약 0.08 → 0.17 MiB, 로컬 PG17 모의)가 된다.
-  한 달에 한 번 다시 만들면 처음 크기 근처(약 0.09 MiB)에 머문다. 읽기·쓰기를 막지 않고 락 대기는 3초다. `--prune` 이 행을 지웠을 때도 한다.
+  `VACUUM (ANALYZE)` + `REINDEX INDEX CONCURRENTLY ecos_rate_pkey`. 한 계열이라 새 행은 언제나 기본키 색인의 맨 오른쪽 끝에 들어가 쪽 나누기가 한쪽으로 쏠리지 않는다 —
+  로컬 PG17 모의(1,254행)에서 색인을 다시 만들어도 크기가 그대로(49,152 B)였다. 효과는 `--prune` 이 앞쪽을 지운 뒤 빈 쪽을 접는 정도(색인 49,152 → 40,960 B)다.
+  읽기·쓰기를 막지 않고 락 대기는 3초다. `--prune` 이 행을 지웠을 때도 한다.
 
 ■ 종료코드 — 0: 썼거나 이미 최신 / 계획만 냈다 · 1: 원천·DB 이상(모양·범위·신선도·잘림·정정 과다) · 2: 설정 누락(키·DB).
   🔴 ECOS 키는 URL 경로에 들어간다. URL 을 담은 예외·로그를 그대로 내지 않는다 — 오류는 종류만 적고 `httpx` 로거는 낮춘다.
@@ -50,7 +47,7 @@
 용례:
   python3 scripts/ecos_rate_daily.py                         # 최근 30일 받아 비교 (스위치가 꺼져 있으면 계획만)
   python3 scripts/ecos_rate_daily.py --dry-run               # 스위치가 켜져 있어도 쓰지 않는다
-  python3 scripts/ecos_rate_daily.py --series C,K --since 20260901
+  python3 scripts/ecos_rate_daily.py --series 1 --since 20260901
   python3 scripts/ecos_rate_daily.py --prune --cold-coverage-max 20231001 --cold-published-at 2026-10-20T00:00:00+00:00
 필요 환경: ECOS_API_KEY · DATABASE_URL(DB 를 볼 때) · ECOS_RATE_WRITE=1(쓸 때). 스키마는 `scripts/ecos_rate_ddl.py`.
 """
@@ -113,16 +110,11 @@ class Series:
     stat: str      # ECOS 통계표 코드
     item: str      # ECOS 항목 코드
     name: str      # ECOS 항목 이름(바뀌면 경고 — 코드가 바뀌면 실패)
-    step: bool     # True 면 값이 바뀐 날만 행으로 둔다
     first_dd: str  # ECOS 가 값을 주는 첫 날(YYYYMMDD)
 
 
 SERIES: tuple[Series, ...] = (
-    Series("C", "817Y002", "010502000", "CD(91일)", False, "19950103"),
-    Series("K", "817Y002", "010901000", "KOFR(공시RFR)", False, "20211125"),
-    Series("1", "817Y002", "010190000", "국고채(1년)", False, "20000201"),
-    Series("3", "817Y002", "010200000", "국고채(3년)", False, "19981113"),
-    Series("B", "722Y001", "0101000", "한국은행 기준금리", True, "19990506"),
+    Series("1", "817Y002", "010190000", "국고채(1년)", "20000201"),
 )
 BY_CODE = {s.code: s for s in SERIES}
 
@@ -227,17 +219,6 @@ def parse_payload(s: Series, payload: Any) -> list[Point]:
     return sorted(out.items())
 
 
-def fold_steps(points: Sequence[Point], prior: float | None) -> list[Point]:
-    """달력 날짜마다 같은 값을 주는 계열을 값이 바뀐 날만으로 접는다. `prior` = 첫 날 바로 앞에서 DB 가 아는 값(없으면 None → 첫 날이 행이 된다)."""
-    out: list[Point] = []
-    prev = None if prior is None else f32(prior)
-    for d, v in points:
-        if prev is None or f32(v) != prev:
-            out.append((d, v))
-            prev = f32(v)
-    return out
-
-
 def with_carry_in(points: Sequence[Point], lo: date) -> list[Point]:
     """창 안(d >= lo)의 점 + 창 앞 마지막 점 하나(carry-in)."""
     before = [p for p in points if p[0] < lo]
@@ -250,10 +231,10 @@ def fetch_start(s: Series, today: date, lo: date, db_max: date | None, since: da
     first = parse_dd(s.first_dd)
     if since is not None:
         return max(since, first)
-    if db_max is None:                                # 비어 있다 → 창 전체 + carry-in. 접는 계열은 첫 관측일부터(접은 첫 점이 진짜 변경일이 되게)
-        return first if s.step else max(first, lo - timedelta(days=10))
+    if db_max is None:                                # 비어 있다 → 창 전체 + carry-in
+        return max(first, lo - timedelta(days=10))
     start = max(first, min(today - timedelta(days=RECHECK_DAYS), db_max - timedelta(days=3)))
-    return start if s.step else max(start, lo - timedelta(days=10))          # 창 앞은 carry-in 몫(열흘)만 — 그 앞은 필요 없다
+    return max(start, lo - timedelta(days=10))          # 창 앞은 carry-in 몫(열흘)만 — 그 앞은 필요 없다
 
 
 # ── 원천 ───────────────────────────────────────────────────────────────────────────
@@ -353,9 +334,6 @@ def check_revisions(plan: Plan) -> None:
 
 def check_freshness(points: Mapping[str, Sequence[Point]], today: date) -> None:
     for code, pts in points.items():
-        s = BY_CODE[code]
-        if s.step:
-            continue
         if not pts:
             raise EcosError(f"{code}: 받은 값이 없다 — 최근 {RECHECK_DAYS}일 거래일이 있는데 비어 있으면 원천 이상이다")
         if (today - pts[-1][0]).days > STALE_DAYS:
@@ -369,12 +347,6 @@ def table_exists(con) -> bool:
 
 def db_max_by_series(con) -> dict[str, date]:
     return {r[0]: r[1] for r in con.execute(f'SELECT series::text, max(d) FROM {TABLE} GROUP BY series')}
-
-
-def db_prior(con, code: str, before: date) -> float | None:
-    r = con.execute(f'SELECT rate::float8 FROM {TABLE} WHERE series = %s::"char" AND d < %s ORDER BY d DESC LIMIT 1',
-                    (code, before)).fetchone()
-    return None if r is None else r[0]
 
 
 def read_existing(con, ranges: Mapping[str, tuple[date, date]], *, lock: bool) -> dict[tuple[str, date], float]:
@@ -423,7 +395,7 @@ class Fetched:
 
 
 def settle(con, fetched: Fetched, lo: date, *, write: bool, backup_dir: Path | None = None, today: date | None = None) -> Plan:
-    """한 트랜잭션: 잠금 → 기존 행 읽기 → 계획 → (write 면) 쓰기. `fetched.points` 는 접기·carry-in 전의 원천 점이다.
+    """한 트랜잭션: 잠금 → 기존 행 읽기 → 계획 → (write 면) 쓰기. `fetched.points` 는 carry-in 전의 원천 점이다.
 
     🔴 `con` 은 autocommit 연결이어야 한다 — 아니면 `con.transaction()` 이 바깥 트랜잭션의 세이브포인트가 되어
     연결을 닫을 때 쓴 것이 통째로 되돌아간다."""
@@ -439,8 +411,6 @@ def settle(con, fetched: Fetched, lo: date, *, write: bool, backup_dir: Path | N
             con.execute("SET TRANSACTION READ ONLY")
         points: dict[str, list[Point]] = {}
         for code, pts in fetched.points.items():
-            if BY_CODE[code].step:
-                pts = fold_steps(pts, db_prior(con, code, fetched.ranges[code][0]))
             points[code] = with_carry_in(pts, lo)
         existing = read_existing(con, fetched.ranges, lock=write)
         plan = make_plan(points, existing, fetched.ranges)
@@ -467,7 +437,7 @@ def verify(con, today: date, codes: Sequence[str] | None = None) -> list[str]:
             bad.append(f"{s.code}: 표에 행이 없다")
             continue
         n, mn, mx = stats[s.code]
-        if not s.step and (today - mx).days > STALE_DAYS:
+        if (today - mx).days > STALE_DAYS:
             bad.append(f"{s.code}: 최신 행이 {mx} — 오늘({today})보다 {STALE_DAYS}일 넘게 늦다")
     return bad
 
@@ -561,16 +531,12 @@ def write_enabled(env: Mapping[str, str] = os.environ) -> bool:
 
 def run_fetch(client: Any, key: str, codes: Sequence[str], today: date, lo: date, db_max: Mapping[str, date],
               since: date | None, *, sleep=time.sleep) -> Fetched:
-    """계열마다 1콜. 값이 바뀐 날만 있는 계열(B)의 따라잡기 기준은 일별 계열의 가장 이른 최신 행이다(B 자신의 최신 행은 마지막 변경일이라 오래됐을 수 있다)."""
-    daily_max = [db_max[c] for c in db_max if not BY_CODE[c].step]
+    """계열마다 1콜."""
     points: dict[str, list[Point]] = {}
     ranges: dict[str, tuple[date, date]] = {}
     for code in codes:
         s = BY_CODE[code]
-        ref = db_max.get(code)
-        if s.step and ref is not None and daily_max:
-            ref = min(daily_max)
-        start = fetch_start(s, today, lo, ref, since)
+        start = fetch_start(s, today, lo, db_max.get(code), since)
         points[code] = fetch_series(client, key, s, start, today, sleep=sleep)
         ranges[code] = (start, today)
     check_freshness(points, today)
@@ -595,7 +561,7 @@ def summarize(fetched: Fetched, plan: Plan, wrote: bool) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dry-run", action="store_true", help="스위치가 켜져 있어도 쓰지 않고 계획만")
-    ap.add_argument("--series", help="쉼표로 구분한 계열 코드(기본 전부: C,K,1,3,B)")
+    ap.add_argument("--series", help="쉼표로 구분한 계열 코드(기본 전부: 1)")
     ap.add_argument("--since", help="이 날(YYYYMMDD)부터 받는다 — 며칠 쉰 뒤 따라잡기. 창 하한 앞은 자른다")
     ap.add_argument("--today", help="기준일 YYYYMMDD(시험·재현용, 기본 KST 오늘)")
     ap.add_argument("--prune", action="store_true", help="받지 않고 창 밖 행을 지운다(가드 필요)")
