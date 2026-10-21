@@ -310,7 +310,7 @@ async def _read_weekly(ticker: str, req: str, latest: str, floor: str, db_aw, co
     return merged, span
 
 
-# ── 집계 표 읽기 한 곳 — DB(3년 창) + 콜드 서빙(그 앞) 이음매 (261021, 계획 PERF_DATA §4 공간 만들기 1순위) ─────────────────────
+# ── 집계 표 읽기 한 곳 — DB(3년 창) + 콜드 서빙(그 앞) 이음매 (261021) ─────────────────────
 # 시장·업종 시총 집계(`krx_cap_agg`)와 시장·업종 배수(`opm_val_market`)는 DB 에 3년 창만 두고 그 앞은 서빙본에서 읽는다.
 # 규칙은 주간 곡선(`_read_weekly`)과 같다 — B = `krx_weekly_cutoff(저장된 최신 주)`, S = min(B, C + 1일), 콜드 날짜 < S · DB 날짜 >= S,
 # 겹치는 날 0, 못 읽으면 강등(DB 결과 그대로). 데이터셋 열쇠는 scheme 하나다(as_of 단면을 한 번에 읽고 계열은 여기서 거른다).

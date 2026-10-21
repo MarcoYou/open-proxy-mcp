@@ -228,6 +228,7 @@ def golden(env, monkeypatch):
     ("20231016", None, 14, False), ("20231016", "20151230", 14, False),           # DB 가 S 이전부터 갖는다(지우기 전)
     ("20231016", "20231020", 14, False), ("20231016", "20231031", 35, False),      # S 뒤 첫 표본(주·월말)
     ("20231016", "20231103", 14, True), ("20230602", "20231020", 35, True),        # 표본 간격보다 긴 빈칸 = 틈
+    ("20231016", "20231030", 14, False), ("20231016", "20231031", 14, True),       # 경계: 정확히 간격만큼은 틈이 아니다, 하루 넘으면 틈
 ])
 def test_agg_seam_gap(seam, first, step, gap):
     assert R.agg_seam_gap(seam, first, step) is gap
