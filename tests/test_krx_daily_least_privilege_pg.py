@@ -44,7 +44,7 @@ def _as(url: str, role: str) -> str:
     return f"{url}?options={urllib.parse.quote(f'-c role={role}')}"
 
 
-#: 서버 계정 행렬(맥 `opm_app_role.py`)의 지수 표 정책과 같은 글자 — 창 60일.
+#: 서버 최소 권한 계정의 지수 표 정책과 같은 글자 — 창 60일.
 IDX_RECENT = "krx_idx.trd_dd >= ((now() AT TIME ZONE 'Asia/Seoul')::date - 60)"
 IDX_INSERT_CHECK = f"({IDX_RECENT}) AND EXISTS (SELECT 1 FROM public.krx_idx_series s WHERE s.sid = krx_idx.sid AND s.in_db)"
 IDX_DELETE_USING = (f"({IDX_RECENT})"
