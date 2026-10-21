@@ -80,7 +80,7 @@ jobs:
           if [ "$IN_DRY" = "true" ]; then
             args+=(--dry-run)
           fi
-          uv run python scripts/ecos_rate_daily.py "${args[@]}"
+          uv run python scripts/ecos_rate_daily.py --backup-dir "$RUNNER_TEMP/ecos-rate-backup" "${args[@]}"
 
       - name: 창 밖 지우기 (보관본이 발행·72시간 지난 뒤에만 — 변수가 없으면 건너뛴다)
         # 보관본 서빙 목록이 데이터셋을 싣고 coverage 가 지울 끝을 덮고 발행 72시간이 지나야 한다. 아직이면 지우지 않고 초록으로 끝난다.
@@ -89,4 +89,14 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           ECOS_RATE_WRITE: ${{ vars.ECOS_RATE_WRITE }}
           COLD_MANIFEST: ${{ vars.ECOS_RATE_COLD_MANIFEST }}
-        run: uv run python scripts/ecos_rate_daily.py --prune --manifest "$COLD_MANIFEST" --if-ready
+        run: uv run python scripts/ecos_rate_daily.py --prune --manifest "$COLD_MANIFEST" --if-ready --backup-dir "$RUNNER_TEMP/ecos-rate-backup"
+
+      - name: 쓰기 전 백업(바꾼·지운 행의 옛 값) 올리기 — 있을 때만
+        # 정정·지우기가 없는 날은 파일이 없어 올리지 않는다. 데이터는 공개 지표 값(금리)뿐이다.
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecos-rate-backup
+          path: ${{ runner.temp }}/ecos-rate-backup
+          if-no-files-found: ignore
+          retention-days: 30
