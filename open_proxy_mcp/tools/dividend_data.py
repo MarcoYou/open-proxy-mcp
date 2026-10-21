@@ -154,6 +154,8 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
               "**서식에 칸이 없어 비고에만 적히는 사실**은 원문에서만 읽힌다.",
               "> 정기·특별분이 한 결의에 섞여도 **금액은 가르지 않는다** — 서식에 분리 칸이 없다."]
         L += _remarks_block(pay.get("decisions") or [], complete)
+        if pay.get("remarks_cold_note"):
+            L += ["", f"> {pay['remarks_cold_note']}"]
     elif pay.get("status") != "ok":
         # 🔴 **조회 실패를 「없다」로 렌더하지 않는다.** 260903 실측: 표에서 죽은 칸을
         # 지웠더니 배포본의 옛 쿼리가 깨졌는데, 화면에는 「결정공시 집계가 없다」로 나왔다
@@ -442,6 +444,8 @@ def register_tools(mcp):
             asyncio.to_thread(dd.firm_history, corp.get("corp_code", ""), y0, y1),
             asyncio.to_thread(dd.payment_counts, corp.get("corp_code", ""), y0, y1),
         )
+        # 261021: 비고(remarks)를 콜드 보관본으로 옮긴 행은 DB 가 NULL — 그 회사의 서빙본 행으로 채운다(NULL 이 없으면 아무것도 읽지 않는다).
+        pay = await dd.fill_remarks_from_cold(pay, corp.get("corp_code", ""))
         if data.get("status") != "ok":
             return "## 배당 원장 조회 실패 (`status=db_error`)"
         if format == "json":
