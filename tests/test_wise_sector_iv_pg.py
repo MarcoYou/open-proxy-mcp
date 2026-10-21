@@ -366,3 +366,114 @@ def test_v9_disclosure_sector_join_same_answer(legacy):
     sec = {r[0]: r[10] for r in got}
     assert sec["e2"] == "경기관련소비재" and sec["e3"] == "경기관련소비재"      # 1016 에 없는 000050 은 가장 가까운 스냅샷(0828 이하 → 0821)
     assert sec["e4"] == "IT" and sec["e5"] == "경기관련소비재" and sec["e6"] is None and sec["e7"] is None
+
+
+# ── 감수(261021) 추가: 관문이 실제로 걸리는지(고장을 일부러 넣어 본다) · 근거 글자가 구간을 가르는지 · 되돌리기·쓰기 차분의 지우기 ──────────
+
+#: 구간 표를 일부러 망가뜨리는 문장 — 교체 G2(옮겨 담은 직후)와 쓰는 쪽 확인(쓴 직후) 양쪽에 같은 것을 넣는다. (확인 이름, 문장)
+_T = "(SELECT tid FROM krx_ticker WHERE ticker = '005930')"
+SABOTAGE = (
+    # 구간 하나가 사라짐 → 옛 표에 있는 행이 뷰에 없다
+    ("l_minus_v", f"DELETE FROM wise_sector_iv WHERE tid = {_T};"),
+    # 옛 표에 없는 행이 뷰에 생김(번호표에 있는 다른 종목의 구간을 하나 더)
+    ("v_minus_l", "INSERT INTO wise_sector_iv (tid, valid_from, valid_to, src, sector_code, sector, industry_code, industry) "
+                  "SELECT tid, '2026-10-16', NULL, 'W', 'G25', 'x', 'G2510', 'y' FROM krx_ticker WHERE ticker = '000060';"),
+    # 값이 같은 두 구간이 붙어 있다(뷰의 행은 그대로 — 덜 접힘만 잡힌다)
+    ("iv_unmerged", f"INSERT INTO wise_sector_iv SELECT tid, '2026-08-28', NULL, src, sector_code, sector, industry_code, industry, src_ref "
+                    f"FROM wise_sector_iv WHERE tid = {_T}; UPDATE wise_sector_iv SET valid_to = '2026-08-28' "
+                    f"WHERE tid = {_T} AND valid_from = '2026-08-21';"),
+    # 한 종목의 두 구간이 겹친다
+    ("iv_overlap", f"INSERT INTO wise_sector_iv SELECT tid, '2026-08-28', NULL, src, sector_code, sector, industry_code, industry, src_ref "
+                   f"FROM wise_sector_iv WHERE tid = {_T};"),
+    # 날짜 목록에는 있는데 그 날을 덮는 구간이 없다(첫 구간보다 앞선 날짜 — 열린 구간은 뒤 날짜를 모두 덮는다)
+    ("snap_empty", "INSERT INTO wise_sector_snap (snap, dd, n) VALUES ('2026-08-01', '20260801', 0);"),
+    # 날짜 목록의 행 수가 뷰와 다르다
+    ("snap_n", "UPDATE wise_sector_snap SET n = n + 1 WHERE dd = '20260821';"),
+)
+
+
+@pytest.mark.parametrize("chk,sql", SABOTAGE, ids=[s[0] for s in SABOTAGE])
+def test_v10_switch_g2_stops_on_each_fault(legacy, monkeypatch, chk, sql):
+    """옮겨 담은 구간 표가 옛 표와 다르거나 무결성이 깨지면 G2 가 그 이름을 대고 교체 전체를 되돌린다(관문마다 따로 증명)."""
+    before = _rows(legacy)
+    monkeypatch.setattr(D, "SWITCH_MIGRATE", D.SWITCH_MIGRATE + "\n" + sql + "\n")
+    with pytest.raises(psycopg.errors.RaiseException, match=rf"G2 관문 실패.*\b{chk}="):
+        _switch(legacy)
+    assert _kind(legacy) == "r" and _kind(legacy, "wise_sector_iv") is None and _kind(legacy, "wise_sector_legacy") is None
+    assert _rows(legacy) == before
+
+
+@pytest.mark.parametrize("chk,sql", [s for s in SABOTAGE if s[0] not in ("l_minus_v", "v_minus_l")],
+                         ids=[s[0] for s in SABOTAGE if s[0] not in ("l_minus_v", "v_minus_l")])
+def test_v11_writer_check_stops_on_each_integrity_fault(legacy, monkeypatch, chk, sql):
+    """쓰는 쪽 쓰기 확인도 같다: 구간 표 무결성이 깨진 채 끝나면 이름을 대고 예외 → 전체 되돌림(구간 표·뷰 모두 그대로)."""
+    _switch(legacy)
+    monkeypatch.setenv("DATABASE_URL", legacy)
+    monkeypatch.delenv("WICS_DATABASE_URL", raising=False)
+    before, iv_before = _rows(legacy), _iv(legacy)
+    monkeypatch.setattr(S, "FLUSH_APPLY", S.FLUSH_APPLY + "\n" + sql + "\n")
+    with pytest.raises(RuntimeError, match=chk):
+        S.rederive_db(dry_run=False)
+    assert _rows(legacy) == before and _iv(legacy) == iv_before
+
+
+def test_v12_same_class_different_src_ref_splits_interval(pg17):
+    """분류가 같아도 출처 근거(src_ref)가 다르면 구간이 나뉜다 — 합치면 뷰가 옛 표의 src_ref 를 잃는다(기업 화면 관측의 조회일이 이 경우다)."""
+    _base(pg17, legacy=False)
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute(LEGACY_DDL)
+        _obs(c, "20260821", {"000040": A}, src="wise_company", ref="20261018:자동차")
+        _obs(c, "20260828", {"000040": A}, src="wise_company", ref="20261018:자동차")
+        _obs(c, "20261016", {"000040": A}, src="wise_company", ref="20261120:자동차")
+        _obs(c, "20261030", {"000040": A}, src="wise_company", ref="20261120:자동차")
+    before = _rows(pg17)
+    _switch(pg17)
+    assert _rows(pg17) == before
+    assert [r[1:3] + (r[3], r[5]) for r in _iv(pg17) if r[0] == "000040"] == [
+        ("2026-08-21", "2026-10-16", "K", "20261018:자동차"), ("2026-10-16", None, "K", "20261120:자동차")]
+    assert set(_integrity(pg17).values()) == {0}
+
+
+def test_v13_writer_removing_a_snapshot_rewrites_intervals(legacy, monkeypatch):
+    """쓰는 쪽이 한 스냅샷의 행을 전부 없애면 날짜 목록에서 빠지고, 그 날을 끝으로 삼던 구간은 다음 스냅샷으로 늘어난다(차분이 지우기까지 한다)."""
+    _switch(legacy)
+    before = _rows(legacy)
+    with psycopg.connect(legacy) as con:
+        with S.sector_store(con) as T:
+            con.execute(f"DELETE FROM {T} WHERE snap_dd = '20260828'")
+        con.commit()
+    assert _rows(legacy) == [r for r in before if r[0] != "20260828"]
+    with psycopg.connect(legacy) as c:
+        assert c.execute("SELECT dd, n FROM wise_sector_snap ORDER BY 1").fetchall() == [("20260821", 5), ("20261016", 2)]
+    assert [r[1:3] for r in _iv(legacy) if r[0] == "000050"] == [("2026-08-21", "2026-10-16")]
+    assert set(_integrity(legacy).values()) == {0}
+
+
+def test_v14_rollback_makes_legacy_equal_to_view_and_keeps_server_role_reading(legacy):
+    """되돌리기: 옛 표에 남은 낡은 행은 지우고(교체 뒤 옛 표가 뷰와 어긋나 있어도) 서버 계정이 되살린 표를 곧바로 읽는다."""
+    with psycopg.connect(legacy, autocommit=True) as c:
+        if not c.execute("SELECT 1 FROM pg_roles WHERE rolname = 'opm_app'").fetchone():
+            c.execute("CREATE ROLE opm_app NOLOGIN BYPASSRLS")      # 클러스터 전역 — 다른 시험(krx_weekly 교체·사용 기록)과 같은 속성으로 두고 지우지 않는다
+    _switch(legacy)      # 서버 계정이 이미 있으면 교체 DDL 이 뷰·밑 표 SELECT 를 준다
+    now = _rows(legacy)
+    with psycopg.connect(legacy, autocommit=True) as c:
+        c.execute("REVOKE ALL ON wise_sector_legacy FROM opm_app")      # 권한 행렬 --apply 가 옛 표 권한을 거둔 상태
+        c.execute("DELETE FROM wise_sector_legacy WHERE snap_dd = '20260821' AND ticker = '005930'")
+        c.execute("INSERT INTO wise_sector_legacy (snap_dd, ticker, sector_code, sector, industry_code, industry) "
+                  "VALUES ('20260821', '999999', 'G99', 'x', 'G9999', 'y')")
+    D.apply(legacy, "rollback")
+    assert _rows(legacy) == now
+    with psycopg.connect(legacy, autocommit=True) as c:
+        c.execute("SET ROLE opm_app")
+        assert c.execute("SELECT count(*) FROM wise_sector").fetchone()[0] == len(now)
+
+
+def test_v15_switch_g2_stops_when_view_column_type_differs(legacy, monkeypatch):
+    """뷰의 칸 형이 옛 표와 다르면(같은 값이어도) G2 의 칸 형 대조가 교체를 멈춘다 — 읽는 쪽 질의가 형에 기대기 때문."""
+    sql = D.SWITCH_G2_SQL
+    assert "i.sector," in sql
+    monkeypatch.setattr(D, "SWITCH_G2_SQL", sql.replace("i.sector,", "i.sector::varchar(200),", 1))
+    before = _rows(legacy)
+    with pytest.raises(psycopg.errors.RaiseException, match=r"G2 관문 실패.*\bcol_types="):
+        _switch(legacy)
+    assert _kind(legacy) == "r" and _rows(legacy) == before
