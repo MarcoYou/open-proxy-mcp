@@ -59,6 +59,7 @@ import calendar
 import logging
 from typing import Any
 
+from open_proxy_mcp import cold_store as _cold
 from open_proxy_mcp.db import pg_rows
 
 logger = logging.getLogger(__name__)
@@ -304,6 +305,58 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
         "rows": [agg[fy] for fy in sorted(agg, reverse=True)],
         "decisions": decisions,
     }
+
+
+# ── 결정공시 비고 원문 — DB 가 NULL 이면 콜드 서빙본에서 (261021) ──────────────────────────────
+# `div_payment.remarks` 는 행당 평균 약 620 B 의 자유서술이라 표 4.1 MiB 중 약 2.7 MiB 를 차지한다. 사실 칸(날짜·DPS·금액·플래그)은 DB 에 두고
+# 비고만 콜드 보관본(데이터셋 `div_remarks`, 열쇠 corp_code·record_date, 칸 rcept_no·remarks)으로 옮긴다 — 옮긴 행은 DB 의 remarks 가 NULL 이다.
+# 읽는 쪽 규칙은 하나다: **DB 가 비고를 갖고 있으면 DB**(종전 그대로, 콜드를 보지 않는다), NULL 이면 그 회사의 서빙본 행을 한 번 읽어
+# `rcept_no`(접수번호 — `div_payment` 의 유일 키)로 맞춰 채운다. 채운 응답은 DB 가 갖고 있을 때와 글자까지 같다(서빙본은 같은 원문이고
+# 비운 순간 DB 값 = 서빙본 값임을 비운 쪽이 확인한다). 기준일(record_date)로는 찾지 않는다 — DB 쪽은 `YYYY-MM-DD`, 서빙본은 `YYYYMMDD` 라
+# 변환이 어긋나면 빈 결과가 되므로 열쇠(회사) 하나로 읽고 접수번호로 맞춘다.
+# 서빙본에 그 접수번호가 없거나 콜드를 못 읽으면(꺼짐·목록·받기·sha·RSS) 비고는 비어 있는 채로 나가고 안내 한 줄이 붙는다(비어 있는 비고가
+# 「특이사항 없음」으로 읽히면 안 되므로 반드시 알린다). 서빙본에 행이 있고 비고가 NULL 이면 진짜 빈 칸이라 안내하지 않는다.
+# 한계 하나: 콜드가 꺼져 있으면 「원래 빈 비고」와 「옮겨 간 비고」를 DB 만으로는 가를 수 없어 NULL 인 결의마다 안내가 붙는다(문구가 둘 다 맞게 쓰였다).
+COLD_REMARKS = "div_remarks"
+_COLD_ALL_LO, _COLD_ALL_HI = "00000000", "99999999"     # 날짜 칸(record_date)은 열쇠 읽기의 범위일 뿐 — 회사의 전 행을 읽는다
+
+
+def cold_remarks_note(n_missing: int) -> str:
+    return (f"결정공시 비고 {n_missing}건이 비어 있다 — 보관본에서 채우지 못했을 수 있다(일시 — 잠시 뒤 다시 부르면 채워진다). "
+            "비어 있는 비고를 「특이사항 없음」으로 읽지 말 것.")
+
+
+async def fill_remarks_from_cold(pay: dict[str, Any], corp_code: str) -> dict[str, Any]:
+    """`payment_counts` 결과의 결의 목록에서 remarks 가 NULL 인 행을 콜드 서빙본(`div_remarks`)으로 채운다. 같은 dict 를 돌려준다.
+
+    · NULL 이 없으면(옮기기 전·최근 행) 아무것도 읽지 않는다 — 응답·지연 모두 종전과 같다.
+    · NULL 이 있으면 회사 하나를 한 번 읽는다(접수번호로 맞춤). 서빙본에 행이 있으면 그 비고(NULL 이면 진짜 빈 칸)를 쓴다.
+    · 못 읽은 행(콜드 꺼짐·강등·서빙본에 그 접수번호 없음)이 있으면 `pay["remarks_cold_note"]` 한 줄을 단다 — 값은 건드리지 않는다.
+    콜드 쪽에서 무엇이 터져도 DB 응답은 나간다(예외를 삼키고 강등)."""
+    if not isinstance(pay, dict) or pay.get("status") != "ok":
+        return pay
+    todo = [d for d in (pay.get("decisions") or []) if d.get("remarks") is None and d.get("rcept_no")]
+    if not todo:
+        return pay
+    got: dict[str, str | None] | None = None
+    try:
+        r = await _cold.ready(COLD_REMARKS)
+        if not isinstance(r, _cold.ColdError):
+            rows = await _cold.read(r, ("rcept_no", "remarks"), corp_code, _COLD_ALL_LO, _COLD_ALL_HI)
+            if rows is not None:
+                got = {rn: rm for rn, rm in rows}
+    except Exception as e:  # noqa: BLE001 — 콜드 실패는 언제나 강등
+        _cold.note_degraded("error", type(e).__name__)
+        logger.warning("콜드 서빙(%s): 비고 읽기 실패 — 강등(%s)", COLD_REMARKS, type(e).__name__)
+    missing = 0
+    for d in todo:
+        if got is not None and d["rcept_no"] in got:
+            d["remarks"] = got[d["rcept_no"]]
+        else:
+            missing += 1
+    if missing:
+        pay["remarks_cold_note"] = cold_remarks_note(missing)
+    return pay
 
 
 def payment_history(pairs: list[tuple[str, str | None]], year_from: int, year_to: int

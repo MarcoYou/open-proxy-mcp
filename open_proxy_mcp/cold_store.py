@@ -806,8 +806,8 @@ async def _background(datasets: tuple[str, ...]) -> None:
         await asyncio.sleep(_ttl_sec())
 
 
-#: 서버가 예열·목록 갱신하는 데이터셋 — 주간 시세(261019)와 시장·업종 집계 두 벌(261021, 열쇠 scheme·날짜).
-DEFAULT_DATASETS = ("krx_weekly_hist", "krx_cap_agg_hist", "opm_val_market_hist")
+#: 서버가 예열·목록 갱신하는 데이터셋 — 주간 시세(261019)·시장·업종 집계 두 벌(261021, 열쇠 scheme·날짜)·배당 결정공시 비고 원문(261021, 열쇠 corp_code).
+DEFAULT_DATASETS = ("krx_weekly_hist", "krx_cap_agg_hist", "opm_val_market_hist", "div_remarks")
 
 
 def attach_to_app(app, datasets: tuple[str, ...] = DEFAULT_DATASETS) -> None:
