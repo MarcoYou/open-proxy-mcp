@@ -49,7 +49,7 @@ def test_source_is_the_earlier_report_when_the_value_is_the_same():
     assert src(R2024, R2024, True) == R2024
     W = S.restated_wins
     assert W(R2025, restated_rcept=R2024) is True and W(R2024, restated_rcept=R2025) is False, "값이 다른 이른 보고서는 늦은 출처를 덮지 못한다(종전 그대로)"
-    assert W(R2024, restated_rcept=R2025, same_value=True) is True, "같은 값이면 이른 보고서가 출처를 가져간다"
+    assert W(R2024, restated_rcept=R2025, same_value=True, covers=True) is True, "같은 값이면 이른 보고서가 출처를 가져간다(두 칸을 다 적었을 때)"
     assert W(R2024, own_rcept=R2024, restated_rcept=R2025, same_value=True) is False, "그 해 보고서보다 이르거나 같으면 쓰지 않는다"
     assert W(R2024, own_rcept="20250401000001", restated_rcept=R2025, same_value=True) is False
     assert W(None, same_value=True) is False
@@ -195,3 +195,31 @@ def test_the_restated_value_is_used_from_the_first_report_that_gave_it():
         now, gate = rpit.annual_cell(2023, ni, eq, ni_r, eq_r, src)
         assert now == (ni_r, eq_r)
         assert (gate[1] if gate and gate[0] > day else now) == want, (src, day)
+
+
+def test_an_earlier_partial_candidate_does_not_bring_the_source_down(pdb):
+    """이른 보고서가 지금 정정 칸의 **일부 칸만** 같은 값으로 적었으면(자본 칸이 빔) 출처를 당기지 않는다 — 정정 칸 출처는 두 칸 모두의 공시일이라,
+    당기면 이른 보고서가 적지 않은 자본 정정 값(늦은 보고서가 낸 값)을 그 이른 날부터 쓰게 된다(미래 정보). 두 칸을 다 적었으면 당긴다."""
+    url, fake = pdb
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("UPDATE dart_finstat_y SET restated_rcept_no=%s WHERE ticker='000001' AND fy=2023", (R2025,))
+    fake.avail[("00000001", "2024", "11011", "CFS")] = _r(R2024, ni=10 * B, eq=300 * B, ni_frm=-61.56 * B, eq_frm=None)
+    asyncio.run(S.backfill_restated(["000001"], 2024))
+    assert _row(url, "000001", 2023)[2:] == (-61.56 * B, 252.36 * B, R2025), "순이익만 적은 이른 보고서 — 출처 그대로(백필)"
+    asyncio.run(S.fetch(only={("000001", 2024)}, keep_fs=True, amended=False))
+    assert _row(url, "000001", 2023)[2:] == (-61.56 * B, 252.36 * B, R2025), "순이익만 적은 이른 보고서 — 출처 그대로(수집)"
+    fake.avail[("00000001", "2024", "11011", "CFS")] = _r(R2024, ni=10 * B, eq=300 * B, ni_frm=-61.56 * B, eq_frm=252.36 * B)
+    asyncio.run(S.backfill_restated(["000001"], 2024))
+    assert _row(url, "000001", 2023)[2:] == (-61.56 * B, 252.36 * B, R2024), "두 칸을 다 적었으면 당긴다"
+
+
+def test_wins_needs_every_current_cell_for_an_earlier_candidate():
+    W = S.restated_wins
+    assert W(R2024, restated_rcept=R2025, same_value=True, covers=False) is False
+    assert W(R2024, restated_rcept=R2025, same_value=True, covers=True) is True
+    assert W(R2025, restated_rcept=R2024, same_value=True, covers=False) is True, "늦은 후보는 칸을 덮어도 출처가 늦어지지 않는다(restated_source)"
+    cov = S.restated_covers
+    assert cov(-61.56 * B, None, -61.56 * B, 252.36 * B) is False
+    assert cov(-61.56 * B, 252.36 * B, -61.56 * B, 252.36 * B) is True
+    assert cov(-61.56 * B, None, -61.56 * B, None) is True
+    assert S.restated_same(-61.56 * B, None, -61.56 * B, 252.36 * B) is True, "같은 값 판정은 후보가 비운 칸을 보지 않는다(늦은 후보가 출처를 늦추지 않게)"
