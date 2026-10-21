@@ -18,6 +18,9 @@ PIT 근사: 분기말 D 시점 최신 확정재무 = (D가 4월 이후면 전년
 `--backfill-restated` — 이 같은 응답의 전기·전전기 칸을 이 규칙으로 쓴다(DART 콜은 늘지 않는다). 그 해 보고서가 정정 칸 출처보다 늦게
 정정되면 정정 칸을 비워 그 해 칸이 쓰인다. 종전엔 `--backfill-restated` 만 정정 칸을 썼고 출처를 남기지 않았다. 후보 보고서의 재무제표 기준
 (연결/별도)이 그 해 행과 다르면 쓰지 않는다(`restated_basis_ok` — 그 해 행에 값이 하나도 없을 때만 채운다).
+261021(DATA-PIT10): 더 늦은 보고서가 **지금 정정 칸과 같은 값**을 다시 적은 것(예: 2025 사업보고서 전전기 칸이 2024 사업보고서 전기 칸과 같다)은 출처를 늦은 보고서로 옮기지 않는다 —
+출처는 그 값을 처음 낸 보고서다(`restated_same`·`restated_source`). 정정 칸은 출처가 공시된 날부터 쓰므로(`restated_pit`), 출처가 한 해 늦으면 그 한 해 동안 원본(틀린) 값을 썼다
+(065150 FY2023: 2025-03-21 접수 2024 사업보고서가 낸 값을 2026-03-23 접수 2025 사업보고서를 출처로 잡아 1년 동안 원본 값). 더 이른 보고서를 나중에 읽어도 같은 값이면 출처가 그 보고서로 내려온다 — 그 보고서가 지금 정정 칸의 값 있는 칸(순이익·자본)을 모두 적었을 때만(`restated_covers`).
 
 261021(DATA-SC4): 사업보고서를 읽는 길(정규 `--fetch`·정정 다시 받기 `--amended`·`--refetch`)에 **보고서 사이 단위 가드**를 넣었다. 회사가 단위를 잘못 적어
 사업보고서가 통째로 10ⁿ 배면 한 보고서 안의 검사(항등식·자릿수)는 다 맞아 원본 칸에 그대로 들어가고(065150 FY2023 ×1,000 · 032680 FY2022 ×10⁶ · 311390 FY2022
@@ -313,12 +316,16 @@ def prior_candidates(rows, report_fy: int, fye=12, own_terms: dict | None = None
     return out
 
 
-def restated_wins(cand_rcept: str | None, *, own_rcept: str | None = None, restated_rcept: str | None = None) -> bool:
+def restated_wins(cand_rcept: str | None, *, own_rcept: str | None = None, restated_rcept: str | None = None, same_value: bool = False,
+                  covers: bool = False) -> bool:
     """정정 칸 후보가 칸을 차지하나(순수 함수 — 아래 SQL `_restated_update_sql`·`_restated_upsert_sql` 의 접수번호 조건과 같다).
 
     후보 = 그 사업연도를 전기·전전기 칸에 적은 **더 늦은 사업보고서**(정정 포함)의 값, `cand_rcept` = 그 보고서 접수번호.
     · 그 해 보고서(정정 포함, `own_rcept`)가 후보보다 늦게 접수됐으면 그 해 보고서가 이긴다 — 후보는 쓰지 않는다.
-    · 지금 정정 칸의 출처(`restated_rcept`)보다 이르면 쓰지 않는다. 같은 보고서를 다시 읽은 것은 쓴다(규칙을 고친 뒤 같은 원문을 다시 읽을 때).
+    · 지금 정정 칸의 출처(`restated_rcept`)보다 이르면 쓰지 않는다 — **같은 값이면(`same_value`) 예외**: 그 값을 더 일찍 낸 보고서가 출처다(261021 DATA-PIT10, `restated_source`).
+      단 이른 후보가 지금 정정 칸의 **값 있는 칸을 모두** 적었을 때만(`covers` — `restated_covers`): 출처는 두 칸 모두의 공시일이라, 한 칸만 적은 이른 보고서로 당기면
+      그 보고서가 적지 않은 칸의 정정 값(늦은 보고서가 낸 값)을 그 이른 날부터 쓰게 된다(미래 정보).
+      같은 보고서를 다시 읽은 것은 쓴다(규칙을 고친 뒤 같은 원문을 다시 읽을 때).
     · 출처를 모르는 정정 칸(이 규칙 전 백필 — 출처 칸이 빔)은 가장 이른 것으로 본다: 그 값은 이 규칙이 들어오기 전에 접수된 보고서에서 왔고,
       이 뒤로 수집이 읽는 보고서(새 사업보고서·최근 정정)는 그보다 늦다. `--backfill-restated --report-year` 로 더 이른 해 보고서를 손으로 다시 돌릴
       때만 예외가 생길 수 있다(그 보고서가 출처 모르는 칸의 실제 출처보다 이르면 덮는다 — 종전 백필과 같다).
@@ -328,8 +335,28 @@ def restated_wins(cand_rcept: str | None, *, own_rcept: str | None = None, resta
     if own_rcept and cand_rcept <= own_rcept:
         return False
     if restated_rcept and cand_rcept < restated_rcept:
-        return False
+        return bool(same_value and covers)
     return True
+
+
+def restated_same(cand_ni, cand_eq, cur_ni, cur_eq) -> bool:
+    """후보가 지금 정정 칸과 **같은 값**인가(순수 함수 — 아래 SQL 의 `_same_sql` 과 같다). 후보의 값이 있는 칸마다 지금 정정 칸에 값이 있고 `RESTATED_SAME_REL`(상대 1e-6, 1원 미만) 안이어야 한다 —
+    후보가 비워 둔 칸은 보지 않는다(쓰면 지금 값이 그대로 남는 칸). 후보에 값이 하나도 없으면 같다고 하지 않는다."""
+    if cand_ni is None and cand_eq is None:
+        return False
+    return all(c is None or (cur is not None and not _differs(c, cur)) for c, cur in ((cand_ni, cur_ni), (cand_eq, cur_eq)))
+
+
+def restated_covers(cand_ni, cand_eq, cur_ni, cur_eq) -> bool:
+    """후보가 지금 정정 칸의 값 있는 칸을 **모두** 적었나(순수 함수 — SQL `_covers_sql` 과 같다). 이른 후보가 출처를 당기려면 필요하다(`restated_wins`) —
+    출처 접수번호는 순이익·자본 두 칸 모두의 공시일이다."""
+    return (cur_ni is None or cand_ni is not None) and (cur_eq is None or cand_eq is not None)
+
+
+def restated_source(cand_rcept: str, restated_rcept: str | None, same_value: bool) -> str:
+    """후보를 쓴 뒤 정정 칸 출처로 남길 접수번호(순수 함수 — SQL 의 접수번호 식과 같다). 같은 값을 다시 적은 보고서는 출처를 옮기지 않고 **둘 중 이른 쪽**을 남긴다
+    (그 값을 처음 낸 보고서 — `restated_pit` 이 그 접수일부터 정정 값을 쓴다). 값이 다르면(재작성) 후보, 출처를 모르던 칸도 후보."""
+    return min(restated_rcept, cand_rcept) if (same_value and restated_rcept) else cand_rcept
 
 
 #: 후보가 그 해 칸과 「같다」고 보는 폭(상대) — 다음 해 보고서가 백만 원 단위로 반올림해 적은 전기 칸(10-20 운영 005830 FY2023 자본 400만 원 차)을
@@ -357,23 +384,44 @@ def restated_worth(cand_ni, cand_eq, row) -> bool:
     return _differs(cand_ni, ni) or _differs(cand_eq, eq)
 
 
+def _same_sql(ni: str, eq: str, cur_ni: str, cur_eq: str) -> str:
+    """`restated_same` 의 SQL 식 — 후보 값(`ni`·`eq` 식)이 지금 정정 칸(`cur_ni`·`cur_eq`)과 같은가. 후보가 비운 칸은 보지 않고, 후보에 값이 하나도 없으면 거짓."""
+    def one(c: str, cur: str) -> str:
+        return f"({c} IS NULL OR ({cur} IS NOT NULL AND abs({c} - {cur}) <= GREATEST(1.0, abs({cur}) * {RESTATED_SAME_REL!r})))"
+    return f"(({ni} IS NOT NULL OR {eq} IS NOT NULL) AND {one(ni, cur_ni)} AND {one(eq, cur_eq)})"
+
+
+def _covers_sql(ni: str, eq: str, cur_ni: str, cur_eq: str) -> str:
+    """`restated_covers` 의 SQL 식 — 후보가 지금 정정 칸의 값 있는 칸을 모두 적었나."""
+    return f"(({cur_ni} IS NULL OR {ni} IS NOT NULL) AND ({cur_eq} IS NULL OR {eq} IS NOT NULL))"
+
+
 def _restated_update_sql() -> str:
-    """수집 경로: 있는 행만 바꾼다(없는 해에 `restate_only` 행을 만들면 `fetch_plan` 이 그 해 보고서를 받지 않는다). 접수번호 조건은 `restated_wins` 와 같다."""
+    """수집 경로: 있는 행만 바꾼다(없는 해에 `restate_only` 행을 만들면 `fetch_plan` 이 그 해 보고서를 받지 않는다). 접수번호 조건은 `restated_wins` 와 같다.
+    261021(DATA-PIT10): 후보가 지금 정정 칸과 같은 값이면(`_same_sql`) 값은 그대로 두고 출처는 둘 중 이른 접수번호로 — 더 늦은 보고서가 같은 값을 다시 적어도 출처가 늦어지지 않는다.
+    더 이른 보고서가 출처를 당기는 것은 지금 정정 칸의 값 있는 칸을 모두 적었을 때만이다(`_covers_sql` — 한 칸만 적은 보고서로 당기면 다른 칸이 미래 정보가 된다)."""
     own = " AND %(rc)s > COALESCE(rcept_no, '')" if _RCEPT_COL else ""
-    return ("UPDATE dart_finstat_y SET ni_restated=COALESCE(%(ni)s::float8, ni_restated), "
-            "eq_restated=COALESCE(%(eq)s::float8, eq_restated), restated_rcept_no=%(rc)s "
-            "WHERE ticker=%(t)s AND fy=%(fy)s AND %(rc)s >= COALESCE(restated_rcept_no, '')" + own)
+    same = _same_sql("%(ni)s::float8", "%(eq)s::float8", "ni_restated", "eq_restated")
+    covers = _covers_sql("%(ni)s::float8", "%(eq)s::float8", "ni_restated", "eq_restated")    # 이른 후보는 두 칸을 다 적어야 출처를 당긴다
+    return ("UPDATE dart_finstat_y SET "
+            f"ni_restated=CASE WHEN {same} THEN ni_restated ELSE COALESCE(%(ni)s::float8, ni_restated) END, "
+            f"eq_restated=CASE WHEN {same} THEN eq_restated ELSE COALESCE(%(eq)s::float8, eq_restated) END, "
+            f"restated_rcept_no=CASE WHEN {same} THEN LEAST(restated_rcept_no, %(rc)s) ELSE %(rc)s END "     # LEAST 는 NULL(출처 모름)을 건너뛴다
+            f"WHERE ticker=%(t)s AND fy=%(fy)s AND (%(rc)s >= COALESCE(restated_rcept_no, '') OR ({same} AND {covers}))" + own)
 
 
 def _restated_upsert_sql() -> str:
-    """정정치 백필: 행이 없으면 `restate_only` 로 넣는다(종전 그대로), 있으면 규칙대로(접수번호 조건은 `restated_wins` 와 같다)."""
+    """정정치 백필: 행이 없으면 `restate_only` 로 넣는다(종전 그대로), 있으면 규칙대로(접수번호 조건은 `restated_wins` 와 같다). 같은 값이면 출처는 이른 쪽(`_restated_update_sql`)."""
     own = " AND EXCLUDED.restated_rcept_no > COALESCE(dart_finstat_y.rcept_no, '')" if _RCEPT_COL else ""
+    same = _same_sql("EXCLUDED.ni_restated", "EXCLUDED.eq_restated", "dart_finstat_y.ni_restated", "dart_finstat_y.eq_restated")
+    covers = _covers_sql("EXCLUDED.ni_restated", "EXCLUDED.eq_restated", "dart_finstat_y.ni_restated", "dart_finstat_y.eq_restated")
     return ("INSERT INTO dart_finstat_y (ticker,fy,fs,ni,eq,ni_restated,eq_restated,fetched,restated_rcept_no) "
             "VALUES (%(t)s,%(fy)s,%(fs)s,NULL,NULL,%(ni)s,%(eq)s,'restate_only',%(rc)s) ON CONFLICT (ticker,fy) DO UPDATE SET "
-            "ni_restated=COALESCE(EXCLUDED.ni_restated, dart_finstat_y.ni_restated), "
-            "eq_restated=COALESCE(EXCLUDED.eq_restated, dart_finstat_y.eq_restated), "
-            "restated_rcept_no=EXCLUDED.restated_rcept_no "
-            "WHERE EXCLUDED.restated_rcept_no >= COALESCE(dart_finstat_y.restated_rcept_no, '')" + own)
+            f"ni_restated=CASE WHEN {same} THEN dart_finstat_y.ni_restated ELSE COALESCE(EXCLUDED.ni_restated, dart_finstat_y.ni_restated) END, "
+            f"eq_restated=CASE WHEN {same} THEN dart_finstat_y.eq_restated ELSE COALESCE(EXCLUDED.eq_restated, dart_finstat_y.eq_restated) END, "
+            f"restated_rcept_no=CASE WHEN {same} THEN LEAST(dart_finstat_y.restated_rcept_no, EXCLUDED.restated_rcept_no) "
+            "ELSE EXCLUDED.restated_rcept_no END "
+            f"WHERE (EXCLUDED.restated_rcept_no >= COALESCE(dart_finstat_y.restated_rcept_no, '') OR ({same} AND {covers}))" + own)
 
 
 #: 정정 사업보고서로 그 해 칸을 다시 받았을 때 정정 칸 비우기 — 그 정정 보고서가 정정 칸 출처보다 늦으면 그 해 보고서가 가장 늦은 보고서다.
