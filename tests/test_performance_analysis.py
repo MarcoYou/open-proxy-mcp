@@ -49,6 +49,7 @@ class World:
         self.snaps = ["20260101"]
         self.weekly = None                      # 주간 시험용 WeeklyRead
         self.universe_rows: dict[str, list[str]] = {}
+        self.sector_ivs: dict[str, list] = {}   # 종목 → 업종 구간 [(시작, 끝, 키)] — 비우면 첫 스냅샷부터 열린 구간 하나
         self.calls: list[str] = []
         self.last_end_tail = None
         mp = monkeypatch
@@ -98,7 +99,7 @@ class World:
         return out
 
     def _sector_map(self, tickers):
-        ivs = {t: [(self.snaps[0], None, SECTOR_OF[t])] for t in tickers if t in SECTOR_OF}
+        ivs = {t: self.sector_ivs.get(t) or [(self.snaps[0], None, SECTOR_OF[t])] for t in tickers if t in SECTOR_OF}
         return D.SectorMap(self.snaps, ivs)
 
     def _bench_daily(self, markets, lo, hi):
@@ -687,3 +688,41 @@ def test_weekly_fixed_membership_benchmark_attribution_uses_the_daily_end_point(
     assert abs(a["residual_pct"]) < 1e-6
     assert a["active_pct"] == pytest.approx(25.2778 - 37.6923, abs=2e-3)
     assert a["active_pct"] == pytest.approx(p["data"]["relative"]["excess_cum_pct"], abs=1e-6)
+
+
+# ═══ 업종 시점 규칙(PA-R2) ═══════════════════════════════════════════════════════
+# 규칙: 기간 j 의 업종 = 그 기간 시작일 dates[j] 를 덮는 구간. 끝 날(dates[j+1])의 업종을 쓰면 미래 정보가 새어 든다.
+# X 는 20260108 부터 반도체(G4530, G45) → 자동차와부품(G2510, G25)으로 옮긴다. X 의 수익률은 j0·j2 에서만 +10%(j3 은 0) — 시작일 규칙이면 전부 반도체에 붙는다.
+
+def _x_moves_to_auto(world):
+    world.sector_ivs[X] = [("20260101", "20260108", SEMI), ("20260108", None, AUTO)]
+
+
+def test_contribution_follows_the_sector_covering_the_period_start(world):
+    _x_moves_to_auto(world)
+    stock = {r["ticker"]: r for r in run(scope="contribution", group_by="stock")["data"]["contributions"]}
+    p = run(scope="contribution", group_by="중분류")
+    assert p["status"] == "ok", p
+    by = {r["name"]: r for r in p["data"]["contributions"]}
+    # j2(20260107→20260108)의 시작일 업종은 아직 반도체 — 이 구간의 X 수익 +10% 는 반도체에 붙는다. 자동차는 Y 의 기여뿐(j3 의 X 는 수익 0).
+    assert by["반도체와반도체장비"]["contribution_pct"] == pytest.approx(stock[X]["contribution_pct"], abs=1e-3)
+    assert by["자동차와부품"]["contribution_pct"] == pytest.approx(stock[Y]["contribution_pct"], abs=1e-3)
+    # 시총 가중(시작 시총 X 1000 : Y 2000)이라 Carino 로 이은 기여는 X 6.8807 · Y 3.1193(합 +10%) — 구현과 따로 한 손계산이다.
+    # 끝 날 업종을 쓰는 오류면 j2 의 X 기여가 자동차로 넘어가 반도체가 이 값보다 작아진다.
+    assert by["반도체와반도체장비"]["contribution_pct"] == pytest.approx(6.8807, abs=1e-3)
+    assert by["자동차와부품"]["contribution_pct"] == pytest.approx(3.1193, abs=1e-3)
+    # 반도체의 구간 수익률 = X 의 j0·j1·j2 복리(+10%, 0, +10%) = +21%, 시작 비중 1/3
+    assert by["반도체와반도체장비"]["return_pct"] == pytest.approx(21.0, abs=1e-3) and by["반도체와반도체장비"]["weight_start_pct"] == pytest.approx(33.3333, abs=1e-3)
+
+
+def test_attribution_follows_the_sector_covering_the_period_start(world):
+    _x_moves_to_auto(world)
+    p = run(scope="attribution", group_by="대분류")
+    assert p["status"] == "ok", p
+    a = p["data"]["attribution"]
+    by = {g["code"]: g for g in a["by_group"]}
+    # 대상 IT(G45): j0~j2 에 X 가 있다 → 구간 수익률 (1.1)(1.0)(1.1) − 1 = +21%. j3 은 업종이 바뀐 뒤라 G45 비중 0.
+    assert by["G45"]["r_p_pct"] == pytest.approx(21.0, abs=1e-3)
+    # 평균 기초 비중: X 의 기초 비중 1/3, 0.36667/1.03333, 0.36667/1.1, (j3 은 0) 을 기간 수 4 로 나눈다 = (1/3 + 0.354839 + 1/3)/4 = 25.54%
+    assert by["G45"]["w_p_pct"] == pytest.approx((1 / 3 + 0.36667 / 1.03333 + 1 / 3) / 4 * 100, abs=0.01)
+    assert abs(a["residual_pct"]) < 1e-6
