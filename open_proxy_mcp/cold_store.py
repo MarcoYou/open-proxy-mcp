@@ -779,7 +779,11 @@ async def _background(datasets: tuple[str, ...]) -> None:
         await asyncio.sleep(_ttl_sec())
 
 
-def attach_to_app(app, datasets: tuple[str, ...] = ("krx_weekly_hist",)) -> None:
+#: 서버가 예열·목록 갱신하는 데이터셋 — 주간 시세(261019)와 배당 결정공시 비고 원문(261021, 열쇠 corp_code).
+DEFAULT_DATASETS = ("krx_weekly_hist", "div_remarks")
+
+
+def attach_to_app(app, datasets: tuple[str, ...] = DEFAULT_DATASETS) -> None:
     """Starlette 앱의 lifespan 을 감싸 서버가 뜬 뒤 예열·목록 갱신을 배경으로 돌린다(꺼져 있으면 아무것도 받지 않는다).
     배경 작업이 실패해도 앱은 뜬다 — 요청 경로가 그때그때 받거나 강등한다."""
     inner = getattr(getattr(app, "router", None), "lifespan_context", None)
