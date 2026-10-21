@@ -299,3 +299,19 @@ def test_role_without_ecos_rate_select_loses_only_the_rate(world, use_db):
     assert D.read_daily_px(D.read_tids([A]), "20261005", "20261008")[A][0][0] == "20261005"
     assert D.read_sector_map([A]) is not None and D.read_index_series() is not None
     assert D.read_dividends([A], "20251201", "20261031") is not None and D.read_div_scope() is not None
+
+
+# ── P9 시장 정보(기본 벤치마크 선택·주간 벤치마크 행 어림) ─────────────────────────────
+
+def test_markets_counts_and_weekly_market_tail(world, use_db):
+    tids = D.read_tids([A, B, C, DD])
+    assert D.read_markets(tids, "20261005") == {A: "KS", B: "KS", C: "KQ", DD: "KQ"}
+    assert DD not in D.read_markets(tids, "20261012")                                    # 상장폐지 종목은 그 날 행이 없다
+    assert D.read_market_counts("20261005") == {"KS": 3, "KQ": 2} and D.read_market_counts("20261016") == {"KS": 3, "KQ": 1}
+    assert D.read_market_counts("20250101") == {}
+    # 끝 기준일이 주 닫는 날이 아니면 일별 저장분의 그 날 행을 끝점으로 잇는다(주 닫는 날이면 중복 없이)
+    mid = D.read_weekly_market_px(["KQ"], "20260930", "20261012", "20261014")
+    assert [r[0] for r in mid[C]] == ["20260930", "20261008", "20261014"] and mid[C][-1][1] == C_CLOSE[7]
+    wk = D.read_weekly_market_px(["KQ"], "20260930", "20261016", "20261016")
+    assert [r[0] for r in wk[C]] == ["20260930", "20261008", "20261016"]                  # 20261016 은 주 닫는 날 — 한 번만
+    assert [r[0] for r in D.read_weekly_market_px(["KQ"], "20260930", "20261016")[C]] == ["20260930", "20261008", "20261016"]

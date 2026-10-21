@@ -118,14 +118,28 @@ _WEEKLY_MARKET_SQL = ("SELECT ticker, price_dd, close, list_shrs FROM krx_weekly
                       "AND price_dd >= %s AND price_dd <= %s ORDER BY ticker, price_dd")
 
 
-def read_weekly_market_px(markets: Sequence[str], lo: str, hi: str) -> dict[str, list[tuple[str, int | None, int | None]]] | None:
-    """시장(KS/KQ) 전 종목의 주간 시세 — 주간 계산 벤치마크용. 행 수 상한은 호출부가 먼저 어림해 지킨다."""
+_TAIL_MARKET_SQL = "SELECT ticker, trd_dd, close, list_shrs FROM krx_daily WHERE trd_dd = %s AND market = ANY(%s)"
+
+
+def read_weekly_market_px(markets: Sequence[str], lo: str, hi: str, tail_dd: str | None = None
+                          ) -> dict[str, list[tuple[str, int | None, int | None]]] | None:
+    """시장(KS/KQ) 전 종목의 주간 시세 — 주간 계산 벤치마크용. 행 수 상한은 호출부가 먼저 어림해 지킨다.
+    `tail_dd` 가 주 닫는 날이 아니면(이번 주 등) 일별 저장분의 그 날 행을 끝점으로 잇는다 — 종목 시세와 같은 격자여야 한다."""
     rows = db.pg_rows(_WEEKLY_MARKET_SQL, (list(markets), lo, hi))
     if rows is None:
         return None
     out: dict[str, list] = {}
+    seen: set[tuple[str, str]] = set()
     for t, dd, close, shrs in rows:
         out.setdefault(t, []).append((dd, close, shrs))
+        seen.add((t, dd))
+    if tail_dd and tail_dd > lo:
+        tail = db.pg_rows(_TAIL_MARKET_SQL, (tail_dd, list(markets)))
+        if tail is None:
+            return None
+        for t, dd, close, shrs in tail:
+            if (t, dd) not in seen:
+                out.setdefault(t, []).append((dd, close, shrs))
     return out
 
 
@@ -181,6 +195,30 @@ async def read_weekly(tickers: Sequence[str], lo: str, hi: str, *, latest: str, 
             rows[t] = cr + [r for r in rows.get(t, []) if r[0] >= (res.seam or "")]
     res.rows = rows
     return res
+
+
+_MARKETS_SQL = ("SELECT k.ticker, CASE p.market WHEN 'S' THEN 'KS' WHEN 'Q' THEN 'KQ' END FROM krx_px p JOIN krx_ticker k ON k.tid = p.tid "
+                "WHERE p.tid = ANY(%s) AND p.trd_dd = %s")
+
+
+def read_markets(tids: dict[str, int], dd: str) -> dict[str, str] | None:
+    """그 거래일 행의 시장(KS/KQ) — 기준일 시장 비중으로 기본 벤치마크를 고른다. 그 날 행이 없는 종목은 빠진다."""
+    out: dict[str, str] = {}
+    ids = sorted(tids.values())
+    by_tid = {v: k for k, v in tids.items()}
+    for i in range(0, len(ids), _BATCH):
+        rows = db.pg_rows(_MARKETS_SQL, (ids[i:i + _BATCH], _d(dd)))
+        if rows is None:
+            return None
+        out.update({t: m for t, m in rows})
+    return out
+
+
+def read_market_counts(dd: str) -> dict[str, int] | None:
+    """그 거래일의 시장별 종목 수(KS/KQ) — 주간 계산 벤치마크의 행 수를 읽기 전에 어림한다."""
+    rows = db.pg_rows("SELECT CASE p.market WHEN 'S' THEN 'KS' WHEN 'Q' THEN 'KQ' END, count(*) FROM krx_px p WHERE p.trd_dd = %s GROUP BY 1",
+                      (_d(dd),))
+    return None if rows is None else {m: int(n) for m, n in rows}
 
 
 # ── 수정 사건·딱지 ─────────────────────────────────────────────────────────────
