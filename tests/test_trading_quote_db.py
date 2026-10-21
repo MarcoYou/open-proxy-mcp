@@ -14,6 +14,7 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from open_proxy_mcp import krx_daily  # noqa: E402
 from open_proxy_mcp.krx_daily import QuoteLookup  # noqa: E402
 from open_proxy_mcp.services import price_multiple_data as pmd  # noqa: E402
 from open_proxy_mcp.services import trading as T  # noqa: E402
@@ -323,6 +324,8 @@ def fake_krx(monkeypatch):
             kospi, kosdaq = routes.get(dd, ([], []))
 
             class R:
+                status_code = 200
+
                 def json(_):
                     return {"OutBlock_1": kospi if which == "stk_bydd_trd" else kosdaq}
             return R()
@@ -421,8 +424,9 @@ def test_market_for_reads_db_state_only_and_never_triggers_the_refresh(monkeypat
     pmd._serving_dd_invalidate()
     monkeypatch.setattr(pmd, "_krx_daily_latest_dd", lambda: "20261015")         # DB 는 하루 낡았다(KRX 게시 전·갱신기 대기 중)
     monkeypatch.setattr(pmd, "_krx_db_get", lambda dd, t: {"price": 71_000, "date": dd, "common_mktcap": 1, "list_shrs": 2})
-    for name in ("_ensure_krx_fresh", "_fetch_live_snapshot", "_krx_market_live", "_krx_db_upsert"):
-        monkeypatch.setattr(pmd, name, _no_krx_async if name != "_krx_db_upsert" else _no_krx)
+    for name in ("_ensure_krx_fresh", "_fetch_live_snapshot", "_krx_market_live"):
+        monkeypatch.setattr(pmd, name, _no_krx_async)
+    monkeypatch.setattr(krx_daily, "upsert_day", _no_krx)                          # 기록 함수는 krx_daily 에 있다(261021) — 요청 경로는 쓰지도 않는다
     row = asyncio.run(pmd._market_for("005930"))
     assert row["price"] == 71_000 and row["date"] == "20261015"                 # 낡은 날짜를 날짜 표기와 함께 서빙할 뿐
     pmd._serving_dd_invalidate()
@@ -644,3 +648,147 @@ def test_db_lookups_run_off_the_event_loop(monkeypatch):
     loop_tid = asyncio.run(go())
     pmd._serving_dd_invalidate()
     assert set(seen) == {"read_quote", "latest_dd"} and loop_tid not in seen.values()
+
+
+# ── KRX 호출 실패는 「그 날 시세 없음」이 아니다 (261021, DATA-PX8) ─────────────────────────────
+
+@pytest.fixture
+def failing_krx(monkeypatch):
+    """KRX 호출을 세고, `mode` 로 실패를 흉내 낸다. mode = {"status": 401|429|503} 이면 그 HTTP 상태, {"raise": 예외} 면 전송 오류, 비면 정상 응답."""
+    import httpx
+    from open_proxy_mcp.dart import krx_meter
+    calls, mode, routes = [], {}, {}
+
+    class Client:
+        def __init__(self, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None, params=None):
+            dd, which = params["basDd"], url.rsplit("/", 1)[-1]
+            calls.append((dd, which))
+            if mode.get("raise"):
+                raise mode["raise"]
+            kospi, kosdaq = routes.get(dd, ([], []))
+
+            class R:
+                status_code = mode.get("status", 200)
+
+                def json(_):
+                    return {"OutBlock_1": kospi if which == "stk_bydd_trd" else kosdaq}
+            return R()
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    monkeypatch.setattr(krx_meter, "bump", lambda n=1: None)
+    monkeypatch.setenv("KRX_API_KEY", "test-key")
+    T._QUOTE_DAYS.clear()
+    yield calls, mode, routes
+    T._QUOTE_DAYS.clear()
+
+
+@pytest.mark.parametrize("mode,status", [({"status": 401}, "auth"), ({"status": 429}, "limit"), ({"status": 503}, "http_error"),
+                                         ({"raise": OSError("timeout")}, "transport")])
+def test_a_krx_failure_raises_instead_of_returning_a_missing_row_and_is_never_cached(failing_krx, mode, status):
+    calls, m, routes = failing_krx
+    routes["20200102"] = (_day_rows("K", 3), _day_rows("Q", 3))
+    m.update(mode)
+
+    async def go():
+        with pytest.raises(T.KrxQuoteError) as ei:
+            await T._krx_quote_row("20200102", "K00000")
+        assert ei.value.status == status
+        assert not T._QUOTE_DAYS                                   # 실패는 담기지 않는다
+        m.clear()                                                  # 복구
+        row = await T._krx_quote_row("20200102", "K00000")
+        assert row["ISU_CD"] == "K00000"                           # 같은 날짜를 다시 받는다 — 실패가 「없음」으로 굳지 않았다
+    asyncio.run(go())
+
+
+def test_an_empty_answer_is_still_none_not_an_error(failing_krx):
+    calls, m, routes = failing_krx
+    routes["20200107"] = ([], [])                                  # 호출은 성공했고 그 날 행이 없다 — 휴장·게시 전이라는 답
+
+    async def go():
+        assert await T._krx_quote_row("20200107", "K00000") is None
+    asyncio.run(go())
+
+
+def test_a_good_kospi_row_is_served_even_when_kosdaq_failed_but_a_kosdaq_ticker_is_an_error(failing_krx):
+    """코스피는 받았고 코스닥 호출만 실패한 반쪽 — 코스피 종목은 그대로 답하고(캐시는 안 한다), 코스닥 종목은 「없다」가 아니라 실패다."""
+    calls, m, routes = failing_krx
+    routes["20200108"] = (_day_rows("K", 3), _day_rows("Q", 3))
+    import httpx
+    real_get = httpx.AsyncClient.get
+
+    async def get(self, url, headers=None, params=None):
+        if url.endswith("ksq_bydd_trd"):
+            raise OSError("timeout")
+        return await real_get(self, url, headers=headers, params=params)
+    httpx.AsyncClient.get = get
+
+    async def go():
+        assert (await T._krx_quote_row("20200108", "K00001"))["ISU_CD"] == "K00001"
+        assert not T._QUOTE_DAYS
+        with pytest.raises(T.KrxQuoteError) as ei:
+            await T._krx_quote_row("20200108", "Q00001")
+        assert ei.value.status == "transport"
+    try:
+        asyncio.run(go())
+    finally:
+        httpx.AsyncClient.get = real_get
+
+
+def test_quote_payload_says_the_krx_call_failed_not_holiday_or_halt(monkeypatch):
+    async def boom(dd, ticker):
+        raise T.KrxQuoteError("limit")
+    monkeypatch.setattr(T, "_krx_quote_row", boom)
+    old = QuoteLookup(ok=True, day="20260115", window=("20261008", "20261016"), day_present=False, row=None)
+    p = _quote(monkeypatch, old, as_of="20260115")
+    assert p["status"] == "no_data" and p["data"]["krx_status"] == "limit" and p["data"]["as_of"] == "20260115"
+    text = " ".join(p["warnings"])
+    assert "KRX 호출 한도 초과" in text and "호출이 실패한 것" in text
+    assert "휴장일·상장 전·거래정지 또는 KRX 키 미설정" not in text          # 종전 문구(실패를 자료 없음으로 읽게 하던 것)가 아니다
+
+
+def test_konex_ticker_stays_unsupported_even_when_the_krx_call_fails(monkeypatch):
+    """코넥스는 시세 소스(코스피·코스닥 두 endpoint)에 애초에 없다 — KRX 호출이 실패해도 답은 종전처럼 「수록 대상 아님」이다."""
+    async def boom(dd, ticker):
+        raise T.KrxQuoteError("transport")
+    monkeypatch.setattr(T, "_krx_quote_row", boom)
+    old = QuoteLookup(ok=True, day="20260115", window=("20261008", "20261016"), day_present=False, row=None)
+    p = _quote(monkeypatch, old, as_of="20260115", cls="N")
+    assert p["status"] == "unsupported_market" and "KONEX" in " ".join(p["warnings"])
+
+
+def test_quote_payload_without_a_failure_keeps_the_old_no_data_wording(monkeypatch):
+    async def none(dd, ticker):
+        return None
+    monkeypatch.setattr(T, "_krx_quote_row", none)
+    old = QuoteLookup(ok=True, day="20260115", window=("20261008", "20261016"), day_present=False, row=None)
+    p = _quote(monkeypatch, old, as_of="20260115")
+    assert p["status"] == "no_data" and "krx_status" not in p.get("data", {})
+    assert "휴장일·상장 전·거래정지 또는 KRX 키 미설정" in " ".join(p["warnings"])
+
+
+def test_unreliable_change_names_the_krx_failure_when_it_blanks_the_change(monkeypatch):
+    async def boom(dd, ticker):
+        raise T.KrxQuoteError("auth")
+    monkeypatch.setattr(T, "_krx_quote_row", boom)
+    split = _lookup(_db_row(prev_close=500_000, chg=-399_000, chg_pct=Decimal("-79.80"), close=101_000))
+    p = _quote(monkeypatch, split, as_of="20261016")
+    q = p["data"]["quote"]
+    assert p["status"] == "ok" and p["data"]["source"] == "db" and q["close_krw"] == 101_000 and q["change_pct"] is None
+    text = " ".join(p["warnings"])
+    assert "대비·등락률은 비웠습니다" in text and "KRX 인증 실패" in text
+
+
+def test_quote_calendar_comments_no_longer_claim_there_is_no_calendar():
+    """낡은 주석 바로잡기(261021) — `krx_day` 달력이 있다. `_prev_weekday`/`_change_is_reliable` 이 그것을 읽지 않는다는 사실로 고쳐 적었다."""
+    import inspect
+    src = inspect.getsource(T._change_is_reliable) + inspect.getsource(T._prev_weekday)
+    assert "구분할 달력이 없다" not in src and "krx_day" in src
+    assert "공용 커넥션 풀" in inspect.getsource(T.build_cap_agg_payload)            # 「호출마다 새 커넥션을 연다」는 풀 이전의 설명이었다

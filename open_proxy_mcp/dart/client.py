@@ -3697,44 +3697,35 @@ class DartClient:
             return None
 
     async def _krx_stock_price(self, stock_code: str, base_date: str) -> dict | None:
-        """KRX Open API — 일별 시세 (서비스 승인 필요)"""
+        """KRX Open API — 일별 시세 (서비스 승인 필요). 호출은 `krx_api.fetch_day` 한 곳이다(키·주소·호출 장부·상태 판정).
+
+        종목코드가 **정확히 같은** 행만 받는다(종전에는 코스피만 불렀고 `stock_code in ticker` 부분 일치였다 — 코스닥 종목은 늘 포털로 넘어가고,
+        짧은 코드가 다른 종목에 걸릴 수 있었다). 코스피에 있으면 코스닥은 부르지 않는다(1콜), 없으면 코스닥까지(2콜).
+        KRX 호출이 실패해도(키·한도·장애) 값을 만들어 내지 않고 None 으로 돌려 포털 시세로 넘어간다 — 이유는 `krx_api` 가 경고로 남긴다."""
         if get_strict_as_of():
             normalized_day = publication_day(base_date)
             if normalized_day is None or normalized_day > get_as_of():
                 note_strict_exclusion("krx_stock_price", reason="publication_invalid" if normalized_day is None else "after_cutoff")
                 return None
             base_date = normalized_day
-        import os
-        api_key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
-        if not api_key:
+        from open_proxy_mcp import krx_api
+        if not krx_api.api_key():
             return None
-
         try:
-            await self._throttle_api()
-            try:
-                from open_proxy_mcp.dart.krx_meter import bump
-                bump()  # KRX 일별 사용량 장부
-            except Exception:
-                pass
-            url = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
-            params = {"AUTH_KEY": api_key, "basDd": base_date}
-            resp = await self._http.get(url, params=params, timeout=30)
-            if resp.status_code != 200:
-                return None
-            data = resp.json()
-            for item in data.get("OutBlock_1", []):
-                ticker = item.get("ISU_CD", "")
-                if ticker == stock_code or stock_code in ticker:
-                    if get_strict_as_of():
-                        reported_day = publication_day(item.get("BAS_DD"))
-                        if reported_day is None or reported_day > get_as_of() or reported_day != base_date:
-                            note_strict_exclusion("krx_stock_price", reason="publication_unknown" if reported_day is None else "publication_date_conflict")
-                            continue
-                    return {
-                        "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
-                        "base_date": item.get("BAS_DD", base_date),
-                        "source": "krx",
-                    }
+            day = await krx_api.fetch_day(base_date, ticker=stock_code, http=self._http)
+            for item in (*day.kospi, *day.kosdaq):
+                if item.get("ISU_CD") != stock_code:
+                    continue
+                if get_strict_as_of():
+                    reported_day = publication_day(item.get("BAS_DD"))
+                    if reported_day is None or reported_day > get_as_of() or reported_day != base_date:
+                        note_strict_exclusion("krx_stock_price", reason="publication_unknown" if reported_day is None else "publication_date_conflict")
+                        continue
+                return {
+                    "closing_price": int(str(item.get("TDD_CLSPRC", "0")).replace(",", "") or "0"),
+                    "base_date": item.get("BAS_DD", base_date),
+                    "source": "krx",
+                }
             return None
         except Exception as e:
             logger.warning(f"[KRX] 시세 조회 실패: {e}")

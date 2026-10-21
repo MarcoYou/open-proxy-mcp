@@ -104,6 +104,49 @@ def week_unit(dd: str) -> tuple[str, str]:
     return _fmt(max(mon, date(d.year, 1, 1))), _fmt(min(sun, date(d.year, 12, 31)))
 
 
+#: `krx_weekly` 가 **뷰**일 때(261019 재설계 v03 C4) 그 날짜들과 날짜별 행 수 — 뷰를 훑지 않고 작은 달력 둘(압축 표의 주 달력 `krx_wk_day` 306행 +
+#: 일별 달력 `krx_day` 의 주 닫는 날 54행)에서 읽는다. 뷰의 두 갈래와 같은 합집합이다(뒤 갈래는 `krx_wk_day` 에 이미 있는 날을 뺀다 — 한 날은 한 곳에서만).
+#: 행이 있는 날만(`n > 0`) — 뷰는 행이 없는 날을 내지 않는다. `n` 은 그 날 뷰의 행 수와 같다(운영 261021 전 348일 대조 불일치 0).
+#: 이 같음은 쓰는 쪽이 지키는 약속에 기댄다 — 날 단위로 행을 쓰는 자리(`krx_daily` 의 일별 기록·주 쓰기·`_move_weeks`)는 같은 트랜잭션에서 `n` 을 함께 적는다.
+#: `krx_wk` 에서 행 일부를 지우는 쪽(보존 정리 `prune_where_wk` 를 실제로 쓰게 될 때)은 그 날 `krx_wk_day.n` 도 다시 세어야 한다 — 안 그러면 곡선 시작 판정이 어긋난다.
+#: 뷰 위의 `min/max(price_dd)`·`GROUP BY price_dd` 는 33.9만 행 압축 표를 훑는다(88~600 ms) — 이 달력은 0.1 ms 다(DATA-PX7).
+#: **표 모드**(`krx_weekly` 가 표 — 교체 전·되돌린 뒤)에서는 이 달력이 없거나(주 달력 표가 아직 없는 DB) 낡았을 수 있어 쓰지 않는다 —
+#: 읽는 쪽이 `krx_daily.weekly_is_view` / `WEEKLY_KIND_SQL` 로 모드를 먼저 보고, 표 모드는 종전 질의(표를 날짜로 묶기)를 그대로 쓴다.
+WEEKLY_DAYS_SQL = (
+    "SELECT dd, n FROM krx_wk_day WHERE n > 0 "
+    "UNION ALL SELECT d.dd, d.n FROM krx_day d WHERE d.wk_close AND d.n > 0 "
+    "AND NOT EXISTS (SELECT 1 FROM krx_wk_day x WHERE x.wk_dd = d.trd_dd)")
+
+
+#: 뷰 모드의 가장 이른·늦은 날짜 한 줄 `(min, max)` — 뷰 위의 `SELECT min(price_dd), max(price_dd) FROM krx_weekly` 와 같은 답(위 달력).
+WEEKLY_RANGE_SQL = "SELECT min(dd), max(dd) FROM (" + WEEKLY_DAYS_SQL + ") c"
+
+
+def with_daily_tail(rows: list | None, tail: list | None, lo: str) -> list | None:
+    """주간 행(첫 칸 = 날짜 YYYYMMDD, 오름차순) 끝에 일별 최신 한 줄을 잇는다 — 시세 도구 종목 시계열(`trading._with_daily_tail`)과
+    배수 도구 곡선(`price_multiple_data._join_daily_tail`)이 **같이 쓰는 한 규칙**이다(261021, 감사 B1 — 두 벌이던 것을 한 곳으로).
+
+    주간 표는 닫힌 주만 갖는다(261018 재설계 5-1 쓰는 쪽) — 이번 주 최신값은 일별 저장분에만 있다. 그래서 끝점은 늘 일별에서 읽는다.
+      · 꼬리가 마지막 주간 점보다 **늦을 때만** 쓴다. 같은 날(금요일이 닫힌 직후처럼 주간 표에도 그날 행이 있을 때)이면 아무것도 바꾸지 않는다.
+      · 마지막 주간 점과 **같은 주**면 그 점을 갈아 끼우고, 더 늦은 주면(몇 주 뒤든) 뒤에 붙인다 — 주를 닫는 쪽과 같은 정의
+        (`week_unit` = ISO 주를 달력 연도로 자른 것 — 연말 거래일과 다음 해 첫 거래일은 다른 주)라, 결과는
+        「주마다 그 주 마지막(또는 최신) 거래일 한 점」 그대로다.
+      · 주간 행이 하나도 없는데 꼬리가 있으면(이번 주 신규상장) 그 한 점이 시계열이다.
+      · 요청 범위의 하한 `lo`(= since 와 보존 하한 중 늦은 쪽) 밖의 꼬리는 버린다. 끝 경계는 없다.
+    `rows` 가 None(주간 읽기 실패)이면 그대로 None — 호출부가 종전 장애 경로를 탄다. 꼬리가 없거나(읽기 실패 None·빈 결과) 쓰지 않으면
+    **받은 `rows` 객체를 그대로** 돌려준다 — 호출자는 `is` 로 꼬리를 이었는지 가린다(출처 설명 고르기).
+    잇는 줄은 꼬리의 첫 줄을 튜플로 만든 것이다(칸 수는 호출부가 정한 줄 모양 그대로)."""
+    if rows is None or not tail or not tail[0]:
+        return rows
+    t = tuple(tail[0])
+    dd = t[0]
+    if not dd or dd < lo or (rows and dd <= rows[-1][0]):
+        return rows
+    if rows and week_unit(dd)[0] == week_unit(rows[-1][0])[0]:
+        return [*rows[:-1], t]
+    return [*rows, t]
+
+
 def krx_weekly_cutoff(latest_dd: str) -> str:
     """보존 하한 `price_dd`(YYYYMMDD) — 이 날짜 **이상**의 주는 전부 남긴다.
 

@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 
 psycopg = pytest.importorskip("psycopg")
 
-from open_proxy_mcp import krx_daily  # noqa: E402
+from open_proxy_mcp import krx_api, krx_daily  # noqa: E402
 
 
 def _ddl():
@@ -316,42 +316,67 @@ def test_calendar_n_matches_the_rows_and_a_rewrite_replaces_the_whole_day(pg17):
 def test_upsert_writes_daily_first_and_copies_only_closed_weeks_to_weekly(pg17, monkeypatch):
     """`_krx_db_upsert`(261018 재설계 5-1 쓰는 쪽): krx_daily 가 주(主)다 — 그 표가 없으면 아무것도 커밋하지 않는다.
     krx_weekly 에는 이번 주 행을 쓰지 않고, 금요일이 저장되는 순간 그 주를 그 날 단면으로 한 번 옮겨 적는다(시총 = 종가 × 주식수)."""
-    from open_proxy_mcp.services import price_multiple_data as pmd
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute(KRX_WEEKLY_DDL)
     monkeypatch.setenv("DATABASE_URL", pg17)
 
     # ① 일별 표가 없을 때 — 실패로 알리고 krx_weekly 에도 아무것도 남기지 않는다(서빙 기준일과 주간 표가 어긋나지 않게)
-    assert pmd._krx_db_upsert("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)]) == pmd.KrxWrite(False)
+    assert krx_daily.upsert_day("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)]) == krx_daily.KrxWrite(False)
     with psycopg.connect(pg17) as c:
         assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 0
 
     # ② 마이그레이션 적용 뒤 — 주중(화·목)은 일별만 쓴다. 이번 주 행은 krx_weekly 에 없다
     _apply(pg17)
-    assert pmd._krx_db_upsert("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)]) == pmd.KrxWrite(True, True, ())
-    assert pmd._krx_db_upsert("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) == pmd.KrxWrite(True, True, ())
+    assert krx_daily.upsert_day("20261013", [_row("005930", 70_000)], [_row("247540", 250_000)]) == krx_daily.KrxWrite(True, True, ())
+    assert krx_daily.upsert_day("20261015", [_row("005930", 71_000)], [_row("247540", 251_000)]) == krx_daily.KrxWrite(True, True, ())
     with psycopg.connect(pg17) as c:
         assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 0
         assert c.execute("SELECT trd_dd, ticker, close, volume, value FROM krx_daily WHERE trd_dd='20261015' ORDER BY ticker").fetchall() == [
             ("20261015", "005930", 71_000, 1000, 5_000_000), ("20261015", "247540", 251_000, 1000, 5_000_000)]
 
     # ③ 금요일 — 그 주를 닫는다(R1)
-    assert pmd._krx_db_upsert("20261016", [_row("005930", 72_000)], [_row("247540", 252_000)]) == \
-        pmd.KrxWrite(True, True, ("20261016",))
+    assert krx_daily.upsert_day("20261016", [_row("005930", 72_000)], [_row("247540", 252_000)]) == \
+        krx_daily.KrxWrite(True, True, ("20261016",))
     with psycopg.connect(pg17) as c:
         assert c.execute("SELECT price_dd, ticker, market, close, mktcap, list_shrs FROM krx_weekly ORDER BY ticker").fetchall() == [
             ("20261016", "005930", "KS", 72_000, 72_000 * 1_000_000, 1_000_000),
             ("20261016", "247540", "KQ", 252_000, 252_000 * 1_000_000, 1_000_000)]
 
 
+def test_reduced_rows_from_krx_api_are_recorded_exactly_like_the_raw_response(pg17, monkeypatch):
+    """261021(DATA-PX8): 기록 경로가 받는 행이 KRX 응답 전체(15칸)에서 `krx_api` 의 줄인 행(13칸 + 시장 태그)으로 바뀌었다 — 저장된 값은 그대로다.
+    같은 하루를 원본 행과 줄인 행으로 각각 쓴 뒤 일별 표를 칸 단위로 대조한다(시장 태그는 호출한 endpoint 기준 — 원본 MKT_NM 과 무관)."""
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute(KRX_WEEKLY_DDL)
+    _apply(pg17)
+    monkeypatch.setenv("DATABASE_URL", pg17)
+    raw_k = [{**_row("005930", 71_000, cmp=1_000), "BAS_DD": "20261015", "ISU_NM": "삼성전자", "SECT_TP_NM": "-", "FLUC_RT": "1.4"},
+             {**_row("A12345", 9_000, cmp=-50), "ISU_NM": "영문코드", "SECT_TP_NM": "-"}]
+    raw_q = [{**_row("247540", 250_000, cmp=None), "MKT_NM": "KOSDAQ GLOBAL", "ISU_NM": "에코프로비엠"}]
+    reduced_k = [krx_api.reduce_row(r, "KS") for r in raw_k]
+    reduced_q = [krx_api.reduce_row(r, "KQ") for r in raw_q]
+    assert all(set(r) == set(krx_api.ROW_KEYS) for r in reduced_k + reduced_q) and "ISU_NM" not in reduced_k[0]
+    cols = "trd_dd, ticker, market, open, high, low, close, volume, value, list_shrs, krx_chg"
+
+    def dump():
+        with psycopg.connect(pg17) as c:
+            return c.execute(f"SELECT {cols} FROM krx_daily_v WHERE trd_dd='20261015' ORDER BY ticker").fetchall()
+    assert krx_daily.upsert_day("20261015", raw_k, raw_q).daily_ok
+    from_raw = dump()
+    assert len(from_raw) == 3 and {r[2] for r in from_raw} == {"KS", "KQ"}
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute("TRUNCATE krx_px, krx_day")
+    assert krx_daily.upsert_day("20261015", reduced_k, reduced_q).daily_ok
+    assert dump() == from_raw
+
+
 def test_upsert_failure_in_daily_commits_nothing(pg17, monkeypatch):
     """krx_daily 쪽 SQL 이 실패하면(열이 모자란 표) 주간 닫기도 하지 않고 아무것도 커밋하지 않는다 — 실패는 반환값·로그로 드러난다."""
-    from open_proxy_mcp.services import price_multiple_data as pmd
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute(KRX_WEEKLY_DDL)
         c.execute("CREATE TABLE krx_daily (trd_dd text NOT NULL, ticker text NOT NULL, PRIMARY KEY (trd_dd, ticker))")  # 열이 모자란 가짜 표
     monkeypatch.setenv("DATABASE_URL", pg17)
-    assert pmd._krx_db_upsert("20261016", [_row("005930", 71_000)], [_row("247540", 251_000)]) == pmd.KrxWrite(False)
+    assert krx_daily.upsert_day("20261016", [_row("005930", 71_000)], [_row("247540", 251_000)]) == krx_daily.KrxWrite(False)
     with psycopg.connect(pg17) as c:
         assert c.execute("SELECT count(*) FROM krx_weekly").fetchone()[0] == 0
         assert c.execute("SELECT count(*) FROM krx_daily").fetchone()[0] == 0
@@ -463,7 +488,7 @@ def refresher_env(pg17, monkeypatch):
         import asyncio
         fetches.append(basDd)
         await asyncio.sleep(0.2)                       # 다른 머신이 끼어들 시간
-        return ([_row(f"K{i:05d}", 1000 + i) for i in range(400)], [_row(f"Q{i:05d}", 2000 + i) for i in range(400)], 2)
+        return krx_api.DayFetch([_row(f"K{i:05d}", 1000 + i) for i in range(400)], [_row(f"Q{i:05d}", 2000 + i) for i in range(400)], 2, "ok")
     monkeypatch.setattr(R, "_fetch_day", fake_fetch)
     R._LOGGED_FRESH.clear()
     return R, fetches

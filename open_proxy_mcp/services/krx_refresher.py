@@ -2,27 +2,28 @@
 """KRX 시세 백그라운드 갱신기 — 요청 경로에서 KRX 갱신을 떼어낸다 (재설계 T2 · 원칙 P8 「쓰는 주체는 하나」).
 
 261018 신설. 종전에는 **하루 첫 시세 질문**이 KRX 스냅샷 확인·기록을 떠안아 그 사용자가 2~12초를 기다렸고, KRX 가 게시하기 전에
-하루 1회 래치(`_KRX_STATE`)가 굳으면 그날 종일 옛 날짜를 썼다. 이제 갱신은 서버가 뜰 때 함께 시작하는 asyncio 작업 하나가 한다.
+하루 1회 래치(`krx_daily.FRESH_STATE`)가 굳으면 그날 종일 옛 날짜를 썼다. 이제 갱신은 서버가 뜰 때 함께 시작하는 asyncio 작업 하나가 한다.
 요청 경로(`price_multiple_data._market_for`·`trading_data(quote)`)는 DB 상태(달력 `krx_day` 의 최신 거래일·`price_latest`·`krx_daily_v`)만 읽는다.
 
 ■ 언제
   월~토 07:30 ≤ 시각 < 20:00 KST 에 10분마다(10분 경계 + 0~20초 지터), 그리고 서버가 뜬 직후 한 번(창 밖이어도).
   KRX 는 전일 데이터를 익일 오전에 게시한다(T+1) — 07:30 에는 보통 아직 없다. 게시될 때까지 10분마다 확인하고, 저장되면 그날은 멈춘다.
 ■ 무엇을 기다리나
-  「기대 거래일」 = 오늘 이전의 마지막 평일(`price_multiple_data._price_dates` — 주말만 아는 달력). 그리고 261019(재설계 v03)부터
+  「기대 거래일」 = 오늘 이전의 마지막 평일(`krx_daily.price_dates` — 주말만 아는 달력). 그리고 261019(재설계 v03)부터
   **보관 창 안에서 달력(`krx_day`)에 없는 평일**(서버 중단 등으로 빠진 날)도 메운다 — 가장 최근 날부터 틱당 `FILL_PER_TICK` 일.
   평일 휴장일은 달력에 휴장으로 적는다(`krx_daily.closed_verdict`): 코스피·코스닥이 **둘 다** 비고, 그 날 뒤로 평일이 2일 이상 지났고,
   다음 저장 거래일의 기준가가 그 앞 거래일 종가와 이어질 때만. 빈 응답 한 번으로는 적지 않는다(20260702 교훈 —
-  게시 전·일시 빈 응답). 다음 거래일이 아직 저장되지 않았으면 판정을 미룬다 — KRX 오류(키 만료·한도·장애)도 빈 응답으로 오므로
-  (`_fetch_day`), 미루지 않으면 하루 넘게 KRX 가 막힌 거래일이 휴장으로 굳는다. 그래서 휴장 다음 날에는 지금처럼 「아직 안 게시」로
-  보이고 틱마다 1콜로 확인만 하며(콜 상한은 `docs`/PR 의 표 참조: 머신 2대 × 약 75틱 × 1콜), 다음 거래일이 저장된 뒤의 틱에서
-  휴장으로 적는다. 휴장으로 적힌 날은 다시 묻지 않는다.
+  게시 전·일시 빈 응답). 다음 거래일이 아직 저장되지 않았으면 판정을 미룬다 — 미루지 않으면 하루 넘게 KRX 가 막힌 거래일이 휴장으로 굳는다.
+  그래서 휴장 다음 날에는 지금처럼 「아직 안 게시」로 보이고 틱마다 1콜로 확인만 하며(콜 상한은 `docs`/PR 의 표 참조: 머신 2대 × 약 75틱 × 1콜),
+  다음 거래일이 저장된 뒤의 틱에서 휴장으로 적는다. 휴장으로 적힌 날은 다시 묻지 않는다.
+  261021(DATA-PX8): KRX 오류(키 만료·한도·장애·전송 오류)는 더 이상 빈 응답으로 오지 않는다 — `krx_api.fetch_day` 가 상태(`auth`·`limit`·
+  `http_error`·`transport`)로 올려, 실패한 확인은 「아직 안 게시」도 휴장 판정 재료도 아니다(`krx_error` — 쉬는 틱을 두고 다시 한다).
 ■ 어떻게(머신 2대 중 하나만)
   ① 메울 날이 없으면 아무것도 안 한다(DB 조회 1번, KRX 0콜, 잠금도 안 잡음).
   ② 아니면 전용 연결에서 `pg_try_advisory_lock(고정키)` — 못 잡으면(다른 머신이 일하는 중) 이번 틱은 건너뛴다.
   ③ 잡았으면 DB 를 다시 확인한다(잠금을 기다리는 사이 상대가 끝냈을 수 있다) → 아직이면 KRX 에서 그 날을 받는다(코스피 1콜, 있으면 코스닥 1콜.
      휴장 판정이 필요한 날 — 평일이 2일 이상 지난 날 — 은 코스피가 비어도 코스닥을 묻는다).
-  ④ 두 시장이 모두 충분히 오면 `_krx_db_upsert` 로 일별 저장분에 쓰고 보관 창(최신 − 1년 − 1주) 밖의 날 중 콜드 보관본에 들어간 날을 지운다.
+  ④ 두 시장이 모두 충분히 오면 `krx_daily.upsert_day` 로 일별 저장분에 쓰고 보관 창(최신 − 1년 − 1주) 밖의 날 중 콜드 보관본에 들어간 날을 지운다.
      같은 트랜잭션에서 닫힌 주만 `krx_weekly` 에 옮겨 적는다(261018 재설계 5-1 — 금요일이 저장되면 그 주를, 다음 주 첫 기록 때 그 앞 주를).
      커밋 뒤 `VACUUM (ANALYZE)` 로 지운 자리를 바로 되쓰고 통계를 새 날짜에 맞춘다(실패해도 기록은 그대로 — 자동 청소가 뒤따른다). 잠금 해제.
      성공 판정은 일별 기록 하나다 — 주간 닫기가 실패해도 「기록 완료」이고(ERROR 로그), 다음 기록이 다시 닫는다.
@@ -47,7 +48,7 @@ import random
 from dataclasses import dataclass
 from datetime import datetime, time as dtime
 
-from open_proxy_mcp import krx_daily
+from open_proxy_mcp import krx_api, krx_daily
 from open_proxy_mcp.clock import KST
 
 logger = logging.getLogger(__name__)
@@ -107,10 +108,9 @@ def in_window(now: datetime) -> bool:
 
 def expected_dd(now: datetime) -> str:
     """지금 DB 가 가져야 할 가장 최신 거래일 = 오늘 이전의 마지막 평일(KRX 는 T+1 게시).
-    달력은 기존 `_price_dates`(주말만 안다) — 새 달력을 만들지 않는다."""
-    from open_proxy_mcp.services.price_multiple_data import _price_dates
+    달력은 기존 `krx_daily.price_dates`(주말만 안다) — 새 달력을 만들지 않는다."""
     today = now.strftime("%Y%m%d")
-    return next(d for d in _price_dates(now.date()) if d < today)
+    return next(d for d in krx_daily.price_dates(now.date()) if d < today)
 
 
 def seconds_to_next_tick(now: datetime) -> float:
@@ -219,46 +219,23 @@ async def _advisory_lock():
         await asyncio.to_thread(_close, conn)
 
 
-async def _fetch_day(basDd: str, both: bool = False) -> tuple[list, list, int]:
-    """KRX 에서 한 거래일 전종목을 받는다 → (코스피 행, 코스닥 행, KRX 호출 수).
+async def _fetch_day(basDd: str, both: bool = False) -> krx_api.DayFetch:
+    """KRX 에서 한 거래일 전종목을 받는다 → (코스피 행, 코스닥 행, KRX 호출 수, 상태). 호출·키·주소·호출 장부는 `krx_api.fetch_day` 한 곳이다.
     코스피가 비면(아직 게시 전·휴장) 코스닥은 부르지 않는다 — 확인만 하는 틱은 1콜이다. 단 `both` 면(휴장 판정이 필요한 날)
-    코스피가 비어도 코스닥을 묻는다 — 휴장은 두 시장이 다 빌 때만이다."""
-    import httpx
-    from open_proxy_mcp.dart.krx_meter import bump
-    from open_proxy_mcp.services.price_multiple_data import _KRX_URL, _KSQ_URL
-
-    key = os.getenv("KRX_API_KEY") or os.getenv("KRX_OPEN_API_KEY")
-    calls = 0
-
-    async def _one(h, url) -> list:
-        nonlocal calls
-        calls += 1
-        await asyncio.to_thread(bump)   # 일별 사용량 장부(DB 를 만질 수 있어 루프 밖에서)
-        try:
-            r = await h.get(url, headers={"AUTH_KEY": key}, params={"basDd": basDd})
-            if r.status_code != 200:
-                logger.warning("KRX 응답 %s (basDd=%s) — 키·한도 확인", r.status_code, basDd)
-                return []
-            return next((v for v in r.json().values() if isinstance(v, list)), [])
-        except Exception as exc:        # noqa: BLE001 — 빈 응답으로 취급하고 다음 틱에 다시
-            logger.warning("KRX 호출 실패 basDd=%s: %s: %s", basDd, type(exc).__name__, exc)
-            return []
-
-    async with httpx.AsyncClient(timeout=30) as h:
-        kospi = await _one(h, _KRX_URL)
-        if not kospi and not both:
-            return [], [], calls
-        kosdaq = await _one(h, _KSQ_URL)
-    return kospi, kosdaq, calls
+    코스피가 비어도 코스닥을 묻는다 — 휴장은 두 시장이 다 빌 때만이다.
+    **상태가 `empty` 일 때만 「게시 전·휴장」이다.** 키·한도·장애·전송 오류(`auth`·`limit`·`http_error`·`transport`)는 빈 목록과 함께 그 상태로
+    온다 — 호출자는 그것을 게시 전으로 적거나 휴장 판정 재료로 쓰지 않는다(종전엔 빈 응답과 같아 하루 넘게 막힌 날이 「아직 안 게시」로만 보였다)."""
+    return await krx_api.fetch_day(basDd, both)
 
 
 async def _write(dd: str, kospi: list, kosdaq: list):
-    """일별 저장분에 쓰고 닫힌 주만 `krx_weekly` 에 옮긴다(한 트랜잭션) → `price_multiple_data.KrxWrite`. 성공하면 기준일 캐시를 비우고 청소한다.
-    261018(재설계 5-1 쓰는 쪽): 성공 판정·기준일 캐시 무효화의 기준이 krx_weekly 커밋 → **일별 기록**으로 바뀌었다."""
+    """일별 저장분에 쓰고 닫힌 주만 `krx_weekly` 에 옮긴다(한 트랜잭션) → `krx_daily.KrxWrite`. 성공하면 기준일 캐시를 비우고 청소한다.
+    261018(재설계 5-1 쓰는 쪽): 성공 판정·기준일 캐시 무효화의 기준이 krx_weekly 커밋 → **일별 기록**으로 바뀌었다.
+    261021: 쓰기 함수 정의가 배수 도구 파일에서 `krx_daily.upsert_day` 로 옮겨 왔다."""
     from open_proxy_mcp.services import price_multiple_data as pmd
-    res = await asyncio.to_thread(pmd._krx_db_upsert, dd, kospi, kosdaq)
+    res = await asyncio.to_thread(krx_daily.upsert_day, dd, kospi, kosdaq)
     if res.daily_ok:
-        pmd._serving_dd_invalidate()    # 이 머신은 바로 새 날짜를 본다(다른 머신은 TTL 로)
+        pmd.serving_dd_invalidate()     # 이 머신은 바로 새 날짜를 본다(다른 머신은 TTL 로)
         await asyncio.to_thread(_vacuum)
     return res
 
@@ -268,7 +245,8 @@ async def _write(dd: str, kospi: list, kosdaq: list):
 @dataclass(frozen=True)
 class CycleResult:
     """outcome — 기대 거래일 기준: fresh(메울 날 없음 — 0콜) · refreshed(기대 거래일을 새로 씀) · closed(기대 거래일을 휴장으로 적음)
-    · not_published(KRX 에 아직 없음) · lock_busy(다른 머신이 일하는 중) · incomplete(반쪽 응답이라 안 씀)
+    · not_published(KRX 에 아직 없음 — 호출은 성공했고 행이 비었다) · krx_error(KRX 호출 실패 — 인증·한도·장애·전송 오류. 게시 전도 휴장도 아니다)
+    · lock_busy(다른 머신이 일하는 중) · incomplete(반쪽 응답이라 안 씀)
     · write_failed(일별 기록 실패 — 아무것도 커밋 안 됨) · cooldown(실패 직후 쉬는 틱) · db_error.
     기대 거래일은 이미 있고 더 이른 빠진 날만 다룬 틱은 filled(하나라도 메움·휴장 기록) 또는 gaps_pending(이번엔 못 메움)이다.
     261018(재설계 5-1 쓰는 쪽): `daily_failed`(krx_weekly 만 쓰이고 krx_daily 실패)는 없어졌다 — 일별 기록이 실패하면 krx_weekly 도 쓰지 않는다.
@@ -352,6 +330,7 @@ async def _refresh_locked(exp: str, today: str | None = None) -> CycleResult:
     calls = rows = 0
     weekly_ok = True
     failed = False
+    krx_failed = False
     filled: list[str] = []
     closed: list[str] = []
     exp_outcome: str | None = None
@@ -360,8 +339,21 @@ async def _refresh_locked(exp: str, today: str | None = None) -> CycleResult:
         if not is_exp:
             _GAP_TRIES[(today, dd)] = _GAP_TRIES.get((today, dd), 0) + 1
         judge = krx_daily.weekdays_after(dd, today) >= krx_daily.CLOSED_MIN_WEEKDAYS
-        kospi, kosdaq, c = await _fetch_day(dd, both=judge)
+        got = await _fetch_day(dd, both=judge)
+        kospi, kosdaq, c = got[0], got[1], got[2]
+        # 상태는 네 번째 값이다. 세 값만 주는 대역(옛 시험·모의)은 행으로 가른다 — 비었으면 empty, 있으면 ok.
+        status = got[3] if len(got) > 3 else (krx_api.OK if (kospi or kosdaq) else krx_api.EMPTY)
         calls += c
+        if status in krx_api.ERROR_STATUSES and not kospi and not kosdaq:
+            # KRX 호출이 **실패**했다 — 게시 전도 휴장도 아니다. 휴장 판정에 넣지 않고(실패한 날을 휴장으로 굳히지 않는다),
+            # 같은 키로 다른 날을 더 묻지도 않는다. 쉬는 틱을 두고 다시 한다(krx_api 가 이유를 경고로 남겼다).
+            logger.warning("KRX 갱신기: %s KRX 호출 실패(%s) — 게시 전·휴장으로 적지 않는다 (KRX %d콜, 저장 최신 %s)",
+                           dd, krx_api.STATUS_LABEL[status], c, stored)
+            _COOLDOWN["n"] = FAILURE_COOLDOWN_TICKS
+            failed = krx_failed = True
+            if is_exp:
+                exp_outcome = "krx_error"
+            break
         if not kospi and not kosdaq:
             # 비었다 — 게시 전이거나 휴장. 평일이 충분히 지난 날만 휴장을 판정한다(빈 응답 한 번으로 정하지 않는다).
             verdict = (await asyncio.to_thread(_judge_closed, dd, today, True, True)) if judge else "unknown"
@@ -374,7 +366,7 @@ async def _refresh_locked(exp: str, today: str | None = None) -> CycleResult:
                 logger.info("KRX 갱신기: %s 아직 게시 전이거나 휴장 (KRX %d콜, 저장 최신 %s)", dd, c, stored)
             continue
         if len(kospi) < MIN_ROWS_PER_MARKET or len(kosdaq) < MIN_ROWS_PER_MARKET:
-            logger.warning("KRX 갱신기: %s 응답이 반쪽(KOSPI %d / KOSDAQ %d) — 기록하지 않는다", dd, len(kospi), len(kosdaq))
+            logger.warning("KRX 갱신기: %s 응답이 반쪽(KOSPI %d / KOSDAQ %d, 상태 %s) — 기록하지 않는다", dd, len(kospi), len(kosdaq), status)
             _COOLDOWN["n"] = FAILURE_COOLDOWN_TICKS
             failed = True
             if is_exp:
@@ -404,7 +396,7 @@ async def _refresh_locked(exp: str, today: str | None = None) -> CycleResult:
             logger.error("KRX 갱신기: %s 기록 완료 (%d행, KRX %d콜) — 단 krx_weekly 주간 닫기 실패, 다음 기록 때 다시 닫는다", dd, n, c)
     if not failed:
         _COOLDOWN["n"] = 0
-    outcome = exp_outcome or ("filled" if (filled or closed) else "gaps_pending")
+    outcome = exp_outcome or ("filled" if (filled or closed) else ("krx_error" if krx_failed else "gaps_pending"))
     return CycleResult(outcome, exp, stored, calls, rows, weekly_ok, tuple(filled), tuple(closed))
 
 
@@ -450,7 +442,8 @@ class Handle:
 
 
 #: INFO 줄이 운영 로그(fly logs)에 보이게 할 로거들. 루트 로거는 WARNING 이라 손대지 않으면 「기록 완료」·「이미 최신」이 버려진다.
-_LOGGERS = ("open_proxy_mcp.services.krx_refresher", "open_proxy_mcp.krx_daily", "open_proxy_mcp.services.price_multiple_data")
+_LOGGERS = ("open_proxy_mcp.services.krx_refresher", "open_proxy_mcp.krx_daily", "open_proxy_mcp.krx_api",
+            "open_proxy_mcp.services.price_multiple_data")
 
 
 def _install_log() -> None:

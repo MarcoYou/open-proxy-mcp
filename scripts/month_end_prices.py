@@ -30,8 +30,9 @@ from pathlib import Path
 from typing import NamedTuple
 from urllib.parse import quote
 
-from open_proxy_mcp.krx_retention import krx_weekly_cutoff, seam_gap, serving_seam
-from open_proxy_mcp.services.price_multiple_data import _WEEKLY_START_SQL, _weekly_run_start, _weekly_start_params
+from open_proxy_mcp.krx_daily import weekly_is_view
+from open_proxy_mcp.krx_retention import WEEKLY_DAYS_SQL, krx_weekly_cutoff, seam_gap, serving_seam
+from open_proxy_mcp.services.price_multiple_data import _weekly_run_start, _weekly_start_rows
 
 #: 서빙본 sqlite 머리(application_id) — 엉뚱한 파일을 원천으로 쓰지 않는다(`cold_store.APP_ID` 와 같은 값).
 COLD_APP_ID = 0x4F504D43
@@ -109,12 +110,22 @@ class MonthEndPrices:
 
     def __init__(self, con, since: str, cold_sqlite: str | None = None):
         self.con = con
-        latest = con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
+        # 261021(감사 B3): 뷰 모드면 날짜 목록·최신 날짜를 33.9만 행 뷰 대신 날짜 달력(`WEEKLY_DAYS_SQL`)에서 읽는다 — 같은 날짜 집합이다.
+        #   표 모드(교체 전·되돌린 뒤)는 종전 질의 그대로. 하한(`floor`)은 서버 곡선과 같은 읽기(`_weekly_start_rows`)다.
+        is_view = weekly_is_view(con)
+        if is_view:
+            latest = con.execute("SELECT max(dd) FROM (" + WEEKLY_DAYS_SQL + ") c").fetchone()[0]
+        else:
+            latest = con.execute("SELECT max(price_dd) FROM krx_weekly").fetchone()[0]
         if not latest:
             raise SystemExit("krx_weekly 가 비었다 — 먼저 시세를 적재한다")
         self.cutoff = krx_weekly_cutoff(latest)
-        self.floor = _weekly_run_start(con.execute(_WEEKLY_START_SQL, _weekly_start_params(self.cutoff)).fetchall(), self.cutoff)
-        db_dates = [r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s", (since,))]
+        self.floor = _weekly_run_start(
+            _weekly_start_rows(lambda sql, params=(): con.execute(sql, params).fetchall(), self.cutoff), self.cutoff)
+        if is_view:
+            db_dates = [r[0] for r in con.execute("SELECT dd FROM (" + WEEKLY_DAYS_SQL + ") c WHERE dd >= %s", (since,))]
+        else:
+            db_dates = [r[0] for r in con.execute("SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s", (since,))]
         self.lite = None
         self.cold_max = self.seam = None
         self.gap = False

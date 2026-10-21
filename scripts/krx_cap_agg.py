@@ -70,8 +70,8 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 import psycopg
 
-from open_proxy_mcp.krx_daily import LATEST_DAY_SQL, WEEKLY_WITH_LATEST
-from open_proxy_mcp.krx_retention import krx_weekly_cutoff, week_unit
+from open_proxy_mcp.krx_daily import LATEST_DAY_SQL, WEEKLY_WITH_LATEST, weekly_is_view
+from open_proxy_mcp.krx_retention import WEEKLY_RANGE_SQL, krx_weekly_cutoff, week_unit
 
 DDL = """
 CREATE TABLE IF NOT EXISTS krx_cap_agg (
@@ -319,7 +319,9 @@ def main() -> int:
         print("분류 스냅샷 표가 비어 있음 — refresh_sector_class.py 를 먼저 돌린다")
         return 1
 
-    source_min, weekly_max = con.execute("SELECT min(price_dd), max(price_dd) FROM krx_weekly").fetchone()
+    # 261021(감사 B3): 뷰 모드면 가장 이른·늦은 날짜를 33.9만 행 뷰 대신 날짜 달력에서 읽는다(같은 답 — `krx_retention.WEEKLY_DAYS_SQL`). 표 모드는 종전 그대로.
+    source_min, weekly_max = con.execute(
+        WEEKLY_RANGE_SQL if weekly_is_view(con) else "SELECT min(price_dd), max(price_dd) FROM krx_weekly").fetchone()
     if not source_min:
         print("krx_weekly 비어 있음 — 먼저 시세를 적재한다")
         return 1
