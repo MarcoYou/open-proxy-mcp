@@ -15,6 +15,9 @@
 기준일은 `resolve_universe` 가 준 날짜(`krx_daily` 의 가장 늦은 거래일)를 그대로 쓴다 — 기준일과 행이 같은
 원천이어야 날짜와 값이 어긋나지 않는다. 이유와 지킬 것은 `services/screener.py` 「universe」 절.
 
+261021: 「반도체 업종」「중분류 …」「대분류 …」(+코스피/코스닥·시총 상위 N·기준일)은 업종 **구성 종목·시총·업종 안 비중**으로 푼다 — `services/sector_universe.py`.
+시총 순위표와 달리 우선주를 빼지 않는다(업종 시총 집계 `krx_cap_agg` 가 우선주 포함 합이라 두 도구의 업종 합이 같아야 한다).
+
 우선주는 뺀다(260916 실측: 코스피 3위가 `005935` 삼성전자우로 나왔다). 회사 순위에서 우선주는
 같은 회사의 두 번째 줄이라 한 자리를 버리는 셈이고, DART 회사 원장은 보통주 코드만 알아 이름도
 못 붙인다. 상위 N 을 뽑을 땐 여유를 두고 뽑아 우선주를 뺀 뒤 N 으로 자른다. 이름·코드를 직접
@@ -69,12 +72,17 @@ def universe_phrase(text: str) -> tuple[str, str | None] | None:
     raw = (text or "").strip()
     if not raw or len(raw) > 300:
         return None
+    from open_proxy_mcp.services.sector_universe import looks_like_sector_list_sentence
+    sector_sentence = looks_like_sector_list_sentence(raw)    # 261021: 「코스피 반도체 업종 상위 10」을 「코스피 시총 상위 10」으로 읽어 업종을 떨구지 않는다
     m = _PHRASE_RANK.search(raw)
-    if not m:
+    if not m and not sector_sentence:
         return None
-    market = (m.group(1) or "").strip()
-    n = m.group(2)
-    universe = f"{market + ' ' if market else ''}시총 상위 {n}".strip()
+    if sector_sentence:
+        universe = raw
+    else:
+        market = (m.group(1) or "").strip()
+        n = m.group(2)
+        universe = f"{market + ' ' if market else ''}시총 상위 {n}".strip()
     window: str | None = None
     w = _PHRASE_WINDOW.search(raw)
     if w:
@@ -100,6 +108,10 @@ class UniverseList:
     excluded_pref: int = 0         # 순위에서 뺀 우선주 수
     question: str = ""             # 비어 있지 않으면 해석하지 않고 되물은 것
     members_dd: str | None = None  # 지수 구성종목 원장에서 만든 목록이면 그 구성의 마지막 확인 거래일(261018)
+    #: 업종 구성 조회(261021)일 때만 — 업종 정보(단계·코드·이름·시총 합·분류 스냅샷 등), 그 조회의 경고들, 시세 해상도(daily/weekly).
+    sector: dict[str, Any] | None = None
+    extra_warnings: list[str] = field(default_factory=list)
+    granularity: str = "daily"
 
 
 def _krx_rows(price_dd: str, codes: list[str] | None) -> list[tuple] | None:
@@ -155,11 +167,15 @@ def _padded(spec: str) -> tuple[str, int | None, str]:
     return f"{m.group(1)}:{n + max(20, n // 5)}", n, m.group(1)
 
 
-async def list_universe(universe: str) -> UniverseList:
-    """말(「코스닥 상위 50」·「코스피200」·「삼성전자, SK하이닉스」) → 시총 순위표."""
+async def list_universe(universe: str, as_of: str = "") -> UniverseList:
+    """말(「코스닥 상위 50」·「코스피200」·「삼성전자, SK하이닉스」) → 시총 순위표.
+    업종 말(「반도체 업종」·「중분류 …」·「대분류 …」)이면 업종 구성·비중표 — `as_of`(기준일)는 이 경우에만 쓴다(261021)."""
     from open_proxy_mcp.services.screener import _nl_universe, resolve_universe
+    from open_proxy_mcp.services import sector_universe
 
     raw = (universe or "").strip()
+    if sector_universe.is_sector_phrase(raw):
+        return await sector_universe.list_sector_universe(raw, as_of)
     ask = clarification(raw)
     if ask:
         return UniverseList(spec="", label=raw, resolved=False, question=ask)

@@ -776,15 +776,16 @@ async def build_quote_payload(company: str, format: str = "md",
 # 「코스피 시총 상위 100 이 뭐야」에 답하는 유일한 일괄 목록. `screener` 의 유니버스 해석기를
 # 그대로 쓰고(공시 필터가 아니라 목록으로), 시세 저장분(보관된 최신 거래일) 1콜 + 회사 원장(캐시)로 이름을 붙인다.
 # 종목마다 `scope=firm` 을 100번 부르던 루틴(260914 실측)이 이 한 번으로 끝난다.
-async def build_universe_payload(universe: str, format: str = "md") -> dict[str, Any]:
+async def build_universe_payload(universe: str, format: str = "md", as_of: str = "") -> dict[str, Any]:
     from open_proxy_mcp.services.universe import list_universe
 
     raw = (universe or "").strip()
     if not raw:
         return _err("유니버스", "invalid",
                     "universe 를 지정하세요 — 예: \"코스피 시총 상위 100\" · \"코스닥 상위 50\" · "
-                    "\"코스피200\" · \"코스닥150\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열).")
-    ul = await list_universe(raw)
+                    "\"코스피200\" · \"코스닥150\" · \"코스피 전체\" · \"삼성전자, SK하이닉스\"(이름·코드 나열) · "
+                    "\"반도체 업종\" · \"중분류 반도체와반도체장비\" · \"코스피 IT 섹터 상위 10\"(업종 구성·비중).")
+    ul = await (list_universe(raw, as_of) if (as_of or "").strip() else list_universe(raw))
     subject = ul.label or raw
     if ul.question:
         return _err(subject, "invalid", ul.question)
@@ -795,7 +796,11 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
         return _err(subject, "no_data", ul.notice or "유니버스를 해석하지 못했습니다 — 표현을 바꿔 다시 부르세요.")
     if not ul.rows:
         return _err(subject, "no_data", f"{ul.as_of} 기준 저장분에 해당 종목이 없습니다.")
+    if ul.sector is not None:
+        return _sector_universe_payload(raw, subject, ul, as_of)
     warnings = [f"보관된 최신 거래일 기준({ul.as_of}) — 그 날 종가로 셈한 시총이지 오늘 장중 시총이 아닙니다."]
+    if (as_of or "").strip():
+        warnings.insert(0, "`as_of` 는 업종 구성(universe=\"반도체 업종\" 처럼 업종을 준 경우)에만 쓴다 — 이 순위표는 보관된 최신 거래일 기준이다.")
     if ul.excluded_pref:
         warnings.append(f"우선주 {ul.excluded_pref}종목은 순위에서 뺐습니다 — 같은 회사의 보통주가 순위에 있고 "
                         "회사 원장에는 보통주 코드만 있습니다. 우선주 시세는 그 종목코드로 종목 시계열을 따로 부르세요.")
@@ -816,3 +821,22 @@ async def build_universe_payload(universe: str, format: str = "md") -> dict[str,
                                "이 목록을 `forward_estimates_data(universe=…)`·`screener(universe=…)` "
                                "에 그대로 넘길 수 있습니다."},
             "warnings": warnings}
+
+
+def _sector_universe_payload(raw: str, subject: str, ul: Any, as_of: str) -> dict[str, Any]:
+    """업종 구성·비중 응답(261021) — 계산은 `services/sector_universe.compute`, 여기서는 모양만 짠다."""
+    sec = ul.sector
+    market = f" 중 {sec['market']} 종목" if sec.get("market") else ""
+    unit = ("주간 시세(주 마지막 거래일 한 점)" if ul.granularity == "weekly" else "일별 시세")
+    snap_rule = ("그 날 이하 스냅샷이 없어 가장 이른 것을 소급" if sec.get("classification_retro") else "그 날 이하 가장 최근")
+    method = (f"구성 = {ul.as_of} {unit}의 전 종목 중 분류 스냅샷({sec['classification_asof']}, {snap_rule})이 "
+              f"{sec['level']} 「{sec['name']}」로 둔 종목{market}. 시총 = 그 날 상장주식수 × 종가(우선주 포함 — 별도 종목, 같은 회사 보통주의 업종). "
+              "비중 = 종목 시총 ÷ 이 업종(선택한 시장 안)의 시총 합 — 상위 N 으로 잘라도 분모는 같고, 자르지 않으면 합이 100%. "
+              "업종 시총 합은 `scope=\"sector\"`(시총 집계)와 같은 정의라 같은 날 같은 업종이면 같다. "
+              "순위는 업종 안 시총 내림차순. 종목 코드는 `data.rows[].ticker` — `screener(universe=\"코드,코드,…\")` 처럼 쉼표로 이어 넘길 수 있다.")
+    return {"tool": TOOL, "status": "ok", "subject": subject,
+            "data": {"scope": "universe", "universe": raw, "spec": ul.spec, "label": ul.label,
+                     "as_of": ul.as_of, **({"requested_as_of": as_of.strip()} if (as_of or "").strip() else {}),
+                     "granularity": ul.granularity, "n": len(ul.rows), "rows": ul.rows, "sector": sec, "method": method},
+            "warnings": list(ul.extra_warnings)}
+
