@@ -516,12 +516,14 @@ async def _load_prices(ctx: Ctx, tickers: list[str], tids: dict[str, int]) -> di
         ctx.cold = {"used": wr.cold_used, "seam": wr.seam, "reason": wr.reason, "n_rows": wr.n_cold_rows, "floor": ctx.floor_weekly,
                     "needed": plan.since_req < ctx.floor_weekly}
     rows: dict[str, list[tuple]] = {t: [(r[0], r[1], None, r[2]) for r in wr.rows.get(t, [])] for t in tickers}
-    if not first:
-        dset = set(ctx.dates or [])
-        return {t: [r for r in rr if r[0] in dset] for t, rr in rows.items()}
     union = sorted({r[0] for rr in rows.values() for r in rr})
-    # 끝 기준일이 주 닫는 날이 아니면(이번 주 등) 일별 저장분의 그 날 한 줄을 끝점으로 잇는다
-    if union and ctx.end not in union and ctx.end >= ctx.days[0]:
+    # 끝 기준일이 주 닫는 날이 아니면(이번 주 등) 일별 저장분의 그 날 한 줄을 끝점으로 잇는다.
+    # 대상(첫 호출)과 계산 벤치마크(뒤 호출)가 같은 규칙을 쓰도록 한 곳에서 붙인다 — 뒤 호출은 첫 호출이 정한 격자(ctx.dates)가 끝점을 품고 있으면 그 날을 붙인다.
+    if not first:
+        need_tail = bool(ctx.dates) and ctx.end in ctx.dates and ctx.end not in union
+    else:
+        need_tail = bool(union) and ctx.end not in union and ctx.end >= ctx.days[0]
+    if need_tail:
         got = await _db(pd.read_daily_px, {t: tids[t] for t in tickers if t in tids}, ctx.end, ctx.end)
         if got is None:
             raise _db_fail()
@@ -529,6 +531,9 @@ async def _load_prices(ctx: Ctx, tickers: list[str], tids: dict[str, int]) -> di
             union.append(ctx.end)
             for t, rr in got.items():
                 rows[t] = list(rows.get(t, [])) + [(r[0], r[1], None, r[3]) for r in rr]
+    if not first:
+        dset = set(ctx.dates or [])
+        return {t: [r for r in rr if r[0] in dset] for t, rr in rows.items()}
     on_or_before = [d for d in union if d <= plan.since_req]
     base = max(on_or_before) if on_or_before else (min(union) if union else "")
     if not base:

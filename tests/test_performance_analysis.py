@@ -649,3 +649,41 @@ def test_weekly_default_benchmark_follows_the_members_market_not_the_daily_windo
     p = run(target=f"{Z}:100", since="20251226", freq="weekly")
     assert p["status"] == "ok" and p["data"]["relative"]["benchmark"] == "코스닥"         # 기준일이 일별 창 밖이라 시장 표는 최신 거래일 기준
     assert p["data"]["relative"]["benchmark_series"]["src"] == "Q"
+
+
+def _fixed_bench_world(world):
+    """20251226→20260102 는 주간 행, 끝(20260109)은 이번 주 중간이라 일별 저장분 한 줄이 끝점이다(PA-R1)."""
+    rows = {X: [("20251226", 900, 1), ("20260102", 1000, 1)], Y: [("20251226", 1800, 1), ("20260102", 2000, 1)],
+            W: [("20251226", 400, 1), ("20260102", 500, 1)]}
+    world.weekly = _weekly(rows, floor="20231016")
+    world.universe_rows["대분류 IT"] = [X, W]
+
+
+def test_weekly_fixed_membership_benchmark_keeps_the_daily_end_point(world):
+    # 대상 X:50·Y:50, 벤치마크 [X, W](시작 시총 900 : 400). 끝점 20260109 의 종가는 일별 저장분(X 1210·Y 2090·W 580) 한 줄이다.
+    # 벤치마크 = (1210 + 580)/1300 − 1 = +37.6923%. 끝점이 빠지면 마지막 구간 수익률이 0 이 되어 (1000 + 500)/1300 − 1 = +15.3846% 가 나온다.
+    _fixed_bench_world(world)
+    p = run(target=f"{X}:50, {Y}:50", since="20251226", freq="weekly", benchmark="대분류 IT", scope="series")
+    assert p["status"] == "ok", p
+    assert p["data"]["period"]["freq"] == "weekly" and p["data"]["period"]["end"] == "20260109" and p["data"]["period"]["n_obs"] == 2
+    r = p["data"]["relative"]
+    assert r["benchmark_source"] == "computed"
+    assert r["benchmark_return_cum_pct"] == pytest.approx(37.6923, abs=1e-3)
+    assert p["data"]["series"][-1]["bench_cum_pct"] == pytest.approx(37.6923, abs=1e-3)
+    # 대상: 0.5·(1210/900) + 0.5·(2090/1800) − 1 = +25.2778% → 초과수익 −12.4145%p
+    assert p["data"]["metrics"]["return_cum_pct"] == pytest.approx(25.2778, abs=1e-3)
+    assert r["excess_cum_pct"] == pytest.approx(25.2778 - 37.6923, abs=2e-3)
+
+
+def test_weekly_fixed_membership_benchmark_attribution_uses_the_daily_end_point(world):
+    # 같은 세계에서 attribution — 벤치마크 대분류 IT(G45)의 마지막 구간 수익률이 0 으로 떨어지면 r_b_pct·초과수익이 어긋난다.
+    _fixed_bench_world(world)
+    p = run(target=f"{X}:50, {Y}:50", since="20251226", freq="weekly", benchmark="대분류 IT", scope="attribution", group_by="대분류")
+    assert p["status"] == "ok", p
+    a = p["data"]["attribution"]
+    by = {g["code"]: g for g in a["by_group"]}
+    # 벤치마크 G45 의 두 구간을 이은 누적 수익률 = (1210 + 580)/(900 + 400) − 1
+    assert by["G45"]["r_b_pct"] == pytest.approx(37.6923, abs=1e-3)
+    assert abs(a["residual_pct"]) < 1e-6
+    assert a["active_pct"] == pytest.approx(25.2778 - 37.6923, abs=2e-3)
+    assert a["active_pct"] == pytest.approx(p["data"]["relative"]["excess_cum_pct"], abs=1e-6)
