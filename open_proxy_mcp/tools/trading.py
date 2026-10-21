@@ -207,15 +207,46 @@ def _render_universe(p: dict[str, Any]) -> str:
     return "\n".join(L)
 
 
+def _render_universe_sector(p: dict[str, Any]) -> str:
+    """업종 구성·비중표(261021) — 순위·종목·시총·업종 안 비중·누적. 대분류는 중분류별 구성을 함께."""
+    d = p["data"]
+    sec = d["sector"]
+    rows = d["rows"]
+    shown = rows[:_UNIVERSE_MD_MAX]
+    scope = f"{sec['level']} {sec['name']}" + (f" · {sec['market']}" if sec.get("market") else "")
+    head = (f"# {scope} — 구성 종목·시총 비중 (기준 {d['as_of']}{' · 주간 시세' if d.get('granularity') == 'weekly' else ''}"
+            f" · {sec['n']:,}종목 · 시총 {_조(sec['cap_krw'])})")
+    L = [head, ""]
+    L += [f"- 시장 시총 대비 {sec['share_of_market_pct']:.2f}% · 분류 스냅샷 {sec['classification_asof'] or '-'}"
+          + (f" · 우선주 {sec['preferred_n']}종목 포함" if sec.get("preferred_n") else ""), ""]
+    if sec.get("children"):
+        L += ["## 중분류 구성", "", "| 중분류 | 종목수 | 시총 | 비중 |", "|---|---|---|---|"]
+        for c in sec["children"]:
+            L.append(f"| {c['name']} | {c['n']:,} | {_조(c['cap_krw'])} | {c['weight_pct']:.2f}% |")
+        L.append("")
+    mid_col = bool(rows and "mid" in rows[0])
+    L += ["| 순위 | 종목 | 코드 | 시장 | " + ("중분류 | " if mid_col else "") + "시가총액 | 비중 | 누적 | 종가 |",
+          "|---|---|---|---|" + ("---|" if mid_col else "") + "---|---|---|---|"]
+    for r in shown:
+        close = f"{r['close_krw']:,}원" if r.get("close_krw") is not None else "-"
+        name = r["name"]
+        L.append(f"| {r['rank']} | {name} | `{r['ticker']}` | {r['market']} | " + (f"{r.get('mid') or '-'} | " if mid_col else "")
+                 + f"{_조(r['mktcap_krw'])} | {r['weight_pct']:.2f}% | {r['cum_weight_pct']:.2f}% | {close} |")
+    if len(rows) > len(shown):
+        L += ["", f"> 표는 상위 {len(shown):,}종목까지. 전체 {len(rows):,}종목은 format=\"json\" 의 data.rows."]
+    L += ["", f"> {d['method']}"] + [f"> {w}" for w in p.get("warnings", [])]
+    return "\n".join(L)
+
+
 def register_tools(mcp):
 
     @mcp.tool()
     async def trading_data(company: str = "", scope: str = "firm", format: str = "md",
                            as_of: str = "", since: str = "", scheme: str = "중분류",
                            bucket: str = "", freq: str = "", universe: str = "") -> str:
-        """desc: 거래·규모 데이터 — 종목의 주가·시가총액·상장주식수 시계열(주간 — DB 3년 + 보관본: 그 이전(2015-12~)은 DB 밖 보관본에서 이어 붙이고 `data.cold_until`·`data.sources` 로 밝힘, 보관본을 못 읽으면 최근 3년 + 안내 · 끝점은 보관된 최신 거래일 — 연말 값은 전체 기간), 시장·섹터 시총 집계 시계열(2015-12~ 전 구간), 특정 거래일 전체 시세(OHLC·거래량·거래대금·등락률). KRX 정보데이터시스템 공식값.
-        when: "주가 추이"·"시총 얼마"·"상장주식수 변화"(scope=firm) / "코스피 전체 시총"·"시장 규모 추이"(market) / "업종별 시총"·"반도체 섹터 비중"(sector, bucket 으로 특정 섹터 시계열) / "그날 거래량·거래대금·시고저가"(quote, as_of=YYYYMMDD) / **"코스피 시총 상위 100 이 뭐야"·"코스닥 상위 50 목록"·"유니버스 뽑아줘"(universe, universe="코스피 시총 상위 100" — 종목 순위표. 시총 순위 목록은 여기가 유일한 일괄 조회이며 종목마다 firm 을 부르지 말 것)**. **PER·PBR·배당수익률 배수는 `price_multiple_data`** — 여기는 가격·규모 그 자체만.
-        rule: scope=firm = 주간 시세 저장분(krx_weekly, 최근 3년 — 그 이전(2015-12~)은 DB 밖 보관본 서빙본을 앞에 잇고 이음매는 `data.cold_until`) + 끝점(최신값)은 일별 시세 저장분의 그 종목 최신 거래일 한 줄(주간 마지막 점보다 늦을 때만 — 같은 주면 그 점을 교체(주 = ISO 주를 달력 연도로 자른 것), 더 늦은 주면 추가) · scope=market/sector = 시총 집계 저장분(krx_cap_agg) — 모두 DART·KRX 0콜. scope=quote 는 **최근 약 1년(최신 거래일 − 1년 − 1주)이 서버 DB 저장분**(KRX 0콜 — 서버가 매 거래일 아침 백그라운드로 채운다), 그 이전 날짜만 KRX 라이브(최대 2콜, 같은 날짜는 캐시되어 1회). 보관 창 안의 휴장일(주말·거래일 달력에 휴장으로 적힌 평일)은 KRX 를 부르지 않고 no_data + `data.market_closed:true`·앞뒤 거래일(`prev_trading_day`·`next_trading_day`)로 답한다. 보관 창 안의 등락률·대비는 함께 보관한 KRX 공표값(기준가 대비 — 휴장 다음 날·권리락일에도 KRX 와 같다)이다. **`close_krw` 는 수정주가가 아니다** — 액면분할·병합 시점에 불연속이며 산출물이 `price_adjusted:false` 와 조정 이벤트 목록으로 명시한다(기준가를 호가단위에 맞춘 것뿐인 날은 `adj_events[].tick_rounding:true` — 불연속으로 세지 않는다). 연속 비교에는 `mktcap_krw`(조정 불변)를 쓴다. **시총 = 그 날 상장 전 종목(우선주 포함) 합** — `price_multiple_data` 의 Σ시총(배수 분모를 가진 종목만)보다 3~4% 크다. 섹터는 업종분류(기본 중분류)이며 미분류 종목을 버리지 않고 `_UNCLASSIFIED` 로 남겨 **섹터 합 == 시장 합**이 성립한다. 업종분류는 2026-08 부터 관측이라 그 이전은 소급(sector_asof 로 명시). 시계열 해상도 `freq` — 기본은 firm=weekly / market·sector=monthly(집계는 주간 해상도가 payload 만 4배로 키우고 알려주는 게 없다). `data.points_weekly` 로 원본 관측수를 함께 준다. md 표는 다시 월말·연말 발췌. 값 raw KRX int(_krw). scope=universe 는 `screener` 와 같은 유니버스 문법(「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」·「코스피200」·「코스닥150」·「코스피 전체」·이름/코드 나열)을 받아 시세 저장분 1콜로 순위·코드·이름·시장·시총·종가를 준다(DART 0콜). 「코스피200」·「코스닥150」은 **지수 구성종목 원장**(KRX 공식 지수 합계와 맞춰 본 구성, `data.members_dd` = 마지막 확인 거래일)에서 종목을 받아 원장 1콜이 더 든다 — 정원으로 자르지 않는다. 원장을 못 읽으면 그 시장 시총 상위 정원으로 대체하고 경고로 밝힌다. 지수·시장 이름 나열(「코스피200, 코스닥150」)은 합집합이고, 원장이 없는 지수 이름(KRX300 등)은 추측하지 않고 지수라고 되묻는다(invalid). 기준일은 보관된 최신 거래일(`data.as_of`)이지 오늘(장중)이 아니다. md 표는 300종목까지, 그 이상은 json.
+        """desc: 거래·규모 데이터 — 종목의 주가·시가총액·상장주식수 시계열(주간 — DB 3년 + 보관본: 그 이전(2015-12~)은 DB 밖 보관본에서 이어 붙이고 `data.cold_until`·`data.sources` 로 밝힘, 보관본을 못 읽으면 최근 3년 + 안내 · 끝점은 보관된 최신 거래일 — 연말 값은 전체 기간), 시장·섹터 시총 집계 시계열(2015-12~ 전 구간), 특정 거래일 전체 시세(OHLC·거래량·거래대금·등락률), 업종(WICS 대분류 10·중분류 28)의 구성 종목·시총·업종 안 비중. KRX 정보데이터시스템 공식값.
+        when: "주가 추이"·"시총 얼마"·"상장주식수 변화"(scope=firm) / "코스피 전체 시총"·"시장 규모 추이"(market) / "업종별 시총"·"반도체 섹터 비중"(sector, bucket 으로 특정 섹터 시계열) / "그날 거래량·거래대금·시고저가"(quote, as_of=YYYYMMDD) / **"코스피 시총 상위 100 이 뭐야"·"코스닥 상위 50 목록"·"유니버스 뽑아줘"(universe, universe="코스피 시총 상위 100" — 종목 순위표. 시총 순위 목록은 여기가 유일한 일괄 조회이며 종목마다 firm 을 부르지 말 것)** / **"반도체 업종 구성 종목이 뭐야"·"IT 대분류에서 시총 비중 큰 종목"·"코스닥 바이오 업종 상위 10"·"작년 말 기준 반도체 업종 비중"(universe, universe="반도체 업종"·"중분류 반도체와반도체장비"·"대분류 IT"·"코스피 IT 섹터 상위 10", 날짜는 as_of — 업종 합이 아니라 **구성 종목과 종목별 비중**)**. **PER·PBR·배당수익률 배수는 `price_multiple_data`** — 여기는 가격·규모 그 자체만.
+        rule: scope=firm = 주간 시세 저장분(krx_weekly, 최근 3년 — 그 이전(2015-12~)은 DB 밖 보관본 서빙본을 앞에 잇고 이음매는 `data.cold_until`) + 끝점(최신값)은 일별 시세 저장분의 그 종목 최신 거래일 한 줄(주간 마지막 점보다 늦을 때만 — 같은 주면 그 점을 교체(주 = ISO 주를 달력 연도로 자른 것), 더 늦은 주면 추가) · scope=market/sector = 시총 집계 저장분(krx_cap_agg) — 모두 DART·KRX 0콜. scope=quote 는 **최근 약 1년(최신 거래일 − 1년 − 1주)이 서버 DB 저장분**(KRX 0콜 — 서버가 매 거래일 아침 백그라운드로 채운다), 그 이전 날짜만 KRX 라이브(최대 2콜, 같은 날짜는 캐시되어 1회). 보관 창 안의 휴장일(주말·거래일 달력에 휴장으로 적힌 평일)은 KRX 를 부르지 않고 no_data + `data.market_closed:true`·앞뒤 거래일(`prev_trading_day`·`next_trading_day`)로 답한다. 보관 창 안의 등락률·대비는 함께 보관한 KRX 공표값(기준가 대비 — 휴장 다음 날·권리락일에도 KRX 와 같다)이다. **`close_krw` 는 수정주가가 아니다** — 액면분할·병합 시점에 불연속이며 산출물이 `price_adjusted:false` 와 조정 이벤트 목록으로 명시한다(기준가를 호가단위에 맞춘 것뿐인 날은 `adj_events[].tick_rounding:true` — 불연속으로 세지 않는다). 연속 비교에는 `mktcap_krw`(조정 불변)를 쓴다. **시총 = 그 날 상장 전 종목(우선주 포함) 합** — `price_multiple_data` 의 Σ시총(배수 분모를 가진 종목만)보다 3~4% 크다. 섹터는 업종분류(기본 중분류)이며 미분류 종목을 버리지 않고 `_UNCLASSIFIED` 로 남겨 **섹터 합 == 시장 합**이 성립한다. 업종분류는 2026-08 부터 관측이라 그 이전은 소급(sector_asof 로 명시). 시계열 해상도 `freq` — 기본은 firm=weekly / market·sector=monthly(집계는 주간 해상도가 payload 만 4배로 키우고 알려주는 게 없다). `data.points_weekly` 로 원본 관측수를 함께 준다. md 표는 다시 월말·연말 발췌. 값 raw KRX int(_krw). scope=universe 는 `screener` 와 같은 유니버스 문법(「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」·「코스피200」·「코스닥150」·「코스피 전체」·이름/코드 나열)을 받아 시세 저장분 1콜로 순위·코드·이름·시장·시총·종가를 준다(DART 0콜). 「코스피200」·「코스닥150」은 **지수 구성종목 원장**(KRX 공식 지수 합계와 맞춰 본 구성, `data.members_dd` = 마지막 확인 거래일)에서 종목을 받아 원장 1콜이 더 든다 — 정원으로 자르지 않는다. 원장을 못 읽으면 그 시장 시총 상위 정원으로 대체하고 경고로 밝힌다. 지수·시장 이름 나열(「코스피200, 코스닥150」)은 합집합이고, 원장이 없는 지수 이름(KRX300 등)은 추측하지 않고 지수라고 되묻는다(invalid). 기준일은 보관된 최신 거래일(`data.as_of`)이지 오늘(장중)이 아니다. md 표는 300종목까지, 그 이상은 json. **업종 구성**(scope=universe 에 업종 말 — 「업종」「섹터」「대분류」「중분류」가 들어간 문구: 「반도체 업종」「중분류 반도체와반도체장비」「대분류 IT」「코스피 IT 섹터 상위 10」)은 그 날(as_of, 비우면 보관된 최신 거래일)의 시세 단면과 그 날 이하 가장 최근 업종분류 스냅샷을 맞대 **구성 종목·시총·업종 안 비중(`weight_pct`, 합 100%)·누적 비중·순위**를 준다(DART·KRX 0콜, DB 읽기만 — 새 표 없이 읽을 때 계산). 시장(코스피/코스닥)을 주면 그 시장 안의 업종이고 분모도 그 안의 합이다. 상위 N 으로 잘라도 비중 분모는 업종 전체 시총이다(잘린 표의 합 < 100%, `data.sector.shown_weight_pct`). 요청일이 휴장이면 앞 거래일로 풀고(`data.as_of` 가 실제 기준일, `requested_as_of` 가 요청일) 일별 보관 창(약 1년)보다 오래면 주간 시세(주 마지막 거래일 한 점 — `data.granularity:"weekly"`)에서 읽는다. 주간 시세 구간(최근 약 3년)보다 이르면 invalid 로 안내한다(`scope="sector"` 합계 시계열은 2015-12~). **순위표와 달리 우선주를 빼지 않는다** — 업종 시총은 우선주 포함 합이고(`scope="sector"` 시총 집계와 같은 정의라 같은 날 같은 업종·시장이면 종목 수와 시총 합이 같다 — 운영 읽기 대조 15일 전부 일치) 우선주는 같은 회사 보통주의 업종에 든다(`preferred:true`·`issuer_ticker`). 업종분류는 2026-08-21 부터 관측이라 그 이전 날짜는 첫 관측을 **소급**한 것이고 경고한다(그때 그 업종이 아니었던 회사가 섞이고 상장폐지 종목은 빠짐 — 생존 편향). 분류 스냅샷에 없는 종목(신규 상장 등)은 `data.sector.unclassified` 로 밝히고 어느 업종에도 넣지 않는다. 업종 이름은 정확 → 별칭(바이오·헬스케어) → 부분 일치 순이며 **여럿에 걸리면 추측하지 않고 후보를 주며 되묻는다**(invalid). 대분류·중분류에 이름이 같고 그 날 구성도 같은 에너지·소재·유틸리티는 중분류로 풀어 밝힌다. 대분류는 `data.sector.children` 에 중분류별 시총·비중을 함께 준다. KSIC(한국표준산업분류) 기준 구성은 없다(KSIC 축은 20260821 동결 — 안내만). `as_of` 는 업종 구성과 `scope="quote"` 에서만 쓴다.
         status: ok / invalid / not_found(우선주는 그 우선주 코드로 직접) / unlisted / no_data(휴장일·상장 전·배치 미실행) / db_error(일시 장애 — 재시도 유효) / **db_unconfigured**(이 서버에 스냅샷 DB 미연결 — 재시도해도 안 됨. firm·market 은 KRX 라이브 최신 1시점으로 폴백하며 그때 `data.scope="firm_live"` · `timeseries_available:false` · `source:"KRX 라이브"` 가 붙는다. sector 는 업종분류 매핑이 DB 에만 있어 폴백 없음).
         params: company 는 종목명 또는 종목코드(KRX 단축코드 6자 — 영문이 섞인 신형 코드 0126Z0 포함). **우선주·종류주 코드(005935·00088K)는 회사를 발행 회사로 식별하되 firm·quote 의 값은 그 종류주 자체**의 종가·시총·상장주식수다(`data.issuer_ticker` 에 보통주 코드, 맨 앞 경고로 밝힌다). 「삼성전자우」 같은 우선주 **이름**은 회사 원장에 없어 보통주 회사로 추정되며 그 추정을 맨 앞 경고로 밝힌다 — 우선주 시세는 코드로 부른다.
        
@@ -233,7 +264,7 @@ def register_tools(mcp):
             payload = await build_cap_agg_payload(scheme, format=format, since=since,
                                                   bucket=bucket, freq=freq)
         elif sc == "universe":
-            payload = await build_universe_payload(universe or company, format=format)
+            payload = await build_universe_payload(universe or company, format=format, as_of=as_of)
         else:
             payload = {"tool": "trading_data", "status": "invalid", "subject": scope,
                        "warnings": [f"scope '{scope}' 없음 — firm / quote / market / sector / universe 중 선택."]}
@@ -242,6 +273,8 @@ def register_tools(mcp):
         if payload.get("status") != "ok":
             return _render_status(payload)
         out = payload["data"]["scope"]
+        if out == "universe" and payload["data"].get("sector"):
+            return _render_universe_sector(payload)
         return {"firm": _render_firm, "firm_live": _render_firm_live, "quote": _render_quote,
                 "market": _render_market, "sector": _render_sector,
                 "universe": _render_universe}[out](payload)
