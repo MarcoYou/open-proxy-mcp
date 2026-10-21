@@ -29,6 +29,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 3. Naver 검색 API — `https://naverapihub.apigw.ntruss.com/search/v1/...`(HUB, 우선) · `https://openapi.naver.com/v1/search/...`(개발자센터, 2027-06-30 까지)
 4. Naver Finance JSON — `https://api.finance.naver.com/...`
 4-1. Naver 증권(모바일) JSON — `https://m.stock.naver.com/api/index/{지수}/enrollStocks` (지수 구성종목 목록 — 아래 4.6, 261018)
+4-2. 한국은행 ECOS — `https://ecos.bok.or.kr/api/StatisticSearch/…` (무위험 금리 일별 — 아래 4.7, 261021. 환율 환산용 `731Y001` 은 `dart/fx.py`)
 
 ### B. HTML 크롤링 (반정형)
 
@@ -453,6 +454,21 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 속도: 지수당 4~7요청, 프로세스 공통 웹 속도제한(`throttle_web_request`). KRX 3~7콜/일.
 - 없는 것: KRX300 — 이 목록에 그 지수가 없고 KRX 무료 원천도 없다(원장 미보유). 코리아 밸류업 지수(`KVALUE`)·코스피100(`KPI100`)은 같은 방식으로
   받아 KRX 합계와 맞는 것을 확인했지만(20261016 차이 0) 유니버스 문법이 그 이름을 받지 않아 담지 않았다.
+
+## 4.7 한국은행 ECOS — 무위험 금리 (`ecos_rate`, 261021)
+
+- Endpoint: `https://ecos.bok.or.kr/api/StatisticSearch/{키}/json/kr/1/100000/{통계표}/D/{시작}/{끝}/{항목}` — **키가 URL 경로에 들어간다**(예외·로그에 URL 을 싣지 않는다, 규칙 3).
+- 호출 위치: `scripts/ecos_rate_daily.py` (매일 `.github/workflows/ecos-rate-daily.yml`) — 서버는 부르지 않는다. 표 `ecos_rate` 만 읽는다(스키마 `scripts/ecos_rate_ddl.py`).
+- 계열(`series` 한 글자): C=CD 91일 `817Y002/010502000` · K=KOFR `817Y002/010901000` · 1=국고채 1년 `…/010190000` · 3=국고채 3년 `…/010200000` · B=한국은행 기준금리 `722Y001/0101000`.
+  연율 %. 기간 수익률로의 변환(예 ACT/365)은 읽는 쪽이 하고, 응답에 변환 규칙을 밝힌다.
+- 모양 두 가지: 시장금리는 **거래일만** 값을 준다(마지막 날짜가 어제 — KOFR 은 하루 더 늦다). 기준금리는 **달력 날짜마다 같은 값**을 줘서(실측 261021: 2015-12-01~ 3,976행, 값이 바뀐 날 24곳)
+  표에는 **바뀐 날(적용일)만** 둔다. 읽는 법은 계열 모두 같다 — `d <= 기준일` 인 가장 늦은 행.
+- 보관: DB 는 3년 창(주간 시세 보존 하한 − 14일)과 계열마다 창 앞 마지막 행 하나. 그 앞 전 기간(2015-12~)은 DB 밖 보관본(콜드 서빙)이 맡는다.
+  창 밖을 지우는 `--prune` 은 보관본 coverage·발행 뒤 72시간 가드를 통과해야만 한다.
+- 쓰기: 저장소 변수 `ECOS_RATE_WRITE=1` 이 있어야 쓴다(없으면 계획만). 최근 30일은 매번 다시 받아 **옛 값 조건**으로 비교·정정하고(같은 값은 건드리지 않는다),
+  0.5%p 넘게 바뀐 옛 값은 계열 정의 변경으로 보고 쓰지 않고 실패한다. 한 달에 한 번 `VACUUM (ANALYZE)` + 기본키 색인 다시 만들기.
+- 함정: ① `ecos_fx_rate`(환율 캐시)와 다른 표다 — 읽는 곳·뜻·보관이 다르다. ② 휴일·게시 지연 날은 앞 값을 쓰는 것이 읽는 쪽 몫(`rf_asof` 로 밝힌다). ③ CD91 은 최근 발행량이 줄어 대표성 논란이 있어 KOFR·국고채를 함께 둔다.
+- 속도: 하루 ECOS 5콜(계열당 1). 표가 비었을 때 첫 실행만 같은 5콜이 창 전체를 받는다. DART·KRX 0.
 
 ---
 
@@ -973,6 +989,7 @@ POSIX에서 프로세스 간 잠금으로 검사·게시를 직렬화한다. 원
 | (참고) get_stock_price | KRX `stk_bydd_trd` | Naver Finance siseJson | — |
 | (참고) get_portal_corp_profile | Naver coinfo + sise_group_detail | — | — |
 | (참고) 지수 구성종목 원장 `krx_index_members` | Naver 증권 enrollStocks(코드만) | KRX 지수 일별시세 합계로 확인 | 원장을 못 읽으면 유니버스가 시총 상위 정원으로 대체(경고) |
+| (참고) 무위험 금리 `ecos_rate` | ECOS `817Y002`(시장금리 일별) · `722Y001`(기준금리) | 항목 코드·통계표 코드 일치 + 값 상식 범위 + 신선도 | 못 받으면 배치 실패(표는 그대로, 낡은 값을 읽는 쪽이 `rf_asof` 로 밝힌다) |
 | (참고) proxy_guideline | data/asset_managers/ JSON (정적) | — | — |
 
 ---
@@ -984,6 +1001,8 @@ POSIX에서 프로세스 간 잠금으로 검사·게시를 직렬화한다. 원
 | `OPENDART_API_KEY` | DART OpenAPI 1차 키 | 필수 (또는 ?opendart=...) |
 | `OPENDART_API_KEY_2` | DART API 보조 키 (자동 회전) | 권장 |
 | `KRX_API_KEY` 또는 `KRX_OPEN_API_KEY` | KRX Open API 종가 | 선택 (미설정 시 Naver fallback) |
+| `ECOS_API_KEY` | 한국은행 ECOS — 환율 환산(`dart/fx.py`)·무위험 금리 배치(`scripts/ecos_rate_daily.py`) | 선택 (없으면 환율은 야후 대체값, 금리 배치는 못 돈다) |
+| `ECOS_RATE_WRITE` | 금리 배치의 DB 쓰기 스위치(`1` 일 때만 씀) — 저장소 변수, 서버는 읽지 않는다 | 배치 전용 |
 | `NAVER_API_HUB_CLIENT_ID` / `NAVER_API_HUB_CLIENT_SECRET` | Naver 뉴스 검색 HUB 키 (우선) | 선택 (director_news 사용 시) |
 | `NAVER_SEARCH_API_CLIENT_ID` / `NAVER_SEARCH_API_CLIENT_SECRET` | Naver 개발자센터 키 — HUB 키가 없을 때만, 2027-06-30 까지 | 선택 |
 | `FASTMCP_HOST`, `FASTMCP_PORT` | streamable-http 호스트/포트 | 선택 |
