@@ -122,6 +122,25 @@ def test_check_reports_drift(db):
     with psycopg.connect(db, autocommit=True) as c:
         c.execute("ALTER TABLE krx_idx ADD COLUMN volume bigint")
     assert any("칸이 다르다" in p for p in ddl.check(db))
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("DROP POLICY krx_idx_series_read ON krx_idx_series")
+        c.execute("GRANT USAGE ON SEQUENCE krx_idx_series_sid_seq TO authenticated")
+    problems = ddl.check(db)
+    assert any("krx_idx_series: SELECT 정책" in p for p in problems)
+    assert any("krx_idx_series_sid_seq: authenticated" in p for p in problems)
+
+
+def test_rerun_revokes_sequence_grants_like_supabase_defaults(db):
+    """운영(Supabase)의 기본 권한은 새 시퀀스에도 anon·authenticated 권한을 준다 — 시험 DB 의 기본 권한은 표만 흉내 내므로 직접 준 뒤
+    DDL 을 다시 돌려 거둬지는지 본다(시퀀스 REVOKE 줄이 빠져도 잡히게)."""
+    ddl = _ddl()
+    with psycopg.connect(db, autocommit=True) as c:
+        c.execute("GRANT USAGE, SELECT, UPDATE ON SEQUENCE krx_idx_series_sid_seq TO anon, authenticated")
+        c.execute(ddl.STATEMENTS)
+        for role in ("anon", "authenticated"):
+            for priv in ("USAGE", "SELECT", "UPDATE"):
+                assert _one(c, "SELECT has_sequence_privilege(%s,'krx_idx_series_sid_seq',%s)", (role, priv)) is False
+    assert ddl.check(db) == []
 
 
 def test_check_is_read_only(db):

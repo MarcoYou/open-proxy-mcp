@@ -34,8 +34,8 @@
 
 ■ 보관 모양(마스터 10-21 「3년 모양」): DB = **일별 창**(`krx_day` 보관 창과 같은 날들) + **주간 3년**(창 앞 ~ `krx_weekly_cutoff` 사이 「주 닫는 날」),
     그 앞은 opm-cold. 이 스크립트는 보관을 강제하지 않는다 — 정리는 쓰는 쪽(후속 갱신기 PR)이 같은 하한 함수로 한다.
-■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`). 서버 역할은 RLS 를 우회하고, 읽기 전용 역할(`opm_ro`)은
-    이 정책 + 명시적 `GRANT SELECT` 로 읽는다. `anon`·`authenticated` 에는 권한을 주지 않는다(기본 권한 설정이 새 표에 자동으로
+■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`). 서버 계정(`opm_app`, RLS 를 우회하지 않는다)과 읽기 전용 역할
+    (`opm_ro`)은 이 정책 + 각자의 `GRANT SELECT` 로 읽는다 — 정책이 빠지면 권한이 있어도 0행이 나오므로 `--check` 가 정책도 본다. `anon`·`authenticated` 에는 권한을 주지 않는다(기본 권한 설정이 새 표에 자동으로
     주는 SELECT 를 명시적으로 거둔다 — 사전의 시퀀스도).
 ■ 서버 쓰기 권한은 이 스크립트가 주지 않는다. 서버 최소 권한 계정의 권한은 계정 스크립트가 따로 정한다.
 """
@@ -140,6 +140,15 @@ def check(url: str) -> list[str]:
                         problems.append(f"{table}: {role} 에 {priv} 권한이 있다")
             if not con.execute("SELECT has_table_privilege('opm_ro', to_regclass(%s), 'SELECT')", (f"public.{table}",)).fetchone()[0]:
                 problems.append(f"{table}: opm_ro 에 SELECT 권한이 없다")
+            # RLS 가 켜져 있는데 SELECT 정책(USING true)이 없으면 opm_ro·opm_app 은 권한이 있어도 조용히 0행을 읽는다
+            pol = con.execute("SELECT count(*) FROM pg_policies WHERE schemaname = 'public' AND tablename = %s AND policyname = %s "
+                              "AND cmd = 'SELECT' AND qual = 'true'", (table, f"{table}_read")).fetchone()[0]
+            if not pol:
+                problems.append(f"{table}: SELECT 정책({table}_read USING true)이 없다")
+        for role in ("anon", "authenticated"):
+            if con.execute("SELECT to_regclass('public.krx_idx_series_sid_seq') IS NOT NULL AND "
+                           "has_sequence_privilege(%s, 'public.krx_idx_series_sid_seq', 'USAGE')", (role,)).fetchone()[0]:
+                problems.append(f"krx_idx_series_sid_seq: {role} 에 USAGE 권한이 있다")
     return problems
 
 
