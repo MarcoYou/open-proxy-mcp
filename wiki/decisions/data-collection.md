@@ -29,6 +29,7 @@ OPM 운영 원칙(2026-04-18 결정, [[DART-KIND-매핑-화이트리스트-2026-
 3. Naver 검색 API — `https://naverapihub.apigw.ntruss.com/search/v1/...`(HUB, 우선) · `https://openapi.naver.com/v1/search/...`(개발자센터, 2027-06-30 까지)
 4. Naver Finance JSON — `https://api.finance.naver.com/...`
 4-1. Naver 증권(모바일) JSON — `https://m.stock.naver.com/api/index/{지수}/enrollStocks` (지수 구성종목 목록 — 아래 4.6, 261018)
+4-2. 한국은행 ECOS — `https://ecos.bok.or.kr/api/StatisticSearch/…` (무위험 금리 일별 — 아래 4.7, 261021. 환율 환산용 `731Y001` 은 `dart/fx.py`)
 
 ### B. HTML 크롤링 (반정형)
 
@@ -453,6 +454,33 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 속도: 지수당 4~7요청, 프로세스 공통 웹 속도제한(`throttle_web_request`). KRX 3~7콜/일.
 - 없는 것: KRX300 — 이 목록에 그 지수가 없고 KRX 무료 원천도 없다(원장 미보유). 코리아 밸류업 지수(`KVALUE`)·코스피100(`KPI100`)은 같은 방식으로
   받아 KRX 합계와 맞는 것을 확인했지만(20261016 차이 0) 유니버스 문법이 그 이름을 받지 않아 담지 않았다.
+
+## 4.7 한국은행 ECOS — 무위험 금리 (`ecos_rate`, 261021)
+
+- Endpoint: `https://ecos.bok.or.kr/api/StatisticSearch/{키}/json/kr/1/100000/{통계표}/D/{시작}/{끝}/{항목}` — **키가 URL 경로에 들어간다**(예외·로그에 URL 을 싣지 않는다, 규칙 3).
+- 호출 위치: `scripts/ecos_rate_daily.py` (매일 `.github/workflows/ecos-rate-daily.yml`) — 서버는 부르지 않는다. 표 `ecos_rate` 만 읽는다(스키마 `scripts/ecos_rate_ddl.py`).
+- 계열(`series` 한 글자): **1=국고채 1년 한 계열만** `817Y002/010190000`(ECOS 가 거래일마다 값을 낸다). CD91·KOFR·국고채 3년·기준금리는 담지 않는다 — 무위험 금리는 거래일마다 나오는 국고채 1년 하나면 된다고 정했다(261022).
+  표 모양(`series`·`d`·`rate`)과 보관본 칸은 그대로라 나중에 계열을 더할 수 있다(더할 때는 `SERIES` 한 줄과 DDL 의 CHECK 허용 코드를 함께 고친다).
+  연율 %. 기간 수익률로의 변환(예 ACT/365)은 읽는 쪽이 하고, 응답에 변환 규칙을 밝힌다.
+- 모양: 시장금리는 **거래일만** 값을 준다(마지막 날짜가 어제). 읽는 법 — `d <= 기준일` 인 가장 늦은 행.
+- 보관: 목표는 DB 에 3년 창(주간 시세 보존 하한 − 14일, 약 750행)과 창 앞 마지막 행 하나만 두는 것이다. 그 앞 전 기간(2015-12~)은 DB 밖 보관본(콜드 서빙)이 맡는다.
+  창 밖을 지우는 `--prune` 은 보관본 coverage·발행 뒤 72시간 가드를 통과해야만 하고, **보관본이 서빙되기 전에는 지우지 않으므로 그 전의 표는 3년 창보다 길다**
+  (거래일마다 한 줄씩, 연 약 245행. 로컬 PG17 24개월 모의: 지우기 없음 1,254행 0.133 MiB · 지우기 있음 750행 0.125 MiB — 3년 창 750행은 0.102 MiB).
+  **창 밖 지우기가 실제로 도는 조건** — 일별 실행(`.github/workflows/ecos-rate-daily.yml`)은 받기 단계가 성공한 뒤 아래 넷이 **모두** 맞을 때만 `--prune --manifest … --if-ready` 를 이어 돈다:
+  ① 저장소 변수 `ECOS_RATE_WRITE=1` ② 저장소 **비밀값** `ECOS_RATE_COLD_MANIFEST`(보관본 서빙 목록 주소) ③ 수동 실행의 prune 입력이 아님 ④ dry_run 이 아님.
+  ②는 서명 URL 이라 비밀값이다(변수로 두면 공개 저장소의 Actions 로그가 단계의 env 를 그대로 보여 준다). 서명을 갱신할 때 함께 갱신한다 — 만료되면 목록 읽기 실패로 그 단계가 빨갛게 끝난다(`--if-ready` 가 누그러뜨리는 것은 아래 「아직 아님」뿐).
+  ②가 없으면 단계를 건너뛰고 「창 밖 지우기를 건너뛰었다」 안내 줄(`::notice::`)을 매일 남긴다 — 발행 전에는 정상, 그동안 표는 3년 창보다 길어진다.
+  **켜는 순서**: 보관본 발행 → 서버가 목록에서 `ecos_rate_hist` 를 읽는 것을 확인(coverage 끝 ≥ 창 하한 − 1일) → 비밀값 `ECOS_RATE_COLD_MANIFEST` 설정 → 다음 일별 실행에서 스크립트 가드가 따로 본다.
+  가드를 통과하기 전(목록에 데이터셋 없음 · coverage 부족 · 목록 발행 72시간 전)에는 지우지 않고 정상 종료(안내 줄), 그 밖의 이상은 실패. 지우기 가드의 하나는 「지우고 남는 행이 표의 30% 이상」이다 — 지우기가 오래 밀려도(24개월 밀리면 지울 행이 표의 39%) 막히지 않고, 창 하한이 잘못 밀려 거의 다 지우게 되는 때만 막는다.
+  (목록 발행 시각은 목록 전체의 `updated_at` 이라 다른 데이터셋을 발행해도 72시간이 다시 센다 — 지우기가 늦어질 뿐 틀리지는 않는다.)
+- 보관본 원천 Parquet: 칸은 `scripts/ecos_rate_daily.py` 의 `COLD_COLUMNS` = (`series`, `d`, `rate`) — 날짜는 YYYYMMDD 문자열, 값은 받은 십진 값(DOUBLE). 콜드 발행기의 데이터셋 정의와 글자까지 같아야 한다
+  (날짜 칸을 `dd` 로 쓴 보관본은 발행기가 읽지 못했다). 쓰는 함수 `write_cold_parquet` 가 정본이고 백필은 그것을 부른다. 서빙 목록의 coverage 칸 이름(`min_dd`·`max_dd`)은 원천 칸 이름과 별개다.
+- 쓰기: 저장소 변수 `ECOS_RATE_WRITE=1` 이 있어야 쓴다(없으면 계획만). 최근 30일은 매번 다시 받아 **옛 값 조건**으로 비교·정정하고(같은 값은 건드리지 않는다),
+  0.5%p 넘게 바뀐 옛 값은 계열 정의 변경으로 보고 쓰지 않고 실패한다. 한 달에 한 번 `VACUUM (ANALYZE)` + 기본키 색인 다시 만들기(한 계열이라 새 행이 색인 맨 오른쪽 끝에만 들어가 효과는 작다 — 지우기 뒤 빈 쪽을 접는 정도) — 이 뒷정리가 실패해도 이미 커밋된 적재는 성공으로 두고 경고만 낸다.
+  쓰기 전 백업: 바꾸는 행(정정)과 지우는 행(창 밖)의 **옛 값**을 같은 트랜잭션 안에서 먼저 CSV(`--backup-dir`)로 남기고 워크플로가 산출물(30일)로 올린다 — 파일을 못 쓰면 쓰기도 없다. 새 행은 옛 값이 없어 대상이 아니다.
+- 운영 적용 순서: ① 표 만들기 `scripts/ecos_rate_ddl.py` → ② 서버 계정 권한 행렬(비공개 운영 스크립트)에 이 표를 「서버가 읽지 않는 표」로 넣고 점검 → 적용 → 검증 순으로 돌린다 → ③ 백필 → ④ 저장소 변수 `ECOS_RATE_WRITE=1`. 보관본이 발행·확인되면 비밀값 `ECOS_RATE_COLD_MANIFEST`(위 「창 밖 지우기가 실제로 도는 조건」).
+- 함정: ① `ecos_fx_rate`(환율 캐시)와 다른 표다 — 읽는 곳·뜻·보관이 다르다. ② 휴일·게시 지연 날은 앞 값을 쓰는 것이 읽는 쪽 몫(읽는 도구가 생기면 응답에 기준 날짜를 밝히는 필드를 두는 것이 예정이며, 필드 이름은 아직 정하지 않았다).
+- 속도: 하루 ECOS 1콜. 표가 비었을 때 첫 실행만 같은 1콜이 창 전체를 받는다. DART·KRX 0.
 
 ---
 
@@ -973,6 +1001,7 @@ POSIX에서 프로세스 간 잠금으로 검사·게시를 직렬화한다. 원
 | (참고) get_stock_price | KRX `stk_bydd_trd` | Naver Finance siseJson | — |
 | (참고) get_portal_corp_profile | Naver coinfo + sise_group_detail | — | — |
 | (참고) 지수 구성종목 원장 `krx_index_members` | Naver 증권 enrollStocks(코드만) | KRX 지수 일별시세 합계로 확인 | 원장을 못 읽으면 유니버스가 시총 상위 정원으로 대체(경고) |
+| (참고) 무위험 금리 `ecos_rate` | ECOS `817Y002`(시장금리 일별, 국고채 1년 `010190000`) | 항목 코드·통계표 코드 일치 + 값 상식 범위 + 신선도 | 못 받으면 배치 실패(표는 그대로 — 낡은 값을 읽는 쪽이 기준 날짜를 밝히는 것은 읽는 도구가 생길 때 정할 예정) |
 | (참고) proxy_guideline | data/asset_managers/ JSON (정적) | — | — |
 
 ---
@@ -984,6 +1013,9 @@ POSIX에서 프로세스 간 잠금으로 검사·게시를 직렬화한다. 원
 | `OPENDART_API_KEY` | DART OpenAPI 1차 키 | 필수 (또는 ?opendart=...) |
 | `OPENDART_API_KEY_2` | DART API 보조 키 (자동 회전) | 권장 |
 | `KRX_API_KEY` 또는 `KRX_OPEN_API_KEY` | KRX Open API 종가 | 선택 (미설정 시 Naver fallback) |
+| `ECOS_API_KEY` | 한국은행 ECOS — 환율 환산(`dart/fx.py`)·무위험 금리 배치(`scripts/ecos_rate_daily.py`) | 선택 (없으면 환율은 야후 대체값, 금리 배치는 못 돈다) |
+| `ECOS_RATE_WRITE` | 금리 배치의 DB 쓰기 스위치(`1` 일 때만 씀) — 저장소 변수, 서버는 읽지 않는다 | 배치 전용 |
+| `ECOS_RATE_COLD_MANIFEST` | 금리 보관본 서빙 목록 주소(서명 URL) — 있으면 일별 실행이 창 밖 행을 지운다(가드 통과 시), 없으면 건너뛰고 안내 줄 — **저장소 비밀값**(변수 아님), 서버는 읽지 않는다 | 배치 전용 |
 | `NAVER_API_HUB_CLIENT_ID` / `NAVER_API_HUB_CLIENT_SECRET` | Naver 뉴스 검색 HUB 키 (우선) | 선택 (director_news 사용 시) |
 | `NAVER_SEARCH_API_CLIENT_ID` / `NAVER_SEARCH_API_CLIENT_SECRET` | Naver 개발자센터 키 — HUB 키가 없을 때만, 2027-06-30 까지 | 선택 |
 | `FASTMCP_HOST`, `FASTMCP_PORT` | streamable-http 호스트/포트 | 선택 |
