@@ -728,7 +728,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | DATA-API1 | `financial_metrics` 분기 공시 상태가 제출 기한(45일) 전이어도 결산일이 지나면 「미제출」이다 | 열림 |
 | DATA-API2 | 도구 응답 `usage` 의 분당 한도가 1,000 으로 하드코딩되고(7곳) 하루 한도 칸이 없다 | 닫힘 #177 (새 키 셋, 옛 키 유지) |
 | DATA-DIV1 | `dividend_disclosure` 다년 칸·현재가 배당수익률과 배당 수집 원장이 반기·분기 결산 리츠의 결산기 여럿을 한 해로 섞는다 | 일부 — #175 로 DPS·다년 칸·요약은 결산기 합. 원장 배당총액은 수집기·운영 값 고침으로 닫힘(아래 줄), 리츠 결산기 배당결정 서식 미수집·창이 한 결산기 낡음은 열림 |
-| DATA-DIV1 | 배당 원장의 배당총액이 반기·분기 결산 리츠의 결산기 하나분이라 시장·업종 집계·`screen` 의 리츠 총액이 작다 | 닫힘 — 수집기가 결산기별 총액을 낸다(운영 232행 다시 씀) · 이 PR 이 총액·DPS 가 같은 해도 더한다 |
+| DATA-DIV1 | 배당 원장의 배당총액이 반기·분기 결산 리츠의 결산기 하나분이라 시장·업종 집계·`screen` 의 리츠 총액이 작다 | 닫힘 #181 (수집기가 결산기별 총액을 낸다 — 운영 232행 다시 씀 · 총액·DPS 가 같은 해도 더한다) |
 | DATA-PX3 | 공시 EPS 보정이 확정 라벨 이벤트만 쓴다 — 라벨 원천이 멎은 뒤의 분할·병합은 EPS 정렬이 안 된다 | 닫힘 #171 |
 | DATA-PX3 | 계수가 잡힌 병합 종목의 BPS 는 DART 유통주식수(사업연도 말)가 옛 주식 수라 비운다 | 열림 |
 | DATA-PX6 | 주간 곡선 끝에 일별 한 줄을 잇는 로직이 `services/trading.py` 와 `services/price_multiple_data.py` 에 두 벌이다 | 닫힘 #173 (`krx_retention.with_daily_tail` 한 곳, 응답 값 변화 0) |
