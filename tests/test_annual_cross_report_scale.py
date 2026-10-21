@@ -316,6 +316,37 @@ def test_foreign_currency_report_is_compared_in_won(adb, monkeypatch):
     assert fetched == "ok" and ni == pytest.approx(130_000 * 1100.0) and eq == pytest.approx(1_300_000 * 1100.0)
 
 
+def test_same_run_earlier_year_is_a_neighbour_for_the_next_year(adb):
+    """같은 실행에서 먼저 받은 해(2022)의 값도 다음 해(2023) 보고서의 이웃으로 댄다 — 빠지면 2023 은 이웃이 앞 해 원본 하나뿐이라 못 가려 자료 없음이 된다."""
+    url, fake = adb
+    _seed(url, "000023", [(2021, 10 * B, 200 * B, "20220321000023")])
+    fake.avail[("00000023", "2022", "11011", "CFS")] = _r("20230321000023", ni=12 * B, eq=240 * B, ni_frm=10 * B, eq_frm=200 * B)
+    good = _r("20240321000023", ni=-58.43 * B, eq=255.48 * B, ni_frm=12 * B, eq_frm=240 * B, ni_bfe=10 * B, eq_bfe=200 * B)
+    fake.avail[("00000023", "2023", "11011", "CFS")] = _times(good, 1000)
+    asyncio.run(S.fetch(only={("000023", 2022), ("000023", 2023)}))
+    assert _row(url, "000023", 2022)[:3] == (12 * B, 240 * B, "ok")
+    assert _row(url, "000023", 2023)[:3] == (-58.43 * B, 255.48 * B, "ok"), "같은 실행의 2022 값 + 2021 원본 다수결로 ÷1,000"
+
+
+@pytest.mark.parametrize("new_rc,row_rc,echo_rc", [
+    ("20240408000024", "20240408000024", "20240408000024"),   # --refetch — 같은 보고서를 다시 받음
+    ("20260401000024", "20240408000024", "20240408000024"),   # --amended — 정정 보고서, 저장 정정 칸의 출처는 그 해 옛 판
+    ("20240408000024", None, "20240408000024"),               # 그 해 행의 접수번호를 모른다(칸 이행 전) — 지금 보고서의 접수번호로만 가린다
+])
+def test_restated_cells_echoing_the_report_itself_are_not_votes(adb, new_rc, row_rc, echo_rc):
+    """앞 해 정정 칸 가운데 **지금 보고서**(같은 접수번호)나 **그 해 옛 판**에서 온 값은 이 보고서의 메아리라 대 볼 상대가 아니다.
+    세면 1,000배 보고서가 자기 메아리와 같은 단위로 표를 얻어 다수결이 비기고(못 가림) 바른 값으로 바뀌지 않는다."""
+    url, fake = adb
+    t = "000024"
+    _seed(url, t, [(2021, 10 * B, 200 * B, "20220321000024", 10 * B * 1000, 200 * B * 1000, echo_rc),
+                   (2022, 12 * B, 240 * B, "20230321000024", 12 * B * 1000, 240 * B * 1000, echo_rc),
+                   (2023, -58 * B, 255 * B, row_rc)])
+    good = _r(new_rc, ni=-58.43 * B, eq=255.48 * B, ni_frm=12 * B, eq_frm=240 * B, ni_bfe=10 * B, eq_bfe=200 * B)
+    fake.avail[("00" + t, "2023", "11011", "CFS")] = _times(good, 1000)
+    asyncio.run(S.fetch(only={(t, 2023)}, keep_fs=True, amended=(new_rc != row_rc)))
+    assert _row(url, t, 2023)[:4] == (-58.43 * B, 255.48 * B, "ok", new_rc)
+
+
 # ── 분기 수집과 같은 규칙인가 ─────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("name,k,new_frm,stored", [
