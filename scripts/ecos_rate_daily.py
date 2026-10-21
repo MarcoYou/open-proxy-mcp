@@ -20,8 +20,13 @@
     계열마다 창 앞 마지막 행 하나(carry-in)를 더 둔다 — 하한이 휴장일이어도 「그날 이하 최신 값」이 DB 에서 나온다.
   · 표가 비어 있으면(첫 실행) 같은 코드가 창 전체를 계열당 1콜로 채운다. 며칠 쉬었다 돌아와도 `최신 행 − 3일`부터 이어 받는다.
 
-■ 창 밖 지우기 — `--prune` (일별 실행에는 들어 있지 않다)
-  DB 는 3년 창만 두고 그 앞은 보관본(콜드 서빙 `ecos_rate_hist`)이 맡는다. 지우는 쪽이 보관본보다 앞서면 이음매에 구멍이 나므로 세 가드를 **모두** 통과해야 한다:
+■ 창 밖 지우기 — `--prune` (보관본이 발행된 **뒤에야** 돈다)
+  DB 는 3년 창만 두고 그 앞은 보관본(콜드 서빙 `ecos_rate_hist`)이 맡는다. 그러나 **지우기 전에는 표가 3년 창보다 길다** — 거래일마다 계열 4개가 한 줄씩 늘어 연 약 980행.
+  로컬 PG17 24개월 모의(출발 2,959행): 지우기 없음 + 월 유지보수 4,977행 0.367 MiB(유지보수도 없으면 0.383) · 지우기 + 월 유지보수 3,021행 0.250 MiB. 「3년 창 0.25」는 지우기가 도는 상태의 값이다.
+  일별 실행은 저장소 변수 `ECOS_RATE_COLD_MANIFEST`(보관본 서빙 목록 주소)가 있고 쓰기가 켜져 있을 때만, 받기·적재 뒤에 `--prune --manifest <주소> --if-ready` 를 이어 돈다.
+  변수가 없으면(보관본이 아직 발행되지 않았으면) 지우지 않는다 — 보관본이 서빙되기 전에 지우면 그 구간을 읽을 곳이 없다. `--if-ready` 는 「아직 아님」(목록에 데이터셋 없음 ·
+  coverage 가 지울 끝을 못 덮음 · 발행 72시간 전)을 정상 종료(0)로 두고, 그 밖의 이상(25%·가장 이른 날 가드, 목록 읽기 실패)은 실패로 둔다.
+  지우는 쪽이 보관본보다 앞서면 이음매에 구멍이 나므로 세 가드를 **모두** 통과해야 한다:
     ① 보관본 coverage 가 지울 날짜 끝(창 하한 − 1일)을 덮는다(`--cold-coverage-max`, 또는 서빙 목록 `--manifest` 에서 읽는다)
     ② 보관본이 발행된 지 `COLD_DELETE_WAIT_SEC`(72시간 — 서버가 묵은 목록을 쓰는 최대 나이와 같다) 이상 지났다(`--cold-published-at`, 목록이면 `updated_at`)
     ③ 지울 행이 표의 `MAX_PRUNE_FRACTION`(25%) 이하다(창 계산이 틀렸을 때의 안전판)
@@ -113,6 +118,10 @@ BY_CODE = {s.code: s for s in SERIES}
 
 class EcosError(RuntimeError):
     """원천 오류. **메시지에 URL(키 포함)을 넣지 않는다** — 호출부가 그대로 출력한다."""
+
+
+class NotReady(EcosError):
+    """지우기 가드 중 「아직 아님」 — 시간이 지나거나 보관본이 발행되면 풀린다. `--if-ready` 는 이것만 정상 종료로 둔다."""
 
 
 class ConflictError(RuntimeError):
@@ -470,10 +479,10 @@ def prune_rows(con, lo: date, *, cold_min: date, cold_max: date, cold_published_
     _need_autocommit(con)
     age = (now - cold_published_at).total_seconds()
     if age < COLD_DELETE_WAIT_SEC:
-        raise EcosError(f"보관본 발행 뒤 {age / 3600:.1f}시간 — {COLD_DELETE_WAIT_SEC // 3600}시간이 지나기 전에는 지우지 않는다")
+        raise NotReady(f"보관본 발행 뒤 {age / 3600:.1f}시간 — {COLD_DELETE_WAIT_SEC // 3600}시간이 지나기 전에는 지우지 않는다")
     end = lo - timedelta(days=1)
     if cold_max < end:
-        raise EcosError(f"보관본 coverage 가 {cold_max} 까지 — 지울 끝 날짜 {end} 를 덮지 못한다")
+        raise NotReady(f"보관본 coverage 가 {cold_max} 까지 — 지울 끝 날짜 {end} 를 덮지 못한다")
     sel = (f"FROM {TABLE} r WHERE r.d < (SELECT max(x.d) FROM {TABLE} x WHERE x.series = r.series AND x.d < %s)")
     with con.transaction():
         con.execute("SET LOCAL lock_timeout = '3s'")
@@ -546,6 +555,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--cold-coverage-min", help="보관본 coverage 시작(YYYYMMDD, 기본 20151201)")
     ap.add_argument("--cold-published-at", help="보관본 발행 시각(ISO, 시간대 포함)")
     ap.add_argument("--manifest", help="서빙 목록(https 또는 file://) — coverage·발행 시각을 여기서 읽는다")
+    ap.add_argument("--if-ready", action="store_true", help="--prune: 보관본이 아직 준비되지 않았으면(데이터셋 없음·coverage 부족·72시간 전) 지우지 않고 정상 종료")
     args = ap.parse_args(argv)
     _quiet_http_loggers()
 
@@ -646,6 +656,12 @@ def _main_prune(args, url: str | None, lo: date, write: bool, psycopg) -> int:
             if write and (args.maintain or n):
                 _report_maintain(con)
         return 0
+    except NotReady as exc:
+        if args.if_ready:
+            print(f"::notice::창 밖 지우기는 아직 이르다 — {exc}")
+            return 0
+        print(f"::error::{exc}")
+        return 1
     except (EcosError, ConflictError, ValueError) as exc:
         print(f"::error::{exc}")
         return 1
@@ -653,6 +669,9 @@ def _main_prune(args, url: str | None, lo: date, write: bool, psycopg) -> int:
         print(f"::error::DB 오류 ({type(exc).__name__})")
         return 1
     except Exception as exc:        # 서빙 목록 받기(ColdError 등)
+        if args.if_ready and getattr(exc, "reason", None) == "no_dataset":
+            print("::notice::서빙 목록에 ecos_rate_hist 가 아직 없다 — 보관본 발행 전이라 지우지 않는다.")
+            return 0
         print(f"::error::서빙 목록을 읽지 못했다 ({type(exc).__name__})")
         return 1
 
