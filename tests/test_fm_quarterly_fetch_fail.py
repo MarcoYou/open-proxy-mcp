@@ -13,7 +13,7 @@ from open_proxy_mcp.services.company import CompanyResolution
 from open_proxy_mcp.services.contracts import AnalysisStatus
 
 CO = {"corp_code": "00000001", "corp_name": "시험회사", "stock_code": "000001"}
-TODAY = date(2026, 10, 21)
+TODAY = date(2026, 11, 20)   # 12월 결산 3분기 제출 기한(11-14) 뒤 — 기한 전에는 「제출기한 전」이다(DATA-API1)
 _NO = ([], "no_filing")
 _FAIL = ([], "fnlttSinglAcnt(11014, CFS) 실패: 020 사용한도를 초과하였습니다")
 

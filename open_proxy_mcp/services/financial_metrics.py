@@ -3091,13 +3091,30 @@ def _quarter_fetch_failed(failed: set[tuple[int, str]] | None, fiscal_year: int,
     return any(r == rc and abs(y - fiscal_year) <= 1 for y, r in failed)
 
 
+def _quarter_submit_due(period_end: date, quarter: int, fiscal_month: int, ticker: str | None) -> date:
+    """그 분기 보고서의 **법정 제출 기한을 지난 첫 날** — `as_of` 가 이 날 이상이어야 「미제출」이라 적는다(DATA-API1).
+
+    `report_calendar.cell_available` 이 기준이다(분기·반기 45일 · 사업보고서 90일 · 외국 상장사 60·120일). 그 함수는 사업보고서는 기한 다음 날(12월 결산 4/1)을,
+    분기·반기는 기한 날 자체(11/14)를 돌려주므로 분기·반기만 하루 더한다 — 기한 당일은 아직 낼 수 있어 「미제출」이라 단정하지 않는다.
+    DART 표기 사업연도 = 기간 말이 속한 달력 연도(report_calendar 머리말)."""
+    from open_proxy_mcp.services import report_calendar as rcal
+
+    avail = rcal.cell_available(period_end.year, quarter, rcal.fiscal(fiscal_month, ticker))
+    return avail if quarter == 4 else avail + timedelta(days=1)
+
+
 def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
                       fiscal_month: int | None, as_of: date | None = None,
-                      failed: set[tuple[int, str]] | None = None) -> dict[str, Any]:
-    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출·조회 실패로 구분한다.
+                      failed: set[tuple[int, str]] | None = None,
+                      ticker: str | None = None) -> dict[str, Any]:
+    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출·제출기한 전·조회 실패로 구분한다.
 
     `failed` = 조회가 실패한 (사업연도, 보고서코드) — 그 분기는 보고서가 없는 게 아니라 **읽지 못한** 것이라
-    「미제출」로 적지 않고 「조회 실패(미확인)」로 적는다(DATA-API1·DATA-U3)."""
+    「미제출」로 적지 않고 「조회 실패(미확인)」로 적는다(DATA-API1·DATA-U3).
+
+    결산일이 지났어도 법정 제출 기한 전이면 「제출기한 전」이다(DATA-API1 — 종전엔 결산 다음 날부터 「미제출」이라
+    12월 결산 모든 회사의 3분기가 11월 중순 전까지 거짓 미제출이었다). 기한은 `report_calendar.cell_available`
+    (분기·반기 45일 · 사업보고서 90일 · `ticker` 가 9로 시작하는 외국 상장사 60·120일) — 결산월을 바꾼 회사의 옛 결산월은 반영하지 않는다."""
     as_of = as_of or today_kst()
     present = {r.get("fiscal_quarter") for r in rows if r.get("fiscal_year") == fiscal_year}
     result: dict[str, Any] = {"fiscal_year": fiscal_year, "missing": []}
@@ -3117,10 +3134,11 @@ def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
         if period_end > as_of:
             # 아직 결산일이 오지 않은 분기는 누락이나 미제출로 표시하지 않는다.
             continue
+        due = _quarter_submit_due(period_end, q, fiscal_month, ticker)
         item = {
             "fiscal_quarter": label,
             "period_end": period_end.isoformat(),
-            "status": STATUS_UNSUBMITTED if as_of > period_end else "제출기한 전",
+            "status": STATUS_UNSUBMITTED if as_of >= due else "제출기한 전",
         }
         if _quarter_fetch_failed(failed, fiscal_year, label, fiscal_month):
             item["status"] = STATUS_FETCH_FAILED
@@ -3365,11 +3383,12 @@ async def build_financial_metrics_payload(
                                           induty_code=induty_code, failed_out=failed_fetches)
         warnings.extend(ws)
         data["quarterly"] = rows
-        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month, failed=failed_fetches)
+        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month, failed=failed_fetches,
+                                                     ticker=selected.get("stock_code"))
         for missing in data["quarterly_status"]["missing"]:
             if missing["status"] == STATUS_UNSUBMITTED:
                 warnings.append(
-                    f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']})는 기간 종료 후 공시가 없어 미제출로 표시함."
+                    f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']})는 법정 제출 기한이 지났는데 공시가 없어 미제출로 표시함."
                 )
             elif missing["status"] == STATUS_FETCH_FAILED:
                 warnings.append(
