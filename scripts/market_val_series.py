@@ -45,7 +45,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 import psycopg
 from datetime import date
-from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR, reconcile_report_scales, rescale_rows
+from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, reconcile_report_scales, rescale_rows
 from open_proxy_mcp.dart.fx import SRC_YAHOO, ecos_key_missing_note, fiscal_year_end_date, fx_source, statement_currency, fx_to_krw
 from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.services import report_calendar as rcal
@@ -620,10 +620,9 @@ async def fetch(tickers: list[str] | None = None, only: set[tuple[str, int]] | N
         if _RESTATED_COL and (con.execute("SELECT to_regclass('public.dart_finstat_q')").fetchone() or [None])[0] else set()
     rops=[]; rstat={"cand":0,"skip_unit":0,"clear":0,"skip_fs":0}
     terms_of: dict = {}     # 261021(F10): 이 실행에서 읽은 사업보고서의 당기 기수 {종목: {표기: 기수}} — 전기 칸의 기수 대조
-    # 시장 내 실측 최댓값 앵커(scale_guard.MARKET_MAX_NI_ANCHOR) — dart_finstat_y DB값으로 동적
-    # 확장 금지: 이 테이블엔 이미 소프트센 오염값(1.07×10^16)이 남아있어(구버전 fetch, 가드 신설
-    # 전 수집) MAX()로 앵커를 잡으면 오염값이 그대로 앵커가 되어 가드가 무력화되는 자기오염 실측 확인.
-    market_max_ni = MARKET_MAX_NI_ANCHOR
+    # 시장 최대 순이익 앵커(scale_guard.MARKET_MAX_NI_ANCHOR)는 이 수집에서 쓰지 않는다 — 아래 `scale_assess` 는 market_max 없이 자릿수 상한(16자리)만 본다.
+    # (종전 `market_max_ni` 변수는 값을 넣기만 하고 호출에 넘기지 않았다. 고정 앵커는 새 최대 실적에서 먼저 울린다 — DATA-SC5. dart_finstat_y 최댓값으로 동적 확장하는 것도
+    #  이 표에 남은 소프트센 오염값(1.07×10^16)이 앵커가 되어 가드가 무력화되므로 하지 않는다.)
     # 261021(DATA-SC4): 보고서 사이 단위 대조용 — 저장된 자본 {(종목, 해): (원본 자본, 원본 접수번호, 정정 자본, 정정 출처 접수번호)}. 칸이 없으면(이행 전) 접수번호는 모른다(None).
     eqsnap={(r[0],int(r[1])): (r[2],r[4],r[3],r[5]) for r in con.execute(
         "SELECT ticker, fy, eq, eq_restated, " + ("rcept_no" if _RCEPT_COL else "NULL") + ", "
