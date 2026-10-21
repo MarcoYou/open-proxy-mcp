@@ -272,11 +272,3 @@ def test_total_return_adds_dps_over_adjusted_base():
     wk = M.weekly_leg(10500, 10000)                                        # 주간: DPS / (close_{t−1} × 계수)
     assert M.total_return(wk, 250) == pytest.approx(0.05 + 250 / 10000)
     assert M.total_return(M.Leg(None, None), 100) is None
-
-
-def test_group_returns_and_series_stats():
-    out = M.group_returns([.2, .3, .5], [.10, .00, .02], ["S1", "S1", "S2"])
-    assert out["S1"] == (pytest.approx(.5), pytest.approx((.2 * .10) / .5)) and out["S2"] == (pytest.approx(.5), pytest.approx(.02))
-    assert M.group_returns([0.0], [0.05], ["S9"])["S9"][1] is None
-    st = M.series_stats([0.1, -0.05], ["20260102", "20260105", "20260112"])
-    assert st.cum == pytest.approx(0.045) and st.ann is None and st.days == 10

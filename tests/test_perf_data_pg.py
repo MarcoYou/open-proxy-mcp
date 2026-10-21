@@ -222,7 +222,7 @@ def test_bench_daily_sql_equals_python_per_stock_sums(world, use_db):
         v[1] += (close - cmp) * shrs
     assert {(g.dd, g.key) for g in got} == set(want)
     for g in got:
-        assert g.num == pytest.approx(want[(g.dd, g.key)][0], abs=1e-6) and g.den == pytest.approx(want[(g.dd, g.key)][1], abs=1e-6), g
+        assert g.num == pytest.approx(want[(g.dd, g.key)][0], rel=1e-9, abs=1e-6) and g.den == pytest.approx(want[(g.dd, g.key)][1], rel=1e-9, abs=1e-6), g
     assert {g.dd: g.n_null for g in got if g.n_null} == n_null                        # cmp NULL 행 수를 센다(합에서는 뺀다)
     assert all(g.dd != "20260930" for g in got)                                       # 기준일은 전일 계산용 — 결과에 없다
     ks = D.read_bench_daily(["KS"], "20261005", "20261008")

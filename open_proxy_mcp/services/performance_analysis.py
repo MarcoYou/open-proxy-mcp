@@ -930,7 +930,8 @@ def _rf_for(ctx: Ctx, rf_arg: str, rate_obs: list[tuple[str, float]] | None, dat
         ctx.warn("rf_unavailable", "무위험 금리 관측이 이 기간 시작보다 앞서 있지 않아(금리 표는 최근 3년) 샤프·소르티노·알파·하방 변동성을 비웠다(빈 값).")
         return None, info
     if acc.missing:
-        ctx.warn("rf_unavailable", f"무위험 금리가 있는 {len(dates) - 1 - acc.missing}개 구간만으로 샤프·소르티노·알파를 냈다(앞 {acc.missing}개 구간은 금리 관측 이전).")
+        ctx.warn("rf_unavailable", f"무위험 금리가 있는 {len(dates) - 1 - acc.missing}개 구간만으로 샤프·소르티노·하방 변동성을 냈다(금리 관측 이전 {acc.missing}개 구간은 뺐다) — "
+                                   "알파는 금리가 비는 구간이 맞대는 구간에 끼면 비운다.")
     return acc, info
 
 
@@ -1280,7 +1281,7 @@ def _assemble(subject: str, ctx: Ctx, pf: Portfolio, bench: Bench | None, rf_acc
         ctx.warn(None, f"공표 대비(cmp)가 없는 옛 행 {pf.cmp_missing}개는 전일 종가 × 사건 계수로 보충했다(DATA-PX5 남은 한계).")
     if pf.unusable:
         ctx.warn(None, f"가격을 읽을 수 없어 수익률 0 으로 둔 종목-구간 {pf.unusable}개가 있다.")
-    warnings = list(ctx.warnings) + [w for w in () if w]
+    warnings = list(ctx.warnings)
     # ── 응답
     comp_out = []
     for info, c in zip(pf.comp_info, pf.comps):

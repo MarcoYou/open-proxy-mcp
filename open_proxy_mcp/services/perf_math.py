@@ -28,7 +28,7 @@ from __future__ import annotations
 import bisect
 import math
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Iterable, Mapping, Sequence
 
@@ -494,35 +494,3 @@ def link_attribution(periods: Sequence[BrinsonPeriod]) -> AttributionLinked:
     active = big_rp - big_rb
     return AttributionLinked({c: (v[0], v[1], v[2]) for c, v in linked.items()}, alloc, sel, inter, active,
                              active - (alloc + sel + inter), big_rp, big_rb)
-
-
-# ── 묶음 보조 ──────────────────────────────────────────────────────────────────
-
-
-def group_returns(weights: Sequence[float], rets: Sequence[float], groups: Sequence[str]) -> dict[str, tuple[float, float | None]]:
-    """보유별 (시작 비중, 구간 수익률) → 묶음별 (비중 합, 묶음 내 가중 수익률). 비중 0 인 묶음의 수익률은 None."""
-    w: dict[str, float] = {}
-    wr: dict[str, float] = {}
-    for wi, ri, g in zip(weights, rets, groups):
-        w[g] = w.get(g, 0.0) + wi
-        wr[g] = wr.get(g, 0.0) + wi * ri
-    return {g: (w[g], (wr[g] / w[g]) if w[g] > _EPS else None) for g in w}
-
-
-@dataclass
-class SeriesStats:
-    """대상 수익률 열 하나의 요약(`performance_analysis` 가 지표 묶음을 만들 때 쓴다)."""
-    cum: float
-    ann: float | None
-    vol: float | None
-    mdd: tuple[float, str, str] | None
-    a: float | None
-    days: int
-    extra: dict[str, float] = field(default_factory=dict)
-
-
-def series_stats(r: Sequence[float], dates: Sequence[str]) -> SeriesStats:
-    days = calendar_days(dates[0], dates[-1])
-    a = obs_per_year(len(r), days)
-    cum = cumulative(r)
-    return SeriesStats(cum, annualize(cum, days), vol_ann(r, a), max_drawdown(r, dates), a, days)

@@ -76,6 +76,14 @@ def test_registered_in_runtime_with_catalog_style_description():
     assert props["basis"]["default"] == "price" and props["rebalance"]["default"] == "none" and props["format"]["default"] == "md"
 
 
+def test_catalog_check_script_passes_with_the_new_tool():
+    """`scripts/check_tool_catalog.py` 전체(페이지·표·수·릴리스 제목 짝)가 통과한다 — 수는 하드코딩하지 않는다."""
+    spec = importlib.util.spec_from_file_location("check_tool_catalog_main", ROOT / "scripts" / "check_tool_catalog.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.main() == 0
+
+
 # ── md ───────────────────────────────────────────────────────────────────────────
 
 def test_summary_markdown_has_the_tables_and_numbers(world, tool):
