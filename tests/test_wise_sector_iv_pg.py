@@ -549,3 +549,68 @@ def test_h3_writer_reads_wise_hist_as_observation(legacy, monkeypatch):
     assert rows[("20260821", "000080")][-2:] == ("carry", "20260731")        # 근거 = 과거 관측 스냅샷 날짜
     assert rows[("20260731", "000080")][-2:] == ("wise_hist", None)           # 과거 행은 그대로(다시 만들기가 지우지 않는다)
     assert set(_integrity(legacy).values()) == {0}
+
+
+def _hist_db(url):
+    """뷰 모드 DB + 과거 스냅샷 20260731 에 wise_hist 관측(000040: A) — 아래 h4~h6 의 공통 준비."""
+    _switch(url)
+    with psycopg.connect(url, autocommit=True) as c:
+        _hist_rows(c, [("20260731", 1)], [("000040", "20260731", "20260821", "h", A, None)])
+        _listed(c, "krx_weekly", "20260731", ["000040", "000050", "005930", "005935", "000045", "000070"])
+
+
+def _hist_row(url):
+    with psycopg.connect(url) as c:
+        return c.execute("SELECT sector_code, industry_code, src, src_ref FROM wise_sector "
+                         "WHERE snap_dd = '20260731' AND ticker = '000040'").fetchall()
+
+
+def test_h4_company_rows_never_overwrite_wise_hist(legacy):
+    """기업 화면 관측(오늘 화면의 분류)이 과거 백필 관측(wise_hist)을 덮으면 생존 편향이 과거로 소급된다 — 덮지 않는다."""
+    _hist_db(legacy)
+    with psycopg.connect(legacy) as con:
+        with S.sector_store(con) as T:
+            S.write_company_rows(con, "20260731", [("000040", *B, "wise_company", "20261022:반도체")], T)
+        con.commit()
+    assert _hist_row(legacy) == [("G25", "G2510", "wise_hist", None)]
+    assert set(_integrity(legacy).values()) == {0}
+
+
+def test_h5_company_only_treats_wise_hist_as_constituent(legacy, monkeypatch):
+    """`--company-only` 가 후보에서 빼는 구성종목에 wise_hist 도 든다 — 아니면 과거 스냅샷의 h 종목이 모두 화면 조회 후보가 된다."""
+    import asyncio
+    _hist_db(legacy)
+    monkeypatch.setenv("DATABASE_URL", legacy)
+    monkeypatch.delenv("WICS_DATABASE_URL", raising=False)
+    seen = {}
+
+    async def fake_rows(lookup, cands, cons, cmap):
+        seen["cands"], seen["cons"] = list(cands), set(cons)
+        return [], {}
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+    monkeypatch.setattr(S, "company_rows", fake_rows)
+    monkeypatch.setattr(S, "_company_report", lambda *a, **k: None)
+    monkeypatch.setattr(S, "_company_client", lambda: _Client())
+    monkeypatch.setattr(S, "load_company_map", lambda: {})
+    assert asyncio.run(S.company_only_db("20260731", dry_run=True)) == 0
+    assert "000040" in seen["cons"] and "000040" not in seen["cands"]
+    assert _hist_row(legacy) == [("G25", "G2510", "wise_hist", None)]
+
+
+def test_h6_recollecting_past_date_keeps_wise_hist(legacy, monkeypatch):
+    """과거 날짜를 다시 수집해도(월간 수집 수동 실행의 date 입력) 그 날의 wise_hist 행을 wise 로 바꾸지 않는다 — 출처 표시가 거짓이 된다."""
+    _hist_db(legacy)
+    monkeypatch.setenv("DATABASE_URL", legacy)
+    monkeypatch.delenv("WICS_DATABASE_URL", raising=False)
+    assert S.persist(_snapshot("2026-07-31", {"000040": B, "005930": B, "000070": C}))
+    assert _hist_row(legacy) == [("G25", "G2510", "wise_hist", None)]
+    with psycopg.connect(legacy) as c:     # 응답에 새로 있던 종목은 종전대로 관측으로 들어간다
+        assert c.execute("SELECT src FROM wise_sector WHERE snap_dd = '20260731' AND ticker = '005930'").fetchall() == [("wise",)]
+    assert set(_integrity(legacy).values()) == {0}

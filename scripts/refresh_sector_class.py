@@ -162,6 +162,9 @@ TABLE = "wise_sector"
 SRC_OBSERVED, SRC_CARRY, SRC_PREF, SRC_COMPANY = "wise", "carry", "pref", "wise_company"
 #: 월간 수집 시작 전 날짜를 공급처 과거 구성종목으로 뒤늦게 채운 관측(구간 표 출처 'h'). 이 수집기는 쓰지 않는다 — 다만 읽을 때 관측으로 본다.
 SRC_HISTORY = "wise_hist"
+#: 구성종목 응답이 이긴다고 보는 출처 — 오늘 화면 관측(`wise_company`)이 덮지 않고, `--company-only` 가 후보에서 빼는 종목의 출처.
+#: `wise_hist` 도 든다: 과거 구성종목 백필 행을 오늘 화면 분류가 덮으면 생존 편향이 과거로 소급된다.
+CONSTITUENT_SRCS = (SRC_OBSERVED, SRC_HISTORY)
 #: 관측 출처 — 다시 만들기(`derive_snapshot`)가 지우지 않고, 이어 쓰기·우선주의 바탕이 되는 행.
 OBSERVED_SRCS = (SRC_OBSERVED, SRC_COMPANY, SRC_HISTORY)
 #: 파생 출처 — 다시 만들기가 지우고 새로 만드는 행.
@@ -526,7 +529,7 @@ async def lookup_company_for_snapshot(snapshot: dict) -> list[tuple] | None:
 
 
 def write_company_rows(con, snap_dd: str, rows: list[tuple], table: str = TABLE) -> None:
-    """기업 화면 관측 행 업서트 — 구성종목 관측 행(`wise`)은 절대 덮지 않는다(그 날 구성종목 응답이 이긴다)."""
+    """기업 화면 관측 행 업서트 — 구성종목 관측 행(`wise`)과 과거 백필 행(`wise_hist`)은 절대 덮지 않는다(그 날 구성종목 응답이 이긴다)."""
     if not rows:
         return
     with con.cursor() as cur:
@@ -536,7 +539,7 @@ def write_company_rows(con, snap_dd: str, rows: list[tuple], table: str = TABLE)
             "ON CONFLICT (snap_dd, ticker) DO UPDATE SET "
             "sector_code=EXCLUDED.sector_code, sector=EXCLUDED.sector, industry_code=EXCLUDED.industry_code, "
             "industry=EXCLUDED.industry, src=EXCLUDED.src, src_ref=EXCLUDED.src_ref "
-            f"WHERE {table}.src <> '{SRC_OBSERVED}'",
+            f"WHERE {table}.src NOT IN ({', '.join(repr(x) for x in CONSTITUENT_SRCS)})",
             [(snap_dd, *r) for r in rows])
 
 
@@ -880,7 +883,9 @@ def persist(snapshot: dict, company: list[tuple] | None = None) -> bool:
                     "ON CONFLICT (snap_dd, ticker) DO UPDATE SET "
                     "sector_code=EXCLUDED.sector_code, sector=EXCLUDED.sector, "
                     "industry_code=EXCLUDED.industry_code, industry=EXCLUDED.industry, "
-                    "src=EXCLUDED.src, src_ref=NULL",
+                    "src=EXCLUDED.src, src_ref=NULL "
+                    # 과거 날짜 재수집이 과거 백필 행(wise_hist)의 출처를 wise 로 바꾸지 않는다(그 날 관측으로 보이게 되면 표시가 거짓이 된다).
+                    f"WHERE {T}.src <> '{SRC_HISTORY}'",
                     [(snap_dd, t, v["sectorCode"], v["sector"], v["industryCode"], v["industry"], SRC_OBSERVED)
                      for t, v in snapshot["data"].items()])
             # 기업 화면 관측 — 파생 행보다 먼저 넣어야 다시 만들기가 그 종목을 이어 쓰지 않고 우선주가 그 분류를 잇는다.
@@ -959,8 +964,8 @@ async def company_only_db(snap: str | None = None, dry_run: bool = False) -> int
                 print(f"기업 화면: {s} 이하 시세일 {price_dd} 의 상장 종목 {len(listed):,}개 — 상장 여부를 몰라 건너뜀", flush=True)
                 continue
             cons = {r[0]: tuple(r[1:]) for r in con.execute(
-                "SELECT ticker, sector_code, sector, industry_code, industry FROM wise_sector WHERE snap_dd = %s AND src = %s",
-                (s, SRC_OBSERVED))}
+                "SELECT ticker, sector_code, sector, industry_code, industry FROM wise_sector WHERE snap_dd = %s AND src = ANY(%s)",
+                (s, list(CONSTITUENT_SRCS)))}
             plan.append((s, cons, company_candidates(listed, set(cons))))
         con.commit()
     results = []
