@@ -808,7 +808,9 @@ def test_workflow_chains_prune_only_when_manifest_secret_and_switch_are_set():
     assert "vars.ECOS_RATE_COLD_MANIFEST" not in wf                                 # 서명 URL 이 변수로 새지 않는다
     flag = _step(steps, "비밀값이 있는지")
     assert "COLD_MANIFEST: ${{ secrets.ECOS_RATE_COLD_MANIFEST }}" in flag and "id: cold" in flag and "GITHUB_OUTPUT" in flag
-    assert "echo $COLD_MANIFEST" not in flag and 'echo "$COLD_MANIFEST"' not in flag          # 확인 단계는 값을 찍지 않고 있음/없음만 낸다
+    run = flag.split("run:", 1)[1]
+    assert 'if [ -n "$COLD_MANIFEST" ]; then echo "set=1" >> "$GITHUB_OUTPUT"; else echo "set=0" >> "$GITHUB_OUTPUT"; fi' in run   # 비밀값이 없으면(else) set=0 — 1 이면 지우기가 빈 --manifest 로 매일 빨갛게 끝난다
+    assert run.count("COLD_MANIFEST") == 1 and run.count("set=1") == 1 and run.count("set=0") == 1   # 값은 비었는지 보는 한 곳에만 쓰고, 꼴(echo·::debug::${…} 등)을 가리지 않고 찍지 않는다
 
 
 def test_workflow_says_loudly_when_prune_is_skipped():
