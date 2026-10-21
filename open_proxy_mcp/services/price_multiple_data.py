@@ -2670,6 +2670,26 @@ _SHARES_AROUND_SQL = (
     "(SELECT list_shrs FROM price_latest WHERE ticker=%s AND list_shrs>0 AND price_dd<=%s)")
 
 
+#: `_SHARES_AROUND_SQL` 의 묶음판 — 후보 이벤트 여럿의 앞뒤 상장주식 수를 **질의 하나**로 읽는다(이벤트마다 한 번씩 차례로 보내던 N+1 대체, 풀 왕복 바닥 약 10ms × N).
+#: `unnest` 로 (종목, 이벤트 날, 기간 끝, 순번) 행을 만들고 칸마다 같은 상관 부분질의를 낸다 — 판정(`share_ratio_for`·`_shares_match`)은 그대로다.
+_SHARES_AROUND_BATCH_SQL = (
+    "SELECT e.i, "
+    "(SELECT list_shrs FROM krx_weekly WHERE ticker=e.t AND price_dd<e.dd AND list_shrs>0 ORDER BY price_dd DESC LIMIT 1), "
+    "ARRAY(SELECT list_shrs FROM krx_weekly WHERE ticker=e.t AND price_dd>=e.dd AND price_dd<=e.en AND list_shrs>0 ORDER BY price_dd), "
+    "(SELECT list_shrs FROM price_latest WHERE ticker=e.t AND list_shrs>0 AND price_dd<=e.en) "
+    "FROM unnest(%s::text[], %s::text[], %s::text[], %s::int[]) AS e(t, dd, en, i)")
+
+
+async def _shares_around_many(items: list[tuple[str, str, str]]) -> dict[int, tuple]:
+    """(종목, 이벤트 날, 기간 끝) 여럿 → `{순번: (이벤트 앞 마지막 주 주식 수, [이벤트 뒤 주마다 주식 수], 일별 최신 주식 수)}` — DB 질의 1회.
+    읽기 실패(None)·행 없음은 빈 사전(종전 `_SHARES_AROUND_SQL` 이 비면 그 이벤트를 건너뛴 것과 같다)."""
+    if not items:
+        return {}
+    rows = await _db_rows(_SHARES_AROUND_BATCH_SQL,
+                          ([t for t, _d, _e in items], [d for _t, d, _e in items], [e for _t, _d, e in items], list(range(len(items)))))
+    return {int(r[0]): (r[1], list(r[2] or []), r[3]) for r in rows or []}
+
+
 async def _dps_events(ticker: str, after_dd: str) -> tuple[list[tuple] | None, dict[str, float]]:
     """DPS 주식 기준 맞춤(`dividend.align_dps_to_price`)의 입력 — (after_dd, 오늘] 기준가 조정 이벤트와, 확정 라벨이 아닌 조정의
     앞뒤 상장주식 수 배율(`dividend.share_ratio_for` — 계수의 역수에 가장 가까운 것). (261019 p1b·p1c)
@@ -2683,6 +2703,7 @@ async def _dps_events(ticker: str, after_dd: str) -> tuple[list[tuple] | None, d
         "SELECT event_dd, adj_factor, event_type, label_confidence, prev_close, base_price FROM krx_adj_events "
         "WHERE ticker=%s AND event_dd>%s AND adj_factor IS NOT NULL ORDER BY event_dd", (ticker, after_dd))
     ratios: dict[str, float] = {}
+    cands: list[tuple[str, float, str]] = []          # (이벤트 날, 계수, 기간 끝) — 후보를 먼저 모아 앞뒤 주식 수를 한 번에 읽는다
     for r in rows or []:
         dd, f, et, lab = str(r[0]), r[1], r[2], r[3]
         if not f or (et in DPS_SHARE_EVENT_TYPES and lab == "confirmed") or str(lab or "").startswith("excluded"):
@@ -2691,9 +2712,12 @@ async def _dps_events(ticker: str, after_dd: str) -> tuple[list[tuple] | None, d
             end = (datetime.strptime(dd[:8], "%Y%m%d") + timedelta(days=SHARE_LISTING_LAG_DAYS)).strftime("%Y%m%d")
         except ValueError:
             continue
-        sh = await _db_rows(_SHARES_AROUND_SQL, (ticker, dd, ticker, dd, end, ticker, end))
+        cands.append((dd, f, end))
+    got = await _shares_around_many([(ticker, dd, end) for dd, _f, end in cands])
+    for i, (dd, f, _end) in enumerate(cands):
+        sh = got.get(i)
         if sh:
-            pre, weekly, latest = sh[0][0], list(sh[0][1] or []), sh[0][2]
+            pre, weekly, latest = sh
             ratio = share_ratio_for(f, pre, weekly + ([latest] if latest else []))
             if ratio:
                 ratios[dd] = ratio
@@ -2717,16 +2741,20 @@ async def _unlabeled_share_events(tickers: list[str], after_dd: str, upto_dd: st
         rows = await _db_rows("SELECT ticker, event_dd, adj_factor, event_type, label_confidence FROM krx_adj_events "
                               "WHERE ticker = ANY(%s) AND event_dd > %s" + up + " AND " + UNLABELED_ADJ_SQL + " ORDER BY ticker, event_dd",
                               (list(tickers), after_dd, *( (upto_dd,) if upto_dd else () )))
+        cands: list[tuple[str, str, float, str]] = []     # (종목, 이벤트 날, 계수, 기간 끝) — 후보를 먼저 모아 앞뒤 주식 수를 질의 하나로 읽는다(N+1 → 1)
         for r in rows or []:
             t, dd, f = r[0], str(r[1]), r[2]
             try:
                 end = (datetime.strptime(dd[:8], "%Y%m%d") + timedelta(days=SHARE_LISTING_LAG_DAYS)).strftime("%Y%m%d")
             except ValueError:
                 continue
-            sh = await _db_rows(_SHARES_AROUND_SQL, (t, dd, t, dd, end, t, end))
+            cands.append((t, dd, f, end))
+        got = await _shares_around_many([(t, dd, end) for t, dd, _f, end in cands])
+        for i, (t, dd, f, _end) in enumerate(cands):
+            sh = got.get(i)
             if not sh:
                 continue
-            pre, weekly, latest = sh[0][0], list(sh[0][1] or []), sh[0][2]
+            pre, weekly, latest = sh
             ratio = share_ratio_for(f, pre, weekly + ([latest] if latest else []))
             if _shares_match(float(f), ratio):
                 out.setdefault(t, []).append({"event_dd": dd, "adj_factor": float(f), "shares_ratio": round(ratio, 4)})

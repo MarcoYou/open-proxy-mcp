@@ -154,8 +154,8 @@ def _run_firm(monkeypatch, *, unlabeled, shares_first=5_000_000_000, shares_late
             return []
         if "FROM krx_adj_events" in s:
             return state["unl_rows"] if "ORDER BY ticker, event_dd" in s else []        # 확정 라벨 계수 읽기는 비어 있다
-        if s.startswith("SELECT (SELECT list_shrs FROM krx_weekly"):
-            return [state["unl_shares"]]
+        if s.startswith("SELECT e.i,"):          # 후보 묶음 읽기(질의 하나) — 후보마다 같은 주식 수를 순번과 함께 돌려준다
+            return [(i, *state["unl_shares"]) for i in range(len(params[0]))]
         if "SELECT list_shrs FROM krx_weekly" in s and "ASC LIMIT 1" in s:
             return [(shares_first,)]
         if s == "SELECT list_shrs FROM price_latest WHERE ticker=%s AND list_shrs>0":
@@ -316,3 +316,39 @@ def test_without_a_confirmed_share_event_the_old_unresolved_reason_stays(monkeyp
     out, _ = _mark(monkeypatch, unl={})
     assert out["n_marked"] == 0 and "확정된 수정계수가 없다" in out["unresolved"][0]["reason"]
     assert out["listed_mkt_krw"] == out["listed_book_krw"] == 100_000_000, "미해결은 장부가 유지(종전 그대로)"
+
+
+# ═══ 후보 이벤트가 여럿이어도 주식 수 읽기는 질의 하나 (N+1 → 1) ═══════════════════════════════════════════════
+def test_candidate_events_read_the_surrounding_share_counts_in_one_query(monkeypatch):
+    """후보(라벨 없는 조정)가 셋이면 DB 읽기는 둘 — 후보 목록 1 + 앞뒤 상장주식 수 묶음 1. 종전은 1 + N(=3)이었다. 판정 결과는 같다."""
+    calls = []
+
+    async def fake(sql, params=()):
+        s = " ".join(sql.split())
+        calls.append(s)
+        if "FROM krx_adj_events" in s:
+            return [("U1", "20260728", 5.0, "merge", "unlabeled"), ("U2", "20260630", 0.5, "bonus", "dart"), ("U3", "20260828", 0.21, None, "unlabeled")]
+        if s.startswith("SELECT e.i,"):
+            assert params[0] == ["U1", "U2", "U3"] and params[1] == ["20260728", "20260630", "20260828"] and params[3] == [0, 1, 2]
+            return [(0, 1000, [200], None), (1, 1000, [2000], None), (2, 1000, [1000], None)]
+        return None
+    monkeypatch.setattr(S, "_db_rows", fake)
+    got = asyncio.run(S._unlabeled_share_events(["U1", "U2", "U3"], "20260101"))
+    assert len(calls) == 2
+    assert set(got) == {"U1", "U2"} and got["U1"][0]["shares_ratio"] == 0.2 and got["U2"][0]["shares_ratio"] == 2.0   # U3(배당락, 주식 수 그대로)는 안 잡는다
+
+
+def test_dps_events_also_batches_the_share_reads(monkeypatch):
+    calls = []
+
+    async def fake(sql, params=()):
+        s = " ".join(sql.split())
+        calls.append(s)
+        if "FROM krx_adj_events" in s:
+            return [("20260728", 5.0, "merge", "unlabeled", 1, 1), ("20260805", 0.2, None, None, 1, 1)]
+        if s.startswith("SELECT e.i,"):
+            return [(0, 1000, [200], None), (1, 1000, [5000], None)]
+        return None
+    monkeypatch.setattr(S, "_db_rows", fake)
+    rows, ratios = asyncio.run(S._dps_events("U1", "20260101"))
+    assert len(calls) == 2 and ratios == {"20260728": 0.2, "20260805": 5.0}
