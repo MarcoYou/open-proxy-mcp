@@ -666,6 +666,31 @@ async def ready(dataset: str, *, wait: float | None = None) -> Ready | ColdError
                  cov["min_dd"], cov["max_dd"], entry["sha256"])
 
 
+async def settled_max_dd(dataset: str, *, wait: float | None = None, now: float | None = None) -> str | None:
+    """DB 행을 지워도 되는 콜드 끝 날 — 그 데이터셋 서빙본의 `coverage.max_dd`. 단 그 판이 **발행된 지**(파일 항목 `built_at`)
+    `OPM_COLD_MANIFEST_MAX_AGE_SEC`(기본 72시간)보다 오래됐을 때만 돌려준다. 아니면 None(지우지 않는다).
+
+    261021(P0 지수 종가 3년 밖 정리). 어느 서버든 그보다 묵은 목록은 쓰지 않으므로, 발행 뒤 그만큼 기다리면 모든 서버가 새 coverage 를 본다
+    (머리말 「DB 롤링은 새 coverage 발행 뒤 이 시간보다 오래 기다린다」). 꺼짐·목록을 못 읽음·데이터셋 없음·`built_at` 없음·모양이 어긋남 → None.
+    파일은 받지 않는다(목록만 본다)."""
+    if not enabled():
+        return None
+    try:
+        m = await _manifest(_wait_sec() if wait is None else wait)
+        _, entry = _dataset_entry(m, dataset)
+        built = _dt.datetime.fromisoformat(str(entry.get("built_at") or ""))
+    except (ColdError, ValueError):
+        return None
+    except Exception:                                     # noqa: BLE001 — 무엇이든 「지우지 않는다」로
+        return None
+    if built.tzinfo is None:
+        return None                                       # 시간대 없는 시각은 믿지 않는다(발행기는 UTC 로 적는다)
+    age = (time.time() if now is None else now) - built.timestamp()
+    if age < _max_age_sec():
+        return None
+    return entry["coverage"]["max_dd"]
+
+
 def _read_sync(r: Ready, cols: tuple[str, ...], key_value: str, lo: str, hi: str) -> list[tuple]:
     sel = ", ".join(cols)
     con = sqlite3.connect(f"file:{quote(r.path)}?mode=ro&immutable=1", uri=True, check_same_thread=False)
