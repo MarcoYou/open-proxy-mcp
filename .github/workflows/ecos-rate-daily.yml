@@ -1,0 +1,81 @@
+# 무위험 금리 일별 갱신 — scripts/ecos_rate_daily.py (cron)
+#
+# ECOS(한국은행) 시장금리 일별(CD91·KOFR·국고채 1년·3년)과 기준금리를 표 `ecos_rate` 의 3년 창으로 받는다. 성과 분석이 무위험 수익률을 낼 때 읽는다.
+# 시장금리는 하루 늦게 올라온다 — 마지막 날짜가 어제다. 최근 30일은 매번 다시 받아 옛 값과 비교한다(원천 정정은 드물다).
+#
+# **DB 쓰기는 저장소 변수 ECOS_RATE_WRITE=1 이 있어야 한다.** 꺼져 있으면 받아서 계획만 낸다(표가 아직 없어도 정상 종료).
+#   표(scripts/ecos_rate_ddl.py)를 만들고 백필을 확인한 뒤 변수를 켠다: gh variable set ECOS_RATE_WRITE --body 1
+# 콜: ECOS 5/일(계열당 1). DART 0 · KRX 0. 표를 처음 채울 때만 같은 5콜이 창 전체(기준금리는 1999~)를 받는다.
+# 창 밖 지우기(prune)는 일별 실행에 없다 — 수동 실행에서 보관본 coverage·발행 시각을 주고 가드를 통과해야만 한다(스크립트 머리 참조).
+# 필요 secrets: DATABASE_URL, ECOS_API_KEY (finstat-quarterly.yml 의 환율 환산과 같은 키)
+
+name: ecos-rate-daily
+
+on:
+  schedule:
+    # 매일 02:17 UTC = KST 11:17. 시장금리는 전 거래일 값이 그날 아침에 올라온다. 주말·휴일에도 돈다 —
+    #   늦게 올라온 값은 다음 실행이 메운다(최신 행 − 3일부터 따라잡는다). 이미 최신이면 아무것도 쓰지 않는다.
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "이 날(YYYYMMDD)부터 받는다 (비우면 최근 30일 / 표가 비었으면 창 전체)"
+        required: false
+      dry_run:
+        description: "쓰기 스위치가 켜져 있어도 쓰지 않고 계획만"
+        type: boolean
+        default: false
+      prune:
+        description: "받지 않고 창 밖 행을 지운다 — 아래 두 칸이 모두 필요하다"
+        type: boolean
+        default: false
+      cold_coverage_max:
+        description: "prune: 보관본(ecos_rate_hist) coverage 끝 YYYYMMDD"
+        required: false
+      cold_published_at:
+        description: "prune: 보관본 발행 시각 (예 2026-10-20T00:00:00+00:00, 72시간 지나야 한다)"
+        required: false
+
+permissions:
+  contents: read     # 커밋백 없음 — DB 에만 쓴다
+
+concurrency:
+  group: ecos-rate-daily
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.12.13"  # 260909 CI 실패 방지 — 정확한 버전은 버전 목록 조회를 건너뛴다. 올릴 때 다른 워크플로와 함께
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: 금리 받기 · 옛 값과 비교 · 적재 (스위치가 꺼져 있으면 계획만)
+        # 산출물 확인(계열마다 최신 행이 오늘 근처인지)은 스크립트가 쓴 직후에 한다 — 성공 표시가 아니라 표의 내용으로 끝난다.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ECOS_API_KEY: ${{ secrets.ECOS_API_KEY }}
+          ECOS_RATE_WRITE: ${{ vars.ECOS_RATE_WRITE }}
+          # 입력은 환경 변수로만 넘긴다 — 셸 명령줄에 직접 끼워 넣지 않는다
+          IN_SINCE: ${{ inputs.since }}
+          IN_DRY: ${{ inputs.dry_run }}
+          IN_PRUNE: ${{ inputs.prune }}
+          IN_COLD_MAX: ${{ inputs.cold_coverage_max }}
+          IN_COLD_AT: ${{ inputs.cold_published_at }}
+        run: |
+          args=()
+          if [ "$IN_PRUNE" = "true" ]; then
+            args+=(--prune --cold-coverage-max "$IN_COLD_MAX" --cold-published-at "$IN_COLD_AT")
+          elif [ -n "$IN_SINCE" ]; then
+            args+=(--since "$IN_SINCE")
+          fi
+          if [ "$IN_DRY" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          uv run python scripts/ecos_rate_daily.py "${args[@]}"
