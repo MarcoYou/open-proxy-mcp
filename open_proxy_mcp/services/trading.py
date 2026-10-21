@@ -45,6 +45,9 @@ from open_proxy_mcp.services.price_multiple_data import (
     _read_weekly,
     _resolve_listed,
     _weekly_bounds,
+    COLD_CAP_AGG,
+    _read_agg,
+    agg_degraded_note,
 )
 from open_proxy_mcp.krx_retention import COLD_DEGRADED_NOTE, weekly_cold_note   # 261019 콜드 서빙(3년 하한 이전 주간 곡선)
 
@@ -392,7 +395,10 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     if scheme == "market":
         sql = ("SELECT price_dd, market, cap, n FROM krx_cap_agg WHERE scheme='market'"
                + (" AND price_dd>=%s" if since else "") + " ORDER BY price_dd, market")
-        rows = await asyncio.to_thread(_pg_rows, sql, (since,) if since else ())
+        # 261021: 3년 이음매(S) 이전은 서빙본(`krx_cap_agg_hist`, 열쇠 scheme)에서 — 꺼짐·필요 없음이면 종전 질의 그대로(`_read_agg`).
+        rows, span = await _read_agg(COLD_CAP_AGG, "market", since,
+                                     asyncio.to_thread(_pg_rows, sql, (since,) if since else ()),
+                                     ("price_dd", "market", "cap", "n"), order=lambda x: (x[0], x[1]))
         if rows is None:
             if not _db_configured():
                 return await _market_live_fallback()
@@ -412,7 +418,8 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
                          "method": "Σ시총 = 그 날 상장된 **전 종목**(우선주 포함) 합 — KRX 공표 시총과 "
                                    "같은 모집단. `price_multiple_data` 의 Σ시총(배수 분자)은 재무를 "
                                    "가진 종목만이라 3~4% 작습니다. 두 값은 서로 다른 질문의 답입니다."},
-                "warnings": [f"주간 스냅샷 기준(최신 {as_of}) — 주 마지막 거래일."]}
+                "warnings": [f"주간 스냅샷 기준(최신 {as_of}) — 주 마지막 거래일.",
+                             *filter(None, [agg_degraded_note(span, full[0]["asof"])])]}
 
     # ── 섹터 ──
     # 최신일 조회와 스냅샷 조회를 **한 왕복**으로 합친다. `_pg_rows` 는 공용 커넥션 풀(`db.pg_rows`, 머신당 5커넥션)에서 연결을 빌린다 —
@@ -436,6 +443,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     sector_asof = snap[0][5]
 
     series: list[dict] = []
+    cold_note = None
     if bucket:
         want = bucket.strip()
         match = next((b for b in buckets
@@ -452,12 +460,19 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
         sql = ("SELECT price_dd, market, cap, n FROM krx_cap_agg WHERE scheme=%s AND bucket=%s"
                + (" AND price_dd>=%s" if since else "") + " ORDER BY price_dd, market")
         args = (_db_scheme(scheme), code, since) if since else (_db_scheme(scheme), code)
-        series = _downsample([{"asof": r[0], "market": r[1], "cap_krw": r[2], "n": r[3]}
-                              for r in (await asyncio.to_thread(_pg_rows, sql, args) or [])],
+        # 261021: 3년 이음매(S) 이전은 서빙본에서 — 열쇠 scheme 한 번 읽고 버킷은 여기서 거른다(wics_industry 3년 밖 최대 약 2.3만 행).
+        b_rows, b_span = await _read_agg(COLD_CAP_AGG, _db_scheme(scheme), since, asyncio.to_thread(_pg_rows, sql, args),
+                                         ("price_dd", "market", "cap", "n", "bucket"),
+                                         pick=lambda x, _c=code: x[:4] if x[4] == _c else None, order=lambda x: (x[0], x[1]))
+        b_rows = b_rows or []
+        cold_note = agg_degraded_note(b_span, b_rows[0][0] if b_rows else None)
+        series = _downsample([{"asof": r[0], "market": r[1], "cap_krw": r[2], "n": r[3]} for r in b_rows],
                              (freq or _FREQ_DEFAULT["sector"]).strip().lower())
         bucket = match["label"]
 
     warns = [f"주간 스냅샷 기준(최신 {as_of})."]
+    if cold_note:
+        warns.append(cold_note)
     if sector_asof and sector_asof > as_of:
         warns.append(f"⚠ 업종분류는 {sector_asof} 관측을 과거에 **소급** 적용한 것입니다 "
                      "— 그때 그 업종이 아니었던 회사가 섞입니다.")

@@ -1,10 +1,10 @@
-"""krx_cap_agg — 하한 이전 업종 행을 콜드 서빙본으로 다시 집계(`--cold-sqlite`, 261019).
+"""krx_cap_agg — 하한 이전 시장·업종 행을 콜드 서빙본으로 다시 집계(`--cold-sqlite`, 261019 · 261021 출력 = Parquet).
 
-DB krx_weekly 는 하한 이전을 종목별 연말 행만 남겨, 업종분류 보강(261018)을 하한 이후만 반영하고 하한 이전은 보강 전 값으로 남았다
-(섹터 시계열이 20231016 앞뒤로 계단). 콜드 서빙본은 하한 이전 전 행이라 그 구간을 지금 규칙으로 다시 낼 수 있다.
+DB krx_weekly 는 하한 이전을 종목별 연말 행만 남기고, 집계 표도 3년 밖 행은 콜드 보관본으로 옮긴다(서버는 서빙본에서 읽는다).
+콜드 서빙본은 하한 이전 전 행이라 그 구간을 지금 규칙으로 다시 낼 수 있다.
   · 규칙은 Q_SECTOR 와 같다 — mktcap > 0, 그 날짜 이하 최신 스냅샷(없으면 가장 이른 것), 분류 없음 = _UNCLASSIFIED/「미분류」.
-  · 다시 낸 시장 행이 저장분과 하나라도 다르면 거절(원천 확인) — 아무것도 쓰지 않는다.
-  · 시장 행·하한 이후 행은 건드리지 않고, 기본은 대조만(--apply 로 쓴다).
+  · 다시 낸 시장 행이 대조 기준(DB 에 남은 하한 이전 행, 없으면 --baseline-parquet)과 하나라도 다르면 거절 — 아무것도 쓰지 않는다.
+  · 결과는 DB 에 쓰지 않는다 — `--out` Parquet(칸 = 표). 없으면 대조만.
 Postgres 시험은 Docker 가 없으면 건너뛴다(`tests/conftest.py` 의 `pg17`).
 """
 from __future__ import annotations
@@ -78,31 +78,60 @@ def _run(monkeypatch, *argv):
     return C.main()
 
 
-def test_cold_reclass_compares_then_applies_only_before_cutoff_sector_rows(cdb, monkeypatch, capsys):
+def _parquet(path):
+    from scripts import hist_parquet
+    return {tuple(r[:4]): tuple(r[4:]) for r in hist_parquet.read(
+        path, ["price_dd", "market", "scheme", "bucket", "n", "cap", "label", "sector_asof"])}
+
+
+def test_cold_rebuild_writes_parquet_and_never_the_db(cdb, monkeypatch, capsys, tmp_path):
     url, sqlite_path = cdb
     before = _rows(url)
     assert _run(monkeypatch, "--cold-sqlite", sqlite_path) == 0                     # 기본은 대조만
-    assert _rows(url) == before
     assert "대조만" in capsys.readouterr().out
-    assert _run(monkeypatch, "--cold-sqlite", sqlite_path, "--apply") == 0
-    after = _rows(url)
-    assert {k: v for k, v in after.items() if k[2] == "market" or k[0] >= "20231016"} == \
-           {k: v for k, v in before.items() if k[2] == "market" or k[0] >= "20231016"}   # 시장 행·하한 이후는 그대로
-    assert after[("20221229", "KS", "wics_sector", "G20")] == (1, 50, "산업재", "20260821")  # 미분류였던 B 가 제 업종으로
-    assert ("20221229", "KS", "wics_sector", "_UNCLASSIFIED") not in after
-    assert after[("20230106", "KQ", "wics_industry", "G4530")] == (1, 40, "반도체", "20260821")
+    out = tmp_path / "out" / "krx_cap_agg_hist.parquet"
+    assert _run(monkeypatch, "--cold-sqlite", sqlite_path, "--out", str(out)) == 0
+    assert _rows(url) == before                                                       # DB 는 그대로(261021 — DB 쓰기 없음)
+    got = _parquet(out)
+    assert {k[0] for k in got} == {"20221229", "20230106"}                            # 하한 이전만
+    assert got[("20221229", "KS", "market", "_ALL")] == (2, 150, "전체", None)         # 시장 행도 담는다(대조 기준과 같은 값)
+    assert got[("20221229", "KS", "wics_sector", "G20")] == (1, 50, "산업재", "20260821")  # 미분류였던 B 가 제 업종으로
+    assert ("20221229", "KS", "wics_sector", "_UNCLASSIFIED") not in got
+    assert got[("20230106", "KQ", "wics_industry", "G4530")] == (1, 40, "반도체", "20260821")
     for dd in ("20221229", "20230106"):                                                # 업종 합 = 시장 합
         for m in ("KS", "KQ"):
-            mk = after[(dd, m, "market", "_ALL")]
+            mk = got[(dd, m, "market", "_ALL")]
             for scheme in ("wics_sector", "wics_industry"):
-                parts = [v for k, v in after.items() if k[:3] == (dd, m, scheme)]
+                parts = [v for k, v in got.items() if k[:3] == (dd, m, scheme)]
                 assert (sum(v[0] for v in parts), sum(v[1] for v in parts)) == mk[:2]
+    assert "DB 쓰기 없음" in capsys.readouterr().out
 
 
-def test_cold_reclass_refuses_when_market_rows_do_not_match(cdb, monkeypatch, tmp_path, capsys):
+def test_cold_rebuild_refuses_when_market_rows_do_not_match(cdb, monkeypatch, tmp_path, capsys):
     url, _ = cdb
     other = build_cold_serving(tmp_path / "other", COLD[:-1], upto="20231016")         # 한 종목이 빠진 원천 — 시장 행이 다르다
-    before = _rows(url)
-    assert _run(monkeypatch, "--cold-sqlite", str(other["sqlite_path"]), "--apply") == 2
-    assert _rows(url) == before
+    out = tmp_path / "x.parquet"
+    assert _run(monkeypatch, "--cold-sqlite", str(other["sqlite_path"]), "--out", str(out)) == 2
+    assert not out.exists()
     assert "거절" in capsys.readouterr().err
+
+
+def test_cold_rebuild_after_the_move_uses_the_baseline_parquet(cdb, monkeypatch, tmp_path, capsys):
+    """옮긴 뒤(DB 에 하한 이전 행이 없다) — 대조 기준은 지금 보관본 Parquet. 기준이 없으면 거절한다."""
+    url, sqlite_path = cdb
+    base = tmp_path / "base.parquet"
+    assert _run(monkeypatch, "--cold-sqlite", sqlite_path, "--out", str(base)) == 0
+    with psycopg.connect(url, autocommit=True) as c:
+        c.execute("DELETE FROM krx_cap_agg WHERE price_dd < '20231016'")
+    capsys.readouterr()
+    assert _run(monkeypatch, "--cold-sqlite", sqlite_path, "--out", str(tmp_path / "y.parquet")) == 2
+    assert "대조 기준이 없다" in capsys.readouterr().err
+    assert _run(monkeypatch, "--cold-sqlite", sqlite_path, "--baseline-parquet", str(base),
+                "--out", str(tmp_path / "z.parquet")) == 0
+    assert _parquet(tmp_path / "z.parquet") == _parquet(base)
+
+
+def test_out_requires_cold_sqlite(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["krx_cap_agg.py", "--out", "x.parquet"])
+    with pytest.raises(SystemExit):
+        C.main()

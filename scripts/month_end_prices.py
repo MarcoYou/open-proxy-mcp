@@ -40,6 +40,17 @@ COLD_APP_ID = 0x4F504D43
 #: 배수를 낸 회사 시총 ÷ 재무가 하나라도 있는 회사 시총 이 이보다 작으면 그 배수를 비운다.
 MIN_COVER = 0.5
 
+#: 261021: 두 배수 백필이 보존 하한 이전 월말을 DB 대신 내보내는 Parquet 의 칸(`--hist-out`, `scripts/hist_parquet.py`) — `opm_val_market` 의
+#: 같은 이름 칸. DB 에는 3년 창(하한 이후)만 쓰고, 하한 이전은 콜드 보관본 몫이다(서버는 서빙본 `opm_val_market_hist` 에서 읽는다).
+HIST_COLS = [("snap_dd", "VARCHAR"), ("market", "VARCHAR"), ("scheme", "VARCHAR"), ("sector", "VARCHAR"), ("label", "VARCHAR"),
+             ("n", "INTEGER"), ("cap", "DOUBLE"), ("per_fy0", "DOUBLE"), ("pbr_fy0", "DOUBLE"), ("per_ttm", "DOUBLE"),
+             ("pbr_mrq", "DOUBLE"), ("ni_fy0", "DOUBLE"), ("ni_ttm", "DOUBLE")]
+
+
+def split_window(months: list[str], cutoff: str) -> tuple[list[str], list[str]]:
+    """(DB 에 쓸 월말 = 하한 이후, 하한 이전 월말). DB 에는 3년 창만 쓴다(261021)."""
+    return [d for d in months if d >= cutoff], [d for d in months if d < cutoff]
+
 
 def covered(cap_metric: float, cap_any: float, min_cover: float | None = None) -> bool:
     """그 배수를 낸 회사들의 시총(`cap_metric`)이 버킷 시총(`cap_any` — 재무가 하나라도 있어 버킷에 센 회사)의 `min_cover`(기본 `MIN_COVER`) 이상인가."""
