@@ -477,3 +477,75 @@ def test_v15_switch_g2_stops_when_view_column_type_differs(legacy, monkeypatch):
     with pytest.raises(psycopg.errors.RaiseException, match=r"G2 관문 실패.*\bcol_types="):
         _switch(legacy)
     assert _kind(legacy) == "r" and _rows(legacy) == before
+
+
+# ── 과거 구성종목 백필 출처 'h'(wise_hist) — 3년 창 이력 적재(P1-a)가 쓴다 ─────────────────────────────
+
+def _hist_rows(c, snaps, ivs):
+    """과거 스냅샷 날짜 목록과 구간을 직접 넣는다(적재 스크립트가 하는 일의 최소판). ivs = (ticker, 시작, 끝|None, 출처 글자, 분류, src_ref)."""
+    c.execute("INSERT INTO krx_ticker (ticker) SELECT t FROM unnest(%s::text[]) t WHERE NOT EXISTS "
+              "(SELECT 1 FROM krx_ticker k WHERE k.ticker = t) ORDER BY 1", ([i[0] for i in ivs],))
+    for dd, n in snaps:
+        c.execute("INSERT INTO wise_sector_snap (snap, dd, n) VALUES (to_date(%s, 'YYYYMMDD'), %s, %s)", (dd, dd, n))
+    for t, a, b, src, cls, ref in ivs:
+        c.execute("INSERT INTO wise_sector_iv (tid, valid_from, valid_to, src, sector_code, sector, industry_code, industry, src_ref) "
+                  "SELECT tid, to_date(%s, 'YYYYMMDD'), to_date(%s, 'YYYYMMDD'), %s::\"char\", %s, %s, %s, %s, %s FROM krx_ticker WHERE ticker = %s",
+                  (a, b, src, *cls, ref, t))
+
+
+def test_h1_hist_src_in_full_schema(pg17):
+    _base(pg17, legacy=False)
+    with psycopg.connect(pg17, autocommit=True) as c:
+        c.execute(D.body("full"))
+        _hist_rows(c, [("20260731", 2)], [("000040", "20260731", None, "h", A, None), ("005930", "20260731", None, "C", B, "20260630")])
+        assert c.execute("SELECT ticker, src, src_ref FROM wise_sector ORDER BY ticker").fetchall() == [
+            ("000040", "wise_hist", None), ("005930", "carry", "20260630")]
+        with pytest.raises(psycopg.errors.CheckViolation):
+            c.execute("INSERT INTO wise_sector_iv (tid, valid_from, src, sector_code, sector, industry_code, industry) "
+                      "SELECT tid, '2026-07-31', 'x', 'G1', 's', 'G11', 'i' FROM krx_ticker WHERE ticker = '000050'")
+        # 같은 분류라도 W 와 h 는 구간을 합치지 않는다(관측 출처가 다르다) — 접기 확인이 덜 접힘으로 보지 않는다
+        c.execute("INSERT INTO wise_sector_snap (snap, dd, n) VALUES ('2026-08-21', '20260821', 1)")
+        c.execute("UPDATE wise_sector_iv SET valid_to = '2026-08-21' WHERE src = 'h'")
+        c.execute("INSERT INTO wise_sector_iv (tid, valid_from, src, sector_code, sector, industry_code, industry) "
+                  "SELECT tid, '2026-08-21', 'W', %s, %s, %s, %s FROM krx_ticker WHERE ticker = '000040'", A)
+    assert {k: v for k, v in _integrity(pg17).items() if k in ("iv_overlap", "iv_unmerged")} == {"iv_overlap": 0, "iv_unmerged": 0}
+
+
+def test_h2_hist_src_migration_on_already_switched_db(legacy):
+    """E1 이 'h' 없이 먼저 적용된 DB — --hist-src 가 CHECK 와 뷰 대응만 넓히고(행·권한 그대로) 두 번 돌려도 된다."""
+    _switch(legacy)
+    old_view = D.VIEW.replace(' WHEN \'h\' THEN \'wise_hist\'', '')
+    assert old_view != D.VIEW
+    with psycopg.connect(legacy, autocommit=True) as c:        # 'h' 를 모르는 옛 정의로 되돌려 둔다
+        c.execute("ALTER TABLE wise_sector_iv DROP CONSTRAINT wise_sector_iv_src_ck")
+        c.execute("ALTER TABLE wise_sector_iv ADD CONSTRAINT wise_sector_iv_src_ck CHECK (src IN ('W', 'K', 'C', 'P'))")
+        c.execute(old_view)
+    before = _rows(legacy)
+    with psycopg.connect(legacy) as c:        # 한 트랜잭션 — 막히면 날짜 목록 행도 남지 않는다
+        with pytest.raises(psycopg.errors.CheckViolation):
+            _hist_rows(c, [("20260731", 1)], [("000040", "20260731", "20260821", "h", A, None)])
+    D.apply(legacy, "hist-src")
+    D.apply(legacy, "hist-src")            # 멱등
+    with psycopg.connect(legacy, autocommit=True) as c:
+        _hist_rows(c, [("20260731", 1)], [("000040", "20260731", "20260821", "h", A, None)])
+        assert D.relkind(c) == "v"
+        c.execute("SET ROLE opm_ro")
+        assert c.execute("SELECT src FROM wise_sector WHERE snap_dd = '20260731'").fetchall() == [("wise_hist",)]
+        c.execute("RESET ROLE")
+    assert [r for r in _rows(legacy) if r[0] != "20260731"] == before
+    assert set(_integrity(legacy).values()) == {0}
+
+
+def test_h3_writer_reads_wise_hist_as_observation(legacy, monkeypatch):
+    """과거 스냅샷(wise_hist)에 있던 종목이 첫 실제 스냅샷 응답에서 빠졌으면 이어 쓰기가 그 과거 날짜를 근거로 잇는다 — 관측으로 본다."""
+    _switch(legacy)
+    with psycopg.connect(legacy, autocommit=True) as c:
+        _hist_rows(c, [("20260731", 2)], [("000080", "20260731", "20260821", "h", A, None), ("000040", "20260731", "20260821", "h", A, None)])
+        _listed(c, "krx_weekly", "20260821", ["000040", "000050", "000060", "005930", "005935", "000045", "000070", "000080"])
+    monkeypatch.setenv("DATABASE_URL", legacy)
+    monkeypatch.delenv("WICS_DATABASE_URL", raising=False)
+    assert S.rederive_db(dry_run=False) == 0
+    rows = {(r[0], r[1]): r[2:] for r in _rows(legacy)}
+    assert rows[("20260821", "000080")][-2:] == ("carry", "20260731")        # 근거 = 과거 관측 스냅샷 날짜
+    assert rows[("20260731", "000080")][-2:] == ("wise_hist", None)           # 과거 행은 그대로(다시 만들기가 지우지 않는다)
+    assert set(_integrity(legacy).values()) == {0}
