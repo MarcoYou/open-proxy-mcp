@@ -122,6 +122,195 @@ def test_fetch_passes_dates_and_reads_reach(monkeypatch):
     monkeypatch.setattr(fe, "pg_rows", fake)
     g = fe.quarter_consensus_gap("005930", "2026-09-30", "20261008", SAMSUNG_ACTUAL, True)
     assert g["status"] == "ok" and g["as_of"] == "2026-09-26"
-    assert len(seen) == 1                                                  # 질의 하나
-    assert seen[0][1] == ("005930", dt.date(2026, 9, 30), 364, dt.date(2026, 10, 8), 364)   # 창 안만(52주 + 기준일) · 공시일
-    assert "period_type='Q'" in seen[0][0] and "EXISTS" in seen[0][0]
+    assert len(seen) == 1                                               # 질의 하나(UNION ALL)
+    assert seen[0][1] == ("005930", dt.date(2026, 9, 30), 364, dt.date(2026, 10, 8), 364)  # 창 안만(52주 + 기준일)
+    assert "period_type='Q'" in seen[0][0] and "UNION ALL" in seen[0][0]
+
+
+# ── 지표 칸 ───────────────────────────────────────────────────────────────────
+def test_metric_missing_on_either_side_says_why():
+    rows = [_snap("2026-10-10", rev=None, op=30, ni=7)]      # 한진 10-10 꼴: 매출·순이익 칸이 비었다
+    g = _gap({"revenue": 889.8, "operating_profit": 32.6, "net_income_controlling": None},
+             filed="20261012", rows=rows)
+    m = g["metrics"]
+    assert g["status"] == "ok"
+    assert "비어 있다" in m["revenue"]["why"] and "gap_pct" not in m["revenue"]
+    assert m["operating_profit"]["gap_pct"] == 8.67
+    assert "지배주주순이익" in m["net_income_controlling"]["why"]
+
+
+def test_nothing_overlaps_is_not_comparable():
+    rows = [_snap("2026-10-10", op=30)]
+    g = _gap({"revenue": 100}, filed="20261012", rows=rows)
+    assert g["status"] == "not_comparable" and "함께 있는 지표" in g["why"]
+
+
+def test_loss_consensus_keeps_direction_and_warns():
+    rows = [_snap("2026-10-10", op=-20)]
+    g = _gap({"operating_profit": 10}, filed="20261012", rows=rows)
+    c = g["metrics"]["operating_profit"]
+    assert c["gap_pct"] == 150.0 and c["diff_krw"] == 30 and "방향만" in c["gap_caveat"]
+
+
+def test_zero_consensus_has_diff_but_no_pct():
+    rows = [_snap("2026-10-10", op=0)]
+    c = _gap({"operating_profit": 10}, filed="20261012", rows=rows)["metrics"]["operating_profit"]
+    assert c["diff_krw"] == 10 and "gap_pct" not in c
+
+
+def test_stale_snapshot_gets_caveat():
+    rows = [_snap("2026-09-12", rev=100)]
+    g = _gap({"revenue": 100}, filed="20261008", rows=rows)
+    assert g["lag_days"] == 26 and any("26일 전" in c for c in g["caveats"])
+
+
+# ── ④ DB 전에 거르기 ──────────────────────────────────────────────────────────
+def _parsed(**kw):
+    base = {"kind": "financial", "period_kind": "quarter", "cumulative": False, "consolidated": True,
+            "period": {"start": "2026-07-01", "end": "2026-09-30"},
+            "headline": {"revenue": {"value_krw": 195 * JO}, "operating_profit": {"value_krw": 107.4 * JO}}}
+    base.update(kw)
+    return base
+
+
+def test_gating_before_db():
+    assert pe._gap_not_applicable(_parsed(), "005930") is None
+    cases = {
+        "월간": (_parsed(period_kind="month"), "005930", "not_comparable"),
+        "연간": (_parsed(period_kind="annual"), "005930", "not_comparable"),
+        "누적": (_parsed(cumulative=True), "005930", "not_comparable"),
+        "비재무": (_parsed(kind="non_financial"), "005380", "not_comparable"),
+        "종목코드 없음": (_parsed(), "", "out_of_coverage"),
+        "기간 모름": (_parsed(period_kind=None, period=None), "005930", "unknown"),
+    }
+    for name, (parsed, code, status) in cases.items():
+        got = pe._gap_not_applicable(parsed, code)
+        assert got and got["status"] == status, name
+
+
+def _capture(monkeypatch, ret=None):
+    seen = {}
+
+    def fake(stock_code, period_end, filed, actual, consolidated):
+        seen.update(stock_code=stock_code, period_end=period_end, filed=filed, actual=actual,
+                    consolidated=consolidated)
+        return dict(ret or {"status": "ok", "as_of": "2026-09-26"})
+
+    monkeypatch.setattr(fe, "quarter_consensus_gap", fake)
+    return seen
+
+
+def test_monthly_filing_never_queries(monkeypatch):
+    seen = _capture(monkeypatch)
+    g = asyncio.run(pe._consensus_gap(_parsed(period_kind="month"), "004170", "20261008"))
+    assert g["status"] == "not_comparable" and seen == {}
+
+
+def test_separate_net_income_stands_in_for_controlling(monkeypatch):
+    seen = _capture(monkeypatch)
+    head = {"revenue": {"value_krw": 100}, "net_income": {"value_krw": 9}}
+    asyncio.run(pe._consensus_gap(_parsed(consolidated=False, headline=head), "000001", "20261015"))
+    assert seen["actual"]["net_income_controlling"] == 9 and seen["consolidated"] is False
+
+
+def test_consolidated_net_income_is_not_used_as_controlling(monkeypatch):
+    seen = _capture(monkeypatch)
+    head = {"revenue": {"value_krw": 100}, "net_income": {"value_krw": 9}}
+    asyncio.run(pe._consensus_gap(_parsed(headline=head), "000001", "20261015"))
+    assert seen["actual"]["net_income_controlling"] is None
+    assert seen["period_end"] == "2026-09-30" and seen["filed"] == "20261015"
+
+
+def test_correction_filing_gets_caveat(monkeypatch):
+    _capture(monkeypatch)
+    g = asyncio.run(pe._consensus_gap(_parsed(correction=True), "005930", "20261020"))
+    assert any("정정 공시" in c for c in g["caveats"])
+
+
+# ── ⑤ 원문은 그대로 · 실패해도 잠정 실적은 나간다 ─────────────────────────────
+_HTML = """<html><body>
+<p>연결재무제표 기준 영업(잠정)실적(공정공시)</p><p>2026-07-01 ~ 2026-09-30</p>
+<table>
+<tr><td>1. 연결실적내용</td><td></td><td></td><td></td><td>단위 : 억원, %</td></tr>
+<tr><td>구분</td><td>구분</td><td>당기실적</td><td>전기실적</td><td>전기대비 증감율(%)</td><td>흑자적자전환여부</td>
+<td>전년동기실적</td><td>전년동기대비 증감율(%)</td><td>흑자적자전환여부</td></tr>
+<tr><td>매출액</td><td>당해실적</td><td>4,399</td><td>4,200</td><td>4.7</td><td>-</td><td>4,100</td><td>7.3</td><td>-</td></tr>
+<tr><td>영업이익</td><td>당해실적</td><td>48</td><td>60</td><td>-20.0</td><td>-</td><td>70</td><td>-31.4</td><td>-</td></tr>
+</table></body></html>"""
+
+
+class _Client:
+    async def search_filings(self, **kw):
+        if kw.get("pblntf_detail_ty") != "I002":
+            return {"list": []}
+        return {"list": [{"rcept_no": "20261016800456", "rcept_dt": "20261016",
+                          "report_nm": "연결재무제표기준영업(잠정)실적(공정공시)"}]}
+
+    async def get_document_cached(self, rcept_no):
+        return {"html": _HTML}
+
+    async def get_company_info(self, corp_code):
+        return {"acc_mt": "12"}
+
+
+def _builder(monkeypatch, gap):
+    async def resolve(q):
+        return SimpleNamespace(status="exact", selected={"corp_name": "국도화학", "corp_code": "00113067",
+                                                         "stock_code": "007690"}, candidates=[])
+    monkeypatch.setattr(pe, "resolve_company_query", resolve)
+    import open_proxy_mcp.dart.client as dc
+    monkeypatch.setattr(dc, "get_dart_client", lambda: _Client())
+    monkeypatch.setattr(fe, "quarter_consensus_gap", gap)
+    return asyncio.run(pe.build_provisional_earnings_payload("국도화학"))
+
+
+def test_payload_keeps_headline_and_adds_gap(monkeypatch):
+    seen = {}
+
+    def gap(stock_code, period_end, filed, actual, consolidated):
+        seen.update(actual=actual)
+        return fe.compute_consensus_gap(actual, filed=filed, consolidated=consolidated, history_reaches=True,
+                                        rows=[_snap("2026-10-10", rev=465_200_000_000, op=27_200_000_000)])
+    p = _builder(monkeypatch, gap)
+    d = p["data"]
+    assert d["headline"]["revenue"]["value_krw"] == 4399 * 1e8          # 원문 값 그대로
+    assert d["headline"]["operating_profit"]["yoy_pct"] == -31.4
+    g = d["consensus_gap"]
+    assert g["status"] == "ok" and g["as_of"] == "2026-10-10" and g["lag_days"] == 6
+    assert g["metrics"]["operating_profit"]["gap_pct"] == -82.35
+    assert seen["actual"]["revenue"] == 4399 * 1e8
+    md = T._render(p)
+    assert "**컨센서스 대비** (공시 6일 전 2026-10-10" in md and "vs 예상 272억 (-82.4%)" in md          # (48억−272억)÷272억 = −82.353% — 한 번만 반올림
+
+
+def test_gap_crash_does_not_break_payload(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("x")
+    p = _builder(monkeypatch, boom)
+    assert p["status"] == "exact" and p["data"]["headline"]["revenue"]["value_krw"] == 4399 * 1e8
+    assert "consensus_gap" not in p["data"]
+
+
+def test_not_compared_leaves_only_parsed_values(monkeypatch):
+    # 모르거나 없거나 맞댈 수 없으면 컨센서스 칸·줄 없이 파싱 값만(261018 결정).
+    for status in ("out_of_coverage", "out_of_history", "unknown", "not_comparable"):
+        p = _builder(monkeypatch, lambda *a, _s=status, **k: {"status": _s, "why": "이유", "as_of": "2026-10-10"})
+        assert "consensus_gap" not in p["data"], status
+        assert p["data"]["headline"]["revenue"]["value_krw"] == 4399 * 1e8
+        md = T._render(p)
+        assert "컨센서스" not in md, status
+
+
+def test_render_non_ok_is_empty():
+    for status in ("out_of_coverage", "out_of_history", "unknown", "not_comparable"):
+        assert T._render_gap({"status": status, "why": "이유"}) == ""
+    assert T._render_gap(None) == ""
+
+
+def test_md_percent_rounds_once_from_raw_values():
+    # 국도화학 2026.09 매출: (4,398.57억 − 4,652억) ÷ 4,652억 = −5.4478% → 「−5.4%」. 저장값 −5.45 를 다시 깎으면 −5.5.
+    c = {"actual_krw": 439_857_000_000, "consensus_krw": 465_200_000_000,
+         "diff_krw": 439_857_000_000 - 465_200_000_000, "gap_pct": -5.45}
+    line = T._render_gap({"status": "ok", "as_of": "2026-10-10", "lag_days": 6, "period": "2026.09E",
+                          "basis": "IFRS연결", "metrics": {"revenue": c}})
+    assert "(-5.4%)" in line and "(-5.5%)" not in line
