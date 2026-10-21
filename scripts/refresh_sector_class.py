@@ -160,8 +160,10 @@ TABLE = "wise_sector"
 
 #: 행의 출처(261018) — 모듈 머리말 「구성종목 ≠ 분류 대상」·「두 번째 관측 원천」.
 SRC_OBSERVED, SRC_CARRY, SRC_PREF, SRC_COMPANY = "wise", "carry", "pref", "wise_company"
+#: 월간 수집 시작 전 날짜를 공급처 과거 구성종목으로 뒤늦게 채운 관측(구간 표 출처 'h'). 이 수집기는 쓰지 않는다 — 다만 읽을 때 관측으로 본다.
+SRC_HISTORY = "wise_hist"
 #: 관측 출처 — 다시 만들기(`derive_snapshot`)가 지우지 않고, 이어 쓰기·우선주의 바탕이 되는 행.
-OBSERVED_SRCS = (SRC_OBSERVED, SRC_COMPANY)
+OBSERVED_SRCS = (SRC_OBSERVED, SRC_COMPANY, SRC_HISTORY)
 #: 파생 출처 — 다시 만들기가 지우고 새로 만드는 행.
 DERIVED_SRCS = (SRC_CARRY, SRC_PREF)
 
