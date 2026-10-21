@@ -2405,7 +2405,8 @@ async def _fetch_year_metrics(
         else:
             bs_is_prev, detail_prev, prev_dropped = None, None, True
             warnings.append(f"{year - 1}년 보고서 재무제표 기준({_fs_prev})이 {year}년({actual_fs})과 달라 전기 값을 쓰지 않았다 — "
-                            f"전년비와 평균자본·평균자산 기준 ROE·ROA 를 내지 않음(prev_fs_div={_fs_prev}).")
+                            f"전년비와 평균자본·평균자산 기준 ROE·ROA 를 내지 않음(prev_fs_div={_fs_prev}). 총자산회전율·자기자본 배수·회전일수는 "
+                            f"평균 대신 기말 값으로 계산돼 나간다(전기가 없을 때와 같은 한계).")
 
     if not bs_is:
         return {}, warnings + [f"{year}년 BS/IS 핵심 데이터 파싱 실패"], 0
