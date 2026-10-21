@@ -1075,15 +1075,15 @@ def _latest_annual_fy() -> int:
     return _rc.latest_annual(today_kst(), 12)
 
 
-#: 결산월을 바꾼 회사 목록(종목 → (결산월, 옛 결산월, 새 결산월 첫 사업연도)) — 바꾼 회사는 수십 곳이라 한 번에 읽어 프로세스에 잠깐 둔다(`_FYE_CHANGES_TTL`초).
-#: 변경 칸(`dart_fundamentals.acc_mt_prev`·`acc_mt_since`)은 `to_jsonb` 로 읽어 **칸이 아직 없어도 질의가 깨지지 않는다**(없으면 빈 목록 = 종전 읽기) —
+#: 결산월을 바꾼 회사 목록(종목 → (결산월, 옛 결산월, 새 결산월 첫 사업연도, 더 옛 결산월, 그 다음 결산월 첫 사업연도)) — 바꾼 회사는 수십 곳이라 한 번에 읽어 프로세스에 잠깐 둔다(`_FYE_CHANGES_TTL`초).
+#: 변경 칸(`dart_fundamentals.acc_mt_prev`·`acc_mt_since`, 두 번 바꾼 회사는 `acc_mt_prev2`·`acc_mt_since2` 도)은 `to_jsonb` 로 읽어 **칸이 아직 없어도 질의가 깨지지 않는다**(없으면 빈 목록 = 종전 읽기) —
 #: 서버 배포가 `scripts/fundamentals_ddl.py --apply` 보다 먼저여도 된다. 읽기 실패(DB 장애)도 빈 목록(종전 읽기)이고 짧게만 둔다.
 _FYE_CHANGES_TTL = 300.0
 _FYE_CHANGES_FAIL_TTL = 20.0
 _fye_changes_cache: tuple[float, dict] | None = None
 
 
-async def _fye_changes() -> dict[str, tuple[int, int, int]]:
+async def _fye_changes() -> dict[str, tuple[int, int, int, int, int]]:
     global _fye_changes_cache
     now = time.monotonic()
     if _fye_changes_cache is not None and _fye_changes_cache[0] > now:
@@ -1100,7 +1100,7 @@ async def _fye_changes() -> dict[str, tuple[int, int, int]]:
 async def _fiscal_for(ticker: str, acc_mt) -> "_rc.Fiscal":
     """종목의 공시 달력 — 저장된 결산월(`acc_mt`) + 결산월을 바꾼 회사면 옛 결산월·새 결산월 첫 사업연도(`_fye_changes`). 안 바꾼 회사는 종전 `_rc.fiscal(acc_mt, ticker)`."""
     ch = (await _fye_changes()).get(ticker)
-    return _rc.fiscal(acc_mt, ticker, ch[1] if ch else None, ch[2] if ch else None)
+    return _rc.fiscal(acc_mt, ticker, *(ch[1:5] if ch else (None, None, None, None)))
 
 
 def _pit_fy(price_dd: str, fye: int = 12) -> int:
@@ -1905,9 +1905,15 @@ def _fye_note(fye) -> str | None:
     note = (f"{_FYE_NOTE_HEAD}{month}월 — 분기·연간 칸은 DART 표기(사업연도 = 보고서 기준일의 해)다: "
             f"1분기 = 그해 {m[1]}월 말 · 반기 = {m[2]}월 말 · 3분기 = {m[3]}월 말 · 사업보고서 = 그해 {m[4]}월 말. "
             f"그 시점 칸은 {lag}부터 쓴다(공시 기한 — 아직 안 나온 보고서를 앞당겨 쓰지 않는다).")
-    if since:
+    chain = _rc.changes(fye)
+    if len(chain) == 1:
         note += (f" 결산월을 {fye.prev}월에서 {month}월로 바꿨다 — {since} 사업연도 앞 칸은 {fye.prev}월 기준이고, {since} 사업보고서는 전환기(12개월이 아님)라 "
                  "연간 순이익에 쓰지 않는다(그 칸의 순이익·그 칸을 직전 연간으로 쓰는 TTM 은 다음 연간 사업보고서 전까지 비어 있다).")
+    elif chain:
+        # 261021(DATA-FY2): 결산월을 두 번 바꾼 회사 — 변경마다 그 앞 표기는 옛 결산월 기준이고 그 변경의 첫 사업보고서는 전환기다.
+        hist = " · ".join(f"{old}월 → {new}월({since_} 사업연도부터)" for since_, old, new in chain)
+        note += (f" 결산월을 {len(chain)}번 바꿨다 — {hist}. 각 변경의 앞 칸은 그 옛 결산월 기준이고, 바꾼 첫 사업보고서({'·'.join(str(c[0]) for c in chain)})는 "
+                 "전환기(12개월이 아님)라 연간 순이익에 쓰지 않는다(그 칸의 순이익·그 칸을 직전 연간으로 쓰는 TTM 은 다음 연간 사업보고서 전까지 비어 있다).")
     return note
 
 
@@ -2773,7 +2779,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   사업보고서 금액 1,000배 → 종전 firm PBR 0.001 · 지배자본 11조 9,884억 · BPS 1,975,674원). 같은 보고서 안의 검사(항등식·순이익 대 시총)는 다 맞아
     #   반응하지 않는다 — 같은 날짜의 같은 숫자(자본총계)를 낸 **다른 보고서**와 대야 드러난다: 사업보고서 fy 의 당기 말 = 그 뒤 분기 보고서의 전기 칸,
     #   사업보고서 fy 의 전기 말 = 전년 동기 분기 보고서의 전기 칸. 어느 보고서가 틀렸는지는 다수결과 시총(PBR) 두 신호로 가리고
-    #   (`scale_guard.reconcile_report_scales` — 분기 수집과 같은 규칙), 가려지면 그 보고서의 금액 칸을 나눠 쓴다(주당 금액은 그대로) — 값과 근거를
+    #   (`scale_guard.reconcile_report_scales` — `financial_metrics`·연간 수집과 같은 함수, 분기 수집은 아직 옛 규칙 — DATA-SC4), 가려지면 그 보고서의 금액 칸을 나눠 쓴다(주당 금액은 그대로) — 값과 근거를
     #   경고·`data_quality.scale_fix` 에 적는다. 못 가리면 값은 원문 그대로 두고 hard 경고. 이미 읽은 응답만 쓴다(DART 콜 0).
     xr_names: dict[str, tuple[str, list]] = {}
     _xr: list[tuple] = []
@@ -3146,7 +3152,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     if _ff_w:
         warnings.append(_ff_w)
     if fy_transition:
-        warnings.append(f"결산월을 {fye.prev}월에서 {fye.month}월로 바꾼 첫 사업보고서(FY{fy}, 전환기 — 12개월이 아님)라 연간 지표(순이익·EPS·매출·ROE·PER(FY0))를 내지 않는다. "
+        _old_m, _new_m = _rc.transition_change(fy, fye)           # 결산월을 두 번 바꾼 회사는 변경마다 옛·새 결산월이 다르다
+        warnings.append(f"결산월을 {_old_m}월에서 {_new_m}월로 바꾼 첫 사업보고서(FY{fy}, 전환기 — 12개월이 아님)라 연간 지표(순이익·EPS·매출·ROE·PER(FY0))를 내지 않는다. "
                         "이를 직전 연간으로 쓰는 PER(TTM)도 다음 연간 사업보고서 전까지 비어 있다. PBR·BPS 는 그 날의 자본 잔액이라 낸다.")
     if impaired_full:
         warnings.append("⚠️ 완전자본잠식(자본≤0) — 상장폐지 위험. PER·PBR N/M. risk_events 확인 요망.")

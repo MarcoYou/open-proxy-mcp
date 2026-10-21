@@ -32,7 +32,9 @@
 바꾼 해(`since`)의 사업보고서는 **전환기**다 — 12개월이 아니다(334970: 2023.01~06 6개월 · 154030: 2025.10~12 3개월 · 222160: 2024.04~12 9개월). 그 칸의 순이익은 연간 값이
 아니라서 연간 칸에 넣지 않고 읽는 쪽도 가린다(`is_transition`). 자본은 그 날의 잔액이라 그대로 쓴다. 새 결산월이 옛 결산월보다 늦은 회사(9→12·3→12)는 같은 사업연도 표기에
 사업보고서가 둘(옛 결산기 · 전환기)이라 DART 가 늦은 것(전환기)만 준다 — 옛 결산기 12개월 값은 이 표기의 칸으로 받을 수 없다(`prior_columns` 가 전기·전전기 칸의 자리를 가른다).
-한계: 결산월을 두 번 이상 바꾼 회사는 가장 최근 변경만 안다. 바꾼 해의 1~3분기 칸(`fy == since`)은 옛 결산월로 낸 분기·반기보고서가 새 결산월의 같은 표기 칸에 들어 있을 수
+결산월을 **두 번** 바꾼 회사(131100: 2019 에 12 → 6, 2022 에 6 → 12)는 더 옛 변경 한 쌍도 품는다(`Fiscal.prev2`·`since2` — 2019 앞 표기는 12월, 2019~2021 은 6월, 2022 부터 12월).
+전환기는 변경마다 하나다(`transition_years` — 2019.06 은 6개월, 2022.12 도 6개월). 세 번 이상 바꾼 회사는 가장 최근 둘만 안다.
+한계: 바꾼 해의 1~3분기 칸(`fy == since`)은 옛 결산월로 낸 분기·반기보고서가 새 결산월의 같은 표기 칸에 들어 있을 수
 있어(154030 2025 반기 칸 = 2025.03 옛 결산월 반기) 기간 말이 틀릴 수 있다 — 틀려도 아직 안 나온 보고서를 앞당겨 쓰지는 않는다(공시 시점이 더 늦게 잡힌다).
 """
 from __future__ import annotations
@@ -62,12 +64,17 @@ class Fiscal(NamedTuple):
     `pit_annual`(FY0 의 사업연도)은 달력 규칙 그대로다(firm 의 FY0 와 같은 정의).
 
     261021(DATA-FY2): `prev`·`since` = 결산월을 바꾼 회사의 옛 결산월과 새 결산월(`month`)의 첫 사업연도 표기. 둘 다 0 이면 안 바꾼 회사(종전 식 그대로).
-    `month_of(fy)` 가 표기마다 맞는 결산월을 돌려준다."""
+    `month_of(fy)` 가 표기마다 맞는 결산월을 돌려준다.
+
+    261021(DATA-FY2 두 번 바꾼 회사): `prev2`·`since2` = **더 옛** 변경 한 쌍 — `since2` 는 `prev` 결산월의 첫 사업연도 표기, `prev2` 는 그 앞 결산월(131100: month 12 · prev 6 · since 2022 ·
+    prev2 12 · since2 2019 — 2019 앞 표기는 12월, 2019~2021 은 6월, 2022 부터 12월). `since` 가 없으면 쓰지 않는다. 둘 다 0 이면 변경이 한 번뿐이다."""
     month: int = 12
     foreign: bool = False
     cells: tuple = ()
     prev: int = 0
     since: int = 0
+    prev2: int = 0
+    since2: int = 0
 
 
 def _norm_change(month: int, prev, since) -> tuple[int, int]:
@@ -79,25 +86,40 @@ def _norm_change(month: int, prev, since) -> tuple[int, int]:
     return (p, s) if 1 <= p <= 12 and p != month and 1900 <= s <= 2200 else (0, 0)
 
 
-def fiscal(acc_mt, ticker: str | None = None, prev=None, since=None) -> Fiscal:
+def _norm_older(prev: int, since: int, prev2, since2) -> tuple[int, int]:
+    """(더 옛 결산월, 그 다음 결산월 `prev` 의 첫 사업연도) — 최근 변경(`since`)이 있고, 둘 다 올바르고, `since2 < since`, 결산월이 `prev` 와 다를 때만. 아니면 (0, 0)."""
+    if not since:
+        return 0, 0
+    try:
+        p, s = int(prev2), int(since2)
+    except (TypeError, ValueError):
+        return 0, 0
+    return (p, s) if 1 <= p <= 12 and p != prev and 1900 <= s < since else (0, 0)
+
+
+def fiscal(acc_mt, ticker: str | None = None, prev=None, since=None, prev2=None, since2=None) -> Fiscal:
     """`dart_fundamentals.acc_mt` + 종목코드 → 공시 달력. 외국 상장사 기한은 12월 결산이 아닐 때만(12월 결산은 종전 그대로).
 
     261021: `prev`·`since` = 결산월을 바꾼 회사의 옛 결산월·새 결산월 첫 사업연도(`dart_fundamentals.acc_mt_prev`·`acc_mt_since`) — 둘 다 올바를 때만 쓴다.
-    `acc_mt` 자리에 `Fiscal`(`load_fye_map` 이 결산월을 바꾼 회사에 주는 값)을 넘기면 그 변경을 이어받는다."""
+    `acc_mt` 자리에 `Fiscal`(`load_fye_map` 이 결산월을 바꾼 회사에 주는 값)을 넘기면 그 변경을 이어받는다.
+    `prev2`·`since2` = 더 옛 변경 한 쌍(`acc_mt_prev2`·`acc_mt_since2` — 결산월을 두 번 바꾼 회사. 최근 변경이 올바르고 `since2 < since` 일 때만)."""
     if isinstance(acc_mt, Fiscal):
         m = acc_mt.month
         prev = acc_mt.prev if prev is None else prev
         since = acc_mt.since if since is None else since
+        prev2 = acc_mt.prev2 if prev2 is None else prev2
+        since2 = acc_mt.since2 if since2 is None else since2
         cells = acc_mt.cells
     else:
         m, cells = fye_month(acc_mt), ()
     p, s = _norm_change(m, prev, since)
-    return Fiscal(m, bool(ticker) and str(ticker).startswith("9") and m != 12, cells, p, s)
+    p2, s2 = _norm_older(p, s, prev2, since2)
+    return Fiscal(m, bool(ticker) and str(ticker).startswith("9") and m != 12, cells, p, s, p2, s2)
 
 
 def _as_fiscal(v) -> Fiscal:
     if isinstance(v, Fiscal):
-        return v if v.month != 12 else Fiscal(12, False, v.cells, v.prev, v.since)
+        return v if v.month != 12 else Fiscal(12, False, v.cells, v.prev, v.since, v.prev2, v.since2)
     return Fiscal(fye_month(v), False)
 
 
@@ -131,28 +153,51 @@ def fye_month(v) -> int:
     return m if 1 <= m <= 12 else 12
 
 
+def changes(fye) -> tuple[tuple[int, int, int], ...]:
+    """결산월 변경 목록 `((새 결산월 첫 사업연도, 옛 결산월, 새 결산월), …)` — 오래된 변경부터. `Fiscal` 이 아니거나 안 바꾼 회사면 빈 튜플.
+    두 번 바꾼 회사(131100)는 둘: `((2019, 12, 6), (2022, 6, 12))`."""
+    if not isinstance(fye, Fiscal) or not fye.since:
+        return ()
+    newest = (fye.since, fye.prev, fye.month)
+    return (((fye.since2, fye.prev2, fye.prev),) if fye.since2 else ()) + (newest,)
+
+
 def month_of(fy: int, fye=12) -> int:
-    """사업연도 표기 `fy` 의 결산월 — 결산월을 바꾼 회사는 새 결산월의 첫 사업연도(`since`) 앞 표기를 옛 결산월로 읽는다. 안 바꾼 회사·int 는 `fye_month`."""
-    if isinstance(fye, Fiscal):
-        return fye.prev if (fye.since and fy < fye.since) else fye.month
+    """사업연도 표기 `fy` 의 결산월 — 결산월을 바꾼 회사는 바꾼 해(`since`·`since2`) 앞 표기를 그 변경의 옛 결산월로 읽는다. 안 바꾼 회사·int 는 `fye_month`."""
+    for since, old, _new in changes(fye):
+        if fy < since:
+            return old
     return fye_month(fye)
 
 
+def transition_years(fye=12) -> tuple[int, ...]:
+    """결산월을 바꾼 **전환기** 사업연도 표기들(12개월이 아님) — 변경마다 새 결산월의 첫 사업보고서. 안 바꾼 회사는 빈 튜플. 오래된 것부터."""
+    return tuple(c[0] for c in changes(fye))
+
+
 def is_transition(fy: int, fye=12) -> bool:
-    """사업연도 표기 `fy` 의 사업보고서가 결산월을 바꾼 **전환기**(12개월이 아님)인가 — 새 결산월의 첫 사업보고서(`since`). 안 바꾼 회사는 늘 False."""
-    return bool(isinstance(fye, Fiscal) and fye.since and fy == fye.since)
+    """사업연도 표기 `fy` 의 사업보고서가 결산월을 바꾼 **전환기**(12개월이 아님)인가 — 새 결산월의 첫 사업보고서(`since`·`since2`). 안 바꾼 회사는 늘 False."""
+    return fy in transition_years(fye)
+
+
+def transition_change(fy: int, fye=12) -> tuple[int, int] | None:
+    """전환기 표기 `fy` 가 어느 변경인가 → (옛 결산월, 새 결산월). 전환기가 아니면 None. (경고·안내 문구용)"""
+    for since, old, new in changes(fye):
+        if fy == since:
+            return old, new
+    return None
 
 
 def mask_transition(fin, fye=12):
     """연간 재무 `{표기: (순이익, 자본)}`(`restated_pit.PitFin` 이어도 된다)의 **전환기 표기 순이익을 가린다**(제자리에서 바꾸고 돌려준다) — 결산월을 바꾼 첫 사업보고서는
     12개월이 아니라 연간 순이익이 아니다(`is_transition`). 자본은 그 날 잔액이라 둔다. 정정 칸의 문(출처 공시 전 값)도 같은 순이익을 가린다. 안 바꾼 회사는 그대로."""
-    if not isinstance(fye, Fiscal) or not fye.since or fye.since not in fin:
-        return fin
-    k = fye.since
-    fin[k] = (None, fin[k][1])
-    g = getattr(fin, "gates", {}).get(k)
-    if g is not None:
-        fin.gate(k, (g[0], (None, g[1][1])))
+    for k in transition_years(fye):
+        if k not in fin:
+            continue
+        fin[k] = (None, fin[k][1])
+        g = getattr(fin, "gates", {}).get(k)
+        if g is not None:
+            fin.gate(k, (g[0], (None, g[1][1])))
     return fin
 
 
@@ -296,16 +341,18 @@ def quarter_labels_after(fy_annual: int, fye=12) -> dict[int, int]:
 
 
 def _prev_annual_end(e: date, f: Fiscal) -> date:
-    """결산일 `e` 의 바로 앞 결산일(사업연도 하나 전). 결산월을 바꾼 회사는 전환기 결산일(`since` 해 새 결산월)의 앞이 옛 마지막 결산일이다."""
-    if not f.since:
+    """결산일 `e` 의 바로 앞 결산일(사업연도 하나 전). 결산월을 바꾼 회사는 전환기 결산일(`since` 해 새 결산월)의 앞이 옛 마지막 결산일이다.
+    변경이 둘이면(131100) 가장 최근 변경부터 거슬러 올라가며 `e` 가 어느 결산월 구간에 속하는지 가른다."""
+    chain = changes(f)
+    if not chain:
         return _last_day(e.year - 1, e.month)
-    trans = _last_day(f.since, f.month)
-    old_last = _last_day(f.since if f.prev < f.month else f.since - 1, f.prev)    # 새 결산월이 늦으면 같은 해(옛 결산기가 먼저), 이르면 앞 해
-    if e == trans:
-        return old_last
-    if e <= old_last:
-        return _last_day(e.year - 1, f.prev)
-    return _last_day(e.year - 1, f.month)
+    for since, old, new in reversed(chain):
+        trans = _last_day(since, new)
+        if e == trans:
+            return _last_day(since if old < new else since - 1, old)    # 새 결산월이 늦으면 같은 해(옛 결산기가 먼저), 이르면 앞 해
+        if e > trans:
+            return _last_day(e.year - 1, new)
+    return _last_day(e.year - 1, chain[0][1])                           # 가장 오래된 변경 앞 구간 — 옛 결산월
 
 
 def prior_columns(report_fy: int, fye=12) -> list[tuple[int, bool, str]]:
@@ -319,10 +366,11 @@ def prior_columns(report_fy: int, fye=12) -> list[tuple[int, bool, str]]:
     f = _as_fiscal(fye)
     e = _last_day(report_fy, month_of(report_fy, f))
     out = []
+    trans = {(since, new) for since, _old, new in changes(f)}              # 전환기 결산기 = (그 변경의 첫 사업연도, 새 결산월)
     for _ in (1, 2):
         e = _prev_annual_end(e, f)
         label = e.year
-        if f.since and label == f.since and e.month == f.month:
+        if (label, e.month) in trans:
             out.append((label, False, "transition"))
         elif _last_day(label, month_of(label, f)) != e:
             out.append((label, False, "collision"))
@@ -331,14 +379,17 @@ def prior_columns(report_fy: int, fye=12) -> list[tuple[int, bool, str]]:
     return out
 
 
-#: 서버용 — 결산월을 바꾼 회사 목록(종목, 결산월, 옛 결산월, 새 결산월 첫 사업연도). `to_jsonb` 로 읽어 **칸이 아직 없는 표(`scripts/fundamentals_ddl.py` 적용 전)에서도 질의가
-#: 깨지지 않는다**(없으면 NULL → 빈 목록 = 종전 읽기). 서버 배포가 DDL 보다 먼저여도 되게 하려는 것이다. 바꾼 회사는 수십 곳이라 한 번에 읽어 둔다.
-CHANGES_SQL = ("SELECT ticker, acc_mt, (to_jsonb(d)->>'acc_mt_prev')::int, (to_jsonb(d)->>'acc_mt_since')::int "
+#: 서버용 — 결산월을 바꾼 회사 목록(종목, 결산월, 옛 결산월, 새 결산월 첫 사업연도, 더 옛 결산월, 그 다음 결산월 첫 사업연도). `to_jsonb` 로 읽어 **칸이 아직 없는 표
+#: (`scripts/fundamentals_ddl.py` 적용 전)에서도 질의가 깨지지 않는다**(없으면 NULL → 빈 목록 = 종전 읽기, 더 옛 변경 칸만 없으면 최근 변경 하나만). 서버 배포가 DDL 보다
+#: 먼저여도 되게 하려는 것이다. 바꾼 회사는 수십 곳이라 한 번에 읽어 둔다.
+CHANGES_SQL = ("SELECT ticker, acc_mt, (to_jsonb(d)->>'acc_mt_prev')::int, (to_jsonb(d)->>'acc_mt_since')::int, "
+               "(to_jsonb(d)->>'acc_mt_prev2')::int, (to_jsonb(d)->>'acc_mt_since2')::int "
                "FROM dart_fundamentals d WHERE to_jsonb(d)->>'acc_mt_prev' IS NOT NULL")
 
 
-def changes_from_rows(rows) -> dict[str, tuple[int, int, int]]:
-    """`CHANGES_SQL` 의 행 → {종목: (결산월, 옛 결산월, 새 결산월 첫 사업연도)} — 올바른 변경만(`_norm_change`)."""
+def changes_from_rows(rows) -> dict[str, tuple[int, int, int, int, int]]:
+    """`CHANGES_SQL` 의 행 → {종목: (결산월, 옛 결산월, 새 결산월 첫 사업연도, 더 옛 결산월, 그 다음 결산월 첫 사업연도)} — 올바른 변경만(`_norm_change`·`_norm_older`).
+    더 옛 변경이 없거나 올바르지 않으면 끝 둘은 0."""
     out = {}
     for r in rows or []:
         try:
@@ -347,7 +398,8 @@ def changes_from_rows(rows) -> dict[str, tuple[int, int, int]]:
             continue
         p2, s2 = _norm_change(fye_month(m), p, s)
         if s2:
-            out[str(t)] = (fye_month(m), p2, s2)
+            p3, s3 = _norm_older(p2, s2, r[4] if len(r) > 4 else None, r[5] if len(r) > 5 else None)
+            out[str(t)] = (fye_month(m), p2, s2, p3, s3)
     return out
 
 
@@ -368,6 +420,6 @@ def load_fye_map(con) -> dict[str, "int | Fiscal"]:
         changes = changes_from_rows(list(con.execute(CHANGES_SQL)))
     except Exception:  # noqa: BLE001
         changes = {}
-    for t, (m, p, s) in changes.items():
-        out[t] = fiscal(m, None, p, s)
+    for t, (m, p, s, p2, s2) in changes.items():
+        out[t] = fiscal(m, None, p, s, p2, s2)
     return out

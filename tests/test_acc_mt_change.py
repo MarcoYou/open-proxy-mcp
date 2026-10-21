@@ -222,7 +222,7 @@ def test_invalid_change_columns_are_ignored():
     assert rcal.fiscal(12, "950170", 3, 2024) == rcal.Fiscal(12, False, (), 3, 2024)     # 외국 상장사 기한은 12월 결산이 아닐 때만
     assert rcal.fiscal(6, "950170", 12, 2024).foreign is True
     assert rcal.changes_from_rows([("334970", 6, 12, 2023), ("X", 6, 6, 2023), ("Y", None, 9, 2020), ("Z", 12, None, None), ("W", "bad", 1, 1)]) == \
-        {"334970": (6, 12, 2023), "Y": (12, 9, 2020)}
+        {"334970": (6, 12, 2023, 0, 0), "Y": (12, 9, 2020, 0, 0)}
 
 
 # ═══ C. 사업보고서 목록 → 결산월 ═════════════════════════════════════════════════════════════════
@@ -245,8 +245,8 @@ def test_listing_edge_cases():
     reit_q = [(y, m) for y in (2024, 2025) for m in (3, 6, 9, 12)]
     assert Q.classify_reports(reit_q) == Q.AccMt(12)                                            # 분기 결산
     assert Q.classify_reports([(2023, 12), (2024, 12), (2025, 12)]) == Q.AccMt(12)
-    # 두 번 바꿨으면 가장 최근 변경만 안다
-    assert Q.classify_reports([(2019, 12), (2020, 3), (2021, 3), (2022, 9), (2023, 9)]) == Q.AccMt(9, 3, 2022)
+    # 두 번 바꿨으면 더 옛 변경도 안다(261021 — 종전엔 가장 최근 변경만 알았다. 자세한 것은 tests/test_acc_mt_twice.py)
+    assert Q.classify_reports([(2019, 12), (2020, 3), (2021, 3), (2022, 9), (2023, 9)]) == Q.AccMt(9, 3, 2022, 12, 2020)
 
 
 @pytest.mark.parametrize("reports", [
@@ -427,7 +427,7 @@ def test_server_reads_the_changes_once_and_tolerates_a_table_without_the_columns
         return [("334970", 6, 12, 2023), ("154030", 12, 9, 2025)]
     monkeypatch.setattr(S, "_pg_rows", rows)
     ch = asyncio.run(S._fye_changes())
-    assert ch == {"334970": (6, 12, 2023), "154030": (12, 9, 2025)}
+    assert ch == {"334970": (6, 12, 2023, 0, 0), "154030": (12, 9, 2025, 0, 0)}
     assert "to_jsonb(d)->>'acc_mt_prev'" in calls[0] and calls[0].startswith("SELECT ticker, acc_mt")
     assert asyncio.run(S._fye_changes()) is ch and len(calls) == 1                             # 프로세스에 잠깐 둔다
     f = asyncio.run(S._fiscal_for("334970", 6))
