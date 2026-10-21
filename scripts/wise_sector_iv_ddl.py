@@ -11,7 +11,8 @@
     python3 scripts/wise_sector_iv_ddl.py --switch      # 운영 교체: 구간 채우기 → G2 관문(옛 표 vs 임시 뷰) → 옛 표를 wise_sector_legacy 로 → 같은 이름 뷰 (한 트랜잭션)
     python3 scripts/wise_sector_iv_ddl.py --rollback    # 되돌리기: 뷰가 지금 보여 주는 행 그대로 옛 표(wise_sector_legacy)를 wise_sector 로 되살린다
     python3 scripts/wise_sector_iv_ddl.py --drop-legacy # 옛 표 지우기(2주 뒤): 옛 표 행이 전부 뷰에 있을 때만. 지우기 전 retired Parquet 백업은 따로
-    python3 scripts/wise_sector_iv_ddl.py --apply [--switch|--rollback|--drop-legacy]   # DATABASE_URL 의 DB 에 한 트랜잭션으로 적용
+    python3 scripts/wise_sector_iv_ddl.py --hist-src    # 이미 교체된 DB 에 출처 'h'(과거 구성종목 백필) 허용: CHECK 넓히기 + 같은 이름 뷰 대응 한 줄. 멱등
+    python3 scripts/wise_sector_iv_ddl.py --apply [--switch|--rollback|--drop-legacy|--hist-src]   # DATABASE_URL 의 DB 에 한 트랜잭션으로 적용
 
 ■ 표 `wise_sector_snap` — 스냅샷 날짜 목록(한 행 = 업종분류 스냅샷 하나): date · YYYYMMDD · 그 날 뷰 행 수 n. 구간 경계는 이 날짜들로만
     잡힌다(외래키). 날짜 조건(`snap_dd = …`·「이하 가장 최근」)은 이 작은 표에서 먼저 걸러진다. 빈 스냅샷(n = 0)은 두지 않는다(G2 가 본다).
@@ -19,7 +20,8 @@
     행마다 적지 않는다) · valid_from date(구간 첫 스냅샷) · valid_to date(구간이 끝난 **다음** 스냅샷 — 그 날은 구간 밖, NULL = 최신 스냅샷까지) ·
     출처 src "char" · 대분류 코드·이름 · 하위업종 코드·이름 · 출처 근거 src_ref. 칸 순서는 정렬 경계 기준(고정 길이 먼저).
     **이름 칸을 행 안에 둔다** — 코드표를 따로 만들면 `kr_wics_snapshots`(공급처 분류 트리 원문)와 같은 뜻의 표가 하나 더 생긴다.
-    출처 1바이트: W=wise(구성종목 관측) · K=wise_company(기업 정보 화면 관측) · C=carry(직전 분류 이음) · P=pref(우선주가 보통주 분류 이음).
+    출처 1바이트: W=wise(구성종목 관측) · K=wise_company(기업 정보 화면 관측) · C=carry(직전 분류 이음) · P=pref(우선주가 보통주 분류 이음) ·
+    h=wise_hist(월간 수집 시작 전 날짜를 공급처 과거 구성종목으로 뒤늦게 채운 관측 — 같은 분류라도 W 와 구간을 합치지 않는다. 사후에 다시 쓰였는지 알 수 없는 값이라는 표시).
     `src_ref` 는 출처별 근거 글자 그대로(carry=관측 스냅샷 날짜 · pref=보통주 코드 · wise_company=「조회일:산업」 · wise=NULL) — 근거가 달라지면 구간도 나뉜다.
     기본키 (tid, valid_from) = 종목 이력. 겹치는 구간·붙어 있는데 값이 같은 구간(덜 접힌 것)은 G2·쓰기 확인이 0 을 본다.
 ■ 뷰 `wise_sector` — 옛 표와 칸 이름·순서·형이 같다(snap_dd text · ticker text · sector_code·sector·industry_code·industry text · src text · src_ref text).
@@ -49,7 +51,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 #: 출처 글자 ↔ 1바이트("char"). 뷰와 구간 만들기가 같은 대응을 쓴다. 모르는 출처는 NULL → NOT NULL 위반으로 멈춘다(지어내지 않는다).
-SRC_CODES = (("wise", "W"), ("wise_company", "K"), ("carry", "C"), ("pref", "P"))
+SRC_CODES = (("wise", "W"), ("wise_company", "K"), ("carry", "C"), ("pref", "P"), ("wise_hist", "h"))
 _SRC_TO_CHAR = "CASE {col} " + " ".join(f"WHEN '{t}' THEN '{c}'" for t, c in SRC_CODES) + " END::\"char\""
 _CHAR_TO_SRC = "CASE {col} " + " ".join(f"WHEN '{c}' THEN '{t}'" for t, c in SRC_CODES) + " END::text"
 
@@ -67,7 +69,7 @@ CREATE TABLE IF NOT EXISTS wise_sector_iv (
   tid           integer NOT NULL REFERENCES krx_ticker (tid),
   valid_from    date    NOT NULL REFERENCES wise_sector_snap (snap),
   valid_to      date             REFERENCES wise_sector_snap (snap),        -- 구간이 끝난 다음 스냅샷(그 날은 밖). NULL = 최신까지
-  src           "char"  NOT NULL CONSTRAINT wise_sector_iv_src_ck CHECK (src IN ('W', 'K', 'C', 'P')),
+  src           "char"  NOT NULL CONSTRAINT wise_sector_iv_src_ck CHECK (src IN ('W', 'K', 'C', 'P', 'h')),
   sector_code   text    NOT NULL,     -- G25 등 대분류 10
   sector        text    NOT NULL,
   industry_code text    NOT NULL,     -- G2510 등 하위업종 28
@@ -77,7 +79,7 @@ CREATE TABLE IF NOT EXISTS wise_sector_iv (
   CONSTRAINT wise_sector_iv_range_ck CHECK (valid_to IS NULL OR valid_to > valid_from)
 );
 COMMENT ON TABLE wise_sector_iv IS '업종분류 구간(E1) — 뷰 wise_sector 의 밑 표. 쓰는 곳 scripts/refresh_sector_class.py(구간 차분), 정의 scripts/wise_sector_iv_ddl.py';
-COMMENT ON COLUMN wise_sector_iv.src IS 'W=wise(구성종목 관측) · K=wise_company(기업 정보 화면 관측) · C=carry(직전 분류 이음) · P=pref(우선주가 보통주 분류 이음)';
+COMMENT ON COLUMN wise_sector_iv.src IS 'W=wise(구성종목 관측) · K=wise_company(기업 정보 화면 관측) · C=carry(직전 분류 이음) · P=pref(우선주가 보통주 분류 이음) · h=wise_hist(과거 구성종목 백필 관측)';
 
 ALTER TABLE wise_sector_snap ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wise_sector_iv   ENABLE ROW LEVEL SECURITY;
@@ -109,7 +111,7 @@ VIEW = """\
 CREATE OR REPLACE VIEW wise_sector WITH (security_invoker = true) AS
 """ + VIEW_SELECT + """;
 COMMENT ON VIEW wise_sector IS '업종분류 스냅샷(종목마다 한 줄) — 구간 표 wise_sector_iv × 날짜 목록 wise_sector_snap 의 뷰(E1, scripts/wise_sector_iv_ddl.py)';
-COMMENT ON COLUMN wise_sector.src IS '행 출처: wise=그 날 공급처 구성종목 응답(관측) · wise_company=구성종목에 없는 상장 보통주, 공급처 기업 정보 화면의 산업을 하위업종으로 올림(관측) · carry=관측에서 빠진 상장 종목, 직전 분류를 이음 · pref=우선주, 같은 회사 보통주 분류를 이음 (scripts/refresh_sector_class.py)';
+COMMENT ON COLUMN wise_sector.src IS '행 출처: wise=그 날 공급처 구성종목 응답(관측) · wise_company=구성종목에 없는 상장 보통주, 공급처 기업 정보 화면의 산업을 하위업종으로 올림(관측) · carry=관측에서 빠진 상장 종목, 직전 분류를 이음 · pref=우선주, 같은 회사 보통주 분류를 이음 · wise_hist=월간 수집 시작 전 날짜를 공급처 과거 구성종목으로 뒤늦게 채운 관측 (scripts/refresh_sector_class.py)';
 COMMENT ON COLUMN wise_sector.src_ref IS 'carry=그 분류를 실제로 관측한 스냅샷 날짜(YYYYMMDD) · pref=보통주 코드 · wise_company=조회일(YYYYMMDD):기업 정보 화면의 산업 이름 · wise=NULL';
 REVOKE ALL ON wise_sector FROM anon, authenticated;
 GRANT SELECT ON wise_sector TO opm_ro;
@@ -168,6 +170,22 @@ INSERT INTO {t} SELECT 'snap_empty', (SELECT count(*) FROM wise_sector_snap s
 INSERT INTO {t} SELECT 'snap_n', (SELECT count(*) FROM wise_sector_snap s WHERE s.n <> (SELECT count(*) FROM wise_sector_iv i
   WHERE i.valid_from <= s.snap AND (i.valid_to IS NULL OR s.snap < i.valid_to)));
 """
+
+
+#: 이미 교체된(E1 적용) DB 에 출처 'h'(wise_hist)를 허용한다 — CHECK 를 넓히고 같은 이름 뷰의 출처 대응에 한 줄을 더한다(칸 이름·순서·형은 그대로라
+#: CREATE OR REPLACE 로 되고 권한·정책은 유지된다). 새 DB(`full`)나 아직 교체 전 DB 는 필요 없다(표 정의가 이미 'h' 를 허용). 멱등.
+HIST_SRC_MIGRATION = """\
+DO $$
+BEGIN
+  IF (SELECT relkind FROM pg_class WHERE oid = to_regclass('wise_sector')) IS DISTINCT FROM 'v' THEN
+    RAISE EXCEPTION 'wise_sector 가 뷰가 아니다 — 교체(--switch) 뒤에만 쓴다';
+  END IF;
+END $$;
+LOCK TABLE wise_sector_iv IN SHARE ROW EXCLUSIVE MODE;
+ALTER TABLE wise_sector_iv DROP CONSTRAINT IF EXISTS wise_sector_iv_src_ck;
+ALTER TABLE wise_sector_iv ADD CONSTRAINT wise_sector_iv_src_ck CHECK (src IN ('W', 'K', 'C', 'P', 'h'));
+COMMENT ON COLUMN wise_sector_iv.src IS 'W=wise(구성종목 관측) · K=wise_company(기업 정보 화면 관측) · C=carry(직전 분류 이음) · P=pref(우선주가 보통주 분류 이음) · h=wise_hist(과거 구성종목 백필 관측)';
+""" + VIEW
 
 # ── 운영 교체 ────────────────────────────────────────────────────────────────
 
@@ -405,6 +423,8 @@ def body(mode: str) -> str:
         return ROLLBACK_BODY
     if mode == "drop-legacy":
         return DROP_LEGACY_BODY
+    if mode == "hist-src":
+        return HIST_SRC_MIGRATION
     raise ValueError(mode)
 
 
@@ -437,8 +457,10 @@ def main() -> int:
     g.add_argument("--switch", action="store_true", help="운영 교체(G2 관문 → 옛 표 wise_sector_legacy, 같은 이름 뷰)")
     g.add_argument("--rollback", action="store_true", help="되돌리기(지금 뷰의 행 그대로 표로)")
     g.add_argument("--drop-legacy", action="store_true", help="옛 표 지우기(옛 행이 전부 뷰에 있을 때만)")
+    g.add_argument("--hist-src", action="store_true", help="이미 교체된 DB 에 출처 h(wise_hist) 허용")
     a = ap.parse_args()
-    mode = ("switch" if a.switch else "rollback" if a.rollback else "drop-legacy" if a.drop_legacy else "full")
+    mode = ("switch" if a.switch else "rollback" if a.rollback else "drop-legacy" if a.drop_legacy
+            else "hist-src" if a.hist_src else "full")
     if not a.apply:
         sys.stdout.write(body(mode) if a.no_tx else render(mode))
         return 0
