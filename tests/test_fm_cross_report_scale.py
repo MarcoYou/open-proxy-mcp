@@ -576,3 +576,34 @@ def test_summary_payload_reads_market_cap_for_listed_company(monkeypatch):
     p = asyncio.run(FM.build_financial_metrics_payload("시험회사", scope="summary", year=2023))
     assert p["data"]["summary"]["total_assets_krw"] == 56_717_158_975
     assert p["data"]["summary"]["data_quality"]["scale_fix"][0]["method"] == "mktcap"
+
+
+def test_summary_payload_drops_market_cap_read_when_unused(monkeypatch):
+    """사업보고서를 못 읽어 시총을 기다리지 않은 요약은 미리 띄운 시총 읽기를 남겨 두지 않는다(끝난 뒤 task 가 pending 으로 남지 않는다)."""
+    from open_proxy_mcp.services.company import CompanyResolution
+    from open_proxy_mcp.services.contracts import AnalysisStatus
+
+    monkeypatch.setenv("OPENDART_API_KEY", "test-key-not-real")
+
+    async def slow_mktcap(stock_code):
+        await asyncio.sleep(30)
+        return 1.5e11
+    monkeypatch.setattr(FM, "_common_mktcap", slow_mktcap)
+    _install(monkeypatch, {})                                               # 어떤 보고서도 없다 → 시총을 기다리는 자리에 가지 않는다
+    co = {"corp_code": "00000000", "corp_name": "시험회사", "stock_code": "065150"}
+
+    async def resolve(query, *a, **k):
+        return CompanyResolution(status=AnalysisStatus.EXACT, query=query, selected=dict(co), candidates=[])
+
+    async def info(cc):
+        return {"acc_mt": "12", "induty_code": "471"}, None
+
+    monkeypatch.setattr(FM, "resolve_company_query", resolve)
+    monkeypatch.setattr(FM, "_safe_company_info", info)
+    monkeypatch.setattr(FM, "_FM_CACHE", type(FM._FM_CACHE)(16 * 1024 * 1024, 300.0, "test-fm-sc1-drop"))
+
+    async def run():
+        await FM.build_financial_metrics_payload("시험회사", scope="summary", year=2023)
+        await asyncio.sleep(0)
+        return [t for t in asyncio.all_tasks() if t is not asyncio.current_task() and not t.done()]
+    assert asyncio.run(run()) == []

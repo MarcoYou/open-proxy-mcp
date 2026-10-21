@@ -3487,8 +3487,13 @@ async def build_financial_metrics_payload(
     if scope == "summary":
         # 요약(단년)은 보고서가 당기·전기 둘뿐이라 단위 어긋남을 다수결로 못 가린다 — 상장사면 KRX 보통주 시총을 제3 신호로 쓴다(DATA-SC1, DB 1회·DART 0콜).
         _mk = asyncio.ensure_future(_common_mktcap(selected.get("stock_code"))) if selected.get("stock_code") else None
-        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit,
-                                                         stock_code=selected.get("stock_code"), mktcap=_mk)
+        try:
+            metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit,
+                                                             stock_code=selected.get("stock_code"), mktcap=_mk)
+        finally:
+            # 시총은 사업보고서 갈래에서만 기다린다 — 분기·반기로 물러난 해나 자료 없음이면 쓰지 않았다: 남겨 두지 않고 거둔다(끝난 것은 그대로).
+            if _mk is not None and not _mk.done():
+                _mk.cancel()
         warnings.extend(ws)
         if metrics:
             data["summary"] = metrics
