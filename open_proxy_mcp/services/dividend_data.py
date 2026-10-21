@@ -24,9 +24,10 @@
   - 🔴 **반기·분기 결산 회사(리츠 등)는 한 사업연도에 결산기 행이 여럿이다**(`stlm_dt` 가 갈린다 — 롯데리츠 FY2025 = 2025-06-30 117원 · 2025-12-31 123원).
     회사·사업연도의 DPS 는 **그 해 결산기 DPS 의 합**(240원)이다 — 종전 집계는 `DISTINCT ON (회사, 사업연도)` 로 임의의 한 결산기만 읽거나(`screen` 은 총액이 같은
     행 가운데 임의 DPS) 결산기 행을 그대로 늘어놓았다. 12월 결산 회사처럼 결산기가 하나면 값은 그대로다. (261021)
-  - 🔴 **원장의 총액 칸은 결산기 행마다 가장 늦은 결산기의 총액이 복사되어 있다**(롯데리츠 2025-06-30 행 355.43억 — 그 결산기 원문은 338.09억). 그래서 합치기 전에
-    확인한다: 한 사업연도 안 결산기 행의 총액이 모두 같으면(`total_basis="ledger_copy"`) 더하지 않고 그 값 하나를 낸다(실제 연 총액은 이보다 크다 — 경고로 알린다).
-    원장이 결산기별 실제 총액으로 다시 쓰이면 더한다(`total_basis="sum"`).
+  - 🔴 **총액 칸은 결산기 행마다 그 결산기의 총액이다**(롯데리츠 2025-06-30 행 338.09억 · 2025-12-31 행 355.43억). 261021 전에는 수집기가 보고서마다 가장 늦은 결산기의 총액을
+    모든 결산기 행에 복사해 뒀다(롯데리츠 2025-06-30 행 355.43억) — 그 시절 값은 운영에서 다시 썼고, 수집기도 고쳤다. 합치기 전에 한 번 더 확인한다:
+    한 사업연도 안 결산기 행의 총액이 모두 같은데 **DPS 가 서로 다르면** 복사 꼴로 보고(`total_basis="ledger_copy"`) 더하지 않고 그 값 하나를 낸다(실제 연 총액은 이보다 크다 — 경고로 알린다).
+    총액이 서로 다르거나, 총액도 DPS 도 같으면(주식 수가 그대로인 리츠가 두 결산기에 같은 DPS 를 준 해 — 제이알글로벌리츠 FY2021·FY2024·FY2025) 더한다(`total_basis="sum"`).
   - 출처: 정기보고서 `alotMatter`(원장) — **확정치**. 결정공시(`div_payment`)는 이사회
     결의 시점 원문 — **결의된 그대로**이지 사업보고서로 재확인된 것은 아니다.
   - 빈칸: `확정`/`무배당`/`항목없음`/`보고서없음` 넷을 가른다. **0 으로 메우지 않는다.**
@@ -81,7 +82,7 @@ _COMMON_KINDS = ("보통", "미구분")      # 아래 SQL 리터럴 `stock_kind 
 
 #: 결산기 행 → 회사·사업연도 한 줄. 결산기(`stlm_dt`)마다 한 행만 고르고(확정 우선 → 총액 큰 순 → 원문 줄 순서 — 같은 결산기에 보통주·우선주(종류 칸이 `-` 인 미구분)
 #: 줄이 여럿이어도 결과가 정해진다. 종전 `DISTINCT ON` 이 총액 동률에서 고르던 줄 = 원문 첫 줄(보통주)과 같아, 12월 결산 회사의 값은 그대로다) 그 위에서 사업연도 합을 낸다. `{join}`·`{where}` 는 호출부 조건(섹터 조인·사업연도 범위 등).
-#: 총액: 결산기 둘 이상인데 총액이 모두 같으면(`ledger_copy` — 원장이 가장 늦은 결산기 총액을 복사해 둔 꼴) 더하지 않고 그 하나를 낸다.
+#: 총액: 결산기 둘 이상인데 총액이 모두 같고 DPS 는 서로 다르면(`ledger_copy` — 원장이 가장 늦은 결산기 총액을 복사해 둔 꼴) 더하지 않고 그 하나를 낸다. 총액도 DPS 도 같으면 실제로 같은 배당이라 더한다.
 _YEAR_SQL = """
   per AS (
     SELECT DISTINCT ON (d.corp_code, d.bsns_year, d.stlm_dt)
@@ -97,9 +98,11 @@ _YEAR_SQL = """
            count(*) AS n_periods,
            bool_or(status = '확정') AS confirmed,
            sum(dps_krw) FILTER (WHERE status = '확정') AS dps_krw,
-           CASE WHEN count(*) > 1 AND count(DISTINCT div_total_krw) = 1 THEN max(div_total_krw)
+           CASE WHEN count(div_total_krw) > 1 AND count(DISTINCT div_total_krw) = 1
+                     AND count(DISTINCT dps_krw) FILTER (WHERE status = '확정' AND div_total_krw IS NOT NULL) > 1 THEN max(div_total_krw)
                 ELSE sum(div_total_krw) END AS div_total_krw,
-           (count(div_total_krw) > 1 AND count(DISTINCT div_total_krw) = 1) AS copy_guard,
+           (count(div_total_krw) > 1 AND count(DISTINCT div_total_krw) = 1
+            AND count(DISTINCT dps_krw) FILTER (WHERE status = '확정' AND div_total_krw IS NOT NULL) > 1) AS copy_guard,
            (array_agg(payout_pct ORDER BY stlm_dt DESC))[1] AS payout_pct,
            (array_agg(rcept_no ORDER BY stlm_dt DESC))[1] AS rcept_no
       FROM per GROUP BY corp_code, bsns_year
@@ -130,7 +133,8 @@ def year_totals(annual: list[dict[str, Any]]) -> list[dict[str, Any]]:
         confirmed = [r for r in rows if r.get("row_status") == "확정"]
         dps = [r["dps_krw"] for r in confirmed if r.get("dps_krw") is not None]
         totals = [r["div_total_krw"] for r in rows if r.get("div_total_krw") is not None]
-        if len(rows) > 1 and len(totals) > 1 and len(set(totals)) == 1:
+        dps_with_total = {r["dps_krw"] for r in confirmed if r.get("dps_krw") is not None and r.get("div_total_krw") is not None}
+        if len(rows) > 1 and len(totals) > 1 and len(set(totals)) == 1 and len(dps_with_total) > 1:      # SQL `copy_guard` 와 같은 조건
             basis, total = "ledger_copy", totals[0]
         elif len(rows) > 1:
             basis, total = "sum", (sum(totals) if totals else None)
@@ -363,7 +367,7 @@ def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dic
     한 벌만 내면 「배당이 줄었다」와 「배당하는 회사가 줄었다」가 구별되지 않는다.
     🔴 빈 버킷을 0 으로 메우지 않는다 — 「배당 0」과 「잴 회사가 없다」는 다르다.
     🔴 회사·사업연도 한 줄은 **그 해 결산기 행의 합**이다(`_YEAR_SQL`, 261021) — 반기·분기 결산 회사(리츠)는 결산기 행이 여럿이고, 종전 `DISTINCT ON
-    (회사, 사업연도)` 는 그 가운데 총액이 큰 한 결산기만 셌다. 총액이 결산기 행마다 같은 복사 꼴이면 더하지 않고(`n_copy_guard` 가 그 회사 수) 그 하나를 쓴다.
+    (회사, 사업연도)` 는 그 가운데 총액이 큰 한 결산기만 셌다. 총액이 결산기 행마다 같은데 DPS 가 다른 복사 꼴이면 더하지 않고(`n_copy_guard` 가 그 회사 수) 그 하나를 쓴다.
     """
     # 섹터는 업종분류 최신 스냅샷으로 붙인다. 종목 하나가 여러 티커(우선주)를 갖는
     # 경우가 있어 `div_declared.tickers` 로 조인하되 (회사, 사업연도, 결산기) 로 중복을 없앤다.
