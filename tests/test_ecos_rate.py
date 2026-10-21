@@ -250,8 +250,10 @@ def test_freshness_checks():
     with pytest.raises(S.EcosError, match="받은 값이 없다"):
         S.check_freshness({"C": []}, today)
     with pytest.raises(S.EcosError, match="늦다"):
-        S.check_freshness({"3": [(D("20261001"), 3.0)]}, today)
-    S.check_freshness({"C": [(D("20261013"), 3.2)]}, today)                            # 추석 연휴급 8일은 정상
+        S.check_freshness({"3": [(D("20260920"), 3.0)]}, today)
+    S.check_freshness({"C": [(D("20261009"), 3.2)]}, today)                            # 열흘 넘는 연휴(12일 전 값)까지는 정상
+    with pytest.raises(S.EcosError, match="늦다"):
+        S.check_freshness({"C": [(D("20261006"), 3.2)]}, today)                        # 15일 — 멈춘 것
 
 
 def test_cold_wait_matches_server_manifest_max_age(monkeypatch):
