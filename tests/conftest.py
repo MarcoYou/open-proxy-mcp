@@ -17,6 +17,9 @@ import pytest
 # 🔴 setdefault 가 아니라 **강제**다 — 개발자 셸에 `OPM_KRX_REFRESHER=1` 과 운영 `DATABASE_URL` 이 있어도 테스트가 운영 DB 를 쓰는 갱신기를
 # 띄우지 못하게 한다. 갱신기 자체의 테스트는 `monkeypatch` 로 값을 바꾸거나 함수를 직접 부른다.
 os.environ["OPM_KRX_REFRESHER"] = "0"
+# 갱신기의 지수 종가 쓰기(`krx_idx`)도 기본으로 끈다 — 갱신기 시험이 `run_cycle` 을 직접 부를 때 개발자 셸의 `DATABASE_URL` 로 지수 쪽이 DB 를
+# 읽거나 쓰지 않게. 지수 시험(`test_krx_idx_refresher.py`)은 `monkeypatch.setenv` 로 켠다.
+os.environ["OPM_KRX_IDX_WRITE"] = "0"
 # 회사 명부(DART corpCode) 백그라운드 갱신기도 같은 이유로 끈다 — 테스트가 DART 에서 명부를 받거나 개발자의 configs/master.db 를 덮지 않게.
 os.environ["OPM_CORP_REFRESHER"] = "0"
 # 콜드 서빙(DB 밖 서빙본을 받아 읽는 것)도 끈다 — 개발자 셸의 `OPM_COLD=1`·서명 URL 로 시험이 네트워크·/data 를 만지지 않게.
@@ -37,9 +40,11 @@ def _reset_weekly_start_cache():
     import sys
 
     def _clear():
-        cache = getattr(sys.modules.get("open_proxy_mcp.services.price_multiple_data"), "_WEEKLY_START_CACHE", None)
-        if cache is not None:
-            cache.clear()
+        mod = sys.modules.get("open_proxy_mcp.services.price_multiple_data")
+        for name in ("_WEEKLY_START_CACHE", "_AGG_FIRST_CACHE"):     # 261021: 집계 표의 DB 가장 이른 날짜 캐시도
+            cache = getattr(mod, name, None)
+            if cache is not None:
+                cache.clear()
     _clear()
     yield
     _clear()
@@ -214,4 +219,89 @@ def cold_serving(tmp_path, monkeypatch):
         monkeypatch.setenv("OPM_COLD_MANIFEST_URL", info["manifest_url"])
         monkeypatch.setenv("OPM_COLD_DIR", str(tmp_path / "cache"))
         return info
+    return make
+
+
+#: 261021: 집계 서빙본 두 벌 — 발행기 Spec(`krx_cap_agg_hist`·`opm_val_market_hist`)과 같은 표 = 뷰 이름·칸·기본키·서버 열쇠.
+COLD_AGG_SPECS = {
+    "krx_cap_agg_hist": {
+        "view": "krx_cap_agg",
+        "cols": [("price_dd", "TEXT NOT NULL"), ("market", "TEXT NOT NULL"), ("scheme", "TEXT NOT NULL"), ("bucket", "TEXT NOT NULL"),
+                 ("label", "TEXT"), ("n", "INTEGER NOT NULL"), ("cap", "INTEGER NOT NULL"), ("sector_asof", "TEXT")],
+        "pk": ("scheme", "price_dd", "market", "bucket"), "key": ["scheme", "price_dd"]},
+    "opm_val_market_hist": {
+        "view": "opm_val_market",
+        "cols": [("snap_dd", "TEXT NOT NULL"), ("market", "TEXT NOT NULL"), ("per_fy0", "REAL"), ("per_ttm", "REAL"), ("pbr_fy0", "REAL"),
+                 ("pbr_mrq", "REAL"), ("cap", "REAL"), ("ni_ttm", "REAL"), ("eq", "REAL"), ("cap_pref", "REAL"),
+                 ("sector", "TEXT NOT NULL"), ("label", "TEXT"), ("n", "INTEGER"), ("scheme", "TEXT NOT NULL"), ("ni_fy0", "REAL")],
+        "pk": ("scheme", "snap_dd", "market", "sector"), "key": ["scheme", "snap_dd"]},
+}
+
+
+def build_cold_hist(root, datasets: dict, *, upto: str):
+    """집계 서빙본(들)과 한 목록(`serve/manifest.json`)을 만든다 — 발행기와 같은 모양(시험 전용).
+
+    datasets = {이름: rows(dict 목록 — 칸 이름 → 값, 없는 칸은 NULL)} 또는 {이름: (rows, {"min_dd":…, "max_dd":…})}.
+    coverage 기본 = 행의 가장 이른 날짜 ~ upto 전날. 반환 manifest_url."""
+    import datetime as _dt
+    import gzip
+    import hashlib
+    import json
+    import sqlite3
+    from pathlib import Path
+
+    root = Path(root)
+    (root / "build").mkdir(parents=True, exist_ok=True)
+    entries = {}
+    for name, val in datasets.items():
+        rows, cov = (val if isinstance(val, tuple) else (val, {}))
+        spec = COLD_AGG_SPECS[name]
+        names = [c for c, _ in spec["cols"]]
+        tmp = root / "build" / f"{name}.building.sqlite"
+        if tmp.exists():
+            tmp.unlink()
+        con = sqlite3.connect(tmp, isolation_level=None)
+        con.execute(f"CREATE TABLE {spec['view']} ({', '.join(f'{c} {t}' for c, t in spec['cols'])}, "
+                    f"PRIMARY KEY ({', '.join(spec['pk'])})) WITHOUT ROWID")
+        con.executemany(f"INSERT INTO {spec['view']} VALUES ({', '.join('?' for _ in names)})",
+                        [tuple(r.get(c) for c in names) for r in rows])
+        con.execute("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT NOT NULL) WITHOUT ROWID")
+        con.execute("INSERT INTO meta VALUES ('dataset', ?)", (name,))
+        con.execute("PRAGMA application_id = 1330662723")
+        con.execute("PRAGMA user_version = 1")
+        con.execute("VACUUM")
+        con.close()
+        data = tmp.read_bytes()
+        sha = hashlib.sha256(data).hexdigest()
+        fname = f"{name}.{sha[:16]}.sqlite"
+        tmp.replace(root / "build" / fname)
+        obj_dir = root / "serve" / name
+        obj_dir.mkdir(parents=True, exist_ok=True)
+        obj_path = obj_dir / (fname + ".gz")
+        with open(obj_path, "wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as g:
+            g.write(data)
+        obj = obj_path.read_bytes()
+        date_col = spec["key"][1]
+        dates = sorted(r[date_col] for r in rows)
+        max_dd = (_dt.datetime.strptime(upto, "%Y%m%d") - _dt.timedelta(days=1)).strftime("%Y%m%d")
+        coverage = {"min_dd": cov.get("min_dd") or (dates[0] if dates else "20151230"), "max_dd": cov.get("max_dd") or max_dd}
+        entry = {"file": fname, "object": f"serve/{name}/{fname}.gz", "encoding": "gzip", "sha256": sha, "bytes": len(data),
+                 "object_sha256": hashlib.sha256(obj).hexdigest(), "object_bytes": len(obj), "rows": len(rows),
+                 "coverage": {**coverage, "upto": upto}, "file_schema": 1}
+        entries[name] = {"engine": "sqlite3", "view": spec["view"], "columns": names, "key": spec["key"], "date_col": date_col,
+                         "files": [entry], "coverage": coverage}
+    mpath = root / "serve" / "manifest.json"
+    mpath.write_text(json.dumps({"schema": 1, "kind": "opm-cold-serve", "datasets": entries}, ensure_ascii=False))
+    return "file://" + str(mpath)
+
+
+@pytest.fixture
+def cold_hist(tmp_path, monkeypatch):
+    """집계 서빙본을 켠 상태 — `make({이름: rows}, upto=…)`."""
+    def make(datasets, *, upto):
+        url = build_cold_hist(tmp_path / "src", datasets, upto=upto)
+        monkeypatch.setenv("OPM_COLD", "1")
+        monkeypatch.setenv("OPM_COLD_MANIFEST_URL", url)
+        monkeypatch.setenv("OPM_COLD_DIR", str(tmp_path / "cache"))
+        return url
     return make

@@ -28,7 +28,12 @@
 저장: opm_val_market(260706 병합 — 시장전체 sector='_ALL' + 섹터별 행 한 테이블, PK snap_dd,market,sector).
   FY0와 TTM/MRQ는 독립 페어링(한쪽 데이터 없어도 다른 쪽은 채움) — firm별로 결측 있을 수 있어서.
 
-실행: python3 scripts/market_val_history_backfill.py [--since 20200101] [--cold-sqlite <서빙본.sqlite>]
+  · 261021: **DB 에는 3년 창(보존 하한 `krx_weekly_cutoff` 이후)만 쓴다.** 하한 이전 월말은 DB 에 쓰지 않는다 — 그 구간은 콜드 보관본 몫이고
+    서버는 서빙본(`opm_val_market_hist`)에서 읽는다. 하한 이전을 다시 내려면 `--cold-sqlite <서빙본> --hist-out <파일.parquet>` — 결과는
+    Parquet(칸 = `month_end_prices.HIST_COLS`, 시장 행은 scheme='market'·sector='_ALL', KSIC 행은 scheme='ksic')로만 나간다.
+    `--hist-out` 이 없으면 하한 이전 달은 건너뛴다. (하한 이전에는 주간 스냅샷 행이 없어 `cap_pref` 보호 조건이 걸릴 일이 없다.)
+
+실행: python3 scripts/market_val_history_backfill.py [--since 20200101] [--cold-sqlite <서빙본.sqlite> --hist-out <파일.parquet>]
 """
 import asyncio, os, sys
 from collections import defaultdict
@@ -47,7 +52,7 @@ from open_proxy_mcp.clock import today_kst
 from open_proxy_mcp.services import report_calendar as rcal
 from open_proxy_mcp.services import period_cells as pcells
 from open_proxy_mcp.services import restated_pit as rpit
-from scripts.month_end_prices import MonthEndPrices, covered
+from scripts.month_end_prices import HIST_COLS, MonthEndPrices, covered, split_window
 
 DDL_MIGRATE = (
     "ALTER TABLE opm_val_market ADD COLUMN IF NOT EXISTS per_fy0 double precision",
@@ -122,6 +127,8 @@ async def main() -> None:
     ap.add_argument("--since", default="20200101")
     ap.add_argument("--cold-sqlite", metavar="PATH",
                     help="보존 하한 이전 달을 콜드 서빙본(하한 이전 주간 시세 전 행 sqlite)으로 다시 낸다 — 없으면 그 달은 건너뛴다(261019)")
+    ap.add_argument("--hist-out", metavar="PARQUET",
+                    help="보존 하한 이전 월말의 결과를 DB 대신 이 Parquet 로(261021 — DB 에는 3년 창만 쓴다). 없으면 하한 이전 달은 건너뛴다")
     a = ap.parse_args()
     since = a.since
     con = psycopg.connect(os.environ["DATABASE_URL"]); con.autocommit = True
@@ -153,6 +160,14 @@ async def main() -> None:
     print(src.describe(), flush=True)
     today = today_kst(); cur_ym = f"{today.year}{today.month:02d}"
     months = sorted(d for d in src.plan.dates if d[:6] < cur_ym)
+    # 261021: DB 에는 3년 창만 — 하한 이전 월말은 `--hist-out` 일 때만 계산해 Parquet 로, 아니면 건너뛴다.
+    db_months, old_months = split_window(months, src.cutoff)
+    if old_months:
+        print(f"보존 하한 {src.cutoff} 이전 월말 {len(old_months)}개({old_months[0]}~{old_months[-1]}) — DB 에는 쓰지 않는다"
+              + (f" · Parquet 로 낸다({Path(a.hist_out).name})" if a.hist_out else " · 건너뜀(다시 내려면 --cold-sqlite … --hist-out)"),
+              flush=True)
+    months = months if a.hist_out else db_months
+    hist: list[tuple] = []
     if not months:
         print("다시 낼 월말이 없다", flush=True)
         src.close(); con.close()
@@ -219,13 +234,21 @@ async def main() -> None:
             sec_rows.append((d, market, s_, label(s_), v[8], round(max(v[0], v[2], v[4], v[6])), pf, bf, pt, bm, nif, nit))
         # 260829: 행마다 왕복하던 것을 월 단위로 묶는다. 한 달에 100회 넘게 부르던 것이 2회가 된다
         #   (실측: 15분 job 한도에 79개 월말 중 26개에서 잘렸다 — 원격 DB 라 지연이 곧 비용).
+        if d < src.cutoff:                 # 하한 이전 — DB 에 쓰지 않는다(`--hist-out` 일 때만 여기 온다). 칸 = HIST_COLS
+            hist.extend((r[0], r[1], "market", "_ALL", None, None, r[6], r[2], r[3], r[4], r[5], r[7], r[8]) for r in mk_rows)
+            hist.extend((r[0], r[1], "ksic", r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11]) for r in sec_rows)
+            continue
         with con.cursor() as cur:
             cur.executemany(UPSERT_MKT, mk_rows)
             cur.executemany(UPSERT_SEC, sec_rows)
         nmk += len(mk_rows); nsec += len(sec_rows)
         if months.index(d) % 12 == 0:
             print(f"  {d} … 시장 {nmk}행 + 섹터 {nsec}행", flush=True)
-    print(f"✓ 과거 FY0+TTM/MRQ 밴드 저장: 시장 {nmk}행 + 섹터 {nsec}행 ({len(months)}개 월말)", flush=True)
+    if a.hist_out:
+        from scripts import hist_parquet
+        info = hist_parquet.write(a.hist_out, HIST_COLS, hist)
+        print(f"하한 이전 시장·KSIC 밴드 {info['rows']:,}행 → {Path(a.hist_out).name} · sha256 {info['sha256'][:16]} (DB 쓰기 없음)", flush=True)
+    print(f"✓ 과거 FY0+TTM/MRQ 밴드 저장(DB 3년 창): 시장 {nmk}행 + 섹터 {nsec}행 ({len(db_months)}개 월말)", flush=True)
     src.close()
     con.close()
 

@@ -10,6 +10,7 @@ D·E 가 그 경우다(운영 10-19 에는 그 종목들이 분류·재무 표�
   · 서빙본(`--cold-sqlite`)이 있으면: 하한 이전 달도 그 달의 진짜 월말로 다시 낸다(서버 곡선과 같은 이음매).
   · 최소 커버리지: 배수를 낸 회사 시총이 버킷 시총의 절반 미만이면 배수와 분모 합을 비운다(화면 「자료없음」).
   · 시장 백필은 주간 스냅샷이 쓴 행(`cap_pref` 있음)을 덮지 않고, KSIC 동결(2026-08-23) 뒤 월말은 KSIC 행을 만들지 않는다.
+  · 261021: DB 에는 3년 창(하한 이후)만 쓴다 — 하한 이전 월말(연말 포함)은 DB 에 쓰지 않고, `--hist-out` 이면 Parquet 로만 낸다.
 Postgres 시험은 Docker 가 없으면 건너뛴다(`tests/conftest.py` 의 `pg17`).
 """
 from __future__ import annotations
@@ -148,11 +149,22 @@ def _rows(url):
                 for r in cur.fetchall()}
 
 
-def _run_both(monkeypatch, *extra):
-    monkeypatch.setattr(sys, "argv", ["market_val_history_backfill.py", *extra])
+def _run_both(monkeypatch, *extra, hist_dir=None):
+    """두 백필을 돌린다. `hist_dir` 이면 하한 이전 결과를 그 폴더의 Parquet 두 개로 받아 `_rows` 와 같은 모양으로 돌려준다."""
+    h = (["--hist-out", str(hist_dir / "mkt.parquet")] if hist_dir else [])
+    monkeypatch.setattr(sys, "argv", ["market_val_history_backfill.py", *extra, *h])
     asyncio.run(H.main())
-    monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py", *extra])
+    h = (["--hist-out", str(hist_dir / "sec.parquet")] if hist_dir else [])
+    monkeypatch.setattr(sys, "argv", ["sector_val_backfill.py", *extra, *h])
     assert S.main() == 0
+    if not hist_dir:
+        return None
+    from scripts import hist_parquet
+    out = {}
+    for f in ("mkt.parquet", "sec.parquet"):
+        for r in hist_parquet.read(hist_dir / f, [c for c, _ in M.HIST_COLS]):
+            out[tuple(r[:4])] = dict(zip(("n", "cap", "per_fy0", "pbr_fy0", "per_ttm", "pbr_mrq", "ni_fy0", "ni_ttm"), r[5:]))
+    return out
 
 
 def test_without_cold_partial_dates_never_overwrite_or_create_rows(vdb, monkeypatch, capsys):
@@ -162,18 +174,22 @@ def test_without_cold_partial_dates_never_overwrite_or_create_rows(vdb, monkeypa
     after = _rows(url)
     assert not [k for k in after if k[0] == "20200110"]                          # 부분 날짜(D 한 종목)에 새 행 없음
     for k, v in before.items():
-        if k[0] in ("20200131", "20200228"):
+        if k[0] < "20231016":
             assert after[k] == v                                                   # 하한 이전 월말 = 옛 값 그대로(20200228 = E 한 종목 날짜)
-    ks = after[("20201230", "KS", "market", "_ALL")]                               # 연말은 DB 연말 행(온전)으로 다시 낸다
-    assert ks["per_fy0"] == pytest.approx(11000 / 1100)
+    assert {k for k in after if k[0] < "20231016"} == {k for k in before if k[0] < "20231016"}   # 261021: 연말(20201230)도 DB 에 새로 쓰지 않는다
     assert after[("20231027", "KQ", "wics_sector", "G45")]["per_fy0"] == pytest.approx(5000 / 200)
-    assert "건너뜀" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "건너뜀" in out and "DB 에는 쓰지 않는다" in out
 
 
-def test_with_cold_months_below_the_floor_are_recomputed_at_the_true_month_end(vdb, monkeypatch):
+def test_with_cold_months_below_the_floor_are_recomputed_at_the_true_month_end(vdb, monkeypatch, tmp_path):
+    """하한 이전 월말은 서빙본으로 그 달의 진짜 월말에 다시 내되 DB 가 아니라 Parquet 로(261021)."""
     url, sqlite_path = vdb
-    _run_both(monkeypatch, "--cold-sqlite", sqlite_path)
-    after = _rows(url)
+    before = _rows(url)
+    after = _run_both(monkeypatch, "--cold-sqlite", sqlite_path, hist_dir=tmp_path)
+    assert {k: v for k, v in _rows(url).items() if k[0] < "20231016"} == {k: v for k, v in before.items() if k[0] < "20231016"}
+    assert after and all(k[0] < "20231016" for k in after)                          # Parquet 에는 하한 이전만
+    assert after[("20201230", "KS", "market", "_ALL")]["per_fy0"] == pytest.approx(11000 / 1100)   # 연말(서빙본 = 같은 값)
     assert not [k for k in after if k[0] in ("20200110", "20200124")]              # 월말이 아닌 날짜 · 부분 날짜에 행 없음
     ks = after[("20200131", "KS", "market", "_ALL")]
     assert ks["per_fy0"] == pytest.approx(11200 / 1110)                            # 서빙본 시총 A 10,000 + B 1,000 + E 200
@@ -225,14 +241,13 @@ def test_with_stored_weekly_recomputes_stored_sector_points_between_month_ends(v
 
 
 # ── 적대적 검토(10-19)에서 변이가 살아남은 곳 — 업종 쪽 최소 커버리지 · nodata 분모 · 이번 달 저장된 점 ─────────────
-def test_sector_minimum_coverage_blanks_multiples_a_small_part_of_the_bucket_produced(vdb, monkeypatch):
+def test_sector_minimum_coverage_blanks_multiples_a_small_part_of_the_bucket_produced(vdb, monkeypatch, tmp_path):
     url, sqlite_path = vdb
     # 2020-01 TTM 칸을 E(코스피 IT 시총 200)에도 준다 — 같은 버킷의 A(10,000)는 없다 → IT 의 PER(TTM)은 버킷 시총의 2% 로 낸 값 → 비운다.
     with psycopg.connect(url, autocommit=True) as c:
         c.execute("UPDATE dart_finstat_q SET ni_cum = 8.0 WHERE ticker = 'E' AND fy = 2019 AND quarter = 3")
         c.execute("INSERT INTO dart_finstat_q VALUES ('E', 2018, 3, 6.0, 90.0, NULL, NULL)")
-    _run_both(monkeypatch, "--cold-sqlite", sqlite_path)
-    after = _rows(url)
+    after = _run_both(monkeypatch, "--cold-sqlite", sqlite_path, hist_dir=tmp_path)    # 하한 이전 → Parquet(261021)
     for k in (("20200131", "KS", "wics_sector", "G45"), ("20200131", "KS", "wics_industry", "G4530"),
               ("20200131", "KS", "ksic", H.bucket("26410", "A"))):
         assert after[k]["per_ttm"] is None and after[k]["ni_ttm"] is None, k     # 배수와 분모 합을 함께 비운다(「적자」로 읽히지 않게)

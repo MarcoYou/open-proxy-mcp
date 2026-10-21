@@ -22,6 +22,9 @@
 
 이 모듈은 네트워크만 다룬다 — DB 도, 캐시도 없다(캐시는 호출자마다 목적이 달라 호출자가 둔다). `market_codes` 만 읽는 잎 모듈이라
 어느 모듈에서든 순환 없이 import 한다.
+
+261021(P0 지수 종가): KRX 공식 지수 일별 엔드포인트 셋(`idx/kospi_dd_trd`·`kosdaq_dd_trd`·`krx_dd_trd`)도 여기서 부른다(`fetch_index_day`).
+같은 상태 규칙·같은 호출 장부다. 응답 해석(열쇠·종가 ×100)은 `krx_idx` 가 한다.
 """
 from __future__ import annotations
 
@@ -39,6 +42,13 @@ BASE_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/"
 KOSPI_URL = BASE_URL + "stk_bydd_trd"
 KOSDAQ_URL = BASE_URL + "ksq_bydd_trd"
 TIMEOUT_SEC = 30
+
+#: KRX 공식 지수 일별 엔드포인트 — 계열 사전(`krx_idx_series.src`)의 한 글자와 짝이다(`scripts/krx_idx_ddl.py`).
+#: P = 코스피 계열 · Q = 코스닥 계열 · X = KRX 계열. 하루 한 번이면 그날 지수 전 계열이 온다(엔드포인트당 1콜).
+IDX_BASE_URL = "https://data-dbg.krx.co.kr/svc/apis/idx/"
+IDX_ENDPOINTS = {"P": "kospi_dd_trd", "Q": "kosdaq_dd_trd", "X": "krx_dd_trd"}
+#: 지수 응답에서 남기는 칸 — 날짜·계열 분류·이름·종가. 나머지(시고저·거래량·대금·시가총액)는 서버가 쓰지 않는다(원응답 전 칸은 콜드 몫).
+IDX_KEEP_KEYS = ("BAS_DD", "IDX_CLSS", "IDX_NM", "CLSPRC_IDX")
 
 OK, EMPTY = "ok", "empty"
 HTTP_ERROR, AUTH, LIMIT, TRANSPORT = "http_error", "auth", "limit", "transport"
@@ -65,6 +75,13 @@ class DayFetch(NamedTuple):
     """`fetch_day` 결과 — (코스피 행, 코스닥 행, KRX 호출 수, 상태). 4개로 풀어 쓸 수 있다."""
     kospi: list
     kosdaq: list
+    calls: int
+    status: str
+
+
+class IdxFetch(NamedTuple):
+    """`fetch_index_day` 결과 — ({엔드포인트 글자: 줄인 행들}, KRX 호출 수, 상태)."""
+    rows: dict
     calls: int
     status: str
 
@@ -138,8 +155,14 @@ def _read_body(data: Any) -> tuple[list | None, str]:
 
 async def _one(h: Any, url: str, basDd: str, key: str, market: str, own_client: bool) -> tuple[list, str]:
     """한 endpoint 를 한 번 부른다 → (줄인 행들, 상태). 예외를 올리지 않는다."""
-    from open_proxy_mcp.dart import krx_meter
     label = "KOSPI" if market == MKT_KS else "KOSDAQ"
+    rows, status = await _call(h, url, basDd, key, label, own_client)
+    return [reduce_row(x, market) for x in rows], status
+
+
+async def _call(h: Any, url: str, basDd: str, key: str, label: str, own_client: bool) -> tuple[list, str]:
+    """한 endpoint 를 한 번 부른다 → (응답 행들 그대로, 상태). 호출 장부를 한 번 센다. 예외를 올리지 않는다."""
+    from open_proxy_mcp.dart import krx_meter
     krx_meter.bump()                          # KRX 일별 사용량 장부 — 메모리 계수만(배경 스레드가 쓴다)
     try:
         kw = {} if own_client else {"timeout": TIMEOUT_SEC}
@@ -161,7 +184,7 @@ async def _one(h: Any, url: str, basDd: str, key: str, market: str, own_client: 
     if status in ERROR_STATUSES:
         logger.warning("KRX %s 오류 본문 basDd=%s — %s", label, basDd, STATUS_LABEL[status])
         return [], status
-    return [reduce_row(x, market) for x in rows or ()], status
+    return [x for x in rows or () if isinstance(x, dict)], status
 
 
 async def fetch_day(basDd: str, both: bool = False, *, ticker: str | None = None, http: Any = None) -> DayFetch:
@@ -212,3 +235,41 @@ async def fetch_day(basDd: str, both: bool = False, *, ticker: str | None = None
         if bad in statuses:
             return DayFetch(kospi, kosdaq, calls, bad)
     return DayFetch(kospi, kosdaq, calls, OK if (kospi or kosdaq) else EMPTY)
+
+
+async def fetch_index_day(basDd: str, *, http: Any = None) -> IdxFetch:
+    """KRX 공식 지수 한 거래일 — 엔드포인트 셋(`IDX_ENDPOINTS`)을 부른다 → `IdxFetch({P/Q/X: 줄인 행들}, 호출 수, 상태)`.
+
+    코스피 계열(P)을 먼저 부르고, 비었거나 실패면(게시 전·오류) 나머지 둘은 부르지 않는다 — 확인만 하는 호출은 1콜이다(`fetch_day` 와 같은 꼴).
+    P 가 오면 Q·X 를 차례로 부른다(합 3콜). 상태: 하나라도 실패면 그 실패(`auth` > `limit` > `transport` > `http_error`), 모두 성공이고
+    **셋 다** 행이 있으면 `ok`, 하나라도 비면 `empty`(아직 다 게시되지 않았다 — 휴장 판정 재료가 아니다. 휴장은 시세 달력이 정한다).
+    받은 행은 상태와 상관없이 돌려준다 — 쓸지는 호출자가 상태를 보고 정한다. 줄인 행 = `IDX_KEEP_KEYS` 네 칸."""
+    key = api_key()
+    if not key:
+        _warn_no_key(basDd)
+        return IdxFetch({}, 0, AUTH)
+    import httpx
+    out: dict[str, list] = {}
+    statuses: list[str] = []
+    calls = 0
+
+    async def run(h: Any, own: bool) -> None:
+        nonlocal calls
+        for src, ep in IDX_ENDPOINTS.items():
+            calls += 1
+            rows, st = await _call(h, IDX_BASE_URL + ep, basDd, key, f"지수 {src}({ep})", own)
+            out[src] = [{k: r.get(k) for k in IDX_KEEP_KEYS} for r in rows]
+            statuses.append(st)
+            if not rows:                     # 게시 전·실패 — 나머지 엔드포인트는 묻지 않는다
+                return
+
+    if http is not None:
+        await run(http, False)
+    else:
+        async with httpx.AsyncClient(timeout=TIMEOUT_SEC) as h:
+            await run(h, True)
+    for bad in (AUTH, LIMIT, TRANSPORT, HTTP_ERROR):
+        if bad in statuses:
+            return IdxFetch(out, calls, bad)
+    full = len(out) == len(IDX_ENDPOINTS) and all(out.values())
+    return IdxFetch(out, calls, OK if full else EMPTY)

@@ -3,6 +3,8 @@
 
 261019 신설. 첫 데이터셋은 `krx_weekly_hist` — 주간 시세(`krx_weekly`)의 보존 하한(최신 주의 달력 3년 전) 이전 전 행이다.
 DB 는 하한 이전을 종목별 연말 행만 남기므로(`krx_retention`), 그 앞의 주간 곡선은 이 서빙본에서 읽는다.
+261021: 집계 두 벌을 더했다 — `krx_cap_agg_hist`(시장·업종 시총 집계)·`opm_val_market_hist`(시장·업종 배수). 열쇠는 scheme 하나라
+(as_of 단면을 한 번에 읽는다) 시장·버킷·섹터는 호출부(`price_multiple_data._read_agg`)가 거른다. 읽기 API 는 그대로다.
 
 ■ 무엇을 믿나 — 서빙 목록(manifest) 하나
   `OPM_COLD_MANIFEST_URL`(비밀값 — 서명 URL, 로그에는 쿼리를 뗀 경로만) 또는 `file://` 경로(로컬·시험).
@@ -34,7 +36,7 @@ DB 는 하한 이전을 종목별 연말 행만 남기므로(`krx_retention`), �
 
 ■ 관측 — `stats()` 가 `/health` 의 `cold` 칸. URL·키는 싣지 않는다.
 
-이음매 규칙(어디서 자르나)은 이 모듈이 아니라 `krx_retention.serving_seam` 과 호출부(`price_multiple_data._read_weekly`)에 있다.
+이음매 규칙(어디서 자르나)은 이 모듈이 아니라 `krx_retention.serving_seam` 과 호출부(`price_multiple_data._read_weekly`·`_read_agg`)에 있다.
 """
 from __future__ import annotations
 
@@ -666,6 +668,31 @@ async def ready(dataset: str, *, wait: float | None = None) -> Ready | ColdError
                  cov["min_dd"], cov["max_dd"], entry["sha256"])
 
 
+async def settled_max_dd(dataset: str, *, wait: float | None = None, now: float | None = None) -> str | None:
+    """DB 행을 지워도 되는 콜드 끝 날 — 그 데이터셋 서빙본의 `coverage.max_dd`. 단 그 판이 **발행된 지**(파일 항목 `built_at`)
+    `OPM_COLD_MANIFEST_MAX_AGE_SEC`(기본 72시간)보다 오래됐을 때만 돌려준다. 아니면 None(지우지 않는다).
+
+    261021(P0 지수 종가 3년 밖 정리). 어느 서버든 그보다 묵은 목록은 쓰지 않으므로, 발행 뒤 그만큼 기다리면 모든 서버가 새 coverage 를 본다
+    (머리말 「DB 롤링은 새 coverage 발행 뒤 이 시간보다 오래 기다린다」). 꺼짐·목록을 못 읽음·데이터셋 없음·`built_at` 없음·모양이 어긋남 → None.
+    파일은 받지 않는다(목록만 본다)."""
+    if not enabled():
+        return None
+    try:
+        m = await _manifest(_wait_sec() if wait is None else wait)
+        _, entry = _dataset_entry(m, dataset)
+        built = _dt.datetime.fromisoformat(str(entry.get("built_at") or ""))
+    except (ColdError, ValueError):
+        return None
+    except Exception:                                     # noqa: BLE001 — 무엇이든 「지우지 않는다」로
+        return None
+    if built.tzinfo is None:
+        return None                                       # 시간대 없는 시각은 믿지 않는다(발행기는 UTC 로 적는다)
+    age = (time.time() if now is None else now) - built.timestamp()
+    if age < _max_age_sec():
+        return None
+    return entry["coverage"]["max_dd"]
+
+
 def _read_sync(r: Ready, cols: tuple[str, ...], key_value: str, lo: str, hi: str) -> list[tuple]:
     sel = ", ".join(cols)
     con = sqlite3.connect(f"file:{quote(r.path)}?mode=ro&immutable=1", uri=True, check_same_thread=False)
@@ -779,7 +806,11 @@ async def _background(datasets: tuple[str, ...]) -> None:
         await asyncio.sleep(_ttl_sec())
 
 
-def attach_to_app(app, datasets: tuple[str, ...] = ("krx_weekly_hist",)) -> None:
+#: 서버가 예열·목록 갱신하는 데이터셋 — 주간 시세(261019)와 시장·업종 집계 두 벌(261021, 열쇠 scheme·날짜).
+DEFAULT_DATASETS = ("krx_weekly_hist", "krx_cap_agg_hist", "opm_val_market_hist")
+
+
+def attach_to_app(app, datasets: tuple[str, ...] = DEFAULT_DATASETS) -> None:
     """Starlette 앱의 lifespan 을 감싸 서버가 뜬 뒤 예열·목록 갱신을 배경으로 돌린다(꺼져 있으면 아무것도 받지 않는다).
     배경 작업이 실패해도 앱은 뜬다 — 요청 경로가 그때그때 받거나 강등한다."""
     inner = getattr(getattr(app, "router", None), "lifespan_context", None)

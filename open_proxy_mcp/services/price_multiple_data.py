@@ -47,8 +47,8 @@ from open_proxy_mcp.services.dividend import (DPS_SHARE_EVENT_TYPES, _annual_sum
                                                dps_unevenness, period_cash_meta, period_dps, share_ratio_for, trailing_period_dps)
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR, reconcile_report_scales, rescale_rows
 from open_proxy_mcp.market_codes import KS as MKT_KS, KQ as MKT_KQ, to_db as mkt_to_db, to_label as mkt_label
-from open_proxy_mcp.krx_retention import (COLD_DEGRADED_NOTE, krx_weekly_cutoff, seam_gap, serving_seam, week_unit,
-                                           weekly_window_note, with_daily_tail, WEEKLY_DAYS_SQL)
+from open_proxy_mcp.krx_retention import (AGG_STEP_DAYS, COLD_AGG_DEGRADED_NOTE, COLD_DEGRADED_NOTE, agg_seam_gap, krx_weekly_cutoff,
+                                           seam_gap, serving_seam, week_unit, weekly_window_note, with_daily_tail, WEEKLY_DAYS_SQL)
 from open_proxy_mcp import cold_store as _cold
 from open_proxy_mcp import krx_api as _krx_api
 from open_proxy_mcp import krx_daily as _krx_daily
@@ -308,6 +308,165 @@ async def _read_weekly(ticker: str, req: str, latest: str, floor: str, db_aw, co
         return db_rows, span
     merged = [(*r, *extra) for r in cold_rows] + [r for r in db_rows if r[0] >= span.seam]
     return merged, span
+
+
+# ── 집계 표 읽기 한 곳 — DB(3년 창) + 콜드 서빙(그 앞) 이음매 (261021) ─────────────────────
+# 시장·업종 시총 집계(`krx_cap_agg`)와 시장·업종 배수(`opm_val_market`)는 DB 에 3년 창만 두고 그 앞은 서빙본에서 읽는다.
+# 규칙은 주간 곡선(`_read_weekly`)과 같다 — B = `krx_weekly_cutoff(저장된 최신 주)`, S = min(B, C + 1일), 콜드 날짜 < S · DB 날짜 >= S,
+# 겹치는 날 0, 못 읽으면 강등(DB 결과 그대로). 데이터셋 열쇠는 scheme 하나다(as_of 단면을 한 번에 읽고 계열은 여기서 거른다).
+# 이은 응답은 DB 만 읽던 응답과 글자까지 같다 — 서빙본은 같은 원천의 같은 행이고(발행기가 원천을 그대로 담는다) 칸·순서를 질의와 같게 맞춘다.
+# DB 에서 3년 밖 행을 지우기 **전**에도(지금) 켜 둘 수 있다 — 그때는 같은 값을 콜드에서 읽을 뿐 응답은 같다.
+COLD_CAP_AGG = "krx_cap_agg_hist"
+COLD_VAL_MARKET = "opm_val_market_hist"
+#: 데이터셋 → (DB 표, 날짜 칸) — 틈 판정(`agg_seam_gap`)에 쓰는 「DB 에 남은 가장 이른 날짜」를 읽는 곳.
+_AGG_DB = {COLD_CAP_AGG: ("krx_cap_agg", "price_dd"), COLD_VAL_MARKET: ("opm_val_market", "snap_dd")}
+#: {데이터셋: (읽은 시각, DB 가장 이른 날짜)} — 롤링 정리는 주 1회라 1시간이면 따라간다(`_WEEKLY_START_CACHE` 와 같은 생각).
+_AGG_FIRST_CACHE: dict[str, tuple[float, str | None]] = {}
+
+
+class _AggSpan(NamedTuple):
+    """집계 한 번 읽기에서 콜드 서빙이 한 일 — 필요했을 때만 만들어진다(꺼짐·필요 없음이면 None).
+    used=False 면 강등(reason) — 호출부는 DB 결과를 그대로 쓰고, DB 에도 그 구간이 없을 때만 `COLD_AGG_DEGRADED_NOTE` 를 단다."""
+    used: bool
+    reason: str | None = None
+    seam: str | None = None        # S — 콜드는 날짜 < S, DB 는 날짜 >= S
+    cut: str | None = None         # B — 3년 하한
+    n_cold: int = 0
+
+
+def _agg_db_first(dataset: str) -> str | None:
+    table, col = _AGG_DB[dataset]
+    rows = _pg_rows(f"SELECT min({col}) FROM {table}")
+    return rows[0][0] if rows and rows[0] and rows[0][0] else None
+
+
+async def _agg_db_first_cached(dataset: str) -> str | None:
+    hit = _AGG_FIRST_CACHE.get(dataset)
+    if hit and time.monotonic() - hit[0] < _WEEKLY_START_TTL:
+        return hit[1]
+    first = await _db_call(_agg_db_first, dataset)
+    if first is not None:                       # 장애·빈 표는 캐시하지 않는다
+        _AGG_FIRST_CACHE[dataset] = (time.monotonic(), first)
+    return first
+
+
+async def _agg_cut() -> str:
+    """B — 주간 곡선과 같은 3년 하한(저장된 최신 주의 달력 3년 전). 최신 주를 못 읽으면 오늘로(그 뒤 질의가 어차피 갈린다)."""
+    latest = await _db_call(_krx_db_latest_dd) or today_kst().strftime("%Y%m%d")
+    return krx_weekly_cutoff(latest)
+
+
+async def _agg_cold_part(dataset: str, key: str, req: str, cols: tuple[str, ...], pick
+                         ) -> tuple[_AggSpan, list | None] | None:
+    """[요청 하한(없으면 서빙본 시작), S) 를 서빙본에서 — None = 필요 없음, (span, None) = 강등, (span, 행) = 읽음."""
+    cut = await _agg_cut()
+    if req and req >= cut:                      # S ≤ B — 콜드가 필요할 수 없다(서빙 목록도 보지 않는다)
+        return None
+    r, first = await asyncio.gather(_cold.ready(dataset), _agg_db_first_cached(dataset))
+    if isinstance(r, _cold.ColdError):
+        return _AggSpan(False, r.reason, cut=cut), None
+    seam = serving_seam(cut, r.max_dd)
+    if req and req >= seam:
+        return None
+    if agg_seam_gap(seam, first, AGG_STEP_DAYS[dataset]):    # 서빙본 끝과 DB 첫 날짜 사이에 표본이 빠졌다 — 빈 구간이 섞인 곡선은 내지 않는다
+        _cold.note_degraded("seam_gap", f"{dataset} S {seam} < DB 첫 날짜 {first}")
+        return _AggSpan(False, "seam_gap", seam, cut), None
+    rows = await _cold.read(r, cols, key, req or r.min_dd, seam)
+    if rows is None:
+        return _AggSpan(False, "read_failed", seam, cut), None
+    if pick is not None:
+        rows = [x for x in map(pick, rows) if x is not None]
+    return _AggSpan(True, None, seam, cut, len(rows)), rows
+
+
+async def _agg_cold_part_or_degrade(dataset, key, req, cols, pick):
+    """`_agg_cold_part` 를 강등으로 감싼다 — 콜드 쪽에서 무엇이 터져도 DB 결과(종전 응답)는 나간다."""
+    try:
+        return await _agg_cold_part(dataset, key, req, cols, pick)
+    except Exception as e:  # noqa: BLE001 — 콜드 실패는 언제나 강등
+        _cold.note_degraded("error", type(e).__name__)
+        logger.warning("콜드 서빙(%s): 이음매 계산 실패 — 강등(%s)", dataset, type(e).__name__)
+        return _AggSpan(False, "error"), None
+
+
+async def _read_agg(dataset: str, key: str, req: str, db_aw, cols: tuple[str, ...], *, pick=None, order=None
+                    ) -> tuple[list | None, _AggSpan | None]:
+    """집계 시계열 읽기 한 곳 — DB 읽기(`db_aw`, 호출부의 종전 질의 그대로)와 콜드 읽기를 겹쳐 기다려 잇는다.
+
+    · 꺼짐(`OPM_COLD`≠1)·필요 없음(요청 하한이 S 이후) → DB 결과 그대로(종전과 같은 질의·같은 결과, 추가 읽기 0).
+    · 필요하면 서빙본 [요청 하한, S) 를 읽어 `pick`(행 → 질의 모양 튜플 또는 None = 버림)으로 거르고, DB 행은 날짜 >= S 만 남겨 잇는다.
+      `order` 가 있으면 이은 목록을 그 열쇠로 정렬한다(질의의 ORDER BY 와 같게). DB 행의 첫 칸은 날짜여야 한다.
+    · 콜드를 못 읽으면(강등) DB 결과 그대로 + span.used=False. DB 장애(None)는 종전 장애 경로 그대로다."""
+    if not _cold.enabled():
+        return await db_aw, None
+    db_rows, part = await asyncio.gather(db_aw, _agg_cold_part_or_degrade(dataset, key, req, cols, pick))
+    if part is None:
+        return db_rows, None
+    span, cold_rows = part
+    if db_rows is None or cold_rows is None:
+        return db_rows, span
+    merged = cold_rows + [r for r in db_rows if r[0] >= span.seam]
+    return (sorted(merged, key=order) if order else merged), span
+
+
+def _desc_key(dd: str) -> tuple[int, ...]:
+    """날짜 문자열(같은 길이)의 내림차순 정렬 열쇠 — `ORDER BY snap_dd DESC, market` 를 열쇠 하나로(시장은 오름차순 그대로)."""
+    return tuple(-ord(ch) for ch in dd)
+
+
+def agg_degraded_note(span: _AggSpan | None, db_first: str | None) -> str | None:
+    """강등이고 DB 에도 3년 밖 행이 없을 때만 안내 한 줄 — DB 에서 옛 행을 지우기 전(지금)은 DB 가 다 갖고 있어 응답이 종전과 같다(안내 없음)."""
+    if span is None or span.used:
+        return None
+    if db_first and span.cut and db_first < span.cut:
+        return None
+    return COLD_AGG_DEGRADED_NOTE
+
+
+async def _sector_asof_cold(dbs: str, as_of: str, rows: list | None, want_market: bool):
+    """업종 단면(as_of) — 그 날 이하 가장 최근 스냅샷이 S 이전이면 서빙본에서. 반환 None = DB 결과 그대로, 아니면 (rows, mk_latest, span).
+
+    · as_of >= S 이고 DB 가 답했으면 DB(종전). as_of < S 이거나 DB 가 비었으면(3년 밖 행을 지운 뒤 S 직후 기준일) 서빙본 [as_of−40일, min(as_of+1, S))
+      한 번, 그 안의 가장 늦은 업종 날짜. 없으면 [서빙본 시작, as_of−40일) 로 한 번 더 — 합치면 [시작, as_of+1) 이다(업종 읽기 최대 2회).
+    · KSIC 축은 「이 축이 시장보다 낡았나」 판정에 시장 최신일(as_of 이하)도 쓴다 — 판정은 시장 최신일 > 업종 날짜일 때만 서므로
+      [업종 날짜, 끝) 의 시장 행만 읽으면 된다(그보다 이른 시장 날짜는 판정을 바꾸지 않는다, 1회 더).
+    · 행 모양은 DB 질의와 같다 — (snap_dd, market, sector, label, n, cap, per_ttm, pbr_mrq, per_fy0, pbr_fy0, ni_fy0, ni_ttm),
+      ORDER BY market, cap DESC, sector(Postgres 는 내림차순에서 NULL 이 앞, 같은 cap 은 업종 코드 순)."""
+    from datetime import datetime as _dtm, timedelta as _td
+    cut = await _agg_cut()
+    if as_of >= cut and rows:
+        return None
+    r = await _cold.ready(COLD_VAL_MARKET)
+    if isinstance(r, _cold.ColdError):
+        return None if rows else ([], None, _AggSpan(False, r.reason, cut=cut))
+    seam = serving_seam(cut, r.max_dd)
+    if as_of >= seam and rows:
+        return None
+    d = _dtm.strptime(as_of, "%Y%m%d")
+    hi = min((d + _td(days=1)).strftime("%Y%m%d"), seam)
+    mid = max(r.min_dd, (d - _td(days=40)).strftime("%Y%m%d"))
+    cols = ("snap_dd", "market", "sector", "label", "n", "cap", "per_ttm", "pbr_mrq", "per_fy0", "pbr_fy0", "ni_fy0", "ni_ttm")
+    got: list = []
+    for lo, up in ((mid, hi), (r.min_dd, min(mid, hi))):
+        if not lo < up:
+            continue
+        part = await _cold.read(r, cols, dbs, lo, up)
+        if part is None:
+            return None if rows else ([], None, _AggSpan(False, "read_failed", seam, cut))
+        got = [x for x in part if x[2] != "_ALL"]
+        if got:
+            break
+    if not got:
+        return [], None, _AggSpan(True, None, seam, cut)
+    day = max(x[0] for x in got)
+    out = sorted((x for x in got if x[0] == day), key=lambda x: (x[1], x[5] is not None, -(x[5] or 0), x[2]))
+    mk = None
+    if want_market:
+        m = await _cold.read(r, ("snap_dd", "sector"), "market", day, hi)
+        if m is None:
+            return None if rows else ([], None, _AggSpan(False, "read_failed", seam, cut))
+        mk = max((x[0] for x in m if x[1] == "_ALL"), default=None)
+    return out, mk, _AggSpan(True, None, seam, cut, len(out))
 
 
 def _krx_db_get(price_dd: str, ticker: str) -> dict:
@@ -777,9 +936,16 @@ def _norm_as_of(as_of) -> str | None:
 
 async def build_market_val_payload(format: str = "md", as_of: str | None = None) -> dict[str, Any]:
     """시장 전체(KOSPI/KOSDAQ) 시총가중 밸류에이션 — 최신(또는 as_of 이하 최근 스냅샷) + 주간 히스토리(opm_val_market)."""
-    rows = await asyncio.to_thread(_pg_rows,
-        "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref, ni_fy0 "
-        "FROM opm_val_market WHERE sector='_ALL' AND scheme='market' ORDER BY snap_dd DESC, market")
+    # 261021: 3년 이음매(S) 이전 이력은 서빙본(`opm_val_market_hist`, 열쇠 scheme='market')에서 — 꺼짐이면 종전 질의 그대로.
+    rows, span = await _read_agg(
+        COLD_VAL_MARKET, "market", "",
+        asyncio.to_thread(_pg_rows,
+            "SELECT snap_dd, market, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_ttm, eq, cap_pref, ni_fy0 "
+            "FROM opm_val_market WHERE sector='_ALL' AND scheme='market' ORDER BY snap_dd DESC, market"),
+        ("snap_dd", "market", "per_fy0", "per_ttm", "pbr_fy0", "pbr_mrq", "cap", "ni_ttm", "eq", "cap_pref", "ni_fy0", "sector"),
+        pick=lambda x: x[:11] if x[11] == "_ALL" else None,
+        order=lambda x: (_desc_key(x[0]), x[1]))
+    cold_note = agg_degraded_note(span, rows[-1][0] if rows else None)
     if rows is None:
         return {"tool": "price_multiple_data", "status": "db_error", "subject": "시장 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
@@ -797,7 +963,8 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
         past = [h for h in hist if h["snap_dd"] <= as_of]
         if not past:
             return {"tool": "price_multiple_data", "status": "no_data", "subject": "시장 밸류에이션",
-                    "warnings": [f"기준일 {as_of} 이하 스냅샷 없음 — 가장 이른 스냅샷은 {hist[-1]['snap_dd']}."]}
+                    "warnings": [f"기준일 {as_of} 이하 스냅샷 없음 — 가장 이른 스냅샷은 {hist[-1]['snap_dd']}.",
+                                 *([cold_note] if cold_note else [])]}
         latest_dd = past[0]["snap_dd"]
     else:
         latest_dd = hist[0]["snap_dd"]
@@ -830,7 +997,7 @@ async def build_market_val_payload(format: str = "md", as_of: str | None = None)
                                "÷ni_ttm_krw 재계산과 다를 수 있음. "
                                "과거 월말 점은 그 배수를 낸 회사의 시총이 시장(재무가 있는 회사) 시총의 절반 미만이면 배수와 분모 합을 "
                                "비운다(대표값이 아니다 — 2020-01~03 PER(TTM) 등, 261019)."},
-            "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — 매일 집계 배치가 갱신."]}
+            "warnings": [f"주간 스냅샷 기준(최신 {latest_dd}) — 매일 집계 배치가 갱신.", *([cold_note] if cold_note else [])]}
 
 
 # 260823: 분류 축이 둘이 됐다. `sector != '_ALL'` 만으로 거르면 KSIC 와 업종분류가 **섞여**
@@ -865,13 +1032,32 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                  "ni_fy0, ni_ttm FROM opm_val_market "
                  "WHERE sector != '_ALL' AND scheme=%s "
                  f"AND snap_dd=({sub}) "
-                 "ORDER BY market, cap DESC", params))
+                 # 261021: 같은 cap(시총 0 업종 등)은 업종 코드 순 — 없으면 동률 순서가 DB 힙 순서라 서빙본(기본키 순)과 응답 글자가 달랐다
+                 "ORDER BY market, cap DESC, sector", params))
     if rows is None:
         return {"tool": "price_multiple_data", "status": "db_error", "subject": "산업별 밸류에이션",
                 "warnings": [_DB_ERROR_PAYLOAD_WARN]}
+    # 261021: 과거 기준일의 단면이 3년 이음매(S) 이전이면 서빙본(`opm_val_market_hist`)에서 — 꺼짐이면 아무것도 보지 않는다(종전 그대로).
+    #   DB 에서 옛 행을 지우기 전(지금)은 같은 행을 읽을 뿐이라 응답이 같다. 못 읽으면 DB 결과 그대로(DB 도 비었을 때만 안내 한 줄).
+    cold_note = None
+    if as_of and _cold.enabled():
+        try:
+            c = await _sector_asof_cold(dbs, as_of, rows, scheme == "ksic")
+        except Exception as e:  # noqa: BLE001 — 콜드 실패는 언제나 강등
+            _cold.note_degraded("error", type(e).__name__)
+            c = None if rows else ([], None, _AggSpan(False, "error"))
+        if c is not None:
+            c_rows, c_mk, c_span = c
+            if c_span.used:
+                rows = c_rows
+                if scheme == "ksic":
+                    mk_rows = [(c_mk,)]
+            elif not rows:               # DB 도 비었다 — DB 에 3년 밖 행이 아직 있으면(옮기기 전) 정말 없는 것이라 안내하지 않는다
+                cold_note = agg_degraded_note(c_span, await _agg_db_first_cached(COLD_VAL_MARKET))
     if not rows:
         return {"tool": "price_multiple_data", "status": "no_data", "subject": "산업별 밸류에이션",
-                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else _VAL_SNAPSHOT_EMPTY_WARN]}
+                "warnings": [f"기준일 {as_of} 이하 산업별 스냅샷 없음." if as_of else _VAL_SNAPSHOT_EMPTY_WARN,
+                             *([cold_note] if cold_note else [])]}
     as_of = rows[0][0]
     sectors = [{"market": r[1], "sector": r[2], "label": r[3], "n": r[4], "cap_krw": r[5],
                 "per_ttm": r[6] and round(r[6], 2), "pbr_mrq": r[7] and round(r[7], 2),
@@ -1007,11 +1193,21 @@ async def build_sector_val_payload(company: str = "", format: str = "md",
                 hist_sector = "_fold" if lbl and "(소규모 섹터" in lbl else sec
                 # 261019: scheme 은 공개 이름(「대분류」·「중분류」)이고 표의 scheme 칸은 옛 값(wics_sector·wics_industry)이다(`_db_scheme`).
                 #   260921 이름 전환 때 이 질의만 변환이 빠져, 업종분류 축의 sector_history 가 0행이었다(운영 005930 중분류 — 표에는 88행, 10-18 실측).
-                hrows = await asyncio.to_thread(_pg_rows,
-                    "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_fy0, ni_ttm "
-                    "FROM opm_val_market "
-                    "WHERE market=%s AND sector=%s AND scheme=%s ORDER BY snap_dd",
-                    (market, hist_sector, _db_scheme(scheme))) or []
+                # 261021: 3년 이음매(S) 이전은 서빙본에서 — 열쇠 scheme 한 번 읽고 시장·섹터를 여기서 거른다(`_read_agg`, 꺼짐이면 종전 질의 그대로).
+                hrows, h_span = await _read_agg(
+                    COLD_VAL_MARKET, _db_scheme(scheme), "",
+                    asyncio.to_thread(_pg_rows,
+                        "SELECT snap_dd, per_fy0, per_ttm, pbr_fy0, pbr_mrq, cap, ni_fy0, ni_ttm "
+                        "FROM opm_val_market "
+                        "WHERE market=%s AND sector=%s AND scheme=%s ORDER BY snap_dd",
+                        (market, hist_sector, _db_scheme(scheme))),
+                    ("snap_dd", "market", "sector", "per_fy0", "per_ttm", "pbr_fy0", "pbr_mrq", "cap", "ni_fy0", "ni_ttm"),
+                    pick=lambda x, _m=market, _s=hist_sector: (x[0], *x[3:]) if x[1] == _m and x[2] == _s else None,
+                    order=lambda x: x[0])
+                hrows = hrows or []
+                h_note = agg_degraded_note(h_span, hrows[0][0] if hrows else None)
+                if h_note:
+                    warnings.append(h_note)
                 if hrows:
                     company_ctx["sector_history"] = [
                         {"snap_dd": h[0], "per_fy0": h[1] and round(h[1], 2), "per_ttm": h[2] and round(h[2], 2),
