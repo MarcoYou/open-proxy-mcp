@@ -39,13 +39,13 @@ def _run(monkeypatch, reports: dict, db_rows, stock_code="000230", fiscal_month=
 
 
 def test_000230_2023_q3_controlling_is_the_db_cumulative_difference(monkeypatch):
-    """000230 2023 3분기: 총계 −574.41억(net_income_krw 그대로) · 지배는 누적 차분 −255.5억(반기 누적 −23.5억 → 3분기 누적 −279.0억)."""
+    """000230 2023 3분기: 총계 −574.41억(net_income_krw 그대로) · 지배는 누적 차분 −255.5억(운영 dart_finstat_q 실제 값: 반기 누적 −229.58억 → 3분기 누적 −485.11억)."""
     reports = {(2023, "11014"): _rows("2023.09.30", "-57441304690", "-107771897498")}
-    db_rows = [(2023, 2, "CFS", -2_350_000_000), (2023, 3, "CFS", -27_900_000_000)]
+    db_rows = [(2023, 2, "CFS", -22_957_924_598), (2023, 3, "CFS", -48_510_763_593)]
     out, ws, calls = _run(monkeypatch, reports, db_rows)
     q3 = next(r for r in out if r["fiscal_quarter"] == "Q3")
     assert q3["net_income_krw"] == -57441304690 and q3["net_income_basis"] == "total_incl_nci"
-    assert q3["net_income_controlling_krw"] == -25_550_000_000
+    assert q3["net_income_controlling_krw"] == -25_552_838_995
     assert q3["net_income_controlling_source"] == "db_ni_cum_diff"
     assert len(calls) == 1 and calls[0][1] == ("000230",)                  # DB 한 번
     md = "\n".join(_render_quarterly({"quarterly": out}))
