@@ -75,8 +75,10 @@ def route(sql: str) -> str:
         return "latest"                              # 닫힌 주 최신 — 달력 먼저(261019 v03 C4, `krx_daily.WEEKLY_LATEST_SQL`)
     if "SELECT price_dd, mktcap, 'w' FROM krx_weekly WHERE ticker=%s AND price_dd>=%s" in s:
         return "px"                                  # 261019(감사 3): 같은 왕복에 곡선 끝점 후보(일별 최신 한 줄 'd') — 여기 가짜에는 없다
-    if s.startswith("SELECT 'below', price_dd, count(*) FROM krx_weekly"):
-        return "weekly_start"                        # 261019(감사 2): DB 에 실제로 남은 주간 구간의 시작(없으면 3년 하한)
+    if s.startswith("SELECT c.relkind::text FROM pg_class c WHERE c.oid = to_regclass('krx_weekly')"):
+        return "weekly_kind"                         # 261021(감사 B3): krx_weekly 가 뷰인가 — 뷰면 달력 질의, 표면 종전 질의(기본: 뷰, 운영과 같다)
+    if s.startswith("WITH cal AS (") or s.startswith("SELECT 'below', price_dd, count(*) FROM krx_weekly"):
+        return "weekly_start"                        # 261019(감사 2): DB 에 실제로 남은 주간 구간의 시작(없으면 3년 하한) · 261021: 뷰면 달력(WITH cal)에서
     if "opm_val_firm" in s:
         raise AssertionError("종목별 밸류에이션 스냅샷 표는 없앴다(재설계 6단계) — 읽으면 안 된다: " + s)
     if "FROM krx_stock_flags" in s:
@@ -117,7 +119,7 @@ class FakeDb:
                 time.sleep(self.delay)
             if key == self.raise_on:
                 raise RuntimeError(f"읽기 {key} 가 예외를 냈다")
-            val = self.data.get(key, [])
+            val = self.data.get(key, [("v",)] if key == "weekly_kind" else [])
             if val is FAIL:
                 return None
             if key == "px":
@@ -412,14 +414,14 @@ def test_firm_history_issues_exactly_eight_reads_and_never_the_snapshot_table(mp
     261019: 주간 구간 시작 읽기가 하나 더 있다(감사 2 — 1시간 캐시라 대부분의 호출은 8번 그대로). 곡선 끝점(일별 최신 한 줄)은 곡선 읽기와 같은 왕복이다."""
     _, db, _ = run_firm_history(S, mp, "fh_samsung")
     assert sorted(k for k, _ in db.log) == sorted(
-        ["cur_row", "fin_y", "fund", "fin_q", "caps", "latest", "weekly_start", "px", "flags"])   # 261019: 주간 구간 시작(1시간 캐시)
+        ["cur_row", "fin_y", "fund", "fin_q", "caps", "latest", "weekly_kind", "weekly_start", "px", "flags"])   # 261019: 주간 구간 시작(1시간 캐시) · 261021: 뷰/표 판별 한 줄이 앞선다
 
 
 def test_firm_history_stops_early_when_the_fundamentals_read_fails(mp):
     """DB 장애(재무 요약 읽기 None)면 재무·곡선을 읽지 않고 db_error 를 곧바로 낸다 — 장애 중에 읽기 6번을 더 보내지 않는다."""
     payload, db, _ = run_firm_history(S, mp, "fh_only_cur_row_fails")
     assert payload["status"] == "db_error"
-    assert sorted(k for k, _ in db.log) == ["cur_row", "latest", "weekly_start"]
+    assert sorted(k for k, _ in db.log) == ["cur_row", "latest", "weekly_kind", "weekly_start"]
 
 
 def test_firm_reads_the_five_reads_of_before_plus_the_unlabeled_adjustment_read(mp):

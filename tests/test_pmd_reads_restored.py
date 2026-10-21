@@ -62,7 +62,9 @@ def _fh_rows(tail, *, latest="20261016", weekly=None, seen=None):
             return [("KS", "26110", "KRW", None, "ok")]
         if s == _LATEST:
             return [(latest,)]
-        if s.startswith("SELECT 'below'"):
+        if s.startswith("SELECT c.relkind::text FROM pg_class"):
+            return [("v",)]                                  # 261021(감사 B3): 운영과 같은 뷰 모드 — 주간 시작은 달력 질의(WITH cal)
+        if s.startswith(("SELECT 'below'", "WITH cal AS (")):
             return [("first", weekly[0][0], 2600), ("ref", latest, 2700)]
         if s.startswith("SELECT price_dd, mktcap, 'w' FROM krx_weekly"):
             if seen is not None:
@@ -160,7 +162,8 @@ def test_weekly_run_start_needs_a_first_row_and_a_reference():
     assert S._weekly_run_start([("below", "20231020", 2634), ("first", "20231027", 2634)], "20231023") == "20231023"
 
 
-def test_weekly_bounds_floor_is_the_stored_weekly_run_start(monkeypatch):
+@pytest.mark.parametrize("kind,start_prefix", [("v", "WITH cal AS ("), ("r", "SELECT 'below'")], ids=["view_uses_the_calendar", "table_keeps_the_old_query"])
+def test_weekly_bounds_floor_is_the_stored_weekly_run_start(monkeypatch, kind, start_prefix):
     calls = []
 
     def rows(sql, params=()):
@@ -168,18 +171,29 @@ def test_weekly_bounds_floor_is_the_stored_weekly_run_start(monkeypatch):
         calls.append(s[:30])
         if s == _LATEST:
             return [("20261023",)]
-        if s.startswith("SELECT 'below'"):
+        if s.startswith("SELECT c.relkind::text FROM pg_class"):
+            return [(kind,)]                                  # 261021(감사 B3): 뷰면 달력 질의, 표면 종전 질의
+        if s.startswith(start_prefix):
             assert params == ("20231023", "20231023", "20231127", "20231023")   # 첫 주는 하한 뒤 35일 안에서 먼저 찾는다
             return [("below", "20221229", 2558), ("below", "20231020", 2634), ("first", "20231027", 2634), ("ref", "20261023", 2762)]
         raise AssertionError(s)
     monkeypatch.setattr(S, "_pg_rows", rows)
     assert asyncio.run(S._weekly_bounds()) == ("20261023", "20231016")
     assert asyncio.run(S._weekly_bounds()) == ("20261023", "20231016")
-    assert sum(c.startswith("SELECT 'below'") for c in calls) == 1, "1시간 캐시 — 최신 주가 같으면 다시 읽지 않는다"
+    assert sum(c.startswith(start_prefix[:12]) for c in calls) == 1, "1시간 캐시 — 최신 주가 같으면 다시 읽지 않는다"
+    assert sum(c.startswith("SELECT c.relkind") for c in calls) == 1, "모양 판별도 캐시 안에서만 — 캐시가 맞으면 읽지 않는다"
     # 장애(None)면 자르는 쪽의 하한 — 캐시하지 않는다
     S._WEEKLY_START_CACHE.clear()
     monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): [("20261023",)] if sql == K.WEEKLY_LATEST_SQL else None)
     assert asyncio.run(S._weekly_bounds()) == ("20261023", "20231023") and not S._WEEKLY_START_CACHE
+    # 모양 판별만 실패해도 장애 — 종전 질의로 돌아가 엉뚱한 답을 내지 않는다
+    monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): [("20261023",)] if sql == K.WEEKLY_LATEST_SQL else None)
+    assert S._krx_weekly_start("20231023") is None
+
+    def boom(sql, params=()):
+        raise RuntimeError("읽기 예외")
+    monkeypatch.setattr(S, "_pg_rows", boom)           # 예외도 장애와 같다 — 곡선은 3년 하한으로 낸다(`_weekly_bounds`)
+    assert S._krx_weekly_start("20231023") is None
 
 
 def test_firm_history_keeps_the_stored_week_below_the_moving_cutoff(monkeypatch):
@@ -189,7 +203,7 @@ def test_firm_history_keeps_the_stored_week_below_the_moving_cutoff(monkeypatch)
     rows = _fh_rows([], latest="20261023", weekly=weekly, seen=seen)
 
     def with_start(sql, params=()):
-        if " ".join(sql.split()).startswith("SELECT 'below'"):
+        if " ".join(sql.split()).startswith("WITH cal AS ("):
             return [("below", "20221229", 2558), ("below", "20231020", 2634), ("first", "20231027", 2634), ("ref", "20261023", 2762)]
         return rows(sql, params)
     _patch(monkeypatch, with_start)
@@ -256,6 +270,62 @@ def test_sector_history_reads_the_table_scheme_value(monkeypatch, scheme):
     assert seen and seen[0] in DB_VALUES, f"표에 없는 scheme 값으로 읽었다: {seen}"
     hist = p["data"]["company"].get("sector_history")
     assert hist and [h["snap_dd"] for h in hist] == ["20251226", AS_OF]
+
+
+@pytest.mark.parametrize("scheme,folded", [(MID, True), (MAJOR, True), ("ksic", False)], ids=["mid", "major", "ksic_has_no_class_read"])
+def test_class_read_goes_out_with_the_first_firm_reads(monkeypatch, scheme, folded):
+    """261021(감사 B9④): 업종분류 축의 종목 분류 읽기(`wise_sector`)는 기업 값의 첫 묶음(재무 요약 · 그 날 시총)과 **한 묶음**으로 나간다 — 기업 값을 다 기다린 뒤
+    읽던 때는 왕복이 하나 더 들었다. 세 읽기가 동시에 떠 있어야 장벽(3자)을 넘는다 — 차례로 보내면 시간 초과로 깨진다. KSIC 축은 분류 읽기가 없다."""
+    import threading
+    monkeypatch.setattr(S, "_PG_FANOUT", 3)
+    barrier = threading.Barrier(3, timeout=5)
+    seen: list = []
+    base = _sector_db(seen)
+    log: list[str] = []
+
+    def rows(sql, params=()):
+        s = " ".join(sql.split())
+        if s.startswith("SELECT market, induty, currency, fetched, acc_mt FROM dart_fundamentals"):
+            log.append("fund")
+            if folded:
+                barrier.wait()
+            return [("KS", "26410", "KRW", "ok", None)]
+        if "AS src" in s:
+            log.append("cap")
+            if folded:
+                barrier.wait()
+            return [(CAP, "KS", 1)]
+        if "FROM wise_sector WHERE ticker=%s" in s:
+            log.append("wise")
+            if folded:
+                barrier.wait()
+        return base(sql, params)
+
+    async def resolve(q):
+        return {"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126380"}, None
+
+    async def no_fwd(*a, **k):
+        return {}, {}, None
+
+    async def no_div(*a, **k):
+        return {}, {}
+
+    async def fy(*a, **k):
+        return {2025: (30e12, 300e12)}
+
+    async def fq(*a, **k):
+        return S._FinQ()
+    monkeypatch.setattr(S, "_pg_rows", rows)
+    monkeypatch.setattr(S, "_resolve_listed", resolve)
+    monkeypatch.setattr(S, "_fwd_val_map", no_fwd)
+    monkeypatch.setattr(S, "_div_yield_map", no_div)
+    monkeypatch.setattr(S, "_firm_fin_by_fy", fy)
+    monkeypatch.setattr(S, "_firm_fin_by_q", fq)
+    p = asyncio.run(S.build_sector_val_payload(company="삼성전자", scheme=scheme, format="json"))
+    assert p["status"] == "ok" and not barrier.broken
+    assert sorted(log) == (["cap", "fund", "wise"] if folded else ["cap", "fund"]), "각 읽기는 한 번씩 — 합쳐도 늘거나 줄지 않는다"
+    if folded:
+        assert p["data"]["company"]["sector"] == ("G45" if scheme == MAJOR else "G4530"), "분류 읽기 값이 그대로 쓰인다"
 
 
 def _missing(why, market=None):

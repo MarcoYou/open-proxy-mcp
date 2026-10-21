@@ -29,7 +29,7 @@ from open_proxy_mcp.company_resolver import share_class_ticker
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
 from open_proxy_mcp.krx_daily import read_quote
 
-from open_proxy_mcp.krx_retention import weekly_window_note
+from open_proxy_mcp.krx_retention import weekly_window_note, with_daily_tail
 from open_proxy_mcp.krx_ticks import TICK_ROUNDING_LABEL, is_tick_rounding
 from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.services.sector_class import MAJOR, MID, canon as _class_canon, db_scheme as _db_scheme
@@ -40,7 +40,6 @@ from open_proxy_mcp.services.price_multiple_data import (
     _db_call,
     _fetch_live_snapshot,
     _gather_db,
-    _iso_wk_range,
     _num,
     _pg_rows,
     _price_dates,
@@ -222,26 +221,9 @@ _FIRM_METHOD_TAIL = ("KRX 정보데이터시스템 → 주간 시세 저장분(�
 
 
 def _with_daily_tail(rows: list | None, tail: list | None, lo: str) -> list | None:
-    """주간 행(price_dd 오름차순) 끝에 일별 최신 한 줄을 잇는다 (261018).
-
-    주간 표는 닫힌 주만 갖는다(261018 재설계 5-1 쓰는 쪽) — 이번 주 최신값은 일별 저장분에만 있다. 그래서 끝점은 늘 일별에서 읽는다.
-      · 꼬리가 마지막 주간 점보다 **늦을 때만** 쓴다. 같은 날(금요일이 닫힌 직후처럼 주간 표에도 그날 행이 있을 때)이면 아무것도 바꾸지 않는다.
-      · 마지막 주간 점과 **같은 주**면 그 점을 갈아 끼우고, 더 늦은 주면(몇 주 뒤든) 뒤에 붙인다 — 주간 표를 쓰는 쪽이 주를 닫는 것과
-        같은 정의(`_iso_wk_range` = ISO 주를 달력 연도로 자른 것 — 연말 거래일과 다음 해 첫 거래일은 다른 주)라, 결과는
-        「주마다 그 주 마지막(또는 최신) 거래일 한 점」 그대로다.
-      · 주간 행이 하나도 없는데 꼬리가 있으면(이번 주 신규상장) 그 한 점이 시계열이다.
-      · 요청 범위(하한 `lo` = since 와 보존 하한 중 늦은 쪽) 밖의 꼬리는 버린다. 이 스코프에는 끝 경계 인자가 없다.
-    주간 읽기가 실패(None)면 그대로 None — 종전 장애 경로를 탄다. 꼬리 읽기 실패(None)·빈 결과는 조용히 주간만 쓴다.
-    꼬리를 쓰지 않으면 **받은 `rows` 객체를 그대로** 돌려준다 — 호출자는 `is` 로 꼬리를 이었는지 가린다(출처 설명 고르기)."""
-    if rows is None or not tail:
-        return rows
-    t = tuple(tail[0])
-    dd = t[0]
-    if not dd or dd < lo or (rows and dd <= rows[-1][0]):
-        return rows
-    if rows and _iso_wk_range(dd)[0] == _iso_wk_range(rows[-1][0])[0]:
-        return [*rows[:-1], t]
-    return [*rows, t]
+    """주간 행 끝에 일별 최신 한 줄을 잇는다 (261018) — 규칙은 `krx_retention.with_daily_tail` 한 곳이다(배수 도구 곡선과 공용, 261021).
+    주간 읽기가 실패(None)면 그대로 None, 꼬리를 쓰지 않으면 받은 `rows` 객체를 그대로 돌려준다 — 호출자는 `is` 로 꼬리를 이었는지 가린다."""
+    return with_daily_tail(rows, tail, lo)
 
 
 async def build_firm_series_payload(company: str, format: str = "md",
