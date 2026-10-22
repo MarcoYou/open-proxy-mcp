@@ -879,12 +879,21 @@ async def _latest_listed_shares(stock_code: str | None) -> dict[str, Any] | None
         return None
 
 
-def _share_basis(snapshot: dict[str, Any], listed: dict[str, Any] | None) -> dict[str, Any] | None:
+#: 보고서 분모와 최신 상장주식수의 차이가 이 % 안이면 소각·증자 정도로 보고 상장주식수 기준 칸을 붙인다.
+#: 넘으면 액면분할·병합(DATA-PX3)이나 큰 감자·증자로 주식 수 단위가 달라졌을 수 있다 — 보유주식수는 그 전 단위, 상장주식수는 그 뒤 단위라 나누면 터무니없는 값이 나온다.
+_LISTED_COMPARE_MAX_PCT = 20.0
+
+
+def _share_basis(
+    snapshot: dict[str, Any], listed: dict[str, Any] | None, *, compare_latest: bool = True,
+) -> dict[str, Any] | None:
     """100% 분해 표의 분모(정기보고서 발행주식총수)와 최신 상장주식수를 맞대어 본다 → data["share_basis"]. 분모가 없으면 None.
 
     comparison:
       same               두 값이 같다 — 덧붙일 칸 없음.
-      differs            다르다 — diff_shares(= 보고서 − 상장), diff_pct(상장주식수 대비 %)를 함께.
+      differs            조금 다르다(|diff_pct| ≤ 20%) — diff_shares(= 보고서 − 상장), diff_pct(상장주식수 대비 %)를 함께.
+      unit_changed       크게 다르다(|diff_pct| > 20%) — 액면분할·병합 등으로 주식 수 단위가 달라졌을 수 있어 상장주식수 기준 지분율은 계산하지 않는다. 두 값과 차이만.
+      past_year          과거 사업연도 조회 — 오늘의 최신 상장주식수와 비교하지 않는다(compare_latest=False).
       mixed_class        분모가 보통주만이라고 장담할 수 없다(합계에서 우선주만 뺐는데 다른 종류 행이 있음) — 보통주 상장주식수와 섞어 비교하지 않는다.
       listed_unavailable 최신 상장주식수를 읽지 못했다.
     """
@@ -893,6 +902,9 @@ def _share_basis(snapshot: dict[str, Any], listed: dict[str, Any] | None) -> dic
         return None
     basis = dict(snapshot.get("basis") or {})
     out: dict[str, Any] = {"issued_shares": issued, **basis, "listed": None}
+    if not compare_latest:
+        out["comparison"] = "past_year"
+        return out
     if not basis.get("common_only"):
         out["comparison"] = "mixed_class"
         return out
@@ -908,9 +920,9 @@ def _share_basis(snapshot: dict[str, Any], listed: dict[str, Any] | None) -> dic
     if ls == issued:
         out["comparison"] = "same"
         return out
-    out["comparison"] = "differs"
     out["diff_shares"] = issued - ls
     out["diff_pct"] = round((issued - ls) / ls * 100, 2)
+    out["comparison"] = "differs" if abs(out["diff_pct"]) <= _LISTED_COMPARE_MAX_PCT else "unit_changed"
     return out
 
 
@@ -1558,8 +1570,12 @@ async def build_ownership_structure_payload(
         # summary는 treasury 가벼운 snapshot만 (자사주 detail은 treasury_share tool)
         data["treasury"] = treasury_snapshot
         # 100% 분해 표의 분모 출처와 최신 상장주식수 대조 — 상장주식수는 DB 한 줄(DART·KRX 0콜)이고 못 읽어도 표는 그대로 나간다.
+        # 과거 사업연도를 물으면 오늘의 상장주식수와 맞대지 않는다(시점이 다른 두 값을 한 표에 섞는 셈) — 읽지도 않는다.
+        _compare_latest = bsns_year == str(today_kst().year - 1)
         _share_basis_row = _share_basis(
-            treasury_snapshot, await _latest_listed_shares(selected.get("stock_code")),
+            treasury_snapshot,
+            await _latest_listed_shares(selected.get("stock_code")) if _compare_latest else None,
+            compare_latest=_compare_latest,
         )
         if _share_basis_row:
             data["share_basis"] = _share_basis_row

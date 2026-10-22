@@ -193,7 +193,7 @@ class _Client:
         return {"list": []}
 
 
-def _build(monkeypatch, scope: str, listed) -> dict:
+def _build(monkeypatch, scope: str, listed, year: int | None = None) -> dict:
     async def resolve(query, *a, **k):
         return CompanyResolution(status=AnalysisStatus.EXACT, query=query, selected=dict(SAMSUNG), candidates=[])
 
@@ -206,7 +206,7 @@ def _build(monkeypatch, scope: str, listed) -> dict:
     monkeypatch.setattr(O, "get_dart_client", lambda: _Client())
     monkeypatch.setattr(O, "resolve_company_query", resolve)
     monkeypatch.setattr(O, "_latest_listed_shares", fake_listed)
-    payload = asyncio.run(O.build_ownership_structure_payload("삼성전자", scope=scope, year=2025))
+    payload = asyncio.run(O.build_ownership_structure_payload("삼성전자", scope=scope, year=year))
     payload["_listed_calls"] = seen
     return payload
 
@@ -224,3 +224,124 @@ def test_other_scopes_do_not_read_listed_shares(monkeypatch) -> None:
     p = _build(monkeypatch, "major_holders", _listed())
     assert "share_basis" not in p["data"]
     assert p["_listed_calls"] == []
+
+
+# ── 액면분할·병합(DATA-PX3)으로 주식 수 단위가 달라진 종목 ─────────────────────────
+
+def _unit_payload(issued: int, major: int, treasury: int, listed_shares: int) -> dict:
+    """보고서 분모 issued · 명부 major · 자사주 treasury · 최신 상장주식수 listed_shares 로 summary payload 를 만든다."""
+    common = {**_COMMON, "istc_totqy": f"{issued:,}", "tesstk_co": f"{treasury:,}"}
+    snap = O._treasury_snapshot({"list": [common]}, {"list": []}, bsns_year="2025")
+    holders = [{"name": "최대주주", "relation": "본인", "shares": major, "ownership_pct": 0.0}]
+    return {
+        "subject": "시험", "status": "exact", "warnings": [],
+        "data": {
+            "canonical_name": "시험", "company_id": "x", "year": "2025", "window": {},
+            "summary": {"top_holder": holders[0], "treasury_shares": treasury},
+            "major_holders": holders, "blocks": [], "treasury": snap,
+            "share_basis": O._share_basis(snap, _listed(listed_shares)),
+        },
+    }
+
+
+def test_reverse_split_is_not_compared_against_post_merge_listed_shares() -> None:
+    """5:1 병합(000040 꼴) — 보유주식수는 병합 전 수, 상장주식수는 병합 뒤 수라 나누면 152% 가 나온다."""
+    p = _unit_payload(86_375_184, 30_000_000, 1_000_000, 19_675_036)
+    assert p["data"]["share_basis"]["comparison"] == "unit_changed"
+    md = _render(p, "summary")
+    assert "152.48%" not in md
+    assert "최신 상장주식수 기준" not in md
+    head = next(ln for ln in md.splitlines() if ln.startswith("| 구분"))
+    assert head == "| 구분 | 보유주식수 | 지분율 |"
+    other = next(ln for ln in md.splitlines() if ln.startswith("| 기타"))
+    assert other.rstrip().endswith("64.11% |")
+    assert "86,375,184" in md and "19,675,036" in md          # 두 값과 차이는 그대로 적는다
+    assert "분할·병합" in md and "계산하지 않았다" in md
+
+
+def test_forward_split_is_not_compared_against_post_split_listed_shares() -> None:
+    """10:1 분할(001130 꼴) — 상장주식수가 10배라 지분율 칸이 10분의 1로 줄어 나온다."""
+    p = _unit_payload(1_690_000, 600_000, 20_000, 16_900_000)
+    sb = p["data"]["share_basis"]
+    assert sb["comparison"] == "unit_changed"
+    assert sb["diff_pct"] == -90.0
+    md = _render(p, "summary")
+    assert "최신 상장주식수 기준" not in md
+    assert "분할·병합" in md
+
+
+def test_small_gap_keeps_the_listed_share_column() -> None:
+    """소각·증자 정도(문턱 20% 이내)는 종전대로 상장주식수 기준 칸을 붙인다."""
+    p = _unit_payload(1_000, 500, 100, 950)
+    assert p["data"]["share_basis"]["comparison"] == "differs"
+    md = _render(p, "summary")
+    head = next(ln for ln in md.splitlines() if ln.startswith("| 구분"))
+    assert "최신 상장주식수 기준" in head
+    assert "분할·병합" not in md
+
+
+def test_listed_column_is_dropped_when_holdings_exceed_listed_shares() -> None:
+    """차이는 문턱 안이어도 명부+자사주가 상장주식수를 넘으면 「기타」 칸이 음수 — 칸을 붙이지 않고 그 사실을 적는다."""
+    p = _unit_payload(1_000, 800, 150, 900)         # 차이 +11.11%, 800+150 > 900
+    assert p["data"]["share_basis"]["comparison"] == "differs"
+    md = _render(p, "summary")
+    head = next(ln for ln in md.splitlines() if ln.startswith("| 구분"))
+    assert head == "| 구분 | 보유주식수 | 지분율 |"
+    assert "넘어" in md and "계산하지 않았다" in md
+
+
+# ── 과거 사업연도 조회는 오늘의 상장주식수와 비교하지 않는다 ─────────────────────────
+
+def test_past_year_query_does_not_read_or_compare_latest_listed_shares(monkeypatch) -> None:
+    p = _build(monkeypatch, "summary", _listed(), year=2015)
+    sb = p["data"]["share_basis"]
+    assert sb["comparison"] == "past_year"
+    assert sb["listed"] is None and "diff_shares" not in sb
+    assert sb["rcept_no"] == "20260310002820"                 # 분모 출처 줄은 그대로
+    assert p["_listed_calls"] == []
+    md = _render(p, "summary")
+    assert "최신 상장주식수 기준" not in md
+    assert "과거" in md and "비교하지 않았다" in md
+    assert "5,846,278,608" not in md
+
+
+def test_default_year_still_compares(monkeypatch) -> None:
+    p = _build(monkeypatch, "summary", _listed())              # year 를 주지 않으면 직전 사업연도(기본)
+    assert p["data"]["share_basis"]["comparison"] == "differs"
+    assert p["_listed_calls"] == ["005930"]
+
+
+# ── _latest_listed_shares 의 조회문 ─────────────────────────────────────────────
+
+def _run_listed(monkeypatch, rows, code="005930"):
+    import datetime as dt
+    import open_proxy_mcp.db as db
+
+    calls: list[tuple] = []
+
+    def fake_pg_rows(sql, params=()):
+        calls.append((sql, params))
+        return rows
+
+    monkeypatch.setattr(db, "pg_rows", fake_pg_rows)
+    monkeypatch.setattr(O, "today_kst", lambda: dt.date(2026, 10, 23))
+    return asyncio.run(O._latest_listed_shares(code)), calls
+
+
+def test_latest_listed_shares_query_has_21_day_floor_and_positive_filter(monkeypatch) -> None:
+    got, calls = _run_listed(monkeypatch, [(5_846_278_608, "20261021")])
+    assert got == {"shares": 5_846_278_608, "price_dd": "20261021"}
+    sql, params = calls[0]
+    assert "price_latest" in sql and "list_shrs>0" in sql and "price_dd>=" in sql
+    assert params == ("005930", "20261002")                  # 2026-10-23 − 21일
+
+
+def test_latest_listed_shares_none_when_db_unset_or_no_recent_row(monkeypatch) -> None:
+    assert _run_listed(monkeypatch, None)[0] is None          # pg_rows None = DB 미설정·장애
+    assert _run_listed(monkeypatch, [])[0] is None            # 최근 행 없음(상장폐지·장기 거래정지)
+    assert _run_listed(monkeypatch, [(0, "20261021")])[0] is None
+
+
+def test_latest_listed_shares_without_code_does_not_query(monkeypatch) -> None:
+    got, calls = _run_listed(monkeypatch, [(1, "20261021")], code="")
+    assert got is None and calls == []
