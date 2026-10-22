@@ -940,19 +940,21 @@ async def _quarterly_dps_from_cumulative(corp_code: str, year: int) -> list[dict
 
 
 def _cum_full_from_items(items: list[dict[str, Any]], column: str = "current") -> dict[str, Any] | None:
-    """alotMatter 한 컬럼에서 보통/우선 DPS + 배당총액(백만)을 종합 추출. 회사 미존재(컬럼 공란)는 None."""
+    """alotMatter 한 컬럼에서 보통/우선 DPS + 배당총액(백만)을 종합 추출. **응답에 행이 하나도 없으면** None(= 없는 보고서).
+
+    🔴 「있는 보고서」와 「없는 보고서」는 값이 아니라 **응답 모양**으로 가른다(DATA-DIV8, 조사 N9). DART 는 보고서가 없으면 013(행 없음)을
+    주고, 보고서가 있으면 그 시점 누적 배당이 없어도 000 과 함께 행을 준다 — 값 칸이 전부 「-」인 행(기업은행 2025 1분기·3분기).
+    예전에는 주당액면가액>0 또는 연결 당기순이익≠0 인 행이 없으면 「없음」으로 보아, 값이 「-」뿐인 있는 보고서가 합산 라벨(「3분기보고서 없음」)로 둔갑했다.
+    표본 확인(2026-10-23, 2024·2025): div_quarterly 「보고서없음」 6건은 모두 013, 「무배당」 6건과 기업은행 2건은 모두 000+행.
+    """
     common = 0
     pref = 0
     total_mil = 0
-    exists = False
+    exists = bool(items)
     for item in items:
         cat = item.get("category", "")
         sknd = item.get("stock_type", "")
         v = safe_int(item.get(column, ""))
-        if "주당액면가액" in cat and v > 0:
-            exists = True
-        elif "연결" in cat and "당기순이익" in cat and v != 0:
-            exists = True
         if "주당 현금배당금" in cat:
             if "우선주" in sknd:
                 pref = v
