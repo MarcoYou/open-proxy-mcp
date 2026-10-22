@@ -130,3 +130,40 @@ def test_render_explains_the_merged_row_with_the_matching_decisions():
     text = "\n".join(lines)
     assert "Q2+Q3 합산(반기보고서 없음)" in text and "1,850원" in text
     assert "Q2 920원 + Q3 930원" in text and "= 1,850원 (일치)" in text
+
+
+# ── 있는 보고서(누적 0)와 없는 보고서(013)를 가른다 — 후속 수정 (DATA-DIV8 / 조사 N9) ─────────────────────
+def _alot_dashes():
+    """기업은행 2025 1분기·3분기 꼴: DART 가 000(정상)으로 행을 주지만 값 칸이 전부 「-」(보고서는 있고 그 시점 누적 배당이 없음)."""
+    return {"list": [
+        {"rcept_no": "20250530002315", "se": se, "stock_knd": "-", "thstrm": "-", "frmtrm": "-", "lwfr": "-", "stlm_dt": "2025-03-31"}
+        for se in ("주당액면가액(원)", "(연결)당기순이익(백만원)", "(별도)당기순이익(백만원)", "현금배당금총액(백만원)")]}
+
+
+class _ClientDash(_Client):
+    """by_code 에 값이 있으면 그 누적, `DASH` 면 값 칸이 전부 「-」인 보고서, 없으면 013(보고서 없음)."""
+
+    async def get_dividend_info(self, corp_code, year, reprt_code):
+        if self.by_code.get(reprt_code) == "DASH":
+            return _alot_dashes()
+        return await super().get_dividend_info(corp_code, year, reprt_code)
+
+
+def _full_dash(monkeypatch, by_code):
+    monkeypatch.setattr(dv, "get_dart_client", lambda: _ClientDash(by_code))
+    return asyncio.run(dv._quarterly_full_from_cumulative("00149646", 2025))
+
+
+def test_a_report_with_all_dash_values_is_a_present_report_with_zero_cumulative_not_a_missing_report(monkeypatch):
+    # 기업은행(024110) 2025: 1분기·3분기 보고서는 있고(값 「-」), 반기는 누적 0, 사업보고서에 연 1,048원.
+    rows = _full_dash(monkeypatch, {"11013": "DASH", "11012": (0, 0), "11014": "DASH", "11011": (1048, 835_702)})
+    assert [(r["quarter"], r["dps_common"]) for r in rows] == [("Q1", 0), ("Q2", 0), ("Q3", 0), ("결산", 1048)]
+    assert not any(r.get("merged") for r in rows)
+    assert not any("합산" in r["quarter"] for r in rows)
+
+
+def test_a_report_the_source_does_not_have_is_still_a_missing_report_even_when_a_neighbour_has_dashes(monkeypatch):
+    # 롯데리츠형(1분기·3분기 013 = 보고서 없음)은 그대로 합산 — 없는 보고서를 있는 것으로 꾸미지 않는다.
+    rows = _full_dash(monkeypatch, {"11012": (0, 0), "11011": (123, 35_543)})
+    assert [r["quarter"] for r in rows] == ["Q1+Q2 합산(1분기보고서 없음)", "Q3+결산 합산(3분기보고서 없음)"]
+    assert [r["dps_common"] for r in rows] == [0, 123]
