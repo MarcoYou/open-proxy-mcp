@@ -160,3 +160,31 @@ def test_zero_tax_when_net_equals_pretax_keeps_the_tax_column(monkeypatch):
     rows = _rows("2026.06.30", op=(100 * MIL, 100 * MIL), pretax=(200 * MIL, 200 * MIL), ni=(200 * MIL, 200 * MIL))
     out, _ws = _run(monkeypatch, {(2026, "11012"): rows})
     assert out[0]["income_tax_krw"] == 0 and out[0].get("pretax_minus_net_krw") is None
+
+
+# --- 법인세수익 분기: 음수 차이가 바로 법인세(수익)일 수 있다 (고치기 모드 지적 fin-ni-note-neg-gap-tax-benefit) ---------
+# 합성 픽스처: 영업이익 100억 · 법인세차감전 순이익 100억 · 당기순이익 140억 → 세전 − 순이익 = −40억 은 전부 법인세수익(이연법인세자산 인식 등)이다.
+# 주요계정에는 법인세비용 행이 없어 도구는 음수의 원인을 가를 수 없다 — 「법인세가 아니다」로 단정하지 않고 가능성(법인세수익·중단영업)만 늘어놓는다.
+TAX_BENEFIT = _rows("2026.06.30",
+                    op=(10_000 * MIL, 20_000 * MIL),
+                    pretax=(10_000 * MIL, 20_000 * MIL),
+                    ni=(14_000 * MIL, 24_000 * MIL))
+
+
+def test_tax_benefit_quarter_line_never_claims_the_negative_gap_is_not_a_tax(monkeypatch):
+    out, _ws = _run(monkeypatch, {(2026, "11012"): TAX_BENEFIT})
+    q2 = next(r for r in out if r["fiscal_quarter"] == "Q2")
+    assert q2.get("income_tax_krw") is None and q2["pretax_minus_net_krw"] == -4_000 * MIL           # 값은 그대로, 원인 단정 없음
+    md = "\n".join(_render_quarterly({"quarterly": out}))
+    line = next(l for l in md.splitlines() if "2026-Q2" in l and "1.4배" in l)
+    assert "법인세가 아니다" not in line                                                                # 법인세수익 분기를 반대로 단정하지 않는다
+    assert "법인세수익" in line and "중단영업" in line                                                  # 가능성을 둘 다 적는다
+    assert "법인세비용" in line                                                                         # 원문 확인 대상을 가리킨다
+
+
+def test_in_range_quarter_keeps_tax_label_with_basis_stated(monkeypatch):
+    """0 ~ 세전 범위 안 값은 기준(세전 − 순이익)을 밝혀 법인세로 싣는다 — 이 한계(중단영업 손익이 섞이면 순수한 법인세비용이 아닐 수 있다)는 문서에 적는다."""
+    rows = _rows("2026.06.30", op=(100 * MIL, 100 * MIL), pretax=(300 * MIL, 300 * MIL), ni=(150 * MIL, 150 * MIL))
+    out, _ws = _run(monkeypatch, {(2026, "11012"): rows})
+    md = "\n".join(_render_quarterly({"quarterly": out}))
+    assert out[0]["income_tax_krw"] == 150 * MIL and "(세전 − 순이익)" in md
