@@ -92,6 +92,35 @@ def test_a_correction_is_never_folded_into_the_companion_card():
     assert p["counts"]["matched"] == 2
 
 
+OWN_DECISION = "현금ㆍ현물배당결정"
+OWN_DIV_RECORD = "현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정"
+
+
+@pytest.mark.parametrize("record_title", [
+    "주주명부폐쇄기간또는기준일설정              (임시주주총회)",
+    "주주명부폐쇄기간또는기준일설정",
+    "기타경영사항(자율공시)(정기주주총회 권리주주 확정을 위한 기준일 설정 공고)",
+])
+def test_a_shareholder_meeting_record_date_filing_is_not_folded_into_a_dividend_card(record_title):
+    """「기준일」 매처는 주총용 기준일 공시도 잡는다 — 같은 날 배당 결정이 있어도 다른 결의이므로 묶지 않는다(모르면 묶지 않음)."""
+    p = _run([_it("20260226801400", OWN_DECISION, dt="20260226"), _it("20260226801452", record_title, dt="20260226")],
+             start="20260226", end="20260226", details=False)
+    assert p["counts"]["matched"] == 2, "주총 기준일 공시가 배당 카드 안으로 사라졌다"
+    assert p["counts"]["companion_merged"] == 0
+    assert not any(h.get("companions") for h in p["hits"])
+
+
+@pytest.mark.parametrize("record_title", [
+    OWN_DIV_RECORD,
+    "중간(분기)배당을위한주주명부폐쇄(기준일)결정",
+    "현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정(자회사의 주요경영사항)",
+])
+def test_dividend_specific_record_date_forms_are_still_folded(record_title):
+    p = _run([_it("20261021800514", OWN_DECISION + ("(자회사의 주요경영사항)" if "자회사" in record_title else "")),
+              _it("20261021800503", record_title)], details=False)
+    assert p["counts"]["matched"] == 1 and p["counts"]["companion_merged"] == 1
+
+
 # ── 자회사 공시 구분 ────────────────────────────────────────────────────────────
 
 def test_subsidiary_filings_are_marked_and_kept_apart_from_the_parents_own():
@@ -148,6 +177,27 @@ def test_a_parents_own_dividend_card_still_opens_its_document(monkeypatch):
         {"_detail_kind": "dividend", "rcept_no": "20261021800001", "stock_code": "055550",
          "filed_at": "2026-10-21", "title": "x"}, {"calls": 0}))
     assert res["detail_status"] == "parsed" and res["fields"]["dps_won"] == 1480
+
+
+def test_cards_that_never_open_a_document_do_not_use_up_the_per_type_detail_cap(monkeypatch):
+    """자회사 배당 카드는 문서를 열지 않는데 모회사 시총순으로 앞에 온다 — 상한(유형별)을 쓰면 열 수 있는 카드가 밀려난다."""
+    opened: list[str] = []
+
+    async def _detail(h, running):
+        opened.append(h["rcept_no"])
+        return {"detail_status": "parsed", "fields": {"dps_won": 1}}
+
+    monkeypatch.setattr(S, "_fetch_detail", _detail)
+    monkeypatch.setitem(S._BY_CODE["dividend"], "max_items", 1)
+    p = _run([_it("20261021800900", DIV_DECISION),
+              _it("20261021800100", OWN_DECISION, corp="00000001", name="다른회사", stock="000001")],
+             details=True)
+    by = {h["rcept_no"]: h for h in p["hits"]}
+    assert opened == ["20261021800100"], "열 수 있는 카드가 상한에 밀려 열리지 않았다"
+    assert by["20261021800900"]["detail_status"] == "no_data"
+    assert "자회사" in by["20261021800900"]["detail_note"]
+    assert by["20261021800100"]["detail_status"] == "parsed"
+    assert p["counts"]["truncated_details"] is False
 
 
 # ── 자기주식 구분 ───────────────────────────────────────────────────────────────

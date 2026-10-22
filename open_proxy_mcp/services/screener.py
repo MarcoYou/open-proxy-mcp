@@ -328,6 +328,9 @@ _TREASURY_ACTION = {"취득": "취득", "처분": "처분", "소각": "소각",
 _RCEPT_BLIND_KINDS = frozenset({"dividend", "earnings"})
 
 
+_SUBSIDIARY_BLIND_NOTE = "자회사의 주요경영사항 공시 — 모회사 값과 섞이지 않게 숫자를 싣지 않았다(원문 링크로 확인)"
+
+
 def _is_subsidiary_matter(report_nm: str) -> bool:
     return _SUBSIDIARY_MARK in _normalize_report_nm(report_nm)
 
@@ -1308,7 +1311,7 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
         # 이 파서는 회사·날짜로만 공시를 찾아 접수번호를 보지 않는다 — 자회사 공시 카드에 모회사 자신의 값(신한지주 DPS 1,480원·
         # 기준일 2026-12-31 이 신한은행 중간배당 카드에 붙었다)이 실려 나간다. 틀린 숫자보다 빈 칸이 낫다: 열지 않고 밝힌다.
         return {"detail_status": "no_data", "fields": {},
-                "note": "자회사의 주요경영사항 공시 — 모회사 값과 섞이지 않게 숫자를 싣지 않았다(원문 링크로 확인)"}
+                "note": _SUBSIDIARY_BLIND_NOTE}
     if running["calls"] >= _DETAILS_TOTAL_CALL_CAP:
         return {"detail_status": "skipped", "fields": {}, "note": "300콜 러닝캡 도달"}
 
@@ -1666,6 +1669,15 @@ async def _build_screener_payload_impl(
         for h in ordered:
             if h["_detail_kind"] is None:
                 continue
+            if h.get("subsidiary_matter") and h["_detail_kind"] in _RCEPT_BLIND_KINDS:
+                # 문서를 열지 않는 카드(_fetch_detail 의 가드와 같은 사유)는 유형별 상한 셈에 넣지 않는다 — 모회사 시총순으로
+                # 앞에 와서 열 수 있는 카드의 몫을 밀어내지 않게. 정정본은 정정 내역 조회를 위해 대상에는 남긴다.
+                h["detail_status"] = "no_data"
+                h["detail_fields"] = {}
+                h["detail_note"] = _SUBSIDIARY_BLIND_NOTE
+                if h.get("is_correction"):
+                    detail_targets.append(h)
+                continue
             tc = h["type"]["code"]
             cap = _BY_CODE[tc]["max_items"]
             if details_preview:
@@ -1757,6 +1769,15 @@ async def _build_screener_payload_impl(
 _DIVIDEND_DECISION_SUBTYPES = ("현금배당", "현물배당")
 
 
+def _is_dividend_record_title(title: str) -> bool:
+    """배당 전용 기준일 서식(「…배당을위한주주명부폐쇄(기준일)결정」, 중간·분기배당 포함)인지.
+
+    유형 레지스트리의 「기준일」 매처(주주명부폐쇄·기준일)는 일반 서식 「주주명부폐쇄기간또는기준일설정」(임시·정기주총 권리주주
+    확정용)과 자율공시 기준일 공고도 잡는다 — 서식 이름에 「배당」이 없으면 어느 결의의 기준일인지 알 수 없으므로 묶지 않는다.
+    """
+    return "배당을위한주주명부폐쇄" in _normalize_report_nm(title)
+
+
 def _merge_dividend_companions(rows: list[dict]) -> tuple[list[dict], int]:
     """같은 날 같은 결의에서 나온 배당 결정 공시와 기준일(주주명부폐쇄) 결정 공시를 카드 하나로 묶는다.
 
@@ -1767,6 +1788,7 @@ def _merge_dividend_companions(rows: list[dict]) -> tuple[list[dict], int]:
     list.json 에는 두 공시가 같은 결의인지 알려 주는 칸이 없다 — 그래서 **모르면 묶지 않는다**:
       · 같은 회사 · 같은 접수일 · 같은 자회사 여부 안에서 배당 결정이 **정확히 1건**, 기준일 공시가 **정확히 1건**이고
       · 둘 다 정정본이 아니고 정정 짝 모호 표시도 없을 때만 묶는다(여럿이면 어느 것이 짝인지 모른다).
+      · 기준일 공시는 배당 전용 서식(제목에 「배당을위한주주명부폐쇄」)일 때만 짝이다 — 주총용 기준일 설정 공시는 묶지 않는다.
     묶여도 지우지 않는다 — 결정 공시 카드가 주 카드가 되고 기준일 공시는 `companions` 에 접수번호·링크와 함께 남는다.
     """
     groups: dict[tuple, dict[str, list[int]]] = {}
@@ -1774,7 +1796,7 @@ def _merge_dividend_companions(rows: list[dict]) -> tuple[list[dict], int]:
         if r["type"]["code"] != "dividend":
             continue
         role = ("decision" if r["subtype"] in _DIVIDEND_DECISION_SUBTYPES
-                else "record" if r["subtype"] == "기준일" else None)
+                else "record" if (r["subtype"] == "기준일" and _is_dividend_record_title(r["title"])) else None)
         if role is None:
             continue
         key = (r["corp_code"], r["filed_at"], bool(r.get("subsidiary_matter")))
