@@ -119,3 +119,44 @@ def test_q4_without_nine_month_cumulative_never_shows_the_annual_pretax_as_a_qua
     assert q4["basis"] == "annual_cumulative"
     assert q4.get("income_before_tax_krw") is None and q4.get("non_operating_net_krw") is None
     assert "영업외손익" not in "\n".join(_render_quarterly({"quarterly": out}))
+
+
+# --- 중단영업 분기: 세전 − 순이익 이 법인세가 아니다 (고치기 모드 지적 fin-ni-note-disc-ops-as-tax) -------------------
+# 합성 픽스처(086520 2021 반기 꼴): 영업이익 200억 · 법인세차감전 순이익 250억 · 당기순이익(총계) 5,786억(계속 200억 + 중단영업 5,586억).
+# 세전 − 순이익 = −5,536억 은 음수라 법인세일 수 없다. 이름을 법인세로 붙이면 원문에 없는 거짓 설명이 된다.
+DISC = _rows("2026.06.30",
+             op=(20_000 * MIL, 40_000 * MIL),
+             pretax=(25_000 * MIL, 50_000 * MIL),
+             ni=(578_600 * MIL, 600_000 * MIL))
+
+
+def test_discontinued_ops_quarter_does_not_call_pretax_minus_net_a_tax(monkeypatch):
+    out, _ws = _run(monkeypatch, {(2026, "11012"): DISC})
+    q2 = next(r for r in out if r["fiscal_quarter"] == "Q2")
+    assert q2["net_income_krw"] == 578_600 * MIL and q2["income_before_tax_krw"] == 25_000 * MIL     # 값은 원문 그대로
+    assert q2["non_operating_net_krw"] == 5_000 * MIL                                                  # 세전 − 영업이익은 사실
+    assert q2.get("income_tax_krw") is None                                                            # 음수는 법인세가 아니다
+    assert q2["pretax_minus_net_krw"] == -553_600 * MIL                                                # 기준을 밝힌 칸
+    assert q2["net_to_operating_ratio"] == 28.93
+
+
+def test_discontinued_ops_quarter_line_names_the_basis_and_drops_the_tax_sentence(monkeypatch):
+    out, _ws = _run(monkeypatch, {(2026, "11012"): DISC})
+    md = "\n".join(_render_quarterly({"quarterly": out}))
+    line = next(l for l in md.splitlines() if "2026-Q2" in l and "28.93배" in l)
+    assert "− 법인세" not in line and "차이는 영업외 손익과 세금이다" not in line      # 거짓 설명 문장 없음
+    assert "세전 − 순이익" in line and "중단영업" in line                           # 기준을 밝히고 법인세 외 항목 가능성을 적는다
+    assert "법인세 -5,536" not in line and "법인세 −5,536" not in line                    # 음수 금액에 법인세 이름을 붙이지 않는다
+    assert "영업외손익" in line and "50억" in line
+
+
+def test_net_income_just_above_pretax_is_not_a_tax_either(monkeypatch):
+    rows = _rows("2026.06.30", op=(100 * MIL, 100 * MIL), pretax=(200 * MIL, 200 * MIL), ni=(201 * MIL, 201 * MIL))
+    out, _ws = _run(monkeypatch, {(2026, "11012"): rows})
+    assert out[0].get("income_tax_krw") is None and out[0]["pretax_minus_net_krw"] == -1 * MIL
+
+
+def test_zero_tax_when_net_equals_pretax_keeps_the_tax_column(monkeypatch):
+    rows = _rows("2026.06.30", op=(100 * MIL, 100 * MIL), pretax=(200 * MIL, 200 * MIL), ni=(200 * MIL, 200 * MIL))
+    out, _ws = _run(monkeypatch, {(2026, "11012"): rows})
+    assert out[0]["income_tax_krw"] == 0 and out[0].get("pretax_minus_net_krw") is None

@@ -3173,8 +3173,10 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
 def _attach_ni_over_operating(rows: list[dict[str, Any]]) -> None:
     """순이익(총계)/영업이익 > 1.3배인 분기에 영업외손익·법인세를 단다(DATA-NI4). 값은 고치지 않는다 — 원문과 같은 값의 설명이다.
 
-    영업외손익 = 법인세차감전 순이익 − 영업이익(금융손익·지분법·기타를 모두 포함한 순액), 법인세 = 세전이익 − 순이익. 그래서
-    영업이익 + 영업외손익 − 법인세 = 순이익으로 닫힌다. 영업이익이 0 이하이거나 세전이익을 못 읽었거나 Q4 연간 누적(차분 불가) 행은 달지 않는다.
+    영업외손익 = 법인세차감전 순이익 − 영업이익(금융손익·지분법·기타를 모두 포함한 순액). 세전이익 − 순이익이 0 ~ 세전이익 범위면 법인세(`income_tax_krw`)로 싣고
+    영업이익 + 영업외손익 − 법인세 = 순이익으로 닫힌다. 범위 밖(음수 — 주요계정 당기순이익은 중단영업 순이익을 품은 총계라 중단영업이 큰 분기에 생긴다)이면
+    법인세라고 부르지 않고 `pretax_minus_net_krw`(세전 − 순이익, 법인세·중단영업 등 섞임)로만 싣는다. 086520 2021 반기 같은 분기에 원문에 없는 「법인세 −5,536억」을 지어내지 않기 위해서다.
+    영업이익이 0 이하이거나 세전이익을 못 읽었거나 Q4 연간 누적(차분 불가) 행은 달지 않는다.
     SK하이닉스 2026-Q2: 영업이익 60.54조 · 세전 122.71조 · 순이익 93.92조 → 영업외 +62.17조 · 법인세 28.79조(반기보고서 원문과 같다)."""
     for row in rows:
         op, ni, pre = row.get("operating_profit_krw"), row.get("net_income_krw"), row.get("income_before_tax_krw")
@@ -3185,7 +3187,11 @@ def _attach_ni_over_operating(rows: list[dict[str, Any]]) -> None:
             continue
         row["net_to_operating_ratio"] = round(ratio, 2)
         row["non_operating_net_krw"] = pre - op
-        row["income_tax_krw"] = pre - ni
+        gap = pre - ni
+        if 0 <= gap <= pre:
+            row["income_tax_krw"] = gap
+        else:
+            row["pretax_minus_net_krw"] = gap
 
 
 def _prev_cell_key(period_end: str, quarter: int) -> tuple[int, int] | None:

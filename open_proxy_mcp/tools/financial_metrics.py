@@ -406,12 +406,19 @@ def _render_quarterly(data: dict[str, Any]) -> list[str]:
     for r in rows:
         if r.get("non_operating_net_krw") is None:
             continue
-        lines.append(
-            f"> 순이익이 영업이익보다 큰 분기 {r.get('fiscal_year', r.get('year'))}-{r.get('fiscal_quarter', r.get('quarter'))}: "
-            f"순이익(총계) {_format_krw_human(r.get('net_income_krw'))}은 영업이익 {_format_krw_human(r.get('operating_profit_krw'))}의 "
-            f"{r.get('net_to_operating_ratio')}배 — 영업이익 {_format_krw_human(r.get('operating_profit_krw'))} "
-            f"+ 영업외손익 {_format_krw_human(r.get('non_operating_net_krw'))} (법인세차감전 순이익 {_format_krw_human(r.get('income_before_tax_krw'))} − 영업이익, 금융손익·지분법·기타 순액) "
-            f"− 법인세 {_format_krw_human(r.get('income_tax_krw'))}. 값은 정기보고서 그대로이고 차이는 영업외 손익과 세금이다.")
+        _q = f"{r.get('fiscal_year', r.get('year'))}-{r.get('fiscal_quarter', r.get('quarter'))}"
+        _op, _ni = _format_krw_human(r.get("operating_profit_krw")), _format_krw_human(r.get("net_income_krw"))
+        _pre, _non = _format_krw_human(r.get("income_before_tax_krw")), _format_krw_human(r.get("non_operating_net_krw"))
+        _head = (f"> 순이익이 영업이익보다 큰 분기 {_q}: 순이익(총계) {_ni}은 영업이익 {_op}의 {r.get('net_to_operating_ratio')}배 — "
+                 f"영업이익 {_op} + 영업외손익 {_non} (법인세차감전 순이익 {_pre} − 영업이익, 금융손익·지분법·기타 순액)")
+        if r.get("income_tax_krw") is not None:
+            lines.append(f"{_head} − 법인세 {_format_krw_human(r.get('income_tax_krw'))} (세전 − 순이익). "
+                         f"값은 정기보고서 그대로이고 차이는 영업외 손익과 세금이다.")
+        elif r.get("pretax_minus_net_krw") is not None:
+            # 세전 − 순이익이 음수 — 법인세가 아니다. 주요계정 당기순이익(총계)이 중단영업 순이익을 품은 분기에 생긴다.
+            lines.append(f"{_head} = 세전 {_pre}. 순이익(총계)이 세전이익보다 커서 세전 − 순이익 {_format_krw_human(r.get('pretax_minus_net_krw'))} 은 "
+                         f"법인세가 아니다 — 법인세·중단영업 등이 섞인 값이니 원문 손익계산서의 중단영업 손익·법인세비용으로 확인할 것. "
+                         f"값은 정기보고서 그대로다.")
     if has_cumulative_q4:
         lines.append("> ⚠연간 표시 행은 분기 보고서 결측으로 차분 불가 — 연간 누적치이므로 분기 비교에 쓰지 말 것.")
     status = data.get("quarterly_status") or {}
@@ -665,7 +672,7 @@ def register_tools(mcp):
         when: 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율 alert / 사외이사 후보 재직 시점 회계 사건 cross-check.
         rule: source = fnlttSinglAcnt(BS+IS 30행, 요청 fs_div로 행 필터) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 int(_krw) — 기능통화가 비KRW 인 회사는 회계기말 환율로 KRW 환산하고 `functional_currency`·`fx_rate_to_krw`·`fx_basis` 를 함께 낸다(환율 실패 시 값 보존 + 「원화 아님」 경고). `accounts` 는 환산하지 않고 원행 통화 그대로, %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful. 매출은 account_id(ifrs-full_Revenue) 우선, 없으면 KSIC 업종 순서로 계정명(영업수익·보험수익·이자수익…)에서 고르고 `revenue_account_nm`·`revenue_standard`로 어느 계정인지 명시 — 보험수익·이자수익 기준이면 영업이익률을 제조업 마진처럼 읽지 말 것. 분기 합≠연간이면 기중 분할·재작성 warning 자동 부착. 이자보상배율 분모 = IS 이자비용, 없으면 CF '이자의 지급' (금융비용 총액 사용 안 함). EBITDA는 CF에서 D&A가 추출된 회사만 산출 (조정 합계 공시 회사는 None). 사업연도 라벨에는 그 연도가 덮는 12개월과 결산월을 붙인다(6월 결산 오독 방지). 근거 정기보고서가 정정본이면 정정일과 함께 명시. accruals_gap은 비율(`_pct`)과 금액차(`accruals_gap_krw`)를 같이 내고, 영업이익이 적자·초박막이면 `accruals_gap_reliability`로 비율 왜곡을 표시(alert도 `accruals_red` 대신 `accruals_ratio_unreliable`).
         period: DART 기간 의미가 항목별로 다름 — 손익 thstrm=당기3개월/누적은 thstrm_add, 현금흐름=누적, 재무상태=잔액. summary가 분기보고서면 ① 손익은 누적(YTD) 기준 primary + 당기 분기(standalone)를 `standalone`에 별도 동봉(반기/3분기), ② 회전일수(DSO/DIO/CCC)는 TTM(최근 4분기) 분모로 산출(단일분기 연환산 왜곡 제거), ③ ROE/ROA/자산회전율은 연환산 안 함(분기값). 기준은 항상 `period_basis`/`turnover_basis`/`basis_note`로 명시. year 미지정 시 quarterly·qoq는 당해 연도(최신 분기 포함), summary·yearly·yoy는 직전 사업연도.
-        scope: `summary` 핵심 지표 1년(분기보고서면 누적+standalone) / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY(마진은 %p) 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음. 분기 범위 순이익은 비지배 포함 총계 — 행 `net_income_basis`=total_incl_nci, summary·yearly·yoy 의 지배 순이익과 다르다. 순이익/영업이익이 1.3배를 넘는 분기에는 영업외손익(= 세전−영업이익)·법인세를 `non_operating_net_krw`·`income_tax_krw` 와 표 아래 설명 줄로 함께 싣는다 — 값은 원문 그대로다. 표에 없는 분기는 `quarterly_status` 로 「미제출」(법정 제출 기한이 지났는데 DART 가 없다고 답함) · 「제출기한 전」(결산은 지났으나 아직 기한 안) · 「조회 실패(미확인)」(020 한도 등 오류)를 가른다) / `yoy` 전년+alert (올해처럼 당기가 분기·반기 보고서 대체면 전기도 전년 같은 보고서로 다시 계산 — 못 하면 기간에 민감한 경고는 계산하지 않고 `period_aligned`·`period_note` 로 밝힌다) / `qoq` 전분기 (standalone 기준, 순이익은 총계) / `audit_opinion` 3년 추이 / `accounts` 전체 재무제표 계정 **원행 그대로**(수백 행, `sj_div=["BS","IS"]` 로 좁힌다 — 요약이 버리는 계정을 공시 순서대로. 파생값 없음. DART 2콜로 요약 8콜보다 싸다)
+        scope: `summary` 핵심 지표 1년(분기보고서면 누적+standalone) / `yearly` N년 추이 / `quarterly` 12분기 standalone 손익 + QoQ·YoY(마진은 %p) 기본 동봉 (Q4는 연간−3분기 누적 차분 — 연간치 혼입 없음. 분기 범위 순이익은 비지배 포함 총계 — 행 `net_income_basis`=total_incl_nci, summary·yearly·yoy 의 지배 순이익과 다르다. 순이익/영업이익이 1.3배를 넘는 분기에는 영업외손익(= 세전−영업이익)과 법인세(세전−순이익이 0~세전 범위일 때만)를 `non_operating_net_krw`·`income_tax_krw` 와 표 아래 설명 줄로 함께 싣는다 — 값은 원문 그대로다. 세전−순이익이 음수면(중단영업 순이익이 총계에 든 분기) 법인세라 부르지 않고 `pretax_minus_net_krw` 로만 싣고 줄에 「법인세가 아니다」를 밝힌다. 표에 없는 분기는 `quarterly_status` 로 「미제출」(법정 제출 기한이 지났는데 DART 가 없다고 답함) · 「제출기한 전」(결산은 지났으나 아직 기한 안) · 「조회 실패(미확인)」(020 한도 등 오류)를 가른다) / `yoy` 전년+alert (올해처럼 당기가 분기·반기 보고서 대체면 전기도 전년 같은 보고서로 다시 계산 — 못 하면 기간에 민감한 경고는 계산하지 않고 `period_aligned`·`period_note` 로 밝힌다) / `qoq` 전분기 (standalone 기준, 순이익은 총계) / `audit_opinion` 3년 추이 / `accounts` 전체 재무제표 계정 **원행 그대로**(수백 행, `sj_div=["BS","IS"]` 로 좁힌다 — 요약이 버리는 계정을 공시 순서대로. 파생값 없음. DART 2콜로 요약 8콜보다 싸다)
         ref: dividend_disclosure, corp_gov_report, shareholder_meeting_notice, evidence
         """
         payload = await build_financial_metrics_payload(
