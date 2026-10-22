@@ -1622,6 +1622,14 @@ async def _safe_fetch_acnt_all(corp_code: str, year: int, reprt_code: str, fs_di
         return [], f"fnlttSinglAcntAll({reprt_code}, {fs_div}) 실패: {exc.status} {exc}"
 
 
+def _normalize_sj_div(sj_div: list[str] | None) -> tuple[str, ...]:
+    """accounts 의 sj_div 필터를 대문자·중복 없음·정렬한 튜플로 — 캐시 키와 필터가 같은 값을 본다.
+
+    None 과 빈 목록은 똑같이 「필터 없음」(`()`)이다(`_build_accounts` 가 빈 목록을 필터 없음으로 다룬다).
+    """
+    return tuple(sorted({str(s).strip().upper() for s in (sj_div or []) if str(s).strip()}))
+
+
 async def _build_accounts(
     corp_code: str, year: int, fs_div: str, sj_div: list[str] | None,
 ) -> tuple[dict[str, Any], list[str]]:
@@ -1658,9 +1666,26 @@ async def _build_accounts(
     if fs_div == "CFS" and actual_fs == "OFS":
         warnings.append(f"{year}년 연결(CFS) 미작성 — 별도(OFS) 기준 계정이다.")
 
-    want = {s.upper() for s in (sj_div or [])} or None
+    # 필터 전 구성 — 필터 뒤 0행이어도 「이 보고서에는 무엇이 있었나」를 알려 주려고 먼저 센다.
+    present_all = sorted({(r.get("sj_div") or "").upper() for r in rows if r.get("sj_div")},
+                         key=lambda x: _SJ_ORDER.get(x, 99))
+    want_rows = set(_normalize_sj_div(sj_div))  # 비어 있으면 필터 없음
+    sj_div_mapped: dict[str, str] | None = None
+    if want_rows and "IS" in want_rows and "IS" not in present_all and "CIS" in present_all and "CIS" not in want_rows:
+        # 손익계산서(IS)를 따로 내지 않고 포괄손익계산서(CIS) 하나로 공시한 회사(예: SK하이닉스) —
+        # IS 를 물은 사람이 받아야 할 손익 행은 CIS 에 있다. 반대(CIS 요청인데 IS 만 있음)는 대체하지 않는다:
+        # 포괄손익 항목이 없을 수 있다. CIS 도 요청했으면 이미 그 행이 나가므로 겹쳐 내지 않는다.
+        want_rows.add("CIS")
+        sj_div_mapped = {"IS": "CIS"}
+        warnings.append(f"{year}년 이 보고서는 손익계산서(IS)를 따로 내지 않고 포괄손익계산서(CIS) 하나로 공시해 "
+                        "sj_div=IS 요청에 CIS 행을 손익 행으로 돌려준다 — 각 행의 sj_div 는 원문 그대로 CIS 이고 "
+                        "`sj_div_mapped` 가 이 대체를 표시한다.")
     kept = [{k: r.get(k) for k in _ACCOUNT_ROW_FIELDS}
-            for r in rows if not want or (r.get("sj_div") or "").upper() in want]
+            for r in rows if not want_rows or (r.get("sj_div") or "").upper() in want_rows]
+    if want_rows and not kept:
+        # 필터가 다 걸러낸 0행은 「자료 없음」이 아니다 — 필터 전 구성을 적어 오해를 막는다.
+        warnings.append(f"{year}년 요청한 sj_div={'·'.join(sorted(want_rows))} 에 해당하는 행이 없다 — 자료가 없는 것이 아니라 "
+                        f"이 보고서의 구성이 {'·'.join(present_all) or '없음'} 이다(sj_div 를 빼거나 바꿔 다시 부른다).")
     # 재무제표 순서는 알파벳순이 아니라 공시 순서(BS→IS→CIS→CF→SCE)다. `ord` 는 문자열이고
     # 드물게 비숫자가 와서, 정렬 하나로 tool 호출 전체가 죽지 않도록 안전 파싱한다.
     def _ord(r: dict[str, Any]) -> tuple[int, int]:
@@ -1677,15 +1702,18 @@ async def _build_accounts(
     if used_rc != _REPRT_BUSINESS:
         warnings.append("분기/반기 보고서의 손익 계정은 누적(YTD)이다 — `thstrm_add_amount` 가 있으면 그 쪽이 누적, "
                         "`thstrm_amount` 는 당기 3개월일 수 있다. 두 열을 함께 읽을 것.")
-    return {
+    out: dict[str, Any] = {
         "rows": kept,
         "row_count": len(kept),
         "functional_currency": cur,
         "fs_div": actual_fs,
         "reprt_code": used_rc,
-        "sj_div_present": sorted({(r.get("sj_div") or "").upper() for r in kept if r.get("sj_div")},
-                                 key=lambda x: _SJ_ORDER.get(x, 99)),
-    }, warnings
+        # 필터 전 구성이다(필터 뒤 행의 구성이 아니다) — 필터가 다 걸러내도 이 보고서에 무엇이 있었는지 보인다.
+        "sj_div_present": present_all,
+    }
+    if sj_div_mapped:
+        out["sj_div_mapped"] = sj_div_mapped
+    return out, warnings
 
 
 def _exclude_unconverted_amounts(metrics: dict[str, Any]) -> None:
@@ -3349,7 +3377,7 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
 
 
 # ── Phase 3 F2 — 응답 caching (TTL 5분) ──
-# 같은 (company, scope, year, consolidated) 조합 재호출 시 동일 결과 보장.
+# 같은 (company, scope, year, years, consolidated[, accounts 는 sj_div]) 조합 재호출 시 동일 결과 보장.
 # advise_vote의 3 run 호출 시 모든 run에서 동일 fm_payload 반환 → cash_dividend 결정 결정성.
 from open_proxy_mcp.dart.client import LruByteCache, _env_mb
 _FM_CACHE_TTL = 300.0
@@ -3409,7 +3437,10 @@ async def build_financial_metrics_payload(
         return _unsupported_scope_payload(company_query, scope)
 
     # F2 cache check
-    cache_key = (company_query, scope, year, years, consolidated)
+    # sj_div 는 accounts 전용 인자라 그 scope 에서만 키에 넣는다(정규화한 값 — 같은 회사·연도라도 sj_div 가 다르면 다른 응답이다).
+    # fs_div 는 consolidated 에서 정해지고 reprt_code 는 입력이 아니라 폴백 사슬의 결과라 따로 넣지 않는다.
+    cache_key = (company_query, scope, year, years, consolidated,
+                 _normalize_sj_div(sj_div) if scope == "accounts" else ())
     cached = _fm_cache_get(cache_key)
     if cached is not None:
         return _note_clamp(cached)
@@ -3523,6 +3554,7 @@ async def build_financial_metrics_payload(
 
     parsing_failures = 0
     filing_count = 0
+    skip_cache = False
 
     stage_started_at = time.perf_counter()
     if scope == "summary":
@@ -3738,6 +3770,7 @@ async def build_financial_metrics_payload(
             ))
         else:
             parsing_failures = 1
+            skip_cache = True  # 필터 전 행이 0 인 응답 — 일시 오류·한도 초과가 5분 굳지 않게 캐시에 넣지 않는다
 
     elif scope == "audit_opinion":
         audit_data, audit_ws, audit_ev = await _build_audit_opinion_data(corp_code, target_year, years_back=years)
@@ -3807,7 +3840,7 @@ async def build_financial_metrics_payload(
         evidence_refs=evidence_refs,
         next_actions=_next_actions(scope, data),
     ).to_dict()
-    if status != AnalysisStatus.ERROR:   # 조회 실패 응답은 5분 동안 굳히지 않는다(다음 호출이 다시 받는다)
+    if status != AnalysisStatus.ERROR and not skip_cache:   # 조회 실패·빈 accounts 응답은 5분 동안 굳히지 않는다(다음 호출이 다시 받는다)
         _fm_cache_set(cache_key, payload)  # F2 — TTL 5분 cache (클램프 고지는 캐시에 넣지 않는다)
     return _note_clamp(payload)
 
