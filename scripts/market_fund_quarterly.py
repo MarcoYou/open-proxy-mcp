@@ -125,6 +125,7 @@ from open_proxy_mcp.services.controlling_ni import (  # noqa: E402,F401 — 종�
     _CI_CTRL_ID, _CI_TOTAL_NM, _CONT_NM, _DISC_NM, _ENUM_PREFIX, _EPS_NM, _NCI_NM, _NI_CTRL_ID, _NI_TOTAL_NM, _NOT_CTRL_NM,
     _OCI_TOTAL_NM, _amt_tol, _ctrl_cands, _ctrl_in_sj, _cum_is, _first, _fits, _minority_ni, _ni_shape, _ni_total_name, _nm,
     _ordv, _sj_first, _total_ni, _total_ni_nm, controlling_ni, extract_controlling_ni_cum, ni_attrib_side,
+    _sce_disc_row, _sce_ni_row,
 )
 
 # 지배자본 줄 고르기(트리 BS_ID → BS_NM → 자본총계 − 비지배 → 자본총계 · 납입자본 줄 거르기 261019)는 서버 실시간 firm·결산기 칸·연간 수집과 함께 쓰려고
@@ -1238,15 +1239,28 @@ async def fetch(years, pilot=None, conc=2, nodata_days: int | None = None,
 _PRIOR_NI_FIELDS = {1: ("frmtrm_add_amount", "frmtrm_q_amount", "frmtrm_amount"), 2: ("frmtrm_add_amount",), 3: ("frmtrm_add_amount",)}
 
 
+#: 전년 동기 **3개월** 칸(1분기만) — 당기 3개월 칸(`thstrm_amount`)이 있던 자리. 누적 칸과 같아야 한다(`controlling_ni._tot_cols_disagree` 가 그 확인).
+_PRIOR_NI_3M_FIELDS = ("frmtrm_q_amount", "frmtrm_amount")
+
+
 def _as_prior_rows(rows, quarter: int) -> list[dict]:
-    """다음 해 같은 분기 보고서 rows → 손익(IS·CIS) 행의 당기 칸을 「전년 동기 누적」으로 바꾼 rows. 추출 트리
-    (`extract_controlling_ni_cum` — 지배 귀속 코드·이름·총계−비지배)를 그대로 쓰려고. 전기 칸이 빈 행은 빈 값이 된다."""
+    """다음 해 같은 분기 보고서 rows → 손익(IS·CIS) 행과 자본변동표(SCE) 순이익·중단영업 행의 당기 칸을 「전년 동기 누적」으로 바꾼 rows. 추출 트리
+    (`extract_controlling_ni_cum` — 지배 귀속 코드·이름·총계−비지배·자본변동표 지배 몫)를 그대로 쓰려고. 전기 칸이 빈 행은 빈 값이 된다.
+
+    261022 DATA-NI3R3: 종전엔 손익 줄만 옮기고 자본변동표 줄은 당기 칸 그대로 뒀다. 그러면 대조 문(자본변동표 지배 + 비지배 = 당기순이익)이 당기 자본변동표를
+    전기 총계에 맞춰 보게 돼 안 맞고, 같은 보고서의 당기 칸은 `TOTAL_SCE`(지배 몫)인데 전기 칸은 `TOTAL`(총계)로 남았다(274400 2022 반기·3분기, 2023 1분기 —
+    비지배 몫만큼 1.4~3.1% 큼). 분기 자본변동표는 누적만 있고 전년 동기 누적은 `frmtrm_q_amount` 칸이다. 순이익·중단영업 줄 외의 자본변동표 줄(기초·기말 자본)은
+    그대로 둔다(전기 말 자본은 `prior_equity_from_sce` 가 읽는다).
+    #193 가드(총계 확인·중단영업)도 전기 칸에 그대로 걸리게 1분기 손익 줄은 당기 칸 짝(3개월 칸 ≠ 누적 칸이면 총계 줄을 못 믿는다 — `_tot_cols_disagree`)을 전년 동기로 둔다."""
     fields = _PRIOR_NI_FIELDS[quarter]
     out = []
     for r in rows:
         if r.get("sj_div") in ("IS", "CIS"):
             v = next((r.get(f) for f in fields if normalize_amount(r.get(f)) is not None), "")
-            out.append({**r, "thstrm_add_amount": v, "thstrm_amount": v})
+            m = next((r.get(f) for f in _PRIOR_NI_3M_FIELDS if normalize_amount(r.get(f)) is not None), v) if quarter == 1 else v
+            out.append({**r, "thstrm_add_amount": v, "thstrm_amount": m})
+        elif r.get("sj_div") == "SCE" and (_sce_ni_row(r) or _sce_disc_row(r)):
+            out.append({**r, "thstrm_amount": r.get("frmtrm_q_amount") or "", "frmtrm_q_amount": "", "frmtrm_amount": ""})
         else:
             out.append(r)
     return out
