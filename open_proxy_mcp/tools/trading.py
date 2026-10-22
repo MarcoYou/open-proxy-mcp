@@ -11,6 +11,7 @@ from open_proxy_mcp.services.trading_screen import (
     build_index_payload,
     build_quote_rank_payload,
     build_rate_payload,
+    index_display_name,
 )
 from open_proxy_mcp.services.trading import (
     build_cap_agg_payload,
@@ -264,7 +265,7 @@ def _render_index(p: dict[str, Any]) -> str:
     L = []
     if len(rows) == 1:
         r = rows[0]
-        L += [f"# {r['market']} {r['name']} — {_px(r['close'])} 포인트 (기준 {r['as_of']} 종가)", ""]
+        L += [f"# {index_display_name(r['market'], r['name'])} — {_px(r['close'])} 포인트 (기준 {r['as_of']} 종가)", ""]
         if r.get("change") is not None:
             L.append(f"- 전일({r['prev_dd']}) 대비 {_sg(r['change'], '')}포인트 ({_sg(r['change_pct'])}) — 전일 종가 {_px(r['prev_close'])}")
         L += ["", "| 기간 | 수익률 | 기준일 | 기준 종가 |", "|---|---|---|---|"]

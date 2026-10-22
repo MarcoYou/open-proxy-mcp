@@ -188,6 +188,55 @@ def test_index_same_name_in_two_markets_asks_instead_of_guessing(fdb):
     assert not any("FROM krx_idx k" in c[0] for c in fdb.calls)                  # 종가를 읽지도 않았다
 
 
+def test_index_title_does_not_repeat_the_market_when_the_name_already_starts_with_it(fdb):
+    """병합 뒤 확인(2026-10-23)이 찾은 결함: 지수 이름 「코스피」에 시장 표기 「코스피」를 또 붙여 「# 코스피 코스피 — …」가 나왔다."""
+    md = _call(company="코스피", scope="index")
+    assert md.splitlines()[0] == "# 코스피 — 5,735.66 포인트 (기준 20261021 종가)"
+    assert "코스피 코스피" not in md
+    p = json.loads(_call(company="코스피", scope="index", format="json"))
+    assert p["subject"] == "코스피 지수"                                       # 대상 이름 칸도 겹치지 않는다
+    r = p["data"]["indices"][0]
+    assert r["name"] == "코스피" and r["market"] == "코스피"                    # json 의 name·market 값은 그대로
+
+
+def test_index_krx_prefixed_name_is_not_repeated_either(fdb):
+    """SRC_LABEL 세 표기(코스피·코스닥·KRX) 모두에 같은 규칙 — src=X 의 「KRX 300」이 「# KRX KRX 300 …」로 나오지 않는다."""
+    fdb.series.append((98, "X", "KRX 300", "z", True, "20151230", "20261021"))
+    fdb.closes[98] = [("20261020", 180000), ("20261021", 181234)]
+    md = _call(company="KRX 300", scope="index")
+    assert md.splitlines()[0] == "# KRX 300 — 1,812.34 포인트 (기준 20261021 종가)"
+    p = json.loads(_call(company="KRX 300", scope="index", format="json"))
+    assert p["subject"] == "KRX 300 지수" and "KRX KRX" not in json.dumps(p, ensure_ascii=False)
+    assert p["data"]["indices"][0]["name"] == "KRX 300" and p["data"]["indices"][0]["market"] == "KRX"
+    # 코스닥도 같다
+    assert _call(company="코스닥", scope="index").splitlines()[0].startswith("# 코스닥 — 792.76 포인트")
+
+
+def test_index_no_data_subject_does_not_repeat_the_market(fdb):
+    """DB 에 종가가 없는 「코스피 200 건설」 — 대상 이름과 안내문이 「코스피 코스피 200 건설」로 겹치지 않는다."""
+    r = json.loads(_call(company="코스피 200 건설", scope="index", format="json"))
+    assert r["status"] == "no_data" and r["subject"] == "코스피 200 건설"
+    assert "코스피 코스피" not in json.dumps(r, ensure_ascii=False)
+    assert "「코스피 200 건설」은 공식 지수 사전에는 있지만" in " ".join(r["warnings"])
+
+
+def test_index_sector_keeps_the_market_label_to_tell_the_markets_apart(fdb):
+    """시장 표기가 이름에 없는 업종 지수(전기전자)는 「코스피 전기전자」로 붙여 구분을 유지한다 — 고치기 전·후 모두 같다."""
+    fdb.closes[3] = [("20261020", 100000), ("20261021", 101000)]
+    md = _call(company="코스피 전기전자", scope="index")
+    assert md.splitlines()[0] == "# 코스피 전기전자 — 1,010.00 포인트 (기준 20261021 종가)"
+    p = json.loads(_call(company="코스피 전기전자", scope="index", format="json"))
+    assert p["subject"] == "코스피 전기전자 지수"
+
+
+def test_index_question_grammar_has_no_stray_hae(fdb):
+    """되묻기 문구의 이유 조각 뒤에 「해」를 붙여 「있어해」·「여럿이라해」가 되던 결합 — 「있어서」·「여럿이라서」로 낸다."""
+    same = " ".join(json.loads(_call(company="전기전자", scope="index", format="json"))["warnings"])
+    assert "여러 시장에 있어서 하나로 정하지 않았습니다" in same and "있어해" not in same
+    part = " ".join(json.loads(_call(company="200", scope="index", format="json"))["warnings"])
+    assert "여럿이라서 하나로 정하지 않았습니다" in part and "여럿이라해" not in part
+
+
 def test_index_partial_match_with_several_hits_asks_with_candidates(fdb):
     r = json.loads(_call(company="200", scope="index", format="json"))
     assert r["status"] == "invalid"

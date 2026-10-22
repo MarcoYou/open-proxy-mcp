@@ -102,8 +102,17 @@ _INDEX_METHOD = ("KRX 공식 지수 일별 종가(가격지수 — 배당 재투
                  "그 기준 날짜(`base_dd`)를 함께 적는다.")
 
 
+def index_display_name(market: str, name: str) -> str:
+    """시장 표기 + 지수 이름. 이름이 이미 그 시장 표기로 시작하면(코스피·코스피 200 건설·코스닥 150·KRX 300) 덧붙이지 않는다 —
+    「코스피 코스피」·「KRX KRX 300」 겹침을 막는다. 시장 표기가 이름에 없는 업종 지수(전기전자)는 「코스피 전기전자」처럼 붙여 구분을 유지한다.
+    비교는 `_norm_index`(띄어쓰기·영문 별칭 무시)로 한다. 표기 문자열만 정하고 json 의 name·market 값은 건드리지 않는다."""
+    if not market or _norm_index(name).startswith(_norm_index(market)):
+        return name
+    return f"{market} {name}"
+
+
 def _label(s: IndexSeries) -> str:
-    return f"{SRC_LABEL.get(s.src, s.src)} {s.name}"
+    return index_display_name(SRC_LABEL.get(s.src, s.src), s.name)
 
 
 def resolve_index_name(name: str, series: list[IndexSeries]) -> tuple[list[IndexSeries], str, str]:
@@ -119,12 +128,12 @@ def resolve_index_name(name: str, series: list[IndexSeries]) -> tuple[list[Index
     def ask(hits: list[IndexSeries], why: str) -> tuple[list[IndexSeries], str, str]:
         opts = " · ".join(f"{_label(s)}{'' if s.in_db else '(DB 에 일별 종가 없음)'}" for s in hits[:12])
         more = f" 외 {len(hits) - 12}개" if len(hits) > 12 else ""
-        return hits, (f"「{name}」{why}해 하나로 정하지 않았습니다 — 골라 주세요: {opts}{more}. "
+        return hits, (f"「{name}」{why} 하나로 정하지 않았습니다 — 골라 주세요: {opts}{more}. "
                       f"예: company=\"{_label(hits[0])}\""), ""
 
     exact = [s for s in series if _norm_index(s.name) == want]
     if len(exact) > 1:
-        return ask(exact, "은 같은 이름의 공식 지수가 여러 시장에 있어")
+        return ask(exact, "은 같은 이름의 공식 지수가 여러 시장에 있어서")
     if len(exact) == 1:
         s = exact[0]
         return exact, "", ("" if s.name == name.strip() else f"「{name}」 → 공식 지수 「{_label(s)}」 로 풀었다.")
@@ -138,7 +147,7 @@ def resolve_index_name(name: str, series: list[IndexSeries]) -> tuple[list[Index
     if len(part) == 1:
         return part, "", f"「{name}」 → 공식 지수 「{_label(part[0])}」 로 풀었다(부분 일치)."
     if len(part) > 1:
-        return ask(part, "은 이름이 겹치는 공식 지수가 여럿이라")
+        return ask(part, "은 이름이 겹치는 공식 지수가 여럿이라서")
     return [], (f"공식 지수 「{name}」을 지수 사전에서 찾지 못했습니다. 예: 코스피 · 코스닥 · 코스피 200 · 코스닥 150 · KRX 300 · 반도체. "
                 "이름 없이 부르면 대표 지수 목록을 줍니다."), ""
 
