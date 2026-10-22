@@ -1004,7 +1004,9 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
     warnings: list[str] = []
     if ul.notice:
         warnings.append(ul.notice)
-    if ul.excluded_pref:
+    if ul.excluded_pref and ul.sector is not None:        # 업종 문구(261023) — 우선주는 업종 구성에서 빠진다
+        warnings.append(f"우선주 {ul.excluded_pref}종목은 업종 구성에서 뺐다 — 우선주는 업종·성과 분석 대상이 아니다.")
+    elif ul.excluded_pref:
         warnings.append(f"우선주 {ul.excluded_pref}종목은 유니버스에서 뺐다 — 같은 회사의 보통주가 순위에 있다.")
     if len(ul.rows) - len(out):
         warnings.append(f"유니버스 {len(ul.rows)}종목 중 {len(ul.rows) - len(out)}종목은 컨센서스 추정이 없어 "

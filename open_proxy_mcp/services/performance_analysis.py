@@ -12,7 +12,7 @@
   보관한 **최신 거래일** 구성이라(`membership_lookahead`) 시작일에 아직 없던 종목은 가격이 없어 빠진다. 기간 중 상장폐지는 마지막 거래일 뒤 0% 현금이다.
 ■ 비중: 구성요소 안 가중은 `weights`(시총 = 시작일 기준 시총 / 동일), 바스켓은 적은 비중. 이후 비중은 표류하고 `rebalance` 로 되돌린다.
 ■ 해상도: 기간이 일별 보관 창(약 1년) 안이면 일별, 아니면 주간(주 마지막 거래일 한 점). 3년 밖 주간은 콜드 서빙본에서 잇고 못 읽으면 DB 하한으로 자른다(부분 곡선 없음).
-■ 벤치마크: 공식 지수(`krx_idx_series` 이름 — 외국주 제외, 가격지수) 또는 계산 벤치마크(유니버스 문구). 「코스피 전체」·「코스닥 전체」는 우선주 포함 시총 가중이고
+■ 벤치마크: 공식 지수(`krx_idx_series` 이름 — 외국주 제외, 가격지수) 또는 계산 벤치마크(유니버스 문구). 「코스피 전체」·「코스닥 전체」는 **우선주를 뺀** 보통주 시총 가중이고(261023 — 업종 구성·시총 순위 유니버스 「코스피 전체」와 같은 모집단. 우선주는 성과 분석 대상이 아니다)
   전일 기준가 시총으로 매일 비중을 잡는다(DB 집계 한 질의). 그 밖의 유니버스 문구는 시작일 구성을 고정해 시총 가중으로 표류시킨다. Brinson 업종 분해는 구성 이력이 있는 계산
   벤치마크만 된다.
 ■ 도구 겉면은 `tools/performance_analysis.py`(md·json 렌더). 이 모듈은 payload(dict)만 만든다.
@@ -915,7 +915,7 @@ async def _official_bench(ctx: Ctx, name: str, *, default_for: str | None, pf: P
 
 
 async def _market_bench(ctx: Ctx, markets: list[str], pf: Portfolio, level: str, label: str, reason: str) -> Bench:
-    """전 시장 계산 벤치마크 — 일별은 DB 집계 한 질의, 주간은 시장 전 종목 행을 읽어 같은 식으로 계산한다."""
+    """전 시장 계산 벤치마크 — 일별은 DB 집계 한 질의, 주간은 시장 전 종목 행을 읽어 같은 식으로 계산한다. 우선주는 뺀 보통주 시총 가중이다(261023)."""
     dates = pf.dates
     n = len(dates) - 1
     names: dict[str, str] = {}
@@ -965,6 +965,8 @@ async def _market_bench(ctx: Ctx, markets: list[str], pf: Portfolio, level: str,
                 continue
             for j in range(n):
                 if lg.base[j] is None or lg.shrs[j] is None:
+                    continue
+                if smap.is_pref(t, dates[j]):                    # 우선주는 뺀다(261023) — 일별 집계 SQL(`BENCH_DAILY_SQL`)과 같은 판정
                     continue
                 code, nm = _group_code(smap.at(t, dates[j]), level)
                 names[code] = nm
@@ -1501,6 +1503,6 @@ def _method(ctx: Ctx, pf: Portfolio, bench: Bench | None, bs: str, wt: str, rb_m
     if bs == "total":
         parts.append("총수익 = 배당락일 구간에 DPS/조정 기준가를 더한 세전 값(보통주 DPS, 정정은 가장 늦은 접수만).")
     if bench is not None:
-        parts.append("벤치마크: " + ("공식 지수 종가 수익률." if bench.source == "official" else "계산 벤치마크(전일 기준가 시총 가중, 우선주 포함)."))
+        parts.append("벤치마크: " + ("공식 지수 종가 수익률." if bench.source == "official" else "계산 벤치마크(전일 기준가 시총 가중, 우선주 제외 — 공식 코스피·코스닥 지수와 모집단이 다를 수 있다)."))
     parts.append("종목 이름표는 DART 회사 원장 캐시를 쓰며 캐시가 비어 있으면 corpCode 받기 1콜이 날 수 있다(그 밖의 외부 호출 0).")
     return " ".join(parts)
