@@ -132,6 +132,17 @@ def _absent(node: dict, what: str) -> list[str]:
     return [f"\n{what}: {head}" + (f" — {tail}" if tail else "")]
 
 
+def _period_lines(node: dict) -> list[str]:
+    """표가 담은 기간(분기 단독·누계·연간)을 표보다 먼저 밝힌다 — 기간이 다른 표의 값을 맞춰 보지 않게."""
+    p = node.get("period") or {}
+    if not p.get("label"):
+        return []
+    L = [f"\n_기간: {p['label']} ({p.get('basis', '')}" + (f" · {p['report']}" if p.get("report") else "") + ")_"]
+    if p.get("note"):
+        L.append(f"> {p['note']}")
+    return L
+
+
 def _seg_lines(seg: dict, h: str) -> list[str]:
     """영업부문(K-IFRS 1108) — 정형 → 주석 원문 → 표 후보 → 부재."""
     L, st = [], seg.get("status")
@@ -141,6 +152,7 @@ def _seg_lines(seg: dict, h: str) -> list[str]:
         # 매출·이익을 함께 스케일한다 — 열마다 단위가 다르면 두 열을 눈으로 못 견준다.
         lab, div, dec = _table_scale([v for s in items for v in (s.get("revenue"), s.get("profit"))], u)
         L.append(f"\n{h} 사업부문별 매출·이익  (출처: 정형파싱)")
+        L.extend(_period_lines(seg))
         L.append(f"| 부문 | 매출({lab or u or '단위 미상'}) | 영업이익({lab or u or '단위 미상'}) |")
         L.append("|---|--:|--:|")
         for s in items:
@@ -186,6 +198,7 @@ def _mix_lines(node: dict, h: str) -> list[str]:
         if sc.get("scope_note"):
             bits.append(sc["scope_note"])
         L.append(f"_자가검산: {' · '.join(bits)}_")
+    L.extend(_period_lines(node))
     L.extend(_origin_lines(node))
     L.append("\n" + node["markdown"])
     if node.get("truncation_note"):
@@ -420,7 +433,7 @@ def register_tools(mcp):
         when: 회사의 사업부문·생산·수주·고객 구조가 필요할 때. 전사 재무는 `financial_metrics`, 밸류는 `price_multiple_data`. **금융/증권/보험/지주는 `financial_ops`·`financial_soundness`, REIT/보험은 `investment_property`** 로 커버(segments 대신). **여러 분기/연도 추이**가 필요하면 `bsns_year`+`reprt_code`를 지정해 과거 시점을 하나씩 반복 호출.
         rule: segments는 정형→저신뢰 시 원문 마크다운. 나머지 필드는 **해당 소절 원문을 마크다운으로 반환** — 그 표를 읽어 값 추출(단위·정의 회사별 상이, 비교 주의). `context_mode=candidate`는 strict가 `NOT_COLLECTED`일 때만 **저신뢰 고정 윈도우 문맥**을 별도 `candidate_context`로 반환하며, 공식 결과·hint로 사용하면 안 됨. 이 모드는 표준 필드 하나를 지정할 때만 사용. 금융/REIT 필드는 표준사에선 자동 N/A. 유형자산 장부가 표를 사업장으로 오독 금지. **응답 `report.report_nm`으로 어느 보고서인지 확인**(분기/반기/사업). `bsns_year`/`reprt_code`는 **반드시 둘 다** 지정(하나만 주면 에러) — 지정 시 `period`는 무시됨.
         period: `latest`(기본, 사업·반기·분기 중 **가장 최신 제출분**=최신 데이터) / `annual`(연간 사업보고서 고정) / `quarterly`(분기·반기 고정). II.사업의내용은 분기/반기도 완전구조라 동일 필드. `bsns_year`+`reprt_code` 지정 시 이 파라미터는 무시.
-        fields: 쉼표구분 — 표준: `revenue_breakdown,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,key_contracts`. **`revenue_breakdown`이 매출 분해의 단일 진입점** — 안에 매출 축 **4개**가 출처 라벨과 함께 들어 있고 `available`/`needs_review`로 어느 축에 값이 있는지 알려준다: `by_segment`(III 주석 K-IFRS 1108 영업부문, 외부감사 대상, **매출+영업이익**) · `by_product`(II-2-가 공시서식 기재사항, 외부감사 아님, 매출만) · `by_region`(III 주석 K-IFRS 1108 ¶33 전사차원, **연결** 기준 고객 소재지, 매출만) · `by_trade`(II-4 매출실적표, **별도** 기준 수출/내수, 매출만). **네 축을 더하거나 곱하지 말 것**(같은 매출을 다르게 자른 것) — 특히 `by_region`(연결)과 `by_trade`(별도)는 기준이 달라 방향이 양쪽으로 갈린다(현대차 1.4배·대한제분 0.5배). **이익이 있는 축은 `by_segment` 뿐**이다 — K-IFRS 1108이 이익을 영업부문에만 요구하기 때문. 지역별 이익이 필요하면 부문명이 지역·현지법인인 회사(예: 「미국 사업본부」)의 `by_segment`를 본다. 단일 영업부문 회사도 `by_product`엔 제품 구성이 있다(HD현대일렉트릭: 전력기기 69.5%). 옛 이름 `segments`·`revenue_mix_form`·`geo_revenue`를 fields로 직접 주면 종전대로 평평하게 반환(별칭 — 옛 호출 호환용, 새 코드는 축 이름을 쓴다) / 금융·REIT: `financial_ops,financial_soundness,investment_property`. `raw_materials`는 원재료 구성·매입과 원재료 가격 추이를 별도 소절로 반환하고, `product_pricing`은 판매가격·ASP·가격변동 원인을 반환. **`self_check`(단위·비율합·합계행 대조)로 by_product 의 자기정합성을 먼저 볼 것.** `key_contracts`는 II-6-가 라이선스·기술도입·장기공급 계약(연구개발은 `rnd`). (미지정 시 회사에 맞는 표준·금융 필드만). **자산(토지·투자부동산·지분증권 원가vs공정가치)은 별도 tool `asset_holdings`.**
+        fields: 쉼표구분 — 표준: `revenue_breakdown,sites,utilization,rnd,backlog,customers,raw_materials,product_pricing,key_contracts`. **`revenue_breakdown`이 매출 분해의 단일 진입점** — 안에 매출 축 **4개**가 출처 라벨과 함께 들어 있고 `available`/`needs_review`로 어느 축에 값이 있는지 알려준다: `by_segment`(III 주석 K-IFRS 1108 영업부문, 외부감사 대상, **매출+영업이익**) · `by_product`(II-2-가 공시서식 기재사항, 외부감사 아님, 매출만) · `by_region`(III 주석 K-IFRS 1108 ¶33 전사차원, **연결** 기준 고객 소재지, 매출만) · `by_trade`(II-4 매출실적표, **별도** 기준 수출/내수, 매출만). **네 축을 더하거나 곱하지 말 것**(같은 매출을 다르게 자른 것) — 특히 `by_region`(연결)과 `by_trade`(별도)는 기준이 달라 방향이 양쪽으로 갈린다(현대차 1.4배·대한제분 0.5배). **이익이 있는 축은 `by_segment` 뿐**이다 — K-IFRS 1108이 이익을 영업부문에만 요구하기 때문. 지역별 이익이 필요하면 부문명이 지역·현지법인인 회사(예: 「미국 사업본부」)의 `by_segment`를 본다. 단일 영업부문 회사도 `by_product`엔 제품 구성이 있다(HD현대일렉트릭: 전력기기 69.5%). 옛 이름 `segments`·`revenue_mix_form`·`geo_revenue`를 fields로 직접 주면 종전대로 평평하게 반환(별칭 — 옛 호출 호환용, 새 코드는 축 이름을 쓴다) / 금융·REIT: `financial_ops,financial_soundness,investment_property`. `raw_materials`는 원재료 구성·매입과 원재료 가격 추이를 별도 소절로 반환하고, `product_pricing`은 판매가격·ASP·가격변동 원인을 반환. **`self_check`(단위·비율합·합계행 대조)로 by_product 의 자기정합성을 먼저 볼 것.** **`by_segment`·`by_product` 응답의 `period`(분기 단독·누계·연간·기간 미상, 근거 포함)로 두 표의 기간을 먼저 맞출 것** — 반기보고서에서 부문표는 3개월 열, 제품별 표는 반기 누계라 그대로 견주면 안 된다. `key_contracts`는 II-6-가 라이선스·기술도입·장기공급 계약(연구개발은 `rnd`). (미지정 시 회사에 맞는 표준·금융 필드만). **자산(토지·투자부동산·지분증권 원가vs공정가치)은 별도 tool `asset_holdings`.**
         bsns_year: 특정 과거 사업연도 조회(예: "2025"). `reprt_code`와 함께 지정해야 함 — **추이 조회용**(한 번에 여러 분기 반환 아님, 분기마다 반복 호출).
         reprt_code: DART 표준 보고서유형 — `11011`(사업/연간) `11012`(반기) `11013`(1분기) `11014`(3분기). `bsns_year`와 함께 지정.
         context_mode: `strict`(기본) / `candidate`. candidate는 strict `NOT_COLLECTED`일 때만 단일 표준 필드의 저신뢰 보조 문맥을 별도 반환.
