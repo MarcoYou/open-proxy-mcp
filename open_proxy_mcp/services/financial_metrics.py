@@ -2745,6 +2745,10 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, 
 
 
 _QUARTERLY_IS_KEYS = ("revenue", "operating_profit", "net_income")
+#: 세전이익은 설명용 칸이다 — Q4 차분·통화 환산은 따라가지만 분기 합 점검·QoQ 대상은 아니다(위 3키만).
+_QUARTERLY_PRETAX_KEY = "income_before_tax"
+#: 분기 순이익(총계)이 영업이익의 이 배수를 넘으면 영업외손익·법인세 설명 줄을 단다(DATA-NI4 — 영업이익 > 0 인 분기만).
+NI_OVER_OPERATING_RATIO = 1.3
 
 #: `quarterly`·`qoq` 행의 `net_income_krw` 기준 — 비지배지분을 포함한 총계(summary·yearly·yoy 의 `net_income_krw` 는 지배).
 NET_INCOME_BASIS_TOTAL = "total_incl_nci"
@@ -2863,6 +2867,8 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "revenue_basis": bs_is.get("revenue_basis"),
             "operating_profit_krw": bs_is.get("operating_profit"),
             "net_income_krw": bs_is.get("net_income"),
+            # 법인세차감전 순이익(주요계정, 3개월) — 순이익 > 영업이익 분기의 영업외손익·법인세 설명에 쓴다(DATA-NI4). 못 읽으면 None.
+            "income_before_tax_krw": bs_is.get("income_before_tax"),
             # 분기 표의 순이익은 주요계정 「당기순이익」= **비지배지분을 포함한 총계**다(요약·yoy 의 지배 순이익과 다른 기준).
             # 000230 2023 3분기: 총계 −574.4억 · 지배 −255.5억. 값은 그대로 두고 기준을 행에 싣는다(DATA-NI2).
             "net_income_basis": NET_INCOME_BASIS_TOTAL,
@@ -2930,7 +2936,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             fx_by_cur[c] = _r if (c == "KRW" or (_r and _r != 1.0)) else None
         if all(fx_by_cur.values()):
             def _scale_map(m: dict[str, Any], rate: float) -> None:
-                for k in _QUARTERLY_IS_KEYS + ("total_assets", "total_equity", "total_liabilities"):
+                for k in _QUARTERLY_IS_KEYS + (_QUARTERLY_PRETAX_KEY, "total_assets", "total_equity", "total_liabilities"):
                     v = m.get(k)
                     if isinstance(v, (int, float)) and not isinstance(v, bool):
                         m[k] = round(v * rate)
@@ -2991,6 +2997,15 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                 derived_count += 1
             else:
                 failed_keys.append(key)
+        # 세전이익: 연간 − 9개월 누적. 못 구하면 연간치를 분기 값으로 두지 않고 비운다(설명 줄만 빠진다 — basis 는 위 3키로 정한다).
+        _pre_annual = row.get(f"{_QUARTERLY_PRETAX_KEY}_krw")
+        if _pre_annual is not None:
+            _pre_nine = cum9.get(_QUARTERLY_PRETAX_KEY)
+            if _pre_nine is None:
+                _pre_parts = [qs.get(q, {}).get(_QUARTERLY_PRETAX_KEY) for q in ("Q1", "Q2", "Q3")]
+                _pre_nine = sum(_pre_parts) if all(p is not None for p in _pre_parts) else None
+            row[f"{_QUARTERLY_PRETAX_KEY}_krw"] = (
+                _pre_annual - _pre_nine if (_pre_nine is not None and not cur_clash) else None)
         if failed_keys:
             row["basis"] = "annual_cumulative"
             why = ("그 해 안에서 보고 통화가 바뀌었는데 환율을 못 구해" if cur_clash
@@ -3147,11 +3162,30 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                 warnings.append(
                     f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 분기 금액은 **{stmt_cur} 단위 그대로**이고 "
                     f"원화가 아니다. 원화 기준 비교에 그대로 쓰지 말 것.")
+    _attach_ni_over_operating(out)
     await _attach_controlling_ni(out, stock_code, warnings)
     for row in out:
         row.pop("_cur", None)
         row.pop("_fs", None)
     return out[-num_quarters:], warnings
+
+
+def _attach_ni_over_operating(rows: list[dict[str, Any]]) -> None:
+    """순이익(총계)/영업이익 > 1.3배인 분기에 영업외손익·법인세를 단다(DATA-NI4). 값은 고치지 않는다 — 원문과 같은 값의 설명이다.
+
+    영업외손익 = 법인세차감전 순이익 − 영업이익(금융손익·지분법·기타를 모두 포함한 순액), 법인세 = 세전이익 − 순이익. 그래서
+    영업이익 + 영업외손익 − 법인세 = 순이익으로 닫힌다. 영업이익이 0 이하이거나 세전이익을 못 읽었거나 Q4 연간 누적(차분 불가) 행은 달지 않는다.
+    SK하이닉스 2026-Q2: 영업이익 60.54조 · 세전 122.71조 · 순이익 93.92조 → 영업외 +62.17조 · 법인세 28.79조(반기보고서 원문과 같다)."""
+    for row in rows:
+        op, ni, pre = row.get("operating_profit_krw"), row.get("net_income_krw"), row.get("income_before_tax_krw")
+        if row.get("basis") == "annual_cumulative" or op is None or ni is None or pre is None or op <= 0:
+            continue
+        ratio = ni / op
+        if ratio <= NI_OVER_OPERATING_RATIO:
+            continue
+        row["net_to_operating_ratio"] = round(ratio, 2)
+        row["non_operating_net_krw"] = pre - op
+        row["income_tax_krw"] = pre - ni
 
 
 def _prev_cell_key(period_end: str, quarter: int) -> tuple[int, int] | None:
