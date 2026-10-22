@@ -5,7 +5,7 @@
 ## What it answers
 
 - Separates the **largest shareholder's solo stake** from the **self + related-party combined stake** (different aggregation bases — mixing them misleads).
-- Decomposes total issued shares to **100%** — largest+related / treasury / other minority (registry basis).
+- Decomposes total issued shares to **100%** — largest+related / treasury / other minority (registry basis). It states which periodic report and balance-sheet date the denominator (total issued shares) comes from, and shows both counts and the gap when it differs from the latest listed share count.
 - Identifies external **5%+ holders** (institutions, foreigners, activists). Registry stakes and 5% reports use different bases and are **never simply summed**.
 - Tracks **ownership changes** (largest-shareholder changes + 5% reports) in time order — where contests and activism surface first.
 - Marks each party as **incumbent-owner camp vs external** by whether the same name is in the largest-shareholder registry (homonyms / shifting interests possible).
