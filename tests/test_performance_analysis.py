@@ -6,6 +6,9 @@ DB 읽기(`perf_data`)와 유니버스 해석(`list_universe`)을 대역으로 �
 from __future__ import annotations
 
 import asyncio
+import math
+import re
+import statistics
 
 import pytest
 
@@ -29,6 +32,7 @@ STOCKS = {
 }
 SECTOR_OF = {"900010": SEMI, "900020": AUTO, "900030": SEMI, "800010": SOFT}
 X, Y, W, Z = "900010", "900020", "900030", "800010"
+_REAL_READ_WEEKLY = D.read_weekly                 # World 가 갈아 끼우기 전의 진짜 읽기(콜드 이음 시험에서 되돌려 쓴다)
 
 
 class World:
@@ -42,15 +46,19 @@ class World:
         self.dividends: list[D.Dividend] = []
         self.scope = [D.ScopeRow(2025, "KOSPI", True, 2020)]
         self.index = [(dd, 1000.0 + v) for dd, v in zip(DAYS, (0, 10, 20, 0, 10))]            # 코스피: 1000, 1010, 1020, 1000, 1010
+        self.index_by_sid: dict[int, list] = {}      # 계열 번호별 종가 — 없는 번호는 위 index 를 쓴다
+        self.week_days: list[str] = []                # 주 닫는 날 달력(지수 target 주간 격자)
         self.rate_obs: list | None = [("20251231", 3.65)]
         self.series = [D.IndexSeries(1, "P", "코스피", "z", True), D.IndexSeries(2, "P", "코스피 200", "z", True),
                        D.IndexSeries(3, "P", "전기전자", "s", True), D.IndexSeries(4, "Q", "코스닥", "z", True),
-                       D.IndexSeries(5, "Q", "전기전자", "s", True), D.IndexSeries(6, "X", "KRX 반도체", "s", False)]
+                       D.IndexSeries(5, "Q", "전기전자", "s", True), D.IndexSeries(6, "X", "KRX 반도체", "s", False),
+                       D.IndexSeries(7, "P", "코스피 200 건설", "s", False)]
         self.snaps = ["20260101"]
         self.weekly = None                      # 주간 시험용 WeeklyRead
         self.universe_rows: dict[str, list[str]] = {}
         self.sector_ivs: dict[str, list] = {}   # 종목 → 업종 구간 [(시작, 끝, 키)] — 비우면 첫 스냅샷부터 열린 구간 하나
         self.calls: list[str] = []
+        self.universe_calls: list[str] = []
         self.last_end_tail = None
         mp = monkeypatch
         mp.setattr(D, "read_daily_days", lambda: list(self.days))
@@ -62,7 +70,8 @@ class World:
         mp.setattr(D, "read_sector_map", self._sector_map)
         mp.setattr(D, "read_sector_snaps", lambda: list(self.snaps))
         mp.setattr(D, "read_index_series", lambda: list(self.series))
-        mp.setattr(D, "read_index_closes", lambda sid, lo, hi: [(dd, v) for dd, v in self.index if lo <= dd <= hi])
+        mp.setattr(D, "read_index_closes", lambda sid, lo, hi: [(dd, v) for dd, v in self.index_by_sid.get(sid, self.index) if lo <= dd <= hi])
+        mp.setattr(D, "read_week_days", lambda lo, hi: [dd for dd in self.week_days if lo <= dd <= hi], raising=False)
         mp.setattr(D, "read_rf", lambda lo, hi: None if self.rate_obs is None else list(self.rate_obs))
         mp.setattr(D, "read_dividends", lambda tickers, lo, hi: [d for d in self.dividends if d.ticker in tickers and lo <= d.record_dd <= hi])
         mp.setattr(D, "read_div_scope", lambda: list(self.scope))
@@ -121,6 +130,7 @@ class World:
         return out
 
     async def _list_universe(self, text, as_of=""):
+        self.universe_calls.append(text)
         kind = "custom:" if "," in text or text.strip() in self.stocks else "rank:"
         tickers = self.universe_rows.get(text) or [t.strip() for t in text.split(",") if t.strip() in self.stocks]
         if not tickers:
@@ -323,7 +333,7 @@ def test_scope_extras_and_contract_keys(world):
     assert {r["name"] for r in by_sec["data"]["contributions"]} == {"IT", "경기관련소비재"}
     assert sum(r["contribution_pct"] for r in by_sec["data"]["contributions"]) == pytest.approx(10.0, abs=1e-6)
     ser = run(scope="series")
-    assert set(ser["data"]) == base_keys | {"series"} and ser["data"]["series"][0] == {"dd": "20260105", "cum_pct": 0.0, "bench_cum_pct": 0.0}
+    assert set(ser["data"]) == base_keys | {"series"} and ser["data"]["series"][0] == {"dd": "20260105", "cum_pct": 0.0, "bench_cum_pct": 0.0, "bench_point": 1000.0}
     assert ser["data"]["series"][-1]["cum_pct"] == pytest.approx(10.0, abs=1e-6) and ser["data"]["series"][-1]["bench_cum_pct"] == pytest.approx(1.0, abs=1e-6)
     assert len(ser["data"]["series"]) == 5
     comp = run(target=f"{X}={60}; {Y}=40", scope="contribution", group_by="구성요소")
@@ -726,3 +736,262 @@ def test_attribution_follows_the_sector_covering_the_period_start(world):
     # 평균 기초 비중: X 의 기초 비중 1/3, 0.36667/1.03333, 0.36667/1.1, (j3 은 0) 을 기간 수 4 로 나눈다 = (1/3 + 0.354839 + 1/3)/4 = 25.54%
     assert by["G45"]["w_p_pct"] == pytest.approx((1 / 3 + 0.36667 / 1.03333 + 1 / 3) / 4 * 100, abs=0.01)
     assert abs(a["residual_pct"]) < 1e-6
+
+
+# ═══ 지수 target (공식 지수 자체를 대상으로) ═══════════════════════════════════════════
+#   코스피 1000, 1010, 1020, 1000, 1010 → 구간 +1%, +0.990099%, −1.960784%, +1% · 누적 +1% · MDD −1.960784%(고점 20260107 → 저점 20260108) · A = 4×365.25/4
+IDX_RET = [1010 / 1000 - 1, 1020 / 1010 - 1, 1000 / 1020 - 1, 1010 / 1000 - 1]
+
+
+def test_index_target_kospi_is_the_index_itself_not_its_constituents(world):
+    p = run(target="코스피")
+    assert p["status"] == "ok", p
+    d = p["data"]
+    assert world.universe_calls == []                                                  # 구성 종목(829개 상한 오류)으로 풀지 않는다
+    idx = d["target"]["index"]
+    assert (idx["sid"], idx["src"], idx["name"], idx["kind"]) == (1, "P", "코스피", "z")
+    assert idx["start_point"] == 1000.0 and idx["end_point"] == 1010.0
+    assert idx["resolution"] == {"freq": "daily", "n_obs": 4, "ann_factor": 365.25, "nominal_ann_factor": 252}
+    assert d["period"]["freq"] == "daily" and d["period"]["n_obs"] == 4 and d["target"]["n_members"] == 0
+    m = d["metrics"]
+    assert m["return_cum_pct"] == pytest.approx(1.0, abs=1e-6) and m["return_ann_pct"] is None
+    assert m["vol_ann_pct"] == pytest.approx(statistics.stdev(IDX_RET) * math.sqrt(365.25) * 100, abs=2e-4)
+    assert m["mdd_pct"] == pytest.approx((1000 / 1020 - 1) * 100, abs=2e-4) and (m["mdd_from"], m["mdd_to"]) == ("20260107", "20260108")
+    ex = [r - 1e-4 for r in IDX_RET]                                                   # rf 연 3.65% → 하루 1e-4(ACT/365)
+    assert m["sharpe"] == pytest.approx(statistics.mean(ex) / statistics.stdev(ex) * math.sqrt(365.25), abs=1e-4)
+    assert d["relative"] is None and "benchmark_same_as_target" in p["warning_codes"]  # 비운 benchmark = 자기 자신 → 상대 지표를 만들지 않는다
+
+
+@pytest.mark.parametrize("text", ["코스피", "  코스피  ", "kospi", "KOSPI", "Kospi"])
+def test_index_target_phrases_for_kospi(world, text):
+    p = run(target=text)
+    assert p["status"] == "ok" and p["data"]["target"]["index"]["name"] == "코스피", p
+
+
+def test_index_target_kosdaq_reads_its_own_series(world):
+    world.index_by_sid[4] = [(dd, v) for dd, v in zip(DAYS, (2000.0, 2020.0, 2040.0, 2020.0, 2100.0))]
+    for text in ("코스닥", "kosdaq"):
+        p = run(target=text)
+        assert p["status"] == "ok" and p["data"]["target"]["index"]["sid"] == 4
+        assert p["data"]["target"]["index"]["end_point"] == 2100.0 and p["data"]["metrics"]["return_cum_pct"] == pytest.approx(5.0, abs=1e-6)
+
+
+def test_index_prefix_picks_an_official_index_and_basket_spellings_stay_baskets(world):
+    world.index_by_sid[2] = [(dd, v) for dd, v in zip(DAYS, (300.0, 303.0, 306.0, 309.0, 312.0))]
+    for text in ("지수:코스피 200", "지수 : 코스피200", "지수：KOSPI 200"):
+        p = run(target=text)
+        assert p["status"] == "ok", (text, p)
+        assert p["data"]["target"]["index"]["sid"] == 2 and p["data"]["metrics"]["return_cum_pct"] == pytest.approx(4.0, abs=1e-6)
+    assert world.universe_calls == []
+    # 접두사가 없는 표기는 지금 유니버스 문법 그대로 구성 종목 바스켓이다(회귀 — 응답이 바뀌지 않는다)
+    world.universe_rows["코스피200"] = [X, Y]
+    world.universe_rows["코스피 200"] = [X, Y]
+    for text in ("코스피200", "코스피 200"):
+        q = run(target=text)
+        assert q["status"] == "ok" and "index" not in q["data"]["target"] and q["data"]["target"]["n_members"] == 2, text
+        assert q["data"]["metrics"]["return_cum_pct"] == pytest.approx(10.0, abs=1e-6)
+    assert world.universe_calls == ["코스피200", "코스피 200"]
+
+
+def test_index_target_not_in_db_or_unknown_is_invalid_and_makes_no_numbers(world):
+    p = run(target="지수:코스피 200 건설")
+    assert p["status"] == "invalid" and "이 지수는 DB 에 일별 종가가 없습니다" in p["warnings"][0] and "data" not in p
+    q = run(target="지수:없는지수")
+    assert q["status"] == "invalid" and "찾지 못했습니다" in q["warnings"][0]
+    amb = run(target="지수:전기전자")
+    assert amb["status"] == "invalid" and "여러 시장" in amb["warnings"][0] and 'target="지수:코스피 전기전자"' in amb["warnings"][0]
+    empty = run(target="지수:")
+    assert empty["status"] == "invalid"
+    assert world.universe_calls == []
+
+
+def test_index_name_inside_a_blend_is_refused_but_a_plain_blend_is_unchanged(world):
+    p = run(target=f"지수:코스피=50; {X}=50")
+    assert p["status"] == "invalid" and "블렌드" in p["warnings"][0] and "지수" in p["warnings"][0]
+
+
+@pytest.mark.parametrize("scope", ["attribution", "contribution"])
+def test_index_target_has_no_constituent_history_so_decomposition_is_invalid(world, scope):
+    p = run(target="코스피", scope=scope)
+    assert p["status"] == "invalid" and "구성 이력이 없" in p["warnings"][0] and world.universe_calls == []
+
+
+def test_index_target_benchmark_rules(world):
+    world.index_by_sid[2] = [(dd, v) for dd, v in zip(DAYS, (300.0, 303.0, 306.0, 309.0, 312.0))]
+    other = run(target="지수:코스피 200", benchmark="코스피")                               # 다른 공식 지수 → 상대 지표를 낸다
+    assert other["status"] == "ok" and other["data"]["relative"]["benchmark_series"]["name"] == "코스피"
+    assert other["data"]["relative"]["excess_cum_pct"] == pytest.approx(4.0 - 1.0, abs=1e-6)
+    assert "benchmark_same_as_target" not in other["warning_codes"]
+    same = run(target="지수:코스피 200", benchmark="코스피200")                              # 같은 sid → 자기 비교 금지
+    assert same["data"]["relative"] is None and "benchmark_same_as_target" in same["warning_codes"]
+    assert any("자기 자신" in w for w in same["warnings"])
+    same2 = run(target="kospi", benchmark="코스피")
+    assert same2["data"]["relative"] is None
+    calc = run(target="코스피", benchmark="코스닥 전체")                                     # 계산 벤치마크 → 상대 지표를 낸다
+    assert calc["data"]["relative"]["benchmark_source"] == "computed"
+    kq = run(target="코스피", benchmark="코스닥")
+    assert kq["data"]["relative"]["benchmark"] == "코스닥"
+
+
+def test_index_target_series_scope_carries_the_index_points(world):
+    p = run(target="코스피", scope="series")
+    ser = p["data"]["series"]
+    assert [r["point"] for r in ser] == [1000.0, 1010.0, 1020.0, 1000.0, 1010.0]
+    assert ser[-1]["cum_pct"] == pytest.approx(1.0, abs=1e-6) and all(r["bench_point"] is None for r in ser)
+    both = run(target="지수:코스피 200", scope="series", benchmark="코스피")
+    assert [r["bench_point"] for r in both["data"]["series"]] == [1000.0, 1010.0, 1020.0, 1000.0, 1010.0]
+
+
+def test_index_target_basis_total_is_refused_politely_as_price_index(world):
+    p = run(target="코스피", basis="total")
+    assert p["status"] == "ok" and "index_price_only" in p["warning_codes"] and p["data"]["coverage"]["dividend"]["basis"] == "price"
+
+
+WK_INDEX = [("20251219", 900.0), ("20251226", 1000.0), ("20260102", 1100.0), ("20260105", 1111.0), ("20260106", 1200.0), ("20260109", 1210.0)]
+
+
+def test_index_target_weekly_uses_week_close_points_only_and_says_so(world):
+    world.week_days = ["20251219", "20251226", "20260102", "20260109"]
+    world.index_by_sid[1] = list(WK_INDEX)                                            # 일별 행(0105·0106)이 섞여 있어도 주 닫는 날만 쓴다
+    p = run(target="코스피", since="20251226")
+    assert p["status"] == "ok", p
+    d = p["data"]
+    assert d["period"]["freq"] == "weekly" and d["period"]["start"] == "20251226" and d["period"]["end"] == "20260109" and d["period"]["n_obs"] == 2
+    assert d["metrics"]["return_cum_pct"] == pytest.approx(21.0, abs=1e-6)             # 1000 → 1100 → 1210, 일별 1111·1200 은 안 쓴다
+    assert d["target"]["index"]["resolution"]["freq"] == "weekly" and d["target"]["index"]["resolution"]["nominal_ann_factor"] == 52
+    assert d["target"]["index"]["start_point"] == 1000.0 and d["target"]["index"]["end_point"] == 1210.0
+    assert "index_weekly_resolution" in p["warning_codes"] and any("그 사이 낙폭" in w for w in p["warnings"])
+
+
+def test_index_target_weekly_end_tail_comes_from_the_daily_row_when_the_end_is_mid_week(world):
+    world.week_days = ["20251226", "20260102"]                                         # 끝(20260109)은 아직 닫히지 않은 주 — 일별 행으로 끝점을 잇는다
+    world.index_by_sid[1] = list(WK_INDEX)
+    p = run(target="코스피", since="20251226")
+    assert p["status"] == "ok" and p["data"]["period"]["n_obs"] == 2 and p["data"]["target"]["index"]["end_point"] == 1210.0
+
+
+def test_index_target_since_before_the_index_history_is_cut_and_said(world):
+    world.week_days = ["20251226", "20260102", "20260109"]
+    world.index_by_sid[1] = [r for r in WK_INDEX if r[0] != "20251219"]
+    p = run(target="코스피", since="20250101")
+    assert p["status"] == "ok" and p["data"]["period"]["start"] == "20251226" and p["data"]["period"]["requested_start"] == "20250101"
+    assert "index_truncated" in p["warning_codes"]
+
+
+def test_index_target_db_failure_maps_to_status(world, monkeypatch):
+    monkeypatch.setattr(D, "read_index_series", lambda: None)
+    assert run(target="코스피")["status"] in ("db_error", "db_unconfigured")
+
+
+# ═══ B1 — 일별·지수 보관 창 안의 시작일은 보관본(콜드)을 부르지 않는다 ═══════════════════
+def test_weekly_read_starts_at_the_db_floor_when_since_is_inside_it(world):
+    rows = [("20231020", 150, 1), ("20231027", 151, 1), ("20260109", 200, 1)]
+    world.weekly = _weekly({X: rows, Y: rows}, floor="20231016")
+    p = run(since="20231020")
+    assert p["status"] == "ok", p
+    assert world.calls[0] == "weekly 20231016 20260109"                                # 시작 10일 앞(20231010)이 아니라 DB 하한에서 읽는다
+    assert p["data"]["coverage"]["cold"] == {"used": False, "seam": None, "reason": None} and "cold_coverage" not in p["warning_codes"]
+    assert p["data"]["metrics"]["return_cum_pct"] == pytest.approx(33.3333, abs=1e-3)   # 150 → 200 (값은 그대로)
+
+
+def test_in_window_since_never_reads_the_cold_archive(world, monkeypatch):
+    from open_proxy_mcp import cold_store
+    from open_proxy_mcp.services import price_multiple_data as pmd
+    monkeypatch.setattr(D, "read_weekly", _REAL_READ_WEEKLY)                           # 진짜 읽기: lo 가 하한 앞이면 보관본을 부른다
+    monkeypatch.setattr(cold_store, "enabled", lambda: True)
+    cold_calls = []
+
+    async def fake_cold(ticker, lo, latest, floor, cols):
+        cold_calls.append((ticker, lo))
+        return None
+
+    monkeypatch.setattr(pmd, "_cold_part_or_degrade", fake_cold)
+    rows = [("20231020", 150, 1), ("20231027", 151, 1), ("20260109", 200, 1)]
+    monkeypatch.setattr(D, "read_weekly_px", lambda tickers, lo, hi: {t: [r for r in rows if lo <= r[0] <= hi] for t in tickers})
+    p = run(since="20231020")
+    assert p["status"] == "ok", p
+    assert cold_calls == []
+    assert p["data"]["coverage"]["cold"]["used"] is False and p["data"]["coverage"]["cold"]["reason"] is None
+    assert "cold_coverage" not in p["warning_codes"]
+
+
+def test_in_window_since_without_an_earlier_db_point_falls_back_to_the_wider_read(world):
+    rows = [("20231020", 150, 1), ("20260109", 200, 1)]                                # 하한(월요일)과 첫 주 닫는 날 사이의 시작일 — DB 에 시작 이하 점이 없다
+    world.weekly = _weekly({X: rows, Y: rows}, floor="20231016")
+    p = run(since="20231018")
+    assert p["status"] == "ok"
+    assert world.calls == ["weekly 20231016 20260109", "weekly 20231008 20260109"]    # 좁게 읽어 보고, 시작 이하 점이 없으면 종전 폭으로 다시
+
+
+def test_cold_notice_is_skipped_when_the_cold_part_is_not_in_the_curve_and_ordered_otherwise(world):
+    rows = [("20231020", 150, 1), ("20260109", 200, 1)]
+    world.weekly = _weekly({X: rows, Y: rows}, cold_used=True, seam="20231016", n_cold_rows=3, floor="20231016")
+    p = run(since="20231020")                                                          # 기준일(20231020)이 이음매(20231016) 뒤 — 곡선에 보관본 점이 없다
+    assert p["data"]["coverage"]["cold"]["used"] is False and p["data"]["coverage"]["cold"]["seam"] is None
+    assert "cold_coverage" not in p["warning_codes"]
+    world.weekly = _weekly({X: list(WK_ROWS), Y: [(d, c * 2, s) for d, c, s in WK_ROWS]}, cold_used=True, seam="20231016", n_cold_rows=6, floor="20231016")
+    q = run(target=f"{X}:50, {Y}:50", since="20190102")
+    msg = next(w for w in q["warnings"] if "보관본" in w)
+    a, b = re.findall(r"\d{4}-\d{2}-\d{2}", msg)[:2]
+    assert a <= b and (a, b) == ("2018-12-28", "2023-10-16")                           # 시작 ≤ 끝 순서
+
+
+# ═══ B2 — 벤치마크 이력이 짧을 때 한 표의 값은 같은 겹친 기간이거나 기간을 적는다 ═══════════
+def test_relative_block_reports_the_overlap_period_and_the_target_return_over_it(world):
+    rows = [("20231020", 100, 1), ("20251226", 200, 1), ("20260102", 210, 1), ("20260109", 220, 1)]
+    world.weekly = _weekly({X: rows, Y: rows}, floor="20231016")
+    world.index = [("20251226", 1000.0), ("20260102", 1050.0), ("20260109", 1100.0)]   # 지수 이력은 20251226 부터(대상은 20231020 부터)
+    p = run(target=f"{X}:50, {Y}:50", since="20231020")
+    assert p["status"] == "ok", p
+    d = p["data"]
+    assert d["period"]["start"] == "20231020" and d["metrics"]["return_cum_pct"] == pytest.approx(120.0, abs=1e-6)       # 대상 전체 기간
+    r = d["relative"]
+    assert r["period"] == {"start": "20251226", "end": "20260109", "n_obs": 2}
+    assert r["target_return_cum_pct"] == pytest.approx(10.0, abs=1e-6)                 # 220/200 − 1: 벤치마크와 같은 겹친 기간
+    assert r["benchmark_return_cum_pct"] == pytest.approx(10.0, abs=1e-6)
+    assert r["excess_cum_pct"] == pytest.approx(r["target_return_cum_pct"] - r["benchmark_return_cum_pct"], abs=1e-6)
+    assert "benchmark_truncated" in p["warning_codes"]
+
+
+# ═══ 벤치마크 블록의 위험지표와 지수 포인트 ═══════════════════════════════════════════
+def test_benchmark_block_carries_risk_metrics_and_index_points(world):
+    p = run()
+    r = p["data"]["relative"]
+    assert r["benchmark_start_point"] == 1000.0 and r["benchmark_end_point"] == 1010.0 and r["benchmark_points_reason"] is None
+    assert r["benchmark_vol_ann_pct"] == pytest.approx(statistics.stdev(IDX_RET) * math.sqrt(365.25) * 100, abs=2e-4)
+    assert r["benchmark_mdd_pct"] == pytest.approx((1000 / 1020 - 1) * 100, abs=2e-4)
+    assert (r["benchmark_mdd_from"], r["benchmark_mdd_to"]) == ("20260107", "20260108")
+    ex = [x - 1e-4 for x in IDX_RET]
+    assert r["benchmark_sharpe"] == pytest.approx(statistics.mean(ex) / statistics.stdev(ex) * math.sqrt(365.25), abs=1e-4)
+    assert r["period"] == {"start": "20260105", "end": "20260109", "n_obs": 4} and r["target_return_cum_pct"] == pytest.approx(10.0, abs=1e-6)
+
+
+def test_computed_benchmark_has_risk_metrics_but_null_points_with_a_reason(world):
+    r = run(benchmark="코스피 전체")["data"]["relative"]
+    assert r["benchmark_start_point"] is None and r["benchmark_end_point"] is None and "지수 종가(포인트)가 없" in r["benchmark_points_reason"]
+    assert r["benchmark_vol_ann_pct"] is not None and r["benchmark_mdd_pct"] is not None
+
+
+def test_series_scope_carries_benchmark_points(world):
+    ser = run(scope="series")["data"]["series"]
+    assert [r["bench_point"] for r in ser] == [1000.0, 1010.0, 1020.0, 1000.0, 1010.0] and "point" not in ser[0]
+    comp = run(scope="series", benchmark="코스피 전체")["data"]["series"]
+    assert all(r["bench_point"] is None for r in comp)
+
+
+# ═══ B3 — 업종 비중은 소수 넷째 자리까지(md 가 기타 행으로 합을 맞출 수 있게) ═══════════════
+def test_attribution_weights_are_exact_enough_to_sum_to_one_hundred(world):
+    a = run(scope="attribution")["data"]["attribution"]
+    assert sum(g["w_p_pct"] for g in a["by_group"]) == pytest.approx(100.0, abs=1e-3)
+    assert sum(g["w_b_pct"] for g in a["by_group"]) == pytest.approx(100.0, abs=1e-3)
+
+
+def test_series_benchmark_starts_at_zero_where_the_benchmark_starts_not_at_the_targets_first_row(world):
+    rows = [("20231020", 100, 1), ("20251226", 200, 1), ("20260102", 210, 1), ("20260109", 220, 1)]
+    world.weekly = _weekly({X: rows, Y: rows}, floor="20231016")
+    world.index = [("20251226", 1000.0), ("20260102", 1050.0), ("20260109", 1100.0)]
+    ser = run(target=f"{X}:50, {Y}:50", since="20231020", scope="series")["data"]["series"]
+    assert [r["dd"] for r in ser] == ["20231020", "20251226", "20260102", "20260109"]
+    assert [r["bench_cum_pct"] for r in ser] == [None, 0.0, pytest.approx(5.0, abs=1e-6), pytest.approx(10.0, abs=1e-6)]     # 대상 첫 행에 0% 를 위장하지 않는다
+    assert [r["bench_point"] for r in ser] == [None, 1000.0, 1050.0, 1100.0]
+    assert ser[-1]["cum_pct"] == pytest.approx(120.0, abs=1e-6)
