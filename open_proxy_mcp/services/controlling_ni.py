@@ -708,8 +708,9 @@ def extract_controlling_ni_cum(rows):
         return None, "NODATA"
     shape = _ni_shape(rows)
     # 261021 ni-sce: 자본변동표 지배 몫(당기 칸 — `controlling_ni(rows, field)` 는 `_field_rows` 가 같은 기간 칸을 이 자리에 옮겨 둔다).
-    # SCE 지배 + 비지배 = 이 행들의 당기순이익일 때만 쓴다 — 손익 줄만 전년 동기 칸으로 옮겨 넘기는 호출(`scripts/market_fund_quarterly._as_prior_rows`)은
-    # 자본변동표가 당기 것이라 대개 맞지 않아 종전 규칙 그대로다(분기보고서 자본변동표는 DART 응답에 당기 칸만 있다 — 10-20 원문 캐시 8,501건 전부).
+    # SCE 지배 + 비지배 = 이 행들의 당기순이익일 때만 쓴다. 전년 동기 칸을 넘기는 호출(`scripts/market_fund_quarterly._as_prior_rows`)은 손익 줄과 함께 자본변동표
+    # 순이익·중단영업 줄도 전년 동기 누적 칸(분기 자본변동표의 `frmtrm_q_amount`)을 당기 칸 자리에 옮겨 넘긴다 — 같은 기간 칸끼리라 같은 대조가 된다
+    # (261022 DATA-NI3R3: 종전엔 자본변동표가 당기 것인 채라 대조가 안 맞아 전기 칸만 `TOTAL` 로 남았다. 274400 2022 반기 −57.12억 → 지배 −55.81억).
     sce = _sce_ctrl_ni(rows, "thstrm_amount", shape)
     rejected, dropped, dropped_v = [], 0, []
     for sj in ("IS", "CIS"):
@@ -790,7 +791,7 @@ def extract_controlling_ni_cum(rows):
 
 def _sce_field(field: str, reprt_code) -> str | None:
     """손익 칸 → 같은 기간의 자본변동표 칸(261021 ni-sce). 자본변동표는 누적 칸만 있다 — 사업보고서는 당기·전기·전전기, 분기보고서는 당기 누적
-    (전년 동기 누적 칸은 짝만 둔다 — DART 응답의 분기 자본변동표엔 당기 칸만 있어 비어 있다). 반기·3분기 보고서의 당기·전기 칸(`thstrm_amount`·
+    (`frmtrm_add_amount` 짝은 DART 응답의 분기 자본변동표에서 비어 있다 — 전년 동기 누적은 `frmtrm_q_amount` 칸이고, 그 칸은 `market_fund_quarterly._as_prior_rows` 가 직접 읽는다). 반기·3분기 보고서의 당기·전기 칸(`thstrm_amount`·
     `frmtrm_amount` — 3개월)은 맞는 칸이 없다(None). 1분기는 3개월 = 누적."""
     q3m = str(reprt_code or "") in ("11012", "11014")
     return {"thstrm_add_amount": "thstrm_amount", "frmtrm_add_amount": "frmtrm_amount",
