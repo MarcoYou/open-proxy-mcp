@@ -134,12 +134,13 @@ def _parse_table(tbl_html: str) -> dict | None:
     rev_row = grid[rev_i]
     segments, excess, seen = [], [], set()
     _DASHES = {"-", "－", "—", "△"}
-    # 열 머리의 기간 말(「3개월」「누적」) — 지표 행 위 8줄 안(부문명 행 위의 기간 묶음 머리 포함)에서 열별 첫 기간 말.
-    # colspan 이 펼쳐진 격자라 열마다 그대로 잡힌다. 값 선택에는 쓰지 않는다.
+    # 열 머리의 기간 말(「3개월」「누적」) — 지표 행 위 8줄 안(부문명 행 위의 기간 묶음 머리 포함)에서 열별로
+    # 지표 행에 가장 가까운(아래에서 위로 처음 나오는) 기간 말. 머리가 3단이면 맨 위의 「…종료하는 6개월」보다
+    # 그 아래 「3개월·누적」이 값 열에 더 구체적이다. colspan 이 펼쳐진 격자라 열마다 그대로 잡힌다. 값 선택에는 쓰지 않는다.
     top_i = max(0, rev_i - 8)
     col_period: dict[int, str] = {}
     for ci in range(ncol):
-        for ri in range(top_i, rev_i):
+        for ri in range(rev_i - 1, top_i - 1, -1):
             cp = canon_col_period(grid[ri][ci])
             if cp:
                 col_period[ci] = cp

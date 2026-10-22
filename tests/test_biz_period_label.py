@@ -208,3 +208,33 @@ def test_attach_mix_period_and_render_lines():
            "reconciliation": "x", "period": segment_period("3개월", ["3개월", "누계"], "반기보고서 (2026.06)")}
     seg_out = "\n".join(_seg_lines(seg, "###"))
     assert "기간: 분기 단독(3개월)" in seg_out and "누계 열의 값은 이 표에 없습니다" in seg_out
+
+
+# 머리가 3단인 표 — 맨 위 줄이 열 전체에 걸친 「6개월」, 그 아래 줄이 「3개월 | 누적」(BP4).
+_SEG_ROWS_THREE_TIER = [
+    ["구분", "2026.6.30 로 종료하는 6개월", "2026.6.30 로 종료하는 6개월",
+     "2026.6.30 로 종료하는 6개월", "2026.6.30 로 종료하는 6개월"],
+    ["구분", "3개월", "3개월", "누적", "누적"],
+    ["구분", "A부문", "B부문", "A부문", "B부문"],
+    ["매출액", "100", "200", "250", "450"],
+    ["영업이익", "10", "20", "25", "45"],
+]
+
+
+def test_grid_prefers_the_period_nearest_to_the_metric_row():
+    """열별 기간 말은 지표 행에 가까운(가장 구체적인) 줄이 이긴다 — 값은 3개월 열인데 맨 위 줄의 6개월이
+    이기면 3개월 값에 누계 라벨이 붙는다(BP4)."""
+    p = _parse_table(_tbl(_SEG_ROWS_THREE_TIER))
+    assert p is not None
+    assert [s["revenue"] for s in p["segments"]] == [100.0, 200.0]
+    assert p["period_label"] == "3개월"
+    assert p["period_columns"] == ["3개월", "3개월", "누계", "누계"]
+    d = segment_period(p["period_label"], p["period_columns"], "반기보고서 (2026.06)")
+    assert d["label"] == "분기 단독(3개월)" and d["basis"] == "원문 표 머리"
+
+
+def test_up_marker_footnote_variants_with_extra_words_are_recognized():
+    """각주가 「▲ 표시는 부(-)의 값임」「▲ 표시 금액은 부(-)」 꼴이어도 ▲ 를 음수로 읽는다(BP5)."""
+    for note in ("※ ▲ 표시는 부(-)의 값임", "※ ▲ 표시 금액은 부(-)", "※ [▲표시는 부(-)의 값임]"):
+        sc = _mix_self_check(_GROWTH_MD + f"\n| {note} |\n|---|\n")
+        assert sc["pct_sum"] == -8.0, note
