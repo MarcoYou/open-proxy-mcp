@@ -188,6 +188,14 @@ def test_weekly_view_unions_compressed_weeks_and_daily_week_closes(world, use_db
     assert set(mk) == {C} | {DD} and [r[0] for r in mk[C]] == ["20260930", "20261008", "20261016"]
 
 
+def test_week_close_calendar_matches_the_weekly_view_dates(world, use_db):
+    """지수 target 의 주간 격자 — 종목 시세 없이도 뷰 `krx_weekly` 와 같은 주 닫는 날 목록(압축 표 + 일별의 주 닫는 날)."""
+    assert D.read_week_days("20260901", "20261231") == ["20260918", "20260925", "20260930", "20261008", "20261016"]
+    assert D.read_week_days("20260920", "20261010") == ["20260925", "20260930", "20261008"]
+    assert D.read_week_days("20200101", "20200201") == []
+    assert D.read_week_days("20260901", "20261231") == sorted({r[0] for r in D.read_weekly_px([A], "20260901", "20261231")[A]})   # 종목 시세의 날짜와 같은 주 정의
+
+
 # ── P3 수정계수 원값·딱지 ────────────────────────────────────────────────────────
 
 def test_adj_events_are_raw_values_and_flags_read(world, use_db):
