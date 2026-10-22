@@ -106,7 +106,8 @@ _YEAR_SQL = """
            (count(div_total_krw) > 1 AND count(DISTINCT div_total_krw) = 1
             AND count(DISTINCT dps_krw) FILTER (WHERE status = '확정' AND div_total_krw IS NOT NULL) > 1) AS copy_guard,
            (array_agg(payout_pct ORDER BY stlm_dt DESC))[1] AS payout_pct,
-           (array_agg(rcept_no ORDER BY stlm_dt DESC))[1] AS rcept_no
+           (array_agg(rcept_no ORDER BY stlm_dt DESC))[1] AS rcept_no,
+           max(stlm_dt) AS last_stlm_dt
       FROM per GROUP BY corp_code, bsns_year
   )
 """
@@ -465,6 +466,79 @@ def sector_list() -> list[str]:
 
 
 # ─────────────────────────────────────────────────────────────────── 스크리너 ──
+#: `screen` 정렬 — 비우거나 `total` 은 배당총액 큰 순(종전), `yield` 는 배당수익률 큰 순.
+SORTS = ("", "total", "yield")
+
+
+def _px_after(dd_text: str | None) -> bool:
+    return bool(dd_text and len(dd_text) == 8 and dd_text.isdigit())
+
+
+def attach_prices(data: dict[str, Any], price_dd: str | None) -> dict[str, Any]:
+    """수익률 모드가 아닌 호출(종전 배당총액 순)의 `screen` 결과 행에 현재가 기준 수익률 칸을 붙인다 — 질의 하나(`ticker = ANY`), `screen` 자체는 종전처럼 질의 하나로 둔다.
+    실패하면 수익률 칸을 비운 채 `data["price_failed"]=True` 로 알린다(호출부가 「조회 실패」로 말한다 — 「수익률이 없다」가 아니라 「모른다」).
+
+    행의 `price_krw`·`price_dd` 는 `price_latest` 의 그 종목 최신 종가·거래일(서빙 기준일 `price_dd` 이후 행만 — 보관 창 안에서 상장폐지·거래정지된 종목의 옛 값을 최신처럼 내지 않는다).
+    `yield_pct` = 사업연도 보통주 DPS ÷ 그 종가 × 100 — 수익률 모드의 SQL 과 같은 식이다."""
+    rows = data.get("rows") or []
+    for r in rows:
+        r.setdefault("price_krw", None); r.setdefault("price_dd", None); r.setdefault("yield_pct", None)
+    data["price_failed"] = False
+    if not rows:
+        return data
+    if not _px_after(price_dd):
+        data["price_failed"] = True
+        return data
+    try:
+        got = _rows("SELECT ticker, close, price_dd FROM price_latest WHERE ticker = ANY(%s) AND price_dd >= %s AND close > 0",
+                    ([r["ticker"] for r in rows], price_dd))
+    except Exception as exc:                      # pragma: no cover - 표 장애(시험 DB 에 표가 없는 경우 포함): 수익률 칸만 비운다
+        logger.warning("dividend_data price attach failed: %s", exc)
+        got = None
+    if got is None:
+        data["price_failed"] = True
+        return data
+    px = {t: (c, d) for t, c, d in got}
+    for r in rows:
+        if r["ticker"] in px:
+            r["price_krw"], r["price_dd"] = px[r["ticker"]]
+            if r.get("dps_krw") is not None:
+                r["yield_pct"] = r["dps_krw"] / r["price_krw"] * 100
+    return data
+
+
+def flag_share_events(data: dict[str, Any], bsns_year: int) -> dict[str, Any]:
+    """그 DPS 의 결산일 뒤에 주식 수를 바꾸는 조정 이벤트(액면분할·병합·무상증자·감자 등)가 있는 종목에 `share_event=True` 를 단다 — **표시만** 한다(값은 안 바꾼다).
+
+    왜: 원 종가는 수정주가가 아니고 DPS 는 결산 당시 주식 기준이라, 결산 뒤 분할·병합이 있으면 DPS ÷ 최신 종가가 주식 수 배율만큼 틀어진다(분할 0.1 이면 수익률이 10배로 부풀어 수익률 순 위쪽에 오른다).
+    조건: 호가단위 맞춤(`tick_rounding`)과 라벨이 「excluded…」인 행은 뺀다. 실패하면 `data["share_events_failed"]=True`(표시를 못 한 것 — 호출부가 말한다), 이벤트 표가 없는 시험 DB 도 마찬가지."""
+    rows = data.get("rows") or []
+    for r in rows:
+        r["share_event"] = False
+    data["share_events_failed"] = False
+    if not rows:
+        return data
+    tickers = [r["ticker"] for r in rows]
+    after = [((r.get("last_stlm_dt") or f"{bsns_year}-12-31").replace("-", "")) for r in rows]
+    try:
+        got = _rows(
+            "WITH q AS (SELECT * FROM unnest(%s::text[], %s::text[]) AS t(ticker, after_dd)) "
+            "SELECT DISTINCT q.ticker FROM q JOIN krx_adj_events e ON e.ticker = q.ticker AND e.event_dd > q.after_dd "
+            "WHERE e.adj_factor IS NOT NULL AND e.adj_factor > 0 AND COALESCE(e.event_type,'') <> 'tick_rounding' "
+            "AND left(COALESCE(e.label_confidence,''),8) <> 'excluded'",
+            (tickers, after))
+    except Exception as exc:                      # pragma: no cover
+        logger.warning("dividend_data share-event flag failed: %s", exc)
+        got = None
+    if got is None:
+        data["share_events_failed"] = True
+        return data
+    hit = {t for (t,) in got}
+    for r in rows:
+        r["share_event"] = r["ticker"] in hit
+    return data
+
+
 def screen(
     bsns_year: int,
     min_payout: float | None = None,
@@ -473,6 +547,10 @@ def screen(
     min_payments: int | None = None,
     sector: str = "",
     limit: int = 50,
+    *,
+    min_yield: float | None = None,
+    sort: str = "",
+    price_dd: str | None = None,
 ) -> dict[str, Any]:
     """한 사업연도에서 조건으로 회사를 거른다 — 보통주 기준. 금액(배당성향·DPS)은 원장
     `div_declared`, **횟수**(`min_payments`)는 결정공시 `div_payment` — 자를 재료에서
@@ -485,7 +563,18 @@ def screen(
     칸이 2개 이상인지를 봤는데, 원장은 대다수 회사가 분기 배당칸을 비워 둔다. 실측
     FY2024 「2회 이상」: 원장 기준 20사 vs 결정공시 기준 84사(누락 64, 오탐 0). 결정공시는
     실제 접수된 결의 건수라 이 구멍이 없다 — `n_unknown`(판단불가) 개념 자체가 사라진다.
+
+    배당수익률(261022, `min_yield`·`sort="yield"`) — 분자 = 이 화면이 고른 사업연도의 **보통주** 연 DPS(위 사업연도 합 규칙 그대로; 우선주 DPS 는 쓰지 않는다),
+    분모 = 같은 회사 보통주 코드의 `price_latest` 종가(서빙 기준일 `price_dd` 이후 행만). 거르기(`min_yield`)와 정렬(`sort="yield"`)은 **limit 으로 자르기 전에 그 해 모집단 전체**에 건다
+    — 배당총액 상위 limit 개 안에서만 다시 줄 세우지 않는다. 주가가 없는 종목은 수익률 미상이라 `min_yield` 에서 빠지고(`n_noprice` 가 그 수), `sort="yield"` 에서는 맨 뒤다.
+    두 인자를 비운 호출은 종전과 같은 질의 하나·같은 순서이고, 수익률 칸(`yield_pct`·`price_krw`·`price_dd`)은 호출부가 `attach_prices` 로 **덧붙일 뿐**이다. 결산 뒤 주식 수 변동 표시(`share_event`)는 `flag_share_events`.
+    `price_dd` 는 호출부가 읽은 서빙 기준일(`price_multiple_data._serving_price_dd`)이다. 수익률 모드인데 없으면 `status="price_unavailable"`.
     """
+    if sort not in SORTS:
+        return {"status": "invalid_sort", "sorts": [x for x in SORTS if x]}
+    yield_mode = min_yield is not None or sort == "yield"
+    if yield_mode and not _px_after(price_dd):
+        return {"status": "price_unavailable"}
     if min_payments is not None and min_payments > 0:
         complete = payment_scope_years()
         if bsns_year not in complete:
@@ -498,42 +587,69 @@ def screen(
     # `dps_krw > 0` — 표 머리에 「무배당 제외」라고 써 놓고 DPS 0원 회사를 넣고 있었다
     #   (씨티알모빌리티·DB, U7 실측). 원문에 0 이 적혀 있어도 그건 배당한 것이 아니다.
     per_where = ["d.reprt_code = %s", "d.bsns_year = %s", "d.stock_kind IN ('보통','미구분')"]
-    params: list[Any] = [_ANNUAL, bsns_year]
+    per_params: list[Any] = [_ANNUAL, bsns_year]
     if sector:
-        per_where.append("w.sector = %s"); params.append(sector)
+        per_where.append("w.sector = %s"); per_params.append(sector)
     where = ["confirmed", "dps_krw > 0"]
+    where_params: list[Any] = []
     if min_payout is not None:
-        where.append("payout_pct >= %s"); params.append(min_payout)
+        where.append("payout_pct >= %s"); where_params.append(min_payout)
     if max_payout is not None:
-        where.append("payout_pct <= %s"); params.append(max_payout)
+        where.append("payout_pct <= %s"); where_params.append(max_payout)
     if min_dps is not None:
-        where.append("dps_krw >= %s"); params.append(min_dps)
+        where.append("dps_krw >= %s"); where_params.append(min_dps)
     if min_payments is not None and min_payments > 0:
         where.append(
             "(SELECT COUNT(*) FROM div_payment p "
             " WHERE p.corp_code = yr.corp_code AND p.fiscal_year = yr.bsns_year) >= %s")
-        params.append(min_payments)
+        where_params.append(min_payments)
 
+    cols = ("t.corp_code, t.name, t.tickers, t.dps_krw, t.div_total_krw, t.payout_pct, t.rcept_no, t.n_periods, t.copy_guard, "
+            "COUNT(*) OVER () AS matched, (SELECT n FROM uni) AS n_universe, t.last_stlm_dt")
     # 질의 하나로 — 행 · 조건에 걸린 전체 수(`COUNT(*) OVER ()` — LIMIT 앞에서 센다) · 모집단(조건 전 그 해 회사 수, 첫 CTE). 종전엔 이 셋이 질의 셋이었다(같은 CTE 를
     #   두 번 돌렸다). 행이 하나도 없을 때만 모집단을 따로 한 번 더 읽는다(매칭 수는 0).
-    def build(fast: bool) -> str:
+    def build(fast: bool, tail: str) -> str:
         # 최신 스냅샷 날짜는 뷰 모드면 작은 날짜 표에서 읽는다(뷰 위 MAX 는 요청마다 약 10만 행을 펼친다 — `wise_sector_dates`)
         join = (f"JOIN wise_sector w ON w.ticker = d.tickers AND w.snap_dd = {_WSD.max_dd(fast)}" if sector else "")
-        return f"""
+        head = f"""
         WITH uni AS (SELECT COUNT(DISTINCT corp_code) AS n FROM div_declared
                       WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')),
-        {_YEAR_SQL.format(join=join, where=' AND '.join(per_where))}
-        SELECT t.corp_code, t.name, t.tickers, t.dps_krw, t.div_total_krw, t.payout_pct, t.rcept_no, t.n_periods, t.copy_guard,
-               COUNT(*) OVER () AS matched, (SELECT n FROM uni) AS n_universe
-          FROM (SELECT * FROM yr WHERE {' AND '.join(where)}) t
-         ORDER BY t.div_total_krw DESC NULLS LAST, t.corp_code LIMIT %s
-    """
-    args = (_ANNUAL, bsns_year, *params, limit)
-    rows = _WSD.query(build, args, _rows) if sector else _rows(build(False), args)
+        {_YEAR_SQL.format(join=join, where=' AND '.join(per_where))}"""
+        if not yield_mode:
+            return head + "\n" + tail.format(src=f"(SELECT * FROM yr WHERE {' AND '.join(where)})")
+        # 수익률 모드 — 주가는 종목 코드로 붙인다. 가격 조건은 ON 에 둔다(없는 종목은 수익률 NULL 로 남아 `n_noprice` 로 센다).
+        base = f""",
+        base AS (SELECT yr.*, px.close AS px_close, px.price_dd AS px_dd,
+                        CASE WHEN px.close > 0 THEN yr.dps_krw / px.close * 100 END AS yield_pct
+                   FROM yr LEFT JOIN price_latest px ON px.ticker = yr.tickers AND px.price_dd >= %s AND px.close > 0
+                  WHERE {' AND '.join(where)})
+        """
+        return head + base + tail.format(src="(SELECT * FROM base" + (" WHERE yield_pct >= %s" if min_yield is not None else "") + ")")
+
+    def args_for(with_limit: bool) -> tuple:
+        a: list[Any] = [_ANNUAL, bsns_year, *per_params]
+        if yield_mode:
+            a.append(price_dd)
+        a += where_params
+        if yield_mode and min_yield is not None:
+            a.append(min_yield)
+        if with_limit:
+            a.append(limit)
+        return tuple(a)
+
+    order = ("t.yield_pct DESC NULLS LAST, t.div_total_krw DESC NULLS LAST, t.corp_code" if sort == "yield"
+             else "t.div_total_krw DESC NULLS LAST, t.corp_code")
+    px_cols = ("t.px_close, t.px_dd, t.yield_pct, (SELECT COUNT(*) FROM base WHERE px_close IS NULL) AS n_noprice" if yield_mode
+               else "NULL::bigint, NULL::text, NULL::float8, 0")
+    row_tail = "SELECT " + cols + ", " + px_cols + "\n          FROM {src} t\n         ORDER BY " + order + " LIMIT %s"
+    rows = (_WSD.query(lambda fast: build(fast, row_tail), args_for(True), _rows) if sector
+            else _rows(build(False, row_tail), args_for(True)))
     if rows is None:
         return {"status": "db_error"}
+    n_noprice = 0
     if rows:
         matched, n_universe = rows[0][9], rows[0][10]
+        n_noprice = (rows[0][15] if len(rows[0]) > 15 else 0) or 0
     else:
         # 조건에 맞는 회사가 없다(matched = 0). 모집단은 「몇 중 몇」을 읽으려고 따로 낸다 — 이 질의만 실패하면 모집단을 못 센 채 낸다(렌더가 말한다).
         matched = 0
@@ -542,18 +658,34 @@ def screen(
             "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
             (_ANNUAL, bsns_year))
         n_universe = (tot or [(None,)])[0][0]
+        if yield_mode:
+            # 수익률 조건에 걸린 회사가 없을 때도 「주가가 없어 빠진 수」는 알려 준다(다른 조건은 통과한 회사 가운데 주가가 없는 수).
+            np_args = (_ANNUAL, bsns_year, *per_params, price_dd, *where_params)
+            np_sql = (lambda fast: build(fast, "SELECT COUNT(*) FILTER (WHERE px_close IS NULL) FROM base"))
+            got = _WSD.query(np_sql, np_args, _rows) if sector else _rows(np_sql(False), np_args)
+            n_noprice = ((got or [(0,)])[0][0]) or 0
+    def at(r: tuple, i: int) -> Any:
+        return r[i] if len(r) > i else None
+
+    out_rows = [
+        {"corp_code": r[0], "name": r[1], "ticker": r[2], "dps_krw": r[3],
+         "div_total_krw": r[4], "payout_pct": r[5], "rcept_no": r[6],
+         "n_periods": r[7], "total_basis": "ledger_copy" if r[8] else ("sum" if r[7] > 1 else "single"),
+         "last_stlm_dt": at(r, 11), "price_krw": at(r, 12), "price_dd": at(r, 13), "yield_pct": at(r, 14)}
+        for r in rows
+    ]
     return {
         "status": "ok",
         "n_universe": n_universe,
         "matched": matched,
         "returned": len(rows),
         "limit": limit,
-        "rows": [
-            {"corp_code": r[0], "name": r[1], "ticker": r[2], "dps_krw": r[3],
-             "div_total_krw": r[4], "payout_pct": r[5], "rcept_no": r[6],
-             "n_periods": r[7], "total_basis": "ledger_copy" if r[8] else ("sum" if r[7] > 1 else "single")}
-            for r in rows
-        ],
+        "sort": sort or "total",
+        "min_yield": min_yield,
+        "price_min_dd": price_dd,
+        "n_noprice": n_noprice,
+        "yield_mode": yield_mode,
+        "rows": out_rows,
     }
 
 

@@ -221,7 +221,7 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
 
 # ──────────────────────────────────────────────────────────────── screen ──
 def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
-                    hist_years: list[int], hist: dict[str, list[int | None]] | None) -> str:
+                    hist_years: list[int], hist: dict[str, list[int | None]] | None, ann_hi: int | None = None) -> str:
     """`hist=None` 은 이력열 **조회 실패**다(빈 dict 는 「셀 회사가 없다」) — 둘을 가른다."""
     rows = d.get("rows") or []
     matched = d.get("matched")
@@ -253,11 +253,13 @@ def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
          "**연결 기준이며 우리가 계산한 값이 아니다.**",
          "- **대상**: 보통주(`보통`·`미구분`) 행만. DPS 0원은 배당한 것이 아니므로 뺀다",
          "- **DPS**: 사업연도 안 결산기 DPS 의 합 — 결산기가 하나인 12월 결산 회사는 사업보고서 값 그대로, 반기·분기 결산 리츠는 결산기들의 합이다",
-         "- **정렬**: 배당총액 큰 순",
+         "- **배당수익률**: FY" + str(year) + " 보통주 DPS ÷ 같은 회사 보통주 코드의 최신 종가 × 100 — 우리가 계산한 값이다(공시의 시가배당률이 아니다). 우선주 DPS 는 수익률에 쓰지 않는다. "
+         "DPS 는 결산 당시 주식 기준이라 결산 뒤 분할·병합이 있었던 종목(`‡`)은 수익률이 주식 수 배율만큼 틀어질 수 있다 — 값은 고치지 않고 표시만 한다",
+         "- **정렬**: " + ("배당수익률 큰 순(수익률 미상은 맨 뒤)" if d.get("sort") == "yield" else "배당총액 큰 순"),
          "",
-         f"| 회사 | 종목코드 | DPS | 배당총액(신고) | 배당성향 | 결정공시 이력({hist_label}) | 공시번호 |",
-         "|---|---|---|---|---|---|---|"]
-    n_multi = n_copy = 0
+         f"| 회사 | 종목코드 | DPS(FY{year}) | 종가(원) | 수익률(%) | 기준 주가일 | 배당총액(신고) | 배당성향 | 결정공시 이력({hist_label}) | 공시번호 |",
+         "|---|---|---|---|---|---|---|---|---|---|"]
+    n_multi = n_copy = n_event = n_unknown = 0
     for r in rows:
         cell = "?" if hist is None else _history_cell(hist_years, hist.get(r["corp_code"]))
         n_per = r.get("n_periods") or 1
@@ -265,9 +267,29 @@ def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
         copied = r.get("total_basis") == "ledger_copy"
         n_multi += n_per > 1
         n_copy += copied
-        L.append(f"| {r['name']} | `{r['ticker']}` | {dps_txt} | "
+        yld = r.get("yield_pct")
+        event = bool(r.get("share_event"))
+        n_event += event and yld is not None
+        n_unknown += yld is None
+        yld_txt = "수익률 미상" if yld is None else f"{yld:,.2f}{' ‡' if event else ''}"
+        px_txt = "-" if r.get("price_krw") is None else f"{r['price_krw']:,.0f}"
+        dd_txt = r.get("price_dd")
+        dd_txt = f"{dd_txt[:4]}-{dd_txt[4:6]}-{dd_txt[6:]}" if dd_txt and len(dd_txt) == 8 else "-"
+        L.append(f"| {r['name']} | `{r['ticker']}` | {dps_txt} | {px_txt} | {yld_txt} | {dd_txt} | "
                  f"{_won_short(r.get('div_total_krw'))}{' †' if copied else ''} | {_num(r.get('payout_pct'), '%')} | "
                  f"{cell} | `{r.get('rcept_no') or '-'}` |")
+    if ann_hi is not None and year != ann_hi:
+        L += ["", f"> ⚠️ 고른 사업연도 FY{year} 는 사업보고서가 있는 마지막 해(FY{ann_hi})가 아니다 — 수익률은 **과거 연도 DPS 를 최신 주가로 나눈 값**이다. 지금 사면 받는 배당률로 읽지 말 것."]
+    if d.get("price_failed"):
+        L += ["", "> 🔴 **최신 종가를 읽지 못했다 (조회 실패)** — 수익률 칸이 비어 있는 것은 「수익률이 없다」가 아니라 **모른다**이다. 잠시 뒤 다시 시도하라."]
+    elif n_unknown and d.get("min_yield") is None:
+        L += ["", f"> 수익률 미상 {n_unknown}사는 최신 종가가 서빙 기준일 이후로 없다(거래정지·상장폐지·신규 상장 등) — 0 으로 읽지 말 것."]
+    if d.get("min_yield") is not None and d.get("n_noprice"):
+        L += ["", f"> 주가가 없어 수익률 조건에서 빠진 회사 {d['n_noprice']}사 — 다른 조건은 통과했지만 수익률을 알 수 없어 `min_yield` 로 거를 수 없었다."]
+    if n_event:
+        L += ["", f"> ‡ {n_event}사는 DPS 결산일 뒤에 주식 수를 바꾸는 조정 이벤트(분할·병합·무상증자·감자 등)가 있었다 — 수익률이 그만큼 틀어졌을 수 있어 **표시만** 했다(수익률 순 위쪽이면 먼저 의심하라)."]
+    if d.get("share_events_failed"):
+        L += ["", "> 주식 수 변동 이벤트 확인(‡)을 하지 못했다 (조회 실패) — 표에 ‡ 가 없는 것이 이벤트가 없다는 뜻은 아니다."]
     if n_multi:
         L += ["", f"> {n_multi}사는 한 사업연도에 결산기가 둘 이상(반기·분기 결산)이라 DPS 가 **그 해 결산기 DPS 의 합**이다(`min_dps` 도 이 합에 건다)."]
     if n_copy:
@@ -320,14 +342,18 @@ def register_tools(mcp):
         max_payout: float = -1,
         min_dps: float = -1,
         min_payments: int = 0,
+        min_yield: float = -1,
+        sort: str = "",
         quarterly_only: bool = False,
         limit: int = 50,
         format: str = "md",
     ) -> str:
         """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 약 830사 × 2020~, 매주 갱신 — 사업보고서가 아직 없는 올해는 1분기·반기 행만)과 결정공시 집계(온전한 해만 횟수)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
-        when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend_disclosure`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
+        when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen — 「배당수익률 5% 이상」「코스피 배당수익률 상위」는 `min_yield`·`sort=yield`) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend_disclosure`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
         scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` 업종 대분류(sector 필요)
         rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 온전한 해만 센다(그 밖은 `scope_incomplete` — 수집이 이어지면 해가 늘어난다). screen 의 기본 사업연도는 **사업보고서가 있는 마지막 해**다(올해 분기 행만 있는 해가 아니다). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**
+        min_yield: screen 전용. **배당수익률(%) 하한** — 그 해(`bsns_year`) 보통주 연 DPS ÷ 같은 회사 보통주 코드의 최신 종가 × 100(우리가 계산한 값 — 공시의 시가배당률이 아니다. 우선주 DPS 는 쓰지 않는다). 주가가 없는 종목은 수익률 미상이라 빠지고 그 수를 표 아래에 적는다. 거르기는 limit 으로 자르기 **전에** 그 해 모집단 전체에 건다. 사업보고서가 있는 마지막 해가 아닌 해를 고르면 「과거 연도 DPS 를 최신 주가로 나눈 값」이라고 경고한다.
+        sort: screen 전용. 비우거나 `total` = 배당총액 큰 순(종전), `yield` = 배당수익률 큰 순(수익률 미상은 맨 뒤) — 배당총액 상위 limit 개 안에서만 줄 세우지 않고 **그 해 모집단 전체**에서 줄 세운 뒤 limit 으로 자른다. 비운 호출은 종전 순서이고 표에 수익률 칸이 덧붙을 뿐이다. 결산 뒤 분할·병합이 있었던 종목은 수익률이 틀어질 수 있어 `‡` 로 표시한다(값은 안 고친다).
         min_payments: screen 전용. **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사(결정공시 기준 — 원장 분기 빈칸 추정이 아니다). `quarterly_only=True` 는 `min_payments=2` 의 별칭(하위호환).
         ref: dividend_disclosure, price_multiple_data, forward_estimates_data, screener, evidence
         """
@@ -378,6 +404,15 @@ def register_tools(mcp):
                         f"FY{year} 는 분기 보고서(1분기·반기 등) 행만 실려 있다. 그 해 분기 배당은 `scope=firm`(분기 표)이나 "
                         "`dividend_disclosure`(실시간) 로 본다.")
             mp = min_payments if min_payments > 0 else (2 if quarterly_only else None)
+            if sort not in dd.SORTS:
+                return (f"## sort 값 오류 (`status=invalid`)\n\n> `sort` 는 비우거나 `total`(배당총액 큰 순) · `yield`(배당수익률 큰 순) 중 하나다. 받은 값: `{sort}`")
+            yield_mode = min_yield >= 0 or sort == "yield"
+            # 261022: 수익률의 분모 — 서빙 기준일(DB 의 최신 거래일) 이후 종가만 쓴다. 비운 호출은 이 기준일을 못 읽어도 종전대로 답한다(수익률 칸만 비어 「모른다」로 나간다).
+            from open_proxy_mcp.services.price_multiple_data import _serving_price_dd
+            price_dd = await _serving_price_dd()
+            if yield_mode and not price_dd:
+                return ("## 주가 기준일을 읽지 못했다 (`status=db_error`)\n\n> 배당수익률은 최신 종가가 있어야 셀 수 있다. 일시 장애일 수 있다 — 잠시 뒤 다시. "
+                        "**수익률이 없다는 뜻이 아니라 모른다는 뜻이다.**")
 
             cond = []
             if min_payout >= 0:
@@ -388,6 +423,10 @@ def register_tools(mcp):
                 cond.append(f"DPS ≥ {min_dps:,.0f}원")
             if mp:
                 cond.append(f"그 해 배당 {mp}회 이상 (결정공시)")
+            if min_yield >= 0:
+                cond.append(f"배당수익률 ≥ {min_yield:g}% (FY{year} 보통주 DPS ÷ 최신 종가)")
+            if sort == "yield":
+                cond.append("정렬: 배당수익률 큰 순")
             if sector:
                 cond.append(f"섹터 {sector}")
 
@@ -403,6 +442,9 @@ def register_tools(mcp):
                     min_payments=mp,
                     sector=sector,
                     limit=lim,
+                    min_yield=min_yield if min_yield >= 0 else None,
+                    sort=sort,
+                    price_dd=price_dd,
                 ),
                 asyncio.to_thread(dd.payment_scope_years),
             )
@@ -411,21 +453,30 @@ def register_tools(mcp):
                 return (f"## FY{year} 결정공시 집계 미완 (`status=scope_incomplete`)\n\n"
                         f"> `min_payments` 는 결정공시가 온전한 해만 쓸 수 있다 — "
                         f"**FY{min(cy)}~FY{max(cy)}** (그 밖 해는 결의 누락 구간).")
+            if data.get("status") == "price_unavailable":
+                return ("## 주가 기준일을 읽지 못했다 (`status=db_error`)\n\n> 배당수익률은 최신 종가가 있어야 셀 수 있다. 잠시 뒤 다시.")
             if data.get("status") != "ok":
                 return "## 배당 스크리닝 조회 실패 (`status=db_error`)"
 
             hist_years = list(range(min(complete), max(complete) + 1)) if complete else []
             pairs = [(r["corp_code"], r["ticker"]) for r in (data.get("rows") or [])]
             # None = 이력 질의 실패(렌더가 「모른다」로 낸다) · {} = 셀 회사가 없다.
-            hist = (await asyncio.to_thread(dd.payment_history, pairs, hist_years[0], hist_years[-1])
-                    if pairs and hist_years else {})
+            # 261022: 수익률 칸(비운 호출만 — 수익률 모드는 SQL 이 이미 붙인다)·결산 뒤 주식 수 변동 표시·결정공시 이력은 서로 입력이 필요 없다 — 함께 보낸다.
+            _hist_q = (asyncio.to_thread(dd.payment_history, pairs, hist_years[0], hist_years[-1])
+                       if pairs and hist_years else asyncio.sleep(0, {}))
+            if yield_mode:
+                data["price_failed"] = False
+                hist, _ = await asyncio.gather(_hist_q, asyncio.to_thread(dd.flag_share_events, data, year))
+            else:
+                hist, _, _ = await asyncio.gather(_hist_q, asyncio.to_thread(dd.attach_prices, data, price_dd),
+                                                  asyncio.to_thread(dd.flag_share_events, data, year))
 
             if format == "json":
                 return as_pretty_json({"status": "ok", "data": data, "conditions": cond,
                                        "bsns_year": year, "payment_history": hist,
                                        "payment_history_failed": hist is None,
-                                       "payment_history_years": hist_years})
-            return _render_screen(year, cond, data, lim, hist_years, hist)
+                                       "payment_history_years": hist_years, "latest_annual_year": ann_hi})
+            return _render_screen(year, cond, data, lim, hist_years, hist, ann_hi)
 
         # scope == firm
         if not company:
