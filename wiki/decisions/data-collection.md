@@ -458,7 +458,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 ## 4.7 한국은행 ECOS — 무위험 금리 (`ecos_rate`, 261021)
 
 - Endpoint: `https://ecos.bok.or.kr/api/StatisticSearch/{키}/json/kr/1/100000/{통계표}/D/{시작}/{끝}/{항목}` — **키가 URL 경로에 들어간다**(예외·로그에 URL 을 싣지 않는다, 규칙 3).
-- 호출 위치: `scripts/ecos_rate_daily.py` (매일 `.github/workflows/ecos-rate-daily.yml`) — 서버는 부르지 않는다. 표 `ecos_rate` 만 읽는다(스키마 `scripts/ecos_rate_ddl.py`).
+- 호출 위치: `scripts/ecos_rate_daily.py` (매일 `.github/workflows/ecos-rate-daily.yml`) — 서버는 ECOS 를 부르지 않는다. 서버(`performance_analysis`)는 표 `ecos_rate` 를 읽기만 한다(스키마·권한 `scripts/ecos_rate_ddl.py`).
 - 계열(`series` 한 글자): **1=국고채 1년 한 계열만** `817Y002/010190000`(ECOS 가 거래일마다 값을 낸다). CD91·KOFR·국고채 3년·기준금리는 담지 않는다 — 무위험 금리는 거래일마다 나오는 국고채 1년 하나면 된다고 정했다(261022).
   표 모양(`series`·`d`·`rate`)과 보관본 칸은 그대로라 나중에 계열을 더할 수 있다(더할 때는 `SERIES` 한 줄과 DDL 의 CHECK 허용 코드를 함께 고친다).
   연율 %. 기간 수익률로의 변환(예 ACT/365)은 읽는 쪽이 하고, 응답에 변환 규칙을 밝힌다.
@@ -478,7 +478,7 @@ shareholder.py(v1)도 acptno → rcept_no 양방향 fallback 사용(line 1252-12
 - 쓰기: 저장소 변수 `ECOS_RATE_WRITE=1` 이 있어야 쓴다(없으면 계획만). 최근 30일은 매번 다시 받아 **옛 값 조건**으로 비교·정정하고(같은 값은 건드리지 않는다),
   0.5%p 넘게 바뀐 옛 값은 계열 정의 변경으로 보고 쓰지 않고 실패한다. 한 달에 한 번 `VACUUM (ANALYZE)` + 기본키 색인 다시 만들기(한 계열이라 새 행이 색인 맨 오른쪽 끝에만 들어가 효과는 작다 — 지우기 뒤 빈 쪽을 접는 정도) — 이 뒷정리가 실패해도 이미 커밋된 적재는 성공으로 두고 경고만 낸다.
   쓰기 전 백업: 바꾸는 행(정정)과 지우는 행(창 밖)의 **옛 값**을 같은 트랜잭션 안에서 먼저 CSV(`--backup-dir`)로 남기고 워크플로가 산출물(30일)로 올린다 — 파일을 못 쓰면 쓰기도 없다. 새 행은 옛 값이 없어 대상이 아니다.
-- 운영 적용 순서: ① 표 만들기 `scripts/ecos_rate_ddl.py` → ② 서버 계정 권한 행렬(비공개 운영 스크립트)에 이 표를 「서버가 읽지 않는 표」로 넣고 점검 → 적용 → 검증 순으로 돌린다 → ③ 백필 → ④ 저장소 변수 `ECOS_RATE_WRITE=1`. 보관본이 발행·확인되면 비밀값 `ECOS_RATE_COLD_MANIFEST`(위 「창 밖 지우기가 실제로 도는 조건」).
+- 운영 적용 순서: ① 표 만들기 `scripts/ecos_rate_ddl.py` → ② 서버 계정 권한 행렬(비공개 운영 스크립트)에 이 표를 「서버가 읽기만 하는 표」로 넣고(261022 — 성과 분석 도구 `performance_analysis` 가 무위험 금리를 읽는다. 행렬과 `ecos_rate_ddl.py` 가 같은 모양이어야 다음 적용이 권한을 다시 거두지 않는다) 점검 → 적용 → 검증 순으로 돌린다 → ③ 백필 → ④ 저장소 변수 `ECOS_RATE_WRITE=1`. 보관본이 발행·확인되면 비밀값 `ECOS_RATE_COLD_MANIFEST`(위 「창 밖 지우기가 실제로 도는 조건」).
 - 함정: ① `ecos_fx_rate`(환율 캐시)와 다른 표다 — 읽는 곳·뜻·보관이 다르다. ② 휴일·게시 지연 날은 앞 값을 쓰는 것이 읽는 쪽 몫(읽는 도구가 생기면 응답에 기준 날짜를 밝히는 필드를 두는 것이 예정이며, 필드 이름은 아직 정하지 않았다).
 - 속도: 하루 ECOS 1콜. 표가 비었을 때 첫 실행만 같은 1콜이 창 전체를 받는다. DART·KRX 0.
 

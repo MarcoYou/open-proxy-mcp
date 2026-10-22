@@ -3,7 +3,7 @@ type: decision
 title: 데이터 규칙과 함정 — 재무·시세·배당·컨센서스 값을 다루는 도구 개발자용
 date: 2026-10-21
 status: 기준 문서 (261021) — 항목 번호(DATA-영역n)는 고침 PR 이 인용한다. 열린 결함 표의 「고친 PR · 상태」 칸은 고침 PR 이 병합되면 문서 동기화 PR 이 채운다
-related: [price_multiple_data, financial_metrics, trading_data, dividend_data, dividend_disclosure, forward_estimates_data, screener, value_up, data-collection, consensus-history-window, ksic-sector-mapping]
+related: [price_multiple_data, financial_metrics, trading_data, performance_analysis, dividend_data, dividend_disclosure, forward_estimates_data, screener, value_up, data-collection, consensus-history-window, ksic-sector-mapping]
 ---
 
 # 데이터 규칙과 함정 (DATA)
@@ -63,6 +63,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | `open_proxy_mcp/krx_daily.py` (`closed_verdict`·`latest_day`) | 휴장 판정 3조건(PX1), 서빙 기준일 정의 한 곳(PX7) | 서버 시세 갱신기(`krx_refresher`) · `price_multiple_data` · `screener` |
 | `open_proxy_mcp/krx_retention.py` (`week_unit`·`serving_seam`·`seam_gap`) | 한 주 = ISO 주 ∩ 달력 연도(PX6), 3년 하한과 보관본 이음매(COLD1~COLD3) | `trading_data` · `price_multiple_data` · 주간 시세 배치 · `cold_store` |
 | `open_proxy_mcp/krx_ticks.py` (`is_tick_rounding`) | 호가단위 맞춤은 기업 행위가 아니다(PX2) | `trading_data` · 수정계수 라벨 배치(`scripts/adj_factor_v3.py`) |
+| `open_proxy_mcp/services/perf_math.py` (`ex_dividend_date`·`adjustment_factor`·`daily_leg`·`weekly_leg`·`link_attribution`) | 총수익의 배당락일(DIV9), 종가가 아니라 공표 대비·사건 원값으로 구간 수익률(PX2, PX4, PX5), 기여·업종 분해의 Carino 연결 | `performance_analysis` |
 | `open_proxy_mcp/market_codes.py` (`to_db`·`to_label`) | DB 시장 표기 `KS`/`KQ` ↔ 사람용 `KOSPI`/`KOSDAQ`(U2) | 시세·배수·스크리너·유니버스 전반 |
 | `open_proxy_mcp/services/dividend.py` (`period_dps`·`trailing_period_dps`·`align_dps_to_price`·`share_ratio_for`) | 결산기별 DPS 합산, 지금 주가와 같은 주식 기준의 DPS 맞춤(DIV1, DIV3, PX3) | `price_multiple_data` · `dividend_disclosure` |
 | `open_proxy_mcp/services/dart_safety.py` (`is_no_data`·`_DART_STATUS_GUIDE`·`next_kst_midnight`) | DART 상태 코드 분류 한 곳 — 013(답) 대 020·800(실패)(API1, API2) | 모든 도구의 공용 래퍼 · 013 을 직접 다루는 도구 |
@@ -570,6 +571,13 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 - **막는 곳**: `sector_asof` 칸과 소급 경고.
 - **남은 한계**: 옛 스냅샷 중 가장 이른 것의 파생 행은 하한 이전에도 소급된다(DATA-AGG5).
 
+#### DATA-SEC3 2019-06-28 이전 업종은 체계가 다르다 — `sector_taxonomy_break`
+- **무엇이 틀리나**: WICS 가 2018-06 ~ 2019-06 에 업종 체계를 개편해 미디어와엔터테인먼트가 새로 생겼다. 그 앞 날짜에 업종 분류를 쓰면 같은 이름의 업종도 구성이 다르다 —
+  업종별 수익률·기여·배분 효과가 앞뒤에서 같은 것을 재지 않는다. 게다가 이 서버의 분류 구간은 DB 에 3년 창만 있어 그 앞은 가장 이른 스냅샷을 소급한 값이다(DATA-SEC2).
+- **공개 예**: `performance_analysis` 가 시작일이 2019-06-28 이전이고 업종 분류를 쓰면(업종 문구 대상·업종별 기여·Brinson 분해) `sector_taxonomy_break` 와 `sector_retroactive` 를 함께 단다.
+- **막는 곳**: 경고 코드 `sector_taxonomy_break`(기계가 읽는 칸 `warning_codes`)와 `attribution.classification.taxonomy_break`.
+- **남은 한계**: 개편 앞뒤 업종이 어떻게 옮겨 갔는지는 알지 못한다 — 앞뒤를 이어 비교하지 말고 따로 읽는다.
+
 ### FX — 환율
 
 #### DATA-FX1 ECOS 가 정본이고 대체값은 출처를 표시하며 굳히지 않는다
@@ -693,6 +701,15 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 - **막는 곳**: 분기 배당은 누적 차분(3분기 누계 − 반기 누계, 앞 원장이 없으면 `미산출`)이다. 과거 기준일의 확정 배당은 DATA-PIT9.
 - **남은 한계**: 선배당-후결의 회사의 최신 사업연도는 `확정 전` 표기로 남는다.
 
+#### DATA-DIV9 배당락일은 「기준일 직전 거래일」이 아니다 — 총수익 계산
+- **무엇이 틀리나**: 배당을 재투자한 총수익을 셀 때 배당을 넣을 날을 「기준일 직전 거래일」로 잡으면 기준일이 휴장일(12-31·주말)인 결산배당에서 하루 틀린다. 결제일이 T+2 라 배당락일은
+  **기준일 이하 마지막 거래일의 앞 거래일**이다. 배당락일 전 종가에는 배당이 들어 있고, 현금배당락은 거래소 기준가를 조정하지 않으므로 배당락일 구간의 수익률에 `DPS ÷ 조정 기준가` 를 더한다.
+- **공개 예**: 기준일 2025-12-31(휴장, 마지막 거래일 12-30) → 배당락 12-29. 기준일 2026-03-31(거래일) → 03-30. 토요일 2026-02-28 → 마지막 거래일 02-27(금) → 02-26. 일요일 2024-06-30 → 06-27.
+  추석 연휴 뒤 토요일 2023-09-30 은 평일 달력으로 근사하면 09-28 이지만 실제 달력(09-28·09-29 휴장)으로는 09-26 이다. 대조한 20건 중 19건이 이 규칙과 일치했다.
+- **막는 곳**: `perf_math.ex_dividend_date`(거래일 달력 안이면 정확, 밖이면 평일 달력에 12-31 휴장만 넣어 근사하고 `ex_date_basis` 로 밝힌다) → `performance_analysis(basis="total")`.
+  정정 공시는 (종목, 기준일)당 가장 늦은 접수만(DATA-DIV4), 결의일이 끝 기준일보다 늦은 배당은 넣지 않는다(DATA-PIT9, `dividend_pending`). 세전 값이라 NTR(세후)과 직접 비교하지 않는다(`gross_total_return`).
+- **남은 한계**: 일별 보관 창(약 1년) 밖의 배당락일은 평일 근사라 설·추석 같은 평일 휴장에서 하루 틀릴 수 있다. 우선주는 DPS 칸이 없어 가격 수익률로 둔다.
+
 ### ID — 식별자
 
 #### DATA-ID1 영문이 섞인 신형 종목코드 — 숫자 6자리를 가정하지 않는다
@@ -796,6 +813,8 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 | DATA-PX8 | KRX 라이브 호출·캐시가 두 벌이고 일별 시세 쓰기 함수가 배수 서비스 파일 안에 있다 | 닫힘 #174 (`krx_api.fetch_day` 한 곳 · 쓰기는 `krx_daily.upsert_day`) |
 | DATA-PX8 | KRX 쪽 비공개 이름 의존이 7곳 남았다(`asset_holdings`·`scripts/market_val_weekly.py`·시세 도구 캐시) · 배수 도구 응답에 KRX 라이브 실패 사유가 실리지 않는다 | 열림 |
 | DATA-FWD1 | 컨센서스 서비스에 개편 전 옛 모양 상수와 옛 `_eok` 칸 후보가 남아 있다 | 닫힘 #165 |
+| DATA-DIV9 | 일별 보관 창 밖의 배당락일은 평일 근사라 평일 휴장(설·추석)에서 하루 틀릴 수 있다 — 전 기간 거래일 달력이 서버에 없다 | 열림 |
+| DATA-SEC3 | 3년 밖 업종 분해는 가장 이른 분류 스냅샷의 소급이고 2019-06-28 이전은 체계가 다르다 — 분류 구간이 DB 에 3년 창만 있다 | 열림 |
 
 ## 5. 도구 개발자 체크리스트
 
@@ -810,7 +829,7 @@ related: [price_multiple_data, financial_metrics, trading_data, dividend_data, d
 
 ## 6. 관련 문서
 
-- 도구: [[price_multiple_data]] · [[financial_metrics]] · [[trading_data]] · [[dividend_data]] · [[dividend_disclosure]] · [[forward_estimates_data]] · [[screener]] · [[value_up]] · [[shareholder_commitment]] · [[asset_holdings]]
+- 도구: [[price_multiple_data]] · [[financial_metrics]] · [[trading_data]] · [[performance_analysis]] · [[dividend_data]] · [[dividend_disclosure]] · [[forward_estimates_data]] · [[screener]] · [[value_up]] · [[shareholder_commitment]] · [[asset_holdings]]
 - 결정: [[data-collection]](수집 배치와 DART 한도) · [[consensus-history-window]](컨센서스 이력 창) · [[ksic-sector-mapping]](업종 분류)
 - 개념: [[단위-표기-규약]] · [[연결-별도]] · [[시점-제약]] · [[PER-PBR]] · [[시가총액]] · [[배당수익률]] · [[배당성향]] · [[당기순이익]]
 - 공시 스펙: [[분기재무-API스펙]]

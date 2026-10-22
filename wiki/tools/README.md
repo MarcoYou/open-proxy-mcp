@@ -51,6 +51,7 @@ updated: 2026-10-18
 | [price_multiple_data](price_multiple_data.md) | 상대가치 **배수** — PER·PBR·배당수익률, 기업·시장·섹터 시계열, 시장·섹터 선행 PER·PBR (구 `valuation`) |
 | [forward_estimates_data](forward_estimates_data.md) | **컨센서스 포워드 추정치** — 내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률 + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`), DART 아님. 커버리지 735/2,648종목(2026-10-17 스냅샷) · 유니버스 리비전 스크린(`universe=`, `window=1w·4w·12w·26w·52w`) · 리비전 이력 DB 52주(구간형 저장 뒤) |
 | [trading_data](trading_data.md) | 거래·**규모** — 주가·시총·상장주식수 시계열, 시장·섹터 시총 집계, 단일시점 시세(OHLC·거래량), 시총 순위 목록(`scope="universe"`) |
+| [performance_analysis](performance_analysis.md) | **성과 분석** — 종목·업종·순위·바스켓·블렌드의 수익률·변동성·낙폭·샤프, 벤치마크 대비 초과수익·베타·알파, 종목·업종 **기여 분해**와 업종 **Brinson 분해**를 부를 때 계산(가격 또는 세전 총수익, DART·KRX·ECOS 0콜) |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 + 서식 표 11종(이사회 구성·출석률·겸직·안건별 찬반) |
 | [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |
 
@@ -121,13 +122,13 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 
 ## 카테고리별 통계
 
-각 tool 페이지의 `domain:` 프론트매터가 근거다(합 32 = 이 브랜치의 런타임 tool 수, 260909
+각 tool 페이지의 `domain:` 프론트매터가 근거다(합 33 = 이 브랜치의 런타임 tool 수, 260909
 `governance_screen` 파일럿 추가). **표를 손으로
 세지 말 것** — `scripts/check_tool_catalog.py` 가 이 합과 런타임을 대조한다.
 
 | 도메인 | tool 수 | 무엇이 다른가 |
 |--------|---------|---------|
-| data | 25 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
+| data | 26 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
 | action | 4 | **공시 수집·판독을 연결해 판단·요약**한다. `proxy_advise_before_meeting`(안건별 찬반) · `shareholder_commitment`(약속↔이행 대조) · `screener`(전체시장 조회 + 유형별 상세) · `governance_screen`(지정 기업 공시 원문 + 호출 LLM 평가 + 검토 순서) |
 | reference | 3 | **회사·DART 무관 · API 0회.** `evidence`(접수번호→뷰어 URL) · `law_lookup`(법령 원문) · `proxy_guideline`(OPM 의결권 정책 원문) |
 
@@ -173,6 +174,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | financial_notes | ✅ get_document(III.재무에 관한 사항 주석·재무상태표) | - | - | - |
 | price_multiple_data | ✅ 재무 4EP + company.json + fnlttSinglAcntAll + stockTotqySttus + alotMatter (firm) | - | - | ✅ 일별 시세 저장분(최신값) · 주간 시세·시총 저장분(과거 곡선) · KRX 시세 · ECOS 환율 |
 | trading_data | - | - | - | ✅ 주간 시세(firm 끝점·universe·최근 약 1년 quote 는 일별 시세)·시장/섹터 시총·기준가 조정·업종분류 저장분 (보관 창보다 이전 quote 만 KRX 라이브) |
+| performance_analysis | - | - | - | ✅ 일별·주간 시세(보관본 포함)·기준가 사건 원장·KRX 공식 지수·ECOS 국고채 금리·업종분류 구간·배당 결정공시 저장분 (외부 호출 0) |
 | forward_estimates_data | - | - | - | ✅ 컨센서스 스냅샷 저장분(벤더 원천, DART 아님) |
 | dividend_data | - (전수 수집본·결정공시 집계 조회) | - | - | ✅ 배당 확정·분기 저장분(alotMatter 수집본) + 결정공시 집계 + 상장정보 + 업종분류 |
 | director_news | - | - | ✅ 뉴스 검색 API 1콜 | ✅ 부정 키워드 사전 |

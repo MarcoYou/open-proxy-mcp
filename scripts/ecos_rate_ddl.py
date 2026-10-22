@@ -7,8 +7,8 @@
     python3 scripts/ecos_rate_ddl.py --no-tx    # BEGIN/COMMIT 없이 본문만
     python3 scripts/ecos_rate_ddl.py --apply    # DATABASE_URL 의 DB 에 한 트랜잭션으로 적용한다
 
-■ 표 `ecos_rate` — 한국은행 ECOS 의 시장금리 일별. 지금은 국고채 1년 한 계열만 담는다. 적재는 `scripts/ecos_rate_daily.py`(GitHub Actions 일별), 읽기는 아직 없다
-  (성과 분석 도구가 무위험 수익률을 낼 때 읽는다 — 연율 → 기간 수익률 변환은 읽는 쪽이 한다).
+■ 표 `ecos_rate` — 한국은행 ECOS 의 시장금리 일별. 지금은 국고채 1년 한 계열만 담는다. 적재는 `scripts/ecos_rate_daily.py`(GitHub Actions 일별), 읽는 곳은
+  성과 분석 도구 `performance_analysis` 하나(무위험 금리 — 연율 → 기간 수익률 변환은 읽는 쪽이 한다: ACT/365 단리, 구간 시작 이전 값).
     series  계열 한 글자 — 1=국고채 1년(817Y002/010190000). 계열을 더할 수 있게 열을 남겨 둔다(더할 때는 아래 CHECK 의 허용 코드도 함께 고친다).
             `"char"` 는 1바이트 고정이라 text 열쇠보다 작다.
     d       관측일(date). ECOS 가 값을 낸 날(거래일)마다 한 행. 읽는 법: `d <= 기준일` 인 가장 늦은 행.
@@ -22,8 +22,11 @@
   `ECOS_RATE_COLD_MANIFEST` 가 있을 때만 이어서 돈다. 크기(로컬 PG17 24개월 모의, 출발 750행): 지우기 없음 1,254행 0.13 MiB · 지우기 있음 750행 0.125 MiB(3년 창만이면 0.10 MiB).
 ■ 접근 제어 — 다른 표와 같은 꼴(RLS 켜기 + SELECT 정책 `USING (true)`). 읽기 전용 역할(`opm_ro`)은 이 정책 + 명시적 `GRANT SELECT` 로 읽는다.
   `anon`·`authenticated` 에는 권한을 주지 않는다(기본 권한 설정이 새 표에 자동으로 주는 SELECT 를 명시적으로 거둔다).
-  **서버 계정 `opm_app` 은 이 표를 읽지 않는다**(서버는 아직 읽는 곳이 없다 — 읽는 도구가 생기면 그때 행렬에 넣는다). `opm_app` 은 BYPASSRLS 가 없고
-  운영의 기본 권한(ALTER DEFAULT PRIVILEGES)이 postgres 가 만든 새 표에 `opm_app` SELECT 를 자동으로 주므로, 아래 DO 블록이 만들자마자 거둔다.
+  **서버 계정 `opm_app` 은 이 표를 읽기만 한다**(성과 분석 도구가 무위험 금리를 읽는다 — 261022). `opm_app` 은 BYPASSRLS 가 없어 위 정책으로 읽고, 운영의 기본 권한
+  (ALTER DEFAULT PRIVILEGES)이 postgres 가 만든 새 표에 주는 권한은 쓰기까지일 수 있어 아래 DO 블록이 `REVOKE ALL` 로 걷은 뒤 **SELECT 만** 다시 준다.
+  쓰기는 일별 배치 계정(소유자)만 한다. 🔴 서버 계정 권한 행렬(운영 쪽 스크립트)도 같은 모양(읽기만)이어야 한다 — 행렬이 이 표를 「권한 안 줌」으로 두면 다음 적용 때
+  이 권한이 다시 거둬진다. 권한이 없으면 읽기가 권한 오류로 실패하는데 서버의 DB 읽기(`db.pg_rows`)는 그것도 None(= DB 장애)으로 돌려주므로, 읽는 쪽은 금리 읽기를
+  따로 떼어 그 지표만 비운다.
 ■ 소유자 — 표를 만든 역할이 소유자다. 일별 배치의 `DATABASE_URL`(VACUUM·REINDEX 는 소유자만)과 **같은 역할로 이 스크립트를 적용할 것**
   (운영의 다른 배치 표 krx_index_members·krx_wk 등도 같은 postgres 소유).
 """
@@ -57,11 +60,12 @@ CREATE POLICY ecos_rate_read ON ecos_rate FOR SELECT USING (true);
 REVOKE ALL ON ecos_rate FROM anon, authenticated;
 GRANT SELECT ON ecos_rate TO opm_ro;
 
--- 서버 계정이 이미 있으면 기본 권한이 준 SELECT 를 거둔다(없는 DB 에서는 건너뛴다) — 서버는 이 표를 읽지 않는다.
+-- 서버 계정이 이미 있으면 기본 권한이 준 것을 걷고 읽기만 다시 준다(없는 DB 에서는 건너뛴다) — 서버는 이 표를 읽을 뿐 쓰지 않는다.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'opm_app') THEN
     REVOKE ALL ON ecos_rate FROM opm_app;
+    GRANT SELECT ON ecos_rate TO opm_app;
   END IF;
 END
 $$;

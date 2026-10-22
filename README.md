@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#도구-구조-32개)
+[![Tools](https://img.shields.io/badge/tools-33-orange.svg)](#도구-구조-33개)
 [![Release](https://img.shields.io/badge/release-v2.7.3-blue.svg)](docs/RELEASE_NOTES.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [English](README_ENG.md) · [简体中文](README_ZH.md)
 
-[빠른 시작](#빠른-시작) · [이렇게 물어보세요](#이렇게-물어보세요) · [주요 기능](#주요-기능) · [도구 구조](#도구-구조-32개) · [읽을 때 주의](#읽을-때-주의) · [데이터 출처](#데이터-소스)
+[빠른 시작](#빠른-시작) · [이렇게 물어보세요](#이렇게-물어보세요) · [주요 기능](#주요-기능) · [도구 구조](#도구-구조-33개) · [읽을 때 주의](#읽을-때-주의) · [데이터 출처](#데이터-소스)
 
 </div>
 
@@ -199,13 +199,13 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | 🧭 [지분·주주환원](docs/features/ownership.md) | 누가 지배하고 자본은 어디로 가나? | 소유구조, 배당·자사주 소각, [밸류업 약속과 실제 집행](docs/features/shareholder-return.md) |
 | 🔔 [시장·리스크](wiki/tools/screener.md) | 오늘 무엇이 달라졌나? | 시장 공시 디제스트, 업종별 공시 흐름(평소 대비), [경영권 분쟁](docs/features/control-contest.md)·거래·희석·[리스크 이벤트](docs/features/risk-events.md) 추적 |
 
-이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 32개 도구**가 뒷받침합니다. 전체 목록은 [도구 구조](#도구-구조-32개)에서 확인할 수 있습니다.
+이 여섯 가지 분석 흐름을 출처 추적과 정관↔법령 조회까지 **총 33개 도구**가 뒷받침합니다. 전체 목록은 [도구 구조](#도구-구조-33개)에서 확인할 수 있습니다.
 
 **거버넌스 검토 파일럿** — `governance_screen`은 지정한 최대 30개사의 공시 원문을 모아 연결된 AI가 소수주주 대우·이해상충·이사회 책임 등을 판독하고, 근거와 중요도에 따라 검토 순서를 정리합니다. 공개매수·행동주의·소송이 있다는 사실만으로 부정 평가하지 않습니다. 결과는 **부분 근거에 대한 LLM 평가 · 사람 미검토**로 표시하며, 누락은 해당 항목만 알리고 다른 검토를 계속합니다. `since`·`known_receipts`로 새 공시 목록을 좁혀 다시 호출할 수 있습니다. 예약 실행이나 실제 투표는 만들지 않습니다. 운영 서버에서 쓸 수 있는 파일럿 기능입니다.
 
 ---
 
-## 도구 구조 (32개)
+## 도구 구조 (33개)
 
 분류는 [wiki/tools 카탈로그](wiki/tools/README.md)의 「무엇을 알고 싶을 때 무엇을 쓰나」 표와 같다 — 그 표가 정본이다.
 
@@ -214,7 +214,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 | 🏢 기본 — 회사 찾기 | [`company`](wiki/tools/company.md) | 회사 식별 + 최근 공시 목록 — 모든 분석의 출발점 |
 | 🔔 공시 스캔·검토 | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | 전체시장 공시 디제스트·업종별 흐름 · 지정 기업 공시 원문과 LLM 거버넌스 검토 순서(파일럿) |
 | 🗳️ 주주총회·의결권 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 소집공고(전)·결과(후) · 안건별 찬성/반대/검토 보조 · 판단 기준 문서 원문 |
-| 💰 지분·재무·지배구조 | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | 지분 구조 · 확정/잠정 실적 · 사업의 내용 · 자산주 · PER/PBR(종목·시장·업종) · 컨센서스·추정치 변화 · 시세·시총 순위 · 지배구조보고서 · 이사회 |
+| 💰 지분·재무·지배구조 | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`performance_analysis`](wiki/tools/performance_analysis.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | 지분 구조 · 확정/잠정 실적 · 사업의 내용 · 자산주 · PER/PBR(종목·시장·업종) · 컨센서스·추정치 변화 · 시세·시총 순위 · 수익률·위험·기여·업종 분해(블렌딩·벤치마크 대비) · 지배구조보고서 · 이사회 |
 | 🎁 주주환원·자본 | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | 배당 공시·시계열 · 자기주식 · 밸류업 · 약속 vs 이행 · 합병/분할 · 증자/CB/BW/감자 |
 | ⚔️ 분쟁·거래·리스크 | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | 경영권 분쟁 신호 · 지분 인수/매각 · 수주·공급계약 · 리스크 사건 · 금융사 주석 · 이사 후보 뉴스 |
 | 🔗 근거·참조 | [`evidence`](wiki/tools/evidence.md), [`law_lookup`](wiki/tools/law_lookup.md) | 접수번호 → 원문 열람 URL · 정관↔법령 양방향 조회 (API 0콜) |
