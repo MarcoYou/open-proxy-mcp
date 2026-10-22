@@ -81,6 +81,11 @@ _DETAILS_TOTAL_CALL_CAP = 1500  # 페이지당 DART 콜 러닝카운터
 _DETAILS_CONCURRENCY = 6
 #: 스캔 코드 동시성. 코드 5개는 서로 독립이라 순차로 돌 이유가 없었다.
 _SCAN_CONCURRENCY = 5
+#: `details` 를 말하지 않은 호출에서 숫자(금액·시총 대비)를 기본으로 싣는 문턱 — 유니버스가 이 종목 수 이하이고
+#: 기간이 이 일수 이하일 때만 켠다(작은 호출은 콜이 얼마 안 들고, 금액이 빠진 카드는 숫자를 보려고 도구를 한 번 더 부르게 한다).
+#: 켜도 콜은 기존 `_DETAILS_TOTAL_CALL_CAP` 안에서만 쓴다. `details=false` 를 명시하면 켜지 않는다.
+_AUTO_DETAILS_MAX_UNIVERSE = 200
+_AUTO_DETAILS_MAX_DAYS = 7
 
 # ── 스캔 결과 캐시 (260824) ──────────────────────────────────────────────────
 #
@@ -309,6 +314,25 @@ def classify(report_nm: str) -> tuple[str | None, str, bool]:
                 if _normalize_report_nm(kw) in core:
                     return t["code"], subtype, is_corr
     return None, "", is_corr
+
+
+#: 「…(자회사의 주요경영사항)」 — 상장 모회사가 비상장 자회사의 결정·실적을 대신 공시한 서식. 같은 날 모회사 자신의 공시와
+#: 제목이 거의 같아(HD한국조선해양 잠정실적 20261019800441/800444) 카드 두 장이 같은 공시의 중복으로 읽힌다.
+_SUBSIDIARY_MARK = "자회사의주요경영사항"
+
+#: 자기주식 카드의 구분 — subtype(매처 이름) → 사람이 읽는 말. 신탁은 체결·해지를 가른다.
+_TREASURY_ACTION = {"취득": "취득", "처분": "처분", "소각": "소각",
+                    "취득신탁": "신탁 체결", "취득신탁해지": "신탁 해지"}
+
+#: 문서를 열어도 **접수번호로 그 공시를 고르지 못하는** 파서(회사·날짜로만 찾는다) — 모회사 값이 자회사 카드에 붙는다.
+_RCEPT_BLIND_KINDS = frozenset({"dividend", "earnings"})
+
+
+_SUBSIDIARY_BLIND_NOTE = "자회사의 주요경영사항 공시 — 모회사 값과 섞이지 않게 숫자를 싣지 않았다(원문 링크로 확인)"
+
+
+def _is_subsidiary_matter(report_nm: str) -> bool:
+    return _SUBSIDIARY_MARK in _normalize_report_nm(report_nm)
 
 
 def _stage_tag(type_code: str, report_nm: str, subtype: str) -> str:
@@ -1283,6 +1307,11 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     disp = _DETAIL_DISPATCH.get(kind)
     if not disp:
         return {"detail_status": "no_data", "fields": {}}
+    if hit.get("subsidiary_matter") and kind in _RCEPT_BLIND_KINDS:
+        # 이 파서는 회사·날짜로만 공시를 찾아 접수번호를 보지 않는다 — 자회사 공시 카드에 모회사 자신의 값(신한지주 DPS 1,480원·
+        # 기준일 2026-12-31 이 신한은행 중간배당 카드에 붙었다)이 실려 나간다. 틀린 숫자보다 빈 칸이 낫다: 열지 않고 밝힌다.
+        return {"detail_status": "no_data", "fields": {},
+                "note": _SUBSIDIARY_BLIND_NOTE}
     if running["calls"] >= _DETAILS_TOTAL_CALL_CAP:
         return {"detail_status": "skipped", "fields": {}, "note": "300콜 러닝캡 도달"}
 
@@ -1389,7 +1418,7 @@ async def _build_screener_payload_impl(
     types: str = "core",
     period: str = "since_yesterday",
     universe: str = "all",
-    details: bool = False,
+    details: bool | None = None,
     max_hits: int = 200,
     offset: int = 0,
     cursor: str = "",
@@ -1400,7 +1429,8 @@ async def _build_screener_payload_impl(
 ) -> dict[str, Any]:
     """범용 공시 스크리너 페이로드. scan(싸게) + (details=true면) 파서 디스패치.
 
-    아침 디제스트 디폴트: types=core · period=since_yesterday · universe=all · details=false.
+    아침 디제스트 디폴트: types=core · period=since_yesterday · universe=all · details 미지정(=전체시장이라 꺼짐).
+    `details` 를 말하지 않으면(None) 유니버스가 200종목 이하이고 기간이 7일 이하일 때만 켠다 — 명시한 값(true·false)은 그대로.
 
     260824: 인자를 **사람 말로도** 받는다(`_nl_*`). 「지난주」·「코스피 시총 상위 30」·
       「자사주, 배당」 같은 표현을 기존 코드로 정규화한 뒤 원래 리졸버에 넘긴다.
@@ -1444,6 +1474,17 @@ async def _build_screener_payload_impl(
 
     # ── 가드: all × details, 기간 폭 × details ─────────────────────────
     period_days = (datetime.strptime(end_de, "%Y%m%d") - datetime.strptime(bgn_de, "%Y%m%d")).days
+    details_auto = False
+    if details is None:
+        uni_size = len(uni.allowed) if uni.allowed is not None else None
+        if (uni_size is not None and uni_size <= _AUTO_DETAILS_MAX_UNIVERSE
+                and period_days <= _AUTO_DETAILS_MAX_DAYS):
+            details, details_auto = True, True
+            warnings.append(
+                f"유니버스 {uni_size}종목(≤{_AUTO_DETAILS_MAX_UNIVERSE}) · 기간 {bgn_de}~{end_de}(≤{_AUTO_DETAILS_MAX_DAYS}일 폭)이라 "
+                "details 를 기본으로 켰다(금액·시총 대비 등 숫자 포함). 끄려면 details 를 꺼짐(boolean 거짓)으로 명시한다.")
+        else:
+            details = False
     details_effective = details
     details_preview = False
     if details:
@@ -1522,6 +1563,7 @@ async def _build_screener_payload_impl(
         tdef = _BY_CODE[type_code]
         rcept_dt = it.get("rcept_dt", "")
         filed_at = f"{rcept_dt[:4]}-{rcept_dt[4:6]}-{rcept_dt[6:8]}" if len(rcept_dt) == 8 else rcept_dt
+        sub = _is_subsidiary_matter(it.get("report_nm", ""))
         classified.append({
             "rcept_no": it.get("rcept_no", ""),
             "corp_code": it.get("corp_code", ""),
@@ -1535,10 +1577,16 @@ async def _build_screener_payload_impl(
             "flr_nm": it.get("flr_nm", ""),
             "is_correction": is_corr,
             "stage": _stage_tag(type_code, it.get("report_nm", ""), subtype),
-            "dedup_key": f"{it.get('corp_code','')}:{type_code}:{subtype}",
+            # 자회사 공시는 모회사 자신의 공시와 키를 가른다 — 같은 키면 자회사 공시의 정정이 모회사 공시를 대체하거나
+            # (원본 후보가 둘이라) 정정 짝을 못 찾는다.
+            "dedup_key": f"{it.get('corp_code','')}:{type_code}:{subtype}" + (":자회사" if sub else ""),
             "_force_detail": _force_details(tdef, it.get("report_nm", ""), is_corr),
             "_detail_kind": tdef.get("detail_kind"),
         })
+        if sub:
+            classified[-1]["subsidiary_matter"] = True
+        if type_code == "treasury" and subtype in _TREASURY_ACTION:
+            classified[-1]["treasury_action"] = _TREASURY_ACTION[subtype]
         if tdef.get("dedup_by_filer"):
             # Opposing offerors/solicitors must remain separate discovery paths.
             # An absent filer cannot establish that two reports supersede each other.
@@ -1582,7 +1630,7 @@ async def _build_screener_payload_impl(
                 row["correction_candidates"] = [kept[i]["rcept_no"] for i in cand]
             cand.append(len(kept))
             kept.append(row)
-    hits = kept
+    hits, companion_merged = _merge_dividend_companions(kept)
     deduped_away = superseded
     hits.sort(key=lambda r: r["rcept_no"], reverse=True)  # 최신순
 
@@ -1620,6 +1668,15 @@ async def _build_screener_payload_impl(
         detail_targets = []
         for h in ordered:
             if h["_detail_kind"] is None:
+                continue
+            if h.get("subsidiary_matter") and h["_detail_kind"] in _RCEPT_BLIND_KINDS:
+                # 문서를 열지 않는 카드(_fetch_detail 의 가드와 같은 사유)는 유형별 상한 셈에 넣지 않는다 — 모회사 시총순으로
+                # 앞에 와서 열 수 있는 카드의 몫을 밀어내지 않게. 정정본은 정정 내역 조회를 위해 대상에는 남긴다.
+                h["detail_status"] = "no_data"
+                h["detail_fields"] = {}
+                h["detail_note"] = _SUBSIDIARY_BLIND_NOTE
+                if h.get("is_correction"):
+                    detail_targets.append(h)
                 continue
             tc = h["type"]["code"]
             cap = _BY_CODE[tc]["max_items"]
@@ -1685,6 +1742,7 @@ async def _build_screener_payload_impl(
         "coverage": coverage,
         "types": {"selected": sel_types, "scan_codes": scan_codes,
                   "details": details_effective, "details_preview": details_preview,
+                  **({"details_auto": True} if details_auto else {}),
                   **({"interpretation": "discovery_only", "suggested_tool": "governance_screen",
                       "next_step": "발견된 공시의 회사를 중복 제거해 최대 30개씩 governance_screen으로 원문을 읽고 평가한다. 제목은 부정 신호 판정이 아니다."}
                      if types == "governance" else {})},
@@ -1694,6 +1752,7 @@ async def _build_screener_payload_impl(
                    "matched": total_hits, "hits": total_hits, "returned": len(returned),
                    "truncated_scan": truncated_scan,
                    "deduped_away": deduped_away,
+                   "companion_merged": companion_merged,
                    "truncated_details": truncated_details,
                    "truncated_paging": truncated_paging},
         "paging": {"offset": offset, "page_size": max_hits,
@@ -1705,6 +1764,56 @@ async def _build_screener_payload_impl(
         "next_cursor": end_de,   # 다음 실행은 이 값을 cursor로 → 반개구간[end_de, 다음)
         "usage": build_usage(total_calls),
     }
+
+
+_DIVIDEND_DECISION_SUBTYPES = ("현금배당", "현물배당")
+
+
+def _is_dividend_record_title(title: str) -> bool:
+    """배당 전용 기준일 서식(「…배당을위한주주명부폐쇄(기준일)결정」, 중간·분기배당 포함)인지.
+
+    유형 레지스트리의 「기준일」 매처(주주명부폐쇄·기준일)는 일반 서식 「주주명부폐쇄기간또는기준일설정」(임시·정기주총 권리주주
+    확정용)과 자율공시 기준일 공고도 잡는다 — 서식 이름에 「배당」이 없으면 어느 결의의 기준일인지 알 수 없으므로 묶지 않는다.
+    """
+    return "배당을위한주주명부폐쇄" in _normalize_report_nm(title)
+
+
+def _merge_dividend_companions(rows: list[dict]) -> tuple[list[dict], int]:
+    """같은 날 같은 결의에서 나온 배당 결정 공시와 기준일(주주명부폐쇄) 결정 공시를 카드 하나로 묶는다.
+
+    회사는 한 이사회 결의로 「현금ㆍ현물배당결정」과 「현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정」을 따로 낸다(둘 다 같은
+    결의일·같은 기준일). 신한지주 20261021800514(배당 결정)·20261021800503(기준일 결정)은 원문을 열어 보니 정정 짝이 아니라
+    **신한은행 중간배당 한 결의의 두 서식**이었고, 카드 두 장이 같은 배당의 중복으로 읽혔다.
+
+    list.json 에는 두 공시가 같은 결의인지 알려 주는 칸이 없다 — 그래서 **모르면 묶지 않는다**:
+      · 같은 회사 · 같은 접수일 · 같은 자회사 여부 안에서 배당 결정이 **정확히 1건**, 기준일 공시가 **정확히 1건**이고
+      · 둘 다 정정본이 아니고 정정 짝 모호 표시도 없을 때만 묶는다(여럿이면 어느 것이 짝인지 모른다).
+      · 기준일 공시는 배당 전용 서식(제목에 「배당을위한주주명부폐쇄」)일 때만 짝이다 — 주총용 기준일 설정 공시는 묶지 않는다.
+    묶여도 지우지 않는다 — 결정 공시 카드가 주 카드가 되고 기준일 공시는 `companions` 에 접수번호·링크와 함께 남는다.
+    """
+    groups: dict[tuple, dict[str, list[int]]] = {}
+    for i, r in enumerate(rows):
+        if r["type"]["code"] != "dividend":
+            continue
+        role = ("decision" if r["subtype"] in _DIVIDEND_DECISION_SUBTYPES
+                else "record" if (r["subtype"] == "기준일" and _is_dividend_record_title(r["title"])) else None)
+        if role is None:
+            continue
+        key = (r["corp_code"], r["filed_at"], bool(r.get("subsidiary_matter")))
+        groups.setdefault(key, {"decision": [], "record": []})[role].append(i)
+    drop: set[int] = set()
+    for g in groups.values():
+        if len(g["decision"]) != 1 or len(g["record"]) != 1:
+            continue
+        d, c = rows[g["decision"][0]], rows[g["record"][0]]
+        if any(x.get("is_correction") or x.get("ambiguous_correction") for x in (d, c)):
+            continue
+        d.setdefault("companions", []).append({
+            "rcept_no": c["rcept_no"], "subtype": c["subtype"], "title": c["title"],
+            "filed_at": c["filed_at"],
+            "dart_url": _DART_VIEWER.format(r=c["rcept_no"]) if c.get("rcept_no") else ""})
+        drop.add(g["record"][0])
+    return [r for i, r in enumerate(rows) if i not in drop], len(drop)
 
 
 def _finalize_card(h: dict) -> dict:

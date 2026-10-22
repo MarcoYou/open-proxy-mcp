@@ -12,7 +12,7 @@
   보관한 **최신 거래일** 구성이라(`membership_lookahead`) 시작일에 아직 없던 종목은 가격이 없어 빠진다. 기간 중 상장폐지는 마지막 거래일 뒤 0% 현금이다.
 ■ 비중: 구성요소 안 가중은 `weights`(시총 = 시작일 기준 시총 / 동일), 바스켓은 적은 비중. 이후 비중은 표류하고 `rebalance` 로 되돌린다.
 ■ 해상도: 기간이 일별 보관 창(약 1년) 안이면 일별, 아니면 주간(주 마지막 거래일 한 점). 3년 밖 주간은 콜드 서빙본에서 잇고 못 읽으면 DB 하한으로 자른다(부분 곡선 없음).
-■ 벤치마크: 공식 지수(`krx_idx_series` 이름 — 외국주 제외, 가격지수) 또는 계산 벤치마크(유니버스 문구). 「코스피 전체」·「코스닥 전체」는 우선주 포함 시총 가중이고
+■ 벤치마크: 공식 지수(`krx_idx_series` 이름 — 외국주 제외, 가격지수) 또는 계산 벤치마크(유니버스 문구). 「코스피 전체」·「코스닥 전체」는 **우선주를 뺀** 보통주 시총 가중이고(261023 — 업종 구성·시총 순위 유니버스 「코스피 전체」와 같은 모집단. 우선주는 성과 분석 대상이 아니다)
   전일 기준가 시총으로 매일 비중을 잡는다(DB 집계 한 질의). 그 밖의 유니버스 문구는 시작일 구성을 고정해 시총 가중으로 표류시킨다. Brinson 업종 분해는 구성 이력이 있는 계산
   벤치마크만 된다.
 ■ 도구 겉면은 `tools/performance_analysis.py`(md·json 렌더). 이 모듈은 payload(dict)만 만든다.
@@ -202,6 +202,24 @@ def market_wide(text: str) -> list[str] | None:
     if w in ("코스닥", "kosdaq"):
         return [KQ]
     return [KS, KQ]
+
+
+_INDEX_WORD = re.compile(r"^\s*(?:코스피|코스닥|kospi|kosdaq)\s*$", re.I)
+_INDEX_PREFIX = re.compile(r"^\s*지수\s*[:：]\s*(.*?)\s*$")
+
+
+def index_target(parsed: Parsed) -> str | None:
+    """target 이 공식 지수 자체를 가리키면 그 이름, 아니면 None.
+    블렌드·바스켓이 아닌 **단일 문구**이고 (a) 「코스피」「코스닥」(kospi·kosdaq 영문, 앞뒤 공백 무시)이거나 (b) 「지수:」 접두사 뒤 이름(빈 이름도 이름으로 돌려 되묻는다)일 때만이다.
+    「코스피200」「코스피 200」「코스닥150」「코스닥 150」「코스피 전체」 같은 지금 유니버스 문법으로 풀리는 문구는 종전대로 구성 종목 바스켓이다 — 지수 이름 정규화가
+    띄어쓰기를 지워 두 표기를 같게 보므로, 정규화 일치만으로 지수를 고르면 기존 바스켓 호출의 응답이 바뀐다."""
+    if parsed.blend or len(parsed.components) != 1 or parsed.components[0].basket is not None:
+        return None
+    spec = parsed.components[0].spec.strip()
+    m = _INDEX_PREFIX.match(spec)
+    if m:
+        return m.group(1)
+    return spec if _INDEX_WORD.match(spec) else None
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -398,6 +416,7 @@ class Ctx:
     latest_weekly: str = ""
     floor_weekly: str = ""
     cold: dict[str, Any] = field(default_factory=dict)
+    weekly_lo: str = ""                       # 대상(첫 호출)이 주간 시세를 읽은 하한 — 뒤 호출(계산 벤치마크)이 같은 하한을 쓴다
     warnings: list[str] = field(default_factory=list)
     codes: list[str] = field(default_factory=list)
     names: dict[str, str] | None = None
@@ -508,11 +527,22 @@ async def _load_prices(ctx: Ctx, tickers: list[str], tids: dict[str, int]) -> di
             raise _db_fail()
         return px
     lo = pd.shift_dd(plan.since_req, -10)
-    wr = await pd.read_weekly(tickers, lo, ctx.end, latest=ctx.latest_weekly, floor=ctx.floor_weekly)
-    if not wr.db_ok:
-        raise _db_fail()
     first = ctx.dates is None
     if first:
+        # 시작일이 DB 주간 하한 안이면 하한에서부터 읽는다 — 시작 10일 앞(기준 주를 찾는 여유)이 하한 앞이라 보관본(콜드)을 부르고 `cold.used`·`cold_coverage` 가 거짓으로 서던 것을 막는다(B1).
+        lo_read = max(lo, ctx.floor_weekly) if plan.since_req >= ctx.floor_weekly else lo
+    else:
+        lo_read = ctx.weekly_lo or lo
+    wr = await pd.read_weekly(tickers, lo_read, ctx.end, latest=ctx.latest_weekly, floor=ctx.floor_weekly)
+    if not wr.db_ok:
+        raise _db_fail()
+    if first and lo_read != lo and not any(r[0] <= plan.since_req for rr in wr.rows.values() for r in rr):
+        lo_read = lo                                  # 하한(주 첫날)과 첫 주 닫는 날 사이의 시작일 — DB 에 시작 이하 점이 없다. 종전 폭으로 다시 읽어 기준 주를 보관본에서 찾는다
+        wr = await pd.read_weekly(tickers, lo_read, ctx.end, latest=ctx.latest_weekly, floor=ctx.floor_weekly)
+        if not wr.db_ok:
+            raise _db_fail()
+    if first:
+        ctx.weekly_lo = lo_read
         ctx.cold = {"used": wr.cold_used, "seam": wr.seam, "reason": wr.reason, "n_rows": wr.n_cold_rows, "floor": ctx.floor_weekly,
                     "needed": plan.since_req < ctx.floor_weekly}
     rows: dict[str, list[tuple]] = {t: [(r[0], r[1], None, r[2]) for r in wr.rows.get(t, [])] for t in tickers}
@@ -548,8 +578,11 @@ async def _load_prices(ctx: Ctx, tickers: list[str], tids: dict[str, int]) -> di
         ctx.warn("cold_coverage", f"요청한 시작일 {_ymd(plan.since_req)} 은 DB 주간 구간({_ymd(ctx.floor_weekly)}~) 밖인데 {why} 시작을 {_ymd(base)} 로 잘랐다 — "
                                   "부분 곡선은 내지 않는다.")
     elif wr.cold_used:
-        ctx.warn("cold_coverage", f"3년 밖 구간({_ymd(base)}~{_ymd(wr.seam or '')} 앞)은 DB 밖 보관본(콜드 서빙)에서 읽어 이었다 — 같은 원천·같은 주 정의이고 "
-                                  f"이음매({_ymd(wr.seam or '')})에 겹치는 날은 없다.")
+        if wr.seam and base >= wr.seam:                # 기준일이 이음매 이후 — 곡선에 보관본 점이 하나도 들어가지 않았다. 쓰지 않은 것을 썼다고 하지 않는다
+            ctx.cold.update(used=False, seam=None)
+        else:
+            ctx.warn("cold_coverage", f"3년 밖 구간({_ymd(base)}~{_ymd(wr.seam or '')} 앞)은 DB 밖 보관본(콜드 서빙)에서 읽어 이었다 — 같은 원천·같은 주 정의이고 "
+                                      f"이음매({_ymd(wr.seam or '')})에 겹치는 날은 없다.")
     dset = set(dates)
     return {t: [r for r in rr if r[0] in dset] for t, rr in rows.items()}
 
@@ -588,6 +621,7 @@ class Portfolio:
     unusable: int = 0
     membership_asof: str = ""
     sector_kind: bool = False
+    levels: dict[str, float] | None = None      # 지수 target 이면 날짜 → 지수 종가(포인트). 종목 대상은 None
 
 
 async def _build_portfolio(ctx: Ctx, comps: list[Component], *, weights_mode: str, rebalance: str,
@@ -745,6 +779,77 @@ async def _dividends(ctx: Ctx, positions: list[Position], dates: list[str], dps_
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# 지수 target — 공식 지수 종가 자체를 대상으로
+# ═════════════════════════════════════════════════════════════════════════════
+
+NOMINAL_ANN = {"daily": 252, "weekly": 52}
+
+
+async def _build_index_portfolio(ctx: Ctx, spec: str, name: str) -> tuple[Portfolio, pd.IndexSeries, list[pd.IndexSeries]]:
+    """공식 지수 한 계열을 대상으로 구간 수익률 열을 만든다. 격자는 `plan.freq` 를 따른다 — 일별이면 일별 달력의 지수 행만, 주간이면 주 닫는 날(종목 시세와 같은 주 정의,
+    DATA-PX6)의 지수 행만 쓰고(끝이 아직 닫히지 않은 주면 일별 행으로 끝점을 잇는다) 한 계산 안에 일별·주간 간격을 섞지 않는다. in_db=false 계열은 값을 만들지 않는다."""
+    series = await _db(pd.read_index_series)
+    if series is None:
+        raise _db_fail()
+    res = pd.resolve_index(name, series, arg="target", prefix="지수:")
+    hit = res.hit
+    if hit is None:
+        if res.ambiguous or not name.strip():
+            raise Invalid("invalid", res.question)
+        more = f" 비슷한 이름: {', '.join(res.near)}." if res.near else ""
+        raise Invalid("invalid", f"공식 지수 「{name}」을 찾지 못했습니다.{more} 지수 target 은 「코스피」「코스닥」이나 「지수:」 뒤에 공식 지수 이름을 적습니다(예: target=\"지수:코스피 200\").")
+    if res.note:
+        ctx.warn(None, res.note)
+    if not hit.in_db:
+        have = ", ".join(sorted({f"{pd.SRC_LABEL.get(x.src, x.src)} {x.name}" for x in series if x.in_db})[:8])
+        raise Invalid("invalid", f"공식 지수 「{hit.name}」({pd.SRC_LABEL.get(hit.src, hit.src)})은 이 지수는 DB 에 일별 종가가 없습니다 — 값이 DB 밖 보관본에만 있어 이번 호출에서 읽지 않았고 값을 만들지 않았습니다."
+                                 + (f" DB 에 일별 종가가 있는 지수: {have}." if have else ""))
+    plan = ctx.plan
+    truncated = False
+    if plan.freq == "daily":
+        got = await _db(pd.read_index_closes, hit.sid, ctx.base, ctx.end)
+        if got is None:
+            raise _db_fail()
+        levels = dict(got)
+        dates = [d for d in (ctx.dates or []) if d in levels]
+        truncated = bool(dates) and dates[0] != ctx.base
+    else:
+        await _weekly_bounds_once(ctx)
+        lo = pd.shift_dd(plan.since_req, -10)
+        wk = await _db(pd.read_week_days, lo, ctx.end)
+        got = await _db(pd.read_index_closes, hit.sid, lo, ctx.end)
+        if wk is None or got is None:
+            raise _db_fail()
+        levels = dict(got)
+        grid = sorted({d for d in wk if d in levels})
+        # 끝 기준일이 주 닫는 날이 아니면(이번 주 등) 일별 행의 그 날 한 줄을 끝점으로 잇는다 — 종목 시세와 같은 규칙
+        if grid and ctx.end not in grid and ctx.end >= ctx.days[0] and ctx.end in levels and ctx.end > grid[-1]:
+            grid.append(ctx.end)
+        on_or_before = [d for d in grid if d <= plan.since_req]
+        base = max(on_or_before) if on_or_before else (min(grid) if grid else "")
+        dates = [base] + [d for d in grid if base < d <= ctx.end] if base else []
+        truncated = bool(base) and not on_or_before
+    if len(dates) < 2:
+        raise Invalid("no_data", f"공식 지수 「{hit.name}」의 그 기간 종가가 둘 이상 없습니다 — 기간을 넓히거나 시작일을 늦춰 보세요(지수 이력은 최근 3년뿐입니다).")
+    if truncated:
+        ctx.warn("index_truncated", f"요청한 시작일 {_ymd(plan.since_req)} 은 공식 지수 「{hit.name}」의 DB 이력(첫 관측 {_ymd(dates[0])}) 앞이라 시작을 {_ymd(dates[0])} 로 잘랐다 — "
+                                    "그 앞 지수 값은 DB 에 없다.")
+    ctx.base, ctx.dates = dates[0], dates
+    lv = {d: levels[d] for d in dates}
+    if any(v <= 0 for v in lv.values()):
+        raise Invalid("no_data", f"공식 지수 「{hit.name}」의 종가에 0 이하 값이 있어 계산하지 않았습니다.")
+    rp = [lv[dates[j + 1]] / lv[dates[j]] - 1.0 for j in range(len(dates) - 1)]
+    comp = Component(label=hit.name, spec=spec, weight=1.0)
+    info = {"label": hit.name, "spec": spec, "weight_pct": 100.0, "n_members": 0, "sector_asof": None, "classification_retro": None,
+            "membership_asof": dates[0], "kind": "index", "label_resolved": hit.name}
+    pf = Portfolio([comp], [], {}, pm.Simulation([], rp), [info], dates, plan.freq, levels=lv)
+    if plan.freq == "weekly":
+        ctx.warn("index_weekly_resolution", "주간 계산이다 — 지수의 주 마지막 거래일 종가 한 점씩만 써서 변동성·최대낙폭이 주간 종가 기준이다. 그 주 안에서 일어난 낙폭과 변동은 놓칠 수 있다"
+                                            "(그 사이 낙폭을 보려면 시작일을 일별 보관 창(약 1년) 안으로).")
+    return pf, hit, series
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # 벤치마크
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -760,6 +865,10 @@ class Bench:
     cmp_missing: int = 0
     kind: str = ""
     retro: bool = False
+    levels: dict[str, float] | None = None         # 공식 지수면 격자 날짜 → 종가(포인트). 계산 벤치마크는 None(까닭은 `_NO_POINTS`)
+
+
+_NO_POINTS = "계산 벤치마크(유니버스 문구)는 시총 가중으로 이은 수익률이라 지수 종가(포인트)가 없다 — 포인트 칸은 비웠다."
 
 
 def _levels_to_returns(levels: dict[str, float], dates: Sequence[str]) -> list[float | None]:
@@ -802,11 +911,11 @@ async def _official_bench(ctx: Ctx, name: str, *, default_for: str | None, pf: P
         ctx.warn("official_vs_wics", f"공식 업종 지수 「{hit.name}」은 KRX 가 정한 구성이라 WICS 업종({'' if not pf.sector_kind else '대상의 업종 분류, '}"
                                      "분류 스냅샷)과 구성이 다르다 — 같은 이름이어도 종목이 다를 수 있다.")
     label = hit.name if (hit.src == "X" or hit.kind == "z") else f"{pd.SRC_LABEL.get(hit.src, hit.src)} {hit.name}"
-    return Bench(label, "official", {"src": hit.src, "name": hit.name, "kind": hit.kind}, rb, reason, kind=hit.kind)
+    return Bench(label, "official", {"src": hit.src, "name": hit.name, "kind": hit.kind}, rb, reason, kind=hit.kind, levels=levels)
 
 
 async def _market_bench(ctx: Ctx, markets: list[str], pf: Portfolio, level: str, label: str, reason: str) -> Bench:
-    """전 시장 계산 벤치마크 — 일별은 DB 집계 한 질의, 주간은 시장 전 종목 행을 읽어 같은 식으로 계산한다."""
+    """전 시장 계산 벤치마크 — 일별은 DB 집계 한 질의, 주간은 시장 전 종목 행을 읽어 같은 식으로 계산한다. 우선주는 뺀 보통주 시총 가중이다(261023)."""
     dates = pf.dates
     n = len(dates) - 1
     names: dict[str, str] = {}
@@ -856,6 +965,8 @@ async def _market_bench(ctx: Ctx, markets: list[str], pf: Portfolio, level: str,
                 continue
             for j in range(n):
                 if lg.base[j] is None or lg.shrs[j] is None:
+                    continue
+                if smap.is_pref(t, dates[j]):                    # 우선주는 뺀다(261023) — 일별 집계 SQL(`BENCH_DAILY_SQL`)과 같은 판정
                     continue
                 code, nm = _group_code(smap.at(t, dates[j]), level)
                 names[code] = nm
@@ -962,7 +1073,11 @@ def _relative(rp: list[float], bench: Bench, dates: list[str], rf: pm.RfAccrual 
     out: dict[str, Any] = {"benchmark": bench.label, "benchmark_source": bench.source, "benchmark_series": bench.series,
                            "benchmark_reason": bench.reason or None, "benchmark_return_cum_pct": None, "excess_cum_pct": None, "excess_ann_pct": None,
                            "beta": None, "alpha_ann_pct": None, "corr": None, "tracking_error_pct": None, "info_ratio": None,
-                           "n_obs_aligned": len(j_ok)}
+                           "n_obs_aligned": len(j_ok),
+                           # 아래는 벤치마크 블록에 대상과 같은 칸을 맞춘 것 — 모두 **맞대어 본 겹친 기간**(`period`) 기준이다(B2: 대상 전체 기간의 누적과 섞이지 않게 같은 기간 값을 따로 둔다)
+                           "period": None, "target_return_cum_pct": None, "benchmark_vol_ann_pct": None, "benchmark_mdd_pct": None, "benchmark_mdd_from": None,
+                           "benchmark_mdd_to": None, "benchmark_sharpe": None, "benchmark_start_point": None, "benchmark_end_point": None,
+                           "benchmark_points_reason": None if bench.levels is not None else _NO_POINTS}
     if not j_ok:
         return out
     p = [rp[j] for j in j_ok]
@@ -973,6 +1088,17 @@ def _relative(rp: list[float], bench: Bench, dates: list[str], rf: pm.RfAccrual 
     cp, cb = pm.cumulative(p), pm.cumulative(b)
     out["benchmark_return_cum_pct"] = _pct(cb)
     out["excess_cum_pct"] = _pct(cp - cb)
+    out["target_return_cum_pct"] = _pct(cp)
+    out["period"] = {"start": d0, "end": d1, "n_obs": len(j_ok)}
+    contiguous = j_ok == list(range(j_ok[0], j_ok[-1] + 1))
+    rf_b = [rf.per_interval[j] for j in j_ok] if rf is not None else None
+    mdd = pm.max_drawdown(b, dates[j_ok[0]:j_ok[-1] + 2]) if contiguous else None      # 겹침이 끊겨 있으면 낙폭 날짜를 내지 않는다
+    out["benchmark_vol_ann_pct"] = _pct(pm.vol_ann(b, a))
+    out["benchmark_mdd_pct"], out["benchmark_mdd_from"], out["benchmark_mdd_to"] = (_pct(mdd[0]), mdd[1], mdd[2]) if mdd else (None, None, None)
+    if rf_b is not None:
+        out["benchmark_sharpe"] = _num(pm.sharpe([x - f for x, f in zip(b, rf_b) if f is not None], a))
+    if bench.levels is not None:
+        out["benchmark_start_point"], out["benchmark_end_point"] = bench.levels.get(d0), bench.levels.get(d1)
     ap, ab = pm.annualize(cp, days), pm.annualize(cb, days)
     out["excess_ann_pct"] = _pct(ap - ab) if ap is not None and ab is not None else None
     have_rf = rf is not None and all(rf.per_interval[j] is not None for j in j_ok)
@@ -1087,7 +1213,7 @@ def _attribution(pf: Portfolio, bench: Bench, level: str) -> dict[str, Any]:
     link = pm.link_attribution(periods)
     rows = []
     for code, (a, s, i) in link.by_group.items():
-        rows.append({"code": code, "name": names.get(code, code), "w_p_pct": _pct(acc_wp.get(code, 0.0) / n, 2), "w_b_pct": _pct(acc_wb.get(code, 0.0) / n, 2),
+        rows.append({"code": code, "name": names.get(code, code), "w_p_pct": _pct(acc_wp.get(code, 0.0) / n, 4), "w_b_pct": _pct(acc_wb.get(code, 0.0) / n, 4),
                      "r_p_pct": _pct(cp[code] - 1.0) if seen_p.get(code) else None, "r_b_pct": _pct(cb[code] - 1.0) if seen_b.get(code) else None,
                      "allocation_pct": _pct(a), "selection_pct": _pct(s), "interaction_pct": _pct(i)})
     rows.sort(key=lambda r: -abs((r["allocation_pct"] or 0) + (r["selection_pct"] or 0) + (r["interaction_pct"] or 0)))
@@ -1101,22 +1227,28 @@ def _attribution(pf: Portfolio, bench: Bench, level: str) -> dict[str, Any]:
 
 
 def _series_rows(pf: Portfolio, bench: Bench | None) -> list[dict[str, Any]]:
+    """누적 시계열. 벤치마크 누적은 **벤치마크가 시작되는 날(첫 구간의 시작일)을 0 으로** 센다 — 대상 이력이 더 길면 그 앞 행의 벤치마크 칸은 비운다(B2: 기간이 다른 값을 0% 로 위장해 섞지 않는다).
+    `point`(지수 target 의 지수 종가)·`bench_point`(공식 지수 벤치마크의 종가)는 그 날 포인트이고 없으면 null."""
     dates = pf.dates
     w = pm.wealth_curve(pf.sim.rp)
-    out = [{"dd": dates[0], "cum_pct": 0.0, "bench_cum_pct": 0.0 if bench else None}]
-    bw: list[float | None] = [1.0] if bench else []
+    blv = bench.levels if bench is not None and bench.levels is not None else {}
+    bw: list[float | None] = [None] * len(dates)
     if bench:
-        cur: float | None = None
-        for j, b in enumerate(bench.rb):
-            if b is None:
-                bw.append(None if cur is None else cur)
-                continue
-            cur = (cur if cur is not None else 1.0) * (1.0 + b)
-            bw.append(cur)
-    for j in range(1, len(dates)):
-        row = {"dd": dates[j], "cum_pct": _pct(w[j] - 1.0), "bench_cum_pct": None}
-        if bench and bw[j] is not None:
-            row["bench_cum_pct"] = _pct(bw[j] - 1.0)
+        j0 = next((j for j, b in enumerate(bench.rb) if b is not None), None)
+        if j0 is not None:
+            cur = 1.0
+            bw[j0] = cur
+            for j in range(j0, len(bench.rb)):
+                b = bench.rb[j]
+                if b is not None:
+                    cur *= (1.0 + b)
+                bw[j + 1] = cur                                           # 중간에 빈 구간은 직전 값을 잇는다
+    out: list[dict[str, Any]] = []
+    for j, dd in enumerate(dates):
+        row: dict[str, Any] = {"dd": dd, "cum_pct": 0.0 if j == 0 else _pct(w[j] - 1.0), "bench_cum_pct": None if bw[j] is None else _pct(bw[j] - 1.0)}
+        if pf.levels is not None:
+            row["point"] = pf.levels.get(dd)
+        row["bench_point"] = blv.get(dd)
         out.append(row)
     return out
 
@@ -1199,6 +1331,13 @@ async def _run(subject: str, target: str, weights: str, since: str, as_of: str, 
         raise Invalid("invalid", parsed.error)
     if sc == "attribution" and gb in ("stock", "component"):
         raise Invalid("invalid", "scope=\"attribution\"(업종 Brinson 분해)의 group_by 는 중분류·대분류만 됩니다.")
+    idx_name = index_target(parsed)
+    if parsed.blend and any(_INDEX_PREFIX.match(c.spec) for c in parsed.components):
+        raise Invalid("invalid", "블렌드 구성요소에는 「지수:」 표기를 쓸 수 없습니다 — 공식 지수 target 은 블렌드·바스켓으로 섞지 않고 단일 문구로만 줍니다(예: target=\"지수:코스피 200\"). "
+                                 "지수의 구성 종목을 섞으려면 유니버스 문구(예: \"코스피200\")를 쓰세요.")
+    if idx_name is not None and sc in ("attribution", "contribution"):
+        raise Invalid("invalid", f"scope=\"{sc}\" 에 공식 지수 target 은 쓸 수 없습니다 — 공식 지수는 구성 이력이 없어 "
+                                 f"{'업종 분해' if sc == 'attribution' else '구성 종목별 기여 분해'}를 할 수 없습니다. 구성 종목을 대상으로 하려면 유니버스 문구(예: \"코스피200\", \"코스피 시총 상위 50\")를 target 으로 주세요.")
     days = await _db(pd.read_daily_days)
     if days is None:
         raise _db_fail()
@@ -1220,23 +1359,43 @@ async def _run(subject: str, target: str, weights: str, since: str, as_of: str, 
         ctx.dates = [d for d in days if ctx.base <= d <= plan.end]
     need_sector = sc in ("contribution", "attribution")
     level = "major" if gb == "major" else "mid"
-    pf = await _build_portfolio(ctx, parsed.components, weights_mode=wt, rebalance=rb_mode, need_sector=need_sector, with_dividend=True)
-    dates = pf.dates
-    # 시장 비중으로 기본 벤치마크를 고른다
-    share = {KS: 0.0, KQ: 0.0}
-    for p in pf.positions:
-        if p.market in share:
-            share[p.market] += p.target0
-    main_mkt = KQ if share[KQ] > share[KS] else KS
-    bench = await _pick_benchmark(ctx, pf, (benchmark or "").strip(), sc, level, main_mkt)
+    idx_hit: pd.IndexSeries | None = None
+    if idx_name is not None:
+        pf, idx_hit, idx_series = await _build_index_portfolio(ctx, parsed.components[0].spec.strip(), idx_name)
+        if bs == "total":
+            bs = "price"
+            ctx.warn("index_price_only", "공식 지수는 가격지수라 basis=total(배당 재투자)을 적용하지 않고 가격 수익률로 계산했다 — 총수익지수는 DB 에 없다.")
+        main_mkt = KQ if idx_hit.src == "Q" else KS
+        bname = (benchmark or "").strip()
+        same = not bname
+        if bname:
+            r_same = pd.resolve_index(bname, idx_series)
+            same = r_same.hit is not None and r_same.hit.sid == idx_hit.sid
+        if same:                                       # 자기 비교 금지 — benchmark 를 비웠거나 같은 지수면 상대 지표를 만들지 않는다
+            bench = None
+            ctx.warn("benchmark_same_as_target", "대상이 공식 지수 자체라 benchmark 를 비웠거나 같은 지수를 주면 자기 자신과 비교하게 된다 — 초과수익·베타·알파 같은 상대 지표(data.relative)는 내지 않았다. "
+                                                 "다른 공식 지수(예: benchmark=\"코스닥\")나 계산 벤치마크(예: benchmark=\"코스닥 전체\")를 주세요.")
+        else:
+            bench = await _pick_benchmark(ctx, pf, bname, sc, level, main_mkt)
+        dates = pf.dates
+    else:
+        pf = await _build_portfolio(ctx, parsed.components, weights_mode=wt, rebalance=rb_mode, need_sector=need_sector, with_dividend=True)
+        dates = pf.dates
+        # 시장 비중으로 기본 벤치마크를 고른다
+        share = {KS: 0.0, KQ: 0.0}
+        for p in pf.positions:
+            if p.market in share:
+                share[p.market] += p.target0
+        main_mkt = KQ if share[KQ] > share[KS] else KS
+        bench = await _pick_benchmark(ctx, pf, (benchmark or "").strip(), sc, level, main_mkt)
     # 무위험 금리
     rate_obs = None if (rf_arg or "").strip() else await _db(pd.read_rf, dates[0], dates[-1])
     rf_acc, rf_info = _rf_for(ctx, rf_arg, rate_obs, dates)
-    return _assemble(subject, ctx, pf, bench, rf_acc, rf_info, sc, gb, level, parsed, wt, rb_mode, bs, main_mkt)
+    return _assemble(subject, ctx, pf, bench, rf_acc, rf_info, sc, gb, level, parsed, wt, rb_mode, bs, main_mkt, idx_hit)
 
 
 def _assemble(subject: str, ctx: Ctx, pf: Portfolio, bench: Bench | None, rf_acc: pm.RfAccrual | None, rf_info: dict[str, Any], sc: str, gb: str,
-              level: str, parsed: Parsed, wt: str, rb_mode: str, bs: str, main_mkt: str) -> dict[str, Any]:
+              level: str, parsed: Parsed, wt: str, rb_mode: str, bs: str, main_mkt: str, idx: pd.IndexSeries | None = None) -> dict[str, Any]:
     plan = ctx.plan
     dates = pf.dates
     rp = pf.sim.rp
@@ -1297,7 +1456,9 @@ def _assemble(subject: str, ctx: Ctx, pf: Portfolio, bench: Bench | None, rf_acc
         "period": {"start": dates[0], "end": dates[-1], "requested_start": plan.requested_since, "requested_end": plan.requested_end,
                    "freq": pf.freq, "n_obs": n, "calendar_days": days, "annualization": _num(a, 3)},
         "target": {"label": label, "spec": (parsed.components[0].spec if not parsed.blend else (target_spec(parsed))), "n_members": len({p.ticker for p in pf.positions}),
-                   "membership_asof": membership_top, "weights_basis": {"cap": "시총(시작일)", "equal": "동일"}[wt] if not any(c.basket for c in pf.comps) else "바스켓 비중",
+                   "membership_asof": membership_top,
+                   "weights_basis": ("해당 없음(공식 지수)" if idx is not None else
+                                     {"cap": "시총(시작일)", "equal": "동일"}[wt] if not any(c.basket for c in pf.comps) else "바스켓 비중"),
                    "rebalance": rb_mode, "components": comp_out},
         "metrics": metrics,
         "relative": relative,
@@ -1314,6 +1475,10 @@ def _assemble(subject: str, ctx: Ctx, pf: Portfolio, bench: Bench | None, rf_acc
                     "ECOS 국고채 1년(ecos_rate)", "업종분류 구간(wise_sector_iv)", "배당 결정공시 원장(div_payment)"],
         "warning_codes": list(ctx.codes),
     }
+    if idx is not None and pf.levels is not None:
+        data["target"]["index"] = {"sid": idx.sid, "src": idx.src, "name": idx.name, "kind": idx.kind, "price_index": True,
+                                   "start_point": pf.levels.get(dates[0]), "end_point": pf.levels.get(dates[-1]),
+                                   "resolution": {"freq": pf.freq, "n_obs": n, "ann_factor": _num(a, 3), "nominal_ann_factor": NOMINAL_ANN[pf.freq]}}
     data.update(extras)
     return {"tool": TOOL, "status": "ok", "subject": subject, "data": data, "warnings": warnings, "warning_codes": list(ctx.codes)}
 
@@ -1323,8 +1488,12 @@ def target_spec(parsed: Parsed) -> str:
 
 
 def _method(ctx: Ctx, pf: Portfolio, bench: Bench | None, bs: str, wt: str, rb_mode: str, a: float | None) -> str:
+    is_index = bool(pf.comp_info) and pf.comp_info[0].get("kind") == "index"
     freq = "일별(KRX 공표 대비 cmp 기준 — 분할·권리락 반영)" if pf.freq == "daily" else "주간(주 마지막 거래일 한 점, 종가 ÷ (전 점 종가 × Π 기준가 사건 원값 base/prev) − 1; 호가단위 맞춤 사건은 제외)"
+    if is_index:
+        freq = ("일별(지수 일별 종가)" if pf.freq == "daily" else "주간(주 마지막 거래일 한 점의 지수 종가 — 종목 시세와 같은 주 정의, 닫히지 않은 이번 주는 일별 행으로 끝점)")
     parts = [f"해상도 {freq}.",
+             "대상 = 공식 지수 종가(가격지수, 외국주 제외) 수익률 — 구성 종목을 읽지 않고 일별·주간을 한 계산 안에 섞지 않는다." if is_index else
              f"구간 수익률 → 비중 표류 포트폴리오(구성요소 안 {'시작일 시총' if wt == 'cap' else '동일'} 가중, 리밸런스 {rb_mode}), 상장폐지는 마지막 값에 0% 현금.",
              f"누적 = Π(1+r)−1, 연율 = (1+R)^(365.25/일수)−1(365일 미만이면 빈 값), 연간 관측 수 A = n×365.25/일수{'' if a is None else f' = {a:.2f}'}.",
              "변동성 = 표본 표준편차(ddof=1)×√A, 하방 변동성 기준선 = 무위험 금리, MDD = 부(wealth) 곡선 기준.",
@@ -1334,6 +1503,6 @@ def _method(ctx: Ctx, pf: Portfolio, bench: Bench | None, bs: str, wt: str, rb_m
     if bs == "total":
         parts.append("총수익 = 배당락일 구간에 DPS/조정 기준가를 더한 세전 값(보통주 DPS, 정정은 가장 늦은 접수만).")
     if bench is not None:
-        parts.append("벤치마크: " + ("공식 지수 종가 수익률." if bench.source == "official" else "계산 벤치마크(전일 기준가 시총 가중, 우선주 포함)."))
+        parts.append("벤치마크: " + ("공식 지수 종가 수익률." if bench.source == "official" else "계산 벤치마크(전일 기준가 시총 가중, 우선주 제외 — 공식 코스피·코스닥 지수와 모집단이 다를 수 있다)."))
     parts.append("종목 이름표는 DART 회사 원장 캐시를 쓰며 캐시가 비어 있으면 corpCode 받기 1콜이 날 수 있다(그 밖의 외부 호출 0).")
     return " ".join(parts)

@@ -4,7 +4,7 @@ from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
 
 import asyncio
-from datetime import date
+from datetime import date, timedelta
 import re
 import time
 from typing import Any
@@ -784,7 +784,7 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
     return latest_rows, timeline_rows, None
 
 
-def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any]) -> dict[str, Any]:
+def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any], *, bsns_year: str = "") -> dict[str, Any]:
     issued = 0
     treasury = 0
     distributable = 0
@@ -793,6 +793,7 @@ def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any
     common_row = None
     subtotal_row = None
     preferred_issued = 0
+    other_class_issued = 0   # 보통주도 우선주도 합계도 아닌 종류 행(종류주식 등) — 합계에서 뺀 값에 섞였을 수 있는 몫
     for item in stock_total.get("list", []):
         se = item.get("se", "")
         if "보통" in se:
@@ -801,14 +802,24 @@ def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any
             preferred_issued += _to_int(item.get("istc_totqy", "0"))
         elif _is_subtotal_row(se):
             subtotal_row = subtotal_row or item
+        elif _normalize_stock_label(se) == "비고":
+            continue                                   # 주석 행(삼성전자 등 「비고」 `-`) — 주식 종류가 아니다
+        else:
+            other_class_issued += _to_int(item.get("istc_totqy", "0"))
+    basis_row: dict[str, Any] = {}
+    stock_class = ""
+    common_only = False
     if common_row is not None:
         issued = _to_int(common_row.get("istc_totqy", "0"))
         treasury = _to_int(common_row.get("tesstk_co", "0"))
         distributable = _to_int(common_row.get("distb_stock_co", "0"))
+        basis_row, stock_class, common_only = common_row, "보통주", True
     elif subtotal_row is not None:
         issued = _to_int(subtotal_row.get("istc_totqy", "0")) - preferred_issued
         treasury = _to_int(subtotal_row.get("tesstk_co", "0"))
         distributable = _to_int(subtotal_row.get("distb_stock_co", "0"))
+        # 우선주만 뺐다 — 종류주식 같은 다른 종류 행이 있으면 보통주만이라고 장담하지 못한다.
+        basis_row, stock_class, common_only = subtotal_row, "합계-우선주", other_class_issued == 0
 
     rows = []
     for item in treasury_data.get("list", []):
@@ -827,7 +838,92 @@ def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any
         "tradable_shares": distributable,
         "treasury_pct": round(treasury / issued * 100, 2) if issued else 0.0,
         "rows": rows,
+        # 분모(issued_shares)가 어느 정기보고서·어느 결산기준일 값인지 — 100% 분해 표가 이 값을 적는다.
+        "basis": {
+            "endpoint": "stockTotqySttus",
+            "report": "사업보고서",           # get_stock_total 은 reprt_code 11011 만 부른다
+            "bsns_year": str(bsns_year or ""),
+            "rcept_no": str(basis_row.get("rcept_no") or ""),
+            "stlm_dt": str(basis_row.get("stlm_dt") or ""),
+            "stock_class": stock_class,
+            "common_only": common_only,
+        },
     }
+
+
+#: 최신 상장주식수로 읽는 행은 이 일수 안의 거래일만(상장폐지·장기 거래정지의 낡은 주식수를 최신처럼 내지 않는다 — financial_metrics._common_mktcap 과 같다).
+_LISTED_SHARES_MAX_AGE_DAYS = 21
+
+
+async def _latest_listed_shares(stock_code: str | None) -> dict[str, Any] | None:
+    """그 종목(보통주 코드)의 최신 상장주식수 — 운영 DB `price_latest`(종목마다 가장 늦은 거래일 한 줄)에서. DART 0콜·KRX 0콜, DB 1회.
+
+    {"shares": 주식수, "price_dd": 그 행의 거래일 YYYYMMDD}. 상장사가 아니거나 DB 미설정·장애·행 없음·최근 행 없음이면 None
+    — 호출자는 비교 없이 종전 표를 낸다(상장주식수는 보조 대조 자료다)."""
+    if not stock_code:
+        return None
+    try:
+        from open_proxy_mcp.db import pg_rows
+        cutoff = (today_kst() - timedelta(days=_LISTED_SHARES_MAX_AGE_DAYS)).strftime("%Y%m%d")
+        rows = await asyncio.to_thread(
+            pg_rows, "SELECT list_shrs, price_dd FROM price_latest WHERE ticker=%s AND list_shrs>0 AND price_dd>=%s",
+            (stock_code, cutoff),
+        )
+    except Exception:  # noqa: BLE001 — 보조 대조다: 읽기가 깨져도 종전 응답은 나간다
+        return None
+    if not rows or not rows[0][0]:
+        return None
+    try:
+        return {"shares": int(rows[0][0]), "price_dd": str(rows[0][1] or "")}
+    except (TypeError, ValueError):
+        return None
+
+
+#: 보고서 분모와 최신 상장주식수의 차이가 이 % 안이면 소각·증자 정도로 보고 상장주식수 기준 칸을 붙인다.
+#: 넘으면 액면분할·병합(DATA-PX3)이나 큰 감자·증자로 주식 수 단위가 달라졌을 수 있다 — 보유주식수는 그 전 단위, 상장주식수는 그 뒤 단위라 나누면 터무니없는 값이 나온다.
+_LISTED_COMPARE_MAX_PCT = 20.0
+
+
+def _share_basis(
+    snapshot: dict[str, Any], listed: dict[str, Any] | None, *, compare_latest: bool = True,
+) -> dict[str, Any] | None:
+    """100% 분해 표의 분모(정기보고서 발행주식총수)와 최신 상장주식수를 맞대어 본다 → data["share_basis"]. 분모가 없으면 None.
+
+    comparison:
+      same               두 값이 같다 — 덧붙일 칸 없음.
+      differs            조금 다르다(|diff_pct| ≤ 20%) — diff_shares(= 보고서 − 상장), diff_pct(상장주식수 대비 %)를 함께.
+      unit_changed       크게 다르다(|diff_pct| > 20%) — 액면분할·병합 등으로 주식 수 단위가 달라졌을 수 있어 상장주식수 기준 지분율은 계산하지 않는다. 두 값과 차이만.
+      past_year          과거 사업연도 조회 — 오늘의 최신 상장주식수와 비교하지 않는다(compare_latest=False).
+      mixed_class        분모가 보통주만이라고 장담할 수 없다(합계에서 우선주만 뺐는데 다른 종류 행이 있음) — 보통주 상장주식수와 섞어 비교하지 않는다.
+      listed_unavailable 최신 상장주식수를 읽지 못했다.
+    """
+    issued = snapshot.get("issued_shares") or 0
+    if not issued:
+        return None
+    basis = dict(snapshot.get("basis") or {})
+    out: dict[str, Any] = {"issued_shares": issued, **basis, "listed": None}
+    if not compare_latest:
+        out["comparison"] = "past_year"
+        return out
+    if not basis.get("common_only"):
+        out["comparison"] = "mixed_class"
+        return out
+    if not listed or not listed.get("shares"):
+        out["comparison"] = "listed_unavailable"
+        return out
+    ls = int(listed["shares"])
+    out["listed"] = {
+        "shares": ls,
+        "price_dd": listed.get("price_dd", ""),
+        "source": "KRX 일별 시세(price_latest) 보통주 코드 상장주식수",
+    }
+    if ls == issued:
+        out["comparison"] = "same"
+        return out
+    out["diff_shares"] = issued - ls
+    out["diff_pct"] = round((issued - ls) / ls * 100, 2)
+    out["comparison"] = "differs" if abs(out["diff_pct"]) <= _LISTED_COMPARE_MAX_PCT else "unit_changed"
+    return out
 
 
 def _sanitize_share_units(major_rows: list[dict[str, Any]], treasury_snapshot: dict[str, Any]) -> list[str]:
@@ -1395,7 +1491,7 @@ async def build_ownership_structure_payload(
         if start_ymd <= row.get("report_date", "").replace("-", "") <= end_ymd
     ]
 
-    treasury_snapshot = _treasury_snapshot(stock_total, treasury_data)
+    treasury_snapshot = _treasury_snapshot(stock_total, treasury_data, bsns_year=bsns_year)
     unit_warnings = _sanitize_share_units(major_rows, treasury_snapshot)
     warnings.extend(unit_warnings)
     # 공시 지분율(보통+우선 총주식 기준일 수 있음) vs 보통주 기준 괴리 안내 (솔루스 41% vs 53% 류)
@@ -1473,6 +1569,16 @@ async def build_ownership_structure_payload(
     if scope == "summary":
         # summary는 treasury 가벼운 snapshot만 (자사주 detail은 treasury_share tool)
         data["treasury"] = treasury_snapshot
+        # 100% 분해 표의 분모 출처와 최신 상장주식수 대조 — 상장주식수는 DB 한 줄(DART·KRX 0콜)이고 못 읽어도 표는 그대로 나간다.
+        # 과거 사업연도를 물으면 오늘의 상장주식수와 맞대지 않는다(시점이 다른 두 값을 한 표에 섞는 셈) — 읽지도 않는다.
+        _compare_latest = bsns_year == str(today_kst().year - 1)
+        _share_basis_row = _share_basis(
+            treasury_snapshot,
+            await _latest_listed_shares(selected.get("stock_code")) if _compare_latest else None,
+            compare_latest=_compare_latest,
+        )
+        if _share_basis_row:
+            data["share_basis"] = _share_basis_row
     if scope == "control_map":
         data["control_map"] = _build_control_map(major_rows, latest_blocks, treasury_snapshot)
     if scope == "changes":

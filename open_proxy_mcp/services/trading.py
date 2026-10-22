@@ -791,6 +791,26 @@ async def build_quote_payload(company: str, format: str = "md",
 # 「코스피 시총 상위 100 이 뭐야」에 답하는 유일한 일괄 목록. `screener` 의 유니버스 해석기를
 # 그대로 쓰고(공시 필터가 아니라 목록으로), 시세 저장분(보관된 최신 거래일) 1콜 + 회사 원장(캐시)로 이름을 붙인다.
 # 종목마다 `scope=firm` 을 100번 부르던 루틴(260914 실측)이 이 한 번으로 끝난다.
+#: 지수 유니버스 표의 시총 비중 칸에 붙이는 설명(2026-10-22). 공식 지수의 비중이 아니다.
+_INDEX_WEIGHT_NOTE = ("시총 비중(weight_pct) = 구성종목 각자의 시총(최신 상장주식수 × 종가) ÷ 이 표 구성종목 시총 합 — 합 100%. "
+                      "유동비율(시장에 실제 유통되는 주식 비율)을 반영한 공식 지수 비중이 아니다: 공식 지수는 유동비율을 곱한 시총으로 비중을 매기므로 "
+                      "최대주주 지분이 큰 종목의 공식 비중은 이 값보다 작다.")
+
+
+def _index_weights(ul: Any) -> int:
+    """「코스피200」·「코스닥150」을 지수 구성종목 원장으로 푼 표(대체 시총 순위가 아닌 경우)에 시총 비중(%) 칸을 붙인다.
+    반환 = 비중 분모(구성종목 시총 합, 원). 지수 표가 아니거나 시총이 하나도 없으면 0 이고 행을 건드리지 않는다."""
+    from open_proxy_mcp.index_members import INDEXES
+    if not ul.members_dd or ul.spec not in INDEXES:
+        return 0
+    total = sum(r["mktcap_krw"] for r in ul.rows if r.get("mktcap_krw"))
+    if not total:
+        return 0
+    for r in ul.rows:
+        r["weight_pct"] = round(r["mktcap_krw"] / total * 100, 4) if r.get("mktcap_krw") else None
+    return int(total)
+
+
 async def build_universe_payload(universe: str, format: str = "md", as_of: str = "") -> dict[str, Any]:
     from open_proxy_mcp.services.universe import list_universe
 
@@ -814,6 +834,9 @@ async def build_universe_payload(universe: str, format: str = "md", as_of: str =
     if ul.sector is not None:
         return _sector_universe_payload(raw, subject, ul, as_of)
     warnings = [f"보관된 최신 거래일 기준({ul.as_of}) — 그 날 종가로 셈한 시총이지 오늘 장중 시총이 아닙니다."]
+    weight_total = _index_weights(ul)
+    if weight_total:
+        warnings.append(_INDEX_WEIGHT_NOTE)
     if (as_of or "").strip():
         warnings.insert(0, "`as_of` 는 업종 구성(universe=\"반도체 업종\" 처럼 업종을 준 경우)에만 쓴다 — 이 순위표는 보관된 최신 거래일 기준이다.")
     if ul.excluded_pref:
@@ -831,6 +854,7 @@ async def build_universe_payload(universe: str, format: str = "md", as_of: str =
             "data": {"scope": "universe", "universe": raw, "spec": ul.spec, "label": ul.label,
                      "as_of": ul.as_of, "n": len(ul.rows), "rows": ul.rows,
                      **({"members_dd": ul.members_dd} if ul.members_dd else {}),
+                     **({"weight_total_krw": weight_total, "weight_basis": _INDEX_WEIGHT_NOTE} if weight_total else {}),
                      "method": "시총 = 그 날 상장주식수 × 종가(우선주는 별도 종목). " + basis +
                                "이름은 DART 회사 원장에서 붙였고 없으면 「-」. "
                                "이 목록을 `forward_estimates_data(universe=…)`·`screener(universe=…)` "
@@ -845,9 +869,12 @@ def _sector_universe_payload(raw: str, subject: str, ul: Any, as_of: str) -> dic
     unit = ("주간 시세(주 마지막 거래일 한 점)" if ul.granularity == "weekly" else "일별 시세")
     snap_rule = ("그 날 이하 스냅샷이 없어 가장 이른 것을 소급" if sec.get("classification_retro") else "그 날 이하 가장 최근")
     method = (f"구성 = {ul.as_of} {unit}의 전 종목 중 분류 스냅샷({sec['classification_asof']}, {snap_rule})이 "
-              f"{sec['level']} 「{sec['name']}」로 둔 종목{market}. 시총 = 그 날 상장주식수 × 종가(우선주 포함 — 별도 종목, 같은 회사 보통주의 업종). "
-              "비중 = 종목 시총 ÷ 이 업종(선택한 시장 안)의 시총 합 — 상위 N 으로 잘라도 분모는 같고, 자르지 않으면 합이 100%. "
-              "업종 시총 합은 `scope=\"sector\"`(시총 집계)와 같은 정의라 같은 날 같은 업종이면 같다. "
+              f"{sec['level']} 「{sec['name']}」로 둔 **보통주**{market}(우선주는 싣지 않는다 — 시세는 종목 코드로 부른다). 시총 = 그 날 상장주식수 × 종가. "
+              "비중 = 종목 시총 ÷ 이 업종(선택한 시장 안)의 보통주 시총 합 — 상위 N 으로 잘라도 분모는 같고, 자르지 않으면 합이 100%. "
+              "시장 안 업종 몫(`share_of_market_pct`)의 분모도 우선주를 뺀 시장 시총이다. "
+              "`scope=\"sector\"`(시총 집계)는 우선주를 포함한 합이라 업종 구성의 시총 합과 우선주 몫"
+              f"(`data.sector.preferred_cap_krw` {sec.get('preferred_cap_krw', 0):,}원 · {sec.get('preferred_n', 0)}종목)만큼 다르다 — "
+              "구성 시총 + 우선주 몫 = `data.sector.cap_incl_preferred_krw`. "
               "순위는 업종 안 시총 내림차순. 종목 코드는 `data.rows[].ticker` — `screener(universe=\"코드,코드,…\")` 처럼 쉼표로 이어 넘길 수 있다.")
     return {"tool": TOOL, "status": "ok", "subject": subject,
             "data": {"scope": "universe", "universe": raw, "spec": ul.spec, "label": ul.label,
