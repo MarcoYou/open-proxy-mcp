@@ -1249,6 +1249,10 @@ def _check_one_table(rows: list[str]) -> dict:
         if _UNIT_RE.search(ln) or "기준일" in ln:
             continue
         ln = re.sub(r"\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]?\s*\d{0,2}\s*일?", " ", ln)
+        # △·▲ 는 음수 표기다(원문 각주 「△는 부(-)의 값임」). 숫자 정규식은 부호를 모르므로 양수로 읽혀
+        # 「부문간 내부거래 제거 △271,085(△8.9%)」 같은 행이 비율합·항목합을 부풀렸다(삼성전자 2026 반기:
+        # 비율합 117.7%·항목합≠합계행 17.8% 는 거짓 불일치 — 부호를 지키면 99.9%·일치).
+        ln = re.sub(r"[△▲▽]\s*(?=\d)", "-", ln)
         cells = [c.strip() for c in ln.strip("|").split("|")]
         is_total = any(_TOTAL_CELL_RE.fullmatch(re.sub(r"\s+", "", c)) for c in cells)
         pcts = [float(p) for p in _PCT_RE.findall(ln)]

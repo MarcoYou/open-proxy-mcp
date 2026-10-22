@@ -18,6 +18,7 @@ import re
 
 from bs4 import BeautifulSoup
 
+from open_proxy_mcp.services.biz_period import canon_col_period
 from open_proxy_mcp.services.segment_candidates import _TABLE_RE, _table_to_grid
 
 # 매출 행 우선순위: 외부 계열 → generic(외부 의미로 쓰이는 표가 대부분) → 총부문 계열.
@@ -133,12 +134,25 @@ def _parse_table(tbl_html: str) -> dict | None:
     rev_row = grid[rev_i]
     segments, excess, seen = [], [], set()
     _DASHES = {"-", "－", "—", "△"}
+    # 열 머리의 기간 말(「3개월」「누적」) — 부문명 행부터 지표 행 위까지의 열별 첫 기간 말. 값 선택에는 쓰지 않는다.
+    header_i = next((i for i in range(max(0, rev_i - 8), rev_i) if grid[i] is header), rev_i)
+    col_period: dict[int, str] = {}
+    for ci in range(ncol):
+        for ri in range(header_i, rev_i):
+            cp = canon_col_period(grid[ri][ci])
+            if cp:
+                col_period[ci] = cp
+                break
+    period_columns: list[str] = []
+    seg_periods: list[str | None] = []
     for ci in range(ncol):
         name = header[ci].strip()
         cell = rev_row[ci].strip()
         is_dash = cell in _DASHES
         val = 0.0 if is_dash else _num(rev_row[ci])
         # dash 열은 '값 0'의 자리표시자(신규 편입 부문 등) — 열을 버리면 부문이 소실된다.
+        if val is not None and ci in col_period:
+            period_columns.append(col_period[ci])
         if val is None or name in seen:
             continue          # 라벨 열·빈 열·rowspan 중복 열
         seen.add(name)
@@ -150,8 +164,12 @@ def _parse_table(tbl_html: str) -> dict | None:
             excess.append((name, val))
         else:
             segments.append({"name": name, "revenue": val, "profit": pv})
+            seg_periods.append(col_period.get(ci))
     if len(segments) < 2:
         return None
+    # 읽은 부문 열이 모두 같은 기간 말이면 그것이 이 표의 기간. 섞이거나 없으면 읽지 못한 것으로 둔다.
+    uniq = set(seg_periods)
+    period_label = seg_periods[0] if len(uniq) == 1 and seg_periods[0] else ""
     # 검산 재료: 조정열 → 합계열 순으로 정렬(기존 게이트의 '음수 조정 흡수 후 총계 매칭' 로직 호환)
     excess.sort(key=lambda x: bool(_TOTAL_COL_RE.search(x[0])))
     unit = ""
@@ -164,7 +182,8 @@ def _parse_table(tbl_html: str) -> dict | None:
         if unit:
             break
     return {"segments": segments, "excess": [v for _, v in excess],
-            "revenue_metric": rev_label, "profit_metric": prof_label, "unit": unit}
+            "revenue_metric": rev_label, "profit_metric": prof_label, "unit": unit,
+            "period_label": period_label, "period_columns": period_columns}
 
 
 def grid_refine(full_html: str, text_sp) -> "object | None":
@@ -207,6 +226,8 @@ def grid_refine(full_html: str, text_sp) -> "object | None":
                        note_source=getattr(text_sp, "note_source", ""),
                        anchor=anchor)
     sp.adjustments = [{"revenue_excess": parsed["excess"]}]
+    sp.period_label = parsed.get("period_label", "")
+    sp.period_columns = list(parsed.get("period_columns") or [])
     sp.raw_value_counts = {"headers": len(parsed["segments"]),
                            "revenue": len(parsed["segments"]) + len(parsed["excess"]),
                            "profit": sum(1 for s in parsed["segments"] if s.get("profit") is not None)}
