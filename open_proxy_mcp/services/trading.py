@@ -869,9 +869,12 @@ def _sector_universe_payload(raw: str, subject: str, ul: Any, as_of: str) -> dic
     unit = ("주간 시세(주 마지막 거래일 한 점)" if ul.granularity == "weekly" else "일별 시세")
     snap_rule = ("그 날 이하 스냅샷이 없어 가장 이른 것을 소급" if sec.get("classification_retro") else "그 날 이하 가장 최근")
     method = (f"구성 = {ul.as_of} {unit}의 전 종목 중 분류 스냅샷({sec['classification_asof']}, {snap_rule})이 "
-              f"{sec['level']} 「{sec['name']}」로 둔 종목{market}. 시총 = 그 날 상장주식수 × 종가(우선주 포함 — 별도 종목, 같은 회사 보통주의 업종). "
-              "비중 = 종목 시총 ÷ 이 업종(선택한 시장 안)의 시총 합 — 상위 N 으로 잘라도 분모는 같고, 자르지 않으면 합이 100%. "
-              "업종 시총 합은 `scope=\"sector\"`(시총 집계)와 같은 정의라 같은 날 같은 업종이면 같다. "
+              f"{sec['level']} 「{sec['name']}」로 둔 **보통주**{market}(우선주는 싣지 않는다 — 시세는 종목 코드로 부른다). 시총 = 그 날 상장주식수 × 종가. "
+              "비중 = 종목 시총 ÷ 이 업종(선택한 시장 안)의 보통주 시총 합 — 상위 N 으로 잘라도 분모는 같고, 자르지 않으면 합이 100%. "
+              "시장 안 업종 몫(`share_of_market_pct`)의 분모도 우선주를 뺀 시장 시총이다. "
+              "`scope=\"sector\"`(시총 집계)는 우선주를 포함한 합이라 업종 구성의 시총 합과 우선주 몫"
+              f"(`data.sector.preferred_cap_krw` {sec.get('preferred_cap_krw', 0):,}원 · {sec.get('preferred_n', 0)}종목)만큼 다르다 — "
+              "구성 시총 + 우선주 몫 = `data.sector.cap_incl_preferred_krw`. "
               "순위는 업종 안 시총 내림차순. 종목 코드는 `data.rows[].ticker` — `screener(universe=\"코드,코드,…\")` 처럼 쉼표로 이어 넘길 수 있다.")
     return {"tool": TOOL, "status": "ok", "subject": subject,
             "data": {"scope": "universe", "universe": raw, "spec": ul.spec, "label": ul.label,
