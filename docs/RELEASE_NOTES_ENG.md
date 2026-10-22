@@ -2,6 +2,19 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Unreleased — 2026-10-22
+
+### New tool `performance_analysis` — returns, risk, contribution and sector attribution, computed on call
+
+- Computes cumulative and annualised return, volatility, maximum drawdown, Sharpe and Sortino, and benchmark-relative excess return, beta, alpha, tracking error and information ratio for a stock, sector, ranking, basket or **blend** (for example "반도체 업종=60; 대분류 금융=40"). It takes the same universe phrases as `trading_data` and offers price return or gross (pre-tax) total return with dividends reinvested.
+- `scope="contribution"` splits the return by stock, sector or component with Carino linking so contributions sum to the cumulative return, and `scope="attribution"` gives a Brinson-Fachler sector breakdown (allocation, selection, interaction). Official indices have no constituent history, so attribution works only against a computed benchmark such as "코스피 전체".
+- Closing prices are not divided naively: daily returns use KRX's published change from the base price, weekly returns use the raw price-reset events, and tick-size rounding is not counted as a corporate action. Membership is fixed at the start date and names delisted during the period are held as 0% cash.
+- The response states its own limits through `warning_codes`: sector taxonomy break (before 2019-06-28), retroactive classification, survivorship, periods beyond three years (joined from the archive or cut at the database floor), gross-of-tax returns, dividends decided after the end date, and preferred shares. No new tables and no external calls — it reads stored prices, indices, rates and dividends only.
+
+### Granting the server read access to the risk-free rate table — `ecos_rate`
+
+- Performance analysis reads the risk-free rate (one-year Treasury) with the server account. The table definition used to revoke every server privilege; it now grants read-only access (writes stay with the daily batch). Until it is applied in production, only the rate-based metrics (Sharpe, Sortino, alpha) come back empty and everything else is unchanged.
+
 ## Unreleased — 2026-10-19
 
 ### DART "request limit exceeded" (020) is now explained as the daily limit

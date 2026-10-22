@@ -52,7 +52,10 @@ def test_ddl_text_shape():
     assert 'series "char"' in sql and "rate   real" in sql and "PRIMARY KEY (series, d)" in sql
     assert "ENABLE ROW LEVEL SECURITY" in sql and "FOR SELECT USING (true)" in sql
     assert "REVOKE ALL ON ecos_rate FROM anon, authenticated" in sql and "GRANT SELECT ON ecos_rate TO opm_ro" in sql
-    assert "REVOKE ALL ON ecos_rate FROM opm_app" in sql                    # 기본 권한이 서버 계정에 준 SELECT 를 거둔다
+    assert "REVOKE ALL ON ecos_rate FROM opm_app" in sql                    # 기본 권한이 서버 계정에 준 쓰기 권한까지 거둔 뒤
+    assert "GRANT SELECT ON ecos_rate TO opm_app" in sql                    # 읽기만 다시 준다 — 성과 분석 도구가 무위험 금리를 서버 계정으로 읽는다
+    assert sql.index("REVOKE ALL ON ecos_rate FROM opm_app") < sql.index("GRANT SELECT ON ecos_rate TO opm_app")
+    assert "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'opm_app')" in sql        # 서버 계정이 없는 DB(새 로컬·시험)에서는 건너뛴다
     assert "ecos_fx_rate" not in ddl.STATEMENTS.replace("COMMENT", "")      # 환율 캐시 표를 건드리지 않는다
     allowed = ", ".join(f"'{s.code}'" for s in S.SERIES)
     assert f"CHECK (series IN ({allowed}))" in ddl.STATEMENTS               # CHECK 의 허용 코드 = 배치의 계열
@@ -394,18 +397,23 @@ def test_access_control_and_constraints(db):
                 c.execute(sql)
 
 
-def test_ddl_revokes_the_server_account_select_that_default_privileges_grant(pg17):
-    """운영에는 `ALTER DEFAULT PRIVILEGES … GRANT SELECT ON TABLES TO opm_app` 가 있어 새 표를 만든 순간 서버 계정이 읽을 수 있다 — DDL 이 거둬야 한다."""
+def test_ddl_gives_the_server_account_read_only_on_the_rate_table(pg17):
+    """운영에는 `ALTER DEFAULT PRIVILEGES … GRANT SELECT ON TABLES TO opm_app` 가 있어 새 표에 서버 계정이 SELECT 를 받는다(쓰기는 아님).
+    이 DDL 은 `REVOKE ALL` 로 기본 권한이 준 것을 걷고 **읽기만** 다시 준다 — 성과 분석 도구(서버 계정)가 무위험 금리를 읽고, 쓰기는 일별 배치 계정만 한다.
+    권한이 없던 때는 서버가 이 표를 읽으면 권한 오류가 DB 장애처럼 보였다(`db.pg_rows` 가 권한 오류에도 None 을 돌려준다)."""
     with psycopg.connect(pg17, autocommit=True) as c:
         c.execute("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='opm_app') THEN CREATE ROLE opm_app NOLOGIN BYPASSRLS; END IF; END $$")   # 역할은 서버 전체 공용 — test_usage_write_path 가 만드는 것과 같은 속성(권한 확인만 하므로 속성은 무관)
-        c.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO opm_app")
+        c.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO opm_app")      # 가장 나쁜 경우 — 기본 권한이 쓰기까지 준다
         c.execute("CREATE TABLE _probe_default_acl (x int)")
-        assert c.execute("SELECT has_table_privilege('opm_app','_probe_default_acl','SELECT')").fetchone()[0] is True   # 전제: 기본 권한이 실제로 준다
+        assert c.execute("SELECT has_table_privilege('opm_app','_probe_default_acl','INSERT')").fetchone()[0] is True   # 전제: 기본 권한이 실제로 준다
         c.execute(ddl.STATEMENTS)
         c.execute(ddl.STATEMENTS)                                                 # 멱등
-        for priv in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+        assert c.execute("SELECT has_table_privilege('opm_app','ecos_rate','SELECT')").fetchone()[0] is True
+        for priv in ("INSERT", "UPDATE", "DELETE", "TRUNCATE"):
             assert c.execute("SELECT has_table_privilege('opm_app','ecos_rate',%s)", (priv,)).fetchone()[0] is False
         assert c.execute("SELECT has_table_privilege('opm_ro','ecos_rate','SELECT')").fetchone()[0] is True
+        for role in ("anon", "authenticated"):
+            assert c.execute("SELECT has_table_privilege(%s,'ecos_rate','SELECT')", (role,)).fetchone()[0] is False
 
 
 def test_series_roundtrips_as_one_char_text(con):

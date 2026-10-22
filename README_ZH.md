@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#工具结构32-项工具)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#工具结构33-项工具)
 [![Release](https://img.shields.io/badge/release-v2.7.3-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [English](README_ENG.md)
 
-[快速开始](#快速开始) · [可以这样提问](#可以这样提问) · [主要功能](#主要功能) · [工具结构](#工具结构32-项工具) · [阅读注意](#阅读结果时的注意事项) · [数据来源](#数据来源)
+[快速开始](#快速开始) · [可以这样提问](#可以这样提问) · [主要功能](#主要功能) · [工具结构](#工具结构33-项工具) · [阅读注意](#阅读结果时的注意事项) · [数据来源](#数据来源)
 
 </div>
 
@@ -195,13 +195,13 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 | 🧭 [股权与股东回报](docs/features/en/ownership.md) | 谁控制公司，资本流向哪里？ | 股权结构、分红、股份回购与注销，以及[价值提升计划与实际执行情况](docs/features/en/shareholder-return.md) |
 | 🔔 [市场与风险](wiki/tools/screener.md) | 今天发生了什么变化？ | 市场披露摘要、各行业披露动向（与平常比较），以及[控制权争夺](docs/features/en/control-contest.md)、交易、股权稀释和[风险事件](docs/features/en/risk-events.md)跟踪 |
 
-这六类分析流程由 **32 项工具**支持，其中包括来源追踪，以及公司章程与法律条文之间的双向查询。完整列表见[工具结构](#工具结构32-项工具)。
+这六类分析流程由 **33 项工具**支持，其中包括来源追踪，以及公司章程与法律条文之间的双向查询。完整列表见[工具结构](#工具结构33-项工具)。
 
 **治理审查试点** — `governance_screen` 会汇总最多 30 家指定公司的披露原文，由所连接的 AI 判读小股东待遇、利益冲突与董事会问责等方面，并依据依据强度与重要性整理审查顺序。要约收购、股东行动主义与诉讼本身不构成负面评价。结果标示为**基于部分依据的 LLM 评估 · 未经人工复核**；出现缺失时只就该项告知，其余审查继续进行。可通过 `since` 与 `known_receipts` 缩小新披露范围后再次调用。不会创建定时执行或实际投票。该功能已在生产服务器上以试点形式提供。
 
 ---
 
-## 工具结构（32 项工具）
+## 工具结构（33 项工具）
 
 分类与 [wiki/tools 工具目录](wiki/tools/README.md)中的“想了解什么 → 使用哪个工具”表保持一致，该表是工具分类的唯一权威来源。
 
@@ -210,7 +210,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 | 🏢 起点：查找公司 | [`company`](wiki/tools/company.md) | 识别公司并列出近期披露，是所有分析的起点 |
 | 🔔 披露扫描与审查 | [`screener`](wiki/tools/screener.md)、[`governance_screen`](wiki/tools/governance_screen.md) | 全市场披露摘要与行业动向 · 指定公司的披露原文与 LLM 治理审查顺序（试点） |
 | 🗳️ 股东大会与投票 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md)、[`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md)、[`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md)、[`proxy_guideline`](wiki/tools/proxy_guideline.md) | 会前通知、会后结果、逐项赞成/反对/审查建议以及投票政策原文 |
-| 💰 股权、财务与治理 | [`ownership_structure`](wiki/tools/ownership_structure.md)、[`financial_metrics`](wiki/tools/financial_metrics.md)、[`provisional_earnings`](wiki/tools/provisional_earnings.md)、[`business_details`](wiki/tools/business_details.md)、[`asset_holdings`](wiki/tools/asset_holdings.md)、[`price_multiple_data`](wiki/tools/price_multiple_data.md)、[`forward_estimates_data`](wiki/tools/forward_estimates_data.md)、[`trading_data`](wiki/tools/trading_data.md)、[`corp_gov_report`](wiki/tools/corp_gov_report.md)、[`director_board`](wiki/tools/director_board.md) | 股权结构、已确认/初步业绩、业务说明、资产价值、PER/PBR（个股、市场、行业）、一致预期与预期变化、价格/市值排名、治理报告和董事会 |
+| 💰 股权、财务与治理 | [`ownership_structure`](wiki/tools/ownership_structure.md)、[`financial_metrics`](wiki/tools/financial_metrics.md)、[`provisional_earnings`](wiki/tools/provisional_earnings.md)、[`business_details`](wiki/tools/business_details.md)、[`asset_holdings`](wiki/tools/asset_holdings.md)、[`price_multiple_data`](wiki/tools/price_multiple_data.md)、[`forward_estimates_data`](wiki/tools/forward_estimates_data.md)、[`trading_data`](wiki/tools/trading_data.md)、[`performance_analysis`](wiki/tools/performance_analysis.md)、[`corp_gov_report`](wiki/tools/corp_gov_report.md)、[`director_board`](wiki/tools/director_board.md) | 股权结构、已确认/初步业绩、业务说明、资产价值、PER/PBR（个股、市场、行业）、一致预期与预期变化、价格/市值排名、收益率/风险/贡献与行业归因（混合组合、相对基准）、治理报告和董事会 |
 | 🎁 股东回报与资本 | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md)、[`dividend_data`](wiki/tools/dividend_data.md)、[`treasury_share`](wiki/tools/treasury_share.md)、[`value_up`](wiki/tools/value_up.md)、[`shareholder_commitment`](wiki/tools/shareholder_commitment.md)、[`corporate_restructuring`](wiki/tools/corporate_restructuring.md)、[`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | 分红披露与历史、自有股份、价值提升、承诺与执行、合并/分拆、增发/可转债/认股权证/减资 |
 | ⚔️ 争夺、交易与风险 | [`proxy_contest`](wiki/tools/proxy_contest.md)、[`corporate_deals`](wiki/tools/corporate_deals.md)、[`order_contracts`](wiki/tools/order_contracts.md)、[`risk_events`](wiki/tools/risk_events.md)、[`financial_notes`](wiki/tools/financial_notes.md)、[`director_news`](wiki/tools/director_news.md) | 控制权争夺信号、股权交易、订单/供应合同、风险事件、金融机构附注和董事候选人新闻 |
 | 🔗 证据与参考 | [`evidence`](wiki/tools/evidence.md)、[`law_lookup`](wiki/tools/law_lookup.md) | 披露受理编号到原文查看链接，以及公司章程与法律条文的双向查询（不消耗 API 调用） |

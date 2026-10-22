@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-32-tools)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-33-tools)
 [![Release](https://img.shields.io/badge/release-v2.7.3-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
-[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [Main Features](#main-features) · [Tool Structure](#tool-structure-32-tools) · [How to Read](#how-to-read-the-output) · [Data Sources](#data-sources)
+[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [Main Features](#main-features) · [Tool Structure](#tool-structure-33-tools) · [How to Read](#how-to-read-the-output) · [Data Sources](#data-sources)
 
 </div>
 
@@ -202,13 +202,13 @@ clauses and statutes are looked up in both directions, and that lookup spends no
 | 🧭 [Ownership & returns](docs/features/en/ownership.md) | Who controls it, and where does capital go? | Ownership map, dividends, buybacks and cancellations, and [value-up plans versus actual execution](docs/features/en/shareholder-return.md) |
 | 🔔 [Market & risk](wiki/tools/screener.md) | What changed today? | Market disclosure digest and sector filing flow against the usual level, plus [control contests](docs/features/en/control-contest.md), deals, dilution, and [risk events](docs/features/en/risk-events.md) |
 
-These six workflows are backed by **32 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-32-tools).
+These six workflows are backed by **33 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-33-tools).
 
 **Governance review pilot** — `governance_screen` gathers filing excerpts for up to 30 explicitly selected companies. Your connected AI reads them for minority-shareholder treatment, conflicts of interest and board accountability, then returns a review order based on evidence and materiality. Tender offers, activism and litigation are not adverse findings by themselves. Results are labelled **LLM assessment · human unreviewed · partial evidence**; missing checks are reported individually while other work continues. Call again with `since` and `known_receipts` to narrow the list of new filings. This creates neither scheduled runs nor actual votes. It is available on the production server as a pilot.
 
 ---
 
-## Tool Structure (32 tools)
+## Tool Structure (33 tools)
 
 Categories match the "what do you want to know → which tool" table in the [wiki/tools catalog](wiki/tools/README.md) — that table is the source of truth.
 
@@ -217,7 +217,7 @@ Categories match the "what do you want to know → which tool" table in the [wik
 | 🏢 Start — find the company | [`company`](wiki/tools/company.md) | Company identification + recent filings — every analysis starts here |
 | 🔔 Disclosure scan · review | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | Market-wide disclosure digest and sector flow · source-based LLM governance review for selected companies (pilot) |
 | 🗳️ Shareholder meetings · voting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Notice (pre) · results (post) · per-agenda FOR/AGAINST/REVIEW support · the voting-policy document itself |
-| 💰 Ownership · financials · governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership map · confirmed/provisional earnings · business description · asset plays · PER/PBR (company, market, sector) · consensus and revisions · price/market-cap ranking · governance report · board |
+| 💰 Ownership · financials · governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`performance_analysis`](wiki/tools/performance_analysis.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership map · confirmed/provisional earnings · business description · asset plays · PER/PBR (company, market, sector) · consensus and revisions · price/market-cap ranking · returns, risk, contribution and sector attribution (blends, benchmark-relative) · governance report · board |
 | 🎁 Shareholder returns · capital | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | Dividend filings/time series · treasury shares · value-up · promise vs delivery · mergers/splits · rights/CB/BW/reductions |
 | ⚔️ Contests · deals · risk | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Control-contest signals · stake deals · orders/supply contracts · risk events · financial-firm notes · director-candidate news |
 | 🔗 Evidence · reference | [`evidence`](wiki/tools/evidence.md), [`law_lookup`](wiki/tools/law_lookup.md) | Filing number → viewer URL · bidirectional articles↔statute lookup (zero API calls) |
