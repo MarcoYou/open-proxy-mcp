@@ -8,7 +8,7 @@ data_source: [DART 정기보고서 alotMatter(사업·반기·분기, div_declar
 related_disclosures: [사업보고서, 반기보고서, 분기보고서, 현금배당결정]
 related_concepts: [배당성향, 배당수익률, 분기배당, 연결-별도, 단위-표기-규약, 시점-제약]
 created: 2026-09-02
-updated: 2026-10-22
+updated: 2026-10-23
 ---
 
 # dividend_data

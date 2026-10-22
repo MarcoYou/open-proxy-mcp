@@ -2,7 +2,7 @@
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
 domain: action
-updated: 2026-10-22
+updated: 2026-10-23
 scope: [core preset, all, 유형 CSV, 흐름 보기]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + 일별 시세 저장분 (보관된 최신 거래일의 시총·유니버스 순위, DART 0콜) + 유형별 파서 재사용(details) + 공시 이벤트 원장 dart_events (흐름 보기, DART 0콜)]
 related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
