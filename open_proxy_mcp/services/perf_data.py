@@ -67,6 +67,19 @@ def pick_week_close(req: str) -> str | None | bool:
     return rows[0][0] if rows and rows[0][0] else None
 
 
+_WEEK_DAYS_RANGE_SQL = "SELECT dd FROM (" + WEEKLY_DAYS_SQL + ") c WHERE dd >= %s AND dd <= %s ORDER BY dd"
+_WEEK_DAYS_TABLE_SQL = "SELECT DISTINCT price_dd FROM krx_weekly WHERE price_dd >= %s AND price_dd <= %s ORDER BY price_dd"
+
+
+def read_week_days(lo: str, hi: str) -> list[str] | None:
+    """[lo, hi] 안의 주 닫는 날 목록(YYYYMMDD) — 주간 시세 뷰 `krx_weekly` 와 같은 주 정의(DATA-PX6)의 달력이다.
+    지수 target 이 종목 시세 없이도 같은 주 격자를 쓰게 한다(지수 일별 행 중 주 닫는 날만 고른다). 못 읽으면 None, 달력 표가 없는 DB(표 모드)는 뷰/표를 직접 읽는다."""
+    rows = db.pg_rows(_WEEK_DAYS_RANGE_SQL, (lo, hi))
+    if rows is None:
+        rows = db.pg_rows(_WEEK_DAYS_TABLE_SQL, (lo, hi))
+    return None if rows is None else [r[0] for r in rows]
+
+
 # ── 시세 ──────────────────────────────────────────────────────────────────────
 
 def read_tids(tickers: Sequence[str]) -> dict[str, int] | None:
@@ -400,32 +413,35 @@ class IndexResolve:
     hit: IndexSeries | None = None
     question: str = ""            # 되물을 문장(모호하거나 없음)
     note: str = ""                # 별칭·정규화로 풀었을 때의 한 줄
+    ambiguous: bool = False       # 같은 이름이 여러 시장에 있어 하나로 정하지 않았다
+    near: tuple[str, ...] = ()    # 못 찾았을 때 비슷한 이름(최대 8개)
 
 
-def resolve_index(name: str, series: Sequence[IndexSeries]) -> IndexResolve:
+def resolve_index(name: str, series: Sequence[IndexSeries], arg: str = "benchmark", prefix: str = "") -> IndexResolve:
     """공식 지수 이름 → 계열. 열쇠는 (엔드포인트, 이름)이라 같은 이름이 코스피·코스닥 양쪽에 있을 수 있다(20개 업종) — 그때는 **추측하지 않고 되묻는다**.
     「코스피200」·「코스피 200」 같은 띄어쓰기·영문 별칭은 정규화로 풀고, 「코스닥 전기전자」처럼 시장 이름이 앞에 붙은 말은 그 시장의 계열로 푼다."""
     want = _norm_index(name)
     if not want:
-        return IndexResolve(question="benchmark 이름이 비어 있습니다.")
+        return IndexResolve(question=f"{arg} 이름이 비어 있습니다.")
     exact = [s for s in series if _norm_index(s.name) == want]
     if len(exact) > 1:
         opts = " · ".join(f"{SRC_LABEL.get(s.src, s.src)} {s.name}" for s in exact)
         return IndexResolve(question=f"「{name}」은 여러 시장에 같은 이름의 공식 지수가 있어 하나로 정하지 않았습니다 — 골라 주세요: {opts}. "
-                                     f"예: benchmark=\"{SRC_LABEL.get(exact[0].src, exact[0].src)} {exact[0].name}\"")
+                                     f"예: {arg}=\"{prefix}{SRC_LABEL.get(exact[0].src, exact[0].src)} {exact[0].name}\"", ambiguous=True)
     if len(exact) == 1:
         s = exact[0]
-        return IndexResolve(hit=s, note="" if s.name == name.strip() else f"benchmark 「{name}」 → 공식 지수 「{s.name}」({SRC_LABEL.get(s.src, s.src)}) 로 풀었다.")
+        return IndexResolve(hit=s, note="" if s.name == name.strip() else f"{arg} 「{name}」 → 공식 지수 「{s.name}」({SRC_LABEL.get(s.src, s.src)}) 로 풀었다.")
     for src, word in (("P", "코스피"), ("Q", "코스닥")):
         if want.startswith(word) and len(want) > len(word):
             rest = want[len(word):]
             hits = [s for s in series if s.src == src and _norm_index(s.name) == rest]
             if len(hits) == 1:
                 s = hits[0]
-                return IndexResolve(hit=s, note=f"benchmark 「{name}」 → {word} 공식 지수 「{s.name}」 로 풀었다.")
+                return IndexResolve(hit=s, note=f"{arg} 「{name}」 → {word} 공식 지수 「{s.name}」 로 풀었다.")
     near = sorted({s.name for s in series if want in _norm_index(s.name) or _norm_index(s.name) in want})[:8]
     more = f" 비슷한 이름: {', '.join(near)}." if near else ""
-    return IndexResolve(question=f"공식 지수 「{name}」을 찾지 못했습니다.{more} 계산 벤치마크는 유니버스 문구(예: \"코스피 전체\", \"대분류 IT\")로 줄 수 있습니다.")
+    return IndexResolve(question=f"공식 지수 「{name}」을 찾지 못했습니다.{more} 계산 벤치마크는 유니버스 문구(예: \"코스피 전체\", \"대분류 IT\")로 줄 수 있습니다.",
+                        near=tuple(near))
 
 
 # ── 무위험 금리 ────────────────────────────────────────────────────────────────
