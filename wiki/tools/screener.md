@@ -2,7 +2,7 @@
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
 domain: action
-updated: 2026-10-19
+updated: 2026-10-22
 scope: [core preset, all, 유형 CSV, 흐름 보기]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + 일별 시세 저장분 (보관된 최신 거래일의 시총·유니버스 순위, DART 0콜) + 유형별 파서 재사용(details) + 공시 이벤트 원장 dart_events (흐름 보기, DART 0콜)]
 related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
@@ -34,9 +34,10 @@ related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuanc
 > per-company 단발 조회가 아니라 **아침 알람/디제스트 루틴을 구동하는 액션 산출물**이다(전체시장
 > discovery는 그 입력 단계). 루틴 레시피 → [아침 디제스트](../../docs/routines/screener-morning-digest.md).
 
-> **scan = 발견 / details = 숫자.** 무인자 호출(디폴트: core·since_yesterday·all·details=false)은
+> **scan = 발견 / details = 숫자.** 무인자 호출(디폴트: core·since_yesterday·all, details 미지정 = 전체시장이라 꺼짐)은
 > DART **4콜**로 전체시장 하루치를 카드화한다. `details=true`면 필요 건만 문서를 열어 유형별 핵심숫자를
-> 채운다(파서 재사용). 게이트는 universe가 아니라 **details**.
+> 채운다(파서 재사용). 게이트는 universe가 아니라 **details**. `details` 를 말하지 않아도 **유니버스가 200종목 이하이고
+> 기간이 7일 이하**면 자동으로 켠다(2026-10-22 — 아래 「파라미터」). `details=false` 를 명시하면 늘 꺼진다.
 
 ## 무엇을 참고하고 무엇을 연산하나
 
@@ -85,6 +86,18 @@ Tier1 여섯은 details(파서 디스패치) 지원, Tier2/3은 scan-only(같은
   `ambiguous_correction: true` + `correction_candidates: [rcept_no…]` 를 달아 그대로 남긴다 —
   모르면 지우지 않고 후보를 준다.
 - **같은 접수번호는 언제나 한 장.** 페이지 경계·코드 중복으로 같은 공시가 두 번 들어와도 한 번만 싣는다.
+- **같은 결의의 배당 결정·기준일 공시는 카드 한 장**(2026-10-22). 회사는 한 이사회 결의로 「현금ㆍ현물배당결정」과
+  「현금ㆍ현물배당을위한주주명부폐쇄(기준일)결정」을 따로 낸다. list.json 에는 두 공시가 같은 결의인지 알려 주는 칸이 없어
+  **모르면 묶지 않는다** — 같은 회사 · 같은 접수일 · 같은 자회사 여부 안에서 배당 결정이 정확히 1건, 기준일 공시가 정확히
+  1건이고 둘 다 정정본이 아닐 때만 묶는다(결정이 둘이면 보통주·종류주처럼 서로 다른 결의일 수 있어 그대로 둔다). 결정 공시가
+  주 카드가 되고 기준일 공시는 지우지 않고 `companions[]`(접수번호·제목·DART 링크)에 남으며 `counts.companion_merged` 로 센다.
+  실사례: 신한지주 20261021800514(배당 결정) · 20261021800503(기준일 결정)은 원문을 열어 보니 정정 짝이 아니라 신한은행 중간배당
+  한 결의(결의일 2026-10-21, 기준일 2026-11-05)의 두 서식이었다.
+- **자회사 공시는 따로 센다**(2026-10-22). 제목 끝 「(자회사의 주요경영사항)」 — 상장 모회사가 비상장 자회사의 결정·실적을 대신 공시한
+  서식 — 은 카드에 `subsidiary_matter: true` 와 md 머리의 「자회사 공시」가 붙고, 정정 짝 찾기(`dedup_key`)에서 모회사 자신의 공시와
+  키가 갈린다(HD한국조선해양 잠정실적 20261019800441 자회사 / 800444 자신의 공시는 중복이 아니다). 배당·잠정실적 파서는 접수번호를 보지
+  않고 회사·날짜로만 공시를 찾아, 열면 **모회사 자신의 값**(신한지주 DPS 1,480원·기준일 2026-12-31 이 신한은행 중간배당 카드에 붙었다)이
+  자회사 카드에 실린다. 그래서 이 두 유형의 자회사 공시 카드는 문서를 열지 않고 `detail_status: no_data` 와 이유(`detail_note`)만 준다 — 틀린 숫자보다 빈 칸.
 - **단계 태깅** — report_nm 키워드로 결정/결과/공고/신고서/소각/철회/해지 구분. 예정치(결정)와
   실행치(결과·소각)를 카드에 명시해 섞이지 않게 한다.
 - **정정·해지·철회·소각 = details 강제**(`_force_detail`) — 판단이 갈리는 단계는 우선 문서를 연다.
@@ -161,6 +174,8 @@ sequenceDiagram
 > "코스닥 업종별 자사주·증자 흐름, 대분류만" → `view="흐름"`, `types="자사주, 증자"`, `universe="코스닥"`, `level="대분류"`.
 
 유형별 카드 그룹(시총순) + 각 카드에 시총·단계·정정뱃지·분모%·DART 링크·`suggested_tool`(심층 tool 힌트).
+카드 머리의 값에는 이름표가 붙는다 — **「시총 42.0조」는 회사 시가총액, 수주 카드의 「계약금액 5,314억원」은 공시 금액**이라 서로 다른 값이다.
+자기주식 카드 머리에는 **취득 · 처분 · 소각 · 신탁 체결 · 신탁 해지**(`treasury_action`)가 적힌다.
 `details=true` 의 정정 카드는 정정사유·원공시일·바뀐 칸 수와 앞 세 칸의 「전 → 후」(md), 전체 줄은 json `amendment.rows`.
 
 ## 파라미터
@@ -176,8 +191,11 @@ sequenceDiagram
   2026-10-18 전에는 주간 시세 저장분의 이번 주 행, 같은 날 값은 같다), 이름해석도 corp_code 캐시라 DART 0콜.
   저장분을 못 읽으면 주간 저장분으로 돌아가지 않고 「시세 저장분 조회 실패 → 전체시장으로 대체」(시장 전체면
   DART 시장 구분으로 제한)를 notice 로 밝힌다.
-- `details`: false(디폴트). **universe가 전체시장이거나 300종목 초과, 또는 기간>30일이면 콜 폭주 방지로 자동
-  off**(게이트는 유니버스 "크기" — market:kospi 같은 넓은 유니버스는 details 안 켜짐), 기간>7일이면 preview(캡 1/2).
+- `details`: 비우면(디폴트 `None`) **유니버스가 200종목 이하이고 기간이 7일 이하일 때만 자동으로 켠다**(금액·시총 대비·DPS 등
+  숫자 포함 — 숫자가 빠진 카드는 읽는 쪽이 도구를 한 번 더 부르게 만든다). 자동으로 켜면 응답 `warnings` 에 밝히고
+  `types.details_auto: true`. 전체시장·시장 전체·201종목 이상이거나 기간이 길면 scan만(이름 나열·시총 상위 N·지수 구성종목 모두 같은 기준 —
+  유니버스 크기는 `universe.size`). `false` 를 명시하면 늘 끈다, `true` 를 명시하면 이 기준과 무관하게 켠다(기간>30일이면 자동 off,
+  기간>7일이면 preview 캡 1/2). 콜은 어느 경우든 응답당 러닝 캡(`_DETAILS_TOTAL_CALL_CAP`) 안에서만 쓴다.
 - `max_hits`(기본 200, 최대 500) / `offset`(기본 0): 페이징. 응답 `paging.next_offset` 을 `offset` 에 넣으면
   다음 묶음. `paging.matched`(매칭 수)와 `paging.returned`(이번에 실은 수)는 다른 값이다.
 - `start_date` / `end_date`(YYYYMMDD): 명시 기간 — `period=custom` 의 `custom_start`/`custom_end` 와 같은 뜻.
@@ -398,6 +416,7 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
 - `dedup_key`에 대상일 미포함 — 같은 회사가 같은 유형을 다른 날 또 내면 run 간 알림 dedup은 커서로 관리.
 
 ## 변경 이력
+- 2026-10-22: **카드 중복·구분·이름표**(사용자 유형 시험 B6) — ① 같은 날 같은 결의의 배당 결정·기준일 공시를 카드 한 장으로(`companions`, `counts.companion_merged`; 모르면 묶지 않는 조건은 「dedup + 단계」). 신한지주 20261021800514·20261021800503 은 정정 짝이 아니라 한 결의의 두 서식. ② 「(자회사의 주요경영사항)」 공시에 `subsidiary_matter` 와 md 「자회사 공시」를 달고 정정 짝 찾기에서 모회사 공시와 갈랐다 — 배당·잠정실적 자회사 카드는 모회사 값이 붙지 않도록 문서를 열지 않는다(신한지주 DPS 1,480원이 신한은행 카드에 실리던 것). ③ `details` 를 말하지 않으면 유니버스 ≤200종목·기간 ≤7일에서 자동으로 켠다(`types.details_auto`; `details=false` 명시는 그대로 끔, 전체시장 기본 호출은 그대로 scan만). ④ 자기주식 카드에 취득·처분·소각·신탁 체결·신탁 해지(`treasury_action`). ⑤ 카드 머리 「시총」과 수주 「계약금액」에 이름표(md만 — json 키는 그대로). `details` 인자 형이 `bool` 에서 `bool | None` 으로 바뀌었다(`false`·`true` 를 주는 호출은 같다).
 - 2026-10-22: **공시 흐름(`view="흐름"`)의 스냅샷 날짜 목록 읽기를 빠르게** — 업종 조인의 스냅샷 날짜 목록(`DISTINCT snap_dd`)을 뷰 모드면 날짜 표에서 읽는다. `wise_sector` 가 구간 표의 **뷰**(스냅샷 3 → 38개, 102,895행)가 되면서 날짜·업종 목록을 뷰 위에서 고르는 질의가 요청마다 약 10만 행을 펼쳐 느려졌다(서버 실행 시간 MAX(snap_dd) 55ms, DISTINCT sector 45ms, DISTINCT snap_dd 56ms, 업종 구성 날짜 셋 97ms). 새 `services/wise_sector_dates` 가 뷰일 때만 작은 밑 표를 읽는다(최신 날짜·스냅샷 목록 `wise_sector_snap`, 업종 목록 `wise_sector_iv` — 각각 0.3~2ms). 표 모드(교체 전·되돌린 뒤)는 종전 SQL이고 빠른 길이 막히면 종전 SQL로 한 번 더 간다. 응답 키·값은 그대로다. 요청당 약 55ms 감소(서버 측).
 - 2026-10-22: 문서 — 실적 카드 `net_income_krw` 의 기준(잠정공시 원문 당기순이익, 연결 공시면 비지배 포함)과 컨센서스 대비(지배순이익 기준)가 다르다는 점을 「회계기간 메타데이터」 절에 적었다. 코드·응답 변화 없음.
 - 2026-10-21: **유니버스·시총 DB 읽기를 이벤트 루프 밖 스레드로** — 기준일·시장 전체·시총 상위 N·지수 구성종목 원장·시총 배치 부착의 동기 DB 읽기를 `asyncio.to_thread` 로 내렸다. 종전엔 async 함수 안에서 바로 불러 질의 한 번(경로 감사 수치 60~100ms 안팎, 재측정 전) 동안 서버 전체 응답이 함께 멎었다. 응답 키·값은 그대로다(바뀌는 종목·값 0). 시험 `test_screener_universe_off_loop.py` 가 루프 위 DB 읽기가 없음을 잠근다.
