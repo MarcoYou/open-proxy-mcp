@@ -138,6 +138,34 @@ def _alot_items_lines(summary: dict[str, Any]) -> list[str]:
     return L
 
 
+def _quarterly_full_lines(qf: list[dict[str, Any]], qb: list[dict[str, Any]], year: int | None) -> list[str]:
+    """최신연도 분기별(정기보고서 누적차분) 표. 보고서 행이 비어 차분이 두 분기를 덮은 칸(`merged`)은 한 분기로 적지 않고 합산이라고 표시하며,
+    같은 분기들의 결정공시(아래 표)와 맞춰 보는 줄을 붙인다(B4, DATA-DIV8)."""
+    lines = ["", "## 최신연도 분기별 (정기보고서 누적차분)", "| 분기 | 보통주 DPS | 우선주 DPS | 배당총액 |", "|------|------------|------------|----------|"]
+    for x in qf:
+        pref = f"{x['dps_preferred']:,}원" if x.get("dps_preferred") else "-"
+        lines.append(f"| {x['quarter']} | {x['dps_common']:,}원 | {pref} | {_won(x['total_mil'] * 1_000_000)} |")
+    lines.append("> 분기/반기/사업보고서 누적값을 차분 — 결정공시 귀속 추측이 아니라 권위 출처. 무배당 분기는 0.")
+    live = [r for r in qb if r.get("year") == year and not r.get("is_superseded") and not r.get("is_cancelled")]
+    for x in qf:
+        if not x.get("merged"):
+            continue
+        miss = "·".join(x.get("missing_reports") or []) or "보고서"
+        lines.append(f"> 「{x['quarter']}」 칸은 {miss}의 누계가 없어 앞뒤 누계의 차이가 **{len(x.get('span') or [])}개 분기분**이다 — 한 분기 값이 아니다.")
+        parts = []
+        for q in x.get("span") or []:
+            hit = [r for r in live if str(r.get("quarter", "")).split()[0] == q]
+            if not hit:
+                parts = []
+                break
+            parts.append((q, sum(int(r.get("dps_common_krw") or 0) for r in hit)))
+        if parts:
+            total = sum(v for _q, v in parts)
+            verdict = "일치" if total == x["dps_common"] else f"차이 {x['dps_common'] - total:+,}원"
+            lines.append(f"> 대응: 결정공시 표의 {' + '.join(f'{q} {v:,}원' for q, v in parts)} = {total:,}원 ({verdict}).")
+    return lines
+
+
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
@@ -273,11 +301,7 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         # 최신연도 분기별 — 정기보고서 누적차분(권위). 결정공시 버킷팅 오귀속·중복 없음, 무배당 분기 0 포함.
         qf = data.get("quarterly_full") or []
         if qf:
-            lines.extend(["", "## 최신연도 분기별 (정기보고서 누적차분)", "| 분기 | 보통주 DPS | 우선주 DPS | 배당총액 |", "|------|------------|------------|----------|"])
-            for x in qf:
-                pref = f"{x['dps_preferred']:,}원" if x.get("dps_preferred") else "-"
-                lines.append(f"| {x['quarter']} | {x['dps_common']:,}원 | {pref} | {_won(x['total_mil'] * 1_000_000)} |")
-            lines.append("> 분기/반기/사업보고서 누적값을 차분 — 결정공시 귀속 추측이 아니라 권위 출처. 무배당 분기는 0.")
+            lines.extend(_quarterly_full_lines(qf, data.get("quarterly_breakdown") or [], data.get("year")))
         # 결정공시별 breakdown — 기준일·rcept_no 추적용 (정정 이력 포함).
         qb = data.get("quarterly_breakdown") or []
         if qb:
