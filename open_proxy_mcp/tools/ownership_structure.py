@@ -33,6 +33,35 @@ def _render_ambiguous(payload: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _denominator_lines(sb: dict[str, Any]) -> list[str]:
+    """100% 분해 표 아래 — 분모가 어느 정기보고서·어느 결산기준일 값인지, 최신 상장주식수와 다르면 두 값과 차이."""
+    if not sb:
+        return []
+    src = [f"{sb['bsns_year']} {sb.get('report') or '정기보고서'}" if sb.get("bsns_year") else (sb.get("report") or "정기보고서")]
+    if sb.get("rcept_no"):
+        src.append(f"접수번호 `{sb['rcept_no']}`")
+    if sb.get("stlm_dt"):
+        src.append(f"결산기준일 {sb['stlm_dt']}")
+    klass = {"보통주": "보통주", "합계-우선주": "합계 행에서 우선주를 뺀 보통주"}.get(sb.get("stock_class") or "", "")
+    out = ["", f"> 분모: {klass + ' ' if klass else ''}발행주식총수 {sb.get('issued_shares', 0):,}주 — " + " · ".join(src) + " (DART stockTotqySttus)."]
+    cmp_ = sb.get("comparison")
+    listed = sb.get("listed") or {}
+    if cmp_ == "differs":
+        dd = listed.get("price_dd") or ""
+        dd_txt = f"{dd[:4]}-{dd[4:6]}-{dd[6:]}" if len(dd) == 8 else dd
+        out.append(
+            f"> 최신 상장주식수(KRX 보통주 코드, {dd_txt} 거래일) {listed.get('shares', 0):,}주와 다르다 — "
+            f"보고서 {sb.get('issued_shares', 0):,}주 대 {listed.get('shares', 0):,}주, 차이 {sb.get('diff_shares', 0):+,}주"
+            f"(상장주식수 대비 {sb.get('diff_pct', 0):+.2f}%). 보고서 결산기준일 뒤 소각·증자 등으로 갈렸을 수 있다 "
+            "— 원인은 이 표로 알 수 없다. 위 오른쪽 칸은 보유주식수·자사주를 보고서 수치 그대로 최신 상장주식수로 나눈 값이다."
+        )
+    elif cmp_ == "mixed_class":
+        out.append("> 분모에 보통주 외 주식이 섞였을 수 있어 보통주 상장주식수와 섞어 비교하지 않았다.")
+    elif cmp_ == "listed_unavailable":
+        out.append("> 최신 상장주식수는 읽지 못했다(시세 자료 없음) — 상장주식수와의 비교는 생략했다.")
+    return out
+
+
 def _render(payload: dict[str, Any], scope: str) -> str:
     data = payload.get("data", {})
     summary = data.get("summary", {})
@@ -85,16 +114,34 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         major_sh = sum(r.get("shares", 0) for r in data.get("major_holders", []))
         tr_sh = summary.get("treasury_shares", 0)
         other = issued - major_sh - tr_sh
+        sb = data.get("share_basis") or {}
+        _listed = (sb.get("listed") or {}) if sb.get("comparison") == "differs" else {}
+        _ls = _listed.get("shares") or 0
         if issued and other >= 0:
-            lines.extend([
-                "", "| 구분 | 보유주식수 | 지분율 |", "|------|-----------|--------|",
-                f"| 최대주주+특수관계인 | {major_sh:,} | {major_sh / issued * 100:.2f}% |",
-                f"| 자사주 | {tr_sh:,} | {tr_sh / issued * 100:.2f}% |",
-                f"| 기타(소액주주·기관 등) | {other:,} | {other / issued * 100:.2f}% |",
-                f"| **합계(발행주식총수)** | **{issued:,}** | **100.00%** |",
-            ])
+            if _ls:
+                # 보고서 분모와 최신 상장주식수가 다르면 상장주식수 기준 지분율 칸을 덧붙인다.
+                # 보유주식수·자사주는 보고서 결산기준일 수치 그대로(그 뒤 소각·취득은 반영되지 않는다).
+                other_l = _ls - major_sh - tr_sh
+                lines.extend([
+                    "", "| 구분 | 보유주식수 | 지분율 | 지분율(최신 상장주식수 기준) |", "|------|-----------|--------|------|",
+                    f"| 최대주주+특수관계인 | {major_sh:,} | {major_sh / issued * 100:.2f}% | {major_sh / _ls * 100:.2f}% |",
+                    f"| 자사주 | {tr_sh:,} | {tr_sh / issued * 100:.2f}% | {tr_sh / _ls * 100:.2f}% |",
+                    f"| 기타(소액주주·기관 등) | {other:,} | {other / issued * 100:.2f}% | "
+                    + (f"{other_l / _ls * 100:.2f}%" if other_l >= 0 else "-") + " |",
+                    f"| **합계(발행주식총수)** | **{issued:,}** | **100.00%** | **100.00%** (분모 {_ls:,}) |",
+                ])
+            else:
+                lines.extend([
+                    "", "| 구분 | 보유주식수 | 지분율 |", "|------|-----------|--------|",
+                    f"| 최대주주+특수관계인 | {major_sh:,} | {major_sh / issued * 100:.2f}% |",
+                    f"| 자사주 | {tr_sh:,} | {tr_sh / issued * 100:.2f}% |",
+                    f"| 기타(소액주주·기관 등) | {other:,} | {other / issued * 100:.2f}% |",
+                    f"| **합계(발행주식총수)** | **{issued:,}** | **100.00%** |",
+                ])
+            lines.extend(_denominator_lines(sb))
         elif issued and other < 0:
             lines.append("- (100% 분해 생략: 명부+자사주가 보통주 발행총수를 초과 — 우선주 등 분모 불일치)")
+            lines.extend(_denominator_lines(sb))
         else:  # issued == 0
             lines.append("- (100% 분해 생략: 발행주식총수 미확보 — 집합투자기구(인프라펀드 등)이거나 주식총수 미공시)")
 
@@ -440,7 +487,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 최대주주·특수관계인·5% 대량보유 지분 구조 + **공동보유자 분해**. 자사주 detail은 `treasury_share` 별도.
         when: 지배력 구조, 최대주주 비중, 특수관계인 지분 합, 5% 활성 시그널, **"OO의 N% 지분이 누구누구 공동보유냐 / 보고자 본인 지분은 얼마냐"** 질의.
-        rule: 사업보고서 DART 공식 API 우선. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None. **5% 보고 지분율끼리 더하지 말 것** — 보고자들이 같은 특별관계자를 공유해 같은 주식이 중복 신고되거나(고려아연 단순합 111.84%), 보고마다 지분율의 기준 주식총수가 다르다(출자전환·감자·신주 사이에 낸 보고 — STX). 중복을 걷어낸 진영별 순 지분은 `block_camps.camps[].net_pct`, 겹침 내역은 `block_camps.shared_holders_between_reporters`, 총합은 `block_camps.net_total_pct`(null이면 계산 불가 — 지어내지 말 것; `overlap_found=false`면 걷어낸 몫이 없어 단순 합과 같다). 보고별 기준 주식총수(보유주식수÷지분율) 묶음은 `block_camps.report_bases`, 100% 초과 까닭 문장은 `block_camps.over_100_note`. `reporter_self_pct=0`이면 `reporter_self_note`에 뜻이 담긴다(보고자 본인 직접 보유 없음; 사유는 본 보고서로 확정 불가). DART 013/014/404는 실패가 아니라 「해당 자료 없음」으로 표기된다.
+        rule: 사업보고서 DART 공식 API 우선. **summary 의 100% 분해 표는 분모(보통주 발행주식총수)가 어느 정기보고서·어느 결산기준일 값인지 표 아래에 적고(`share_basis`: `rcept_no`·`stlm_dt`·`bsns_year`·`stock_class`), 최신 상장주식수(KRX `price_latest` 보통주 코드)와 다르면 두 값과 차이(`diff_shares`·`diff_pct`)를 함께 적고 「지분율(최신 상장주식수 기준)」 칸을 덧붙인다** — 보유주식수·자사주는 보고서 기준일 수치 그대로라 그 뒤 소각·증자는 반영되지 않는다. 분모가 보통주만이라고 장담할 수 없으면(`comparison=mixed_class`) 상장주식수와 섞어 비교하지 않는다. 5% 대량보유 목적은 최신 원문 보강. 변동신고서는 DART API 우선, KIND fallback. 5% 보고 헤드라인 지분율(ownership_pct)은 **보고자 본인 + 특별관계자 합산**임 — 본인만 보려면 `reporter_self_pct`, 공동보유자 내역은 `co_holders`[{name, ownership_pct, is_registry_holder}] 사용. `co_holders_verified=False`면 합계 미검증이라 원문 대조 필요(확정 인용 금지). 합계표 없는 약식보고(기관 단순투자 등)는 co_holders=None. **5% 보고 지분율끼리 더하지 말 것** — 보고자들이 같은 특별관계자를 공유해 같은 주식이 중복 신고되거나(고려아연 단순합 111.84%), 보고마다 지분율의 기준 주식총수가 다르다(출자전환·감자·신주 사이에 낸 보고 — STX). 중복을 걷어낸 진영별 순 지분은 `block_camps.camps[].net_pct`, 겹침 내역은 `block_camps.shared_holders_between_reporters`, 총합은 `block_camps.net_total_pct`(null이면 계산 불가 — 지어내지 말 것; `overlap_found=false`면 걷어낸 몫이 없어 단순 합과 같다). 보고별 기준 주식총수(보유주식수÷지분율) 묶음은 `block_camps.report_bases`, 100% 초과 까닭 문장은 `block_camps.over_100_note`. `reporter_self_pct=0`이면 `reporter_self_note`에 뜻이 담긴다(보고자 본인 직접 보유 없음; 사유는 본 보고서로 확정 불가). DART 013/014/404는 실패가 아니라 「해당 자료 없음」으로 표기된다.
         scope: `summary` 최대주주+5%블록(+공동보유자 분해)+자사주 snapshot / `major_holders` 특수관계인 detail / `blocks` 5% 대량보유 최신+이력+공동보유자 분해 / `control_map` 3대 카테고리(명부 등재/외부 능동/수동)+공동보유자 / `changes` 최대주주변동신고서(I004) + 5% 대량보유 변동(D001) + **최대주주변경·변경 수반 주식양수도·담보 계약 체결·해제(거래소 I001)** 통합
         ref: treasury_share, proxy_contest, evidence
         """
