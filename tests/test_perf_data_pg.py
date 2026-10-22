@@ -114,13 +114,13 @@ CREATE TABLE div_payment_scope (fiscal_year integer NOT NULL, market text NOT NU
             c.execute("INSERT INTO wise_sector_snap (snap, dd, n) VALUES (%s, %s, 0)", (date(int(snap[:4]), int(snap[4:6]), int(snap[6:])), snap))
         semi, auto, soft = ("G45", "IT", "G4530", "반도체와반도체장비"), ("G25", "경기관련소비재", "G2510", "자동차와부품"), ("G45", "IT", "G4510", "소프트웨어와서비스")
 
-        def iv(ticker, frm, to, k):
+        def iv(ticker, frm, to, k, src="W"):
             c.execute("INSERT INTO wise_sector_iv (tid, valid_from, valid_to, src, sector_code, sector, industry_code, industry) "
-                      "VALUES (%s, %s, %s, 'W', %s, %s, %s, %s)",
+                      "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                       (tid[ticker], date(int(frm[:4]), int(frm[4:6]), int(frm[6:])),
-                       date(int(to[:4]), int(to[4:6]), int(to[6:])) if to else None, *k))
+                       date(int(to[:4]), int(to[4:6]), int(to[6:])) if to else None, src, *k))
         iv(A, "20261001", None, semi)
-        iv(PR, "20261001", None, semi)
+        iv(PR, "20261001", None, semi, src="P")                                          # 우선주 — 보통주 분류를 이은 행(계산 벤치마크는 뺀다, 261023)
         iv(B, "20261001", "20261012", semi)
         iv(B, "20261012", None, auto)
         iv(C, "20261001", None, soft)
@@ -217,7 +217,7 @@ def test_bench_daily_sql_equals_python_per_stock_sums(world, use_db):
     want: dict[tuple, list] = {}
     n_null: dict[str, int] = {}
     for dd, t, mk, close, shrs, _o, _h, _l, _v, _val, cmp in rows:
-        if dd not in prev:
+        if dd not in prev or t == PR:                                                   # PR = 우선주(출처 'P') — 합에 들지 않는다
             continue
         if cmp is None:
             n_null[dd] = n_null.get(dd, 0) + 1
@@ -234,18 +234,18 @@ def test_bench_daily_sql_equals_python_per_stock_sums(world, use_db):
     assert {g.dd: g.n_null for g in got if g.n_null} == n_null                        # cmp NULL 행 수를 센다(합에서는 뺀다)
     assert all(g.dd != "20260930" for g in got)                                       # 기준일은 전일 계산용 — 결과에 없다
     ks = D.read_bench_daily(["KS"], "20261005", "20261008")
-    assert {g.key.mid for g in ks if g.key} == {"반도체와반도체장비"} and sum(g.n for g in ks if g.dd == "20261006") == 3   # A·B·PR
+    assert {g.key.mid for g in ks if g.key} == {"반도체와반도체장비"} and sum(g.n for g in ks if g.dd == "20261006") == 2   # A·B (우선주 PR 은 뺀다)
     assert D.read_bench_daily(["KS"], "20261016", "20261016") == []                    # 하루뿐이면 전일이 없다
 
 
 def test_bench_daily_sector_is_the_one_covering_the_previous_day_with_retro_before_first_snapshot(world, use_db):
     got = D.read_bench_daily(["KS", "KQ"], "20260930", "20261016")
     by = {(g.dd, g.key.mid if g.key else None): g for g in got}
-    assert by[("20261005", "반도체와반도체장비")].n == 3                               # 전일 20260930 < 첫 스냅샷 20261001 → 소급 (A·B·PR)
+    assert by[("20261005", "반도체와반도체장비")].n == 2                               # 전일 20260930 < 첫 스냅샷 20261001 → 소급 (A·B, 우선주 PR 은 뺀다)
     assert ("20261005", None) in by                                                    # DD 는 구간이 없어 미분류로 남는다(합 보존)
     # B 는 20261012 에 자동차로 옮겼다: 20261012 구간의 전일은 20261008(아직 반도체), 20261013 구간의 전일은 20261012(자동차)
     assert ("20261012", "자동차와부품") not in by and by[("20261013", "자동차와부품")].n == 1
-    assert by[("20261012", "반도체와반도체장비")].n == 3 and by[("20261013", "반도체와반도체장비")].n == 2     # 20261013: A·PR 만 반도체
+    assert by[("20261012", "반도체와반도체장비")].n == 2 and by[("20261013", "반도체와반도체장비")].n == 1     # 20261013: A 만 반도체(PR 은 뺀다)
 
 
 # ── P5 업종 구간 조인 = 「스냅샷 ≤ d 중 가장 최근」 규칙 ──────────────────────────

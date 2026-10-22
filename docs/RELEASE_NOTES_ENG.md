@@ -2,6 +2,13 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Unreleased — 2026-10-23
+
+### Preferred shares are left out of sector composition and performance-analysis universes
+
+- The sector composition of `trading_data(scope="universe")` ("semiconductor sector", "mid-class …", "major-class …") no longer lists preferred shares. Rank, weight, cumulative weight, sector market cap and the market-share denominator are over common stock only; the number and market cap of the excluded preferred shares are stated in a warning and in the new fields `data.sector.preferred_n`, `preferred_cap_krw` and `cap_incl_preferred_krw`. The composition total is smaller than the `scope="sector"` aggregate (which includes preferred shares) by exactly that preferred share.
+- `performance_analysis` sector targets, blend components and the computed benchmarks "KOSPI total" / "KOSDAQ total" also leave preferred shares out (including the default attribution benchmark, so returns and excess returns of those calls change). Preferred-share quotes called by ticker, preferred shares named directly by code or basket, index constituents and the `scope="sector"` aggregate are unchanged.
+
 ## Unreleased — 2026-10-22
 
 ### New tool `performance_analysis` — returns, risk, contribution and sector attribution, computed on call

@@ -627,6 +627,25 @@ def test_weekly_market_benchmark_is_cap_weighted_by_previous_adjusted_cap(world,
     assert a["data"]["attribution"]["active_pct"] == pytest.approx(a["data"]["relative"]["excess_cum_pct"], abs=1e-6)
 
 
+def test_weekly_market_benchmark_leaves_out_preferred(world, monkeypatch):
+    """261023: 「코스피 전체」 계산 벤치마크는 우선주를 뺀 보통주 시총 가중 — 우선주 행(분류 구간 출처 'P')을 넣어도 값이 보통주만의 값(위 시험, +25.1613%)과 같다."""
+    PV = "999995"                                                                            # 우선주(시험용) — 시총이 커서 넣으면 값이 확 달라진다
+    tgt = {X: [("20251226", 900, 1), ("20260102", 1000, 1)], Y: [("20251226", 1800, 1), ("20260102", 2000, 1)]}
+    world.weekly = _weekly(tgt, floor="20231016")
+    mk = {X: [("20251226", 900, 1), ("20260102", 1000, 1), ("20260109", 1210, 1)], Y: [("20251226", 1800, 1), ("20260102", 2000, 1), ("20260109", 2090, 1)],
+          W: [("20251226", 400, 1), ("20260102", 500, 1), ("20260109", 580, 1)],
+          PV: [("20251226", 50000, 1), ("20260102", 40000, 1), ("20260109", 30000, 1)]}
+    monkeypatch.setattr(D, "read_weekly_market_px", lambda markets, lo, hi, tail_dd=None: mk)
+    monkeypatch.setattr(D, "read_sector_map", lambda tickers: D.SectorMap(
+        world.snaps, {t: [(world.snaps[0], None, SECTOR_OF[t])] for t in tickers if t in SECTOR_OF}, pref_iv={PV: [(world.snaps[0], None)]}))
+    p = run(since="20251226", benchmark="코스피 전체", freq="weekly")
+    assert p["status"] == "ok", p
+    assert p["data"]["relative"]["benchmark_return_cum_pct"] == pytest.approx(25.1613, abs=1e-3)
+    a = run(since="20251226", scope="attribution", group_by="대분류", freq="weekly")
+    assert a["status"] == "ok" and abs(a["data"]["attribution"]["residual_pct"]) < 1e-6
+    assert "우선주 제외" in p["data"]["method"] and "우선주 포함" not in p["data"]["method"]
+
+
 def test_weekly_market_benchmark_row_limit_is_estimated_before_reading(world, monkeypatch):
     world.weekly = _weekly({X: [("20251226", 900, 1)], Y: [("20251226", 1800, 1)]}, floor="20231016")
     monkeypatch.setattr(D, "read_market_counts", lambda dd: {"KS": 950, "KQ": 1800})

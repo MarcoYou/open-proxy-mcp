@@ -13,11 +13,15 @@
   중분류로 풀고 밝힌다 — 구성이 다르면 되묻는다. KSIC(한국표준산업분류)는 이 서버의 업종 구성 축이 아니다 — 그렇게 안내한다.
 ■ 날짜(`_pick_day`): 그 날 이하 가장 가까운 앞 거래일. 일별 보관 창(약 1년) 안이면 일별 시세(`krx_daily_v`), 더 오래되면 주간 시세(`krx_weekly`,
   주 마지막 거래일 한 점 — 주간 해상도), 주간 구간보다 이르면 제공하지 않는다(그 앞은 종목별 연말 행뿐이라 구성이 불완전하다).
-■ 분류: 그 날 이하 가장 최근 분류 스냅샷, 없으면 가장 이른 스냅샷을 **소급**(`scripts/krx_cap_agg.py` 와 같은 규칙 — 업종 합이 같다). 소급 구간은 경고한다.
-  스냅샷에 없는 종목(신규 상장·공급처가 분류를 안 준 종목)은 미분류로 밝히고 어느 업종에도 넣지 않는다. 우선주는 빼지 않는다 —
-  시총 집계(`krx_cap_agg`)가 우선주 포함 합이고(`scope="sector"`), 분류 저장분이 우선주에 같은 회사 보통주의 업종을 이어 주므로(`src='pref'`)
-  업종 합이 두 도구에서 같아야 한다. 우선주 행은 `preferred: true`·`issuer_ticker`(보통주 코드)를 단다.
-■ 비중: 종목 시총 ÷ **선택한 범위의 시총 합**(업종 전체, 시장을 골랐으면 그 시장 안의 업종). 상위 N 으로 잘라도 분모는 그대로다(잘린 표의 합은 100% 미만) —
+■ 분류: 그 날 이하 가장 최근 분류 스냅샷, 없으면 가장 이른 스냅샷을 **소급**(`scripts/krx_cap_agg.py` 와 같은 규칙). 소급 구간은 경고한다.
+  스냅샷에 없는 종목(신규 상장·공급처가 분류를 안 준 종목)은 미분류로 밝히고 어느 업종에도 넣지 않는다.
+■ 우선주는 싣지 않는다(261023) — 우선주는 업종·성과 분석 대상이 아니고 괴리율·배당 분석에만 쓰므로 종목 코드로 부르는 개별 시세(`scope="firm"`·`quote`)만 있으면 된다.
+  판정은 하나다: 분류가 있는 행은 분류 저장분의 출처 `src='pref'`(보통주의 업종을 이은 행)만으로, 분류가 없는 행은 `company_resolver.issuer_ticker`(종류주 코드를
+  보통주 코드로 잇는 함수 — 코드 끝자리 ≠ 0, DATA-ID2)로 정한다. 회사 원장을 보지 않으므로(`universe.is_preferred` 와 달리) 원장이 비어 있어도 결과가 같다.
+  순위·비중·누적 비중·업종 시총·시장 몫(`share_of_market_pct`)의 분모는 모두 **보통주** 시총 합이다. 뺀 우선주 수·시총은 경고 한 줄과 `sector.preferred_n`·
+  `preferred_cap_krw` 로 밝히고, `cap_incl_preferred_krw`(= 보통주 합 + 우선주 몫)가 시총 집계 `krx_cap_agg`(`scope="sector"`, 우선주 포함 합)와 같은 정의의 수다 —
+  그래서 업종 구성의 시총 합은 `scope="sector"` 업종 시총보다 우선주 몫만큼 작다. 업종 안 종목이 우선주뿐이면 빈 표 대신 그 사실을 `notice` 로 밝힌다.
+■ 비중: 종목 시총 ÷ **선택한 범위의 보통주 시총 합**(업종 전체, 시장을 골랐으면 그 시장 안의 업종). 상위 N 으로 잘라도 분모는 그대로다(잘린 표의 합은 100% 미만) —
   기여 분해가 쓰는 가중치라 다시 100% 로 맞추지 않는다.
 """
 from __future__ import annotations
@@ -357,7 +361,6 @@ class SectorResult:
 
 def compute(q: SectorQuery, rows: list[dict[str, Any]], day: DayPick, names: dict[str, str]) -> SectorResult:
     """그 날 전 종목 행 + 분류 → 업종 구성·비중. 순수 함수(DB 없이 시험한다)."""
-    from open_proxy_mcp.company_resolver import issuer_ticker
     catalog = _catalog(rows)
     cache: dict[tuple[str, str], frozenset[str]] = {}
 
@@ -375,22 +378,34 @@ def compute(q: SectorQuery, rows: list[dict[str, Any]], day: DayPick, names: dic
 
     dd = day.dd or ""
     snap, snap_min = (rows[0]["snap"], rows[0]["snap_min"]) if rows else (None, None)
+    from open_proxy_mcp.company_resolver import issuer_ticker
+    # 우선주 판정(261023, 규칙은 하나): 분류가 있는 행은 출처 src='pref'(보통주 업종을 이은 행)만으로, 분류가 없는 행은 코드 끝자리 규칙(끝자리 ≠ 0 = 종류주)으로.
+    # 회사 원장(names)은 보지 않는다 — 원장이 비어 있어도 같은 결과이고, 일별 집계 SQL(`perf_data.BENCH_DAILY_SQL`)·주간 계산(`SectorMap.is_pref`)과 같은 규칙이다.
+    is_pref = {r["ticker"]: (r["src"] == "pref" if r["major_code"] else bool(issuer_ticker(r["ticker"]))) for r in rows}
     in_mkt = [r for r in rows if q.market in (None, r["market"])]
-    mkt_cap = sum(int(r["mktcap"]) for r in in_mkt)
+    mkt_cap = sum(int(r["mktcap"]) for r in in_mkt if not is_pref[r["ticker"]])        # 시장 몫의 분모 = 우선주를 뺀 시장 시총(분자와 같은 모집단)
+    mkt_pref_cap = sum(int(r["mktcap"]) for r in in_mkt if is_pref[r["ticker"]])
     by_cap = lambda r: (-int(r["mktcap"]), r["ticker"])      # noqa: E731 — 시총 내림차순, 같으면 코드순(읽기 질의의 정렬과 같다)
-    members = sorted((r for r in in_mkt if _is_member(r, entry)), key=by_cap)
+    in_sector = sorted((r for r in in_mkt if _is_member(r, entry)), key=by_cap)
+    members = [r for r in in_sector if not is_pref[r["ticker"]]]
+    pref_members = [r for r in in_sector if is_pref[r["ticker"]]]
+    pref_n = len(pref_members)
+    pref_cap = sum(int(r["mktcap"]) for r in pref_members)
     market_word = to_label(q.market) if q.market else None
     label = f"{entry.name}({entry.level})" + (f" · {market_word}" if market_word else "") \
         + (f" 시총상위 {q.top}" if q.top else "")
     spec = f"sector:{entry.level}:{entry.code}" + (f":{q.market}" if q.market else "") + (f":top{q.top}" if q.top else "")
     if not members:
-        whole = sum(1 for r in rows if _is_member(r, entry))
+        if pref_members:
+            return SectorResult(label=label, spec=spec, notice=(
+                f"{_ymd(dd)} 기준 {entry.name}({entry.level})의 {market_word or ''} 종목은 우선주뿐입니다 — 우선주 {pref_n}종목(시총 {pref_cap:,}원)은 "
+                "업종 구성에 싣지 않아 표를 만들지 않았습니다. 우선주 시세는 종목 코드로 부르세요(`scope=\"firm\"`)."))
+        whole = sum(1 for r in rows if _is_member(r, entry) and not is_pref[r["ticker"]])
         return SectorResult(label=label, spec=spec, notice=(
             f"{_ymd(dd)} 기준 {entry.name}({entry.level})에 {market_word or ''} 종목이 없습니다"
             + (f" — 이 업종 전체는 {whole}종목(다른 시장)입니다." if whole else ".")))
 
     total = sum(int(r["mktcap"]) for r in members)
-    preferred_n = 0
     out: list[dict[str, Any]] = []
     cum = 0
     for r in members:
@@ -401,27 +416,22 @@ def compute(q: SectorQuery, rows: list[dict[str, Any]], day: DayPick, names: dic
                                "mktcap_krw": cap, "close_krw": int(r["close"]) if r["close"] is not None else None,
                                "list_shrs": int(r["shrs"]) if r["shrs"] is not None else None,
                                "weight_pct": _pct(cap, total), "cum_weight_pct": _pct(cum, total)}
-        if r["src"] == "pref":                            # 우선주 — 같은 회사 보통주 분류를 이은 행(src_ref = 보통주 코드)
-            base = r["src_ref"] or issuer_ticker(t)
-            row["preferred"] = True
-            row["issuer_ticker"] = base
-            if not row["name"] or row["name"] == "-":
-                row["name"] = f"{names[base]} 우선주" if names.get(base) else "-"
-            preferred_n += 1
         if entry.level == MAJOR:
             row["mid"] = r["mid"]
         out.append(row)
     shown = out[:q.top] if q.top else out
     shown_cap = sum(x["mktcap_krw"] for x in shown)
 
-    unclassified = sorted((r for r in in_mkt if not r["major_code"]), key=by_cap)
+    unclassified = sorted((r for r in in_mkt if not r["major_code"] and not is_pref[r["ticker"]]), key=by_cap)
     unc_cap = sum(int(r["mktcap"]) for r in unclassified)
     sector: dict[str, Any] = {
         "level": entry.level, "code": entry.code, "name": entry.name, "major": entry.major,
         "market": to_label(q.market) if q.market else None,
         "classification_asof": snap, "classification_retro": bool(snap_min and dd and dd < snap_min),
-        "n": len(members), "n_shown": len(shown), "preferred_n": preferred_n,
-        "cap_krw": total, "market_cap_krw": mkt_cap, "share_of_market_pct": _pct(total, mkt_cap),
+        "n": len(members), "n_shown": len(shown),
+        "preferred_n": pref_n, "preferred_cap_krw": pref_cap,                         # 업종 구성에서 뺀 우선주 몫(종목 수·시총)
+        "cap_krw": total, "cap_incl_preferred_krw": total + pref_cap,                  # 보통주 합 · 우선주 포함 합(시총 집계 `scope="sector"` 와 같은 정의)
+        "market_cap_krw": mkt_cap, "market_preferred_cap_krw": mkt_pref_cap, "share_of_market_pct": _pct(total, mkt_cap),
         "shown_cap_krw": shown_cap, "shown_weight_pct": _pct(shown_cap, total),
         "unclassified": {"n": len(unclassified), "cap_krw": unc_cap, "share_of_market_pct": _pct(unc_cap, mkt_cap),
                          "top": [{"ticker": r["ticker"], "name": names.get(r["ticker"]) or "-", "market": to_label(r["market"]),
@@ -448,10 +458,10 @@ def compute(q: SectorQuery, rows: list[dict[str, Any]], day: DayPick, names: dic
         why = ("분류 첫 관측에 없는 종목이다(그 뒤 상장폐지됐거나 공급처가 분류를 주지 않은 종목)" if sector["classification_retro"]
                else "분류 스냅샷에 없는 종목이다(스냅샷 뒤 신규 상장이거나 공급처가 분류를 주지 않은 종목)")
         warns.append(f"미분류 {len(unclassified)}종목(시총 {_pct(unc_cap, mkt_cap):.2f}%)은 어느 업종에도 넣지 않았다 — {why}. "
-                     "`share_of_market_pct` 의 분모는 미분류를 포함한 시장 전체 시총이다.")
-    if preferred_n:
-        warns.append(f"우선주 {preferred_n}종목이 들어 있다(순위표와 달리 빼지 않는다) — 업종 시총은 우선주 포함 합(`scope=\"sector\"` 시총 집계와 같은 정의)이고, "
-                     "우선주는 같은 회사 보통주의 업종에 속한다. 회사 단위로 보려면 `issuer_ticker` 로 보통주와 합친다.")
+                     "`share_of_market_pct` 의 분모는 미분류를 포함하고 우선주를 뺀 시장 전체 시총이다.")
+    if pref_n:
+        warns.append(f"우선주 {pref_n}종목(시총 {pref_cap:,}원)은 업종 구성에서 뺐다 — 순위·비중·업종 시총은 보통주 합이다. `scope=\"sector\"` 시총 집계는 우선주를 "
+                     f"포함한 합({total + pref_cap:,}원)이라 이 업종 구성의 시총과 우선주 몫만큼 다르다. 우선주 시세는 종목 코드로 부른다.")
     if q.top and len(members) > q.top:
         warns.append(f"시총 상위 {q.top}종목만 실었다(업종 전체 {len(members)}종목의 {sector['shown_weight_pct']:.2f}%) — "
                      "비중은 업종 **전체** 시총 대비라 표 합이 100% 에 못 미친다.")
@@ -485,6 +495,7 @@ async def list_sector_universe(raw: str, as_of: str = ""):
         return _uni.UniverseList(spec=res.spec, label=res.label, resolved=False, as_of=day.dd, notice=res.notice)
     ul = _uni.UniverseList(spec=res.spec, label=res.label, resolved=True, as_of=day.dd, rows=res.rows)
     ul.sector = res.sector
+    ul.excluded_pref = int(res.sector.get("preferred_n") or 0)         # 뺀 우선주 수 — 같은 list_universe 를 쓰는 호출부(quote 순위표·컨센서스 스크린)가 밝힌다
     ul.extra_warnings = res.warnings
     ul.granularity = day.source
     return ul

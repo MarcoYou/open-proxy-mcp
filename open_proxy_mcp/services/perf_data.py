@@ -22,6 +22,7 @@ from datetime import date, timedelta
 from typing import Any, Iterable, Sequence
 
 from open_proxy_mcp import db
+from open_proxy_mcp.company_resolver import issuer_ticker
 from open_proxy_mcp.krx_retention import WEEKLY_DAYS_SQL, krx_weekly_cutoff
 from open_proxy_mcp.services.perf_math import AdjEvent, fmt_dd, parse_dd
 
@@ -272,8 +273,12 @@ def read_sector_snaps() -> list[str] | None:
 
 
 _IV_SQL = ("SELECT k.ticker, to_char(i.valid_from, 'YYYYMMDD'), to_char(i.valid_to, 'YYYYMMDD'), i.sector_code, i.sector, "
-           "i.industry_code, i.industry FROM wise_sector_iv i JOIN krx_ticker k ON k.tid = i.tid "
+           "i.industry_code, i.industry, i.src::text FROM wise_sector_iv i JOIN krx_ticker k ON k.tid = i.tid "
            "WHERE k.ticker = ANY(%s) ORDER BY k.ticker, i.valid_from")
+
+#: 우선주 판정 중 분류가 없는 행에 쓰는 코드 끝자리 규칙의 SQL 판(261023) — `company_resolver.issuer_ticker`(종류주 코드를 보통주 코드로 잇는 함수)와 같은 규칙:
+#: KRX 단축코드 끝자리 ≠ 0 이 종류주다(005935·00680K). 회사 원장도, 「앞 5자 + 0 이 번호표에 있다」는 조건도 보지 않는다 — 번호표(`krx_ticker`)의 코드 모양만 본다(DART 0콜).
+CODE_PREF_CTE = "code_pref AS (SELECT k.tid FROM krx_ticker k WHERE substr(k.ticker, 6, 1) <> '0')"
 
 
 @dataclass(frozen=True)
@@ -289,13 +294,21 @@ UNCLASSIFIED = "_UNCLASSIFIED"
 
 class SectorMap:
     """종목 → 날짜별 업종. 규칙: 기준 날짜 ref = max(날짜, 가장 이른 스냅샷) 를 덮는 구간(valid_from ≤ ref < valid_to, valid_to 비면 열린 구간).
-    ref 가 가장 이른 스냅샷으로 끌려 올라온 날짜가 하나라도 있었으면 `retro`. 구간이 없는 종목(스냅샷 뒤 신규·공급처가 분류를 안 준 종목)은 None = 미분류."""
+    ref 가 가장 이른 스냅샷으로 끌려 올라온 날짜가 하나라도 있었으면 `retro`. 구간이 없는 종목(스냅샷 뒤 신규·공급처가 분류를 안 준 종목)은 None = 미분류.
 
-    def __init__(self, snaps: Sequence[str], ivs: dict[str, list[tuple[str, str | None, SectorKey]]]):
+    우선주 판정(`is_pref`, 261023 — 업종 구성 `sector_universe`·일별 집계 SQL 과 같은 규칙): 그 날을 덮는 구간이 있으면 그 출처가 'P'(우선주가 보통주 분류를 이음, `pref_iv`)일 때만,
+    덮는 구간이 없으면 코드 끝자리 규칙(끝자리 ≠ 0 — 이미 읽은 종목 코드만 본다, 추가 질의 0)으로 우선주다. 업종 읽기(`at`)는 그대로다."""
+
+    def __init__(self, snaps: Sequence[str], ivs: dict[str, list[tuple[str, str | None, SectorKey]]],
+                 pref_iv: dict[str, list[tuple[str, str | None]]] | None = None):
         self.snaps = list(snaps)
         self.first = self.snaps[0] if self.snaps else None
         self._iv = ivs
+        self._pref_iv = pref_iv or {}
         self.retro = False
+
+    def _ref(self, dd: str) -> str:
+        return self.first if (self.first and dd < self.first) else dd
 
     def at(self, ticker: str, dd: str) -> SectorKey | None:
         ref = dd
@@ -307,30 +320,43 @@ class SectorMap:
                 return key
         return None
 
+    def is_pref(self, ticker: str, dd: str) -> bool:
+        """그 날 이 종목이 우선주인가 — `retro` 는 건드리지 않는다(업종 읽기가 따로 센다)."""
+        ref = self._ref(dd)
+        if any(vf <= ref and (vt is None or ref < vt) for vf, vt, _k in self._iv.get(ticker, ())):
+            return any(vf <= ref and (vt is None or ref < vt) for vf, vt in self._pref_iv.get(ticker, ()))   # 분류가 있으면 출처만
+        return bool(issuer_ticker(ticker))                                                                  # 분류가 없으면 코드 끝자리 규칙
+
 
 def read_sector_map(tickers: Sequence[str]) -> SectorMap | None:
     snaps = read_sector_snaps()
     if snaps is None:
         return None
     ivs: dict[str, list] = {}
+    pref_iv: dict[str, list] = {}
     for part in _chunks(list(tickers)):
         rows = db.pg_rows(_IV_SQL, (part,))
         if rows is None:
             return None
-        for t, vf, vt, sc, sn, ic, inn in rows:
+        for t, vf, vt, sc, sn, ic, inn, src in rows:
             ivs.setdefault(t, []).append((vf, vt, SectorKey(sc, sn, ic, inn)))
-    return SectorMap(snaps, ivs)
+            if src == "P":
+                pref_iv.setdefault(t, []).append((vf, vt))
+    return SectorMap(snaps, ivs, pref_iv)
 
 
 # ── 계산 벤치마크(일별, DB 집계) ───────────────────────────────────────────────
 
 #: (날짜, 업종) 한 묶음 = 그날 모든 종목의 Σcmp·주식수(분자) 와 Σ(close−cmp)·주식수(분모 = 전일 기준가 시총). 업종은 **전일**을 덮는 구간(없으면 첫 스냅샷 소급).
-#: cmp 가 NULL 인 옛 행은 합에서 빠지고 `n_null` 로 센다. 우선주 포함(시총 집계 `krx_cap_agg` 와 같은 정의).
+#: cmp 가 NULL 인 옛 행은 합에서 빠지고 `n_null` 로 센다. **우선주는 뺀다**(261023) — 우선주는 성과 분석 대상이 아니라 업종 구성(`sector_universe`)과 같은 모집단이어야 한다:
+#: 그 전일을 덮는 업종 구간이 있으면 그 출처가 'P'(보통주 분류를 이은 행)일 때만, 덮는 구간이 없으면 번호표의 코드 끝자리 ≠ 0(`code_pref`)일 때 합에 넣지 않는다. 우선주를 넣던 종전 값은 시총 집계
+#: `krx_cap_agg`(`scope="sector"`, 우선주 포함 합)와 같은 정의였으므로, 이제 이 합은 그 집계와 우선주 몫만큼 다르다.
 BENCH_DAILY_SQL = """\
 WITH d AS (
   SELECT trd_dd, dd, lag(trd_dd) OVER (ORDER BY trd_dd) AS prev_dd
   FROM krx_day WHERE n > 0 AND dd >= %s AND dd <= %s
-), f AS (SELECT min(snap) AS s0 FROM wise_sector_snap)
+), f AS (SELECT min(snap) AS s0 FROM wise_sector_snap),
+""" + CODE_PREF_CTE + """
 SELECT d.dd, iv.sector_code, iv.sector, iv.industry_code, iv.industry,
        sum(p.cmp::bigint * p.list_shrs) FILTER (WHERE p.cmp IS NOT NULL AND p.list_shrs > 0 AND p.close - p.cmp > 0) AS num,
        sum((p.close - p.cmp)::bigint * p.list_shrs) FILTER (WHERE p.cmp IS NOT NULL AND p.list_shrs > 0 AND p.close - p.cmp > 0) AS den,
@@ -340,6 +366,7 @@ JOIN krx_px p ON p.trd_dd = d.trd_dd
 LEFT JOIN wise_sector_iv iv ON iv.tid = p.tid AND iv.valid_from <= GREATEST(d.prev_dd, f.s0)
                            AND (iv.valid_to IS NULL OR GREATEST(d.prev_dd, f.s0) < iv.valid_to)
 WHERE d.prev_dd IS NOT NULL AND (CASE p.market WHEN 'S' THEN 'KS' WHEN 'Q' THEN 'KQ' END) = ANY(%s)
+  AND NOT (COALESCE(iv.src = 'P', false) OR (iv.tid IS NULL AND p.tid IN (SELECT tid FROM code_pref)))
 GROUP BY d.dd, iv.sector_code, iv.sector, iv.industry_code, iv.industry
 ORDER BY d.dd
 """

@@ -478,7 +478,9 @@ async def build_quote_rank_payload(universe: str, sort: str = "", as_of: str = "
         warns.append(f"요청한 as_of {dd_req} 는 거래일이 아니거나 보관된 최신일보다 늦어 {dd} 로 답했습니다.")
     if dd != ul.as_of:
         warns.append(f"종목 구성은 최신 거래일({ul.as_of}) 기준으로 골랐고, 시세는 {dd} 값입니다(과거 날짜의 시총 순위로 다시 고르지 않습니다).")
-    if ul.excluded_pref:
+    if ul.excluded_pref and ul.sector is not None:        # 업종 문구(261023) — 우선주는 업종 구성에서 빠진다
+        warns.append(f"우선주 {ul.excluded_pref}종목은 업종 구성에서 뺐습니다 — 우선주는 업종·성과 분석 대상이 아니라 종목 코드로 부르는 개별 시세만 둡니다.")
+    elif ul.excluded_pref:
         warns.append(f"우선주 {ul.excluded_pref}종목은 순위에서 뺐습니다 — 같은 회사의 보통주가 순위에 있습니다.")
     if ul.notice:
         warns.append(ul.notice)
