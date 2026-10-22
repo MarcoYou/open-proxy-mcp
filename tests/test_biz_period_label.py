@@ -48,6 +48,30 @@ def test_real_mismatch_is_still_reported():
     assert sc["tie_out"].startswith("항목합≠합계행")
 
 
+_GROWTH_MD = ("| 부  문 | 매출액 | 비중 | 전년비 |\n|---|---|---|---|\n"
+              "| A | 600 | 60.0% | ▲5.0% |\n| B | 400 | 40.0% | ▲3.0% |\n"
+              "| 합 계 | 1,000 | 100.0% | |\n")
+
+
+def test_up_marker_is_not_negated_without_a_footnote():
+    """▲·▽ 는 표에 따라 증가·감소 표시(전년비 ▲5.0%)다 — 각주가 부(-)라고 밝히지 않으면 음수로 읽지 않는다(BP2)."""
+    sc = _mix_self_check(_GROWTH_MD)
+    assert sc["pct_sum"] is not None and sc["pct_sum"] > 0
+
+
+def test_up_marker_is_negated_when_a_footnote_says_so():
+    sc = _mix_self_check(_GROWTH_MD + "\n| ※ [▲는 부(-)의 값임] |\n|---|\n")
+    assert sc["pct_sum"] == -8.0
+    sc2 = _mix_self_check(_GROWTH_MD + "\n| ※ [△,▲는 부(-)의 값임] |\n|---|\n")
+    assert sc2["pct_sum"] == -8.0
+
+
+def test_triangle_is_negated_even_without_a_footnote():
+    md = "| 부 문 | 매출액 |\n|---|---|\n| A | 5,000 |\n| 기타 | △1,000 |\n| 합 계 | 4,000 |\n"
+    sc = _mix_self_check(md)
+    assert sc["item_sum"] == 4000.0 and sc["tie_out"] == "항목합≈합계행 일치"
+
+
 def _tbl(rows: list[list[str]]) -> str:
     trs = "".join("<TR>" + "".join(f"<TD>{c}</TD>" for c in r) + "</TR>" for r in rows)
     pad = "<TR><TD>" + " " * 1500 + "</TD></TR>"
@@ -87,12 +111,56 @@ def test_segment_period_notes_the_other_column_it_did_not_read():
     assert "누계 열의 값은 이 표에 없습니다" in d["note"]
 
 
-def test_segment_period_falls_back_to_report_kind_then_unknown():
-    assert segment_period(None, None, "사업보고서 (2025.12)")["label"] == "연간"
-    assert segment_period(None, None, "반기보고서 (2026.06)")["label"].startswith("반기 누계")
+def test_segment_period_report_kind_fallback_is_annual_only():
+    """보고서 종류 대체는 사업보고서(연간)에만 — 반기·분기 주석 표는 3개월·누적 열이 함께 있을 수 있어
+    표 머리를 못 읽었을 때 「반기 누계」로 단정하면 3개월 값에 누계 라벨이 붙는다(BP1)."""
+    a = segment_period(None, None, "사업보고서 (2025.12)")
+    assert a["label"] == "연간" and "원문 표에 기간 표기 없음" not in a["basis"]
+    h = segment_period(None, None, "반기보고서 (2026.06)")
+    assert h["label"] == UNKNOWN and h["basis"] == "미상"
+    assert "3개월·누적 열이 함께 있을 수 있어" in h["note"]
     q = segment_period(None, None, "분기보고서 (2026.03)")
     assert q["label"] == UNKNOWN and "1분기 3개월 또는 3분기 누계" in q["note"]
+    assert "3개월·누적 열이 함께 있을 수 있어" in q["note"]
     assert segment_period(None, None, None)["label"] == UNKNOWN
+
+
+# 기간 묶음 머리가 부문명 행 「위」에 있는 표 — 「당반기 3개월 | 당반기 누적」 아래에 부문명(BP1).
+_SEG_ROWS_PERIOD_ABOVE = [
+    ["(단위 : 백만원)", "", "", "", ""],
+    ["구분", "당반기 3개월", "당반기 3개월", "당반기 누적", "당반기 누적"],
+    ["구분", "A부문", "B부문", "A부문", "B부문"],
+    ["매출액", "100", "200", "250", "450"],
+    ["영업이익", "10", "20", "25", "45"],
+]
+
+
+def test_grid_reads_period_row_above_segment_name_row():
+    p = _parse_table(_tbl(_SEG_ROWS_PERIOD_ABOVE))
+    assert p is not None
+    assert [s["revenue"] for s in p["segments"]] == [100.0, 200.0]      # 값 선택은 종전 그대로(먼저 나오는 3개월 열)
+    assert p["period_label"] == "3개월"
+    assert p["period_columns"] == ["3개월", "3개월", "누계", "누계"]
+
+
+def test_period_above_header_is_not_mislabeled_as_cumulative():
+    """3개월 값에 반기 누계 라벨이 붙으면 안 된다 — 격자가 읽으면 3개월, 못 읽으면 기간 미상."""
+    p = _parse_table(_tbl(_SEG_ROWS_PERIOD_ABOVE))
+    d = segment_period(p["period_label"], p["period_columns"], "반기보고서 (2026.06)")
+    assert d["label"] == "분기 단독(3개월)" and d["basis"] == "원문 표 머리"
+    assert d["columns_in_source"] == ["3개월", "누계"]
+
+
+def test_text_path_half_report_without_period_label_is_unknown():
+    """격자 재판독이 실패해 텍스트 경로 SegmentProfit(period_label 빈 값)이 쓰여도 반기를 누계로 단정하지 않는다."""
+    sp = SegmentProfit(status=OK)
+    seg = {"status": OK, "items": []}
+    attach_segment_period(seg, sp, "반기보고서 (2026.06)")
+    assert seg["period"]["label"] == UNKNOWN
+    assert "3개월·누적 열이 함께 있을 수 있어" in seg["period"]["note"]
+    out = "\n".join(_seg_lines({"status": OK, "items": [{"name": "A", "revenue": 1.0, "profit": 1.0}],
+                               "unit": "백만원", "reconciliation": "x", "period": seg["period"]}, "###"))
+    assert "기간: 기간 미상" in out and "3개월·누적 열이" in out
 
 
 def test_attach_segment_period_only_on_ok_segment():

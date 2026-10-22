@@ -1242,17 +1242,31 @@ def _split_md_tables(md: str) -> list[list[str]]:
     return [t for t in tables if t]
 
 
-def _check_one_table(rows: list[str]) -> dict:
+# 「△는 부(-)의 값임」「△,▲는 부(-)의 값임」 같은 각주 — 어느 기호를 음수로 읽을지 밝힌다.
+_NEG_NOTE_RE = re.compile(
+    r"([△▲▽][△▲▽\s,·/、및과와]*)(?:는|은|:|=)?\s*(?:부\s*\(\s*[-－]\s*\)|음\s*\(\s*[-－]\s*\)|음수|마이너스)")
+
+
+def _negative_marks(md: str) -> str:
+    """음수로 읽을 기호. △ 는 국내 공시의 표준 음수 표기라 늘 포함, ▲·▽ 는 표에 따라 증가·감소 표시라
+    같은 구간의 각주가 부(-)라고 밝힐 때만 포함한다."""
+    marks = {"△"}
+    for m in _NEG_NOTE_RE.finditer(md or ""):
+        marks.update(ch for ch in m.group(1) if ch in "▲▽△")
+    return "".join(sorted(marks))
+
+
+def _check_one_table(rows: list[str], neg_marks: str = "△") -> dict:
     item_pcts, item_amts, total_amts = [], [], []
     for ln in rows:
         # 캡션행(단위·기준일)은 데이터가 아니다 — 「2025.12.31」이 금액으로 걷히면 합계가 흐려진다.
         if _UNIT_RE.search(ln) or "기준일" in ln:
             continue
         ln = re.sub(r"\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]?\s*\d{0,2}\s*일?", " ", ln)
-        # △·▲ 는 음수 표기다(원문 각주 「△는 부(-)의 값임」). 숫자 정규식은 부호를 모르므로 양수로 읽혀
-        # 「부문간 내부거래 제거 △271,085(△8.9%)」 같은 행이 비율합·항목합을 부풀렸다(삼성전자 2026 반기:
-        # 비율합 117.7%·항목합≠합계행 17.8% 는 거짓 불일치 — 부호를 지키면 99.9%·일치).
-        ln = re.sub(r"[△▲▽]\s*(?=\d)", "-", ln)
+        # △ 는 음수 표기다(국내 공시 표준, 원문 각주 「△는 부(-)의 값임」). 숫자 정규식은 부호를 모르므로 양수로
+        # 읽혀 「부문간 내부거래 제거 △271,085(△8.9%)」 같은 행이 비율합·항목합을 부풀렸다(삼성전자 2026 반기:
+        # 비율합 117.7%·항목합≠합계행 17.8% 는 거짓 불일치 — 부호를 지키면 99.9%·일치). ▲·▽ 는 각주가 있을 때만.
+        ln = re.sub(f"[{neg_marks}]\\s*(?=\\d)", "-", ln)
         cells = [c.strip() for c in ln.strip("|").split("|")]
         is_total = any(_TOTAL_CELL_RE.fullmatch(re.sub(r"\s+", "", c)) for c in cells)
         pcts = [float(p) for p in _PCT_RE.findall(ln)]
@@ -1291,7 +1305,8 @@ def _mix_self_check(md: str) -> dict:
     검산 대상은 '합계행을 가진 첫 표' — 없으면 첫 표. 구간에 표가 여럿이면 그 사실을 알린다.
     """
     tables = _split_md_tables(md)
-    checks = [_check_one_table(t) for t in tables]
+    neg = _negative_marks(md)
+    checks = [_check_one_table(t, neg) for t in tables]
     chosen = next((c for c in checks if c.get("declared_total") is not None),
                   next((c for c in checks if c.get("item_sum") or c.get("pct_sum")), None))
     out: dict = dict(chosen or {"pct_sum": None, "pct_sum_is_100": None,

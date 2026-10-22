@@ -8,7 +8,8 @@
 기간을 읽는 차례(앞이 이긴다):
   1. 원문 표 머리 — 열 머리의 「3개월」「누적/누계」「N개월」(부문표), 표 머리줄의 같은 말(제품별 표)
   2. 원문 문장 — 분기보고서 제품별 구간 문장의 「N분기」
-  3. 보고서 종류 — 사업보고서 = 연간, 반기보고서 = 반기 누계 (표에 기간 표기가 없을 때만, 근거를 밝힌다)
+  3. 보고서 종류 — 부문표는 사업보고서(연간)에만 쓴다. 반기·분기 주석 표는 3개월·누적 열이 함께 있을 수 있어
+     보고서 종류로 정하면 3개월 값에 누계 라벨이 붙는다. 제품별 표는 반기보고서도 반기 누계로 본다(근거를 밝힌다)
   4. 읽지 못하면 「기간 미상」 — 지어내지 않는다.
 """
 from __future__ import annotations
@@ -70,19 +71,25 @@ def _node(label: str, basis: str, report_nm: str | None, **extra) -> dict:
     return out
 
 
+_BASIS_REPORT_KIND = "보고서 종류(원문 표 머리에서 읽지 못함)"
+
+
 def from_report(report_nm: str | None) -> tuple[str, str] | None:
     """보고서 종류만으로 정해지는 기간. 분기보고서는 1분기·3분기를 가를 수 없어 None."""
     k = report_kind(report_nm)
     if k == "annual":
-        return "연간", "보고서 종류(원문 표에 기간 표기 없음)"
+        return "연간", _BASIS_REPORT_KIND
     if k == "half":
-        return "반기 누계(6개월)", "보고서 종류(원문 표에 기간 표기 없음)"
+        return "반기 누계(6개월)", _BASIS_REPORT_KIND
     return None
 
 
 def segment_period(period_label: str | None, period_columns: list[str] | None,
                    report_nm: str | None) -> dict:
-    """부문표(by_segment)의 기간. period_label = 격자가 읽은 열의 머리, period_columns = 표에 있는 기간 열 전체."""
+    """부문표(by_segment)의 기간. period_label = 격자가 읽은 열의 머리, period_columns = 표에 있는 기간 열 전체.
+
+    표 머리를 못 읽었을 때 보고서 종류로 정하는 것은 사업보고서(연간)뿐이다 — 반기·분기 주석 표는 3개월·누적 열을
+    함께 싣는 일이 흔해, 보고서 종류만으로는 어느 열을 읽었는지 알 수 없다."""
     cols = [c for c in (period_columns or []) if c]
     if period_label:
         extra: dict = {}
@@ -92,13 +99,12 @@ def segment_period(period_label: str | None, period_columns: list[str] | None,
             extra["note"] = (f"원문 표에는 {', '.join(dict.fromkeys(cols))} 열이 함께 있고 이 표의 값은 "
                              f"{period_label} 열입니다. {', '.join(others)} 열의 값은 이 표에 없습니다.")
         return _node(label_of(period_label), "원문 표 머리", report_nm, **extra)
-    fr = from_report(report_nm)
-    if fr:
-        return _node(fr[0], fr[1], report_nm)
-    return _node(UNKNOWN, "미상", report_nm,
-                 note="원문 표 머리에서 기간을 읽지 못했습니다. 분기보고서는 1분기 3개월 또는 3분기 누계일 수 있어 "
-                      "원문 표 머리를 확인하세요." if report_kind(report_nm) == "quarter" else
-                      "원문 표 머리에서 기간을 읽지 못했습니다. 원문 표 머리를 확인하세요.")
+    if report_kind(report_nm) == "annual":
+        return _node("연간", _BASIS_REPORT_KIND, report_nm)
+    note = "원문 표 머리에서 기간을 읽지 못했습니다. 3개월·누적 열이 함께 있을 수 있어 원문 표 머리를 확인하세요."
+    if report_kind(report_nm) == "quarter":
+        note += " 분기보고서는 1분기 3개월 또는 3분기 누계일 수 있습니다."
+    return _node(UNKNOWN, "미상", report_nm, note=note)
 
 
 def _head_rows(md: str) -> list[str]:
