@@ -2,7 +2,7 @@
 
   P  문법 읽기: 업종 표지가 있으면 업종 조회, 시장·상위 N·단계를 뽑고, 순위표 문법(「코스피 시총 상위 100」)·종목 나열·지수는 건드리지 않는다.
   R  이름 맞추기: 정확 → 별칭 → 부분 일치, 여럿이면 추측하지 않고 후보와 함께 되묻는다. 대분류·중분류에 이름이 같고 구성도 같을 때만 중분류로 푼다.
-  C  구성·비중: 합 100%, 누적, 상위 N 으로 잘라도 분모는 업종 전체, 시장을 고르면 분모도 그 시장, 우선주는 빼지 않고 표시, 미분류는 어디에도 안 넣고 밝힌다.
+  C  구성·비중: 합 100%, 누적, 상위 N 으로 잘라도 분모는 업종 전체, 시장을 고르면 분모도 그 시장, 우선주는 싣지 않고 분모는 보통주 합(261023 — 자세한 시험은 `test_pref_exclude.py`), 미분류는 어디에도 안 넣고 밝힌다.
   E  끝에서 끝까지(DB 읽기만 바꿔 끼움): 응답 모양·문장·md 표.
 Postgres 17 에서 시총 집계 표와 대조하는 시험은 `test_sector_universe_pg.py`.
 """
@@ -52,7 +52,7 @@ def rows_fixture():
         R("900050", "KS", 300, ENERGY_MAJOR, ENERGY), R("800040", "KQ", 10, ENERGY_MAJOR, ENERGY),
         R("900060", "KS", 20, STAPLE, FOOD1), R("900070", "KS", 25, STAPLE, FOOD2),
         R("900080", "KS", 15, COMM, TELE), R("900090", "KS", 12, IT, ELEC),
-        R("800099", "KQ", 7, None, None),                      # 미분류(신규 상장)
+        R("800090", "KQ", 7, None, None),                      # 미분류(신규 상장)
     ]
 
 
@@ -182,50 +182,48 @@ def test_resolve_ignores_one_character_partial_matches():
 
 def test_weights_sum_to_100_with_running_total_and_rank():
     r = compute("업종 반도체")
-    assert [x["ticker"] for x in r.rows] == ["900010", "900020", "900015", "800010"]
-    assert [x["rank"] for x in r.rows] == [1, 2, 3, 4]
-    assert sum(x["mktcap_krw"] for x in r.rows) == 950 == r.sector["cap_krw"]
-    assert r.rows[0]["weight_pct"] == round(600 / 950 * 100, 4)
+    assert [x["ticker"] for x in r.rows] == ["900010", "900020", "800010"]          # 우선주 900015 는 싣지 않는다
+    assert [x["rank"] for x in r.rows] == [1, 2, 3]
+    assert sum(x["mktcap_krw"] for x in r.rows) == 850 == r.sector["cap_krw"]
+    assert r.rows[0]["weight_pct"] == round(600 / 850 * 100, 4)
     assert abs(sum(x["weight_pct"] for x in r.rows) - 100) < 0.001
     assert r.rows[-1]["cum_weight_pct"] == 100.0
     assert r.rows[0]["name"] == "가나전자"
-    assert r.sector["n"] == 4 and r.sector["shown_weight_pct"] == 100.0 and r.sector["level"] == MID
+    assert r.sector["n"] == 3 and r.sector["shown_weight_pct"] == 100.0 and r.sector["level"] == MID
 
 
-def test_preferred_is_kept_flagged_and_named_from_the_common_stock():
+def test_preferred_is_left_out_and_counted_in_the_sector_block():
     r = compute("업종 반도체")
-    pref = next(x for x in r.rows if x["ticker"] == "900015")
-    assert pref["preferred"] is True and pref["issuer_ticker"] == "900010" and pref["name"] == "가나전자 우선주"
-    assert "preferred" not in next(x for x in r.rows if x["ticker"] == "900010")
-    assert r.sector["preferred_n"] == 1 and any("우선주 1종목이 들어 있다" in w for w in r.warnings)
-    # 우선주를 빼지 않으므로 업종 시총 합은 우선주 포함 합이다(시총 집계의 정의)
-    assert r.sector["cap_krw"] == 600 + 100 + 200 + 50
+    assert "900015" not in {x["ticker"] for x in r.rows} and not any(x.get("preferred") for x in r.rows)
+    assert r.sector["preferred_n"] == 1 and any("우선주 1종목(시총 100원)은 업종 구성에서 뺐다" in w for w in r.warnings)
+    # 업종 시총 합은 보통주 합이고, 우선주 몫을 더하면 시총 집계(scope="sector", 우선주 포함)의 정의가 된다
+    assert r.sector["cap_krw"] == 600 + 200 + 50 and r.sector["cap_incl_preferred_krw"] == 600 + 100 + 200 + 50
 
 
 def test_top_n_cuts_rows_but_keeps_the_denominator():
     r = compute("업종 반도체 상위 2")
     assert [x["ticker"] for x in r.rows] == ["900010", "900020"]
-    assert r.sector["cap_krw"] == 950 and r.sector["n"] == 4 and r.sector["n_shown"] == 2
-    assert r.rows[0]["weight_pct"] == round(600 / 950 * 100, 4)          # 분모는 업종 전체
-    assert r.sector["shown_weight_pct"] == round(800 / 950 * 100, 4) < 100
+    assert r.sector["cap_krw"] == 850 and r.sector["n"] == 3 and r.sector["n_shown"] == 2
+    assert r.rows[0]["weight_pct"] == round(600 / 850 * 100, 4)          # 분모는 업종 전체(보통주 합)
+    assert r.sector["shown_weight_pct"] == round(800 / 850 * 100, 4) < 100
     assert any("상위 2종목만" in w and "100% 에 못 미친" in w for w in r.warnings)
 
 
 def test_market_filter_changes_membership_and_denominator():
     ks = compute("코스피 반도체 업종")
-    assert {x["ticker"] for x in ks.rows} == {"900010", "900015", "900020"} and ks.sector["cap_krw"] == 900
+    assert {x["ticker"] for x in ks.rows} == {"900010", "900020"} and ks.sector["cap_krw"] == 800
     assert ks.sector["market"] == "KOSPI" and abs(sum(x["weight_pct"] for x in ks.rows) - 100) < 0.001
     kq = compute("코스닥 반도체 업종")
     assert [x["ticker"] for x in kq.rows] == ["800010"] and kq.rows[0]["weight_pct"] == 100.0
     # 시장 안의 업종 비중도 그 시장 시총이 분모
-    assert ks.sector["market_cap_krw"] == sum(r["mktcap"] for r in rows_fixture() if r["market"] == "KS")
+    assert ks.sector["market_cap_krw"] == sum(r["mktcap"] for r in rows_fixture() if r["market"] == "KS" and r["ticker"] != "900015")   # 우선주를 뺀 시장 시총
 
 
 def test_unclassified_is_never_put_in_a_sector_and_is_reported():
     r = compute("업종 반도체")
-    assert "800099" not in {x["ticker"] for x in r.rows}
+    assert "800090" not in {x["ticker"] for x in r.rows}
     u = r.sector["unclassified"]
-    assert u["n"] == 1 and u["cap_krw"] == 7 and u["top"][0]["ticker"] == "800099"
+    assert u["n"] == 1 and u["cap_krw"] == 7 and u["top"][0]["ticker"] == "800090"
     assert any("미분류 1종목" in w and "신규 상장" in w for w in r.warnings)
     assert compute("코스피 반도체 업종").sector["unclassified"]["n"] == 0        # 코스피에는 미분류가 없다
 
@@ -234,7 +232,7 @@ def test_major_level_carries_mid_names_and_children_weights():
     r = compute("대분류 IT")
     assert {x["mid"] for x in r.rows} == {SEMI[1], SOFT[1], ELEC[1]}
     ch = {c["code"]: c for c in r.sector["children"]}
-    assert ch["G4530"]["cap_krw"] == 950 and abs(sum(c["weight_pct"] for c in r.sector["children"]) - 100) < 0.001
+    assert ch["G4530"]["cap_krw"] == 850 and abs(sum(c["weight_pct"] for c in r.sector["children"]) - 100) < 0.001
     assert [c["code"] for c in r.sector["children"]][0] == "G4530"          # 시총 큰 순
 
 
@@ -338,7 +336,7 @@ def test_md_table_has_weights_and_hides_nothing(fake_db):
     assert md.startswith("# 대분류 IT — 구성 종목·시총 비중 (기준 20261020")
     assert "| 순위 | 종목 | 코드 | 시장 | 중분류 | 시가총액 | 비중 | 누적 | 종가 |" in md
     assert "## 중분류 구성" in md and "반도체와반도체장비" in md
-    assert "가나전자 우선주" in md
+    assert "가나전자 우선주" not in md and "우선주 1종목 제외" in md
     mid = asyncio.run(T.build_universe_payload("업종 반도체"))
     md_mid = tool._render_universe_sector(mid)
     assert "| 순위 | 종목 | 코드 | 시장 | 시가총액 | 비중 | 누적 | 종가 |" in md_mid and "## 중분류 구성" not in md_mid
@@ -355,5 +353,5 @@ def test_revision_screen_takes_the_same_sector_phrase_through_the_shared_univers
     monkeypatch.setattr(fe, "pg_rows", pg)
     p = asyncio.run(fe.build_revision_screen_payload("코스피 반도체 업종"))
     assert p["subject"].startswith("반도체와반도체장비(중분류) · KOSPI")
-    assert seen["params"][1] == ["900010", "900020", "900015"]              # 업종 구성 종목 코드(우선주 포함 — 추정이 없으면 표에서 빠진다)
+    assert seen["params"][1] == ["900010", "900020"]                        # 업종 구성 종목 코드(우선주는 빠진다 — 261023)
 

@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from open_proxy_mcp.dart.client import html_to_text
+from open_proxy_mcp.services.biz_period import attach_mix_period, attach_segment_period
 
 # ── 결측 3분류 ──
 NOT_APPLICABLE = "NOT_APPLICABLE"      # 구조적 부재(단일부문·폼 소절 부재) — 정상
@@ -158,6 +159,8 @@ class SegmentProfit:
     raw_value_counts: dict = field(default_factory=dict)
     cross_conflict: bool = False   # 본문표 vs 주석표 부문명 불일치(지주사류) → 신뢰불가, 후보반환
     selection_method: str = ""     # text_anchor | code:consolidated | code:separate — 구간을 어떻게 짚었나
+    period_label: str = ""         # 격자가 읽은 부문 열의 기간 말(「3개월」「누계」…). 못 읽으면 빈 문자열
+    period_columns: list = field(default_factory=list)   # 표에 있는 기간 열 전체(읽지 않은 열 포함)
 
 
 def find_segment_note_region(note_full_text: str) -> tuple[Optional[str], Optional[str]]:
@@ -1888,6 +1891,9 @@ async def build_business_details_payload(company_query: str, period: str = "late
                 na_code=sp.na_code)
             if _fb_warn:
                 warnings.append(_fb_warn)
+        # 정형 부문표에 기간(분기 단독·누계·연간)을 붙인다 — 반기·분기보고서의 주석 표는 「3개월」과 「누적」 열이
+        # 나란한데 이 표는 첫 열(3개월)을 읽는다. 읽은 열이 무엇인지 밝혀 제품별 표(반기 누계)와 맞춰 보게 한다.
+        attach_segment_period(segment, sp, rept.get("report_nm"))
 
     data = {
         "corp": {"name": corp.get("corp_name"), "corp_code": corp.get("corp_code"), "stock_code": corp.get("stock_code")},
@@ -1984,6 +1990,7 @@ async def build_business_details_payload(company_query: str, period: str = "late
         data["product_pricing"] = _bf.extract_product_pricing(_biz_t, _full_html, _full_region_index)
     if "revenue_mix_form" in want:
         data["revenue_mix_form"] = _bf.extract_revenue_mix_form(_biz_t, _full_html, _full_region_index, section_chars)
+        attach_mix_period(data["revenue_mix_form"], rept.get("report_nm"))
     # 폴백 체인이 다 끝난 뒤에 부재 사유를 판정한다 — 체인 도중에 상태를 바꾸면
     # NOT_COLLECTED 를 분기 신호로 쓰는 회수 경로(signal_paragraph 등)가 죽는다.
     for _k in ("sites", "utilization", "rnd", "backlog", "customers",

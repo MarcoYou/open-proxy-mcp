@@ -190,7 +190,7 @@ def issuer_ticker(code: str) -> str:
 
     KRX 단축코드의 끝자리는 주식 종류다 — 0 이 보통주, 그 밖(5·7·9·K·L·M …)은 같은 발행 회사의 종류주이고
     앞 5자가 발행 회사다(005935 삼성전자우 → 005930 · 005387 현대차2우B → 005380 · 00680K → 006800 미래에셋증권).
-    DART 회사 원장은 보통주 코드만 갖는다. 같은 규칙을 유니버스 순위표의 우선주 판정(`services/universe.is_preferred`)이 쓴다.
+    DART 회사 원장은 보통주 코드만 갖는다. 같은 규칙을 유니버스 순위표의 우선주 판정(`services/universe.is_preferred`)과, 업종 구성(`services/sector_universe`)·성과 분석 계산 벤치마크(`services/perf_data`)의 「분류가 없는 행」 판정이 쓴다.
     261018 실측: 최신 거래일 시세 2,762종목 중 원장에 없는 114종목이 전부 이 규칙으로 원장의 보통주에 닿았다."""
     c = krx_code(code)
     if not c or c[5] == "0":
