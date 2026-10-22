@@ -2,6 +2,13 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## 미배포 — 2026-10-23
+
+### 업종 구성·성과 분석 대상에서 우선주를 뺍니다
+
+- `trading_data(scope="universe")` 의 업종 구성(「반도체 업종」「중분류 …」「대분류 …」)은 우선주를 싣지 않습니다. 순위·비중·누적 비중·업종 시총·시장 몫의 분모는 보통주 시총 합이고, 뺀 우선주 수·시총은 경고와 `data.sector.preferred_n`·`preferred_cap_krw`·`cap_incl_preferred_krw`(새 칸)로 밝힙니다. 업종 구성의 시총 합은 `scope="sector"` 집계(우선주 포함)보다 우선주 몫만큼 작습니다.
+- `performance_analysis` 의 업종 대상·블렌드 구성요소와 계산 벤치마크 「코스피 전체」·「코스닥 전체」도 우선주를 뺍니다(attribution 기본 벤치마크 포함 — 해당 호출의 수익률·초과수익이 달라집니다). 종목 코드로 부르는 우선주 시세, 코드·바스켓으로 직접 지정한 우선주, 지수 구성종목, `scope="sector"` 집계는 그대로입니다.
+
 ## 미배포 — 2026-10-22
 
 ### 새 도구 `performance_analysis` — 수익률·위험·기여·업종 분해를 부를 때 계산합니다

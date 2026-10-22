@@ -8,7 +8,7 @@ related_disclosures: [대량보유상황보고서, 임원·주요주주특정증
 related_concepts: [최대주주, 특수관계인, 대주주, 동일인, 5%-대량보유, 자사주, 소액주주, 지분구조]
 related_decisions: []
 created: 2026-05-01
-updated: 2026-10-18
+updated: 2026-10-23
 ---
 
 # ownership_structure
@@ -65,7 +65,13 @@ scope:
               "purpose": "경영참여", "report_date": "...",
               "rcept_no": "..."}],
   "treasury": {"issued_shares": N, "treasury_shares": N,
-               "treasury_pct": 0.0},
+               "treasury_pct": 0.0,
+               "basis": {"rcept_no": "...", "stlm_dt": "...", "bsns_year": "...",
+                         "stock_class": "보통주", "common_only": true}},
+  "share_basis": {"issued_shares": N, "rcept_no": "...", "stlm_dt": "...",
+                  "comparison": "same|differs|unit_changed|past_year|mixed_class|listed_unavailable",
+                  "listed": {"shares": N, "price_dd": "YYYYMMDD"},
+                  "diff_shares": N, "diff_pct": 0.0},
   "control_map": {"core_holder_block": {...}, "treasury_block": {...},
                   "active_non_overlap_blocks": [...],
                   "overlap_blocks": [...], "flags": {...},
@@ -81,12 +87,14 @@ scope:
 핵심 필드:
 - `flags`: `registry_majority` (50%+), `registry_over_30pct`, `treasury_over_5pct`
 - `block_camps`: 5% 보고 합산 — `camps[]`(겹치는 보고자 편별 `net_pct`) · `overlap_found` · `net_total_pct` · `report_bases[]`(기준 주식총수 = 보유주식수÷지분율 묶음 — `implied_total_shares`·`reporters`·`report_dates`·`rcept_nos`) · `over_100_note`(100% 초과 때 찾은 까닭만; 겹침이 없으면 겹침이라 하지 않는다)
+- `share_basis`(summary): 100% 분해 표의 **분모**(정기보고서 보통주 발행주식총수)가 어느 보고서·어느 결산기준일 값인지(`rcept_no`·`stlm_dt`·`bsns_year`·`stock_class`)와 최신 상장주식수(KRX 일별 시세 `price_latest` 보통주 코드 한 줄, DART·KRX 0콜)와의 대조. `comparison` — `same`(같음: 표는 그대로, 분모 출처 줄만) · `differs`(조금 다름, |`diff_pct`| ≤ 20%: 두 값·`diff_shares`(= 보고서 − 상장)·`diff_pct`(상장주식수 대비)를 적고 「지분율(최신 상장주식수 기준)」 칸을 덧붙임. 보유주식수·자사주는 보고서 기준일 수치 그대로라 그 뒤 소각·증자는 반영되지 않는다. 명부+자사주가 상장주식수를 넘으면 칸을 붙이지 않고 그 사실을 적는다) · `unit_changed`(크게 다름, |`diff_pct`| > 20%: 액면분할·병합(DATA-PX3) 등으로 주식 수 단위가 달라졌을 수 있다 — 보유주식수는 그 전 단위, 상장주식수는 그 뒤 단위라 나누면 터무니없는 값이 나오므로 두 값과 차이만 적고 상장주식수 기준 지분율은 계산하지 않음) · `past_year`(`year`·`as_of_date` 로 과거 사업연도를 물음: 오늘의 상장주식수와 시점이 달라 비교하지 않고 분모 출처 줄만) · `mixed_class`(합계 행에서 우선주만 뺐는데 다른 종류 행이 있어 보통주만이라 장담 못 함 → 보통주 상장주식수와 섞어 비교하지 않음) · `listed_unavailable`(상장주식수를 못 읽음 → 비교 생략)
 - `active_signal_count`: 5% 대량보유 + 경영참여 목적 신호 수 (분쟁 조기 경보)
 - `change_filings[]`: `status`(parsed·partial·unrecognized) · `reports[]`(보고 묶음 — `group` 「변경전/변경후 최대주주등」, `overview.before/after/delta` 의 `shares`·`pct`·`filed_on`, `individual_changes[]` 의 `name`·`relation`·`holder_kind`·`changes`, `total_holders[]` 의 `name`·`relation`·`holder_kind`·`common_*`·`total_*`, `total`) · `unread`(못 읽은 표 번호·절 제목) · `notes` · `profile_omitted` · `source`(dart_api·kind_scraping)
 - `control_events[]`: `kind`(change·transfer_contract·pledge_contract·pledge_release·transfer_release) · `fields`(서식별 칸, **원문 글자 그대로**) · `notes` · `related` · `rows`(찾은 줄 원문) · `holders`(변경 전후 보유 현황 표) · `pledges`·`pledge_conditions` · `comparison`(해소 전후) · `amendment`(정정이면 정정 비교표) · `profile_omitted`
 
 ## Data sources
 - **DART API**: 사업보고서 (대주주 `hyslrSttus`, 지분 `stkSttus`, 자사주 `tesstkAcqsDspsSttus`), `majorstock` (5% 대량보유 목록), `document.xml` (5% 보유목적 보강)
+- **운영 DB `price_latest`**(KRX 일별 시세 최신 한 줄): summary 100% 분해 표의 분모와 대조하는 최신 상장주식수만(DART·KRX 호출 0, DB 한 줄 읽기). 못 읽어도 표는 그대로.
 - **KIND**: 미사용 (false match 위험) — 단, `changes` 의 변동신고서 원문이 DART 에서 빌 때만 폴백(같은 서식, 2026-10-18 실측)
 - 외부 호출: scope별 3-9회, 대주주 reprt 폴백·5% 블록 문서 보강 시 최대 12회 (asyncio.gather 병렬)
 
@@ -222,3 +230,4 @@ sequenceDiagram
 - 2026-10-18: 변동신고서(`change_filings`)를 칸 머리 이름으로 다시 씀 — 보고 묶음(`reports`)별 개요·개인별 변동·총괄현황, 인적사항(생년월일 등) 제외, 못 읽은 표는 `unread`. 위치 파서가 보고일자를 주식수로, 개인 생년월일을 보유주식 자리로 내던 것(도입 때부터).
 - 2026-10-18: `control_events` md 의 정정 줄에서 항목 이름의 원문 줄바꿈을 ` / ` 로(줄이 깨지던 것). json 은 그대로.
 - 2026-10-18: 5% 블록 「100% 초과」 유의사항이 찾은 까닭만 말함(`block_camps.over_100_note`) — 겹침은 겹치는 보고자를 찾았을 때만, 아니면 보고별 기준 주식총수 묶음(`report_bases`). 같은 날 두 번 낸 5% 보고는 접수번호가 늦은 것을 최신으로(두 경로). STX 「199.86% … 한 번만 세면 199.86%」 — 신한은행 옛 5.81% 가 남고, 겹침이 없는데 겹침이라 했던 것.
+- 2026-10-22: summary 100% 분해 표에 **분모 출처**(어느 정기보고서·접수번호·결산기준일)를 적고, 최신 상장주식수(KRX `price_latest`)와 다르면 두 값과 차이·「지분율(최신 상장주식수 기준)」 칸을 덧붙임(`share_basis`). 삼성전자 발행주식총수 5,919,637,922 대 상장주식수 5,846,278,608(차이 73,359,314)이 표에 아무 말 없이 갈려 있던 것. 분모가 보통주만이라 장담 못 하면 섞어 비교하지 않음. 차이가 20%를 넘으면(분할·병합 등 주식 수 단위 변화 가능, `comparison=unit_changed`) 상장주식수 기준 지분율 칸은 붙이지 않고 두 값과 차이만 적으며, 과거 사업연도 조회(`comparison=past_year`)는 오늘의 상장주식수와 비교하지 않는다. 새 키만 더하고 기존 키는 그대로.
