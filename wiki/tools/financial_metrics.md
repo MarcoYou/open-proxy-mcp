@@ -9,7 +9,7 @@ related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석,
 related_decisions: [open-proxy-guideline]
 
 created: 2026-05-01
-updated: 2026-10-21
+updated: 2026-10-23
 ---
 
 # financial_metrics

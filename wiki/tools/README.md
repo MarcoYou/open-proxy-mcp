@@ -1,7 +1,7 @@
 ---
 type: readme
 title: tools/ — 도구 카탈로그
-updated: 2026-10-18
+updated: 2026-10-23
 ---
 
 # 도구(Tool) 카탈로그
@@ -29,7 +29,7 @@ updated: 2026-10-18
 ### 🔔 공시 스캔 · 검토
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [screener](screener.md) | 전체시장 공시 스크리너 / **아침 공시 디제스트** — 직전 실행 이후 뜬 주요 공시를 카드형(시총·유형·단계·정정·분모%·링크)으로. scan(싸게)+details(필요 건만 숫자) · **흐름 보기**(`view="흐름"`) — 밤마다 쌓는 공시 원장으로 업종 대분류·중분류별 새 공시를 직전 13주 평소와 비교(DART 0콜) |
+| [screener](screener.md) | 전체시장 공시 스크리너 / **아침 공시 디제스트** — 직전 실행 이후 뜬 주요 공시를 카드형(시총·유형·단계·정정·분모%·링크)으로. scan(싸게)+details(필요 건만 숫자) · **흐름 보기**(`view="흐름"`) — 밤마다 쌓는 공시 원장으로 업종 대분류·중분류별 새 공시를 직전 13주 평소와 비교(DART 0콜). 같은 결의의 배당 결정·배당 전용 기준일 공시는 카드 한 장으로 묶고, 자회사 공시는 표시(`subsidiary_matter`)하며, 유니버스 200종목 이하·기간 7일 이하면 상세(`details`)를 자동으로 켬 |
 | [governance_screen](governance_screen.md) | **지정 기업 거버넌스 검토 파일럿** — 최대 30개사 공시 원문을 호출 LLM이 판독하고 근거·중요도별 검토 순서 반환. 사람 미검토·부분 근거 표시. 누락 항목은 건너뛰고 계속. `since`·`known_receipts` 증분 조회는 호출자가 실행하며 예약 작업·실제 투표 없음 |
 
 ### 🗳️ 주주총회 · 의결권
@@ -43,23 +43,23 @@ updated: 2026-10-18
 ### 💰 지분 · 재무 · 지배구조
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [ownership_structure](ownership_structure.md) | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주 |
-| [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 (정기보고서 **확정치**) |
+| [ownership_structure](ownership_structure.md) | 지분 구조 — 최대주주·특수관계인·5% 대량보유·자사주. 100% 분해 표 아래에 분모(정기보고서 보통주 발행주식총수)의 출처(접수번호·결산기준일)와 최신 상장주식수 대조를 적음 |
+| [financial_metrics](financial_metrics.md) | 재무 지표 — 수익성·안정성·현금흐름·회계 리스크 (정기보고서 **확정치**). 분기 표에서 순이익이 영업이익의 1.3배를 넘으면 영업외손익·법인세 설명 줄을 붙이고, `accounts` 의 `sj_div=["IS"]` 는 단일 포괄손익계산서로 공시하는 회사에서 포괄손익계산서(CIS) 행으로 대체해 알림 |
 | [provisional_earnings](provisional_earnings.md) | **영업(잠정)실적**(I002 공정공시) — 분기 잠정 매출·영업이익·순이익+YoY. 정기보고서보다 먼저 나오는 가장 빠른 실적. table_markdown primary + headline best-effort. 자동차 판매대수·조선 수주 등 비재무형도 커버. screener 연동 |
-| [business_details](business_details.md) | **"II.사업의 내용" 11필드**: 사업부문별 매출·영업이익 + **사업장·가동률·연구개발·수주·고객·원재료·제품가격** + **D-트랙(금융/REIT): 영업현황·재무건전성·투자부동산**(KSIC 게이트). segments 정형→저신뢰 시 원문 마크다운, 나머지는 **markdown-primary**. `period=latest` 기본(사업·반기·분기 중 최신), `bsns_year`+`reprt_code`로 특정 과거 시점 조회(시계열은 반복 호출). KOSPI500 census 검증(사업의내용_ksic별양식) |
+| [business_details](business_details.md) | **"II.사업의 내용" 11필드**: 사업부문별 매출·영업이익 + **사업장·가동률·연구개발·수주·고객·원재료·제품가격** + **D-트랙(금융/REIT): 영업현황·재무건전성·투자부동산**(KSIC 게이트). segments 정형→저신뢰 시 원문 마크다운, 나머지는 **markdown-primary**. `period=latest` 기본(사업·반기·분기 중 최신), `bsns_year`+`reprt_code`로 특정 과거 시점 조회(시계열은 반복 호출). 매출 부문표·제품별 표에는 값의 **기간**(분기 단독·누계·연간·기간 미상)을 표기. KOSPI500 census 검증(사업의내용_ksic별양식) |
 | [asset_holdings](asset_holdings.md) | **자산주·NAV 스크리닝** — 보유 자산(현금성·투자부동산·지분증권·관계기업) 티어 + **상장지분 시가마크** + 시총 대비 잉여자산/지분NAV 배수. "시총보다 보유 자산이 값진가"에 답함 |
 | [price_multiple_data](price_multiple_data.md) | 상대가치 **배수** — PER·PBR·배당수익률, 기업·시장·섹터 시계열, 시장·섹터 선행 PER·PBR (구 `valuation`) |
 | [forward_estimates_data](forward_estimates_data.md) | **컨센서스 포워드 추정치** — 내년·내후년 예상 매출·영업이익·EPS·PER/PBR/PSR·성장률 + 대조용 최근 실적. 애널리스트 추정 스냅샷(`fwd`), DART 아님. 커버리지 735/2,648종목(2026-10-17 스냅샷) · 유니버스 리비전 스크린(`universe=`, `window=1w·4w·12w·26w·52w`) · 리비전 이력 DB 52주(구간형 저장 뒤) |
-| [trading_data](trading_data.md) | 거래·**규모** — 주가·시총·상장주식수 시계열, 시장·섹터 시총 집계, 단일시점 시세(OHLC·거래량), 시총 순위 목록(`scope="universe"`) |
-| [performance_analysis](performance_analysis.md) | **성과 분석** — 종목·업종·순위·바스켓·블렌드의 수익률·변동성·낙폭·샤프, 벤치마크 대비 초과수익·베타·알파, 종목·업종 **기여 분해**와 업종 **Brinson 분해**를 부를 때 계산(가격 또는 세전 총수익, DART·KRX·ECOS 0콜) |
+| [trading_data](trading_data.md) | 거래·**규모** — 주가·시총·상장주식수 시계열, 시장·섹터 시총 집계, 단일시점 시세(OHLC·거래량), 시총 순위 목록(`scope="universe"`), **공식 지수**(`scope="index"` — 코스피 등의 최신 포인트·전일 대비·1주~1년 수익률), **국고채 1년 금리**(`scope="rate"`), **여러 종목 시세 순위표**(`scope="quote"` + `universe` — 등락률·거래대금·거래량 정렬, 52주 고가·저가·신고가). 업종 구성은 우선주를 뺀 보통주 기준 |
+| [performance_analysis](performance_analysis.md) | **성과 분석** — 종목·업종·순위·바스켓·블렌드와 **공식 지수 자체**(`target="코스피"`·`"지수:코스피 200"` — 지수 수익률·변동성·최대낙폭·샤프·시작·끝 지수 포인트)의 수익률·변동성·낙폭·샤프, 벤치마크 대비 초과수익·베타·알파(벤치마크의 변동성·낙폭·샤프·지수 포인트도 함께, 이력이 짧으면 **겹친 기간**으로 표기), 종목·업종 **기여 분해**와 업종 **Brinson 분해**를 부를 때 계산(가격 또는 세전 총수익, DART·KRX·ECOS 0콜). 업종 대상·「코스피 전체」 같은 계산 벤치마크는 우선주를 뺀 보통주 기준 |
 | [corp_gov_report](corp_gov_report.md) | 기업지배구조보고서 — 15개 핵심지표 준수 여부 + 서식 표 11종(이사회 구성·출석률·겸직·안건별 찬반) |
 | [director_board](director_board.md) | 이사회/개별 이사 — 인당보수·보수한도 소진율·재직/사퇴 변동·개별보수·미등기·이사회 출석률·원문 각주 해소·보수 산정기준(pay_criteria, 정형API 하이브리드 검증) |
 
 ### 🎁 주주환원 · 자본
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [dividend_disclosure](dividend_disclosure.md) | 배당 **공시 원문** — 배당금·총액·배당성향·추이 (실시간) |
-| [dividend_data](dividend_data.md) | 확정 배당 시계열·조건 스크리닝·시장/섹터 집계 — DART 정기보고서 전수 수집본(코스피 828사 × FY2020~2025) + 결정공시 횟수 집계(FY2020~2024) |
+| [dividend_disclosure](dividend_disclosure.md) | 배당 **공시 원문** — 배당금·총액·배당성향·추이 (실시간). 분기배당은 결정공시 표와 누적차분 표가 같은 귀속 분기(기준일 당일 또는 그 이전에 끝난 가장 최근 회계 분기)로 적고, 앞 보고서가 비면 한 분기로 적지 않고 합산으로 표시 |
+| [dividend_data](dividend_data.md) | 확정 배당 시계열·조건 스크리닝·시장/섹터 집계 — DART 정기보고서 전수 수집본(코스피 약 830사 × FY2020~, 매주 갱신) + 결정공시 횟수 집계(코스피·온전한 해만). 스크리닝은 **현재가 기준 배당수익률**(`min_yield`·`sort=yield`, 표에 기준 주가일) 거르기·정렬 지원 |
 | [treasury_share](treasury_share.md) | 자기주식 — 취득·처분·소각·신탁 |
 | [value_up](value_up.md) | 기업가치 제고(밸류업) 계획과 이행 현황 |
 | [shareholder_commitment](shareholder_commitment.md) | 밸류업·배당·소각 **약속 vs 실제 이행** 추적 (연중 스튜어드십) — 자사주소각 장부가 손익 계산 |
@@ -199,6 +199,7 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 
 ## 변경 이력
 
+- 2026-10-23: 10-22~23 병합분을 카탈로그 행에 반영 — `trading_data`(공식 지수·금리·시세 순위표·업종 구성 우선주 제외), `performance_analysis`(지수 target·벤치마크 위험지표·겹친 기간), `dividend_data`(현재가 기준 수익률 스크린), `dividend_disclosure`(분기배당 귀속 분기), `screener`(배당 짝 묶기·작은 유니버스 상세 자동), `ownership_structure`(분모 출처), `business_details`(부문표 기간), `financial_metrics`(순이익>영업이익 설명 줄·단일 포괄손익계산서). `dividend_data` 의 결정공시 횟수 범위 문구는 도구 페이지와 맞춤.
 - 2026-09-09: `governance_screen` 파일럿 추가(32개 도구, action 4개). 지정 기업 최대 30개사의 원문에 연결된 LLM 판독과 검토 순서, 누락 항목·부분 근거·사람 미검토 표시. 공개매수·행동주의·소송의 존재만으로 부정 판단하지 않으며 증분 조회와 예약 실행을 구분한다.
 - 2026-09-04: **도구 목록 정본을 이 표 하나로** — `wiki_index.md` Tools 절·`guide/architecture.md` 도구표는 링크로 대체, 루트 README 표는 이 표의 분류를 따른다. 상단(사람용)/하단(개발자용) 경계에 「여기서 멈춰도 됩니다」 구분선.
 - 2026-05-01: 초기 tool 페이지 일괄 작성 + financial_metrics 신규

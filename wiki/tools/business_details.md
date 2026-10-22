@@ -8,7 +8,7 @@ related_disclosures: [사업보고서, 분기보고서, 반기보고서]
 related_concepts: []
 related_decisions: [260717_1220_decision_business-content-tool-roadmap, XML-vs-PDF, ksic-sector-mapping]
 created: 2026-07-18
-updated: 2026-10-18
+updated: 2026-10-23
 ---
 
 # business_details
