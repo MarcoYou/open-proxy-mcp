@@ -371,9 +371,9 @@ def test_financial_metrics_failure_is_not_absent(monkeypatch, dart_answers, stat
         md = _render(p)
         assert "일부 공시를 읽지 못했습니다" not in md        # 공시가 없는 해는 「읽기 실패」가 아니다
         assert not any("reprt_code=" in w or "no_filing" in w for w in p["warnings"]), p["warnings"]
-        assert FM._fm_cache_get(("에이치디현대미포", "summary", 2026, 3, True)) is not None  # 양성 대조 — 「없음」 답은 캐시된다
+        assert FM._fm_cache_get(("에이치디현대미포", "summary", 2026, 3, True, ())) is not None  # 양성 대조 — 「없음」 답은 캐시된다
     else:
-        assert FM._fm_cache_get(("에이치디현대미포", "summary", 2026, 3, True)) is None   # 실패 응답은 5분 캐시에 굳히지 않는다
+        assert FM._fm_cache_get(("에이치디현대미포", "summary", 2026, 3, True, ())) is None   # 실패 응답은 5분 캐시에 굳히지 않는다
 
 
 # ═════════════════════════════════════════════════════════════════════════════════════════════════

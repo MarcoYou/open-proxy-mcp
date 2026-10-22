@@ -560,6 +560,11 @@ def _render_accounts(data: dict[str, Any]) -> list[str]:
     acc = data.get("accounts") or {}
     rows = acc.get("rows") or []
     if not rows:
+        present = acc.get("sj_div_present") or []
+        if present:
+            # 받은 보고서에는 계정이 있었고 sj_div 필터가 다 걸러낸 0행이다 — 「받지 못했다」(자료 없음)로 읽히지 않게 구성을 말한다.
+            return [f"_요청한 sj_div 에 해당하는 계정 행이 없습니다 — 이 보고서의 구성: {'·'.join(present)} "
+                    "(sj_div 를 빼면 전체 행을 받는다)._"]
         return ["_계정 원행을 받지 못했습니다._"]
     # 서비스가 담는 키는 `functional_currency` 다(`currency` 로 읽으면 비KRW 회사에서
     # 100% 「단위: 원」 오라벨 — 원행을 그대로 준다는 이 scope 의 취지를 정면으로 깬다).
