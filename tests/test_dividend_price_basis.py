@@ -151,7 +151,7 @@ def test_reit_dividend_reset_with_unchanged_share_count_says_so(monkeypatch):
         if sql.startswith(EV_SQL):
             return [_ev("20260828", 0.209515, None, "unlabeled", 10930, 2290)]
         if sql.startswith(SHARES_SQL):
-            return [(40_400_000, [40_400_000] * 7, 40_400_000)]
+            return [(0, 40_400_000, [40_400_000] * 7, 40_400_000)]
         return None
     p, _ = _run_live(monkeypatch, alot={2025: _items(("2025-05-31", "80", "3,232", "20250813000001"), ("2025-08-31", "72", "2,909", "20251113000001"),
                                                      ("2025-11-30", "94", "3,798", "20260213000001")),
@@ -329,7 +329,7 @@ def test_unlabeled_merge_with_matching_share_count_is_treated_as_a_merge():
     assert b["periods"] == [("20251231", 30)] and b["adjusted"] == [] and len(b["price_events"]) == 1
 
 
-SHARES_SQL = "SELECT (SELECT list_shrs FROM krx_weekly"
+SHARES_SQL = "SELECT e.i,"      # 앞뒤 상장주식 수 묶음 읽기(질의 하나, 행 = (순번, 앞 마지막 주, [뒤 주…], 최신)) — `_SHARES_AROUND_BATCH_SQL`
 
 
 def test_unlabeled_merge_reads_listed_shares_in_the_firm_path(monkeypatch):
@@ -341,12 +341,12 @@ def test_unlabeled_merge_reads_listed_shares_in_the_firm_path(monkeypatch):
             return [_ev("20260910", 2.0, "merge", "unlabeled", 1000, 2000)]
         if sql.startswith(SHARES_SQL):
             seen.append(params)
-            return [(80_467_700, [40_233_850, 40_233_850, 40_233_850, 40_233_850, 40_233_850], 40_233_850)]
+            return [(0, 80_467_700, [40_233_850, 40_233_850, 40_233_850, 40_233_850, 40_233_850], 40_233_850)]
         return None
     p, _ = _run_live(monkeypatch, alot={2025: _items(("2025-12-31", "50", "4,000", "20260310000123"))}, induty="85503",
                      price=1874, db_rows=rows)
     i = p["data"]["inputs"]
-    assert seen == [("330590", "20260910", "330590", "20260910", "20261112", "330590", "20261112")]
+    assert seen == [(["330590"], ["20260910"], ["20261112"], [0])]
     assert i["dps_krw"] == 100 and p["data"]["multiples"]["dividend_yield_pct"] == round(100 / 1874 * 100, 2)
     assert "price_basis_events" not in i
 
@@ -405,8 +405,8 @@ def test_bonus_listed_in_the_open_week_is_read_from_the_daily_store(monkeypatch)
         if sql.startswith(EV_SQL):
             return [_ev("20260924", 0.5, None, "unlabeled", 4000, 2000)]
         if sql.startswith(SHARES_SQL):
-            assert params[-1] == "20261126"
-            return [(10_000_000, [10_000_000, 10_000_000, 10_000_000], 20_000_000)]
+            assert params[2] == ["20261126"]
+            return [(0, 10_000_000, [10_000_000, 10_000_000, 10_000_000], 20_000_000)]
         return None
     p, _ = _run_live(monkeypatch, alot={2025: _items(("2025-12-31", "100", "1,000", "20260310000123"))}, induty="26110",
                      price=2000, db_rows=rows)

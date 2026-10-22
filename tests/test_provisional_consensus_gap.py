@@ -116,16 +116,15 @@ def test_fetch_passes_dates_and_reads_reach(monkeypatch):
 
     def fake(sql, params=()):
         seen.append((sql, params))
-        if "EXISTS" in sql:
-            return [(True,)]
-        return [tuple(r[c] for c in fe._GAP_COLS) for r in SAMSUNG]
+        # 스냅샷 행(k=0)과 「이력이 닿나」(k=1, 마지막 칸 EXISTS)를 한 질의로 읽는다(UNION ALL)
+        return [(0, *(r[c] for c in fe._GAP_COLS), None) for r in SAMSUNG] + [(1, *([None] * len(fe._GAP_COLS)), True)]
 
     monkeypatch.setattr(fe, "pg_rows", fake)
     g = fe.quarter_consensus_gap("005930", "2026-09-30", "20261008", SAMSUNG_ACTUAL, True)
     assert g["status"] == "ok" and g["as_of"] == "2026-09-26"
-    assert seen[0][1] == ("005930", dt.date(2026, 9, 30), 364)          # 창 안만(52주 + 기준일)
-    assert "period_type='Q'" in seen[0][0]
-    assert seen[1][1] == (dt.date(2026, 10, 8), 364)
+    assert len(seen) == 1                                               # 질의 하나(UNION ALL)
+    assert seen[0][1] == ("005930", dt.date(2026, 9, 30), 364, dt.date(2026, 10, 8), 364)  # 창 안만(52주 + 기준일)
+    assert "period_type='Q'" in seen[0][0] and "UNION ALL" in seen[0][0]
 
 
 # ── 지표 칸 ───────────────────────────────────────────────────────────────────

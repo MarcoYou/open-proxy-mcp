@@ -16,6 +16,9 @@ _DIGIT_CAP = 16  # KRW 절대값 16자리(1000조) 초과는 물리적으로 불
 _POWER_TOLERANCE = 0.20  # 배수점프가 10^n에 ±20% 이내로 근접하면 단위오류로 판정
 _MKTCAP_RATIO_CAP = 50.0  # |값| / 시가총액 > 50배 → 의심(중신뢰, 20개사 실측 최대 1.56배 확인)
 _MARKET_MAX_FACTOR = 3.0  # |값| / 시장내 실측 최댓값 > 3배 → 물리적으로 불가능(260704 시나리오 검증)
+# DATA-SC5: 시장 상대 상한(위)은 **혼자서는 hard 가 아니다.** 고정 앵커는 새 최대 실적 보고서(FY2026E 삼성전자 303.64조 = 앵커의 6.9배)에서 먼저 울리므로
+# 시총 대비 이 배수를 넘거나(20개사 실측 최대 1.56배의 3배 남짓 — 순이익이 시총의 5배면 PER 0.2 라 정상 값이 아니다) 전기 대비 10ⁿ 점프가 함께 있어야 hard 다.
+_MKTCAP_CORROBORATE_RATIO = 5.0
 
 # 시장 내 실측 순이익 최댓값(삼성전자 FY2025 확인치, 260704) — market_relative_cap의 검증된 앵커.
 # DB의 살아있는 MAX() 값으로 동적 확장 금지: 이미 소프트센류 오염값이 섞여있으면 그 오염값 자체가
@@ -404,6 +407,16 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
         "balance_identity": bal,
         "market_relative_cap" if market_max else "digit_cap": hard_scale_check,
     }
+    # DATA-SC5: 시장 상대 상한이 걸렸어도 시총을 알고, 시총 대비가 정상 범위이고, 전기 대비 10ⁿ 점프도 없으면 새 최대 실적이지 단위 오류가 아니다 → soft.
+    #   시총을 모르면 단서가 없어 종전대로 hard(소프트센 032680 FY2022 1.07×10^16 은 시총 대비 수만 배라 그대로 hard).
+    capped_soft = None
+    if market_max and hard_scale_check.get("triggered") and mktcap:
+        corroborated = (check_mktcap_ratio(thstrm, mktcap, _MKTCAP_CORROBORATE_RATIO).get("triggered")
+                        or check_magnitude_jump(thstrm, frmtrm).get("triggered"))
+        if not corroborated:
+            capped_soft = {"triggered": True, "ratio": hard_scale_check.get("ratio"),
+                           "mktcap_ratio": abs(thstrm) / mktcap}
+            hard["market_relative_cap"] = {"triggered": False, "uncorroborated": True, "ratio": hard_scale_check.get("ratio")}
     # 260829: 자릿수 상한이 **순이익에만** 걸려 있었다. 자본은 아무도 안 봤다 —
     #   소노스퀘어 2024Q3 자본 112,400조(18자리)가 그대로 통과했다. 자본도 본다.
     if equity is not None:
@@ -432,6 +445,8 @@ def assess(*, thstrm=None, frmtrm=None, assets=None, liabilities=None, equity=No
         "balance_identity_mismatch": {"triggered": bool(bal.get("mismatch") and not bal.get("triggered")),
                                       "diff_pct": bal.get("diff_pct"), "ratio": bal.get("ratio")},
     }
+    if capped_soft:
+        soft["market_relative_cap_uncorroborated"] = capped_soft
     if xr_status == "fixed":
         soft["cross_report_scale_fixed"] = {"triggered": True, "divisors": dict(cross_report.get("divisors") or {}),
                                             "method": cross_report.get("method")}

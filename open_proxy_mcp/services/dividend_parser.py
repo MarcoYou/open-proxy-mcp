@@ -6,6 +6,7 @@ import re
 DIVIDEND_KEYWORDS = (
     "현금ㆍ현물배당결정",
     "현금배당결정",
+    "부동산투자회사금전배당결정",   # 리츠 결산기 배당 서식(DATA-DIV1) — 서식이 달라 본문은 `_parse_reit_decision` 이 읽는다
     "분기ㆍ중간배당결정",
     "주식배당결정",
     "현금ㆍ현물배당을위한주주명부폐쇄",
@@ -121,7 +122,11 @@ def _iso_date(match: re.Match | None, first_group: int = 1) -> str | None:
 # 본문 머리는 서식 이름부터 잡는다 — 표에도 「1. 배당구분」 행이 있을 수 있다(한온시스템 20210209800389: 분기배당 → 결산배당).
 _BODY_HEAD_RE = re.compile(
     r"(?:현금\s*ㆍ?\s*현물\s*배당|주식\s*배당|분기\s*ㆍ?\s*중간\s*배당)\s*결정\s*1\.\s*배당구분"
+    r"|부동산투자회사\s*금전\s*배당\s*결정\s*1\.\s*배당금\s*총액"       # 리츠 서식 — 본문이 「1. 배당금총액」으로 시작한다(DATA-DIV1)
 )
+# 리츠 결산기 배당 서식(「부동산투자회사금전배당결정」) — 번호가 다르다: 1 배당금총액 · 2 1주당 배당금 · 3 시가배당률 · 4 배당기준일 · 5 지급예정일 ·
+#   6 주주총회 예정일자 · 7 이사회결의일 · 8 기타 투자판단. 「배당구분」·「배당종류」 행이 없다.
+_REIT_HEAD_RE = re.compile(r"부동산투자회사\s*금전\s*배당\s*결정\s*1\.\s*배당금\s*총액")
 _AMEND_TABLE_RE = re.compile(r"정정\s*사항(?=.{0,40}?정정\s*전.{0,20}?정정\s*후)")
 _AMEND_REASON_RE = re.compile(r"정정\s*사유\s*:?\s*(.*?)\s*(?:\d{1,2}\s*\.\s*)?$")
 _AMEND_FILED_RE = re.compile(r"정정\s*관련\s*공시\s*서류\s*제출\s*일\s*:?\s*" + _DATE_SRC)
@@ -205,6 +210,63 @@ def _amendment_meta(pre: str, body_found: bool) -> dict:
     }
 
 
+def _parse_reit_decision(clean: str, pre: str | None, body_found: bool) -> dict | None:
+    """리츠 「부동산투자회사금전배당결정」 서식 → `parse_dividend_decision` 과 같은 칸. 번호가 다른 서식이라 따로 읽는다(DATA-DIV1).
+
+    · `dividend_type` = 「결산배당」 — 서식에 배당구분 행이 없다. 리츠의 금전배당은 결산기(반기·분기 결산 리츠는 결산기마다)에 대한 배당이라
+      결산기 배당으로 집계한다(`dividend_type_source` 에 서식 이름을 남긴다 — 원문이 적은 값이 아니다). 사업연도 귀속은 기준일 달로 정한다(`dividend._bucket_fiscal_year`).
+    · `dividend_method` = 「현금배당」(금전배당). 지급예정일이 날짜가 아니라 「정기주주총회일로부터 1개월 이내」 문구면 `payment_date` 는 None.
+    · 종류주식·차등배당·특별배당 행이 없다(비고에 특별배당 문구가 있으면 같은 규칙으로 잡는다).
+    DPS·총액이 모두 없으면 None(결정 취소 정정은 일반 서식과 같은 규칙)."""
+    result: dict = {
+        "dividend_type": "결산배당",
+        "dividend_type_source": "부동산투자회사금전배당결정 서식(배당구분 행 없음 — 결산기 배당으로 집계)",
+        "dividend_method": "현금배당",
+    }
+    match = re.search(r"2\.\s*1주당\s*배당금\s*\(원\)\s*보통주식\s*([\d,]+)", clean)
+    result["dps_common"] = safe_int(match.group(1)) if match else 0
+    dps_start = clean.find("1주당 배당금")
+    dps_end = clean.find("3.", dps_start) if dps_start >= 0 else -1
+    dps_segment = clean[dps_start:dps_end] if dps_start >= 0 and dps_end > dps_start else ""
+    match = re.search(r"종류주식\s*([\d,]+)", dps_segment)
+    result["dps_preferred"] = safe_int(match.group(1)) if match else 0
+    result["differential_dividend"] = False
+    match = re.search(r"3\.\s*시가배당[율률]\s*\(%\)\s*보통주식\s*([\d.]+)", clean)
+    result["yield_common"] = safe_float(match.group(1)) if match else 0.0
+    match = re.search(r"3\.\s*시가배당[율률].*?종류주식\s*([\d.]+)", clean)
+    result["yield_preferred"] = safe_float(match.group(1)) if match else 0.0
+    match = re.search(r"1\.\s*배당금\s*총액\s*\(원\)\s*([\d,]+)", clean)
+    result["total_amount"] = safe_int(match.group(1)) if match else 0
+    for field, label in (
+        ("record_date", r"4\.\s*배당기준일\s*"),
+        ("payment_date", r"5\.\s*배당금지급\s*예정일(?:자)?\s*"),
+        ("agm_date", r"6\.\s*주주총회\s*예정일자\s*"),
+        ("board_date", r"7\.\s*이사회결의일\s*\(결정일\)\s*"),
+    ):
+        result[field] = _iso_date(re.search(label + _DATE_SRC, clean))
+    result["agm_required"] = None   # 서식에 개최여부 행이 없다
+    match = re.search(r"8\.\s*기타\s*투자판단과\s*관련한\s*중요사항\s*(.*?)(?:※\s*관련공시|$)", clean)
+    remarks = match.group(1).strip() if match else ""
+    result["remarks"] = remarks
+    result["has_special"] = bool(_SPECIAL_RE.search(remarks) and not _SPECIAL_OTHERS_RE.search(remarks))
+    if result["has_special"]:
+        match = _SPECIAL_AMOUNT_RE.search(remarks)
+        if match:
+            amount, unit = match.group(1), match.group(2)
+            result["special_amount_description"] = f"{amount}{unit} 추가"
+            if unit == "원":
+                result["special_dps_krw"] = safe_int(amount)
+    result["preferred_stocks"] = []
+    if not result.get("dps_common") and not result.get("total_amount"):
+        if pre is not None and body_found and _AMEND_CLEARED_RE.search(pre):
+            result["amendment"] = {**_amendment_meta(pre, body_found), "cancelled": True}
+            return result
+        return None
+    if pre is not None:
+        result["amendment"] = _amendment_meta(pre, body_found)
+    return result
+
+
 def parse_dividend_decision(text: str) -> dict | None:
     """Parse the standard exchange disclosure for a dividend decision.
 
@@ -215,6 +277,8 @@ def parse_dividend_decision(text: str) -> dict | None:
     clean = re.sub(r"\.xforms[^}]+\}", "", text).strip()
     clean = re.sub(r"\s+", " ", clean)
     pre, clean, body_found = _split_amendment(clean)
+    if _REIT_HEAD_RE.search(clean):
+        return _parse_reit_decision(clean, pre, body_found)
     result = {}
 
     match = re.search(r"1\.\s*배당구분\s*(결산배당|중간배당|분기배당)", clean)

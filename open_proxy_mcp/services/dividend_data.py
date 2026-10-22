@@ -61,6 +61,7 @@ from typing import Any
 
 from open_proxy_mcp import cold_store as _cold
 from open_proxy_mcp.db import pg_rows
+from open_proxy_mcp.services import wise_sector_dates as _WSD
 
 logger = logging.getLogger(__name__)
 
@@ -427,13 +428,15 @@ def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dic
     where = ["d.reprt_code = %s", "d.bsns_year BETWEEN %s AND %s", "d.stock_kind IN ('보통','미구분')"]
     params: list[Any] = [_ANNUAL, year_from, year_to]
     join = ""
-    ctes = ""
     if scope == "sector":
-        ctes = "snap AS (SELECT MAX(snap_dd) AS d FROM wise_sector),\n"
         join = "JOIN wise_sector w ON w.ticker = d.tickers AND w.snap_dd = (SELECT d FROM snap)"
         where.append("w.sector = %s")
         params.append(key)
-    sql = f"""
+
+    def build(fast: bool) -> str:
+        # 최신 스냅샷 날짜는 뷰 모드면 작은 날짜 표에서 읽는다(뷰 위 MAX 는 요청마다 약 10만 행을 펼친다 — `wise_sector_dates`)
+        ctes = f"snap AS (SELECT {_WSD.max_dd(fast)} AS d),\n" if scope == "sector" else ""
+        return f"""
         WITH {ctes}{_YEAR_SQL.format(join=join, where=' AND '.join(where))}
         SELECT bsns_year, COUNT(*) AS n_universe,
                COUNT(*) FILTER (WHERE confirmed AND div_total_krw > 0) AS n_payers,
@@ -442,7 +445,7 @@ def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dic
                COUNT(*) FILTER (WHERE copy_guard) AS n_copy_guard
           FROM yr GROUP BY bsns_year ORDER BY bsns_year DESC
     """
-    rows = _rows(sql, tuple(params))
+    rows = _WSD.query(build, tuple(params), _rows) if scope == "sector" else _rows(build(False), tuple(params))
     if rows is None:
         return {"status": "db_error"}
     return {
@@ -456,7 +459,8 @@ def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dic
 
 
 def sector_list() -> list[str]:
-    rows = _rows("SELECT DISTINCT sector FROM wise_sector WHERE sector IS NOT NULL ORDER BY 1")
+    # 뷰 모드면 업종 목록은 구간 표에서(뷰 위 DISTINCT 는 요청마다 약 10만 행을 펼친다 — `wise_sector_dates`). 못 읽으면 종전 SQL 로 한 번 더.
+    rows = _WSD.query(_WSD.sector_names_select, (), _rows)
     return [r[0] for r in (rows or [])]
 
 
@@ -495,10 +499,7 @@ def screen(
     #   (씨티알모빌리티·DB, U7 실측). 원문에 0 이 적혀 있어도 그건 배당한 것이 아니다.
     per_where = ["d.reprt_code = %s", "d.bsns_year = %s", "d.stock_kind IN ('보통','미구분')"]
     params: list[Any] = [_ANNUAL, bsns_year]
-    join = ""
     if sector:
-        join = ("JOIN wise_sector w ON w.ticker = d.tickers "
-                "AND w.snap_dd = (SELECT MAX(snap_dd) FROM wise_sector)")
         per_where.append("w.sector = %s"); params.append(sector)
     where = ["confirmed", "dps_krw > 0"]
     if min_payout is not None:
@@ -515,7 +516,10 @@ def screen(
 
     # 질의 하나로 — 행 · 조건에 걸린 전체 수(`COUNT(*) OVER ()` — LIMIT 앞에서 센다) · 모집단(조건 전 그 해 회사 수, 첫 CTE). 종전엔 이 셋이 질의 셋이었다(같은 CTE 를
     #   두 번 돌렸다). 행이 하나도 없을 때만 모집단을 따로 한 번 더 읽는다(매칭 수는 0).
-    sql = f"""
+    def build(fast: bool) -> str:
+        # 최신 스냅샷 날짜는 뷰 모드면 작은 날짜 표에서 읽는다(뷰 위 MAX 는 요청마다 약 10만 행을 펼친다 — `wise_sector_dates`)
+        join = (f"JOIN wise_sector w ON w.ticker = d.tickers AND w.snap_dd = {_WSD.max_dd(fast)}" if sector else "")
+        return f"""
         WITH uni AS (SELECT COUNT(DISTINCT corp_code) AS n FROM div_declared
                       WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')),
         {_YEAR_SQL.format(join=join, where=' AND '.join(per_where))}
@@ -524,7 +528,8 @@ def screen(
           FROM (SELECT * FROM yr WHERE {' AND '.join(where)}) t
          ORDER BY t.div_total_krw DESC NULLS LAST, t.corp_code LIMIT %s
     """
-    rows = _rows(sql, (_ANNUAL, bsns_year, *params, limit))
+    args = (_ANNUAL, bsns_year, *params, limit)
+    rows = _WSD.query(build, args, _rows) if sector else _rows(build(False), args)
     if rows is None:
         return {"status": "db_error"}
     if rows:

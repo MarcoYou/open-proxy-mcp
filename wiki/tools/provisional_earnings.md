@@ -56,7 +56,7 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 - **정형 API 없음**: DART OpenAPI에 잠정실적 전용 엔드포인트 없음 → **공시검색(I002) + 원문파싱** 패턴([[공시유형코드체계]] I002).
 
 ## 출력 (ToolEnvelope.data)
-- `headline`(재무형): `{revenue, operating_profit, net_income}.{value_krw(당기, 원 정규화), yoy_pct}` — best-effort, screener 카드용.
+- `headline`(재무형): `{revenue, operating_profit, net_income}.{value_krw(당기, 원 정규화), yoy_pct}` — best-effort, screener 카드용. `net_income` 은 원문 「당기순이익」(연결 공시면 비지배 포함), 지배순이익은 `net_income_controlling`(「지배기업소유주지분순이익」)로 따로 있다 — 컨센서스 대비는 지배순이익 기준이다.
 - `table_markdown`(**primary**): 원문 실적표 통째(colspan확장, ※잠정치·정보제공 boilerplate 제거). 당해/누계 × 당기/전기/전년동기 전체 — 호출측 AI가 읽어 값 추출.
 - `kind`: `financial` | `non_financial`(자동차 판매대수·조선 수주 등 — 재무표 전부 '-'이고 도메인표만).
 - `consolidated`(연결/별도) · `unit_raw`(조원/억원/백만원) · `period`(실적기간, 문구에서 계산했으면 `source=quarter_text`) · `report`(rcept_no·공시일·url).

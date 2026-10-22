@@ -1092,7 +1092,23 @@ def _compute_metrics(
 
     revenue_yoy_pct = _yoy_pct(revenue, prev_revenue)
     operating_profit_yoy_pct = _yoy_pct(operating_profit, prev_operating_profit)
-    net_income_yoy_pct = _yoy_pct(net_income_controlling, prev_net_income_controlling)
+    # 순이익 기준 표시 (DATA-NI2 의 연간 변형) — 지배 순이익을 못 구하면(전체 재무제표 조회 실패·MINORITY_NO_CTRL·NO_INCOME_ROW 꼴) 위에서 조용히 총계(비지배 포함)로 물러난다.
+    # 당기와 전기가 따로 물러나면 전년비가 기준이 섞인 값이 되므로(당기 총계 100 대 전기 지배 50 → +100%, 같은 기준이면 +20%) 기준이 다를 때는 전년비를 내지 않는다.
+    net_income_basis = (NET_INCOME_BASIS_CONTROLLING if controlling_ni is not None
+                        else NET_INCOME_BASIS_TOTAL if net_income is not None else None)
+    prev_net_income_basis = (NET_INCOME_BASIS_CONTROLLING if prev_controlling_ni is not None
+                             else NET_INCOME_BASIS_TOTAL if prev_net_income_total is not None else None)
+    ni_basis_mixed = (net_income_basis is not None and prev_net_income_basis is not None
+                      and net_income_basis != prev_net_income_basis)
+    net_income_yoy_pct = None if ni_basis_mixed else _yoy_pct(net_income_controlling, prev_net_income_controlling)
+    net_income_basis_note = None
+    if ni_basis_mixed:
+        net_income_basis_note = (f"전기·당기 순이익 기준이 달라 전년비를 내지 않음 (당기 {net_income_basis} · 전기 {prev_net_income_basis}) — "
+                                 f"지배 순이익을 구하지 못한 해는 비지배 포함 총계로 적혀 있다.")
+    elif net_income_basis == NET_INCOME_BASIS_TOTAL and detail.get("nci") != 0:
+        # 비지배지분이 0 이면 총계 = 지배라 안전하다. 있거나 모르면 ROE(분자 총계 ÷ 지배자본)·순이익률이 지배 기준보다 높게 나올 수 있다.
+        net_income_basis_note = ("지배 순이익을 구하지 못해 비지배 포함 총계 순이익으로 ROE·순이익률을 냈다 — "
+                                 "비지배지분이 있으면 지배 기준보다 높게 나온다.")
 
     # 총차입금 = _compute_borrowings sum-all(단기+장기+전환+기타차입). account_id 정확매칭.
     # 리스부채·신종자본증권은 별도(리스=IFRS16 별도, 신종자본=IFRS 자본).
@@ -1308,6 +1324,10 @@ def _compute_metrics(
         "ebitda_margin_pct": ebitda_margin_pct,
         "net_income_krw": net_income_controlling,  # 지배주주 귀속 (한국 표준)
         "net_income_total_krw": net_income,  # 합계 (참고용)
+        # 새 키 — net_income_krw 가 실제로 어느 기준 값인가(지배 순이익을 못 구하면 total_incl_nci). 옛 키·값은 그대로.
+        "net_income_basis": net_income_basis,
+        "prev_net_income_basis": prev_net_income_basis,
+        "net_income_basis_note": net_income_basis_note,
         "net_profit_margin_pct": net_profit_margin_pct,
         # ── prev year + yoy (260505 ralph precision iter 2 — 흑자+yoy<0 trigger 활성화용) ──
         "prev_revenue_krw": prev_revenue,
@@ -2011,7 +2031,26 @@ def _annual_scale_obs(year: int, rows: list[dict[str, Any]]) -> list[tuple]:
     return out
 
 
-def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]]) -> dict[str, Any]:
+async def _common_mktcap(stock_code: str | None) -> float | None:
+    """상장사의 KRX 보통주 시총(원) — 운영 DB `price_latest`(종목마다 가장 늦은 거래일 한 줄)에서 읽는다. DART 0콜, DB 1회.
+    단위 가리기(`reconcile_report_scales`)의 시총 신호용이다(DATA-SC1). 최근 3주 안 행만 쓴다(상장폐지·장기 거래정지의 낡은 시총으로 PBR 을 재지 않게).
+    상장사가 아니거나 DB 미설정·장애·행 없음이면 None — 호출자는 시총 신호 없이 종전대로 간다."""
+    if not stock_code:
+        return None
+    try:
+        from open_proxy_mcp.db import pg_rows
+        cutoff = (today_kst() - timedelta(days=21)).strftime("%Y%m%d")
+        rows = await asyncio.to_thread(pg_rows, "SELECT mktcap FROM price_latest WHERE ticker=%s AND price_dd>=%s", (stock_code, cutoff))
+    except Exception:  # noqa: BLE001 — 시총은 보조 신호다: 읽기가 깨져도 종전 응답은 나간다
+        return None
+    try:
+        v = float(rows[0][0]) if rows and rows[0][0] is not None else None
+    except (TypeError, ValueError):
+        return None
+    return v if v and v > 0 else None
+
+
+def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]], mktcap: float | None = None) -> dict[str, Any]:
     """사업보고서들(연도 → 주요계정 rows)끼리 대 단위가 어긋난 보고서를 가린다 → `reconcile_report_scales` 결과에 연도별 정보를 얹은 dict.
 
     {"status": clean|fixed|undecided|conflict, "divisors": {연도: 나눌 배수}, "method", "pairs": [대조 근거 — 연도로 풀어 둠], "names": {연도: 이름},
@@ -2024,7 +2063,9 @@ def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]]) -> dict[s
     if len(usable) < 2:
         return out
     obs = [o for y, rows in usable.items() for o in _annual_scale_obs(y, rows)]
-    res = reconcile_report_scales(obs)
+    # 보고서가 둘뿐이면(요약·years=1) 다수결이 서지 않는다 — 시총을 제3 신호로 쓴다(DATA-SC1). 셋 이상이면 다수결이 가리므로 시총을 더해
+    # 낡은 시총이 다수결을 `undecided` 로 막는 일이 없게 한다(두 신호가 엇갈리면 고치지 않는 규칙).
+    res = reconcile_report_scales(obs, mktcap=mktcap if len(usable) <= 2 else None)
     to_year = lambda lab: int(str(lab)[2:])  # noqa: E731  ('FY2023' → 2023)
     out["status"] = res["status"]
     out["method"] = res.get("method")
@@ -2035,7 +2076,8 @@ def _reconcile_annual_scales(reports: dict[int, list[dict[str, Any]]]) -> dict[s
     return out
 
 
-async def _annual_scale_plan(corp_code: str, years: list[int], fs_div: str, memo: "_FetchMemo") -> dict[str, Any]:
+async def _annual_scale_plan(corp_code: str, years: list[int], fs_div: str, memo: "_FetchMemo",
+                             mktcap: "float | asyncio.Future | None" = None) -> dict[str, Any]:
     """다년 조회(`_build_yearly`·yoy)가 읽을 사업보고서들의 단위 가리기. `years` 는 요청한 사업연도들 — 각 연도의 당기 보고서와 가장 이른 연도의 전기
     보고서까지 대 본다. `memo` 가 이미 같은 조회를 하나로 합치므로 이 단계가 새로 부르는 DART 는 없다(어차피 `_fetch_year_metrics` 가 부르는 조회다):
     각 연도의 사업보고서는 `_fetch_acnt_with_fallback` 의 첫 조회이고, 가장 이른 연도의 전기 보고서는 그 연도가 사업보고서를 냈을 때만 읽는다."""
@@ -2047,7 +2089,9 @@ async def _annual_scale_plan(corp_code: str, years: list[int], fs_div: str, memo
         rows, _err = await _fetch(memo).acnt(corp_code, first - 1, _REPRT_BUSINESS, fs_div)
         if rows:
             reports[first - 1] = rows
-    return _reconcile_annual_scales(reports)
+    if mktcap is not None and not isinstance(mktcap, (int, float)):
+        mktcap = await mktcap
+    return _reconcile_annual_scales(reports, mktcap=mktcap)
 
 
 def _scale_note(plan: dict[str, Any] | None, year: int) -> tuple[list[dict], dict | None, list[str]]:
@@ -2238,6 +2282,7 @@ async def _fetch_year_metrics(
     memo: "_FetchMemo | None" = None,
     reprt_code: str | None = None,
     scale_plan: "dict[str, Any] | asyncio.Future | None" = None,
+    mktcap: "float | asyncio.Future | None" = None,
 ) -> tuple[dict[str, Any], list[str], int]:
     """단일 사업연도 metrics. 당기+전기 fnlttSinglAcnt를 모두 호출.
 
@@ -2326,7 +2371,9 @@ async def _fetch_year_metrics(
     if used_rc == _REPRT_BUSINESS:
         if scale_plan is not None and not isinstance(scale_plan, dict):
             scale_plan = await scale_plan
-        plan = scale_plan if scale_plan is not None else _reconcile_annual_scales({year: rows_curr, year - 1: rows_prev})
+        if scale_plan is None and mktcap is not None and not isinstance(mktcap, (int, float)):
+            mktcap = await mktcap       # 요약(단년): 보고서가 둘뿐이라 시총이 제3 신호다 — DB 한 번(DART 0콜)
+        plan = scale_plan if scale_plan is not None else _reconcile_annual_scales({year: rows_curr, year - 1: rows_prev}, mktcap=mktcap)
         scale_fix, scale_cross, _scale_ws = _scale_note(plan, year)
         warnings.extend(_scale_ws)
         if scale_fix:
@@ -2340,6 +2387,26 @@ async def _fetch_year_metrics(
     bs_is_prev = _build_account_map(rows_prev, cumulative_is=True, induty_code=induty_code) if rows_prev else None
     detail = _build_account_map_all(rows_detail, cumulative_is=True, induty_code=induty_code) if rows_detail else None
     detail_prev = _build_account_map_all(rows_detail_prev, cumulative_is=True, induty_code=induty_code) if rows_detail_prev else None
+
+    # ── 전기 보고서의 실제 재무제표 기준이 당기와 다르면 섞어 견주지 않는다 (DATA-Q5 의 연간 변형) ──
+    # 전기 주요계정은 요청 fs_div 로 불러 연결이 없으면 별도 행이 그대로 오고(`_safe_fetch_acnt`), 전기 전체 재무제표는 당기 actual_fs 로 따로 부른다.
+    # 연결 신규 작성(당기 CFS · 전기 OFS)·연결 중단(당기 OFS · 전기 CFS)이면 전년비·평균자본이 다른 기준끼리 견줘졌다.
+    # 사업보고서면 **당기 보고서의 전기 칸**(당기와 같은 기준으로 다시 적은 값)을 전기로 쓴다. 그 칸을 못 쓰는 분기·반기 보고서는 전기를 버린다.
+    prev_fs_div: str | None = None
+    prev_dropped = False
+    _fs_prev = _actual_fs_div(rows_prev) if rows_prev else None
+    if _fs_prev and _fs_prev != actual_fs:
+        prev_fs_div = _fs_prev
+        if used_rc == _REPRT_BUSINESS and rows_curr:
+            bs_is_prev = _build_account_map(rows_curr, period="frmtrm", induty_code=induty_code)
+            detail_prev = _build_account_map_all(rows_detail, period="frmtrm", induty_code=induty_code) if rows_detail else None
+            warnings.append(f"{year - 1}년 보고서 재무제표 기준({_fs_prev})이 {year}년({actual_fs})과 달라, 전기 값은 {year}년 사업보고서의 전기 칸"
+                            f"(당기와 같은 기준으로 다시 적은 값)을 썼다 — prev_fs_div={_fs_prev}.")
+        else:
+            bs_is_prev, detail_prev, prev_dropped = None, None, True
+            warnings.append(f"{year - 1}년 보고서 재무제표 기준({_fs_prev})이 {year}년({actual_fs})과 달라 전기 값을 쓰지 않았다 — "
+                            f"전년비와 평균자본·평균자산 기준 ROE·ROA 를 내지 않음(prev_fs_div={_fs_prev}). 총자산회전율·자기자본 배수·회전일수는 "
+                            f"평균 대신 기말 값으로 계산돼 나간다(전기가 없을 때와 같은 한계).")
 
     if not bs_is:
         return {}, warnings + [f"{year}년 BS/IS 핵심 데이터 파싱 실패"], 0
@@ -2382,6 +2449,13 @@ async def _fetch_year_metrics(
         induty_code=induty_code,
     )
     metrics["year"] = year
+    if prev_fs_div:
+        metrics["prev_fs_div"] = prev_fs_div     # 새 키 — 전기 보고서의 재무제표 기준이 당기와 달랐을 때만
+        if prev_dropped:   # 전기를 버렸으면 평균 대신 기말로 떨어진 비율을 내지 않는다
+            for _k in ("roe_pct", "roa_pct", "roe_dupont_pct"):
+                metrics[_k] = None
+    if metrics.get("net_income_basis_note"):
+        warnings.append(f"{year}년 {metrics['net_income_basis_note']}")
     if scale_fix:
         metrics.setdefault("data_quality", {})["scale_fix"] = scale_fix
     elif scale_cross:
@@ -2655,7 +2729,9 @@ async def _build_yearly(corp_code: str, end_year: int, years: int, fs_div: str, 
     memo = _FetchMemo()
     # 261021(fin-eq): 앞뒤 해 사업보고서끼리 대 단위가 틀린 보고서를 가린다(DART 콜 0 — memo 가 같은 조회를 합친다). 연도별 조회를 막지 않도록 Task 로 두고
     # 각 연도가 자기 조회를 마친 뒤에 받는다.
-    plan = asyncio.ensure_future(_annual_scale_plan(corp_code, year_list, fs_div, memo))
+    # years=1 이면 보고서가 당기·전기 둘뿐이라 다수결이 서지 않는다 — 시총을 제3 신호로 쓴다(DATA-SC1). 상장사만, DB 1회.
+    mk_task = asyncio.ensure_future(_common_mktcap(stock_code)) if len(year_list) == 1 and stock_code else None
+    plan = asyncio.ensure_future(_annual_scale_plan(corp_code, year_list, fs_div, memo, mktcap=mk_task))
     tasks = [_fetch_year_metrics(corp_code, y, fs_div, include_prev=True, induty_code=induty_code,
                                  is_reit=is_reit, stock_code=stock_code, memo=memo, scale_plan=plan) for y in year_list]
     results = await asyncio.gather(*tasks)
@@ -2672,6 +2748,7 @@ _QUARTERLY_IS_KEYS = ("revenue", "operating_profit", "net_income")
 
 #: `quarterly`·`qoq` 행의 `net_income_krw` 기준 — 비지배지분을 포함한 총계(summary·yearly·yoy 의 `net_income_krw` 는 지배).
 NET_INCOME_BASIS_TOTAL = "total_incl_nci"
+NET_INCOME_BASIS_CONTROLLING = "controlling"   # 연간 net_income_krw 가 지배 순이익일 때 (NI2 연간 변형 — _compute_metrics 가 쓴다)
 
 
 def _qchg_pct(curr: int | None, prev: int | None) -> float | None:
@@ -2691,7 +2768,8 @@ def _pp_diff(curr: float | None, prev: float | None) -> float | None:
 async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                            num_quarters: int = 12, fiscal_month: int | None = None,
                            induty_code: str | None = None,
-                           failed_out: set[tuple[int, str]] | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+                           failed_out: set[tuple[int, str]] | None = None,
+                           stock_code: str | None = None) -> tuple[list[dict[str, Any]], list[str]]:
     """4Q × 3년 = 12분기 standalone 손익. fnlttSinglAcnt + reprt_code 4개 × 3년 = 12 호출.
 
     `failed_out` 을 주면 조회가 **실패**한(013 「자료 없음」이 아닌 020 한도·800 점검·전송 오류) (사업연도, 보고서코드)를
@@ -2791,6 +2869,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
             "total_assets_krw": bs_is.get("total_assets"),
             "total_equity_krw": bs_is.get("total_equity"),
             "total_liabilities_krw": bs_is.get("total_liabilities"),
+            "_fs": actual or fs_div,   # 이 보고서의 실제 재무제표 기준 — 지배 순이익 DB 칸과 기준이 같을 때만 쓴다(반환 전에 뗀다)
         })
         meta.append((year, rc, fiscal_quarter, fiscal_year, actual or fs_div))
 
@@ -3068,9 +3147,79 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
                 warnings.append(
                     f"⚠️ 기능통화 {stmt_cur} 인데 환율 조회 실패 — 아래 분기 금액은 **{stmt_cur} 단위 그대로**이고 "
                     f"원화가 아니다. 원화 기준 비교에 그대로 쓰지 말 것.")
+    await _attach_controlling_ni(out, stock_code, warnings)
     for row in out:
         row.pop("_cur", None)
+        row.pop("_fs", None)
     return out[-num_quarters:], warnings
+
+
+def _prev_cell_key(period_end: str, quarter: int) -> tuple[int, int] | None:
+    """한 분기 앞 칸의 DART 표기 `(fy, quarter)` — 기간 말에서 석 달 앞(그 달 말)의 달력 연도와 직전 순번. 1분기는 앞 칸이 없다(누적 자신이 3개월 값)."""
+    if quarter <= 1:
+        return None
+    try:
+        d = date.fromisoformat(str(period_end)[:10])
+    except ValueError:
+        return None
+    y, m = (d.year, d.month - 3) if d.month > 3 else (d.year - 1, d.month + 9)
+    return y, quarter - 1
+
+
+async def _attach_controlling_ni(rows: list[dict[str, Any]], stock_code: str | None, warnings: list[str]) -> None:
+    """분기 행에 새 키 `net_income_controlling_krw`(지배 순이익 3개월)·`net_income_controlling_source` 를 단다(DATA-NI2). 옛 `net_income_krw`(총계)·`net_income_basis` 는 그대로.
+
+    값 = 운영 `dart_finstat_q.ni_cum`(수집이 공용 `controlling_ni` 규칙으로 저장한 **누적** 지배 순이익)의 차분: 1분기는 그 누적 자체, 2·3분기·4분기는 이 칸 누적 − 한 분기 앞 칸 누적.
+    DART 호출은 늘지 않는다(분기마다 `fnlttSinglAcntAll` 을 더 부르면 하루 한도를 쓴다) — DB 1회. 칸의 키는 DART 표기 `(기간 말 달력 연도, 보고서 순번)`(report_calendar).
+    · 보고 통화가 KRW 가 아닌 행(환산된 값)은 비운다 — 저장 칸과 통화·환율 기준이 달라 섞지 않는다.
+    · 두 칸의 재무제표 기준(`fs`)이 서로 다르거나 이 보고서의 기준과 다르면 비운다(DATA-Q5). 앞 칸이 없으면 비운다(추정하지 않는다).
+    · 정정 칸(`ni_cum_restated`)이 아니라 원본 `ni_cum` 을 쓴다 — 이 행의 총계(`net_income_krw`)도 그 분기 보고서 값이라 같은 시점의 값끼리다.
+    · 종목코드가 없거나 DB 를 못 읽으면 값은 비고(키는 있다) DB 를 못 읽었을 때만 경고한다."""
+    for row in rows:
+        row["net_income_controlling_krw"] = None
+        row["net_income_controlling_source"] = None
+    if not stock_code or not rows:
+        return
+    try:
+        from open_proxy_mcp.db import pg_rows
+        got = await asyncio.to_thread(
+            pg_rows,
+            "SELECT fy, quarter, to_jsonb(dart_finstat_q)->>'fs', ni_cum FROM dart_finstat_q WHERE ticker=%s AND ni_cum IS NOT NULL",
+            (stock_code,))
+    except Exception:  # noqa: BLE001 — 덧붙임이다: 읽기가 깨져도 종전 응답은 나간다
+        got = None
+    if got is None:
+        warnings.append("분기 지배 순이익(net_income_controlling_krw)을 DB 에서 읽지 못해 비웠다(미설정 또는 장애) — net_income_krw 는 비지배 포함 총계다.")
+        return
+    cells: dict[tuple[int, int], tuple[str | None, float]] = {}
+    for fy, q, fs, ni in got:
+        try:
+            cells[(int(fy), int(q))] = ((str(fs).upper() if fs else None), float(ni))
+        except (TypeError, ValueError):
+            continue
+    for row in rows:
+        if row.get("_cur", "KRW") != "KRW":
+            continue
+        try:
+            q = int(str(row["fiscal_quarter"]).lstrip("Q"))
+            pe = date.fromisoformat(str(row.get("period_end"))[:10])
+        except (KeyError, TypeError, ValueError):
+            continue
+        cur = cells.get((pe.year, q))
+        if cur is None:
+            continue
+        rfs = str(row.get("_fs") or "").upper()
+        if (cur[0] and rfs and cur[0] != rfs):
+            continue
+        value = cur[1]
+        if q > 1:
+            pk = _prev_cell_key(str(row.get("period_end")), q)
+            prev = cells.get(pk) if pk else None
+            if prev is None or (prev[0] and cur[0] and prev[0] != cur[0]):
+                continue
+            value = cur[1] - prev[1]
+        row["net_income_controlling_krw"] = int(round(value))
+        row["net_income_controlling_source"] = "db_ni_cum_diff"
 
 
 _QUARTER_REPRT = {"Q1": "11013", "Q2": "11012", "Q3": "11014", "Q4": "11011"}
@@ -3091,13 +3240,30 @@ def _quarter_fetch_failed(failed: set[tuple[int, str]] | None, fiscal_year: int,
     return any(r == rc and abs(y - fiscal_year) <= 1 for y, r in failed)
 
 
+def _quarter_submit_due(period_end: date, quarter: int, fiscal_month: int, ticker: str | None) -> date:
+    """그 분기 보고서의 **법정 제출 기한을 지난 첫 날** — `as_of` 가 이 날 이상이어야 「미제출」이라 적는다(DATA-API1).
+
+    `report_calendar.cell_available` 이 기준이다(분기·반기 45일 · 사업보고서 90일 · 외국 상장사 60·120일). 그 함수는 사업보고서는 기한 다음 날(12월 결산 4/1)을,
+    분기·반기는 기한 날 자체(11/14)를 돌려주므로 분기·반기만 하루 더한다 — 기한 당일은 아직 낼 수 있어 「미제출」이라 단정하지 않는다.
+    DART 표기 사업연도 = 기간 말이 속한 달력 연도(report_calendar 머리말)."""
+    from open_proxy_mcp.services import report_calendar as rcal
+
+    avail = rcal.cell_available(period_end.year, quarter, rcal.fiscal(fiscal_month, ticker))
+    return avail if quarter == 4 else avail + timedelta(days=1)
+
+
 def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
                       fiscal_month: int | None, as_of: date | None = None,
-                      failed: set[tuple[int, str]] | None = None) -> dict[str, Any]:
-    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출·조회 실패로 구분한다.
+                      failed: set[tuple[int, str]] | None = None,
+                      ticker: str | None = None) -> dict[str, Any]:
+    """대상 FY의 분기 공시 상태를 데이터 누락과 미제출·제출기한 전·조회 실패로 구분한다.
 
     `failed` = 조회가 실패한 (사업연도, 보고서코드) — 그 분기는 보고서가 없는 게 아니라 **읽지 못한** 것이라
-    「미제출」로 적지 않고 「조회 실패(미확인)」로 적는다(DATA-API1·DATA-U3)."""
+    「미제출」로 적지 않고 「조회 실패(미확인)」로 적는다(DATA-API1·DATA-U3).
+
+    결산일이 지났어도 법정 제출 기한 전이면 「제출기한 전」이다(DATA-API1 — 종전엔 결산 다음 날부터 「미제출」이라
+    12월 결산 모든 회사의 3분기가 11월 중순 전까지 거짓 미제출이었다). 기한은 `report_calendar.cell_available`
+    (분기·반기 45일 · 사업보고서 90일 · `ticker` 가 9로 시작하는 외국 상장사 60·120일) — 결산월을 바꾼 회사의 옛 결산월은 반영하지 않는다."""
     as_of = as_of or today_kst()
     present = {r.get("fiscal_quarter") for r in rows if r.get("fiscal_year") == fiscal_year}
     result: dict[str, Any] = {"fiscal_year": fiscal_year, "missing": []}
@@ -3117,10 +3283,11 @@ def _quarterly_status(rows: list[dict[str, Any]], fiscal_year: int,
         if period_end > as_of:
             # 아직 결산일이 오지 않은 분기는 누락이나 미제출로 표시하지 않는다.
             continue
+        due = _quarter_submit_due(period_end, q, fiscal_month, ticker)
         item = {
             "fiscal_quarter": label,
             "period_end": period_end.isoformat(),
-            "status": STATUS_UNSUBMITTED if as_of > period_end else "제출기한 전",
+            "status": STATUS_UNSUBMITTED if as_of >= due else "제출기한 전",
         }
         if _quarter_fetch_failed(failed, fiscal_year, label, fiscal_month):
             item["status"] = STATUS_FETCH_FAILED
@@ -3319,8 +3486,15 @@ async def build_financial_metrics_payload(
 
     stage_started_at = time.perf_counter()
     if scope == "summary":
-        metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit,
-                                                         stock_code=selected.get("stock_code"))
+        # 요약(단년)은 보고서가 당기·전기 둘뿐이라 단위 어긋남을 다수결로 못 가린다 — 상장사면 KRX 보통주 시총을 제3 신호로 쓴다(DATA-SC1, DB 1회·DART 0콜).
+        _mk = asyncio.ensure_future(_common_mktcap(selected.get("stock_code"))) if selected.get("stock_code") else None
+        try:
+            metrics, ws, ev_count = await _fetch_year_metrics(corp_code, target_year, fs_div, include_prev=True, induty_code=induty_code, is_reit=is_reit,
+                                                             stock_code=selected.get("stock_code"), mktcap=_mk)
+        finally:
+            # 시총은 사업보고서 갈래에서만 기다린다 — 분기·반기로 물러난 해나 자료 없음이면 쓰지 않았다: 남겨 두지 않고 거둔다(끝난 것은 그대로).
+            if _mk is not None and not _mk.done():
+                _mk.cancel()
         warnings.extend(ws)
         if metrics:
             data["summary"] = metrics
@@ -3362,14 +3536,16 @@ async def build_financial_metrics_payload(
     elif scope == "quarterly":
         failed_fetches: set[tuple[int, str]] = set()
         rows, ws = await _build_quarterly(corp_code, target_year, fs_div, fiscal_month=fiscal_month,
-                                          induty_code=induty_code, failed_out=failed_fetches)
+                                          induty_code=induty_code, failed_out=failed_fetches,
+                                          stock_code=selected.get("stock_code"))
         warnings.extend(ws)
         data["quarterly"] = rows
-        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month, failed=failed_fetches)
+        data["quarterly_status"] = _quarterly_status(rows, target_year, fiscal_month, failed=failed_fetches,
+                                                     ticker=selected.get("stock_code"))
         for missing in data["quarterly_status"]["missing"]:
             if missing["status"] == STATUS_UNSUBMITTED:
                 warnings.append(
-                    f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']})는 기간 종료 후 공시가 없어 미제출로 표시함."
+                    f"{target_year}-{missing['fiscal_quarter']} ({missing['period_end']})는 법정 제출 기한이 지났는데 공시가 없어 미제출로 표시함."
                 )
             elif missing["status"] == STATUS_FETCH_FAILED:
                 warnings.append(
@@ -3475,7 +3651,8 @@ async def build_financial_metrics_payload(
 
     elif scope == "qoq":
         rows, ws = await _build_quarterly(corp_code, target_year, fs_div, num_quarters=4,
-                                           fiscal_month=fiscal_month, induty_code=induty_code)
+                                           fiscal_month=fiscal_month, induty_code=induty_code,
+                                           stock_code=selected.get("stock_code"))
         warnings.extend(ws)
         # 직전 분기 vs 당기 비교
         if len(rows) >= 2:

@@ -19,12 +19,38 @@ def test_missing_q4_after_due_date_is_explicitly_unsubmitted():
     }]
 
 
-def test_missing_q4_after_period_end_is_unsubmitted_even_before_statutory_deadline():
+def test_missing_q4_before_statutory_deadline_is_not_yet_due():
+    """DATA-API1: 사업보고서 제출 기한(결산 뒤 90일) 전이면 결산일이 지났어도 「미제출」이 아니라 「제출기한 전」."""
     status = _quarterly_status([], 2026, 6, as_of=date(2026, 8, 24))
 
     q4 = next(item for item in status["missing"] if item["fiscal_quarter"] == "Q4")
     assert q4["period_end"] == "2026-06-30"
-    assert q4["status"] == "미제출"
+    assert q4["status"] == "제출기한 전"
+
+
+def test_dec_fiscal_q3_is_not_yet_due_before_nov_14_and_unsubmitted_after():
+    """DATA-API1: 12월 결산 3분기(기간 말 09-30) 기한은 45일 뒤 11-14 — 2026-10-22 는 제출기한 전, 11-15 는 미제출."""
+    rows = [{"fiscal_year": 2026, "fiscal_quarter": "Q1"}, {"fiscal_year": 2026, "fiscal_quarter": "Q2"}]
+    early = _quarterly_status(rows, 2026, 12, as_of=date(2026, 10, 22))
+    assert early["missing"] == [{"fiscal_quarter": "Q3", "period_end": "2026-09-30", "status": "제출기한 전"}]
+    due = _quarterly_status(rows, 2026, 12, as_of=date(2026, 11, 14))
+    assert due["missing"][0]["status"] == "제출기한 전"  # 기한 날(11-14) 당일은 아직 낼 수 있다 — 지난 다음 날부터 미제출
+    late = _quarterly_status(rows, 2026, 12, as_of=date(2026, 11, 15))
+    assert late["missing"][0]["status"] == "미제출"
+
+
+def test_foreign_listed_non_dec_uses_60_day_quarter_deadline():
+    """외국 상장사(9로 시작, 12월 결산 아님)는 분기 기한 60일 — 3월 결산 1분기(06-30) 기한은 08-29."""
+    rows = []
+    mid = _quarterly_status(rows, 2026, 3, as_of=date(2026, 8, 20), ticker="900110")
+    q1 = next(i for i in mid["missing"] if i["fiscal_quarter"] == "Q1")
+    assert q1["period_end"] == "2025-06-30" and q1["status"] == "미제출"   # 2025 분기는 이미 오래전 기한
+    cur = _quarterly_status(rows, 2027, 3, as_of=date(2026, 8, 20), ticker="900110")
+    q1 = next(i for i in cur["missing"] if i["fiscal_quarter"] == "Q1")
+    assert q1["period_end"] == "2026-06-30" and q1["status"] == "제출기한 전"
+    dom = _quarterly_status(rows, 2027, 3, as_of=date(2026, 8, 20), ticker="005930")
+    q1d = next(i for i in dom["missing"] if i["fiscal_quarter"] == "Q1")
+    assert q1d["status"] == "미제출"       # 국내 45일 기한은 08-14
 
 
 def test_future_quarters_are_not_reported_as_missing():
