@@ -75,13 +75,15 @@ def _pg17_server():
             break
         except Exception:
             if time.time() > deadline:
-                subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+                subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
                 pytest.skip("postgres:17 이 90초 안에 준비되지 않음 — 건너뜀")
             time.sleep(0.5)
     try:
         yield admin, (lambda db: f"postgresql://postgres:test@127.0.0.1:{port}/{db}")
     finally:
-        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+        # -v: postgres:17 이 만드는 익명 볼륨까지 지운다. --rm 은 직접 rm 할 때는 볼륨을 남긴다
+        # (2026-10-18~19 테스트 세션마다 하나씩 쌓여 820개·97GB).
+        subprocess.run(["docker", "rm", "-fv", name], capture_output=True)
 
 
 @pytest.fixture
