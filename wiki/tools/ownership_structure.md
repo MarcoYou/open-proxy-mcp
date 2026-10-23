@@ -40,7 +40,7 @@ ownership_structure(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | scope | str | no | 5종 (아래 참조) | "summary" |
 | year | int | no | 사업연도, 0이면 최신 | 0 |
-| as_of_date | str | no | YYYYMMDD 기준일 | "" |
+| as_of_date | str | no | YYYYMMDD 기준일 — 5% 보고는 그 날까지 접수된 것만, 정기보고서 사업연도(`year` 를 안 주면)는 그 날까지 제출돼 있는 최신 사업보고서(결산월 기준) | "" |
 | start_date / end_date | str | no | YYYYMMDD | "" |
 | format | str | no | "md" / "json" | "md" |
 
@@ -85,6 +85,8 @@ scope:
 ```
 
 핵심 필드:
+- `warnings`(유의사항): 본인 행보다 지분이 큰 묶음 안 보유자가 있으면 「최대주주(본인) X a% — 묶음 안 최대 보유자 Y(관계) b%, 묶음 합계 c%」 한 줄 — `top_holder` 하나만 읽고 최대주주 지분으로 단정하지 않게
+- `summary.top_holder`: 최대주주 한 줄 — 공시 `relate` 칸이 「본인」·「최대주주 본인」·「최대주주」인 행(여럿이면 그중 지분 최대), 그런 행이 없을 때만 지분 최대 행(5% 보고 추정 경로 등). 명부(`major_holders`)의 표시 순서는 지분율 내림차순 그대로
 - `flags`: `registry_majority` (50%+), `registry_over_30pct`, `treasury_over_5pct`
 - `block_camps`: 5% 보고 합산 — `camps[]`(겹치는 보고자 편별 `net_pct`) · `overlap_found` · `net_total_pct` · `report_bases[]`(기준 주식총수 = 보유주식수÷지분율 묶음 — `implied_total_shares`·`reporters`·`report_dates`·`rcept_nos`) · `over_100_note`(100% 초과 때 찾은 까닭만; 겹침이 없으면 겹침이라 하지 않는다)
 - `share_basis`(summary): 100% 분해 표의 **분모**(정기보고서 보통주 발행주식총수)가 어느 보고서·어느 결산기준일 값인지(`rcept_no`·`stlm_dt`·`bsns_year`·`stock_class`)와 최신 상장주식수(KRX 일별 시세 `price_latest` 보통주 코드 한 줄, DART·KRX 0콜)와의 대조. `comparison` — `same`(같음: 표는 그대로, 분모 출처 줄만) · `differs`(조금 다름, |`diff_pct`| ≤ 20%: 두 값·`diff_shares`(= 보고서 − 상장)·`diff_pct`(상장주식수 대비)를 적고 「지분율(최신 상장주식수 기준)」 칸을 덧붙임. 보유주식수·자사주는 보고서 기준일 수치 그대로라 그 뒤 소각·증자는 반영되지 않는다. 명부+자사주가 상장주식수를 넘으면 칸을 붙이지 않고 그 사실을 적는다) · `unit_changed`(크게 다름, |`diff_pct`| > 20%: 액면분할·병합(DATA-PX3) 등으로 주식 수 단위가 달라졌을 수 있다 — 보유주식수는 그 전 단위, 상장주식수는 그 뒤 단위라 나누면 터무니없는 값이 나오므로 두 값과 차이만 적고 상장주식수 기준 지분율은 계산하지 않음) · `past_year`(`year`·`as_of_date` 로 과거 사업연도를 물음: 오늘의 상장주식수와 시점이 달라 비교하지 않고 분모 출처 줄만) · `mixed_class`(합계 행에서 우선주만 뺐는데 다른 종류 행이 있어 보통주만이라 장담 못 함 → 보통주 상장주식수와 섞어 비교하지 않음) · `listed_unavailable`(상장주식수를 못 읽음 → 비교 생략)
@@ -96,7 +98,7 @@ scope:
 - **DART API**: 사업보고서 (대주주 `hyslrSttus`, 지분 `stkSttus`, 자사주 `tesstkAcqsDspsSttus`), `majorstock` (5% 대량보유 목록), `document.xml` (5% 보유목적 보강)
 - **운영 DB `price_latest`**(KRX 일별 시세 최신 한 줄): summary 100% 분해 표의 분모와 대조하는 최신 상장주식수만(DART·KRX 호출 0, DB 한 줄 읽기). 못 읽어도 표는 그대로.
 - **KIND**: 미사용 (false match 위험) — 단, `changes` 의 변동신고서 원문이 DART 에서 빌 때만 폴백(같은 서식, 2026-10-18 실측)
-- 외부 호출: scope별 3-9회, 대주주 reprt 폴백·5% 블록 문서 보강 시 최대 12회 (asyncio.gather 병렬)
+- 외부 호출: scope별 3-9회, 대주주 reprt 폴백·5% 블록 문서 보강 시 최대 12회 (asyncio.gather 병렬). `as_of_date` 만 주고 `year` 를 안 주면 company.json(회사 개황, 결산월 확인) +1콜(프로세스 캐시 1시간)
 
 ## Flow
 
@@ -231,3 +233,5 @@ sequenceDiagram
 - 2026-10-18: `control_events` md 의 정정 줄에서 항목 이름의 원문 줄바꿈을 ` / ` 로(줄이 깨지던 것). json 은 그대로.
 - 2026-10-18: 5% 블록 「100% 초과」 유의사항이 찾은 까닭만 말함(`block_camps.over_100_note`) — 겹침은 겹치는 보고자를 찾았을 때만, 아니면 보고별 기준 주식총수 묶음(`report_bases`). 같은 날 두 번 낸 5% 보고는 접수번호가 늦은 것을 최신으로(두 경로). STX 「199.86% … 한 번만 세면 199.86%」 — 신한은행 옛 5.81% 가 남고, 겹침이 없는데 겹침이라 했던 것.
 - 2026-10-22: summary 100% 분해 표에 **분모 출처**(어느 정기보고서·접수번호·결산기준일)를 적고, 최신 상장주식수(KRX `price_latest`)와 다르면 두 값과 차이·「지분율(최신 상장주식수 기준)」 칸을 덧붙임(`share_basis`). 삼성전자 발행주식총수 5,919,637,922 대 상장주식수 5,846,278,608(차이 73,359,314)이 표에 아무 말 없이 갈려 있던 것. 분모가 보통주만이라 장담 못 하면 섞어 비교하지 않음. 차이가 20%를 넘으면(분할·병합 등 주식 수 단위 변화 가능, `comparison=unit_changed`) 상장주식수 기준 지분율 칸은 붙이지 않고 두 값과 차이만 적으며, 과거 사업연도 조회(`comparison=past_year`)는 오늘의 상장주식수와 비교하지 않는다. 새 키만 더하고 기존 키는 그대로.
+- 2026-10-23: 최대주주(본인)보다 지분이 큰 묶음 안 보유자가 있으면 `warnings` 에 「최대주주(본인) X a% — 묶음 안 최대 보유자 Y(관계) b%, 묶음 합계 c%」 한 줄(`_top_holder_gap_note`; 기존 키는 그대로). 명부가 비어 5% 보고에서 최대주주를 추정하는 경로(`_fetch_largest_shareholder_from_blocks`)에도 같은 기준일 거름(DATA-PIT9).
+- 2026-10-23: 과거 시점(`as_of_date`)이 그 날의 정보만 쓰게 — ① 5% 보고는 보고자별 「최신」을 기준일까지 접수된 것 가운데서 고름(종전엔 전체에서 먼저 골라 기준일 뒤에 다시 보고한 보유자가 목록에서 사라졌다: 고려아연 2026-01-31 시점 영풍·국민연금공단 등이 빠지고 보유 목적도 기준일 뒤 원문에서 읽을 수 있었음) ② `year` 를 안 주면 사업연도를 `as_of_date.year - 1` 로 못박지 않고 결산월을 아는 공시 시점(`report_calendar.pit_annual` — 12월 결산은 1~3월 시점이 전전년, 3월 결산은 7월 이후 그해)으로, 과거 시점에는 오늘의 상장주식수와 맞대지 않음(`share_basis.comparison=past_year`) ③ `summary.top_holder` 를 지분율 첫 행이 아니라 공시가 「본인」으로 적은 행으로(한미사이언스 2025: 본인 송영숙 3.38% 인데 임원 신동국 16.43% 가 나가던 것; `proxy_contest` 의 `top_holder` 도 같은 함수를 쓴다). `as_of_date`·`end_date` 둘 다 없는 호출의 5% 블록·사업연도·상장주식수 대조는 그대로(`end_date` 만 줘도 그 날까지 접수된 보고에서 보고자별 최신을 고름), `top_holder` 는 본인이 지분 최대가 아닌 회사에서만 바뀐다. (DATA-PIT8·PIT9)

@@ -4,7 +4,7 @@
 
 ## What it answers
 
-- Separates the **largest shareholder's solo stake** from the **self + related-party combined stake** (different aggregation bases — mixing them misleads).
+- Separates the **largest shareholder's solo stake** from the **self + related-party combined stake** (different aggregation bases — mixing them misleads). The largest shareholder is the row the filing itself marks as the principal (a related party or officer holding more does not become the largest shareholder). With a past `as_of_date`, only 5% reports received by that date and the annual report filed by then are used.
 - Decomposes total issued shares to **100%** — largest+related / treasury / other minority (registry basis). It states which periodic report and balance-sheet date the denominator (total issued shares) comes from, and shows both counts and the gap when it differs from the latest listed share count.
 - Identifies external **5%+ holders** (institutions, foreigners, activists). Registry stakes and 5% reports use different bases and are **never simply summed**.
 - Tracks **ownership changes** (largest-shareholder changes + 5% reports) in time order — where contests and activism surface first.
