@@ -210,7 +210,7 @@ def _correction_label_key(cell: str | None) -> tuple[str | None, str | None]:
 def _correction_section(label_cell: str | None) -> str | None:
     """정정 표 첫 열이 절 머리행이면 그 절 — `current`(당기 금액)·`other`(비교 기간·% 절)·`neutral`(번호 붙은 큰 제목). 머리행이 아니면 None.
 
-    번호 붙은 행이 제목인지(절 초기화) 값이 든 데이터 행인지(절 유지)는 이 함수가 아니라 호출부가 값 칸으로 정한다(`_correction_values_blank`)."""
+    번호 붙은 지표 행(「2. 영업이익」)이 절을 바꾸는지는 이 함수가 아니라 호출부가 정한다 — 명시적 절 머리행이 한 번이라도 나온 뒤에는 바꾸지 않는다."""
     label = re.sub(r"^[-\s·ㆍ]+", "", re.sub(r"\s+", "", label_cell or ""))
     if _CORR_CURRENT_SECTION.search(label):
         return "current"
@@ -251,12 +251,20 @@ def _correction_cell_num(cell: str | None) -> float | None:
     return _num_after(cell, "당해실적") if "당해실적" in (cell or "") else _num(cell or "")
 
 
-def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
+#: 비교·% 절 안에 번호 붙은 지표 행이 있어 어떤 지표를 당기 값으로 읽지 못했을 때 응답 warnings 에 다는 한 줄
+NUMBERED_ROW_WARNING = ("정정 표에서 비교 절 안에 번호 붙은 지표 행(예: 2. 영업이익)이 있어 당기 값으로 읽지 않았다 — "
+                                             "원문 정정 표를 직접 확인할 것")
+
+
+def _correction_headline(soup: BeautifulSoup, factor: float, notes: list[str] | None = None) -> dict[str, Any]:
     """[기재정정] 표의 정정후 열을 headline으로 노출한다.
 
     - 절 머리행(당기실적·전기대비 증감율·전년동기실적 …)을 따라가며 **당기 절의 행만** 채택한다 — 증감율 %가 금액으로 나가지 않는다.
     - 정정전·정정후 열은 **머리 행**이 정한다(마지막 숫자를 정정후로 읽지 않는다). 정정후 칸이 '-'·빈칸이면 `value_krw`=None,
       정정전 값은 `prior_value_krw` 에만 둔다(DATA-U3·DATA-PIT1).
+    - 번호 붙은 지표 행(「2. 영업이익」)은 **명시적 절 머리행이 한 번이라도 나온 뒤에는 절을 바꾸지 않는다**(값이 있으면 지금 절의 규칙대로,
+      값이 비면 아무것도 안 함). 머리행 앞에서는 값이 비면 제목(neutral), 값이 있으면 neutral 에서 채택한다. 비교 절 안의 번호 지표 행이 있어
+      어떤 지표를 버렸고 끝내 그 지표가 비었으면 `notes` 에 사용자에게 보일 경고 한 줄을 단다(PROV-R5-M1 — 틀린 값은 빈 값보다 나쁘다).
     """
     table = next((t for t in soup.find_all("table")
                   if re.search(r"정정\s*후", t.get_text())
@@ -267,6 +275,9 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
     cols: tuple[int, int] | None = None
     header_len = 0
     section: str | None = None
+    seen_explicit = False      # 당기·비교 절 머리행이 한 번이라도 나왔나
+    other_numbered = False     # 지금 비교 절 안에서 번호 붙은 지표 행이 나왔나 (절이 바뀌면 꺼진다)
+    dropped: set[str] = set()  # 비교 절이라 버린 지표 중 번호 붙은 지표 행과 얽힌 것
     for row in _table_to_grid(table):
         found = _correction_columns(row)
         if found is not None:
@@ -274,15 +285,26 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
             header_len = len(row)
             continue
         sec = _correction_section(row[0] if row else None)
+        numbered_metric = False
         if sec == "neutral":
-            # 번호 붙은 행 — 지표 라벨이 아니면 큰 제목(절 초기화). 지표 라벨이어도 값 칸이 모두 비었거나 '-' 면 제목 행이라 절을 초기화하고
-            # 채택할 값이 없다(뒤 하위 행은 neutral 절에서 읽힌다). 값이 있으면 데이터 행이라 절을 바꾸지 않고 지금 절의 규칙대로 읽는다
-            # (비교·% 절 안의 「1. 매출액 | 5 | 6」 이 당기 금액으로 나가지 않는다 — 틀린 값은 빈 값보다 나쁘다) (PROV-R3-S1·R4-S1)
-            if not any(_correction_label_key(c)[0] for c in row) or _correction_values_blank(row, cols, header_len):
-                section = "neutral"
+            if not any(_correction_label_key(c)[0] for c in row):
+                section = "neutral"   # 번호 붙은 큰 제목(지표 라벨 아님) — 절 초기화
+                other_numbered = False
+                continue
+            numbered_metric = True
+            if section == "other":
+                other_numbered = True
+            if seen_explicit:
+                # 명시적 절 머리행 뒤의 번호 붙은 지표 행은 절을 바꾸지 않는다 — 값이 비면 할 일이 없고, 값이 있으면 지금 절의 규칙대로 읽는다
+                if _correction_values_blank(row, cols, header_len):
+                    continue
+            elif _correction_values_blank(row, cols, header_len):
+                section = "neutral"   # 머리행 앞의 값 없는 번호 지표 행은 제목 — 뒤 하위 행이 neutral 절에서 읽힌다
                 continue
         elif sec is not None:
             section = sec
+            seen_explicit = True
+            other_numbered = False
             if not any(_correction_label_key(c)[0] for c in row[1:]):
                 continue   # 순수 절 머리행
             # 첫 열이 절 이름이고 둘째 열이 지표인 rowspan 펼친 꼴(「당기실적 | 매출액 | 정정전 | 정정후」) — 절은 갱신하고 행은 읽는다
@@ -292,9 +314,11 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
             division = _correction_section(row[1])   # 구분 열(둘째 칸)에 절 이름이 오는 꼴(「- 영업이익 | 증감비율(%) | …」) — 그 행만의 절
             if division in ("current", "other"):
                 row_section = division
-        if row_section == "other":
-            continue
         hit = next(((i, k, tag) for i, (k, tag) in ((i, _correction_label_key(c)) for i, c in enumerate(row)) if k), None)
+        if row_section == "other":
+            if hit and (numbered_metric or other_numbered):
+                dropped.add(hit[1])
+            continue
         if not hit:
             continue
         idx, key, tag = hit
@@ -313,6 +337,8 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
             continue
         head[key] = {"value_krw": after * factor if after is not None else None,
                      "prior_value_krw": before * factor if before is not None else None}
+    if notes is not None and any((head.get(k) or {}).get("value_krw") is None for k in dropped):
+        notes.append(NUMBERED_ROW_WARNING)
     return head
 
 
@@ -341,7 +367,8 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
             period = (_period_from_start_end_labels(text) if is_structure else None) \
                 or period_from_quarter_text(text, fiscal_end_month)   # 날짜 범위가 없으면 「2025년 2분기」 문구에서(260907)
     tables = soup.find_all("table")
-    correction_headline = _correction_headline(soup, factor) if "정정" in (report_nm or "") else {}
+    correction_notes: list[str] = []
+    correction_headline = _correction_headline(soup, factor, correction_notes) if "정정" in (report_nm or "") else {}
     if not correction_headline and is_structure:
         # 정정 접두가 붙은 손익구조 변경 공시인데 정정전·정정후 표가 아니면(원공시 서식 전문을 다시 낸 정정) 원공시 서식 파서로.
         return _parse_structure_change(html, fiscal_end_month=fiscal_end_month)
@@ -351,6 +378,7 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
                 "kind": "financial", "correction": True,
                 **({"provisional_type": "fiscal_year_change"} if is_structure else {}),
                 "headline": correction_headline if unit_label else _strip_money(correction_headline), **unit_extra,
+                **({"parse_warnings": correction_notes} if correction_notes else {}),   # 서비스가 떼어 응답 warnings 로 옮긴다(새 응답 키 아님)
                 "table_markdown": "\n\n".join(p for p in (_clean_render(t) for t in tables) if p)[:6000] or None}
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
                       and any(k in t.get_text() for k in ("매출액", "영업수익", "수익(매출액)", "보험수익", "순영업수익", "공사수익"))), None)
@@ -638,7 +666,7 @@ async def build_provisional_earnings_payload(
                             data={"report": {"rcept_no": rept["rcept_no"], "url": url}},
                             warnings=[f"원문 파싱 실패: {type(e).__name__}"
                                       + (f"(DART {getattr(e, 'status', '')})" if isinstance(e, DartClientError) else "")]).to_dict()
-    warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)", *extra_warnings]
+    warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)", *extra_warnings, *parsed.pop("parse_warnings", [])]
     if parsed.get("unit_warning"):
         warnings.append(parsed["unit_warning"])
     if parsed.get("kind") == "non_financial":

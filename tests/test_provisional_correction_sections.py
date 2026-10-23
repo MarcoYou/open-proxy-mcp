@@ -35,6 +35,8 @@ def _table(rows: list[list[str]], unit: str = "억원, %", extra: str = "") -> s
 
 
 _HEAD = ["정정항목", "정정전", "정정후"]
+_NUMBERED_IN_OTHER_WARNING = ("정정 표에서 비교 절 안에 번호 붙은 지표 행(예: 2. 영업이익)이 있어 당기 값으로 읽지 않았다 — "
+                              "원문 정정 표를 직접 확인할 것")
 
 
 # ── ① 절 머리 ────────────────────────────────────────────────────────────────
@@ -259,14 +261,19 @@ def test_numbered_metric_label_is_not_a_numbered_heading():
 
 
 # ── 3차 감수 ─────────────────────────────────────────────────────────────────
-def test_numbered_metric_row_after_comparison_section_resets_section():
-    """비교 절(전년동기실적) 뒤에 「2. 영업이익」 번호 붙은 지표 행이 오면 절은 초기화되고 그 행·뒤따르는 지표 행이 읽힌다 (PROV-R3-S1 ①)."""
+def test_numbered_metric_row_after_comparison_section_is_not_read_as_current():
+    """비교 절(전년동기실적) 뒤에 「2. 영업이익」 번호 붙은 지표 행이 오면, 5차 규칙(명시적 절 머리행이 나온 뒤의 번호 붙은 지표 행은 절을 바꾸지 않는다)에
+    따라 뒤 하위 행 「- 영업이익 | 10 | 12」 는 여전히 전년동기 절이라 버린다 — 영업이익은 비고 경고가 붙는다 (PROV-R3-S1 ①, 5차에서 기대가 바뀜).
+    이유: 이 꼴은 구조상 A1(적자전환으로 % 절 안 「2. 영업이익 | - | -」 뒤에 오는 % 값 행)과 가를 수 없다 — 틀린 값(%·전년 값을 금액으로)이
+    빈 값보다 나쁘므로 빈 값 + 경고를 택한다. 이전 기대(영업이익 12억)는 4차까지의 규칙이었다."""
     html = _table([_HEAD, ["1. 매출액", "-", "-"], ["당기실적", "-", "-"], ["- 매출액", "100", "120"],
                    ["전년동기실적", "-", "-"], ["- 매출액", "90", "95"],
                    ["2. 영업이익", "-", "-"], ["- 영업이익", "10", "12"]])
-    h = parse_provisional_earnings(html, _NM)["headline"]
+    p = parse_provisional_earnings(html, _NM)
+    h = p["headline"]
     assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
-    assert h["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+    assert "operating_profit" not in h
+    assert p["parse_warnings"] == [_NUMBERED_IN_OTHER_WARNING]
 
 
 def test_numbered_metric_row_with_values_inside_percent_section_is_not_adopted():
@@ -280,15 +287,13 @@ def test_numbered_metric_row_with_values_inside_percent_section_is_not_adopted()
 
 
 # ── 4차 감수: 번호 붙은 지표 행 — 값 칸이 모두 비었거나 '-' 면 제목 행(절 초기화), 값이 있으면 데이터 행(절 유지) ──
-def test_numbered_metric_title_row_with_blank_values_resets_section_and_is_not_adopted():
-    """값 칸이 모두 '-' 인 「2. 영업이익」은 제목 행이다 — 절은 neutral 로 초기화, 행 자체는 채택할 값이 없다.
-    뒤 하위 행 「- 영업이익 | 10 | 12」 는 neutral 절에서 읽힌다. 기대값: 매출 120억 · 영업이익 12억 (PROV-R3-S1 ①)."""
-    html = _table([_HEAD, ["1. 매출액", "-", "-"], ["당기실적", "-", "-"], ["- 매출액", "100", "120"],
-                   ["전년동기실적", "-", "-"], ["- 매출액", "90", "95"],
-                   ["2. 영업이익", "-", "-"], ["- 영업이익", "10", "12"]])
-    h = parse_provisional_earnings(html, _NM)["headline"]
-    assert h["revenue"]["value_krw"] == 120 * 1e8
-    assert h["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+def test_numbered_metric_title_before_any_section_header_is_a_title():
+    """명시적 절 머리행(당기실적·전기대비증감율 …)이 나오기 전의 값 없는 번호 붙은 지표 행은 제목(neutral)이다 — 뒤 하위 행이 읽힌다.
+    기대값: 영업이익 12억 · 경고 없음 (PROV-R3-S1 에서 갈라진, 5차 규칙의 앞쪽 반)."""
+    html = _table([_HEAD, ["2. 영업이익", "-", "-"], ["- 영업이익", "10", "12"]])
+    p = parse_provisional_earnings(html, _NM)
+    assert p["headline"]["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+    assert "parse_warnings" not in p
 
 
 def test_numbered_metric_data_rows_inside_percent_section_are_not_taken_as_amounts():
@@ -296,9 +301,11 @@ def test_numbered_metric_data_rows_inside_percent_section_are_not_taken_as_amoun
     기대값: 매출 120억(당기 절 값), 영업이익 없음(「2. 영업이익 | -  | -」 는 제목 행, % 절의 값 40.3 은 금액이 아님) (PROV-R4-S1 ①)."""
     html = _table([_HEAD, ["당기실적", "-", "-"], ["1. 매출액", "100", "120"], ["2. 영업이익", "-", "-"],
                    ["전기대비증감율(%)", "-", "-"], ["1. 매출액", "5", "6"], ["2. 영업이익", "33.5", "40.3"]])
-    h = parse_provisional_earnings(html, _NM)["headline"]
+    p = parse_provisional_earnings(html, _NM)
+    h = p["headline"]
     assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
     assert "operating_profit" not in h
+    assert p["parse_warnings"] == [_NUMBERED_IN_OTHER_WARNING]
 
 
 def test_numbered_metric_data_row_inside_prior_period_section_does_not_beat_current():
@@ -326,3 +333,81 @@ def test_malformed_grid_row_with_extra_cell_still_judges_division_column():
     h = parse_provisional_earnings(html, "[기재정정]" + _STRUCT_NM)["headline"]
     assert h["revenue"]["value_krw"] == 1_200 * 1e3
     assert "operating_profit" not in h
+
+
+# ── 5차 감수: 명시적 절 머리행이 나온 뒤에는 번호 붙은 지표 행이 절을 바꾸지 않는다 (PROV-R5-M1) ──
+def test_percent_section_with_blank_numbered_row_does_not_leak_percent_as_amount():
+    """A1: 적자전환 등으로 % 절 안 「1. 매출액 | - | -」 가 비어도, 그 행이 절을 neutral 로 되돌리지 않는다 — 뒤 「2. 영업이익 | 33.5 | 40.3」(%)을
+    금액으로 읽지 않는다. 기대값: 매출 120억, 영업이익 없음 + 경고 (origin/main 도 비워 둔 꼴 — 틀린 값 회귀 방지)."""
+    html = _table([_HEAD, ["당기실적", "-", "-"], ["1. 매출액", "100", "120"], ["2. 영업이익", "-", "-"],
+                   ["전기대비증감율(%)", "-", "-"], ["1. 매출액", "-", "-"], ["2. 영업이익", "33.5", "40.3"]])
+    p = parse_provisional_earnings(html, _NM)
+    assert p["headline"]["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+    assert "operating_profit" not in p["headline"]
+    assert p["parse_warnings"] == [_NUMBERED_IN_OTHER_WARNING]
+
+
+def test_percent_section_blank_numbered_row_with_empty_cells_is_same():
+    """A6: 값 칸이 빈칸과 '-' 가 섞여도 같다 (기대값: 영업이익 없음 + 경고)."""
+    html = _table([_HEAD, ["당기실적", "-", "-"], ["1. 매출액", "100", "120"], ["전기대비증감율(%)", "-", "-"],
+                   ["1. 매출액", "", "-"], ["2. 영업이익", "33.5", "40.3"]])
+    p = parse_provisional_earnings(html, _NM)
+    assert "operating_profit" not in p["headline"]
+    assert p["parse_warnings"] == [_NUMBERED_IN_OTHER_WARNING]
+
+
+def test_prior_first_blank_numbered_row_does_not_let_prior_value_beat_current():
+    """A2b: 전년동기 절이 먼저 오고 그 안의 「1. 영업이익 | - | -」 뒤 「2. 당기순이익 | 8 | 9」(전년 값)가 당기 절 값(12)보다 먼저 들어가던 꼴.
+    기대값: 당기순이익 12억(전년동기 9억이 아님) — 뒤 당기 절에서 채워지므로 경고는 없다."""
+    html = _table([_HEAD, ["전년동기실적", "-", "-"], ["1. 영업이익", "-", "-"], ["2. 당기순이익", "8", "9"],
+                   ["당기실적", "-", "-"], ["1. 영업이익", "10", "12"], ["2. 당기순이익", "10", "12"]])
+    p = parse_provisional_earnings(html, _NM)
+    h = p["headline"]
+    assert h["net_income"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+    assert h["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+    assert "parse_warnings" not in p
+
+
+def test_standard_order_with_numbered_rows_in_percent_section_has_no_warning():
+    """대조(A4): 당기 절이 다 채워진 정상 순서에서 % 절 안 번호 지표 행은 버려도 빠진 지표가 없으므로 경고를 달지 않는다."""
+    html = _table([_HEAD, ["당기실적", "-", "-"], ["1. 매출액", "100", "120"], ["2. 영업이익", "10", "12"],
+                   ["전기대비증감율(%)", "-", "-"], ["1. 매출액", "5", "6"], ["2. 영업이익", "-", "-"], ["3. 당기순이익", "33", "40"]])
+    p = parse_provisional_earnings(html, _NM)
+    assert p["headline"]["revenue"]["value_krw"] == 120 * 1e8
+    assert p["headline"]["operating_profit"]["value_krw"] == 12 * 1e8
+    assert "net_income" not in p["headline"]
+    # 순이익은 % 절 값만 있고 비어 있다 — 버린 지표가 빠졌으므로 경고는 달린다
+    assert p["parse_warnings"] == [_NUMBERED_IN_OTHER_WARNING]
+
+
+def test_numbered_other_section_warning_reaches_service_warnings(monkeypatch):
+    """경고는 응답의 기존 warnings 에 한 줄로 실리고, 새 응답 키(parse_warnings)는 data 에 남지 않는다."""
+    from open_proxy_mcp.services import provisional_earnings as pe
+    from open_proxy_mcp.services.company import CompanyResolution
+    from open_proxy_mcp.services.contracts import AnalysisStatus
+
+    html = _table([_HEAD, ["당기실적", "-", "-"], ["1. 매출액", "100", "120"], ["2. 영업이익", "-", "-"],
+                   ["전기대비증감율(%)", "-", "-"], ["1. 매출액", "-", "-"], ["2. 영업이익", "33.5", "40.3"]])
+
+    class _Client:
+        async def search_filings(self, **kw):
+            if kw.get("pblntf_detail_ty") != "I002":
+                return {"list": []}
+            return {"list": [{"rcept_no": "20261016800456", "rcept_dt": "20261016", "report_nm": _NM}]}
+
+        async def get_document_cached(self, rcept_no):
+            return {"html": html}
+
+        async def get_company_info(self, corp_code):
+            return {"acc_mt": "12"}
+
+    async def resolve(q, *a, **k):
+        return CompanyResolution(status=AnalysisStatus.EXACT, query=q, candidates=[],
+                                 selected={"corp_code": "00000001", "corp_name": "시험", "stock_code": "000001"})
+
+    monkeypatch.setattr(pe, "resolve_company_query", resolve)
+    monkeypatch.setattr("open_proxy_mcp.dart.client.get_dart_client", lambda: _Client())
+    out = asyncio.run(pe.build_provisional_earnings_payload("시험"))
+    assert _NUMBERED_IN_OTHER_WARNING in out["warnings"]
+    assert "parse_warnings" not in out["data"]
+    assert "operating_profit" not in out["data"]["headline"]
