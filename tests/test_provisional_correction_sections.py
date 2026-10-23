@@ -232,3 +232,27 @@ def test_structure_change_original_still_uses_structure_parser():
     p = parse_provisional_earnings(html, _STRUCT_NM)
     assert p["provisional_type"] == "fiscal_year_change" and not p.get("correction")
     assert p["headline"]["revenue"]["value_krw"] == 177_803_500_000
+
+
+# ── 재감수(2차) ──────────────────────────────────────────────────────────────
+def test_standard_three_column_table_does_not_judge_value_cell_as_section():
+    """정정항목|정정전|정정후 표에서 정정전 칸이 「전기대비증감율: 5 당해실적: 100」 한 줄 요약이어도 그 칸을 절 이름으로 보지 않는다 (PROV-R2-S1)."""
+    html = _table([_HEAD, ["매출액", "전기대비증감율: 5 당해실적: 100", "전기대비증감율: 6 당해실적: 120"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+
+
+def test_structure_correction_period_prefers_start_end_over_quarter_text():
+    """손익구조 정정 본문에 「2025년 4분기」 문구가 있어도 기간은 시작일·종료일(연간)로, 석 달 기간에 연간 표지가 붙지 않는다 (PROV-R2-S2)."""
+    html = _table([_HEAD, ["매출액", "1,000", "1,200"]], unit="천원",
+                  extra="<p>2025년 4분기 사업연도 시작일 2025-01-01 종료일 2025-12-31</p>")
+    p = parse_provisional_earnings(html, "[기재정정]" + _STRUCT_NM)
+    assert p["period"] == {"start": "2025-01-01", "end": "2025-12-31"}
+    assert p["period_kind"] == "annual"
+
+
+def test_numbered_metric_label_is_not_a_numbered_heading():
+    """「1. 매출액」처럼 번호를 뗀 나머지가 지표 라벨이면 큰 제목이 아니라 지표 행이다 (PROV-R2-N1)."""
+    html = _table([_HEAD, ["1. 매출액", "100", "120"], ["2. 정보제공내역", "-", "-"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}

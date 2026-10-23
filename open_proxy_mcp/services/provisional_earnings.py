@@ -210,6 +210,8 @@ def _correction_section(label_cell: str | None) -> str | None:
     if _CORR_OTHER_SECTION.search(label):
         return "other"
     if _CORR_NUMBERED_HEADING.search(label):
+        if _label_key(_CORR_NUMBERED_HEADING.sub("", label, count=1))[0]:
+            return None   # 「1. 매출액」 — 번호를 뗀 나머지가 지표 라벨이면 큰 제목이 아니라 지표 행이다
         return "neutral"
     return None
 
@@ -258,7 +260,7 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
                 continue   # 순수 절 머리행
             # 첫 열이 절 이름이고 둘째 열이 지표인 rowspan 펼친 꼴(「당기실적 | 매출액 | 정정전 | 정정후」) — 절은 갱신하고 행은 읽는다
         row_section = section
-        if len(row) > 1:
+        if len(row) > 1 and not (cols is not None and 1 in cols):   # 둘째 칸이 정정전·정정후 값 열인 표준 표에서는 값 칸을 절 이름으로 보지 않는다
             division = _correction_section(row[1])   # 구분 열(둘째 칸)에 절 이름이 오는 꼴(「- 영업이익 | 증감비율(%) | …」) — 그 행만의 절
             if division in ("current", "other"):
                 row_section = division
@@ -298,17 +300,18 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
     factor = _UNIT[unit_label] if unit_label else 1.0   # 단위를 모르면 1.0 으로 읽고 아래에서 금액을 비운다(증감률·종류 판정만 쓴다)
     unit_extra = {} if unit_label else {"unit_warning": UNIT_UNKNOWN_WARNING}
     consolidated = "연결재무제표기준" in (report_nm or "") or "연결재무제표 기준" in text
+    is_structure = _is_structure_change_report(report_nm)
     pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
     if pm:
         period = {"start": pm.group(1), "end": pm.group(2)}
     else:
         ym = re.search(r"(\d{4})[.-](\d{2})\s*~\s*(\d{4})[.-](\d{2})", text)
-        period = ({"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"} if ym
-                  else period_from_quarter_text(text, fiscal_end_month))   # 날짜 범위가 없으면 「2025년 2분기」 문구에서(260907)
-
-    is_structure = _is_structure_change_report(report_nm)
-    if is_structure and period is None:
-        period = _period_from_start_end_labels(text)   # 손익구조 정정도 원공시 서식과 같은 기간 표기를 쓴다
+        if ym:
+            period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"}
+        else:
+            # 손익구조 정정은 원공시 서식과 같은 순서 — 시작일·종료일을 「N년 N분기」 문구보다 먼저(본문 사유에 분기 문구가 섞여도 연간 기간을 석 달로 읽지 않는다)
+            period = (_period_from_start_end_labels(text) if is_structure else None) \
+                or period_from_quarter_text(text, fiscal_end_month)   # 날짜 범위가 없으면 「2025년 2분기」 문구에서(260907)
     tables = soup.find_all("table")
     correction_headline = _correction_headline(soup, factor) if "정정" in (report_nm or "") else {}
     if not correction_headline and is_structure:
