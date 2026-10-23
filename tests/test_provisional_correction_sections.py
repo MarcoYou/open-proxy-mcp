@@ -256,3 +256,30 @@ def test_numbered_metric_label_is_not_a_numbered_heading():
     html = _table([_HEAD, ["1. 매출액", "100", "120"], ["2. 정보제공내역", "-", "-"]])
     h = parse_provisional_earnings(html, _NM)["headline"]
     assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+
+
+# ── 3차 감수 ─────────────────────────────────────────────────────────────────
+def test_numbered_metric_row_after_comparison_section_resets_section():
+    """비교 절(전년동기실적) 뒤에 「2. 영업이익」 번호 붙은 지표 행이 오면 절은 초기화되고 그 행·뒤따르는 지표 행이 읽힌다 (PROV-R3-S1 ①)."""
+    html = _table([_HEAD, ["1. 매출액", "-", "-"], ["당기실적", "-", "-"], ["- 매출액", "100", "120"],
+                   ["전년동기실적", "-", "-"], ["- 매출액", "90", "95"],
+                   ["2. 영업이익", "-", "-"], ["- 영업이익", "10", "12"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+    assert h["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+
+
+def test_numbered_metric_row_right_after_percent_section_is_read():
+    """「전기대비증감율(%)」 절 바로 뒤의 「2. 영업이익 | 10 | 12」 행 자체가 지표 행으로 채택된다 (PROV-R3-S1 ②)."""
+    html = _table([_HEAD, ["1. 매출액", "100", "120"], ["전기대비증감율(%)", "5", "6"], ["2. 영업이익", "10", "12"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+    assert h["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+
+
+def test_malformed_grid_row_with_extra_cell_still_judges_division_column():
+    """머리행은 3칸인데 데이터 행만 4칸인 어긋난 격자에서 「증감비율(%)」 구분 칸 행의 % 가 금액으로 나가지 않는다 (PROV-R3-N1)."""
+    html = _table([_HEAD, ["- 매출액", "1,000", "1,200"], ["- 영업이익", "증감비율(%)", "25.0", "50.0"]], unit="천원")
+    h = parse_provisional_earnings(html, "[기재정정]" + _STRUCT_NM)["headline"]
+    assert h["revenue"]["value_krw"] == 1_200 * 1e3
+    assert "operating_profit" not in h

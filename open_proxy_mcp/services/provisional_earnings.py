@@ -202,16 +202,21 @@ _CORR_OTHER_SECTION = re.compile(r"^(?:전기|전년동기|전분기|직전)(?:�
 _CORR_NUMBERED_HEADING = re.compile(r"^\d+[.)]")
 
 
+def _correction_label_key(cell: str | None) -> tuple[str | None, str | None]:
+    """`_label_key` 에 앞 번호(「2. 영업이익」의 「2.」)를 떼는 단계를 더한 정정 표 전용 판. 번호 없는 칸은 `_label_key` 와 같다."""
+    return _label_key(_CORR_NUMBERED_HEADING.sub("", re.sub(r"^[-\s·ㆍ]+", "", re.sub(r"\s+", "", cell or "")), count=1))
+
+
 def _correction_section(label_cell: str | None) -> str | None:
-    """정정 표 첫 열이 절 머리행이면 그 절 — `current`(당기 금액)·`other`(비교 기간·% 절)·`neutral`(번호 붙은 큰 제목). 머리행이 아니면 None."""
+    """정정 표 첫 열이 절 머리행이면 그 절 — `current`(당기 금액)·`other`(비교 기간·% 절)·`neutral`(번호 붙은 큰 제목). 머리행이 아니면 None.
+
+    「2. 영업이익」처럼 번호를 뗀 나머지가 지표 라벨인 행도 절은 `neutral`(앞 비교 절을 초기화)이다 — 그 행을 지표 행으로 읽을지는 호출부가 정한다."""
     label = re.sub(r"^[-\s·ㆍ]+", "", re.sub(r"\s+", "", label_cell or ""))
     if _CORR_CURRENT_SECTION.search(label):
         return "current"
     if _CORR_OTHER_SECTION.search(label):
         return "other"
     if _CORR_NUMBERED_HEADING.search(label):
-        if _label_key(_CORR_NUMBERED_HEADING.sub("", label, count=1))[0]:
-            return None   # 「1. 매출액」 — 번호를 뗀 나머지가 지표 라벨이면 큰 제목이 아니라 지표 행이다
         return "neutral"
     return None
 
@@ -247,26 +252,30 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
         return {}
     head: dict[str, Any] = {}
     cols: tuple[int, int] | None = None
+    header_len = 0
     section: str | None = None
     for row in _table_to_grid(table):
         found = _correction_columns(row)
         if found is not None:
             cols = found
+            header_len = len(row)
             continue
         sec = _correction_section(row[0] if row else None)
         if sec is not None:
-            section = sec   # 절 갱신과 행 채택은 별개다 — 아래에서 같은 행의 다른 칸에 지표 라벨이 있는지 본다
-            if not any(_label_key(c)[0] for c in row[1:]):
+            section = sec   # 절 갱신과 행 채택은 별개다 — 아래에서 같은 행에 지표 라벨이 있는지 본다
+            if not any(_correction_label_key(c)[0] for c in (row if sec == "neutral" else row[1:])):
                 continue   # 순수 절 머리행
-            # 첫 열이 절 이름이고 둘째 열이 지표인 rowspan 펼친 꼴(「당기실적 | 매출액 | 정정전 | 정정후」) — 절은 갱신하고 행은 읽는다
+            # 첫 열이 절 이름이고 둘째 열이 지표인 rowspan 펼친 꼴(「당기실적 | 매출액 | 정정전 | 정정후」)이나,
+            # 번호 붙은 지표 행(「2. 영업이익 | 10 | 12」, 번호 제목이라 앞 비교 절은 초기화) — 절은 갱신하고 행은 읽는다
         row_section = section
-        if len(row) > 1 and not (cols is not None and 1 in cols):   # 둘째 칸이 정정전·정정후 값 열인 표준 표에서는 값 칸을 절 이름으로 보지 않는다
+        # 둘째 칸이 정정전·정정후 값 열인 표준 표에서는 값 칸을 절 이름으로 보지 않는다 — 단, 행 칸 수가 머리행과 다른 어긋난 격자는 열 위치를 믿지 않는다
+        if len(row) > 1 and not (cols is not None and 1 in cols and len(row) == header_len):
             division = _correction_section(row[1])   # 구분 열(둘째 칸)에 절 이름이 오는 꼴(「- 영업이익 | 증감비율(%) | …」) — 그 행만의 절
             if division in ("current", "other"):
                 row_section = division
         if row_section == "other":
             continue
-        hit = next(((i, k, tag) for i, (k, tag) in ((i, _label_key(c)) for i, c in enumerate(row)) if k), None)
+        hit = next(((i, k, tag) for i, (k, tag) in ((i, _correction_label_key(c)) for i, c in enumerate(row)) if k), None)
         if not hit:
             continue
         idx, key, tag = hit
