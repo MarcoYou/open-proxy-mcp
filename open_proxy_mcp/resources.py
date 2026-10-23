@@ -60,6 +60,22 @@ def register_all_resources(mcp: MCPServer) -> None:
         return "\n".join(lines)
 
     @mcp.resource(
+        "opm://notices",
+        name="notices",
+        title="OpenProxy Operator Notices",
+        description=(
+            "지금 유효한 운영자 공지 목록(JSON). 도구 응답에 실리는 `notices` 칸·📢 블록과 같은 공지의 전체 목록이다. "
+            "공지가 없으면 빈 목록을 준다."
+        ),
+        mime_type="application/json",
+        annotations=Annotations(audience=["user", "assistant"], priority=0.4),
+    )
+    async def operator_notices() -> str:
+        from open_proxy_mcp.services import notices
+
+        return notices.resource_json()
+
+    @mcp.resource(
         "opm://filing/{rcept_no}",
         name="DART 공시 원문",
         description=(

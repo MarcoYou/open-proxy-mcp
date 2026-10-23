@@ -278,22 +278,26 @@ class ToolEnvelope:
     data: dict[str, Any] = field(default_factory=dict)
     evidence_refs: list[EvidenceRef | dict[str, Any]] = field(default_factory=list)
     next_actions: list[str] = field(default_factory=list)
+    #: 운영자 공지(`services/notices`) — `[{id, level, title, body, link}]`. 데이터 경고(`warnings`)와 따로 싣는다.
+    #: 비어 있으면 직렬화에 칸이 없다(공지 0개일 때 응답이 지금과 같다). 공지는 보통 도구 경계(`tools._attach_notices`)가 끼운다.
+    notices: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         evidence = [
             item.to_dict() if isinstance(item, EvidenceRef) else item
             for item in self.evidence_refs
         ]
-        return {
+        out: dict[str, Any] = {
             "tool": self.tool,
             "status": getattr(self.status, "value", self.status),
             "subject": self.subject,
             "generated_at": self.generated_at,
             "warnings": _merge_declared(self.warnings),
-            "data": self.data,
-            "evidence_refs": evidence,
-            "next_actions": self.next_actions,
         }
+        if self.notices:
+            out["notices"] = list(self.notices)
+        out.update(data=self.data, evidence_refs=evidence, next_actions=self.next_actions)
+        return out
 
 
 def as_pretty_json(payload: dict[str, Any]) -> str:
