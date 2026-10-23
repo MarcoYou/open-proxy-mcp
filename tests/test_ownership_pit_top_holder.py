@@ -8,7 +8,10 @@
 
 고정본(실제 DART 응답을 필요한 칸·행만 남김, network 0 · DB 0):
   · majorstock_korea_zinc_00102858_20261023.json — 고려아연 5% 대량보유 목록 중 2025-09 이후 접수분.
-  · hyslrsttus_hanmi_science_00161426_2025.json — 한미사이언스 2025 사업보고서 최대주주 명부(지분 1% 넘는 행, 보유 주식 수 칸은 뺌).
+  · hyslrsttus_hanmi_science_00161426_2025.json — 한미사이언스 2025 사업보고서 최대주주 명부. 🔴 원 응답을 줄인 고정본이다:
+      - 지분 1% 미만 행은 뺐다 → 행 합 53.55% 는 실제 공시 「계」 55.84% 와 2.29%p 다르다(시험의 related_total_pct 는 고정본 행의 합).
+      - 칸은 6개(corp_code·nm·relate·stock_knd·trmend_posesn_stock_qota_rt·stlm_dt)만 남겼고 보유 주식 수(trmend_posesn_stock_co)·접수번호·기초 칸·비고는 뺐다 →
+        shares 가 0 이라 이 고정본은 100% 분해·주식 수 경로를 지나지 않는다(최대주주 선택·묶음 유의사항만 시험). 빠진 칸은 DART 를 다시 부르지 않고는 되살릴 수 없다.
 비12월 결산(3월)·결산월 조회 실패는 합성 클라이언트다 — 실제 회사 응답이 아니라 달력 규칙(`report_calendar.pit_annual`)을 시험한다.
 """
 
@@ -245,3 +248,42 @@ def test_top_holder_empty_and_block_estimate_rows() -> None:
     est = [{"name": "국민연금공단", "relation": "5% 보유자(추정)", "shares": 1, "ownership_pct": 6.1},
            {"name": "다른 보유자", "relation": "5% 보유자(추정)", "shares": 1, "ownership_pct": 5.2}]
     assert O._top_holder_summary(est)["name"] == "국민연금공단"
+
+
+# ── ③-b 본인보다 지분이 큰 묶음 안 보유자가 있으면 유의사항 한 줄 (OWN-2) ─────────────────
+
+def test_warns_when_a_related_party_holds_more_than_the_principal(monkeypatch) -> None:
+    """한미사이언스 2025: top_holder(본인 송영숙 3.38%) 하나만 읽고 「최대주주 지분 3.38%」로 끝내지 않게, 묶음 안 최대 보유자와 묶음 합계를 한 줄로 알린다.
+
+    고정본은 지분 1% 넘는 행만 남겨 합계가 실제 「계」(55.84%)보다 작은 53.55% 다 — 아래 숫자는 고정본 행의 합이다.
+    기존 키(top_holder 등)는 그대로이고 유의사항(warnings)에 줄이 더해질 뿐이다.
+    """
+    p = _build(monkeypatch, _Client(major=_HANMI), HANMI, scope="major_holders")
+    notes = [w for w in p["warnings"] if "묶음 안 최대 보유자" in w]
+    assert len(notes) == 1
+    assert notes[0] == "최대주주(본인) 송영숙 3.38% — 묶음 안 최대 보유자 신동국(발행회사 임원) 16.43%, 묶음 합계 53.55%"
+    assert p["data"]["summary"]["top_holder"]["name"] == "송영숙"
+    assert p["data"]["summary"]["related_total_pct"] == 53.55
+
+
+def test_no_gap_warning_when_the_principal_is_the_largest(monkeypatch) -> None:
+    rows = [{"name": "현대모비스", "relation": "본인", "shares": 1, "ownership_pct": 22.36},
+            {"name": "정몽구", "relation": "기타", "shares": 1, "ownership_pct": 5.57}]
+    assert O._top_holder_gap_note(rows) is None
+    est = [{"name": "국민연금공단", "relation": "5% 보유자(추정)", "shares": 1, "ownership_pct": 6.1},
+           {"name": "다른 보유자", "relation": "5% 보유자(추정)", "shares": 1, "ownership_pct": 5.2}]
+    assert O._top_holder_gap_note(est) is None          # 본인 표기가 없어 지분 최대 행이 최대주주 — 어긋남 없음
+    assert O._top_holder_gap_note([]) is None
+
+
+# ── ① 5% 추정 대체 경로도 기준일까지 접수된 보고만 (OWN-4) ─────────────────────────
+
+def test_block_estimate_fallback_uses_only_reports_received_by_the_date(monkeypatch) -> None:
+    """명부가 비어 최대주주를 5% 보고에서 추정하는 경로도 as_of 뒤 접수 보고를 쓰지 않는다 (고려아연 영풍: 2026-01-31 시점 46.0%, 이후 41.13%)."""
+    client = _Client(major={"list": []}, blocks=_KZ)
+    p = _build(monkeypatch, client, KOREA_ZINC, scope="summary", as_of_date="20260131")
+    top = p["data"]["summary"]["top_holder"]
+    assert (top["name"], top["ownership_pct"]) == ("영풍", 46.0)
+    assert top["settlement_date"].replace("-", "") <= "20260131"
+    p2 = _build(monkeypatch, _Client(major={"list": []}, blocks=_KZ), KOREA_ZINC, scope="summary")
+    assert p2["data"]["summary"]["top_holder"]["ownership_pct"] != 46.0     # as_of 없이는 종전처럼 가장 늦은 보고

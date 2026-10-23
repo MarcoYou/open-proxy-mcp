@@ -244,6 +244,7 @@ def _block_report_order(item: dict[str, Any]) -> tuple[str, str]:
 async def _fetch_largest_shareholder_from_blocks(
     client,
     corp_code: str,
+    as_of_ymd: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """5% 대량보유(majorstock)에서 최대주주 후보를 추정.
 
@@ -253,6 +254,8 @@ async def _fetch_largest_shareholder_from_blocks(
 
     KT&G 같은 회사도 hyslrSttus에 본인 7%대 데이터가 있어 1차 fallback이
     먼저 처리하는 것이 정상. 이 함수는 그것마저 실패한 잔여 케이스용.
+
+    `as_of_ymd`(YYYYMMDD) 를 주면 그날까지 접수된 보고만 보고자별 「최신」 후보로 본다(`_latest_block_rows` 와 같은 기준, DATA-PIT9).
     """
     warnings: list[str] = []
     try:
@@ -270,6 +273,8 @@ async def _fetch_largest_shareholder_from_blocks(
         reporter = (item.get("repror", "") or "").strip()
         if not reporter:
             continue
+        if as_of_ymd and (item.get("rcept_dt", "") or "").replace("-", "") > as_of_ymd:
+            continue  # 기준일 뒤에 접수된 보고는 그 시점에 없던 정보다
         if reporter not in latest_by_reporter or _block_report_order(item) > _block_report_order(latest_by_reporter[reporter]):
             latest_by_reporter[reporter] = item
 
@@ -309,6 +314,30 @@ def _top_holder_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     if principals:
         return max(principals, key=lambda row: row.get("ownership_pct") or 0.0)
     return rows[0]
+
+
+def _top_holder_gap_note(rows: list[dict[str, Any]]) -> str | None:
+    """최대주주(본인 행)보다 지분이 큰 묶음 안 보유자가 있으면 알리는 유의사항 한 줄 — 없으면 None.
+
+    DART 최대주주 현황은 「최대주주 본인 + 특수관계인」 묶음이다. 본인 행이 묶음 안 최대 보유자가 아닐 수 있는데(한미사이언스 2025:
+    본인 송영숙 3.38%, 발행회사 임원 신동국 16.43%) `top_holder` 하나만 읽으면 「최대주주 지분 3.38%」로 끝나기 쉽다.
+    본인 표기가 없어 지분 최대 행이 최대주주로 나간 경우(5% 보고 추정 경로 등)는 어긋남이 없으므로 None.
+    """
+    top = _top_holder_summary(rows)
+    if not top or not _is_principal_relation(top.get("relation")):
+        return None
+    largest = max(rows, key=lambda row: row.get("ownership_pct") or 0.0)
+    top_pct = top.get("ownership_pct") or 0.0
+    largest_pct = largest.get("ownership_pct") or 0.0
+    if largest is top or largest_pct <= top_pct:
+        return None
+    relation = str(largest.get("relation") or "").strip()
+    relation_txt = f"({relation})" if relation else ""
+    return (
+        f"최대주주(본인) {top.get('name', '')} {top_pct:.2f}% — "
+        f"묶음 안 최대 보유자 {largest.get('name', '')}{relation_txt} {largest_pct:.2f}%, "
+        f"묶음 합계 {_related_total(rows):.2f}%"
+    )
 
 
 def _related_total(rows: list[dict[str, Any]]) -> float:
@@ -1509,7 +1538,7 @@ async def build_ownership_structure_payload(
     if not major_rows:
         stage_started_at = time.perf_counter()
         block_fb_rows, block_fb_warnings = await _fetch_largest_shareholder_from_blocks(
-            client, selected["corp_code"]
+            client, selected["corp_code"], format_yyyymmdd(window_end),
         )
         _mark("largest_holder_block_fallback", stage_started_at)
         warnings.extend(block_fb_warnings)
@@ -1556,6 +1585,9 @@ async def build_ownership_structure_payload(
                 "공시 지분율은 우선주 포함 총주식 기준일 수 있음. 100% 분해표는 보통주 기준."
             )
     top_holder = _top_holder_summary(major_rows)
+    _gap_note = _top_holder_gap_note(major_rows)
+    if _gap_note:
+        warnings.append(_gap_note)
     # 공동보유자 분해를 모든 scope의 5% 블록에 부착 (summary/blocks에서도 노출되도록).
     _enrich_co_holders(latest_blocks, major_rows)
     # 5% 보고 지분율은 단순 합산이 안 된다 — 보고자끼리 같은 특별관계자를 품고 있거나(겹침),
