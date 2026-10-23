@@ -114,7 +114,9 @@ def _is_structure_change_report(report_nm: str) -> bool:
     compact = re.sub(r"\s+", "", report_nm or "")
     # 정정 공시는 이름 앞에 [기재정정]·[첨부정정] 같은 접두가 붙는다 — 떼고 판정한다(DATA-PIT1). 안 떼면 정정 공시가
     # 후보에서 빠져 원공시가 최신으로 나간다. 접두 뒤 본문이 정정전·정정후 표인 것은 parse_provisional_earnings 가 가른다.
-    compact = re.sub(r"^(?:\[[^\]]*\])+", "", compact)
+    # 떼는 접두는 DART 정정류 세 가지(기재정정·첨부정정·첨부추가)뿐이다 — 그 밖의 대괄호 접두([투자유의] 등)까지 떼면
+    # 손익구조 변경이 아닌 공시가 판정에 섞일 수 있어 모든 대괄호를 뗄 이유가 없다.
+    compact = re.sub(r"^(?:\[(?:기재정정|첨부정정|첨부추가)\])+", "", compact)
     # 🔴 **코스피는 「변경」, 코스닥은 「변동」이다** (2026-08-27 실측).
     # `이상변경` 만 보던 탓에 코스닥 공시가 통째로 잠정실적 분기로 새어
     # `당기실적` 표를 못 찾고 period·headline·fiscal_year 가 전부 빠졌다.
@@ -192,10 +194,11 @@ def _headline_from_grid(grid: list[list[str]], factor: float) -> dict[str, Any]:
     return {k: v for k, v in head.items() if v.get("value_krw") is not None}
 
 
-#: 정정 표의 절 머리행 라벨 — 「당기실적(26.2Q)」 아래가 금액, 「전기대비 증감율(%)」·「전년동기대비 증감율(%)」·
-#: 「전기실적」·「전년동기실적」 아래는 비교 기간 값·% 라서 금액 행으로 읽으면 안 된다(DATA-U3).
-_CORR_CURRENT_SECTION = re.compile(r"^(?:당기|당해)실적")
-_CORR_OTHER_SECTION = re.compile(r"^(?:전기|전년동기|전분기|직전)(?:실적|대비|$)|^증감율")
+#: 정정 표의 절 머리행 라벨 — 「당기실적(26.2Q)」·「당해사업연도」 아래가 금액, 「전기대비 증감율(%)」·「전년동기대비 증감율(%)」·
+#: 「전기실적」·「전년동기실적」·「직전사업연도」·「증감금액」·「증감비율(%)」 아래는 비교 기간 값·% 라서 금액 행으로 읽으면 안 된다(DATA-U3).
+#: 앞 둘은 I002 공정공시 어휘, 「사업연도」·「증감금액」·「증감비율」은 I001 손익구조 변경 서식 어휘다.
+_CORR_CURRENT_SECTION = re.compile(r"^(?:당기|당해)(?:실적|사업연도)")
+_CORR_OTHER_SECTION = re.compile(r"^(?:전기|전년동기|전분기|직전)(?:실적|대비|사업연도|$)|^증감(?:율|금액|비율)")
 _CORR_NUMBERED_HEADING = re.compile(r"^\d+[.)]")
 
 
@@ -250,9 +253,16 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
             continue
         sec = _correction_section(row[0] if row else None)
         if sec is not None:
-            section = sec
-            continue
-        if section == "other":
+            section = sec   # 절 갱신과 행 채택은 별개다 — 아래에서 같은 행의 다른 칸에 지표 라벨이 있는지 본다
+            if not any(_label_key(c)[0] for c in row[1:]):
+                continue   # 순수 절 머리행
+            # 첫 열이 절 이름이고 둘째 열이 지표인 rowspan 펼친 꼴(「당기실적 | 매출액 | 정정전 | 정정후」) — 절은 갱신하고 행은 읽는다
+        row_section = section
+        if len(row) > 1:
+            division = _correction_section(row[1])   # 구분 열(둘째 칸)에 절 이름이 오는 꼴(「- 영업이익 | 증감비율(%) | …」) — 그 행만의 절
+            if division in ("current", "other"):
+                row_section = division
+        if row_section == "other":
             continue
         hit = next(((i, k, tag) for i, (k, tag) in ((i, _label_key(c)) for i, c in enumerate(row)) if k), None)
         if not hit:
@@ -296,15 +306,19 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
         period = ({"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"} if ym
                   else period_from_quarter_text(text, fiscal_end_month))   # 날짜 범위가 없으면 「2025년 2분기」 문구에서(260907)
 
+    is_structure = _is_structure_change_report(report_nm)
+    if is_structure and period is None:
+        period = _period_from_start_end_labels(text)   # 손익구조 정정도 원공시 서식과 같은 기간 표기를 쓴다
     tables = soup.find_all("table")
     correction_headline = _correction_headline(soup, factor) if "정정" in (report_nm or "") else {}
-    if not correction_headline and _is_structure_change_report(report_nm):
+    if not correction_headline and is_structure:
         # 정정 접두가 붙은 손익구조 변경 공시인데 정정전·정정후 표가 아니면(원공시 서식 전문을 다시 낸 정정) 원공시 서식 파서로.
         return _parse_structure_change(html, fiscal_end_month=fiscal_end_month)
     if correction_headline:
         return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
-                **_period_metadata(period, fiscal_end_month=fiscal_end_month), "kind": "financial", "correction": True,
-                **({"provisional_type": "fiscal_year_change"} if _is_structure_change_report(report_nm) else {}),
+                **_period_metadata(period, annual=is_structure, fiscal_end_month=fiscal_end_month),
+                "kind": "financial", "correction": True,
+                **({"provisional_type": "fiscal_year_change"} if is_structure else {}),
                 "headline": correction_headline if unit_label else _strip_money(correction_headline), **unit_extra,
                 "table_markdown": "\n\n".join(p for p in (_clean_render(t) for t in tables) if p)[:6000] or None}
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
@@ -349,6 +363,13 @@ def _struct_column_map(row: list[str]) -> dict[str, int] | None:
     return roles if "value" in roles else None
 
 
+def _period_from_start_end_labels(text: str) -> dict[str, str] | None:
+    """손익구조 변경 서식의 「시작일 2025-01-01 … 종료일 2025-12-31」 → 기간. 없으면 None."""
+    starts = re.findall(r"시작일\s+(\d{4}-\d{2}-\d{2})", text)
+    ends = re.findall(r"종료일\s+(\d{4}-\d{2}-\d{2})", text)
+    return {"start": starts[0], "end": ends[0]} if starts and ends else None
+
+
 def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> dict[str, Any]:
     """I001 「매출액 또는 손익구조 30% 이상 변경」 표를 같은 headline 계약으로 변환."""
     soup = BeautifulSoup(html, "lxml")
@@ -364,9 +385,7 @@ def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> d
         if ym:
             period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"}
         else:
-            starts = re.findall(r"시작일\s+(\d{4}-\d{2}-\d{2})", text)
-            ends = re.findall(r"종료일\s+(\d{4}-\d{2}-\d{2})", text)
-            period = {"start": starts[0], "end": ends[0]} if starts and ends else None
+            period = _period_from_start_end_labels(text)
 
     table = next((t for t in soup.find_all("table")
                   if "당해사업연도" in t.get_text() and "영업이익" in t.get_text()), None)

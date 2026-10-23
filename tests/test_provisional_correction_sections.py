@@ -29,9 +29,9 @@ _NM = "[기재정정]연결재무제표기준영업(잠정)실적(공정공시)"
 _STRUCT_NM = "매출액또는손익구조30%(대규모법인은15%)이상변경"
 
 
-def _table(rows: list[list[str]]) -> str:
+def _table(rows: list[list[str]], unit: str = "억원, %", extra: str = "") -> str:
     body = "".join("<tr>" + "".join(f"<td>{c}</td>" for c in r) + "</tr>" for r in rows)
-    return f"<html><body><p>단위 : 억원, %</p><table>{body}</table></body></html>"
+    return f"<html><body><p>단위 : {unit}</p>{extra}<table>{body}</table></body></html>"
 
 
 _HEAD = ["정정항목", "정정전", "정정후"]
@@ -79,6 +79,71 @@ def test_table_without_section_rows_still_parses():
     assert h["operating_profit"] == {"value_krw": 8_949 * 1e8, "prior_value_krw": 8_800 * 1e8}
 
 
+def test_rowspan_expanded_section_column_keeps_the_rows():
+    """첫 열이 절 이름, 둘째 열이 지표인 꼴(rowspan 을 펼친 「당기실적 | 매출액 | 정정전 | 정정후」)은 절은 갱신하되 행은 읽는다.
+    절 판정만 하고 건너뛰면 headline 이 빈다(옛 코드는 같은 표에서 아래 값을 냈다)."""
+    html = _table([
+        ["정정항목", "정정항목", "정정전", "정정후"],
+        ["당기실적", "매출액", "13,000", "13,937"],
+        ["당기실적", "영업이익", "4,000", "4,518"],
+        ["전기대비 증감율(%)", "매출액", "13.54", "21.72"],
+        ["전기대비 증감율(%)", "영업이익", "33.58", "40.35"],
+    ])
+    p = parse_provisional_earnings(html, _NM)
+    assert p["kind"] == "financial"
+    assert p["headline"]["revenue"] == {"value_krw": 13_937 * 1e8, "prior_value_krw": 13_000 * 1e8}
+    assert p["headline"]["operating_profit"] == {"value_krw": 4_518 * 1e8, "prior_value_krw": 4_000 * 1e8}   # 증감율 절 40.35 가 아니다
+
+
+# ── ① 손익구조 정정(I001) 어휘: 당해사업연도·직전사업연도·증감금액·증감비율(%) ──────────────────────
+_STRUCT_CORR_NM = "[기재정정]" + _STRUCT_NM
+
+
+def test_struct_correction_section_rows_do_not_leak_prior_year_or_percent():
+    """절 행 꼴 — 당해사업연도 절의 영업이익 칸이 '-' 이면 뒤 직전사업연도·증감비율(%) 절의 같은 라벨 행을 금액으로 읽던 결함."""
+    html = _table([
+        _HEAD,
+        ["당해사업연도", "-", "-"],
+        ["- 매출액", "1,000", "1,200"],
+        ["- 영업이익", "-", "-"],
+        ["직전사업연도", "-", "-"],
+        ["- 매출액", "900", "900"],
+        ["- 영업이익", "80", "80"],
+        ["증감금액", "-", "-"],
+        ["- 영업이익", "5", "6"],
+        ["증감비율(%)", "-", "-"],
+        ["- 영업이익", "25.0", "50.0"],
+    ], unit="천원")
+    p = parse_provisional_earnings(html, _STRUCT_CORR_NM)
+    assert p["headline"]["revenue"] == {"value_krw": 1_200 * 1e3, "prior_value_krw": 1_000 * 1e3}
+    assert "operating_profit" not in p["headline"]   # 직전 80·증감 6·% 50.0 어느 것도 영업이익 value 가 아니다
+
+
+def test_struct_correction_division_column_does_not_leak_percent():
+    """구분 열 꼴 — 「- 영업이익 | 증감비율(%) | 정정전 | 정정후」: 둘째 열이 절 이름이면 그 행은 당해 금액이 아니다."""
+    html = _table([
+        ["정정항목", "구분", "정정전", "정정후"],
+        ["- 매출액", "당해사업연도", "1,000", "1,200"],
+        ["- 영업이익", "당해사업연도", "-", "-"],
+        ["- 영업이익", "직전사업연도", "80", "80"],
+        ["- 영업이익", "증감금액", "5", "6"],
+        ["- 영업이익", "증감비율(%)", "25.0", "50.0"],
+    ], unit="천원")
+    p = parse_provisional_earnings(html, _STRUCT_CORR_NM)
+    assert p["headline"]["revenue"] == {"value_krw": 1_200 * 1e3, "prior_value_krw": 1_000 * 1e3}
+    assert "operating_profit" not in p["headline"]
+
+
+def test_struct_correction_reads_period_from_start_end_dates():
+    """손익구조 정정은 연간 기간이다 — 「시작일 … 종료일 …」 에서 사업연도를 읽는다(원공시 경로와 같은 규칙)."""
+    html = _table([_HEAD, ["- 매출액", "1,000", "1,200"]], unit="천원",
+                  extra="<p>시작일 2025-01-01 종료일 2025-12-31</p>")
+    p = parse_provisional_earnings(html, _STRUCT_CORR_NM)
+    assert p["provisional_type"] == "fiscal_year_change"
+    assert p["period"] == {"start": "2025-01-01", "end": "2025-12-31"}
+    assert p["period_kind"] == "annual" and p["fiscal_year"] == 2025
+
+
 # ── ② 열 머리 ────────────────────────────────────────────────────────────────
 def test_after_column_dash_is_none_not_the_before_value():
     html = _table([
@@ -116,6 +181,8 @@ def test_structure_change_report_with_correction_prefix_is_detected():
     assert _is_structure_change_report("[기재정정]" + _STRUCT_NM)
     assert _is_structure_change_report("[첨부정정] 매출액 또는 손익구조 30%(대규모법인은 15%) 이상 변경")
     assert not _is_structure_change_report("[기재정정]단일판매ㆍ공급계약체결")
+    assert _is_structure_change_report("[첨부추가]" + _STRUCT_NM)
+    assert not _is_structure_change_report("[투자유의]" + _STRUCT_NM)   # 정정 접두 목록 밖의 대괄호 접두는 떼지 않는다
     assert not _is_structure_change_report("")
 
 
