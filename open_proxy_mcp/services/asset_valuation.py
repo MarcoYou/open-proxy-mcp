@@ -318,7 +318,7 @@ def fetch_failed_node(what: str) -> dict[str, Any]:
             "na_reason": f"{what} — 주석 원문 조회에 실패해 읽지 못했습니다(기재가 없다는 뜻이 아님).",
             "fetch_failed": True,
             "absence_kind": "not_collected",
-            "absence_note": f"주석 원문 조회(get_document·viewer)가 모두 실패해 {what} 기재 여부를 확인하지 못했습니다 "
+            "absence_note": f"DART 원문 조회와 웹 뷰어 조회가 모두 실패해 {what} 기재 여부를 확인하지 못했습니다 "
                             "— 잠시 뒤 다시 조회하세요. 「기재 없음」이 아닙니다."}
 
 

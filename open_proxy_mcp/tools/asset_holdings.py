@@ -66,6 +66,9 @@ def _render(p: dict) -> str:
             L.append(f"- {surplus_label} {surplus_str} (일반 지주회사라 배수 미제공 — 연결 현금·투자자산 대부분이 자회사 몫)")
         else:
             L.append(f"- {surplus_label} {surplus_str} (시총 없어 배수 미산출)")
+        if nav.get("equity_nav_unavailable"):
+            # 주석을 못 읽어 값을 비웠다 — 줄이 통째로 빠지면 「지분이 없다」로 읽힌다
+            L.append(f"- **지분 NAV**: 산출 못 함 — {nav['equity_nav_unavailable']}")
         if nc:
             if nav.get("equity_nav_basis") == "holdings":
                 # 261018: 보유 목록(별도 기준 직접 보유분) 하나로 센다 — 연결 재무상태표와 섞어 같은 지분을 두 번 세던 산식을 버렸다
@@ -82,7 +85,9 @@ def _render(p: dict) -> str:
             L.append(f"- ⚠ **결합계정(종속+관계/공동, 미분리)** {_f(mc)}"
                      + (f" → 시총 대비 {mcv:.2f}배" if mcv else "")
                      + " — 지배지분 섞여있어 위 지분NAV엔 미포함(지분법원가 기준, 참고용만)")
-        if m.get("n_marked"):
+        if m.get("unavailable"):
+            L.append(f"- 상장 보유지분 시가마크: 산출 못 함 — {m.get('unavailable_reason') or ''}")
+        elif m.get("n_marked"):
             L.append(f"- 상장 보유지분 시가마크 {m['n_marked']}/{m['n_listed']}종"
                      + (f"({m['price_date']} 종가)" if m.get("price_date") else "") + " · "
                      f"장부 대비 미실현 **{_f(m['unrealized_gap_krw'])}**"
@@ -134,12 +139,18 @@ def _render(p: dict) -> str:
                 # 「찾지 못함」·「다른 절을 가리킴」, 또는 발췌를 주며 「인용 위치를 확인하라」는 경우 —
                 # 읽는 쪽이 원문으로 가야 하는 갈래에만 절 주소를 붙인다. 원문이 「해당 없음」이라
                 # 밝힌 것(발췌 없음)에는 안 붙인다 — 주소를 주면 없는 것을 찾으러 간다.
-                if d.get("rcept_no") and (fd.get("absence_kind") in ("extraction_failed", "cross_reference")
+                if d.get("rcept_no") and (fd.get("absence_kind") in ("extraction_failed", "cross_reference", "not_collected")
                                           or fd.get("absence_excerpt")):
                     from open_proxy_mcp.extensions import origin_hint
                     _oh = origin_hint(d["rcept_no"], title)
                     if _oh:
                         L.append(f"_{_oh}_")
+                # 못 읽은 갈래(not_collected)는 원문이 있는지조차 모른다 — 읽는 쪽이 직접 원문으로 가는 길을 준다.
+                if fd.get("absence_kind") == "not_collected":
+                    _kw = {"real_estate": "투자부동산", "equity_holdings": "지분증권",
+                           "pledged_assets": "담보", "contingent": "우발부채"}.get(key, "주석")
+                    L.append(f"_원문 직접 읽기: filing_section(company=\"{d.get('company') or p.get('subject') or ''}\", "
+                             f"find=\"{_kw}\")_")
 
     if p.get("warnings"):
         L.append("\n⚠ " + " · ".join(p["warnings"]))

@@ -518,6 +518,19 @@ def _is_financial(induty: str, fin_list: list[dict]) -> bool:
     return _ksic_is_financial(induty)
 
 
+def _stakes_unavailable() -> dict[str, Any]:
+    """주석 원문을 못 읽어 상장·비상장 구분을 할 수 없을 때의 보유지분 마크 — `_mark_listed_stakes` 와 같은 키, 값은 비운다.
+
+    그 함수는 상장 여부를 **원문 주석**(`_doc_listed`)으로 가른다. 원문이 비면 모든 보유분이 비상장으로 분류돼 상장 지분이
+    장부가로 비상장 합계에 들어가고 상장 시가·미실현 차액이 0 이 된다 — 「조회 실패」가 「상장 지분 0」으로 계산되는 것이다(DATA-U3).
+    그래서 이 경우는 그 함수를 부르지 않고 합계·개수를 `None`(모름)으로 둔다."""
+    return {"marked": [], "unresolved": [], "price_date": None, "price_source": None, "qty_date": None,
+            "qty_adjust_checked": None, "listed_book_krw": None, "listed_mkt_krw": None, "unrealized_gap_krw": None,
+            "n_listed": None, "n_marked": None, "n_unresolved": None, "unlisted_book_krw": None,
+            "unlisted_majority_book_krw": None, "n_unlisted": None, "unavailable": True,
+            "unavailable_reason": "주석 원문 조회 실패 — 상장·비상장 구분을 할 수 없어 값을 비웠다"}
+
+
 async def _safe_getdoc(client, rcept_no: str) -> dict:
     """get_document(1콜) → note_html 비면/014 시 viewer 폴백(정정보고서 대응, business_details와 동일).
 
@@ -684,9 +697,14 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         doc_text = sec.get("full_text", "") or sec.get("note_html", "") or ""
         # 시총을 먼저 구한다 — 보유지분 종가를 **시총과 같은 거래일**로 맞추려는 것이다(배수의 분자·분모가 같은 날).
         mcap, mcap_meta = await _market_cap(isu)
-        mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
-                                         (mcap_meta or {}).get("date") if mcap else None,
-                                         _period_end(rept.get("report_nm")))
+        notes_failed = bool(sec.get("fetch_failed"))
+        if notes_failed:
+            # 주석을 못 읽으면 상장·비상장 구분(원문 권위값)도 못 한다 — 상장 지분이 장부가로 비상장에 들어가지 않게 값을 비운다.
+            mark = _stakes_unavailable()
+        else:
+            mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
+                                             (mcap_meta or {}).get("date") if mcap else None,
+                                             _period_end(rept.get("report_nm")))
         data["listed_stakes"] = mark
         if mark["n_unresolved"]:
             _un = sorted(mark["unresolved"], key=lambda u: -(u.get("book_krw") or 0))
@@ -702,12 +720,15 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
                             "— 그런 종목이 있으면 시가가 그 배수만큼 틀린다.")
         pledged = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
         contingent = _basis.annotate(_av.extract_contingent("", stripped=stripped))
-        data["haircuts"] = {"pledged": pledged.get("status"), "contingent": contingent.get("status")}
-        if sec.get("fetch_failed"):
-            # 주석을 못 읽어 담보·우발이 비어 보인다 — 「haircut 없음」이 아니라 「판정 못 함」이다(DATA-U3).
+        data["haircuts"] = ({"pledged": None, "contingent": None} if notes_failed
+                            else {"pledged": pledged.get("status"), "contingent": contingent.get("status")})
+        if notes_failed:
+            # 주석을 못 읽어 담보·우발이 비어 보이고 상장·비상장 구분도 못 했다 — 「없음」·「상장 지분 0」이 아니라 「판정 못 함」이다(DATA-U3).
             data["notes_fetch_failed"] = True
-            warnings.append("주석 원문 조회(get_document·viewer)가 모두 실패해 담보제공 자산·우발부채 haircut 을 판정하지 못했다 "
-                            "— haircut_flags 가 비어 있어도 「없음」이 아니다. 잠시 뒤 다시 조회할 것.")
+            warnings.append("DART 원문 조회와 웹 뷰어 조회가 모두 실패해 재무제표 주석을 읽지 못했다 — 담보·우발부채 감액 여부와 "
+                            "상장·비상장 구분을 판정하지 못해 지분 NAV 배수·상장 보유지분 합계·미실현 차액·감액 표시는 값을 비웠다"
+                            "(비어 있다고 「없음」이 아니다). 잠시 뒤 다시 조회하거나 "
+                            f"filing_section(company=\"{name}\", find=\"타법인\") 으로 원문을 직접 읽을 것.")
         data["market_cap_krw"] = mcap
         data["market_cap_meta"] = mcap_meta
         t = data["_tiers"]
@@ -771,7 +792,9 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         #   보유 목록 하나로 세면 같은 지분이 두 번 들어갈 길이 없다(삼성물산 2.4배·LG 1.6배·SK 2.0배 — 지주사 NAV 의 관행 산식).
         #   타법인출자현황이 비면(소규모·미제출) 재무상태표 관계기업+FVOCI 장부가로 낸다 — 이때도 한 기준이다(`equity_nav_basis`).
         bs_equity = t.get("assoc", 0) + (0 if is_fin else t.get("oci", 0))   # 금융업은 FVOCI 도 본업 포트폴리오
-        if mark["n_listed"] or mark["n_unlisted"]:
+        if notes_failed:
+            equity_nav, equity_basis = None, None                  # 상장·비상장 구분을 못 해 어느 합계도 믿을 수 없다
+        elif mark["n_listed"] or mark["n_unlisted"]:
             equity_nav, equity_basis = mark["listed_mkt_krw"] + mark["unlisted_book_krw"], "holdings"
             _gap = bs_equity - equity_nav
             if not is_fin and stmt_cur == "KRW" and _gap > 0 and (not mcap or _gap >= mcap * 0.1):
@@ -809,11 +832,14 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             "equity_bs_book_krw": bs_equity,
             "listed_unrealized_gap_krw": mark["unrealized_gap_krw"],
             "surplus_cov": (surplus / mcap) if (mcap and not is_fin and not is_holdco and _cov_ok) else None,
-            "equity_nav_cov": (equity_nav / mcap) if (mcap and not is_fin and _equity_cov_ok) else None,
+            "equity_nav_cov": (equity_nav / mcap) if (mcap and equity_nav is not None and not is_fin and _equity_cov_ok) else None,
             "mixed_combined_krw": mixed_krw,
             "mixed_combined_cov": (mixed_krw / mcap) if (mcap and mixed_krw and _cov_ok) else None,
-            "haircut_flags": [k for k, v in data["haircuts"].items() if v == "MARKDOWN"],
+            "haircut_flags": None if notes_failed else [k for k, v in data["haircuts"].items() if v == "MARKDOWN"],
         }
+        if notes_failed:
+            data["nav"]["equity_nav_unavailable"] = ("주석 원문 조회 실패 — 상장·비상장 구분을 할 수 없어 지분 NAV 를 비웠다. "
+                                                     "잠시 뒤 다시 조회하거나 filing_section 으로 원문을 확인할 것")
         if mixed_krw:
             warnings.append("종속+관계/공동기업 결합계정 존재(별도FS 흔한 표기) — 지배지분 섞여있어 "
                             "equity_nav에 안 섞고 nav.mixed_combined_krw로 별도 표기(참고용, 지분법원가 기준)")
@@ -831,8 +857,9 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             data["equity_holdings"] = _av.fetch_failed_node("지분증권")
             data["pledged_assets"] = _av.fetch_failed_node("담보제공 자산")
             data["contingent"] = _av.fetch_failed_node("우발부채·지급보증")
-            warnings.append("주석 원문 조회(get_document·viewer)가 모두 실패해 토지·지분증권·담보·우발 4항목을 읽지 못했다 — "
-                            "「기재 없음」이 아니라 「확인하지 못함」이다. 잠시 뒤 다시 조회할 것.")
+            warnings.append("DART 원문 조회와 웹 뷰어 조회가 모두 실패해 토지·지분증권·담보·우발 4항목을 읽지 못했다 — "
+                            "「기재 없음」이 아니라 「확인하지 못함」이다. 잠시 뒤 다시 조회하거나 "
+                            f"filing_section(company=\"{name}\", find=\"주석\") 으로 원문을 직접 읽을 것.")
         else:
             data["real_estate"] = _basis.annotate(_av.extract_real_estate("", "", stripped=stripped))
             data["equity_holdings"] = _basis.annotate(

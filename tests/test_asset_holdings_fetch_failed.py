@@ -145,3 +145,96 @@ def test_renderer_says_unread_not_absent():
                                                    "pledged_assets": node, "contingent": node}}
     text = _render(p)
     assert "조회 실패" in text and "해당 없음" not in text
+
+
+# ── 요약: 상장·비상장 구분도 못 하면 지분 NAV 를 틀린 채로 내지 않는다 (감수 ASSET-S1) ──
+# `_mark_listed_stakes` 는 가짜로 바꾸지 않는다 — 빈 원문이 실제 그 함수 경로를 지날 때의 결과를 본다.
+
+_HOLD = [{"inv_prm": "삼성전자", "trmend_blce_acntbk_amount": "1000", "trmend_blce_qy": "10",
+          "trmend_blce_qota_rt": "1.0", "recent_bsns_year_fnnr_sttus_tot_assets": "0"}]
+
+
+def _build_real_mark(monkeypatch, getdoc, viewer, *, mcap=10_000):
+    _patch_fetch(monkeypatch, getdoc=getdoc, viewer=viewer)
+
+    async def resolve(q):
+        return SimpleNamespace(status=A.AnalysisStatus.EXACT,
+                               selected={"corp_code": "00000001", "stock_code": "000001", "corp_name": q}, candidates=[])
+
+    async def pick(client, cc, report, year):
+        return {"rcept_no": "20260312000856", "report_nm": "사업보고서 (2025.12)"}, "11011", ""
+
+    async def market_cap(isu):
+        return mcap, {"date": "20261016"}
+
+    class Cli:
+        async def get_fnltt_singl_acnt_all(self, *a):
+            return {"list": [{"sj_div": "BS", "account_nm": "현금및현금성자산", "thstrm_amount": "100"}]}
+
+        async def get_company_info(self, cc):
+            return {"induty_code": "467"}
+
+        async def get_other_corp_investment(self, *a):
+            return {"list": _HOLD}
+
+    monkeypatch.setattr(A, "get_dart_client", lambda: Cli())
+    monkeypatch.setattr(A, "resolve_company_query", resolve)
+    monkeypatch.setattr(A, "_pick_periodic_report", pick)
+    monkeypatch.setattr(A, "_market_cap", market_cap)
+    return asyncio.run(A._build_asset_holdings_payload_impl("X", scope="summary"))
+
+
+def test_summary_blanks_nav_and_listed_totals_when_notes_unreadable(monkeypatch):
+    out = _build_real_mark(monkeypatch, _boom, _boom)
+    d = out["data"]
+    nav, ls = d["nav"], d["listed_stakes"]
+    assert nav["equity_nav_cov"] is None and nav["equity_nav_krw"] is None
+    assert nav["listed_unrealized_gap_krw"] is None and nav["haircut_flags"] is None
+    assert nav["equity_nav_unavailable"]
+    for k in ("n_listed", "n_marked", "n_unlisted", "listed_mkt_krw", "unlisted_book_krw", "unrealized_gap_krw"):
+        assert k in ls and ls[k] is None, k            # 키는 남기고 값만 비운다
+    assert d["notes_fetch_failed"] is True
+    assert any("상장" in w and "비상장" in w and "다시 조회" in w for w in out["warnings"])
+
+
+def test_summary_same_holdings_still_computes_nav_when_notes_read_normally(monkeypatch):
+    out = _build_real_mark(monkeypatch, _boom, _viewer_ok)
+    nav, ls = out["data"]["nav"], out["data"]["listed_stakes"]
+    assert ls["n_unlisted"] == 1 and ls["unlisted_book_krw"] == 1000       # 종전 계산 그대로
+    assert nav["equity_nav_krw"] == 1000 and round(nav["equity_nav_cov"], 2) == 0.10
+    assert nav["haircut_flags"] == [] and "equity_nav_unavailable" not in nav
+    assert "notes_fetch_failed" not in out["data"]
+
+
+def test_summary_renderer_says_nav_unavailable_not_missing(monkeypatch):
+    from open_proxy_mcp.tools.asset_holdings import _render
+    text = _render(_build_real_mark(monkeypatch, _boom, _boom))
+    assert "지분 NAV" in text and "산출 못 함" in text and "시가마크: 산출 못 함" in text
+
+
+# ── 사용자에게 찍히는 문장에 엔진 내부 이름을 내지 않는다 (감수 ASSET-S2) ──
+
+_INTERNAL = ("get_document", "viewer", "haircut_flags", "_mark_listed_stakes", "fetch_failed")
+
+
+def test_user_facing_sentences_have_no_internal_names(monkeypatch):
+    s_out = _build_real_mark(monkeypatch, _boom, _boom)
+    d_out = _build(monkeypatch, "detail", _boom, _boom)
+    texts = list(s_out["warnings"]) + list(d_out["warnings"])
+    texts += [d_out["data"][k]["absence_note"] + d_out["data"][k]["na_reason"] for k in _KEYS]
+    for t in texts:
+        for bad in _INTERNAL:
+            assert bad not in t, (bad, t)
+
+
+# ── 못 읽은 갈래에도 원문으로 가는 길을 준다 (감수 ASSET-N1) ──
+
+def test_renderer_not_collected_gives_filing_section_path():
+    from open_proxy_mcp.tools.asset_holdings import _render
+    node = {"status": "NOT_APPLICABLE", "fetch_failed": True, "absence_kind": "not_collected",
+            "absence_note": "읽지 못했습니다."}
+    p = {"status": "ok", "subject": "삼성전자", "data": {"scope": "detail", "company": "삼성전자", "rcept_no": "20260312000856",
+                                                          "real_estate": node, "equity_holdings": node,
+                                                          "pledged_assets": node, "contingent": node}}
+    text = _render(p)
+    assert text.count("filing_section(") == 4 and 'company="삼성전자"' in text

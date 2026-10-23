@@ -6,7 +6,8 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ### `asset_holdings` no longer reports a failed notes fetch as "not disclosed"
 
-- In `scope="detail"`, when both the document fetch (get_document) and the viewer fallback fail, the four items (land, equity securities, pledged assets, contingent liabilities) used to say the notes contain no such disclosure. They now say the notes could not be read (`absence_kind="not_collected"`, `fetch_failed=true`). `scope="summary"` adds a warning that the pledged/contingent haircuts could not be determined.
+- In `scope="detail"`, when both the DART document fetch and the web viewer fallback fail, the four items (land, equity securities, pledged assets, contingent liabilities) used to say the notes contain no such disclosure. They now say the notes could not be read (`absence_kind="not_collected"`, `fetch_failed=true`), with a `filing_section` call to read the source.
+- In `scope="summary"`, the same failure also leaves no way to tell listed from unlisted holdings (listed stakes were being counted at book value as unlisted). The equity NAV multiple (`nav.equity_nav_cov`), the NAV amount, the listed-holdings totals, the unrealized gap and the haircut flags (`nav.haircut_flags`) are now `null`, with a warning giving the reason and the retry path. Response keys stay; only values go empty, and `notes_fetch_failed`, `nav.equity_nav_unavailable` and `listed_stakes.unavailable` are added on failure only.
 - Responses where the notes were read normally (including notes that really have no such disclosure) are unchanged.
 
 ### Operator notices can ride along on every tool response (no dedicated tool)
