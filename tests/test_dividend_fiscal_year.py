@@ -162,6 +162,8 @@ def _payload_for(monkeypatch, year: int, end_month: int = 12):
                                  selected={"corp_name": "삼성전자", "stock_code": "005930", "corp_code": "00126380"})
 
     async def annual(_corp, y):
+        if y != year:
+            return {}, None          # docstring 대로 `year` 해 보고서만 있다 — 다른 해는 DART 013(보고서 없음)과 같은 빈 답
         last = calendar.monthrange(y, end_month)[1]
         return {"period": f"{y}", "stlm_dt": f"{y}-{end_month:02d}-{last:02d}", "cash_dps": 1000, "total_dps": 1000,
                 "source": "alotMatter"}, None
