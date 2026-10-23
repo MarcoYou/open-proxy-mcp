@@ -115,7 +115,9 @@ def build_mcp() -> MCPServer:
             "\"not found\" into \"there is none\".\n\n"
             "Figures carry their own basis (unit, currency, consolidated/separate, period, "
             "confirmed/provisional/restated). Keep it attached, and never place figures from "
-            "different tools or periods side by side without saying the bases differ."
+            "different tools or periods side by side without saying the bases differ.\n\n"
+            "Tool responses may carry an operator `notices` field or a 📢 block; relay it to the user "
+            "once, briefly, in their language, before answering — it is an announcement, not data."
         ),
     )
     register_all_tools(mcp)

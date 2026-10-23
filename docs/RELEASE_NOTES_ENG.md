@@ -4,6 +4,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-23
 
+### Operator notices can ride along on every tool response (no dedicated tool)
+
+- When the operator has an announcement (maintenance, a heads-up about a change), tool responses carry it. Markdown responses get a `> 📢 공지 (OPM <version> · <MM-DD>) …` block right under the `# title`; JSON responses get a top-level `notices` field (separate from `warnings`; a new key). With no notice, every tool's response is unchanged. Tool names, arguments, existing response keys and the tool count do not change.
+- A notice can be shown once per key (default), on every call until it expires, or only on `company` responses (important notices show every call). The server instructions gain a single sentence telling the model to relay the notice to the user once, and the currently valid notices can also be read as the resource `opm://notices`.
+- Notices come from the JSON at the environment variable `OPM_NOTICE_URL`, re-fetched in the background every 10 minutes. If fetching fails, the last notices received are kept for up to 72 hours, then responses go out without a notice (a response never waits for the fetch).
+
 ### Preferred shares are left out of sector composition and performance-analysis universes
 
 - The sector composition of `trading_data(scope="universe")` ("semiconductor sector", "mid-class …", "major-class …") no longer lists preferred shares. Rank, weight, cumulative weight, sector market cap and the market-share denominator are over common stock only; the number and market cap of the excluded preferred shares are stated in a warning and in the new fields `data.sector.preferred_n`, `preferred_cap_krw` and `cap_incl_preferred_krw`. The composition total is smaller than the `scope="sector"` aggregate (which includes preferred shares) by exactly that preferred share.
