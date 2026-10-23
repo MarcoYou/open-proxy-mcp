@@ -227,14 +227,77 @@ def test_user_facing_sentences_have_no_internal_names(monkeypatch):
             assert bad not in t, (bad, t)
 
 
-# ── 못 읽은 갈래에도 원문으로 가는 길을 준다 (감수 ASSET-N1) ──
+# ── 못 읽은 갈래에도 원문으로 가는 길을 준다 — 확장 훅(origin_hint)이 있을 때만 (감수 ASSET-N1·S3) ──
+# 공개 코드는 확장 전용 도구(opm-ext)의 호출문을 직접 쓰지 않는다. 확장이 없으면 그 줄이 없고, 있으면 확장이 준 한 줄이 붙는다.
 
-def test_renderer_not_collected_gives_filing_section_path():
-    from open_proxy_mcp.tools.asset_holdings import _render
+_HINT = "확장 제공 원문 위치: 재무제표 주석"
+
+
+def _hint_provider(calls):
+    def provider(rcept_no, title, no):
+        calls.append((rcept_no, title, no))
+        return _HINT
+    return provider
+
+
+def _not_collected_payload():
     node = {"status": "NOT_APPLICABLE", "fetch_failed": True, "absence_kind": "not_collected",
             "absence_note": "읽지 못했습니다."}
-    p = {"status": "ok", "subject": "삼성전자", "data": {"scope": "detail", "company": "삼성전자", "rcept_no": "20260312000856",
-                                                          "real_estate": node, "equity_holdings": node,
-                                                          "pledged_assets": node, "contingent": node}}
-    text = _render(p)
-    assert text.count("filing_section(") == 4 and 'company="삼성전자"' in text
+    return {"status": "ok", "subject": "삼성전자",
+            "data": {"scope": "detail", "company": "삼성전자", "rcept_no": "20260312000856",
+                     "real_estate": node, "equity_holdings": node, "pledged_assets": node, "contingent": node}}
+
+
+def test_renderer_not_collected_without_extension_adds_no_origin_line(monkeypatch):
+    from open_proxy_mcp import extensions
+    from open_proxy_mcp.tools.asset_holdings import _render
+    monkeypatch.setattr(extensions, "_hint_providers", [])
+    text = _render(_not_collected_payload())
+    assert "filing_section" not in text and _HINT not in text
+    assert text.count("조회 실패") == 4
+
+
+def test_renderer_not_collected_with_extension_hint_adds_it_once_per_item(monkeypatch):
+    from open_proxy_mcp import extensions
+    from open_proxy_mcp.tools.asset_holdings import _render
+    calls = []
+    monkeypatch.setattr(extensions, "_hint_providers", [_hint_provider(calls)])
+    text = _render(_not_collected_payload())
+    assert text.count(_HINT) == 4 and len(calls) == 4
+    assert "filing_section" not in text          # 공개 코드가 만든 호출문은 없다(확장이 준 문장만)
+
+
+def test_warnings_without_extension_stop_at_retry_later(monkeypatch):
+    from open_proxy_mcp import extensions
+    monkeypatch.setattr(extensions, "_hint_providers", [])
+    d_out = _build(monkeypatch, "detail", _boom, _boom)
+    s_out = _build_real_mark(monkeypatch, _boom, _boom)
+    texts = list(d_out["warnings"]) + list(s_out["warnings"]) + [s_out["data"]["nav"]["equity_nav_unavailable"]]
+    assert texts and not any("filing_section" in t or _HINT in t for t in texts)
+    assert any(t.endswith("잠시 뒤 다시 조회할 것.") for t in texts)
+    assert s_out["data"]["nav"]["equity_nav_unavailable"].endswith("잠시 뒤 다시 조회할 것.")
+
+
+def test_warnings_with_extension_hint_append_the_hook_line(monkeypatch):
+    from open_proxy_mcp import extensions
+    calls = []
+    monkeypatch.setattr(extensions, "_hint_providers", [_hint_provider(calls)])
+    d_out = _build(monkeypatch, "detail", _boom, _boom)
+    s_out = _build_real_mark(monkeypatch, _boom, _boom)
+    nav_note = s_out["data"]["nav"]["equity_nav_unavailable"]
+    assert nav_note.endswith("잠시 뒤 다시 조회할 것. " + _HINT)
+    assert any(w.endswith("잠시 뒤 다시 조회할 것. " + _HINT) for w in d_out["warnings"])
+    assert any(w.endswith("잠시 뒤 다시 조회할 것. " + _HINT) and "상장" in w for w in s_out["warnings"])
+    assert all(c[0] == "20260312000856" for c in calls) and calls
+    assert not any("filing_section" in t for t in list(d_out["warnings"]) + list(s_out["warnings"]) + [nav_note])
+
+
+def test_normal_read_path_never_asks_the_hint_hook_for_failure_lines(monkeypatch):
+    """주석을 정상으로 읽으면(실제 기재 없음 포함) 실패 갈래의 훅 호출·문장이 없다 — 응답이 종전 그대로다."""
+    from open_proxy_mcp import extensions
+    calls = []
+    monkeypatch.setattr(extensions, "_hint_providers", [_hint_provider(calls)])
+    d_out = _build(monkeypatch, "detail", _boom, _viewer_ok)
+    s_out = _build_real_mark(monkeypatch, _boom, _viewer_ok)
+    assert calls == []
+    assert not any(_HINT in w for w in list(d_out["warnings"]) + list(s_out["warnings"]))

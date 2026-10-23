@@ -103,8 +103,8 @@ updated: 2026-10-23
     (`not_disclosed`·`cross_reference`·`narrative_only`·`extraction_failed`). 주석 원문 조회(get_document·viewer 폴백)가
     **모두 실패**해 주석을 못 읽었을 때는 다섯째 갈래 `not_collected`(md 「조회 실패 — 원문을 읽지 못했습니다」)와
     노드의 `fetch_failed: true` 로 낸다 — 못 읽은 것을 「재무제표 주석에 기재가 없습니다」(`not_disclosed`)로 단정하지 않는다
-    (DATA-U3, 2026-10-23). md 는 이 갈래에 `filing_section(...)` 호출 안내를 붙인다. summary 는 같은 실패 때 `notes_fetch_failed: true` 와 경고를 내고,
-    상장·비상장 구분도 원문 주석에 기대므로 `nav.equity_nav_cov`·`nav.equity_nav_krw`·`nav.equity_nav_basis`·`nav.listed_unrealized_gap_krw`·`nav.haircut_flags` 와
+    (DATA-U3, 2026-10-23). md 는 이 갈래에 확장 훅(`origin_hint`)이 주는 원문 위치 한 줄을 붙인다(확장이 없으면 줄이 없고 「잠시 뒤 다시 조회」까지만 — 공개 코드는 확장 전용 도구의 호출문을 쓰지 않는다). summary 는 같은 실패 때 `notes_fetch_failed: true` 와 경고를 내고,
+    상장·비상장 구분도 원문 주석에 기대므로 `nav.equity_nav_cov`·`nav.equity_nav_krw`·`nav.equity_nav_basis`·`nav.listed_unrealized_gap_krw`·`nav.haircut_flags`·`haircuts.pledged`·`haircuts.contingent` 와
     `listed_stakes` 의 합계·개수를 `null` 로 비운다(키는 그대로, `nav.equity_nav_unavailable`·`listed_stakes.unavailable` 추가).
     주석을 정상으로 읽고 어휘가 없을 때는 종전처럼 `not_disclosed`다. 종전 `na_reason`은
     "무담보 or 미기재"처럼 읽는 쪽이 어느 쪽인지 알 수 없는 문장이었다. **미탐이라 부르려면 그 필드를

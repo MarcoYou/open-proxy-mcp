@@ -531,6 +531,14 @@ def _stakes_unavailable() -> dict[str, Any]:
             "unavailable_reason": "주석 원문 조회 실패 — 상장·비상장 구분을 할 수 없어 값을 비웠다"}
 
 
+def _origin_tail(rcept_no, title: str) -> str:
+    """원문 위치 안내를 문장 뒤에 붙일 조각. 확장 훅(origin_hint)이 한 줄을 주면 앞에 공백을 두고 돌려주고,
+    확장이 없거나 빈 문자열이면 ""(공개 코드는 확장 도구의 호출문을 직접 쓰지 않는다)."""
+    from open_proxy_mcp.extensions import origin_hint
+    hint = origin_hint(rcept_no or "", title)
+    return f" {hint}" if hint else ""
+
+
 async def _safe_getdoc(client, rcept_no: str) -> dict:
     """get_document(1콜) → note_html 비면/014 시 viewer 폴백(정정보고서 대응, business_details와 동일).
 
@@ -727,8 +735,8 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             data["notes_fetch_failed"] = True
             warnings.append("DART 원문 조회와 웹 뷰어 조회가 모두 실패해 재무제표 주석을 읽지 못했다 — 담보·우발부채 감액 여부와 "
                             "상장·비상장 구분을 판정하지 못해 지분 NAV 배수·상장 보유지분 합계·미실현 차액·감액 표시는 값을 비웠다"
-                            "(비어 있다고 「없음」이 아니다). 잠시 뒤 다시 조회하거나 "
-                            f"filing_section(company=\"{name}\", find=\"타법인\") 으로 원문을 직접 읽을 것.")
+                            "(비어 있다고 「없음」이 아니다). 잠시 뒤 다시 조회할 것."
+                            + _origin_tail(rept.get("rcept_no"), "타법인출자"))
         data["market_cap_krw"] = mcap
         data["market_cap_meta"] = mcap_meta
         t = data["_tiers"]
@@ -839,7 +847,8 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         }
         if notes_failed:
             data["nav"]["equity_nav_unavailable"] = ("주석 원문 조회 실패 — 상장·비상장 구분을 할 수 없어 지분 NAV 를 비웠다. "
-                                                     "잠시 뒤 다시 조회하거나 filing_section 으로 원문을 확인할 것")
+                                                     "잠시 뒤 다시 조회할 것."
+                                                     + _origin_tail(rept.get("rcept_no"), "타법인출자"))
         if mixed_krw:
             warnings.append("종속+관계/공동기업 결합계정 존재(별도FS 흔한 표기) — 지배지분 섞여있어 "
                             "equity_nav에 안 섞고 nav.mixed_combined_krw로 별도 표기(참고용, 지분법원가 기준)")
@@ -857,9 +866,9 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             data["equity_holdings"] = _av.fetch_failed_node("지분증권")
             data["pledged_assets"] = _av.fetch_failed_node("담보제공 자산")
             data["contingent"] = _av.fetch_failed_node("우발부채·지급보증")
-            warnings.append("DART 원문 조회와 웹 뷰어 조회가 모두 실패해 토지·지분증권·담보·우발 4항목을 읽지 못했다 — "
-                            "「기재 없음」이 아니라 「확인하지 못함」이다. 잠시 뒤 다시 조회하거나 "
-                            f"filing_section(company=\"{name}\", find=\"주석\") 으로 원문을 직접 읽을 것.")
+            warnings.append("DART 원문 조회와 웹 뷰어 조회가 모두 실패해 재무제표 주석의 토지·지분증권·담보·우발 4항목을 읽지 못했다 — "
+                            "「기재 없음」이 아니라 「확인하지 못함」이다. 잠시 뒤 다시 조회할 것."
+                            + _origin_tail(rept.get("rcept_no"), "주석"))
         else:
             data["real_estate"] = _basis.annotate(_av.extract_real_estate("", "", stripped=stripped))
             data["equity_holdings"] = _basis.annotate(

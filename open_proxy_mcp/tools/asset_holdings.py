@@ -145,12 +145,6 @@ def _render(p: dict) -> str:
                     _oh = origin_hint(d["rcept_no"], title)
                     if _oh:
                         L.append(f"_{_oh}_")
-                # 못 읽은 갈래(not_collected)는 원문이 있는지조차 모른다 — 읽는 쪽이 직접 원문으로 가는 길을 준다.
-                if fd.get("absence_kind") == "not_collected":
-                    _kw = {"real_estate": "투자부동산", "equity_holdings": "지분증권",
-                           "pledged_assets": "담보", "contingent": "우발부채"}.get(key, "주석")
-                    L.append(f"_원문 직접 읽기: filing_section(company=\"{d.get('company') or p.get('subject') or ''}\", "
-                             f"find=\"{_kw}\")_")
 
     if p.get("warnings"):
         L.append("\n⚠ " + " · ".join(p["warnings"]))

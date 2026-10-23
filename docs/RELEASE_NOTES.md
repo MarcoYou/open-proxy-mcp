@@ -6,8 +6,8 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ### `asset_holdings` 가 주석 조회 실패를 「기재 없음」으로 내지 않습니다
 
-- `scope="detail"` 에서 DART 원문 조회와 웹 뷰어 조회가 모두 실패하면, 토지·지분증권·담보·우발 4항목을 「재무제표 주석에 기재가 없습니다」로 내던 것을 「조회 실패 — 원문을 읽지 못했습니다」(`absence_kind="not_collected"`, `fetch_failed=true`)로 바로잡았습니다. 이 갈래에는 원문으로 가는 `filing_section` 호출 안내가 붙습니다.
-- `scope="summary"` 는 같은 실패 때 주석이 비어 상장·비상장 구분도 못 하므로(상장 보유지분이 장부가로 비상장 합계에 들어가던 것), 지분 NAV 배수(`nav.equity_nav_cov`)·지분 NAV 금액·상장 보유지분 합계·미실현 차액·감액 표시(`nav.haircut_flags`)의 값을 비우고(`null`) 사유와 다시 조회할 길을 경고로 냅니다. 응답 키는 그대로이고 값만 비며, 실패 때만 `notes_fetch_failed`·`nav.equity_nav_unavailable`·`listed_stakes.unavailable` 이 더해집니다.
+- `scope="detail"` 에서 DART 원문 조회와 웹 뷰어 조회가 모두 실패하면, 토지·지분증권·담보·우발 4항목을 「재무제표 주석에 기재가 없습니다」로 내던 것을 「조회 실패 — 원문을 읽지 못했습니다」(`absence_kind="not_collected"`, `fetch_failed=true`)로 바로잡았습니다. 원문 위치를 알려 주는 확장이 설치돼 있으면 그 갈래에 원문 위치 한 줄이 붙고, 없으면 「잠시 뒤 다시 조회」까지만 안내합니다.
+- `scope="summary"` 는 같은 실패 때 주석이 비어 상장·비상장 구분도 못 하므로(상장 보유지분이 장부가로 비상장 합계에 들어가던 것), 지분 NAV 배수(`nav.equity_nav_cov`)·지분 NAV 금액·상장 보유지분 합계·미실현 차액·감액 표시(`nav.haircut_flags`, `haircuts.pledged`, `haircuts.contingent`)의 값을 비우고(`null`) 사유와 다시 조회할 길을 경고로 냅니다. 응답 키는 그대로이고 값만 비며, 실패 때만 `notes_fetch_failed`·`nav.equity_nav_unavailable`·`listed_stakes.unavailable` 이 더해집니다.
 - 주석을 정상으로 읽은 경우(실제로 기재가 없는 주석 포함)의 응답은 그대로입니다.
 
 ### 운영자 공지를 모든 도구 응답에 끼울 수 있습니다 (전용 도구 없음)
