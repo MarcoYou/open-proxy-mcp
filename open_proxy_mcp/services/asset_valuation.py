@@ -307,6 +307,21 @@ def _absence_verdict(stripped: str, anchors: tuple[str, ...], what: str) -> dict
     return out
 
 
+def fetch_failed_node(what: str) -> dict[str, Any]:
+    """주석 원문을 **못 읽었을 때**의 부재 노드 — 「주석에 기재 없음」(not_disclosed)과 다르다.
+
+    get_document 와 viewer 폴백이 모두 실패하면 주석이 비어 오는데, 그 빈 글에서 앵커를 못 찾았다고
+    `_absence_verdict` 로 가면 「재무제표 주석에 … 기재가 없습니다」로 단정한다(DATA-U3: 조회 실패를 「없다」로 쓰지 않는다).
+    그래서 읽지 못했다는 사실만 말한다(`absence_kind="not_collected"` · `fetch_failed=True`).
+    """
+    return {"status": "NOT_APPLICABLE",
+            "na_reason": f"{what} — 주석 원문 조회에 실패해 읽지 못했습니다(기재가 없다는 뜻이 아님).",
+            "fetch_failed": True,
+            "absence_kind": "not_collected",
+            "absence_note": f"주석 원문 조회(get_document·viewer)가 모두 실패해 {what} 기재 여부를 확인하지 못했습니다 "
+                            "— 잠시 뒤 다시 조회하세요. 「기재 없음」이 아닙니다."}
+
+
 # ── content-signatures (순수 lookahead, re.S — 소비/backtracking 없음) ──
 # 유형자산 토지 명세: 컬럼형(취득원가/장부금액) OR **변동표(기초~기말 롤포워드)** OR **당기말/전기말
 # 단순 스냅샷**(롤포워드 없는 중소형사 표준 스타일) 셋 다 대응.

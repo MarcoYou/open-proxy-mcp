@@ -8,7 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-10-18
+updated: 2026-10-23
 ---
 
 # asset_holdings
@@ -100,7 +100,11 @@ updated: 2026-10-18
     한 칸 앞 주석을 집는 일이 잦아 폐기했다 — 틀린 번호는 읽는 쪽을 엉뚱한 데로 보내니 없느니만 못하다.
     인용은 추론이 아니라 사실이라 틀릴 수 없다.
   - `absence_kind` / `absence_note`: `business_details`와 같은 어휘로 부재 사유를 가른다
-    (`not_disclosed`·`cross_reference`·`narrative_only`·`extraction_failed`). 종전 `na_reason`은
+    (`not_disclosed`·`cross_reference`·`narrative_only`·`extraction_failed`). 주석 원문 조회(get_document·viewer 폴백)가
+    **모두 실패**해 주석을 못 읽었을 때는 다섯째 갈래 `not_collected`(md 「조회 실패 — 원문을 읽지 못했습니다」)와
+    노드의 `fetch_failed: true` 로 낸다 — 못 읽은 것을 「재무제표 주석에 기재가 없습니다」(`not_disclosed`)로 단정하지 않는다
+    (DATA-U3, 2026-10-23). summary 는 같은 실패 때 담보·우발 haircut 을 판정하지 못했다는 경고와 `notes_fetch_failed: true` 를 낸다.
+    주석을 정상으로 읽고 어휘가 없을 때는 종전처럼 `not_disclosed`다. 종전 `na_reason`은
     "무담보 or 미기재"처럼 읽는 쪽이 어느 쪽인지 알 수 없는 문장이었다. **미탐이라 부르려면 그 필드를
     정의하는 축**(지분증권=취득원가 / 토지·투자부동산=공정가치·공시지가 / 담보=담보권자·담보설정금액)이
     곁에 있어야 한다 — 어휘만 스친 다른 표(민감도·공정가치 서열·재무상태표 줄)는 미탐이 아니다.
@@ -233,3 +237,4 @@ updated: 2026-10-18
   본업이라 「보유자산 대비 저평가」 서사가 성립하지 않는다). `_mark_listed_stakes` 정렬에 `key=` 명시
   (튜플 전체비교는 동률 시 dict 비교로 크래시).
 - 2026-07-20: 신규 tool. summary + detail 2스콥(coverage 는 summary 가 흡수).
+- 2026-10-23: **주석 조회 실패를 「기재 없음」으로 내던 것을 고쳤다** — `_safe_getdoc` 이 get_document·viewer 폴백이 모두 실패하면 `fetch_failed` 를 달고, detail 4항목은 `absence_kind=not_collected`·`fetch_failed=true`, summary 는 haircut 판정 불가 경고를 낸다(DATA-U3). 주석을 정상으로 읽은 경우의 응답은 그대로다.

@@ -125,6 +125,7 @@ def _render(p: dict) -> str:
                 head = {"extraction_failed": "찾지 못함 — 원문에 표가 있습니다",
                         "narrative_only": "표 없음 — 산문 서술만",
                         "cross_reference": "여기엔 없음 — 원문이 다른 절을 가리킵니다",
+                        "not_collected": "조회 실패 — 원문을 읽지 못했습니다(기재 없음이 아님)",
                         "not_disclosed": "해당 없음"}.get(fd.get("absence_kind"), "해당없음")
                 L.append(f"\n**{title}**: {head} — "
                          f"{fd.get('absence_note') or fd.get('na_reason', '')}")

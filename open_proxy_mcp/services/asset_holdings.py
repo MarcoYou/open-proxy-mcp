@@ -519,7 +519,10 @@ def _is_financial(induty: str, fin_list: list[dict]) -> bool:
 
 
 async def _safe_getdoc(client, rcept_no: str) -> dict:
-    """get_document(1콜) → note_html 비면/014 시 viewer 폴백(정정보고서 대응, business_details와 동일)."""
+    """get_document(1콜) → note_html 비면/014 시 viewer 폴백(정정보고서 대응, business_details와 동일).
+
+    viewer 폴백까지 실패하면 예외를 삼키고 빈 주석을 돌려주되 `fetch_failed=True` 를 붙인다 — 호출부가
+    「조회 실패」(모름)와 「주석이 비었다」(없음)를 가르게 한다(DATA-U3). viewer 가 응답했으면(내용이 비어도) 실패가 아니다."""
     try:
         sec = await _bd._fetch_getdoc(client, rcept_no)
         if (sec.get("note_html") or "").strip():
@@ -530,7 +533,7 @@ async def _safe_getdoc(client, rcept_no: str) -> dict:
     try:
         return await _bd._fetch_viewer_sec(client, rcept_no)
     except (DartClientError, Exception):  # noqa: BLE001
-        return {"note_html": "", "full_text": ""}
+        return {"note_html": "", "full_text": "", "fetch_failed": True}
 
 
 async def _market_cap(stock_code: str):
@@ -700,6 +703,11 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         pledged = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
         contingent = _basis.annotate(_av.extract_contingent("", stripped=stripped))
         data["haircuts"] = {"pledged": pledged.get("status"), "contingent": contingent.get("status")}
+        if sec.get("fetch_failed"):
+            # 주석을 못 읽어 담보·우발이 비어 보인다 — 「haircut 없음」이 아니라 「판정 못 함」이다(DATA-U3).
+            data["notes_fetch_failed"] = True
+            warnings.append("주석 원문 조회(get_document·viewer)가 모두 실패해 담보제공 자산·우발부채 haircut 을 판정하지 못했다 "
+                            "— haircut_flags 가 비어 있어도 「없음」이 아니다. 잠시 뒤 다시 조회할 것.")
         data["market_cap_krw"] = mcap
         data["market_cap_meta"] = mcap_meta
         t = data["_tiers"]
@@ -817,11 +825,20 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         sec = await _safe_getdoc(client, rept["rcept_no"])
         _basis = _av.BasisIndex(sec.get("note_html", "") or "")
         stripped = _basis.stripped
-        data["real_estate"] = _basis.annotate(_av.extract_real_estate("", "", stripped=stripped))
-        data["equity_holdings"] = _basis.annotate(
-            _av.extract_equity_holdings("", "", stripped=stripped))
-        data["pledged_assets"] = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
-        data["contingent"] = _basis.annotate(_av.extract_contingent("", stripped=stripped))
+        if sec.get("fetch_failed"):
+            # 원문·viewer 조회가 모두 실패했다 — 빈 주석에서 「기재 없음」을 끌어내지 않는다(DATA-U3).
+            data["real_estate"] = _av.fetch_failed_node("토지·투자부동산")
+            data["equity_holdings"] = _av.fetch_failed_node("지분증권")
+            data["pledged_assets"] = _av.fetch_failed_node("담보제공 자산")
+            data["contingent"] = _av.fetch_failed_node("우발부채·지급보증")
+            warnings.append("주석 원문 조회(get_document·viewer)가 모두 실패해 토지·지분증권·담보·우발 4항목을 읽지 못했다 — "
+                            "「기재 없음」이 아니라 「확인하지 못함」이다. 잠시 뒤 다시 조회할 것.")
+        else:
+            data["real_estate"] = _basis.annotate(_av.extract_real_estate("", "", stripped=stripped))
+            data["equity_holdings"] = _basis.annotate(
+                _av.extract_equity_holdings("", "", stripped=stripped))
+            data["pledged_assets"] = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
+            data["contingent"] = _basis.annotate(_av.extract_contingent("", stripped=stripped))
 
     return {"tool": "asset_holdings", "status": "ok", "subject": name,
             "data": data, "warnings": warnings}

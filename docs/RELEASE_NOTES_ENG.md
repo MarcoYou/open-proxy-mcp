@@ -4,6 +4,11 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-23
 
+### `asset_holdings` no longer reports a failed notes fetch as "not disclosed"
+
+- In `scope="detail"`, when both the document fetch (get_document) and the viewer fallback fail, the four items (land, equity securities, pledged assets, contingent liabilities) used to say the notes contain no such disclosure. They now say the notes could not be read (`absence_kind="not_collected"`, `fetch_failed=true`). `scope="summary"` adds a warning that the pledged/contingent haircuts could not be determined.
+- Responses where the notes were read normally (including notes that really have no such disclosure) are unchanged.
+
 ### Operator notices can ride along on every tool response (no dedicated tool)
 
 - When the operator has an announcement (maintenance, a heads-up about a change), tool responses carry it. Markdown responses get a `> 📢 공지 (OPM <version> · <MM-DD>) …` block right under the `# title`; JSON responses get a top-level `notices` field (separate from `warnings`; a new key). With no notice, every tool's response is unchanged. Tool names, arguments, existing response keys and the tool count do not change.
