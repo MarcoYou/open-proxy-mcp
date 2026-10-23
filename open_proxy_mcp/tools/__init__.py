@@ -10,6 +10,7 @@ import httpx
 from mcp.server.mcpserver.exceptions import ToolError
 
 from open_proxy_mcp.dart.client import DartClientError
+from open_proxy_mcp.services import notices as _notices
 from open_proxy_mcp.services.dart_safety import DART_EXTERNAL_ERRORS, degrade_response
 
 
@@ -77,6 +78,17 @@ def _declare_resolution_notes(tool_name: str, result):
     return f"{block}\n\n{result}"
 
 
+def _attach_notices(tool_name: str, result):
+    """운영자 공지(`services/notices`)를 응답에 끼운다 — md 는 `# 제목` 바로 아래 `> 📢` 블록, JSON 은 최상위 dict 의 `notices` 칸(`warnings` 와 따로).
+
+    공지가 없으면(`OPM_NOTICE_URL` 없음·아직 못 받음·만료·시작 전) 응답을 **그대로** 돌려준다. 받기는 배경에서 하고 여기서 기다리지 않는다.
+    붙일 자리가 없는 JSON(dict 아님)은 깨뜨리지 않는다. 공지 쪽 어떤 오류도 도구 응답을 바꾸지 않는다."""
+    try:
+        return _notices.attach(tool_name, result)
+    except Exception:  # noqa: BLE001 — 공지는 덤이다. 도구 응답을 코드버그로 만들지 않는다.
+        return result
+
+
 def _wrap_tool_errors(fn):
     """모든 tool 코루틴을 감싸는 중앙 안전망:
       ① DART 외부·부하 예외(DART_EXTERNAL_ERRORS) → 크래시 대신 graceful 응답(is_error=false).
@@ -86,18 +98,21 @@ def _wrap_tool_errors(fn):
          (태그를 본문에 싣는 이유: MCP streamable 전송이 요청/응답을 별도 태스크로 쪼개
          contextvar 역전파가 불안정 → 미들웨어가 본문에서 태그만 뽑아 기록, 원문 미저장.)
       ③ 이름 추정·종류주 코드 고지가 빠진 응답이면 맨 앞에 붙인다(`_declare_resolution_notes`).
+      ④ 유효한 운영자 공지가 있으면 응답에 끼운다(`_attach_notices`) — 정상 응답과 ①의 graceful 응답에만. ②의 오류 본문은 바꾸지 않는다.
     """
 
     @functools.wraps(fn)
     async def inner(*args, **kwargs):
         try:
-            return _declare_resolution_notes(getattr(fn, "__name__", ""), await fn(*args, **kwargs))
+            name = getattr(fn, "__name__", "")
+            return _attach_notices(name, _declare_resolution_notes(name, await fn(*args, **kwargs)))
         except DART_EXTERNAL_ERRORS as exc:  # 외부·부하 → graceful degrade
-            return degrade_response(getattr(fn, "__name__", "tool"),
-                                    kwargs.get("format", "md"), exc)
+            name = getattr(fn, "__name__", "tool")
+            return _attach_notices(name, degrade_response(name, kwargs.get("format", "md"), exc))
         except Exception as exc:  # noqa: BLE001 — 코드버그는 분류 후 그대로 re-raise
             raise ToolError(f"[ekind={classify_error(exc)}] {exc}") from exc
 
+    inner.attaches_notices = True      # 시험이 「등록된 도구 전부가 이 경계를 지난다」를 확인하는 표지
     return inner
 
 
