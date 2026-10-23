@@ -141,6 +141,34 @@ def test_universe_without_estimates_is_no_estimates(monkeypatch):
     assert p["status"] == "no_estimates" and p["data"]["rows"] == []
 
 
+def test_empty_resolved_universe_is_no_data_not_whole_market(monkeypatch):
+    """유니버스가 해석됐지만 종목이 0개(rows=[])면 전 종목 표로 넘어가지 않고 no_data — 빈 목록이 None(전 종목)으로 바뀌던 결함."""
+    calls = _stub(monkeypatch, uni_rows=[])
+    p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))
+    assert p["status"] == "no_data"
+    assert calls == []                                           # 이력 질의 자체를 하지 않는다
+    assert p["warnings"] and "종목" in p["warnings"][0]
+    assert not p.get("data")                                     # 전 종목 행이 실리지 않는다
+
+
+def test_fetch_hist_many_distinguishes_none_from_empty(monkeypatch):
+    """codes=None 은 전 종목(조건 없음), codes=[] 는 종목 0개(빈 결과) — 둘을 섞지 않는다."""
+    calls = []
+    monkeypatch.setattr(fe, "pg_rows", lambda sql, params=(): calls.append((sql, params)) or _hist_rows())
+    assert fe._fetch_hist_many([], "FY") == []
+    assert calls == []
+    assert fe._fetch_hist_many(None, "FY")
+    assert len(calls) == 1 and "stock_code = ANY" not in calls[0][0]
+
+
+def test_all_market_universe_still_passes_its_codes(monkeypatch):
+    """「전체」 류 유니버스는 해석된 종목 목록(비어 있지 않음)을 그대로 넘긴다 — 응답은 종전과 같다."""
+    calls = _stub(monkeypatch)
+    p = asyncio.run(fe.build_revision_screen_payload("코스피 전체"))
+    assert p["status"] == "ok" and len(calls) == 1
+    assert calls[0][1][1] == ["005930", "000660", "005380", "999999"]
+
+
 def test_md_render(monkeypatch):
     _stub(monkeypatch)
     p = asyncio.run(fe.build_revision_screen_payload("코스피 시총 상위 4"))
