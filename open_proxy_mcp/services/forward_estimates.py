@@ -808,12 +808,14 @@ def _screen_span_days(window_days: int) -> int:
 
 def _fetch_hist_many(codes: list[str] | None, period_type: str,
                      span_days: int | None = None) -> list[tuple] | None:
-    """유니버스의 `fwd_hist` 추정 행을 한 질의로. codes=None 이면 커버리지 전 종목.
+    """유니버스의 `fwd_hist` 추정 행을 한 질의로. codes=None 이면 커버리지 전 종목, codes=[] 이면 종목 0개(빈 결과).
     None = DB 장애 · [] = 이력 없음.
     span_days: 최신 날짜부터 읽을 일수 — 전 종목 창 전부를 매번 읽지 않는다
     (로컬 2년 합성 실측: 전 이력 210ms → 13주 67ms)."""
     from open_proxy_mcp import fwd_window as fw
 
+    if codes is not None and not codes:
+        return []                       # 빈 목록 = 종목 0개. None(전 종목)과 다르다
     sql = f"SELECT {', '.join(_REV_SCREEN_COLS)} FROM fwd_hist WHERE is_estimate"
     params: list[Any] = []
     if period_type in ("FY", "Q"):
@@ -959,7 +961,13 @@ async def build_revision_screen_payload(universe: str, window: str = "4w",
         return {"tool": TOOL, "status": "no_data", "subject": subject,
                 "warnings": [ul.notice or "유니버스를 해석하지 못했다 — 표현을 바꿔 다시 부를 것."]}
     codes = [r["ticker"] for r in ul.rows]
-    rows = await asyncio.to_thread(_fetch_hist_many, codes if codes else None, pt,
+    if not codes:
+        # 해석은 됐는데 종목이 0개(업종·조건에 맞는 종목 없음 등) — 빈 목록을 None(전 종목)으로 바꿔 읽으면
+        #   「없음」 요청에 시장 전체 표가 돌아간다. 이력 질의 없이 자료 없음으로 답한다.
+        return {"tool": TOOL, "status": "no_data", "subject": subject,
+                "warnings": [ul.notice or "유니버스에 해당하는 종목이 0개다 — 조건을 바꿔 다시 부를 것.",
+                             "종목 0개인 유니버스는 전 종목 표로 넘기지 않는다."]}
+    rows = await asyncio.to_thread(_fetch_hist_many, codes, pt,
                                    _screen_span_days(windows[win]))
     if rows is None:
         return {"tool": TOOL, "status": "db_error", "subject": subject,

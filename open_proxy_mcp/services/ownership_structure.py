@@ -244,6 +244,7 @@ def _block_report_order(item: dict[str, Any]) -> tuple[str, str]:
 async def _fetch_largest_shareholder_from_blocks(
     client,
     corp_code: str,
+    as_of_ymd: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """5% 대량보유(majorstock)에서 최대주주 후보를 추정.
 
@@ -253,6 +254,8 @@ async def _fetch_largest_shareholder_from_blocks(
 
     KT&G 같은 회사도 hyslrSttus에 본인 7%대 데이터가 있어 1차 fallback이
     먼저 처리하는 것이 정상. 이 함수는 그것마저 실패한 잔여 케이스용.
+
+    `as_of_ymd`(YYYYMMDD) 를 주면 그날까지 접수된 보고만 보고자별 「최신」 후보로 본다(`_latest_block_rows` 와 같은 기준, DATA-PIT9).
     """
     warnings: list[str] = []
     try:
@@ -270,6 +273,8 @@ async def _fetch_largest_shareholder_from_blocks(
         reporter = (item.get("repror", "") or "").strip()
         if not reporter:
             continue
+        if as_of_ymd and (item.get("rcept_dt", "") or "").replace("-", "") > as_of_ymd:
+            continue  # 기준일 뒤에 접수된 보고는 그 시점에 없던 정보다
         if reporter not in latest_by_reporter or _block_report_order(item) > _block_report_order(latest_by_reporter[reporter]):
             latest_by_reporter[reporter] = item
 
@@ -286,10 +291,53 @@ async def _fetch_largest_shareholder_from_blocks(
     return rows, warnings
 
 
+#: 공시 `relate` 칸에서 「최대주주 본인」을 뜻하는 표기(공백 제거 뒤). 실제 표기가 회사마다 다르다 —
+#: 「본인」(현대차·고려아연) · 「최대주주 본인」(삼성전자·LG전자) · 「최대주주」(SK하이닉스·롯데지주·영풍).
+#: 「최대주주의 특수관계인」·「친족」·「계열회사」·「발행회사 임원」은 최대주주가 아니다.
+_PRINCIPAL_RELATIONS = frozenset({"본인", "최대주주", "최대주주본인"})
+
+
+def _is_principal_relation(relation: Any) -> bool:
+    return re.sub(r"\s+", "", str(relation or "")) in _PRINCIPAL_RELATIONS
+
+
 def _top_holder_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """최대주주 한 줄 — 공시가 「본인」으로 적은 행(DART `relate`)이 먼저이고, 그런 행이 없을 때만 지분 최대 행.
+
+    🔴 종전엔 지분율 내림차순 첫 행을 그대로 최대주주로 냈다. 특수관계인·임원 한 사람의 지분이 최대주주(본인)보다
+    크면 본인 아닌 사람이 최대주주로 나갔다(한미사이언스 2025 사업보고서: 본인 송영숙 3.38% 인데 발행회사 임원 신동국 16.43% 가 첫 행).
+    5% 보고 추정 경로(`relation` = 「5% 보유자(추정)」)처럼 본인 표기가 없는 행만 있으면 종전 그대로 첫 행이다.
+    """
     if not rows:
         return {}
+    principals = [row for row in rows if _is_principal_relation(row.get("relation"))]
+    if principals:
+        return max(principals, key=lambda row: row.get("ownership_pct") or 0.0)
     return rows[0]
+
+
+def _top_holder_gap_note(rows: list[dict[str, Any]]) -> str | None:
+    """최대주주(본인 행)보다 지분이 큰 묶음 안 보유자가 있으면 알리는 유의사항 한 줄 — 없으면 None.
+
+    DART 최대주주 현황은 「최대주주 본인 + 특수관계인」 묶음이다. 본인 행이 묶음 안 최대 보유자가 아닐 수 있는데(한미사이언스 2025:
+    본인 송영숙 3.38%, 발행회사 임원 신동국 16.43%) `top_holder` 하나만 읽으면 「최대주주 지분 3.38%」로 끝나기 쉽다.
+    본인 표기가 없어 지분 최대 행이 최대주주로 나간 경우(5% 보고 추정 경로 등)는 어긋남이 없으므로 None.
+    """
+    top = _top_holder_summary(rows)
+    if not top or not _is_principal_relation(top.get("relation")):
+        return None
+    largest = max(rows, key=lambda row: row.get("ownership_pct") or 0.0)
+    top_pct = top.get("ownership_pct") or 0.0
+    largest_pct = largest.get("ownership_pct") or 0.0
+    if largest is top or largest_pct <= top_pct:
+        return None
+    relation = str(largest.get("relation") or "").strip()
+    relation_txt = f"({relation})" if relation else ""
+    return (
+        f"최대주주(본인) {top.get('name', '')} {top_pct:.2f}% — "
+        f"묶음 안 최대 보유자 {largest.get('name', '')}{relation_txt} {largest_pct:.2f}%, "
+        f"묶음 합계 {_related_total(rows):.2f}%"
+    )
 
 
 def _related_total(rows: list[dict[str, Any]]) -> float:
@@ -707,7 +755,17 @@ def _build_control_map(
     }
 
 
-async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+async def _latest_block_rows(
+    corp_code: str,
+    as_of_ymd: str | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+    """보고자별 최신 5% 보고 + 전체 이력.
+
+    `as_of_ymd`(YYYYMMDD) 를 주면 그날까지 접수된 보고만 「최신」 후보로 본다. 🔴 종전엔 전체에서 보고자별 최신을 먼저 고르고
+    기준일 밖이면 나중에 버려서, 기준일 뒤에 다시 보고한 보고자가 과거 시점 보유자 목록에서 통째로 사라졌고(고려아연 국민연금공단:
+    2026-07-31 보고 때문에 2026-01 시점 5.00% 보유가 없어진다), 보유 목적도 기준일 뒤 원문에서 읽을 수 있었다(DATA-PIT9).
+    이력(timeline)은 그대로 전부 돌려준다 — 호출자가 기간창으로 거른다.
+    """
     client = get_dart_client()
     try:
         data = await client.get_block_holders(corp_code)
@@ -724,6 +782,8 @@ async def _latest_block_rows(corp_code: str) -> tuple[list[dict[str, Any]], list
         reporter = item.get("repror", "").strip()
         if not reporter:
             continue
+        if as_of_ymd and (item.get("rcept_dt", "") or "").replace("-", "") > as_of_ymd:
+            continue  # 기준일 뒤에 접수된 보고는 그 시점에 없던 정보다
         if reporter not in latest_by_reporter or _block_report_order(item) > _block_report_order(latest_by_reporter[reporter]):
             latest_by_reporter[reporter] = item
 
@@ -1272,6 +1332,24 @@ def _unsupported_scope_payload(company_query: str, scope: str) -> dict[str, Any]
     return envelope.to_dict()
 
 
+async def _as_of_bsns_year(client, selected: dict[str, Any], as_of: date) -> int:
+    """`as_of` 까지 제출돼 있는 최신 사업보고서의 사업연도 표기(DART `bsns_year`).
+
+    🔴 종전엔 `as_of.year - 1` 로 못박았다 — 12월 결산이어도 1~3월 시점이면 아직 안 낸 사업보고서를 가리켰고, 3월·6월·9월 결산이면
+    한 해씩 어긋났다. `report_calendar.pit_annual`(결산월을 아는 공시 시점: 사업보고서는 결산월 다음 넷째 달 1일부터)이 정본이다
+    (DATA-PIT8). 결산월은 회사 개황(company.json — 프로세스 캐시)에서 읽고, 못 읽으면 12월 결산으로 본다.
+    """
+    from open_proxy_mcp.services import report_calendar as rcal
+
+    acc_mt: Any = None
+    try:
+        info = await client.get_company_info(selected["corp_code"])
+        acc_mt = (info or {}).get("acc_mt")
+    except Exception:  # noqa: BLE001 — 개황 실패는 12월 결산 가정(종전과 같은 가정)
+        acc_mt = None
+    return rcal.pit_annual(as_of, rcal.fiscal(acc_mt or 12, selected.get("stock_code")))
+
+
 async def build_ownership_structure_payload(
     company_query: str,
     *,
@@ -1336,7 +1414,7 @@ async def build_ownership_structure_payload(
 
     selected = resolution.selected
     as_of = parse_date_param(as_of_date)
-    as_of_year = (as_of.year - 1) if as_of else None
+    as_of_year = await _as_of_bsns_year(client, selected, as_of) if (as_of and not year) else None
     bsns_year = str(year or as_of_year or (today_kst().year - 1))
     window_start, window_end, window_warnings = resolve_date_window(
         start_date=start_date,
@@ -1446,7 +1524,9 @@ async def build_ownership_structure_payload(
     # 5% 대량보유(majorstock)는 major_holders scope(명부 전용)에선 안 쓰여 스킵(1콜 절감).
     stage_started_at = time.perf_counter()
     if scope != "major_holders":
-        latest_blocks, timeline_rows, block_warning = await _latest_block_rows(selected["corp_code"])
+        latest_blocks, timeline_rows, block_warning = await _latest_block_rows(
+            selected["corp_code"], format_yyyymmdd(window_end),
+        )
     else:
         latest_blocks, timeline_rows, block_warning = [], [], None
     _mark("block_holders", stage_started_at)
@@ -1458,7 +1538,7 @@ async def build_ownership_structure_payload(
     if not major_rows:
         stage_started_at = time.perf_counter()
         block_fb_rows, block_fb_warnings = await _fetch_largest_shareholder_from_blocks(
-            client, selected["corp_code"]
+            client, selected["corp_code"], format_yyyymmdd(window_end),
         )
         _mark("largest_holder_block_fallback", stage_started_at)
         warnings.extend(block_fb_warnings)
@@ -1505,6 +1585,9 @@ async def build_ownership_structure_payload(
                 "공시 지분율은 우선주 포함 총주식 기준일 수 있음. 100% 분해표는 보통주 기준."
             )
     top_holder = _top_holder_summary(major_rows)
+    _gap_note = _top_holder_gap_note(major_rows)
+    if _gap_note:
+        warnings.append(_gap_note)
     # 공동보유자 분해를 모든 scope의 5% 블록에 부착 (summary/blocks에서도 노출되도록).
     _enrich_co_holders(latest_blocks, major_rows)
     # 5% 보고 지분율은 단순 합산이 안 된다 — 보고자끼리 같은 특별관계자를 품고 있거나(겹침),
@@ -1571,7 +1654,8 @@ async def build_ownership_structure_payload(
         data["treasury"] = treasury_snapshot
         # 100% 분해 표의 분모 출처와 최신 상장주식수 대조 — 상장주식수는 DB 한 줄(DART·KRX 0콜)이고 못 읽어도 표는 그대로 나간다.
         # 과거 사업연도를 물으면 오늘의 상장주식수와 맞대지 않는다(시점이 다른 두 값을 한 표에 섞는 셈) — 읽지도 않는다.
-        _compare_latest = bsns_year == str(today_kst().year - 1)
+        # as_of 를 주면 오늘의 상장주식수와 맞대지 않는다 — 과거 시점 분모를 오늘 값과 비교하면 시점이 섞인다.
+        _compare_latest = as_of is None and bsns_year == str(today_kst().year - 1)
         _share_basis_row = _share_basis(
             treasury_snapshot,
             await _latest_listed_shares(selected.get("stock_code")) if _compare_latest else None,
