@@ -823,6 +823,7 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 | 번호 | 한 줄 | 고친 PR · 상태 |
 |---|---|---|
 | DATA-U1 | 잠정실적 도구의 단위 읽기가 쉼표가 있는 표기에 기대 기본 백만원으로 떨어진다 | 닫힘 #170 (단위를 못 읽으면 금액 미환산 · `unit_raw=None` + 경고) |
+| DATA-U3 | `provisional_earnings` 의 [기재정정] 표 파서가 정정후 칸이 '-'·빈칸이면 정정전 값을, 당기 절 금액 칸이 비면 뒤 「증감율(%)」 절의 % 를 금액(`value_krw`)으로 낸다 | 닫힘 (이 PR — 절 머리행으로 당기 절만, 정정전·정정후 열은 머리 행으로, 정정후 '-'·빈칸이면 `value_krw`=None · 합성 고정본 시험) |
 | DATA-NI2 | `financial_metrics` 분기·`qoq` 순이익이 주요계정 당기순이익 총계(비지배 포함)다 | 닫힘 — #170 은 표시만(`net_income_basis=total_incl_nci`·표 머리), 이 PR 이 새 키 `net_income_controlling_krw`(저장된 분기 칸 누적 차분, DART 0콜)로 지배 몫을 더함. 옛 `net_income_krw` 는 총계 그대로 |
 | DATA-NI2 | `financial_metrics` 연간 `net_income_krw` 가 지배 순이익을 못 구하면 조용히 총계로 바뀌고 전년비·ROE 가 기준이 섞인 값이 된다 | 닫힘 (이 PR — `net_income_basis`·`prev_net_income_basis` 표시, 기준이 다르면 전년비 비움 + 경고) |
 | DATA-NI3 | 값 구조로 못 가르는 지배 순이익 줄(첫 이름 줄 폴백)과 지배·비지배를 바꿔 적은 보고서를 자본변동표로 교차 확인하지 않는다 | 닫힘 #166 (`controlling_ni` 세 꼴을 자본변동표 지배 몫으로 — 저장된 재무 칸 164칸 가운데 162칸을 새 규칙으로 다시 씀) |
@@ -840,6 +841,7 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 | DATA-SC4 | 연간 수집(정규 받기와 정정 보고서 다시 받기 모두)이 원본 칸을 쓸 때 보고서 사이 단위 대조(`reconcile_report_scales`)가 없다 — 한 보고서 안 검사(`assess`)만 있고, 정정 칸 후보·정정 칸 비우기만 10ⁿ 어긋난 꼴을 건너뛴다. 한 보고서가 통째로 틀린 단위로 오면(정정 보고서 포함) 원본 칸에 어긋난 값이 다시 들어갈 수 있다 | 닫힘 #182 (`market_val_series.cross_report_plan` — 새 사업보고서의 당기·전기·전전기 자본을 저장된 이웃 해 원본·정정 칸과 `reconcile_report_scales` 로 대 나눠 쓰거나 못 가리면 쓰지 않는다) |
 | DATA-SC4 | 분기 수집의 전기 칸 대조(`check_prior_period_mismatch`)는 저장된 연간 값을 정답으로 믿어, 저장 값이 틀리면 맞는 분기 보고서를 10ⁿ 배로 「복구」할 수 있다 — 실시간 firm·연간 수집의 `reconcile_report_scales`(다수결·시총)와 규칙이 다르다 | 열림 |
 | DATA-SC5 | 시장 최대값 고정 앵커(44.26조 × 3)가 FY2026 실적(삼성전자 303.64조·SK하이닉스 255.74조) 보고서에서 firm 응답에 거짓 「단위 오류 — 신뢰 불가」를 낸다 | 닫힘 (이 PR — 시총 대비 5배·전기 대비 10ⁿ 점프 단서가 없으면 soft) |
+| DATA-PIT1 | `provisional_earnings` 의 손익구조 변경 공시 판정이 [기재정정]·[첨부정정] 접두를 떼지 않아, 정정 공시가 후보에서 빠져 원공시가 최신으로 나간다 | 닫힘 (이 PR — 접두를 떼고 판정 · 정정 표는 정정 표 파서가 읽음) |
 | DATA-PIT5 | 자본이 다른 칸·출처 있는 칸의 원본 칸 수집 결함이 정정 칸에 가려 있다가 과거 시점 점에 드러날 수 있다 | 열림 |
 | DATA-PIT8 | 원본 칸의 공시일이 기한 규칙이라 늦게 낸 보고서를 앞당겨 쓴다 | 열림 |
 | DATA-PIT10 | 065150 FY2023 은 단위 고침 뒤에도 정정 칸 출처 접수일(2026-03-23) 전 시점에 원본 값을 쓴다 — 그보다 먼저 공시된 2024 보고서 전기 칸(2025-03-21 접수)과 1년 동안 다른 값이 나온다(출처 날짜를 가장 늦은 보고서로 잡는 `restated_wins` 의 한계) | 닫힘 #183 (같은 값이면 출처는 처음 낸 보고서 — 운영 출처 4,212행(그중 문이 값에 닿는 268행)을 당김, 값 칸 변화 0 · 시장·업종 집계 290행 다시 계산) |

@@ -112,6 +112,9 @@ def _num_after(cell: str, marker: str) -> float | None:
 def _is_structure_change_report(report_nm: str) -> bool:
     """I001 손익구조 변경 공시 중 실적표 본문인 것만 통과시킨다."""
     compact = re.sub(r"\s+", "", report_nm or "")
+    # 정정 공시는 이름 앞에 [기재정정]·[첨부정정] 같은 접두가 붙는다 — 떼고 판정한다(DATA-PIT1). 안 떼면 정정 공시가
+    # 후보에서 빠져 원공시가 최신으로 나간다. 접두 뒤 본문이 정정전·정정후 표인 것은 parse_provisional_earnings 가 가른다.
+    compact = re.sub(r"^(?:\[[^\]]*\])+", "", compact)
     # 🔴 **코스피는 「변경」, 코스닥은 「변동」이다** (2026-08-27 실측).
     # `이상변경` 만 보던 탓에 코스닥 공시가 통째로 잠정실적 분기로 새어
     # `당기실적` 표를 못 찾고 period·headline·fiscal_year 가 전부 빠졌다.
@@ -189,15 +192,68 @@ def _headline_from_grid(grid: list[list[str]], factor: float) -> dict[str, Any]:
     return {k: v for k, v in head.items() if v.get("value_krw") is not None}
 
 
+#: 정정 표의 절 머리행 라벨 — 「당기실적(26.2Q)」 아래가 금액, 「전기대비 증감율(%)」·「전년동기대비 증감율(%)」·
+#: 「전기실적」·「전년동기실적」 아래는 비교 기간 값·% 라서 금액 행으로 읽으면 안 된다(DATA-U3).
+_CORR_CURRENT_SECTION = re.compile(r"^(?:당기|당해)실적")
+_CORR_OTHER_SECTION = re.compile(r"^(?:전기|전년동기|전분기|직전)(?:실적|대비|$)|^증감율")
+_CORR_NUMBERED_HEADING = re.compile(r"^\d+[.)]")
+
+
+def _correction_section(label_cell: str | None) -> str | None:
+    """정정 표 첫 열이 절 머리행이면 그 절 — `current`(당기 금액)·`other`(비교 기간·% 절)·`neutral`(번호 붙은 큰 제목). 머리행이 아니면 None."""
+    label = re.sub(r"^[-\s·ㆍ]+", "", re.sub(r"\s+", "", label_cell or ""))
+    if _CORR_CURRENT_SECTION.search(label):
+        return "current"
+    if _CORR_OTHER_SECTION.search(label):
+        return "other"
+    if _CORR_NUMBERED_HEADING.search(label):
+        return "neutral"
+    return None
+
+
+def _correction_columns(row: list[str]) -> tuple[int, int] | None:
+    """정정 표 머리행 → (정정전 열, 정정후 열). 머리행이 아니면 None."""
+    before = after = None
+    for j, cell in enumerate(row):
+        t = re.sub(r"\s+", "", cell or "")
+        if t.startswith("정정전") and before is None:
+            before = j
+        elif t.startswith("정정후") and after is None:
+            after = j
+    return (before, after) if before is not None and after is not None else None
+
+
+def _correction_cell_num(cell: str | None) -> float | None:
+    # 셀이 「당해실적: 473,133 전기대비증감율(%): …」 한 줄 요약이면 당해실적 값만 뽑는다.
+    return _num_after(cell, "당해실적") if "당해실적" in (cell or "") else _num(cell or "")
+
+
 def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
-    """[기재정정] 표의 정정후 열을 headline으로 노출한다."""
+    """[기재정정] 표의 정정후 열을 headline으로 노출한다.
+
+    - 절 머리행(당기실적·전기대비 증감율·전년동기실적 …)을 따라가며 **당기 절의 행만** 채택한다 — 증감율 %가 금액으로 나가지 않는다.
+    - 정정전·정정후 열은 **머리 행**이 정한다(마지막 숫자를 정정후로 읽지 않는다). 정정후 칸이 '-'·빈칸이면 `value_krw`=None,
+      정정전 값은 `prior_value_krw` 에만 둔다(DATA-U3·DATA-PIT1).
+    """
     table = next((t for t in soup.find_all("table")
                   if re.search(r"정정\s*후", t.get_text())
                   and any(label in t.get_text() for label in ("매출액", "영업이익", "당기순이익"))), None)
     if table is None:
         return {}
     head: dict[str, Any] = {}
+    cols: tuple[int, int] | None = None
+    section: str | None = None
     for row in _table_to_grid(table):
+        found = _correction_columns(row)
+        if found is not None:
+            cols = found
+            continue
+        sec = _correction_section(row[0] if row else None)
+        if sec is not None:
+            section = sec
+            continue
+        if section == "other":
+            continue
         hit = next(((i, k, tag) for i, (k, tag) in ((i, _label_key(c)) for i, c in enumerate(row)) if k), None)
         if not hit:
             continue
@@ -205,21 +261,25 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
         if tag == "누계실적" or key in head:   # 당해 행이 먼저 온다 — 누계로 덮지 않는다
             continue
         tail = row[idx + 1:]
-        # 셀이 「당해실적: 473,133 전기대비증감율(%): …」 한 줄 요약이면 당해실적 값만 뽑는다.
-        numeric = [n for n in ((_num_after(c, "당해실적") if "당해실적" in (c or "") else _num(c)) for c in tail)
-                   if n is not None]
-        if not numeric:
+        if cols is not None:
+            before_j, after_j = cols
+            before = _correction_cell_num(row[before_j]) if before_j < len(row) else None
+            after = _correction_cell_num(row[after_j]) if after_j < len(row) else None
+        elif len(tail) >= 2:   # 머리 행이 없는 비표준 표 — 끝 두 칸을 정정전·정정후로 본다
+            before, after = _correction_cell_num(tail[-2]), _correction_cell_num(tail[-1])
+        else:
             continue
-        # 정정전·정정후 순서가 표준이며, 비표준 표도 마지막 숫자를 정정후로 본다.
-        head[key] = {"value_krw": numeric[-1] * factor,
-                     "prior_value_krw": numeric[0] * factor if len(numeric) > 1 else None}
+        if before is None and after is None:
+            continue
+        head[key] = {"value_krw": after * factor if after is not None else None,
+                     "prior_value_krw": before * factor if before is not None else None}
     return head
 
 
 def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int | None = None) -> dict[str, Any]:
     """영업(잠정)실적 원문 → markdown-primary. table_markdown(항상, colspan확장) + headline(best-effort).
     재무형=매출/영업익 표, 비재무형(자동차 판매대수 등)=도메인 표. 둘 다 table_markdown이 통째로 담음."""
-    if _is_structure_change_report(report_nm):
+    if _is_structure_change_report(report_nm) and "정정" not in (report_nm or ""):
         return _parse_structure_change(html, fiscal_end_month=fiscal_end_month)
 
     soup = BeautifulSoup(html, "lxml")
@@ -238,9 +298,13 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
 
     tables = soup.find_all("table")
     correction_headline = _correction_headline(soup, factor) if "정정" in (report_nm or "") else {}
+    if not correction_headline and _is_structure_change_report(report_nm):
+        # 정정 접두가 붙은 손익구조 변경 공시인데 정정전·정정후 표가 아니면(원공시 서식 전문을 다시 낸 정정) 원공시 서식 파서로.
+        return _parse_structure_change(html, fiscal_end_month=fiscal_end_month)
     if correction_headline:
         return {"consolidated": consolidated, "unit_raw": unit_label, "period": period,
                 **_period_metadata(period, fiscal_end_month=fiscal_end_month), "kind": "financial", "correction": True,
+                **({"provisional_type": "fiscal_year_change"} if _is_structure_change_report(report_nm) else {}),
                 "headline": correction_headline if unit_label else _strip_money(correction_headline), **unit_extra,
                 "table_markdown": "\n\n".join(p for p in (_clean_render(t) for t in tables) if p)[:6000] or None}
     fin_table = next((t for t in tables if "당기실적" in t.get_text()
