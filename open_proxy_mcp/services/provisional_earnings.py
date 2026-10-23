@@ -210,7 +210,7 @@ def _correction_label_key(cell: str | None) -> tuple[str | None, str | None]:
 def _correction_section(label_cell: str | None) -> str | None:
     """정정 표 첫 열이 절 머리행이면 그 절 — `current`(당기 금액)·`other`(비교 기간·% 절)·`neutral`(번호 붙은 큰 제목). 머리행이 아니면 None.
 
-    「2. 영업이익」처럼 번호를 뗀 나머지가 지표 라벨인 행도 절은 `neutral`(앞 비교 절을 초기화)이다 — 그 행을 지표 행으로 읽을지는 호출부가 정한다."""
+    번호 붙은 행이 제목인지(절 초기화) 값이 든 데이터 행인지(절 유지)는 이 함수가 아니라 호출부가 값 칸으로 정한다(`_correction_values_blank`)."""
     label = re.sub(r"^[-\s·ㆍ]+", "", re.sub(r"\s+", "", label_cell or ""))
     if _CORR_CURRENT_SECTION.search(label):
         return "current"
@@ -219,6 +219,19 @@ def _correction_section(label_cell: str | None) -> str | None:
     if _CORR_NUMBERED_HEADING.search(label):
         return "neutral"
     return None
+
+
+_CORR_BLANK_CELL = re.compile(r"^[-–—]?$")
+
+
+def _correction_values_blank(row: list[str], cols: tuple[int, int] | None, header_len: int) -> bool:
+    """번호 붙은 행의 정정전·정정후 값 칸이 모두 비었거나 '-' 인가 — 그러면 제목 행, 아니면 값이 든 데이터 행.
+    열 머리가 정해져 있고 행 칸 수가 머리행과 같으면 그 두 열만, 아니면 첫 칸을 뺀 나머지 칸을 본다."""
+    if cols is not None and len(row) == header_len:
+        cells = [row[j] for j in cols if j < len(row)]
+    else:
+        cells = row[1:]
+    return all(_CORR_BLANK_CELL.match(re.sub(r"\s+", "", c or "")) for c in cells)
 
 
 def _correction_columns(row: list[str]) -> tuple[int, int] | None:
@@ -261,12 +274,18 @@ def _correction_headline(soup: BeautifulSoup, factor: float) -> dict[str, Any]:
             header_len = len(row)
             continue
         sec = _correction_section(row[0] if row else None)
-        if sec is not None:
-            section = sec   # 절 갱신과 행 채택은 별개다 — 아래에서 같은 행에 지표 라벨이 있는지 본다
-            if not any(_correction_label_key(c)[0] for c in (row if sec == "neutral" else row[1:])):
+        if sec == "neutral":
+            # 번호 붙은 행 — 지표 라벨이 아니면 큰 제목(절 초기화). 지표 라벨이어도 값 칸이 모두 비었거나 '-' 면 제목 행이라 절을 초기화하고
+            # 채택할 값이 없다(뒤 하위 행은 neutral 절에서 읽힌다). 값이 있으면 데이터 행이라 절을 바꾸지 않고 지금 절의 규칙대로 읽는다
+            # (비교·% 절 안의 「1. 매출액 | 5 | 6」 이 당기 금액으로 나가지 않는다 — 틀린 값은 빈 값보다 나쁘다) (PROV-R3-S1·R4-S1)
+            if not any(_correction_label_key(c)[0] for c in row) or _correction_values_blank(row, cols, header_len):
+                section = "neutral"
+                continue
+        elif sec is not None:
+            section = sec
+            if not any(_correction_label_key(c)[0] for c in row[1:]):
                 continue   # 순수 절 머리행
-            # 첫 열이 절 이름이고 둘째 열이 지표인 rowspan 펼친 꼴(「당기실적 | 매출액 | 정정전 | 정정후」)이나,
-            # 번호 붙은 지표 행(「2. 영업이익 | 10 | 12」, 번호 제목이라 앞 비교 절은 초기화) — 절은 갱신하고 행은 읽는다
+            # 첫 열이 절 이름이고 둘째 열이 지표인 rowspan 펼친 꼴(「당기실적 | 매출액 | 정정전 | 정정후」) — 절은 갱신하고 행은 읽는다
         row_section = section
         # 둘째 칸이 정정전·정정후 값 열인 표준 표에서는 값 칸을 절 이름으로 보지 않는다 — 단, 행 칸 수가 머리행과 다른 어긋난 격자는 열 위치를 믿지 않는다
         if len(row) > 1 and not (cols is not None and 1 in cols and len(row) == header_len):

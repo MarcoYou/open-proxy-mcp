@@ -269,12 +269,55 @@ def test_numbered_metric_row_after_comparison_section_resets_section():
     assert h["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
 
 
-def test_numbered_metric_row_right_after_percent_section_is_read():
-    """「전기대비증감율(%)」 절 바로 뒤의 「2. 영업이익 | 10 | 12」 행 자체가 지표 행으로 채택된다 (PROV-R3-S1 ②)."""
+def test_numbered_metric_row_with_values_inside_percent_section_is_not_adopted():
+    """값이 든 번호 붙은 지표 행은 데이터 행이라 절을 바꾸지 않는다 — 「전기대비증감율(%)」 절 안의 「2. 영업이익 | 10 | 12」 는 % 절 값이므로
+    채택하지 않는다(기대값: 매출 120억, 영업이익 없음) (PROV-R3-S1 ② → 4차 규칙으로 바뀜: 이전 시험은 영업이익 12억을 요구했으나,
+    틀린 값은 빈 값보다 나쁘다 — 같은 꼴의 R4-S1 이 % 값을 금액으로 내는 회귀였다)."""
     html = _table([_HEAD, ["1. 매출액", "100", "120"], ["전기대비증감율(%)", "5", "6"], ["2. 영업이익", "10", "12"]])
     h = parse_provisional_earnings(html, _NM)["headline"]
     assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+    assert "operating_profit" not in h
+
+
+# ── 4차 감수: 번호 붙은 지표 행 — 값 칸이 모두 비었거나 '-' 면 제목 행(절 초기화), 값이 있으면 데이터 행(절 유지) ──
+def test_numbered_metric_title_row_with_blank_values_resets_section_and_is_not_adopted():
+    """값 칸이 모두 '-' 인 「2. 영업이익」은 제목 행이다 — 절은 neutral 로 초기화, 행 자체는 채택할 값이 없다.
+    뒤 하위 행 「- 영업이익 | 10 | 12」 는 neutral 절에서 읽힌다. 기대값: 매출 120억 · 영업이익 12억 (PROV-R3-S1 ①)."""
+    html = _table([_HEAD, ["1. 매출액", "-", "-"], ["당기실적", "-", "-"], ["- 매출액", "100", "120"],
+                   ["전년동기실적", "-", "-"], ["- 매출액", "90", "95"],
+                   ["2. 영업이익", "-", "-"], ["- 영업이익", "10", "12"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"]["value_krw"] == 120 * 1e8
     assert h["operating_profit"] == {"value_krw": 12 * 1e8, "prior_value_krw": 10 * 1e8}
+
+
+def test_numbered_metric_data_rows_inside_percent_section_are_not_taken_as_amounts():
+    """당기 절 → 번호 지표 데이터 행 → 「전기대비증감율(%)」 절 안의 번호 지표 행(5·6 / 33.5·40.3)은 % 라서 채택하지 않는다.
+    기대값: 매출 120억(당기 절 값), 영업이익 없음(「2. 영업이익 | -  | -」 는 제목 행, % 절의 값 40.3 은 금액이 아님) (PROV-R4-S1 ①)."""
+    html = _table([_HEAD, ["당기실적", "-", "-"], ["1. 매출액", "100", "120"], ["2. 영업이익", "-", "-"],
+                   ["전기대비증감율(%)", "-", "-"], ["1. 매출액", "5", "6"], ["2. 영업이익", "33.5", "40.3"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+    assert "operating_profit" not in h
+
+
+def test_numbered_metric_data_row_inside_prior_period_section_does_not_beat_current():
+    """전년동기 절 안의 번호 지표 데이터 행(「1. 매출액 | 90 | 95」)은 비교 기간 값이라 버리고, 뒤 당기 절의 「1. 매출액 | 100 | 120」 을 읽는다.
+    기대값: 매출 120억(전년동기 95억이 아님) (PROV-R4-S1 ②)."""
+    html = _table([_HEAD, ["전년동기실적", "-", "-"], ["1. 매출액", "90", "95"],
+                   ["당기실적", "-", "-"], ["1. 매출액", "100", "120"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"] == {"value_krw": 120 * 1e8, "prior_value_krw": 100 * 1e8}
+
+
+def test_numbered_metric_data_rows_in_normal_order_keep_current_section():
+    """대조: 당기 절 안에 번호 지표 데이터 행이 줄줄이 오고 그 뒤 % 절이 오는 정상 순서는 당기 값 그대로.
+    기대값: 매출 120억 · 영업이익 12억 (이전 HEAD 와 같음)."""
+    html = _table([_HEAD, ["당기실적", "-", "-"], ["1. 매출액", "100", "120"], ["2. 영업이익", "10", "12"],
+                   ["전기대비증감율(%)", "-", "-"], ["1. 매출액", "5", "6"], ["2. 영업이익", "3", "4"]])
+    h = parse_provisional_earnings(html, _NM)["headline"]
+    assert h["revenue"]["value_krw"] == 120 * 1e8
+    assert h["operating_profit"]["value_krw"] == 12 * 1e8
 
 
 def test_malformed_grid_row_with_extra_cell_still_judges_division_column():
