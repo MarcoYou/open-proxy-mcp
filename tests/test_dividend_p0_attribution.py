@@ -98,10 +98,69 @@ def test_cum_full_splits_common_and_class_shares():
     items = _rows(("보통주", "3,980"), ("1종 종류주식", "4,042"))
     items.append({"category": "현금배당금총액(백만원)", "stock_type": "-", "current": "232,767"})
     out = dv._cum_full_from_items(items)
-    assert out == {"dps_common": 3980, "dps_preferred": 4042, "total_mil": 232_767}
+    # 우선주 칸은 우선주만 — 우선주 아닌 종류주식은 새 칸(`dps_class`·원문 이름 `dps_class_label`)에 따로 실린다(RV-DIV-S2).
+    assert out == {"dps_common": 3980, "dps_preferred": 0, "dps_class": 4042, "dps_class_label": "1종 종류주식", "total_mil": 232_767}
     assert dv._cum_full_from_items([]) is None
     same = dv._cum_full_from_items(_rows(("보통주", "1,668"), ("우선주", "1,669")))
-    assert (same["dps_common"], same["dps_preferred"]) == (1668, 1669)
+    assert (same["dps_common"], same["dps_preferred"], same["dps_class"], same["dps_class_label"]) == (1668, 1669, 0, "")
+
+
+def test_cum_full_keeps_preferred_and_class_apart_when_both_exist():
+    """감수자 재현(RV-DIV-S2): 보통 100 · 우선 110 · 2종 종류 120 — 종류주식이 우선주 칸을 덮지 않는다(종전: 우선주 110 이 120 에 덮임)."""
+    out = dv._cum_full_from_items(_rows(("보통주", "100"), ("우선주", "110"), ("2종 종류주식", "120")))
+    assert (out["dps_common"], out["dps_preferred"], out["dps_class"], out["dps_class_label"]) == (100, 110, 120, "2종 종류주식")
+
+
+def test_cum_full_single_class_label_company_is_common_with_no_class_column():
+    out = dv._cum_full_from_items(_rows(("우량주", "300")))
+    assert (out["dps_common"], out["dps_preferred"], out["dps_class"], out["dps_class_label"]) == (300, 0, 0, "")
+
+
+def test_cum_full_common_zero_class_positive_is_not_promoted_to_common():
+    """RV-DIV-S1: 보통주 무배당(0) · 종류주식만 배당 — 보통주 DPS 는 0 이다(종류주식 값이 보통주로 나가지 않는다)."""
+    out = dv._cum_full_from_items(_rows(("보통주", "0"), ("종류주식", "50")))
+    assert (out["dps_common"], out["dps_preferred"], out["dps_class"], out["dps_class_label"]) == (0, 0, 50, "종류주식")
+    assert dv._common_cash_dps_from_items(_rows(("보통주", "-"), ("종류주식", "50"))) == 0
+
+
+class _CumClient:
+    def __init__(self, by_code):
+        self.by_code = by_code
+
+    async def get_dividend_info(self, corp_code, year, reprt_code):
+        if reprt_code not in self.by_code:
+            raise dv.DartClientError("013", "조회된 데이터가 없습니다")
+        rows = [{"se": "주당 현금배당금(원)", "stock_knd": t, "thstrm": f"{v:,}", "stlm_dt": "2025-12-31"} for t, v in self.by_code[reprt_code]]
+        rows.append({"se": "현금배당금총액(백만원)", "stock_knd": "-", "thstrm": "1,000", "stlm_dt": "2025-12-31"})
+        return {"list": rows}
+
+
+def test_cumulative_difference_and_table_keep_class_value_out_of_the_preferred_column(monkeypatch):
+    """한국금융지주 모양(보통 3,980 · 1종 종류주식 4,042) + 우선주도 있는 경우를 누적차분 표까지 — 우선주 칸에 종류주식 값이 들어가지 않고,
+    종류주식은 원문 이름을 머리줄로 한 칸에 실린다."""
+    from open_proxy_mcp.tools.dividend_disclosure import _quarterly_full_lines
+
+    by_code = {
+        "11013": [("보통주", 1000), ("우선주", 50), ("1종 종류주식", 1010)],
+        "11011": [("보통주", 3980), ("우선주", 60), ("1종 종류주식", 4042)],
+    }
+    monkeypatch.setattr(dv, "get_dart_client", lambda: _CumClient(by_code))
+    rows = asyncio.run(dv._quarterly_full_from_cumulative("00000000", 2025))
+    assert [(r["quarter"], r["dps_common"], r["dps_preferred"], r["dps_class"], r["dps_class_label"]) for r in rows] == [
+        ("Q1", 1000, 50, 1010, "1종 종류주식"), ("Q2+Q3+결산 합산(반기보고서·3분기보고서 없음)", 2980, 10, 3032, "1종 종류주식")]
+    lines = _quarterly_full_lines(rows, [], 2025)
+    assert "| 분기 | 보통주 DPS | 우선주 DPS | 1종 종류주식 DPS | 배당총액 |" in lines
+    assert any(l.startswith("| Q1 | 1,000원 | 50원 | 1,010원 |") for l in lines)
+
+
+def test_table_header_is_unchanged_without_a_class_share(monkeypatch):
+    from open_proxy_mcp.tools.dividend_disclosure import _quarterly_full_lines
+
+    monkeypatch.setattr(dv, "get_dart_client", lambda: _CumClient({"11013": [("보통주", 100), ("우선주", 110)]}))
+    rows = asyncio.run(dv._quarterly_full_from_cumulative("00000000", 2025))
+    lines = _quarterly_full_lines(rows, [], 2025)
+    assert "| 분기 | 보통주 DPS | 우선주 DPS | 배당총액 |" in lines
+    assert any(l.startswith("| Q1 | 100원 | 110원 |") for l in lines)
 
 
 def test_interim_dividend_reads_the_common_dps(monkeypatch):
@@ -225,3 +284,17 @@ def test_decision_in_the_march_year_end_company_marks_the_year_decided(monkeypat
     p, _ = _harness(monkeypatch, decisions=[dec],
                     annual_fn=lambda y: (_summary(y, 3, 100), None) if y <= 2025 else ({}, None))
     assert p["data"]["undecided_fiscal_years"] == []
+
+
+def test_report_of_an_already_covered_year_is_unknown_not_undecided(monkeypatch):
+    """RV-DIV-N3: FY2026 을 물었는데 이미 있는 FY2025 의 보고서가 오면(합성 장면 — 실제 DART 는 요청 연도와 결산기준일의 해가 같다)
+    FY2026 은 「미결의」가 아니라 「모른다」 경고다."""
+    def annual(y):
+        if y <= 2025:
+            return _summary(y, 3, 100), None
+        return _summary(2025, 3, 100), None          # 2026 을 물었는데 2025 결산 보고서가 왔다
+
+    p, _ = _harness(monkeypatch, annual_fn=annual)
+    assert p["data"]["undecided_fiscal_years"] == []
+    assert not any(r.get("pending_confirmation") for r in p["data"]["history"])
+    assert any("FY2026" in w and "FY2025" in w and "단정하지 않는다" in w for w in p["warnings"])

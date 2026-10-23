@@ -9,7 +9,9 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - Dividend resolutions are now assigned to a fiscal year using the company's fiscal year-end month. Previously a December year-end was assumed, so a March year-end company's final dividend (record date March 31) landed in the prior year and a June year-end company's interim dividend (record date December 31) landed a year early. They now go to the fiscal year containing the record date (the year the fiscal year ends in). December year-end figures are unchanged.
 - The trend table's "undecided" check uses the same fiscal year as the annual-report summary. For a completed fiscal year with no resolution filing, the annual report's dividend section is read once to confirm, so a year whose report is already out shows its confirmed DPS instead of "undecided" (at most one extra DART call per such year). A failed lookup is reported as a warning, not as "undecided".
 - Quarterly cumulative and interim dividend calculations pick the common-share DPS with the same rule as the annual-report summary, so a class-share row without the word "preferred" no longer overwrites the common-share DPS.
-- Tool names, arguments, response keys and the tool count are unchanged.
+- In the quarterly cumulative-difference table the "preferred DPS" column now carries preferred shares only. A class share that is not preferred (e.g. "1종 종류주식") gets its own column headed with the filing's own class name (the response gains new keys `dps_class` and `dps_class_label`). Where preferred and class shares coexist, the class share no longer overwrites the preferred value.
+- When the common shares pay nothing (0) and only a class share pays, the class share's value is no longer reported as the common DPS (applies to the annual-report summary, the trend table and the quarterly cumulative path alike). Companies whose common shares pay a dividend are unchanged.
+- Tool names, arguments, existing response keys and the tool count are unchanged (only new keys are added).
 
 ### Operator notices can ride along on every tool response (no dedicated tool)
 

@@ -421,6 +421,8 @@ def split_by_share_class(rows: list[tuple]) -> tuple:
     · 우선주·종류주식 행은 「그 밖」 버킷 — 여러 줄이면 마지막 줄이 남는다(종전과 같다).
       라벨은 원문 표기 그대로(`우선주` / `1종 종류주식` …) — 렌더가 「우선주」로 뭉뚱그리지 않게.
     · 0·빈 값은 버킷을 덮지 않는다 — 서식이 줄 수를 맞추려 남긴 빈 줄이다.
+    · 「종류 표기 행뿐인가」(종류주식이 보통주 자리로 올라가는 조건)는 **0·빈 값 행까지 포함한 전체 행**으로 판단한다 —
+      보통주 행이 0(무배당)이고 종류주식 행만 값이 있으면 보통주는 0 이지 종류주식 값이 아니다(DATA-EQ4).
     사업보고서 기말 요약(`build_dividend_summary`)과 다년 컬럼 history(`dividend._annual_summary`)가
     **같은 규칙**을 쓴다 — 갈라 두면 요약과 추이가 서로 다른 보통주 값을 낸다.
     """
@@ -440,7 +442,7 @@ def split_by_share_class(rows: list[tuple]) -> tuple:
             label = str(stock_type or "").strip()
             if label and label not in labels:
                 labels.append(label)
-    if common is None and other is not None and all(share_class(t) == "class" for t, _ in positive):
+    if common is None and other is not None and all(share_class(t) == "class" for t, _ in rows):
         common, other, labels = other, None, []
     return common, other, "·".join(labels)
 
