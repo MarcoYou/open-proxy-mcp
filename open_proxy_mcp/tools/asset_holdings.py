@@ -18,7 +18,7 @@ def _f(v) -> str:
 def _render(p: dict) -> str:
     st = p.get("status")
     subj = p.get("subject", "")
-    if st != "ok":
+    if st not in ("ok", "partial"):     # partial = 일부 조회 실패 — 읽은 자료는 그리고 경고를 붙인다
         return f"**{subj}** — {'; '.join(p.get('warnings') or ['조회 실패'])}"
     d = p.get("data", {})
     L = [f"## {subj} — 보유 자산  ({d.get('report_nm', '')}, {d.get('fs_div', '')})"]
@@ -64,6 +64,9 @@ def _render(p: dict) -> str:
         elif d.get("is_holding_company"):
             # 261018: 연결 현금은 대부분 자회사 몫 — 「시총 초과!」로 읽히면 안 된다
             L.append(f"- {surplus_label} {surplus_str} (일반 지주회사라 배수 미제공 — 연결 현금·투자자산 대부분이 자회사 몫)")
+        elif d.get("is_financial") is None:
+            # 회사개황(업종코드) 조회 실패 — 금융·지주를 판정하지 못해 배수를 비웠다(「시총 없음」과 다른 이유)
+            L.append(f"- {surplus_label} {surplus_str} (회사개황 조회 실패로 금융·지주 판정을 못 해 배수 미제공, 절대액만 참고)")
         else:
             L.append(f"- {surplus_label} {surplus_str} (시총 없어 배수 미산출)")
         if nav.get("equity_nav_unavailable"):

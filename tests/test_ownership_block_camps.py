@@ -4,7 +4,7 @@
   - 영풍 41.13% + 한국기업투자홀딩스 36.92% + … = 111.84%. 두 보고자가 (유)와이피씨 25.21%를
     서로 특별관계자로 안고 있어 같은 주식이 두 번 신고된 결과인데, 도구는 「합산 기준」이라고만 했다.
   - 영풍은 41.13%를 보고했는데 본인 지분이 0.0%다. 그 뜻이 산출물에 없었다.
-  - 에스제이그룹 changes 가 「변동신고서 DART 검색 실패: 013」. 013은 실패가 아니라 「없음」이다.
+  - 에스제이그룹 changes 가 「변동신고서 DART 검색 실패: 013」. 013은 실패가 아니라 「없음」이다(014·404 는 2026-10 에 갈렸다 — 아래 마지막 시험).
 """
 
 from __future__ import annotations
@@ -172,13 +172,28 @@ def test_render_folds_zero_percent_holders_and_shows_self_note() -> None:
 
 
 def test_dart_no_data_codes_are_not_failures() -> None:
-    """013·014·404 는 「없음」이고, 키·점검 오류만 「실패」다."""
-    for status in ("013", "014", "404"):
-        exc = DartClientError(status, "x")
-        failed, message = _dart_read_note(exc, empty_text="해당 기간 변동신고서 없음", fail_text="조회 실패")
+    """013 은 「없음」이고, 014·404 는 첨부정정임을 아는 호출만 「없음」이다. 키·점검 오류와 모르는 014·404 는 「실패」다.
+
+    이 시험이 지키는 사고는 013 하나다(C-8 — 에스제이그룹 변동신고서 검색 013 을 「실패」로 찍어 읽는 사람이 재시도했다).
+    014·404 를 「답」으로 두는 근거 사고는 기록에 없다 — 같은 커밋(2026-08)이 근거 없이 함께 넣은 옛 규칙이었다.
+    그 규칙은 조회 실패를 「없음」으로 삼켰다(접수 당일이면 원문이 아직 없어 014 일 수 있다 — 「없다」고 단정할 수 없다).
+    2026-10 결정(재무 점검 P1 묶음 1): 014·404 는 호출하는 쪽이 [첨부정정]·[첨부추가] 공시임을 알려 줄 때(attachment=True)만 「없음」,
+    모르면(기본) 실패. 그래서 013 줄은 그대로 두고 014·404 줄은 실패를 단정하도록 바꿨다.
+    """
+    exc = DartClientError("013", "x")
+    for attachment in (False, True):
+        failed, message = _dart_read_note(exc, empty_text="해당 기간 변동신고서 없음", fail_text="조회 실패", attachment=attachment)
         assert failed is False
         assert message == "해당 기간 변동신고서 없음"
         assert "실패" not in message
+
+    for status in ("014", "404"):
+        exc = DartClientError(status, "x")
+        failed, message = _dart_read_note(exc, empty_text="해당 기간 변동신고서 없음", fail_text="조회 실패")
+        assert failed is True                       # 첨부정정임을 모르면 실패 — 접수 당일이면 아직 없을 수 있다
+        assert message.startswith("조회 실패 —") and "접수 당일이면 아직 없을 수 있다" in message
+        failed, message = _dart_read_note(exc, empty_text="해당 기간 변동신고서 없음", fail_text="조회 실패", attachment=True)
+        assert (failed, message) == (False, "해당 기간 변동신고서 없음")     # 첨부정정을 아는 호출은 「없음」
 
     for status in ("010", "011", "020", "800", "900"):
         exc = DartClientError(status, "x")
