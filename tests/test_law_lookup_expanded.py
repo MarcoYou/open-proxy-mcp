@@ -7,6 +7,7 @@
 """
 from __future__ import annotations
 
+import gzip
 import json
 import pathlib
 import subprocess
@@ -35,11 +36,11 @@ def _top(p, n=1):
 
 # ── 1. 코퍼스가 10법이고, 색인·manifest·검사 스크립트가 같은 목록을 본다 ───────
 def test_corpus_index_carries_all_ten_laws():
-    idx = json.loads((ROOT / "wiki/rules/laws/corpus/law_index.json").read_text(encoding="utf-8"))
+    idx = json.loads(gzip.decompress((ROOT / "open_proxy_mcp/data/laws/corpus/law_index.json.gz").read_bytes()))
     laws = {a["law_short"] for a in idx["articles"]}
     assert EXPANDED_SHORT <= laws, f"확장 6법이 색인에 없다: {EXPANDED_SHORT - laws}"
     assert {"상법", "자본시장법", "공정거래법", "외부감사법"} <= laws
-    manifest = json.loads((ROOT / "wiki/rules/laws/corpus/_manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads((ROOT / "open_proxy_mcp/data/laws/corpus/_manifest.json").read_text(encoding="utf-8"))
     assert len(manifest["files"]) == 20, "10법 × (법률+시행령) = 20파일"
 
 
