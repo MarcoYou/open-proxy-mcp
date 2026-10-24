@@ -280,7 +280,7 @@ def _ledger(months_by_year):
 _STORED_COMPLETE = (2020, 2021, 2022, 2023, 2024)
 
 
-def _call_firm(monkeypatch, pay_rows, ledger_rows, *, fmt="md", complete=_STORED_COMPLETE, year_to=2026):
+def _call_firm(monkeypatch, pay_rows, ledger_rows, *, fmt="md", complete=_STORED_COMPLETE, year_to=2026, tool_year_to=None):
     """실제 서비스 질의(`firm_history`·`payment_counts`·`payment_scope_years`)를 돌리되 DB 행만 대역으로 — 도구까지 통째로."""
     def rows(sql, params=()):
         s = " ".join(sql.split())
@@ -302,7 +302,8 @@ def _call_firm(monkeypatch, pay_rows, ledger_rows, *, fmt="md", complete=_STORED
     monkeypatch.setattr(dd, "_rows", rows)
     monkeypatch.setattr(dd, "fill_remarks_from_cold", fill)
     monkeypatch.setattr(pmd, "_resolve_listed", resolve)
-    return asyncio.run(_firm_tool()(company="018500", scope="firm", format=fmt))
+    kw = {"year_to": tool_year_to} if tool_year_to else {}
+    return asyncio.run(_firm_tool()(company="018500", scope="firm", format=fmt, **kw))
 
 
 def _md_year_table(md):
@@ -387,10 +388,49 @@ def test_december_year_end_pay_is_returned_untouched(monkeypatch):
             _pay_row(2019, "2020-01-30", "2019-12-31", "20200130000101", 361)]       # 요청 구간(2020~) 밖 — SQL 은 이미 한 해 넓게 읽는다
     out = json.loads(_call_firm(monkeypatch, rows, _ledger({2024: 12, 2025: 12}), fmt="json"))
     pc = out["payment_counts"]
-    assert "fiscal_year_alignment" not in pc
+    assert "fiscal_year_alignment" not in pc and "out_of_range" not in pc and "beyond_ledger_year" not in pc
     assert [(r["fiscal_year"], r["n_payments"]) for r in pc["rows"]] == [(2025, 2)]
     assert pc["complete_years"] == list(_STORED_COMPLETE)
     assert "결산 종료연도로 맞췄다" not in _call_firm(monkeypatch, rows, _ledger({2024: 12, 2025: 12}))
+
+
+# 아세아텍(00138747, 6월 결산) 운영 행 모양(2026-10-24 읽기 전용 조회): 원장의 마지막 해는 2026. 2026-10-13 에 결의한 분기배당 25원(기준일 2026-10-30)은
+# 2026.07~2027.06 사업연도의 것이라 저장 2026 → 결산 종료연도 2027 이다. 원장 마지막 해(2026) 밖이라 기본 구간에서 안내 없이 빠지던 결의.
+_ASIATECH = [_pay_row(2026, "2026-10-13", "2026-10-30", "20261013800001", 25, dtype="분기배당", acc_mt=6),
+             _pay_row(2025, "2026-08-12", "2026-06-30", "20260812800001", 50, acc_mt=6),
+             _pay_row(2024, "2025-08-13", "2025-06-30", "20250813800001", 50, acc_mt=6)]
+_ASIATECH_LEDGER = _ledger({2026: 6, 2025: 6})
+
+
+def test_second_half_interim_dividend_of_a_june_year_end_is_shown_in_the_default_range(monkeypatch):
+    """year_to 를 안 주면 결정공시 쪽 끝이 옮긴 결의의 해(2027)까지 넓어져 ⚠️미완 해로 보인다 — 종전엔 안내 없이 빠졌다."""
+    md = _call_firm(monkeypatch, _ASIATECH, _ASIATECH_LEDGER)
+    assert _md_year_table(md) == [("2027 ⚠️미완", "1회"), ("2026 ⚠️미완", "1회"), ("2025", "1회")], _md_year_table(md)
+    assert "20261013800001" in md and "분기배당" in md
+    assert "원장의 마지막 해보다 뒤" in md and "구간 밖 결의" not in md
+    out = json.loads(_call_firm(monkeypatch, _ASIATECH, _ASIATECH_LEDGER, fmt="json"))["payment_counts"]
+    assert [d["rcept_no"] for d in out["decisions"] if d["fiscal_year"] == 2027] == ["20261013800001"]
+    assert out["beyond_ledger_year"] == 2027 and "out_of_range" not in out
+    assert 2027 not in out["complete_years"]
+
+
+def test_explicit_year_to_keeps_the_range_and_says_how_many_resolutions_fell_outside(monkeypatch):
+    """year_to=2026 을 직접 준 호출: 구간은 지키고, 표 아래에 밖으로 밀린 결의 수와 필요한 year_to 를 한 줄로 알린다."""
+    md = _call_firm(monkeypatch, _ASIATECH, _ASIATECH_LEDGER, tool_year_to=2026)
+    assert _md_year_table(md) == [("2026 ⚠️미완", "1회"), ("2025", "1회")], _md_year_table(md)
+    assert "구간 밖 결의 1건 — year_to=2027 로 조회" in md
+    assert "원장의 마지막 해보다 뒤" not in md
+    out = json.loads(_call_firm(monkeypatch, _ASIATECH, _ASIATECH_LEDGER, fmt="json", tool_year_to=2026))["payment_counts"]
+    assert out["out_of_range"] == {"count": 1, "fiscal_years": [2027], "year_to_needed": 2027}
+    assert "beyond_ledger_year" not in out
+    # 안내대로 year_to=2027 로 부르면 그 결의가 나오고 안내는 사라진다.
+    md = _call_firm(monkeypatch, _ASIATECH, _ASIATECH_LEDGER, tool_year_to=2027)
+    assert _md_year_table(md)[0] == ("2027 ⚠️미완", "1회") and "구간 밖 결의" not in md
+
+
+def test_the_year_to_note_also_shows_when_no_resolution_is_left_in_the_range(monkeypatch):
+    md = _call_firm(monkeypatch, _ASIATECH[:1], _ASIATECH_LEDGER, tool_year_to=2026)
+    assert "이 구간에 없다" in md and "구간 밖 결의 1건 — year_to=2027 로 조회" in md
 
 
 def test_missing_settlement_month_is_not_filled_with_december():

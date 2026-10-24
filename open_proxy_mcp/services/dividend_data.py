@@ -236,7 +236,7 @@ def payment_scope_years(market: str = "KOSPI") -> list[int]:
     return [r[0] for r in (rows or [])]
 
 
-def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]:
+def payment_counts(corp_code: str, year_from: int, year_to: int, *, year_to_explicit: bool = False) -> dict[str, Any]:
     """회사 하나 — 결의 한 건 = 한 행(`decisions`)과 그것을 사업연도로 접은 것(`rows`).
 
     🔴 `dividend_type_filed` 를 그대로 낸다(판정값 아님) — 원문 표기가 어떻든 판정은
@@ -258,6 +258,11 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
 
     연도 집계는 SQL 이 아니라 여기서 접는다 — 같은 행을 두 번 읽지 않으려는 것이다
     (왕복 1회로 결의 원문과 연도 합계를 동시에 낸다).
+
+    구간의 끝 — 비12월 결산은 저장 해를 +1 해 결산 종료연도로 부르므로, 원장의 마지막 해(`year_to`)에 저장된 하반기 중간·분기배당 결의는
+    `year_to + 1` 해로 옮겨진다(6월 결산 사업연도 2026.07~2027.06 의 결의 → 2027). `year_to_explicit=False`(호출자가 끝을 지정하지 않음)이면
+    그 해까지 넓혀 결정공시 표에 ⚠️미완 해로 보인다 — 안 그러면 안내 없이 빠진다. 호출자가 끝을 지정했으면 구간을 지키되, 밖으로 밀린 결의의
+    수와 필요한 `year_to` 를 `out_of_range` 로 알린다(결의를 지우지 않는다).
     """
     # 저장된 `fiscal_year` 는 12월 결산이면 결산 종료연도, **비12월 결산이면 사업연도 시작연도**다(수집기가 결산월 `acc_mt` 로 정한다) —
     # 읽는 쪽에서 비12월 결산을 +1 해 결산 종료연도(원장·`dividend_disclosure` 와 같은 규칙)로 맞춘다. 요청 구간은 종료연도 기준이라
@@ -278,10 +283,14 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
     decisions: list[dict[str, Any]] = []
     shifts: list[int] = []
     acc_months: set[int] = set()
+    end = year_to if year_to_explicit else year_to + 1
+    pushed_out: list[int] = []          # 옮긴 뒤 구간의 끝을 넘은 결의의 해(호출자가 끝을 지정한 경우만 생긴다)
     for r in rows:
         shift = stored_year_shift(r[12])
         fy = r[0] + shift
-        if not (year_from <= fy <= year_to):
+        if fy > end:
+            pushed_out.append(fy)
+        if not (year_from <= fy <= end):
             continue
         shifts.append(shift)
         if shift:
@@ -315,6 +324,11 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
             "shifted_decisions": moved,
             "stored_complete_years": stored_complete,
         }
+    if pushed_out:
+        out["out_of_range"] = {"count": len(pushed_out), "fiscal_years": sorted(set(pushed_out)), "year_to_needed": max(pushed_out)}
+    beyond = max((d["fiscal_year"] for d in decisions), default=0)
+    if beyond > year_to:
+        out["beyond_ledger_year"] = beyond
     return out
 
 
