@@ -14,6 +14,7 @@ from open_proxy_mcp.clock import today_kst
 
 import asyncio
 import contextvars
+import math
 import os
 import re
 import time
@@ -345,6 +346,29 @@ def _extract_cumulative_is(row: dict[str, Any]) -> int | None:
     """
     v = normalize_amount(row.get("thstrm_add_amount"))
     return v if v is not None else normalize_amount(row.get("thstrm_amount"))
+
+
+def _eps_amount(row: dict[str, Any], period: str, cumulative: bool) -> int | float | None:
+    """주당이익(원/주) 읽기 — 소수로 공시되는 값(외화 보고사 4.14·원화 리츠 4.21)을 버리지 않는다.
+
+    금액 정규화(`normalize_amount`)는 정수 계약이라 소수를 자르므로 EPS 만 여기서 float 로 읽고, 정수값이면 int 로 돌려
+    기존 정수 EPS 의 값·타입은 그대로다. 열 선택은 `_extract_cumulative_is`(누적이면 thstrm_add 우선, 없으면 thstrm)와 같다.
+    """
+    fields = ("thstrm_add_amount", "thstrm_amount") if cumulative else (f"{period}_amount",)
+    for f in fields:
+        s = _strip(row.get(f)).replace(",", "").replace(" ", "")
+        neg = s.startswith("(") and s.endswith(")")
+        if neg:
+            s = s[1:-1]
+        try:
+            v = float(s)
+        except ValueError:
+            continue
+        if not math.isfinite(v):
+            continue
+        v = -v if neg else v
+        return int(v) if v.is_integer() else v
+    return None
 
 
 # reprt_code별 기간(개월) — 누적(period-to-date) / 당기(standalone)
@@ -802,21 +826,22 @@ def _build_account_map_all(
                     out[attr_key] = is_amount
                 continue  # 귀속 순이익 행 — 다른 key로 재매칭 금지(총포괄손익 행 오염 방지)
             # EPS: 보통주 기본/희석을 account_id로만. total 우선, 없으면 계속영업 fallback(루프 후 채움).
+            # 주당 값은 소수 공시가 있어(두산밥캣 4.14·SK리츠 4.21) 금액 정규화(정수)가 아니라 `_eps_amount` 로 읽는다.
             if account_id == "ifrs-full_BasicEarningsLossPerShare":
                 if out.get("basic_eps") is None:
-                    out["basic_eps"] = is_amount
+                    out["basic_eps"] = _eps_amount(row, period, cumulative_is)
                 continue
             if account_id == "ifrs-full_DilutedEarningsLossPerShare":
                 if out.get("diluted_eps") is None:
-                    out["diluted_eps"] = is_amount
+                    out["diluted_eps"] = _eps_amount(row, period, cumulative_is)
                 continue
             if account_id.startswith("ifrs-full_BasicEarningsLossPerShareFromContinuing"):
                 if out.get("_basic_eps_cont") is None:
-                    out["_basic_eps_cont"] = is_amount
+                    out["_basic_eps_cont"] = _eps_amount(row, period, cumulative_is)
                 continue
             if account_id.startswith("ifrs-full_DilutedEarningsLossPerShareFromContinuing"):
                 if out.get("_diluted_eps_cont") is None:
-                    out["_diluted_eps_cont"] = is_amount
+                    out["_diluted_eps_cont"] = _eps_amount(row, period, cumulative_is)
                 continue
             for key, patterns in _IS_ACCOUNT_PATTERNS.items():
                 if key == "revenue":
@@ -1525,7 +1550,8 @@ def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
 
     # 현금흐름
     cfo_quality = curr.get("cfo_to_op_ratio")
-    if cfo_quality is not None and cfo_quality < 0.7:
+    # 영업이익 ≤0 이면 비율의 부호가 뒤집혀(적자·CFO 흑자 = 음수) 「현금이 덜 들어왔다」가 아니다 — 비율 경고를 켜지 않는다.
+    if cfo_quality is not None and cfo_quality < 0.7 and op_curr is not None and op_curr > 0:
         alerts.append("cfo_quality_red")
     fcf = curr.get("fcf_krw")
     if fcf is not None and fcf < 0:
@@ -1569,7 +1595,7 @@ def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
     if acc_rel in ("negative_op", "thin_op"):
         # 분모가 적자·0 근처 — 비율은 뒤집히거나 뻥튀기된다. red 로 단정하지 않고 금액차를 보게 한다.
         alerts.append("accruals_ratio_unreliable")
-    elif acc is not None and abs(acc) > 30:
+    elif acc is not None and acc > 30:   # 이익>현금 방향만 — 현금이 이익보다 많은 쪽(음수)은 「이익이 현금으로 안 들어왔다」가 아니다
         alerts.append("accruals_red")
     ar = curr.get("ar_to_revenue_pct")
     ar_prev_pct = prev.get("ar_to_revenue_pct") if prev else None
