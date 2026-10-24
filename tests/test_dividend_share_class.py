@@ -55,6 +55,17 @@ def test_split_treats_unlabelled_row_as_common_and_ignores_empty_rows():
     assert split_by_share_class([("우량주", 300)]) == (300, None, "")
     # 보통주가 무배당이고 우선주만 배당 — 보통주는 0 이지 우선주 값이 아니다.
     assert split_by_share_class([("보통주", 0), ("우선주", 100)]) == (None, 100, "우선주")
+    # 보통주가 무배당(0)이고 종류주식만 배당 — 0 인 보통주 행도 「종류 표기 행뿐인가」 판단에 든다. 종류주식 값은 보통주로 올라가지 않는다(DATA-EQ4).
+    assert split_by_share_class([("보통주", 0), ("종류주식", 50)]) == (None, 50, "종류주식")
+    assert split_by_share_class([("보통주", None), ("1종 종류주식", 50)]) == (None, 50, "1종 종류주식")
+    # 종류 표기 행뿐이면 값 0 인 줄이 끼어도 그 행이 보통주다.
+    assert split_by_share_class([("우량주", 300), ("우량주B", 0)]) == (300, None, "")
+
+
+def test_summary_common_zero_class_positive_keeps_common_at_zero():
+    s = build_dividend_summary(_items([("보통주", "0"), ("종류주식", "50")]), "사업보고서")
+    assert s["cash_dps"] == 0
+    assert (s["cash_dps_preferred"], s["cash_dps_preferred_label"]) == (50, "종류주식")
 
 
 # ── 사업보고서 기말 요약 ──────────────────────────────────────────────────

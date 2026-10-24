@@ -1,0 +1,118 @@
+{
+ "status": "000",
+ "message": "정상",
+ "list": [
+  {
+   "corp_code": "00161426",
+   "nm": "송영숙",
+   "relate": "본인",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "3.38",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임성연",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "1.02",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임성지",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "1.08",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임성아",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "1.08",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임종윤",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "1.49",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "가현문화재단",
+   "relate": "재단",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "3.02",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임성기재단",
+   "relate": "재단",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "3.07",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "신동국",
+   "relate": "발행회사 임원",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "16.43",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "(주)한양정밀",
+   "relate": "기타",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "6.95",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임주현",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "7.57",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임종훈",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "5.09",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "김희준",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "1.14",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "임진희",
+   "relate": "친인척",
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "2.23",
+   "stlm_dt": "2025-12-31"
+  },
+  {
+   "corp_code": "00161426",
+   "nm": "계",
+   "relate": null,
+   "stock_knd": "보통주",
+   "trmend_posesn_stock_qota_rt": "55.84",
+   "stlm_dt": "2025-12-31"
+  }
+ ]
+}

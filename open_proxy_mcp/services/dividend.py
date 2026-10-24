@@ -37,6 +37,7 @@ from open_proxy_mcp.services.dividend_parser import (
     safe_float,
     safe_int,
     settlement_digits,
+    share_class,
     split_by_share_class,
 )
 
@@ -115,6 +116,15 @@ def _latest_completed_fiscal_year(today: date, end_month: int | None) -> int | N
     return today.year if today.month > end_month else today.year - 1
 
 
+def _summary_fiscal_year(summary: dict[str, Any] | None, requested_year: int) -> int:
+    """사업보고서 요약이 가리키는 사업연도(결산 종료연도) — `_annual_summary` 가 결산기준일(stlm_dt)에서 읽은 `fiscal_year`.
+
+    DART 에 요청한 사업연도(bsns_year)와 같은 것이 보통이지만, 결산기준일의 해가 요청 연도와 다르게 오면 요약은 **결산기준일의 해** 자리에 선다 —
+    요약(`_annual_summary`)과 추이표·「미결의」 판정이 같은 FY 를 쓰게 한다(DATA-FY1). 모르면 요청 연도."""
+    fy = (summary or {}).get("fiscal_year")
+    return fy if isinstance(fy, int) and not isinstance(fy, bool) and fy > 0 else requested_year
+
+
 #: 결산이 끝난 뒤 결산배당 결의가 보통 나오는 기간(정기주총 기한 3개월 + 여유).
 _DECISION_LAG_DAYS = 183
 
@@ -139,6 +149,36 @@ def _judgeable_undecided_years(newest_reported_fy: int, latest_completed_fy: int
             if date.fromisoformat(period["end"]) + timedelta(days=_DECISION_LAG_DAYS) > searched_until:
                 continue   # 그 해 결의가 나올 시기를 검색이 덮지 않았다 — 모른다(미결의 아님)
         out.append(fy)
+    return out
+
+
+async def _resolve_default_year(corp_code: str, today: date) -> dict[str, Any]:
+    """`year` 를 안 줬을 때의 기본 사업연도 — 결산월 기준으로 「끝난 최신 사업연도」(DATA-FY1, 260924 후속).
+
+    종전 기본은 늘 올해-1 이었다. 12월 결산은 그게 맞지만 3·6월 결산 회사는 올해 안에 이미 한 사업연도가 더 끝나 결의·사업보고서까지 나왔는데
+    (포시에스 6월 결산 FY2026 115원 · 동원모빌리티 3월 결산 FY2026 50원) 기본 요약·추이·결정공시 조사 구간에서 빠졌다.
+
+    결산월은 사업보고서에서만 읽을 수 있어(`stlm_dt`) 먼저 작년 사업보고서를 한 번 읽는다 — 12월 결산이면 그 응답이 곧 기본 연도의 요약이라 **그대로 쓴다**(DART 호출 +0).
+    비12월 결산이고 올해 끝난 사업연도의 **사업보고서가 이미 있을 때만** 기본 연도를 그 해로 옮긴다(+1 호출 — 그 응답도 그대로 쓴다).
+    보고서가 아직 없으면(결산 직후 몇 주) 옮기지 않는다: 빈 요약을 「무배당」처럼 내는 것보다 종전대로 작년을 두고 「미결의」 안내를 거치는 편이 틀린 값이 없다.
+    `prefetched` 는 이미 읽은 `_annual_summary` 결과 — 호출부가 같은 해를 다시 부르지 않게 한다.
+    """
+    legacy = today.year - 1
+    base = await _annual_summary(corp_code, legacy)
+    prefetched: dict[int, tuple[dict[str, Any], str | None]] = {legacy: base}
+    end_month = _fiscal_end_month((base[0] or {}).get("stlm_dt"))
+    latest = _latest_completed_fiscal_year(today, end_month)
+    out: dict[str, Any] = {"target_year": legacy, "legacy_year": legacy, "end_month": end_month, "moved": False,
+                           "unreported_fy": None, "prefetched": prefetched}
+    if latest is None or latest <= legacy:
+        return out
+    newer = await _annual_summary(corp_code, latest)
+    prefetched[latest] = newer
+    summary, warning = newer
+    if summary and not warning and _summary_fiscal_year(summary, latest) == latest:
+        out.update(target_year=latest, moved=True)
+    else:
+        out["unreported_fy"] = latest
     return out
 
 
@@ -864,25 +904,23 @@ async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[st
         items = parse_dividend_items(data)
         if not items:
             continue
-        cash_dps = 0
         total_amount = 0
         payout: float | None = None
+        dps_rows: list[tuple] = []
         for item in items:
             cat = item.get("category", "")
             sknd = item.get("stock_type", "")
             val_raw = item.get("current", "")
             if "주당 현금배당금" in cat:
-                v = safe_int(val_raw)
-                if "우선주" in sknd:
-                    continue
-                if "보통주" in sknd or v > 0:  # 빈 행("-"→0)이 보통주 실제값 덮어쓰지 않게
-                    cash_dps = v
+                dps_rows.append((sknd, safe_int(val_raw)))
             elif "현금배당금총액" in cat:
                 total_amount = safe_int(val_raw)
             elif "현금배당성향" in cat:
                 v = safe_float(val_raw)
                 if v > 0 and (payout is None or "연결" in cat):
                     payout = v
+        # 보통주는 사업보고서 요약과 같은 규칙(`split_by_share_class`)으로 — 「1종 종류주식」 같은 우선주 아닌 종류 행이 보통주를 덮지 않게(DATA-EQ4).
+        cash_dps = split_by_share_class(dps_rows)[0] or 0
         if cash_dps > 0:
             return {
                 "interim_dps": cash_dps,
@@ -895,18 +933,13 @@ async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[st
 
 
 def _common_cash_dps_from_items(items: list[dict[str, Any]], column: str = "current") -> int:
-    """alotMatter items에서 보통주 주당현금배당금을 읽는다 (빈 행 덮어쓰기 가드 포함)."""
-    dps = 0
-    for item in items:
-        if "주당 현금배당금" not in item.get("category", ""):
-            continue
-        sknd = item.get("stock_type", "")
-        v = safe_int(item.get(column, ""))
-        if "우선주" in sknd:
-            continue
-        if "보통주" in sknd or v > 0:
-            dps = v
-    return dps
+    """alotMatter items에서 보통주 주당현금배당금을 읽는다 (빈 행 덮어쓰기 가드 포함).
+
+    사업보고서 요약(`build_dividend_summary`)·다년 칸(`_column_cell`)과 **같은 규칙**(`split_by_share_class`)으로 종류를 가른다 —
+    「우선주」 글자 없는 종류주식 행이 보통주를 덮지 않게(DATA-EQ4)."""
+    rows = [(item.get("stock_type", ""), safe_int(item.get(column, "")))
+            for item in items if "주당 현금배당금" in item.get("category", "")]
+    return split_by_share_class(rows)[0] or 0
 
 
 async def _quarterly_dps_from_cumulative(corp_code: str, year: int) -> list[dict[str, Any]]:
@@ -947,24 +980,34 @@ def _cum_full_from_items(items: list[dict[str, Any]], column: str = "current") -
     예전에는 주당액면가액>0 또는 연결 당기순이익≠0 인 행이 없으면 「없음」으로 보아, 값이 「-」뿐인 있는 보고서가 합산 라벨(「3분기보고서 없음」)로 둔갑했다.
     표본 확인(2026-10-23, 2024·2025): div_quarterly 「보고서없음」 6건은 모두 013, 「무배당」 6건과 기업은행 2건은 모두 000+행.
     """
-    common = 0
-    pref = 0
     total_mil = 0
     exists = bool(items)
+    dps_rows: list[tuple] = []
     for item in items:
         cat = item.get("category", "")
-        sknd = item.get("stock_type", "")
         v = safe_int(item.get(column, ""))
         if "주당 현금배당금" in cat:
-            if "우선주" in sknd:
-                pref = v
-            elif "보통주" in sknd or v > 0:
-                common = v
+            dps_rows.append((item.get("stock_type", ""), v))
         elif "현금배당금총액" in cat:
             total_mil = v
     if not exists:
         return None
-    return {"dps_common": common, "dps_preferred": pref, "total_mil": total_mil}
+    # 보통주는 요약과 같은 규칙(`split_by_share_class`)으로 — 우선주 글자 없는 종류주식이 보통주를 덮지 않게(DATA-EQ4).
+    # 🔴 `dps_preferred` 에는 **우선주 행만** 넣는다(종전 뜻). 우선주 아닌 종류주식(「1종 종류주식」 …)은 새 칸 `dps_class` 와 원문 이름 `dps_class_label` 로
+    #    따로 싣는다 — 우선주 칸에 섞거나 우선주+종류주식이 함께 있을 때 마지막 행이 이기게 두지 않는다. 여러 줄이면 마지막 줄이 남는다(요약과 같다).
+    common, other, _label = split_by_share_class(dps_rows)
+    pref = klass = 0
+    klass_label = ""
+    if other is not None:                       # 종류 표기 행뿐인 단일 종류 회사는 보통주로 올라가 `other` 가 None 이다
+        for stock_type, value in dps_rows:
+            if value is None or value <= 0:
+                continue
+            kind = share_class(stock_type)
+            if kind == "preferred":
+                pref = value
+            elif kind == "class":
+                klass, klass_label = value, str(stock_type or "").strip()
+    return {"dps_common": common or 0, "dps_preferred": pref, "dps_class": klass, "dps_class_label": klass_label, "total_mil": total_mil}
 
 
 #: 누적차분 표의 이름 — 보고서 순서(1분기·반기·3분기·사업) 위치별 분기 이름과 보고서 이름.
@@ -977,7 +1020,8 @@ async def _quarterly_full_from_cumulative(corp_code: str, year: int) -> list[dic
 
     `_quarterly_dps_from_cumulative`(보통주 DPS만)의 확장판. 결정공시 버킷팅보다 정확하고
     우선주·총액·무배당 분기(0)까지 잡는다. 최신/미완료 연도의 분기 분해에 권위 사용 (정확도 우선).
-    각 row: {quarter, dps_common, dps_preferred, total_mil}. 차분 불가 분기는 제외.
+    각 row: {quarter, dps_common, dps_preferred, dps_class, dps_class_label, total_mil}. 차분 불가 분기는 제외.
+    `dps_preferred` 는 우선주만, 우선주 아닌 종류주식은 `dps_class`(원문 이름 `dps_class_label`)다.
     """
     client = get_dart_client()
     cum: dict[str, dict[str, Any]] = {}
@@ -992,7 +1036,7 @@ async def _quarterly_full_from_cumulative(corp_code: str, year: int) -> list[dic
     seq = [("Q1", "11013"), ("반기", "11012"), ("3분기", "11014"), ("연간", "11011")]
     have = [(i, cum[rc]) for i, (_lbl, rc) in enumerate(seq, start=1) if rc in cum]
     out: list[dict[str, Any]] = []
-    prev = {"dps_common": 0, "dps_preferred": 0, "total_mil": 0}
+    prev = {"dps_common": 0, "dps_preferred": 0, "dps_class": 0, "dps_class_label": "", "total_mil": 0}
     prev_i = 0
     for i, cur in have:
         # 🔴 앞 보고서 행이 없으면(예: 반기보고서 없음) 이 차분은 한 분기가 아니라 **둘 이상의 분기분**이다 — 한 분기 이름을 붙이지 않고 합산이라고 적는다(B4, DATA-DIV8).
@@ -1001,6 +1045,8 @@ async def _quarterly_full_from_cumulative(corp_code: str, year: int) -> list[dic
             "quarter": span[0] if len(span) == 1 else "+".join(span) + " 합산(" + "·".join(_CUM_REPORT_NAMES[k] for k in range(prev_i + 1, i)) + " 없음)",
             "dps_common": cur["dps_common"] - prev["dps_common"],
             "dps_preferred": cur["dps_preferred"] - prev["dps_preferred"],
+            "dps_class": cur["dps_class"] - prev["dps_class"],
+            "dps_class_label": cur["dps_class_label"] or prev["dps_class_label"],
             "total_mil": cur["total_mil"] - prev["total_mil"],
         }
         if len(span) > 1:
@@ -1056,7 +1102,7 @@ def _decisions_summary_for_year(
     결정만 공시한 경우) 확정된 배당 결정을 source of truth로 사용하기 위한 fallback.
     """
 
-    year_decisions = [d for d in decisions if _bucket_fiscal_year(d) == year]
+    year_decisions = [d for d in decisions if _bucket_fiscal_year(d, end_month) == year]
     # 정정/재공시 중복 제거 (같은 fiscal_year/분기/기준일 → 최신 1건). 자회사 공시는
     # 상위 details 단계에서 이미 제외됨.
     year_decisions = _effective_decisions(year_decisions, end_month=end_month)
@@ -1135,55 +1181,73 @@ async def _detect_capital_reserve_reduction(
     return bool(matched), matched
 
 
-def _bucket_fiscal_year(item: dict[str, Any]) -> int | None:
-    """해당 배당결정 공시를 어느 사업연도로 집계할지 결정.
+def _bucket_fiscal_year(item: dict[str, Any], end_month: int | None = 12) -> int | None:
+    """해당 배당결정 공시를 어느 사업연도(결산 **종료**연도, `FISCAL_YEAR_BASIS`)로 집계할지 결정.
 
-    한국 결산배당은 사업연도 말일에 귀속되지만 공시는 다음 해 2-3월에 제출된다.
-    또한 2024년 이후 시행된 기준일 분리형은 record_date도 다음 해 1-4월로 밀릴 수 있다.
+    한국 결산배당은 사업연도 말일에 귀속되지만 공시는 결산 뒤 1~3개월에 제출된다.
+    또한 2024년 이후 시행된 기준일 분리형은 record_date도 결산 뒤 1~4개월로 밀릴 수 있다.
+    `end_month`(결산월, `_fiscal_end_month`)를 받아 기준일(없으면 접수일)이 속한 사업연도로 묶는다 — 모르면(None) 12월 결산으로 본다. (DATA-FY1)
 
-    규칙:
-    - dividend_type == "결산배당": 사업연도 = rcept_dt 연도 - 1
-      (예: rcept_dt=2024-02-22 결산배당 → 2023 사업연도)
-    - 중간배당/분기배당: record_date가 사업연도 안에 있으므로 record_date 기준 연도
+    규칙 (기준일 월 m, 결산월 em — 12월 결산이면 종전과 같다):
+    - dividend_type == "결산배당": 기준일이 결산일(m = em)이거나 결산 뒤 4개월 안이면 **방금 끝난 사업연도**
+      (12월 결산: 12월 → 그 해, 1~4월 → 전년. 3월 결산: 3월 → 그 해, 4~7월 → 그 해). 그 밖의 달은 기준일이 속한 사업연도.
+      (예: 12월 결산 rcept_dt=2024-02-22 · record_date 없음 → 2023 사업연도, 3월 결산 rcept_dt=2025-05-12 → 2025 사업연도)
+    - 중간배당/분기배당: record_date가 사업연도 안에 있으므로 그 기준일이 속한 사업연도
+      (6월 결산 기준일 2024-12-31 → 2025 사업연도, 12월 결산 2025-06-30 → 2025)
     - record_date와 rcept_dt 모두 없으면 None (버킷 불가)
     """
 
     rcept_dt = (item.get("rcept_dt") or "").strip()
     record_date = (item.get("record_date") or "").strip()
     dtype = (item.get("dividend_type") or "").strip()
+    em = end_month if end_month and 1 <= end_month <= 12 else 12
+
+    def _digits(value: str) -> str:
+        return "".join(ch for ch in value if ch.isdigit())
+
+    def _containing(year: int, month: int) -> int:
+        """그 달이 속한 사업연도의 종료연도 — 결산월 이전(포함)이면 같은 해, 이후면 다음 해."""
+        return year if month <= em else year + 1
 
     if dtype == "결산배당":
         # record_date 우선 — 2024 신법 선배당-후결의 케이스 보강.
-        # record_date month=12면 그 해 사업연도 결산 (예: record_date 2025-12-31 → 2025년).
-        # record_date month=1-4면 전년도 결산 (예: record_date 2024-12-31 결의 다음 해 1-4월 공시 → 2024년).
+        # 기준일이 결산 뒤 1~4개월이면(분리형·12월 결산의 1~4월) 방금 끝난 사업연도의 결산배당이다.
         if record_date:
-            digits = "".join(ch for ch in record_date if ch.isdigit())
+            digits = _digits(record_date)
             if len(digits) >= 6:
                 year, month = int(digits[:4]), int(digits[4:6])
-                if month >= 12:
-                    return year  # 선배당-후결의 또는 12월 결의 → 그 해 사업연도
-                if month <= 4:
-                    return year - 1  # 다음 해 초 결의 → 전년 사업연도
-                # 기타 (5-11월) — 비정상이지만 record_date 연도 사용
-                return year
+                if 1 <= month <= 12:
+                    lag = (month - em) % 12                      # 결산월로부터 몇 달 뒤인가 (0 = 결산월 자신)
+                    if lag <= 4:
+                        return year if month >= em else year - 1  # 결산월 달 이후면 같은 해에 끝난 사업연도, 해를 넘겼으면 전년에 끝난 사업연도
+                    # 기타 (결산 뒤 5~11개월) — 비정상이지만 기준일이 속한 사업연도 사용
+                    return _containing(year, month)
         if rcept_dt and len(rcept_dt) >= 4 and rcept_dt[:4].isdigit():
-            # record_date 없을 때만 rcept_dt fallback (정정공시 패턴)
-            return int(rcept_dt[:4]) - 1
+            # record_date 없을 때만 rcept_dt fallback (정정공시 패턴) — 접수일 시점에 **방금 끝난** 사업연도
+            digits = _digits(rcept_dt)
+            year = int(digits[:4])
+            month = int(digits[4:6]) if len(digits) >= 6 and 1 <= int(digits[4:6]) <= 12 else None
+            if month is None:
+                return year - 1
+            return year if month > em else year - 1
 
     base = record_date or rcept_dt
     if not base:
         return None
-    digits = "".join(ch for ch in base if ch.isdigit())
+    digits = _digits(base)
     if len(digits) < 4:
         return None
-    return int(digits[:4])
+    year = int(digits[:4])
+    if len(digits) >= 6 and 1 <= int(digits[4:6]) <= 12:
+        return _containing(year, int(digits[4:6]))
+    return year
 
 
 def _history_rows(end_year: int, annual_summaries: dict[int, dict[str, Any]], decisions: list[dict[str, Any]],
                   end_month: int | None = 12) -> list[dict[str, Any]]:
     decisions_by_year: dict[int, list[dict[str, Any]]] = {}
     for item in decisions:
-        year = _bucket_fiscal_year(item)
+        year = _bucket_fiscal_year(item, end_month)
         if year is None:
             continue
         decisions_by_year.setdefault(year, []).append(item)
@@ -1226,7 +1290,7 @@ def _quarter_label(item: dict[str, Any], end_month: int | None = 12) -> str:
     기준일 달력 월로만 매기던 종전 규칙은 4월에 결의해 5월 12일을 기준일로 한 1분기 배당(KB금융 2025)을 「Q2」로 불렀고, 정기보고서 누적차분 표(1분기 = Q1)와 어긋났다(B4).
     기준일이 분기 말(3-31·6-30·9-30·12-31)인 회사(삼성전자 등)는 종전과 같은 분기다. 결산월을 모르면(None) 12월 결산으로 본다.
     기준일이 첫 분기가 끝나기 전(12월 결산이면 1-1~3-30)이면 가장 최근에 끝난 분기는 **전년도 4분기**라 「Q4 (예비결산)」이다 — 사업연도 묶기(`_bucket_fiscal_year`)는
-    그대로 기준일의 달력 연도다."""
+    결산월을 받아 기준일이 속한 사업연도(결산 종료연도)로 묶는다(12월 결산이면 결산배당의 1~4월 기준일만 전년, 나머지는 기준일 연도)."""
     dtype = (item.get("dividend_type") or "").strip()
     if dtype == "결산배당":
         return "결산"
@@ -1260,26 +1324,52 @@ def _effective_decisions(
     )
     effective: dict[tuple, dict[str, Any]] = {}
     for d in ordered:
-        key = (_bucket_fiscal_year(d), _quarter_label(d, end_month), (d.get("record_date") or "").strip())
+        key = (_bucket_fiscal_year(d, end_month), _quarter_label(d, end_month), (d.get("record_date") or "").strip())
         effective[key] = d  # 뒤(최신)가 앞을 덮어씀
     return list(effective.values())
 
 
-def _quarterly_breakdown(decisions: list[dict[str, Any]], year_list: list[int], end_month: int | None = 12) -> list[dict[str, Any]]:
+def _company_class_label(summaries: list[dict[str, Any] | None]) -> str:
+    """사업보고서(`alotMatter`)가 **우선주가 아닌 종류주식**으로 적은 종류의 원문 이름 — 없으면 빈 문자열. (DATA-EQ4)
+
+    결정공시 서식의 DPS 줄 이름은 그냥 「종류주식」이라 그 값이 우선주인지 「종류주식」·「1종 종류주식」인지는 공시 한 건만 봐서는 가를 수 없다.
+    그 회사의 사업보고서가 비보통 종류를 어떻게 부르는지가 같은 주식의 원문 이름이므로(누적차분 표가 `dps_class_label` 로 내는 것과 같은 출처) 그것을 따른다.
+    사업보고서에 **우선주 행도** 있으면 결정공시의 한 줄을 어느 쪽에 줄지 알 수 없다 — 빈 문자열로 종전(우선주 칸)을 둔다.
+    """
+    classes: list[str] = []
+    for summary in summaries:
+        for part in str((summary or {}).get("cash_dps_preferred_label") or "").split("·"):
+            label = part.strip()
+            if not label:
+                continue
+            kind = share_class(label)
+            if kind == "preferred":
+                return ""
+            if kind == "class" and label not in classes:
+                classes.append(label)
+    return "·".join(classes)
+
+
+def _quarterly_breakdown(decisions: list[dict[str, Any]], year_list: list[int], end_month: int | None = 12,
+                         class_label: str = "") -> list[dict[str, Any]]:
     """연도별 × 분기별 DPS breakdown — 분기배당 회사 (삼성전자 등) 검증용.
 
     각 row: {year, quarter, dps, rcept_dt, rcept_no, base_date, type}
+    `class_label`(`_company_class_label`)이 있으면 결정공시의 비보통 DPS 줄은 우선주가 아니라 그 종류주식의 값이다 —
+    `dps_preferred_krw` 는 0 으로 두고 `dps_class_krw`·`dps_class_label` 에 원문 이름과 함께 싣는다(누적차분 표 `quarterly_full` 과 같은 규칙).
+    없으면(우선주 회사·종류주식 없는 회사) 행의 키와 값은 종전 그대로다.
     """
     rows: list[dict[str, Any]] = []
     for item in decisions:
-        bucket = _bucket_fiscal_year(item)
+        bucket = _bucket_fiscal_year(item, end_month)
         if bucket is None or (year_list and bucket not in year_list):
             continue
         rows.append({
             "year": bucket,
             "quarter": _quarter_label(item, end_month),
             "dps_common_krw": int(item.get("dps_common") or 0),
-            "dps_preferred_krw": int(item.get("dps_preferred") or 0),
+            "dps_preferred_krw": 0 if class_label else int(item.get("dps_preferred") or 0),
+            **({"dps_class_krw": int(item.get("dps_preferred") or 0), "dps_class_label": class_label} if class_label else {}),
             "total_amount_krw": int(item.get("total_amount") or 0),
             "yield_common_pct": item.get("yield_common"),
             "rcept_dt": item.get("rcept_dt", ""),
@@ -1430,16 +1520,26 @@ async def build_dividend_payload(
     selected = resolution.selected
     explicit_start = parse_date_param(start_date)
     explicit_end = parse_date_param(end_date)
+    today = today_kst()
+    default_year: dict[str, Any] | None = None       # 기본 연도를 결산월로 정했을 때만 — `year`·`end_date` 를 준 호출은 None (종전 그대로)
     if year:
         target_year = year
     elif explicit_end:
         target_year = explicit_end.year
     else:
-        target_year = today_kst().year - 1
+        stage_started_at = time.perf_counter()
+        default_year = await _resolve_default_year(selected["corp_code"], today)
+        _mark("default_year", stage_started_at)
+        target_year = default_year["target_year"]
+    prefetched_annual: dict[int, tuple[dict[str, Any], str | None]] = (default_year or {}).get("prefetched") or {}
+
+    async def _annual_for(fy: int) -> tuple[dict[str, Any], str | None]:
+        """이미 읽은 사업보고서 응답(기본 연도 조사)이 있으면 그대로 — 같은 해를 DART 에 다시 묻지 않는다."""
+        return prefetched_annual[fy] if fy in prefetched_annual else await _annual_summary(selected["corp_code"], fy)
+
     # 결산배당 결정 공시는 보통 fiscal year 종료 후 다음 해 1-3월에 공시됨.
     # window_end를 다음 해 6월까지 확장해 최신 결산 결정 빠짐 방지 (정기주총 시점까지 커버).
     from datetime import date as _date_cls, timedelta as _td
-    today = today_kst()
     candidate_end = _date_cls(target_year + 1, 6, 30)
     default_end = candidate_end if candidate_end <= today else today
     window_start, window_end, window_warnings = resolve_date_window(
@@ -1492,7 +1592,7 @@ async def build_dividend_payload(
     # latest_summary와 filings 검색은 independent — 병렬 호출.
     latest_summary_task = timed_call(
         "summary_and_filings.annual_summary",
-        _annual_summary(selected["corp_code"], target_year),
+        _annual_for(target_year),
     )
     filings_task = timed_call(
         "summary_and_filings.search_filings",
@@ -1542,6 +1642,19 @@ async def build_dividend_payload(
     fiscal_end_month = _fiscal_end_month((latest_summary or {}).get("stlm_dt"))
     # 창(window)으로 잘라내기 전의 결정공시 — 「그 사업연도에 결의가 있었나」 판정용.
     details_all = list(details)
+    if default_year and default_year["moved"]:
+        _p = _fiscal_period(target_year, fiscal_end_month) or {}
+        warnings.append(
+            f"year 를 주지 않아 결산월({fiscal_end_month}월) 기준 끝난 최신 사업연도 FY{target_year}"
+            f"({_p.get('start', '?')}~{_p.get('end', '?')})를 기본으로 잡았다 — 12월 결산 가정의 작년(FY{default_year['legacy_year']})이 아니다. "
+            "다른 해는 `year` 로 지정한다.")
+    elif default_year and default_year["unreported_fy"] is not None and fiscal_end_month:
+        # 기본 연도를 옮기지 못한 까닭이 「사업보고서가 아직 없다」인데 그 해 결산배당 결의 공시는 이미 있으면 — 종전엔 이 결의가 어디에도 안 보였다.
+        _fy = default_year["unreported_fy"]
+        if any(_bucket_fiscal_year(d, fiscal_end_month) == _fy for d in details_all):
+            warnings.append(
+                f"FY{_fy} 결산배당 결의 공시는 있으나 그 사업연도 사업보고서가 아직 없어 기본 연도를 FY{default_year['legacy_year']} 로 두었다 — "
+                f"FY{_fy} 결의는 `year={_fy}` 로 조회한다.")
     if (not latest_summary or int(latest_summary.get("cash_dps") or 0) == 0) and details:
         fallback = _decisions_summary_for_year(details, target_year, fiscal_end_month)
         if fallback and fallback.get("cash_dps", 0) > 0:
@@ -1557,7 +1670,11 @@ async def build_dividend_payload(
     # 반기·분기 결산(리츠 등) — 사업보고서 한 통은 결산기 하나분이다. 다년 칸과 요약을 **사업연도 = 그 해 결산기 합**으로 맞춘다(261021).
     #   결산월은 가장 늦은 결산기준일로 정한다(`build_dividend_summary` 가 가장 늦은 결산기 행에서 읽는다). 현재가 기준 배당수익률도 이 합(12개월)으로 센다.
     alot_multi = _alot_multiyear_summaries(latest_summary)
-    latest_summary, _sum_note = _year_sum_summary(latest_summary, alot_multi.get(target_year))
+    # 요약이 서는 사업연도 = 결산기준일(stlm_dt)의 해 (`_annual_summary` 와 같은 FY). 요청 연도와 다르면 year_list 에 더한다.
+    summary_fy = _summary_fiscal_year(latest_summary, target_year)
+    if summary_fy not in year_list:
+        year_list = sorted({*year_list, summary_fy})
+    latest_summary, _sum_note = _year_sum_summary(latest_summary, alot_multi.get(summary_fy))
     if _sum_note:
         warnings.append(_sum_note)
 
@@ -1591,7 +1708,7 @@ async def build_dividend_payload(
 
     # 비-target 연도는 multiyear 컬럼 또는 결정공시 합산 fallback으로 채운다 (개별 호출 없음).
     annual_summaries: dict[int, dict[str, Any]] = {}
-    year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {target_year: (latest_summary, None)}
+    year_to_result: dict[int, tuple[dict[str, Any], str | None]] = {summary_fy: (latest_summary, None)}
 
     # 권위 소스: 최신 사업보고서 alotMatter 의 다년 컬럼(당기/전기/전전기) — 위에서 만든 `alot_multi`.
     # 연도별 개별 호출/결정 합산보다 우선 적용한다.
@@ -1623,15 +1740,47 @@ async def build_dividend_payload(
     # 비12월 결산 회사는 target_year(=작년) 뒤에 이미 끝난 사업연도가 하나 더 있는데,
     # 예전엔 그 해가 화면에서 통째로 빠져 직전 연도 배당이 최신인 것처럼 읽혔다
     # (포시에스: 회사 공시는 「FY2025 결산 배당 아직 없음」인데 도구는 FY2025 지급 완료로 표시).
+    # 「미결의」는 배당 결의 공시도 **사업보고서 배당 항목도** 없다는 뜻이라, 결의 공시가 없는 해는 그 해 사업보고서(alotMatter)를 읽어 확인한다 —
+    # 이미 나온 보고서의 확정 DPS 를 「미결의 0」으로 내지 않게(DATA-FY1). 보고서 위치는 요약과 같이 결산기준일의 해(`fiscal_year`)로 정한다.
     undecided_fiscal_years: list[dict[str, Any]] = []
     latest_completed_fy = _latest_completed_fiscal_year(today_kst(), fiscal_end_month)
     newest_reported_fy = max(annual_summaries) if annual_summaries else target_year
+    reported_late: dict[int, dict[str, Any]] = {}       # 목표 연도 뒤에 결산이 끝났고 사업보고서가 이미 나온 해 → 추이표 행
     if latest_completed_fy is not None:
-        decided_fys = {_bucket_fiscal_year(d) for d in details_all}
+        decided_fys = {_bucket_fiscal_year(d, fiscal_end_month) for d in details_all}
         # 검색 범위는 `_search_dividend_filings(…, target_year)` 와 같다(…target_year+1 년 말).
-        for fy in _judgeable_undecided_years(newest_reported_fy, latest_completed_fy, fiscal_end_month,
-                                             date(target_year + 1, 12, 31), today_kst()):
-            if fy in decided_fys or fy in annual_summaries:
+        candidates = [
+            fy for fy in _judgeable_undecided_years(newest_reported_fy, latest_completed_fy, fiscal_end_month,
+                                                    date(target_year + 1, 12, 31), today_kst())
+            if fy not in decided_fys and fy not in annual_summaries
+        ]
+        lookup_failed: set[int] = set()
+        if candidates:
+            stage_started_at = time.perf_counter()
+            fetched = await asyncio.gather(*[_annual_for(fy) for fy in candidates])
+            _mark("undecided_annual_check", stage_started_at)
+            for fy, (late_summary, late_warning) in zip(candidates, fetched):
+                if late_warning:
+                    # 사업보고서 조회가 실패(013 아님)하면 「미결의」가 아니라 「모른다」 — 단정하지 않는다.
+                    lookup_failed.add(fy)
+                    warnings.append(f"{fy}년 {late_warning} — FY{fy} 사업보고서 배당 항목을 확인하지 못해 미결의로 단정하지 않는다.")
+                    continue
+                if not late_summary:
+                    continue
+                late_fy = _summary_fiscal_year(late_summary, fy)
+                if late_fy in annual_summaries or late_fy in reported_late:
+                    # 이미 있는 해의 보고서가 왔다 — 요청한 해(fy)의 보고서는 아니다. 보고서가 있는지 없는지 모르는 것이지 「미결의」가 아니므로
+                    # 조회 실패와 같이 「모른다」로 두고 경고한다(합성 장면에서만 생긴다: 실제 DART 는 요청 연도와 결산기준일의 해가 같다).
+                    lookup_failed.add(fy)
+                    warnings.append(f"FY{fy} 사업보고서를 읽었더니 이미 다룬 FY{late_fy} 의 보고서였다 — FY{fy} 사업보고서 배당 항목을 확인하지 못해 미결의로 단정하지 않는다.")
+                    continue
+                late_alot = _alot_multiyear_summaries(late_summary)
+                late_summary, _late_note = _year_sum_summary(late_summary, late_alot.get(late_fy))
+                reported_late[late_fy] = late_alot.get(late_fy) or late_summary
+                if _late_note:
+                    warnings.append(_late_note)
+        for fy in candidates:
+            if fy in reported_late or fy in lookup_failed:
                 continue
             fiscal = _fiscal_period_fields(fy, fiscal_end_month)
             undecided_fiscal_years.append(fiscal)
@@ -1651,6 +1800,10 @@ async def build_dividend_payload(
                 "배당 결의 공시도 사업보고서 배당 항목도 확인되지 않는다 — 미결의. "
                 "아래 수치는 그 이전 사업연도의 것이다."
             )
+        if reported_late:
+            history.extend(_history_rows(target_year, reported_late, details, fiscal_end_month))
+            annual_summaries.update(reported_late)
+        history.sort(key=lambda row: row["year"])
 
     if meta_task is not None:
         await meta_task
@@ -1755,6 +1908,10 @@ async def build_dividend_payload(
             "corp_code": selected.get("corp_code", ""),
         },
         "year": target_year,
+        **({"default_year": {"fiscal_year": target_year, "previous_default": default_year["legacy_year"],
+                             "fiscal_year_end_month": fiscal_end_month,
+                             "basis": "year 를 주지 않았을 때 결산월 기준 끝난 최신 사업연도 (사업보고서가 있는 해)"}}
+           if default_year and default_year["moved"] else {}),
         "fiscal_year_basis": FISCAL_YEAR_BASIS,
         "fiscal_year_end_month": fiscal_end_month,
         "undecided_fiscal_years": undecided_fiscal_years,
@@ -1793,7 +1950,8 @@ async def build_dividend_payload(
         _qb_started = time.perf_counter()
         data["history"] = history
         # quarterly_breakdown: details에서 연도/분기별 grouping (분기배당 회사 분기별 검증용)
-        quarterly_breakdown = _quarterly_breakdown(details, history_years or year_list, fiscal_end_month)
+        _class_label = _company_class_label([latest_summary, *annual_summaries.values()])
+        quarterly_breakdown = _quarterly_breakdown(details, history_years or year_list, fiscal_end_month, _class_label)
         data["quarterly_breakdown"] = quarterly_breakdown
         # policy_signals: history scope에 통합 (별도 scope 폐지)
         data["policy_signals"] = policy
@@ -1858,7 +2016,7 @@ async def build_dividend_payload(
         if latest_summary and latest_summary.get("source") == "alotMatter":
             alot_dps = int(latest_summary.get("cash_dps") or 0)
             # 해당 사업연도 bucket 결정 공시 합산 (정정/재공시 dedup 후 — 자회사는 이미 제외)
-            year_eff = _effective_decisions([d for d in details if _bucket_fiscal_year(d) == target_year], end_month=fiscal_end_month)
+            year_eff = _effective_decisions([d for d in details if _bucket_fiscal_year(d, fiscal_end_month) == target_year], end_month=fiscal_end_month)
             decisions_dps = sum(int(d.get("dps_common") or 0) for d in year_eff)
             if alot_dps and decisions_dps and abs(alot_dps - decisions_dps) > max(1, alot_dps * 0.05):
                 warnings.append(f"⚠ {target_year}년 사업보고서 alotMatter DPS({alot_dps:,}원)와 배당결정 공시 합산 DPS({decisions_dps:,}원) 불일치 — 정정 또는 신규 결정 누락 가능성, latest_decisions 원문 검토 권장.")

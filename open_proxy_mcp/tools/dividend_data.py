@@ -127,6 +127,15 @@ def _year_totals_block(totals: list[dict[str, Any]]) -> list[str]:
     return L
 
 
+def _out_of_range_line(pay: dict[str, Any]) -> list[str]:
+    """`year_to` 를 지정한 호출에서 비12월 결산의 결산 종료연도가 구간 끝을 넘어 빠진 결의를 알린다(결의를 지우지 않는다)."""
+    oor = pay.get("out_of_range")
+    if not oor:
+        return []
+    return ["> " + f"구간 밖 결의 {oor['count']}건 — year_to={oor['year_to_needed']} 로 조회 "
+            f"(비12월 결산의 결산 종료연도 {', '.join(str(y) for y in oor['fiscal_years'])})."]
+
+
 def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any]) -> str:
     L = [f"## {name} ({ticker}) — 확정 배당", ""]
     L += _RULER
@@ -153,6 +162,17 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
               "특별배당 말고도 감액배당 재원·자기주식 제외 산정·주총 갈음·차등배당처럼 "
               "**서식에 칸이 없어 비고에만 적히는 사실**은 원문에서만 읽힌다.",
               "> 정기·특별분이 한 결의에 섞여도 **금액은 가르지 않는다** — 서식에 분리 칸이 없다."]
+        _al = pay.get("fiscal_year_alignment")
+        if _al:
+            _em = f"{_al['end_month']}월 결산 회사라 " if _al.get("end_month") else "비12월 결산 회사라 "
+            L += ["> " + f"{_em}결정공시의 사업연도를 **결산 종료연도**로 맞췄다({_al['basis']}) — 원장 표·`dividend_disclosure` 와 같은 해 번호다. "
+                  f"결정공시 수집 쪽은 비12월 결산을 사업연도 **시작연도**로 저장하므로 1년씩 옮겼다(이 회사 {_al['shifted_decisions']}건). "
+                  "⚠️미완 판정도 같은 만큼 옮긴 저장 사업연도로 한다."]
+        _bey = pay.get("beyond_ledger_year")
+        if _bey:
+            L += ["> " + f"{_bey}년은 원장의 마지막 해보다 뒤다 — 비12월 결산의 올해 하반기 결의(중간·분기배당)가 결산 종료연도로는 이 해에 속한다. "
+                  "사업보고서가 아직 없어 원장 표에는 이 해가 없다."]
+        L += _out_of_range_line(pay)
         L += _remarks_block(pay.get("decisions") or [], complete)
         if pay.get("remarks_cold_note"):
             L += ["", f"> {pay['remarks_cold_note']}"]
@@ -165,6 +185,7 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
               "「몇 번 배당했나」를 판단하지 말라. 잠시 뒤 다시 시도하라."]
     else:
         L += ["", "> 이 회사의 결정공시 집계가 이 구간에 없다."]
+        L += _out_of_range_line(pay)
 
     ann = d.get("annual") or []
     if ann:
@@ -499,7 +520,7 @@ def register_tools(mcp):
         # 261021: 원장 시계열(`firm_history`)과 결정공시 횟수(`payment_counts`)는 서로 입력이 필요 없다 — 차례로 기다리던 두 DB 왕복을 동시에 보낸다.
         data, pay = await asyncio.gather(
             asyncio.to_thread(dd.firm_history, corp.get("corp_code", ""), y0, y1),
-            asyncio.to_thread(dd.payment_counts, corp.get("corp_code", ""), y0, y1),
+            asyncio.to_thread(dd.payment_counts, corp.get("corp_code", ""), y0, y1, **({"year_to_explicit": True} if year_to else {})),
         )
         # 261021: 비고(remarks)를 콜드 보관본으로 옮긴 행은 DB 가 NULL — 그 회사의 서빙본 행으로 채운다(NULL 이 없으면 아무것도 읽지 않는다).
         pay = await dd.fill_remarks_from_cold(pay, corp.get("corp_code", ""))
