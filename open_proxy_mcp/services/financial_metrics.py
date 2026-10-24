@@ -1481,6 +1481,14 @@ _PERIOD_SENSITIVE_ALERTS = frozenset({
 })
 
 
+#: 금융 영업 신호(`is_financial_company`)가 잡힌 회사는 영업CF 에 대출·예수·보험계약 등 증감이 들어 있을 수 있어, 영업CF 하나에 기댄
+#: 이 다섯 경고(`accruals_ratio_unreliable` 은 같은 영업CF 괴리의 금액차 안내)를 판정하지 않는다. 값(영업CF·FCF·비율)은 그대로 둔다.
+#: `_PERIOD_SENSITIVE_ALERTS` 와 뜻이 달라(기간 불일치 전용, `alerts_not_evaluated` 의 내용) 섞지 않는다.
+_FIN_CF_ALERTS = frozenset({
+    "cfo_quality_red", "accruals_red", "negative_fcf", "low_dividend_capacity_use", "accruals_ratio_unreliable",
+})
+
+
 def _period_ko(m: dict[str, Any]) -> str:
     """metrics 한 벌의 손익 기간을 사람 말로 — 「연간 12개월」·「9개월 누적」."""
     pb = str(m.get("period_basis") or "")
@@ -1640,6 +1648,9 @@ def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
     div_prev = prev.get("dividend_paid_krw") if prev else None
     if div_prev is not None and div_prev > 0 and (div_curr is None or div_curr == 0):
         alerts.append("dividend_halt")
+
+    if curr.get("is_financial_company"):
+        alerts = [a for a in alerts if a not in _FIN_CF_ALERTS]
 
     return sorted(set(alerts))
 
@@ -3791,6 +3802,12 @@ async def build_financial_metrics_payload(
         signals = _detect_yoy_signals(curr or {}, prev or {}, sig_audit_curr, sig_audit_prev) if curr else []
         if not period_aligned:
             signals = [a for a in signals if a not in _PERIOD_SENSITIVE_ALERTS]
+        if curr and curr.get("is_financial_company"):
+            warnings.append(
+                f"{target_year}년 [현금흐름 경고] 금융 영업 신호(연결 재무상태표의 예수부채·보험계약부채 등 또는 업종코드)가 잡혔다 — "
+                f"영업현금흐름에 예수·대출·보험계약 등 증감이 들어 있을 수 있어(정도는 회사마다 다르다) 영업CF 기반 경고"
+                f"({', '.join(sorted(_FIN_CF_ALERTS))})는 판정하지 않았다. 영업CF·FCF·비율 값은 그대로이며, "
+                f"재무상태표 계정 신호인 경우 그 계정의 이름·금액은 이 응답에 없어 원문 재무상태표에서 볼 것.")
         data["yoy"] = {
             "current": curr,
             "prior": prev,

@@ -577,7 +577,7 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **신규-#1 · P0 · financial_metrics — 우선** — yoy: 외화 보고사(두산밥캣 2024)의 전기 블록 값이 틀리다 — 전기의 전기 매출이 약 1,289배(#224 PR 본문 「남은 것」), 매출 전년비 −99.91%·전기 ROE 0.03%(작업 중 관찰 — PR 본문에는 없다). 원인 미확인(전년 보고서 값을 환산하는 경로 의심)
   - 위치: `services/financial_metrics.py:_normalize_currency 1804 · _fetch_year_metrics 2376 · yoy 전기 블록 3786` (후보 — 원인 미확인) · DATA: new
   - 고칠 방향: 전년 보고서에서 읽은 전기 칸을 원응답과 한 줄씩 대조해 어느 단계(읽기·환산·단위 보정)에서 틀어지는지 먼저 가른 뒤 고칠 곳을 정한다
-- [ ] **신규-#2 · P1 · financial_metrics — 우선** — 은행·보험(`is_financial_company`)에서 현금흐름 경고(`cfo_quality_red`·`accruals_red`·`negative_fcf`·`low_dividend_capacity_use`)가 뜻이 약하다. 영업CF 에 대출·예수금·보험계약 증감이 들어가기 때문이다. #225 로 영업CF 가 읽히면서 KB금융 2024·2025 에 `cfo_quality_red`·`accruals_red` 가 새로 켜진다(삼성생명 2024 는 `low_dividend_capacity_use`, KB금융 3Q25 누적은 `negative_fcf` 그대로). KB금융 2024·삼성생명 2024 의 경고 집합은 병합 뒤 운영 응답에서 #225 PR 의 표대로 확인했고, KB금융 2025 는 확인하지 못했다
+- [x] **신규-#2 · P1 · financial_metrics — 우선** — 은행·보험(`is_financial_company`)에서 현금흐름 경고(`cfo_quality_red`·`accruals_red`·`negative_fcf`·`low_dividend_capacity_use`)가 뜻이 약하다. 영업CF 에 대출·예수금·보험계약 증감이 들어가기 때문이다. #225 로 영업CF 가 읽히면서 KB금융 2024·2025 에 `cfo_quality_red`·`accruals_red` 가 새로 켜진다(삼성생명 2024 는 `low_dividend_capacity_use`, KB금융 3Q25 누적은 `negative_fcf` 그대로). KB금융 2024·삼성생명 2024 의 경고 집합은 병합 뒤 운영 응답에서 #225 PR 의 표대로 확인했고, KB금융 2025 는 확인하지 못했다 → 이 PR 에서 닫음(판정 참이면 다섯 경고를 목록에서 빼고 안내 한 줄, 값 그대로 — DATA-CF1). KB금융 2025 도 재생에서 같은 경고가 켜졌다가 빠짐
   - 위치: `services/financial_metrics.py:_detect_yoy_signals 1518 이후 (cfo_quality_red 1571 · negative_fcf 1574 · low_dividend_capacity_use 1577 · accruals_red 1615) · is_financial_company 1160` · DATA: new
   - 고칠 방향: 금융사면 네 경고를 켜지 않거나 「금융업은 해석 주의」 한 줄만 단다(둘 중 하나 — 정할 것). KB금융 2025 운영 응답에서 켜지는 경고만 아직 확인하지 못했다
 - [ ] **신규-#3 · P1 · price_multiple_data** — 환율 조회에 실패한 외화 보고사는 `_krw` 이름의 입력 칸(순이익·자본·EPS·BPS)이 외화 원값으로 나간다. 배수는 #223 으로 비웠지만 입력 칸은 그대로다(환율 실패 경고는 함께 나간다)
@@ -629,4 +629,14 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
   - 위치: `services/financial_metrics.py` 현금흐름 행 읽기(이름 부분 일치 선착순 — 점검 시점 줄 번호는 기록하지 않았다) · DATA: DATA-U3
   - 고칠 방향: 계정 코드(local-name 정확 일치)로 먼저 읽는다
 
-새 후보 18건 — 열림 16(P0 1 · P1 6 · P2 9, 그중 우선 2), 닫힘 2(#225).
+- [ ] **신규-#19 · P2 · financial_metrics** — 금융 영업 신호 판정이 금액을 보지 않아 업종상 금융업이 아닌 회사가 참이 된다: 카카오(예수·보험계약부채가 자산총계의 6.3%)·다우기술(27.4%)·한화(49.1%). 차입금의존도(n/a)와 영업CF 기반 경고 다섯 가지가 함께 빠진다. 신호 비율 문턱을 둘지 정할 것(비율 점: 카카오 6.3·한국금융지주 14.8·다우기술 27.4·한화 49.1·미래에셋증권 8.9·삼성화재 59.3·하나 62.0·신한 64.1·KB 64.9·삼성생명 65.2·우리 69.8·삼성카드 0, 2024 연결)
+  - 위치: `services/financial_metrics.py:_FIN_BS_SIGNAL 564 · _compute_borrowings 667 · is_financial_company 1160` · DATA: DATA-CF1
+  - 고칠 방향: 판정 규칙 변경이라 결정이 필요하다 — 신호 부채/자산 문턱을 두거나 그대로 두고 안내만. 먼저 판정 참 비금융 모집단의 크기를 센다
+- [ ] **신규-#20 · P2 · financial_metrics · proxy_advise** — 요약 화면의 「CFO/영업이익 (cash quality, <0.7=분식 신호)」 줄·이익·현금 괴리 갈림길 문구와 `proxy_advise` 의 같은 값 자체 규칙(`:3370-3390`)은 금융 영업 신호가 잡힌 회사에도 그대로 나간다. 금융 자회사를 연결한 비금융사(현대차 등)도 영업CF 기반 경고가 켜진다
+  - 위치: `tools/financial_metrics.py:275 · 143-201`, `services/proxy_advise.py:3370-3390` · DATA: DATA-CF1
+  - 고칠 방향: 경고(`alerts`)와 같은 판정을 쓸지 정한다 — 결정 밖 도구라 별도 묶음
+- [ ] **신규-#21 · P2 · financial_metrics** — 금융 영업 신호 안내에 신호가 된 부채 이름·금액·자산 대비 %를 싣지 못한다(응답에 그 칸이 없다). 싣는 길은 `borrowing_detail.data_quality_flags` 한 줄뿐인데 모든 scope·연도 응답이 바뀐다
+  - 위치: `services/financial_metrics.py:_compute_borrowings 652-741` · DATA: DATA-CF1
+  - 고칠 방향: 영향 받는 호출처(요약 소비 도구)를 세어 보고 싣는다면 yoy 에서만 보이게 하는 길을 찾는다
+
+새 후보 21건 — 신규-#2 는 이 PR 에서 닫음, 신규-#19~#21 추가(열림).
