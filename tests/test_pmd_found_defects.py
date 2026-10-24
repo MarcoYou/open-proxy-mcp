@@ -282,7 +282,12 @@ def test_fiscal_year_rate_failure_converts_nothing_rather_than_mixing_currencies
     i = p["data"]["inputs"]
     assert i["net_income_ttm_krw"] == 283e6 + 180e6 - 120e6 and i["controlling_equity_krw"] == 5_100e6
     assert i["fx_rate_to_krw"] is None and "fx_rates_to_krw" not in i
-    assert any("환율 조회 실패 — 배수 통화 불일치 가능" in w for w in p["data"]["warnings"])
+    # 261024(P1-#72): 환율 1.0 으로 메운 외화 원값 ÷ 원화 시총을 배수로 내지 않는다 — 배수만 비우고(입력 칸·응답 키는 그대로) 값 미확인으로 알린다.
+    m = p["data"]["multiples"]
+    assert m["per_fy0"] is None and m["per_ttm"] is None and m["pbr_mrq"] is None
+    assert p["data"]["data_quality"]["values_masked"] is True
+    assert not any("배수 비정상 고값" in w for w in p["data"]["warnings"])
+    assert any("환율 조회 실패" in w and "비웠다" in w and "10분" in w for w in p["data"]["warnings"])
 
 
 def test_quarter_rate_failure_falls_back_to_the_fiscal_year_rate_and_says_so(monkeypatch):
@@ -295,9 +300,50 @@ def test_quarter_rate_failure_falls_back_to_the_fiscal_year_rate_and_says_so(mon
     assert any("최근 분기 누적·자본(MRQ)은 2025-12-31 1,434.9원" in w for w in p["data"]["warnings"])
 
 
+# 외화 보고사(USD) 연결 사업보고서 — 실제 DART 전체계정 응답에서 배수에 쓰이는 행만 줄인 것(회사 식별 칸 없음).
+USD_REAL_ROWS = [
+    {"sj_div": "BS", "account_id": "ifrs-full_Assets", "thstrm_amount": "8169804000", "frmtrm_amount": "8043861000", "currency": "USD"},
+    {"sj_div": "BS", "account_id": "ifrs-full_Liabilities", "thstrm_amount": "3479665000", "frmtrm_amount": "3425579000", "currency": "USD"},
+    {"sj_div": "BS", "account_id": "ifrs-full_Equity", "thstrm_amount": "4690139000", "frmtrm_amount": "4618282000", "currency": "USD"},
+    {"sj_div": "BS", "account_id": "ifrs-full_EquityAttributableToOwnersOfParent", "thstrm_amount": "4690139000",
+     "frmtrm_amount": "4618282000", "currency": "USD"},
+    {"sj_div": "IS", "account_id": "ifrs-full_ProfitLossAttributableToOwnersOfParent", "thstrm_amount": "413029000",
+     "frmtrm_amount": "705892000", "currency": "USD"},
+]
+CAP_USD_CO = 4_735_289_611_000
+
+
+def test_foreign_reporter_without_rate_blanks_the_multiples_and_keeps_the_rest(monkeypatch):
+    """P1-#72: 사업연도 말 환율을 못 받으면 외화 원값을 원화 시총으로 나눠 PER 1만·PBR 1천 꼴 숫자를 내던 것 → 배수만 비운다.
+    입력 칸(외화 원값)·응답 키·배당수익률(DPS·주가 모두 원화)은 그대로다."""
+    alot = {2025: _alot(("2025-12-31", "1700"))}
+    p, _ = _run_live(monkeypatch, reports={(2025, "11011"): USD_REAL_ROWS}, fx={}, induty="29241", cap=CAP_USD_CO, alot=alot, price=49400)
+    d = p["data"]
+    assert d["multiples"]["per_fy0"] is None and d["multiples"]["per_ttm"] is None and d["multiples"]["pbr_mrq"] is None
+    assert "pbr_basis" in d["multiples"] and "multiples_basis" in d["multiples"]               # 응답 키는 지우지 않는다
+    assert d["multiples"]["dividend_yield_pct"] == round(1700 / 49400 * 100, 2)                # 환율과 무관
+    assert d["inputs"]["net_income_fy0_krw"] == 413029000 and d["inputs"]["controlling_equity_krw"] == 4690139000   # 외화 원값 그대로(범위 밖)
+    assert d["data_quality"]["values_masked"] is True and d["data_quality"]["scale_tier"] == "clean"
+    assert p["status"] == "ok"
+    ws = d["warnings"]
+    assert not any("배수 비정상 고값" in w for w in ws)
+    fx_w = [w for w in ws if "환율 조회 실패" in w]
+    assert len(fx_w) == 1 and "PER·PBR 을 비웠다" in fx_w[0] and "10분" in fx_w[0] and "원문" in fx_w[0]
+    assert "N/M" in TP._render_explain_firm(p)
+
+
+def test_foreign_reporter_with_rate_gives_the_same_multiples_as_before(monkeypatch):
+    """대조군: 환율을 받으면 종전과 같은 환산 배수 — 고침이 이 갈래를 건드리지 않는다."""
+    p, _ = _run_live(monkeypatch, reports={(2025, "11011"): USD_REAL_ROWS}, fx={"20251231": 1472.5}, induty="29241", cap=CAP_USD_CO)
+    m = p["data"]["multiples"]
+    assert m["per_fy0"] == round(CAP_USD_CO / round(413029000 * 1472.5), 2) and m["pbr_mrq"] == round(CAP_USD_CO / round(4690139000 * 1472.5), 2)
+    assert p["data"]["data_quality"]["values_masked"] is False
+
+
 def test_krw_reporter_is_unchanged(monkeypatch):
     p, seen = _run_live(monkeypatch, induty="26110")
     i = p["data"]["inputs"]
+    assert p["data"]["data_quality"]["values_masked"] is False and p["data"]["multiples"]["per_fy0"] is not None
     assert seen["fx"] == [] and i["fx_rate_to_krw"] is None and "fx_rates_to_krw" not in i
     assert i["net_income_ttm_krw"] == 100e9 + 60e9 - 40e9
 

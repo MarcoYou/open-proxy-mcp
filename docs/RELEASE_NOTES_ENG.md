@@ -4,6 +4,11 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-23
 
+### `price_multiple_data` — PER/PBR are blanked, not computed, when a foreign-currency reporter's exchange rate cannot be fetched
+
+- When a company whose functional currency is not KRW (e.g. a USD reporter) has no fiscal-year-end exchange rate available, the response used to substitute a rate of 1 and divide the foreign-currency figures by the KRW market cap, publishing a number as PER/PBR (only a high-value warning was attached). It now blanks PER(FY0), PER(TTM) and PBR (N/M), sets `data_quality.values_masked` to `true`, and the exchange-rate warning says the multiples were blanked and to retry shortly (the failure is remembered for up to 10 minutes on the same server) and check the filing if it stays empty. The value is unknown, not zero.
+- Responses for foreign reporters with a rate and for KRW reporters are unchanged (identical in the replay of 13 KRW companies and one USD reporter; only the 2 injected-failure cases differed). The dividend yield and the input fields (foreign-currency raw values) are untouched, and PER/PBR target comparisons in `value_up` and `shareholder_commitment` read "cannot compare" instead of a wrong met/missed when the rate fails. Tool names, parameters and response keys are unchanged.
+
 ### `financial_notes` no longer reports a section or report search it could not read as "no such note"
 
 - When the table of contents pointed to several note sections and one of them failed to load (DART maintenance, quota or a transient error), the fields that section should have supplied were reported as "no such note" (`NOT_APPLICABLE`) with `status` still `exact`. Those fields are now "not collected" (`NOT_COLLECTED`), `status` is `partial`, and `warnings` says which section failed and to retry. When one field is gathered from two sections (restricted deposits and pledged assets) and only one fails, the tables that were read are returned as they are and the field's `note` adds that tables may be missing.

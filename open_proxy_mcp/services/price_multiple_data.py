@@ -3065,6 +3065,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #   순이익의 기간 평균 환율 규칙은 저장소에 없다(`dart/fx.py` — v1.1) — 기간 말 근사이고 경고에 적는다.
     stmt_cur = statement_currency(fy_rows)
     ecos_fx_rate = 1.0            # 사업연도 말 환율(종전 이름 — 1.0 이면 환산 없음)
+    fx_failed = False             # 비KRW 인데 사업연도 말 환율을 못 받았다 — 1.0(원화라 환산 없음)과 다르다. 아래 배수·values_masked 가 읽는다(261024 P1-#72)
     fx_qc = fx_qp = 1.0           # 분기 칸(당해·전년 동기) 기간 말 환율
     fx_q_fallback = False         # 분기 말 환율을 못 받아 사업연도 말 환율로 대신했나
     fy_end_dd = None
@@ -3081,6 +3082,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         else:
             r_fy, r_qc, r_qp = await fx_to_krw(stmt_cur, fy_end_dd), None, None
         ecos_fx_rate = r_fy or 1.0
+        fx_failed = not r_fy       # 1.0 은 환산 없이 외화 원값을 쓴다는 뜻이라 원화 시총으로 나누면 틀린 배수가 된다 — 배수를 비운다(아래)
         # 사업연도 말 환율을 못 받으면 분기 값도 환산하지 않는다 — 분기만 원화로 바꾸면 TTM = 외화 연간 + 원화 분기 − 원화 분기로
         #   통화가 섞인다(종전처럼 전부 미환산 + 아래 「환율 조회 실패」 경고가 차라리 읽힌다).
         if qc_rows and not ttm_is_annual and r_fy:
@@ -3372,9 +3374,10 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     #      배수가 소폭 낮게 나온다. 클래스별 이익·자본 분리는 공시 부재로 불가.
     # EPS·BPS 는 인풋으로 계속 노출한다 — 회사 공식값이라 대조에 쓴다.
     cap = mk.get("common_mktcap")
-    per_fy = nm(_div(cap, ni_fy), cap and ni_fy is not None and ni_fy > 0)
-    per_ttm = nm(_div(cap, ni_ttm), cap and ni_ttm is not None and ni_ttm > 0)
-    pbr = nm(_div(cap, ctrl_equity), cap and ctrl_equity is not None and ctrl_equity > 0)
+    # 261024(P1-#72): 환율을 못 받았으면(fx_failed) 분자(KRW 시총)와 분모(외화 원값)의 통화가 달라 배수가 천 배 안팎으로 틀린다 — 숫자 대신 None(N/M)
+    per_fy = nm(_div(cap, ni_fy), cap and ni_fy is not None and ni_fy > 0 and not fx_failed)
+    per_ttm = nm(_div(cap, ni_ttm), cap and ni_ttm is not None and ni_ttm > 0 and not fx_failed)
+    pbr = nm(_div(cap, ctrl_equity), cap and ctrl_equity is not None and ctrl_equity > 0 and not fx_failed)
     div_yield = round(_div(dps, price) * 100, 2) if (dps and price and not impaired_full) else None
 
     warnings = []
@@ -3452,7 +3455,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         if _alt:
             warnings.append(f"⚠️ {', '.join(_dd(d) for d in _alt)} 환율: {FALLBACK_WARNING}")
     elif stmt_cur != "KRW":
-        warnings.append(f"⚠️ 기능통화 {stmt_cur}인데 환율 조회 실패 — 배수 통화 불일치 가능, 원문 확인 요망.")
+        # 261024(P1-#72): 배수를 비웠다고 말한다. 실패 기억은 서버(프로세스) 하나 안의 메모리다(`dart/fx.py` _NEG_TTL_SEC = 600초) — 다른 서버로 가면 바로 다시 묻는다.
+        warnings.append(f"⚠️ 기능통화 {stmt_cur}인데 환율 조회 실패 — 외화 원값을 원화 시총으로 나누지 않도록 PER·PBR 을 비웠다(값 미확인, 0 이 아니다). "
+                        "같은 서버에서는 실패를 최대 10분 기억하니 잠시 뒤 다시 조회하고, 계속 비면 원문(사업보고서의 보고 통화·환율)을 확인.")
     for _fx_ in scale_fix:
         # 261020(p1f): 보고서 사이 단위 가리기로 바로잡은 보고서 — 무엇을 몇으로 나눴고 무엇과 대 보았는지(값은 바로잡은 값으로 냈다).
         _d = _fx_["divisor"]
@@ -3585,7 +3590,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
             "data_quality": {
                 "scale_tier": scale_verdict["tier"],          # hard=강한 오류의심 / soft=참고 / clean
                 "scale_flags": scale_verdict["hard_hit"] + scale_verdict["soft_hit"],
-                "values_masked": False,  # 개별조회는 값 무효화 안 함(집계 tool과 반대) — 판단은 사용자
+                "values_masked": fx_failed,  # 개별조회는 값을 무효화하지 않는다(집계 tool과 반대) — 단 환율 실패로 배수를 비운 경우만 True(261024)
             },
             "note": f"EPS(FY0·TTM 모두)=DART 공시 기본주당이익 기준({_note_ttm} "
                     "— 가중평균 주식수·우선주 배분 반영, 두 PER 직접비교 가능. 클래스별 EPS 미공시사(삼성전자 등)는 "
