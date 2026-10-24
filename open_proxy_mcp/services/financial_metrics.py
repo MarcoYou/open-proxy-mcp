@@ -2518,7 +2518,9 @@ async def _fetch_year_metrics(
             bs_is_prev, detail_prev, prev_dropped = None, None, True
             warnings.append(f"{year - 1}년 보고서 {_what} 달라 전기 값을 쓰지 않았다 — "
                             f"전년비와 평균자본·평균자산 기준 ROE·ROA 를 내지 않음" + (f"(prev_fs_div={_fs_prev})" if _fs_changed else "")
-                            + ". 총자산회전율·자기자본 배수·회전일수는 평균 대신 기말 값으로 계산돼 나간다(전기가 없을 때와 같은 한계).")
+                            + ". 총자산회전율·자기자본 배수·회전일수는 평균 대신 기말 값으로 계산돼 나간다(전기가 없을 때와 같은 한계)."
+                            + (" 분기 단독(standalone) ROE·ROA 도 평균 대신 기말 자본·자산 기준이다." if used_rc in ("11012", "11014") else "")
+                            + " 손익 전년비 원문: filing_section(손익계산서).")
 
     if not bs_is:
         return {}, warnings + [f"{year}년 BS/IS 핵심 데이터 파싱 실패"], 0

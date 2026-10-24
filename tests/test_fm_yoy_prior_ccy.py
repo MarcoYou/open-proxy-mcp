@@ -119,12 +119,12 @@ def test_currency_and_basis_both_changed_names_both_facts(monkeypatch):
 
 
 def test_quarterly_report_prior_in_other_currency_drops_prior_and_ratios(monkeypatch):
-    """분기·반기 보고서의 전기 칸은 전년 말 잔액이라 대체하지 못한다 — 전기를 비우고 전년비·평균 기준 ROE·ROA 를 비운다."""
+    """분기·반기 보고서의 재무상태표 전기 칸은 직전 사업연도 말 잔액이라 평균을 낼 수 없다 — 전기를 비우고 전년비·평균 기준 ROE·ROA 를 비운다."""
     m, warnings, _ = _run(monkeypatch, USD_REPORT, KRW_REPORT, reprt_code="11013")
     assert m["revenue_yoy_pct"] is None and m["net_income_yoy_pct"] is None
     assert m["roe_pct"] is None and m["roa_pct"] is None and m["roe_dupont_pct"] is None
     assert "prev_fs_div" not in m
-    assert any("보고 통화(KRW)" in w and "전기 값을 쓰지 않았다" in w for w in warnings)
+    assert any("보고 통화(KRW)" in w and "전기 값을 쓰지 않았다" in w and "filing_section(손익계산서)" in w for w in warnings)
 
 
 def test_half_year_standalone_prior_is_dropped_too(monkeypatch):
@@ -135,6 +135,8 @@ def test_half_year_standalone_prior_is_dropped_too(monkeypatch):
         assert sa is not None, kw
         assert sa["revenue_yoy_pct"] is None and sa["net_income_yoy_pct"] is None and sa["operating_profit_yoy_pct"] is None, kw
         assert m["revenue_yoy_pct"] is None and m["roe_pct"] is None, kw
+        # 분기 단독 ROE·ROA 는 평균 대신 기말 기준으로 나간다 — 응답이 그 사실을 말한다(null 로 두지 않은 칸을 읽는 쪽에 알림)
+        assert any("분기 단독(standalone) ROE·ROA" in w and "기말" in w for w in warnings), kw
 
 
 def test_dropped_prior_explains_the_ttm_gap_truthfully(monkeypatch):
