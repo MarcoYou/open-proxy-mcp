@@ -827,7 +827,7 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 | 번호 | 한 줄 | 고친 PR · 상태 |
 |---|---|---|
 | DATA-U1 | 잠정실적 도구의 단위 읽기가 쉼표가 있는 표기에 기대 기본 백만원으로 떨어진다 | 닫힘 #170 (단위를 못 읽으면 금액 미환산 · `unit_raw=None` + 경고) |
-| DATA-U3 | `provisional_earnings` 의 [기재정정] 표 파서가 정정후 칸이 '-'·빈칸이면 정정전 값을, 당기 절 금액 칸이 비면 뒤 「증감율(%)」 절의 % 를 금액(`value_krw`)으로 낸다 | 닫힘 (이 PR — 절 머리행으로 당기 절만(I002·I001 절 이름 모두, 구분 열 꼴 포함), 정정전·정정후 열은 머리 행으로, 정정후 '-'·빈칸이면 `value_krw`=None · 합성 고정본 시험) |
+| DATA-U3 | `asset_holdings` `detail` 이 주석 원문·viewer 조회가 모두 실패해 주석이 비면 4항목을 「재무제표 주석에 기재가 없습니다」(`not_disclosed`)로 단정한다 · `provisional_earnings` 의 [기재정정] 표 파서가 정정후 칸이 '-'·빈칸이면 정정전 값을, 당기 절 금액 칸이 비면 뒤 「증감율(%)」 절의 % 를 금액(`value_krw`)으로 낸다 | 닫힘 — #217 (asset_holdings: `absence_kind=not_collected`·`fetch_failed=true`, summary 는 상장·비상장 구분도 못 하므로 지분 NAV 배수·상장 합계·감액 표시를 비움 + 경고. 주석을 정상으로 읽은 경우는 종전 그대로) · #215 (provisional_earnings: 절 머리행으로 당기 절만(I002·I001 절 이름 모두, 구분 열 꼴 포함), 정정전·정정후 열은 머리 행으로, 정정후 '-'·빈칸이면 `value_krw`=None · 합성 고정본 시험) |
 | DATA-NI2 | `financial_metrics` 분기·`qoq` 순이익이 주요계정 당기순이익 총계(비지배 포함)다 | 닫힘 — #170 은 표시만(`net_income_basis=total_incl_nci`·표 머리), 이 PR 이 새 키 `net_income_controlling_krw`(저장된 분기 칸 누적 차분, DART 0콜)로 지배 몫을 더함. 옛 `net_income_krw` 는 총계 그대로 |
 | DATA-NI2 | `financial_metrics` 연간 `net_income_krw` 가 지배 순이익을 못 구하면 조용히 총계로 바뀌고 전년비·ROE 가 기준이 섞인 값이 된다 | 닫힘 (이 PR — `net_income_basis`·`prev_net_income_basis` 표시, 기준이 다르면 전년비 비움 + 경고) |
 | DATA-NI3 | 값 구조로 못 가르는 지배 순이익 줄(첫 이름 줄 폴백)과 지배·비지배를 바꿔 적은 보고서를 자본변동표로 교차 확인하지 않는다 | 닫힘 #166 (`controlling_ni` 세 꼴을 자본변동표 지배 몫으로 — 저장된 재무 칸 164칸 가운데 162칸을 새 규칙으로 다시 씀) |

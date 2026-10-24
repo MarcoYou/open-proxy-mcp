@@ -4,6 +4,12 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ## 미배포 — 2026-10-23
 
+### `asset_holdings` 가 주석 조회 실패를 「기재 없음」으로 내지 않습니다
+
+- `scope="detail"` 에서 DART 원문 조회와 웹 뷰어 조회가 모두 실패하면, 토지·지분증권·담보·우발 4항목을 「재무제표 주석에 기재가 없습니다」로 내던 것을 「조회 실패 — 원문을 읽지 못했습니다」(`absence_kind="not_collected"`, `fetch_failed=true`)로 바로잡았습니다. 원문 위치를 알려 주는 확장이 설치돼 있으면 그 갈래에 원문 위치 한 줄이 붙고, 없으면 「잠시 뒤 다시 조회」까지만 안내합니다.
+- `scope="summary"` 는 같은 실패 때 주석이 비어 상장·비상장 구분도 못 하므로(상장 보유지분이 장부가로 비상장 합계에 들어가던 것), 지분 NAV 배수(`nav.equity_nav_cov`)·지분 NAV 금액·상장 보유지분 합계·미실현 차액·감액 표시(`nav.haircut_flags`, `haircuts.pledged`, `haircuts.contingent`)의 값을 비우고(`null`) 사유와 다시 조회할 길을 경고로 냅니다. 응답 키는 그대로이고 값만 비며, 실패 때만 `notes_fetch_failed`·`nav.equity_nav_unavailable`·`listed_stakes.unavailable` 이 더해집니다.
+- 주석을 정상으로 읽은 경우(실제로 기재가 없는 주석 포함)의 응답은 그대로입니다.
+
 ### `dividend_disclosure` — 3월·6월 결산 회사의 사업연도 귀속과 종류주식 DPS를 바로잡습니다
 
 - 배당결정 공시를 사업연도에 묶을 때 결산월을 씁니다. 종전에는 12월 결산을 가정해 3월 결산 회사의 결산배당(기준일 3월 31일)을 전년도로, 6월 결산 회사의 중간배당(기준일 12월 31일)을 그 전 해로 묶었습니다. 이제 기준일이 속한 사업연도(결산이 끝나는 해)로 묶습니다. 12월 결산 회사의 숫자는 그대로입니다.

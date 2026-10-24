@@ -4,6 +4,12 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-23
 
+### `asset_holdings` no longer reports a failed notes fetch as "not disclosed"
+
+- In `scope="detail"`, when both the DART document fetch and the web viewer fallback fail, the four items (land, equity securities, pledged assets, contingent liabilities) used to say the notes contain no such disclosure. They now say the notes could not be read (`absence_kind="not_collected"`, `fetch_failed=true`), with a source-location line appended only when an installed extension supplies one (otherwise the message stops at "retry shortly").
+- In `scope="summary"`, the same failure also leaves no way to tell listed from unlisted holdings (listed stakes were being counted at book value as unlisted). The equity NAV multiple (`nav.equity_nav_cov`), the NAV amount, the listed-holdings totals, the unrealized gap and the haircut flags (`nav.haircut_flags`, `haircuts.pledged`, `haircuts.contingent`) are now `null`, with a warning giving the reason and the retry path. Response keys stay; only values go empty, and `notes_fetch_failed`, `nav.equity_nav_unavailable` and `listed_stakes.unavailable` are added on failure only.
+- Responses where the notes were read normally (including notes that really have no such disclosure) are unchanged.
+
 ### `dividend_disclosure` — fiscal-year attribution for March/June year-end companies and class-share DPS fixed
 
 - Dividend resolutions are now assigned to a fiscal year using the company's fiscal year-end month. Previously a December year-end was assumed, so a March year-end company's final dividend (record date March 31) landed in the prior year and a June year-end company's interim dividend (record date December 31) landed a year early. They now go to the fiscal year containing the record date (the year the fiscal year ends in). December year-end figures are unchanged.
