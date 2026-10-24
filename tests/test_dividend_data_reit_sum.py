@@ -29,7 +29,7 @@ CREATE TABLE div_declared(
 CREATE TABLE div_quarterly(
   corp_code text, name text, tickers text, bsns_year int, reprt_code text, q_label text, stlm_dt text, rcept_no text,
   cum_div_total_krw double precision, quarterly_div_krw double precision, basis_from text, basis_to text, anomaly text, status text);
-CREATE TABLE div_payment(corp_code text, fiscal_year int, board_date text);
+CREATE TABLE div_payment(corp_code text, fiscal_year int, board_date text, acc_mt int);   -- acc_mt: 비어 있으면 12월 결산으로 본다(옮기지 않는다)
 CREATE TABLE wise_sector(snap_dd text, ticker text, sector text);
 CREATE TABLE div_payment_scope(market text, fiscal_year int, is_complete boolean);
 """

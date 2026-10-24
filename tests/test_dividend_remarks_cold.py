@@ -97,7 +97,7 @@ def served(tmp_path, monkeypatch):
 # ─────────────────────────────────────────────────────────────── DB 행 대역 ──
 def _row(fy, board, rcept, dps, remarks, *, record="{fy}-12-31", special=False):
     #  fiscal_year, board_date, record_date, dividend_type_filed, dividend_type, dps_common, total_amount, rcept_no, amended, anomaly, has_special, remarks
-    return (fy, board, record.format(fy=fy), "결산배당", "결산배당", dps, dps * 1000, rcept, False, None, special, remarks)
+    return (fy, board, record.format(fy=fy), "결산배당", "결산배당", dps, dps * 1000, rcept, False, None, special, remarks, 12)
 
 
 def _db_rows(remarks_by_rcept: dict):

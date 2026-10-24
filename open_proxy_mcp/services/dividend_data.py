@@ -236,7 +236,7 @@ def payment_scope_years(market: str = "KOSPI") -> list[int]:
     return [r[0] for r in (rows or [])]
 
 
-def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, Any]:
+def payment_counts(corp_code: str, year_from: int, year_to: int, *, year_to_explicit: bool = False) -> dict[str, Any]:
     """회사 하나 — 결의 한 건 = 한 행(`decisions`)과 그것을 사업연도로 접은 것(`rows`).
 
     🔴 `dividend_type_filed` 를 그대로 낸다(판정값 아님) — 원문 표기가 어떻든 판정은
@@ -258,28 +258,95 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
 
     연도 집계는 SQL 이 아니라 여기서 접는다 — 같은 행을 두 번 읽지 않으려는 것이다
     (왕복 1회로 결의 원문과 연도 합계를 동시에 낸다).
+
+    구간의 끝 — 비12월 결산은 저장 해를 +1 해 결산 종료연도로 부르므로, 원장의 마지막 해(`year_to`)에 저장된 하반기 중간·분기배당 결의는
+    `year_to + 1` 해로 옮겨진다(6월 결산 사업연도 2026.07~2027.06 의 결의 → 2027). `year_to_explicit=False`(호출자가 끝을 지정하지 않음)이면
+    그 해까지 넓혀 결정공시 표에 ⚠️미완 해로 보인다 — 안 그러면 안내 없이 빠진다. 호출자가 끝을 지정했으면 구간을 지키되, 밖으로 밀린 결의의
+    수와 필요한 `year_to` 를 `out_of_range` 로 알린다(결의를 지우지 않는다).
     """
+    # 저장된 `fiscal_year` 는 12월 결산이면 결산 종료연도, **비12월 결산이면 사업연도 시작연도**다(수집기가 결산월 `acc_mt` 로 정한다) —
+    # 읽는 쪽에서 비12월 결산을 +1 해 결산 종료연도(원장·`dividend_disclosure` 와 같은 규칙)로 맞춘다. 요청 구간은 종료연도 기준이라
+    # 저장 해는 한 해 앞(`year_from - 1`)부터 읽고 옮긴 뒤에 구간으로 거른다.
     rows = _rows(
         """
         SELECT fiscal_year, board_date, record_date, dividend_type_filed, dividend_type,
-               dps_common, total_amount, rcept_no, amended, anomaly, has_special, remarks
+               dps_common, total_amount, rcept_no, amended, anomaly, has_special, remarks, acc_mt
           FROM div_payment
          WHERE corp_code = %s AND fiscal_year BETWEEN %s AND %s
          ORDER BY fiscal_year DESC, board_date DESC NULLS LAST, rcept_no DESC
         """,
-        (corp_code, year_from, year_to),
+        (corp_code, year_from - 1, year_to),
     )
     if rows is None:
         return {"status": "db_error"}
 
-    decisions = [
-        {"fiscal_year": r[0], "board_date": r[1], "record_date": r[2],
-         "dividend_type_filed": r[3], "dividend_type": r[4],
-         "dps_common": r[5], "total_amount": r[6], "rcept_no": r[7],
-         "amended": r[8], "anomaly": r[9], "has_special": r[10], "remarks": r[11]}
-        for r in rows
-    ]
+    decisions: list[dict[str, Any]] = []
+    shifts: list[int] = []
+    acc_months: set[int] = set()
+    end = year_to if year_to_explicit else year_to + 1
+    pushed_out: list[int] = []          # 옮긴 뒤 구간의 끝을 넘은 결의의 해(호출자가 끝을 지정한 경우만 생긴다)
+    for r in rows:
+        shift = stored_year_shift(r[12])
+        fy = r[0] + shift
+        if fy > end:
+            pushed_out.append(fy)
+        if not (year_from <= fy <= end):
+            continue
+        shifts.append(shift)
+        if shift:
+            acc_months.add(int(r[12]))
+        decisions.append({"fiscal_year": fy, "board_date": r[1], "record_date": r[2],
+                          "dividend_type_filed": r[3], "dividend_type": r[4],
+                          "dps_common": r[5], "total_amount": r[6], "rcept_no": r[7],
+                          "amended": r[8], "anomaly": r[9], "has_special": r[10], "remarks": r[11]})
+    if shifts and len(set(shifts)) > 1:
+        # 결산월이 다른 행이 한 회사에 섞이면(운영 실측 0사) 옮긴 해 번호로 SQL 과 같은 순서를 다시 만든다: 사업연도 ↓, 이사회결의일 ↓(빈 값 마지막), 접수번호 ↓.
+        decisions.sort(key=lambda d: d.get("rcept_no") or "", reverse=True)
+        decisions.sort(key=lambda d: (d.get("board_date") is not None, str(d.get("board_date") or "")), reverse=True)
+        decisions.sort(key=lambda d: d["fiscal_year"], reverse=True)
 
+    stored_complete = payment_scope_years()
+    out: dict[str, Any] = {
+        "status": "ok",
+        "complete_years": stored_complete,
+        "rows": _fold_payment_years(decisions),
+        "decisions": decisions,
+    }
+    moved = sum(1 for sh in shifts if sh)
+    if moved:
+        from open_proxy_mcp.services.dividend import FISCAL_YEAR_BASIS    # 지역 import — dividend 가 무거운 모듈이다
+        # 온전한 해(`div_payment_scope`)도 저장 해 번호라 같은 만큼 옮긴다: 결산 종료연도 T 는 저장 해 T-1 의 결의다. 12월 결산 행이 섞였으면(실측 0사) 두 번호 모두에서 온전한 해만.
+        shifted_complete = sorted({y + 1 for y in stored_complete})
+        out["complete_years"] = shifted_complete if moved == len(shifts) else sorted(set(stored_complete) & set(shifted_complete))
+        out["fiscal_year_alignment"] = {
+            "end_month": next(iter(acc_months)) if len(acc_months) == 1 else None,
+            "basis": FISCAL_YEAR_BASIS,
+            "shifted_decisions": moved,
+            "stored_complete_years": stored_complete,
+        }
+    if pushed_out:
+        out["out_of_range"] = {"count": len(pushed_out), "fiscal_years": sorted(set(pushed_out)), "year_to_needed": max(pushed_out)}
+    beyond = max((d["fiscal_year"] for d in decisions), default=0)
+    if beyond > year_to:
+        out["beyond_ledger_year"] = beyond
+    return out
+
+
+def stored_year_shift(acc_mt: Any) -> int:
+    """`div_payment.fiscal_year`(저장 해) → 결산 종료연도로 옮길 해 수. 12월 결산(·결산월을 모르는 행)은 0, 그 밖은 +1. (DATA-FY1)
+
+    결정공시 수집기는 결산월(`acc_mt`)로 사업연도를 정하고 **비12월 결산은 시작연도로 부른다**(DART `bsns_year` 와 같은 쪽):
+    3월 결산 2025.04~2026.03 은 저장 2025, 결산 종료연도로는 2026. 운영 비12월 결산 129행(2·3·6·7·8·9·11월 결산 25사)에서 `저장 해 + 1` 은
+    `dividend._bucket_fiscal_year(결의, 결산월)`(`dividend_disclosure` 가 쓰는 공용 귀속 함수)과 한 행도 다르지 않았다. 결산월을 모르면(None) 옮기지 않는다 — 12 로 메우지 않는다.
+    """
+    try:
+        return 1 if acc_mt is not None and int(acc_mt) != 12 else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def _fold_payment_years(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """결의 한 건 = 한 행 목록 → 사업연도별 한 줄(최신 해 먼저). 결의 목록의 `fiscal_year` 는 이미 결산 종료연도로 옮긴 번호다."""
     agg: dict[int, dict[str, Any]] = {}
     for d in decisions:
         a = agg.setdefault(d["fiscal_year"], {
@@ -300,13 +367,7 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
     for a in agg.values():
         a["kinds_filed"].sort()
         a["anomalies"].sort()
-
-    return {
-        "status": "ok",
-        "complete_years": payment_scope_years(),
-        "rows": [agg[fy] for fy in sorted(agg, reverse=True)],
-        "decisions": decisions,
-    }
+    return [agg[fy] for fy in sorted(agg, reverse=True)]
 
 
 # ── 결정공시 비고 원문 — DB 가 NULL 이면 콜드 서빙본에서 (261021) ──────────────────────────────
@@ -390,8 +451,9 @@ def payment_history(pairs: list[tuple[str, str | None]], year_from: int, year_to
                  WHERE corp_code = ANY(%s) GROUP BY 1, 2)
         SELECT i.corp_code, y.fy, cnt.n, COALESCE(a.acc_mt, 12), l.first_seen_dd, l.before_window
           FROM input i CROSS JOIN years y
-          LEFT JOIN cnt ON cnt.corp_code = i.corp_code AND cnt.fiscal_year = y.fy
           LEFT JOIN acc a ON a.corp_code = i.corp_code
+          LEFT JOIN cnt ON cnt.corp_code = i.corp_code
+                       AND cnt.fiscal_year + CASE WHEN COALESCE(a.acc_mt, 12) <> 12 THEN 1 ELSE 0 END = y.fy
           LEFT JOIN krx_listing l ON l.ticker = i.ticker
          ORDER BY i.corp_code, y.fy
         """,
@@ -600,8 +662,10 @@ def screen(
         where.append("dps_krw >= %s"); where_params.append(min_dps)
     if min_payments is not None and min_payments > 0:
         where.append(
+            # 저장 해(`p.fiscal_year`)는 비12월 결산이면 시작연도라 +1 해야 원장 `bsns_year`(결산 종료연도)와 같은 번호다(`stored_year_shift`, DATA-FY1). 12월 결산·결산월 없는 행은 그대로.
             "(SELECT COUNT(*) FROM div_payment p "
-            " WHERE p.corp_code = yr.corp_code AND p.fiscal_year = yr.bsns_year) >= %s")
+            " WHERE p.corp_code = yr.corp_code "
+            "   AND p.fiscal_year + CASE WHEN COALESCE(p.acc_mt, 12) <> 12 THEN 1 ELSE 0 END = yr.bsns_year) >= %s")
         where_params.append(min_payments)
 
     cols = ("t.corp_code, t.name, t.tickers, t.dps_krw, t.div_total_krw, t.payout_pct, t.rcept_no, t.n_periods, t.copy_guard, "
