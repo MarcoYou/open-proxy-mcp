@@ -8,7 +8,7 @@ data_source: [컨센서스 추정치 스냅샷 저장분 (외부 벤더 원천 +
 related_disclosures: []
 related_concepts: [당기순이익, ROE, 배당수익률, PER-PBR, 시가총액, 연결-별도, 단위-표기-규약]
 created: 2026-08-30
-updated: 2026-10-18
+updated: 2026-10-23
 ---
 
 # forward_estimates_data
@@ -147,7 +147,7 @@ forward_estimates_data(universe="삼성전자, SK하이닉스, 알테오젠")
 버리고 원인을 말하지 않는다. 부호 중립이라 **상향에도 붙는다** — 260921 실측 51종목 중 21종목이
 상향이었다. 원인이 궁금하면 [[corporate_restructuring]] 으로 공시를 볼 것.
 
-status: `ok` / `no_estimates`(유니버스에 추정 보유 종목이 없음) / `no_data`(유니버스 해석 실패 — 경고에 이유) / `db_error` / `db_unconfigured` / `invalid`(window·period_type).
+status: `ok` / `no_estimates`(유니버스에 추정 보유 종목이 없음) / `no_data`(유니버스 해석 실패, 또는 해석은 됐지만 종목이 0개 — 경고에 이유) / `db_error` / `db_unconfigured` / `invalid`(window·period_type).
 
 ## 배수 정의 — `price_multiple_data` 와 맞췄다
 **PER = 보통주 시총 ÷ 지배주주순이익.** `fwd` 원본(`fwd_per`)은 주가÷EPS 인데 그 식은 260823 에

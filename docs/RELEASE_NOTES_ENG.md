@@ -26,6 +26,24 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 - When the common shares pay nothing (0) and only a class share pays, the class share's value is no longer reported as the common DPS (applies to the annual-report summary, the trend table and the quarterly cumulative path alike). Companies whose common shares pay a dividend are unchanged.
 - Tool names, arguments, existing response keys and the tool count are unchanged (only new keys are added).
 
+### `provisional_earnings` — [correction] tables are read by section and column header, and structure-change corrections become latest candidates
+
+- In an earnings-correction table, when the current-period amount cell was empty, the tool used to read the same-named row from a later change-rate section (a percentage) as the current value and present it like an amount. It now follows the section header rows and takes only rows from the current-period section as amounts.
+- The before/after columns are fixed by the header row. When the "after" cell is "-" or blank, the before value is no longer reported as the current value; the field stays empty and the before value is kept only in the prior-value field.
+- Corrections whose title carries a prefix, such as "[기재정정]매출액또는손익구조…", are now recognised as structure-change disclosures. Previously they dropped out of the candidates and the uncorrected original could be returned as the latest.
+- Disclosures without corrections and the standard two-column (before | after) correction table give the same values; response keys, shape and DART call counts are unchanged.
+
+### `forward_estimates_data` — a universe with zero stocks no longer turns into the whole-market table
+
+- In the consensus revision screen, when a universe was resolved but contained zero matching stocks, the empty list used to be read as "all stocks" and a whole-market revision table could come back under that universe's name. It now answers `no_data` with a warning explaining why.
+- Responses for universes that do contain stocks (such as "KOSPI all") are unchanged.
+
+### `financial_metrics` — an adverse audit opinion is no longer counted as a clean one
+
+- The audit-opinion check matched on a substring, so "부적정" (adverse), which contains "적정" (unqualified), was counted as clean. That switched off the non-clean-opinion alert (`non_clean_audit_opinion`) and the opinion-change alert (`audit_opinion_change`) and made the `audit_opinion` summary report everything clean (`all_clean`). An opinion is now clean only when, after trimming whitespace and a trailing "의견", it is exactly "적정".
+- The placeholder row "해당사항없음" (not applicable) that can sit beside the real opinion row for the same year-end, and blank rows, are left out of the check (they used to count as non-clean and could raise the alert falsely). With no row left to judge, `all_clean` is null.
+- Responses for companies with an unqualified opinion are unchanged; no new keys and no extra DART calls.
+
 ### Operator notices can ride along on every tool response (no dedicated tool)
 
 - When the operator has an announcement (maintenance, a heads-up about a change), tool responses carry it. Markdown responses get a `> 📢 공지 (OPM <version> · <MM-DD>) …` block right under the `# title`; JSON responses get a top-level `notices` field (separate from `warnings`; a new key). With no notice, every tool's response is unchanged. Tool names, arguments, existing response keys and the tool count do not change.

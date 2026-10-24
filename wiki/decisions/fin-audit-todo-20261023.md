@@ -1,344 +1,367 @@
+---
+type: decision
+title: 재무 계열 도구 전수 점검 TODO — 확인된 결함 171건의 체크리스트
+date: 2026-10-23
+status: 진행 중 (261024) — P0 12건 닫힘(#212~#217), P1 1건 닫힘·2건 일부 닫힘, 나머지 열림. 닫힌 줄은 `[x]` 와 PR 번호로 표시
+related: [data-pitfalls, financial_metrics, financial_notes, provisional_earnings, price_multiple_data, forward_estimates_data, dividend_disclosure, dividend_data, asset_holdings, treasury_share, ownership_structure]
+---
+
 # 재무 계열 도구 전수 점검 TODO (2026-10-23)
 
-공개 DATA 문서(`data-pitfalls.md`) §5 체크리스트와 영역별 함정을 재무 계열 도구 8개(financial_metrics·financial_notes·provisional_earnings·price_multiple_data·forward_estimates_data·dividend_disclosure/dividend_data·asset_holdings·treasury_share/ownership_structure)의 코드(main a5453f6)와 대조한 결과다. 도구마다 점검자 1명이 찾고, 반박하는 쪽 검산자가 코드에서 다시 확인해 **확인된 것만** 실었다. 아직 고치지 않았다 — 각 줄이 다음 PR 의 할 일이다.
+공개 DATA 문서(`data-pitfalls.md`) §5 체크리스트와 영역별 함정을 재무 계열 도구 8개(financial_metrics·financial_notes·provisional_earnings·price_multiple_data·forward_estimates_data·dividend_disclosure/dividend_data·asset_holdings·treasury_share/ownership_structure)의 코드(점검 시점 main a5453f6)와 대조한 결과다. 도구마다 점검자 1명이 찾고, 반박하는 쪽 검산자가 코드에서 다시 확인해 **확인된 것만** 실었다. 각 줄이 PR 하나의 할 일이다. 10-24 에 상태를 다시 맞췄다 — P0 12건은 #212~#217 로 닫혔고(`[x]`), P1 은 현재 main(46be9b4)과 대조해 닫힘 1·일부 2 를 표시했다. P1 줄의 위치는 현재 main 기준으로 갱신했다(P0 위치는 점검 시점 a5453f6 그대로 두고, P2 는 아직 대조하지 않았다). P1 줄 머리의 `P1-#n` 은 P1 이 나오는 순서 번호다.
 
 확인 171건 · 반박(오탐·이미 처리) 7건
 
+2026-10-24 기준 P0 12 닫힘 · P1 1 닫힘·2 일부 · 남은 P1 92 · P2 64
+
 ## 도구별 요약
 
-| 도구 | 체크리스트 통과 | 남은 결함 | 한 줄 |
-|---|---|---|---|
-| financial_metrics | 2 | 30 | 공용 모듈(1)·조회 실패 구분(3)은 지키고 닫힌 결함 회귀도 없다. 표기(2)·as_of(4)·분기 단위 대조(5)는 부분적이다. 감사의견 「부적정」 오판이 P0 이고, 분기 Q4 QoQ·FCF 0 대체·기본 분기 연도가 큰 P1 이다 |
-| financial_notes | 3 | 19 | 계산하지 않는 도구라 1·4·6 은 통과다. partial 상태가 사실상 안 나오고 노드 fetch 실패를 「주석 없음」으로 낸다. 분모 단위 미대조(5)와 period/year 해석 구멍이 남았다 |
-| provisional_earnings | 2 | 21 | DATA-U1·API1·FY1 고침은 살아 있다. 정정 표 파서 P0 둘(증감율을 금액으로 읽음, '-'면 정정전 값)과 I001 [기재정정] 누락 P0 가 있다. 단위 대조(5)는 없고 지배순이익 선택(1)도 자체 라벨이다 |
-| price_multiple_data | 3 | 24 | 공용 모듈·PIT·보고서 단위 대조는 잘 지켜진다. DB·DART 보조 읽기 실패를 「없음」으로 쓰는 곳이 많다. firm 과 곡선 정의 불일치(자본잠식·TTM 표기), 매출 이중 보정(P1)이 남았다 |
-| forward_estimates_data | 3 | 15 | FWD1~3 고침은 유지된다. 빈 유니버스가 전 종목 표로 바뀌는 P0 가 있다. all 에서 FY 실적 잘림, 적자 PER 사유, PBR·PEG·배당수익률의 분할 함정이 P1 이다 |
-| dividend_disclosure · dividend_data | 3 | 15 | DIV1·3·4·5·7·8 고침은 살아 있다. 비12월 결산 사업연도 귀속 두 곳과 분기·중간배당의 옛 보통주 규칙이 P0 다. 정기보고서·결정공시 실패 삼킴과 리츠 성향 혼합이 P1 이다 |
-| asset_holdings | 2 | 17 | 닫힌 결함 회귀는 없다. 원문 실패를 「기재 없음」으로 단정하는 P0 와 DART 오류 전부 삼킴, 분기 재시도 죽은 코드, 단위 대조(5) 부재가 남았다. 비KRW 분기 환율 기준일은 P1 로 낮췄다 |
-| ownership_structure · treasury_share | 2 | 28 | PX9 와 261018 고침은 유지된다. as_of 가 5% 블록·사업연도 선택에 빠진 P0 둘과 최대주주를 지분 최대 행으로 고르는 P0 가 있다. 실패를 0 으로 쓰는 곳, 자사주 칸 이름 불일치, 정정 중복 합산이 P1 이다 |
+| 도구 | 체크리스트 통과 | 발견(10-23) | 10-24 현재 | 한 줄(10-23 점검 시점) |
+|---|---|---|---|---|
+| financial_metrics | 2 | 32 | P0 1 닫힘 · 남은 P1 20 · P2 11 | 공용 모듈(1)·조회 실패 구분(3)은 지키고 닫힌 결함 회귀도 없다. 표기(2)·as_of(4)·분기 단위 대조(5)는 부분적이다. 감사의견 「부적정」 오판이 P0 이고, 분기 Q4 QoQ·FCF 0 대체·기본 분기 연도가 큰 P1 이다 |
+| financial_notes | 3 | 18 | 남은 P1 13 · P2 5 | 계산하지 않는 도구라 1·4·6 은 통과다. partial 상태가 사실상 안 나오고 노드 fetch 실패를 「주석 없음」으로 낸다. 분모 단위 미대조(5)와 period/year 해석 구멍이 남았다 |
+| provisional_earnings | 2 | 20 | P0 3 닫힘 · P1 1 일부 · 남은 P1 10 · P2 6 | DATA-U1·API1·FY1 고침은 살아 있다. 정정 표 파서 P0 둘(증감율을 금액으로 읽음, '-'면 정정전 값)과 I001 [기재정정] 누락 P0 가 있다. 단위 대조(5)는 없고 지배순이익 선택(1)도 자체 라벨이다 |
+| price_multiple_data | 3 | 26 | 남은 P1 13 · P2 13 | 공용 모듈·PIT·보고서 단위 대조는 잘 지켜진다. DB·DART 보조 읽기 실패를 「없음」으로 쓰는 곳이 많다. firm 과 곡선 정의 불일치(자본잠식·TTM 표기), 매출 이중 보정(P1)이 남았다 |
+| forward_estimates_data | 3 | 16 | P0 1 닫힘 · 남은 P1 8 · P2 7 | FWD1~3 고침은 유지된다. 빈 유니버스가 전 종목 표로 바뀌는 P0 가 있다. all 에서 FY 실적 잘림, 적자 PER 사유, PBR·PEG·배당수익률의 분할 함정이 P1 이다 |
+| dividend_disclosure · dividend_data | 3 | 15 | P0 3 닫힘 · 남은 P1 6 · P2 6 | DIV1·3·4·5·7·8 고침은 살아 있다. 비12월 결산 사업연도 귀속 두 곳과 분기·중간배당의 옛 보통주 규칙이 P0 다. 정기보고서·결정공시 실패 삼킴과 리츠 성향 혼합이 P1 이다 |
+| asset_holdings | 2 | 18 | P0 1 닫힘 · P1 1 닫힘·1 일부 · 남은 P1 10 · P2 5 | 닫힌 결함 회귀는 없다. 원문 실패를 「기재 없음」으로 단정하는 P0 와 DART 오류 전부 삼킴, 분기 재시도 죽은 코드, 단위 대조(5) 부재가 남았다. 비KRW 분기 환율 기준일은 P1 로 낮췄다 |
+| ownership_structure · treasury_share | 2 | 26 | P0 3 닫힘 · 남은 P1 12 · P2 11 | PX9 와 261018 고침은 유지된다. as_of 가 5% 블록·사업연도 선택에 빠진 P0 둘과 최대주주를 지분 최대 행으로 고르는 P0 가 있다. 실패를 0 으로 쓰는 곳, 자사주 칸 이름 불일치, 정정 중복 합산이 P1 이다 |
+
+## 다음 묶음 (같은 함수·원인으로 한 PR 에 고칠 것)
+
+번호는 `P1-#n` 이다. 이미 닫힌 줄은 넣지 않았다.
+
+1. **조회 실패를 「없음」으로 삼킴** — P1-#2·#3(asset_holdings), #15·#16(dividend_disclosure), #28·#29(financial_metrics), #40·#42(financial_notes), #62(ownership_structure), #69·#70(price_multiple_data), #85(provisional_earnings), #90·#91·#94(treasury_share). 공통 고침은 「없음 응답(is_no_data)만 빈 값, 나머지는 경고 + partial」이다.
+2. **financial_metrics 분기·기간 어긋남** — P1-#19·#23·#31·#32·#33·#34·#36, price_multiple_data P1-#71. 분기 대체·누적값·연결/별도가 섞인 채 비율과 알림을 계산하는 줄들이다.
+3. **financial_metrics 한쪽만 읽히면 0 더함·경고 기준** — P1-#21·#37·#27·#25·#26. 없는 칸을 0 으로 채워 FCF·EBITDA·배당 중단 판정을 만드는 줄과 알림 문턱 설명이 코드와 다른 줄이다.
+4. **financial_notes 보고서 고르기** — P1-#43·#44·#45·#51·#42. 기수 검사 없이 직전 분기·전환기 보고서를 고르는 줄들이다(#42 는 묶음 1 과 겹친다).
+5. **forward_estimates 배수 계산** — P1-#53·#54·#55·#58·#56·#57. 적자 PER, 분할 뒤 옛 BPS, 지운 칸과 남은 칸의 불일치, 0.0 반올림, basis 표기 누락이다.
 
 ## TODO (심각도 순 — P0 값이 틀림 · P1 오해 유발 · P2 표기)
 
-- [ ] **P0 · asset_holdings** — 원문·viewer 조회가 모두 실패하면 빈 note 로 detail 4항목을 「주석에 기재 없음」으로 단정
+- [x] **P0 · asset_holdings** — 원문·viewer 조회가 모두 실패하면 빈 note 로 detail 4항목을 「주석에 기재 없음」으로 단정 → #217 에서 닫음
   - 위치: `services/asset_holdings.py:_safe_getdoc 521~533 + asset_valuation._absence_verdict` · DATA: DATA-U3
   - 고칠 방향: 빈 문서는 fetch_failed 로 표시하고 absence_kind 를 not_collected 로 둔다
-- [ ] **P0 · dividend_disclosure** — 결정공시 사업연도 귀속이 12월 결산 가정(end_month 없음) — 3월 결산 결산배당이 FY-1 로, 6·9월 결산 중간배당이 다른 해로 묶인다
+- [x] **P0 · dividend_disclosure** — 결정공시 사업연도 귀속이 12월 결산 가정(end_month 없음) — 3월 결산 결산배당이 FY-1 로, 6·9월 결산 중간배당이 다른 해로 묶인다 → #216 에서 닫음
   - 위치: `services/dividend.py:_bucket_fiscal_year 1138~1190` · DATA: DATA-FY1
   - 고칠 방향: end_month 를 받아 기준일이 속한 사업연도(결산 종료연도)로 귀속한다
-- [ ] **P0 · dividend_disclosure** — 비12월 결산에서 bsns_year(요청)와 stlm_dt FY 가 한 해 어긋나 요약은 확정 DPS 인데 추이표는 같은 해를 「미결의 0」으로 낸다
+- [x] **P0 · dividend_disclosure** — 비12월 결산에서 bsns_year(요청)와 stlm_dt FY 가 한 해 어긋나 요약은 확정 DPS 인데 추이표는 같은 해를 「미결의 0」으로 낸다 → #216 에서 닫음
   - 위치: `services/dividend.py:build_dividend_payload 1436~1670 ↔ _annual_summary 252~274` · DATA: DATA-FY1
   - 고칠 방향: year_list·미결의 판정을 stlm_dt 기반 FY 로 통일한다
-- [ ] **P0 · dividend_disclosure** — 옛 규칙(우선주만 제외, v>0 이면 덮어씀)으로 종류주식 DPS 가 보통주를 덮는다(요약 쪽 split_by_share_class 와 불일치)
+- [x] **P0 · dividend_disclosure** — 옛 규칙(우선주만 제외, v>0 이면 덮어씀)으로 종류주식 DPS 가 보통주를 덮는다(요약 쪽 split_by_share_class 와 불일치) → #216 에서 닫음
   - 위치: `services/dividend.py:_common_cash_dps_from_items 897~909, _cum_full_from_items 942~968, _interim_dividend_from_quarterly 870~880` · DATA: DATA-EQ4
   - 고칠 방향: 세 곳 모두 split_by_share_class 로 보통주를 고른다
-- [ ] **P0 · financial_metrics** — 「부적정」 안에 「적정」 부분 문자열이 있어 non_clean_audit_opinion·audit_opinion_change 가 안 켜지고 all_clean=true; 「해당사항없음」 행은 비적정으로 잡힘
+- [x] **P0 · financial_metrics** — 「부적정」 안에 「적정」 부분 문자열이 있어 non_clean_audit_opinion·audit_opinion_change 가 안 켜지고 all_clean=true; 「해당사항없음」 행은 비적정으로 잡힘 → #212 에서 닫음
   - 위치: `services/financial_metrics.py:_detect_yoy_signals 1562~1569, _build_audit_opinion_data 2721, _next_actions 3885` · DATA: new
   - 고칠 방향: 의견을 정규화해 정확 일치(op == '적정')로 판정하고 「해당사항없음」 행은 판정 대상에서 뺀다
-- [ ] **P0 · forward_estimates_data** — 유니버스가 resolved=True·rows=[] 이면 codes=None 이 되어 전 종목 리비전 표가 그 유니버스 이름으로 나감
+- [x] **P0 · forward_estimates_data** — 유니버스가 resolved=True·rows=[] 이면 codes=None 이 되어 전 종목 리비전 표가 그 유니버스 이름으로 나감 → #213 에서 닫음
   - 위치: `services/forward_estimates.py:build_revision_screen_payload 960~963` · DATA: new
   - 고칠 방향: codes 가 비면 no_data 로 즉시 돌려준다
-- [ ] **P0 · ownership_structure** — 보고자별 최신을 날짜 제한 없이 고른 뒤 as_of 로 걸러 과거 시점의 보유자가 사라지고 목적은 미래 원문에서 읽는다
+- [x] **P0 · ownership_structure** — 보고자별 최신을 날짜 제한 없이 고른 뒤 as_of 로 걸러 과거 시점의 보유자가 사라지고 목적은 미래 원문에서 읽는다 → #214 에서 닫음
   - 위치: `services/ownership_structure.py:_latest_block_rows 722~743 + build 1483~1487` · DATA: DATA-PIT9
   - 고칠 방향: latest_by_reporter 를 고를 때 report_date <= end_ymd 인 보고만 본다
-- [ ] **P0 · ownership_structure** — as_of 사업연도를 as_of.year-1 로 고정해 기준일에 미제출이던 사업보고서를 쓰고 _compare_latest 는 as_of 를 안 본다
+- [x] **P0 · ownership_structure** — as_of 사업연도를 as_of.year-1 로 고정해 기준일에 미제출이던 사업보고서를 쓰고 _compare_latest 는 as_of 를 안 본다 → #214 에서 닫음
   - 위치: `services/ownership_structure.py:1338~1340, 1574` · DATA: DATA-PIT8
   - 고칠 방향: report_calendar.latest_annual(as_of, 결산월)로 연도를 정하고 as_of 면 최신 비교를 끈다
-- [ ] **P0 · ownership_structure** — 최대주주를 지분율 최대 행으로 정해 본인보다 특수관계인이 많으면 특수관계인이 최대주주로 표시
+- [x] **P0 · ownership_structure** — 최대주주를 지분율 최대 행으로 정해 본인보다 특수관계인이 많으면 특수관계인이 최대주주로 표시 → #214 에서 닫음
   - 위치: `services/ownership_structure.py:_major_holders_rows 164 / _top_holder_summary 289~292` · DATA: new
   - 고칠 방향: relate=='본인' 행을 최대주주로 쓰고 없을 때만 최대 지분 행
-- [ ] **P0 · provisional_earnings** — 정정 표에 당기 행이 없으면 뒤 절(증감율 등)의 같은 라벨 행을 현재값으로 채택해 %가 금액으로 나가고 gap 까지 계산
+- [x] **P0 · provisional_earnings** — 정정 표에 당기 행이 없으면 뒤 절(증감율 등)의 같은 라벨 행을 현재값으로 채택해 %가 금액으로 나가고 gap 까지 계산 → #215 에서 닫음
   - 위치: `services/provisional_earnings.py:_correction_headline 192~216` · DATA: new
   - 고칠 방향: 절(당기실적/전기/증감율) 머리를 추적해 당기 절 행만 채택한다
-- [ ] **P0 · provisional_earnings** — 정정후 칸이 '-'면 숫자 필터가 버려 정정전 값이 value_krw 로 나간다
+- [x] **P0 · provisional_earnings** — 정정후 칸이 '-'면 숫자 필터가 버려 정정전 값이 value_krw 로 나간다 → #215 에서 닫음
   - 위치: `services/provisional_earnings.py:_correction_headline 209~215` · DATA: DATA-U3
   - 고칠 방향: 정정전·정정후 열 위치를 머리 행으로 정하고 정정후 칸이 비면 None
-- [ ] **P0 · provisional_earnings** — startswith 라 「[기재정정]매출액또는손익구조…」가 후보에서 빠져 정정 전 원공시가 최신으로 나간다
+- [x] **P0 · provisional_earnings** — startswith 라 「[기재정정]매출액또는손익구조…」가 후보에서 빠져 정정 전 원공시가 최신으로 나간다 → #215 에서 닫음
   - 위치: `services/provisional_earnings.py:_is_structure_change_report 112~120 → _find_provisional_candidates 394` · DATA: DATA-PIT1
   - 고칠 방향: [기재정정]·[첨부정정] 등 접두를 떼고 판정한다
-- [ ] **P1 · asset_holdings** — 비KRW 회사 반기·분기 BS 를 사업연도 말(현재 연도면 미래일) 환율로 환산하고 경고도 「기말환율」
-  - 위치: `services/asset_holdings.py:_build_asset_holdings_payload_impl 719~729` · DATA: DATA-FX2
+- [ ] **P1-#1 · asset_holdings** — 비KRW 회사 반기·분기 BS 를 사업연도 말(현재 연도면 미래일) 환율로 환산하고 경고도 「기말환율」
+  - 위치: `services/asset_holdings.py:747-773 (fx_to_krw 756, 경고문 770)` · DATA: DATA-FX2
   - 고칠 방향: _period_end(report_nm) 를 환율 기준일로 쓴다
-- [ ] **P1 · asset_holdings** — DartClientError(013·020·800)를 모두 빈 응답으로 삼켜 틀린 폴백 사유·NAV 기준 변경·금융업 판정 해제
-  - 위치: `services/asset_holdings.py:_fin_acnt 633~641, get_company_info 658~662, get_other_corp_investment 673~676` · DATA: DATA-API1
+- [ ] **P1-#2 · asset_holdings** — DartClientError(013·020·800)를 모두 빈 응답으로 삼켜 틀린 폴백 사유·NAV 기준 변경·금융업 판정 해제
+  - 위치: `services/asset_holdings.py:657-665 · 683-686 · 697-700` · DATA: DATA-API1
   - 고칠 방향: is_no_data 일 때만 빈 값, 나머지는 경고·status partial
-- [ ] **P1 · asset_holdings** — 013 은 raise 되므로 분기 코드 재시도 줄이 죽은 코드이고 12월 가정이라 6·9월 결산 분기 코드가 반대
-  - 위치: `services/asset_holdings.py:_fin_acnt 633~641, _reprt_code_of 560~571` · DATA: new
+- [ ] **P1-#3 · asset_holdings** — 013 은 raise 되므로 분기 코드 재시도 줄이 죽은 코드이고 12월 가정이라 6·9월 결산 분기 코드가 반대
+  - 위치: `services/asset_holdings.py:657-665 · 584-595` · DATA: new
   - 고칠 방향: 재시도를 except is_no_data 안으로 옮기고 결산월로 분기 코드를 정한다
-- [ ] **P1 · asset_holdings** — haircut_flags 가 status==MARKDOWN 만 보고 absence_kind(extraction_failed 등)는 버려 못 읽음이 「없음」으로 읽힌다
-  - 위치: `services/asset_holdings.py:702·807 + tools haircut 렌더 100~104` · DATA: DATA-U3
+- [ ] **P1-#4 · asset_holdings** — haircut_flags 가 status==MARKDOWN 만 보고 absence_kind(extraction_failed 등)는 버려 못 읽음이 「없음」으로 읽힌다
+  - 위치: `services/asset_holdings.py:846 · tools/asset_holdings.py:128-143` · DATA: DATA-U3
+  - 상태: 일부 닫힘(#217 — 남은 것: 표를 못 읽은(extraction_failed) 경우는 여전히 v==MARKDOWN 만 보고 「감액 없음」으로 읽힘)
   - 고칠 방향: absence_kind 를 haircuts 에 남기고 extraction_failed 는 「판독 실패」로 표시
-- [ ] **P1 · asset_holdings** — 앞 경계 없는 이름+(비)상장 첫 일치라 다른 회사 이름 끝에 걸려 상장 여부가 뒤집힌다
-  - 위치: `services/asset_holdings.py:_doc_listed 275~283` · DATA: new
+- [ ] **P1-#5 · asset_holdings** — 앞 경계 없는 이름+(비)상장 첫 일치라 다른 회사 이름 끝에 걸려 상장 여부가 뒤집힌다
+  - 위치: `services/asset_holdings.py:275-283` · DATA: new
   - 고칠 방향: 이름 앞에 경계(표 칸 시작·비한글)를 요구하고 일치 실패는 None(모름)
-- [ ] **P1 · asset_holdings** — 원문이 비면 모든 상장 보유분이 비상장 장부가로 합산되고 경고 없음
-  - 위치: `services/asset_holdings.py:_safe_getdoc → _mark_listed_stakes 320~340` · DATA: DATA-U3
+- [x] **P1-#6 · asset_holdings** — 원문이 비면 모든 상장 보유분이 비상장 장부가로 합산되고 경고 없음 → #217 에서 닫음
+  - 위치: `services/asset_holdings.py:521-534 · 708-716` · DATA: DATA-U3
+  - 남은 좁은 틈: viewer 가 응답은 했는데 내용이 비어 있는 경우는 실패로 안 봄.
   - 고칠 방향: doc_text 가 비면 상장 판정을 unresolved 로 두고 경고한다
-- [ ] **P1 · asset_holdings** — 분모가 보통주 시총이고 기준일 미표기, 과거 보고서에도 오늘 시총
-  - 위치: `services/asset_holdings.py:_market_cap 536~548 + tools 렌더 52` · DATA: DATA-PX4
+- [ ] **P1-#7 · asset_holdings** — 분모가 보통주 시총이고 기준일 미표기, 과거 보고서에도 오늘 시총
+  - 위치: `services/asset_holdings.py:560-572 · tools/asset_holdings.py:50` · DATA: DATA-PX4
   - 고칠 방향: 「보통주 시총 @날짜」로 표기하고 과거 보고서면 경고
-- [ ] **P1 · asset_holdings** — 종류 구분 없이 보통주 코드 가격으로 우선주 보유분을 평가할 수 있다
-  - 위치: `services/asset_holdings.py:_mark_listed_stakes 345~355·426~441` · DATA: DATA-ID2
+- [ ] **P1-#8 · asset_holdings** — 종류 구분 없이 보통주 코드 가격으로 우선주 보유분을 평가할 수 있다
+  - 위치: `services/asset_holdings.py:354 · 426-441` · DATA: DATA-ID2
   - 고칠 방향: 같은 법인 다중 행이면 종류를 확인하거나 unresolved 로 둔다
-- [ ] **P1 · asset_holdings** — 장부가>피투자사 총자산×1.05 행을 흔적 없이 버린다
-  - 위치: `services/asset_holdings.py:_mark_listed_stakes 330~331` · DATA: DATA-SC1
+- [ ] **P1-#9 · asset_holdings** — 장부가>피투자사 총자산×1.05 행을 흔적 없이 버린다
+  - 위치: `services/asset_holdings.py:330-331` · DATA: DATA-SC1
   - 고칠 방향: 버리지 말고 unresolved 로 넣어 사유를 남긴다
-- [ ] **P1 · asset_holdings** — BS·출자 금액에 scale_guard 보고서 대조가 없다
-  - 위치: `services/asset_holdings.py 전반` · DATA: DATA-SC1
+- [ ] **P1-#10 · asset_holdings** — BS·출자 금액에 scale_guard 보고서 대조가 없다
+  - 위치: `services/asset_holdings.py (scale_guard 호출 없음)` · DATA: DATA-SC1
   - 고칠 방향: financial_metrics 와 같은 reconcile_report_scales 를 적용한다
-- [ ] **P1 · asset_holdings** — surplus_cov=0.0 이 거짓으로 처리돼 「시총 없어 배수 미산출」, 환율 실패도 같은 문구
-  - 위치: `tools/asset_holdings.py:_render 62~68 · _f` · DATA: DATA-U3
+- [ ] **P1-#11 · asset_holdings** — surplus_cov=0.0 이 거짓으로 처리돼 「시총 없어 배수 미산출」, 환율 실패도 같은 문구
+  - 위치: `tools/asset_holdings.py:59-68` · DATA: DATA-U3
   - 고칠 방향: is not None 으로 판정하고 사유별 문구를 쓴다
-- [ ] **P1 · asset_holdings** — 표 제목 「감사 연결 BS」 고정(OFS·검토 분기에도)
-  - 위치: `tools/asset_holdings.py:_render 40` · DATA: DATA-Q5
+- [ ] **P1-#12 · asset_holdings** — 표 제목 「감사 연결 BS」 고정(OFS·검토 분기에도)
+  - 위치: `tools/asset_holdings.py:40` · DATA: DATA-Q5
   - 고칠 방향: fs_div·보고서 종류로 제목을 만든다
-- [ ] **P1 · dividend_data** — 리츠 사업연도 줄에 DPS 는 결산기 합, 배당성향은 마지막 결산기 한 칸이 섞여 거르기·평균에 쓰인다
-  - 위치: `services/dividend_data.py:_YEAR_SQL 108 → screen·aggregate_history` · DATA: DATA-Q6
+- [ ] **P1-#13 · dividend_data** — 리츠 사업연도 줄에 DPS 는 결산기 합, 배당성향은 마지막 결산기 한 칸이 섞여 거르기·평균에 쓰인다
+  - 위치: `services/dividend_data.py:88-109 (payout_pct 106) · 108` · DATA: DATA-Q6
   - 고칠 방향: 성향을 합계 기준으로 다시 계산하거나 마지막 결산기 값임을 표기하고 리츠는 성향 거르기에서 뺀다
-- [ ] **P1 · dividend_data** — 업종 최신 스냅샷을 전 연도에 소급, 시장은 현재 모집단으로 세는데 표기 없음
-  - 위치: `services/dividend_data.py:aggregate_history 418~460 · tools _render_agg` · DATA: DATA-SEC2
+- [ ] **P1-#14 · dividend_data** — 업종 최신 스냅샷을 전 연도에 소급, 시장은 현재 모집단으로 세는데 표기 없음
+  - 위치: `services/dividend_data.py:480-523 · tools/dividend_data.py:333-350` · DATA: DATA-SEC2
   - 고칠 방향: sector_asof·소급·생존편향 각주를 렌더에 싣는다
-- [ ] **P1 · dividend_disclosure** — alotMatter 조회 DartClientError 를 상태 구분 없이 continue 로 삼켜 실패가 「보고서 없음/무배당(확정)」이 된다
-  - 위치: `services/dividend.py:_quarterly_full_from_cumulative 984~989 등 4곳` · DATA: DATA-API1
+- [ ] **P1-#15 · dividend_disclosure** — alotMatter 조회 DartClientError 를 상태 구분 없이 continue 로 삼켜 실패가 「보고서 없음/무배당(확정)」이 된다
+  - 위치: `services/dividend.py:902 · 957 · 1031 (+ _annual_summary 296)` · DATA: DATA-API1
   - 고칠 방향: is_no_data 일 때만 건너뛰고 나머지는 fetch_failed 로 올린다
-- [ ] **P1 · dividend_disclosure** — 결정공시 본문 조회·파싱 실패를 버리고 parsing_failures=0 하드코딩
-  - 위치: `services/dividend.py:_decision_details._fetch 180~190, filing_meta 1743~1747` · DATA: DATA-API1
+- [ ] **P1-#16 · dividend_disclosure** — 결정공시 본문 조회·파싱 실패를 버리고 parsing_failures=0 하드코딩
+  - 위치: `services/dividend.py:223-228 · 1895-1899` · DATA: DATA-API1
   - 고칠 방향: 실패 건수를 세어 build_filing_meta 에 넘기고 경고한다
-- [ ] **P1 · dividend_disclosure** — 미결의만 '-' 이고 확정 전·미공시·중간배당 확정(pending) 행은 「0원」으로 표기
-  - 위치: `tools/dividend_disclosure.py:_render history 295` · DATA: DATA-U3
+- [ ] **P1-#17 · dividend_disclosure** — 미결의만 '-' 이고 확정 전·미공시·중간배당 확정(pending) 행은 「0원」으로 표기
+  - 위치: `tools/dividend_disclosure.py:300-301` · DATA: DATA-U3
   - 고칠 방향: pending_confirmation 행 전체를 '-'(미정)로 표기하고 interim_dps 를 보인다
-- [ ] **P1 · dividend_disclosure** — 현재가 배당수익률 주식 수 맞춤이 예외로 깨지면 경고 없이 옛 주식 기준으로 계산
-  - 위치: `services/dividend.py:build_dividend_payload 1577~1583` · DATA: DATA-DIV3
+- [ ] **P1-#18 · dividend_disclosure** — 현재가 배당수익률 주식 수 맞춤이 예외로 깨지면 경고 없이 옛 주식 기준으로 계산
+  - 위치: `services/dividend.py:1694-1709` · DATA: DATA-DIV3
   - 고칠 방향: except 에서 「주식 수 맞춤 실패」 경고를 추가한다
-- [ ] **P1 · financial_metrics** — Q4 차분 실패로 basis=annual_cumulative 인 행도 QoQ/YoY·마진·qoq 알림(operating_loss_quarter 등)을 3개월 값처럼 계산하고 렌더는 「양쪽 모두 standalone 3개월」로 고정 표기. 도구 페이지·DATA-Q2 는 「QoQ 를 계산하지 않는다」고 적음
-  - 위치: `services/financial_metrics.py:_build_quarterly 3037~3045·3106~3125 + _detect_qoq_alerts 3848~3869 + tools/_render_qoq 493` · DATA: DATA-Q2
+- [ ] **P1-#19 · financial_metrics** — Q4 차분 실패로 basis=annual_cumulative 인 행도 QoQ/YoY·마진·qoq 알림(operating_loss_quarter 등)을 3개월 값처럼 계산하고 렌더는 「양쪽 모두 standalone 3개월」로 고정 표기. 도구 페이지·DATA-Q2 는 「QoQ 를 계산하지 않는다」고 적음
+  - 위치: `services/financial_metrics.py:3065 (basis) · 3126-3150 (QoQ/YoY) · 3880 (_detect_qoq_alerts) · tools/financial_metrics.py:493` · DATA: DATA-Q2
   - 고칠 방향: basis=='annual_cumulative' 행과 그 다음 분기의 qoq_pct·yoy_pct·마진·qoq 알림을 None 으로 두고 렌더 문구를 행 basis 에 따르게 한다
-- [ ] **P1 · financial_metrics** — int(float()) 로 소수를 버려 외화 보고사의 EPS(예 USD 4.37→4)가 환산 전에 잘리고 1 미만은 0 으로 나감
-  - 위치: `services/financial_metrics.py:normalize_amount 221 → _build_account_map_all basic_eps/diluted_eps 805~811 → _normalize_currency _scale` · DATA: DATA-U3
+- [ ] **P1-#20 · financial_metrics** — int(float()) 로 소수를 버려 외화 보고사의 EPS(예 USD 4.37→4)가 환산 전에 잘리고 1 미만은 0 으로 나감
+  - 위치: `services/financial_metrics.py:221 · 806-811` · DATA: DATA-U3
   - 고칠 방향: EPS(주당 값)는 float 로 읽는 별도 정규화를 쓰고 환산 뒤에만 반올림한다
-- [ ] **P1 · financial_metrics** — CFO·CapEx 중 하나만 있으면 없는 쪽을 0 으로 FCF 를 만든다(FCF=CFO 또는 −CapEx). 내부 `if cfo is None and capex is None` 는 바깥 if 때문에 도달 불가한 죽은 코드. negative_fcf·fcf_margin·dividend_to_fcf 도 오염
-  - 위치: `services/financial_metrics.py:_compute_metrics 1184~1190` · DATA: DATA-U3
+- [ ] **P1-#21 · financial_metrics** — CFO·CapEx 중 하나만 있으면 없는 쪽을 0 으로 FCF 를 만든다(FCF=CFO 또는 −CapEx). 내부 `if cfo is None and capex is None` 는 바깥 if 때문에 도달 불가한 죽은 코드. negative_fcf·fcf_margin·dividend_to_fcf 도 오염
+  - 위치: `services/financial_metrics.py:1185-1189` · DATA: DATA-U3
   - 고칠 방향: cfo 와 capex 가 둘 다 있을 때만 FCF 를 계산하고 아니면 None + 누락 키 표시
-- [ ] **P1 · financial_metrics** — 전기 지배자본을 못 구하면 전기는 TOTAL_FALLBACK(비지배 포함)인데 당기 지배자본과 평균해 ROE 분모 기준이 섞이고 _prev_case 는 버려짐
-  - 위치: `services/financial_metrics.py:_compute_metrics _roe_equity 1024~1038` · DATA: DATA-EQ4
+- [ ] **P1-#22 · financial_metrics** — 전기 지배자본을 못 구하면 전기는 TOTAL_FALLBACK(비지배 포함)인데 당기 지배자본과 평균해 ROE 분모 기준이 섞이고 _prev_case 는 버려짐
+  - 위치: `services/financial_metrics.py:1024-1037` · DATA: DATA-EQ4
   - 고칠 방향: 당기·전기 case 가 다르면 평균하지 않고 당기 값만 쓰거나 ROE 를 비우고 prev case 를 응답에 싣는다
-- [ ] **P1 · financial_metrics** — 직전 보고서에 같은 CF 키가 없으면 차분하지 않고 누적값을 3개월 칸에 그대로 둔다(표시 없음)
-  - 위치: `services/financial_metrics.py:_fetch_year_metrics standalone 2554~2559` · DATA: DATA-Q1
+- [ ] **P1-#23 · financial_metrics** — 직전 보고서에 같은 CF 키가 없으면 차분하지 않고 누적값을 3개월 칸에 그대로 둔다(표시 없음)
+  - 위치: `services/financial_metrics.py:2578-2583` · DATA: DATA-Q1
   - 고칠 방향: pri_v 가 None 이면 detail_std[k]=None 으로 비우고 누락 키를 경고에 적는다
-- [ ] **P1 · financial_metrics** — quarterly/qoq 기본 연도가 today.year 인데 fiscal_year(끝나는 해)로 거르므로 비12월 결산사의 새 사업연도 분기(공시된 최신 분기)가 빠진다
-  - 위치: `services/financial_metrics.py:build_financial_metrics_payload 3515~3521 + _build_quarterly 2945~2946` · DATA: DATA-FY1
+- [ ] **P1-#24 · financial_metrics** — quarterly/qoq 기본 연도가 today.year 인데 fiscal_year(끝나는 해)로 거르므로 비12월 결산사의 새 사업연도 분기(공시된 최신 분기)가 빠진다
+  - 위치: `services/financial_metrics.py:3546 · 2972-2973` · DATA: DATA-FY1
   - 고칠 방향: 기본 end_year 를 report_calendar 로 결산월 기준 현재 사업연도(끝나는 해)로 잡는다
-- [ ] **P1 · financial_metrics** — 영업이익 ≤0 에서도 cfo_to_op_ratio·cfo_quality_red 를 낸다(_safe_ratio positive_denom_only 미사용). accruals_red 는 abs 로 역방향도 같은 문구
-  - 위치: `services/financial_metrics.py:_compute_metrics cfo_to_op_ratio 1191, _detect_yoy_signals 1543~1549` · DATA: new
+- [ ] **P1-#25 · financial_metrics** — 영업이익 ≤0 에서도 cfo_to_op_ratio·cfo_quality_red 를 낸다(_safe_ratio positive_denom_only 미사용). accruals_red 는 abs 로 역방향도 같은 문구
+  - 위치: `services/financial_metrics.py:1191 · 1527-1529 · 1566-1573` · DATA: new
   - 고칠 방향: cfo_to_op_ratio 에 positive_denom_only=True, accruals_red 는 이익>현금 방향만 켠다
-- [ ] **P1 · financial_metrics** — interest_coverage_low 문턱은 2배인데 설명은 「1배 미만」; roe_driven_by_leverage 는 수준(EM>2) 판정인데 설명은 변화
-  - 위치: `services/financial_metrics.py:_detect_yoy_signals 1489~1491, 1519~1521 · tools/financial_metrics.py _ALERT_KR 87·96` · DATA: new
+- [ ] **P1-#26 · financial_metrics** — interest_coverage_low 문턱은 2배인데 설명은 「1배 미만」; roe_driven_by_leverage 는 수준(EM>2) 판정인데 설명은 변화
+  - 위치: `services/financial_metrics.py:1513-1515 · 1548-1550 · tools/financial_metrics.py:87 · 96` · DATA: new
   - 고칠 방향: 문구를 「2배 미만」으로 고치고 레버리지 문구를 수준 표현으로 바꾼다(분자도 지배 기준 자산으로 맞춤 검토)
-- [ ] **P1 · financial_metrics** — 당기 배당 지급액 None(줄 못 찾음·조회 실패)을 0 과 같이 dividend_halt 로 판정
-  - 위치: `services/financial_metrics.py:_detect_yoy_signals 1572~1575` · DATA: DATA-U3
+- [ ] **P1-#27 · financial_metrics** — 당기 배당 지급액 None(줄 못 찾음·조회 실패)을 0 과 같이 dividend_halt 로 판정
+  - 위치: `services/financial_metrics.py:1597-1600` · DATA: DATA-U3
   - 고칠 방향: div_curr is not None and div_curr == 0 일 때만 켠다
-- [ ] **P1 · financial_metrics** — _annual_summary 의 오류(_err)와 모든 예외를 버려 조회 실패가 무배당과 같은 「-」로 나간다
-  - 위치: `services/financial_metrics.py:_accrual_payout_pct 1954~1963` · DATA: DATA-API1
+- [ ] **P1-#28 · financial_metrics** — _annual_summary 의 오류(_err)와 모든 예외를 버려 조회 실패가 무배당과 같은 「-」로 나간다
+  - 위치: `services/financial_metrics.py:1979-1982` · DATA: DATA-API1
   - 고칠 방향: _err·예외를 호출부로 올려 fetch_failures 에 세고 경고를 단다
-- [ ] **P1 · financial_metrics** — filing_count>0 이면 fetch_failed 가 무시돼 일부 조회 실패 응답이 EXACT 로 5분 캐시에 굳는다
-  - 위치: `services/financial_metrics.py:build_financial_metrics_payload ~3797~3845 + contracts.build_filing_meta` · DATA: DATA-API7
+- [ ] **P1-#29 · financial_metrics** — filing_count>0 이면 fetch_failed 가 무시돼 일부 조회 실패 응답이 EXACT 로 5분 캐시에 굳는다
+  - 위치: `services/financial_metrics.py:3830-3841 · services/contracts.py:34-60` · DATA: DATA-API7
   - 고칠 방향: fetch_failures>0 이면 status=PARTIAL·skip_cache=True 로 한다
-- [ ] **P1 · financial_metrics** — 순이익 라벨이 「(지배)」 고정이라 net_income_basis=total_incl_nci 로 물러난 값도 지배로 표기
-  - 위치: `tools/financial_metrics.py:_render_summary 224, _render_yoy 450, _render_yearly 376` · DATA: DATA-NI2
+- [ ] **P1-#30 · financial_metrics** — 순이익 라벨이 「(지배)」 고정이라 net_income_basis=total_incl_nci 로 물러난 값도 지배로 표기
+  - 위치: `tools/financial_metrics.py:224 · 450` · DATA: DATA-NI2
   - 고칠 방향: net_income_basis 에 따라 라벨을 「(지배)」/「(총계·비지배 포함)」으로 바꾼다
-- [ ] **P1 · financial_metrics** — 사업보고서 대신 분기 누적(YTD)으로 물러난 요약·연간 행에 12개월 사업연도 구간을 표기하고, 연간 표에 행별 period_basis 가 없다
-  - 위치: `tools/financial_metrics.py:_render 610~623 · _render_yearly 322~338` · DATA: DATA-Q6
+- [ ] **P1-#31 · financial_metrics** — 사업보고서 대신 분기 누적(YTD)으로 물러난 요약·연간 행에 12개월 사업연도 구간을 표기하고, 연간 표에 행별 period_basis 가 없다
+  - 위치: `tools/financial_metrics.py:620-624 · 322-340 · services/financial_metrics.py:2533-2534 · 3937-3951` · DATA: DATA-Q6
   - 고칠 방향: 머리 줄을 실제 period_span 으로, 연간 표에 기간·reprt_code 열을 추가한다
-- [ ] **P1 · financial_metrics** — YTD 매출로 나눈 NWC/매출에 12개월 문턱 25% 를 그대로 걸고 기간 민감 목록에도 없다
-  - 위치: `services/financial_metrics.py:_compute_metrics nwc/ar/inv_to_revenue 1215·1278, _detect_yoy_signals 1519~1521, _PERIOD_SENSITIVE_ALERTS 1437` · DATA: DATA-Q6
+- [ ] **P1-#32 · financial_metrics** — YTD 매출로 나눈 NWC/매출에 12개월 문턱 25% 를 그대로 걸고 기간 민감 목록에도 없다
+  - 위치: `services/financial_metrics.py:1215 · 1278-1279 · 1543-1545 · 1437-1440` · DATA: DATA-Q6
   - 고칠 방향: 분모를 연환산하거나 nwc_efficiency_low 를 _PERIOD_SENSITIVE_ALERTS 에 넣고 12개월이 아니면 끈다
-- [ ] **P1 · financial_metrics** — alerts_not_evaluated 가 있어도 「특이사항 없음」을 쓴다
-  - 위치: `tools/financial_metrics.py:_render_yoy 467~472` · DATA: DATA-U3
+- [ ] **P1-#33 · financial_metrics** — alerts_not_evaluated 가 있어도 「특이사항 없음」을 쓴다
+  - 위치: `tools/financial_metrics.py:467-472` · DATA: DATA-U3
   - 고칠 방향: alerts_not_evaluated 가 있으면 「기간 불일치로 N종 미평가」를 쓴다
-- [ ] **P1 · financial_metrics** — 분기 갈래(quarterly·qoq·분기 대체 summary/yoy)에는 보고서 사이 단위 대조가 없어 10^n 오류 분기가 그대로 나간다
-  - 위치: `services/financial_metrics.py:_build_quarterly 전체 · _fetch_year_metrics 2399~2404` · DATA: DATA-SC1
+- [ ] **P1-#34 · financial_metrics** — 분기 갈래(quarterly·qoq·분기 대체 summary/yoy)에는 보고서 사이 단위 대조가 없어 10^n 오류 분기가 그대로 나간다
+  - 위치: `services/financial_metrics.py:2827-3230 (_build_quarterly) · 2325-2420` · DATA: DATA-SC1
   - 고칠 방향: 분기 보고서들에도 reconcile_report_scales 를 적용한다
-- [ ] **P1 · financial_metrics** — 금융업 2023 이전 분기(API 013)를 「미제출」로 단정
-  - 위치: `services/financial_metrics.py:_quarterly_status ~3358 + quarterly 경고` · DATA: DATA-Q3
+- [ ] **P1-#35 · financial_metrics** — 금융업 2023 이전 분기(API 013)를 「미제출」로 단정
+  - 위치: `services/financial_metrics.py:3321 · 3380-3390 · 3645` · DATA: DATA-Q3
   - 고칠 방향: 금융업·2023 이전이면 「API 미제공(013)」 상태로 가른다
-- [ ] **P1 · financial_metrics** — 분기마다 연결/별도가 섞여도 QoQ/YoY 를 그대로 계산하고 행별 fs_div 를 응답 전에 지운다
-  - 위치: `services/financial_metrics.py:_build_quarterly fs_seen·row.pop('_fs') 3197` · DATA: DATA-Q5
+- [ ] **P1-#36 · financial_metrics** — 분기마다 연결/별도가 섞여도 QoQ/YoY 를 그대로 계산하고 행별 fs_div 를 응답 전에 지운다
+  - 위치: `services/financial_metrics.py:2864 · 3022-3027 · 3224` · DATA: DATA-Q5
   - 고칠 방향: _fs 를 fs_div 로 남기고 서로 다른 장부끼리 증감률은 None 으로 둔다
-- [ ] **P1 · financial_metrics** — 감가상각·무형상각 중 하나만 있어도 없는 쪽을 0 으로 더해 EBITDA·capex_to_da 를 정상값처럼 낸다
-  - 위치: `services/financial_metrics.py:_compute_metrics D&A 1049~1052` · DATA: DATA-U3
+- [ ] **P1-#37 · financial_metrics** — 감가상각·무형상각 중 하나만 있어도 없는 쪽을 0 으로 더해 EBITDA·capex_to_da 를 정상값처럼 낸다
+  - 위치: `services/financial_metrics.py:1049-1053` · DATA: DATA-U3
   - 고칠 방향: 둘 다 있을 때만 합하거나 부분 합임을 da_basis 로 표시한다
-- [ ] **P1 · financial_metrics** — strict as_of 에서도 숫자는 fnltt 현재판(기준일 뒤 정정 포함)인데 근거 링크는 as_of 로 잘린 목록에서 고른 보고서
-  - 위치: `services/financial_metrics.py:_fetch_year_metrics 값 vs _periodic_filing_ref 근거` · DATA: DATA-PIT4
+- [ ] **P1-#38 · financial_metrics** — strict as_of 에서도 숫자는 fnltt 현재판(기준일 뒤 정정 포함)인데 근거 링크는 as_of 로 잘린 목록에서 고른 보고서
+  - 위치: `services/financial_metrics.py:1896-1930 (_periodic_filing_ref) · 3602 · 3744` · DATA: DATA-PIT4
   - 고칠 방향: strict as_of 이면 기준일 뒤 정정 존재 시 경고하거나 값을 PIT 저장분에서 읽는다
-- [ ] **P1 · financial_notes** — EXTRACTION_FAILED·NOT_COLLECTED 를 필드 단위로 만드는 곳이 없어 partial 이 나올 수 없고, 판독 실패가 NOT_APPLICABLE+exact 로 나간다
-  - 위치: `services/financial_notes.py:extract_regions 1165 + tools/financial_notes.py:_envelope_status 30~41` · DATA: DATA-U3
+- [ ] **P1-#39 · financial_notes** — EXTRACTION_FAILED·NOT_COLLECTED 를 필드 단위로 만드는 곳이 없어 partial 이 나올 수 없고, 판독 실패가 NOT_APPLICABLE+exact 로 나간다
+  - 위치: `services/financial_notes.py:1150-1170 · tools/financial_notes.py:30-41` · DATA: DATA-U3
   - 고칠 방향: 앵커는 잡았는데 표를 못 읽은 경우·절 fetch 실패 필드를 EXTRACTION_FAILED/NOT_COLLECTED 로 표시한다
-- [ ] **P1 · financial_notes** — 노드 절·재무상태표 fetch 예외를 continue/None 으로 삼켜 「해당 주석 없음」「분모 없음」+exact 로 나간다
-  - 위치: `tools/financial_notes.py:_fetch_by_nodes 478~501` · DATA: DATA-API1
+- [ ] **P1-#40 · financial_notes** — 노드 절·재무상태표 fetch 예외를 continue/None 으로 삼켜 「해당 주석 없음」「분모 없음」+exact 로 나간다
+  - 위치: `tools/financial_notes.py:470-501` · DATA: DATA-API1
   - 고칠 방향: 실패한 노드를 기록해 해당 필드를 NOT_COLLECTED 로, 분모는 「조회 실패」로 표시한다
-- [ ] **P1 · financial_notes** — 제목에 앵커가 있는 노드가 하나라도 있으면 전체 문서 폴백이 없어 다른 주석 안 표가 있는 필드는 NOT_APPLICABLE
-  - 위치: `tools/financial_notes.py:financial_notes 609~615 + services pick_note_nodes 794~806` · DATA: new
+- [ ] **P1-#41 · financial_notes** — 제목에 앵커가 있는 노드가 하나라도 있으면 전체 문서 폴백이 없어 다른 주석 안 표가 있는 필드는 NOT_APPLICABLE
+  - 위치: `tools/financial_notes.py:609-623 · services/financial_notes.py:794-806` · DATA: new
   - 고칠 방향: 노드 경로에서 비어 있는 필드는 장 단위 절로 한 번 더 찾는다
-- [ ] **P1 · financial_notes** — year+여러 보고서 코드에서 한 코드가 020/800 이어도 다른 코드 결과가 있으면 실패를 버려 사업보고서 조회 실패 시 3분기가 latest 로 나감
-  - 위치: `tools/financial_notes.py:_candidates 535~554` · DATA: DATA-API1
+- [ ] **P1-#42 · financial_notes** — year+여러 보고서 코드에서 한 코드가 020/800 이어도 다른 코드 결과가 있으면 실패를 버려 사업보고서 조회 실패 시 3분기가 latest 로 나감
+  - 위치: `tools/financial_notes.py:535-554` · DATA: DATA-API1
   - 고칠 방향: failed 가 있으면 결과와 함께 경고를 싣거나 latest 에서는 오류로 올린다
-- [ ] **P1 · financial_notes** — 분기보고서가 한 기수뿐이면 1분기/3분기 거르기를 안 해 요청과 다른 분기를 반환
-  - 위치: `services/business_details.py:_find_report_for_bsns_year 1278~1284` · DATA: new
+- [ ] **P1-#43 · financial_notes** — 분기보고서가 한 기수뿐이면 1분기/3분기 거르기를 안 해 요청과 다른 분기를 반환
+  - 위치: `services/business_details.py:1272-1286` · DATA: new
   - 고칠 방향: 기수가 하나여도 결산월 대비 월 순서로 1분기/3분기를 판정하고 안 맞으면 빈 결과
-- [ ] **P1 · financial_notes** — year 없을 때 1분기·3분기·사업·Annual 등은 latest 로 떨어지고 year 경로도 모르는 period 를 latest 로 삼킨다(경고 없음)
-  - 위치: `tools/financial_notes.py:_candidates 528~531 → business_details._find_report_candidates 1216~1228` · DATA: new
+- [ ] **P1-#44 · financial_notes** — year 없을 때 1분기·3분기·사업·Annual 등은 latest 로 떨어지고 year 경로도 모르는 period 를 latest 로 삼킨다(경고 없음)
+  - 위치: `tools/financial_notes.py:515-531 · services/business_details.py:1216-1228` · DATA: new
   - 고칠 방향: period 를 한 곳에서 정규화하고 모르는 값은 invalid 로 돌려준다
-- [ ] **P1 · financial_notes** — 노드 경로의 cands[:2] 폴백에 같은 기수 검사가 없어 직전 분기·작년 보고서 값이 경고 없이 실린다
-  - 위치: `tools/financial_notes.py:financial_notes 611~615` · DATA: DATA-PIT1
+- [ ] **P1-#45 · financial_notes** — 노드 경로의 cands[:2] 폴백에 같은 기수 검사가 없어 직전 분기·작년 보고서 값이 경고 없이 실린다
+  - 위치: `tools/financial_notes.py:611-615` · DATA: DATA-PIT1
   - 고칠 방향: 문서 경로처럼 _report_period_tag(r)==tag0 일 때만 폴백한다
-- [ ] **P1 · financial_notes** — 재무상태표 분모 안내가 표 단위와 BS 단위를 대조하지 않고, 분모표가 있으면 단위가 같다고 단정
-  - 위치: `tools/financial_notes.py:_render 297~327` · DATA: DATA-SC1
+- [ ] **P1-#46 · financial_notes** — 재무상태표 분모 안내가 표 단위와 BS 단위를 대조하지 않고, 분모표가 있으면 단위가 같다고 단정
+  - 위치: `tools/financial_notes.py:290-330` · DATA: DATA-SC1
   - 고칠 방향: t['unit'] 과 tot['unit']/분모표 unit 을 비교해 다르면 배율 경고를 낸다
-- [ ] **P1 · financial_notes** — 계정과 무관하게 같은 기준의 분모표를 「뺄 원본」으로 안내하고 region 마다 다른 좌표계 pos 최솟값을 쓴다
-  - 위치: `tools/financial_notes.py:_render has_den 298~305 + services find_denominator first` · DATA: new
+- [ ] **P1-#47 · financial_notes** — 계정과 무관하게 같은 기준의 분모표를 「뺄 원본」으로 안내하고 region 마다 다른 좌표계 pos 최솟값을 쓴다
+  - 위치: `tools/financial_notes.py:296-305 · services/financial_notes.py (find_denominator)` · DATA: new
   - 고칠 방향: 분모표 계정과 t['account'] 가 같을 때만 안내하고 pos 는 region 별로 구한다
-- [ ] **P1 · financial_notes** — 숫자 칸 앞 두 개를 당기/전기로 써서 DART 재무상태표의 「주석」 열 번호가 첫 값으로 들어가고 '-' 칸이 빠져 열이 밀린다
-  - 위치: `services/financial_notes.py:balance_sheet_from/balance_sheet 655·690` · DATA: DATA-U3
+- [ ] **P1-#48 · financial_notes** — 숫자 칸 앞 두 개를 당기/전기로 써서 DART 재무상태표의 「주석」 열 번호가 첫 값으로 들어가고 '-' 칸이 빠져 열이 밀린다
+  - 위치: `services/financial_notes.py:655 · 690` · DATA: DATA-U3
   - 고칠 방향: 머리 행에서 당기·전기 열 위치를 찾아 그 열만 읽는다
-- [ ] **P1 · financial_notes** — basis=전체에서 계정이 다르면 기준 혼재 검사보다 먼저 「더해도 된다」를 내고, 모르는 basis 값은 조용히 연결로 받으며 푸터는 원 입력을 적는다
-  - 위치: `tools/financial_notes.py:_render 231~239 + _basis_wanted 440~447` · DATA: DATA-Q5
+- [ ] **P1-#49 · financial_notes** — basis=전체에서 계정이 다르면 기준 혼재 검사보다 먼저 「더해도 된다」를 내고, 모르는 basis 값은 조용히 연결로 받으며 푸터는 원 입력을 적는다
+  - 위치: `tools/financial_notes.py:225-245 · 437-447` · DATA: DATA-Q5
   - 고칠 방향: 기준 혼재 분기를 앞에 두고 모르는 basis 는 invalid 로 돌려준다
-- [ ] **P1 · financial_notes** — _node_basis 는 붙여 쓴 「연결재무제표 주석」만 연결로 봐 띄어 쓴 목차는 별도로 표시
-  - 위치: `services/financial_notes.py:_node_basis 785~791 vs pick_chapter_nodes 815` · DATA: DATA-Q5
+- [ ] **P1-#50 · financial_notes** — _node_basis 는 붙여 쓴 「연결재무제표 주석」만 연결로 봐 띄어 쓴 목차는 별도로 표시
+  - 위치: `services/financial_notes.py:785-791 · 815` · DATA: DATA-Q5
   - 고칠 방향: _node_basis 도 공백 제거 후 판정한다
-- [ ] **P1 · financial_notes** — 결산월 전환 연도에 사업보고서가 둘이면 접수가 늦은 전환기 보고서가 연간으로 선택되고 기간 길이 표시 없음
-  - 위치: `services/business_details.py:_find_report_for_bsns_year 1272~1286 (11011)` · DATA: DATA-FY2
+- [ ] **P1-#51 · financial_notes** — 결산월 전환 연도에 사업보고서가 둘이면 접수가 늦은 전환기 보고서가 연간으로 선택되고 기간 길이 표시 없음
+  - 위치: `services/business_details.py:1272-1286` · DATA: DATA-FY2
   - 고칠 방향: 같은 연도 사업보고서가 둘 이상이면 기간 길이를 표시하거나 12개월 쪽을 고른다
-- [ ] **P1 · forward_estimates_data** — period_type=all 에서 실적 N행을 FY·Q 섞어 고르므로 최신 확정 FY 행이 잘리고 actual_years 가 「행」 수
-  - 위치: `services/forward_estimates.py:683~686` · DATA: new
+- [ ] **P1-#52 · forward_estimates_data** — period_type=all 에서 실적 N행을 FY·Q 섞어 고르므로 최신 확정 FY 행이 잘리고 actual_years 가 「행」 수
+  - 위치: `services/forward_estimates.py:681-686` · DATA: new
   - 고칠 방향: 실적 고르기를 period_type 별로 하고 FY 는 연 단위로 센다
-- [ ] **P1 · forward_estimates_data** — 적자(ni≤0)·시총 없음도 「지배순이익 결측 폴백」으로 벤더 PER 을 내고, 없으면 per_why 도 비운다
-  - 위치: `services/forward_estimates.py:_apply_multiples 505~523` · DATA: DATA-AGG2
+- [ ] **P1-#53 · forward_estimates_data** — 적자(ni≤0)·시총 없음도 「지배순이익 결측 폴백」으로 벤더 PER 을 내고, 없으면 per_why 도 비운다
+  - 위치: `services/forward_estimates.py:505-523` · DATA: DATA-AGG2
   - 고칠 방향: ni≤0 이면 per=None·per_why='적자 N/M', 시총 없음은 별도 사유
-- [ ] **P1 · forward_estimates_data** — PBR 을 price/bps 로 채우고 라벨은 시총÷자기자본이라 분할 뒤 옛 BPS 면 배율만큼 틀린다(경고 없음)
-  - 위치: `services/forward_estimates.py:_apply_multiples 524~536` · DATA: DATA-PX3
+- [ ] **P1-#54 · forward_estimates_data** — PBR 을 price/bps 로 채우고 라벨은 시총÷자기자본이라 분할 뒤 옛 BPS 면 배율만큼 틀린다(경고 없음)
+  - 위치: `services/forward_estimates.py:524-536` · DATA: DATA-PX3
   - 고칠 방향: PER 처럼 시총÷(지배자본) 로 계산하거나 벤더식과 괴리 경고를 둔다
-- [ ] **P1 · forward_estimates_data** — 과거·분기 행에서 per/pbr/psr 만 지우고 div_yield_at_price_pct·peg 는 남겨 multiple_scope 설명과 어긋남
-  - 위치: `services/forward_estimates.py:_apply_multiples 488~497 · _FIELDS` · DATA: DATA-FWD1
+- [ ] **P1-#55 · forward_estimates_data** — 과거·분기 행에서 per/pbr/psr 만 지우고 div_yield_at_price_pct·peg 는 남겨 multiple_scope 설명과 어긋남
+  - 위치: `services/forward_estimates.py:488-497 · _FIELDS 41-132` · DATA: DATA-FWD1
   - 고칠 방향: keep 이 아닌 행은 div_yield_at_price_pct·peg 도 비우고 peg 는 우리 PER 로 다시 계산한다
-- [ ] **P1 · forward_estimates_data** — md 표에 basis(연결/별도)가 없고 PER 계산도 basis 를 보지 않는다
-  - 위치: `tools/forward_estimates_data.py:_render 69~100 · _apply_multiples` · DATA: DATA-Q5
+- [ ] **P1-#56 · forward_estimates_data** — md 표에 basis(연결/별도)가 없고 PER 계산도 basis 를 보지 않는다
+  - 위치: `tools/forward_estimates_data.py:69-100 · services/forward_estimates.py:_apply_multiples` · DATA: DATA-Q5
   - 고칠 방향: 표에 기준 열을 넣고 별도 행은 per_def 를 별도로 표기한다
-- [ ] **P1 · forward_estimates_data** — growth 묶음만 부르면 fy_series_irregular·period_months 가 숨겨져 길이가 다른 기간 성장률이 경고 없이 나감
-  - 위치: `services/forward_estimates.py:_FIELDS growth vs keys` · DATA: DATA-FY2
+- [ ] **P1-#57 · forward_estimates_data** — growth 묶음만 부르면 fy_series_irregular·period_months 가 숨겨져 길이가 다른 기간 성장률이 경고 없이 나감
+  - 위치: `services/forward_estimates.py:_FIELDS (growth 80-120 vs keys 127-132)` · DATA: DATA-FY2
   - 고칠 방향: 불규칙 표지를 growth 묶음에도 싣고 불규칙이면 성장률을 비운다
-- [ ] **P1 · forward_estimates_data** — 작은 배수가 0.0 으로 반올림(#135 가 price_multiple_data 에서만 막힘)
+- [ ] **P1-#58 · forward_estimates_data** — 작은 배수가 0.0 으로 반올림(#135 가 price_multiple_data 에서만 막힘)
   - 위치: `services/forward_estimates.py:_apply_multiples round(x,2)` · DATA: DATA-U3
   - 고칠 방향: _round_mult(유효숫자 둘)를 공용으로 쓴다
-- [ ] **P1 · forward_estimates_data** — 리비전 EPS·DPS 변화율이 분할·병합 배율을 그대로 반영
-  - 위치: `services/forward_estimates.py:compute_revision·_screen_row` · DATA: DATA-PX3
+- [ ] **P1-#59 · forward_estimates_data** — 리비전 EPS·DPS 변화율이 분할·병합 배율을 그대로 반영
+  - 위치: `services/forward_estimates.py:234 (compute_revision) · _screen_row` · DATA: DATA-PX3
   - 고칠 방향: 기간 사이 수정계수로 주당 값을 맞추거나 표시한다
-- [ ] **P1 · ownership_structure** — 발행총수·자사주는 bsns_year 사업보고서 한 번뿐이라 1~3월 013·020 실패 시 0/0.0 이 되고 「집합투자기구」 사유로 단정, treasury_over_5pct=False 고정
-  - 위치: `services/ownership_structure.py:1355~1412, _treasury_snapshot 839 + 렌더 171~172` · DATA: DATA-U3
+- [ ] **P1-#60 · ownership_structure** — 발행총수·자사주는 bsns_year 사업보고서 한 번뿐이라 1~3월 013·020 실패 시 0/0.0 이 되고 「집합투자기구」 사유로 단정, treasury_over_5pct=False 고정
+  - 위치: `services/ownership_structure.py:847-905 (_treasury_snapshot) · 1480-1500 · tools/ownership_structure.py:172` · DATA: DATA-U3
   - 고칠 방향: 명부와 같은 보고서 사다리로 내려가고 실패면 None·사유를 싣는다
-- [ ] **P1 · ownership_structure** — tesstkAcqsDspsSttus 를 se·acqs_qy·dsps_qy·inciner_qy 로 읽는데 DART 가이드 칸은 stock_knd·change_qy_acqs·change_qy_dsps·change_qy_incnr 라 취득·처분·소각이 늘 0
-  - 위치: `services/ownership_structure.py:_treasury_snapshot 824~833` · DATA: DATA-U3
+- [ ] **P1-#61 · ownership_structure** — tesstkAcqsDspsSttus 를 se·acqs_qy·dsps_qy·inciner_qy 로 읽는데 DART 가이드 칸은 stock_knd·change_qy_acqs·change_qy_dsps·change_qy_incnr 라 취득·처분·소각이 늘 0
+  - 위치: `services/ownership_structure.py:885-893` · DATA: DATA-U3
   - 고칠 방향: DART 칸 이름으로 바꾸고 응답 fixture 시험을 추가한다
-- [ ] **P1 · ownership_structure** — 보유목적·합계표 원문 fetch 예외를 삼켜 「불명」·합계표 없음으로 남고 능동 블록에서 빠진다
-  - 위치: `services/ownership_structure.py:_latest_block_rows 748~770` · DATA: DATA-API1
+- [ ] **P1-#62 · ownership_structure** — 보유목적·합계표 원문 fetch 예외를 삼켜 「불명」·합계표 없음으로 남고 능동 블록에서 빠진다
+  - 위치: `services/ownership_structure.py:807-840` · DATA: DATA-API1
   - 고칠 방향: 실패를 행에 표시하고 경고한다
-- [ ] **P1 · ownership_structure** — 파싱 불가 as_of 를 경고 없이 무시하고 최신 값을 낸다
-  - 위치: `services/ownership_structure.py:1338 + date_utils.parse_date_param` · DATA: DATA-PIT9
+- [ ] **P1-#63 · ownership_structure** — 파싱 불가 as_of 를 경고 없이 무시하고 최신 값을 낸다
+  - 위치: `services/ownership_structure.py:1416 · services/date_utils.py:36-48` · DATA: DATA-PIT9
   - 고칠 방향: 입력이 있는데 None 이면 invalid 로 돌려준다
-- [ ] **P1 · ownership_structure** — 명부가 비어 5% 보고로 대체하면 무관한 5% 보유자를 특수관계인 합계·registry_majority 로 합산
-  - 위치: `services/ownership_structure.py:1458~1475, _build_control_map 649~667` · DATA: new
+- [ ] **P1-#64 · ownership_structure** — 명부가 비어 5% 보고로 대체하면 무관한 5% 보유자를 특수관계인 합계·registry_majority 로 합산
+  - 위치: `services/ownership_structure.py:1538-1556 · 657-710` · DATA: new
   - 고칠 방향: estimated_from_5pct 면 related_total·registry 플래그를 계산하지 않는다
-- [ ] **P1 · ownership_structure** — 변동신고서 최신 5건만 파싱하고 나머지 개수·정정 대체 관계를 밝히지 않는다
-  - 위치: `services/ownership_structure.py:_fetch_change_filings 1211~1219` · DATA: DATA-PIT1
+- [ ] **P1-#65 · ownership_structure** — 변동신고서 최신 5건만 파싱하고 나머지 개수·정정 대체 관계를 밝히지 않는다
+  - 위치: `services/ownership_structure.py:1247-1290` · DATA: DATA-PIT1
   - 고칠 방향: 「N건 중 5건」 경고와 정정 원본 대체 표시를 단다
-- [ ] **P1 · price_multiple_data** — financial_metrics 요약이 이미 단위를 바로잡은 revenue_krw 를 이 도구의 보고서 대조가 FY 를 고치면 다시 _d 로 나눈다(이중 보정)
-  - 위치: `services/price_multiple_data.py:2902, 3043~3046` · DATA: DATA-SC1
+- [ ] **P1-#66 · price_multiple_data** — financial_metrics 요약이 이미 단위를 바로잡은 revenue_krw 를 이 도구의 보고서 대조가 FY 를 고치면 다시 _d 로 나눈다(이중 보정)
+  - 위치: `services/price_multiple_data.py:2902 · 3043-3046` · DATA: DATA-SC1
   - 고칠 방향: revenue_fy 는 나누지 말고 fy_rows(원본)에서 다시 읽거나 요약의 scale 적용 여부를 확인한다
-- [ ] **P1 · price_multiple_data** — 자본잠식 N/M 을 FY0 자본으로 판정해 MRQ 를 우선하는 곡선·업종 비교와 다른 칸을 비운다
-  - 위치: `services/price_multiple_data.py:3348~3383 vs _pit_impaired` · DATA: DATA-AGG3
+- [ ] **P1-#67 · price_multiple_data** — 자본잠식 N/M 을 FY0 자본으로 판정해 MRQ 를 우선하는 곡선·업종 비교와 다른 칸을 비운다
+  - 위치: `services/price_multiple_data.py:3348-3383` · DATA: DATA-AGG3
   - 고칠 방향: firm 도 PBR 분모와 같은 MRQ 자본으로 판정한다
-- [ ] **P1 · price_multiple_data** — 연결 없을 때 별도 폴백인데 어느 기준인지 응답에 없고 설명은 「연결」
-  - 위치: `services/price_multiple_data.py:_acntall·fs_used ~2310·2930·3537~3560` · DATA: DATA-Q5
+- [ ] **P1-#68 · price_multiple_data** — 연결 없을 때 별도 폴백인데 어느 기준인지 응답에 없고 설명은 「연결」
+  - 위치: `services/price_multiple_data.py:2310 · 2930 · 3537-3560` · DATA: DATA-Q5
   - 고칠 방향: inputs 에 fs_div 를 싣고 OFS 면 경고한다
-- [ ] **P1 · price_multiple_data** — 주식총수 조회 020/800 도 조용히 None 을 돌려 BPS·EPS 폴백이 말없이 빈다
-  - 위치: `services/price_multiple_data.py:_shares_outstanding 2647~2660` · DATA: DATA-API1
+- [ ] **P1-#69 · price_multiple_data** — 주식총수 조회 020/800 도 조용히 None 을 돌려 BPS·EPS 폴백이 말없이 빈다
+  - 위치: `services/price_multiple_data.py:2647-2660` · DATA: DATA-API1
   - 고칠 방향: is_no_data 가 아니면 acnt_fails 에 기록하고 경고한다
-- [ ] **P1 · price_multiple_data** — 재무·배당·주식수가 모두 비면 조회 실패여도 「펀드 공시 회사」로 단정
-  - 위치: `services/price_multiple_data.py:~3417` · DATA: DATA-API1
+- [ ] **P1-#70 · price_multiple_data** — 재무·배당·주식수가 모두 비면 조회 실패여도 「펀드 공시 회사」로 단정
+  - 위치: `services/price_multiple_data.py:3417-3422` · DATA: DATA-API1
   - 고칠 방향: acnt_fails·div_err 가 있으면 이 경고를 내지 않는다
-- [ ] **P1 · price_multiple_data** — 12월 결산에서 요약이 분기 대체(reprt_code≠11011)여도 eps/revenue/roe 를 FY0 칸으로 쓴다
-  - 위치: `services/price_multiple_data.py:2902~2907` · DATA: DATA-Q6
+- [ ] **P1-#71 · price_multiple_data** — 12월 결산에서 요약이 분기 대체(reprt_code≠11011)여도 eps/revenue/roe 를 FY0 칸으로 쓴다
+  - 위치: `services/price_multiple_data.py:2902-2907` · DATA: DATA-Q6
   - 고칠 방향: summary.reprt_code != '11011' 이면 FY0 칸을 비운다
-- [ ] **P1 · price_multiple_data** — 사업연도 말 환율 실패 시 ecos_fx_rate=1.0 으로 외화 원값을 KRW 시총으로 나눠 배수를 숫자로 낸다
-  - 위치: `services/price_multiple_data.py:3077, 3444~3445` · DATA: DATA-FX2
+- [ ] **P1-#72 · price_multiple_data** — 사업연도 말 환율 실패 시 ecos_fx_rate=1.0 으로 외화 원값을 KRW 시총으로 나눠 배수를 숫자로 낸다
+  - 위치: `services/price_multiple_data.py:3077 · 3444-3445` · DATA: DATA-FX2
   - 고칠 방향: stmt_cur≠KRW 이고 r_fy 가 없으면 배수를 None 으로 둔다(곡선 경로와 같게)
-- [ ] **P1 · price_multiple_data** — krx_adj_events·상장주식수 DB 읽기 실패(None)를 이벤트 없음(계수 1.0)으로 처리
-  - 위치: `services/price_multiple_data.py:_eps_adj_factor/_shares_ratio/_dps_events ~2597~2764` · DATA: DATA-PX3
+- [ ] **P1-#73 · price_multiple_data** — krx_adj_events·상장주식수 DB 읽기 실패(None)를 이벤트 없음(계수 1.0)으로 처리
+  - 위치: `services/price_multiple_data.py:2597-2764` · DATA: DATA-PX3
   - 고칠 방향: None 과 [] 를 갈라 장애면 경고와 해당 배수 비움
-- [ ] **P1 · price_multiple_data** — 결산 뒤 분할·3배 미만 병합 시 BPS 주식 수 기준 어긋남을 막는 가드가 없다
-  - 위치: `services/price_multiple_data.py:bps/shares_bad ~3186~3190, 3308` · DATA: DATA-PX3
+- [ ] **P1-#74 · price_multiple_data** — 결산 뒤 분할·3배 미만 병합 시 BPS 주식 수 기준 어긋남을 막는 가드가 없다
+  - 위치: `services/price_multiple_data.py:3186-3190 · 3308` · DATA: DATA-PX3
   - 고칠 방향: _shares_ratio 로 상장주식수 대비 배율을 보고 BPS 를 맞추거나 비운다
-- [ ] **P1 · price_multiple_data** — 시세를 못 받으면 {} 로 모든 배수 N/M 인데 응답에 사유가 없다
-  - 위치: `services/price_multiple_data.py:_market_for 582~605` · DATA: DATA-PX8
+- [ ] **P1-#75 · price_multiple_data** — 시세를 못 받으면 {} 로 모든 배수 N/M 인데 응답에 사유가 없다
+  - 위치: `services/price_multiple_data.py:582-606` · DATA: DATA-PX8
   - 고칠 방향: 실패 사유를 반환해 warnings 에 싣는다
-- [ ] **P1 · price_multiple_data** — 재무·주간 시세 DB 읽기 실패를 `or []` 로 「미수집」으로 표기
-  - 위치: `services/price_multiple_data.py:_firm_fin_by_q·_firm_fin_by_fy·_weekly_series ~1356·1432·1629·2232` · DATA: DATA-U3
+- [ ] **P1-#76 · price_multiple_data** — 재무·주간 시세 DB 읽기 실패를 `or []` 로 「미수집」으로 표기
+  - 위치: `services/price_multiple_data.py:1356 · 1432 · 1629 · 2232` · DATA: DATA-U3
   - 고칠 방향: None 이면 db_error 로 올린다
-- [ ] **P1 · price_multiple_data** — history[].pbr 이 연말 항목은 FY0, 주간 항목은 MRQ 우선이라 같은 이름에 정의 둘
-  - 위치: `services/price_multiple_data.py:_weekly_hist_items 2141` · DATA: DATA-U1
+- [ ] **P1-#77 · price_multiple_data** — history[].pbr 이 연말 항목은 FY0, 주간 항목은 MRQ 우선이라 같은 이름에 정의 둘
+  - 위치: `services/price_multiple_data.py:2141` · DATA: DATA-U1
   - 고칠 방향: pbr_basis 를 항목마다 싣거나 pbr_mrq/pbr_fy0 로 칸을 나눈다
-- [ ] **P1 · price_multiple_data** — 과거 기준일 업종 비교에 현재 시장(dart_fundamentals.market)을 써 이전상장 종목이 업종 행을 못 찾는다
-  - 위치: `services/price_multiple_data.py:_firm_val_at 1906 → build_sector_val_payload` · DATA: DATA-AGG6
+- [ ] **P1-#78 · price_multiple_data** — 과거 기준일 업종 비교에 현재 시장(dart_fundamentals.market)을 써 이전상장 종목이 업종 행을 못 찾는다
+  - 위치: `services/price_multiple_data.py:1906` · DATA: DATA-AGG6
   - 고칠 방향: _firm_cap_at 이 읽은 그 날 시장(cap_mkt[1])을 쓴다
-- [ ] **P1 · provisional_earnings** — 연결/별도를 부분 문자열로 추정해 항상 bool(모름 없음), 연결 당기순이익이 지배순이익 컨센서스와 맞대질 수 있다
-  - 위치: `services/provisional_earnings.py:parse 230, _parse_structure_change 294` · DATA: DATA-NI2
+- [ ] **P1-#79 · provisional_earnings** — 연결/별도를 부분 문자열로 추정해 항상 bool(모름 없음), 연결 당기순이익이 지배순이익 컨센서스와 맞대질 수 있다
+  - 위치: `services/provisional_earnings.py:356 · 438` · DATA: DATA-NI2
   - 고칠 방향: 표 머리·제목의 명시 표기가 없으면 consolidated=None 으로 두고 gap 은 basis 불명 caveat 경로를 탄다
-- [ ] **P1 · provisional_earnings** — 문서 첫 「단위 : X」를 모든 행에 적용해 절마다 단위가 다른 서식에서 틀린 계수
-  - 위치: `services/provisional_earnings.py:_find_unit 42~56` · DATA: DATA-U1
+- [ ] **P1-#80 · provisional_earnings** — 문서 첫 「단위 : X」를 모든 행에 적용해 절마다 단위가 다른 서식에서 틀린 계수
+  - 위치: `services/provisional_earnings.py:42-56` · DATA: DATA-U1
   - 고칠 방향: 실적표(fin_table) 안·직전의 단위만 읽고 절별 계수를 쓴다
-- [ ] **P1 · provisional_earnings** — 값은 당해(3개월) 행인데 period·cumulative 는 본문 첫 날짜/문구에서 정해 누적 라벨이 붙을 수 있다
-  - 위치: `services/provisional_earnings.py:parse 231~237 vs _headline_from_grid 185` · DATA: DATA-Q1
+- [ ] **P1-#81 · provisional_earnings** — 값은 당해(3개월) 행인데 period·cumulative 는 본문 첫 날짜/문구에서 정해 누적 라벨이 붙을 수 있다
+  - 위치: `services/provisional_earnings.py:357-368 · 166-195` · DATA: DATA-Q1
   - 고칠 방향: period 를 당해실적 행의 기간 칸에서 읽는다
-- [ ] **P1 · provisional_earnings** — md·카드가 당기순이익(연결이면 총계)만 보이고 기준 표시가 없으며 gap 은 지배 기준
-  - 위치: `tools/provisional_earnings.py:_render 88 · services/screener.py:_extract_earnings 1232` · DATA: DATA-NI2
+- [ ] **P1-#82 · provisional_earnings** — md·카드가 당기순이익(연결이면 총계)만 보이고 기준 표시가 없으며 gap 은 지배 기준
+  - 위치: `tools/provisional_earnings.py:88 · services/screener.py:1232` · DATA: DATA-NI2
   - 고칠 방향: net_income_controlling 을 표시하고 총계/지배 라벨을 붙인다
-- [ ] **P1 · provisional_earnings** — 정정 headline 은 바뀐 항목만 담는데 표시가 없고 prior_value_krw 뜻이 경로마다 다르다(정정전 vs 직전 사업연도)
-  - 위치: `services/provisional_earnings.py:_correction_headline 214~215` · DATA: DATA-PIT1
+- [ ] **P1-#83 · provisional_earnings** — 정정 headline 은 바뀐 항목만 담는데 표시가 없고 prior_value_krw 뜻이 경로마다 다르다(정정전 vs 직전 사업연도)
+  - 위치: `services/provisional_earnings.py:259-340` · DATA: DATA-PIT1
+  - 상태: 일부 닫힘(#215 — 남은 것: headline 이 「바뀐 항목만」이라는 표시가 없고, 다른 경로의 prior_value_krw 는 직전 사업연도 값(뜻이 경로마다 다름).)
   - 고칠 방향: 정정 경로 키를 corrected_from_krw 로 바꾸고 「정정 항목만」 경고를 단다
-- [ ] **P1 · provisional_earnings** — 같은 키 행이 둘이면 마지막 행이 덮어 영업수익이 순영업수익으로 바뀔 수 있다
-  - 위치: `services/provisional_earnings.py:_headline_from_grid 178~188` · DATA: DATA-EQ4
+- [ ] **P1-#84 · provisional_earnings** — 같은 키 행이 둘이면 마지막 행이 덮어 영업수익이 순영업수익으로 바뀔 수 있다
+  - 위치: `services/provisional_earnings.py:166-195` · DATA: DATA-EQ4
   - 고칠 방향: 정정 경로처럼 첫 행 우선(key in head 가드)과 매출 후보 우선순위를 둔다
-- [ ] **P1 · provisional_earnings** — build 가 낸 error(020·800)를 no_data 로 바꿔 실패가 「없음」으로 보인다
-  - 위치: `services/screener.py:_fetch_detail 1354~1362` · DATA: DATA-API1
+- [ ] **P1-#85 · provisional_earnings** — build 가 낸 error(020·800)를 no_data 로 바꿔 실패가 「없음」으로 보인다
+  - 위치: `services/screener.py:1354-1362` · DATA: DATA-API1
   - 고칠 방향: error 는 detail_status='fetch_failed' 로 따로 둔다
-- [ ] **P1 · provisional_earnings** — 창 안 최신 1건만 반환해 월간 공시가 분기 잠정실적을 가리고 같은 날 순서가 API 순서에 의존
-  - 위치: `services/provisional_earnings.py:_find_provisional_candidates 398~399, build 491` · DATA: DATA-PIT1
+- [ ] **P1-#86 · provisional_earnings** — 창 안 최신 1건만 반환해 월간 공시가 분기 잠정실적을 가리고 같은 날 순서가 API 순서에 의존
+  - 위치: `services/provisional_earnings.py:515-545 · 633` · DATA: DATA-PIT1
   - 고칠 방향: 정렬 키에 rcept_no 를 더하고 분기(재무형) 후보·다른 후보 목록을 함께 싣는다
-- [ ] **P1 · provisional_earnings** — headline 파싱 실패도 non_financial 로 표기하고 「표준 재무표 미기재」로 단정
-  - 위치: `services/provisional_earnings.py:parse 249, build 530~531` · DATA: DATA-U3
+- [ ] **P1-#87 · provisional_earnings** — headline 파싱 실패도 non_financial 로 표기하고 「표준 재무표 미기재」로 단정
+  - 위치: `services/provisional_earnings.py:386 · 672-673` · DATA: DATA-U3
   - 고칠 방향: 재무 라벨이 보이는데 값을 못 뽑으면 kind='parse_failed' 로 가른다
-- [ ] **P1 · provisional_earnings** — 단위를 못 읽으면 원(1)으로 가정하고 「[단위: 백만원]」·전각 괄호·조원/만원도 1
-  - 위치: `services/provisional_financial_statement.py:_scale_factor 711~734, _FS_UNIT 40` · DATA: DATA-U1
+- [ ] **P1-#88 · provisional_earnings** — 단위를 못 읽으면 원(1)으로 가정하고 「[단위: 백만원]」·전각 괄호·조원/만원도 1
+  - 위치: `services/provisional_financial_statement.py:711-734 · 40` · DATA: DATA-U1
   - 고칠 방향: 표기 없음·미지 배수는 None 으로 값을 내지 않고 정규식에 대괄호·전각 괄호를 넣는다
-- [ ] **P1 · provisional_earnings** — 순이익이 첫 매칭 행이라 회사마다 총계/지배가 갈리고 기준 칸이 없다
-  - 위치: `services/provisional_financial_statement.py:_METRIC_KEYWORDS net_income_krw 521~525` · DATA: DATA-NI1
+- [ ] **P1-#89 · provisional_earnings** — 순이익이 첫 매칭 행이라 회사마다 총계/지배가 갈리고 기준 칸이 없다
+  - 위치: `services/provisional_financial_statement.py:521-525` · DATA: DATA-NI1
   - 고칠 방향: controlling_ni 규칙으로 고르거나 net_income_basis 를 싣는다
-- [ ] **P1 · treasury_share** — ownership payload 의 오류·경고를 버려 연간 절이 조용히 비거나 0
-  - 위치: `services/treasury_share.py:build scope=annual 1508~1512` · DATA: DATA-API1
+- [ ] **P1-#90 · treasury_share** — ownership payload 의 오류·경고를 버려 연간 절이 조용히 비거나 0
+  - 위치: `services/treasury_share.py:1503-1512` · DATA: DATA-API1
   - 고칠 방향: own_payload 의 status·warnings 를 이어 붙인다
-- [ ] **P1 · treasury_share** — 일부 조회만 실패해도 status=exact 이고 합계는 실패 항목을 0 으로 더함
-  - 위치: `services/treasury_share.py:1466~1470 / ownership_structure 1529~1532` · DATA: DATA-API1
+- [ ] **P1-#91 · treasury_share** — 일부 조회만 실패해도 status=exact 이고 합계는 실패 항목을 0 으로 더함
+  - 위치: `services/treasury_share.py:1462-1470` · DATA: DATA-API1
   - 고칠 방향: 부분 실패면 PARTIAL 로 내린다
-- [ ] **P1 · treasury_share** — 처분·신탁해지를 조회하지 않으면서 0건으로 요약
-  - 위치: `services/treasury_share.py:fetch_treasury_signal_summary 1357~1364` · DATA: DATA-U3
+- [ ] **P1-#92 · treasury_share** — 처분·신탁해지를 조회하지 않으면서 0건으로 요약
+  - 위치: `services/treasury_share.py:1355-1364` · DATA: DATA-U3
   - 고칠 방향: 미조회 항목은 None 으로 두고 실패 플래그를 반환한다
-- [ ] **P1 · treasury_share** — (결의일, 금액, 수량) 이 모두 같을 때만 정정 중복으로 봐 수량을 고친 정정은 원본과 함께 합산
-  - 위치: `services/treasury_share.py:_dedupe_cancelation_rows 1276~1289` · DATA: DATA-PIT1
+- [ ] **P1-#93 · treasury_share** — (결의일, 금액, 수량) 이 모두 같을 때만 정정 중복으로 봐 수량을 고친 정정은 원본과 함께 합산
+  - 위치: `services/treasury_share.py:1274-1292` · DATA: DATA-PIT1
   - 고칠 방향: [기재정정]이면 같은 결의일·원공시 연결로 원본을 대체한다
-- [ ] **P1 · treasury_share** — 소각결정 본문 파싱 실패가 0 으로 합계에 들어가고 parsing_failures=0 하드코딩
-  - 위치: `services/treasury_share.py:_fetch_decisions 936~939 / build 1466~1470` · DATA: DATA-U3
+- [ ] **P1-#94 · treasury_share** — 소각결정 본문 파싱 실패가 0 으로 합계에 들어가고 parsing_failures=0 하드코딩
+  - 위치: `services/treasury_share.py:934-942 · 1462-1470` · DATA: DATA-U3
   - 고칠 방향: 실패 건수를 세고 미파싱 행은 합계에서 빼 None 으로 표시
-- [ ] **P1 · treasury_share** — 단위 자가보정이 actual/planned_shares 를 보는데 취득결과 파서는 cumulative_shares 만 채워 취득결과에 보정이 발동하지 않음
-  - 위치: `services/treasury_share.py:_sanity_correct_amounts 1033 vs _parse_acquisition_result_body 530` · DATA: DATA-SC1
+- [ ] **P1-#95 · treasury_share** — 단위 자가보정이 actual/planned_shares 를 보는데 취득결과 파서는 cumulative_shares 만 채워 취득결과에 보정이 발동하지 않음
+  - 위치: `services/treasury_share.py:1028-1040 · 530` · DATA: DATA-SC1
   - 고칠 방향: 취득결과는 cumulative_shares(또는 SUM_ACT_CNT)를 주식수로 쓴다
 - [ ] **P2 · asset_holdings** — 이름 부분일치로 기타유동금융·상각후원가 유동을 trading 으로, 단기투자자산은 누락
   - 위치: `services/asset_holdings.py:_tier/_bs_tiers 67~97` · DATA: DATA-EQ3
