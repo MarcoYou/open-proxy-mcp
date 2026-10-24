@@ -61,6 +61,34 @@ def test_rules_load_from_package_not_repo_path():
     assert '"wiki"' not in code, "wiki 경로 조립이 코드에 남아 있다"
 
 
+def test_corpus_loads_from_package_not_repo_path():
+    """261025: corpus 도 패키지 데이터로 내렸다 — 경로 조립으로 되돌아가면 실패한다.
+
+    종전 조립은 소스 파일에서 세 칸 올라가 레포 루트를 가정했다. 비편집 설치에서는
+    site-packages 를 가리켜 거기엔 corpus 가 없고, live 가 돈 것은 `python -m` 이 작업
+    디렉터리를 먼저 보기 때문일 뿐이었다. 실행 방식이 바뀌면 조용히 깨지는 자리였다.
+    """
+    import inspect
+    import open_proxy_mcp.services.law_lookup as LL
+    for fn in (LL._corpus_dir, LL._index_path, LL._bm25_path):
+        src = inspect.getsource(fn)
+        code = "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("#"))
+        assert 'Path(__file__)' not in code, f"{fn.__name__}: 파일 경로로 되돌아갔다"
+        assert '"wiki"' not in code, f"{fn.__name__}: wiki 경로 조립이 남아 있다"
+    assert 'files("open_proxy_mcp.data.laws")' in inspect.getsource(LL._corpus_dir), \
+        "corpus 가 패키지 데이터로 읽히지 않는다"
+
+
+def test_corpus_index_is_gzipped():
+    """색인은 gzip 으로 싣는다 — 평문으로 되돌아가면 11.3MB 가 다시 레포에 들어온다."""
+    from importlib.resources import files
+    d = files("open_proxy_mcp.data.laws") / "corpus"
+    for name in ("law_index.json.gz", "law_bm25.json.gz"):
+        assert (d / name).is_file(), f"{name} 이 없다"
+    for name in ("law_index.json", "law_bm25.json"):
+        assert not (d / name).is_file(), f"{name} 평문이 남아 있다"
+
+
 def test_loaders_are_loud_on_failure():
     """조용한 실패 금지 — 실패하면 로그를 남긴다."""
     import inspect

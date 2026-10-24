@@ -2,7 +2,7 @@
 """law_lookup corpus 동기화 + 인덱스 빌드 (dev-time, prod 아님).
 
 legalize-kr(github.com/MarcoYou/legalize-kr) 원문에서 거버넌스 핵심 4법(각 법률+시행령)을
-`wiki/rules/laws/corpus/`로 vendored 복사 + 조 단위 인덱스(`law_index.json`) + 재현성 manifest 생성.
+`open_proxy_mcp/data/laws/corpus/`로 vendored 복사 + 조 단위 인덱스(`law_index.json`) + 재현성 manifest 생성.
 
 토큰화는 `open_proxy_mcp.services.law_lookup`의 primitive(normalize/extract_tokens)를 import해
 **런타임 질의와 동일 로직**으로 맞춘다(인덱스≡질의 정합).
@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import gzip
 import json
 import math
 import os
@@ -41,7 +42,19 @@ from open_proxy_mcp.services.law_lookup import (  # noqa: E402
     normalize,
 )
 
-CORPUS_DIR = ROOT / "wiki" / "rules" / "laws" / "corpus"
+CORPUS_DIR = ROOT / "open_proxy_mcp" / "data" / "laws" / "corpus"
+
+
+def _write_gz(path, obj) -> None:
+    """생성 색인을 공백 없이 직렬화해 gzip 으로 저장한다(결정적: mtime 0).
+
+    261025: 들여쓰기 JSON 11.3MB 를 1.5MB 로 줄여 corpus 를 패키지 데이터로 내릴 수 있게 한
+    변경. `mtime=0` 을 주는 이유는 **같은 입력이면 같은 바이트**여야 주간 배치가 내용이 안
+    바뀐 주에 헛커밋을 하지 않기 때문이다.
+    """
+    blob = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    with gzip.GzipFile(filename="", mode="wb", fileobj=path.open("wb"), mtime=0) as fh:
+        fh.write(blob)
 
 # (source 폴더, law_short) — 각 폴더의 법률.md·시행령.md 대상
 TARGETS = [
@@ -310,8 +323,10 @@ def main() -> int:
         },
         "articles": all_articles,
     }
-    (CORPUS_DIR / "law_index.json").write_text(
-        json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
+    # 261025: 공백 없이 직렬화해 gzip 으로 싣는다 — 7.9MB → 1.0MB. 들여쓰기 한 칸이 1.3MB 였다.
+    #   런타임은 풀어 읽는 쪽이 더 빠르다(실측 96ms → 85ms). diff 는 포기한다 — 생성물이고
+    #   사람이 읽는 것은 조문 .md 다.
+    _write_gz(CORPUS_DIR / "law_index.json.gz", index)
 
     # ── BM25 인덱스(Signal C) — 결정적: docs 키정렬·tf키정렬·df키정렬 ──
     bm25_docs.sort(key=lambda d: (d["k"][0], d["k"][1]))
@@ -332,9 +347,8 @@ def main() -> int:
         },
         "docs": bm25_docs,
     }
-    (CORPUS_DIR / "law_bm25.json").write_text(
-        json.dumps(bm25, ensure_ascii=False, indent=1), encoding="utf-8")
-    bm_mb = (CORPUS_DIR / "law_bm25.json").stat().st_size / 1e6
+    _write_gz(CORPUS_DIR / "law_bm25.json.gz", bm25)
+    bm_mb = (CORPUS_DIR / "law_bm25.json.gz").stat().st_size / 1e6
     print(f"  BM25: {bm_n}조 · 어휘 {len(bm_df)} · avgdl {bm_avgdl} · "
           f"anchor≤{bm_anchor} rare≤{bm_rare} · {bm_mb:.2f}MB")
 
@@ -354,7 +368,7 @@ def main() -> int:
     (CORPUS_DIR / "_manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    size_mb = (CORPUS_DIR / "law_index.json").stat().st_size / 1e6
+    size_mb = (CORPUS_DIR / "law_index.json.gz").stat().st_size / 1e6
     print(f"\nOK: {N}조 · {len(laws_meta)}개 법령파일 · anchor_df_max={anchor_df_max} · "
           f"index {size_mb:.2f}MB · commit {commit_sha[:8]}")
     if missing:

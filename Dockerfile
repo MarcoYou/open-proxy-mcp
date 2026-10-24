@@ -11,11 +11,11 @@ COPY open_proxy_mcp/ open_proxy_mcp/
 #   `open_proxy_mcp/data/laws/` 로 옮겨 **코드와 함께** 배포된다 — 여기서 챙길 필요가 없다.
 #   종전에는 이 COPY 한 줄이 빠지면 룰 40개가 조용히 0이 되고 강행규정 판정이 통째로
 #   사라졌다(경고·로그·헬스체크 전무). 이제 로더가 로그를 남기고 /health 가 개수를 싣는다.
-#
-# 아래는 **corpus 만** 남긴다 — 법령 원문+인덱스 11MB 라 휠에 싣지 않는다.
-#   law_lookup 이 조문 전문을 돌려줄 때 쓴다. 없으면 조문 검색이 빈 결과가 되므로
-#   production 필수이고, 빠지면 /health 의 law_corpus_articles 가 0으로 보인다.
-COPY wiki/rules/laws/corpus/ wiki/rules/laws/corpus/
+#   261025: 법령 corpus(조문 20장 + 생성 색인)도 `open_proxy_mcp/data/laws/corpus/` 로
+#   내려와 위 COPY 한 줄에 포함된다 — 종전에는 `wiki/rules/laws/corpus/` 를 따로 챙겼다.
+#   색인을 공백 없이 gzip 으로 싣자 11.3MB → 1.5MB 가 되어 휠에 넣지 않을 이유가 사라졌다.
+#   빠지면 조문 검색이 빈 결과가 되므로 production 필수이고, /health 의
+#   law_corpus_articles 가 0 으로 보인다.
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.7 /uv /usr/local/bin/uv
 # --locked: lock 과 pyproject 가 어긋나면 **빌드를 실패시킨다**(조용히 다른 버전 설치 금지)
