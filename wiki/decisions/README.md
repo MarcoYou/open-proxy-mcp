@@ -54,7 +54,6 @@ updated: 2026-10-24
 | [[260510_1015_decision_subagenda-mapping]] | sub-agenda → amendment 1:1 매핑 |
 | [[260510_1130_decision_director-faithfulness]] | 사외이사 겸직/충실성 fact 강화 |
 | [[260510_1230_decision_career-parser-concat]] | careerDetails concat/boundary 처리 |
-| [[260702_1520_decision_usage-is-error-tracking]] | 사용통계 is_error 기록 — 툴 내부 오류 기준 정의 |
 | **[[260717_1220_decision_business-content-tool-roadmap]]** | **business_details tool — "II.사업의 내용" 자동추출 스코프·계약(IN/OUT 폼·필드, strict/candidate 문맥 계약)** |
 | **[[260823_1720_decision_financial-notes-tool]]** | **financial_notes tool — 금융사 주석 표 원형 추출 스코프·계약(TE/TD 런타임 판별·앵커·기준일 부착. census 41건)** |
 | [[260721_1500_decision_asset-holdings-purpose-buckets]] | asset_holdings 보유자산 목적버킷 6분류(회계사 검토) — 재테크형/부동산 자산주형/지주사 할인형/우호지분형 서사 근거 |

@@ -17,7 +17,7 @@ updated: 2026-10-24
 `dividend` → **`dividend_disclosure`**. 같은 날 DB 기반 [[dividend_data]](구
 `dividend_history_data`·`dividend_screener`, 260903 통합)가 생기면서 「dividend」라는
 이름이 어느 것인지 가리키지 못하게 됐다. 이 도구는 **공시 원문을 그때그때 열어 읽는
-쪽**이다 — 그 성격을 이름에 담았다. 옛 이름의 사용통계는 `usage_tracker.TOOL_ALIASES` 가
+쪽**이다 — 그 성격을 이름에 담았다. 옛 이름의 사용통계는 `open_proxy_mcp.usage.TOOL_ALIASES` 가
 접어 한 계열로 잇는다.
 
 ## 둘을 어떻게 가르나
