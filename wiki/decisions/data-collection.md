@@ -302,7 +302,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 
 `_throttle_scrape` 안에서 요청 장부에 `fetch_viewer`·`fetch_kind`(폴백 몇 번 갔나)와
 `web_wait_ms`(그래서 얼마나 잤나)를 적고 `tool_call_events` 로 흘려보낸다.
-조회는 `python3 scripts/usage_tracker.py --paths [일수]`.
+조회는 비공개 저장소의 사용 통계 스크립트(`--paths`)로 한다.
 
 | 읽은 결과 | 뜻 | 할 일 |
 |---|---|---|
@@ -830,7 +830,7 @@ TTL 은 이 수치를 며칠 보고 정한다. 걸 때는 **fail-open** — 만�
 
 `note_degradation(kind)` 이 요청 장부에 **종류만** 적고 미들웨어가 `ops_tool_calls.degraded`
 로 올린다(`weak_kinds` 와 같은 구조 — 적는 곳은 대체가 확정되는 지점, 읽는 곳은 미들웨어 하나).
-회사명·질의 원문은 싣지 않는다. `usage_tracker --stats` 의 `[조용한 대체]` 절이 종류별·
+회사명·질의 원문은 싣지 않는다. 비공개 사용 통계의 `[조용한 대체]` 절이 종류별·
 tool별·**날짜별**을 낸다 — 총량보다 「언제부터 늘었나」가 답이라서다.
 
 종류는 **닫힌 목록**(`DEGRADATION_KINDS`)이고 테스트가 호출부 문자열을 그 목록과 대조한다.
@@ -887,7 +887,7 @@ DB 쪽 필터만 걸어서 `str(None)`="None" 이 65,500건짜리 가짜 범주�
 `inflight_max` 는 들어올 때 한 번 재는 게 아니라 **나중에 들어온 요청이 앞사람 기록도 함께
 올린다.** 안 그러면 첫 요청은 영원히 1 로 남는데, 정작 뒤에 몰린 것을 다 겪는 건 그 요청이다.
 등록 해제는 반드시 `finally` — 빠뜨리면 목록이 자라 **이후 모든 측정이 조용히 부푼다**.
-`usage_tracker --stats` 의 `[느린 이유]` 절이 tool 별로 셋의 비율을 낸다.
+비공개 사용 통계의 `[느린 이유]` 절이 tool 별로 셋의 비율을 낸다.
 
 `inflight` 는 **`tools/call` 만** 센다. streamable-http 클라이언트는 `GET /mcp` 로 스트림을
 열어 세션 내내 붙들고 있어서, 함께 세면 「CPU 를 다투는 요청 수」가 아니라 「열려 있는 연결 수」가

@@ -421,17 +421,3 @@ def test_record_drops_protocol_handshakes(tmp_path, monkeypatch):
     assert usage._q.qsize() == 1, "진짜 도구 호출까지 막혔다"
 
 
-def test_writer_and_reader_share_one_is_protocol():
-    """정의가 둘이면 갈라진다 — 갈라지는 순간 한쪽은 쓰고 한쪽은 버린다(그게 260918 사고).
-    읽는 쪽은 `open_proxy_mcp.usage` 에서 import 해 쓴다. 여기서 **같은 객체**임을 못박는다."""
-    import importlib.util
-    from pathlib import Path
-
-    from open_proxy_mcp.usage import is_protocol
-
-    path = Path(__file__).resolve().parent.parent / "scripts" / "usage_tracker.py"
-    spec = importlib.util.spec_from_file_location("usage_tracker_ssot", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    assert mod.is_protocol is is_protocol, \
-        "usage_tracker 가 자기만의 is_protocol 을 다시 정의했다"
