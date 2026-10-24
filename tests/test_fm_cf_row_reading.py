@@ -51,6 +51,11 @@ def test_cfo_falls_back_to_the_name_when_there_is_no_account_id():
     assert _read(rows, "cfo") == 777
 
 
+def test_blank_id_row_does_not_hide_a_later_id_row_of_the_same_account():
+    rows = [_cf(CFO, "영업활동현금흐름", "-"), _cf(CFO, "영업활동현금흐름", "4020")]
+    assert _read(rows, "cfo") == 4020
+
+
 # ── 설비투자 ──
 def test_capex_skips_the_other_ppe_row_that_comes_first():
     rows = [_cf(OTHER_PPE, "기타유형자산의 취득", "0", "38"), _cf(PPE, "유형자산의 취득", "1350", "2100")]
@@ -147,6 +152,7 @@ def test_fcf_blank_adds_one_reason_line_and_no_new_key(monkeypatch):
     assert m["cfo_krw"] == 400 and m["capex_krw"] is None and m["fcf_krw"] is None
     lines = [x for x in w if "FCF" in x]
     assert len(lines) == 1 and "2021" in lines[0] and "유형자산" in lines[0]
+    assert "행이 없거나 읽지 못해" in lines[0]
     assert set(m) == set(m_ok)                                            # 지표 묶음에 새 키 없음
 
 

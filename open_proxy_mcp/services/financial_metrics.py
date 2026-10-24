@@ -777,7 +777,8 @@ def _build_account_map_all(
 
         if sj_div == "CF" and (_cf_key := next((k for k, loc in _CF_LOCAL_IDS.items()
                                                  if _borrow_local(account_id) == loc), None)):
-            cf_by_id.setdefault(_cf_key, amount)
+            if amount is not None:   # 빈칸('-') 행이 뒤의 값 있는 같은 id 행을 가리지 않게
+                cf_by_id.setdefault(_cf_key, amount)
             continue
         if sj_div == "BS":
             # 지배주주 귀속 자본 줄은 여기서 값으로 채택하지 않는다 — 루프 뒤에서 수집·배수 도구와 **같은 공용 규칙**
@@ -854,8 +855,8 @@ def _build_account_map_all(
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
                     break
-    # 계정 id 로 읽은 값이 이름 폴백보다 먼저다(값이 비었으면 폴백을 둔다).
-    out.update({k: v for k, v in cf_by_id.items() if v is not None})
+    # 계정 id 로 읽은 값이 이름 폴백보다 먼저다(id 행이 없거나 값이 빈칸이면 폴백을 둔다).
+    out.update(cf_by_id)
     # 261021(fin-eq): 지배자본도 지배 순이익처럼 수집 배치·price_multiple_data(firm)와 **같은 규칙**으로 고른다.
     out["controlling_equity"], out["controlling_equity_case"] = _shared_ctrl_equity(rows, f"{period}_amount")
     # 261020(p1e firm-ctrl-ni): 지배 순이익은 수집 배치·price_multiple_data(firm)와 **같은 규칙**(`services/controlling_ni` — 값 구조 검사)으로 고른다.
@@ -2632,7 +2633,7 @@ async def _fetch_year_metrics(
     for _m, _tag in ((metrics, ""), (metrics.get("standalone"), "당기 분기 단독 ")):
         if _m and (_m.get("cfo_krw") is None) != (_m.get("capex_krw") is None):
             _lost = "영업활동현금흐름" if _m.get("cfo_krw") is None else "유형자산의 취득"
-            warnings.append(f"{year}년 {_tag}FCF(자유현금흐름)를 비움 — 현금흐름표에서 「{_lost}」 행을 읽지 못해 한쪽만으로는 계산하지 않는다. "
+            warnings.append(f"{year}년 {_tag}FCF(자유현금흐름)를 비움 — 현금흐름표에서 「{_lost}」 행이 없거나 읽지 못해 한쪽만으로는 계산하지 않는다. "
                             "원문: filing_section(현금흐름표)")
 
     # ── 기준 항상 명시 (사람용 한 줄) — 손익이 당기/누적/연간 중 무엇인지 + 회전일수 기준 ──
