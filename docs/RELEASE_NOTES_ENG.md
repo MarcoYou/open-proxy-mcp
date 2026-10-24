@@ -4,6 +4,11 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-23
 
+### `price_multiple_data` — PER/PBR are blanked, not computed, when a foreign-currency reporter's exchange rate cannot be fetched
+
+- When a company whose functional currency is not KRW (e.g. a USD reporter) has no fiscal-year-end exchange rate available, the response used to substitute a rate of 1 and divide the foreign-currency figures by the KRW market cap, publishing a number as PER/PBR (only a high-value warning was attached). It now blanks PER(FY0), PER(TTM) and PBR (N/M), sets `data_quality.values_masked` to `true`, and the exchange-rate warning says the multiples were blanked and to retry shortly (the failure is remembered for up to 10 minutes on the same server) and check the filing if it stays empty. The value is unknown, not zero. A profitable company whose PER is blanked by the rate failure is no longer explained with a "deficit — PER N/M" warning.
+- Responses for foreign reporters with a rate and for KRW reporters are unchanged (in the replay of 13 KRW companies and 2 USD reporters the cases with a rate were identical; only the 2 USD cases with an injected rate failure differed). The dividend yield and the input fields (foreign-currency raw values) are untouched, and PER/PBR target comparisons in `value_up` and `shareholder_commitment` read "cannot compare" instead of a wrong met/missed when the rate fails. Tool names, parameters and response keys are unchanged.
+
 ### `financial_metrics` — keeps decimal EPS and fixes cash-flow alerts that fired on operating losses and in the reverse direction
 
 - Earnings per share (EPS) was read as an integer, so decimal disclosures were cut. Doosan Bobcat's 2024 basic EPS of USD 4.14 was read as 4 and `eps_krw` came out as KRW 5,880 (correct: 4.14 × 1,470 = 6,086, about 3.4% lower); SK REIT's 4.21 came out as 4. Only EPS (basic and diluted) is now read as a decimal: values disclosed as whole numbers stay integers and decimals are kept. Foreign-currency reporters are converted to whole won; the markdown EPS line shows decimals only when present ("4.21원"). The prior-year EPS in the year-over-year view follows the same rule. Amount fields stay integers and the tool description gets one clause for the EPS exception.
