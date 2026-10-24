@@ -878,7 +878,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
                                                      "잠시 뒤 다시 조회할 것."
                                                      + _origin_tail(rept.get("rcept_no"), "타법인출자"))
         elif stakes_failed:
-            data["nav"]["equity_nav_unavailable"] = f"{stakes_failed} — 보유 목록을 읽지 못해 지분 NAV 를 비웠다. 잠시 뒤 다시 조회할 것."
+            data["nav"]["equity_nav_unavailable"] = f"{stakes_failed} — 보유 목록을 읽지 못해 지분 NAV 를 비웠다."
         if mixed_krw:
             warnings.append("종속+관계/공동기업 결합계정 존재(별도FS 흔한 표기) — 지배지분 섞여있어 "
                             "equity_nav에 안 섞고 nav.mixed_combined_krw로 별도 표기(참고용, 지분법원가 기준)")

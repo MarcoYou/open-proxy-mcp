@@ -226,6 +226,7 @@ def test_holdings_list_failure_does_not_read_as_zero_holdings(monkeypatch):
     assert d["listed_stakes"]["unavailable"] is True and "출자현황" in d["listed_stakes"]["unavailable_reason"]
     assert d["nav"]["equity_nav_krw"] is None and d["nav"]["equity_nav_basis"] is None and d["nav"]["equity_nav_cov"] is None
     assert "출자현황" in d["nav"]["equity_nav_unavailable"]
+    assert "잠시 뒤 다시 조회할 것" not in d["nav"]["equity_nav_unavailable"]      # 재시도 안내는 사유 문구(_dart_read_note) 것만 — 020 의 「자정 이후」와 겹치지 않게
     assert d["nav"]["haircut_flags"] == [] and d["haircuts"]["pledged"] is not None      # 주석은 읽었다 — 감액 표시는 비우지 않는다
     assert any(w.startswith("타법인 출자현황 조회 실패 — ") for w in p["warnings"])
     md = _render(p)
