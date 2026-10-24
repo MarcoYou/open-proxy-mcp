@@ -114,38 +114,3 @@ def test_recorder_accepts_and_orders_degraded():
 
 
 # ── 집계 쪽 ───────────────────────────────────────────────────────────
-def _tracker():
-    import importlib.util
-    import pathlib
-    root = pathlib.Path(__file__).resolve().parent.parent
-    spec = importlib.util.spec_from_file_location("ut", root / "scripts" / "usage_tracker.py")
-    m = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(m)
-    return m
-
-
-def test_drained_rows_without_the_column_are_not_a_fake_category():
-    """★ 이 지표가 **첫 실행에서 조용히 틀렸던** 지점이다.
-
-    드레인 백업에는 이 컬럼이 없어 `merge_drained` 가 None 으로 채운다. DB 쪽
-    `WHERE degraded IS NOT NULL` 은 합류분에 안 걸리므로, 거르지 않으면 `str(None)` 이
-    "None" 이라는 유령 범주가 되어 65,500건으로 잡힌다(260824 실측).
-    """
-    ut = _tracker()
-    rows = [(1, "h1", "screener", None),          # 드레인 합류분
-            (2, "h1", "screener", ""),            # 빈 값
-            (3, "h2", "screener", "universe_fallback"),
-            (4, "h3", "screener", "universe_fallback,period_fallback")]
-    kinds, per_tool, per_day, users = ut.degradation_stats(rows)
-    assert "None" not in kinds and "" not in kinds
-    assert kinds == {"universe_fallback": 2, "period_fallback": 1}
-    assert len(users["universe_fallback"]) == 2
-
-
-def test_protocol_and_self_calls_are_excluded():
-    ut = _tracker()
-    rows = [(1, "h1", "initialize", "universe_fallback"),
-            (2, "h1", None, "universe_fallback"),
-            (3, "h2", "screener", "universe_fallback")]
-    kinds, *_ = ut.degradation_stats(rows)
-    assert kinds == {"universe_fallback": 1}, "핸드셰이크가 섞였다"

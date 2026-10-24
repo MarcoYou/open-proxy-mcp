@@ -18,7 +18,7 @@ wiki_schema Section 0.2 트리 link 방향 정책 + README 인덱스 동기화 �
     python3 scripts/wiki_lint.py --strict  # warning 있으면 exit 1 (CI / hook용)
 
 커밋 훅:
-    `.claude/settings.json` PreToolUse(git commit) → `scripts/wiki_drift_warn.sh` 가 코드 변경 시
+    로컬 `.claude/settings.json`(레포에 없음) PreToolUse(git commit) → `scripts/wiki_drift_warn.sh` 가 코드 변경 시
     영향 wiki 갱신 여부를 경고한다. CI 는 `.github/workflows/wiki-lint.yml` 이 --strict 로 막는다.
 """
 
