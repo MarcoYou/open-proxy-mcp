@@ -15,7 +15,7 @@ from open_proxy_mcp.services.business_details import (
 from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning, COMPANY_LOOKUP_NEXT_ACTION
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import ToolEnvelope
-from open_proxy_mcp.services.dart_safety import is_no_data
+from open_proxy_mcp.services.dart_safety import classify_degrade, is_no_data
 
 
 #: 필드별 주석 상태(`notes[필드].status` — 데이터 칸이라 값은 그대로 둔다)를 **사람이 읽는 말로**. md 에 엔진 식별자
@@ -27,16 +27,19 @@ _NOTE_STATUS_KO = {
 }
 
 
-def _envelope_status(notes: dict) -> str:
+def _envelope_status(notes: dict, gaps=()) -> str:
     """응답 머리 `status` — 다른 공시 도구와 같은 어휘(`AnalysisStatus`, 소문자)로 적는다.
 
     261018: 종전엔 성공이 대문자 「OK」, 원문 미수집이 「NO_DATA」였다 — 같은 도구가 회사를 못 찾거나
     후보가 여럿일 때는 `error`·`ambiguous`(소문자)라 한 도구 안에서도 어휘가 갈렸다. 필드 하나라도 원문을 못 받았거나
     (NOT_COLLECTED) 표를 찾고도 못 읽었으면(EXTRACTION_FAILED) `partial`, 아니면 `exact` —
     그 주석이 없는 회사(NOT_APPLICABLE)는 정상 답이라 `exact` 를 깎지 않는다.
+
+    `gaps` — 받지 못한 절·검색(`_apply_gaps` 가 돌려준 것). 하나라도 있으면 필드가 모두 OK 여도 `partial` 이다(P1-#40·#42):
+    그 절·보고서 종류는 읽지 못했으니 「없다」고도 「전부다」라고도 말할 수 없다.
     """
-    gaps = {svc.NOT_COLLECTED, svc.EXTRACTION_FAILED}
-    if any((res or {}).get("status") in gaps for res in (notes or {}).values()):
+    failed = {svc.NOT_COLLECTED, svc.EXTRACTION_FAILED}
+    if gaps or any((res or {}).get("status") in failed for res in (notes or {}).values()):
         return AnalysisStatus.PARTIAL.value
     return AnalysisStatus.EXACT.value
 
@@ -166,8 +169,12 @@ def _md_table(rows: list[list[str]]) -> list[str]:
     return out
 
 
-def _render(payload: dict) -> str:
-    """표를 **그대로** 마크다운으로. 합치거나 나누지 않는다."""
+def _render(payload: dict, gaps=()) -> str:
+    """표를 **그대로** 마크다운으로. 합치거나 나누지 않는다.
+
+    `gaps` — 받지 못한 절·검색(`_apply_gaps`). md 는 봉투가 없어 경고(`warnings`)를 실을 자리가 없으므로 머리 아래에 줄로 싣고,
+    재무상태표 절을 못 받은 기준의 표에는 「분모 없음」 대신 받지 못했다고 적는다.
+    """
     from open_proxy_mcp.extensions import origin_hint
 
     rno = payload["report"]["rcept_no"]
@@ -184,6 +191,9 @@ def _render(payload: dict) -> str:
             parts.append(h if h else f"「{s_['title']}」")
         L.append("- 읽은 절: " + " · ".join(parts))
     L.append("")
+    sheet_failed = {g["basis"] for g in gaps if g["kind"] == "sheet"}
+    if gaps:
+        L += [f"> ⚠️ {g['warning']}" for g in gaps] + [""]
     for field, res in payload["notes"].items():
         L.append(f"## {field}")
         if res["status"] != svc.OK:
@@ -325,6 +335,10 @@ def _render(payload: dict) -> str:
                              f"여기서 위 사용제한액을 뺀다."
                              + (f" (원문 계정명 「{tot['matched']}」)"
                                 if tot.get("matched") and tot["matched"] != t["account"] else ""))
+                elif t.get("table_basis") in sheet_failed:
+                    L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** · "
+                             f"🔴 **재무상태표 절을 받지 못해 분모를 확인하지 못했다** — 계정이 없다는 뜻이 아니다. "
+                             f"다시 조회해 분모를 받기 전에는 이 회사의 unencumbered 를 계산하지 말 것.")
                 else:
                     L.append(f"> 🏷 이 금액이 붙어 있는 계정: **{t['account']}** · "
                              f"🔴 **재무상태표에서 같은 이름의 계정을 못 찾았다 — 분모 없음.** "
@@ -447,8 +461,11 @@ def _basis_wanted(basis: str) -> set[str] | None:
     return {"연결"}
 
 
-async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "연결"):
+async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "연결", gaps: list[dict] | None = None):
     """목차 노드로 **필요한 절만** 받아온다. 못 하면 None → 호출자가 전체 문서로 폴백.
+
+    절 하나의 조회가 실패하면 나머지로 답하되 그 사실을 `gaps` 에 적는다(P1-#40 — 종전엔 조용히 건너뛰어 그 절 몫의 필드가
+    「해당 주석 없음」으로 나갔다). 재무상태표(분모) 절도 같다. 절이 하나도 안 받아지면 지금처럼 None(전체 문서 폴백).
 
     🔴 260824 실측 — NH투자증권 사업보고서 19.5MB 를 통째로 읽으면 RSS 가 155MB 늘고
        1GB VM 에서 위험하다. 목차에는 주석 **항목마다** 좌표가 있다
@@ -480,7 +497,13 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "
     for basis, node in picked:
         try:
             regions.append((basis, await client._fetch_viewer_section_html(node)))
-        except Exception:
+        except Exception as exc:               # 외부 예외 갈래가 많다(HTTP·전송·기준일) — 종류를 가리지 않고 「읽지 못함」
+            if gaps is not None:
+                title, guide = (node.get("text") or "").strip(), classify_degrade(exc)[1]
+                gaps.append({"kind": "section", "rcept_no": rcept_no, "basis": basis, "node": node,
+                             "warning": f"「{title}」 절({basis}) 조회에 실패해 읽지 못했다 — 그 절의 표가 빠졌을 수 있다. {guide} "
+                                        f"(원문: 접수번호 {rcept_no} 의 같은 절)",
+                             "note": f"「{title}」 절을 받지 못했다 — 그 절의 표가 빠졌을 수 있다(주석이 없다는 뜻이 아님). {guide}"})
             continue
         read_sections.append({"basis": basis, "no": node.get("tocNo") or "", "title": (node.get("text") or "").strip()})
     if not regions:
@@ -497,8 +520,12 @@ async def _fetch_by_nodes(client, rcept_no: str, want: list[str], basis: str = "
             continue
         try:
             sheets[b] = svc.balance_sheet_from(await client._fetch_viewer_section_html(node))
-        except Exception:
+        except Exception as exc:
             sheets[b] = None
+            if gaps is not None:
+                gaps.append({"kind": "sheet", "rcept_no": rcept_no, "basis": b,
+                             "warning": f"재무상태표 절({b}) 조회에 실패해 사용제한 분모(재무상태표 잔액)를 확인하지 못했다. "
+                                        f"{classify_degrade(exc)[1]} (원문: 접수번호 {rcept_no} 의 재무상태표 절)"})
     return regions, sheets, read_sections
 
 
@@ -515,7 +542,11 @@ _YEAR_CODES = {
 }
 
 
-async def _candidates(client, corp_code: str, period: str, year: str) -> list[dict]:
+#: 검색 실패 경고에 쓰는 보고서 종류 이름 — `_YEAR_CODES` 의 reprt_code.
+_CODE_KO = {"11011": "사업보고서", "11012": "반기보고서", "11013": "1분기 보고서", "11014": "3분기 보고서"}
+
+
+async def _candidates(client, corp_code: str, period: str, year: str, gaps: list[dict] | None = None) -> list[dict]:
     """`year` 가 없으면 종류별 **최신** 한 건, 있으면 **그 사업연도**의 보고서.
 
     🔴 **260824 시험자 지적 — 과거 시점을 부를 길이 아예 없었다.** `period` 는 종류만
@@ -524,6 +555,9 @@ async def _candidates(client, corp_code: str, period: str, year: str) -> list[di
        `business_details` 에 이미 있었다(`_find_report_for_bsns_year`) — 그걸 쓴다.
        분기는 한 해에 두 번(1분기·3분기) 나오므로 `period="1분기"`/`"3분기"` 로
        콕 집을 수 있게 열어 둔다. 그냥 `quarter` 면 그 해의 **늦은 쪽**이 잡힌다.
+
+    반환 목록은 그대로다(한 종류라도 찾으면 그것을 쓴다). 다만 013 이 아닌 이유로 검색이 실패한 종류는 `gaps` 에 적는다(P1-#42) —
+    다른 종류가 찾아졌다고 그 실패를 버리면, 사업보고서 검색이 실패하고 분기만 찾아진 응답이 분기보고서를 아무 경고 없이 최신처럼 낸다.
     """
     y = (year or "").strip()
     if not y:
@@ -543,6 +577,9 @@ async def _candidates(client, corp_code: str, period: str, year: str) -> list[di
         except DartClientError as exc:
             if not is_no_data(exc):
                 failed = exc
+                if gaps is not None:
+                    gaps.append({"kind": "search", "rcept_no": None,
+                                 "warning": f"{_CODE_KO[code]} 검색이 실패해 그 종류의 보고서가 있는지 확인하지 못했다. {classify_degrade(exc)[1]}"})
             continue
         for r in found:
             if r["rcept_no"] not in seen:
@@ -552,6 +589,27 @@ async def _candidates(client, corp_code: str, period: str, year: str) -> list[di
         raise failed
     out.sort(key=lambda r: r.get("rcept_dt", ""), reverse=True)
     return out
+
+
+def _apply_gaps(gaps: list[dict], rcept_no: str | None, notes: dict, want: list[str]) -> list[dict]:
+    """채택한 보고서(`rcept_no`)의 절 실패와 검색 실패를 응답에 반영한다. 반영한 gaps 를 돌려준다(봉투 경고·md 가 쓴다).
+
+    규칙 하나: **받지 못한 절이 몫인 필드는 상태와 무관하게 그 사실을 필드에 단다.** 그 필드가 「해당 주석 없음」이면 NOT_COLLECTED 로
+    바꾸고(못 읽은 것을 「없다」고 하지 않는다), 다른 절에서 이미 채워졌으면 그대로 두되 기존 `note` 칸에 「표가 빠졌을 수 있다」를 더한다.
+    필드 몫은 절 노드를 `pick_note_nodes` 에 되물어 정한다(항목 노드는 제목 앵커로 걸리고, 주석 절 통째 폴백 노드는 어느 필드에도
+    안 걸리므로 요청한 필드 모두의 몫이다). 접수번호별로 걸러 채택하지 못한 후보의 실패는 알리지 않는다(`rcept_no=None` 이면 검색 실패만).
+    """
+    adopted = [g for g in gaps if g["rcept_no"] in (None, rcept_no)]
+    for g in adopted:
+        if g["kind"] != "section":
+            continue
+        for f in [f for f in want if svc.pick_note_nodes([g["node"]], [f])] or want:
+            res = notes[f]
+            if res["status"] == svc.NOT_APPLICABLE:
+                res["status"], res["note"] = svc.NOT_COLLECTED, g["note"]
+            else:
+                res["note"] = " / ".join(x for x in (res.get("note"), g["note"]) if x)
+    return adopted
 
 
 def register_tools(mcp):
@@ -593,7 +651,8 @@ def register_tools(mcp):
         name = corp.get("corp_name", company)
         c = get_dart_client()
 
-        cands = await _candidates(c, corp_code, period, year)
+        gaps: list[dict] = []                # 받지 못한 절·검색(P1-#40·#42) — 응답에 partial·경고로 싣는다
+        cands = await _candidates(c, corp_code, period, year, gaps=gaps)
         if not cands:
             miss = (f"{year} 사업연도의 {period} 보고서를 찾지 못했습니다"
                     if (year or "").strip() else "정기보고서를 찾지 못했습니다")
@@ -609,13 +668,14 @@ def register_tools(mcp):
         # 🔴 **먼저 목차 노드로 필요한 절만 받아본다.** 전체 문서는 최후 수단이다.
         node_hit = None
         for r_ in cands[:2]:
-            node_hit = await _fetch_by_nodes(c, r_["rcept_no"], want, basis)
+            node_hit = await _fetch_by_nodes(c, r_["rcept_no"], want, basis, gaps=gaps)
             if node_hit:
                 report = r_
                 break
         if node_hit:
             regions, sheets, read_sections = node_hit
             notes = svc.extract_regions(regions, want, sheets)
+            adopted = _apply_gaps(gaps, report["rcept_no"], notes, want)
             payload = {
                 "company": name, "corp_code": corp_code,
                 "report": {"report_nm": report.get("report_nm", "").strip(),
@@ -625,9 +685,10 @@ def register_tools(mcp):
                 "fetch": "nodes", "basis": basis, "sections": read_sections,
             }
             if format == "json":
-                env = ToolEnvelope(tool="financial_notes", status=_envelope_status(notes), subject=name, data=payload)
+                env = ToolEnvelope(tool="financial_notes", status=_envelope_status(notes, adopted), subject=name, data=payload,
+                                   warnings=[g["warning"] for g in adopted])
                 return json.dumps(env.to_dict(), ensure_ascii=False)
-            return _render(payload)
+            return _render(payload, adopted)
 
         # 정정본은 원문(document.xml)이 없을 수 있다(DART 014) — **같은 기수 원본으로 폴백**한다.
         # 260823 실측: 삼성화재 [첨부정정]사업보고서가 014, 하루 전 원본은 정상 2,675만자.
@@ -652,6 +713,7 @@ def register_tools(mcp):
             return json.dumps(env.to_dict(), ensure_ascii=False)
 
         notes = svc.extract(html, want)
+        adopted = _apply_gaps(gaps, None, notes, want)          # 전체 문서로 읽었으니 절 실패는 무관 — 검색 실패만
         payload = {
             "company": name, "corp_code": corp_code,
             "report": {"report_nm": report.get("report_nm", "").strip(),
@@ -660,6 +722,7 @@ def register_tools(mcp):
             "doc_chars": len(html),
         }
         if format == "json":
-            env = ToolEnvelope(tool="financial_notes", status=_envelope_status(notes), subject=name, data=payload)
+            env = ToolEnvelope(tool="financial_notes", status=_envelope_status(notes, adopted), subject=name, data=payload,
+                               warnings=[g["warning"] for g in adopted])
             return json.dumps(env.to_dict(), ensure_ascii=False)
-        return _render(payload)
+        return _render(payload, adopted)

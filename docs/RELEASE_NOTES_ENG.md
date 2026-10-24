@@ -4,6 +4,13 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-23
 
+### `financial_notes` no longer reports a section or report search it could not read as "no such note"
+
+- When the table of contents pointed to several note sections and one of them failed to load (DART maintenance, quota or a transient error), the fields that section should have supplied were reported as "no such note" (`NOT_APPLICABLE`) with `status` still `exact`. Those fields are now "not collected" (`NOT_COLLECTED`), `status` is `partial`, and `warnings` says which section failed and to retry. When one field is gathered from two sections (restricted deposits and pledged assets) and only one fails, the tables that were read are returned as they are and the field's `note` adds that tables may be missing.
+- When the balance-sheet (denominator) section could not be loaded, the markdown used to say "no account of that name was found — no denominator". It now says the section could not be loaded, so the denominator is unconfirmed rather than absent.
+- With `year` set, the report search runs once per report type (annual, half-year, Q1, Q3). If some searches failed and another type was found, the found report used to be returned as `exact` with no warning (an annual-report search failure with only a quarterly report found made the quarterly report look like the latest). The chosen report is unchanged; the response is now `partial` and a warning names the search that failed. "No such report" (DART 013) is still an answer, not a failure.
+- Markdown carries the same warnings as "⚠️" lines under the header. Calls without a failure return the same response as before (the failure branch only runs when a section or search was missed; checked by replaying the default half-year consolidated call for 3 financial companies; separate/all bases, annual/quarterly reports, an explicit `year` and other companies were not compared); tool names, arguments, response keys and the tool count are unchanged (no new keys).
+
 ### Responses that read only part of the data no longer look normal — `dividend_disclosure`, `treasury_share`, `financial_metrics`
 
 - The same rule as the next entry continues: anything that could not be read for a reason other than 013 is reported as `partial` (or `error`, "lookup failed", when nothing at all could be read) with a warning, not as "none" or normal. The judgement and wording come from the same single place as before. The `status` field and the body fields (`filing_status`, `parsing_failures`) now come from the same value.
