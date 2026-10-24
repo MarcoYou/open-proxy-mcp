@@ -3397,7 +3397,7 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
         warnings.append("⚠️ 자본잠식 50%↑ — 관리종목 위험.")
     elif cap_status == "partial":
         warnings.append("자본잠식 진행 중.")
-    _dw = _deficit_warning(eps_fy, ni_fy, per_fy)
+    _dw = None if fx_failed and ni_fy is not None and ni_fy > 0 else _deficit_warning(eps_fy, ni_fy, per_fy)   # 261024: 환율 실패로 PER 을 비운 것을 적자로 적지 않는다(흑자 외화 보고사)
     if _dw:
         warnings.append(_dw)
     if eps_adj and eps_adj.get("unlabeled_events"):

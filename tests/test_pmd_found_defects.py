@@ -332,6 +332,18 @@ def test_foreign_reporter_without_rate_blanks_the_multiples_and_keeps_the_rest(m
     assert "N/M" in TP._render_explain_firm(p)
 
 
+def test_rate_failure_blank_per_is_not_explained_as_a_deficit(monkeypatch):
+    """공시 EPS 0(달러 소수 반올림)·지배순이익 양수인 외화 보고사 — 환율 실패로 PER 이 빈 이유는 적자가 아니다. 「적자 — PER N/M」 문구를 내지 않고
+    환율 실패 경고만 남긴다. 환율을 받으면 종전 문구(흑자라 PER 을 냈습니다)가 그대로다."""
+    rows = _eps(USD_REAL_ROWS, annual="0")
+    p, _ = _run_live(monkeypatch, reports={(2025, "11011"): rows}, fx={}, induty="29241", cap=CAP_USD_CO)
+    ws = p["data"]["warnings"]
+    assert p["data"]["multiples"]["per_fy0"] is None
+    assert not any("적자" in w for w in ws) and any("환율 조회 실패" in w for w in ws)
+    p, _ = _run_live(monkeypatch, reports={(2025, "11011"): rows}, fx={"20251231": 1472.5}, induty="29241", cap=CAP_USD_CO)
+    assert any("지배순이익(FY0)은 흑자라 PER(FY0)" in w for w in p["data"]["warnings"])
+
+
 def test_foreign_reporter_with_rate_gives_the_same_multiples_as_before(monkeypatch):
     """대조군: 환율을 받으면 종전과 같은 환산 배수 — 고침이 이 갈래를 건드리지 않는다."""
     p, _ = _run_live(monkeypatch, reports={(2025, "11011"): USD_REAL_ROWS}, fx={"20251231": 1472.5}, induty="29241", cap=CAP_USD_CO)
