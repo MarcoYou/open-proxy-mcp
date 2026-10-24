@@ -40,9 +40,9 @@ def _stub_rows(monkeypatch, rows):
 def _decision_row(fy, board, rcept, dps, *, special=False, remarks=_PLAIN,
                   kind="결산배당", anomaly=None, amended=False):
     #  fiscal_year, board_date, record_date, dividend_type_filed, dividend_type,
-    #  dps_common, total_amount, rcept_no, amended, anomaly, has_special, remarks
+    #  dps_common, total_amount, rcept_no, amended, anomaly, has_special, remarks, acc_mt
     return (fy, board, f"{fy}-12-31", kind, kind, dps, dps * 1000, rcept,
-            amended, anomaly, special, remarks)
+            amended, anomaly, special, remarks, 12)
 
 
 def test_payment_counts_returns_every_remarks_cell_not_just_flagged_ones(monkeypatch):

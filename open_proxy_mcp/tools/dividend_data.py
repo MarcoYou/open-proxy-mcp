@@ -155,9 +155,10 @@ def _render_firm(name: str, ticker: str, d: dict[str, Any], pay: dict[str, Any])
               "> 정기·특별분이 한 결의에 섞여도 **금액은 가르지 않는다** — 서식에 분리 칸이 없다."]
         _al = pay.get("fiscal_year_alignment")
         if _al:
-            L += ["> " + f"{_al['end_month']}월 결산 회사라 결정공시의 사업연도를 **결산 종료연도**로 맞췄다({_al['basis']}) — 원장 표·`dividend_disclosure` 와 같은 해 번호다. "
-                  f"결정공시 수집 쪽 귀속은 12월 결산을 가정해 한 해씩 어긋나 있었다(이 회사 {_al['shifted_decisions']}건을 옮겼다). "
-                  "그래서 ⚠️미완은 걸쳐 있는 저장 사업연도 둘이 모두 온전할 때만 빠진다."]
+            _em = f"{_al['end_month']}월 결산 회사라 " if _al.get("end_month") else "비12월 결산 회사라 "
+            L += ["> " + f"{_em}결정공시의 사업연도를 **결산 종료연도**로 맞췄다({_al['basis']}) — 원장 표·`dividend_disclosure` 와 같은 해 번호다. "
+                  f"결정공시 수집 쪽은 비12월 결산을 사업연도 **시작연도**로 저장하므로 1년씩 옮겼다(이 회사 {_al['shifted_decisions']}건). "
+                  "⚠️미완 판정도 같은 만큼 옮긴 저장 사업연도로 한다."]
         L += _remarks_block(pay.get("decisions") or [], complete)
         if pay.get("remarks_cold_note"):
             L += ["", f"> {pay['remarks_cold_note']}"]
@@ -510,8 +511,6 @@ def register_tools(mcp):
         pay = await dd.fill_remarks_from_cold(pay, corp.get("corp_code", ""))
         if data.get("status") != "ok":
             return "## 배당 원장 조회 실패 (`status=db_error`)"
-        # 결정공시의 사업연도는 12월 결산 가정으로 접혀 있다 — 원장의 결산월로 결산 종료연도에 맞춘다(12월 결산·결산월을 못 읽는 회사는 그대로).
-        pay = dd.align_payment_years(pay, dd.settlement_end_month(data.get("annual")))
         if format == "json":
             return as_pretty_json({"status": "ok", "subject": corp.get("corp_name"),
                                    "data": data, "payment_counts": pay})
