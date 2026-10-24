@@ -601,6 +601,16 @@ def _borrow_local(account_id: str) -> str | None:
     return None
 
 
+#: 현금흐름 세 줄은 계정 id(local-name 정확 일치)로 먼저 읽는다 — 이름 부분 일치는 id 가 없는 행(표준 코드 미사용)의 폴백일 뿐이다.
+#: 이름으로는 「기타유형자산의 취득」(0)이 「유형자산의 취득」보다, 「신종자본증권 배당금의 지급」이 「배당금의 지급」보다 먼저 걸리고,
+#: 「영업활동으로부터의 현금흐름」「현금배당」「배당의 지급」은 패턴에 없어 비었다. local-name 은 `_borrow_local`(접두 ifrs-full_/ifrs_/dart_ 제거)이 낸다.
+_CF_LOCAL_IDS = {
+    "cfo": _borrow_local("ifrs-full_CashFlowsFromUsedInOperatingActivities"),
+    "capex": _borrow_local("ifrs-full_PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"),
+    "dividends_paid": _borrow_local("ifrs-full_DividendsPaidClassifiedAsFinancingActivities"),
+}
+
+
 def _classify_borrow_row(account_id: str, account_nm: str) -> tuple[str | None, str]:
     """차입행 분류 → (canonical_id|None, kind).
 
@@ -779,6 +789,7 @@ def _build_account_map_all(
     out.update({k: None for k in _IS_DETAIL_PATTERNS})
     out.update({k: None for k in _CF_ACCOUNT_PATTERNS})
     capital_parts: list[int] = []
+    cf_by_id: dict[str, int | None] = {}   # 현금흐름 세 줄 — 계정 id 로 읽은 값(첫 행)
     _apply_revenue_pick(out, rows, induty_code, period=period, cumulative_is=cumulative_is)
 
     for row in rows:
@@ -788,6 +799,11 @@ def _build_account_map_all(
         amount = _extract_period_amount(row, period)  # BS(잔액)·CF(누적 native)용
         is_amount = _extract_cumulative_is(row) if cumulative_is else amount  # IS/CIS 손익용
 
+        if sj_div == "CF" and (_cf_key := next((k for k, loc in _CF_LOCAL_IDS.items()
+                                                 if _borrow_local(account_id) == loc), None)):
+            if amount is not None:   # 빈칸('-') 행이 뒤의 값 있는 같은 id 행을 가리지 않게
+                cf_by_id.setdefault(_cf_key, amount)
+            continue
         if sj_div == "BS":
             # 지배주주 귀속 자본 줄은 여기서 값으로 채택하지 않는다 — 루프 뒤에서 수집·배수 도구와 **같은 공용 규칙**
             # (`_shared_ctrl_equity` → `services/controlling_eq`)이 고른다. 종전엔 이 계정 id 가 든 첫 줄을 그대로 써서
@@ -864,6 +880,8 @@ def _build_account_map_all(
                 if out[key] is None and _match_account(account_nm, patterns):
                     out[key] = amount
                     break
+    # 계정 id 로 읽은 값이 이름 폴백보다 먼저다(id 행이 없거나 값이 빈칸이면 폴백을 둔다).
+    out.update(cf_by_id)
     # 261021(fin-eq): 지배자본도 지배 순이익처럼 수집 배치·price_multiple_data(firm)와 **같은 규칙**으로 고른다.
     out["controlling_equity"], out["controlling_equity_case"] = _shared_ctrl_equity(rows, f"{period}_amount")
     # 261020(p1e firm-ctrl-ni): 지배 순이익은 수집 배치·price_multiple_data(firm)와 **같은 규칙**(`services/controlling_ni` — 값 구조 검사)으로 고른다.
@@ -1207,11 +1225,9 @@ def _compute_metrics(
 
     # ── 현금흐름 ──
     fcf_krw = None
-    if cfo is not None or capex is not None:
-        # capex는 보통 음수 (현금유출). 절대값 처리.
-        fcf_krw = (cfo or 0) - abs(capex or 0)
-        if cfo is None and capex is None:
-            fcf_krw = None
+    if cfo is not None and capex is not None:
+        # capex는 보통 음수 (현금유출). 절대값 처리. 한쪽을 못 읽었으면 0 으로 메우지 않고 비운다(사유는 호출부 경고).
+        fcf_krw = cfo - abs(capex)
     fcf_margin_pct = _safe_pct(fcf_krw, revenue)
     cfo_to_op_ratio = _safe_ratio(cfo, operating_profit)
     cfo_to_net_income_ratio = _safe_ratio(cfo, net_income_controlling)
@@ -2638,6 +2654,13 @@ async def _fetch_year_metrics(
     elif used_rc == "11013":
         # 1분기는 누적=당기 → primary가 곧 당기 (별도 분해 불필요)
         metrics["period_basis"] = "quarter_3m"
+
+    # FCF 는 영업CF·설비투자 둘 다 읽혔을 때만 낸다 — 한쪽만 비어 FCF 를 비웠으면 그 사유를 기존 경고 목록에 한 줄 단다(새 키 없음·status 불변).
+    for _m, _tag in ((metrics, ""), (metrics.get("standalone"), "당기 분기 단독 ")):
+        if _m and (_m.get("cfo_krw") is None) != (_m.get("capex_krw") is None):
+            _lost = "영업활동현금흐름" if _m.get("cfo_krw") is None else "유형자산의 취득"
+            warnings.append(f"{year}년 {_tag}FCF(자유현금흐름)를 비움 — 현금흐름표에서 「{_lost}」 행이 없거나 읽지 못해 한쪽만으로는 계산하지 않는다. "
+                            "원문: filing_section(현금흐름표)")
 
     # ── 기준 항상 명시 (사람용 한 줄) — 손익이 당기/누적/연간 중 무엇인지 + 회전일수 기준 ──
     _tb = {"ttm": "TTM(최근 4분기)", "annual": "연간",
