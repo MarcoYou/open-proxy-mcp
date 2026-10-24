@@ -34,6 +34,7 @@ DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/운전자본 
 - Q4는 사업보고서 연간 누적액에서 3분기 누적액을 차감해 standalone 3개월 값으로 만든다. 차분할 수 없으면 `⚠연간`으로 표시하고 QoQ를 계산하지 않는다.
 
 JSON 핵심 필드:
+- **주당 값(EPS)은 공시 소수를 유지한다** (P1-#20): `eps_krw`·`diluted_eps_krw`(원/주)는 금액이 아니라 `_eps_amount` 로 읽어 소수 공시(외화 보고사 USD 4.14, 원화 리츠 4.21)를 버리지 않는다 — 정수로 공시된 값은 종전처럼 int. 비KRW 는 기말환율로 환산해 정수 원(4.14×1,470=6,086), 원화 소수는 소수 그대로(md 는 「4.21원」). 배수 도구(`price_multiple_data`)의 EPS 는 읽기만 같고 내보낼 때 반올림한 정수라 두 도구의 소수 자릿수가 다른 것은 의도다(배수 도구가 공시 EPS 를 못 찾아 이 도구의 `eps_krw` 로 물러날 때는 소수 그대로 나간다).
 
 ```json
 {
@@ -179,12 +180,12 @@ scope:
 
 ## yoy_signals (25개 alerts)
 - **수익성**: `loss_conversion`, `operating_loss`, `turnaround`, `continued_loss`, `revenue_decline`
-- **부채/유동성**: `debt_surge`, `interest_coverage_low`
+- **부채/유동성**: `debt_surge`, `interest_coverage_low` (이자보상배율 **2배 미만** — 1배 미만이면 영업이익으로 이자를 못 낸다)
 - **자본잠식 (KOSDAQ 관리/폐지 사유)**: `capital_impairment_partial` (잠식률 0~50%), `capital_impairment_50plus` (50%+, KOSDAQ 관리종목 사유), `capital_impairment_full` (완전 자본잠식, 상장폐지 사유)
-- **현금흐름**: `cfo_quality_red`, `negative_fcf`, `low_dividend_capacity_use`
+- **현금흐름**: `cfo_quality_red` (영업이익이 **흑자일 때만** — 적자에서는 `cfo_to_op_ratio` 가 음수로 뒤집혀 켜지지 않는다), `negative_fcf`, `low_dividend_capacity_use`
 - **운전자본**: `nwc_surge`, `nwc_efficiency_low`
-- **듀퐁 분해**: `roe_driven_by_leverage`, `roe_decline_margin_driven`, `roe_decline_turnover_driven`
-- **회계 risk**: `accruals_red`, `receivables_surge`, `inventory_surge`
+- **듀퐁 분해**: `roe_driven_by_leverage` (평균 총자산 ÷ 평균 지배자본이 2배 초과인 **수준** 판정 — ROE 변화 방향과 무관), `roe_decline_margin_driven`, `roe_decline_turnover_driven`
+- **회계 risk**: `accruals_red` (영업이익이 현금보다 30%+ 큰 **한 방향**만 — 현금이 이익보다 많은 쪽은 켜지지 않는다), `receivables_surge`, `inventory_surge`
 - **감사의견**: `non_clean_audit_opinion`, `audit_opinion_change` — 의견은 공백·끝의 「의견」을 뗀 뒤 **정확히 「적정」일 때만** 깨끗한 의견이다(「부적정」·「한정」·「의견거절」은 비적정). 「해당사항없음」·빈칸 행은 판정에서 뺀다
 - **배당**: `dividend_halt`
 
@@ -417,6 +418,7 @@ ROE 분모와 자본잠식의 자기자본은 **분기·연간 수집과 `price_
 - 한계: 분기 결산 회사의 11월 결산기(0030R0)처럼 저장 칸의 순이익 합이 비어 있으면 12개월 값은 null + 까닭이다. `yoy` scope 는 리츠 배당성향 억제(`is_reit`)를 아직 받지 않는다.
 
 ## 변경 이력
+- 2026-10-24: **소수 EPS 를 버리던 것 · 영업적자·역방향에서 켜지던 현금흐름 경고 · 틀린 경고 설명 두 줄** (P1 묶음 2 B, 재무 점검 P1-#20·#25·#26) — ① 주당이익을 `int(float())` 로 읽어 소수 공시가 잘렸다: 두산밥캣 2024 기본 EPS USD 4.14 → 4 로 읽혀 `eps_krw` 5,880(바른 값 4.14×1,470=6,086, −3.4%), SK리츠 4.21 → 4. 이제 EPS 4줄(기본·희석·계속영업 폴백)만 float 로 읽어 정수값이면 int·소수면 소수로 둔다(금액 정규화 `normalize_amount` 는 정수 계약 그대로). 비KRW 는 환산 뒤 정수 원, 원화 소수는 소수 그대로, md `EPS` 줄은 소수가 있는 값만 「4.21원」. 전년 대비의 전기 EPS 는 전년 보고서를 따로 읽고 그 해 말 환율로 환산해 같은 규칙이 적용된다(전기 새 값은 운영에서 확인). 도구 설명의 「금액 int(_krw)」에 EPS 예외 한 구. ② `cfo_quality_red` 는 영업이익 ≤0 이면 켜지지 않는다(엔씨소프트 2024 영업이익 −1,092억·영업CF +1,070억의 비율 −0.98 이 0.7 미만이라 켜지고 같은 응답에 `accruals_ratio_unreliable` 이 떠 서로 모순이었다). `accruals_red` 는 `abs()` 대신 이익>현금 방향(괴리 +30% 초과)만 켠다(SK텔레콤 영업CF 가 영업이익의 2.8배인데 「이익이 현금으로 안 들어왔다」). `cfo_to_op_ratio`·`accruals_gap_*` 값과 경고 이름은 그대로이고 경고 목록에서 빠지기만 한다. 15사 재생(고치기 전·후 `_compute_metrics` 전체 출력 지문)에서 바뀐 것은 두산밥캣·SK리츠 EPS 칸과 `accruals_red` 6건·`cfo_quality_red` 1건 제거뿐. ③ `interest_coverage_low` 설명이 문턱(2배)과 달리 「1배 미만 — 못 낸다」였고(SK리츠 1.18배가 거짓 문장을 받음), `roe_driven_by_leverage` 는 EM>2 수준 판정인데 「레버리지로 올라간」이라 했다(SK텔레콤은 레버리지가 줄었는데도): 문구를 문턱·정의대로 고쳤다(판정은 그대로). 새 응답 키 없음, DART 0콜 추가. 영업CF·설비투자·배당 행 판독은 같은 묶음의 다른 PR 몫이다.
 - 2026-10-24: **현금흐름 세 줄(영업CF·설비투자·배당 지급)을 이름이 아니라 계정 id 로 먼저 읽는다 · FCF 는 둘 다 읽혔을 때만** (P1 묶음 「틀린 값」, 재무 점검 P1-#21 + 같은 원인 2건) — ① 이름 부분 일치 선착순이라 영업CF 이름이 패턴 밖인 회사(「영업활동으로부터의 현금흐름」「영업활동순현금흐름」)는 `cfo_krw=None` 인데 FCF 는 `-설비투자` 로 나가 부호가 반대였고(`negative_fcf`), 「기타유형자산의 취득」(0)이 「유형자산의 취득」보다 앞서면 설비투자 0 으로 FCF 가 부풀었으며, 「신종자본증권 배당금의 지급」이 먼저 걸리거나 「현금배당」「배당의 지급」을 못 읽어 `dividend_paid_krw` 가 틀리거나 비었다. 이제 `_borrow_local`(접두 `ifrs-full_`·`ifrs_`·`dart_` 제거) local-name 정확 일치를 먼저, id 없는 행은 기존 이름 폴백으로 읽는다. ② `fcf_krw` 는 `cfo_krw`·`capex_krw` 둘 다 있을 때만 `cfo - |capex|`, 한쪽이 비면 `null` 이고 `warnings` 에 「FCF(자유현금흐름)를 비움 — … 행이 없거나 읽지 못해」 한 줄(반기·3분기는 당기 분기 단독 줄 별도). 응답 키·`status` 는 그대로(`exact` 유지). 대조: 실제 DART 응답 22표(연간 17·분기 3·2018 2)에서 세 키 값이 달라지는 표는 8표(삼성생명·KB금융 3표·카카오·셀트리온 2표·이마트)이고 나머지(SK텔레콤·현대차·NAVER·KT&G·엔씨소프트·한국전력·한미반도체·SK·두산밥캣·글로벌에스엠 등)는 같다. 한계: 분기 단독값에서 직전 분기 값이 비면 누적값이 3개월 자리에 나가는 기존 길은 이번에 고치지 않았다.
 - 2026-10-24: **일부 조회가 실패해도 `exact` 로 나가 5분 캐시에 굳던 것 · 배당성향 조회 실패가 「-」로 나가던 것** (P1 묶음 1, 재무 점검 P1-#28·#29) — ① 찾은 재무가 1건 이상이면 실패한 조회(`_FETCH_FAILURES` 상자: 013 이 아닌 DART 오류)가 무시되어 경고만 달린 채 `status=exact`·`filing_status=all_parsed` 였고 그 응답이 캐시에 들어갔다: 이제 실패한 호출 수를 `parsing_failures` 로 올려 `status=partial`(`filing_status=partial_failure`)이고 응답 캐시에 넣지 않는다(0건이면 종전대로 `error`). md 줄은 「⚠ 일부 공시를 읽지 못했습니다 (조회 N회 실패)」 — N 은 공시 건수가 아니라 실패한 API 호출 수다. ② 배당성향(`_accrual_payout_pct`)의 배당 항목 조회가 013 이 아닌 오류(또는 예외)로 실패하면 무배당과 같은 `None`(「-」)이었다: 같은 상자를 올려 ①의 규칙(`partial`·캐시 제외)이 걸리고, 「N년 배당성향 조회 실패(사유) — 「-」는 무배당이 아니라 조회 실패일 수 있다. 원문: filing_section(배당 절)」 경고를 단다(재시도 시각 안내는 없다 — 020 은 자정 이후라 틀린 말이 된다). `dividend._annual_summary` 는 그대로다(판정·에러 문구 불변 — `price_multiple_data` 가 같이 쓴다). 013·REIT 의 의도적 `None` 은 실패가 아니다. 실패가 없는 응답은 그대로다.
 - 2026-10-23: **감사의견 판정을 부분 문자열에서 정확 일치로** — 종전 `"적정" in 의견` 은 「부적정」이 「적정」을 포함해 깨끗한 의견으로 셌다: 부적정이면 `non_clean_audit_opinion`·`audit_opinion_change` 가 꺼지고 `audit_opinion` 의 `summary.all_clean` 이 True, `next_actions` 의 non-clean 안내가 빠졌다. 또 같은 결산일에 의견 행과 함께 오는 자리 채움 행 「해당사항없음」(셀리버리 2022-12-31)이 비적정으로 셈해져 `all_clean` 이 False, `non_clean_audit_opinion` 이 거짓으로 켜졌다. 이제 `yoy` 신호·`all_clean`·`next_actions` 세 곳이 같은 규칙(의견의 공백·끝 「의견」을 떼고 `== "적정"`)을 쓰고, 「해당사항없음」·빈칸·「-」 행은 판정에서 빠진다(판정할 행이 하나도 없으면 `all_clean` 은 null). `yoy` 신호는 자리 채움 행을 뺀 첫 두 의견 행으로 계산하고 응답의 `audit_opinion.current`·`prior` 와 `opinions` 표는 원문 행 그대로다. 적정 의견 회사(삼성전자 등)의 응답은 그대로, 새 키 없음, DART 0콜 추가. 시험은 합성 고정본이다(부적정 의견 원문은 찾지 못했다).

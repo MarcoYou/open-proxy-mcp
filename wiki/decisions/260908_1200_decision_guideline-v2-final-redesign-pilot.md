@@ -56,7 +56,7 @@ related: [open-proxy-guideline, proxy_advise_before_meeting, governance_screen]
 ### 판단 기준과 적용 범위
 
 Astra 설계의 근거·판정 계약과 Fable 리뷰의 운영 범위를 합친 설계안을 최종 후보로 기록한다.
-전체 비교·HTML·JSON·플로우차트는 `output/guideline-synthesis-20260908/`에 보관한다.
+전체 비교·HTML·JSON·플로우차트는 비공개 저장소에 보관한다(공개 레포에서는 261024 내림).
 이 문서는 그 설계를 OPM 런타임에 연결한 최소 파일럿과 실제 호출 결과를 함께 기록한다.
 
 v2는 아직 공식 의결권 정책이 아니다. `vote_style="opm_guideline_v2"`의 기본 shadow는
@@ -1173,7 +1173,6 @@ LLM이 직접 읽어 해결 가능한지 확인한다. 새 파서를 만드는 �
 - `tests/test_guideline_workflow.py`: 설정·자동 처리 준비·수동 검토·표결 제약 분기 테스트
 - `tests/test_board_attendance_evidence.py`: 출석 원문·기간·추가 공시·날짜·조회 실패 테스트
 - `wiki/tools/proxy_advise_before_meeting.md`: 호출·출력 문서
-- `output/guideline-synthesis-20260908/`: Astra·Fable 비교, 최종 설계, HTML·JSON·플로우차트
 
 ### 작업 기여
 

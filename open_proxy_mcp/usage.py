@@ -60,9 +60,26 @@ SELF_HASHES = {
 #: **프로토콜(핸드셰이크) 요청인가** — MCP 클라이언트가 *사람이 시키지 않아도* 보내는 것.
 #: `initialize`·`ping`·`tools/list`·`notifications/*` 등. tool 이 None 인 것(본문 파싱 실패:
 #: 배치 요청·GET/DELETE)도 도구 호출이 아니므로 여기 넣는다.
-#: **이 함수가 정의의 SSOT** — `scripts/usage_tracker.py` 가 이걸 import 한다(정의가 둘이면 갈라진다).
+#: **이 함수가 정의의 SSOT** — 통계를 읽는 쪽(비공개 저장소)이 이걸 import 한다(정의가 둘이면 갈라진다).
 def is_protocol(tool) -> bool:
     return (not tool) or ("/" in tool) or tool in {"initialize", "ping"}
+
+
+#: **tool 개명 대조표.** 이름을 바꾸면 같은 도구의 통계가 두 계열로 갈라진다 — 옛 이름 아래
+#: 쌓인 호출이 어느 날 0 이 되고 새 이름이 0 에서 시작하니, 그래프만 보면 「죽었다 태어났다」로
+#: 읽힌다(실측: `valuation` 586건). 여기서 옛 이름을 새 이름으로 접어 한 계열로 유지한다.
+#: 지우지 말 것 — 지우는 순간 과거가 다시 갈라진다.
+TOOL_ALIASES = {
+    "valuation": "price_multiple_data",   # 260824 개명 (배수 ↔ 거래·규모 분리)
+    "dividend": "dividend_disclosure",    # 260902 개명 (공시 원문 ↔ DB 시계열 분리)
+    "dividend_history_data": "dividend_data",  # 260903 통합 (screener 와 합쳐 결정공시 기반으로 교체)
+    "dividend_screener": "dividend_data",      # 260903 통합 — quarterly_only 판정이 틀린 답을 내고 있었다
+}
+
+
+def canon_tool(tool):
+    """옛 tool 이름 → 현재 이름. 그 외는 그대로."""
+    return TOOL_ALIASES.get(tool, tool)
 
 
 #: **기록은 fly 머신에서만 한다.** dart/client.py 가 import 시 `load_dotenv()` 를 돌려
@@ -745,7 +762,7 @@ def record(opendart_key: str, status: int, tool=None, latency_ms=None, is_error=
     260810 에 그 연결을 끊었다가 260817 에 되돌렸다(모듈 상단 주석에 조건 셋)."""
     if not _RECORDING:
         return  # 로컬(pytest·pilot·스크립트)은 운영 통계를 오염시키지 않는다
-    # 핸드셰이크는 **쓰지 않는다**(260918). 읽는 쪽(`usage_tracker.is_protocol`)이 이미 전부
+    # 핸드셰이크는 **쓰지 않는다**(260918). 읽는 쪽(통계 스크립트의 `is_protocol`)이 이미 전부
     # 버리고 있었는데 쓰는 쪽은 그대로여서, 5일간 57,092행 중 83.6% 가 적히자마자 버려졌다.
     # 계측할 것도 없다 — 이 경로는 status·latency 만 채우고 나머지 15개 컬럼이 NULL 이다.
     if is_protocol(tool):

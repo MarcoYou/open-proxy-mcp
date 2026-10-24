@@ -42,12 +42,11 @@ def _description_problems(tools, runtime_tools: set[str]) -> list[str]:
     LLM 이라 없는 도구명을 그대로 호출한다. 두 가지를 본다 —
       · `ref:` 줄의 도구명 토큰(밑줄이 든 식별자, 또는 은퇴한 이름)은 런타임에 있어야 한다
         (괄호 주석 제외). `evidence` 의 「모든 data/action tool」 같은 산문 낱말은 안 본다.
-      · 은퇴한 이름(`usage_tracker.TOOL_ALIASES` 의 키)이 백틱 안이나 `ref:`·`when:` 줄에
+      · 은퇴한 이름(`open_proxy_mcp.usage.TOOL_ALIASES` 의 키)이 백틱 안이나 `ref:`·`when:` 줄에
         단어로 서 있으면 안 된다. `types:` 같은 코드 목록(`screener` 의 유형 코드 `dividend`)은
         도구명이 아니라 여기서 보지 않는다.
     """
-    sys.path.insert(0, str(ROOT / "scripts"))
-    from usage_tracker import TOOL_ALIASES
+    from open_proxy_mcp.usage import TOOL_ALIASES
     retired = set(TOOL_ALIASES)
     problems: list[str] = []
     for tool in tools:
