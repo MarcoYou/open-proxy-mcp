@@ -8,7 +8,7 @@ related_disclosures: [사업보고서]
 related_concepts: [순현금, 시가총액, 연결-별도, PER-PBR, 단위-표기-규약]
 related_lessons: [markdown-primary-anchor-260719]
 created: 2026-07-20
-updated: 2026-10-23
+updated: 2026-10-24
 ---
 
 # asset_holdings
@@ -112,7 +112,7 @@ updated: 2026-10-23
     곁에 있어야 한다 — 어휘만 스친 다른 표(민감도·공정가치 서열·재무상태표 줄)는 미탐이 아니다.
 
 ## Data sources
-- **계정**: `fnlttSinglAcntAll`(CFS 우선 → OFS fallback, 소규모기업 013/정정 014 tolerant).
+- **계정**: `fnlttSinglAcntAll`(CFS 우선 → OFS fallback). 연결(CFS)이 **013(자료 없음)** 일 때만 별도(OFS)로 넘어간다 — 그 밖의 실패(020·800·014·404·전송 오류)는 별도로 넘어가지 않고 조회 실패로 적는다(`status=partial` + 「재무제표 계정 조회 실패 — …」 경고). 판정·문구는 `ownership_structure._dart_read_note` 하나(DATA-API1). 회사개황(`company.json`)·타법인출자현황 조회 실패도 같다 — 개황 실패는 업종코드를 몰라 금융·지주를 판정하지 못하므로(재무상태표가 금융업임을 보이면 확정) `is_financial`·`is_holding_company` 를 `null` 로 두고 잉여자산·지분 NAV 두 배수를 비운다(절대액은 비금융 산식 기준임을 경고로 밝힘). 출자현황 실패는 보유지분 0건이 아니라 `listed_stakes.unavailable`·`nav.equity_nav_unavailable` 로 값을 비운다(감액 표시는 주석을 읽었으면 그대로).
 - **타법인출자**: `otrCprInvstmntSttus` — per-holding 취득원가·장부가·지분율. **상장여부는 API에
   없음** → 원문 doc에서 종목명 인접 "(비)상장" 텍스트로 도출(권위값, name-join 동명이인 오판 방지).
 - **III.재무 주석**: `asset_valuation.py`의 markdown-primary 추출(토지·투자부동산·지분증권·담보·우발).
@@ -240,3 +240,4 @@ updated: 2026-10-23
   (튜플 전체비교는 동률 시 dict 비교로 크래시).
 - 2026-07-20: 신규 tool. summary + detail 2스콥(coverage 는 summary 가 흡수).
 - 2026-10-23: **주석 조회 실패를 「기재 없음」으로 내던 것을 고쳤다** — `_safe_getdoc` 이 get_document·viewer 폴백이 모두 실패하면 `fetch_failed` 를 달고, detail 4항목은 `absence_kind=not_collected`·`fetch_failed=true`(md 는 원문 경로 안내), summary 는 상장·비상장 구분도 못 하므로 지분 NAV 배수·상장 보유지분 합계·감액 표시를 비우고(`_stakes_unavailable`) 사유 경고를 낸다(DATA-U3). 이 값을 읽는 다른 도구는 없다. 사용자 문장에서 내부 이름(함수·응답 키)을 우리말로 바꿨다. 주석을 정상으로 읽은 경우의 응답은 그대로다.
+- 2026-10-24: **재무·회사개황·출자현황 조회 실패를 빈 응답으로 삼키던 것을 고쳤다**(P1 묶음 1, 재무 점검 P1-#2·#3) — 013 만 「없음」이고 그 밖은 실패: `status=partial` + 실패 경고, 연결 조회 실패 때 별도로 넘어가지 않음, 회사개황 실패는 금융·지주 판정 불가(`null`)와 두 배수 비움, 출자현황 실패는 지분 NAV 비움. md 는 `partial` 도 자료와 경고를 함께 그린다. 분기 보고서 코드를 뒤집어 재시도하던 죽은 경로(상태 000 인데 계정 목록이 빈 경우에만 닿았고 다른 분기 보고서를 이 이름표로 낼 수 있었다)를 삭제했다 — 6·9월 결산의 분기 코드 매핑은 이번에 건드리지 않았다(미확인). 실패가 없는 응답은 실제 응답을 재생해 대조한 범위(asset 3사 summary·5% 원문 1사 8건·주식총수 2건)에서 같았다. 예외: 분기 계정 목록이 빈 경우의 반대 코드 재시도는 지웠으므로 그 길의 응답은 달라질 수 있다.

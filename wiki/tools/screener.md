@@ -2,7 +2,7 @@
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
 domain: action
-updated: 2026-10-23
+updated: 2026-10-24
 scope: [core preset, all, 유형 CSV, 흐름 보기]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + 일별 시세 저장분 (보관된 최신 거래일의 시총·유니버스 순위, DART 0콜) + 유형별 파서 재사용(details) + 공시 이벤트 원장 dart_events (흐름 보기, DART 0콜)]
 related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
@@ -419,6 +419,7 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
 - `dedup_key`에 대상일 미포함 — 같은 회사가 같은 유형을 다른 날 또 내면 run 간 알림 dedup은 커서로 관리.
 
 ## 변경 이력
+- 2026-10-24: **상세 빌더의 조회 실패(`status=error` — DART 한도·점검 등)를 「(무자료)」로 바꾸던 것을 고쳤다**(P1 묶음 1, 재무 점검 P1-#85) — 공시 0건·회사 모호와 같은 `detail_status: no_data` 로 나가 「조회 실패」와 「자료 없음」이 같은 배지였다. 이제 error 봉투는 기존 상태값 `error`(배지 「(조회실패)」)로 나가고 `detail_note` 에 경고 첫 줄을 싣는다. 새 상태값은 없다. 일간 공시 원장 배치는 `error` 를 「채움」으로 보지 않고 다시 받는다(채움은 `parsed`·`partial` 뿐). 8개 상세 유형이 모두 이 한 줄을 지난다.
 - 2026-10-22: **카드 중복·구분·이름표**(사용자 유형 시험 B6) — ① 같은 날 같은 결의의 배당 결정·기준일 공시를 카드 한 장으로(`companions`, `counts.companion_merged`; 모르면 묶지 않는 조건은 「dedup + 단계」; 기준일 공시는 배당 전용 서식만 짝). 신한지주 20261021800514·20261021800503 은 정정 짝이 아니라 한 결의의 두 서식. ② 「(자회사의 주요경영사항)」 공시에 `subsidiary_matter` 와 md 「자회사 공시」를 달고 정정 짝 찾기에서 모회사 공시와 갈랐다 — 배당·잠정실적 자회사 카드는 모회사 값이 붙지 않도록 문서를 열지 않는다(신한지주 DPS 1,480원이 신한은행 카드에 실리던 것). ③ `details` 를 말하지 않으면 유니버스 ≤200종목·기간 ≤7일에서 자동으로 켠다(`types.details_auto`; `details=false` 명시는 그대로 끔, 전체시장 기본 호출은 그대로 scan만). ④ 자기주식 카드에 취득·처분·소각·신탁 체결·신탁 해지(`treasury_action`). ⑤ 카드 머리 「시총」과 수주 「계약금액」에 이름표(md만 — json 키는 그대로). `details` 인자 형이 `bool` 에서 `bool | None` 으로 바뀌었다(`false`·`true` 를 주는 호출은 같다).
 - 2026-10-22: **공시 흐름(`view="흐름"`)의 스냅샷 날짜 목록 읽기를 빠르게** — 업종 조인의 스냅샷 날짜 목록(`DISTINCT snap_dd`)을 뷰 모드면 날짜 표에서 읽는다. `wise_sector` 가 구간 표의 **뷰**(스냅샷 3 → 38개, 102,895행)가 되면서 날짜·업종 목록을 뷰 위에서 고르는 질의가 요청마다 약 10만 행을 펼쳐 느려졌다(서버 실행 시간 MAX(snap_dd) 55ms, DISTINCT sector 45ms, DISTINCT snap_dd 56ms, 업종 구성 날짜 셋 97ms). 새 `services/wise_sector_dates` 가 뷰일 때만 작은 밑 표를 읽는다(최신 날짜·스냅샷 목록 `wise_sector_snap`, 업종 목록 `wise_sector_iv` — 각각 0.3~2ms). 표 모드(교체 전·되돌린 뒤)는 종전 SQL이고 빠른 길이 막히면 종전 SQL로 한 번 더 간다. 응답 키·값은 그대로다. 요청당 약 55ms 감소(서버 측).
 - 2026-10-22: 문서 — 실적 카드 `net_income_krw` 의 기준(잠정공시 원문 당기순이익, 연결 공시면 비지배 포함)과 컨센서스 대비(지배순이익 기준)가 다르다는 점을 「회계기간 메타데이터」 절에 적었다. 코드·응답 변화 없음.

@@ -1351,7 +1351,11 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
         fields = {}
     fields = {k: v for k, v in fields.items() if v not in (None, "", [], {})}
 
-    if status in ("error", "ambiguous"):
+    if status == "error":
+        # 빌더가 조회 실패(020·800 등)를 error 봉투로 돌려줬다 — 「자료 없음」(공시 0건·no_data)과 같은 배지로 내지 않는다. 기존 상태값 그대로.
+        warn = (payload.get("warnings") or [""])[0]
+        return {"detail_status": "error", "fields": {}, **({"note": warn[:120]} if warn else {})}
+    if status == "ambiguous":
         detail_status = "no_data"
     elif not fields:
         # 사건은 있으나 정형필드 추출 실패 → XML 불완전/이미지 degrade 가능성
