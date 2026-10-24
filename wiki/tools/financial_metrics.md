@@ -9,7 +9,7 @@ related_concepts: [당기순이익, 배당성향, 자본준비금, 듀퐁분석,
 related_decisions: [open-proxy-guideline]
 
 created: 2026-05-01
-updated: 2026-10-23
+updated: 2026-10-24
 ---
 
 # financial_metrics
@@ -417,6 +417,7 @@ ROE 분모와 자본잠식의 자기자본은 **분기·연간 수집과 `price_
 - 한계: 분기 결산 회사의 11월 결산기(0030R0)처럼 저장 칸의 순이익 합이 비어 있으면 12개월 값은 null + 까닭이다. `yoy` scope 는 리츠 배당성향 억제(`is_reit`)를 아직 받지 않는다.
 
 ## 변경 이력
+- 2026-10-24: **일부 조회가 실패해도 `exact` 로 나가 5분 캐시에 굳던 것 · 배당성향 조회 실패가 「-」로 나가던 것** (P1 묶음 1, 재무 점검 P1-#28·#29) — ① 찾은 재무가 1건 이상이면 실패한 조회(`_FETCH_FAILURES` 상자: 013 이 아닌 DART 오류)가 무시되어 경고만 달린 채 `status=exact`·`filing_status=all_parsed` 였고 그 응답이 캐시에 들어갔다: 이제 실패한 호출 수를 `parsing_failures` 로 올려 `status=partial`(`filing_status=partial_failure`)이고 응답 캐시에 넣지 않는다(0건이면 종전대로 `error`). md 줄은 「⚠ 일부 공시를 읽지 못했습니다 (조회 N회 실패)」 — N 은 공시 건수가 아니라 실패한 API 호출 수다. ② 배당성향(`_accrual_payout_pct`)의 배당 항목 조회가 013 이 아닌 오류(또는 예외)로 실패하면 무배당과 같은 `None`(「-」)이었다: 같은 상자를 올려 ①의 규칙(`partial`·캐시 제외)이 걸리고, 「N년 배당성향 조회 실패(사유) — 「-」는 무배당이 아니라 조회 실패일 수 있다. 원문: filing_section(배당 절)」 경고를 단다(재시도 시각 안내는 없다 — 020 은 자정 이후라 틀린 말이 된다). `dividend._annual_summary` 는 그대로다(판정·에러 문구 불변 — `price_multiple_data` 가 같이 쓴다). 013·REIT 의 의도적 `None` 은 실패가 아니다. 실패가 없는 응답은 그대로다.
 - 2026-10-23: **감사의견 판정을 부분 문자열에서 정확 일치로** — 종전 `"적정" in 의견` 은 「부적정」이 「적정」을 포함해 깨끗한 의견으로 셌다: 부적정이면 `non_clean_audit_opinion`·`audit_opinion_change` 가 꺼지고 `audit_opinion` 의 `summary.all_clean` 이 True, `next_actions` 의 non-clean 안내가 빠졌다. 또 같은 결산일에 의견 행과 함께 오는 자리 채움 행 「해당사항없음」(셀리버리 2022-12-31)이 비적정으로 셈해져 `all_clean` 이 False, `non_clean_audit_opinion` 이 거짓으로 켜졌다. 이제 `yoy` 신호·`all_clean`·`next_actions` 세 곳이 같은 규칙(의견의 공백·끝 「의견」을 떼고 `== "적정"`)을 쓰고, 「해당사항없음」·빈칸·「-」 행은 판정에서 빠진다(판정할 행이 하나도 없으면 `all_clean` 은 null). `yoy` 신호는 자리 채움 행을 뺀 첫 두 의견 행으로 계산하고 응답의 `audit_opinion.current`·`prior` 와 `opinions` 표는 원문 행 그대로다. 적정 의견 회사(삼성전자 등)의 응답은 그대로, 새 키 없음, DART 0콜 추가. 시험은 합성 고정본이다(부적정 의견 원문은 찾지 못했다).
 - 2026-10-23: **`accounts` — 손익계산서를 따로 내지 않는 회사의 `sj_div=["IS"]` 가 0행이던 것과 캐시 키 누락**. 단일 포괄손익계산서(CIS)로 공시하는 SK하이닉스(000660) 2025 연결은 `sj_div=["IS"]` 가 0행·`exact`·경고 없음이었고, 그 0행이 캐시 키(sj_div 없음)에 5분 굳어 `sj_div` 없이 부른 호출도 0행이었다(230행이 맞다). 캐시 키에 정규화한 `sj_div` 를 넣고(accounts 만), IS 요청에 IS 행이 없고 CIS 행이 있으면 CIS 행 + `accounts.sj_div_mapped` + 경고로 돌려주며, `sj_div_present` 를 필터 전 구성으로 바꾸고 필터 뒤 0행 경고에 그 구성을 싣는다. 필터 전 0행 응답은 캐시하지 않는다. 삼성전자처럼 IS 가 있는 회사의 IS 필터 행·`row_count` 는 그대로다(`sj_div_present` 값만 필터 전 구성으로 바뀐다). 다른 scope 응답은 그대로. 새 키 `sj_div_mapped`(해당 응답에만), DART 0콜 추가.
 - 2026-10-22: **분기 표에 순이익 > 영업이익 설명 줄**(DATA-NI4) — SK하이닉스 2026-Q2 순이익 93.9조 > 영업이익 60.5조는 오류가 아니라 영업외 이익(DART 반기보고서 연결 3개월 칸과 같은 값)인데 분기 표에는 이유가 없어 틀린 값으로 읽혔다. 순이익(총계)/영업이익이 1.3배를 넘는 분기에 영업외손익·법인세를 새 키와 markdown 줄로 단다. 값·옛 키는 그대로, 새 키 `income_before_tax_krw`(모든 행)·`net_to_operating_ratio`·`non_operating_net_krw`·`income_tax_krw`(해당 분기만, 세전 − 순이익이 0 ~ 세전 범위일 때) · `pretax_minus_net_krw`(그 밖 — 법인세수익·중단영업 순이익 등이 섞일 수 있어 법인세비용으로 단정하지 않는다), DART 0콜 추가.

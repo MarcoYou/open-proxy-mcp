@@ -46,6 +46,7 @@ from open_proxy_mcp.services.filing_search import (
     report_name_matches,
     search_filings_by_report_name,
 )
+from open_proxy_mcp.services.ownership_structure import _dart_read_note
 
 
 _SUPPORTED_SCOPES = {"summary", "annual"}
@@ -705,25 +706,33 @@ def _normalize_cancelation_row(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _enrich_cancelation_with_body(rows: list[dict[str, Any]]) -> int:
+async def _enrich_cancelation_with_body(rows: list[dict[str, Any]], read_failed: list[str] | None = None) -> int:
     """소각결정 행 본문을 병렬로 받아와 금액·수량을 채운다.
 
-    Returns: 본문 파싱이 실패한 건수 (parsing_failures 카운트용).
+    Returns: 본문 파싱이 실패한 건수 (경고 문구용 — 문서를 못 받은 건 전부 포함).
+    `read_failed`: 문서를 **읽지 못한** 건의 안내문(판정·문구는 `_dart_read_note` 하나 — 첨부정정 제목의 014·404 는 「없음」이라 담지 않는다).
     """
 
     if not rows:
         return 0
     client = get_dart_client()
 
-    async def fetch(rcept_no: str):
+    async def fetch(row: dict[str, Any]):
+        rcept_no = row.get("rcept_no", "")
         if not rcept_no:
             return None
+        title = row.get("report_nm") or ""
         try:
             return await client.get_document_cached(rcept_no)
-        except Exception:
+        except Exception as exc:
+            bad, note = _dart_read_note(
+                exc, empty_text="", fail_text=f"소각결정 본문 조회 실패(접수번호 {rcept_no})",
+                attachment="[첨부정정]" in title or "[첨부추가]" in title)
+            if bad and read_failed is not None:
+                read_failed.append(note)
             return None
 
-    docs = await asyncio.gather(*[fetch(r.get("rcept_no", "")) for r in rows])
+    docs = await asyncio.gather(*[fetch(r) for r in rows])
     failures = 0
     for row, doc in zip(rows, docs):
         if not doc:
@@ -818,11 +827,11 @@ async def _fetch_decisions(
     end_de: str,
     *,
     timings_ms: dict[str, int] | None = None,
-) -> tuple[dict[str, list[dict]], list[str], bool]:
+) -> tuple[dict[str, list[dict]], list[str], int, int]:
     """취득·처분·신탁체결·신탁해지 4개 API 병렬 호출 + 소각결정 list.json 검색.
 
-    세 번째 값 = 조회 실패 여부 — 013(공시 없음 — 정상)이 아닌 DART 오류로 하나라도 못 읽었나. 0건인데 이게 True 면
-    「자사주 이벤트 공시 없음 (정상)」이 아니라 「모른다」다(261018).
+    세 번째 값 = 읽지 못한 조회 수 — 013(공시 없음 — 정상)이 아닌 DART 오류로 못 읽은 API·제목 검색의 수. 0건인데 이게 0 보다 크면
+    「자사주 이벤트 공시 없음 (정상)」이 아니라 「모른다」다(261018). 네 번째 값 = 본문을 읽지 못한 소각결정 건수(첨부정정의 014·404 제외).
     """
 
     client = get_dart_client()
@@ -931,12 +940,14 @@ async def _fetch_decisions(
     cancelation_rows = [_normalize_cancelation_row(i) for i in ret]
     # 본문 파싱으로 소각 주식수·금액(KRW) 추출 — 자사주 소각 분석용. CSR 분자에는 사용하지 않음 (acquire 사용).
     stage_started_at = time.perf_counter()
-    cancelation_failures = await _enrich_cancelation_with_body(cancelation_rows)
+    cancelation_unread: list[str] = []
+    cancelation_failures = await _enrich_cancelation_with_body(cancelation_rows, cancelation_unread)
     _mark_timing(timings_ms, "fetch_decisions.cancelation_body_enrich", stage_started_at)
     if cancelation_failures:
         warnings.append(
             f"자사주 소각결정 본문 파싱 실패 {cancelation_failures}건 — 소각 금액이 0으로 보일 수 있다."
         )
+    warnings.extend(cancelation_unread)
     raw_cnt = len(cancelation_rows)
     cancelation_rows = _dedupe_cancelation_rows(cancelation_rows)
     if len(cancelation_rows) < raw_cnt:
@@ -968,7 +979,7 @@ async def _fetch_decisions(
         "disposal_result": dsp_res_rows,
         "trust_acquisition_status": trust_acq_status_rows,
         "trust_termination_result": trust_term_res_rows,
-    }, warnings, (any((w1, w2, w3, w4)) or title_items is None)
+    }, warnings, sum(1 for w in (w1, w2, w3, w4) if w) + (title_items is None), len(cancelation_unread)
 
 
 _DECISION_KEYS = ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation")
@@ -1444,7 +1455,7 @@ async def build_treasury_share_payload(
     warnings: list[str] = list(window_warnings)
 
     stage_started_at = time.perf_counter()
-    bundles, fetch_warnings, lookup_failed = await _fetch_decisions(
+    bundles, fetch_warnings, lookup_failed_count, cancelation_unread = await _fetch_decisions(
         selected["corp_code"],
         bgn_de,
         end_de,
@@ -1463,10 +1474,13 @@ async def build_treasury_share_payload(
 
     # 사건 발견 vs 진짜 partial 분리.
     # 4개 결정 API + cancellation list.json 모두 결과 0건은 사건 없음 = 정상.
+    #    읽지 못한 조회(lookup_failed_count)·본문을 읽지 못한 소각결정(cancelation_unread)은 parsing_failures 로 올린다 —
+    #    일부만 읽고도 exact 로 나가던 것(합계가 0 으로 들어간 채). 합계 숫자는 건드리지 않는다.
     filing_meta = build_filing_meta(
         filing_count=len(events),
-        parsing_failures=0,
-        fetch_failed=lookup_failed,      # 조회 실패 + 0건 → status=error (「없음 (정상)」 아님, 261018)
+        parsed_count=max(len(events) - cancelation_unread, 0),
+        parsing_failures=lookup_failed_count + cancelation_unread,
+        fetch_failed=bool(lookup_failed_count),      # 조회 실패 + 0건 → status=error (「없음 (정상)」 아님, 261018)
     )
 
     data: dict[str, Any] = {
@@ -1510,6 +1524,20 @@ async def build_treasury_share_payload(
         own_payload = await build_ownership_structure_payload(company_query, scope="summary", year=year)
         _mark("ownership_annual_snapshot", stage_started_at)
         data["annual"] = own_payload.get("data", {}).get("treasury", {})
+        # 상류가 연간 스냅샷을 못 읽었거나(error) 일부만 읽었으면(partial) 응답도 같이 — 종전엔 상류 상태·경고를 버려 annual={} 가 exact 로 나갔다.
+        # 상류가 exact 면 경고를 옮기지 않는다(무관한 지분 경고가 연간 응답에 실리지 않게). 상태 칸과 본문 칸이 같은 값에서 나오게 다시 낸다.
+        _up = own_payload.get("status")
+        if _up in (AnalysisStatus.ERROR.value, AnalysisStatus.PARTIAL.value):
+            if _up == AnalysisStatus.ERROR.value:
+                data["annual"] = {}
+            warnings.extend(f"[ownership_structure] {w}" for w in own_payload.get("warnings") or [])
+            filing_meta = build_filing_meta(
+                filing_count=len(events) + (0 if _up == AnalysisStatus.ERROR.value else 1),   # 남긴 연간 스냅샷은 일부만 읽은 한 건
+                parsed_count=max(len(events) - cancelation_unread, 0),
+                parsing_failures=lookup_failed_count + cancelation_unread + 1,
+                fetch_failed=bool(lookup_failed_count) or _up == AnalysisStatus.ERROR.value,
+            )
+            data.update(filing_meta)
 
     # evidence_refs — 최신 5건 이벤트의 공시
     evidence_refs: list[EvidenceRef] = []

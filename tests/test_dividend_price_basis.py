@@ -251,7 +251,7 @@ def _divd_payload(monkeypatch, events, price=14040, items=None, shares=None):
     async def search(corp, start, end):
         return [], [], [], None
 
-    async def details(_f):
+    async def details(_f, _failed=None):
         return []
 
     async def capital(*_a, **_k):

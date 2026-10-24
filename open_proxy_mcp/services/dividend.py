@@ -40,6 +40,7 @@ from open_proxy_mcp.services.dividend_parser import (
     share_class,
     split_by_share_class,
 )
+from open_proxy_mcp.services.ownership_structure import _dart_read_note
 
 _SUPPORTED_SCOPES = {
     "summary",
@@ -213,18 +214,27 @@ def _in_window(date_value: str, start_ymd: str, end_ymd: str) -> bool:
     return bool(digits) and start_ymd <= digits <= end_ymd
 
 
-async def _decision_details(filings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+async def _decision_details(filings: list[dict[str, Any]], failed: list[str] | None = None) -> list[dict[str, Any]]:
     """배당 결정 공시 본문 파싱. 병렬 조회 (260607 — 순차 N건 → max 1건 시간).
 
     문서 순서를 보존하기 위해 gather 결과를 입력 순서대로 조립한다.
+    본문을 읽지 못한 건은 `failed` 에 안내문을 담는다 — 판정·문구는 `_dart_read_note` 하나(첨부정정 제목의 014·404 만 「없음」).
     """
     client = get_dart_client()
 
     async def _fetch(item: dict[str, Any]) -> dict[str, Any] | None:
+        title = item.get("report_nm") or ""
+        attachment = "[첨부정정]" in title or "[첨부추가]" in title
+        fail_text = f"배당 결정공시 본문 조회 실패(접수번호 {item.get('rcept_no', '')})"
         try:
             doc = await client.get_document_cached(item["rcept_no"])
-        except Exception:
+        except Exception as exc:
+            bad, note = _dart_read_note(exc, empty_text="", fail_text=fail_text, attachment=attachment)
+            if bad and failed is not None:
+                failed.append(note)
             return None
+        if not doc.get("text") and not attachment and failed is not None:
+            failed.append(f"{fail_text} — 본문이 비어 있다")
         parsed = parse_dividend_decision(doc.get("text", ""))
         if not parsed:
             return None
@@ -886,7 +896,7 @@ _INTERIM_REPRT: tuple[tuple[str, str], ...] = (
 )
 
 
-async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[str, Any] | None:
+async def _interim_dividend_from_quarterly(corp_code: str, year: int, failed: list[str] | None = None) -> dict[str, Any] | None:
     """사업보고서가 배당을 아직 확정하지 않은 최신 연도의 '중간배당 진행분'을
     분기/반기 alotMatter의 당기(current) 누적 컬럼에서 읽는다.
 
@@ -894,12 +904,16 @@ async def _interim_dividend_from_quarterly(corp_code: str, year: int) -> dict[st
     사업보고서(11011)와 동일한 15행 구조라 `parse_dividend_items`로 파싱해 보통주
     주당현금배당금·총액·배당성향을 추출한다. 가장 최근 기간부터 시도해 양수 DPS가 잡히는
     첫 보고서를 반환, 없으면 None. (출처 맵 B — wiki/rules/disclosures/배당공시유형.md)
+    조회가 013(보고서 없음)이 아닌 오류로 실패한 보고서는 `failed` 에 안내문을 담는다 — None 이 「중간배당 없음」이 아니라 「모름」일 수 있다.
     """
     client = get_dart_client()
     for reprt_code, period_label in _INTERIM_REPRT:
         try:
             data = await client.get_dividend_info(corp_code, str(year), reprt_code)
-        except DartClientError:
+        except DartClientError as exc:
+            bad, note = _dart_read_note(exc, empty_text="", fail_text=f"{year}년 {period_label} 배당 항목(alotMatter) 조회 실패")
+            if bad and failed is not None:
+                failed.append(note)
             continue
         items = parse_dividend_items(data)
         if not items:
@@ -942,19 +956,23 @@ def _common_cash_dps_from_items(items: list[dict[str, Any]], column: str = "curr
     return split_by_share_class(rows)[0] or 0
 
 
-async def _quarterly_dps_from_cumulative(corp_code: str, year: int) -> list[dict[str, Any]]:
+async def _quarterly_dps_from_cumulative(corp_code: str, year: int, failed: list[str] | None = None) -> list[dict[str, Any]]:
     """분기/반기/사업 alotMatter의 누적 보통주 주당현금배당금을 차분해 분기별 권위 DPS를 만든다.
 
     Q1 = 1분기(11013) / Q2 = 반기(11012) - Q1 / Q3 = 3분기(11014) - 반기 / 결산 = 연간(11011) - 3분기.
     누락 보고서가 있으면 차분 불가한 분기는 제외. 결정공시 fiscal-year 추론(_bucket_fiscal_year)이
     전환기 경계에서 어긋날 때 권위 출처(B)로 교정하는 용도. (wiki/rules/disclosures/배당공시유형.md #2)
+    013 이 아닌 오류로 못 읽은 보고서는 `failed` 에 안내문을 담는다(그 보고서를 지나는 분기는 이미 차분 불가로 빠진다).
     """
     client = get_dart_client()
     cum: dict[str, int] = {}
-    for reprt_code in ("11013", "11012", "11014", "11011"):
+    for pos, reprt_code in enumerate(("11013", "11012", "11014", "11011"), start=1):
         try:
             data = await client.get_dividend_info(corp_code, str(year), reprt_code)
-        except DartClientError:
+        except DartClientError as exc:
+            bad, note = _dart_read_note(exc, empty_text="", fail_text=f"{year}년 {_CUM_REPORT_NAMES.get(pos, '사업보고서')} 배당 항목(alotMatter) 조회 실패")
+            if bad and failed is not None:
+                failed.append(note)
             continue
         items = parse_dividend_items(data)
         if items:
@@ -1015,20 +1033,27 @@ _CUM_QUARTER_NAMES = {1: "Q1", 2: "Q2", 3: "Q3", 4: "결산"}
 _CUM_REPORT_NAMES = {1: "1분기보고서", 2: "반기보고서", 3: "3분기보고서"}
 
 
-async def _quarterly_full_from_cumulative(corp_code: str, year: int) -> list[dict[str, Any]]:
+async def _quarterly_full_from_cumulative(corp_code: str, year: int, failed: list[str] | None = None) -> list[dict[str, Any]]:
     """분기/반기/사업 alotMatter 누적값을 차분해 분기별 **보통+우선 DPS + 배당총액**을 만든다.
 
     `_quarterly_dps_from_cumulative`(보통주 DPS만)의 확장판. 결정공시 버킷팅보다 정확하고
     우선주·총액·무배당 분기(0)까지 잡는다. 최신/미완료 연도의 분기 분해에 권위 사용 (정확도 우선).
     각 row: {quarter, dps_common, dps_preferred, dps_class, dps_class_label, total_mil}. 차분 불가 분기는 제외.
     `dps_preferred` 는 우선주만, 우선주 아닌 종류주식은 `dps_class`(원문 이름 `dps_class_label`)다.
+    013(보고서 없음)이 아닌 오류로 못 읽은 보고서는 `failed` 에 안내문을 담고, 그 보고서를 지나는 합산 행은 「없음」 라벨을 달지 않고 내지 않는다.
     """
     client = get_dart_client()
     cum: dict[str, dict[str, Any]] = {}
-    for reprt_code in ("11013", "11012", "11014", "11011"):
+    unread: set[int] = set()
+    for pos, reprt_code in enumerate(("11013", "11012", "11014", "11011"), start=1):
         try:
             data = await client.get_dividend_info(corp_code, str(year), reprt_code)
-        except DartClientError:
+        except DartClientError as exc:
+            bad, note = _dart_read_note(exc, empty_text="", fail_text=f"{year}년 {_CUM_REPORT_NAMES.get(pos, '사업보고서')} 배당 항목(alotMatter) 조회 실패")
+            if bad:
+                unread.add(pos)
+                if failed is not None:
+                    failed.append(note)
             continue
         col = _cum_full_from_items(parse_dividend_items(data), "current")
         if col is not None:
@@ -1051,7 +1076,8 @@ async def _quarterly_full_from_cumulative(corp_code: str, year: int) -> list[dic
         }
         if len(span) > 1:
             row.update(merged=True, span=span, missing_reports=[_CUM_REPORT_NAMES[k] for k in range(prev_i + 1, i)])
-        out.append(row)
+        if not unread.intersection(range(prev_i + 1, i)):
+            out.append(row)
         prev, prev_i = cur, i
     return out
 
@@ -1550,6 +1576,8 @@ async def build_dividend_payload(
         lookback_months=max(18, years * 12 + 6),
     )
     warnings: list[str] = list(window_warnings)
+    # 읽지 못한 건(결정공시 본문·분기 alotMatter)의 안내문. 끝에서 경고로 싣고 건수는 filing_meta 의 parsing_failures 가 된다.
+    read_failed: list[str] = []
     history_start_year = window_start.year if (explicit_start or explicit_end) else (target_year - max(1, years) + 1)
     # 최근 N개 완료 사업연도를 보여주기 위해 한 해 더 넓게 본다.
     if scope == "history":
@@ -1633,7 +1661,7 @@ async def build_dividend_payload(
         and "자회사" not in (f.get("report_nm") or "")
     ]
     stage_started_at = time.perf_counter()
-    details = await _decision_details(decision_filings) if decision_filings else []
+    details = await _decision_details(decision_filings, read_failed) if decision_filings else []
     _mark("decision_details", stage_started_at)
 
     # alotMatter가 비어있거나 cash_dps=0이면 해당 연도 배당결정 공시 합산을 source of truth로 대체.
@@ -1822,7 +1850,9 @@ async def build_dividend_payload(
                 #   ① 분기/반기 alotMatter에 중간배당 누적이 있거나(출처 B),
                 #   ② target연도 결산 배당기준일이 설정됐거나(출처 D, 연도매칭).
                 # 둘 다 없으면 pre_dividend 신호가 전년 notice에 발동한 오발동이므로 '무배당' 유지.
-                interim = await _interim_dividend_from_quarterly(selected["corp_code"], target_year)
+                _failed_before = len(read_failed)
+                interim = await _interim_dividend_from_quarterly(selected["corp_code"], target_year, read_failed)
+                interim_unread = len(read_failed) > _failed_before
                 if interim:
                     row["pattern"] = f"중간배당 확정 ({interim['period']}) · 결산 미정"
                     row["interim_dps"] = interim["interim_dps"]
@@ -1858,7 +1888,8 @@ async def build_dividend_payload(
                             # (예: FY2025 배당재원을 전액 자사주 소각으로 전환한 메리츠금융지주 →
                             # 종전엔 '미확정'으로 고착됐음). 익년 5월말 이후를 경과 기준으로(버퍼).
                             agm_passed = today_kst() > date(target_year + 1, 5, 31)
-                            if agm_passed:
+                            # 중간배당 조회가 실패했으면 「중간배당 없음」을 모르는 것이라 확정 무배당으로 단정하지 않는다.
+                            if agm_passed and not interim_unread:
                                 row["pattern"] = "무배당 (확정 · 결산 현금배당 없음)"
                                 warnings.append(
                                     f"{target_year} 사업연도 정기주총이 지났고 결산 현금배당 결정·기준일이 "
@@ -1893,10 +1924,13 @@ async def build_dividend_payload(
     )
     # 🔴 배당 사항(alotMatter)·배당결정 공시 검색 중 하나라도 **실패**(013 이 아닌 DART 오류)했는데 0건이면 「무배당」이 아니라
     #    「모른다」다 — no_filing·「무배당으로 본다 (정상)」으로 적지 않는다(261018: 020 한도 초과가 무배당으로 나갔다).
+    #    읽지 못한 건(read_failed)은 parsing_failures 로 올리고, 공시가 0건인데 읽지 못한 건이 있으면 fetch_failed 로 「모른다」를 낸다.
+    _filing_count = len(details) + (1 if (latest_summary and int(latest_summary.get("cash_dps") or 0) > 0) else 0)
     filing_meta = build_filing_meta(
-        filing_count=len(details) + (1 if (latest_summary and int(latest_summary.get("cash_dps") or 0) > 0) else 0),
-        parsing_failures=0,
-        fetch_failed=bool(summary_warning or filing_warning),
+        filing_count=_filing_count,
+        parsed_count=_filing_count,
+        parsing_failures=len(read_failed),
+        fetch_failed=bool(summary_warning or filing_warning or read_failed),
     )
 
     data: dict[str, Any] = {
@@ -1971,7 +2005,7 @@ async def build_dividend_payload(
             if annual > 0 and qsum and qsum != annual:
                 # #2: 불일치 연도만 정기보고서 누적 차분으로 권위 분기값을 교정 (출처 B).
                 # 결정공시 fiscal-year 추론이 전환기 경계에서 어긋난 케이스를 바로잡는다.
-                auth = await _quarterly_dps_from_cumulative(selected["corp_code"], row["year"])
+                auth = await _quarterly_dps_from_cumulative(selected["corp_code"], row["year"], read_failed)
                 auth_sum = sum(q["dps_common_krw"] for q in auth)
                 if auth and auth_sum == annual:
                     row["quarterly_dps_authoritative"] = auth
@@ -1993,9 +2027,17 @@ async def build_dividend_payload(
         )
         if target_paid:
             data["quarterly_full"] = await _quarterly_full_from_cumulative(
-                selected["corp_code"], target_year
+                selected["corp_code"], target_year, read_failed
             )
         _mark("quarterly_breakdown", _qb_started)
+        # 분기 조회에서 늘어난 읽지 못한 건까지 — 상태 칸(filing_status·parsing_failures)과 아래 status 가 같은 값에서 나오게 다시 낸다.
+        filing_meta = build_filing_meta(
+            filing_count=_filing_count,
+            parsed_count=_filing_count,
+            parsing_failures=len(read_failed),
+            fetch_failed=bool(summary_warning or filing_warning or read_failed),
+        )
+        data.update(filing_meta)
     if scope == "summary":
         data["policy_signals"] = policy
         data["meta_signals"] = {
@@ -2071,6 +2113,7 @@ async def build_dividend_payload(
             )
         )
 
+    warnings.extend(read_failed)
     status = status_from_filing_meta(filing_meta)
     if filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({start_ymd}~{end_ymd}) 내 배당결정 공시 없음 + 사업보고서 배당 요약도 비어 있어 무배당으로 본다 (정상)")

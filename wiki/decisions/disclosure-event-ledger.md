@@ -65,6 +65,10 @@ status: 1단계 배치 신설 (260916) — 조회 도구(업종별 흐름·수�
 - 시세까지 조인하는 안도 쟀다: 같은 원장에서 시총 2,015행(최대 ±22%)이 달라지고 올해 전체 유형 읽기가 약 3배 느려(왕복 329 → 916ms) 버렸다. 이 SQL 은 338ms.
 - 업종 복사본 칸(`sector`·`industry`·`sector_dd`)은 이 SQL 이 읽지 않으므로 칸을 지우기 전후 모두 돈다. 칸을 지우면 `industry` 칸의 색인 `dart_events_industry_dt` 도 함께 사라진다(재설계 8단계에서 지우려던 미사용 색인).
 
+### 261024 — 조회 실패로 생긴 `partial` 은 「채움」이 아니다
+
+`dividend_disclosure`·`treasury_share` 가 일부만 읽은 응답을 `partial` 로 돌려주게 되면서(재무 점검 P1 묶음 1), 일시 조회 실패로 생긴 `partial` 이 `already_detailed()` 의 건너뜀 집합(`detail_status IN ('parsed','partial')`)에 들어 다시 받지 않고 굳을 수 있게 됐다. `detail_status = 'parsed'` 만 「채움」으로 본다 — 한 줄 변경, 칸·DDL·`UPSERT_EVENT` 불변. 재조회가 또 실패해도 `UPSERT_EVENT` 가 옛 `partial` 을 지키고(새 값이 `parsed`/`partial` 이 아니면 옛 값 유지) 성공하면 `parsed` 로 올라간다. 기본 실행은 재스캔 창(최근 3일) 안의 행만 다시 받고 접수일 하루당 상세 콜 상한(600)이 그대로 걸린다. 수동 `since` 실행(최대 400일)은 그 구간의 `partial` 행을 유형 불문 다시 받아 `parsed`·`partial` 이 나오면 상세를 덮는다 — 실행 전 그 구간 행 백업을 확인한다. 파싱 부분 실패로 생긴 `partial` 도 창 안에서는 다시 받는다(같은 결과면 같은 `partial`; payload 에 읽기 실패와 파싱 부분 실패를 가르는 표지가 없어 가르지 않았다).
+
 ## 다음 단계 (이 결정의 범위 밖)
 
 1. ~~조회 도구~~ → **완료(260918)**: `screener(view="흐름")` — WICS 대분류·중분류별 건수·금액·평소 대비, 큰 수주, 올해 누적 수주. 질의 시점 DART 0콜. [[screener]] 「흐름 보기」 절.

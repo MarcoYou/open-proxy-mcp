@@ -278,7 +278,8 @@ def already_detailed(con, rcept_nos: list[str]) -> set[str]:
     if not rcept_nos:
         return set()
     return {r[0] for r in con.execute(
-        "SELECT rcept_no FROM dart_events WHERE rcept_no = ANY(%s) AND detail_status IN ('parsed','partial')",
+        # partial 은 채움이 아니다 — 조회 실패로 생긴 partial 이 굳지 않게 재스캔 창 안에서는 다시 받는다(재조회가 또 실패해도 UPSERT 가 옛 partial 을 지킨다).
+        "SELECT rcept_no FROM dart_events WHERE rcept_no = ANY(%s) AND detail_status = 'parsed'",
         (rcept_nos,)).fetchall()}
 
 
