@@ -2494,23 +2494,31 @@ async def _fetch_year_metrics(
 
     # ── 전기 보고서의 실제 재무제표 기준이 당기와 다르면 섞어 견주지 않는다 (DATA-Q5 의 연간 변형) ──
     # 전기 주요계정은 요청 fs_div 로 불러 연결이 없으면 별도 행이 그대로 오고(`_safe_fetch_acnt`), 전기 전체 재무제표는 당기 actual_fs 로 따로 부른다.
-    # 연결 신규 작성(당기 CFS · 전기 OFS)·연결 중단(당기 OFS · 전기 CFS)이면 전년비·평균자본이 다른 기준끼리 견줘졌다.
-    # 사업보고서면 **당기 보고서의 전기 칸**(당기와 같은 기준으로 다시 적은 값)을 전기로 쓴다. 그 칸을 못 쓰는 분기·반기 보고서는 전기를 버린다.
+    # 전년 보고서의 **보고 통화**가 당기와 다를 때(원화 → 달러 전환 해)도 같다 — 다른 통화 금액끼리 견주고, 마지막 환산이 당기 환율 하나를 전기 금액에까지 곱했다.
+    # 통화는 양쪽 rows 가 모두 currency 칸을 가졌을 때만 비교한다(칸이 없으면 statement_currency 가 원화로 보므로 거짓 전환을 막는다).
+    # 사업보고서면 **당기 보고서의 전기 칸**(당기와 같은 기준·통화로 다시 적은 값)을 전기로 쓴다. 그 칸을 못 쓰는 분기·반기 보고서는 전기를 버린다.
     prev_fs_div: str | None = None
     prev_dropped = False
     _fs_prev = _actual_fs_div(rows_prev) if rows_prev else None
-    if _fs_prev and _fs_prev != actual_fs:
-        prev_fs_div = _fs_prev
+    _rc_cur, _rc_prev = rows_detail or rows_curr, rows_detail_prev or rows_prev
+    _ccy_cur, _ccy_prev = statement_currency(_rc_cur), statement_currency(_rc_prev)
+    _ccy_changed = _ccy_cur != _ccy_prev and all(any(r.get("currency") for r in _rr) for _rr in (_rc_cur, _rc_prev))
+    _fs_changed = bool(_fs_prev and _fs_prev != actual_fs)
+    if _fs_changed or _ccy_changed:
+        prev_fs_div = _fs_prev if _fs_changed else None
+        _what = " · ".join(([f"보고 통화({_ccy_prev})가 {year}년({_ccy_cur})과"] if _ccy_changed else [])
+                           + ([f"재무제표 기준({_fs_prev})이 {year}년({actual_fs})과"] if _fs_changed else []))
         if used_rc == _REPRT_BUSINESS and rows_curr:
             bs_is_prev = _build_account_map(rows_curr, period="frmtrm", induty_code=induty_code)
             detail_prev = _build_account_map_all(rows_detail, period="frmtrm", induty_code=induty_code) if rows_detail else None
-            warnings.append(f"{year - 1}년 보고서 재무제표 기준({_fs_prev})이 {year}년({actual_fs})과 달라, 전기 값은 {year}년 사업보고서의 전기 칸"
-                            f"(당기와 같은 기준으로 다시 적은 값)을 썼다 — prev_fs_div={_fs_prev}.")
+            warnings.append(f"{year - 1}년 보고서 {_what} 달라, 전기 값은 {year}년 사업보고서의 전기 칸"
+                            f"(당기와 같은 {'통화·기준으로' if _ccy_changed and _fs_changed else '통화로' if _ccy_changed else '기준으로'} 다시 적은 값)을 썼다"
+                            + (f" — prev_fs_div={_fs_prev}." if _fs_changed else "."))
         else:
             bs_is_prev, detail_prev, prev_dropped = None, None, True
-            warnings.append(f"{year - 1}년 보고서 재무제표 기준({_fs_prev})이 {year}년({actual_fs})과 달라 전기 값을 쓰지 않았다 — "
-                            f"전년비와 평균자본·평균자산 기준 ROE·ROA 를 내지 않음(prev_fs_div={_fs_prev}). 총자산회전율·자기자본 배수·회전일수는 "
-                            f"평균 대신 기말 값으로 계산돼 나간다(전기가 없을 때와 같은 한계).")
+            warnings.append(f"{year - 1}년 보고서 {_what} 달라 전기 값을 쓰지 않았다 — "
+                            f"전년비와 평균자본·평균자산 기준 ROE·ROA 를 내지 않음" + (f"(prev_fs_div={_fs_prev})" if _fs_changed else "")
+                            + ". 총자산회전율·자기자본 배수·회전일수는 평균 대신 기말 값으로 계산돼 나간다(전기가 없을 때와 같은 한계).")
 
     if not bs_is:
         return {}, warnings + [f"{year}년 BS/IS 핵심 데이터 파싱 실패"], 0
@@ -2535,7 +2543,7 @@ async def _fetch_year_metrics(
         if None not in (fy_map.get("cogs"), ytd_cogs_c, ytd_cogs_p):
             ttm_cogs = fy_map["cogs"] + ytd_cogs_c - ytd_cogs_p
         if ttm_revenue is None:
-            warnings.append(f"{year}년 TTM 회전일수 분모 계산 실패(직전 FY 미조회) — 분기 기간일치로 대체.")
+            warnings.append(f"{year}년 TTM 회전일수 분모 계산 실패({'전기 보고서를 쓰지 않아 전년 동기 누적이 없음' if prev_dropped else '직전 FY 미조회'}) — 분기 기간일치로 대체.")
 
     # 사업보고서 한 결산기의 실제 개월 — 반기·분기 결산 회사(리츠)는 6·3개월이다(못 읽으면 12 = 종전).
     rep_curr = _report_period(rows_curr) if used_rc == _REPRT_BUSINESS else None
@@ -2555,9 +2563,9 @@ async def _fetch_year_metrics(
     metrics["year"] = year
     if prev_fs_div:
         metrics["prev_fs_div"] = prev_fs_div     # 새 키 — 전기 보고서의 재무제표 기준이 당기와 달랐을 때만
-        if prev_dropped:   # 전기를 버렸으면 평균 대신 기말로 떨어진 비율을 내지 않는다
-            for _k in ("roe_pct", "roa_pct", "roe_dupont_pct"):
-                metrics[_k] = None
+    if prev_dropped:   # 전기를 버렸으면(재무제표 기준·보고 통화가 달라서) 평균 대신 기말로 떨어진 비율을 내지 않는다
+        for _k in ("roe_pct", "roa_pct", "roe_dupont_pct"):
+            metrics[_k] = None
     if metrics.get("net_income_basis_note"):
         warnings.append(f"{year}년 {metrics['net_income_basis_note']}")
     if scale_fix:
@@ -2623,13 +2631,13 @@ async def _fetch_year_metrics(
         prior_detail_rows, prior_err = await _safe_fetch_acnt_all(corp_code, year, prior_rc, actual_fs)
         if prior_detail_rows:
             bs_is_std = _build_account_map(rows_curr, induty_code=induty_code)  # thstrm: IS=당기 3개월, BS=잔액
-            bs_is_prev_std = _build_account_map(rows_prev, induty_code=induty_code) if rows_prev else None
+            bs_is_prev_std = _build_account_map(rows_prev, induty_code=induty_code) if rows_prev and not prev_dropped else None
             detail_std = _build_account_map_all(rows_detail, induty_code=induty_code) if rows_detail else None
             prior_detail = _build_account_map_all(prior_detail_rows, induty_code=induty_code)
             # 전년 같은 분기도 3개월 값으로 — 누적 맵(detail_prev)을 그대로 쓰면 3개월 당기를 6·9개월 누적 전기와
             # 비교하게 된다(079160 2021 반기: 지배 순이익 전년비 +64.59% 는 −845억 대 −2,387억(상반기 누적), 같은 3개월끼리는 +40.97%).
             # 같은 행(rows_detail_prev)을 cumulative_is=False 로 다시 읽을 뿐이라 DART 콜은 늘지 않는다. BS(잔액)는 두 맵이 같다.
-            detail_prev_std = _build_account_map_all(rows_detail_prev, induty_code=induty_code) if rows_detail_prev else None
+            detail_prev_std = _build_account_map_all(rows_detail_prev, induty_code=induty_code) if rows_detail_prev and not prev_dropped else None
             if detail_std:
                 # CF는 누적이므로 당기 = 당기누적 − 직전누적 (cfo/capex/이자지급 등 전 CF 키)
                 for k in _CF_ACCOUNT_PATTERNS:
