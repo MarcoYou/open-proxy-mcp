@@ -10,8 +10,8 @@ from open_proxy_mcp.services.financial_metrics import build_financial_metrics_pa
 
 def _eps(v) -> str:
     """주당 값 — 없으면 「-원」이 아니라 「미공시」(260907 live smoke: 에코프로비엠·현대건설 희석 EPS)."""
-    if isinstance(v, float) and not v.is_integer():   # 소수 공시 EPS(4.21)는 소수로 — 정수로 자르면 JSON 과 어긋난다
-        return f"{v:,.2f}".rstrip("0").rstrip(".") + "원"
+    if isinstance(v, float) and not v.is_integer():   # 소수 공시 EPS(4.21)는 값 표기 그대로 — 자릿수를 고정하면 JSON 과 어긋난다
+        return f"{v:,}원"
     n = _num(v)
     return f"{n}원" if n != "-" else "미공시"
 

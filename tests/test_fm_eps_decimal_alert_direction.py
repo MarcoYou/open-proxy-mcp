@@ -89,19 +89,23 @@ def test_usd_eps_converts_to_whole_won_with_real_decimal(monkeypatch):
     assert metrics["diluted_eps_krw"] == 6071
 
 
-def test_prior_year_eps_uses_its_own_report_and_that_years_rate(monkeypatch):
-    """응답의 전기 EPS 는 같은 보고서 frmtrm 이 아니라 전년 보고서의 당기(thstrm)를 그 해 말 환율로 환산한 값이다."""
+def test_eps_converts_to_whole_won_at_another_years_rate(monkeypatch):
+    """다른 해(2023 말 환율 1,289.4)로 환산해도 소수 EPS 의 결과가 정수 원이다.
+
+    전년 대비의 전기 EPS 는 전년 보고서를 따로 읽는 경로(`_fetch_year_metrics(target_year−1)`)를 타는데, 그 경로 자체는
+    이 시험이 지키지 않는다 — 전년 보고서 원행의 꼴과 새 전기 값은 병합 뒤 운영 응답(V5 verifier)에서 확인한다.
+    """
     seen = {}
 
     async def _rate(cur, date):
         seen["date"] = date
         return 1289.4
     monkeypatch.setattr(fm, "fx_to_krw", _rate)
-    rows = _eps_rows("7.05", "7.04", currency="USD", frm="4.97")
+    rows = _eps_rows("7.05", "7.04", currency="USD")
     metrics = _metrics_from(rows)
     asyncio.run(fm._normalize_currency(metrics, rows, "2023-12-31", 2023))
     assert seen["date"] == "20231231"
-    assert metrics["eps_krw"] == round(7.05 * 1289.4) == 9090
+    assert metrics["eps_krw"] == round(7.05 * 1289.4) == 9090 and type(metrics["eps_krw"]) is int
 
 
 def test_krw_decimal_eps_survives_krw_normalization():
@@ -116,6 +120,7 @@ def test_md_eps_shows_decimal_only_when_present():
     assert tool._eps(11732) == "11,732원"
     assert tool._eps(11732.0) == "11,732원"
     assert tool._eps(-5.08) == "-5.08원"
+    assert tool._eps(4.137) == "4.137원"          # 자릿수를 고정해 반올림하지 않는다(JSON 4.137 과 같은 표기)
     assert tool._eps(None) == "미공시"
 
 
