@@ -172,6 +172,9 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 - **공개 예**: 112040 FY2023 연간 4,007.8억(비지배 포함) 대 지배 2,487.8억, 000100 FY2025 2조 3,622.8억 대 2조 3,068.4억(#156). 077360 2024 3분기 실시간 firm 4,368.22억(비지배 1,300.45억 포함) 대 수집 3,067.77억,
   069460 2026 반기 770.74억 대 768.73억(#159). 고친 뒤 firm·결산기 칸·분기 수집·연간 수집이 7,476개 보고서의 당기·전기·전전기 모든 칸에서 같은 값이다.
 - **막는 곳**: `controlling_ni`·`controlling_eq`(모듈 지도). 새 계정 줄 고르기는 먼저 이 두 모듈에 규칙을 더하고 부르는 곳을 모두 같은 함수로 모은다.
+- **배당 도구도 같은 규칙**: `dividend_disclosure` 의 분기 누적 길(`_cum_full_from_items`·`_interim_dividend_from_quarterly`)과 `_common_cash_dps_from_items` 가 요약과 같은 `split_by_share_class` 로 보통주를 고른다 —
+  「우선주」 글자 없는 종류주식 행(보통주 3,980 → 「1종 종류주식」 4,042)이 보통주를 덮지 않는다. 「종류 표기 행뿐인가」는 값 0 인 줄까지 포함한 전체 행으로 본다(보통주 0 · 종류주식 50 → 보통주 0, 종류주식이 보통주로 올라가지 않는다).
+  누적차분 표의 우선주 칸(`dps_preferred`)에는 우선주만 — 우선주 아닌 종류주식은 `dps_class`·`dps_class_label`(원문 이름)로 따로 싣는다.
 - **남은 한계**: 닫힌 것 — ① `financial_metrics` 의 지배자본(ROE 분모·자본잠식 판정)이 공용 `controlling_eq` 를 거치지 않던 것(#167: 069960 FY2019 ROE 165.92% → 4.58%, 056360 FY2022 91.73% → 3.41%,
   065680 yearly FY2024 400.34% → 8.45%, 000040 FY2019 자본잠식 「없음」 → 부분 80.43%) ② 지배자본 줄이 없으면 비지배 포함 자본총계를 ROE 분모로 쓰던 것(#167: 419050 FY2025 916.66억 → 641.84억)
   ③ `shareholder_commitment` 자사주 소각 BPS 가 자본총계(비지배 포함)였던 것(#169 부터 지배자본 — 000880 자본총계/지배 4.09배, 001040 3.27배, 028260 1.15배였다). 남은 것: 그 BPS 의 주식수는 재무상태표와 시점이 다를 수 있고(`shares_basis`), 연결 재무제표가 없는 회사는 기준일 개선 없이 연말 길로 간다.
@@ -326,6 +329,7 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 - **공개 예**: 3월 결산(동원모빌리티) 2026 1분기 = 2026.06 · 반기 = 2026.09 · 3분기 = 2026.12 · 사업 = 2026.03. 6월 결산(MH머트리얼즈), 9월 결산(방림)도 같은 규칙(DART 직접 대조). 950170(JTC, 2월 결산)의
   2026.02 사업보고서는 2026-05-28 제출인데 `financial_metrics` 기본 사업연도가 FY2025 라 한 해 앞 것을 요약했다 → 결산월로 고른다(12월 결산이 아닌 상장 33사 해당)(#142).
 - **막는 곳**: `report_calendar` — 칸 → 실제 기간 말(`cell_end`) → 공시 시점(`pit_cell`), 기본 사업연도 `latest_annual`. 12월 결산(결산월을 모를 때 기본값)은 종전 식과 같음을 2016~2031년 모든 날로 대조한다.
+- **배당 도구도 같은 규칙**: `dividend_disclosure` 의 결정공시 귀속(`_bucket_fiscal_year`)은 결산월을 받아 기준일이 속한 사업연도(결산 종료연도)로 묶고, 요약·추이표·「미결의」 판정은 결산기준일(stlm_dt)의 해로 맞춘다 — 3월 결산 결산배당(기준일 2026-03-31) FY2025 → FY2026, 6월 결산 중간배당(2024-12-31) FY2024 → FY2025.
 - **남은 한계**: 없음 — 세 파일에 따로 있던 `_latest_annual_fy`(12월 결산 달력 규칙)를 #168 에서 `report_calendar.latest_annual` 한 곳으로 모았다(세 파일의 함수는 얇은 껍데기).
 
 #### DATA-FY2 결산월을 바꾼 회사 — 전환기, 한 열쇠에 보고서 둘
@@ -823,7 +827,7 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 | 번호 | 한 줄 | 고친 PR · 상태 |
 |---|---|---|
 | DATA-U1 | 잠정실적 도구의 단위 읽기가 쉼표가 있는 표기에 기대 기본 백만원으로 떨어진다 | 닫힘 #170 (단위를 못 읽으면 금액 미환산 · `unit_raw=None` + 경고) |
-| DATA-U3 | `asset_holdings` `detail` 이 주석 원문·viewer 조회가 모두 실패해 주석이 비면 4항목을 「재무제표 주석에 기재가 없습니다」(`not_disclosed`)로 단정한다 | 닫힘 (이 PR — `absence_kind=not_collected`·`fetch_failed=true`, summary 는 상장·비상장 구분도 못 하므로 지분 NAV 배수·상장 합계·감액 표시를 비움 + 경고. 주석을 정상으로 읽은 경우는 종전 그대로) |
+| DATA-U3 | `asset_holdings` `detail` 이 주석 원문·viewer 조회가 모두 실패해 주석이 비면 4항목을 「재무제표 주석에 기재가 없습니다」(`not_disclosed`)로 단정한다 · `provisional_earnings` 의 [기재정정] 표 파서가 정정후 칸이 '-'·빈칸이면 정정전 값을, 당기 절 금액 칸이 비면 뒤 「증감율(%)」 절의 % 를 금액(`value_krw`)으로 낸다 | 닫힘 — #217 (asset_holdings: `absence_kind=not_collected`·`fetch_failed=true`, summary 는 상장·비상장 구분도 못 하므로 지분 NAV 배수·상장 합계·감액 표시를 비움 + 경고. 주석을 정상으로 읽은 경우는 종전 그대로) · #215 (provisional_earnings: 절 머리행으로 당기 절만(I002·I001 절 이름 모두, 구분 열 꼴 포함), 정정전·정정후 열은 머리 행으로, 정정후 '-'·빈칸이면 `value_krw`=None · 합성 고정본 시험) |
 | DATA-NI2 | `financial_metrics` 분기·`qoq` 순이익이 주요계정 당기순이익 총계(비지배 포함)다 | 닫힘 — #170 은 표시만(`net_income_basis=total_incl_nci`·표 머리), 이 PR 이 새 키 `net_income_controlling_krw`(저장된 분기 칸 누적 차분, DART 0콜)로 지배 몫을 더함. 옛 `net_income_krw` 는 총계 그대로 |
 | DATA-NI2 | `financial_metrics` 연간 `net_income_krw` 가 지배 순이익을 못 구하면 조용히 총계로 바뀌고 전년비·ROE 가 기준이 섞인 값이 된다 | 닫힘 (이 PR — `net_income_basis`·`prev_net_income_basis` 표시, 기준이 다르면 전년비 비움 + 경고) |
 | DATA-NI3 | 값 구조로 못 가르는 지배 순이익 줄(첫 이름 줄 폴백)과 지배·비지배를 바꿔 적은 보고서를 자본변동표로 교차 확인하지 않는다 | 닫힘 #166 (`controlling_ni` 세 꼴을 자본변동표 지배 몫으로 — 저장된 재무 칸 164칸 가운데 162칸을 새 규칙으로 다시 씀) |
@@ -841,8 +845,10 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 | DATA-SC4 | 연간 수집(정규 받기와 정정 보고서 다시 받기 모두)이 원본 칸을 쓸 때 보고서 사이 단위 대조(`reconcile_report_scales`)가 없다 — 한 보고서 안 검사(`assess`)만 있고, 정정 칸 후보·정정 칸 비우기만 10ⁿ 어긋난 꼴을 건너뛴다. 한 보고서가 통째로 틀린 단위로 오면(정정 보고서 포함) 원본 칸에 어긋난 값이 다시 들어갈 수 있다 | 닫힘 #182 (`market_val_series.cross_report_plan` — 새 사업보고서의 당기·전기·전전기 자본을 저장된 이웃 해 원본·정정 칸과 `reconcile_report_scales` 로 대 나눠 쓰거나 못 가리면 쓰지 않는다) |
 | DATA-SC4 | 분기 수집의 전기 칸 대조(`check_prior_period_mismatch`)는 저장된 연간 값을 정답으로 믿어, 저장 값이 틀리면 맞는 분기 보고서를 10ⁿ 배로 「복구」할 수 있다 — 실시간 firm·연간 수집의 `reconcile_report_scales`(다수결·시총)와 규칙이 다르다 | 열림 |
 | DATA-SC5 | 시장 최대값 고정 앵커(44.26조 × 3)가 FY2026 실적(삼성전자 303.64조·SK하이닉스 255.74조) 보고서에서 firm 응답에 거짓 「단위 오류 — 신뢰 불가」를 낸다 | 닫힘 (이 PR — 시총 대비 5배·전기 대비 10ⁿ 점프 단서가 없으면 soft) |
+| DATA-PIT1 | `provisional_earnings` 의 손익구조 변경 공시 판정이 [기재정정]·[첨부정정] 접두를 떼지 않아, 정정 공시가 후보에서 빠져 원공시가 최신으로 나간다 | 닫힘 (이 PR — 접두를 떼고 판정 · 정정 표는 정정 표 파서가 읽음) |
 | DATA-PIT5 | 자본이 다른 칸·출처 있는 칸의 원본 칸 수집 결함이 정정 칸에 가려 있다가 과거 시점 점에 드러날 수 있다 | 열림 |
 | DATA-PIT8 | 원본 칸의 공시일이 기한 규칙이라 늦게 낸 보고서를 앞당겨 쓴다 | 열림 |
+| DATA-PIT9 | `ownership_structure` 의 `as_of_date` 가 보고자별 5% 최신 보고를 기준일 뒤 것까지 보고 먼저 고른 뒤 기준일 밖이면 버려, 기준일 뒤에 다시 보고한 보유자가 과거 시점 목록에서 사라지고 보유 목적을 미래 원문에서 읽을 수 있었다. 사업연도는 `as_of.year - 1` 로 못박혀 비12월 결산·사업보고서 제출 전 시점이 어긋났다 | 닫힘 (이 PR — 기준일까지 접수된 보고만 최신 후보(`_latest_block_rows`·명부가 빌 때 5% 보고에서 최대주주를 추정하는 `_fetch_largest_shareholder_from_blocks` 두 곳), 사업연도는 `report_calendar.pit_annual`. 고려아연 2026-01-31 시점 5% 블록 1곳 → 5곳) |
 | DATA-PIT10 | 065150 FY2023 은 단위 고침 뒤에도 정정 칸 출처 접수일(2026-03-23) 전 시점에 원본 값을 쓴다 — 그보다 먼저 공시된 2024 보고서 전기 칸(2025-03-21 접수)과 1년 동안 다른 값이 나온다(출처 날짜를 가장 늦은 보고서로 잡는 `restated_wins` 의 한계) | 닫힘 #183 (같은 값이면 출처는 처음 낸 보고서 — 운영 출처 4,212행(그중 문이 값에 닿는 268행)을 당김, 값 칸 변화 0 · 시장·업종 집계 290행 다시 계산) |
 | DATA-PIT10 | 출처보다 이른 앞 두 해 사업보고서 원문이 캐시에 없어 같은 값을 먼저 냈는지 확인하지 못한 정정 칸 약 530행(값에 닿는 약 90행)과 새 출처 뒤에 원 보고서가 정정된 11행은 출처가 그대로다 | 열림 |
 | DATA-FY1 | `_latest_annual_fy` 와 `report_calendar.latest_annual` 이 두 벌이다 | 닫힘 #168 (`report_calendar.latest_annual` 한 곳) |

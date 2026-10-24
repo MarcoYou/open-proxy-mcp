@@ -141,10 +141,16 @@ def _alot_items_lines(summary: dict[str, Any]) -> list[str]:
 def _quarterly_full_lines(qf: list[dict[str, Any]], qb: list[dict[str, Any]], year: int | None) -> list[str]:
     """최신연도 분기별(정기보고서 누적차분) 표. 보고서 행이 비어 차분이 두 분기를 덮은 칸(`merged`)은 한 분기로 적지 않고 합산이라고 표시하며,
     같은 분기들의 결정공시(아래 표)와 맞춰 보는 줄을 붙인다(B4, DATA-DIV8)."""
-    lines = ["", "## 최신연도 분기별 (정기보고서 누적차분)", "| 분기 | 보통주 DPS | 우선주 DPS | 배당총액 |", "|------|------------|------------|----------|"]
+    # 우선주 칸은 우선주만 — 우선주 아닌 종류주식(「1종 종류주식」 …)이 있는 회사는 원문 종류 이름을 머리줄로 한 칸을 더한다(DATA-EQ4).
+    class_labels = list(dict.fromkeys(x["dps_class_label"] for x in qf if x.get("dps_class_label") and x.get("dps_class")))
+    has_class = bool(class_labels)
+    head = "| 분기 | 보통주 DPS | 우선주 DPS | " + (f"{'·'.join(class_labels)} DPS | " if has_class else "") + "배당총액 |"
+    lines = ["", "## 최신연도 분기별 (정기보고서 누적차분)", head, "|" + "---|" * (head.count("|") - 1)]
     for x in qf:
         pref = f"{x['dps_preferred']:,}원" if x.get("dps_preferred") else "-"
-        lines.append(f"| {x['quarter']} | {x['dps_common']:,}원 | {pref} | {_won(x['total_mil'] * 1_000_000)} |")
+        klass = (f"{x['dps_class']:,}원" if x.get("dps_class") else "-") if has_class else None
+        cells = [str(x["quarter"]), f"{x['dps_common']:,}원", pref] + ([klass] if has_class else []) + [_won(x["total_mil"] * 1_000_000)]
+        lines.append("| " + " | ".join(cells) + " |")
     lines.append("> 분기/반기/사업보고서 누적값을 차분 — 결정공시 귀속 추측이 아니라 권위 출처. 무배당 분기는 0.")
     live = [r for r in qb if r.get("year") == year and not r.get("is_superseded") and not r.get("is_cancelled")]
     for x in qf:

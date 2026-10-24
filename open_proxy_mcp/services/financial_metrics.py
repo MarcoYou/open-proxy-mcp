@@ -1450,6 +1450,30 @@ def _period_ko(m: dict[str, Any]) -> str:
     return "연간 12개월"
 
 
+# ── 감사의견 판정 ──
+# DATA 번호 없음(공개 DATA 문서에 새 번호가 필요하면 별도 「new」 줄). 옛 판정 `"적정" in op` 은 부분 문자열이라
+# 「부적정」(= 「적정」 포함)을 깨끗한 의견으로 셌고, 「해당사항없음」(같은 결산일에 의견 행과 함께 오는 자리 채움 행)을 비적정으로 셌다.
+_AUDIT_OPINION_NOT_JUDGED = frozenset({"", "-", "해당사항없음", "해당없음"})
+
+
+def _norm_audit_opinion(raw: Any) -> str:
+    """감사의견 원문을 비교용으로 정규화 — 공백·줄바꿈을 지우고 끝의 「의견」을 뗀다(「적정의견」→「적정」)."""
+    s = re.sub(r"\s+", "", str(raw or ""))
+    if len(s) > 2 and s.endswith("의견"):
+        s = s[:-2]
+    return s
+
+
+def _audit_opinion_judged(raw: Any) -> bool:
+    """판정 대상인 의견인가 — 빈칸·「-」·「해당사항없음」은 의견이 아니라 자리 채움이라 판정에서 뺀다."""
+    return _norm_audit_opinion(raw) not in _AUDIT_OPINION_NOT_JUDGED
+
+
+def _audit_opinion_clean(raw: Any) -> bool:
+    """정규화한 의견이 정확히 「적정」인가(「부적정」·「한정」·「의견거절」은 False)."""
+    return _norm_audit_opinion(raw) == "적정"
+
+
 def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
                         audit_curr: dict[str, Any] | None = None,
                         audit_prev: dict[str, Any] | None = None) -> list[str]:
@@ -1560,12 +1584,13 @@ def _detect_yoy_signals(curr: dict[str, Any], prev: dict[str, Any] | None,
 
     # 감사의견
     if audit_curr:
-        op = (audit_curr.get("adt_opinion") or "").strip()
-        if op and "적정" not in op:
+        op = _norm_audit_opinion(audit_curr.get("adt_opinion"))
+        if _audit_opinion_judged(op) and not _audit_opinion_clean(op):
             alerts.append("non_clean_audit_opinion")
         if audit_prev:
-            prev_op = (audit_prev.get("adt_opinion") or "").strip()
-            if op and prev_op and op != prev_op and "적정" in prev_op and "적정" not in op:
+            prev_op = _norm_audit_opinion(audit_prev.get("adt_opinion"))
+            if (_audit_opinion_judged(op) and _audit_opinion_judged(prev_op)
+                    and _audit_opinion_clean(prev_op) and not _audit_opinion_clean(op)):
                 alerts.append("audit_opinion_change")
 
     # 배당
@@ -2718,7 +2743,9 @@ async def _build_audit_opinion_data(
     deduped.sort(key=lambda x: x.get("stlm_dt", ""), reverse=True)
 
     latest = deduped[0] if deduped else None
-    all_clean = all("적정" in p.get("adt_opinion", "") for p in deduped) if deduped else None
+    # 판정 대상(빈칸·「해당사항없음」 제외) 행이 전부 정확히 「적정」일 때만 True. 판정할 행이 없으면 None. 표시용 opinions 는 원문 그대로 둔다.
+    judged = [p for p in deduped if _audit_opinion_judged(p.get("adt_opinion"))]
+    all_clean = all(_audit_opinion_clean(p.get("adt_opinion")) for p in judged) if judged else None
 
     evidence: list[EvidenceRef] = []
     if latest and latest.get("rcept_no"):
@@ -3657,6 +3684,11 @@ async def build_financial_metrics_payload(
         warnings.extend(ws_curr)
         audit_curr = audit_data.get("opinions", [{}])[0] if audit_data.get("opinions") else None
         audit_prev = audit_data.get("opinions", [{}, {}])[1] if len(audit_data.get("opinions", [])) >= 2 else None
+        # 신호 계산에는 「해당사항없음」 자리 채움 행을 뺀 의견 행만 쓴다(같은 결산일에 의견 행과 함께 오는 회사가 있다 — 셀리버리 2022-12-31).
+        # 응답에 싣는 audit_opinion.current·prior 는 원문 그대로다.
+        _judged_ops = [o for o in (audit_data.get("opinions") or []) if _audit_opinion_judged(o.get("adt_opinion"))]
+        sig_audit_curr = _judged_ops[0] if _judged_ops else None
+        sig_audit_prev = _judged_ops[1] if len(_judged_ops) >= 2 else None
 
         # 기간 맞춤(DATA-Q6): 올해(미공시 사업보고서 → 3분기·반기·1분기 대체)를 보면 당기는 누적 N개월인데 전기는
         # 사업보고서 12개월이라 revenue_decline 등 신호가 거짓으로 켜진다. 전기를 **당기와 같은 보고서**로 다시 센다.
@@ -3685,7 +3717,7 @@ async def build_financial_metrics_payload(
         warnings.extend(w for w in _dedupe_scale_warnings(ws_prev) if not (w.startswith(("🔧", "🚨")) and w in _scale_seen))
         warnings.extend(audit_ws)
 
-        signals = _detect_yoy_signals(curr or {}, prev or {}, audit_curr, audit_prev) if curr else []
+        signals = _detect_yoy_signals(curr or {}, prev or {}, sig_audit_curr, sig_audit_prev) if curr else []
         if not period_aligned:
             signals = [a for a in signals if a not in _PERIOD_SENSITIVE_ALERTS]
         data["yoy"] = {
@@ -3882,7 +3914,7 @@ def _next_actions(scope: str, data: dict[str, Any]) -> list[str]:
             actions.append("회계 risk 강화 cross-check: 분기 영업CF 추세 + 감사의견 KAM")
     if scope == "audit_opinion":
         opinions = (data.get("audit_opinion", {}) or {}).get("opinions", [])
-        if any("적정" not in o.get("adt_opinion", "") for o in opinions):
+        if any(_audit_opinion_judged(o.get("adt_opinion")) and not _audit_opinion_clean(o.get("adt_opinion")) for o in opinions):
             actions.append("non-clean 의견: 후보 사외이사 재직 시점 cross-check (이사 회계 risk 이력 검증)")
     return actions
 
