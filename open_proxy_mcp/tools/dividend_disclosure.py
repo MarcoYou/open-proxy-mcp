@@ -311,12 +311,25 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         # 결정공시별 breakdown — 기준일·rcept_no 추적용 (정정 이력 포함).
         qb = data.get("quarterly_breakdown") or []
         if qb:
-            lines.extend(["", "## 분기별 결정공시 (공시별·추적용)", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 기준일 | 공시번호 |", "|------|------|------------|------------|--------|------------------|"])
+            # 우선주 칸은 우선주만 — 사업보고서가 우선주 아닌 종류주식(「종류주식」·「1종 종류주식」 …)으로 적는 회사는 결정공시의 비보통 DPS 를
+            # 원문 종류 이름을 머리줄로 한 칸에 싣는다(위 누적차분 표와 같은 규칙, DATA-EQ4). 값은 공시 그대로다.
+            class_labels = list(dict.fromkeys(r["dps_class_label"] for r in qb if r.get("dps_class_label")))
+            if class_labels:
+                lines.extend(["", "## 분기별 결정공시 (공시별·추적용)",
+                              f"| 연도 | 분기 | 보통주 DPS | 우선주 DPS | {'·'.join(class_labels)} DPS | 기준일 | 공시번호 |",
+                              "|------|------|------------|------------|------------|--------|------------------|"])
+            else:
+                lines.extend(["", "## 분기별 결정공시 (공시별·추적용)", "| 연도 | 분기 | 보통주 DPS | 우선주 DPS | 기준일 | 공시번호 |", "|------|------|------------|------------|--------|------------------|"])
             for r in qb:
                 amend = " [정정]" if r.get("is_amendment") else ""
                 supersed = " (대체됨)" if r.get("is_superseded") else ""
                 supersed += " (취소)" if r.get("is_cancelled") else ""
-                lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
+                if class_labels:
+                    pref = f"{r['dps_preferred_krw']:,}원" if r.get("dps_preferred_krw") else "-"
+                    klass = f"{r['dps_class_krw']:,}원" if r.get("dps_class_krw") else "-"
+                    lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {pref} | {klass} | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
+                else:
+                    lines.append(f"| {r['year']} | {r['quarter']}{amend}{supersed} | {r['dps_common_krw']:,}원 | {r['dps_preferred_krw']:,}원 | {r.get('record_date','-')} | `{r.get('rcept_no','-')}` |")
             lines.append("")
             lines.append("> 최신연도 정확값은 위 '누적차분' 표 참조. 이 표는 공시 추적용(기준일·공시번호·정정 이력).")
 

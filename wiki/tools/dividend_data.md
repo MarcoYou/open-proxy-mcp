@@ -8,7 +8,7 @@ data_source: [DART 정기보고서 alotMatter(사업·반기·분기, div_declar
 related_disclosures: [사업보고서, 반기보고서, 분기보고서, 현금배당결정]
 related_concepts: [배당성향, 배당수익률, 분기배당, 연결-별도, 단위-표기-규약, 시점-제약]
 created: 2026-09-02
-updated: 2026-10-23
+updated: 2026-10-24
 ---
 
 # dividend_data
@@ -86,6 +86,15 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 있던 종목은 `before_window=True` 로 표시되고, 그 창이 우리 배당 창(2020~)을 통째로
 덮으므로 판단엔 지장이 없다. 실측(260903): 배당사 28곳이 FY2020 종료 시점에 미상장이었다
 — 이 구분이 없으면 그만큼이 「0회」로 오독된다.
+
+### `firm` 결정공시 표의 사업연도 번호 (2026-10-24, DATA-FY1)
+`div_payment.fiscal_year` 는 12월 결산을 가정한 귀속이라, 3월 결산 회사의 2025-06-11 결의(기준일 2025-03-31)가 결정공시 표에서는 FY2024, 원장 표에서는 FY2025 였다(동원모빌리티 018500).
+`firm` 은 이제 원장의 결산기준일(`stlm_dt`)이 **모두 같은 한 달이고 12월이 아닐 때** 그 결산월로 결정공시의 해 번호를 결산 종료연도로 옮긴다 — `dividend._bucket_fiscal_year`(공용 귀속 함수)를
+12월 가정·실제 결산월로 두 번 불러 **그 차이만큼** 옮기므로 저장된 해가 어떤 규칙이었든 12월 가정 대비 달라지는 만큼만 바뀐다(`align_payment_years`, DB 쓰기·재적재 없음).
+12월 결산, 결산월을 못 읽는 회사, 결산기가 여럿인 회사(반기·분기 결산 리츠)·결산월 변경 이행기는 건드리지 않는다(응답 바이트 그대로).
+옮긴 회사는 `payment_counts.fiscal_year_alignment`{end_month, basis, shifted_decisions, stored_complete_years} 가 붙고 표 아래에 한 줄이 붙는다.
+⚠️미완은 사업연도 T 의 결의가 저장된 해 T-1·T 에 걸쳐 있으므로 **두 해가 모두 온전할 때만** 빠진다(덜 걷힌 해를 온전하다고 적지 않는 쪽으로 좁힌다).
+한계: `screen` 의 `min_payments`·결정공시 이력열(`payment_history`)은 저장된 해 번호 그대로다 — 비12월 결산 회사의 이력열은 한 해 어긋날 수 있다(열림, DATA-FY1).
 
 ## 배당수익률 — `min_yield`·`sort=yield` (261022)
 `screen` 에 수익률 축을 더했다. 「코스피 배당수익률 상위」「수익률 5% 이상」에 답한다.
@@ -219,6 +228,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
 [[dividend_disclosure]] · [[price_multiple_data]] · [[forward_estimates_data]] · [[screener]] · [[evidence]]
 
 ## 변경 이력
+- 2026-10-24: **`firm` 결정공시 표의 사업연도를 결산 종료연도로** (DATA-FY1) — 3월 결산 회사에서 결정공시 표와 원장 표가 사업연도 번호를 한 해씩 다르게 부르던 것(동원모빌리티 2025-06-11 결의: 결정공시 FY2024 · 원장 FY2025)을 읽는 쪽에서 맞췄다. 위 「`firm` 결정공시 표의 사업연도 번호」 절. 12월 결산 응답은 그대로, 옮긴 회사에만 새 키 `fiscal_year_alignment`. `screen`·이력열은 그대로.
 - 2026-10-22: **`screen` 에 배당수익률 축** — 인자 `min_yield`(%, 하한)·`sort`(`yield` 면 수익률 큰 순). 분자 = 그 사업연도 보통주 DPS, 분모 = 최신 종가. 거르기·정렬은 limit 전에 모집단 전체에. 표에 DPS 사업연도·종가·수익률·기준 주가일 칸을 더했고(비운 호출은 순서·거르기 그대로), 주가가 없는 종목은 「수익률 미상」, 결산 뒤 분할·병합 종목은 `‡`. 새 인자는 모두 기본값이 있어 기존 호출의 동작은 같다. DATA-DIV3·DATA-DIV5.
 - 2026-10-22: **screen 의 서로 독립인 작은 읽기를 함께 보낸다** — 연도 범위(`year_range`)와 사업보고서 마지막 해(`latest_annual_year`), 거르기(`screen`)와 온전한 해 목록(`payment_scope_years`)을 차례로 기다리던 것을 `asyncio.gather` 로 묶어 풀 왕복 둘을 아꼈다(각 약 10ms 바닥). 응답은 그대로다.
 - 2026-10-22: **업종 갈래의 날짜·업종 목록 읽기를 빠르게** — `aggregate_history`(업종 갈래)·`screen`(업종 조건)의 최신 스냅샷 날짜와 `sector_list` 의 업종 목록이 `wise_sector` 가 구간 표의 **뷰**(스냅샷 3 → 38개, 102,895행)가 되면서 날짜·업종 목록을 뷰 위에서 고르는 질의가 요청마다 약 10만 행을 펼쳐 느려졌다(서버 실행 시간 MAX(snap_dd) 55ms, DISTINCT sector 45ms, DISTINCT snap_dd 56ms, 업종 구성 날짜 셋 97ms). 새 `services/wise_sector_dates` 가 뷰일 때만 작은 밑 표를 읽는다(최신 날짜·스냅샷 목록 `wise_sector_snap`, 업종 목록 `wise_sector_iv` — 각각 0.3~2ms). 표 모드(교체 전·되돌린 뒤)는 종전 SQL이고 빠른 길이 막히면 종전 SQL로 한 번 더 간다. 응답 키·값은 그대로다. 요청당 약 50ms 감소(서버 측).

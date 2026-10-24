@@ -280,6 +280,16 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
         for r in rows
     ]
 
+    return {
+        "status": "ok",
+        "complete_years": payment_scope_years(),
+        "rows": _fold_payment_years(decisions),
+        "decisions": decisions,
+    }
+
+
+def _fold_payment_years(decisions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """결의 한 건 = 한 행 목록 → 사업연도별 한 줄(최신 해 먼저). `payment_counts` 와 `align_payment_years` 가 같은 접기를 쓴다."""
     agg: dict[int, dict[str, Any]] = {}
     for d in decisions:
         a = agg.setdefault(d["fiscal_year"], {
@@ -300,12 +310,66 @@ def payment_counts(corp_code: str, year_from: int, year_to: int) -> dict[str, An
     for a in agg.values():
         a["kinds_filed"].sort()
         a["anomalies"].sort()
+    return [agg[fy] for fy in sorted(agg, reverse=True)]
 
+
+def settlement_end_month(annual_rows: list[dict[str, Any]] | None) -> int | None:
+    """원장 연간 행의 결산기준일(`stlm_dt`)로 읽은 결산월 — 모두 **같은 한 달이고 12월이 아닐 때만**. 그 밖은 None.
+
+    12월 결산은 결정공시 수집 쪽이 가정한 사업연도 귀속이 이미 맞다. 결산기가 여럿(반기·분기 결산 리츠)이거나 결산월이 바뀐 회사는
+    한 달로 못 박을 수 없으니 건드리지 않는다 — 틀린 해로 옮기느니 종전 귀속을 둔다.
+    """
+    months = set()
+    for r in annual_rows or []:
+        digits = "".join(ch for ch in str(r.get("stlm_dt") or "") if ch.isdigit())
+        if len(digits) >= 6 and 1 <= int(digits[4:6]) <= 12:
+            months.add(int(digits[4:6]))
+    return next(iter(months)) if len(months) == 1 and 12 not in months else None
+
+
+def align_payment_years(pay: dict[str, Any], end_month: int | None) -> dict[str, Any]:
+    """결정공시 표의 사업연도를 **결산 종료연도**(원장·`dividend_disclosure` 와 같은 규칙, `FISCAL_YEAR_BASIS`)로 맞춘다. (DATA-FY1)
+
+    `div_payment.fiscal_year` 는 12월 결산을 가정한 귀속이다 — 3월 결산 회사의 2025-06-11 결의(기준일 2025-03-31)가 FY2024 로 접혀, 원장 표(FY2025)와
+    한 해씩 어긋났다. 읽는 쪽에서 `dividend._bucket_fiscal_year`(공용 귀속 함수 — 규칙 6)를 12월 가정·실제 결산월 두 번 불러 **그 차이만큼** 옮긴다:
+    저장된 해가 어떤 규칙으로 정해졌든 12월 가정 대비 달라지는 만큼만 바뀐다. 결산월을 모르거나 12월이면 `pay` 를 그대로 돌려준다(바이트 단위로 같다).
+
+    온전한 해(`complete_years`)는 다시 센다: 사업연도 T 의 결의는 저장된 해 T-1·T 에 걸쳐 있으니 **두 해가 모두 온전해야** T 가 온전하다 —
+    덜 걷힌 해가 온전하다고 적히지 않게 하는 쪽으로 좁힌다. 원래 값은 `fiscal_year_alignment.stored_complete_years`.
+    새 키는 더하기만이고 결의·행의 다른 칸은 그대로다.
+    """
+    if not end_month or pay.get("status") != "ok" or not pay.get("decisions"):
+        return pay
+    from open_proxy_mcp.services.dividend import FISCAL_YEAR_BASIS, _bucket_fiscal_year    # 지역 import — dividend 가 무거운 모듈이다
+
+    moved = 0
+    out: list[dict[str, Any]] = []
+    for d in pay["decisions"]:
+        dtype = str(d.get("dividend_type") or d.get("dividend_type_filed") or "").strip()
+        if dtype in ("결산", "중간", "분기"):
+            dtype += "배당"
+        item = {"dividend_type": dtype, "record_date": str(d.get("record_date") or ""), "rcept_dt": str(d.get("rcept_no") or "")[:8]}
+        assumed_dec, actual = _bucket_fiscal_year(item, 12), _bucket_fiscal_year(item, end_month)
+        shift = (actual - assumed_dec) if (assumed_dec is not None and actual is not None) else 0
+        if shift:
+            moved += 1
+        out.append({**d, "fiscal_year": d["fiscal_year"] + shift})
+    # 정렬은 SQL 과 같다: 사업연도 ↓, 이사회결의일 ↓(빈 값 마지막), 접수번호 ↓ (안정 정렬 세 번).
+    out.sort(key=lambda d: d.get("rcept_no") or "", reverse=True)
+    out.sort(key=lambda d: (d.get("board_date") is not None, str(d.get("board_date") or "")), reverse=True)
+    out.sort(key=lambda d: d["fiscal_year"], reverse=True)
+    stored = sorted(pay.get("complete_years") or [])
     return {
-        "status": "ok",
-        "complete_years": payment_scope_years(),
-        "rows": [agg[fy] for fy in sorted(agg, reverse=True)],
-        "decisions": decisions,
+        **pay,
+        "rows": _fold_payment_years(out),
+        "decisions": out,
+        "complete_years": [y for y in stored if y - 1 in stored],
+        "fiscal_year_alignment": {
+            "end_month": end_month,
+            "basis": FISCAL_YEAR_BASIS,
+            "shifted_decisions": moved,
+            "stored_complete_years": stored,
+        },
     }
 
 
