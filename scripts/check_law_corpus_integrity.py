@@ -34,7 +34,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CORPUS = ROOT / "wiki" / "rules" / "laws" / "corpus"
+CORPUS = ROOT / "open_proxy_mcp" / "data" / "laws" / "corpus"
 
 # 스스로 목을 여는 형태만. 「같은 항 각 목」·「제5조 각 목」은 남을 가리키므로 제외.
 OPENS_MOK = re.compile(r"다음\s*각\s*목")

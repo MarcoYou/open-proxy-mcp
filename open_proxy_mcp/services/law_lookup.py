@@ -7,7 +7,8 @@
 
 데이터: legalize-kr 원문(상법·자본시장법·공정거래법·외부감사법 + 260902 확장분
 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법, 각 법률+시행령)을
-`wiki/rules/laws/corpus/`에 vendored + `scripts/sync_law_corpus.py`가 만든 `law_index.json`.
+`open_proxy_mcp/data/laws/corpus/`에 vendored + `scripts/sync_law_corpus.py`가 만든
+`law_index.json.gz`(공백 없이 직렬화해 gzip).
 매칭 3신호: E(정확 조문 튜플) + B(40룰 bridge, `_agenda_pattern_match` 재사용) + C(corpus 전문
 형태소 BM25). 보수적: substring 금지(튜플 exact), false-friend guard(E/B), difflib 없음.
 
@@ -22,6 +23,7 @@ import해 인덱스 빌드와 질의 정규화를 **동일 로직**으로 맞춘
 from __future__ import annotations
 from open_proxy_mcp.clock import today_kst
 
+import gzip
 import json
 import math
 import re
@@ -31,7 +33,6 @@ from collections import Counter
 from datetime import date, datetime, timezone
 import logging
 from importlib.resources import files
-from pathlib import Path
 from typing import Any, Iterable
 
 from open_proxy_mcp.dart.client import register_unbudgeted_cache as _register_unbudgeted_cache
@@ -54,14 +55,25 @@ from open_proxy_mcp.services.proxy_advise import (
 logger = logging.getLogger(__name__)
 
 # ── 경로 ────────────────────────────────────────────────────────────────
-# 260814: 두 부류를 다르게 다룬다.
-#   · 작은 규칙 데이터(사전 13KB)  → **패키지 데이터**. 코드와 함께 배포되고 cwd 에 무관하다.
-#   · corpus(11MB 원문·인덱스)     → repo 경로 유지. 휠에 11MB 를 싣지 않는다.
-#     대신 없으면 **소리를 낸다**(아래 로더) — 종전에는 조용히 빈 결과였다.
-_LAWS_DIR = Path(__file__).resolve().parent.parent.parent / "wiki" / "rules" / "laws"
-_CORPUS_DIR = _LAWS_DIR / "corpus"
-_INDEX_PATH = _CORPUS_DIR / "law_index.json"
-_BM25_PATH = _CORPUS_DIR / "law_bm25.json"
+# 261025: corpus 도 **패키지 데이터**로 내렸다 — 규칙 데이터와 같은 자리.
+#   종전 주석: 「11MB 라 휠에 싣지 않고 repo 경로 유지」. 색인을 공백 없이 저장하고 gzip 으로
+#   싣자 둘이 11.3MB → 1.5MB 가 되어 그 이유가 사라졌다(실측: 적재 96ms→85ms, 32MB→27MB —
+#   7.9MB 텍스트를 파싱하는 것보다 1MB 를 풀어 읽는 쪽이 싸다).
+#   얻는 것은 용량이 아니라 **경로 독립**이다. 종전 조립은 소스 파일에서 세 칸 올라가 레포
+#   루트를 가정했고, 비편집 설치(`uv sync --no-editable`)에서는 site-packages 를 가리켜
+#   거기엔 corpus 가 없다. 지금 live 가 도는 것은 `python -m` 이 작업 디렉터리를 먼저 보기
+#   때문일 뿐이다 — 실행 방식이 바뀌면 조용히 깨진다. 패키지 데이터는 그 가정을 없앤다.
+#   없으면 **소리를 낸다**(아래 로더) — 종전에는 조용히 빈 결과였다.
+def _corpus_dir():
+    return files("open_proxy_mcp.data.laws") / "corpus"
+
+
+def _index_path():
+    return _corpus_dir() / "law_index.json.gz"
+
+
+def _bm25_path():
+    return _corpus_dir() / "law_bm25.json.gz"
 
 
 def _synonyms_path():
@@ -284,13 +296,13 @@ def load_index() -> dict[str, Any]:
     if _INDEX_CACHE is not None:
         return _INDEX_CACHE
     try:
-        idx = json.loads(_INDEX_PATH.read_text(encoding="utf-8"))
+        idx = json.loads(gzip.decompress(_index_path().read_bytes()))
     except Exception:
         # 260814: 조용히 빈 인덱스를 돌려줬다 — law_lookup 이 「조문을 못 찾음」을 정상 응답으로
-        #   내보내 **없는 것과 못 읽은 것이 구분되지 않았다.** corpus 는 11MB 라 패키지에
-        #   싣지 않고 repo 경로를 유지하되, 실패는 로그와 헬스체크로 밖에서 보이게 한다.
+        #   내보내 **없는 것과 못 읽은 것이 구분되지 않았다.** 실패는 로그와 헬스체크로
+        #   밖에서 보이게 한다(261025: corpus 는 패키지 데이터로 옮겼다).
         logger.exception("법령 corpus 인덱스 로드 실패 — law_lookup 이 조문을 못 찾게 된다: %s",
-                         _INDEX_PATH)
+                         _index_path())
         idx = {"meta": {"df": {}, "idf": {}, "anchor_df_max": 0,
                         "n_articles": 0, "laws": []}, "articles": []}
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
@@ -358,13 +370,13 @@ _BM25_CACHE: dict[str, Any] | None = None
 
 
 def load_bm25() -> dict[str, Any] | None:
-    """law_bm25.json 로드(모듈 캐시). 파생: idf + {(law_key,article_no): doc} 맵.
+    """law_bm25.json.gz 로드(모듈 캐시). 파생: idf + {(law_key,article_no): doc} 맵.
     파일 없으면 None → _signal_corpus가 폐쇄어휘 legacy로 degrade."""
     global _BM25_CACHE
     if _BM25_CACHE is not None:
         return _BM25_CACHE or None
     try:
-        raw = json.loads(_BM25_PATH.read_text(encoding="utf-8"))
+        raw = json.loads(gzip.decompress(_bm25_path().read_bytes()))
     except Exception:
         _BM25_CACHE = {}
         return None
@@ -410,7 +422,7 @@ def load_manifest() -> dict[str, Any]:
     if _MANIFEST_CACHE is not None:
         return _MANIFEST_CACHE
     try:
-        _MANIFEST_CACHE = json.loads((_CORPUS_DIR / "_manifest.json").read_text(encoding="utf-8"))
+        _MANIFEST_CACHE = json.loads((_corpus_dir() / "_manifest.json").read_text(encoding="utf-8"))
     except Exception:
         _MANIFEST_CACHE = {}
     return _MANIFEST_CACHE
@@ -467,7 +479,7 @@ def get_full_text(record: dict[str, Any]) -> str:
         return ""
     if rel not in _FULLTEXT_CACHE:
         try:
-            _FULLTEXT_CACHE[rel] = (_CORPUS_DIR / rel).read_text(encoding="utf-8")
+            _FULLTEXT_CACHE[rel] = (_corpus_dir() / rel).read_text(encoding="utf-8")
         except Exception:
             _FULLTEXT_CACHE[rel] = ""
     text = _FULLTEXT_CACHE[rel]

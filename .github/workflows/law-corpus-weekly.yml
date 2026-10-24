@@ -123,13 +123,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # synced_at 타임스탬프만 바뀐 _manifest.json은 무시 — 조문(.md)·색인(law_index.json) 변경만 트리거
-          CHANGED=$(git status --porcelain wiki/rules/laws/corpus/ | grep -v '_manifest.json' || true)
+          # synced_at 타임스탬프만 바뀐 _manifest.json은 무시 — 조문(.md)·색인(law_index.json.gz) 변경만 트리거
+          CHANGED=$(git status --porcelain open_proxy_mcp/data/laws/corpus/ | grep -v '_manifest.json' || true)
           if [ -n "$CHANGED" ]; then
             # 커밋 날짜(%cs)를 쓰면 안 된다 — 원본이 히스토리를 다시 써서 6개월 전으로
             # 찍힌다. 앞 단계가 4법 헤더에서 읽은 **공포일**을 그대로 받는다.
             SRC_DATE="${{ steps.freshness.outputs.newest }}"
-            git add wiki/rules/laws/corpus/
+            git add open_proxy_mcp/data/laws/corpus/
             git commit \
               -m "chore(law_corpus): 주간 자동 재복사 — legalize-kr 공포일 ${SRC_DATE} 기준 반영" \
               -m "개정·삭제·신설 조문 자동 반영. scripts/sync_law_corpus.py (DART 0콜)." \
@@ -144,6 +144,6 @@ jobs:
             echo "✅ 커밋·푸시 완료 (원문 공포일 ${SRC_DATE} 기준)"
           else
             # synced_at만 바뀐 manifest는 되돌려 불필요 커밋 방지
-            git checkout -- wiki/rules/laws/corpus/_manifest.json 2>/dev/null || true
+            git checkout -- open_proxy_mcp/data/laws/corpus/_manifest.json 2>/dev/null || true
             echo "실질 변경 없음 — 커밋 생략"
           fi

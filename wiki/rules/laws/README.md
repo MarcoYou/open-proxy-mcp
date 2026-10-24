@@ -8,15 +8,15 @@ updated: 2026-09-03
 
 > 한국 상장사 거버넌스 관련 강행규정 + 우회 catalog. 의결권 권고 엔진의 법령 layer 출처.
 
-## ⚠ 260814 — 규칙 데이터는 여기 없다 (패키지로 이동)
+## ⚠ 런타임 데이터는 여기 없다 (260814 규칙 · 261025 corpus, 패키지로 이동)
 
-**런타임이 읽는 규칙 4개는 `open_proxy_mcp/data/laws/` 에 있다.** 이 폴더에는
-사람이 읽는 문서와 `corpus/`(법령 원문·인덱스)만 남는다.
+**런타임이 읽는 것은 전부 `open_proxy_mcp/data/laws/` 에 있다.** 이 폴더에는
+사람이 읽는 문서만 남는다.
 
 | 파일 | 지금 위치 | 왜 |
 |---|---|---|
-| `law_provisions.json` · `law_layer_rules.json` · `law_lookup_synonyms.json` | **`open_proxy_mcp/data/laws/`** | 코드와 함께 배포돼야 한다 |
-| `corpus/` (법률·시행령 원문 + 인덱스) | `wiki/rules/laws/corpus/` (여기) | 11MB. 휠에 싣지 않고 Dockerfile 이 복사 |
+| `law_provisions.json` · `law_layer_rules.json` · `law_lookup_synonyms.json` | **`open_proxy_mcp/data/laws/`** (260814) | 코드와 함께 배포돼야 한다 |
+| `corpus/` (법률·시행령 원문 + 생성 색인) | **`open_proxy_mcp/data/laws/corpus/`** (261025) | 같은 이유. 색인을 공백 없이 gzip 으로 싣자 11.3MB → 1.5MB 가 되어 휠에 넣지 않을 이유가 사라졌다 |
 | `상법-2025-2026-종합.md` · 이 README | `wiki/rules/laws/` (여기) | 사람이 읽는 문서 |
 
 **왜 옮겼나**: 종전에는 `wiki/` 를 **경로로** 찾아갔고, 배포 이미지에 wiki 가 들어가는 것은
@@ -51,7 +51,7 @@ updated: 2026-09-03
 ### 조항이 손댄 항(paragraph) — `paragraphs` 필드 (260903)
 `law_lookup`은 SSOT 조항을 **조문번호로 직접** 후보 조문에 맞추고, `article`의 '제N항' 또는 `paragraphs`
 배열로 항을 좁혀 `as_of` 기준 「시행예정 YYYY-MM-DD」·「유예 종료 YYYY-MM-DD」 표지를 **그 항 옆에** 붙인다.
-corpus 스냅샷이 개정 본문을 이미 담고 있어서(상법 법률 2026-03-06 시행본) 전문이 '현행'이어도 항은 미시행일
+corpus 스냅샷(지금은 `open_proxy_mcp/data/laws/corpus/`)이 개정 본문을 이미 담고 있어서(상법 법률 2026-03-06 시행본) 전문이 '현행'이어도 항은 미시행일
 수 있기 때문이다. 규칙:
 - `article`에 '제N항'이 있으면 그 항(§542의7③·§542의8①·§341의4①). 둘 다 없으면 **조문 전체**(§382의3·§542의14).
 - 한 조문에 여러 개정이 걸리면(§542의12: 1차 합산3% = ④⑦, 2차 분리선출 = ②) `paragraphs`로 나눈다.
