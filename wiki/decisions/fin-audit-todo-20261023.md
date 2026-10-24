@@ -2,7 +2,7 @@
 type: decision
 title: 재무 계열 도구 전수 점검 TODO — 확인된 결함 171건의 체크리스트
 date: 2026-10-23
-status: 진행 중 (261024) — P0 12건 닫힘(#212~#217), P1 1건 닫힘·2건 일부 닫힘, 나머지 열림. 닫힌 줄은 `[x]` 와 PR 번호로 표시
+status: 진행 중 (261024) — P0 12건 닫힘(#212~#217), P1 19건 닫힘(#217·#219~#221·#223~#225)·4건 일부 닫힘, 나머지 열림(보류·오판 표시 5건 포함), 10-24 새 후보 18건(열림 16). 닫힌 줄은 `[x]` 와 PR 번호로 표시
 related: [data-pitfalls, financial_metrics, financial_notes, provisional_earnings, price_multiple_data, forward_estimates_data, dividend_disclosure, dividend_data, asset_holdings, treasury_share, ownership_structure]
 ---
 
@@ -10,31 +10,35 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 
 공개 DATA 문서(`data-pitfalls.md`) §5 체크리스트와 영역별 함정을 재무 계열 도구 8개(financial_metrics·financial_notes·provisional_earnings·price_multiple_data·forward_estimates_data·dividend_disclosure/dividend_data·asset_holdings·treasury_share/ownership_structure)의 코드(점검 시점 main a5453f6)와 대조한 결과다. 도구마다 점검자 1명이 찾고, 반박하는 쪽 검산자가 코드에서 다시 확인해 **확인된 것만** 실었다. 각 줄이 PR 하나의 할 일이다. 10-24 에 상태를 다시 맞췄다 — P0 12건은 #212~#217 로 닫혔고(`[x]`), P1 은 현재 main(46be9b4)과 대조해 닫힘 1·일부 2 를 표시했다. P1 줄의 위치는 현재 main 기준으로 갱신했다(P0 위치는 점검 시점 a5453f6 그대로 두고, P2 는 아직 대조하지 않았다). P1 줄 머리의 `P1-#n` 은 P1 이 나오는 순서 번호다.
 
+같은 날 #219~#221·#223~#225 병합분(main cd57bf9)을 한 번 더 반영했다 — 「조회 실패를 『없음』으로 삼킴」 묶음(P1 묶음 1)과 「틀린 값」 묶음의 일부를 `[x]`·일부 닫힘으로 바꾸고, 보류·점검 오판 5줄에는 `10-24 반박` 줄을 달았다. 이때 열린 P1 줄의 위치(줄 번호)는 다시 대조하지 않았다 — 46be9b4 기준 그대로라 #219~#225 가 고친 파일(`financial_metrics`·`financial_notes`·`price_multiple_data`·`ownership_structure`·`treasury_share`·`dividend`·`asset_holdings`)에서는 줄 번호가 밀렸을 수 있다. 맨 아래 「10-24 묶음 작업 중 찾은 새 후보」는 그 PR 본문의 후속·남은 것과 병합 뒤 운영 확인에서 옮긴 줄이다.
+
 확인 171건 · 반박(오탐·이미 처리) 7건
 
-2026-10-24 기준 P0 12 닫힘 · P1 1 닫힘·2 일부 · 남은 P1 92 · P2 64
+2026-10-24 기준 P0 12 닫힘 · P1 19 닫힘·4 일부 · 남은 P1 72 · P2 64 · 새 후보 18(열림 16 · 닫힘 2)
+
+세는 법: P1 은 95줄(`P1-#1`~`#95`) 가운데 `[x]` 가 닫힘, `[ ]` 이면서 `상태: 일부 닫힘` 줄이 있으면 일부, 나머지가 남은 것이다 — 남은 P1 에는 `10-24 반박`(보류·점검 오판) 5줄(P1-#27·#37·#48·#60·#88)이 들어 있다. P2 는 `P2 ·` 로 시작하는 64줄이고 아직 대조하지 않았다. 새 후보는 맨 아래 절의 `신규-#n` 줄이며 위 171건과 따로 센다.
 
 ## 도구별 요약
 
 | 도구 | 체크리스트 통과 | 발견(10-23) | 10-24 현재 | 한 줄(10-23 점검 시점) |
 |---|---|---|---|---|
-| financial_metrics | 2 | 32 | P0 1 닫힘 · 남은 P1 20 · P2 11 | 공용 모듈(1)·조회 실패 구분(3)은 지키고 닫힌 결함 회귀도 없다. 표기(2)·as_of(4)·분기 단위 대조(5)는 부분적이다. 감사의견 「부적정」 오판이 P0 이고, 분기 Q4 QoQ·FCF 0 대체·기본 분기 연도가 큰 P1 이다 |
-| financial_notes | 3 | 18 | 남은 P1 13 · P2 5 | 계산하지 않는 도구라 1·4·6 은 통과다. partial 상태가 사실상 안 나오고 노드 fetch 실패를 「주석 없음」으로 낸다. 분모 단위 미대조(5)와 period/year 해석 구멍이 남았다 |
-| provisional_earnings | 2 | 20 | P0 3 닫힘 · P1 1 일부 · 남은 P1 10 · P2 6 | DATA-U1·API1·FY1 고침은 살아 있다. 정정 표 파서 P0 둘(증감율을 금액으로 읽음, '-'면 정정전 값)과 I001 [기재정정] 누락 P0 가 있다. 단위 대조(5)는 없고 지배순이익 선택(1)도 자체 라벨이다 |
-| price_multiple_data | 3 | 26 | 남은 P1 13 · P2 13 | 공용 모듈·PIT·보고서 단위 대조는 잘 지켜진다. DB·DART 보조 읽기 실패를 「없음」으로 쓰는 곳이 많다. firm 과 곡선 정의 불일치(자본잠식·TTM 표기), 매출 이중 보정(P1)이 남았다 |
+| financial_metrics | 2 | 32 | P0 1 닫힘 · P1 6 닫힘 · 남은 P1 14 · P2 11 | 공용 모듈(1)·조회 실패 구분(3)은 지키고 닫힌 결함 회귀도 없다. 표기(2)·as_of(4)·분기 단위 대조(5)는 부분적이다. 감사의견 「부적정」 오판이 P0 이고, 분기 Q4 QoQ·FCF 0 대체·기본 분기 연도가 큰 P1 이다 |
+| financial_notes | 3 | 18 | P1 2 닫힘 · 남은 P1 11 · P2 5 | 계산하지 않는 도구라 1·4·6 은 통과다. partial 상태가 사실상 안 나오고 노드 fetch 실패를 「주석 없음」으로 낸다. 분모 단위 미대조(5)와 period/year 해석 구멍이 남았다 |
+| provisional_earnings | 2 | 20 | P0 3 닫힘 · P1 1 닫힘·1 일부 · 남은 P1 9 · P2 6 | DATA-U1·API1·FY1 고침은 살아 있다. 정정 표 파서 P0 둘(증감율을 금액으로 읽음, '-'면 정정전 값)과 I001 [기재정정] 누락 P0 가 있다. 단위 대조(5)는 없고 지배순이익 선택(1)도 자체 라벨이다 |
+| price_multiple_data | 3 | 26 | P1 3 닫힘 · 남은 P1 10 · P2 13 | 공용 모듈·PIT·보고서 단위 대조는 잘 지켜진다. DB·DART 보조 읽기 실패를 「없음」으로 쓰는 곳이 많다. firm 과 곡선 정의 불일치(자본잠식·TTM 표기), 매출 이중 보정(P1)이 남았다 |
 | forward_estimates_data | 3 | 16 | P0 1 닫힘 · 남은 P1 8 · P2 7 | FWD1~3 고침은 유지된다. 빈 유니버스가 전 종목 표로 바뀌는 P0 가 있다. all 에서 FY 실적 잘림, 적자 PER 사유, PBR·PEG·배당수익률의 분할 함정이 P1 이다 |
-| dividend_disclosure · dividend_data | 3 | 15 | P0 3 닫힘 · 남은 P1 6 · P2 6 | DIV1·3·4·5·7·8 고침은 살아 있다. 비12월 결산 사업연도 귀속 두 곳과 분기·중간배당의 옛 보통주 규칙이 P0 다. 정기보고서·결정공시 실패 삼킴과 리츠 성향 혼합이 P1 이다 |
-| asset_holdings | 2 | 18 | P0 1 닫힘 · P1 1 닫힘·1 일부 · 남은 P1 10 · P2 5 | 닫힌 결함 회귀는 없다. 원문 실패를 「기재 없음」으로 단정하는 P0 와 DART 오류 전부 삼킴, 분기 재시도 죽은 코드, 단위 대조(5) 부재가 남았다. 비KRW 분기 환율 기준일은 P1 로 낮췄다 |
-| ownership_structure · treasury_share | 2 | 26 | P0 3 닫힘 · 남은 P1 12 · P2 11 | PX9 와 261018 고침은 유지된다. as_of 가 5% 블록·사업연도 선택에 빠진 P0 둘과 최대주주를 지분 최대 행으로 고르는 P0 가 있다. 실패를 0 으로 쓰는 곳, 자사주 칸 이름 불일치, 정정 중복 합산이 P1 이다 |
+| dividend_disclosure · dividend_data | 3 | 15 | P0 3 닫힘 · P1 2 닫힘 · 남은 P1 4 · P2 6 | DIV1·3·4·5·7·8 고침은 살아 있다. 비12월 결산 사업연도 귀속 두 곳과 분기·중간배당의 옛 보통주 규칙이 P0 다. 정기보고서·결정공시 실패 삼킴과 리츠 성향 혼합이 P1 이다 |
+| asset_holdings | 2 | 18 | P0 1 닫힘 · P1 2 닫힘·2 일부 · 남은 P1 8 · P2 5 | 닫힌 결함 회귀는 없다. 원문 실패를 「기재 없음」으로 단정하는 P0 와 DART 오류 전부 삼킴, 분기 재시도 죽은 코드, 단위 대조(5) 부재가 남았다. 비KRW 분기 환율 기준일은 P1 로 낮췄다 |
+| ownership_structure · treasury_share | 2 | 26 | P0 3 닫힘 · P1 3 닫힘·1 일부 · 남은 P1 8 · P2 11 | PX9 와 261018 고침은 유지된다. as_of 가 5% 블록·사업연도 선택에 빠진 P0 둘과 최대주주를 지분 최대 행으로 고르는 P0 가 있다. 실패를 0 으로 쓰는 곳, 자사주 칸 이름 불일치, 정정 중복 합산이 P1 이다 |
 
 ## 다음 묶음 (같은 함수·원인으로 한 PR 에 고칠 것)
 
-번호는 `P1-#n` 이다. 이미 닫힌 줄은 넣지 않았다.
+번호는 `P1-#n` 이다. 10-24 에 #219~#221·#223~#225 로 닫힌 줄은 「닫힘」으로, 남은 것만 열림으로 적었다.
 
-1. **조회 실패를 「없음」으로 삼킴** — P1-#2·#3(asset_holdings), #15·#16(dividend_disclosure), #28·#29(financial_metrics), #40·#42(financial_notes), #62(ownership_structure), #69·#70(price_multiple_data), #85(provisional_earnings), #90·#91·#94(treasury_share). 공통 고침은 「없음 응답(is_no_data)만 빈 값, 나머지는 경고 + partial」이다.
-2. **financial_metrics 분기·기간 어긋남** — P1-#19·#23·#31·#32·#33·#34·#36, price_multiple_data P1-#71. 분기 대체·누적값·연결/별도가 섞인 채 비율과 알림을 계산하는 줄들이다.
-3. **financial_metrics 한쪽만 읽히면 0 더함·경고 기준** — P1-#21·#37·#27·#25·#26. 없는 칸을 0 으로 채워 FCF·EBITDA·배당 중단 판정을 만드는 줄과 알림 문턱 설명이 코드와 다른 줄이다.
-4. **financial_notes 보고서 고르기** — P1-#43·#44·#45·#51·#42. 기수 검사 없이 직전 분기·전환기 보고서를 고르는 줄들이다(#42 는 묶음 1 과 겹친다).
+1. **조회 실패를 「없음」으로 삼킴** — **닫힘(#219·#220·#221)**, 두 줄만 일부 닫힘. P1-#2·#62·#69·#70·#85(#220)·#40·#42(#219)·#15·#16·#28·#29·#91·#94(#221)는 닫혔다. 일부: P1-#3(6·9월 결산 분기 보고서 코드 매핑이 남음)·#90(지분 도구가 조회 실패를 경고로만 달고 `exact` 로 내는 경우가 남음). 이 묶음을 고치며 PR 본문에 남은 것은 아래 「새 후보」에 옮겼다.
+2. **financial_metrics 분기·기간 어긋남** — P1-#19·#23·#31·#32·#33·#34·#36, price_multiple_data P1-#71. 분기 대체·누적값·연결/별도가 섞인 채 비율과 알림을 계산하는 줄들이다. (P1-#23 은 #225 의 FCF 규칙으로도 막지 못함을 10-24 에 다시 확인했다.)
+3. **financial_metrics 한쪽만 읽히면 0 더함·경고 기준** — **일부 닫힘**: P1-#21·#25·#26 은 닫혔고(#224·#225), P1-#27·#37 은 보류다(#27 은 거짓 「배당 중단」 실례 0건, #37 은 고칠 방향이 맞는 EBITDA 를 지워 방향 재검토). 같은 원인의 새 결함 둘(설비투자·배당 지급액 오독)도 #225 에서 닫혔다. 남은 일은 금융사 경고(신규-#2)와 `proxy_advise` 의 같은 방향 판정(신규-#4).
+4. **financial_notes 보고서 고르기** — P1-#43·#44·#45·#51. 기수 검사 없이 직전 분기·전환기 보고서를 고르는 줄들이다(#42 는 묶음 1 에서 #219 로 닫혔다).
 5. **forward_estimates 배수 계산** — P1-#53·#54·#55·#58·#56·#57. 적자 PER, 분할 뒤 옛 BPS, 지운 칸과 남은 칸의 불일치, 0.0 반올림, basis 표기 누락이다.
 
 ## TODO (심각도 순 — P0 값이 틀림 · P1 오해 유발 · P2 표기)
@@ -78,11 +82,12 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#1 · asset_holdings** — 비KRW 회사 반기·분기 BS 를 사업연도 말(현재 연도면 미래일) 환율로 환산하고 경고도 「기말환율」
   - 위치: `services/asset_holdings.py:747-773 (fx_to_krw 756, 경고문 770)` · DATA: DATA-FX2
   - 고칠 방향: _period_end(report_nm) 를 환율 기준일로 쓴다
-- [ ] **P1-#2 · asset_holdings** — DartClientError(013·020·800)를 모두 빈 응답으로 삼켜 틀린 폴백 사유·NAV 기준 변경·금융업 판정 해제
+- [x] **P1-#2 · asset_holdings** — DartClientError(013·020·800)를 모두 빈 응답으로 삼켜 틀린 폴백 사유·NAV 기준 변경·금융업 판정 해제 → #220 에서 닫음
   - 위치: `services/asset_holdings.py:657-665 · 683-686 · 697-700` · DATA: DATA-API1
   - 고칠 방향: is_no_data 일 때만 빈 값, 나머지는 경고·status partial
 - [ ] **P1-#3 · asset_holdings** — 013 은 raise 되므로 분기 코드 재시도 줄이 죽은 코드이고 12월 가정이라 6·9월 결산 분기 코드가 반대
   - 위치: `services/asset_holdings.py:657-665 · 584-595` · DATA: new
+  - 상태: 일부 닫힘(#220 — 죽은 코드였던 분기 코드 재시도 줄은 삭제. 남은 것: 12월 가정이라 6·9월 결산 분기 보고서 코드 매핑이 반대인지 — 값이 틀리는지 미확인이라 보류)
   - 고칠 방향: 재시도를 except is_no_data 안으로 옮기고 결산월로 분기 코드를 정한다
 - [ ] **P1-#4 · asset_holdings** — haircut_flags 가 status==MARKDOWN 만 보고 absence_kind(extraction_failed 등)는 버려 못 읽음이 「없음」으로 읽힌다
   - 위치: `services/asset_holdings.py:846 · tools/asset_holdings.py:128-143` · DATA: DATA-U3
@@ -119,10 +124,10 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#14 · dividend_data** — 업종 최신 스냅샷을 전 연도에 소급, 시장은 현재 모집단으로 세는데 표기 없음
   - 위치: `services/dividend_data.py:480-523 · tools/dividend_data.py:333-350` · DATA: DATA-SEC2
   - 고칠 방향: sector_asof·소급·생존편향 각주를 렌더에 싣는다
-- [ ] **P1-#15 · dividend_disclosure** — alotMatter 조회 DartClientError 를 상태 구분 없이 continue 로 삼켜 실패가 「보고서 없음/무배당(확정)」이 된다
+- [x] **P1-#15 · dividend_disclosure** — alotMatter 조회 DartClientError 를 상태 구분 없이 continue 로 삼켜 실패가 「보고서 없음/무배당(확정)」이 된다 → #221 에서 닫음
   - 위치: `services/dividend.py:902 · 957 · 1031 (+ _annual_summary 296)` · DATA: DATA-API1
   - 고칠 방향: is_no_data 일 때만 건너뛰고 나머지는 fetch_failed 로 올린다
-- [ ] **P1-#16 · dividend_disclosure** — 결정공시 본문 조회·파싱 실패를 버리고 parsing_failures=0 하드코딩
+- [x] **P1-#16 · dividend_disclosure** — 결정공시 본문 조회·파싱 실패를 버리고 parsing_failures=0 하드코딩 → #221 에서 닫음
   - 위치: `services/dividend.py:223-228 · 1895-1899` · DATA: DATA-API1
   - 고칠 방향: 실패 건수를 세어 build_filing_meta 에 넘기고 경고한다
 - [ ] **P1-#17 · dividend_disclosure** — 미결의만 '-' 이고 확정 전·미공시·중간배당 확정(pending) 행은 「0원」으로 표기
@@ -134,10 +139,10 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#19 · financial_metrics** — Q4 차분 실패로 basis=annual_cumulative 인 행도 QoQ/YoY·마진·qoq 알림(operating_loss_quarter 등)을 3개월 값처럼 계산하고 렌더는 「양쪽 모두 standalone 3개월」로 고정 표기. 도구 페이지·DATA-Q2 는 「QoQ 를 계산하지 않는다」고 적음
   - 위치: `services/financial_metrics.py:3065 (basis) · 3126-3150 (QoQ/YoY) · 3880 (_detect_qoq_alerts) · tools/financial_metrics.py:493` · DATA: DATA-Q2
   - 고칠 방향: basis=='annual_cumulative' 행과 그 다음 분기의 qoq_pct·yoy_pct·마진·qoq 알림을 None 으로 두고 렌더 문구를 행 basis 에 따르게 한다
-- [ ] **P1-#20 · financial_metrics** — int(float()) 로 소수를 버려 외화 보고사의 EPS(예 USD 4.37→4)가 환산 전에 잘리고 1 미만은 0 으로 나감
+- [x] **P1-#20 · financial_metrics** — int(float()) 로 소수를 버려 외화 보고사의 EPS(예 USD 4.37→4)가 환산 전에 잘리고 1 미만은 0 으로 나감 → #224 에서 닫음
   - 위치: `services/financial_metrics.py:221 · 806-811` · DATA: DATA-U3
   - 고칠 방향: EPS(주당 값)는 float 로 읽는 별도 정규화를 쓰고 환산 뒤에만 반올림한다
-- [ ] **P1-#21 · financial_metrics** — CFO·CapEx 중 하나만 있으면 없는 쪽을 0 으로 FCF 를 만든다(FCF=CFO 또는 −CapEx). 내부 `if cfo is None and capex is None` 는 바깥 if 때문에 도달 불가한 죽은 코드. negative_fcf·fcf_margin·dividend_to_fcf 도 오염
+- [x] **P1-#21 · financial_metrics** — CFO·CapEx 중 하나만 있으면 없는 쪽을 0 으로 FCF 를 만든다(FCF=CFO 또는 −CapEx). 내부 `if cfo is None and capex is None` 는 바깥 if 때문에 도달 불가한 죽은 코드. negative_fcf·fcf_margin·dividend_to_fcf 도 오염 → #225 에서 닫음(FCF 는 영업CF·설비투자가 둘 다 읽혔을 때만)
   - 위치: `services/financial_metrics.py:1185-1189` · DATA: DATA-U3
   - 고칠 방향: cfo 와 capex 가 둘 다 있을 때만 FCF 를 계산하고 아니면 None + 누락 키 표시
 - [ ] **P1-#22 · financial_metrics** — 전기 지배자본을 못 구하면 전기는 TOTAL_FALLBACK(비지배 포함)인데 당기 지배자본과 평균해 ROE 분모 기준이 섞이고 _prev_case 는 버려짐
@@ -146,22 +151,25 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#23 · financial_metrics** — 직전 보고서에 같은 CF 키가 없으면 차분하지 않고 누적값을 3개월 칸에 그대로 둔다(표시 없음)
   - 위치: `services/financial_metrics.py:2578-2583` · DATA: DATA-Q1
   - 고칠 방향: pri_v 가 None 이면 detail_std[k]=None 으로 비우고 누락 키를 경고에 적는다
+  - 10-24 재확인: FCF 규칙(#225)으로도 막지 못함 — 반기·3분기 단독값(3개월)은 직전 분기 보고서 값이 비면 빼지 못하고 누적값이 3개월 자리에 그대로 나간다(#225 PR 본문 「남은 것」)
 - [ ] **P1-#24 · financial_metrics** — quarterly/qoq 기본 연도가 today.year 인데 fiscal_year(끝나는 해)로 거르므로 비12월 결산사의 새 사업연도 분기(공시된 최신 분기)가 빠진다
   - 위치: `services/financial_metrics.py:3546 · 2972-2973` · DATA: DATA-FY1
   - 고칠 방향: 기본 end_year 를 report_calendar 로 결산월 기준 현재 사업연도(끝나는 해)로 잡는다
-- [ ] **P1-#25 · financial_metrics** — 영업이익 ≤0 에서도 cfo_to_op_ratio·cfo_quality_red 를 낸다(_safe_ratio positive_denom_only 미사용). accruals_red 는 abs 로 역방향도 같은 문구
+- [x] **P1-#25 · financial_metrics** — 영업이익 ≤0 에서도 cfo_to_op_ratio·cfo_quality_red 를 낸다(_safe_ratio positive_denom_only 미사용). accruals_red 는 abs 로 역방향도 같은 문구 → #224 에서 닫음(경고만 막음)
   - 위치: `services/financial_metrics.py:1191 · 1527-1529 · 1566-1573` · DATA: new
+  - 닫은 이유: 비율 값은 산술상 맞아 결함은 경고 판정 — #224 로 닫음(영업적자에서 비율의 부호가 뒤집혀 뜻이 없는 것은 표기 문제로 남는다). 같은 방향 문제가 `proxy_advise` 에 따로 있다 → 새 후보 신규-#4
   - 고칠 방향: cfo_to_op_ratio 에 positive_denom_only=True, accruals_red 는 이익>현금 방향만 켠다
-- [ ] **P1-#26 · financial_metrics** — interest_coverage_low 문턱은 2배인데 설명은 「1배 미만」; roe_driven_by_leverage 는 수준(EM>2) 판정인데 설명은 변화
+- [x] **P1-#26 · financial_metrics** — interest_coverage_low 문턱은 2배인데 설명은 「1배 미만」; roe_driven_by_leverage 는 수준(EM>2) 판정인데 설명은 변화 → #224 에서 닫음
   - 위치: `services/financial_metrics.py:1513-1515 · 1548-1550 · tools/financial_metrics.py:87 · 96` · DATA: new
   - 고칠 방향: 문구를 「2배 미만」으로 고치고 레버리지 문구를 수준 표현으로 바꾼다(분자도 지배 기준 자산으로 맞춤 검토)
 - [ ] **P1-#27 · financial_metrics** — 당기 배당 지급액 None(줄 못 찾음·조회 실패)을 0 과 같이 dividend_halt 로 판정
   - 위치: `services/financial_metrics.py:1597-1600` · DATA: DATA-U3
   - 고칠 방향: div_curr is not None and div_curr == 0 일 때만 켠다
-- [ ] **P1-#28 · financial_metrics** — _annual_summary 의 오류(_err)와 모든 예외를 버려 조회 실패가 무배당과 같은 「-」로 나간다
+  - 10-24 반박: 보류 — 표본 16사에서 거짓 「배당 중단」 0건. 진짜 결함이던 배당 지급 행 판독은 #225 로 닫혔고(P1-#21 과 같은 원인), 판정식(`dividend_halt`)은 그대로다.
+- [x] **P1-#28 · financial_metrics** — _annual_summary 의 오류(_err)와 모든 예외를 버려 조회 실패가 무배당과 같은 「-」로 나간다 → #221 에서 닫음
   - 위치: `services/financial_metrics.py:1979-1982` · DATA: DATA-API1
   - 고칠 방향: _err·예외를 호출부로 올려 fetch_failures 에 세고 경고를 단다
-- [ ] **P1-#29 · financial_metrics** — filing_count>0 이면 fetch_failed 가 무시돼 일부 조회 실패 응답이 EXACT 로 5분 캐시에 굳는다
+- [x] **P1-#29 · financial_metrics** — filing_count>0 이면 fetch_failed 가 무시돼 일부 조회 실패 응답이 EXACT 로 5분 캐시에 굳는다 → #221 에서 닫음
   - 위치: `services/financial_metrics.py:3830-3841 · services/contracts.py:34-60` · DATA: DATA-API7
   - 고칠 방향: fetch_failures>0 이면 status=PARTIAL·skip_cache=True 로 한다
 - [ ] **P1-#30 · financial_metrics** — 순이익 라벨이 「(지배)」 고정이라 net_income_basis=total_incl_nci 로 물러난 값도 지배로 표기
@@ -188,19 +196,20 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#37 · financial_metrics** — 감가상각·무형상각 중 하나만 있어도 없는 쪽을 0 으로 더해 EBITDA·capex_to_da 를 정상값처럼 낸다
   - 위치: `services/financial_metrics.py:1049-1053` · DATA: DATA-U3
   - 고칠 방향: 둘 다 있을 때만 합하거나 부분 합임을 da_basis 로 표시한다
+  - 10-24 반박: 보류 — 고칠 방향 「둘 다 있을 때만 합한다」를 그대로 따르면 한쪽만 있어도 맞는 EBITDA(KB금융)를 지운다. 방향 재검토 필요.
 - [ ] **P1-#38 · financial_metrics** — strict as_of 에서도 숫자는 fnltt 현재판(기준일 뒤 정정 포함)인데 근거 링크는 as_of 로 잘린 목록에서 고른 보고서
   - 위치: `services/financial_metrics.py:1896-1930 (_periodic_filing_ref) · 3602 · 3744` · DATA: DATA-PIT4
   - 고칠 방향: strict as_of 이면 기준일 뒤 정정 존재 시 경고하거나 값을 PIT 저장분에서 읽는다
 - [ ] **P1-#39 · financial_notes** — EXTRACTION_FAILED·NOT_COLLECTED 를 필드 단위로 만드는 곳이 없어 partial 이 나올 수 없고, 판독 실패가 NOT_APPLICABLE+exact 로 나간다
   - 위치: `services/financial_notes.py:1150-1170 · tools/financial_notes.py:30-41` · DATA: DATA-U3
   - 고칠 방향: 앵커는 잡았는데 표를 못 읽은 경우·절 fetch 실패 필드를 EXTRACTION_FAILED/NOT_COLLECTED 로 표시한다
-- [ ] **P1-#40 · financial_notes** — 노드 절·재무상태표 fetch 예외를 continue/None 으로 삼켜 「해당 주석 없음」「분모 없음」+exact 로 나간다
+- [x] **P1-#40 · financial_notes** — 노드 절·재무상태표 fetch 예외를 continue/None 으로 삼켜 「해당 주석 없음」「분모 없음」+exact 로 나간다 → #219 에서 닫음
   - 위치: `tools/financial_notes.py:470-501` · DATA: DATA-API1
   - 고칠 방향: 실패한 노드를 기록해 해당 필드를 NOT_COLLECTED 로, 분모는 「조회 실패」로 표시한다
 - [ ] **P1-#41 · financial_notes** — 제목에 앵커가 있는 노드가 하나라도 있으면 전체 문서 폴백이 없어 다른 주석 안 표가 있는 필드는 NOT_APPLICABLE
   - 위치: `tools/financial_notes.py:609-623 · services/financial_notes.py:794-806` · DATA: new
   - 고칠 방향: 노드 경로에서 비어 있는 필드는 장 단위 절로 한 번 더 찾는다
-- [ ] **P1-#42 · financial_notes** — year+여러 보고서 코드에서 한 코드가 020/800 이어도 다른 코드 결과가 있으면 실패를 버려 사업보고서 조회 실패 시 3분기가 latest 로 나감
+- [x] **P1-#42 · financial_notes** — year+여러 보고서 코드에서 한 코드가 020/800 이어도 다른 코드 결과가 있으면 실패를 버려 사업보고서 조회 실패 시 3분기가 latest 로 나감 → #219 에서 닫음
   - 위치: `tools/financial_notes.py:535-554` · DATA: DATA-API1
   - 고칠 방향: failed 가 있으면 결과와 함께 경고를 싣거나 latest 에서는 오류로 올린다
 - [ ] **P1-#43 · financial_notes** — 분기보고서가 한 기수뿐이면 1분기/3분기 거르기를 안 해 요청과 다른 분기를 반환
@@ -221,6 +230,7 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#48 · financial_notes** — 숫자 칸 앞 두 개를 당기/전기로 써서 DART 재무상태표의 「주석」 열 번호가 첫 값으로 들어가고 '-' 칸이 빠져 열이 밀린다
   - 위치: `services/financial_notes.py:655 · 690` · DATA: DATA-U3
   - 고칠 방향: 머리 행에서 당기·전기 열 위치를 찾아 그 열만 읽는다
+  - 10-24 반박: 보류 — 표본 재무상태표 2곳에서 주석 열 실례 없음(주석 열 있는 실제 표 1건이면 다시 받는다).
 - [ ] **P1-#49 · financial_notes** — basis=전체에서 계정이 다르면 기준 혼재 검사보다 먼저 「더해도 된다」를 내고, 모르는 basis 값은 조용히 연결로 받으며 푸터는 원 입력을 적는다
   - 위치: `tools/financial_notes.py:225-245 · 437-447` · DATA: DATA-Q5
   - 고칠 방향: 기준 혼재 분기를 앞에 두고 모르는 basis 는 invalid 로 돌려준다
@@ -257,10 +267,11 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#60 · ownership_structure** — 발행총수·자사주는 bsns_year 사업보고서 한 번뿐이라 1~3월 013·020 실패 시 0/0.0 이 되고 「집합투자기구」 사유로 단정, treasury_over_5pct=False 고정
   - 위치: `services/ownership_structure.py:847-905 (_treasury_snapshot) · 1480-1500 · tools/ownership_structure.py:172` · DATA: DATA-U3
   - 고칠 방향: 명부와 같은 보고서 사다리로 내려가고 실패면 None·사유를 싣는다
+  - 10-24 반박: 보류 — 코드 대조만 했다(1~3월·조회 실패 경로는 재현 불가). #220 으로 조회 실패 경고는 붙었다. 남은 것: 자사주 비율 0.0·「자사주 5% 이상」 False 고정, 「집합투자기구」 문구, 명부와 같은 보고서 사다리 내려가기.
 - [ ] **P1-#61 · ownership_structure** — tesstkAcqsDspsSttus 를 se·acqs_qy·dsps_qy·inciner_qy 로 읽는데 DART 가이드 칸은 stock_knd·change_qy_acqs·change_qy_dsps·change_qy_incnr 라 취득·처분·소각이 늘 0
   - 위치: `services/ownership_structure.py:885-893` · DATA: DATA-U3
   - 고칠 방향: DART 칸 이름으로 바꾸고 응답 fixture 시험을 추가한다
-- [ ] **P1-#62 · ownership_structure** — 보유목적·합계표 원문 fetch 예외를 삼켜 「불명」·합계표 없음으로 남고 능동 블록에서 빠진다
+- [x] **P1-#62 · ownership_structure** — 보유목적·합계표 원문 fetch 예외를 삼켜 「불명」·합계표 없음으로 남고 능동 블록에서 빠진다 → #220 에서 닫음
   - 위치: `services/ownership_structure.py:807-840` · DATA: DATA-API1
   - 고칠 방향: 실패를 행에 표시하고 경고한다
 - [ ] **P1-#63 · ownership_structure** — 파싱 불가 as_of 를 경고 없이 무시하고 최신 값을 낸다
@@ -281,17 +292,18 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#68 · price_multiple_data** — 연결 없을 때 별도 폴백인데 어느 기준인지 응답에 없고 설명은 「연결」
   - 위치: `services/price_multiple_data.py:2310 · 2930 · 3537-3560` · DATA: DATA-Q5
   - 고칠 방향: inputs 에 fs_div 를 싣고 OFS 면 경고한다
-- [ ] **P1-#69 · price_multiple_data** — 주식총수 조회 020/800 도 조용히 None 을 돌려 BPS·EPS 폴백이 말없이 빈다
+- [x] **P1-#69 · price_multiple_data** — 주식총수 조회 020/800 도 조용히 None 을 돌려 BPS·EPS 폴백이 말없이 빈다 → #220 에서 닫음
   - 위치: `services/price_multiple_data.py:2647-2660` · DATA: DATA-API1
   - 고칠 방향: is_no_data 가 아니면 acnt_fails 에 기록하고 경고한다
-- [ ] **P1-#70 · price_multiple_data** — 재무·배당·주식수가 모두 비면 조회 실패여도 「펀드 공시 회사」로 단정
+- [x] **P1-#70 · price_multiple_data** — 재무·배당·주식수가 모두 비면 조회 실패여도 「펀드 공시 회사」로 단정 → #220 에서 닫음
   - 위치: `services/price_multiple_data.py:3417-3422` · DATA: DATA-API1
   - 고칠 방향: acnt_fails·div_err 가 있으면 이 경고를 내지 않는다
 - [ ] **P1-#71 · price_multiple_data** — 12월 결산에서 요약이 분기 대체(reprt_code≠11011)여도 eps/revenue/roe 를 FY0 칸으로 쓴다
   - 위치: `services/price_multiple_data.py:2902-2907` · DATA: DATA-Q6
   - 고칠 방향: summary.reprt_code != '11011' 이면 FY0 칸을 비운다
-- [ ] **P1-#72 · price_multiple_data** — 사업연도 말 환율 실패 시 ecos_fx_rate=1.0 으로 외화 원값을 KRW 시총으로 나눠 배수를 숫자로 낸다
+- [x] **P1-#72 · price_multiple_data** — 사업연도 말 환율 실패 시 ecos_fx_rate=1.0 으로 외화 원값을 KRW 시총으로 나눠 배수를 숫자로 낸다 → #223 에서 닫음
   - 위치: `services/price_multiple_data.py:3077 · 3444-3445` · DATA: DATA-FX2
+  - 남은 좁은 틈: 환율 실패 때 `_krw` 이름의 입력 칸(순이익·자본·EPS·BPS)이 외화 원값으로 나가는 것은 이번에 닫지 않았다 → 새 후보 신규-#3
   - 고칠 방향: stmt_cur≠KRW 이고 r_fy 가 없으면 배수를 None 으로 둔다(곡선 경로와 같게)
 - [ ] **P1-#73 · price_multiple_data** — krx_adj_events·상장주식수 DB 읽기 실패(None)를 이벤트 없음(계수 1.0)으로 처리
   - 위치: `services/price_multiple_data.py:2597-2764` · DATA: DATA-PX3
@@ -330,7 +342,7 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#84 · provisional_earnings** — 같은 키 행이 둘이면 마지막 행이 덮어 영업수익이 순영업수익으로 바뀔 수 있다
   - 위치: `services/provisional_earnings.py:166-195` · DATA: DATA-EQ4
   - 고칠 방향: 정정 경로처럼 첫 행 우선(key in head 가드)과 매출 후보 우선순위를 둔다
-- [ ] **P1-#85 · provisional_earnings** — build 가 낸 error(020·800)를 no_data 로 바꿔 실패가 「없음」으로 보인다
+- [x] **P1-#85 · provisional_earnings** — build 가 낸 error(020·800)를 no_data 로 바꿔 실패가 「없음」으로 보인다 → #220 에서 닫음
   - 위치: `services/screener.py:1354-1362` · DATA: DATA-API1
   - 고칠 방향: error 는 detail_status='fetch_failed' 로 따로 둔다
 - [ ] **P1-#86 · provisional_earnings** — 창 안 최신 1건만 반환해 월간 공시가 분기 잠정실적을 가리고 같은 날 순서가 API 순서에 의존
@@ -342,13 +354,15 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#88 · provisional_earnings** — 단위를 못 읽으면 원(1)으로 가정하고 「[단위: 백만원]」·전각 괄호·조원/만원도 1
   - 위치: `services/provisional_financial_statement.py:711-734 · 40` · DATA: DATA-U1
   - 고칠 방향: 표기 없음·미지 배수는 None 으로 값을 내지 않고 정규식에 대괄호·전각 괄호를 넣는다
+  - 10-24 반박: 도구 귀속 오판 — 잠정실적 도구는 지적한 `provisional_financial_statement.py` 를 쓰지 않는다(가져다 쓰는 곳은 `proxy_advise`·`shareholder_meeting` 의 주총 소집공고 재무제표 경로). 코드 결함 자체는 그 경로에 있다 → 새 후보 신규-#8(소집공고에서 그 꼴 실례는 저장소 고정본 0건).
 - [ ] **P1-#89 · provisional_earnings** — 순이익이 첫 매칭 행이라 회사마다 총계/지배가 갈리고 기준 칸이 없다
   - 위치: `services/provisional_financial_statement.py:521-525` · DATA: DATA-NI1
   - 고칠 방향: controlling_ni 규칙으로 고르거나 net_income_basis 를 싣는다
 - [ ] **P1-#90 · treasury_share** — ownership payload 의 오류·경고를 버려 연간 절이 조용히 비거나 0
   - 위치: `services/treasury_share.py:1503-1512` · DATA: DATA-API1
+  - 상태: 일부 닫힘(#221 — 지분 도구가 `partial`·`error` 면 자사주 연간 응답도 `partial` + 상류 경고. 남은 것: 지분 도구가 발행주식총수·자기주식 조회 실패를 경고로만 달고 `exact` 로 내는 경우)
   - 고칠 방향: own_payload 의 status·warnings 를 이어 붙인다
-- [ ] **P1-#91 · treasury_share** — 일부 조회만 실패해도 status=exact 이고 합계는 실패 항목을 0 으로 더함
+- [x] **P1-#91 · treasury_share** — 일부 조회만 실패해도 status=exact 이고 합계는 실패 항목을 0 으로 더함 → #221 에서 닫음
   - 위치: `services/treasury_share.py:1462-1470` · DATA: DATA-API1
   - 고칠 방향: 부분 실패면 PARTIAL 로 내린다
 - [ ] **P1-#92 · treasury_share** — 처분·신탁해지를 조회하지 않으면서 0건으로 요약
@@ -357,7 +371,7 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#93 · treasury_share** — (결의일, 금액, 수량) 이 모두 같을 때만 정정 중복으로 봐 수량을 고친 정정은 원본과 함께 합산
   - 위치: `services/treasury_share.py:1274-1292` · DATA: DATA-PIT1
   - 고칠 방향: [기재정정]이면 같은 결의일·원공시 연결로 원본을 대체한다
-- [ ] **P1-#94 · treasury_share** — 소각결정 본문 파싱 실패가 0 으로 합계에 들어가고 parsing_failures=0 하드코딩
+- [x] **P1-#94 · treasury_share** — 소각결정 본문 파싱 실패가 0 으로 합계에 들어가고 parsing_failures=0 하드코딩 → #221 에서 닫음
   - 위치: `services/treasury_share.py:934-942 · 1462-1470` · DATA: DATA-U3
   - 고칠 방향: 실패 건수를 세고 미파싱 행은 합계에서 빼 None 으로 표시
 - [ ] **P1-#95 · treasury_share** — 단위 자가보정이 actual/planned_shares 를 보는데 취득결과 파서는 cumulative_shares 만 채워 취득결과에 보정이 발동하지 않음
@@ -555,3 +569,64 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P2 · treasury_share** — 같은 날 결정이 둘이면 첫 행에 붙이고 창 밖 결정 시 무관한 결정에 연결
   - 위치: `services/treasury_share.py:_link_cycles 1125~1164` · DATA: new
   - 고칠 방향: 금액·수량 근접도로 고르고 창 밖이면 미연결로 둔다
+
+## 10-24 묶음 작업 중 찾은 새 후보
+
+#219~#221·#223~#225 를 고치는 중에 PR 본문(「남은 것(후속)」·「범위 밖」)에 적힌 것과 병합 뒤 운영 확인에서 본 것 가운데 위 TODO 에 없던 것만 옮겼다. PR 본문에 없는 것은 해당 줄에 「작업 중 관찰」이라고 적었다. 심각도는 위와 같은 기준(P0 값이 틀림 · P1 오해 유발 · P2 표기·확인 과제)으로 매겼고, 번호는 `신규-#n` 이다. 위치는 병합 뒤 main(cd57bf9)의 줄 번호이고, 「우선」은 값이 틀리거나 방금 켜진 경고라 먼저 볼 두 줄이다. 아직 코드로 확인하지 않은 것은 「미확인」이라고 적었다.
+
+- [ ] **신규-#1 · P0 · financial_metrics — 우선** — yoy: 외화 보고사(두산밥캣 2024)의 전기 블록 값이 틀리다 — 전기의 전기 매출이 약 1,289배(#224 PR 본문 「남은 것」), 매출 전년비 −99.91%·전기 ROE 0.03%(작업 중 관찰 — PR 본문에는 없다). 원인 미확인(전년 보고서 값을 환산하는 경로 의심)
+  - 위치: `services/financial_metrics.py:_normalize_currency 1804 · _fetch_year_metrics 2376 · yoy 전기 블록 3786` (후보 — 원인 미확인) · DATA: new
+  - 고칠 방향: 전년 보고서에서 읽은 전기 칸을 원응답과 한 줄씩 대조해 어느 단계(읽기·환산·단위 보정)에서 틀어지는지 먼저 가른 뒤 고칠 곳을 정한다
+- [ ] **신규-#2 · P1 · financial_metrics — 우선** — 은행·보험(`is_financial_company`)에서 현금흐름 경고(`cfo_quality_red`·`accruals_red`·`negative_fcf`·`low_dividend_capacity_use`)가 뜻이 약하다. 영업CF 에 대출·예수금·보험계약 증감이 들어가기 때문이다. #225 로 영업CF 가 읽히면서 KB금융 2024·2025 에 `cfo_quality_red`·`accruals_red` 가 새로 켜진다(삼성생명 2024 는 `low_dividend_capacity_use`, KB금융 3Q25 누적은 `negative_fcf` 그대로). KB금융 2024·삼성생명 2024 의 경고 집합은 병합 뒤 운영 응답에서 #225 PR 의 표대로 확인했고, KB금융 2025 는 확인하지 못했다
+  - 위치: `services/financial_metrics.py:_detect_yoy_signals 1518 이후 (cfo_quality_red 1571 · negative_fcf 1574 · low_dividend_capacity_use 1577 · accruals_red 1615) · is_financial_company 1160` · DATA: new
+  - 고칠 방향: 금융사면 네 경고를 켜지 않거나 「금융업은 해석 주의」 한 줄만 단다(둘 중 하나 — 정할 것). KB금융 2025 운영 응답에서 켜지는 경고만 아직 확인하지 못했다
+- [ ] **신규-#3 · P1 · price_multiple_data** — 환율 조회에 실패한 외화 보고사는 `_krw` 이름의 입력 칸(순이익·자본·EPS·BPS)이 외화 원값으로 나간다. 배수는 #223 으로 비웠지만 입력 칸은 그대로다(환율 실패 경고는 함께 나간다)
+  - 위치: `services/price_multiple_data.py:3067~3105 (ecos_fx_rate=1.0 · fx_failed) · inputs 3569~3580` · DATA: DATA-FX2
+  - 고칠 방향: `fx_failed` 면 `_krw` 입력 칸을 None 으로 두거나 통화 코드를 붙인다
+- [ ] **신규-#4 · P1 · proxy_advise** — 영업적자에서도 「영업현금흐름/영업이익 <0.7」 위험 문구가 켜지고, 발생액 괴리를 `abs` 로 봐 역방향(이익 < 현금)에서도 같은 위험 문구가 나간다. #224 가 financial_metrics 에서 고친 것과 같은 방향 문제다
+  - 위치: `services/proxy_advise.py:3383~3388 (cfo_to_op 3384 · accruals abs 3387)` · DATA: new
+  - 고칠 방향: 영업이익 > 0 일 때만 cfo_to_op 문구를, 이익 > 현금 방향일 때만 발생액 문구를 낸다(#224 규칙과 맞춤)
+- [ ] **신규-#5 · P2 · financial_metrics** — yoy 감사의견 줄에서 KB금융의 2024 사업연도(제17기)에 2026-03 접수번호(20260324000822)가 붙는다. #225 병합 뒤 운영 확인 중 관찰한 것이라 PR 본문에는 없고, 결함인지부터 미확인이다(결함으로 확인되면 P1). 원인 미확인(가설: DART 가 한 보고서에 3개 사업연도를 돌려주므로 전기 행에 다음 해 보고서의 접수번호가 붙었을 수 있다 — 확인 전)
+  - 위치: `services/financial_metrics.py:_build_audit_opinion_data 2768 · _audit_row_to_dict 2745` · DATA: new
+  - 고칠 방향: 행마다 접수번호가 어느 보고서에서 왔는지 원응답과 대조해 원인부터 가린다
+- [ ] **신규-#6 · P1 · 원문 조회 공통** — HTTP 200 으로 오는 차단 안내 페이지가 본문으로 읽힌다(#219 PR 본문이 「이 묶음 밖」으로 둔 것)
+  - 위치: 미확인(PR 본문에 위치가 없다 — 원문을 받아 읽는 공용 경로로 보인다) · DATA: DATA-API1
+  - 고칠 방향: 받은 본문이 공시 문서 모양인지 보고 아니면 「조회 실패」로 올린다
+- [ ] **신규-#7 · P1 · treasury_share** — 소각결정의 수량 칸이 빈다 — 표 앞의 각주 때문에 수량 칸을 못 찾는 경우로, PR 본문 표본에서 4.8%(#221 「남은 것」)
+  - 위치: `services/treasury_share.py:_parse_cancelation_body 231 · _enrich_cancelation_with_body 709` (후보 — PR 본문에 함수 이름이 없다) · DATA: DATA-U3
+  - 고칠 방향: 표 앞 각주를 건너뛰고 수량 칸을 찾는다. 못 찾으면 0 이 아니라 None 으로 두고 경고
+- [ ] **신규-#8 · P1 · shareholder_meeting_notice · proxy_advise** — 주총 소집공고 재무제표의 단위 판독: 「[단위: 백만원]」처럼 대괄호나 전각 괄호로 쓴 단위는 정규식에 안 걸려 원(1)로 보고, 조원·만원도 1 로 본다. P1-#88 을 잠정실적 도구 항목으로 받지 않으면서 이 경로의 결함은 그대로 남아 옮겼다. 실례는 저장소 고정본에서 0건
+  - 위치: `services/provisional_financial_statement.py:_FS_UNIT 40 · _scale_factor 711~734` · DATA: DATA-U1
+  - 고칠 방향: 대괄호·전각 괄호를 단위 정규식에 넣고, 조원·만원은 계수를 주거나 모르는 배수는 값을 내지 않는다
+- [ ] **신규-#9 · P2 · price_multiple_data** — 완전자본잠식 경로에서 PER N/M 이유가 「적자」로 나간다(원래 있던 어긋남, #223 PR 본문)
+  - 위치: `services/price_multiple_data.py:_deficit_warning 2401~2413 · 3390~3400` · DATA: new
+  - 고칠 방향: 잠식이면 이유를 「완전자본잠식」으로 가르고 「적자」는 이익 부호로만 쓴다
+- [ ] **신규-#10 · P2 · 공시 원장 배치** — 다시 받는 `partial` 행과 아직 안 본 행이 하루 상세 콜 상한(600)을 나눠 쓰는 경쟁. 코드로 막을지는 #221 병합 뒤 세기 ③(「상세 콜 상한 도달」 행 수, 병합 전 2026-09-15 이후 11행) 결과를 보고 정한다
+  - 위치: `scripts/disclosure_ledger.py:already_detailed 277` · DATA: new
+  - 고칠 방향: 병합 뒤 읽기 전용 세기 결과가 늘었으면 다시 받는 몫을 따로 두거나 상한을 나눈다
+- [ ] **신규-#11 · P2 · dividend_disclosure · treasury_share** — [첨부추가] 제목이면 014·404 를 「없음」으로 보는 규칙은 실제 관측 0건 — [첨부정정] 표본(정정 배당결정 20건 중 014 는 [첨부정정] 3건)에서 유추한 것이다
+  - 위치: `services/ownership_structure.py:_dart_read_note 47 (attachment=True 로 부르는 결정공시 본문·소각결정 본문 두 곳)` · DATA: DATA-API1
+  - 고칠 방향: 실제 [첨부추가] 014 사례가 잡히면 규칙을 확인하고, 계속 없으면 규칙의 근거 표기를 「유추」로 남긴다
+- [ ] **신규-#12 · P2 · financial_notes** — 원문 절 실패 안내 문구를 공용 판정 함수(`ownership_structure._dart_read_note`)의 문구로 맞춘다. #220 병합으로 이제 할 수 있다(#219 PR 본문 「남은 것」)
+  - 위치: `tools/financial_notes.py:500~504 (절 조회 실패 경고)` · DATA: new
+  - 고칠 방향: 같은 판정 함수를 거쳐 「접수 당일이면 아직 없을 수 있다」 등 한 문구로 통일
+- [ ] **신규-#13 · P2 · ownership_structure** — 실패 안내 문구에 줄표(—)가 두 번 나온다(표시, #220 PR 본문)
+  - 위치: `services/ownership_structure.py:_dart_read_note 47` (후보 — PR 본문에 위치가 없다) · DATA: new
+  - 고칠 방향: 안내문 조립에서 줄표를 한 번만 쓴다
+- [ ] **신규-#14 · P2 · 시험** — 기존 시험 두 개가 모듈 함수를 직접 대입해 다른 시험으로 새고(#219), 새 시험이 다른 시험 모듈의 도우미를 import 한다(#220)
+  - 위치: `tests/` (파일 이름은 PR 본문에 없다) · DATA: new
+  - 고칠 방향: 대입은 `monkeypatch` 로, 공용 도우미는 `tests/` 의 공용 모듈로 옮긴다
+- [ ] **신규-#15 · P2 · 운영 확인** — JSON API 의 014·404 가 운영에서 얼마나 나는지 세지 못했다(저장소 고정본에는 없음). 지금 규칙은 JSON 은 013 만 「없음」이다(#220 PR 본문)
+  - 위치: `services/ownership_structure.py:_dart_read_note 47` · DATA: DATA-API1
+  - 고칠 방향: 운영 호출 로그나 읽기 전용 세기로 빈도를 보고 규칙이 맞는지 확인
+- [ ] **신규-#16 · P2 · financial_metrics** — 현금흐름 이름 폴백(계정 코드가 없는 행)이 2019~2022 전환기 표에서 같은 오독을 내는지 보지 못했고, 별도 기준 표·6월 결산사도 #225 의 실데이터 대조 밖이다
+  - 위치: `services/financial_metrics.py` 현금흐름 행 읽기의 이름 폴백(#225 가 계정 코드를 먼저 읽게 한 곳) · DATA: new
+  - 고칠 방향: 해당 표본의 실제 응답으로 이름 폴백 결과를 계정 코드 값과 대조
+- [x] **신규-#17 · P1 · financial_metrics** — 설비투자 부분 일치 오독: 「기타유형자산의 취득」(0)이 「유형자산의 취득」보다 먼저 걸려 설비투자가 0, FCF 가 부풀었다(셀트리온 2024 FCF 9,018.70억 → 바른 값 7,668.12억). 경고 없음 → #225 에서 닫음(P1-#21 과 같은 원인)
+  - 위치: `services/financial_metrics.py` 현금흐름 행 읽기(이름 부분 일치 선착순 — 점검 시점 줄 번호는 기록하지 않았다) · DATA: DATA-U3
+  - 고칠 방향: 계정 코드(local-name 정확 일치)로 먼저 읽는다
+- [x] **신규-#18 · P1 · financial_metrics** — 배당 지급액 오독: 「신종자본증권 배당금의 지급」이 「배당금의 지급」보다 먼저 걸리고(KB금융 2024 1,998억 vs 원문 1조 4,869.78억, 이마트 515.88억 vs 1,203.53억), 「현금배당」「배당의 지급」은 패턴에 없어 비었다(카카오 434.75억, 셀트리온 1,036.04억) → #225 에서 닫음(P1-#21 과 같은 원인)
+  - 위치: `services/financial_metrics.py` 현금흐름 행 읽기(이름 부분 일치 선착순 — 점검 시점 줄 번호는 기록하지 않았다) · DATA: DATA-U3
+  - 고칠 방향: 계정 코드(local-name 정확 일치)로 먼저 읽는다
+
+새 후보 18건 — 열림 16(P0 1 · P1 6 · P2 9, 그중 우선 2), 닫힘 2(#225).
