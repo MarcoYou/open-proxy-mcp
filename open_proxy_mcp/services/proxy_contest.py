@@ -972,6 +972,7 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         treasury_data = treasury_res
 
     major_rows = _major_holders_rows(major)
+    block_doc_failures = 0
     if isinstance(blocks_res, BaseException):
         latest_blocks: list[dict[str, Any]] = []
         block_timeline: list[dict[str, Any]] = []
@@ -984,6 +985,11 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         # 그 밖(020 한도·800 점검 등)이면 「5% 대량보유 공시 조회 실패 — …」. 실패면 5% 활성 시그널 0건은 「없다」가 아니라
         # 「모른다」다(261018: 이 경로만 빠져 020 이 「…시그널 없음 (정상)」으로 나갈 수 있었다).
         if (block_warning or "").startswith(_BLOCK_LOOKUP_FAILED):
+            lookup_failed = True
+        # 5% 보고 **원문**(보유 목적·합계표)을 못 읽은 행 — 문구가 아니라 행 표식(`doc_read_failed`)으로 센다. 읽지 못한 ≥5% 보고자가 있으면
+        # 능동 블록이 빠져 신호 0건이 되었을 수 있으니 「시그널 없음 (정상)」으로 내지 않는다(「모른다」). 신호가 일부 있어도 건수는 parsing_failures 로 간다.
+        block_doc_failures = sum(1 for row in latest_blocks if row.get("doc_read_failed") and (row.get("ownership_pct") or 0) >= 5.0)
+        if block_doc_failures:
             lookup_failed = True
     if block_warning:
         warnings.append(block_warning)
@@ -1000,6 +1006,7 @@ async def _control_context(corp_code: str, company_query: str, target_year: int 
         # 임원 보고자가 명부상 특수관계인인지 대조하는 데 쓴다 (추가 API 콜 0).
         "registry_names": [row.get("name", "") for row in major_rows if row.get("name")],
         "lookup_failed": lookup_failed,
+        "block_doc_failures": block_doc_failures,
     }, warnings
 
 
@@ -1690,7 +1697,7 @@ async def build_proxy_contest_payload(
     signals_lookup_failed = bool(proxy_warning or lit_warning or control_context.get("lookup_failed"))
     filing_meta = build_filing_meta(
         filing_count=total_signal_filings,
-        parsing_failures=0,
+        parsing_failures=int(control_context.get("block_doc_failures", 0)),
         fetch_failed=signals_lookup_failed,
     )
 

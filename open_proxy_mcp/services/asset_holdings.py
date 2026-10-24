@@ -28,6 +28,7 @@ from typing import Any
 from open_proxy_mcp.company_resolver import is_inactive_fallback
 from open_proxy_mcp.dart.client import DartClientError
 from open_proxy_mcp.services import asset_valuation as _av
+from open_proxy_mcp.services.ownership_structure import _dart_read_note
 
 _NORM = re.compile(r"㈜|\(주\)|\(유\)|주식회사|\(재\)|\(사\)")
 _WS = re.compile(r"\s+")
@@ -518,8 +519,9 @@ def _is_financial(induty: str, fin_list: list[dict]) -> bool:
     return _ksic_is_financial(induty)
 
 
-def _stakes_unavailable() -> dict[str, Any]:
+def _stakes_unavailable(reason: str = "주석 원문 조회 실패 — 상장·비상장 구분을 할 수 없어 값을 비웠다") -> dict[str, Any]:
     """주석 원문을 못 읽어 상장·비상장 구분을 할 수 없을 때의 보유지분 마크 — `_mark_listed_stakes` 와 같은 키, 값은 비운다.
+    출자현황(타법인 보유 목록) 자체를 못 읽었을 때도 같은 길이다(`reason` 만 다르다) — 보유 목록 0건으로 읽지 않는다.
 
     그 함수는 상장 여부를 **원문 주석**(`_doc_listed`)으로 가른다. 원문이 비면 모든 보유분이 비상장으로 분류돼 상장 지분이
     장부가로 비상장 합계에 들어가고 상장 시가·미실현 차액이 0 이 된다 — 「조회 실패」가 「상장 지분 0」으로 계산되는 것이다(DATA-U3).
@@ -528,7 +530,7 @@ def _stakes_unavailable() -> dict[str, Any]:
             "qty_adjust_checked": None, "listed_book_krw": None, "listed_mkt_krw": None, "unrealized_gap_krw": None,
             "n_listed": None, "n_marked": None, "n_unresolved": None, "unlisted_book_krw": None,
             "unlisted_majority_book_krw": None, "n_unlisted": None, "unavailable": True,
-            "unavailable_reason": "주석 원문 조회 실패 — 상장·비상장 구분을 할 수 없어 값을 비웠다"}
+            "unavailable_reason": reason}
 
 
 def _origin_tail(rcept_no, title: str) -> str:
@@ -654,50 +656,73 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
     data: dict[str, Any] = {"company": name, "ticker": isu, "report_nm": rept.get("report_nm"),
                             "rcept_no": rept.get("rcept_no"), "year": year, "reprt_code": reprt_code, "scope": scope}
 
+    # 013(자료 없음)이 아닌 조회 실패의 안내문(재무·회사개황·출자현황) — 하나라도 있으면 status 는 partial. 판정·문구는 `_dart_read_note` 하나.
+    read_failed: list[str] = []
+
     async def _fin_acnt(fs):
         try:
-            out = await client.get_fnltt_singl_acnt_all(cc, year, reprt_code, fs)
-            if not (out or {}).get("list") and reprt_code in ("11013", "11014"):
-                # 결산월이 12월이 아니면 분기 코드가 반대일 수 있다 — 한 번 바꿔 본다
-                out = await client.get_fnltt_singl_acnt_all(cc, year, "11013" if reprt_code == "11014" else "11014", fs)
-            return out
-        except DartClientError:
+            return await client.get_fnltt_singl_acnt_all(cc, year, reprt_code, fs)
+        except DartClientError as exc:
+            failed, note = _dart_read_note(exc, empty_text="", fail_text="재무제표 계정 조회 실패")
+            if failed:
+                read_failed.append(note)
             return {}
 
     # ── summary: 연결 BS 티어 + 시가마크 + haircut + 시총 대비 ──
     if scope == "summary":
         fin = await _fin_acnt("CFS")
         fs_div = "CFS"
-        if not fin.get("list"):
+        if not fin.get("list") and not read_failed:
+            # 연결이 013(없음)일 때만 별도로 넘어간다 — 연결이 있는 회사를 조회 실패로 못 읽고 별도로 받으면 기준이 섞인다.
             fin = await _fin_acnt("OFS")
             fs_div = "OFS" if fin.get("list") else None
         if fs_div == "OFS":
             warnings.append("연결(CFS) 없어 별도(OFS) 기준 — 종속기업투자가 별도 항목으로 계상")
         if not fin.get("list"):
             fs_div = None
-            warnings.append("재무제표 계정 조회 불가(소규모기업 요약생략·미제출 등) — `scope=\"detail\"`로 주석 확인")
+            warnings.append(read_failed[0] if read_failed
+                            else "재무제표 계정 조회 불가(소규모기업 요약생략·미제출 등) — `scope=\"detail\"`로 주석 확인")
         tiers, _ = _bs_tiers(fin.get("list") or [])
         data["fs_div"] = fs_div
         data["_tiers"] = tiers
+        info_failed = None
         try:
             ci = await client.get_company_info(cc)
             induty = (ci.get("induty_code") or "")
-        except DartClientError:
+        except DartClientError as exc:
             induty = ""
-        is_fin = _is_financial(induty, fin.get("list") or [])
+            failed, note = _dart_read_note(exc, empty_text="", fail_text="회사개황 조회 실패")
+            if failed:
+                info_failed = note
+                read_failed.append(note)
+                warnings.append(note)
+        if info_failed:
+            # 업종코드를 못 받았다 — 「금융·지주가 아니다」로 확정하지 않는다. 재무상태표가 금융업임을 보이면(예수부채 등) 확정, 아니면 판정 불가(None).
+            is_fin = True if _is_financial("", fin.get("list") or []) else None
+            is_holdco = False if is_fin else None
+            if is_fin is None:
+                warnings.append("업종코드를 몰라 금융·지주 판정과 잉여자산·지분 NAV 두 배수를 내지 못했다 — 잉여자산 절대액은 비금융 산식 기준이다.")
+        else:
+            is_fin = _is_financial(induty, fin.get("list") or [])
+            # 일반 지주회사(64992 이면서 금융업 아님) — 연결 재무상태표의 현금·투자자산 대부분이 자회사 몫이다(아래 잉여자산 배수).
+            is_holdco = (induty == _HOLDCO_KSIC) and not is_fin
         is_reit = bool(re.search(r"리츠|REIT", name, re.I))
-        # 일반 지주회사(64992 이면서 금융업 아님) — 연결 재무상태표의 현금·투자자산 대부분이 자회사 몫이다(아래 잉여자산 배수).
-        is_holdco = (induty == _HOLDCO_KSIC) and not is_fin
         data["induty_code"] = induty or None
         data["is_financial"] = is_fin
         data["is_holding_company"] = is_holdco
         data["is_reit"] = is_reit
         if is_reit:
             warnings.append("REIT 추정(사명 기준) — 투자부동산이 본업이라 잉여자산에서 제외")
+        stakes_failed = None
         try:
             otr = await client.get_other_corp_investment(cc, year, reprt_code)
-        except DartClientError:
+        except DartClientError as exc:
             otr = {}
+            failed, note = _dart_read_note(exc, empty_text="", fail_text="타법인 출자현황 조회 실패")
+            if failed:
+                stakes_failed = note
+                read_failed.append(note)
+                warnings.append(note)
         sec = await _safe_getdoc(client, rept["rcept_no"])
         # 셀별 연결/별도 선언을 함께 들고 간다 — 어느 기준의 표를 읽었는지 밝히기 위함.
         _basis = _av.BasisIndex(sec.get("note_html", "") or "")
@@ -709,6 +734,9 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         if notes_failed:
             # 주석을 못 읽으면 상장·비상장 구분(원문 권위값)도 못 한다 — 상장 지분이 장부가로 비상장에 들어가지 않게 값을 비운다.
             mark = _stakes_unavailable()
+        elif stakes_failed:
+            # 보유 목록을 못 읽었다 — 「보유지분 0」으로 읽지 않는다.
+            mark = _stakes_unavailable(f"{stakes_failed} — 보유 목록을 읽지 못해 값을 비웠다")
         else:
             mark = await _mark_listed_stakes(client, otr.get("list") or [], doc_text,
                                              (mcap_meta or {}).get("date") if mcap else None,
@@ -800,8 +828,8 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
         #   보유 목록 하나로 세면 같은 지분이 두 번 들어갈 길이 없다(삼성물산 2.4배·LG 1.6배·SK 2.0배 — 지주사 NAV 의 관행 산식).
         #   타법인출자현황이 비면(소규모·미제출) 재무상태표 관계기업+FVOCI 장부가로 낸다 — 이때도 한 기준이다(`equity_nav_basis`).
         bs_equity = t.get("assoc", 0) + (0 if is_fin else t.get("oci", 0))   # 금융업은 FVOCI 도 본업 포트폴리오
-        if notes_failed:
-            equity_nav, equity_basis = None, None                  # 상장·비상장 구분을 못 해 어느 합계도 믿을 수 없다
+        if notes_failed or stakes_failed:
+            equity_nav, equity_basis = None, None                  # 상장·비상장 구분(또는 보유 목록)을 못 읽어 어느 합계도 믿을 수 없다
         elif mark["n_listed"] or mark["n_unlisted"]:
             equity_nav, equity_basis = mark["listed_mkt_krw"] + mark["unlisted_book_krw"], "holdings"
             _gap = bs_equity - equity_nav
@@ -839,8 +867,8 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             "equity_nav_basis": equity_basis,
             "equity_bs_book_krw": bs_equity,
             "listed_unrealized_gap_krw": mark["unrealized_gap_krw"],
-            "surplus_cov": (surplus / mcap) if (mcap and not is_fin and not is_holdco and _cov_ok) else None,
-            "equity_nav_cov": (equity_nav / mcap) if (mcap and equity_nav is not None and not is_fin and _equity_cov_ok) else None,
+            "surplus_cov": (surplus / mcap) if (mcap and is_fin is not None and not is_fin and not is_holdco and _cov_ok) else None,
+            "equity_nav_cov": (equity_nav / mcap) if (mcap and equity_nav is not None and is_fin is not None and not is_fin and _equity_cov_ok) else None,
             "mixed_combined_krw": mixed_krw,
             "mixed_combined_cov": (mixed_krw / mcap) if (mcap and mixed_krw and _cov_ok) else None,
             "haircut_flags": None if notes_failed else [k for k, v in data["haircuts"].items() if v == "MARKDOWN"],
@@ -849,6 +877,8 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             data["nav"]["equity_nav_unavailable"] = ("주석 원문 조회 실패 — 상장·비상장 구분을 할 수 없어 지분 NAV 를 비웠다. "
                                                      "잠시 뒤 다시 조회할 것."
                                                      + _origin_tail(rept.get("rcept_no"), "타법인출자"))
+        elif stakes_failed:
+            data["nav"]["equity_nav_unavailable"] = f"{stakes_failed} — 보유 목록을 읽지 못해 지분 NAV 를 비웠다."
         if mixed_krw:
             warnings.append("종속+관계/공동기업 결합계정 존재(별도FS 흔한 표기) — 지배지분 섞여있어 "
                             "equity_nav에 안 섞고 nav.mixed_combined_krw로 별도 표기(참고용, 지분법원가 기준)")
@@ -876,7 +906,7 @@ async def _build_asset_holdings_payload_impl(company: str, scope: str = "summary
             data["pledged_assets"] = _basis.annotate(_av.extract_pledged_assets("", stripped=stripped))
             data["contingent"] = _basis.annotate(_av.extract_contingent("", stripped=stripped))
 
-    return {"tool": "asset_holdings", "status": "ok", "subject": name,
+    return {"tool": "asset_holdings", "status": "partial" if read_failed else "ok", "subject": name,
             "data": data, "warnings": warnings}
 
 

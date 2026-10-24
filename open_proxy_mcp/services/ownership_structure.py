@@ -22,7 +22,7 @@ from open_proxy_mcp.services.contracts import (
     status_from_filing_meta,
 )
 from open_proxy_mcp.services.control_change import fetch_control_events
-from open_proxy_mcp.services.dart_safety import _NOT_A_FAILURE, classify_degrade
+from open_proxy_mcp.services.dart_safety import _NOT_A_FAILURE, classify_degrade, is_no_data
 from open_proxy_mcp.services.doc_tables import TABLE_RE, cell_text, compact, distinct, table_grids
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.holder_table import holder_table_total, parse_holder_table
@@ -44,22 +44,35 @@ _REPRT_CODE_FALLBACK = ["11011", "11014", "11012", "11013"]
 _SUBTOTAL_NAMES = {"계", "합계", "소계", "총계", "총합계"}
 
 
-def _dart_read_note(exc: DartClientError, *, empty_text: str, fail_text: str) -> tuple[bool, str]:
-    """DART 응답 코드를 「자료가 없다」와 「조회가 실패했다」로 가른다.
+def _dart_read_note(
+    exc: DartClientError,
+    *,
+    empty_text: str,
+    fail_text: str,
+    attachment: bool = False,
+) -> tuple[bool, str]:
+    """DART 응답 코드를 「자료가 없다」와 「조회가 실패했다」로 가른다. **없음·실패 판정은 이 함수 하나다.**
 
-    013(조회된 데이타가 없습니다)·014(원본 파일 없음)·404(회사·문서 못 찾음)는 **실패가
-    아니라 답**이다. 이것을 실패로 찍으면 읽는 사람은 도구가 고장난 줄 알고 재시도한다.
-    (U 지적 C-8 — 에스제이그룹 changes 가 「변동신고서 DART 검색 실패: 013」으로 나왔고,
-    U 는 변동신고서 구간을 못 본 채로 끝냈다. 실제로는 그 구간에 변동신고서가 없었다.)
-    키 오류·점검·과호출 등 사람이 조치해야 하는 것만 실패로 남긴다.
-    코드 분류표는 dart_safety 한 곳에서만 관리한다(도구마다 다시 적지 않는다).
+    · 013(조회된 데이타가 없습니다)은 어디서나 **답**이다. 이것을 실패로 찍으면 읽는 사람은 도구가 고장난 줄 알고 재시도한다.
+      (U 지적 C-8 — 에스제이그룹 changes 가 「변동신고서 DART 검색 실패: 013」으로 나왔고, U 는 변동신고서 구간을 못 본 채로 끝냈다.
+      실제로는 그 구간에 변동신고서가 없었다.)
+    · 014(원본 파일 없음)·404(회사·문서 못 찾음)는 호출하는 쪽이 그 공시를 **첨부정정**([첨부정정]·[첨부추가] — 본문 없이 첨부만 낸 것)으로
+      알려 줄 때(`attachment=True`)만 「없음」이다. 모르면(기본) 실패다 — 접수 당일이면 원문이 아직 없을 수 있어 「없다」고 단정할 수 없다.
+      JSON API 호출은 이 인자를 주지 않아 013 만 「없음」이다. 함수는 제목을 보지 않는다 — 제목을 아는 호출만 안다고 말한다.
+    · 기준 시점 고정 실행의 STRICT_PIT_UNAVAILABLE 은 일시 오류가 아니다 — 「잠시 뒤 다시」 안내 없이 공개 여부를 확인할 수 없다고 말한다.
+    키 오류·점검·과호출 등 사람이 조치해야 하는 것은 실패로 남는다. 코드 분류표는 dart_safety 한 곳에서만 관리한다(도구마다 다시 적지 않는다).
 
     Returns:
         (is_failure, message) — is_failure=False 면 정상적인 「없음」 안내다.
     """
     kind, guide = classify_degrade(exc)
-    if kind in _NOT_A_FAILURE:
+    if is_no_data(exc) or (attachment and kind in _NOT_A_FAILURE):
         return False, empty_text
+    status = getattr(exc, "status", None)
+    if status in ("014", "404"):
+        guide = "자료를 읽지 못했다 — 접수 당일이면 아직 없을 수 있다"
+    elif status == "STRICT_PIT_UNAVAILABLE":
+        guide = "기준 시점에 공개 여부를 확인할 수 없다"
     return True, f"{fail_text} — {guide}"
 
 
@@ -805,6 +818,9 @@ async def _latest_block_rows(
         rcept_no = item.get("rcept_no", "")
         ownership_pct = _to_float(item.get("stkrt", 0))
         html: str | None = None
+        # 원문을 못 읽은 이유(013 이 아닌 실패일 때만) — 이 행에 `doc_read_failed` 로 싣는다. 대량보유 행에는 제목 칸이 없어
+        # 첨부정정인지 모른다 → attachment 를 주지 않는다(014·404 도 실패 쪽).
+        read_fail: str | None = None
         if purpose in ("불명", "단순투자/일반투자") and rcept_no:
             try:
                 doc = await client.get_document_cached(rcept_no)
@@ -812,8 +828,9 @@ async def _latest_block_rows(
                 parsed = parse_holding_purpose_from_document(html)
                 if parsed != "불명":
                     purpose = parsed
-            except Exception:
-                pass
+            except Exception as exc:
+                _failed, _note = _dart_read_note(exc, empty_text="", fail_text="5% 보고 원문 조회 실패")
+                read_fail = _note if _failed else None
         # 본인/특별관계자 분해: 능동적(경영참여) + 유의미(≥5%) 블록만 본문 합계표 파싱.
         # 헤드라인 stkrt는 보고자 본인+특관 합산이라, 본인 지분 분리·공동보유 탐지에 필요.
         # 호출은 활성·유의미 블록(보통 1~3건)으로 한정해 비용을 제한한다. graceful fallback:
@@ -823,8 +840,10 @@ async def _latest_block_rows(
             if html is None:
                 try:
                     html = (await client.get_document_cached(rcept_no)).get("html", "") or ""
-                except Exception:
+                except Exception as exc:
                     html = ""
+                    _failed, _note = _dart_read_note(exc, empty_text="", fail_text="5% 보고 원문 조회 실패")
+                    read_fail = read_fail or (_note if _failed else None)
             if html:
                 parsed_table = parse_holder_table(html)
                 if parsed_table and parsed_table.get("format") == "일반":
@@ -839,9 +858,17 @@ async def _latest_block_rows(
             "report_type": item.get("report_tp", ""),
             "report_reason": item.get("report_resn", ""),
             "holder_table": holder_table,
+            **({"doc_read_failed": read_fail} if read_fail else {}),
         })
     latest_rows.sort(key=lambda row: row["ownership_pct"], reverse=True)
-    return latest_rows, timeline_rows, None
+    # 3번째 값 = 사람이 읽는 경고 한 줄. 판정(ownership 의 partial · proxy_contest 의 「모른다」)은 이 문구가 아니라 행 표식이 나른다.
+    unread = [row for row in latest_rows if row.get("doc_read_failed") and row["ownership_pct"] >= 5.0]
+    note = None
+    if unread:
+        reasons = " · ".join(dict.fromkeys(row["doc_read_failed"] for row in unread))
+        note = (f"{reasons} ({len(unread)}건 — 보유 목적은 보고서 머리 라벨 기준이고 "
+                "본인/특별관계자 합계표는 비웠다. 원문을 다시 읽기 전에는 확정하지 말 것)")
+    return latest_rows, timeline_rows, note
 
 
 def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any], *, bsns_year: str = "") -> dict[str, Any]:
@@ -1609,6 +1636,8 @@ async def build_ownership_structure_payload(
     # major_rows가 비어 있으면 정기보고서 파싱 실패 = 진짜 partial.
     if not major_rows:
         parsing_failures += 1
+    # 5% 보고 원문(보유 목적·합계표)을 못 읽은 행 — 값은 머리 라벨로 두되 말없이 exact 로 두지 않는다.
+    parsing_failures += sum(1 for row in latest_blocks if row.get("doc_read_failed"))
     filing_meta = build_filing_meta(
         filing_count=filing_count,
         parsing_failures=parsing_failures,

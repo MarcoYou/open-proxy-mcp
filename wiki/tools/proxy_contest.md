@@ -8,7 +8,7 @@ related_disclosures: [위임장권유참고서류, 소송등의제기, 경영권
 related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 주총-결의]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
 created: 2026-05-01
-updated: 2026-10-23
+updated: 2026-10-24
 ---
 
 # proxy_contest
@@ -177,6 +177,7 @@ sequenceDiagram
 - retail_activism 플랫폼 추가 시 화이트리스트 갱신 필요 (TODO).
 
 ## 변경 이력
+- 2026-10-24: **5% 보고 원문을 못 읽었는데 「시그널 없음 (정상)」으로 나가던 것을 고쳤다**(P1 묶음 1, 재무 점검 P1-#62) — `ownership_structure` 가 읽지 못한 ≥5% 행에 다는 표식(`doc_read_failed`)을 보면 신호 0건을 「정상」으로 내지 않고(`fetch_failed` → status `partial`), 신호가 일부 있어도 읽지 못한 건수를 `parsing_failures` 로 넘겨 `partial`(`filing_status=partial_failure`)로 낸다. 5% 보유자가 약식 보고뿐인 회사는 일시 실패 한 번도 partial 이 되는 과잉 경고를 받아들였다(능동 분류가 원문에 달린 경로가 코드상 있다). 5% 목록 조회 자체의 실패 판정(문구 접두어)은 그대로다.
 - 2026-10-23: 지분 맥락의 명부상 최대주주(`summary.top_holder`·`control_map.core_holder_block.top_holder`)가 지분율 첫 행이 아니라 공시 `relate` 칸이 「본인」인 행으로 정해진다(`ownership_structure` 와 같은 `_top_holder_summary`). 키는 그대로이고 이름·관계·지분율만 바뀐다 — 한미사이언스 2025: 신동국(발행회사 임원) 16.43% → 송영숙(본인) 3.38%; `related_total_pct`·`flags`·`observations` 는 그대로. 본인이 지분 최대인 회사는 값이 같다. 이 도구의 5% 블록 조회는 `as_of` 를 넘기지 않아 바뀌지 않는다.
 - 2026-10-18: 지분 명부(최대주주·주식총수·자기주식)의 기준 사업보고서가 DART 에 아직 없으면(013 — 1~3월 제출 전·합병·상장폐지) **한 해 앞 사업보고서로 내려가** 채우고 안내 문구와 `summary.ownership_basis_year` 로 밝힌다. 종전엔 「지분 명부 API 조회 실패: 013」에 지분 맥락·5% 블록 동태가 통째로 비었다(기준연도가 「올해 − 1」이라 매년 주총 시즌에 거의 모든 회사). 두 해 모두 없으면 정보 문구. 위임장·소송 목록이나 지분 명부·5% 블록을 **못 읽었으면**(013 이 아닌 오류) 0건을 「시그널 없음 (정상)」으로 적지 않고 `status=partial`·`filing_status=fetch_failed` — 받은 지분 맥락은 그대로 보여 준다.
 - 2026-09-07: 내부자 표의 직위 셀에 원문 줄바꿈이 있으면 행이 깨지던 것(한국전력 「안전&영업배전\n부사장」) → 공백으로 접는다.

@@ -43,6 +43,7 @@ from open_proxy_mcp.services.company import (COMPANY_LOOKUP_NEXT_ACTION,
 from open_proxy_mcp.services.contracts import AnalysisStatus
 from open_proxy_mcp.services.contracts import declare_weak_resolution
 from open_proxy_mcp.services.financial_metrics import build_financial_metrics_payload
+from open_proxy_mcp.services.ownership_structure import _dart_read_note
 from open_proxy_mcp.services.dividend import (DPS_SHARE_EVENT_TYPES, _annual_summary, _num_out, _shares_match, align_dps_to_price,
                                                dps_unevenness, period_cash_meta, period_dps, share_ratio_for, trailing_period_dps)
 from open_proxy_mcp.services.scale_guard import gid_exact, assess as scale_assess, MARKET_MAX_NI_ANCHOR, reconcile_report_scales, rescale_rows
@@ -2645,11 +2646,16 @@ _ADJ_INVARIANT_LO, _ADJ_INVARIANT_HI = 0.67, 1.5
 
 
 async def _shares_outstanding(client, cc: str, year: int) -> dict:
-    """유통주식수: total(보통+우선 합계, BPS용) · common(보통주, EPS용). 자기주식 제외(distb)."""
+    """유통주식수: total(보통+우선 합계, BPS용) · common(보통주, EPS용). 자기주식 제외(distb).
+    조회가 013(없음)이 아닌 이유로 **실패**하면 두 칸은 비운 채 `fetch_failed`(안내문) 한 칸을 더한다 — 없음과 실패를 같은 값으로 돌려주지 않는다
+    (판정·문구는 `ownership_structure._dart_read_note` 하나). 실패 때만 생기는 내부 칸이라 두 칸만 읽는 다른 호출처는 그대로다."""
     out = {"total": None, "common": None}
     try:
         st = await client.get_stock_total(cc, str(year), "11011")
-    except DartClientError:
+    except DartClientError as exc:
+        failed, note = _dart_read_note(exc, empty_text="", fail_text="주식총수 조회 실패")
+        if failed:
+            out["fetch_failed"] = note
         return out
     for r in (st.get("list", st) if isinstance(st, dict) else st) or []:
         se = (r.get("se") or "").strip()
@@ -3375,6 +3381,9 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     _ff_w = _fetch_fail_warning(acnt_fails, ttm_stopped=q_fetch_failed)     # 261021(L1): 013 이 아닌 재무 조회 실패 — 없으면 응답 그대로
     if _ff_w:
         warnings.append(_ff_w)
+    if sh.get("fetch_failed"):
+        # 주식총수 조회가 013(없음)이 아닌 이유로 실패 — BPS(자본 ÷ 주식수)와 주식수로 나눠 만드는 EPS 폴백이 비었다. 재시도 안내는 위 안내문의 것만 쓴다.
+        warnings.append(f"⚠️ {sh['fetch_failed']} — BPS(자본÷유통주식수)와 주식수로 나눠 만드는 EPS 폴백이 비었다(값 미확인).")
     if fy_transition:
         _old_m, _new_m = _rc.transition_change(fy, fye)           # 결산월을 두 번 바꾼 회사는 변경마다 옛·새 결산월이 다르다
         warnings.append(f"결산월을 {_old_m}월에서 {_new_m}월로 바꾼 첫 사업보고서(FY{fy}, 전환기 — 12개월이 아님)라 연간 지표(순이익·EPS·매출·ROE·PER(FY0))를 내지 않는다. "
@@ -3414,7 +3423,8 @@ async def _build_valuation_payload_impl(company: str, format: str = "md") -> dic
     # 극단 배수 plausibility (두산밥캣류 단위 오독 방어 — 값은 내되 경고)
     if (pbr and pbr > 100) or (per_fy and per_fy > 500) or (per_ttm and per_ttm > 500):
         warnings.append("⚠️ 배수 비정상 고값 — 재무 단위/스케일 오류 가능(예: 지배자본 과소). 원문 확인 요망.")
-    if not fy_rows and not (div_sum or {}).get("items") and not (sh.get("total") or sh.get("common")):
+    if (not fy_rows and not (div_sum or {}).get("items") and not (sh.get("total") or sh.get("common"))
+            and not acnt_fails and not dps_fetch_failed and not sh.get("fetch_failed")):
         # 261019(p1b): 재무제표·주식 총수·배당 사항이 **모두** 비면 배수가 전부 빈다 — 종전엔 이유 없이 빈 칸만 나갔다(10-19 운영 맥쿼리인프라·
         #   KB발해인프라·맵스리얼티: 정기보고서를 회사 서식이 아니라 펀드 공시로 낸다 — DART 공시 목록에 사업보고서가 없다).
         warnings.append("DART 정기보고서의 재무제표·주식 총수·배당 사항이 모두 비어 있다 — 정기보고서를 펀드 공시로 내는 인프라 투융자회사·"
