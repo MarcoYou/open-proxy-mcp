@@ -402,7 +402,7 @@ def test_financial_notes_tool_statuses_are_lowercase_envelopes(monkeypatch, dart
     from open_proxy_mcp.server import mcp
     from open_proxy_mcp.tools import financial_notes as T
 
-    async def no_candidates(client, corp_code, period, year):
+    async def no_candidates(client, corp_code, period, year, gaps=None):
         return []
     monkeypatch.setattr(T, "resolve_company_query", _fake_resolve)
     monkeypatch.setattr(T, "_candidates", no_candidates)
@@ -416,10 +416,10 @@ def test_financial_notes_tool_statuses_are_lowercase_envelopes(monkeypatch, dart
 
     report = {"rcept_no": "20260814004200", "rcept_dt": "20260814", "report_nm": "반기보고서 (2026.06)"}
 
-    async def one_candidate(client, corp_code, period, year):
+    async def one_candidate(client, corp_code, period, year, gaps=None):
         return [report]
 
-    async def nodes(client, rcept_no, want, basis):
+    async def nodes(client, rcept_no, want, basis, gaps=None):
         return [], {}, []
     monkeypatch.setattr(T, "_candidates", one_candidate)
     monkeypatch.setattr(T, "_fetch_by_nodes", nodes)
