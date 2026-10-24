@@ -125,6 +125,7 @@ def test_balance_sheet_signal_company_loses_the_alerts_and_gets_one_notice_but_k
     assert len(notes) == 1 and notes[0].startswith("2024년 ")
     assert all(n in notes[0] for n in sorted(FIVE))
     assert "금융사" not in notes[0] and "섞인다" not in notes[0]                                          # 판정 신호가 잡혔다는 사실만 적는다
+    assert "재무상태표의 예수부채" in notes[0] and "연결" not in notes[0]                                 # 별도 요청에서도 맞는 말만 쓴다
     assert "계정 신호인 경우" in notes[0]                                                               # 업종코드로만 참인 회사에는 맞지 않는 구절이라 조건을 단다
     assert "회계 risk 강화 cross-check" not in " ".join(p["next_actions"])                               # accruals_red 가 없으니 다음 행동도 빠진다
 
