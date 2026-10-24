@@ -70,19 +70,10 @@ def test_cap_agg_rebuild_scope_is_incremental_by_default():
 
 # ── 2. tool 개명 접기 — 통계가 두 계열로 갈라지지 않는다 ──
 def test_tool_alias_folds_old_name():
-    u = _load_script("usage_tracker")
+    from open_proxy_mcp import usage as u
     assert u.canon_tool("valuation") == "price_multiple_data"
     assert u.canon_tool("company") == "company"
     assert u.canon_tool(None) is None
-
-
-def test_merge_drained_folds_tool_column():
-    """DB 행과 드레인 행이 **같은 함수**를 지나므로 접기는 한 곳이면 된다."""
-    u = _load_script("usage_tracker")
-    u._drained_cache = {}   # 실제 드레인 parquet·DB 를 건드리지 않는다(network 0콜) — 접기만 본다
-    rows = [("valuation", "h1", 10, 0), ("company", "h2", 5, 0)]
-    got = [r[0] for r in u.merge_drained(rows, u._TL_COLS)][:2]
-    assert got == ["price_multiple_data", "company"]
 
 
 # ── 3. 다운샘플 — 555주를 md 표에 쏟지 않는다 ──

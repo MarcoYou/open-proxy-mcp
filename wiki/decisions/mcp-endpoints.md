@@ -105,7 +105,7 @@ python3 scripts/live_pilot_diff.py
 **tool 개수 비교가 tool 추가·제거 드리프트를 잡는다** — 필드·파라미터 변경은 개수로 안 드러나니
 그건 pilot 실호출로 본다.
 
-`.claude/settings.json`의 **SessionStart 훅**(`scripts/live_pilot_diff_hook.sh`)이 세션 시작마다
+로컬 `.claude/settings.json`(레포에 없음 — 261024부터 비공개)의 **SessionStart 훅**(`scripts/live_pilot_diff_hook.sh`)이 세션 시작마다
 자동으로 띄운다. 차이가 없으면 조용하다. 원격 조회가 실패해도(오프라인·gh 미인증) 로컬 정보만
 내고 절대 작업을 막지 않는다 — 추적기가 작업을 막아서는 안 된다.
 

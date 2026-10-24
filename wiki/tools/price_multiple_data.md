@@ -16,7 +16,7 @@ updated: 2026-10-24
 ## 이름 (260824 개명)
 `valuation` → **`price_multiple_data`**. 「밸류에이션」이 배수(PER·PBR)와 규모(주가·시총)를 한 이름
 아래 묶고 있었는데, 실제로는 서로 다른 질문이고 파라미터가 서로 다투었다. 규모·거래 쪽은
-[[trading_data]] 로 갈랐다. 옛 이름의 사용통계는 `usage_tracker.TOOL_ALIASES` 가 접어 한 계열로 잇는다.
+[[trading_data]] 로 갈랐다. 옛 이름의 사용통계는 `open_proxy_mcp.usage.TOOL_ALIASES` 가 접어 한 계열로 잇는다.
 
 전제 개념: [[PER-PBR]](산식 요약) · [[시가총액]](분자, 단일 소스 `_market_for`) · [[연결-별도]](분모 = 지배주주 귀속) · [[단위-표기-규약]].
 
