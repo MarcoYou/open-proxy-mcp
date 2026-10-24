@@ -1958,7 +1958,9 @@ def _is_reit(name: str | None) -> bool:
     return "리츠" in (name or "")
 
 
-async def _accrual_payout_pct(corp_code: str, year: int, *, is_reit: bool = False) -> float | None:
+async def _accrual_payout_pct(
+    corp_code: str, year: int, *, is_reit: bool = False, failed: list[str] | None = None,
+) -> float | None:
     """배당성향 = DART 사업보고서 '현금배당성향(%)' (해당 사업연도 귀속·연결 기준).
 
     dividend 툴과 동일한 alotMatter 다년 로직을 재사용해 SSOT를 일원화한다. CF '배당금지급'
@@ -1968,6 +1970,9 @@ async def _accrual_payout_pct(corp_code: str, year: int, *, is_reit: bool = Fals
     is_reit=True면 None을 반환한다 — REIT는 회계 순이익 대비 배당성향이 무의미하다
     (배당가능이익≥90% 분배 구조라 100~2000%·음수가 정상. 260717 404사 스캔: 미래에셋글로벌
     리츠 421%·신한알파 231%·이지스밸류 −415%). 성향 대신 DPS·시가배당률로 봐야 한다.
+
+    배당 항목 조회가 **실패**(013 이 아닌 오류·예외)해 None 이 되면 「무배당」의 None 과 같아 보인다 — 재무 조회 실패 상자(`_note_fetch_failure`)를
+    올리고 사유를 `failed` 에 담아 호출부가 경고로 밝힌다(`_annual_summary` 의 판정·에러 문구는 그대로).
     """
     if is_reit:
         return None
@@ -1978,8 +1983,12 @@ async def _accrual_payout_pct(corp_code: str, year: int, *, is_reit: bool = Fals
     )
     try:
         latest, _err = await _annual_summary(corp_code, year)
-    except Exception:
-        return None
+    except Exception as exc:
+        latest, _err = None, type(exc).__name__
+    if _err:
+        _note_fetch_failure()
+        if failed is not None:
+            failed.append(_err)
     if not latest:
         return None
     row = _alot_multiyear_summaries(latest).get(year)
@@ -2535,7 +2544,10 @@ async def _fetch_year_metrics(
     # 배당성향은 귀속 기준(DART 사업보고서 '현금배당성향')으로 주입 — 연간보고서에서만 의미 있음.
     # 분기/누적 기간엔 해당 연도 배당이 미확정이라 None(정직). CF dividend_paid_krw는 배당/FCF 전용.
     if used_rc == _REPRT_BUSINESS:
-        metrics["payout_ratio_pct"] = await _accrual_payout_pct(corp_code, year, is_reit=is_reit)
+        _payout_failed: list[str] = []
+        metrics["payout_ratio_pct"] = await _accrual_payout_pct(corp_code, year, is_reit=is_reit, failed=_payout_failed)
+        if _payout_failed:
+            warnings.append(f"{year}년 배당성향 조회 실패({_payout_failed[0]}) — 「-」는 무배당이 아니라 조회 실패일 수 있다. 원문: filing_section(배당 절)")
         if is_reit:
             metrics["payout_ratio_note"] = "REIT — 순이익 기준 배당성향 미표시(배당가능이익 분배). DPS·시가배당률 참고"
     else:
@@ -3827,7 +3839,14 @@ async def build_financial_metrics_payload(
             _tag_fiscal(branch.get("prior"))
 
     # 0건인데 재무 조회가 **실패**한 적이 있으면 「없다」가 아니라 「모른다」다 — no_filing·「미존재 (정상)」으로 적지 않는다.
-    filing_meta = build_filing_meta(filing_count=filing_count, parsing_failures=parsing_failures,
+    # 찾은 재무가 있어도 일부 조회가 실패했으면 읽지 못한 호출 수만큼 parsing_failures 로 올려 exact·all_parsed 가 되지 않게 하고,
+    # 그 응답은 5분 캐시에 굳히지 않는다. 이때 N 은 공시 건수가 아니라 실패한 API 호출 수다.
+    _parsed_ok = max(filing_count - parsing_failures, 0)
+    if fetch_failures["n"] > 0:
+        skip_cache = True
+        if filing_count > 0:
+            parsing_failures += fetch_failures["n"]
+    filing_meta = build_filing_meta(filing_count=filing_count, parsed_count=_parsed_ok, parsing_failures=parsing_failures,
                                     fetch_failed=fetch_failures["n"] > 0)
     if filing_meta["filing_status"] == "fetch_failed":
         status = AnalysisStatus.ERROR

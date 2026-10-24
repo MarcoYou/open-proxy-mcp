@@ -203,7 +203,7 @@ def _harness(monkeypatch, *, year=2025, end_month=3, annual_fn, decisions=None):
         filings = [{"rcept_no": d["rcept_no"], "rcept_dt": d["rcept_dt"], "report_nm": "현금ㆍ현물배당결정"} for d in (decisions or [])]
         return filings, [], [], None
 
-    async def details(_f):
+    async def details(_f, _failed=None):
         return list(decisions or [])
 
     async def capital(*_a, **_k):

@@ -176,7 +176,7 @@ def _payload_for(monkeypatch, year: int, end_month: int = 12):
         searched.append(end)
         return [], [], [], None
 
-    async def details(_f):
+    async def details(_f, _failed=None):
         return []
 
     async def capital(*_a, **_k):

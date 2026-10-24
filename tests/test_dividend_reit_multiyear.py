@@ -239,7 +239,7 @@ def _payload(monkeypatch, items, *, scope="summary", events=None, price=4000, de
     async def search(*_a, **_k):
         return ([{"report_nm": "현금ㆍ현물배당결정", "rcept_no": d["rcept_no"]} for d in decisions], [], [], None)
 
-    async def details(_f):
+    async def details(_f, _failed=None):
         return [dict(d) for d in decisions]
 
     async def market(_isu):

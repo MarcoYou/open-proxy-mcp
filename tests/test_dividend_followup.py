@@ -62,7 +62,7 @@ def _run(monkeypatch, *, annual_fn, decisions=None, year=None, scope="history", 
         filings = [{"rcept_no": d["rcept_no"], "rcept_dt": d["rcept_dt"], "report_nm": "현금ㆍ현물배당결정"} for d in (decisions or [])]
         return filings, [], [], None
 
-    async def details(_f):
+    async def details(_f, _failed=None):
         return [dict(d) for d in (decisions or [])]
 
     async def capital(*_a, **_k):

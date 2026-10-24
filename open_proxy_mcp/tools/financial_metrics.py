@@ -628,7 +628,7 @@ def _render(payload: dict[str, Any]) -> str:
     if (data.get("filing_status") or "") == "partial_failure":
         _n = data.get("parsing_failures")
         lines.append(f"- ⚠ 일부 공시를 읽지 못했습니다"
-                     + (f" ({_n}건)" if _n else "") + " — 수치가 불완전할 수 있습니다.")
+                     + (f" (조회 {_n}회 실패)" if _n else "") + " — 수치가 불완전할 수 있습니다.")
     lines.append("")
     if payload.get("warnings"):
         lines.append("## 유의사항")

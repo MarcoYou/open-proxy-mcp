@@ -48,7 +48,7 @@ async def _fake_search_dividend_filings(*_args, **_kwargs):
     return [], [], [], None
 
 
-async def _fake_decision_details(_filings):
+async def _fake_decision_details(_filings, _failed=None):
     return []
 
 
