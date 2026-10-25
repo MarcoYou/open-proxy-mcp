@@ -344,6 +344,24 @@ def test_ten_and_thousand_man_won_are_not_turned_into_a_plausible_wrong_value() 
     assert _scale_factor("백조원") == 1
 
 
+def test_man_won_and_trillion_are_judged_on_the_first_money_token_only() -> None:
+    """조원·만원은 단위 문자열의 **첫 금액 토큰**(첫 쉼표·괄호 앞)에서만 본다.
+
+    「원(단, 만원 미만 절사)」의 만원은 단위가 아니라 절사 설명이고, 「100만원」의 만원은 만원 단위가 아니다.
+    지금 바르게 읽히는 꼴(원 1·천원 1,000·억원 1e8)이 새 분기 때문에 틀려지면 안 된다(감수 R1).
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    assert _scale_factor("원(단, 만원 미만 절사)") == 1
+    assert _scale_factor("원 (만원 미만 절사)") == 1
+    assert _scale_factor("천원(만원 미만 절사)") == 1_000
+    assert _scale_factor("억원, 조원") == 100_000_000
+    for n in ("100만원", "10만원", "1만원", "1조원"):     # 숫자 접두는 그 단위가 아니다 — 지금처럼 1
+        assert _scale_factor(n) == 1, n
+    # 첫 토큰이 만원·조원이면 뒤에 무엇이 와도 읽는다
+    assert _scale_factor("만원, 주") == 10_000
+    assert _scale_factor("조원, 주") == 1_000_000_000_000
+
+
 def test_unit_declaration_accepts_bracket_and_fullwidth_parentheses() -> None:
     """「[단위: 백만원]」·「（단위：백만원）」을 못 읽으면 빈 단위가 되어 계수 1(원)로 나간다."""
     from bs4 import BeautifulSoup
