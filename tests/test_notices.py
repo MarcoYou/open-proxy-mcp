@@ -613,3 +613,58 @@ def test_output_carries_no_secret_shaped_text(env, request_key):
     for out in outs:
         assert key not in out and digest not in out
         assert not re.search(r"[0-9a-f]{40,}", out)           # 해시·키 꼴의 긴 16진수 열이 없다
+
+
+# ── 중요도별 노출 빈도·표 응답 (261025) ─────────────────────────────────────────
+def test_show_defaults_follow_importance_rarely_daily_every_call(env):
+    env.warm([_notice(id="i", level="info"), _notice(id="n", level="normal"), _notice(id="m", level="important")])
+    shows = {n["id"]: n["show"] for n in env.mod.active()}
+    assert shows == {"i": "once_per_key", "n": "daily", "m": "every_call"}
+
+
+@pytest.mark.parametrize("show, gap, again", [("daily", 24 * HOUR, True), ("daily", 23 * HOUR, False),
+                                              ("weekly", 7 * 24 * HOUR, True), ("weekly", 6 * 24 * HOUR, False),
+                                              ("once_per_key", 30 * 24 * HOUR, False)])
+def test_daily_and_weekly_come_back_per_key_after_the_interval(env, request_key, show, gap, again):
+    env.warm([_notice(show=show, expires_at="2027-01-01T00:00:00+09:00")])
+    md = "# 제목\n\n본문"
+    request_key("cadence-key-0123456789abcdef0123456789")
+    assert "점검 안내" in run_tool("company", md)
+    assert run_tool("company", md) == md                      # 간격 안에서는 다시 붙지 않는다
+    request_key("other-key-0123456789abcdef0123456789ab")
+    assert "점검 안내" in run_tool("company", md)             # 키마다 따로 센다
+    request_key("cadence-key-0123456789abcdef0123456789")
+    env.advance(gap)
+    env.mod._state["fetched"] = env.t                          # 매니페스트는 계속 신선하다고 둔다(빈도만 본다)
+    assert ("점검 안내" in run_tool("company", md)) is again
+
+
+def test_a_bare_list_from_a_table_endpoint_is_a_manifest_and_nulls_are_blank(env):
+    row = _notice(level="normal") | {"body": None, "link": None, "show": None}
+    env.publish(raw=json.dumps([row, {"id": "bad", "level": "loud"}], ensure_ascii=False))
+    env.use_url()
+    env.mod.active()
+    env.flush()
+    assert [(n["id"], n["show"], n["body"]) for n in env.mod.active()] == [("n-2026-10-23", "daily", "")]
+
+
+def test_the_read_key_goes_in_the_apikey_header_and_nowhere_else(env, monkeypatch, caplog):
+    import httpx
+
+    seen = []
+
+    def handler(request):
+        seen.append(dict(request.headers))
+        return httpx.Response(200, content=json.dumps([_notice(show="every_call")]).encode())
+
+    monkeypatch.setattr(env.mod, "_TRANSPORT", httpx.MockTransport(handler))
+    monkeypatch.setenv("OPM_NOTICE_URL", "https://example.invalid/rest/v1/notices?select=*")
+    monkeypatch.setenv("OPM_NOTICE_APIKEY", "PUBLISHABLE-READ-KEY-VALUE")
+    md = "# 제목\n\n본문"
+    with caplog.at_level(logging.DEBUG):
+        run_tool("company", md)
+        env.flush()
+        out = run_tool("company", md)
+    assert "점검 안내" in out and seen[0]["apikey"] == "PUBLISHABLE-READ-KEY-VALUE"
+    blob = json.dumps(env.mod.stats(), ensure_ascii=False) + repr(env.mod._state) + caplog.text + out + env.mod.resource_json()
+    assert "PUBLISHABLE-READ-KEY-VALUE" not in blob
