@@ -4,18 +4,16 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-33-tools)
+[![Tools](https://img.shields.io/badge/tools-33-orange.svg)](#tool-structure-33-tools)
 [![Release](https://img.shields.io/badge/release-v2.7.3-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
-[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [Main Features](#main-features) · [Tool Structure](#tool-structure-33-tools) · [How to Read](#how-to-read-the-output) · [Data Sources](#data-sources)
+[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [How to Read the Output](#how-to-read-the-output) · [Recent Changes](#recent-changes) · [Tool Structure](#tool-structure-33-tools) · [Data Sources](#data-sources)
 
 </div>
-
-## Why OpenProxy?
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-particle-flow-dark-en-20260906.png">
@@ -25,25 +23,21 @@
 
 **An agenda item may fit on one line. A sound decision requires the full picture.**
 
-OpenProxy reads the regulatory filings of **Korean listed companies** — the disclosures companies file with DART, Korea's electronic disclosure system. It began with AGM and proxy voting analysis; the capabilities needed to read financial statements, ownership structures, dividend history, boards, and relevant Korean law together grew into a general-purpose engine for those filings. From financial analysis to voting recommendations, AI presents each conclusion with the underlying source evidence.
+OpenProxy is an MCP server that structures the filings of **Korean listed companies** — the disclosures they file with DART, Korea's electronic disclosure system — so that AI can read them. It began with AGM and proxy-voting analysis and grew to cover financials, valuation, business, ownership, shareholder returns and market-wide disclosures. AI presents each answer with its **source evidence (the filing's receipt number)**.
+
+---
 
 ## Quick Start
 
-**Connect with one DART API key. Nothing to install.**
+**Connect with one DART API key. Nothing to install.** For a walkthrough with screens and examples, see the 📘 [User Guide (PDF, 13 pages)](docs/manual/OpenProxy_User_Guide.pdf).
 
-### 1. Get a free API key
+**1. Get a free API key** — sign up at the [English OpenDART portal](https://engopendart.fss.or.kr/) and request an authentication key (free, issued immediately).
 
-DART is South Korea's corporate disclosure system. Sign up at the [English OpenDART portal](https://engopendart.fss.or.kr/) and request a free authentication key.
-
-### 2. Connect your AI service
-
-Enter this URL as the server address when adding a connector or app:
+**2. Connect your AI service** — enter this URL as the server address when adding a connector or app, and name it `open-proxy-mcp`.
 
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 ```
-
-> Enter this URL only in the connector settings. OpenProxy does not retain the raw key and redacts it from logs.
 
 | Service | Setup path | Availability |
 |---|---|---|
@@ -51,235 +45,109 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 | [**ChatGPT**](https://developers.openai.com/api/docs/guides/developer-mode) | `Settings → Security and login → Developer mode`, then `Plugins → +` | Plus, Pro, Business, Enterprise, Education on web |
 | [**Perplexity**](https://www.perplexity.ai/help-center/en/articles/13915507-adding-custom-remote-connectors.html) | `Account settings → Connectors → + Custom connector → Remote` | Pro, Max, Enterprise |
 
-Name it `open-proxy-mcp` and select it in a new chat. Availability may vary with workspace settings.
+> Enter this URL only in the connector settings. OpenProxy does not retain the raw key and redacts it from logs.
 
-#### Open prompts and resources in Claude
+**3. Send your first request** — in a new chat, ask `Show Samsung Electronics' company information and three recent filings.` If the company and filings appear, the connection works. From there, just ask in natural language; you do not need to know the tool names.
 
-Select `+` in the chat input, then choose `Connectors → Add from open-proxy-mcp`.
+<details>
+<summary>Open prompts and resources in Claude</summary>
 
-[View the menu in Claude's English interface](screenshot/claude-resource-picker-en-20260907.png)
+Select `+` in the chat input, then `Connectors → Add from open-proxy-mcp` ([menu location](screenshot/claude-resource-picker-en-20260907.png)).
 
-- `Company Snapshot` — an MCP prompt that starts an analysis from a company name or ticker
-- `OpenProxy Feature Guide` — the `tools_guide` resource listing the currently registered tools and capabilities
+- `Company Snapshot` — a quick overview of the company, business, results, valuation and ownership
+- `OpenProxy Feature Guide` — the currently registered tools and capabilities (`tools_guide` resource)
 - `Open Proxy Guideline` — the source policy used for proxy-voting analysis
 
-### 3. Send your first request
-
-Start with `Show Samsung Electronics' company information and three recent filings.` If the company and filings appear, the connection works. Continue in natural language; you do not need to know the tool names.
-
-Prompts grouped by topic are collected in [What to Ask](#what-to-ask) below. Per-tool schemas live in the [tool catalog](wiki/tools/README.md).
-
-`OpenProxy Feature Guide` is generated from the server's registered tools. `Company Snapshot` provides a quick overview of the company, its business, financial results, valuation, and ownership. Its financial table combines up to three actual years (A) and two available estimate years (E), with newer quarterly or provisional results noted separately. Units, alignment, and numbered citations use a consistent format. A small financial chart is added only when useful and supported by the client. Material recent changes and evidence gaps are noted when relevant.
+</details>
 
 ---
 
 ## What to Ask
 
-You never need a tool name. Say what you want and the assistant picks the tools.
-These are prompts that actually work.
+You do not need to memorise tool names — say what you want and the AI picks the tools. Example prompts that work today, with the one thing worth knowing for each area:
 
-<details open>
-<summary><b>🗳️ AGM and proxy voting</b></summary>
-
-> - Review LG Chem's next AGM agenda and give an evidence-backed voting view on each item.
-> - Kakao's director election this year — what should I look at for each nominee?
-> - How did Samsung Electronics' agenda items actually get voted last year?
-> - Find the charter article and the Commercial Act provision that govern this item.
-
-Every item comes back as **FOR / AGAINST / REVIEW** with filing evidence, policy citations, and
-statute links. Items that are not put to a vote and items with insufficient evidence stay separate.
-A company with zero AGAINST items is normal — [here is why](#how-to-read-the-output)
-
-</details>
-
-<details open>
-<summary><b>📊 Earnings</b></summary>
-
-> - Compare Samsung Electronics' last three years of results with the next two years of consensus.
-> - Show SK Hynix's quarterly trend including operating cash flow.
-> - Has Hyundai Motor filed provisional results? How do they differ from the confirmed figures?
-> - Break down LG Chem's profitability with a DuPont decomposition.
-
-Confirmed results come from the DART financial API, provisional figures from provisional-earnings
-filings, and estimates from analyst consensus. **The three carry different bases and are never put
-on one line** — tables mark actuals (A) and estimates (E) separately.
-
-</details>
-
-<details>
-<summary><b>💹 What the price reflects</b></summary>
-
-> - Where does Naver's PER and PBR sit against its own history?
-> - Compute Posco Holdings' forward PER from next year's and the following year's estimates.
-> - What did Samsung Electronics' valuation look like as of end-2024?
-> - Show KOSPI forward PER and PBR by sector next to the trailing figures.
-> - Among the KOSPI top 50 by market cap, whose operating-profit estimates rose over the past week?
-
-Market cap, PER, PBR, PSR and dividend yield come with their historical range. **The earnings
-as-of date and the price date are shown separately** — they are not the same day. Market and
-sector averages are aggregate multiples across their companies; forward multiples cover only
-companies with estimates and state how many there are.
-
-</details>
-
-<details>
-<summary><b>🏭 How the company earns</b></summary>
-
-> - How does Hanwha Solutions make money? Break it down by segment.
-> - Show Korea Zinc's utilization rate and input-cost trend.
-> - Value Taekwang Industrial's affiliate stakes and surplus assets.
-> - How much order backlog is left at this company?
-
-Segment, product and regional revenue are **different axes cutting the same revenue, so they are
-never summed.** Stakes are counted with listed holdings at market value and unlisted ones at book.
-
-</details>
-
-<details>
-<summary><b>🧭 Ownership and shareholder returns</b></summary>
-
-> - Who are Samsung C&T's largest shareholder and related parties?
-> - Show KB Financial's dividend trend and payout ratio over three years.
-> - Among companies that announced buybacks, which actually cancelled the shares?
-> - How closely does the value-up filing match what was actually executed?
-
-Dividends carry **two different bases.** Dividend per share and dividend yield are per share **of
-each share class**, while total dividends and the payout ratio are **company-wide** (all classes
-combined, consolidated) — [detail](#how-to-read-the-output)
-
-</details>
-
-<details>
-<summary><b>⚔️ What changed</b></summary>
-
-> - Summarize the filings that matter from this morning.
-> - Show only today's order filings from the KOSPI top 200 by market cap.
-> - Were there more order filings than usual last week, by sector?
-> - Any company showing control-contest signals recently?
-> - Show Doosan Robotics' rights offerings and convertible bond issuance history.
-> - Does this company have litigation or sanctions on record?
-
-The disclosure digest scans DART live and reaches back **three months at most**; beyond that
-window the answer never claims that nothing happened. The sector filing flow reads a filing record
-built every night, covering **about a year** and comparing against the usual level of the previous
-13 weeks. Because the record is built overnight, today's filings are in the digest.
-
-</details>
-
-<details>
-<summary><b>🔗 Checking the evidence</b></summary>
-
-> - Which filing and which item number does that figure come from?
-> - Where can I read the original document for this receipt number?
-> - Which Commercial Act article does this charter clause fall under? Is it mandatory?
-
-Every figure carries its receipt number, and receipt numbers resolve to DART viewer URLs. Charter
-clauses and statutes are looked up in both directions, and that lookup spends no DART API calls.
-
-</details>
-
-### Worth knowing
-
-- **Resolve the company once** — the name, ticker and corp code from the first lookup carry through the rest of the conversation.
-- **Ambiguous names are confirmed first** — when several companies match, no follow-up lookup runs until one is chosen.
-- **Give the period and the target in words** — "this week", "last month", "Q3", "August 1 to August 20"; "KOSPI top 200 by market cap", "Samsung Electronics, SK Hynix". "Last week" and "last month" are the calendar week and month; "the last 7 days" and "the last 30 days" count back from today, inclusive.
-- **An unrecognized target is asked about before any lookup** — if none of the listed companies can be found, or a phrase like "KOSPI 120" could be a count or a name, the answer never silently switches to the whole market.
-- **Read `status` and `warnings` first** — they carry what was missing and which basis was substituted.
-- **A value that was not found reads as "not found in the filings read"** — neither zero nor "there is none".
-
----
-
-## Main Features
-
-**Read the filing. Connect the numbers. Keep the evidence behind every conclusion.**
-
-| Analysis | The question | What OpenProxy delivers |
+| Area | Ask like this | Worth knowing |
 |---|---|---|
-| 🗳️ [AGM & proxy voting](docs/features/en/proxy-voting.md) | How should I vote on this item? | **FOR / AGAINST / REVIEW** with filing evidence, policy citations, and statute links; NO_VOTE and NO_DATA remain distinct |
-| 📊 [Financials & earnings](docs/features/en/financials.md) | Where did performance change? | Confirmed, [provisional](docs/features/en/provisional-earnings.md), and consensus comparisons with profitability, cash flow, and DuPont analysis |
-| 💹 [Valuation & estimates](docs/features/en/price_multiple_data.md) | What is priced in? | Historical and forward PER/PBR/PSR, dividend yield, market and sector forward PER/PBR, and [estimates for the next two years](wiki/tools/forward_estimates_data.md) with their revisions |
-| 🏭 [Business & assets](docs/features/en/business-details.md) | How does it make money, and what does it own? | Segments, utilization, input costs, backlog, [surplus assets, and stake NAV](docs/features/en/asset-holdings.md) |
-| 🧭 [Ownership & returns](docs/features/en/ownership.md) | Who controls it, and where does capital go? | Ownership map, dividends, buybacks and cancellations, and [value-up plans versus actual execution](docs/features/en/shareholder-return.md) |
-| 🔔 [Market & risk](wiki/tools/screener.md) | What changed today? | Market disclosure digest and sector filing flow against the usual level, plus [control contests](docs/features/en/control-contest.md), deals, dilution, and [risk events](docs/features/en/risk-events.md) |
+| 🗳️ [**AGM & proxy voting**](docs/features/en/proxy-voting.md) | "Give me LG Chem's next AGM agenda with a voting view and evidence for each item"<br>"How did Samsung Electronics' AGM items actually get voted last year?" | Each item gets FOR, AGAINST or **REVIEW** with filing, policy and legal grounds. Zero AGAINST views is common |
+| 📊 [**Financials & results**](docs/features/en/financials.md) | "Compare Samsung Electronics' last three years with the next two years of consensus"<br>"How did Hyundai's [provisional results](docs/features/en/provisional-earnings.md) compare with consensus?" | Actual (A), provisional and estimate (E) come from different sources and are never mixed on one line |
+| 💹 [**Valuation & estimates**](docs/features/en/price_multiple_data.md) | "Where is NAVER's PER and PBR relative to its history?"<br>"Show KOSPI sector forward PER next to trailing" | The results date and the price date are shown separately |
+| 📈 **Performance & risk** | "Compare a portfolio of 50% Samsung Electronics and 50% SK hynix with KOSPI over one year and split the contribution by stock" | Returns, volatility, excess return, contribution and sector breakdown are computed on request |
+| 🏭 [**Business & assets**](docs/features/en/business-details.md) | "How does Hanwha Solutions make money, by segment?"<br>"Value Taekwang Industrial's stakes in affiliates" | Segment, product and region revenues are different cuts of the same total and are not added up |
+| 🧭 [**Ownership & shareholder returns**](docs/features/en/ownership.md) | "Who are Samsung C&T's largest shareholder and related parties?"<br>"How well does the [value-up plan](docs/features/en/shareholder-return.md) match what was actually executed?" | Dividend per share is per share of each class; total dividends and payout ratio are company-wide |
+| 🔔 **Market & risk** | "Summarise only the important filings from this morning"<br>"Which companies recently showed [control-contest](docs/features/en/control-contest.md) signals?" | Live market-wide scans cover the last three months; sector flows use stored records for about a year |
+| 🔗 **Evidence** | "Which filing and which item did that number come from?"<br>"Which article of the Commercial Act does this charter clause fall under?" | Every number carries a receipt number that resolves to the DART original. Charter and law lookups use no DART API calls |
 
-These six workflows are backed by **33 tools**, including source tracing and two-way lookup between articles of incorporation and statutes. See the complete [Tool Structure](#tool-structure-33-tools).
+**Governance review pilot** — `governance_screen` collects the filings of up to 30 named companies; the connected AI reads them for treatment of minority shareholders, conflicts of interest and board accountability, and orders them for review. Results are marked **AI assessment of partial evidence · not reviewed by a person**.
 
-**Governance review pilot** — `governance_screen` gathers filing excerpts for up to 30 explicitly selected companies. Your connected AI reads them for minority-shareholder treatment, conflicts of interest and board accountability, then returns a review order based on evidence and materiality. Tender offers, activism and litigation are not adverse findings by themselves. Results are labelled **LLM assessment · human unreviewed · partial evidence**; missing checks are reported individually while other work continues. Call again with `since` and `known_receipts` to narrow the list of new filings. This creates neither scheduled runs nor actual votes. It is available on the production server as a pilot.
-
----
-
-## Tool Structure (33 tools)
-
-Categories match the "what do you want to know → which tool" table in the [wiki/tools catalog](wiki/tools/README.md) — that table is the source of truth.
-
-| Category | Tools | Role |
-|---|---|---|
-| 🏢 Start — find the company | [`company`](wiki/tools/company.md) | Company identification + recent filings — every analysis starts here |
-| 🔔 Disclosure scan · review | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | Market-wide disclosure digest and sector flow · source-based LLM governance review for selected companies (pilot) |
-| 🗳️ Shareholder meetings · voting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Notice (pre) · results (post) · per-agenda FOR/AGAINST/REVIEW support · the voting-policy document itself |
-| 💰 Ownership · financials · governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`performance_analysis`](wiki/tools/performance_analysis.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership map · confirmed/provisional earnings · business description · asset plays · PER/PBR (company, market, sector) · consensus and revisions · price/market-cap ranking · returns, risk, contribution and sector attribution (blends, benchmark-relative) · governance report · board |
-| 🎁 Shareholder returns · capital | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | Dividend filings/time series · treasury shares · value-up · promise vs delivery · mergers/splits · rights/CB/BW/reductions |
-| ⚔️ Contests · deals · risk | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Control-contest signals · stake deals · orders/supply contracts · risk events · financial-firm notes · director-candidate news |
-| 🔗 Evidence · reference | [`evidence`](wiki/tools/evidence.md), [`law_lookup`](wiki/tools/law_lookup.md) | Filing number → viewer URL · bidirectional articles↔statute lookup (zero API calls) |
-
-> Per-tool example questions, schemas & data sources → [wiki/tools catalog](wiki/tools/README.md) (natural-language examples live in each tool page's usage section)
-
-### Voting policy
-
-**Policy opposition does not always mean an automatic AGAINST recommendation.** The default engine leaves judgment-dependent concerns as REVIEW and does not use board attendance as a decision trigger. The separately selected v2 pilot applies source-bound LLM assessments of independence and attendance in the last completed fiscal year to candidate recommendations; see its [inputs and scope](wiki/tools/proxy_advise_before_meeting.md). Ask for the cited policy section with `proxy_guideline`, or section `0-A` for the default policy-to-engine mapping. [How to interpret recommendations, meeting selection, and information cutoffs](docs/features/en/proxy-voting.md). The default report and detailed policy references are in Korean; ask your AI to explain them in English while preserving the evidence and statuses.
-
-`proxy_advise_before_meeting` uses OPM's own **Open Proxy Guideline** as its default policy. Its criteria: minority-shareholder protection, governance transparency, long-term value, traceability. Voting records disclosed through KRX by major asset managers and voting records published by Korea's National Pension Service are used for cross-checking. Every response includes a `data.usage` block (DART & tool call counts; DART limit 1,000/min — hard-capped at 910).
-
-**Check the financial basis** — distinguish confirmed figures for the year being approved, provisional figures in the meeting notice, and prior confirmed figures. Provisional figures do not replace every metric: check the reported year, source, and provisional labels. A provisional capital-impairment assessment does not replace a regulatory determination requiring audited financial statements. See the [feature guide](docs/features/en/proxy-voting.md) for information cutoffs and later filings.
+If results come back partial or you find yourself repeating a question, see the [tool-calling, follow-up and error guide](docs/TOOL_CALLING.md).
 
 ---
 
 ## How to Read the Output
 
-Filings carry a different basis for almost every item. Miss these twelve and you will misread
-figures that are perfectly correct.
+Each type of filing follows its own conventions. These six points cover most of it.
 
-| What | Why |
-|---|---|
-| **"No data" is not "there is none"** | It means the value was not found in the filings that were read. `status` and `warnings` say what was missing and what was substituted |
-| **Zero AGAINST items is normal** | A policy's grounds for opposition are not the engine's automatic AGAINST conditions. Concerns that need further judgement stay **REVIEW** |
-| **Dividends carry two different bases** | Dividend per share and dividend yield are **per share of each class**; total dividends and the payout ratio are **company-wide** (all classes combined, consolidated). Dividing one by the other is wrong |
-| **Never put confirmed, provisional and estimated on one line** | They come from the DART financial API, provisional-earnings filings and analyst consensus respectively. Tables mark actuals A and estimates E. Provisional figures also do not replace every metric |
-| **Check consolidation and attribution** | When net income attribution (controlling interest versus total) or consolidation basis differs, growth is not computed — only the difference is stated |
-| **Fiscal years follow the closing month** | Non-December filers diverge from the calendar year. Shinyoung Securities (001720) reports `2025-06-30` as FY2026-Q1 |
-| **Financial companies lack some metrics** | Revenue and general-industry ratios are **not provided**, not zero. Read operating profit, net income and that sector's soundness data instead |
-| **The earnings date and the price date differ** | Forward multiples carry the estimate as-of date and the price date separately. A past figure is never presented as today's |
-| **Market and sector forward multiples sum only companies with estimates** | Companies without estimates drop out, so the population differs from the trailing multiples. The number of companies with estimates is shown alongside |
-| **The first two digits of a receipt number name the source** | `00` is a DART periodic filing (AGM notice); `80` is an exchange ad-hoc filing (AGM results) |
-| **Market-wide scans reach back three months** | That is the limit of the live DART scan behind the disclosure digest. Beyond that window the answer never claims that nothing happened. Naming a company widens the range, and the sector filing flow reads the stored filing record, covering about a year |
-| **Governance review is not human-reviewed** | `governance_screen` labels its output **LLM assessment · human unreviewed · partial evidence**. Tender offers, activism and litigation are not adverse findings by themselves |
+1. **"Not found" does not mean "none".** It means the filings read did not contain it. Missing values are never filled with 0.
+2. **Read `status` and `warnings` first.** They say what was not found and which basis was used instead.
+3. **Pin the company once.** If a name is ambiguous, the server asks before moving on.
+4. **Numbers on different bases are not mixed.** Actual, provisional and estimate; consolidated and separate; controlling-interest and total — when bases differ, growth is not computed and only the difference is shown.
+5. **"Zero AGAINST" is normal for voting views.** A policy's AGAINST criterion is not an automatic AGAINST condition; concerns that need further judgment stay at **REVIEW** — [how to read verdicts and information cut-offs](docs/features/en/proxy-voting.md).
+6. **A 📢 notice may appear.** Operator notices such as maintenance or change announcements show at the top of a response or in a JSON `notices` field. They are announcements, not data.
 
 <details>
-<summary><b>Detail — the numbers behind these</b></summary>
+<summary><b>More detail — fiscal years, financial companies, dividends, scan limits</b></summary>
 
 <br>
 
-- **Class shares used to overwrite common-share dividends** (fixed 2026-09-06). Class-share labels
-  without the word "preferred" (종류주식 · 1종 종류주식 · 전환주 and others, 235 rows in the KOSPI
-  ledger) were read as common shares by the old rule. Korea Investment Holdings' FY2024 common-share
-  DPS of 3,980 went out as the class-share 4,042; Doosan's 2,000 went out as 2,050, and the
-  current-price yield was wrong with them. One classifier now serves both the year-end summary and
-  the multi-year history → [`dividend_disclosure`](wiki/tools/dividend_disclosure.md)
-- **DART allows 1,000 calls per minute per API key**, and exceeding it blocks that key for two to
-  three hours. The server stops itself at 910. Every response carries the DART call count it spent
-  in `data.usage`.
-- **Web parsing runs on a single process-wide clock** — 0.4 to 1 second of random spacing, 40
-  requests per minute, widening to 1–2 seconds after a block signal. Blocks are applied by IP, so
-  the whole machine is affected.
-- **Two classification systems are in play** — industry codes (KSIC) and DART filing types
-  (`pblntf_ty`). Filing search filters by type first, and market-wide search without a specific
-  company looks back three months.
-- **Charter and statute lookups spend no DART API calls.** Statute text is synchronized weekly from
-  a source built on the Korean national law database → [`law_lookup`](wiki/tools/law_lookup.md)
-- **User query results are never stored.** Only caches, market snapshots and call-volume telemetry
-  persist.
+| What | Why |
+|---|---|
+| **Fiscal years follow the closing month** | Non-December closers do not match calendar years. Shinyoung Securities (001720) `2025-06-30` is FY2026-Q1 |
+| **Some metrics do not exist for financial companies** | Revenue and general-company ratios are **not provided**, not zero |
+| **Market and sector forward multiples only include companies with estimates** | The population differs from trailing multiples; the company count is shown |
+| **The first two digits of a receipt number tell the source** | `00` is a DART periodic filing (AGM notice), `80` an exchange filing (AGM results) |
+| **One DART key allows 1,000 calls per minute** | Exceeding it blocks that key for two to three hours. The server stops at 910 and reports calls in `data.usage` |
+| **Web parsing runs at 40 pages per minute** | 0.4–1 s random spacing; blocks are per IP, so the whole machine is affected |
+| **Your query results are not stored** | Only caches, market snapshots and call-volume counts are kept |
 
 </details>
+
+---
+
+## Recent Changes
+
+The full history is in the **[release notes](docs/RELEASE_NOTES_ENG.md)**. Only recent user-visible changes are listed here.
+
+| Date | What changed |
+|---|---|
+| 2026-10-23 | **Financial accuracy** — cash-flow lines are read by account code; fractional EPS, prior-year values in years when the reporting currency changed, and financial-company warnings were corrected. Places that reported a failed lookup as "none" were fixed |
+| 2026-10-23 | **Operator notices** — maintenance and change announcements appear inside tool responses, more or less often depending on importance |
+| 2026-10-22 | **New tool `performance_analysis`** — returns, risk, contribution and sector breakdown, against official indices and treasury rates |
+| 2026-10-18 | **"Versus consensus" on provisional results** — also on the provisional-results cards of the morning filing digest |
+
+---
+
+## Tool Structure (33 tools)
+
+**33 tools in total** support the eight areas above. The authoritative grouping is the "what to use for what" table in the [tool catalog](wiki/tools/README.md), which also has example prompts and schemas per tool.
+
+<details>
+<summary><b>Show the tool list</b></summary>
+
+<br>
+
+| Group | Tools | Role |
+|---|---|---|
+| 🏢 Find a company | [`company`](wiki/tools/company.md) | Company identification and recent filings — the entry point for every analysis |
+| 🔔 Filing scan & review | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | Market-wide filing digest and sector flows · governance review order for named companies (pilot) |
+| 🗳️ AGM & proxy voting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Notice (before) and results (after) · FOR/AGAINST/REVIEW per item · policy source text |
+| 💰 Ownership, financials, governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`performance_analysis`](wiki/tools/performance_analysis.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership · actual/provisional results · business description · asset plays · PER/PBR · consensus and revisions · prices, indices, rates · returns, risk, contribution · governance report · board |
+| 🎁 Shareholder returns & capital | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | Dividend filings and history · treasury shares · value-up · promises vs execution · mergers/splits · rights issues, CB/BW, capital reduction |
+| ⚔️ Contests, deals, risk | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Control-contest signals · stake deals · orders and supply contracts · [risk events](docs/features/en/risk-events.md) · financial-company notes · director-candidate news |
+| 🔗 Evidence & reference | [`evidence`](wiki/tools/evidence.md), [`law_lookup`](wiki/tools/law_lookup.md) | Receipt number → original filing URL · two-way charter ↔ law lookup (0 DART API calls) |
+
+</details>
+
+**Voting policy** — `proxy_advise_before_meeting` uses OPM's own **Open Proxy Guideline** by default (minority-shareholder protection, governance transparency, long-term value, traceability) and cross-checks the public voting records of major asset managers and the National Pension Service. The default engine leaves concerns that need further judgment at REVIEW; the separately selected v2 pilot applies attendance and independence to candidate recommendations — see [pilot inputs and scope](wiki/tools/proxy_advise_before_meeting.md). Default reports and detailed policy quotes are in Korean; you can ask the AI to explain them in English while keeping the evidence and statuses.
 
 ---
 
@@ -287,38 +155,24 @@ figures that are perfectly correct.
 
 | Source | Use | Notes |
 |------|------|------|
-| [English OpenDART](https://engopendart.fss.or.kr/) | Filing metadata + financial endpoints + dividends/treasury/ownership | **Required** — free API key. 1,000/min hard rule (cap 910) |
-| DART web (`dart.fss.or.kr`) | Filing body parsing (AGM notices, material reports) | Random 0.4–1s spacing, 40 requests/min; widened to 1–2s after a block signal |
-| [KRX KIND](https://kind.krx.co.kr/) | Exchange-filing cross-checks | Auxiliary source |
-| Korean statutes based on the [Korean Law Information Center](https://www.law.go.kr/) | Statutory basis for articles amendments and voting analysis | Synced weekly from [legalize-kr](https://github.com/legalize-kr/legalize-kr) |
-| Voting records disclosed through KRX by major asset managers and published by Korea's National Pension Service | Voting-judgment cross-reference | Public records collected and structured in advance |
+| [DART OpenAPI](https://opendart.fss.or.kr/) | Filing metadata, financial API, dividends, treasury shares, ownership and other structured data | **Required** — free API key |
+| DART web (`dart.fss.or.kr`) | Parsing filing bodies (AGM notices, material event reports, etc.) | 40 pages per minute |
+| [KRX KIND](https://kind.krx.co.kr/) | Supplementary check of exchange filings | Secondary source |
+| Korean law text based on the [National Law Information Center](https://www.law.go.kr/) | Legal grounds for charter changes and voting judgments | Synced weekly from [legalize-kr](https://github.com/legalize-kr/legalize-kr) |
+| Public voting records of major asset managers and the National Pension Service | Cross-checking voting judgments | Public data, collected and structured in advance |
 
 ---
 
-## Release Notes
+## Security · Disclaimer · License
 
-Version history → **[docs/RELEASE_NOTES_ENG.md](docs/RELEASE_NOTES_ENG.md)**
+**Security** — report vulnerabilities, especially any path that could leak an API key, through [SECURITY.md](SECURITY.md) **instead of a public issue**.
 
----
+**Disclaimer** — OpenProxy structures DART filing data for AI. AI can produce inaccurate analysis, and its views are not those of the developer or affiliated organisations. Final investment or voting decisions must be checked against the original filings and reviewed by professionals.
 
-## Security
+**License** — [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) · full text in [`LICENSE`](LICENSE)
 
-Report vulnerabilities through [SECURITY.md](SECURITY.md), **not a public issue** — especially anything that leaks an API key.
-
----
-
-## Disclaimer
-
-OpenProxy is a tool that structures DART filing data for AI consumption. AI can hallucinate and may produce inaccurate analysis. Opinions presented by the AI are not those of the developer or any affiliated organization. Use the output for reference only — final investment or voting decisions must go through the original filings and expert review.
-
----
-
-## License
-
-[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) — noncommercial use only (full text: root [`LICENSE`](LICENSE))
-
-- **Noncommercial use** (personal research, learning, nonprofits, public institutions) is freely permitted.
+- **Noncommercial use** (personal research, study, nonprofits, public institutions) is freely permitted.
 - **Commercial use** requires a separate license agreement (OpenProxy AI).
-- **Attribution on redistribution**: keep `Copyright (c) 2026 OpenProxy AI (https://github.com/MarcoYou/open-proxy-mcp)` intact (PolyForm 'Notices' clause).
+- **Attribution on redistribution**: keep `Copyright (c) 2026 OpenProxy AI (https://github.com/MarcoYou/open-proxy-mcp)` (PolyForm "Notices" clause).
 
-> Commercial licensing & inquiries: gunhoqw20@gmail.com
+> Commercial licensing and other enquiries: gunhoqw20@gmail.com
