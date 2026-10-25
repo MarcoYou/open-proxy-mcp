@@ -306,3 +306,75 @@ def test_the_exclude_list_needs_the_loss_forms_too() -> None:
     rv = _METRIC_KEYWORDS["revenue_krw"]
     for bad in ("매출총손실", "매출총손익", "매출총이익", "매출원가", "매출환입"):
         assert not _account_matches(bad, rv, "revenue_krw", "income_statement"), bad
+
+
+# ── 단위 표기 꼴 (신규-#8) ──
+# 2026 정기주총 소집공고 30건·재무제표 칸 110회에는 아래 꼴이 0건이다(실례 없음). 그래서 이 시험은
+# **규칙**을 재는 최소 꼴이고, 값 근거는 실제 원문 30건을 고치기 전·후 코드로 돌려 판독 110회와
+# 지표 출력이 같음을 확인한 재생이다(예방 수정).
+
+
+def test_trillion_and_man_won_units_have_their_own_scale() -> None:
+    """「조원」·「만원」이 끝줄 1(원)로 떨어지면 자릿수가 통째로 틀린다."""
+    from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    assert _scale_factor("조원") == 1_000_000_000_000
+    assert _scale_factor("단위: 조원") == 1_000_000_000_000
+    assert _scale_factor("만원") == 10_000
+    # 「백만원」 문자열이 「만원」을 품는다 — 만원 검사는 백만원 뒤다. 기존 계수는 그대로.
+    assert _scale_factor("백만원") == 1_000_000
+    assert _scale_factor("백만원, 주당순이익 : 원") == 1_000_000
+    assert _scale_factor("백만 원") == 1_000_000
+    assert _scale_factor("십억원") == 1_000_000_000
+    assert _scale_factor("억원") == 100_000_000
+    assert _scale_factor("USD") is None            # 외화 가드는 그대로 앞에 있다
+
+
+def test_ten_and_thousand_man_won_are_not_turned_into_a_plausible_wrong_value() -> None:
+    """「천만원」·「십만원」은 만원이 아니다 — 알 수 없는 배수라 지금 동작(1) 그대로 둔다.
+
+    만원(1e4)으로 읽으면 천만원이 1,000배 작게 나가 자릿수가 그럴듯해진다. 알아보지 못하는 꼴은
+    고치지 않고 남긴다(실원문 0건, PR 「남은 것」).
+    """
+    from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    assert _scale_factor("천만원") == 1
+    assert _scale_factor("십만원") == 1
+    assert _scale_factor("천만 원") == 1
+    # 조원도 같다 — 「십조원」을 1조로 읽으면 10배 작게 나가는데 자릿수는 그럴듯하다
+    assert _scale_factor("십조원") == 1
+    assert _scale_factor("백조원") == 1
+
+
+def test_unit_declaration_accepts_bracket_and_fullwidth_parentheses() -> None:
+    """「[단위: 백만원]」·「（단위：백만원）」을 못 읽으면 빈 단위가 되어 계수 1(원)로 나간다."""
+    from bs4 import BeautifulSoup
+
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _extract_unit_from_siblings,
+        _scale_factor,
+    )
+    for decl in ("(단위: 백만원)", "[단위: 백만원]", "（단위：백만원）", "［단위：백만원］", "(단위 : 백만원)"):
+        soup = BeautifulSoup(f"<div><p>{decl}</p><table id='t'><tr><td>x</td></tr></table></div>", "html.parser")
+        unit = _extract_unit_from_siblings(soup.find(id="t"))
+        assert unit == "백만원", (decl, unit)
+        assert _scale_factor(unit) == 1_000_000, decl
+    # 기존 꼴은 그대로 읽힌다
+    for decl, want in (("(단위 : 원, 주)", "원, 주"), ("(단위: 백만원, 주당순이익 : 원)", "백만원, 주당순이익 : 원"),
+                       ("(단위: 조원)", "조원"), ("(단위: 만원)", "만원")):
+        soup = BeautifulSoup(f"<div><p>{decl}</p><table id='t'><tr><td>x</td></tr></table></div>", "html.parser")
+        assert _extract_unit_from_siblings(soup.find(id="t")) == want, decl
+
+
+def test_no_unit_declaration_is_still_won_and_the_window_is_unchanged() -> None:
+    """빈 단위는 원(1) 그대로(표기 없는 공고의 원 단위 표가 실제로 있다), 창(600자)도 그대로."""
+    from bs4 import BeautifulSoup
+
+    from open_proxy_mcp.services.provisional_financial_statement import (
+        _extract_unit_from_siblings,
+        _scale_factor,
+    )
+    soup = BeautifulSoup("<div><p>가나다</p><table id='t'><tr><td>x</td></tr></table></div>", "html.parser")
+    assert _extract_unit_from_siblings(soup.find(id="t")) == ""
+    assert _scale_factor("") == 1
+    far = "<p>(단위: 억원)</p>" + "".join("<p>" + "가" * 290 + "</p>" for _ in range(4))
+    soup = BeautifulSoup(f"<div>{far}<table id='t'><tr><td>x</td></tr></table></div>", "html.parser")
+    assert _extract_unit_from_siblings(soup.find(id="t")) == ""      # 600자 밖의 선언은 안 본다

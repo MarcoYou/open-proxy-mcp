@@ -4,6 +4,14 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-10-23
 
+### `shareholder_meeting_notice` / `proxy_advise_before_meeting` — financial-statement units written in square or full-width brackets, and 조원 / 만원 units, are now read
+
+- The unit of a financial-statement table in an AGM notice is read from the "(단위: …)" declaration in the 600 characters before the table. Only the half-width round brackets were recognised, so a table declared as "[단위: 백만원]" or "（단위：백만원）" was treated as having no unit and computed in won (a million-won table came out a million times too small). The scale table also had no entry for 조원 (trillion won) or 만원 (ten-thousand won), so both were read as plain won (1).
+- Round brackets (half- and full-width) and square brackets (half- and full-width) are now accepted, 조원 is scaled by 1 trillion and 만원 by 10,000. 십만원 and 천만원 are not 만원, so they are left unscaled as before (never turned into a plausible wrong value). A table with no unit declaration is still read as won, and foreign-currency units or units without 「원」 still produce no value. The 600-character window is unchanged; no new response keys, no tool changes.
+- **This is a preventive fix.** None of the 30 AGM notices of 2026 that were checked (110 financial-statement unit reads) contains these forms, so no wrong value has been observed in the data we looked at.
+- Changed values: all 110 unit reads and all 30 parse-and-metrics outputs of those real filings are identical before and after. Only the newly readable forms change — "[단위: 백만원]" and "（단위：백만원）" go from scale 1 to 1,000,000, 조원 from 1 to 10^12, 만원 from 1 to 10^4.
+- Left as is: 천만원, 십만원, 백억원, 천억원 and 십조원 are not recognised and behave as before. A nearer declaration such as "[단위: 주]" now blanks that table's values (a blank, not a wrong value; half-width brackets already behaved this way). A wrong table landing in the separate-statement slot (at least 7 of the 30) is outside this change.
+
 ### `financial_metrics` — companies flagged by a financial-operations signal no longer get the five operating-cash-flow alerts
 
 - Once operating cash flow was read correctly (see the account-code item below), KB Financial FY2024 and FY2025 started raising `cfo_quality_red` and `accruals_red`. KB Financial's FY2024 operating cash flow of KRW 4.02tn contains loans at amortised cost of -KRW 27.52tn, deposits of +KRW 23.82tn and insurance contract liabilities of +KRW 11.81tn, so these alerts reflect balance-sheet growth, not earnings quality.

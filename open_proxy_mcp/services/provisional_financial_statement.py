@@ -37,7 +37,7 @@ _FS_BALANCE_SHEET = re.compile(r'재무상태표|대차대조표')
 _FS_INCOME_STMT = re.compile(r'손익계산서|포괄손익')
 _FS_CONSOLIDATED = re.compile(r'연결')
 _FS_SEPARATE = re.compile(r'별도|개별')
-_FS_UNIT = re.compile(r'\(단위\s*[:：]?\s*(.+?)\)')
+_FS_UNIT = re.compile(r'[\(（\[［]단위\s*[:：]?\s*(.+?)[\)）\]］]')
 _FS_PERIOD = re.compile(r'(제\s*\d+\s*\(?\s*(?:당|전)\s*\)?\s*기|(?:20)?\d{2,4}\s*년)')
 
 
@@ -722,11 +722,16 @@ def _scale_factor(unit: str | None) -> int | None:
     if not _KRW_UNIT.search(u):
         # 「원」이 없다 — 우리가 모르는 통화일 수 있다. 원화로 단정하지 않는다.
         return None
+    if re.search(r"(?<![십백천])조원", u):     # 「십조원」 같은 모르는 배수는 아래에서 1 로 남는다
+        return 1_000_000_000_000
     # 「십억원」이 「억원」에 걸리면 1/10 로 환산된다 — 더 긴 것부터 본다.
     if "십억원" in u:
         return 1_000_000_000
     if "백만원" in u:
         return 1_000_000
+    # 「백만원」이 「만원」을 품으므로 그 뒤. 「십만원」·「천만원」은 만원이 아니다 — 모르는 배수는 지금처럼 1.
+    if re.search(r"(?<![십천])만원", u):
+        return 10_000
     if "천원" in u:
         return 1_000
     if "억원" in u:
