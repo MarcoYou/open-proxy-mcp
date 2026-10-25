@@ -595,7 +595,7 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **신규-#7 · P1 · treasury_share** — 소각결정의 수량 칸이 빈다 — 표 앞의 각주 때문에 수량 칸을 못 찾는 경우로, PR 본문 표본에서 4.8%(#221 「남은 것」)
   - 위치: `services/treasury_share.py:_parse_cancelation_body 231 · _enrich_cancelation_with_body 709` (후보 — PR 본문에 함수 이름이 없다) · DATA: DATA-U3
   - 고칠 방향: 표 앞 각주를 건너뛰고 수량 칸을 찾는다. 못 찾으면 0 이 아니라 None 으로 두고 경고
-- [ ] **신규-#8 · P1 · shareholder_meeting_notice · proxy_advise** — 주총 소집공고 재무제표의 단위 판독: 「[단위: 백만원]」처럼 대괄호나 전각 괄호로 쓴 단위는 정규식에 안 걸려 원(1)로 보고, 조원·만원도 1 로 본다. P1-#88 을 잠정실적 도구 항목으로 받지 않으면서 이 경로의 결함은 그대로 남아 옮겼다. 실례는 저장소 고정본에서 0건
+- [x] **신규-#8 · P1 · shareholder_meeting_notice · proxy_advise** — 주총 소집공고 재무제표의 단위 판독: 「[단위: 백만원]」처럼 대괄호나 전각 괄호로 쓴 단위는 정규식에 안 걸려 원(1)로 보고, 조원·만원도 1 로 본다. P1-#88 을 잠정실적 도구 항목으로 받지 않으면서 이 경로의 결함은 그대로 남아 옮겼다. 실례는 저장소 고정본에서 0건 → 이 PR 에서 닫음(예방 수정 — 2026 소집공고 30건·판독 110회에 그 꼴 0건, 괄호 4종 + 조원·만원 계수, 30건 출력 옛·새 같음 — DATA-U1)
   - 위치: `services/provisional_financial_statement.py:_FS_UNIT 40 · _scale_factor 711~734` · DATA: DATA-U1
   - 고칠 방향: 대괄호·전각 괄호를 단위 정규식에 넣고, 조원·만원은 계수를 주거나 모르는 배수는 값을 내지 않는다
 - [ ] **신규-#9 · P2 · price_multiple_data** — 완전자본잠식 경로에서 PER N/M 이유가 「적자」로 나간다(원래 있던 어긋남, #223 PR 본문)
@@ -639,4 +639,11 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
   - 위치: `services/financial_metrics.py:_compute_borrowings 652-741` · DATA: DATA-CF1
   - 고칠 방향: 영향 받는 호출처(요약 소비 도구)를 세어 보고 싣는다면 yoy 에서만 보이게 하는 길을 찾는다
 
-새 후보 21건 — 신규-#2 는 이 PR 에서 닫음, 신규-#19~#21 추가(열림).
+- [ ] **신규-#22 · P2 · shareholder_meeting_notice · proxy_advise** — 소집공고 재무제표의 별도 재무제표 칸에 내용연수·금융상품 주석표나 현금흐름표가 들어간다(소집공고 30건 중 최소 7건). 지표는 연결에서 나와 쓰이지 않는 경우가 많지만, 연결이 비는 회사는 틀린 별도 표가 지표로 나갈 수 있다
+  - 위치: `services/provisional_financial_statement.py:parse_provisional_financial_statement 44~` (표 식별 — 후보) · DATA: DATA-U1
+  - 고칠 방향: 표 식별(표 제목·계정 행 앵커)을 먼저 원문 30건에서 한 줄씩 대조해 어디서 틀어지는지 가른 뒤 정한다
+- [ ] **신규-#23 · P2 · shareholder_meeting_notice · proxy_advise** — 소집공고 재무제표 단위 판독의 남은 꼴: ① 천만원·십만원·백억원·천억원·십조원은 알아보지 못해 계수가 틀린다(원문 30건에 0건) ② 표에 더 가까운 「[단위: 주]」·「[단위: %]」 선언이 있으면 단위가 「주」가 되어 그 표의 값이 빈다(틀린 값이 아니라 빈 값, 원문 30건에 0건) ③ `skipped_units`(외화)가 「원」 없는 단위에도 채워져 proxy_advise 라벨 「본문 수치 미사용 사유(외화 표시)」가 어긋난다
+  - 위치: `services/provisional_financial_statement.py:_scale_factor 711~ · _FS_UNIT 40 · extract_metrics 802~806`, `tools/proxy_advise_before_meeting.py:198` · DATA: DATA-U1
+  - 고칠 방향: 실례가 나오면 고친다 — 천만원 등은 계수 표 확장, ②는 비금액 선언을 건너뛰는 규칙(결정 필요), ③은 라벨 문구
+
+새 후보 23건 — 신규-#2 는 #229, 신규-#8 은 이 PR 에서 닫음, 신규-#22·#23 추가(열림).

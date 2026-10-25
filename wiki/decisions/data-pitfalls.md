@@ -83,6 +83,7 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
   ([[forward_estimates_data]]).
 - **막는 곳**: [[단위-표기-규약]] 의 접미어 표(새 필드는 `_won` 이 아니라 `_krw`). 컨센서스 도구는 `_eok` 를 응답 밖으로 내지 않고 원 정수로만 낸다. 단위 자체가 틀린 보고서는 DATA-SC1.
 - **남은 한계**: `_won`(옛 표기)이 이벤트·계약 도구에 남아 있다. 잠정실적 도구가 쉼표가 있는 단위 표기를 못 읽어 기본 백만원으로 떨어지던 것은 #170 에서 고쳤다 — 단위를 못 읽으면 금액을 환산하지 않고 `unit_raw=None` 과 경고를 단다.
+  주총 소집공고 재무제표(`provisional_financial_statement`)는 별도 판독이다: 괄호 4종과 조원·만원을 읽는다(신규-#8, 예방 수정 — 2026 소집공고 30건에 그 꼴 0건). 천만원·십만원·백억원·천억원·십조원은 알아보지 못하고, 표 앞 단위 선언이 없으면 원(1)으로 읽는다(표기 없는 원 단위 표가 실제로 있다). 더 가까운 「[단위: 주]」 선언이 있으면 값이 빈다.
 
 #### DATA-U2 DB 시장 표기 `KS`/`KQ` 와 사람용 `KOSPI`/`KOSDAQ` — 섞으면 조용히 0건
 - **무엇이 틀리나**: 저장 값은 `KS`/`KQ` 인데 코드에 `WHERE market='KOSPI'` 를 쓰면 **오류가 아니라 0건**이 나와 아무도 모른다. KRX API 의 시장 이름(`KOSPI`/`KOSDAQ`)을 그대로 적재해도 같다.
@@ -852,6 +853,7 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 | 번호 | 한 줄 | 고친 PR · 상태 |
 |---|---|---|
 | DATA-U1 | 잠정실적 도구의 단위 읽기가 쉼표가 있는 표기에 기대 기본 백만원으로 떨어진다 | 닫힘 #170 (단위를 못 읽으면 금액 미환산 · `unit_raw=None` + 경고) |
+| DATA-U1 | 주총 소집공고 재무제표의 단위 판독이 대괄호·전각 괄호 표기를 못 읽어 빈 단위(원 1)로 두고, 조원·만원을 계수 1 로 읽는다 | 닫힘 (이 PR — 괄호 4종·조원 1e12·만원 1e4, 십·천 뒤 만원은 제외 · 예방 수정: 소집공고 30건에 그 꼴 0건 · 미인식 단위와 「[단위: 주]」 근접은 열림) |
 | DATA-U3 | `asset_holdings` `detail` 이 주석 원문·viewer 조회가 모두 실패해 주석이 비면 4항목을 「재무제표 주석에 기재가 없습니다」(`not_disclosed`)로 단정한다 · `provisional_earnings` 의 [기재정정] 표 파서가 정정후 칸이 '-'·빈칸이면 정정전 값을, 당기 절 금액 칸이 비면 뒤 「증감율(%)」 절의 % 를 금액(`value_krw`)으로 낸다 | 닫힘 — #217 (asset_holdings: `absence_kind=not_collected`·`fetch_failed=true`, summary 는 상장·비상장 구분도 못 하므로 지분 NAV 배수·상장 합계·감액 표시를 비움 + 경고. 주석을 정상으로 읽은 경우는 종전 그대로) · #215 (provisional_earnings: 절 머리행으로 당기 절만(I002·I001 절 이름 모두, 구분 열 꼴 포함), 정정전·정정후 열은 머리 행으로, 정정후 '-'·빈칸이면 `value_krw`=None · 합성 고정본 시험) |
 | DATA-NI2 | `financial_metrics` 분기·`qoq` 순이익이 주요계정 당기순이익 총계(비지배 포함)다 | 닫힘 — #170 은 표시만(`net_income_basis=total_incl_nci`·표 머리), 이 PR 이 새 키 `net_income_controlling_krw`(저장된 분기 칸 누적 차분, DART 0콜)로 지배 몫을 더함. 옛 `net_income_krw` 는 총계 그대로 |
 | DATA-NI2 | `financial_metrics` 연간 `net_income_krw` 가 지배 순이익을 못 구하면 조용히 총계로 바뀌고 전년비·ROE 가 기준이 섞인 값이 된다 | 닫힘 (이 PR — `net_income_basis`·`prev_net_income_basis` 표시, 기준이 다르면 전년비 비움 + 경고) |
