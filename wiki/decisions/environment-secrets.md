@@ -35,6 +35,7 @@ fly.toml `[env]`에는 경로 같은 **비밀 아닌 설정**만 둔다. API 키
 | `NAVER_API_HUB_CLIENT_ID` / `..._SECRET` | 네이버 뉴스 검색(`director_news`) — HUB 키, 우선 | 선택 | NAVER API HUB |
 | `NAVER_SEARCH_API_CLIENT_ID` / `..._SECRET` | 같은 검색의 개발자센터 키. HUB 키가 없을 때만 쓰며 2027-06-30 까지. 두 키는 서로 바꿔 끼울 수 없다 | 선택 | developers.naver.com |
 | `OPM_NOTICE_URL` | 운영자 공지 매니페스트(JSON)의 주소(https 또는 로컬 `file://`). 서버가 10분마다 배경에서 받아 모든 도구 응답에 공지를 끼운다. 비우면 공지 기능이 꺼지고 응답은 그대로다. 공개 객체 주소라 비밀값은 아니지만 fly secrets 로 넣는다 — [[mcp-endpoints]] 「운영자 공지」 | 선택 | (자체 구성) |
+| `OPM_NOTICE_APIKEY` | 공지 주소가 읽기 전용 공개 키를 요구할 때 받기 요청의 `apikey` 헤더로 싣는 값. 없으면 헤더를 보내지 않는다. 응답·로그·통계에 남기지 않는다 — [[mcp-endpoints]] 「운영자 공지」 | 선택 | (자체 구성) |
 | `DATABASE_URL` | 내부 데이터 저장소(Postgres) — 사전 수집·집계본 서빙 | 배치·통계·DB 기반 scope 필수 | (자체 구성) |
 | `KRX_API_KEY` | KRX_OPEN_API_KEY 와 같은 키의 별칭 (`services/price_multiple_data.py`·`trading.py` 가 둘 다 본다) | — | — |
 
