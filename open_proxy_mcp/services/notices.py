@@ -7,11 +7,15 @@
 
 ■ 어디서 오나 — 매니페스트(JSON) 하나
   환경변수 `OPM_NOTICE_URL`(https 또는 file:// — 로컬·시험). 없으면 이 모듈은 아무것도 하지 않고 도구 응답은 바이트 그대로다.
-  {"notices": [{id, level("info"|"important"), title(≤60자), body(≤400자), link(https 1개, 선택),
-                starts_at, expires_at(ISO 8601 — 시간대가 없으면 KST), show("once_per_key"|"every_call"|"company_only")}]}
+  {"notices": [{id, level("info"|"normal"|"important"), title(≤60자), body(≤400자), link(https 1개, 선택),
+                starts_at, expires_at(ISO 8601 — 시간대가 없으면 KST),
+                show("once_per_key"|"weekly"|"daily"|"every_call"|"company_only")}]}
+  최상위가 공지 목록(list) 그대로여도 받는다 — 표 하나를 그대로 내보내는 REST 응답(`[{…}, …]`)을 주소로 쓸 수 있게(261025).
+  `OPM_NOTICE_APIKEY` 가 있으면 받기 요청에 `apikey` 헤더로 싣는다(읽기 전용 공개 키를 요구하는 주소용). 값은 어디에도 남기지 않는다.
   형식에 없는 칸은 무시한다. 한 공지가 한도·형식을 어기면(길이 초과·`[xxx=…]` 꼴 대괄호 태그·제어문자·https 아닌 링크…) **그 공지만** 버린다.
   대괄호 태그를 막는 이유: 서버 미들웨어가 응답 본문에서 `[ekind=…]`·`[degraded=…]`·`[nodata=…]` 표지를 뽑아 통계에 적는다.
-  show 기본값은 once_per_key, level important 는 every_call 로 본다(show 를 company_only 로 명시한 공지는 그대로 company 응답에만).
+  show 를 비우면 중요도로 정한다: info → once_per_key(드물게), normal → daily(하루 한 번), important → every_call(자주).
+  important 는 show 를 적어도 every_call 로 본다(company_only 로 명시한 공지만 그대로 company 응답에만).
 
 ■ 받기 — `cold_store.py` 의 원격 JSON 재수신과 같은 꼴
   · 도구 응답 경로는 받기를 기다리지 않는다. 호출이 들어올 때 마지막 성공(또는 실패 쉼)에서 지난 시간을 보고, 받을 때가 됐으면
@@ -26,6 +30,7 @@
   · once_per_key: 요청 키(`dart.client._ctx_opendart_key`)를 `usage.record` 와 같은 `sha256(key.lower())` 으로 해시해 (공지 id, 키 해시)를
     머신 메모리 LRU(`_SEEN_MAX` = 1만)에 기억하고 같은 키의 두 번째 호출부터 붙이지 않는다. 키가 없는 요청은 머신 단위로 첫 응답에만.
     원래 키 값은 메모리·로그·응답 어디에도 남기지 않는다. 붙일 자리가 없어 못 붙인 응답은 본 것으로 치지 않는다.
+  · daily·weekly: 같은 기억에 마지막으로 보인 시각을 두고, 같은 키에 24시간·7일이 지나야 다시 붙인다(261025).
   · every_call·important: 만료까지 매 호출. company_only: `company` 도구 응답에만(매번).
 
 공지를 끼우다 어떤 오류가 나도 도구 응답은 그대로 나간다(`attach` 는 예외를 밖으로 내지 않는다).
@@ -50,6 +55,7 @@ from urllib.parse import unquote, urlsplit
 logger = logging.getLogger(__name__)
 
 _ENV_URL = "OPM_NOTICE_URL"
+_ENV_APIKEY = "OPM_NOTICE_APIKEY"           # 선택 — 받기 요청의 apikey 헤더(값은 남기지 않는다)
 _TTL_SEC = 600.0                       # 성공 뒤 다시 받기까지 — 10분
 _BACKOFF_SEC = 300.0                   # 실패 뒤 다시 받기까지 — 5분(cold_store._BACKOFF_SEC 와 같다)
 _MAX_AGE_SEC = 72 * 3600.0             # 마지막 성공본을 쓰는 한도 — 72시간
@@ -61,8 +67,12 @@ _TITLE_MAX, _BODY_MAX, _LINK_MAX, _ID_MAX = 60, 400, 500, 64
 _COMPANY_TOOL = "company"
 _KST = _dt.timezone(_dt.timedelta(hours=9))
 
-_LEVELS = ("info", "important")
-_SHOWS = ("once_per_key", "every_call", "company_only")
+_LEVELS = ("info", "normal", "important")
+_SHOWS = ("once_per_key", "weekly", "daily", "every_call", "company_only")
+#: 중요도별 기본 노출 — show 를 비운 공지(드물게 · 하루 한 번 · 매번).
+_DEFAULT_SHOW = {"info": "once_per_key", "normal": "daily", "important": "every_call"}
+#: 다시 보이기까지의 간격(초). once_per_key 는 간격 없이 한 번(기억이 밀려나기 전까지).
+_REPEAT_SEC = {"once_per_key": None, "weekly": 7 * 86400.0, "daily": 86400.0}
 _ID_RX = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]*")
 #: `[ekind=…]` 꼴의 여는 부분. 닫는 대괄호가 없어도 막는다(미들웨어는 본문 바이트에서 표지를 찾는다).
 _TAG_RX = re.compile(r"\[\s*[A-Za-z_][A-Za-z0-9_ .-]*=")
@@ -110,7 +120,7 @@ class Notice:
 # ── 상태 ──────────────────────────────────────────────────────────────────────
 _lock = threading.Lock()
 _state: dict[str, Any] = {}
-_seen: "OrderedDict[tuple[str, str], None]" = OrderedDict()   # (공지 id, 키 해시) — 키 해시는 sha256 hex
+_seen: "OrderedDict[tuple[str, str], float]" = OrderedDict()  # (공지 id, 키 해시) → 마지막으로 보인 시각, 키 해시는 sha256 hex
 _EXEC: concurrent.futures.ThreadPoolExecutor | None = None
 
 
@@ -177,7 +187,9 @@ def _fetch_bytes_sync(url: str) -> bytes:
         raise _FetchError("bad_scheme")
     import httpx
 
-    with httpx.Client(timeout=_FETCH_TIMEOUT_SEC, transport=_TRANSPORT, follow_redirects=False) as c:
+    apikey = (os.environ.get(_ENV_APIKEY) or "").strip()
+    headers = {"apikey": apikey} if apikey else {}
+    with httpx.Client(timeout=_FETCH_TIMEOUT_SEC, transport=_TRANSPORT, follow_redirects=False, headers=headers) as c:
         with c.stream("GET", url) as r:
             if r.status_code != 200:
                 raise _FetchError(f"http_{r.status_code}")
@@ -295,13 +307,13 @@ def _parse_notice(item: Any) -> Notice | None:
     if level not in _LEVELS:
         return None
     title = _clean_text(item.get("title"), _TITLE_MAX, required=True)
-    body = _clean_text(item.get("body", ""), _BODY_MAX, required=False)
+    body = _clean_text(item.get("body") or "", _BODY_MAX, required=False)   # 표에서 온 null 은 빈 본문
     if title is None or body is None:
         return None
     link = _parse_link(item.get("link"))
     if link is False:
         return None
-    show = item.get("show", "once_per_key")
+    show = item.get("show") or _DEFAULT_SHOW[level]
     if show not in _SHOWS:
         return None
     starts, expires = _parse_time(item.get("starts_at")), _parse_time(item.get("expires_at"))
@@ -317,6 +329,8 @@ def _parse_notice(item: Any) -> Notice | None:
 def _parse_manifest(raw: bytes) -> list[Notice]:
     """매니페스트 전체 검사 — JSON 이 아니거나 notices 목록이 없으면 ValueError(일시 실패로 다룬다). 공지 하나의 어김은 그 공지만 버린다."""
     obj = json.loads(raw)
+    if isinstance(obj, list):                                      # 표 하나를 그대로 내보내는 REST 응답
+        obj = {"notices": obj}
     if not isinstance(obj, dict) or not isinstance(obj.get("notices"), list):
         raise ValueError("notices 목록이 없다")
     out: list[Notice] = []
@@ -369,17 +383,19 @@ def _key_hash() -> str:
     return hashlib.sha256(key.lower().encode()).hexdigest() if key else ""
 
 
-def _was_seen(nid: str, khash: str) -> bool:
+def _was_seen(nid: str, khash: str, within: float | None = None) -> bool:
+    """이 키에 이미 보였나. within(초)을 주면 그 안에 보였을 때만 참(daily·weekly), 없으면 한 번이라도 보였으면 참."""
     with _lock:
-        if (nid, khash) in _seen:
-            _seen.move_to_end((nid, khash))
-            return True
-    return False
+        shown = _seen.get((nid, khash))
+        if shown is None:
+            return False
+        _seen.move_to_end((nid, khash))
+    return within is None or _now() - shown < within
 
 
 def _mark_seen(nid: str, khash: str) -> None:
     with _lock:
-        _seen[(nid, khash)] = None
+        _seen[(nid, khash)] = _now()
         _seen.move_to_end((nid, khash))
         while len(_seen) > _SEEN_MAX:
             _seen.popitem(last=False)
@@ -391,7 +407,7 @@ def _candidates(tool_name: str) -> tuple[list[Notice], str]:
     for n in _valid_now():
         if n.show == "company_only" and tool_name != _COMPANY_TOOL:
             continue
-        if n.show == "once_per_key" and _was_seen(n.id, khash):
+        if n.show in _REPEAT_SEC and _was_seen(n.id, khash, _REPEAT_SEC[n.show]):
             continue
         out.append(n)
     return out, khash
@@ -483,7 +499,7 @@ def attach(tool_name: str, result: Any) -> Any:
         else:
             out, shown = _render_md(result, items)
         for n in shown:
-            if n.show == "once_per_key":
+            if n.show in _REPEAT_SEC:
                 _mark_seen(n.id, khash)
         return out if shown else result
     except Exception:  # noqa: BLE001 — 공지 때문에 도구 응답이 깨지면 안 된다
