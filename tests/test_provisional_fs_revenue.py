@@ -344,22 +344,33 @@ def test_ten_and_thousand_man_won_are_not_turned_into_a_plausible_wrong_value() 
     assert _scale_factor("백조원") == 1
 
 
-def test_man_won_and_trillion_are_judged_on_the_first_money_token_only() -> None:
-    """조원·만원은 단위 문자열의 **첫 금액 토큰**(첫 쉼표·괄호 앞)에서만 본다.
+def test_man_won_and_trillion_are_read_only_when_the_declaration_starts_with_them() -> None:
+    """조원·만원은 선언이 **그 단위로 시작할 때만**(앞의 「단위」·쌍점을 뗀 뒤) 읽는다.
 
-    「원(단, 만원 미만 절사)」의 만원은 단위가 아니라 절사 설명이고, 「100만원」의 만원은 만원 단위가 아니다.
-    지금 바르게 읽히는 꼴(원 1·천원 1,000·억원 1e8)이 새 분기 때문에 틀려지면 안 된다(감수 R1).
+    「원(단, 만원 미만 절사)」·「원 만원 미만 절사」·「천원·만원」의 만원은 단위가 아니라 설명이고,
+    「100만원」의 만원도 만원 단위가 아니다. 지금 바르게 읽히는 꼴(원 1·천원 1,000·억원 1e8)이
+    새 분기 때문에 틀려지면 안 된다(감수 R1·재감수 R1). 구분자 목록으로 자르지 않는다.
     """
     from open_proxy_mcp.services.provisional_financial_statement import _scale_factor
+    # 뒤쪽 설명 속 만원·조원 — 구분자가 무엇이든(괄호·공백·전각 쉼표·가운뎃점·빗금·※) 옛 계수 그대로
     assert _scale_factor("원(단, 만원 미만 절사)") == 1
     assert _scale_factor("원 (만원 미만 절사)") == 1
+    assert _scale_factor("원 만원 미만 절사") == 1
+    assert _scale_factor("원，만원 미만 절사") == 1
+    assert _scale_factor("원·만원") == 1
+    assert _scale_factor("원/만원") == 1
+    assert _scale_factor("원 ※만원 미만 절사") == 1
     assert _scale_factor("천원(만원 미만 절사)") == 1_000
+    assert _scale_factor("천원·만원") == 1_000
     assert _scale_factor("억원, 조원") == 100_000_000
     for n in ("100만원", "10만원", "1만원", "1조원"):     # 숫자 접두는 그 단위가 아니다 — 지금처럼 1
         assert _scale_factor(n) == 1, n
-    # 첫 토큰이 만원·조원이면 뒤에 무엇이 와도 읽는다
+    # 선언이 그 단위로 시작하면 뒤에 무엇이 와도 읽는다
     assert _scale_factor("만원, 주") == 10_000
     assert _scale_factor("조원, 주") == 1_000_000_000_000
+    assert _scale_factor("단위: 만원") == 10_000
+    assert _scale_factor("만 원") == 10_000
+    assert _scale_factor("조원(억원 미만 반올림)") == 1_000_000_000_000
 
 
 def test_unit_declaration_accepts_bracket_and_fullwidth_parentheses() -> None:
