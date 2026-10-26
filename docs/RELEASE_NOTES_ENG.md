@@ -2,6 +2,14 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## v3.0.0 · beta — 2026-10-27
+
+A major version bump, because this release contains a breaking change.
+
+- **Breaking — `proxy_advise_before_meeting` retired.** Calls that use that name no longer find a tool. Voting advice now runs in four steps: `proxy_advice_start` → `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish`. You can choose a shareholder-engagement stance (conservative, neutral, active) and a decision firmness, and it reads the articles of incorporation attached to the annual report, the audit opinion, proxy solicitation documents and court and injunction filings alongside the meeting notice. See the 2026-10-26 section below and the [voting feature guide](features/en/proxy-voting.md).
+- **New tool `performance_analysis`.** Cumulative and annualised returns, volatility and maximum drawdown, Sharpe and Sortino, and excess return, beta and alpha against a benchmark, for single stocks, sectors, rankings, baskets and blends — with contribution by stock or sector and sector allocation/selection attribution. See "New tool `performance_analysis`" below.
+- Includes every change in the sections below since v2.7.3.
+
 ## 2026-10-26
 
 ### `proxy_advise_before_meeting` retired — voting advice now comes from the four `proxy_advice_*` tools on the public server
