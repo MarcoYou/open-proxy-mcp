@@ -6,7 +6,7 @@
   하나도 안 보인다"고 답했다. resource 만 두면 아무도 못 읽는다.
 
 무엇에 쓰나:
-  `proxy_advise_before_meeting` 의 판정 사유에 「OPM Guideline §2.4 이사 선임 — against
+  OPM 의결권 판정 사유에 「OPM Guideline §2.4 이사 선임 — against
   ①「사외이사 장기연임 5년+」… ▸ 엔진: …」 같은 인용이 붙는다. §2.4 가 이 문서의 절 번호이고
   ①이 그 절 against 목록의 항목 번호다 — `section="2.4"` 로 열면 그 항목이 그 자리에 있다
   (tests/test_policy_citations_match_document.py 가 라벨↔문서를 자동 대조한다).
@@ -61,7 +61,7 @@ def register_tools(mcp) -> None:
     async def proxy_guideline(section: str = "") -> str:
         """OPM 의결권 행사 정책(Open Proxy Guideline) 원문을 읽는다.
 
-        proxy_advise_before_meeting 의 판정 사유에 인용되는 기준 문서다.
+        OPM 의결권 판정 사유에 인용되는 기준 문서다.
         「왜 이 안건이 찬성/반대냐」의 근거를 원문으로 확인할 때 쓴다.
 
         section: 비우면 목차 + 전문. 값을 주면 제목에 그 말이 들어간 절만
@@ -76,8 +76,7 @@ def register_tools(mcp) -> None:
                 "가이드라인 문서를 찾지 못했습니다.\n\n"
                 f"- 기대 경로: `{path}`\n"
                 "- 패키지 데이터가 빠진 빌드일 수 있습니다.\n"
-                "- 판정별 요약 인용은 `proxy_advise_before_meeting` 응답의 "
-                "「정책 인용」 줄에서 확인할 수 있습니다."
+                "- 이 문서는 패키지 데이터 `open_proxy_mcp/data/guideline/` 에 들어 있어야 합니다."
             )
         text = path.read_text(encoding="utf-8")
         secs = _sections(text)

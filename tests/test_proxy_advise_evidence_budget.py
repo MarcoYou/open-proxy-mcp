@@ -51,13 +51,3 @@ def test_the_defaults_are_a_handle_not_a_wall() -> None:
     assert _EVIDENCE_MAX_CHARS >= 30000
 
 
-def test_the_tool_exposes_the_handle_and_the_as_of() -> None:
-    """docstring 은 호출하는 LLM 이 읽는 유일한 안내문이다 — 손잡이가 거기 없으면 없는 것이다."""
-    import inspect
-
-    from open_proxy_mcp.tools import proxy_advise_before_meeting as mod
-
-    src = inspect.getsource(mod.register_tools)
-    for token in ("as_of:", "include_after_meeting:", "evidence_chars:"):
-        assert token in src, f"{token} 안내가 docstring 에 없다"
-    assert "look-ahead" in src

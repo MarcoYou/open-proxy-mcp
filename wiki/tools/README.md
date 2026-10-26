@@ -37,7 +37,6 @@ updated: 2026-10-24
 |---|---|
 | [shareholder_meeting_notice](shareholder_meeting_notice.md) | 주총 **소집공고**(주총 전) — 안건·이사 후보·보수한도·정관 변경 · 공고 전 **이사회 소집결의**와 그 정정 이력(`scope="resolution"`) |
 | [shareholder_meeting_results](shareholder_meeting_results.md) | 주총 **결과**(주총 후) — 안건별 가결/부결·찬반율 |
-| [proxy_advise_before_meeting](proxy_advise_before_meeting.md) | **의결권 보조** — 안건별 찬성/반대/검토 + 근거 (핵심 도구) |
 | [proxy_guideline](proxy_guideline.md) | **의결권 판단 기준 문서** — 위 판정 사유에 달리는 인용(「OPM Guideline §…」)의 원문. 회사·DART 무관, API 0회 |
 
 ### 💰 지분 · 재무 · 지배구조
@@ -122,14 +121,14 @@ link · 11. 알려진 issue·TODO · 12. 변경 이력. (도메인 개념·공�
 
 ## 카테고리별 통계
 
-각 tool 페이지의 `domain:` 프론트매터가 근거다(합 33 = 이 브랜치의 런타임 tool 수, 260909
+각 tool 페이지의 `domain:` 프론트매터가 근거다(합 32 = 이 브랜치의 런타임 tool 수, 260909
 `governance_screen` 파일럿 추가). **표를 손으로
 세지 말 것** — `scripts/check_tool_catalog.py` 가 이 합과 런타임을 대조한다.
 
 | 도메인 | tool 수 | 무엇이 다른가 |
 |--------|---------|---------|
 | data | 26 | **DART(일부 KIND·KRX·ECOS)를 직접 읽어** 값을 만든다. 회사 식별(`company`)도 여기 — list/corpCode 조회다. API 1~14회 병렬 |
-| action | 4 | **공시 수집·판독을 연결해 판단·요약**한다. `proxy_advise_before_meeting`(안건별 찬반) · `shareholder_commitment`(약속↔이행 대조) · `screener`(전체시장 조회 + 유형별 상세) · `governance_screen`(지정 기업 공시 원문 + 호출 LLM 평가 + 검토 순서) |
+| action | 3 | **공시 수집·판독을 연결해 판단·요약**한다. `shareholder_commitment`(약속↔이행 대조) · `screener`(전체시장 조회 + 유형별 상세) · `governance_screen`(지정 기업 공시 원문 + 호출 LLM 평가 + 검토 순서) |
 | reference | 3 | **회사·DART 무관 · API 0회.** `evidence`(접수번호→뷰어 URL) · `law_lookup`(법령 원문) · `proxy_guideline`(OPM 의결권 정책 원문) |
 
 > 260817 정리: 이 표가 합 21 로 굳어 런타임 26 과 5 만큼 어긋나 있었다. 분류명(Company/Meeting/
@@ -182,7 +181,6 @@ tool별로 `scope.summary`, `fetch_decisions`, `decision_details`, `load_report_
 | proxy_contest | ✅ D/B/I + document | ✅ vote_math whitelist | - | - |
 | evidence | - | - | - | - (문자열 가공) |
 | law_lookup | - | - | - | ✅ legalize-kr 법령 corpus 10법(4법 + 260902 확장 지배구조법·상증세법·금융지주회사법·금산법·은행법·보험업법) + 40룰 bridge |
-| proxy_advise_before_meeting | upstream data tools | upstream | - | 판단 규칙/records |
 | shareholder_commitment | ✅ value_up+corp_gov_report+dividend_disclosure+treasury_share+financial_metrics+stockTotqySttus (전부 재사용) | - | - | - |
 
 ✅ = 1차 source / 🔧 = 보조

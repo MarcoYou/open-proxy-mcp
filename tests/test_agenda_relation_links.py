@@ -156,41 +156,8 @@ def test_relation_never_overrides_a_no():
     assert rows[0]["decision"] == "AGAINST"
 
 
-def test_render_says_it_could_not_read_the_relations():
-    """관계를 못 잡았으면 조용히 넘어가지 않는다 — 안건 목록과 갈 길을 남긴다."""
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-    payload = {
-        "subject": "테스트",
-        "data": {
-            "meeting_info": {},
-            "agenda_decisions": [
-                {"agenda_title": "감사위원 선임의 건", "decision": "REVIEW", "reason": "r",
-                 "proposer_type": "shareholder_proposal"}],
-            "agenda_relation_gap": {
-                "note": "주주제안 선임 안건이 올라와 있는데 안건 사이의 관계를 판정하지 못했습니다",
-                "agenda_list": ["1 감사위원 선임의 건 [주주제안]"],
-                "where_to_look": ["소집공고 「회의목적사항 / 부의안건」 절"],
-            },
-        },
-    }
-    out = _render(payload)
-    assert "판정하지 못했습니다" in out
-    assert "감사위원 선임의 건 [주주제안]" in out
-    assert "회의목적사항" in out
 
 
-def test_proposer_column_is_rendered():
-    """이사회제안 / 주주제안 — 이 한 칸만 있어도 판이 보인다."""
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-    payload = {"subject": "테스트", "data": {"meeting_info": {}, "agenda_decisions": [
-        {"agenda_title": "사외이사 A 선임의 건", "decision": "FOR", "reason": "r",
-         "proposer_type": "company"},
-        {"agenda_title": "사외이사 B 선임의 건", "decision": "REVIEW", "reason": "r",
-         "proposer_type": "shareholder_proposal"},
-    ]}}
-    out = _render(payload)
-    assert "| # | 안건 | 제안 | 관계 | 행사방향 | 사유 |" in out
-    assert "| 이사회 |" in out and "| **주주** |" in out
 
 
 def test_two_seat_contest_does_not_say_only_one() -> None:

@@ -17,7 +17,6 @@ import pytest
 
 import open_proxy_mcp.services.proxy_advise as PA
 from open_proxy_mcp.clock import KST, today_kst
-from open_proxy_mcp.tools import proxy_advise_before_meeting as R
 
 
 # ── 근거 위치 불확실 ──────────────────────────────────────────────────────────────
@@ -45,39 +44,8 @@ def test_mismatch_root_and_its_children_are_marked_uncertain_but_promotion_is_no
     assert "source_section_uncertain" not in rows[3]
 
 
-def test_renderer_asks_instead_of_asserting_when_evidence_is_uncertain():
-    sure = _row("이사 보수한도 승인의 건", excerpt="제6호 의안: 이사 보수한도 …")
-    unsure = dict(_row("자본준비금 감액 승인의 건", excerpt="제3호 의안: 정관 일부 변경 …"),
-                  source_section_uncertain=True)
-    text = R._render({"status": "ok", "subject": "테스트",
-                      "data": {"year": 2026, "agenda_count": 2, "candidates_count": 0,
-                               "agenda_decisions": [sure, unsure]}})
-    assert "- 근거 위치: 소집공고 **§정관의 변경**" in text
-    assert "- 근거 위치(불확실): 소집공고 **§정관의 변경**" in text
-    assert "이 안건(2)의 내용이 맞으면 근거로 쓰고" in text
-    assert "이 안건의 것인지 먼저 확인하십시오" in text
-    assert text.count("제3호 의안: 정관 일부 변경") == 1     # 발췌는 지우지 않는다
-
 
 # ── 임시주총 없음 ─────────────────────────────────────────────────────────────────
-
-def test_absent_meeting_renders_without_a_round_frame():
-    payload = {"status": "no_filing", "subject": "가비아", "data": {
-        "canonical_name": "가비아", "selected_meeting_type": "extraordinary",
-        "agenda_decisions": [], "agenda_count": 0, "candidates_count": 0,
-        "meeting_absent": {
-            "window_start": "2024-09-05", "window_end": "2026-12-03", "method": "m",
-            "found_notices": [{"rcept_no": "20260311004404", "report_name": "주주총회소집공고", "rcept_dt": "20260311"}],
-            "other_type_latest": {"meeting_type": "annual", "notice_date": "20260311",
-                                  "meeting_date": "2026-03-26", "notice_rcept_no": "20260311004404"},
-            "notes": [],
-        }}}
-    text = R._render(payload)
-    assert "요청하신 **임시주총** 소집공고가 없습니다" in text
-    assert "20260311 주주총회소집공고" in text
-    assert 'meeting_type="annual"' in text
-    assert "안건 0건" not in text and "2025년" not in text     # 없는 회차를 그리지 않는다
-    assert "재무 분석 기준" not in text
 
 
 def test_absent_report_lists_notices_without_reading_them(monkeypatch):

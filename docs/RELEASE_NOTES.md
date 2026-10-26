@@ -2,6 +2,14 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## 2026-10-26
+
+### `proxy_advise_before_meeting` 은퇴 — 의결권 권고는 공개 서버의 `proxy_advice_*` 네 도구로
+
+- 공개 서버의 의결권 권고는 이제 `proxy_advice_start` → `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish` 네 단계로 합니다. 안건마다 찬성·반대·검토 초안과 근거, 사람이 확인할 점이 나옵니다. 판단 기준(의결권 가이드라인)과 검사는 비공개 서버에서 돌고 이 저장소에는 없습니다.
+- `proxy_advise_before_meeting` 도구와 그 출력만 시험하던 시험을 이 저장소에서 지웠습니다. 다른 도구가 함께 쓰는 서비스 코드(`services/proxy_advise.py` 등)는 남겼습니다. 도구 수는 33개에서 32개로 줄었습니다.
+- 다른 도구의 설명·출력·문서에서 옛 도구를 가리키던 곳을 고쳤습니다([의결권 기능 안내](features/proxy-voting.md)).
+
 ## 미배포 — 2026-10-23
 
 ### `shareholder_meeting_notice`·`proxy_advise_before_meeting` — 소집공고 재무제표 단위를 대괄호·전각 괄호로 쓴 표와 조원·만원 단위를 읽습니다

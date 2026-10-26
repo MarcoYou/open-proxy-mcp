@@ -154,19 +154,6 @@ def test_rejected_new_appointment_does_not_get_inapplicable_attendance():
     assert "attendance_calculation" not in accepted
 
 
-def test_rendered_new_appointment_explains_inapplicability_without_fake_counts():
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-
-    task, data = attendance_case()
-    data["attendance"] = None
-    data["appointment"]["value"] = "new"
-    accepted = assess(task, data)
-    rendered = _render({"status": "ok", "subject": "fixture", "data": {
-        "year": 2026, "agenda_decisions": [{"agenda_title": "신규 후보 선임", "decision": "FOR",
-            "guideline_trace": {"mode": "pilot", "llm_assessment": accepted}}]}})
-    line = next(line for line in rendered.splitlines() if line.startswith("- 출석 평가:"))
-    assert "적용 대상 아님" in line
-    assert "None%" not in line and "미제출" not in line
 
 
 def _cached_document(receipt):

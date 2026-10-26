@@ -1420,7 +1420,7 @@ def build_law_lookup_payload(
     elif limit_ft is not None and len(results) > limit_ft:
         warnings.insert(1, f"딱 맞는 조문을 짚지 못해 **전문은 상위 {limit_ft}건만** 붙였습니다 — "
                            f"나머지는 표에만 있습니다. 전문이 더 필요하면 조문번호로 다시 물어보세요.")
-    next_actions.append("정관 본문↔안건 판단은 proxy_advise_before_meeting")
+    next_actions.append("정관 본문↔안건 판단은 의결권 권고 도구가 한다")
 
     fresh = corpus_freshness(as_of_iso)
     if fresh["stale"]:

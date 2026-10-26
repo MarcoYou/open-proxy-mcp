@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-33-orange.svg)](#도구-구조-33개)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#도구-구조-32개)
 [![Release](https://img.shields.io/badge/release-v2.7.3-blue.svg)](docs/RELEASE_NOTES.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [English](README_ENG.md) · [简体中文](README_ZH.md)
 
-[빠른 시작](#빠른-시작) · [무엇을 물을 수 있나](#무엇을-물을-수-있나) · [결과 읽는 법](#결과-읽는-법) · [최근 바뀐 것](#최근-바뀐-것) · [도구 구조](#도구-구조-33개) · [데이터 소스](#데이터-소스)
+[빠른 시작](#빠른-시작) · [무엇을 물을 수 있나](#무엇을-물을-수-있나) · [결과 읽는 법](#결과-읽는-법) · [최근 바뀐 것](#최근-바뀐-것) · [도구 구조](#도구-구조-32개) · [데이터 소스](#데이터-소스)
 
 </div>
 
@@ -126,9 +126,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 ---
 
-## 도구 구조 (33개)
+## 도구 구조 (32개)
 
-여덟 가지 분석 흐름을 **총 33개 도구**가 뒷받침합니다. 분류의 정본은 [도구 카탈로그](wiki/tools/README.md)의 「무엇을 알고 싶을 때 무엇을 쓰나」 표이고, 도구별 예시 질문·스키마도 거기 있습니다.
+여덟 가지 분석 흐름을 **총 32개 도구**가 뒷받침합니다. 분류의 정본은 [도구 카탈로그](wiki/tools/README.md)의 「무엇을 알고 싶을 때 무엇을 쓰나」 표이고, 도구별 예시 질문·스키마도 거기 있습니다.
 
 <details>
 <summary><b>도구 목록 펼치기</b></summary>
@@ -139,7 +139,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 |---|---|---|
 | 🏢 회사 찾기 | [`company`](wiki/tools/company.md) | 회사 식별 + 최근 공시 목록 — 모든 분석의 출발점 |
 | 🔔 공시 스캔·검토 | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | 전체시장 공시 디제스트·업종별 흐름 · 지정 기업 거버넌스 검토 순서(파일럿) |
-| 🗳️ 주주총회·의결권 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 소집공고(전)·결과(후) · 안건별 찬성/반대/검토 · 판단 기준 문서 원문 |
+| 🗳️ 주주총회·의결권 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 소집공고(전)·결과(후) · 판단 기준 문서 원문 |
 | 💰 지분·재무·지배구조 | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`performance_analysis`](wiki/tools/performance_analysis.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | 지분 구조 · 확정/잠정 실적 · 사업의 내용 · 자산주 · PER/PBR · 컨센서스·추정치 변화 · 시세·지수·금리 · 수익률·위험·기여 · 지배구조보고서 · 이사회 |
 | 🎁 주주환원·자본 | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | 배당 공시·시계열 · 자기주식 · 밸류업 · 약속 대 이행 · 합병/분할 · 증자/CB/BW/감자 |
 | ⚔️ 분쟁·거래·리스크 | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | 경영권 분쟁 신호 · 지분 인수/매각 · 수주·공급계약 · [리스크 사건](docs/features/risk-events.md) · 금융사 주석 · 이사 후보 뉴스 |
@@ -147,7 +147,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 
 </details>
 
-**의결권 정책** — `proxy_advise_before_meeting`은 OPM 자체 **Open Proxy Guideline**을 기본 정책으로 씁니다(소수주주 보호·거버넌스 투명성·장기 가치·추적 가능성). 주요 자산운용사와 국민연금의 공개 행사 내역을 교차 검토에 씁니다. 기본 엔진은 추가 판단이 필요한 우려를 검토 필요로 두며, 별도로 고르는 v2 파일럿은 출석·독립성을 후보 권고에 적용합니다 — [파일럿 입력·적용 범위](wiki/tools/proxy_advise_before_meeting.md).
+**의결권 권고** — 공개 서버에서는 의결권 권고 도구 4개(`proxy_advice_start` → `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish`)로 안건마다 찬성·반대·검토 초안과 근거를 받습니다. 소집공고·사업보고서·감사·권유·법원 공시를 판단 기준시각 전 것만 읽고, 의결권 가이드라인(안건 유형 10개)으로 판단한 뒤 서버가 검사합니다. 가이드라인과 검사는 비공개 서버에서 돌며 이 저장소에는 없습니다. 예전 `proxy_advise_before_meeting`은 2026-10-26에 은퇴했습니다. 초안은 사람이 검토하지 않았고, 실제 투표를 보내지 않습니다.
 
 ---
 

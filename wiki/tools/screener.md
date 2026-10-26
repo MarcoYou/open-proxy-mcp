@@ -28,7 +28,7 @@ related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuanc
 - `consensus_gap`(261018, details): 분기 잠정실적이 **공시 직전 주 컨센서스와 맞대졌을 때만** — 지표별 예상치(`consensus_krw`)·차이(`diff_krw`·`gap_pct`)·기준 스냅샷일(`as_of`·`lag_days`)·기간·연결/별도. [[provisional_earnings]] 가 계산한 칸을 카드 크기로 옮기기만 한다(맞댄 지표만, 출처·계산식 문장은 md 각주에 한 번). md 카드에 「컨센서스 대비 매출 −4.7%(예상 204.57조원) · 영업이익 −2.9%(…) — 공시 12일 전 2026-09-26 스냅샷」 한 줄. 월간·커버리지 밖·이력 밖·장애·연결/별도 불일치면 칸도 줄도 없이 잠정 값만(실적 카드의 2/3 가 월간이라 「비교 안 함」이 다이제스트를 덮는다). 추가 DART 콜 0 — 분기 카드마다 DB 2질의.
 - 실적 카드의 `net_income_krw`(순이익 기준): **잠정공시 원문의 「당기순이익」**이다 — 연결 공시(`consolidated`=연결)면 **비지배지분을 포함한 총계**다(`headline.net_income`을 그대로 옮기고 다시 계산하지 않는다 — 별도 공시면 비지배지분이 없어 같은 값이다). 같은 카드의 `consensus_gap`(컨센서스 대비)은 **지배순이익**(원문 「지배기업소유주지분순이익」, `net_income_controlling`) 기준으로 견주므로, 카드의 `net_income_krw` 와 컨센서스 대비 순이익 줄을 나란히 읽을 때 기준이 다르다. [[financial_metrics]] 의 연간 `net_income_krw`(지배 귀속)와도 이름은 같지만 기준이 다르다.
 
-> **왜 Action Tool인가** (domain: action): `proxy_advise_before_meeting`·`shareholder_commitment`과
+> **왜 Action Tool인가** (domain: action): 의결권 권고 도구(`proxy_advice_*`)·`shareholder_commitment`과
 > 같은 계열 — upstream data tool을 오케스트레이션해 판단/요약을 만든다. details=true면 유형별 파서
 > (order_contracts·treasury_share 등)를 **재사용**해 정형필드(분모%·금액·정정 diff)를 합성하고, 결과는
 > per-company 단발 조회가 아니라 **아침 알람/디제스트 루틴을 구동하는 액션 산출물**이다(전체시장

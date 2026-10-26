@@ -2,6 +2,14 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## 2026-10-26
+
+### `proxy_advise_before_meeting` retired — voting advice now comes from the four `proxy_advice_*` tools on the public server
+
+- Voting advice on the hosted public server now runs in four steps: `proxy_advice_start` → `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish`. Each agenda item gets a FOR, AGAINST or REVIEW draft with reasons and the points to check yourself. The voting guideline and the checks run on a private server and are not in this repository.
+- The `proxy_advise_before_meeting` tool and the tests that only covered its output were removed from this repository. Service code shared with other tools (such as `services/proxy_advise.py`) stays. The tool count drops from 33 to 32.
+- Places in other tools' descriptions, outputs and docs that pointed to the old tool were updated ([voting feature guide](features/en/proxy-voting.md)).
+
 ## Unreleased — 2026-10-23
 
 ### `shareholder_meeting_notice` / `proxy_advise_before_meeting` — financial-statement units written in square or full-width brackets, and 조원 / 만원 units, are now read

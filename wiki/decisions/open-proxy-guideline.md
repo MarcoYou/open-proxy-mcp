@@ -61,5 +61,5 @@ related: [260429_0059_decision_voting-policy-consensus-matrix, 상법-2025-2026-
 
 ## 관련
 - [[../tools/proxy_guideline]] — 이 문서를 읽는 tool
-- [[../tools/proxy_advise_before_meeting]] — 이 문서를 인용하는 쪽
+- `proxy_advise_before_meeting`(은퇴) — 이 문서를 인용하는 쪽
 - [[260429_0059_decision_voting-policy-consensus-matrix]] — 12 카테고리 합의 매트릭스

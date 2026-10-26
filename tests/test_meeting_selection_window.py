@@ -76,27 +76,3 @@ def test_it_falls_back_to_the_filing_year_not_today() -> None:
     assert _round_year(None, None, "") == today_kst().year
 
 
-def test_proxy_advise_does_not_default_to_annual_only() -> None:
-    """구간을 넓혀도 `annual` 고정이면 임시주총은 후보에 오르지도 못한다.
-
-    회의일 구간과는 **별개의** 두 번째 원인이었다. `shareholder_meeting_notice`는 `auto`라
-    구간 수정만으로 애경케미칼 임시주총을 잡았지만, 정작 의결권 메모를 내는
-    `proxy_advise_before_meeting`은 `annual` 고정이라 그대로 3월 정기주총(종료된 회차)을
-    분석했다. 「회의 전(before_meeting)」 tool이 다가오는 회의를 못 보는 상태였다.
-    """
-    import ast
-    from pathlib import Path
-
-    src = Path(__file__).resolve().parents[1] / "open_proxy_mcp/tools/proxy_advise_before_meeting.py"
-    tree = ast.parse(src.read_text(encoding="utf-8"))
-    fns = [
-        node for node in ast.walk(tree)
-        if isinstance(node, ast.AsyncFunctionDef) and node.name == "proxy_advise_before_meeting"
-    ]
-    assert len(fns) == 1, "tool 함수를 찾지 못했다 — 이름이 바뀌었으면 이 테스트도 갱신할 것"
-
-    args = fns[0].args
-    names = [a.arg for a in args.args]
-    defaults = dict(zip(names[len(names) - len(args.defaults):], args.defaults))
-    assert isinstance(defaults["meeting_type"], ast.Constant)
-    assert defaults["meeting_type"].value == "auto"

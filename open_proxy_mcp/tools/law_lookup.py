@@ -174,7 +174,7 @@ def register_tools(mcp):
         as_of: YYYY-MM-DD 기준일(기본 오늘) — 시행/미시행·명칭변경(사외이사↔독립이사) 게이팅
         include_full_text: 조문 원문 전문 포함(기본 True). False면 메타·항/호 구조만
         top_k: 표시 후보 수(기본 10, 초과분은 총계만 경고)
-        ref: proxy_advise_before_meeting, shareholder_meeting_notice, evidence
+        ref: shareholder_meeting_notice, evidence
         """
         payload = build_law_lookup_payload(
             query, direction=direction, law=law, as_of=as_of,

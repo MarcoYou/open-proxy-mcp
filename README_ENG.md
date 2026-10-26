@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-33-orange.svg)](#tool-structure-33-tools)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#tool-structure-32-tools)
 [![Release](https://img.shields.io/badge/release-v2.7.3-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
-[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [How to Read the Output](#how-to-read-the-output) · [Recent Changes](#recent-changes) · [Tool Structure](#tool-structure-33-tools) · [Data Sources](#data-sources)
+[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [How to Read the Output](#how-to-read-the-output) · [Recent Changes](#recent-changes) · [Tool Structure](#tool-structure-32-tools) · [Data Sources](#data-sources)
 
 </div>
 
@@ -126,9 +126,9 @@ The full history is in the **[release notes](docs/RELEASE_NOTES_ENG.md)**. Only 
 
 ---
 
-## Tool Structure (33 tools)
+## Tool Structure (32 tools)
 
-**33 tools in total** support the eight areas above. The authoritative grouping is the "what to use for what" table in the [tool catalog](wiki/tools/README.md), which also has example prompts and schemas per tool.
+**32 tools in total** support the eight areas above. The authoritative grouping is the "what to use for what" table in the [tool catalog](wiki/tools/README.md), which also has example prompts and schemas per tool.
 
 <details>
 <summary><b>Show the tool list</b></summary>
@@ -139,7 +139,7 @@ The full history is in the **[release notes](docs/RELEASE_NOTES_ENG.md)**. Only 
 |---|---|---|
 | 🏢 Find a company | [`company`](wiki/tools/company.md) | Company identification and recent filings — the entry point for every analysis |
 | 🔔 Filing scan & review | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | Market-wide filing digest and sector flows · governance review order for named companies (pilot) |
-| 🗳️ AGM & proxy voting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Notice (before) and results (after) · FOR/AGAINST/REVIEW per item · policy source text |
+| 🗳️ AGM & proxy voting | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | Notice (before) and results (after) · policy source text |
 | 💰 Ownership, financials, governance | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`performance_analysis`](wiki/tools/performance_analysis.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | Ownership · actual/provisional results · business description · asset plays · PER/PBR · consensus and revisions · prices, indices, rates · returns, risk, contribution · governance report · board |
 | 🎁 Shareholder returns & capital | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | Dividend filings and history · treasury shares · value-up · promises vs execution · mergers/splits · rights issues, CB/BW, capital reduction |
 | ⚔️ Contests, deals, risk | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | Control-contest signals · stake deals · orders and supply contracts · [risk events](docs/features/en/risk-events.md) · financial-company notes · director-candidate news |
@@ -147,7 +147,7 @@ The full history is in the **[release notes](docs/RELEASE_NOTES_ENG.md)**. Only 
 
 </details>
 
-**Voting policy** — `proxy_advise_before_meeting` uses OPM's own **Open Proxy Guideline** by default (minority-shareholder protection, governance transparency, long-term value, traceability) and cross-checks the public voting records of major asset managers and the National Pension Service. The default engine leaves concerns that need further judgment at REVIEW; the separately selected v2 pilot applies attendance and independence to candidate recommendations — see [pilot inputs and scope](wiki/tools/proxy_advise_before_meeting.md). Default reports and detailed policy quotes are in Korean; you can ask the AI to explain them in English while keeping the evidence and statuses.
+**Voting advice** — on the hosted public server, four advice tools (`proxy_advice_start` → `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish`) give a FOR, AGAINST or REVIEW draft with reasons for each agenda item. They read only filings published before your cutoff (meeting notice, annual report, audit and proxy filings, court filings), judge each item by the voting guideline (10 item types) and have the server check every recommendation. The guideline and the checks run on a private server and are not in this repository. The old `proxy_advise_before_meeting` was retired on 2026-10-26. Drafts are not reviewed by a person, and no vote is ever sent.
 
 ---
 
