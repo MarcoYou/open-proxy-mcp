@@ -2,6 +2,14 @@
 
 OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.md)
 
+## v3.0.0 · beta — 2026-10-27
+
+큰 판 번호를 올립니다. 호환되지 않는 변경이 들어 있기 때문입니다.
+
+- **호환되지 않는 변경 — `proxy_advise_before_meeting` 은퇴.** 그 이름으로 부르던 호출은 이제 도구를 찾지 못합니다. 의결권 권고는 `proxy_advice_start` → `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish` 네 단계로 합니다. 주주 개입 성향(보수적·중립·적극적)과 판단 확정 성향을 고를 수 있고, 소집공고와 함께 사업보고서에 첨부된 정관·감사의견·의결권 권유서류·법원과 가처분 공시를 읽습니다. 아래 2026-10-26 절과 [의결권 기능 안내](features/proxy-voting.md).
+- **새 도구 `performance_analysis`.** 종목·업종·순위·바스켓·블렌드의 누적·연율 수익률, 변동성과 최대 낙폭, 샤프·소르티노, 벤치마크 대비 초과수익·베타·알파를 계산하고, 종목·업종별 기여와 업종 배분·선택을 분해합니다. 아래 「새 도구 `performance_analysis`」 절.
+- v2.7.3 이후 아래 절들의 변경을 모두 담습니다.
+
 ## 2026-10-26
 
 ### `proxy_advise_before_meeting` 은퇴 — 의결권 권고는 공개 서버의 `proxy_advice_*` 네 도구로
