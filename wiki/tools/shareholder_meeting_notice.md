@@ -4,7 +4,7 @@ title: shareholder_meeting_notice
 domain: data
 updated: 2026-10-18
 description: 주주총회 소집공고 (사전) — DART API/XML 기반 · 이사회 소집결의(scope=resolution)
-related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_structure, proxy_contest, evidence]
+related: [shareholder_meeting_results, ownership_structure, proxy_contest, evidence]
 ---
 
 # shareholder_meeting_notice
@@ -16,7 +16,7 @@ related: [shareholder_meeting_results, proxy_advise_before_meeting, ownership_st
 
 소스와 안정성이 다르다 — notice 는 DART API/XML(0.5-1.5s, 안정), results 는 KIND scraping(4.9s,
 fragile)이다. 한 tool 에 묶으면 fragile 한 쪽이 안정된 쪽까지 느리게·불안하게 만든다.
-`proxy_advise_before_meeting` / `shareholder_meeting_results` 의 사전·사후 분리와 같은 축이다.
+의결권 권고 도구(`proxy_advice_*`) / `shareholder_meeting_results` 의 사전·사후 분리와 같은 축이다.
 
 ## scope (6종)
 
@@ -32,7 +32,7 @@ fragile)이다. 한 tool 에 묶으면 fragile 한 쪽이 안정된 쪽까지 �
 ### 폐지된 scope
 
 - `agenda` — summary에 hierarchy 통합 (silent fallback to summary)
-- `full` — 병렬 wrapper, 거의 사용 X. 종합 분석은 `proxy_advise_before_meeting` 호출 (silent fallback to summary)
+- `full` — 병렬 wrapper, 거의 사용 X. 종합 분석은 의결권 권고 도구(`proxy_advice_*`) 호출 (silent fallback to summary)
 
 ### 제거된 필드 (시점 분리)
 
@@ -81,7 +81,7 @@ sequenceDiagram
 - agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 포함한다.
 - `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`, **`withdrawn`**.
   - **`withdrawn`** = 회사가 이미 내려놓은 안건(후보 사퇴·선행 안건 결과로 자동 폐기). 표결 대상이
-    아니므로 [[proxy_advise_before_meeting]] 에서 `NO_VOTE` 로 간다. **목록에서 지우지는 않는다** —
+    아니므로 의결권 권고 도구(`proxy_advice_*`) 에서 `NO_VOTE` 로 간다. **목록에서 지우지는 않는다** —
     지우면 소집공고와 대조가 안 된다. 실측 고려아연 30·39(「자진 사퇴함에 따라 안건 폐기」)·
     BNK금융지주 23·24(「자동 폐기」)에 찬성이 나가고 있었다. 다른 관계보다 먼저 발화한다.
     **단 조건절 안의 「자동 폐기」는 아직 폐기가 아니다** — 「제3호 의안은 제2-6호 의안이 부결되는
@@ -105,7 +105,7 @@ sequenceDiagram
   명칭이 바뀌어 시행 전후 공고가 섞인다. 판단은 `role_class()`(파서 한 곳)로 하고 **산출물에는 원문
   직위명을 그대로** 싣는다 — 후보 `roleType`·안건 `declared_role` 모두 공고가 쓴 말이다(「독립이사」를
   「사외이사」로 바꿔 적지 않는다. 바꿔 적으면 표의 원문과 문자열이 갈려 거짓 충돌이 났다 — 실측
-  고려아연 2026-09-09 임시주총). [[proxy_advise_before_meeting]] 의 후보 평가도 같은 함수를 부른다.
+  고려아연 2026-09-09 임시주총). 의결권 권고 도구(`proxy_advice_*`) 의 후보 평가도 같은 함수를 부른다.
 - **`board_summary` 는 후보의 직위로, 사람 수로 센다.** 종전엔 안건 카테고리(제목)로 등장 횟수를
   셌다 — 「집중투표에 의한 이사 4인 선임의 건」은 카테고리가 「이사」라 그 아래 독립이사 4명이 사내로
   집계돼 「사외이사 후보: 0명」이 나갔고(고려아연 2026-09), 「사외이사 후보 1명」이 묶음·개별 안건에
@@ -223,7 +223,7 @@ sequenceDiagram
   못 보던 상태였다.
 
 ## 변경 이력
-- 2026-10-25: **잠정 재무제표 단위 판독 — 대괄호·전각 괄호와 조원·만원** (재무 점검 신규-#8, DATA-U1) — `provisional_financial_statement._FS_UNIT` 이 반각 둥근 괄호만 받아 「[단위: 백만원]」·「（단위：백만원）」는 빈 단위(계수 1=원)로, `_scale_factor` 가 조원·만원을 끝줄 1 로 읽었다. 이제 둥근·대괄호 반각·전각 4종(괄호 종류가 섞인 꼴 포함)을 받고 조원 1e12·만원 1e4 로 환산한다. 조원·만원은 **단위 선언이 그 단위로 시작할 때만**(앞의 「단위」·쌍점·공백을 뗀 뒤) 읽는다 — 설명 속 만원·조원(「원(단, 만원 미만 절사)」·「원 만원 미만 절사」·「천원·만원」·「억원, 조원」)이나 앞 글자가 다른 꼴(「100만원」·「십만원」·「천만원」·「십조원」)은 계수 그대로다(구분자 목록으로 자르지 않는다 — 감수 1·2회차 R1). 빈 단위=원 1·외화/「원」 없는 단위=값 없음·600자 창은 그대로, 새 키 없음. 2026 정기주총 소집공고 30건(판독 110회)에는 이 꼴이 0건이라 **예방 수정**이고, 30건의 판독 110회·파싱+지표 출력은 옛·새 코드가 같다. `proxy_advise_before_meeting` 도 같은 두 함수를 직접 불러 함께 바뀐다. 남은 것: 천만원·십만원·백억원·천억원·십조원 미인식, 더 가까운 「[단위: 주]」 선언이 있으면 값이 빔(틀린 값이 아니라 빈 값), 별도 칸 오선택(30건 중 최소 7건).
+- 2026-10-25: **잠정 재무제표 단위 판독 — 대괄호·전각 괄호와 조원·만원** (재무 점검 신규-#8, DATA-U1) — `provisional_financial_statement._FS_UNIT` 이 반각 둥근 괄호만 받아 「[단위: 백만원]」·「（단위：백만원）」는 빈 단위(계수 1=원)로, `_scale_factor` 가 조원·만원을 끝줄 1 로 읽었다. 이제 둥근·대괄호 반각·전각 4종(괄호 종류가 섞인 꼴 포함)을 받고 조원 1e12·만원 1e4 로 환산한다. 조원·만원은 **단위 선언이 그 단위로 시작할 때만**(앞의 「단위」·쌍점·공백을 뗀 뒤) 읽는다 — 설명 속 만원·조원(「원(단, 만원 미만 절사)」·「원 만원 미만 절사」·「천원·만원」·「억원, 조원」)이나 앞 글자가 다른 꼴(「100만원」·「십만원」·「천만원」·「십조원」)은 계수 그대로다(구분자 목록으로 자르지 않는다 — 감수 1·2회차 R1). 빈 단위=원 1·외화/「원」 없는 단위=값 없음·600자 창은 그대로, 새 키 없음. 2026 정기주총 소집공고 30건(판독 110회)에는 이 꼴이 0건이라 **예방 수정**이고, 30건의 판독 110회·파싱+지표 출력은 옛·새 코드가 같다. 의결권 권고 도구(`proxy_advice_*`) 도 같은 두 함수를 직접 불러 함께 바뀐다. 남은 것: 천만원·십만원·백억원·천억원·십조원 미인식, 더 가까운 「[단위: 주]」 선언이 있으면 값이 빔(틀린 값이 아니라 빈 값), 별도 칸 오선택(30건 중 최소 7건).
 - 2026-10-18: **`scope="resolution"` 신설 — 이사회 소집결의**(거래소 공시) 본표·안건표·후보표 원문 + 결의 정정 이력(판마다 정정 비교표, 원공시 날짜 대조, 대조표만 있는 판 뒤의 값 변경 경고). 소집공고가 아직 없는 임시주총이 「주총 없음」으로 보이던 것. `summary` 가 공고를 못 찾으면 next_actions 에 `resolution` 을 안내.
 - 2026-09-09: 표 파서가 DART 셀 태그 `<TE>`/`<TU>` 를 못 읽어 **열이 잘리던** 것 수정
   (`_CELL_TAGS`). `<TE>` 는 `<TD>` 와 같은 행에 섞여 오므로 증상은 「행이 빈다」가 아니라
@@ -247,7 +247,7 @@ sequenceDiagram
 ## ref
 
 - 주총 결과 의결: [[shareholder_meeting_results]]
-- 종합 분석 (안건별 FOR/AGAINST): [[proxy_advise_before_meeting]]
+- 종합 분석 (안건별 FOR/AGAINST): 의결권 권고 도구(`proxy_advice_*`)
 - 후보 평가 (사용자 노출 X — proxy_advise chain): director_evaluation (services internal)
 - 지분 구조: [[ownership_structure]]
 - 분쟁 맥락: [[proxy_contest]]

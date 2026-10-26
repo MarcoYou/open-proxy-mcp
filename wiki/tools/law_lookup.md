@@ -170,7 +170,7 @@ SSOT(`law_provisions.json`)로만 말한다 — 아래 항 단위 게이트.
 - 2026-10-18: 근거 목록(`evidence_refs`)을 결과에 처음 나온 법 순서(순위)대로 — 종전엔 법 이름 집합을 돌아 문자열 해시 씨앗에 따라 프로세스(머신·재시작)마다 순서가 바뀌었다(「자기주식 처분」: 상법·자본시장법·공정거래법이 씨앗마다 다른 순서).
 
 ## 관련 페이지
-- [[proxy_advise_before_meeting]] — 회사 주총 안건 판단(정관 본문↔안건). law_lookup은 그 하위 법령 지식 조회.
+- 의결권 권고 도구(`proxy_advice_*`) — 회사 주총 안건 판단(정관 본문↔안건). law_lookup은 그 하위 법령 지식 조회.
 - [[rules/laws/README]] — 법령 자료 입구(SSOT·bridge·corpus)
 - [[상법-2025-2026-종합]] — 상법 개정 사람 가독 master
 - 신설·후속 회고와 v2 로드맵: private storage `wiki-private/lessons/`

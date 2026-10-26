@@ -150,19 +150,6 @@ def test_no_module_references_an_undefined_global_name():
     assert not bad, bad
 
 
-def test_independence_dict_covers_director_evaluation_results():
-    """sub_factor `result` 는 director_evaluation 이 뱉는다. 25사 스윕엔 미성년·결격 후보가
-    없어 안 잡혔고 사전 감사(producer→사전 방향)로만 드러났다(260728).
-    """
-    import inspect, re as _re
-    from open_proxy_mcp.services import director_evaluation as de
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _INDEP_RESULT_KO
-    src = inspect.getsource(de)
-    produced = set(_re.findall(r'"result":\s*"([a-z_]+)" if [^\n]*else "([a-z_]+)"', src))
-    flat = {v for pair in produced for v in pair}
-    assert flat, "producer 값을 못 읽었다 — 테스트가 무력화됐다"
-    missing = flat - set(_INDEP_RESULT_KO)
-    assert not missing, f"사전에 없는 result 값: {sorted(missing)}"
 
 
 def test_krw_formatter_always_carries_the_unit():

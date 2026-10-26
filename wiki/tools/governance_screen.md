@@ -30,7 +30,7 @@ updated: 2026-09-10
 | known_receipts | list[str] | no | 이미 본 14자리 접수번호 최대 10,000개. 새 공시 목록에서 제외 | null |
 | format | str | no | `md`, `json` | md |
 
-추가 원문은 `type: dart`와 `rcept_no`, 또는 `type: kind`와 고정 `https://kind.krx.co.kr/external/.../*.htm` 주소를 받는다. 임의 URL은 받지 않는다. 선택 인자는 `source_scope`(`candidate`, `company_context`, `agenda_context`), `focus_terms`(최대 6개), `text_offset`(0–2,000,000), `text_chars`(1,000–30,000, 기본 12,000)이다. 공통 원문 읽기 계약은 [[proxy_advise_before_meeting]]과 공유한다.
+추가 원문은 `type: dart`와 `rcept_no`, 또는 `type: kind`와 고정 `https://kind.krx.co.kr/external/.../*.htm` 주소를 받는다. 임의 URL은 받지 않는다. 선택 인자는 `source_scope`(`candidate`, `company_context`, `agenda_context`), `focus_terms`(최대 6개), `text_offset`(0–2,000,000), `text_chars`(1,000–30,000, 기본 12,000)이다. 공통 원문 읽기 계약은 의결권 권고 도구(`proxy_advice_*`)과 공유한다.
 
 ## 사용 흐름
 

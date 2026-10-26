@@ -183,7 +183,7 @@ def register_tools(mcp):
         extra_keywords: 이번 검색에만 더할 말(쉼표). exclude_keywords: 뺄 말(쉼표).
         days: 최근 며칠까지 볼 것인가 (기본 365).
         limit: 표에 실을 최대 건수 (기본 10, 최대 30).
-        ref: director_board (이사회 구성), proxy_advise_before_meeting (안건 판단), risk_events (회사 리스크 공시)
+        ref: director_board (이사회 구성), risk_events (회사 리스크 공시)
         """
         payload = await build_payload(name, company=company, press=press,
                                       days=days, limit=limit,

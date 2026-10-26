@@ -237,7 +237,7 @@ sequenceDiagram
 - 2026-07-31: `metrics_summary`에 `prior`·`note`·`note_ref` 추가 — 준수/미준수보다 **사유**가 판단에
   더 닿는다. 비고가 「(세부원칙 4-1) 참고」처럼 다른 절을 가리키기만 하면 그 절의 응답을 `note_ref`로
   데려온다(세부원칙은 같은 문서에서 이미 파싱 — 추가 DART 콜 0, 원문 `note`는 보존). 표(「표 1-1-1
-  참고」)는 해소하지 않는다. 소비처는 [[proxy_advise_before_meeting]]의 `governance_non_compliant`.
+  참고」)는 해소하지 않는다. 소비처는 의결권 권고 도구(`proxy_advice_*`)의 `governance_non_compliant`.
 - 2026-05-01: tool wiki 페이지 작성.
 - 2026-04-29: 금융지주 형식 분리 · `timeline` scope 추가(transitions 자동 감지).
 - 2026-04-22: tool 신설(15지표 파싱) · 의무 범위 정정(2026 KOSPI 전체).

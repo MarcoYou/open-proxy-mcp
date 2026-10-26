@@ -13,7 +13,7 @@ updated: 2026-09-03
 # proxy_guideline — 의결권 판단 기준 문서 조회
 
 ## 한 줄 요약
-`proxy_advise_before_meeting` 의 판정 사유에 「OPM Guideline §2.4 이사 선임 — against ①「사외이사
+의결권 권고 도구(`proxy_advice_*`) 의 판정 사유에 「OPM Guideline §2.4 이사 선임 — against ①「사외이사
 5년 룰」·②「6년 초과 재직」… ▸ 엔진: …」처럼 붙는 **인용이 가리키는 원문**을 읽는다.
 `section="2.4"` 로 열면 그 절의 against 목록 ①번이 그 문장이다. 회사·DART 무관, **API 호출 0**.
 
@@ -69,6 +69,6 @@ OPM Guideline §2.4 이사 선임 — against ①「사외이사 장기연임 5�
   패키지 데이터(`open_proxy_mcp/data/guideline/`)라 코드와 함께 배포된다.
 
 ## 관련
-- [[proxy_advise_before_meeting]] — 이 문서를 인용하는 쪽
+- 의결권 권고 도구(`proxy_advice_*`) — 이 문서를 인용하는 쪽
 - [[law_lookup]] — 법령 조문 자체를 묻는 조회기
 - `decisions/open-proxy-guideline` — 원문 위치 안내문

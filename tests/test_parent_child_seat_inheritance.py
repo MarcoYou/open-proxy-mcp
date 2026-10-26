@@ -219,41 +219,5 @@ def test_parent_carries_the_candidate_proposer_mix():
     assert "candidate_proposer_mix" not in parent
 
 
-def test_render_shows_the_mix_next_to_the_parent_proposer():
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-    payload = {"subject": "테스트", "data": {"meeting_info": {}, "agenda_decisions": [
-        {"agenda_title": KZ_PARENT, "decision": "FOR", "reason": "r",
-         "proposer_type": "shareholder_proposal",
-         "candidate_proposer_mix": {"shareholder_proposal": 2, "company": 2}},
-    ]}}
-    out = _render(payload)
-    assert "| **주주** (후보: 주주 2·이사회 2) |" in out
 
 
-def test_render_says_unconfirmed_not_violated_for_a_nominated_candidate():
-    """🔴 「주주가 제안한 후보 — 소속 관계는 확인되지 않음」을 「위반」이라 적지 않는다."""
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-
-    def _cand(name, aff_result, msr="independent"):
-        return {"name": name, "role_type": "사외이사", "agenda_action": "신임",
-                "independence": {"summary": "proposer_nominated" if aff_result == "proposed_by_shareholder" else "weak_concerns",
-                                 "sub_factors": {
-                                     "major_shareholder_relation": {"result": msr},
-                                     "recent_3y_transactions": {"result": "no_transactions"},
-                                     "recent_2y_employee": {"result": "outsider"},
-                                     "five_year_rule": {"result": "first_term_or_short"},
-                                     "proposer_affiliation": {"result": aff_result}}},
-                "disqualification": {"summary": "clean"}, "faithfulness": {}}
-
-    payload = {"subject": "테스트", "data": {"meeting_info": {}, "agenda_decisions": [],
-               "candidates_evaluations": [
-                   _cand("갑", "proposed_by_shareholder"),
-                   _cand("을", "employed_by_proposer"),
-                   _cand("병", "proposed_by_shareholder", msr="related"),
-               ]}}
-    out = _render(payload)
-    rows = {ln.split("|")[1].strip(): ln for ln in out.splitlines() if ln.startswith("| ")}
-    assert "미확인: 제안 측 소속 여부" in rows["갑"] and "위반" not in rows["갑"]
-    assert "위반: 제안 측 소속 여부" in rows["을"]
-    assert "위반: 최대주주 관계" in rows["병"]
-    assert "미확인: 제안 측 소속 여부" in rows["병"]

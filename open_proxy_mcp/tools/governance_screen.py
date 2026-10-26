@@ -106,7 +106,7 @@ def register_tools(mcp):
         rule: 먼저 assessment_task 원문을 읽고 같은 인자+governance_assessments로 재호출. 공개매수·행동주의·소송 자체는 부정 신호가 아니며 당사자 주장과 판결·계약과 결제를 구분. 누락은 해당 항목만 건너뜀. 실제 투표 없음.
         evidence_sources: [{company: 입력 회사명, sources: [{type: dart, rcept_no: 14자리, focus_terms?: [...], text_offset?: 0, text_chars?: 12000}]}]. 회사당 최대 5건. 현재 source 요청을 유지하고 필요한 원문 창을 추가/교체하면 task_id도 변경.
         since: YYYYMMDD. known_receipts와 함께 새 접수번호 목록을 좁힐 뿐 평가 원문 범위는 유지. 호출자가 checkpoint를 보존하며 예약 작업은 만들지 않음.
-        ref: proxy_advise_before_meeting, proxy_contest, evidence, company
+        ref: proxy_contest, evidence, company
         """
         if format not in {"md", "json"}:
             raise ValueError("format must be md or json")

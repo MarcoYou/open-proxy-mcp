@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-green.svg)](https://modelcontextprotocol.io/)
-[![Tools](https://img.shields.io/badge/tools-33-orange.svg)](#工具结构33-项工具)
+[![Tools](https://img.shields.io/badge/tools-32-orange.svg)](#工具结构32-项工具)
 [![Release](https://img.shields.io/badge/release-v2.7.3-blue.svg)](docs/RELEASE_NOTES_ENG.md)
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
 [한국어](README.md) · [English](README_ENG.md)
 
-[快速开始](#快速开始) · [可以问什么](#可以问什么) · [如何阅读结果](#如何阅读结果) · [最近更新](#最近更新) · [工具结构](#工具结构33-项工具) · [数据来源](#数据来源)
+[快速开始](#快速开始) · [可以问什么](#可以问什么) · [如何阅读结果](#如何阅读结果) · [最近更新](#最近更新) · [工具结构](#工具结构32-项工具) · [数据来源](#数据来源)
 
 </div>
 
@@ -126,9 +126,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=您的_DART_API_密钥
 
 ---
 
-## 工具结构（33 项工具）
+## 工具结构（32 项工具）
 
-上述八个领域共由 **33 项工具**支持。分类以[工具目录](wiki/tools/README.md)中的「想了解什么时用什么」表为准，各工具的提问示例与结构也在其中。
+上述八个领域共由 **32 项工具**支持。分类以[工具目录](wiki/tools/README.md)中的「想了解什么时用什么」表为准，各工具的提问示例与结构也在其中。
 
 <details>
 <summary><b>展开工具列表</b></summary>
@@ -139,7 +139,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=您的_DART_API_密钥
 |---|---|---|
 | 🏢 查找公司 | [`company`](wiki/tools/company.md) | 识别公司并列出最近公告 —— 所有分析的起点 |
 | 🔔 公告扫描与审查 | [`screener`](wiki/tools/screener.md), [`governance_screen`](wiki/tools/governance_screen.md) | 全市场公告摘要与行业动向 · 指定公司的治理审查顺序（试点） |
-| 🗳️ 股东大会与代理投票 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_advise_before_meeting`](wiki/tools/proxy_advise_before_meeting.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 会议通知（会前）与结果（会后）· 逐项赞成/反对/需要审查 · 政策原文 |
+| 🗳️ 股东大会与代理投票 | [`shareholder_meeting_notice`](wiki/tools/shareholder_meeting_notice.md), [`shareholder_meeting_results`](wiki/tools/shareholder_meeting_results.md), [`proxy_guideline`](wiki/tools/proxy_guideline.md) | 会议通知（会前）与结果（会后）· 政策原文 |
 | 💰 股权、财务与治理 | [`ownership_structure`](wiki/tools/ownership_structure.md), [`financial_metrics`](wiki/tools/financial_metrics.md), [`provisional_earnings`](wiki/tools/provisional_earnings.md), [`business_details`](wiki/tools/business_details.md), [`asset_holdings`](wiki/tools/asset_holdings.md), [`price_multiple_data`](wiki/tools/price_multiple_data.md), [`forward_estimates_data`](wiki/tools/forward_estimates_data.md), [`trading_data`](wiki/tools/trading_data.md), [`performance_analysis`](wiki/tools/performance_analysis.md), [`corp_gov_report`](wiki/tools/corp_gov_report.md), [`director_board`](wiki/tools/director_board.md) | 股权结构 · 已确认/初步业绩 · 业务内容 · 资产股 · PER/PBR · 一致预期与修正 · 行情、指数、利率 · 收益率、风险、贡献 · 公司治理报告 · 董事会 |
 | 🎁 股东回报与资本 | [`dividend_disclosure`](wiki/tools/dividend_disclosure.md), [`dividend_data`](wiki/tools/dividend_data.md), [`treasury_share`](wiki/tools/treasury_share.md), [`value_up`](wiki/tools/value_up.md), [`shareholder_commitment`](wiki/tools/shareholder_commitment.md), [`corporate_restructuring`](wiki/tools/corporate_restructuring.md), [`dilutive_issuance`](wiki/tools/dilutive_issuance.md) | 分红公告与历史 · 库存股 · 价值提升 · 承诺与执行 · 合并/分拆 · 增资、可转债/附认股权证债券、减资 |
 | ⚔️ 争夺、交易与风险 | [`proxy_contest`](wiki/tools/proxy_contest.md), [`corporate_deals`](wiki/tools/corporate_deals.md), [`order_contracts`](wiki/tools/order_contracts.md), [`risk_events`](wiki/tools/risk_events.md), [`financial_notes`](wiki/tools/financial_notes.md), [`director_news`](wiki/tools/director_news.md) | 控制权争夺信号 · 股权收购/出售 · 订单与供货合同 · [风险事件](docs/features/en/risk-events.md) · 金融公司附注 · 董事候选人新闻 |
@@ -147,7 +147,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=您的_DART_API_密钥
 
 </details>
 
-**投票政策** —— `proxy_advise_before_meeting` 默认使用 OPM 自有的 **Open Proxy Guideline**（少数股东保护、治理透明、长期价值、可追溯性），并参考主要资产管理公司和国民年金公团的公开投票记录进行交叉核对。默认引擎会把需要进一步判断的问题保留为需要审查；另行选择的 v2 试点会把出席率和独立性用于候选人建议 —— 参见[试点输入与适用范围](wiki/tools/proxy_advise_before_meeting.md)。默认报告和详细政策引用以韩文提供；可以要求 AI 在保留证据和状态的同时用中文说明。
+**投票建议** —— 在公开服务器上，四个投票建议工具（`proxy_advice_start` → `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish`）为每项议案给出赞成、反对或需要审查的草案及理由。它们只读取判断基准时间之前公开的披露（会议通知、年度报告、审计与征集文件、法院披露），按投票指引（10 类议案）判断，并由服务器逐项检查。指引与检查在非公开服务器上运行，不在本仓库中。旧的 `proxy_advise_before_meeting` 已于 2026-10-26 退役。草案未经人工审核，也不会发送任何投票。
 
 ---
 

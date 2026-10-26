@@ -13,7 +13,7 @@ updated: 2026-10-21
 # shareholder_commitment
 
 ## 한 줄 요약
-밸류업 계획·배당·자사주 소각의 **약속 vs 실제 이행**을 연중 추적하는 Action Tool. `proxy_advise_before_meeting`이
+밸류업 계획·배당·자사주 소각의 **약속 vs 실제 이행**을 연중 추적하는 Action Tool. 의결권 권고 도구(`proxy_advice_*`)이
 주총이라는 1회성 이벤트의 판단이라면, 이 tool은 주총과 무관하게 스튜어드십/기관투자자 관여(engagement)
 관점에서 "작년에 공표한 계획을 실제로 지켰나"를 본다. 자사주 소각 사이클마다 **매입시점 BPS 대비 실제
 매입가**를 비교해 장부가(BPS) 기준 손익을 원화로 계산한다(내재가치 판단은 하지 않음, 장부가 사실만).
@@ -206,7 +206,7 @@ CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이
 - 2026-09-07: 배당수익률 주석의 테이블 이름 `krx_weekly` → 「KRX 연말 종가」.
 
 ## 관련
-- [[proxy_advise_before_meeting]] — 유일한 다른 Action Tool, 주총 1회성 판단 vs 이 tool의 연중 추적
+- 의결권 권고 도구(`proxy_advice_*`) — 유일한 다른 Action Tool, 주총 1회성 판단 vs 이 tool의 연중 추적
 - [[value_up]] / [[corp_gov_report]] / [[dividend_disclosure]] / [[treasury_share]] — upstream 재사용 tool 4종
 - [[financial_metrics]] — 연말 폴백의 지배자본(`controlling_equity_krw`) 소스
 - [[price_multiple_data]] — BPS·PBR 분모 = 지배자본, 같은 공용 규칙(`services/controlling_eq`)

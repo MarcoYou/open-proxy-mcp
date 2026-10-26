@@ -117,7 +117,7 @@ def register_all_resources(mcp: MCPServer) -> None:
         "opm://guideline",
         name="Open Proxy Guideline",
         description=(
-            "OPM 의결권 행사 정책 원문. proxy_advise_before_meeting 의 판정 사유에 "
+            "OPM 의결권 행사 정책 원문. 의결권 판정 사유에 "
             "「OPM Guideline §…」로 인용되는 기준 문서다. 특정 판정의 근거를 확인하거나 "
             "정책 전문이 필요할 때 읽는다."
         ),

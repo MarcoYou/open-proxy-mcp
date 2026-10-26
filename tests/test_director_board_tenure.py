@@ -209,18 +209,6 @@ def test_roster_absence_does_not_overwrite_the_notice_estimate():
     assert "board_tenure_source" not in ev["appointment_type"]
 
 
-def test_not_evaluated_renders_without_none_values():
-    """「평가 안 함」을 「저조」처럼 보이게 하거나 None 을 찍으면 안 된다."""
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-    out = _render({"status": "ok", "subject": "테스트", "data": {"year": 2026,
-        "agenda_count": 0, "candidates_count": 1,
-        "candidates_evaluations": [{"name": "김동춘", "role_type": "inside",
-            "performance": {"classification": "not_evaluated",
-                            "rationale": "등기이사 재직이 2026년부터라 평가할 사업연도가 부족합니다.",
-                            "tenure_period": None}}]}})
-    assert "not_evaluated" not in out
-    assert "None" not in out
-    assert "평가하지 않음" in out and "사업연도가 부족" in out
 
 
 def test_company_match_reads_the_raw_career_text():
@@ -517,21 +505,6 @@ def test_committee_membership_comes_from_the_duty_field():
     assert f("영업") == [] and f("") == []
 
 
-def test_governance_report_confirms_the_gender_signal():
-    """기업지배구조보고서 15개 핵심지표에 「이사회 구성원 모두 단일성(性)이 아님」이 있다.
-
-    260730 교차검증(5사): roster 여성 0명 ↔ 지표 「X」, 여성 있음 ↔ 「O」 — **불일치 0건**.
-    두 소스가 독립적으로 같은 말을 한다. 유안타증권은 지배구조보고서가 없어 정형만 있고,
-    그 빈틈을 `sexdstn` 신호가 메운다.
-    미준수 지표를 산출물에 싣는다 — 준수율(93.3%)만 보면 어느 지표가 빠졌는지 알 수 없다.
-    """
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-    out = _render({"status": "ok", "subject": "테스트", "data": {
-        "year": 2026, "agenda_count": 0, "candidates_count": 0,
-        "governance_non_compliant": ["이사회 구성원 모두 단일성(性)이 아님", "집중투표제 채택"]}})
-    assert "기업지배구조보고서 미준수 지표" in out
-    assert "이사회 구성원 모두 단일성(性)이 아님" in out
-    assert "집중투표제 채택" in out
 
 
 def test_formal_position_is_shown_alongside_the_self_declared_job():
@@ -574,29 +547,6 @@ def test_roster_career_fills_only_when_the_notice_has_none():
     assert "career_from_roster" not in has["faithfulness"]
 
 
-def test_estimated_tenure_is_labelled_in_the_classification():
-    """재직 기간이 정형이 아니라 추정이면 분류 라벨에 병기한다 — 「양호」만 보면 확신 있게 읽힌다.
-
-    게이트가 정형 재직기간을 「근속 오기재」로 버린 뒤 소집공고 추정으로 되돌아간 경우다
-    (실측 3/113). 그 추정의 정형 대조 일치율은 43%다.
-    정형 재직기간이 등기 기간인지 근속인지는 **표기 서식으로 가릴 수 없다** —
-    260730 실측 서식별 취임연령 이상률: 일자범위 1/8(12%) ≈ 「N년」 7/56(12%).
-    확정하려면 법인등기부가 필요하다(상법 §317, 상업등기법).
-    """
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-    def render(tenure_source):
-        return _render({"status": "ok", "subject": "T", "data": {
-            "year": 2026, "agenda_count": 0, "candidates_count": 1,
-            "candidates_evaluations": [{"name": "박성수", "role_type": "사내이사",
-                "performance": {"classification": "good", "classification_ko": "양호",
-                                "total_score": 4, "tenure_period": "2013 ~ 2026 (14년)",
-                                "tenure_source": tenure_source}}]}})
-    est = render("소집공고 세부경력 추정 — 2025년 사업보고서 임원현황의 재직기간은 근속연수로 보여…")
-    assert "**양호** (추정 기간 기준)" in est, est[est.find("재직 중 성과"):][:120]
-
-    firm = render("2025년 사업보고서 임원현황 기준 「사내이사」 · 재직기간 2015.11.01~")
-    assert "(추정 기간 기준)" not in firm, "정형 근거일 때는 붙이지 않는다"
-    assert "**양호**" in firm
 
 
 def test_unpaired_period_falls_back_to_the_raw_cells():
@@ -662,34 +612,6 @@ def test_split_doubt_signals_and_raw_fallback_chain():
     assert f({"careerDetails": [{"period": "2020 ~ 현재", "content": "㈜영풍 사장"}]}) == []
 
 
-def test_not_evaluated_reason_separates_unknown_status_from_unknown_start():
-    """「등기인지 모른다」와 「등기는 맞는데 언제부터인지 모른다」는 다른 말이다.
-
-    260731 실측(대웅제약 박은경): 정형이 「사내이사」로 명시하고 임기 만료일까지 있는데
-    사유는 「등기이사 재직 시점을 확정할 근거가 없습니다 — 소집공고 경력란은 등기 여부를 적을
-    의무가 없습니다」로 나갔다. **등기 여부는 확정됐고 시작 시점만 못 정한 것**인데
-    등기 여부를 모르는 것처럼 읽힌다.
-    """
-    from open_proxy_mcp.tools.proxy_advise_before_meeting import _render
-
-    def rationale(**perf):
-        out = _render({"status": "ok", "subject": "T", "data": {
-            "year": 2026, "agenda_count": 0, "candidates_count": 1,
-            "candidates_evaluations": [{"name": "박은경", "role_type": "사내이사",
-                                        "performance": {"classification": "not_evaluated", **perf}}]}})
-        return out
-
-    # 게이트가 시작연도를 버린 경우 — 등기는 확인됐다고 말해야 한다
-    txt = rationale(rationale="2025년 사업보고서 임원현황이 「사내이사」로 밝혀 등기이사인 것은 "
-                              "확인되나, 재직기간 표기(2010.1 ~現)가 근속연수로 보여 등기 시작 "
-                              "시점을 확정하지 못했습니다.")
-    assert "등기이사인 것은 확인되나" in txt
-    assert "등기 여부를 적을 의무가 없습니다" not in txt
-
-    # 미등기 확정은 별개 문구
-    txt2 = rationale(rationale="2025년 사업보고서 임원현황에 미등기임원으로만 올라 있어, "
-                               "등기이사로 재직한 기간이 없습니다.")
-    assert "미등기임원으로만" in txt2
 
 
 def test_roster_row_is_attached_only_when_the_start_is_not_confirmed():

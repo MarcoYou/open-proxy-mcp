@@ -37,7 +37,7 @@
 | 다가오는 주총의 후보 | `shareholder_meeting_notice`, `scope="summary"` | 같은 접수번호로 `scope="board"` | 후보를 현재 재직자로 단정하지 않기 |
 | 임기 만료가 가까운 감사 | 명부의 임기 원문과 보고 기준일 | 정정·임시주총·중도퇴임 공시와 대조 | 감사·감사위원·외부 회계감사인 구분; 기간만으로 만료일을 확정하지 않기 |
 | 주총 결과와 찬반율 | `shareholder_meeting_results` | 해당 회차의 소집공고, 근거 원문 | 가결 여부와 찬성률 구분; 발행주식·의결권주식·행사주식의 분모 구분 |
-| 의결권 검토 | `proxy_advise_before_meeting` | 반환된 누락 근거에 해당하는 도구, `proxy_guideline`, `law_lookup` | 정책·원문·AI 해석·사람 검토 여부를 분리 |
+| 의결권 검토 | `proxy_advice_start`(공개 서버) | `proxy_advice_read` → `proxy_advice_rules` → `proxy_advice_finish`, 필요하면 `law_lookup` | 정책·원문·AI 해석·사람 검토 여부를 분리 |
 | 오늘 달라진 공시 | `screener`로 기간·대상 지정 | 필요한 공시만 상세 조회 | 오늘 발생한 사건과 과거 사건의 오늘 정정공시 구분 |
 | 자산·가치평가 | `asset_holdings`, `price_multiple_data` | 재무와 보유지분 근거 | 장부가·시가·연결/별도·기준일을 유지; 겹치는 자산 중복 합산 금지 |
 

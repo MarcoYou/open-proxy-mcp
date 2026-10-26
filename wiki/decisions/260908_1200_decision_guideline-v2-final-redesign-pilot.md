@@ -5,7 +5,7 @@ date: 2026-09-08
 updated: 2026-09-10
 status: LLM human-unreviewed pilot
 version: v0.7.2-pilot
-related: [open-proxy-guideline, proxy_advise_before_meeting, governance_screen]
+related: [open-proxy-guideline, governance_screen]
 ---
 
 # OPM guideline v2 명세·설계·판정 로직 및 파일럿 검증
@@ -451,7 +451,7 @@ governance_screen(companies=["대상 회사"], as_of="다음_기준일",
 | 처리 경로 | 안건별 voting_workflow + 전체 요약 | 자동 처리 준비와 수동 검토를 분리. 실제 투표 전송·사람 승인 기록은 없음 |
 | 보관 | 평가와 결과는 해당 요청에서만 사용 | 사용자 조회 결과 저장 없음. 공개 원천 캐시와 고객의 별도 기록 정책은 구별 |
 
-전체 도구 인자의 정본은 [[proxy_advise_before_meeting]]이다. 인증정보는 호출 환경에서 처리하며
+전체 도구 인자의 정본은 `proxy_advise_before_meeting`(은퇴)이다. 인증정보는 호출 환경에서 처리하며
 문서·평가 JSON·출처 URL·오류 메시지에 넣지 않는다.
 
 ```json
