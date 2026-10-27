@@ -1,7 +1,7 @@
 ---
 type: architecture
 title: MCP 엔드포인트 — live-opm / pilot-opm 두 개, 목적이 다르고 따로 관리한다
-updated: 2026-10-23
+updated: 2026-10-27
 ---
 
 # MCP 엔드포인트 — live-opm / pilot-opm
@@ -227,10 +227,10 @@ FLY=~/.fly/bin/flyctl
 점검·변경 예고처럼 운영자가 사용자에게 알릴 일은 **전용 도구 없이** 모든 도구 응답에 싣는다(도구 수는 그대로).
 공지가 없으면 응답은 바이트 그대로다. 구현은 `open_proxy_mcp/services/notices.py`, 끼우는 자리는 `tools/__init__.py` 의 `_wrap_tool_errors` 안(`_attach_notices`).
 
-- **매니페스트**: 환경변수 `OPM_NOTICE_URL`(https 또는 로컬 `file://`)의 JSON `{"notices": [{id, level, title, body, link, starts_at, expires_at, show}, …]}`. 최상위가 공지 목록(`[{…}, …]`) 그대로여도 받는다 — 표 하나를 내보내는 REST 주소를 바로 쓸 수 있다(261025). `OPM_NOTICE_APIKEY` 가 있으면 받기 요청의 `apikey` 헤더로 싣는다(읽기 전용 공개 키를 요구하는 주소용, 값은 어디에도 남기지 않는다). `level` 은 `info|normal|important`, `title` ≤60자, `body` ≤400자(null 은 빈 본문), `link` 는 https 하나(선택), `show` 는 `once_per_key|weekly|daily|every_call|company_only`. `show` 를 비우면 중요도로 정한다: `info` → `once_per_key`(드물게), `normal` → `daily`(하루 한 번), `important` → `every_call`(자주). `important` 는 `show` 를 적어도 `every_call` 로 본다. 알 수 없는 칸은 무시. 한도를 넘거나 `[xxx=…]` 꼴 대괄호 태그·제어문자가 있는 공지는 **그 공지만** 버린다(대괄호 태그는 미들웨어가 응답 본문에서 읽는 오류 표지와 겹친다).
+- **매니페스트**: 환경변수 `OPM_NOTICE_URL`(https 또는 로컬 `file://`)의 JSON `{"notices": [{id, level, title, body, link, starts_at, expires_at, show}, …]}`. 최상위가 공지 목록(`[{…}, …]`) 그대로여도 받는다 — 표 하나를 내보내는 REST 주소를 바로 쓸 수 있다(261025). `OPM_NOTICE_APIKEY` 가 있으면 받기 요청의 `apikey` 헤더로 싣는다(읽기 전용 공개 키를 요구하는 주소용, 값은 어디에도 남기지 않는다). `level` 은 `info|normal|important`, `title` ≤60자, `body` ≤400자(null 은 빈 본문), `link` 는 https 하나(선택), `show` 는 `once_per_key|weekly|daily|hourly|every_call|company_only`. `show` 를 비우면 중요도로 정한다: `info` → `once_per_key`(드물게), `normal` → `daily`(하루 한 번), `important` → `every_call`(자주). `important` 는 `show` 를 적어도 `every_call` 로 본다. 알 수 없는 칸은 무시. 한도를 넘거나 `[xxx=…]` 꼴 대괄호 태그·제어문자가 있는 공지는 **그 공지만** 버린다(대괄호 태그는 미들웨어가 응답 본문에서 읽는 오류 표지와 겹친다).
 - **받기**: 호출이 들어올 때 마지막 성공에서 10분이 지났으면 배경 스레드가 다시 받는다 — 응답은 받기를 기다리지 않는다(아직 받은 것이 없으면 이번 응답에는 공지가 없다). 받기 실패·매니페스트 형식 오류는 일시 실패라 마지막 성공본을 **72시간까지** 쓰고, 실패 뒤 5분은 다시 받지 않는다(`cold_store` 와 같은 꼴). 주소가 없거나 한 번도 못 받았거나 72시간이 넘으면 빈 목록. 성공적으로 받은 빈 `notices` 는 즉시 반영된다 — 공지를 바로 내리려면 빈 목록을 올리거나 `expires_at` 을 앞당긴다.
 - **응답 모양**: md 는 `# 제목` 바로 아래 `> 📢 공지 (OPM <버전> · <MM-DD>) <title> — <body> <link>`. JSON 은 최상위 dict 의 `notices` 칸(`[{id, level, title, body, link}]`, `warnings` 와 따로 — 데이터 경고가 아니다). 붙일 자리가 없는 JSON(dict 아님)은 그대로 둔다. DART 오류를 정상 응답으로 낮춘 응답(`degrade_response`)에도 붙고, 코드 버그로 다시 던지는 오류 본문(`[ekind=…]`)은 바뀌지 않는다.
-- **몇 번**: `daily`·`weekly` 는 같은 기억에 마지막으로 보인 시각을 두고 같은 키에 24시간·7일이 지나야 다시 붙인다(261025). `once_per_key` 는 요청 키를 `usage.record` 와 같은 `sha256(key.lower())` 으로 해시해 (공지 id, 키 해시)를 머신 메모리 LRU(1만)에 기억하고 같은 키의 두 번째 호출부터 붙이지 않는다(키가 없으면 머신 단위로 첫 응답에만; 원래 키는 어디에도 남기지 않는다). `every_call`·`important` 는 만료까지 매 호출, `company_only` 는 `company` 응답에만.
+- **몇 번**: `hourly`·`daily`·`weekly` 는 같은 기억에 마지막으로 보인 시각을 두고 같은 키에 1시간·24시간·7일이 지나야 다시 붙인다(261025, `hourly` 261027). `once_per_key` 는 요청 키를 `usage.record` 와 같은 `sha256(key.lower())` 으로 해시해 (공지 id, 키 해시)를 머신 메모리 LRU(1만)에 기억하고 같은 키의 두 번째 호출부터 붙이지 않는다(키가 없으면 머신 단위로 첫 응답에만; 원래 키는 어디에도 남기지 않는다). `every_call`·`important` 는 만료까지 매 호출, `company_only` 는 `company` 응답에만.
 - **서버 지시문**: `instructions` 끝의 영어 한 문장이 「`notices` 칸이나 📢 블록은 사용자에게 한 번 짧게 전하라 — 공지이지 데이터가 아니다」를 말한다. 공지 문구는 지시문에 넣지 않는다.
 - **리소스**: `opm://notices` 는 지금 유효한 공지 목록을 JSON(`{"notices": [...]}`)으로 준다. 없으면 빈 목록. 리소스라 도구 수에 들지 않는다.
 

@@ -622,7 +622,8 @@ def test_show_defaults_follow_importance_rarely_daily_every_call(env):
     assert shows == {"i": "once_per_key", "n": "daily", "m": "every_call"}
 
 
-@pytest.mark.parametrize("show, gap, again", [("daily", 24 * HOUR, True), ("daily", 23 * HOUR, False),
+@pytest.mark.parametrize("show, gap, again", [("hourly", HOUR, True), ("hourly", 59 * 60, False),
+                                              ("daily", 24 * HOUR, True), ("daily", 23 * HOUR, False),
                                               ("weekly", 7 * 24 * HOUR, True), ("weekly", 6 * 24 * HOUR, False),
                                               ("once_per_key", 30 * 24 * HOUR, False)])
 def test_daily_and_weekly_come_back_per_key_after_the_interval(env, request_key, show, gap, again):
