@@ -119,6 +119,7 @@ The full history is in the **[release notes](docs/RELEASE_NOTES_ENG.md)**. Only 
 
 | Date | What changed |
 |---|---|
+| 2026-10-26 | **Voting advice rebuilt (v3.0.0)** — four step tools (`proxy_advice_*`) that also read the articles of incorporation, audit opinion, proxy solicitations and court filings, with a choice of shareholder stance (conservative, neutral, active). The old `proxy_advise_before_meeting` is retired |
 | 2026-10-23 | **Financial accuracy** — cash-flow lines are read by account code; fractional EPS, prior-year values in years when the reporting currency changed, and financial-company warnings were corrected. Places that reported a failed lookup as "none" were fixed |
 | 2026-10-23 | **Operator notices** — maintenance and change announcements appear inside tool responses, more or less often depending on importance |
 | 2026-10-22 | **New tool `performance_analysis`** — returns, risk, contribution and sector breakdown, against official indices and treasury rates |
