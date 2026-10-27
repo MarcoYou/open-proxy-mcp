@@ -29,7 +29,7 @@ open_proxy_mcp/
   tools/               # public MCP tool facades
   services/            # 도메인 분석 로직
   dart/client.py       # DART API + KIND + throttle + cache
-  data/                # asset_managers/ (정책·매트릭스) · ksic/ (산업분류)
+  data/                # asset_managers/ (정책·매트릭스) · ksic/ (산업분류) · laws/ (법령 corpus·인덱스)
 scripts/               # wiki lint · 카탈로그 검사 · 법령 검증 · 시장 배치(cron) · 검증 하네스
 wiki/                  # 공개 지식 — 주제당 문서 하나, 최신판만 (wiki_schema.md 가 계약서)
   anecdotes/ archive/  # storage 심링크(gitignore) — 시계열 일화·회고·핸드오프 / 옛 판·풀린 핸드오프

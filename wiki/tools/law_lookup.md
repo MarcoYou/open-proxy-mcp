@@ -7,7 +7,7 @@ data_source: [legalize-kr 원문(상법·자본시장법·공정거래법·외�
 related_disclosures: [주주총회소집공고]
 related_concepts: [정관변경, 집중투표, 감사위원-의결권-제한, 5%-대량보유]
 created: 2026-07-13
-updated: 2026-10-19
+updated: 2026-10-27
 ---
 
 # law_lookup — 정관↔법령 양방향 조회
@@ -23,10 +23,10 @@ updated: 2026-10-19
 이 tool 은 정관↔법령을 양방향으로, 키워드·두루뭉술 질의로, 1:1·N:1·1:N·N:N 카디널리티로 잇는다.
 
 ## 데이터 소스
-- **corpus**: `wiki/rules/laws/corpus/` — legalize-kr(**github.com/legalize-kr/legalize-kr** — 원본.
+- **corpus**: `open_proxy_mcp/data/laws/corpus/`(패키지 데이터 — 261027 전에는 `wiki/rules/laws/corpus/`) — legalize-kr(**github.com/legalize-kr/legalize-kr** — 원본.
   260817 이전에는 포크 `MarcoYou/legalize-kr` 를 봤는데 7-02 에 멈춰 6주간 헛돌았다) 원문을
-  `scripts/sync_law_corpus.py`가 vendored 복사 + 조 단위 인덱스(`law_index.json`) + **조문 전문 형태소
-  BM25 인덱스(`law_bm25.json`, Signal C)** + 재현성 manifest.
+  `scripts/sync_law_corpus.py`가 vendored 복사 + 조 단위 인덱스(`law_index.json.gz`) + **조문 전문 형태소
+  BM25 인덱스(`law_bm25.json.gz`, Signal C)** + 재현성 manifest.
   범위 = 거버넌스 핵심 4법(상법·자본시장법·공정거래법·외부감사법) + 260902 확장 6법(금융회사 지배구조법·
   상증세법·금융지주회사법·금산법·은행법·보험업법), 각 법률+시행령 → **10법 20파일 3,949조**.
   확장 6법은 질의가 그 영역을 가리키는 말(금융회사·은행·보험·지주·상속·증여·적기시정조치 등)을 담고
@@ -117,7 +117,7 @@ SSOT(`law_provisions.json`)로만 말한다 — 아래 항 단위 게이트.
 `partial`(앵커 있으나 매칭 0) · `error`(인덱스 부재).
 
 ## 성능 (260714)
-인덱스(`law_index.json`·`law_bm25.json`)·synonyms·fulltext는 전역캐시 — 프로세스당 1회 로드. Signal C
+인덱스(`law_index.json.gz`·`law_bm25.json.gz`)·synonyms·fulltext는 전역캐시 — 프로세스당 1회 로드. Signal C
 형태소화에 **kiwipiepy**를 쓰는데 init이 무거워 **lazy 싱글턴**(첫 질의만 `cold ~1.1s`, kiwi 모델 로드 포함).
 이후 **warm ~1.3ms/query**(측정 당시 2,599조 스코어링 기준 — 260902 10법 3,949조로 늘었으나 여전히 ms 단위, DART 0콜). `data.timing_ms.build`로
 관측. 실측 new-tools-perf-profiling-260714.
@@ -161,6 +161,7 @@ SSOT(`law_provisions.json`)로만 말한다 — 아래 항 단위 게이트.
 - **corpus 미수록 법령**: 차등의결권·복수의결권(벤처기업육성법), 법인세법·소득세법·신탁법·여신전문금융업법 등 10법 밖 주제는 미수록 — `_OUT_OF_CORPUS_STATUTES`·사전 `out_of_corpus` 로 「범위 밖」 안내만 한다. 넣으면 그 표에서 지운다.
 
 ## 변경 이력
+- 2026-10-27: corpus 를 `wiki/` 밖 패키지 데이터(`open_proxy_mcp/data/laws/corpus/`)로 옮기고 두 인덱스를 gzip(mtime=0) 으로 — 설치된 패키지에서 `importlib.resources` 로 읽는다. 결과는 그대로다.
 - 2026-10-19: 질의 형태소 분석기(Kiwi)를 **별도 프로세스**에서 돌린다(`services/morph_worker.py`) — 첫 질의에 서버 RSS 가 약 470 MiB 늘고
   돌아오지 않던 것. 리눅스 실측: 첫 호출 +511 MiB 중 Kiwi 473(생성 260 + 첫 토큰화 213) · 인덱스 26 · BM25 10 · 원문 캐시(20개 파일 전부) ≤4 —
   의심받던 원문 캐시가 아니었다. 같은 프로세스에서 놓으면 233 만 돌아와서, 자식 프로세스에 두고 10분(`OPM_MORPH_IDLE_SEC`) 쉬면
