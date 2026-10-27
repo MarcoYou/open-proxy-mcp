@@ -1,6 +1,7 @@
 """Public MCP tool facades."""
 
 import asyncio
+import contextlib
 import functools
 import importlib
 import json
@@ -116,11 +117,9 @@ def _wrap_tool_errors(fn):
     return inner
 
 
-def register_all_tools(mcp):
-    """Register public tools with the shared exception boundary."""
-
-    import open_proxy_mcp.tools as tools_pkg
-
+@contextlib.contextmanager
+def tool_error_boundary(mcp):
+    """`mcp.tool` 로 등록되는 도구를 공통 경계(`_wrap_tool_errors` — 예외 안전망·공지)로 감싼다. 확장 패키지가 거는 도구도 같은 경계를 지나게 쓴다."""
     orig_tool = mcp.tool
 
     def wrapping_tool(*d_args, **d_kwargs):
@@ -133,11 +132,20 @@ def register_all_tools(mcp):
 
     mcp.tool = wrapping_tool
     try:
+        yield
+    finally:
+        mcp.tool = orig_tool
+
+
+def register_all_tools(mcp):
+    """Register public tools with the shared exception boundary."""
+
+    import open_proxy_mcp.tools as tools_pkg
+
+    with tool_error_boundary(mcp):
         for _importer, modname, _ispkg in pkgutil.iter_modules(tools_pkg.__path__):
             if modname.startswith("_"):
                 continue
             module = importlib.import_module(f"open_proxy_mcp.tools.{modname}")
             if hasattr(module, "register_tools"):
                 module.register_tools(mcp)
-    finally:
-        mcp.tool = orig_tool

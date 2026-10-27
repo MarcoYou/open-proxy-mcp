@@ -493,9 +493,19 @@ def test_server_instructions_get_one_english_sentence_and_no_notice_text(env):
 
     env.warm([_notice(title="지시문에 들어가면 안 되는 제목")])
     ins = build_mcp().instructions
-    assert ins.rstrip().endswith("it is an announcement, not data.")
+    assert "it is an announcement, not data." in ins     # 뒤에 다른 안내 문단(원문 읽기)이 붙어도 이 문장은 남는다
     assert "`notices`" in ins and "📢" in ins and "relay it to the user once" in ins
     assert "지시문에 들어가면 안 되는 제목" not in ins and "점검" not in ins
+
+
+def test_company_tool_description_tells_the_client_to_relay_the_notice_line(env):
+    """claude.ai 는 도구 결과 속 공지를 외부 문구로 보고 무시한다(261027 실측) — 도구 설명(서버가 정하는 채널)에도 한 줄을 둔다. 공지 문구는 넣지 않는다."""
+    from open_proxy_mcp.server import build_mcp
+
+    env.warm([_notice(title="설명에 들어가면 안 되는 제목")])
+    desc = next(t.description for t in asyncio.run(build_mcp().list_tools()) if t.name == "company")
+    assert "📢 공지" in desc and "사용자에게 한 번 짧게 전해" in desc
+    assert "설명에 들어가면 안 되는 제목" not in desc
 
 
 def _rpc(client, method, params, i=1):
@@ -569,9 +579,15 @@ def _fake_registry(monkeypatch):
                 return fn
             return deco
 
+        def resource(self, *a, **k):                           # 확장이 거는 리소스는 이 시험의 관심 밖
+            return lambda fn: fn
+
     monkeypatch.setattr(tools_pkg, "_wrap_tool_errors", fake_wrap)
     rec = Rec()
     tools_pkg.register_all_tools(rec)
+    from open_proxy_mcp.extensions import load_extensions
+
+    load_extensions(rec)                                       # 확장이 거는 도구(설치돼 있으면)도 같은 경계를 지나야 한다
     return rec.fns
 
 

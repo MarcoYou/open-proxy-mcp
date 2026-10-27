@@ -22,10 +22,13 @@ _hint_providers: list | None = None
 
 def load_extensions(mcp) -> list[str]:
     """설치된 확장의 `register(mcp)` 를 전부 부른다. 하나가 죽어도 나머지·서버는 산다."""
+    from open_proxy_mcp.tools import tool_error_boundary  # 확장이 거는 도구도 공개 도구와 같은 경계(예외 안전망·공지)를 지난다
+
     loaded: list[str] = []
     for ep in entry_points(group=_GROUP_REGISTER):
         try:
-            ep.load()(mcp)
+            with tool_error_boundary(mcp):
+                ep.load()(mcp)
             loaded.append(ep.name)
         except Exception as exc:  # noqa: BLE001 — 확장 하나가 서버를 못 죽인다
             logger.warning(f"[extensions] {ep.name} 등록 실패: {exc}")
