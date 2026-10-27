@@ -9,7 +9,7 @@
   환경변수 `OPM_NOTICE_URL`(https 또는 file:// — 로컬·시험). 없으면 이 모듈은 아무것도 하지 않고 도구 응답은 바이트 그대로다.
   {"notices": [{id, level("info"|"normal"|"important"), title(≤60자), body(≤400자), link(https 1개, 선택),
                 starts_at, expires_at(ISO 8601 — 시간대가 없으면 KST),
-                show("once_per_key"|"weekly"|"daily"|"every_call"|"company_only")}]}
+                show("once_per_key"|"weekly"|"daily"|"hourly"|"every_call"|"company_only")}]}
   최상위가 공지 목록(list) 그대로여도 받는다 — 표 하나를 그대로 내보내는 REST 응답(`[{…}, …]`)을 주소로 쓸 수 있게(261025).
   `OPM_NOTICE_APIKEY` 가 있으면 받기 요청에 `apikey` 헤더로 싣는다(읽기 전용 공개 키를 요구하는 주소용). 값은 어디에도 남기지 않는다.
   형식에 없는 칸은 무시한다. 한 공지가 한도·형식을 어기면(길이 초과·`[xxx=…]` 꼴 대괄호 태그·제어문자·https 아닌 링크…) **그 공지만** 버린다.
@@ -30,7 +30,7 @@
   · once_per_key: 요청 키(`dart.client._ctx_opendart_key`)를 `usage.record` 와 같은 `sha256(key.lower())` 으로 해시해 (공지 id, 키 해시)를
     머신 메모리 LRU(`_SEEN_MAX` = 1만)에 기억하고 같은 키의 두 번째 호출부터 붙이지 않는다. 키가 없는 요청은 머신 단위로 첫 응답에만.
     원래 키 값은 메모리·로그·응답 어디에도 남기지 않는다. 붙일 자리가 없어 못 붙인 응답은 본 것으로 치지 않는다.
-  · daily·weekly: 같은 기억에 마지막으로 보인 시각을 두고, 같은 키에 24시간·7일이 지나야 다시 붙인다(261025).
+  · hourly·daily·weekly: 같은 기억에 마지막으로 보인 시각을 두고, 같은 키에 1시간·24시간·7일이 지나야 다시 붙인다(261025, hourly 261027).
   · every_call·important: 만료까지 매 호출. company_only: `company` 도구 응답에만(매번).
 
 공지를 끼우다 어떤 오류가 나도 도구 응답은 그대로 나간다(`attach` 는 예외를 밖으로 내지 않는다).
@@ -68,11 +68,11 @@ _COMPANY_TOOL = "company"
 _KST = _dt.timezone(_dt.timedelta(hours=9))
 
 _LEVELS = ("info", "normal", "important")
-_SHOWS = ("once_per_key", "weekly", "daily", "every_call", "company_only")
+_SHOWS = ("once_per_key", "weekly", "daily", "hourly", "every_call", "company_only")
 #: 중요도별 기본 노출 — show 를 비운 공지(드물게 · 하루 한 번 · 매번).
 _DEFAULT_SHOW = {"info": "once_per_key", "normal": "daily", "important": "every_call"}
 #: 다시 보이기까지의 간격(초). once_per_key 는 간격 없이 한 번(기억이 밀려나기 전까지).
-_REPEAT_SEC = {"once_per_key": None, "weekly": 7 * 86400.0, "daily": 86400.0}
+_REPEAT_SEC = {"once_per_key": None, "weekly": 7 * 86400.0, "daily": 86400.0, "hourly": 3600.0}
 _ID_RX = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]*")
 #: `[ekind=…]` 꼴의 여는 부분. 닫는 대괄호가 없어도 막는다(미들웨어는 본문 바이트에서 표지를 찾는다).
 _TAG_RX = re.compile(r"\[\s*[A-Za-z_][A-Za-z0-9_ .-]*=")
@@ -384,7 +384,7 @@ def _key_hash() -> str:
 
 
 def _was_seen(nid: str, khash: str, within: float | None = None) -> bool:
-    """이 키에 이미 보였나. within(초)을 주면 그 안에 보였을 때만 참(daily·weekly), 없으면 한 번이라도 보였으면 참."""
+    """이 키에 이미 보였나. within(초)을 주면 그 안에 보였을 때만 참(hourly·daily·weekly), 없으면 한 번이라도 보였으면 참."""
     with _lock:
         shown = _seen.get((nid, khash))
         if shown is None:
