@@ -7,7 +7,7 @@ data_source: [value_up(계획), corp_gov_report(준수변화), dividend_disclosu
 related_disclosures: [기업가치제고계획, 기업지배구조보고서, 현금배당결정, 자기주식결정]
 related_concepts: [자사주, 주주환원]
 created: 2026-07-07
-updated: 2026-10-21
+updated: 2026-10-30
 ---
 
 # shareholder_commitment
@@ -200,6 +200,7 @@ CSR에는 반영하지 않는다 — 매입 vs 소각 괴리 자체가 신호이
 - 다중기업 배치·포트폴리오 스캔 미지원(단일기업 조회만).
 
 ## 변경 이력
+- 2026-10-30: 소각 정정 관계가 미확정이면 참고 소각금액의 `null`을 보존해 `N/M`으로 표시한다. 0원으로 바꾸지 않으며, 매입 기준 CSR 계산은 유지한다.
 
 - 2026-10-21: 자사주 소각 사이클 BPS 를 **지배자본**으로, 기준 시점을 **매입 기간 말까지 공시된 최신 재무상태표**로(종전: 자본총계 · 결과보고서 접수 해 말) — 사이클마다 `bps_basis`. 지주사 BPS 가 비지배만큼 부풀던 것을 바로잡는다(한화 ÷4.09 · CJ ÷3.27 · 삼성물산 ÷1.15, 2025 말 기준). 낡은 주석·이 문서의 옛 모듈명 `valuation.py` → `price_multiple_data.py`. 재무상태표 1콜이 통신 오류(시간 초과 등)로 실패해도 도구 전체가 죽지 않고 연말 길로 물러난다.
 - 2026-10-18: 상류(value_up·corp_gov_report·dividend_disclosure·treasury_share) 가운데 조회 실패(`status=error` 또는 예외)가 있으면 `status=partial`, 전부 실패면 `error` — 종전엔 상류가 모두 DART 오류로 실패해도 `exact` 였다(상류 경고만 옮겼다).

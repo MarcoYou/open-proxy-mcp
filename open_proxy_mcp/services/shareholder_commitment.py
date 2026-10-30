@@ -388,7 +388,7 @@ def _overall_shareholder_return(
         (acquisition_source.get("acquisition_amount_total_krw") or 0)
         + (acquisition_source.get("trust_contract_amount_total_krw") or 0)
     )
-    cancelation_krw = treasury_summary.get("cancelation_amount_total_krw") or 0  # 참고용, CSR 분자 아님(lookback_years 기준 그대로)
+    cancelation_krw = treasury_summary.get("cancelation_amount_total_krw", 0)  # 참고용, CSR 분자 아님(lookback_years 기준 그대로)
     total_return = dividend_krw + acquisition_krw
     csr_pct = round(total_return / net_income_krw * 100, 1) if net_income_krw > 0 else None
     return {

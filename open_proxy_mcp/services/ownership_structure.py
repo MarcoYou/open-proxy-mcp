@@ -871,6 +871,14 @@ async def _latest_block_rows(
     return latest_rows, timeline_rows, note
 
 
+def _treasury_quantity(value: Any) -> int | None:
+    """명시된 정수만 읽는다. 공란·대시·잘못된 값은 0으로 만들지 않는다."""
+    text = str(value).strip() if value is not None else ""
+    if not re.fullmatch(r"[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)", text):
+        return None
+    return int(text.replace(",", ""))
+
+
 def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any], *, bsns_year: str = "") -> dict[str, Any]:
     issued = 0
     treasury = 0
@@ -907,16 +915,25 @@ def _treasury_snapshot(stock_total: dict[str, Any], treasury_data: dict[str, Any
         distributable = _to_int(subtotal_row.get("distb_stock_co", "0"))
         # 우선주만 뺐다 — 종류주식 같은 다른 종류 행이 있으면 보통주만이라고 장담하지 못한다.
         basis_row, stock_class, common_only = subtotal_row, "합계-우선주", other_class_issued == 0
+        if other_class_issued and not preferred_issued:
+            # 의결권 유무는 보통주/종류주 구분이 아니다. 원래 합계 기준을 표시한다.
+            stock_class = str(subtotal_row.get("se") or "합계")
 
     rows = []
     for item in treasury_data.get("list", []):
+        methods = [str(item.get(f"acqs_mth{i}") or "") for i in (1, 2, 3)]
+        category = " / ".join(dict.fromkeys(v for v in methods if v and v != "-"))
         rows.append({
-            "category": item.get("se", ""),
-            "begin_shares": _to_int(item.get("bsis_qy", "0")),
-            "acquired_shares": _to_int(item.get("acqs_qy", "0")),
-            "disposed_shares": _to_int(item.get("dsps_qy", "0")),
-            "retired_shares": _to_int(item.get("inciner_qy", "0")),
-            "end_shares": _to_int(item.get("trmend_qy", "0")),
+            "category": category or str(item.get("se") or ""),
+            "stock_class": str(item.get("stock_knd") or ""),
+            "row_kind": "total" if methods[0] == "총계" else "subtotal" if methods[2] == "소계" else "detail",
+            "rcept_no": str(item.get("rcept_no") or ""),
+            "stlm_dt": str(item.get("stlm_dt") or ""),
+            "begin_shares": _treasury_quantity(item.get("bsis_qy")),
+            "acquired_shares": _treasury_quantity(item.get("change_qy_acqs")),
+            "disposed_shares": _treasury_quantity(item.get("change_qy_dsps")),
+            "retired_shares": _treasury_quantity(item.get("change_qy_incnr")),
+            "end_shares": _treasury_quantity(item.get("trmend_qy")),
         })
 
     return {

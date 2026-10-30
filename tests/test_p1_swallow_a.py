@@ -557,7 +557,7 @@ def test_ledger_batch_does_not_treat_partial_as_already_detailed():
             return self
 
         def fetchall(self):
-            return [("20261016000001",)]
+            return [({"rcept_no": "20261016000001", "kind": "dividend"},)]
 
     con = _Con()
     assert DL.already_detailed(con, ["20261016000001", "20261016000002"]) == {"20261016000001"}

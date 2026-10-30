@@ -8,7 +8,7 @@ related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식
 related_concepts: [자사주, 주주환원]
 related_decisions: [배당공시유형]
 created: 2026-05-01
-updated: 2026-10-24
+updated: 2026-10-30
 ---
 
 # treasury_share
@@ -39,6 +39,15 @@ treasury_share(
 양방향 링크된다(사이클 매칭). 신탁 체결은 취득, 신탁 해지는 처분과 같은 축에서 집계된다.
 
 ## 입력 인자
+
+### 저장된 API 입력 재사용
+
+`summary`는 저장 원장에서 검증 가능한 입력을 먼저 읽는다. 지원 대상은 취득·처분·신탁체결·신탁해지의 결정 API다. `events[].source_api`에는 버전, endpoint, 원 수집시각, 정규화에 쓰는 공개 API 필드와 그 SHA를 보존한다. 전체 HTTP 응답을 대신하는 사본은 아니다. 회사·접수·제목·날짜·필수 필드·SHA가 맞고 수집 후 7일 이내인 입력만 현재 정규화기로 재사용한다. 과거의 요약 숫자만 있는 상세는 다시 신뢰하지 않는다.
+
+현재 DART 공시 목록은 계속 조회한다. 저장 원장에 없다는 이유로 공시가 없다고 판단하지 않는다. 지원 유형의 일부 입력이 부족하면 그 날짜 구간만 API로 보완한다. 유형에 공시가 없거나 목록이 불완전하거나 제목 분류가 불명확하면 기존 전체 요청 구간의 API를 사용한다. 소각·결과보고서는 기존 원문 캐시와 파서를 사용하며 결정·실행·잔고를 합치지 않는다.
+
+`data.source_reuse`는 저장소 상태, 읽은 행 수, 재사용 거절 행 수, 재사용 접수번호, API 보완 유형을 구분한다. 기존 정상 원장 배치는 같은 기간·호출 한도 안에서 미검증 또는 만료된 지원 API 입력을 갱신한다. 배치 기간 밖 과거 행은 자동 백필하지 않는다. 조회 요청은 DB를 쓰지 않는다.
+
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
@@ -71,7 +80,10 @@ scope:
               "rcept_no": "...", "for_cancelation": true}],
   "annual": {"issued_shares": ..., "treasury_shares": ...,
              "treasury_pct": ..., "tradable_shares": ...,
-             "rows": [...]},
+             "rows": [{"category": "직접취득 / 소계", "stock_class": "보통주",
+                       "row_kind": "subtotal", "rcept_no": "...", "stlm_dt": "...",
+                       "begin_shares": null, "acquired_shares": null,
+                       "disposed_shares": null, "retired_shares": null, "end_shares": null}]},
   "no_filing": false,
   "filing_count": N,
   "usage": {"dart_api_calls": N, "mcp_tool_calls": 1}
@@ -81,6 +93,22 @@ scope:
 핵심 필드:
 - `acquisition_for_cancelation_*`: 소각 목적 취득 (실제 환원 검증의 핵심)
 - 5종 이벤트: `acquisition_decision` / `disposal_decision` / `trust_contract` / `trust_termination` / `cancelation_decision`
+
+## 소각 정정의 값과 집계
+
+소각결정은 실행 완료가 아니다. `scheduled_date`는 소각 예정일이며, 실제 집행·잔고와 구분한다.
+정정 공시에서는 비교표의 `정정전` 값을 읽지 않고, 표 뒤에 다시 실린 결정 본문을 읽는다.
+최종 본문이 없거나 후보가 여럿이면 값을 추측하지 않고 부분 실패로 알린다.
+
+- `correction_original_date`: 정정 서식에 명시된 원공시 제출일.
+- `correction_final_body`: 비교표와 구분한 최종 결정 본문을 읽었는지 표시.
+- `correction_relation_status`: `matched`는 회사 코드·원공시 제출일·결의일이 유일하게 연결된 정정, `unresolved`는 연결 미확정.
+- `superseded_rcept_nos`: 정정으로 대체한 원접수번호 목록. 출력에서 원문 링크를 유지한다.
+- `cancelation_correction_unresolved_count`: 연결 미확정인 정정 건수. 이 값이 양수이면 소각 수량·금액 합계는 `null`이며 경고와 `partial` 상태를 반환한다.
+
+원본 후보가 없거나 여럿이면 원공시를 임의로 지우지 않는다. 동일 날짜·동일 금액·동일 수량만으로 별개 결정을 합치지 않는다.
+정정으로 연결된 경우에는 최종 수량·금액만 합산한다. 첨부정정·철회·취소는 일반 수치 정정으로 연결하지 않는다.
+첨부정정·첨부추가의 원문 `014`·`404`는 기존의 정상 원문 부재 판정을 유지한다.
 
 ## Data sources
 - **DART API** (병렬 5개):
@@ -181,6 +209,8 @@ sequenceDiagram
   정상 부분집행(0.05~1.5)과 전량 블록딜 저가 처분은 통과시킨다 — 그건 오탐이 아니라 사실이다.
 
 ## 변경 이력
+- 2026-10-30: 연간 증감의 공식 API 필드와 원문 주식 종류·행 수준을 보존했다. Markdown에서 미기재를 0으로 표시하지 않으며 상세·소계·총계의 중복 합산을 금지한다. 셀트리온 사업보고서와 저장 API 응답으로 검증했다.
+- 2026-10-30: 소각 정정의 최종 본문 선택과 명시 원공시 연결을 적용했다. 변경 수량·금액의 이중 합산을 막고 별개 결정·미확정 관계를 보존한다. 실제 원공시·정정 원문과 앱 MCP 응답으로 확인한다.
 - 2026-10-24: **일부만 읽고도 `exact` 로 나가던 것** (P1 묶음 1, 재무 점검 P1-#90·#91·#94) — ① 결정 4종 조회·제목 검색 중 일부가 013 이 아닌 오류로 실패해도 다른 건이 있으면 `exact`·`all_parsed` 였다: 읽지 못한 조회 수를 `parsing_failures` 로 올려 `status=partial`(0건이면 종전대로 `error`). ② 소각결정 본문을 읽지 못한(020·800·014·404·STRICT_PIT_UNAVAILABLE·전송 오류) 건은 금액이 0 인 채 합계에 들어가고 `exact` 였다: 읽지 못한 건수를 `parsing_failures` 로 올리고 경고에 접수번호가 붙은 안내를 싣는다. 제목이 [첨부정정]·[첨부추가] 인 소각결정의 014·404 는 종전 경고만 남기고 상태는 바꾸지 않는다. 합계 숫자는 건드리지 않는다. 판정·문구는 `ownership_structure._dart_read_note` 하나(결정 조회 4종의 `013 만 없음` 판정은 그대로). ③ `scope="annual"` 은 `ownership_structure` 응답의 상태·경고를 버렸다: 상류가 `error` 면 `annual` 을 비우고, `partial` 이면 남기되 둘 다 `status=partial`(상류가 `error` 이고 이벤트도 0건이면 `status=error`·`filing_status=fetch_failed`)이고 상류 경고를 「[ownership_structure]」 접두로 옮긴다. 상류가 `exact` 면 경고를 옮기지 않는다(무관한 지분 경고가 연간 응답에 실리지 않게). **남은 한계**: 상류가 발행주식총수·자기주식 조회 하나만 실패해 경고만 달고 `exact` 로 나가는 경우는 이 응답이 구분하지 못한다. 상태 칸(`filing_status`·`parsing_failures`)은 연간 블록을 가져온 뒤 다시 내 `status` 와 같은 값에서 나온다. 새 응답 키·새 status 값은 없다.
 - 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-04-29: treasury_share tool 신설 (CSR 분자 정정 T22 → T23과 함께 도입)
