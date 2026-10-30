@@ -161,6 +161,10 @@ def _render(payload: dict[str, Any], scope: str) -> str:
                     lines.append(f"- 해지사유: {ev['termination_reason']}")
                 if ev.get("for_cancelation"):
                     lines.append(f"- ⚡ **소각 의도** (취득목적에 '소각' 명시)")
+                if ev.get("event") == "cancelation_decision" and ev.get("scheduled_date"):
+                    lines.append(f"- 소각 예정일: {ev['scheduled_date']} (실행 완료를 뜻하지 않음)")
+                for prior in ev.get("superseded_rcept_nos", []):
+                    lines.append(f"- 정정으로 대체한 원공시: [{prior}]({_viewer(prior)})")
                 lines.append(f"- [DART 본문]({_viewer(ev.get('rcept_no',''))})")
                 lines.append("")
 
@@ -183,18 +187,22 @@ def _render(payload: dict[str, Any], scope: str) -> str:
 
     if scope == "annual" and data.get("annual"):
         annual = data["annual"]
+        basis = annual.get("basis") or {}
         lines.extend([
             "",
             "## 연간 누적 (사업보고서 기준)",
+            f"- 기준일: {basis.get('stlm_dt') or '미확인'} · 주식 범위: {basis.get('stock_class') or '미확인'}",
             f"- 발행주식수: {annual.get('issued_shares', 0):,}주",
             f"- 자기주식수: {annual.get('treasury_shares', 0):,}주",
             f"- 자기주식 비율: {annual.get('treasury_pct', 0)}%",
             f"- 유통주식수: {annual.get('tradable_shares', 0):,}주",
         ])
         if annual.get("rows"):
-            lines.extend(["", "| 구분 | 기초 | 취득 | 처분 | 소각 | 기말 |", "|------|------|------|------|------|------|"])
+            lines.extend(["", "> 원문 공란·대시는 미기재로 표시한다. 상세·소계·총계는 중복 합산하지 않는다.", "| 구분 | 주식 종류 | 기초 | 취득 | 처분 | 소각 | 기말 |", "|------|------|------|------|------|------|------|"])
             for r in annual["rows"]:
-                lines.append(f"| {r.get('category', '')} | {r.get('begin_shares', 0):,} | {r.get('acquired_shares', 0):,} | {r.get('disposed_shares', 0):,} | {r.get('retired_shares', 0):,} | {r.get('end_shares', 0):,} |")
+                values = ["미기재" if r.get(k) is None else f"{r[k]:,}" for k in
+                          ("begin_shares", "acquired_shares", "disposed_shares", "retired_shares", "end_shares")]
+                lines.append(f"| {r.get('category', '')} | {r.get('stock_class', '')} | " + " | ".join(values) + " |")
 
     return "\n".join(lines)
 

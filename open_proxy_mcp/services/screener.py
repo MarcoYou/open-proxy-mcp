@@ -343,7 +343,7 @@ def _stage_tag(type_code: str, report_nm: str, subtype: str) -> str:
     if "해지" in core:
         return "해지"
     if "소각" in core:
-        return "소각(실행)"
+        return "결정(예정)" if "결정" in core or "결의" in core else "소각(단계 미확인)"
     if "결과" in core or "발행결과" in core:
         return "결과(확정)"
     if "공고" in core:
@@ -1083,18 +1083,22 @@ def _extract_order(payload: dict, rcept_no: str) -> dict:
 
 
 def _extract_treasury(payload: dict, rcept_no: str) -> dict:
-    # 실제 payload: data.events[] = {event, rcept_no, shares, amount_common_krw, amount_preferred_krw, ...}
     data = payload.get("data") or {}
-    events = data.get("events") or []
-    row = next((e for e in events if e.get("rcept_no") == rcept_no), events[0] if events else None) or {}
-    amt_c = row.get("amount_common_krw") or 0
-    amt_p = row.get("amount_preferred_krw") or 0
-    amount = (amt_c + amt_p) or None
-    return {
-        "amount_won": amount,
-        "shares": row.get("shares"),
-        "is_cancellation": row.get("event") == "cancelation_decision",
-    }
+    events = [e for e in (data.get("events") or []) if e.get("rcept_no") == rcept_no]
+    if len(events) != 1:
+        return {}  # 다른 접수의 첫 숫자를 이 공시의 상세로 저장하지 않는다.
+    row = events[0]
+    amount = row.get("amount_krw")
+    shares = row.get("shares")
+    if row.get("phase") == "execution":
+        amount = row.get("actual_amount_krw", row.get("acquired_amount_krw"))
+        shares = row.get("actual_shares", row.get("acquired_shares"))
+    result = {"amount_won": amount, "shares": shares,
+              "is_cancellation": row.get("event") == "cancelation_decision",
+              "matched_rcept_no": rcept_no, "event": row.get("event"), "phase": row.get("phase")}
+    if payload.get("status") == "exact" and row.get("source_api"):
+        result["source_api"] = row["source_api"]
+    return result
 
 
 def _extract_dividend(payload: dict, rcept_no: str) -> dict:

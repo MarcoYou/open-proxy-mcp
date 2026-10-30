@@ -2,7 +2,7 @@
 type: tool
 title: screener — 전체시장 공시 스크리너 / 아침 디제스트
 domain: action
-updated: 2026-10-24
+updated: 2026-10-30
 scope: [core preset, all, 유형 CSV, 흐름 보기]
 data_source: [DART OpenAPI list.json (corp_code 無 전체시장 필러) + 일별 시세 저장분 (보관된 최신 거래일의 시총·유니버스 순위, DART 0콜) + 유형별 파서 재사용(details) + 공시 이벤트 원장 dart_events (흐름 보기, DART 0콜)]
 related: [order_contracts, treasury_share, dividend_disclosure, dilutive_issuance, shareholder_meeting_notice, ownership_structure]
@@ -464,3 +464,7 @@ p50 18초 · p75 98초인데 **p90 은 27분**으로 뛴다. 즉 이득의 대�
 
 - 2026-07-15: 신규(22번째 tool). 전체시장 공시 스크리너 / 아침 디제스트. scan(4콜)+details(파서 재사용).
 - 2026-07-15: `domain: action` 부여 — upstream 파서 오케스트레이션 + 디제스트/루틴 구동(액션 산출물)로 재분류. 루틴 레시피 [docs/routines](../../docs/routines/screener-morning-digest.md) 연동.
+
+## 자사주 상세의 접수 연결
+
+자사주 상세는 요청한 접수번호와 유일하게 일치하는 이벤트만 읽는다. 일치 행이 없으면 다른 공시의 첫 행을 대신 쓰지 않는다. 결정 금액과 실제 집행 금액·수량을 구분하며 명시된 0은 보존한다. 소각 결정·결의는 `결정(예정)`, 실행 근거가 없는 소각 제목은 `소각(단계 미확인)`이다. 정상 상세에 포함된 검증 가능 API 입력은 기존 원장 배치가 함께 저장해 [[treasury_share]]에서 재사용한다.

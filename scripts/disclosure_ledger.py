@@ -277,10 +277,23 @@ def enrich(con, rows: list[dict]) -> None:
 def already_detailed(con, rcept_nos: list[str]) -> set[str]:
     if not rcept_nos:
         return set()
-    return {r[0] for r in con.execute(
+    from open_proxy_mcp.services import treasury_store
+    skipped = set()
+    rows = con.execute(
         # partial 은 채움이 아니다 — 조회 실패로 생긴 partial 이 굳지 않게 재스캔 창 안에서는 다시 받는다(재조회가 아무것도 못 뽑으면 UPSERT 가 옛 partial 을 지키고, 다시 partial 이면 새 partial 로 바뀐다 — 상세 칸이 줄 수 있다).
-        "SELECT rcept_no FROM dart_events WHERE rcept_no = ANY(%s) AND detail_status = 'parsed'",
-        (rcept_nos,)).fetchall()}
+        "SELECT jsonb_build_object('rcept_no',rcept_no,'corp_code',corp_code,'rcept_dt',rcept_dt,'report_nm',report_nm,'kind',kind,'detail',detail) FROM dart_events WHERE rcept_no = ANY(%s) AND detail_status = 'parsed'",
+        (rcept_nos,)).fetchall()
+    for (row,) in rows:
+        receipt = row['rcept_no']
+        if row['kind'] != 'treasury' or not treasury_store.family(row['report_nm']):
+            skipped.add(receipt)
+            continue
+        item = dict(row, rcept_dt=str(row['rcept_dt']).replace('-', ''))
+        valid, _ = treasury_store.reusable([dict(item, detail_status='parsed')], row['corp_code'], [item])
+        if receipt in valid:
+            skipped.add(receipt)
+    # 기존 lookback·콜 상한 안에서만 오래된 API 입력을 다시 채운다.
+    return skipped
 
 
 # ── 수집 ───────────────────────────────────────────────────────────────

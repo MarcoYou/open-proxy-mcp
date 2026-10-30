@@ -1,0 +1,52 @@
+[
+  {
+    "company": "iM금융지주",
+    "receipt": "20261028800294",
+    "shares_total": 1694609,
+    "amount_krw": 29999986340,
+    "original_filing_date": "2026-07-27",
+    "board_date": "2026-07-27",
+    "scheduled_date": "2026-11-17",
+    "raw_sha256": "6684560a1593bda5b4081f8c6dd9d722e0ec4fb3df6292232a3393b23134470b"
+  },
+  {
+    "company": "SK하이닉스",
+    "receipt": "20261026800524",
+    "shares_total": 23693272,
+    "amount_krw": 40004339063500,
+    "original_filing_date": "2026-08-19",
+    "board_date": "2026-08-19",
+    "scheduled_date": "2026-11-05",
+    "raw_sha256": "2b0bf6aa7681b1e27835fcc36c482ee0d0f363fbff4a74fbba07de54d1c1ef2b"
+  },
+  {
+    "company": "신한지주",
+    "receipt": "20261020800419",
+    "shares_total": 6538516,
+    "amount_krw": 699999943850,
+    "original_filing_date": "2026-07-23",
+    "board_date": "2026-07-23",
+    "scheduled_date": "2026-11-04",
+    "raw_sha256": "25e0651eb2d1d064e0fb6e974dbe93da4b3357dbad47cef21d9a7af2344b5e7f"
+  },
+  {
+    "company": "하나금융지주",
+    "receipt": "20261001800144",
+    "shares_total": 1885706,
+    "amount_krw": 249750164400,
+    "original_filing_date": "2026-07-24",
+    "board_date": "2026-07-24",
+    "scheduled_date": null,
+    "raw_sha256": "ebbfc6d9ed54731afe02506da4cb05f6aec0af22ba4633687bf9d142fc51b2b6"
+  },
+  {
+    "company": "메디톡스",
+    "receipt": "20260930900177",
+    "shares_total": 440635,
+    "amount_krw": 76719400485,
+    "original_filing_date": "2026-06-30",
+    "board_date": "2026-01-23",
+    "scheduled_date": "2026-12-24",
+    "raw_sha256": "70cddbfed15a08222d99d7bf1af64684732ef0d193beab58bcf3026d40023c47"
+  }
+]

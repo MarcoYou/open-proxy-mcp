@@ -47,6 +47,7 @@ from open_proxy_mcp.services.filing_search import (
     search_filings_by_report_name,
 )
 from open_proxy_mcp.services.ownership_structure import _dart_read_note
+from open_proxy_mcp.services import treasury_store
 
 
 _SUPPORTED_SCOPES = {"summary", "annual"}
@@ -254,6 +255,26 @@ def _parse_cancelation_body(text: str) -> dict[str, Any]:
     clean = re.sub(r"\s+", " ", clean).strip()
 
     result: dict[str, Any] = {}
+    # 정정표의 전/후 값 대신, 표 뒤에 다시 공시한 결정 본문만 읽는다.
+    if re.search(r"정정신고|정정사항", clean):
+        bodies = list(re.finditer(
+            r"(?:자기)?주식\s*소각\s*결정\s+1\.\s*소각할\s*주식", clean))
+        if len(bodies) != 1:
+            return {}
+        header = clean[:bodies[0].start()]
+        original = re.search(
+            r"정정관련\s*공시서류\s*제출일\s*(\d{4}-\d{2}-\d{2})", header)
+        title = re.search(r"정정관련\s*공시서류\s+(.+?)\s+2\.", header)
+        if original and title and re.fullmatch(
+            r"(?:자기)?주식\s*소각\s*결정", title.group(1).strip()):
+            try:
+                result["correction_original_date"] = date.fromisoformat(original.group(1)).isoformat()
+            except ValueError:
+                pass
+        clean = clean[bodies[0].start():]
+        # 기타사항의 과거 수치 인용이 빈 본문 필드를 채우지 않도록 한다.
+        clean = re.split(r"\d+\.\s*기타\s*투자판단", clean, maxsplit=1)[0]
+        result["correction_final_body"] = True
 
     # 1. 소각할 주식 — 종류 / 수량(주) / 발행주식총수 대비 비율
     # (a) 단일 종류만 표시: "소각할 주식의 종류 보통주식"
@@ -689,6 +710,7 @@ def _normalize_cancelation_row(item: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "event": "cancelation_decision",
+        "corp_code": item.get("corp_code", ""),
         "rcept_no": item.get("rcept_no", ""),
         "rcept_dt": item.get("rcept_dt", ""),
         "report_nm": item.get("report_nm", ""),
@@ -730,6 +752,8 @@ async def _enrich_cancelation_with_body(rows: list[dict[str, Any]], read_failed:
                 attachment="[첨부정정]" in title or "[첨부추가]" in title)
             if bad and read_failed is not None:
                 read_failed.append(note)
+            if not bad:
+                row["body_unavailable_attachment"] = True
             return None
 
     docs = await asyncio.gather(*[fetch(r) for r in rows])
@@ -739,12 +763,15 @@ async def _enrich_cancelation_with_body(rows: list[dict[str, Any]], read_failed:
             failures += 1
             continue
         parsed = _parse_cancelation_body(doc.get("text", "") or "")
-        if not parsed:
+        if not parsed or (parsed.get("correction_final_body")
+                          and (not parsed.get("shares") or not parsed.get("amount_krw"))):
             failures += 1
             continue
         # 핵심 필드만 병합 (메타는 list.json 우선)
         for key in ("shares", "amount_krw", "method", "share_type",
-                    "pct_of_issued", "scheduled_date", "board_date", "purpose"):
+                    "pct_of_issued", "scheduled_date", "board_date", "purpose",
+                    "shares_common", "shares_preferred", "correction_original_date",
+                    "correction_final_body"):
             if key in parsed and parsed[key] not in (None, "", 0):
                 row[key] = parsed[key]
         # 본문이 와도 amount/shares가 0이면 사실상 미파싱과 동일.
@@ -827,6 +854,7 @@ async def _fetch_decisions(
     end_de: str,
     *,
     timings_ms: dict[str, int] | None = None,
+    source_reuse: dict | None = None,
 ) -> tuple[dict[str, list[dict]], list[str], int, int]:
     """취득·처분·신탁체결·신탁해지 4개 API 병렬 호출 + 소각결정 list.json 검색.
 
@@ -848,11 +876,6 @@ async def _fetch_decisions(
                 return [], None
             return [], f"{label} 조회 실패: {exc.status}"
 
-    acq_task = safe(client.get_treasury_acquisition(corp_code, bgn_de, end_de), "취득결정")
-    dsp_task = safe(client.get_treasury_disposal(corp_code, bgn_de, end_de), "처분결정")
-    trc_task = safe(client.get_treasury_trust_contract(corp_code, bgn_de, end_de), "신탁계약 체결결정")
-    trt_task = safe(client.get_treasury_trust_termination(corp_code, bgn_de, end_de), "신탁계약 해지결정")
-
     async def treasury_title_search():
         stage_started_at = time.perf_counter()
         items, _notices, error = await fetch_filings_for_title_scan(
@@ -866,7 +889,7 @@ async def _fetch_decisions(
         _mark_timing(timings_ms, "fetch_decisions.title_search", stage_started_at)
         if error:
             return None, error
-        return items, None
+        return items, "TITLE_SCAN_INCOMPLETE" if _notices else None
 
     def cancelation_filter(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         stage_started_at = time.perf_counter()
@@ -901,14 +924,81 @@ async def _fetch_decisions(
         return filtered
 
     stage_started_at = time.perf_counter()
-    title_task = asyncio.create_task(treasury_title_search())
+    # 원장은 후보값만 제공한다. 현재 목록은 별도 확인해 새 정정과 미수집 유형을 놓치지 않는다.
+    async def stored_lookup():
+        try:
+            return await asyncio.to_thread(treasury_store.read_rows, corp_code, bgn_de, end_de)
+        except Exception:
+            return [], "unavailable"
+
+    (title_items, title_error), (stored_rows, stored_status) = await asyncio.gather(
+        treasury_title_search(), stored_lookup())
+    reusable, rejected = treasury_store.reusable(stored_rows, corp_code, title_items or [])
+    known_keywords = _CANCELATION_KEYWORDS + _ACQUISITION_RESULT_KEYWORDS + _DISPOSAL_RESULT_KEYWORDS + _TRUST_ACQ_STATUS_KEYWORDS + _TRUST_TERM_RESULT_KEYWORDS
+    ambiguous_titles = any(
+        any(word in re.sub(r"\s+", "", i.get("report_nm", "")) for word in ("자기주식", "신탁"))
+        and not treasury_store.family(i.get("report_nm"))
+        and not report_name_matches(i, known_keywords, strip_spaces=True)
+        for i in (title_items or []))
+    if title_error or ambiguous_titles:
+        reusable = {}
+    reused_receipts, api_sources = [], {}
+    if source_reuse is not None:
+        source_reuse.update({"store_status": stored_status, "stored_rows": len(stored_rows),
+                             "rejected_rows": len(rejected), "reused_receipts": reused_receipts,
+                             "inventory_source": "dart", "api_fallback_families": []})
+
+    async def api_family(key, method, label):
+        members = [i for i in (title_items or []) if treasury_store.family(i.get("report_nm")) == key]
+        ids = {i["rcept_no"] for i in members}
+        saved = {r: src for r, (k, src) in reusable.items() if k == key and r in ids}
+        missing = [i for i in members if i["rcept_no"] not in saved]
+        fresh, warning = [], None
+        if not members or missing or title_error:
+            # 하나의 원행이 부족해도 전체 회사·기간을 다시 읽지 않는다.
+            start, end = bgn_de, end_de
+            if members and missing and not title_error and not ambiguous_titles:
+                start = min(i["rcept_dt"] for i in missing)
+                end = max(i["rcept_dt"] for i in missing)
+            if source_reuse is not None:
+                source_reuse["api_fallback_families"].append(key)
+            fresh, warning = await safe(method(corp_code, start, end), label)
+        rows = {receipt: src["raw"] for receipt, src in saved.items()}
+        api_sources.update(saved)
+        fresh_ids = {row.get("rcept_no", "") for row in fresh}
+        reused_receipts.extend(sorted(set(saved) - fresh_ids))
+        for row in fresh:
+            receipt = row.get("rcept_no", "")
+            rows[receipt] = row
+            api_sources.pop(receipt, None)
+            src = treasury_store.make_source(key, row)
+            if src:
+                api_sources[receipt] = src
+        return list(rows.values()), warning
+
     ds005_started_at = time.perf_counter()
-    ds005_result = await asyncio.gather(acq_task, dsp_task, trc_task, trt_task)
+    ds005_result = await asyncio.gather(
+        api_family("acquisition", client.get_treasury_acquisition, "취득결정"),
+        api_family("disposal", client.get_treasury_disposal, "처분결정"),
+        api_family("trust_contract", client.get_treasury_trust_contract, "신탁계약 체결결정"),
+        api_family("trust_termination", client.get_treasury_trust_termination, "신탁계약 해지결정"),
+    )
     _mark_timing(timings_ms, "fetch_decisions.ds005_apis", ds005_started_at)
-    title_items, title_error = await title_task
     _mark_timing(timings_ms, "fetch_decisions.title_searches", stage_started_at)
     (acq, w1), (dsp, w2), (trc, w3), (trt, w4) = ds005_result
+
+    def normalized(items, fn):
+        rows = []
+        for item in items:
+            row = fn(item)
+            if row.get("rcept_no") in api_sources:
+                row["source_api"] = api_sources[row["rcept_no"]]
+            rows.append(row)
+        return rows
+
     warnings = [w for w in (w1, w2, w3, w4) if w]
+    if title_error and title_items is not None:
+        warnings.append("자사주 공시 목록 일부만 확인 — 원장 재사용을 보류했다.")
     if title_items is None:
         ret = []
         exec_report_sets = None
@@ -950,6 +1040,7 @@ async def _fetch_decisions(
     warnings.extend(cancelation_unread)
     raw_cnt = len(cancelation_rows)
     cancelation_rows = _dedupe_cancelation_rows(cancelation_rows)
+    warnings.extend(_cancelation_relation_warnings(cancelation_rows))
     if len(cancelation_rows) < raw_cnt:
         warnings.append(
             f"[기재정정] 중복 {raw_cnt - len(cancelation_rows)}건을 제거해 소각 합산했다."
@@ -970,16 +1061,19 @@ async def _fetch_decisions(
         warnings.append(f"결과보고서 본문 파싱 실패 {fail_count}건 — 합계가 0으로 보일 수 있다.")
 
     return {
-        "acquisition": [_normalize_acquisition(i) for i in acq],
-        "disposal": [_normalize_disposal(i) for i in dsp],
-        "trust_contract": [_normalize_trust(i, "trust_contract", "자기주식 취득 신탁계약 체결 결정") for i in trc],
-        "trust_termination": [_normalize_trust(i, "trust_termination", "자기주식 취득 신탁계약 해지 결정") for i in trt],
+        "acquisition": normalized(acq, _normalize_acquisition),
+        "disposal": normalized(dsp, _normalize_disposal),
+        "trust_contract": normalized(trc, lambda i: _normalize_trust(i, "trust_contract", "자기주식 취득 신탁계약 체결 결정")),
+        "trust_termination": normalized(trt, lambda i: _normalize_trust(i, "trust_termination", "자기주식 취득 신탁계약 해지 결정")),
         "cancelation": cancelation_rows,
         "acquisition_result": acq_res_rows,
         "disposal_result": dsp_res_rows,
         "trust_acquisition_status": trust_acq_status_rows,
         "trust_termination_result": trust_term_res_rows,
-    }, warnings, sum(1 for w in (w1, w2, w3, w4) if w) + (title_items is None), len(cancelation_unread)
+    }, warnings, sum(1 for w in (w1, w2, w3, w4) if w) + bool(title_error or title_items is None), sum(
+        (not r.get("body_parsed") and not r.get("body_unavailable_attachment"))
+        or r.get("correction_relation_status") == "unresolved"
+        for r in cancelation_rows)
 
 
 _DECISION_KEYS = ("acquisition", "disposal", "trust_contract", "trust_termination", "cancelation")
@@ -1246,6 +1340,7 @@ def _summary_counts(bundles: dict[str, list[dict]]) -> dict[str, Any]:
     # 취득목적에 "소각" 명시된 건. 별도 소각결정 공시 없는 기업(예: 미래에셋증권)에서 주주환원 신호로 쓰임.
     acq_for_cancelation = [r for r in acq if r.get("for_cancelation")]
     cancelations = bundles.get("cancelation", [])
+    unresolved = sum(r.get("correction_relation_status") == "unresolved" for r in cancelations)
     return {
         "acquisition_count": len(acq),
         "acquisition_for_cancelation_count": len(acq_for_cancelation),
@@ -1261,45 +1356,85 @@ def _summary_counts(bundles: dict[str, list[dict]]) -> dict[str, Any]:
         "disposal_shares_total": sum(r.get("shares", 0) for r in bundles.get("disposal", [])),
         "trust_contract_amount_total_krw": sum(r.get("amount_krw", 0) for r in bundles.get("trust_contract", [])),
         # 소각 금액·수량 — 자사주 정책 분석용 (CSR 분자에는 사용하지 않음, retire가 아닌 acquire 사용).
-        "cancelation_shares_total": sum(r.get("shares", 0) for r in cancelations),
-        "cancelation_amount_total_krw": sum(r.get("amount_krw", 0) for r in cancelations),
+        "cancelation_shares_total": None if unresolved else sum(r.get("shares", 0) for r in cancelations),
+        "cancelation_amount_total_krw": None if unresolved else sum(r.get("amount_krw", 0) for r in cancelations),
+        "cancelation_correction_unresolved_count": unresolved,
         "cancelation_body_parsed_count": sum(1 for r in cancelations if r.get("body_parsed")),
     }
 
 
 def _dedupe_cancelation_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """[기재정정] 공시는 원공시를 대체하므로 (board_date, amount, shares) 기준 중복 제거.
+    """명시된 원공시 날짜·회사·결의일이 유일하게 연결된 정정만 대체한다.
 
-    동일 결정에 대한 원본 + 정정본 모두 list.json에 별도 entry로 잡히면 합산 시
-    이중 계산이 발생한다. 결의일·금액·수량이 모두 같으면 동일 사건으로 보고
-    가장 최신(rcept_dt 큰) 1건만 남긴다.
-
-    board_date가 비어 있으면 (rcept_dt, amount, shares)로 대체.
+    동일 수량/금액만으로 별개 결정을 합치지 않는다. 원접수번호는 후임 행에
+    보존하며, 관계가 모호한 행은 남겨 집계를 미확정으로 표시한다.
     """
+    def day(value: Any) -> str:
+        try:
+            return date.fromisoformat(str(value or "")).isoformat()
+        except ValueError:
+            return ""
 
-    if not rows:
-        return rows
+    unique: dict[str, dict[str, Any]] = {}
+    no_receipt: list[dict[str, Any]] = []
+    for source in rows:
+        row = dict(source)
+        receipt = row.get("rcept_no")
+        if receipt:
+            unique.setdefault(receipt, row)
+        else:
+            no_receipt.append(row)
+    ordered = sorted([*unique.values(), *no_receipt],
+                     key=lambda r: (r.get("rcept_dt") or "", r.get("rcept_no") or ""))
+    parents: dict[str, str] = {}
+    children: dict[str, list[str]] = {}
+    for row in ordered:
+        title = row.get("report_nm") or ""
+        if row.get("body_unavailable_attachment"):
+            continue
+        if not ("정정" in title or row.get("correction_final_body")):
+            continue
+        row["correction_relation_status"] = "unresolved"
+        original = day(row.get("correction_original_date"))
+        filed, board = day(row.get("rcept_dt")), day(row.get("board_date"))
+        if (not row.get("rcept_no") or not row.get("corp_code")
+                or not row.get("body_parsed") or not row.get("correction_final_body")
+                or not original or not filed or not board or not original < filed
+                or any(word in title for word in ("첨부정정", "첨부추가", "철회", "취소"))):
+            continue
+        candidates = [r for r in ordered
+                      if r.get("rcept_no") and r.get("corp_code") == row["corp_code"]
+                      and day(r.get("rcept_dt")) == original
+                      and day(r.get("board_date")) == board and r.get("body_parsed")
+                      and not any(word in (r.get("report_nm") or "")
+                                  for word in ("첨부정정", "첨부추가", "철회", "취소"))]
+        if len(candidates) == 1:
+            parent, child = candidates[0]["rcept_no"], row["rcept_no"]
+            parents[child] = parent
+            children.setdefault(parent, []).append(child)
+    # 같은 원본을 가리키는 복수 정정은 순서를 추측하지 않는다.
+    parents = {c: p for c, p in parents.items() if len(children[p]) == 1}
+    # 앞선 정정 관계가 미확정이면 그 뒤의 정정으로 원본을 숨기지 않는다.
+    valid: dict[str, str] = {}
+    for row in ordered:
+        child = row.get("rcept_no")
+        parent = parents.get(child)
+        if not parent:
+            continue
+        prior = unique[parent]
+        if prior.get("correction_relation_status") == "unresolved":
+            continue
+        valid[child] = parent
+        row["correction_relation_status"] = "matched"
+        row["superseded_rcept_nos"] = [parent, *prior.get("superseded_rcept_nos", [])]
+    superseded = set(valid.values())
+    return [r for r in reversed(ordered) if r.get("rcept_no") not in superseded]
 
-    # 최신순 정렬 후 dedupe.
-    rows_sorted = sorted(rows, key=lambda r: (r.get("rcept_dt") or "", r.get("rcept_no") or ""), reverse=True)
-    seen: set[tuple] = set()
-    deduped: list[dict[str, Any]] = []
-    for row in rows_sorted:
-        key = (
-            row.get("board_date") or row.get("rcept_dt", ""),
-            int(row.get("amount_krw") or 0),
-            int(row.get("shares") or 0),
-        )
-        # board_date/금액/수량 모두 비면 dedupe 키가 무의미 — rcept_no fallback으로 항상 keep.
-        if all(not v for v in key):
-            deduped.append(row)
-            continue
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(row)
-    # 원래 정렬(최신순) 유지.
-    return deduped
+
+def _cancelation_relation_warnings(rows: list[dict[str, Any]]) -> list[str]:
+    count = sum(r.get("correction_relation_status") == "unresolved" for r in rows)
+    return ([f"소각 정정 관계 미확정 {count}건 — 원공시를 보존하고 소각 수량·금액 합계를 미확정으로 표시했다."]
+            if count else [])
 
 
 async def fetch_treasury_signal_summary(
@@ -1360,6 +1495,7 @@ async def fetch_treasury_signal_summary(
         )
     raw_cnt = len(cancelation_rows)
     cancelation_rows = _dedupe_cancelation_rows(cancelation_rows)
+    warnings.extend(_cancelation_relation_warnings(cancelation_rows))
     if len(cancelation_rows) < raw_cnt:
         warnings.append(
             f"[기재정정] 중복 {raw_cnt - len(cancelation_rows)}건을 제거해 소각 합산했다."
@@ -1455,11 +1591,13 @@ async def build_treasury_share_payload(
     warnings: list[str] = list(window_warnings)
 
     stage_started_at = time.perf_counter()
+    source_reuse = {}
     bundles, fetch_warnings, lookup_failed_count, cancelation_unread = await _fetch_decisions(
         selected["corp_code"],
         bgn_de,
         end_de,
         timings_ms=timings_ms,
+        source_reuse=source_reuse,
     )
     _mark("fetch_decisions", stage_started_at)
     # 금액 sanity: 링크 전 주당가로 결과금액 단위 오적용 보정(포스코퓨처엠 ×1e6류) →
@@ -1475,7 +1613,7 @@ async def build_treasury_share_payload(
     # 사건 발견 vs 진짜 partial 분리.
     # 4개 결정 API + cancellation list.json 모두 결과 0건은 사건 없음 = 정상.
     #    읽지 못한 조회(lookup_failed_count)·본문을 읽지 못한 소각결정(cancelation_unread)은 parsing_failures 로 올린다 —
-    #    일부만 읽고도 exact 로 나가던 것(합계가 0 으로 들어간 채). 합계 숫자는 건드리지 않는다.
+    #    본문 미파싱·정정 연결 미확정도 partial로 알린다. 미확정 정정의 합계는 null이다.
     filing_meta = build_filing_meta(
         filing_count=len(events),
         parsed_count=max(len(events) - cancelation_unread, 0),
@@ -1497,6 +1635,7 @@ async def build_treasury_share_payload(
             "lookback_months": lookback_months,
         },
         "summary": counts,
+        "source_reuse": source_reuse,
         "cycle_matched_count": cycle_matched,
         **filing_meta,
         "available_scopes": sorted(_SUPPORTED_SCOPES),

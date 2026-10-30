@@ -205,3 +205,17 @@ def test_render_labels_buyback_period_by_match_status():
         "period_note": "⚠ 회계연도를 못 구해 배당(1개년)·자사주매입(lookback 누적)을 그대로 합산.",
     }))
     assert "배당과 기간 불일치" in unmatched
+
+
+def test_unresolved_cancelation_stays_unknown_through_overall_and_render():
+    """정정 연결 미확정 합계를 다른 도구에서 거짓 0원으로 바꾸지 않는다."""
+    out = _overall_shareholder_return(
+        {"total_amount_mil": 100, "net_income_consolidated_mil": 1000},
+        {"cancelation_amount_total_krw": None, "cancelation_correction_unresolved_count": 1},
+        csr_treasury_summary=None, fiscal_period=None,
+    )
+    assert out["buyback_cancelation_krw"] is None
+    assert out["cash_shareholder_return_pct"] == 10.0
+    rendered = _render(_payload(overall=out))
+    line = next(line for line in rendered.splitlines() if "자사주 소각금액" in line)
+    assert "N/M" in line and " 0원" not in line
