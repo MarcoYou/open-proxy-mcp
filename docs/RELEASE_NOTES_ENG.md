@@ -2,6 +2,14 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Unreleased — 2026-10-30
+
+### Connecting without a key no longer gets stuck at "needs reconnect"
+
+- When the server URL had no `?opendart=` key (or a blank one), the connection itself was refused with HTTP 401. Claude connectors read a 401 as "OAuth sign-in required" and show **needs reconnect**; this server has no sign-in flow, so removing and re-adding the connector never cleared it.
+- The connection and the tool list are now accepted without a key. Calling a tool **runs nothing** and returns a tool error that says where to get a key (opendart.fss.or.kr) and how to append it to the URL, so the assistant can relay the fix.
+- Keyless tool execution is still blocked. Apart from connecting, listing and ping, no keyless request reaches the server (batches, unreadable bodies and unknown methods get the same guide). Usage stats still record keyed requests only.
+
 ## v3.0.0 · beta — 2026-10-27
 
 A major version bump, because this release contains a breaking change.

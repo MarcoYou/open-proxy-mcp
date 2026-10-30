@@ -130,7 +130,8 @@ def test_drain_requires_auth_rejects_new_requests_and_expires(monkeypatch):
     assert c.get('/health').status_code==503
     clock[0]+=61
     assert c.get('/health').status_code==200
-    assert c.post('/mcp',json={}).status_code==401
+    r=c.post('/mcp',json={})          # 드레인이 풀리면 키 게이트까지 간다(261030~ 401 대신 200 + 키 안내)
+    assert r.status_code==200 and 'opendart API key required' in r.text
 
 
 def test_admission_waits_for_existing_request_and_tracks_cancellation():

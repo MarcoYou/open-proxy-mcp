@@ -139,10 +139,63 @@ def test_tools_guide_resource_over_the_wire(client):
 
 
 # ── 키 게이트 ────────────────────────────────────────────────────────────────
-def test_no_key_is_rejected(client):
-    """키 없는 서빙 요청은 401. 배포 스모크가 이 값을 도달성 판정에 쓴다."""
-    r = client.post("/mcp", json=_INIT, headers={**_HDRS, "Host": PROD_HOST})
-    assert r.status_code == 401, r.status_code
+_CALL = {"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+         "params": {"name": "company", "arguments": {"query": "삼성전자"}}}
+
+
+def _keyless(client, body, q=None, raw=None):
+    url = "/mcp" if q is None else f"/mcp?opendart={q}"
+    kw = {"content": raw} if raw is not None else {"json": body}
+    return client.post(url, headers={**_HDRS, "Host": PROD_HOST}, **kw)
+
+
+def test_no_key_still_connects(client):
+    """키 없는 연결은 **받아 준다**(261030). 401 을 주면 Claude 커넥터가 OAuth 가 필요한 줄 알고
+    「재연결 필요」에 갇힌다 — 우리는 OAuth 가 없어 재연결해도 안 풀린다.
+    배포 스모크가 이 값(200)을 도달성 판정에 쓴다."""
+    r = _keyless(client, _INIT)
+    assert r.status_code == 200, r.status_code
+    assert r.json()["result"]["serverInfo"]["name"]
+    r = _keyless(client, {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
+    assert r.status_code == 200 and r.json()["result"]["tools"]
+
+
+def test_no_key_tool_call_never_runs_and_says_how_to_fix(client, monkeypatch):
+    """키 없는 도구 호출은 **앱에 닿지 않는다** — 닿으면 env 폴백으로 서버 키가 소모된다.
+    대신 도구 오류(isError)에 안내문을 실어 읽는 AI 가 사용자에게 고칠 곳을 말하게 한다."""
+    from open_proxy_mcp.dart import client as dc
+    called = []
+    monkeypatch.setattr(dc, "set_request_api_key", lambda k: called.append(k))
+    r = _keyless(client, _CALL)
+    assert r.status_code == 200, r.status_code
+    d = r.json()
+    assert d["id"] == 7 and d["result"]["isError"] is True
+    guide = json.loads(d["result"]["content"][0]["text"])
+    assert guide["error"] == "opendart API key required"
+    assert "?opendart=" in guide["how_to"] and "opendart.fss.or.kr" in guide["how_to"]
+    assert not called
+
+
+@pytest.mark.parametrize("body", [
+    {"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": "x"}},
+    {"jsonrpc": "2.0", "id": 4, "method": "prompts/get", "params": {"name": "x"}},
+    {"jsonrpc": "2.0", "id": 5, "method": "made/up", "params": {}},
+    [_CALL],                                       # 배치 — 단건만 분류한다
+    [{"jsonrpc": "2.0", "id": 6, "method": "tools/list", "params": {}}],
+])
+def test_no_key_only_listing_methods_reach_the_app(client, body):
+    """허용 목록 밖은 전부 안내로 돌아간다. 새 메서드가 생겨도 기본은 막힘이다."""
+    r = _keyless(client, body)
+    assert r.status_code == 200
+    assert "opendart API key required" in r.text
+
+
+@pytest.mark.parametrize("raw", [b"{not json", b"", "x" * 70000])
+def test_no_key_unreadable_or_oversized_body_is_not_passed_through(client, raw):
+    """분류 못 하는 본문(깨짐·빈 본문·스니프 한도 초과)은 앱에 넘기지 않는다 —
+    우리가 못 읽은 것을 앱이 읽어 도구를 돌리면 서버 키가 쓰인다."""
+    r = _keyless(client, None, raw=raw)
+    assert "opendart API key required" in r.text
 
 
 def test_health_is_open_and_counts_tools(client):
@@ -251,9 +304,16 @@ def test_serve_hands_app_host_port_to_uvicorn_unchanged(monkeypatch):
 def test_blank_key_never_passes_the_gate(client, q):
     """공백만 든 키는 없는 것으로 쳐야 한다. 파이썬에서 " " 는 참이라 종전에는 통과했고,
     하류 폴백도 참이라 **공백이 그대로 DART 키로** 쓰였다(실측 200)."""
-    r = client.post(f"/mcp?opendart={q}", json=_INIT,
-                    headers={**_HDRS, "Host": PROD_HOST})
-    assert r.status_code == 401, f"공백 키가 통과했다: {q!r} → {r.status_code}"
+    from open_proxy_mcp.dart import client as dc
+    seen = []
+    orig = dc.set_request_api_key
+    try:
+        dc.set_request_api_key = lambda k: seen.append(k)
+        r = _keyless(client, _CALL, q=q)
+    finally:
+        dc.set_request_api_key = orig
+    assert r.json()["result"]["isError"] is True, f"공백 키가 통과했다: {q!r}"
+    assert "opendart API key required" in r.text and not seen
 
 
 @pytest.mark.parametrize("host", [

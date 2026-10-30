@@ -617,6 +617,69 @@ def _instance_tag() -> str:
     return hashlib.sha256(mid.encode()).hexdigest()[:8]
 
 
+#: 키 없이도 받아 주는 JSON-RPC 메서드 — **DART 를 치지 않는 것만**(연결·목록·생존 확인).
+#: 여기 없는 것(`tools/call`·`resources/read`·`prompts/get`·모르는 메서드·배치·깨진 본문)은
+#: 앱에 넘기지 않고 안내문으로 답한다. 허용 목록이라 새 메서드가 생겨도 기본은 막힘이다.
+_KEYLESS_METHODS = frozenset({
+    "initialize", "ping", "tools/list", "prompts/list",
+    "resources/list", "resources/templates/list",
+})
+
+#: 키 없는 요청에 주는 안내. 첫 만남에서 보는 문구다 — **무엇이 없고 · 어디서 받고 · 어떻게
+#: 붙이는지**가 한 화면에 있어야 한다. `error` 코드는 그대로 두어 기계가 갈라 읽게 한다.
+_KEYLESS_GUIDE = {
+    "error": "opendart API key required",
+    "message": "DART 오픈API 키가 필요해요. 금융감독원이 무료로 발급해 주고, "
+               "신청하면 바로 받을 수 있어요.",
+    "how_to": "① https://opendart.fss.or.kr 에서 인증키를 신청하세요(무료·즉시 발급) "
+              "② 커넥터 설정의 서버 주소 끝에 키를 붙여 다시 추가하세요 — "
+              "https://open-proxy-mcp.fly.dev/mcp?opendart=<발급받은 키>",
+    "why": "키는 사용자마다 따로 쓰입니다. 그래야 한 사람의 조회가 다른 사람의 "
+           "한도에 영향을 주지 않아요.",
+    "for_assistant": "This connector URL has no DART key, so no tool ran. Tell the user, in their "
+                     "language, to fix the connector's server URL as above. Do not retry, do not "
+                     "suggest reconnecting or logging in, and do not answer from memory.",
+}
+
+
+def _keyless_allowed(body: bytes) -> bool:
+    """키 없이 앱에 넘겨도 되는 본문인가. 확실히 분류되는 단건만 참."""
+    try:
+        import json
+        d = json.loads(body)
+    except Exception:
+        return False
+    if not isinstance(d, dict):
+        return False                  # 배치·스칼라는 받지 않는다
+    method = d.get("method")
+    if not isinstance(method, str):
+        return False                  # 응답 메시지 등 — 키 없이 보낼 일이 없다
+    return method in _KEYLESS_METHODS or method.startswith("notifications/")
+
+
+async def _send_keyless_guide(send, body: bytes) -> None:
+    """앱을 거치지 않고 안내로 답한다. `tools/call` 은 도구 오류(isError)로 실어 AI 가 읽게 하고,
+    그 밖의 요청은 JSON-RPC 오류로. 연결은 끊지 않는다(HTTP 200)."""
+    import json
+    text = json.dumps(_KEYLESS_GUIDE, ensure_ascii=False)
+    try:
+        d = json.loads(body) if body else None
+    except Exception:
+        d = None
+    rid = d.get("id") if isinstance(d, dict) else None
+    if isinstance(d, dict) and d.get("method") == "tools/call":
+        out = {"jsonrpc": "2.0", "id": rid,
+               "result": {"content": [{"type": "text", "text": text}], "isError": True}}
+    else:
+        out = {"jsonrpc": "2.0", "id": rid,
+               "error": {"code": -32001, "message": _KEYLESS_GUIDE["message"],
+                         "data": _KEYLESS_GUIDE}}
+    payload = json.dumps(out, ensure_ascii=False).encode()
+    await send({"type": "http.response.start", "status": 200,
+                "headers": [(b"content-type", b"application/json")]})
+    await send({"type": "http.response.body", "body": payload})
+
+
 class ApiKeyMiddleware:
     """URL 쿼리 파라미터 ?opendart=키 → contextvar 세팅 + 사용 통계 기록."""
 
@@ -641,24 +704,39 @@ class ApiKeyMiddleware:
         if opendart:
             set_request_api_key(opendart)
         elif scope.get("path", "").startswith("/mcp"):
-            # 키 없는 서빙 요청 거절(260705) — fly secrets에 서버용 OPENDART 키(배치·DB
-            # 갱신 내부용)가 있으므로, 거절하지 않으면 env 폴백으로 서버 키가 조용히
-            # 소모된다. 서빙은 반드시 유저 키(?opendart=)로.
-            import json as _json
-            # 260901: 첫 만남에서 보는 문구다. **무엇이 없고 · 어디서 받고 · 어떻게 붙이는지**
-            #   세 가지가 한 화면에 있어야 한다. 코드(`error`)는 그대로 두어 기계가 갈라 읽게 한다.
-            body = _json.dumps({
-                "error": "opendart API key required",
-                "message": "DART 오픈API 키가 필요해요. 금융감독원이 무료로 발급해 주고, "
-                           "신청하면 바로 받을 수 있어요.",
-                "how_to": "① https://opendart.fss.or.kr 에서 인증키를 신청하세요(무료·즉시 발급) "
-                          "② 받은 키를 접속 주소 뒤에 붙이면 됩니다 — ?opendart=<발급받은 키>",
-                "why": "키는 사용자마다 따로 쓰입니다. 그래야 한 사람의 조회가 다른 사람의 "
-                       "한도에 영향을 주지 않아요.",
-            }, ensure_ascii=False).encode()
-            await send({"type": "http.response.start", "status": 401,
-                        "headers": [(b"content-type", b"application/json")]})
-            await send({"type": "http.response.body", "body": body})
+            # 키 없는 요청(261030). fly secrets 에 서버용 OPENDART 키(배치·DB 갱신 내부용)가
+            # 있으므로 키 없는 **도구 실행**은 여전히 막는다 — 막지 않으면 env 폴백으로 서버 키가
+            # 조용히 소모된다. 종전(260705~)엔 연결 자체를 401 로 거절했는데, Claude 커넥터는
+            # 401 을 「OAuth 로그인이 필요하다」로 읽어 **「재연결 필요」에 갇힌다**(우리는 OAuth 가
+            # 없어 재연결해도 안 풀린다 — 261030 사용자 실측). 이제 연결·목록은 받아 주고,
+            # 도구 호출에 안내문을 도구 오류로 돌려준다. 그래야 읽는 AI 가 사용자에게 고칠 곳을 말한다.
+            if scope.get("method") != "POST":
+                await self.app(scope, receive, send)     # GET 스트림·DELETE 는 DART 를 안 친다
+                return
+            body = b""
+            buffered = []
+            more = True
+            while more:
+                msg = await receive()
+                buffered.append(msg)
+                if msg["type"] != "http.request":
+                    break
+                body += msg.get("body", b"")
+                more = msg.get("more_body", False)
+                if len(body) > _MAX_SNIFF_BYTES:
+                    break
+            if more or not _keyless_allowed(body):
+                await _send_keyless_guide(send, body if not more else b"")
+                return
+            idx = 0
+
+            async def replay_keyless():
+                nonlocal idx
+                if idx < len(buffered):
+                    m = buffered[idx]; idx += 1; return m
+                return await receive()
+
+            await self.app(scope, replay_keyless, send)
             return
 
         # 사용 통계 기록 (요청 1건 = 이벤트 1건). 메모리 큐에 넣기만 해 지연 0 — 송신함·중앙 DB 쓰기는 워커 몫(usage.py).
@@ -888,7 +966,7 @@ def build_app(server=None):
     )
     # 안쪽부터 바깥쪽 순서로 읽는다 — Starlette 의 add_middleware 는 **앞에 끼우므로**
     # 나중에 더한 ApiKeyMiddleware 가 바깥이 된다. 그게 맞다: 키 게이트를 통과한 진짜
-    # 호출만 기록에 남고, 401 로 되돌아간 요청은 섞이지 않는다.
+    # 호출만 기록에 남고, 키 없이 들어와 안내로 돌아간 요청은 섞이지 않는다.
     # CaptureMiddleware 는 `OPM_CAPTURE_DIR` 이 있을 때만 실제로 일한다(운영에는 없다).
     app.add_middleware(CaptureMiddleware)
     app.add_middleware(ApiKeyMiddleware)
