@@ -128,10 +128,17 @@ def main() -> int:
                                     "params": {}}, key, host=host)
             rows.append((f"{label} 거부(421)", code == 421, f"→ {code}"))
 
+        # 키 없음·공백 키 — 연결(목록)은 받아 주되 도구는 돌리지 않고 키 안내로 답해야 한다(261030).
         for q, label in (("", "키 없음"), ("%20", "공백 키"), ("%09", "탭 키")):
             code, _ = _post(local, {"jsonrpc": "2.0", "id": 1, "method": "tools/list",
                                     "params": {}}, q, host=PROD_HOST)
-            rows.append((f"{label} 거부(401)", code == 401, f"→ {code}"))
+            rows.append((f"{label} 연결 받음(200)", code == 200, f"→ {code}"))
+            code, b = _post(local, {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                                    "params": {"name": "company",
+                                               "arguments": {"query": "삼성전자"}}},
+                            q, host=PROD_HOST)
+            ok = code == 200 and b"opendart API key required" in b and b'"isError": true' in b
+            rows.append((f"{label} 도구 막고 안내", ok, f"→ {code}"))
 
         print()
         for name, ok, note in rows:
