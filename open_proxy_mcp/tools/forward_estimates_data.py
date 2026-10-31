@@ -6,6 +6,7 @@ from typing import Any
 
 from open_proxy_mcp.services import forward_estimates as _fe
 from open_proxy_mcp.services.contracts import as_pretty_json
+from open_proxy_mcp.market_codes import to_label as mkt_label
 from open_proxy_mcp.tools._shared import krw_short as _won
 from open_proxy_mcp.services.forward_estimates import (build_forward_estimates_payload,
                                                       build_revision_screen_payload)
@@ -48,7 +49,7 @@ def _render(p: dict[str, Any]) -> str:
     d = p["data"]
     r = d["ruler"]
     cov = d["coverage"]
-    L = [f"## {p.get('subject')} ({d.get('ticker')}·{d.get('market') or '-'}) — 컨센서스 추정치",
+    L = [f"## {p.get('subject')} ({d.get('ticker')}·{mkt_label(d.get('market')) or '-'}) — 컨센서스 추정치",
          "",
          f"_스냅샷 {r.get('as_of')} · **주가 {r.get('price_dd')} 종가 {_num(r.get('price_krw'), '원', '{:,.0f}')}** "
          f"· 보통주 시총 {_won(r.get('mktcap_krw'))} · {d.get('sector') or '-'}_",
@@ -185,7 +186,7 @@ def _render_revision_screen(p: dict[str, Any]) -> str:
                 place = {"base_loss": "적자기준", "base_small": "소액기준"}.get(
                     r.get("rank_basis"), r.get("rank")) or "-"
                 name = r["name"] + ("†" if r.get("sole_update") else "")
-                L.append(f"| {place} | {name} | `{r['ticker']}` | {r.get('market') or '-'} | {r['period']} | "
+                L.append(f"| {place} | {name} | `{r['ticker']}` | {mkt_label(r.get('market')) or '-'} | {r['period']} | "
                          f"{_won(r.get('op_krw'))} | {pct('op_krw')} | {_won(r.get(f'op_krw_{win}_delta'))} | "
                          f"{pct('rev_krw')} | {pct('ni_ctrl_krw')} | {pct('eps_krw')} | {base} |")
 
