@@ -1,8 +1,12 @@
-"""Synthetic responses at the DART HTTP/binary boundary; no user-result fixtures."""
+"""Responses at the DART HTTP/binary boundary: synthetic, or saved public screens.
+
+tests/dart_responses/charter/ holds unmodified public DART pages; no user results.
+"""
 import asyncio
 import hashlib
 import io
 import zipfile
+from pathlib import Path
 
 import httpx
 import pytest
@@ -295,3 +299,182 @@ def test_invalid_as_of_format_rejected_without_fetch():
     with pytest.raises(ValueError):
         run(api().read_charter_document(client,request(),'2026-03-20'))
     assert client.calls==[]
+
+
+SCREENS = Path(__file__).parent / 'dart_responses' / 'charter'
+
+
+class ScreenClient(RawClient):
+    """Serves saved public DART pages; a missing page fails the test."""
+
+    def __init__(self, name):
+        super().__init__(image=b'%PDF-1.7\nsynthetic')
+        self.dir = SCREENS / name
+
+    def respond(self, request):
+        self.calls.append(str(request.url))
+        path, params = request.url.path, request.url.params
+        if path == '/dsaf001/main.do':
+            name = (f"att_{params['rcpNo']}_{params['dcmNo']}.html" if 'dcmNo' in params
+                    else f"main_{params['rcpNo']}.html")
+        elif path == '/report/viewer.do':
+            name = f"view_{params['dcmNo']}_0.html"
+        elif path == '/report/download.do':
+            return httpx.Response(200, content=self.image)
+        else:
+            raise AssertionError('unapproved endpoint')
+        return httpx.Response(200, content=(self.dir / name).read_bytes())
+
+    async def _request_binary(self, endpoint, params):
+        self.calls.append('document.xml')
+        return self.raw_zip
+
+
+AMENDED, ORIGINAL, ORIGINAL_DCM = '20260331004244', '20260311004614', '11111704'
+
+
+def test_amended_screen_keeps_charter_of_original_receipt():
+    result = run(api().discover_charter_attachments(ScreenClient('amended_text_samsunglife'), AMENDED, '20261031'))
+    assert result['status'] == 'read'
+    assert result['family_receipts'] == [ORIGINAL, AMENDED]
+    entry = result['attachments'][0]
+    assert (entry['rcept_no'], entry['dcm_no'], entry['status']) == (ORIGINAL, ORIGINAL_DCM, 'available')
+    assert entry['published'] == '20260311'
+    assert entry['source_url'].endswith(f'rcpNo={ORIGINAL}&dcmNo={ORIGINAL_DCM}')
+
+
+def test_amended_receipt_reads_attachment_under_its_own_receipt():
+    client = ScreenClient('amended_text_samsunglife')
+    request_ = {'type': 'dart_attachment', 'rcept_no': AMENDED, 'dcm_no': ORIGINAL_DCM}
+    result = run(api().read_charter_document(client, request_, '20261031'))
+    assert result['status'] == 'read'
+    assert result['rcept_no'] == ORIGINAL
+    assert result['requested_rcept_no'] == AMENDED
+    assert result['source_id'] == f'filing:{ORIGINAL}:attachment:{ORIGINAL_DCM}'
+    assert len(result['text']) > 10000
+    assert any(f'rcpNo={ORIGINAL}' in call and '/report/viewer.do' in call for call in client.calls)
+
+
+def family_page(members, owner):
+    options = ''.join(f'<option value="rcpNo={m}">2026.03.18 사업보고서</option>' for m in members)
+    return (f'<select id="family"><option value="null">본문선택</option>{options}</select>'
+            f'<select id="att"><option value="rcpNo={owner}&amp;dcmNo={DCM}">2026.03.11 정관</option></select>')
+
+
+def test_foreign_receipt_is_refused_when_family_does_not_list_it():
+    main = family_page([RC, '20260311000001'], '20260311000002')
+    result = run(api().discover_charter_attachments(RawClient(main=main), RC, '20260320'))
+    assert result['attachments'] == []
+
+
+def test_attachment_only_correction_is_absent_from_family_but_still_resolves():
+    main = family_page(['20260311000001'], '20260311000001')
+    result = run(api().discover_charter_attachments(RawClient(main=main), RC, '20260320'))
+    assert [a['rcept_no'] for a in result['attachments']] == ['20260311000001']
+
+
+def test_family_member_keeps_its_own_publication_rules():
+    main = family_page([RC, '20260312000001'], '20260312000001')
+    result = run(api().discover_charter_attachments(RawClient(main=main), RC, '20260320'))
+    assert result['attachments'][0]['status'] == 'publication_date_conflict'
+
+
+def test_pdf_link_is_an_original_not_read_text():
+    client = ScreenClient('pdf_link_huons')
+    request_ = {'type': 'dart_attachment', 'rcept_no': '20260324001000', 'dcm_no': '11169512'}
+    result = run(api().read_charter_document(client, request_, '20261031'))
+    assert result['status'] == 'needs_visual_reading'
+    assert result['needs_visual_reading'] is True
+    assert result['visual_reading']['format'] == 'pdf'
+    assert result['visual_reading']['pages'][0]['source_url'].endswith('.pdf')
+    assert '.pdf' not in result['text']
+
+
+def test_pdf_link_reaches_reader_as_one_document():
+    received = []
+    async def reader(payload):
+        received.append(payload)
+        return {'reader_id': 'test-reader', 'text': '제1조', 'page_count': 1,
+                'pages': [{'page': 1, 'text': '제1조', 'uncertainties': []}]}
+    body = f'<p>정관</p><a href="/report/download.do?dcmNo={DCM}&amp;flNm=charter.pdf">charter.pdf</a>'
+    client = RawClient(body=body, image=b'%PDF-1.7\nsynthetic')
+    result = run(api().read_charter_document(client, request(), '20260320', visual_reader=reader))
+    assert received[0]['format'] == 'pdf'
+    assert result['status'] == 'read'
+
+
+def test_ordinary_link_stays_text_and_unsupported_download_stays_unread():
+    plain = run(api().read_charter_document(RawClient(body='<p>제1조 <a href="https://example.com">공고</a></p>'), request(), '20260320'))
+    assert plain['status'] == 'read'
+    assert '공고' in plain['text']
+    hwp = run(api().read_charter_document(RawClient(body=f'<a href="/report/download.do?dcmNo={DCM}&amp;flNm=a.hwp">a.hwp</a>'), request(), '20260320'))
+    assert hwp['status'] == 'needs_visual_reading'
+    assert hwp['visual_reading']['blocked_references'] == 1
+    assert 'a.hwp' not in hwp['text']
+
+
+KOREAN_AIR = {'type': 'dart_attachment', 'rcept_no': '20260318001125', 'dcm_no': '11140186'}
+
+
+def test_observed_26_page_charter_fits_the_page_budget():
+    result = run(api().read_charter_document(ScreenClient('images_26_koreanair'), KOREAN_AIR, '20261031'))
+    visual = result['visual_reading']
+    assert (len(visual['pages']), visual['total_pages'], visual['unread_pages'], visual['truncated']) == (26, 26, 0, False)
+
+
+def test_page_budget_states_how_much_was_left_unread(monkeypatch):
+    monkeypatch.setattr(api(), 'MAX_VISUAL_PAGES', 24)
+    result = run(api().read_charter_document(ScreenClient('images_26_koreanair'), KOREAN_AIR, '20261031'))
+    visual = result['visual_reading']
+    assert (len(visual['pages']), visual['total_pages'], visual['unread_pages'], visual['truncated']) == (24, 26, 2, True)
+    assert '26쪽' in visual['hint']
+
+
+def test_oversized_pdf_is_reported_as_page_limit(monkeypatch):
+    monkeypatch.setattr(api(), 'MAX_VISUAL_PAGES', 2)
+    async def reader(payload):
+        return {'reader_id': 'test-reader', 'text': 'x', 'page_count': 5, 'pages': []}
+    client = RawClient(body=b'%PDF-1.7\nsynthetic', image=b'%PDF-1.7\nsynthetic')
+    result = run(api().read_charter_document(client, request(), '20260320', visual_reader=reader))
+    visual = result['visual_reading']
+    assert result['status'] == 'needs_visual_reading'
+    assert (visual['status'], visual['total_pages'], visual['unread_pages'], visual['truncated']) == ('page_limit', 5, 3, True)
+
+
+def reviewed_reader(**extra):
+    async def reader(payload):
+        return {'reader_id': 'test-reader', 'text': '제1조', 'pages': [{'page': 1, 'text': '제1조', 'uncertainties': []}], **extra}
+    return reader
+
+
+def test_reader_default_review_state_stays_unreviewed():
+    visual = run(api().read_charter_document(RawClient(body=IMAGE_BODY), request(), '20260320', visual_reader=reviewed_reader()))['visual_reading']
+    assert (visual['status'], visual['review_status'], visual['human_reviewed']) == ('model_read_unreviewed', 'unreviewed', False)
+
+
+def test_reader_can_carry_review_state_and_reference():
+    reader = reviewed_reader(review_status='dual_read_unresolved', archive_ref='doc/1:v2')
+    visual = run(api().read_charter_document(RawClient(body=IMAGE_BODY), request(), '20260320', visual_reader=reader))['visual_reading']
+    assert (visual['status'], visual['review_status'], visual['archive_ref']) == ('model_read_unreviewed', 'dual_read_unresolved', 'doc/1:v2')
+    assert visual['human_reviewed'] is False
+
+
+def test_human_review_state_is_the_only_one_that_sets_human_reviewed():
+    visual = run(api().read_charter_document(RawClient(body=IMAGE_BODY), request(), '20260320', visual_reader=reviewed_reader(review_status='human_reviewed')))['visual_reading']
+    assert (visual['status'], visual['human_reviewed']) == ('human_reviewed', True)
+
+
+@pytest.mark.parametrize('extra', [{'review_status': 'verified'}, {'archive_ref': 'bad ref'}])
+def test_invalid_review_fields_are_refused(extra):
+    result = run(api().read_charter_document(RawClient(body=IMAGE_BODY), request(), '20260320', visual_reader=reviewed_reader(**extra)))
+    assert result['status'] == 'needs_visual_reading'
+    assert result['visual_reading']['status'] == 'reader_failed'
+
+
+def test_rate_limit_wait_does_not_count_against_transfer_timeout(monkeypatch):
+    monkeypatch.setattr(api(), 'FETCH_TIMEOUT', 0.05, raising=False)
+    client = RawClient()
+    async def slow_throttle():
+        await asyncio.sleep(0.2)
+    client._throttle_web = slow_throttle
+    assert run(api().discover_charter_attachments(client, RC, '20260320'))['status'] == 'read'

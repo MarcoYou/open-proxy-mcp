@@ -23,13 +23,15 @@ from open_proxy_mcp.dart.client import _BLOCK_PAGE_MARKERS, _check_web_response,
 BASE = 'https://dart.fss.or.kr'
 MAX_ATTACHMENTS = 50
 MAX_SECTIONS = 12
-MAX_VISUAL_PAGES = 24
+MAX_VISUAL_PAGES = 40  # 261031 정관 이미지 19건 최대 26쪽. 40쪽 내려받기는 웹 상한 안에서 VISUAL_TIMEOUT 에 든다
 MAX_DOCUMENT_BYTES = 16 * 1024 * 1024
 MAX_PAGE_BYTES = 5 * 1024 * 1024
 MAX_VISUAL_BYTES = 24 * 1024 * 1024
 MAX_TEXT_CHARS = 500_000
 READ_TIMEOUT = 120
+FETCH_TIMEOUT = 25
 VISUAL_TIMEOUT = 65
+REVIEW_STATUSES = {'unreviewed', 'single_read', 'dual_read_unresolved', 'model_resolved', 'human_reviewed'}
 VisualReader = Callable[[dict], Awaitable[dict]]
 _visual_reader: VisualReader | None = None
 _visual_reader_id = ''
@@ -45,8 +47,10 @@ def register_visual_reader(reader: VisualReader | None, *, reader_id: str = '') 
     Optional page uncertain_spans:[{start,end,reason}] uses Python codepoint
     offsets in that page's text. Every uncertainty must be localized to avoid
     treating the whole page as uncertain. Reader confidence is not verification.
-    PDF output additionally needs page_count. Text must equal page texts joined
-    with two newlines. All such readings remain explicitly human-unreviewed.
+    PDF output additionally needs page_count; a page_count above max_pages is
+    reported as page_limit. Text must equal page texts joined with two newlines.
+    Optional review_status (REVIEW_STATUSES, default unreviewed) and archive_ref
+    state what the provider holds. Only human_reviewed marks a reading reviewed.
     """
     global _visual_reader, _visual_reader_id
     if reader is not None and (not callable(reader) or not _reader_identity(reader_id)):
@@ -74,8 +78,16 @@ def _identity(rc: str, dcm: str = '') -> dict:
 
 
 async def _fetch(client, path: str, params: dict, limit: int = MAX_DOCUMENT_BYTES) -> bytes:
-    """Only internally constructed paths/parameters reach this streaming fetch."""
+    """Only internally constructed paths/parameters reach this streaming fetch.
+
+    The rate-limit wait stays outside the timeout: a full minute window waits
+    about 30 seconds, which is not a failed attachment list.
+    """
     await client._throttle_web()
+    return await asyncio.wait_for(_transfer(client, path, params, limit), FETCH_TIMEOUT)
+
+
+async def _transfer(client, path: str, params: dict, limit: int) -> bytes:
     async with client._http.stream('GET', BASE + path, params=params, timeout=20,
                                    follow_redirects=False) as response:
         # Do not let the shared checker read a streaming body or expose URLs.
@@ -103,14 +115,29 @@ async def _fetch(client, path: str, params: dict, limit: int = MAX_DOCUMENT_BYTE
     return body
 
 
+def _family(soup: BeautifulSoup) -> list[str]:
+    """Receipts DART lists as one filing's original and corrections."""
+    members = set()
+    for option in soup.select('#family option'):
+        params = parse_qs(option.get('value', ''), strict_parsing=False)
+        if set(params) == {'rcpNo'} and len(params['rcpNo']) == 1 and re.fullmatch(r'\d{14}', params['rcpNo'][0]):
+            members.add(params['rcpNo'][0])
+    return sorted(members)
+
+
 def _listing(raw: bytes, rc: str, cutoff: str) -> tuple[list[dict], bool]:
+    """A corrected filing lists attachments under the receipt that filed them."""
     soup = BeautifulSoup(raw, 'html.parser')
     options = soup.select('#att option')
+    # An attachment-only correction has no body, so its own receipt is absent
+    # from the family it belongs to; this page was fetched for that receipt.
+    allowed = {rc, *_family(soup)}
     entries = []
     for option in options[:MAX_ATTACHMENTS + 1]:
         params = parse_qs(option.get('value', ''), strict_parsing=False)
-        if set(params) != {'rcpNo', 'dcmNo'} or params['rcpNo'] != [rc]:
+        if set(params) != {'rcpNo', 'dcmNo'} or len(params['rcpNo']) != 1 or params['rcpNo'][0] not in allowed:
             continue
+        owner = params['rcpNo'][0]
         dcm = params['dcmNo']
         if len(dcm) != 1 or not re.fullmatch(r'\d{1,20}', dcm[0]):
             continue
@@ -120,12 +147,12 @@ def _listing(raw: bytes, rc: str, cutoff: str) -> tuple[list[dict], bool]:
         match = re.match(r'\s*(\d{4})[.-](\d{2})[.-](\d{2})(?:\s|$)', title)
         published = publication_day(''.join(match.groups())) if match else None
         status = ('publication_unknown' if not published else
-                  'publication_date_conflict' if published < rc[:8] else
+                  'publication_date_conflict' if published < owner[:8] else
                   'after_as_of' if published > cutoff else 'available')
         if status != 'available':
-            note_strict_exclusion('charter_attachment', receipt=rc,
+            note_strict_exclusion('charter_attachment', receipt=owner,
                                   reason='after_cutoff' if status == 'after_as_of' else status)
-        entries.append({**_identity(rc, dcm[0]), 'title': title, 'published': published,
+        entries.append({**_identity(owner, dcm[0]), 'title': title, 'published': published,
                         'status': status, 'date_basis': 'dated DART attachment option'})
     return entries, len(options) > MAX_ATTACHMENTS + 1
 
@@ -140,12 +167,15 @@ async def discover_charter_attachments(client, rcept_no: str, as_of: str) -> dic
         return {**result, 'status': 'after_as_of'}
     _require_strict_receipt(rcept_no, 'charter_attachment')
     try:
-        raw = await asyncio.wait_for(_fetch(client, '/dsaf001/main.do', {'rcpNo': rcept_no}), 25)
+        raw = await _fetch(client, '/dsaf001/main.do', {'rcpNo': rcept_no})
         entries, truncated = _listing(raw, rcept_no, cutoff)
         return {**result, 'status': 'read', 'attachments': entries,
                 'truncated': truncated, 'complete': False,
+                'family_receipts': _family(BeautifulSoup(raw, 'html.parser')),
                 'list_sha256': hashlib.sha256(raw).hexdigest(),
-                'hint': '현재 첨부 목록에서 확인한 후보. 빈 목록은 정관 미공시의 증거가 아니다.'}
+                'hint': '현재 첨부 목록에서 확인한 후보. 빈 목록은 정관 미공시의 증거가 아니다. '
+                        '정정 공시의 첨부는 그 첨부를 낸 접수번호(rcept_no)로 표시한다. '
+                        '같은 제목이 여럿이면 공개일(published)이 다른 판이다.'}
     except Exception:
         return {**result, 'status': 'fetch_failed'}
 
@@ -220,12 +250,22 @@ async def _read_visual(client, item: dict, originals: list[dict], reader: Visual
             'document_sha256': item['document_sha256'], 'format': visual['format'],
             'max_pages': MAX_VISUAL_PAGES, 'pages': payload_pages}), 45)
         reader_id = _visual_reader_id if reader is _visual_reader else result.get('reader_id')
+        declared = result.get('page_count')
+        if visual['format'] == 'pdf' and type(declared) is int and declared > MAX_VISUAL_PAGES:
+            visual.update(status='page_limit', truncated=True, total_pages=declared,
+                          unread_pages=declared - MAX_VISUAL_PAGES,
+                          hint=f'전체 {declared}쪽이 상한 {MAX_VISUAL_PAGES}쪽을 넘어 읽지 않았다. 미독은 미공시가 아니다.')
+            return {**item, 'visual_reading': visual}
         pages, text = result.get('pages'), result.get('text')
         if (not _reader_identity(reader_id) or not isinstance(text, str) or not text.strip()
                 or len(text) > MAX_TEXT_CHARS or not isinstance(pages, list) or not pages
                 or len(pages) > MAX_VISUAL_PAGES):
             raise ValueError('invalid visual reader response')
-        page_count = result.get('page_count') if visual['format'] == 'pdf' else len(originals)
+        review, archive_ref = result.get('review_status', 'unreviewed'), result.get('archive_ref')
+        if review not in REVIEW_STATUSES or (archive_ref is not None and not (
+                isinstance(archive_ref, str) and re.fullmatch(r'[A-Za-z0-9_.:/-]{1,200}', archive_ref))):
+            raise ValueError('invalid review state')
+        page_count = declared if visual['format'] == 'pdf' else len(originals)
         if type(page_count) is not int or page_count != len(pages):
             raise ValueError('incomplete visual reading')
         for index, page in enumerate(pages, 1):
@@ -246,9 +286,11 @@ async def _read_visual(client, item: dict, originals: list[dict], reader: Visual
                     raise ValueError('invalid uncertainty span')
         if text != '\n\n'.join(page['text'] for page in pages):
             raise ValueError('page text mismatch')
-        visual.update(status='model_read_unreviewed', reader_id=reader_id,
-                      text_sha256=hashlib.sha256(text.encode()).hexdigest(), human_reviewed=False,
-                      transcription_verified=False,
+        reviewed = review == 'human_reviewed'
+        visual.update(status='human_reviewed' if reviewed else 'model_read_unreviewed', reader_id=reader_id,
+                      text_sha256=hashlib.sha256(text.encode()).hexdigest(), human_reviewed=reviewed,
+                      transcription_verified=reviewed, review_status=review,
+                      **({'archive_ref': archive_ref} if archive_ref else {}),
                       readings=[{'page': p['page'], 'text': p['text'], 'uncertainties': p['uncertainties'],
                                  'uncertain_spans': p.get('uncertain_spans', []),
                                  'source_sha256': payload_pages[0 if visual['format'] == 'pdf' else i]['source_sha256'],
@@ -272,8 +314,10 @@ async def _content_record(client, base: dict, raw: bytes, acquisition: str,
         soup = BeautifulSoup(raw, 'html.parser')
         for node in soup(['script', 'style']):
             node.decompose()
-        for node in soup.find_all(['img', 'object', 'embed', 'iframe']):
-            src = node.get('src') or node.get('data') or ''
+        for node in soup.find_all(['img', 'object', 'embed', 'iframe', 'a']):
+            src = node.get('src') or node.get('data') or node.get('href') or ''
+            if node.name == 'a' and urlsplit(urljoin(BASE, src)).path != '/report/download.do':
+                continue
             asset = _asset(src, base['dcm_no'])
             if asset:
                 url, params = asset
@@ -293,14 +337,18 @@ async def _content_record(client, base: dict, raw: bytes, acquisition: str,
             'needs_visual_reading': bool(originals or blocked)}
     if not originals and not blocked:
         return item
+    lone_pdf = kind == 'html' and len(originals) == 1 and originals[0]['params']['flNm'].lower().endswith('.pdf')
+    unread = max(0, len(originals) - MAX_VISUAL_PAGES)
+    hint = '원본 이미지/PDF 읽기 필요. 미독은 미공시가 아니며 모델 전사는 사람 검토를 거치지 않았다.'
+    if unread:
+        hint += f' 전체 {len(originals)}쪽이 상한 {MAX_VISUAL_PAGES}쪽을 넘어 판독기를 부르지 않았다. pages 는 앞 {MAX_VISUAL_PAGES}쪽뿐이다.'
     item.update(status='needs_visual_reading', visual_reading={
-        'status': 'needs_visual_reading', 'format': kind if kind != 'html' else 'images',
+        'status': 'needs_visual_reading', 'format': 'pdf' if lone_pdf else (kind if kind != 'html' else 'images'),
         'human_reviewed': False, 'transcription_verified': False,
         'pages': [{k: v for k, v in page.items() if k not in {'content', 'params'}}
                   for page in originals[:MAX_VISUAL_PAGES]],
         'blocked_references': blocked, 'truncated': len(originals) > MAX_VISUAL_PAGES,
-        'max_pages': MAX_VISUAL_PAGES,
-        'hint': '원본 이미지/PDF 읽기 필요. 미독은 미공시가 아니며 모델 전사는 사람 검토를 거치지 않았다.'})
+        'max_pages': MAX_VISUAL_PAGES, 'total_pages': len(originals), 'unread_pages': unread, 'hint': hint})
     try:
         return await asyncio.wait_for(
             _read_visual(client, item, originals[:MAX_VISUAL_PAGES], reader), VISUAL_TIMEOUT)
@@ -321,6 +369,9 @@ async def _read(client, request: dict, as_of: str, reader: VisualReader | None) 
     if len(matches) != 1:
         return {**base, 'status': 'attachment_identity_unverified'}
     entry = matches[0]
+    if entry['rcept_no'] != rc:
+        base.update(_identity(entry['rcept_no'], dcm), requested_rcept_no=rc)
+        rc = entry['rcept_no']
     base.update(published=entry['published'], title=entry['title'],
                 date_basis=entry['date_basis'], attachment_list_sha256=discovery['list_sha256'])
     if entry['status'] != 'available':
