@@ -89,6 +89,9 @@ related: [price_multiple_data, financial_metrics, trading_data, performance_anal
 - **무엇이 틀리나**: 저장 값은 `KS`/`KQ` 인데 코드에 `WHERE market='KOSPI'` 를 쓰면 **오류가 아니라 0건**이 나와 아무도 모른다. KRX API 의 시장 이름(`KOSPI`/`KOSDAQ`)을 그대로 적재해도 같다.
 - **공개 예**: 값을 `KOSPI`/`KOSDAQ` 에서 `KS`/`KQ` 로 줄일 때(141만 행) 변환을 한 곳에 모았다 — 블룸버그 접미사(`.KS`/`.KQ`) 관행과 같아 티커 표기에도 그대로 쓴다.
 - **막는 곳**: `market_codes.to_db()`(적재·질의) · `to_label()`(사람에게 보이는 말). 리터럴 시장 이름을 코드에 흩뿌리지 않는다.
+  **밖으로 나가는 json 은 `KOSPI`/`KOSDAQ` 하나다**(2026-10-31) — 모든 도구가 쓰는 직렬화 함수(`services/contracts.as_pretty_json`)가 `market` 키의 `KS`/`KQ` 를 바꾼다.
+  종전에는 같은 `trading_data` 안에서도 시세 단면·순위표는 `KOSPI`, 주가 곡선·시장 시총은 `KS` 를 내보내 읽는 AI 가 두 시장을 가려 읽지 못했다(실사용 대화).
+  서비스 안의 비교와 md 렌더러는 약어 그대로다 — 바꾸는 곳은 직렬화 경계 한 곳뿐이다.
 - **남은 한계**: 시장 구분은 「그 시점의 시장」이 아니라 「지금 시장」으로 센 곳이 있다(DATA-AGG6).
 
 #### DATA-U3 0·모름·조회 실패를 가른다
