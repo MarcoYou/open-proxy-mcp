@@ -7,7 +7,7 @@ data_source: [exctvSttus(임원현황), drctrAdtAllMendngSttusGmtsckConfmAmount(
 related_disclosures: [사업보고서, 기업지배구조보고서, 임원보수-API스펙]
 related_concepts: [보수한도]
 created: 2026-07-08
-updated: 2026-09-09
+updated: 2026-11-01
 ---
 
 # director_board — 이사회/개별 이사 프로필
@@ -307,6 +307,13 @@ exctvSttus의 rcept_no로 사업보고서 원문(각주 해소와 캐시 공유)
 - **summary 제외·on-demand**: 원문 fetch(8MB, 금융지주 최대 10초)라 흔한 summary를 느리게 한다 →
   `scope="attendance"`로만 조회.
 - 출석률 <75%는 `low_attendance` warn flag.
+- **표 모양 두 가지를 더 읽는다(261101)** — `이름(NN%)` 한 꼴만 읽어 태광산업·삼성전기·한화솔루션·고려아연
+  사업보고서가 원문에 이사별 출석률(「정평영 58.8%」)이 있는데도 `format_unsupported` 였다. 표 **칸 단위로만**
+  더 읽는다: ① 한 칸에 이름(+직위)+값(「정평영 58.8%」·「정안식\n(사외이사)\n출석률 100%」), ② 이름 줄 바로 아래
+  값 줄 — 값이 있는 열과 이름이 있는 열이 **정확히 같을 때만** 열로 짝짓는다(`span.basis="table_columns"`,
+  `name_row`·`rate_row`·`column`). 글 순서로 짝지으면 열이 어긋난다 — 종전 정규식은 이름 셋 뒤 값 셋인 표에서
+  셋째 이름에 첫째 값을 붙였다. 표·앞 1,500자에 「출석률」이 없으면 읽지 않는다(지분율 오독 방지). 관측에
+  `format: "table"`. 합성 표로만 확인했다(실제 사업보고서 미확인).
 - **소수점 출석률을 읽는다** — `(\d+(?:\.\d+)?)` + float 파싱. `(\d+)`만 잡으면
   `서창석 (출석률 : 87.5%)`에서 매치가 실패해 **해당 이사가 통째로 누락**된다(정수는 int 유지).
 
@@ -428,6 +435,7 @@ sequenceDiagram
 | `hmvAuditIndvdlBySttus` (재사용) | pay_criteria 하이브리드 교차검증(파서 Σ vs API 공식총액) |
 
 ## 변경 이력
+- 2026-11-01: attendance 파서가 표 칸 단위의 두 꼴(한 칸 이름+값 · 이름 줄/값 줄 열 맞춤)을 더 읽는다 — 태광산업·삼성전기·한화솔루션·고려아연의 `format_unsupported`. 열 맞춤 표에서 글 순서로 짝지어 값이 다른 이사에게 붙던 것도 막는다. 회귀 `tests/test_notice_agenda_resolution_check.py`(합성 표).
 - 2026-09-09: 보수 지급액이 전부 비었을 때 **한도가 읽혔는지**로 갈라, 반쪽만 읽혔으면
   서식 의심 + 원문 경로(`filing_section`)를 warnings 에 적는다(V1/V2 서식 전환 대비).
 

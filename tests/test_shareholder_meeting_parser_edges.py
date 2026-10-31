@@ -149,7 +149,11 @@ def test_personnel_parser_accepts_auditor_detail_title_without_election_suffix()
     appointments = personnel["appointments"]
     assert len(appointments) == 2
     assert appointments[0]["number"] == "제5호"
-    assert appointments[0]["candidates"][0]["name"] == "임성열"
+    # 묶음 안건(제5호)은 후보를 개별 안건(제5-1호)과 겹쳐 싣지 않고 어디 있는지만 가리킨다
+    # (2026-11 — 고려아연·태광산업에서 같은 후보가 두 번 나와 후보 줄이 부풀었다).
+    assert appointments[0]["candidates"] == []
+    assert appointments[0]["candidates_in_children"] == [{"name": "임성열", "number": "제5-1호"}]
+    assert personnel["summary"]["auditors"] == 1
     assert appointments[1]["number"] == "제5-1호"
     assert appointments[1]["category"] == "감사"
     candidate = appointments[1]["candidates"][0]

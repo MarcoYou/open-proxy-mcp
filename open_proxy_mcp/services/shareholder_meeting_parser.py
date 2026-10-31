@@ -242,13 +242,109 @@ def _extract_objective_section(text: str) -> str | None:
     return text[start:end]
 
 
+# ── 안건 목록 안의 「안건이 아닌 글」 — 범위 주석·구획 표제 ──
+#
+# ① 범위 주석. 「제1-1호 의안(제1-2호 의안 제외)부터 제5호 의안은 모두 주주제안」 은 안건이 아니라
+#    여러 안건의 제안 주체를 한 번에 밝힌 문장이다. 종전엔 콜론 없는 그물이 「제1-2호 의안 제외)부터」를
+#    안건으로 읽어 제1-2호 제목이 「제외)부터」가 됐고(먼저 나온 쪽이 이겨 진짜 제1-2호가 사라진다),
+#    문장이 제1-1호 제목 뒤 괄호에 붙어 있으면 그 제목이 「(」에서 잘렸다(실측 50회 표본 1건).
+#    문장을 안건 그물에서 가리고, 「주주제안」을 말하면 범위 안 안건에 제안 주체를 붙인다.
+# ② 구획 표제. 「감사 갑 선임의 건 ― 소수주주 제안 안건 ―」 의 「― … ―」 는 앞 제목의 꼬리가 아니라
+#    **뒤 안건들**의 표제다(실측 대호에이엘 2026-08 임시). 앞 제목에 붙으면 그 안건이 「주주 제안」 글자로
+#    주주제안이 되고, 정작 뒤 안건들은 표시를 잃는다.
+_AGENDA_NO_TOKEN = r'제\s*(\d+(?:\s*-\s*\d+)*)\s*호'
+_RANGE_NOTE_RE = re.compile(
+    _AGENDA_NO_TOKEN + r'\s*(?:의\s*안|안건)?\s*'
+    r'(?:\(\s*((?:[^()]{0,60}?))\s*제\s*외\s*\)\s*)?'          # (제1-2호 의안 제외)
+    r'(?:부터|에서|내지|~|∼|〜)\s*'
+    + _AGENDA_NO_TOKEN + r'\s*(?:의\s*안|안건)?\s*(?:까지)?\s*(?:은|는|이|가|의)?'
+    r'([^.。()※]{0,40}?)'                                     # 서술부 — 「모두 주주제안입니다」
+    r'(?=[.。)]|\s*※|\s*(?:[□◎●○▶·ㆍ\-]\s*)?제\s*\d+\s*(?:-\s*\d+)*\s*호\s*(?:의\s*안|안건)?\s*[:：.)）]|$)'
+)
+_PROPOSAL_WORD_RE = re.compile(r'(?:소수\s*)?주주\s*제안')
+_PROPOSAL_NEGATION_RE = re.compile(r'아닌|아니|제외|외의')
+# 표제는 양쪽을 줄표로 감싼 꼴만 본다. 「(주주제안)」·「[주주제안]」 은 그 안건 자신의 꼬리표라
+# 표제로 보면 안 된다(`_detect_source_in_marker`·`_propagate_proposer` 가 그 꼴을 맡는다).
+_DASH = r'[―—–─━\-]{1,3}'
+_SECTION_HEADING_RE = re.compile(
+    _DASH + r'\s*((?:소수\s*)?주주\s*제안|회사\s*제안|이사회\s*제안)\s*(?:안건|의안)?\s*' + _DASH
+)
+
+
+def _agenda_no_tuple(raw: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in re.findall(r'\d+', raw or ""))
+
+
+def _range_notes(zone: str) -> list[dict]:
+    """zone 안의 범위 주석 → [{span, start, end, excluded, proposal, text}]."""
+    notes = []
+    for m in _RANGE_NOTE_RE.finditer(zone or ""):
+        start, end = _agenda_no_tuple(m.group(1)), _agenda_no_tuple(m.group(3))
+        if not start or not end or start > end:
+            continue
+        excluded = [_agenda_no_tuple(x) for x in re.findall(_AGENDA_NO_TOKEN, m.group(2) or "")]
+        tail = m.group(4) or ""
+        s, e = m.start(), m.end()
+        # 문장을 감싼 괄호까지 가린다 — 「주주제안 변경안 (… 주주제안)」 의 괄호가 제목에 남지 않게.
+        before = zone[:s].rstrip()
+        after_m = re.match(r'\s*[.。]?\s*\)', zone[e:])
+        if before.endswith('(') and after_m:
+            s = len(before) - 1
+            e = e + after_m.end()
+        notes.append({
+            "span": (s, e),
+            "start": start,
+            "end": end,
+            "excluded": [x for x in excluded if x],
+            "proposal": bool(_PROPOSAL_WORD_RE.search(tail)) and not _PROPOSAL_NEGATION_RE.search(tail),
+            "text": " ".join(zone[m.start():m.end()].split()),
+        })
+    return notes
+
+
+def _in_range_note(number: tuple[int, ...], note: dict) -> bool:
+    if not number or number < note["start"]:
+        return False
+    end = note["end"]
+    if number[:len(end)] > end:
+        return False
+    return not any(number[:len(x)] == x for x in note["excluded"])
+
+
+def _section_headings(zone: str) -> list[dict]:
+    out = []
+    for m in _SECTION_HEADING_RE.finditer(zone or ""):
+        out.append({"span": (m.start(), m.end()),
+                    "proposal": bool(_PROPOSAL_WORD_RE.search(m.group(1))),
+                    "text": " ".join(m.group(0).split())})
+    return out
+
+
+def _mask_spans(zone: str, spans: list[tuple[int, int]]) -> str:
+    """가린 자리는 같은 길이의 공백 — 위치(조건절·주석 범위 계산)가 어긋나지 않는다."""
+    if not spans:
+        return zone
+    chars = list(zone)
+    for s, e in spans:
+        for i in range(s, min(e, len(chars))):
+            chars[i] = ' '
+    return "".join(chars)
+
+
 def _agenda_flat_from_zone(zone: str) -> tuple[list[dict], str]:
     """zone 텍스트 → 안건 flat 리스트. Returns (flat, normalized_zone).
 
     parse_agenda_xml의 핵심 추출부를 분리 (primary zone / fallback zone 양쪽에 재사용).
     """
     zone = re.sub(r'\n+', ' ', zone)
-    conditionals = _extract_conditionals(zone)
+    range_notes = _range_notes(zone)
+    headings = _section_headings(zone)
+    original_zone = zone
+    # 조건절은 범위 주석에도 실린다(「※ 제3-1호부터 제3-3호 의안은 제2호가 가결될 경우 상정」) —
+    # 조건을 잃지 않게 주주제안을 밝힌 주석과 표제만 가린 글에서 읽는다.
+    conditionals = _extract_conditionals(_mask_spans(
+        zone, [n["span"] for n in range_notes if n["proposal"]] + [h["span"] for h in headings]))
+    zone = _mask_spans(zone, [n["span"] for n in range_notes] + [h["span"] for h in headings])
 
     matches = []
     seen_positions = set()
@@ -280,6 +376,7 @@ def _agenda_flat_from_zone(zone: str) -> tuple[list[dict], str]:
             _note_spans.add(note_start + ref.start())
 
     flat = []
+    positions: list[int] = []
     for _, m in matches:
         if m.start() in _note_spans:
             continue
@@ -319,7 +416,34 @@ def _agenda_flat_from_zone(zone: str) -> tuple[list[dict], str]:
             "conditional": conditionals.get(number),
             "children": [],
         })
-    return flat, zone
+        positions.append(m.start())
+    _apply_proposal_annotations(flat, positions, range_notes, headings)
+    return flat, original_zone
+
+
+def _apply_proposal_annotations(flat: list[dict], positions: list[int],
+                                range_notes: list[dict], headings: list[dict]) -> None:
+    """범위 주석·구획 표제가 밝힌 제안 주체를 안건에 붙인다(in-place). 이미 꼬리표가 있으면 두다.
+
+    `source_note` 에 근거 문장을 원문 그대로 남긴다 — 읽는 쪽이 확인할 수 있게.
+    """
+    for item, pos in zip(flat, positions):
+        if item.get("source"):
+            continue
+        number = (item["level1"],) + tuple(x for x in (item["level2"], item["level3"]) if x is not None)
+        note = next((n for n in range_notes if n["proposal"] and _in_range_note(number, n)), None)
+        if note:
+            item["source"] = "주주제안"
+            item["source_note"] = note["text"]
+            continue
+        # 표제는 다음 표제(회사 제안 등)가 나올 때까지의 안건에 걸린다.
+        heading = None
+        for h in headings:
+            if h["span"][1] <= pos:
+                heading = h
+        if heading and heading["proposal"]:
+            item["source"] = "주주제안"
+            item["source_note"] = heading["text"]
 
 
 def parse_agenda_xml(text: str, html: str = "") -> list[dict]:
@@ -1298,6 +1422,42 @@ def _split_inline_subagendas(flat: list[dict]) -> list[dict]:
 
 # ── 비안건 파싱 ──
 
+# 회의 일시 — 날짜 낱말. 「2026년 3월 31일」·「2026. 3. 31」·「2026-03-31」·「2026/03/31」.
+_DATE_TOKEN = r'\d{4}\s*(?:년|[.\-/])\s*\d{1,2}\s*(?:월|[.\-/])\s*\d{1,2}\s*(?:일|\.)?'
+_DATE_IN_TEXT_RE = re.compile(_DATE_TOKEN)
+_WEEKDAY = r'(?:\(\s*[월화수목금토일]\s*(?:요일)?\s*\)|[월화수목금토일]요일)'
+_CLOCK = r'(?:(?:오전|오후|AM|PM|am|pm)\s*)?\d{1,2}\s*(?:시(?:\s*\d{1,2}\s*분)?|:\s*\d{2})'
+# 「일시」 표지 뒤에 날짜가 바로 오는 꼴 — 콜론이 없거나(「가. 일 시 2026년 …」), 표 칸이라 줄이 갈린
+# 꼴(「일 시\n2026년 …」), 머리 줄이 「일시 및 장소」인 꼴까지.
+_DATETIME_LABELED_RE = re.compile(
+    r'일\s*시\s*(?:및\s*장\s*소)?\s*[:：|]?\s*(' + _DATE_TOKEN + r'\s*' + _WEEKDAY + r'?[^\n]{0,30}?)'
+    r'(?=\s*(?:\d+\s*[.)]|[가-하]\s*[.)]|\(\d+\))\s*장\s*소|\s*장\s*소\s*[:：]|\n|$)'
+)
+# 표지 없이 본문에만 있는 꼴 — 「2026년 3월 31일(화) 오전 10시에 … 주주총회를 개최」. 날짜 **바로 뒤에
+# 시각이 붙은 것**만 본다(기준일·공고일은 시각이 없다). 전자투표 기간(「… 부터 … 까지」)은 뺀다.
+_DATETIME_BARE_RE = re.compile(
+    r'(' + _DATE_TOKEN + r'\s*' + _WEEKDAY + r'?\s*' + _CLOCK + r')(?!\s*(?:부터|까지|~|∼))'
+)
+
+
+def _meeting_datetime_fallback(text: str) -> str | None:
+    """「일시」 표지 근처의 날짜 → 그 원문. 표지가 없으면 소집 문장 앞부분에서 날짜+시각."""
+    if not text:
+        return None
+    m = _DATETIME_LABELED_RE.search(text)
+    if m:
+        return " ".join(m.group(1).split())
+    head = text[:3000]
+    cut = re.search(r'회의\s*(?:의\s*)?목적\s*사항|전자\s*투표|의결권\s*(?:대리\s*)?행사', head)
+    head = head[:cut.start()] if cut else head
+    for m in _DATETIME_BARE_RE.finditer(head):
+        before = head[max(0, m.start() - 15):m.start()]
+        if re.search(r'기간|부터|~|∼|기준일', before):
+            continue
+        return " ".join(m.group(1).split())
+    return None
+
+
 def parse_meeting_info_xml(text: str, html: str = "") -> dict:
     """소집공고에서 비안건 정보를 추출
 
@@ -1356,6 +1516,13 @@ def parse_meeting_info_xml(text: str, html: str = "") -> dict:
         m = re.search(r'일\s*시\s*[:：]\s*(.+?)(?=\n|$)', section_text)
     if m:
         info["datetime"] = m.group(1).strip()
+    if not _DATE_IN_TEXT_RE.search(info["datetime"] or ""):
+        # 위 두 그물이 날짜 없는 글을 잡았거나(「1. 일시 및 장소」 머리 줄) 아무것도 못 잡은 경우.
+        found = _meeting_datetime_fallback(section_text)
+        if not found and section_text is not text:
+            found = _meeting_datetime_fallback(text)
+        if found:
+            info["datetime"] = found
 
     # 장소 추출
     m = re.search(r'\d+\.\s*장\s*소\s*[:：]?\s*(.+?)(?=\s*\d+\.\s*(?:회의|보고|전자|의결|경영)|\n\s*\d+\.\s|\n|$)', section_text)
@@ -3013,10 +3180,113 @@ def parse_personnel_xml(html: str) -> dict:
                     appt["candidates"] = [dict(c) for c in all_inline]
                     appt.pop("candidates_raw_fallback", None)
 
+    _finalize_personnel_lists(appointments, html)
+
     # 요약
     summary = _build_personnel_summary(appointments)
 
     return {"appointments": appointments, "summary": summary}
+
+
+# 후보가 물러난 안건 — 「… 후보자 일신상의 사유로 자진 사퇴함에 따라 안건 폐기」. 조건절(「부결되는 경우
+# 자동 폐기」)은 아직 일어나지 않은 일이라 뺀다(`shareholder_meeting._agenda_relation` 과 같은 기준).
+_WITHDRAWN_TITLE_RE = re.compile(r'사퇴|안건\s*폐기|자동\s*폐기')   # 「사 퇴」로 띄우면 「이사 퇴임」에 걸린다
+_CONDITIONAL_HINT_RE = re.compile(r'경우|가결\s*시|부결\s*시|되면|될\s*때|승인\s*시')
+_RESIGN_TAIL = r'[^.。\n]{0,40}?(?:자진\s*)?사퇴(?!\s*(?:하는|할|시|하면|하더라도|여부|의\s*경우))'
+_ROLE_PREFIX = r'(?:(?:사외|사내|독립|기타비상무)\s*이사\s*|감사\s*위원\s*|감사\s*)?'
+_WITHDRAWN_NAME_RES = (
+    # 「오영 후보자는 일신상의 사유로 사퇴」
+    re.compile(r'(?<![가-힣])([가-힣]{2,4})\s*' + _ROLE_PREFIX + r'후보\s*(?:자)?' + _RESIGN_TAIL),
+    # 「후보자 오영은 … 사퇴」
+    re.compile(r'후보\s*(?:자)?\s*([가-힣]{2,4})(?:\s*(?:은|는|이|가|께서))' + _RESIGN_TAIL),
+)
+
+
+def _name_key(name: str) -> str:
+    return re.sub(r'\s+', '', name or '')
+
+
+def _finalize_personnel_lists(appointments: list[dict], html: str) -> None:
+    """후보 목록을 **후보만** 남게 정리한다(in-place). 지우지 않고 옆 칸으로 옮긴다.
+
+    ① 해임 안건의 사람은 후보가 아니라 해임 대상이다 → `dismissal_targets`
+       (실측 씨씨에스 2026-09-23 임시 「독립이사 ○○○ 해임의 건」 — 후보 수에 섞였다).
+    ② 사퇴한 후보 → `withdrawn_candidates` (+ 안건 제목이 사퇴·폐기를 말하면 `withdrawn: True`).
+       안건 제목이 말하거나, 본문이 「○○○ 후보자 … 사퇴」 로 **후보 이름을 짚을 때만** 본다.
+    ③ 묶음 안건(제3호)과 개별 안건(제3-x호)에 같은 후보가 겹치면 개별 안건에만 둔다. 묶음 쪽에는
+       `candidates_in_children` 으로 어디 있는지 남기고, 묶음 쪽에만 있던 칸(생년월일 등)은 개별 쪽
+       빈칸에 채운다(실측 고려아연 2025 정기 103→121줄, 태광산업 2026 정기).
+    """
+    def key_of(a: dict) -> str:
+        return re.sub(r'\s+', '', (a.get("number") or "").replace('제', '').replace('호', ''))
+
+    # ① 해임 대상
+    for a in appointments:
+        if a.get("action") == "해임" and a.get("candidates"):
+            a["dismissal_targets"] = a.pop("candidates")
+            a["candidates"] = []
+
+    # ② 사퇴
+    withdrawn_names: set[str] = set()
+    title_withdrawn: list[tuple[str, set[str]]] = []
+    for a in appointments:
+        title = a.get("title") or ""
+        if _WITHDRAWN_TITLE_RE.search(title) and not _CONDITIONAL_HINT_RE.search(title):
+            a["withdrawn"] = True
+            names = {_name_key(c.get("name")) for c in a.get("candidates", []) if c.get("name")}
+            title_withdrawn.append((key_of(a), names))
+    if html and "사퇴" in html.replace(" ", ""):
+        all_names = {_name_key(c.get("name")) for a in appointments for c in a.get("candidates", [])}
+        flat_text = re.sub(r'\s+', ' ', html_to_text(html) or "")
+        for rx in _WITHDRAWN_NAME_RES:
+            for m in rx.finditer(flat_text):
+                if _name_key(m.group(1)) in all_names:
+                    withdrawn_names.add(_name_key(m.group(1)))
+    for a in appointments:
+        k = key_of(a)
+        # 제목이 사퇴를 말한 안건의 후보는 그 안건과 **그 묶음(조상) 안건**에서만 물러난다.
+        scoped = set().union(*[names for ck, names in title_withdrawn
+                               if ck == k or (k and ck.startswith(k + "-"))]) if title_withdrawn else set()
+        keep, out = [], []
+        for c in a.get("candidates", []):
+            nk = _name_key(c.get("name"))
+            if a.get("withdrawn") or (nk and (nk in withdrawn_names or nk in scoped)):
+                out.append({**c, "withdrawn": True})
+            else:
+                keep.append(c)
+        if out:
+            a["candidates"] = keep
+            a["withdrawn_candidates"] = out
+
+    # ③ 묶음·개별 중복
+    by_key = {key_of(a): a for a in appointments if key_of(a)}
+    for k, parent in by_key.items():
+        if not parent.get("candidates"):
+            continue
+        child_of: dict[str, tuple[str, dict]] = {}
+        for ck, child in by_key.items():
+            if ck == k or not ck.startswith(k + "-"):
+                continue
+            for c in child.get("candidates", []):
+                nk = _name_key(c.get("name"))
+                if nk and nk not in child_of:
+                    child_of[nk] = (child.get("number") or "", c)
+        if not child_of:
+            continue
+        keep, moved = [], []
+        for c in parent["candidates"]:
+            nk = _name_key(c.get("name"))
+            if nk in child_of:
+                number, twin = child_of[nk]
+                for field, value in c.items():
+                    if value not in (None, "", [], {}) and twin.get(field) in (None, "", [], {}):
+                        twin[field] = value
+                moved.append({"name": c.get("name"), "number": number})
+            else:
+                keep.append(c)
+        if moved:
+            parent["candidates"] = keep
+            parent["candidates_in_children"] = moved
 
 
 def _is_candidate_table(headers: list[str]) -> bool:
@@ -3945,6 +4215,11 @@ def _build_personnel_summary(appointments: list[dict]) -> dict:
         "auditors": 0,
         "audit_committee": 0,
         "dismissals": 0,
+        "withdrawn_candidates": len({
+            _name_key(c.get("name"))
+            for a in appointments for c in (a.get("withdrawn_candidates") or [])
+            if _name_key(c.get("name"))
+        }),
     }
     # 🔴 **후보의 직위로 센다, 안건 카테고리로 세지 않는다.** 종전엔 안건 카테고리(제목에서
     # 온 것)로 셌다. 「집중투표에 의한 이사 4인 선임의 건」은 카테고리가 「이사」라 그 아래
@@ -3967,11 +4242,17 @@ def _build_personnel_summary(appointments: list[dict]) -> dict:
     for a in appointments:
         cat = a.get("category", "")
         action = a.get("action", "")
+        # 해임 대상은 후보가 아니다 — `dismissals` 칸에만 사람 수로 센다.
+        people = a.get("candidates") or []
+        if action == "해임":
+            people = a.get("dismissal_targets") or people
         # 구조화 후보가 없고 raw fallback만 있는 안건은 인원 카운트를 부풀리지 않음
         # (후보표 누락 공시 — 인원수 미상). 단 total_appointments에는 포함.
-        if not a.get("candidates") and a.get("candidates_raw_fallback"):
+        # 후보가 모두 개별 안건으로 옮겨 갔거나(`candidates_in_children`) 사퇴한 안건도 같다.
+        if not people and (a.get("candidates_raw_fallback") or a.get("candidates_in_children")
+                           or a.get("withdrawn_candidates")):
             continue
-        for c in a.get("candidates") or [{}]:
+        for c in people or [{}]:
             bucket = _personnel_bucket(action, cat, c.get("roleType"))
             name = re.sub(r"\s+", "", c.get("name") or "")
             if name:
@@ -4015,6 +4296,7 @@ def _empty_personnel_summary() -> dict:
         "auditors": 0,
         "audit_committee": 0,
         "dismissals": 0,
+        "withdrawn_candidates": 0,
     }
 
 

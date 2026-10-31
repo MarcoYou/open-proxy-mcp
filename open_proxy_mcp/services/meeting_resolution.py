@@ -553,3 +553,253 @@ def _evidence(v: dict[str, Any]) -> EvidenceRef:
     return EvidenceRef(evidence_id=f"ev_resolution_{v['rcept_no']}", source_type=SourceType.DART_XML,
                        rcept_no=v["rcept_no"], rcept_dt=v.get("rcept_dt", ""),
                        report_nm=v.get("report_nm") or "주주총회소집결의", section=v.get("label", ""))
+
+
+# ── 소집공고 안건과 대조 ─────────────────────────────────────────────────
+#
+# 소집공고 파서는 안건을 글에서 읽는다 — 세부 안건을 부모 번호 하나로 접거나(DB손해보험 2026 정기:
+# 2-1~2-5·3-1~3-4·4-1~4-4 가 2·3·4 하나씩으로 나와 주주제안 표시까지 잃었다), 결의에 없는 안건을
+# 공고가 더하는 일이 있다(진도 2026-10-08 임시: 공고의 7-1 「감사 추가 선임 여부의 건」). 결의 안건표는
+# 번호·제목·세부 안건(비고 칸)을 **표 칸**으로 준다. 그래서 같은 주총의 결의가 있으면 결의 안건표를
+# 뼈대로 삼고, 공고에서 읽은 상세(제안 주체·조건·구간 코드 등)를 같은 번호에 붙인다.
+#   · 공고에만 있는 안건은 **지우지 않고** 표시한다(`map_source: notice_only`).
+#   · 결의에만 있는 안건은 더하고 표시한다(`map_source: resolution_only`).
+#   · 결의가 세부 안건을 말하지 않은 부모 아래 공고 세부 안건은 그대로 둔다(`notice_sub_item`).
+
+#: 공고 기준일에서 이만큼 앞까지 결의를 찾는다. 결의→공고는 보통 2~6주, 임시주총은 길게 두 달.
+RESOLUTION_LOOKBACK_DAYS = 120
+#: 한 번 대조에 여는 결의 원문 수 상한(최신 판부터, 안건표가 나오면 멈춘다).
+RESOLUTION_MAX_OPEN = 3
+
+_NO_PREFIX = re.compile(r"^\s*(?:제\s*)?(\d+(?:\s*-\s*\d+)*)\s*(?:호)?\s*(?:의\s*안|안건)?\s*[.:：)]?\s*")
+_SUB_LINE = re.compile(r"^\s*(?:제\s*)?(\d+(?:\s*-\s*\d+)+)\s*(?:호)?\s*(?:의\s*안|안건)?\s*[.:：)]?\s*(.*)$")
+
+
+def _no_tuple(raw: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in re.findall(r"\d+", raw or ""))
+
+
+def _format_no(t: tuple[int, ...]) -> str:
+    return "제" + "-".join(str(x) for x in t) + "호"
+
+
+def _line_proposal(text: str) -> bool:
+    return bool(_PROPOSAL.search(text or "")) and not _PROPOSAL_REPORT.search(text or "")
+
+
+def _strip_no_prefix(title: str) -> str:
+    m = _NO_PREFIX.match(title or "")
+    # 「2026년 …」 처럼 숫자로 시작하는 제목을 번호로 오인하지 않게 — 「제」나 「호」/구분자가 있어야 번호다.
+    if m and (re.match(r"^\s*제", title) or re.search(r"호|[.:：)]", m.group(0))):
+        return title[m.end():].strip()
+    return (title or "").strip()
+
+
+def resolution_agenda_rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """결의 안건표(`parse_agenda`의 items) → 번호 붙은 줄 목록 `[{no, title, proposal, remark, parent}]`.
+
+    세부 안건은 비고 칸의 `2-1. …` 줄에서 꺼낸다. 번호를 못 읽은 줄은 `no=()` 로 남겨 대조에서 뺀다.
+    """
+    rows: list[dict[str, Any]] = []
+    for it in items or []:
+        raw_title = it.get("title") or ""
+        lines = [ln.strip() for ln in raw_title.split("\n") if ln.strip()]
+        first = lines[0] if lines else ""
+        no = _no_tuple(it.get("no") or "")
+        if not no:
+            m = _NO_PREFIX.match(first)
+            if m and (re.match(r"^\s*제", first) or "호" in m.group(0)):
+                no = _no_tuple(m.group(1))
+        title = _strip_no_prefix(first)
+        note_lines = [ln.strip() for ln in (it.get("note") or "").split("\n") if ln.strip()]
+        subs = [ln for ln in note_lines if _SUB_LINE.match(ln)]
+        remark = [*lines[1:], *[ln for ln in note_lines if ln not in subs]]
+        rows.append({"no": no, "title": title, "proposal": _line_proposal(first),
+                     "remark": " / ".join(remark) or None, "parent": None,
+                     "has_sub_items": bool(subs)})
+        for ln in subs:
+            m = _SUB_LINE.match(ln)
+            sub_no = _no_tuple(m.group(1))
+            rows.append({"no": sub_no, "title": m.group(2).strip(), "proposal": _line_proposal(ln),
+                         "remark": None, "parent": no or None, "has_sub_items": False})
+    return rows
+
+
+def _norm_title(title: str) -> str:
+    t = re.sub(r"[\(\[]\s*주주\s*제안[^)\]]*[\)\]]", "", title or "")
+    return re.sub(r"[\s\W_]+", "", t)
+
+
+def _titles_match(a: str, b: str) -> bool:
+    na, nb = _norm_title(a), _norm_title(b)
+    if not na or not nb or na == nb or na in nb or nb in na:
+        return True
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, na, nb).ratio() >= 0.6
+
+
+def merge_resolution_agenda(notice_items: list[dict[str, Any]],
+                            resolution_items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """소집공고 안건 트리(파서 꼴) + 결의 안건표 → (대조한 트리, `agenda_check`).
+
+    트리 마디는 파서 꼴(`number`·`level1..3`·`title`·`source`·`conditional`·`children`)을 지킨다 —
+    그대로 `_agenda_nodes` 에 넘겨 분류·관계를 다시 매긴다. 공고 마디는 깊은 복사본이라 원본은 그대로다.
+    """
+    import copy
+
+    rows = [r for r in resolution_agenda_rows(resolution_items) if r["no"]]
+    res_by_no = {r["no"]: r for r in rows}
+
+    merged: dict[tuple[int, ...], dict[str, Any]] = {}
+    order: list[tuple[int, ...]] = []
+
+    def walk(nodes: list[dict[str, Any]]) -> None:
+        for n in nodes or []:
+            t = _no_tuple(n.get("number") or "")
+            if t and t not in merged:
+                node = copy.deepcopy({k: v for k, v in n.items() if k != "children"})
+                node["children"] = []
+                merged[t] = node
+                order.append(t)
+            walk(n.get("children") or [])
+
+    walk(notice_items)
+
+    only_in_notice: list[dict[str, Any]] = []
+    only_in_resolution: list[dict[str, Any]] = []
+    title_differs: list[dict[str, Any]] = []
+    proposal_marks: list[str] = []
+    for t in order:
+        node = merged[t]
+        r = res_by_no.get(t)
+        if r:
+            node["map_source"] = "both"
+            if not _titles_match(node.get("title") or "", r["title"]):
+                node["resolution_title"] = r["title"]
+                title_differs.append({"number": _format_no(t), "notice": node.get("title") or "",
+                                      "resolution": r["title"]})
+            if r["proposal"] and not node.get("source"):
+                node["source"] = "주주제안"
+                node["source_note"] = "소집결의 안건표: " + r["title"]
+                proposal_marks.append(_format_no(t))
+            continue
+        parent = res_by_no.get(t[:-1]) if len(t) > 1 else None
+        if parent is not None and not parent["has_sub_items"]:
+            node["map_source"] = "notice_sub_item"      # 결의가 세부 안건을 말하지 않았다
+            continue
+        node["map_source"] = "notice_only"
+        only_in_notice.append({"number": _format_no(t), "title": node.get("title") or ""})
+    for r in rows:
+        t = r["no"]
+        if t in merged:
+            continue
+        merged[t] = {
+            "number": _format_no(t), "level1": t[0],
+            "level2": t[1] if len(t) > 1 else None, "level3": t[2] if len(t) > 2 else None,
+            "title": r["title"], "source": "주주제안" if r["proposal"] else None,
+            "conditional": None, "children": [], "map_source": "resolution_only",
+        }
+        if r["proposal"]:
+            merged[t]["source_note"] = "소집결의 안건표: " + r["title"]
+        only_in_resolution.append({"number": _format_no(t), "title": r["title"]})
+    for t, node in merged.items():
+        r = res_by_no.get(t)
+        if r and r.get("remark"):
+            node["resolution_remark"] = _mask(r["remark"])
+
+    roots: list[dict[str, Any]] = []
+    for t in sorted(merged):
+        node = merged[t]
+        parent = next((merged[t[:i]] for i in range(len(t) - 1, 0, -1) if t[:i] in merged), None)
+        (parent["children"] if parent is not None else roots).append(node)
+    check = {
+        "basis": "resolution",
+        "only_in_notice": only_in_notice,
+        "only_in_resolution": only_in_resolution,
+        "title_differs": title_differs,
+        # 공고에선 제안 주체가 안 보였는데 결의 안건표가 주주제안이라고 적은 번호
+        "proposal_marks_from_resolution": proposal_marks,
+    }
+    return roots, check
+
+
+async def find_resolution_for_notice(
+    corp_code: str,
+    *,
+    meeting_type: str,
+    meeting_date: date | None,
+    as_of: str,
+) -> dict[str, Any]:
+    """소집공고와 같은 주총의 소집결의 — 공고 접수일(`as_of`, YYYYMMDD) **이전** 판만, 정기/임시·회의일이 같은 것.
+
+    목록 1콜(I001 상세유형 + 회사 코드) + 원문 최대 `RESOLUTION_MAX_OPEN`(최신 판부터, 안건표가 나오면 멈춘다).
+    돌려주는 것: `{status: found|not_found|date_mismatch|error, ...}`. 실패는 「모른다」로 돌려준다 — 공고 응답을
+    막지 않는다.
+    """
+    from datetime import datetime, timedelta
+
+    try:
+        end = datetime.strptime(as_of, "%Y%m%d").date()
+    except ValueError:
+        return {"status": "error", "reason": f"공고 접수일 `{as_of}` 을 읽지 못했다."}
+    start = end - timedelta(days=RESOLUTION_LOOKBACK_DAYS)
+    try:
+        filings, _notices, error = await search_filings_by_report_name(
+            corp_code=corp_code, bgn_de=start.strftime("%Y%m%d"), end_de=as_of,
+            pblntf_tys="", pblntf_detail_ty="I001", keywords=("주주총회소집결의",), strip_spaces=True,
+            last_reprt_at="N")
+    except DartClientError as exc:
+        return {"status": "error", "reason": f"소집결의 목록 조회 실패: {getattr(exc, 'status', type(exc).__name__)}"}
+    if error and error != "013":
+        return {"status": "error", "reason": f"소집결의 목록 조회 실패: {error}"}
+    filings = [f for f in (filings or []) if (f.get("rcept_dt") or "") <= as_of]
+    groups = [g for g in group_filings(filings)
+              if not meeting_type or g["meeting_type"] in (meeting_type, "")]
+    if not groups:
+        return {"status": "not_found",
+                "reason": f"공고 접수일({as_of}) 전 {RESOLUTION_LOOKBACK_DAYS}일 안에 같은 종류의 소집결의가 없다."}
+    groups.sort(key=lambda g: (g["filings"][-1].get("rcept_dt", ""), g["filings"][-1].get("rcept_no", "")))
+    client = get_dart_client()
+    opened = 0
+    mismatch: dict[str, Any] | None = None
+    for g in reversed(groups[-2:]):
+        meeting: dict[str, Any] = {}
+        agenda: dict[str, Any] | None = None
+        source: dict[str, Any] | None = None
+        for f in reversed(g["filings"]):
+            if opened >= RESOLUTION_MAX_OPEN:
+                break
+            opened += 1
+            try:
+                doc = await client.get_document_cached(f["rcept_no"])
+            except DartClientError:
+                continue
+            parsed = parse_resolution_document((doc or {}).get("html") or "")
+            if not meeting and parsed.get("has_main_table"):
+                meeting = parsed.get("meeting") or {}
+            a = parsed.get("agenda") or {}
+            if agenda is None and a.get("status") == "listed":
+                agenda, source = a, f
+            if meeting and agenda is not None:
+                break
+        res_date = meeting.get("meeting_date")
+        if meeting_date and res_date and res_date != meeting_date.isoformat():
+            mismatch = {"status": "date_mismatch", "resolution_meeting_date": res_date,
+                        "rcept_no": g["filings"][-1].get("rcept_no", "")}
+            continue
+        if agenda is None:
+            return {"status": "not_found", "opened": opened,
+                    "reason": "같은 주총의 소집결의는 있으나 안건표(회의목적사항)를 읽지 못했다.",
+                    "rcept_no": g["filings"][-1].get("rcept_no", "")}
+        return {
+            "status": "found", "opened": opened,
+            "rcept_no": source.get("rcept_no", ""), "rcept_dt": source.get("rcept_dt", ""),
+            "report_nm": " ".join((source.get("report_nm") or "").split()),
+            "is_correction": is_correction(source.get("report_nm", "")),
+            "meeting_date": res_date, "meeting_date_checked": bool(meeting_date and res_date),
+            "items": agenda.get("items") or [],
+        }
+    if mismatch:
+        return {**mismatch, "opened": opened,
+                "reason": f"소집결의의 회의일({mismatch['resolution_meeting_date']})이 공고 회의일과 달라 다른 주총으로 봤다."}
+    return {"status": "not_found", "opened": opened, "reason": "같은 주총의 소집결의를 찾지 못했다."}
