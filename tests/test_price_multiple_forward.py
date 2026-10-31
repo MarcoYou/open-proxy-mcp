@@ -112,7 +112,7 @@ def test_market_puts_forward_next_to_trailing_with_its_own_date_and_population(m
     # 선행 배당수익률은 선행 배수와 같은 표에서 온다
     assert "- / 1.90" in out and "선행 as_of 2026-09-13" in out
     j = json.loads(call({"scope": "market", "format": "json"}))["data"]
-    ks = next(h for h in j["latest"] if h["market"] == "KS")
+    ks = next(h for h in j["latest"] if h["market"] == "KOSPI")
     assert ks["fwd_per"] == 6.65 and ks["fwd_per_pos"] == 6.45 and ks["fwd_n_total"] == 324 and ks["fwd_psr"] == 0.5
     assert j["fwd_ruler"]["as_of"] == "2026-09-13" and len(j["fwd_history"]) == 7
 

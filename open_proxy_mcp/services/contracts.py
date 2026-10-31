@@ -300,8 +300,33 @@ class ToolEnvelope:
         return out
 
 
-def as_pretty_json(payload: dict[str, Any]) -> str:
-    """UTF-8 friendly JSON 직렬화."""
+#: 응답 밖으로 나가는 시장 표기 — DB 약어(`KS`/`KQ`) → 사람 이름(`KOSPI`/`KOSDAQ`). 정의는 `market_codes` 한 곳.
+#: 261031: 같은 도구 안에서도 시세 단면·순위표는 「KOSPI」, 주가 곡선·시장 시총은 「KS」를 내보내 읽는 AI 가 두 시장을
+#:   구분하지 못한 실사용 대화가 있었다. 서비스 안의 비교·렌더러는 약어를 그대로 쓰고, **직렬화 경계에서만** 바꾼다.
+_MARKET_KEYS = frozenset({"market"})
 
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+def _label_markets(obj: Any) -> Any:
+    """`market` 키의 값이 KS/KQ(또는 그 목록)면 KOSPI/KOSDAQ 로. 다른 키·다른 값은 그대로 — 새 객체를 돌려준다(원본 불변)."""
+    from open_proxy_mcp.market_codes import to_label
+
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            if k in _MARKET_KEYS and isinstance(v, str):
+                out[k] = to_label(v)
+            elif k in _MARKET_KEYS and isinstance(v, list) and all(isinstance(x, str) for x in v):
+                out[k] = [to_label(x) for x in v]
+            else:
+                out[k] = _label_markets(v)
+        return out
+    if isinstance(obj, (list, tuple)):
+        return [_label_markets(x) for x in obj]
+    return obj
+
+
+def as_pretty_json(payload: dict[str, Any]) -> str:
+    """UTF-8 friendly JSON 직렬화. 시장 표기는 KOSPI/KOSDAQ 로 통일한다(`_label_markets`)."""
+
+    return json.dumps(_label_markets(payload), ensure_ascii=False, indent=2)
 

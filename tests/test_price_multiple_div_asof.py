@@ -97,7 +97,7 @@ def call(args):
 
 def mkt(args):
     j = json.loads(call({**args, "scope": "market", "format": "json"}))["data"]
-    return j, {h["market"]: h for h in j["latest"]}
+    return j, {h["market"]: h for h in j["latest"]}   # 261031: json 시장 표기는 KOSPI/KOSDAQ (직렬화 경계에서 통일)
 
 
 def test_past_date_uses_the_fiscal_year_disclosed_by_then_not_the_latest(monkeypatch):
@@ -108,8 +108,8 @@ def test_past_date_uses_the_fiscal_year_disclosed_by_then_not_the_latest(monkeyp
                                           ("20260327", 2024, 2.392, 0.7515, "20241230")):   # FY2025 는 2026-04-01 부터
         j, by = mkt({"as_of": as_of})
         assert j["as_of"] == as_of
-        assert by["KS"]["div_fiscal_year"] == fy and by["KS"]["div_yield_pct_all"] == ks_all, (as_of, by["KS"])
-        assert by["KQ"]["div_yield_pct_all"] == kq_all and by["KS"]["div_price_dd"] == dd <= as_of
+        assert by["KOSPI"]["div_fiscal_year"] == fy and by["KOSPI"]["div_yield_pct_all"] == ks_all, (as_of, by["KOSPI"])
+        assert by["KOSDAQ"]["div_yield_pct_all"] == kq_all and by["KOSPI"]["div_price_dd"] == dd <= as_of
         r = j["div_yield_ruler"]
         assert r["actual_fiscal_year"] == fy and r["actual_price_dd"] == dd and r["actual_basis_dd"] == as_of
         # 261020(검토): 그 해 집계가 있으면 「앞 해 값」·「빈칸」 안내가 붙지 않는다 — `fy < pit` 가 `<=` 로 바뀌면 모든 과거 응답에 거짓 안내가 붙는다.
@@ -137,10 +137,10 @@ def test_basis_is_the_snapshot_the_table_answers_with_not_the_requested_day(monk
     """요청 20250401 → 표는 20250328 스냅샷이다(머리 「기준 20250328」). FY2024 는 4월 1일부터라 그 표에는 FY2023."""
     monkeypatch.setattr(S, "_pg_rows", fake_db())
     j, by = mkt({"as_of": "20250401"})
-    assert j["as_of"] == "20250328" and by["KS"]["div_fiscal_year"] == 2023
+    assert j["as_of"] == "20250328" and by["KOSPI"]["div_fiscal_year"] == 2023
     assert j["div_yield_ruler"]["actual_basis_dd"] == "20250328"
     j, by = mkt({"as_of": "20250404"})
-    assert j["as_of"] == "20250404" and by["KS"]["div_fiscal_year"] == 2024
+    assert j["as_of"] == "20250404" and by["KOSPI"]["div_fiscal_year"] == 2024
 
 
 def test_a_year_not_aggregated_yet_falls_back_to_the_year_before_and_says_so(monkeypatch):
@@ -149,7 +149,7 @@ def test_a_year_not_aggregated_yet_falls_back_to_the_year_before_and_says_so(mon
     base = fake_db()
     monkeypatch.setattr(S, "_pg_rows", lambda sql, params=(): rows if "scheme='market'" in sql else base(sql, params))
     j, by = mkt({"as_of": "20270409"})
-    assert by["KS"]["div_fiscal_year"] == 2025 and j["div_yield_ruler"]["actual_pit_fy"] == 2026
+    assert by["KOSPI"]["div_fiscal_year"] == 2025 and j["div_yield_ruler"]["actual_pit_fy"] == 2026
     assert "FY2026" in j["div_yield_ruler"]["actual_note_older"] and "FY2025" in j["div_yield_ruler"]["actual_note_older"]
     # 261020(검토): 사용자가 보는 표 아래에도 그 안내가 나간다(렌더에서 빠지면 JSON 만 알고 표는 모른다).
     out = call({"scope": "market", "as_of": "20270409"})
@@ -162,8 +162,8 @@ def test_latest_response_is_unchanged(monkeypatch):
     seen: list = []
     monkeypatch.setattr(S, "_pg_rows", fake_db(seen=seen))
     j, by = mkt({})
-    assert j["as_of"] == "20261016" and by["KS"]["div_fiscal_year"] == 2025 and by["KS"]["div_yield_pct_all"] == 1.5567
-    assert by["KQ"]["div_yield_pct_all"] == 0.6879 and by["KQ"]["div_yield_pct_payers"] == 1.4007
+    assert j["as_of"] == "20261016" and by["KOSPI"]["div_fiscal_year"] == 2025 and by["KOSPI"]["div_yield_pct_all"] == 1.5567
+    assert by["KOSDAQ"]["div_yield_pct_all"] == 0.6879 and by["KOSDAQ"]["div_yield_pct_payers"] == 1.4007
     assert j["div_yield_ruler"] == {"actual_fiscal_year": 2025, "actual_price_dd": "20251230"}
     div_q = [q for q in seen if "div_yield_hist" in q[0]]
     assert div_q == [("SELECT market, bucket, denom_basis, div_yield_pct, fiscal_year, price_dd, n_total, n_div, cov_cap_pct "
@@ -198,4 +198,4 @@ def test_failure_still_says_lookup_failed_not_blank_by_rule(monkeypatch):
     monkeypatch.setattr(S, "_pg_rows", fake_db(div_fail=True))
     j, by = mkt({"as_of": "20250829"})
     r = j["div_yield_ruler"]
-    assert "조회 실패" in r["actual_error"] and "actual_note_empty" not in r and "div_yield_pct_all" not in by["KS"]
+    assert "조회 실패" in r["actual_error"] and "actual_note_empty" not in r and "div_yield_pct_all" not in by["KOSPI"]

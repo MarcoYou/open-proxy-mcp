@@ -81,6 +81,33 @@ _register_unbudgeted_cache("trading_quote", lambda: _QUOTE_DAYS)
 #: 커지는데, 지수 수준에서 그 4배 해상도가 더 알려주는 것이 없다. 필요하면 명시로 올린다.
 _FREQ_DEFAULT = {"firm": "weekly", "market": "monthly", "sector": "monthly"}
 
+#: 해상도 말 → 정규 이름. 261031: 종전에는 모르는 말(「daily」 포함)을 거르지 않고 그대로 받아, 주간 점을 주면서
+#:   응답에는 `freq:"daily"` 라고 적었다 — 읽는 AI 가 일간 곡선을 받은 줄 알고 차트를 그렸다(실사용 대화).
+_FREQ_ALIASES = {
+    "daily": "daily", "day": "daily", "d": "daily", "일간": "daily", "일별": "daily", "일": "daily", "일봉": "daily",
+    "weekly": "weekly", "week": "weekly", "w": "weekly", "주간": "weekly", "주별": "weekly", "주": "weekly", "주봉": "weekly",
+    "monthly": "monthly", "month": "monthly", "m": "monthly", "월간": "monthly", "월별": "monthly", "월": "monthly",
+    "월말": "monthly", "월봉": "monthly",
+}
+#: 스코프마다 저장분이 줄 수 있는 해상도. 종목은 최근 약 1년이 일별 저장분에 있다. 시장·섹터 시총 집계는 주간 저장분뿐이다.
+_FREQ_SUPPORTED = {"firm": ("daily", "weekly", "monthly"), "market": ("weekly", "monthly"), "sector": ("weekly", "monthly")}
+
+
+def _norm_freq(freq: str, scope: str) -> tuple[str | None, str | None]:
+    """요청 해상도 → (실제로 줄 해상도, 경고 한 줄). 모르는 말이면 (None, 안내) — 추측해서 다른 해상도로 답하지 않는다.
+    그 스코프에 없는 해상도(시총 집계의 일간)는 가장 가까운 주간으로 주고 그 사실을 경고로 밝힌다 — 응답의 `freq` 는 **실제** 해상도다."""
+    raw = (freq or "").strip().lower()
+    if not raw:
+        return _FREQ_DEFAULT[scope], None
+    canon = _FREQ_ALIASES.get(raw)
+    ok = _FREQ_SUPPORTED[scope]
+    if canon is None:
+        return None, f"freq '{freq}' 를 모릅니다 — {' / '.join(ok)} 중 하나(비우면 {_FREQ_DEFAULT[scope]})."
+    if canon not in ok:
+        return "weekly", (f"⚠ 요청한 해상도 {canon} 은 이 스코프에 없습니다 — 시총 집계는 주간 저장분(주 마지막 거래일)뿐이라 "
+                          "주간으로 답했습니다(`data.freq` = 실제 해상도). 종목 하나의 일간 곡선은 `scope=\"firm\"`, `freq=\"daily\"`.")
+    return canon, None
+
 
 def _downsample(series: list[dict], freq: str) -> list[dict]:
     """월말 다운샘플. 시장·섹터는 (asof, market) 이 키라 **시장별로 따로** 접어야 한다 —
@@ -223,6 +250,23 @@ _FIRM_METHOD_TAIL = ("KRX 정보데이터시스템 → 주간 시세 저장분(�
                      "마지막 점은 주간 저장분보다 늦은 일별 시세 저장분의 그 종목 최신 거래일(매 거래일 갱신). "
                      "mktcap=상장주식수×종가(우선주는 별도 종목). "
                      "이 시계열에는 OHLC·거래량·거래대금이 없습니다 — `scope=quote` 참조.")
+#: 261031 일간 곡선(freq=daily) — 일별 시세 저장분(최근 약 1년)의 그 종목 전 거래일. 그보다 이른 요청 구간은 주간 점으로 앞에 잇는다.
+_FIRM_METHOD_DAILY = ("KRX 정보데이터시스템 → 일별 시세 저장분(최근 약 1년 — 최신 거래일 − 1년 − 1주, 매 거래일 갱신)의 그 종목 전 거래일. "
+                      "그보다 이른 요청 구간은 주간 시세 저장분(주마다 그 주 마지막 거래일 한 점)으로 앞에 잇고 이음매는 `data.daily_from`. "
+                      "mktcap=상장주식수×종가(우선주는 별도 종목). "
+                      "이 시계열에는 OHLC·거래량·거래대금이 없습니다 — `scope=quote` 참조.")
+#: 일간 곡선 — 일별 저장분(`krx_daily` 뷰, 보관 창 약 1년)에서 그 종목의 요청 구간 전 거래일. 칸은 주간 질의와 같은 순서다.
+_FIRM_DAILY_SQL = ("SELECT trd_dd, market, close, close * list_shrs, list_shrs FROM krx_daily "
+                   "WHERE ticker=%s AND trd_dd>=%s ORDER BY trd_dd")
+
+
+def _splice_daily(weekly: list | None, daily: list | None) -> tuple[list | None, str | None]:
+    """주간 행 + 일별 행 → (이은 행, 일별이 시작한 날). 일별 첫날보다 이른 주간 점만 앞에 남긴다(같은 날·이후는 일별이 이긴다).
+    일별 읽기가 실패(None)했거나 비었으면 주간 그대로 + None — 호출자가 「일간을 못 줬다」고 밝힌다."""
+    if weekly is None or not daily:
+        return weekly, None
+    start = daily[0][0]
+    return [r for r in weekly if r[0] < start] + list(daily), start
 
 
 def _with_daily_tail(rows: list | None, tail: list | None, lo: str) -> list | None:
@@ -237,6 +281,9 @@ async def build_firm_series_payload(company: str, format: str = "md",
     DB 3왕복(보존 하한 → 주간·끝점 겹쳐 읽기 → 조정 이벤트)."""
     if not (company or "").strip():
         return _err(company, "invalid", "company 가 필요합니다 — 종목명 또는 6자리 코드.")
+    freq, freq_err = _norm_freq(freq, "firm")
+    if freq is None:
+        return _err(company, "invalid", freq_err)
     # 「코스피 시총 상위 100」 같은 문장은 종목이 아니라 유니버스다 — 순위표로 답한다(260916).
     from open_proxy_mcp.services.universe import universe_phrase
     phrase = universe_phrase(company)
@@ -267,12 +314,20 @@ async def build_firm_series_payload(company: str, format: str = "md",
     # 261018: 끝점(이번 주 최신값)은 일별 저장분에서 같이 읽는다. 두 읽기는 서로 입력이 필요 없어 한 왕복으로 겹친다.
     # 261019(설계 v03 D2): 주간 읽기는 `_read_weekly` 한 곳을 거친다 — 하한 이전이 필요하면 콜드 서빙(DB 밖 서빙본)을 겹쳐 읽어 앞에 잇는다.
     #   꺼져 있거나(`OPM_COLD`≠1) 필요 없으면 종전 질의 결과 그대로다. `cold` = 콜드가 한 일(None = 관여 안 함).
+    # 261031: 일간(freq=daily)이면 끝점 한 줄 대신 일별 저장분의 요청 구간 전체를 같은 왕복에서 읽는다.
+    want_daily = freq == "daily"
     (weekly, cold), tail = await _gather_db(
         _read_weekly(ticker, req, latest_wk, floor, _db_call(_pg_rows, _FIRM_WEEKLY_SQL, (ticker, lo)), _FIRM_COLD_COLS),
-        _db_call(_pg_rows, _FIRM_TAIL_SQL, (ticker,)))
+        _db_call(_pg_rows, _FIRM_DAILY_SQL if want_daily else _FIRM_TAIL_SQL,
+                 (ticker, lo) if want_daily else (ticker,)))
     cold_used = bool(cold and cold.used)
-    rows = _with_daily_tail(weekly, tail, lo)
-    daily_end = rows is not weekly           # 끝점을 일별 저장분에서 이었나 — 출처 설명이 사실과 맞게
+    daily_from = None
+    if want_daily:
+        rows, daily_from = _splice_daily(weekly, tail)
+        daily_end = False
+    else:
+        rows = _with_daily_tail(weekly, tail, lo)
+        daily_end = rows is not weekly       # 끝점을 일별 저장분에서 이었나 — 출처 설명이 사실과 맞게
     window_note = (weekly_window_note(floor)
                    + " 연말 시총·배수는 `price_multiple_data` 의 `scope=firm_history` 연말 항목에서 전체 기간으로 볼 수 있습니다."
                    + (f" (요청한 since {req} 가 하한보다 이르러 하한부터 줍니다.)" if req and req < floor else ""))
@@ -293,7 +348,8 @@ async def build_firm_series_payload(company: str, format: str = "md",
                     f"저장 시세에 {ticker} 시계열이 없습니다 (신규상장·상장폐지 가능).",
                     *([] if cold_used else [window_note]))
 
-    freq = (freq or _FREQ_DEFAULT["firm"]).strip().lower()
+    if want_daily and daily_from is None:    # 일별 저장분을 못 읽었거나 그 종목 행이 없다 — 주간으로 답하고 응답 해상도도 주간이다
+        freq = "weekly"
     full = [{"asof": r[0], "close_krw": r[2], "mktcap_krw": r[3], "list_shrs": r[4]} for r in rows]
     series = _downsample(full, freq)
     latest, first = full[-1], full[0]        # 최신·시작은 **원본** 기준(다운샘플이 잘라내도 사실은 그대로)
@@ -321,6 +377,12 @@ async def build_firm_series_payload(company: str, format: str = "md",
         warns.append(window_note)
     elif cold_used and cold.first_cold:      # 261019: 하한 이전을 보관본에서 이었다 — 이음매 문장(값·주 정의는 같다)
         warns.append(weekly_cold_note(cold.first_cold, cold.seam))
+    if want_daily and daily_from is None:
+        warns.append("⚠ 일간 곡선을 요청했지만 일별 시세 저장분에서 이 종목 행을 읽지 못해 **주간**으로 답했습니다"
+                     "(`data.freq` = 실제 해상도). 일별 저장분은 최근 약 1년만 있습니다.")
+    elif daily_from and full[0]["asof"] < daily_from:
+        warns.append(f"일간은 {daily_from} 부터입니다(일별 시세 저장분 = 최근 약 1년). 그보다 이른 구간은 주마다 그 주 마지막 거래일 "
+                     "한 점(주간)으로 앞에 이었습니다 — 이음매 `data.daily_from`.")
     if ev:
         warns.append(f"⚠ 구간 내 기준가 조정 {len(ev)}회 "
                      f"({', '.join(f'{d}(×{c:g})' for d, c in ev[:5])}"
@@ -342,12 +404,17 @@ async def build_firm_series_payload(company: str, format: str = "md",
                      "as_of": latest["asof"], "from": first["asof"],
                      "weekly_from": cold.start if cold_used else floor, "points": len(series),
                      "freq": freq, "points_weekly": len(full),
+                     # 261031 일간: 일별 저장분에서 온 점 수와 그 첫날(이음매) — 그 앞은 주간 점이다. 주간·월간 응답에는 칸이 없다(종전 그대로).
+                     **({"points_weekly": sum(1 for s in full if s["asof"] < daily_from),
+                         "points_daily": sum(1 for s in full if s["asof"] >= daily_from),
+                         "daily_from": daily_from} if daily_from else {}),
                      "latest": latest, "series": series,
                      "price_adjusted": False,
                      # 호가단위 맞춤도 지우지 않는다 — 그 날만 `tick_rounding: true` 를 붙여 함께 싣는다(날짜순).
                      "adj_events": [{"event_dd": d, "adj_factor": float(c), **({"tick_rounding": True} if d in tick_days else {})}
                                     for d, c in sorted(ev + ticks)],
-                     "method": _FIRM_METHOD_TAIL if daily_end else _FIRM_METHOD_WEEKLY},
+                     "method": (_FIRM_METHOD_DAILY if daily_from
+                                else _FIRM_METHOD_TAIL if daily_end else _FIRM_METHOD_WEEKLY)},
             "warnings": warns}
 
 
@@ -391,6 +458,10 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
     scheme = _class_canon(scheme, "market")
     if scheme not in _SCHEMES:
         return _err(scheme, "invalid", f"scheme '{scheme}' 없음 — {' / '.join(_SCHEMES)} 중 선택.")
+    # 261031: 해상도 말을 먼저 거른다 — 시총 집계에 없는 일간을 받고도 `freq:"daily"` 라 적으며 주간을 주던 것을 막는다.
+    freq, freq_note = _norm_freq(freq, "market" if scheme == "market" else "sector")
+    if freq is None:
+        return _err(scheme, "invalid", freq_note)
 
     if scheme == "market":
         sql = ("SELECT price_dd, market, cap, n FROM krx_cap_agg WHERE scheme='market'"
@@ -405,7 +476,6 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
             return _err("시장 시총", "db_error", _DB_ERROR_PAYLOAD_WARN)
         if not rows:
             return _err("시장 시총", "no_data", _CAP_AGG_EMPTY_WARN)
-        freq = (freq or _FREQ_DEFAULT["market"]).strip().lower()
         full = [{"asof": r[0], "market": r[1], "cap_krw": r[2], "n": r[3]} for r in rows]
         series = _downsample(full, freq)
         as_of = full[-1]["asof"]
@@ -418,7 +488,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
                          "method": "Σ시총 = 그 날 상장된 **전 종목**(우선주 포함) 합 — KRX 공표 시총과 "
                                    "같은 모집단. `price_multiple_data` 의 Σ시총(배수 분자)은 재무를 "
                                    "가진 종목만이라 3~4% 작습니다. 두 값은 서로 다른 질문의 답입니다."},
-                "warnings": [f"주간 스냅샷 기준(최신 {as_of}) — 주 마지막 거래일.",
+                "warnings": [*filter(None, [freq_note]), f"주간 스냅샷 기준(최신 {as_of}) — 주 마지막 거래일.",
                              *filter(None, [agg_degraded_note(span, full[0]["asof"])])]}
 
     # ── 섹터 ──
@@ -467,10 +537,10 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
         b_rows = b_rows or []
         cold_note = agg_degraded_note(b_span, b_rows[0][0] if b_rows else None)
         series = _downsample([{"asof": r[0], "market": r[1], "cap_krw": r[2], "n": r[3]} for r in b_rows],
-                             (freq or _FREQ_DEFAULT["sector"]).strip().lower())
+                             freq)
         bucket = match["label"]
 
-    warns = [f"주간 스냅샷 기준(최신 {as_of})."]
+    warns = [*([freq_note] if freq_note and bucket else []), f"주간 스냅샷 기준(최신 {as_of})."]
     if cold_note:
         warns.append(cold_note)
     if sector_asof and sector_asof > as_of:
@@ -495,7 +565,7 @@ async def build_cap_agg_payload(scheme: str = "market", format: str = "md",
             "data": {"scope": "sector", "scheme": scheme, "scheme_desc": _SCHEMES[scheme],
                      "as_of": as_of, "sector_asof": sector_asof,
                      "buckets": buckets, "bucket": bucket or None, "series": series,
-                     "freq": (freq or _FREQ_DEFAULT["sector"]).strip().lower(),
+                     "freq": freq,
                      "method": "Σ시총 = 그 날 상장된 전 종목(우선주 포함) 합. 섹터 합 == 시장 합 "
                                "(미분류를 버리지 않으므로 항등). bucket 지정 시 그 섹터의 전 구간 시계열."},
             "warnings": warns}
