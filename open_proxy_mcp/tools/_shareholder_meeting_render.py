@@ -28,8 +28,16 @@ def _render_agenda_node(node: dict[str, Any], indent: int = 0) -> list[str]:
     _vote = {"report_only": " 🚫 **표결 대상 아님 — 보고사항**",
              "report_if_conditions_met": " ⚠️ 요건 충족 시 보고사항으로 전환 가능"}.get(
         node.get("resolution_status") or "", "")
+    # 소집결의 안건표와 대조한 표시 — 한쪽에만 있는 안건을 지우지 않고 어디서 왔는지 밝힌다.
+    _map = {"notice_only": " · 공고에만 있음(결의 안건표에 없음)",
+            "resolution_only": " · 결의 안건표에만 있음(공고 파싱에 없음)"}.get(node.get("map_source") or "", "")
+    _rt = f" · 결의 제목: 「{node['resolution_title']}」" if node.get("resolution_title") else ""
+    _cat = f" · {node['category_label']}" if node.get("category") in (
+        "director_dismissal", "audit_committee_dismissal") else ""
     bullet = f"- **{number}** {title}" if number else f"- {title}"
-    lines.append(f"{prefix}{bullet}{source}{conditional}{_vote}")
+    lines.append(f"{prefix}{bullet}{source}{conditional}{_vote}{_cat}{_map}{_rt}")
+    if node.get("source_note") and not node.get("source_note", "").startswith("소집결의"):
+        lines.append(f"{prefix}  - 제안 주체 근거: 「{node['source_note']}」")
     for child in (node.get("children") or []):
         lines.extend(_render_agenda_node(child, indent + 1))
     return lines
@@ -222,6 +230,21 @@ def render_summary(payload: dict[str, Any]) -> str:
         f"- 루트 안건 수: {agenda_summary.get('root_count', 0)} / 전체 안건 수: {agenda_summary.get('total_count', 0)}",
     ])
 
+    check = data.get("agenda_check") or {}
+    if check.get("basis") == "resolution":
+        res = check.get("resolution") or {}
+        lines.append(f"- 안건 뼈대: 소집결의 안건표 `{res.get('rcept_no', '')}` ({res.get('rcept_dt', '')}) — "
+                     "공고에서 읽은 상세를 같은 번호에 붙였다")
+        for key, label in (("only_in_notice", "공고에만 있는 안건"),
+                           ("only_in_resolution", "결의 안건표에만 있는 안건")):
+            rows = check.get(key) or []
+            if rows:
+                lines.append(f"- {label}: " + ", ".join(f"{r['number']} {r['title']}" for r in rows))
+        for r in check.get("title_differs") or []:
+            lines.append(f"- 제목 다름 {r['number']}: 공고 「{r['notice']}」 / 결의 「{r['resolution']}」")
+    elif check.get("basis") == "notice":
+        lines.append(f"- 안건 뼈대: 소집공고만 ({check.get('reason', '')}) — 세부 안건이 접혔거나 빠졌을 수 있다")
+
     # 260505 ralph: agenda hierarchy 통합 (이전 agenda scope 흡수)
     if agendas_tree:
         for node in agendas_tree:
@@ -310,6 +333,10 @@ def render_board(payload: dict[str, Any]) -> str:
     # 섞이므로 두 표기를 함께 쓴다. 후보 개인의 직위는 아래에 원문 표기 그대로 나온다.
     lines.append(f"- 사외이사(독립이사) 후보: {summary.get('outside_directors', 0)}명")
     lines.append(f"- 감사위원 후보: {summary.get('audit_committee', 0)}명")
+    if summary.get("dismissals"):
+        lines.append(f"- 해임 대상: {summary.get('dismissals')}명 (후보 수에 넣지 않음)")
+    if summary.get("withdrawn_candidates"):
+        lines.append(f"- 사퇴한 후보: {summary.get('withdrawn_candidates')}명 (후보 수에 넣지 않음)")
     lines.append("")
 
     lines.append("## 후보자")
@@ -320,6 +347,14 @@ def render_board(payload: dict[str, Any]) -> str:
     for item in appointments:
         lines.append(f"### {item.get('number', '')} {item.get('title', '')}")
         lines.append(f"- 구분: {item.get('action', '-') } / {item.get('category', '-')}")
+        for person in item.get("dismissal_targets") or []:
+            lines.append(f"- 해임 대상: **{person.get('name', '-')}** (후보 아님)")
+        moved = item.get("candidates_in_children") or []
+        if moved:
+            lines.append("- 후보는 개별 안건에 기재: " + ", ".join(
+                f"{m.get('name')}({m.get('number')})" for m in moved))
+        for person in item.get("withdrawn_candidates") or []:
+            lines.append(f"- 사퇴: {person.get('name', '-')} (후보 수에서 뺌)")
         for candidate in item.get("candidates", []):
             lines.append(f"- 후보자: **{candidate.get('name', '-') }**")
             if candidate.get("roleType"):

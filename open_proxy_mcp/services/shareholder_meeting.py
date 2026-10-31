@@ -219,14 +219,34 @@ def _agenda_relation(title: str, conditional: str | None = None) -> tuple[str, l
 
 
 # 안건 category(영문 키) → 한글 라벨. proxy_advise._classify_agenda와 키 공유.
+# `*_dismissal` 둘은 소집공고 안건 트리에서만 붙는다(`_dismissal_category`) — 분류기는 그대로다.
 _AGENDA_CATEGORY_KO = {
     "director_election": "이사 선임", "audit_committee_election": "감사위원 선임",
+    "director_dismissal": "이사 해임", "audit_committee_dismissal": "감사위원·감사 해임",
     "financial_statements": "재무제표 승인", "cash_dividend": "현금배당",
     "director_compensation": "이사 보수한도", "audit_compensation": "감사 보수한도",
     "retirement_pay": "퇴직금", "articles_amendment": "정관 변경",
     "treasury_share": "자기주식", "merger_or_restructuring": "합병/분할",
     "shareholder_proposal": "주주제안", "other": "기타",
 }
+
+
+def _dismissal_category(title: str, category: str, parent_title: str = "") -> str:
+    """해임 안건을 선임 분류에서 떼어 낸다 — 「독립이사 ○○○ 해임의 건」은 선거가 아니다.
+
+    분류기(`_classify_agenda`)는 「독립이사」 낱말만 보고 `director_election` 을 준다(실측 씨씨에스
+    2026-09-23 임시). 선임 분류로 남으면 선거 정원·후보 수에 해임 대상이 섞인다. 분류기 자체는
+    다른 소비처가 함께 써서 건드리지 않고, 안건 트리에서만 고친다. 「선·해임 시 의결권 제한」
+    같은 정관 안건은 `_is_removal_title` 이 이미 걸러 낸다.
+    부모가 해임 묶음(「이사 해임의 건」)이고 자식이 이름뿐이면(「사내이사 갑」) 자식도 해임이다.
+    """
+    if category not in _ELECTION_CATEGORIES:
+        return category
+    removal = _is_removal_title(title, category) or (
+        "선임" not in (title or "") and _is_removal_title(parent_title or ""))
+    if not removal:
+        return category
+    return "audit_committee_dismissal" if category == "audit_committee_election" else "director_dismissal"
 
 
 #: 부모에서 자식으로 내려가는 관계. 부모가 「5인 선임」·「6인 선임」처럼 **서로 택일**인 묶음이면
@@ -256,7 +276,8 @@ def _agenda_nodes(
         if relation_type == "normal" and parent_relation in _AGENDA_RELATION_INHERITED:
             relation_type = parent_relation
             relation_reasons = [*relation_reasons, f"inherited_from_parent:{parent_relation}"]
-        category = _classify_agenda(title, parent_title=parent_title)
+        category = _dismissal_category(
+            title, _classify_agenda(title, parent_title=parent_title), parent_title)
         node = {
             "agenda_id": agenda_id,
             "number": item.get("number", ""),
@@ -275,7 +296,8 @@ def _agenda_nodes(
         # 파서가 붙인 진단 필드를 통과시킨다. 화이트리스트로 새 dict를 만드는 구조라
         # 여기 적지 않으면 조용히 사라진다 — 실제로 filed_*·resolution_* 이 그렇게 유실됐다.
         for key in ("filed_code", "filed_kind", "filed_link", "declared_role",
-                    "resolution_status", "resolution_note", "dividend"):
+                    "resolution_status", "resolution_note", "dividend", "source_note",
+                    "map_source", "resolution_title", "resolution_remark"):
             if item.get(key) is not None:
                 node[key] = item[key]
         nodes.append(node)
@@ -849,6 +871,62 @@ def _compact_meeting_info(info: dict[str, Any], scope: str) -> dict[str, Any]:
     return {key: value for key, value in info.items() if key in _SUMMARY_MEETING_INFO_KEYS}
 
 
+#: 소집결의 대조를 하는 scope. 공고 안건을 보여 주는 두 scope 만 — 다른 scope 는 안건 트리를 안 내보내
+#: 콜만 는다. `rcept_no` 직접 지정은 회사 코드가 없어 찾지 않는다(스크리너 카드가 이 길이라 콜이 늘지 않는다).
+_RESOLUTION_CHECK_SCOPES = {"summary", "agenda"}
+
+
+async def _resolution_cross_check(
+    agenda: list[dict[str, Any]],
+    *,
+    corp_code: str,
+    meeting_type: str,
+    meeting_date: date | None,
+    notice_rcept_no: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any] | None, list[str]]:
+    """공고 안건 트리 → (보여 줄 트리, agenda_check, 결의 출처, 경고). 결의를 못 읽으면 공고 트리 그대로."""
+    from open_proxy_mcp.services.meeting_resolution import (
+        find_resolution_for_notice,
+        merge_resolution_agenda,
+    )
+
+    def notice_only(reason: str) -> tuple[list[dict[str, Any]], dict[str, Any], None, list[str]]:
+        return agenda, {"basis": "notice", "reason": reason}, None, [
+            "소집결의 안건표를 읽지 못해 안건 목록은 소집공고 글에서만 읽었다 — 세부 안건이 부모 번호로 "
+            f"접혔거나 빠졌을 수 있다({reason}). 결의 원문은 소집결의 보기(resolution)로 확인한다."]
+
+    if not corp_code:
+        return notice_only("공시번호 직접 지정이라 회사 코드 없이 읽어 소집결의를 찾지 않았다")
+    as_of = (notice_rcept_no or "")[:8]
+    try:
+        found = await find_resolution_for_notice(corp_code, meeting_type=meeting_type,
+                                                 meeting_date=meeting_date, as_of=as_of)
+    except Exception as exc:  # 대조는 덧붙이는 정보다 — 실패가 공고 응답을 막지 않는다
+        return notice_only(f"소집결의 조회 실패: {type(exc).__name__}")
+    if found.get("status") != "found":
+        return notice_only(found.get("reason") or "같은 주총의 소집결의를 찾지 못했다")
+    merged, check = merge_resolution_agenda(agenda, found.get("items") or [])
+    ref = {k: found.get(k) for k in ("rcept_no", "rcept_dt", "report_nm", "is_correction", "meeting_date")}
+    check["resolution"] = {**ref, "meeting_date_checked": found.get("meeting_date_checked", False)}
+    warns: list[str] = []
+    if not found.get("meeting_date_checked"):
+        warns.append(f"소집결의({ref['rcept_no']})와 공고의 회의일을 맞춰 보지 못했다(한쪽 회의일 미상) — "
+                     "같은 종류의 가장 최근 결의를 같은 주총으로 봤다.")
+    parts = []
+    if check["only_in_notice"]:
+        parts.append("공고에만 " + ", ".join(i["number"] for i in check["only_in_notice"][:6]))
+    if check["only_in_resolution"]:
+        parts.append("결의에만 " + ", ".join(i["number"] for i in check["only_in_resolution"][:6]))
+    if check["title_differs"]:
+        parts.append("제목 다름 " + ", ".join(i["number"] for i in check["title_differs"][:6]))
+    if check["proposal_marks_from_resolution"]:
+        parts.append("결의가 주주제안이라 적은 " + ", ".join(check["proposal_marks_from_resolution"][:6]))
+    if parts:
+        warns.append(f"안건 목록은 소집결의({ref['rcept_no']}) 안건표를 뼈대로 공고와 대조했다 — "
+                     + " · ".join(parts) + ". 공고 원문 파싱은 agendas_notice, 대조는 agenda_check.")
+    return merged, check, ref, warns
+
+
 def _flatten_agendas(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     flattened: list[dict[str, Any]] = []
     for item in items:
@@ -1084,7 +1162,7 @@ def _parse_notice_meeting_date(datetime_text: str) -> date | None:
     match = None
     compact = re.sub(r"\s+", "", datetime_text)
     for pattern in (
-        r"(\d{4})[.-](\d{1,2})[.-](\d{1,2})",
+        r"(\d{4})[./-](\d{1,2})[./-](\d{1,2})",
         r"(\d{4})년(\d{1,2})월(\d{1,2})일",
     ):
         match = re.search(pattern, compact)
@@ -2320,8 +2398,26 @@ async def build_shareholder_meeting_payload(
         status = AnalysisStatus.REQUIRES_REVIEW
         warnings.append("HTML 구조를 확보하지 못해 XML 텍스트 기준으로만 파싱했다.")
 
-    agenda_nodes = _agenda_nodes(agenda)
-    flat_agendas = _flatten_agendas(agenda)
+    # 소집결의 안건표를 뼈대로 대조 — 공고 안건(summary·agenda)을 돌려줄 때만. 공고 원문 파싱은
+    # `agendas_notice` 로 따로 남긴다(원문을 지우지 않는다).
+    agenda_check: dict[str, Any] | None = None
+    resolution_ref: dict[str, Any] | None = None
+    agenda_for_tree = agenda
+    if scope in _RESOLUTION_CHECK_SCOPES:
+        stage_started_at = time.perf_counter()
+        agenda_for_tree, agenda_check, resolution_ref, check_warnings = await _resolution_cross_check(
+            agenda,
+            corp_code=selected.get("corp_code", ""),
+            meeting_type=selected_meeting_type,
+            meeting_date=selected_candidate.get("meeting_date"),
+            notice_rcept_no=latest_notice.get("rcept_no", ""),
+        )
+        warnings.extend(check_warnings)
+        _mark("resolution_cross_check", stage_started_at)
+    notice_agenda_nodes = _agenda_nodes(agenda)
+    agenda_nodes = (_agenda_nodes(agenda_for_tree) if agenda_for_tree is not agenda
+                    else notice_agenda_nodes)
+    flat_agendas = _flatten_agendas(agenda_for_tree)
     agenda_summary = {
         "root_count": len(agenda_nodes),
         "total_count": len(flat_agendas),
@@ -2403,6 +2499,13 @@ async def build_shareholder_meeting_payload(
 
     if include_agenda:
         data["agendas"] = agenda_nodes
+        if agenda_check is not None:
+            data["agenda_check"] = agenda_check
+            # 대조로 트리가 달라졌을 때만 공고 원문 파싱을 따로 싣는다(같으면 `agendas` 가 곧 그것이다).
+            if agenda_check.get("basis") == "resolution" and any(
+                    agenda_check.get(k) for k in ("only_in_resolution", "title_differs",
+                                                  "proposal_marks_from_resolution")):
+                data["agendas_notice"] = notice_agenda_nodes
         # '주주총회 목적사항별 기재사항' 구간 원문. 안건과 구간을 우리가 짝지어 주지 않고
         # 라벨만 달아 통째로 넘긴다 — 표 파싱이 실패하면 통째로 사라지던 내용(주주제안
         # 이사 후보 명단·자기주식 처분계획·주식병합 상세)이 여기로 살아 나온다.
@@ -2500,6 +2603,18 @@ async def build_shareholder_meeting_payload(
             note=f"회의일 {meeting_info.get('datetime') or '미확정'}",
         )
     ]
+    if resolution_ref:
+        evidence_refs.append(
+            EvidenceRef(
+                evidence_id=f"ev_resolution_{resolution_ref['rcept_no']}",
+                source_type=SourceType.DART_XML,
+                rcept_no=resolution_ref["rcept_no"],
+                rcept_dt=format_iso_date(resolution_ref.get("rcept_dt", "")),
+                report_nm=resolution_ref.get("report_nm") or "주주총회소집결의",
+                section="소집결의 안건표(회의목적사항)",
+                note="안건 대조 뼈대",
+            )
+        )
     if include_board:
         evidence_refs.append(
             EvidenceRef(

@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
-updated: 2026-10-18
+updated: 2026-11-01
 description: 주주총회 소집공고 (사전) — DART API/XML 기반 · 이사회 소집결의(scope=resolution)
 related: [shareholder_meeting_results, ownership_structure, proxy_contest, evidence]
 ---
@@ -76,7 +76,57 @@ sequenceDiagram
 | `fiscal_month` | `annual` + `year` 조회에서 OpenDART `company.json.acc_mt` 결산월을 읽어 정기주총 후보 window를 먼저 좁힘. fiscal window에서는 최신 후보 1건만 먼저 열고, 정기 매칭 실패 시 나머지 후보와 full-year 검색으로 fallback. |
 | `data.timings_ms` | `resolve_company`, `fiscal_month_lookup`, `select_notice_candidate`, `select_notice_candidate.search_filings`, `select_notice_candidate.fetch_top_documents`, `select_notice_candidate.parse_top_documents`, `select_notice_candidate.filter_meeting_window`, `select_notice_candidate.build_candidate`, `select_notice_candidate.full_year_fallback`, `coverage_search`, `load_notice_bundle`, `total` 등 stage별 소요 시간(ms). 병목 원인 확인용. |
 
+## 소집결의 안건표 대조 — `agenda_check` (261101)
+
+`scope="summary"`·`"agenda"` 는 공고 안건을 돌려주기 전에 **같은 주총의 소집결의**(거래소 I001) 안건표와
+맞춰 본다. 공고 파서는 글에서 안건을 읽어 세부 안건을 부모 번호로 접거나(DB손해보험 2026 정기 — 2-1~2-5·3-1~3-4·
+4-1~4-4 가 2·3·4 하나씩, 주주제안 표시도 잃음) 결의에 없는 안건을 더한다(진도 2026-10-08 임시 7-1). 결의 안건표는
+번호·제목·세부 안건(비고 칸 `2-1. …`)을 표 칸으로 준다.
+
+- **같은 주총** = 공고 접수일 **이전**에 접수된 결의(정정 포함, 공고 뒤 정정은 안 씀) · 같은 정기/임시 · 결의
+  본표의 회의일이 공고 회의일과 같음(한쪽이 미상이면 같은 종류의 가장 최근 결의 — 경고로 밝힌다).
+- **외부 호출**: 목록 1콜(`pblntf_detail_ty=I001`, 공고 접수일 전 120일, 회사 코드) + 원문 최대 3건(최신 판부터,
+  안건표가 나오면 멈춤, `get_document_cached`). `rcept_no` 직접 지정은 회사 코드가 없어 찾지 않는다(스크리너 카드 0콜).
+- **트리**: 결의 번호가 뼈대, 공고에서 읽은 상세(제안 주체·조건·구간 코드·배당)는 같은 번호에 붙는다. 마디의
+  `map_source` — `both` · `notice_only`(공고에만, **지우지 않는다**) · `resolution_only`(결의에만, 더한다) ·
+  `notice_sub_item`(결의가 세부 안건을 말하지 않은 부모 아래 공고 세부 안건). 제목이 다르면 공고 제목을 두고
+  `resolution_title` 에 결의 제목. 결의 안건표가 그 줄에 「주주제안」을 적었고 공고 쪽 제안 주체가 비었으면
+  `source="주주제안"`·`source_note`. 결의 칸의 나머지 글(「일괄표결 후 다득표 …」 등)은 `resolution_remark`.
+- **`agenda_check`**: `{basis: resolution|notice, only_in_notice, only_in_resolution, title_differs,
+  proposal_marks_from_resolution, resolution{rcept_no, rcept_dt, report_nm, is_correction, meeting_date,
+  meeting_date_checked}}`. 결의를 못 읽으면 `{basis: "notice", reason}` + warnings 에 「세부 안건이 접혔거나 빠졌을
+  수 있다」.
+- **원문 파싱은 남긴다** — 대조로 트리가 달라졌으면(결의에만 있는 안건·제목 다름·주주제안 표시 추가) 공고 파싱
+  그대로의 트리를 `agendas_notice` 에 함께 싣는다. `agenda_summary` 는 대조한 트리 기준.
+- `board`·`compensation`·`aoi_change`·`prov_financials`·`advise`(의결권 권고 도구 내부) 는 대조하지 않는다 — 안건
+  트리를 내보내지 않거나 콜만 는다.
+
 ## 파싱 정확도 / relation metadata
+
+- **해임은 선임이 아니다(261101)** — 「독립이사 ○○○ 해임의 건」을 분류기가 「독립이사」 낱말로
+  `director_election` 으로 줬다(씨씨에스 2026-09-23 임시). 안건 트리에서 `director_dismissal`(「이사 해임」)·
+  `audit_committee_dismissal` 로 바꾼다 — 해임 묶음 아래 이름뿐인 자식도 같다. 「선·해임 시 의결권 제한」 같은
+  정관 안건은 해임이 아니다. 분류기(`_classify_agenda`) 자체는 다른 소비처가 함께 써서 그대로다.
+  `board` 의 해임 안건 사람은 `candidates` 가 아니라 `dismissal_targets` 에 담기고 후보 수에 들지 않는다
+  (`board_summary.dismissals` 에만 사람 수).
+- **범위 주석은 안건 제목이 아니다(261101)** — 「제1-1호 의안(제1-2호 의안 제외)부터 제5호 의안은 모두
+  주주제안」 이 콜론 없는 그물에 걸려 제1-2호 제목이 「제외)부터」가 되고(먼저 나온 쪽이 이겨 진짜 제1-2호가
+  사라졌다), 제1-1호 제목이 그 문장 앞 괄호에서 잘렸다. 범위 문장(`제A호 … (제B호 제외) 부터|내지|~ 제C호 …`)을
+  안건 그물에서 가리고, 서술부가 「주주제안」이면 범위 안 안건(제외 번호와 그 자식 빼고)에 `source="주주제안"`
+  + `source_note`(근거 문장). 조건을 말하는 범위 문장(「… 가결될 경우 상정」)은 조건절로 그대로 읽는다.
+- **구획 표제는 뒤 안건의 것이다(261101)** — 「감사 갑 선임의 건 ― 소수주주 제안 안건 ―」 의 줄표 표제가 앞
+  제목에 붙어 그 안건이 「주주 제안」 글자로 주주제안이 되고 뒤 안건들은 표시를 잃었다(대호에이엘 2026-08
+  임시). 양쪽 줄표로 감싼 「(소수)주주 제안」·「회사 제안」·「이사회 제안」 표제만 표제로 보고, 주주제안
+  표제 뒤 안건(다음 표제 전까지)에 제안 주체를 붙인다. 괄호·대괄호 꼬리표는 그 안건 자신의 것이라 그대로.
+- **후보 목록은 후보만(261101)** — 묶음 안건(제3호)과 개별 안건(제3-x호)에 같은 후보가 겹치면 개별 안건에만
+  두고 묶음에는 `candidates_in_children`(이름·번호)로 가리킨다(묶음 쪽에만 있던 칸은 개별 쪽 빈칸에 옮긴다).
+  사퇴한 후보는 `withdrawn_candidates` 로 옮긴다 — 안건 제목이 사퇴·폐기를 말하거나(조건절 제외) 본문이
+  「○○○ 후보자 … 사퇴」로 **후보 이름을 짚을 때만**(「사퇴하는 경우」 같은 조건 표현 제외).
+  `board_summary.withdrawn_candidates` 신설. 고려아연 2025 정기(103→121줄)·태광산업 2026 정기.
+- **회의 일시 그물을 넓혔다(261101)** — 「1. 일시 : …」 꼴만 읽어 콜론 없는 「가. 일 시 2026년 …」, 표 칸이라
+  줄이 갈린 「일 시\n2026년 …」, 머리 줄이 「1. 일시 및 장소」인 꼴(일시가 「및 장소」로 잡혔다), 표지 없이
+  소집 문장에만 있는 꼴(「2025년 12월 23일(화) 오전 9시에 … 개최」 — 날짜 바로 뒤 시각이 있을 때만, 전자투표
+  기간 제외)을 놓쳐 회의일이 비었다(스맥 2026-03-31 정기·오스코텍 2025-12 임시). `2026/03/31` 도 읽는다.
 
 - agenda node는 `proposer_type`, `agenda_relation_type`, `agenda_relation_reasons`를 포함한다.
 - `agenda_relation_type`: `normal`, `procedural`, `conditional`, `alternative`, `cumulative_related`, **`withdrawn`**.
@@ -223,6 +273,7 @@ sequenceDiagram
   못 보던 상태였다.
 
 ## 변경 이력
+- 2026-11-01: **소집결의 안건표 대조(`agenda_check`)·공고 파서 패턴 5건.** `summary`·`agenda` 가 같은 주총의 소집결의 안건표를 뼈대로 공고 안건과 대조한다 — 마디 `map_source`·`resolution_title`·`resolution_remark`·`source_note`, `data.agenda_check`, 트리가 달라지면 `data.agendas_notice`(공고 파싱 원본), evidence 에 결의 원문. DART 콜 +1(목록)·원문 ≤3(위 절). 패턴: 해임 안건 분류(`director_dismissal`·`audit_committee_dismissal`) · 범위 주석 · 구획 표제 · 묶음/개별 후보 중복·사퇴 후보(`candidates_in_children`·`withdrawn_candidates`·`dismissal_targets`, `board_summary.withdrawn_candidates`) · 회의 일시 그물. 회귀 `tests/test_notice_agenda_resolution_check.py` — 결의 쪽은 저장소의 실제 결의 원문(고려아연), 공고 쪽은 실패 사례 인용문으로 만든 **합성 원문**이라 실제 공고로는 아직 확인하지 못했다. 기존 시험 하나(`test_personnel_parser_accepts_auditor_detail_title_without_election_suffix`)의 기대를 바꿨다 — 묶음 안건 제5호는 이제 후보를 겹쳐 싣지 않고 `candidates_in_children` 으로 제5-1호를 가리킨다.
 - 2026-10-25: **잠정 재무제표 단위 판독 — 대괄호·전각 괄호와 조원·만원** (재무 점검 신규-#8, DATA-U1) — `provisional_financial_statement._FS_UNIT` 이 반각 둥근 괄호만 받아 「[단위: 백만원]」·「（단위：백만원）」는 빈 단위(계수 1=원)로, `_scale_factor` 가 조원·만원을 끝줄 1 로 읽었다. 이제 둥근·대괄호 반각·전각 4종(괄호 종류가 섞인 꼴 포함)을 받고 조원 1e12·만원 1e4 로 환산한다. 조원·만원은 **단위 선언이 그 단위로 시작할 때만**(앞의 「단위」·쌍점·공백을 뗀 뒤) 읽는다 — 설명 속 만원·조원(「원(단, 만원 미만 절사)」·「원 만원 미만 절사」·「천원·만원」·「억원, 조원」)이나 앞 글자가 다른 꼴(「100만원」·「십만원」·「천만원」·「십조원」)은 계수 그대로다(구분자 목록으로 자르지 않는다 — 감수 1·2회차 R1). 빈 단위=원 1·외화/「원」 없는 단위=값 없음·600자 창은 그대로, 새 키 없음. 2026 정기주총 소집공고 30건(판독 110회)에는 이 꼴이 0건이라 **예방 수정**이고, 30건의 판독 110회·파싱+지표 출력은 옛·새 코드가 같다. 의결권 권고 도구(`proxy_advice_*`) 도 같은 두 함수를 직접 불러 함께 바뀐다. 남은 것: 천만원·십만원·백억원·천억원·십조원 미인식, 더 가까운 「[단위: 주]」 선언이 있으면 값이 빔(틀린 값이 아니라 빈 값), 별도 칸 오선택(30건 중 최소 7건).
 - 2026-10-18: **`scope="resolution"` 신설 — 이사회 소집결의**(거래소 공시) 본표·안건표·후보표 원문 + 결의 정정 이력(판마다 정정 비교표, 원공시 날짜 대조, 대조표만 있는 판 뒤의 값 변경 경고). 소집공고가 아직 없는 임시주총이 「주총 없음」으로 보이던 것. `summary` 가 공고를 못 찾으면 next_actions 에 `resolution` 을 안내.
 - 2026-09-09: 표 파서가 DART 셀 태그 `<TE>`/`<TU>` 를 못 읽어 **열이 잘리던** 것 수정
