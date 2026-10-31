@@ -2,6 +2,14 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Unreleased — 2026-10-31
+
+### Asking for a daily price curve now returns a daily curve
+
+- `trading_data` stock series with `freq="daily"` now returns **every trading day** for roughly the last year. Earlier parts of the requested range are prefixed with one point per week, and `data.daily_from` plus a warning mark where the daily part starts.
+- Until now unknown resolution words were not checked, so a daily request got weekly points while the response still said "daily" — the assistant drew a weekly chart believing it was daily. `data.freq` now states the resolution actually returned, and unknown words are rejected (Korean 일간·주간·월간 are accepted).
+- Market and sector cap aggregates have no daily store, so they answer weekly and say so. Weekly and monthly responses are unchanged.
+
 ## Unreleased — 2026-10-30
 
 ### Connecting without a key no longer gets stuck at "needs reconnect"

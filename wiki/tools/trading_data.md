@@ -8,7 +8,7 @@ data_source: [KRX stk/ksq_bydd_trd(일별매매정보), 최근 약 1년 일별 �
 related_disclosures: []
 related_concepts: [시가총액, 단위-표기-규약]
 created: 2026-08-24
-updated: 2026-10-23
+updated: 2026-10-31
 ---
 
 # trading_data
@@ -32,6 +32,7 @@ updated: 2026-10-23
 ```
 trading_data(company="삼성전자")                             # firm: 주가·시총·주식수 주간 시계열(끝점 = 최신 거래일)
 trading_data(company="삼성전자", since="20240101")           # 구간 지정
+trading_data(company="삼성전자", since="20260501", freq="daily")  # 일간 곡선 — 최근 약 1년은 전 거래일(그 앞은 주간 점)
 trading_data(company="삼성전자", scope="quote")              # 최근 거래일 전체 시세
 trading_data(company="삼성전자", scope="quote", as_of="20260820")  # 그 날 OHLC·거래량·거래대금
 trading_data(scope="market")                                 # KOSPI·KOSDAQ 시총 시계열
@@ -65,7 +66,7 @@ trading_data(scope="rate", since="20240101", freq="weekly")
 | bucket | str | no | sector 전용. 섹터명·코드 지정 시 그 섹터의 전 구간 시계열 | "" |
 | universe | str | universe 필수 | `screener` 와 같은 유니버스 문법 — 「코스피 시총 상위 N」·「코스닥 상위 N」·「시총 상위 N」(시장 혼합)·「코스피200」·「코스닥150」(지수 구성종목 원장 — 아래 「universe」 절)·「코스피 전체」·「전체」·이름/코드 나열. 비우면 `company` 를 대신 쓴다. 「코스피 120」처럼 숫자만 있고 「상위·시총」이 없으면 **추측하지 않고 되묻는다**(`invalid` + 제안 문구). 숫자 뒤 개·종목·기업·회사·개사·곳은 무관(「코스피 시가총액 상위 200개 기업」). 이름 나열에서 회사를 하나도 못 찾아도 되묻는다(260918). **업종 말**(2026-10-21): 「업종」「섹터」「대분류」「중분류」가 들어간 문구 — 「반도체 업종」·「업종 반도체」·「중분류 반도체와반도체장비」·「대분류 IT」·「코스피 IT 섹터 상위 10」 → 업종 구성·비중표 | "" |
 | sort | str | no | **quote 순위표 전용**. `등락률`(기본, 큰 순) / `하락률`(작은 순) / `거래대금` / `거래량`(영문 value·volume 도). 모르는 값은 invalid | "" |
-| freq | str | no | firm·market·sector 해상도. **rate**: `daily`/`weekly`/`monthly` — 비우면 300점 이하 일별, 넘으면 주간 | "" |
+| freq | str | no | firm·market·sector 해상도 `daily`/`weekly`/`monthly`(일간·주간·월간도 받는다). firm 기본 weekly, market·sector 기본 monthly. **firm 의 daily** = 일별 시세 저장분(최근 약 1년) 전 거래일 + 그 앞 요청 구간은 주간 점(이음매 `data.daily_from`). 시총 집계(market·sector)의 daily 는 주간으로 주고 경고. 모르는 말은 invalid. 응답 `data.freq` = **실제** 해상도. **rate**: `daily`/`weekly`/`monthly` — 비우면 300점 이하 일별, 넘으면 주간 | "" |
 
 ## 데이터 출처와 콜 비용
 | scope | 출처 | DART | KRX |
@@ -263,6 +264,20 @@ KRX 응답 전체(시·고·저·종가, 거래량, 거래대금, 상장주식�
   끝점이 그 마지막 거래일을 되살린다(261018 실측 2종목 — 이 둘은 응답이 바뀐다). 보관 창을 벗어나면 그 점은 다시 빠지고 주간 마지막 행으로 돌아간다.
 - 이 스코프에는 끝 경계 인자가 없다(`as_of` 는 quote 전용).
 
+### firm — 일간 곡선 `freq="daily"` (2026-10-31)
+
+일간 주가 차트용. 일별 시세 저장분(최근 약 1년 — 최신 거래일 − 1년 − 1주)의 그 종목 **전 거래일**을 읽는다(DB 1왕복 — 주간 읽기와 겹친다, DART·KRX 0콜).
+
+| 요청 구간 | 결과 |
+|---|---|
+| 일별 보관 창 안 | 전 거래일. `data.daily_from` = 첫 일별 날, `points_daily` = 일별 점 수, `points_weekly` = 0 |
+| 창보다 이름 | 창 앞은 주마다 그 주 마지막 거래일 한 점(주간)으로 잇고 경고로 이음매를 밝힌다. `points_weekly` = 앞에 이은 주간 점 수 |
+| 일별 저장분 읽기 실패·그 종목 행 없음 | 주간으로 답한다 — `data.freq:"weekly"` + 경고(「daily」라고 적지 않는다) |
+
+- 출처 설명(`data.method`)은 일별 저장분을 썼다는 문구로 바뀐다. md 머리말·곡선 안내도 실제 해상도(일간·주간·월말)를 적는다.
+- 주간·월간 응답은 종전 그대로다(새 칸 없음).
+- 왜: 종전에는 `freq` 의 모르는 말을 거르지 않아 `daily` 를 받고도 주간 점을 주면서 응답에 `freq:"daily"` 라 적었다 — 읽는 AI 가 일간 곡선인 줄 알고 주간 차트를 그렸다(2026-10-31 실사용 대화).
+
 ### 종류주 코드 — 그 종목 자체의 시세 (2026-10-18)
 
 `company` 에 우선주 등 종류주 코드를 주면(`005935` 삼성전자우 · `005387` 현대차2우B · `00088K` 한화3우B) 회사는 발행 회사(보통주와 같은 corp_code)로
@@ -423,6 +438,7 @@ KOSDAQ 153종목·2.16% → 124종목·2.06% → **0종목**(2026-10-18 기업 �
 요청 경로에서 3초는 260823 의 502(느린 한 경로가 워커를 소진)와 같은 형태라 사전계산으로 뺐다.
 
 ## 변경 이력
+- 2026-10-31: **해상도(`freq`) 정직하게** — firm 에 `freq="daily"`(일간 곡선: 일별 시세 저장분 최근 약 1년 전 거래일, 그 앞은 주간 점 + 이음매 `data.daily_from`·`points_daily`). 해상도 말을 거른다: 일간·주간·월간·daily/weekly/monthly 를 받고 모르는 말은 invalid. 시장·섹터 시총 집계의 daily 는 주간으로 주고 경고하며 `data.freq` 는 실제 해상도 `weekly`. 종전에는 모르는 말을 그대로 받아 주간 점을 주면서 `freq:"daily"` 라 적었다. firm md 머리말의 「주간 관측」 고정 문구도 실제 해상도로. 주간·월간 응답 불변, 새 표·DB 쓰기·외부 호출 없음, 도구 수 그대로.
 - 2026-10-23: **업종 구성(`universe`)에서 우선주를 뺀다** — 우선주는 업종·성과 분석 대상이 아니라 종목 코드로 부르는 개별 시세만 있으면 된다는 결정. 업종 구성 표(순위·비중·누적 비중·업종 시총·중분류 비중·시장 몫)는 보통주만 싣고 분모는 보통주 시총 합이다.
   뺀 우선주 수·시총은 경고와 `data.sector.preferred_n`·`preferred_cap_krw`·`cap_incl_preferred_krw`(새 칸)로 밝힌다. 우선주 행의 `preferred`·`issuer_ticker` 칸은 더 나오지 않는다. 업종 구성 시총은 `scope=sector` 집계(우선주 포함)보다 우선주 몫만큼 작다(종전에는 같았다).
   업종 안 종목이 우선주뿐이면 no_data. 종목 코드로 부르는 우선주 시세·직접 지정한 우선주·지수 구성종목 원장·`scope=sector` 집계는 그대로다. DB 쓰기·DDL·새 도구 없음(도구 수 그대로). 같은 업종 문구를 쓰는 `performance_analysis` 업종 대상·블렌드와 `forward_estimates_data` 업종 유니버스에서도 우선주가 빠진다.
