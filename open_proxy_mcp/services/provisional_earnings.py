@@ -355,16 +355,20 @@ def parse_provisional_earnings(html: str, report_nm: str, fiscal_end_month: int 
     unit_extra = {} if unit_label else {"unit_warning": UNIT_UNKNOWN_WARNING}
     consolidated = "연결재무제표기준" in (report_nm or "") or "연결재무제표 기준" in text
     is_structure = _is_structure_change_report(report_nm)
-    pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
-    if pm:
-        period = {"start": pm.group(1), "end": pm.group(2)}
-    else:
-        ym = re.search(r"(\d{4})[.-](\d{2})\s*~\s*(\d{4})[.-](\d{2})", text)
-        if ym:
+    if is_structure:
+        kind_cell = _statement_is_consolidated(text)
+        consolidated = consolidated if kind_cell is None else kind_cell
+    # 손익구조 정정은 원공시 서식과 같은 순서 — 시작일·종료일을 어떤 문구보다 먼저(본문 사유의 날짜·분기 문구에 끌려가지 않는다)
+    period = _period_from_start_end_labels(text) if is_structure else None
+    if period is None:
+        pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
+        ym = None if pm else re.search(r"(\d{4})[.-](\d{2})\s*~\s*(\d{4})[.-](\d{2})", text)
+        if pm:
+            period = {"start": pm.group(1), "end": pm.group(2)}
+        elif ym:
             period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"}
         else:
-            # 손익구조 정정은 원공시 서식과 같은 순서 — 시작일·종료일을 「N년 N분기」 문구보다 먼저(본문 사유에 분기 문구가 섞여도 연간 기간을 석 달로 읽지 않는다)
-            period = (_period_from_start_end_labels(text) if is_structure else None) \
+            period = _period_from_current_label(text, fiscal_end_month) \
                 or period_from_quarter_text(text, fiscal_end_month)   # 날짜 범위가 없으면 「2025년 2분기」 문구에서(260907)
     tables = soup.find_all("table")
     correction_notes: list[str] = []
@@ -423,10 +427,51 @@ def _struct_column_map(row: list[str]) -> dict[str, int] | None:
 
 
 def _period_from_start_end_labels(text: str) -> dict[str, str] | None:
-    """손익구조 변경 서식의 「시작일 2025-01-01 … 종료일 2025-12-31」 → 기간. 없으면 None."""
-    starts = re.findall(r"시작일\s+(\d{4}-\d{2}-\d{2})", text)
-    ends = re.findall(r"종료일\s+(\d{4}-\d{2}-\d{2})", text)
+    """손익구조 변경 서식의 「시작일 2025-01-01 … 종료일 2025-12-31」 → 기간. 없으면 None.
+
+    사유 문장의 날짜보다 먼저 본다 — 우리넷은 사유에 계약기간 `2023.07~2024.09` 를 적어 결산기간을 잃었다(261102).
+    """
+    starts = re.findall(r"시작일\s*(\d{4}-\d{2}-\d{2})", text)
+    ends = re.findall(r"종료일\s*(\d{4}-\d{2}-\d{2})", text)
     return {"start": starts[0], "end": ends[0]} if starts and ends else None
+
+
+def _statement_is_consolidated(text: str) -> bool | None:
+    """손익구조 서식 「1. 재무제표의 종류」 칸. 없으면 None. 낱말 검색은 사유의 「연결」에 걸려 개별 공시를 연결로 읽었다(모비스 261102)."""
+    m = re.search(r"재무제표의\s*종류\s*(연결|별도|개별)", text)
+    return m.group(1) == "연결" if m else None
+
+
+def _subsidiary_name(text: str) -> str | None:
+    """원문 머리의 「자회사인 X 의 주요경영사항신고」. 제목에 표시가 없는 공시가 있어 머리를 본다(대웅·CJ, 261102)."""
+    m = re.search(r"(?:자회사|종속회사)인?\s*(.{2,40}?)\s*의\s*주요\s*경영사항", text[:400])
+    return m.group(1).strip() if m else None
+
+
+#: 표 머리의 당기·전기·전년동기 칸. 실적기간 칸이 없는 옛 서식은 여기만 기간을 말한다(261102 표본 1,080건의 표기).
+_CURRENT_LABELS = re.compile(r"당기실적(.{0,200}?)(?:당기누계|매출액|영업수익|수익\(매출액\)|보험수익|순영업수익|공사수익|영업이익)")
+_QUARTER_LABEL = re.compile(
+    r"(?<![\d.])(?:(?P<year>20\d{2}|\d{2})(?:년도?|[Y.\-/])?(?:(?P<first>[1-4])(?:/4)?(?:분기|Q)|Q(?P<second>[1-4]))"
+    r"|(?:(?P<third>[1-4])Q|Q(?P<fourth>[1-4]))(?P<tail>20\d{2}|\d{2}))(?P<sum>누적|누계)?")
+
+
+def _period_from_current_label(text: str, fiscal_end_month: int | None = None) -> dict[str, str] | None:
+    """`(25년 2분기)`·`('26.3Q)`·`(3Q26)`·`(26Y Q3)`·`(2026년 2/4분기)` → 실적기간. 당기 칸이 비었거나 누적이면 None."""
+    head = _CURRENT_LABELS.search(text)
+    if not head:
+        return None
+    labels: list[tuple[int, int]] = []
+    cells = re.sub(r"[\s'’‘`´]", "", head.group(1)).upper()
+    for hit in _QUARTER_LABEL.finditer(cells):
+        if hit["sum"] or (not labels and re.search(r"\(-?\)", cells[:hit.start()])):
+            return None
+        year = hit["year"] or hit["tail"]
+        labels.append((int(year) if len(year) == 4 else 2000 + int(year),
+                       int(hit["first"] or hit["second"] or hit["third"] or hit["fourth"])))
+    # 칸 순서는 당기·전기·전년동기 — 맨 뒤가 1년 전 같은 분기여야 맨 앞을 당기로 믿는다.
+    if not labels or (len(labels) > 1 and labels[-1] != (labels[0][0] - 1, labels[0][1])):
+        return None
+    return period_from_quarter_text(f"{labels[0][0]}년 {labels[0][1]}분기", fiscal_end_month)
 
 
 def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> dict[str, Any]:
@@ -435,16 +480,16 @@ def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> d
     text = soup.get_text(" ", strip=True)
     unit_label = _find_unit(text)                 # 일반 서식과 같은 규칙 — 못 찾으면 None(천원으로 가정하지 않는다)
     factor = _UNIT[unit_label] if unit_label else 1.0
-    consolidated = "연결" in text and "별도" not in text[:600]
-    pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
-    if pm:
-        period = {"start": pm.group(1), "end": pm.group(2)}
-    else:
-        ym = re.search(r"(\d{4})[.]?(\d{2})\s*~\s*(\d{4})[.]?(\d{2})", text)
-        if ym:
+    kind_cell = _statement_is_consolidated(text)
+    consolidated = ("연결" in text and "별도" not in text[:600]) if kind_cell is None else kind_cell
+    period = _period_from_start_end_labels(text)
+    if period is None:
+        pm = re.search(r"(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", text)
+        ym = None if pm else re.search(r"(\d{4})[.]?(\d{2})\s*~\s*(\d{4})[.]?(\d{2})", text)
+        if pm:
+            period = {"start": pm.group(1), "end": pm.group(2)}
+        elif ym:
             period = {"start": f"{ym.group(1)}-{ym.group(2)}", "end": f"{ym.group(3)}-{ym.group(4)}"}
-        else:
-            period = _period_from_start_end_labels(text)
 
     table = next((t for t in soup.find_all("table")
                   if "당해사업연도" in t.get_text() and "영업이익" in t.get_text()), None)
@@ -660,6 +705,7 @@ async def build_provisional_earnings_payload(
         except Exception:  # noqa: BLE001 — 회사 정보가 안 오면 12월 기본값(라벨에 출처를 적는다)
             fem = None
         parsed = parse_provisional_earnings(html, rept.get("report_nm", ""), fiscal_end_month=fem)
+        subsidiary = _subsidiary_name(BeautifulSoup(html, "lxml").get_text(" ", strip=True))
     except Exception as e:
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.ERROR,
                             subject=corp.get("corp_name", ""),
@@ -667,6 +713,8 @@ async def build_provisional_earnings_payload(
                             warnings=[f"원문 파싱 실패: {type(e).__name__}"
                                       + (f"(DART {getattr(e, 'status', '')})" if isinstance(e, DartClientError) else "")]).to_dict()
     warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)", *extra_warnings, *parsed.pop("parse_warnings", [])]
+    if subsidiary:
+        warnings.append(f"자회사 {subsidiary} 의 실적이다 — {corp.get('corp_name')} 본체 실적으로 읽지 말 것")
     if parsed.get("unit_warning"):
         warnings.append(parsed["unit_warning"])
     if parsed.get("kind") == "non_financial":
@@ -677,11 +725,13 @@ async def build_provisional_earnings_payload(
         "report": {"rcept_no": rept["rcept_no"], "report_nm": rept.get("report_nm"),
                    "rcept_dt": rept.get("rcept_dt"), "url": url},
         **parsed,
+        **({"subsidiary": subsidiary} if subsidiary else {}),
     }
     # 컨센서스와 맞댔을 때만 칸을 붙인다(261018 결정). 모르거나 없거나 맞댈 수 없으면 칸 없이 파싱 값만 —
     # 월간·커버리지 밖·이력 밖·DB 장애·연결/별도 불일치의 이유는 `_consensus_gap` 이 status·why 로 내지만 싣지 않는다.
     try:
-        gap = await _consensus_gap(parsed, corp.get("stock_code"), rept.get("rcept_dt") or "")
+        # 자회사 실적은 모회사 컨센서스와 맞대지 않는다 — 하나은행 실적이 지주 예상치 대비 -98.7% 로 읽힌다.
+        gap = None if subsidiary else await _consensus_gap(parsed, corp.get("stock_code"), rept.get("rcept_dt") or "")
     except Exception:  # noqa: BLE001 — 비교 칸이 실패해도 잠정 실적값은 그대로 낸다
         gap = None
     if gap and gap.get("status") == "ok":
