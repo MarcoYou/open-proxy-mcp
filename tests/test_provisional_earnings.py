@@ -1,4 +1,8 @@
-from open_proxy_mcp.services.provisional_earnings import parse_provisional_earnings, _period_metadata
+import pytest
+
+from open_proxy_mcp.services.provisional_earnings import (
+    _period_from_current_label, _period_metadata, _subsidiary_name, parse_provisional_earnings,
+)
 
 
 STRUCTURE_CHANGE_HTML = """
@@ -187,3 +191,64 @@ def test_candidates_dedupe_and_push_attachment_only_corrections_last():
     got = asyncio.run(_find_provisional_candidates(_C(), "00000000", "20250701", "20250815"))
     assert [x["rcept_no"] for x in got] == ["2", "1", "3"]
 
+
+STRUCTURE_FORM = """<html><body><p>매출액또는손익구조30%(대규모법인은15%)이상변동</p>
+<p>1. 재무제표의 종류 {kind}</p><p>2. 결산기간 당해사업연도 직전사업연도 - 시작일 2025-01-01 2024-01-01 - 종료일 2025-12-31 2024-12-31</p>
+<table><tr><td>3. 매출액 또는 손익구조변동내용(단위: 원)</td><td>당해사업연도</td><td>직전사업연도</td><td>증감금액</td><td>증감비율(%)</td><td>흑자적자전환여부</td></tr>
+<tr><td>- 매출액</td><td>100</td><td>200</td><td>-100</td><td>-50.0</td><td>-</td></tr>
+<tr><td>- 영업이익</td><td>10</td><td>20</td><td>-10</td><td>-50.0</td><td>-</td></tr></table>
+<p>5. 주요원인 {reason}</p></body></html>"""
+
+
+@pytest.mark.parametrize("title", ["매출액또는손익구조30%(대규모법인은15%)이상변동",
+                                   "[기재정정]매출액또는손익구조30%(대규모법인은15%)이상변동"])
+@pytest.mark.parametrize("reason", ["연결 대상 계약(2023.07~2024.09)의 기저효과", "계약 2023-07-01 ~ 2024-09-30 종료"])
+def test_structure_period_is_the_settlement_cell_not_reason_text(title, reason):
+    parsed = parse_provisional_earnings(STRUCTURE_FORM.format(kind="연결", reason=reason), title, fiscal_end_month=12)
+    assert parsed["period"] == {"start": "2025-01-01", "end": "2025-12-31"}
+    assert (parsed["fiscal_year"], parsed["period_kind"]) == (2025, "annual")
+
+
+def test_structure_statement_kind_cell_beats_word_search():
+    html = STRUCTURE_FORM.format(kind="개별", reason="연결 자회사 매각")
+    assert parse_provisional_earnings(html, "매출액또는손익구조30%이상변동")["consolidated"] is False
+    html = STRUCTURE_FORM.format(kind="연결", reason="-")
+    assert parse_provisional_earnings(html, "매출액또는손익구조30%이상변동")["consolidated"] is True
+
+
+OLD_FORM = """<html><body><table><tr><td>구분(단위 : 백만원, %)</td><td>당기실적</td><td>전기실적</td><td>전년동기실적</td></tr>
+<tr><td></td><td>{cells}</td></tr>
+<tr><td>매출액</td><td>당해실적</td><td>233,461</td><td>223,736</td></tr></table></body></html>"""
+
+
+def test_old_form_two_digit_year_label_gives_period():
+    parsed = parse_provisional_earnings(OLD_FORM.format(cells="(25년 2분기) (25년 1분기) (24년 2분기)"),
+                                        "연결재무제표기준영업(잠정)실적(공정공시)", fiscal_end_month=12)
+    assert parsed["period"]["end"] == "2025-06-30"
+    assert (parsed["fiscal_year"], parsed["fiscal_quarter"], parsed["period_kind"]) == (2025, 2, "quarter")
+
+
+@pytest.mark.parametrize("cells, end", [
+    ("(25년 2분기) (25년 1분기) (24년 2분기)", "2025-06-30"), ("('26.3Q) ('26.2Q) ('25.3Q)", "2026-09-30"),
+    ("(3Q26) (2Q26) (3Q25)", "2026-09-30"), ("(26Y Q3) (26Y Q2) (25Y Q3)", "2026-09-30"),
+    ("(2026년 2/4분기) (2026년 1/4분기) (2025년 2/4분기)", "2026-06-30"), ("(4Q 2025) (3Q 2025) (4Q 2024)", "2025-12-31"),
+    ("(26년3분 기) (26년2분기) (25년3분기)", "2026-09-30"), ("(26.Q3) (26.Q2) (25.Q3)", "2026-09-30"),
+    ("(-) (-) (-)", None), ("( ) (26.2Q) ( )", None), ("(26.3Q 누적)", None), ("(제72기 3분기) (제72기 2분기)", None),
+    ("(26.3Q) (26.2Q) (24.3Q)", None)])
+def test_current_quarter_label_forms(cells, end):
+    period = _period_from_current_label(f"당기실적 전기실적 {cells} 증감율(%) 매출액 당해실적", 12)
+    assert (period or {}).get("end") == end
+
+
+def test_label_follows_fiscal_year_of_march_closer():
+    period = _period_from_current_label("당기실적 (27년 1분기) (26년 4분기) (26년 1분기) 매출액", 3)
+    assert (period["start"], period["end"][:7]) == ("2026-04-01", "2026-06")
+
+
+@pytest.mark.parametrize("text, name", [
+    ("대웅/매출액또는손익구조/(2026.03.09) 자회사인 (주)대웅개발 의 주요경영사항신고 ※ 동 정보는", "(주)대웅개발"),
+    ("넥센 자회사인 넥센타이어(주) 의 주요경영사항신고", "넥센타이어(주)"),
+    ("연결재무제표 기준 영업(잠정)실적(공정공시) 실적기간 당기실적", None),
+    ("가" * 500 + " 자회사인 뒤쪽 의 주요경영사항신고", None)])
+def test_subsidiary_name_reads_filing_head_only(text, name):
+    assert _subsidiary_name(text) == name

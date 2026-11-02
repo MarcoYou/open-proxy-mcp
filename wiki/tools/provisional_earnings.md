@@ -8,7 +8,7 @@ related_disclosures: [사업보고서, 분기보고서]
 related_concepts: [연결-별도, 단위-표기-규약, 시점-제약]
 related_decisions: [ksic-sector-mapping, consensus-history-window]
 created: 2026-07-19
-updated: 2026-10-23
+updated: 2026-11-02
 ---
 
 ## 한 줄
@@ -60,6 +60,7 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 - `table_markdown`(**primary**): 원문 실적표 통째(colspan확장, ※잠정치·정보제공 boilerplate 제거). 당해/누계 × 당기/전기/전년동기 전체 — 호출측 AI가 읽어 값 추출.
 - `kind`: `financial` | `non_financial`(자동차 판매대수·조선 수주 등 — 재무표 전부 '-'이고 도메인표만).
 - `consolidated`(연결/별도) · `unit_raw`(조원/억원/백만원) · `period`(실적기간, 문구에서 계산했으면 `source=quarter_text`) · `report`(rcept_no·공시일·url).
+- `subsidiary`(261102): 원문 머리가 자회사 공시라고 말할 때만 있다. 자회사 이름이고 경고가 함께 나가며 `consensus_gap` 은 붙지 않는다.
 - `fiscal_year` · `period_kind`(annual·quarter·month) · `fiscal_quarter` · `period_month` · `cumulative` · `fiscal_year_end_month`(+`_source`: company·period·default) · `comparison_basis`.
 - `consensus_gap`(261018): **공시 직전 분기 컨센서스 대비** — 맞댔을 때만 있다. 원문 값(`headline`·`table_markdown`)은 그대로 두고 비교만 더한다.
   계산은 [[forward_estimates_data]] 서비스(`forward_estimates.compute_consensus_gap`)가 한다 — 아래 「컨센서스 대비」 절.
@@ -130,6 +131,7 @@ DART **영업(잠정)실적(I001 결산잠정치·I002 공정공시)** 에서 �
 - 결산월은 회사정보가 없으면 12월 기본값 — 비12월 결산사는 라벨에 「기본값·회사 정보 없음」이 붙으니 사업연도를 원문으로 확인.
 
 ## 변경 이력
+- 2026-11-02: **기간·연결 구분을 서식 칸에서 읽는다.** 손익구조 서식은 `시작일`·`종료일` 칸이 사유 문장의 날짜보다 먼저다(우리넷 `2023.07~2024.09`). 연결 구분은 `재무제표의 종류` 칸을 따른다(모비스 개별 공시가 연결로 나갔다). `실적기간` 칸이 없는 옛 서식은 표 머리의 당기 칸을 읽는다(`(25년 2분기)`·`('26.3Q)`·`(3Q26)` 등). 원문 머리에 `자회사인 X 의 주요경영사항신고` 가 있으면 `subsidiary` 칸과 경고를 붙이고 컨센서스와 맞대지 않는다. 제목에 표시가 없는 공시가 있어서다(대웅·CJ).
 
 - 2026-10-23: **[기재정정] 표 파서가 절·열을 머리행으로 읽고, 손익구조 변경 정정 공시를 후보에 넣는다** (DATA-U3·DATA-PIT1). 세 가지다 — ① 절 머리행을 따라 당기 절의 행만 금액으로(증감율 % 가 `value_krw` 로 나가던 길을 막음),
   ② 정정전·정정후 열을 머리 행으로 정하고 정정후 칸이 '-'·빈칸이면 `value_krw`=None(정정전 값을 내지 않음), ③ `[기재정정]`·`[첨부정정]` 접두를 뗀 이름으로 손익구조 변경 공시를 판정(정정 공시가 최신으로 오름 —
