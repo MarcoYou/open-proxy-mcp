@@ -1,0 +1,41 @@
+name: fly-night-scale
+
+# 밤에는 상시 머신을 두지 않는다(사용자 결정 261104) — KST 21:00 에 min_machines_running 0, KST 08:00 에 1.
+# 그 사이 요청은 fly autostart 가 깨운다. 재배포 없이 머신 설정만 바꾼다(scripts/fly_night_scale.py).
+on:
+  schedule:
+    - cron: '0 12 * * *'   # KST 21:00 → 밤
+    - cron: '0 23 * * *'   # KST 08:00 → 낮
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'auto(지금 시각) · night(0대) · day(1대)'
+        default: 'auto'
+        type: choice
+        options: [auto, night, day]
+      dry_run:
+        description: '바꾸지 않고 계획만 보기'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+# 배포와 같은 그룹에 두지 않는다 — 같은 그룹이면 이 작업이 대기 중인 배포를 취소할 수 있다(GitHub 은 그룹당 대기 1건).
+# 배포가 끝에서 지금 시각에 맞는 값을 다시 걸므로(deploy.yml 「Re-apply night schedule」) 순서가 엇갈려도 결과는 같다.
+concurrency:
+  group: fly-night-scale
+  cancel-in-progress: false
+
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set min machines
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 12 * * *' && 'night' || 'day') || inputs.mode }}
+          DRY: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python3 scripts/fly_night_scale.py --mode "$MODE" $DRY
