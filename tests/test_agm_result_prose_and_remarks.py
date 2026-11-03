@@ -1,7 +1,7 @@
 """주총결과 — 줄글 서식 읽기, 표 서식의 비고·무효처리 문장.
 
 네트워크 0. 줄글 서식은 실제 서식 꼴을 그대로 옮긴 합성 HTML(줄마다 `<p>`), 표 서식은
-`tests/fixtures/agm_result/*.txt`(DART 공개 주총결과 공시의 본문 글, 후보 약력표 앞에서 자름)를
+`tests/dart_responses/agm_result/*.txt`(DART 공개 주총결과 공시의 본문 글, 후보 약력표 앞에서 자름)를
 행 단위로 다시 표로 짠다 — 원문 HTML 을 받을 수 없어 칸 값만 그대로 옮겼다.
 
 고치기 전 줄글 파서는: 첫 안건을 잃고(맨 번호 줄을 직전 안건의 하위로 잡고 상위를 버림),
@@ -20,7 +20,7 @@ from open_proxy_mcp.services.agm_result_parser import (
     parse_agm_result_void_notice,
 )
 
-_FIX = Path(__file__).parent / "fixtures" / "agm_result"
+_FIX = Path(__file__).parent / "dart_responses" / "agm_result"
 
 
 def _prose(*lines: str) -> list[tuple[str, str, str]]:
