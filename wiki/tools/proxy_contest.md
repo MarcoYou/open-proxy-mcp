@@ -8,7 +8,7 @@ related_disclosures: [위임장권유참고서류, 소송등의제기, 경영권
 related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 주총-결의]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
 created: 2026-05-01
-updated: 2026-10-24
+updated: 2026-11-03
 ---
 
 # proxy_contest
@@ -83,13 +83,17 @@ scope:
 
 핵심 필드:
 - **filer 3-way 분류**: `company`(회사측) / `shareholder`(주주측) / `retail_activism`(소액주주 플랫폼: 컨두잇·헤이홀더·비사이드코리아)
+  - 이름으로 주주측이 된 의결권 대리행사 권유 참고서류는 본문 서식 칸을 읽어(최대 10건) 바로잡는다 — 「회사와의 관계」가 `본인`이면
+    `side=company`, `side_basis=form_relation`. 최대주주·특수관계·계열이면 `stated_relation` 에 싣는다(편은 주주측 그대로).
+    읽은 칸은 `solicitation_form`(`solicitor`·`relation_to_company`·`solicitor_stake_pct`·`solicitor_stake_note`·`agenda_objects`·
+    `solicit_start`·`solicit_end`)
 - `has_contest_signal` = `shareholder OR litigation OR external_active_block` (retail_activism, registry_overlap 제외)
 - vote_math `signal_level`: 보수적 (승패 예측 X)
 
 ## Data sources
 - **DART API**: `list.json` (D/B/I) + `document.xml` (위임장 본문 행사방향 정규식)
 - **KIND**: vote_math만 (주총 결과 화이트리스트, rcept_no 80→00 변환)
-- 외부 호출: 일반 5회 (summary/fight 4-way 병렬 asyncio.gather). litigation 파싱 시 미상 소송 본문 최대 30건 추가로 최대 35회.
+- 외부 호출: 일반 5회 (summary/fight 4-way 병렬 asyncio.gather) + 이름으로 주주측인 권유 참고서류 본문 최대 10건(캐시). litigation 파싱 시 미상 소송 본문 최대 30건 추가.
 
 ## Flow
 
@@ -177,6 +181,7 @@ sequenceDiagram
 - retail_activism 플랫폼 추가 시 화이트리스트 갱신 필요 (TODO).
 
 ## 변경 이력
+- 2026-11-03: 의결권 대리행사 권유의 편을 **제출인 이름만이 아니라 서식의 「회사와의 관계」 칸으로** 정한다. 이름이 회사명과 달라 주주측(분쟁 신호)으로 잡히던 회사 본인 권유가 회사측으로 간다(법인명 표기 차이·지주사 명의). 최대주주·특수관계·계열이 낸 권유는 관계를 `stated_relation` 으로 싣고 편은 그대로 둔다. 권유자 지분·목적사항·권유 기간도 `solicitation_form` 으로 실린다. 이름으로 주주측인 권유 참고서류 본문을 최대 10건 더 연다.
 - 2026-10-24: **5% 보고 원문을 못 읽었는데 「시그널 없음 (정상)」으로 나가던 것을 고쳤다**(P1 묶음 1, 재무 점검 P1-#62) — `ownership_structure` 가 읽지 못한 ≥5% 행에 다는 표식(`doc_read_failed`)을 보면 신호 0건을 「정상」으로 내지 않고(`fetch_failed` → status `partial`), 신호가 일부 있어도 읽지 못한 건수를 `parsing_failures` 로 넘겨 `partial`(`filing_status=partial_failure`)로 낸다. 5% 보유자가 약식 보고뿐인 회사는 일시 실패 한 번도 partial 이 되는 과잉 경고를 받아들였다(능동 분류가 원문에 달린 경로가 코드상 있다). 5% 목록 조회 자체의 실패 판정(문구 접두어)은 그대로다.
 - 2026-10-23: 지분 맥락의 명부상 최대주주(`summary.top_holder`·`control_map.core_holder_block.top_holder`)가 지분율 첫 행이 아니라 공시 `relate` 칸이 「본인」인 행으로 정해진다(`ownership_structure` 와 같은 `_top_holder_summary`). 키는 그대로이고 이름·관계·지분율만 바뀐다 — 한미사이언스 2025: 신동국(발행회사 임원) 16.43% → 송영숙(본인) 3.38%; `related_total_pct`·`flags`·`observations` 는 그대로. 본인이 지분 최대인 회사는 값이 같다. 이 도구의 5% 블록 조회는 `as_of` 를 넘기지 않아 바뀌지 않는다.
 - 2026-10-18: 지분 명부(최대주주·주식총수·자기주식)의 기준 사업보고서가 DART 에 아직 없으면(013 — 1~3월 제출 전·합병·상장폐지) **한 해 앞 사업보고서로 내려가** 채우고 안내 문구와 `summary.ownership_basis_year` 로 밝힌다. 종전엔 「지분 명부 API 조회 실패: 013」에 지분 맥락·5% 블록 동태가 통째로 비었다(기준연도가 「올해 − 1」이라 매년 주총 시즌에 거의 모든 회사). 두 해 모두 없으면 정보 문구. 위임장·소송 목록이나 지분 명부·5% 블록을 **못 읽었으면**(013 이 아닌 오류) 0건을 「시그널 없음 (정상)」으로 적지 않고 `status=partial`·`filing_status=fetch_failed` — 받은 지분 맥락은 그대로 보여 준다.

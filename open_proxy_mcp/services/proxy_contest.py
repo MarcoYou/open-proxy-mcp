@@ -127,6 +127,82 @@ def _in_window(value: str, bgn_de: str, end_de: str) -> bool:
     return bool(date_key) and bgn_de <= date_key <= end_de
 
 
+# 의결권 대리행사 권유 참고서류의 서식 칸(ACODE/AUNIT). 「회사와의 관계」(REC_COP_RL)가 편을 정하는 원문 칸이다 —
+# 제출인 이름 맞추기만으로는 법인명 표기가 다르거나 최대주주·계열사가 경영진 편으로 낸 권유를 주주 쪽(분쟁 신호)으로 읽는다.
+# REC_NM·REC_COP_RL 은 머리 칸과 권유자 지분표(REC_STK 가 있는 행)에 두 번 나오므로 행 안에서 가른다. 특별관계자·대리인 표는 뺀다.
+_FORM_TR = re.compile(r"(?is)<TR\b[^>]*>(.*?)</TR>")
+_FORM_CELL = re.compile(r"(?is)<T[EU]\b([^>]*)>(.*?)</T[EU]>")
+_FORM_KEY = re.compile(r'A(?:CODE|UNIT)="([^"]+)"')
+_SOLICIT_HEAD = {"REC_NM": "solicitor", "REC_COP_RL": "relation_to_company", "REC_BGN_DT": "solicit_start",
+                 "REC_END_DT": "solicit_end"}
+SOLICITATION_FORM_LOOKUPS = 10
+
+
+def _form_cell_text(body: str) -> str:
+    text = " ".join(re.sub(r"<[^>]+>", " ", body or "").replace("&cr;", " ").replace("&nbsp;", " ").split())
+    return "" if text in ("", "-") else text
+
+
+def parse_solicitation_form(markup: str) -> dict[str, Any]:
+    """권유 참고서류 서식 칸 → {solicitor, relation_to_company, solicitor_stake_pct, solicitor_stake_note, agenda_objects,
+    solicit_start, solicit_end}. 칸 코드가 없는 본문이면 빈 dict(편은 제출인 이름으로 남는다)."""
+    out: dict[str, Any] = {}
+    objects: list[str] = []
+    own: list[dict[str, str]] = []
+    for tr in _FORM_TR.findall(markup or ""):
+        cells = [(m.group(1), _form_cell_text(body)) for attrs, body in _FORM_CELL.findall(tr)
+                 if (m := _FORM_KEY.search(attrs))]
+        codes = {code for code, _ in cells}
+        if not cells or codes & {"AFF_NM", "VAGT_NM", "RAGT_NM"}:
+            continue
+        if "REC_STK" in codes:
+            own.append(dict(cells))
+            continue
+        for code, value in cells:
+            if code == "GMS_OBJ" and value:
+                objects.append(re.sub(r"^[□■☐]\s*", "", value))
+            elif code in _SOLICIT_HEAD and value and _SOLICIT_HEAD[code] not in out:
+                out[_SOLICIT_HEAD[code]] = value
+    if out.get("relation_to_company"):
+        # 「본 인」처럼 자간이 벌어져 오거나 줄표만 적은 칸 — 글자만 남긴다.
+        out["relation_to_company"] = re.sub(r"[^0-9A-Za-z가-힣]", "", out["relation_to_company"])
+    if own:
+        if own[0].get("REC_STK_RT"):
+            out["solicitor_stake_pct"] = own[0]["REC_STK_RT"]
+        if own[0].get("REC_ETC"):
+            out["solicitor_stake_note"] = own[0]["REC_ETC"]
+    if objects:
+        out["agenda_objects"] = list(dict.fromkeys(objects))
+    return {k: v for k, v in out.items() if v}
+
+
+async def _apply_solicitation_forms(rows: list[dict[str, Any]]) -> None:
+    """이름으로 회사 쪽이 아니라고 본 권유 참고서류만 열어(최대 SOLICITATION_FORM_LOOKUPS 건, 캐시) 서식의 「회사와의 관계」로
+    편을 바로잡는다. 「본인」이면 회사 쪽, 최대주주·특수관계·계열이면 그 관계를 싣는다(편은 주주 쪽 그대로 — 판단은 읽는 쪽이)."""
+    targets = [r for r in rows if r.get("side") == "shareholder" and "의결권대리행사권유" in re.sub(r"\s+", "", r.get("report_name") or "")
+               and r.get("rcept_no")][:SOLICITATION_FORM_LOOKUPS]
+    if not targets:
+        return
+    client = get_dart_client()
+
+    async def one(row: dict[str, Any]) -> None:
+        try:
+            doc = await client.get_document_cached(row["rcept_no"])
+        except Exception:  # noqa: BLE001 — 본문을 못 열면 이름으로 정한 편을 그대로 둔다
+            return
+        form = parse_solicitation_form((doc or {}).get("html", "") or "")
+        if not form:
+            return
+        row["solicitation_form"] = form
+        relation = form.get("relation_to_company", "")
+        if relation == "본인":
+            row["side"] = "company"
+            row["side_basis"] = "form_relation"
+        elif re.search(r"최대주주|특수관계|계열", relation):
+            row["stated_relation"] = relation
+    await asyncio.gather(*(one(r) for r in targets))
+
+
 async def _proxy_items(
     corp_code: str,
     corp_name: str,
@@ -1537,6 +1613,7 @@ async def build_proxy_contest_payload(
         ))
     gathered = await asyncio.gather(*tasks)
     (proxy_rows, proxy_notices, proxy_warning) = gathered[0]
+    await _apply_solicitation_forms(proxy_rows)
     (litigation_rows, litigation_dedup, litigation_notices, lit_warning) = gathered[1]
     (control_context, control_warnings) = gathered[2]
     insiders, insider_warnings = gathered[3] if wants_insiders else (None, [])
