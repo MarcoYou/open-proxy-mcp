@@ -50,5 +50,7 @@ def test_auth_header_keeps_deploy_token_shape():
 def test_workflows_wire_the_schedule():
     root = pathlib.Path(__file__).resolve().parent.parent / ".github" / "workflows"
     night = (root / "fly-night-scale.yml").read_text(encoding="utf-8")
-    assert "'0 12 * * *'" in night and "'0 23 * * *'" in night and "group: fly-night-scale" in night
+    # 예약은 매시 auto — cron 으로 밤/낮을 정하면 몇 시간 늦게 뜬 실행이 반대 값을 건다(261104 복기).
+    assert "cron: '23 * * * *'" in night and "group: fly-night-scale" in night
+    assert "github.event.schedule" not in night and "inputs.mode || 'auto'" in night
     assert "scripts/fly_night_scale.py --mode auto" in (root / "deploy.yml").read_text(encoding="utf-8")

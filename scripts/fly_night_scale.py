@@ -1,7 +1,8 @@
 """밤에는 상시 머신을 두지 않는다 — `min_machines_running` 을 KST 21:00~08:00 은 0, 그 밖은 1 로 바꾼다.
 
 사용자 결정(261104): 밤 21시~아침 08시(KST)는 상시 가동 머신을 끄고, 그 사이 누가 부르면 그때 켠다.
-fly 에는 시간대별 설정이 없어 예약 작업(`.github/workflows/fly-night-scale.yml`)이 하루 두 번 이 스크립트를 부른다.
+fly 에는 시간대별 설정이 없어 예약 작업(`.github/workflows/fly-night-scale.yml`)이 매시 `--mode auto` 로
+이 스크립트를 부른다 — GitHub 예약은 몇 시간씩 늦게 뜰 수 있어, 늦게 떠도 실행 시각 기준 값이 걸리게 한다.
 재배포 없이 머신 관리 API(Machines API)로 각 `app` 머신 설정의 `services[].min_machines_running` 만 고친다.
 
 - 밤(0): 한가하면 fly 프록시가 머신을 일시정지(suspend)하고, 요청이 오면 `autostart` 가 깨운다(메모리를 들고 자서

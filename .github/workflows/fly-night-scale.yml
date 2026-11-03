@@ -1,11 +1,16 @@
 name: fly-night-scale
 
-# 밤에는 상시 머신을 두지 않는다(사용자 결정 261104) — KST 21:00 에 min_machines_running 0, KST 08:00 에 1.
+# 밤에는 상시 머신을 두지 않는다(사용자 결정 261104) — KST 21:00~08:00 은 min_machines_running 0, 그 밖은 1.
 # 그 사이 요청은 fly autostart 가 깨운다. 재배포 없이 머신 설정만 바꾼다(scripts/fly_night_scale.py).
+#
+# 예약은 「몇 시에 무엇」이 아니라 「돌 때마다 지금 시각에 맞춘다(auto)」다(261104 복기).
+#   이 레포의 GitHub 예약 실행은 늘 몇 시간씩 늦다(관측 3~9시간). 처음엔 21:00·08:00 두 번 돌며 cron 으로
+#   밤/낮을 정했는데, 그러면 늦게 뜬 「밤」 실행이 아침 뒤에 와서 낮에 0대로 만들 수 있다.
+#   그래서 매시 돌리고(정각 혼잡을 피해 :23) 모드는 실행 시각으로 정한다. 값이 이미 맞으면 아무것도 바꾸지 않는다.
+#   한계: 전환이 예약 지연만큼 늦을 수 있다(밤 시작·아침 복귀 모두). 낮에 요청이 오면 autostart 가 받는다.
 on:
   schedule:
-    - cron: '0 12 * * *'   # KST 21:00 → 밤
-    - cron: '0 23 * * *'   # KST 08:00 → 낮
+    - cron: '23 * * * *'
   workflow_dispatch:
     inputs:
       mode:
@@ -36,6 +41,6 @@ jobs:
       - name: Set min machines
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 12 * * *' && 'night' || 'day') || inputs.mode }}
+          MODE: ${{ inputs.mode || 'auto' }}
           DRY: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python3 scripts/fly_night_scale.py --mode "$MODE" $DRY
