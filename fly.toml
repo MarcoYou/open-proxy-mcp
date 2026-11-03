@@ -49,7 +49,10 @@ kill_timeout = '90s'
   # min=1이면 corpCode sqlite/memory cache + doc LRU cache 영구 유지 → ms 응답.
   # 비용: shared-cpu-1x 1GB 월 ~$5.4/대 (24/7 × 30d). nrt 2대 = ~$11.
   # 사용자 대부분 한국 → 도쿄(nrt) 2대로 latency(~40ms) + 머신 redundancy 동시 확보.
-  min_machines_running = 2
+  # 261103: 상시 2대 → 1대. 비용을 줄이는 대신 느려지는 것은 감수한다(사용자 결정). 두 번째 머신은 지우지 않는다 —
+  #   요청이 soft_limit 를 넘으면 fly 가 깨우고, 한가하면 다시 suspend 한다. 상시 2048MB 한 대 몫(월 약 $16)을 줄인다.
+  #   메모리는 2GB 그대로 둔다(주간 RSS 최대 1,284 MiB, 768MB·1GB 에서 OOM 이력).
+  min_machines_running = 1
   processes = ['app']
 
   # 260824: **부하를 무엇으로 세는가.** 이걸 안 적으면 fly 는 `type='connections'`,
@@ -81,12 +84,15 @@ kill_timeout = '90s'
   #   이 검사를 둔 이유(260729)는 「부팅 직후 죽어 8000 에 아무도 안 듣는데 배포가 초록」
   #   이었다. 그 고장은 **연결 거부로 즉시** 실패하므로 timeout 을 늘려도 안 놓친다.
   #   늘려서 잃는 건 「느린 머신을 빼는 능력」뿐인데, 그건 애초에 원한 적이 없다.
+  # 261103: 점검 주소 /health → /livez. /health 는 도구 목록·캐시·메모리 통계까지 모아 무겁다. 공유 CPU 할당량이 바닥나자
+  #   두 머신 모두 15초를 넘겨 critical 이 됐고, fly 가 둘 다 빼서 약 1시간 전면 장애(「no known healthy instances」)가 났다.
+  #   /livez 는 요청을 받는지·법령 데이터 준비·드레인만 본다(260729·260814 의 고장은 그대로 잡는다). 사람이 보는 상세는 /health.
   [[http_service.checks]]
     grace_period = '15s'
     interval = '30s'
     method = 'GET'
     timeout = '15s'
-    path = '/health'
+    path = '/livez'
 
 # 260804 사고: 768MB 로는 doc 캐시가 찬 상태에서 OOM(exit_code=137)이 나 머신이
 # 재시작 한도를 소진했다. fly 는 머신을 started 로 두는데 8000 포트가 죽어 있어

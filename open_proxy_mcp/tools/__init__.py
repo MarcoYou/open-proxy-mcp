@@ -12,6 +12,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from open_proxy_mcp.dart.client import DartClientError
 from open_proxy_mcp.services import notices as _notices
+from open_proxy_mcp.services import pacing as _pacing
 from open_proxy_mcp.services.dart_safety import DART_EXTERNAL_ERRORS, degrade_response
 
 
@@ -100,18 +101,21 @@ def _wrap_tool_errors(fn):
          contextvar 역전파가 불안정 → 미들웨어가 본문에서 태그만 뽑아 기록, 원문 미저장.)
       ③ 이름 추정·종류주 코드 고지가 빠진 응답이면 맨 앞에 붙인다(`_declare_resolution_notes`).
       ④ 유효한 운영자 공지가 있으면 응답에 끼운다(`_attach_notices`) — 정상 응답과 ①의 graceful 응답에만. ②의 오류 본문은 바꾸지 않는다.
+      ⑤ 요청 키별 속도 조절(`services/pacing`, 261103) — 한 키의 호출이 몰리면 차례로 늦추고, 늦춘 응답에 안내를 싣는다.
+         거절하지 않는다 — 아무리 몰려도 모든 호출을 차례로 처리한다.
     """
 
     @functools.wraps(fn)
     async def inner(*args, **kwargs):
-        try:
-            name = getattr(fn, "__name__", "")
-            return _attach_notices(name, _declare_resolution_notes(name, await fn(*args, **kwargs)))
-        except DART_EXTERNAL_ERRORS as exc:  # 외부·부하 → graceful degrade
-            name = getattr(fn, "__name__", "tool")
-            return _attach_notices(name, degrade_response(name, kwargs.get("format", "md"), exc))
-        except Exception as exc:  # noqa: BLE001 — 코드버그는 분류 후 그대로 re-raise
-            raise ToolError(f"[ekind={classify_error(exc)}] {exc}") from exc
+        async with _pacing.slot() as ticket:
+            try:
+                name = getattr(fn, "__name__", "")
+                return _pacing.attach(ticket, _attach_notices(name, _declare_resolution_notes(name, await fn(*args, **kwargs))))
+            except DART_EXTERNAL_ERRORS as exc:  # 외부·부하 → graceful degrade
+                name = getattr(fn, "__name__", "tool")
+                return _pacing.attach(ticket, _attach_notices(name, degrade_response(name, kwargs.get("format", "md"), exc)))
+            except Exception as exc:  # noqa: BLE001 — 코드버그는 분류 후 그대로 re-raise
+                raise ToolError(f"[ekind={classify_error(exc)}] {exc}") from exc
 
     inner.attaches_notices = True      # 시험이 「등록된 도구 전부가 이 경계를 지난다」를 확인하는 표지
     return inner

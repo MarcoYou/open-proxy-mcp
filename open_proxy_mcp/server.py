@@ -146,19 +146,8 @@ def build_mcp() -> MCPServer:
         # 260814: 법령 데이터가 통째로 비어도 응답이 평소와 같은 모양이라 **밖에서 안 보였다** —
         #   룰 40개가 0이 되면 강행규정 판정이 전부 사라지는데 경고도 신호도 없었다.
         #   여기 실어 배포 직후 눈으로 확인할 수 있게 한다. 0 이면 status 를 degraded 로 낮춘다.
-        _data: dict[str, int] = {}
-        try:
-            from open_proxy_mcp.services.proxy_advise import (
-                _load_law_layer_rules, _load_law_provisions,
-            )
-            from open_proxy_mcp.services.law_lookup import load_index
-            _data["law_rules"] = len(_load_law_layer_rules())
-            _data["law_provisions"] = len(_load_law_provisions())
-            _data["law_corpus_articles"] = (load_index().get("meta") or {}).get("n_articles", 0)
-        except Exception as exc:      # 헬스체크가 이것 때문에 죽으면 안 된다
-            _data["error"] = str(exc)[:120]
-        ready = ("error" not in _data and all(_data.get(k, 0) > 0 for k in
-                 ("law_rules", "law_provisions", "law_corpus_articles")))
+        _data = _law_data()
+        ready = _law_ready(_data)
         servicing = ready and not maintenance.draining
         return JSONResponse({
             "status": "ok" if servicing else "degraded",
@@ -218,7 +207,20 @@ def build_mcp() -> MCPServer:
             # 261019: 콜드 서빙(3년 하한 이전 주간 곡선을 DB 밖 서빙본에서 잇는 것) — 켜짐·받은 판·받은 시각·검증된 파일·강등 까닭.
             #   못 읽어도 응답은 종전(최근 3년 + 안내)으로 강등할 뿐이라 status 는 낮추지 않는다. URL·키는 싣지 않는다.
             "cold": _cold_stats(),
+            # 261103: 키별 요청 속도 조절 — 기준·늦춘 수·가장 긴 대기(`services/pacing`). 키는 싣지 않는다.
+            "pacing": _pacing_stats(),
         }, status_code=200 if servicing else 503)
+
+    # 261103: fly 상태 점검 전용 — **가볍게.** `/health` 는 도구 목록·캐시·메모리 통계까지 모아서, 공유 CPU 할당량이 바닥난
+    #   두 머신 모두 15초 안에 답하지 못했다. fly 가 두 대를 다 빼서 약 1시간 전면 장애가 났다(일하는 머신이 죽은 머신으로 보였다).
+    #   여기서는 「프로세스가 요청을 받나」와 260729·260814 의 두 고장(부팅 직후 죽음·법령 데이터 0)·드레인만 본다.
+    #   법령 데이터는 한 번 준비되면 다시 세지 않는다(`_LAW_READY`). 사람이 보는 상세는 계속 `/health` 다.
+    @mcp.custom_route("/livez", methods=["GET"])
+    async def _livez(_request):
+        from starlette.responses import JSONResponse
+        servicing = _law_ready() and not maintenance.draining
+        return JSONResponse({"status": "ok" if servicing else "degraded", "instance": _instance_tag()},
+                            status_code=200 if servicing else 503)
 
     @mcp.custom_route("/admin/drain", methods=["POST"])
     async def _admin_drain(request):
@@ -510,6 +512,42 @@ _NODATA_RE = re.compile(rb"\[nodata=(\w+)\]")       # 「자료 없음」은 답
 #: 1 GB VM 에 OOM 이력(260804)이 있어 상한 없는 누적은 그대로 둘 수 없다.
 #: 여기서 멈춰도 replay 가 나머지를 receive() 로 흘려보내므로 하류는 온전한 본문을 받는다.
 _MAX_SNIFF_BYTES = 64 * 1024
+
+
+#: 법령 데이터가 한 번 준비됐나 — `/livez` 가 매번 세지 않게 한다(261103).
+_LAW_READY = False
+
+
+def _law_data() -> dict:
+    """법령 데이터 건수(룰·조문·코퍼스). 못 읽으면 `error`. 헬스체크가 이것 때문에 죽으면 안 된다."""
+    data: dict = {}
+    try:
+        from open_proxy_mcp.services.proxy_advise import _load_law_layer_rules, _load_law_provisions
+        from open_proxy_mcp.services.law_lookup import load_index
+        data["law_rules"] = len(_load_law_layer_rules())
+        data["law_provisions"] = len(_load_law_provisions())
+        data["law_corpus_articles"] = (load_index().get("meta") or {}).get("n_articles", 0)
+    except Exception as exc:  # noqa: BLE001
+        data["error"] = str(exc)[:120]
+    return data
+
+
+def _law_ready(data: dict | None = None) -> bool:
+    global _LAW_READY
+    if data is None and _LAW_READY:
+        return True
+    data = _law_data() if data is None else data
+    ready = "error" not in data and all(data.get(k, 0) > 0 for k in ("law_rules", "law_provisions", "law_corpus_articles"))
+    _LAW_READY = _LAW_READY or ready
+    return ready
+
+
+def _pacing_stats() -> dict:
+    try:
+        from open_proxy_mcp.services.pacing import stats
+        return stats()
+    except Exception as exc:  # noqa: BLE001 — 헬스체크가 이것 때문에 죽으면 안 된다
+        return {"error": str(exc)[:120]}
 
 
 def _cold_stats() -> dict:

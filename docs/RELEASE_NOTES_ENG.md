@@ -2,6 +2,20 @@
 
 Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
+## Unreleased — 2026-11-03
+
+### Bursts from one key are slowed down, with a notice
+
+- The server is shared, so each key gets **30 calls per minute (the first 20 in a burst) and 2 concurrent calls** per server at full speed. Calls above that are not rejected; they are queued and slowed down.
+- A response delayed by more than one second carries a "request pacing" notice in the same place as operator notices (a `> 📢` line under the markdown title, or the JSON `notices` field), including how many calls from the same key were waiting ahead of it.
+- Calls are never rejected, however many arrive. Every call is processed in turn.
+- Other keys are not affected. Below these limits responses are unchanged.
+
+### Lower server cost and a lighter health check
+
+- One server is always on instead of two. The second wakes only under load, so the first response after an idle period can be slightly slower.
+- On November 3 both servers failed the platform health check at the same time and the service was unreachable for about an hour, because the check had to fetch the heavy `/health` within 15 seconds. The check now uses the light `/livez`. `/health` stays and gains a `pacing` field.
+
 ## Unreleased — 2026-10-31
 
 ### Asking for a daily price curve now returns a daily curve
