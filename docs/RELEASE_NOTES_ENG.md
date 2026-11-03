@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-11-03
 
+### Proxy solicitation side from the filing form
+
+- `proxy_contest` — a solicitation's side was decided only by the filer name, so a company's own solicitation filed under a differently written name could count as **shareholder side (a contest signal)**. If the solicitation form's "relation to the company" cell says `본인` (the company itself), the side is now corrected to company (`side_basis=form_relation`); a solicitation by the largest holder, a related party or an affiliate carries that relation as `stated_relation`. The solicitor's stake, agenda objects and period come as `solicitation_form`. Up to 10 more solicitation documents are read for shareholder-side filers.
+
 ### Four risk, dilution and provisional-earnings fixes
 
 - `risk_events` — **accounting-standard violation sanctions** (prosecution referral, officer dismissal recommendation, designated auditor, penalty surcharge) were never classified, so they did not appear. They now appear under `litigation` with the sanction list, alleged violation, sanctioning body and dates as written in the filing.
