@@ -107,11 +107,35 @@ def _fields_new_categories(cat_key: str, d: dict[str, Any]) -> list[str]:
             out.append(f"- 매출액 {d['revenue_won']:,}원 (증감 {d.get('revenue_change_pct', '-') or '-'}%)")
         if d.get("operating_income_won") is not None:
             out.append(f"- 영업이익 {d['operating_income_won']:,}원 (증감 {d.get('operating_income_change_pct', '-') or '-'}%)")
+        if d.get("amount_unit"):
+            out.append(f"- 금액은 원문 단위({d['amount_unit']})를 원으로 환산했습니다.")
+        if d.get("unit_unread"):
+            out.append(f"- ⚠️ {d['unit_unread']}")
         if d.get("cause"):
             out.append(f"- 회사가 밝힌 원인: {d['cause']}")
         if d.get("unit_conflict"):
             out.append("- 금액 줄은 뺐습니다 — 공시의 단위 표기와 값이 서로 어긋나 어느 쪽이 맞는지 "
                        "우리가 고르지 않았습니다. 아래 원문에서 직접 확인하십시오.")
+    elif cat_key == "litigation" and d.get("sanction_kind") == "회계처리기준 위반 조치":
+        # 판정하지 않는다 — 조치·혐의를 원문 칸 그대로.
+        head = f"- 회계처리기준 위반 조치 ({d['form']})" if d.get("form") else "- 회계처리기준 위반 조치"
+        out.append(head)
+        if d.get("target"):
+            out.append(f"- 조치 대상: {d['target']}")
+        if d.get("actions"):
+            out.append(f"- 조치: **{' · '.join(d['actions'])}**")
+        elif d.get("actions_text"):
+            out.append(f"- 조치: **{d['actions_text']}**")
+        if d.get("authority"):
+            out.append(f"- 조치기관: {d['authority']}")
+        if d.get("court"):
+            out.append(f"- 관할법원·검찰: {d['court']}")
+        if d.get("violation"):
+            out.append(f"- 위반 혐의(지적사항): {d['violation']}")
+        if d.get("response_plan"):
+            out.append(f"- 향후 대책: {d['response_plan']}")
+        if d.get("action_date") or d.get("confirmed_date"):
+            out.append(f"- 조치일 {d.get('action_date', '-') or '-'} / 확인일 {d.get('confirmed_date', '-') or '-'}")
     elif cat_key == "litigation":
         if d.get("case_name"):
             out.append(f"- 사건: **{d['case_name']}** {d.get('case_no', '') or ''}")

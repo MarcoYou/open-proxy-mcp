@@ -27,6 +27,7 @@ from open_proxy_mcp.services.doc_tables import TABLE_RE, cell_text, compact, dis
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.holder_table import holder_table_total, parse_holder_table
 from open_proxy_mcp.services.ownership_parser import parse_holding_purpose, parse_holding_purpose_from_document
+from open_proxy_mcp.services.rcept_channel import is_rcept_no, kind_acptno_for
 
 _SUPPORTED_SCOPES = {
     "summary",
@@ -1323,10 +1324,12 @@ async def _fetch_change_filings(
     for item in filings_raw[:5]:
         rcept_no = item.get("rcept_no", "")
         rcept_dt = item.get("rcept_dt", "")
-        if not (rcept_no and len(rcept_no) == 14 and rcept_no[8:10] == "80"):
+        # 접수번호는 14자리 숫자면 DART 원문으로 열린다. 9번째 자리는 접수 창구일 뿐이다 —
+        # `80`(유가) 만 받으면 코스닥(9)·코넥스(6) 신고서가 통째로 빠진다.
+        if not is_rcept_no(rcept_no):
             warnings.append(f"변동신고서 공시번호 형식이 올바르지 않습니다: {rcept_no}")
             continue
-        acptno = rcept_no[:8] + "00" + rcept_no[10:]
+        acptno = kind_acptno_for(rcept_no) or ""   # 거래소 번호 변환은 유가 계열만 확인돼 있다
 
         # 1차: DART API (~0.1-0.5s, KIND scraping 3-4s 대비 매우 빠름).
         # html 구조가 KIND와 동일해 _parse_change_filing 호환.
@@ -1339,6 +1342,9 @@ async def _fetch_change_filings(
             html = ""
 
         # 2차 fallback: DART에서 빈 응답이면 KIND scraping.
+        if not html and not acptno:
+            warnings.append(f"변동신고서 원문이 DART 에 없고 거래소 번호 변환도 확인되지 않은 계열이다 ({rcept_no}) — 원문 확인")
+            continue
         if not html:
             try:
                 html = await client.kind_fetch_document(acptno)

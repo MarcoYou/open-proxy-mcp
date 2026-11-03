@@ -3574,6 +3574,42 @@ async def build_proxy_advise_payload(
                 pass          # 다른 Context 에서 만들어진 토큰 — 되돌릴 것이 애초에 없다
 
 
+def _treasury_buyback_yearly(events: list[dict]) -> tuple[dict[int, int], list[dict]]:
+    """자사주 매입 연도별 합계 — 사내이사 성과 평가의 주주환원 분자.
+
+    - 취득결정: 결정 금액을 그 해 매입으로 센다(기존 기준).
+    - 신탁계약 체결: 계약금액은 **한도**라 매입이 아니다(한도 50억에 실제 취득 0원인 계약이 있다).
+      해지결과보고서와 이어져 실제 취득액이 확인된 계약만(`execution_status="confirmed"`) 그 취득액을
+      체결 연도에 센다. 못 이은 계약은 합계에 넣지 않고 「집행 미확인」 목록으로 돌려준다.
+
+    Returns: (연도 → 매입 금액, 집행 미확인 신탁계약 목록)
+    """
+    yearly: dict[int, int] = {}
+    unconfirmed: list[dict] = []
+    for e in events or []:
+        kind = e.get("event")
+        if kind not in ("acquisition_decision", "trust_contract"):
+            continue
+        y = (e.get("rcept_dt") or "")[:4]
+        if not (y and y.isdigit()):
+            continue
+        if kind == "trust_contract":
+            if e.get("execution_status") == "confirmed" and isinstance(e.get("executed_amount_krw"), int):
+                amount = e["executed_amount_krw"]
+            else:
+                unconfirmed.append({
+                    "rcept_no": e.get("rcept_no", ""),
+                    "rcept_dt": e.get("rcept_dt", ""),
+                    "contract_amount_krw": e.get("amount_krw") or 0,
+                    "status": "집행 미확인",
+                })
+                continue
+        else:
+            amount = e.get("amount_krw") or 0
+        yearly[int(y)] = yearly.get(int(y), 0) + amount
+    return yearly, unconfirmed
+
+
 async def _build_proxy_advise_payload(
     company_query: str,
     *,
@@ -4339,18 +4375,13 @@ async def _build_proxy_advise_payload(
             if y and amt:
                 dividend_yearly[y] = dividend_yearly.get(y, 0) + amt
 
-        # 매입 yearly (treasury_share events에서 acquisition_decision+trust_contract 합산)
+        # 매입 yearly (treasury_share events에서 acquisition_decision + 집행 확인된 신탁 취득액)
         # 260914: 소각(cancelation_decision) 기준에서 정정 — 소각은 회계 정리 단계일 뿐이고
         # 현금은 매입 시점에 이미 지출됨(wiki/rules/concepts/주주환원.md 2026-04-29 결정,
         # 이 블록은 2026-05-05 작성 당시 그 결정을 반영하지 못했었다).
-        acquisition_yearly: dict[int, int] = {}
-        for e in ((perf_treas.get("data") or {}).get("events") or []):
-            if e.get("event") not in ("acquisition_decision", "trust_contract"):
-                continue
-            y = e.get("rcept_dt", "")[:4]
-            if y and y.isdigit():
-                yi = int(y)
-                acquisition_yearly[yi] = acquisition_yearly.get(yi, 0) + (e.get("amount_krw") or 0)
+        # 261103: 신탁계약 체결 금액(한도)을 매입으로 세던 것을 멈췄다 — 해지결과의 실제 취득액만 센다.
+        acquisition_yearly, trust_unconfirmed = _treasury_buyback_yearly(
+            (perf_treas.get("data") or {}).get("events") or [])
 
         # 각 사내이사 renewed 후보별 performance compute
         # earliest_start None (career detect fail) 시 default 5년 fallback (낮은 정확도)
@@ -4417,6 +4448,12 @@ async def _build_proxy_advise_payload(
                 capital_impairment_status=capital_impairment_status,
                 operating_margin_yearly=op_margin_yearly,
             )
+            tenure_trusts = [t for t in trust_unconfirmed if int(t["rcept_dt"][:4]) in tenure_years]
+            if tenure_trusts:
+                ev["performance"]["trust_execution_unconfirmed"] = tenure_trusts
+                ev["performance"]["buyback_note"] = (
+                    f"재직 기간 자사주 신탁계약 {len(tenure_trusts)}건은 실제 취득액을 확인하지 못해 "
+                    "「집행 미확인」으로 두고 매입 합계에 넣지 않았습니다 — 계약금액은 매입 한도일 뿐입니다.")
             # 등기 시작이 회사 근무 시작보다 늦으면 그 사실을 밝힌다(오해 방지)
             if apt.get("earliest_start") and apt["earliest_start"] < board_start:
                 ev["performance"]["tenure_note"] = (

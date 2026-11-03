@@ -4,7 +4,7 @@ evidence tool은 순수 `인용 메타 가공기`다.
 rcept_no 문자열만으로 즉시 유도 가능한 정보만 반환한다.
 
 - 입력: rcept_no (또는 rcept_no가 포함된 evidence_id)
-- 출력: rcept_dt (rcept_no 앞 8자리), source_type (rcept_no 9~10자리로 DART/KIND 구분), viewer_url
+- 출력: rcept_dt (rcept_no 앞 8자리), source_type·filing_channel (rcept_no 9번째 자리 = 접수 창구), viewer_url
 
 report_nm은 upstream data tool이 전달한 evidence_refs에 이미 포함되어 있어야 하며,
 생 rcept_no만으로는 채우지 않는다 (DART list.json 광범위 검색은 정확도가 낮고 비용이 큼).
@@ -23,6 +23,7 @@ from open_proxy_mcp.services.contracts import (
     ToolEnvelope,
     _build_viewer_url,
 )
+from open_proxy_mcp.services.rcept_channel import is_exchange_filing, rcept_channel
 
 
 _RCEPT_NO_PATTERN = re.compile(r"(\d{14})")
@@ -42,9 +43,12 @@ def _rcept_dt_from_no(rcept_no: str) -> str:
 
 
 def _source_type_from_rcept_no(rcept_no: str) -> SourceType:
-    """rcept_no 9~10번째 자리로 DART(00) / KIND(80) 구분."""
+    """rcept_no 9번째 자리(접수 창구)로 거래소 수시공시(6·7·8·9) / DART 접수를 가른다.
 
-    if len(rcept_no) >= 10 and rcept_no[8:10] == "80":
+    `80` 만 거래소로 보면 코스닥(9)·코넥스(6) 수시공시가 DART 접수로 잘못 읽힌다.
+    """
+
+    if is_exchange_filing(rcept_no):
         return SourceType.KIND_HTML
     return SourceType.DART_XML
 
@@ -100,6 +104,7 @@ async def build_evidence_payload(
             "rcept_no": target_rcept_no,
             "rcept_dt": rcept_dt,
             "source_type": source_type.value,
+            "filing_channel": rcept_channel(target_rcept_no),
             "viewer_url": viewer_url,
         },
         evidence_refs=[
