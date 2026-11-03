@@ -575,10 +575,18 @@ def render_results(payload: dict[str, Any]) -> str:
         lines.append("- 현재 확보된 의결 결과가 없다")
         return "\n".join(lines)
 
+    if results.get("void_notice"):
+        lines.append(f"- 기타사항(원문): {results.get('void_notice')}")
+        lines.append("")
+
     for item in items:
         lines.append(f"### {item.get('number', '')} {item.get('agenda', '')}")
         lines.append(f"- 결의 유형: {item.get('resolution_type', '-')}")
-        lines.append(f"- 결과: {item.get('passed', '-')}")
+        passed = item.get('passed', '-')
+        raw = item.get("passed_raw", "")
+        lines.append(f"- 결과: {passed}" + (f" (원문: {raw})" if raw and raw != passed else ""))
+        if item.get("remark_contradicts_pass"):
+            lines.append(f"- 비고(결과와 어긋남, 원문): {item.get('remark')}")
         if item.get("approval_rate_issued"):
             lines.append(f"- 발행주식수 기준 찬성률: {item.get('approval_rate_issued')}%")
         if item.get("approval_rate_voted"):

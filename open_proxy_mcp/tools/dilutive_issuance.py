@@ -293,6 +293,7 @@ _FOLLOWUP_CARD_TITLES = {
     "early_redemption": "자기사채 만기전취득",
     "issue_price_fixed": "유상증자 발행가액 확정",
     "subscription_result": "유상증자 청약결과",
+    "call_option_designation": "CB 매수선택권 행사자 지정·양도",
 }
 
 _FOLLOWUP_FIELD_LABELS = (
@@ -324,6 +325,14 @@ _FOLLOWUP_FIELD_LABELS = (
     ("subscribed_shares", "청약주식수(주)"),
     ("subscription_rate_pct", "청약률(%)"),
     ("forfeited_handling", "실권주 처리"),
+    ("designation_kind", "지정·양도 구분"),
+    ("designated_face_won", "지정(양도) 권면액(원)"),
+    ("designated_ratio_pct", "지정비율(%)"),
+    ("consideration_won", "지정대가(원)"),
+    ("consideration_basis", "대가 산정근거"),
+    ("consideration_due_on", "대가 수령(예정)일"),
+    ("conversion_shares", "전환 시 발행할 주식수(주)"),
+    ("conversion_shares_ratio_pct", "발행주식총수 대비(%)"),
 )
 
 
@@ -355,8 +364,37 @@ def _render_followup_card(row: dict[str, Any]) -> list[str]:
         lines.append(f"- {label}: {value:,}" if isinstance(value, int) else f"- {label}: {value}")
     if detail.get("undersubscribed") is True:
         lines.append("- ⚠️ 청약률이 100%를 밑돌아 실권주가 났다 — 예정 주식수가 다 나가지 않았다.")
+    if row.get("type") == "call_option_designation":
+        lines.extend(_render_call_option_designees(detail))
     lines.append("")
     return lines
+
+
+def _render_call_option_designees(detail: dict[str, Any]) -> list[str]:
+    """매수선택권 대상자 — 부표를 그대로 옮긴다. 판정하지 않는다."""
+    out: list[str] = []
+    if detail.get("decided_on"):
+        out.append(f"- 지정일(양도일): {detail['decided_on']}")
+    for d in detail.get("designees") or []:
+        bits = [d.get("name", "")]
+        if d.get("relation"):
+            bits.append(f"관계 {d['relation']}")
+        if d.get("face_won"):
+            bits.append(f"권면 {d['face_won']:,}원")
+        if d.get("consideration_won"):
+            bits.append(f"대가 {d['consideration_won']:,}원")
+        out.append("- 대상자: " + " · ".join(bits))
+    holders = detail.get("largest_holder_designees") or []
+    if holders:
+        out.append("- ⚠️ 원문에 「대상자 중 최대주주·특수관계인이 포함된 경우」 부표가 있다:")
+        for h in holders:
+            out.append(
+                f"  - {h.get('name', '')} ({h.get('relation') or '관계 미기재'}) — 발행 당시 보유 "
+                f"{h.get('held_shares_at_issue', 0):,}주({h.get('held_pct_at_issue', '-')}%), 전환 시 "
+                f"{h.get('conversion_shares', 0):,}주({h.get('conversion_pct', '-')}%)")
+    elif detail.get("largest_holder_note"):
+        out.append(f"- {detail['largest_holder_note']}")
+    return out
 
 
 def _fmt(v: Any) -> str:

@@ -9,7 +9,7 @@ related_concepts: []
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
 
 created: 2026-05-01
-updated: 2026-08-25
+updated: 2026-11-03
 ---
 
 # evidence
@@ -23,7 +23,7 @@ evidence(rcept_no="20260312000987")
 ```
 
 자연어 예시:
-- "20260213800001 어디 공시인지 (DART/KIND), 언제, 뷰어 URL" → `rcept_no="20260213800001"` (KIND 80 포맷)
+- "20260213800001 어디 공시인지 (DART/KIND), 언제, 뷰어 URL" → `rcept_no="20260213800001"` (9번째 자리 `8` = 거래소 유가증권시장 수시공시)
 - "다른 tool 결과의 evidence_refs 출처 재확인" → 각 ref의 rcept_no 입력
 
 ## 입력 인자
@@ -42,14 +42,17 @@ evidence(rcept_no="20260312000987")
   "rcept_dt": "YYYY-MM-DD",
   "report_nm": "..." (upstream evidence_refs에 있을 때만),
   "source_type": "dart_xml|dart_html|dart_api|kind_html|naver|internal",
+  "filing_channel": "dart|fss|krx_konex|krx_bond|krx_kospi|krx_kosdaq|unknown",
   "viewer_url": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=..."
 }
 ```
 
 핵심 필드:
 - `rcept_no[:8]` → `rcept_dt` (YYYY-MM-DD)
-- `rcept_no[8:10] == "80"` → KIND 수시공시, 그 외 → DART
-- `viewer_url`: DART 뷰어로 통일 (80 포맷도 DART 뷰어에서 정상 렌더링됨)
+- `rcept_no[8]`(9번째 자리) = 접수 창구 → `filing_channel`: `0` dart · `1` fss(금감원 안내) · `6` krx_konex · `7` krx_bond · `8` krx_kospi · `9` krx_kosdaq · 그 밖 `unknown`(목록을 닫지 않는다 — 오류가 아니다)
+- `source_type`: 거래소 계열(6·7·8·9) → `kind_html`, 그 외 → `dart_xml`
+- `viewer_url`: DART 뷰어로 통일 (거래소 계열도 DART 뷰어에서 정상 렌더링됨)
+- `rcept_dt` 는 번호 앞 8자리(발번일)다. 드물게 목록의 접수일과 하루 다를 수 있다
 - 14자리 숫자 아니면 `requires_review`
 
 ## Data sources
@@ -69,7 +72,7 @@ sequenceDiagram
         T-->>U: REQUIRES_REVIEW + 경고
     end
     T->>T: rcept_dt 유도 (rcept_no[:8] → YYYY-MM-DD)
-    T->>T: source_type 판별 (rcept_no[8:10]==80 → KIND, 그 외 → DART)
+    T->>T: filing_channel·source_type 판별 (rcept_no 9번째 자리 6·7·8·9 → 거래소, 그 외 → DART)
     T->>T: viewer_url 조립 (dart.fss.or.kr/dsaf001/main.do?rcpNo=...)
     T-->>U: ToolEnvelope (evidence_id + rcept_dt + source_type + viewer_url)
 ```
@@ -106,3 +109,4 @@ sequenceDiagram
 - 2026-04-18: evidence tool 검증 + release_v2 go (API 0회 / 실패 지점 없음)
 - 2026-04-21: KIND viewer URL 사용 중단, DART 뷰어로 통일
 - 2026-05-01: tool wiki 페이지 작성
+- 2026-11-03: 접수 창구를 9번째 자리 한 자리로 읽는다(`filing_channel` 추가). 전에는 `80` 만 거래소로 봐서 코스닥(9)·코넥스(6) 수시공시를 DART 접수로 적었다.

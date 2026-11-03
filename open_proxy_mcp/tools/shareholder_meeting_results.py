@@ -25,7 +25,7 @@ def register_tools(mcp):
     ) -> str:
         """desc: 주주총회 **의결 결과** (사후). 안건별 가결/부결 + 찬반율. DART API 우선, KIND fallback.
         when: 주총 종료 후 실제 의결 결과 확인. 사전 안건은 `shareholder_meeting_notice`. 후속 공시(배당/자사주/구조)는 dividend_disclosure·treasury_share 등 각 tool 직접 호출.
-        rule: rcept_no 80 prefix (수시공시) 본문 fetch. 결과 미공시(KIND 노출 지연) 시 status=pending_or_missing.
+        rule: 결과 공시는 거래소 수시공시(접수번호 9번째 자리 8 유가·9 코스닥·6 코넥스) — 계열과 상관없이 DART 원문 fetch, 거래소 번호 대체는 유가(80→00)만. 표 서식은 비고(remark, 가결과 어긋나면 remark_contradicts_pass)·기타사항 무효처리 문장(void_notice), 줄글 서식은 원문 결과문(passed_raw)도 싣는다. 결과 미공시(KIND 노출 지연) 시 status=pending_or_missing.
         meeting_type: `auto` / `annual` / `extraordinary`
         ref: shareholder_meeting_notice, dividend_disclosure, treasury_share, proxy_contest, evidence
         """

@@ -552,6 +552,25 @@ def _parse_structure_change(html: str, fiscal_end_month: int | None = None) -> d
             "table_markdown": table_markdown}
 
 
+def _is_subsidiary_title(report_nm: str) -> bool:
+    """제목의 `(자회사의 주요경영사항)`·`(종속회사의 주요경영사항)`. 제목에 표시가 없는 공시도 있어 원문 머리를 함께 본다."""
+    compact = re.sub(r"\s+", "", report_nm or "")
+    return "자회사의주요경영사항" in compact or "종속회사의주요경영사항" in compact
+
+
+#: 자회사 실적 공시를 건너뛰며 본체 공시를 찾을 때 더 읽는 원문 수 상한(호출 예산).
+_SUBSIDIARY_SKIP_MAX = 3
+
+
+def _own_first(cands: list[dict]) -> list[dict]:
+    """본체 공시를 앞으로(안정 정렬 — 각 무리 안의 최신순은 그대로).
+
+    🔴 지주사는 자회사 실적을 「자회사의 주요경영사항」으로 같은 서식에 낸다. 최신 1건만 고르면
+    지주의 최신 잠정실적 자리에 자회사(하나증권) 실적이 앉는다(하나금융지주 2026-10-23 실측).
+    """
+    return sorted(cands, key=lambda x: _is_subsidiary_title(x.get("report_nm", "")))
+
+
 def _is_attachment_only_correction(report_nm: str) -> bool:
     """`[첨부정정]` 은 첨부파일만 바꾼 공시라 본문 document.xml 이 없다(DART 014) — 본문은 원래 공시에 있다(260907)."""
     return "[첨부정정]" in (report_nm or "")
@@ -675,6 +694,7 @@ async def build_provisional_earnings_payload(
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.ERROR,
                             subject=corp.get("corp_name", ""),
                             warnings=[f"공시 검색 실패(DART {getattr(e, 'status', '?')})"]).to_dict()
+    cands = _own_first(cands)
     rept = cands[0] if cands else None
     if not rept:
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.NO_FILING,
@@ -683,20 +703,37 @@ async def build_provisional_earnings_payload(
                                        else f"최근 {months}개월 영업(잠정)실적 공시 없음") + " — 창을 넓히거나(months·start_date) financial_metrics 확정치로"]).to_dict()
     url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rept['rcept_no']}"
     extra_warnings: list[str] = []
+    skipped_subsidiaries: list[dict[str, Any]] = []
     try:
         doc = None
+        fallback: tuple[dict, Any] | None = None    # 본체 공시를 끝내 못 찾으면 쓸 첫 자회사 공시
         for i, cand in enumerate(cands):
             try:
-                doc = await client.get_document_cached(cand["rcept_no"])
+                cand_doc = await client.get_document_cached(cand["rcept_no"])
             except DartClientError as e:
-                if str(getattr(e, "status", "")) != "014" or i == len(cands) - 1:
+                if str(getattr(e, "status", "")) != "014" or (i == len(cands) - 1 and fallback is None):
                     raise
                 # 본문 없는 공시(첨부정정 등) — 다음 후보로 넘어가되 사용자에게 무엇을 건너뛰었는지 말한다
                 extra_warnings.append(f"{cand.get('rcept_dt','')} 「{(cand.get('report_nm') or '').strip()}」 은 본문이 없어 건너뜀")
                 continue
-            rept = cand
-            url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rept['rcept_no']}"
+            cand_html = cand_doc.get("html", "") if isinstance(cand_doc, dict) else ""
+            sub_name = _subsidiary_name(BeautifulSoup(cand_html, "lxml").get_text(" ", strip=True))
+            is_sub = bool(sub_name) or _is_subsidiary_title(cand.get("report_nm", ""))
+            own_left = any(not _is_subsidiary_title(c.get("report_nm", "")) for c in cands[i + 1:])
+            if is_sub and own_left and len(skipped_subsidiaries) < _SUBSIDIARY_SKIP_MAX:
+                # 제목에 표시가 없는 자회사 공시 — 원문 머리로 알았다. 본체 공시를 마저 찾는다.
+                skipped_subsidiaries.append({"rcept_no": cand.get("rcept_no"), "rcept_dt": cand.get("rcept_dt"),
+                                             "report_nm": (cand.get("report_nm") or "").strip(),
+                                             "subsidiary": sub_name})
+                if fallback is None:
+                    fallback = (cand, cand_doc)
+                continue
+            rept, doc = cand, cand_doc
             break
+        if doc is None and fallback is not None:
+            rept, doc = fallback
+            skipped_subsidiaries = [x for x in skipped_subsidiaries if x["rcept_no"] != rept.get("rcept_no")]
+        url = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rept['rcept_no']}"
         html = doc.get("html", "") if isinstance(doc, dict) else ""
         fem = None
         try:
@@ -706,6 +743,7 @@ async def build_provisional_earnings_payload(
             fem = None
         parsed = parse_provisional_earnings(html, rept.get("report_nm", ""), fiscal_end_month=fem)
         subsidiary = _subsidiary_name(BeautifulSoup(html, "lxml").get_text(" ", strip=True))
+        subsidiary_report = bool(subsidiary) or _is_subsidiary_title(rept.get("report_nm", ""))
     except Exception as e:
         return ToolEnvelope(tool="provisional_earnings", status=AnalysisStatus.ERROR,
                             subject=corp.get("corp_name", ""),
@@ -713,8 +751,21 @@ async def build_provisional_earnings_payload(
                             warnings=[f"원문 파싱 실패: {type(e).__name__}"
                                       + (f"(DART {getattr(e, 'status', '')})" if isinstance(e, DartClientError) else "")]).to_dict()
     warnings = ["잠정치 — 향후 확정치와 다를 수 있음(감사 전)", *extra_warnings, *parsed.pop("parse_warnings", [])]
-    if subsidiary:
-        warnings.append(f"자회사 {subsidiary} 의 실적이다 — {corp.get('corp_name')} 본체 실적으로 읽지 말 것")
+    if subsidiary_report:
+        who = f"자회사 {subsidiary}" if subsidiary else "자회사(이름은 원문 머리에서 읽지 못함)"
+        warnings.append(f"{who} 의 실적이다 — {corp.get('corp_name')} 본체 실적으로 읽지 말 것"
+                        " · 본체 잠정실적 공시를 창 안에서 찾지 못해 이것을 냈다")
+    # 본체 공시를 고르려고 건너뛴 자회사 공시는 감추지 않는다(더 최근일 수 있다).
+    other_subs = [c for c in cands if _is_subsidiary_title(c.get("report_nm", ""))
+                  and c.get("rcept_no") != rept.get("rcept_no")
+                  and c.get("rcept_no") not in {x["rcept_no"] for x in skipped_subsidiaries}]
+    skipped_subsidiaries += [{"rcept_no": c.get("rcept_no"), "rcept_dt": c.get("rcept_dt"),
+                              "report_nm": (c.get("report_nm") or "").strip()} for c in other_subs]
+    if skipped_subsidiaries and not subsidiary_report:
+        newest = max(skipped_subsidiaries, key=lambda x: x.get("rcept_dt") or "")
+        warnings.append(f"자회사 실적 공시 {len(skipped_subsidiaries)}건은 본체 실적이 아니라 고르지 않았다"
+                        f"(가장 최근 {newest.get('rcept_dt') or '-'} {newest.get('subsidiary') or ''}"
+                        f" {newest.get('rcept_no')}) — subsidiary_filings 참조")
     if parsed.get("unit_warning"):
         warnings.append(parsed["unit_warning"])
     if parsed.get("kind") == "non_financial":
@@ -726,12 +777,14 @@ async def build_provisional_earnings_payload(
                    "rcept_dt": rept.get("rcept_dt"), "url": url},
         **parsed,
         **({"subsidiary": subsidiary} if subsidiary else {}),
+        **({"subsidiary_report": True} if subsidiary_report else {}),
+        **({"subsidiary_filings": skipped_subsidiaries} if skipped_subsidiaries else {}),
     }
     # 컨센서스와 맞댔을 때만 칸을 붙인다(261018 결정). 모르거나 없거나 맞댈 수 없으면 칸 없이 파싱 값만 —
     # 월간·커버리지 밖·이력 밖·DB 장애·연결/별도 불일치의 이유는 `_consensus_gap` 이 status·why 로 내지만 싣지 않는다.
     try:
         # 자회사 실적은 모회사 컨센서스와 맞대지 않는다 — 하나은행 실적이 지주 예상치 대비 -98.7% 로 읽힌다.
-        gap = None if subsidiary else await _consensus_gap(parsed, corp.get("stock_code"), rept.get("rcept_dt") or "")
+        gap = None if subsidiary_report else await _consensus_gap(parsed, corp.get("stock_code"), rept.get("rcept_dt") or "")
     except Exception:  # noqa: BLE001 — 비교 칸이 실패해도 잠정 실적값은 그대로 낸다
         gap = None
     if gap and gap.get("status") == "ok":
