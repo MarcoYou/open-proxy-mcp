@@ -8,7 +8,7 @@ related_disclosures: [유상증자결정, 전환사채발행결정, 교환사채
 related_concepts: [지분구조, 프록시-파이트]
 related_decisions: [pblntf-ty-필터링]
 created: 2026-05-01
-updated: 2026-10-18
+updated: 2026-11-03
 ---
 
 # dilutive_issuance
@@ -86,6 +86,15 @@ dilutive_issuance(
   "usage": {"dart_api_calls": N, "mcp_tool_calls": 1}
 }
 ```
+
+`followup_events[]`(발행 이후 공시 — `type`·`label`·`direction`·`report_nm`·`rcept_no`·`rcept_dt`·`details`):
+- `early_redemption`(희석 축소) · `issue_price_fixed`(주식수 확정) · `subscription_result`(실제 배정)
+- `call_option_designation`(잠재 지분 이전, 261103) — CB 매수선택권(콜옵션) 행사자 지정·양도. `details`:
+  `series`·`bond_kind`·`issued_on`·`maturity_on`·`designation_kind`(지정/양도)·`designated_face_won`(A)·`face_total_won`(B)·
+  `designated_ratio_pct`(A/B, 원문)·`decided_on`(지정일·양도일)·`consideration_won`·`consideration_basis`·`consideration_due_on`·
+  `conversion_price_won`·`conversion_shares`·`conversion_shares_ratio_pct` · `designees[]`(대상자별 표: `name`·`relation`·`face_won`·`consideration_won`) ·
+  **`largest_holder_included`**(원문에 「대상자 중 회사의 최대주주 또는 그의 특수관계인이 포함된 경우」 부표가 있는가 — 서식상 해당될 때만 붙으므로 표의 존재가 신호) ·
+  `largest_holder_designees[]`(`name`·`relation`·`held_shares_at_issue`·`held_pct_at_issue`·`conversion_shares`·`conversion_pct`) · `largest_holder_note` · `designee_tables_text`(부표 원문 대목)
 
 핵심 지표:
 - `dilution_pct_approx` (유상증자): 신주/기존 단순 비율 (근사, 원본 공시에 없어서 계산)
@@ -185,6 +194,7 @@ sequenceDiagram
 - 감자 + 유상증자 세트 패턴 자동 감지 (TODO, EDGC 패턴 = 자본잠식 해소 → 3자배정 → 최대주주 변경).
 
 ## 변경 이력
+- 2026-11-03: **CB 매수선택권(콜옵션) 행사자 지정·양도를 발행 이후 공시로 읽는다**(`followup_events[].type=call_option_designation`, 방향 「잠재 지분 이전」, B001 `주요사항보고서(전환사채매수선택권행사자지정)`). 회사가 CB 를 되살 권리를 넘기는 공시로, 받는 사람이 최대주주·특수관계인이면 사채 발행 없이 지분을 늘리는 길이 된다. 위쪽 칸(지정 권면액·비율·대가·산정근거·전환가액)과 원문 끝 부표 둘(대상자별 표 · 최대주주·특수관계인 포함 표)을 표로 읽는다. 둘째 부표는 해당될 때만 붙으므로 **있다/없다**를 `largest_holder_included` 로 싣고, 판정하지 않는다(대성하이텍 `20260617000491` 고정 — 최호형 최대주주 본인 18.52% · 전환 시 +4.33%).
 - 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-09-09: **scope 2종 신설** — 「약속 ↔ 이행」의 사후 절반.
   · `fund_use` 공모·사모 자금의 **사용내역**(`pssrpCptalUseDtls`·`prvsrpCptalUseDtls`, 2콜).

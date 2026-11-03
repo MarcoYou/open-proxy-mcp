@@ -190,23 +190,59 @@ def _normalize_disposal(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _first_text(item: dict[str, Any], *keys: str) -> str:
+    """여러 이름 중 처음으로 값이 있는 것. DART 빈칸 표기 `-` 는 값이 없는 것으로 본다."""
+    for key in keys:
+        value = str(item.get(key) or "").strip()
+        if value and value != "-":
+            return value
+    return ""
+
+
+def _first_int(item: dict[str, Any], *keys: str) -> int:
+    for key in keys:
+        value = _to_int(item.get(key))
+        if value:
+            return value
+    return 0
+
+
 def _normalize_trust(item: dict[str, Any], event: str, label: str) -> dict[str, Any]:
     """자기주식 신탁체결/해지 (tsstkAqTrctrCnsDecsn / tsstkAqTrctrCcDecsn).
 
-    추출:
-    - 계약금액 (ctr_prc / ctr_prc_am / ctr_pr — 다양한 필드명 fallback)
-    - 계약기간 (시작·종료) / 계약체결기관 (수탁기관)
-    - 계약목적 / 위탁투자중개업자 (broker)
-    - 보유예상기간 / 사외이사 참석
-    - 해지 시: 해지일 / 해지사유
+    정형 응답의 필드 이름이 체결과 해지에서 다르다.
+    - 체결: 계약금액 `ctr_prc` · 계약기간 `ctr_pd_bgd`/`ctr_pd_edd` · 계약목적 `ctr_pp`
+      · 계약체결기관 `ctr_cns_int` · 체결예정일 `ctr_cns_prd` · 위탁중개업자 `cs_iv_bk`
+    - 해지: 해지 전 계약금액 `ctr_prc_bfcc` · 해지 후 `ctr_prc_atcc`
+      · 해지 전 계약기간 `ctr_pd_bfcc_bgd`/`ctr_pd_bfcc_edd` · 해지목적 `cc_pp`
+      · 해지기관 `cc_int` · 해지예정일 `cc_prd` · 해지 후 신탁재산 반환방법 `tp_rm_atcc`
+    - 이사회결의일: `bddd` (체결은 `bd_rs_dd` 표기도 있어 함께 읽는다)
+
+    실제 응답에서 확인되지 않은 예전 이름(`ctr_cns_prd_bgd`·`ctr_cns_inst`·`ctr_cc_rs` 등)도
+    뒤에 남겨 둔다 — 있으면 읽고, 없으면 빈칸이다. 값을 지어 채우지 않는다.
+
+    `amount_krw` 는 체결이면 계약금액, 해지면 **해지 전 계약금액**(계약 한도)이다.
+    둘 다 집행액이 아니다 — 실제 취득액은 신탁계약 해지결과보고서(`trust_termination_result`)에 있다.
     """
 
-    amount = 0
-    for key in ("ctr_prc", "ctr_prc_am", "ctr_pr", "ctr_pric"):
-        amount = _to_int(item.get(key, 0))
-        if amount:
-            break
-    return {
+    is_term = event == "trust_termination"
+    if is_term:
+        amount_before = _first_int(item, "ctr_prc_bfcc", "ctr_prc", "ctr_prc_am", "ctr_pr", "ctr_pric")
+        amount_after = _to_int(item.get("ctr_prc_atcc"))
+        amount = amount_before
+        start = _first_text(item, "ctr_pd_bfcc_bgd", "ctr_pd_bgd", "ctr_cns_prd_bgd", "ctr_prd_bgd")
+        end = _first_text(item, "ctr_pd_bfcc_edd", "ctr_pd_edd", "ctr_cns_prd_edd", "ctr_prd_edd")
+        purpose = _first_text(item, "cc_pp", "ctr_pp")
+        trustee = _first_text(item, "cc_int", "ctr_cns_int", "ctr_cns_inst", "ctr_inst")
+        board = _first_text(item, "bddd", "ctr_cc_dd", "ctr_cns_dd")
+    else:
+        amount = _first_int(item, "ctr_prc", "ctr_prc_am", "ctr_pr", "ctr_pric")
+        start = _first_text(item, "ctr_pd_bgd", "ctr_cns_prd_bgd", "ctr_prd_bgd")
+        end = _first_text(item, "ctr_pd_edd", "ctr_cns_prd_edd", "ctr_prd_edd")
+        purpose = _first_text(item, "ctr_pp")
+        trustee = _first_text(item, "ctr_cns_int", "ctr_cns_inst", "ctr_inst")
+        board = _first_text(item, "bddd", "bd_rs_dd", "ctr_cns_dd")
+    row = {
         "event": event,
         "rcept_no": item.get("rcept_no", ""),
         "rcept_dt": _rcept_dt_from_no(item.get("rcept_no", "")),
@@ -214,19 +250,28 @@ def _normalize_trust(item: dict[str, Any], event: str, label: str) -> dict[str, 
         "report_nm": label,
         "shares": 0,
         "amount_krw": amount,
-        "purpose": (item.get("ctr_pp") or "").strip(),
-        "start_date": (item.get("ctr_cns_prd_bgd") or item.get("ctr_prd_bgd") or "").strip(),
-        "end_date": (item.get("ctr_cns_prd_edd") or item.get("ctr_prd_edd") or "").strip(),
-        "board_date": (item.get("ctr_cns_dd") or item.get("ctr_cc_dd") or "").strip(),
-        # 신탁기관 (수탁기관 — 보통 증권사) / 위탁사
-        "trustee_name": (item.get("ctr_cns_inst") or item.get("ctr_inst") or "").strip(),
-        "broker_name": (item.get("iv_jdgh_idr") or "").strip(),
+        # 해지 결정의 목적(cc_pp)은 아래 termination_reason 에만 싣는다 — 두 번 보이지 않게.
+        "purpose": "" if is_term else purpose,
+        "start_date": start,
+        "end_date": end,
+        "board_date": board,
+        # 신탁기관 (계약체결기관·해지기관 — 보통 증권사) / 위탁투자중개업자
+        "trustee_name": trustee,
+        "broker_name": _first_text(item, "cs_iv_bk", "iv_jdgh_idr"),
         # 거버넌스
         "outside_director_attended": _to_int(item.get("od_a_at_t")),
         "outside_director_absent": _to_int(item.get("od_a_at_b")),
-        # 해지 시 추가
-        "termination_reason": (item.get("ctr_cc_rs") or "").strip() if event == "trust_termination" else "",
+        # 해지 시 추가 — 해지목적(cc_pp)이 공시 서식의 「해지 사유」 자리다.
+        "termination_reason": purpose if is_term else "",
     }
+    if is_term:
+        row["amount_before_termination_krw"] = amount_before
+        row["amount_after_termination_krw"] = amount_after
+        row["termination_date"] = _first_text(item, "cc_prd")
+        row["return_method"] = _first_text(item, "tp_rm_atcc")
+    else:
+        row["contract_date"] = _first_text(item, "ctr_cns_prd")
+    return row
 
 
 def _parse_cancelation_body(text: str) -> dict[str, Any]:
@@ -1177,7 +1222,10 @@ def _flag_cycle_mismatches(bundles: dict[str, list[dict]]) -> list[str]:
             if not (linked and ea and da and da > 0):
                 continue
             ratio = ea / da
-            if ratio > 3.0 or ratio < 0.01:
+            # 신탁은 결정 금액이 한도라 집행률 1% 미만도 실제로 흔하다(해지결과 취득률 0.5%대 실측) —
+            # 신탁 사이클은 「한도 초과 집행」만 본다.
+            too_small = ratio < 0.01 and dec_key not in ("trust_contract", "trust_termination")
+            if ratio > 3.0 or too_small:
                 er["amount_mismatch_ratio"] = round(ratio, 4)
                 warnings.append(f"공시 {er.get('rcept_no')} 실행금액이 결정({linked}) 대비 "
                                 f"{ratio:.3g}배 — 금액 또는 결정↔실행 매칭 오류 의심(원문 확인 필요).")
@@ -1319,7 +1367,71 @@ def _link_cycles(bundles: dict[str, list[dict]]) -> int:
             matched_dec.setdefault("linked_execution_rcept_nos", []).append(er.get("rcept_no", ""))
             matched_count += 1
 
+    _link_trust_executions(bundles)
     return matched_count
+
+
+def _link_trust_executions(bundles: dict[str, list[dict]]) -> None:
+    """신탁계약 체결 결정 ↔ 그 계약의 해지결과보고서(실제 취득액)를 잇는다.
+
+    체결 결정의 금액은 **한도**다. 실제로 산 금액은 해지결과보고서의 취득가액 총액에만 있고,
+    한도 50억 계약이 0원 집행으로 끝나기도 한다. 그래서 체결 행에 집행 상태를 붙인다.
+    - `execution_status="confirmed"` + `executed_amount_krw`/`executed_shares`/`execution_rcept_no`
+    - 못 이으면 `execution_status="unconfirmed"` — 계약금액을 집행액으로 쓰지 말라는 뜻이다.
+
+    잇는 기준(보수적으로 — 애매하면 잇지 않는다):
+    1. 해지결과 본문의 신탁계약 체결일이 있으면 그 날짜 ±7일의 체결 결정
+    2. 없으면 해지결과 접수일 이전의 가장 최근 체결 결정
+    3. 해지결과의 계약금액과 체결 결정 금액이 둘 다 있는데 1% 넘게 다르면 다른 사이클로 보고 잇지 않는다
+    4. 한 체결 결정에 해지결과가 둘 이상 붙으면 어느 것도 잇지 않는다
+    """
+    contracts = sorted(bundles.get("trust_contract") or [], key=lambda r: r.get("rcept_dt", ""))
+    results = sorted(bundles.get("trust_termination_result") or [], key=lambda r: r.get("rcept_dt", ""))
+    from datetime import date as _d
+
+    def _as_date(text: str):
+        try:
+            y, m, d = _norm_date(text).split("-")
+            return _d(int(y), int(m), int(d))
+        except (ValueError, AttributeError):
+            return None
+
+    pairs: dict[str, list[dict]] = {}
+    for res in results:
+        chosen = None
+        contract_day = _as_date(res.get("trust_contract_date", "") or "")
+        if contract_day is not None:
+            near = []
+            for c in contracts:
+                c_day = _as_date(c.get("rcept_dt", ""))
+                if c_day is not None and abs((c_day - contract_day).days) <= 7:
+                    near.append((abs((c_day - contract_day).days), c.get("rcept_dt", ""), c))
+            if near:
+                near.sort(key=lambda t: (t[0], t[1]))
+                chosen = near[0][2]
+        else:
+            priors = [c for c in contracts if c.get("rcept_dt", "") <= res.get("rcept_dt", "")]
+            if priors:
+                chosen = priors[-1]
+        if chosen is None:
+            continue
+        res_amt, dec_amt = res.get("contract_amount_krw"), chosen.get("amount_krw")
+        if res_amt and dec_amt and abs(res_amt - dec_amt) > dec_amt * 0.01:
+            continue
+        pairs.setdefault(chosen.get("rcept_no", ""), []).append(res)
+
+    for c in contracts:
+        linked = pairs.get(c.get("rcept_no", "")) or []
+        res = linked[0] if len(linked) == 1 else None
+        amount = res.get("actual_amount_krw") if res else None
+        if res is not None and res.get("body_parsed") and isinstance(amount, int):
+            c["execution_status"] = "confirmed"
+            c["executed_amount_krw"] = amount
+            c["executed_shares"] = res.get("actual_shares")
+            c["execution_rcept_no"] = res.get("rcept_no", "")
+            res["linked_trust_contract_rcept_no"] = c.get("rcept_no", "")
+        else:
+            c["execution_status"] = "unconfirmed"
 
 
 def _combined_events(bundles: dict[str, list[dict]]) -> list[dict[str, Any]]:

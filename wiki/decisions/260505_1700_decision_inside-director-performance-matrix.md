@@ -20,6 +20,11 @@ related_lessons:
 > 바꿨다. 31개사 표본 영향 스캔 결과 2곳(삼성화재·삼성물산) classification이 우수→양호로
 > 하락, 나머지는 등급 버킷 유지. 아래 원문은 당시 결정 기록으로 그대로 둔다 — 현재 공식은
 > `director_performance.py` 코드와 `wiki/rules/concepts/주주환원.md`가 기준.
+>
+> **261103 정정**: 신탁계약 체결 금액은 매입 **한도**라 매입으로 세지 않는다(한도 50억에 실제 취득 0원인
+> 계약이 있다). 체결이 [[신탁계약해지결과보고서]]와 이어져 실제 취득액이 확인된 계약만 그 취득액을
+> 체결 연도 매입에 넣고, 나머지는 「집행 미확인」으로 성과 결과(`trust_execution_unconfirmed`·`buyback_note`)에
+> 밝히고 합계에서 뺀다(`proxy_advise._treasury_buyback_yearly`).
 
 ## 배경
 

@@ -1,8 +1,8 @@
 """거래소 시장조치·규제 계열 공시 파서.
 
 `risk_events` 가 원래 보던 6종(중대재해·횡령배임·파생손실·회생부도·생산중단·해산)
-바깥의 계열을 담는다. 파서 본체는 Agent D(`lab/260814-dart-push/enrich.py`)에서
-옮겨 왔다 — 2026 코스피·코스닥 표본으로 이미 맞춰 둔 것들이다.
+바깥의 계열을 담는다. 파서 규칙은 2026 코스피·코스닥 표본으로
+이미 맞춰 둔 것들이다.
 
 🔴 **채널이 하나 더 있다** (2026-08-27 실측, 20260701~20260827 전수).
 매매거래정지 214 · 관리종목 113 · 상장적격성 34 · 개선기간 17 · 정리매매 17 건이
@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-# ── 공통 헬퍼 (D `enrich.py` 이식) ─────────────────────────────
+# ── 공통 헬퍼 ─────────────────────────────────────────
 
 
 def _clip(s: str | None, n: int) -> str | None:
@@ -77,7 +77,7 @@ def _prune(d: dict[str, Any]) -> dict[str, Any]:
 # ① 거래소 안내문 — `1.대상종목 / 2.(정지|해제|변경)사유 / 3.(정지기간|해제일시) /
 #    4.근거규정 / 5.기타`. 번호 뒤에 공백이 없다. 표본 다수가 이 꼴이다.
 # ② 회사 제출 서식 — `1.종목명 / 2~5.매매거래정지… / 6.근거 / 7.기타`.
-#    Agent D 가 코스피 표본으로 맞춰 둔 것이 이쪽이다. 둘 다 받는다.
+#    코스피 표본으로 맞춰 둔 것이 이쪽이다. 둘 다 받는다.
 _HL_SUBJECT = re.compile(r"1\s*\.\s*(?:대상종목|종목명)\s*(.+?)\s*2\s*\.")
 _HL_WHY_A = re.compile(r"2\s*\.\s*(정지|해제|변경)사유\s*(.+?)\s*3\s*\.")
 _HL_WHEN_A = re.compile(r"3\s*\.\s*(정지기간|해제일시|정지일시)\s*(.+?)\s*4\s*\.\s*근거")
@@ -358,20 +358,38 @@ _CI_WHY = re.compile(r"5\.\s*매출액\s*또는\s*손익구조\s*변동\s*주요
 _CI_NUM = r"(-?[\d,]+)"
 
 
-def _ci_pair(flat: str, label: str) -> tuple[int | None, int | None]:
+# 🔴 **금액은 서식이 밝힌 단위로 적힌다 — 대개 천원이다** (2026-11-03 실측, 리츠 두 건).
+# `3. 매출액 또는 손익구조 변동내용(단위:천원)` · `4. 재무현황(단위:천원)` 처럼 절 머리에
+# 단위가 붙는다. 숫자를 그대로 `*_won` 에 넣으면 매출 25.7억원이 257만원으로 나간다.
+# 절마다 단위를 따로 읽는다(손익 절과 재무현황 절이 다를 수 있다). 단위를 못 읽으면
+# **어느 단위로도 가정하지 않는다** — 금액 칸을 비우고 원문을 보라고 남긴다.
+_CI_UNIT_FACTOR = {"원": 1, "천원": 1_000, "백만원": 1_000_000, "억원": 100_000_000}
+_CI_PL_UNIT = re.compile(r"손익구조\s*변동\s*내용\s*\(\s*단위\s*[:：]\s*(백만원|천원|억원|원)\s*\)")
+_CI_FS_UNIT = re.compile(r"재무\s*현황\s*\(\s*단위\s*[:：]\s*(백만원|천원|억원|원)\s*\)")
+
+
+def _ci_unit(flat: str, pat: re.Pattern[str]) -> str | None:
+    m = pat.search(flat)
+    return m.group(1) if m else None
+
+
+def _ci_pair(flat: str, label: str, factor: int = 1) -> tuple[int | None, int | None]:
+    """라벨 뒤 당기·전기 두 숫자. `factor` 는 그 절이 밝힌 단위 → 원 환산 배수."""
     m = re.search(re.escape(label) + r"\s+" + _CI_NUM + r"\s+" + _CI_NUM, flat)
     if not m:
         return None, None
-    return _won(m.group(1)), _won(m.group(2))
+    a, b = _won(m.group(1)), _won(m.group(2))
+    return (a * factor if a is not None else None), (b * factor if b is not None else None)
 
 
-def _ci_row(flat: str, label: str) -> tuple[int | None, str | None]:
+def _ci_row(flat: str, label: str, factor: int = 1) -> tuple[int | None, str | None]:
     m = re.search(re.escape(label) + r"\s+" + _CI_NUM + r"\s+" + _CI_NUM
                   + r"\s+(-?[\d,]+)\s+(-?[\d.,]+|-)", flat)
     if not m:
-        v, _ = _ci_pair(flat, label)
+        v, _ = _ci_pair(flat, label, factor)
         return v, None
-    return _won(m.group(1)), m.group(4)
+    v = _won(m.group(1))
+    return (v * factor if v is not None else None), m.group(4)
 
 
 def parse_capital_impairment(text: str, lines: list[str], stage: str) -> dict[str, Any]:
@@ -383,19 +401,32 @@ def parse_capital_impairment(text: str, lines: list[str], stage: str) -> dict[st
     m = _CI_END.search(flat)
     if m:
         out["period_end"], out["prior_period_end"] = m.group(1), m.group(2)
-    for key, label in (("revenue_won", "매출액"), ("operating_income_won", "영업이익"),
-                       ("net_income_won", "당기순이익")):
-        v, pct = _ci_row(flat, label)
-        if v is not None:
-            out[key] = v
-            if pct and pct != "-":
-                out[key.replace("_won", "_change_pct")] = pct
-    cap, _ = _ci_pair(flat, "자본총계")
-    if cap is not None:
-        out["equity_won"] = cap
-    stock, _ = _ci_pair(flat, "자본금")
-    if stock is not None:
-        out["paid_in_capital_won"] = stock
+    pl_unit, fs_unit = _ci_unit(flat, _CI_PL_UNIT), _ci_unit(flat, _CI_FS_UNIT)
+    units = {u for u in (pl_unit, fs_unit) if u}
+    if len(units) == 1:
+        out["amount_unit"] = units.pop()          # 원문이 밝힌 단위. 금액 칸은 원으로 환산해 싣는다.
+    elif units:
+        out["amount_unit"] = f"손익 {pl_unit} · 재무현황 {fs_unit}"
+    missing = [name for name, u in (("손익구조 변동내용", pl_unit), ("재무현황", fs_unit)) if not u]
+    if missing:
+        out["unit_unread"] = ("원문 " + "·".join(missing) + " 절의 금액 단위를 읽지 못해 그 절의 금액 칸을 "
+                              "비웠다 — 아래 원문 표의 「단위」를 확인할 것.")
+    if pl_unit:
+        for key, label in (("revenue_won", "매출액"), ("operating_income_won", "영업이익"),
+                           ("net_income_won", "당기순이익")):
+            v, pct = _ci_row(flat, label, _CI_UNIT_FACTOR[pl_unit])
+            if v is not None:
+                out[key] = v
+                if pct and pct != "-":
+                    out[key.replace("_won", "_change_pct")] = pct
+    fs_factor = _CI_UNIT_FACTOR[fs_unit] if fs_unit else None
+    if fs_factor:
+        cap, _ = _ci_pair(flat, "자본총계", fs_factor)
+        if cap is not None:
+            out["equity_won"] = cap
+        stock, _ = _ci_pair(flat, "자본금", fs_factor)
+        if stock is not None:
+            out["paid_in_capital_won"] = stock
     m = _CI_RATE.search(flat)
     if m and m.group(1) != "-":
         out["impairment_rate_pct"] = m.group(1)
@@ -407,10 +438,10 @@ def parse_capital_impairment(text: str, lines: list[str], stage: str) -> dict[st
     # 🔴 **단위 라벨이 틀린 공시가 있다.** 머리는 `(단위:천원)` 인데 값은 원으로
     # 적혀 있었다 — 그대로 읽으면 매출이 105조로 나간다. **원문끼리 어긋나는
     # 것으로 잡는다** — 대규모법인 `미해당` 은 자산총계 2조원 미만이라는 뜻인데
-    # 천원으로 읽은 자산총계가 2조를 넘으면 둘이 안 맞는다.
+    # 밝힌 단위로 환산한 자산총계가 2조원을 넘으면 둘이 안 맞는다.
     # **어느 쪽이 맞는지 우리가 고르지 않는다.** 금액 줄을 통째로 뺀다.
-    assets, _ = _ci_pair(flat, "자산총계")
-    if out.get("large_corp") == "미해당" and assets and assets >= 2_000_000_000_000:
+    assets, _ = _ci_pair(flat, "자산총계", fs_factor or 1)
+    if fs_factor and out.get("large_corp") == "미해당" and assets and assets >= 2_000_000_000_000:
         out["unit_conflict"] = True
         for k in ("revenue_won", "operating_income_won", "net_income_won",
                   "equity_won", "paid_in_capital_won"):
@@ -562,6 +593,98 @@ def parse_lawsuit(text: str, lines: list[str], stage: str) -> dict[str, Any]:
     return _prune(out)
 
 
+# ── 회계처리기준 위반 조치 (검찰고발·해임권고·감사인지정) ──────────
+#
+# 🔴 **분류조차 안 되던 서식이다.** 제목이 `회계처리기준위반에따른검찰고발등조치` ·
+# `…조치결과` · `회계처리기준위반행위로인한증권선물위원회의검찰고발등` 으로 와서
+# `소송등의`·`벌금등의부과`·`과징금` 어느 낱말에도 안 걸렸다. 검찰고발·**임원 해임권고**·
+# 감사인지정이 한꺼번에 오는 공시라 이사 선임 판단에 바로 쓰인다.
+#
+# 서식이 셋이다. 알맹이(무슨 조치 · 무슨 위반 · 누가 · 언제)는 같고 칸 이름만 다르다.
+#   ① 조치 예정 — `1. 조치내용` `2. 주요 위반혐의내용` `3. 조치기관` `4. 향후대책`
+#                 `5. 조치일자` `6. 확인일자`
+#   ② 재판이 끝난 조치결과 — `1. 조치결과내용` `3. 관할법원 또는 검찰` `5. 판결ㆍ결정일자`
+#   ③ 증권선물위원회 조치 — `1. 조치대상자` `2. 감리(조사) 지적사항`
+#                 `3. 증권선물위원회 조치내용` `4. 조치결정일` `5. 향후대책` `6. 조치사실 확인일`
+# ①② 를 먼저 읽고, 못 읽은 칸만 ③ 으로 채운다. **우리가 판정하지 않는다** — 칸을 원문 그대로 싣는다.
+_AC_ACT = re.compile(r"1\.\s*조치\s*(?:결과)?\s*내용\s*(.+?)\s*2\.\s*주요\s*위반", re.S)
+_AC_WHY = re.compile(r"2\.\s*주요\s*위반\s*(?:혐의)?\s*내용\s*(.+?)\s*3\.\s*(?:조치\s*기관|관할\s*법원)", re.S)
+_AC_ORG = re.compile(r"3\.\s*조치\s*기관\s*(.+?)\s*4\.\s*향후", re.S)
+_AC_COURT = re.compile(r"3\.\s*관할\s*법원(?:\s*또는\s*검찰)?\s*(.+?)\s*4\.\s*향후", re.S)
+_AC_PLAN = re.compile(r"4\.\s*향후\s*대책\s*(.+?)\s*5\.\s*(?:조치\s*일자|" + _LAW_JR + r"\s*일자)", re.S)
+_AC_ON = re.compile(r"5\.\s*(?:조치\s*일자|" + _LAW_JR + r"\s*일자)\s*" + _DATE)
+_AC_SEEN = re.compile(r"6\.\s*확인\s*일자\s*" + _DATE)
+_AC3_TARGET = re.compile(r"1\.\s*조치\s*대상자\s*(.+?)\s*2\.\s*감리", re.S)
+_AC3_WHY = re.compile(r"2\.\s*감리\s*\(?\s*조사\s*\)?\s*지적\s*사항\s*(.+?)\s*3\.\s*증권선물위원회", re.S)
+_AC3_ACT = re.compile(r"3\.\s*증권선물위원회\s*조치\s*내용\s*(.+?)\s*4\.\s*조치\s*결정일", re.S)
+_AC3_ON = re.compile(r"4\.\s*조치\s*결정일\s*" + _DATE)
+_AC3_PLAN = re.compile(r"5\.\s*향후\s*대책\s*(.+?)\s*6\.\s*조치\s*사실", re.S)
+_AC3_SEEN = re.compile(r"6\.\s*조치\s*사실\s*확인일\s*" + _DATE)
+#: 조치 목록은 `-과징금 -감사인 지정 3년 -…해임(면직)권고상당` 처럼 빼기표로 늘어선다.
+_AC_ITEM_SPLIT = re.compile(r"(?:^|\s)-\s*")
+
+
+def is_accounting_sanction(text: str) -> bool:
+    """원문이 회계처리기준 위반 조치 서식인가 — 칸 이름으로 본다(제목은 소송 계열과 같은 카테고리로 묶인다)."""
+    flat = _flat(text)
+    return bool(re.search(r"회계처리기준\s*위반", flat)) and bool(
+        _AC_ACT.search(flat) or _AC3_ACT.search(flat) or _AC_WHY.search(flat) or _AC3_WHY.search(flat))
+
+
+def parse_accounting_sanction(text: str, lines: list[str], stage: str) -> dict[str, Any]:
+    flat = _flat(text)
+    out: dict[str, Any] = {"sanction_kind": "회계처리기준 위반 조치"}
+    form = ""
+    for key, pat, cut in (("actions_text", _AC_ACT, 400), ("violation", _AC_WHY, 900),
+                          ("response_plan", _AC_PLAN, 300)):
+        m = pat.search(flat)
+        if m:
+            out[key] = _clip(m.group(1), cut)
+    m = _AC_ORG.search(flat)
+    if m:
+        out["authority"] = _clip(m.group(1), 60)
+        form = "조치 예정"
+    else:
+        m = _AC_COURT.search(flat)
+        if m:
+            out["court"] = _clip(m.group(1), 60)
+            form = "조치 결과(재판 종료)"
+    m = _AC_ON.search(flat)
+    if m:
+        out["action_date"] = _ymd(m.group(1))
+    m = _AC_SEEN.search(flat)
+    if m:
+        out["confirmed_date"] = _ymd(m.group(1))
+    # 셋째 서식 — 앞에서 못 읽은 칸만 채운다.
+    third = False
+    for key, pat, cut in (("actions_text", _AC3_ACT, 400), ("violation", _AC3_WHY, 900),
+                          ("response_plan", _AC3_PLAN, 300), ("target", _AC3_TARGET, 80)):
+        if key not in out:
+            m = pat.search(flat)
+            if m:
+                out[key] = _clip(m.group(1), cut)
+                third = third or key == "actions_text"
+    for key, pat in (("action_date", _AC3_ON), ("confirmed_date", _AC3_SEEN)):
+        if key not in out:
+            m = pat.search(flat)
+            if m:
+                out[key] = _ymd(m.group(1))
+    if third:
+        form = "증권선물위원회 조치"
+        # 칸 이름이 곧 조치 기관이다 — 따로 적힌 칸이 없다.
+        out.setdefault("authority", "증권선물위원회")
+    if form:
+        out["form"] = form
+    acts = out.get("actions_text") or ""
+    items = [q.strip(" -·※").rstrip("…") for q in _AC_ITEM_SPLIT.split(acts)]
+    items = [q for q in items if len(q) >= 2]
+    if len(items) >= 2:
+        out["actions"] = items[:8]
+    if len(out) <= 1:
+        out["summary_excerpt"] = _clip(flat, 400)
+    return _prune(out)
+
+
 # ── 카테고리 등록 ──────────────────────────────────────────────
 #
 # 🔴 **기존 6종 뒤에 둔다.** `risk_events._classify` 는 위에서부터 먼저 걸리는
@@ -594,7 +717,10 @@ EXTRA_CATEGORIES: dict[str, dict[str, Any]] = {
     },
     "litigation": {
         "label": "소송·제재",
-        "keywords": ("소송등의", "벌금등의부과", "증권관련집단소송", "과징금"),
+        # `회계처리기준위반` — 검찰고발·해임권고·감사인지정 조치 서식 셋(제목 세 꼴 모두 이 낱말을 품는다).
+        # 같은 낱말이 괄호 사유로 붙는 거래소 안내(`조회공시요구(…)(회계처리기준 위반)`·
+        # `기타시장안내(회계처리기준 위반행위 관련 상장적격성…)`)는 앞 카테고리가 먼저 가져간다.
+        "keywords": ("소송등의", "벌금등의부과", "증권관련집단소송", "과징금", "회계처리기준위반"),
         "channels": ("I001", "B001"),
     },
     "capital_impairment": {
@@ -621,8 +747,10 @@ def parse_inquiry_or_rumor(text: str, lines: list[str], stage: str) -> dict[str,
 
 
 def parse_litigation(text: str, lines: list[str], stage: str) -> dict[str, Any]:
-    """소송 계열 서식 셋을 원문 표지로 가른다."""
+    """소송 계열 서식 넷을 원문 표지로 가른다."""
     flat = _flat(text)
+    if is_accounting_sanction(flat):
+        return parse_accounting_sanction(text, lines, stage)
     if "부과내역" in flat or "부과기관" in flat:
         return parse_fine(text, lines, stage)
     if "총원의 범위" in flat or "총원의범위" in flat:
@@ -689,7 +817,9 @@ EXTRA_DETAIL_GUIDE: dict[str, dict[str, Any]] = {
     "litigation": {
         "where": "소송 제기는 사건의 명칭 · 원고 · 청구내용 · 청구금액 · 관할법원, "
                  "판결은 판결내용 · 판결금액 · 판결일자, 벌금·과징금은 부과기관 · 부과사유 · "
-                 "부과금액 · 납부기한 칸에 있다.",
+                 "부과금액 · 납부기한 칸에 있다. 회계처리기준 위반 조치는 조치내용(검찰고발·"
+                 "해임권고·감사인지정·과징금이 빼기표 목록으로) · 위반혐의(감리 지적사항) · "
+                 "조치기관 · 조치일자 칸이다.",
         "alt": "경영권 분쟁 소송은 `proxy_contest`, 제재 이력은 사업보고서 「제재현황」.",
         "next": "1심·항소심 진행은 뒤따르는 「소송등의 판결·결정」 공시로 이어진다.",
     },

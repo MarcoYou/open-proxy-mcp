@@ -8,7 +8,7 @@ related_disclosures: [공시유형코드체계]
 related_concepts: []
 related_decisions: [pblntf-ty-필터링]
 created: 2026-06-11
-updated: 2026-10-18
+updated: 2026-11-03
 ---
 
 # risk_events
@@ -114,6 +114,8 @@ details 카테고리별 필드:
 - derivative_loss: **loss_amount_won / equity_ratio_pct** / 발췌
 - production_halt: halted_business / **revenue_ratio_pct** / reason / 발췌
 - rehabilitation: court / event_date / 발췌
+- litigation(회계처리기준 위반 조치, 261103): `sanction_kind`=「회계처리기준 위반 조치」 · `form`(조치 예정 / 조치 결과(재판 종료) / 증권선물위원회 조치) · `actions`(빼기표 목록 — 검찰고발·해임권고·감사인지정·과징금 등, 원문 그대로) · `actions_text` · `violation`(위반혐의·감리 지적사항) · `authority` 또는 `court` · `target`(셋째 서식) · `response_plan` · `action_date` · `confirmed_date`
+- capital_impairment: statement_basis / period_end / **revenue_won · operating_income_won · net_income_won · equity_won · paid_in_capital_won(원 — 절 머리 `(단위:천원)` 등을 읽어 환산)** / `amount_unit`(원문이 밝힌 단위) / `unit_unread`(단위를 못 읽은 절이 있으면 그 절 금액을 비우고 남기는 문장) / impairment_rate_pct / large_corp / `unit_conflict` / cause
 
 ## Data sources
 - **DART API**: `list.json` (pblntf_detail_ty=`I001`,`B001`) + 키워드 / `document` (include_details 시 N건)
@@ -155,6 +157,8 @@ details 카테고리별 필드:
 - 풍문·조회공시/불성실공시법인(I003)은 성격이 "시장 레이더"라 본 tool 범위 밖 — 수요 확인 시 별도 tool 검토.
 
 ## 변경 이력
+- 2026-11-03: **회계처리기준 위반 조치 공시를 `litigation` 으로 분류하고 칸을 읽는다.** 제목 세 꼴(`회계처리기준위반에따른검찰고발등조치`·`…조치결과`·`회계처리기준위반행위로인한증권선물위원회의검찰고발등`)이 소송 계열 낱말에 하나도 안 걸려 분류조차 안 됐다. 서식 셋(조치 예정 · 재판 종료 조치결과 · 증권선물위원회 조치)을 칸 이름으로 가르고 조치 목록·위반혐의·조치기관(또는 관할)·조치일·확인일을 싣는다(피델릭스 `20261028900777` 고정). 같은 낱말이 괄호 사유로 붙는 거래소 안내(`조회공시요구(…)(회계처리기준 위반)`·`기타시장안내(…상장적격성…)`)는 원래 카테고리를 지킨다.
+  **자본잠식 금액을 원으로 환산한다.** 서식의 손익·재무현황 절 머리가 `(단위:천원)` 인데 숫자를 그대로 `*_won` 에 넣어 1,000분의 1로 나갔다(신한글로벌액티브리츠 `20261013800446` 매출 25.7억원 → 257만원). 절마다 단위를 읽어 환산하고 `amount_unit` 에 원문 단위를 적는다. 단위를 못 읽은 절은 금액을 비우고 `unit_unread` 로 말한다. 단위 모순 검사(대규모법인 `미해당` ↔ 자산총계 2조원)도 환산한 값으로 본다.
 - 2026-10-18: 시장 전체 스캔에서 한 채널(I001·B001·I003)이 DART 013(그 구간 공시 없음)이면 빈 채널로 친다 — 종전엔 한 채널만 비어도(주말·공휴일 하루 구간 등) 「시장 전체 스캔 실패: 013」으로 다른 채널 결과까지 버렸다. 회사·시장 경로 모두 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」.
 - 2026-09-09: 시장 스캔 상한을 **일수(90)에서 3역월로** 바꿨다. 상한은 원래 일수가 아니었다 —
   DART 거부 문구부터 "검색기간은 3개월"이고, 허용 폭은 시작일에 따라 **89~92일로 달라진다**

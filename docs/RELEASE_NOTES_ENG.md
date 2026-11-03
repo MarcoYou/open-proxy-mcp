@@ -4,6 +4,34 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-11-03
 
+### Proxy solicitation side from the filing form
+
+- `proxy_contest` — a solicitation's side was decided only by the filer name, so a company's own solicitation filed under a differently written name could count as **shareholder side (a contest signal)**. If the solicitation form's "relation to the company" cell says `본인` (the company itself), the side is now corrected to company (`side_basis=form_relation`); a solicitation by the largest holder, a related party or an affiliate carries that relation as `stated_relation`. The solicitor's stake, agenda objects and period come as `solicitation_form`. Up to 10 more solicitation documents are read for shareholder-side filers.
+
+### Four risk, dilution and provisional-earnings fixes
+
+- `risk_events` — **accounting-standard violation sanctions** (prosecution referral, officer dismissal recommendation, designated auditor, penalty surcharge) were never classified, so they did not appear. They now appear under `litigation` with the sanction list, alleged violation, sanctioning body and dates as written in the filing.
+- `risk_events` — amounts in **capital impairment 50% / revenue under KRW 5bn** filings were not converted from the filing's unit (KRW thousand), so they came out 1,000 times too small. They are now converted to KRW and the filing's unit is given in `amount_unit`; if the unit cannot be read, the amounts are left empty and the response says so.
+- `dilutive_issuance` — **CB call-option holder designation / transfer** filings are now read as post-issuance events: who receives the option, face amount and price, and whether the filing carries the "designees include the largest shareholder or related parties" table, with its rows.
+- `provisional_earnings` — a holding company's latest provisional earnings could be a **subsidiary's** filing. The company's own filing is now chosen first; skipped subsidiary filings are listed in `subsidiary_filings` with a warning. If only a subsidiary filing exists it is returned with the subsidiary name and never compared with consensus.
+
+### Prose-format meeting results are read in full
+
+- Meeting results written as prose (“Agenda 1: … → approved as proposed”) no longer lose the first agenda item or mix “의안 :” and result words into titles.
+- A heading line without a result is no longer read as passed just because its title contains “승인” (approval).
+- Undecided, withdrawn, deferred, not-tabled and lapsed results are recognised, as are other markers (▶ ☞ ⇒ =>), results in trailing brackets or after a dash, and the other section headings. The original result wording is kept in `passed_raw`.
+
+### Passed items later voided are shown separately
+
+- The remarks column of the result table is carried (`remark`). A passed item whose remark says void, withdrawn, cancelled or not taking office is shown as a remark that contradicts the result. “Rejected” and “resigned” do not count.
+- A sentence in the “other matters” section saying a resolution was voided is shown verbatim (`void_notice`).
+
+### KOSDAQ and KONEX exchange filings are read as exchange filings
+
+- The 9th digit of the receipt number is the filing channel (8 KOSPI, 9 KOSDAQ, 6 KONEX, 7 bond market, 0 DART, 1 FSS). Previously only KOSPI numbers were treated as exchange filings.
+- `evidence` no longer labels KOSDAQ/KONEX exchange filings as DART filings and adds `filing_channel`.
+- `ownership_structure` no longer skips KOSDAQ/KONEX largest-shareholder change reports as having an invalid receipt number.
+
 ### Bursts from one key are slowed down, with a notice
 
 - The server is shared, so each key gets **30 calls per minute (the first 20 in a burst) and 2 concurrent calls** per server at full speed. Calls above that are not rejected; they are queued and slowed down.

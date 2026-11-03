@@ -1327,6 +1327,7 @@ _FOLLOWUP_EVENT_LABELS = {
     "early_redemption": "자기사채 만기전취득",
     "issue_price_fixed": "유상증자 발행가액 확정",
     "subscription_result": "유상증자 청약결과",
+    "call_option_designation": "CB 매수선택권 행사자 지정·양도",
 }
 
 
@@ -1384,6 +1385,25 @@ def _followup_headline(row: dict[str, Any]) -> str:
         if subscribed and planned:
             head += f" / 청약 {subscribed:,}주 (예정 {planned:,}주)"
         return head
+    if t == "call_option_designation":
+        parts = [detail.get("designation_kind") or "매수선택권 지정"]
+        face = detail.get("designated_face_won")
+        if face:
+            ratio = detail.get("designated_ratio_pct")
+            parts.append(f"권면 {face:,}원" + (f" (발행총액의 {ratio:.2f}%)" if ratio is not None else ""))
+        holders = detail.get("largest_holder_designees") or []
+        if holders:
+            # 판정하지 않는다 — 원문 부표의 이름·관계·비율을 옮길 뿐이다.
+            parts.append("최대주주·특수관계인 포함: " + ", ".join(
+                f"{h.get('name', '')}({h.get('relation') or '관계 미기재'})"
+                + (f" 보유 {h['held_pct_at_issue']}% · 전환 시 +{h['conversion_pct']}%"
+                   if h.get("held_pct_at_issue") and h.get("conversion_pct") else "")
+                for h in holders[:3]) + (f" 외 {len(holders) - 3}명" if len(holders) > 3 else ""))
+        elif detail.get("largest_holder_included"):
+            parts.append("최대주주·특수관계인 포함(부표 행 미판독 — 원문 확인)")
+        else:
+            parts.append("최대주주·특수관계인 부표 없음")
+        return " / ".join(parts)
     return row.get("report_nm", "")
 
 

@@ -8,7 +8,7 @@ related_disclosures: [자기주식결정, 자기주식취득결정, 자기주식
 related_concepts: [자사주, 주주환원]
 related_decisions: [배당공시유형]
 created: 2026-05-01
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 
 # treasury_share
@@ -93,6 +93,15 @@ scope:
 핵심 필드:
 - `acquisition_for_cancelation_*`: 소각 목적 취득 (실제 환원 검증의 핵심)
 - 5종 이벤트: `acquisition_decision` / `disposal_decision` / `trust_contract` / `trust_termination` / `cancelation_decision`
+- 신탁 체결(`trust_contract`): `amount_krw` = 계약금액(**한도, 집행액 아님**), `start_date`/`end_date` = 계약기간,
+  `trustee_name` = 계약 체결기관, `broker_name` = 위탁투자중개업자, `board_date` = 이사회결의일, `contract_date` = 체결 예정일.
+  `execution_status` — `confirmed` 면 그 계약의 [[신탁계약해지결과보고서]]와 이어져 `executed_amount_krw`(실제 취득액)·
+  `executed_shares`·`execution_rcept_no` 가 붙는다. `unconfirmed` 면 실제 취득액을 모른다(진행 중이거나 해지결과를 잇지 못함).
+  잇는 기준: 해지결과 본문의 신탁계약 체결일 ±7일, 없으면 해지결과 이전 가장 최근 체결. 계약금액이 1% 넘게 다르거나
+  한 체결에 해지결과가 둘 이상이면 잇지 않는다. 이어진 해지결과에는 `linked_trust_contract_rcept_no` 가 붙는다.
+- 신탁 해지(`trust_termination`): `amount_krw` = 해지 전 계약금액(`amount_before_termination_krw`), `amount_after_termination_krw`,
+  `start_date`/`end_date` = 해지 전 계약기간, `termination_reason` = 해지 목적, `trustee_name` = 해지기관,
+  `termination_date` = 해지 예정일, `return_method` = 해지 후 신탁재산 반환방법. 실제 취득액은 해지 결정이 아니라 해지결과보고서에 있다.
 
 ## 소각 정정의 값과 집계
 
@@ -205,10 +214,12 @@ sequenceDiagram
   금액 파싱**이 원인인 경우가 있다(`_nearest_table_unit`이 무관 TABLE-GROUP 의 '백만원' 선언을 주워
   ×1e6 과대적용). 주식수는 단위배수를 적용하지 않아 정확하므로, 주식수로 결과금액의 주당 환산가를
   검증한다 — `_sanity_correct_amounts`(주당가가 물리적으로 불가능하면 단위배수를 되돌려 자동보정) +
-  `_flag_cycle_mismatches`(링크 후 비율 >3배·<1% 면 `amount_mismatch_ratio` 플래그+경고).
+  `_flag_cycle_mismatches`(링크 후 비율 >3배·<1% 면 `amount_mismatch_ratio` 플래그+경고). 신탁 사이클은 결정 금액이
+  한도라 집행률 1% 미만이 실제로 있어(해지결과 취득률 0.5%대) 「한도 초과(>3배)」만 본다.
   정상 부분집행(0.05~1.5)과 전량 블록딜 저가 처분은 통과시킨다 — 그건 오탐이 아니라 사실이다.
 
 ## 변경 이력
+- 2026-11-03: 신탁 체결·해지 결정의 정형 필드 이름을 실제 응답 이름으로 고쳤다. 해지 결정은 금액이 `ctr_prc` 가 아니라 해지 전·후 계약금액(`ctr_prc_bfcc`/`ctr_prc_atcc`)으로 오고 기간·목적·기관도 `ctr_pd_bfcc_*`·`cc_pp`·`cc_int`·`cc_prd` 다 — 예전에는 해지 금액이 0, 사유·기관·기간이 빈칸이었고 원장 재사용이 해지 행을 버렸다(필수 필드를 「셋 중 하나」로). 체결도 기간 `ctr_pd_*`·기관 `ctr_cns_int`·위탁중개 `cs_iv_bk`·결의일 `bddd` 를 읽는다. 실제 응답에서 확인되지 않은 예전 이름은 뒤에 남겨 둔다. 신탁 체결 행에 해지결과의 실제 취득액(`execution_status`·`executed_amount_krw`)을 붙이고, 신탁 사이클의 「집행률 1% 미만」 경고를 끈다. 배포 서버 아세아제지 응답(해지 5건 금액 0·원장 해지 행 5건 거절)으로 확인했다.
 - 2026-10-30: 연간 증감의 공식 API 필드와 원문 주식 종류·행 수준을 보존했다. Markdown에서 미기재를 0으로 표시하지 않으며 상세·소계·총계의 중복 합산을 금지한다. 셀트리온 사업보고서와 저장 API 응답으로 검증했다.
 - 2026-10-30: 소각 정정의 최종 본문 선택과 명시 원공시 연결을 적용했다. 변경 수량·금액의 이중 합산을 막고 별개 결정·미확정 관계를 보존한다. 실제 원공시·정정 원문과 앱 MCP 응답으로 확인한다.
 - 2026-10-24: **일부만 읽고도 `exact` 로 나가던 것** (P1 묶음 1, 재무 점검 P1-#90·#91·#94) — ① 결정 4종 조회·제목 검색 중 일부가 013 이 아닌 오류로 실패해도 다른 건이 있으면 `exact`·`all_parsed` 였다: 읽지 못한 조회 수를 `parsing_failures` 로 올려 `status=partial`(0건이면 종전대로 `error`). ② 소각결정 본문을 읽지 못한(020·800·014·404·STRICT_PIT_UNAVAILABLE·전송 오류) 건은 금액이 0 인 채 합계에 들어가고 `exact` 였다: 읽지 못한 건수를 `parsing_failures` 로 올리고 경고에 접수번호가 붙은 안내를 싣는다. 제목이 [첨부정정]·[첨부추가] 인 소각결정의 014·404 는 종전 경고만 남기고 상태는 바꾸지 않는다. 합계 숫자는 건드리지 않는다. 판정·문구는 `ownership_structure._dart_read_note` 하나(결정 조회 4종의 `013 만 없음` 판정은 그대로). ③ `scope="annual"` 은 `ownership_structure` 응답의 상태·경고를 버렸다: 상류가 `error` 면 `annual` 을 비우고, `partial` 이면 남기되 둘 다 `status=partial`(상류가 `error` 이고 이벤트도 0건이면 `status=error`·`filing_status=fetch_failed`)이고 상류 경고를 「[ownership_structure]」 접두로 옮긴다. 상류가 `exact` 면 경고를 옮기지 않는다(무관한 지분 경고가 연간 응답에 실리지 않게). **남은 한계**: 상류가 발행주식총수·자기주식 조회 하나만 실패해 경고만 달고 `exact` 로 나가는 경우는 이 응답이 구분하지 못한다. 상태 칸(`filing_status`·`parsing_failures`)은 연간 블록을 가져온 뒤 다시 내 `status` 와 같은 값에서 나온다. 새 응답 키·새 status 값은 없다.

@@ -28,7 +28,12 @@ from open_proxy_mcp.services.contracts import (
 from open_proxy_mcp.services.date_utils import format_iso_date, parse_date_param, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
 from open_proxy_mcp.services.meeting_pin import get_matching_pin, get_meeting_pin
-from open_proxy_mcp.services.agm_result_parser import parse_agm_result_summary, parse_agm_result_table
+from open_proxy_mcp.services.agm_result_parser import (
+    parse_agm_result_summary,
+    parse_agm_result_table,
+    parse_agm_result_void_notice,
+)
+from open_proxy_mcp.services.rcept_channel import is_rcept_no, kind_acptno_for, rcept_channel
 from open_proxy_mcp.services.shareholder_meeting_parser import (
     agenda_detail_sections,
     parse_agenda_details_xml,
@@ -1471,14 +1476,17 @@ def _result_reference(result_filing: dict[str, Any] | None) -> dict[str, Any] | 
         return None
 
     rcept_no = result_filing.get("rcept_no", "")
-    whitelist_ok = bool(rcept_no and len(rcept_no) == 14 and rcept_no[8:10] == "80")
-    dart_fetchable = bool(rcept_no and len(rcept_no) == 14 and rcept_no.isdigit())
-    kind_acptno = rcept_no[:8] + "00" + rcept_no[10:] if whitelist_ok else None
+    # 9번째 자리 = 접수 창구(8 유가 · 9 코스닥 · 6 코넥스 …). 코스닥 주총결과도 DART 원문으로
+    # 열리며, 거래소 번호 변환(80→00)은 유가 계열만 확인돼 있어 그때만 만든다.
+    kind_acptno = kind_acptno_for(rcept_no)
+    whitelist_ok = kind_acptno is not None
+    dart_fetchable = is_rcept_no(rcept_no)
     return {
         "rcept_no": rcept_no,
         "report_name": result_filing.get("report_nm", ""),
         "disclosure_date": result_filing.get("rcept_dt", ""),
         "kind_acptno": kind_acptno,
+        "filing_channel": rcept_channel(rcept_no),
         "whitelist_ok": whitelist_ok,
         "dart_fetchable": dart_fetchable,
     }
@@ -2032,6 +2040,8 @@ async def _meeting_result_data(
         "result_format": result_format,
         "numerical_vote_table_available": result_format == "table",
         "items": items,
+        # 「기타 투자판단」 구역의 결의 무효처리 문장(원문). 가결 집계만으로는 안 보인다.
+        "void_notice": parse_agm_result_void_notice(soup),
         "source": source_used,
     }, None
 
