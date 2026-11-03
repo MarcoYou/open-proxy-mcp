@@ -143,7 +143,7 @@ def test_buyback_counts_actual_trust_execution_not_ceiling():
         {"event": "trust_contract", "rcept_no": "C", "rcept_dt": "20250109", "amount_krw": 3_000_000_000},
     ]
     yearly, unconfirmed = _treasury_buyback_yearly(events)
-    # 예전에는 2026 = 10억 + 50억 + 50억, 2025 = 30억이었다.
-    assert yearly == {2026: 1_000_000_000}
+    # 확인된 신탁은 실제 취득액(A: 0원), 못 이은 신탁은 계약금액(B·C) — 사용자 결정 2026-11-03: 보통 지켜지니 더하되 확인 필요 표시.
+    assert yearly == {2026: 1_000_000_000 + 5_000_000_000, 2025: 3_000_000_000}
     assert [u["rcept_no"] for u in unconfirmed] == ["B", "C"]
     assert all(u["status"] == "집행 미확인" for u in unconfirmed)

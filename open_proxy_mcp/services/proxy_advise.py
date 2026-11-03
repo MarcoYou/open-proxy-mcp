@@ -3578,11 +3578,12 @@ def _treasury_buyback_yearly(events: list[dict]) -> tuple[dict[int, int], list[d
     """자사주 매입 연도별 합계 — 사내이사 성과 평가의 주주환원 분자.
 
     - 취득결정: 결정 금액을 그 해 매입으로 센다(기존 기준).
-    - 신탁계약 체결: 계약금액은 **한도**라 매입이 아니다(한도 50억에 실제 취득 0원인 계약이 있다).
-      해지결과보고서와 이어져 실제 취득액이 확인된 계약만(`execution_status="confirmed"`) 그 취득액을
-      체결 연도에 센다. 못 이은 계약은 합계에 넣지 않고 「집행 미확인」 목록으로 돌려준다.
+    - 신탁계약 체결: 해지결과보고서와 이어져 실제 취득액이 확인된 계약(`execution_status="confirmed"`)은 그
+      취득액을 체결 연도에 센다. 아직 못 이은 계약은 **계약금액을 그대로 센다** — 신탁계약은 보통 지켜진다
+      (사용자 결정 2026-11-03). 다만 계약금액은 한도라 실제 취득과 다를 수 있어(한도 50억에 취득 0원인 계약이
+      있었다) 「집행 미확인 — 실제 취득 확인 필요」 목록으로도 돌려준다.
 
-    Returns: (연도 → 매입 금액, 집행 미확인 신탁계약 목록)
+    Returns: (연도 → 매입 금액, 집행 미확인 신탁계약 목록 — 합계에는 계약금액으로 들어가 있다)
     """
     yearly: dict[int, int] = {}
     unconfirmed: list[dict] = []
@@ -3597,13 +3598,13 @@ def _treasury_buyback_yearly(events: list[dict]) -> tuple[dict[int, int], list[d
             if e.get("execution_status") == "confirmed" and isinstance(e.get("executed_amount_krw"), int):
                 amount = e["executed_amount_krw"]
             else:
+                amount = e.get("amount_krw") or 0
                 unconfirmed.append({
                     "rcept_no": e.get("rcept_no", ""),
                     "rcept_dt": e.get("rcept_dt", ""),
-                    "contract_amount_krw": e.get("amount_krw") or 0,
+                    "contract_amount_krw": amount,
                     "status": "집행 미확인",
                 })
-                continue
         else:
             amount = e.get("amount_krw") or 0
         yearly[int(y)] = yearly.get(int(y), 0) + amount
@@ -4452,8 +4453,8 @@ async def _build_proxy_advise_payload(
             if tenure_trusts:
                 ev["performance"]["trust_execution_unconfirmed"] = tenure_trusts
                 ev["performance"]["buyback_note"] = (
-                    f"재직 기간 자사주 신탁계약 {len(tenure_trusts)}건은 실제 취득액을 확인하지 못해 "
-                    "「집행 미확인」으로 두고 매입 합계에 넣지 않았습니다 — 계약금액은 매입 한도일 뿐입니다.")
+                    f"재직 기간 자사주 신탁계약 {len(tenure_trusts)}건은 계약금액으로 매입 합계에 넣었습니다 — "
+                    "신탁계약은 보통 지켜지지만 계약금액은 한도라, 해지결과보고서로 실제 취득액을 나중에 확인해야 합니다(집행 미확인).")
             # 등기 시작이 회사 근무 시작보다 늦으면 그 사실을 밝힌다(오해 방지)
             if apt.get("earliest_start") and apt["earliest_start"] < board_start:
                 ev["performance"]["tenure_note"] = (
