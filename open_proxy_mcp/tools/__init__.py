@@ -102,15 +102,12 @@ def _wrap_tool_errors(fn):
       ③ 이름 추정·종류주 코드 고지가 빠진 응답이면 맨 앞에 붙인다(`_declare_resolution_notes`).
       ④ 유효한 운영자 공지가 있으면 응답에 끼운다(`_attach_notices`) — 정상 응답과 ①의 graceful 응답에만. ②의 오류 본문은 바꾸지 않는다.
       ⑤ 요청 키별 속도 조절(`services/pacing`, 261103) — 한 키의 호출이 몰리면 차례로 늦추고, 늦춘 응답에 안내를 싣는다.
-         기다리는 호출이 너무 많으면 본문을 돌리지 않고 「잠시 뒤 다시」 안내만 낸다(오류 아님).
+         거절하지 않는다 — 아무리 몰려도 모든 호출을 차례로 처리한다.
     """
 
     @functools.wraps(fn)
     async def inner(*args, **kwargs):
         async with _pacing.slot() as ticket:
-            if ticket.refused:
-                name = getattr(fn, "__name__", "tool")
-                return _pacing.attach(ticket, _pacing.refused_response(name, kwargs.get("format", "md")))
             try:
                 name = getattr(fn, "__name__", "")
                 return _pacing.attach(ticket, _attach_notices(name, _declare_resolution_notes(name, await fn(*args, **kwargs))))

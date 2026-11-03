@@ -7,8 +7,8 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 ### Bursts from one key are slowed down, with a notice
 
 - The server is shared, so each key gets **30 calls per minute (the first 20 in a burst) and 2 concurrent calls** per server at full speed. Calls above that are not rejected; they are queued and slowed down.
-- A response delayed by more than one second carries a "request pacing" notice in the same place as operator notices (a `> 📢` line under the markdown title, or the JSON `notices` field).
-- If more than 12 calls from one key are already waiting, the new call is not run and returns only a "try again shortly" notice (JSON `status: "rate_limited"`). This is not an error.
+- A response delayed by more than one second carries a "request pacing" notice in the same place as operator notices (a `> 📢` line under the markdown title, or the JSON `notices` field), including how many calls from the same key were waiting ahead of it.
+- Calls are never rejected, however many arrive. Every call is processed in turn.
 - Other keys are not affected. Below these limits responses are unchanged.
 
 ### Lower server cost and a lighter health check

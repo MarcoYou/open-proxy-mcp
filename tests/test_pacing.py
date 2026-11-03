@@ -91,8 +91,7 @@ def test_other_keys_are_not_slowed_by_a_busy_key(fake_clock):
     assert "📢" not in asyncio.run(run())
 
 
-def test_overflowing_queue_is_answered_without_running_the_tool(fake_clock, monkeypatch):
-    monkeypatch.setattr(pacing, "QUEUE", 1)
+def test_no_call_is_refused_however_many_wait(fake_clock):
     ran = []
 
     async def sample(format="md"):
@@ -101,16 +100,17 @@ def test_overflowing_queue_is_answered_without_running_the_tool(fake_clock, monk
         return "# 결과"
 
     fn = _wrap_tool_errors(sample)
+    n = 40
 
     async def run():
-        return await asyncio.gather(*[_call(fn, format="json") for _ in range(pacing.CONCURRENCY + 2)])
+        return await asyncio.gather(*[_call(fn) for _ in range(n)])
 
     outs = asyncio.run(run())
-    refused = [json.loads(out) for out in outs if out.lstrip().startswith("{")]
-    assert len(refused) == 1 and len(ran) == pacing.CONCURRENCY + 1
-    assert refused[0]["status"] == "rate_limited"
-    assert refused[0]["notices"][0]["title"] == "요청이 너무 많아 이번 요청은 처리하지 않았습니다"
-    assert pacing.stats()["refused"] == 1
+    assert len(ran) == n and all(out.startswith("# 결과") for out in outs)
+    told = [out for out in outs if "요청 속도 조절 중" in out]
+    assert told and any("앞에 기다리던 요청" in out for out in told)
+    assert pacing.stats()["max_queued"] >= n - pacing.CONCURRENCY - 1
+    assert "refused" not in pacing.stats()
 
 
 def test_json_responses_get_a_notices_field_and_stay_valid_json(fake_clock):
@@ -125,7 +125,7 @@ def test_json_responses_get_a_notices_field_and_stay_valid_json(fake_clock):
 
 
 def test_notice_text_has_no_tag_shape_and_fits_notice_limits():
-    for item in (pacing.slowed_notice(12.4), pacing.refused_notice(12)):
+    for item in (pacing.slowed_notice(12.4), pacing.slowed_notice(300.0, 999)):
         assert len(item.title) <= 60 and len(item.body) <= 400
         assert "[" not in item.title + item.body
 

@@ -207,7 +207,7 @@ def build_mcp() -> MCPServer:
             # 261019: 콜드 서빙(3년 하한 이전 주간 곡선을 DB 밖 서빙본에서 잇는 것) — 켜짐·받은 판·받은 시각·검증된 파일·강등 까닭.
             #   못 읽어도 응답은 종전(최근 3년 + 안내)으로 강등할 뿐이라 status 는 낮추지 않는다. URL·키는 싣지 않는다.
             "cold": _cold_stats(),
-            # 261103: 키별 요청 속도 조절 — 기준·늦춘 수·처리하지 않은 수(`services/pacing`). 키는 싣지 않는다.
+            # 261103: 키별 요청 속도 조절 — 기준·늦춘 수·가장 긴 대기(`services/pacing`). 키는 싣지 않는다.
             "pacing": _pacing_stats(),
         }, status_code=200 if servicing else 503)
 
