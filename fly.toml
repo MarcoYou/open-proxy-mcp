@@ -52,6 +52,7 @@ kill_timeout = '90s'
   # 261103: 상시 2대 → 1대. 비용을 줄이는 대신 느려지는 것은 감수한다(사용자 결정). 두 번째 머신은 지우지 않는다 —
   #   요청이 soft_limit 를 넘으면 fly 가 깨우고, 한가하면 다시 suspend 한다. 상시 2048MB 한 대 몫(월 약 $16)을 줄인다.
   #   메모리는 2GB 그대로 둔다(주간 RSS 최대 1,284 MiB, 768MB·1GB 에서 OOM 이력).
+  # 261104: 밤(KST 21~08시)에는 예약 작업이 0으로 바꾸고 아침에 1로 되돌린다(scripts/fly_night_scale.py · wiki decisions/mcp-endpoints). 여기 값은 낮 값이다.
   min_machines_running = 1
   processes = ['app']
 

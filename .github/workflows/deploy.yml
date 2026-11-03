@@ -121,6 +121,14 @@ jobs:
           [ "$mcode" = "200" ] && grep -q 'opendart API key required' /tmp/m.json \
             || { echo "::error::/mcp returned $mcode without the key guide - endpoint is not serving"; exit 1; }
 
+      # 261104: 배포는 fly.toml 의 min_machines_running(1)을 다시 심는다. 밤(KST 21~08시)에 배포하면 아침까지 상시 1대가
+      #   켜져 있게 되므로, 지금 시각에 맞는 값을 다시 건다(밤이면 0, 낮이면 그대로). 실패해도 배포는 실패로 치지 않는다.
+      - name: Re-apply night schedule
+        continue-on-error: true
+        run: python3 scripts/fly_night_scale.py --mode auto
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
       # 2) 배포 결과(성공/실패)를 Deployment 상태로 기록 — 성공 시 이전 기록 자동 inactive
       - name: Finish deployment
         if: always() && steps.deployment.outputs.id != ''
