@@ -478,6 +478,35 @@ def _render_json(result: str, items: list[Notice]) -> tuple[str, list[Notice]] |
     return json.dumps(out, ensure_ascii=False, indent=2), fresh
 
 
+def _render(result: str, items: list[Notice]) -> tuple[str, list[Notice]]:
+    """md 는 `> 📢` 블록, JSON(최상위 dict)은 `notices` 칸. 붙일 자리가 없으면 (result, [])."""
+    head = result.lstrip()[:1]
+    if head in ('"', "["):
+        try:
+            json.loads(result)
+            return result, []                                      # 배열·문자열 JSON — 붙일 자리가 없다(md 블록을 앞에 붙이면 JSON 이 깨진다)
+        except ValueError:
+            pass                                                   # 대괄호로 시작하는 md
+    if head == "{":
+        done = _render_json(result, items)
+        if done is not None:
+            return done
+    return _render_md(result, items)
+
+
+def attach_items(result: Any, items: list[Notice]) -> Any:
+    """주어진 안내를 그대로 끼운다 — 매니페스트·노출 횟수와 무관하다(요청 속도 조절 `services/pacing` 이 쓴다).
+    붙일 자리가 없거나 오류가 나면 응답을 그대로 돌려준다."""
+    if not isinstance(result, str) or not items:
+        return result
+    try:
+        out, shown = _render(result, items)
+        return out if shown else result
+    except Exception:  # noqa: BLE001 — 안내 때문에 도구 응답이 깨지면 안 된다
+        logger.warning("안내 끼우기 실패 — 응답은 그대로 나간다", exc_info=False)
+        return result
+
+
 def attach(tool_name: str, result: Any) -> Any:
     """도구 응답에 유효한 공지를 끼운다. 공지가 없거나 붙일 자리가 없거나 오류가 나면 응답을 **그대로** 돌려준다."""
     if not isinstance(result, str) or not _url():
@@ -486,18 +515,7 @@ def attach(tool_name: str, result: Any) -> Any:
         items, khash = _candidates(tool_name)
         if not items:
             return result
-        head = result.lstrip()[:1]
-        if head in ('"', "["):
-            try:
-                json.loads(result)
-                return result                                      # 배열·문자열 JSON — 붙일 자리가 없다(md 블록을 앞에 붙이면 JSON 이 깨진다)
-            except ValueError:
-                pass                                               # 대괄호로 시작하는 md
-        if head == "{":
-            done = _render_json(result, items)
-            out, shown = done if done is not None else _render_md(result, items)
-        else:
-            out, shown = _render_md(result, items)
+        out, shown = _render(result, items)
         for n in shown:
             if n.show in _REPEAT_SEC:
                 _mark_seen(n.id, khash)
