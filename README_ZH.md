@@ -16,9 +16,9 @@
 </div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-particle-flow-dark-en-20260906.png">
-  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-particle-flow-light-en-20260906.png">
-  <img alt="将公司披露数据转化为 AI 财务分析与投票建议的过程" src="screenshot/opm-readme-particle-flow-light-en-20260906.png">
+  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-hero-dark-en-20261104.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-hero-light-en-20261104.png">
+  <img alt="将公司披露数据转化为 AI 财务分析与投票建议的过程" src="screenshot/opm-readme-hero-light-en-20261104.png">
 </picture>
 
 **一项议案也许只有一行，但可靠的判断需要完整的信息。**
