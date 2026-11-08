@@ -2,7 +2,7 @@
 type: decision
 title: OPM guideline v2 명세·설계·판정 로직 및 파일럿 검증
 date: 2026-09-08
-updated: 2026-10-31
+updated: 2026-11-08
 status: LLM human-unreviewed pilot
 version: v0.7.2-pilot
 related: [open-proxy-guideline, governance_screen]
@@ -1632,6 +1632,16 @@ OCR 원문에는 접근 가능한 공시 공개일을 적용한다. 지금 OCR�
 **링크된 파일:** 본문의 `/report/download.do` 링크는 이미지와 같은 원본 후보로 다룬다. PDF 한 개면 형식이 `pdf`다. 지원하지 않는 파일(HWP 등)은 `blocked_references`로 세어 미독을 표시한다. 일반 인터넷 주소 링크는 본문 글자로 둔다. PDF가 상한을 넘으면 판독기 응답의 `page_count`로 `page_limit`을 표시한다.
 
 검증은 저장 화면을 네트워크 없이 재생해 90곳 모두 정답과 일치함을 확인했다(공개 화면 3건은 `tests/dart_responses/charter/`). 재생은 PDF 내용과 공시 원문 ZIP을 대역으로 썼으므로 실제 판독기의 PDF 처리 결과를 검증하지 않는다.
+
+##### 정정 묶음 안 옛 정관 판 표시
+
+**2026-11-08 결론:** 정정 묶음에 같은 정관 첨부가 여러 판이면(덴티움 20260928000355: 20260323001196/11166208, 20260401003696/11227235. 인화정공 20260407001497도 같은 꼴) 목록은 판마다 `available`로 두고 어느 판이 최신인지 알리지 않았다. 두 판의 내용은 다르다(덴티움 새 판에만 감사위원 선임·해임 3% 제한).
+
+기준일 안의 `available` 판 가운데 제목(날짜·`[정정]` 표시를 뗀 것)이 같은 판이 여럿이면 공개일이 가장 늦은 판만 `available`로 두고, 나머지는 `status: superseded`로 바꾸며 `superseded_by: {rcept_no, dcm_no}`를 붙인다(마스터 결정 2026-11-09: 옛 판 대신 새 판을 고르되 시점을 분명히). 옛 판도 목록에 남고 직접 읽을 수 있어야 하며(근거 추적, `read` 응답에도 같은 칸), 호출처는 첨부 항목의 `available`로 고르지 않는다. 기준일이 두 판 사이면 새 판이 `after_as_of`라 옛 판이 그 시점 최신판으로 `available`이다.
+
+옛 판을 직접 읽은 항목은 `guideline_evidence` 의 원문 묶음(`build_source_packet`)에도 같은 `superseded_by` 를 옮겨, `governance_screen`·`election_structure` 가 받는 원문에서도 옛 판 표시가 보인다. 판이 하나인 항목의 묶음에는 칸이 없다. 같은 접수번호 안의 같은 제목 첨부(한글·영문 등)는 판 관계로 보지 않고 건너뛰며, 제목에서는 `[정정]` 만 뗀다(`[영문]` 같은 다른 대괄호는 제목의 일부).
+
+옛 판을 근거로 실제 쓴 사례는 재현하지 못했다. 덴티움은 옛 판 접수번호(20260323001196) 화면에도 새 판이 목록에 올라 옛 판에 표시가 붙는 것을 실제 화면으로 확인했다. 한계: `superseded_by` 는 `{rcept_no, dcm_no}` 객체이고 `dividend.py` 의 `superseded_by` 는 문자열이라 꼴이 다르다. 두 칸을 같은 키로 합쳐 읽지 않는다.
 
 ##### 이미지 정관의 실제 MCP 연결 검증
 

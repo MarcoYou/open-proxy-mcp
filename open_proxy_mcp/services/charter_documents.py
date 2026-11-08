@@ -104,6 +104,10 @@ async def _fetch(client, path: str, params: dict, limit: int = MAX_DOCUMENT_BYTE
     return body
 
 
+# A superseded version is not offered as the latest, but stays readable as evidence trail.
+READABLE = {'available', 'superseded'}
+
+
 def _family(soup: BeautifulSoup) -> list[str]:
     """Receipts DART lists as one filing's original and corrections."""
     members = set()
@@ -143,7 +147,31 @@ def _listing(raw: bytes, rc: str, cutoff: str) -> tuple[list[dict], bool]:
                                   reason='after_cutoff' if status == 'after_as_of' else status)
         entries.append({**_identity(owner, dcm[0]), 'title': title, 'published': published,
                         'status': status, 'date_basis': 'dated DART attachment option'})
+    _mark_superseded(entries)
     return entries, len(options) > MAX_ATTACHMENTS + 1
+
+
+def _mark_superseded(entries: list[dict]) -> None:
+    """Among available versions of one charter, only the latest published stays available.
+
+    Older versions stay listed and readable as evidence trail, but leave 'available'
+    (status 'superseded') and point to the later version at the cutoff.
+    """
+    groups = {}
+    for entry in entries:
+        if entry['status'] == 'available':
+            # Date and the [정정] tag are not part of the document's identity; other tags (e.g. [영문]) are.
+            key = re.sub(r'\s+', '', re.sub(r'^\s*\d{4}[.-]\d{2}[.-]\d{2}', '', entry['title']))
+            groups.setdefault(key.replace('[정정]', ''), []).append(entry)
+    for versions in groups.values():
+        # Versions come from different receipts; one receipt's twins are not old and new.
+        if len({e['rcept_no'] for e in versions}) < 2:
+            continue
+        latest = max(versions, key=lambda e: (e['published'], e['rcept_no']))
+        for entry in versions:
+            if entry is not latest:
+                entry['status'] = 'superseded'
+                entry['superseded_by'] = {'rcept_no': latest['rcept_no'], 'dcm_no': latest['dcm_no']}
 
 
 async def discover_charter_attachments(client, rcept_no: str, as_of: str) -> dict:
@@ -164,7 +192,8 @@ async def discover_charter_attachments(client, rcept_no: str, as_of: str) -> dic
                 'list_sha256': hashlib.sha256(raw).hexdigest(),
                 'hint': '현재 첨부 목록에서 확인한 후보. 빈 목록은 정관 미공시의 증거가 아니다. '
                         '정정 공시의 첨부는 그 첨부를 낸 접수번호(rcept_no)로 표시한다. '
-                        '같은 제목이 여럿이면 공개일(published)이 다른 판이다.'}
+                        '기준일(as_of) 시점에 같은 정관이 여러 판이면 공개일(published)이 가장 늦은 판만 available 이고, 옛 판은 superseded 로 목록에 남으며 '
+                        'superseded_by({rcept_no, dcm_no} 객체; dividend 의 문자열과 다름)가 대체 판을 가리킨다. 기준일 뒤에 공개된 판은 after_as_of. 옛 판도 읽을 수 있다.'}
     except Exception:
         return {**result, 'status': 'fetch_failed'}
 
@@ -357,7 +386,9 @@ async def _read(client, request: dict, as_of: str, reader: VisualReader | None) 
         rc = entry['rcept_no']
     base.update(published=entry['published'], title=entry['title'],
                 date_basis=entry['date_basis'], attachment_list_sha256=discovery['list_sha256'])
-    if entry['status'] != 'available':
+    if 'superseded_by' in entry:
+        base['superseded_by'] = entry['superseded_by']
+    if entry['status'] not in READABLE:
         return {**base, 'status': entry['status']}
     raw = await _xml_attachment(client, rc, dcm)
     if raw is not None:
@@ -368,7 +399,7 @@ async def _read(client, request: dict, as_of: str, reader: VisualReader | None) 
     if len(selected_matches) != 1:
         return {**base, 'status': 'attachment_identity_unverified'}
     selected_entry = selected_matches[0]
-    if selected_entry['status'] != 'available':
+    if selected_entry['status'] not in READABLE:
         return {**base, 'status': selected_entry['status']}
     if selected_entry['published'] != entry['published']:
         return {**base, 'status': 'publication_date_conflict'}

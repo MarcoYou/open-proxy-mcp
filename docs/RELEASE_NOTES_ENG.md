@@ -4,6 +4,10 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-11-03
 
+### Only the latest charter version at the cutoff stays available
+
+- In the charter attachment list (`dart_attachments` of `guideline_evidence_sources`), when one correction group holds several versions of the same charter, only the version published latest as of the cutoff (`as_of`) has `status=available`. Older versions stay listed with `status=superseded` and `superseded_by` (the replacing version's `rcept_no` and `dcm_no`). Versions published after the cutoff are `after_as_of` as before. If the cutoff falls between two versions, the earlier one is the latest at that time and stays `available`. Older versions can still be read directly (`status=read`), and the response and source packets (governance_screen and election_structure inputs) carry `superseded_by`. Companies with one version respond as before.
+
 ### Proxy solicitation side from the filing form
 
 - `proxy_contest` — a solicitation's side was decided only by the filer name, so a company's own solicitation filed under a differently written name could count as **shareholder side (a contest signal)**. If the solicitation form's "relation to the company" cell says `본인` (the company itself), the side is now corrected to company (`side_basis=form_relation`); a solicitation by the largest holder, a related party or an affiliate carries that relation as `stated_relation`. The solicitor's stake, agenda objects and period come as `solicitation_form`. Up to 10 more solicitation documents are read for shareholder-side filers.

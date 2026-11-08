@@ -142,6 +142,10 @@ def build_source_packet(item: dict, candidate_name: str = "") -> dict | None:
                           "has_more_after_window": next_offset < len(text),
                           "can_refocus": True},
             "hint": "회사·안건 맥락 원문. candidate_names는 모델이 선택한 관련성 범위이며 내용의 사실 판정이 아니다. 빈 목록은 공통 연결이고 명시한 전체 이름과 일치하지 않으면 어느 후보에게도 자동 배정하지 않는다. source_scope만으로 후보를 제한하지 않는다. 후보명 부재는 무관함의 증거가 아니다. 당사자·사건·공개일·효력일·조건부 계획·정정/후속 공시를 대조하고 후보 책임은 별도 근거로 연결. 잘린 문맥은 focus_terms 또는 text_offset으로 다시 읽는다."}
+    if item.get('superseded_by'):
+        # Later charter version exists at the cutoff; same object shape as the attachment list
+        # (dividend.py uses a plain string for its own superseded_by).
+        packet['superseded_by'] = item['superseded_by']
     if item.get('document_hash_basis') == 'original_source_bytes':
         packet['original_document_sha256'] = item['document_sha256']
         packet['visual_reading'] = item.get('visual_reading')
