@@ -6,7 +6,7 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ### 정정 묶음 안 옛 정관 판에 대체 표시를 붙입니다
 
-- 정관 첨부 목록(`guideline_evidence_sources` 의 `dart_attachments`)과 정관 직접 읽기에서, 같은 정정 묶음에 같은 정관이 여러 판이면 공개일이 가장 늦은 판만 그대로 두고 옛 판에는 `superseded_by`(대체한 판의 `rcept_no`·`dcm_no`)를 붙입니다. 옛 판은 목록에 남고 읽을 수 있습니다. 기준일이 두 판 사이면 그 시점의 최신판은 옛 판이라 표시가 없습니다. 판이 하나인 회사의 응답은 같습니다.
+- 정관 첨부 목록(`guideline_evidence_sources` 의 `dart_attachments`)과 정관 직접 읽기에서, 같은 정정 묶음에 같은 정관이 여러 판이면 공개일이 가장 늦은 판만 그대로 두고 옛 판에는 `superseded_by`(대체한 판의 `rcept_no`·`dcm_no`)를 붙입니다. 옛 판은 목록에 남고 읽을 수 있습니다. 기준일이 두 판 사이면 그 시점의 최신판은 옛 판이라 표시가 없습니다. 옛 판을 직접 읽은 원문 묶음(governance_screen·election_structure 입력)에도 같은 칸이 옮겨집니다. 판이 하나인 회사의 응답은 같습니다.
 
 ### 위험 공시·희석 후속·잠정실적에서 빠지거나 잘못 읽히던 것 넷을 고쳤습니다
 

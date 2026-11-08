@@ -156,10 +156,13 @@ def _mark_superseded(entries: list[dict]) -> None:
     groups = {}
     for entry in entries:
         if entry['status'] == 'available':
-            # Date and correction tags are not part of the document's identity.
+            # Date and the [정정] tag are not part of the document's identity; other tags (e.g. [영문]) are.
             key = re.sub(r'\s+', '', re.sub(r'^\s*\d{4}[.-]\d{2}[.-]\d{2}', '', entry['title']))
-            groups.setdefault(re.sub(r'\[[^\]]*\]', '', key), []).append(entry)
+            groups.setdefault(key.replace('[정정]', ''), []).append(entry)
     for versions in groups.values():
+        # Versions come from different receipts; one receipt's twins are not old and new.
+        if len({e['rcept_no'] for e in versions}) < 2:
+            continue
         latest = max(versions, key=lambda e: (e['published'], e['rcept_no']))
         for entry in versions:
             if entry is not latest:
@@ -184,7 +187,7 @@ async def discover_charter_attachments(client, rcept_no: str, as_of: str) -> dic
                 'list_sha256': hashlib.sha256(raw).hexdigest(),
                 'hint': '현재 첨부 목록에서 확인한 후보. 빈 목록은 정관 미공시의 증거가 아니다. '
                         '정정 공시의 첨부는 그 첨부를 낸 접수번호(rcept_no)로 표시한다. '
-                        '같은 제목이 여럿이면 공개일(published)이 다른 판이고, 더 늦은 판이 있는 옛 판에는 superseded_by 가 붙는다.'}
+                        '같은 제목이 여럿이면 공개일(published)이 다른 판이고, 더 늦은 판이 있는 옛 판에는 superseded_by({rcept_no, dcm_no} 객체; dividend 의 문자열과 다름)가 붙는다.'}
     except Exception:
         return {**result, 'status': 'fetch_failed'}
 

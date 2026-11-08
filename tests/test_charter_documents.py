@@ -488,11 +488,57 @@ def test_single_version_screens_carry_no_replacement_mark():
         assert all('superseded_by' not in a for a in result['attachments'])
 
 
+NEWRC = '20260401000002'
+
+
+def two_version_listing():
+    # A correction receipt of the same filing family holds the newer charter.
+    return (listing(extra=f'<option value="rcpNo={NEWRC}&amp;dcmNo=55555555">2026.04.01 [정정] 정관</option>')
+            + f'<select id="family"><option value="rcpNo={RC}">a</option><option value="rcpNo={NEWRC}">b</option></select>')
+
+
 def test_reading_an_older_version_carries_the_replacement_mark():
-    extra = f'<option value="rcpNo={RC}&amp;dcmNo=55555555">2026.04.01 [정정] 정관</option>'
-    client = RawClient(main=listing(extra=extra))
+    client = RawClient(main=two_version_listing())
     old = run(api().read_charter_document(client, request(), '20260420'))
     assert old['status'] == 'read' and old['text'] == '제1조 정관 원문'
-    assert old['superseded_by'] == {'rcept_no': RC, 'dcm_no': '55555555'}
-    newer = run(api().read_charter_document(client, request(dcm_no='55555555'), '20260420'))
-    assert 'superseded_by' not in newer
+    assert old['superseded_by'] == {'rcept_no': NEWRC, 'dcm_no': '55555555'}
+    entries = run(api().discover_charter_attachments(client, RC, '20260420'))['attachments']
+    assert 'superseded_by' not in [a for a in entries if a['dcm_no'] == '55555555'][0]
+
+
+def _read_item(main=None):
+    from open_proxy_mcp.services.guideline_evidence import collect_supplemental_sources
+    client = RawClient(main=main)
+    sources = [{'type': 'dart_attachment', 'rcept_no': RC, 'dcm_no': DCM}]
+    return run(collect_supplemental_sources(client, sources, '20260420'))[0]
+
+
+def test_replacement_mark_reaches_governance_and_structure_sources(monkeypatch):
+    from open_proxy_mcp.services import guideline_harness, governance_screen, election_structure
+    item = _read_item(two_version_listing())
+    assert item['status'] == 'read'
+    mark = {'rcept_no': NEWRC, 'dcm_no': '55555555'}
+    task = governance_screen.build_governance_task({}, '20260420', {'filings': []}, [item])
+    assert [s.get('superseded_by') for s in task['sources']] == [mark]
+    context = {'structure_enabled': True}
+    monkeypatch.setattr(guideline_harness, 'get_harness_context', lambda: context)
+    election_structure.capture_structure_sources('20260401000001', '소집공고', [item])
+    assert [p.get('superseded_by') for p in context['structure_sources'] if p['source_id'] == item['source_id']] == [mark]
+
+
+def test_single_version_source_packet_has_no_replacement_key():
+    from open_proxy_mcp.services.guideline_evidence import build_source_packet
+    assert 'superseded_by' not in build_source_packet(_read_item())
+
+
+def test_same_receipt_titles_are_not_versions_of_each_other():
+    # Two charters filed in one receipt (e.g. Korean and English) are not old and new.
+    extra = f'<option value="rcpNo={RC}&amp;dcmNo=55555555">2026.03.18 정관</option>'
+    entries, _ = api()._listing(listing(extra=extra).encode(), RC, '20260420')
+    assert all('superseded_by' not in a for a in entries)
+
+
+def test_only_the_correction_tag_is_dropped_from_the_version_title():
+    main = two_version_listing().replace('[정정] 정관', '정관[영문]')
+    entries, _ = api()._listing(main.encode(), RC, '20260420')
+    assert all('superseded_by' not in a for a in entries)
