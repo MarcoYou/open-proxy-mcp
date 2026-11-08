@@ -376,7 +376,9 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
             result = (await discover_charter_attachments(client, src['rcept_no'], as_of)
                       if src['type'] == 'dart_attachments'
                       else await read_charter_document(client, {k: src[k] for k in ('type', 'rcept_no', 'dcm_no')}, as_of))
-            record({**result, 'type': src['type'], 'source_id': src['source_id']})
+            # Only a single attachment may resolve to the receipt that filed it; the list keeps its index id.
+            sid = result.get('source_id') or src['source_id'] if src['type'] == 'dart_attachment' else src['source_id']
+            record({**result, 'type': src['type'], 'source_id': sid})
             continue
         item = {"source_id": src["source_id"], "source_url": src["url"], "read_options": src["read_options"],
                 "published": src["published"], "date_basis": "KIND fixed external publication path"}
