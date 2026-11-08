@@ -457,3 +457,42 @@ def test_attachment_list_keeps_its_own_index_identity():
     sources = [{'type': 'dart_attachments', 'rcept_no': AMENDED}]
     item = run(collect_supplemental_sources(ScreenClient('amended_text_samsunglife'), sources, '20261031'))[0]
     assert item['source_id'] == f'filing:{AMENDED}:attachment:index'
+
+
+NEW = {'rcept_no': '20260401003696', 'dcm_no': '11227235'}
+
+
+@pytest.mark.parametrize('name,rc,old,new', [
+    ('superseded_dentium', '20260928000355', ('20260323001196', '11166208'), ('20260401003696', '11227235')),
+    ('superseded_inhwa', '20260407001497', ('20260317000428', '11131577'), ('20260326000737', '11182133'))])
+def test_older_charter_version_points_to_its_replacement(name, rc, old, new):
+    entries = {(a['rcept_no'], a['dcm_no']): a for a in
+               run(api().discover_charter_attachments(ScreenClient(name), rc, '20261031'))['attachments']}
+    assert entries[old]['status'] == 'available'
+    assert entries[old]['superseded_by'] == {'rcept_no': new[0], 'dcm_no': new[1]}
+    assert 'superseded_by' not in entries[new]
+
+
+def test_cutoff_between_versions_leaves_the_earlier_one_latest():
+    # The 20260928 receipt itself is after this cutoff, so list its saved page directly.
+    raw = (SCREENS / 'superseded_dentium' / 'main_20260928000355.html').read_bytes()
+    entries, _ = api()._listing(raw, '20260323001196', '20260325')
+    assert [(a['dcm_no'], a['status']) for a in entries] == [('11227235', 'after_as_of'), ('11166208', 'available')]
+    assert all('superseded_by' not in a for a in entries)
+
+
+def test_single_version_screens_carry_no_replacement_mark():
+    for name, rc in (('amended_text_samsunglife', AMENDED), ('images_26_koreanair', '20260318001125'),
+                     ('pdf_link_huons', '20260324001000')):
+        result = run(api().discover_charter_attachments(ScreenClient(name), rc, '20261031'))
+        assert all('superseded_by' not in a for a in result['attachments'])
+
+
+def test_reading_an_older_version_carries_the_replacement_mark():
+    extra = f'<option value="rcpNo={RC}&amp;dcmNo=55555555">2026.04.01 [정정] 정관</option>'
+    client = RawClient(main=listing(extra=extra))
+    old = run(api().read_charter_document(client, request(), '20260420'))
+    assert old['status'] == 'read' and old['text'] == '제1조 정관 원문'
+    assert old['superseded_by'] == {'rcept_no': RC, 'dcm_no': '55555555'}
+    newer = run(api().read_charter_document(client, request(dcm_no='55555555'), '20260420'))
+    assert 'superseded_by' not in newer
