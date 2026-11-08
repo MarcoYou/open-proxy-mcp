@@ -8,6 +8,11 @@ name: fly-night-scale
 #   밤/낮을 정했는데, 그러면 늦게 뜬 「밤」 실행이 아침 뒤에 와서 낮에 0대로 만들 수 있다.
 #   그래서 매시 돌리고(정각 혼잡을 피해 :23) 모드는 실행 시각으로 정한다. 값이 이미 맞으면 아무것도 바꾸지 않는다.
 #   한계: 전환이 예약 지연만큼 늦을 수 있다(밤 시작·아침 복귀 모두). 낮에 요청이 오면 autostart 가 받는다.
+#
+# 정시 호출(261108): GitHub 예약 실행은 하루 24번 중 몇 번만 왔다(261105 점검 — 지연이 아니라 누락).
+#   그래서 바깥 예약기가 21:00·08:00 정각과 매시에 workflow_dispatch(mode=auto)로 이 작업을 부른다
+#   — 수동 실행은 몇 초 안에 돈다. 아래 예약은 예비이자 감시다: 예약으로 뜬 실행이 최근 2시간 안에
+#   workflow_dispatch 실행을 못 찾으면 실패하고, GitHub 이 실패 메일을 보낸다(바깥 호출이 멈췄다는 경고).
 on:
   schedule:
     - cron: '23 * * * *'
@@ -25,6 +30,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 # 배포와 같은 그룹에 두지 않는다 — 같은 그룹이면 이 작업이 대기 중인 배포를 취소할 수 있다(GitHub 은 그룹당 대기 1건).
 # 배포가 끝에서 지금 시각에 맞는 값을 다시 걸므로(deploy.yml 「Re-apply night schedule」) 순서가 엇갈려도 결과는 같다.
@@ -44,3 +50,17 @@ jobs:
           MODE: ${{ inputs.mode || 'auto' }}
           DRY: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: python3 scripts/fly_night_scale.py --mode "$MODE" $DRY
+      - name: Check external dispatcher is alive
+        # 예약 실행에서만 — 최근 2시간 안에 workflow_dispatch 실행이 없으면 실패시켜 메일 경고를 받는다.
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow fly-night-scale.yml --event workflow_dispatch \
+                 --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+          now=$(date -u +%s)
+          if [ -z "$last" ] || [ $(( now - $(date -u -d "$last" +%s) )) -gt 7200 ]; then
+            echo "::error::바깥 예약기의 호출이 2시간 넘게 없다 (마지막: ${last:-없음}) — 호출 쪽 열쇠·예약을 확인할 것"
+            exit 1
+          fi
+          echo "마지막 바깥 호출: $last"
