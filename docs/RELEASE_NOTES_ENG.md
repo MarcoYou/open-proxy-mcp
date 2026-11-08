@@ -4,9 +4,9 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-11-03
 
-### Older charter versions in a correction group are marked as replaced
+### Only the latest charter version at the cutoff stays available
 
-- In the charter attachment list (`dart_attachments` of `guideline_evidence_sources`) and direct charter reads, when one correction group holds several versions of the same charter, only the latest published version stays unmarked; older ones carry `superseded_by` (the replacing version's `rcept_no` and `dcm_no`). Older versions stay listed and readable. If the cutoff falls between two versions, the earlier one is the latest at that time and carries no mark. Direct reads of an older version also carry the mark into the source packets used by governance_screen and election_structure. Companies with one version respond as before.
+- In the charter attachment list (`dart_attachments` of `guideline_evidence_sources`), when one correction group holds several versions of the same charter, only the version published latest as of the cutoff (`as_of`) has `status=available`. Older versions stay listed with `status=superseded` and `superseded_by` (the replacing version's `rcept_no` and `dcm_no`). Versions published after the cutoff are `after_as_of` as before. If the cutoff falls between two versions, the earlier one is the latest at that time and stays `available`. Older versions can still be read directly (`status=read`), and the response and source packets (governance_screen and election_structure inputs) carry `superseded_by`. Companies with one version respond as before.
 
 ### Proxy solicitation side from the filing form
 

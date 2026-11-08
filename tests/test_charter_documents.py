@@ -468,7 +468,8 @@ NEW = {'rcept_no': '20260401003696', 'dcm_no': '11227235'}
 def test_older_charter_version_points_to_its_replacement(name, rc, old, new):
     entries = {(a['rcept_no'], a['dcm_no']): a for a in
                run(api().discover_charter_attachments(ScreenClient(name), rc, '20261031'))['attachments']}
-    assert entries[old]['status'] == 'available'
+    assert entries[old]['status'] == 'superseded'
+    assert entries[new]['status'] == 'available'
     assert entries[old]['superseded_by'] == {'rcept_no': new[0], 'dcm_no': new[1]}
     assert 'superseded_by' not in entries[new]
 
@@ -479,6 +480,12 @@ def test_cutoff_between_versions_leaves_the_earlier_one_latest():
     entries, _ = api()._listing(raw, '20260323001196', '20260325')
     assert [(a['dcm_no'], a['status']) for a in entries] == [('11227235', 'after_as_of'), ('11166208', 'available')]
     assert all('superseded_by' not in a for a in entries)
+
+
+def test_hint_states_the_cutoff_rule():
+    result = run(api().discover_charter_attachments(ScreenClient('superseded_dentium'), '20260928000355', '20261031'))
+    assert result['as_of'] == '20261031'
+    assert 'available' in result['hint'] and 'superseded' in result['hint']
 
 
 def test_single_version_screens_carry_no_replacement_mark():
