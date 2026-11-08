@@ -1,0 +1,1404 @@
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko" lang="ko">
+<head>
+<title>삼성생명/사업보고서/2026.03.11</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, user-scaleable=no">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+
+
+	
+<script type="text/javascript" src="/js/public/jquery/jquery-3.7.1.min.js"></script>
+
+<link rel="stylesheet" href="/js/public/jquery-ui/jquery-ui.min.css">
+<script type="text/javascript" src="/js/public/jquery-ui/jquery-ui.min.js"></script>
+
+<script type="text/javascript" src="/js/xjs.js?ver=7"></script>
+<script type="text/javascript" src="/js/gotop.js"></script>
+
+<!-- 추가 되는 js, css 시작 -->
+<link rel="stylesheet" href="/js/public/bootstrap/bootstrap.min.css">
+<link rel="stylesheet" href="/js/public/bootstrap/bootstrap-datepicker3.css?">
+<link rel="stylesheet" href="/js/public/slick/slick.css">
+<link rel="stylesheet" href="/js/public/jsTree/default/style.css" />
+
+<script type="text/javascript" src="/js/public/bootstrap/bootstrap.bundle.min.js"></script>
+<script type="text/javascript" src="/js/public/bootstrap/bootstrap-datepicker.js"></script>
+<script type="text/javascript" src="/js/public/bootstrap/bootstrap-datepicker.ko.min.js"></script>
+<script type="text/javascript" src="/js/public/slick/slick.min.js"></script>
+<script type="text/javascript" src="/js/public/jsTree/jstree.js"></script>
+
+<script type="text/javascript" src="/js/idart/idart.js"></script><!-- idart용 -->
+<!-- 추가 되는 js, css 끝 -->
+
+<!-- 웹표준화적용사항 위반으로 DSAB001L.jsp에서 헤드로 위치 이동 -->
+<style type="text/css">
+.checked-icon {background-image: url(/images/temp/add.gif);}
+.ui-autocomplete {max-height: 100px; overflow-y: auto; overflow-x: hidden;}
+.ui-menu-item .ui-menu-item-wrapper.ui-state-active {background: #eaeaea !important; border: none; color:#333;}
+</style>
+<!--end -->
+
+<script type="text/javascript">
+function loadHistoryContents() {
+	xajax.initParameter();
+	xajax.blockUI = false;
+	xajax.simpleSend("/dsaf001/history.ax", function(html) {
+		$j("#wingWrap").html(html);
+	});
+}
+
+</script>
+<script type="text/javascript">
+(
+	function(){
+		var s=function(){
+				__flash__removeCallback=function(i,n){if(i)i[n]=null;
+			};window.setTimeout(s,10);
+		};s();
+	}
+)();
+</script>
+
+<script type="text/javascript">
+function otherGongsi(){
+	var f_select = document.getElementById("f_select");
+	var link = f_select.options[f_select.selectedIndex].value;
+	if(link != "f_slt_1"){
+		window.open(link);
+	}
+	if(link == "f_slt_1"){
+		alert("해외전자공시를 선택해주세요");
+	}
+}
+</script>
+
+
+	
+<link id="commonCss" rel="stylesheet" href="/css/common.css?ver=1.13" />
+<link id="userCssWeb" rel="stylesheet" href="/css/web.css?ver=25" />
+<link id="userCssTab" rel="stylesheet" href="/css/tablet.css?ver=11" />
+<link id="userCssMob" rel="stylesheet" href="/css/mobile.css?ver=14" />
+<link id="userCssFnt" rel="stylesheet" href="/css/fonts.css?ver=1.13" />
+
+<script type="text/javascript" src="/js/common.js?ver=8"></script>
+
+
+<link rel="stylesheet" type="text/css" href="/css/viewer/report_dart.css?ver=3" charset="utf-8">
+<link rel="stylesheet" type="text/css" href="/css/viewer/report_pop.css?ver=1" charset="utf-8">
+
+<script type="text/javascript" src="/js/public/detectmobilebrowser.js"></script>
+<script type="text/javascript" src="/js/viewer/popup.js?ver=2"></script>
+<!-- 202407 목차 수정 css -->
+<link rel="stylesheet" href="/css/viewer.css">   
+
+
+
+<script type="text/javascript">
+if(isMobile() == false && $j(window).width() <= 1050){
+	$j(window)[0].resizeTo(1200, $j(window).height());
+} 
+
+$j(document).ready(function() {
+	leftPanel = document.getElementById('left-panel');
+	rightPanel = document.getElementById('right-panel');
+	collapseButton = document.getElementById('collapse-button');
+	isDragging = false;
+	initPage();
+	
+	if(isMobileSize()){
+		isLeftPanelCollapsed = true; // 초기 상태: 패널이 열려 있음
+	}else{
+		isLeftPanelCollapsed = false; // 초기 상태: 패널이 열려 있음
+	}
+	
+    if(isMobile()){
+    	divider.addEventListener('touchstart', startResize);
+    }else{
+    	divider.addEventListener('pointerdown', startResize);
+    }
+    
+	function startResize(event) {
+	    isDragging = true;
+		divider.classList.add('dragging');
+		if(isMobile()){
+			event.target.addEventListener('touchmove', resizePanel);
+			event.target.addEventListener('touchend', stopResize);
+		}else {
+			divider.setPointerCapture(event.pointerId);
+			document.addEventListener('pointermove', resizePanel);
+			document.addEventListener('pointerup', stopResize);
+			document.addEventListener('pointerleave', stopResize);
+	    } 
+	}
+
+	function resizePanel(event) {
+		var dividerPosition = event.clientX;
+		if(isMobile()){
+        	dividerPosition = event.touches[0].clientX;
+    	}
+	    if (isDragging) {
+	        var leftPanelWidth = dividerPosition;
+	        var rightPanelWidth = window.innerWidth - dividerPosition;
+			leftPanel.style.width = ( leftPanelWidth / window.innerWidth * 100 ) + '%' ;
+			rightPanel.style.width = ( rightPanelWidth / window.innerWidth * 100 )+ '%';
+	    }
+	}
+
+	function stopResize(e) {
+	    isDragging = false;
+		divider.classList.remove('dragging');
+		if(isMobile()){
+			divider.removeEventListener('touchmove', resizePanel);
+			divider.removeEventListener('touchend', stopResize);
+		}else{
+			divider.releasePointerCapture(e.pointerId)
+			document.removeEventListener('pointermove', resizePanel);
+			document.removeEventListener('pointerup', stopResize);
+			document.removeEventListener('pointerleave', stopResize);
+	    } 
+	}
+
+	
+});
+
+// 윈도우 크기에 따라 목차 영역 변경
+window.addEventListener('resize', function() {
+	if (isMobileSize() || cnt ==0) {
+		hideTocArea();
+	} else{
+		toggleTocArea();
+	}
+	if (isMobile()) {$j(".contentsWrap, .viewWrap, .leftPanel").addClass("safari")};
+	
+	w = parseInt($j(".viewWrap").css("width"));
+	h = parseInt($j(".viewWrap").css("height"));
+	if( $j(".warning").length){
+		if($j(window).width() >= 1024 || $j(window).width() <= 760){
+			h = parseInt($j(".viewWrap").css("height")) - $j(".warning").height() - 17;
+			$j("#ifrm").height(h);
+		}else{
+			h = parseInt($j(".viewWrap").css("height")) - $j(".warning").height() - 17;
+			$j("#ifrm").height(h);
+		}  
+	}   
+});
+
+function toggleLeftPanel() {
+    if (isLeftPanelCollapsed) {
+        // 왼쪽 패널을 보이도록 설정
+        leftPanel.style.width = '25%';
+        leftPanel.style.position='relative';
+        rightPanel.style.width = '75%';
+        collapseButton.classList.remove('collapsed'); // 버튼 화살표 변경
+		rightPanel.classList.remove('collapsed');  
+        isLeftPanelCollapsed = false;
+        leftPanel.style.display = 'block';
+        divider.style.display = 'block';
+    } else {
+        // 왼쪽 패널을 숨김
+		leftPanel.style.width = '2%';
+        rightPanel.style.width = '98%'
+        collapseButton.classList.add('collapsed'); // 버튼 화살표 변경
+        rightPanel.classList.add('collapsed');  
+        isLeftPanelCollapsed = true;
+        leftPanel.style.display = 'none';
+        divider.style.display = 'none';
+    }
+}
+
+function hideTocArea() {
+	isLeftPanelCollapsed = false;
+	toggleLeftPanel();
+}
+
+function toggleTocArea() {
+	isLeftPanelCollapsed = true;
+	toggleLeftPanel();
+}
+
+function initPage() {
+	if (isMobile()) {$j(".contentsWrap, .viewWrap, .leftPanel").addClass("safari")};
+	
+	w = parseInt($j(".viewWrap").css("width"));
+	h = parseInt($j(".viewWrap").css("height"));
+	if ($j(".warning").length) {
+		h = parseInt($j(".viewWrap").css("height")) - $j(".warning").height() - 17;
+		$j("#ifrm").height(h);
+	}
+	
+	initLayerNew('winCorpInfo');
+	
+	//목차생성 및 최초뷰어호출
+	makeToc();
+	
+    //팝업행성
+    makePop();
+    
+	window.focus();
+	try {
+		opener.loadHistoryContents();
+	} catch (e) {
+		;
+	}
+	if (isMobileSize())  hideTocArea()
+	if (isInApp()) $j('#print').hide();
+}
+
+function makeToc() {
+	cnt = 0;
+	var treeData = [];
+	
+	
+		var node1 = {};
+		node1['text'] = "정 관";
+		node1['id'] = "1";
+		node1['rcpNo'] = "20260311004614";
+		node1['dcmNo'] = "11111704";
+		node1['eleId'] = "1";
+		node1['offset'] = "598";
+		node1['length'] = "21515";
+		node1['dtd'] = "dart4.xsd";
+		node1['tocNo'] =  "1";  //eleId 가 toc 순번하고 동일 하지 않은 문서가 존재함.
+		node1['atocId'] =  "1";  //편집기 목차(nrseo.20240111)
+		 
+		cnt++;
+		
+		
+		
+		
+		
+		
+		treeData.push(node1);
+	
+	
+	//js tree
+	var jsTree = $j('#listTree').jstree({
+		'core' : {
+			'multiple' : false,
+			'themes' : {
+				'icons' : false
+			},
+			'data' : treeData
+		}
+	});
+	
+	jsTree.on('loaded.jstree', function(){
+		if (cnt > 200) {
+			
+				$j(this).jstree('select_node', 'ul > li:first');
+			
+			
+		} else {
+			$j(this).jstree('open_all');
+			
+				$j(this).jstree('select_node', 'ul > li:first');
+			
+			
+		}
+		jsTree.on("select_node.jstree", function (e, data) {
+			var original = data.node.original;
+			if(data.selected.length) {
+				// searchGubun 혹은 keyword 변경시 : 검색정보 초기화(현재목차/키워드없음)한다.
+				if (isChanged) resetKeyword();
+			
+				if (fixGubun == "1") {
+					linkDoc(original.rcpNo, original.dcmNo, original.eleId, original.offset, original.length, original.dtd, original.tocNo);
+				} else {
+					// 현재목차검색에서 목차클릭시  : 검색정보 초기화(현재목차/키워드없음)한다.
+					resetKeyword();
+					viewDoc(original.rcpNo, original.dcmNo, original.eleId, original.offset, original.length, original.dtd, original.tocNo);
+				}
+				if (isMobileSize()) hideTocArea();
+			}
+		});
+	});
+	
+		if(cnt == 0){
+			hideTocArea();
+			$j('#collapse-button').css('display','none');
+		}
+	
+	
+		
+		
+		
+			// 최초 뷰어 호출
+			// 3.일반 최초로딩시
+			// 처음에 전체검색으로 시작할때(주소창에 keyword 물고올때)
+			if ('' != "") {
+				fixGubun = "1";
+				fixKeyword = '';
+				$j("input:radio[name='searchGubun']:input[value='"+fixGubun+"']").prop("checked", true);
+				$j("#searchWord").val(fixKeyword);
+			}
+			
+				
+					viewDoc("20260311004614", "11111704", "0", "0", "0", "dart4.xsd", "");
+				
+				
+				
+			
+		
+	
+}
+
+function makePop() {
+	//정기공시 특정보고서 팝업
+	
+	// 공매도
+	
+	// 정정
+	alertJungJung("", "90001");
+	// 핵심투자위험
+	alertInvestNotice("20260311004614", "11111704", "20260311003434", "5", "90001" ,"dart4.xsd");
+	// 소액공모
+	alertSmallPublicOffering("N");
+	// 참고사항
+	
+	// 5%
+	
+	// 효력
+	
+	// 사업보고서 감사의견 불일치
+	
+	// 공매도 취득제한
+	
+
+}
+
+
+/* ########################
+# 문서조회(viewer.do) 관련
+######################## */ 
+var currentDocValues = {rcpNo: "", dcmNo: "", eleId: "", offset: "", length: "", dtd: "", tocNo: ""};
+function viewDoc(rcpNo, dcmNo, eleId, offset, length, dtd, tocNo) {
+	currentDocValues.rcpNo = rcpNo;
+	currentDocValues.dcmNo = dcmNo;
+	currentDocValues.eleId = eleId;
+	currentDocValues.offset = offset;
+	currentDocValues.length = length;
+	currentDocValues.dtd = dtd;
+	currentDocValues.tocNo = tocNo;
+	
+	var params = "";
+	params += "?rcpNo=" + rcpNo;
+	params += "&dcmNo=" + dcmNo;
+	if (eleId != null) params += "&eleId=" + eleId;
+	if (offset != null) params += "&offset=" + offset;
+	if (length != null) params += "&length=" + length;
+	params += "&dtd=" + dtd;
+	
+	if (!isNullTrim(fixKeyword)) {
+		params += "&keyword=" + encodeURIComponent(fixKeyword);
+		params += "&searchGubun=" + fixGubun;
+		
+		$j("#loadingMask").show();
+		$j("#loadingWrap").show();
+	}
+
+	document.getElementById("ifrm").src = "/report/viewer.do" + params;
+}
+
+function linkDoc(rcpNo, dcmNo, eleId, offset, length, dtd, tocNo) {
+	currentDocValues.rcpNo = rcpNo;
+	currentDocValues.dcmNo = dcmNo;
+	currentDocValues.eleId = eleId;
+	currentDocValues.offset = offset;
+	currentDocValues.length = length;
+	currentDocValues.dtd = dtd;
+	currentDocValues.tocNo = tocNo;
+	
+	$j('#ifrm').contents().find("[id^=bookmark_]").removeClass("bookmark");
+	$j('#ifrm').contents().scrollTop($j('#ifrm').contents().find("a[name=toc"+tocNo+"]").offset().top);
+}
+
+/* iframe load */
+var bodyTocCnt = 0;
+var tocPositionIds = [];
+var tocPositionItems = [];
+function iframeLoaded() {
+	$j('#ifrm').contents().on('click','a[target]', newWindowEvent);
+	
+	$j('#ifrm').contents().find("img").each(function() {
+		$j(this).attr("onclick", "parent.winImgRealSize('"+$j(this).attr("src")+"');");
+		$j(this).css("cursor", "zoom-in");
+	});
+	// 임시 (기존 생성된 이미지 원본보기 때문)->html 전체 삭제하면 괜찮을텐데...
+	$j('#ifrm').contents().find("div[name='imgDiv']").remove();
+	// 거래소 통합공시 경우 일부 태그 스타일 초기화(nrseo.LR-Chm-2021-00141)
+	if ("dart4.xsd" == "HTML") {
+		$j('#ifrm').contents().find(".xforms td").each(function() {
+			var inStyle = $j(this).attr("style");
+			if (inStyle == null || inStyle.indexOf("text-align") == -1) {
+				$j(this).css("text-align", "left");
+			}
+		});
+		$j('#ifrm').contents().find(".xforms span").each(function() {
+			var inStyle = $j(this).attr("style");
+			if (inStyle == null || inStyle.indexOf("display") == -1) {
+				$j(this).css("display", "inline");
+			}
+		});
+	}
+	
+	// 전체검색
+	if (fixGubun == "1") {
+		bodyTocCnt = $j("#ifrm").contents().find("p > a[name^=toc]").length;
+		if ($j("#listTree ul li a").length > 0) {
+			if (bodyTocCnt === 0 || (Array.isArray(tocPositionItems) && tocPositionItems.length === 0)) {
+				tocPositionItems = [];
+				$j($j("#ifrm").contents().find("p > a[name^=toc]").get().reverse()).each(function() {
+					tocPositionIds.push($j(this).attr("name").replace(/[^0-9]/g, ''));
+					tocPositionItems.push($j(this).position().top);
+				});
+			}
+		}
+	}
+	
+	$j('#ifrm').contents().find('head').append('<style>span.highlight {background-color:#ffff00;} span.highlight.on {background-color:#ffb700;} .bookmark {background-color:#FFF0F0 !important; text-decoration:underline;}</style>');
+	if (!isNullTrim(fixKeyword)) {
+		procHighlight();
+	}
+}
+
+function reloadDoc() {
+	viewDoc(currentDocValues.rcpNo, currentDocValues.dcmNo, currentDocValues.eleId, currentDocValues.offset, currentDocValues.length, currentDocValues.dtd);
+}
+
+function changeDoc(val) {
+	document.fmove.action="/dsaf001/main.do?" + val;
+	document.fmove.submit();	
+}
+
+function changeNewDoc(val) {
+	window.open("/dsaf001/main.do?"+ val,'resizable=no, status=no, scrollbars=no','width=1200, height=810');
+}
+
+function changeFamily(val) {
+	if (val=="null") return;
+	changeDoc(val); $j("#att").val("null"); $j("#ref").val("null");
+}
+
+function changeRef(val) {
+	if (val=="null") return;
+	changeDoc(val); $j("#att").val("null"); $j("#family").val("null");
+}
+
+function changeAtt(val) {
+	if (val=="null") return;
+	changeDoc(val); $j("#ref").val("null"); $j("#family").val("null");
+}
+
+function changeHis(val) {
+	if (val=="null") return;
+	changeNewDoc(val); $j("#history").val("null"); $j("#family").val("null");
+}
+
+var winImg;
+function winImgRealSize(src, bcColor, maxWidth) {
+	if (typeof bgColor === "undefined") bgColor = "#000";
+	if (typeof maxWidth === "undefined") maxWidth = "1100px";
+	if (winImg && !winImg.closed) winImg.close();
+	winImg = window.open("", "imgRealSizeBox");
+	winImg.document.write("<html><head><title>이미지새창보기</title><meta name=\"viewport\" content=\"user-scalable=yes, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, width=device-width\"/></head>" +
+			"<body style=\"margin:0;background:"+bgColor+";height:100%;\" onclick=\"window.close('imgRealSizeBox');\"><table border=\"0\" width=\"100%\" height=\"100%\"><tr><td valign=\"middle\" align=\"center\">" +
+					"<img style=\"position:relative;z-index:2;width:100%;max-width:"+maxWidth+";\" src=\""+src+"\"/></td></tr></table></body></html>");
+}
+
+/* ########################
+# 문서검색 스크립트 
+######################## */ 	
+var isChanged = false;
+var fixKeyword = "";
+var fixGubun = "2"; // 1:전체, 2:현재
+function resetKeyword() {
+	fixGubun = "2";
+	fixKeyword = "";
+	$j("input:radio[name='searchGubun']:input[value='"+fixGubun+"']").prop("checked", true);
+}
+function searchKeyword() {
+	procSearchKeyword();
+}
+function procSearchKeyword() {
+	if (isNullTrim($j("#searchWord").val())) {
+		alert('검색어를 입력해 주세요.');
+		return;
+	}
+	
+	isChanged = false;
+	
+	
+	
+	fixKeyword = $j("#searchWord").val();
+	fixGubun = $j('input:radio[name=searchGubun]:checked').val();
+	
+	viewDoc(currentDocValues.rcpNo, currentDocValues.dcmNo, currentDocValues.eleId, currentDocValues.offset, currentDocValues.length, currentDocValues.dtd);
+}
+$j(function() {
+	$j("#searchWord").change(function() {
+		if ($j("#searchWord").val() != fixKeyword) isChanged = true;
+		else isChanged = false;
+	});
+	
+	$j("input:radio[name='searchGubun']").change(function() {
+		if ($j('input:radio[name=searchGubun]:checked').val() != fixGubun) isChanged = true;
+		else isChanged = false;
+	});
+});
+
+/* ########################
+# 하이라이트(문서검색후) 스크립트 
+######################## */
+var highlight_obj;
+var highlight_idx;
+function procHighlight() {
+	highlight_obj = $j("#ifrm").contents().find('.highlight');
+	if (highlight_obj.length == 0) {
+		// 전체검색일때 제일 처음 목차 선택된 것처럼 css 효과만 부여
+		if (fixGubun == "1") {
+			$j("#listTree").jstree("deselect_all");
+			$j("#listTree ul li:eq(0) > a").attr("aria-selected", true);
+			$j("#listTree ul li:eq(0) > a").addClass("jstree-clicked");
+		}
+		
+		alert("일치하는 검색어["+fixKeyword+"]가 없습니다.");
+	} else {
+		highlight_idx = 0;
+		moveHighlight(highlight_idx);
+	}
+	
+	$j("#loadingMask").hide();
+	$j("#loadingWrap").hide();
+}
+
+function moveHighlight(idx) {
+	// 전체검색일때 키워드에 해당하는 목차 클릭 이벤트
+	if (fixGubun == "1") {
+		var top = $j(highlight_obj[idx]).offset().top;
+		for (var i=0; i<tocPositionItems.length; i++) {
+			if ((top+10) >= tocPositionItems[i]) {
+				//이미 같은 목차가 선택되어 있으면 스킵
+				if ($j("#listTree ul li:eq(" + (tocPositionIds[i]-1) + ") > a").attr("aria-selected") != "true") {
+					$j("#listTree ul li:eq(" + (tocPositionIds[i]-1) + ") > a").trigger("click");
+				}
+				break;
+			}
+		}
+	}
+	
+	highlight_obj.removeClass('on');
+	$j(highlight_obj[idx]).addClass('on');
+	
+	// 세로 영역 맞추기
+	var ifrmTop = $j('#ifrm').contents().scrollTop();
+	var ifrmBottom = ifrmTop + $j('#ifrm').height();
+	var highlightTop = $j(highlight_obj[idx]).offset().top;
+	var highlightBottom = highlightTop + $j(highlight_obj[idx]).height();
+	$j('#ifrm').contents().scrollTop(highlightTop);
+	
+	// 가로 영역 맞추기
+	var offsetWidth = highlight_obj[idx].offsetWidth;
+	var offsetLeft = $j(highlight_obj[idx]).offset().left;
+	var offsetRight = offsetLeft + offsetWidth;
+	var ifrmWidth = $j('#ifrm').width();
+	var ifrmLeft = $j('#ifrm').contents().scrollLeft();
+	var ifrmRight = ifrmLeft + ifrmWidth;
+	if(ifrmWidth < offsetRight + 30) {
+		$j('#ifrm').contents().scrollLeft(offsetRight - ifrmWidth + 30);
+	} else {
+		$j('#ifrm').contents().scrollLeft(0);
+	}
+	/*
+	if (fn_isMobileApp()=="pc") {
+		$j('#contentsWrapDiv').css('height','calc(100vh - 115px)');
+	}
+	*/
+}
+
+function movePrev() {
+	if (isChanged) {
+		alert("검색정보를 수정하였습니다. 검색을 먼저 하시기 바랍니다.");
+		return;
+	}
+	
+	if (!isNullTrim(highlight_obj) != "" && highlight_obj.length > 0) {
+		if (highlight_idx == 0) {
+			highlight_idx = highlight_obj.length - 1;	//처음 위치면 마지막으로 이동
+		} else {
+			highlight_idx += -1;
+		}
+		moveHighlight(highlight_idx);
+	}
+}
+
+function moveNext() {
+	if (isChanged) {
+		alert("검색정보를 수정하였습니다. 검색을 먼저 하시기 바랍니다.");
+		return;
+	}
+	
+	if (!isNullTrim(highlight_obj) != "" && highlight_obj.length > 0) {
+		if (highlight_obj.length == (highlight_idx + 1)) {
+			highlight_idx = 0;	//마지막 위치면 처음으로 이동
+		} else {
+			highlight_idx += 1;
+		}
+		moveHighlight(highlight_idx);
+	}
+}
+
+/* ########################
+# 다운로드/인쇄/닫기 버튼 이벤트
+######################## */ 
+function openPdfDownload(rcpNo, dcmNo) {
+	 
+		
+			var size = getOpenSize(530, 480);
+			var url = "/pdf/download/main.do?rcp_no=" + rcpNo + "&dcm_no=" + dcmNo;
+			var win = window.open( url, 'DOWNLOAD', ''+size+', resizable=no, status=no, scrollbars=no');
+			if(win == null) alert("팝업차단을 해제해주세요.");
+			else win.focus();
+		
+		
+	
+}	
+
+function showPdfStopMsg(title, cont, type, type2){
+	var layerPopHtml = "";
+	layerPopHtml +='<div class="layerPop layerPopViewer" style="display:block; width:450px;">';
+	layerPopHtml +='	<div class="title">';
+	layerPopHtml +=		title ;
+	layerPopHtml +='		<a class="btnClose" onclick="closeWinCcommMsg(this)" href="javascript:void(0);">확인</a>';
+	layerPopHtml +='	</div>';
+	layerPopHtml +='	<div class="contViewer" id="commMsgCont" style="height:200px;">';
+	layerPopHtml +='      <div class="contWrap">';
+	layerPopHtml +=			cont;
+	layerPopHtml +='      </div>';
+	layerPopHtml +='	</div>';
+	layerPopHtml +='</div>';
+
+	$j('#winCommMsg').append(layerPopHtml);
+	$j('#winCommMsg').show();
+}
+
+function showSelectPopup(title, cont, type, type2){
+	var layerPopHtml = "";
+	layerPopHtml +='<div class="layerPop layerPopViewer" style="display:block; width:505px;">';
+	layerPopHtml +='	<div class="selectPopupTitle">';
+	layerPopHtml +=		title ;
+	layerPopHtml +='		<a class="btnClose" onclick="closeWinCcommMsg(this)" href="javascript:void(0);">확인</a>';
+	layerPopHtml +='	</div>';
+	layerPopHtml +='	<div class="contViewer" id="commMsgCont" style="height:200px;">';
+	layerPopHtml +='      <div class="contWrap">';
+	layerPopHtml +='           <pre style="font-size:100%; line-height:1.2em;">';
+	layerPopHtml +=			cont;
+	layerPopHtml +='           </pre>';
+	layerPopHtml +='      </div>';
+	layerPopHtml +='	</div>';
+	layerPopHtml +='</div>';
+
+	$j('#winCommMsg').append(layerPopHtml);
+	$j('#winCommMsg').show();
+}
+
+function printDoc() {
+	var printFrame = document.getElementById('ifrm');
+	var agent = navigator.userAgent.toLowerCase();
+	
+	if (agent.indexOf('trident') > -1) ifrm.focus();
+	else printFrame.focus();
+	
+	var prependHTML = '';
+	prependHTML += '<div id="printDocTitle">';
+	prependHTML += '삼성생명';
+	
+	if ($j('#family option:selected').val() != "null") prependHTML += ' / ' + $j('#family option:selected').text() + ' ';
+	if ($j('#att option:selected').val() != "null") prependHTML += ' / ' + $j('#att option:selected').text() + ' ';
+	
+	prependHTML += '</div>';
+
+	$j('#ifrm').contents().find('body').prepend(prependHTML) // title추가
+	printFrame.contentWindow.print();
+	$j('#ifrm').contents().find('#printDocTitle').remove(); // 다시 title삭제
+}
+
+function windowClose(){
+	if (isInApp()) {
+		if (navigator.userAgent.toLowerCase().indexOf('android') > -1) {
+			android_dart.appFinish();
+			window.close();
+		} else {
+			window.webkit.messageHandlers.DARTJS_APPFINISH.postMessage('');
+			window.close();
+		}
+	} else {
+		window.close();
+	}
+}
+/* ########################
+# RSS
+######################## */ 
+function scrapFeed(cik) {
+    var rssValue = "";
+    if(cik == "today"){
+    	rssValue = "https://dart.fss.or.kr/api/todayRSS.xml";
+    } else{
+    	rssValue = "https://dart.fss.or.kr/api/companyRSS.xml?crpCd=" + cik;
+    }
+
+    if(window.clipboardData){  // IE처리
+    	if (window.clipboardData.setData("Text", rssValue)) {
+        	alert('클립보드에 복사되었습니다');
+    	}
+    } else {                     // 비IE 처리
+    	window.prompt ("Ctrl+C를 눌러 클립보드로 복사하세요", rssValue);
+    }
+}
+
+/* ########################
+# 하이퍼링크
+######################## */ 
+// 상세표
+function goBookmark(to, from, toc) {
+	$j("#listTree ul li a").each(function() {
+		if ($j(this).text() == toc) {
+			//이미 같은 목차가 선택되어 있으면 스킵
+			if ($j(this).attr("aria-selected") != "true") {
+				$j(this).trigger("click");
+			}
+			
+			setTimeout(function() {
+				var bookmark = $j('#ifrm').contents().find("a[class="+to+"]").offset();
+				if (bookmark == null) {
+					$j('#ifrm').contents().scrollTop(0);
+				} else {
+					$j('#ifrm').contents().scrollTop(bookmark.top);
+				}
+			}, 500);
+			
+			return false;
+		}
+	});
+}
+// 책갈피
+// 속성값에 id가 들어오면 무조건 책갈피!!!
+// 신 다트편집기 책갈피 로직 변경대응 (2024.01 nrseo)
+function goBookmark2(atocId, text) {
+	var data = $j("#listTree").jstree(true)._model.data;
+	$j.each(data, function(i, v) {
+		if (v.original) {
+			if (v.original["atocId"] == atocId) {
+				var id = v.original["id"];
+				
+				//이미 같은 목차가 선택되어 있으면 스킵
+				if ($j("#listTree ul li[id=" + id + "] > a").attr("aria-selected") != "true") {
+					$j("#listTree ul li[id=" + id + "] > a").trigger("click");
+				}
+				
+				setTimeout(function() {
+					$j("#ifrm").contents().find("[id^=bookmark_]").each(function() {
+						if (text == $j(this).attr("bookmarktext")) {
+							$j(this).addClass("bookmark");
+							var bookmark = $j(this).offset();
+							if (bookmark == null) {
+								$j('#ifrm').contents().scrollTop(0);
+							} else {
+								$j('#ifrm').contents().scrollTop(bookmark.top);
+							}
+							return false;
+						}
+					});
+				}, 500);
+				
+				return false;
+			}
+		}
+	});
+}
+
+/* ########################
+# 기타(변경확률낮음)
+######################## */ 
+
+function subPopView (id) {
+	$j("#" + id).show();
+}
+
+function popClose(id) {
+	$j("#" + id).hide();
+}
+	
+/* ########################
+# 기타(사용여부 불확실)
+######################## */ 
+//사용자가 '예'를 선택했을 때 최종문서로 이동한다.
+function confirmFinalDoc(bnt){
+	var rcp_no = "" ;
+	if(bnt=='yes'){
+		
+			
+		
+			
+		
+		changeFamily("rcpNo="+rcp_no);
+	}
+}
+function replaceHtml(el, html) {
+	var oldEl = (typeof el === "string" ? document.getElementById(el) : el);
+	var newEl = oldEl.cloneNode(false);
+	newEl.innerHTML = html;
+	oldEl.parentNode.replaceChild(newEl, oldEl);
+	return newEl;
+};
+</script>
+	
+</head>
+
+<body>
+<div class="loadingMask" id="loadingMask" style="display:none"></div>
+<div class="loadingWrap" id="loadingWrap" style="display:none">
+	<div class="loadingImg"></div>
+	<div class="loadingMessage">잠시만 기다려주세요.</div>
+</div>
+<div class="wrapper">
+	<form name="fmove"  method="post" action="">
+	<input type="submit" style="display:none" name="goAction" />
+	</form>
+	<!-- viewerPop -->
+	<div class="viewerPop">
+		<!-- header -->
+		<div class="header" id="header">
+			<div class="top">
+				<h1 style="cursor:auto;"></h1>
+				
+					
+						
+					
+					
+					
+					
+				
+				
+				
+				
+				<div class="nameWrap"><span class="tagCom_kospi" title="유가증권시장">유</span>
+					<span onclick="openCorpInfoNew('00126256', 'winCorpInfo', '/dsae001/selectPopup.ax');" style="cursor:pointer;">삼성생명</span></div>
+				<div class="searchWrap">
+				    <span class="frmCheck">
+						<input type="radio" id="searchGubun1" name="searchGubun" value="2" title="현재목차" checked />
+						<label for="searchGubun1" title="현재목차" >현재목차</label>
+					</span>
+					<span class="frmCheck">	
+						<input type="radio" id="searchGubun2" name="searchGubun" value="1" title="전체문서" />
+						<label for="searchGubun2" title="전체문서" >전체문서</label>
+					</span>
+					<span class="search">
+						<label for="search">선택</label>
+						<input type="text" id="searchWord" placeholder="검색어 입력" onkeyup="if(event.keyCode==13){searchKeyword();}" />
+						<button class="btnSearch" onclick="searchKeyword();">검색</button>
+					</span>						
+					<button class="btnPrev" onclick="movePrev();">이전</button>
+					<button class="btnNext" onclick="moveNext();">다음</button>		
+				</div>
+			</div>
+
+			<div class="bottom">
+				<div class="leftWrap">
+					<ul>
+						<li class="docLi">
+							<span class="frmSelect">
+								
+									<label for="family">본문</label>
+									<select class="w01" id="family" onchange="changeFamily(this.value)">
+										<option value="null">+본문선택+</option>
+										
+											
+											<option value="rcpNo=20260331004244"  title="사업보고서">
+												
+													2026.03.31&nbsp;
+												
+												[정정]
+												
+												사업보고서
+											</option>
+										
+											
+											<option value="rcpNo=20260311004614"  title="사업보고서">
+												
+													2026.03.11&nbsp;
+												
+												
+												
+												사업보고서
+											</option>
+										
+									</select>
+								
+							</span> 
+						</li>
+						<li class="docLi">
+							<span class="frmSelect">
+								<!-- 첨부문서 -->
+								<label for="att">첨부</label>
+								<select id="att" class="w01" onchange="changeAtt(this.value)">
+									<option value="null">+첨부선택+</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111700" >
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											감사보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111705" >
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											감사의감사보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111707" >
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											내부감시장치에대한감사의의견서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111708" >
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											내부회계관리제도운영보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111701" >
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											연결감사보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111706" >
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											영업보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111709" >
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											자기주식보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111704" selected>
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											정관
+										</option>
+									
+								</select>
+							</span> 
+						</li>
+						
+						
+						<li class="docLi_mob">
+							<span class="frmSelect">
+								<select id="doc" class="w01" onchange="changeFamily(this.value)">
+									<option value="null" selected>+문서 선택+</option>
+									<b><option value="null">-본문문서선택-</option></b>
+									
+										
+										<option value="rcpNo=20260331004244" title="사업보고서" style="">
+											
+												2026.03.31&nbsp;
+											
+											[정정]
+											
+											사업보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614" title="사업보고서" style="">
+											
+												2026.03.11&nbsp;
+											
+											
+											
+											사업보고서
+										</option>
+									
+									<option value="null">-첨부문서선택-</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111700" style="">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											감사보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111705" style="">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											감사의감사보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111707" style="">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											내부감시장치에대한감사의의견서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111708" style="">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											내부회계관리제도운영보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111701" style="">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											연결감사보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111706" style="">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											영업보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111709" style="">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											자기주식보고서
+										</option>
+									
+										
+										<option value="rcpNo=20260311004614&amp;dcmNo=11111704" style="color:blue">
+											2026.03.11&nbsp;
+											
+												
+												
+											
+											정관
+										</option>
+									
+									
+									
+									
+									
+								</select>
+							</span> 
+						</li>
+					</ul>
+				</div>
+				<div class="rightWrap">	
+					<button class="btnDown" onclick="openViewer('20260311004614','en');">영문보기</button>
+						
+						<button class="btnDown" onclick="openPdfDownload('20260311004614', '11111704');">다운로드</button>
+					
+					<button class="btnPrint" onclick="printDoc();" id="print">인쇄</button>
+					<button class="btnSearch" onclick="windowClose();">닫기</button>	
+				</div>
+			</div>
+		</div>
+		<!-- //header -->
+		
+		<!-- contentsWrap -->
+		<div id="contentsWrapDiv" class="contentsWrap">
+			<div class="leftpanelwrap" id="left-panel">
+				<div class="headerWrap">문서목차</div>
+				<div class="leftpanel" id="left-panel-content">
+					<ul id="listTree">
+					</ul>
+				</div>
+			</div>
+			<div id="collapse-button" onclick="toggleLeftPanel()"></div>
+			<div class="divider" id="divider"></div>
+			<div class="rightpanelwrap" id="right-panel">
+				<!-- contents -->
+				<div class="contents" style="display:block;">
+					<div class="viewWrap">
+								
+						<div class="contWrap">
+							<iframe id="ifrm" frameborder="0" scrolling="auto" style="width: 100%; height : 100%; margin: 0; padding: 0" title="tailFrame" onload="iframeLoaded();"></iframe>
+						</div>
+					</div>
+				</div>
+				<!-- contents -->
+			</div>
+			<!-- //contentsWrap -->
+		</div>
+	</div>
+</div>
+<div id="pdfStopMsg" style="position: absolute; left: -1000px; top: -1000px; visibility: hidden;"></div>
+<div id="popup" style="position: absolute; left: -1000px; top: -1000px; visibility: hidden;"></div>
+
+
+<!-- layer popup wrap -->
+<div id="winCommMsg" style="display:none">
+	<div class="mask" style="display:block"></div>
+	<!-- layer popup wrap -->
+</div>
+
+
+
+<script type="text/javascript">
+function openReportViewerEng(rcpNo, dcmNo){
+	var url = "/dsbh001/main.do?rcpNo=" + rcpNo;
+	if (dcmNo) {
+		//<![CDATA[
+		url += "&dcmNo=" + dcmNo;
+		//]]>
+	}
+
+	var size = getOpenSize(1024, 768);
+	window.open(url, rcpNo, size+",resizable=yes");
+	$j("#r_"+rcpNo).css("color","#cd0093");
+}
+
+var win_num = 1;
+function openReportViewer(rcpNo, dcmNo){
+	var url = "/dsaf001/main.do?rcpNo=" + rcpNo;
+	if (dcmNo) {
+		//<![CDATA[
+		url += "&dcmNo=" + dcmNo;
+		//]]>
+	}
+
+	var size = getOpenSize(1200, 810);
+	window.open(url, rcpNo+win_num, size+",resizable=yes");
+	win_num++;
+	if (dcmNo) {
+		$j("#r_"+rcpNo+dcmNo).css("color","#cd0093");
+	}else{
+		$j("#r_"+rcpNo).css("color","#cd0093");
+	}
+}
+
+function openReportViewerParam(rcpNo, dcmNo, params){
+	var url = "/dsaf001/main.do?rcpNo=" + rcpNo;
+	if (dcmNo) {
+		//<![CDATA[
+		url += "&dcmNo=" + dcmNo;
+		//]]>
+	}
+	if (params) {
+		//<![CDATA[
+		url += params;
+		//]]>
+	}
+
+	var size = getOpenSize(1200, 810);
+	window.open(url, rcpNo+win_num, size+",resizable=yes");
+	win_num++;
+	if (dcmNo) {
+		$j("#r_"+rcpNo+dcmNo).css("color","#cd0093");
+	}else{
+		$j("#r_"+rcpNo).css("color","#cd0093");
+	}
+}
+
+function openReportListViewer(rcpNo, dcmNo, eleId){
+
+	var url = "/dsaf001/main.do?rcpNo=" + rcpNo;
+	if (dcmNo) {
+		//<![CDATA[
+		url += "&dcmNo=" + dcmNo;
+		//]]>
+		if(eleId) {
+			url += "&eleId=" + eleId;
+		}
+	}
+
+	var size = getOpenSize(1200, 810);
+	window.open(url, rcpNo+win_num, size+",resizable=yes");
+	win_num++;
+	if (dcmNo) {
+		$j("#r_"+rcpNo+dcmNo).css("color","#cd0093");
+	}else{
+		$j("#r_"+rcpNo).css("color","#cd0093");
+	}
+}
+
+/*
+ * 통합검색용 문서뷰어 팝업 호출
+ * nrseo 2010. 10. 20
+ * 2016.09.30 jsp에 직접 명시 하여 미사용(DSAB007A.jsp)
+ * - a:visited 미작동으로 인한 조치
+ */
+function openReportViewerKeyword(rcpNo, dcmNo, keyword){
+	var url = "/dsaf001/main.do?rcpNo=" + rcpNo;
+	if (dcmNo) {
+		//<![CDATA[
+		url += "&dcmNo=" + dcmNo;
+		//]]>
+	}
+	//<![CDATA[
+	url += "&keyword=" + encodeURIComponent(keyword);
+	//]]>
+
+	var size = getOpenSize(1024, 768);
+	window.open(url, rcpNo+win_num, size+",resizable=yes");
+	win_num++;
+	if (dcmNo) {
+		$j("#r_"+rcpNo+dcmNo).css("color","#cd0093");
+	}else{
+		$j("#r_"+rcpNo).css("color","#cd0093");
+	}
+}
+
+/*
+ * 메인화면 전용
+ */
+function openReportViewerMain(rcpNo, dcmNo){
+	var url = "/dsaf001/main.do?rcpNo=" + rcpNo;
+	if (dcmNo) {
+		//<![CDATA[
+		url += "&dcmNo=" + dcmNo;
+		//]]>
+	}
+
+	var size = getOpenSize(1200, 810);
+	window.open(url, rcpNo+win_num, size+",resizable=yes");
+	win_num++;
+}
+
+/*
+ * 사용(xbrl 미리보기)
+ */
+function openXbrlViewer(rcpNo, dcmNo, lang){
+	var url = "";
+	if (lang == "en") url = "https://englishdart.fss.or.kr/dsbh002/main.do?rcpNo=" + rcpNo;
+	else url = "/dsaf002/main.do?rcpNo=" + rcpNo;
+	
+	if (dcmNo) {
+		//<![CDATA[
+		url += "&dcmNo=" + dcmNo;
+		//]]>
+	}
+
+	var size = getOpenSize(1200, 810);
+	window.open(url, "_blank", size+",resizable=yes");
+}
+
+/*
+ * 사용(xbrl뷰어 열기 팝업(opendart link))
+ */
+function openXbrlViewerNew(opendartUrl, rcpNo, stat, preview) {
+	if (stat == "Y") {
+		var url = opendartUrl + "/xbrl/viewer/main.do?rcpNo=" + rcpNo;
+
+		var size = getOpenSize(1200, 810);
+		window.open( url, rcpNo+win_num, size+",resizable=yes" );
+		win_num++;
+	} else if (stat == "N") {
+		if (preview == "Y") {
+			openXbrlViewer(rcpNo, "", "");
+		} else {
+			alert( '문서 생성중 입니다.\n잠시 후 다시 조회 하시기 바랍니다.' );
+		}
+	} else {
+		alert( '생성된 문서가 없습니다.' );
+	}
+}
+
+//영문보기
+function openViewer(rcpNo, lang){
+	var url = "";
+	if (lang == "en") url = "https://englishdart.fss.or.kr/dsbh001/main.do?rcpNo=" + rcpNo;
+	else url = "/dsaf001/main.do?rcpNo=" + rcpNo;
+
+	var size = getOpenSize(1200, 810);
+	window.open(url, "_blank", size+",resizable=yes");
+}
+
+function openHelp(menu) {
+	var url = "/guide/main.jsp";
+	if (menu) {
+		url += "?menu=" + menu;
+	}
+	var size = getOpenSize(1100, 761);
+	var win = window.open(url, "DartGuide", size + ",resizable=yes,scrollbars=no");
+	if (win == null) {
+		alert("팝업차단을 해제하시기 바랍니다.");
+	} else {
+		win.focus();
+	}
+}
+
+</script>
+<form name="reportForm" method="post" action="/dsaf001/main.do">
+	<input type="hidden" name="rcpNo" />
+	<input type="hidden" name="dcmNo" />
+	<input type="hidden" name="keyword" />
+	<input type="submit" style="display:none;" />
+</form>
+</body>
+</html>
