@@ -54,3 +54,6 @@ def test_workflows_wire_the_schedule():
     assert "cron: '23 * * * *'" in night and "group: fly-night-scale" in night
     assert "github.event.schedule" not in night and "inputs.mode || 'auto'" in night
     assert "scripts/fly_night_scale.py --mode auto" in (root / "deploy.yml").read_text(encoding="utf-8")
+    # 바깥 예약기가 workflow_dispatch 로 정시 호출(261108) — 예약 실행은 그 호출이 2시간 넘게 없으면 실패해 메일을 낸다.
+    assert "github.event_name == 'schedule'" in night and "--event workflow_dispatch" in night
+    assert "-gt 7200" in night and "actions: read" in night
