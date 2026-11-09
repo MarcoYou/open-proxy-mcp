@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import html as html_lib
 import re
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field as dataclass_field
 
 from open_proxy_mcp.services.segment_candidates import (
@@ -75,6 +75,12 @@ class _Heading:
     tag: str
 
 
+@dataclass
+class _SectionBoundaries:
+    ends: dict[int, int | None] = dataclass_field(default_factory=dict)
+    tags: dict = dataclass_field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class BizRegionIndex:
     """DART XML/HTML heading coordinates, built once and shared by field extractors."""
@@ -84,6 +90,24 @@ class BizRegionIndex:
     # L1=제조서비스업 서식 트랙 / L2=금융업 서식 트랙 (겸업사는 병존). 코드+제목 이중검증
     # 통과분만 담기며, 없으면 빈 dict(구형 문서 등) → 소비처는 기존 전체 탐색 그대로.
     l_spans: dict = dataclass_field(default_factory=dict)
+    # 현재 문서 안에서만 재사용하며, 경계를 조회하기 전에는 원문을 추가로 훑지 않는다.
+    section_boundaries: _SectionBoundaries | None = dataclass_field(default=None, repr=False, compare=False)
+
+
+_SECTION_TAG_RE = re.compile(r"<(?P<close>/)?(?P<tag>section-[12]|SECTION-[12])")
+_SECTION_SCAN_LIMIT = 3
+
+
+def _section_tag_positions(html: str) -> dict:
+    positions = {tag: {"open": [], "close": [], "end": []}
+                 for tag in ("section-2", "section-1")}
+    for match in _SECTION_TAG_RE.finditer(html):
+        tag = positions[match.group("tag").lower()]
+        kind = "close" if match.group("close") else "open"
+        tag[kind].append(match.start())
+        if kind == "close" and html[match.end():match.end() + 1] == ">":
+            tag["end"].append(match.start())
+    return positions
 
 
 # <TITLE AASSOCNOTE="..."> 구조 앵커. L-0-2-N-L1/L2 = II.사업의 내용 소절 코드.
@@ -247,10 +271,37 @@ def build_region_index(html: str) -> BizRegionIndex:
         elif heading.tag == "p" and deduped[duplicate_at].tag != "p":
             deduped[duplicate_at] = heading
     deduped.sort(key=lambda h: h.start)
-    return BizRegionIndex(tuple(deduped), l_spans)
+    return BizRegionIndex(tuple(deduped), l_spans, _SectionBoundaries())
 
 
-def _enclosing_section_end(html: str, pos: int) -> int | None:
+def _enclosing_section_end(html: str, pos: int, index: BizRegionIndex | None = None) -> int | None:
+    state = index.section_boundaries if index is not None else None
+    if state is None or not 0 <= pos <= len(html):
+        return _enclosing_section_end_scan(html, pos)
+    if pos not in state.ends:
+        # 적은 조회에는 전체 색인의 준비 비용을 쓰지 않는다. 같은 좌표는 항상 재사용한다.
+        if not state.tags and len(state.ends) >= _SECTION_SCAN_LIMIT:
+            state.tags.update(_section_tag_positions(html))
+        state.ends[pos] = (_indexed_section_end(state.tags, pos) if state.tags
+                           else _enclosing_section_end_scan(html, pos))
+    return state.ends[pos]
+
+
+def _indexed_section_end(tags: dict, pos: int) -> int | None:
+    for tag in ("section-2", "section-1"):
+        positions = tags[tag]
+        # rfind(..., 0, pos)는 접두사 전체가 pos 앞에 들어오는 것만 찾는다.
+        opened = bisect_right(positions["open"], pos - len(f"<{tag}")) - 1
+        closed = bisect_right(positions["close"], pos - len(f"</{tag}")) - 1
+        if opened < 0 or (closed >= 0 and positions["close"][closed] > positions["open"][opened]):
+            continue
+        end = bisect_left(positions["end"], pos)
+        if end < len(positions["end"]):
+            return positions["end"][end]
+    return None
+
+
+def _enclosing_section_end_scan(html: str, pos: int) -> int | None:
     for tag in ("section-2", "section-1"):
         open_pos = max(html.rfind(f"<{tag}", 0, pos), html.rfind(f"<{tag.upper()}", 0, pos))
         close_before = max(html.rfind(f"</{tag}", 0, pos), html.rfind(f"</{tag.upper()}", 0, pos))
@@ -348,7 +399,7 @@ def _structural_regions(html: str, kw_patterns: list[str], index: BizRegionIndex
     for _, heading, heading_label in sorted(
         candidates, key=lambda item: (item[0], -item[1].level, item[1].start)
     ):
-        section_end = _enclosing_section_end(html, heading.start)
+        section_end = _enclosing_section_end(html, heading.start, index)
         end = section_end or len(html)
         boundary = "section_end" if section_end else "document_end"
         for peer in index.headings:
@@ -1089,14 +1140,38 @@ _RAW_MATERIALS_NA = re.compile(
     r"(?:해당\s*사항\s*(?:이)?\s*없|기재(?:를)?\s*생략|기재하지\s*않|"
     r"발생하지\s*않|필요하지\s*않|존재하지\s*않)"
 )
-_PRODUCT_PRICING_NA = re.compile(
-    r"(?:가격\s*(?:변동\s*)?(?:추이|현황))?[\s\S]{0,160}?"
+_PRODUCT_PRICING_NA_CONTEXT = 160
+_PRODUCT_PRICING_NA_REASON = (
     r"(?:기재(?:는|를)?\s*생략|기재하지\s*않|산출.{0,25}?(?:어렵|곤란|부적합))"
+)
+_PRODUCT_PRICING_NA_REASON_RE = re.compile(_PRODUCT_PRICING_NA_REASON)
+_PRODUCT_PRICING_NA = re.compile(
+    rf"(?:가격\s*(?:변동\s*)?(?:추이|현황))?[\s\S]{{0,{_PRODUCT_PRICING_NA_CONTEXT}}}?"
+    + _PRODUCT_PRICING_NA_REASON
 )
 _PRODUCT_PRICE_VALUE = re.compile(
     r"\d[\d,.]*\s*(?:원|달러|US\$|\$|%|/W|/kg|/KG|천원|백만원)|"
     r"(?:202[0-9]|전년|당기)[^\n|]{0,30}\d"
 )
+
+
+def _pricing_na_match(na_re: re.Pattern, text: str) -> re.Match | None:
+    if na_re is not _PRODUCT_PRICING_NA:
+        return na_re.search(text)
+    reason = _PRODUCT_PRICING_NA_REASON_RE.search(text)
+    if reason is None:
+        return None
+    # 접두사를 빼면 첫 생략 사유 앞의 문맥 길이보다 일찍 시작할 수 없다.
+    start = max(0, reason.start() - _PRODUCT_PRICING_NA_CONTEXT)
+    # 「가격 … 추이/현황」의 공백은 길이 제한이 없다. 더 이른 접두사는 원래 식의
+    # match로 따로 확인해, 긴 공백·첫 매치 좌표·전체 문구·그룹을 그대로 보존한다.
+    prefix = text.find("가격", 0, start + 1)
+    while 0 <= prefix < start:
+        found = na_re.match(text, prefix)
+        if found is not None:
+            return found
+        prefix = text.find("가격", prefix + 2, start + 1)
+    return na_re.search(text, start)
 
 
 def _compose_pricing_field(biz_text: str, html: str, components: list[tuple[str, str, list[str], re.Pattern]],
@@ -1121,7 +1196,7 @@ def _compose_pricing_field(biz_text: str, html: str, components: list[tuple[str,
                                            "chapter": "II. 사업의 내용",
                                            "boundary": "prose_paragraph"}))
     if not found:
-        na = na_re.search(biz_text) if (na_re and biz_text) else None
+        na = _pricing_na_match(na_re, biz_text) if (na_re and biz_text) else None
         return {
             "status": "NOT_APPLICABLE",
             "extraction_status": "NOT_APPLICABLE" if na else "NOT_COLLECTED",
@@ -1132,10 +1207,10 @@ def _compose_pricing_field(biz_text: str, html: str, components: list[tuple[str,
     usable = found
     if len(components) == 1 and na_re:
         usable = [item for item in found if not (
-            na_re.search(item[2]["markdown"]) and not _PRODUCT_PRICE_VALUE.search(item[2]["markdown"])
+            _pricing_na_match(na_re, item[2]["markdown"]) and not _PRODUCT_PRICE_VALUE.search(item[2]["markdown"])
         )]
         if not usable:
-            na = na_re.search(found[0][2]["markdown"])
+            na = _pricing_na_match(na_re, found[0][2]["markdown"])
             return {
                 "status": "NOT_APPLICABLE",
                 "extraction_status": "NOT_APPLICABLE",

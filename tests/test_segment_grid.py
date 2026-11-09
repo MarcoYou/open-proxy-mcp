@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+import pytest
+
 from open_proxy_mcp.services.business_details import OK, SegmentProfit, _segment_confident
 from open_proxy_mcp.services.segment_grid import _parse_table, grid_refine
 
@@ -26,6 +28,53 @@ _ROWS = [
     ["매출액", "1,000", "2,000", "-", "3,000"],
     ["영업이익(손실)", "100", "(50)", "-", "50"],
 ]
+
+
+@pytest.mark.parametrize("unit", ["(단위 : 백만원)", ""])
+@pytest.mark.parametrize("orientation", ["row", "column", "subaxis"])
+@pytest.mark.parametrize("legacy", [False, True])
+def test_geo_readers_share_one_tree_and_preserve_raw_fallback(monkeypatch, unit, orientation, legacy):
+    """같은 표의 대체 판독·원문 반환이 재조립을 늘리거나 칸을 바꾸지 않는다."""
+    from open_proxy_mcp.services import segment_grid as sg
+    import bs4
+
+    if orientation == "row":
+        rows = [["지역", "수익", "비유동자산"], ["한국", "100", "10"],
+                ["북미", "200", "20"], ["지역 합계", "300", "30"]]
+        expected = [{"name": "한국", "revenue": 100.0}, {"name": "북미", "revenue": 200.0}]
+    elif orientation == "column":
+        rows = [["", "본사 소재지 국가"], ["수익(매출액)", "300"]]
+        expected = [{"name": "본사 소재지 국가", "revenue": 300.0}]
+    else:
+        rows = [["", "지역"], ["", "본사 소재지 국가"], ["", "부문", "부문 합계"],
+                ["", "치즈", "식품", ""], ["수익(매출액)", "100", "200", "300"]]
+        expected = [{"name": "본사 소재지 국가", "revenue": 300.0}]
+    html = unit + _tbl(rows)
+    if legacy:
+        html = html.replace('<TABLE ', '<TABLE xmlns="urn:dart" ', 1)
+    original = bs4.BeautifulSoup
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(None)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(bs4, "BeautifulSoup", counted)
+    out = {"geo": None, "product": None}
+    fallback = sg._scan_window(html, 0, len(html), "부문정보", "", set(), out, None)
+    assert len(calls) == int(legacy)
+    if unit:
+        assert fallback is None
+        assert out["geo"]["items"] == expected
+        assert out["geo"]["unit"] == "백만원"
+        if orientation == "row":
+            assert out["geo"]["assets_by_region"] == {"한국": 10.0, "북미": 20.0}
+    else:
+        from open_proxy_mcp.services.segment_candidates import _table_to_markdown
+
+        assert out["geo"] is None
+        assert fallback["status"] == "NEEDS_REVIEW"
+        assert fallback["markdown"] == _table_to_markdown(original(_tbl(rows), "lxml").find("table"))
 
 
 def test_parse_prefers_external_row_and_keeps_dash_column() -> None:

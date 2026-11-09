@@ -15,11 +15,8 @@ from __future__ import annotations
 
 import html as _html
 import re
-
-from bs4 import BeautifulSoup
-
 from open_proxy_mcp.services.biz_period import canon_col_period
-from open_proxy_mcp.services.segment_candidates import _TABLE_RE, _table_to_grid
+from open_proxy_mcp.services.segment_candidates import _TABLE_RE, _TableRead, _table_cells
 
 # 매출 행 우선순위: 외부 계열 → generic(외부 의미로 쓰이는 표가 대부분) → 총부문 계열.
 _REV_ROW_PRIORITY = [
@@ -109,12 +106,8 @@ def _header_row_for(grid: list[list[str]], metric_i: int) -> list[str] | None:
     return best
 
 
-def _parse_table(tbl_html: str) -> dict | None:
-    soup = BeautifulSoup(tbl_html, "lxml")
-    tb = soup.find("table")
-    if tb is None:
-        return None
-    grid = _table_to_grid(tb)
+def _parse_table(tbl_html: str, *, _table: _TableRead | None = None) -> dict | None:
+    grid = (_table if _table is not None else _TableRead(tbl_html)).grid
     if len(grid) < 2:
         return None
     ncol = max(len(r) for r in grid)
@@ -304,7 +297,7 @@ def _foreign_share(items: list[dict]) -> dict:
 _CELL_TAGS = ["td", "th", "te", "tu"]
 
 
-def _read_single_region_with_subaxis(chunk: str) -> dict | None:
+def _read_single_region_with_subaxis(chunk: str, *, _table: _TableRead | None = None) -> dict | None:
     """지역 축이 **하나**이고 그 아래 부문 축이 걸린 표 → 「전량 그 지역」으로 읽는다.
 
     조흥은 머리가 3층이다:
@@ -316,17 +309,12 @@ def _read_single_region_with_subaxis(chunk: str) -> dict | None:
     부문표 파서는 리프(치즈·식품첨가물)를 잡아 「지역표가 아니다」로 분류했다. 그런데
     지역으로 보면 **전량 국내 488,246,060** 이라는 확정 정보다.
     """
-    from bs4 import BeautifulSoup
-
     try:
-        t = BeautifulSoup(chunk, "lxml").find("table")
+        rows = (_table if _table is not None else _TableRead(chunk)).rows
     except Exception:
         return None
-    if t is None:
-        return None
     head, body = [], []
-    for r in t.find_all("tr"):
-        cells = [c.get_text(" ", strip=True) for c in r.find_all(_CELL_TAGS)]
+    for cells in rows:
         (body if any(_row_num(c) is not None for c in cells) else head).append(cells)
     if not head or not body:
         return None
@@ -349,24 +337,19 @@ def _read_single_region_with_subaxis(chunk: str) -> dict | None:
             "unit": "", "_single_region": True, "_subaxis": True}
 
 
-def _read_column_oriented_geo(chunk: str) -> dict | None:
+def _read_column_oriented_geo(chunk: str, *, _table: _TableRead | None = None) -> dict | None:
     """지역이 **열**에 오는 표를 머리↔값 인덱스로 직접 읽는다.
 
     부문표 파서는 항목 2개 이상을 전제해서, 지역이 하나뿐인 표
     (동우팜투테이블 「본사 소재지 국가 | 325,458」)는 항목 0개로 나와 통째로 버려졌다.
     그런데 그건 정보가 없는 게 아니라 **「전량 국내」라는 확정 정보**다.
     """
-    from bs4 import BeautifulSoup
-
     try:
-        t = BeautifulSoup(chunk, "lxml").find("table")
+        rows = (_table if _table is not None else _TableRead(chunk)).rows
     except Exception:
         return None
-    if t is None:
-        return None
     head, body = [], []
-    for r in t.find_all("tr"):
-        cells = [c.get_text(" ", strip=True) for c in r.find_all(_CELL_TAGS)]
+    for cells in rows:
         if any(_row_num(c) is not None for c in cells):
             body.append(cells)
         else:
@@ -393,7 +376,7 @@ def _read_column_oriented_geo(chunk: str) -> dict | None:
             "revenue_metric": metric, "unit": "", "_col_oriented": True}
 
 
-def _read_row_oriented_geo(chunk: str) -> dict | None:
+def _read_row_oriented_geo(chunk: str, *, _table: _TableRead | None = None) -> dict | None:
     """지역이 **행**에 있는 표를 읽는다 — 열 지향과 레이아웃이 정반대다.
 
     열 지향:
@@ -409,23 +392,17 @@ def _read_row_oriented_geo(chunk: str) -> dict | None:
     항목을 못 뽑았다. 여기서는 **지역명이 든 행**만 골라 첫 금액 열을 수익으로 읽는다.
     비유동자산 열이 함께 있으면 생산지 판별에 쓰도록 같이 돌려준다.
     """
-    from bs4 import BeautifulSoup
-
     try:
-        t = BeautifulSoup(chunk, "lxml").find("table")
+        rows = (_table if _table is not None else _TableRead(chunk)).rows
     except Exception:
         return None
-    if t is None:
-        return None
-    rows = t.find_all("tr")
     if len(rows) < 3:
         return None
-    head = [c.get_text(" ", strip=True) for c in rows[0].find_all(_CELL_TAGS)]
+    head = rows[0]
     asset_col = next((i for i, hcell in enumerate(head)
                       if re.search(r"비유동자산|유형자산", hcell or "")), None)
     items, assets, total = [], {}, None
-    for r in rows[1:]:
-        cells = [c.get_text(" ", strip=True) for c in r.find_all(_CELL_TAGS)]
+    for cells in rows[1:]:
         if len(cells) < 2:
             continue
         labels = [c for c in cells if not _row_num(c)]
@@ -729,7 +706,7 @@ def _mark_attribution(geo: dict, full_html: str) -> None:
             continue
         if tb is None:
             continue
-        for c in tb.find_all(_CELL_TAGS):
+        for c in _table_cells(tb):
             s = re.sub(r"\s+", " ", c.get_text(" ", strip=True))
             if 10 < len(s) < 200 and _ATTR_VALUE_RE.search(s) \
                     and not _ATTR_LABEL_TAIL_RE.search(s):
@@ -786,7 +763,8 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
         if not _EW_CANDIDATE_RE.search(chunk[:4000]):
             continue
         attempts += 1
-        p = _parse_table(m.group(0))
+        table = _TableRead(chunk)
+        p = _parse_table(chunk, _table=table)
         # `_GEO_HEAD_RE` 는 표 **전체**에서 찾는다. 종전엔 `chunk[:4000]` 만 봤는데,
         # 조정 행까지 실은 큰 표는 지역 머리가 뒤에 온다 — 앞부분만 보면 못 찾고, 행 지향
         # 리더가 아예 안 불려 완전 공시된 표를 통째로 버린다. 정규식 어휘 자체가 특이해서
@@ -795,13 +773,14 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
             # 부문표 파서는 **열 지향**(지역이 컬럼)만 읽는다. 지역이 행에 오는 서식
             # (「지역 | 한국 | 총부문수익 | 비유동자산」)에서는 항목이 0개로
             # 나와 표를 통째로 버렸다 — 앵커는 맞았는데 표에서 걸린 것.
-            p = _read_row_oriented_geo(chunk) or _read_column_oriented_geo(chunk)
+            p = (_read_row_oriented_geo(chunk, _table=table)
+                 or _read_column_oriented_geo(chunk, _table=table))
         if p and _GEO_HEAD_RE.search(chunk) and not any(
                 REGION.match(_region_key(s0["name"])) for s0 in p["segments"]):
             # 부문 리프를 잡았지만 머리 위층이 지역인 표 — 조흥은 「지역 > 본사 소재지 국가
             # > 부문(치즈·식품첨가물)」 3층이라 리프(부문)를 뽑고 지역표가 아니라고 봤다.
             # 지역으로 보면 전량 국내라는 확정 정보다.
-            p = _read_single_region_with_subaxis(chunk) or p
+            p = _read_single_region_with_subaxis(chunk, _table=table) or p
         if p and len(p["segments"]) == 1 and _GEO_HEAD_RE.search(chunk):
             # 지역이 **하나뿐**인 표(동우팜투테이블 「본사 소재지 국가 | 325,458」)는
             # 정보가 없는 게 아니라 **「전량 국내」라는 확정 정보**다. 2개 이상 게이트에
@@ -857,10 +836,7 @@ def _scan_window(full_html: str, pos: int, win_end: int, win_title: str, anchor:
             # 게이트 탈락한 '지역표'는 버리지 않고 원문 마크다운으로 강등 보관(첫 건만)
             if is_geo and out["geo"] is None and geo_md_fallback is None:
                 try:
-                    from bs4 import BeautifulSoup as _BS
-
-                    from open_proxy_mcp.services.segment_candidates import _table_to_markdown
-                    md = _table_to_markdown(_BS(m.group(0), "lxml").find("table"))
+                    md = table.markdown
                 except Exception:
                     md = ""
                 if md:

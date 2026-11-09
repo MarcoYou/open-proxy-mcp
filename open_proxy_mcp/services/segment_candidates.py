@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import re
 import warnings
+from functools import cached_property
+
+from open_proxy_mcp.services.html_fragment import node_text, parse_fragment
 
 try:
     from bs4 import XMLParsedAsHTMLWarning
@@ -22,8 +25,9 @@ _SEG_SIGNAL = ("영업부문", "사업부문", "부문별", "보고부문")
 _ANTI = ("관계기업", "종속기업", "지분율", "내용연수", "취득원가", "기초", "감가상각누계")
 
 # get_document full html(7~22MB)을 통째로 bs4 파싱하면 느림 → 정규식으로 <table> 블록만 뽑아
-# 문자열 프리필터(지표+부문신호+큰수) 통과 표만 bs4로 파싱. 전문서 스캔이라 구간슬라이스 오류 없음.
-_TABLE_RE = re.compile(r"<table\b.*?</table>", re.DOTALL | re.IGNORECASE)
+# 문자열 프리필터(지표+부문신호+큰수) 통과 표만 판독. 전문서 스캔이라 구간슬라이스 오류 없음.
+# 태그 없는 문자열을 묶어 건너뛴다. 중첩 여부와 무관하게 첫 </table>에서 끝나는 기존 경계는 유지한다.
+_TABLE_RE = re.compile(r"<table\b[^<]*(?:<(?!/table>)[^<]*)*</table>", re.DOTALL | re.IGNORECASE)
 _BIGNUM_RE = re.compile(r"[\d,]{5,}")
 # _SEG_SIGNAL(영업부문/사업부문…) 없이 '설비부문·액츄에이터부문'처럼 부문명만 담은 표(액트로류) 회수:
 # 표 안에 일반어(영업/보고/사업/기타부문) 아닌 고유 부문명이 2개+면 부문표로 본다.
@@ -33,6 +37,10 @@ _GENERIC_SEG = {"영업부문", "보고부문", "사업부문", "공통부문", 
 
 
 def _specific_seg_names(t: str) -> set:
+    # 정규식의 고정 접미사가 없으면 이름 후보도 없다. 원문 표 대부분이 이쪽이라
+    # 긴 표를 정규식으로 훑기 전에 문자열 검사로 끝낸다(정규화·판정 규칙은 그대로).
+    if "부문" not in t:
+        return set()
     return {n for n in _SEGNAME_RE.findall(t) if n not in _GENERIC_SEG}
 
 
@@ -45,16 +53,30 @@ def _is_roster(t: str) -> bool:
     return ("성명" in t) and bool(_ROSTER_RE.search(t))
 
 
+_CELL_NAMES = frozenset({"td", "th", "te", "tu"})
+
+
+def _table_cells(node) -> list:
+    """고정 셀 이름은 범용 검색 규칙을 매번 만들지 않고 같은 자손 순서로 읽는다."""
+    from bs4 import Tag
+    return [child for child in node.descendants
+            if isinstance(child, Tag) and child.name in _CELL_NAMES]
+
+
 def _table_to_grid(tb) -> list[list[str]]:
     """bs4 <table> → colspan/rowspan 확장한 2D 텍스트 격자 (pandas 없이, venv-lean)."""
+    return _rows_to_grid(_table_cells(tr) for tr in tb.find_all("tr"))
+
+
+def _rows_to_grid(rows) -> list[list[str]]:
+    """셀 판독 방식과 분리한 공통 병합칸 펼치기."""
     grid: list[list[str]] = []
     rowspans: dict[int, tuple[int, str]] = {}
-    for tr in tb.find_all("tr"):
+    for cells in rows:
         row: list[str] = []
         ci = 0
         # DART document.xml 표는 데이터 셀에 <TE>/<TU>를 쓴다(헤더만 <TH>) — td/th만 찾으면
         # 주석 데이터행이 통째로 소실됨(260723 SK이노베이션 영업부문 주석 markdown 실측).
-        cells = tr.find_all(["td", "th", "te", "tu"])
         cidx = 0
         while cidx < len(cells) or (rowspans and ci in rowspans):
             if ci in rowspans:
@@ -93,7 +115,10 @@ def _score(txt: str, ctx: str = "") -> int:
 
 def _table_to_markdown(tb) -> str:
     """bs4 <table> → GitHub 마크다운 표(colspan/rowspan 확장). 값 판단은 호출측 LLM이."""
-    grid = _table_to_grid(tb)
+    return _grid_to_markdown(_table_to_grid(tb))
+
+
+def _grid_to_markdown(grid: list[list[str]]) -> str:
     if not grid:
         return ""
     ncol = max(len(r) for r in grid)
@@ -111,7 +136,7 @@ def _strip_tags(s: str) -> str:
     return re.sub(r"<[^>]+>", " ", s)
 
 
-def _render_html_region_md(html: str, start: int, end: int) -> str | None:
+def _render_html_region_md_bs4(html: str, start: int, end: int) -> str | None:
     """html[start:end] 구간을 마크다운으로: <table>→md표, <p>/<span>→문단(문서 순서·중복제거)."""
     try:
         from bs4 import BeautifulSoup
@@ -133,6 +158,10 @@ def _render_html_region_md(html: str, start: int, end: int) -> str | None:
             txt = el.get_text(" ", strip=True)
             if txt and len(txt) > 1:
                 parts.append(txt)
+    return _join_md_parts(parts)
+
+
+def _join_md_parts(parts: list[str]) -> str | None:
     out, prev = [], None
     for p in parts:
         if p != prev and not (prev and p in prev):    # 부모/자식 span 텍스트 중복 제거
@@ -140,6 +169,99 @@ def _render_html_region_md(html: str, start: int, end: int) -> str | None:
         prev = p
     md = "\n".join(out).strip()
     return md or None
+
+
+class _TreeCell:
+    def __init__(self, node):
+        self.node = node
+
+    def get_text(self, separator=" ", strip=True):
+        return node_text(self.node)
+
+    def get(self, name, default=None):
+        return self.node.get(name, default)
+
+
+class _TableRead:
+    """현재 후보 표만 직접 읽고, 복구가 필요한 조각은 기존 객체로 읽는다.
+
+    원래 칸과 병합칸을 펼친 격자를 구분해 재사용한다. 객체는 후보 표를
+    처리하는 동안만 살며 값 선택·계산 결과나 다른 요청의 자료는 저장하지 않는다.
+    """
+
+    def __init__(self, html: str):
+        self.html = html
+
+    @cached_property
+    def native_table(self):
+        root = parse_fragment(self.html)
+        return next(root.iter("table"), None) if root is not None else None
+
+    @cached_property
+    def table(self):
+        # 기존 Tag가 필요한 호출과 복구 경로용. 직접 판독에서는 만들지 않는다.
+        from bs4 import BeautifulSoup
+        return BeautifulSoup(self.html, "lxml").find("table")
+
+    @cached_property
+    def text(self) -> str:
+        if self.native_table is not None:
+            return node_text(self.native_table)
+        return self.table.get_text(" ", strip=True) if self.table is not None else ""
+
+    @cached_property
+    def rows(self) -> list[list[str]]:
+        if self.native_table is not None:
+            return [[node_text(cell) for cell in row.iterdescendants("td", "th", "te", "tu")]
+                    for row in self.native_table.iterdescendants("tr")]
+        if self.table is None:
+            return []
+        return [[cell.get_text(" ", strip=True) for cell in _table_cells(row)]
+                for row in self.table.find_all("tr")]
+
+    @cached_property
+    def grid(self) -> list[list[str]]:
+        if self.native_table is not None:
+            return _rows_to_grid(
+                [_TreeCell(cell) for cell in row.iterdescendants("td", "th", "te", "tu")]
+                for row in self.native_table.iterdescendants("tr"))
+        return _table_to_grid(self.table) if self.table is not None else []
+
+    @cached_property
+    def markdown(self) -> str:
+        return _grid_to_markdown(self.grid)
+
+
+def _render_html_region_md(html: str, start: int, end: int) -> str | None:
+    """같은 HTML 트리의 문단·표를 직접 읽고, 복구가 필요한 입력은 기존 판독을 쓴다."""
+    try:
+        from bs4 import BeautifulSoup  # 기존 의존성 부재 시의 반환 계약도 유지한다.
+    except Exception:
+        return None
+    root = parse_fragment(html[start:end])
+    if root is None:
+        return _render_html_region_md_bs4(html, start, end)
+    parts = []
+    try:
+        for node in root.iter("p", "span", "table"):
+            in_table = any(parent.tag == "table" for parent in node.iterancestors())
+            if node.tag == "table":
+                if in_table:
+                    continue
+                rows = ([_TreeCell(cell) for cell in row.iterdescendants("td", "th", "te", "tu")]
+                        for row in node.iterdescendants("tr"))
+                md = _grid_to_markdown(_rows_to_grid(rows))
+                if md and re.sub(r"[\s|:-]", "", md):
+                    parts.append("\n" + md + "\n")
+            else:
+                if in_table or next(node.iterdescendants("table"), None) is not None:
+                    continue
+                text = node_text(node)
+                if text and len(text) > 1:
+                    parts.append(text)
+        return _join_md_parts(parts)
+    except Exception:
+        return _render_html_region_md_bs4(html, start, end)
 
 
 # 진짜 영업부문 주석 헤딩: 'N. 영업부문' / 'N. 부문정보' / 'N. 부문별 정보' (번호 붙은 소절제목).
@@ -234,13 +356,11 @@ def find_segment_candidates(html: str, max_tables: int = 5, max_rows: int = 40) 
                 or len(specific) >= 2):
             continue
         blocks.append((t, pre))
-    # 2) 통과한 소수 표만 bs4 파싱해 점수·격자화
+    # 2) 통과한 소수 표만 판독해 점수·격자화
     scored = []
     for block, pre in blocks:
-        tb = BeautifulSoup(block, "lxml").find("table")
-        if tb is None:
-            continue
-        txt = tb.get_text(" ", strip=True)
+        table = _TableRead(block)
+        txt = table.text
         seg_names = _specific_seg_names(txt)
         if not (any(m in txt for m in _METRIC) or len(seg_names) >= 2):
             continue
@@ -252,7 +372,7 @@ def find_segment_candidates(html: str, max_tables: int = 5, max_rows: int = 40) 
         sc = _score(txt, pre)
         if sc <= 0:
             continue
-        grid = _table_to_grid(tb)
+        grid = table.grid
         if not grid or len(grid) > max_rows or max((len(r) for r in grid), default=0) > 40:
             continue
         rendered = "\n".join(" | ".join(c[:24] for c in r) for r in grid)

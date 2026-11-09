@@ -16,8 +16,16 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
+from lxml import etree
+
 from open_proxy_mcp.dart.client import html_to_text
 from open_proxy_mcp.services.biz_period import attach_mix_period, attach_segment_period
+from open_proxy_mcp.services.html_fragment import (
+    _LEGACY_MARKUP as _EXPORT_LEGACY_MARKUP,
+    _TEXT as _EXPORT_TEXT,
+    node_text as _export_node_text,
+    parse_fragment,
+)
 
 # ── 결측 3분류 ──
 NOT_APPLICABLE = "NOT_APPLICABLE"      # 구조적 부재(단일부문·폼 소절 부재) — 정상
@@ -1481,6 +1489,44 @@ _EXP_NUM = re.compile(r"^-?\(?\d{1,3}(?:,\d{3})+\)?$")
 _EXP_NOISE = re.compile(r"특허|디자인|실용신안|상\s*표\s*권|소\s*재\s*지|연구")
 
 
+_EXPORT_PREVIOUS_UNIT = etree.XPath(
+    "(preceding::text()[contains(., '단위')] | preceding::comment()[contains(., '단위')])[last()]",
+    smart_strings=False,
+)
+def _is_export_table(blob: str) -> bool:
+    return bool(re.search(r"매출|수익", blob[:400]) and not _EXP_NOISE.search(blob[:300])
+                and re.search(r"수\s*출", blob))
+
+
+def _export_candidate_rows_bs4(biz_html: str):
+    """특수 선언·네임스페이스·직접 파서가 거절한 입력은 기존 파싱을 유지한다."""
+    from bs4 import BeautifulSoup
+    try:
+        soup = BeautifulSoup(biz_html, "lxml")
+    except Exception:
+        return
+    for table in soup.find_all("table"):
+        if _is_export_table(table.get_text(" ", strip=True)):
+            unit = str(table.find_previous(string=re.compile(r"단위")) or "")
+            rows = [[c.get_text(" ", strip=True) for c in r.find_all(["td", "th", "te", "tu"])]
+                    for r in table.find_all("tr")]
+            yield unit, rows
+
+
+def _export_candidate_rows(biz_html: str):
+    root = parse_fragment(biz_html)
+    if root is None:
+        yield from _export_candidate_rows_bs4(biz_html)
+        return
+    for table in root.iter("table"):
+        if _is_export_table(_export_node_text(table)):
+            units = _EXPORT_PREVIOUS_UNIT(table)
+            unit = str(units[-1]) if units else ""
+            rows = [[_export_node_text(c) for c in r.iterdescendants("td", "th", "te", "tu")]
+                    for r in table.iterdescendants("tr")]
+            yield unit, rows
+
+
 def _export_from_biz_table(biz_html: str) -> dict | None:
     """II 매출실적표의 수출/내수 — {부문 × 품목}마다 반복되는 행을 전부 합산.
 
@@ -1494,24 +1540,12 @@ def _export_from_biz_table(biz_html: str) -> dict | None:
     """
     if not biz_html:
         return None
-    from bs4 import BeautifulSoup
-    try:
-        soup = BeautifulSoup(biz_html, "lxml")
-    except Exception:
-        return None
-    for t in soup.find_all("table"):
-        blob = t.get_text(" ", strip=True)
-        if not re.search(r"매출|수익", blob[:400]) or _EXP_NOISE.search(blob[:300]):
-            continue
-        if not re.search(r"수\s*출", blob):
-            continue
-        node = t.find_previous(string=re.compile(r"단위"))
-        um = re.search(r"단위\s*[:：]?\s*([가-힣]*원)", str(node or ""))
+    for unit_text, table_rows in _export_candidate_rows(biz_html):
+        um = re.search(r"단위\s*[:：]?\s*([가-힣]*원)", unit_text)
         unit = _EXP_UNITS.get(um.group(1), 1_000_000) if um else 1_000_000
         exp = dom = 0
         rows = 0
-        for r in t.find_all("tr"):
-            cells = [c.get_text(" ", strip=True) for c in r.find_all(["td", "th", "te", "tu"])]
+        for cells in table_rows:
             for i, cl in enumerate(cells):
                 k = re.sub(r"\s+", "", cl or "")
                 if k not in ("수출", "국내", "내수"):
@@ -1951,8 +1985,11 @@ async def build_business_details_payload(company_query: str, period: str = "late
         # ⚠ 두 값을 더하거나 비교하지 말 것 — 현대차 1.4x·대한제분 0.5x 로 **방향이 양쪽으로
         #   갈린다**(현지생산 vs 내부거래 제거).
         if want & {"geo_revenue", "export_domestic"}:
-            _exp = _export_from_biz_table(_biz_html_region(sec.get("note_html", ""))
-                                          or sec.get("biz_html", ""))
+            # get_document 경로는 같은 전체 HTML의 경계를 fetch 때 이미 구했다.
+            # 뷰어 폴백은 주석 HTML과 사업 HTML이 별개이므로 기존 선택을 유지한다.
+            _trade_html = (sec["biz_html"] if fetch_method.startswith("get_document") and "biz_html" in sec
+                           else _biz_html_region(sec.get("note_html", "")) or sec.get("biz_html", ""))
+            _exp = _export_from_biz_table(_trade_html)
             if "export_domestic" in want:
                 # status 를 명시적으로 붙인다 — 묶음의 `available` 판정이 status 를 보므로,
                 # 없으면 표가 나왔는데도 「값이 나온 축」에서 빠져 읽는 쪽이 없는 줄 안다
@@ -1970,9 +2007,12 @@ async def build_business_details_payload(company_query: str, period: str = "late
     # D-트랙(금융·REIT) 시그니처 폴백은 II.사업의내용 구간만 스캔 — III.재무 주석 회계표 오발 차단.
     _biz_html = sec.get("biz_html") or _full_html
     _standard_fields = _STANDARD_BIZ_FIELDS
-    _d_fields = _FINANCIAL_BIZ_FIELDS
+    _want_financial_ops = "financial_ops" in want and _fin_ksic
+    _want_financial_soundness = "financial_soundness" in want and _fin_ksic
+    _want_investment_property = "investment_property" in want and (_reit_ksic or _ind2 == "65")
     _full_region_index = _bf.build_region_index(_full_html) if want & _standard_fields else None
-    _biz_region_index = (_bf.build_region_index(_biz_html) if want & _d_fields
+    _biz_region_index = (_bf.build_region_index(_biz_html)
+                         if _want_financial_ops or _want_financial_soundness or _want_investment_property
                          else None)
     if "sites" in want:
         data["sites"] = _bf.extract_sites(_biz_t, _full_html, _full_region_index)
@@ -2013,13 +2053,13 @@ async def build_business_details_payload(company_query: str, period: str = "late
                 "warning": "저신뢰 보조 문맥에 사용할 헤딩 후보를 찾지 못했습니다.",
             }
     # D-트랙 금융·REIT 필드 = KSIC 게이트(금융권만) + content-signature. KSIC로 비금융 원천 배제.
-    if "financial_ops" in want and _fin_ksic:
+    if _want_financial_ops:
         data["financial_ops"] = _bf.extract_financial_ops(_biz_t, _biz_html, _biz_region_index, section_chars)
-    if "financial_soundness" in want and _fin_ksic:
+    if _want_financial_soundness:
         data["financial_soundness"] = _bf.extract_financial_soundness(_biz_t, _biz_html, _biz_region_index, section_chars)
     # 투자부동산: 부동산(68=REIT)·보험(65=투자부동산 보유)만. 지주(64)는 primary가 영업현황이라 제외
     # (broadened 임대료/임차인 시그니처가 지주 프로즈에 과발하던 것 방지). _biz_html=II구간만(III회계표 배제).
-    if "investment_property" in want and (_reit_ksic or _ind2 == "65"):
+    if _want_investment_property:
         data["investment_property"] = _bf.extract_investment_property(_biz_t, _biz_html, _biz_region_index, section_chars)
     # 자산가치(토지·투자부동산·지분증권 원가vs공정가치)는 별도 tool asset_holdings로 이관(260720).
     # 세 축을 한 서랍장으로 묶는다. 칸막이(출처 라벨)는 남기고, 축 이름을 직접 요청한 경우에만
