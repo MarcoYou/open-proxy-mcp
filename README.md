@@ -29,7 +29,7 @@ OpenProxy는 한국 상장사의 DART 공시를 AI가 읽을 수 있게 구조�
 
 ## 빠른 시작
 
-**설치 없이 DART API 키 하나로 연결합니다.** 화면과 사례로 보는 안내는 📘 [사용 설명서(PDF, 13쪽)](docs/manual/OpenProxy_사용설명서.pdf)에 있습니다.
+**설치 없이 DART API 키 하나로 연결합니다.** 화면과 사례로 보는 안내는 📘 [사용 설명서(PDF, 14쪽)](docs/manual/OpenProxy_사용설명서.pdf)에 있습니다.
 
 **1. 무료 API 키 받기** — [DART OpenAPI](https://opendart.fss.or.kr/)에서 회원가입 후 인증키를 신청합니다(무료·즉시 발급).
 
