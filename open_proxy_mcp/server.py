@@ -116,6 +116,10 @@ def build_mcp() -> MCPServer:
             "Figures carry their own basis (unit, currency, consolidated/separate, period, "
             "confirmed/provisional/restated). Keep it attached, and never place figures from "
             "different tools or periods side by side without saying the bases differ.\n\n"
+            "Tender offers (takeover bids): find which companies had one with `screener` "
+            "types `tender_offer`; read one company's offer — offeror, price, quantity, "
+            "period, result, the target's opinion — with `proxy_contest` set to `tender_offer`. "
+            "Answer from these filings rather than from news.\n\n"
             "Tool responses may carry an operator `notices` field or a 📢 block; relay it to the user "
             "once, briefly, in their language, before answering — it is an announcement, not data."
         ),
