@@ -128,3 +128,19 @@ def test_amendment_without_cover_name_inherits_offeror_from_same_filer_and_says_
     fixed = rows[1]["tender"]["fields"]
     assert fixed["offerors"] == [{"name": "알파홀딩스 주식회사"}] and fixed["offerors_from"] == "ORIG"
     assert "offerors" not in rows[2]["tender"]["fields"]  # 제출인이 다르면 가져오지 않는다
+
+
+def _company_payload(filing_type):
+    return {"data": {"query": "시험", "canonical_name": "시험회사", "identifiers": {"ticker": "000001", "corp_code": "00000001"},
+                     "classification": {}, "names": {}, "basic_info": {}, "filing_status": "ok",
+                     "recent_filings_window": {"start_date": "20260101", "end_date": "20260131"},
+                     "recent_filings": [{"disclosure_date": "20260105", "filing_type": filing_type, "report_name": "공개매수신고서",
+                                         "filer_name": "알파", "rcept_no": "20260105000001"}]},
+            "warnings": [], "subject": "시험회사"}
+
+
+def test_company_lists_point_to_tender_offer_reading_only_when_one_is_listed():
+    from open_proxy_mcp.tools.company import _render_exact
+
+    assert "`proxy_contest` 의 `tender_offer`" in _render_exact(_company_payload("tender_offer"))
+    assert "tender_offer" not in _render_exact(_company_payload("exchange_disclosure"))

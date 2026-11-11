@@ -167,6 +167,13 @@ def _render_exact(payload: dict[str, Any]) -> str:
             f"| {item.get('disclosure_date', '')} | {_filing_type_label(item.get('filing_type', ''), english)} | "
             f"{item.get('report_name', '')} | {item.get('filer_name', '')} | `{item.get('rcept_no', '')}` |"
         )
+    if any(item.get("filing_type") == "tender_offer" for item in filings):
+        # 목록의 공개매수 공시는 제목·제출인뿐이다 — 공개매수자·가격·수량·기간·결과·대상회사 의견은 본문을 읽는 도구가 있다.
+        lines.append("")
+        lines.append(
+            "- Tender offer filings are listed: offeror, price, quantity, period, result and the target's opinion are read from the filings by `proxy_contest` set to `tender_offer`."
+            if english else
+            "- 공개매수 공시가 있다 — 공개매수자·가격·수량·기간·결과·대상회사 의견은 `proxy_contest` 의 `tender_offer` 로 원문을 읽는다(기간은 start_date·end_date 로 정한다).")
     if not filings and data.get("filing_status") == "fetch_failed":
         # 목록 조회가 실패했으면 0건은 「없다」가 아니라 「모른다」다 — 「최근 공시 없음」으로 적지 않는다(261018).
         lines.append("| - | - | Lookup failed — unknown whether there were filings (see Notes) | - | - |" if english
