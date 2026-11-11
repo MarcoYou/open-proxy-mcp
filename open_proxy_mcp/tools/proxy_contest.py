@@ -580,8 +580,8 @@ def register_tools(mcp):
         insider_rows_limit: int = 500,
         format: str = "md",
     ) -> str:
-        """desc: 위임장·소송·5% 경영참여 시그널 통합. **자동 분류 X 힌트 제공** (filer_has_5pct_active_block 등). 애널리스트 종합 판단.
-        when: 경영권 분쟁, 주주 캠페인, 소송, 능동적 5% 보유, 표 대결 신호.
+        """desc: 위임장·소송·5% 경영참여·**공개매수** 시그널 통합. **자동 분류 X 힌트 제공** (filer_has_5pct_active_block 등). 애널리스트 종합 판단.
+        when: 경영권 분쟁, 주주 캠페인, 소송, 능동적 5% 보유, 표 대결 신호. **공개매수 — 「OO 공개매수 누가 얼마에 사려고 했어」「공개매수 결과·응모율·성사됐어」「대상회사는 찬성이야 반대야」「자기주식 공개매수」→ `scope=tender_offer`** (신고서·설명서·결과보고서·의견표명서 원문을 읽는다). 어느 회사가 공개매수 당했는지 모를 때(전체시장 목록)는 `screener(types="공개매수")` 로 먼저 찾는다.
         rule: DART D/B/I만 (KIND false match 위험). 위임장 filer 3-way: company/shareholder/retail_activism(컨두잇·헤이홀더 등). has_contest_signal은 shareholder OR litigation OR external_active_block만. vote_math는 보수적, 승패 예측 X.
         scope: `summary` / `fight` 위임장+힌트 / `litigation` 소송 **+ 공시 본문 원문 발췌** / `signals` 5% 대량보유 / `insiders` 임원·주요주주 소유상황(D002) 상세 / `timeline` 전 이벤트 / `vote_math` 표 구조 / `tender_offer` 공개매수 신고서·설명서·결과보고서·의견표명서 **본문**
         tender_offer: `scope=tender_offer` 는 공개매수 공시를 열어 신고서의 **매수가격·수량·기간·결제일·목적 발췌**, 결과보고서의

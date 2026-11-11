@@ -298,7 +298,8 @@ _SUGGESTED_TOOL = {
     "earnings": "provisional_earnings", "agm_result": "shareholder_meeting_results",
     "restructuring": "corporate_restructuring", "stake_deal": "corporate_deals",
     "control_change": "ownership_structure", "litigation": "risk_events",
-    "tender_offer": "governance_screen", "proxy_solicitation": "governance_screen",
+    # 공개매수는 한 건의 가격·수량·기간·결과·대상회사 의견을 `proxy_contest(scope="tender_offer")` 가 원문에서 읽는다.
+    "tender_offer": "proxy_contest", "proxy_solicitation": "governance_screen",
 }
 
 

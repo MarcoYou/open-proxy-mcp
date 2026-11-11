@@ -341,6 +341,9 @@ def _render_digest(payload: dict[str, Any]) -> str:
             title = h.get("title", "")
             # 카드 헤드라인 — 자기주식은 취득·처분·소각·신탁(체결·해지)을, 자회사 공시는 그 사실을 머리에 적는다
             head = f"- {corr}**{name}** `{code}` · {cap} · _{stage}_"
+            if h.get("flr_nm") and h.get("type", {}).get("code") in {"tender_offer", "proxy_solicitation"}:
+                # 공개매수·권유는 **누가 냈는지**가 핵심이다(신고서·결과보고서=공개매수자, 의견표명서=대상회사).
+                head += f" · 제출인 {h['flr_nm']}"
             if h.get("treasury_action"):
                 head += f" · 자기주식 {h['treasury_action']}"
             if h.get("subsidiary_matter"):
@@ -528,7 +531,7 @@ def register_tools(mcp):
         large_min_pct: float = 10.0,
     ) -> str:
         """desc: **전체시장 공시 스크리너 / 아침 공시 디제스트.** 직전 실행 이후~오늘 전종목에 뜬 주요 공시를 카드형으로 요약(기업명+시총+유형+단계+정정+DART 링크). 무인자 호출=오늘 아침 디제스트. scan(무엇이 떴나, 싸게)=디폴트, details=true면 필요 건만 문서 열어 유형별 핵심숫자(금액·분모%·DPS·안건·지분%).
-        when: "오늘/어제 무슨 공시 떴어", "최근 며칠/일주일 잠정실적 발표", 매일 아침 공시 브리핑, 전체시장 **영업(잠정)실적**·수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. 특정 회사 1곳 심층은 개별 tool(provisional_earnings·order_contracts·dividend_disclosure 등).
+        when: "오늘/어제 무슨 공시 떴어", "최근 며칠/일주일 잠정실적 발표", 매일 아침 공시 브리핑, 전체시장 **영업(잠정)실적**·수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. **「최근 N개월 공개매수 나온 회사」「요즘 공개매수 뭐 있어」 = `types="공개매수"`** (제출인=공개매수자·대상회사·정정 여부가 나온다). 특정 회사 1곳 심층은 개별 tool(provisional_earnings·order_contracts·dividend_disclosure 등) — 공개매수 한 건의 가격·수량·기간·결과·대상회사 의견은 `proxy_contest(scope="tender_offer")`.
         types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `governance`(공개매수·위임장권유·최대주주변경·소송·자사주·5%보유·재편·주식양수도) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "공개매수", "위임장", "거버넌스", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(잠정실적: 회계연도·기간·매출·영업익),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10,tender_offer,proxy_solicitation.
         governance: 제목에서 발견한 공시는 조사 대상이며 부정 신호 판정이 아니다. hits의 corp_code/stock_code를 회사별 중복 제거해 최대 30개씩 governance_screen(companies=[...])으로 전달하고 원문을 읽어 평가한다. 공시 수와 회사 수를 구별하고 paging.has_more면 다음 페이지도 확인. 공개매수·위임장권유는 scan-only이며 서로 다른 제출자를 합치지 않는다. 이 호출은 예약 작업을 만들지 않는다.
         period: **사람 말로 받는다**(카드 보기·흐름 보기 같은 뜻, 오늘 기준) — 날: "오늘"/"어제"/"어제부터"/"그저께" · 달력: "이번 주"(월~오늘)/"지난주"(지난주 월~일)/"이번 달"/"지난달"(1일~말일)/"이번 분기"/"지난 분기"/"올해"/"작년" · 굴러가는 창: "최근 7일"(오늘 포함 7일)/"최근 2주"/"지난 한 달"/"최근 3개월"/"3일 전부터" · 절대: "8월"/"2026년 8월"/"3분기"/"2026년 2분기"/"상반기"/"2025년"/"2026-09-01"/"9월 1일"/"9/1" · 범위: "8월 1일부터 8월 20일까지"/"20260801~20260820"/"4월부터 8월 10일 사이" · 시작만: "9월 1일부터"(~오늘). 연도 없는 월·분기는 오늘 이전의 가장 최근 것. 시작 없는 "~까지"는 추측하지 않고 되묻는 안내를 단다. 또는 `start_date`/`end_date`(레포 공통 인자, YYYYMMDD — 2026.09.01 꼴도 받음). 옛 코드(today/yesterday/since_yesterday/last_7d/last_30d/custom+custom_start·custom_end)와 this_week·last_week·this_month·last_month·ytd 같은 코드도 받는다. 디폴트 since_yesterday. 카드 보기는 시장스캔 3개월 하드캡(넘으면 잘라서 밝히고 흐름 보기를 안내).
@@ -540,7 +543,7 @@ def register_tools(mcp):
         level: 흐름 보기의 업종 분류 단계 — "둘 다"(기본) / "대분류"(10) / "중분류"(28).
         baseline_weeks: 흐름 보기의 비교 기준 주 수(기본 13, 1~52).
         large_min_pct: 흐름 보기 큰 수주의 매출 대비 기준 %(기본 10).
-        ref: order_contracts·treasury_share·dividend_disclosure·dilutive_issuance·shareholder_meeting_notice·ownership_structure (유형별 심층), governance_screen (최대 30개사 원문 기반 거버넌스 검토)
+        ref: order_contracts·treasury_share·dividend_disclosure·dilutive_issuance·shareholder_meeting_notice·ownership_structure·proxy_contest (유형별 심층 — 공개매수 본문은 proxy_contest), governance_screen (최대 30개사 원문 기반 거버넌스 검토)
         """
         if _is_flow(view):
             payload = await build_flow_payload(

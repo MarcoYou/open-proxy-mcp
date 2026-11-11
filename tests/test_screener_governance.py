@@ -119,3 +119,17 @@ def test_ambiguous_correction_keeps_separate_offers_and_excludes_other_filers(mo
     assert correction["ambiguous_correction"] is True
     assert set(correction["correction_candidates"]) == {"20260909000001", "20260909000003"}
     assert "supersedes_rcept_no" not in correction
+
+
+def test_tender_offer_cards_point_to_proxy_contest_and_show_who_filed(monkeypatch):
+    from open_proxy_mcp.tools import screener as T
+
+    result = run_stubbed(monkeypatch, {"D004": [
+        filing("20260909000010", "공개매수신고서", "알파홀딩스"),
+        filing("20260909000011", "공개매수에관한의견표명서", "시험회사"),
+    ]})
+    tender = [h for h in result["hits"] if h["type"]["code"] == "tender_offer"]
+    assert len(tender) == 2
+    assert {h["suggested_tool"] for h in tender} == {"proxy_contest"}
+    text = T._render_digest(result)
+    assert "제출인 알파홀딩스" in text and "제출인 시험회사" in text and "`proxy_contest`" in text
