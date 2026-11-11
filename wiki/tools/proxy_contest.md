@@ -4,7 +4,7 @@ title: proxy_contest
 domain: data
 scope: [summary, fight, litigation, signals, timeline, vote_math, tender_offer]
 data_source: [DART OpenAPI list.json (D/B/I) + document.xml (위임장 본문 정규식), KIND HTML (vote_math, results 화이트리스트)]
-related_disclosures: [위임장권유참고서류, 공개매수신고서, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과]
+related_disclosures: [위임장권유참고서류, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과]
 related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 주총-결의]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
 created: 2026-05-01
