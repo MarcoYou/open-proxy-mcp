@@ -2,13 +2,13 @@
 type: tool
 title: proxy_contest
 domain: data
-scope: [summary, fight, litigation, signals, timeline, vote_math]
+scope: [summary, fight, litigation, signals, timeline, vote_math, tender_offer]
 data_source: [DART OpenAPI list.json (D/B/I) + document.xml (위임장 본문 정규식), KIND HTML (vote_math, results 화이트리스트)]
-related_disclosures: [위임장권유참고서류, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과]
+related_disclosures: [위임장권유참고서류, 공개매수신고서, 소송등의제기, 경영권분쟁소송, 대량보유상황보고서, 주주총회결과]
 related_concepts: [프록시-파이트, 위임장-권유, 5%-대량보유, 참석률, 감사위원-의결권-제한, 주총-결의]
 related_decisions: [DART-KIND-매핑-화이트리스트-2026-04]
 created: 2026-05-01
-updated: 2026-11-03
+updated: 2026-11-12
 ---
 
 # proxy_contest
@@ -35,7 +35,7 @@ proxy_contest(
 | 인자 | 타입 | 필수 | 설명 | 기본값 |
 |---|---|---|---|---|
 | company | str | yes | 회사명 / ticker / corp_code | - |
-| scope | str | no | 6종 (아래 참조) | "summary" |
+| scope | str | no | 7종 (아래 참조) | "summary" |
 | year | int | no | 사업연도 | 0 |
 | start_date / end_date | str | no | YYYYMMDD | "" |
 | lookback_months | int | no | 조사 구간 (개월) | 12 |
@@ -48,6 +48,7 @@ scope:
 - `signals`: 5% 대량보유 (목적 분류)
 - `timeline`: 전 이벤트 시계열
 - `vote_math`: 표 구조 (주총 결과 있을 때, 추정참석률·압박 신호)
+- `tender_offer`: 공개매수 신고서·설명서·결과보고서·의견표명서 **본문**. 신고서는 매수가격·수량·기간·결제일·목적 발췌, 결과보고서는 예정·응모·매수 주식수와 공개매수 후 보유비율, 의견표명서는 대상회사 의견(`찬성/반대/중립/유보`)을 칸 그대로(쪼개지 않음) 싣는다. 목적·조건·자금 절 번호는 `filing_section(rcept_no, no)` 의 `no` 와 같다(원문 `<TITLE ATOCID>`). `document_status` = `parsed` / `terms_absent`(값 칸 못 읽음 → 절을 직접 읽는다) / `form_unrecognized` / `no_body`(첨부만 바꾼 정정 — DART 014, 본문 파일 없음) / `fetch_failed` / `not_looked_up`. **누가 제안했나 = `fields.offerors`**(성명 · 회사/개인 · 대상회사와의 관계 칸 그대로 — 대상회사 본인이면 자기주식 공개매수, 계열사·최대주주 또는 임원·기타(제3자)로 갈린다)와 `purpose_checked`(경영권안정/M&A/지주회사요건충족/상장폐지/기타 체크 칸). 신고서는 「요약정보」 표에서, 결과보고서·의견표명서는 표지 「공개매수자/보고자」 줄에서 읽는다(제출인은 의견표명서에서 대상회사다). 정정신고서는 가격·수량이 바뀐다(고려아연 2024: 66만 → 75만 → 83만 → 89만 원) — 날짜가 가장 늦은 신고서를 기준으로 읽는다. 파서 `services/tender_offer.py`.
 
 ## 출력 schema (data dict)
 ```json
@@ -93,7 +94,7 @@ scope:
 ## Data sources
 - **DART API**: `list.json` (D/B/I) + `document.xml` (위임장 본문 행사방향 정규식)
 - **KIND**: vote_math만 (주총 결과 화이트리스트, rcept_no 80→00 변환)
-- 외부 호출: 일반 5회 (summary/fight 4-way 병렬 asyncio.gather) + 이름으로 주주측인 권유 참고서류 본문 최대 10건(캐시). litigation 파싱 시 미상 소송 본문 최대 30건 추가.
+- 외부 호출: 일반 5회 (summary/fight 4-way 병렬 asyncio.gather) + 이름으로 주주측인 권유 참고서류 본문 최대 10건(캐시). litigation 파싱 시 미상 소송 본문 최대 30건 추가. `tender_offer` 는 목록 호출을 늘리지 않고(위임장 조회가 이미 받은 행에서 가른다) 공개매수 공시 본문을 최대 12건(캐시) 연다 — 설명서는 신고서와 같아 뒤로 미룬다.
 
 ## Flow
 
@@ -181,6 +182,8 @@ sequenceDiagram
 - retail_activism 플랫폼 추가 시 화이트리스트 갱신 필요 (TODO).
 
 ## 변경 이력
+- 2026-11-12(이어서): **공개매수자(`offerors`)·목적 체크 칸·의견 문장 변형(중립/찬성 등)·증권예탁증권(KDR) 결과보고서·가로로 눕힌 결과표** 를 읽는다. 실제 회사 87곳(2021~2026, 제3자·자기주식·계열사·개인·펀드·외국법인·KDR·옛 서식)의 공시 약 420건으로 돌려 고쳤다 — 필수 칸(공개매수자·가격·수량·기간·목적 / 결과 주식수·가격) 누락 0건, 결과보고서 가격이 직전 신고서 가격과 어긋난 2건은 서로 다른 공개매수자의 경쟁 공개매수였다. 표지에 공개매수자 이름이 없는 정정본은 같은 제출인의 다른 공시에서 가져오고 `offerors_from` 으로 출처를 밝힌다. 옛 서식(2023 초 이전)은 기간이 표가 아니라 요약정보 한 줄이라 글에서 읽는다.
+- 2026-11-12: **`scope="tender_offer"` 추가** — 공개매수 신고서·설명서·결과보고서·의견표명서 본문을 읽는다. 종전엔 공시 목록(제목·날짜·제출인)만 나와 가격·수량·기간을 보려면 `filing_section` 으로 직접 열어야 했다. 칸 이름이 분명한 표만 값으로 뽑고 못 읽으면 `terms_absent` 와 원문 절 번호를 준다. `summary.tender_offer_filing_count` 도 추가. 고려아연 2024-09~11 실측: 신고서·정정 8건 가격·기간 읽음, 결과보고서 2건 응모·매수 읽음, 의견표명서 반대 읽음, `[첨부정정]` 3건 본문 파일 없음(014).
 - 2026-11-03: 의결권 대리행사 권유의 편을 **제출인 이름만이 아니라 서식의 「회사와의 관계」 칸으로** 정한다. 이름이 회사명과 달라 주주측(분쟁 신호)으로 잡히던 회사 본인 권유가 회사측으로 간다(법인명 표기 차이·지주사 명의). 최대주주·특수관계·계열이 낸 권유는 관계를 `stated_relation` 으로 싣고 편은 그대로 둔다. 권유자 지분·목적사항·권유 기간도 `solicitation_form` 으로 실린다. 이름으로 주주측인 권유 참고서류 본문을 최대 10건 더 연다.
 - 2026-10-24: **5% 보고 원문을 못 읽었는데 「시그널 없음 (정상)」으로 나가던 것을 고쳤다**(P1 묶음 1, 재무 점검 P1-#62) — `ownership_structure` 가 읽지 못한 ≥5% 행에 다는 표식(`doc_read_failed`)을 보면 신호 0건을 「정상」으로 내지 않고(`fetch_failed` → status `partial`), 신호가 일부 있어도 읽지 못한 건수를 `parsing_failures` 로 넘겨 `partial`(`filing_status=partial_failure`)로 낸다. 5% 보유자가 약식 보고뿐인 회사는 일시 실패 한 번도 partial 이 되는 과잉 경고를 받아들였다(능동 분류가 원문에 달린 경로가 코드상 있다). 5% 목록 조회 자체의 실패 판정(문구 접두어)은 그대로다.
 - 2026-10-23: 지분 맥락의 명부상 최대주주(`summary.top_holder`·`control_map.core_holder_block.top_holder`)가 지분율 첫 행이 아니라 공시 `relate` 칸이 「본인」인 행으로 정해진다(`ownership_structure` 와 같은 `_top_holder_summary`). 키는 그대로이고 이름·관계·지분율만 바뀐다 — 한미사이언스 2025: 신동국(발행회사 임원) 16.43% → 송영숙(본인) 3.38%; `related_total_pct`·`flags`·`observations` 는 그대로. 본인이 지분 최대인 회사는 값이 같다. 이 도구의 5% 블록 조회는 `as_of` 를 넘기지 않아 바뀌지 않는다.

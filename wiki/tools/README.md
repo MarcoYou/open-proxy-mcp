@@ -68,7 +68,7 @@ updated: 2026-10-24
 ### ⚔️ 분쟁 · 거래 · 리스크
 | 도구 | 무엇을 답하나 |
 |---|---|
-| [proxy_contest](proxy_contest.md) | 경영권 분쟁 신호 — 위임장·소송·5% 경영참여. 지분 맥락의 명부상 최대주주는 공시가 「본인」으로 적은 행 |
+| [proxy_contest](proxy_contest.md) | 경영권 분쟁 신호 — 위임장·소송·5% 경영참여·공개매수 본문(`scope=tender_offer`). 지분 맥락의 명부상 최대주주는 공시가 「본인」으로 적은 행 |
 | [corporate_deals](corporate_deals.md) | 회사·지분 인수/매각 (계열사 출자·회수) |
 | [order_contracts](order_contracts.md) | 수주·공급계약 (체결·해지, 매출 대비 규모) |
 | [risk_events](risk_events.md) | 리스크 사건 — 중대재해·횡령배임·생산중단 |

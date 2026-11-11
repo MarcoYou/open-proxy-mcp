@@ -25,6 +25,7 @@ from open_proxy_mcp.services.contracts import (
 from open_proxy_mcp.services.dart_safety import is_no_data
 from open_proxy_mcp.services.date_utils import format_iso_date, format_yyyymmdd, resolve_date_window
 from open_proxy_mcp.services.filing_search import search_filings_by_report_name
+from open_proxy_mcp.services.tender_offer import enrich_tender_offer_rows
 from open_proxy_mcp.services.ownership_structure import (
     _build_control_map,
     _latest_block_rows,
@@ -37,7 +38,7 @@ from open_proxy_mcp.services.ownership_structure import (
 from open_proxy_mcp.services.shareholder_meeting import build_shareholder_meeting_payload
 from open_proxy_mcp.services.ownership_parser import parse_holding_purpose, parse_holding_purpose_from_document
 
-_SUPPORTED_SCOPES = {"summary", "fight", "litigation", "signals", "timeline", "vote_math", "insiders"}
+_SUPPORTED_SCOPES = {"summary", "fight", "litigation", "signals", "timeline", "vote_math", "insiders", "tender_offer"}
 _PROXY_KEYWORDS = (
     "의결권대리행사권유",
     "위임장권유참고서류",
@@ -1687,6 +1688,16 @@ async def build_proxy_contest_payload(
             "filer_in_litigation": filer_key in litigation_filer_keys,
         })
 
+    # 공개매수 공시(신고서·설명서·결과보고서·의견표명서)는 위임장 조회가 이미 받아 둔 행에서 가른다 — 추가 목록 호출 0.
+    tender_rows = [r for r in enriched_proxy_rows if "공개매수" in re.sub(r"\s+", "", r.get("report_name") or "")]
+    tender_stats: dict[str, int] = {}
+    if scope == "tender_offer":
+        tender_stats = await enrich_tender_offer_rows(tender_rows)
+        if not tender_rows and not proxy_warning:
+            warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 공개매수 공시 없음 — 구간을 넓히려면 start_date·end_date 를 준다")
+        if tender_stats.get("not_looked_up"):
+            warnings.append(f"공개매수 공시 {tender_stats['not_looked_up']}건은 본문을 열지 않았다(한 번에 {len(tender_rows) - tender_stats['not_looked_up']}건까지) — 구간을 좁혀 다시 부른다")
+
     enriched_signal_rows: list[dict[str, Any]] = []
     for row in control_map.get("overlap_blocks", []):
         enriched_signal_rows.append({
@@ -1797,6 +1808,7 @@ async def build_proxy_contest_payload(
             "shareholder_side_count": len(shareholder_side_rows),
             "retail_activism_count": len(retail_activism_rows),
             "litigation_count": len(litigation_rows),
+            "tender_offer_filing_count": len(tender_rows),
             "litigation_dedup": litigation_dedup,
             "active_signal_count": len(activist_signals),
             "has_contest_signal": has_contest_signal,
@@ -1826,7 +1838,7 @@ async def build_proxy_contest_payload(
             "active_overlap_blocks": overlap_blocks,
         },
         "control_context": control_map,
-        "available_scopes": ["summary", "fight", "litigation", "signals", "timeline", "vote_math", "insiders"],
+        "available_scopes": ["summary", "fight", "litigation", "signals", "timeline", "vote_math", "insiders", "tender_offer"],
     }
     if scope in {"summary", "fight"}:
         data["fight"] = enriched_proxy_rows
@@ -1840,6 +1852,8 @@ async def build_proxy_contest_payload(
         data["insider_holdings"] = insiders
     if scope == "timeline":
         data["timeline"] = combined_timeline[:50]
+    if scope == "tender_offer":
+        data["tender_offer"] = {"rows": tender_rows, "document_stats": tender_stats}
 
     evidence_refs: list[EvidenceRef] = []
     if enriched_proxy_rows:

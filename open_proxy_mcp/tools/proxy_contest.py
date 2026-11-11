@@ -57,6 +57,76 @@ def _ko(m: dict, v) -> str:
     return m.get(str(v or ""), str(v or ""))
 
 
+_TENDER_KIND_KO = {"filing": "신고서", "prospectus": "설명서", "result": "결과보고서", "opinion": "의견표명서", "withdrawal": "철회"}
+_TENDER_STATUS_KO = {
+    "parsed": "읽음",
+    "terms_absent": "값 칸 못 읽음 — 원문 절을 직접 읽을 것",
+    "form_unrecognized": "아는 서식 아님 — 원문을 직접 볼 것",
+    "no_body": "본문 파일 없음(첨부만 바꾼 정정)",
+    "fetch_failed": "본문 조회 실패",
+    "not_looked_up": "본문 안 열음",
+}
+
+
+def _one_line(value) -> str:
+    return " ".join(str(value or "").split())
+
+
+def _render_tender_offer(data: dict) -> list[str]:
+    block = data.get("tender_offer") or {}
+    rows = block.get("rows") or []
+    lines = ["", "## tender_offer (공개매수 공시 — 값은 원문 그대로)"]
+    if not rows:
+        return lines + ["- 조사 구간에 공개매수 공시가 없다."]
+    lines += ["| 날짜 | 제출인 | 공개매수자(본문) | 공시명 | 본문 | 공시번호 |", "|------|--------|------------------|--------|------|----------|"]
+    for row in rows:
+        names = ", ".join(o["name"] for o in ((row.get("tender") or {}).get("fields") or {}).get("offerors", [])) or "-"
+        lines.append(f"| {row['disclosure_date']} | {row['filer_name']} | {_one_line(names)[:60]} | {row['report_name']} | "
+                     f"{_ko(_TENDER_STATUS_KO, row.get('document_status'))} | `{row['rcept_no']}` |")
+    for row in rows:
+        tender = row.get("tender")
+        if not tender:
+            continue
+        f = tender.get("fields") or {}
+        head = f"{row['disclosure_date']} {_ko(_TENDER_KIND_KO, tender.get('kind'))} `{row['rcept_no']}`"
+        lines += ["", f"### {head}"]
+        if f.get("offerors_from"):
+            lines.append(f"- (표지에 공개매수자 이름이 없는 정정본 — 같은 제출인의 `{f['offerors_from']}` 에서 가져옴)")
+        for o in f.get("offerors", []):
+            lines.append(f"- 공개매수자: {_one_line(o['name'])}"
+                         + (f" ({o['type']})" if o.get("type") else "")
+                         + (f" · 대상회사와의 관계: {_one_line(o['relation_to_target'])}" if o.get("relation_to_target") else ""))
+        if f.get("purpose_checked"):
+            lines.append("- 공개매수 목적(체크): " + " · ".join(f["purpose_checked"])
+                         + (f" — {_one_line(f['purpose_note'])[:200]}" if f.get("purpose_note") else ""))
+        for offer in f.get("offers", []):
+            lines.append(f"- {offer.get('stock', '')}: 매수가격 {_one_line(offer.get('price'))} · 수량 {_one_line(offer.get('quantity'))}"
+                         + (f" · 결제 {_one_line(offer['payment'])}" if offer.get("payment") else ""))
+        if f.get("period_start") or f.get("period_end"):
+            lines.append(f"- 공개매수 기간: {f.get('period_start', '?')} ~ {f.get('period_end', '?')}"
+                         + (f" · 결제일 {f['settlement_date']}" if f.get("settlement_date") else ""))
+        result = [(label, f[k]) for label, k in (("예정", "planned"), ("응모", "tendered"), ("매수", "purchased"), ("가격", "price")) if f.get(k)]
+        if result:
+            lines.append("- 결과: " + " · ".join(f"{label} {_one_line(v)}" for label, v in result)
+                         + (f" · 공개매수 후 보유비율 {f['post_stake_pct']}%" if f.get("post_stake_pct") else ""))
+        if f.get("opinion"):
+            lines.append(f"- 대상회사 의견: {f['opinion']}"
+                         + (f" (원문: …{_one_line(f['opinion_context'])}…)" if f.get("opinion_context") else ""))
+        for hint in f.get("opinion_hints", []) if not f.get("opinion") else []:
+            lines.append(f"- 의견 낱말 둘레 원문: …{_one_line(hint)}…")
+        if f.get("purpose_excerpt"):
+            lines.append(f"- 목적 원문 발췌: {_one_line(f['purpose_excerpt'])}")
+        hints = tender.get("read_hints") or {}
+        if hints:
+            names = {"purpose": "목적", "terms": "조건", "funding": "자금"}
+            lines.append("- 원문 절: " + " · ".join(
+                f"{names[k]} `filing_section(rcept_no=\"{row['rcept_no']}\", no=\"{n}\")`" for k, n in hints.items()))
+    stats = block.get("document_stats") or {}
+    if stats.get("not_looked_up"):
+        lines.append(f"\n- 본문을 열지 않은 공시 {stats['not_looked_up']}건 — 구간을 좁혀 다시 부른다.")
+    return lines
+
+
 _INSIDER_TOP_N = {"summary": 8, "signals": 12, "insiders": 40}
 
 
@@ -428,6 +498,9 @@ def _render(payload: dict[str, Any], scope: str) -> str:
         for row in data.get("timeline", [])[:30]:
             lines.append(f"| {row['date']} | {_ko(_CATEGORY_KO, row['category'])} | {row.get('actor', '')} | {_ko(_GROUP_KO, row.get('side'))} | {row['title']} | `{row['rcept_no']}` |")
 
+    if scope == "tender_offer":
+        lines.extend(_render_tender_offer(data))
+
     if scope == "vote_math":
         vote_math = data.get("vote_math", {})
         attendance = vote_math.get("attendance_estimate", {})
@@ -510,7 +583,14 @@ def register_tools(mcp):
         """desc: 위임장·소송·5% 경영참여 시그널 통합. **자동 분류 X 힌트 제공** (filer_has_5pct_active_block 등). 애널리스트 종합 판단.
         when: 경영권 분쟁, 주주 캠페인, 소송, 능동적 5% 보유, 표 대결 신호.
         rule: DART D/B/I만 (KIND false match 위험). 위임장 filer 3-way: company/shareholder/retail_activism(컨두잇·헤이홀더 등). has_contest_signal은 shareholder OR litigation OR external_active_block만. vote_math는 보수적, 승패 예측 X.
-        scope: `summary` / `fight` 위임장+힌트 / `litigation` 소송 **+ 공시 본문 원문 발췌** / `signals` 5% 대량보유 / `insiders` 임원·주요주주 소유상황(D002) 상세 / `timeline` 전 이벤트 / `vote_math` 표 구조
+        scope: `summary` / `fight` 위임장+힌트 / `litigation` 소송 **+ 공시 본문 원문 발췌** / `signals` 5% 대량보유 / `insiders` 임원·주요주주 소유상황(D002) 상세 / `timeline` 전 이벤트 / `vote_math` 표 구조 / `tender_offer` 공개매수 신고서·설명서·결과보고서·의견표명서 **본문**
+        tender_offer: `scope=tender_offer` 는 공개매수 공시를 열어 신고서의 **매수가격·수량·기간·결제일·목적 발췌**, 결과보고서의
+          **예정·응모·매수 주식수·공개매수 후 보유비율**, 의견표명서의 **대상회사 의견(찬성/반대/중립/유보)** 을 원문 그대로 싣는다.
+          값은 한 칸에 여러 값이 든 채(「최소 …주 최대 …주」) 나오며 쪼개지 않는다. 정정신고서는 가격·수량이 바뀌므로
+          **날짜가 가장 늦은 신고서·정정신고서**를 기준으로 읽어라. `document_status` 를 읽어라: `parsed` / `terms_absent`(값 칸을 못
+          읽음 — 절을 직접 읽는다) / `form_unrecognized` / `no_body`(첨부만 바꾼 정정 — DART 에 본문 파일이 없다, 앞선 신고서를 읽는다) / `fetch_failed` / `not_looked_up`(한 번에 12건까지만 연다). 목적·조건·자금
+          절 번호는 각 행의 「원문 절」에 `filing_section` 호출로 적혀 있다 — 못 읽은 값은 그 절을 직접 읽고 추정으로 채우지 마라.
+          **공개매수자(누가 제안했나)는 `fields.offerors`**(성명 · 회사/개인 · 대상회사와의 관계 칸 그대로)와 `purpose_checked`(경영권안정/M&A/상장폐지…)다 — 제출인은 신고서에선 공개매수자지만 의견표명서에선 대상회사다. 조회 기본 구간은 12개월이라 오래된 건은 `start_date`·`end_date` 를 준다.
         insiders: `summary`·`signals`·`insiders` 는 **임원·주요주주 특정증권등 소유상황보고(D002)** 를 함께 싣는다
           (`data.insider_holdings`). 5% 대량보유는 5% 이상만 잡으므로, **문턱 아래에서 지배주주·특수관계인이
           조금씩 사 모으는 움직임은 여기에만 남는다.** 보고자 단위로 접어 「누가 · 기간 · 순증감 · 최근 90일
