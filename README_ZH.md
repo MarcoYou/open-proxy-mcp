@@ -29,7 +29,7 @@ OpenProxy 是一个 MCP 服务器，它把**韩国上市公司**向韩国电子�
 
 ## 快速开始
 
-**无需安装，只需一个 DART API 密钥即可连接。** 带界面截图和示例的说明见 📘 [User Guide（英文 PDF，13 页）](docs/manual/OpenProxy_User_Guide.pdf)。
+**无需安装，只需一个 DART API 密钥即可连接。** 带界面截图和示例的说明见 📘 [User Guide（英文 PDF，14 页）](docs/manual/OpenProxy_User_Guide.pdf)。
 
 **1. 获取免费的 API 密钥** — 在 [English OpenDART](https://engopendart.fss.or.kr/) 注册并申请认证密钥（免费，立即发放）。
 

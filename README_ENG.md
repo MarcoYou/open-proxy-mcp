@@ -29,7 +29,7 @@ OpenProxy is an MCP server that structures the filings of **Korean listed compan
 
 ## Quick Start
 
-**Connect with one DART API key. Nothing to install.** For a walkthrough with screens and examples, see the 📘 [User Guide (PDF, 13 pages)](docs/manual/OpenProxy_User_Guide.pdf).
+**Connect with one DART API key. Nothing to install.** For a walkthrough with screens and examples, see the 📘 [User Guide (PDF, 14 pages)](docs/manual/OpenProxy_User_Guide.pdf).
 
 **1. Get a free API key** — sign up at the [English OpenDART portal](https://engopendart.fss.or.kr/) and request an authentication key (free, issued immediately).
 
