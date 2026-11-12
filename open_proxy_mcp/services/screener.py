@@ -36,6 +36,7 @@ from typing import Any, Awaitable, Callable, Iterable
 
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.amendment_table import card_summary, parse_amendment_table
+from open_proxy_mcp.services.tender_offer import TENDER_DOC_LOOKUPS, parse_tender_offer_document
 from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning
 
 # ── KST(공시 기준 시간대) ──────────────────────────────────────────────
@@ -1372,6 +1373,76 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     return {"detail_status": detail_status, "fields": fields}
 
 
+#: 공개매수 카드의 「공개매수자」를 채우려고 한 응답에서 열 신고서 수 상한 — 회사·제출인 한 쌍에 한 건이라 3개월 전체시장도 십수 건이다.
+_TENDER_OFFEROR_LOOKUPS = TENDER_DOC_LOOKUPS + 8
+
+
+async def _enrich_tender_offerors(page: list[dict]) -> dict[str, int]:
+    """공개매수 카드에 **누가 제안했나**(공개매수자·회사/개인·대상회사와의 관계·목적 체크)를 붙인다.
+
+    목록(list.json)에는 제출인뿐이고, 의견표명서는 제출인이 대상회사라 제출인만으로는 제안자를 알 수 없다. 신고서 요약정보 표에 있다.
+    `details` 와 무관하게 돈다(기간이 길면 details 가 꺼지지만 이 값은 그때 가장 필요하다) — 대신 **회사·제출인 한 쌍에 신고서 한 건**만 열고(캐시),
+    응답당 `_TENDER_OFFEROR_LOOKUPS` 건을 넘기지 않는다. 같은 쌍의 다른 카드(설명서·정정·결과보고서)는 그 값을 함께 받는다.
+    제출인이 대상회사인 의견표명서는 그 회사의 제안자가 한 쌍뿐일 때만 받는다(둘 이상이면 어느 공개매수에 대한 의견인지 몰라 비운다).
+    """
+    cards = [h for h in page if h["type"]["code"] == "tender_offer"]
+    stats = {"lookups": 0, "parsed": 0, "not_found": 0, "fetch_failed": 0, "not_looked_up": 0}
+    if not cards:
+        return stats
+
+    def key(h: dict) -> tuple[str, str]:
+        return (h.get("corp_code", ""), (h.get("flr_nm") or "").strip())
+
+    def rank(h: dict) -> tuple[int, int]:
+        # 원 신고서 > 설명서 > 정정본 > 결과보고서(이름만 있다), 같은 값이면 최신(접수번호 큰 쪽). 정정본에는 공개매수자 칸이 없는 서식이 있어 뒤로 둔다.
+        order = {"신고서": 0, "설명서": 1, "결과": 5}.get(h.get("subtype", ""), 9)
+        return (order + (3 if h.get("is_correction") else 0), -int(h.get("rcept_no") or 0))
+
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for h in cards:
+        if h.get("subtype") in {"신고서", "설명서", "결과"} and h.get("rcept_no"):
+            groups.setdefault(key(h), []).append(h)
+    ordered_groups = [sorted(v, key=rank)[:3] for v in groups.values()]  # 쌍마다 최대 세 건까지 차례로 시도
+    stats["not_looked_up"] = max(0, len(ordered_groups) - _TENDER_OFFEROR_LOOKUPS)
+    ordered_groups = ordered_groups[:_TENDER_OFFEROR_LOOKUPS]
+
+    client = get_dart_client()
+    info: dict[tuple[str, str], dict] = {}
+
+    async def one(cands: list[dict]) -> None:
+        for h in cands:
+            try:
+                doc = await client.get_document_cached(h["rcept_no"])
+            except Exception:  # noqa: BLE001 — 못 열면 다음 후보, 다 못 열면 카드는 그대로 나간다
+                stats["fetch_failed"] += 1
+                continue
+            stats["lookups"] += 1
+            fields = parse_tender_offer_document((doc or {}).get("html", "") or "", h.get("title", ""))["fields"]
+            offerors = fields.get("offerors") or []
+            if offerors:
+                stats["parsed"] += 1
+                info[key(h)] = {"offerors": offerors, "purpose": fields.get("purpose_checked") or [], "from_rcept_no": h["rcept_no"]}
+                return
+            stats["not_found"] += 1
+
+    sem = asyncio.Semaphore(_DETAILS_CONCURRENCY)
+
+    async def guarded(cands: list[dict]) -> None:
+        async with sem:
+            await one(cands)
+
+    await asyncio.gather(*(guarded(c) for c in ordered_groups))
+    for h in cards:
+        got = info.get(key(h))
+        if got is None:
+            mine = {v["from_rcept_no"]: v for (corp, filer), v in info.items() if corp == h.get("corp_code", "") and filer != key(h)[1]}
+            if len(mine) == 1:  # 의견표명서처럼 제출인이 대상회사인 카드
+                got = {**next(iter(mine.values())), "inferred": True}
+        if got:
+            h["offeror"] = got
+    return stats
+
+
 async def _fetch_amendment(hit: dict, running: dict) -> dict:
     """정정 카드에 「무엇이 바뀌었나」 — 회사가 붙인 정정 비교표를 원문 그대로 싣는다.
 
@@ -1718,6 +1789,12 @@ async def _build_screener_payload_impl(
                 f"details {_DETAILS_TOTAL_CALL_CAP}콜 러닝캡 도달 — 이 페이지의 일부 건은 "
                 "scan-only로 남았다. max_hits를 줄여 다시 부르면 전부 채워진다.")
 
+    tender_offeror_stats: dict[str, int] = {}
+    if any(h["type"]["code"] == "tender_offer" for h in page):
+        tender_offeror_stats = await _enrich_tender_offerors(page)
+        if tender_offeror_stats.get("not_looked_up"):
+            warnings.append(f"공개매수자 표시는 한 번에 {_TENDER_OFFEROR_LOOKUPS}쌍까지만 열었다 — {tender_offeror_stats['not_looked_up']}쌍은 비었다(max_hits 를 줄이거나 offset 으로 이어 부른다).")
+
     # scan-only(details 미실행) 건은 detail_status 명시
     for h in page:
         h.setdefault("detail_status", "scan_only" if not details_effective else
@@ -1763,7 +1840,8 @@ async def _build_screener_payload_impl(
                    "deduped_away": deduped_away,
                    "companion_merged": companion_merged,
                    "truncated_details": truncated_details,
-                   "truncated_paging": truncated_paging},
+                   "truncated_paging": truncated_paging,
+                   **({"tender_offeror": tender_offeror_stats} if tender_offeror_stats else {})},
         "paging": {"offset": offset, "page_size": max_hits,
                    "matched": total_hits, "returned": len(returned),
                    "has_more": has_more,

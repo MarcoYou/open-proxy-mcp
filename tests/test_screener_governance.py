@@ -133,3 +133,85 @@ def test_tender_offer_cards_point_to_proxy_contest_and_show_who_filed(monkeypatc
     assert {h["suggested_tool"] for h in tender} == {"proxy_contest"}
     text = T._render_digest(result)
     assert "제출인 알파홀딩스" in text and "제출인 시험회사" in text and "`proxy_contest`" in text
+
+
+def _tender_card(rcept, subtype, filer, corp="00000001", correction=False):
+    return {"rcept_no": rcept, "corp_code": corp, "flr_nm": filer, "subtype": subtype, "title": f"공개매수{subtype}",
+            "is_correction": correction, "type": {"code": "tender_offer"}}
+
+
+def test_tender_cards_get_offeror_type_from_one_filing_per_company_and_filer(monkeypatch):
+    from pathlib import Path
+
+    html = (Path(__file__).parent / "dart_responses" / "tender_offer" / "offer_filing_20240913000040.html").read_text(encoding="utf-8")
+    opened = []
+
+    class Doc:
+        async def get_document_cached(self, rcept_no):
+            opened.append(rcept_no)
+            return {"html": html}
+
+    monkeypatch.setattr(S, "get_dart_client", lambda: Doc())
+    page = [
+        _tender_card("20260909000003", "설명서", "알파홀딩스"),
+        _tender_card("20260909000002", "신고서", "알파홀딩스"),
+        _tender_card("20260910000004", "신고서", "알파홀딩스", correction=True),
+        _tender_card("20260915000009", "결과", "알파홀딩스"),
+        _tender_card("20260912000001", "의견표명", "시험회사"),  # 제출인이 대상회사
+    ]
+    stats = asyncio.run(S._enrich_tender_offerors(page))
+    assert opened == ["20260909000002"]  # 쌍당 원 신고서 한 건만(읽히면 거기서 멈춘다)
+    assert stats["parsed"] == 1 and stats["lookups"] == 1
+    for card in page:
+        assert [o["name"] for o in card["offeror"]["offerors"]] == ["주식회사 한국기업투자홀딩스", "주식회사 영풍"]
+    assert page[-1]["offeror"].get("inferred") is True and "inferred" not in page[0]["offeror"]
+
+
+def test_ambiguous_opinion_card_gets_no_offeror_when_company_has_two_offerors(monkeypatch):
+    from pathlib import Path
+
+    html = (Path(__file__).parent / "dart_responses" / "tender_offer" / "offer_filing_20240913000040.html").read_text(encoding="utf-8")
+
+    class Doc:
+        async def get_document_cached(self, rcept_no):
+            return {"html": html}
+
+    monkeypatch.setattr(S, "get_dart_client", lambda: Doc())
+    page = [_tender_card("20260909000002", "신고서", "알파"), _tender_card("20260909000012", "신고서", "베타"),
+            _tender_card("20260912000001", "의견표명", "시험회사")]
+    asyncio.run(S._enrich_tender_offerors(page))
+    assert "offeror" in page[0] and "offeror" in page[1] and "offeror" not in page[2]
+
+
+def test_offeror_line_is_rendered_on_the_card():
+    from open_proxy_mcp.tools import screener as T
+
+    result = {"mode": "digest", "period": {"label": "x", "bgn_de": "20260101", "end_de": "20260131"},
+              "universe": {"label": "전체시장"}, "counts": {}, "paging": {}, "warnings": [], "types": {"selected": ["tender_offer"]},
+              "hits": [{"corp_name": "시험회사", "stock_code": "000001", "mktcap_won": 1e11, "stage": "신고서(접수)", "type": {"code": "tender_offer", "label": "공개매수"},
+                        "flr_nm": "알파", "title": "공개매수신고서", "rcept_no": "20260105000001", "dart_url": "u", "suggested_tool": "proxy_contest",
+                        "offeror": {"offerors": [{"name": "알파 주식회사", "type": "회사", "relation_to_target": "대상회사의 최대주주 또는 임원"}], "purpose": ["상장폐지"]}}]}
+    text = T._render_digest(result)
+    assert "공개매수자: 알파 주식회사(회사) · 대상회사의 최대주주 또는 임원 · 목적 상장폐지" in text
+
+
+def test_pair_without_original_filing_falls_back_to_next_candidate(monkeypatch):
+    from pathlib import Path
+
+    named = (Path(__file__).parent / "dart_responses" / "tender_offer" / "result_20241017000004.html").read_text(encoding="utf-8")
+    bare = "<TABLE><TR><TD>항 목</TD><TD>정정사유</TD></TR></TABLE>"
+    opened = []
+
+    class Doc:
+        async def get_document_cached(self, rcept_no):
+            opened.append(rcept_no)
+            return {"html": bare if rcept_no == "20260910000004" else named}
+
+    monkeypatch.setattr(S, "get_dart_client", lambda: Doc())
+    page = [_tender_card("20260910000004", "신고서", "알파", correction=True),   # 정정본: 이름 칸이 없다
+            _tender_card("20260915000009", "결과", "알파")]                      # 결과보고서: 표지에 이름이 있다
+    stats = asyncio.run(S._enrich_tender_offerors(page))
+    assert opened == ["20260910000004", "20260915000009"]  # 정정본 → 결과보고서 순으로 시도
+    assert stats["not_found"] == 1 and stats["parsed"] == 1
+    assert [o["name"] for o in page[0]["offeror"]["offerors"]] == ["주식회사 한국기업투자홀딩스", "주식회사 영풍"]
+    assert page[1]["offeror"]["from_rcept_no"] == "20260915000009"
