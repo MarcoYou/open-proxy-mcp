@@ -54,8 +54,10 @@ _CATEGORIES: dict[str, dict[str, Any]] = {
     "serious_accident": {"label": "중대재해", "keywords": ("중대재해",)},
     "embezzlement": {"label": "횡령·배임", "keywords": ("횡령",)},
     "derivative_loss": {"label": "파생상품손실", "keywords": ("파생상품거래손실",)},
-    "rehabilitation": {"label": "회생·부도", "keywords": ("회생절차", "부도", "은행거래정지")},
-    "production_halt": {"label": "생산중단·영업정지", "keywords": ("생산중단", "영업정지")},
+    # 261114: `회생계획`(인가·즉시항고) 제목이 안 걸렸다. 파산·연체는 뒤의 `insolvency` — 여기 넣으면 거래정지 분류를 가로챈다.
+    "rehabilitation": {"label": "회생·부도", "keywords": ("회생절차", "회생계획", "부도", "은행거래정지")},
+    # `거래처와의거래중단`·`생산재개` 는 같은 사건의 앞뒤다(한 달 표본 10건·1건).
+    "production_halt": {"label": "생산중단·영업정지", "keywords": ("생산중단", "생산재개", "영업정지", "거래처와의거래중단")},
     "dissolution": {"label": "해산", "keywords": ("해산사유",)},
 }
 
@@ -79,7 +81,7 @@ _CATEGORY_CHANNELS: dict[str, tuple[str, ...]] = {
 # 다른 카드를 묻는다. 켜려면 category 로 지정한다.
 _ACTIVE_CATEGORIES = (
     "serious_accident", "embezzlement", "production_halt",
-    "trading_halt", "listing_review", "litigation", "capital_impairment",
+    "trading_halt", "listing_review", "insolvency", "unfaithful_disclosure", "litigation", "capital_impairment",
 )
 _MUTED_CATEGORIES = tuple(c for c in _CATEGORIES if c not in _ACTIVE_CATEGORIES)
 

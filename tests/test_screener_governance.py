@@ -43,7 +43,9 @@ def test_default_core_is_unchanged_and_all_contains_new_explicit_types():
     assert core == ["order", "treasury", "dividend", "dilutive", "agm_notice", "ownership5", "earnings"]
     assert {S._BY_CODE[code]["scan_code"] for code in core} == {"I001", "B001", "D001", "I002"}
     all_types, _ = S._resolve_types("all")
-    assert set(all_types) == set(S._BY_CODE)
+    # 261114: 발견 전용 유형은 `all` 밖(`discovery` 프리셋)이다 — 스캔 코드가 늘어 코드당 페이지 몫이 줄지 않게.
+    assert set(all_types) | set(S.DISCOVERY_PRESET) == set(S._BY_CODE)
+    assert not set(all_types) & set(S.DISCOVERY_PRESET)
     assert {"tender_offer", "proxy_solicitation"} <= set(all_types)
     assert len(S.GOVERNANCE_PRESET) == 8
 

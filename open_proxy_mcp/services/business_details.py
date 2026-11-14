@@ -1208,7 +1208,30 @@ def _extract_node_tree(main_html: str) -> list[dict]:
         for dl in [d for d in last_at if d > lvl]:
             del last_at[dl]
         nodes.append(vals)
-    return nodes
+    return nodes or _single_document_node(main_html)
+
+
+#: 문서가 하나뿐인 공시(거래소 수시공시 서식 등)는 뷰어에 목차(treeData)가 없고, 첫 화면을 여는 호출 한 줄만 있다.
+_SINGLE_DOC_CALL = re.compile(
+    r'viewDoc\(\s*"(\d{14})"\s*,\s*"(\d+)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"')
+_VIEWER_TITLE = re.compile(r"<title>\s*([^<]*?)\s*</title>", re.I)
+
+
+def _single_document_node(main_html: str) -> list[dict]:
+    """목차 없는 공시 → 문서 전체를 가리키는 절 하나. 없으면 빈 목록(종전과 같다).
+
+    거래소 서식(주식소각결정·단일판매공급계약 등 접수번호 9번째 자리 8·9)이 이 꼴이라, 목차가 없다는 이유로
+    원문 절 읽기가 「목차를 찾지 못했습니다」로 끝났다. 제목은 뷰어 `<title>` 의 「회사/공시명/날짜」에서 공시명을 쓴다.
+    """
+    call = _SINGLE_DOC_CALL.search(main_html or "")
+    if not call:
+        return []
+    title = _VIEWER_TITLE.search(main_html)
+    parts = [x.strip() for x in (title.group(1) if title else "").split("/")]
+    text = parts[1] if len(parts) >= 3 and parts[1] else "본문"
+    rcp, dcm, ele, offset, length, dtd = call.groups()
+    return [{"lvl": 1, "text": text, "rcpNo": rcp, "dcmNo": dcm, "eleId": ele, "offset": offset,
+             "length": length, "dtd": dtd, "parent_text": None}]
 
 
 def _node_fetchable(n: dict) -> bool:

@@ -71,7 +71,7 @@ updated: 2026-10-24
 | [proxy_contest](proxy_contest.md) | 경영권 분쟁 신호 — 위임장·소송·5% 경영참여·공개매수 본문(`scope=tender_offer`). 지분 맥락의 명부상 최대주주는 공시가 「본인」으로 적은 행 |
 | [corporate_deals](corporate_deals.md) | 회사·지분 인수/매각 (계열사 출자·회수) |
 | [order_contracts](order_contracts.md) | 수주·공급계약 (체결·해지, 매출 대비 규모) |
-| [risk_events](risk_events.md) | 리스크 사건 — 중대재해·횡령배임·생산중단 |
+| [risk_events](risk_events.md) | 리스크 사건 — 중대재해·횡령배임·생산중단·거래정지·상장적격성·파산·연체·불성실공시법인·소송·자본잠식 |
 | [financial_notes](financial_notes.md) | **금융사 재무제표 주석 원형 추출** — 사용제한 예치금·담보제공자산(→unencumbered cash)과 투자자산 유형별 구성 FVPL·FVOCI·상각후원가(→유형별 헤어컷). 연결/별도·시점·축·단위·뺄 계정을 판정해 함께 낸다 |
 | [director_news](director_news.md) | 이사 후보 **부정 뉴스** 점검 — 공시에 안 나오는 횡령·배임·제재를 훑는다. 동명이인은 가르지 못한다 |
 

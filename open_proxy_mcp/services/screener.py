@@ -146,6 +146,8 @@ def _normalize_report_nm(report_nm: str) -> str:
 CORE_PRESET = ["order", "treasury", "dividend", "dilutive", "agm_notice", "ownership5", "earnings"]
 GOVERNANCE_PRESET = ["tender_offer", "proxy_solicitation", "control_change", "litigation",
                      "treasury", "ownership5", "restructuring", "stake_deal"]
+#: 발견 전용 묶음(261114) — 아래 레지스트리에서 `in_all: False` 인 유형 전부. 레지스트리 뒤에서 채운다.
+DISCOVERY_PRESET: list[str] = []
 
 # details 대상 Tier1 여섯 + scan-only Tier2/3. scan_codes 합집합이 실제 스캔 코드가 된다.
 TYPE_REGISTRY: list[dict[str, Any]] = [
@@ -157,11 +159,22 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "max_items": 40, "detail_kind": "order",
         "force_keywords": ["해지", "정정"],
     },
+    # 🔴 **`treasury` 앞에 둔다**(첫 매치가 이긴다). 「자기주식취득결과보고서」는 `자기주식취득` 을 품어 결정 공시로 분류됐는데,
+    #    결과보고서는 E001 에 살아 그 유형의 스캔(B001·I001)에는 나온 적이 없다 — 분류만 틀리고 발견은 안 되던 자리다(한 달 53건).
+    {
+        "code": "treasury_result", "label": "자기주식 결과보고·신탁 상황", "tier": 3,
+        "scan_code": "E001", "extra_scan_codes": ("E002",),
+        "matchers": [("취득결과", ["자기주식취득결과보고서"]), ("처분결과", ["자기주식처분결과보고서"]),
+                     ("신탁해지결과", ["신탁계약해지결과보고서"]), ("신탁취득상황", ["신탁계약에의한취득상황보고서"])],
+        "max_items": 40, "detail_kind": None, "force_keywords": ["정정"],
+        "opt_in": True, "interpretation": "discovery_only", "in_all": False,
+    },
     {
         "code": "treasury", "label": "자기주식", "tier": 1,
-        "scan_code": "B001",
+        # 소각 결정은 거래소 서식(I001)이고 제목이 「주식소각결정」이라 「자기주식」 낱말이 없다 — 261114 한 달 표본 112건이 통째로 빠져 있었다.
+        "scan_code": "B001", "extra_scan_codes": ("I001",),
         "matchers": [
-            ("소각", ["자기주식소각"]),
+            ("소각", ["자기주식소각", "주식소각결정"]),
             ("취득신탁해지", ["자기주식취득신탁계약해지"]),
             ("취득신탁", ["자기주식취득신탁계약체결"]),
             ("처분", ["자기주식처분"]),
@@ -230,7 +243,7 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "matchers": [("합병", ["회사합병결정", "분할합병결정"]),
                      ("분할", ["회사분할결정"]),
                      ("영업양수도", ["영업양수결정", "영업양도결정"]),
-                     ("주식교환", ["주식의포괄적교환", "주식의포괄적이전"])],
+                     ("주식교환", ["주식의포괄적교환", "주식의포괄적이전", "주식교환이전결정"])],
         "max_items": 20, "detail_kind": None, "force_keywords": ["정정"],
     },
     {
@@ -258,8 +271,11 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
     {
         "code": "insider10", "label": "임원·주요주주 소유상황", "tier": 3,
         "scan_code": "D002",
+        "extra_scan_codes": ("D005",),   # 거래계획(사전공시)·그 철회는 D005
         "matchers": [("소유상황", ["임원·주요주주특정증권등소유상황보고서",
-                                   "임원주요주주특정증권등소유상황보고서"])],
+                                   "임원주요주주특정증권등소유상황보고서"]),
+                     ("거래계획철회", ["특정증권등거래계획철회보고서"]),
+                     ("거래계획", ["특정증권등거래계획보고서"])],
         "max_items": 40, "detail_kind": None, "force_keywords": ["정정"],
         "opt_in": True,  # 임원 소유상황은 매우 노이즈 → 디제스트 디폴트 제외
     },
@@ -281,9 +297,77 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "max_items": 20, "detail_kind": None, "force_keywords": ["정정"],
         "opt_in": True, "interpretation": "discovery_only", "dedup_by_filer": True,
     },
+    # ── 발견 전용(261114) — 한 달 표본(코스피·코스닥 11,477건)에서 **어느 유형에도 안 걸리던 제목**을 서식 계열로 묶었다.
+    #    전부 opt-in·scan-only 다: 기본 디제스트·공시 원장에는 들어가지 않고(원장 값이 안 바뀐다), 이름을 불러야 나온다.
+    #    본문은 카드의 접수번호로 원문 절 읽기(`filing_section`)를 부른다 — 값을 뽑는 파서를 두지 않았다.
+    #    scan_code 는 그 제목이 실제로 사는 상세유형(표본에서 접수번호로 대조).
+    #    `all` 에는 넣지 않는다(`in_all: False`) — 스캔 코드가 7개에서 16개로 늘면 코드당 페이지 몫이 42 → 18 로 줄어
+    #    한 달 창의 I001(약 33쪽)이 잘린다. 이 묶음은 `discovery` 프리셋이나 유형 이름으로 부른다.
+    *[{"tier": 3, "max_items": 40, "detail_kind": None, "force_keywords": ["정정"], "opt_in": True,
+       "interpretation": "discovery_only", "in_all": False, **t} for t in (
+        {"code": "earnings_confirmed", "label": "확정 실적(매출·손익 30% 변동)", "scan_code": "I001",
+         "matchers": [("손익구조변동", ["매출액또는손익구조30%"])]},
+        {"code": "stock_split", "label": "주식병합·분할", "scan_code": "I001",
+         "matchers": [("병합", ["주식병합결정"]), ("분할", ["주식분할결정"])]},
+        {"code": "major_holder_change", "label": "최대주주등 소유주식 변동", "scan_code": "I004",
+         "matchers": [("변동신고", ["최대주주등소유주식변동신고서"])]},
+        {"code": "related_party", "label": "특수관계인·계열사 거래", "scan_code": "J001",
+         "matchers": [("유상증자참여", ["특수관계인의유상증자참여"]),
+                      ("내부거래", ["특수관계인과의내부거래", "동일인등출자계열회사와의"]),
+                      ("금융거래", ["계열금융회사의약관에의한금융거래", "약관에의한금융거래"]),
+                      ("특수관계인거래", ["특수관계인"])]},
+        {"code": "guarantee_lending", "label": "채무보증·담보·대여·차입", "scan_code": "I001",
+         "matchers": [("채무보증", ["타인에대한채무보증결정"]), ("담보제공", ["타인에대한담보제공결정"]),
+                      ("금전대여", ["금전대여결정"]), ("차입", ["단기차입금증가결정"]), ("채무인수", ["채무인수결정"])]},
+        {"code": "asset_deal", "label": "시설투자·유형자산·사채권 양수도", "scan_code": "I001", "extra_scan_codes": ("B001",),
+         "matchers": [("시설투자", ["신규시설투자"]),
+                      ("유형자산", ["유형자산취득결정", "유형자산처분결정", "유형자산양수결정", "유형자산양도결정"]),
+                      ("사채권", ["주권관련사채권"]), ("자산양수도", ["중요한자산양수도결정"])]},
+        {"code": "fair_disclosure", "label": "공정공시(주주환원 안내·실적 전망·경영계획)", "scan_code": "I002",
+         "matchers": [("실적전망", ["영업실적등에대한전망"]), ("경영계획", ["장래사업경영계획"]),
+                      ("수시공시", ["수시공시의무관련사항"])]},
+        {"code": "earnings_schedule", "label": "결산실적 공시 예고", "scan_code": "I001",
+         "matchers": [("예고", ["결산실적공시예고"])]},
+        {"code": "capital_followup", "label": "증자·사채·감자 후속(조정·행사·발행결과·만기전취득·매도)", "scan_code": "I001",
+         "extra_scan_codes": ("B001", "I003"),
+         "matchers": [("가액조정", ["가액의조정", "가액조정"]),
+                      ("권리행사", ["전환청구권행사", "교환청구권행사", "신주인수권행사", "청구권신주인수권교환청구권행사"]),
+                      ("발행결과", ["증권발행결과", "주식관련사채등의발행결과"]),
+                      ("청약결과", ["주식관련사채등의청약결과"]),
+                      ("발행가액", ["최종발행가액확정", "1차발행가액결정", "신주발행가액"]),
+                      ("만기전취득", ["만기전취득", "만기전사채취득"]),
+                      ("사채매도", ["자기전환사채매도", "자기신주인수권부사채매도", "자기교환사채매도"]),
+                      ("매수선택권", ["전환사채매수선택권"]),
+                      ("감자완료", ["감자완료"]),
+                      ("자본성증권", ["자본으로인정되는채무증권", "상각형조건부자본증권"])]},
+        {"code": "restructuring_followup", "label": "합병 등 종료보고", "scan_code": "E003",
+         "matchers": [("종료보고", ["합병등종료보고서"])]},
+        {"code": "officer_change", "label": "독립이사·대표이사 변동", "scan_code": "E005", "extra_scan_codes": ("I001",),
+         "matchers": [("독립이사", ["독립이사의선임", "사외이사의선임"]),
+                      ("대표이사", ["대표이사변경", "대표이사(대표집행임원)변경"])]},
+        {"code": "stock_option", "label": "주식매수선택권 부여·행사", "scan_code": "E004", "extra_scan_codes": ("I001",),
+         "matchers": [("부여", ["주식매수선택권부여"]), ("행사", ["주식매수선택권행사"])]},
+        {"code": "value_up_plan", "label": "기업가치 제고 계획", "scan_code": "I001",
+         "matchers": [("예고", ["기업가치제고계획예고"]), ("계획", ["기업가치제고계획"])]},
+        # 임상시험 계획·승인·결과, 품목허가, 기술이전, 대형 계약이 이 서식으로 온다(한 달 123건 중 임상·허가 40건). 무엇에 관한 것인지는
+        # 제목 괄호에 있다 — 값·내용은 `risk_events` 의 같은 이름 분류가 읽는다. 최대주주변경을 수반하는 양수도 계약은 앞의 `control_change` 가 먼저 가져간다.
+        {"code": "investment_judgment", "label": "투자판단 주요경영사항(임상·허가·기술이전·계약)", "scan_code": "I001",
+         "matchers": [("투자판단", ["투자판단관련주요경영사항"])]},
+        {"code": "withdrawal_notice", "label": "기타주요경영사항(결정 철회 등)", "scan_code": "I001",
+         "matchers": [("철회", ["기타주요경영사항"])]},
+        {"code": "voluntary_disclosure", "label": "자율공시(기타경영사항)", "scan_code": "I001",
+         "matchers": [("자율공시", ["기타경영사항"])]},
+    )],
 ]
 
 _BY_CODE = {t["code"]: t for t in TYPE_REGISTRY}
+DISCOVERY_PRESET.extend(t["code"] for t in TYPE_REGISTRY if not t.get("in_all", True))
+
+
+def scan_codes_of(type_code: str) -> tuple[str, ...]:
+    """그 유형의 제목이 사는 상세유형 전부 — 첫째가 주 코드(`scan_code`), 나머지는 `extra_scan_codes`."""
+    t = _BY_CODE[type_code]
+    return (t["scan_code"], *t.get("extra_scan_codes", ()))
 #: 원장 라벨도 그대로 받는다 — 표에 보이는 이름을 사용자가 되돌려 주는 일이 흔하다.
 _LABEL_TO_CODE = {t["label"].strip().lower(): t["code"] for t in TYPE_REGISTRY if t.get("label")}
 
@@ -301,15 +385,32 @@ _SUGGESTED_TOOL = {
     "control_change": "ownership_structure", "litigation": "risk_events",
     # 공개매수는 한 건의 가격·수량·기간·결과·대상회사 의견을 `proxy_contest(scope="tender_offer")` 가 원문에서 읽는다.
     "tender_offer": "proxy_contest", "proxy_solicitation": "governance_screen",
+    # 발견 전용 유형(261114) — 같은 주제를 읽는 도구가 있으면 그것, 없으면 원문 절 읽기.
+    "earnings_confirmed": "provisional_earnings", "treasury_result": "treasury_share",
+    "major_holder_change": "ownership_structure", "value_up_plan": "value_up",
+    "capital_followup": "dilutive_issuance", "investment_judgment": "risk_events",
+    **{c: "filing_section" for c in (
+        "stock_split", "related_party", "guarantee_lending", "asset_deal", "fair_disclosure", "earnings_schedule",
+        "restructuring_followup", "officer_change", "stock_option", "withdrawal_notice", "voluntary_disclosure")},
 }
 
 
 # ── 분류기 ─────────────────────────────────────────────────────────────
 
+#: 서식명(첫 괄호 앞)이 이 낱말이면 **회사의 결정 공시가 아니다** — 괄호 속에 원 공시명을 안고 올 뿐이다.
+#:   · `정정명령부과(2026.10.30.제출주요사항보고서(회사합병결정))` — 금감원 처분인데 합병 결정으로 분류됐다(261114 표본).
+#:   · `효력발생안내(…제출증권신고서(주식의포괄적교환이전))` — 안내문.
+#:   · `주권매매거래정지(단일판매ㆍ공급계약체결)` — 거래소 조치인데 수주 체결로 분류됐다. 거래정지는 `risk_events` 가 읽는다.
+_NOT_A_DECISION_HEADS = ("정정명령부과", "정정신고서제출요구", "효력발생안내", "매매거래정지")
+
+
 def classify(report_nm: str) -> tuple[str | None, str, bool]:
     """report_nm → (type_code, subtype_label, is_correction). 매치 실패 시 (None, "", corr)."""
     is_corr = bool(_CORRECTION_RE.match(report_nm or ""))
     core = _normalize_report_nm(report_nm)
+    head = re.split(r"[(（]", core, maxsplit=1)[0]
+    if any(k in head for k in _NOT_A_DECISION_HEADS):
+        return None, "", is_corr
     for t in TYPE_REGISTRY:
         for subtype, keywords in t["matchers"]:
             for kw in keywords:
@@ -397,6 +498,30 @@ from open_proxy_mcp.services.period_words import (  # noqa: E402
 
 #: 유형 — 말 → 코드. TYPE_REGISTRY 의 label 도 자동으로 받는다(아래에서 합친다).
 _NL_TYPES = {
+    # 발견 전용 유형(261114) — **앞에 둔다**: 못 알아들은 말은 이 사전을 위에서부터 부분 일치로 훑는데, 「주식분할」이 뒤의 「분할」,
+    #   「확정실적」이 뒤의 「실적」에 먼저 걸리면 안 된다. 그래서 여기 말은 다른 유형의 말을 품지 않는 것만 둔다.
+    "투자판단": "investment_judgment", "임상": "investment_judgment", "품목허가": "investment_judgment",
+    "기술이전": "investment_judgment", "기술수출": "investment_judgment",
+    "주식병합": "stock_split", "주식분할": "stock_split", "액면분할": "stock_split", "액면병합": "stock_split",
+    "확정실적": "earnings_confirmed", "손익구조": "earnings_confirmed",
+    "실적예고": "earnings_schedule", "결산실적예고": "earnings_schedule", "실적발표일정": "earnings_schedule",
+    "공정공시": "fair_disclosure", "실적전망": "fair_disclosure", "가이던스": "fair_disclosure",
+    "경영계획": "fair_disclosure", "주주환원안내": "fair_disclosure",
+    "채무보증": "guarantee_lending", "담보제공": "guarantee_lending", "금전대여": "guarantee_lending",
+    "단기차입": "guarantee_lending",
+    "시설투자": "asset_deal", "유형자산": "asset_deal",
+    "특수관계인": "related_party", "내부거래": "related_party", "계열사거래": "related_party",
+    "소유주식변동": "major_holder_change", "최대주주지분변동": "major_holder_change",
+    "자사주결과": "treasury_result", "취득결과": "treasury_result", "신탁해지결과": "treasury_result",
+    "전환가액조정": "capital_followup", "리픽싱": "capital_followup", "전환청구": "capital_followup",
+    "만기전취득": "capital_followup", "발행결과": "capital_followup", "청약결과": "capital_followup",
+    "감자완료": "capital_followup", "영구채": "capital_followup",
+    "합병종료": "restructuring_followup", "종료보고": "restructuring_followup",
+    "독립이사": "officer_change", "사외이사": "officer_change", "대표이사": "officer_change",
+    "스톡옵션": "stock_option", "주식매수선택권": "stock_option",
+    "밸류업": "value_up_plan", "기업가치제고": "value_up_plan",
+    "결정철회": "withdrawal_notice", "철회공시": "withdrawal_notice",
+    "자율공시": "voluntary_disclosure",
     "거버넌스": "governance", "지배구조": "governance",
     "공개매수": "tender_offer", "공개매수신고서": "tender_offer", "tender": "tender_offer",
     "위임장": "proxy_solicitation", "위임장권유": "proxy_solicitation", "proxy": "proxy_solicitation",
@@ -463,10 +588,18 @@ def _nl_period(period: str, start_date: str, end_date: str,
 def _nl_types(types: str) -> str:
     """말 → 코드 목록. 못 알아들은 조각은 그대로 넘겨 원래 검증이 걸러낸다."""
     raw = (types or "").strip()
-    if not raw or raw.lower() in ("core", "all", "governance"):
+    if not raw or raw.lower() in ("core", "all", "governance", "discovery"):
         return raw or "core"
+    if raw.replace(" ", "") in ("그밖의공시", "그밖", "기타공시", "발견"):
+        return "discovery"
     out, unknown = [], []
-    for tok in re.split(r"[,\s·/]+", raw):
+    # 라벨을 통째로 되돌려 준 조각은 쪼개기 전에 받는다 — 「자기주식 결과보고·신탁 상황」처럼 라벨 안에 공백·가운뎃점이 있으면
+    #   아래 토막 내기가 라벨을 부숴 딴 유형(「자기주식」→ treasury)으로 읽는다.
+    pieces: list[str] = []
+    for part in raw.split(","):
+        code = _LABEL_TO_CODE.get(part.strip().lower())
+        pieces.extend([code] if code else re.split(r"[\s·/]+", part))
+    for tok in pieces:
         t = tok.strip().lower()
         if not t:
             continue
@@ -1479,9 +1612,11 @@ def _resolve_types(types: str) -> tuple[list[str], list[str]]:
     if spec in ("", "core"):
         return list(CORE_PRESET), notices
     if spec == "all":
-        return [t["code"] for t in TYPE_REGISTRY], notices
+        return [t["code"] for t in TYPE_REGISTRY if t.get("in_all", True)], notices
     if spec == "governance":
         return list(GOVERNANCE_PRESET), notices
+    if spec == "discovery":
+        return list(DISCOVERY_PRESET), notices
     codes = [c.strip() for c in re.split(r"[,\s]+", spec) if c.strip()]
     valid = [c for c in codes if c in _BY_CODE]
     unknown = [c for c in codes if c not in _BY_CODE]
@@ -1579,7 +1714,7 @@ async def _build_screener_payload_impl(
             warnings.append("기간>7일 → details는 preview(유형별 캡 1/2)로 제한했다.")
 
     # ── scan: 선택 유형이 쓰는 detail 코드 합집합만 스캔 ───────────────
-    scan_codes = sorted({_BY_CODE[c]["scan_code"] for c in sel_types})
+    scan_codes = sorted({code for c in sel_types for code in scan_codes_of(c)})
     # 코드 하나가 쓸 페이지 = 요청당 예산 ÷ 코드 수. 코드가 늘어도 한 요청의 총 콜은 그대로다.
     max_pages = list_pages_per_code(len(scan_codes))
     scan_status = "ok"

@@ -124,8 +124,9 @@ def test_type_words_map_to_codes(raw, out):
 def test_registry_labels_are_accepted():
     """표에 보이는 라벨을 사용자가 되돌려 주는 일이 흔하다 — 원장에서 역인덱스를 만든다."""
     from open_proxy_mcp.services.screener import TYPE_REGISTRY
-    for t in TYPE_REGISTRY[:4]:
+    for t in TYPE_REGISTRY:      # 261114: 앞 넷만 보던 것을 전부로 — 라벨에 공백·가운뎃점이 든 유형이 생겼다
         assert _nl_types(t["label"]) == t["code"], t["label"]
+    assert _nl_types("자기주식 결과보고·신탁 상황, 배당") == "treasury_result,dividend"
 
 
 def test_duplicates_collapse_and_order_is_kept():

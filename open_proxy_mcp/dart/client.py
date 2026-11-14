@@ -579,6 +579,9 @@ _TRANSIENT_HTTP_ERRORS = (
 
 
 
+_STYLE_SCRIPT_BLOCK = re.compile(r"(?is)<(style|script)\b[^>]*>.*?</\1\s*>")
+
+
 def html_to_text(html: str, images: list[str] | None = None) -> str:
     """HTML/XML을 파서 친화적인 평문으로 정규화.
 
@@ -592,7 +595,11 @@ def html_to_text(html: str, images: list[str] | None = None) -> str:
     #   갈렸다. 속도 이득도 없었다(1.4M자 0.04s vs 0.03s). **파서 출력이 바뀌는 위험을
     #   0의 이득과 바꾸지 않는다.** transient 를 줄이려면 사본 횟수가 아니라 「문서 전체를
     #   평문으로 만들지 않는 길」(구간 슬라이스)로 가야 한다.
-    text = re.sub(r'<(?:br|BR)\s*/?>', '\n', html)
+    # 261114: `<style>`·`<script>` 는 **본문째** 버린다. 태그만 걷으면 CSS 가 평문 머리에 남는다 — 거래소 서식(XForms)은
+    #   `.xforms * { font-family … }` 가 평문의 절반(저장 문서 810건 중 609건, 건당 약 1,080자)이었고, 원문 절 읽기가 그것부터 보여 줬다.
+    #   닫는 태그가 없으면 건드리지 않는다. 본문 글자는 그대로다(609건 모두 「옛 평문 = CSS 머리 + 새 평문」으로 대조).
+    text = _STYLE_SCRIPT_BLOCK.sub(' ', html)
+    text = re.sub(r'<(?:br|BR)\s*/?>', '\n', text)
     text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE|td|TD|th|TH)>', '\n', text)
     text = re.sub(r'<[^>]+>', ' ', text)
     text = re.sub(r'&nbsp;', ' ', text)

@@ -222,7 +222,8 @@ def pick_snapshot(snaps: list[str], dd: str) -> str | None:
 
 
 def scan_codes_for(types: list[str]) -> list[str]:
-    return sorted({_BY_CODE[t]["scan_code"] for t in types if t in _BY_CODE})
+    return sorted({code for t in types if t in _BY_CODE
+                   for code in (_BY_CODE[t]["scan_code"], *_BY_CODE[t].get("extra_scan_codes", ()))})
 
 
 def db_row(row: dict) -> dict:
