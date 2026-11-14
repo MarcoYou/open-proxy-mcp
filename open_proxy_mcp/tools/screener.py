@@ -150,6 +150,9 @@ def _detail_line(card: dict) -> str | None:
         return None
     if tc == "order":
         parts = [f"계약금액 {_won(f.get('amount_won'))}"]
+        if f.get("conditional_amount_won"):
+            parts[0] += (" (전액 조건부)" if not f.get("confirmed_amount_won")
+                         else f" (이 중 조건부 {_won(f['conditional_amount_won'])})")
         if f.get("revenue_ratio_pct") is not None:
             parts.append(f"매출대비 {_pct(f['revenue_ratio_pct'])}")
         if f.get("counterparty"):
@@ -176,12 +179,17 @@ def _detail_line(card: dict) -> str | None:
             parts.append(f"기준일 {f['record_date']}")
         return " · ".join(parts) or None
     if tc == "dilutive":
-        parts = [f"규모 {_won(f.get('amount_won'))}"]
+        parts = [f"규모 {_won(f['amount_won'])}"] if f.get("amount_won") else []
         if f.get("allocation"):
             parts.append(f"배정 {f['allocation']}")
         if f.get("dilution_pct") is not None:
             parts.append(f"희석 {_pct(f['dilution_pct'])}")
-        return " · ".join(parts)
+        if f.get("reduction_ratio_pct") is not None:
+            parts.append(f"감자비율 {_pct(f['reduction_ratio_pct'])}")
+        if parts and f.get("matched_rcept_no"):
+            # DART 구조화 응답은 정정되면 최신 정정본만 남긴다 — 이 카드의 값이 어느 접수의 것인지 밝힌다.
+            parts.append(f"값은 뒤에 접수된 정정본 기준(접수번호 {f['matched_rcept_no']})")
+        return " · ".join(parts) or None
     if tc == "agm_notice":
         titles = f.get("agenda_titles") or []
         if titles:

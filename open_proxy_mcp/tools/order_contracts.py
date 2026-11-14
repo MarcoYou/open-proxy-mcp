@@ -55,7 +55,9 @@ def _render(payload: dict[str, Any]) -> str:
     lines += [
         "## 수주 시그널 요약",
         f"- 유효 계약 **{s.get('order_count', 0)}건** (외부 {s.get('external_count', 0)} / 내부·계열 {s.get('internal_count', 0)})",
-        f"- 외부 수주 총액 **{_won(s.get('external_total_amount_won'))}**",
+        f"- 외부 수주 총액 **{_won(s.get('external_total_amount_won'))}**"
+        + (f" — 이 중 조건부 {_won(s['conditional_amount_won'])}({s.get('conditional_count')}건, 조건이 채워져야 매출이 된다)"
+           if s.get("conditional_amount_won") else ""),
         f"- 최근 매출액 대비 — 단일 최대 **{_pct(s.get('max_revenue_ratio_pct'))}%** / 합계 {_pct(s.get('sum_revenue_ratio_pct'))}%",
         f"- 기재정정 {s.get('correction_count', 0)}건 (변경계약 — 아래 비교)",
     ]
@@ -77,14 +79,20 @@ def _render(payload: dict[str, Any]) -> str:
         if cd.get("amount_change_pct") is not None:
             sign = "↑" if cd["amount_change_pct"] > 0 else "↓"
             corr = f"{sign}{abs(cd['amount_change_pct'])}%"
+        elif cd.get("amount_first_disclosed"):
+            corr = "금액 공개"      # 공시유보로 비공개였던 금액이 정정으로 처음 적혔다 — 증감이 아니다
         elif o.get("correction_count"):
             corr = f"{o['correction_count']}회"
         rev_cell = f"{_pct(o.get('revenue_ratio_pct'))}%"
         if o.get("ratio_warning"):  # 공시값과 불일치해 계산값 채택 — 공시값 병기
             rev_cell += f" ⚠(공시 {o.get('revenue_ratio_disclosed_pct')}%)"
+        amount_cell = _won(o.get("contract_amount_won"))
+        if o.get("is_conditional") and o.get("conditional_amount_won"):
+            amount_cell += (" (전액 조건부)" if not o.get("confirmed_amount_won")
+                            else f" (조건부 {_won(o['conditional_amount_won'])})")
         lines.append(
             f"| {o.get('rcept_dt', '')} | {(o.get('contract_name') or '-')[:24]} | {(o.get('counterparty') or '-')[:14]} "
-            f"| {_won(o.get('contract_amount_won'))} | {rev_cell} | {'O' if o.get('is_external') else '계열'} | {corr or '-'} |"
+            f"| {amount_cell} | {rev_cell} | {'O' if o.get('is_external') else '계열'} | {corr or '-'} |"
         )
 
     terminations = data.get("terminations", []) or []

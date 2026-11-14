@@ -2,7 +2,7 @@
 type: tool
 title: order_contracts — 수주 추적
 domain: data
-updated: 2026-10-18
+updated: 2026-11-15
 scope: [기본 단일]
 data_source: [DART OpenAPI list.json (I001) + 단일판매ㆍ공급계약체결/해지 키워드 + 원문 BeautifulSoup 파싱]
 related: [corporate_deals, financial_metrics, evidence]
@@ -39,6 +39,13 @@ related: [corporate_deals, financial_metrics, evidence]
   서로 다른 해지의 우연한 동명·동일자 over-merge를 막아 **체인에 기재정정본이 있을 때만** 병합한다.
   최신(정정)본이 유효값, 결측 필드는 이전본에서 상속. 검증: 쇼박스 2→1·삼성제약 단일해지 무영향 +
   합성 엣지(동명·다른일자 유지, 정정無 동명동일자 비병합). opm-tool-validation 스킬.
+
+### 조건부 계약 · 금액이 처음 공개된 정정 (2026-11-15)
+
+- **조건부 계약**: 거래소 서식 「2. 계약내역」의 `조건부 계약여부`가 「해당」이면 `is_conditional`·`confirmed_amount_won`(확정 계약금액 — 「-」는 빈칸, 「0」은 0)·`conditional_amount_won`(조건부 계약금액)을 싣는다. `contract_amount_won` 은 원문 총액 그대로다(조건부 금액을 빼지 않는다). 표의 계약금액 칸에 「(전액 조건부)」 또는 「(조건부 N억원)」을 붙이고, 요약의 `conditional_count`·`conditional_amount_won` 이 외부 수주 총액 중 조건부 몫을 따로 밝힌다. 조건부가 아니거나 그 칸이 없는 서식(유가증권 서식 등)은 세 칸이 없다.
+- **금액이 처음 공개된 정정**: 정정 전 금액 칸이 「-」(공시유보로 비공개)였다가 정정 후에 금액이 적힌 정정은 증감이 아니다 — `correction_diff` 가 `{"amount_first_disclosed": true}` 만 주고 전후 금액·증감률을 싣지 않는다. 표의 정정 칸은 「금액 공개」.
+- **자릿수 구분이 깨진 금액**(「85,419,259,16」 같은 회사 오기)은 정정 전후 금액으로 읽지 않는다. 매출액 대비 전후는 그대로 싣는다.
+- **「회사와의 관계」**: 같은 항목의 다음 줄(「- 회사와 최근 3년간 동종계약 이행여부」) 앞에서 끊는다.
 
 ## 단위 처리
 
@@ -88,5 +95,7 @@ sequenceDiagram
 - 검증 표본·측정 기록: private storage
 
 ## 변경 이력
+
+- 2026-11-15: **조건부 계약 표시**(`is_conditional`·`confirmed_amount_won`·`conditional_amount_won`, 요약 `conditional_count`·`conditional_amount_won`), **금액이 처음 공개된 정정은 증감으로 읽지 않는다**(`correction_diff.amount_first_disclosed`), 자릿수 구분이 깨진 금액은 정정 전후로 읽지 않는다, 「회사와의 관계」 칸에 다음 줄 문구가 딸려 나오던 것 수정. 원장의 2026-08-10 이후 수주 공시 원문 1,347건으로 전후 대조: 조건부 계약 16건(확정 0원·빈칸 10건) · 정정 764건 중 바뀐 것 7건(금액 처음 공개 6건 — 종전 「166억 → 1,660만 원, −99.9%」 1건·「±0%」 3건·증감 없음 2건, 깨진 금액 1건 — 종전 +948.1%) · 관계 칸 702건에서 뒤 문구가 빠졌고 외부/계열 판정은 1건이 계열로 바뀌었다(값이 길어 관계 칸을 못 읽던 「모회사(최대주주)의 최대주주」).
 
 - 2026-10-18: 수주 공시 검색이 실패(013 이 아닌 DART 오류)했는데 0건이면 `status=no_filing` 대신 `error` — 0건이 「수주 없음」이 아니라 「모른다」다. 수주 공시는 찾았는데 본문을 하나도 받지 못했으면(DART 오류) `no_filing` 대신 `partial` — 경고에 「수주 공시 N건을 찾았으나 본문 N건을 DART 에서 받지 못해 …」.

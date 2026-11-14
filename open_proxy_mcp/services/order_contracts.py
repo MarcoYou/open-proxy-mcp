@@ -120,8 +120,9 @@ def _counterparty(flat: str) -> str:
 
 def _relationship(flat: str) -> str:
     # 값은 다음 항목번호(예 '4. 판매ㆍ공급지역') 전까지 — flat은 개행이 없어 종료조건 없으면
-    # 다음 필드까지 끌고 온다(현대오토에버 '최대주주 4. 판매…' 오염).
-    m = re.search(r"(?:회사와의?\s*관계|최대주주[ㆍ·]?\s*임원과\s*상대방과의\s*관계)\s*[:\s]*([^\n]{1,40}?)(?:\s*\d\s*\.\s|$)", flat)
+    # 다음 필드까지 끌고 온다(현대오토에버 '최대주주 4. 판매…' 오염). 거래소 서식은 값 바로 뒤에 같은 항목의 다음 줄
+    # 「- 회사와 최근 3년간 동종계약 이행여부」가 온다 — 그 앞에서도 끊는다(종전엔 「없음 - 회사와 최근 3년간 … 해당」이 값이었다).
+    m = re.search(r"(?:회사와의?\s*관계|최대주주[ㆍ·]?\s*임원과\s*상대방과의\s*관계)\s*[:\s]*([^\n]{1,40}?)(?:\s*-\s*회사와\s*최근|\s*\d\s*\.\s|$)", flat)
     return m.group(1).strip() if m else ""
 
 
@@ -135,6 +136,24 @@ def _is_self_filing(flr_nm: str, corp_name: str) -> bool:
     corporate_deals 공급계약 일원화로 흡수 — 일감몰아주기 관점 메타."""
     a, b = (flr_nm or "").strip(), (corp_name or "").strip()
     return bool(a and b and (a == b or b in a or a in b))
+
+
+#: 세 자리마다 쉼표가 제자리에 있는 수(쉼표 없는 수 포함).
+_WELL_GROUPED = re.compile(r"\d{1,3}(?:,\d{3})*|\d+")
+#: 거래소 서식 「2. 계약내역」의 조건부 칸 — 「조건부 계약여부 해당 확정 계약금액 0 조건부 계약금액 3,214,080,000」. 금액 칸은 숫자 또는 「-」.
+_CONDITIONAL = re.compile(r"조건부\s*계약\s*여부\s*(해당|미해당)\s*확정\s*계약금액\s*([\d,]+|-)\s*조건부\s*계약금액\s*([\d,]+|-)")
+
+
+def _conditional(body: str) -> dict[str, Any]:
+    """조건부 계약 표시와 확정·조건부 금액(원). 조건부가 아니거나 그 칸이 없는 서식이면 빈 dict.
+
+    조건부 금액은 조건이 채워져야 생기는 매출이다 — 총액만 보이면 확정 0원짜리 계약이 평범한 수주로 읽힌다(스트라드비젼 20261012900298)."""
+    m = _CONDITIONAL.search(body)
+    if not m or m.group(1) != "해당":
+        return {}
+    return {"is_conditional": True,
+            "confirmed_amount_won": _to_won(m.group(2), "원"),      # 「-」는 None(안 적음), 「0」은 0
+            "conditional_amount_won": _to_won(m.group(3), "원")}
 
 
 def _correction_diff(flat: str) -> dict[str, Any]:
@@ -154,10 +173,19 @@ def _correction_diff(flat: str) -> dict[str, Any]:
         return {}  # 정정(변경계약) 아님 — diff 없음
     out: dict[str, Any] = {}
     before = after = None
+    # 정정 전 금액 칸이 「-」(공시유보로 비공개)였다가 정정 후에 금액이 적힌 정정 = 금액이 **처음 공개**된 것이지 증감이 아니다.
+    # 종전엔 정정 후 칸의 두 숫자(확정 금액·총액)를 전/후로 읽어 「166억 → 1,660만 원, −99.9%」를 붙였다(예스티 20261022900576).
+    # 두 꼴만 본다 — 「계약금액 : -」(쌍점 뒤 하이픈)와 「계약금액(원) - 90,706,000,000」(첫 금액 바로 앞이 라벨+하이픈).
+    # 라벨을 하이픈으로 이은 머리글(「계약금액(원) - 매출액대비(%) 99,… 42.34 64,… 27.32」)은 증감 정정이라 건드리지 않는다.
+    first_big = re.search(r"\d{1,3}(?:,\d{3}){2,}", blk)
+    if first_big and re.search(r"계약금액(?:\s*총액)?\s*(?:\(원\))?\s*(?::\s*-(?!\d)|-\s*$)", blk[:first_big.start()]):
+        return {"amount_first_disclosed": True}
     # A) '계약금액(원) [전] [후]' 라벨 직접 (포스코 등) — 최근매출 혼입 없음
     am = re.search(r"계약금액\s*\(원\)\s*([\d,]{6,})\s+([\d,]{6,})", blk)
     if am:
-        before, after = _to_won(am.group(1), "원"), _to_won(am.group(2), "원")
+        # 자릿수 구분이 깨진 금액(「85,419,259,16」 — 회사 오기)은 읽지 않는다. 쉼표만 지우면 한 자리 모자란 수가 돼 +948% 가 붙었다(HJ중공업 20261023800728).
+        if all(_WELL_GROUPED.fullmatch(g) for g in am.groups()):
+            before, after = _to_won(am.group(1), "원"), _to_won(am.group(2), "원")
     else:
         # B) 라벨이 값 앞에 몰린 양식 (한화) — 계약금액 라벨 이후, 최근매출 라벨 이전 구간의 큰금액 2개
         seg = re.split(r"최근\s*매출", blk)[0]
@@ -223,6 +251,7 @@ def _parse_order(html: str) -> dict[str, Any]:
         "revenue_ratio_pct": revenue_ratio,
         "period_end": period_end_m.group(1) if period_end_m else None,
         "correction_diff": correction or None,
+        **_conditional(body),
     }
 
 
@@ -377,11 +406,15 @@ def _signal_summary(orders: list[dict[str, Any]], terminations: list[dict[str, A
     term_total = sum(term_amts)
     term_ratios = [t["revenue_ratio_pct"] for t in terminations if t.get("revenue_ratio_pct")]
     # 파싱 사실만 집계 — 매핑·순수주·계열일감 규모 같은 추론은 제외(가능성 측정 결과, 2026-06-14).
+    conditional = [o for o in external if o.get("is_conditional") and o.get("conditional_amount_won")]
     return {
         "order_count": len(concluded),
         "external_count": len(external),
         "internal_count": len(internal),
         "external_total_amount_won": ext_amt,
+        # 총액에 들어 있는 조건부 금액 — 조건이 채워져야 매출이 된다. 총액에서 빼지 않고 따로 밝힌다(원문 총액을 바꾸지 않는다).
+        "conditional_count": len(conditional),
+        "conditional_amount_won": sum(o["conditional_amount_won"] for o in conditional),
         "max_revenue_ratio_pct": max(ratios) if ratios else None,
         "sum_revenue_ratio_pct": round(sum(ratios), 1) if ratios else None,
         "correction_count": sum(o.get("correction_count", 0) for o in orders),

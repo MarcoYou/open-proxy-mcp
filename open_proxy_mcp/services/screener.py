@@ -198,6 +198,8 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         "code": "dilutive", "label": "증자·CB·BW", "tier": 1,
         "scan_code": "B001",
         "matchers": [
+            # 「유무상증자결정」은 「무상증자결정」을 품은 글자라 먼저 가른다 — 종전엔 유상증자가 딸린 공시가 무상증자로 실렸다(원장 42행).
+            ("유무상증자", ["유무상증자결정"]),
             ("유상증자", ["유상증자결정"]),
             ("무상증자", ["무상증자결정"]),
             ("CB발행", ["전환사채권발행"]),
@@ -428,14 +430,17 @@ _TREASURY_ACTION = {"취득": "취득", "처분": "처분", "소각": "소각",
                     "취득신탁": "신탁 체결", "취득신탁해지": "신탁 해지"}
 
 #: 문서를 열어도 **접수번호로 그 공시를 고르지 못하는** 파서(회사·날짜로만 찾는다) — 모회사 값이 자회사 카드에 붙는다.
-_RCEPT_BLIND_KINDS = frozenset({"dividend", "earnings"})
+#: 증자(261115): 구조화 응답은 회사 자신의 결정만 준다 — 자회사 증자 카드에 맞는 행이 없다(표본 30건 중 28건 사건 0, 2건은 모회사의 다른 사건).
+_RCEPT_BLIND_KINDS = frozenset({"dividend", "earnings", "dilutive"})
 
 
 _SUBSIDIARY_BLIND_NOTE = "자회사의 주요경영사항 공시 — 모회사 값과 섞이지 않게 숫자를 싣지 않았다(원문 링크로 확인)"
 
 
 def _is_subsidiary_matter(report_nm: str) -> bool:
-    return _SUBSIDIARY_MARK in _normalize_report_nm(report_nm)
+    # 코스닥 서식은 「종속회사의주요경영사항」이라 쓴다 — 같은 뜻이다(종전엔 유가증권 표기만 봐서 코스닥 자회사 공시가 모회사 공시로 다뤄졌다).
+    core = _normalize_report_nm(report_nm)
+    return _SUBSIDIARY_MARK in core or "종속회사의주요경영사항" in core
 
 
 def _stage_tag(type_code: str, report_nm: str, subtype: str) -> str:
@@ -1211,6 +1216,9 @@ def _extract_order(payload: dict, rcept_no: str) -> dict:
         return {}
     return {
         "amount_won": row.get("contract_amount_won"),
+        # 조건부 계약 — 총액 중 조건이 채워져야 생기는 금액. 확정 금액이 0 이거나 안 적혔으면 전액 조건부다.
+        "conditional_amount_won": row.get("conditional_amount_won") if row.get("is_conditional") else None,
+        "confirmed_amount_won": row.get("confirmed_amount_won") if row.get("is_conditional") else None,
         "counterparty": row.get("counterparty"),
         "revenue_ratio_pct": row.get("revenue_ratio_pct"),
         "is_external": row.get("is_external"),
@@ -1248,20 +1256,60 @@ def _extract_dividend(payload: dict, rcept_no: str) -> dict:
     }
 
 
-def _extract_dilutive(payload: dict, rcept_no: str) -> dict:
-    # 실제 payload: 유형별 리스트 분리(rights_offering_events/convertible_bond_events/...) — union.
+#: 카드 세부 유형 → 증자 응답의 결정 행 `type`. 무상증자·유무상증자는 구조화 응답에 결정 행이 없어 비운다.
+_DILUTIVE_EVENT_TYPE = {"유상증자": "rights_offering", "CB발행": "convertible_bond", "BW발행": "warrant_bond",
+                        "교환사채": "exchangeable_bond", "감자": "capital_reduction"}
+_DILUTIVE_DECISION_LISTS = ("rights_offering_events", "convertible_bond_events", "exchangeable_bond_events",
+                            "warrant_bond_events", "capital_reduction_events")
+
+
+def _plain_number(value) -> float | None:
+    """「10,000,000,000」·「3.25」 → 수. 빈칸·「-」·글자는 None(0 으로 만들지 않는다)."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value or "").replace(",", "").strip()
+    try:
+        return float(text) if text and text != "-" else None
+    except ValueError:
+        return None
+
+
+def _extract_dilutive(payload: dict, rcept_no: str, hit: dict | None = None) -> dict:
+    """증자·사채·감자 카드의 값 — **그 공시의 결정 행**에서만 읽는다.
+
+    261115 재작성. 종전엔 (1) 타임라인 행(금액 칸이 없다)을 먼저 집어 규모·배정·희석이 한 번도 안 채워졌고,
+    (2) 접수번호가 안 맞으면 목록 첫 행을 대신 써서 다른 사건 이름이 붙었다 — 원장 표본 141건 중 사건이 있던 84건에서
+    64건이 다른 공시의 이름(유상증자 카드에 「자기사채 만기전취득」 등)이었다.
+    DART 구조화 응답은 공시가 정정되면 **최신 정정본의 접수번호만** 남긴다. 그래서 원 공시 카드는 접수번호가 안 맞는 게 정상이다 —
+    그때는 같은 유형의 결정이 창 안에 **하나뿐이고 이 공시보다 뒤에 접수된 것**일 때만 그 값을 쓰고 어느 접수의 값인지 밝힌다
+    (`matched_rcept_no`). 철회 공시는 그렇게 잇지 않는다(철회된 결정이 창 밖이고 같은 유형의 새 결정이 창 안일 수 있다).
+    """
     data = payload.get("data") or {}
-    events = []
-    for k in ("events_timeline", "rights_offering_events", "convertible_bond_events",
-              "exchangeable_bond_events", "warrant_bond_events", "capital_reduction_events"):
-        events += data.get(k) or []
-    row = next((e for e in events if e.get("rcept_no") == rcept_no), events[0] if events else None) or {}
+    decisions = [e for k in _DILUTIVE_DECISION_LISTS for e in data.get(k) or []]
+    row = next((e for e in decisions if e.get("rcept_no") == rcept_no), None)
+    if row is None and hit and "철회" not in (hit.get("stage") or ""):
+        want = _DILUTIVE_EVENT_TYPE.get(hit.get("subtype") or "")
+        same = [e for e in decisions if e.get("type") == want]
+        if want and len(same) == 1 and (same[0].get("rcept_no") or "") > rcept_no:
+            row = same[0]
+    if row is None:
+        return {}
+    terms = row.get("conversion") or row.get("exchange") or row.get("warrant") or {}
+    if row.get("type") == "rights_offering":
+        # 유상증자 구조화 응답엔 총액 칸이 없다 — 자금조달 목적별 금액의 합이 조달액이다. 하나도 없으면 비운다.
+        parts = [n for n in map(_plain_number, (row.get("fund_purpose") or {}).values()) if n is not None]
+        amount = sum(parts) if parts else None
+        dilution = row.get("dilution_pct_approx")
+    else:
+        amount = _plain_number(row.get("total_issue_amount"))
+        dilution = _plain_number(terms.get("pct_of_total_shares"))
     return {
-        "event_label": _first(row.get("event_label"), row.get("type")),
-        "allocation": _first(row.get("issuance_method"), row.get("allocation_method")),
-        "dilution_pct": _first(row.get("dilution_pct_approx"), row.get("dilution_pct")),
-        "amount_won": _first(row.get("total_issue_amount_krw"), row.get("bond_amount_krw"),
-                             row.get("amount_krw"), row.get("raise_amount_won")),
+        "event_label": row.get("event_label"),
+        "allocation": row.get("issuance_method"),
+        "dilution_pct": dilution,
+        "amount_won": int(amount) if amount else None,
+        "reduction_ratio_pct": _plain_number(row.get("reduction_ratio_common")),
+        "matched_rcept_no": row.get("rcept_no") if row.get("rcept_no") != rcept_no else None,
     }
 
 
@@ -1416,7 +1464,7 @@ _DETAIL_DISPATCH: dict[str, dict[str, Any]] = {
                  "fn": "build_dividend_payload", "extract": _extract_dividend,
                  "kwargs": _build_kwargs_narrow},
     "dilutive": {"module": "open_proxy_mcp.services.dilutive_issuance",
-                 "fn": "build_dilutive_issuance_payload", "extract": _extract_dilutive,
+                 "fn": "build_dilutive_issuance_payload", "extract": _extract_dilutive, "needs_hit": True,
                  # 정정/철회는 원 결정일이 앞서 있어 완충 창(뒤 60일)으로 되짚는다.
                  "kwargs": _build_kwargs_window(60)},
     "agm_notice": {"module": "open_proxy_mcp.services.shareholder_meeting",
@@ -1446,7 +1494,10 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     disp = _DETAIL_DISPATCH.get(kind)
     if not disp:
         return {"detail_status": "no_data", "fields": {}}
-    if hit.get("subsidiary_matter") and kind in _RCEPT_BLIND_KINDS:
+    # 원장 배치의 행은 `subsidiary_matter` 키가 없다(제목은 `report_nm`) — 제목으로 다시 본다. 종전엔 이 가드가 원장에서는 한 번도
+    # 걸리지 않아 자회사 배당·실적 행에 모회사 값이 저장됐다(휴온스글로벌 자회사 분기배당 행에 모회사 DPS 800원·기준일 12-31).
+    if kind in _RCEPT_BLIND_KINDS and (hit.get("subsidiary_matter")
+                                       or _is_subsidiary_matter(hit.get("title") or hit.get("report_nm") or "")):
         # 이 파서는 회사·날짜로만 공시를 찾아 접수번호를 보지 않는다 — 자회사 공시 카드에 모회사 자신의 값(신한지주 DPS 1,480원·
         # 기준일 2026-12-31 이 신한은행 중간배당 카드에 붙었다)이 실려 나간다. 틀린 숫자보다 빈 칸이 낫다: 열지 않고 밝힌다.
         return {"detail_status": "no_data", "fields": {},
@@ -1485,7 +1536,7 @@ async def _fetch_detail(hit: dict, running: dict) -> dict:
     status = payload.get("status")
     fields = {}
     try:
-        fields = disp["extract"](payload, hit.get("rcept_no", ""))
+        fields = disp["extract"](payload, hit.get("rcept_no", ""), *([hit] if disp.get("needs_hit") else []))
     except Exception:  # noqa: BLE001
         fields = {}
     fields = {k: v for k, v in fields.items() if v not in (None, "", [], {})}

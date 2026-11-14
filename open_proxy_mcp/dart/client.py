@@ -582,6 +582,19 @@ _TRANSIENT_HTTP_ERRORS = (
 _STYLE_SCRIPT_BLOCK = re.compile(r"(?is)<(style|script)\b[^>]*>.*?</\1\s*>")
 
 
+_ENTITY = re.compile(r'&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z]+));')
+_ENTITY_KEEP = {"amp": "&", "lt": "<", "gt": ">"}
+
+
+def _entity_text(m: re.Match) -> str:
+    if m.group(3):
+        return _ENTITY_KEEP.get(m.group(3), ' ')
+    code = int(m.group(1)) if m.group(1) else int(m.group(2), 16)
+    # 공백류(160 nbsp 등)·제어문자·범위 밖은 공백 — 평문에 보이지 않는 글자를 남기지 않는다.
+    ch = chr(code) if 32 < code < 0x110000 and not 0xD800 <= code <= 0xDFFF else ' '
+    return ch if ch.isprintable() and not ch.isspace() else ' '
+
+
 def html_to_text(html: str, images: list[str] | None = None) -> str:
     """HTML/XML을 파서 친화적인 평문으로 정규화.
 
@@ -602,8 +615,10 @@ def html_to_text(html: str, images: list[str] | None = None) -> str:
     text = re.sub(r'<(?:br|BR)\s*/?>', '\n', text)
     text = re.sub(r'</(?:p|P|div|DIV|tr|TR|li|LI|h\d|H\d|table|TABLE|td|TD|th|TH)>', '\n', text)
     text = re.sub(r'<[^>]+>', ' ', text)
-    text = re.sub(r'&nbsp;', ' ', text)
-    text = re.sub(r'&[a-zA-Z]+;', ' ', text)
+    # 261115: 글자 참조를 **지우지 않고 푼다** — `&amp;`·`&lt;`·`&gt;` 와 숫자 참조(`&#8211;`)만. 종전엔 이름 참조를 모두 공백으로 바꿔
+    #   「KT&amp;G」가 「KT G」, 「&lt;5% 미만」이 「5% 미만」이 됐고 숫자 참조는 그대로 남았다. 나머지 이름 참조(`&nbsp;`·DART 의 `&cr;` 등)는
+    #   종전대로 공백이다 — 태그를 걷은 **뒤**에 풀므로 풀린 `<` 가 태그로 먹히지 않는다.
+    text = _ENTITY.sub(_entity_text, text)
     if images:
         for img in images:
             text = text.replace(img, '')
