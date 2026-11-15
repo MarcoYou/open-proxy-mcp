@@ -39,6 +39,18 @@ from open_proxy_mcp.services import screener as S
     ("[기재정정]증권신고서(주식의포괄적교환ㆍ이전)", "merger_registration", "주식교환"),   # 결정 유형(주식교환)에 먼저 걸리면 안 된다
     ("경영권변경등에관한계약체결", "control_contract", "경영권계약"),            # 코스닥 서식 — 한 달 10건이 미분류였다
     ("권리락              (무상증자)", "capital_followup", "권리락"),
+    ("지주회사의자회사편입", "holding_subsidiary", "편입"),                      # 261115 다섯 유형 — 한 달 표본의 실제 제목
+    ("지주회사의자회사탈퇴", "holding_subsidiary", "탈퇴"),
+    ("외국지주회사의자회사편입ㆍ탈퇴", "holding_subsidiary", "편입"),
+    ("종속회사등상장에관한찬성여부", "subsidiary_listing", "찬성여부"),
+    ("종속회사등상장에대한주주영향평가등", "subsidiary_listing", "주주영향평가"),
+    ("[기재정정]해외증권시장주권등상장결정(종속회사의주요경영사항)", "subsidiary_listing", "해외상장"),
+    ("부동산투자회사금전배당결정", "reit_dividend", "금전배당"),
+    ("[기재정정]감사보고서제출(자회사의 주요경영사항)", "audit_report", "제출"),
+    ("감사보고서제출(2024사업연도)", "audit_report", "제출"),
+    ("증권신고서(지분증권)", "equity_registration", "신고서"),
+    ("[발행조건확정]증권신고서(지분증권)", "equity_registration", "발행조건확정"),
+    ("[기재정정]증권신고서(지분증권)", "equity_registration", "신고서"),
     ("기타경영사항(자율공시)", "voluntary_disclosure", "자율공시"),
     ("투자판단 관련 주요경영사항(임상시험계획 변경승인신청)", "investment_judgment", "투자판단"),
     ("주요사항보고서(주식교환ㆍ이전결정)", "restructuring", "주식교환"),
@@ -52,6 +64,7 @@ def test_titles_that_were_unclassified_now_have_a_type(title, code, subtype):
     "정정명령부과(2026.10.30.제출주요사항보고서(회사합병결정))",       # 금감원 처분 — 합병 결정으로 분류됐었다
     "정정신고서제출요구",
     "효력발생안내(2026.10.14.제출증권신고서(주식의포괄적교환ㆍ이전))",
+    "정정신고서제출요구(2026.10.28.제출증권신고서(지분증권))",       # 금감원 안내가 인용한 지분증권 신고서 — 신고서로 분류하지 않는다
     "주권매매거래정지 (단일판매ㆍ공급계약체결)",                      # 거래소 조치 — 수주 체결로 분류됐었다
     "주권매매거래정지(자기주식취득결정)",
 ])
@@ -67,7 +80,9 @@ def test_forms_that_only_quote_another_filing_are_not_classified_as_that_filing(
     # 261115: 「권」 없이 적은 사채 발행결정 철회도 같은 사건이다 — 종전엔 발견 전용(withdrawal_notice)으로만 갔다.
     ("기타주요경영사항(제7회차 무기명식 무보증 사모 전환사채 발행결정 철회)", "dilutive", "CB발행"),
     ("기타주요경영사항(제7회차 전환사채권 발행 결정 철회)", "dilutive", "CB발행"),
-    ("[발행조건확정]증권신고서(지분증권)", None, ""),                             # 합병 계열이 아닌 증권신고서는 그대로 미분류
+    ("[발행조건확정]증권신고서(채무증권)", None, ""),                             # 채무증권 신고서는 그대로 미분류
+    ("현금ㆍ현물배당결정", "dividend", "현금배당"),                                # 리츠 금전배당 유형이 일반 배당을 가져가지 않는다
+    ("부동산투자회사자금차입", None, ""),
     ("최대주주등소유주식변동신고서(최대주주변경시)", "control_change", "변경"),
     ("투자판단관련주요경영사항(최대주주변경을수반하는주식양수도계약체결)", "control_change", "변경"),
     ("연결재무제표기준영업(잠정)실적(공정공시)", "earnings", "잠정실적"),
@@ -80,12 +95,17 @@ def test_discovery_types_stay_out_of_default_presets_and_the_ledger():
     core, _ = S._resolve_types("core")
     all_types, _ = S._resolve_types("all")
     discovery, _ = S._resolve_types("discovery")
-    assert discovery == S.DISCOVERY_PRESET and len(discovery) == 19
+    assert discovery == S.DISCOVERY_PRESET and len(discovery) == 24
     assert not set(discovery) & (set(core) | set(all_types))
     assert all(S._BY_CODE[c].get("opt_in") and S._BY_CODE[c]["detail_kind"] is None for c in discovery)   # 원장·상세 파서 밖
     assert S._resolve_types(S._nl_types("그 밖의 공시"))[0] == discovery
     assert S._resolve_types(S._nl_types("주식분할"))[0] == ["stock_split"]       # 「분할」(회사분할)에 먼저 걸리지 않는다
     assert S._resolve_types(S._nl_types("분할"))[0] == ["restructuring"]
+    assert S._resolve_types(S._nl_types("합병증권신고서"))[0] == ["merger_registration"]   # 「증권신고서」(지분증권)에 먼저 걸리지 않는다
+    assert S._resolve_types(S._nl_types("증권신고서"))[0] == ["equity_registration"]
+    assert S._resolve_types(S._nl_types("리츠배당"))[0] == ["reit_dividend"]              # 「배당」에 먼저 걸리지 않는다
+    assert S._resolve_types(S._nl_types("배당"))[0] == ["dividend"]
+    assert S._resolve_types(S._nl_types("합병"))[0] == ["restructuring"]
 
 
 def test_scan_codes_cover_where_the_title_actually_lives():

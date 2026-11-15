@@ -378,6 +378,23 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         # 제목에 「최대주주변경」이 없어 어느 유형에도 안 걸렸다(한 달 10건). 값을 읽는 파서는 없다 — 원문 절 읽기로 잇는다.
         {"code": "control_contract", "label": "경영권 변경 계약(코스닥)", "scan_code": "I001",
          "matchers": [("경영권계약", ["경영권변경등에관한계약"])]},
+        # ── 261115 더한 다섯 — 같은 한 달 표본에서 남아 있던 지배구조·주주환원 서식. 전부 `withdrawal_notice` 뒤에 둔다:
+        #    「기타주요경영사항(… 해외증권시장 주권등 상장 결정 철회)」는 철회 안내로 남아야 한다.
+        {"code": "holding_subsidiary", "label": "지주회사의 자회사 편입·탈퇴", "scan_code": "I001",
+         "matchers": [("탈퇴", ["지주회사의자회사탈퇴"]), ("편입", ["지주회사의자회사편입"])]},      # 외국지주회사의 「편입ㆍ탈퇴」 서식도 편입 쪽으로
+        {"code": "subsidiary_listing", "label": "종속회사 상장·해외상장", "scan_code": "I001",
+         "matchers": [("찬성여부", ["종속회사등상장에관한찬성여부"]), ("주주영향평가", ["종속회사등상장에대한주주영향평가"]),
+                      ("해외상장", ["해외증권시장주권등상장결정"])]},
+        # 리츠는 배당을 「부동산투자회사금전배당결정」이라는 따로 된 서식으로 낸다 — 배당 유형(`dividend`)의 낱말에 안 걸린다.
+        # 배당 파서가 이 서식을 읽는지 확인하지 않아 등록 유형에 넣지 않았다(원장·상세 밖).
+        {"code": "reit_dividend", "label": "부동산투자회사(리츠) 금전배당", "scan_code": "I001",
+         "matchers": [("금전배당", ["부동산투자회사금전배당"])]},
+        {"code": "audit_report", "label": "감사보고서 제출", "scan_code": "I001",
+         "matchers": [("제출", ["감사보고서제출"])]},
+        # 지분증권 증권신고서(C001) — 공모 유상증자·상장. 「[발행조건확정]」은 공모가가 정해진 뒤 같은 신고서에 붙는 머리말이다.
+        # 채무증권(C002)·집합투자증권(G002) 신고서는 제목이 달라 걸리지 않는다.
+        {"code": "equity_registration", "label": "증권신고서(지분증권 공모)", "scan_code": "C001",
+         "matchers": [("발행조건확정", ["[발행조건확정]증권신고서(지분증권"]), ("신고서", ["증권신고서(지분증권"])]},
         {"code": "voluntary_disclosure", "label": "자율공시(기타경영사항)", "scan_code": "I001",
          "matchers": [("자율공시", ["기타경영사항"])]},
     )],
@@ -412,10 +429,12 @@ _SUGGESTED_TOOL = {
     "earnings_confirmed": "provisional_earnings", "treasury_result": "treasury_share",
     "major_holder_change": "ownership_structure", "value_up_plan": "value_up",
     "capital_followup": "dilutive_issuance", "investment_judgment": "risk_events",
+    "equity_registration": "dilutive_issuance",       # 회사별 발행공시 목록·증권발행실적보고서의 지분변동 원문이 거기 있다
     **{c: "filing_section" for c in (
         "stock_split", "related_party", "guarantee_lending", "asset_deal", "fair_disclosure", "earnings_schedule",
         "restructuring_followup", "officer_change", "stock_option", "withdrawal_notice", "voluntary_disclosure",
-        "merger_registration", "control_contract")},
+        "merger_registration", "control_contract", "holding_subsidiary", "subsidiary_listing", "reit_dividend",
+        "audit_report")},
 }
 
 
@@ -552,6 +571,12 @@ _NL_TYPES = {
     "합병신고서": "merger_registration", "합병증권신고서": "merger_registration", "합병비율": "merger_registration",
     "경영권변경계약": "control_contract", "경영권계약": "control_contract", "경영권양수도": "control_contract",
     "권리락": "capital_followup",
+    "자회사편입": "holding_subsidiary", "자회사탈퇴": "holding_subsidiary", "지주회사": "holding_subsidiary",
+    "종속회사상장": "subsidiary_listing", "자회사상장": "subsidiary_listing", "중복상장": "subsidiary_listing",
+    "해외상장": "subsidiary_listing",
+    "리츠배당": "reit_dividend", "리츠": "reit_dividend", "부동산투자회사": "reit_dividend",
+    "감사보고서": "audit_report",
+    "공모신고서": "equity_registration", "지분증권": "equity_registration", "증권신고서": "equity_registration",
     "자율공시": "voluntary_disclosure",
     "거버넌스": "governance", "지배구조": "governance",
     "공개매수": "tender_offer", "공개매수신고서": "tender_offer", "tender": "tender_offer",
