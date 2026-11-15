@@ -348,7 +348,7 @@ def test_v9_disclosure_sector_join_same_answer(legacy):
     from open_proxy_mcp.services import disclosure_flow as df
     with psycopg.connect(legacy, autocommit=True) as c:
         c.execute("""CREATE TABLE dart_events (rcept_no text PRIMARY KEY, rcept_dt date NOT NULL, corp_code text, corp_name text,
-                     stock_code text, corp_cls text, kind text NOT NULL, subtype text, is_correction boolean NOT NULL DEFAULT false,
+                     stock_code text, corp_cls text, kind text NOT NULL, subtype text, stage text, is_correction boolean NOT NULL DEFAULT false,
                      report_nm text, mktcap_won bigint, detail jsonb)""")
         ev = [("e1", date(2026, 8, 3), "000040"), ("e2", date(2026, 8, 25), "000050"), ("e3", date(2026, 10, 20), "000050"),
               ("e4", date(2026, 10, 20), "000070"), ("e5", date(2026, 9, 1), "000060"), ("e6", date(2026, 10, 20), "123450"),
