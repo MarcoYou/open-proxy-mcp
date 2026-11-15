@@ -429,12 +429,12 @@ _SUGGESTED_TOOL = {
     "earnings_confirmed": "provisional_earnings", "treasury_result": "treasury_share",
     "major_holder_change": "ownership_structure", "value_up_plan": "value_up",
     "capital_followup": "dilutive_issuance", "investment_judgment": "risk_events",
-    "equity_registration": "dilutive_issuance",       # 회사별 발행공시 목록·증권발행실적보고서의 지분변동 원문이 거기 있다
     **{c: "filing_section" for c in (
         "stock_split", "related_party", "guarantee_lending", "asset_deal", "fair_disclosure", "earnings_schedule",
         "restructuring_followup", "officer_change", "stock_option", "withdrawal_notice", "voluntary_disclosure",
         "merger_registration", "control_contract", "holding_subsidiary", "subsidiary_listing", "reit_dividend",
-        "audit_report")},
+        # 지분증권 신고서를 내는 회사는 대부분 상장 전이라 회사 이름으로 찾는 도구(`dilutive_issuance`)가 못 찾는다 — 접수번호로 연다.
+        "audit_report", "equity_registration")},
 }
 
 

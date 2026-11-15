@@ -101,6 +101,7 @@ def test_discovery_types_stay_out_of_default_presets_and_the_ledger():
     assert S._resolve_types(S._nl_types("그 밖의 공시"))[0] == discovery
     assert S._resolve_types(S._nl_types("주식분할"))[0] == ["stock_split"]       # 「분할」(회사분할)에 먼저 걸리지 않는다
     assert S._resolve_types(S._nl_types("분할"))[0] == ["restructuring"]
+    assert S._SUGGESTED_TOOL["equity_registration"] == "filing_section"       # 상장 전 회사가 대부분 — 이름으로 찾는 도구로 보내지 않는다
     assert S._resolve_types(S._nl_types("합병증권신고서"))[0] == ["merger_registration"]   # 「증권신고서」(지분증권)에 먼저 걸리지 않는다
     assert S._resolve_types(S._nl_types("증권신고서"))[0] == ["equity_registration"]
     assert S._resolve_types(S._nl_types("리츠배당"))[0] == ["reit_dividend"]              # 「배당」에 먼저 걸리지 않는다
