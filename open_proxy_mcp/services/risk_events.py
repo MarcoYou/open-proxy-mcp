@@ -250,7 +250,7 @@ def _parse_serious_accident(text: str, lines: list[str], stage: str) -> dict[str
 def _parse_embezzlement(text: str, lines: list[str], stage: str) -> dict[str, Any]:
     return {
         "suspect": _find_value_after(lines, "혐의자", 2) or _find_value_after(lines, "고소대상자", 2),
-        "amount_won": _find_amount_near(text, "혐의발생금액") or _find_amount_near(text, "횡령등 금액") or _find_amount_near(text, "금액"),
+        "amount_won": _find_amount_near(text, "혐의발생금액") or _find_amount_near(text, "사실확인금액") or _find_amount_near(text, "횡령등 금액") or _find_amount_near(text, "금액"),
         "equity_ratio_pct": _find_pct_near(text, "자기자본대비") or _find_pct_near(text, "자기자본 대비"),
         "summary_excerpt": re.sub(r"\s+", " ", text)[:300],
     }
@@ -310,6 +310,26 @@ _PARSERS = {
 _PARSERS.update(EXTRA_PARSERS)
 
 
+_CORR_TITLE = re.compile(r"정정\s*(?:관련|대상)\s*공시서류\s*[:：]?\s*(.{2,40}?)\s*2\s*\.\s*정정")
+
+
+def _body_after_correction(text: str) -> str:
+    """정정본이면 **정정 후 본문**(서식 제목 + 「1.」부터)만 돌려준다. 못 가르면 전문 그대로.
+
+    거래소 정정 서식은 머리의 「정정전·정정후」 표 뒤에 정정을 반영한 본문 전체를 다시 싣는다. 전문을 앞에서부터 읽으면
+    표의 정정 전 값이나 라벨만 늘어놓은 줄의 엉뚱한 숫자를 집는다(남양유업 20260130801451: 횡령 금액 「1」 —
+    본문 값은 6,805,430,626 · HJ중공업 20261012800581: 소송가액이 정정 전 131억). 서식 제목은 머리의
+    「1. 정정관련 공시서류 …」가 직접 말해 주고, 본문은 그 제목 바로 뒤에 「1.」이 오는 마지막 자리에서 시작한다.
+    2026-10-12~11-13 리스크 정정 77건: 49건이 갈리고 그중 22건의 값이 바뀌었다(본 것은 전부 정정 후 값이 옳았다).
+    """
+    m = _CORR_TITLE.search(re.sub(r"\s+", " ", text[:800]))
+    if not m:
+        return text
+    title = r"\s*".join(map(re.escape, re.sub(r"\s+", "", m.group(1))))     # 글자 사이 공백·줄바꿈 허용
+    hits = list(re.finditer(title + r"\s*1\s*\.", text))
+    return text[hits[-1].start():] if hits else text
+
+
 #: 원문 자체를 담는 칸 — 파서가 채운 칸인지 세는 자리에서 빼야 한다.
 _SOURCE_KEYS = ("source_text", "source_text_chars", "source_text_truncated")
 
@@ -329,7 +349,8 @@ def _parse_document(
         return {}, "원문 없음 — 이 접수번호의 DART 문서에 읽을 본문이 없다(빈 문서·이미지 전용)."
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     parser = _PARSERS.get(category, _parse_generic)
-    parsed = dict(parser(text, lines, stage) or {})
+    after = _body_after_correction(text)              # 값은 정정 후 본문에서 — 아래 source_text 는 전문 그대로 싣는다
+    parsed = dict(parser(after, lines if after is text else [l.strip() for l in after.split("\n") if l.strip()], stage) or {})
 
     body = "\n".join(lines)
     limit = max(200, min(int(source_chars or _SOURCE_CHARS_DEFAULT), _SOURCE_CHARS_MAX))
@@ -342,6 +363,8 @@ def _parse_document(
     note = "" if filled else (
         "서식이 달라 항목으로 나누지 못했다 — 값을 지어내지 않고 아래 원문을 그대로 싣는다."
     )
+    if after is not text:
+        parsed["values_from"] = "정정 후 본문"
     return parsed, note
 
 

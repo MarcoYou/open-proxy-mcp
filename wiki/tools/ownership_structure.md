@@ -48,6 +48,7 @@ scope:
 - `summary`: 최대주주 + 특수관계인 + 자사주 + 5% signal count (기본)
 - `major_holders`: 최대주주 + 특수관계인 상세
 - `blocks`: 5% 대량보유 최신 N건 + 보고 이력 시계열 (보유목적 보강 포함; 옛 `timeline` 을 흡수)
+  - 보유 목적은 서식 라벨(`report_tp`)로 먼저 정하고 원문으로 고친다. **일반 서식 = 경영참여 는 추정**이라, 5% 이상 일반 서식 보고는 이미 연 원문의 「보유목적」 칸이 단순투자·일반투자면 그 값을 쓴다(261115 — 일반 서식 80건 중 2건이 그랬다). 최신 표에서 확인한 목적은 이력의 같은 접수번호 행에도 적는다. 이력의 나머지 행은 서식 라벨 기준이다.
 - `control_map`: 3대 카테고리 (명부 등재 / 외부 능동 5% / 명부 겹침 5%)
 - `changes`: 최대주주등소유주식변동신고서 (원문을 칸 머리 이름으로 — 개요·개인별 변동·총괄현황, 인적사항 제외, 아래 「변동신고서」) + 5% 대량보유 변동 + **최대주주변경 계열**(거래소 공시 다섯 서식, 아래 「최대주주변경 계열」)
 - 폐지: `treasury`(자사주는 `treasury_share` tool) · `timeline`(`blocks` 에 통합). 넘기면 지원하지 않는 scope 로 돌아온다.
@@ -92,7 +93,7 @@ scope:
 - `block_camps`: 5% 보고 합산 — `camps[]`(겹치는 보고자 편별 `net_pct`) · `overlap_found` · `net_total_pct` · `report_bases[]`(기준 주식총수 = 보유주식수÷지분율 묶음 — `implied_total_shares`·`reporters`·`report_dates`·`rcept_nos`) · `over_100_note`(100% 초과 때 찾은 까닭만; 겹침이 없으면 겹침이라 하지 않는다)
 - `share_basis`(summary): 100% 분해 표의 **분모**(정기보고서 보통주 발행주식총수)가 어느 보고서·어느 결산기준일 값인지(`rcept_no`·`stlm_dt`·`bsns_year`·`stock_class`)와 최신 상장주식수(KRX 일별 시세 `price_latest` 보통주 코드 한 줄, DART·KRX 0콜)와의 대조. `comparison` — `same`(같음: 표는 그대로, 분모 출처 줄만) · `differs`(조금 다름, |`diff_pct`| ≤ 20%: 두 값·`diff_shares`(= 보고서 − 상장)·`diff_pct`(상장주식수 대비)를 적고 「지분율(최신 상장주식수 기준)」 칸을 덧붙임. 보유주식수·자사주는 보고서 기준일 수치 그대로라 그 뒤 소각·증자는 반영되지 않는다. 명부+자사주가 상장주식수를 넘으면 칸을 붙이지 않고 그 사실을 적는다) · `unit_changed`(크게 다름, |`diff_pct`| > 20%: 액면분할·병합(DATA-PX3) 등으로 주식 수 단위가 달라졌을 수 있다 — 보유주식수는 그 전 단위, 상장주식수는 그 뒤 단위라 나누면 터무니없는 값이 나오므로 두 값과 차이만 적고 상장주식수 기준 지분율은 계산하지 않음) · `past_year`(`year`·`as_of_date` 로 과거 사업연도를 물음: 오늘의 상장주식수와 시점이 달라 비교하지 않고 분모 출처 줄만) · `mixed_class`(합계 행에서 우선주만 뺐는데 다른 종류 행이 있어 보통주만이라 장담 못 함 → 보통주 상장주식수와 섞어 비교하지 않음) · `listed_unavailable`(상장주식수를 못 읽음 → 비교 생략)
 - `active_signal_count`: 5% 대량보유 + 경영참여 목적 신호 수 (분쟁 조기 경보)
-- `change_filings[]`: `status`(parsed·partial·unrecognized) · `reports[]`(보고 묶음 — `group` 「변경전/변경후 최대주주등」, `overview.before/after/delta` 의 `shares`·`pct`·`filed_on`, `individual_changes[]` 의 `name`·`relation`·`holder_kind`·`changes`, `total_holders[]` 의 `name`·`relation`·`holder_kind`·`common_*`·`total_*`, `total`) · `unread`(못 읽은 표 번호·절 제목) · `notes` · `profile_omitted` · `source`(dart_api·kind_scraping)
+- `change_filings[]`: `status`(parsed·partial·unrecognized) · `reports[]`(보고 묶음 — `group` 「변경전/변경후 최대주주등」, `overview.before/after/delta` 의 `shares`·`pct`(증감 비율에 부호를 안 붙인 서식은 직전·이번 비율의 차로 부호를 정하고 `delta.pct_sign_from: "before_after"` 를 남긴다 — 주식수 부호를 따르지 않는다, 261115)·`filed_on`, `individual_changes[]` 의 `name`·`relation`·`holder_kind`·`changes`, `total_holders[]` 의 `name`·`relation`·`holder_kind`·`common_*`·`total_*`, `total`) · `unread`(못 읽은 표 번호·절 제목) · `notes` · `profile_omitted` · `source`(dart_api·kind_scraping)
 - `control_events[]`: `kind`(change·transfer_contract·pledge_contract·pledge_release·transfer_release) · `fields`(서식별 칸, **원문 글자 그대로**) · `notes` · `related` · `rows`(찾은 줄 원문) · `holders`(변경 전후 보유 현황 표) · `pledges`·`pledge_conditions` · `comparison`(해소 전후) · `amendment`(정정이면 정정 비교표) · `profile_omitted`
 
 ## Data sources

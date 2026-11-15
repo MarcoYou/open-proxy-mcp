@@ -248,7 +248,7 @@ def _normalize_trust(item: dict[str, Any], event: str, label: str) -> dict[str, 
         "rcept_dt": _rcept_dt_from_no(item.get("rcept_no", "")),
         "corp_name": item.get("corp_name", ""),
         "report_nm": label,
-        "shares": 0,
+        "shares": None,          # 신탁 계약 체결·해지 결정에는 주식수 칸이 없다 — 0 이 아니라 「없음」
         "amount_krw": amount,
         # 해지 결정의 목적(cc_pp)은 아래 termination_reason 에만 싣는다 — 두 번 보이지 않게.
         "purpose": "" if is_term else purpose,

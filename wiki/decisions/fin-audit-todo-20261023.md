@@ -252,6 +252,7 @@ related: [data-pitfalls, financial_metrics, financial_notes, provisional_earning
 - [ ] **P1-#55 · forward_estimates_data** — 과거·분기 행에서 per/pbr/psr 만 지우고 div_yield_at_price_pct·peg 는 남겨 multiple_scope 설명과 어긋남
   - 위치: `services/forward_estimates.py:488-497 · _FIELDS 41-132` · DATA: DATA-FWD1
   - 고칠 방향: keep 이 아닌 행은 div_yield_at_price_pct·peg 도 비우고 peg 는 우리 PER 로 다시 계산한다
+  - 261115: `div_yield_at_price_pct` 는 비웠다. peg 는 남았다
 - [ ] **P1-#56 · forward_estimates_data** — md 표에 basis(연결/별도)가 없고 PER 계산도 basis 를 보지 않는다
   - 위치: `tools/forward_estimates_data.py:69-100 · services/forward_estimates.py:_apply_multiples` · DATA: DATA-Q5
   - 고칠 방향: 표에 기준 열을 넣고 별도 행은 per_def 를 별도로 표기한다

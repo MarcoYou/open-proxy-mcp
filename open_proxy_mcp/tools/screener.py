@@ -112,6 +112,9 @@ def _amend_lines(card: dict) -> list[str]:
 
 
 _GAP_METRIC_LABEL = (("revenue", "매출"), ("operating_profit", "영업이익"), ("net_income_controlling", "지배순이익"))
+#: 2026-08-01 이후 소각 카드 151건: 공시 금액÷주식수가 그날 종가의 ±20% 안인 것은 77건뿐이다(낮은 쪽 29 · 높은 쪽 45).
+_TREASURY_FOOTNOTE = ("🏦 자기주식 카드의 「시총대비」 = 공시 금액 ÷ 보통주 시총(최신 거래일). 소각 카드의 금액은 공시의 소각예정금액이라 "
+                      "장부가(취득가)인 경우가 많고, 그러면 소각 주식수 비율과 다르다 — 주식수·발행주식 대비는 `treasury_share`")
 _GAP_FOOTNOTE = ("📈 컨센서스 대비 = (잠정 − 예상) ÷ |예상|. 예상은 공시일 **전** 가장 최근 주간 컨센서스 스냅샷 — "
                  "DART 공시가 아니다. 한쪽이 빈 지표·출처는 `provisional_earnings` 에 있다")
 
@@ -412,6 +415,8 @@ def _render_digest(payload: dict[str, Any]) -> str:
         lines.append("> " + " · ".join(foot))
     if gap_any:
         lines.append(f"> {_GAP_FOOTNOTE}")
+    if any((h.get("detail_fields") or {}).get("amount_won") for h in by_type.get("treasury", [])):
+        lines.append(f"> {_TREASURY_FOOTNOTE}")
     lines += _coverage_block(p)
     if p.get("warnings"):
         lines.append("")
@@ -513,14 +518,15 @@ def _render_flow(p: dict[str, Any]) -> str:
     if cov is not None:
         L += ["", f"## 올해 누적 수주 — 매출 대비 합 상위 {_FLOW_ROWS_COVERAGE} ({cov['start']} ~ {cov['end']})", ""]
         if cov["rows"]:
-            L += ["| 회사 | 중분류 | 시총 | 새 계약 | 매출 대비 합 | 금액 합 | 비율 확인 | 해지 |",
-                  "|---|---|---|---|---|---|---|---|"]
+            L += ["| 회사 | 중분류 | 시총 | 새 계약 | 매출 대비 합 | 금액 합 | 비율 확인 | 정정 | 해지 |",
+                  "|---|---|---|---|---|---|---|---|---|"]
             for r in cov["rows"][:_FLOW_ROWS_COVERAGE]:
                 L.append(f"| {r['corp_name']} | {r.get('industry') or '–'} | {_cap(r.get('mktcap_krw'))} | {r['new']} | "
-                         f"{_pct(r['ratio_sum_pct'])} | {_won(r['amount_krw'])} | {r['ratio_n']}/{r['new']} | {r['cancels']} |")
+                         f"{_pct(r['ratio_sum_pct'])} | {_won(r['amount_krw'])} | {r['ratio_n']}/{r['new']} | {r['corrections']} | {r['cancels']} |")
             L += ["", f"> {cov['companies']}개사 · 새 계약 {cov['new_contracts']}건 중 매출 대비 비율을 읽은 것 {cov['ratio_read']}건. "
                   "매출이 작은 회사는 합이 수백~수천 %까지 커진다 — 시총을 같이 볼 것. 자회사 계약을 다시 낸 공시는 "
-                  "자회사 매출 기준이라 이 합에서 뺐다."]
+                  "자회사 매출 기준이라 이 합에서 뺐다. **합은 새 계약 공시에 적힌 값만 더한 것이다 — 그 뒤 정정으로 바뀐 금액과 "
+                  "해지된 계약은 빼지 않았다**(정정·해지 칸은 건수다. 금액은 `order_contracts` 의 정정 이력에서 확인)."]
         else:
             L.append("해당 없음.")
     L += ["", f"> {d['method']}"]

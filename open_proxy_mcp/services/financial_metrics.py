@@ -1133,6 +1133,16 @@ def _compute_metrics(
             return None
         return round((curr - prev) / abs(prev) * 100, 2)
 
+    def _yoy_note(curr, prev):
+        # 전기나 당기가 적자면 % 만으로는 방향이 안 읽힌다(−354억 → −118억 이 +66.6%) — 낱말로 밝힌다.
+        if curr is None or prev is None or (curr >= 0 and prev >= 0):
+            return None
+        if prev < 0 <= curr:
+            return "흑자 전환"
+        if curr < 0 <= prev:
+            return "적자 전환"
+        return "적자 축소" if curr > prev else "적자 확대" if curr < prev else "적자 지속"
+
     revenue_yoy_pct = _yoy_pct(revenue, prev_revenue)
     operating_profit_yoy_pct = _yoy_pct(operating_profit, prev_operating_profit)
     # 순이익 기준 표시 (DATA-NI2 의 연간 변형) — 지배 순이익을 못 구하면(전체 재무제표 조회 실패·MINORITY_NO_CTRL·NO_INCOME_ROW 꼴) 위에서 조용히 총계(비지배 포함)로 물러난다.
@@ -1377,6 +1387,8 @@ def _compute_metrics(
         "revenue_yoy_pct": revenue_yoy_pct,
         "operating_profit_yoy_pct": operating_profit_yoy_pct,
         "net_income_yoy_pct": net_income_yoy_pct,
+        "operating_profit_yoy_note": _yoy_note(operating_profit, prev_operating_profit),
+        "net_income_yoy_note": None if ni_basis_mixed else _yoy_note(net_income_controlling, prev_net_income_controlling),
         "eps_krw": eps_krw,
         "diluted_eps_krw": diluted_eps_krw,
         "roe_pct": roe_pct,

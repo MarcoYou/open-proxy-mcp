@@ -398,13 +398,18 @@ def order_coverage(rows: list[dict], window: tuple[date, date]) -> dict[str, Any
     """회사별 올해 누적 새 계약 — 공시에 적힌 「매출 대비 %」의 합과 금액 합. 확인 건수를 함께."""
     by: dict[str, dict[str, Any]] = {}
     for r in rows:
-        if r["kind"] != "order" or not (window[0] <= r["rcept_dt"] <= window[1]) or r.get("is_correction"):
+        if r["kind"] != "order" or not (window[0] <= r["rcept_dt"] <= window[1]):
             continue
         key = r.get("stock_code") or r.get("corp_code") or r["corp_name"]
         x = by.setdefault(key, {"corp_name": r["corp_name"], "stock_code": r.get("stock_code"),
                                 "sector": r.get("sector"), "industry": r.get("industry"),
                                 "new": 0, "ratio_sum": 0.0, "ratio_n": 0, "amount_krw": 0.0, "amount_n": 0,
-                                "cancels": 0, "via_sub": 0, "mktcap_krw": None, "last_dt": None})
+                                "corrections": 0, "cancels": 0, "via_sub": 0, "mktcap_krw": None, "last_dt": None})
+        if r.get("is_correction"):
+            # 정정은 새 계약이 아니라 합에 넣지 않는다 — 다만 금액을 바꾸는 정정이 흔해(2026-08-10~11-13 정정 764건 중 310건)
+            # 몇 건이 있었는지는 싣는다. 바뀐 금액 자체는 원장에 정정 전 값이 없어 여기서 못 낸다.
+            x["corrections"] += 1
+            continue
         if r.get("subtype") == "해지":
             x["cancels"] += 1
             continue
@@ -429,7 +434,7 @@ def order_coverage(rows: list[dict], window: tuple[date, date]) -> dict[str, Any
         if not x["new"]:
             continue
         out.append({**{k: x[k] for k in ("corp_name", "stock_code", "sector", "industry", "new", "ratio_n",
-                                          "amount_n", "cancels", "mktcap_krw")},
+                                          "amount_n", "corrections", "cancels", "mktcap_krw")},
                     "subsidiary_filings": x["via_sub"],
                     "ratio_sum_pct": round(x["ratio_sum"], 2) if x["ratio_n"] else None,
                     "amount_krw": int(round(x["amount_krw"])) if x["amount_n"] else None,

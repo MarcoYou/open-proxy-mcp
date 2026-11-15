@@ -81,6 +81,7 @@ financial_metrics(
 scope:
 - `summary`: 1 사업연도 56개 핵심 지표 (수익성/듀퐁/안정성/현금흐름/운전자본/회계risk/배당유보/NAV)
 - `yearly`: 최근 N년 추이 (revenue/op_profit/net_income/OPM/ROE/debt_ratio/CFO/FCF)
+  - 전기나 당기가 적자인 전년비에는 낱말을 붙인다 — `operating_profit_yoy_note`·`net_income_yoy_note` = 흑자 전환·적자 전환·적자 축소·적자 확대·적자 지속(261115). −354억 → −118억 은 `+66.6% (적자 축소)`. 둘 다 흑자면 칸이 없다.
 - `quarterly`: 최근 12분기 추이 (4Q × 3년 — Q1/Q2 반기/Q3/Q4 사업)
 - `yoy`: 전년 대비 + 22개 alerts + 감사의견 cross-check
 - `qoq`: 전분기 대비 (operating_loss_quarter / revenue_decline_qoq alerts)

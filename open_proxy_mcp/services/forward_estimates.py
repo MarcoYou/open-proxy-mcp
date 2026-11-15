@@ -499,6 +499,10 @@ def _apply_multiples(rows: list[dict[str, Any]], mktcap: float | None,
                    if not is_fy else
                    "최신 확정 FY 가 아니다 — 오늘 주가 ÷ 과거 연도 실적은 뜻이 없는 숫자다")
             r["per_why"] = r["pbr_why"] = r["psr_why"] = why
+            # 오늘 주가 ÷ 과거 연도 DPS 도 같은 이유로 뺀다 — 그 해의 배당수익률은 `div_yield_at_period_end_pct`(기말가 기준)에 있다.
+            if r.get("div_yield_at_price_pct") is not None:
+                r["div_yield_at_price_pct"] = None
+                r["div_yield_why"] = why
             continue
         at = f" @{price_dd} 종가" if price_dd else ""
         ni = r.get("ni_ctrl_krw")

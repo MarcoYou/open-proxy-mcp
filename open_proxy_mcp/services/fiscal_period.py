@@ -75,6 +75,8 @@ def period_metadata(period: dict[str, str] | None, *, annual: bool = False,
         "fiscal_year_end_month": fem,
         "fiscal_year_end_month_source": src,
         "period_kind": kind,
+        # 사업연도가 1년보다 짧은 회사(3·6개월 결산 리츠)의 결산 공시 — 「연간」으로 읽히지 않게 개월 수를 싣는다.
+        **({"fiscal_year_months": round(duration_days / 30.4)} if annual and duration_days < 300 else {}),
         "fiscal_quarter": fiscal_quarter_from_end(end.isoformat(), fem) if kind in ("quarter", "month") else None,
         "period_month": end.month if kind == "month" else None,
         "cumulative": kind == "quarter" and duration_days > 100,

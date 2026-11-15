@@ -64,7 +64,8 @@ def _render(p: dict) -> str:
         label += " · 정정후"
     if d.get("fiscal_year"):
         if d.get("period_kind") == "annual":
-            label = f"{d['fiscal_year']} 사업연도 {label}"
+            short = f"({d['fiscal_year_months']}개월 결산기 — 연간 아님)" if d.get("fiscal_year_months") else ""
+            label = f"{d['fiscal_year']} 사업연도{short} {label}"
         elif d.get("period_kind") == "month" and d.get("period_month"):
             label = f"{d['fiscal_year']}년 {d['period_month']}월(월간) {label}"
         elif d.get("fiscal_quarter"):

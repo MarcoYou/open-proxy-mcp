@@ -845,6 +845,12 @@ async def _latest_block_rows(
                     html = ""
                     _failed, _note = _dart_read_note(exc, empty_text="", fail_text="5% 보고 원문 조회 실패")
                     read_fail = read_fail or (_note if _failed else None)
+            if html and item.get("report_tp") == "일반":
+                # 일반 서식 = 경영참여 는 추정이다 — 원문 「보유목적」 칸이 단순투자·일반투자면 원문을 따른다
+                # (2026-08~11 일반 서식 80건 중 2건: 한주에이알티 단순투자, 크라우드웍스 일반투자). 이미 연 원문이라 DART 왕복은 안 는다.
+                doc_purpose = parse_holding_purpose_from_document(html)
+                if doc_purpose in ("단순투자", "일반투자"):
+                    purpose = doc_purpose
             if html:
                 parsed_table = parse_holder_table(html)
                 if parsed_table and parsed_table.get("format") == "일반":
@@ -862,6 +868,11 @@ async def _latest_block_rows(
             **({"doc_read_failed": read_fail} if read_fail else {}),
         })
     latest_rows.sort(key=lambda row: row["ownership_pct"], reverse=True)
+    # 원문으로 확인한 보유 목적을 이력의 같은 보고에도 적는다 — 한 응답 안에서 같은 접수번호의 목적이 갈리지 않게.
+    # ponytail: 이력의 나머지 행은 서식 라벨 기준 그대로다(원문을 다 열면 보고 수만큼 DART 왕복). 필요해지면 그때 연다.
+    verified = {row["rcept_no"]: row["purpose"] for row in latest_rows if row["rcept_no"]}
+    for row in timeline_rows:
+        row["purpose"] = verified.get(row["rcept_no"], row["purpose"])
     # 3번째 값 = 사람이 읽는 경고 한 줄. 판정(ownership 의 partial · proxy_contest 의 「모른다」)은 이 문구가 아니라 행 표식이 나른다.
     unread = [row for row in latest_rows if row.get("doc_read_failed") and row["ownership_pct"] >= 5.0]
     note = None
@@ -1157,6 +1168,12 @@ def _change_overview(grid: list[list[str]]) -> dict[str, Any] | None:
         common = kinds.get("보통주식")
         if basis == "합계" and common and common != (shares, pct):
             out[stage]["common_shares"], out[stage]["common_pct"] = common
+    # 증감 비율에 부호를 안 붙이는 서식이 있다(롯데관광개발 20260828800845: 42.63 → 40.12 인데 증감 칸은 `2.51`).
+    # 주식수 부호를 따르면 안 된다 — 주식은 줄고 지분율은 오른 보고가 실제로 있다(현대엘리베이터 20261113801193).
+    # 직전·이번 비율의 차와 크기가 같고 부호만 반대일 때만 뒤집고, 그랬다고 남긴다.
+    d, b, a = out.get("delta") or {}, out.get("before") or {}, out.get("after") or {}
+    if d.get("pct") and b.get("pct") is not None and a.get("pct") is not None and abs(a["pct"] - b["pct"] + d["pct"]) < 0.011:
+        d["pct"], d["pct_sign_from"] = -d["pct"], "before_after"
     return out
 
 

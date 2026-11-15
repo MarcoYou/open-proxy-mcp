@@ -329,9 +329,9 @@ def _render_yearly(data: dict[str, Any]) -> list[str]:
             f"{_format_krw_human(r.get('revenue_krw'))} | "
             f"{_chg(r.get('revenue_yoy_pct'))} | "
             f"{_format_krw_human(r.get('operating_profit_krw'))} | "
-            f"{_chg(r.get('operating_profit_yoy_pct'))} | "
+            f"{_chg(r.get('operating_profit_yoy_pct'), r.get('operating_profit_yoy_note'))} | "
             f"{_format_krw_human(r.get('net_income_krw'))} | "
-            f"{_chg(r.get('net_income_yoy_pct'))} | "
+            f"{_chg(r.get('net_income_yoy_pct'), r.get('net_income_yoy_note'))} | "
             f"{_pct(r.get('operating_margin_pct'))} | "
             f"{_pct(r.get('roe_pct'))} | "
             f"{_pct(r.get('debt_ratio_pct'))} | "
@@ -360,10 +360,10 @@ def _render_yearly(data: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _chg(v: Any) -> str:
+def _chg(v: Any, note: str | None = None) -> str:
     if v is None:
-        return "-"
-    return f"{v:+.1f}%"
+        return note or "-"
+    return f"{v:+.1f}%" + (f" ({note})" if note else "")
 
 
 def _render_quarterly(data: dict[str, Any]) -> list[str]:

@@ -93,7 +93,7 @@ scope:
 핵심 필드:
 - `acquisition_for_cancelation_*`: 소각 목적 취득 (실제 환원 검증의 핵심)
 - 5종 이벤트: `acquisition_decision` / `disposal_decision` / `trust_contract` / `trust_termination` / `cancelation_decision`
-- 신탁 체결(`trust_contract`): `amount_krw` = 계약금액(**한도, 집행액 아님**), `start_date`/`end_date` = 계약기간,
+- 신탁 체결(`trust_contract`): `shares` 는 **null**(신탁 계약 결정에는 주식수 칸이 없다 — 종전의 0 은 값이 아니었다, 261115). `amount_krw` = 계약금액(**한도, 집행액 아님**), `start_date`/`end_date` = 계약기간,
   `trustee_name` = 계약 체결기관, `broker_name` = 위탁투자중개업자, `board_date` = 이사회결의일, `contract_date` = 체결 예정일.
   `execution_status` — `confirmed` 면 그 계약의 [[신탁계약해지결과보고서]]와 이어져 `executed_amount_krw`(실제 취득액)·
   `executed_shares`·`execution_rcept_no` 가 붙는다. `unconfirmed` 면 실제 취득액을 모른다(진행 중이거나 해지결과를 잇지 못함).
