@@ -150,3 +150,30 @@ async def fetch_filings_for_title_scan(
 
     items.sort(key=lambda row: (row.get("rcept_dt", ""), row.get("rcept_no", "")), reverse=True)
     return items, notices, None
+
+
+async def find_withdrawal_notices(
+    corp_code: str, bgn_de: str, end_de: str, topic_words: Iterable[str],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """회사·구간의 거래소 공시(I001) 중 제목에 「철회」와 주제 낱말이 든 것 — `(공시 목록, 경고)`. list.json 1콜.
+
+    결정의 철회는 주요사항보고서가 아니라 「기타주요경영사항(… 철회)」·「[기재정정]…(철회)」로 온다. 결정이 철회되면 DART 구조화
+    자료(DS005)에서 그 결정이 보이지 않아, 결정 도구는 「공시 없음 (정상)」이라고만 답했다(빅텐츠 유상증자·전환사채 2026-11-10 철회,
+    대진첨단소재 합병 2026-10-01 철회). 제목·날짜·접수번호만 싣는다 — **어느 결정의 철회인지는 잇지 않는다**(원문을 읽어 확인).
+    """
+    try:
+        filings, notices, error = await search_filings_by_report_name(
+            corp_code=corp_code, bgn_de=bgn_de, end_de=end_de, pblntf_tys="", pblntf_detail_ty="I001",
+            keywords=("철회",), strip_spaces=True, last_reprt_at="N")
+    except DartClientError as exc:                      # 이 조회가 실패해도 결정 도구 본문은 그대로 나가야 한다
+        filings, notices, error = [], [], exc.status
+    if error and error != "013":
+        return [], [*notices, f"철회 공시 조회 실패: {error} — 철회 여부를 확인하지 못했다"]
+    words = tuple(topic_words)
+    out = []
+    for f in filings or []:
+        title = " ".join((f.get("report_nm") or "").split())
+        if any(w in title.replace(" ", "") for w in words):
+            out.append({"rcept_no": f.get("rcept_no", ""), "rcept_dt": f.get("rcept_dt", ""), "report_nm": title,
+                        "viewer_url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={f.get('rcept_no', '')}"})
+    return out, list(notices)

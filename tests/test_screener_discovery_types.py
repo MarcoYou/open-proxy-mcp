@@ -32,7 +32,13 @@ from open_proxy_mcp.services import screener as S
     ("독립이사의선임ㆍ해임또는중도퇴임에관한신고", "officer_change", "독립이사"),
     ("주식매수선택권부여에관한신고", "stock_option", "부여"),
     ("기업가치제고계획(자율공시)", "value_up_plan", "계획"),
-    ("기타주요경영사항(제7회차 무기명식 무보증 사모 전환사채 발행결정 철회)", "withdrawal_notice", "철회"),
+    ("기타주요경영사항(해외증권시장 주권등 상장 결정 철회)", "withdrawal_notice", "철회"),
+    ("철회신고서", "withdrawal_notice", "신고서철회"),                          # 증권신고서 철회 — C001
+    ("[정정제출요구]증권신고서(합병)", "merger_registration", "합병"),           # C004 — 머리말 대괄호가 겹쳐도
+    ("[정정제출요구][기재정정]증권신고서(합병)", "merger_registration", "합병"),
+    ("[기재정정]증권신고서(주식의포괄적교환ㆍ이전)", "merger_registration", "주식교환"),   # 결정 유형(주식교환)에 먼저 걸리면 안 된다
+    ("경영권변경등에관한계약체결", "control_contract", "경영권계약"),            # 코스닥 서식 — 한 달 10건이 미분류였다
+    ("권리락              (무상증자)", "capital_followup", "권리락"),
     ("기타경영사항(자율공시)", "voluntary_disclosure", "자율공시"),
     ("투자판단 관련 주요경영사항(임상시험계획 변경승인신청)", "investment_judgment", "투자판단"),
     ("주요사항보고서(주식교환ㆍ이전결정)", "restructuring", "주식교환"),
@@ -58,6 +64,10 @@ def test_forms_that_only_quote_another_filing_are_not_classified_as_that_filing(
     ("단일판매ㆍ공급계약체결", "order", "체결"),
     ("주요사항보고서(유상증자결정)", "dilutive", "유상증자"),
     ("기타주요경영사항(제3자배정유상증자결정철회)", "dilutive", "유상증자"),   # 종전대로 — 철회 단계 표지가 붙는다
+    # 261115: 「권」 없이 적은 사채 발행결정 철회도 같은 사건이다 — 종전엔 발견 전용(withdrawal_notice)으로만 갔다.
+    ("기타주요경영사항(제7회차 무기명식 무보증 사모 전환사채 발행결정 철회)", "dilutive", "CB발행"),
+    ("기타주요경영사항(제7회차 전환사채권 발행 결정 철회)", "dilutive", "CB발행"),
+    ("[발행조건확정]증권신고서(지분증권)", None, ""),                             # 합병 계열이 아닌 증권신고서는 그대로 미분류
     ("최대주주등소유주식변동신고서(최대주주변경시)", "control_change", "변경"),
     ("투자판단관련주요경영사항(최대주주변경을수반하는주식양수도계약체결)", "control_change", "변경"),
     ("연결재무제표기준영업(잠정)실적(공정공시)", "earnings", "잠정실적"),
@@ -70,7 +80,7 @@ def test_discovery_types_stay_out_of_default_presets_and_the_ledger():
     core, _ = S._resolve_types("core")
     all_types, _ = S._resolve_types("all")
     discovery, _ = S._resolve_types("discovery")
-    assert discovery == S.DISCOVERY_PRESET and len(discovery) == 17
+    assert discovery == S.DISCOVERY_PRESET and len(discovery) == 19
     assert not set(discovery) & (set(core) | set(all_types))
     assert all(S._BY_CODE[c].get("opt_in") and S._BY_CODE[c]["detail_kind"] is None for c in discovery)   # 원장·상세 파서 밖
     assert S._resolve_types(S._nl_types("그 밖의 공시"))[0] == discovery
@@ -155,3 +165,54 @@ def test_discovery_card_shows_the_filing_title_because_it_is_the_content():
                         "suggested_tool": "risk_events", "interpretation": "discovery_only", "detail_status": "scan_only"}]}
     assert "공시명: 투자판단 관련 주요경영사항(임상시험계획 변경승인신청)" in T._render_digest(result)
     assert S._resolve_types(S._nl_types("임상"))[0] == ["investment_judgment"]
+
+
+def test_withdrawals_are_scanned_with_their_decision_type_and_not_counted_as_new():
+    from datetime import date
+    from open_proxy_mcp.services import disclosure_flow as F
+    for code in ("dilutive", "restructuring", "stake_deal"):                    # 철회는 I001 「기타주요경영사항」으로 온다
+        assert "I001" in S.scan_codes_of(code)
+    assert S._stage_tag("dilutive", "기타주요경영사항(유상증자결정(제3자배정) 철회)", "유상증자") == "철회/취소"
+    base = {"kind": "dilutive", "rcept_dt": date(2026, 11, 10), "corp_name": "가", "sector": "IT", "subtype": "유상증자"}
+    rows = [{**base, "stage": "결정(예정)"}, {**base, "stage": "철회/취소"}]
+    assert [F.is_new(r) for r in rows] == [True, False]
+    out = F.aggregate_flow(rows, "dilutive", "sector", (date(2026, 11, 8), date(2026, 11, 14)), (date(2026, 8, 9), date(2026, 11, 7)), 7, 91)
+    assert out["total"]["new"] == 1 and out["total"]["withdrawals"] == 1
+    # 소송 제목의 「취소」는 다투는 대상이다 — 새 소송으로 센다(원장에 옛 단계로 적힌 행까지)
+    suit = "소송등의제기ㆍ신청(경영권분쟁소송)              (주주총회결의 취소의 소)"
+    assert S._stage_tag("litigation", suit, "소송") != "철회/취소"
+    assert F.is_new({"kind": "litigation", "stage": "철회/취소", "rcept_dt": date(2026, 11, 10)})
+
+
+def test_withdrawal_notices_keep_only_titles_about_the_topic(monkeypatch):
+    from open_proxy_mcp.services import filing_search as FS
+    async def fake(**kw):
+        assert kw["pblntf_detail_ty"] == "I001" and kw["keywords"] == ("철회",)
+        return ([{"rcept_no": "20261110900357", "rcept_dt": "20261110", "report_nm": "기타주요경영사항              (유상증자결정(제3자배정) 철회)"},
+                 {"rcept_no": "20261006900379", "rcept_dt": "20261006", "report_nm": "[기재정정]주주총회소집결의 (임시주주총회-철회)"}], [], None)
+    monkeypatch.setattr(FS, "search_filings_by_report_name", fake)
+    got, warns = asyncio.run(FS.find_withdrawal_notices("00000000", "20260501", "20261114", ("증자", "사채", "감자")))
+    assert [g["rcept_no"] for g in got] == ["20261110900357"] and not warns
+    assert got[0]["report_nm"] == "기타주요경영사항 (유상증자결정(제3자배정) 철회)"
+
+
+def test_restructuring_withdrawal_words_do_not_catch_other_withdrawals(monkeypatch):
+    from open_proxy_mcp.services import filing_search as FS
+    titles = ["기타주요경영사항 (회사 합병결정 철회)", "기타주요경영사항 (회사분할결정 철회)",
+              "기타주요경영사항 (제2회차 교환사채 발행결정 철회)", "[기재정정]주식분할결정 (철회)", "기타주요경영사항 (이전상장 추진 철회)"]
+    async def fake(**kw):
+        return ([{"rcept_no": str(i), "rcept_dt": "20261001", "report_nm": t} for i, t in enumerate(titles)], [], None)
+    monkeypatch.setattr(FS, "search_filings_by_report_name", fake)
+    words = ("회사합병", "합병결정", "회사분할", "분할합병", "주식교환", "주식의포괄적", "영업양수", "영업양도")
+    got, _ = asyncio.run(FS.find_withdrawal_notices("00000000", "20260501", "20261114", words))
+    assert [g["rcept_no"] for g in got] == ["0", "1"]
+
+
+def test_withdrawal_lookup_failure_becomes_a_warning_not_a_crash(monkeypatch):
+    from open_proxy_mcp.dart.client import DartClientError
+    from open_proxy_mcp.services import filing_search as FS
+    async def boom(**kw):
+        raise DartClientError("020", "한도")
+    monkeypatch.setattr(FS, "search_filings_by_report_name", boom)
+    got, warns = asyncio.run(FS.find_withdrawal_notices("00000000", "20260501", "20261114", ("증자",)))
+    assert got == [] and "020" in warns[0]

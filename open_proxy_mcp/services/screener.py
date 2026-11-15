@@ -197,14 +197,18 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
     {
         "code": "dilutive", "label": "증자·CB·BW", "tier": 1,
         "scan_code": "B001",
+        # 결정의 **철회**는 주요사항보고서가 아니라 거래소 「기타주요경영사항(… 철회)」(I001)로 온다. 증자만 물으면 B001 만 훑어
+        # 같은 날 낸 철회를 놓치고 결정만 살아 있는 것처럼 보였다(모바일어플라이언스 2026-10-27). 합병·양수도도 같다.
+        "extra_scan_codes": ("I001",),
         "matchers": [
             # 「유무상증자결정」은 「무상증자결정」을 품은 글자라 먼저 가른다 — 종전엔 유상증자가 딸린 공시가 무상증자로 실렸다(원장 42행).
             ("유무상증자", ["유무상증자결정"]),
             ("유상증자", ["유상증자결정"]),
             ("무상증자", ["무상증자결정"]),
-            ("CB발행", ["전환사채권발행"]),
-            ("BW발행", ["신주인수권부사채권발행"]),
-            ("교환사채", ["교환사채권발행"]),
+            # 「…사채 발행결정 철회」처럼 「권」 없이 적는 철회 안내도 같은 사건이다 — 종전엔 「권」이 있는 것만 증자 유형의 철회로 갔다.
+            ("CB발행", ["전환사채권발행", "전환사채발행결정"]),
+            ("BW발행", ["신주인수권부사채권발행", "신주인수권부사채발행결정"]),
+            ("교환사채", ["교환사채권발행", "교환사채발행결정"]),
             ("감자", ["감자결정"]),
         ],
         "max_items": 25, "detail_kind": "dilutive",
@@ -239,9 +243,19 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
                      ("결과", ["주주총회결과"])],
         "max_items": 30, "detail_kind": None, "force_keywords": ["정정"],
     },
+    # 합병·분할·주식교환의 증권신고서(C004) — 합병비율 근거·평가방법·가액의 요약표가 여기 있다(결정 공시에는 없다). 발견 전용(261115).
+    # 아래 `restructuring` 보다 **앞에** 둔다: 「증권신고서(주식의포괄적교환ㆍ이전)」이 그쪽 낱말(주식의포괄적교환)에 먼저 걸리면
+    # C004 를 훑지 않는 결정 유형으로 분류돼 어디에서도 안 나온다.
+    {
+        "code": "merger_registration", "label": "증권신고서(합병·분할·주식교환)", "tier": 3, "scan_code": "C004",
+        "matchers": [("합병", ["증권신고서(합병"]), ("분할", ["증권신고서(분할"]),
+                     ("주식교환", ["증권신고서(주식의포괄적교환", "증권신고서(주식의포괄적이전"])],
+        "max_items": 40, "detail_kind": None, "force_keywords": ["정정"], "opt_in": True,
+        "interpretation": "discovery_only", "in_all": False,
+    },
     {
         "code": "restructuring", "label": "합병·분할·영업양수도", "tier": 2,
-        "scan_code": "B001",
+        "scan_code": "B001", "extra_scan_codes": ("I001",),          # 철회는 I001 「기타주요경영사항」 — 증자 유형 주석 참조
         "matchers": [("합병", ["회사합병결정", "분할합병결정"]),
                      ("분할", ["회사분할결정"]),
                      ("영업양수도", ["영업양수결정", "영업양도결정"]),
@@ -250,7 +264,7 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
     },
     {
         "code": "stake_deal", "label": "타법인주식 양수·양도", "tier": 3,
-        "scan_code": "B001",
+        "scan_code": "B001", "extra_scan_codes": ("I001",),          # 철회는 I001 「기타주요경영사항」
         "matchers": [("양수도", ["타법인주식및출자증권양수결정", "타법인주식및출자증권양도결정",
                                  "타법인주식및출자증권취득결정", "타법인주식및출자증권처분결정"])],
         "max_items": 20, "detail_kind": None, "force_keywords": ["정정"],
@@ -341,6 +355,7 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
                       ("사채매도", ["자기전환사채매도", "자기신주인수권부사채매도", "자기교환사채매도"]),
                       ("매수선택권", ["전환사채매수선택권"]),
                       ("감자완료", ["감자완료"]),
+                      ("권리락", ["권리락"]),
                       ("자본성증권", ["자본으로인정되는채무증권", "상각형조건부자본증권"])]},
         {"code": "restructuring_followup", "label": "합병 등 종료보고", "scan_code": "E003",
          "matchers": [("종료보고", ["합병등종료보고서"])]},
@@ -355,8 +370,14 @@ TYPE_REGISTRY: list[dict[str, Any]] = [
         # 제목 괄호에 있다 — 값·내용은 `risk_events` 의 같은 이름 분류가 읽는다. 최대주주변경을 수반하는 양수도 계약은 앞의 `control_change` 가 먼저 가져간다.
         {"code": "investment_judgment", "label": "투자판단 주요경영사항(임상·허가·기술이전·계약)", "scan_code": "I001",
          "matchers": [("투자판단", ["투자판단관련주요경영사항"])]},
-        {"code": "withdrawal_notice", "label": "기타주요경영사항(결정 철회 등)", "scan_code": "I001",
-         "matchers": [("철회", ["기타주요경영사항"])]},
+        # 증권신고서 철회신고서(C001) — 공모(유상증자·상장)를 접는 서류. 제목에 무엇의 철회인지가 없어 원문을 열어야 안다.
+        {"code": "withdrawal_notice", "label": "기타주요경영사항(결정 철회 등)·철회신고서", "scan_code": "I001",
+         "extra_scan_codes": ("C001",),
+         "matchers": [("신고서철회", ["철회신고서"]), ("철회", ["기타주요경영사항"])]},
+        # 코스닥 「경영권 변경 등에 관한 계약 체결」 — 유가증권시장의 「최대주주 변경을 수반하는 주식양수도 계약」에 해당하는 서식인데
+        # 제목에 「최대주주변경」이 없어 어느 유형에도 안 걸렸다(한 달 10건). 값을 읽는 파서는 없다 — 원문 절 읽기로 잇는다.
+        {"code": "control_contract", "label": "경영권 변경 계약(코스닥)", "scan_code": "I001",
+         "matchers": [("경영권계약", ["경영권변경등에관한계약"])]},
         {"code": "voluntary_disclosure", "label": "자율공시(기타경영사항)", "scan_code": "I001",
          "matchers": [("자율공시", ["기타경영사항"])]},
     )],
@@ -393,7 +414,8 @@ _SUGGESTED_TOOL = {
     "capital_followup": "dilutive_issuance", "investment_judgment": "risk_events",
     **{c: "filing_section" for c in (
         "stock_split", "related_party", "guarantee_lending", "asset_deal", "fair_disclosure", "earnings_schedule",
-        "restructuring_followup", "officer_change", "stock_option", "withdrawal_notice", "voluntary_disclosure")},
+        "restructuring_followup", "officer_change", "stock_option", "withdrawal_notice", "voluntary_disclosure",
+        "merger_registration", "control_contract")},
 }
 
 
@@ -446,7 +468,8 @@ def _is_subsidiary_matter(report_nm: str) -> bool:
 def _stage_tag(type_code: str, report_nm: str, subtype: str) -> str:
     """단계 태깅 — 예정치≠실행치 구분. report_nm 키워드 기반."""
     core = _normalize_report_nm(report_nm)
-    if "철회" in core or "취소" in core:
+    # 소송 제목의 「취소」는 다투는 대상이다(「주주총회결의취소의 소」) — 소송을 접었다는 뜻이 아니다. 원장의 소송 21행이 이 단계로 적혀 있다.
+    if "철회" in core or ("취소" in core and type_code != "litigation"):
         return "철회/취소"
     if "해지" in core:
         return "해지"
@@ -525,7 +548,10 @@ _NL_TYPES = {
     "독립이사": "officer_change", "사외이사": "officer_change", "대표이사": "officer_change",
     "스톡옵션": "stock_option", "주식매수선택권": "stock_option",
     "밸류업": "value_up_plan", "기업가치제고": "value_up_plan",
-    "결정철회": "withdrawal_notice", "철회공시": "withdrawal_notice",
+    "결정철회": "withdrawal_notice", "철회공시": "withdrawal_notice", "철회신고서": "withdrawal_notice",
+    "합병신고서": "merger_registration", "합병증권신고서": "merger_registration", "합병비율": "merger_registration",
+    "경영권변경계약": "control_contract", "경영권계약": "control_contract", "경영권양수도": "control_contract",
+    "권리락": "capital_followup",
     "자율공시": "voluntary_disclosure",
     "거버넌스": "governance", "지배구조": "governance",
     "공개매수": "tender_offer", "공개매수신고서": "tender_offer", "tender": "tender_offer",

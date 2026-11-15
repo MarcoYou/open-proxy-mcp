@@ -15,7 +15,7 @@ from typing import Any
 from open_proxy_mcp.dart.client import DartClientError, get_dart_client
 from open_proxy_mcp.services.company import _company_id, resolve_company_query
 from open_proxy_mcp.services.company import company_not_found_warning
-from open_proxy_mcp.services.filing_search import search_filings_by_report_name
+from open_proxy_mcp.services.filing_search import find_withdrawal_notices, search_filings_by_report_name
 from open_proxy_mcp.services.contracts import (
     AnalysisStatus,
     EvidenceRef,
@@ -1292,7 +1292,14 @@ async def build_dilutive_issuance_payload(
             )
 
     status = status_from_filing_meta(filing_meta)
-    if filing_meta["no_filing"]:
+    withdrawals, withdrawal_warnings = await find_withdrawal_notices(
+        selected["corp_code"], bgn_de, end_de, ("증자", "사채", "감자"))
+    warnings.extend(withdrawal_warnings)
+    if withdrawals:
+        data["withdrawal_notices"] = withdrawals
+        warnings.append(f"조사 구간에 증자·사채·감자 결정의 **철회 공시 {len(withdrawals)}건**이 있다(아래 「철회 공시」). "
+                        "철회된 결정은 아래 사건 목록에 없을 수 있다 — 철회 뒤 DART 구조화 자료에서 빠진 사례가 있다")
+    elif filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 희석성 증권(유증/CB/EB/BW/감자) 발행 공시 없음 (정상)")
 
     return ToolEnvelope(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
-from open_proxy_mcp.tools._shared import company_id_line
+from open_proxy_mcp.tools._shared import company_id_line, withdrawal_notice_lines
 from open_proxy_mcp.services.corporate_restructuring import build_corporate_restructuring_payload
 
 
@@ -127,9 +127,12 @@ def _render(payload: dict[str, Any]) -> str:
             lines.append(f"- {warning}")
         lines.append("")
 
+    lines.extend(withdrawal_notice_lines(data))
     timeline = data.get("events_timeline", [])
     if not timeline:
-        if data.get("no_filing"):
+        if data.get("withdrawal_notices"):
+            lines.append("조사 구간에 남아 있는 결정 사건은 없다 — 위 철회 공시의 원문을 볼 것.")
+        elif data.get("no_filing"):
             lines.append("## 공시 없음")
             lines.append("- 조사 구간 내 지배구조 재편 사건 없음 (정상).")
         else:

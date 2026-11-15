@@ -358,7 +358,15 @@ async def build_corporate_restructuring_payload(
             )
 
     status = status_from_filing_meta(filing_meta)
-    if filing_meta["no_filing"]:
+    from open_proxy_mcp.services.filing_search import find_withdrawal_notices
+    withdrawals, withdrawal_warnings = await find_withdrawal_notices(
+        selected["corp_code"], bgn_de, end_de, ("회사합병", "합병결정", "회사분할", "분할합병", "주식교환", "주식의포괄적", "영업양수", "영업양도"))   # 교환사채·주식분할·이전상장 철회는 아니다
+    warnings.extend(withdrawal_warnings)
+    if withdrawals:
+        data["withdrawal_notices"] = withdrawals
+        warnings.append(f"조사 구간에 합병·분할·주식교환·영업양수도 결정의 **철회 공시 {len(withdrawals)}건**이 있다(아래 「철회 공시」). "
+                        "철회된 결정은 아래 사건 목록에 없을 수 있다 — 철회 뒤 DART 구조화 자료에서 빠진 사례가 있다")
+    elif filing_meta["no_filing"]:
         warnings.append(f"조사 구간 ({bgn_de}~{end_de}) 내 지배구조 재편(합병/분할/주식교환) 공시 없음 (정상)")
 
     return ToolEnvelope(

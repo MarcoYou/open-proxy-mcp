@@ -64,6 +64,7 @@ corporate_restructuring(
                              "target_company": {...}, "schedule": {...}}],
   "no_filing": false,
   "filing_count": N,
+  "withdrawal_notices": [{"rcept_no": "...", "rcept_dt": "YYYYMMDD", "report_nm": "기타주요경영사항 (… 철회)", "viewer_url": "..."}],   // 있을 때만. 어느 결정의 철회인지는 잇지 않는다
   "usage": {"dart_api_calls": N, "mcp_tool_calls": 1}
 }
 ```
@@ -80,7 +81,7 @@ corporate_restructuring(
   - `cmpDvmgDecsn.json` 회사분할합병 (apiId 2020052)
   - `stkExtrDecsn.json` 주식교환·이전 (apiId 2020053)
 - KIND/Naver 미사용. PDF/원문 파싱 없음 (API 응답만 정규화).
-- 외부 호출: 4회 (DS005 4종 asyncio.gather 병렬). 기본 lookback 24개월.
+- 외부 호출: 4회 (DS005 4종 asyncio.gather 병렬) + 철회 공시 목록 1회(list.json I001). 기본 lookback 24개월.
 
 ## Flow
 
@@ -147,6 +148,7 @@ sequenceDiagram
 - 외부평가 기관 신뢰도 매트릭스 (TODO).
 
 ## 변경 이력
+- 2026-11-15: **철회 공시를 싣는다**(`withdrawal_notices`: 접수일·제목·접수번호·원문 링크). 합병·분할·주식교환·영업양수도 결정의 철회는 거래소 「기타주요경영사항(… 철회)」(I001)로 온다 — 종전엔 「재편 공시 없음 (정상)」으로만 답했다(대진첨단소재 합병 2026-10-01 철회). 어느 결정의 철회인지는 잇지 않는다. 외부 호출 +1(list.json I001).
 - 2026-10-18: 목록·결정 조회가 **실패**(DART 013 「조회된 데이터 없음」이 아닌 오류 — 020 한도·800 점검·전송 오류)했는데 0건이면 「… 없음 (정상)」·`no_filing` 대신 `status=error`·`filing_status=fetch_failed`(`no_filing=false`) — 0건이 「없다」가 아니라 「모른다」다. 013 은 그대로 「없음 (정상)」. md 의 「(정상 NO_FILING)」 → 「(정상)」(상태값 이름을 문장에 쓰지 않는다).
 - 2026-04-21: corporate_restructuring tool 신설 (12 → 13번째 tool, Data 8개째)
 - 2026-04-21: 5/5 전수조사 통과

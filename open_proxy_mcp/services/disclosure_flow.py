@@ -186,7 +186,7 @@ def _fetch_scan(since: date, until: date) -> dict[tuple[date, str], bool] | None
 
 _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "corp_cls", "kind", "subtype",
                "is_correction", "report_nm", "sector", "industry", "mktcap_won", "amount", "ratio", "counterparty",
-               "is_external", "amount_before")
+               "is_external", "amount_before", "stage")
 
 
 #: 원장 행의 업종은 **읽을 때 붙이고**, 시총은 **원장에 저장된 값**을 읽는다 (261018, Supabase 재설계 6단계).
@@ -217,7 +217,7 @@ pick AS MATERIALIZED (
 SELECT e.rcept_no, e.rcept_dt, e.corp_code, e.corp_name, e.stock_code, e.corp_cls, e.kind, e.subtype, e.is_correction,
        e.report_nm, COALESCE(ws.sector, nb.sector), COALESCE(ws.industry, nb.industry), e.mktcap_won,
        e.detail->>'amount_won', e.detail->>'revenue_ratio_pct', e.detail->>'counterparty', e.detail->>'is_external',
-       e.detail->>'amount_before_won'
+       e.detail->>'amount_before_won', e.stage
 FROM dart_events e
 JOIN pick p ON p.rcept_dt = e.rcept_dt
 LEFT JOIN wise_sector ws ON ws.snap_dd = p.sector_dd AND ws.ticker = e.stock_code
@@ -290,9 +290,18 @@ def mark_subsidiary_filings(rows: list[dict]) -> None:
             r["sub_dup"] = bool(others)
 
 
+#: 결정을 접는 공시(「기타주요경영사항(… 철회)」, 계약 해제·취소) — 원장의 단계 칸. 새 결정으로 세면 접힌 증자·합병이 늘어난 것처럼 보인다.
+WITHDRAWN_STAGE = "철회/취소"
+
+
+def is_withdrawal(row: dict) -> bool:
+    """결정을 접은 공시인가. 소송은 뺀다 — 원장의 소송 행 가운데 제목에 「취소」가 든 것(주주총회결의취소의 소)이 이 단계로 적혀 있다."""
+    return row.get("stage") == WITHDRAWN_STAGE and row.get("kind") != "litigation"
+
+
 def is_new(row: dict) -> bool:
-    """새 공시 = 정정 아님, 그리고 수주면 해지 아님."""
-    if row.get("is_correction") or row.get("sub_dup"):
+    """새 공시 = 정정 아님, 철회·취소 아님, 그리고 수주면 해지 아님."""
+    if row.get("is_correction") or row.get("sub_dup") or is_withdrawal(row):
         return False
     return not (row.get("kind") == "order" and row.get("subtype") == "해지")
 
@@ -314,7 +323,7 @@ def aggregate_flow(rows: list[dict], kind: str, level: str, cur: tuple[date, dat
     def b(name: str | None) -> dict[str, Any]:
         key = name or NO_BUCKET
         if key not in buckets:
-            buckets[key] = {"bucket": key, "new": 0, "corrections": 0, "cancels": 0, "amount_krw": 0.0,
+            buckets[key] = {"bucket": key, "new": 0, "corrections": 0, "cancels": 0, "withdrawals": 0, "amount_krw": 0.0,
                             "amount_n": 0, "ratio_sum": 0.0, "ratio_n": 0, "base_new": 0, "sub_dups": 0,
                             "subtypes": Counter()}
         return buckets[key]
@@ -329,6 +338,8 @@ def aggregate_flow(rows: list[dict], kind: str, level: str, cur: tuple[date, dat
                 x["sub_dups"] += 1
             elif r.get("is_correction"):
                 x["corrections"] += 1
+            elif is_withdrawal(r):
+                x["withdrawals"] += 1                      # 올해 34건(증자)·47건(최대주주변경 계약 해제)이 새 공시로 세어졌다
             elif kind == "order" and r.get("subtype") == "해지":
                 x["cancels"] += 1
             else:
@@ -349,6 +360,7 @@ def aggregate_flow(rows: list[dict], kind: str, level: str, cur: tuple[date, dat
         out = {
             "bucket": x["bucket"], "new": x["new"], "corrections": x["corrections"],
             "cancels": x["cancels"] if kind == "order" else None,
+            "withdrawals": x["withdrawals"],
             "amount_krw": int(round(x["amount_krw"])) if x["amount_n"] else None, "amount_n": x["amount_n"],
             "avg_ratio_pct": round(x["ratio_sum"] / x["ratio_n"], 2) if x["ratio_n"] else None,
             "base_new": x["base_new"], "subsidiary_duplicates": x["sub_dups"],
@@ -360,13 +372,14 @@ def aggregate_flow(rows: list[dict], kind: str, level: str, cur: tuple[date, dat
         }
         return out
 
-    rows_out = [finish(x) for x in buckets.values() if x["new"] or x["base_new"] or x["corrections"] or x["cancels"]]
+    rows_out = [finish(x) for x in buckets.values()
+                if x["new"] or x["base_new"] or x["corrections"] or x["cancels"] or x["withdrawals"]]
     rows_out.sort(key=lambda r: (r["bucket"] == NO_BUCKET, r["thin_base"], -(r["vs_base"] or 0.0), -r["new"], r["bucket"]))
-    tot = {"bucket": "합계", "new": 0, "corrections": 0, "cancels": 0, "amount_krw": 0.0, "amount_n": 0,
+    tot = {"bucket": "합계", "new": 0, "corrections": 0, "cancels": 0, "withdrawals": 0, "amount_krw": 0.0, "amount_n": 0,
            "ratio_sum": 0.0, "ratio_n": 0, "base_new": 0, "sub_dups": 0, "subtypes": Counter()}
     for x in buckets.values():
-        for k in ("new", "corrections", "cancels", "amount_krw", "amount_n", "ratio_sum", "ratio_n", "base_new",
-                  "sub_dups"):
+        for k in ("new", "corrections", "cancels", "withdrawals", "amount_krw", "amount_n", "ratio_sum", "ratio_n",
+                  "base_new", "sub_dups"):
             tot[k] += x[k]
         tot["subtypes"].update(x["subtypes"])
     return {"level": level, "level_label": LEVEL_LABEL[level], "rows": rows_out, "total": finish(tot)}

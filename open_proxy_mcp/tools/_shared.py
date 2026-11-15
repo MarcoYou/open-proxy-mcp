@@ -52,6 +52,17 @@ def company_id_line(data: dict) -> str | None:
     return f"- 종목코드 {code}" if code else None
 
 
+def withdrawal_notice_lines(data: dict) -> list[str]:
+    """결정 도구의 「철회 공시」 절 — 제목·날짜·원문 링크. 없으면 빈 목록."""
+    notices = data.get("withdrawal_notices") or []
+    if not notices:
+        return []
+    lines = ["## 철회 공시", "- 결정을 접는 거래소 공시다. 어느 결정의 철회인지는 원문으로 확인할 것 — 아래 접수번호로 `filing_section` 을 부른다.",
+             "", "| 공시일 | 제목 | 원문 |", "|--------|------|------|"]
+    lines += [f"| {n.get('rcept_dt', '')} | {n.get('report_nm', '')} | [{n.get('rcept_no', '')}]({n.get('viewer_url', '')}) |" for n in notices]
+    return lines + [""]
+
+
 def krw_scaled(v: Any) -> str:
     """원 단위 금액을 값 크기에 맞는 단위로 찍는다 — **조 고정은 소형주를 지운다.**
 
