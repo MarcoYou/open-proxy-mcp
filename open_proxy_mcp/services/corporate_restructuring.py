@@ -83,7 +83,29 @@ def _normalize_merger(item: dict[str, Any]) -> dict[str, Any]:
         "put_option_applicable": _clean(item.get("popt_ctr_atn", "")),
         "put_option_content": _truncate(item.get("popt_ctr_cn", ""), 150),
         "listed_counterparty": _clean(item.get("bdlst_atn", "")),
+        "schedule": _merger_schedule(item),
     }
+
+
+#: 합병 결정의 일정 — DART 칸(`mgsc_*`)을 사람 말로. 값이 「-」인 칸은 빼고, 기간은 시작~종료로 합친다. 의결권 행사(주총 · 반대의사 통지 · 매수청구)에 직결된다.
+_MERGER_DATES = (("record_date", "주주확정기준일", "mgsc_shddstd"), ("shareholders_meeting", "합병 승인 주총", "mgsc_gmtsck_prd"),
+                 ("merger_date", "합병기일", "mgsc_mgdt"), ("registration_date", "합병등기 예정일", "mgsc_mgrgsprd"),
+                 ("new_shares_delivery", "신주 교부 예정일", "mgsc_nstkdlprd"), ("new_shares_listing", "신주 상장 예정일", "mgsc_nstklstprd"))
+_MERGER_PERIODS = (("share_close", "주주명부 폐쇄기간", "mgsc_shclspd"), ("dissent_notice", "반대의사 통지 접수기간", "mgsc_mgop_rcpd"),
+                   ("appraisal_demand", "주식매수청구권 행사기간", "mgsc_aprskh_expd"), ("old_shares_submit", "구주권 제출기간", "mgsc_osprpd"),
+                   ("transfer_stop", "매매거래정지기간", "mgsc_trspprpd"), ("creditor_objection", "채권자 이의제출 기간", "mgsc_cdobprpd"))
+
+
+def _merger_schedule(item: dict[str, Any]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key, _, col in _MERGER_DATES:
+        if v := _clean(item.get(col, "")):
+            out[key] = v
+    for key, _, col in _MERGER_PERIODS:
+        a, b = _clean(item.get(col + "_bgd", "")), _clean(item.get(col + "_edd", ""))
+        if a or b:
+            out[key] = f"{a or '?'} ~ {b or '?'}" if a != b else a
+    return out
 
 
 def _normalize_split(item: dict[str, Any]) -> dict[str, Any]:

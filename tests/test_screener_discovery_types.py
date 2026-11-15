@@ -237,3 +237,44 @@ def test_withdrawal_lookup_failure_becomes_a_warning_not_a_crash(monkeypatch):
     monkeypatch.setattr(FS, "search_filings_by_report_name", boom)
     got, warns = asyncio.run(FS.find_withdrawal_notices("00000000", "20260501", "20261114", ("증자",)))
     assert got == [] and "020" in warns[0]
+
+
+# ── 거래소 서식 두 가지 (2026-11-15 3장) — 코스닥 풍문 해명의 답 칸 · 조회공시 요구에 대한 회사 답변 ──
+KOSDAQ_RUMOR = ("풍문 또는 보도에 대한 해명 1. 풍문 또는 보도의 내용 [단독] JYP 지분 인수 예고 2. 풍문 또는 보도의 매체 코리아헤럴드 "
+                "3. 풍문 또는 보도의 발생일자 2026-10-29 4. 풍문 또는 보도에 대한 해명내용 - 당사는 공식적으로 유효한 제안서를 수령하거나 "
+                "검토한 바가 없음을 밝힙니다. - 향후 사실관계가 변동되면 즉시 공시하겠습니다.")
+INQUIRY_ANSWER = ("조회공시요구(현저한시황변동)에대한답변(미확정) 1. 제목 조회공시 요구(현저한 시황변동)에 대한 답변(미확정) (조회공시 요구일 : 2026.07.01) "
+                  "2. 답변내용 당사는 한국거래소의 조회공시요구와 관련하여 신중히 검토하였으며, 아래 검토중인 사항 외에는 공시할 중요한 정보가 없습니다. "
+                  "■ 검토중인 사항 당사의 최대주주가 변경될 가능성이 있으나 확정되지 않았습니다. (공시책임자) 홍길동")
+
+
+def test_kosdaq_rumor_clarification_and_inquiry_answer_are_read():
+    from open_proxy_mcp.services.exchange_actions import parse_inquiry_or_rumor
+    got = parse_inquiry_or_rumor(KOSDAQ_RUMOR, [], "")
+    assert got["media"] == "코리아헤럴드" and any("제안서" in c for c in got["clarification"])       # 종전: 해명 칸 없음
+    tail = parse_inquiry_or_rumor(KOSDAQ_RUMOR + " - 공시책임자 : 홍길동 부사장", [], "")
+    assert not any("홍길동" in c for c in tail["clarification"])
+    ans = parse_inquiry_or_rumor(INQUIRY_ANSWER, [], "")
+    assert ans["request_date"] == "2026-07-01" and "검토중인 사항" in ans["answer"] and "홍길동" not in ans["answer"]
+
+
+def test_business_transfer_cards_do_not_point_to_a_tool_that_cannot_read_them():
+    card = S._finalize_card({"type": {"code": "restructuring", "label": "합병·분할·영업양수도"}, "subtype": "영업양수도", "rcept_no": "20261026800562"})
+    assert card["suggested_tool"] == "filing_section"
+    merger = S._finalize_card({"type": {"code": "restructuring", "label": "합병·분할·영업양수도"}, "subtype": "합병", "rcept_no": "20261026800563"})
+    assert merger["suggested_tool"] == "corporate_restructuring"
+
+
+def test_merger_decision_schedule_is_read_from_the_dart_columns():
+    from open_proxy_mcp.services.corporate_restructuring import _normalize_merger
+    row = _normalize_merger({"rcept_no": "20261001000489", "bddd": "2026년 10월 01일", "mg_stn": "소규모합병",
+                             "mgsc_shddstd": "2026년 10월 16일", "mgsc_gmtsck_prd": "-", "mgsc_mgdt": "2026년 12월 04일",
+                             "mgsc_mgop_rcpd_bgd": "2026년 10월 16일", "mgsc_mgop_rcpd_edd": "2026년 10월 30일",
+                             "mgsc_aprskh_expd_bgd": "-", "mgsc_aprskh_expd_edd": "-",
+                             "mgsc_cdobprpd_bgd": "2026년 11월 02일", "mgsc_cdobprpd_edd": "2026년 12월 03일"})
+    assert row["schedule"] == {"record_date": "2026년 10월 16일", "merger_date": "2026년 12월 04일",
+                               "dissent_notice": "2026년 10월 16일 ~ 2026년 10월 30일",
+                               "creditor_objection": "2026년 11월 02일 ~ 2026년 12월 03일"}    # 주총·매수청구가 「-」면 칸이 없다
+    from open_proxy_mcp.tools.corporate_restructuring import _merger_schedule_lines
+    assert _merger_schedule_lines(row["schedule"])[1] == "  - 주주확정기준일: 2026년 10월 16일"
+    assert _merger_schedule_lines({}) == []

@@ -106,3 +106,31 @@ def test_amount_pair_needs_a_contract_amount_label_and_prefers_the_total():
     assert "amount_before_won" not in _correction_diff(PAYMENT_TERMS_ONLY)       # 종전: +20억
     diff = _correction_diff(TOTAL_PAIR_AFTER_CONFIRMED)
     assert (diff["amount_before_won"], diff["amount_after_won"]) == (18_078_199_200, 18_232_098_400)
+
+
+# ── 계약기간·공시유보·계약일자 (2026-11-15 3장) — 종전엔 저장된 원문 1,347건 중 종료일이 4건만 읽혔다(라벨이 「계약기간 시작일」) ──
+PERIOD_BODY = ("2. 계약내역 계약금액(원) 339,600,000,000 최근매출액(원) 4,860,200,000,000 매출액대비(%) 7.0 3. 계약상대 유럽 지역 선주 - 회사와의 관계 - "
+               "5. 계약기간 시작일 2025-02-24 종료일 2027-08-31 6. 주요 계약조건 계약금ㆍ선급금 유무 유 7. 계약(수주)일자 2023-04-07 "
+               "8. 공시유보 관련내용 유보사유 - 유보기한 - 9. 기타 투자판단과 관련한 중요사항")
+HOLD_BODY = "5. 계약기간 시작일 - 종료일 - 8. 공시유보 관련내용 - 유보사유 - 유보기한 경영상 비밀유지 2026-09-05 - - 9. 기타"
+
+
+def test_contract_period_and_contract_date_are_read_from_the_period_item():
+    got = _parse_order(PERIOD_BODY)
+    assert (got["period_start"], got["period_end"], got["contract_date"]) == ("2025-02-24", "2027-08-31", "2023-04-07")
+    assert "hold_until" not in got and "hold_reason" not in got             # 유보 칸이 비어 있으면 싣지 않는다
+
+
+def test_unset_period_is_none_and_hold_reason_and_deadline_are_read():
+    got = _parse_order(HOLD_BODY)
+    assert got["period_start"] is None and got["period_end"] is None
+    assert (got["hold_reason"], got["hold_until"]) == ("경영상 비밀유지", "2026-09-05")
+
+
+def test_termination_reason_reads_both_labels_and_long_sentences():
+    from open_proxy_mcp.services.order_contracts import _parse_termination
+    long = ("6. 해지사유 정부의 고속철도 운영체계 개편 등ㆍ정부정책 변화에 따른 사업환경 변동으로 계약상대방과 상호 협의하여 사업 조기종료 합의서 체결 "
+            "7. 해지일자 2026-08-10")
+    assert "사업 조기종료 합의서 체결" in _parse_termination(long)["termination_reason"]
+    assert _parse_termination("5. 해지 주요사유 거래상대방의 ESS 사업부문 종료로 양사 합의에 의한 계약해지 6. 해지일자 2025-08-08")["termination_reason"] == \
+        "거래상대방의 ESS 사업부문 종료로 양사 합의에 의한 계약해지"

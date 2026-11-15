@@ -211,6 +211,37 @@ def _correction_diff(flat: str) -> dict[str, Any]:
 _BODY_HEAD = re.compile(r"단일판매\s*[ㆍ·]\s*공급계약\s*체결\s*(?:\([^)]{0,20}\))?\s*1\s*\.|1\s*\.\s*판매\s*[ㆍ·]\s*공급계약\s*(?:구분|내용)")
 
 
+_DATE = re.compile(r"\d{4}[-.]\d{2}[-.]\d{2}")
+
+
+def _contract_period(body: str) -> tuple[str | None, str | None]:
+    """「5. 계약기간 시작일 … 종료일 …」 → (시작, 종료). 서식의 라벨이 「계약시작일」이 아니라 「계약기간 시작일」이라 종전 정규식은
+    저장된 원문 1,347건 중 4건만 읽었다(2026-08-10~11-13). 값이 「-」(기간 미정)이면 None."""
+    m = re.search(r"계약\s*기간\s*[-:]?\s*시작일\s*[:\s]*(\S+)\s*[-:]?\s*종료일\s*[:\s]*(\S+)", body)
+    if not m:
+        return None, None
+    pick = lambda t: (_DATE.search(t).group(0) if _DATE.search(t) else None)
+    return pick(m.group(1)), pick(m.group(2))
+
+
+def _disclosure_hold(body: str) -> dict[str, Any]:
+    """「8. 공시유보 관련내용 — 유보사유 · 유보기한」 — 금액·상대방을 비공개로 한 계약의 사유와 풀리는 날. 칸이 비어(「-」) 있으면 아무것도 싣지 않는다."""
+    i = body.find("유보사유")
+    if i < 0:
+        return {}
+    seg = body[i + len("유보사유"):][:120]
+    seg = re.split(r"\s-?\s*\d{1,2}\s*\.\s*[가-힣]|\s-\s", seg)[0] if not seg.lstrip().startswith("-") else re.split(r"\s\d{1,2}\s*\.\s*[가-힣]", seg)[0]
+    d = _DATE.search(seg)
+    reason = re.sub(r"유보\s*기한|\d{4}[-.]\d{2}[-.]\d{2}", " ", seg)
+    reason = re.sub(r"\s+", " ", reason).strip(" -:")
+    out: dict[str, Any] = {}
+    if d:
+        out["hold_until"] = d.group(0)
+    if reason:
+        out["hold_reason"] = reason[:60]
+    return out
+
+
 def _parse_order(html: str) -> dict[str, Any]:
     flat = re.sub(r"\s+", " ", _extract_text(html))
     correction = _correction_diff(flat)  # diff는 정정전/후 테이블 전체에서
@@ -255,8 +286,9 @@ def _parse_order(html: str) -> dict[str, Any]:
         elif abs(computed - revenue_ratio) > max(revenue_ratio * 0.15, 1.0):
             ratio_warning = f"공시 매출대비 {revenue_ratio}% ≠ 계산값 {computed}% (금액÷최근매출) — 계산값 채택"
             revenue_ratio = computed
-    period_start = (re.search(r"계약\s*시작일\s*[:\s]*([\d.\-]{8,12})", flat) or [None, None])[1] if re.search(r"계약\s*시작일", flat) else None
-    period_end_m = re.search(r"계약\s*종료일\s*[:\s]*([\d.\-]{8,12})", flat)
+    period_start, period_end = _contract_period(body)
+    hold = _disclosure_hold(body)
+    cdate = _DATE.search(body[body.find("계약(수주)일자"):][:40]) if "계약(수주)일자" in body else None
     return {
         "contract_name": name,
         "counterparty": cp,
@@ -268,7 +300,10 @@ def _parse_order(html: str) -> dict[str, Any]:
         "amount_raw": amount_raw,
         "recent_revenue_won": revenue_won,
         "revenue_ratio_pct": revenue_ratio,
-        "period_end": period_end_m.group(1) if period_end_m else None,
+        "period_start": period_start,
+        "period_end": period_end,
+        "contract_date": cdate.group(0) if cdate else None,
+        **hold,
         "correction_diff": correction or None,
         **_conditional(body),
     }
@@ -287,7 +322,8 @@ def _parse_termination(html: str) -> dict[str, Any]:
     revenue_ratio = _pct(flat, r"매출액\s*대비")
     if amount_won and revenue_won and revenue_won > 0 and revenue_ratio is None:
         revenue_ratio = round(amount_won / revenue_won * 100, 2)
-    reason_m = re.search(r"해지\s*사유\s*[:\s]*([^\n]{2,60}?)(?:\s*\d\.|$)", flat)
+    # 라벨은 「해지사유」·「해지 주요사유」, 문장은 60자를 넘기 일쑤다 — 종전 정규식은 해지 19건 중 6건만 읽었다(2026-08-10~11-13).
+    reason_m = re.search(r"해지\s*(?:주요\s*)?사유\s*[:\s]*(.{2,240}?)(?=\s\d{1,2}\s*\.\s*[가-힣]|$)", flat)
     date_m = re.search(r"해지\s*일자\s*[:\s]*([\d.\-]{8,12})", flat)
     cp = _counterparty(flat)
     rel = _relationship(flat)
@@ -299,7 +335,7 @@ def _parse_termination(html: str) -> dict[str, Any]:
         "terminated_amount_won": amount_won,
         "recent_revenue_won": revenue_won,
         "revenue_ratio_pct": revenue_ratio,
-        "termination_reason": reason_m.group(1).strip() if reason_m else None,
+        "termination_reason": reason_m.group(1).strip()[:160] if reason_m else None,
         "termination_date": date_m.group(1) if date_m else None,
     }
 

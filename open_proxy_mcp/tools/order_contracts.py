@@ -36,6 +36,11 @@ def _pct(v) -> str:
     return f"{v}" if v is not None else "-"
 
 
+def _period_cell(o: dict[str, Any]) -> str:
+    a, b = o.get("period_start"), o.get("period_end")
+    return f"{a or '?'}~{b or '?'}" if (a or b) else "-"
+
+
 def _render(payload: dict[str, Any]) -> str:
     data = payload.get("data", {})
     s = data.get("signal_summary", {})
@@ -70,8 +75,8 @@ def _render(payload: dict[str, Any]) -> str:
 
     lines += [
         "## 계약별 (최신순, 정정 반영 후)",
-        "| 공시일 | 계약명 | 상대방 | 계약금액 | 매출대비 | 외부 | 정정 |",
-        "|--------|--------|--------|---------|---------|------|------|",
+        "| 공시일 | 계약명 | 상대방 | 계약금액 | 매출대비 | 계약기간 | 외부 | 정정 |",
+        "|--------|--------|--------|---------|---------|----------|------|------|",
     ]
     for o in orders[:25]:
         corr = ""
@@ -92,18 +97,25 @@ def _render(payload: dict[str, Any]) -> str:
                             else f" (조건부 {_won(o['conditional_amount_won'])})")
         lines.append(
             f"| {o.get('rcept_dt', '')} | {(o.get('contract_name') or '-')[:24]} | {(o.get('counterparty') or '-')[:14]} "
-            f"| {amount_cell} | {rev_cell} | {'O' if o.get('is_external') else '계열'} | {corr or '-'} |"
+            f"| {amount_cell} | {rev_cell} | {_period_cell(o)} | {'O' if o.get('is_external') else '계열'} | {corr or '-'} |"
         )
+    holds = [o for o in orders[:25] if o.get("hold_until") or o.get("hold_reason")]
+    if holds:
+        def _hold(o: dict[str, Any]) -> str:
+            why = " ".join(x for x in (o.get("hold_reason"), f"{o['hold_until']}까지" if o.get("hold_until") else "") if x)
+            return f"{o.get('rcept_dt', '')} {(o.get('contract_name') or '-')[:14]}: {why}"
+        lines += ["", "> 공시유보 — " + " · ".join(_hold(o) for o in holds[:5])
+                  + " (금액·상대방이 비공개일 수 있다 — 기한 뒤 정정으로 공개)"]
 
     terminations = data.get("terminations", []) or []
     if terminations:
         lines += ["", f"## 계약 해지 {len(terminations)}건 (부정 시그널)",
-                  "| 공시일 | 해지 계약명 | 상대방 | 해지금액 | 매출대비 |",
-                  "|--------|-----------|--------|---------|---------|"]
+                  "| 공시일 | 해지 계약명 | 상대방 | 해지금액 | 매출대비 | 해지 사유 |",
+                  "|--------|-----------|--------|---------|---------|-----------|"]
         for t in terminations[:10]:
             lines.append(
                 f"| {t.get('rcept_dt', '')} | {(t.get('contract_name') or '-')[:24]} | {(t.get('counterparty') or '-')[:14]} "
-                f"| {_won(t.get('terminated_amount_won'))} | {_pct(t.get('revenue_ratio_pct'))}% |"
+                f"| {_won(t.get('terminated_amount_won'))} | {_pct(t.get('revenue_ratio_pct'))}% | {(t.get('termination_reason') or '-')[:40]} |"
             )
 
     return "\n".join(lines)

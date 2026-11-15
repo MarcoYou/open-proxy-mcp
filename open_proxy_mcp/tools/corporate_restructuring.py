@@ -58,9 +58,17 @@ def _render_merger_card(row: dict[str, Any]) -> list[str]:
         f"- 주식매수청구권 가격: {row.get('appraisal_right_price', '-') or '-'}",
         f"- 풋옵션 약정: {row.get('put_option_applicable', '-') or '-'}",
         f"- 합병목적: {row.get('purpose', '-') or '-'}",
-        "",
     ]
+    lines += _merger_schedule_lines(row.get("schedule") or {})
+    lines.append("")
     return lines
+
+
+def _merger_schedule_lines(sched: dict[str, Any]) -> list[str]:
+    """합병 일정 — 값이 있는 칸만. 소규모합병은 주총·매수청구가 없고(이사회 승인으로 갈음) 그 칸은 원문에도 「-」다."""
+    from open_proxy_mcp.services.corporate_restructuring import _MERGER_DATES, _MERGER_PERIODS
+    rows = [(label, sched[key]) for key, label, _ in (*_MERGER_DATES, *_MERGER_PERIODS) if sched.get(key)]
+    return ["- 일정:"] + [f"  - {label}: {v}" for label, v in rows] if rows else []
 
 
 def _render_split_card(row: dict[str, Any]) -> list[str]:

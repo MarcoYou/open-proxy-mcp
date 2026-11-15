@@ -2154,6 +2154,9 @@ def _finalize_card(h: dict) -> dict:
     card["dart_url"] = _DART_VIEWER.format(r=h.get("rcept_no", "")) if h.get("rcept_no") else ""
     sc = h.get("stock_code")
     card["suggested_tool"] = _SUGGESTED_TOOL.get(h["type"]["code"], "")
+    if h["type"]["code"] == "restructuring" and h.get("subtype") == "영업양수도":
+        # `corporate_restructuring` 은 합병·분할·분할합병·주식교환 결정 4종만 읽는다 — 영업양수·양도는 범위 밖이라 막다른 길이었다(3-15). 원문 절로 보낸다.
+        card["suggested_tool"] = "filing_section"
     if _BY_CODE[h["type"]["code"]].get("interpretation") == "discovery_only":
         card["interpretation"] = "discovery_only"
         card["signal_basis"] = "filing_title"

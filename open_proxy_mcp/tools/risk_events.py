@@ -166,6 +166,10 @@ def _fields_new_categories(cat_key: str, d: dict[str, Any]) -> list[str]:
             out.append(f"- 거래소 요구 내용: **{d['requested']}**")
         if d.get("answer_due"):
             out.append(f"- 공시 시한: **{d['answer_due']}**")
+        if d.get("request_date"):
+            out.append(f"- 조회공시 요구일: **{d['request_date']}**")
+        if d.get("answer"):
+            out.append(f"- 회사 답변: {d['answer']}")
         if d.get("report_content"):
             out.append(f"- 풍문·보도 내용: {d['report_content']} ({d.get('media', '-') or '-'}, {d.get('reported_on', '-') or '-'})")
         for q in d.get("clarification") or []:

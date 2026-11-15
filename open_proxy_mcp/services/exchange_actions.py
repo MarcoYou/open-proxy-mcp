@@ -245,7 +245,8 @@ _RM_WHAT = re.compile(r"1\.\s*풍문\s*또는\s*보도의\s*내용\s*(.+?)"
 _RM_MEDIA = re.compile(r"2\.\s*풍문\s*또는\s*보도의\s*매체\s*(.+?)"
                        r"\s*3\.\s*풍문\s*또는\s*보도의\s*발생일자", re.S)
 _RM_ON = re.compile(r"3\.\s*풍문\s*또는\s*보도의\s*발생일자\s*(\d{4}-\d{2}-\d{2})")
-_RM_ANS = re.compile(r"4\.\s*풍문\s*또는\s*보도의\s*내용에\s*대한\s*해명내용\s*(.+?)"
+# 코스피 문구는 「풍문 또는 보도의 내용에 대한 해명내용」, 코스닥은 「풍문 또는 보도에 대한 해명내용」 — 코스닥 해명이 통째로 빠졌다(2026-10~11 표본: JYP Ent.·휴젤)
+_RM_ANS = re.compile(r"4\.\s*풍문\s*또는\s*보도(?:의\s*내용)?에\s*대한\s*해명내용\s*(.+?)"
                      r"\s*(?:5\.\s*재공시예정일|※|$)", re.S)
 _RM_AGAIN = re.compile(r"5\.\s*재공시예정일\s*(\d{4}-\d{2}-\d{2})")
 
@@ -275,6 +276,7 @@ def parse_rumor(text: str, lines: list[str], stage: str) -> dict[str, Any]:
                  for q in _cut(body, 150, 8)]
         parts = [q for q in parts if len(q) >= 12
                  and not re.match(r"^본\s*공시는", q)
+                 and not re.match(r"^공시\s*책임자\s*[:：]", q)        # 코스닥 서식은 「공시책임자 : 이름 직위」 줄로 끝난다 — 사람 이름이다
                  and "관련 해명공시" not in q
                  and not re.search(r"재공시\s*(?:하도록|할\s*예정|하겠|기한)", q)]
         # 넷까지 싣는다 — 셋으로 끊으면 보도에 대한 직접 답이 빠지는 판이 있다.
@@ -760,11 +762,32 @@ EXTRA_PARSERS = {
 }
 
 
+_IA_ON = re.compile(r"조회\s*공시\s*요구일\s*[:：]?\s*(\d{4}[-.]\d{2}[-.]\d{2})")
+_IA_BODY = re.compile(r"2\.\s*답변\s*내용\s*(.+?)\s*(?:3\.\s*[가-힣]|\(공시책임자\)|※|$)", re.S)
+
+
+def parse_inquiry_answer(text: str, lines: list[str], stage: str) -> dict[str, Any]:
+    """조회공시 요구에 대한 **회사의 답변** — 어느 요구에 대한 것인지(요구일)와 답변 본문. 「(미확정)」이면 검토 중인 사항이 본문에 있다."""
+    flat = _flat(text)
+    out: dict[str, Any] = {}
+    m = _IA_ON.search(flat)
+    if m:
+        out["request_date"] = m.group(1).replace(".", "-")
+    m = _IA_BODY.search(flat)
+    if m:
+        out["answer"] = _clip(m.group(1), 500)
+    if not out:
+        out["summary_excerpt"] = _clip(flat, 400)
+    return _prune(out)
+
+
 def parse_inquiry_or_rumor(text: str, lines: list[str], stage: str) -> dict[str, Any]:
-    """한 카테고리에 서식이 둘이다 — 거래소 요구문과 회사 해명문."""
+    """한 카테고리에 서식이 셋이다 — 거래소 요구문, 요구에 대한 회사의 답변, 풍문 해명문."""
     flat = _flat(text)
     if "조회공시 요구내용" in flat or "조회공시요구내용" in flat:
         return parse_inquiry(text, lines, stage)
+    if re.search(r"2\.\s*답변\s*내용", flat):
+        return parse_inquiry_answer(text, lines, stage)
     return parse_rumor(text, lines, stage)
 
 
