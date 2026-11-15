@@ -180,8 +180,10 @@ def _correction_diff(flat: str) -> dict[str, Any]:
     first_big = re.search(r"\d{1,3}(?:,\d{3}){2,}", blk)
     if first_big and re.search(r"계약금액(?:\s*총액)?\s*(?:\(원\))?\s*(?::\s*-(?!\d)|-\s*$)", blk[:first_big.start()]):
         return {"amount_first_disclosed": True}
-    # A) '계약금액(원) [전] [후]' 라벨 직접 (포스코 등) — 최근매출 혼입 없음
-    am = re.search(r"계약금액\s*\(원\)\s*([\d,]{6,})\s+([\d,]{6,})", blk)
+    # A) '계약금액(원) [전] [후]' 라벨 직접 (포스코 등) — 최근매출 혼입 없음. 「계약금액 총액」 쌍이 있으면 그것이 먼저다 —
+    #    조건부 계약은 확정 금액과 총액이 달라, 앞의 확정 금액 쌍을 집으면 총액의 증감이 아니다(세미파이브 20260824900623).
+    am = (re.search(r"계약금액\s*총액\s*(?:\(원\))?\s*[:：]?\s*([\d,]{6,})\s+([\d,]{6,})", blk)
+          or re.search(r"계약금액\s*\(원\)\s*([\d,]{6,})\s+([\d,]{6,})", blk))
     if am:
         # 자릿수 구분이 깨진 금액(「85,419,259,16」 — 회사 오기)은 읽지 않는다. 쉼표만 지우면 한 자리 모자란 수가 돼 +948% 가 붙었다(HJ중공업 20261023800728).
         if all(_WELL_GROUPED.fullmatch(g) for g in am.groups()):
@@ -190,7 +192,9 @@ def _correction_diff(flat: str) -> dict[str, Any]:
         # B) 라벨이 값 앞에 몰린 양식 (한화) — 계약금액 라벨 이후, 최근매출 라벨 이전 구간의 큰금액 2개
         seg = re.split(r"최근\s*매출", blk)[0]
         big = [a for a in re.findall(r"\d{1,3}(?:,\d{3}){2,}", seg) if len(a.replace(",", "")) >= 8]
-        if len(big) >= 2:
+        # 금액 칸을 고친 정정일 때만 — 첫 큰 수 앞에 계약금액 라벨이 있어야 한다. 대금지급 조건만 고친 정정의
+        # 연도별 지급액 두 개를 전/후 계약금액으로 읽어 +20억이 붙었다(빅텍 20261111900574).
+        if len(big) >= 2 and re.search(r"계약\s*금액|계약금\s*\(원\)|계약\s*내역", seg[:seg.find(big[0])]):
             before, after = _to_won(big[0], "원"), _to_won(big[1], "원")
     rm = re.search(r"매출액\s*대비\s*\(%\)\s*([\d.]+)\s+([\d.]+)", blk)
     if rm:
@@ -204,21 +208,36 @@ def _correction_diff(flat: str) -> dict[str, Any]:
     return out
 
 
+_BODY_HEAD = re.compile(r"단일판매\s*[ㆍ·]\s*공급계약\s*체결\s*(?:\([^)]{0,20}\))?\s*1\s*\.|1\s*\.\s*판매\s*[ㆍ·]\s*공급계약\s*(?:구분|내용)")
+
+
 def _parse_order(html: str) -> dict[str, Any]:
     flat = re.sub(r"\s+", " ", _extract_text(html))
     correction = _correction_diff(flat)  # diff는 정정전/후 테이블 전체에서
     # 정정본은 [정정전/후 테이블] + [정정후 반영 재공시 본문] 구조다. 현재 유효값(금액·매출대비)은
     # 테이블의 정정전 값을 먼저 잡으면 안 되고, 재공시 본문(정정후)에서 파싱한다.
     body = flat
-    split = re.search(r"정정\s*전\s*정정\s*후.*?(단일판매[ㆍ·]공급계약\s*체결\s*1\.|판매[ㆍ·]공급계약\s*구분)", flat)
-    if split:
-        body = flat[split.start(1):]
+    table = re.search(r"정정\s*전\s*정정\s*후", flat)
+    if table:
+        # 본문은 서식의 1번 항목이 **마지막으로** 나오는 자리다. 처음 나오는 자리를 쓰면 1번 항목 자체가 정정 대상일 때
+        # 정정 표 안에서 끊겨 정정 전 금액을 집는다(포스코퓨처엠 20261006800617: 21.2조로 줄인 정정이 40.0조로 나갔다).
+        # 제목에 「(자율공시)」가 붙은 코스닥 서식도 받는다 — 종전엔 못 갈라 전문에서 정정 전 값을 읽었다.
+        heads = [h.start() for h in _BODY_HEAD.finditer(flat, table.end())]
+        if heads:
+            body = flat[heads[-1]:]
     amount_won, amount_raw = _amount_with_unit(body, r"계약금액\s*총액", r"확정\s*계약금액", r"계약금액")
     revenue_won, _ = _amount_with_unit(body, r"최근\s*매출액")
     revenue_ratio = _pct(body, r"매출액\s*대비")
     name = _contract_name(body)
     cp = _counterparty(body)
     rel = _relationship(body)
+    # 정정 표에서 읽은 두 수가 같은데 본문 금액이 다르면, 두 수는 전/후가 아니라 **정정 전 칸의 확정 금액과 총액**이다
+    # (코스닥 서식이 정정 전 칸에 둘을 함께 적는다 — 한성크린텍 20260827900474: 169.7억 → 172.3억 정정이 「증감 없음」으로 나갔다.
+    #  2026-08-10~11-13 정정 764건 중 55건). 정정 후 값은 본문이 말한다.
+    before = correction.get("amount_before_won")
+    if before and amount_won and before == correction["amount_after_won"] != amount_won:
+        correction.update(amount_after_won=amount_won, amount_change_won=amount_won - before,
+                          amount_change_pct=round((amount_won - before) / before * 100, 1), amount_after_from="body")
     # 재공시 본문에서 금액 못 잡으면(드문 양식) 정정후 테이블값 fallback
     if not amount_won and correction.get("amount_after_won"):
         amount_won = correction["amount_after_won"]

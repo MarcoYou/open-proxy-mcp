@@ -186,7 +186,7 @@ def _fetch_scan(since: date, until: date) -> dict[tuple[date, str], bool] | None
 
 _EVENT_COLS = ("rcept_no", "rcept_dt", "corp_code", "corp_name", "stock_code", "corp_cls", "kind", "subtype",
                "is_correction", "report_nm", "sector", "industry", "mktcap_won", "amount", "ratio", "counterparty",
-               "is_external")
+               "is_external", "amount_before")
 
 
 #: 원장 행의 업종은 **읽을 때 붙이고**, 시총은 **원장에 저장된 값**을 읽는다 (261018, Supabase 재설계 6단계).
@@ -216,7 +216,8 @@ pick AS MATERIALIZED (
 )
 SELECT e.rcept_no, e.rcept_dt, e.corp_code, e.corp_name, e.stock_code, e.corp_cls, e.kind, e.subtype, e.is_correction,
        e.report_nm, COALESCE(ws.sector, nb.sector), COALESCE(ws.industry, nb.industry), e.mktcap_won,
-       e.detail->>'amount_won', e.detail->>'revenue_ratio_pct', e.detail->>'counterparty', e.detail->>'is_external'
+       e.detail->>'amount_won', e.detail->>'revenue_ratio_pct', e.detail->>'counterparty', e.detail->>'is_external',
+       e.detail->>'amount_before_won'
 FROM dart_events e
 JOIN pick p ON p.rcept_dt = e.rcept_dt
 LEFT JOIN wise_sector ws ON ws.snap_dd = p.sector_dd AND ws.ticker = e.stock_code
@@ -251,6 +252,7 @@ def _fetch_events(kinds: list[str], since: date, until: date,
         d = dict(zip(_EVENT_COLS, row))
         d["amount"] = _num(d["amount"])
         d["ratio"] = _num(d["ratio"])
+        d["amount_before"] = _num(d["amount_before"])
         d["is_external"] = {"true": True, "false": False}.get(str(d["is_external"]).lower())
         out.append(d)
     mark_subsidiary_filings(out)
@@ -404,11 +406,18 @@ def order_coverage(rows: list[dict], window: tuple[date, date]) -> dict[str, Any
         x = by.setdefault(key, {"corp_name": r["corp_name"], "stock_code": r.get("stock_code"),
                                 "sector": r.get("sector"), "industry": r.get("industry"),
                                 "new": 0, "ratio_sum": 0.0, "ratio_n": 0, "amount_krw": 0.0, "amount_n": 0,
-                                "corrections": 0, "cancels": 0, "via_sub": 0, "mktcap_krw": None, "last_dt": None})
+                                "corrections": 0, "corr_read": 0, "corr_delta": 0.0,
+                                "cancels": 0, "via_sub": 0, "mktcap_krw": None, "last_dt": None})
         if r.get("is_correction"):
-            # 정정은 새 계약이 아니라 합에 넣지 않는다 — 다만 금액을 바꾸는 정정이 흔해(2026-08-10~11-13 정정 764건 중 310건)
-            # 몇 건이 있었는지는 싣는다. 바뀐 금액 자체는 원장에 정정 전 값이 없어 여기서 못 낸다.
+            # 정정은 새 계약이 아니라 「금액 합」에 넣지 않는다. 금액을 바꾸는 정정이 흔해(2026-08-10~11-13 정정 764건 중 390건)
+            # 그 증감(정정 후 − 정정 전)을 따로 더한다 — 올해 **접수된** 정정이라 지난해 계약의 정정도 들어온다(그래서 합과 섞지 않는다).
+            # 모회사가 다시 낸 자회사 정정은 자회사 자신의 정정과 겹쳐 뺀다(새 계약에서 자회사 공시를 빼는 것과 같은 이유).
+            if r.get("via_sub"):
+                continue
             x["corrections"] += 1
+            if r.get("amount") is not None and r.get("amount_before") is not None:
+                x["corr_read"] += 1
+                x["corr_delta"] += r["amount"] - r["amount_before"]
             continue
         if r.get("subtype") == "해지":
             x["cancels"] += 1
@@ -436,6 +445,8 @@ def order_coverage(rows: list[dict], window: tuple[date, date]) -> dict[str, Any
         out.append({**{k: x[k] for k in ("corp_name", "stock_code", "sector", "industry", "new", "ratio_n",
                                           "amount_n", "corrections", "cancels", "mktcap_krw")},
                     "subsidiary_filings": x["via_sub"],
+                    "corrections_read": x["corr_read"],
+                    "correction_delta_krw": int(round(x["corr_delta"])) if x["corr_read"] else None,
                     "ratio_sum_pct": round(x["ratio_sum"], 2) if x["ratio_n"] else None,
                     "amount_krw": int(round(x["amount_krw"])) if x["amount_n"] else None,
                     "last_dt": x["last_dt"].isoformat() if x["last_dt"] else None})

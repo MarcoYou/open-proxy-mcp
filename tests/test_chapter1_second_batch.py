@@ -56,9 +56,26 @@ def test_trust_rows_have_no_share_count_and_loss_yoy_gets_a_word():
     assert _chg(66.6, "적자 축소") == "+66.6% (적자 축소)" and _chg(None, "흑자 전환") == "흑자 전환" and _chg(12.34) == "+12.3%"
 
 
-def test_order_coverage_counts_corrections_without_adding_them():
+def test_order_coverage_keeps_correction_deltas_apart_from_new_contract_sum():
     from datetime import date
     base = {"kind": "order", "corp_name": "가", "stock_code": "000001", "rcept_dt": date(2026, 5, 1), "subtype": "체결"}
-    cov = order_coverage([{**base, "amount": 100.0, "ratio": 10.0}, {**base, "is_correction": True, "amount": 70.0, "ratio": 7.0}],
+    corr = {**base, "is_correction": True, "ratio": 7.0}
+    cov = order_coverage([{**base, "amount": 100.0, "ratio": 10.0},
+                          {**corr, "amount": 70.0, "amount_before": 100.0},       # −30
+                          {**corr, "amount": 70.0},                               # 금액 정정이 아니거나 못 읽음 — 건수만
+                          {**corr, "amount": 500.0, "amount_before": 100.0, "via_sub": True}],   # 모회사가 다시 낸 자회사 정정 — 뺀다
                          (date(2026, 1, 1), date(2026, 12, 31)))
-    assert cov["rows"][0]["new"] == 1 and cov["rows"][0]["corrections"] == 1 and cov["rows"][0]["amount_krw"] == 100
+    row = cov["rows"][0]
+    assert row["new"] == 1 and row["amount_krw"] == 100                           # 합은 새 계약만
+    assert (row["corrections"], row["corrections_read"], row["correction_delta_krw"]) == (2, 1, -30)
+
+
+def test_extract_order_takes_the_before_amount_only_from_its_own_filing():
+    from open_proxy_mcp.services.screener import _extract_order
+    cd = {"amount_before_won": 100, "amount_after_won": 70}
+    orders = [{"rcept_no": "A", "contract_amount_won": 70, "correction_diff": cd}, {"rcept_no": "B", "contract_amount_won": 50}]
+    assert _extract_order({"data": {"orders": orders}}, "A")["amount_before_won"] == 100
+    assert _extract_order({"data": {"orders": orders}}, "B")["amount_before_won"] is None
+    assert _extract_order({"data": {"orders": orders}}, "Z") == {}                               # 다른 공시의 값으로 물러나지 않는다
+    orders[0]["contract_amount_won"] = 999                                                       # 정정 후 값이 금액과 다르면 증감을 낼 수 없다
+    assert _extract_order({"data": {"orders": orders}}, "A")["amount_before_won"] is None

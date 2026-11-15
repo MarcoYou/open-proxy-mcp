@@ -1211,11 +1211,19 @@ def _first(*vals):
 
 def _extract_order(payload: dict, rcept_no: str) -> dict:
     orders = (payload.get("data") or {}).get("orders") or []
-    row = next((o for o in orders if o.get("rcept_no") == rcept_no), orders[0] if orders else None)
+    # 이 접수번호의 행만 쓴다. 종전엔 못 찾으면 첫 행으로 물러났는데, 같은 날 여러 건을 낸 회사에서 **다른 계약의 금액**이
+    # 붙었다(스피어 2026-06-01 정정 3건이 모두 431억·매출 대비 1,684.94% 로 저장 — 각자의 금액은 10억·15억. 올해 정정 2,180행 중 29행).
+    # 같은 계약의 같은 날 정정이 하나로 묶여 이 공시가 목록에 없으면 값을 싣지 않는다 — 원문 링크가 카드에 있다.
+    row = next((o for o in orders if o.get("rcept_no") == rcept_no), None)
     if not row:
         return {}
+    # 정정 전 금액은 이 공시의 정정 표에서 읽은 것이고, 정정 후 값이 아래 금액과 같을 때만 싣는다 —
+    # 그래야 「amount_won − amount_before_won」이 그 정정의 증감이다(흐름 보기 「올해 누적 수주」의 정정 증감이 이 두 칸을 쓴다).
+    cd = row.get("correction_diff") or {}
     return {
         "amount_won": row.get("contract_amount_won"),
+        "amount_before_won": (cd.get("amount_before_won")
+                              if cd.get("amount_after_won") is not None and cd["amount_after_won"] == row.get("contract_amount_won") else None),
         # 조건부 계약 — 총액 중 조건이 채워져야 생기는 금액. 확정 금액이 0 이거나 안 적혔으면 전액 조건부다.
         "conditional_amount_won": row.get("conditional_amount_won") if row.get("is_conditional") else None,
         "confirmed_amount_won": row.get("confirmed_amount_won") if row.get("is_conditional") else None,

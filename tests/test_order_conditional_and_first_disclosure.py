@@ -67,3 +67,42 @@ def test_relationship_stops_before_the_next_line_of_the_same_item():
     assert _parse_order(HOLD_RELEASED)["relationship"] == "없음"
     got = _parse_order(CONDITIONAL)
     assert got["relationship"] == "최대주주의 계열사" and got["is_external"] is False
+
+
+# ── 정정 전후 금액 (2026-11-15 2차) — 2026-08-10~11-13 정정 764건: 증감 390 · 증감 없음 25 · 금액 공개 6 · 금액 정정 아님 343 ──
+# 한성크린텍 20260827900474 — 코스닥 서식은 정정 전 칸에 확정 금액·총액을 함께 적는다. 표의 앞 두 수는 전/후가 아니다.
+KOSDAQ_GROUPED = ("정정전 정정후 2. 계약내역 확정 계약금액 계약금액 총액(원) 매출액 대비(%) 16,969,923,000 16,969,923,000 10.93 "
+                  "17,230,536,000 17,230,536,000 11.10 - 단일판매ㆍ공급계약 체결(자율공시) 1. 판매ㆍ공급계약 내용 초순수 설비공사 "
+                  "2. 계약내역 조건부 계약여부 미해당 확정 계약금액 17,230,536,000 조건부 계약금액 - 계약금액 총액(원) 17,230,536,000 "
+                  "최근 매출액(원) 155,217,241,244 매출액 대비(%) 11.10 3. 계약상대방 삼성물산 - 회사와의 관계 - ")
+# 포스코퓨처엠 20261006800617 — 1번 항목(체결계약명)도 정정 대상이라 정정 표 안에 「판매ㆍ공급계약 구분」이 먼저 나온다.
+ITEM1_IN_TABLE = ("정정전 정정후 1. 판매ㆍ공급계약 구분-체결계약명 양극소재 중장기 공급계약 체결 배터리용 소재 중장기 공급계약 체결 "
+                  "2. 계약내역-계약금액(원) 40,026,150,616,148 21,247,899,609,650 2. 계약내역-매출액대비(%) 2,011.8 1,068.0 "
+                  "- 단일판매ㆍ공급계약 체결 1. 판매ㆍ공급계약 구분 상품공급 - 체결계약명 배터리용 소재 중장기 공급계약 체결 "
+                  "2. 계약내역 계약금액(원) 21,247,899,609,650 최근매출액(원) 1,989,542,000,000 매출액대비(%) 1,068.0")
+# 빅텍 20261111900574 — 대금지급 조건(연도별 지급액)만 고친 정정. 금액 정정이 아니다.
+PAYMENT_TERMS_ONLY = ("정정전 정정후 6. 주요 계약조건 -대금지급 조건 등 - 연도별 부기금액 2024년 6,000,000,000원 2025년 8,000,000,000원 "
+                      "2026년 5,000,000,000원 - 연도별 부기금액 2024년 6,000,000,000원 2025년 8,000,000,000원 2026년 6,000,000,000원")
+# 세미파이브 20260824900623 — 조건부 계약: 확정 금액 쌍이 먼저 오지만 증감은 총액으로 잰다.
+TOTAL_PAIR_AFTER_CONFIRMED = ("정정전 정정후 2. 계약내역 - 확정 계약금액 12,244,110,400 12,281,822,600 2. 계약내역 - 조건부 계약금액 "
+                              "5,854,088,800 5,950,275,800 2. 계약내역 - 계약금액 총액(원) 18,078,199,200 18,232,098,400")
+
+
+def test_same_two_numbers_are_the_before_column_and_the_body_gives_the_after():
+    got = _parse_order(KOSDAQ_GROUPED)
+    cd = got["correction_diff"]
+    assert got["contract_amount_won"] == 17_230_536_000
+    assert (cd["amount_before_won"], cd["amount_after_won"], cd["amount_change_pct"]) == (16_969_923_000, 17_230_536_000, 1.5)   # 종전: 증감 없음
+    assert cd["amount_after_from"] == "body"
+
+
+def test_body_starts_at_the_last_item_one_not_inside_the_correction_table():
+    got = _parse_order(ITEM1_IN_TABLE)
+    assert got["contract_amount_won"] == 21_247_899_609_650                     # 종전: 정정 전 40.0조
+    assert got["correction_diff"]["amount_change_won"] == 21_247_899_609_650 - 40_026_150_616_148
+
+
+def test_amount_pair_needs_a_contract_amount_label_and_prefers_the_total():
+    assert "amount_before_won" not in _correction_diff(PAYMENT_TERMS_ONLY)       # 종전: +20억
+    diff = _correction_diff(TOTAL_PAIR_AFTER_CONFIRMED)
+    assert (diff["amount_before_won"], diff["amount_after_won"]) == (18_078_199_200, 18_232_098_400)
