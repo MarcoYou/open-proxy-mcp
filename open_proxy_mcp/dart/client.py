@@ -1872,6 +1872,8 @@ class DartClient:
             raise ValueError("OPENDART_API_KEY가 설정되어 있지 않습니다. 쿼리 파라미터(?opendart=키) 또는 .env에 설정하세요.")
         self._key_index = 0
         self.api_key = self._api_keys[0]
+        # 261116: 키의 사정(`_KEY_SCOPED_STATUSES`)으로 막힌 키 → 막힌 날(KST). 그날은 다시 쓰지 않는다(020 은 자정에 풀린다).
+        self._dead_keys: dict[str, str] = {}
         # Rate limiting — 마지막 요청 시각 추적
         self._last_api_request = 0.0
         # `_last_web_request` 는 프로퍼티 — 프로세스 시계(`_web_clock`)를 가리킨다. 아래 property 참조.
@@ -1928,6 +1930,33 @@ class DartClient:
     def api_call_snapshot(self) -> int:
         """현재까지 누적된 DART API 호출 수. service가 시작·종료 시점에 찍어 차이를 계산."""
         return self._request_counter
+
+    def _mark_key_dead(self, key: str) -> None:
+        """키의 사정(020 하루 한도·010·011·901)으로 막힌 키를 오늘 하루 쓰지 않게 적는다."""
+        self.__dict__.setdefault("_dead_keys", {})[key] = today_kst().isoformat()
+
+    def _key_is_dead(self, key: str) -> bool:
+        return self.__dict__.get("_dead_keys", {}).get(key) == today_kst().isoformat()
+
+    def _live_key(self, tried=()) -> str | None:
+        """261116: 이번 요청이 쓸 키 — 공유 번호부터 차례로 보며 **오늘 막히지 않았고 이번 요청이 아직 안 쓴** 첫 키.
+
+        종전엔 요청마다 공유 번호를 +1 씩 돌렸다(`_rotate_key`). 동시 요청이 서로의 회전을 덮어,
+        한 요청이 살아 있는 키로 옮기자마자 다른 요청이 그 너머 죽은 키들로 다시 돌려 버렸다
+        (2026-11-16 운영: 키 5개 중 하나가 살아 있었는데 재무 배치의 조회가 020 으로 끝났다).
+        이제 막힌 키는 모든 요청이 함께 건너뛰고, 고른 키를 공유 번호에 적어 다음 요청이 바로 쓴다.
+        없으면 None.
+        """
+        keys = self.__dict__.get("_api_keys") or []  # 시험이 생성자 없이 만든 클라이언트는 키 목록이 없다
+        n = len(keys)
+        for step in range(n):
+            i = (self.__dict__.get("_key_index", 0) + step) % n
+            key = keys[i]
+            if key in tried or self._key_is_dead(key):
+                continue
+            self._key_index, self.api_key = i, key
+            return key
+        return None
 
     def _rotate_key(self) -> bool:
         """다음 API 키로 전환. 전환 가능하면 True, 더 없으면 False."""
@@ -1993,7 +2022,7 @@ class DartClient:
                 _require_strict_receipt(params["rcept_no"], endpoint)
         self._request_counter += 1
         await self._throttle_api()
-        params["crtfc_key"] = self.api_key
+        params["crtfc_key"] = self._live_key() or self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
 
         last_exc: Exception | None = None
@@ -2018,18 +2047,25 @@ class DartClient:
             # 키의 하루 한도("020") 등 키의 사정이면 보조 키로 재시도.
             # 261019: 키 하나의 사정(`_KEY_SCOPED_STATUSES`)이면 남은 키를 모두 차례로(키마다 한 번), 그 밖의 답은 종전처럼 한 번만.
             #   다음 키가 키와 무관한 답(013 등)을 주면 그게 답이다.
-            for _ in range(len(self._api_keys) - 1 if status in _KEY_SCOPED_STATUSES else 1):
-                if not self._rotate_key():
-                    break
-                params["crtfc_key"] = self.api_key
-                response = await self._http.get(url, params=params, timeout=30)
-                response.raise_for_status()
-                data = response.json()
-                status = data.get("status", "")
-                if status == "000":
-                    return _as_of_filter_rows(endpoint, data)
-                if status not in _KEY_SCOPED_STATUSES:
-                    break
+            # 261116: 키의 사정이면 그 키를 오늘 막힌 키로 적고, 공유 번호를 돌리는 대신 살아 있는 키를 고른다(`_live_key`).
+            if status in _KEY_SCOPED_STATUSES:
+                tried = {params["crtfc_key"]}
+                self._mark_key_dead(params["crtfc_key"])
+                while (key := self._live_key(tried)) is not None:
+                    tried.add(key)
+                    params["crtfc_key"] = key
+                    response = await self._http.get(url, params=params, timeout=30)
+                    response.raise_for_status()
+                    data = response.json()
+                    status = data.get("status", "")
+                    if status == "000":
+                        return _as_of_filter_rows(endpoint, data)
+                    if status not in _KEY_SCOPED_STATUSES:
+                        break
+                    self._mark_key_dead(key)
+            # 261116: 키와 무관한 답(013 자료 없음·100 인자 오류 등)은 다른 키로 다시 부르지 않는다. 종전엔 한 번 돌렸는데,
+            #   돌린 키가 한도에 걸린 키면 원래 답 013 이 020 으로 바뀌어 올라갔고(재무 분기 조회가 「한도 초과」로 실패),
+            #   공유 번호도 죽은 키로 옮겨 동시 요청까지 그 키를 썼다.
             message = data.get("message", "알 수 없는 에러")
             raise DartClientError(status, message)
 
@@ -2048,7 +2084,7 @@ class DartClient:
             elif endpoint != "corpCode.xml":
                 _require_strict_versioned_source(endpoint)
         await self._throttle_api()
-        params["crtfc_key"] = self.api_key
+        params["crtfc_key"] = self._live_key() or self.api_key
         url = f"{OPENDART_BASE_URL}/{endpoint}"
 
         # corpCode.xml은 50MB라 cold start 시 60s 부족 → 120s
@@ -2075,26 +2111,38 @@ class DartClient:
                 #   `_rotate_key` 가 False 라 그대로 올린다(남의 키로 안 넘어간다).
                 # 261019: 키 하나의 사정(`_KEY_SCOPED_STATUSES`)이면 남은 키를 모두 차례로(키마다 한 번) — JSON 경로와 같다.
                 #   021 은 종전처럼 한 번만 더 간다.
-                rotatable = _KEY_SCOPED_STATUSES | {"021"}
-                for _ in range(len(self._api_keys) - 1 if status in _KEY_SCOPED_STATUSES else 1):
-                    if status not in rotatable or not self._rotate_key():
-                        break
-                    params["crtfc_key"] = self.api_key
+                # 261116: 키의 사정은 JSON 경로처럼 막힌 키를 적고 살아 있는 키를 고른다(`_live_key`).
+                async def _again(key):
+                    nonlocal content, status_m, msg_m
+                    params["crtfc_key"] = key
                     response = await self._http.get(url, params=params, timeout=timeout)
                     response.raise_for_status()
                     content = response.content
                     if content[:2] == b'PK':
-                        return content
+                        return True
                     status_m = re.search(r'<status>(\d+)</status>', content.decode('utf-8', errors='replace'))
                     msg_m = re.search(r'<message>(.+?)</message>', content.decode('utf-8', errors='replace'))
+                    return False
+                if status in _KEY_SCOPED_STATUSES:
+                    tried = {params["crtfc_key"]}
+                    self._mark_key_dead(params["crtfc_key"])
+                    while (key := self._live_key(tried)) is not None:
+                        tried.add(key)
+                        if await _again(key):
+                            return content
+                        status = status_m.group(1) if status_m else status
+                        if status not in _KEY_SCOPED_STATUSES:
+                            break
+                        self._mark_key_dead(key)
+                elif status == "021" and self._rotate_key():
+                    if await _again(self.api_key):
+                        return content
                     status = status_m.group(1) if status_m else status
-                    if status not in _KEY_SCOPED_STATUSES:
-                        break
                 raise DartClientError(status, msg_m.group(1) if msg_m else "알 수 없는 에러")
 
-        # ZIP도 XML도 아닌 비정상 응답 → 보조 키로 재시도
-        if self._rotate_key():
-            params["crtfc_key"] = self.api_key
+        # ZIP도 XML도 아닌 비정상 응답 → 보조 키로 재시도(261116: 오늘 막힌 키는 건너뛴다)
+        if (spare := self._live_key({params["crtfc_key"]})) is not None:
+            params["crtfc_key"] = spare
             response = await self._http.get(url, params=params, timeout=60)
             response.raise_for_status()
             content = response.content
