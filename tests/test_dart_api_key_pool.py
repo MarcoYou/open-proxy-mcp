@@ -128,3 +128,107 @@ def test_binary_path_rotates_to_a_spare_key_on_quota_error(monkeypatch):
     out = asyncio.run(c._request_binary("document.xml", {"rcept_no": "20260310002820"}))
     assert out.startswith(b"PK")
     assert seen == [OUR_KEY, SPARE_1]
+
+
+# ── 261116: 동시 요청이 공유 키 번호를 서로 돌려 살아 있는 키를 건너뛰던 문제 ──
+# 운영 실측(2026-11-16 20:3x): 키 5개 중 2번만 한도가 남았는데, 재무 배치의 동시 조회가 모두 020 으로 끝났다.
+# 요청마다 공유 번호(`_key_index`)를 +1 씩 돌리므로, 요청 A 가 2번으로 옮긴 직후 요청 B 가 3·4·5·1번으로 계속 돌려
+# B 는 남은 키를 한 번도 써 보지 못하고, 공유 번호는 죽은 키에 멈춘다. 이 묶음이 지키는 것:
+#   ① 동시 요청이라도 살아 있는 키가 하나라도 있으면 모두 성공한다.
+#   ② 한도에 걸린 키는 그날 다시 쓰지 않는다 — 다음 요청은 살아 있는 키로 바로 간다.
+
+DEAD = ["d" * 40, "e" * 40, "f" * 40, "g" * 40]
+LIVE = "l" * 40
+
+
+def _quota_client(monkeypatch, keys):
+    import asyncio
+    from open_proxy_mcp.dart import client as dart_client
+
+    for i in range(2, 10):
+        monkeypatch.delenv(f"OPENDART_API_KEY_{i}", raising=False)
+    c = dart_client.DartClient(api_keys=list(keys))
+    seen: list[str] = []
+
+    class _Resp:
+        def __init__(self, data):
+            self._data = data
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return self._data
+
+    class _Http:
+        async def get(self, url, params=None, timeout=None):
+            key = params["crtfc_key"]
+            seen.append(key)
+            await asyncio.sleep(0)  # 다른 요청이 끼어들 틈 — 실제 HTTP 대기와 같다
+            if key == LIVE:
+                return _Resp({"status": "000", "list": [{"ok": 1}]})
+            return _Resp({"status": "020", "message": "사용한도를 초과하였습니다."})
+
+    async def _no_throttle():
+        return None
+    c._http = _Http()
+    c._throttle_api = _no_throttle
+    return c, seen
+
+
+def test_concurrent_requests_all_reach_the_one_live_key(monkeypatch):
+    import asyncio
+    keys = [DEAD[0], LIVE, DEAD[1], DEAD[2], DEAD[3]]
+    c, _ = _quota_client(monkeypatch, keys)
+
+    async def many():
+        return await asyncio.gather(
+            *(c._request_http("fnlttSinglAcnt.json", {"corp_code": f"{i:08d}"}) for i in range(6)),
+            return_exceptions=True)
+
+    out = asyncio.run(many())
+    errors = [o for o in out if isinstance(o, Exception)]
+    assert not errors, f"살아 있는 키가 있는데 {len(errors)}건이 실패했다: {errors[:1]}"
+
+
+def test_quota_dead_key_is_not_retried_by_later_requests(monkeypatch):
+    import asyncio
+    keys = [DEAD[0], LIVE, DEAD[1]]
+    c, seen = _quota_client(monkeypatch, keys)
+    asyncio.run(c._request_http("fnlttSinglAcnt.json", {"corp_code": "00000001"}))
+    seen.clear()
+    asyncio.run(c._request_http("fnlttSinglAcnt.json", {"corp_code": "00000002"}))
+    assert seen == [LIVE], f"한도에 걸린 키를 다시 불렀다: {seen}"
+
+
+def test_all_keys_dead_still_raises_quota_error(monkeypatch):
+    import asyncio
+    from open_proxy_mcp.dart.client import DartClientError
+    c, seen = _quota_client(monkeypatch, DEAD[:3])
+    with pytest.raises(DartClientError) as e:
+        asyncio.run(c._request_http("fnlttSinglAcnt.json", {"corp_code": "00000001"}))
+    assert e.value.status == "020"
+    assert sorted(seen) == sorted(DEAD[:3]), "키마다 한 번씩만 시도해야 한다"
+
+
+def test_no_data_answer_is_not_turned_into_quota_error(monkeypatch):
+    """013(자료 없음)은 키와 무관한 답이다 — 다른 키로 다시 부르지 않고 013 그대로 올린다.
+    종전엔 한 번 돌렸고, 돌린 키가 한도에 걸린 키면 013 이 020 으로 바뀌어 올라갔다(2026-11-16 고영 분기 재무)."""
+    import asyncio
+    from open_proxy_mcp.dart.client import DartClientError
+    keys = [LIVE, DEAD[0]]
+    c, seen = _quota_client(monkeypatch, keys)
+
+    class _NoData:
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return {"status": "013", "message": "조회된 데이타가 없습니다."}
+
+    class _Http:
+        async def get(self, url, params=None, timeout=None):
+            seen.append(params["crtfc_key"])
+            return _NoData()
+    c._http = _Http()
+    with pytest.raises(DartClientError) as e:
+        asyncio.run(c._request_http("fnlttSinglAcnt.json", {"corp_code": "00000001"}))
+    assert e.value.status == "013"
+    assert seen == [LIVE] and c.api_key == LIVE

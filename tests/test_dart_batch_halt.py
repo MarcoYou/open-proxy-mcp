@@ -112,13 +112,14 @@ def test_json_quota_on_every_key_raises_after_one_pass(monkeypatch):
     assert c._http.seen == [K1, K2, K3]          # 키마다 한 번 — 돌고 돌지 않는다
 
 
-def test_json_other_status_still_retries_once(monkeypatch):
-    """키와 무관한 답(013 자료 없음 등)은 종전처럼 보조 키로 한 번만."""
+def test_json_other_status_is_not_retried_on_another_key(monkeypatch):
+    """키와 무관한 답(013 자료 없음 등)은 다른 키로 다시 부르지 않는다(261116). 종전엔 한 번 돌렸는데,
+    돌린 키가 한도에 걸린 키면 013 이 020 으로 바뀌어 올라갔다 — `test_dart_api_key_pool` 의 같은 약속."""
     c = _client(monkeypatch, {K1: "013", K2: "013", K3: "000"})
     with pytest.raises(DartClientError) as ei:
         asyncio.run(c._request("fnlttSinglAcntAll.json", {"corp_code": "00126380"}))
     assert ei.value.status == "013"
-    assert c._http.seen == [K1, K2]
+    assert c._http.seen == [K1]
 
 
 def test_json_quota_then_other_answer_stops_rotating(monkeypatch):
