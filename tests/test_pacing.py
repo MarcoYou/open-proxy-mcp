@@ -63,7 +63,7 @@ def test_burst_is_free_then_calls_are_spaced_and_told(fake_clock):
     assert all("📢" not in out for out in outs[:-1])
     last = outs[-1]
     assert "요청 속도 조절 중" in last and "2초 늦췄습니다" in last
-    assert last.startswith("# 결과\n\n> 📢 공지")
+    assert last.startswith("# 결과\n\n> 📢 [")
     assert pacing.stats()["slowed"] == 1
 
 

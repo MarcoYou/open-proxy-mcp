@@ -2,7 +2,7 @@
 """운영자 공지 — 모든 도구 응답에 끼우는 짧은 안내(전용 도구 없음).
 
 261023 신설. 점검·변경 예고처럼 운영자가 사용자에게 알릴 일을 **도구 응답 안**에 싣는다. md 응답은 `# 제목` 바로 아래
-`> 📢 공지 (OPM <버전> · <MM-DD>) <title> — <body> <link>` 블록, JSON 응답은 최상위 dict 의 `notices` 칸(`warnings` 와 따로)이다.
+`> 📢 [<MM-DD> 공지] <title> — <body> <link>` 블록(MM-DD 는 starts_at 의 KST 날짜, 261117 버전 표시 뺌), JSON 응답은 최상위 dict 의 `notices` 칸(`warnings` 와 따로)이다.
 공지 문구는 서버 지시문(`instructions`)에 넣지 않는다 — 지시문에는 「공지를 사용자에게 한 번 전하라」는 영어 한 문장만 있다.
 
 ■ 어디서 오나 — 매니페스트(JSON) 하나
@@ -414,17 +414,8 @@ def _candidates(tool_name: str) -> tuple[list[Notice], str]:
 
 
 # ── 끼우기 ────────────────────────────────────────────────────────────────────
-def _version() -> str:
-    try:
-        from open_proxy_mcp.server import _opm_version
-
-        return _opm_version()
-    except Exception:  # noqa: BLE001 — 버전을 못 읽어도 공지는 나간다
-        return ""
-
-
-def _md_line(n: Notice, version: str) -> str:
-    line = f"> 📢 공지 (OPM {version} · {n.date_label}) {n.title}"
+def _md_line(n: Notice) -> str:
+    line = f"> 📢 [{n.date_label} 공지] {n.title}"
     if n.body:
         line += f" — {n.body}"
     if n.link:
@@ -433,8 +424,7 @@ def _md_line(n: Notice, version: str) -> str:
 
 
 def _render_md(result: str, items: list[Notice]) -> tuple[str, list[Notice]]:
-    version = _version()
-    fresh = [(n, _md_line(n, version)) for n in items]
+    fresh = [(n, _md_line(n)) for n in items]
     fresh = [(n, ln) for n, ln in fresh if ln not in result]       # 이미 실려 있으면 다시 싣지 않는다
     if not fresh:
         return result, []
