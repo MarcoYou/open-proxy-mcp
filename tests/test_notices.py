@@ -124,9 +124,7 @@ def run_tool(name, body="# 제목\n\n본문", *, raises=None, **kwargs):
 
 def _md_block(env, n=None):
     n = n or _notice()
-    from open_proxy_mcp.server import _opm_version
-
-    return f"> 📢 공지 (OPM {_opm_version()} · 10-23) {n['title']} — {n['body']}"
+    return f"> 📢 [10-23 공지] {n['title']} — {n['body']}"
 
 
 # ── 응답 불변 ────────────────────────────────────────────────────────────────
@@ -504,7 +502,7 @@ def test_company_tool_description_tells_the_client_to_relay_the_notice_line(env)
 
     env.warm([_notice(title="설명에 들어가면 안 되는 제목")])
     desc = next(t.description for t in asyncio.run(build_mcp().list_tools()) if t.name == "company")
-    assert "📢 공지" in desc and "사용자에게 한 번 짧게 전해" in desc
+    assert "📢 [MM-DD 공지]" in desc and "사용자에게 한 번 짧게 전해" in desc
     assert "설명에 들어가면 안 되는 제목" not in desc
 
 
@@ -599,7 +597,8 @@ def test_all_registered_tools_show_the_notice_in_md_and_json(env, monkeypatch, r
     assert sorted(fns) == names and len(names) > 20
     for name in names:
         md = asyncio.run(fns[name]())
-        assert md.startswith(f"# {name}\n\n> 📢 공지 (OPM "), name
+        assert md.startswith(f"# {name}\n\n> 📢 ["), name               # 연속 호출이라 속도 조절 안내(오늘 날짜)가 먼저 붙을 수 있다
+        assert "\n> 📢 [10-23 공지] " in md, name
         js = json.loads(asyncio.run(fns[name](format="json")))
         assert js["notices"][0]["id"] == "n-2026-10-23" and js["warnings"] == [], name
 
