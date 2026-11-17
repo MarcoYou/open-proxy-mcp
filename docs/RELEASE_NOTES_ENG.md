@@ -7,6 +7,7 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 ### Operator notice prefix keeps only the date
 
 - In Markdown responses the notice line prefix changes from `> 📢 공지 (OPM <version> · <MM-DD>)` to `> 📢 [<MM-DD> 공지]`. Notice title, body and link, and the `notices` field in JSON responses, are unchanged.
+- A notice title may now be empty; the line then shows only the body, with no dash. A notice with both title and body empty is dropped.
 
 ### Only the latest charter version at the cutoff stays available
 

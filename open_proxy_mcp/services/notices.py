@@ -7,7 +7,7 @@
 
 ■ 어디서 오나 — 매니페스트(JSON) 하나
   환경변수 `OPM_NOTICE_URL`(https 또는 file:// — 로컬·시험). 없으면 이 모듈은 아무것도 하지 않고 도구 응답은 바이트 그대로다.
-  {"notices": [{id, level("info"|"normal"|"important"), title(≤60자), body(≤400자), link(https 1개, 선택),
+  {"notices": [{id, level("info"|"normal"|"important"), title(≤60자, 비면 본문만), body(≤400자), link(https 1개, 선택),
                 starts_at, expires_at(ISO 8601 — 시간대가 없으면 KST),
                 show("once_per_key"|"weekly"|"daily"|"hourly"|"every_call"|"company_only")}]}
   최상위가 공지 목록(list) 그대로여도 받는다 — 표 하나를 그대로 내보내는 REST 응답(`[{…}, …]`)을 주소로 쓸 수 있게(261025).
@@ -306,9 +306,9 @@ def _parse_notice(item: Any) -> Notice | None:
     level = item.get("level")
     if level not in _LEVELS:
         return None
-    title = _clean_text(item.get("title"), _TITLE_MAX, required=True)
+    title = _clean_text(item.get("title") or "", _TITLE_MAX, required=False)
     body = _clean_text(item.get("body") or "", _BODY_MAX, required=False)   # 표에서 온 null 은 빈 본문
-    if title is None or body is None:
+    if title is None or body is None or not (title or body):                # 제목·본문 중 하나는 있어야 한다(261117)
         return None
     link = _parse_link(item.get("link"))
     if link is False:
@@ -415,9 +415,8 @@ def _candidates(tool_name: str) -> tuple[list[Notice], str]:
 
 # ── 끼우기 ────────────────────────────────────────────────────────────────────
 def _md_line(n: Notice) -> str:
-    line = f"> 📢 [{n.date_label} 공지] {n.title}"
-    if n.body:
-        line += f" — {n.body}"
+    text = f"{n.title} — {n.body}" if n.title and n.body else (n.title or n.body)   # 제목이 비면 본문만(줄표 없이)
+    line = f"> 📢 [{n.date_label} 공지] {text}"
     if n.link:
         line += f" {n.link}"
     return line
