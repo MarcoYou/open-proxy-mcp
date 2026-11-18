@@ -171,15 +171,19 @@ def test_exhausted_pool_stops_requests_until_kst_date_changes(monkeypatch, endpo
     c = _client(monkeypatch, dict.fromkeys((K1, K2, K3), blocked_status))
     request = c._request if endpoint.endswith(".json") else c._request_binary
 
+    async def request_once():
+        dart_client.new_request_ledger()
+        return await request(endpoint, {})
+
     for _ in range(2):
         with pytest.raises(DartClientError) as ei:
-            asyncio.run(request(endpoint, {}))
+            asyncio.run(request_once())
         assert ei.value.status == blocked_status and dart_halts_batch(ei.value)
     assert c._http.seen == [K1, K2, K3]
 
     current_day = date(2026, 11, 20)
     c._http.answers = {K1: "000", K2: "000", K3: "000"}
-    asyncio.run(request(endpoint, {}))
+    asyncio.run(request_once())
     assert len(c._http.seen) == 4
 
 
