@@ -4,6 +4,11 @@ OpenProxy MCP의 버전별 변경 이력입니다. [English](RELEASE_NOTES_ENG.m
 
 ## 미배포 — 2026-11-03
 
+### 운영자 공지 머리말을 날짜만 남깁니다
+
+- md 응답의 공지 줄 머리말이 `> 📢 공지 (OPM <버전> · <MM-DD>)` 에서 `> 📢 [<MM-DD> 공지]` 로 바뀝니다. 공지 제목·본문·링크와 JSON 응답의 `notices` 칸은 같습니다.
+- 공지 제목을 비울 수 있습니다. 제목이 비면 줄표 없이 본문만 나갑니다. 제목과 본문이 둘 다 비면 그 공지는 버립니다.
+
 ### 정관은 기준일 시점의 최신 판만 available 로 둡니다
 
 - 정관 첨부 목록(`guideline_evidence_sources` 의 `dart_attachments`)에서 같은 정정 묶음에 같은 정관이 여러 판이면, 기준일(`as_of`) 시점에 공개일(`published`)이 가장 늦은 판만 `status=available` 입니다. 옛 판은 `status=superseded` 로 목록에 남고 `superseded_by`(대체한 판의 `rcept_no`·`dcm_no`)가 새 판을 가리킵니다. 기준일 뒤에 공개된 판은 지금처럼 `after_as_of` 입니다. 기준일이 두 판 사이면 그 시점의 최신판은 옛 판이라 `available` 입니다. 옛 판도 직접 읽을 수 있고(`status=read`) 응답과 원문 묶음(governance_screen·election_structure 입력)에 `superseded_by` 가 붙습니다. 판이 하나인 회사의 응답은 같습니다.

@@ -4,6 +4,11 @@ Version history for OpenProxy MCP. [한국어](RELEASE_NOTES.md)
 
 ## Unreleased — 2026-11-03
 
+### Operator notice prefix keeps only the date
+
+- In Markdown responses the notice line prefix changes from `> 📢 공지 (OPM <version> · <MM-DD>)` to `> 📢 [<MM-DD> 공지]`. Notice title, body and link, and the `notices` field in JSON responses, are unchanged.
+- A notice title may now be empty; the line then shows only the body, with no dash. A notice with both title and body empty is dropped.
+
 ### Only the latest charter version at the cutoff stays available
 
 - In the charter attachment list (`dart_attachments` of `guideline_evidence_sources`), when one correction group holds several versions of the same charter, only the version published latest as of the cutoff (`as_of`) has `status=available`. Older versions stay listed with `status=superseded` and `superseded_by` (the replacing version's `rcept_no` and `dcm_no`). Versions published after the cutoff are `after_as_of` as before. If the cutoff falls between two versions, the earlier one is the latest at that time and stays `available`. Older versions can still be read directly (`status=read`), and the response and source packets (governance_screen and election_structure inputs) carry `superseded_by`. Companies with one version respond as before.

@@ -124,9 +124,7 @@ def run_tool(name, body="# 제목\n\n본문", *, raises=None, **kwargs):
 
 def _md_block(env, n=None):
     n = n or _notice()
-    from open_proxy_mcp.server import _opm_version
-
-    return f"> 📢 공지 (OPM {_opm_version()} · 10-23) {n['title']} — {n['body']}"
+    return f"> 📢 [10-23 공지] {n['title']} — {n['body']}"
 
 
 # ── 응답 불변 ────────────────────────────────────────────────────────────────
@@ -306,7 +304,7 @@ def test_https_fetch_uses_status_check_and_scrubs_the_url_from_errors(env, monke
     {"level": "critical"},
     {"show": "sometimes"},
     {"id": ""},
-    {"title": ""},
+    {"title": "", "body": ""},                                  # 제목·본문이 둘 다 비면 버린다
     {"starts_at": "어제"},
     {"expires_at": None},
     {"expires_at": "2026-10-22T00:00:00+09:00"},                # 시작보다 앞선 만료
@@ -336,6 +334,14 @@ def test_defaults_important_means_every_call_and_duplicates_keep_the_first(env):
 
 
 # ── 끼우기 ───────────────────────────────────────────────────────────────────
+def test_title_may_be_empty_then_only_the_body_is_shown(env):
+    env.warm([_notice(title="", body="본문만 나갑니다.")])
+    out = run_tool("company")
+    assert "> 📢 [10-23 공지] 본문만 나갑니다.\n" in out + "\n" and " — " not in out
+    raw = json.dumps([{**_notice(id="t-null", body="표에서 온 빈 제목도 같습니다."), "title": None}]).encode()
+    assert [n.title for n in env.mod._parse_manifest(raw)] == [""]
+
+
 def test_md_block_goes_right_under_the_title_and_before_resolution_warnings(env):
     env.warm([_notice(link="https://example.org/notice/1", show="every_call")])
     out = run_tool("trading_data", "# 제목\n\n> ⚠ 기존 경고\n\n본문")
@@ -504,7 +510,7 @@ def test_company_tool_description_tells_the_client_to_relay_the_notice_line(env)
 
     env.warm([_notice(title="설명에 들어가면 안 되는 제목")])
     desc = next(t.description for t in asyncio.run(build_mcp().list_tools()) if t.name == "company")
-    assert "📢 공지" in desc and "사용자에게 한 번 짧게 전해" in desc
+    assert "📢 [MM-DD 공지]" in desc and "사용자에게 한 번 짧게 전해" in desc
     assert "설명에 들어가면 안 되는 제목" not in desc
 
 
@@ -599,7 +605,8 @@ def test_all_registered_tools_show_the_notice_in_md_and_json(env, monkeypatch, r
     assert sorted(fns) == names and len(names) > 20
     for name in names:
         md = asyncio.run(fns[name]())
-        assert md.startswith(f"# {name}\n\n> 📢 공지 (OPM "), name
+        assert md.startswith(f"# {name}\n\n> 📢 ["), name               # 연속 호출이라 속도 조절 안내(오늘 날짜)가 먼저 붙을 수 있다
+        assert "\n> 📢 [10-23 공지] " in md, name
         js = json.loads(asyncio.run(fns[name](format="json")))
         assert js["notices"][0]["id"] == "n-2026-10-23" and js["warnings"] == [], name
 
