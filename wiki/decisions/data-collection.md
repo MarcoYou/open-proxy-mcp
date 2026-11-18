@@ -214,7 +214,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 
 - 환경변수: `OPENDART_API_KEY`(필수), `OPENDART_API_KEY_2`(선택). 재무 배치(연간·분기 수집)는 외화 보고사 환산에 `ECOS_API_KEY` 도 둔다 — [[environment-secrets]]
 - HTTP 요청 단위 키 주입: `?opendart=KEY` 쿼리 → contextvar(`_ctx_opendart_key`) → 인스턴스 캐시(키별 1개)
-- 자동 키 회전: 키의 사정(`020` 키의 하루 한도 · `010`·`011`·`901` 키 문제)이면 남은 키를 모두 차례로(키마다 한 번), 그 밖의 비정상 답은 보조 키로 1회 재시도. 사용자 키 하나로 온 요청은 회전하지 않는다
+- 자동 키 회전: 키의 사정(`020` 키의 하루 한도 · `010`·`011`·`901` 키 문제)이면 한국 시각 자정까지 그 키를 제외한다. 같은 키 풀의 요청은 남은 키를 차례로 시도하고, 모두 막혔으면 기존 상태 코드로 호출을 중단한다. JSON의 `013`(자료 없음) 등 키와 무관한 답은 그대로 반환한다. 바이너리의 `021` 또는 형식이 깨진 응답은 아직 사용 가능한 보조 키로 한 번만 재시도한다. 사용자 키 하나로 온 요청은 그 키만 쓴다
 - 사용량 추적: `_request_counter` (각 service가 `api_call_snapshot()` 차이로 호출 수 보고)
 - **요청 단위 메모 (261021)**: 한 도구 호출(서버가 요청마다 여는 요청 장부 하나) 안에서 같은 `(엔드포인트, 정렬한 인자)` 의 DART 요청은 HTTP 를 **한 번**만 한다 (`DartClient._request` → 본체 `_request_http`).
   배수 도구(`price_multiple_data` firm) 한 번이 DART 14콜을 부르는데 그중 3콜(회사 개황·사업보고서 재무제표·배당)이 같은 인자의 중복이었다 (실측 261021: 삼성전자 14→11콜, 롯데리츠 16→14콜 — 응답은 전후 같다).
@@ -234,7 +234,7 @@ OPM이 사용하는 구조화 endpoint를 그룹별로 정리. 모든 endpoint�
 | 일일 한도 | 20,000건/키 — 넘기면 status `020`, 자정(KST) 초기화(실측 2026-08-15 00:01) | OpenDART 개발가이드(020 설명) |
 | 분당 한도 | 1,000건 (OPM cap 910) | OpenDART 정책 (초과 시 **그 키가** 차단 — 실측 2~3시간) |
 | 클라이언트 최소 간격 | 0.1초 | `_MIN_INTERVAL_API` (분당 600회 이하 보장) |
-| 키 회전 | 키의 사정(020·010·011·901)이면 남은 키 모두, 그 밖은 1회 | `_rotate_key()` |
+| 키 회전 | 키의 사정(020·010·011·901)이면 아직 막히지 않은 키를 차례로 시도 | 1.6 「자동 키 회전」 |
 | 중복 호출 | 한 요청 안의 같은 (엔드포인트, 인자)는 HTTP 1번 — 사용량 `dart_api_calls` 는 실제 HTTP 수 | 1.6 「요청 단위 메모」 |
 | build_usage 노출 | `dart_api_calls`, `mcp_tool_calls`, `dart_daily_limit_per_minute`(옛 키 · 값 1000 = 분당 공표 한도, 이름과 달리 분당), `dart_limit_per_minute`(1000 분당 공표), `dart_client_cap_per_minute`(910 = OPM 분당 상한, `_API_RATE_LIMIT_PER_MINUTE`), `dart_limit_per_day`(20000 키당 하루) | services/contracts.py `build_usage(n)` — 사용량 블록은 이 함수로만 만든다 |
 

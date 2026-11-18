@@ -78,6 +78,8 @@ class _Http:
             return _Resp({"status": st, "message": "m", "list": [{"k": key}]} if st == "000" else {"status": st, "message": "m"})
         if st == "000":
             return _Resp(content=b"PK\x03\x04zip")
+        if st == "malformed":
+            return _Resp(content=b"invalid binary response")
         return _Resp(content=f"<?xml version='1.0'?><result><status>{st}</status><message>m</message></result>".encode())
 
 
@@ -112,13 +114,14 @@ def test_json_quota_on_every_key_raises_after_one_pass(monkeypatch):
     assert c._http.seen == [K1, K2, K3]          # 키마다 한 번 — 돌고 돌지 않는다
 
 
-def test_json_other_status_still_retries_once(monkeypatch):
-    """키와 무관한 답(013 자료 없음 등)은 종전처럼 보조 키로 한 번만."""
+def test_json_other_status_is_not_retried_on_another_key(monkeypatch):
+    """키와 무관한 답(013 자료 없음 등)은 다른 키로 다시 부르지 않는다(261116). 종전엔 한 번 돌렸는데,
+    돌린 키가 한도에 걸린 키면 013 이 020 으로 바뀌어 올라갔다 — `test_dart_api_key_pool` 의 같은 약속."""
     c = _client(monkeypatch, {K1: "013", K2: "013", K3: "000"})
     with pytest.raises(DartClientError) as ei:
         asyncio.run(c._request("fnlttSinglAcntAll.json", {"corp_code": "00126380"}))
     assert ei.value.status == "013"
-    assert c._http.seen == [K1, K2]
+    assert c._http.seen == [K1]
 
 
 def test_json_quota_then_other_answer_stops_rotating(monkeypatch):
@@ -149,13 +152,70 @@ def test_user_key_request_still_never_leaves_the_users_key(monkeypatch):
         asyncio.run(c._request("fnlttSinglAcntAll.json", {"corp_code": "00126380"}))
     with pytest.raises(DartClientError):
         asyncio.run(c._request_binary("fnlttXbrl.xml", {"rcept_no": "20260814003676"}))
-    assert c._http.seen == [user, user]
+    assert c._http.seen == [user]
 
 
 def test_binary_quota_tries_every_key_before_raising(monkeypatch):
     c = _client(monkeypatch, {K1: "020", K2: "020", K3: "000"})
     assert asyncio.run(c._request_binary("fnlttXbrl.xml", {"rcept_no": "20260814003676"})).startswith(b"PK")
     assert c._http.seen == [K1, K2, K3]
+
+
+@pytest.mark.parametrize("endpoint", ["fnlttSinglAcntAll.json", "fnlttXbrl.xml"])
+@pytest.mark.parametrize("blocked_status", ["020", "011"])
+def test_exhausted_pool_stops_requests_until_kst_date_changes(monkeypatch, endpoint, blocked_status):
+    from open_proxy_mcp.dart import client as dart_client
+
+    current_day = date(2026, 11, 19)
+    monkeypatch.setattr(dart_client, "today_kst", lambda: current_day)
+    c = _client(monkeypatch, dict.fromkeys((K1, K2, K3), blocked_status))
+    request = c._request if endpoint.endswith(".json") else c._request_binary
+
+    async def request_once():
+        dart_client.new_request_ledger()
+        return await request(endpoint, {})
+
+    for _ in range(2):
+        with pytest.raises(DartClientError) as ei:
+            asyncio.run(request_once())
+        assert ei.value.status == blocked_status and dart_halts_batch(ei.value)
+    assert c._http.seen == [K1, K2, K3]
+
+    current_day = date(2026, 11, 20)
+    c._http.answers = {K1: "000", K2: "000", K3: "000"}
+    asyncio.run(request_once())
+    assert len(c._http.seen) == 4
+
+
+def test_binary_021_retry_skips_a_key_already_marked_blocked(monkeypatch):
+    c = _client(monkeypatch, {K1: "020", K2: "000", K3: "020"})
+    asyncio.run(c._request("fnlttSinglAcntAll.json", {}))
+    c._http.seen.clear()
+    c._http.answers[K2] = "021"
+
+    with pytest.raises(DartClientError) as ei:
+        asyncio.run(c._request_binary("fnlttXbrl.xml", {}))
+    assert ei.value.status == "020"
+    assert c._http.seen == [K2, K3]
+
+    c._http.seen.clear()
+    with pytest.raises(DartClientError) as ei:
+        asyncio.run(c._request_binary("fnlttXbrl.xml", {}))
+    assert ei.value.status == "021"
+    assert c._http.seen == [K2]
+
+
+def test_malformed_binary_retry_does_not_inherit_previous_keys_quota_status(monkeypatch):
+    c = _client(monkeypatch, {K1: "020", K2: "malformed", K3: "020"})
+    with pytest.raises(DartClientError) as ei:
+        asyncio.run(c._request_binary("fnlttXbrl.xml", {}))
+    assert ei.value.status == "020"
+    assert c._http.seen == [K1, K2, K3]
+
+    c._http.answers[K2] = "000"
+    c._http.seen.clear()
+    assert asyncio.run(c._request_binary("fnlttXbrl.xml", {})).startswith(b"PK")
+    assert c._http.seen == [K2]
     c = _client(monkeypatch, {K1: "020", K2: "020", K3: "020"})
     with pytest.raises(DartClientError) as ei:
         asyncio.run(c._request_binary("fnlttXbrl.xml", {"rcept_no": "20260814003676"}))
