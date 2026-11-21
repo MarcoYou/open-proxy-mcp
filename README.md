@@ -16,9 +16,9 @@
 </div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-hero-dark-ko-20261104.png">
-  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-hero-light-ko-20261104.png">
-  <img alt="공시 데이터가 AI 재무분석과 의결권 판단으로 구조화되는 과정" src="screenshot/opm-readme-hero-light-ko-20261104.png">
+  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-hero-dark-ko-20261121.png">
+  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-hero-light-ko-20261121.png">
+  <img alt="AI가 공시 원문을 바탕으로 재무 지표, 주석의 부문별 매출 추이, 안건별 의결권 권고를 보여주는 흐름" src="screenshot/opm-readme-hero-light-ko-20261121.png">
 </picture>
 
 **안건은 한 줄이지만, 판단에는 회사 전체가 필요합니다.**
