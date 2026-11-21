@@ -11,7 +11,7 @@
 
 [한국어](README.md) · [简体中文](README_ZH.md)
 
-[Quick Start](#quick-start) · [What to Ask](#what-to-ask) · [How to Read the Output](#how-to-read-the-output) · [Recent Changes](#recent-changes) · [Tool Structure](#tool-structure-32-tools) · [Data Sources](#data-sources)
+**[Quick Start](#-quick-start)** · [What to Ask](#what-to-ask) · [How to Read the Output](#how-to-read-the-output) · [Recent Changes](#recent-changes) · [Tool Structure](#tool-structure-32-tools) · [Data Sources](#data-sources)
 
 </div>
 
@@ -27,13 +27,15 @@ OpenProxy is an MCP server that structures the filings of **Korean listed compan
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
-**Connect with one DART API key. Nothing to install.** For a walkthrough with screens and examples, see the 📘 [User Guide (PDF, 14 pages)](docs/manual/OpenProxy_User_Guide.pdf).
+### 1. Get a free API key
 
-**1. Get a free API key** — sign up at the [English OpenDART portal](https://engopendart.fss.or.kr/) and request an authentication key (free, issued immediately).
+sign up at the [English OpenDART portal](https://engopendart.fss.or.kr/) and request an authentication key (free, issued immediately).
 
-**2. Connect your AI service** — enter this URL as the server address when adding a connector or app, and name it `open-proxy-mcp`.
+### 2. Connect your AI service
+
+enter this URL as the server address when adding a connector or app, and name it `open-proxy-mcp`.
 
 ```
 https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
@@ -47,7 +49,9 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=YOUR_DART_API_KEY
 
 > Enter this URL only in the connector settings. OpenProxy does not retain the raw key and redacts it from logs.
 
-**3. Send your first request** — in a new chat, ask `Show Samsung Electronics' company information and three recent filings.` If the company and filings appear, the connection works. From there, just ask in natural language; you do not need to know the tool names.
+### 3. Send your first request
+
+in a new chat, ask `Show Samsung Electronics' company information and three recent filings.` If the company and filings appear, the connection works. From there, just ask in natural language; you do not need to know the tool names.
 
 <details>
 <summary>Open prompts and resources in Claude</summary>
