@@ -9,16 +9,16 @@
 [![Stars](https://img.shields.io/github/stars/MarcoYou/open-proxy-mcp?label=stars&color=f5c518&logo=github&logoColor=white)](https://github.com/MarcoYou/open-proxy-mcp)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/MarcoYou)
 
-[English](README_ENG.md) · [简体中文](README_ZH.md)
+[English](docs/readme/README.en.md) · [简体中文](docs/readme/README.zh-CN.md)
 
 **[빠른 시작](#-빠른-시작)** · [무엇을 물을 수 있나](#무엇을-물을-수-있나) · [결과 읽는 법](#결과-읽는-법) · [최근 바뀐 것](#최근-바뀐-것) · [도구 구조](#도구-구조-32개) · [데이터 소스](#데이터-소스)
 
 </div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="screenshot/opm-readme-hero-dark-ko-20261121.png">
-  <source media="(prefers-color-scheme: light)" srcset="screenshot/opm-readme-hero-light-ko-20261121.png">
-  <img alt="AI가 공시 원문을 바탕으로 재무 지표, 주석의 부문별 매출 추이, 안건별 의결권 권고를 보여주는 흐름" src="screenshot/opm-readme-hero-light-ko-20261121.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/images/opm-readme-hero-dark-ko-20261121.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/readme/images/opm-readme-hero-light-ko-20261121.png">
+  <img alt="AI가 공시 원문을 바탕으로 재무 지표, 주석의 부문별 매출 추이, 안건별 의결권 권고를 보여주는 흐름" src="docs/readme/images/opm-readme-hero-light-ko-20261121.png">
 </picture>
 
 **안건은 한 줄이지만, 판단에는 회사 전체가 필요합니다.**
@@ -56,7 +56,7 @@ https://open-proxy-mcp.fly.dev/mcp?opendart=발급받은_OpenDART_API_키
 <details>
 <summary>Claude에서 프롬프트·리소스 불러오기</summary>
 
-채팅 입력창의 `+` → `커넥터 → open-proxy-mcp에서 추가`([메뉴 위치](screenshot/claude-resource-picker-ko-20260907.png)).
+채팅 입력창의 `+` → `커넥터 → open-proxy-mcp에서 추가`([메뉴 위치](docs/readme/images/claude-resource-picker-ko-20260907.png)).
 
 - `Company Snapshot` — 회사·사업·실적·가격·주주 정보를 빠르게 훑는 기업 현황 요약 프롬프트
 - `OpenProxy Feature Guide` — 지금 등록된 도구와 기능 목록(`tools_guide` 리소스)

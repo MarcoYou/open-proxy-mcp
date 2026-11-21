@@ -14,7 +14,7 @@ on:
       # 죽었다. 검사를 옮기는 대신 **이미 도는 곳의 트리거를 넓힌다** — 두 벌로 두면
       # 한쪽만 고쳐진다.
       - 'README.md'
-      - 'README_ENG.md'
+      - 'docs/readme/README.*.md'
       - 'docs/RELEASE_NOTES.md'
       - 'docs/RELEASE_NOTES_ENG.md'
       - 'docs/features/**'
@@ -34,7 +34,7 @@ on:
       # 죽었다. 검사를 옮기는 대신 **이미 도는 곳의 트리거를 넓힌다** — 두 벌로 두면
       # 한쪽만 고쳐진다.
       - 'README.md'
-      - 'README_ENG.md'
+      - 'docs/readme/README.*.md'
       - 'docs/RELEASE_NOTES.md'
       - 'docs/RELEASE_NOTES_ENG.md'
       - 'docs/features/**'

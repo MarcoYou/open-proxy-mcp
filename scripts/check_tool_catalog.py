@@ -29,6 +29,11 @@ from open_proxy_mcp.server import build_mcp
 
 
 CATALOG_DIR = ROOT / "wiki" / "tools"
+PUBLIC_READMES = (
+    ROOT / "README.md",
+    ROOT / "docs/readme/README.en.md",
+    ROOT / "docs/readme/README.zh-CN.md",
+)
 SUPPORT_PAGES = {
     "README",
 }
@@ -135,13 +140,14 @@ def main() -> int:
 
     # 루트 README도 사람이 보는 공개 카탈로그다. wiki/tools/README만 검사하면
     # tool 개명·신설 때 사용자 진입점이 조용히 낡는다.
-    for path in (ROOT / "README.md", ROOT / "README_ENG.md"):
+    for path in PUBLIC_READMES:
         text = path.read_text(encoding="utf-8")
         missing = sorted(t for t in runtime_tools if f"wiki/tools/{t}.md" not in text)
         if missing:
             problems.append(f"{path.name}에 tool 링크 없음: " + ", ".join(missing))
         count_patterns = (
             r"(?:Tool|도구) 구조 \((\d+)개\)", r"Tool Structure \((\d+) tools\)",
+            r"工具结构（(\d+) 项工具）", r"共由 \*\*(\d+) 项工具",
             r"총 (\d+)개 (?:tool|도구)", r"(\d+) tools in total",
         )
         claims = {int(m.group(1)) for rx in count_patterns if (m := re.search(rx, text))}
@@ -157,7 +163,7 @@ def main() -> int:
         problems.append("pyproject.toml 에서 version 을 못 읽었다")
     else:
         want = m.group(1)
-        for path in (ROOT / "README.md", ROOT / "README_ENG.md", ROOT / "README_ZH.md"):
+        for path in PUBLIC_READMES:
             text = path.read_text(encoding="utf-8")
             got = re.search(r"release-v([0-9][^-\s)]*)-", text)
             if not got:

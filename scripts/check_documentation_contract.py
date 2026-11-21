@@ -17,7 +17,8 @@ FEATURE_DOCS = (
 )
 README_LINKS = {
     ROOT / "README.md": "docs/features/business-details.md",
-    ROOT / "README_ENG.md": "docs/features/en/business-details.md",
+    ROOT / "docs/readme/README.en.md": "../features/en/business-details.md",
+    ROOT / "docs/readme/README.zh-CN.md": "../features/en/business-details.md",
 }
 DOC_CONTRACT = re.compile(
     r"<!-- documentation-contract: business_details fields=([^>]+) -->"
