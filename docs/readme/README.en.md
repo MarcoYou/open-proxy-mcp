@@ -16,9 +16,11 @@
 </div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="images/opm-readme-hero-dark-en-20261121.png">
-  <source media="(prefers-color-scheme: light)" srcset="images/opm-readme-hero-light-en-20261121.png">
-  <img alt="AI uses source filings to show financial metrics, revenue trends by segment from the notes, and a voting recommendation for each agenda item" src="images/opm-readme-hero-light-en-20261121.png">
+  <source media="(prefers-color-scheme: dark) and (prefers-reduced-motion: reduce)" srcset="images/opm-readme-hero-dark-en-20261123.png">
+  <source media="(prefers-reduced-motion: reduce)" srcset="images/opm-readme-hero-light-en-20261123.png">
+  <source media="(prefers-color-scheme: dark)" srcset="images/opm-readme-hero-dark-en-20261123.gif">
+  <source media="(prefers-color-scheme: light)" srcset="images/opm-readme-hero-light-en-20261123.gif">
+  <img alt="AI uses source filings to show financial metrics, revenue trends by segment from the notes, and a voting recommendation for each agenda item" src="images/opm-readme-hero-light-en-20261123.png">
 </picture>
 
 **An agenda item may fit on one line. A sound decision requires the full picture.**

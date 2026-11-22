@@ -16,9 +16,11 @@
 </div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/images/opm-readme-hero-dark-ko-20261121.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/readme/images/opm-readme-hero-light-ko-20261121.png">
-  <img alt="AI가 공시 원문을 바탕으로 재무 지표, 주석의 부문별 매출 추이, 안건별 의결권 권고를 보여주는 흐름" src="docs/readme/images/opm-readme-hero-light-ko-20261121.png">
+  <source media="(prefers-color-scheme: dark) and (prefers-reduced-motion: reduce)" srcset="docs/readme/images/opm-readme-hero-dark-ko-20261123.png">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/readme/images/opm-readme-hero-light-ko-20261123.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/images/opm-readme-hero-dark-ko-20261123.gif">
+  <source media="(prefers-color-scheme: light)" srcset="docs/readme/images/opm-readme-hero-light-ko-20261123.gif">
+  <img alt="AI가 공시 원문을 바탕으로 재무 지표, 주석의 부문별 매출 추이, 안건별 의결권 권고를 보여주는 흐름" src="docs/readme/images/opm-readme-hero-light-ko-20261123.png">
 </picture>
 
 **안건은 한 줄이지만, 판단에는 회사 전체가 필요합니다.**

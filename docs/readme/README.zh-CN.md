@@ -16,9 +16,11 @@
 </div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="images/opm-readme-hero-dark-zh-CN-20261121.png">
-  <source media="(prefers-color-scheme: light)" srcset="images/opm-readme-hero-light-zh-CN-20261121.png">
-  <img alt="AI 根据公告原文展示财务指标、附注中的分部收入趋势，以及各项议案的投票建议" src="images/opm-readme-hero-light-zh-CN-20261121.png">
+  <source media="(prefers-color-scheme: dark) and (prefers-reduced-motion: reduce)" srcset="images/opm-readme-hero-dark-zh-CN-20261123.png">
+  <source media="(prefers-reduced-motion: reduce)" srcset="images/opm-readme-hero-light-zh-CN-20261123.png">
+  <source media="(prefers-color-scheme: dark)" srcset="images/opm-readme-hero-dark-zh-CN-20261123.gif">
+  <source media="(prefers-color-scheme: light)" srcset="images/opm-readme-hero-light-zh-CN-20261123.gif">
+  <img alt="AI 根据公告原文展示财务指标、附注中的分部收入趋势，以及各项议案的投票建议" src="images/opm-readme-hero-light-zh-CN-20261123.png">
 </picture>
 
 **一项议案也许只有一行，但可靠的判断需要完整的信息。**
