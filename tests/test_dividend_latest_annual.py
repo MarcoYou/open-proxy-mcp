@@ -106,7 +106,7 @@ def test_market_and_sector_do_not_need_the_annual_year_query(monkeypatch):
     asyncio.run(_tool()(scope="market"))
     asyncio.run(_tool()(scope="sector", sector="금융"))
     assert "latest_annual_year" not in calls
-    assert all(c[0][2:] == (2020, 2026) for c in calls["aggregate_history"]), "집계는 사업보고서 행만 세므로 끝이 2026 이어도 같다"
+    assert all(c[0][2:4] == (2020, 2026) for c in calls["aggregate_history"]), "집계는 사업보고서 행만 세므로 끝이 2026 이어도 같다"
 
 
 def test_latest_annual_year_reads_only_annual_report_rows(monkeypatch):
@@ -117,7 +117,7 @@ def test_latest_annual_year_reads_only_annual_report_rows(monkeypatch):
         return [(2025,)]
     monkeypatch.setattr(dd, "_rows", rows)
     assert dd.latest_annual_year() == 2025
-    assert seen == [("SELECT MAX(bsns_year) FROM div_declared WHERE reprt_code = %s", ("11011",))]
+    assert seen == [("SELECT MAX(bsns_year) FROM div_declared WHERE reprt_code = %s AND market = %s", ("11011", "KOSPI"))]
     monkeypatch.setattr(dd, "_rows", lambda sql, params=(): None)
     assert dd.latest_annual_year() is None
     monkeypatch.setattr(dd, "_rows", lambda sql, params=(): [(None,)])

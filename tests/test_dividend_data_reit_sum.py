@@ -25,7 +25,7 @@ DDL = """
 CREATE TABLE div_declared(
   corp_code text, name text, tickers text, bsns_year int, reprt_code text, reprt_label text, stock_knd_raw text, stock_kind text,
   dps_krw double precision, div_total_krw double precision, unit_raw text, payout_pct double precision, rcept_no text, stlm_dt text,
-  se_raw text, status text, line_no smallint);
+  se_raw text, status text, line_no smallint, market text NOT NULL DEFAULT 'KOSPI');
 CREATE TABLE div_quarterly(
   corp_code text, name text, tickers text, bsns_year int, reprt_code text, q_label text, stlm_dt text, rcept_no text,
   cum_div_total_krw double precision, quarterly_div_krw double precision, basis_from text, basis_to text, anomaly text, status text);

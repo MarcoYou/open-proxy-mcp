@@ -298,7 +298,7 @@ def _call_firm(monkeypatch, pay_rows, ledger_rows, *, fmt="md", complete=_STORED
     async def resolve(_c):
         return {"corp_code": "00000000", "corp_name": "동원모빌리티", "stock_code": "018500"}, None
 
-    monkeypatch.setattr(dd, "year_range", lambda: (2020, year_to))
+    monkeypatch.setattr(dd, "year_range", lambda *_: (2020, year_to))
     monkeypatch.setattr(dd, "_rows", rows)
     monkeypatch.setattr(dd, "fill_remarks_from_cold", fill)
     monkeypatch.setattr(pmd, "_resolve_listed", resolve)
@@ -459,7 +459,7 @@ _SCREEN_DDL = """
 CREATE TABLE div_declared(
   corp_code text, name text, tickers text, bsns_year int, reprt_code text, reprt_label text, stock_knd_raw text, stock_kind text,
   dps_krw double precision, div_total_krw double precision, unit_raw text, payout_pct double precision, rcept_no text, stlm_dt text,
-  se_raw text, status text, line_no smallint);
+  se_raw text, status text, line_no smallint, market text NOT NULL DEFAULT 'KOSPI');
 CREATE TABLE div_payment(corp_code text, fiscal_year int, acc_mt int, board_date text);
 CREATE TABLE div_payment_scope(market text, fiscal_year int, is_complete boolean);
 CREATE TABLE krx_listing(ticker text, first_seen_dd text, before_window boolean);

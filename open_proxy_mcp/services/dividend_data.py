@@ -477,8 +477,8 @@ def payment_history(pairs: list[tuple[str, str | None]], year_from: int, year_to
 
 
 # ───────────────────────────────────────────────────────── 시장·섹터 시계열 ──
-def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dict[str, Any]:
-    """시장(KOSPI) 또는 업종 대분류의 사업연도별 배당 집계.
+def aggregate_history(scope: str, key: str, year_from: int, year_to: int, market: str = "KOSPI") -> dict[str, Any]:
+    """시장(KOSPI·KOSDAQ) 또는 업종 대분류의 사업연도별 배당 집계. `market` 은 원장 `div_declared.market` 로 가른다(기본 KOSPI — 종전 값 그대로).
 
     🔴 **분모를 두 벌 낸다** — `n_universe`(그 해 표에 있는 회사 전부)와 `n_payers`(실제 배당).
     한 벌만 내면 「배당이 줄었다」와 「배당하는 회사가 줄었다」가 구별되지 않는다.
@@ -488,8 +488,8 @@ def aggregate_history(scope: str, key: str, year_from: int, year_to: int) -> dic
     """
     # 섹터는 업종분류 최신 스냅샷으로 붙인다. 종목 하나가 여러 티커(우선주)를 갖는
     # 경우가 있어 `div_declared.tickers` 로 조인하되 (회사, 사업연도, 결산기) 로 중복을 없앤다.
-    where = ["d.reprt_code = %s", "d.bsns_year BETWEEN %s AND %s", "d.stock_kind IN ('보통','미구분')"]
-    params: list[Any] = [_ANNUAL, year_from, year_to]
+    where = ["d.reprt_code = %s", "d.bsns_year BETWEEN %s AND %s", "d.stock_kind IN ('보통','미구분')", "d.market = %s"]
+    params: list[Any] = [_ANNUAL, year_from, year_to, market]
     join = ""
     if scope == "sector":
         join = "JOIN wise_sector w ON w.ticker = d.tickers AND w.snap_dd = (SELECT d FROM snap)"
@@ -613,6 +613,7 @@ def screen(
     min_yield: float | None = None,
     sort: str = "",
     price_dd: str | None = None,
+    market: str = "KOSPI",
 ) -> dict[str, Any]:
     """한 사업연도에서 조건으로 회사를 거른다 — 보통주 기준. 금액(배당성향·DPS)은 원장
     `div_declared`, **횟수**(`min_payments`)는 결정공시 `div_payment` — 자를 재료에서
@@ -638,7 +639,7 @@ def screen(
     if yield_mode and not _px_after(price_dd):
         return {"status": "price_unavailable"}
     if min_payments is not None and min_payments > 0:
-        complete = payment_scope_years()
+        complete = payment_scope_years(market)
         if bsns_year not in complete:
             return {"status": "scope_incomplete", "complete_years": complete}
 
@@ -648,8 +649,8 @@ def screen(
     #   반기·분기 결산 리츠는 결산기 행의 총액이 복사되어 모두 같아 어느 결산기 DPS 가 나올지 정해져 있지 않았다. 이제 조건(`min_dps`·성향)은 사업연도 합에 건다.
     # `dps_krw > 0` — 표 머리에 「무배당 제외」라고 써 놓고 DPS 0원 회사를 넣고 있었다
     #   (씨티알모빌리티·DB, U7 실측). 원문에 0 이 적혀 있어도 그건 배당한 것이 아니다.
-    per_where = ["d.reprt_code = %s", "d.bsns_year = %s", "d.stock_kind IN ('보통','미구분')"]
-    per_params: list[Any] = [_ANNUAL, bsns_year]
+    per_where = ["d.reprt_code = %s", "d.bsns_year = %s", "d.stock_kind IN ('보통','미구분')", "d.market = %s"]
+    per_params: list[Any] = [_ANNUAL, bsns_year, market]
     if sector:
         per_where.append("w.sector = %s"); per_params.append(sector)
     where = ["confirmed", "dps_krw > 0"]
@@ -677,7 +678,7 @@ def screen(
         join = (f"JOIN wise_sector w ON w.ticker = d.tickers AND w.snap_dd = {_WSD.max_dd(fast)}" if sector else "")
         head = f"""
         WITH uni AS (SELECT COUNT(DISTINCT corp_code) AS n FROM div_declared
-                      WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')),
+                      WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분') AND market = %s),
         {_YEAR_SQL.format(join=join, where=' AND '.join(per_where))}"""
         if not yield_mode:
             return head + "\n" + tail.format(src=f"(SELECT * FROM yr WHERE {' AND '.join(where)})")
@@ -691,7 +692,7 @@ def screen(
         return head + base + tail.format(src="(SELECT * FROM base" + (" WHERE yield_pct >= %s" if min_yield is not None else "") + ")")
 
     def args_for(with_limit: bool) -> tuple:
-        a: list[Any] = [_ANNUAL, bsns_year, *per_params]
+        a: list[Any] = [_ANNUAL, bsns_year, market, *per_params]
         if yield_mode:
             a.append(price_dd)
         a += where_params
@@ -719,12 +720,12 @@ def screen(
         matched = 0
         tot = _rows(
             "SELECT COUNT(DISTINCT corp_code) FROM div_declared "
-            "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분')",
-            (_ANNUAL, bsns_year))
+            "WHERE reprt_code = %s AND bsns_year = %s AND stock_kind IN ('보통','미구분') AND market = %s",
+            (_ANNUAL, bsns_year, market))
         n_universe = (tot or [(None,)])[0][0]
         if yield_mode:
             # 수익률 조건에 걸린 회사가 없을 때도 「주가가 없어 빠진 수」는 알려 준다(다른 조건은 통과한 회사 가운데 주가가 없는 수).
-            np_args = (_ANNUAL, bsns_year, *per_params, price_dd, *where_params)
+            np_args = (_ANNUAL, bsns_year, market, *per_params, price_dd, *where_params)
             np_sql = (lambda fast: build(fast, "SELECT COUNT(*) FILTER (WHERE px_close IS NULL) FROM base"))
             got = _WSD.query(np_sql, np_args, _rows) if sector else _rows(np_sql(False), np_args)
             n_noprice = ((got or [(0,)])[0][0]) or 0
@@ -753,27 +754,27 @@ def screen(
     }
 
 
-def latest_annual_year() -> int | None:
+def latest_annual_year(market: str = "KOSPI") -> int | None:
     """사업보고서(`11011`) 행이 있는 **마지막** 사업연도. None = 질의 실패 또는 사업보고서 행이 없음.
 
     261019: 원장이 매주 갱신되면서 올해(사업보고서는 이듬해 3월)의 1분기·반기 행이 먼저 들어온다. 그러면
     `year_range()` 의 끝(모든 보고서 기준)이 올해가 되는데, 연간 확정치만 쓰는 screen 이 그 해를 기본으로 잡으면
     **연도 없이 부른 스크리닝이 빈 결과**를 낸다. 연간 확정치의 기본 연도는 이것으로 고른다.
     운영 계획: `div_declared_yr`(bsns_year) 인덱스를 뒤에서부터 훑다 첫 `11011` 행에서 멈춘다 — 올해 분기 행 수천 개만 지나간다."""
-    rows = _rows("SELECT MAX(bsns_year) FROM div_declared WHERE reprt_code = %s", (_ANNUAL,))
+    rows = _rows("SELECT MAX(bsns_year) FROM div_declared WHERE reprt_code = %s AND market = %s", (_ANNUAL, market))
     if not rows or rows[0][0] is None:
         return None
     return rows[0][0]
 
 
-def year_range() -> tuple[int, int] | None:
+def year_range(market: str = "KOSPI") -> tuple[int, int] | None:
     """원장의 `(처음, 마지막)` 사업연도 — **호출마다 DB 에 묻는다**. None = 질의 실패 또는 빈 표 — 호출부가 `db_error` 로 낸다.
 
     261018: 이 질의가 인덱스 없이 표 전체(38,183행)를 읽던 때(평균 475ms) 6시간 메모리 캐시를 붙였는데(#88), 그 대가로 새 사업연도를
     적재한 뒤 최대 6시간(머신마다) 기본 연도·범위가 지난해로 남았다. 같은 PR 의 인덱스 `div_declared_yr`(`scripts/div_indexes_ddl.py`)가
     운영에 있어 이제 MIN·MAX 는 인덱스 양 끝 한 칸씩만 읽는다(운영 EXPLAIN — Index Only Scan, 행 1개씩). 그래서 캐시를 없앴다 —
     적재 직후 바로 보인다. 동기 함수다 — async 호출부는 `asyncio.to_thread` 로 부른다(`tools/dividend_data.py`)."""
-    rows = _rows("SELECT MIN(bsns_year), MAX(bsns_year) FROM div_declared")
+    rows = _rows("SELECT MIN(bsns_year), MAX(bsns_year) FROM div_declared WHERE market = %s", (market,))
     if not rows or rows[0][0] is None:
         return None
     return (rows[0][0], rows[0][1])
