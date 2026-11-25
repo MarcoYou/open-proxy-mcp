@@ -242,7 +242,7 @@ def test_screen_reads_rows_matched_count_and_universe_in_one_query(monkeypatch):
     assert len(calls) == 1, "행 · 매칭 수 · 모집단이 질의 하나"
     sql, params = calls[0]
     assert "COUNT(*) OVER () AS matched" in sql and "(SELECT n FROM uni) AS n_universe" in sql and sql.rstrip().endswith("LIMIT %s")
-    assert params == ("11011", 2025, "11011", 2025, 100, 1), "모집단 CTE → 행 조건 → 한도 순서로 자리표시자와 맞는다"
+    assert params == ("11011", 2025, "KOSPI", "11011", 2025, "KOSPI", 100, 1), "모집단 CTE → 행 조건 → 한도 순서로 자리표시자와 맞는다"
     assert (d["matched"], d["n_universe"], d["returned"], d["limit"]) == (57, 825, 1, 1), "limit 은 표시 한도 — 매칭 수는 한도 앞에서 센다"
     assert d["rows"][0]["dps_krw"] == 1444 and d["rows"][0]["total_basis"] == "single"
 
@@ -270,7 +270,7 @@ def test_firm_scope_sends_the_ledger_and_the_decision_reads_together(monkeypatch
     async def fake_resolve(q):
         return corp, None
     monkeypatch.setattr(pmd, "_resolve_listed", fake_resolve)
-    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    monkeypatch.setattr(dd, "year_range", lambda *_: (2020, 2025))
     spans = {}
 
     def timed(name, ret):
@@ -297,7 +297,7 @@ def test_firm_scope_still_reports_a_failed_ledger_read(monkeypatch):
     async def fake_resolve(q):
         return corp, None
     monkeypatch.setattr(pmd, "_resolve_listed", fake_resolve)
-    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    monkeypatch.setattr(dd, "year_range", lambda *_: (2020, 2025))
     monkeypatch.setattr(dd, "firm_history", lambda *a, **k: {"status": "db_error"})
     monkeypatch.setattr(dd, "payment_counts", lambda *a, **k: {"status": "ok", "complete_years": [], "rows": [], "decisions": []})
     assert asyncio.run(_tool()(scope="firm", company="삼성전자")) == "## 배당 원장 조회 실패 (`status=db_error`)"

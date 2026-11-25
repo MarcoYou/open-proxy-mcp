@@ -314,7 +314,7 @@ def test_dividend_data_firm_tells_the_guess_and_the_inactive_listing(monkeypatch
         _status, selected, _ = C._resolve_match(q, _resolver().search(q))
         return selected, None
     monkeypatch.setattr(P, "_resolve_listed", _resolve_listed)
-    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    monkeypatch.setattr(dd, "year_range", lambda *_: (2020, 2025))
     monkeypatch.setattr(dd, "firm_history", lambda *_a: {"status": "ok", "annual_failed": False, "quarterly_failed": False,
                                                           "empty_kind_rows_folded": 0, "annual": [], "quarterly": []})
     monkeypatch.setattr(dd, "payment_counts", lambda *_a: {"status": "ok", "complete_years": [2020, 2021, 2022, 2023, 2024],

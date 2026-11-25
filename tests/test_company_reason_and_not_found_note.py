@@ -130,7 +130,7 @@ def test_dividend_data_firm_uses_the_canonical_not_found(nobody, monkeypatch):
     from open_proxy_mcp.services import dividend_data as dd
     from open_proxy_mcp.tools import dividend_data as dd_tool
 
-    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    monkeypatch.setattr(dd, "year_range", lambda *_: (2020, 2025))
 
     class _Reg:
         tools: dict = {}

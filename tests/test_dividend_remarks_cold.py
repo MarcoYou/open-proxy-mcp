@@ -167,7 +167,7 @@ def test_tool_output_md_and_json_are_identical_before_and_after_the_move(monkeyp
     async def fake_resolve(q):
         return corp, None
     monkeypatch.setattr(pmd, "_resolve_listed", fake_resolve)
-    monkeypatch.setattr(dd, "year_range", lambda: (2020, 2025))
+    monkeypatch.setattr(dd, "year_range", lambda *_: (2020, 2025))
     monkeypatch.setattr(dd, "firm_history", lambda *a, **k: {"status": "ok", "annual": [], "quarterly": [], "annual_failed": False,
                                                               "quarterly_failed": False, "empty_kind_rows_folded": 0})
     reg = type("R", (), {"tools": {}, "tool": lambda self, *a, **k: (lambda fn: self.tools.setdefault(fn.__name__, fn) or fn)})()

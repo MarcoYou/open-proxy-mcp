@@ -330,6 +330,10 @@ def _render_screen(year: int, cond: list[str], d: dict[str, Any], limit: int,
 
 
 # ─────────────────────────────────────────────────────────────── market/sector ──
+_MARKETS = ("KOSPI", "KOSDAQ")
+_MARKET_LABEL = {"KOSPI": "코스피", "KOSDAQ": "코스닥"}
+
+
 def _render_agg(scope: str, key: str, d: dict[str, Any]) -> str:
     L = [f"## {key} — 확정 배당 집계 ({'업종 대분류' if scope == 'sector' else '시장'})", ""]
     L += _RULER
@@ -368,23 +372,28 @@ def register_tools(mcp):
         quarterly_only: bool = False,
         limit: int = 50,
         format: str = "md",
+        market: str = "KOSPI",
     ) -> str:
-        """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 약 830사 × 2020~, 매주 갱신 — 사업보고서가 아직 없는 올해는 1분기·반기 행만)과 결정공시 집계(온전한 해만 횟수)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
+        """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 약 830사 + 코스닥 × 2020~, 매주 갱신 — 사업보고서가 아직 없는 올해는 1분기·반기 행만)과 결정공시 집계(온전한 해만 횟수)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다.
         when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen — 「배당수익률 5% 이상」「코스피 배당수익률 상위」는 `min_yield`·`sort=yield`) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend_disclosure`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
-        scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 코스피 전체 / `sector` 업종 대분류(sector 필요)
+        scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 시장 전체(`market` 인자 — 기본 KOSPI) / `sector` 업종 대분류(sector 필요)
         rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 온전한 해만 센다(그 밖은 `scope_incomplete` — 수집이 이어지면 해가 늘어난다). screen 의 기본 사업연도는 **사업보고서가 있는 마지막 해**다(올해 분기 행만 있는 해가 아니다). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**
         min_yield: screen 전용. **배당수익률(%) 하한** — 그 해(`bsns_year`) 보통주 연 DPS ÷ 같은 회사 보통주 코드의 최신 종가 × 100(우리가 계산한 값 — 공시의 시가배당률이 아니다. 우선주 DPS 는 쓰지 않는다). 주가가 없는 종목은 수익률 미상이라 빠지고 그 수를 표 아래에 적는다. 거르기는 limit 으로 자르기 **전에** 그 해 모집단 전체에 건다. 사업보고서가 있는 마지막 해가 아닌 해를 고르면 「과거 연도 DPS 를 최신 주가로 나눈 값」이라고 경고한다.
         sort: screen 전용. 비우거나 `total` = 배당총액 큰 순(종전), `yield` = 배당수익률 큰 순(수익률 미상은 맨 뒤) — 배당총액 상위 limit 개 안에서만 줄 세우지 않고 **그 해 모집단 전체**에서 줄 세운 뒤 limit 으로 자른다. 비운 호출은 종전 순서이고 표에 수익률 칸이 덧붙을 뿐이다. 결산 뒤 분할·병합이 있었던 종목은 수익률이 틀어질 수 있어 `‡` 로 표시한다(값은 안 고친다).
         min_payments: screen 전용. **그 해에 실제로 결의된 배당 횟수**가 이 값 이상인 회사(결정공시 기준 — 원장 분기 빈칸 추정이 아니다). `quarterly_only=True` 는 `min_payments=2` 의 별칭(하위호환).
+        market: `KOSPI`(기본) 또는 `KOSDAQ` — screen·market·sector 집계가 읽는 시장. 회사 하나(`firm`)는 회사 코드로 읽어 시장과 무관하다. 코스닥 원장은 2020~ 수집본이다.
         ref: dividend_disclosure, price_multiple_data, forward_estimates_data, screener, evidence
         """
+        mk = (market or "KOSPI").strip().upper()
+        if mk not in _MARKETS:
+            return f"## market 값 오류 (`status=invalid`)\n\n> `market` 은 `KOSPI`(기본) 또는 `KOSDAQ` 이다. 받은 값: `{market}`"
         # 261018: 아래 `dd.*` 는 전부 **동기 DB 호출**이다. async 함수 안에서 그대로 부르면 질의가 끝날 때까지 서버 전체(다른 도구·/health)가
         #   멈춘다 — 연도 범위 질의만 평균 475ms(차가운 캐시 1.5초)였다. 스레드로 보내 루프를 비워 둔다.
         # screen 은 사업보고서가 있는 마지막 해(`latest_annual_year`)도 곧 필요하다 — 서로 입력이 필요 없는 두 읽기라 함께 보낸다(풀 왕복 하나 절약).
         if scope == "screen":
-            rng, ann_hi = await asyncio.gather(asyncio.to_thread(dd.year_range), asyncio.to_thread(dd.latest_annual_year))
+            rng, ann_hi = await asyncio.gather(asyncio.to_thread(dd.year_range, mk), asyncio.to_thread(dd.latest_annual_year, mk))
         else:
-            rng, ann_hi = await asyncio.to_thread(dd.year_range), None
+            rng, ann_hi = await asyncio.to_thread(dd.year_range, mk), None
         if rng is None:
             return "## 배당 원장 DB 조회 실패 (`status=db_error`)\n\n> 일시 장애일 수 있다. 잠시 뒤 다시."
         lo, hi = rng
@@ -392,17 +401,17 @@ def register_tools(mcp):
         y1 = year_to or hi
 
         if scope == "market":
-            data = await asyncio.to_thread(dd.aggregate_history, "market", "코스피", y0, y1)
+            data = await asyncio.to_thread(dd.aggregate_history, "market", _MARKET_LABEL[mk], y0, y1, mk)
             if data.get("status") != "ok":
                 return "## 시장 배당 집계 조회 실패 (`status=db_error`)"
-            return as_pretty_json(data) if format == "json" else _render_agg("market", "코스피", data)
+            return as_pretty_json(data) if format == "json" else _render_agg("market", _MARKET_LABEL[mk], data)
 
         if scope == "sector":
             if not sector:
                 names = await asyncio.to_thread(dd.sector_list)
                 return ("## 섹터를 지정하라 (`status=invalid`)\n\n"
                         + "\n".join(f"- {s}" for s in names))
-            data = await asyncio.to_thread(dd.aggregate_history, "sector", sector, y0, y1)
+            data = await asyncio.to_thread(dd.aggregate_history, "sector", sector, y0, y1, mk)
             if data.get("status") != "ok":
                 return "## 섹터 배당 집계 조회 실패 (`status=db_error`)"
             if not data.get("rows"):
@@ -466,8 +475,9 @@ def register_tools(mcp):
                     min_yield=min_yield if min_yield >= 0 else None,
                     sort=sort,
                     price_dd=price_dd,
+                    market=mk,
                 ),
-                asyncio.to_thread(dd.payment_scope_years),
+                asyncio.to_thread(dd.payment_scope_years, mk),
             )
             if data.get("status") == "scope_incomplete":
                 cy = data.get("complete_years") or []
