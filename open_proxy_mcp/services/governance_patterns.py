@@ -195,6 +195,7 @@ def inspect_filing(title: str, doc: dict) -> list[dict]:
     if "철회" in title or (kind and re.search(r"(?:사채\s*발행|유상증자)(?:\s*결정)?[을의를\s]*철회(?:를?\s*결정|하기로|합니다|하였)", text[:4000])):
         return [{"pattern": kind, "label": PATTERNS[kind][0], "check": "철회 공시와 원안의 회차·범위를 확인한다.",
                  "filing_state": "철회 공시"}] if kind in {"convertible_bond", "exchangeable_bond"} else []
+    correction_reasons = []
     if "정정" in title:
         state = "정정 요구 · 효력 확인" if "정정명령" in title or "정정요구" in title else "정정 공시 · 정정 범위 확인"
         # The amendment comparison table may still describe superseded ballots.
@@ -203,6 +204,10 @@ def inspect_filing(title: str, doc: dict) -> list[dict]:
                              r"<COVER-TITLE\b[^>]*>\s*증\s*권\s*신\s*고\s*서\s*</COVER-TITLE>", html, re.I)
             if body:
                 from open_proxy_mcp.dart.client import html_to_text
+                from open_proxy_mcp.services.amendment_table import parse_amendment_table
+                correction = parse_amendment_table(html[:body.start()])
+                correction_reasons = list(dict.fromkeys(filter(None, [
+                    correction["reason"], *(row.get("reason") for row in correction["rows"])])))
                 html = html[body.start():]
                 text = " ".join(html_to_text(html).split())
     if kind:
@@ -217,5 +222,14 @@ def inspect_filing(title: str, doc: dict) -> list[dict]:
             state = "공시 기재 · 적용 시점 확인"
     else:
         signals = {}
+    # The issuer may explain the scope of the pay limit only in the reason for a correction.
+    # Read that cell separately so a superseded value cannot become a current cap.
+    for reason in correction_reasons:
+        evidence = retirement_signals(reason).get("retirement_limit")
+        if not evidence:
+            continue
+        signal = signals.setdefault("retirement_limit", {"quote": evidence["quote"], "provisions": []})
+        known = {p["quote"] for p in signal["provisions"]}
+        signal["provisions"].extend({**p, "clause": "정정사유"} for p in evidence["provisions"] if p["quote"] not in known)
     return [{"pattern": key, "label": PATTERNS[key][0], "check": PATTERNS[key][1], "filing_state": state, **evidence}
             for key, evidence in signals.items()]

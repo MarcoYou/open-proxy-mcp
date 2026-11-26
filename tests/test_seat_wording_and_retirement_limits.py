@@ -80,3 +80,39 @@ def test_retirement_limit_not_the_general_remuneration_amount():
     proposed = "제3호 안건 임원 퇴직금 별도한도 30억원 신설의 건"
     item = retirement_signals(proposed)["retirement_limit"]["provisions"][0]
     assert item["change"] == "new" and item["limit_amount_text"] == "30억원"
+
+
+def test_corrected_meeting_discloses_retirement_exclusion_in_reason_only():
+    old = "임원 퇴직금의 별도 한도는 30억원이다."
+    reason = "이사 보수한도에는 퇴직소득이 포함되지 아니하며 퇴직금 지급 실적을 정정한다."
+    def corrected(why):
+        table = ("<TABLE><TR><TH>항목</TH><TH>정정사유</TH><TH>정정 전</TH><TH>정정 후</TH></TR>"
+                 f"<TR><TD>이사 보수</TD><TD>{why}</TD><TD>{old}</TD><TD>정정 금액</TD></TR></TABLE>")
+        return inspect_filing("[기재정정]주주총회소집공고", {"html": table + "<TITLE>주주총회 소집공고</TITLE><P>본문</P>",
+                                                 "text": why + " " + old + " 본문"})
+    signal, = corrected(reason)
+    item, = signal["provisions"]
+    assert item["outside_pay_limit"] and item["change"] == "mentioned" and not item["separate_limit"]
+    assert item["clause"] == "정정사유" and item["limit_amount_text"] is None
+    assert not corrected("기재금액 수정")
+
+
+@pytest.mark.parametrize("text,cap", [
+    ("이사의 퇴직금은 본 조의 보수한도 적용을 받지 아니한다.", None),
+    ("이사보수 한도 및 지급 실적에는 퇴직금이 포함되어 있지 않음.", None),
+    ("대표이사 퇴직금의 별도 지급한도를 20억원으로 신설하고자 한다.", "20억원"),
+])
+def test_pay_limit_word_order(text, cap):
+    item, = retirement_signals(text)["retirement_limit"]["provisions"]
+    assert item["outside_pay_limit"] == (cap is None)
+    assert item["limit_amount_text"] == cap
+
+
+def test_formula_only_ceiling_is_not_a_fixed_amount_or_a_new_cap():
+    before = "감사의 퇴직금 지급 한도액은 퇴직 전 3년간 평균급여 × 1/10 × 근속연수 × 3으로 한다."
+    after = "임원 퇴직연금의 납입 한도는 소득세법상 임원퇴직소득한도에 따른다."
+    item = limits(before, after)
+    assert item["change"] == "verify_change"
+    assert item["limit_formula_text"] == "퇴직 전 3년간 평균급여 × 1/10 × 근속연수 × 3"
+    assert item["limit_amount_text"] is None
+    assert not retirement_signals(after)

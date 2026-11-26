@@ -65,16 +65,20 @@ def _changes(before: str, after: str, old: dict, new: dict) -> list[str]:
 
 _RETIRE = r"(?:퇴직|퇴임)\s*(?:보상금|위로금|급여|소득|금)"
 _PAY_CAP = r"(?:보수\s*(?:총액\s*)?(?:의\s*)?한도(?:액)?|연간\s*보수\s*총액)"
-_EXCLUDE = r"(?:제외|배제)(?!\s*(?:하지\s*않|하지\s*아니|되지\s*않|되지\s*아니))|포함(?:되지|하지|시키지)\s*(?:않|아니)|산입하지\s*(?:않|아니)"
+_EXCLUDE = r"(?:제외|배제)(?!\s*(?:하지\s*않|하지\s*아니|되지\s*않|되지\s*아니))|포함(?:되지|하지|시키지|되어\s*있지)\s*(?:않|아니)|산입하지\s*(?:않|아니)"
 _NEAR = r"[^.。;①-⑳\n]{0,42}?"
 _OUTSIDE = re.compile(rf"{_PAY_CAP}{_NEAR}{_RETIRE}{_NEAR}(?:{_EXCLUDE})|"
-                      rf"{_RETIRE}{_NEAR}{_PAY_CAP}{_NEAR}(?:{_EXCLUDE})|"
+                      rf"{_RETIRE}{_NEAR}{_PAY_CAP}{_NEAR}(?:{_EXCLUDE}|적용을?\s*받지\s*(?:않|아니))|"
                       rf"{_RETIRE}{_NEAR}{_PAY_CAP}(?:과|와)?\s*(?:별도(?:로|이다|로서)|별개)|"
                       rf"{_RETIRE}(?:은|는|을|를)?\s*(?:{_EXCLUDE})한\s*(?:임원|이사)?\s*{_PAY_CAP}|"
                       rf"{_RETIRE}(?:에\s*대하여는|은|는)?\s*한도\s*적용에서\s*(?:{_EXCLUDE})")
-_SEPARATE = re.compile(rf"{_RETIRE}(?:의|에\s*대한|은|는)?\s*(?:지급\s*)?(?:별도(?:의)?\s*)?한도(?:액)?|"
+_SEPARATE = re.compile(rf"{_RETIRE}(?:의|에\s*대한|은|는)?\s*(?:별도(?:의)?\s*)?(?:지급\s*)?한도(?:액)?|"
                        rf"(?:별도(?:의)?\s*한도(?:액)?)(?:로|를)?\s*(?:정한\s*)?(?:임원|이사)?\s*{_RETIRE}")
 _CAP_AMOUNT = re.compile(r"^\s*(?:액|은|는|을|를|를?\s*연간|로|최대|금|연간|총|[:：])?[\s:：]*(?:연간\s*)?(" + _MONEY + r")")
+
+
+_CAP_FORMULA = re.compile(r"^\s*(?:은|는|액)?[\s:：]*(?P<formula>(?:퇴직\s*전\s*)?(?:최근\s*)?(?:\d+\s*(?:개?년|개월)(?:간)?\s*)?"
+                          r"(?:평균\s*)?(?:급여|연봉|월보수|기준금액)(?:\s*[xX×*]\s*(?:\d+(?:[/.]\d+)?|(?:재직|근속)\s*(?:연수|년수|기간))){1,6})")
 
 
 def _limit_provision(text: str) -> dict | None:
@@ -93,10 +97,11 @@ def _limit_provision(text: str) -> dict | None:
     if re.search(r"(?:직원|종업원|근로자)(?:의|에게|에\s*대한)?\s*퇴직", quote) and not re.search(r"(?:임원|이사|감사)(?:의|에게)?\s*퇴직", quote):
         return None
     amount = _CAP_AMOUNT.match(text[separate.end():]) if separate else None
+    formula = _CAP_FORMULA.match(text[separate.end():]) if separate else None
     # A payment regulation on its own says nothing about a separate ceiling.
     if separate and re.match(r"(?:을|를|은|는)?\s*(?:두지|설정하지|신설하지|적용하지)\s*(?:않|아니)", text[separate.end():]):
         return None
-    if separate and not amount and "별도" not in separate[0] and not re.search(r"별도|신설", text[separate.end():separate.end()+30]):
+    if separate and not amount and not formula and "별도" not in separate[0] and not re.search(r"별도|신설", text[separate.end():separate.end()+30]):
         separate = None
     if not (separate or outside):
         return None
@@ -107,7 +112,7 @@ def _limit_provision(text: str) -> dict | None:
             limit_text = transition[1]
     return {"quote": quote, "trigger": "퇴직금 별도 한도" if separate else "일반 보수한도에서 퇴직금 제외",
             "outside_pay_limit": bool(outside), "separate_limit": bool(separate),
-            "limit_amount_text": limit_text}
+            "limit_amount_text": limit_text, "limit_formula_text": formula["formula"] if formula else None}
 
 
 def _limit_changes(before, after, old, new):
@@ -172,7 +177,7 @@ def _read_changes(text, rows, read, compare):
             change = "amended"
         else:
             introduced = ("신설" in before + row.get("reason", "") or re.fullmatch(r"[-—]+", before) or
-                          (before and _SEVERANCE.search(before) and not _CONTROL.search(before)))
+                          (read is _provision and before and _SEVERANCE.search(before) and not _CONTROL.search(before)))
             change = "new" if introduced else "verify_change"
         notes = compare(before, after, old, new) if change == "amended" else []
         provisions.append({**(new or old), "change": change, "change_label": _LABEL[change], "change_notes": notes,
