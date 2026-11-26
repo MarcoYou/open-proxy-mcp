@@ -25,7 +25,7 @@ _CONDITION = re.compile(r"(?:가결|부결|승인)(?:될\s*(?:경우|때)|되[�
 _TERMS = re.compile(r"시차\s*임기|(?:이사.{0,20})?임기.{0,22}(?:분산|교차|달리\s*(?:정|하)|엇갈리)|(?:매년|매\s*주총).{0,18}이사의?\s*일부.{0,10}(?:선임|개선)")
 _NOMINEE_TERM = re.compile(r"(?:사내이사|사외이사|독립이사|기타비상무이사)\s+([가-힣]{2,5})\s*선임"
                            r"(?:의\s*건)?\s*[(（,·:\s]*임기\s*[:：]?\s*(\d{1,2})\s*년")
-_ALLOTMENT = re.compile(r"제\s*3\s*자\s*(?:에게|배정)|주주\s*외의?\s*자")
+_ALLOTMENT = re.compile(r"(?<!\d)(?:제\s*)?3\s*자\s*(?:에게|배정)|주주\s*외의?\s*자")
 _TOPICS = {
     "전자주총·전자투표": r"전자.{0,10}(?:주주총회|투표)|원격지",
     "이사 선임·해임": r"집중투표|이사의?\s*(?:수(?!당)|원수|임기|선임|해임)",
@@ -95,7 +95,9 @@ def _charter_signals(html: str, text: str) -> dict:
             if re.fullmatch(r"[\s①-⑳~()\d.∼～-]*(?:좌동|상동|현행과\s*(?:동일|같음)|생략)[\s).]*", remaining):
                 continue
             detail = {"clause": clause, "before": before[:1200], "after": after[:1200], "reason": row.get("reason", "")[:300]}
-            if _ALLOTMENT.search(before + after):
+            reason_identifies_issue = (_ALLOTMENT.search(detail["reason"])
+                                       and re.search(r"신주(?:를|의)?\s*발행", before + after))
+            if _ALLOTMENT.search(before + after) or reason_identifies_issue:
                 signals.setdefault("allotment_authority", {"clauses": []})["clauses"].append(
                     {**detail, "cap_direction": _limit_direction(before, after)})
             if _staggered_marker(after) or _staggered_marker(row.get("reason", "")):

@@ -313,7 +313,7 @@ def build_governance_task(company: dict, as_of: str, discovery: dict,
                 and r.get("family") == "litigation" and r.get("document_role") == "제기신청"]
     reviews = []
     for p in issuer_filings:
-        provisions = [v for s in p["signals"] for v in s.get("provisions", [])]
+        provisions = [v for s in p["signals"] if s["pattern"] == "control_severance" for v in s.get("provisions", [])]
         if not any(v["change"] == "new" or v["change_notes"] for v in provisions):
             continue
         report = reports.get(p["source_id"].removeprefix("filing:"))

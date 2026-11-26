@@ -177,6 +177,9 @@ def test_severance_tracks_the_side_of_the_change_and_dispute_chronology():
     discovery = {"matches": [row, *disputes], "filings": [row]}
     task = build_governance_task({}, "20260401", discovery)
     assert [p["dispute_published"] for p in task["severance_dispute_followups"]] == ["20260301"]
+    row["pattern_signals"] = [{**changed, "pattern": "retirement_limit"}]
+    assert not build_governance_task({}, "20260401", discovery)["severance_dispute_followups"]
+    row["pattern_signals"] = [changed]
     row["report_nm"] = "[기재정정]주주총회소집공고"
     assert not build_governance_task({}, "20260401", discovery)["severance_dispute_followups"]
 
@@ -208,3 +211,14 @@ def test_corrected_registration_excludes_superseded_severance_amount():
     signal, = inspect_filing("", doc)
     assert "정정" in signal["filing_state"]
     assert signal["provisions"][0]["award_terms"] == ["30억원"] and "90억원" not in str(signal)
+
+
+def test_allotment_reason_identifies_an_explicit_share_issuance_clause():
+    before = "발행주식총수의 100분의 10을 초과하지 않는 범위에서 국내외 금융기관에 신주를 발행하는 경우"
+    after = before.replace("10을", "20을")
+    reason = "3자배정 유상증자 시 발행가능주식 수 산정법 변경"
+    signals = inspect_filing("주주총회소집공고", charter([("2-1", [(before, after, reason)])]))
+    authority, = [s for s in signals if s["pattern"] == "allotment_authority"]
+    assert authority["clauses"][0]["cap_direction"] == "increased"
+    unrelated = inspect_filing("주주총회소집공고", charter([("2-1", [("이사 선임", "이사 해임", reason)])]))
+    assert "allotment_authority" not in {s["pattern"] for s in unrelated}
