@@ -13,7 +13,44 @@ _MONEY = r"[\d,]+(?:\.\d+)?\s*(?:억|백만|천만|만|천)?\s*원"
 _RATE = r"(?:\d+(?:\.\d+)?|[가-힣]+\(\d+\))\s*배(?:수)?"
 _FORMULA = re.compile(r"(?:최근\s*)?(?:\d+\s*개?년(?:간)?\s*)?(?:(?:월)?평균\s*)?(?:연봉|월보수|급여|퇴직금\s*누계액)"
                       r"(?:\s*[xX×*]\s*(?:재직|근속)\s*(?:연수|년수|기간)|(?:의|에)?\s*" + _RATE + r")")
-_AMOUNT = re.compile(_MONEY + "|" + _RATE)
+# Preserve the printed expression. Parenthetical won figures sometimes use a
+# backslash in DART XML because the Korean font renders that character as ₩.
+_DIGITS = r"(?:\d{1,3}(?:,\d{3})+|\d+)"
+_KOREAN_WON = r"[0-9일이삼사오육칠팔구십백천만억조]*[십백천만억조][0-9일이삼사오육칠팔구십백천만억조]*\s*원"
+_SYMBOL_WON = r"[₩￦\\]+\s*" + _DIGITS
+_AWARD = re.compile(r"(?P<cash>" + _DIGITS + r"(?:\.\d+)?\s*(?:천만|백만|억|만|천)?\s*원|"
+                    + _SYMBOL_WON + r"|" + _KOREAN_WON + r")"
+                    r"(?:\s*[(（]\s*[₩￦\\]+\s*(?P<repeat>" + _DIGITS + r")\s*[)）])?|"
+                    r"(?P<rate>" + _RATE + r")")
+_KOREAN_DIGITS = str.maketrans("일이삼사오육칠팔구", "123456789")
+_WON_UNITS = {"": 1, "천": 1000, "만": 10000, "백만": 1000000, "천만": 10000000, "억": 100000000}
+
+
+def _award_amounts(quote: str) -> tuple[list[str], list[dict]]:
+    from decimal import Decimal
+    from open_proxy_mcp.services.executive_pay import _korean_amount
+
+    terms = list(dict.fromkeys(m[0] for m in _FORMULA.finditer(quote)))
+    amounts = []
+    for m in _AWARD.finditer(quote):
+        if m[0] in terms:
+            continue
+        terms.append(m[0])
+        if not m["cash"]:
+            continue
+        raw = re.sub(r"[\s,원₩￦\\]", "", m["cash"])
+        arabic = re.fullmatch(r"(\d+(?:\.\d+)?)(천만|백만|억|만|천)?", raw)
+        if arabic:
+            won = Decimal(arabic[1]) * _WON_UNITS[arabic[2] or ""]
+        else:
+            # Bare large-unit prefixes in Korean mean one (e.g. 억원).
+            digits = re.sub(r"^(?=[만억조])", "1", raw.translate(_KOREAN_DIGITS))
+            won = _korean_amount(digits)
+        if won > 0 and won == int(won) and (not m["repeat"] or won == int(m["repeat"].replace(",", ""))):
+            amounts.append({"text": m[0], "amount_krw": int(won)})
+    return terms, amounts
+
+
 _SAME = re.compile(r"좌동|상동|현행과\s*(?:동일|같음)")
 _DELETE = re.compile(r"^[\s<>〈〉()\[\].-]*(?:제\s*\d+\s*조(?:의\s*\d+)?(?:\s*\([^)]*\))?\s*)?(?:삭\s*제|폐\s*지)[\s<>〈〉()\[\].-]*$")
 _NEGATIVE = re.compile(r"(?:지급|도입|채택|적용)\s*하지\s*(?:아니|않)|(?:지급|도입)(?:하지\s*않|할\s*수\s*없)|(?:규정|조항|제도)(?:은|는|이|가)?\s*없")
@@ -38,9 +75,9 @@ def _provision(text: str) -> dict | None:
         trigger_type = ("해임·퇴직 여부 무관" if _INDEPENDENT.search(quote)
                         else "경영권 변동과 해임·사임" if _REMOVAL.search(quote)
                         else "경영권 변동으로 지급" if _CHANGE_ONLY.search(quote) else "추가 지급 조건 확인")
+        terms, amounts = _award_amounts(quote)
         return {"quote": quote, "trigger": trigger_type, "roles_mentioned": list(dict.fromkeys(_ROLES.findall(quote))),
-                "award_terms": list(dict.fromkeys(m[0] for m in _FORMULA.finditer(quote))) +
-                               list(dict.fromkeys(m[0] for m in _AMOUNT.finditer(quote)))}
+                "award_terms": terms, "award_amounts": amounts}
     return None
 
 
@@ -158,7 +195,66 @@ def retirement_limit_change(before: str, after: str) -> str | None:
     return None
 
 
-def retirement_signals(text: str, html: str = "", amendments: list[dict] | None = None) -> dict:
+_ANNEX_RATE = re.compile(r"퇴직\s*(?:금|급여)(?:의)?\s*\d+(?:\.\d+)?\s*%\s*(?:이내|이하|한도)")
+_AWARD_TYPE = re.compile(r"(?:특별\s*)?(?:퇴직\s*)?(?:위로금|공로금)")
+_EXECUTIVE_RULE = re.compile(r"(?:임원|이사|감사)(?:의)?\s*퇴직\s*(?:금|급여|위로금)")
+
+
+def _annex_limits(html: str):
+    """Read a benefit, condition and cap from the same row of an executive pay schedule."""
+    from lxml import html as lh
+    from open_proxy_mcp.services.doc_tables import table_grids, compact
+
+    root = lh.fromstring(html.encode(), parser=lh.HTMLParser(encoding="utf-8"))
+    for table in root.xpath("descendant-or-self::table[not(.//table)]"):
+        if not _ANNEX_RATE.search(table.text_content()):
+            continue
+        parent = next(table.iterancestors("table"), None)
+        outer = parent if parent is not None else table
+        heading = outer.xpath("preceding-sibling::*[normalize-space()][1]")
+        context = " ".join(node.text_content() for node in heading) + " " + outer.text_content()[:450]
+        if not _EXECUTIVE_RULE.search(" ".join(context.split())):
+            continue
+        change = "mentioned"
+        if parent is not None:
+            # An old annex in the left column must not be reported as the proposal.
+            cell = next(table.iterancestors("td"), None)
+            headers = parent.xpath("(./tr|./thead/tr|./tbody/tr)[1]/*[self::td or self::th]")
+            if cell is None or not headers:
+                continue
+            cells = cell.getparent().xpath("./td|./th")
+            index = cells.index(cell)
+            labels = [compact(node.text_content()) for node in headers]
+            if any(re.search("변경전|개정전|현행", label) for label in labels):
+                if index >= len(labels) or not re.search("변경후|개정후|변경안|개정안", labels[index].replace("(", "").replace(")", "")):
+                    continue
+                if any(re.fullmatch(r"(?:별표|별지)?[\s()〈〉<>]*신설[\s()〈〉<>]*", c.text_content().strip())
+                       for c, label in zip(cells, labels) if re.search("변경전|개정전|현행", label)):
+                    change = "new"
+        grids = table_grids(lh.tostring(table, encoding="unicode"))
+        if not grids or not grids[0]:
+            continue
+        grid = grids[0]
+        header = [compact(c) for c in grid[0]]
+        cap = next((i for i, c in enumerate(header) if c in {"지급한도", "한도", "지급한도액", "지급기준"}), None)
+        kind = next((i for i, c in enumerate(header) if c in {"구분", "종류", "항목", "지급구분"}), None)
+        condition = next((i for i, c in enumerate(header) if c in {"주요내용", "내용", "지급사유", "지급조건", "사유"}), None)
+        if cap is None or kind is None or condition is None:
+            continue
+        for row in grid[1:]:
+            if len(row) <= max(cap, kind, condition):
+                continue
+            award, reason, formula = row[kind], row[condition], row[cap]
+            if not (_AWARD_TYPE.fullmatch(award) and reason and _ANNEX_RATE.fullmatch(formula)):
+                continue
+            yield {"quote": f"{reason} {formula}", "clause": "지급한도표", "trigger": "위로금·공로금 지급 한도",
+                   "award_type": award, "condition": reason, "separate_limit": True, "outside_pay_limit": False,
+                   "limit_scope": "additional_award", "limit_formula_text": formula, "limit_amount_text": None,
+                   "change": change, "change_label": _LABEL[change], "change_notes": []}
+
+
+def retirement_signals(text: str, html: str = "", amendments: list[dict] | None = None, *,
+                       read_amendments: bool = True) -> dict:
     checks = []
     if _CONTROL.search(text) and _SEVERANCE.search(text):
         checks.append(("control_severance", _provision, _changes))
@@ -167,11 +263,16 @@ def retirement_signals(text: str, html: str = "", amendments: list[dict] | None 
     if not checks:
         return {}
     rows = list(amendments or [])
-    if html and "<table" in html.lower() and ("변경" in text or "개정" in text or "현행" in text):
+    if read_amendments and html and "<table" in html.lower() and ("변경" in text or "개정" in text or "현행" in text):
         from open_proxy_mcp.services.shareholder_meeting_parser import parse_retirement_pay_xml
         rows.extend(parse_retirement_pay_xml(html)["amendments"])
-    return {key: signal for key, read, compare in checks
-            if (signal := _read_changes(text, rows, read, compare))}
+    signals = {key: signal for key, read, compare in checks if (signal := _read_changes(text, rows, read, compare))}
+    if html and _ANNEX_RATE.search(text) and _AWARD_TYPE.search(text):
+        for item in _annex_limits(html):
+            signal = signals.setdefault("retirement_limit", {"quote": item["quote"], "provisions": []})
+            if item not in signal["provisions"]:
+                signal["provisions"].append(item)
+    return signals
 
 
 def _read_changes(text, rows, read, compare):
@@ -222,6 +323,11 @@ def provision_lines(signal: dict) -> list[str]:
     for p in signal.get("provisions", []):
         notes = " · ".join([p["change_label"], p["trigger"], *p["change_notes"]])
         lines.append(f"  - {notes} · {p.get('clause') or '공시 문구'}")
+        if p.get("award_type"):
+            lines.append(f"    - {p['award_type']} · {p['condition']} · {p['limit_formula_text']}")
+            continue
+        for award in p.get("award_amounts", []):
+            lines.append(f"    - 특별퇴직보상 금액 · {award['amount_krw']:,}원 (공시 표기 {award['text']})")
         if p.get("before") or p.get("after"):
             lines.append(f"    - 변경 전 {p['before'] or '기재 없음'} / 변경안 {p['after'] or '기재 없음'}")
         else:

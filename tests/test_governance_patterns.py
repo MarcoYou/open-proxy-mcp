@@ -222,3 +222,65 @@ def test_allotment_reason_identifies_an_explicit_share_issuance_clause():
     assert authority["clauses"][0]["cap_direction"] == "increased"
     unrelated = inspect_filing("주주총회소집공고", charter([("2-1", [("이사 선임", "이사 해임", reason)])]))
     assert "allotment_authority" not in {s["pattern"] for s in unrelated}
+
+
+def test_retirement_annex_keeps_rate_with_reason_and_award():
+    def annex(rows):
+        return ('<table><tr><th>구분</th><th>주요내용</th><th>지급한도</th></tr>' + rows + '</table>')
+
+    rows = ('<tr><td rowspan="2">퇴직위로금</td><td>업무상 사망</td><td>퇴직금의 100% 이내</td></tr>'
+            '<tr><td>업무 외 부상</td><td>퇴직금의 25% 이내</td></tr>'
+            '<tr><td>특별공로금</td><td>특허 취득</td><td>퇴직금의 50% 이내</td></tr>')
+    old = annex(rows.replace('100%', '80%'))
+    heading = '<p>임원 퇴직금 지급규정 변경의 건</p>'
+    comparison = ('<table><tr><th>변경전 내용</th><th>변경후 내용</th></tr>'
+                  '<tr><td>' + old + '</td><td>' + annex(rows) + '</td></tr></table>')
+    def limits(html):
+        return next((s['provisions'] for s in inspect_filing('주주총회소집공고', document(html))
+                     if s['pattern'] == 'retirement_limit'), [])
+    result = limits(heading + comparison)
+    assert [(p['award_type'], p['condition'], p['limit_formula_text']) for p in result] == [
+        ('퇴직위로금', '업무상 사망', '퇴직금의 100% 이내'), ('퇴직위로금', '업무 외 부상', '퇴직금의 25% 이내'),
+        ('특별공로금', '특허 취득', '퇴직금의 50% 이내')]
+    assert all(p['separate_limit'] and not p['outside_pay_limit'] and p['change'] != 'new' for p in result)
+    assert all(p['change'] == 'new' for p in limits(heading + comparison.replace(old, '별표(신설)')))
+    assert not limits(heading + comparison.replace(annex(rows), '삭제'))
+    assert not limits('<p>직원 퇴직금 지급규정</p>' + annex(rows))
+
+
+def test_spelled_out_severance_preserves_and_normalizes_won():
+    def provision(amount):
+        text = f'임원이 적대적 M&A로 해임되는 경우 퇴직금 외에 특별퇴직금으로 금 {amount}을 추가 지급한다.'
+        return inspect_filing('주주총회소집공고', document(text))[0]['provisions'][0]
+    for amount in (r'삼십억원(\3,000,000,000)', '삼십억원', '30억원', '₩3,000,000,000'):
+        p = provision(amount)
+        assert p['award_amounts'] == [{'text': amount, 'amount_krw': 3_000_000_000}]
+        assert amount in p['award_terms']
+    assert not provision('삼십억원(₩300,000,000)')['award_amounts']
+
+
+def test_discretion_on_each_directors_term_belongs_to_the_term_clause():
+    before = '제34조(이사의 임기) 이사의 임기는 3년으로 한다.'
+    discretionary = '이사회 구성의 전문성 및 다양성 등을 고려하여 이사별로 달리 정할 수 있다.'
+    def term(after):
+        return next((s for s in inspect_filing('주주총회소집공고', charter([('2', [(before, after, '')])]))
+                     if s['pattern'] == 'staggered_terms'), None)
+    after = '제34조(이사의 임기) 이사의 임기는 3년 이내로 하되, ' + discretionary
+    assert term(after)['clause_change']['after'] == after
+    removed = charter([('2', [(after, before, '임기 단일화')])])
+    assert 'staggered_terms' not in {v['pattern'] for v in inspect_filing('주주총회소집공고', removed)}
+    assert inspect_filing('정관', document(after))[0]['pattern'] == 'staggered_terms'
+    assert not term(after.replace('달리 정할 수 있다', '달리 정할 수 없다'))
+    assert not term('제34조(이사의 보수) 보수액은 ' + discretionary)
+
+
+@pytest.mark.parametrize('target,expected', [
+    ('주식회사 가람 발행 기명식 보통주(자기주식)', 'issuer_shares'),
+    ('㈜가람 기명식 보통주식（자사주）', 'issuer_shares'),
+    ('주식회사 나래 발행 기명식 보통주식', 'other_company_shares'),
+    ('주식회사 나래 발행 기명식 보통주(자기주식)', 'unverified'),
+    ('기명식 보통주', 'unverified'),
+])
+def test_exchange_issuer_and_target_annotation(target, expected):
+    from open_proxy_mcp.services.governance_patterns import _exchange_target
+    assert _exchange_target('<COMPANY-NAME>(주)가람</COMPANY-NAME>', target) == expected

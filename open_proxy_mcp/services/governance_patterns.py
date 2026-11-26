@@ -11,7 +11,7 @@ PATTERNS = {
     "control_severance": ("경영권 변동 시 임원 특별퇴직보상", "정관·퇴직금 규정의 지급 조건·대상·산식을 확인하고 상정, 가결, 실제 지급을 구분한다."),
     "conditional_ballot": ("선행 안건에 따른 상정·폐기", "선행 안건의 가부에 따라 어느 대안·선임석이 표결에서 빠지는지, 실제 주총 결과와 회사 사유를 대조한다."),
     "bundled_amendments": ("정관 변경 묶음 표결 후보", "서로 다른 주주권 사항을 각각 찬반 표시할 수 있었는지 소집공고의 세부 의안번호와 표결지를 확인한다."),
-    "staggered_terms": ("이사 임기 분산", "이사별 종전·변경 임기 만료일과 주총별 선임석을 대조한다. 보궐선임이나 단순 임기 연장과 구별한다."),
+    "staggered_terms": ("이사 임기 분산", "이사별 임기를 달리 정할 수 있는 조항과 실제 후보별 임기를 대조한다. 보궐선임이나 단순 임기 연장과 구별한다."),
     "allotment_authority": ("제3자배정 권한 변경", "정관 구·신조항의 배정 한도·사유가 실제로 확대됐는지, 가결 및 시행일을 확인한다."),
     "third_party_allotment": ("제3자배정 발행", "발행 근거 조항, 배정 상대방·선정 이유, 납입과 신주 발행, 정정·철회를 확인한다."),
     "convertible_bond": ("전환사채 발행", "회차, 인수인, 전환가·하향 조정 하한, 매도청구권 행사자, 전환 가능 주식 수·비율 및 실제 전환 여부를 확인한다."),
@@ -23,6 +23,10 @@ _ISSUE_TITLES = {"convertible_bond": r"전환사채권?발행결정", "exchangea
                  "third_party_allotment": r"유상증자결정"}
 _CONDITION = re.compile(r"(?:가결|부결|승인)(?:될\s*(?:경우|때)|되[면어]|됨에\s*따라|\s*시).{0,65}?(?:폐기|미상정|상정|철회)")
 _TERMS = re.compile(r"시차\s*임기|(?:이사.{0,20})?임기.{0,22}(?:분산|교차|달리\s*(?:정|하)|엇갈리)|(?:매년|매\s*주총).{0,18}이사의?\s*일부.{0,10}(?:선임|개선)")
+# Keep the term and the per-director discretion in the same clause.
+_DIRECTOR_DISCRETION = re.compile(
+    r"임기(?:는|를|의)?[^.。;①-⑳]{0,100}?이사\s*별로\s*(?:(?:그\s*)?임기를?\s*)?"
+    r"(?:달리|다르게)\s*(?:정할|할)\s*수\s*있")
 _NOMINEE_TERM = re.compile(r"(?:사내이사|사외이사|독립이사|기타비상무이사)\s+([가-힣]{2,5})\s*선임"
                            r"(?:의\s*건)?\s*[(（,·:\s]*임기\s*[:：]?\s*(\d{1,2})\s*년")
 _ALLOTMENT = re.compile(r"(?<!\d)(?:제\s*)?3\s*자\s*(?:에게|배정)|주주\s*외의?\s*자")
@@ -57,9 +61,10 @@ def _limit_direction(before: str, after: str) -> str:
 def _staggered_marker(text: str):
     for match in _TERMS.finditer(text):
         tail = text[match.end():match.end() + 45]
-        if not re.match(r"제?(?:를|는|의|를\s*명시적으로)?\s*(?:폐지|배제|미도입|(?:도입|채택|적용)하지\s*않)", tail):
+        if not re.match(r"할\s*수\s*없|할\s*수\s*있지\s*않|제?(?:를|는|의|를\s*명시적으로)?\s*(?:폐지|배제|미도입|(?:도입|채택|적용)하지\s*않)", tail):
             return match
-    return None
+    return next((m for m in _DIRECTOR_DISCRETION.finditer(text)
+                 if not re.search(r"보수|보상|수당|급여", m[0])), None)
 
 
 def _charter_signals(html: str, text: str) -> dict:
@@ -68,8 +73,6 @@ def _charter_signals(html: str, text: str) -> dict:
     match = next((m for m in conditions if re.search("폐기|미상정", m[0])), conditions[0] if conditions else None)
     if match:
         signals["conditional_ballot"] = {"quote": _excerpt(text, match)}
-    if match := _staggered_marker(text):
-        signals["staggered_terms"] = {"quote": _excerpt(text, match)}
     terms = {m[1]: (m[2], m[0]) for m in _NOMINEE_TERM.finditer(text)}
     if len({years for years, _ in terms.values()}) > 1:
         signals.setdefault("staggered_terms", {})["nominee_terms"] = [
@@ -80,6 +83,12 @@ def _charter_signals(html: str, text: str) -> dict:
 
     amendments = parse_aoi_xml(html)["amendments"] if html and "정관" in text else []
     clauses = [row for a in amendments for row in [a, *(a.get("additionalClauses") or [])]]
+    if match := _staggered_marker(text):
+        # The flattened notice also contains the superseded column of each amendment.
+        old_only = any(match[0] in row.get("before", "") and not _staggered_marker(row.get("after", ""))
+                       for row in clauses)
+        if not old_only:
+            signals.setdefault("staggered_terms", {})["quote"] = _excerpt(text, match)
     signals.update(retirement_signals(text, html, clauses))
     if seats := seat_wording(text, clauses, conditional="conditional_ballot" in signals):
         signals["seat_wording"] = seats
@@ -100,8 +109,10 @@ def _charter_signals(html: str, text: str) -> dict:
             if _ALLOTMENT.search(before + after) or reason_identifies_issue:
                 signals.setdefault("allotment_authority", {"clauses": []})["clauses"].append(
                     {**detail, "cap_direction": _limit_direction(before, after)})
-            if _staggered_marker(after) or _staggered_marker(row.get("reason", "")):
-                signals.setdefault("staggered_terms", {})["clause_change"] = detail
+            if term_marker := _staggered_marker(after) or _staggered_marker(row.get("reason", "")):
+                term = signals.setdefault("staggered_terms", {})
+                term["clause_change"] = detail
+                term.setdefault("quote", term_marker[0])
             if not ballot or not clause:
                 continue
             topics = [label for label, pattern in _TOPICS.items() if re.search(pattern, before + after)]
@@ -128,14 +139,28 @@ def _exchange_target(html: str, target: str) -> str:
         return re.sub(r"주식회사|\(주\)|㈜|\s+", "", value)
     if re.fullmatch(r"(?:발행회사|당사|자사)의?\s*(?:기명식\s*)?(?:보통주식?|자기주식)|자기주식|자사주", target.strip()):
         return "issuer_shares"
-    company = re.fullmatch(r"(.+?)\s*(?:기명식\s*)?(?:보통주식?|우선주식?)", target.strip())
+    own_label = re.search(r"\s*[(（]\s*(?:자기\s*주식|자사주)\s*[)）]\s*$", target)
+    stock = target[:own_label.start()].strip() if own_label else target.strip()
+    company = re.fullmatch(r"(.+?)(?:\s*발행)?\s*(?:기명식\s*)?(?:보통주식?|우선주식?)", stock)
     if name and company:
         base = normalize(company[1])
         if base == normalize(name[1]):
             return "issuer_shares"
-        if base and re.search(r"주식회사|\(주\)|㈜", company[1]):
+        if base and not own_label and re.search(r"주식회사|\(주\)|㈜", company[1]):
             return "other_company_shares"
     return "unverified"
+
+
+def governance_detail_lines(signal: dict) -> list[str]:
+    if change := signal.get("clause_change"):
+        return [f"  - {change['clause']} · 변경 전 {change['before']} / 변경안 {change['after']}"]
+    if signal["pattern"] == "staggered_terms" and signal.get("quote"):
+        return [f"  - 임기 원문 · {signal['quote']}"]
+    terms = signal.get("terms", {})
+    if basis := terms.get("target_basis"):
+        label = {"issuer_shares": "발행회사 주식", "other_company_shares": "타사 주식", "unverified": "발행사 미확인"}
+        return [f"  - 교환대상 구분 · {label[basis]} · {terms.get('target_stock') or '대상 주식명 미기재'}"]
+    return []
 
 
 def _field(html: str, code: str) -> str:
@@ -217,9 +242,12 @@ def inspect_filing(title: str, doc: dict) -> list[dict]:
     elif "주주총회" in title.replace(" ", ""):
         signals = _charter_signals(html, text)
     elif not title or any(word in title for word in ("증권신고서", "정관", "투자설명서", "사업보고서")):
-        signals = retirement_signals(text)
-        if "정관" in title and (seats := seat_wording(text, [])):
-            signals["seat_wording"] = seats
+        signals = retirement_signals(text, html, read_amendments=False)
+        if "정관" in title:
+            if seats := seat_wording(text, []):
+                signals["seat_wording"] = seats
+            if match := _staggered_marker(text):
+                signals["staggered_terms"] = {"quote": _excerpt(text, match)}
         if "정정" not in title:
             state = "공시 기재 · 적용 시점 확인"
     else:

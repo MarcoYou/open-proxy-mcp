@@ -11,6 +11,7 @@ from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.disclosure_flow import build_flow_payload
 from open_proxy_mcp.services.screener import build_pattern_screen, build_screener_payload, build_welfare_fund_screen, pattern_types
 from open_proxy_mcp.services.control_severance import provision_lines
+from open_proxy_mcp.services.governance_patterns import governance_detail_lines
 from open_proxy_mcp.services.seat_wording import seat_lines
 
 # ── 렌더 헬퍼 ──────────────────────────────────────────────────────────
@@ -605,8 +606,8 @@ def _render_patterns(p: dict) -> str:
             lines.append("- 원공시의 조건이 유지되는지 정정·철회 범위를 대조하세요.")
         for signal in hit["pattern_signals"]:
             lines.append(f"- {signal['label']} · {signal['filing_state']} · {signal['check']}")
-            lines.extend(provision_lines(signal) + seat_lines(signal))
-            if signal.get("quote") and not signal.get("provisions") and signal["pattern"] != "seat_wording":
+            lines.extend(provision_lines(signal) + seat_lines(signal) + governance_detail_lines(signal))
+            if signal.get("quote") and not signal.get("provisions") and signal["pattern"] not in {"seat_wording", "staggered_terms"}:
                 lines.append(f"  - 원문 · {signal['quote']}")
             for ballot in signal.get("ballots", []):
                 lines.append(f"  - 의안 {ballot['agenda']} · " + ", ".join(ballot["clauses_and_topics"]))
@@ -623,9 +624,6 @@ def _render_patterns(p: dict) -> str:
             values = [f"{label} {terms[key]}" for key, label in fields if key in terms]
             if values:
                 lines.append("  - " + " · ".join(values))
-            if "target_basis" in terms:
-                basis = {"issuer_shares": "발행회사 주식", "other_company_shares": "타사 주식", "unverified": "발행사 미확인"}
-                lines.append("  - 교환대상 구분 · " + basis[terms["target_basis"]])
             if signal.get("subscribers"):
                 names = [f"{row['name']} ({row['reported_relationship']})" if row.get("reported_relationship") not in {None, "", "-", "—"}
                          else row["name"] for row in signal["subscribers"]]

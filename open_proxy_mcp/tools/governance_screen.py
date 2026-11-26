@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.control_severance import provision_lines
+from open_proxy_mcp.services.governance_patterns import governance_detail_lines
 from open_proxy_mcp.services.seat_wording import seat_lines
 from open_proxy_mcp.services.governance_screen import build_governance_screen_payload
 
@@ -60,7 +61,7 @@ def render_governance_screen(payload: dict[str, Any]) -> str:
         for record in task.get("pattern_sources", []):
             for signal in record["signals"]:
                 lines.append(f"- {signal['label']} · {signal['check']} [{record.get('report_name') or '공시 원문'}]({record['source_url']})")
-                lines.extend(provision_lines(signal) + seat_lines(signal))
+                lines.extend(provision_lines(signal) + seat_lines(signal) + governance_detail_lines(signal))
         for pair in task.get("severance_dispute_followups", []):
             rc = pair["dispute_receipt"]
             lines.append(f"- 분쟁 공시 이후의 퇴직보상 변경안 · {pair['dispute_published']} → {pair['amendment_published']} · 실제 개시일과 가결 여부 확인 [분쟁 공시](https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc})")
