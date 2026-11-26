@@ -475,3 +475,27 @@ def test_meeting_plan_suggests_valid_runner_discovery_actions():
         assert _ACTIONS.validate_python(action).action == "discover_sources"
     not_disclosed = plan["information_states"][0]
     assert "미탐색·접근실패·미독해" in not_disclosed["action"]
+
+
+def test_severance_discovery_prioritizes_existing_terms_within_document_budget():
+    client = PublicClient({
+        "E006": [filing("20260901000005", "주주총회소집공고")],
+        "C001": [filing("20260908000004", "[기재정정]증권신고서(지분증권)")],
+        "A001": [filing("20260308000003", "사업보고서 (2025.12)")],
+        "I001": [filing("20260301000002", "소송 등의 제기·신청(경영권 분쟁소송)")],
+        "B001": [filing("20260908000001", "전환사채권발행결정")],
+    })
+    assert {r["family"] for r in run(client, review_patterns="퇴직금")["filings"]} == {
+        "securities_registration", "annual_report", "meeting_notice", "litigation"}
+    normal = run(client, review_patterns=True)
+    assert {s["pblntf_detail_ty"] for s in normal["scans"]}.isdisjoint({"C001", "A001"})
+
+
+def test_seat_wording_prefers_notice_and_results_over_bond_filings():
+    client = PublicClient({"E006": [filing("20260301000005", "주주총회소집공고")],
+                           "I001": [filing("20260323000006", "정기주주총회결과"),
+                                    filing("20260220000009", "주주총회소집결의")],
+                           "B001": [filing("20260819000008", "전환사채권발행결정"),
+                                    filing("20260820000007", "교환사채권발행결정")]})
+    result = run(client, review_patterns="이사정원", include_meeting_results=True)
+    assert [r["family"] for r in result["filings"][:3]] == ["meeting_notice", "meeting_results", "meeting_resolution"]

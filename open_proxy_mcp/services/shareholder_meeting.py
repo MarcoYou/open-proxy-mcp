@@ -425,6 +425,9 @@ def _elected_seats_in_notice(notice_text: str) -> tuple[int | None, str | None]:
         m = rx.search(text)
         if not m:
             continue
+        from .seat_wording import nonfixed_title
+        if nonfixed_title(text[m.start():m.end()+16]):
+            continue
         n = int(m.group(1))
         if not 1 <= n <= 30:
             continue
@@ -435,11 +438,8 @@ def _elected_seats_in_notice(notice_text: str) -> tuple[int | None, str | None]:
 
 def _seat_count_in_title(title: str) -> int | None:
     """제목에서 선임 인원. 연도·금액이 섞여 들어오지 않게 상한을 둔다."""
-    m = re.search(r"(\d+)\s*(?:인|명)", title or "")
-    if not m:
-        return None
-    n = int(m.group(1))
-    return n if 1 <= n <= 30 else None
+    from .seat_wording import title_seats
+    return title_seats(title)
 
 
 def _is_cumulative_title(title: str) -> bool:
@@ -465,6 +465,9 @@ def _election_seats_for_group(
         n = _seat_count(parent_title)
         if n:
             return n, re.sub(r"\s+", " ", parent_title).strip(), "parent_title"
+        from .seat_wording import nonfixed_title
+        if nonfixed_title(parent_title):
+            return None, None, None
     seats, quote = _elected_seats_in_notice(notice_text)
     if seats is not None:
         return seats, quote, "notice"

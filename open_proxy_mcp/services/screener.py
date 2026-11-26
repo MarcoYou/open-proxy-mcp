@@ -34,7 +34,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Iterable
 
-from open_proxy_mcp.dart.client import DartClientError, get_dart_client
+from open_proxy_mcp.dart.client import DART_BATCH_HALT_STATUSES, DartClientError, dart_halts_batch, get_dart_client
+from open_proxy_mcp.services.dart_safety import DART_EXTERNAL_ERRORS
+from open_proxy_mcp.services.governance_patterns import ISSUE_KINDS, allotment_method_unknown, inspect_filing
 from open_proxy_mcp.services.amendment_table import card_summary, parse_amendment_table
 from open_proxy_mcp.services.tender_offer import TENDER_DOC_LOOKUPS, parse_tender_offer_document
 from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning
@@ -587,7 +589,7 @@ _NL_TYPES = {
     "배당": "dividend", "현금배당": "dividend",
     "수주": "order", "공급계약": "order", "계약": "order", "단일판매": "order",
     "증자": "dilutive", "유상증자": "dilutive", "전환사채": "dilutive", "cb": "dilutive",
-    "bw": "dilutive", "신주인수권": "dilutive",
+    "eb": "dilutive", "교환사채": "dilutive", "bw": "dilutive", "신주인수권": "dilutive",
     "주총": "agm_notice", "주주총회": "agm_notice", "소집": "agm_notice", "소집공고": "agm_notice",
     "주총결과": "agm_result", "의결": "agm_result",
     "지분": "ownership5", "대량보유": "ownership5", "5%": "ownership5", "지분공시": "ownership5",
@@ -1751,6 +1753,8 @@ async def _build_screener_payload_impl(
     custom_end: str = "",
     start_date: str = "",
     end_date: str = "",
+    fund_disposals: bool = False,
+    pattern_kinds: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """범용 공시 스크리너 페이로드. scan(싸게) + (details=true면) 파서 디스패치.
 
@@ -1824,7 +1828,9 @@ async def _build_screener_payload_impl(
             warnings.append("기간>7일 → details는 preview(유형별 캡 1/2)로 제한했다.")
 
     # ── scan: 선택 유형이 쓰는 detail 코드 합집합만 스캔 ───────────────
-    scan_codes = sorted({code for c in sel_types for code in scan_codes_of(c)})
+    scan_codes = ["B001", "E001"] if fund_disposals else sorted({code for c in sel_types for code in scan_codes_of(c)})
+    if "meeting" in pattern_kinds:
+        scan_codes = sorted({*scan_codes, "E006"})
     # 코드 하나가 쓸 페이지 = 요청당 예산 ÷ 코드 수. 코드가 늘어도 한 요청의 총 콜은 그대로다.
     max_pages = list_pages_per_code(len(scan_codes))
     scan_status = "ok"
@@ -1882,6 +1888,12 @@ async def _build_screener_payload_impl(
         type_code, subtype, is_corr = classify(it.get("report_nm", ""))
         if type_code is None or type_code not in allowed_selset:
             continue
+        if fund_disposals and subtype not in {"처분", "처분결과"}:
+            continue
+        if pattern_kinds:
+            pattern_kind = "meeting" if type_code in {"agm_notice", "agm_result"} else ISSUE_KINDS.get(subtype)
+            if pattern_kind not in pattern_kinds:
+                continue
         stock_code = (it.get("stock_code") or "").strip()
         if not uni.contains(stock_code, it.get("corp_cls", "")):
             continue
@@ -1910,6 +1922,10 @@ async def _build_screener_payload_impl(
         })
         if sub:
             classified[-1]["subsidiary_matter"] = True
+        if fund_disposals or pattern_kinds:
+            # Distinct decisions and executions must survive even when the same issuer
+            # files a correction. The reviewer follows the correction lineage in the source.
+            classified[-1]["dedup_key"] = it.get("rcept_no", "")
         if type_code == "treasury" and subtype in _TREASURY_ACTION:
             classified[-1]["treasury_action"] = _TREASURY_ACTION[subtype]
         if tdef.get("dedup_by_filer"):
@@ -2075,7 +2091,7 @@ async def _build_screener_payload_impl(
                   "details": details_effective, "details_preview": details_preview,
                   **({"details_auto": True} if details_auto else {}),
                   **({"interpretation": "discovery_only", "suggested_tool": "governance_screen",
-                      "next_step": "발견된 공시의 회사를 중복 제거해 최대 30개씩 governance_screen으로 원문을 읽고 평가한다. 제목은 부정 신호 판정이 아니다."}
+                      "next_step": "발견된 공시의 회사를 중복 제거해 최대 30개씩 governance_screen으로 원문을 읽고 평가한다. 정관·주총 절차와 CB·EB는 screener의 정관·발행 보기로 따로 검색한다. 제목은 부정 신호 판정이 아니다."}
                      if types == "governance" else {})},
         "counts": {"scanned": scanned, "classified": len(classified),
                    # `matched` = 조건에 걸린 전체. `returned` = 이번 응답에 실은 수.
@@ -2170,3 +2186,113 @@ async def build_screener_payload(*args, **kwargs):
     흩어져 있다 — 진입점 하나만 감싸 두면 새 return 이 늘어도 전파가 끊기지 않는다.
     """
     return declare_weak_resolution(await _build_screener_payload_impl(*args, **kwargs))
+
+
+async def _screen_documents(client, page: dict):
+    halted = any(code["error"] in DART_BATCH_HALT_STATUSES for code in page["coverage"])
+    for card in page["hits"]:
+        doc = {}
+        if not halted:
+            try:
+                doc = await client.get_document_cached(card["rcept_no"]) or {}
+            except DART_EXTERNAL_ERRORS as exc:
+                halted = dart_halts_batch(exc)
+                if halted:
+                    page["warnings"].append(f"DART {exc.status} 오류로 남은 원문 조회를 멈췄다.")
+        yield card, doc
+
+
+async def build_welfare_fund_screen(**kwargs) -> dict:
+    """Page over disposal receipts, then read the originals on that page only."""
+    from open_proxy_mcp.services.treasury_share import welfare_fund_disposal
+
+    client = get_dart_client()
+    calls = client.api_call_snapshot()
+    kwargs["max_hits"] = max(1, min(kwargs.get("max_hits", 30), 30))
+    page = await build_screener_payload(types="treasury,treasury_result", details=False, fund_disposals=True, **kwargs)
+    if page["status"] == "needs_input":
+        return page
+    matches, followups = [], []
+    no_mention = 0
+    partial = any(not code["complete"] for code in page["coverage"])
+    async for card, doc in _screen_documents(client, page):
+        evidence = welfare_fund_disposal(doc, card["stage"])
+        if evidence["status"] == "no_mention" and (card["is_correction"] or card["stage"] == "철회/취소"):
+            evidence = {"status": "amendment_to_check"}
+        if evidence["status"] == "unassessed":
+            partial = True
+        if evidence["status"] == "no_mention":
+            no_mention += 1
+            continue
+        record = {key: card.get(key) for key in ("corp_name", "corp_code", "stock_code", "rcept_no", "filed_at",
+                                                  "title", "stage", "is_correction", "dart_url")}
+        record["evidence"] = evidence
+        if evidence["status"] in {"recipient_in_result", "contribution_in_decision"}:
+            matches.append(record)
+        else:
+            followups.append(record)
+    status = "partial" if partial and page["status"] == "ok" else page["status"]
+    return {"tool": "screener", "view": "welfare_fund", "status": status,
+            "period": page["period"], "universe": page["universe"], "coverage": page["coverage"],
+            "warnings": page["warnings"], "candidate_paging": page["paging"], "matches": matches,
+            "followups": followups, "no_mention_in_page": no_mention, "usage": build_usage(client.api_call_snapshot() - calls),
+            "next_cursor": page["next_cursor"],
+            "note": "사내·공동근로복지기금 대상. 한 거래의 결정과 결과가 각각 표시될 수 있다. "
+                    "정정·철회를 대조해야 최종 상태를 알 수 있다. 결과보고서의 수령처 기재만으로 유·무상이나 의결권 행사를 확인할 수 없다."}
+
+
+_PATTERN_TYPES = {"정관": "meeting", "cb": "convertible_bond", "전환사채": "convertible_bond",
+                  "퇴직금": "retirement", "별도한도": "retirement_limit", "이사정원": "seat_wording", "선임인원": "seat_wording", "특별퇴직금": "control_severance", "황금낙하산": "control_severance",
+                  "eb": "exchangeable_bond", "교환사채": "exchangeable_bond", "제3자배정": "third_party_allotment"}
+
+
+def pattern_types(types: str) -> frozenset[str]:
+    if types.strip().replace(" ", "") in {"정관·발행", "정관발행"}:
+        return frozenset(_PATTERN_TYPES.values()) - {"retirement"}
+    types = re.sub(r"이사\s+정원|선임\s+인원|별도\s+한도", lambda m: m[0].replace(" ", ""), types)
+    raw = re.sub(r"\s*발행(?:결정)?", "", types.lower()).strip()
+    tokens = [t for t in re.split(r"[,·/\s]+", raw) if t]
+    if not tokens or any(t not in _PATTERN_TYPES for t in tokens):
+        return frozenset()
+    result = frozenset(_PATTERN_TYPES[t] for t in tokens)
+    return (result - {"retirement"}) | {"control_severance", "retirement_limit"} if "retirement" in result else result
+
+
+async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
+    """Read the exact receipt of every candidate on this page, including later corrections."""
+    selected = []
+    source_kinds = kinds
+    meeting_filters = {"control_severance", "retirement_limit", "seat_wording"}
+    if kinds & meeting_filters:
+        source_kinds = (kinds - meeting_filters) | {"meeting"}
+    if "meeting" in source_kinds:
+        selected.extend(["agm_notice", "agm_result"])
+    if source_kinds - {"meeting"}:
+        selected.append("dilutive")
+    kwargs["max_hits"] = max(1, min(kwargs.get("max_hits", 30), 30))
+    client = get_dart_client()
+    calls = client.api_call_snapshot()
+    page = await build_screener_payload(types=",".join(selected), details=False, pattern_kinds=source_kinds, **kwargs)
+    if page["status"] == "needs_input":
+        return page
+    page["view"] = "governance_patterns"
+    page["pattern_kinds"] = sorted(kinds)
+    any_missing = False
+    async for card, doc in _screen_documents(client, page):
+        readable = bool(doc.get("text"))
+        signals = inspect_filing(card["title"], doc) if readable else []
+        if kinds & meeting_filters and "meeting" not in kinds:
+            signals = [s for s in signals if s["pattern"] in kinds]
+        card["pattern_signals"] = signals
+        card["pattern_read_status"] = "read" if readable else "unassessed"
+        if readable and not signals and (card["is_correction"] or card["stage"] == "철회/취소"):
+            card["pattern_read_status"] = "check_amendment"
+        elif readable and not signals and allotment_method_unknown(card["title"], doc):
+            card["pattern_read_status"] = "method_unverified"
+        any_missing |= card["pattern_read_status"] in {"unassessed", "method_unverified"}
+    if page["status"] == "ok" and (any_missing or any(not s["complete"] for s in page["coverage"])):
+        page["status"] = "partial"
+    page["usage"] = build_usage(client.api_call_snapshot() - calls)
+    page["pattern_note"] = "이번 페이지의 공시 원문에서 찾은 검토 후보입니다. 정정·철회, 정관 효력, 실제 표결·납입·교부는 회사별로 확인합니다."
+    page["counts"]["pattern_receipts"] = sum(bool(card["pattern_signals"]) for card in page["hits"])
+    return page

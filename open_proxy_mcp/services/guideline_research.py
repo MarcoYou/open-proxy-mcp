@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_v
 
 from open_proxy_mcp.dart.client import DartClientError
 from open_proxy_mcp.services.guideline_evidence import collect_supplemental_filings
+from open_proxy_mcp.services.governance_patterns import issue_kind
 
 
 _DETAIL_CODES = ("D004", "D003", "D001", "I001", "B001", "E006", "E001", "E002")
@@ -57,6 +58,12 @@ def _family(title: str) -> tuple[str, str] | None:
         return "meeting_notice", "소집공고"
     if "주주총회소집결의" in text:
         return "meeting_resolution", "소집결의"
+    if bond_or_equity := issue_kind(text):
+        return ("rights_offering" if bond_or_equity == "third_party_allotment" else bond_or_equity), "발행결정"
+    for term, family in (("전환청구권행사", "convertible_bond"), ("교환청구권행사", "exchangeable_bond"),
+                         ("교환권행사", "exchangeable_bond")):
+        if term in text:
+            return family, "권리행사"
     if any(word in text for word in ("합병", "분할", "주식교환", "주식이전", "타법인주식", "주식양수", "주식양도")):
         return "corporate_action", "재편거래"
     return None
@@ -94,7 +101,9 @@ def _select_diverse(rows: list[dict]) -> list[dict]:
 async def discover_guideline_context(client, corp_code: str, as_of: str,
                                      exclude: list[str] | None = None, *, start_date: str = "",
                                      include_meeting_results: bool = False,
-                                     allow_same_day: bool = False) -> dict:
+                                     allow_same_day: bool = False,
+                                     include_officer_changes: bool = False,
+                                     review_patterns: bool | Literal["퇴직금", "이사정원"] = False) -> dict:
     """Return cross-filing context with explicit, finite discovery boundaries.
 
     Pre-meeting callers exclude same-day filings and meeting results by default.
@@ -141,7 +150,13 @@ async def discover_guideline_context(client, corp_code: str, as_of: str,
                         info["discarded_invalid_or_future"] += 1
                         continue
                     title = item.get("report_nm") or ""
-                    classification = _family(title)
+                    classification = (("officer_change", "임원 변동 신고") if detail == "E005"
+                                      else _family(title))
+                    if review_patterns == "퇴직금":
+                        if detail == "C001" and "증권신고서" in title:
+                            classification = ("securities_registration", "증권신고서")
+                        elif detail == "A001" and "사업보고서" in title:
+                            classification = ("annual_report", "사업보고서")
                     if not classification:
                         continue
                     family, document_role = classification
@@ -168,18 +183,35 @@ async def discover_guideline_context(client, corp_code: str, as_of: str,
             info["status"] = "fetch_failed"
         return info, found
 
-    scanned = await asyncio.gather(*(scan(code) for code in _DETAIL_CODES))
+    detail_codes = (*_DETAIL_CODES, "E005") if include_officer_changes else _DETAIL_CODES
+    if review_patterns == "퇴직금":
+        detail_codes = (*detail_codes, "C001", "A001")
+    scanned = await asyncio.gather(*(scan(code) for code in detail_codes))
     scans = [info for info, _ in scanned]
     by_receipt: dict[str, dict] = {}
     for _, rows in scanned:
         for row in rows:
             by_receipt.setdefault(row["rcept_no"], row)
     family_order = ("meeting_results", *_FAMILY_ORDER) if include_meeting_results else _FAMILY_ORDER
+    if include_officer_changes:
+        family_order = (*family_order, "officer_change")
+    if review_patterns == "퇴직금":
+        first = ("meeting_notice", "securities_registration", "annual_report", "litigation", "meeting_results")
+        family_order = (*first, *(f for f in family_order if f not in first))
+    elif review_patterns == "이사정원":
+        first = ("meeting_notice", "meeting_results", "meeting_resolution", "proxy_solicitation")
+        family_order = (*first, *(f for f in family_order if f not in first))
+    elif review_patterns:
+        family_order = ("meeting_notice", "convertible_bond", "exchangeable_bond", "rights_offering",
+                        *[f for f in family_order if f != "meeting_notice"])
     priority = {family: i for i, family in enumerate(family_order)}
     matches = sorted(by_receipt.values(), key=lambda row: (
-        priority.get(row["family"], len(priority)), -int(row["published"]), -int(row["rcept_no"])))
+        priority.get(row["family"], len(priority)), review_patterns and row["document_role"] == "권리행사",
+        -int(row["published"]), -int(row["rcept_no"])))
     selected = _select_diverse(matches)
-    documents = await collect_supplemental_filings(client, [r["rcept_no"] for r in selected], as_of)
+    review_options = ({"review_titles": {r["rcept_no"]: r["report_nm"] for r in selected}}
+                      if include_meeting_results or review_patterns else {})
+    documents = await collect_supplemental_filings(client, [r["rcept_no"] for r in selected], as_of, **review_options)
     filings = [{**row, **doc, "discovery": "company_context", "purpose": "company_context"}
                for row, doc in zip(selected, documents)]
     selected_ids = {row["rcept_no"] for row in selected}
@@ -204,9 +236,9 @@ async def discover_guideline_context(client, corp_code: str, as_of: str,
         "temporal_scope": {"date_granularity": "day", "allow_same_day": allow_same_day,
                            "include_meeting_results": include_meeting_results,
                            "intraday_order_verified": False},
-        "budget": {"detail_types": list(_DETAIL_CODES), "max_pages_per_type": _MAX_PAGES,
+        "budget": {"detail_types": list(detail_codes), "max_pages_per_type": _MAX_PAGES,
                    "max_documents": _MAX_DOCUMENTS, "lookback_days": (end - beginning).days,
-                   "max_index_calls": len(_DETAIL_CODES) * _MAX_PAGES},
+                   "max_index_calls": len(detail_codes) * _MAX_PAGES},
         "hint": "유형·기간·쪽수·원문 수를 제한한 탐색. 0건은 사건이나 관계가 없다는 뜻이 아니다. "
                 "제목은 원문 탐색 단서이며 공개매수 조건·사건 결론·후보 책임은 원문에서 별도 판단한다. "
                 "회사 맥락 공시는 후보 이름이 없어도 보존하고 안건 관련성을 평가한다.",
@@ -243,6 +275,10 @@ def build_guideline_research_plan(company: str, as_of: str, discovery: dict | No
     if "treasury" in families:
         action("자기주식 결정과 실제 취득·처분·소각 집행은 일치하는가?", "treasury_share",
                {**common, "scope": "summary"})
+    for family in ("convertible_bond", "exchangeable_bond", "rights_offering"):
+        if family in families:
+            action("해당 발행 회차의 배정·가격 조건, 정정·철회와 실제 권리 행사는 무엇인가?", "dilutive_issuance",
+                   {**common, "scope": family})
     unread = [row for row in matches if row.get("assessment_eligible") and not row.get("selected")][:5]
     if unread:
         action("현재 안건에 중요한 미선택 원문을 추가로 읽을 것인가?", "proxy_advise_before_meeting",
@@ -403,7 +439,9 @@ def build_meeting_research_plan(company: str, as_of: str, meeting_type: str,
              "suggested_action": {"action": "discover_sources", "query": {"kind": "meeting_resolution"}}},
             {"kind": "periodic_reports", "question": "마감 전에 공개된 정기보고서에서 출석의 대상 기간과 현재 관계·사건을 각각 확인했는가?",
              "suggested_action": {"action": "discover_sources", "query": {"kind": "periodic_reports"}}},
-            {"kind": "officer_changes", "question": "선임·해임·퇴임·대표이사 변경이 해당 후보의 신원·직무기간·현재 관계에 영향을 주는가?",
+            {"kind": "officer_changes", "question": "선임·해임·퇴임·대표이사 변경이 해당 후보의 신원·직무기간·현재 관계에 영향을 주는가? "
+             "감사위원 분리선출이면 종전 감사위원 재직·기존 만료일·주총일을 대조하고, 같은 후보의 중도사임 또는 예정 사유를 마감 전 공시에서 확인한다. "
+             "계속 재직기간과 회사 설명을 보존하고 상정과 가결을 구별한다.",
              "suggested_action": {"action": "discover_sources", "query": {"kind": "officer_changes"}}},
             {"kind": "ownership_disputes", "question": "보유·공개매수·소송·위임장과 후속 공시가 해당 안건의 당사자·조건·공식 절차를 바꾸는가?",
              "suggested_action": {"action": "discover_sources", "query": {"kind": "ownership_disputes"}}},

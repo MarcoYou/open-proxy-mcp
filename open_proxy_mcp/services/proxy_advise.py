@@ -1115,20 +1115,9 @@ def _raw_excerpt(full_text: str, title: str, *, limit: int = 1800) -> str | None
 
 
 def _seat_count(title: str) -> int | None:
-    """제목에서 **선임할 이사 수**를 읽는다(「이사 5인」·「5명」·「5인 이내」).
-
-    못 읽으면 None — 그때는 예산 검사를 아예 안 한다. **모르면서 막으면 던져야 할 표를
-    지우는 쪽으로 넘어간다**(코드 곳곳의 경고와 같은 종류의 사고).
-    """
-    # 260813: `re.search`(첫 매치)였다. 「사외이사 1명, 사내이사 1명, 기타비상무이사 1명」
-    #   에서 **1만 읽고 3석을 1석으로 봤고**, 찬성 4건이 좌석 1을 넘는다고 판정해 정상 선거를
-    #   통째로 막았다(실측 20260220000945). 한 제목이 역할별 인원을 나열하면 그 합이 정원이다.
-    nums = [int(x) for x in re.findall(r"(\d+)\s*(?:인|명)", title or "")]
-    nums = [n for n in nums if 1 <= n <= 30]   # 연도·금액이 섞여 들어오는 것을 막는다
-    if not nums:
-        return None
-    total = sum(nums)
-    return total if total <= 30 else None
+    """Read the stated election size, leaving discretionary counts unresolved."""
+    from .seat_wording import title_seats
+    return title_seats(title)
 
 
 #: 좌석 예산을 **따로** 쓰는 선거. 이사 선임과 감사위원 분리선임(상법 §542-12②)은 별개
@@ -1265,8 +1254,9 @@ def _enforce_seat_budget(agenda_decisions: list[dict[str, Any]],
         sources = {title_to_parent.get(r["agenda_title"]) or r["agenda_title"] for r in rows}
         by_role: dict[str, list[int]] = {}
         unknown = False
+        from .seat_wording import title_seats
         for src in sources:
-            n = _seat_count(src)
+            n = title_seats(src, upper_bound=True)
             if n:
                 by_role.setdefault(_role_scope(src), []).append(n)
             else:
@@ -1918,6 +1908,9 @@ def _decide_retirement_pay(
         after = (a.get("after") or "").strip()
         before = (a.get("before") or "").strip()
         reason = (a.get("reason") or "").strip()
+        from .control_severance import retirement_limit_change
+        if limit := retirement_limit_change(before, after):
+            risk_review.append({"clause": a.get("clause"), "kw": limit})
         # REVIEW trigger (policy concern, not legal disqualification)
         for kw in _RETIREMENT_AGAINST_KEYWORDS_AFTER:
             if kw in after:
@@ -2424,13 +2417,26 @@ def _articles_body_risks(amendment: dict[str, Any] | None) -> list[str]:
         return []
     risks: list[str] = []
 
+    from .seat_wording import seat_wording
+    from .control_severance import retirement_limit_change
+    if limit := retirement_limit_change(before, after):
+        risks.append(limit)
+    changes = (seat_wording("", [amendment]) or {}).get("seat_changes", [])
+    modality_change = next(((old, new) for row in changes
+                            if len(row["before"]) == len(row["after"]) == 1
+                            for old, new in zip(row["before"], row["after"])
+                            if old["scope"] == new["scope"] and old["role"] == new["role"]
+                            and old["kind"] != new["kind"] and "fixed" in {old["kind"], new["kind"]}), None)
+    if modality_change:
+        old, new = modality_change
+        risks.append(f"이사 인원 결정 방식 변경 · 「{old['quote']}」 → 「{new['quote']}」")
     # 이사 정원 — 상한이 낮아졌거나, 없던 상한이 새로 생겼거나.
     caps_before = _director_caps(before)
     caps_after = _director_caps(after)
     if "이사" in before or "이사" in after:
         if caps_before and caps_after and max(caps_after) < max(caps_before):
             risks.append(f"이사 정원 상한 축소 ({max(caps_before)}인 → {max(caps_after)}인)")
-        elif not caps_before and caps_after and "이사" in after:
+        elif not caps_before and caps_after and "이사" in after and not modality_change:
             risks.append(f"이사 정원 상한 신설 ({max(caps_after)}인)")
 
     # 수권주식 — 늘면 향후 희석 여지다. 회사는 이 숫자를 한글 수사로도 적는다(「육억주」).
@@ -2757,8 +2763,8 @@ def _cumulative_voting_threshold(title: str) -> dict[str, Any] | None:
     match = re.search(r"(\d+)\s*인\s*선임", title)
     if not match:
         return None
-    seats = int(match.group(1))
-    if seats <= 0:
+    seats = _seat_count(title)
+    if seats is None:
         return None
     threshold = round(100 / (seats + 1), 2)
     return {

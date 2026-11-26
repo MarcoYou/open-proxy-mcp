@@ -2,7 +2,7 @@
 type: tool
 title: shareholder_meeting_notice
 domain: data
-updated: 2026-11-01
+updated: 2026-11-26
 description: 주주총회 소집공고 (사전) — DART API/XML 기반 · 이사회 소집결의(scope=resolution)
 related: [shareholder_meeting_results, ownership_structure, proxy_contest, evidence]
 ---
@@ -273,6 +273,10 @@ sequenceDiagram
   못 보던 상태였다.
 
 ## 변경 이력
+
+- 2026-11-26 “선임할 수 있다”와 “이내·까지”만 적힌 선거는 실제 선출 의석을 미확인으로 둔다. 같은 제목에 있는 이사회 정원 상한은 이번 선임 인원에 더하지 않는다. 의결권 분석에서도 확정 의석이 필요한 집중투표 계산과 명시된 최대 인원 검사를 구분한다.
+
+- 2026-11-26 신구조문대비표 위의 정관 세부의안 제목에 적힌 번호도 `aoi_change.amendments[].subAgendaId`에 보존한다. [[screener]]에서 같은 안건에 속하는 조항을 대조할 때 쓴다.
 - 2026-11-01: **소집결의 안건표 대조(`agenda_check`)·공고 파서 패턴 5건.** `summary`·`agenda` 가 같은 주총의 소집결의 안건표를 뼈대로 공고 안건과 대조한다 — 마디 `map_source`·`resolution_title`·`resolution_remark`·`source_note`, `data.agenda_check`, 트리가 달라지면 `data.agendas_notice`(공고 파싱 원본), evidence 에 결의 원문. DART 콜 +1(목록)·원문 ≤3(위 절). 패턴: 해임 안건 분류(`director_dismissal`·`audit_committee_dismissal`) · 범위 주석 · 구획 표제 · 묶음/개별 후보 중복·사퇴 후보(`candidates_in_children`·`withdrawn_candidates`·`dismissal_targets`, `board_summary.withdrawn_candidates`) · 회의 일시 그물. 회귀 `tests/test_notice_agenda_resolution_check.py` — 결의 쪽은 저장소의 실제 결의 원문(고려아연), 공고 쪽은 실패 사례 인용문으로 만든 **합성 원문**이라 실제 공고로는 아직 확인하지 못했다. 기존 시험 하나(`test_personnel_parser_accepts_auditor_detail_title_without_election_suffix`)의 기대를 바꿨다 — 묶음 안건 제5호는 이제 후보를 겹쳐 싣지 않고 `candidates_in_children` 으로 제5-1호를 가리킨다.
 - 2026-10-25: **잠정 재무제표 단위 판독 — 대괄호·전각 괄호와 조원·만원** (재무 점검 신규-#8, DATA-U1) — `provisional_financial_statement._FS_UNIT` 이 반각 둥근 괄호만 받아 「[단위: 백만원]」·「（단위：백만원）」는 빈 단위(계수 1=원)로, `_scale_factor` 가 조원·만원을 끝줄 1 로 읽었다. 이제 둥근·대괄호 반각·전각 4종(괄호 종류가 섞인 꼴 포함)을 받고 조원 1e12·만원 1e4 로 환산한다. 조원·만원은 **단위 선언이 그 단위로 시작할 때만**(앞의 「단위」·쌍점·공백을 뗀 뒤) 읽는다 — 설명 속 만원·조원(「원(단, 만원 미만 절사)」·「원 만원 미만 절사」·「천원·만원」·「억원, 조원」)이나 앞 글자가 다른 꼴(「100만원」·「십만원」·「천만원」·「십조원」)은 계수 그대로다(구분자 목록으로 자르지 않는다 — 감수 1·2회차 R1). 빈 단위=원 1·외화/「원」 없는 단위=값 없음·600자 창은 그대로, 새 키 없음. 2026 정기주총 소집공고 30건(판독 110회)에는 이 꼴이 0건이라 **예방 수정**이고, 30건의 판독 110회·파싱+지표 출력은 옛·새 코드가 같다. 의결권 권고 도구(`proxy_advice_*`) 도 같은 두 함수를 직접 불러 함께 바뀐다. 남은 것: 천만원·십만원·백억원·천억원·십조원 미인식, 더 가까운 「[단위: 주]」 선언이 있으면 값이 빔(틀린 값이 아니라 빈 값), 별도 칸 오선택(30건 중 최소 7건).
 - 2026-10-18: **`scope="resolution"` 신설 — 이사회 소집결의**(거래소 공시) 본표·안건표·후보표 원문 + 결의 정정 이력(판마다 정정 비교표, 원공시 날짜 대조, 대조표만 있는 판 뒤의 값 변경 경고). 소집공고가 아직 없는 임시주총이 「주총 없음」으로 보이던 것. `summary` 가 공고를 못 찾으면 next_actions 에 `resolution` 을 안내.

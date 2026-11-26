@@ -37,6 +37,31 @@ def accept(task, assessment):
     return screen.accept_governance_assessment(task, screen.GovernanceAssessment.model_validate(assessment))
 
 
+@pytest.mark.parametrize("before,after,order,expected", [
+    ("정관 제10조 제3자배정 확대 안건이 가결되었다.", "제3자배정 신주 대금의 납입이 완료되었다.", True, True),
+    ("정관 제10조 제3자배정 확대 안건이 가결되었다.", "제3자배정 신주 대금은 납입 예정입니다.", True, False),
+    ("정관 개정안을 상정할 예정이다.", "제3자배정 신주 대금의 납입이 완료되었다.", True, False),
+    ("정관 제10조 제3자배정 확대 안건이 가결되었다.", "제3자배정 신주 대금의 납입이 완료되었다.", False, False),
+])
+def test_allotment_claim_requires_ordered_effective_sources(before, after, order, expected):
+    _, assessment, discovery = task_and_assessment("supported_risk")
+    rows = []
+    days = ["20260901", "20260906"] if order else ["20260906", "20260901"]
+    for day, quote in zip(days, [before, after]):
+        rc = day + "000001"
+        rows.append(dict(rcept_no=rc, published=day, status="read", text=quote,
+                         source_url=f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}"))
+    task = screen.build_governance_task({"corp_code": "00000001"}, "20260909", {**discovery, "filings": rows})
+    assessment["task_id"] = task["task_id"]
+    finding = assessment["findings"][0]
+    finding.update(pattern="allotment_after_amendment", evidence_refs=[
+        {"source_id": "filing:" + row["rcept_no"], "quote": row["text"]} for row in rows])
+    assert (accept(task, assessment)["status"] == "accepted_unreviewed") == expected
+    finding["evidence_refs"].pop()
+    with pytest.raises(ValidationError):
+        accept(task, assessment)
+
+
 def test_tender_presence_does_not_create_a_negative_triage():
     task, assessment, _ = task_and_assessment()
     result = accept(task, assessment)
@@ -93,6 +118,89 @@ def test_literal_quote_cannot_bridge_disjoint_source_excerpts():
     result = accept(task, assessment)
     assert result["status"] == "rejected"
     assert "citation_not_in_current_source_excerpt" in result["errors"]
+
+
+@pytest.fixture
+def early_reelection():
+    _, assessment, discovery = task_and_assessment()
+    prior = "김후보 감사위원장 임기만료예정일 2028-03-20"
+    resignation = "김후보는 감사위원 분리선출을 위해 2026년 3월 18일 사임했다."
+    result = "2026.03.19 주총에서 감사위원이 되는 사외이사 김후보 선임 안건이 가결되었다."
+    receipts = ["20250602000001", "20260318000001", "20260319000001"]
+    discovery["filings"] = [{"rcept_no": rc, "published": rc[:8], "text": quote, "status": "read",
+                             "source_url": f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}"}
+                            for rc, quote in zip(receipts, [prior, resignation, result])]
+    task = screen.build_governance_task({"corp_name": "합성회사"}, "20260319", discovery)
+    refs = [{"source_id": p["source_id"], "quote": p["excerpts"][0]} for p in task["sources"]]
+    assessment["task_id"] = task["task_id"]
+    assessment["findings"][0].update(category="board_accountability", event_date="2026-03-19",
+        candidate_name="김후보", evidence_refs=[refs[2]], early_audit_reelection={
+            "stage": "passed", "prior_term_end": "2028-03-20", "resignation_date": "2026-03-18",
+            "prior_term_refs": [refs[0]], "resignation_refs": [refs[1]], "election_refs": [refs[2]]})
+    return task, assessment
+
+
+def test_early_reelection_marks_procedure_without_raising_adverse_vote(early_reelection):
+    task, assessment = early_reelection
+    accepted = accept(task, assessment)
+    case = accepted["findings"][0]["early_audit_reelection"]
+    assert case["remaining_days_at_meeting"] == 732
+    assert case["voting_cap_change"]["between_meeting_and_prior_term_end"] is True
+    triage = screen.governance_triage(accepted)
+    assert triage["disposition"] == "procedure_review"
+    assert triage["supported_risk_ids"] == [] and triage["ballot_action"] == "none"
+    assert not screen.governance_triage(accepted, "high")["procedure_review_finding_ids"]
+
+
+def test_voting_cap_timing_uses_enacted_amendment_and_inclusive_expiry():
+    assert screen._voting_cap_timing("2025-03-19", "2028-03-19", "20250318") is None
+    for meeting, expiry, crosses in [("2026-03-19", "2026-07-22", False),
+                                     ("2026-03-19", "2026-07-23", True),
+                                     ("2026-07-23", "2028-03-19", False)]:
+        timing = screen._voting_cap_timing(meeting, expiry, "20260723")
+        assert timing["between_meeting_and_prior_term_end"] is crosses
+
+
+@pytest.mark.parametrize("mutation", ["ordinary_expiry", "wrong_person", "partial_name", "wrong_expiry", "new_term_report",
+                                      "before_vote", "planned_resignation", "invented_quote"])
+def test_early_reelection_rejects_false_matches(early_reelection, mutation):
+    task, assessment = early_reelection
+    finding = assessment["findings"][0]
+    case = finding["early_audit_reelection"]
+    if mutation == "ordinary_expiry":
+        case["prior_term_end"] = finding["event_date"]
+    elif mutation == "wrong_person":
+        finding["candidate_name"] = "다른후보"
+    elif mutation == "partial_name":
+        finding["candidate_name"] = "김후"
+    elif mutation == "wrong_expiry":
+        case["prior_term_end"] = "2028-03-21"
+    elif mutation == "new_term_report":
+        task["sources"][0]["published"] = "20260319"
+    elif mutation == "before_vote":
+        task["sources"][2]["published"] = "20260318"
+    elif mutation == "planned_resignation":
+        task["sources"][1]["published"] = "20260317"
+    else:
+        case["resignation_refs"][0]["quote"] += " 추가한 문장."
+    if mutation in {"ordinary_expiry", "wrong_person", "partial_name", "wrong_expiry"}:
+        with pytest.raises(ValidationError):
+            accept(task, assessment)
+    else:
+        assert accept(task, assessment)["status"] == "rejected"
+
+
+def test_proposed_reelection_is_available_before_vote(early_reelection):
+    task, assessment = early_reelection
+    task["as_of"] = "20260318"
+    finding = assessment["findings"][0]
+    case = finding["early_audit_reelection"]
+    notice = "2026-03-19 주총에 감사위원이 되는 사외이사 김후보 선임 안건을 상정한다."
+    task["sources"][2].update(published="20260303", excerpts=[notice])
+    case["election_refs"][0]["quote"] = notice
+    case.update(stage="proposed", resignation_date=None)
+    finding.update(fact_status="conditional_plan", impact_state="prospective")
+    assert accept(task, assessment)["findings"][0]["early_audit_reelection"]["stage"] == "proposed"
 
 
 @pytest.mark.parametrize("mutation", ["invented_quote", "foreign_source", "future_event"])
@@ -223,7 +331,8 @@ def test_actual_discovery_pipeline_and_batch_peer_failure_isolation(monkeypatch)
     payload = asyncio.run(screen.build_governance_screen_payload(["합성회사", "실패", "모호"], as_of="20260909"))
     assert [row["status"] for row in payload["companies"]] == ["assessment_pending", "company_failed", "company_unresolved"]
     assert payload["companies"][0]["assessment_task"]["sources"][0]["document_sha256"]
-    assert len(client.calls) == 8
+    assert len(client.calls) == 9
+    assert "E005" in {c["pblntf_detail_ty"] for c in client.calls}
     assert all(c["corp_code"] == "00000001" and c["end_de"] == "20260909" for c in client.calls)
     assert "private upstream" not in str(payload)
 
@@ -284,3 +393,24 @@ def test_weak_company_match_warning_survives_batch_and_markdown(monkeypatch):
     assert warning in payload["warnings"]
     assert warning in render_governance_screen(payload)
     assert payload["companies"][0]["status"] == "assessment_pending"
+
+
+def test_severance_comparison_uses_cited_total_and_only_available_denominators():
+    task, assessment, _ = task_and_assessment()
+    quote = "경영권 변동 시 특별퇴직보상금 총액은 12억원이고 회사의 현금및현금성자산은 5,000백만원이다."
+    task["sources"][0]["excerpts"] = [quote]
+    finding = assessment["findings"][0]
+    citation = {"source_id": task["sources"][0]["source_id"], "quote": quote}
+    finding.update(pattern="control_severance", evidence_refs=[citation], impact_state="prospective",
+                   severance_comparison={"additional_total": {"amount_text": "12억원", "citation": citation},
+                                         "cash_and_equivalents": {"amount_text": "5,000백만원", "citation": citation}})
+    accepted = accept(task, assessment)
+    comp = accepted["findings"][0]["severance_comparison"]
+    assert (comp["additional_total_krw"], comp["pct_of_cash"], comp["pct_of_acquisition_price"]) == (1200000000, 24, None)
+    invalid = deepcopy(assessment)
+    invalid["findings"][0]["severance_comparison"]["additional_total"]["amount_text"] = "2억원"
+    with pytest.raises(ValidationError):
+        accept(task, invalid)
+    finding["severance_comparison"]["additional_total"]["citation"] = {**citation, "quote": "해임된 대표이사 개인에게 특별퇴직금으로 12억원을 지급한다."}
+    with pytest.raises(ValidationError):
+        accept(task, assessment)

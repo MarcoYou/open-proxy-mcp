@@ -289,7 +289,8 @@ async def discover_officer_filings(client, corp_code: str, as_of: str,
             "hint": "최근 2년 시작일부터 종류별 최대 2쪽·원문 5건. 검색 0건은 재직/관계 없음이 아님. 같은 날 공시는 선후관계 확인 전 자동 입력에서 제외."}
 
 
-async def collect_supplemental_filings(client, rcepts: list[str], as_of: str) -> list[dict]:
+async def collect_supplemental_filings(client, rcepts: list[str], as_of: str, *,
+                                       review_titles: dict[str, str] | None = None) -> list[dict]:
     """Read explicitly supplied public DART filings, never arbitrary URLs."""
     if len(rcepts) > 5 or len(set(rcepts)) != len(rcepts):
         raise ValueError("guideline_evidence_rcepts: at most five unique filings")
@@ -304,14 +305,20 @@ async def collect_supplemental_filings(client, rcepts: list[str], as_of: str) ->
         try:
             doc = await asyncio.wait_for(client.get_document_cached(rc), timeout=20)
             text = (doc or {}).get("text") or ""
-            results.append({**item, "status": "read" if text else "format_unsupported", "text": text,
-                            "acquisition": (doc or {}).get("source", "document_xml")})
         except Exception:
             results.append({**item, "status": "fetch_failed"})
+            continue
+        item.update(status="read" if text else "format_unsupported", text=text,
+                    acquisition=(doc or {}).get("source", "document_xml"))
+        if text and review_titles is not None:
+            from open_proxy_mcp.services.governance_patterns import inspect_filing
+            item["pattern_signals"] = inspect_filing(review_titles.get(rc, ""), doc)
+        results.append(item)
     return results
 
 
-async def collect_supplemental_sources(client, sources: list[dict], as_of: str) -> list[dict]:
+async def collect_supplemental_sources(client, sources: list[dict], as_of: str, *,
+                                       review_titles: dict[str, str] | None = None) -> list[dict]:
     """Explicit public source adapters: DART XML or fixed KRX KIND HTML pages.
 
     KIND is for identified exchange-source documents, not an arbitrary web
@@ -372,7 +379,8 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
             results.append({**result, "read_options": src["read_options"]})
 
         if src["type"] == "dart":
-            result = (await collect_supplemental_filings(client, [src["rcept_no"]], as_of))[0]
+            options = {"review_titles": review_titles} if review_titles is not None else {}
+            result = (await collect_supplemental_filings(client, [src["rcept_no"]], as_of, **options))[0]
             record({**result, "source_id": f"filing:{src['rcept_no']}"})
             continue
         if src['type'] in {'dart_attachment', 'dart_attachments'}:
@@ -380,6 +388,9 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
             result = (await discover_charter_attachments(client, src['rcept_no'], as_of)
                       if src['type'] == 'dart_attachments'
                       else await read_charter_document(client, {k: src[k] for k in ('type', 'rcept_no', 'dcm_no')}, as_of))
+            if review_titles is not None and src['type'] == 'dart_attachment' and result.get('native_text'):
+                from open_proxy_mcp.services.governance_patterns import inspect_filing
+                result = {**result, "pattern_signals": inspect_filing("정관", {"text": result["native_text"]})}
             # Only a single attachment may resolve to the receipt that filed it; the list keeps its index id.
             sid = result.get('source_id') or src['source_id'] if src['type'] == 'dart_attachment' else src['source_id']
             record({**result, 'type': src['type'], 'source_id': sid})
@@ -407,6 +418,10 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str) 
             for tag in soup(["script", "style"]):
                 tag.decompose()
             content = soup.get_text(" ", strip=True)
+            if review_titles is not None and content:
+                from open_proxy_mcp.services.governance_patterns import inspect_filing
+                title = "주주총회소집공고" if "주주총회소집공고" in re.sub(r"\s+", "", content[:150]) else ""
+                item["pattern_signals"] = inspect_filing(title, {"text": content, "html": str(soup)})
             record({**item, "status": "read" if content else "format_unsupported", "text": content})
         except Exception:
             record({**item, "status": "fetch_failed"})

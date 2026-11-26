@@ -447,6 +447,51 @@ def _extract_acode(html: str, code: str) -> str | None:
     return val or None
 
 
+_WELFARE_FUND = re.compile(r"(?:사\s*내\s*(?:근\s*로\s*)?|공\s*동\s*(?:근\s*로\s*)?|근\s*로\s*)복\s*지\s*기\s*금")
+
+
+def welfare_fund_disposal(doc: dict, stage: str) -> dict:
+    """Read the purpose and recipient of this filing. Keep daily result quantities on their own rows."""
+    html = doc.get("html") or ""
+    text = re.sub(r"\s+", " ", doc.get("text") or "").strip()
+    purpose = _extract_acode(html, "SEL_PPS") or ""
+    recipient = _extract_acode(html, "DSPS_PARN") or ""
+    base = {"purpose": purpose, "recipient": recipient}
+    # The same result may have several recipients and disposal dates.
+    result_rows = []
+    if stage == "결과(확정)":
+        for row in re.findall(r"<TR\b[^>]*>[\s\S]*?</TR>", html, flags=re.I):
+            name = _extract_acode(row, "OBJ_OTH") or ""
+            if _WELFARE_FUND.search(name):
+                shared = bool(re.search(r"[,，·/&ㆍ+]|및|우리사주|임직원|외\s*\d|\s등(?:\s|$)", name))
+                qty = (_extract_acode(row, "ACT_CNT") or "").replace(",", "").strip()
+                result_rows.append({"recipient": name, "row_shares": int(qty) if qty.isdecimal() else None,
+                                    "shared_recipient_row": shared})
+        if any((r["row_shares"] or 0) > 0 and not r["shared_recipient_row"] for r in result_rows):
+            return {**base, "status": "recipient_in_result", "result_rows": result_rows}
+    in_fields = _WELFARE_FUND.search(purpose + " " + recipient)
+    if in_fields and stage == "결정(예정)":
+        # A sale to finance a cash contribution is distinct from a transfer of shares.
+        compact = re.sub(r"\s+", "", purpose)
+        qualified = any(word in compact for word in ("현금", "매각", "매도", "유상", "유무상", "처분대금", "재원",
+                        "자금마련", "기부금마련", "출연금마련", "철회", "취소", "제외", "아니", "않", "없", "미출연", "검토", "미정"))
+        purpose_names_fund = _WELFARE_FUND.search(purpose)
+        recipient_names_fund = _WELFARE_FUND.search(recipient)
+        unspecified = recipient.strip() in ("", "-", "—", "해당사항 없음") or "참조" in recipient
+        contribution = any(word in compact for word in ("출연", "기부", "증여", "무상양도", "무상이전"))
+        purpose_names_others = any(word in compact for word in ("우리사주", "공익재단", "임직원에게", "임직원에대한"))
+        consistent = (purpose_names_fund and (unspecified or recipient_names_fund)
+                      or recipient_names_fund and not purpose_names_others)
+        if contribution and not qualified and consistent:
+            return {**base, "status": "contribution_in_decision"}
+    mention = _WELFARE_FUND.search(text)
+    if mention or in_fields or result_rows:
+        excerpt = text[max(0, mention.start()-90):mention.end()+160] if mention else ""
+        return {**base, "status": "needs_reading", "excerpt": excerpt, "result_rows": result_rows}
+    structured = purpose or recipient or _extract_acode(html, "OBJ_OTH")
+    return {"status": "no_mention" if text and structured else "unassessed"}
+
+
 def _acode_int(html: str, code: str) -> int | None:
     val = _extract_acode(html, code)
     if not val or val in ("-", "—"):

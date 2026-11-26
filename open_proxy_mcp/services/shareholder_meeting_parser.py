@@ -4443,8 +4443,14 @@ def parse_aoi_xml(html: str, sub_agendas: list[dict] | None = None) -> dict:
                 else:
                     # 테이블 외부에서 감지한 pending_sub_id 사용 (LG화학 패턴)
                     first = table_amendments[0]
+                    # Some XML forms put the ballot number in the detail heading, above
+                    # the section and its comparison table. Keep that explicit identity.
+                    heading_id = re.fullmatch(r"제\s*(\d+(?:-\d+)*)\s*호", d.get("number") or "")
+                    heading_ballot = ""
+                    if heading_id and "정관" in title + category and ("-" in heading_id[1] or not sub_agendas):
+                        heading_ballot = heading_id[1]
                     main_amendment = {
-                        "subAgendaId": pending_sub_id,
+                        "subAgendaId": pending_sub_id or heading_ballot,
                         "label": pending_label or first["clause"],
                         "clause": first["clause"],
                         "before": first["before"],

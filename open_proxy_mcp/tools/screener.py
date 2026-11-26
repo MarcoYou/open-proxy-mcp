@@ -9,7 +9,9 @@ from typing import Any
 
 from open_proxy_mcp.services.contracts import as_pretty_json
 from open_proxy_mcp.services.disclosure_flow import build_flow_payload
-from open_proxy_mcp.services.screener import build_screener_payload
+from open_proxy_mcp.services.screener import build_pattern_screen, build_screener_payload, build_welfare_fund_screen, pattern_types
+from open_proxy_mcp.services.control_severance import provision_lines
+from open_proxy_mcp.services.seat_wording import seat_lines
 
 # ── 렌더 헬퍼 ──────────────────────────────────────────────────────────
 
@@ -548,6 +550,92 @@ def _render_flow(p: dict[str, Any]) -> str:
     return "\n".join(L)
 
 
+def _render_welfare_fund(p: dict[str, Any]) -> str:
+    paging = p["candidate_paging"]
+    lines = ["# 근로복지기금 자사주 출연", "",
+             f"{p['universe']['label']} · {p['period']['bgn_de']}~{p['period']['end_de']}",
+             f"처분 공시 {paging['matched']}건 중 이번 페이지 {paging['returned']}건 · "
+             f"출연 결정 또는 기금 수령 {len(p['matches'])}건 · 추가 확인 {len(p['followups'])}건"]
+    if p["status"] in {"partial", "error"}:
+        lines.append("공시 목록이나 원문을 모두 확인하지 못했습니다.")
+    for title, group in (("출연 결정 또는 기금 수령", p["matches"]), ("추가 확인", p["followups"])):
+        if not group:
+            continue
+        lines.extend(["", f"### {title}", ""])
+        for item in group:
+            ev = item["evidence"]
+            status = ev["status"]
+            if status == "contribution_in_decision":
+                why = "처분 목적 · " + ev["purpose"]
+                if ev.get("recipient"):
+                    why += " / 처분 상대방 · " + ev["recipient"]
+            elif status == "recipient_in_result":
+                why = "실제 수령 · " + ", ".join(
+                    f"{row['recipient']} {row['row_shares']:,}주" for row in ev["result_rows"]
+                    if (row["row_shares"] or 0) > 0 and not row["shared_recipient_row"])
+            elif status == "unassessed":
+                why = "원문 또는 표를 확인하지 못함"
+            elif status == "amendment_to_check":
+                why = "정정·철회 전 공시와 대조 필요"
+            else:
+                why = "주식 출연 여부 확인 필요 · " + (ev.get("purpose") or ev.get("excerpt") or ev.get("recipient") or "수령처별 거래표 확인")
+            lines.append(f"- {item['corp_name']} · 공시일 {item['filed_at']} · {why} [{item['title']}]({item['dart_url']})")
+    if paging["has_more"]:
+        lines += ["", f"다음 처분 공시는 같은 조건에서 offset={paging['next_offset']}으로 이어보세요."]
+    lines += _coverage_block(p)
+    lines.extend(f"- {w}" for w in p["warnings"])
+    return "\n".join(lines + ["", p["note"]])
+
+
+def _render_patterns(p: dict) -> str:
+    paging = p["paging"]
+    lines = ["# 정관·주총 및 증권 발행 검토", "",
+             f"{p['universe']['label']} · {p['period']['bgn_de']}~{p['period']['end_de']}",
+             f"대상 공시 {paging['matched']}건 · 이번 페이지 {paging['returned']}건 · 단서가 있는 공시 {p['counts']['pattern_receipts']}건",
+             p["pattern_note"]]
+    for hit in p["hits"]:
+        if hit["pattern_read_status"] == "read" and not hit["pattern_signals"]:
+            continue
+        lines.extend(["", f"**{hit['corp_name']}** · {hit['filed_at']} [{hit['title']}]({hit['dart_url']})"])
+        if hit["pattern_read_status"] == "unassessed":
+            lines.append("- 원문 미확인")
+        elif hit["pattern_read_status"] == "method_unverified":
+            lines.append("- 배정 방식 미확인 · 유상증자 결정 원문을 확인하세요.")
+        elif hit["pattern_read_status"] == "check_amendment":
+            lines.append("- 원공시의 조건이 유지되는지 정정·철회 범위를 대조하세요.")
+        for signal in hit["pattern_signals"]:
+            lines.append(f"- {signal['label']} · {signal['filing_state']} · {signal['check']}")
+            lines.extend(provision_lines(signal) + seat_lines(signal))
+            if signal.get("quote") and not signal.get("provisions") and signal["pattern"] != "seat_wording":
+                lines.append(f"  - 원문 · {signal['quote']}")
+            for ballot in signal.get("ballots", []):
+                lines.append(f"  - 의안 {ballot['agenda']} · " + ", ".join(ballot["clauses_and_topics"]))
+            if signal.get("nominee_terms"):
+                lines.append("  - 후보별 임기 · " + ", ".join(f"{r['name']} {r['years']}년" for r in signal["nominee_terms"]))
+            for change in signal.get("clauses", []):
+                lines.append(f"  - {change['clause']} · 변경 전 {change['before']} / 변경안 {change['after']}")
+            terms = signal.get("terms", {})
+            fields = (("series", "회차"), ("amount_won", "권면총액(원)"), ("target_stock", "대상 주식"),
+                      ("price_won", "가격(원)"), ("adjustment_floor_won", "최저 조정가액(원)"),
+                      ("potential_shares", "대상 주식 수(주)"), ("reported_share_pct", "공시상 비율(%)"),
+                      ("new_common_shares", "신규 보통주(주)"), ("existing_common_shares", "증자 전 보통주(주)"),
+                      ("method", "발행 방식"), ("charter_basis", "근거 조항"), ("call_option_excerpt", "콜옵션 문구"))
+            values = [f"{label} {terms[key]}" for key, label in fields if key in terms]
+            if values:
+                lines.append("  - " + " · ".join(values))
+            if "target_basis" in terms:
+                basis = {"issuer_shares": "발행회사 주식", "other_company_shares": "타사 주식", "unverified": "발행사 미확인"}
+                lines.append("  - 교환대상 구분 · " + basis[terms["target_basis"]])
+            if signal.get("subscribers"):
+                names = [f"{row['name']} ({row['reported_relationship']})" if row.get("reported_relationship") not in {None, "", "-", "—"}
+                         else row["name"] for row in signal["subscribers"]]
+                omitted = signal["subscriber_count"] - len(names)
+                lines.append("  - 공시상 배정 대상 · " + ", ".join(names) + (f" 외 {omitted}건" if omitted else ""))
+    if paging["has_more"]:
+        lines.append(f"\n같은 조건에서 offset={paging['next_offset']}으로 이어보세요.")
+    return "\n".join(lines + _coverage_block(p) + [f"- {w}" for w in p["warnings"]])
+
+
 def register_tools(mcp):
 
     @mcp.tool()
@@ -580,11 +668,37 @@ def register_tools(mcp):
         offset: 이어받기 위치(디폴트 0). 응답의 `paging.next_offset` 을 그대로 넣으면 다음 묶음이 온다. **매칭 수(`paging.matched`)와 이번에 실은 수(`paging.returned`)는 다른 값이다** — 표시된 건수를 전체로 읽지 말 것.
         rule: DART list.json 전체시장 필러(corp_code 無)를 유형별 detail코드로 스캔 → report_nm 키워드 분류 → 시총(일별 시세 저장분에 보관된 최신 거래일 기준 — 유니버스 순위도 같은 날) 부착 → dedup(정정=최신본만). 정정=`[기재정정]` 프리픽스, 단계태깅(결정≠결과≠소각). details는 유형별 파서(order_contracts 등) 디스패치. 빈 결과는 no_new(신규없음)/status=error(조회실패)로 구분.
         view: 비우면 카드 보기(위 설명 전부). **"흐름"이면 흐름 보기** — 매일 밤 쌓이는 공시 원장만 읽어(DART 0콜) ① 업종 대분류·중분류별 새 공시 건수·금액을 직전 N주 같은 일수 환산 평소와 비교(「평소 대비 몇 배」) ② 매출 대비 비율이 기준 이상인 큰 수주 목록 ③ 올해 회사별 누적 수주(공시에 적힌 매출 대비 %의 합)를 준다. "지난주 업종별 수주 평소보다 많이 떴나"·"올해 수주가 매출 대비 가장 많이 쌓인 회사"·"업종별 자사주·증자 흐름"은 이것. 흐름 보기의 types 기본은 수주, period 기본은 원장 최신일까지 최근 7일(나머지 말은 카드 보기와 같은 뜻, 3개월 한도 없음 — 「이번 주·달·분기·올해」는 원장 최신일까지, 원장이 아직 그 칸에 없으면 가장 최근 칸을 보이고 밝힌다), universe 는 카드 보기와 같은 문법. 정정·해지는 새 공시로 세지 않고 따로 센다. 원장은 밤 배치라 오늘 뜬 공시는 카드 보기로.
+        기금출연: 사내·공동근로복지기금에 자사주를 출연한 회사 찾기는 view="기금출연". 자기주식 처분결정·결과 원문에서 출연 목적과 실제 수령처별 주식 수를 확인한다. 한 번에 처분 공시 30건까지. candidate_paging.next_offset으로 마지막 페이지까지 확인하고 긴 기간은 3개월씩 나눈다.
+        정관·발행: view="정관·발행"으로 조건부 안건 폐기·묶음 표결·이사 임기 분산·제3자배정 변경·CB·EB·경영권 변동 특별퇴직금을 검토한다. types는 "정관", "이사정원"(선임 인원 문구), "퇴직금"(황금낙하산·별도한도), "별도한도", "제3자배정", "CB", "EB"를 쉼표로 조합. types="퇴직금"은 주총 공시의 특별보상과 별도 한도·보수한도 제외 문구를 찾는다. 기본은 모두. 한 페이지에 공시 최대 30건. 회사별 연결은 governance_screen(pattern_review=true).
         level: 흐름 보기의 업종 분류 단계 — "둘 다"(기본) / "대분류"(10) / "중분류"(28).
         baseline_weeks: 흐름 보기의 비교 기준 주 수(기본 13, 1~52).
         large_min_pct: 흐름 보기 큰 수주의 매출 대비 기준 %(기본 10).
         ref: order_contracts·treasury_share·dividend_disclosure·dilutive_issuance·shareholder_meeting_notice·ownership_structure·proxy_contest (유형별 심층 — 공개매수 본문은 proxy_contest), governance_screen (최대 30개사 원문 기반 거버넌스 검토)
         """
+        pattern_view = view.strip().replace(" ", "").lower() in {"정관·발행", "정관발행", "governance_patterns"}
+        kinds = pattern_types(types)
+        if view.strip() in {"퇴직금", "특별퇴직금", "황금낙하산", "별도한도", "이사정원", "선임인원"}:
+            pattern_view, kinds = True, pattern_types(view)
+        if pattern_view or (not view and kinds):
+            if not kinds:
+                if types.lower().strip() not in {"core", "all", "governance", ""}:
+                    raise ValueError('정관·발행 보기의 유형은 정관, 이사정원, 퇴직금, 별도한도, 제3자배정, CB, EB입니다.')
+                kinds = pattern_types("정관,제3자배정,CB,EB")
+            payload = await build_pattern_screen(
+                kinds, period=period, universe=universe, max_hits=max_hits, offset=offset, cursor=cursor,
+                start_date=start_date or custom_start, end_date=end_date or custom_end)
+            if format == "json":
+                return as_pretty_json(payload)
+            return _render_digest(payload) if payload["status"] == "needs_input" else _render_patterns(payload)
+        if (view or types).strip().lower().replace(" ", "") in {"기금출연", "자사주기금출연", "welfare_fund"}:
+            payload = await build_welfare_fund_screen(
+                period=period, universe=universe, max_hits=max_hits, offset=offset, cursor=cursor,
+                start_date=start_date or custom_start, end_date=end_date or custom_end)
+            if format == "json":
+                return as_pretty_json(payload)
+            if payload.get("status") == "needs_input":
+                return _render_digest(payload)
+            return _render_welfare_fund(payload)
         if _is_flow(view):
             payload = await build_flow_payload(
                 types=types, period=period, universe=universe, start_date=start_date or custom_start,
