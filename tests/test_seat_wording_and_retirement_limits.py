@@ -116,3 +116,14 @@ def test_formula_only_ceiling_is_not_a_fixed_amount_or_a_new_cap():
     assert item["limit_formula_text"] == "퇴직 전 3년간 평균급여 × 1/10 × 근속연수 × 3"
     assert item["limit_amount_text"] is None
     assert not retirement_signals(after)
+
+
+def test_retirement_bonus_cap_has_its_own_scope_and_does_not_imply_control_or_pay_cap_exclusion():
+    clause = "공로가 있는 임원이 퇴임할 경우 퇴직금과는 별도로 통상임금의 12개월분의 범위 내에서 특별위로금을 지급할 수 있다."
+    provision = limits("(신설)", clause)
+    assert provision["change"] == "new" and provision["limit_scope"] == "additional_award"
+    assert provision["limit_formula_text"] == "통상임금의 12개월분"
+    assert not provision["outside_pay_limit"] and provision["limit_amount_text"] is None
+    assert not retirement_signals(clause.replace("지급할 수 있다", "지급하지 않는다"))
+    assert not retirement_signals(clause.replace("임원이", "직원이"))
+    assert not retirement_signals(clause.replace("통상임금의 12개월분의 범위 내에서 ", ""))

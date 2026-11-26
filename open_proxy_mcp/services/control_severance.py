@@ -81,8 +81,24 @@ _CAP_FORMULA = re.compile(r"^\s*(?:은|는|액)?[\s:：]*(?P<formula>(?:퇴직\s
                           r"(?:평균\s*)?(?:급여|연봉|월보수|기준금액)(?:\s*[xX×*]\s*(?:\d+(?:[/.]\d+)?|(?:재직|근속)\s*(?:연수|년수|기간))){1,6})")
 
 
+_BONUS_CAP = re.compile(
+    r"퇴직금(?:과는?|와는?|과|\s*이외에|\s*외에)\s*(?:별도(?:로)?\s*)?"
+    r"(?P<cap>(?:통상임금|평균임금|평균급여|월보수|기본급)(?:의)?\s*\d+(?:\.\d+)?\s*(?:개월(?:분)?|배)|" + _MONEY + r")"
+    r"(?:의|을|를)?\s*(?:범위\s*(?:이?내)|한도|이내).{0,24}?(?:특별\s*)?(?:퇴직\s*)?(?:위로금|공로금)"
+    r"(?:을|를)?\s*지급(?:할\s*수\s*있|한다|하여야)")
+
+
 def _limit_provision(text: str) -> dict | None:
     text = " ".join(text.split())
+    bonus = _BONUS_CAP.search(text)
+    if bonus:
+        quote = text[max(0, bonus.start()-110):bonus.end()+30]
+        if _ROLES.search(quote) and not _NEGATIVE.search(quote):
+            value = bonus["cap"]
+            cash = bool(re.fullmatch(_MONEY, value))
+            return {"quote": quote, "trigger": "통상 퇴직금 외 위로금·공로금 한도", "separate_limit": True,
+                    "outside_pay_limit": bool(_OUTSIDE.search(quote)), "limit_scope": "additional_award",
+                    "limit_amount_text": value if cash else None, "limit_formula_text": None if cash else value}
     separate, outside = _SEPARATE.search(text), _OUTSIDE.search(text)
     if not (separate or outside):
         return None
@@ -146,7 +162,7 @@ def retirement_signals(text: str, html: str = "", amendments: list[dict] | None 
     checks = []
     if _CONTROL.search(text) and _SEVERANCE.search(text):
         checks.append(("control_severance", _provision, _changes))
-    if ("한도" in text or "보수총액" in text) and re.search(_RETIRE, text):
+    if re.search(r"한도|보수총액|위로금|공로금", text) and re.search(_RETIRE, text):
         checks.append(("retirement_limit", _limit_provision, _limit_changes))
     if not checks:
         return {}
