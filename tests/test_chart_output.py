@@ -61,3 +61,14 @@ def test_chart_dispatch_preserves_result_and_skips_images_for_missing_data():
     assert json.loads(result.structured_content["result"])["data"] == {"annual": []}
     assert "`firm` 조회" in asyncio.run(tool(format="chart", scope="market"))
     assert len(calls) == 2
+
+
+def test_preferred_dividend_keeps_comparison_style_when_common_stock_is_absent():
+    row = {"bsns_year": 2025, "row_status": "확정", "stock_kind": "우선", "dps_krw": 600}
+    def style(rows):
+        fig, _ = _dividend({"subject": "A", "data": {"annual": rows}})
+        bar = next(b for b in fig.axes[0].containers if b.get_label() == "우선").patches[0]
+        return bar.get_facecolor(), bar.get_hatch()
+    preferred_only = style([row])
+    assert preferred_only[1]
+    assert preferred_only == style([row, dict(row, stock_kind="보통")])

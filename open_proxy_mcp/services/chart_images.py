@@ -14,7 +14,20 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
 _LOCK = Lock()  # rc_context and font handling are shared across Agg figures.
-_COLORS = ("#17658a", "#ad5529", "#36745b", "#78518d", "#776a24", "#595c76")
+# Financial series encode identity. Only the governance table assigns colors to states.
+_INK = "#17272F"
+_MUTED = "#52656A"
+_RULE = "#D9E0DD"
+_SURFACE = "#FFFFFF"
+_PRIMARY = "#2C7E97"
+_REFERENCE = "#7B8492"
+_CLASS_HATCHES = ("//", "..", "xx", "++", "oo", "**")
+_STATE_COLORS = {
+    "준수": ("#2D8465", "#E6F0EC"),
+    "미준수": ("#B03432", "#F7EBEA"),
+    "해당 없음": (_MUTED, "#E9EEEA"),
+    "미상": (_MUTED, _SURFACE),
+}
 
 
 @lru_cache(maxsize=1)
@@ -34,7 +47,7 @@ def _number(value):
 
 def _figure(title, height=4.5, width=7.0):
     fig = Figure(figsize=(width, height), dpi=125, layout="constrained")
-    fig.suptitle(fill(title, width=55), fontsize=17, fontweight="bold", color="#18364a")
+    fig.suptitle(fill(title, width=55), x=.025, ha="left", fontsize=16, fontweight="bold", color=_INK)
     return fig
 
 
@@ -65,12 +78,12 @@ def _performance(p):
         if not any(isfinite(v) for v in vals):
             continue
         ax = axes[-1] if i else axes[0]
-        ax.plot(x, vals, color=_COLORS[i], linestyle="--" if i else "-", label=fill(name, 45),
+        ax.plot(x, vals, color=(_PRIMARY, _REFERENCE)[i], linestyle="--" if i else "-", label=fill(name, 45),
                 marker="." if len(rows) < 40 else None, linewidth=2)
     for ax in axes:
         ax.set_ylabel("누적수익률 (%)")
-        ax.axhline(0, color="#a4b1b9", linewidth=.8)
-        ax.legend(frameon=False, loc="best")
+        ax.axhline(0, color=_REFERENCE, linewidth=.9, zorder=1)
+        ax.legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1), borderaxespad=0, fontsize=9)
         locator = dates.AutoDateLocator(minticks=2, maxticks=6)
         ax.xaxis.set_major_locator(locator)
         ax.xaxis.set_major_formatter(dates.DateFormatter("%m/%d" if (x[-1]-x[0]).days < 180 else "%Y-%m"))
@@ -92,16 +105,19 @@ def _dividend(p):
         return
     # Distinct stock classes and fiscal closings are independent observations.
     obs = {}
+    common = set()
     for r in annual:
         period = str(r.get("stlm_dt") or r["bsns_year"])
         kind = (r.get("stock_knd_raw") or r.get("stock_kind") or "미구분").strip()
+        if r.get("stock_kind") == "보통" or kind in ("보통주", "보통"):
+            common.add(kind)
         key = period, kind
         if key in obs:
             return  # No unambiguous bar for this closing and class.
         obs[key] = r
-    kinds = sorted({k for _, k in obs})
+    kinds = sorted({k for _, k in obs}, key=lambda k: (k not in common, k))
     periods = sorted({t for t, _ in obs})
-    if len(kinds) > len(_COLORS) or len(periods) > 30:
+    if len(kinds) > len(_CLASS_HATCHES) or len(periods) > 30:
         return
     title = f"{p['subject']} · 결산기별 주당배당금"
     fig = _figure(title)
@@ -109,6 +125,7 @@ def _dividend(p):
     width = .8 / len(kinds)
     shown = []
     table_rows = []
+    secondary = [kind for kind in kinds if kind not in common]
     for j, kind in enumerate(kinds):
         x, y = [], []
         for i, period in enumerate(periods):
@@ -122,16 +139,19 @@ def _dividend(p):
                 x.append(i + width * (j - (len(kinds) - 1) / 2))
                 y.append(val)
         if y:
-            bars = ax.bar(x, y, width=width*.92, color=_COLORS[j], label=kind)
+            color = _PRIMARY if kind in common else _REFERENCE
+            hatch = None if kind in common else _CLASS_HATCHES[secondary.index(kind)]
+            bars = ax.bar(x, y, width=width*.92, color=color, edgecolor=_SURFACE,
+                          linewidth=.5, hatch=hatch, label=kind)
             shown.extend(y)
             if len(obs) <= 16:
-                ax.bar_label(bars, labels=[f"{v:,}" for v in y], fontsize=8, padding=2)
+                ax.bar_label(bars, labels=[f"{v:,}".removesuffix(".0") for v in y], fontsize=8, padding=2)
     if not shown:
         return
     ax.set_ylim(0, max(1, max(shown) * 1.18))
     ax.set_xticks(range(len(periods)), periods, rotation=45 if len(periods)>5 else 0, fontsize=8)
     ax.set_ylabel("주당배당금 (원)")
-    ax.legend(frameon=False)
+    ax.legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1), borderaxespad=0, ncols=min(3, len(kinds)), fontsize=9)
     ax.set_xlabel("결산기 말 · DART 정기보고서 · 확정값 기준")
     return fig, f"**{title}** · 확정값, 원/주 · DART 정기보고서\n\n" + _table(["결산기", "주식 종류", "원/주", "상태", "접수번호"], sorted(table_rows))
 
@@ -155,6 +175,7 @@ def _governance(p):
     ax.axis("off")
     bottom = sum(heights)
     ax.set(xlim=(0,1), ylim=(-1.4,bottom+1.8))
+    ax.text(.01, bottom+.85, "핵심지표", weight="bold", color=_MUTED)
     for x, heading in ((.76,"직전기"),(.92,"당기")):
         ax.text(x,bottom+.85,heading,ha="center",weight="bold")
     y = bottom
@@ -162,16 +183,25 @@ def _governance(p):
         y -= height/2
         ax.text(.01,y,label,va="center",fontsize=9.5)
         for x,s in ((.76,prior),(.92,curr)):
-            color = {"준수":"#d9eee8","미준수":"#f7dfc9"}.get(s,"#e6e9ec")
-            ax.text(x,y,s,ha="center",va="center",fontsize=10,bbox=dict(facecolor=color,edgecolor="none",boxstyle="round,pad=.3"))
+            border, face = _STATE_COLORS[s]
+            ax.text(x, y, s, ha="center", va="center", fontsize=10, color=_INK,
+                    weight="bold" if x == .92 else "normal",
+                    bbox=dict(facecolor=face, edgecolor=border, linewidth=.8,
+                              linestyle="dashed" if s == "미상" else "solid", boxstyle="round,pad=.28"))
         y -= height/2
-    ax.text(.01,-.95,caption,fontsize=9)
+        ax.hlines(y, .01, .985, color=_RULE, linewidth=.5)
+    ax.text(.01,-.95,caption,fontsize=9,color=_MUTED)
     return fig, f"**{title}** · {caption}\n\n" + _table(["항목","직전기","당기"], data)
 
 
 def render_chart(name, payload):
     renderer = {"performance_analysis": _performance, "dividend_data": _dividend, "corp_gov_report": _governance}[name]
     with _LOCK, mpl.rc_context({"font.family": _font(), "text.parse_math": False, "axes.unicode_minus": False,
+                                "figure.facecolor": _SURFACE, "axes.facecolor": _SURFACE, "text.color": _INK,
+                                "axes.labelcolor": _MUTED, "xtick.color": _MUTED, "ytick.color": _MUTED,
+                                "axes.edgecolor": _RULE, "axes.axisbelow": True, "axes.grid": True,
+                                "axes.grid.axis": "y", "grid.color": _RULE, "grid.linewidth": .6,
+                                "xtick.major.size": 0, "ytick.major.size": 0, "axes.spines.left": False,
                                 "axes.spines.top": False, "axes.spines.right": False}):
         result = renderer(payload)
         if result is None:
