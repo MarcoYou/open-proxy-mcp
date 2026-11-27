@@ -8,7 +8,7 @@ data_source: [DART 정기보고서 alotMatter(사업·반기·분기, div_declar
 related_disclosures: [사업보고서, 반기보고서, 분기보고서, 현금배당결정]
 related_concepts: [배당성향, 배당수익률, 분기배당, 연결-별도, 단위-표기-규약, 시점-제약]
 created: 2026-09-02
-updated: 2026-10-24
+updated: 2026-11-28
 ---
 
 # dividend_data
@@ -255,3 +255,7 @@ dividend_data(scope="sector", sector="금융", year_from=2020, year_to=2025)
   「없다」 대신 「모른다」로 렌더. 이력열 `-` 범례를 「상장 여부를 모름」으로 넓히고 조회
   실패는 `?` 로 분리. 도구 설명의 옛 이름 `dividend` → `dividend_disclosure`.
 - 2026-09-03: `dividend_history_data`+`dividend_screener` 통합으로 신설. 결정공시 비고 원문 전문 반환.
+
+## 차트 출력 (2026-11-28)
+
+`dividend_data(company="삼성전자", year_from=2022, year_to=2025, scope="firm", format="chart")`는 같은 조회의 표와 PNG를 MCP 콘텐츠로 반환한다. 전체 JSON은 `structuredContent.result`에 있다. 그릴 수 있는 값이 없으면 조회 결과를 글로 제공한다.

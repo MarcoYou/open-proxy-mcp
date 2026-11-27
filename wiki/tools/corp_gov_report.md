@@ -8,7 +8,7 @@ related_disclosures: [기업지배구조보고서]
 related_concepts: [집중투표, 감사위원-의결권-제한, 의결권, 정관변경, 보수한도]
 related_decisions: [BeautifulSoup-파서-선택, XML-vs-PDF]
 created: 2026-05-01
-updated: 2026-10-18
+updated: 2026-11-28
 ---
 
 # corp_gov_report
@@ -39,7 +39,7 @@ corp_gov_report(
 | company | str | yes | 회사명 / ticker / corp_code | - |
 | scope | str | no | 7종 (아래 참조) | "summary" |
 | year | int | no | 사업연도 (예: 2023). 0이면 최신 | 0 |
-| format | str | no | "md" / "json" | "md" |
+| format | str | no | `md` / `json` / `chart` | "md" |
 
 scope:
 - `summary`: 기업개요 + 준수율 + 15지표 ✅/❌ 요약 (기본)
@@ -241,3 +241,7 @@ sequenceDiagram
 - 2026-05-01: tool wiki 페이지 작성.
 - 2026-04-29: 금융지주 형식 분리 · `timeline` scope 추가(transitions 자동 감지).
 - 2026-04-22: tool 신설(15지표 파싱) · 의무 범위 정정(2026 KOSPI 전체).
+
+## 차트 출력 (2026-11-28)
+
+`corp_gov_report(company="삼성전자", year=2025, scope="metrics", format="chart")`는 같은 조회의 표와 PNG를 MCP 콘텐츠로 반환한다. 전체 JSON은 `structuredContent.result`에 있다. 그릴 수 있는 값이 없으면 조회 결과를 글로 제공한다.

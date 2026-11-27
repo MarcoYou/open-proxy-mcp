@@ -2,6 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Render Korean labels in chart PNGs.
+RUN apt-get update -qq && apt-get install -y --no-install-recommends fonts-nanum && rm -rf /var/lib/apt/lists/*
+
 # uv.lock 을 함께 복사해 **로컬과 같은 버전**을 설치한다.
 # lock 없이 `pip install .` 로 범위를 다시 풀면, 의존성이 새 버전을 내놓은 날 코드 변경과
 # 무관하게 배포만 깨진다(260729 실측: mcp 2.0.0 이 fastmcp 제거 → 운영 중단).

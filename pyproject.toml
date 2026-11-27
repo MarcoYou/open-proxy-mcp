@@ -15,6 +15,7 @@ dependencies = [
     # law_lookup Signal C: 조문 전문 BM25용 형태소 분석기(순수 C++·오프라인·결정적, Java 불필요).
     # 런타임 질의 토큰화 + sync 인덱스 빌드가 동일 morph_tokens를 씀. kiwipiepy_model 자동 동반.
     "kiwipiepy>=0.20.0",
+    "matplotlib>=3.8,<4",
 ]
 
 # NOTE: pdf extra(opendataloader-pdf, PyPDF2)는 2026-07-12 제거 —

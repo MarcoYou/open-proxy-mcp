@@ -8,7 +8,7 @@ data_source: [일별 시세 저장분(공표 전일대비 포함), 주간 시세
 related_disclosures: []
 related_concepts: [시가총액, 배당수익률, 단위-표기-규약]
 created: 2026-10-22
-updated: 2026-10-23
+updated: 2026-11-28
 ---
 
 # performance_analysis
@@ -47,7 +47,7 @@ performance_analysis(target="005930, 000660", scope="series", format="json")    
 | rebalance | str | no | `none`(시작 비중에서 표류) / `monthly` / `quarterly`(새 달·분기 첫 거래일에 목표 비중으로) | "none" |
 | rf | str | no | 무위험 금리. 비우면 ECOS 국고채 1년, 숫자(연 %)를 주면 고정 금리 | "" |
 | freq | str | no | `daily` / `weekly`. 비우면 자동 — 기간 전체가 일별 보관 창(약 1년) 안이면 daily, 아니면 weekly. 창 밖에서 daily 를 요구하면 `invalid` | "" |
-| format | str | no | `md` / `json` | "md" |
+| format | str | no | `md` / `json` / `chart` | "md" |
 
 ## 출력 schema (json)
 기존 도구와 같은 관례(`status`·`warnings`·`data.*`, 비율 `_pct`, 금액 `_krw`). 키는 **추가만** 하고 이름·뜻은 고정이다.
@@ -186,3 +186,7 @@ DB 왕복은 보통 8~12회(기준일·달력 1, 구성 1~2, 시세 1~2, 사건 
 - [[price_multiple_data]] — 배수(PER·PBR·배당수익률)
 - [[dividend_data]] — 배당 이력·결정공시 원장
 - [[data-pitfalls]] — DATA-PX2·PX4·PX5 · DATA-COLD1·COLD2 · DATA-SEC2·SEC3 · DATA-PIT9 · DATA-DIV4·DIV9
+
+## 차트 출력 (2026-11-28)
+
+`performance_analysis(target="코스피", benchmark="코스닥", scope="series", format="chart")`는 같은 조회의 표와 PNG를 MCP 콘텐츠로 반환한다. 전체 JSON은 `structuredContent.result`에 있다. 그릴 수 있는 값이 없으면 조회 결과를 글로 제공한다.
