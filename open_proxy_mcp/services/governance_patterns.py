@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import re
 from open_proxy_mcp.services.control_severance import retirement_signals
+from open_proxy_mcp.services.governance_disclosure_evidence import (
+    LABELS, audit_candidate, exchange_terms, filing_facts, issue_changes, meeting_text_signals,
+)
 from open_proxy_mcp.services.seat_wording import seat_wording
 
 PATTERNS = {
+    **LABELS,
     "seat_wording": ("이사 정원·선임 인원 문구", "인원 명시·허용·상하한을 구분한다. 이사회 전체 정원, 이번 선거의 의석, 후보자 수, 실제 당선 인원과 조건부 의안의 표결 결과를 원문으로 대조한다."),
     "retirement_limit": ("임원 퇴직금 별도 한도·보수한도 제외", "총 보수한도 밖에 두는 조항인지 별도 한도 금액이 있는지 확인한다. 주총 승인·적용기간·개인별 또는 총액 기준·실제 지급액을 대조한다."),
     "control_severance": ("경영권 변동 시 임원 특별퇴직보상", "정관·퇴직금 규정의 지급 조건·대상·산식을 확인하고 상정, 가결, 실제 지급을 구분한다."),
@@ -68,8 +72,10 @@ def _staggered_marker(text: str):
 
 
 def _charter_signals(html: str, text: str) -> dict:
-    signals = {}
-    conditions = [m for m in _CONDITION.finditer(text) if re.search(r"의안|안건", text[max(0, m.start()-100):m.end()+40])]
+    signals = meeting_text_signals(text)
+    conditions = [m for m in _CONDITION.finditer(text) if re.search(r"의안|안건", text[max(0, m.start()-100):m.end()+40])
+                  and not re.search(r"이사회에서?\s*$", text[max(0, m.start()-12):m.start()])
+                  and not any(m[0] in signals[key]["quote"] for key in ("bundled_amendments","proposal_not_tabled") if key in signals)]
     match = next((m for m in conditions if re.search("폐기|미상정", m[0])), conditions[0] if conditions else None)
     if match:
         signals["conditional_ballot"] = {"quote": _excerpt(text, match)}
@@ -152,6 +158,9 @@ def _exchange_target(html: str, target: str) -> str:
 
 
 def governance_detail_lines(signal: dict) -> list[str]:
+    if signal.get("prior_term"):
+        term = signal["prior_term"]
+        return [f"  - {signal['candidate_name']} · 종전 임기 {term['end']} · 주총 {signal['meeting_date']} · [기존 임기 공시]({term['dart_url']})"]
     if change := signal.get("clause_change"):
         return [f"  - {change['clause']} · 변경 전 {change['before']} / 변경안 {change['after']}"]
     if signal["pattern"] == "staggered_terms" and signal.get("quote"):
@@ -200,9 +209,19 @@ def _issue_signal(kind: str, html: str, text: str) -> dict:
     call = re.search(r"매도\s*청구권|콜\s*옵션|call\s*option", options, re.I)
     if call:
         terms["call_option_excerpt"] = _excerpt(options, call)
+        section = " ".join(options[call.start():].split())
+        cap = re.search(r"취득\s*규모\s*[:：]\s*(?:최대\s*)?([0-9,]+)\s*원\s*[(（]\s*(?:콜\s*옵션|call\s*option)\s*([0-9.]+)\s*%", section, re.I)
+        if cap:
+            terms.update(call_limit_won=cap[1], call_limit_pct=cap[2])
+        adjusted = re.search(r"전환가액\s*조정[^.。]{0,65}?후에는\s*최대\s*([0-9,]+)\s*주까지\s*취득", section)
+        if adjusted:
+            terms["call_adjusted_max_shares"] = adjusted[1]
     available = bool(terms)
     if kind == "exchangeable_bond":
         terms["target_basis"] = _exchange_target(html, terms.get("target_stock", ""))
+        if not terms.get("target_stock") or terms["target_basis"] == "unverified":
+            exchange_terms(html, terms)
+        available = bool(terms.get("target_stock") or available)
     return {kind: {"terms": terms, "subscribers": subscribers[:15], "subscriber_count": len(subscribers),
                    "terms_available": available, "source_text_available": bool(text)}}
 
@@ -239,6 +258,8 @@ def inspect_filing(title: str, doc: dict) -> list[dict]:
                 text = " ".join(html_to_text(html).split())
     if kind:
         signals = _issue_signal(kind, html, text)
+        if "정정" in title and kind in signals:
+            signals.update(issue_changes(html, kind, signals[kind].get("terms", {})))
     elif "주주총회" in title.replace(" ", ""):
         signals = _charter_signals(html, text)
     elif not title or any(word in title for word in ("증권신고서", "정관", "투자설명서", "사업보고서")):
@@ -252,6 +273,9 @@ def inspect_filing(title: str, doc: dict) -> list[dict]:
             state = "공시 기재 · 적용 시점 확인"
     else:
         signals = {}
+    if "audit_reappointment" in signals:
+        audit_candidate(signals["audit_reappointment"], html)
+    signals.update(filing_facts(title, html, text))
     # The issuer may explain the scope of the pay limit only in the reason for a correction.
     # Read that cell separately so a superseded value cannot become a current cap.
     for reason in correction_reasons:

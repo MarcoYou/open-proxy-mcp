@@ -272,7 +272,41 @@ def retirement_signals(text: str, html: str = "", amendments: list[dict] | None 
             signal = signals.setdefault("retirement_limit", {"quote": item["quote"], "provisions": []})
             if item not in signal["provisions"]:
                 signal["provisions"].append(item)
+    # Separate articles can define the aggregate compensation and its exclusions.
+    # Only use the operative text of a regulation, not an old amendment column.
+    if re.search(r"퇴직\s*(?:금|급여)", text) and re.search(r"포함(?:하지|되지)|산입하지|제외", text):
+        from open_proxy_mcp.services.doc_tables import distinct, table_grids
+        articles = [row[0] for grid in table_grids(html) for raw in grid
+                    if len(row := distinct(raw)) == 1 and "보수" in row[0] and "퇴직금" in row[0]]
+        if not html or "<table" not in html.lower():
+            articles = [text]
+        for article in articles:
+            evidence = _pay_regulation_exclusion(" ".join(article.split()))
+            if evidence:
+                signal = signals.setdefault("retirement_limit", {"quote": evidence["quote"], "provisions": []})
+                if evidence not in signal["provisions"]:
+                    signal["provisions"].append(evidence)
     return signals
+
+
+def _pay_regulation_exclusion(article):
+    scope = re.search(r"(?:등기)?이사(?:\s*전원)?(?:에게|의|에\s*대한)[^.①-⑳]{0,50}?보수(?:의)?\s*(?:연간\s*)?"
+                      r"(?:총액\s*)?한도(?:는|가|액은)?\s*"
+                      r"(?P<cap>\[?\s*[0-9,일이삼사오육칠팔구십백천만억조. ]+\s*\]?\s*원)", article)
+    if not scope:
+        return None
+    excluded = re.search(r"(?:임원|이사)\s*퇴직(?:금|급여)\s*지급\s*규정에\s*(?:따라|의해)"
+                         r"[^.①-⑳]{0,35}?퇴직(?:금|급여)(?:이나|과|ㆍ|·|\s*및)?\s*(?:특별\s*공로금)?(?:은|는|을|를)?"
+                         r"\s*(?:포함(?:하지|되지)|산입하지)\s*(?:아니한다|않는다|않습니다)", article[scope.end():scope.end()+600])
+    if not excluded:
+        return None
+    cap = scope["cap"].strip()
+    _, amounts = _award_amounts(cap.replace("[", "").replace("]", ""))
+    return {"quote": scope[0] + " … " + excluded[0], "pay_cap_text": cap,
+            **({"pay_cap_won": amounts[0]["amount_krw"]} if len(amounts) == 1 else {}),
+            "outside_pay_limit": True, "separate_limit": False, "limit_amount_text": None, "limit_formula_text": None,
+            "trigger": "일반 보수한도에서 퇴직보상 제외", "change": "mentioned", "change_label": _LABEL["mentioned"],
+            "change_notes": []}
 
 
 def _read_changes(text, rows, read, compare):
@@ -323,6 +357,8 @@ def provision_lines(signal: dict) -> list[str]:
     for p in signal.get("provisions", []):
         notes = " · ".join([p["change_label"], p["trigger"], *p["change_notes"]])
         lines.append(f"  - {notes} · {p.get('clause') or '공시 문구'}")
+        if p.get("pay_cap_won") is not None:
+            lines.append(f"    - 일반 보수 총한도 {p['pay_cap_won']:,}원 · 퇴직보상 자체 한도는 이 문구에서 미확인")
         if p.get("award_type"):
             lines.append(f"    - {p['award_type']} · {p['condition']} · {p['limit_formula_text']}")
             continue

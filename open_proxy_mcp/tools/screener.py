@@ -590,7 +590,7 @@ def _render_welfare_fund(p: dict[str, Any]) -> str:
 
 def _render_patterns(p: dict) -> str:
     paging = p["paging"]
-    lines = ["# 정관·주총 및 증권 발행 검토", "",
+    lines = ["# 공시 원문 기반 거버넌스 검토", "",
              f"{p['universe']['label']} · {p['period']['bgn_de']}~{p['period']['end_de']}",
              f"대상 공시 {paging['matched']}건 · 이번 페이지 {paging['returned']}건 · 단서가 있는 공시 {p['counts']['pattern_receipts']}건",
              p["pattern_note"]]
@@ -607,6 +607,8 @@ def _render_patterns(p: dict) -> str:
         for signal in hit["pattern_signals"]:
             lines.append(f"- {signal['label']} · {signal['filing_state']} · {signal['check']}")
             lines.extend(provision_lines(signal) + seat_lines(signal) + governance_detail_lines(signal))
+            for followup in signal.get("followups", []):
+                lines.append(f"  - [후속 공시]({followup['dart_url']}) · {followup['quote']}")
             if signal.get("quote") and not signal.get("provisions") and signal["pattern"] not in {"seat_wording", "staggered_terms"}:
                 lines.append(f"  - 원문 · {signal['quote']}")
             for ballot in signal.get("ballots", []):
@@ -616,10 +618,12 @@ def _render_patterns(p: dict) -> str:
             for change in signal.get("clauses", []):
                 lines.append(f"  - {change['clause']} · 변경 전 {change['before']} / 변경안 {change['after']}")
             terms = signal.get("terms", {})
-            fields = (("series", "회차"), ("amount_won", "권면총액(원)"), ("target_stock", "대상 주식"),
+            fields = (("series", "회차"), ("issuing_subsidiary", "발행 자회사"), ("amount_won", "권면총액(원)"), ("target_stock", "대상 주식"),
                       ("price_won", "가격(원)"), ("adjustment_floor_won", "최저 조정가액(원)"),
                       ("potential_shares", "대상 주식 수(주)"), ("reported_share_pct", "공시상 비율(%)"),
                       ("new_common_shares", "신규 보통주(주)"), ("existing_common_shares", "증자 전 보통주(주)"),
+                      ("call_limit_won", "콜옵션 취득한도(원)"), ("call_limit_pct", "콜옵션 대상 사채 비율(%)"),
+                      ("call_adjusted_max_shares", "전환가 조정 후 콜옵션 최대 주식 수(주)"),
                       ("method", "발행 방식"), ("charter_basis", "근거 조항"), ("call_option_excerpt", "콜옵션 문구"))
             values = [f"{label} {terms[key]}" for key, label in fields if key in terms]
             if values:
@@ -656,6 +660,7 @@ def register_tools(mcp):
         large_min_pct: float = 10.0,
     ) -> str:
         """desc: **전체시장 공시 스크리너 / 아침 공시 디제스트.** 직전 실행 이후~오늘 전종목에 뜬 주요 공시를 카드형으로 요약(기업명+시총+유형+단계+정정+DART 링크). 무인자 호출=오늘 아침 디제스트. scan(무엇이 떴나, 싸게)=디폴트, details=true면 필요 건만 문서 열어 유형별 핵심숫자(금액·분모%·DPS·안건·지분%).
+        governance_evidence: 배드 거버넌스·레드플래그·지난달 원문 단서는 view="거버넌스단서". 주총·보상, 사채 발행과 이행, 자기주식 EB, 계열사 보증·대여와 자회사 상장을 공시 본문에서 검색한다.
         when: "오늘/어제 무슨 공시 떴어", "최근 며칠/일주일 잠정실적 발표", 매일 아침 공시 브리핑, 전체시장 **영업(잠정)실적**·수주·자사주·배당·증자·주총·5%보유 훑기, 특정 유형만 필터, 시총상위/지정종목만. **「최근 N개월 공개매수 나온 회사」「요즘 공개매수 뭐 있어」(market-wide tender offers) = `types="공개매수"`** (카드마다 **공개매수자와 유형** — 대상회사 본인(자사주)·최대주주 또는 임원·계열사·기타 제3자, 회사/개인, 목적 체크 — 가 신고서 본문에서 붙는다; 제출인은 의견표명서에서 대상회사라 제안자가 아니다). 특정 회사 1곳 심층은 개별 tool(provisional_earnings·order_contracts·dividend_disclosure 등) — 공개매수 한 건의 가격·수량·기간·결과·대상회사 의견은 `proxy_contest(scope="tender_offer")`.
         types: `core`(**영업잠정실적**·수주·자사주·배당·증자CB·주총소집·5%보유) / `governance`(공개매수·위임장권유·최대주주변경·소송·자사주·5%보유·재편·주식양수도) / `all` / **사람 말 쉼표구분** — "자사주, 배당", "공개매수", "위임장", "거버넌스", "수주", "실적", "주총", "지분", "합병", "소송", "증자" 등. 코드도 그대로: earnings(잠정실적: 회계연도·기간·매출·영업익),order,treasury,dividend,dilutive,agm_notice,ownership5,agm_result,restructuring,stake_deal,control_change,litigation,insider10,tender_offer,proxy_solicitation.
         discovery: `discovery`(또는 「그 밖의 공시」) = **발견 전용 24유형** — 기본 디제스트·`all` 에 없고 이름을 불러야 나온다. 값은 뽑지 않고 제목·시총·접수번호만 주며, 본문은 카드의 접수번호로 `filing_section(rcept_no=…)` 를 부른다(거래소 서식도 「문서 전체」 절 하나로 열린다). 사람 말: 「주식병합」「액면분할」stock_split / 「확정실적」earnings_confirmed(매출·손익 30% 변동) / 「실적예고」earnings_schedule / 「공정공시」「실적전망」「가이던스」「경영계획」fair_disclosure / 「채무보증」「담보제공」「금전대여」guarantee_lending / 「시설투자」「유형자산」asset_deal / 「특수관계인」「내부거래」related_party / 「소유주식변동」major_holder_change / 「자사주결과」treasury_result / 「전환가액조정」「리픽싱」「만기전취득」「발행결과」「감자완료」「영구채」「권리락」capital_followup / 「합병종료」restructuring_followup / 「독립이사」「대표이사」officer_change / 「스톡옵션」stock_option / 「밸류업」value_up_plan / 「철회공시」「철회신고서」withdrawal_notice(증자·사채·합병 결정의 철회는 그 유형의 「철회/취소」 단계 카드로 나온다 — `types="증자"` 만 불러도 같이 훑는다) / 「합병신고서」「합병비율」merger_registration(합병·분할·주식교환 증권신고서 — 합병비율 근거·평가방법 요약표는 여기에) / 「경영권변경계약」control_contract(코스닥 「경영권 변경 등에 관한 계약 체결」) / 「자회사편입」「지주회사」holding_subsidiary(지주회사의 자회사 편입·탈퇴) / 「종속회사상장」「중복상장」「해외상장」subsidiary_listing(종속회사 상장 찬성 여부·주주영향평가·해외증권시장 상장 결정) / 「리츠배당」reit_dividend(부동산투자회사 금전배당 — 일반 배당 유형과 서식이 다르다) / 「감사보고서」audit_report(감사보고서 제출 — 감사의견이 처음 공개되는 공시. 3개년 감사의견은 `financial_metrics(scope="audit_opinion")`) / 「공모신고서」「증권신고서」equity_registration(지분증권 증권신고서 — 공모 유상증자·상장) / 「자율공시」voluntary_disclosure / 「임상」「품목허가」「기술이전」「투자판단」investment_judgment(바이오 임상시험 계획·승인·결과가 이 서식으로 온다 — 무엇에 관한 것인지는 카드의 공시명에, 내용·결정일은 `risk_events(category="investment_judgment", include_details=True)`). 「소각」은 자기주식(treasury)에 들어 있다(제목 「주식소각결정」).
@@ -677,6 +682,10 @@ def register_tools(mcp):
         kinds = pattern_types(types)
         if view.strip() in {"퇴직금", "특별퇴직금", "황금낙하산", "별도한도", "이사정원", "선임인원"}:
             pattern_view, kinds = True, pattern_types(view)
+        if (view or types).strip().lower() in {"거버넌스단서", "거버넌스 단서", "레드플래그", "governance_evidence"}:
+            from open_proxy_mcp.services.governance_disclosure_evidence import EXTRA_SOURCES
+            pattern_view = True
+            kinds = pattern_types("정관,제3자배정,CB,EB") | EXTRA_SOURCES.keys()
         if pattern_view or (not view and kinds):
             if not kinds:
                 if types.lower().strip() not in {"core", "all", "governance", ""}:

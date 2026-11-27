@@ -36,6 +36,7 @@ from typing import Any, Awaitable, Callable, Iterable
 
 from open_proxy_mcp.dart.client import DART_BATCH_HALT_STATUSES, DartClientError, dart_halts_batch, get_dart_client
 from open_proxy_mcp.services.dart_safety import DART_EXTERNAL_ERRORS
+from open_proxy_mcp.services.governance_disclosure_evidence import EXTRA_SOURCES, confirmed_followup, prior_audit_term
 from open_proxy_mcp.services.governance_patterns import ISSUE_KINDS, allotment_method_unknown, inspect_filing
 from open_proxy_mcp.services.amendment_table import card_summary, parse_amendment_table
 from open_proxy_mcp.services.tender_offer import TENDER_DOC_LOOKUPS, parse_tender_offer_document
@@ -1892,6 +1893,10 @@ async def _build_screener_payload_impl(
             continue
         if pattern_kinds:
             pattern_kind = "meeting" if type_code in {"agm_notice", "agm_result"} else ISSUE_KINDS.get(subtype)
+            if type_code in EXTRA_SOURCES and (EXTRA_SOURCES[type_code] is None or subtype in EXTRA_SOURCES[type_code]):
+                pattern_kind = type_code
+            if pattern_kind == "related_party" and "대여" not in it.get("report_nm", ""):
+                continue
             if pattern_kind not in pattern_kinds:
                 continue
         stock_code = (it.get("stock_code") or "").strip()
@@ -2065,6 +2070,22 @@ async def _build_screener_payload_impl(
     returned = page
     cards = [_finalize_card(h) for h in returned]
 
+    if pattern_kinds:
+        # The matching result can live on a different page. Index only public metadata.
+        results_by_company = {}
+        for item in hits:
+            if item["type"]["code"] == "agm_result" or (item["type"]["code"] == "capital_followup" and item["subtype"] in {"권리행사", "발행결과"}):
+                results_by_company.setdefault(item["corp_code"], []).append(item)
+        for card in cards:
+            source = card["type"]["code"]
+            if source not in {"agm_notice", "dilutive"}:
+                continue
+            candidates = [r for r in results_by_company.get(card["corp_code"], [])
+                          if r["filed_at"] >= card["filed_at"] and (
+                              r["type"]["code"] == "agm_result" if source=="agm_notice" else
+                              r["subtype"] == ("발행결과" if card["subtype"]=="유상증자" else "권리행사"))]
+            card["_followup_candidates"] = [(r["rcept_no"],r["title"]) for r in reversed(candidates)]
+
     no_new = len(hits) == 0
     status = "ok"
     if scan_status == "partial":
@@ -2192,7 +2213,7 @@ async def _screen_documents(client, page: dict):
     halted = any(code["error"] in DART_BATCH_HALT_STATUSES for code in page["coverage"])
     for card in page["hits"]:
         doc = {}
-        if not halted:
+        if not halted and not page.get("_halt_document_reads"):
             try:
                 doc = await client.get_document_cached(card["rcept_no"]) or {}
             except DART_EXTERNAL_ERRORS as exc:
@@ -2258,6 +2279,26 @@ def pattern_types(types: str) -> frozenset[str]:
     return (result - {"retirement"}) | {"control_severance", "retirement_limit"} if "retirement" in result else result
 
 
+async def _attach_prior_term(client, card, signal, cutoff):
+    day = date.fromisoformat(signal["meeting_date"])
+    cutoff = min(date.fromisoformat(cutoff), day - timedelta(days=1))
+    year_ago = cutoff - timedelta(days=370)
+    result = await client.search_filings(corp_code=card["corp_code"], pblntf_ty="A",
+                                         bgn_de=year_ago.strftime("%Y%m%d"), end_de=cutoff.strftime("%Y%m%d"))
+    reports = sorted((r for r in result.get("list", []) if re.search(r"(분기|반기|사업)보고서", r.get("report_nm", ""))
+                      and "첨부정정" not in r["report_nm"] and r.get("rcept_dt", "") <= cutoff.strftime("%Y%m%d")),
+                     key=lambda r: r["rcept_dt"], reverse=True)
+    if reports:
+        report = reports[0]
+        doc = await client.get_document_cached(report["rcept_no"]) or {}
+        term = prior_audit_term(doc.get("html", ""), signal)
+        if term:
+            signal["prior_term"] = {"end": term, "ends_after_meeting": term > signal["meeting_date"],
+                                    "rcept_no": report["rcept_no"], "dart_url": _DART_VIEWER.format(r=report["rcept_no"])}
+            return
+    signal["prior_term_status"] = "unverified"
+
+
 async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
     """Read the exact receipt of every candidate on this page, including later corrections."""
     selected = []
@@ -2267,8 +2308,9 @@ async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
         source_kinds = (kinds - meeting_filters) | {"meeting"}
     if "meeting" in source_kinds:
         selected.extend(["agm_notice", "agm_result"])
-    if source_kinds - {"meeting"}:
+    if source_kinds & set(ISSUE_KINDS.values()):
         selected.append("dilutive")
+    selected.extend(code for code in EXTRA_SOURCES if code in source_kinds)
     kwargs["max_hits"] = max(1, min(kwargs.get("max_hits", 30), 30))
     client = get_dart_client()
     calls = client.api_call_snapshot()
@@ -2278,11 +2320,47 @@ async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
     page["view"] = "governance_patterns"
     page["pattern_kinds"] = sorted(kinds)
     any_missing = False
+    supplemental = {}
+    halt_supplement = False
     async for card, doc in _screen_documents(client, page):
         readable = bool(doc.get("text"))
         signals = inspect_filing(card["title"], doc) if readable else []
-        if kinds & meeting_filters and "meeting" not in kinds:
+        if kinds & meeting_filters and "meeting" not in kinds and card.get("type", {}).get("code", "agm_notice") in {"agm_notice", "agm_result"}:
             signals = [s for s in signals if s["pattern"] in kinds]
+        candidates = card.pop("_followup_candidates", [])
+        eligible = [s for s in signals if s["pattern"] in {"conversion_advanced","third_party_allotment","seat_wording","control_severance","retirement_limit","allotment_authority"}]
+        if eligible:
+            for rc, title in candidates[:6]:
+                if halt_supplement or (rc not in supplemental and len(supplemental)>=12):
+                    break
+                if rc not in supplemental:
+                    try:
+                        followup = await client.get_document_cached(rc) or {}
+                        supplemental[rc] = inspect_filing(title, followup) if followup.get("text") else []
+                    except DART_EXTERNAL_ERRORS as exc:
+                        halt_supplement = dart_halts_batch(exc)
+                        supplemental[rc] = []
+                for signal in eligible:
+                    if quote := confirmed_followup(signal, doc, supplemental[rc]):
+                        signal.setdefault("followups", []).append({"rcept_no":rc, "dart_url":_DART_VIEWER.format(r=rc),"quote":quote})
+            for signal in eligible:
+                if candidates and not signal.get("followups"):
+                    signal["followup_status"] = "unverified"
+        for signal in signals:
+            if signal["pattern"] == "audit_reappointment" and signal.get("candidate_name") and signal.get("meeting_date"):
+                signal["prior_term_status"] = "unverified"
+                if not halt_supplement:
+                    try:
+                        await _attach_prior_term(client, card, signal, page["period"]["end_de"])
+                    except DART_EXTERNAL_ERRORS as exc:
+                        halt_supplement = dart_halts_batch(exc)
+                    if signal.get("prior_term"):
+                        signal["prior_term_status"] = "matched"
+        if halt_supplement and not page.get("_halt_document_reads"):
+            page["_halt_document_reads"] = True
+            page["warnings"].append("DART 추가 조회가 중단되어 이후 문서와 후속 공시를 확인하지 못했습니다.")
+        if signals and card.get("interpretation") == "discovery_only":
+            card.update(interpretation="source_evidence", signal_basis="filing_body")
         card["pattern_signals"] = signals
         card["pattern_read_status"] = "read" if readable else "unassessed"
         if readable and not signals and (card["is_correction"] or card["stage"] == "철회/취소"):
@@ -2293,6 +2371,7 @@ async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
     if page["status"] == "ok" and (any_missing or any(not s["complete"] for s in page["coverage"])):
         page["status"] = "partial"
     page["usage"] = build_usage(client.api_call_snapshot() - calls)
+    page.pop("_halt_document_reads", None)
     page["pattern_note"] = "이번 페이지의 공시 원문에서 찾은 검토 후보입니다. 정정·철회, 정관 효력, 실제 표결·납입·교부는 회사별로 확인합니다."
     page["counts"]["pattern_receipts"] = sum(bool(card["pattern_signals"]) for card in page["hits"])
     return page

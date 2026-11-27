@@ -284,3 +284,52 @@ def test_discretion_on_each_directors_term_belongs_to_the_term_clause():
 def test_exchange_issuer_and_target_annotation(target, expected):
     from open_proxy_mcp.services.governance_patterns import _exchange_target
     assert _exchange_target('<COMPANY-NAME>(주)가람</COMPANY-NAME>', target) == expected
+
+
+def test_total_pay_limit_is_not_an_extra_retirement_limit():
+    cap = "이사 전원에게 지급하는 보수의 연간 총액 한도는 [ 이십억 ] 원으로 한다."
+    clause = "임원퇴직금지급규정에 따라 지급되는 퇴직금이나 특별공로금은 포함하지 아니한다."
+    def check(body):
+        return {s["pattern"]: s for s in inspect_filing("주주총회소집공고", document(body))}
+    p, = check("<TABLE><TR><TD>" + cap + " 제4조 " + clause + "</TD></TR></TABLE>")["retirement_limit"]["provisions"]
+    assert p["outside_pay_limit"] and not p["separate_limit"] and not p["limit_amount_text"]
+    assert p["pay_cap_won"] == 2_000_000_000
+    assert not check(cap + clause.replace("포함하지 아니한다", "포함한다"))
+    assert not check(cap + " 이사의 퇴직금은 별도 규정에 따른다.")
+
+
+def test_distinguish_actual_board_rejection_and_bundling_from_future_conditional_vote():
+    def kinds(text):
+        return {s["pattern"] for s in inspect_filing("주주총회소집결의", document(text))}
+    assert kinds("주주 10명이 제1호 의안을 청구했습니다. 이사회에서 부결되어 주주총회 안건으로 상정되지 않았습니다.") == {"proposal_not_tabled"}
+    assert kinds("일부 조항만 가결될 경우 조문 정합성을 위해 하나의 의안으로 상정합니다.") == {"bundled_amendments"}
+    assert kinds("제1호 의안이 가결될 경우 제2호 의안은 폐기한다.") == {"conditional_ballot"}
+    assert not kinds("주주제안이 이사회에서 가결되어 주주총회 안건으로 상정되었습니다.")
+
+
+def test_exercise_matches_only_same_bond_and_current_conversion_date():
+    from open_proxy_mcp.services.governance_disclosure_evidence import confirmed_followup
+    issue = {"pattern":"conversion_advanced", "series":"3", "after_date":"2026-11-13"}
+    exercises = [{"pattern":"conversion_exercised","exercises":[
+        {"date":"2026-11-20","series":"4","amount":"900원","shares":"99"},
+        {"date":"2026-11-12","series":"3","amount":"850원","shares":"88"},
+        {"date":"2026-11-20","series":"3","amount":"200원","shares":"20"}]}]
+    quote = confirmed_followup(issue, {}, exercises)
+    assert "200원" in quote and "900원" not in quote and "850원" not in quote
+
+
+def test_treasury_exchange_does_not_report_compensation_or_superseded_quantity():
+    def read(text):
+        return inspect_filing("[기재정정]자기주식처분결과보고서", document(text))
+    assert not read("자기주식을 임직원에게 지급한다. 처분목적 주식보상.")
+    source = ("정정 전 100주는 교환청구된 것으로 간주하였다. 1. 발행인의 명칭 및 주소 "
+              "교환대상 자기주식 중 50주는 교환청구된 것으로 간주하였다. 잔여 50주는 환입 예정이다.")
+    signal, = read(source)
+    assert "50주는 교환청구" in signal["quote"] and "100주는" not in signal["quote"]
+
+
+def test_call_option_ceiling_is_distinct_from_whole_bond():
+    html = '<TE ACODE="OPT_FCT">매도청구권. 취득규모: 최대 3,000원(Call Option 30%). 전환가액 조정 후에는 최대 250주까지 취득 가능하다.</TE>'
+    terms = inspect_filing("전환사채권발행결정", document(html))[0]["terms"]
+    assert (terms["call_limit_won"], terms["call_limit_pct"], terms["call_adjusted_max_shares"]) == ("3,000", "30", "250")
+    assert "reported_share_pct" not in terms
