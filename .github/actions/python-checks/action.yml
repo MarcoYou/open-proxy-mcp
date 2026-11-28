@@ -24,6 +24,9 @@ runs:
         uv run python scripts/wiki_lint.py --strict
         uv run python scripts/check_documentation_contract.py
         uv run python scripts/output_vocab_lint.py
+    - name: Install Korean chart font used in production
+      shell: bash
+      run: sudo apt-get install -y --no-install-recommends fonts-nanum
     - name: Run unit and regression tests
       shell: bash
       run: uv run pytest -q

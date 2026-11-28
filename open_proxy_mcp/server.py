@@ -108,6 +108,10 @@ def build_mcp() -> MCPServer:
         instructions=(
             "Korean-listed company disclosure (DART) analysis. Natural-language questions "
             "work — you don't need tool names. Answer in the user's language.\n\n"
+            "When someone asks to see a chart, use the matching tool with format=chart. "
+            "For ownership before and after a share transfer, request the transfer donut. "
+            "Find the filing from the company and period yourself. If several different agreements fit, "
+            "distinguish them by date and parties in the user's language.\n\n"
             "Resolve a company once with `company` and pass the returned name, ticker, and "
             "corp_code downstream; otherwise every tool re-resolves the name.\n\n"
             "Read `status` and `warnings` before answering — they carry resolution confidence, "

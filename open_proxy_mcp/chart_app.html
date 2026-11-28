@@ -105,7 +105,11 @@ window.addEventListener("message", event => {
 });
 new ResizeObserver(resize).observe(document.querySelector("main"));
 function openaiResult(globals) {
-  if (globals) render({_meta:globals.toolResponseMetadata, structuredContent:globals.toolOutput});
+  if (!globals) return;
+  const metadata = globals.toolResponseMetadata;
+  if (metadata?.["opm/chart"]) render({_meta:metadata});
+  else if (metadata?._meta || metadata?.content) render(metadata);
+  else if (!groups.length && globals.toolOutput) render({structuredContent:globals.toolOutput});
 }
 window.addEventListener("openai:set_globals", event => openaiResult(event.detail?.globals));
 openaiResult(window.openai);
