@@ -1,8 +1,10 @@
 """Report figures made from one completed tool response; no queries or result storage."""
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from functools import lru_cache, partial
 from io import BytesIO
 from math import isfinite, nan
@@ -451,10 +453,109 @@ def _annual_finance(p, *, cash_flow):
     return fig, f"**{title}** · {note}\n\n" + _table(headers, table)
 
 
+def _transfer_stakes(table):
+    """Read both sides from the same filing grid. Never normalise overlapping or missing stakes."""
+    cols = ["".join(c.split()) for c in table.get("columns", [])]
+    def index(prefix):
+        matches = [i for i, c in enumerate(cols) if c.startswith(prefix)]
+        if len(matches) != 1:
+            raise ValueError("지분 표 열 미확인")
+        return matches[0]
+    name_i = index("성명")
+    sides = [(index(s + "주식수"), index(s + "지분율")) for s in ("변경전", "변경후")]
+    names = set()
+    stakes = []
+    for row in table.get("rows", []):
+        name = row[name_i].strip()
+        compact = "".join(name.split())
+        if not name or compact in names or compact in {"-", "합계", "총계", "소계", "계"} or re.search(r"외\d+(?:명|인)", compact):
+            raise ValueError("보유자 중복 또는 합산 행")
+        names.add(compact)
+        pair = []
+        for share_i, pct_i in sides:
+            text = row[pct_i].strip().removesuffix("%").strip()
+            if text in {"-", "—", "–"} and row[share_i].strip() == "0":
+                text = "0"
+            value = Decimal(text)
+            if not value.is_finite() or not 0 <= value <= 100:
+                raise ValueError("지분율 범위")
+            pair.append(value)
+        stakes.append((name, *pair))
+    if not stakes:
+        raise ValueError("변경 전후 지분 표 없음")
+    remaining = [100 - sum(r[i] for r in stakes) for i in (1, 2)]
+    if min(remaining) < 0:
+        raise ValueError("지분율 합계 초과")
+    return [*stakes, ("그 밖의 지분", *remaining)]
+
+
+def _transfer_donut(p):
+    data = p["data"]
+    receipt = p.get("chart_rcept_no")
+    events = [e for e in data.get("control_events", []) if e.get("kind") == "transfer_contract"
+              and (not receipt or e.get("rcept_no") == receipt)]
+    if len(events) > 1:
+        return None, "계약 공시가 여러 건입니다. 표시할 원공시 또는 정정공시의 rcept_no를 선택하세요.\n\n" + _table(
+            ["접수번호", "공시명"], [(e["rcept_no"], e.get("report_nm", "")) for e in events])
+    if not events:
+        return None, "조회 범위에서 해당 주식양수도 계약 체결 공시를 찾지 못했습니다. 회사·기간·접수번호를 확인하세요."
+    event = events[0]
+    receipt = event["rcept_no"]
+    link = f"[DART 원문 {receipt}](https://dart.fss.or.kr/dsaf001/main.do?rcpNo={receipt})"
+    try:
+        stakes = _transfer_stakes(event.get("holders") or {})
+    except (IndexError, ValueError, InvalidOperation):
+        return None, f"전후 지분율을 중복 없이 확인할 수 없어 도넛을 생략했습니다. {link}"
+    fields = event.get("fields") or {}
+    expected = fields.get("expected_holder") or (fields.get("transferee") or {}).get("name") or ""
+    def norm(s):
+        return "".join(s.replace("㈜", "(주)").split())
+    focus = next((i for i, r in enumerate(stakes[:-1]) if norm(r[0]) == norm(expected)), None)
+    # Retain all original rows in the accompanying table; keep both rings readable for long registers.
+    table = _table(["보유자", "계약 전", "계약 이행 예정"], [
+        (n, f"{a}%", f"{b}%") for n, a, b in stakes])
+    if len(stakes) > 7:
+        ranked = sorted(range(len(stakes) - 1), key=lambda i: (i != focus, -max(stakes[i][1:])))
+        selected = sorted(ranked[:5])
+        shown = [stakes[i] for i in selected]
+        shown.append(("그 밖의 지분", *(100 - sum(r[i] for r in shown) for i in (1, 2))))
+        focus = selected.index(focus) if focus is not None else None
+    else:
+        shown = stakes
+    palette = iter((_REFERENCE, "#A77C48", "#69779F", "#53806C", "#996981", "#68868D"))
+    colors = [_PRIMARY if i == focus else next(palette) for i in range(len(shown)-1)] + [_RULE]
+    company = data.get("canonical_name") or p["subject"]
+    title = f"{company} · 주식양수도 계약 전후 지분율"
+    fig = _figure(title, height=4.3 + .32*len(shown), width=8)
+    grid = fig.add_gridspec(2, 2, height_ratios=[2.25, .40*len(shown)+.6])
+    for i, heading in enumerate(("계약 전", "계약 이행 예정"), 1):
+        ax = fig.add_subplot(grid[0, i-1])
+        ax.set_title(heading, fontsize=12, weight="bold")
+        ax.pie([float(r[i]) for r in shown], colors=colors, startangle=90, counterclock=False,
+               wedgeprops=dict(width=.27, edgecolor=_SURFACE, linewidth=.8))
+        if focus is not None:
+            ax.text(0, .06, f"{shown[focus][i]}%", ha="center", color=_PRIMARY, fontsize=15, weight="bold")
+            ax.text(0, -.13, "변경예정 최대주주" if fields.get("expected_holder") else "양수인", ha="center", fontsize=8, color=_MUTED)
+    ax = fig.add_subplot(grid[1, :])
+    ax.axis("off")
+    ax.set(xlim=(0, 1), ylim=(-.4, len(shown)+.7))
+    for x, label in ((.03, "보유자"), (.65, "계약 전"), (.95, "계약 이행 예정")):
+        ax.text(x, len(shown), label, ha="left" if x < .1 else "right", fontsize=9, color=_MUTED)
+    for j, (name, before, after) in enumerate(shown):
+        y = len(shown) - j - 1
+        ax.scatter(.04, y, color=colors[j], s=50)
+        ax.text(.065, y, fill(name, 25), va="center", fontsize=9)
+        for x, value in ((.65, before), (.95, after)):
+            ax.text(x, y, f"{value}%", ha="right", va="center", fontsize=10)
+    source = f"DART {receipt} · 공시상 예정 지분 · 그 밖의 지분은 잔여분"
+    fig.supxlabel(source, fontsize=9, color=_MUTED)
+    return fig, f"**{title}** · {source}\n\n{table}\n\n{link}"
+
+
 def render_chart(name, payload):
     renderer = {"performance_analysis": _performance, "dividend_data": _dividend, "corp_gov_report": _governance,
                 "shareholder_meeting_results": _vote_results, "ownership_structure": _block_ownership,
-                "treasury_share": _treasury, "quarterly_performance": _quarterly_performance,
+                "transfer_donut": _transfer_donut, "treasury_share": _treasury, "quarterly_performance": _quarterly_performance,
                 "cash_flow": partial(_annual_finance, cash_flow=True),
                 "cash_debt": partial(_annual_finance, cash_flow=False)}[name]
     with _LOCK, mpl.rc_context({"font.family": _font(), "text.parse_math": False, "axes.unicode_minus": False,
@@ -468,6 +569,8 @@ def render_chart(name, payload):
         if result is None:
             return None
         fig, summary = result
+        if fig is None:
+            return None, summary
         out = BytesIO()
         FigureCanvasAgg(fig).print_png(out)
         return out.getvalue(), summary

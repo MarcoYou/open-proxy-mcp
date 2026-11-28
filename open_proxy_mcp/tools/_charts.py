@@ -6,6 +6,7 @@ import base64
 import functools
 import json
 import logging
+import re
 
 from mcp.types import CallToolResult, ImageContent, TextContent
 
@@ -47,11 +48,22 @@ def with_chart_output(fn):
             if name not in _FINANCIAL_SCOPES:
                 return "재무 차트는 chart=quarterly_performance, cash_flow, cash_debt 중에서 선택하세요."
             chart_scope = _FINANCIAL_SCOPES[name]
+        receipt = kwargs.get("rcept_no") or ""
+        if name == "ownership_structure":
+            chart = kwargs.get("chart") or ("transfer_donut" if scope == "changes" or receipt else "blocks")
+            if chart == "transfer_donut":
+                name, chart_scope = chart, "changes"
+                if receipt and not re.fullmatch(r"[0-9]{14}", receipt):
+                    return "계약 공시의 접수번호 14자리를 입력하세요."
+            elif chart != "blocks" or receipt:
+                return "지분 차트는 blocks 또는 transfer_donut 중에서 선택하세요. 접수번호는 계약 도넛에서 사용합니다."
         if scope not in (default, chart_scope):
             return f"이 도구의 차트는 `{chart_scope}` 조회에서 제공합니다. 다른 조회는 format=md 또는 json을 사용하세요."
         query = {**kwargs, "format": "json"}
         if chart_scope is not None:
             query["scope"] = chart_scope
+        if name == "transfer_donut" and receipt and not (query.get("start_date") or query.get("end_date")):
+            query.update(start_date=receipt[:8], end_date=receipt[:8])
         raw = await fn(*args, **query)
         try:
             payload = json.loads(raw)
@@ -60,7 +72,8 @@ def with_chart_output(fn):
         if payload.get("status") not in {"ok", "exact", "partial"}:
             return raw
         try:
-            result = await asyncio.to_thread(_render, name, payload)
+            render_input = {**payload, "chart_rcept_no": receipt} if name == "transfer_donut" else payload
+            result = await asyncio.to_thread(_render, name, render_input)
         except Exception:
             logging.getLogger(__name__).exception("Could not render %s chart", fn.__name__)
             result = None
@@ -72,9 +85,9 @@ def with_chart_output(fn):
             summary += f"\n\n⚠ {warning}"
         for notice in payload.get("notices", []):
             summary += f"\n\n📢 {notice.get('body', '')}"
-        return CallToolResult(content=[
-            ImageContent(type="image", mime_type="image/png", data=base64.b64encode(png).decode("ascii")),
-            TextContent(type="text", text=summary),
-        ], structured_content={"result": raw})
+        content = [TextContent(type="text", text=summary)]
+        if png is not None:
+            content.insert(0, ImageContent(type="image", mime_type="image/png", data=base64.b64encode(png).decode("ascii")))
+        return CallToolResult(content=content, structured_content={"result": raw})
 
     return call

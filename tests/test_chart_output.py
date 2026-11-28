@@ -149,3 +149,43 @@ def test_financial_chart_selects_one_query_and_rejects_conflicting_scope():
     assert "yearly" in asyncio.run(tool(format="chart", chart="cash_flow", scope="quarterly"))
     assert "선택" in asyncio.run(tool(format="chart", chart="unknown"))
     assert len(calls) == 3
+
+
+def test_transfer_donut_uses_report_grid_including_adjacent_zero_cells():
+    from pathlib import Path
+    from open_proxy_mcp.services.chart_images import _transfer_donut
+    from open_proxy_mcp.services.control_change import event_from_document
+
+    original = next((Path(__file__).parent / "dart_responses/dart").glob("control_transfer_contract*"))
+    event = event_from_document({"report_nm": "최대주주변경을수반하는주식양수도계약체결",
+                                 "rcept_no": "20260915900001"}, original.read_text())
+    payload = {"subject": "회사", "data": {"control_events": [event]}}
+    fig, text = _transfer_donut(payload)
+    assert "파마앤바이오 신기술조합 | 0% | 27.84%" in text
+    assert [ax.get_title() for ax in fig.axes[:2]] == ["계약 전", "계약 이행 예정"]
+    assert len(fig.axes[0].patches) == len(fig.axes[1].patches) == 5
+    assert "그 밖의 지분" in text
+
+
+def test_transfer_donut_selects_exact_receipt_and_never_fabricates_missing_stakes():
+    from open_proxy_mcp.services.chart_images import _transfer_donut
+    columns = ["성명", "관계", "변경전 주식수", "변경전 지분율", "변경후 주식수", "변경후 지분율"]
+    row = ["양수인", "", "0", "-", "35", "35"]
+    event = {"kind": "transfer_contract", "rcept_no": "20260630900888", "fields": {},
+             "holders": {"columns": columns, "rows": [row]}}
+    other = dict(event, rcept_no="20260630901591")
+    payload = {"subject": "회사", "data": {"control_events": [other, event]}}
+    fig, text = _transfer_donut(payload)
+    assert fig is None and all(e["rcept_no"] in text for e in (event, other))
+    payload["chart_rcept_no"] = event["rcept_no"]
+    fig, text = _transfer_donut(payload)
+    assert fig is not None and other["rcept_no"] not in text
+    assert "양수인 | 0% | 35%" in text
+    for shares, pct in (("1", "-"), ("0", ""), ("1", "105"), ("1", "NaN")):
+        row[2:4] = [shares, pct]
+        assert _transfer_donut(payload)[0] is None
+    row[2:4] = ["1", "90"]
+    event["holders"]["rows"].append(["다른 주주", "", "1", "20", "2", "2"])
+    assert _transfer_donut(payload)[0] is None
+    payload["chart_rcept_no"] = "20260630900000"
+    assert _transfer_donut(payload)[0] is None

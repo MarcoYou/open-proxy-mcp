@@ -207,7 +207,9 @@ def parse_control_document(html: str, kind: str) -> dict[str, Any]:
         if "정정전" in head or any("정정전" in compact(c) for r in g for c in r):
             continue
         if "성명" in head and "관계" in head:
-            out["holders"] = _table(g)
+            # Equal adjacent cells (e.g. zero shares and zero percent) are independent columns.
+            cols, start = _columns(g)
+            out["holders"] = {"columns": cols, "rows": [r for r in g[start:] if any(compact(c) not in ("", "-") for c in r)]}
         elif "채권자" in head:
             out["pledges"] = _table(g)
         elif "담보권실행조건" in head:
