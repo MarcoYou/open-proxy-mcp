@@ -215,3 +215,17 @@ def test_widget_groups_the_same_holder_across_both_contract_rings():
     assert len([m for m in shapes if m["group"] == 0 and "path" in m]) == 2
     assert len([m for m in shapes if m["group"] == 1 and "path" in m]) == 1
     assert len([m for m in shapes if m["group"] == 1 and "rect" in m]) == 3
+
+
+def test_widget_price_table_keeps_each_trading_day_and_missing_benchmark():
+    rows = [{"dd": f"202603{day:02}", "cum_pct": day - 1, "bench_cum_pct": None}
+            for day in range(1, 9)]
+    data = {"target": {"label": "A"}, "relative": {"benchmark": "B"}, "series": rows,
+            "period": {"start": rows[0]["dd"], "end": rows[-1]["dd"]},
+            "coverage": {"dividend": {"basis": "price"}}}
+    fig, summary = _performance({"data": data})
+    table = fig.chart_marks.table
+    assert table["columns"] == ["거래일", "A", "B"]
+    assert [row[0] for row in table["rows"]] == [day["dd"] for day in rows]
+    assert table["rows"][1] == ("20260302", "1.00%", "자료 없음")
+    assert "20260302" not in summary

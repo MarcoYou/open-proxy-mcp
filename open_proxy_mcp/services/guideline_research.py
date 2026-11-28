@@ -103,7 +103,7 @@ async def discover_guideline_context(client, corp_code: str, as_of: str,
                                      include_meeting_results: bool = False,
                                      allow_same_day: bool = False,
                                      include_officer_changes: bool = False,
-                                     review_patterns: bool | Literal["퇴직금", "이사정원"] = False) -> dict:
+                                     review_patterns: bool | Literal["퇴직금", "이사정원", "정관"] = False) -> dict:
     """Return cross-filing context with explicit, finite discovery boundaries.
 
     Pre-meeting callers exclude same-day filings and meeting results by default.
@@ -208,9 +208,12 @@ async def discover_guideline_context(client, corp_code: str, as_of: str,
     matches = sorted(by_receipt.values(), key=lambda row: (
         priority.get(row["family"], len(priority)), review_patterns and row["document_role"] == "권리행사",
         -int(row["published"]), -int(row["rcept_no"])))
-    selected = _select_diverse(matches)
+    selected = _select_diverse([row for row in matches if row["family"] in {"meeting_notice", "meeting_results"}]
+                               if review_patterns == "정관" else matches)
     review_options = ({"review_titles": {r["rcept_no"]: r["report_nm"] for r in selected}}
                       if include_meeting_results or review_patterns else {})
+    if review_patterns == "정관":
+        review_options["charter_view"] = True
     documents = await collect_supplemental_filings(client, [r["rcept_no"] for r in selected], as_of, **review_options)
     filings = [{**row, **doc, "discovery": "company_context", "purpose": "company_context"}
                for row, doc in zip(selected, documents)]

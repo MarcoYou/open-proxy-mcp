@@ -504,7 +504,7 @@ def disclosure_delta(discovery: dict, since: str, known_receipts: list[str]) -> 
 async def _build_governance_screen_payload_impl(
     companies: list[str], *, as_of: str = "", governance_assessments: list[dict] | None = None,
     evidence_sources: list[dict] | None = None, review_materiality: str = "moderate",
-    since: str = "", known_receipts: list[str] | None = None, pattern_review: bool | Literal["퇴직금", "이사정원"] = False,
+    since: str = "", known_receipts: list[str] | None = None, pattern_review: bool | Literal["퇴직금", "이사정원", "정관"] = False,
 ) -> dict:
     if (not isinstance(companies, list) or not 1 <= len(companies) <= 30
         or any(not isinstance(c, str) or not c.strip() for c in companies)):
@@ -563,10 +563,15 @@ async def _build_governance_screen_payload_impl(
             elif query in groups:
                 try:
                     options = {"review_titles": {r["rcept_no"]: r["report_nm"] for r in discovery.get("matches", [])}} if pattern_review else {}
+                    if pattern_review == "정관":
+                        options["charter_view"] = True
                     supplemental = await collect_supplemental_sources(client, groups[query], as_of, **options)
                 except Exception:
                     source_errors.append("invalid_or_unavailable_supplemental_sources")
             task = build_governance_task(company, as_of, discovery, supplemental, review_materiality)
+            if pattern_review == "정관":
+                from .charter_vote_view import charter_meetings
+                row["charter_meetings"] = charter_meetings([*discovery.get("filings", []), *supplemental])
             # A failed requested source group must affect identity, rather than
             # silently accepting a task produced from a smaller source request.
             if source_errors:

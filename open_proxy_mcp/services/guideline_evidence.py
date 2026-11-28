@@ -290,7 +290,7 @@ async def discover_officer_filings(client, corp_code: str, as_of: str,
 
 
 async def collect_supplemental_filings(client, rcepts: list[str], as_of: str, *,
-                                       review_titles: dict[str, str] | None = None) -> list[dict]:
+                                       review_titles: dict[str, str] | None = None, charter_view: bool = False) -> list[dict]:
     """Read explicitly supplied public DART filings, never arbitrary URLs."""
     if len(rcepts) > 5 or len(set(rcepts)) != len(rcepts):
         raise ValueError("guideline_evidence_rcepts: at most five unique filings")
@@ -313,12 +313,15 @@ async def collect_supplemental_filings(client, rcepts: list[str], as_of: str, *,
         if text and review_titles is not None:
             from open_proxy_mcp.services.governance_patterns import inspect_filing
             item["pattern_signals"] = inspect_filing(review_titles.get(rc, ""), doc)
+            if charter_view:
+                from .charter_vote_view import charter_document
+                item["charter_document"] = charter_document(review_titles.get(rc, ""), doc)
         results.append(item)
     return results
 
 
 async def collect_supplemental_sources(client, sources: list[dict], as_of: str, *,
-                                       review_titles: dict[str, str] | None = None) -> list[dict]:
+                                       review_titles: dict[str, str] | None = None, charter_view: bool = False) -> list[dict]:
     """Explicit public source adapters: DART XML or fixed KRX KIND HTML pages.
 
     KIND is for identified exchange-source documents, not an arbitrary web
@@ -380,6 +383,8 @@ async def collect_supplemental_sources(client, sources: list[dict], as_of: str, 
 
         if src["type"] == "dart":
             options = {"review_titles": review_titles} if review_titles is not None else {}
+            if charter_view:
+                options["charter_view"] = True
             result = (await collect_supplemental_filings(client, [src["rcept_no"]], as_of, **options))[0]
             record({**result, "source_id": f"filing:{src['rcept_no']}"})
             continue

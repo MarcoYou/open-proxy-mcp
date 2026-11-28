@@ -12,11 +12,35 @@ main{padding:8px 12px;max-width:1000px;margin:auto}#plot{width:100%;height:auto;
 select{font:inherit;max-width:100%;min-height:36px;border:1px solid #829699;background:#fff;color:inherit;border-radius:4px}
 output{display:block;font-variant-numeric:tabular-nums;font-weight:600;margin:.4em 0;color:#164f62;min-height:1.5em}
 pre{margin:.4em 0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}#notes:empty{display:none}
+[hidden]{display:none!important}
+main{max-width:660px;margin:0 auto;padding:6px 10px}
+body{font-size:14px;line-height:1.45}
+h2,h3,h4,p{margin:0}h2{font-size:18px}h3{font-size:16px}h4{font-size:14px}
+select,button{font:inherit;color:inherit;border:1px solid #bac8c8;border-radius:5px;background:white;min-height:30px}
+button{cursor:pointer;padding:3px 10px}
+button[aria-pressed=true]{background:#e0efed;color:#173f42;border-color:#658c87;font-weight:650}
+button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #19687b;outline-offset:2px}
+.switch,.chips{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+.controls{padding-top:5px}.controls select{min-height:30px}
+output:empty{display:none}
+#chart-scroll,#data-table{max-height:395px;overflow:auto}
+#data-table{margin:6px 0}table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+caption{text-align:left;font-size:15px;font-weight:650;padding:4px 0 8px}
+th,td{text-align:start;vertical-align:top;border-bottom:1px solid #e0e6e3;padding:5px 8px}
+th{position:sticky;top:0;background:#eff4f1}tbody tr:nth-child(even){background:#f8faf8}
+#charter select{margin:5px 0;max-width:100%}.columns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 10px}
+.columns>div{border-top:2px solid #b5c7c5;padding-top:5px;min-width:0}.columns p{margin:3px 0;overflow-wrap:anywhere}
+.removed{color:#933d32;background:#fcf0eb;border-left:2px solid #bd7569;padding:2px 5px}
+.ballot{border-top:1px solid #cad6d2;margin-top:10px;padding:8px 0}.ballot a{margin-right:14px;color:#155a69}
+.muted{color:#526462}.ballot .muted{margin-top:5px}
+@media(max-width:450px){main{padding:5px 7px}.columns{grid-template-columns:1fr;gap:5px}.chips button{font-size:13px}}
 </style>
 <main><pre id="status" role="status">차트를 불러오는 중…</pre>
-<section id="chart" hidden><svg role="img" id="plot"></svg>
+<section id="charter" hidden></section>
+<section id="chart" hidden><div class="switch" id="chart-switch" role="group" aria-label="보기 방식"><button id="as-chart" aria-pressed="true">차트</button><button id="as-table" aria-pressed="false">표</button></div>
+<div id="drawing"><div id="chart-scroll"><svg role="img" id="plot"></svg></div>
 <div class="controls"><label for="choice">항목 선택</label><select id="choice"></select></div>
-<output id="detail" for="choice" aria-live="polite"></output><pre id="notes"></pre></section></main>
+<output id="detail" for="choice" aria-live="polite"></output></div><div id="data-table" role="region" aria-label="차트 데이터 표" tabindex="0" hidden></div><pre id="notes"></pre></section></main>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -89,7 +113,139 @@ function copyVector(source, parent) {
   }
   parent.append(node);
 }
+function textNode(tag, text, className) {
+  const node = document.createElement(tag);
+  node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+function button(label, action, pressed) {
+  const node = textNode("button", label);
+  node.type = "button";
+  if (pressed !== undefined) node.setAttribute("aria-pressed", String(pressed));
+  node.addEventListener("click", action);
+  return node;
+}
+function displayTable(table, title) {
+  const element = document.createElement("table");
+  element.append(textNode("caption", title));
+  const header = element.createTHead().insertRow();
+  for (const name of table.columns) {
+    const cell = textNode("th", name);
+    cell.scope = "col";
+    header.append(cell);
+  }
+  const body = element.createTBody();
+  for (const values of table.rows) {
+    const row = body.insertRow();
+    for (const value of values) row.insertCell().textContent = value ?? "—";
+  }
+  el("data-table").replaceChildren(element);
+}
+function chartMode(tableOpen) {
+  el("drawing").hidden = tableOpen;
+  el("data-table").hidden = !tableOpen;
+  el("as-chart").setAttribute("aria-pressed", String(!tableOpen));
+  el("as-table").setAttribute("aria-pressed", String(tableOpen));
+}
+el("as-chart").onclick = () => chartMode(false);
+el("as-table").onclick = () => chartMode(true);
+function filingLink(label, receipt) {
+  if (!/^\d{14}$/.test(receipt || "")) return textNode("span", "");
+  const link = textNode("a", label);
+  link.href = "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + receipt;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  return link;
+}
+function clauseColumn(label, text, after) {
+  const container = document.createElement("div");
+  container.append(textNode("h4", label));
+  const parts = text.split(/(?=[①-⑳])/u).filter(Boolean);
+  for (const part of parts) {
+    const number = /^[①-⑳]/u.exec(part)?.[0];
+    const deleted = number && after.split(/(?=[①-⑳])/u).some(p =>
+      p.startsWith(number) && /^[①-⑳]\s*[(〈<]?\s*삭\s*제\s*[)〉>]?\s*[.]?\s*$/.test(p));
+    const entire = /^[(〈<]?\s*삭\s*제\s*[)〉>]?\s*$/.test(after.trim());
+    container.append(textNode("p", part, deleted || entire ? "removed" : ""));
+  }
+  if (!parts.length) container.append(textNode("p", "원문 미확인"));
+  return container;
+}
+function ballotName(b) {
+  return [b.number ? "제" + b.number + "호" : "의안번호 미확인", b.subject].filter(Boolean).join(" · ");
+}
+function renderCharter(view) {
+  const root = el("charter");
+  el("status").hidden = el("chart").hidden = true;
+  root.hidden = false;
+  root.replaceChildren(textNode("h2", "정관 변경과 표결"));
+  for (const note of view.notes || []) root.append(textNode("p", note, "muted"));
+  if (!view.meetings.length) {
+    root.append(textNode("p", "조회한 소집공고에서 조항을 확인할 수 없습니다. 기준일이나 소집공고를 지정해 다시 조회하세요."));
+    return;
+  }
+  const picker = document.createElement("select");
+  picker.setAttribute("aria-label", "회사와 주총 선택");
+  view.meetings.forEach((m,i) => picker.add(new Option(m.company + " · " + (m.meeting_date || "회의일 미확인") + " · " + m.notice_receipt, i)));
+  root.append(picker);
+  const section = document.createElement("section");
+  root.append(section);
+  function openMeeting() {
+    const meeting = view.meetings[picker.selectedIndex];
+    section.replaceChildren();
+    const modes = textNode("div", "", "switch");
+    const panels = document.createElement("div");
+    section.append(modes, panels);
+    let ballot = meeting.ballots[0], clause = ballot.clauses[0];
+    function clauseView() {
+      clauseButton.setAttribute("aria-pressed", "true");
+      ballotButton.setAttribute("aria-pressed", "false");
+      panels.replaceChildren();
+      const nav = textNode("div", "", "chips");
+      for (const b of meeting.ballots) for (const c of b.clauses) {
+        nav.append(button(c.label, () => { ballot = b; clause = c; clauseView(); }, c === clause));
+      }
+      const columns = textNode("div", "", "columns");
+      columns.append(clauseColumn("변경 전", clause.before, clause.after), clauseColumn("변경안", clause.after, clause.after));
+      panels.append(nav, textNode("h3", clause.label), columns);
+      if (clause.reason) panels.append(textNode("h4", "회사가 밝힌 변경 사유"), textNode("p", clause.reason));
+      panels.append(ballotGroup(ballot, false));
+    }
+    function ballotGroup(b, all) {
+      const group = textNode("section", "", "ballot");
+      group.append(textNode("h4", ballotName(b)), textNode("p", "안건 표결 결과 · " + (b.outcome || "미확인")));
+      group.append(textNode("p", b.number ? "이 안건의 소집공고에 실린 조항" : "안건 연결을 확인할 수 없는 조항", "muted"));
+      const list = textNode("div", "", "chips");
+      for (const c of b.clauses) list.append(button(c.label, () => {
+        ballot = b; clause = c; clauseView();
+        panels.querySelector("h3").setAttribute("tabindex", "-1");
+        panels.querySelector("h3").focus();
+      }, all ? undefined : c === clause));
+      group.append(list, filingLink("소집공고 원문", meeting.notice_receipt), filingLink("표결 결과 원문", b.result_receipt));
+      return group;
+    }
+    function ballotView() {
+      clauseButton.setAttribute("aria-pressed", "false");
+      ballotButton.setAttribute("aria-pressed", "true");
+      panels.replaceChildren(...meeting.ballots.map(b => ballotGroup(b, true)));
+    }
+    const clauseButton = button("조항별 대조", clauseView, true);
+    const ballotButton = button("안건별 표결", ballotView, false);
+    modes.append(clauseButton, ballotButton);
+    clauseView();
+  }
+  picker.onchange = openMeeting;
+  openMeeting();
+}
+
 function render(result) {
+  const charter = result?._meta?.["opm/charter"];
+  if (charter) {
+    if (renderedChart !== charter) renderCharter(charter);
+    renderedChart = charter;
+    return;
+  }
   const chart = result?._meta?.["opm/chart"];
   if (!chart) {
     if (renderedChart) return;
@@ -109,6 +265,10 @@ function render(result) {
   if (renderedChart === chart.svg) return;
   renderedChart = chart.svg;
   groups = chart.groups;
+  el("charter").hidden = true;
+  el("chart-switch").hidden = !chart.table;
+  if (chart.table) displayTable(chart.table, chart.table.caption || chart.title);
+  chartMode(false);
   plot.replaceChildren();
   const source = new DOMParser().parseFromString(chart.svg, "image/svg+xml").documentElement;
   if (source.localName !== "svg") {
@@ -149,7 +309,7 @@ function renderChatGPT(globals) {
   const metadata = globals?.toolResponseMetadata;
   if (!metadata) return;
   for (const candidate of [metadata, metadata.mcp_tool_result?._meta, metadata.call_tool_result?._meta]) {
-    if (candidate?.["opm/chart"]) {
+    if (candidate?.["opm/chart"] || candidate?.["opm/charter"]) {
       render({_meta:candidate});
       return;
     }

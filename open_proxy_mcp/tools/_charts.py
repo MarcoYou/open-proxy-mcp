@@ -11,6 +11,7 @@ from mcp.types import CallToolResult, TextContent
 
 # A chart request with the default scope selects the corresponding detail view.
 _SCOPES = {
+    "governance_screen": (None, None),
     "performance_analysis": ("summary", "series"),
     "dividend_data": ("firm", "firm"),
     "corp_gov_report": ("summary", "metrics"),
@@ -21,11 +22,12 @@ _SCOPES = {
 }
 
 
-_FINANCIAL_SCOPES = {"quarterly_performance": "quarterly", "cash_flow": "yearly", "cash_debt": "yearly"}
+_FINANCIAL_SCOPES = {
+    "governance_screen": (None, None),"quarterly_performance": "quarterly", "cash_flow": "yearly", "cash_debt": "yearly"}
 
 
-CHART_URI = "ui://openproxy/charts-v3.html"
-CHART_URIS = (CHART_URI, "ui://openproxy/charts-v2.html", "ui://openproxy/charts-v1.html")
+CHART_URI = "ui://openproxy/charts-v4.html"
+CHART_URIS = (CHART_URI, "ui://openproxy/charts-v3.html", "ui://openproxy/charts-v2.html", "ui://openproxy/charts-v1.html")
 
 
 def chart_tool_meta(name):
@@ -80,6 +82,8 @@ def with_chart_output(fn):
         if scope not in (default, chart_scope):
             return f"이 도구의 차트는 `{chart_scope}` 조회에서 제공합니다. 다른 조회는 format=md 또는 json을 사용하세요."
         query = {**kwargs, "format": "json"}
+        if name == "governance_screen":
+            query["pattern_review"] = "정관"
         if chart_scope is not None:
             query["scope"] = chart_scope
         if name == "transfer_donut" and receipt and not (query.get("start_date") or query.get("end_date")):
@@ -91,6 +95,25 @@ def with_chart_output(fn):
             return raw  # Tool-level input and availability messages can be plain text.
         if payload.get("status") not in {"ok", "exact", "partial"}:
             return raw
+        if name == "governance_screen":
+            companies = payload.get("companies", [])
+            meetings = [{**meeting, "company": (row.get("company") or {}).get("corp_name") or row["query"]}
+                        for row in companies for meeting in row.get("charter_meetings", [])]
+            notes = [f"{row['query']} · 정관 신구대조 원문 미확인" for row in companies if not row.get("charter_meetings")]
+            notes.extend(payload.get("warnings", []))
+            notices = [notice["body"] for notice in payload.get("notices", []) if notice.get("body")]
+            summary = ["정관 신구대조 · 묶음 표결", *notes]
+            for meeting in meetings:
+                for ballot in meeting["ballots"]:
+                    label = "제" + ballot["number"] + "호" if ballot["number"] else "의안번호 미확인"
+                    summary.append(f"{meeting['company']} {meeting['meeting_date']} · {label} {ballot['subject']} · "
+                                   + (ballot["outcome"] or "표결 결과 미확인") + " · "
+                                   + ", ".join(clause["label"] for clause in ballot["clauses"]))
+            summary.extend("> 📢 [공지] " + body for body in notices)
+            view = {"meetings": meetings, "notes": notes}
+            return CallToolResult(content=[TextContent(type="text", text="\n".join(summary))],
+                                  structured_content={"result": json.dumps(view, ensure_ascii=False)},
+                                  meta={"opm/charter": view})
         try:
             render_input = {**payload, "chart_rcept_no": receipt} if name == "transfer_donut" else payload
             result = await asyncio.to_thread(_render, name, render_input)

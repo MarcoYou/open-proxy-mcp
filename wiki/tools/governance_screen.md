@@ -26,12 +26,14 @@ updated: 2026-11-28
 | governance_assessments | list[dict] | no | 첫 호출의 현재 task_id와 원문으로 LLM이 작성한 회사별 평가, 최대 30개 | null |
 | evidence_sources | list[dict] | no | `{company: companies에 사용한 문자열, sources: [...]}` 회사별 추가 원문 묶음, 최대 30묶음·회사당 5건 | null |
 | review_materiality | str | no | `high`, `moderate`, `low`. 검토 대상으로 올릴 우려의 중요도. 근거·우려 자체를 제거하지 않음 | moderate |
-| pattern_review | bool 또는 `"퇴직금"`·`"이사정원"` | no | true는 정관·발행 공시 우선. `"이사정원"`은 소집공고·주총결과·소집결의·의결권 권유 공시 우선. `"퇴직금"`은 주총 공고·지분증권 증권신고서·사업보고서를 먼저 읽어 경영권 변동에 따른 임원보상을 확인한다. | false |
+| pattern_review | bool 또는 `"퇴직금"`·`"이사정원"`·`"정관"` | no | true는 정관·발행 공시 우선. `"이사정원"`은 소집공고·주총결과·소집결의·의결권 권유 공시 우선. `"퇴직금"`은 주총 공고·지분증권 증권신고서·사업보고서를 먼저 읽어 경영권 변동에 따른 임원보상을 확인한다. | false |
 | since | str | no | 새 공시 목록의 시작일 YYYYMMDD, 양끝 포함. 평가용 원문 검색 기간은 바꾸지 않음 | "" |
 | known_receipts | list[str] | no | 이미 본 14자리 접수번호 최대 10,000개. 새 공시 목록에서 제외 | null |
-| format | str | no | `md`, `json` | md |
+| format | str | no | `md`, `json`, `chart` | md |
 
 추가 원문은 `type: dart`와 `rcept_no`, 또는 `type: kind`와 고정 `https://kind.krx.co.kr/external/.../*.htm` 주소를 받는다. 임의 URL은 받지 않는다. 선택 인자는 `source_scope`(`candidate`, `company_context`, `agenda_context`), `focus_terms`(최대 6개), `text_offset`(0–2,000,000), `text_chars`(1,000–30,000, 기본 12,000)이다. 공통 원문 읽기 계약은 의결권 권고 도구(`proxy_advice_*`)과 공유한다.
+
+`format=chart`는 정관 검토를 선택해 MCP Apps 위젯을 연다. 조항을 누르면 변경 전·후 원문, 회사의 변경 이유와 같은 의안번호의 조항이 보인다. 안건별 보기에서 실제 결과를 확인하고 조항으로 돌아갈 수 있다. 같은 회사·회의일·의안번호에서 정관 관련 결과를 하나로 식별할 수 있을 때만 가부와 결과공시 링크를 표시한다. 미확인은 부결이 아니다. 표결 단위는 안건이다. `pattern_review="정관", format="json"`은 회사별 `charter_meetings`에 소집공고·안건·조항·결과 근거를 제공한다. 제한된 조회 범위 밖 공시는 별도의 기준일을 지정해 조회한다.
 
 ## 사용 흐름
 
@@ -139,6 +141,8 @@ checkpoint는 최신 10,000개 번호를 보존하고 초과분은 `older_receip
 - 모든 회사의 지배구조 위험을 완전 탐지하거나 기관투자자의 실제 보팅 정확도를 검증한 도구가 아니다. 여러 공시의 조건·회차·관계·후속 사건을 연결해 읽는 호출 LLM 과업과 수용 계약이다.
 
 ## 변경 이력
+
+- 2026-11-28 정관 신구대조 및 안건별 표결 위젯과 JSON 근거를 추가했다.
 
 - 2026-11-28 원문 단서에서 주주제안 미상정, 감사위원 사임 후 재선임 및 이사 보수 규정의 퇴직보상 제외를 구분한다.
 

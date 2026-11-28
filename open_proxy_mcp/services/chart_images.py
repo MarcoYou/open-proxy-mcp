@@ -64,6 +64,13 @@ def _table(head, rows):
     return "\n".join([line(head), line(["---"] * len(head)), *(line(r) for r in rows)])
 
 
+def _figure_table(fig, head, rows, *, sample=False):
+    rows = list(rows)
+    fig.chart_marks.table = {"columns": head, "rows": rows}
+    excerpt = [rows[0], *rows[-5:]] if sample and len(rows) > 6 else rows
+    return _table(head, excerpt)
+
+
 def _performance(p):
     d = p["data"]
     rows = d.get("series") or []
@@ -106,8 +113,7 @@ def _performance(p):
     if split:
         note += f" · 비교계열 기준일 {aligned['start']}"
     axes[-1].set_xlabel(note)
-    sample = rows if len(rows) <= 6 else [rows[0], *rows[-5:]]
-    table = _table(["거래일", tg, bench], [(r["dd"], percent(r.get("cum_pct")), percent(r.get("bench_cum_pct"))) for r in sample])
+    table = _figure_table(fig, ["거래일", tg, bench], [(r["dd"], percent(r.get("cum_pct")), percent(r.get("bench_cum_pct"))) for r in rows], sample=True)
     return fig, f"**{title}** · {note}\n\n{table}\n\n표는 최대 여섯 거래일을 발췌했습니다.\n자료: " + " · ".join(d.get("sources", []))
 
 
@@ -169,7 +175,7 @@ def _dividend(p):
     ax.set_ylabel("주당배당금 (원)")
     ax.legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1), borderaxespad=0, ncols=min(3, len(kinds)), fontsize=9)
     ax.set_xlabel("결산기 말 · DART 정기보고서 · 확정값 기준")
-    return fig, f"**{title}** · 확정값, 원/주 · DART 정기보고서\n\n" + _table(["결산기", "주식 종류", "원/주", "상태", "접수번호"], sorted(table_rows))
+    return fig, f"**{title}** · 확정값, 원/주 · DART 정기보고서\n\n" + _figure_table(fig, ["결산기", "주식 종류", "원/주", "상태", "접수번호"], sorted(table_rows))
 
 
 def _governance(p):
@@ -210,7 +216,7 @@ def _governance(p):
         y -= height/2
         ax.hlines(y, .01, .985, color=_RULE, linewidth=.5)
     ax.text(.01,-.95,caption,fontsize=9,color=_MUTED)
-    return fig, f"**{title}** · {caption}\n\n" + _table(["항목","직전기","당기"], data)
+    return fig, f"**{title}** · {caption}\n\n" + _figure_table(fig, ["항목","직전기","당기"], data)
 
 
 def _percent_value(raw):
@@ -268,7 +274,7 @@ def _vote_results(p):
     note = results.get("void_notice") or ""
     if note:
         fig.supxlabel("기타사항 공시 있음 · 아래 원문 참조", fontsize=9)
-    return fig, f"**{title}** · 결과 공시 {source}\n\n" + _table(
+    return fig, f"**{title}** · 결과 공시 {source}\n\n" + _figure_table(fig,
         ["안건", "출석주식수 기준", "결과", "원문·비고"], table) + (f"\n\n기타사항: {note}" if note else "")
 
 
@@ -302,7 +308,7 @@ def _block_ownership(p):
     axes[-1].xaxis.set_major_locator(locator)
     axes[-1].xaxis.set_major_formatter(dates.DateFormatter("%y-%m-%d"))
     axes[-1].set_xlabel("공시일 · 보고자 및 특별관계자 합산 · 조회 이력 최대 50건")
-    return fig, f"**{title}** · 공시일별 보고값 · 조회 이력 최대 50건\n\n" + _table(
+    return fig, f"**{title}** · 공시일별 보고값 · 조회 이력 최대 50건\n\n" + _figure_table(fig,
         ["공시일", "보고자", "지분율", "접수번호"], table)
 
 
@@ -350,7 +356,7 @@ def _treasury(p):
     ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, integer=True))
     ax.xaxis.set_major_formatter(mpl.ticker.StrMethodFormatter("{x:,.0f}"))
     ax.grid(False, axis="y")
-    return fig, f"**{title}** · 직접 취득·처분 결과보고 수량, 소각은 결정 단계 · 신탁 제외\n\n" + _table(
+    return fig, f"**{title}** · 직접 취득·처분 결과보고 수량, 소각은 결정 단계 · 신탁 제외\n\n" + _figure_table(fig,
         ["공시일", "공시 유형", "결과 수량·단계", "접수번호"], table)
 
 
@@ -425,7 +431,7 @@ def _quarterly_performance(p):
     if account_names:
         note += " · 매출 대체 계정: " + ", ".join(account_names)
     bottom.set_xlabel(fill(note, 55), fontsize=9)
-    return fig, f"**{title}** · {note}\n\n" + _table(["분기", "기간 말", "기준", "매출 (원)", "영업이익률"], table)
+    return fig, f"**{title}** · {note}\n\n" + _figure_table(fig, ["분기", "기간 말", "기준", "매출 (원)", "영업이익률"], table)
 
 
 def _annual_finance(p, *, cash_flow):
@@ -490,7 +496,7 @@ def _annual_finance(p, *, cash_flow):
     if cash_flow and any(r.get("is_financial_company") for r in rows):
         note += "\n금융업은 예수·대출 등 영업자금 변동이 포함돼 배당여력 해석에 주의"
     ax.set_xlabel(note, fontsize=9)
-    return fig, f"**{title}** · {note}\n\n" + _table(headers, table)
+    return fig, f"**{title}** · {note}\n\n" + _figure_table(fig, headers, table)
 
 
 def _transfer_stakes(table):
@@ -581,8 +587,6 @@ def _transfer_donut(p):
         return "".join(s.replace("㈜", "(주)").split())
     focus = next((i for i, r in enumerate(stakes[:-1]) if norm(r[0]) == norm(expected)), None)
     # Retain all original rows in the accompanying table; keep both rings readable for long registers.
-    table = _table(["보유자", "계약 전", "계약 이행 예정"], [
-        (n, f"{a}%", f"{b}%") for n, a, b in stakes])
     if len(stakes) > 7:
         ranked = sorted(range(len(stakes) - 1), key=lambda i: (i != focus, -max(stakes[i][1:])))
         selected = sorted(ranked[:5])
@@ -596,6 +600,8 @@ def _transfer_donut(p):
     company = data.get("canonical_name") or p["subject"]
     title = f"{company} · 주식양수도 계약 전후 지분율"
     fig = _figure(title, height=4.3 + .32*len(shown), width=8)
+    table = _figure_table(fig, ["보유자", "계약 전", "계약 이행 예정"], [
+        (n, f"{a}%", f"{b}%") for n, a, b in stakes])
     grid = fig.add_gridspec(2, 2, height_ratios=[2.25, .40*len(shown)+.6])
     groups = [fig.chart_marks.group(n, f"{n} · 계약 전 {a}% → 계약 이행 예정 {b}% · {b-a:+}%p")
               for n, a, b in shown]
@@ -653,6 +659,7 @@ def render_chart(name, payload):
         canvas = FigureCanvasAgg(fig)
         canvas.draw()
         marks = fig.chart_marks.export(canvas, fig._suptitle.get_text())
+        marks["table"] = {**fig.chart_marks.table, "caption": summary.split("\n", 1)[0].replace("**", "")}
         fig.set_layout_engine("none")  # Keep the plotted marks and hit areas on the same final axes.
         out = StringIO()
         with mpl.rc_context({"svg.fonttype": "none"}):

@@ -139,12 +139,13 @@ def register_tools(mcp):
     async def governance_screen(
         companies: list[str], as_of: str = "", governance_assessments: list[dict[str, Any]] | None = None,
         evidence_sources: list[dict[str, Any]] | None = None, review_materiality: str = "moderate",
-        since: str = "", known_receipts: list[str] | None = None, format: str = "md", pattern_review: bool | Literal["퇴직금", "이사정원"] = False,
+        since: str = "", known_receipts: list[str] | None = None, format: str = "md", pattern_review: bool | Literal["퇴직금", "이사정원", "정관"] = False,
     ) -> str:
         """desc: 명시한 최대 30개사의 공시 원문을 모아 호출 LLM이 거버넌스 우려를 검토하고 중요도별 검토 순서를 반환. 사람 미검토 파일럿.
         when: 소수주주 대우·이해상충·이사회 책임·공시 신뢰성·경영권 절차, 잔여 임기 중 감사위원 분리선출 재선임, 근로복지기금에 자사주를 출연한 사유·주주 영향을 공시로 검토하거나 새 공시를 증분 조회할 때. 시장 전체의 출연 결정·실제 수령 공시 찾기는 screener의 기금출연 보기.
         pattern_review: 정관·주총의 조건부 상정·묶음 표결·선임 인원 상한과 허용 문구·임기 분산·제3자배정 확대, 경영권 변동 특별퇴직금(황금낙하산)·퇴직금 별도 한도, 전환사채(CB)·교환사채(EB)의 발행조건을 검토할 때 true. 전체시장 후보는 screener의 정관·발행 보기.
             "이사정원"이면 주총 소집공고·결과·소집결의·위임장 권유 공시를 먼저 읽는다. "퇴직금"이면 회사 주총 공고, 지분증권 증권신고서와 사업보고서를 우선 읽는다.
+        format: md/json/chart. 정관 신구대조·조항 선택·같이 표결한 안건은 format=chart로 조회. "정관" 검토는 소집공고·결과 공시의 같은 회의일과 의안번호를 대조.
         rule: 먼저 assessment_task 원문을 읽고 같은 인자+governance_assessments로 재호출. 공개매수·행동주의·소송 자체는 부정 신호가 아니며 당사자 주장과 판결·계약과 결제를 구분. 누락은 해당 항목만 건너뜀. 실제 투표 없음.
         evidence_sources: [{company: 입력 회사명, sources: [{type: dart, rcept_no: 14자리, focus_terms?: [...], text_offset?: 0, text_chars?: 12000}]}]. 회사당 최대 5건. 현재 source 요청을 유지하고 필요한 원문 창을 추가/교체하면 task_id도 변경.
         since: YYYYMMDD. known_receipts와 함께 새 접수번호 목록을 좁힐 뿐 평가 원문 범위는 유지. 호출자가 checkpoint를 보존하며 예약 작업은 만들지 않음.
