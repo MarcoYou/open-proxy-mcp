@@ -604,6 +604,18 @@ def _render_patterns(p: dict) -> str:
             lines.append("- 배정 방식 미확인 · 유상증자 결정 원문을 확인하세요.")
         elif hit["pattern_read_status"] == "check_amendment":
             lines.append("- 원공시의 조건이 유지되는지 정정·철회 범위를 대조하세요.")
+        if attachment := hit.get("attachment_amendment"):
+            for item in attachment["attachments"]:
+                lines.append(f"- [첨부 · {item['title']}]({item['dart_url']})")
+            if attachment.get("status") == "comparison_read":
+                lines.append(f"- 첨부 정정표 · {attachment['reason'] or '사유 미확인'}")
+                for row in attachment["changes"]:
+                    lines.append(f"  - {row['item']} · 변경 전 {row['before']} / 변경 후 {row['after']}")
+            for key, label in (("related_body", "당시 본문"), ("later_body", "기간 내 후속 본문")):
+                if body := attachment.get(key):
+                    lines.append(f"- [{label}]({body['dart_url']}) · {body.get('quote') or body['title']}")
+                    if body.get("price_won"):
+                        lines.append(f"  - 후속 본문 전환가 {body['price_won']}원")
         for signal in hit["pattern_signals"]:
             lines.append(f"- {signal['label']} · {signal['filing_state']} · {signal['check']}")
             lines.extend(provision_lines(signal) + seat_lines(signal) + governance_detail_lines(signal))

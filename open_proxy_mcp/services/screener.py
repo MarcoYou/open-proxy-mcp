@@ -37,7 +37,9 @@ from typing import Any, Awaitable, Callable, Iterable
 from open_proxy_mcp.dart.client import DART_BATCH_HALT_STATUSES, DartClientError, dart_halts_batch, get_dart_client
 from open_proxy_mcp.services.dart_safety import DART_EXTERNAL_ERRORS
 from open_proxy_mcp.services.governance_disclosure_evidence import EXTRA_SOURCES, confirmed_followup, prior_audit_term
-from open_proxy_mcp.services.governance_patterns import ISSUE_KINDS, allotment_method_unknown, inspect_filing
+from open_proxy_mcp.services.governance_patterns import ISSUE_KINDS, allotment_method_unknown, inspect_filing, issue_kind
+from open_proxy_mcp.services.screener_allotment import exchange_allotment
+from open_proxy_mcp.services.screener_corrections import allotment_followup, attachment_amendment, attachment_signals
 from open_proxy_mcp.services.amendment_table import card_summary, parse_amendment_table
 from open_proxy_mcp.services.tender_offer import TENDER_DOC_LOOKUPS, parse_tender_offer_document
 from open_proxy_mcp.services.company import resolve_company_query, company_ambiguous_warning, company_not_found_warning
@@ -2209,7 +2211,7 @@ async def build_screener_payload(*args, **kwargs):
     return declare_weak_resolution(await _build_screener_payload_impl(*args, **kwargs))
 
 
-async def _screen_documents(client, page: dict):
+async def _screen_documents(client, page: dict, *, read_attachments=False):
     halted = any(code["error"] in DART_BATCH_HALT_STATUSES for code in page["coverage"])
     for card in page["hits"]:
         doc = {}
@@ -2220,6 +2222,19 @@ async def _screen_documents(client, page: dict):
                 halted = dart_halts_batch(exc)
                 if halted:
                     page["warnings"].append(f"DART {exc.status} 오류로 남은 원문 조회를 멈췄다.")
+        if read_attachments and "[첨부정정]" in card["title"].replace(" ", ""):
+            # A DART attachment-only receipt has independent identity even if
+            # document.xml supplies a body. Never treat its parent as a new issue.
+            doc = {}
+            if not halted and not page.get("_halt_document_reads"):
+                try:
+                    context = await attachment_amendment(client, card["rcept_no"], page["period"]["end_de"])
+                    if context:
+                        card["attachment_amendment"] = context
+                except DART_EXTERNAL_ERRORS as exc:
+                    halted = dart_halts_batch(exc)
+                    if halted:
+                        page["warnings"].append(f"DART {exc.status} 오류로 남은 원문 조회를 멈췄다.")
         yield card, doc
 
 
@@ -2322,9 +2337,30 @@ async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
     any_missing = False
     supplemental = {}
     halt_supplement = False
-    async for card, doc in _screen_documents(client, page):
+    async for card, doc in _screen_documents(client, page, read_attachments=True):
         readable = bool(doc.get("text"))
-        signals = inspect_filing(card["title"], doc) if readable else []
+        attachment = card.get("attachment_amendment", {})
+        allotment = {}
+        if readable and issue_kind(card["title"]) == "third_party_allotment":
+            markup = doc.get("html") or ""
+            if "CI_MTH" not in markup:
+                allotment = exchange_allotment(markup)
+                if allotment:
+                    card["allotment_method"] = {"method": allotment["method"], "issuer": allotment["issuer"]}
+        signals = inspect_filing(card["title"], doc, allotment=allotment or None) if readable else attachment_signals(attachment)
+        if allotment.get("issuer") and any(s["pattern"] == "third_party_allotment" for s in signals):
+            try:
+                followup = await allotment_followup(client, card["rcept_no"], page["period"]["end_de"])
+            except DART_EXTERNAL_ERRORS as exc:
+                halt_supplement = dart_halts_batch(exc)
+                followup = {}
+            if followup:
+                card["allotment_later_body"] = followup
+                for signal in signals:
+                    if followup["status"] == "withdrawn":
+                        signal["filing_state"] = "후속 정정에서 철회"
+                        signal["followups"] = [followup]
+
         if kinds & meeting_filters and "meeting" not in kinds and card.get("type", {}).get("code", "agm_notice") in {"agm_notice", "agm_result"}:
             signals = [s for s in signals if s["pattern"] in kinds]
         candidates = card.pop("_followup_candidates", [])
@@ -2360,12 +2396,15 @@ async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
             page["_halt_document_reads"] = True
             page["warnings"].append("DART 추가 조회가 중단되어 이후 문서와 후속 공시를 확인하지 못했습니다.")
         if signals and card.get("interpretation") == "discovery_only":
-            card.update(interpretation="source_evidence", signal_basis="filing_body")
+            card.update(interpretation="source_evidence",
+                        signal_basis="attachment_amendment" if attachment else "filing_body")
         card["pattern_signals"] = signals
         card["pattern_read_status"] = "read" if readable else "unassessed"
-        if readable and not signals and (card["is_correction"] or card["stage"] == "철회/취소"):
+        if attachment.get("status") == "comparison_read":
+            card["pattern_read_status"] = "attachment_comparison"
+        elif readable and not signals and (card["is_correction"] or card["stage"] == "철회/취소"):
             card["pattern_read_status"] = "check_amendment"
-        elif readable and not signals and allotment_method_unknown(card["title"], doc):
+        elif readable and not signals and not allotment and allotment_method_unknown(card["title"], doc):
             card["pattern_read_status"] = "method_unverified"
         any_missing |= card["pattern_read_status"] in {"unassessed", "method_unverified"}
     if page["status"] == "ok" and (any_missing or any(not s["complete"] for s in page["coverage"])):

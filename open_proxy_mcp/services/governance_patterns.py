@@ -6,10 +6,15 @@ from open_proxy_mcp.services.control_severance import retirement_signals
 from open_proxy_mcp.services.governance_disclosure_evidence import (
     LABELS, audit_candidate, exchange_terms, filing_facts, issue_changes, meeting_text_signals,
 )
+from open_proxy_mcp.services.screener_allotment import exchange_allotment
 from open_proxy_mcp.services.seat_wording import seat_wording
 
 PATTERNS = {
     **LABELS,
+    "equity_stake_change": ("자회사 증자 후 지분율 변동", "완료 조건과 지분율, 연결 제외 여부를 확인한다."),
+    "debt_setoff": ("증자 납입금과 채권 상계", "채권자와 금액, 납입 완료 및 최대주주 지분 변동을 확인한다."),
+    "subsidiary_liquidation": ("자회사 청산을 위한 증자", "채무 상환 재원과 청산 진행 단계를 확인한다."),
+    "replaces_allotment": ("기존 자회사 증자계획 대체", "기존 발행사와 새 발행사, 배정 방식과 철회 공시를 대조한다."),
     "seat_wording": ("이사 정원·선임 인원 문구", "인원 명시·허용·상하한을 구분한다. 이사회 전체 정원, 이번 선거의 의석, 후보자 수, 실제 당선 인원과 조건부 의안의 표결 결과를 원문으로 대조한다."),
     "retirement_limit": ("임원 퇴직금 별도 한도·보수한도 제외", "총 보수한도 밖에 두는 조항인지 별도 한도 금액이 있는지 확인한다. 주총 승인·적용기간·개인별 또는 총액 기준·실제 지급액을 대조한다."),
     "control_severance": ("경영권 변동 시 임원 특별퇴직보상", "정관·퇴직금 규정의 지급 조건·대상·산식을 확인하고 상정, 가결, 실제 지급을 구분한다."),
@@ -185,10 +190,10 @@ def _field(html: str, code: str) -> str:
 
 
 def allotment_method_unknown(title: str, doc: dict) -> bool:
-    return issue_kind(title) == "third_party_allotment" and not _field(doc.get("html") or "", "CI_MTH")
+    return issue_kind(title) == "third_party_allotment" and not (_field(doc.get("html") or "", "CI_MTH") or exchange_allotment(doc.get("html") or ""))
 
 
-def _issue_signal(kind: str, html: str, text: str) -> dict:
+def _issue_signal(kind: str, html: str, text: str, allotment: dict) -> dict:
     from open_proxy_mcp.services.treasury_share import _extract_acode
 
     mapping = _ALLOTMENT_FIELDS if kind == "third_party_allotment" else _BOND_FIELDS
@@ -197,14 +202,23 @@ def _issue_signal(kind: str, html: str, text: str) -> dict:
         value = _field(html, code)
         if value:
             terms[label] = " ".join(value.split())[:250]
+    facts = {}
+    if allotment:
+        terms.update(method=allotment["method"], **allotment["terms"])
+        if allotment["issuer"]:
+            terms["issuing_subsidiary"] = allotment["issuer"]
+        facts = {key: {"quote": quote, "terms": {"method": allotment["method"], "issuing_subsidiary": allotment["issuer"]}}
+                 for key, quote in allotment["facts"].items()}
     if kind == "third_party_allotment" and not _ALLOTMENT.search(terms.get("method", "")):
-        return {}
+        return facts
     name_field = "PART" if kind == "third_party_allotment" else "ISSU_NM"
     subscribers = []
     for row in re.findall(r"<TR\b[^>]*>[\s\S]*?</TR>", html, re.I):
         name = _extract_acode(row, name_field)
         if name and name.strip() not in {"-", "—"}:
             subscribers.append({"name": name[:160], "reported_relationship": _extract_acode(row, "RLT")})
+    if not subscribers and allotment:
+        subscribers = allotment["subscribers"]
     options = _extract_acode(html, "OPT_FCT") or ""
     call = re.search(r"매도\s*청구권|콜\s*옵션|call\s*option", options, re.I)
     if call:
@@ -222,11 +236,11 @@ def _issue_signal(kind: str, html: str, text: str) -> dict:
         if not terms.get("target_stock") or terms["target_basis"] == "unverified":
             exchange_terms(html, terms)
         available = bool(terms.get("target_stock") or available)
-    return {kind: {"terms": terms, "subscribers": subscribers[:15], "subscriber_count": len(subscribers),
+    return {**facts, kind: {"terms": terms, "subscribers": subscribers[:15], "subscriber_count": len(subscribers),
                    "terms_available": available, "source_text_available": bool(text)}}
 
 
-def inspect_filing(title: str, doc: dict) -> list[dict]:
+def inspect_filing(title: str, doc: dict, *, allotment: dict | None = None) -> list[dict]:
     """One receipt at a time. Positive matches are reading handles, not adverse conclusions."""
     text = " ".join((doc.get("text") or "").split())
     html = doc.get("html") or ""
@@ -257,7 +271,9 @@ def inspect_filing(title: str, doc: dict) -> list[dict]:
                 html = html[body.start():]
                 text = " ".join(html_to_text(html).split())
     if kind:
-        signals = _issue_signal(kind, html, text)
+        if allotment is None and kind == "third_party_allotment" and not _field(html, "CI_MTH"):
+            allotment = exchange_allotment(html)
+        signals = _issue_signal(kind, html, text, allotment or {})
         if "정정" in title and kind in signals:
             signals.update(issue_changes(html, kind, signals[kind].get("terms", {})))
     elif "주주총회" in title.replace(" ", ""):
