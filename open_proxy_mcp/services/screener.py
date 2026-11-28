@@ -2400,7 +2400,9 @@ async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
                         signal_basis="attachment_amendment" if attachment else "filing_body")
         card["pattern_signals"] = signals
         card["pattern_read_status"] = "read" if readable else "unassessed"
-        if attachment.get("status") == "comparison_read":
+        if attachment.get("status") == "visual_only":
+            card["pattern_read_status"] = "attachment_visual"
+        elif attachment.get("status") == "comparison_read":
             card["pattern_read_status"] = "attachment_comparison"
         elif readable and not signals and (card["is_correction"] or card["stage"] == "철회/취소"):
             card["pattern_read_status"] = "check_amendment"

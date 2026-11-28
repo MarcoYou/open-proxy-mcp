@@ -36,7 +36,7 @@ ARG OPM_EXT_REV=none
 RUN --mount=type=secret,id=opm_ext_spec \
     echo "opm_ext_rev=${OPM_EXT_REV}" && \
     if [ -s /run/secrets/opm_ext_spec ]; then \
-        apt-get update -qq && apt-get install -y -qq --no-install-recommends git >/dev/null \
+        apt-get update -qq && apt-get install -y -qq --no-install-recommends git tesseract-ocr tesseract-ocr-kor >/dev/null \
         && uv pip install --python /app/.venv/bin/python --no-cache "$(cat /run/secrets/opm_ext_spec)" \
         && apt-get purge -y -qq git >/dev/null && apt-get autoremove -y -qq >/dev/null && rm -rf /var/lib/apt/lists/* \
         && /app/.venv/bin/python -c "from importlib.metadata import entry_points as e; n=[x.name for x in e(group='open_proxy_mcp.extensions')]; assert n, 'extension installed but no entry point'; print('extensions:', n)"; \

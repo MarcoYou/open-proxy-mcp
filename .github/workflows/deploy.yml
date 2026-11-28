@@ -60,6 +60,11 @@ jobs:
       - name: Deploy
         run: |
           if [ -n "$OPM_EXT_SPEC" ]; then
+            if [ -n "$OPM_EXT_COMMIT" ]; then
+              [[ "$OPM_EXT_COMMIT" =~ ^[0-9a-f]{40}$ && "$OPM_EXT_SPEC" =~ ^(git\+https://[^/?#[:space:]]+/[^@?#[:space:]]+)(@[^?#[:space:]]+)?$ ]] || exit 1
+              OPM_EXT_SPEC="${BASH_REMATCH[1]}@$OPM_EXT_COMMIT"
+              printf '::add-mask::%s\n' "$OPM_EXT_SPEC"
+            fi
             REV="$(printf %s "$OPM_EXT_SPEC" | sha256sum | cut -c1-16)"
             flyctl deploy --remote-only --build-secret opm_ext_spec="$OPM_EXT_SPEC" --build-arg OPM_EXT_REV="$REV"
           else
@@ -68,6 +73,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           OPM_EXT_SPEC: ${{ secrets.OPM_EXT_SPEC }}
+          OPM_EXT_COMMIT: ${{ vars.OPM_EXT_COMMIT }}
 
       # 배포 성공 != 서비스 정상. 260729 사고에서 flyctl 은 성공을 냈지만 앱은 죽어 있었다.
       # 실제로 엔드포인트가 200 을 내는지 확인하고, 아니면 이 job 을 실패시킨다.

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
+from importlib.metadata import entry_points
 from urllib.parse import parse_qs
 
 from bs4 import BeautifulSoup
@@ -81,6 +83,30 @@ async def allotment_followup(client, rc, cutoff):
     return await _latest(client, family, rc) if rc in family else {}
 
 
+@lru_cache(maxsize=1)
+def _attachment_reader():
+    providers = tuple(entry_points(group="open_proxy_mcp.attachment_readers"))
+    if len(providers) == 1:
+        return providers[0].load()
+    return None
+
+
+async def _attach_reading(client, rc, main, nodes, node, body, context, family):
+    title = "".join(context["selected"]["title"].split())
+    if not any(key in title for key in ("전환가액산정표", "전환가격산정표", "의사록", "정관", "퇴직금", "퇴직급여", "보수규정", "주식매수선택권")):
+        return
+    try:
+        reader = _attachment_reader()
+        result = await reader(client=client, rc=rc, main=main, nodes=nodes, node=node, body=body,
+                              context=context, family=family) if reader else {"status":"reader_unavailable"}
+    except Exception as exc:
+        if dart_halts_batch(exc):
+            raise
+        result = {"status":"needs_review"}
+    if result:
+        context["visual_reading"] = result
+
+
 async def attachment_amendment(client, rc, cutoff):
     main = await client._fetch_viewer_main_html(rc)
     family, attachments = _entries(main, rc, cutoff)
@@ -103,21 +129,29 @@ async def attachment_amendment(client, rc, cutoff):
         return context
     body = await client._fetch_viewer_section_html(node)
     a = parse_amendment_table(body)
-    if not (a["rows"] or a.get("reason")):
-        return context
-    context.update(status="comparison_read", selected=attachments[node["dcmNo"]], reason=a["reason"],
+    context.update(status="comparison_read" if a["rows"] or a.get("reason") else "unread",
+                   selected=attachments[node["dcmNo"]], reason=a["reason"],
                    changes=[{key: str(row[key])[:330] for key in ("item", "before", "after")} for row in a["rows"][:12]],
                    total_changes=len(a["rows"]))
+    await _attach_reading(client, rc, main, nodes, node, body, context, family)
+    if context["status"] == "unread" and context.get("visual_reading", {}).get("status") == "read":
+        context["status"] = "visual_only"
     return context
 
 
 def attachment_signals(context):
-    if context.get("status") != "comparison_read":
+    if context.get("status") not in {"comparison_read", "visual_only"}:
         return []
     title = re.sub(r"\s+", "", context["selected"]["title"])
     rows = context["changes"]
     reason = context["reason"] or ""
-    if "전환가액산정표" in title:
+    visual = context.get("visual_reading", {})
+    if visual.get("changes"):
+        return [{"pattern":"minutes_comparison" if "의사록" in title else "attachment_numeric_change",
+                 "label":"첨부 의사록 수치 변경" if "의사록" in title else "첨부 수치 변경","filing_state":"첨부정정",
+                 "check":"주총 결과와 적용 시점을 확인한다.", "quote":reason,
+                 "dart_url":context["selected"]["dart_url"], "changes":visual["changes"]}]
+    if "전환가액산정표" in title or "전환가격산정표" in title:
         pattern, label, check = "conversion_price_attachment", "전환가액 산정표 정정", "첨부 산정 금액과 후속 본문의 전환가·철회를 확인한다."
     elif any(re.search(r"부여(?:할)?(?:주식수|대상자수)", re.sub(r"\s+", "", row["item"])) for row in rows):
         pattern, label, check = "award_amendment", "보상 부여 대상·주식 수 정정", "부여 안건의 변경 전후 수량과 주총 결과를 확인한다."

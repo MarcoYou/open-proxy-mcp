@@ -43,5 +43,9 @@ fly deploy --build-secret opm_ext_spec="$SPEC" --build-arg OPM_EXT_REV="$(printf
 slim 이미지엔 git 이 없어 git+https 스펙이면 같은 층에서 git 을 깔고 지운다. 런타임에 토큰은 남지 않는다.
 클론한 사람은 시크릿 없이 빌드해 확장 없는 서버를 얻는다 — 빌드는 그대로 된다.
 
+첨부 판독기는 `open_proxy_mcp.attachment_readers` 진입점으로 연결한다. 하나의 판독기가 등록된 환경에서 스크리너가 확인한 접수·첨부 식별자와 원문 위치를 전달한다. 판독기 장애 시 공시와 정정표는 계속 제공한다.
+
+배포 저장소 변수 `OPM_EXT_COMMIT`에 40자리 커밋을 지정하면 설치 스펙의 인증·저장소 주소를 유지하며 해당 커밋을 설치한다. 변수가 비면 시크릿에 지정된 판본을 사용한다. 확장 릴리스는 이전 운영판을 기반으로 검증한 뒤 이 변수를 갱신한다.
+
 ## 관련
 [[mcp-endpoints]] · [[financial_notes]] · [[asset_holdings]] · [[business_details]] · [[shareholder_meeting_notice]]

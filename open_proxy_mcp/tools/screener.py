@@ -611,6 +611,20 @@ def _render_patterns(p: dict) -> str:
                 lines.append(f"- 첨부 정정표 · {attachment['reason'] or '사유 미확인'}")
                 for row in attachment["changes"]:
                     lines.append(f"  - {row['item']} · 변경 전 {row['before']} / 변경 후 {row['after']}")
+            if visual := attachment.get("visual_reading"):
+                for role, original in visual.get("originals", {}).items():
+                    if original.get("status") != "read":
+                        continue
+                    version = {"before":"변경 전", "after":"변경 후", "current":"해당 접수"}.get(role, role)
+                    page = original["page"]
+                    method = "문자 인식" if original["method"] == "ocr" else "PDF 본문"
+                    facts = original.get("fields", {}).values()
+                    parts = [f"{fact['label']} {fact['value']:,}{fact['unit']}" for fact in facts]
+                    if "value" in original:
+                        parts.append(f"전환가액 {original['value']:,}원")
+                    lines.append(f"- {version} · {', '.join(parts)} · [{method} {page}쪽]({original['url']})")
+                if visual.get("status") != "read":
+                    lines.append("- 첨부 수치 또는 판본 미확인 · 원본 대조가 필요합니다.")
             for key, label in (("related_body", "당시 본문"), ("later_body", "기간 내 후속 본문")):
                 if body := attachment.get(key):
                     lines.append(f"- [{label}]({body['dart_url']}) · {body.get('quote') or body['title']}")

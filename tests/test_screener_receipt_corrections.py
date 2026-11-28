@@ -59,3 +59,14 @@ def test_withdrawal_of_issue_in_after_column_only():
     row = ["전환사채발행결정", "계약철회", "전환사채권 발행결정", "전환사채권 발행결정 철회"]
     assert withdrawal_quote({"html": table(head, row)}) == "전환사채권 발행결정 철회"
     assert not withdrawal_quote({"html": table(head, [row[0], "기재 오류", row[3], row[2]])})
+
+
+def test_visual_changes_and_unread_attachment_keep_their_source():
+    context = {"status": "comparison_read", "reason": "단순 오기", "changes": [{"item":"이사회의사록"}],
+               "selected":{"title":"[정정] 이사회의사록", "dart_url":"https://dart.fss.or.kr/"}}
+    context["visual_reading"] = {"status":"needs_review"}
+    assert "대조 필요" in attachment_signals(context)[0]["label"]
+    context["visual_reading"] = {"status":"read","changes":[{"label":"감자 주식 수","before":30,"after":22,"unit":"주"}]}
+    signal, = attachment_signals(context)
+    assert signal["changes"] == context["visual_reading"]["changes"]
+    assert signal["dart_url"] == context["selected"]["dart_url"]
