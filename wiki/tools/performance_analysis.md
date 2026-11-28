@@ -189,4 +189,4 @@ DB 왕복은 보통 8~12회(기준일·달력 1, 구성 1~2, 시세 1~2, 사건 
 
 ## 차트 출력 (2026-11-28)
 
-`performance_analysis(target="코스피", benchmark="코스닥", scope="series", format="chart")`는 같은 조회의 표와 PNG를 MCP 콘텐츠로 반환한다. 전체 JSON은 `structuredContent.result`에 있다. 그릴 수 있는 값이 없으면 조회 결과를 글로 제공한다.
+`performance_analysis(target="코스피", benchmark="코스닥", scope="series", format="chart")`는 같은 조회의 대화형 차트와 수치 표를 제공한다. 전체 JSON은 `structuredContent.result`에 있다. 그릴 수 있는 값이 없으면 조회 결과를 글로 제공한다.

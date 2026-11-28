@@ -13,7 +13,7 @@ updated: 2026-11-03
 
 # ownership_structure
 
-`format="chart"`를 쓰면 blocks 조회의 보고자별 대량보유 공시 지분율을 PNG와 근거 표로 반환한다.
+`format="chart"`를 쓰면 blocks 조회의 보고자별 대량보유 공시 지분율을 대화형 차트와 근거 표로 반환한다.
 
 ## 한 줄 요약
 최대주주·특수관계인·5% 대량보유·자사주를 한 탭에서 보는 지분 구조 tool. 판의 구조(who holds what)를 그린다.

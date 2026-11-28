@@ -504,7 +504,7 @@ ROE 분모와 자본잠식의 자기자본은 **분기·연간 수집과 `price_
 
 ## 재무 차트
 
-`financial_metrics(company="삼성전자", format="chart", chart="cash_flow")`처럼 호출한다. 한 번의 재무 조회에서 PNG와 원 단위 표를 반환하며 조회 원문은 `structuredContent.result`에 남는다.
+`financial_metrics(company="삼성전자", format="chart", chart="cash_flow")`처럼 호출한다. 한 번의 재무 조회에서 대화형 차트와 원 단위 표를 반환하며 조회 원문은 `structuredContent.result`에 남는다.
 
 | chart | 조회 | 표시 기준 |
 |---|---|---|

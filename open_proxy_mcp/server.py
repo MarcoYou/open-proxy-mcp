@@ -17,7 +17,7 @@ from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.extensions import load_extensions
 from open_proxy_mcp.resources import register_all_resources
 from open_proxy_mcp.tools import register_all_tools
-from open_proxy_mcp.tools._charts import chart_apps
+from open_proxy_mcp.tools._charts import CHART_URIS, chart_apps
 
 
 #: 사용자 DART 키는 쿼리스트링(`?opendart=`)으로 들어온다. uvicorn 액세스 로그는 요청 라인을
@@ -109,6 +109,7 @@ def build_mcp() -> MCPServer:
             "Korean-listed company disclosure (DART) analysis. Natural-language questions "
             "work — you don't need tool names. Answer in the user's language.\n\n"
             "When someone asks to see a chart, use the matching tool with format=chart. "
+            "Display the returned MCP App in the conversation. "
             "For ownership before and after a share transfer, request the transfer donut. "
             "Find the filing from the company and period yourself. If several different agreements fit, "
             "distinguish them by date and parties in the user's language.\n\n"
@@ -702,6 +703,9 @@ def _keyless_allowed(body: bytes) -> bool:
     method = d.get("method")
     if not isinstance(method, str):
         return False                  # 응답 메시지 등 — 키 없이 보낼 일이 없다
+    if method == "resources/read":
+        params = d.get("params")
+        return isinstance(params, dict) and params.get("uri") in CHART_URIS
     return method in _KEYLESS_METHODS or method.startswith("notifications/")
 
 

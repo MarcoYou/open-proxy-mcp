@@ -13,7 +13,7 @@ updated: 2026-11-03
 
 # treasury_share
 
-`format="chart"`를 쓰면 summary 조회의 공시분기별 자사주 결정·결과보고 수량을 PNG와 근거 표로 반환한다.
+`format="chart"`를 쓰면 summary 조회의 공시분기별 자사주 결정·결과보고 수량을 대화형 차트와 근거 표로 반환한다.
 
 ## 한 줄 요약
 자기주식 이벤트 전용 tool. 취득·처분·소각·신탁 결정 공시를 한 탭에서 집계. value_up(정책)·ownership_structure(잔고)와 함께 주주환원 분석의 사실 축.

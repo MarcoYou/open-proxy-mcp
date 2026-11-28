@@ -244,4 +244,4 @@ sequenceDiagram
 
 ## 차트 출력 (2026-11-28)
 
-`corp_gov_report(company="삼성전자", year=2025, scope="metrics", format="chart")`는 같은 조회의 표와 PNG를 MCP 콘텐츠로 반환한다. 전체 JSON은 `structuredContent.result`에 있다. 그릴 수 있는 값이 없으면 조회 결과를 글로 제공한다.
+`corp_gov_report(company="삼성전자", year=2025, scope="metrics", format="chart")`는 같은 조회의 대화형 차트와 수치 표를 제공한다. 전체 JSON은 `structuredContent.result`에 있다. 그릴 수 있는 값이 없으면 조회 결과를 글로 제공한다.

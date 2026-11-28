@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache, partial
-from io import BytesIO
+from io import StringIO
 from math import isfinite, nan
 from textwrap import fill
 from threading import Lock
@@ -14,6 +14,7 @@ from threading import Lock
 import matplotlib as mpl
 from matplotlib import dates, font_manager
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.backends.backend_svg import FigureCanvasSVG
 from matplotlib.figure import Figure
 
 from .chart_app_marks import ChartMarks
@@ -569,6 +570,8 @@ def _transfer_donut(p):
     grid = fig.add_gridspec(2, 2, height_ratios=[2.25, .40*len(shown)+.6])
     groups = [fig.chart_marks.group(n, f"{n} · 계약 전 {a}% → 계약 이행 예정 {b}% · {b-a:+}%p")
               for n, a, b in shown]
+    for group, (_, before, after) in zip(fig.chart_marks.groups, shown):
+        group["stakes"] = [f"{before}%", f"{after}%"]
     for i, heading in enumerate(("계약 전", "계약 이행 예정"), 1):
         ax = fig.add_subplot(grid[0, i-1])
         ax.set_title(heading, fontsize=12, weight="bold")
@@ -577,9 +580,11 @@ def _transfer_donut(p):
         for group, wedge, stake in zip(groups, wedges, shown):
             if stake[i] > 0:
                 fig.chart_marks.artist(group, wedge)
-        if focus is not None:
-            ax.text(0, .06, f"{shown[focus][i]}%", ha="center", color=_PRIMARY, fontsize=15, weight="bold")
-            ax.text(0, -.13, "변경예정 최대주주" if fields.get("expected_holder") else "양수인", ha="center", fontsize=8, color=_MUTED)
+        pct = f"{shown[focus][i]}%" if focus is not None else " "
+        caption = "변경예정 최대주주" if fields.get("expected_holder") else "양수인"
+        ax.text(0, .06, pct, ha="center", color=_PRIMARY, fontsize=15, weight="bold", gid=f"stake-pct-{i}")
+        ax.text(0, -.13, caption if focus is not None else " ", ha="center", fontsize=8,
+                color=_MUTED, gid=f"stake-name-{i}")
     ax = fig.add_subplot(grid[1, :])
     ax.axis("off")
     ax.set(xlim=(0, 1), ylim=(-.4, len(shown)+.7))
@@ -616,7 +621,11 @@ def render_chart(name, payload):
         fig, summary = result
         if fig is None:
             return None, summary, None
-        out = BytesIO()
         canvas = FigureCanvasAgg(fig)
-        canvas.print_png(out)
-        return out.getvalue(), summary, fig.chart_marks.export(canvas, fig._suptitle.get_text())
+        canvas.draw()
+        marks = fig.chart_marks.export(canvas, fig._suptitle.get_text())
+        fig.set_layout_engine("none")  # Keep the plotted marks and hit areas on the same final axes.
+        out = StringIO()
+        with mpl.rc_context({"svg.fonttype": "none"}):
+            FigureCanvasSVG(fig).print_svg(out)
+        return out.getvalue(), summary, marks

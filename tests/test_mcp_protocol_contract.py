@@ -715,3 +715,12 @@ def test_failure_axis_is_separate_from_retry_axis():
     assert degrade_marker("bad_key").startswith("[degraded="), "키 오류가 성공으로 잡힌다"
     assert degrade_marker("no_data").startswith("[nodata="), "자료없음이 실패로 잡힌다"
     assert degrade_marker("no_document").startswith("[nodata=")
+
+
+def test_chart_widget_can_load_its_public_template_without_a_dart_key(client):
+    from open_proxy_mcp.tools._charts import CHART_URIS
+
+    for uri in CHART_URIS:
+        r = _keyless(client, {"jsonrpc": "2.0", "id": 2, "method": "resources/read", "params": {"uri": uri}})
+        item = r.json()["result"]["contents"][0]
+        assert item["mimeType"] == "text/html;profile=mcp-app" and "ui/initialize" in item["text"]

@@ -1,14 +1,13 @@
-"""Opt-in MCP image content. The original JSON is still available in structuredContent.result."""
+"""Interactive MCP chart resources. The original JSON is still available in structuredContent.result."""
 from __future__ import annotations
 
 import asyncio
-import base64
 import functools
 import json
 import logging
 import re
 
-from mcp.types import CallToolResult, ImageContent, TextContent
+from mcp.types import CallToolResult, TextContent
 
 # A chart request with the default scope selects the corresponding detail view.
 _SCOPES = {
@@ -25,7 +24,8 @@ _SCOPES = {
 _FINANCIAL_SCOPES = {"quarterly_performance": "quarterly", "cash_flow": "yearly", "cash_debt": "yearly"}
 
 
-CHART_URI = "ui://openproxy/charts-v1.html"
+CHART_URI = "ui://openproxy/charts-v2.html"
+CHART_URIS = (CHART_URI, "ui://openproxy/charts-v1.html")
 
 
 def chart_tool_meta(name):
@@ -40,7 +40,8 @@ def chart_apps():
 
     apps = Apps()
     html = files("open_proxy_mcp").joinpath("chart_app.html").read_text(encoding="utf-8")
-    apps.add_html_resource(CHART_URI, html, name="opm-charts", title="OPM 공시 차트", prefers_border=True)
+    for uri in CHART_URIS:
+        apps.add_html_resource(uri, html, name=uri.rsplit("/", 1)[1], title="OPM 공시 차트", prefers_border=True)
     return apps
 
 
@@ -99,18 +100,15 @@ def with_chart_output(fn):
         if result is None:
             text = "차트를 표시할 수 없어 조회 원문을 제공합니다.\n\n" + raw
             return CallToolResult(content=[TextContent(type="text", text=text)], structured_content={"result": raw})
-        png, summary, chart = result
+        vector, summary, chart = result
         for warning in payload.get("warnings", []):
             summary += f"\n\n⚠ {warning}"
         for notice in payload.get("notices", []):
             summary += f"\n\n📢 {notice.get('body', '')}"
         content = [TextContent(type="text", text=summary)]
         meta = None
-        if png is not None:
-            image = ImageContent(type="image", mime_type="image/png", data=base64.b64encode(png).decode("ascii"))
-            content.insert(0, image)
-            # Some hosts give the widget metadata but omit image content from their bridge.
-            meta = {"opm/chart": {**chart, "png": image.data, "notes": [*payload.get("warnings", []),
+        if vector is not None:
+            meta = {"opm/chart": {**chart, "svg": vector, "notes": [*payload.get("warnings", []),
                     *(n.get("body", "") for n in payload.get("notices", []))]}}
         return CallToolResult(content=content, structured_content={"result": raw}, meta=meta)
 

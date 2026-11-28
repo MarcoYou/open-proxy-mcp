@@ -374,7 +374,7 @@ def register_tools(mcp):
         format: str = "md",
         market: str = "KOSPI",
     ) -> str:
-        """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 약 830사 + 코스닥 × 2020~, 매주 갱신 — 사업보고서가 아직 없는 올해는 1분기·반기 행만)과 결정공시 집계(온전한 해만 횟수)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다. 그림 요청은 format="chart" (scope="firm"). PNG와 수치 표를 같이 반환한다.
+        """desc: 확정 배당 — 회사 시계열 / 조건 스크리닝 / 시장·섹터 집계. DART 정기보고서(alotMatter) 전수 수집본(코스피 약 830사 + 코스닥 × 2020~, 매주 갱신 — 사업보고서가 아직 없는 올해는 1분기·반기 행만)과 결정공시 집계(온전한 해만 횟수)를 DB 에서 읽는다. DART 를 실시간 호출하지 않는다. 그림 요청은 format="chart" (scope="firm"). 채팅에서 선택할 수 있는 차트와 수치 표를 반환한다.
         when: 여러 해를 가로로 보거나(firm) · 조건으로 회사를 거르거나(screen — 「배당수익률 5% 이상」「코스피 배당수익률 상위」는 `min_yield`·`sort=yield`) · 시장·섹터를 볼 때(market/sector). 회사 하나를 깊게(정책신호·최신 미확정분·실시간 원문)는 `dividend_disclosure`. 시총가중 배당수익률·forward DPS·DY 는 `price_multiple_data`/`forward_estimates_data`.
         scope: `firm` 회사 하나(company 필요, 시계열+결정공시 횟수+**결의별 비고 원문 전문**) / `screen` 조건으로 거르기(bsns_year) / `market` 시장 전체(`market` 인자 — 기본 KOSPI) / `sector` 업종 대분류(sector 필요)
         rule: 금액(DPS·총액·배당성향)은 원장 `alotMatter` 확정치, **횟수**(min_payments·이력열)는 결정공시 원문 — 서로 다른 소스라 합치지 않는다. 결정공시는 온전한 해만 센다(그 밖은 `scope_incomplete` — 수집이 이어지면 해가 늘어난다). screen 의 기본 사업연도는 **사업보고서가 있는 마지막 해**다(올해 분기 행만 있는 해가 아니다). 총액은 신고총액 하나만(보통/우선 배분 불가). 비고(11번 「기타 투자판단과 관련한 중요사항」)는 **결의마다 전문을 그대로** 낸다 — 특별·기념배당, 감액배당 재원, 자기주식 제외 산정, 주총 갈음, 차등배당은 그 칸에만 적힌다. 파생 플래그는 힌트일 뿐이니 **원문을 읽고 판단하라.**

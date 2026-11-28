@@ -5,7 +5,7 @@
 <title>OPM 공시 차트</title>
 <style>
 *{box-sizing:border-box}body{margin:0;color:#17272f;background:white;font:15px/1.55 system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-main{padding:8px 12px;max-width:1000px;margin:auto}svg{width:100%;height:auto;display:block}
+main{padding:8px 12px;max-width:1000px;margin:auto}#plot{width:100%;height:auto;display:block}
 .hit{fill:transparent;stroke:transparent;stroke-width:4;cursor:pointer;pointer-events:all;vector-effect:non-scaling-stroke}
 .hit.active{fill:#2c7e9726;stroke:#124f68;stroke-width:2}.hit.muted{fill:#ffffffa8}
 .controls{display:flex;align-items:center;gap:.5em;flex-wrap:wrap;border-top:1px solid #d9e0dd;padding-top:10px}
@@ -33,7 +33,16 @@ function show(index) {
     mark.classList.toggle("active", index !== "" && mark.dataset.group === index);
     mark.classList.toggle("muted", index !== "" && mark.dataset.group !== index);
   }
-  el("detail").textContent = groups[index]?.detail || "";
+  const group = groups[index];
+  for (const [side, pos] of [[1, 0], [2, 1]]) {
+    for (const [id, value] of [["pct", group?.stakes?.[pos]], ["name", group?.label]]) {
+      const text = plot.querySelector("#stake-" + id + "-" + side + " text");
+      if (!text) continue;
+      text.dataset.initial ??= text.textContent;
+      text.textContent = value ?? text.dataset.initial;
+    }
+  }
+  el("detail").textContent = group?.detail || "";
 }
 function select(index) {
   pinned = index;
@@ -50,12 +59,43 @@ plot.addEventListener("pointerover", event => {
 });
 plot.addEventListener("pointerleave", () => show(pinned));
 document.addEventListener("keydown", event => { if (event.key === "Escape") select(""); });
+// Only copy drawing primitives. Filing names remain text nodes, and references stay within the figure.
+const tags = new Set("g defs path use rect circle ellipse line polyline polygon text tspan clipPath pattern".split(" "));
+const attrs = new Set("id d x y x1 y1 x2 y2 cx cy r rx ry width height transform points patternUnits patternTransform text-anchor clip-path fill stroke".split(" "));
+const styles = new Set("fill fill-opacity fill-rule stroke stroke-width stroke-opacity stroke-dasharray stroke-dashoffset stroke-linecap stroke-linejoin opacity font font-family font-size font-weight font-style text-anchor".split(" "));
+function localValue(value) {
+  return !/url\s*\(/i.test(value) || /^url\(#[\w.-]+\)$/.test(value);
+}
+function copyVector(source, parent) {
+  if (!tags.has(source.localName)) return;
+  const node = document.createElementNS(ns, source.localName);
+  for (const attr of source.attributes) {
+    const name = attr.localName, value = attr.value;
+    if (name === "href" && /^#[\w.-]+$/.test(value)) node.setAttribute("href", value);
+    else if (name === "style") {
+      for (const key of source.style) {
+        const v = source.style.getPropertyValue(key);
+        if (styles.has(key) && localValue(v)) node.style.setProperty(key, v);
+      }
+    } else if (attrs.has(name) && localValue(value)) node.setAttribute(name, value);
+  }
+  if (source.localName === "text" || source.localName === "tspan") {
+    for (const child of source.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) node.append(document.createTextNode(child.textContent));
+      else if (child.nodeType === Node.ELEMENT_NODE) copyVector(child, node);
+    }
+  } else {
+    for (const child of source.children) copyVector(child, node);
+  }
+  parent.append(node);
+}
 function render(result) {
   const chart = result?._meta?.["opm/chart"];
   if (!chart) {
     const text = result?.content?.filter(block => block.type === "text").map(block => block.text).join("\n")
       || result?.structuredContent?.result;
     if (typeof text === "string") {
+      groups = [];
       el("chart").hidden = true;
       el("status").hidden = false;
       el("status").textContent = text;
@@ -63,7 +103,18 @@ function render(result) {
     return;
   }
   groups = chart.groups;
-  plot.replaceChildren(svgElement("image", {width:chart.width, height:chart.height, href:"data:image/png;base64,"+chart.png}));
+  plot.replaceChildren();
+  const source = new DOMParser().parseFromString(chart.svg, "image/svg+xml").documentElement;
+  if (source.localName !== "svg") {
+    el("status").textContent = groups.map(g => g.detail).join("\n");
+    el("status").hidden = false;
+    el("chart").hidden = true;
+    return;
+  }
+  const drawing = svgElement("svg", {viewBox:source.getAttribute("viewBox"), width:chart.width, height:chart.height,
+    "pointer-events":"none", "aria-hidden":"true", "stroke-linejoin":"round", "stroke-linecap":"butt"});
+  for (const node of source.children) copyVector(node, drawing);
+  plot.append(drawing);
   plot.setAttribute("viewBox", [0,0,chart.width,chart.height].join(" "));
   plot.setAttribute("aria-label", chart.title);
   choice.replaceChildren(new Option("전체 보기", ""));

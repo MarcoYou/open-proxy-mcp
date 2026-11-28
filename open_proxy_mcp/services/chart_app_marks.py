@@ -1,4 +1,4 @@
-"""Hit areas in the final Agg layout, in the PNG's own pixel coordinates."""
+"""Hit areas in the final Agg layout, in the figure's display coordinates."""
 from math import isfinite
 
 from matplotlib.patches import Patch
