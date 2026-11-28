@@ -3315,7 +3315,7 @@ async def _build_quarterly(corp_code: str, end_year: int, fs_div: str,
     await _attach_controlling_ni(out, stock_code, warnings)
     for row in out:
         row.pop("_cur", None)
-        row.pop("_fs", None)
+        row["fs_div"] = row.pop("_fs")
     return out[-num_quarters:], warnings
 
 

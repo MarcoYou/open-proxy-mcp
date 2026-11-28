@@ -220,6 +220,7 @@ def register_tools(mcp):
         format: str = "md",
     ) -> str:
         """desc: 자기주식 이벤트 통합. **결정 5종(사전 의도) + 결과보고서 4종(사후 집행)** 통합 집계. 주주환원 검증 = 결정만 X, 실제 집행 cross-check.
+        format: md/json/chart. 그림은 summary 조회의 공시분기별 자사주 결정·결과보고 수량을 표시한다.
         when: 자사주 취득·처분·소각·신탁 이력·규모. 결정↔결과 사이클 매칭으로 집행 검증.
         rule: 9 source 병렬 — Decisions: tsstkAqDecsn(취득)/tsstkDpDecsn(처분)/tsstkAqTrctrCnsDecsn(신탁체결)/tsstkAqTrctrCcDecsn(신탁해지)/소각결정. Executions: 취득결과/처분결과/신탁취득상황/신탁해지결과 보고서. ACODE 본문 파싱. 사이클 매칭은 "주요사항보고서 제출일" / "신탁계약 체결일" ↔ decision rcept_dt. 종류별: 보통주 vs 종류주식(우선주·기타주식·RCPS 등 통합) — 결정/결과 모두 amount_common_krw/amount_preferred_krw로 분리(결과는 복수 종류 시 ACODE가 보통주만 잡는 것을 일별 합산 보정).
         scope: `summary` 모든 events + breakdown + cycle 매칭 / `annual` 사업보고서 연간 누적 잔고

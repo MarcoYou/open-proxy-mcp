@@ -14,7 +14,14 @@ _SCOPES = {
     "performance_analysis": ("summary", "series"),
     "dividend_data": ("firm", "firm"),
     "corp_gov_report": ("summary", "metrics"),
+    "shareholder_meeting_results": (None, None),
+    "ownership_structure": ("summary", "blocks"),
+    "financial_metrics": ("summary", "quarterly"),
+    "treasury_share": ("summary", "summary"),
 }
+
+
+_FINANCIAL_SCOPES = {"quarterly_performance": "quarterly", "cash_flow": "yearly", "cash_debt": "yearly"}
 
 
 def _render(name, payload):
@@ -32,9 +39,20 @@ def with_chart_output(fn):
     async def call(*args, **kwargs):
         if kwargs.get("format") != "chart":
             return await fn(*args, **kwargs)
-        if kwargs.get("scope", default) not in (default, detail):
-            return f"이 도구의 차트는 `{detail}` 조회에서 제공합니다. 다른 조회는 format=md 또는 json을 사용하세요."
-        raw = await fn(*args, **{**kwargs, "scope": detail, "format": "json"})
+        scope = kwargs.get("scope", default)
+        name = fn.__name__
+        chart_scope = detail
+        if name == "financial_metrics":
+            name = kwargs.get("chart") or ("cash_flow" if scope == "yearly" else "quarterly_performance")
+            if name not in _FINANCIAL_SCOPES:
+                return "재무 차트는 chart=quarterly_performance, cash_flow, cash_debt 중에서 선택하세요."
+            chart_scope = _FINANCIAL_SCOPES[name]
+        if scope not in (default, chart_scope):
+            return f"이 도구의 차트는 `{chart_scope}` 조회에서 제공합니다. 다른 조회는 format=md 또는 json을 사용하세요."
+        query = {**kwargs, "format": "json"}
+        if chart_scope is not None:
+            query["scope"] = chart_scope
+        raw = await fn(*args, **query)
         try:
             payload = json.loads(raw)
         except (ValueError, TypeError):
@@ -42,7 +60,7 @@ def with_chart_output(fn):
         if payload.get("status") not in {"ok", "exact", "partial"}:
             return raw
         try:
-            result = await asyncio.to_thread(_render, fn.__name__, payload)
+            result = await asyncio.to_thread(_render, name, payload)
         except Exception:
             logging.getLogger(__name__).exception("Could not render %s chart", fn.__name__)
             result = None

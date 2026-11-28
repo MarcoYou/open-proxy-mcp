@@ -805,6 +805,7 @@ async def _latest_block_rows(
     timeline_rows: list[dict[str, Any]] = []
     for item in data.get("list", []):
         timeline_rows.append({
+            "ownership_pct_raw": item.get("stkrt"),
             "reporter": item.get("repror", "").strip(),
             "report_date": item.get("rcept_dt", ""),
             "rcept_no": item.get("rcept_no", ""),

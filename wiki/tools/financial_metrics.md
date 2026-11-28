@@ -501,3 +501,15 @@ ROE 분모와 자본잠식의 자기자본은 **분기·연간 수집과 `price_
   D&A 추출 시에만 산출 · `_safe_fetch_acnt` fs_div 행 필터.
 - 2026-05-31: 운전자본 회전일수 4종(DSO/DIO/DPO/CCC) + CFO/순이익 추가(추가 API 호출 없음).
 - 2026-05-01: tool 신규 (DART 4 endpoint + 6 scope + 22 alerts).
+
+## 재무 차트
+
+`financial_metrics(company="삼성전자", format="chart", chart="cash_flow")`처럼 호출한다. 한 번의 재무 조회에서 PNG와 원 단위 표를 반환하며 조회 원문은 `structuredContent.result`에 남는다.
+
+| chart | 조회 | 표시 기준 |
+|---|---|---|
+| `quarterly_performance` | quarterly | 사업연도별 분기 매출과 영업이익률. 분기 단독값이 없으면 빈칸으로 둔다. |
+| `cash_flow` | yearly | 연간 잉여현금흐름과 같은 해 현금흐름표의 배당금 지급액. 금융업의 해석 주의를 함께 표시한다. |
+| `cash_debt` | yearly | 기말 현금및현금성자산과 총차입금. 연도 아래 숫자는 순현금이며 음수는 순차입을 뜻한다. |
+
+조회 범위는 차트 종류로 정해진다. 종류를 생략하면 분기 실적을, `scope="yearly"`이면 현금흐름을 그린다. 금액은 원화 환산이 확인된 값만 표시하고, 연간 차트에서 분기·반기 대체 보고서는 비운다.

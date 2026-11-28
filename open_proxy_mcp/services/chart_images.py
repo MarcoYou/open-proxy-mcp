@@ -1,8 +1,9 @@
 """Report figures made from one completed tool response; no queries or result storage."""
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, partial
 from io import BytesIO
 from math import isfinite, nan
 from textwrap import fill
@@ -194,8 +195,268 @@ def _governance(p):
     return fig, f"**{title}** · {caption}\n\n" + _table(["항목","직전기","당기"], data)
 
 
+def _percent_value(raw):
+    try:
+        value = float(str(raw).strip().removesuffix("%").strip())
+    except ValueError:
+        return None
+    return value if 0 <= value <= 100 else None
+
+
+def _chart_date(raw):
+    try:
+        return datetime.fromisoformat(str(raw)) if "-" in str(raw) else datetime.strptime(str(raw), "%Y%m%d")
+    except ValueError:
+        return None
+
+
+def _vote_results(p):
+    data = p["data"]
+    results = data.get("results") or {}
+    items = results.get("items") or []
+    if not items or len(items) > 48:
+        return
+    title = f"{data.get('canonical_name') or p['subject']} · 주총 안건별 찬성률"
+    labels, table, rates, outcomes = [], [], [], []
+    for item in items:
+        agenda = f"{item.get('number', '')} {item.get('agenda', '')}".strip()
+        labels.append(fill(agenda, width=20))
+        rate = _percent_value(item.get("approval_rate_voted"))
+        rates.append(rate)
+        outcome = item.get("passed") or "결과 미확인"
+        if item.get("remark_contradicts_pass"):
+            outcome += " (비고 확인)"
+        outcomes.append(outcome)
+        table.append((agenda, f"{rate:g}%" if rate is not None else "비율 미확인",
+                      outcome, item.get("remark") or item.get("passed_raw") or "—"))
+    no_rates = all(rate is None for rate in rates)
+    if no_rates:
+        title = f"{data.get('canonical_name') or p['subject']} · 주총 의결 결과"
+    fig = _figure(title, max(3, 1.6 + .36 * sum(x.count("\n") + 1 for x in labels)), width=8.2)
+    ax = fig.subplots()
+    for i, (rate, outcome) in enumerate(zip(rates, outcomes)):
+        if rate is not None:
+            ax.barh(i, rate, height=.48, color=_PRIMARY)
+        value = f"{rate:g}%" if rate is not None else "비율 미확인"
+        ax.text(102, i, f"{value} · {outcome}", va="center", fontsize=9)
+    ax.set(yticks=range(len(labels)), yticklabels=labels, ylim=(len(labels)-.5, -.5),
+           xlim=(0, 151), xticks=[0, 25, 50, 75, 100], xlabel="출석주식수 기준 찬성률 (%)")
+    ax.grid(False, axis="y")
+    if no_rates:
+        ax.set(xlim=(95, 140), xticks=[], xlabel="출석주식수 기준 찬성률을 확인할 수 없는 공시")
+    ref = data.get("result_reference") or {}
+    source = ref.get("rcept_no") or ref.get("kind_acptno") or "접수번호 미확인"
+    note = results.get("void_notice") or ""
+    if note:
+        fig.supxlabel("기타사항 공시 있음 · 아래 원문 참조", fontsize=9)
+    return fig, f"**{title}** · 결과 공시 {source}\n\n" + _table(
+        ["안건", "출석주식수 기준", "결과", "원문·비고"], table) + (f"\n\n기타사항: {note}" if note else "")
+
+
+def _block_ownership(p):
+    data = p["data"]
+    holders = defaultdict(list)
+    table = []
+    for row in data.get("timeline") or []:
+        reporter = row.get("reporter") or ""
+        day = _chart_date(row.get("report_date"))
+        rate = _percent_value(row.get("ownership_pct_raw"))
+        if reporter and day and rate is not None:
+            holders[reporter].append((day, rate))
+        table.append((row.get("report_date"), reporter or "미상", f"{rate:g}%" if rate is not None else "미확인",
+                      row.get("rcept_no") or "—"))
+    if not holders or len(holders) > 16:
+        return
+    title = f"{data.get('canonical_name') or p['subject']} · 대량보유 보고 지분율"
+    fig = _figure(title, max(3, 1.3 + 1.15*len(holders)))
+    axes = fig.subplots(len(holders), sharex=True, sharey=True, squeeze=False).ravel()
+    for ax, (holder, points) in zip(axes, sorted(holders.items())):
+        xs, ys = zip(*sorted(points))
+        ax.scatter(xs, ys, color=_PRIMARY, s=20)
+        ax.set_title(holder, loc="left", fontsize=10)
+        ax.set_ylabel("%")
+    locator = dates.AutoDateLocator(minticks=2, maxticks=6)
+    axes[-1].xaxis.set_major_locator(locator)
+    axes[-1].xaxis.set_major_formatter(dates.DateFormatter("%y-%m-%d"))
+    axes[-1].set_xlabel("공시일 · 보고자 및 특별관계자 합산 · 조회 이력 최대 50건")
+    return fig, f"**{title}** · 공시일별 보고값 · 조회 이력 최대 50건\n\n" + _table(
+        ["공시일", "보고자", "지분율", "접수번호"], table)
+
+
+def _treasury(p):
+    data = p["data"]
+    kinds = {
+        "acquisition_result": ("취득 결과", "cumulative_shares"),
+        "disposal_result": ("처분 결과", "actual_shares"),
+        "acquisition_decision": ("취득 결정", None),
+        "disposal_decision": ("처분 결정", None),
+        "cancelation_decision": ("소각 결정", None),
+    }
+    events = []
+    for row in data.get("events") or []:
+        kind = kinds.get(row.get("event"))
+        day = _chart_date(row.get("rcept_dt"))
+        if kind and day:
+            events.append((day, str(row.get("rcept_no") or ""), kind, row))
+    if not events or len(events) > 60:
+        return
+    title = f"{data.get('canonical_name') or p['subject']} · 자사주 결정과 결과보고"
+    fig = _figure(title, max(3.1, 1.6 + .32*len(events)), width=8)
+    ax = fig.subplots()
+    labels, table = [], []
+    for i, (day, receipt, (label, field), row) in enumerate(sorted(events, key=lambda event: event[:2])):
+        labels.append(f"{day.year} Q{(day.month-1)//3+1} · {day:%m/%d}  {label}")
+        shares = row.get(field) if field else None
+        if _number(shares) and shares >= 0:
+            ax.barh(i, shares, height=.48, color=_PRIMARY)
+            ax.annotate(f"{shares:,}주", (shares, i), xytext=(4, 0), textcoords="offset points", va="center", fontsize=9)
+            detail = f"{shares:,}주"
+        else:
+            detail = "수량 미확인" if field else "결정 공시"
+            ax.text(.01, i, ("◇ " if not field else "") + detail, transform=ax.get_yaxis_transform(),
+                    va="center", color=_MUTED, fontsize=9)
+        table.append((day.date().isoformat(), label, detail, receipt or "—"))
+    ax.set(yticks=range(len(events)), yticklabels=labels, ylim=(len(events)-.5, -.5),
+           xlabel="결과보고서 기재 주식 수 (주) · 분기는 공시일 기준")
+    ax.margins(x=.35)
+    ax.set_xlim(left=0)
+    ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, integer=True))
+    ax.xaxis.set_major_formatter(mpl.ticker.StrMethodFormatter("{x:,.0f}"))
+    ax.grid(False, axis="y")
+    return fig, f"**{title}** · 직접 취득·처분 결과보고 수량, 소각은 결정 단계 · 신탁 제외\n\n" + _table(
+        ["공시일", "공시 유형", "결과 수량·단계", "접수번호"], table)
+
+
+def _financial_amount(row, key):
+    value = row.get(key)
+    if row.get("functional_currency", "KRW") != "KRW" and not row.get("fx_rate_to_krw"):
+        return nan
+    return value if _number(value) else nan
+
+
+def _amount_scale(values):
+    peak = max((abs(v) for v in values if isfinite(v)), default=0)
+    if peak >= 1e12:
+        return 1e12, "조원"
+    if peak >= 1e8:
+        return 1e8, "억원"
+    return 1, "원"
+
+
+def _amount_cell(value):
+    return f"{value:,.0f}" if isfinite(value) else "—"
+
+
+def _fs_label(row):
+    return {"CFS": "연결", "OFS": "별도"}.get(row.get("fs_div"), "기준 미확인")
+
+
+def _quarterly_performance(p):
+    data = p["data"]
+    rows = data.get("quarterly") or []
+    if not rows:
+        return
+    # Use fiscal ordinals to leave a true gap where a filing is missing.
+    by_period = {int(r["fiscal_year"]) * 4 + int(r["fiscal_quarter"][1:]) - 1: r for r in rows}
+    periods = range(min(by_period), max(by_period) + 1)
+    labels, sales, margins, table = [], [], [], []
+    for period in periods:
+        year, offset = divmod(period, 4)
+        labels.append(f"{year}\nQ{offset + 1}")
+        row = by_period.get(period, {})
+        standalone = row.get("basis") != "annual_cumulative"
+        revenue = _financial_amount(row, "revenue_krw") if standalone else nan
+        margin = row.get("operating_margin_pct")
+        margin = margin if standalone and _number(margin) else nan
+        sales.append(revenue)
+        margins.append(margin)
+        table.append((f"{year} Q{offset + 1}", row.get("period_end") or "—", _fs_label(row), _amount_cell(revenue),
+                      f"{margin:.2f}%" if isfinite(margin) else "—"))
+    if not any(isfinite(v) for v in sales + margins):
+        return
+    title = f"{data.get('canonical_name') or p['subject']} · 분기 매출과 영업이익률"
+    fig = _figure(title, height=5.2)
+    top, bottom = fig.subplots(2, sharex=True)
+    scale, unit = _amount_scale(sales)
+    x = range(len(labels))
+    top.bar(x, [v / scale for v in sales], color=_PRIMARY, width=.62)
+    top.set_ylabel(f"매출 ({unit})")
+    bottom.plot(x, margins, color=_PRIMARY, linewidth=2, marker="o", markersize=4)
+    bottom.set_ylabel("영업이익률 (%)")
+    bottom.set_xticks(x, labels, fontsize=8)
+    bottom.axhline(0, color=_REFERENCE, linewidth=.8)
+    account_names = sorted({r.get("revenue_basis") or r.get("revenue_account_nm") or "기타 수익"
+                            for r in rows if r.get("revenue_standard") is False})
+    note = "사업연도 기준 · 분기 단독 실적 · DART 정기보고서"
+    if account_names:
+        note += " · 매출 대체 계정: " + ", ".join(account_names)
+    bottom.set_xlabel(fill(note, 55), fontsize=9)
+    return fig, f"**{title}** · {note}\n\n" + _table(["분기", "기간 말", "기준", "매출 (원)", "영업이익률"], table)
+
+
+def _annual_finance(p, *, cash_flow):
+    data = p["data"]
+    rows = sorted(data.get("yearly") or [], key=lambda r: r["year"])
+    if not rows:
+        return
+    if cash_flow:
+        fields = ("fcf_krw", "dividend_paid_krw")
+        names = ("잉여현금흐름", "현금배당 지급액")
+    else:
+        fields = ("cash_and_equivalents_krw", "total_debt_krw")
+        names = ("현금및현금성자산", "총차입금")
+    title = f"{data.get('canonical_name') or p['subject']} · {names[0]} · {names[1]}"
+    def value(row, key):
+        # The service may substitute an interim filing when the annual report is unavailable.
+        if row.get("reprt_code") != "11011" or (cash_flow and row.get("period_basis") != "annual"):
+            return nan
+        return _financial_amount(row, key)
+    amounts = [[value(row, key) for row in rows] for key in fields]
+    flat = amounts[0] + amounts[1]
+    if not any(isfinite(v) for v in flat):
+        return
+    scale, unit = _amount_scale(flat)
+    fig = _figure(title, height=4.7)
+    ax = fig.subplots()
+    for j, vals in enumerate(amounts):
+        bars = ax.bar([i + (j - .5) * .37 for i in range(len(rows))], [v / scale for v in vals],
+                      width=.34, color=(_PRIMARY, _REFERENCE)[j], label=names[j])
+        if len(rows) <= 4:
+            ax.bar_label(bars, labels=[f"{v / scale:,.2f}".rstrip("0").rstrip(".") if isfinite(v) else ""
+                                       for v in vals], padding=3, fontsize=8)
+    ax.axhline(0, color=_REFERENCE, linewidth=.8)
+    ax.margins(y=.17)
+    ax.set_ylabel(f"금액 ({unit})")
+    ax.legend(frameon=False, loc="lower left", bbox_to_anchor=(0, 1), ncols=2, fontsize=9)
+    headers = ["사업연도", "기준", *(f"{name} (원)" for name in names)]
+    labels, table = [], []
+    if not cash_flow:
+        headers.append("순현금 (원)")
+    for i, row in enumerate(rows):
+        year = str(row.get("fiscal_year") or row["year"])
+        label = year
+        cells = [year, _fs_label(row), *(_amount_cell(vals[i]) for vals in amounts)]
+        if not cash_flow:
+            net = value(row, "net_cash_krw")
+            label += f"\n{net / scale:+,.2f}" if isfinite(net) else "\n—"
+            cells.append(_amount_cell(net))
+        labels.append(label)
+        table.append(cells)
+    ax.set_xticks(range(len(rows)), labels, fontsize=8)
+    note = ("연간 현금흐름표 · 지급연도 기준" if cash_flow
+            else f"사업연도 말 · 연도 아래 숫자는 순현금 ({unit}) · 총차입금은 리스부채 제외")
+    if cash_flow and any(r.get("is_financial_company") for r in rows):
+        note += "\n금융업은 예수·대출 등 영업자금 변동이 포함돼 배당여력 해석에 주의"
+    ax.set_xlabel(note, fontsize=9)
+    return fig, f"**{title}** · {note}\n\n" + _table(headers, table)
+
+
 def render_chart(name, payload):
-    renderer = {"performance_analysis": _performance, "dividend_data": _dividend, "corp_gov_report": _governance}[name]
+    renderer = {"performance_analysis": _performance, "dividend_data": _dividend, "corp_gov_report": _governance,
+                "shareholder_meeting_results": _vote_results, "ownership_structure": _block_ownership,
+                "treasury_share": _treasury, "quarterly_performance": _quarterly_performance,
+                "cash_flow": partial(_annual_finance, cash_flow=True),
+                "cash_debt": partial(_annual_finance, cash_flow=False)}[name]
     with _LOCK, mpl.rc_context({"font.family": _font(), "text.parse_math": False, "axes.unicode_minus": False,
                                 "figure.facecolor": _SURFACE, "axes.facecolor": _SURFACE, "text.color": _INK,
                                 "axes.labelcolor": _MUTED, "xtick.color": _MUTED, "ytick.color": _MUTED,

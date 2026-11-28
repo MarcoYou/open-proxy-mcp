@@ -674,8 +674,9 @@ def register_tools(mcp):
         consolidated: bool = True,
         sj_div: list[str] | None = None,
         format: str = "md",
+        chart: str = "",
     ) -> str:
-        """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk. 한국 표준(연결, 지배주주 귀속). 듀퐁·FCF·NWC·accruals_gap·감사의견 자동 산출.
+        """desc: DART 재무 4 endpoint 통합 — 수익성/안정성/현금흐름/회계 risk. 한국 표준(연결, 지배주주 귀속). 듀퐁·FCF·NWC·accruals_gap·감사의견 자동 산출. 그림은 format="chart". chart="quarterly_performance" 분기 매출·영업이익률, "cash_flow" 연간 잉여현금흐름·현금배당 지급액, "cash_debt" 기말 현금성자산·총차입금·순현금.
         when: 재무 펀더멘탈 + 회계 risk 진단 / 적자전환·턴어라운드·이자보상배율 alert / 사외이사 후보 재직 시점 회계 사건 cross-check.
         rule: source = fnlttSinglAcnt(BS+IS 30행, 요청 fs_div로 행 필터) + fnlttSinglIndx(보조 ROE) + fnlttSinglAcntAll(CF+213행) + accnutAdtorNmNdAdtOpinion(감사의견 3년). 금액 int(_krw)(EPS(원/주)는 공시 소수 유지) — 기능통화가 비KRW 인 회사는 회계기말 환율로 KRW 환산하고 `functional_currency`·`fx_rate_to_krw`·`fx_basis` 를 함께 낸다(환율 실패 시 값 보존 + 「원화 아님」 경고). `accounts` 는 환산하지 않고 원행 통화 그대로, %는 float(_pct), 비율 decimal(_ratio). 연결 default, 적자/0 분모 graceful. 매출은 account_id(ifrs-full_Revenue) 우선, 없으면 KSIC 업종 순서로 계정명(영업수익·보험수익·이자수익…)에서 고르고 `revenue_account_nm`·`revenue_standard`로 어느 계정인지 명시 — 보험수익·이자수익 기준이면 영업이익률을 제조업 마진처럼 읽지 말 것. 분기 합≠연간이면 기중 분할·재작성 warning 자동 부착. 이자보상배율 분모 = IS 이자비용, 없으면 CF '이자의 지급' (금융비용 총액 사용 안 함). EBITDA는 CF에서 D&A가 추출된 회사만 산출 (조정 합계 공시 회사는 None). 사업연도 라벨에는 그 연도가 덮는 12개월과 결산월을 붙인다(6월 결산 오독 방지). 근거 정기보고서가 정정본이면 정정일과 함께 명시. accruals_gap은 비율(`_pct`)과 금액차(`accruals_gap_krw`)를 같이 내고, 영업이익이 적자·초박막이면 `accruals_gap_reliability`로 비율 왜곡을 표시(alert도 `accruals_red` 대신 `accruals_ratio_unreliable`).
         period: DART 기간 의미가 항목별로 다름 — 손익 thstrm=당기3개월/누적은 thstrm_add, 현금흐름=누적, 재무상태=잔액. summary가 분기보고서면 ① 손익은 누적(YTD) 기준 primary + 당기 분기(standalone)를 `standalone`에 별도 동봉(반기/3분기), ② 회전일수(DSO/DIO/CCC)는 TTM(최근 4분기) 분모로 산출(단일분기 연환산 왜곡 제거), ③ ROE/ROA/자산회전율은 연환산 안 함(분기값). 기준은 항상 `period_basis`/`turnover_basis`/`basis_note`로 명시. year 미지정 시 quarterly·qoq는 당해 연도(최신 분기 포함), summary·yearly·yoy는 직전 사업연도.

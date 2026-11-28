@@ -72,3 +72,80 @@ def test_preferred_dividend_keeps_comparison_style_when_common_stock_is_absent()
     preferred_only = style([row])
     assert preferred_only[1]
     assert preferred_only == style([row, dict(row, stock_kind="보통")])
+
+
+def test_vote_chart_uses_only_votes_present_and_preserves_conflicting_remarks():
+    from open_proxy_mcp.services.chart_images import _vote_results
+    items = [
+        {"agenda": "A", "passed": "가결", "approval_rate_issued": "75", "remark": "무효",
+         "remark_contradicts_pass": True},
+        {"agenda": "B", "passed": "부결", "approval_rate_voted": "0"},
+    ]
+    fig, summary = _vote_results({"subject": "회사", "data": {"results": {"items": items}}})
+    assert [bar.get_width() for bar in fig.axes[0].patches] == [0]
+    assert "비율 미확인 | 가결 (비고 확인) | 무효" in summary
+
+
+def test_block_chart_distinguishes_reported_zero_and_absent_ratio():
+    from open_proxy_mcp.services.chart_images import _block_ownership
+    base = {"report_date": "20251101", "reporter": "기관", "ownership_pct": 0}
+    rows = [dict(base, ownership_pct_raw="-"), dict(base, ownership_pct_raw="0.00")]
+    fig, summary = _block_ownership({"subject": "회사", "data": {"timeline": rows}})
+    points = fig.axes[0].collections[0].get_offsets()
+    assert len(points) == 1 and points[0][1] == 0
+    assert "미확인" in summary and "0%" in summary
+
+
+def test_treasury_chart_keeps_decisions_separate_from_reported_shares():
+    from open_proxy_mcp.services.chart_images import _treasury
+    events = [
+        {"event": "cancelation_decision", "shares": 700},
+        {"event": "disposal_result", "planned_shares": 300},
+        {"event": "acquisition_result", "cumulative_shares": 22},
+    ]
+    for row in events:
+        row["rcept_dt"] = "20250917"
+    fig, summary = _treasury({"subject": "회사", "data": {"events": events}})
+    assert [bar.get_width() for bar in fig.axes[0].patches] == [22]
+    assert "소각 결정 | 결정 공시" in summary and "처분 결과 | 수량 미확인" in summary
+
+
+def test_quarter_chart_respects_fiscal_gaps_cumulative_and_currency():
+    from open_proxy_mcp.services.chart_images import _quarterly_performance
+    base = dict(fiscal_year=2025, fiscal_quarter="Q1", revenue_krw=12, operating_margin_pct=-5)
+    rows = [base, dict(base, fiscal_quarter="Q3", functional_currency="USD", fx_rate_to_krw=None),
+            dict(base, fiscal_quarter="Q4", basis="annual_cumulative")]
+    fig, summary = _quarterly_performance({"subject": "회사", "data": {"quarterly": rows}})
+    assert [b.get_height() for b in fig.axes[0].patches][:1] == [12]
+    assert all(math.isnan(b.get_height()) for b in fig.axes[0].patches[1:])
+    margins = fig.axes[1].lines[0].get_ydata()
+    assert list(margins[::2]) == [-5, -5] and all(math.isnan(v) for v in margins[1::2])
+    assert "2025 Q2" in summary
+
+
+def test_cash_charts_only_use_full_year_flows_and_reported_balances():
+    from open_proxy_mcp.services.chart_images import _annual_finance
+    annual = dict(year=2024, reprt_code="11011", period_basis="annual", fcf_krw=-20,
+                  dividend_paid_krw=0, cash_and_equivalents_krw=100, total_debt_krw=200,
+                  net_cash_krw=-100, is_financial_company=True)
+    rows = [annual, dict(annual, year=2025, reprt_code="11012")]
+    payload = {"subject": "회사", "data": {"yearly": rows}}
+    fig, summary = _annual_finance(payload, cash_flow=True)
+    assert "금융업" in summary and "-20 | 0" in summary
+    assert fig.axes[0].patches[0].get_height() == -20 and math.isnan(fig.axes[0].patches[1].get_height())
+    _, summary = _annual_finance(payload, cash_flow=False)
+    assert "100 | 200 | -100" in summary and "— | — | —" in summary
+
+
+def test_financial_chart_selects_one_query_and_rejects_conflicting_scope():
+    calls = []
+    async def financial_metrics(**params):
+        calls.append(params)
+        return json.dumps({"status": "ok", "data": {}})
+    tool = with_chart_output(financial_metrics)
+    for chart, scope in [("cash_debt", "yearly"), ("cash_flow", "yearly"), ("quarterly_performance", "quarterly")]:
+        result = asyncio.run(tool(format="chart", chart=chart))
+        assert calls[-1]["scope"] == scope and len(result.content) == 1
+    assert "yearly" in asyncio.run(tool(format="chart", chart="cash_flow", scope="quarterly"))
+    assert "선택" in asyncio.run(tool(format="chart", chart="unknown"))
+    assert len(calls) == 3

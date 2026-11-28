@@ -9,6 +9,8 @@ related: [shareholder_meeting_notice, evidence]
 
 # shareholder_meeting_results
 
+`format="chart"`를 쓰면 출석주식수 기준 안건별 찬성률과 결의 결과를 PNG와 근거 표로 반환한다.
+
 주총 **의결 결과** 공시 (사후). DART API 본문 우선, 추출 실패 시 KIND fallback. 안건별 결과와 추출 가능한 찬반율을 제공한다. 요약형에는 비율이 없을 수 있으며 빈 값은 0이 아니다.
 
 ## 분리 배경 (2026-05-04)
