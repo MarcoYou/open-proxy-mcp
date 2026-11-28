@@ -495,7 +495,7 @@ def _transfer_donut(p):
     events = [e for e in data.get("control_events", []) if e.get("kind") == "transfer_contract"
               and (not receipt or e.get("rcept_no") == receipt)]
     if len(events) > 1:
-        return None, "계약 공시가 여러 건입니다. 표시할 원공시 또는 정정공시의 rcept_no를 선택하세요.\n\n" + _table(
+        return None, "계약 공시가 여러 건입니다. 표시할 원공시 또는 정정공시의 접수번호를 선택하세요.\n\n" + _table(
             ["접수번호", "공시명"], [(e["rcept_no"], e.get("report_nm", "")) for e in events])
     if not events:
         return None, "조회 범위에서 해당 주식양수도 계약 체결 공시를 찾지 못했습니다. 회사·기간·접수번호를 확인하세요."
