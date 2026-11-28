@@ -70,3 +70,22 @@ def test_visual_changes_and_unread_attachment_keep_their_source():
     signal, = attachment_signals(context)
     assert signal["changes"] == context["visual_reading"]["changes"]
     assert signal["dart_url"] == context["selected"]["dart_url"]
+
+
+def test_original_review_is_only_requested_for_unresolved_readings(monkeypatch):
+    from open_proxy_mcp.services import screener_corrections as corrections
+
+    rc, dcm = "20261104900414", "111"
+    source = f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rc}&dcmNo={dcm}"
+    args = {"rcept_no":rc, "dcm_no":dcm}
+    call = {"tool":"original_reader", "arguments":args}
+    for result in ({"status":"read"}, {"status":"version_unverified","next_call":call}):
+        async def reader(**kwargs):
+            return result
+        monkeypatch.setattr(corrections, "_attachment_reader", lambda: reader)
+        context = {"selected":{"title":"의사록","dart_url":source}}
+        asyncio.run(corrections._attach_reading(None, rc, "", [], {}, "", context, {}))
+        if result["status"] == "read":
+            assert "original_review" not in context
+        else:
+            assert context["original_review"] == {"viewer_url":source, "next_call":call}

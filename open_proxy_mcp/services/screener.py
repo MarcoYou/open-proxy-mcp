@@ -2413,6 +2413,15 @@ async def build_pattern_screen(kinds: frozenset[str], **kwargs) -> dict:
         page["status"] = "partial"
     page["usage"] = build_usage(client.api_call_snapshot() - calls)
     page.pop("_halt_document_reads", None)
+    reviews = sum(bool(hit.get("attachment_amendment", {}).get("original_review")) for hit in page["hits"])
+    if reviews:
+        page["original_review"] = {
+            "count": reviews,
+            "notice": "자동 판독으로 확인하기 어려운 첨부가 있어 DART 원본을 내려받아 확인하겠습니다.",
+            "instruction": "사용자에게 위 안내를 조회당 한 번 전한 뒤, 해당 공시의 original_review.next_call을 직접 실행한다. "
+                           "호출이 없으면 viewer_url에서 원본을 연다. 필요한 쪽까지 읽고 원본 링크·쪽수·근거를 답한다. "
+                           "판본이나 수치를 식별할 수 없으면 확인한 범위와 사유를 남긴다.",
+        }
     page["pattern_note"] = "이번 페이지의 공시 원문에서 찾은 검토 후보입니다. 정정·철회, 정관 효력, 실제 표결·납입·교부는 회사별로 확인합니다."
     page["counts"]["pattern_receipts"] = sum(bool(card["pattern_signals"]) for card in page["hits"])
     return page

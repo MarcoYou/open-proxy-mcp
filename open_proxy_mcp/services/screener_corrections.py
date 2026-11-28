@@ -105,6 +105,10 @@ async def _attach_reading(client, rc, main, nodes, node, body, context, family):
         result = {"status":"needs_review"}
     if result:
         context["visual_reading"] = result
+        if result.get("status") != "read":
+            context["original_review"] = {"viewer_url":context["selected"]["dart_url"]}
+            if result.get("next_call"):
+                context["original_review"]["next_call"] = result["next_call"]
 
 
 async def attachment_amendment(client, rc, cutoff):
@@ -126,6 +130,7 @@ async def attachment_amendment(client, rc, cutoff):
     node = next((n for n in nodes if n["rcpNo"] == rc and n["dcmNo"] in attachments
                  and (n["dtd"] == "HTML" or "정정" in re.sub(r"\s+", "", n.get("text", "")))), None)
     if not node:
+        context["original_review"] = {"viewer_url":_VIEW + rc}
         return context
     body = await client._fetch_viewer_section_html(node)
     a = parse_amendment_table(body)
