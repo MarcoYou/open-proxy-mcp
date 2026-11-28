@@ -24,8 +24,8 @@ _SCOPES = {
 _FINANCIAL_SCOPES = {"quarterly_performance": "quarterly", "cash_flow": "yearly", "cash_debt": "yearly"}
 
 
-CHART_URI = "ui://openproxy/charts-v2.html"
-CHART_URIS = (CHART_URI, "ui://openproxy/charts-v1.html")
+CHART_URI = "ui://openproxy/charts-v3.html"
+CHART_URIS = (CHART_URI, "ui://openproxy/charts-v2.html", "ui://openproxy/charts-v1.html")
 
 
 def chart_tool_meta(name):
@@ -104,7 +104,7 @@ def with_chart_output(fn):
         for warning in payload.get("warnings", []):
             summary += f"\n\n⚠ {warning}"
         for notice in payload.get("notices", []):
-            summary += f"\n\n📢 {notice.get('body', '')}"
+            summary += f"\n\n> 📢 [공지] {notice.get('body', '')}"
         content = [TextContent(type="text", text=summary)]
         meta = None
         if vector is not None:

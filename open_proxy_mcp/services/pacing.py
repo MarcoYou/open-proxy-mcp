@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import datetime as _dt
 import hashlib
 import os
 import time
@@ -42,7 +41,6 @@ NOTICE_AFTER_SEC = 1.0
 #: 동시 자리가 날 때까지 다시 보는 간격(초). 루프마다 잠금을 따로 만들지 않으려고 짧게 잔다.
 _POLL_SEC = 0.2
 _KEYS_MAX = 10_000
-_KST = _dt.timezone(_dt.timedelta(hours=9))
 
 
 @dataclass
@@ -144,10 +142,8 @@ def stats() -> dict:
 
 # ── 안내 ──────────────────────────────────────────────────────────────────────
 def _notice(title: str, body: str) -> "_notices.Notice":
-    today = _dt.datetime.now(_KST).strftime("%m-%d")
     return _notices.Notice(id="pacing", level="important", title=title, body=body, link=None,
-                           starts_at="", expires_at="", show="every_call", starts_ts=0.0, expires_ts=0.0,
-                           date_label=today)
+                           starts_at="", expires_at="", show="every_call", starts_ts=0.0, expires_ts=0.0)
 
 
 def slowed_notice(waited: float, queued: int = 0) -> "_notices.Notice":

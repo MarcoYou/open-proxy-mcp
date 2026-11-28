@@ -2,7 +2,7 @@
 """운영자 공지 — 모든 도구 응답에 끼우는 짧은 안내(전용 도구 없음).
 
 261023 신설. 점검·변경 예고처럼 운영자가 사용자에게 알릴 일을 **도구 응답 안**에 싣는다. md 응답은 `# 제목` 바로 아래
-`> 📢 [<MM-DD> 공지] <title> — <body> <link>` 블록(MM-DD 는 starts_at 의 KST 날짜, 261117 버전 표시 뺌), JSON 응답은 최상위 dict 의 `notices` 칸(`warnings` 와 따로)이다.
+`> 📢 [공지] <title> — <body> <link>` 블록, JSON 응답은 최상위 dict 의 `notices` 칸(`warnings` 와 따로)이다.
 공지 문구는 서버 지시문(`instructions`)에 넣지 않는다 — 지시문에는 「공지를 사용자에게 한 번 전하라」는 영어 한 문장만 있다.
 
 ■ 어디서 오나 — 매니페스트(JSON) 하나
@@ -101,7 +101,6 @@ class Notice:
     show: str                          # 실제로 쓰는 값(important → every_call 반영)
     starts_ts: float
     expires_ts: float
-    date_label: str                    # starts_at 의 KST 날짜 MM-DD
 
     def public(self) -> dict[str, Any]:
         """도구 응답의 `notices` 칸 한 항목."""
@@ -321,9 +320,8 @@ def _parse_notice(item: Any) -> Notice | None:
         return None
     if level == "important" and show != "company_only":
         show = "every_call"
-    label = _dt.datetime.fromtimestamp(starts, _KST).strftime("%m-%d")
     return Notice(nid, level, title, body, link or None, str(item["starts_at"]).strip(), str(item["expires_at"]).strip(),
-                  show, starts, expires, label)
+                  show, starts, expires)
 
 
 def _parse_manifest(raw: bytes) -> list[Notice]:
@@ -416,7 +414,7 @@ def _candidates(tool_name: str) -> tuple[list[Notice], str]:
 # ── 끼우기 ────────────────────────────────────────────────────────────────────
 def _md_line(n: Notice) -> str:
     text = f"{n.title} — {n.body}" if n.title and n.body else (n.title or n.body)   # 제목이 비면 본문만(줄표 없이)
-    line = f"> 📢 [{n.date_label} 공지] {text}"
+    line = f"> 📢 [공지] {text}"
     if n.link:
         line += f" {n.link}"
     return line

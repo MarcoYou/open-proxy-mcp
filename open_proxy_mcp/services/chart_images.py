@@ -529,11 +529,40 @@ def _transfer_stakes(table):
     return [*stakes, ("그 밖의 지분", *remaining)]
 
 
+def _latest_transfer_revision(events):
+    """Select a correction only when every filing points to the same original agreement."""
+    originals = [e for e in events if not e.get("amendment") and "정정" not in e.get("report_nm", "")]
+    if len(originals) != 1:
+        return None
+    original = originals[0]
+    filed = original["rcept_no"][:8]
+
+    def parties(event):
+        fields = event.get("fields") or {}
+        return (fields.get("contract_on"), (fields.get("transferor") or {}).get("name"),
+                (fields.get("transferee") or {}).get("name"))
+
+    identity = parties(original)
+    if not all(identity):
+        return None
+    for event in events:
+        if event is original:
+            continue
+        source_date = (event.get("amendment") or {}).get("original_filed_date") or ""
+        if source_date.replace("-", "") != filed or parties(event) != identity or event["rcept_no"] < original["rcept_no"]:
+            return None
+    return max(events, key=lambda e: e["rcept_no"])
+
+
 def _transfer_donut(p):
     data = p["data"]
     receipt = p.get("chart_rcept_no")
     events = [e for e in data.get("control_events", []) if e.get("kind") == "transfer_contract"
               and (not receipt or e.get("rcept_no") == receipt)]
+    if len(events) > 1:
+        revision = _latest_transfer_revision(events)
+        if revision:
+            events = [revision]
     if len(events) > 1:
         return None, "계약 공시가 여러 건입니다. 표시할 원공시 또는 정정공시의 접수번호를 선택하세요.\n\n" + _table(
             ["접수번호", "공시명"], [(e["rcept_no"], e.get("report_nm", "")) for e in events])

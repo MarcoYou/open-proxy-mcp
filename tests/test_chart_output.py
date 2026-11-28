@@ -167,6 +167,16 @@ def test_transfer_donut_uses_report_grid_including_adjacent_zero_cells():
     assert "그 밖의 지분" in text
 
 
+def test_transfer_chart_links_corrections_to_one_original_and_matching_parties():
+    from open_proxy_mcp.services.chart_images import _latest_transfer_revision
+    fields = {"contract_on": "2026-06-30", "transferor": {"name": "갑"}, "transferee": {"name": "을"}}
+    original = {"rcept_no": "20260630900001", "fields": fields}
+    revised = {**original, "rcept_no": "20261014900192", "amendment": {"original_filed_date": "2026-06-30"}}
+    assert _latest_transfer_revision([revised, original]) is revised
+    assert _latest_transfer_revision([original, revised, {**original, "rcept_no": "20260630900002"}]) is None
+    assert _latest_transfer_revision([original, {**revised, "fields": {**fields, "transferee": {"name": "병"}}}]) is None
+
+
 def test_transfer_donut_selects_exact_receipt_and_never_fabricates_missing_stakes():
     from open_proxy_mcp.services.chart_images import _transfer_donut
     columns = ["성명", "관계", "변경전 주식수", "변경전 지분율", "변경후 주식수", "변경후 지분율"]

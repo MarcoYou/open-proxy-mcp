@@ -22,7 +22,7 @@ pre{margin:.4em 0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}#note
 const el = id => document.getElementById(id);
 const plot = el("plot"), choice = el("choice");
 const ns = "http://www.w3.org/2000/svg";
-let groups = [], pinned = "", ready = false;
+let groups = [], pinned = "", ready = false, renderedChart;
 function svgElement(tag, attrs) {
   const node = document.createElementNS(ns, tag);
   for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
@@ -92,16 +92,22 @@ function copyVector(source, parent) {
 function render(result) {
   const chart = result?._meta?.["opm/chart"];
   if (!chart) {
+    if (renderedChart) return;
     const text = result?.content?.filter(block => block.type === "text").map(block => block.text).join("\n")
       || result?.structuredContent?.result;
     if (typeof text === "string") {
       groups = [];
       el("chart").hidden = true;
       el("status").hidden = false;
-      el("status").textContent = text;
+      // The host already has the full text for its conversational answer.
+      const firstLine = text.split("\n", 1)[0];
+      el("status").textContent = /^(차트를 표시할 수 없어|계약 공시가 여러 건|조회 범위에서|전후 지분율을)/.test(firstLine)
+        ? firstLine : "조회 결과는 채팅 답변에서 확인할 수 있습니다.";
     }
     return;
   }
+  if (renderedChart === chart.svg) return;
+  renderedChart = chart.svg;
   groups = chart.groups;
   plot.replaceChildren();
   const source = new DOMParser().parseFromString(chart.svg, "image/svg+xml").documentElement;
@@ -138,6 +144,19 @@ function render(result) {
   el("chart").hidden = false;
   select("");
 }
+// ChatGPT can supply widget metadata at mount or in a later globals event.
+function renderChatGPT(globals) {
+  const metadata = globals?.toolResponseMetadata;
+  if (!metadata) return;
+  for (const candidate of [metadata, metadata.mcp_tool_result?._meta, metadata.call_tool_result?._meta]) {
+    if (candidate?.["opm/chart"]) {
+      render({_meta:candidate});
+      return;
+    }
+  }
+}
+window.addEventListener("openai:set_globals", event => renderChatGPT(event.detail?.globals));
+renderChatGPT(window.openai);
 function post(message) {
   window.parent.postMessage({jsonrpc:"2.0", ...message}, "*");
 }
