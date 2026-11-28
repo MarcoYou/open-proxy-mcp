@@ -25,6 +25,25 @@ _SCOPES = {
 _FINANCIAL_SCOPES = {"quarterly_performance": "quarterly", "cash_flow": "yearly", "cash_debt": "yearly"}
 
 
+CHART_URI = "ui://openproxy/charts-v1.html"
+
+
+def chart_tool_meta(name):
+    if name in _SCOPES:
+        return {"ui": {"resourceUri": CHART_URI}, "openai/outputTemplate": CHART_URI}
+    return {}
+
+
+def chart_apps():
+    from importlib.resources import files
+    from mcp.server.apps import Apps
+
+    apps = Apps()
+    html = files("open_proxy_mcp").joinpath("chart_app.html").read_text(encoding="utf-8")
+    apps.add_html_resource(CHART_URI, html, name="opm-charts", title="OPM 공시 차트", prefers_border=True)
+    return apps
+
+
 def _render(name, payload):
     # Import the plotting backend off the request event loop, on first chart use.
     from open_proxy_mcp.services.chart_images import render_chart
@@ -80,14 +99,19 @@ def with_chart_output(fn):
         if result is None:
             text = "차트를 표시할 수 없어 조회 원문을 제공합니다.\n\n" + raw
             return CallToolResult(content=[TextContent(type="text", text=text)], structured_content={"result": raw})
-        png, summary = result
+        png, summary, chart = result
         for warning in payload.get("warnings", []):
             summary += f"\n\n⚠ {warning}"
         for notice in payload.get("notices", []):
             summary += f"\n\n📢 {notice.get('body', '')}"
         content = [TextContent(type="text", text=summary)]
+        meta = None
         if png is not None:
-            content.insert(0, ImageContent(type="image", mime_type="image/png", data=base64.b64encode(png).decode("ascii")))
-        return CallToolResult(content=content, structured_content={"result": raw})
+            image = ImageContent(type="image", mime_type="image/png", data=base64.b64encode(png).decode("ascii"))
+            content.insert(0, image)
+            # Some hosts give the widget metadata but omit image content from their bridge.
+            meta = {"opm/chart": {**chart, "png": image.data, "notes": [*payload.get("warnings", []),
+                    *(n.get("body", "") for n in payload.get("notices", []))]}}
+        return CallToolResult(content=content, structured_content={"result": raw}, meta=meta)
 
     return call

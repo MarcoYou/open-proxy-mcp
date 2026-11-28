@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OPM 공시 차트</title>
+<style>
+*{box-sizing:border-box}body{margin:0;color:#17272f;background:white;font:15px/1.55 system-ui,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+main{padding:8px 12px;max-width:1000px;margin:auto}svg{width:100%;height:auto;display:block}
+.hit{fill:transparent;stroke:transparent;stroke-width:4;cursor:pointer;pointer-events:all;vector-effect:non-scaling-stroke}
+.hit.active{fill:#2c7e9726;stroke:#124f68;stroke-width:2}.hit.muted{fill:#ffffffa8}
+.controls{display:flex;align-items:center;gap:.5em;flex-wrap:wrap;border-top:1px solid #d9e0dd;padding-top:10px}
+select{font:inherit;max-width:100%;min-height:36px;border:1px solid #829699;background:#fff;color:inherit;border-radius:4px}
+output{display:block;font-variant-numeric:tabular-nums;font-weight:600;margin:.4em 0;color:#164f62;min-height:1.5em}
+pre{margin:.4em 0;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}#notes:empty{display:none}
+</style>
+<main><pre id="status" role="status">차트를 불러오는 중…</pre>
+<section id="chart" hidden><svg role="img" id="plot"></svg>
+<div class="controls"><label for="choice">항목 선택</label><select id="choice"></select></div>
+<output id="detail" for="choice" aria-live="polite"></output><pre id="notes"></pre></section></main>
+<script>
+"use strict";
+const el = id => document.getElementById(id);
+const plot = el("plot"), choice = el("choice");
+const ns = "http://www.w3.org/2000/svg";
+let groups = [], pinned = "", ready = false;
+function svgElement(tag, attrs) {
+  const node = document.createElementNS(ns, tag);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
+  return node;
+}
+function show(index) {
+  for (const mark of plot.querySelectorAll(".hit")) {
+    mark.classList.toggle("active", index !== "" && mark.dataset.group === index);
+    mark.classList.toggle("muted", index !== "" && mark.dataset.group !== index);
+  }
+  el("detail").textContent = groups[index]?.detail || "";
+}
+function select(index) {
+  pinned = index;
+  choice.value = pinned;
+  show(pinned);
+}
+choice.addEventListener("change", () => select(choice.value));
+plot.addEventListener("click", event => {
+  const index = event.target.dataset.group;
+  select(index === undefined || index === pinned ? "" : index);
+});
+plot.addEventListener("pointerover", event => {
+  if (pinned === "") show(event.target.dataset.group ?? "");
+});
+plot.addEventListener("pointerleave", () => show(pinned));
+document.addEventListener("keydown", event => { if (event.key === "Escape") select(""); });
+function render(result) {
+  const chart = result?._meta?.["opm/chart"];
+  if (!chart) {
+    const text = result?.content?.filter(block => block.type === "text").map(block => block.text).join("\n")
+      || result?.structuredContent?.result;
+    if (typeof text === "string") {
+      el("chart").hidden = true;
+      el("status").hidden = false;
+      el("status").textContent = text;
+    }
+    return;
+  }
+  groups = chart.groups;
+  plot.replaceChildren(svgElement("image", {width:chart.width, height:chart.height, href:"data:image/png;base64,"+chart.png}));
+  plot.setAttribute("viewBox", [0,0,chart.width,chart.height].join(" "));
+  plot.setAttribute("aria-label", chart.title);
+  choice.replaceChildren(new Option("전체 보기", ""));
+  groups.forEach((group, i) => choice.add(new Option(group.label, String(i))));
+  for (const mark of chart.shapes) {
+    let shape;
+    if (mark.path) shape = svgElement("path", {d:mark.path});
+    else if (mark.rect) {
+      const [x,y,width,height] = mark.rect;
+      shape = svgElement("rect", {x,y,width,height});
+    } else {
+      const [cx,cy,r] = mark.circle;
+      shape = svgElement("circle", {cx,cy,r});
+    }
+    shape.classList.add("hit");
+    shape.dataset.group = String(mark.group);
+    plot.append(shape);
+  }
+  el("notes").textContent = (chart.notes || []).join("\n");
+  el("status").hidden = true;
+  el("chart").hidden = false;
+  select("");
+}
+function post(message) {
+  window.parent.postMessage({jsonrpc:"2.0", ...message}, "*");
+}
+function resize() {
+  if (ready) post({method:"ui/notifications/size-changed", params:{height:Math.ceil(document.querySelector("main").getBoundingClientRect().height)}});
+}
+window.addEventListener("message", event => {
+  if (event.source !== window.parent || event.data?.jsonrpc !== "2.0") return;
+  const msg = event.data;
+  if (msg.id === 1 && msg.result && !ready) {
+    ready = true;
+    post({method:"ui/notifications/initialized",params:{}});
+    resize();
+  } else if (msg.method === "ui/notifications/tool-result") render(msg.params);
+  else if (msg.method === "ui/resource-teardown") post({id:msg.id,result:{}});
+});
+new ResizeObserver(resize).observe(document.querySelector("main"));
+function openaiResult(globals) {
+  if (globals) render({_meta:globals.toolResponseMetadata, structuredContent:globals.toolOutput});
+}
+window.addEventListener("openai:set_globals", event => openaiResult(event.detail?.globals));
+openaiResult(window.openai);
+post({id:1, method:"ui/initialize", params:{appInfo:{name:"OPM 공시 차트",version:"1.0.0"},appCapabilities:{},protocolVersion:"2026-01-26"}});
+</script>
+</html>

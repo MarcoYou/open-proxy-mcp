@@ -17,6 +17,7 @@ from open_proxy_mcp.prompts import register_all_prompts
 from open_proxy_mcp.extensions import load_extensions
 from open_proxy_mcp.resources import register_all_resources
 from open_proxy_mcp.tools import register_all_tools
+from open_proxy_mcp.tools._charts import chart_apps
 
 
 #: 사용자 DART 키는 쿼리스트링(`?opendart=`)으로 들어온다. uvicorn 액세스 로그는 요청 라인을
@@ -100,6 +101,7 @@ def build_mcp() -> MCPServer:
         # 유용하다 — 클라이언트가 「어느 OPM 이 답했나」를 알 수 있다. 종전 1.x 는 여기에
         # SDK 버전(1.26.0 등)을 넣었는데, 그건 우리 릴리스와 무관한 값이었다.
         version=_opm_version(),
+        extensions=[chart_apps()],
         # 여기엔 **도구를 가로지르는 규칙만** 둔다. 도구 하나로 표현되는 것은 그 도구의
         # description 에 있어야 한다(설명 총 23,673자가 이미 컨텍스트에 있다).
         # 실측값(후보 수·회사명·종목코드)은 절대 넣지 않는다 — 등록부가 바뀌면 조용히 썩는다.

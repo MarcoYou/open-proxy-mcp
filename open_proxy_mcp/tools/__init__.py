@@ -124,15 +124,17 @@ def _wrap_tool_errors(fn):
 @contextlib.contextmanager
 def tool_error_boundary(mcp):
     """`mcp.tool` 로 등록되는 도구를 공통 경계(`_wrap_tool_errors` — 예외 안전망·공지)로 감싼다. 확장 패키지가 거는 도구도 같은 경계를 지나게 쓴다."""
-    from ._charts import with_chart_output
+    from ._charts import chart_tool_meta, with_chart_output
 
     orig_tool = mcp.tool
 
     def wrapping_tool(*d_args, **d_kwargs):
-        real_deco = orig_tool(*d_args, **d_kwargs)
-
         def deco(fn):
-            return real_deco(with_chart_output(_wrap_tool_errors(fn)))
+            options = dict(d_kwargs)
+            meta = chart_tool_meta(fn.__name__)
+            if meta:
+                options["meta"] = {**options.get("meta", {}), **meta}
+            return orig_tool(*d_args, **options)(with_chart_output(_wrap_tool_errors(fn)))
 
         return deco
 

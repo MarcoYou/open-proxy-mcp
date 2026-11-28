@@ -16,6 +16,8 @@ from matplotlib import dates, font_manager
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
+from .chart_app_marks import ChartMarks
+
 _LOCK = Lock()  # rc_context and font handling are shared across Agg figures.
 # Financial series encode identity. Only the governance table assigns colors to states.
 _INK = "#17272F"
@@ -50,6 +52,7 @@ def _number(value):
 
 def _figure(title, height=4.5, width=7.0):
     fig = Figure(figsize=(width, height), dpi=125, layout="constrained")
+    fig.chart_marks = ChartMarks()
     fig.suptitle(fill(title, width=55), x=.025, ha="left", fontsize=16, fontweight="bold", color=_INK)
     return fig
 
@@ -76,6 +79,11 @@ def _performance(p):
     fig = _figure(title, 6 if split else 4.5)
     x = [datetime.strptime(r["dd"], "%Y%m%d") for r in rows]
     axes = fig.subplots(2 if split else 1, sharex=True, squeeze=False).ravel()
+    def percent(v):
+        return f"{v:,.2f}%" if _number(v) else "자료 없음"
+    groups = [fig.chart_marks.group(
+        r["dd"], f"{r['dd']} · {tg} {percent(r.get('cum_pct'))} · {bench} {percent(r.get('bench_cum_pct'))}"
+    ) for r in rows]
     for i, (name, field) in enumerate(((tg, "cum_pct"), (bench, "bench_cum_pct"))):
         vals = [r[field] if _number(r.get(field)) else nan for r in rows]
         if not any(isfinite(v) for v in vals):
@@ -83,6 +91,9 @@ def _performance(p):
         ax = axes[-1] if i else axes[0]
         ax.plot(x, vals, color=(_PRIMARY, _REFERENCE)[i], linestyle="--" if i else "-", label=fill(name, 45),
                 marker="." if len(rows) < 40 else None, linewidth=2)
+        for group, day, val in zip(groups, x, vals):
+            if isfinite(val):
+                fig.chart_marks.point(group, ax, day, val)
     for ax in axes:
         ax.set_ylabel("누적수익률 (%)")
         ax.axhline(0, color=_REFERENCE, linewidth=.9, zorder=1)
@@ -95,8 +106,6 @@ def _performance(p):
         note += f" · 비교계열 기준일 {aligned['start']}"
     axes[-1].set_xlabel(note)
     sample = rows if len(rows) <= 6 else [rows[0], *rows[-5:]]
-    def percent(v):
-        return f"{v:,.2f}%" if _number(v) else "자료 없음"
     table = _table(["거래일", tg, bench], [(r["dd"], percent(r.get("cum_pct")), percent(r.get("bench_cum_pct"))) for r in sample])
     return fig, f"**{title}** · {note}\n\n{table}\n\n표는 최대 여섯 거래일을 발췌했습니다.\n자료: " + " · ".join(d.get("sources", []))
 
@@ -130,7 +139,7 @@ def _dividend(p):
     table_rows = []
     secondary = [kind for kind in kinds if kind not in common]
     for j, kind in enumerate(kinds):
-        x, y = [], []
+        x, y, groups = [], [], []
         for i, period in enumerate(periods):
             r = obs.get((period, kind))
             if not r:
@@ -141,11 +150,14 @@ def _dividend(p):
             if confirmed:
                 x.append(i + width * (j - (len(kinds) - 1) / 2))
                 y.append(val)
+                groups.append(fig.chart_marks.group(f"{period} · {kind}", f"{period} · {kind} · 주당 {val:,}원"))
         if y:
             color = _PRIMARY if kind in common else _REFERENCE
             hatch = None if kind in common else _CLASS_HATCHES[secondary.index(kind)]
             bars = ax.bar(x, y, width=width*.92, color=color, edgecolor=_SURFACE,
                           linewidth=.5, hatch=hatch, label=kind)
+            for group, bar in zip(groups, bars):
+                fig.chart_marks.artist(group, bar)
             shown.extend(y)
             if len(obs) <= 16:
                 ax.bar_label(bars, labels=[f"{v:,}".removesuffix(".0") for v in y], fontsize=8, padding=2)
@@ -184,13 +196,16 @@ def _governance(p):
     y = bottom
     for label, height, (_, prior, curr) in zip(wrapped, heights, data):
         y -= height/2
-        ax.text(.01,y,label,va="center",fontsize=9.5)
+        name = label.replace("\n", " ")
+        group = fig.chart_marks.group(name, f"{name} · 직전기 {prior} · 당기 {curr}")
+        fig.chart_marks.artist(group, ax.text(.01,y,label,va="center",fontsize=9.5))
         for x,s in ((.76,prior),(.92,curr)):
             border, face = _STATE_COLORS[s]
-            ax.text(x, y, s, ha="center", va="center", fontsize=10, color=_INK,
+            badge = ax.text(x, y, s, ha="center", va="center", fontsize=10, color=_INK,
                     weight="bold" if x == .92 else "normal",
                     bbox=dict(facecolor=face, edgecolor=border, linewidth=.8,
                               linestyle="dashed" if s == "미상" else "solid", boxstyle="round,pad=.28"))
+            fig.chart_marks.artist(group, badge)
         y -= height/2
         ax.hlines(y, .01, .985, color=_RULE, linewidth=.5)
     ax.text(.01,-.95,caption,fontsize=9,color=_MUTED)
@@ -237,10 +252,11 @@ def _vote_results(p):
     fig = _figure(title, max(3, 1.6 + .36 * sum(x.count("\n") + 1 for x in labels)), width=8.2)
     ax = fig.subplots()
     for i, (rate, outcome) in enumerate(zip(rates, outcomes)):
+        group = fig.chart_marks.group(table[i][0], " · ".join(table[i]))
         if rate is not None:
-            ax.barh(i, rate, height=.48, color=_PRIMARY)
+            fig.chart_marks.artist(group, ax.barh(i, rate, height=.48, color=_PRIMARY)[0])
         value = f"{rate:g}%" if rate is not None else "비율 미확인"
-        ax.text(102, i, f"{value} · {outcome}", va="center", fontsize=9)
+        fig.chart_marks.artist(group, ax.text(102, i, f"{value} · {outcome}", va="center", fontsize=9))
     ax.set(yticks=range(len(labels)), yticklabels=labels, ylim=(len(labels)-.5, -.5),
            xlim=(0, 151), xticks=[0, 25, 50, 75, 100], xlabel="출석주식수 기준 찬성률 (%)")
     ax.grid(False, axis="y")
@@ -275,6 +291,10 @@ def _block_ownership(p):
     for ax, (holder, points) in zip(axes, sorted(holders.items())):
         xs, ys = zip(*sorted(points))
         ax.scatter(xs, ys, color=_PRIMARY, s=20)
+        for day, rate in sorted(points):
+            label = f"{holder} · {day:%Y-%m-%d}"
+            group = fig.chart_marks.group(label, f"{label} · {rate:g}%")
+            fig.chart_marks.point(group, ax, day, rate)
         ax.set_title(holder, loc="left", fontsize=10)
         ax.set_ylabel("%")
     locator = dates.AutoDateLocator(minticks=2, maxticks=6)
@@ -310,13 +330,17 @@ def _treasury(p):
         labels.append(f"{day.year} Q{(day.month-1)//3+1} · {day:%m/%d}  {label}")
         shares = row.get(field) if field else None
         if _number(shares) and shares >= 0:
-            ax.barh(i, shares, height=.48, color=_PRIMARY)
-            ax.annotate(f"{shares:,}주", (shares, i), xytext=(4, 0), textcoords="offset points", va="center", fontsize=9)
+            bar = ax.barh(i, shares, height=.48, color=_PRIMARY)[0]
+            mark = ax.annotate(f"{shares:,}주", (shares, i), xytext=(4, 0), textcoords="offset points", va="center", fontsize=9)
             detail = f"{shares:,}주"
         else:
             detail = "수량 미확인" if field else "결정 공시"
-            ax.text(.01, i, ("◇ " if not field else "") + detail, transform=ax.get_yaxis_transform(),
+            mark = ax.text(.01, i, ("◇ " if not field else "") + detail, transform=ax.get_yaxis_transform(),
                     va="center", color=_MUTED, fontsize=9)
+        group = fig.chart_marks.group(labels[-1], f"{labels[-1]} · {detail} · {receipt}")
+        fig.chart_marks.artist(group, mark)
+        if _number(shares) and shares >= 0:
+            fig.chart_marks.artist(group, bar)
         table.append((day.date().isoformat(), label, detail, receipt or "—"))
     ax.set(yticks=range(len(events)), yticklabels=labels, ylim=(len(events)-.5, -.5),
            xlabel="결과보고서 기재 주식 수 (주) · 분기는 공시일 기준")
@@ -381,9 +405,16 @@ def _quarterly_performance(p):
     top, bottom = fig.subplots(2, sharex=True)
     scale, unit = _amount_scale(sales)
     x = range(len(labels))
-    top.bar(x, [v / scale for v in sales], color=_PRIMARY, width=.62)
+    bars = top.bar(x, [v / scale for v in sales], color=_PRIMARY, width=.62)
     top.set_ylabel(f"매출 ({unit})")
     bottom.plot(x, margins, color=_PRIMARY, linewidth=2, marker="o", markersize=4)
+    for i, values in enumerate(table):
+        if isfinite(sales[i]) or isfinite(margins[i]):
+            group = fig.chart_marks.group(values[0], f"{values[0]} · {values[2]} · 매출 {values[3]}원 · 영업이익률 {values[4]}")
+            if isfinite(sales[i]):
+                fig.chart_marks.artist(group, bars[i])
+            if isfinite(margins[i]):
+                fig.chart_marks.point(group, bottom, i, margins[i])
     bottom.set_ylabel("영업이익률 (%)")
     bottom.set_xticks(x, labels, fontsize=8)
     bottom.axhline(0, color=_REFERENCE, linewidth=.8)
@@ -420,9 +451,11 @@ def _annual_finance(p, *, cash_flow):
     scale, unit = _amount_scale(flat)
     fig = _figure(title, height=4.7)
     ax = fig.subplots()
+    series_bars = []
     for j, vals in enumerate(amounts):
         bars = ax.bar([i + (j - .5) * .37 for i in range(len(rows))], [v / scale for v in vals],
                       width=.34, color=(_PRIMARY, _REFERENCE)[j], label=names[j])
+        series_bars.append(bars)
         if len(rows) <= 4:
             ax.bar_label(bars, labels=[f"{v / scale:,.2f}".rstrip("0").rstrip(".") if isfinite(v) else ""
                                        for v in vals], padding=3, fontsize=8)
@@ -444,6 +477,12 @@ def _annual_finance(p, *, cash_flow):
             cells.append(_amount_cell(net))
         labels.append(label)
         table.append(cells)
+        if any(isfinite(vals[i]) for vals in amounts):
+            detail = " · ".join(f"{h} {v}" for h, v in zip(headers, cells))
+            group = fig.chart_marks.group(year, detail)
+            for bars, vals in zip(series_bars, amounts):
+                if isfinite(vals[i]):
+                    fig.chart_marks.artist(group, bars[i])
     ax.set_xticks(range(len(rows)), labels, fontsize=8)
     note = ("연간 현금흐름표 · 지급연도 기준" if cash_flow
             else f"사업연도 말 · 연도 아래 숫자는 순현금 ({unit}) · 총차입금은 리스부채 제외")
@@ -528,11 +567,16 @@ def _transfer_donut(p):
     title = f"{company} · 주식양수도 계약 전후 지분율"
     fig = _figure(title, height=4.3 + .32*len(shown), width=8)
     grid = fig.add_gridspec(2, 2, height_ratios=[2.25, .40*len(shown)+.6])
+    groups = [fig.chart_marks.group(n, f"{n} · 계약 전 {a}% → 계약 이행 예정 {b}% · {b-a:+}%p")
+              for n, a, b in shown]
     for i, heading in enumerate(("계약 전", "계약 이행 예정"), 1):
         ax = fig.add_subplot(grid[0, i-1])
         ax.set_title(heading, fontsize=12, weight="bold")
-        ax.pie([float(r[i]) for r in shown], colors=colors, startangle=90, counterclock=False,
+        wedges, _ = ax.pie([float(r[i]) for r in shown], colors=colors, startangle=90, counterclock=False,
                wedgeprops=dict(width=.27, edgecolor=_SURFACE, linewidth=.8))
+        for group, wedge, stake in zip(groups, wedges, shown):
+            if stake[i] > 0:
+                fig.chart_marks.artist(group, wedge)
         if focus is not None:
             ax.text(0, .06, f"{shown[focus][i]}%", ha="center", color=_PRIMARY, fontsize=15, weight="bold")
             ax.text(0, -.13, "변경예정 최대주주" if fields.get("expected_holder") else "양수인", ha="center", fontsize=8, color=_MUTED)
@@ -544,9 +588,10 @@ def _transfer_donut(p):
     for j, (name, before, after) in enumerate(shown):
         y = len(shown) - j - 1
         ax.scatter(.04, y, color=colors[j], s=50)
-        ax.text(.065, y, fill(name, 25), va="center", fontsize=9)
+        fig.chart_marks.point(groups[j], ax, .04, y)
+        fig.chart_marks.artist(groups[j], ax.text(.065, y, fill(name, 25), va="center", fontsize=9))
         for x, value in ((.65, before), (.95, after)):
-            ax.text(x, y, f"{value}%", ha="right", va="center", fontsize=10)
+            fig.chart_marks.artist(groups[j], ax.text(x, y, f"{value}%", ha="right", va="center", fontsize=10))
     source = f"DART {receipt} · 공시상 예정 지분 · 그 밖의 지분은 잔여분"
     fig.supxlabel(source, fontsize=9, color=_MUTED)
     return fig, f"**{title}** · {source}\n\n{table}\n\n{link}"
@@ -570,7 +615,8 @@ def render_chart(name, payload):
             return None
         fig, summary = result
         if fig is None:
-            return None, summary
+            return None, summary, None
         out = BytesIO()
-        FigureCanvasAgg(fig).print_png(out)
-        return out.getvalue(), summary
+        canvas = FigureCanvasAgg(fig)
+        canvas.print_png(out)
+        return out.getvalue(), summary, fig.chart_marks.export(canvas, fig._suptitle.get_text())

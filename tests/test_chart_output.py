@@ -189,3 +189,19 @@ def test_transfer_donut_selects_exact_receipt_and_never_fabricates_missing_stake
     assert _transfer_donut(payload)[0] is None
     payload["chart_rcept_no"] = "20260630900000"
     assert _transfer_donut(payload)[0] is None
+
+
+def test_widget_groups_the_same_holder_across_both_contract_rings():
+    from open_proxy_mcp.services.chart_images import render_chart
+
+    columns = ["성명", "변경전 주식수", "변경전 지분율", "변경후 주식수", "변경후 지분율"]
+    event = {"kind": "transfer_contract", "rcept_no": "20260630900888", "holders": {
+        "columns": columns, "rows": [["양수인", "1", "1", "40", "40"], ["양도인", "39", "39", "0", "-"]]}}
+    png, summary, view = render_chart("transfer_donut", {"subject": "회사", "data": {"control_events": [event]}})
+    assert png.startswith(b"\x89PNG") and "양수인 | 1% | 40%" in summary
+    groups = view["groups"]
+    assert groups[0]["detail"] == "양수인 · 계약 전 1% → 계약 이행 예정 40% · +39%p"
+    shapes = view["shapes"]
+    assert len([m for m in shapes if m["group"] == 0 and "path" in m]) == 2
+    assert len([m for m in shapes if m["group"] == 1 and "path" in m]) == 1
+    assert len([m for m in shapes if m["group"] == 1 and "rect" in m]) == 3
